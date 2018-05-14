@@ -489,7 +489,7 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Lifting of structural rules *)
 
-Lemma Rule_extract_hexists : forall t `{Enc A} (J:A->hprop) (Q:A->hprop),
+Lemma Rule_extract_hexists : forall t `{Enc A} B (J:B->hprop) (Q:A->hprop),
   (forall x, Triple t (J x) Q) ->
   Triple t (hexists J) Q.
 Proof using. intros. applys~ rule_extract_hexists. Qed.

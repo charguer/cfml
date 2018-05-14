@@ -364,14 +364,18 @@ Definition wp_triple_ E t :=
   wp_triple (substs E t).
 
 (** [wp_sound t] asserts that [wp] is sound for all contexts [E],
-    in the sense that the syntactic wp entails the semantics wp. *)
+    in the sense that the syntactic wp entails the semantics wp:
+[[
+    forall Q,  wp E t Q ==> wp_triple_ E t Q
+]] *)
 
 Definition wp_sound t := forall E,
   wp E t ===> wp_triple_ E t.
 
+
 (** Soundness of the [wp] for the various constructs *)
 
-Lemma triple_wp_var : forall x,
+Lemma wp_sound_var : forall x,
   wp_sound (trm_var x).
 Proof using.
   intros. intros E. simpl. applys qimpl_wp_triple.
@@ -380,7 +384,7 @@ Proof using.
   { remove_local. intros; false~. }
 Qed.
 
-Lemma triple_wp_val : forall v,
+Lemma wp_sound_val : forall v,
   wp_sound (trm_val v).
 Proof using.
   intros. intros E. simpl. applys qimpl_wp_triple.
@@ -388,7 +392,7 @@ Proof using.
   rewrite substs_val. applys~ rule_val.
 Qed.
 
-Lemma triple_wp_fun : forall x t,
+Lemma wp_sound_fun : forall x t,
   wp_sound (trm_fun x t).
 Proof using.
   intros. intros E. simpl. applys qimpl_wp_triple.
@@ -396,7 +400,7 @@ Proof using.
   rewrite substs_fun. applys~ rule_fun.
 Qed.
 
-Lemma triple_wp_fix : forall f x t,
+Lemma wp_sound_fix : forall f x t,
   wp_sound (trm_fix f x t).
 Proof using.
   intros. intros E. simpl. applys qimpl_wp_triple.
@@ -413,7 +417,7 @@ Qed.
     hpull ;=> v' E. inverts E. false* M. hnfs*.
   Qed.
 
-Lemma triple_wp_if : forall F1 F2 F3 E t1 t2 t3,
+Lemma wp_sound_if : forall F1 F2 F3 E t1 t2 t3,
   F1 ===> wp_triple_ E t1 ->
   F2 ===> wp_triple_ E t2 ->
   F3 ===> wp_triple_ E t3 ->
@@ -421,14 +425,14 @@ Lemma triple_wp_if : forall F1 F2 F3 E t1 t2 t3,
 Proof using.
   introv M1 M2 M3. applys qimpl_wp_triple. intros Q.
   remove_local. rewrite substs_if. applys rule_if.
-  { unfolds in M1. rewrite triple_eq_himpl_wp_triple. applys* M1. }
+  { rewrite triple_eq_himpl_wp_triple. applys* M1. }
   { intros b. simpl. remove_local ;=> b' M. inverts M. case_if.
     { rewrite triple_eq_himpl_wp_triple. applys* M2. }
     { rewrite triple_eq_himpl_wp_triple. applys* M3. } }
   { intros. applys~ wp_if_val_false. }
 Qed.
 
-Lemma triple_wp_seq : forall F1 F2 E t1 t2,
+Lemma wp_sound_seq : forall F1 F2 E t1 t2,
   F1 ===> wp_triple_ E t1 ->
   F2 ===> wp_triple_ E t2 ->
   wp_seq F1 F2 ===> wp_triple_ E (trm_seq t1 t2).
@@ -439,7 +443,7 @@ Proof using.
   { intros X. rewrite triple_eq_himpl_wp_triple. applys* M2. }
 Qed.
 
-Lemma triple_wp_let : forall F1 F2 E x t1 t2,
+Lemma wp_sound_let : forall F1 F2 E x t1 t2,
   F1 ===> wp_triple_ E t1 ->
   (forall X, F2 X ===> wp_triple_ (ctx_add x X E) t2) ->
   wp_let F1 F2 ===> wp_triple_ E (trm_let x t1 t2).
@@ -451,7 +455,7 @@ Proof using.
     rewrite subst_substs_ctx_rem_same. applys* M2. }
 Qed.
 
-Lemma triple_wp_app : forall t1 t2,
+Lemma wp_sound_app : forall t1 t2,
   wp_sound (trm_app t1 t2).
 Proof using.
   intros. intros E. simpl. applys qimpl_wp_triple.
@@ -459,23 +463,23 @@ Proof using.
   rewrite substs_app. rewrite triple_eq_himpl_wp_triple. hsimpl.
 Qed.
 
-Lemma triple_wp_while : forall F1 F2 E t1 t2,
+Lemma wp_sound_while : forall F1 F2 E t1 t2,
   F1 ===> wp_triple_ E t1 ->
   F2 ===> wp_triple_ E t2 ->
   wp_while F1 F2 ===> wp_triple_ E (trm_while t1 t2).
 Proof using.
   introv M1 M2. applys qimpl_wp_triple. intros Q.
   remove_local. rewrite substs_while. applys rule_extract_hforall.
-  set (R := weakestpre (triple (trm_while (substs E t1) (substs E t2)))).
+  set (R := wp_triple (trm_while (substs E t1) (substs E t2))).
   exists R. simpl. applys rule_extract_hwand_hpure_l.
   { split.
     { applys is_local_wp_triple. }
     { clears Q. applys qimpl_wp_triple. intros Q.
       applys rule_while_raw. rewrite <- substs_while. rewrite <- substs_seq.
       rewrite <- (substs_val E). rewrite <- substs_if.
-      rewrite triple_eq_himpl_wp_triple. applys~ triple_wp_if.
-      { applys~ triple_wp_seq. { unfold wp_triple_. rewrite~ substs_while. } }
-      { applys triple_wp_val. } } }
+      rewrite triple_eq_himpl_wp_triple. applys~ wp_sound_if.
+      { applys~ wp_sound_seq. { unfold wp_triple_. rewrite~ substs_while. } }
+      { intros Q'. applys wp_sound_val. } } }
   { rewrite~ triple_eq_himpl_wp_triple. }
 Qed.
 
@@ -489,15 +493,15 @@ Lemma wp_sound_trm : forall t,
   wp_sound t.
 Proof using.
   intros t. induction t; intros E Q.
-  { applys triple_wp_val. }
-  { applys triple_wp_var. }
-  { applys triple_wp_fun. }
-  { applys triple_wp_fix. }
-  { applys* triple_wp_if. }
-  { applys* triple_wp_seq. }
-  { applys* triple_wp_let. }
-  { applys* triple_wp_app. }
-  { applys* triple_wp_while. }
+  { applys wp_sound_val. }
+  { applys wp_sound_var. }
+  { applys wp_sound_fun. }
+  { applys wp_sound_fix. }
+  { applys* wp_sound_if. }
+  { applys* wp_sound_seq. }
+  { applys* wp_sound_let. }
+  { applys* wp_sound_app. }
+  { applys* wp_sound_while. }
   { applys himpl_wp_fail_l. }  (* TODO: for loops *)
 Qed.
 
@@ -678,29 +682,16 @@ Ltac xcf_basic_fun n f' ::= (* for WP2 *)
   let f := xcf_get_fun tt in
   match f with
   | val_funs _ _ => (* TODO: use (apply (@..)) instead of applys? same in cflifted *)
-      applys triple_apps_funs_of_wp_iter n;
-      [ reflexivity | reflexivity | xcf_post tt ]
-  | val_fixs _ _ _ =>
-      applys triple_apps_fixs_of_wp_iter n f';
-      [ try unfold f'; rew_nary; try reflexivity (* TODO: how in LambdaCF? *)
-        (* reflexivity *)
-      | reflexivity
-      | xcf_post tt ]
-  end.
-
-
-Ltac xcf_basic_fun n f' ::= (* for WP2 *)
-  let f := xcf_get_fun tt in
-  match f with
-  | val_funs _ _ => (* TODO: use (apply (@..)) instead of applys? same in cflifted *)
       applys triple_apps_funs_of_wp_iter;
-      [ reflexivity | reflexivity | xcf_post tt ]
+      [ reflexivity | try xeq_encs | reflexivity | xcf_post tt ]
   | val_fixs _ _ _ =>
       applys triple_apps_fixs_of_wp_iter f';
       [ try unfold f'; rew_nary; try reflexivity (* TODO: how in LambdaCF? *)
         (* reflexivity *)
+      | try xeq_encs |
       | reflexivity
       | xcf_post tt ]
+
   end.
 
 (* ---------------------------------------------------------------------- *)
