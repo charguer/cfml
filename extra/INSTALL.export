@@ -1,0 +1,23 @@
+These instructions assume that you are using a UNIX system.
+
+A. You need OCaml. If you do not have it, we strongly recommend
+   that you install it via opam:
+
+     https://opam.ocaml.org/doc/Install.html
+
+   Any version of OCaml >= 4.01.0 should work.
+
+B. You need Coq 8.5. It can also be installed via opam:
+
+     opam repo add coq-released https://coq.inria.fr/opam/released
+     opam install coq.8.5.2
+
+C. You are good to go:
+
+     make -j4
+
+   This should first compile TLC, then check our proofs.
+
+D. The previous step creates a _CoqProject file (which allows Coq
+   to find the compiled files) so you can now easily step through
+   the proofs using either CoqIDE or ProofGeneral.

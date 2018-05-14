@@ -1,0 +1,100 @@
+
+- fix credits and ro dev
+
+- array make using for loop
+
+
+- for loops tactics (+rule with  [max n1 (n2+1)] +)
+
+- qsort
+
+- restrict [r `.` f ~> V] to ensure [r<>null]
+
+
+- notation for "'&p`.`f"
+
+
+- search in search tree 
+
+- ref on tree, for insert
+
+
+- tag at head for display
+
+- basic tutos
+
+
+(* ********************************************************************** *)
+
+- LibListExec.combine does same as LibList.combine on (L, nil).
+
+- fix priority of hexists vs star notation 
+
+- replace var_dec by a boolean function
+
+
+
+(* ********************************************************************** *)
+
+- cleanup tactic "hcancel_find_repr_post"
+
+- predicate for array carrying their length
+
+- cf for n-ary apps in non-normal form
+
+- functional constr/tuple in source language
+
+
+
+
+(* ********************************************************************** *)
+(* More algos *)
+
+- higher order functions and boolean functions : find / exists / for_all
+
+- lifted-lists => bonus examples using invariants and segments.
+
+- add chunk sequence data structures
+
+- lift union find
+
+- pointer based union find : iterated star on group
+
+- move DFS/Dijkstra proof, to begin archive of algos.
+
+
+
+(* ********************************************************************** *)
+(* Helpers *)
+
+- tactics to debug
+- helfpul error messages 
+- ensure that xpull is done
+- error when using "let" instead of "Let"
+
+
+
+(* ********************************************************************** *)
+(* Next volume *)
+
+- later: C-style deallocation
+- later: higher-order representation predicates
+- later: credits example (sieve)
+- later: read-only example
+- later: ocaml parser
+- later: extraction to javascript
+
+
+
+(* ********************************************************************** *)
+
+(* COQBUG: notation when no bound name , e.g. (fun _ => t) *)
+
+(* TODO: be more consistent about use of [triple] vs [app]
+   what's the point of having a different name then? 
+    [app f v H Q] <> [triple (f v) H Q]
+   => which needs a grammar of applications. *)
+
+
+
+

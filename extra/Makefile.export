@@ -1,0 +1,51 @@
+
+# The official list of files that should be compiled by [make]
+# is stored in the file "FILES" and included in the archive by 
+# [make export].
+# 
+ifeq ($(EXPORT),1)
+	SRC := $(shell cat FILES)
+endif
+
+export:
+	./export.sh
+
+export_francois: export
+	scp -p -B -C seplogics.tar.gz yquem.inria.fr:public_html/dev/seplogics/
+
+
+
+demo:
+	echo ${V}
+
+
+
+
+
+
+
+
+# Exporting the self-contained archive.
+.PHONY: export
+
+
+
+
+
+
+#############################################################
+# To play with the files in the seplogic.tar.gz archive 
+  (produced by export.sh), proceed as follows:
+
+ * Type __make__ in the root folder.
+
+ * Type __coqide -R TLC TLC -R model MODEL model/LambdaExamples.v__
+   from the root folder.
+
+
+
+* The subdirectory __TLC__
+  contains Charguéraud's 
+
+* The subdirectory __model__
+  contains definitions and proofs about Separation Logic.

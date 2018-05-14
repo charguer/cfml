@@ -1,0 +1,8 @@
+# This Makefile is copied into the main directory of the self-contained archive.
+# See export.sh.
+
+.PHONY: all clean
+
+all clean:
+	$(MAKE) -C TLC $@
+	$(MAKE) -C model $@

@@ -1,0 +1,17 @@
+# This Makefile is copied into the model/ directory of the self-contained archive.
+# See export.sh.
+
+TLC := $(shell cd ../TLC && pwd)
+PWD := $(shell pwd)
+
+export COQINCLUDE := \
+  -R $(TLC) TLC \
+  -R $(PWD) MODEL
+
+.PHONY: all clean
+
+all:
+	$(MAKE) -f $(TLC)/Makefile.coq _CoqProject $@
+
+clean:
+	$(MAKE) -f $(TLC)/Makefile.coq $@
