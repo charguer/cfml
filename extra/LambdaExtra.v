@@ -4250,7 +4250,7 @@ Lemma triple_wp_seq : forall t1 t2,
   sound_for t2 ->
   sound_for (trm_seq t1 t2).
 Proof using.
-  introv M1 M2. intros E Q. remove_local. 
+  introv M1 M2. intros E Q. remove_local.
   rewrite substs_seq. applys rule_seq.
   { applys* M1. }
   { intros X. applys* M2. }
@@ -4284,7 +4284,7 @@ Lemma triple_wp_while : forall t1 t2,
   sound_for t2 ->
   sound_for (trm_while t1 t2).
 Proof using.
-  introv M1 M2. intros E Q. remove_local. 
+  introv M1 M2. intros E Q. remove_local.
   rewrite substs_while. applys rule_extract_hforall.
 
 
@@ -4331,7 +4331,7 @@ Search weakestpre. applys weakestpre_elim.
 
       subst R. simpl. unfold wp_while at 2. apply local_erase'.
       apply himpl_hforall_r. intros R. applys hwand_move_l. hpull.
-      intros (LR&MR). 
+      intros (LR&MR).
 Search hwand.
       applys rule_while_raw.
 forwards M: triple_wp_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit.
@@ -4345,7 +4345,7 @@ Qed.
 
 
 
-  
+
 
 
 Lemma triple_wp : forall t E Q,
@@ -4363,3 +4363,238 @@ Proof using.
   { applys* triple_wp_while. }
   { admit. }
 Qed.
+
+
+
+
+Lemma weakestpre_elim' : forall F H Q t,
+  F ===> wp_triple t ->
+  H ==> F Q ->
+  triple t H Q.
+Proof using.
+  introv M N. lets G: triple_wp_triple t Q.
+  applys~ rule_consequence G. hchanges N. applys M.
+Qed.
+
+
+
+
+
+(* ********************************************************************** *)
+(* * Alternative definition of the CF generator *)
+
+Module WP2.
+
+(* ********************************************************************** *)
+(* * Size of a term *)
+
+(* ---------------------------------------------------------------------- *)
+(** Size of a term, where all values counting for one unit. *)
+
+Fixpoint trm_size (t:trm) : nat :=
+  match t with
+  | trm_var x => 1
+  | trm_val v => 1
+  | trm_fun x t1 => 1 + trm_size t1
+  | trm_fix f x t1 => 1 + trm_size t1
+  | trm_if t0 t1 t2 => 1 + trm_size t0 + trm_size t1 + trm_size t2
+  | trm_seq t1 t2 => 1 + trm_size t1 + trm_size t2
+  | trm_let x t1 t2 => 1 + trm_size t1 + trm_size t2
+  | trm_app t1 t2 => 1 + trm_size t1 + trm_size t2
+  | trm_while t1 t2 => 1 + trm_size t1 + trm_size t2
+  | trm_for x t1 t2 t3 => 1 + trm_size t1 + trm_size t2 + trm_size t3
+  end.
+
+Lemma trm_size_subst : forall t x v,
+  trm_size (subst x v t) = trm_size t.
+Proof using.
+  intros. induction t; simpl; repeat case_if; auto.
+Qed.
+
+(** Hint for induction on size. Proves subgoals of the form
+    [measure trm_size t1 t2], when [t1] and [t2] may have some
+    structure or involve substitutions. *)
+
+Ltac solve_measure_trm_size tt :=
+  unfold measure in *; simpls; repeat rewrite trm_size_subst; math.
+
+Hint Extern 1 (measure trm_size _ _) => solve_measure_trm_size tt.
+
+
+(** The CF generator is a recursive function, defined using the
+    optimal fixed point combinator (from TLC). [wp_def] gives the
+    function, and [cf] is then defined as the fixpoint of [wp_def].
+    Subsequently, the fixed-point equation is established. *)
+
+Definition wp_def wp (t:trm) :=
+  match t with
+  | trm_val v => wp_val v
+  | trm_var x => wp_fail (* unbound variable *)
+  | trm_fun x t1 => wp_val (val_fun x t1)
+  | trm_fix f x t1 => wp_val (val_fix f x t1)
+  | trm_if t0 t1 t2 => wp_if (wp t0) (wp t1) (wp t2)
+  | trm_seq t1 t2 => wp_seq (wp t1) (wp t2)
+  | trm_let x t1 t2 => wp_let (wp t1) (fun X => wp (subst x X t2))
+  | trm_app t1 t2 => local (wp_triple t)
+  | trm_while t1 t2 => wp_while (wp t1) (wp t2)
+  | trm_for x t1 t2 t3 => wp_for' (wp t1) (wp t2) (fun X => wp (subst x X t3))
+  end.
+
+Definition wp := FixFun wp_def.
+
+(** Fixed point equations *)
+
+Lemma wp_unfold_iter : forall n t,
+  wp t = func_iter n wp_def wp t.
+Proof using.
+  applys~ (FixFun_fix_iter (measure trm_size)). auto with wf.
+  intros f1 f2 t IH. unfold wp_def.
+  destruct t; try solve [ fequals~ | fequals~; applys~ fun_ext_1 ].
+Qed.
+
+Lemma wp_unfold : forall t,
+  wp t = wp_def wp t.
+Proof using. applys (wp_unfold_iter 1). Qed.
+
+(** All [wp] are trivially local by construction *)
+
+Lemma is_local_cf : forall t,
+  is_local (wp t).
+Proof.
+  intros. rewrite wp_unfold.
+  destruct t; try solve [ apply is_local_local ].
+  (* if no local on app : { simpl. applys is_local_wp_triple. } *)
+Qed.
+
+(** [remove_local] applies to goal of the form [triple t (local F Q) Q]
+    and turns it into [triple t (F Q) Q] for a fresh [Q],  then calls [xpull] *)
+
+Ltac remove_local :=
+  match goal with |- triple _ _ ?Q =>
+    applys triple_local_pre; try (clear Q; intros Q); xpull end.
+
+Lemma triple_wp : forall (t:trm) Q,
+  triple t (wp t Q) Q.
+Proof using.
+  intros t. induction_wf: trm_size t. intros Q.
+  rewrite wp_unfold. destruct t; simpl.
+  { remove_local. applys~ rule_val. }
+  { remove_local ;=> E. false. }
+  { remove_local. applys~ rule_fun. }
+  { remove_local. applys~ rule_fix. }
+  { remove_local. applys rule_if.
+    { applys* IH. }
+    { intros b. simpl. remove_local ;=> b' E. inverts E. case_if.
+      { applys* IH. }
+      { applys* IH. } }
+    { intros. applys~ wp_if_val_false. } }
+  { remove_local. applys rule_seq. { applys* IH. } { intros X. applys* IH. } }
+  { remove_local. applys rule_let. { applys* IH. } { intros X. applys* IH. } }
+  { remove_local. apply triple_wp_triple. }
+  { remove_local. set (R := weakestpre (triple (trm_while t1 t2))).
+    apply rule_extract_hforall. exists R.
+    apply rule_extract_hwand_hpure_l. split.
+    { apply~ is_local_wp_triple. }
+    { applys qimpl_wp_triple. clears Q; intros Q.
+      applys rule_while_raw. remove_local. applys rule_if.
+      { applys* IH. }
+      { simpl. intros b. remove_local ;=> v' E. inverts E. case_if as C.
+        { remove_local. applys rule_seq.
+          { applys* IH. }
+          { intros X. unfold R. apply triple_wp_triple. } }
+        { remove_local. applys~ rule_val. } }
+      { intros. applys~ wp_if_val_false. } }
+    { apply triple_wp_triple. } }
+  { rename v into x. remove_local. applys rule_for_trm.
+    applys* IH. intros v1. esplit. split.
+    applys* IH. intros v2. simpl.
+    remove_local ;=> n1 n2 (E1&E2).
+    invert E1. invert E2. intros _ _.
+    set (S := fun i => weakestpre (triple (trm_for x i n2 t3))).
+    apply rule_extract_hforall. exists S.
+    apply rule_extract_hwand_hpure_l. split.
+    { intros i. applys is_local_wp_triple. }
+    { intros i. applys qimpl_wp_triple. clears Q; intros Q.
+      applys rule_for_raw. case_if.
+      { remove_local. applys rule_seq.
+        { applys* IH. }
+        { intros X. unfold S. apply triple_wp_triple. } }
+      { remove_local. applys~ rule_val. } }
+     { apply triple_wp_triple. } }
+Qed.
+
+Lemma triple_of_wp : forall (t:trm) H Q,
+  H ==> wp t Q ->
+  triple t H Q.
+Proof using. introv M. xchanges M. applys triple_wp. Qed.
+
+Lemma triple_trm_of_wp_iter : forall (n:nat) t H Q,
+  H ==> func_iter n wp_def wp t Q ->
+  triple t H Q.
+Proof using.
+  introv M. rewrite <- wp_unfold_iter in M. applys* triple_of_wp.
+Qed.
+
+End WP2.
+
+
+
+Module WP2Aux.
+Import WP2.
+
+Section LemmasCf.
+Implicit Types n : nat.
+Implicit Types F : val.
+Implicit Types f x : var.
+
+Lemma triple_apps_funs_of_wp_iter : forall n F (vs:vals) xs t H Q,
+  F = val_funs xs t ->
+  var_funs_exec (length vs) xs ->
+  H ==> func_iter n wp_def wp (substn xs vs t) Q ->
+  triple (trm_apps F vs) H Q.
+Proof using.
+  introv EF N M. rewrite var_funs_exec_eq in N. rew_istrue in N.
+  applys* rule_apps_funs. applys* triple_trm_of_wp_iter.
+Qed.
+
+Lemma triple_apps_fixs_of_wp_iter : forall n f F (vs:vals) xs t H Q,
+  F = val_fixs f xs t ->
+  var_fixs_exec f (length vs) xs ->
+  H ==> func_iter n wp_def wp (subst f F (substn xs vs t)) Q ->
+  triple (trm_apps F vs) H Q.
+Proof using.
+  introv EF N M. rewrite var_fixs_exec_eq in N. rew_istrue in N.
+  applys* rule_apps_fixs. applys* triple_trm_of_wp_iter.
+Qed.
+
+End LemmasCf.
+
+End WP2Aux.
+
+
+
+
+Lemma triple_of_himpl_wp_triple : forall H Q t,
+  H ==> wp_triple t Q ->
+  triple t H Q.
+Proof using.
+  introv M. lets G: triple_wp_triple t Q.
+  applys~ rule_consequence G.
+Qed.
+
+
+(** TODO: move somewhere else *)
+
+Lemma rule_ramified_frame_htop_pre : forall t H Q Q',
+  triple t H Q' ->
+  triple t (H \* (Q' \---* Q \*+ \Top)) Q.
+Proof using.
+  introv M. applys local_ramified_frame_htop M.
+  applys is_local_triple. hsimpl.
+Qed.
+
+
+
+Definition Weakestpre (T:forall `{Enc A},hprop->(A->hprop)->Prop) : Formula :=
+  fun A (EA:Enc A) (Q:A->hprop) =>
+    Hexists (H:hprop), H \* \[T H Q].

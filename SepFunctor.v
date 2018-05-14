@@ -2508,11 +2508,11 @@ Tactic Notation "xchange_show" "<-" constr(E) :=
 Definition weakestpre (B : Type) (F:hprop->(B->hprop)->Prop) (Q:B->hprop) : hprop :=
   Hexists (H:hprop), H \* \[F H Q].
 
-Lemma weakestpre_equiv : forall B (F:~~B) H Q,
+Lemma weakestpre_eq : forall B (F:~~B) H Q,
   is_local F -> (* in fact, only requires weaken-pre and extract-hexists rules to hold *)
-  F H Q <-> (H ==> weakestpre F Q).
+  F H Q = (H ==> weakestpre F Q).
 Proof using.
-  intros. unfold weakestpre. iff M.
+  introv L. applys prop_ext. unfold weakestpre. iff M.
   { hsimpl. rew_heap~. }
   { applys~ local_weaken_pre M. xpull~. }
 Qed.

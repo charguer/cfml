@@ -9,9 +9,9 @@ License: MIT.
 
 
 Set Implicit Arguments.
-From TLC Require Export LibFix.
-From Sep Require Export LambdaSep LambdaCFTactics.
+From Sep Require Export LambdaWP LambdaSepLifted.
 Open Scope heap_scope.
+Generalizable Variables A.
 
 Implicit Types v w : val.
 Implicit Types t : trm.
@@ -21,200 +21,62 @@ Implicit Types t : trm.
 (* ********************************************************************** *)
 (* * WP generator *)
 
+
 (* ---------------------------------------------------------------------- *)
 (* ** Type of a WP *)
 
 (** A formula is a predicate over a post-condition. *)
 
-Definition formula := (val -> hprop) -> hprop.
+Definition Formula := forall A (EA:Enc A), (A -> hprop) -> hprop.
 
-Global Instance Inhab_formula : Inhab formula.
-Proof using. apply (Inhab_of_val (fun _ => \[])). Qed.
+Global Instance Inhab_Formula : Inhab Formula.
+Proof using. apply (Inhab_of_val (fun _ _ _ => \[])). Qed.
+
+Notation "^ F Q" := ((F:Formula) _ _ Q)
+  (at level 65, F at level 0, Q at level 0,
+   format "^ F  Q") : charac.
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** Semantic interpretation of a WP *)
 
-(** Recall the generic definition of [weakestpre] from [SepFunctor]:
-[[
-    Definition weakestpre F Q :=
-      Hexists H, H \* \[F H Q].
-]]
-*)
+(** Lifted version of [weakestpre] *)
 
-Definition wp_triple (t:trm) : formula :=
-  weakestpre (triple t).
+Definition Weakestpre (T:forall `{Enc A},hprop->(A->hprop)->Prop) : Formula :=
+  fun A (EA:Enc A) => weakestpre T.
 
+(** Lifted version of [wp_triple] *)
 
-(* ---------------------------------------------------------------------- *)
-(* ** Definition of [local] for WP *)
+Definition Wp_triple (t:trm) : Formula :=
+  Weakestpre (@Triple t).
 
-(** Simple case:
+(** Constructor to force the return type of a Formula *)
 
-[[
-Definition local (F:formula) : formula :=
-  fun Q => Hexists Q', F Q' \* (Q' \---* (Q \*+ \Top)).
-
-Definition is_local (F:formula) :=
-  F = local F.
-]]
-*)
-
-(** Because [local] is later reused in a more general "lifted" settings,
-    we need to make the type of formula parameterized by the return type,
-    when defining [local]. *)
-
-Definition formula_ (B:Type) := (B -> hprop) -> hprop.
-
-(** The [local] predicate is a predicate transformer that typically
-   applies to a WP, and allows for application
-   of the frame rule, of the rule of consequence, of the garbage
-   collection rule, and of extraction rules for existentials and
-   pure facts. *)
-
-Definition local B (F:formula_ B) : formula_ B :=
-  fun Q => Hexists Q', F Q' \* (Q' \---* (Q \*+ \Top)).
-
-(** The [is_local] predicate asserts that a predicate is subject
-  to all the rules that the [local] predicate transformer supports. *)
-
-Definition is_local B (F:formula_ B) :=
-  F = local F.
-
-(** [is_local_pred S] asserts that [is_local (S x)] holds for any [x].
-    It is useful for describing loop invariants. *)
-
-Definition is_local_pred B A (S:A->formula_ B) :=
-  forall x, is_local (S x).
-
+Definition Formula_typed `{Enc A1} (F:(A1->hprop)->hprop) : Formula :=
+  fun A2 (EA2:Enc A2) (Q:A2->hprop) =>
+    Hexists (Q':A1->hprop), F Q' \* \[PostChange Q' Q].
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Elimination rules for [is_local] *)
+(* ** Definition of [Local] for WP *)
 
-Section LocalProp.
-Variable (B : Type).
-Implicit Type Q : B->hprop.
-Implicit Type F : formula_ B.
+(** The [Local] predicate lifts [local]. *)
 
-Lemma local_weaken : forall Q' F H Q,
-  is_local F ->
-  H ==> F Q ->
-  Q ===> Q' ->
-  H ==> F Q'.
+Definition Local (F:Formula) : Formula :=
+  fun A `{EA:Enc A} Q => local (@F A EA) Q.
+
+Lemma local_Local_eq : forall A `{EA:Enc A} (F:Formula),
+  local (@Local F A EA) = (@Local F A EA).
 Proof using.
-  introv L M W. rewrite (rm L). hchanges (rm M).
-  unfold local. hsimpl Q.
-  hchanges (>> qwand_of_qimpl W).
-  (* TODO: simplify *)
-  applys qwand_himpl_r. hsimpl.
+  intros. apply fun_ext_1. intros Q.
+  unfold Local. rewrite local_local. split~.
 Qed.
 
-Lemma local_top : forall F H Q,
-  is_local F ->
-  H ==> F (Q \*+ \Top) ->
-  H ==> F Q.
-Proof using.
-  introv L M. rewrite L. hchanges (rm M). unfold local.
-  hsimpl (Q \*+ \Top). hchanges (qwand_of_qimpl (Q \*+ \Top)).
-  hsimpl.
-Qed.
+Lemma is_local_Local : forall A `{EA:Enc A} (F:Formula),
+  is_local (@Local F A EA).
+Proof using. intros. unfolds. rewrite~ local_Local_eq. Qed.
 
-Lemma local_frame : forall H1 H2 F H Q,
-  is_local F ->
-  H ==> H1 \* H2 ->
-  H1 ==> F (fun x => H2 \--* Q x) ->
-  H ==> F Q.
-Proof using.
-  introv L W M. rewrites (rm L). hchanges (rm W). hchanges (rm M).
-  unfold local. hsimpl (fun x => H2 \--* Q x). (* TODO: simplify *)
-  (* TODO: needs hqwand *)
-  applys qwand_move_l. intros x. hchanges (hwand_cancel H2).
-Qed.
-
-Lemma local_frame_top : forall H1 H2 F H Q,
-  is_local F ->
-  H ==> H1 \* H2 ->
-  H1 ==> F (fun x => H2 \--* Q x \* \Top) ->
-  H ==> F Q.
-Proof using.
-  introv L W M. applys* local_top. applys* local_frame.
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Properties of [local] for WP *)
-
-(** Local can be erased *)
-
-Lemma local_erase : forall F Q,
-  F Q ==> local F Q.
-Proof using.
-  intros. unfold local. hsimpl. hchanges (qwand_of_qimpl Q). hsimpl.
-Qed.
-
-Lemma local_erase' : forall H F Q,
-  H ==> F Q ->
-  H ==> local F Q.
-Proof using.
-  introv M. hchanges M. applys local_erase.
-Qed.
-
-(** Contradictions can be extracted from local formulae *)
-
-Lemma local_extract_false : forall F Q,
-  (forall Q', F Q' ==> \[False]) ->
-  (local F Q ==> \[False]).
-Proof using.
-  introv M. unfold local. hpull ;=> Q'. hchanges (M Q').
-Qed.
-
-(** [local] is a covariant transformer w.r.t. predicate inclusion *)
-
-Lemma local_weaken_body : forall F F',
-  F ===> F' ->
-  local F ===> local F'.
-Proof using.
-  unfold local. introv M. intros Q. hpull ;=> Q'. hsimpl~ Q'.
-Qed.
-
-(** [local] is idempotent, i.e. nested applications
-   of [local] are redundant *)
-
-Lemma local_local : forall F,
-  local (local F) = local F.
-Proof using.
-  intros F. applys fun_ext_1. intros Q. applys himpl_antisym.
-  { unfold local. hpull ;=> Q' Q''. hsimpl Q''.
-    hchanges hstar_qwand. applys qwand_himpl_r.
-    intros x.
-    hchanges (qwand_himpl_hwand x Q' (Q \*+ \Top)).
-    hchanges (hwand_cancel (Q' x) (Q x \* \Top)). }
-  { hchanges local_erase. }
-Qed.
-
-(** A definition whose head is [local] satisfies [is_local] *)
-
-Lemma is_local_local : forall F,
-  is_local (local F).
-Proof using. intros. unfolds. rewrite~ local_local. Qed.
-
-(** Introduction rule for [is_local] on [weakestpre] *)
-
-Lemma is_local_weakestpre : forall (T:hprop->(B->hprop)->Prop),
-  SepBasicSetup.is_local T ->
-  is_local (weakestpre T).
-Proof using.
-  introv L. unfold is_local. applys fun_ext_1 ;=> Q.
-  applys himpl_antisym.
-  { apply~ local_erase'. }
-  { unfold local, wp_triple, weakestpre.
-    hpull ;=> Q' H M. hsimpl (H \* (Q' \---* Q \*+ \Top)).
-    xapply M. hsimpl. intros x. hchange (qwand_himpl_hwand x Q' (Q \*+ \Top)).
-    hchange (hwand_cancel (Q' x)). hsimpl. }
-Qed. (* LATER: simplify *)
-
-End LocalProp.
+Hint Resolve is_local_Local.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -223,111 +85,118 @@ End LocalProp.
 (** These auxiliary definitions give the characteristic formula
     associated with each term construct. *)
 
-Definition wp_fail : formula := local (fun Q =>
-  \[False]).
+Definition Wp_fail : Formula :=
+  Local (fun A (EA:Enc A) Q =>
+    \[False]).
 
-Definition wp_val (v:val) : formula := local (fun Q =>
-  Q v).
+Definition Wp_val (v:val) : Formula :=
+  Local (fun A (EA:Enc A) Q =>
+    Hexists (V:A), \[v = enc V] \* Q V).
 
-Definition wp_var (E:ctx) (x:var) : formula :=
+Definition Wp_var (E:ctx) (x:var) : Formula :=
   match ctx_lookup x E with
-  | None => wp_fail
-  | Some v => wp_val v
+  | None => Wp_fail
+  | Some v => Wp_val v
   end.
 
-(* deprecated
-Definition wp_seq (F1 F2:formula) : formula := local (fun Q =>
-  F1 (fun r => \[r = val_unit] \* F2 Q)).
-*)
-Definition wp_seq (F1 F2:formula) : formula := local (fun Q =>
-  F1 (fun X => F2 Q)).
+Definition Wp_seq (F1 F2:Formula) : Formula :=
+  Local (fun A (EA:Enc A) Q =>
+    ^F1 (fun (X:unit) => ^F2 Q)).
 
-Definition wp_let (F1:formula) (F2of:val->formula) : formula := local (fun Q =>
-  F1 (fun X => F2of X Q)).
+Definition Wp_let (F1:Formula) (F2of:forall `{EA1:Enc A1},A1->Formula) : Formula :=
+  Local (fun A (EA:Enc A) Q =>
+    Hexists (A1:Type) (EA1:Enc A1) (Q1:A1->hprop),
+      ^F1 (fun (X:A1) => ^(F2of X) Q)).
 
-Definition wp_app (t:trm) :=
-  local (wp_triple t).
+Definition Wp_let_typed `{EA1:Enc A1} (F1:Formula) (F2of:A1->Formula) : Formula :=
+  Local (fun `{Enc A} Q =>
+    Hexists (Q1:A1->hprop),
+      ^F1 (fun (X:A1) => ^(F2of X) Q)).
 
-Definition wp_if_val (v:val) (F1 F2:formula) : formula := local (fun Q =>
-  Hexists (b:bool), \[v = val_bool b] \* (if b then F1 Q else F2 Q)).
+Definition Wp_app (t:trm) : Formula :=
+  Local (Wp_triple t).
 
-Definition wp_if (F0 F1 F2:formula) : formula :=
-  wp_let F0 (fun v => wp_if_val v F1 F2).
+Definition Wp_if_val (b:bool) (F1 F2:Formula) : Formula :=
+  Local (fun `{Enc A} Q =>
+    if b then ^F1 Q else ^F2 Q).
 
-Definition wp_while (F1 F2:formula) : formula := local (fun Q =>
-  Hforall (R:formula),
-  let F := wp_if F1 (wp_seq F2 R) (wp_val val_unit) in
-  \[ is_local R /\ F ===> R] \--* (R Q)).
+Definition Wp_if (F0 F1 F2:Formula) : Formula :=
+  Wp_let_typed F0 (fun (b:bool) => Wp_if_val b F1 F2).
 
-(* TODO
-Definition wp_for_val (v1 v2:val) (F3:int->formula) : formula := local (fun Q =>
+Definition Wp_while (F1 F2:Formula) : Formula :=
+  Local (Formula_typed (fun (Q:unit->hprop) =>
+    Hforall (R:Formula),
+    let F := Wp_if F1 (Wp_seq F2 R) (Wp_val val_unit) in
+    \[ is_local (@R unit _) /\ (forall Q', ^F Q' ==> ^R Q')] \--* (^R Q))).
+
+
+(*
+
+Definition Wp_for_val (v1 v2:val) (F3:int->formula) : formula := local (fun Q =>
   Hexists n1 n2, \[v1 = val_int n1 /\ v2 = val_int n2] \*
   Hforall (S:int->formula),
-  let F i := If (i <= n2) then (wp_seq (F3 i) (S (i+1)))
-                          else (wp_val val_unit) in
+  let F i := If (i <= n2) then (Wp_seq (F3 i) (S (i+1)))
+                          else (Wp_val val_unit) in
   \[ is_local_pred S /\ (forall i, F i ===> S i)] \--* (S n1 Q)).
 
-Definition wp_for (F1 F2:formula) (F3:int->formula) : formula :=
-  wp_let F1 (fun v1 => wp_let F2 (fun v2 => wp_for_val v1 v2 F3)).
+Definition Wp_for (F1 F2:formula) (F3:int->formula) : formula :=
+  Wp_let F1 (fun v1 => Wp_let F2 (fun v2 => Wp_for_val v1 v2 F3)).
 
-Definition wp_for' (F1 F2:formula) (F3:int->formula) : formula := local (fun Q =>
-  F1 (fun v1 => F2 (fun v2 => wp_for_val v1 v2 F3 Q))).
+Definition Wp_for' (F1 F2:formula) (F3:int->formula) : formula := local (fun Q =>
+  F1 (fun v1 => F2 (fun v2 => Wp_for_val v1 v2 F3 Q))).
 *)
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of the CF generator *)
 
-Fixpoint wp (E:ctx) (t:trm) : formula :=
-  let aux := wp E in
+Fixpoint Wp (E:ctx) (t:trm) : Formula :=
+  let aux := Wp E in
   match t with
-  | trm_val v => wp_val v
-  | trm_var x => wp_var E x
-  | trm_fun x t1 => wp_val (val_fun x (substs (ctx_rem x E) t1))
-  | trm_fix f x t1 => wp_val (val_fix f x (substs (ctx_rem x (ctx_rem f E)) t1))
-  | trm_if t0 t1 t2 => wp_if (aux t0) (aux t1) (aux t2)
-  | trm_seq t1 t2 => wp_seq (aux t1) (aux t2)
-  | trm_let x t1 t2 => wp_let (aux t1) (fun X => wp (ctx_add x X E) t2)
-  | trm_app t1 t2 => wp_app (substs E t)
-  | trm_while t1 t2 => wp_while (aux t1) (aux t2)
-  | trm_for x t1 t2 t3 => wp_fail
-      (*wp_for' (aux t1) (aux t2) (fun X => wp (ctx_add x X E) t3) *)
+  | trm_val v => Wp_val v
+  | trm_var x => Wp_var E x
+  | trm_fun x t1 => Wp_val (val_fun x (substs (ctx_rem x E) t1))
+  | trm_fix f x t1 => Wp_val (val_fix f x (substs (ctx_rem x (ctx_rem f E)) t1))
+  | trm_if t0 t1 t2 => Wp_if (aux t0) (aux t1) (aux t2)
+  | trm_seq t1 t2 => Wp_seq (aux t1) (aux t2)
+  | trm_let x t1 t2 => Wp_let (aux t1) (fun `{EA:Enc A} X => Wp (ctx_add x (enc X) E) t2)
+  | trm_app t1 t2 => Wp_app (substs E t)
+  | trm_while t1 t2 => Wp_while (aux t1) (aux t2)
+  | trm_for x t1 t2 t3 => Wp_fail
+      (* TODO Wp_for' (aux t1) (aux t2) (fun X => Wp (ctx_add x X E) t3) *)
   end.
-
 
 
 (* ********************************************************************** *)
 (* * Soundness proof *)
 
+
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of semantical wp *)
 
-(** [wp_triple t] is a local formula *)
+(** [Wp_triple t] is a local formula *)
 
-Lemma is_local_wp_triple : forall t,
-  is_local (wp_triple t).
-Proof using. intros. applys is_local_weakestpre. applys is_local_triple. Qed.
+Lemma is_local_Wp_triple : forall `{EA:Enc A} t,
+  is_local ((Wp_triple t) A EA).
+Proof using.
+  intros. unfolds Wp_triple. unfolds Weakestpre.
+  applys is_local_weakestpre. applys is_local_Triple.
+Qed.
 
 (** Equivalence between a [triple] and its weakest-precondition presentation. *)
 
-Lemma triple_eq_himpl_wp_triple : forall H Q t,
-  triple t H Q = (H ==> wp_triple t Q).
-Proof using. intros. applys weakestpre_eq. applys is_local_triple. Qed.
+Lemma Triple_eq_himpl_Wp_triple : forall `{EA:Enc A} H (Q:A->hprop) t,
+  Triple t H Q = (H ==> ^(Wp_triple t) Q).
+Proof using. intros. applys weakestpre_eq. applys is_local_Triple. Qed.
 
 (** Reformulation of the left-to-right implication above in the form
     of an entailment. *)
 
-Lemma qimpl_wp_triple : forall t F,
-  (forall Q, triple t (F Q) Q) ->
-  F ===> wp_triple t.
-Proof using. introv M. intros Q. rewrite~ <- triple_eq_himpl_wp_triple. Qed.
+Lemma qimpl_Wp_triple : forall t `{EA:Enc A} F,
+  (forall Q, Triple t (F Q) Q) ->
+  F ===> ((Wp_triple t) A EA).
+Proof using. introv M. intros Q. rewrite~ <- Triple_eq_himpl_Wp_triple. Qed.
 
-(** Another corrolary of [triple_eq_himpl_wp_triple], 
-    --not needed in the proofs below *)
-
-Lemma triple_wp_triple : forall t Q,
-  triple t (wp_triple t Q) Q.
-Proof using. intros. applys weakestpre_pre. applys is_local_triple. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -456,7 +325,7 @@ Lemma triple_wp_app : forall t1 t2,
 Proof using.
   intros. intros E. simpl. applys qimpl_wp_triple.
   intros Q. remove_local.
-  rewrite substs_app. rewrite triple_eq_himpl_wp_triple. hsimpl.
+  rewrite substs_app. applys triple_wp_triple.
 Qed.
 
 Lemma triple_wp_while : forall F1 F2 E t1 t2,
@@ -764,6 +633,33 @@ Proof using.
   intros y. hpull ;=> E. subst.
   xapp. xapplys rule_set. auto.
 Qed.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

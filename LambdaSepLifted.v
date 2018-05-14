@@ -420,7 +420,7 @@ Definition Substn (ys:vars) (ds:dyns) (t:trm) : trm :=
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of lifted triples *)
 
-Definition Triple (t:trm) `{EA:Enc A} (H:hprop) (Q:A->hprop) :=
+Definition Triple (t:trm) `{EA:Enc A} (H:hprop) (Q:A->hprop) : Prop :=
   triple t H (Post Q).
 
 Lemma is_local_Triple : forall t A `{EA:Enc A},

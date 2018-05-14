@@ -717,6 +717,19 @@ Proof using.
   { case_if. { rewrite~ substs_val. } { auto. } }
 Qed.
 
+Lemma substs_fun : forall E x t,
+  substs E (trm_fun x t) = trm_fun x (substs (ctx_rem x E) t).
+Proof using. substs_simpl_proof. { fequals; case_if~. } Qed.
+
+Lemma substs_fix : forall E f x t,
+  substs E (trm_fix f x t) = trm_fix f x (substs (ctx_rem x (ctx_rem f E)) t).
+Proof using.
+  substs_simpl_proof.
+  { fequals. case_if~. case_if~.
+    { subst. rewrite~ ctx_rem_same. }
+    { rewrite~ ctx_rem_neq. } }
+Qed.
+
 Lemma substs_if : forall E t1 t2 t3,
    substs E (trm_if t1 t2 t3)
  = trm_if (substs E t1) (substs E t2) (substs E t3).
@@ -727,10 +740,21 @@ Lemma substs_app : forall E t1 t2,
  = trm_app (substs E t1) (substs E t2).
 Proof using. substs_simpl_proof. Qed.
 
+Lemma substs_seq : forall E t1 t2,
+   substs E (trm_seq t1 t2)
+ = trm_seq (substs E t1) (substs E t2).
+Proof using. substs_simpl_proof. Qed.
+
 Lemma substs_let : forall E x t1 t2,
    substs E (trm_let x t1 t2)
  = trm_let x (substs E t1) (substs (ctx_rem x E) t2).
 Proof using. substs_simpl_proof. { fequals. case_if~. } Qed.
+
+Lemma substs_while : forall E t1 t2,
+   substs E (trm_while t1 t2)
+ = trm_while (substs E t1) (substs E t2).
+Proof using. substs_simpl_proof. Qed.
+
 
 
 (* ---------------------------------------------------------------------- *)
@@ -766,7 +790,7 @@ Lemma ctx_fresh_combine : forall x ys vs,
   ctx_fresh x (LibList.combine ys vs).
 Proof using.
   intros x ys. unfold ctx_fresh.
-  induction ys as [|y ys']; simpl; intros [|v vs] M L; 
+  induction ys as [|y ys']; simpl; intros [|v vs] M L;
    rew_list in *; try solve [ false; math ].
   { auto. }
   { simpl. do 2 case_if. rewrite~ IHys'. }
