@@ -436,19 +436,19 @@ Proof using.
   { hhsimpl~. }
 Qed.
 
-Lemma hoare_fix : forall f x t1 H Q,
-  H ==> Q (val_fix f x t1) ->
-  hoare (trm_fix f x t1) H Q.
+Lemma hoare_fix : forall (f z:bind) t1 H Q,
+  H ==> Q (val_fix f z t1) ->
+  hoare (trm_fix f z t1) H Q.
 Proof using.
   introv M HF. exists___. splits.
-  { applys red_fix. }
+  { applys~ red_fix. }
   { hhsimpl~. }
 Qed.
 
-Lemma hoare_let : forall x t1 t2 H Q Q1,
+Lemma hoare_let : forall z t1 t2 H Q Q1,
   hoare t1 H Q1 ->
-  (forall (X:val), hoare (subst x X t2) (Q1 X) Q) ->
-  hoare (trm_let x t1 t2) H Q.
+  (forall (X:val), hoare (subst1 z X t2) (Q1 X) Q) ->
+  hoare (trm_let z t1 t2) H Q.
 Proof using.
   introv M1 M2 HF.
   lets~ (h1'&v1&R1&K1): (rm M1) h.
@@ -519,17 +519,17 @@ Proof using.
   introv M. intros HF. applys hoare_val. { hchanges M. }
 Qed.
 
-Lemma rule_fix : forall f x t1 H Q,
-  H ==> Q (val_fix f x t1) ->
-  triple (trm_fix f x t1) H Q.
+Lemma rule_fix : forall f z t1 H Q,
+  H ==> Q (val_fix f z t1) ->
+  triple (trm_fix f z t1) H Q.
 Proof using.
   introv M. intros HF. applys hoare_fix. { hchanges M. }
 Qed.
 
-Lemma rule_let : forall x t1 t2 H Q Q1,
+Lemma rule_let : forall z t1 t2 H Q Q1,
   triple t1 H Q1 ->
-  (forall (X:val), triple (subst x X t2) (Q1 X) Q) ->
-  triple (trm_let x t1 t2) H Q.
+  (forall (X:val), triple (subst1 z X t2) (Q1 X) Q) ->
+  triple (trm_let z t1 t2) H Q.
 Proof using.
   introv M1 M2. intros HF. applys hoare_let.
   { applys M1. }
@@ -693,6 +693,7 @@ Proof using.
   { hhsimpl. hchanges M. }
 Qed.
 
+(*
 Lemma rule_fun : forall x t1 H Q,
   H ==> Q (val_fun x t1) ->
   triple (trm_fun x t1) H Q.
@@ -701,10 +702,11 @@ Proof using.
   { applys red_fun. }
   { hhsimpl. hchanges M. }
 Qed.
+*)
 
-Lemma rule_fix : forall f x t1 H Q,
-  H ==> Q (val_fix f x t1) ->
-  triple (trm_fix f x t1) H Q.
+Lemma rule_fix : forall (f z:bind) t1 H Q,
+  H ==> Q (val_fix f z t1) ->
+  triple (trm_fix f z t1) H Q.
 Proof using.
   introv M. intros HF h N. exists___. splits.
   { applys red_fix. }
@@ -763,7 +765,7 @@ Proof using.
   { applys~ red_seq R2. }
   { rewrite <- htop_hstar_htop. hhsimpl. }
 Qed.
-*)
+
 
 Lemma rule_seq : forall t1 t2 H Q Q1,
   triple t1 H Q1 ->
@@ -777,11 +779,12 @@ Proof using.
   { applys~ red_seq R1 R2. }
   { rewrite <- htop_hstar_htop. hhsimpl. }
 Qed.
+*)
 
-Lemma rule_let : forall x t1 t2 H Q Q1,
+Lemma rule_let : forall z t1 t2 H Q Q1,
   triple t1 H Q1 ->
-  (forall (X:val), triple (subst x X t2) (Q1 X) Q) ->
-  triple (trm_let x t1 t2) H Q.
+  (forall (X:val), triple (subst1 z X t2) (Q1 X) Q) ->
+  triple (trm_let z t1 t2) H Q.
 Proof using.
   introv M1 M2. intros HF h N.
   lets~ (h1'&v1&R1&K1): (rm M1) HF h.
@@ -801,6 +804,7 @@ Proof using.
   exists h' v. splits~. { subst. applys* red_app_funs_val. }
 Qed.
 
+(* todo
 Lemma rule_apps_fixs : forall xs f F (Vs:vals) t1 H Q,
   F = (val_fixs f xs t1) ->
   var_fixs f (length Vs) xs ->
@@ -810,6 +814,7 @@ Proof using.
   introv E N M. intros H' h Hf. forwards (h'&v&R&K): (rm M) Hf.
   exists h' v. splits~. { subst. applys* red_app_fixs_val. }
 Qed.
+*)
 
 
 (* ---------------------------------------------------------------------- *)
@@ -851,7 +856,7 @@ Qed.
 Lemma rule_for_raw : forall (x:var) (n1 n2:int) t3 H (Q:val->hprop),
   triple (
     If (n1 <= n2)
-      then (trm_seq (subst x n1 t3) (trm_for x (n1+1) n2 t3))
+      then (trm_seq (subst1 x n1 t3) (trm_for x (n1+1) n2 t3))
       else val_unit) H Q ->
   triple (trm_for x n1 n2 t3) H Q.
 Proof using.
@@ -871,9 +876,9 @@ Proof using.
 Qed.
 
 (* LATER: simplify proof using rule_for_raw *)
-Lemma rule_for_le : forall Q1 x n1 n2 t3 H Q,
+Lemma rule_for_le : forall Q1 (x:var) n1 n2 t3 H Q,
   n1 <= n2 ->
-  triple (subst x n1 t3) H Q1 ->
+  triple (subst1 x n1 t3) H Q1 ->
   triple (trm_for x (n1+1) n2 t3) (Q1 val_unit) Q ->
   (forall v, ~ is_val_unit v -> (Q1 v) ==> \[False]) ->
   triple (trm_for x n1 n2 t3) H Q.
@@ -893,10 +898,10 @@ Proof using.
 Qed.
 
 (* LATER: simplify proof using rule_for_raw *)
-Lemma rule_for : forall x (n1 n2:int) t3 H Q,
+Lemma rule_for : forall (x:var) (n1 n2:int) t3 H Q,
   (If (n1 <= n2) then
     (exists Q1,
-      triple (subst x n1 t3) H Q1 /\
+      triple (subst1 x n1 t3) H Q1 /\
       triple (trm_for x (n1+1) n2 t3) (Q1 val_unit) Q /\
       (forall v, ~ is_val_unit v -> (Q1 v) ==> \[False]))
   else
@@ -909,11 +914,11 @@ Proof using.
 Qed.
 
 (* LATER: simplify proof using rule_for_raw *)
-Lemma rule_for_inv : forall (I:int->hprop) H' x n1 n2 t3 H Q,
+Lemma rule_for_inv : forall (I:int->hprop) H' (x:var) n1 n2 t3 H Q,
   (n1 <= n2+1) ->
   (H ==> I n1 \* H') ->
   (forall i, n1 <= i <= n2 ->
-     triple (subst x i t3) (I i) (fun r => \[r = val_unit] \* I (i+1))) ->
+     triple (subst1 x i t3) (I i) (fun r => \[r = val_unit] \* I (i+1))) ->
   (I (n2+1) \* H' ==> Q val_unit \* \Top) ->
   triple (trm_for x n1 n2 t3) H Q.
 Proof using.
@@ -1195,9 +1200,9 @@ Qed.
 
 (** Combination of [rule_let] and [rule_val] *)
 
-Lemma rule_let_val : forall x v1 t2 H Q,
-  (forall (X:val), X = v1 -> triple (subst x X t2) H Q) ->
-  triple (trm_let x (trm_val v1) t2) H Q.
+Lemma rule_let_val : forall z v1 t2 H Q,
+  (forall (X:val), X = v1 -> triple (subst1 z X t2) H Q) ->
+  triple (trm_let z (trm_val v1) t2) H Q.
 Proof using.
   introv M. forwards~ M': (rm M).
   applys_eq~ (>> rule_let H (fun x => \[x = v1] \* H)) 2.
@@ -1251,6 +1256,9 @@ Proof using.
 Qed.
 *)
 
+
+(* TODO: not used, to update
+
 (* ---------------------------------------------------------------------- *)
 (** Reformulation of the rule for N-ary functions *)
 
@@ -1270,7 +1278,7 @@ Proof using. introv D N L M. applys* rule_apps_funs. splits~. Qed.
 
 Definition spec_fixs (f:var) (xs:vars) (t1:trm) (F:val) :=
   forall (Xs:vals), length xs = length Xs ->
-    triple (subst f F (substn xs Xs t1)) ===> triple (trm_apps F Xs).
+    triple (subst1 f F (substn xs Xs t1)) ===> triple (trm_apps F Xs).
 
 Lemma spec_fixs_val_fixs : forall f xs t1,
   var_distinct (f::xs) ->
@@ -1375,6 +1383,7 @@ Lemma spec_fun2_val_fun2 : forall x1 x2 t1,
   spec_fun2 x1 x2 t1 (val_fun2 x1 x2 t1).
 Proof using. introv. intros X1 X2 H Q M. applys* rule_app_fun2. Qed.
 
+*)
 
 (* ---------------------------------------------------------------------- *)
 (** Combination of [rule_let] and [rule_fun] or [rule_fix] *)

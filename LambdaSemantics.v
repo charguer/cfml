@@ -239,8 +239,8 @@ Inductive red : state -> trm -> state -> val -> Prop :=
   (* Core constructs *)
   | red_val : forall m v,
       red m v m v
-  | red_fix : forall m f x t1,
-      red m (trm_fix f x t1) m (val_fix f x t1)
+  | red_fix : forall m f z t1,
+      red m (trm_fix f z t1) m (val_fix f z t1)
   | red_if : forall m1 m2 m3 b r t0 t1 t2,
       red m1 t0 m2 (val_bool b) ->
       red m2 (if b then t1 else t2) m3 r ->
@@ -445,9 +445,13 @@ Proof using.
   { skip. (* todo *) } }
 Qed.
 
-Lemma subst1_subst_ctx_rem_same : forall E x v t,
-    subst1 x v (subst (ctx_rem x E) t)
-  = subst E (subst1 x v t).
+(* NEEDED in lambdawp:
+subst (ctx_add x v E) t = subst1 x v (subst (ctx_rem x E) t)
+*)
+
+Lemma subst1_subst_ctx_rem_same : forall E z v t,
+    subst1 z v (subst (ctx_rem z E) t)
+  = subst E (subst1 z v t).
 Proof using.
   intros. rewrite <- subst_ctx_add.
 (* 
