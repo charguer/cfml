@@ -21,16 +21,53 @@ Open Scope string_scope.
 (* * Source language syntax *)
 
 (* ---------------------------------------------------------------------- *)
-(** Representation of variables and locations *)
+(** Representation of variables *)
 
-Definition var := string.
+Definition name := string.
+
+Inductive var : Type :=
+  | var_anon : var
+  | var_name : name -> var.
+
+Definition eq_name_dec := String.string_dec.
+
+Definition name_eq (s1 s2:name) : bool :=
+  if eq_name_dec s1 s2 then true else false.
+
+Lemma name_eq_spec : forall s1 s2,
+  name_eq s1 s2 = isTrue (s1 = s2).
+Proof using.
+  intros. unfold name_eq. case_if; rew_bool_eq~.
+Qed.
+
+Definition var_eq (x1 x2:var) : bool :=
+  match x1, x2 with
+  | var_anon, var_anon => true
+  | var_name s1, var_name s2 => name_eq s1 s2
+  | _, _ => false
+  end.
+
+Lemma var_eq_spec : forall x1 x2,
+  var_eq x1 x2 = isTrue (x1 = x2).
+Proof using.
+  intros. unfold var_eq. destruct x1; destruct x2; 
+   try rewrite name_eq_spec; rew_bool_eq; auto_false*.
+  { iff; congruence. } (* LATER:simplify*)
+Qed.
+
+Global Opaque name.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Representation of locations and fields *)
+
 Definition loc := nat.
+
 Definition null : loc := 0%nat.
+
 Definition field := nat.
 
-Definition eq_var_dec := String.string_dec.
-
-Global Opaque field var loc.
+Global Opaque field loc.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -52,16 +89,13 @@ Inductive val : Type :=
   | val_int : int -> val
   | val_loc : loc -> val
   | val_prim : prim -> val
-  | val_fun : var -> trm -> val
   | val_fix : var -> var -> trm -> val
 
 with trm : Type :=
   | trm_val : val -> trm
   | trm_var : var -> trm
-  | trm_fun : var -> trm -> trm
   | trm_fix : var -> var -> trm -> trm
   | trm_if : trm -> trm -> trm -> trm
-  | trm_seq : trm -> trm -> trm
   | trm_let : var -> trm -> trm -> trm
   | trm_app : trm -> trm -> trm
   | trm_while : trm -> trm -> trm
@@ -71,6 +105,28 @@ with trm : Type :=
 
 Global Instance Inhab_val : Inhab val.
 Proof using. apply (Inhab_of_val val_unit). Qed.
+
+(** Encoded constructs *)
+
+(*
+Definition trm_seq (t1:trm) (t2:trm) :=
+  trm_let var_anon t1 t2.
+
+Definition trm_fun (x:var) (t1:trm) :=
+  trm_fix var_anon x t1.
+
+Definition val_fun (x:var) (t1:trm) :=
+  val_fix var_anon x t1.
+*)
+
+Notation "'trm_seq' t1 t2" := (trm_let var_anon t1 t2) 
+  (at level 69, t1 at level 0, t2 at level 0).
+
+Notation "'trm_fun' x t1" := (trm_fix var_anon x t1) 
+  (at level 69, x at level 0, t1 at level 0).
+
+Notation "'val_fun' x t1" := (val_fix var_anon x t1) 
+  (at level 69, x at level 0, t1 at level 0).
 
 
 (* ---------------------------------------------------------------------- *)
@@ -83,6 +139,7 @@ Coercion val_loc : loc >-> val.
 Coercion trm_val : val >-> trm.
 Coercion trm_var : var >-> trm.
 Coercion trm_app : trm >-> Funclass.
+Coercion var_name : name >-> var.
 
 
 (* ********************************************************************** *)
@@ -91,21 +148,35 @@ Coercion trm_app : trm >-> Funclass.
 (* ---------------------------------------------------------------------- *)
 (** Definition of capture-avoiding substitution *)
 
+Definition var_match (x1:var) (x2:var) : bool :=
+  match x1,x2 with
+  | var_name s1, var_name s2 => name_eq s1 s2
+  | _,_ => false
+  end.
+
 Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
   let aux t := subst y w t in
-  let aux_no_capture x t := if eq_var_dec x y then t else aux t in
+  let aux_no_capture x t := if var_match x y then t else aux t in
   match t with
   | trm_val v => trm_val v
-  | trm_var x => if eq_var_dec x y then trm_val w else t
-  | trm_fun x t1 => trm_fun x (aux_no_capture x t1)
-  | trm_fix f x t1 => trm_fix f x (if eq_var_dec f y then t1 else
+  | trm_var x => if var_match x y then trm_val w else t
+  | trm_fix f x t1 => trm_fix f x (if var_match f y then t1 else
                                    aux_no_capture x t1)
   | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
-  | trm_seq t1 t2 => trm_seq (aux t1) (aux t2)
   | trm_let x t1 t2 => trm_let x (aux t1) (aux_no_capture x t2)
   | trm_app t1 t2 => trm_app (aux t1) (aux t2)
   | trm_while t1 t2 => trm_while (aux t1) (aux t2)
   | trm_for x t1 t2 t3 => trm_for x (aux t1) (aux t2) (aux_no_capture x t3)
+  end.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Characterization of values *)
+
+Definition trm_is_val (t:trm) : Prop :=
+  match t with
+  | trm_val v => True
+  | _ => False
   end.
 
 
@@ -128,24 +199,18 @@ Implicit Types n : int.
 Inductive red : state -> trm -> state -> val -> Prop :=
   | red_val : forall m v,
       red m v m v
-  | red_fun : forall m x t1,
-      red m (trm_fun x t1) m (val_fun x t1)
   | red_fix : forall m f x t1,
       red m (trm_fix f x t1) m (val_fix f x t1)
   | red_if : forall m1 m2 m3 b r t0 t1 t2,
       red m1 t0 m2 (val_bool b) ->
       red m2 (if b then t1 else t2) m3 r ->
       red m1 (trm_if t0 t1 t2) m3 r
-  | red_seq : forall m1 m2 m3 t1 t2 v1 r,
-      red m1 t1 m2 v1 ->
-      red m2 t2 m3 r ->
-      red m1 (trm_seq t1 t2) m3 r
   | red_let : forall m1 m2 m3 x t1 t2 v1 r,
       red m1 t1 m2 v1 ->
       red m2 (subst x v1 t2) m3 r ->
       red m1 (trm_let x t1 t2) m3 r
   | red_app_arg : forall m1 m2 m3 m4 t1 t2 v1 v2 r,
-      (* LATER: add [not_is_val t1 \/ not_is_val t2] *)
+      (~ trm_is_val t1 \/ ~ trm_is_val t2) ->
       red m1 t1 m2 v1 ->
       red m2 t2 m3 v2 ->
       red m3 (trm_app v1 v2) m4 r ->
@@ -210,8 +275,55 @@ Inductive red : state -> trm -> state -> val -> Prop :=
         red m1 (trm_for x n1 n2 t3) m2 r
   *)
 
+
+(* ---------------------------------------------------------------------- *)
+(* ** Properties of variable matching *)
+
+Lemma var_match_anon : forall x,
+  var_match x var_anon = false.
+Proof using. intros. destruct~ x. Qed.
+
+Lemma var_match_true_inv : forall x1 x2,
+  var_match x1 x2 = true ->
+  x1 = x2.
+Proof using. 
+  introv M. destruct x1; destruct x2; simpls; auto_false.
+  { rewrite name_eq_spec in M. rew_bool_eq in *. inverts* M. }
+Qed.
+
+Lemma var_match_false_inv : forall x1 x2,
+  var_match x1 x2 = false ->
+  x1 <> x2 \/ x1 = var_anon \/ x2 = var_anon.
+Proof using. 
+  introv M. destruct x1; destruct x2; simpls; auto_false.
+  { rewrite name_eq_spec in M. rew_bool_eq in *. left. intros E. inverts* E. }
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Properties of anonymous substitution *)
+
+Lemma subst_anon : forall v t,
+  subst var_anon v t = t.
+Proof using.
+  intros. induction t; simpl; 
+   try solve [ repeat rewrite var_match_anon; fequals ].
+Qed.
+
+
+
 (* ---------------------------------------------------------------------- *)
 (* ** Derived rules *)
+
+Lemma red_fun : forall m x t1,
+  red m (trm_fun x t1) m (val_fun x t1).
+Proof using. intros. applys red_fix. Qed.
+
+Lemma red_seq : forall m1 m2 m3 t1 t2 r1 r,
+  red m1 t1 m2 r1 ->
+  red m2 t2 m3 r ->
+  red m1 (trm_seq t1 t2) m3 r.
+Proof using. introv M1 M2. applys* red_let. rewrite* subst_anon. Qed.
 
 Lemma red_ptr_add_nat : forall m l (f : nat),
   red m (val_ptr_add (val_loc l) (val_int f)) m (val_loc (l+f)%nat).
@@ -428,6 +540,18 @@ Notation "'Fun' x1 x2 x3 ':=' t" :=
   (trm_fun x1 (trm_fun x2 (trm_fun x3 t)))
   (at level 69, x1 at level 0, x2 at level 0, x3 at level 0) : trm_scope.
 
+Notation "'Fun' x1 ':=' t" :=
+  (trm_fun x1 t)
+  (at level 69, x1 at level 0) : trm_scope.
+
+Notation "'Fun' x1 x2 ':=' t" :=
+  (trm_fun x1 (trm_fun x2 t))
+  (at level 69, x1 at level 0, x2 at level 0) : trm_scope.
+
+Notation "'Fun' x1 x2 x3 ':=' t" :=
+  (trm_fun x1 (trm_fun x2 (trm_fun x3 t)))
+  (at level 69, x1 at level 0, x2 at level 0, x3 at level 0) : trm_scope.
+
 Notation "'ValFun' x1 ':=' t" :=
   (val_fun x1 t)
   (at level 69, x1 at level 0) : trm_scope.
@@ -501,44 +625,6 @@ Notation "t1 '= t2" :=
   (at level 69) : trm_scope.
 
 
-(* ********************************************************************** *)
-(* * Size of a term *)
-
-(* ---------------------------------------------------------------------- *)
-(** Size of a term, where all values counting for one unit. *)
-
-(* TODO: will be deprecated soon *)
-
-Fixpoint trm_size (t:trm) : nat :=
-  match t with
-  | trm_var x => 1
-  | trm_val v => 1
-  | trm_fun x t1 => 1 + trm_size t1
-  | trm_fix f x t1 => 1 + trm_size t1
-  | trm_if t0 t1 t2 => 1 + trm_size t0 + trm_size t1 + trm_size t2
-  | trm_seq t1 t2 => 1 + trm_size t1 + trm_size t2
-  | trm_let x t1 t2 => 1 + trm_size t1 + trm_size t2
-  | trm_app t1 t2 => 1 + trm_size t1 + trm_size t2
-  | trm_while t1 t2 => 1 + trm_size t1 + trm_size t2
-  | trm_for x t1 t2 t3 => 1 + trm_size t1 + trm_size t2 + trm_size t3
-  end.
-
-Lemma trm_size_subst : forall t x v,
-  trm_size (subst x v t) = trm_size t.
-Proof using.
-  intros. induction t; simpl; repeat case_if; auto.
-Qed.
-
-(** Hint for induction on size. Proves subgoals of the form
-    [measure trm_size t1 t2], when [t1] and [t2] may have some
-    structure or involve substitutions. *)
-
-Ltac solve_measure_trm_size tt :=
-  unfold measure in *; simpls; repeat rewrite trm_size_subst; math.
-
-Hint Extern 1 (measure trm_size _ _) => solve_measure_trm_size tt.
-
-
 
 
 (* ********************************************************************** *)
@@ -556,6 +642,8 @@ Proof using.
   introv N. induction t; simpl; try solve [ fequals;
   repeat case_if; simpl; repeat case_if; auto ].
   repeat case_if; simpl; repeat case_if~.
+  { false. destruct v; destruct x1; destruct x2; false. simpls.
+    rewrite name_eq_spec in *. rew_bool_eq in *. false. }
 Qed. (* LATER: simplify *)
 
 (** Substituting for a variable that has just been substituted
@@ -581,7 +669,7 @@ Definition vars : Type := list var.
 Fixpoint var_fresh (y:var) (xs:vars) : bool :=
   match xs with
   | nil => true
-  | x::xs' => if eq_var_dec x y then false else var_fresh y xs'
+  | x::xs' => if var_eq x y then false else var_fresh y xs'
   end.
 
 (** [var_distinct xs] asserts that [xs] consists of a list of distinct variables. *)
@@ -617,7 +705,7 @@ Fixpoint ctx_rem (x:var) (E:ctx) : ctx :=
   | nil => nil
   | (y,v)::E' =>
     let E'' := ctx_rem x E' in
-    if eq_var_dec x y then E'' else (y,v)::E''
+    if var_eq x y then E'' else (y,v)::E''
   end.
 
 (** [ctx_lookup x E] returns
@@ -627,15 +715,23 @@ Fixpoint ctx_rem (x:var) (E:ctx) : ctx :=
 Fixpoint ctx_lookup (x:var) (E:ctx) : option val :=
   match E with
   | nil => None
-  | (y,v)::E' => if eq_var_dec x y
+  | (y,v)::E' => if var_match x y
                    then Some v
                    else ctx_lookup x E'
   end.
 
 (** [ctx_fresh x E] asserts that [x] is not bound in [E] *)
 
+Fixpoint ctx_fresh (x:var) (E:ctx) : bool :=
+  match E with
+  | nil => true
+  | (y,v)::E' => if var_eq x y then false else ctx_fresh x E'
+  end.
+
+(* todo: deprecated
 Definition ctx_fresh (x:var) (E:ctx) : Prop :=
   ctx_lookup x E = None.
+*)
 
 (** [substs E t] substitutes all the bindings from [E] inside [t] *)
 
@@ -653,12 +749,12 @@ Fixpoint substs (E:ctx) (t:trm) :=
 
 Lemma ctx_rem_same : forall x v E,
   ctx_rem x ((x,v)::E) = ctx_rem x E.
-Proof using. intros. simpl. case_if~. Qed.
+Proof using. intros. simpl. rewrite var_eq_spec. case_if~. Qed.
 
 Lemma ctx_rem_neq : forall x y v E,
   x <> y ->
   ctx_rem x ((y,v)::E) = (y,v)::(ctx_rem x E).
-Proof using. intros. simpl. case_if~. Qed.
+Proof using. intros. simpl. rewrite var_eq_spec. case_if~. Qed.
 
 (** Auxiliary results *)
 
@@ -666,8 +762,9 @@ Lemma ctx_rem_fresh : forall x E,
   ctx_fresh x E ->
   ctx_rem x E = E.
 Proof using.
-  introv M. unfolds ctx_fresh. induction E as [|(y,v) E'].
-  { auto. } { simpls. case_if. fequals. rewrite~ IHE'. }
+  introv M. induction E as [|(y,v) E'].
+  { auto. } 
+  { simpls. rewrite var_eq_spec in *. case_if. fequals. rewrite~ IHE'. }
 Qed.
 
 (** Substituting for [E] without [x] then substituting for [x]
@@ -680,7 +777,7 @@ Lemma subst_substs_ctx_rem_same : forall E x v t,
 Proof using.
   intros E. induction E as [|(y,w) E']; simpl; intros.
   { auto. }
-  { case_if.
+  { rewrite var_eq_spec. case_if.
     { subst. rewrite IHE'. rewrite~ subst_subst_same. }
     { simpl. rewrite IHE'. rewrite~ subst_subst_neq. } }
 Qed.
@@ -714,20 +811,49 @@ Lemma substs_var : forall E x,
     | Some v => v end.
 Proof using.
   substs_simpl_proof.
-  { case_if. { rewrite~ substs_val. } { auto. } }
+  { case_if.
+    { rewrite~ substs_val. }
+    { auto. } }
 Qed.
 
 Lemma substs_fun : forall E x t,
   substs E (trm_fun x t) = trm_fun x (substs (ctx_rem x E) t).
-Proof using. substs_simpl_proof. { fequals; case_if~. } Qed.
+Proof using. 
+  substs_simpl_proof. 
+  { fequals. rewrite var_eq_spec.
+    case_eq (var_match x0 x); introv M.
+    { lets: var_match_true_inv M. subst. case_if~. }
+    { lets [N|[N|N]]: var_match_false_inv M.
+      { case_if~. }
+      { case_if~. subst. rewrite~ subst_anon. }
+      { case_if~. subst. rewrite~ subst_anon. } } }
+Qed.
 
 Lemma substs_fix : forall E f x t,
   substs E (trm_fix f x t) = trm_fix f x (substs (ctx_rem x (ctx_rem f E)) t).
 Proof using.
   substs_simpl_proof.
-  { fequals. case_if~. case_if~.
-    { subst. rewrite~ ctx_rem_same. }
-    { rewrite~ ctx_rem_neq. } }
+  { fequals. rewrite var_eq_spec.
+    case_eq (var_match f x); introv M1.
+    { lets: var_match_true_inv M1. subst. case_if~. }
+    { lets [N1|[N1|N1]]: var_match_false_inv M1.
+      { case_eq (var_match x0 x); introv M2.
+        { lets: var_match_true_inv M2. subst. case_if~. rewrite~ ctx_rem_same. }
+        { lets [N2|[N2|N2]]: var_match_false_inv M2.
+          { case_if. { rewrite~ ctx_rem_neq. } }
+          { subst. case_if~. admit. (*todo *) } 
+          { subst. case_if~. rewrite subst_anon. (* todo: same as later *) admit. } } }
+      { subst. case_eq (var_match x0 x); introv M2.
+        { lets: var_match_true_inv M2. subst. case_if~. rewrite~ ctx_rem_same. }
+        { lets [N2|[N2|N2]]: var_match_false_inv M2.
+          { case_if. { subst. rewrite~ subst_anon. } { rewrite~ ctx_rem_neq. } }
+          { subst. case_if~.
+            { subst. rewrite~ subst_anon. } 
+            { rewrite~ ctx_rem_neq. } } 
+          { subst. case_if~.
+            { subst. rewrite~ subst_anon. } } } }
+      { subst. rewrite var_match_anon. rewrite subst_anon.
+        case_if~.  (* todo: substs  with var_anon  in ctx  is irrelevant *) admit. } } }
 Qed.
 
 Lemma substs_if : forall E t1 t2 t3,
@@ -760,10 +886,16 @@ Proof using. substs_simpl_proof. Qed.
 (* ---------------------------------------------------------------------- *)
 (** N-ary substitution *)
 
-(** Shorthand [vals] and [trms] for lists of values and terms *)
+(** Shorthand [names], [vals] and [trms] for lists of items. *)
 
+Definition names := list name.
 Definition vals : Type := list val.
 Definition trms : Type := list trm.
+
+(** Coercion from list of names to list of variables *)
+
+Coercion names_to_vars (xs:names) :=
+  List.map var_name xs.
 
 (** [substn xs vs t] is a shorthand for [substs (List.combine xs vs) t].
     It substitutes the values [vs] for the corresponding variables in [xs].
@@ -1121,19 +1253,19 @@ Proof using. intros. rew_nary. Abort.
 (* ---------------------------------------------------------------------- *)
 (* ** Sequence of consecutive variables *)
 
-(** [nat_to_var n] converts [nat] values into distinct
-    [var] values.
+(** [nat_to_name n] converts [nat] values into distinct
+    [name] values.
     Warning: the current implementation is inefficient. *)
 
 Definition dummy_char := Ascii.ascii_of_nat 0%nat.
 
-Fixpoint nat_to_var (n:nat) : var :=
+Fixpoint nat_to_name (n:nat) : name :=
   match n with
   | O => String.EmptyString
-  | S n' => String.String dummy_char (nat_to_var n')
+  | S n' => String.String dummy_char (nat_to_name n')
   end.
 
-Lemma injective_nat_to_var : injective nat_to_var.
+Lemma injective_nat_to_name : injective nat_to_name.
 Proof using.
   intros n. induction n as [|n']; intros m E; destruct m as [|m']; tryfalse.
   { auto. }
@@ -1147,7 +1279,7 @@ Qed.
 Fixpoint var_seq (start:nat) (nb:nat) : vars :=
   match nb with
   | O => nil
-  | S nb' => (nat_to_var start) :: var_seq (S start) nb'
+  | S nb' => (var_name (nat_to_name start)) :: var_seq (S start) nb'
   end.
 
 Section Var_seq.
@@ -1155,23 +1287,23 @@ Implicit Types start nb : nat.
 
 Lemma var_fresh_var_seq_lt : forall x start nb,
   (x < start)%nat ->
-  var_fresh (nat_to_var x) (var_seq start nb).
+  var_fresh (nat_to_name x) (var_seq start nb).
 Proof using.
   intros. gen start. induction nb; intros.
   { auto. }
   { simpl. case_if.
-    { lets: injective_nat_to_var C. math. }
+    { lets: injective_nat_to_name C. math. }
     { applys IHnb. math. } }
 Qed.
 
 Lemma var_fresh_var_seq_ge : forall x start nb,
   (x >= start+nb)%nat ->
-  var_fresh (nat_to_var x) (var_seq start nb).
+  var_fresh (nat_to_name x) (var_seq start nb).
 Proof using.
   intros. gen start. induction nb; intros.
   { auto. }
   { simpl. case_if.
-    { lets: injective_nat_to_var C. math. }
+    { lets: injective_nat_to_name C. math. }
     { applys IHnb. math. } }
 Qed.
 
@@ -1229,4 +1361,3 @@ Ltac var_neq :=
               [ false | apply E ] ] end.
 
 Hint Extern 1 (?x <> ?y) => var_neq.
-

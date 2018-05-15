@@ -44,7 +44,6 @@ Lemma red_if_bool : forall n m1 m2 (b:bool) r t1 t2,
      red n m1 (trm_if b t1 t2) m2 r.
 
 
-
 Lemma rule_func_val : forall fopt x t1 H Q,
   H ==> Q (val_func fopt x t1) ->
   normal H ->
@@ -4598,3 +4597,41 @@ Qed.
 Definition Weakestpre (T:forall `{Enc A},hprop->(A->hprop)->Prop) : Formula :=
   fun A (EA:Enc A) (Q:A->hprop) =>
     Hexists (H:hprop), H \* \[T H Q].
+
+
+(* ********************************************************************** *)
+(* * Size of a term *)
+
+(* ---------------------------------------------------------------------- *)
+(** Size of a term, where all values counting for one unit. *)
+
+(* TODO: will be deprecated soon *)
+
+Fixpoint trm_size (t:trm) : nat :=
+  match t with
+  | trm_var x => 1
+  | trm_val v => 1
+  | trm_fun x t1 => 1 + trm_size t1
+  | trm_fix f x t1 => 1 + trm_size t1
+  | trm_if t0 t1 t2 => 1 + trm_size t0 + trm_size t1 + trm_size t2
+  | trm_seq t1 t2 => 1 + trm_size t1 + trm_size t2
+  | trm_let x t1 t2 => 1 + trm_size t1 + trm_size t2
+  | trm_app t1 t2 => 1 + trm_size t1 + trm_size t2
+  | trm_while t1 t2 => 1 + trm_size t1 + trm_size t2
+  | trm_for x t1 t2 t3 => 1 + trm_size t1 + trm_size t2 + trm_size t3
+  end.
+
+Lemma trm_size_subst : forall t x v,
+  trm_size (subst x v t) = trm_size t.
+Proof using.
+  intros. induction t; simpl; repeat case_if; auto.
+Qed.
+
+(** Hint for induction on size. Proves subgoals of the form
+    [measure trm_size t1 t2], when [t1] and [t2] may have some
+    structure or involve substitutions. *)
+
+Ltac solve_measure_trm_size tt :=
+  unfold measure in *; simpls; repeat rewrite trm_size_subst; math.
+
+Hint Extern 1 (measure trm_size _ _) => solve_measure_trm_size tt.
