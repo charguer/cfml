@@ -4635,3 +4635,60 @@ Ltac solve_measure_trm_size tt :=
   unfold measure in *; simpls; repeat rewrite trm_size_subst; math.
 
 Hint Extern 1 (measure trm_size _ _) => solve_measure_trm_size tt.
+
+
+(*
+Fixpoint ctx_fresh (x:var) (E:ctx) : bool :=
+  match E with
+  | nil => true
+  | (y,v)::E' => if var_eq x y then false else ctx_fresh x E'
+  end.
+*)
+
+
+
+  (* deprecated
+  | red_app_arg : forall m1 m2 m3 m4 t1 t2 v1 v2 r,
+      (~ trm_is_val t1 \/ ~ trm_is_val t2) ->
+      red m1 t1 m2 v1 ->
+      red m2 t2 m3 v2 ->
+      red m3 (trm_app v1 v2) m4 r ->
+      red m1 (trm_app t1 t2) m4 r
+  | red_app_fix : forall m1 m2 v1 v2 f x t r,
+      red m1 (trm_app v1 v2) m2 r
+   *)
+
+
+
+
+
+(*
+Definition trm_seq (t1:trm) (t2:trm) :=
+  trm_let bind_anon t1 t2.
+
+Definition trm_fun (x:var) (t1:trm) :=
+  trm_fix bind_anon x t1.
+
+Definition val_fun (x:var) (t1:trm) :=
+  val_fix bind_anon x t1.
+*)
+
+
+
+(*
+*)
+
+
+(* todo deprecated
+  Fixpoint trm_funs (xs:vars) (t:trm) : trm :=
+    match xs with
+    | nil => t
+    | x::xs' => trm_fun x (trm_funs xs' t)
+    end.
+
+  Definition val_funs (xs:vars) (t:trm) : val :=
+    match xs with
+    | nil => arbitrary
+    | x::xs' => val_fun x (trm_funs xs' t)
+    end.
+*)
