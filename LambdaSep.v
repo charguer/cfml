@@ -307,18 +307,6 @@ Ltac hcancel_hook H ::=
 Definition is_val_bool (v:val) : Prop :=
   exists b, v = val_bool b.
 
-(* todo: deprecated *)
-Definition is_val_unit (v:val) : Prop :=
-  v = val_unit.
-
-  (* LATER: introduce definitions
-
-    is_post_unit Q :=
-      (forall (v:val), v <> val_unit -> (Q1 v) ==> \[False]) ->
-
-    is_post_bool Q :=
-      (forall (v:val), v <> true -> v <> false -> (Q1 v) ==> \[False]) ->
-  *)
 
 (* ---------------------------------------------------------------------- *)
 (* ** Auxiliary definitions for [rule_alloc] *)
@@ -742,29 +730,6 @@ Proof using.
   { intros v' N. hpull. intros E. inverts~ E. false N. hnfs*. }
 Qed.
 
-(* todo: deprecated
-Lemma rule_seq : forall t1 t2 H Q Q1,
-  triple t1 H Q1 ->
-  (forall v, ~ is_val_unit v -> (Q1 v) ==> \[False]) ->
-  triple t2 (Q1 val_unit) Q ->
-  triple (trm_seq t1 t2) H Q.
-Proof using.
-  introv M1 M2 M3. intros HF h N.
-  lets~ (h1'&v1&R1&K1): (rm M1) HF h.
-  asserts E: (v1 = val_unit).
-  { specializes M2 v1. applys not_not_inv. intros E.
-    asserts Z: ((\[False] \* \Top \* HF) h1').
-    { applys himpl_trans K1. hchange~ M2. hsimpl. }
-    repeat rewrite hfalse_hstar_any in Z.
-    lets: hpure_inv Z. false*. }
-    (* LATER: shorten this, and factorize with rule_if *)
-  subst. forwards* (h2'&v2&R2&K2): (rm M3) (\Top \* HF) h1'.
-  exists h2' v2. splits~.
-  { applys~ red_seq R2. }
-  { rewrite <- htop_hstar_htop. hhsimpl. }
-Qed.
-*)
-
 Lemma rule_seq : forall t1 t2 H Q Q1,
   triple t1 H Q1 ->
   (forall (X:val), triple t2 (Q1 X) Q) ->
@@ -834,7 +799,7 @@ Proof using.
 Qed.
 
 Lemma rule_while_inv : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) t1 t2 H,
-  let Q := (fun r => \[r = val_unit] \* Hexists Y, I false Y) in
+  let Q := (fun r => Hexists Y, I false Y) in
   wf R ->
   (H ==> (Hexists b X, I b X) \* \Top) -> (* LATER: replace \top with H' *)
   (forall t b X,
@@ -862,31 +827,23 @@ Qed.
 (* LATER: simplify proof using rule_for_raw *)
 Lemma rule_for_gt : forall x n1 n2 t3 H Q,
   n1 > n2 ->
-  (fun r => \[r = val_unit] \* H) ===> (Q \*+ \Top) ->
+  H ==> Q val_unit \* \Top ->
   triple (trm_for x n1 n2 t3) H Q.
 Proof using.
   introv N M. intros H' h Hf. exists h val_unit. splits~.
   { applys* red_for_gt. }
-  { hhsimpl. hchange~ M. hsimpl. }
+  { hhsimpl. hchanges~ M. }
 Qed.
 
 (* LATER: simplify proof using rule_for_raw *)
 Lemma rule_for_le : forall Q1 x n1 n2 t3 H Q,
   n1 <= n2 ->
   triple (subst x n1 t3) H Q1 ->
-  triple (trm_for x (n1+1) n2 t3) (Q1 val_unit) Q ->
-  (forall v, ~ is_val_unit v -> (Q1 v) ==> \[False]) ->
+  (forall v, triple (trm_for x (n1+1) n2 t3) (Q1 v) Q) ->
   triple (trm_for x n1 n2 t3) H Q.
 Proof using.
-  introv N M1 M2 M3. intros HF h Hf. forwards (h1'&v1&R1&K1): (rm M1) Hf.
-  asserts E: (v1 = val_unit).
-  { specializes M3 v1. applys not_not_inv. intros E.
-    asserts Z: ((\[False] \* \Top \* HF) h1').
-    { applys himpl_trans K1. hchange~ M3. hsimpl. }
-    repeat rewrite hfalse_hstar_any in Z.
-    lets: hpure_inv Z. false*. }
-    (* LATER: shorten this, and factorize with rule_if *)
-  subst. forwards* (h2'&v2&R2&K2): (rm M2) (\Top \* HF) h1'.
+  introv N M1 M2. intros HF h Hf. forwards (h1'&v1&R1&K1): (rm M1) Hf.
+  forwards* (h2'&v2&R2&K2): (rm M2) (\Top \* HF) h1'.
   exists h2' v2. splits~.
   { applys* red_for_le. }
   { rewrite <- htop_hstar_htop. hhsimpl. }
@@ -897,15 +854,14 @@ Lemma rule_for : forall x (n1 n2:int) t3 H Q,
   (If (n1 <= n2) then
     (exists Q1,
       triple (subst x n1 t3) H Q1 /\
-      triple (trm_for x (n1+1) n2 t3) (Q1 val_unit) Q /\
-      (forall v, ~ is_val_unit v -> (Q1 v) ==> \[False]))
+      (forall v, triple (trm_for x (n1+1) n2 t3) (Q1 v) Q))
   else
-    ((fun r => \[r = val_unit] \* H) ===> Q)) ->
+    (H ==> Q val_unit)) ->
   triple (trm_for x n1 n2 t3) H Q.
 Proof using.
   introv M. case_if.
   { destruct M. applys* rule_for_le. }
-  { xapplys* rule_for_gt. { math. } intros r. hchanges* M. }
+  { xapplys* rule_for_gt. { math. } hchanges* M. }
 Qed.
 
 (* LATER: simplify proof using rule_for_raw *)
@@ -913,7 +869,7 @@ Lemma rule_for_inv : forall (I:int->hprop) H' x n1 n2 t3 H Q,
   (n1 <= n2+1) ->
   (H ==> I n1 \* H') ->
   (forall i, n1 <= i <= n2 ->
-     triple (subst x i t3) (I i) (fun r => \[r = val_unit] \* I (i+1))) ->
+     triple (subst x i t3) (I i) (fun r => I (i+1))) ->
   (I (n2+1) \* H' ==> Q val_unit \* \Top) ->
   triple (trm_for x n1 n2 t3) H Q.
 Proof using.
@@ -921,7 +877,7 @@ Proof using.
   induction_wf IH: (wf_upto (n2+1)) n1; intros.
   asserts M4: (triple (trm_for x (n2 + 1)%I n2 t3) (I (n2+1) \* H') Q).
   { applys rule_for_gt. { math. }
-    { intros r. hpull ;=> E. subst. hchanges M3. } }
+    { hchanges M3. } }
   tests C: (n1 = n2+1).
   { xapplys M4. }
   { applys rule_for_le.
@@ -929,8 +885,7 @@ Proof using.
     { xapplys M2. { math. } }
     { simpl. xpull ;=> _. tests C': (n1 = n2).
       { xapplys M4. }
-      { xapplys IH. { hnf; math. } { math. } { intros. applys M2. math. } } }
-    { intros v Nv. hpull. } }
+      { xapplys IH. { hnf; math. } { math. } { intros. applys M2. math. } } } }
 Qed.
 
 (** Rules for for-loop not in normal form *)
@@ -1030,12 +985,17 @@ Proof using.
   hnf in N1. sets h1': (fmap_single l w).
   exists (h1' \u h2) val_unit. splits~.
   { applys red_set. subst h h1. applys~ fmap_union_single_to_update. }
-  { rew_heap. rewrite hstar_pure. split~.
-    { exists h1' h2. splits~.
-      { hnfs~. }
-      { hhsimpl~. }
-      { subst h1. applys~ fmap_disjoint_single_set v. } } }
+  { rew_heap. rewrite hstar_pure. split~. exists h1' h2. splits~.
+    { hnfs~. }
+    { hhsimpl~. }
+    { subst h1. applys~ fmap_disjoint_single_set v. } }
 Qed.
+
+Lemma rule_set' : forall w l v,
+  triple (val_set (val_loc l) w)
+    (l ~~~> v)
+    (fun r => l ~~~> w).
+Proof using. intros. xapplys* rule_set. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1236,20 +1196,6 @@ Proof using.
     { applys* red_if_bool. } }
 Qed.
 
-(** An alternative statement for [rule_seq] 
-todo deprecated
-
-Lemma rule_seq' : forall t1 t2 H Q H1,
-  triple t1 H (fun r => \[r = val_unit] \* H1) ->
-  triple t2 H1 Q ->
-  triple (trm_seq t1 t2) H Q.
-Proof using.
-  introv M1 M2. applys rule_seq.
-  { applys M1. }
-  { intros v E. hpull; false. }
-  { applys rule_extract_hprop. intros. applys M2. }
-Qed.
-*)
 
 (* ---------------------------------------------------------------------- *)
 (** Reformulation of the rule for N-ary functions *)

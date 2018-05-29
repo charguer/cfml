@@ -275,8 +275,6 @@ Notation "'Hexists' x1 x2 x3 x4 x5 , H" :=
   (Hexists x1, Hexists x2, Hexists x3, Hexists x4, Hexists x5, H)
   (at level 39, x1 ident, x2 ident, x3 ident, x4 ident, x5 ident, H at level 50) : heap_scope.
 
-Notation "'Hexists' x1 : T1 , H" := (hexists (fun x1:T1 => H)) (* deprecated *)
-  (at level 39, x1 ident, H at level 50, only parsing) : heap_scope.
 Notation "'Hexists' ( x1 : T1 ) , H" := (hexists (fun x1:T1 => H))
   (at level 39, x1 ident, H at level 50, only parsing) : heap_scope.
 Notation "'Hexists' ( x1 : T1 ) ( x2 : T2 ) , H" := (Hexists (x1:T1), Hexists (x2:T2), H)
@@ -399,7 +397,7 @@ Qed.
 
 (** Properties of [hpure] *)
 
-Lemma hstar_pure : forall P H h,
+Lemma hstar_pure : forall P H h, (* TODO: rename to hstar_hpure *)
   (\[P] \* H) h = (P /\ H h).
 Proof using.
   intros. extens. unfold hpure.

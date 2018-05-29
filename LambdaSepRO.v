@@ -1231,7 +1231,9 @@ Proof using.
 Qed.
 
 Lemma rule_ref : forall v,
-  triple (val_ref v) \[] (fun r => Hexists l, \[r = val_loc l] \* l ~~~> v).
+  triple (val_ref v) 
+    \[] 
+    (fun r => Hexists l, \[r = val_loc l] \* l ~~~> v).
 Proof using.
   intros. intros h1 h2 _ P1.
   lets E: hempty_inv P1. subst h1.
@@ -1255,7 +1257,9 @@ Proof using.
 Qed.
 
 Lemma rule_get_ro : forall v l,
-  triple (val_get (val_loc l)) (RO (l ~~~> v)) (fun x => \[x = v]).
+  triple (val_get (val_loc l)) 
+    (RO (l ~~~> v))
+    (fun x => \[x = v]).
 Proof using.
   intros. intros h1 h2 D (h1'&(E1'&E2'&NL)&E1&E2).
   rewrites E2' in E2. rewrite fmap_union_empty_r in E2.
@@ -1269,7 +1273,9 @@ Proof using.
 Qed.
 
 Lemma rule_set : forall w l v,
-  triple (val_set (val_loc l) w) (l ~~~> v) (fun r => \[r = val_unit] \* l ~~~> w).
+  triple (val_set (val_loc l) w) 
+    (l ~~~> v)
+    (fun r => \[r = val_unit] \* l ~~~> w).
 Proof using.
   intros. intros h1 h2 D (E1&E2&NL).
   lets~ (h1'&E1'&E2'): heap_make (fmap_single l w) (fmap_empty:state).

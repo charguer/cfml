@@ -235,10 +235,6 @@ Definition wp_var (E:ctx) (x:var) : formula :=
   | Some v => wp_val v
   end.
 
-(* deprecated
-Definition wp_seq (F1 F2:formula) : formula := local (fun Q =>
-  F1 (fun r => \[r = val_unit] \* F2 Q)).
-*)
 Definition wp_seq (F1 F2:formula) : formula := local (fun Q =>
   F1 (fun X => F2 Q)).
 
@@ -322,7 +318,7 @@ Lemma qimpl_wp_triple : forall t F,
   F ===> wp_triple t.
 Proof using. introv M. intros Q. rewrite~ <- triple_eq_himpl_wp_triple. Qed.
 
-(** Another corrolary of [triple_eq_himpl_wp_triple], 
+(** Another corrolary of [triple_eq_himpl_wp_triple],
     --not needed in the proofs below *)
 
 Lemma triple_wp_triple : forall t Q,
@@ -536,7 +532,7 @@ Lemma is_local_wp : forall E t,
   is_local (wp E t).
 Proof.
   intros. destruct t; try solve [ apply is_local_local ].
-  { rename v into x. simpl. unfold wp_var. 
+  { rename v into x. simpl. unfold wp_var.
     destruct (ctx_lookup x E); apply is_local_local. }
 Qed.
 
@@ -745,14 +741,14 @@ Definition val_incr :=
 Lemma rule_incr : forall (p:loc) (n:int),
   triple (val_incr p)
     (p ~~~> n)
-    (fun r => \[r = val_unit] \* (p ~~~> (n+1))).
+    (fun r => p ~~~> (n+1)).
 Proof using.
   intros. xcf.
   xlet. { xapp. xapplys rule_get. }
   intros x. hpull ;=> E. subst.
   xlet. { xapp. xapplys rule_add. }
   intros y. hpull ;=> E. subst.
-  xapp. xapplys rule_set. auto.
+  xapp. xapplys rule_set.
 Qed.
 
 

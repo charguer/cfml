@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # The name of the archive to create
-TARGET="cfml2_mosel"
+TARGET="credits_sep"
 
 source ../export_common.sh
 

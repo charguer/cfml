@@ -45,23 +45,13 @@ Definition cf_fail : formula := fun H Q =>
 Definition cf_val (v:val) : formula := fun H Q =>
   (fun (x:val) => \[x = v] \* H)  ===> Q.
 
-Definition cf_seq (F1 F2:formula) : formula := fun H Q =>
-  exists H1,
-      F1 H (fun r => \[r = val_unit] \* H1)
-   /\ F2 H1 Q.
-
-(* TODO: maybe use the following alternative, like in [LambdaCFLifted]:
-  Definition cf_seq (F1 : formula) (F2 : formula) : formula := fun H Q =>
-    exists Q1,
-        F1 H Q1
-     /\ F2 H1 Q
-     /\  (forall v, ~ is_val_unit v -> (Q1 v) ==> \[False]).
-*)
-
 Definition cf_let (F1:formula) (F2of:val->formula) : formula := fun H Q =>
   exists Q1,
       F1 H Q1
    /\ (forall (X:val), (F2of X) (Q1 X) Q).
+
+Definition cf_seq (F1 F2:formula) : formula :=
+  cf_let F1 (fun _ => F2).
 
 Definition cf_if_val (v:val) (F1 F2:formula) : formula := fun H Q =>
   exists (b:bool), (v = val_bool b)

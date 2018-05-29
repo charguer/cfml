@@ -45,17 +45,16 @@ Definition cf_fail : formula := fun H Q =>
 Definition cf_val (v:val) : formula := fun H Q =>
   (fun (x:val) => \[x = v] \* H)  ===> Q.
 
-
-Definition cf_seq (F1 F2:formula) : formula := fun H Q =>
-  exists H1,
-      F1 H (fun r => \[r = val_unit] \* H1)
-   /\ F2 H1 Q.
-(* TODO: TEMPORARY BROCKEN DUE TO SEMANTICS CHANGE *)
-
 Definition cf_let (F1:formula) (F2of:val->formula) : formula := fun H Q =>
   exists Q1,
       F1 H Q1
    /\ (forall (X:val), (F2of X) (Q1 X) Q).
+
+Definition cf_seq (F1:formula) (F2:formula) := fun H Q =>
+  exists H1,
+      F1 H (fun r => H1)
+   /\ F2 H1 Q.
+(* alternative:   cf_let F1 (fun _ => F2). *)
 
 Definition cf_if_val (v:val) (F1 F2:formula) : formula := fun H Q =>
   exists (b:bool), (v = val_bool b)
@@ -79,13 +78,6 @@ Definition cf_for (v1 v2:val) (F3:int->formula) : formula := fun H Q =>
    (forall i H' Q', F i H' Q' -> S i H' Q') ->
    S n1 H Q).
 
-(* LATER: maybe use the following alternative, like in [LambdaCFLifted]:
-  Definition cf_seq (F1 : formula) (F2 : formula) : formula := fun H Q =>
-    exists Q1,
-        F1 H Q1
-     /\ F2 H1 Q
-     /\  (forall v, ~ is_val_unit v -> (Q1 v) ==> \[False]).
-*)
 
 
 (* ---------------------------------------------------------------------- *)
@@ -178,9 +170,9 @@ Proof using.
       case_if; applys* IH. }
     { intros v N. specializes P2 v. applys local_extract_false P2.
       intros H' Q' (b&E&S1&S2). subst. applys N. hnfs*. } }
-  { admit. (* destruct P as (H1&P1&P2). applys rule_seq H1.
+  { destruct P as (H1&P1&P2). applys rule_seq (fun (r:val) => H1).
     { applys~ IH. }
-    { intros X. applys~ IH. } *) }
+    { intros X. applys~ IH. } }
   { destruct P as (Q1&P1&P2). applys rule_let Q1.
     { applys~ IH. }
     { intros X. applys~ IH. } }
@@ -193,11 +185,9 @@ Proof using.
       clears H Q1 Q. intros H Q (b'&P1&P2&P3). inverts P1. case_if.
       { forwards~ P2': (rm P2). applys sound_for_local (rm P2').
         clears H Q b'. intros H Q (H1&P1&P2).
-        admit. }
-        (* TODO: modify to reflect change in semantics
-         applys rule_seq'.
+        applys rule_seq.
          { applys* IH. }
-         { applys P2. } } *)
+         { hnf ;=> _. applys P2. } }
       { forwards~ P3': (rm P3). applys sound_for_local (rm P3').
         clears H Q b'. intros H Q P. hnf in P. applys rule_val.
          { hchanges* P. } } }
@@ -208,11 +198,10 @@ Proof using.
     simpls. applys P. { xlocal. }
     clears H Q. intros i H Q P. applys sound_for_local (rm P).
     clears H Q. intros H Q P. applys rule_for. case_if as C.
-    { destruct P as (H1&P1&P2). exists (fun r => \[r = val_unit] \* H1).
+    { destruct P as (H1&P1&P2). exists (fun (r:val) => H1).
       splits.
       { applys* IH. }
-      { xpull ;=> _. applys P2. }
-      { intros v' N. hpull. } }
+      { intros _. applys P2. } }
     { hnf in P. hchanges* P. } }
 Qed.
 
@@ -361,7 +350,7 @@ Notation "'Register_spec' f" := (Register_rule (trm_apps (trm_val f) _))
 
 Hint Extern 1 (Register_spec (val_prim val_ref)) => Provide rule_ref.
 Hint Extern 1 (Register_spec (val_prim val_get)) => Provide rule_get.
-Hint Extern 1 (Register_spec (val_prim val_set)) => Provide rule_set.
+Hint Extern 1 (Register_spec (val_prim val_set)) => Provide rule_set'.
 Hint Extern 1 (Register_spec (val_prim val_alloc)) => Provide rule_alloc.
 Hint Extern 1 (Register_spec (val_prim val_eq)) => Provide rule_eq.
 Hint Extern 1 (Register_spec (val_prim val_add)) => Provide rule_add.
@@ -402,17 +391,20 @@ Ltac xcf_basic_fun n f' ::=
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Tactic [xseq] *)
-
-Ltac xseq_core tt ::=
-  applys local_erase; esplit; split.
-
-
-(* ---------------------------------------------------------------------- *)
 (* ** Tactic [xlet] *)
 
 Ltac xlet_core tt ::=
   applys local_erase; esplit; split.
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xseq] *)
+
+Ltac xseq_clear_val tt :=
+  simpl; match goal with |- val -> _ => intros _ end.
+
+Ltac xseq_core tt ::=
+  xlet_core tt; [ | try xseq_clear_val tt ].
+
 
 
 (* ---------------------------------------------------------------------- *)
@@ -478,7 +470,7 @@ Ltac xapp_template xlet_tactic xapp_tactic xlet_cont ::=
 Ltac xapp_xapply E cont_post :=
   match goal with
   | |- ?F ?H ?Q => is_evar Q; xapplys E
-  | |- ?F ?H (fun r => \[r = val_unit] \* ?H') => is_evar H'; xapplys E
+  (*| |- ?F ?H (fun r => \[r = val_unit] \* ?H') => is_evar H'; xapplys E --- DEPRECATED*)
     (* LATER: might not be needed *)
   | _ => xapply_core E ltac:(fun tt => hcancel) ltac:(cont_post)
   end.

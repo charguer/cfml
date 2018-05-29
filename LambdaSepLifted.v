@@ -866,7 +866,7 @@ Lemma Rule_while : forall t1 t2 H Q,
   triple (trm_while t1 t2) H Q.
 
 Lemma Rule_while_inv : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) t1 t2 H,
-  let Q := (fun r => \[r = val_unit] \* Hexists Y, I false Y) in
+  let Q := (fun r => Hexists Y, I false Y) in
   wf R ->
   (H ==> (Hexists b X, I b X) \* \Top) ->
   (forall t b X,
@@ -876,7 +876,7 @@ Lemma Rule_while_inv : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) t1 t2 H
 
 Lemma Rule_for_gt : forall x n1 n2 t3 H Q,
   n1 > n2 ->
-  (fun r => \[r = val_unit] \* H) ===> (Q \*+ \Top) ->
+  (fun r => \* H) ===> (Q \*+ \Top) ->
   triple (trm_for x n1 n2 t3) H Q.
 
 Lemma Rule_for_le : forall Q1 x n1 n2 t3 H Q,
@@ -890,7 +890,7 @@ Lemma Rule_for_inv : forall (I:int->hprop) H' x n1 n2 t3 H Q,
   (n1 <= n2+1) ->
   (H ==> I n1 \* H') ->
   (forall i, n1 <= i <= n2 ->
-     triple (subst x i t3) (I i) (fun r => \[r = val_unit] \* I (i+1))) ->
+     triple (subst x i t3) (I i) (fun r => I (i+1))) ->
   (I (n2+1) \* H' ==> Q val_unit \* \Top) ->
   triple (trm_for x n1 n2 t3) H Q.
 *)

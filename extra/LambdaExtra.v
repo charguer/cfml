@@ -4598,3 +4598,75 @@ Qed.
 Definition Weakestpre (T:forall `{Enc A},hprop->(A->hprop)->Prop) : Formula :=
   fun A (EA:Enc A) (Q:A->hprop) =>
     Hexists (H:hprop), H \* \[T H Q].
+
+
+
+(* todo: deprecated
+Lemma rule_seq : forall t1 t2 H Q Q1,
+  triple t1 H Q1 ->
+  (forall v, ~ is_val_unit v -> (Q1 v) ==> \[False]) ->
+  triple t2 (Q1 val_unit) Q ->
+  triple (trm_seq t1 t2) H Q.
+Proof using.
+  introv M1 M2 M3. intros HF h N.
+  lets~ (h1'&v1&R1&K1): (rm M1) HF h.
+  asserts E: (v1 = val_unit).
+  { specializes M2 v1. applys not_not_inv. intros E.
+    asserts Z: ((\[False] \* \Top \* HF) h1').
+    { applys himpl_trans K1. hchange~ M2. hsimpl. }
+    repeat rewrite hfalse_hstar_any in Z.
+    lets: hpure_inv Z. false*. }
+    (* LATER: shorten this, and factorize with rule_if *)
+  subst. forwards* (h2'&v2&R2&K2): (rm M3) (\Top \* HF) h1'.
+  exists h2' v2. splits~.
+  { applys~ red_seq R2. }
+  { rewrite <- htop_hstar_htop. hhsimpl. }
+Qed.
+*)
+
+
+(** An alternative statement for [rule_seq] 
+todo deprecated
+
+Lemma rule_seq' : forall t1 t2 H Q H1,
+  triple t1 H (fun r => \[r = val_unit] \* H1) ->
+  triple t2 H1 Q ->
+  triple (trm_seq t1 t2) H Q.
+Proof using.
+  introv M1 M2. applys rule_seq.
+  { applys M1. }
+  { intros v E. hpull; false. }
+  { applys rule_extract_hprop. intros. applys M2. }
+Qed.
+*)
+
+
+(* todo: deprecated *)
+Definition is_val_unit (v:val) : Prop :=
+  v = val_unit.
+
+  (* LATER: introduce definitions
+
+    is_post_unit Q :=
+      (forall (v:val), v <> val_unit -> (Q1 v) ==> \[False]) ->
+
+    is_post_bool Q :=
+      (forall (v:val), v <> true -> v <> false -> (Q1 v) ==> \[False]) ->
+  *)
+
+
+
+
+Definition cf_seq (F1 F2:formula) : formula := fun H Q =>
+  exists H1,
+      F1 H (fun r => \[r = val_unit] \* H1)
+   /\ F2 H1 Q.
+(* TODO: TEMPORARY BROCKEN DUE TO SEMANTICS CHANGE *)
+
+(* LATER: maybe use the following alternative, like in [LambdaCFLifted]:
+  Definition cf_seq (F1 : formula) (F2 : formula) : formula := fun H Q =>
+    exists Q1,
+        F1 H Q1
+     /\ F2 H1 Q
+     /\  (forall v, ~ is_val_unit v -> (Q1 v) ==> \[False]).
+*)
