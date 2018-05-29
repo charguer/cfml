@@ -1,13 +1,13 @@
 
 Set Implicit Arguments.
-From Sep Require Import LambdaSep SepGPM.
+From Sep Require Import LambdaSep SepMosel.
 
 
 Module ProofMode.
 
 
 (* ********************************************************************** *)
-(* * Exposing [heap_empty] to GPM *)
+(* * Exposing [heap_empty] to MoSel *)
 
 Module SepBasicCoreHempty <: SepCoreHemptySig SepBasicCore.
 
@@ -20,10 +20,10 @@ End SepBasicCoreHempty.
 
 
 (* ********************************************************************** *)
-(* * Subset of the interface of SepLogicSetup that needs to be exposed to GPM *)
+(* * Subset of the interface of SepLogicSetup that needs to be exposed to MoSel *)
 
-Module SepBasicGPM := SepLogicGPM SepBasicCore SepBasicCoreHempty SepBasicSetup.
-Export SepBasicGPM.ProofMode.
+Module SepBasicMosel := SepLogicMosel SepBasicCore SepBasicCoreHempty SepBasicSetup.
+Export SepBasicMosel.ProofMode.
 
 Definition wp (t:trm) (Q:val->hprop) : hprop :=
   Hexists H, H \* \[triple t H Q].

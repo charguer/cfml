@@ -8,7 +8,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require Import LambdaSepRO LambdaSepROProofMode.
+From Sep Require Import LambdaSepRO LambdaSepROMosel.
 Import ProofMode.
 Generalizable Variables A B.
 Open Scope trm_scope.
@@ -96,7 +96,7 @@ Definition val_ref_update :=
     Let 'y := 'f 'x in
     val_set 'p 'y.
 
-Lemma rule_ref_update : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),  
+Lemma rule_ref_update : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),
   Normal_post Q -> (* todo: this might not be needed if using "normally" *)
   (triple (f v)
     PRE (RO(p ~~~> v) \* H)

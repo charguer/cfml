@@ -34,7 +34,20 @@ export TLC
 ##############################################################################
 # List of files
 
-SRC := TLCbuffer Fmap SepFunctor LambdaSemantics LambdaSep SLSemantics SLHprop SLHimpl SLRules SLWP LambdaCFTactics LambdaWP LambdaCF LambdaSepLifted LambdaWPLifted  SepGPM LambdaSepProofMode LambdaStruct LambdaSepRO LambdaSepROProofMode ExampleROProofMode  LambdaSepCredits LambdaSepLifted LambdaCFLifted LambdaStructLifted Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleList LambdaCFCredits ExampleRO ExampleListProofMode
+SRC_CORE := TLCbuffer Fmap SepFunctor LambdaSemantics LambdaSep LambdaCFTactics LambdaWP LambdaCF LambdaSepLifted LambdaWPLifted  LambdaStruct LambdaSepRO LambdaSepCredits LambdaSepLifted LambdaCFLifted LambdaStructLifted Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleList LambdaCFCredits ExampleRO 
+
+SRC_SF := SLSemantics SLHprop SLHimpl SLRules SLWP 
+
+SRC_MOSEL := SepMosel LambdaSepMosel LambdaSepROMosel ExampleROMosel ExampleListMosel
+
+SRC := $(SRC_CORE) $(SRC_SF) $(SRC_MOSEL)
+
+
+# using the variable SRC_CUSTOM, one can modify the compilation targets and/or their order.
+
+ifdef SRC_FORCE 
+	SRC := $(SRC_FORCE)
+endif
 
 
 ##############################################################################
@@ -44,7 +57,7 @@ PWD := $(shell pwd)
 
 V := $(addprefix $(PWD)/,$(SRC:=.v))
 
-COQFLAGS:=-w -notation-overridden,-implicits-in-term
+COQFLAGS:=-w -notation-overridden,-implicits-in-term,-redundant-canonical-projection,-several-object-files
 
 COQINCLUDE := \
   -R $(TLC) TLC \

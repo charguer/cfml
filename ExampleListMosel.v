@@ -10,7 +10,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require Import LambdaCF LambdaStruct LambdaSepProofMode.
+From Sep Require Import LambdaCF LambdaStruct LambdaSepMosel.
 Import ProofMode.
 
 Generalizable Variables A B.

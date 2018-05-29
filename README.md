@@ -25,7 +25,8 @@ Installation using opam.
 
    # compile CFML2
    cd ~/cfml2
-   make  
+   make
+   # alternative: make -j4
 
 ```
 
@@ -92,18 +93,14 @@ by Arthur Charguéraud and François Pottier
  * The file __LambdaSemantics.v__
    defines the syntax and semantics of an imperative lambda-calculus.
 
- * The file __SepGPM.v__
-   contains the generic parts of the instantiation of Iris' 
-   proof mode on CFML's logic.
-
 
 ## Plain SL
 
  * The file __LambdaSep.v__
    defines a plain Separation Logic (and proves its soundness).
 
- * The file __LambdaSepProofMode.v__
-   instantiate GPM for LambdaSep.
+ * The file __LambdaCFTactics.v__
+   defines notation and tactics for characteristic formulae.
 
  * The file __LambdaCF.v__
    defines characteristic formulae for plain Separation Logic.
@@ -122,11 +119,21 @@ by Arthur Charguéraud and François Pottier
  * The file __ExamplesListNonlifted.v__
    gives examples of list proofs for plain Separation Logic.
 
- * The file __ExamplesListProofMode.v__
-   gives examples of list proofs using GPM (nonlifted version).
-
  * The file __ExamplesQueueNonlifted.v__
    gives examples of queue proofs for plain Separation Logic.
+
+
+## MoSel proof mode
+
+ * The file __SepMosel.v__
+   contains the generic parts of the instantiation of Iris' 
+   proof mode on CFML's logic.
+
+ * The file __LambdaSepMosel.v__
+   instantiate MoSel for LambdaSep.
+
+ * The file __ExamplesListMosel.v__
+   gives examples of list proofs using MoSel (nonlifted version).
 
 
 ## Lifted SL
@@ -160,14 +167,14 @@ by Arthur Charguéraud and François Pottier
  * The file __LambdaSepRO.v__
    defines a Separation Logic with read-only permissions.
 
- * The file __LambdaSepRO.v__
+ * The file __ExampleRO.v__
    gives examples of proofs using RO logic.
 
- * The file __LambdaSepROProofMode.v__
-   instantiate GPM for LambdaSepRO.
+ * The file __LambdaSepROMosel.v__
+   instantiate Mosel for LambdaSepRO.
 
- * The file __ExamplesROProofMode.v__
-   gives examples of proofs using RO logic with GPM.
+ * The file __ExamplesROMosel.v__
+   gives examples of proofs using RO logic with Mosel.
 
 
 ## Time-credits SL

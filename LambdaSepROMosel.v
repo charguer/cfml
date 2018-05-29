@@ -1,13 +1,13 @@
 
 Set Implicit Arguments.
-From Sep Require Import LambdaSepRO SepGPM.
+From Sep Require Import LambdaSepRO SepMosel.
 
 
 Module ProofMode.
 
 
 (* ********************************************************************** *)
-(* * Exposing [heap_empty] to GPM *)
+(* * Exposing [heap_empty] to MoSel *)
 
 Module SepROCoreHempty <: SepCoreHemptySig SepROCore.
 
@@ -20,10 +20,10 @@ End SepROCoreHempty.
 
 
 (* ********************************************************************** *)
-(* * Subset of the interface of SepLogicSetup that needs to be exposed to GPM *)
+(* * Subset of the interface of SepLogicSetup that needs to be exposed to MoSel *)
 
-Module SepROGPM := SepLogicGPM SepROCore SepROCoreHempty SepROSetup.
-Export SepROGPM.ProofMode.
+Module SepROMosel := SepLogicMosel SepROCore SepROCoreHempty SepROSetup.
+Export SepROMosel.ProofMode.
 
 (* ---------------------------------------------------------------------- *)
 (** Proof mode definitions for LambdaSepRO *)
@@ -222,7 +222,7 @@ Proof. rewrite /KnownRMakeROFrame /MakeROFrame. iIntros "H". by iSplitL. Qed.
 
 Typeclasses Opaque ROFrame.
 
-(* There is no support, in IGPM, for resources that would be
+(* There is no support, in MoSel, for resources that would be
    duplicable but not persistent (like RO which is not affine). We
    workaround this restriction with this [DupFrameRO] that repeatedly
    tries to frame an RO permission in a goal. This [DupFrameRO] type

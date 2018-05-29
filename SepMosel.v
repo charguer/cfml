@@ -22,7 +22,7 @@ Global Obligation Tactic := Coq.Program.Tactics.program_simpl.
 
 
 (* ********************************************************************** *)
-(* * Extension to the core interface that needs to be exposed to GPM *)
+(* * Extension to the core interface that needs to be exposed to MoSel *)
 
 Module Type SepCoreHemptySig (SC : SepCore).
 Import SC.
@@ -33,7 +33,7 @@ Parameter heap_empty : heap.
 
 (** Forces the definition of [hempty] to be the canonical one *)
 
-Parameter hempty_eq : 
+Parameter hempty_eq :
   hempty = (fun h => h = heap_empty).
 
 End SepCoreHemptySig.
@@ -41,9 +41,9 @@ End SepCoreHemptySig.
 
 
 (* ********************************************************************** *)
-(* * Subset of the interface of SepLogicSetup that needs to be exposed to GPM *)
+(* * Subset of the interface of SepLogicSetup that needs to be exposed to MoSel *)
 
-Module Type SepSetupGPMSig (SC : SepCore).
+Module Type SepSetupMoselSig (SC : SepCore).
 Export SC.
 
 Implicit Types h : heap.
@@ -152,7 +152,7 @@ Parameter local_ramified_frame : forall B (Q1:B->hprop) H1 F H Q,
   H ==> H1 \* (Q1 \---* Q) ->
   F H Q.
 
-End SepSetupGPMSig.
+End SepSetupMoselSig.
 
 
 
@@ -161,7 +161,7 @@ End SepSetupGPMSig.
 (* * Proof Mode *)
 
 
-Module SepLogicGPM (SC : SepCore) (SCH: SepCoreHemptySig SC) (SS : SepSetupGPMSig SC).
+Module SepLogicMosel (SC : SepCore) (SCH: SepCoreHemptySig SC) (SS : SepSetupMoselSig SC).
 Export SS SCH.
 
 
@@ -486,4 +486,4 @@ Ltac hpull_xpull_iris_hook tt ::=
 End ProofMode.
 
 
-End SepLogicGPM.
+End SepLogicMosel.
