@@ -1,4 +1,53 @@
 #############################################################
+# Installation
+
+Installation using opam.
+
+
+```
+   # create an opam switch for CFML2
+   opam switch cfml_8.7.2 -A 4.05.0
+   `opam config env`
+
+   # install Coq at the right version
+   opam pin add coq 8.7.2
+   opam install coqide
+
+   # install MoSel
+   opam repo add iris-dev https://gitlab.mpi-sws.org/FP/opam-dev.git
+   opam update
+   opam install coq-iris=branch.gen_proofmode.2018-05-29.0.9b14f90a
+
+   # install TLC from package
+   opam repo add coq-released http://coq.inria.fr/opam/released
+   opam update
+   opam install coq-tlc.20180316  
+
+   # compile CFML2
+   cd ~/cfml2
+   make  
+
+```
+
+
+Remarks:
+
+* The general-purpose Coq library called TLC is required for all files.
+  It is available from opam (package name "coq-tlc").
+  
+  Alternatively, one can also use TLC from sources:
+     https://gitlab.inria.fr/charguer/tlc
+  in which case you'll to add a file "settings.sh" with contents, e.g.
+  "TLC=~/tlc/src"
+
+
+* The MoSel proof mode is required for the compilation of 
+  files that depend on the proof mode. It is available via opam:
+  `opam install coq-iris=branch.gen_proofmode.2018-05-29.0.9b14f90a`
+
+
+
+#############################################################
 # Models of Separation Logics for a simple imperative lambda-calculus
 
 This archive contains definitions and proofs of soundness for several
@@ -6,7 +55,7 @@ Separation Logics.
 
 The plain Separation Logic and the characteristic formulae
 (used for more smoothly integrating Separation Logic into interactive
-proofs) is as described in Arthur Charguéraud's lecture notes, 
+proofs) is close to that described in Arthur Charguéraud's lecture notes, 
 available from:
   http://www.chargueraud.org/teach/verif/seplogic.pdf
 
@@ -23,16 +72,6 @@ __Temporary Read-Only Permissions for Separation Logic__
 by Arthur Charguéraud and François Pottier
 (ESOP 2017).
   http://www.chargueraud.org/research/2017/readonlysep/readonlysep.pdf
-
-
-#############################################################
-# Dependencies
-
-* The general-purpose Coq library called TLC is required.
-  It is available from opam (package name "tlc"), or from sources:
-  https://gitlab.inria.fr/charguer/tlc
-  in which case you'll to add a file "settings.sh" with contents, e.g.
-  "TLC=~/tlc/src"
 
 
 #############################################################

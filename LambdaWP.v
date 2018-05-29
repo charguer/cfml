@@ -683,12 +683,11 @@ Ltac xcf_basic_fun n f' ::= (* for WP2 *)
   match f with
   | val_funs _ _ => (* TODO: use (apply (@..)) instead of applys? same in cflifted *)
       applys triple_apps_funs_of_wp_iter;
-      [ reflexivity | try xeq_encs | reflexivity | xcf_post tt ]
+      [ reflexivity | reflexivity | xcf_post tt ]
   | val_fixs _ _ _ =>
       applys triple_apps_fixs_of_wp_iter f';
       [ try unfold f'; rew_nary; try reflexivity (* TODO: how in LambdaCF? *)
         (* reflexivity *)
-      | try xeq_encs |
       | reflexivity
       | xcf_post tt ]
 
