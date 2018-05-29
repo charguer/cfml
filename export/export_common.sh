@@ -25,7 +25,7 @@ ARCHIVE=`pwd`/$TARGET
 LOCAL=`pwd`
 
 # The absolute name of the root folder.
-SOURCES=`pwd`/../..
+SOURCES=`pwd`/../../theories
 
 # Wipe out a previous archive.
 rm -rf $ARCHIVE $ARCHIVE.tar.gz
