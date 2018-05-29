@@ -153,7 +153,7 @@ Qed.
       PRE \[]
       POST (fun r => \[r = val_int (2*n)]).
   Proof using.
-    admit.
+
   Qed.
 
 *)

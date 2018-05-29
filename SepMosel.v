@@ -343,7 +343,7 @@ Proof. rewrite /FromAnd. auto. Qed.
 Global Instance from_sep_hpure φ ψ : FromSep \[φ ∧ ψ] \[φ] \[ψ].
 Proof. rewrite /FromSep. auto. Qed.
 Global Instance into_and_hpure (p : bool) φ ψ : IntoAnd p \[φ ∧ ψ] \[φ] \[ψ].
-Proof. rewrite /IntoAnd. (*  do 2 f_equiv. auto. TODO *) admit. Qed.
+Proof. rewrite /IntoAnd. f_equiv. auto. Qed.
 Global Instance into_sep_hpure φ ψ : IntoSep \[φ ∧ ψ] \[φ] \[ψ].
 Proof. rewrite /IntoSep. auto. Qed.
 Global Instance from_or_hpure φ ψ : FromOr \[φ ∨ ψ] \[φ] \[ψ].

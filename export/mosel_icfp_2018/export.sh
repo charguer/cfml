@@ -8,7 +8,7 @@ set -euo pipefail
 #############################################################
 
 # The name of the archive to create
-TARGET="cfml2_iris"
+TARGET="cfml2_mosel"
 
 # The absolute name of the archive directory.
 ARCHIVE=`pwd`/$TARGET
