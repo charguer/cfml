@@ -189,7 +189,7 @@ Instance frame_normally (p : bool) (P Q R R' : hprop) :
   Normal P → Frame false P Q R → MakeNormally R R' →
   Frame p P (normally Q) R'.
 Proof.
-  rewrite /Frame /MakeNormally /= bi.affinely_persistently_if_elim =>? <- <-.
+  rewrite /Frame /MakeNormally /= bi.intuitionistically_if_elim =>? <- <-.
   rewrite {1}(@normally_intro P) normally_hstar //.
 Qed.
 
@@ -273,7 +273,7 @@ Instance frame_roframe_ro_lr p (R P P' Q Q' S : hprop) :
   MakeROFrame P' Q' S → Frame p (RO R) (ROFrame P Q) S | 1.
 Proof.
   rewrite /Frame /DupFrameRO /FrameOrWand /MakeROFrame
-          bi.affinely_persistently_if_elim=><- <- ->.
+          bi.intuitionistically_if_elim=><- <- ->.
   assert (HR:=@RO_duplicatable R). unfold duplicatable in HR. rewrite {1}HR.
   by rewrite /bi_sep /= hstar_assoc ROFrame_frame_r ROFrame_frame_l.
 Qed.
@@ -289,7 +289,7 @@ Instance frame_roframe_lr p (R P P' Q Q' S : hprop) :
   Frame p R (ROFrame P Q) S | 3.
 Proof.
   rewrite /DupFrameRO /FrameOrWand /MakeROFrame /Frame
-    bi.affinely_persistently_if_elim =>? <- <- ->. apply ROFrame_frame_lr, _.
+    bi.intuitionistically_if_elim =>? <- <- ->. apply ROFrame_frame_lr, _.
 Qed.
 
 (* 4th step: we frame on the RHS *)

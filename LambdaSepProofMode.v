@@ -36,8 +36,8 @@ Proof using.
   { applys~ rule_consequence (rm M). xpull~. }
 Qed.
 
-Instance triple_as_valid t H Q : AsValid (triple t H Q) (H -∗ wp t Q).
-Proof. rewrite /AsValid wp_equiv. apply as_valid. Qed.
+Instance triple_as_valid t H Q : AsEmpValid (triple t H Q) (H -∗ wp t Q).
+Proof. rewrite /AsEmpValid wp_equiv. apply as_emp_valid. Qed.
 
 Instance frame_wp p t R Φ Ψ :
   (∀ v, Frame p R (Φ v) (Ψ v)) → Frame p R (wp t Φ) (wp t Ψ).
@@ -56,7 +56,3 @@ Qed.
 (* ********************************************************************** *)
 
 End ProofMode.
-
-
-
-

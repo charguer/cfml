@@ -2,7 +2,7 @@
 
    opam repo add iris-dev https://gitlab.mpi-sws.org/FP/opam-dev.git
    opam update
-   opam install coq-iris=branch.gen_proofmode.2018-03-16.1
+   opam install coq-iris=branch.gen_proofmode.2018-05-29.0.9b14f90a
 
 *)
 
