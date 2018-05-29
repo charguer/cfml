@@ -18,8 +18,8 @@ Implicit Types n : int.
 Implicit Types v : val.
 
 
-
-(* todo move *)
+(*------------------------------------------------------------------*)
+(** Auxiliary *)
 
 Lemma rule_apps_funs : forall xs F (Vs:vals) t1 H Q,
   F = (val_funs xs t1) ->
@@ -64,7 +64,6 @@ Proof using.
   { rewrite~ hstar_comm. } { rewrite~ hstar_comm. }
 Qed.
 
-
 Lemma rule_get : forall v l,
   triple (val_get (val_loc l))
     (l ~~~> v)
@@ -102,6 +101,7 @@ Lemma rule_frame_conseq : forall t H1 Q1 H2 H Q,
 Proof using. intros. applys* rule_consequence. applys* rule_frame. Qed.
 
 Hint Resolve Normal_hsingle.
+
 
 (* ********************************************************************** *)
 (* * Formalisation of higher-order iterator on a reference *)
@@ -260,7 +260,11 @@ Proof using.
   { intros x; simpl; xpull ;=> E; subst x. applys rule_get_ro. }
 Qed.
 
-(*---*)
+
+
+(* ---------------------------------------------------------------------- *)
+
+(*--- Under development
 
 (* let box_twice f p =
       let q = !p in
@@ -298,3 +302,4 @@ Abort.
 
 
 
+*)
