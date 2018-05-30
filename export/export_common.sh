@@ -60,13 +60,12 @@ $DATE > $ARCHIVE/DATE
 echo "Creating $TARGET.tar.gz with contents:"
 tar -cvzf $TARGET.tar.gz $TARGET
 
-# Try to compile.
-echo "Testing installation..."
-make -C $TARGET -j4
-echo "---Success!---"
-read -n 1 -p "Press ENTER to delete test folder, or Ctrl+C to keep the files."
-rm -Rf $TARGET
-echo "Cleared $TARGET."
-
-
-
+# Try to compile (unless disabled).
+if [ -z "${NO_TEST:-}" ]; then
+    echo "Testing installation..."
+    make -C $TARGET -j4
+    echo "---Success!---"
+    read -n 1 -p "Press ENTER to delete test folder, or Ctrl+C to keep the files."
+    rm -Rf $TARGET
+    echo "Cleared $TARGET."
+fi
