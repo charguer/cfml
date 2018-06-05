@@ -4692,3 +4692,13 @@ Definition val_fun (x:var) (t1:trm) :=
     | x::xs' => val_fun x (trm_funs xs' t)
     end.
 *)
+
+
+Notation "'trm_seq' t1 t2" := (trm_let bind_anon t1 t2)
+  (at level 69, t1 at level 0, t2 at level 0).
+
+Notation "'trm_fun' x t1" := (trm_fix bind_anon x t1)
+  (at level 69, x at level 0, t1 at level 0).
+
+Notation "'val_fun' x t1" := (val_fix bind_anon x t1)
+  (at level 69, x at level 0, t1 at level 0).

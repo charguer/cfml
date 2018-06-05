@@ -93,14 +93,11 @@ Proof using. apply (Inhab_of_val val_unit). Qed.
 
 (** Encoded constructs *)
 
-Notation "'trm_seq' t1 t2" := (trm_let bind_anon t1 t2)
-  (at level 69, t1 at level 0, t2 at level 0).
+Notation trm_seq := (trm_let bind_anon).
 
-Notation "'trm_fun' x t1" := (trm_fix bind_anon x t1)
-  (at level 69, x at level 0, t1 at level 0).
+Notation trm_fun := (trm_fix bind_anon).
 
-Notation "'val_fun' x t1" := (val_fix bind_anon x t1)
-  (at level 69, x at level 0, t1 at level 0).
+Notation val_fun := (val_fix bind_anon).
 
 
 (* ---------------------------------------------------------------------- *)
@@ -114,6 +111,7 @@ Coercion trm_val : val >-> trm.
 Coercion trm_var : var >-> trm.
 Coercion trm_app : trm >-> Funclass.
 Coercion bind_var : var >-> bind.
+Coercion bind_var : string >-> bind.
 
 
 (* ********************************************************************** *)
@@ -127,64 +125,82 @@ Coercion bind_var : var >-> bind.
 Definition ctx : Type :=
   list (var * val).
 
-(** [ctx_empty] describes the empty context *)
+Module Ctx.
 
-Definition ctx_empty : ctx :=
+(** [empty] describes the empty context *)
+
+Definition empty : ctx :=
   nil.
 
-(** [ctx_add z v E] is defined as:
+(** [add z v E] is defined as:
     - [E] if [z] is the anonymous binder
     - [E] extended with the pair [(x,v)] if [z] is a variable [x]. *)
 
-Definition ctx_add (z:bind) (v:val) (E:ctx) : ctx :=
+Definition add (z:bind) (v:val) (E:ctx) : ctx :=
   match z with
   | bind_anon => E
   | bind_var x => (x,v)::E
   end.
 
-(** [ctx_one z v] is a shorthand for [ctx_add z v ctx_empty] *)
+(** [one z v] is a shorthand for [add z v empty] *)
 
-Definition ctx_one (z:bind) (v:val) : ctx :=
-  ctx_add z v ctx_empty.
+Definition one (z:bind) (v:val) : ctx :=
+  add z v empty.
 
-(** [ctx_two z1 v1 z2 v2] is a shorthand for
-    [ctx_add z1 v1 (ctx_add z2 v2 ctx_empty)]. *)
+(** [rem x E] removes all bindings on [x] stored in [E] *)
 
-Definition ctx_two (z1:bind) (v1:val) (z2:bind) (v2:val) : ctx :=
-  ctx_add z1 v1 (ctx_add z2 v2 ctx_empty).
-
-(** [ctx_rem x E] removes all bindings on [x] stored in [E] *)
-
-Fixpoint ctx_rem_var (x:var) (E:ctx) : ctx :=
+Fixpoint rem_var (x:var) (E:ctx) : ctx :=
   match E with
   | nil => nil
   | (y,v)::E' =>
-      let E'' := ctx_rem_var x E' in
+      let E'' := rem_var x E' in
       if var_eq x y then E'' else (y,v)::E''
   end.
 
-Fixpoint ctx_rem (z:bind) (E:ctx) : ctx :=
+Fixpoint rem (z:bind) (E:ctx) : ctx :=
   match z with
   | bind_anon => E
-  | bind_var x => ctx_rem_var x E
+  | bind_var x => rem_var x E
   end.
 
-(** [ctx_lookup x E] returns
+(** [lookup x E] returns
     - [None] if [x] is not bound in [E]
     - [Some v] if [x] is bound to [v] in [E]. *)
 
-Fixpoint ctx_lookup (x:var) (E:ctx) : option val :=
+Fixpoint lookup (x:var) (E:ctx) : option val :=
   match E with
   | nil => None
   | (y,v)::E' => if var_eq x y
                    then Some v
-                   else ctx_lookup x E'
+                   else lookup x E'
   end.
 
-(** [ctx_fresh x E] asserts that [x] is not bound in [E] *)
+(** [fresh x E] asserts that [x] is not bound in [E] *)
 
-Definition ctx_fresh (x:var) (E:ctx) : Prop :=
-  ctx_lookup x E = None.
+Definition fresh (x:var) (E:ctx) : Prop :=
+  lookup x E = None.
+
+
+(** Lemmas to reintroduce contexts *)
+
+Lemma nil_eq_ctx_empty :
+  @nil (prod var val) = empty.
+Proof using. auto. Qed.
+
+Lemma cons_eq_ctx_add : forall x v (E:ctx),
+  (x,v)::E = add x v E.
+Proof using. auto. Qed.
+
+Hint Rewrite nil_eq_ctx_empty cons_eq_ctx_add : rew_ctx.
+
+Tactic Notation "rew_ctx" :=
+  autorewrite with rew_ctx.
+Tactic Notation "rew_ctx" "in" hyp(H) :=
+  autorewrite with rew_ctx in H.
+Tactic Notation "rew_ctx" "in" "*" :=
+  autorewrite with rew_ctx in *.
+
+End Ctx.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -196,25 +212,25 @@ Fixpoint subst (E:ctx) (t:trm) : trm :=
   let aux := subst E in
   match t with
   | trm_val v => trm_val v
-  | trm_var x => match ctx_lookup x E with
+  | trm_var x => match Ctx.lookup x E with
                  | None => t
                  | Some v => v
                  end
-  | trm_fix f z t1 => trm_fix f z (subst (ctx_rem z (ctx_rem f E)) t1)
+  | trm_fix f z t1 => trm_fix f z (subst (Ctx.rem z (Ctx.rem f E)) t1)
   | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
-  | trm_let z t1 t2 => trm_let z (aux t1) (subst (ctx_rem z E) t2)
+  | trm_let z t1 t2 => trm_let z (aux t1) (subst (Ctx.rem z E) t2)
   | trm_app t1 t2 => trm_app (aux t1) (aux t2)
   | trm_while t1 t2 => trm_while (aux t1) (aux t2)
-  | trm_for x t1 t2 t3 => trm_for x (aux t1) (aux t2) (subst (ctx_rem x E) t3)
+  | trm_for x t1 t2 t3 => trm_for x (aux t1) (aux t2) (subst (Ctx.rem x E) t3)
   end.
 
 (** [subst1 z v t] replaces occurences of binder [z] with [v] in [t]. *)
 
 Definition subst1 (z:bind) (v:val) (t:trm) :=
-  subst (ctx_one z v) t.
+  subst (Ctx.one z v) t.
 
 Definition subst2 (z1:bind) (v1:val) (z2:bind) (v2:val) (t:trm) :=
-  subst (ctx_two z1 v1 z2 v2) t.
+  subst (Ctx.add z1 v1 (Ctx.one z2 v2)).
 
 
 (* ---------------------------------------------------------------------- *)
@@ -253,7 +269,7 @@ Inductive red : state -> trm -> state -> val -> Prop :=
       red m1 t1 m2 v1 ->
       red m2 t2 m3 v2 ->
       v1 = val_fix f z t3 ->
-      red m3 (subst2 f v1 z v2 t3) m4 r ->
+      red m3 (subst2 z v2 f v1 t3) m4 r ->
       red m1 (trm_app t1 t2) m4 r
   | red_while : forall m1 m2 t1 t2 r,
       red m1 (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) m2 r ->
@@ -320,26 +336,6 @@ Inductive red : state -> trm -> state -> val -> Prop :=
 End Red.
 
 
-(* ---------------------------------------------------------------------- *)
-(** Reintroduce contexts *)
-
-Lemma nil_eq_ctx_empty : 
-  @nil (prod var val) = ctx_empty.
-Proof using. auto. Qed.
-
-Lemma cons_eq_ctx_add : forall x v (E:ctx),
-  (x,v)::E = ctx_add x v E.
-Proof using. auto. Qed.
-
-Hint Rewrite nil_eq_ctx_empty cons_eq_ctx_add : rew_ctx.
-
-Tactic Notation "rew_ctx" := 
-  autorewrite with rew_ctx.
-Tactic Notation "rew_ctx" "in" hyp(H) := 
-  autorewrite with rew_ctx in H.
-Tactic Notation "rew_ctx" "in" "*" := 
-  autorewrite with rew_ctx in *.
-
 
 (* ---------------------------------------------------------------------- *)
 (** Properties of operations on contexts  *)
@@ -347,7 +343,7 @@ Tactic Notation "rew_ctx" "in" "*" :=
 Lemma ctx_fresh_inv : forall (x1 x2:var) v E,
   ctx_fresh x1 (ctx_add x2 v E) ->
   x1 <> x2 /\ ctx_fresh x1 E.
-Proof using. 
+Proof using.
   introv M. unfolds ctx_fresh. simpls.
   rewrite var_eq_spec in *. case_if~.
 Qed.
@@ -373,9 +369,9 @@ Lemma ctx_rem_add_neq : forall z1 z2 v E,
   z1 <> z2 ->
   ctx_rem z1 (ctx_add z2 v E) = ctx_add z2 v (ctx_rem z1 E).
 Proof using.
-  intros. destruct z2 as [|x2]. 
+  intros. destruct z2 as [|x2].
   { auto. }
-  { destruct z1 as [|x1]. 
+  { destruct z1 as [|x1].
     { auto. }
     { simpl. rewrite var_eq_spec. case_if~. } }
 Qed.
@@ -397,7 +393,7 @@ Qed.
 Lemma subst_ctx_empty : forall t,
   subst ctx_empty t = t.
 Proof using.
-  intros. induction t; simpl; 
+  intros. induction t; simpl;
    try solve [ repeat rewrite ctx_rem_empty; fequals* ].
 Qed.
 
@@ -427,7 +423,7 @@ Lemma subst_ctx_add : forall z v E t,
 Proof using.
   intros. destruct z as [|x].
   { simpl. rewrite~ subst1_anon. }
-  { unfold subst1. simpl. rew_ctx. gen E. 
+  { unfold subst1. simpl. rew_ctx. gen E.
     induction t; intros; simpl; try solve [ fequals* ].
     { rewrite var_eq_spec. case_if~. }
     { rew_ctx. fequals. tests: (b = x).
@@ -454,7 +450,7 @@ Lemma subst1_subst_ctx_rem_same : forall E z v t,
   = subst E (subst1 z v t).
 Proof using.
   intros. rewrite <- subst_ctx_add.
-(* 
+(*
   intros E. induction E as [|(y,w) E']; simpl; intros.
   { auto. }
   { rewrite var_eq_spec. case_if.
@@ -554,6 +550,8 @@ Qed.
 
 (* ---------------------------------------------------------------------- *)
 (** Notation for program variables *)
+
+Module NotationForVariables.
 
 Notation "''a'" := ("a":var) : var_scope.
 Notation "''b'" := ("b":var) : var_scope.
@@ -665,7 +663,7 @@ Notation "''z3'" := ("z3":var) : var_scope.
 
 Open Scope var_scope.
 
-(* Note: for variable names with several letters, add your own definition *)
+End NotationForVariables.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1052,7 +1050,7 @@ Proof using.
       { applys length_zero_inv. math. } subst vs'. clear L.
       simpls. applys* red_app. }
     { rew_istrue in N. destruct N as [F N'].
-      unfold substn in M. simpl combine in M. rew_ctx in M. 
+      unfold substn in M. simpl combine in M. rew_ctx in M.
       rewrite subst_ctx_add in M. applys~ IHxs' M. applys* red_app.
       { rewrite~ subst_trm_funs. applys~ red_funs. } { splits~. } } }
 Qed.
@@ -1087,10 +1085,10 @@ Proof using.
   { auto. }
   { unfold subst1. simpls. repeat rewrite var_eq_spec in *.
     do 2 case_if in N. simpl. rewrite var_eq_spec. case_if~.
-    fequals. 
+    fequals.
     forwards K: subst_trm_funs N. unfold subst1, ctx_one in K.
     simpls. rewrite~ K. }
-Qed.  (* LATER: simplify *) 
+Qed.  (* LATER: simplify *)
 
 (* LATER
 Lemma red_app_fixs_val : forall xs vs m1 m2 vf (f:var) t r,
