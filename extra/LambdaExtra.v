@@ -4864,3 +4864,66 @@ Qed.
     repeat case_if; simpl; repeat case_if; auto ].
   Qed.
 *)
+
+
+
+
+(** Auxiliary results for freshness of bindings w.r.t. combine *)
+
+
+(*
+Lemma fresh_combine : forall x ys vs,
+  var_fresh x ys ->
+  length ys = length vs ->
+  Ctx.fresh x (LibList.combine ys vs).
+Proof using.
+  intros x ys. unfold Ctx.fresh.
+  induction ys as [|y ys']; simpl; intros [|v vs] M L;
+   rew_list in *; try solve [ false; math ].
+  { auto. }
+  { simpl. rewrite var_eq_spec in *. do 2 case_if. rewrite~ IHys'. }
+Qed.
+
+(* Permutation lemma for substitution and n-ary substitution *)
+
+Lemma subst_substn : forall x v ys ws t,
+  var_fresh x ys ->
+  length ys = length ws ->
+  subst1 x v (substn ys ws t) = substn ys ws (subst1 x v t).
+Proof using.
+  introv M L. unfold substn. rewrite~ subst1_subst.
+  applys~ fresh_combine.
+Qed.
+
+*)
+
+(*
+Lemma red_app_fixs_val : forall xs (vs:vals) m1 m2 tf (vf:val) (f:var) t r,
+  red m1 tf m1 vf ->
+  vf = val_fixs f xs t ->
+  red m1 (substn (f::xs) (vf::vs) t) m2 r ->
+  var_fixs f (length vs) xs ->
+  red m1 (trm_apps tf vs) m2 r.
+Proof using.
+  introv M1 EQ M2 (F&L&N). gen tf t r m1 m2 F N. list2_ind~ xs vs; intros.
+  (* LATER: replace list2_ind by list2_inv *)
+  { false. }
+  { rename xs1 into xs', x1 into x1, x2 into v1, xs2 into vs'. clear H0.
+    simpl in F. rew_istrue in F. destruct F as (F1&F').
+    tests C: (xs' = nil).
+    { rew_list in *. asserts: (vs' = nil).
+      { applys length_zero_inv. math. } subst vs'.
+      simpls. applys* red_app. applys* red_val. applys* M2. }
+    { subst vf. applys red_app. applys~ red_app_funs_val_ind.
+      { applys red_val. eauto. applys* red_app_fix. do 2 rewrite~ subst_trm_funs. applys~ red_funs. }
+      { rewrite~ subst_substn in M. { rewrite~ substn_cons in M.
+        rewrite~ subst_subst_neq. } { simpl. case_if~. } }
+      { splits*. } } }
+
+do 2 rewrite substn_cons in M2. applys~ IH M2. applys* red_app.
+      { applys* red_val. }
+      { simpl. unfold subst2. simpl. rew_ctx.
+        rewrite subst_add. rewrite subst_empty.
+        rewrite~ subst_trm_funs. applys~ red_funs. } } }
+Qed.
+*)
