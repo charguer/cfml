@@ -18,34 +18,6 @@ Generalizable Variables A.
 Ltac auto_star ::= jauto.
 
 
-(* TODO: move to TLC buffer *)
-
-Lemma list2_ind : forall A B (P:list A->list B->Prop) l1 l2,
-  length l1 = length l2 ->  
-  P nil nil ->
-  (forall x1 xs1 x2 xs2, P xs1 xs2 -> P (x1::xs1) (x2::xs2)) -> 
-  P l1 l2.
-Proof using.
-  introv E M1 M2. gen l2. induction l1 as [|x1 l1']; intros;
-   destruct l2 as [|x2 l2']; try solve [false; math]; auto.
-Qed.
-
-Tactic Notation "list2_ind" constr(l1) constr(l2) :=
-  pattern l2; pattern l1;
-  match goal with |- (fun a => (fun b => @?P a b) _) _ => 
-   (* applys list2_ind P *)
-   let X := fresh "P" in set (X := P); applys list2_ind X; unfold X; try clear X
- end.
-
-Tactic Notation "list2_ind" "~" constr(l1) constr(l2) :=
-  list2_ind l1 l2; auto_tilde.
-
-Tactic Notation "list2_ind" "*" constr(l1) constr(l2) :=
-  list2_ind l1 l2; auto_star.
-
-Tactic Notation "list2_ind" constr(E) :=
-  match type of E with length ?l1 = length ?l2 =>
-    list2_ind l1 l2; [ apply E | | ] end.
 
 
 (* ********************************************************************** *)

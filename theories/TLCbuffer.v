@@ -194,7 +194,74 @@ Tactic Notation "isubst" :=
 (* ---------------------------------------------------------------------- *)
 (* Cases *)
 
-Tactic Notation "cases" constr(E) :=  
+Tactic Notation "cases" constr(E) :=
   let H := fresh "Eq" in cases E as H.
+
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* Induction on pairs of lists *)
+
+Lemma list2_ind : forall A B (P:list A->list B->Prop) l1 l2,
+  length l1 = length l2 ->
+  P nil nil ->
+  (forall x1 xs1 x2 xs2, 
+     length xs1 = length xs2 -> P xs1 xs2 -> P (x1::xs1) (x2::xs2)) ->
+  P l1 l2.
+Proof using.
+  introv E M1 M2. gen l2. induction l1 as [|x1 l1']; intros;
+   destruct l2 as [|x2 l2']; try solve [false; math]; auto.
+Qed.
+
+Tactic Notation "list2_ind" constr(l1) constr(l2) :=
+  pattern l2; pattern l1;
+  match goal with |- (fun a => (fun b => @?P a b) _) _ =>
+   (* applys list2_ind P *)
+   let X := fresh "P" in set (X := P); applys list2_ind X; unfold X; try clear X
+ end.
+
+Tactic Notation "list2_ind" "~" constr(l1) constr(l2) :=
+  list2_ind l1 l2; auto_tilde.
+
+Tactic Notation "list2_ind" "*" constr(l1) constr(l2) :=
+  list2_ind l1 l2; auto_star.
+
+Tactic Notation "list2_ind" constr(E) :=
+  match type of E with length ?l1 = length ?l2 =>
+    list2_ind l1 l2; [ apply E | | ] end.
+
+(** Same, but on last element *)
+
+Lemma list2_ind_last : forall A B (P:list A->list B->Prop) l1 l2,
+  length l1 = length l2 ->
+  P nil nil ->
+  (forall x1 xs1 x2 xs2, 
+     length xs1 = length xs2 -> P xs1 xs2 -> P (xs1&x1) (xs2&x2)) ->
+  P l1 l2.
+Proof using.
+  introv E M1 M2. gen l2. induction l1 using list_ind_last;
+   [| rename a into x1, l1 into l1']; intros;
+   destruct (last_case l2) as [|(x2&l2'&E2)]; subst; rew_list in *;
+   try solve [false; math]; auto.
+Qed.
+
+Tactic Notation "list2_ind_last" constr(l1) constr(l2) :=
+  pattern l2; pattern l1;
+  match goal with |- (fun a => (fun b => @?P a b) _) _ =>
+   (* applys list2_ind P *)
+   let X := fresh "P" in set (X := P); applys list2_ind_last X; unfold X; try clear X
+ end.
+
+Tactic Notation "list2_ind_last" "~" constr(l1) constr(l2) :=
+  list2_ind_last l1 l2; auto_tilde.
+
+Tactic Notation "list2_ind_last" "*" constr(l1) constr(l2) :=
+  list2_ind_last l1 l2; auto_star.
+
+Tactic Notation "list2_ind_last" constr(E) :=
+  match type of E with length ?l1 = length ?l2 =>
+    list2_ind_last l1 l2; [ apply E | | ] end.
+
 
 
