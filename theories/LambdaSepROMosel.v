@@ -1,13 +1,13 @@
 
 Set Implicit Arguments.
-From Sep Require Import LambdaSepRO SepGPM.
+From Sep Require Import LambdaSepRO SepMosel.
 
 
 Module ProofMode.
 
 
 (* ********************************************************************** *)
-(* * Exposing [heap_empty] to GPM *)
+(* * Exposing [heap_empty] to MoSel *)
 
 Module SepROCoreHempty <: SepCoreHemptySig SepROCore.
 
@@ -20,10 +20,10 @@ End SepROCoreHempty.
 
 
 (* ********************************************************************** *)
-(* * Subset of the interface of SepLogicSetup that needs to be exposed to GPM *)
+(* * Subset of the interface of SepLogicSetup that needs to be exposed to MoSel *)
 
-Module SepROGPM := SepLogicGPM SepROCore SepROCoreHempty SepROSetup.
-Export SepROGPM.ProofMode.
+Module SepROMosel := SepLogicMosel SepROCore SepROCoreHempty SepROSetup.
+Export SepROMosel.ProofMode.
 
 (* ---------------------------------------------------------------------- *)
 (** Proof mode definitions for LambdaSepRO *)
@@ -189,7 +189,7 @@ Instance frame_normally (p : bool) (P Q R R' : hprop) :
   Normal P → Frame false P Q R → MakeNormally R R' →
   Frame p P (normally Q) R'.
 Proof.
-  rewrite /Frame /MakeNormally /= bi.affinely_persistently_if_elim =>? <- <-.
+  rewrite /Frame /MakeNormally /= bi.intuitionistically_if_elim =>? <- <-.
   rewrite {1}(@normally_intro P) normally_hstar //.
 Qed.
 
@@ -222,7 +222,7 @@ Proof. rewrite /KnownRMakeROFrame /MakeROFrame. iIntros "H". by iSplitL. Qed.
 
 Typeclasses Opaque ROFrame.
 
-(* There is no support, in IGPM, for resources that would be
+(* There is no support, in MoSel, for resources that would be
    duplicable but not persistent (like RO which is not affine). We
    workaround this restriction with this [DupFrameRO] that repeatedly
    tries to frame an RO permission in a goal. This [DupFrameRO] type
@@ -273,7 +273,7 @@ Instance frame_roframe_ro_lr p (R P P' Q Q' S : hprop) :
   MakeROFrame P' Q' S → Frame p (RO R) (ROFrame P Q) S | 1.
 Proof.
   rewrite /Frame /DupFrameRO /FrameOrWand /MakeROFrame
-          bi.affinely_persistently_if_elim=><- <- ->.
+          bi.intuitionistically_if_elim=><- <- ->.
   assert (HR:=@RO_duplicatable R). unfold duplicatable in HR. rewrite {1}HR.
   by rewrite /bi_sep /= hstar_assoc ROFrame_frame_r ROFrame_frame_l.
 Qed.
@@ -289,7 +289,7 @@ Instance frame_roframe_lr p (R P P' Q Q' S : hprop) :
   Frame p R (ROFrame P Q) S | 3.
 Proof.
   rewrite /DupFrameRO /FrameOrWand /MakeROFrame /Frame
-    bi.affinely_persistently_if_elim =>? <- <- ->. apply ROFrame_frame_lr, _.
+    bi.intuitionistically_if_elim =>? <- <- ->. apply ROFrame_frame_lr, _.
 Qed.
 
 (* 4th step: we frame on the RHS *)

@@ -410,7 +410,7 @@ Lemma rule_compress : forall n R p x z,
   z = R x ->
   triple (val_compress p x z)
     (UF n R p)
-    (fun r => \[r = val_unit] \* UF n R p).
+    (fun r => UF n R p).
 Proof using.
   introv Dx Ez. xcf. xval as F ;=> EF.
   unfold UF. xpull ;=> L (Hn&HR).
@@ -421,7 +421,7 @@ Proof using.
   gen L x. induction_wf IH: lt_wf d. hide IH. intros.
   rewrite EF. xcf. rewrite <- EF.
   xapps. xif ;=> C.
-  { xapps~. xapp~. rewrite (@read_map int _ val _); auto.
+  { xapps~. xapp~. hsimpl. rewrite (@read_map int _ val _); auto.
     (* --todo: should be rewrite read_map. *)
     inverts Hx' as; try solve [ intros; false ].
     introv _ Nx Ry. sets y: (L[x]). rename d0 into d.
@@ -458,7 +458,7 @@ Lemma rule_find : forall n R p x,
     (UF n R p)
     (fun r => \[r = R x] \* UF n R p).
 Proof using.
-  introv Ix. xcf. xapps~. xapps~. xvals~.
+  introv Ix. xcf. xapps~. xapps~. hsimpl. xvals~.
 Qed.
 
 Hint Extern 1 (Register_spec val_find) => Provide rule_find.
@@ -480,7 +480,7 @@ Lemma rule_union : forall n R p x y,
   index n y ->
   triple (val_union p x y)
     (UF n R p)
-    (fun r => \[r = val_unit] \* Hexists R', UF n R' p \* \[R' = link R x y]).
+    (fun r => Hexists R', UF n R' p \* \[R' = link R x y]).
 Proof using.
   introv Dx Dy. xcf. xapps~. xapps~. xapps. xif ;=> C.
   { unfold UF. xpull ;=> L (Hn&HR).

@@ -8,7 +8,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require Import LambdaSepRO LambdaSepROProofMode.
+From Sep Require Import LambdaSepRO LambdaSepROMosel.
 Import ProofMode.
 Generalizable Variables A B.
 Open Scope trm_scope.
@@ -96,7 +96,7 @@ Definition val_ref_update :=
     Let 'y := 'f 'x in
     val_set 'p 'y.
 
-Lemma rule_ref_update : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),  
+Lemma rule_ref_update : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),
   Normal_post Q -> (* todo: this might not be needed if using "normally" *)
   (triple (f v)
     PRE (RO(p ~~~> v) \* H)
@@ -104,7 +104,7 @@ Lemma rule_ref_update : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),
   ->
   (triple (val_ref_update f p)
     PRE (p ~~~> v \* H)
-    POST (fun r => \[r = val_unit] \* Hexists w, (p ~~~> w) \* (Q w))).
+    POST (fun r => Hexists w, (p ~~~> w) \* (Q w))).
 Proof using.
   introv N M. xdef. ram_apply_let rule_get_ro. { auto with iFrame. }
   unlock. move=>x /=. xpull=>->. ram_apply_let M. { auto with iFrame. }
@@ -198,7 +198,7 @@ Lemma rule_box_up2 : forall (F:int->int) n (f:val) p,
       POST (fun r => \[r = val_int (F x)])) ->
   triple (val_box_up2 f p)
     PRE (p ~> Box n)
-    POST (fun r => \[r = val_unit] \* p ~> Box (2 * F n)).
+    POST (fun r => p ~> Box (2 * F n)).
 Proof using.
   introv M. xdef. xchange (Box_unfold p). xpull ;=> q.
   xletapp rule_get_ro => ? ->.
@@ -214,7 +214,7 @@ Proof using.
   unlock. xpull => /= a2 ->.
   xletapp rule_add => ? ->.
   ram_apply rule_set.
-  iIntros "Hp $ !>!> % -> Hq". iSplitR; [done|]. iApply Box_fold. iFrame.
+  iIntros "Hp $ !>!> % -> Hq". iApply Box_fold. iFrame.
   by math_rewrite (2 * F n = F n + F n)%Z.
 Qed.
 
@@ -248,6 +248,6 @@ Proof using.
     ram_apply rule_add. { auto 10 with iFrame. } }
   { iIntros "Hq Hp". iDestruct (Box_fold with "[$Hq $Hp]") as "$".
     auto with iFrame. }
-  unlock. xpull=> u /= _. apply rule_htop_post. ram_apply rule_box_get.
+  unlock. xpull=> u. apply rule_htop_post. ram_apply rule_box_get.
   math_rewrite (2 * (n + n) = 4 * n)%Z. auto 10 with iFrame.
 Qed.

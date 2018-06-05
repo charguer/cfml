@@ -10,7 +10,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require Import LambdaCF LambdaStruct LambdaSepProofMode.
+From Sep Require Import LambdaCF LambdaStruct LambdaSepMosel.
 Import ProofMode.
 
 Generalizable Variables A B.
@@ -111,7 +111,7 @@ Definition val_set_hd := val_set_field hd.
 Lemma rule_set_hd : forall p v' v vq,
   triple (val_set_hd p v)
     (MCell v' vq p)
-    (fun r => \[r = val_unit] \* MCell v vq p).
+    (fun r => MCell v vq p).
 Proof using.
   intros. unfold MCell. ram_apply rule_set_field.  auto with iFrame.
 Qed.
@@ -125,7 +125,7 @@ Definition val_set_tl := val_set_field tl.
 Lemma rule_set_tl : forall p v q vq',
   triple (val_set_tl p q)
     (MCell v vq' p)
-    (fun r => \[r = val_unit] \* MCell v q p).
+    (fun r => MCell v q p).
 Proof using.
   intros. unfold MCell. ram_apply rule_set_field. auto with iFrame.
 Qed.
@@ -173,18 +173,14 @@ Lemma rule_new_cell' : forall v q,
     \[]
     (fun r => Hexists p, \[r = val_loc p] \* MCell v q p).
 Proof using.
-admit.
-(* TODO FIX following seq rule change
   intros. eapply rule_app_fun2 =>//=; [].
   eapply rule_let; [apply rule_alloc_cell|]=>p /=. xpull=> p' v' q' ->.
   eapply rule_seq.
   { rewrite MCell_eq. ram_apply rule_set_hd. auto with iFrame. }
-  { unlock. intros x. iIntros (u Hu) "[-> ?] //". }
-  unlock. eapply rule_seq.
-  { ram_apply rule_set_tl. auto with iFrame. }
-  { unlock. iIntros (u Hu) "[-> ?] //". }
-  unlock. eapply rule_val. iPrepare. auto with iFrame.
-*)
+  { unlock ;=> _. eapply rule_seq.
+    ram_apply rule_set_tl.
+  { auto with iFrame. }
+  { unlock ;=> _. eapply rule_val. iPrepare. auto with iFrame. } }
 Qed.
 
 Hint Extern 1 (Register_spec val_new_cell) => Provide rule_new_cell.
@@ -350,8 +346,6 @@ Lemma rule_mlist_length_loop : forall L p,
     (MList L p)
     (fun r => \[r = val_int (length L)] \* MList L p).
 Proof using.
-admit. (* TODO: fix following seq rule change
-
   intros L p. eapply rule_app_fun=>//=.
   applys rule_let. { ram_apply rule_ref. auto with iFrame. }
   unlock=> ? /=. xpull=>r ->.
@@ -369,24 +363,22 @@ admit. (* TODO: fix following seq rule change
       xchange (MList_not_null_inv_cons p); [by auto|iPrepare; auto with iFrame|].
       xpull=>p' x L' ?. subst. applys rule_seq.
       { applys rule_seq. { ram_apply rule_incr. auto with iFrame. }
-        { unlock. iIntros (u Hu) "(? & ? & ? & -> & ?) //". }
-        unlock. eapply rule_let. { ram_apply rule_get. auto with iFrame. }
+        { unlock ;=> _. eapply rule_let. { ram_apply rule_get. auto with iFrame. }
         unlock. xpull=>? -> /=. eapply rule_let.
         { ram_apply rule_get_tl. auto with iFrame. }
-        unlock=>? /=. xpull=>->. ram_apply rule_set. auto with iFrame. }
-      { unlock. iIntros (u Hu) "(? & ? & ? & -> & ?) //". }
-      unlock. ram_apply (IH L'); [done|]. iIntros. iFrame.
+        unlock=>? /=. xpull=>->. ram_apply rule_set'. auto with iFrame. } }
+      { unlock ;=> _. ram_apply (IH L'); [done|]. iIntros. iFrame.
       iIntros (?) "$ Hn ?". iSplitL "Hn".
       * by math_rewrite ((nacc + 1) + length L' = nacc + S (length (L')))%Z.
-      * iApply MList_cons. iFrame.
+      * iApply MList_cons. iFrame. }
     + unlock. iApply rule_val_htop. iPrepare. iIntros "? HL ?" ([= Hp]).
       revert Hp. rewrite false_eq_isTrue_eq. intros [= ->]%not_not_inv.
       iDestruct (MList_null_inv with "HL") as "[$ ->]". rewrite plus_zero_r. by iFrame.
     + unlock. iIntros ([] Hb) "(? & ? & ? & %)"=>//. destruct Hb. eexists _. auto.
-  - unlock. iIntros (u Hu) "[-> ?] //".
-  - unlock. apply rule_htop_post. ram_apply rule_get. auto with iFrame.
-*)
+  - unlock. xpull ;=> u U. subst u. apply rule_htop_post.
+    ram_apply rule_get. auto with iFrame.
 Qed.
+
 
 (* ********************************************************************** *)
 (* * Mutable lists Segments *)

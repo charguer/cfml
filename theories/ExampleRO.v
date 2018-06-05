@@ -1,0 +1,305 @@
+(**
+
+This file formalizes example in Separation Logic with read-only predicates
+
+Author: Arthur Charguéraud.
+License: MIT.
+
+*)
+
+Set Implicit Arguments.
+From Sep Require Import LambdaSepRO.
+Generalizable Variables A B.
+Open Scope trm_scope.
+Ltac auto_star ::= jauto.
+
+Implicit Types p q : loc.
+Implicit Types n : int.
+Implicit Types v : val.
+
+
+(*------------------------------------------------------------------*)
+(** Auxiliary *)
+
+Lemma rule_apps_funs : forall xs F (Vs:vals) t1 H Q,
+  F = (val_funs xs t1) ->
+  var_funs (length Vs) xs ->
+  triple (substn xs Vs t1) H Q ->
+  triple (trm_apps F Vs) H Q.
+Proof using.
+  introv E N M. intros h1 h2 D H1.
+  forwards~ (h1'&v&N1&N2&N3&N4): (rm M) h2 H1.
+  exists h1' v. splits~. { subst. applys* red_app_funs_val. }
+Qed.
+
+Lemma var_funs_exec_elim : forall (n:nat) xs,
+  var_funs_exec n xs -> (var_funs n xs).
+Proof using. introv M. rewrite var_funs_exec_eq in M. rew_istrue~ in M. Qed.
+
+Hint Resolve var_funs_exec_elim.
+
+Lemma RO_himpl_RO_hstar_RO : forall H,
+  RO H ==> (RO H \* RO H).
+Proof using. intros. applys RO_duplicatable. Qed.
+
+Lemma rule_xchange : forall (H1 H1':hprop), H1 ==> H1' ->
+  forall t H H2 Q,
+  H ==> H1 \* H2 ->
+  triple t (H1' \* H2) Q ->
+  triple t H Q.
+Proof using.
+  introv M1 M2 M. applys~ rule_consequence M2.
+  applys* rule_consequence (H1' \* H2). hsimpl~.
+Qed.
+
+Lemma rule_frame_read_only_conseq : forall t H1 Q1 H2 H Q,
+  H ==> (H1 \* H2) ->
+  Normal H1 ->
+  triple t (RO H1 \* H2) Q1 ->
+  (Q1 \*+ H1) ===> Q ->
+  triple t H Q.
+Proof using.
+  introv WP M N WQ. applys* rule_consequence (rm WP) (rm WQ).
+  forwards~ R: rule_frame_read_only t H2 Q1 H1.
+  { rewrite~ hstar_comm. } { rewrite~ hstar_comm. }
+Qed.
+
+Lemma rule_get : forall v l,
+  triple (val_get (val_loc l))
+    (l ~~~> v)
+    (fun x => \[x = v] \* l ~~~> v).
+Proof using.
+  intros. applys rule_frame_read_only_conseq (l ~~~> v).
+  { hsimpl. } { apply _. }
+  { rew_heap. applys rule_get_ro. }
+  { auto. }
+Qed.
+
+Lemma rule_let' : forall x t1 t2 H2 H1 H Q Q1,
+  H ==> (H1 \* H2) ->
+  triple t1 H1 Q1 ->
+  (forall (X:val), triple (subst x X t2) (Q1 X \* H2) Q) ->
+  triple (trm_let x t1 t2) H Q.
+Proof using. introv WP M1 M2. applys* rule_consequence WP. applys* rule_let. Qed.
+
+Lemma rule_frame : forall t H1 Q1 H2,
+  triple t H1 Q1 ->
+  Normal H2 ->
+  triple t (H1 \* H2) (Q1 \*+ H2).
+Proof using.
+  introv M N. applys~ rule_frame_read_only.
+  applys~ rule_consequence (H1 \* \Top). hsimpl.
+  applys* rule_htop_pre.
+Qed.
+
+Lemma rule_frame_conseq : forall t H1 Q1 H2 H Q,
+  H ==> H2 \* H1 ->
+  Normal H1 ->
+  triple t H2 Q1 ->
+  Q1 \*+ H1 ===> Q ->
+  triple t H Q.
+Proof using. intros. applys* rule_consequence. applys* rule_frame. Qed.
+
+Hint Resolve Normal_hsingle.
+
+
+(* ********************************************************************** *)
+(* * Formalisation of higher-order iterator on a reference *)
+
+Tactic Notation "xdef" :=
+  rew_nary; rew_vals_to_trms;
+  match goal with |- triple (trm_apps (trm_val ?f) _) _ _ =>
+   applys rule_apps_funs;
+   [unfold f; rew_nary; reflexivity | auto | simpl]
+  end.
+
+(* ---------------------------------------------------------------------- *)
+(** Apply a function to the contents of a reference *)
+
+Definition val_ref_apply :=
+  ValFun 'f 'p :=
+    Let 'x := val_get 'p in
+    'f 'x.
+
+Lemma rule_ref_apply : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),
+  (triple (f v)
+    PRE (RO(p ~~~> v) \* H)
+    POST Q)
+  ->
+  (triple (val_ref_apply f p)
+    PRE (RO(p ~~~> v) \* H)
+    POST Q).
+Proof using.
+  introv M. xdef. xchange (@RO_himpl_RO_hstar_RO (p ~~~> v)).
+  rew_heap. applys rule_let (RO (p ~~~> v)).
+  { applys rule_get_ro. }
+  { intros x; simpl. xpull ;=> E. subst x.
+    applys rule_consequence M; hsimpl. }
+Qed.
+
+(* Note: this specification allows [f] to call [val_get] on [r],
+   as illustrated next
+
+  Definition val_demo_1 :=
+    ValFun 'n :=
+      Let 'p := val_ref 'n in
+      LetFun 'f 'x :=
+        Let 'y := val_get 'p in
+        val_add 'x 'y in
+      val_ref_apply 'f 'p.
+
+  Lemma rule_demo_1 : forall (n:int),
+    triple (val_demo_1 n)
+      PRE \[]
+      POST (fun r => \[r = val_int (2*n)]).
+  Proof using.
+
+  Qed.
+
+*)
+
+
+
+(* ---------------------------------------------------------------------- *)
+(** In-place update of a reference by applying a function *)
+
+Definition val_ref_update :=
+  ValFun 'f 'p :=
+    Let 'x := val_get 'p in
+    Let 'y := 'f 'x in
+    val_set 'p 'y.
+
+Lemma rule_ref_update : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),
+  Normal_post Q -> (* todo: this might not be needed if using "normally" *)
+  (triple (f v)
+    PRE (RO(p ~~~> v) \* H)
+    POST Q)
+  ->
+  (triple (val_ref_update f p)
+    PRE (p ~~~> v \* H)
+    POST (fun r => Hexists w, (p ~~~> w) \* (Q w))).
+Proof using.
+  introv N M. xdef.
+  applys rule_let.
+  { applys rule_get. }
+  { intros x; simpl. xpull ;=> E. subst x.
+    applys rule_let' \[]. { hsimpl. }
+    applys~ rule_frame_read_only_conseq (p ~~~> v).
+    { applys rule_consequence M; hsimpl. }
+    { hsimpl. }
+    { clear M. intros y; simpl. xpull.
+      applys~ rule_frame_conseq (Q y).
+      { applys rule_set. }
+      { hsimpl~. } } }
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** In-place update of a reference by invoking a function, with representation predicate  *)
+
+Hint Rewrite RO_hexists RO_pure : rew_RO.
+ (* todo : rename to RO_hpure , RO_hstar. *)
+
+Tactic Notation "rew_RO" :=
+  autorewrite with rew_RO.
+
+Lemma rule_htop_pre' : forall H2 H1 t H Q,
+  H ==> H1 \* H2 ->
+  triple t H1 Q ->
+  triple t H Q.
+Proof using.
+  introv W M. applys rule_consequence; [| applys rule_htop_pre M |].
+  { hchange W. hsimpl. } { auto. }
+Qed.
+
+
+(*---*)
+
+
+
+Definition Box (n:int) (p:loc) :=
+  Hexists (q:loc), (p ~~~> q) \* (q ~~~> n).
+
+Lemma Box_unfold : forall p n,
+  (p ~> Box n) ==> Hexists (q:loc), (p ~~~> q) \* (q ~~~> n).
+Proof using. intros. xunfold Box. hsimpl. Qed.
+
+Lemma Box_fold : forall p q n,
+  (p ~~~> q) \* (q ~~~> n) ==> (p ~> Box n).
+Proof using. intros. xunfold Box. hsimpl. Qed.
+
+Lemma RO_Box_unfold : forall p n,
+  RO (p ~> Box n) ==> RO (p ~> Box n) \* Hexists (q:loc), RO (p ~~~> q) \* RO (q ~~~> n).
+Proof using.
+  intros. hchange RO_duplicatable. xunfold Box at 1.
+  rew_RO. hpull ;=> q. hchanges (RO_star (p ~~~> q) (q ~~~> n)).
+Qed.
+
+Arguments Box_fold : clear implicits.
+Arguments Box_unfold : clear implicits.
+Arguments RO_Box_unfold : clear implicits.
+
+
+(*---*)
+
+Definition val_box_get :=
+  ValFun 'p :=
+    Let 'q := val_get 'p in
+    val_get 'q.
+
+Lemma rule_box_get : forall p n,
+  triple (val_box_get p)
+    PRE (RO (p ~> Box n))
+    POST (fun r => \[r = val_int n]).
+Proof using.
+  intros. xdef. xchange (RO_Box_unfold p). xpull ;=> q.
+  applys rule_htop_pre' (RO (p ~> Box n)). hsimpl. (* not need, ideally *)
+  rew_heap. applys rule_let' __ (RO (p ~~~> q)).
+  { hsimpl. }
+  { applys rule_get_ro. }
+  { intros x; simpl; xpull ;=> E; subst x. applys rule_get_ro. }
+Qed.
+
+
+
+(* ---------------------------------------------------------------------- *)
+
+(*--- Under development
+
+(* let box_twice f p =
+      let q = !p in
+      q := f !q + f !q
+*)
+
+Definition val_box_twice :=
+  ValFun 'f 'p :=
+    Let 'q := val_get 'p in
+    Let 'n1 := val_get 'q in
+    Let 'a1 := 'f 'n1 in
+    Let 'n2 := val_get 'q in
+    Let 'a2 := 'f 'n2 in
+    Let 'm := 'a1 '+ 'a2 in
+    val_set 'q 'm.
+
+Lemma rule_box_twice : forall (f:val) p n (F:int->int),
+  (forall (x:int) H, triple (val_box_twice f x)
+      PRE (RO(p ~> Box n) \* H)
+      POST (fun r => \[r = val_int (F x)] \* H)) ->
+  triple (val_box_twice f p)
+    PRE (p ~> Box n)
+    POST (fun r => p ~> Box (2 * F n)).
+Proof using.
+  introv M. xdef. xchange (Box_unfold p). xpull ;=> q.
+  applys rule_let' __ (p ~~~> q).
+  { hsimpl. }
+  { rew_heap. applys rule_get. }
+  { intros x; simpl; xpull ;=> E; subst x.
+  applys rule_let' __ (q ~~~> n).
+  { hsimpl. }
+  { rew_heap. applys rule_get. }
+  { intros x; simpl; xpull ;=> E; subst x.
+Abort.
+
+
+
+*)

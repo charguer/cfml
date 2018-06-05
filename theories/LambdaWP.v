@@ -235,10 +235,6 @@ Definition wp_var (E:ctx) (x:var) : formula :=
   | Some v => wp_val v
   end.
 
-(* deprecated
-Definition wp_seq (F1 F2:formula) : formula := local (fun Q =>
-  F1 (fun r => \[r = val_unit] \* F2 Q)).
-*)
 Definition wp_seq (F1 F2:formula) : formula := local (fun Q =>
   F1 (fun X => F2 Q)).
 
@@ -320,7 +316,7 @@ Lemma qimpl_wp_triple : forall t F,
   F ===> wp_triple t.
 Proof using. introv M. intros Q. rewrite~ <- triple_eq_himpl_wp_triple. Qed.
 
-(** Another corrolary of [triple_eq_himpl_wp_triple], 
+(** Another corrolary of [triple_eq_himpl_wp_triple],
     --not needed in the proofs below *)
 
 Lemma triple_wp_triple : forall t Q,
@@ -501,7 +497,7 @@ Lemma triple_of_wp : forall (t:trm) H Q,
   H ==> wp ctx_empty t Q ->
   triple t H Q.
 Proof using.
-  introv M. rewrite <- (subst_ctx_empty t). applys~ triple_subst_of_wp. 
+  introv M. rewrite <- (subst_ctx_empty t). applys~ triple_subst_of_wp.
 Qed.
 
 
@@ -515,7 +511,7 @@ Lemma is_local_wp : forall E t,
   is_local (wp E t).
 Proof.
   intros. destruct t; try solve [ apply is_local_local ].
-  { rename v into x. simpl. unfold wp_var. 
+  { rename v into x. simpl. unfold wp_var.
     destruct (ctx_lookup x E); apply is_local_local. }
 Qed.
 
@@ -599,7 +595,7 @@ Lemma triple_apps_fixs_of_wp_iter : forall (f:var) F (vs:vals) xs t H Q,
 Proof using.
   introv EF N M. rewrite var_fixs_exec_eq in N. rew_istrue in N.
   lets (D&L&_): N. simpl in D. rew_istrue in D. destruct D as [D1 D2].
-Admitted. 
+Admitted.
 (* todo
   applys* rule_apps_fixs. rewrite~ subst_substn.
   applys* triple_subst_of_wp M.
@@ -733,7 +729,7 @@ Definition val_incr :=
 Lemma rule_incr : forall (p:loc) (n:int),
   triple (val_incr p)
     (p ~~~> n)
-    (fun r => \[r = val_unit] \* (p ~~~> (n+1))).
+    (fun r => p ~~~> (n+1)).
 Proof using.
 admit.
 (*
@@ -742,7 +738,8 @@ admit.
   intros x. hpull ;=> E. subst.
   xlet. { xapp. xapplys rule_add. }
   intros y. hpull ;=> E. subst.
-  xapp. xapplys rule_set. auto.*)
+  xapp. xapplys rule_set.
+*)
 Qed.
 
 

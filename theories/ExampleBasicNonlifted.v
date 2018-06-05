@@ -39,7 +39,7 @@ Definition val_incr :=
 Lemma rule_incr_1 : forall p n,
   triple (val_incr p)
     (p ~~~> n)
-    (fun r => \[r = val_unit] \* (p ~~~> (n+1))).
+    (fun r => (p ~~~> (n+1))).
 Proof using.
   intros. applys rule_app_fun. reflexivity. simpl.
   applys rule_let. { applys rule_get. } simpl.
@@ -53,8 +53,7 @@ Proof using.
   applys rule_consequence.
   { hsimpl. }
   { applys rule_set. }
-  { intros r. applys himpl_hpure_l. intros E. subst.
-    applys himpl_hpure_r. { auto. } { auto. } }
+  { intros r. applys himpl_hpure_l. intros E. subst. auto. }
 Qed.
 
 (** Same proof using [xapply], [xapplys] and [xpull] *)
@@ -62,14 +61,14 @@ Qed.
 Lemma rule_incr_2 : forall p n,
   triple (val_incr p)
     (p ~~~> n)
-    (fun r => \[r = val_unit] \* (p ~~~> (n+1))).
+    (fun r => (p ~~~> (n+1))).
 Proof using.
   intros. applys rule_app_fun. reflexivity. simpl.
   applys rule_let. { applys rule_get. } simpl.
   intros x. xpull. intros E. subst.
   applys rule_let. { xapplys rule_add. }
   simpl. intros y. xpull. intro_subst.
-  xapplys rule_set. auto.
+  xapplys rule_set.
 Qed.
 
 (** Same proof using characteristic formulae without tactics *)
@@ -77,7 +76,7 @@ Qed.
 Lemma rule_incr_3 : forall p n,
   triple (val_incr p)
     (p ~~~> n)
-    (fun r => \[r = val_unit] \* (p ~~~> (n+1))).
+    (fun r => (p ~~~> (n+1))).
 Proof using.
   intros. applys triple_app_fun_of_cf_iter 20%nat. reflexivity. simpl.
   applys local_erase. esplit. split.
@@ -86,7 +85,7 @@ Proof using.
   applys local_erase. esplit. split.
   { applys local_erase. xapplys rule_add. }
   intros y. xpull. intros E. subst.
-  applys local_erase. xapplys rule_set. auto.
+  applys local_erase. xapplys rule_set.
 Qed.
 
 (** Same proof using support for nary functions *)
@@ -94,7 +93,7 @@ Qed.
 Lemma rule_incr_4 : forall p n,
   triple (val_incr p)
     (p ~~~> n)
-    (fun r => \[r = val_unit] \* (p ~~~> (n+1))).
+    (fun r => (p ~~~> (n+1))).
 Proof using.
   intros. rew_nary. unfold val_incr.
   rew_nary. rew_vals_to_trms. (* show coercion *)
@@ -110,11 +109,11 @@ Abort.
 Lemma rule_incr_5 : forall p n,
   triple (val_incr p)
     (p ~~~> n)
-    (fun r => \[r = val_unit] \* (p ~~~> (n+1))).
+    (fun r => (p ~~~> (n+1))).
 Proof using.
   xcf. xlet as x. xapp. xpull. intro_subst.
   xlet as y. xapp. xpull. intro_subst.
-  xapp. hsimpl. auto.
+  xapp. hsimpl. 
 Qed.
 
 (** Same proof using characteristic formulae with more tactics *)
@@ -122,7 +121,7 @@ Qed.
 Lemma rule_incr_6 : forall p n,
   triple (val_incr p)
     (p ~~~> n)
-    (fun r => \[r = val_unit] \* (p ~~~> (n+1))).
+    (fun r => (p ~~~> (n+1))).
 Proof using.
   xcf. xapp as x. intro_subst.
   xapp as y. intro_subst.
@@ -135,7 +134,7 @@ Qed.
 Lemma rule_incr__7 : forall p n,
   triple (val_incr p)
     (p ~~~> n)
-    (fun r => \[r = val_unit] \* (p ~~~> (n+1))).
+    (fun r => (p ~~~> (n+1))).
 Proof using.
   xcf. xapps. xapps. xapps. hsimpl~.
 Qed.
@@ -149,34 +148,34 @@ Hint Extern 1 (Register_spec val_incr) => Provide rule_incr__7.
 Lemma rule_incr_with_other_1 : forall p n q m,
   triple (val_incr p)
     (p ~~~> n \* q ~~~> m)
-    (fun r => \[r = val_unit] \* (p ~~~> (n+1)) \* q ~~~> m).
+    (fun r => (p ~~~> (n+1)) \* q ~~~> m).
 Proof using.
   intros. applys rule_frame_consequence (q ~~~> m).
   { hsimpl. }
   { rew_heap. apply rule_incr_5. }
-  { intros r. hsimpl. auto. }
+  { intros r. hsimpl. }
 Qed.
 
 Lemma rule_incr_with_other_2 : forall p n q m,
   triple (val_incr p)
     (p ~~~> n \* q ~~~> m)
-    (fun r => \[r = val_unit] \* (p ~~~> (n+1)) \* q ~~~> m).
+    (fun r => (p ~~~> (n+1)) \* q ~~~> m).
 Proof using.
   intros. xapply rule_incr_5.
   { hsimpl. }
-  { intros r. hsimpl. auto. }
+  { intros r. hsimpl. }
 Qed.
 
 Lemma rule_incr_with_other : forall p n q m,
   triple (val_incr p)
     (p ~~~> n \* q ~~~> m)
-    (fun r => \[r = val_unit] \* (p ~~~> (n+1)) \* q ~~~> m).
+    (fun r => (p ~~~> (n+1)) \* q ~~~> m).
 Proof using. intros. xapps. hsimpl~. Qed.
 
 Lemma rule_incr_with_frame : forall p n H,
   triple (val_incr p)
     (p ~~~> n \* H)
-    (fun r => \[r = val_unit] \* (p ~~~> (n+1)) \* H).
+    (fun r => (p ~~~> (n+1)) \* H).
 Proof using. intros. xapps. hsimpl~. Qed.
 
 
@@ -193,17 +192,18 @@ Definition val_swap :=
 Lemma rule_swap_neq : forall p q v w,
   triple (val_swap p q)
     (p ~~~> v \* q ~~~> w)
-    (fun r => \[r = val_unit] \* p ~~~> w \* q ~~~> v).
+    (fun r => p ~~~> w \* q ~~~> v).
 Proof using.
-  xcf. xapps. xapps. xapp~. xapps. hsimpl~.
+  xcf. xapps. xapps. xapp. hsimpl. (* LATER: automate hsimpl *)
+  xapps. hsimpl~.
 Qed.
 
 Lemma rule_swap_eq : forall p v,
   triple (val_swap p p)
     (p ~~~> v)
-    (fun r => \[r = val_unit] \* p ~~~> v).
+    (fun r => p ~~~> v).
 Proof using.
-  xcf. xapps. xapps. xapp~. xapps. hsimpl~.
+  xcf. xapps. xapps. xapp~. hsimpl. xapps. hsimpl~.
 Qed.
 
 
@@ -222,7 +222,7 @@ Lemma rule_succ_using_incr : forall n,
     \[]
     (fun r => \[r = n+1]).
 Proof using.
-  xcf. xapp as p. intros; subst. xapp~. xapps~.
+  xcf. xapp as p. intros; subst. xapp~. hsimpl. xapps~.
   (* not possible: applys local_erase. unfold cf_val. hsimpl. *)
   xvals~.
 Qed.
@@ -245,13 +245,13 @@ Definition val_incr_twice :=
 Lemma rule_incr_twice : forall p n,
   triple (val_incr_twice p)
     (p ~~~> n)
-    (fun r => \[r = val_unit] \* p ~~~> (n+2)).
+    (fun r => p ~~~> (n+2)).
 Proof using.
-  xcf. xapp. auto.
+  xcf. xapp. auto. hsimpl.
   xapps. (* same as [xapp; hpull] *)
   intros; subst.
   math_rewrite ((n + 1) + 1 = (n + 2)). (* TODO: avoid this ?*)
-  hsimpl. auto.
+  hsimpl.
 Qed.
 
 
@@ -299,7 +299,7 @@ Proof using.
   xcf.
   xapp. intros; subst.
   xapp. intros I i ?. subst.
-  xapp. auto.
+  xapp. hsimpl.
   xapp. intros r. hsimpl. intros; subst. fequals. math.
 Qed.
 
@@ -339,7 +339,8 @@ Lemma rule_example_two_ref : forall n,
 Proof using.
   xcf. xapp ;=> i i' Ei. subst.
   xapp ;=> r r' Er. subst.
-  xapp~. xapp~. xapps. xapps. xapps. xapps~.
+  xapp~. hsimpl. xapp~. hsimpl.
+  xapps. xapps. xapps. xapps~. hsimpl.
   xapps. xapps. xapps.
   hsimpl. intros. subst. fequals. math.
 Qed.

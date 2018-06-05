@@ -1,3 +1,6 @@
+# --- This file is a snapshot of README.md as of 2018-05-29,
+#     truncated to keep only the relevant information. ---
+
 #############################################################
 # Installation
 
@@ -12,11 +15,6 @@ Installation using opam.
    # install Coq at the right version
    opam pin add coq 8.7.2
    opam install coqide
-
-   # install MoSel
-   opam repo add iris-dev https://gitlab.mpi-sws.org/FP/opam-dev.git
-   opam update
-   opam install coq-iris=branch.gen_proofmode.2018-05-29.0.9b14f90a
 
    # install TLC from package
    opam repo add coq-released http://coq.inria.fr/opam/released
@@ -42,10 +40,6 @@ Remarks:
   "TLC=~/tlc/src"
 
 
-* The MoSel proof mode is required for the compilation of 
-  files that depend on the proof mode. It is available via opam:
-  `opam install coq-iris=branch.gen_proofmode.2018-05-29.0.9b14f90a`
-
 
 
 #############################################################
@@ -60,18 +54,11 @@ proofs) is close to that described in Arthur Charguéraud's lecture notes,
 available from:
   http://www.chargueraud.org/teach/verif/seplogic.pdf
 
-
 The Separation Logic equipped with time credits is described in:
 __Verifying the correctness and amortized complexity of a union-find
 implementation in separation logic with time credits__
 by Arthur Charguéraud and François Pottier, JAR 2017
   http://gallium.inria.fr/~fpottier/publis/chargueraud-pottier-uf-sltc.pdf
-
-The Separation Logic equipped with read-only permissions is described in:
-__Temporary Read-Only Permissions for Separation Logic__
-by Arthur Charguéraud and François Pottier
-(ESOP 2017).
-  http://www.chargueraud.org/research/2017/readonlysep/readonlysep.pdf
 
 
 #############################################################
@@ -104,77 +91,9 @@ by Arthur Charguéraud and François Pottier
  * The file __LambdaCF.v__
    defines characteristic formulae for plain Separation Logic.
 
- * The file __LambdaWP.v__
-   defines weakest precondition style characteristic formulae 
-   for plain Separation Logic.
-
  * The file __LambdaStruct.v__
    defines specifications for basic derived operations, for records 
    and for arrays, for plain Separation Logic.
-
- * The file __ExamplesBasicNonlifted.v__
-   gives examples of basic proofs for plain Separation Logic.
-
- * The file __ExamplesListNonlifted.v__
-   gives examples of list proofs for plain Separation Logic.
-
- * The file __ExamplesQueueNonlifted.v__
-   gives examples of queue proofs for plain Separation Logic.
-
-
-## MoSel proof mode
-
- * The file __SepMosel.v__
-   contains the generic parts of the instantiation of Iris' 
-   proof mode on CFML's logic.
-
- * The file __LambdaSepMosel.v__
-   instantiate MoSel for LambdaSep.
-
- * The file __ExamplesListMosel.v__
-   gives examples of list proofs using MoSel (nonlifted version).
-
-
-## Lifted SL
-
- * The file __LambdaCFLifted.v__
-   defines characteristic formulae for lifted Separation Logic.
-
- * The file __LambdaStructLifted.v__
-   defines specifications for basic derived operations, for records 
-   and for arrays, for lifted Separation Logic.
-
- * The file __Example.v__
-   contains common headers for examples in lifted Separation Logic.
-
- * The file __ExampleBasic.v__
-   contains examples proofs for basic functions in lifted Separation Logic.
-
- * The file __ExampleList.v__
-   contains examples proofs for lists in lifted Separation Logic.
-
- * The file __ExampleTrees.v__
-   contains examples proofs for trees in lifted Separation Logic.
-
- * The file __ExampleHigherOrder.v__
-   contains examples proofs for higher-order functions
-   in lifted Separation Logic.
-
-
-## Read-only SL
-
- * The file __LambdaSepRO.v__
-   defines a Separation Logic with read-only permissions.
-
- * The file __ExampleRO.v__
-   gives examples of proofs using RO logic.
-
- * The file __LambdaSepROMosel.v__
-   instantiate Mosel for LambdaSepRO.
-
- * The file __ExamplesROMosel.v__
-   gives examples of proofs using RO logic with Mosel.
-
 
 ## Time-credits SL
 
@@ -184,8 +103,3 @@ by Arthur Charguéraud and François Pottier
  * The file __LambdaCFCredits.v__
    defines characteristic formulae for Separation Logic with credits.
 
-
-## Course files
-
- * The file __SL*.v__
-   corresponds to the SL course.

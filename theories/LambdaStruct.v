@@ -47,7 +47,7 @@ Definition val_incr :=
 Lemma rule_incr : forall p n,
   triple (val_incr p)
     (p ~~~> n)
-    (fun r => \[r = val_unit] \* (p ~~~> (n+1))).
+    (fun r => (p ~~~> (n+1))).
 Proof using.
   xcf. xapps. xapps. xapps. hsimpl~.
 Qed.
@@ -67,7 +67,7 @@ Definition val_decr :=
 Lemma rule_decr : forall p n,
   triple (val_decr p)
     (p ~~~> n)
-    (fun r => \[r = val_unit] \* (p ~~~> (n-1))).
+    (fun r => (p ~~~> (n-1))).
 Proof using.
   xcf. xapps. xapps. xapps. hsimpl~.
 Qed.
@@ -307,7 +307,7 @@ Proof using.
   xcf. xapps. { math. }
   rewrites (>> Array_middle_eq i). { math. }
   xpull ;=> L1 x L2 EL HL.
-  xapp. hpull ;=> r. intro_subst.
+  xapp rule_set. hpull ;=> r. intro_subst.
   rewrites (>> Array_middle_eq i (L[i := v])).
    { rewrite <- length_eq in *. rew_array. math. }
   hsimpl; auto. { subst. rewrite~ update_middle. rew_list~. }
@@ -344,11 +344,12 @@ Proof using.
     applys local_erase. esplit; esplit; splits; [reflexivity|reflexivity|].
     intros S LS EF M. subst EF. simpl in M.
     cuts G: (forall i L', i >= 0 -> length L' = n-i ->
-       S i (Array ((make i v)++L') p) (fun r => \[r = '()] \* (Array (make n v) p))).
+       S i (Array ((make i v)++L') p) (fun r => (Array (make n v) p))).
     { applys_eq (>> G L) 2. math. math. rewrite make_zero. rew_list~. }
     intros i. induction_wf IH: (upto n) i. intros L' Ei EL'.
     applys (rm M). case_if.
     { xapp~. { rewrite index_eq_inbound. rew_list. rewrite length_make; math. }
+      intros r. hsimpl.
       destruct L' as [|x L']. { false. rew_list in EL'. math. }
       rewrite~ update_middle; [| rewrite length_make; math ].
       rew_list. xapplys (>> IH L').
@@ -356,8 +357,7 @@ Proof using.
       { rew_list; math. }
       { rew_list in *; math. }
       { applys LS. }
-      { rewrite make_succ_r; [|math]. rew_list. hsimpl~. }
-      { auto. } }
+      { rewrite make_succ_r; [|math]. rew_list. hsimpl~. } }
     { xval. math E: (i = LibList.length L).
       asserts: (L' = nil). { applys length_zero_inv. math. }
       subst. rew_list. hsimpl~. } }

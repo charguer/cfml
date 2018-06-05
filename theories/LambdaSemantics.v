@@ -522,9 +522,9 @@ Lemma red_if_bool : forall m1 m2 b r t1 t2,
   red m1 (trm_if b t1 t2) m2 r.
 Proof using. introv M1. applys* red_if. applys red_val. Qed.
 
-Lemma red_for_le : forall m1 m2 m3 x n1 n2 t3 r,
+Lemma red_for_le : forall m1 m2 m3 x n1 n2 t3 v1 r,
   n1 <= n2 ->
-  red m1 (subst1 x n1 t3) m2 val_unit ->
+  red m1 (subst1 x n1 t3) m2 v1 ->
   red m2 (trm_for x (n1+1) n2 t3) m3 r ->
   red m1 (trm_for x n1 n2 t3) m3 r.
 Proof using.
@@ -815,7 +815,6 @@ Notation "t1 '- t2" :=
 Notation "t1 '= t2" :=
   (val_eq t1 t2)
   (at level 69) : trm_scope.
-
 
 
 

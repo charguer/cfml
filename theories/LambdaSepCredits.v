@@ -718,7 +718,9 @@ Section RulesPrimitiveOps.
 Transparent hstar hsingle.
 
 Lemma rule_ref : forall v,
-  triple (val_ref v) \[] (fun r => Hexists l, \[r = val_loc l] \* l ~~~> v).
+  triple (val_ref v) 
+    \[]
+    (fun r => Hexists l, \[r = val_loc l] \* l ~~~> v).
 Proof using.
   intros. intros HF h N. rew_heap in N.
   forwards~ (l&Dl&Nl): (fmap_single_fresh null (h^s) v).
@@ -731,7 +733,9 @@ Proof using.
 Qed.
 
 Lemma rule_get : forall v l,
-  triple (val_get (val_loc l)) (l ~~~> v) (fun x => \[x = v] \* (l ~~~> v)).
+  triple (val_get (val_loc l))
+    (l ~~~> v)
+    (fun x => \[x = v] \* (l ~~~> v)).
 Proof using.
   intros. intros HF h N. lets N': N.
   destruct N as (h1&h2&(N1a&N1b)&N2&N3&N4).
@@ -742,7 +746,9 @@ Proof using.
 Qed.
 
 Lemma rule_set : forall w l v,
-  triple (val_set (val_loc l) w) (l ~~~> v) (fun r => \[r = val_unit] \* l ~~~> w).
+  triple (val_set (val_loc l) w) 
+    (l ~~~> v)
+    (fun r => \[r = val_unit] \* l ~~~> w).
 Proof using.
   intros. intros HF h N. destruct N as (h1&h2&(N1a&N1b&N1c)&N2&N3&N4).
   forwards (E1&E2): heap_eq_forward (rm N4). simpls.

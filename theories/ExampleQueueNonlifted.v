@@ -89,11 +89,11 @@ Definition val_push_back :=
 Lemma rule_push_back : forall L v p,
   triple (val_push_back v p)
     (MQueue L p)
-    (fun r => \[r = val_unit] \* MQueue (L&v) p).
+    (fun r => MQueue (L&v) p).
 Proof using.
   xcf. unfold MQueue. xpull ;=> pf pb vx vy.
   xapps. xapp rule_alloc_cell as r. intros pb' v1 v2. intro_subst.
-  xapp~. xapp~. xapp~. hchanges~ MListSeg_last.
+  xapp~. hsimpl. xapp~. hsimpl. xapp~. hchanges~ MListSeg_last.
 Qed.
 
 
@@ -109,11 +109,11 @@ Definition val_push_front :=
 Lemma rule_push_front : forall L v p,
   triple (val_push_front v p)
     (MQueue L p)
-    (fun r => \[r = val_unit] \* MQueue (v::L) p).
+    (fun r => MQueue (v::L) p).
 Proof using.
   xcf. unfold MQueue. xpull ;=> pf pb vx vy.
   xapps. xapp as r. intros x. intro_subst.
-  xapp. hsimpl~. isubst. hchanges (@MListSeg_cons x).
+  xapp. hsimpl~. intros _. hchanges (@MListSeg_cons x).
 Qed.
 
 
@@ -137,7 +137,7 @@ Proof using.
   xcf. unfold MQueue. xpull ;=> pf pb vx vy.
   destruct L as [|x L']; tryfalse.
   rewrite MListSeg_cons_eq. xpull ;=> pf'.
-  xapps. xapps. xapps. xapp~. xvals~.
+  xapps. xapps. xapps. xapp~. hsimpl. xvals~.
 Qed.
 
 Lemma rule_pop_front' : forall L v p x,
@@ -173,14 +173,14 @@ Definition val_transfer :=
 Lemma rule_transfer : forall L1 L2 p1 p2,
   triple (val_transfer p1 p2)
     (MQueue L1 p1 \* MQueue L2 p2)
-    (fun r => \[r = val_unit] \* MQueue (L1 ++ L2) p1 \* MQueue nil p2).
+    (fun r => MQueue (L1 ++ L2) p1 \* MQueue nil p2).
 Proof using.
   xcf. xapps. xapps. xif ;=> C.
   { unfold MQueue. xpull ;=> pf2 pb2 vx2 vy2 pf1 pb1 vx1 vy1.
     destruct L2 as [|x L2']; tryfalse.
     xchanges MListSeg_cons_eq ;=> pf2'.
     xapps. xapps. xapps. xapps.
-    xapps~. xapps~. xapps~. xapps~. xapps~.
+    xapps~. xapps~. hsimpl. xapps~. hsimpl. xapps~. hsimpl. xapps~.
     intros r. hchange (MListSeg_last pf1).
     hchange (MListSeg_concat pf1 pf2' pb2). rew_list.
     hchange (MListSeg_nil pf2). hsimpl~. }

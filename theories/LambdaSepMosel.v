@@ -1,13 +1,13 @@
 
 Set Implicit Arguments.
-From Sep Require Import LambdaSep SepGPM.
+From Sep Require Import LambdaSep SepMosel.
 
 
 Module ProofMode.
 
 
 (* ********************************************************************** *)
-(* * Exposing [heap_empty] to GPM *)
+(* * Exposing [heap_empty] to MoSel *)
 
 Module SepBasicCoreHempty <: SepCoreHemptySig SepBasicCore.
 
@@ -20,10 +20,10 @@ End SepBasicCoreHempty.
 
 
 (* ********************************************************************** *)
-(* * Subset of the interface of SepLogicSetup that needs to be exposed to GPM *)
+(* * Subset of the interface of SepLogicSetup that needs to be exposed to MoSel *)
 
-Module SepBasicGPM := SepLogicGPM SepBasicCore SepBasicCoreHempty SepBasicSetup.
-Export SepBasicGPM.ProofMode.
+Module SepBasicMosel := SepLogicMosel SepBasicCore SepBasicCoreHempty SepBasicSetup.
+Export SepBasicMosel.ProofMode.
 
 Definition wp (t:trm) (Q:val->hprop) : hprop :=
   Hexists H, H \* \[triple t H Q].
@@ -36,8 +36,8 @@ Proof using.
   { applys~ rule_consequence (rm M). xpull~. }
 Qed.
 
-Instance triple_as_valid t H Q : AsValid (triple t H Q) (H -∗ wp t Q).
-Proof. rewrite /AsValid wp_equiv. apply as_valid. Qed.
+Instance triple_as_valid t H Q : AsEmpValid (triple t H Q) (H -∗ wp t Q).
+Proof. rewrite /AsEmpValid wp_equiv. apply as_emp_valid. Qed.
 
 Instance frame_wp p t R Φ Ψ :
   (∀ v, Frame p R (Φ v) (Ψ v)) → Frame p R (wp t Φ) (wp t Ψ).
@@ -56,7 +56,3 @@ Qed.
 (* ********************************************************************** *)
 
 End ProofMode.
-
-
-
-

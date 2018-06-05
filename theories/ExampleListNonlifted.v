@@ -124,9 +124,9 @@ Definition val_set_hd := val_set_field hd.
 Lemma rule_set_hd : forall p v' v vq,
   triple (val_set_hd p v)
     (MCell v' vq p)
-    (fun r => \[r = val_unit] \* MCell v vq p).
+    (fun r => MCell v vq p).
 Proof using.
-  intros. unfold MCell. xapplys (rule_set_field v'). auto.
+  intros. unfold MCell. xapplys (rule_set_field v').
 Qed.
 
 Hint Extern 1 (Register_spec val_set_hd) => Provide rule_set_hd.
@@ -138,9 +138,9 @@ Definition val_set_tl := val_set_field tl.
 Lemma rule_set_tl : forall p v q vq',
   triple (val_set_tl p q)
     (MCell v vq' p)
-    (fun r => \[r = val_unit] \* MCell v q p).
+    (fun r => MCell v q p).
 Proof using.
-  intros. unfold MCell. xapplys (rule_set_field vq'). auto.
+  intros. unfold MCell. xapplys (rule_set_field vq').
 Qed.
 
 Hint Extern 1 (Register_spec val_set_tl) => Provide rule_set_tl.
@@ -178,7 +178,7 @@ Lemma rule_new_cell : forall v q,
 Proof using.
   intros. xcf. xapp rule_alloc_cell.
   intros p p' v' q'. intro_subst.
-  xapps~. xapps~. xvals~.
+  xapps~. hsimpl. xapps~. hsimpl. xvals~.
 Qed.
 
 (* TODO: update?
@@ -463,8 +463,8 @@ Proof using.
     gen p. induction_wf: list_sub_wf L; intros. applys (rm HR).
     xlet. { xapps. xapps. } xpulls. xif ;=> C.
     { xchanges~ (MList_not_null_inv_cons p) ;=> p' x L' EL. xseq.
-      { xseq. xapp~. xapps.
-        xapps. xapps~. }
+      { xseq. xapp~. hsimpl. xapps.
+        xapps. xapps~. hsimpl. }
       { xapply (>> IH L'). { subst~. } { hsimpl. }
         { hpull. isubst. hchange (MList_cons p). subst. rew_list.
           math_rewrite (forall x (y:nat), (x+1)+y = x+(1+y)%nat). hsimpl~. } } }

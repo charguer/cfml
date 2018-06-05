@@ -398,7 +398,9 @@ Parameter rule_div' : forall (n1 n2:int),
     appear as hypotheses prior to the triple. Thus, preconditions will only
     be used to describe the shape of the heap. *)
 
-(** The pure heap predicate is useful not just for specifying pure functions,
+(** DEPRECATED !!
+
+    The pure heap predicate is useful not just for specifying pure functions,
     but also for specifying effectful functions, to assert properties about
     the output value or the output heap. For example, in the specification
     of [incr r] shown below, the pure heap predicate [ \[v = val_unit] ] asserts
@@ -409,7 +411,7 @@ Parameter rule_div' : forall (n1 n2:int),
 Parameter hpure_demo :
   triple (incr r)
     (r ~~> 2)
-    (fun v => \[v = val_unit] \* (r ~~> 3)).
+    (fun v => (r ~~> 3)).
 
 (** Above, observe that the two heap predicates from the postcondition
     are separated by the star operator. This operator asserts that the output
@@ -444,7 +446,7 @@ Parameter rule_get : forall (v:val) (l:loc),
 Parameter rule_set : forall (v w:val) (l:loc),
   triple (val_set l v)
     (l ~~> w)
-    (fun (r:val) => \[r = val_unit] \* l ~~> v).
+    (fun (r:val) => l ~~> v).
 (* /SOLUTION *)
 
 (** [] *)

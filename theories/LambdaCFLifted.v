@@ -671,6 +671,13 @@ Tactic Notation "xval" constr(V) :=
 (*todo: [xvals V] *)
 
 
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xseq] *)
+
+Ltac xseq_core tt ::=
+  applys local_erase; esplit; split.
+
+
 (*--------------------------------------------------------*)
 (* ** [xlet] *)
 
