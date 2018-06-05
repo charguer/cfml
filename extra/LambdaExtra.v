@@ -4772,4 +4772,95 @@ Definition cf_seq (F1 F2:formula) : formula := fun H Q =>
      /\ F2 H1 Q
      /\  (forall v, ~ is_val_unit v -> (Q1 v) ==> \[False]).
 *)
->>>>>>> master
+
+
+
+Lemma substn_last : forall x xs v vs t,
+  length xs = length vs ->
+  substn (xs&x) (vs&v) t = subst1 x v (substn xs vs t).
+Proof using.
+  intros. unfold substn. rewrite~ combine_last.
+  rew_ctx. rewrite~ subst_add. Qed.
+
+
+
+(* DEPRECATED
+
+Lemma subst_last : forall E x v t,
+  subst (E & (x,v)) t = subst1 x v (subst E t).
+
+Proof using.
+  intros E. induction E as [|(x',v') E']; intros; rew_list.
+  { rew_ctx. rewrite~ subst_empty. }
+  {
+
+ using list_ind_last; intros.
+  { rew_ctx. rewrite~ subst_empty. }
+  { destruct a as [x' v'].
+
+ rew_list.  rew_list.
+  { rewrite IHE'.
+
+subst (rev (combine xs vs) & (x, v)) t =
+subst (rev (combine xs vs)) (subst1 x v t)
+*)
+
+(* NEEDED in lambdawp:
+subst (add x v E) t = subst1 x v (subst (rem x E) t)
+*)
+
+(*
+Lemma subst1_subst_rem_same : forall E z v t,
+    subst1 z v (subst (rem z E) t)
+  = subst E (subst1 z v t).
+Proof using.
+  intros. rewrite <- subst_add.
+
+  intros E. induction E as [|(y,w) E']; simpl; intros.
+  { auto. }
+  { rewrite var_eq_spec. case_if.
+    { subst. rewrite IHE'. rewrite~ subst_subst_same. }
+    { simpl. rewrite IHE'. rewrite~ subst_subst_neq. } }
+Qed.
+
+Admitted.
+
+Lemma subst1_subst : forall x v E t,
+  fresh x E ->
+  subst1 x v (subst E t) = subst E (subst1 x v t).
+Proof using.
+  introv M. rewrite <- (@subst1_subst_rem_same E x v t).
+  fequals. rewrite~ rem_fresh.
+Qed.
+*)
+
+(*
+
+  (** Substituting for [E] without [x] then substituting for [x]
+      is equivalent to substituting for [x] then for [E]
+      (even if [x] is bound in [E]). *)
+
+
+  (** Substitutions for two distinct variables commute. *)
+
+  Lemma subst1_subst1_neq : forall x1 x2 v1 v2 t,
+    x1 <> x2 ->
+    subst1 x2 v2 (subst1 x1 v1 t) = subst1 x1 v1 (subst1 x2 v2 t).
+  Proof using.
+    introv N. induction t; simpl; try solve [ fequals;
+    repeat case_if; simpl; repeat case_if; auto ].
+    repeat case_if; simpl; repeat case_if~.
+    { false. destruct v; destruct x1; destruct x2; false. simpls.
+      rewrite name_eq_spec in *. rew_bool_eq in *. false. }
+  Qed. (* LATER: simplify *)
+
+  (** Substituting for a variable that has just been substituted
+      does not further modify the term. *)
+
+  Lemma subst_subst_same : forall x v1 v2 t,
+    subst1 x v2 (subst1 x v1 t) = subst1 x v1 t.
+  Proof using.
+    intros. induction t; simpl; try solve [ fequals;
+    repeat case_if; simpl; repeat case_if; auto ].
+  Qed.
+*)

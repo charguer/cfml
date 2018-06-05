@@ -320,106 +320,34 @@ Qed.
 
 (** [subst] can be combuted  by iteratively substituting its bindings. *)
 
-Lemma subst_last : forall E x v t,
-  subst (E & (x,v)) t = subst E (subst1 x v t).
+Lemma subst_cons : forall x v E t,
+  subst ((x,v)::E) t = subst E (subst1 x v t).
 Proof using.
-  intros E. induction E using list_ind_last; intros.
-  { rew_ctx. rewrite~ subst_empty. }
-  { destruct a as [x' v'].
-
- rew_list.  as [|(x',v') E']; rew_list.
-  { rewrite IHE'.
-
-subst (rev (combine xs vs) & (x, v)) t =
-subst (rev (combine xs vs)) (subst1 x v t)
-
-
-Lemma subst_add : forall z v E t,
-  subst (Ctx.add z v E) t = subst E (subst1 z v t).
-Proof using.
-(*
-  intros. destruct z as [|x].
-  { simpl. rewrite~ subst1_anon. }
-  { unfold subst1. simpl. rew_ctx. gen E.
+  intros. unfold subst1. simpl. rew_ctx. gen E.
     induction t; intros; simpl; try solve [ fequals* ].
     { rewrite var_eq_spec. case_if~. }
     { rew_ctx. fequals. tests: (b = x).
-      { repeat rewrite rem_add_same. fequals.
+      { repeat rewrite Ctx.rem_add_same. fequals.
         rewrite Ctx.rem_empty, subst_empty. auto. }
-      { rewrite~ Ctx.rem_add_neq. tests: (b0 = x).
-        { rewrite Ctx.rem_add_same. fequals.
-          rewrite Ctx.rem_rem_neq. rewrite rem_add_same.
-          rewrite Ctx.rem_empty, subst_empty. auto. }
-        { do 3 rewrite~ rem_add_neq. do 2 rewrite rem_empty.
+      { repeat rewrite~ (@Ctx.rem_add_neq b). rewrite Ctx.rem_empty.
+        tests: (b0 = x).
+        { repeat rewrite Ctx.rem_add_same.
+          rewrite Ctx.rem_empty. rewrite~ subst_empty. }
+        { repeat rewrite~ Ctx.rem_add_neq. rewrite Ctx.rem_empty.
           rewrite~ IHt. } } }
   { rew_ctx. fequals. tests: (b = x).
-    { do 2 rewrite rem_add_same. fequals. rewrite~ subst_empty. }
-    { do 2 (rewrite~ rem_add_neq). rewrite rem_empty. rewrite~ IHt2. } }
-  { skip. (* todo *) } }
-*)
-admit.
+    { do 2 rewrite Ctx.rem_add_same. fequals. rewrite~ subst_empty. }
+    { do 2 (rewrite~ Ctx.rem_add_neq). rewrite Ctx.rem_empty. rewrite~ IHt2. } }
+  { admit. (* todo for loops *) }
 Qed.
 
-(* NEEDED in lambdawp:
-subst (add x v E) t = subst1 x v (subst (rem x E) t)
-*)
-
-(*
-Lemma subst1_subst_rem_same : forall E z v t,
-    subst1 z v (subst (rem z E) t)
-  = subst E (subst1 z v t).
-Proof using.
-  intros. rewrite <- subst_add.
-
-  intros E. induction E as [|(y,w) E']; simpl; intros.
-  { auto. }
-  { rewrite var_eq_spec. case_if.
-    { subst. rewrite IHE'. rewrite~ subst_subst_same. }
-    { simpl. rewrite IHE'. rewrite~ subst_subst_neq. } }
+Lemma subst_add : forall z v E t,
+  subst (Ctx.add z v E) t = subst E (subst1 z v t).
+Proof using. 
+  intros. destruct z as [|x].
+  { simpl. rewrite~ subst1_anon. }
+  { applys~ subst_cons. }
 Qed.
-
-Admitted.
-
-Lemma subst1_subst : forall x v E t,
-  fresh x E ->
-  subst1 x v (subst E t) = subst E (subst1 x v t).
-Proof using.
-  introv M. rewrite <- (@subst1_subst_rem_same E x v t).
-  fequals. rewrite~ rem_fresh.
-Qed.
-*)
-
-(*
-
-  (** Substituting for [E] without [x] then substituting for [x]
-      is equivalent to substituting for [x] then for [E]
-      (even if [x] is bound in [E]). *)
-
-
-  (** Substitutions for two distinct variables commute. *)
-
-  Lemma subst1_subst1_neq : forall x1 x2 v1 v2 t,
-    x1 <> x2 ->
-    subst1 x2 v2 (subst1 x1 v1 t) = subst1 x1 v1 (subst1 x2 v2 t).
-  Proof using.
-    introv N. induction t; simpl; try solve [ fequals;
-    repeat case_if; simpl; repeat case_if; auto ].
-    repeat case_if; simpl; repeat case_if~.
-    { false. destruct v; destruct x1; destruct x2; false. simpls.
-      rewrite name_eq_spec in *. rew_bool_eq in *. false. }
-  Qed. (* LATER: simplify *)
-
-  (** Substituting for a variable that has just been substituted
-      does not further modify the term. *)
-
-  Lemma subst_subst_same : forall x v1 v2 t,
-    subst1 x v2 (subst1 x v1 t) = subst1 x v1 t.
-  Proof using.
-    intros. induction t; simpl; try solve [ fequals;
-    repeat case_if; simpl; repeat case_if; auto ].
-  Qed.
-*)
-
 
 
 (* ---------------------------------------------------------------------- *)
@@ -458,7 +386,7 @@ Inductive red : state -> trm -> state -> val -> Prop :=
       red m1 t1 m2 v1 ->
       red m2 t2 m3 v2 ->
       v1 = val_fix f z t3 ->
-      red m3 (subst2 z v2 f v1 t3) m4 r ->
+      red m3 (subst2 f v1 z v2 t3) m4 r ->
       red m1 (trm_app t1 t2) m4 r
   | red_while : forall m1 m2 t1 t2 r,
       red m1 (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) m2 r ->
@@ -893,7 +821,7 @@ Definition trms : Type := list trm.
     This operation is only specified when [length xs = length vs]. *)
 
 Definition substn (xs:vars) (vs:vals) (t:trm) : trm :=
-  subst (LibList.rev (LibList.combine xs vs)) t.
+  subst (LibList.combine xs vs) t.
 
 (** Distribution of [substn] on [nil] and [cons] lists *)
 
@@ -904,16 +832,9 @@ Proof using. intros. unfold substn. simpl. rew_ctx. apply subst_empty. Qed.
 Lemma substn_cons : forall x xs v vs t,
   substn (x::xs) (v::vs) t = substn xs vs (subst1 x v t).
 Proof using.
-  intros. unfold substn. rewrite combine_cons. rewrite rev_cons.
-  rewrite~ subst_last.
+  intros. unfold substn. rewrite combine_cons. rewrite~ subst_cons.
 Qed.
 
-Lemma substn_last : forall x xs v vs t,
-  length xs = length vs ->
-  substn (xs&x) (vs&v) t = subst1 x v (substn xs vs t).
-Proof using.
-  intros. unfold substn. rewrite~ combine_last.
-  rew_ctx. rewrite~ subst_add. Qed.
 
 
 (** Auxiliary results for freshness of bindings w.r.t. combine *)
@@ -1088,40 +1009,19 @@ Lemma red_app_funs_val_ind : forall xs vs m1 m2 tf t r,
   var_funs (length vs) xs ->
   red m1 (trm_apps tf vs) m2 r.
 Proof using.
-  hint red_val.
-  introv M1 M2 E. gen tf t r m1 m2. list2_ind_last~ xs vs; intros.
+  introv M1 M2 (F&L&N). gen tf t r m1 m2 F N. list2_ind~ xs vs; intros.
   { false. }
-  { rename xs1 into xs', x1 into x1, x2 into v1, xs2 into vs'.
+  { rename xs1 into xs', x1 into x1, x2 into v1, xs2 into vs', H0 into IH.
+    simpl in F. rew_istrue in F. destruct F as (F1&F').
     tests C: (xs' = nil).
     { rew_list in *. asserts: (vs' = nil).
       { applys length_zero_inv. math. } subst vs'.
-      simpls. applys* red_app. }
-    { rewrite substn_cons in M1.
-      unfold substn in M. simpl combine in M. rew_ctx in M.
-      rewrite subst_add in M. applys~ IHxs' M. applys* red_app.
-      { rewrite~ subst_trm_funs. applys~ red_funs. } { splits~. } } }
-Qed.
-
-
-Lemma red_app_funs_val_ind : forall xs vs m1 m2 tf t r,
-  red m1 tf m1 (val_funs xs t) ->
-  red m1 (substn xs vs t) m2 r ->
-  var_funs (length vs) xs ->
-  red m1 (trm_apps tf vs) m2 r.
-Proof using.
-  hint red_val. intros xs vs. list2_ind_last xs vs.
-  intros xs. induction xs as [|x xs']; introv R M (N&L&P).
-  { false. } clear P.
-  { destruct vs as [|v vs']; rew_list in *. { false; math. }
-    simpls. tests C: (xs' = nil).
-    { rew_list in *. asserts: (vs' = nil).
-      { applys length_zero_inv. math. } subst vs'. clear L.
-      simpls. applys* red_app. }
-    { rew_istrue in N. destruct N as [F N'].
-      rewrite substn_cons in M.
-      unfold substn in M. simpl combine in M. rew_ctx in M.
-      rewrite subst_add in M. applys~ IHxs' M. applys* red_app.
-      { rewrite~ subst_trm_funs. applys~ red_funs. } { splits~. } } }
+      simpls. applys* red_app. applys* red_val. }
+    { rewrite substn_cons in M2. applys~ IH M2. applys* red_app.
+      { applys* red_val. }
+      { simpl. unfold subst2. simpl. rew_ctx.
+        rewrite subst_add. rewrite subst_empty.
+        rewrite~ subst_trm_funs. applys~ red_funs. } } }
 Qed.
 
 Lemma red_app_funs_val : forall xs vs m1 m2 vf t r,
@@ -1155,14 +1055,48 @@ Proof using.
   { unfold subst1. simpls. repeat rewrite var_eq_spec in *.
     do 2 case_if in N. simpl. rewrite var_eq_spec. case_if~.
     fequals.
-    forwards K: subst_trm_funs N. unfold subst1, ctx_one in K.
+    forwards K: subst_trm_funs N. unfold subst1, Ctx.one in K.
     simpls. rewrite~ K. }
 Qed.  (* LATER: simplify *)
 
-(* LATER
-Lemma red_app_fixs_val : forall xs vs m1 m2 vf (f:var) t r,
+(*
+Lemma red_app_fixs_val : forall xs (vs:vals) m1 m2 tf (vf:val) (f:var) t r,
+  red m1 tf m1 vf ->
   vf = val_fixs f xs t ->
-  red m1 (subst1 f vf (substn xs vs t)) m2 r ->
+  red m1 (substn (f::xs) (vf::vs) t) m2 r ->
+  var_fixs f (length vs) xs ->
+  red m1 (trm_apps tf vs) m2 r.
+Proof using.
+  introv M1 EQ M2 (F&L&N). gen tf t r m1 m2 F N. list2_ind~ xs vs; intros.
+  (* LATER: replace list2_ind by list2_inv *)
+  { false. }
+  { rename xs1 into xs', x1 into x1, x2 into v1, xs2 into vs'. clear H0.
+    simpl in F. rew_istrue in F. destruct F as (F1&F').
+    tests C: (xs' = nil).
+    { rew_list in *. asserts: (vs' = nil).
+      { applys length_zero_inv. math. } subst vs'.
+      simpls. applys* red_app. applys* red_val. applys* M2. }
+    { subst vf. applys red_app. applys~ red_app_funs_val_ind.
+      { applys red_val. eauto. applys* red_app_fix. do 2 rewrite~ subst_trm_funs. applys~ red_funs. }
+      { rewrite~ subst_substn in M. { rewrite~ substn_cons in M.
+        rewrite~ subst_subst_neq. } { simpl. case_if~. } }
+      { splits*. } } }
+
+do 2 rewrite substn_cons in M2. applys~ IH M2. applys* red_app.
+      { applys* red_val. }
+      { simpl. unfold subst2. simpl. rew_ctx.
+        rewrite subst_add. rewrite subst_empty.
+        rewrite~ subst_trm_funs. applys~ red_funs. } } }
+Qed.
+*)
+
+Lemma subst2_eq_subst1_subst1 : forall x1 x2 v1 v2 t,
+  subst2 x1 v1 x2 v2 t = subst1 x2 v2 (subst1 x1 v1 t).
+Proof using. intros. unfold subst2. rewrite~ subst_add. Qed.
+
+Lemma red_app_fixs_val : forall xs (vs:vals) m1 m2 vf (f:var) t r,
+  vf = val_fixs f xs t ->
+  red m1 (substn (f::xs) (vf::vs) t) m2 r ->
   var_fixs f (length vs) xs ->
   red m1 (trm_apps vf vs) m2 r.
 Proof using.
@@ -1172,14 +1106,15 @@ Proof using.
     tests C':(xs' = nil).
     { rew_list in *. asserts: (vs' = nil).
       { applys length_zero_inv. math. } subst vs'. clear L.
-      simpls. applys* red_app. }
+      subst vf. simpls. hint red_val. applys* red_app. }
     { applys~ red_app_funs_val_ind.
-      { applys* red_app_fix. do 2 rewrite~ subst_trm_funs. applys~ red_funs. }
-      { rewrite~ subst_substn in M. { rewrite~ substn_cons in M.
-        rewrite~ subst_subst_neq. } { simpl. case_if~. } }
+      { hint red_val. applys* red_app.
+        rewrite subst2_eq_subst1_subst1. do 2 rewrite~ subst_trm_funs.
+        applys* red_funs. }
+      { do 2 rewrite substn_cons in M. auto. }
       { splits*. } } }
 Qed.
-*)
+
 
 (* ---------------------------------------------------------------------- *)
 (** Folding of n-ary functions *)
