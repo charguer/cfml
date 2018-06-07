@@ -841,7 +841,7 @@ Proof using.
     { rewrite fmap_conseq_succ.
       destruct (IHk (S l)%nat) as [E|?].
       { intros i N. applys F (S i). applys_eq N 2. math. }
-      { simpl. unfold map_union. case_if~. 
+      { simpl. unfold map_union. case_if~.
         { subst. right. applys not_not_inv. intros H. applys F 0%nat.
           constructor. math_rewrite (l'+0 = l')%nat. applys~ M. } }
       { auto. } } }

@@ -21,6 +21,27 @@ Implicit Types n : int.
 (* ********************************************************************** *)
 (* * Basic functions *)
 
+(** todo: move *)
+Lemma rule_app : forall (f:bind) x F V t1 H Q,
+  F = (val_fix f x t1) ->
+  triple (subst2 f F x V t1) H Q ->
+  triple (trm_app F V) H Q.
+Proof using.
+  introv EF M. subst F. intros HF h N.
+  lets~ (h'&v&R&K): (rm M) HF h.
+  exists h' v. splits~. { hint red_val. applys~ red_app. }
+Qed.
+
+Lemma triple_app_of_cf_iter : forall (n:nat) F v (f:bind) x t H Q,
+  F = val_fix f x t ->
+  func_iter n cf_def cf (subst2 f F x v t) H Q ->
+  triple (F v) H Q.
+Proof using.
+  introv EF M. applys* rule_app.
+  applys* triple_trm_of_cf_iter.
+Qed.
+
+
 
 (* ---------------------------------------------------------------------- *)
 (** Increment function -- details *)
@@ -41,7 +62,7 @@ Lemma rule_incr_1 : forall p n,
     (p ~~~> n)
     (fun r => (p ~~~> (n+1))).
 Proof using.
-  intros. applys rule_app_fun. reflexivity. simpl.
+  intros. applys rule_app. reflexivity. simpl.
   applys rule_let. { applys rule_get. } simpl.
   intros x. apply rule_extract_hprop. intros E. subst.
   applys rule_let.
@@ -63,7 +84,7 @@ Lemma rule_incr_2 : forall p n,
     (p ~~~> n)
     (fun r => (p ~~~> (n+1))).
 Proof using.
-  intros. applys rule_app_fun. reflexivity. simpl.
+  intros. applys rule_app. reflexivity. simpl.
   applys rule_let. { applys rule_get. } simpl.
   intros x. xpull. intros E. subst.
   applys rule_let. { xapplys rule_add. }
@@ -78,7 +99,7 @@ Lemma rule_incr_3 : forall p n,
     (p ~~~> n)
     (fun r => (p ~~~> (n+1))).
 Proof using.
-  intros. applys triple_app_fun_of_cf_iter 20%nat. reflexivity. simpl.
+  intros. applys triple_app_of_cf_iter 20%nat. reflexivity. simpl.
   applys local_erase. esplit. split.
   { applys local_erase. xapplys rule_get. }
   intros x. xpull. intros E. subst.
@@ -194,7 +215,7 @@ Lemma rule_swap_neq : forall p q v w,
     (p ~~~> v \* q ~~~> w)
     (fun r => p ~~~> w \* q ~~~> v).
 Proof using.
-  xcf. xapps. xapps. xapp. hsimpl. (* LATER: automate hsimpl *)
+  xcf. xapps. xapps. xapp. intros _.
   xapps. hsimpl~.
 Qed.
 
@@ -203,7 +224,7 @@ Lemma rule_swap_eq : forall p v,
     (p ~~~> v)
     (fun r => p ~~~> v).
 Proof using.
-  xcf. xapps. xapps. xapp~. hsimpl. xapps. hsimpl~.
+  xcf. xapps. xapps. xapp~. intros _. xapps. hsimpl~.
 Qed.
 
 
@@ -222,7 +243,7 @@ Lemma rule_succ_using_incr : forall n,
     \[]
     (fun r => \[r = n+1]).
 Proof using.
-  xcf. xapp as p. intros; subst. xapp~. hsimpl. xapps~.
+  xcf. xapp as p. intros; subst. xapp~. intros _. xapps~.
   (* not possible: applys local_erase. unfold cf_val. hsimpl. *)
   xvals~.
 Qed.
@@ -247,7 +268,7 @@ Lemma rule_incr_twice : forall p n,
     (p ~~~> n)
     (fun r => p ~~~> (n+2)).
 Proof using.
-  xcf. xapp. auto. hsimpl.
+  xcf. xapp. auto. intros _.
   xapps. (* same as [xapp; hpull] *)
   intros; subst.
   math_rewrite ((n + 1) + 1 = (n + 2)). (* TODO: avoid this ?*)
@@ -299,7 +320,7 @@ Proof using.
   xcf.
   xapp. intros; subst.
   xapp. intros I i ?. subst.
-  xapp. hsimpl.
+  xapp. intros _.
   xapp. intros r. hsimpl. intros; subst. fequals. math.
 Qed.
 
@@ -339,8 +360,8 @@ Lemma rule_example_two_ref : forall n,
 Proof using.
   xcf. xapp ;=> i i' Ei. subst.
   xapp ;=> r r' Er. subst.
-  xapp~. hsimpl. xapp~. hsimpl.
-  xapps. xapps. xapps. xapps~. hsimpl.
+  xapp~. intros _. xapp~. intros _.
+  xapps. xapps. xapps. xapps~. intros _.
   xapps. xapps. xapps.
   hsimpl. intros. subst. fequals. math.
 Qed.

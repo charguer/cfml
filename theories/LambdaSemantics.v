@@ -13,34 +13,12 @@ License: MIT.
 
 Set Implicit Arguments.
 From TLC Require Export LibString LibList LibCore.
-From Sep Require Export Fmap TLCbuffer.
+From Sep Require Export Fmap Bind TLCbuffer.
 Open Scope string_scope.
 
 
 (* ********************************************************************** *)
 (* * Source language syntax *)
-
-(* ---------------------------------------------------------------------- *)
-(** Representation of variables *)
-
-Definition var := string.
-
-Inductive bind : Type :=
-  | bind_anon : bind
-  | bind_var : var -> bind.
-
-Definition eq_var_dec := String.string_dec.
-
-Definition var_eq (s1:var) (s2:var) : bool :=
-  if eq_var_dec s1 s2 then true else false.
-
-Lemma var_eq_spec : forall s1 s2,
-  var_eq s1 s2 = isTrue (s1 = s2).
-Proof using.
-  intros. unfold var_eq. case_if; rew_bool_eq~.
-Qed.
-
-Global Opaque var.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -94,10 +72,13 @@ Proof using. apply (Inhab_of_val val_unit). Qed.
 (** Encoded constructs *)
 
 Notation trm_seq := (trm_let bind_anon).
-
 Notation trm_fun := (trm_fix bind_anon).
-
 Notation val_fun := (val_fix bind_anon).
+
+(** Shorthand [vars], [vals] and [trms] for lists of items. *)
+
+Definition vals : Type := list val.
+Definition trms : Type := list trm.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -110,155 +91,18 @@ Coercion val_loc : loc >-> val.
 Coercion trm_val : val >-> trm.
 Coercion trm_var : var >-> trm.
 Coercion trm_app : trm >-> Funclass.
-Coercion bind_var : var >-> bind.
-Coercion bind_var' (x:string) : bind := bind_var x.
+
 
 
 (* ********************************************************************** *)
-(* * Source language semantics *)
+(* * Definition of capture avoiding substitution *)
 
 (* ---------------------------------------------------------------------- *)
-(** Definition of contexts *)
+(** Substition of bindings in a term *)
 
-(** [ctx] describes a list of bindings *)
+(** [ctx] is the type of bindings from variables to values *)
 
-Definition ctx : Type :=
-  list (var * val).
-
-Module Ctx.
-
-(** [empty] describes the empty context *)
-
-Definition empty : ctx :=
-  nil.
-
-(** [add z v E] is defined as:
-    - [E] if [z] is the anonymous binder
-    - [E] extended with the pair [(x,v)] if [z] is a variable [x]. *)
-
-Definition add (z:bind) (v:val) (E:ctx) : ctx :=
-  match z with
-  | bind_anon => E
-  | bind_var x => (x,v)::E
-  end.
-
-(** [one z v] is a shorthand for [add z v empty] *)
-
-Definition one (z:bind) (v:val) : ctx :=
-  add z v empty.
-
-(** [rem x E] removes all bindings on [x] stored in [E] *)
-
-Fixpoint rem_var (x:var) (E:ctx) : ctx :=
-  match E with
-  | nil => nil
-  | (y,v)::E' =>
-      let E'' := rem_var x E' in
-      if var_eq x y then E'' else (y,v)::E''
-  end.
-
-Fixpoint rem (z:bind) (E:ctx) : ctx :=
-  match z with
-  | bind_anon => E
-  | bind_var x => rem_var x E
-  end.
-
-(** [lookup x E] returns
-    - [None] if [x] is not bound in [E]
-    - [Some v] if [x] is bound to [v] in [E]. *)
-
-Fixpoint lookup (x:var) (E:ctx) : option val :=
-  match E with
-  | nil => None
-  | (y,v)::E' => if var_eq x y
-                   then Some v
-                   else lookup x E'
-  end.
-
-(** [fresh x E] asserts that [x] is not bound in [E] *)
-
-Definition fresh (x:var) (E:ctx) : Prop :=
-  lookup x E = None.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Lemmas to reintroduce contexts *)
-
-Lemma nil_eq_ctx_empty :
-  @nil (prod var val) = empty.
-Proof using. auto. Qed.
-
-Lemma cons_eq_ctx_add : forall x v (E:ctx),
-  (x,v)::E = add x v E.
-Proof using. auto. Qed.
-
-Hint Rewrite nil_eq_ctx_empty cons_eq_ctx_add : rew_ctx.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Properties of operations on contexts  *)
-
-Lemma fresh_inv : forall (x1 x2:var) v E,
-  fresh x1 (add x2 v E) ->
-  x1 <> x2 /\ fresh x1 E.
-Proof using.
-  introv M. unfolds fresh. simpls.
-  rewrite var_eq_spec in *. case_if~.
-Qed.
-
-(** [rem x empty] *)
-
-Lemma rem_empty : forall z,
-  rem z empty = empty.
-Proof using. intros. destruct z as [|x]; auto. Qed.
-
-(** Result of removing a variable from a context. *)
-(* -- TODO: rename and check useful *)
-
-Lemma rem_add_same : forall z v E,
-  rem z (add z v E) = rem z E.
-Proof using.
-  intros. destruct z as [|x].
-  { auto. }
-  { simpl. rewrite var_eq_spec. case_if~. }
-Qed.
-
-Lemma rem_add_neq : forall z1 z2 v E,
-  z1 <> z2 ->
-  rem z1 (add z2 v E) = add z2 v (rem z1 E).
-Proof using.
-  intros. destruct z2 as [|x2].
-  { auto. }
-  { destruct z1 as [|x1].
-    { auto. }
-    { simpl. rewrite var_eq_spec. case_if~. } }
-Qed.
-
-(** Removing a variable that does not occur in a context changes nothing. *)
-
-Lemma rem_fresh : forall x E,
-  fresh x E ->
-  rem x E = E.
-Proof using.
-  introv M. unfold rem. induction E as [|(y,v) E'].
-  { auto. }
-  { simpls. lets (N1&N2): fresh_inv (rm M).
-    rewrite var_eq_spec in *. case_if. rewrite~ IHE'. }
-Qed.
-
-End Ctx.
-
-
-Tactic Notation "rew_ctx" :=
-  autorewrite with rew_ctx.
-Tactic Notation "rew_ctx" "in" hyp(H) :=
-  autorewrite with rew_ctx in H.
-Tactic Notation "rew_ctx" "in" "*" :=
-  autorewrite with rew_ctx in *.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Definition of capture-avoiding substitution *)
+Definition ctx := Ctx.ctx val.
 
 (** [subst E t] substitutes all the bindings from [E] inside [t] *)
 
@@ -278,13 +122,26 @@ Fixpoint subst (E:ctx) (t:trm) : trm :=
   | trm_for x t1 t2 t3 => trm_for x (aux t1) (aux t2) (subst (Ctx.rem x E) t3)
   end.
 
+
+(* ---------------------------------------------------------------------- *)
+(** Special calls to [subst] on 1, 2, or n bindings. *)
+
 (** [subst1 z v t] replaces occurences of binder [z] with [v] in [t]. *)
 
 Definition subst1 (z:bind) (v:val) (t:trm) :=
   subst (Ctx.one z v) t.
 
+(** [subst2 z1 v1 z2 v2 t] is similar. *)
+
 Definition subst2 (z1:bind) (v1:val) (z2:bind) (v2:val) (t:trm) :=
-  subst (Ctx.add z1 v1 (Ctx.one z2 v2)) t.
+   subst (Ctx.add z1 v1 (Ctx.one z2 v2)) t.
+
+(** [substn xs vs t] is a shorthand for [substs (List.combine xs vs) t].
+    It substitutes the values [vs] for the corresponding variables in [xs].
+    This operation is only specified when [length xs = length vs]. *)
+
+Definition substn (xs:vars) (vs:vals) (t:trm) : trm :=
+  subst (LibList.combine xs vs) t.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -299,23 +156,12 @@ Proof using.
    try solve [ repeat rewrite Ctx.rem_empty; fequals* ].
 Qed.
 
-(** [subst1 z v t] when [z] is anonymous returns [t] unchanged. *)
+(** [subst1 z v t]  returns [t] unchanged when [z] is anonymous. *)
 
 Lemma subst1_anon : forall v t,
   subst1 bind_anon v t = t.
 Proof using.
   intros. unfold subst1, Ctx.one, Ctx.add. rewrite~ subst_empty.
-Qed.
-
-Lemma rem_rem_neq : forall z1 z2 E,
-  Ctx.rem z1 (Ctx.rem z2 E) = Ctx.rem z2 (Ctx.rem z1 E).
-Proof using. (*
-
-  introv M. unfold rem. induction E as [|(y,v) E'].
-  { auto. }
-  { simpls. lets (N1&N2): fresh_inv (rm M).
-    rewrite var_eq_spec in *. case_if. rewrite~ IHE'. }
-*) admit.
 Qed.
 
 (** [subst] can be combuted  by iteratively substituting its bindings. *)
@@ -329,7 +175,7 @@ Proof using.
     { rew_ctx. fequals. tests: (b = x).
       { repeat rewrite Ctx.rem_add_same. fequals.
         rewrite Ctx.rem_empty, subst_empty. auto. }
-      { repeat rewrite~ (@Ctx.rem_add_neq b). rewrite Ctx.rem_empty.
+      { repeat rewrites~ (>> Ctx.rem_add_neq b). rewrite Ctx.rem_empty.
         tests: (b0 = x).
         { repeat rewrite Ctx.rem_add_same.
           rewrite Ctx.rem_empty. rewrite~ subst_empty. }
@@ -341,14 +187,37 @@ Proof using.
   { admit. (* todo for loops *) }
 Qed.
 
+(** Lifting of the above lemma to handle the substitution of binders. *)
+
 Lemma subst_add : forall z v E t,
   subst (Ctx.add z v E) t = subst E (subst1 z v t).
-Proof using. 
+Proof using.
   intros. destruct z as [|x].
   { simpl. rewrite~ subst1_anon. }
   { applys~ subst_cons. }
 Qed.
 
+(** Reformulation of the definition of [subst2] *)
+
+Lemma subst2_eq_subst1_subst1 : forall x1 x2 v1 v2 t,
+  subst2 x1 v1 x2 v2 t = subst1 x2 v2 (subst1 x1 v1 t).
+Proof using. intros. unfold subst2. rewrite~ subst_add. Qed.
+
+(** Distribution of [substn] on [nil] and [cons] lists *)
+
+Lemma substn_nil : forall t,
+  substn nil nil t = t.
+Proof using. intros. unfold substn. simpl. rew_ctx. apply subst_empty. Qed.
+
+Lemma substn_cons : forall x xs v vs t,
+  substn (x::xs) (v::vs) t = substn xs vs (subst1 x v t).
+Proof using.
+  intros. unfold substn. rewrite combine_cons. rewrite~ subst_cons.
+Qed.
+
+
+(* ********************************************************************** *)
+(* * Source language semantics *)
 
 (* ---------------------------------------------------------------------- *)
 (** Big-step evaluation *)
@@ -367,7 +236,6 @@ Definition state := fmap loc val.
 Section Red.
 
 Local Open Scope fmap_scope.
-
 
 Inductive red : state -> trm -> state -> val -> Prop :=
   (* Core constructs *)
@@ -454,7 +322,6 @@ Inductive red : state -> trm -> state -> val -> Prop :=
 End Red.
 
 
-
 (* ---------------------------------------------------------------------- *)
 (* ** Derived rules *)
 
@@ -506,133 +373,334 @@ Proof using.
 Qed.
 
 
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [fmap_red], defined in file [Fmap] for proving [red] goals
+      modulo equalities between states, gets instantiated here. *)
+
+Ltac fmap_red_base tt ::=
+  match goal with H: red _ ?t _ _ |- red _ ?t _ _ =>
+    applys_eq H 2 4; try fmap_eq end.
+
+
+
+(* ********************************************************************** *)
+(* * N-ary functions and applications *)
+
+(** [trm_apps t ts] denotes a n-ary application of [t] to the
+    arguments from the list [ts].
+
+    [trm_funs xs t] denotes a n-ary function with arguments [xs]
+    and body [t].
+
+    [trm_fixs f xs t] denotes a n-ary recursive function [f]
+    with arguments [xs] and body [t].
+
+  The tactic [rew_nary] can be used to convert terms in the goal
+  to using the nary constructs wherever possible.
+
+  The operation [substn xs vs t] substitutes the variables [xs]
+  with the values [vs] inside the term [t].
+*)
+
+
+(* ---------------------------------------------------------------------- *)
+(** Coercions from values to terms *)
+
+Coercion vals_to_trms (vs:vals) : trms :=
+  List.map trm_val vs.
+
+(** Tactic [rew_vals_to_trms] to fold the coercion where possible *)
+
+Lemma vals_to_trms_fold_start : forall v,
+  (trm_val v)::nil = vals_to_trms (v::nil).
+Proof using. auto. Qed.
+
+Lemma vals_to_trms_fold_next : forall v vs,
+  (trm_val v)::(vals_to_trms vs) = vals_to_trms (v::vs).
+Proof using. auto. Qed.
+
+Hint Rewrite vals_to_trms_fold_start vals_to_trms_fold_next
+  : rew_vals_to_trms.
+
+Tactic Notation "rew_vals_to_trms" :=
+  autorewrite with rew_vals_to_trms.
+
+
+(* ---------------------------------------------------------------------- *)
+(** N-ary applications and N-ary functions *)
+
+(** [trm_apps t (t1::...tn::nil] describes the application term
+    [t t1 .. tn]. *)
+
+Fixpoint trm_apps (tf:trm) (ts:trms) : trm :=
+  match ts with
+  | nil => tf
+  | t::ts' => trm_apps (trm_app tf t) ts'
+  end.
+
+(** [trm_fixs f (x1::...xn::nil) t] describes the function term
+    [trm_fix f x1 (trm_fun x2 ... (trm_fun xn t) ..)]. *)
+
+Fixpoint trm_fixs (f:bind) (xs:vars) (t:trm) : trm :=
+  match xs with
+  | nil => t
+  | x::xs' => trm_fix f x (trm_fixs bind_anon xs' t)
+  end.
+
+(** [val_fixs f (x1::...xn::nil) t] describes the function value
+    [val_fix f x1 (trm_fun x2 ... (trm_fun xn t) ..)]. *)
+
+Definition val_fixs (f:bind) (xs:vars) (t:trm) : val :=
+  match xs with
+  | nil => arbitrary
+  | x::xs' => val_fix f x (trm_fixs bind_anon xs' t)
+  end.
+
+(** [trm_funs (x1::...xn::nil) t] describes the function term
+    [trm_fun x1 (trm_fun x2 ... (trm_fun xn t) ..)]. *)
+
+Notation trm_funs := (trm_fixs bind_anon).
+
+(** [val_fun (x1::...xn::nil) t] describes the function value
+    [val_fun x1 (trm_fun x2 ... (trm_fun xn t) ..)]. *)
+
+Notation val_funs := (val_fixs bind_anon).
+
+
+(* ---------------------------------------------------------------------- *)
+(** Distribution of [subst] over n-ary functions *)
+
+Lemma subst_trm_funs : forall y w xs t,
+  var_fresh y xs ->
+  subst1 y w (trm_funs xs t) = trm_funs xs (subst1 y w t).
+Proof using.
+  introv N. unfold subst1. induction xs as [|x xs']; simpls; fequals.
+  { rewrite var_eq_spec in *. case_if. rewrite~ <- IHxs'. }
+Qed.
+
+Lemma subst_trm_fixs : forall y w f xs t,
+  var_fresh y (f::xs) ->
+  subst1 y w (trm_fixs f xs t) = trm_fixs f xs (subst1 y w t).
+Proof using.
+  introv N. destruct xs as [|x xs'].
+  { auto. }
+  { unfold subst1. simpls. repeat rewrite var_eq_spec in *.
+    do 2 case_if in N. simpl. rewrite var_eq_spec. case_if~.
+    fequals.
+    forwards K: subst_trm_funs N. unfold subst1, Ctx.one in K.
+    simpls. rewrite~ K. }
+Qed.  (* LATER: simplify *)
+
+
+(* ---------------------------------------------------------------------- *)
+(** Reduction rules for n-ary functions *)
+
+Lemma red_funs : forall m xs t,
+  xs <> nil ->
+  red m (trm_funs xs t) m (val_funs xs t).
+Proof using.
+  introv N. destruct xs as [|x xs']. { false. }
+  simpl. applys red_fun.
+Qed.
+
+Lemma red_fixs : forall m f xs t,
+  xs <> nil ->
+  red m (trm_fixs f xs t) m (val_fixs f xs t).
+Proof using.
+  introv N. destruct xs as [|x xs']. { false. }
+  simpl. applys red_fix.
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Reduction rules for n-ary applications *)
+
+(* Internal lemma *)
+Lemma red_app_funs_val_ind : forall xs vs m1 m2 tf t r,
+  red m1 tf m1 (val_funs xs t) ->
+  red m1 (substn xs vs t) m2 r ->
+  var_funs (length vs) xs ->
+  red m1 (trm_apps tf vs) m2 r.
+Proof using.
+  introv M1 M2 (F&L&N). gen tf t r m1 m2 F N. list2_ind~ xs vs; intros.
+  { false. }
+  { rename xs1 into xs', x1 into x1, x2 into v1, xs2 into vs', H0 into IH.
+    simpl in F. rew_istrue in F. destruct F as (F1&F').
+    tests C: (xs' = nil).
+    { rew_list in *. asserts: (vs' = nil).
+      { applys length_zero_inv. math. } subst vs'.
+      simpls. applys* red_app. applys* red_val. }
+    { rewrite substn_cons in M2. applys~ IH M2. applys* red_app.
+      { applys* red_val. }
+      { simpl. unfold subst2. simpl. rew_ctx.
+        rewrite subst_add. rewrite subst_empty.
+        rewrite~ subst_trm_funs. applys~ red_funs. } } }
+Qed.
+
+(** Reduction rule for n-ary functions *)
+
+Lemma red_app_funs_val : forall xs vs m1 m2 vf t r,
+  vf = val_funs xs t ->
+  red m1 (substn xs vs t) m2 r ->
+  var_funs (length vs) xs ->
+  red m1 (trm_apps vf vs) m2 r.
+Proof using.
+  introv R M N. applys* red_app_funs_val_ind.
+  { subst. apply~ red_val. }
+Qed.
+
+(** Reduction rule for n-ary recursive functions *)
+
+Lemma red_app_fixs_val : forall xs (vs:vals) m1 m2 vf (f:var) t r,
+  vf = val_fixs f xs t ->
+  red m1 (substn (f::xs) (vf::vs) t) m2 r ->
+  var_fixs f (length vs) xs ->
+  red m1 (trm_apps vf vs) m2 r.
+Proof using.
+  introv E M (N&L&P). destruct xs as [|x xs']. { false. }
+  { destruct vs as [|v vs']; rew_list in *. { false; math. } clear P.
+    destruct N as (N1&N2&N3). simpls. case_if.
+    tests C':(xs' = nil).
+    { rew_list in *. asserts: (vs' = nil).
+      { applys length_zero_inv. math. } subst vs'. clear L.
+      subst vf. simpls. hint red_val. applys* red_app. }
+    { applys~ red_app_funs_val_ind.
+      { hint red_val. applys* red_app.
+        rewrite subst2_eq_subst1_subst1. do 2 rewrite~ subst_trm_funs.
+        applys* red_funs. }
+      { do 2 rewrite substn_cons in M. applys M. }
+      { splits*. } } }
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Rewriting lemmas and tactics to "fold" n-ary functions,
+    i.e. to introduce [trm_apps] and [trm_funs] and [trm_fixs] from
+    the iterated application of the corresponding unary constructors. *)
+
+Lemma trm_apps_fold_start : forall t1 t2,
+  trm_app t1 t2 = trm_apps t1 (t2::nil).
+Proof using. auto. Qed.
+
+Lemma trm_apps_fold_next : forall t1 t2 t3s,
+  trm_apps (trm_app t1 t2) t3s = trm_apps t1 (t2::t3s).
+Proof using. auto. Qed.
+
+Lemma trm_apps_fold_concat : forall t1 t2s t3s,
+  trm_apps (trm_apps t1 t2s) t3s = trm_apps t1 (List.app t2s t3s).
+Proof using.
+  intros. gen t1; induction t2s; intros. { auto. }
+  { rewrite <- trm_apps_fold_next. simpl. congruence. }
+Qed.
+
+Lemma trm_fixs_fold_start : forall f x t,
+  trm_fix f x t = trm_fixs f (x::nil) t.
+Proof using. auto. Qed.
+
+(* subsumed by iteration of trm_funs_fold_next *)
+Lemma trm_funs_fold_app : forall xs ys t,
+  trm_funs xs (trm_funs ys t) = trm_funs (List.app xs ys) t.
+Proof using.
+  intros. induction xs. { auto. } { simpl. congruence. }
+Qed.
+
+(* for innermost-first rewriting strategy
+Lemma trm_fixs_fold_next : forall f x xs t,
+  trm_fixs f (x::nil) (trm_funs xs t) = trm_fixs f (x::xs) t.
+Proof using. auto. Qed.
+*)
+
+Lemma trm_fixs_fold_app : forall f x xs ys t,
+  trm_fixs f (x::xs) (trm_funs ys t) = trm_fixs f (x :: List.app xs ys) t.
+Proof using. intros. simpl. rewrite~ trm_funs_fold_app. Qed.
+
+Lemma val_fixs_fold_start : forall f x t,
+  val_fix f x t = val_fixs f (x::nil) t.
+Proof using. auto. Qed.
+
+Lemma val_fixs_fold_app : forall f x xs ys t,
+  val_fixs f (x::xs) (trm_funs ys t) = val_fixs f (List.app (x::xs) ys) t.
+Proof using. intros. simpl. rewrite~ trm_funs_fold_app. Qed.
+
+Lemma val_fixs_fold_app' : forall f x xs ys t,
+  val_fixs f (List.app (x::nil) xs) (trm_funs ys t) = val_fixs f (List.app (x::xs) ys) t.
+Proof using. intros. simpl. rewrite~ trm_funs_fold_app. Qed.
+
+Hint Rewrite
+  trm_apps_fold_start trm_apps_fold_next trm_apps_fold_concat
+  trm_fixs_fold_start trm_fixs_fold_app
+  val_fixs_fold_start val_fixs_fold_app val_fixs_fold_app' : rew_nary.
+
+Tactic Notation "rew_nary" :=
+  autorewrite with rew_nary; simpl List.app.
+Tactic Notation "rew_nary" "in" hyp(H) :=
+  autorewrite with rew_nary in H; simpl List.app in H.
+Tactic Notation "rew_nary" "in" "*" :=
+  autorewrite with rew_nary in *; simpl List.app in *.
+  (* rewrite_strat (any (innermost (hints rew_nary))).
+     => way too slow! *)
+
+(* Demos:
+Lemma rew_nary_demo_1 : forall (f x y z:var) t1 t2 v,
+  val_fix f x (trm_fun y (trm_fun z (f t1 x y t2))) = v.
+Proof using. intros. rew_nary. Abort.
+
+Lemma rew_nary_demo_2 : forall f x1 x2 v,
+  val_fun f (trm_fun x1 (trm_fun x2 (x1 x2))) = v.
+Proof using. intros. rew_nary. Abort.
+*)
+
+
+(* ********************************************************************** *)
+(* * Size of a term *)
+
+(* ---------------------------------------------------------------------- *)
+(** Size of a term, where all values counting for one unit. *)
+
+(** The definition of size can be useful for some tricky inductions *)
+
+Fixpoint trm_size (t:trm) : nat :=
+  match t with
+  | trm_var x => 1
+  | trm_val v => 1
+  | trm_fix f x t1 => 1 + trm_size t1
+  | trm_if t0 t1 t2 => 1 + trm_size t0 + trm_size t1 + trm_size t2
+  | trm_let x t1 t2 => 1 + trm_size t1 + trm_size t2
+  | trm_app t1 t2 => 1 + trm_size t1 + trm_size t2
+  | trm_while t1 t2 => 1 + trm_size t1 + trm_size t2
+  | trm_for x t1 t2 t3 => 1 + trm_size t1 + trm_size t2 + trm_size t3
+  end.
+
+Lemma trm_size_subst : forall t E,
+  trm_size (subst E t) = trm_size t.
+Proof using.
+  intros t. induction t; intros; simpl; repeat case_if; auto.
+  { destruct~ (Ctx.lookup v E). }
+Qed.
+
+Lemma trm_size_subst1 : forall t z v,
+  trm_size (subst1 z v t) = trm_size t.
+Proof using. intros. applys trm_size_subst. Qed.
+
+(** Hint for induction on size. Proves subgoals of the form
+    [measure trm_size t1 t2], when [t1] and [t2] may have some
+    structure or involve substitutions. *)
+
+Ltac solve_measure_trm_size tt :=
+  unfold measure in *; simpls; repeat rewrite trm_size_subst1; math.
+
+Hint Extern 1 (measure trm_size _ _) => solve_measure_trm_size tt.
 
 
 (* ********************************************************************** *)
 (* * Notation for terms *)
 
 (* ---------------------------------------------------------------------- *)
-(** Notation for program variables *)
-
-Module NotationForVariables.
-
-Notation "''a'" := ("a":var) : var_scope.
-Notation "''b'" := ("b":var) : var_scope.
-Notation "''c'" := ("c":var) : var_scope.
-Notation "''d'" := ("d":var) : var_scope.
-Notation "''e'" := ("e":var) : var_scope.
-Notation "''f'" := ("f":var) : var_scope.
-Notation "''g'" := ("g":var) : var_scope.
-Notation "''h'" := ("h":var) : var_scope.
-Notation "''i'" := ("i":var) : var_scope.
-Notation "''j'" := ("j":var) : var_scope.
-Notation "''k'" := ("k":var) : var_scope.
-Notation "''l'" := ("l":var) : var_scope.
-Notation "''m'" := ("m":var) : var_scope.
-Notation "''n'" := ("n":var) : var_scope.
-Notation "''o'" := ("o":var) : var_scope.
-Notation "''p'" := ("p":var) : var_scope.
-Notation "''q'" := ("q":var) : var_scope.
-Notation "''r'" := ("r":var) : var_scope.
-Notation "''s'" := ("s":var) : var_scope.
-Notation "''t'" := ("t":var) : var_scope.
-Notation "''u'" := ("u":var) : var_scope.
-Notation "''v'" := ("v":var) : var_scope.
-Notation "''w'" := ("w":var) : var_scope.
-Notation "''x'" := ("x":var) : var_scope.
-Notation "''y'" := ("y":var) : var_scope.
-Notation "''z'" := ("z":var) : var_scope.
-
-Notation "''a1'" := ("a1":var) : var_scope.
-Notation "''b1'" := ("b1":var) : var_scope.
-Notation "''c1'" := ("c1":var) : var_scope.
-Notation "''d1'" := ("d1":var) : var_scope.
-Notation "''e1'" := ("e1":var) : var_scope.
-Notation "''f1'" := ("f1":var) : var_scope.
-Notation "''g1'" := ("g1":var) : var_scope.
-Notation "''h1'" := ("h1":var) : var_scope.
-Notation "''i1'" := ("i1":var) : var_scope.
-Notation "''j1'" := ("j1":var) : var_scope.
-Notation "''k1'" := ("k1":var) : var_scope.
-Notation "''l1'" := ("l1":var) : var_scope.
-Notation "''m1'" := ("m1":var) : var_scope.
-Notation "''n1'" := ("n1":var) : var_scope.
-Notation "''o1'" := ("o1":var) : var_scope.
-Notation "''p1'" := ("p1":var) : var_scope.
-Notation "''q1'" := ("q1":var) : var_scope.
-Notation "''r1'" := ("r1":var) : var_scope.
-Notation "''s1'" := ("s1":var) : var_scope.
-Notation "''t1'" := ("t1":var) : var_scope.
-Notation "''u1'" := ("u1":var) : var_scope.
-Notation "''v1'" := ("v1":var) : var_scope.
-Notation "''w1'" := ("w1":var) : var_scope.
-Notation "''x1'" := ("x1":var) : var_scope.
-Notation "''y1'" := ("y1":var) : var_scope.
-Notation "''z1'" := ("z1":var) : var_scope.
-
-Notation "''a2'" := ("a2":var) : var_scope.
-Notation "''b2'" := ("b2":var) : var_scope.
-Notation "''c2'" := ("c2":var) : var_scope.
-Notation "''d2'" := ("d2":var) : var_scope.
-Notation "''e2'" := ("e2":var) : var_scope.
-Notation "''f2'" := ("f2":var) : var_scope.
-Notation "''g2'" := ("g2":var) : var_scope.
-Notation "''h2'" := ("h2":var) : var_scope.
-Notation "''i2'" := ("i2":var) : var_scope.
-Notation "''j2'" := ("j2":var) : var_scope.
-Notation "''k2'" := ("k2":var) : var_scope.
-Notation "''l2'" := ("l2":var) : var_scope.
-Notation "''m2'" := ("m2":var) : var_scope.
-Notation "''n2'" := ("n2":var) : var_scope.
-Notation "''o2'" := ("o2":var) : var_scope.
-Notation "''p2'" := ("p2":var) : var_scope.
-Notation "''q2'" := ("q2":var) : var_scope.
-Notation "''r2'" := ("r2":var) : var_scope.
-Notation "''s2'" := ("s2":var) : var_scope.
-Notation "''t2'" := ("t2":var) : var_scope.
-Notation "''u2'" := ("u2":var) : var_scope.
-Notation "''v2'" := ("v2":var) : var_scope.
-Notation "''w2'" := ("w2":var) : var_scope.
-Notation "''x2'" := ("x2":var) : var_scope.
-Notation "''y2'" := ("y2":var) : var_scope.
-Notation "''z2'" := ("z2":var) : var_scope.
-
-Notation "''a3'" := ("a3":var) : var_scope.
-Notation "''b3'" := ("b3":var) : var_scope.
-Notation "''c3'" := ("c3":var) : var_scope.
-Notation "''d3'" := ("d3":var) : var_scope.
-Notation "''e3'" := ("e3":var) : var_scope.
-Notation "''f3'" := ("f3":var) : var_scope.
-Notation "''g3'" := ("g3":var) : var_scope.
-Notation "''h3'" := ("h3":var) : var_scope.
-Notation "''i3'" := ("i3":var) : var_scope.
-Notation "''j3'" := ("j3":var) : var_scope.
-Notation "''k3'" := ("k3":var) : var_scope.
-Notation "''l3'" := ("l3":var) : var_scope.
-Notation "''m3'" := ("m3":var) : var_scope.
-Notation "''n3'" := ("n3":var) : var_scope.
-Notation "''o3'" := ("o3":var) : var_scope.
-Notation "''p3'" := ("p3":var) : var_scope.
-Notation "''q3'" := ("q3":var) : var_scope.
-Notation "''r3'" := ("r3":var) : var_scope.
-Notation "''s3'" := ("s3":var) : var_scope.
-Notation "''t3'" := ("t3":var) : var_scope.
-Notation "''u3'" := ("u3":var) : var_scope.
-Notation "''v3'" := ("v3":var) : var_scope.
-Notation "''w3'" := ("w3":var) : var_scope.
-Notation "''x3'" := ("x3":var) : var_scope.
-Notation "''y3'" := ("y3":var) : var_scope.
-Notation "''z3'" := ("z3":var) : var_scope.
-
-Open Scope var_scope.
-
-End NotationForVariables.
-
-
-(* ---------------------------------------------------------------------- *)
 (** Notation for concrete programs *)
 
-(* TODO: rename some x into z *)
+Module NotationForTerms.
+
+(** Note: below, many occurences of [x] have type [bind], and not [var] *)
 
 Notation "'()" := val_unit : trm_scope.
 
@@ -658,9 +726,9 @@ Notation "'Let' 'Rec' f x1 x2 .. xn ':=' t1 'in' t2" :=
   (trm_let f (trm_fix f x1 (trm_fun x2 .. (trm_fun xn t1) ..) t2))
   (at level 69, f, x1, x2, xn at level 0, right associativity,
   format "'[v' '[' 'Let'  'Rec'  f  x1  x2  ..  xn  ':='  t1  'in' ']'  '/'  '[' t2 ']' ']'") : trm_scope.
-  
-  (* LATER: fix above: 
-     Definition test2 := Let Rec 'f 'x 'y := val_unit in val_unit. 
+
+  (* LATER: the above might need to be fixed. Here is how to test it:
+     Definition test2 := Let Rec 'f 'x 'y := val_unit in val_unit.
      Print test2. *)
 
 Notation "t1 ;;; t2" :=
@@ -753,7 +821,8 @@ Notation "t1 '= t2" :=
   (at level 69) : trm_scope.
 
 
-(* Demo for notation
+(* Demo for the above notation:
+
   Open Scope trm_scope.
   Import NotationForVariables.
   Definition test := Fun 'x := val_unit.
@@ -765,510 +834,7 @@ Notation "t1 '= t2" :=
   Definition test2 := LetFix 'f 'x1 'x2 := val_unit in val_unit.
 *)
 
-(* ********************************************************************** *)
-(* * More on substitutions *)
+End NotationForTerms.
 
 
-(* ---------------------------------------------------------------------- *)
-(** Distinct variables *)
 
-(** [vars] is the type of a list of variables *)
-
-Definition vars : Type := list var.
-
-(** [var_fresh y xs] asserts that [y] does not belong to the list [xs] *)
-
-Fixpoint var_fresh (y:var) (xs:vars) : bool :=
-  match xs with
-  | nil => true
-  | x::xs' => if var_eq x y then false else var_fresh y xs'
-  end.
-
-(** [var_distinct xs] asserts that [xs] consists of a list of distinct variables. *)
-
-Fixpoint var_distinct (xs:vars) : Prop :=
-  match xs with
-  | nil => True
-  | x::xs' => var_fresh x xs' /\ var_distinct xs'
-  end.
-
-(** Computable version of [var_distinct] *)
-
-Fixpoint var_distinct_exec (xs:vars) : bool :=
-  match xs with
-  | nil => true
-  | x::xs' => var_fresh x xs' && var_distinct_exec xs'
-  end.
-
-Lemma var_distinct_exec_eq : forall xs,
-  var_distinct_exec xs = isTrue (var_distinct xs).
-Proof using.
-  intros. induction xs as [|x xs']; simpl; rew_isTrue.
-  { auto. } { rewrite~ IHxs'. }
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(** N-ary substitution *)
-
-(** Shorthand [vars], [vals] and [trms] for lists of items. *)
-
-Definition vals : Type := list val.
-Definition trms : Type := list trm.
-
-(** [substn xs vs t] is a shorthand for [substs (List.combine xs vs) t].
-    It substitutes the values [vs] for the corresponding variables in [xs].
-    This operation is only specified when [length xs = length vs]. *)
-
-Definition substn (xs:vars) (vs:vals) (t:trm) : trm :=
-  subst (LibList.combine xs vs) t.
-
-(** Distribution of [substn] on [nil] and [cons] lists *)
-
-Lemma substn_nil : forall t,
-  substn nil nil t = t.
-Proof using. intros. unfold substn. simpl. rew_ctx. apply subst_empty. Qed.
-
-Lemma substn_cons : forall x xs v vs t,
-  substn (x::xs) (v::vs) t = substn xs vs (subst1 x v t).
-Proof using.
-  intros. unfold substn. rewrite combine_cons. rewrite~ subst_cons.
-Qed.
-
-
-(* ********************************************************************** *)
-(* * N-ary functions and applications *)
-
-(** [trm_apps t ts] denotes a n-ary application of [t] to the
-    arguments from the list [ts].
-
-    [trm_funs xs t] denotes a n-ary function with arguments [xs]
-    and body [t].
-
-    [trm_fixs f xs t] denotes a n-ary recursive function [f]
-    with arguments [xs] and body [t].
-
-  The tactic [rew_nary] can be used to convert terms in the goal
-  to using the nary constructs wherever possible.
-
-  The operation [substn xs vs t] substitutes the variables [xs]
-  with the values [vs] inside the term [t].
-*)
-
-
-(* ---------------------------------------------------------------------- *)
-(** Coercions from values to terms *)
-
-Coercion vals_to_trms (vs:vals) : trms :=
-  List.map trm_val vs.
-
-(** Tactic [rew_vals_to_trms] to fold the coercion where possible *)
-
-Lemma vals_to_trms_fold_start : forall v,
-  (trm_val v)::nil = vals_to_trms (v::nil).
-Proof using. auto. Qed.
-
-Lemma vals_to_trms_fold_next : forall v vs,
-  (trm_val v)::(vals_to_trms vs) = vals_to_trms (v::vs).
-Proof using. auto. Qed.
-
-Hint Rewrite vals_to_trms_fold_start vals_to_trms_fold_next
-  : rew_vals_to_trms.
-
-Tactic Notation "rew_vals_to_trms" :=
-  autorewrite with rew_vals_to_trms.
-
-
-(* ---------------------------------------------------------------------- *)
-(** N-ary applications and N-ary functions *)
-
-Fixpoint trm_apps (tf:trm) (ts:trms) : trm :=
-  match ts with
-  | nil => tf
-  | t::ts' => trm_apps (trm_app tf t) ts'
-  end.
-
-Fixpoint trm_fixs (f:bind) (xs:vars) (t:trm) : trm :=
-  match xs with
-  | nil => t
-  | x::xs' => trm_fix f x (trm_fixs bind_anon xs' t)
-  end.
-
-Definition val_fixs (f:bind) (xs:vars) (t:trm) : val :=
-  match xs with
-  | nil => arbitrary
-  | x::xs' => val_fix f x (trm_fixs bind_anon xs' t)
-  end.
-
-Notation "'trm_funs' xs t1" := (trm_fixs bind_anon xs t1)
-  (at level 69, xs at level 0, t1 at level 0).
-
-Notation "'val_funs' xs t1" := (val_fixs bind_anon xs t1)
-  (at level 69, xs at level 0, t1 at level 0).
-
-
-(* ---------------------------------------------------------------------- *)
-(** Nonempty list of distinct variables *)
-
-(** [var_funs n xs] asserts that [xs] consists of [n] distinct variables *)
-
-Definition var_funs (n:nat) (xs:vars) : Prop :=
-     var_distinct xs
-  /\ length xs = n
-  /\ xs <> nil.
-
-(** Computable version of the above definition *)
-
-Definition var_funs_exec (n:nat) (xs:vars) : bool :=
-     nat_compare n (List.length xs)
-  && is_not_nil xs
-  && var_distinct_exec xs.
-
-Lemma var_funs_exec_eq : forall (n:nat) xs,
-  var_funs_exec n xs = isTrue (var_funs n xs).
-Proof using.
-  intros. unfold var_funs_exec, var_funs.
-  rewrite nat_compare_eq.
-  rewrite is_not_nil_eq.
-  rewrite List_length_eq.
-  rewrite var_distinct_exec_eq.
-  extens. rew_istrue. iff*.
-Qed.
-
-(** [var_fixs f n xs] asserts that [f::xs] consists of [n+1] 
-    distinct variables. *)
-
-Definition var_fixs (f:var) (n:nat) (xs:vars) : Prop :=
-     var_distinct (f::xs)
-  /\ length xs = n
-  /\ xs <> nil.
-
-(** Computable version of the above definition *)
-
-Definition var_fixs_exec (f:var) (n:nat) (xs:vars) : bool :=
-     nat_compare n (List.length xs)
-  && is_not_nil xs
-  && var_distinct_exec (f::xs).
-
-Lemma var_fixs_exec_eq : forall f (n:nat) xs,
-  var_fixs_exec f n xs = isTrue (var_fixs f n xs).
-Proof using.
-  intros. unfold var_fixs_exec, var_fixs.
-  rewrite nat_compare_eq.
-  rewrite is_not_nil_eq.
-  rewrite List_length_eq.
-  rewrite var_distinct_exec_eq.
-  extens. rew_istrue. iff*.
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Properties of n-ary functions *)
-
-Lemma red_funs : forall m xs t,
-  xs <> nil ->
-  red m (trm_funs xs t) m (val_funs xs t).
-Proof using.
-  introv N. destruct xs as [|x xs']. { false. }
-  simpl. applys red_fun.
-Qed.
-
-Lemma subst_trm_funs : forall y w xs t,
-  var_fresh y xs ->
-  subst1 y w (trm_funs xs t) = trm_funs xs (subst1 y w t).
-Proof using.
-  introv N. unfold subst1. induction xs as [|x xs']; simpls; fequals.
-  { rewrite var_eq_spec in *. case_if. rewrite~ <- IHxs'. }
-Qed.
-
-Lemma red_app_funs_val_ind : forall xs vs m1 m2 tf t r,
-  red m1 tf m1 (val_funs xs t) ->
-  red m1 (substn xs vs t) m2 r ->
-  var_funs (length vs) xs ->
-  red m1 (trm_apps tf vs) m2 r.
-Proof using.
-  introv M1 M2 (F&L&N). gen tf t r m1 m2 F N. list2_ind~ xs vs; intros.
-  { false. }
-  { rename xs1 into xs', x1 into x1, x2 into v1, xs2 into vs', H0 into IH.
-    simpl in F. rew_istrue in F. destruct F as (F1&F').
-    tests C: (xs' = nil).
-    { rew_list in *. asserts: (vs' = nil).
-      { applys length_zero_inv. math. } subst vs'.
-      simpls. applys* red_app. applys* red_val. }
-    { rewrite substn_cons in M2. applys~ IH M2. applys* red_app.
-      { applys* red_val. }
-      { simpl. unfold subst2. simpl. rew_ctx.
-        rewrite subst_add. rewrite subst_empty.
-        rewrite~ subst_trm_funs. applys~ red_funs. } } }
-Qed.
-
-Lemma red_app_funs_val : forall xs vs m1 m2 vf t r,
-  vf = val_funs xs t ->
-  red m1 (substn xs vs t) m2 r ->
-  var_funs (length vs) xs ->
-  red m1 (trm_apps vf vs) m2 r.
-Proof using.
-  introv R M N. applys* red_app_funs_val_ind.
-  { subst. apply~ red_val. }
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Properties of n-ary functions *)
-
-Lemma red_fixs : forall m f xs t,
-  xs <> nil ->
-  red m (trm_fixs f xs t) m (val_fixs f xs t).
-Proof using.
-  introv N. destruct xs as [|x xs']. { false. }
-  simpl. applys red_fix.
-Qed.
-
-Lemma subst_trm_fixs : forall y w f xs t,
-  var_fresh y (f::xs) ->
-  subst1 y w (trm_fixs f xs t) = trm_fixs f xs (subst1 y w t).
-Proof using.
-  introv N. destruct xs as [|x xs'].
-  { auto. }
-  { unfold subst1. simpls. repeat rewrite var_eq_spec in *.
-    do 2 case_if in N. simpl. rewrite var_eq_spec. case_if~.
-    fequals.
-    forwards K: subst_trm_funs N. unfold subst1, Ctx.one in K.
-    simpls. rewrite~ K. }
-Qed.  (* LATER: simplify *)
-
-Lemma subst2_eq_subst1_subst1 : forall x1 x2 v1 v2 t,
-  subst2 x1 v1 x2 v2 t = subst1 x2 v2 (subst1 x1 v1 t).
-Proof using. intros. unfold subst2. rewrite~ subst_add. Qed.
-
-Lemma red_app_fixs_val : forall xs (vs:vals) m1 m2 vf (f:var) t r,
-  vf = val_fixs f xs t ->
-  red m1 (substn (f::xs) (vf::vs) t) m2 r ->
-  var_fixs f (length vs) xs ->
-  red m1 (trm_apps vf vs) m2 r.
-Proof using.
-  introv E M (N&L&P). destruct xs as [|x xs']. { false. }
-  { destruct vs as [|v vs']; rew_list in *. { false; math. } clear P.
-    destruct N as (N1&N2&N3). simpls. case_if. 
-    tests C':(xs' = nil).
-    { rew_list in *. asserts: (vs' = nil).
-      { applys length_zero_inv. math. } subst vs'. clear L.
-      subst vf. simpls. hint red_val. applys* red_app. }
-    { applys~ red_app_funs_val_ind.
-      { hint red_val. applys* red_app.
-        rewrite subst2_eq_subst1_subst1. do 2 rewrite~ subst_trm_funs.
-        applys* red_funs. } 
-      { do 2 rewrite substn_cons in M. applys M. }
-      { splits*. } } }
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Folding of n-ary functions *)
-
-Lemma trm_apps_fold_start : forall t1 t2,
-  trm_app t1 t2 = trm_apps t1 (t2::nil).
-Proof using. auto. Qed.
-
-Lemma trm_apps_fold_next : forall t1 t2 t3s,
-  trm_apps (trm_app t1 t2) t3s = trm_apps t1 (t2::t3s).
-Proof using. auto. Qed.
-
-Lemma trm_apps_fold_concat : forall t1 t2s t3s,
-  trm_apps (trm_apps t1 t2s) t3s = trm_apps t1 (List.app t2s t3s).
-Proof using.
-  intros. gen t1; induction t2s; intros. { auto. }
-  { rewrite <- trm_apps_fold_next. simpl. congruence. }
-Qed.
-
-Lemma trm_funs_fold_start : forall x t,
-  trm_fun x t = trm_funs (x::nil) t.
-Proof using. auto. Qed.
-
-Lemma trm_funs_fold_next : forall x xs t,
-  trm_funs (x::nil) (trm_funs xs t) = trm_funs (x::xs) t.
-Proof using. auto. Qed.
-
-Lemma trm_fixs_fold_start : forall f x t,
-  trm_fix f x t = trm_fixs f (x::nil) t.
-Proof using. auto. Qed.
-
-(* subsumed by iteration of trm_funs_fold_next *)
-Lemma trm_funs_fold_app : forall xs ys t,
-  trm_funs xs (trm_funs ys t) = trm_funs (List.app xs ys) t.
-Proof using.
-  intros. induction xs. { auto. } { simpl. congruence. }
-Qed.
-
-(* for innermost-first rewriting strategy
-Lemma trm_fixs_fold_next : forall f x xs t,
-  trm_fixs f (x::nil) (trm_funs xs t) = trm_fixs f (x::xs) t.
-Proof using. auto. Qed.
-*)
-
-Lemma trm_fixs_fold_app : forall f x xs ys t,
-  trm_fixs f (x::xs) (trm_funs ys t) = trm_fixs f (x :: List.app xs ys) t.
-Proof using. intros. simpl. rewrite~ trm_funs_fold_app. Qed.
-
-Lemma val_funs_fold_start : forall x t,
-  val_fun x t = val_funs (x::nil) t.
-Proof using. auto. Qed.
-
-Lemma val_funs_fold_app : forall x xs ys t,
-  val_funs (x::xs) (trm_funs ys t) = val_funs (List.app (x::xs) ys) t.
-Proof using. intros. simpl. rewrite~ trm_funs_fold_app. Qed.
-
-Lemma val_funs_fold_app' : forall x xs ys t,
-  val_funs (List.app (x::nil) xs) (trm_funs ys t) = val_funs (List.app (x::xs) ys) t.
-Proof using. intros. simpl. rewrite~ trm_funs_fold_app. Qed.
-
-Lemma val_fixs_fold_start : forall f x t,
-  val_fix f x t = val_fixs f (x::nil) t.
-Proof using. auto. Qed.
-
-Lemma val_fixs_fold_app : forall f x xs ys t,
-  val_fixs f (x::xs) (trm_funs ys t) = val_fixs f (List.app (x::xs) ys) t.
-Proof using. intros. simpl. rewrite~ trm_funs_fold_app. Qed.
-
-Lemma val_fixs_fold_app' : forall f x xs ys t,
-  val_fixs f (List.app (x::nil) xs) (trm_funs ys t) = val_fixs f (List.app (x::xs) ys) t.
-Proof using. intros. simpl. rewrite~ trm_funs_fold_app. Qed.
-
-Hint Rewrite
-  trm_apps_fold_start trm_apps_fold_next trm_apps_fold_concat
-  trm_funs_fold_start trm_funs_fold_next
-  trm_fixs_fold_start trm_fixs_fold_app
-  val_funs_fold_start val_funs_fold_app val_funs_fold_app'
-  val_fixs_fold_start val_fixs_fold_app val_fixs_fold_app' : rew_nary.
-
-Tactic Notation "rew_nary" :=
-  autorewrite with rew_nary; simpl List.app.
-Tactic Notation "rew_nary" "in" hyp(H) :=
-  autorewrite with rew_nary in H; simpl List.app in H.
-Tactic Notation "rew_nary" "in" "*" :=
-  autorewrite with rew_nary in *; simpl List.app in *.
-  (* rewrite_strat (any (innermost (hints rew_nary))).
-     => way too slow! *)
-
-(* Demos:
-Lemma rew_nary_demo_1 : forall (f x y z:var) t1 t2 v,
-  val_fix f x (trm_fun y (trm_fun z (f t1 x y t2))) = v.
-Proof using. intros. rew_nary. Abort.
-
-Lemma rew_nary_demo_2 : forall f x1 x2 v,
-  val_fun f (trm_fun x1 (trm_fun x2 (x1 x2))) = v.
-Proof using. intros. rew_nary. Abort.
-*)
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Sequence of consecutive variables *)
-
-(** [nat_to_var n] converts [nat] values into distinct
-    [name] values.
-    Warning: the current implementation is inefficient. *)
-
-Definition dummy_char := Ascii.ascii_of_nat 0%nat.
-
-Fixpoint nat_to_var (n:nat) : var :=
-  match n with
-  | O => String.EmptyString
-  | S n' => String.String dummy_char (nat_to_var n')
-  end.
-
-Lemma injective_nat_to_var : injective nat_to_var.
-Proof using.
-  intros n. induction n as [|n']; intros m E; destruct m as [|m']; tryfalse.
-  { auto. }
-  { inverts E. fequals~. }
-Qed.
-
-(** [var_seq i n] generates a list of variables [x1;x2;..;xn]
-    with [x1=i] and [xn=i+n-1]. Such lists are useful for
-    generic programming. *)
-
-Fixpoint var_seq (start:nat) (nb:nat) : vars :=
-  match nb with
-  | O => nil
-  | S nb' => (nat_to_var start) :: var_seq (S start) nb'
-  end.
-
-Section Var_seq.
-Implicit Types start nb : nat.
-
-Lemma var_fresh_var_seq_lt : forall (x:nat) start nb,
-  (x < start)%nat ->
-  var_fresh (nat_to_var x) (var_seq start nb).
-Proof using.
-  intros. gen start. induction nb; intros.
-  { auto. }
-  { simpl. rewrite var_eq_spec. case_if.
-    { lets: injective_nat_to_var C. math. }
-    { applys IHnb. math. } }
-Qed.
-
-Lemma var_fresh_var_seq_ge : forall (x:nat) start nb,
-  (x >= start+nb)%nat ->
-  var_fresh (nat_to_var x) (var_seq start nb).
-Proof using.
-  intros. gen start. induction nb; intros.
-  { auto. }
-  { simpl. rewrite var_eq_spec. case_if.
-    { lets: injective_nat_to_var C. math. }
-    { applys IHnb. math. } }
-Qed.
-
-Lemma var_distinct_var_seq : forall start nb,
-  var_distinct (var_seq start nb).
-Proof using.
-  intros. gen start. induction nb; intros.
-  { simple~. }
-  { split.
-    { applys var_fresh_var_seq_lt. math. }
-    { auto. } }
-Qed.
-
-Lemma length_var_seq : forall start nb,
-  length (var_seq start nb) = nb.
-Proof using.
-  intros. gen start. induction nb; simpl; intros.
-  { auto. } { rew_list. rewrite~ IHnb. }
-Qed.
-
-Lemma var_funs_var_seq : forall start nb,
-  (nb > 0%nat)%nat ->
-  var_funs nb (var_seq start nb).
-Proof using.
-  introv E. splits.
-  { applys var_distinct_var_seq. }
-  { applys length_var_seq. }
-  { destruct nb. { false. math. } { simpl. auto_false. } }
-Qed.
-
-End Var_seq.
-
-
-
-(* ********************************************************************** *)
-(* * Tactics  *)
-
-(* ---------------------------------------------------------------------- *)
-(* ** Tactic [fmap_red] for proving [red] goals modulo
-      equalities between states *)
-
-Ltac fmap_red_base tt ::=
-  match goal with H: red _ ?t _ _ |- red _ ?t _ _ =>
-    applys_eq H 2 4; try fmap_eq end.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Tactic [var_neq] for proving two concrete variables distinct;
-      also registered as hint for [auto] *)
-
-Ltac var_neq :=
-  match goal with |- ?x <> ?y :> var =>
-    solve [ let E := fresh in
-            destruct (eq_var_dec x y) as [E|E];
-              [ false | apply E ] ] end.
-
-Hint Extern 1 (?x <> ?y) => var_neq.

@@ -4927,3 +4927,16 @@ do 2 rewrite substn_cons in M2. applys~ IH M2. applys* red_app.
         rewrite~ subst_trm_funs. applys~ red_funs. } } }
 Qed.
 *)
+
+
+
+Lemma rem_rem_neq : forall z1 z2 E,
+  Ctx.rem z1 (Ctx.rem z2 E) = Ctx.rem z2 (Ctx.rem z1 E).
+Proof using. (*
+
+  introv M. unfold rem. induction E as [|(y,v) E'].
+  { auto. }
+  { simpls. lets (N1&N2): fresh_inv (rm M).
+    rewrite var_eq_spec in *. case_if. rewrite~ IHE'. }
+*) admit.
+Qed.

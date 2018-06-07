@@ -52,15 +52,15 @@ Inductive red : nat -> state -> trm -> state -> val -> Prop :=
       red n1 m1 t0 m2 (val_bool b) ->
       red n2 m2 (if b then t1 else t2) m3 r ->
       red (n1+n2) m1 (trm_if t0 t1 t2) m3 r
-  | red_let : forall n1 n2 m1 m2 m3 x t1 t2 v1 r,
+  | red_let : forall n1 n2 m1 m2 m3 z t1 t2 v1 r,
       red n1 m1 t1 m2 v1 ->
-      red n2 m2 (subst x v1 t2) m3 r ->
-      red (n1+n2) m1 (trm_let x t1 t2) m3 r
+      red n2 m2 (subst1 z v1 t2) m3 r ->
+      red (n1+n2) m1 (trm_let z t1 t2) m3 r
   | red_app_arg : forall n1 n2 n3 m1 m2 m3 m4 t1 t2 v1 v2 f x t r,
       red n1 m1 t1 m2 v1 ->
       red n2 m2 t2 m3 v2 ->
       v1 = val_fix f x t ->
-      red n3 m3 (subst f v1 (subst x v2 t)) m4 r ->
+      red n3 m3 (subst2 f v1 x v2 t) m4 r ->
       red (n1+n2+n3+1) m1 (trm_app t1 t2) m4 r
   | red_ref : forall ma mb v l,
       mb = (fmap_single l v) ->
@@ -77,7 +77,7 @@ Hint Resolve red_val.
 
 Lemma red_app_fix_val : forall n m1 m2 v1 v2 f x t r,
   v1 = val_fix f x t ->
-  red n m1 (subst f v1 (subst x v2 t)) m2 r ->
+  red n m1 (subst2 f v1 x v2 t) m2 r ->
   red (n+1) m1 (trm_app v1 v2) m2 r.
 Proof using.
   introv E M. subst. applys equates_5.
@@ -627,9 +627,9 @@ Proof using.
   { hhsimpl. hchanges M. }
 Qed.
 
-Lemma rule_fix : forall f x t1 H Q,
-  H ==> Q (val_fix f x t1) ->
-  triple (trm_fix f x t1) H Q.
+Lemma rule_fix : forall (f z:bind) t1 H Q,
+  H ==> Q (val_fix f z t1) ->
+  triple (trm_fix f z t1) H Q.
 Proof using.
   introv M. intros HF h N. exists___. splits.
   { applys red_fix. }
@@ -672,10 +672,10 @@ Proof using.
   { intros v' N. hpull. intros E. inverts~ E. false N. hnfs*. }
 Qed.
 
-Lemma rule_let : forall x t1 t2 H Q Q1,
+Lemma rule_let : forall z t1 t2 H Q Q1,
   triple t1 H Q1 ->
-  (forall (X:val), triple (subst x X t2) (Q1 X) Q) ->
-  triple (trm_let x t1 t2) H Q.
+  (forall (X:val), triple (subst1 z X t2) (Q1 X) Q) ->
+  triple (trm_let z t1 t2) H Q.
 Proof using.
   introv M1 M2. intros HF h N.
   lets~ (n1&h1'&v1&R1&K1&C1): (rm M1) HF h.
@@ -686,9 +686,9 @@ Proof using.
   { math. }
 Qed.
 
-Lemma rule_let_val : forall x v1 t2 H Q,
-  (forall (X:val), X = v1 -> triple (subst x X t2) H Q) ->
-  triple (trm_let x (trm_val v1) t2) H Q.
+Lemma rule_let_val : forall z v1 t2 H Q,
+  (forall (X:val), X = v1 -> triple (subst1 z X t2) H Q) ->
+  triple (trm_let z (trm_val v1) t2) H Q.
 Proof using.
   introv M. forwards~ M': (rm M).
   applys_eq~ (>> rule_let H (fun x => \[x = v1] \* H)) 2.
@@ -699,7 +699,7 @@ Qed.
 Lemma rule_app_fix : forall f x F V t1 H H' Q,
   F = (val_fix f x t1) ->
   pay_one H H' ->
-  triple (subst f F (subst x V t1)) H' Q ->
+  triple (subst2 f F x V t1) H' Q ->
   triple (trm_app F V) H Q.
 Proof using.
   introv EF HP M. intros HF h N. unfolds pay_one.
@@ -868,14 +868,16 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Derived rule for let-binding of a recursive function *)
 
+(* TEMPORARY *)
+
 Definition spec_fix (f:var) (x:var) (t1:trm) (F:val) :=
   forall X H H' Q,
     pay_one H H' ->
-    triple (subst f F (subst x X t1)) H' Q ->
+    triple (subst2 f F x X t1) H' Q ->
     triple (trm_app F X) H Q.
 
 Lemma rule_let_fix : forall f x t1 t2 H Q,
-  (forall (F:val), spec_fix f x t1 F -> triple (subst f F t2) H Q) ->
+  (forall (F:val), spec_fix f x t1 F -> triple (subst1 f F t2) H Q) ->
   triple (trm_let f (trm_fix f x t1) t2) H Q.
 Proof using.
   introv M. applys rule_let (fun F => \[spec_fix f x t1 F] \* H).

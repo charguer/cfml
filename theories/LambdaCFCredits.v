@@ -80,10 +80,8 @@ Definition cf_def cf (t:trm) :=
   | trm_var x => local (cf_fail) (* unbound variable *)
   | trm_fix f x t1 => local (cf_val (val_fix f x t1))
   | trm_if t0 t1 t2 => local (cf_if (cf t0) (cf t1) (cf t2))
-  | trm_let x t1 t2 => local (cf_let (cf t1) (fun X => cf (subst x X t2)))
+  | trm_let x t1 t2 => local (cf_let (cf t1) (fun X => cf (subst1 x X t2)))
   | trm_app t1 t2 => local (triple t)
-  | trm_fun x t1 => local (cf_fail) (* unsupported *)
-  | trm_seq t1 t2 => local (cf_fail) (* unsupported *)
   | trm_while t1 t2 => local (cf_fail) (* unsupported *)
   | trm_for x t1 t2 t3 => local (cf_fail) (* unsupported *)
   end.

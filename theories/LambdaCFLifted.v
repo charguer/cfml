@@ -144,18 +144,20 @@ Definition Cf_def Cf (t:trm) : Formula :=
   match t with
   | trm_val v => Local (Cf_val v)
   | trm_var x => Local (Cf_fail) (* unbound variable *)
-  | trm_fun x t1 => Local (Cf_val (val_fun x t1))
   | trm_fix f x t1 => Local (Cf_val (val_fix f x t1))
   | trm_if t0 t1 t2 => Local (Cf_if (Cf t0) (Cf t1) (Cf t2))
-  | trm_seq t1 t2 => Local (Cf_seq (Cf t1) (Cf t2))
-  | trm_let y t1 t2 => Local (Cf_let (Cf t1)
-                                (fun `{EA:Enc A} (X:A) => Cf (subst y (enc X) t2)))
+  | trm_let z t1 t2 =>
+     Local (match z with
+     | bind_anon => Cf_seq (Cf t1) (Cf t2)
+     | bind_var x => Cf_let (Cf t1)
+                                (fun `{EA:Enc A} (X:A) => Cf (subst1 x (enc X) t2))
+     end)
   | trm_app t1 t2 => Local (Cf_app t)
   | trm_while t1 t2 => Local (Cf_while (Cf t1) (Cf t2))
   | trm_for x t1 t2 t3 => Local (
       match t1, t2 with
       | trm_val (val_int n1), trm_val (val_int n2) =>
-            Cf_for n1 n2 (fun X => Cf (subst x X t3))
+            Cf_for n1 n2 (fun X => Cf (subst1 x X t3))
       | _, _ => Cf_fail (* not supported *)
       end)
   end.
@@ -169,8 +171,9 @@ Proof using.
   intros f1 f2 t IH. unfold Cf_def.
   destruct t; fequals.
   { fequals~. }
-  { fequals~. }
-  { fequals~. applys~ fun_ext_3. }
+  { destruct b.
+    { fequals~. }
+    { fequals~. applys~ fun_ext_3. } }
   { fequals~. }
   { destruct t1; fequals~. destruct v0; fequals~.
     destruct t2; fequals~. destruct v0; fequals~.
@@ -215,10 +218,6 @@ Proof using.
   { false. }
   { destruct P as (V&E&P).
     applys Triple_enc_val_inv (fun r => \[r = enc V] \* H).
-    { applys Rule_fun. rewrite E. hsimpl~. }
-    { intros X. hpull ;=> EX. subst X. hchange P. hsimpl V. simple~. } }
-  { destruct P as (V&E&P).
-    applys Triple_enc_val_inv (fun r => \[r = enc V] \* H).
     { applys Rule_fix. rewrite E. hsimpl~. }
     { intros X. hpull ;=> EX. subst X. hchange P. hsimpl. simple~. } }
   { destruct P as (Q1&P1&P2). applys @Rule_if.
@@ -227,13 +226,14 @@ Proof using.
       clears A H Q1. intros A EA H Q (b'&P1'&P2'&P3').
       asserts E: (b = b'). { destruct b; destruct b'; auto. }
       clear P1'. subst b'. case_if; applys* IH. } }
-  { destruct P as (H1&P1&P2). applys Rule_seq H1.
-    { applys~ IH. }
-    { intros X. applys~ IH. } }
-  { destruct P as (A1&EA1&Q1&P1&P2). applys Rule_let Q1.
-    { applys~ IH. }
-    { intros X. specializes P2 X.
-      unfold Subst. rewrite enc_dyn_eq. applys~ IH. } }
+  { destruct b as [|x].
+    { destruct P as (H1&P1&P2). applys Rule_seq H1.
+      { applys~ IH. }
+      { intros X. applys~ IH. } }
+    { destruct P as (A1&EA1&Q1&P1&P2). applys Rule_let Q1.
+      { applys~ IH. }
+      { intros X. specializes P2 X.
+        unfold Subst1. rewrite enc_dyn_eq. applys~ IH. } } }
   { auto. }
   { hnf in P. destruct P as (Q'&P&HC). simpls.
     applys Triple_enc_change HC.
@@ -340,6 +340,7 @@ Proof using.
   introv M. rewrite <- Cf_unfold_iter in M. applys* Triple_of_Cf.
 Qed.
 
+(* deprecated
 Lemma Triple_apps_funs_of_Cf_iter : forall n F (Vs:dyns) (vs:vals) xs t A `{EA:Enc A} H (Q:A->hprop),
   F = val_funs xs t ->
   vs = encs Vs ->
@@ -350,12 +351,13 @@ Proof using.
   introv EF EV N M. rewrite var_funs_exec_eq in N. rew_istrue in N.
   subst. applys* Rule_apps_funs. applys* Triple_trm_of_Cf_iter.
 Qed.
+*)
 
-Lemma Triple_apps_fixs_of_Cf_iter : forall n F f (Vs:dyns) (vs:vals) xs t A `{EA:Enc A} H (Q:A->hprop),
+Lemma Triple_apps_fixs_of_Cf_iter : forall n F (f:var) (Vs:dyns) (vs:vals) xs t A `{EA:Enc A} H (Q:A->hprop),
   F = val_fixs f xs t ->
   vs = encs Vs ->
   var_fixs_exec f (length Vs) xs ->
-  func_iter n Cf_def Cf (subst f F (Substn xs Vs t)) A EA H Q ->
+  func_iter n Cf_def Cf (Substn (f::xs) ((Dyn F)::Vs) t) A EA H Q ->
   Triple (trm_apps (val_fixs f xs t) vs) H Q.
 Proof using.
   introv EF EV N M. rewrite var_fixs_exec_eq in N. rew_istrue in N.
@@ -558,9 +560,6 @@ Ltac xcf_trm n ::=
 Ltac xcf_basic_fun n f' ::=
   let f := xcf_get_fun tt in
   match f with
-  | val_funs _ _ =>
-      applys Triple_apps_funs_of_Cf_iter n;
-      [ reflexivity | try xeq_encs | reflexivity | xcf_post tt ]
   | val_fixs _ _ _ =>
       applys Triple_apps_fixs_of_Cf_iter n f';
       [ reflexivity | try xeq_encs | reflexivity | xcf_post tt ]

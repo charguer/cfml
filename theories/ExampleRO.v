@@ -10,6 +10,7 @@ License: MIT.
 Set Implicit Arguments.
 From Sep Require Import LambdaSepRO.
 Generalizable Variables A B.
+Export NotationForVariables NotationForTerms.
 Open Scope trm_scope.
 Ltac auto_star ::= jauto.
 
@@ -75,11 +76,11 @@ Proof using.
   { auto. }
 Qed.
 
-Lemma rule_let' : forall x t1 t2 H2 H1 H Q Q1,
+Lemma rule_let' : forall z t1 t2 H2 H1 H Q Q1,
   H ==> (H1 \* H2) ->
   triple t1 H1 Q1 ->
-  (forall (X:val), triple (subst x X t2) (Q1 X \* H2) Q) ->
-  triple (trm_let x t1 t2) H Q.
+  (forall (X:val), triple (subst1 z X t2) (Q1 X \* H2) Q) ->
+  triple (trm_let z t1 t2) H Q.
 Proof using. introv WP M1 M2. applys* rule_consequence WP. applys* rule_let. Qed.
 
 Lemma rule_frame : forall t H1 Q1 H2,
@@ -115,6 +116,7 @@ Tactic Notation "xdef" :=
 
 (* ---------------------------------------------------------------------- *)
 (** Apply a function to the contents of a reference *)
+
 
 Definition val_ref_apply :=
   ValFun 'f 'p :=

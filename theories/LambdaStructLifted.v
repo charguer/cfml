@@ -23,11 +23,13 @@ Ltac auto_star ::= jauto.
 (* ********************************************************************** *)
 (* * Derived basic functions, useful for metaprogramming *)
 
+(*
+
 (* ---------------------------------------------------------------------- *)
 (* ** Rewriting lemmas for [Subst] *)
 
 Lemma Subst_seq : forall x V t1 t2,
-  Subst x V (trm_seq t1 t2) = trm_seq (Subst x V t1) (Subst x V t2).
+  Subst1 x V (trm_seq t1 t2) = trm_seq (Subst1 x V t1) (Subst1 x V t2).
 Proof using. auto. Qed.
 
 (* LATER: complete *)
@@ -93,6 +95,7 @@ Qed.
 
 (* LATER: complete *)
 
+*)
 
 (* ********************************************************************** *)
 (* * Derived basic functions *)

@@ -1124,6 +1124,7 @@ Proof using.
   { specializes M P1. applys~ on_rw_sub_base. }
 Qed.
 
+(* DEPRECATED
 Lemma rule_fun : forall x t1 H Q,
   H ==> Q (val_fun x t1) ->
   Normal H ->
@@ -1133,11 +1134,12 @@ Proof using.
   { applys red_fun. }
   { specializes M P1. applys~ on_rw_sub_base. }
 Qed.
+*)
 
-Lemma rule_fix : forall f x t1 H Q,
-  H ==> Q (val_fix f x t1) ->
+Lemma rule_fix : forall (f z:bind) t1 H Q,
+  H ==> Q (val_fix f z t1) ->
   Normal H ->
-  triple (trm_fix f x t1) H Q.
+  triple (trm_fix f z t1) H Q.
 Proof using.
   introv M HS. intros h1 h2 D P1. exists___. splits*.
   { applys red_fix. }
@@ -1152,10 +1154,10 @@ Proof using.
   exists h' v'. splits~. { applys~ red_if_bool. }
 Qed.
 
-Lemma rule_let : forall x t1 t2 H1 H2 Q Q1,
+Lemma rule_let : forall z t1 t2 H1 H2 Q Q1,
   triple t1 H1 Q1 ->
-  (forall (X:val), triple (subst x X t2) (Q1 X \* H2) Q) ->
-  triple (trm_let x t1 t2) (H1 \* H2) Q.
+  (forall (X:val), triple (subst1 z X t2) (Q1 X \* H2) Q) ->
+  triple (trm_let z t1 t2) (H1 \* H2) Q.
 Proof using.
   introv M1 M2. intros h1 h2 D (h11&h12&P11&P12&R1&R2).
   subst h1. lets~ (D1&D2): heap_compat_union_l_inv (rm D).
@@ -1185,10 +1187,10 @@ Proof using.
   { applys~ on_rw_sub_union_r. }
 Qed.
 
-Lemma rule_let_simple : forall x t1 t2 H Q Q1,
+Lemma rule_let_simple : forall z t1 t2 H Q Q1,
   triple t1 H Q1 ->
-  (forall (X:val), triple (subst x X t2) (Q1 X) Q) ->
-  triple (trm_let x t1 t2) H Q.
+  (forall (X:val), triple (subst1 z X t2) (Q1 X) Q) ->
+  triple (trm_let z t1 t2) H Q.
 Proof using.
   introv M1 M2.
   applys_eq~ (>> rule_let \[] M1) 1 2.
@@ -1196,9 +1198,9 @@ Proof using.
   { rewrite* hstar_hempty_r. }
 Qed.
 
-Lemma rule_let_val : forall x v1 t2 H Q,
-  (forall (X:val), X = v1 -> triple (subst x X t2) H Q) ->
-  triple (trm_let x (trm_val v1) t2) H Q.
+Lemma rule_let_val : forall z v1 t2 H Q,
+  (forall (X:val), X = v1 -> triple (subst1 z X t2) H Q) ->
+  triple (trm_let z (trm_val v1) t2) H Q.
 Proof using.
   introv M. forwards~ M': M.
   applys_eq (>> rule_let \[] (fun x => \[x = v1])) 2.
@@ -1208,15 +1210,16 @@ Proof using.
   { rewrite~ hstar_hempty_l. }
 Qed.
 
-Lemma rule_app_fix : forall f F x X t1 H Q,
+Lemma rule_app_fix : forall (f:bind) F x X t1 H Q,
   F = val_fix f x t1 ->
-  triple (subst f F (subst x X t1)) H Q ->
+  triple (subst2 f F x X t1) H Q ->
   triple (trm_app F X) H Q.
 Proof using.
   introv EF M. subst. applys rule_red (rm M).
-  introv R. applys* red_app_fix.
+  introv R. hint red_val. applys* red_app.
 Qed.
 
+(* TEMPORARY
 Definition spec_fix (f:var) (x:var) (t1:trm) (F:val) :=
   forall X, triple (subst f F (subst x X t1)) ===> triple (trm_app F X).
 
@@ -1229,6 +1232,7 @@ Proof using.
   { applys~ rule_fix. hsimpl~. introv R. applys* rule_app_fix. }
   { intros F. applys rule_extract_hprop. applys M. }
 Qed.
+*)
 
 Lemma rule_ref : forall v,
   triple (val_ref v) 
@@ -1626,11 +1630,11 @@ Proof using.
   clear M. applys* rule_ramified_frame_read_only_core.
 Qed.
 
-Lemma rule_let_ramified_frame_read_only : forall x t1 t2 H1 H Q1 Q Q',
+Lemma rule_let_ramified_frame_read_only : forall z t1 t2 H1 H Q1 Q Q',
   triple t1 H1 Q1 ->
   H ==> ROFrame H1 (Q1 \---* Q') ->
-  (forall (X:val), triple (subst x X t2) (Q' X) Q) ->
-  triple (trm_let x t1 t2) H Q.
+  (forall (X:val), triple (subst1 z X t2) (Q' X) Q) ->
+  triple (trm_let z t1 t2) H Q.
 Proof.
   intros x t1 t2 H1 H Q1 Q Q' Ht1 IMPL Ht2L.
   eapply rule_consequence; [apply IMPL| |auto].
@@ -1667,20 +1671,20 @@ Proof using. introv M. rewrite var_funs_exec_eq in M. rew_istrue~ in M. Qed.
 
 Hint Resolve var_funs_exec_elim.
 
-Lemma rule_let' : forall x t1 t2 H2 H1 H Q Q1,
+Lemma rule_let' : forall z t1 t2 H2 H1 H Q Q1,
   H ==> (H1 \* H2) ->
   triple t1 H1 Q1 ->
-  (forall (X:val), triple (subst x X t2) (Q1 X \* H2) Q) ->
-  triple (trm_let x t1 t2) H Q.
+  (forall (X:val), triple (subst1 z X t2) (Q1 X \* H2) Q) ->
+  triple (trm_let z t1 t2) H Q.
 Proof using. introv WP M1 M2. applys* rule_consequence WP. applys* rule_let. Qed.
 
-Lemma rule_letfun : forall f x t1 t2 H Q,
-  (forall F, triple (subst f F t2) (\[F = val_fun x t1] \* H) Q) ->
+Lemma rule_letfun : forall (f:bind) x t1 t2 H Q,
+  (forall F, triple (subst1 f F t2) (\[F = val_fun x t1] \* H) Q) ->
   triple (trm_let f (trm_fun x t1) t2) H Q.
 Proof using.
   introv M. applys rule_let' H (fun F => \[F = val_fun x t1]).
   { hsimpl. }
-  { applys rule_fun. hsimpl~. typeclass. }
+  { applys rule_fix. hsimpl~. typeclass. }
   { intros F. applys M. }
 Qed.
 

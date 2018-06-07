@@ -92,16 +92,14 @@ Definition cf_def cf (t:trm) :=
   match t with
   | trm_val v => local (cf_val v)
   | trm_var x => local (cf_fail) (* unbound variable *)
-  | trm_fun x t1 => local (cf_val (val_fun x t1))
   | trm_fix f x t1 => local (cf_val (val_fix f x t1))
   | trm_if t0 t1 t2 => local (cf_if (cf t0) (cf t1) (cf t2))
-  | trm_seq t1 t2 => local (cf_seq (cf t1) (cf t2))
-  | trm_let x t1 t2 => local (cf_let (cf t1) (fun X => cf (subst x X t2)))
+  | trm_let x t1 t2 => local (cf_let (cf t1) (fun X => cf (subst1 x X t2)))
   | trm_app t1 t2 => local (triple t)
   | trm_while t1 t2 => local (cf_while (cf t1) (cf t2))
   | trm_for x t1 t2 t3 => local (
       match t1, t2 with
-      | trm_val v1, trm_val v2 => cf_for v1 v2 (fun X => cf (subst x X t3))
+      | trm_val v1, trm_val v2 => cf_for v1 v2 (fun X => cf (subst1 x X t3))
       | _, _ => cf_fail
       end)
   end.
@@ -116,11 +114,14 @@ Lemma cf_unfold_iter : forall n t,
 Proof using.
   applys~ (FixFun_fix_iter (measure trm_size)). auto with wf.
   intros f1 f2 t IH. unfold cf_def.
-  destruct t; fequals.
-  { fequals~. }
-  { fequals~. }
-  { fequals~. applys~ fun_ext_1. }
-  { fequals~. }
+  destruct t.
+  { fequals. }
+  { fequals. }
+  { fequals. }
+  { fequals. fequals~. }
+  { fequals. fequals~. applys~ fun_ext_1. }
+  { fequals. }
+  { fequal. (* later: why slow? *) fequals~. }
   { destruct t1; fequals~. destruct t2; fequals~.
     applys~ fun_ext_1. }
 Qed.
@@ -161,7 +162,6 @@ Proof using.
    try (applys sound_for_local; intros H Q P).
   { unfolds in P. applys~ rule_val. hchanges~ P. }
   { false. }
-  { unfolds in P. applys rule_fun. hchanges~ P. }
   { unfolds in P. applys rule_fix. hchanges~ P. }
   { destruct P as (Q1&P1&P2). applys rule_if.
     { applys* IH. }
@@ -170,9 +170,6 @@ Proof using.
       case_if; applys* IH. }
     { intros v N. specializes P2 v. applys local_extract_false P2.
       intros H' Q' (b&E&S1&S2). subst. applys N. hnfs*. } }
-  { destruct P as (H1&P1&P2). applys rule_seq (fun (r:val) => H1).
-    { applys~ IH. }
-    { intros X. applys~ IH. } }
   { destruct P as (Q1&P1&P2). applys rule_let Q1.
     { applys~ IH. }
     { intros X. applys~ IH. } }
@@ -221,23 +218,26 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Bonus : corrolary for demos *)
 
+(* DEPRECATED
 Lemma triple_app_fun_of_cf_iter : forall n F v x t H Q,
   F = val_fun x t ->
-  func_iter n cf_def cf (subst x v t) H Q ->
+  func_iter n cf_def cf (subst1 x v t) H Q ->
   triple (F v) H Q.
 Proof using.
   introv EF M. applys* rule_app_fun.
   applys* triple_trm_of_cf_iter.
 Qed.
 
+
 Lemma triple_app_fix_of_cf_iter : forall n F v f x t H Q,
   F = val_fix f x t ->
-  func_iter n cf_def cf (subst f F (subst x v t)) H Q ->
+  func_iter n cf_def cf (subst1 f F (subst1 x v t)) H Q ->
   triple (F v) H Q.
 Proof using.
   introv EF M. applys* rule_app_fix.
   applys* triple_trm_of_cf_iter.
 Qed.
+*)
 
 
 (* ********************************************************************** *)
@@ -299,6 +299,7 @@ Implicit Types n : nat.
 Implicit Types F : val.
 Implicit Types f x : var.
 
+(* deprecated : bind a way to factorize below using substf *)
 Lemma triple_apps_funs_of_cf_iter : forall n F (vs:vals) xs t H Q,
   F = val_funs xs t ->
   var_funs_exec (length vs) xs ->
@@ -309,10 +310,11 @@ Proof using.
   applys* rule_apps_funs. applys* triple_trm_of_cf_iter.
 Qed.
 
-Lemma triple_apps_fixs_of_cf_iter : forall n f F (vs:vals) xs t H Q,
+
+Lemma triple_apps_fixs_of_cf_iter : forall n (f:var) F (vs:vals) xs t H Q,
   F = val_fixs f xs t ->
   var_fixs_exec f (length vs) xs ->
-  func_iter n cf_def cf (subst f F (substn xs vs t)) H Q ->
+  func_iter n cf_def cf (substn (f::xs) (F::vs) t) H Q ->
   triple (trm_apps F vs) H Q.
 Proof using.
   introv EF N M. rewrite var_fixs_exec_eq in N. rew_istrue in N.
@@ -370,7 +372,7 @@ Ltac xcf_get_fun_from_goal tt ::=
   match goal with |- triple ?t _ _ => xcf_get_fun_from_trm t end.
 
 Ltac xcf_post tt :=
-  simpl.
+  simpl; unfold subst1; simpl.
 
 Ltac xcf_trm n ::=
   applys triple_trm_of_cf_iter n; [ xcf_post tt ].
@@ -405,6 +407,10 @@ Ltac xseq_clear_val tt :=
 Ltac xseq_core tt ::=
   xlet_core tt; [ | try xseq_clear_val tt ].
 
+Ltac xseq_try_remove_val tt :=
+  match goal with 
+  |- val -> _ => intros _
+  end.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -463,7 +469,7 @@ Ltac xapp_template xlet_tactic xapp_tactic xlet_cont ::=
   match goal with
   | |- local (cf_let _ _) _ _ => xlet_tactic tt; [ xapp_tactic tt | xlet_cont tt ]
   | |- local (cf_if _ _ _) _ _ => xlet_tactic tt; [ xapp_tactic tt | xlet_cont tt ]
-  | |- local (cf_seq _ _) _ _ => xseq; [ xapp_tactic tt | ]
+  | |- local (cf_seq _ _) _ _ => xseq; [ xapp_tactic tt | xseq_try_remove_val tt ]
   | _ => xapp_tactic tt
   end.
 
@@ -596,6 +602,7 @@ Ltac xwhile_core xwhile_tactic ::=
 (* ********************************************************************** *)
 (* * Bonus *)
 
+(* DEPRECATED
 Lemma triple_app_fun2_of_cf_iter : forall n F v1 v2 x1 x2 t H Q,
   F = val_fun2 x1 x2 t ->
   x1 <> x2 ->
@@ -605,3 +612,5 @@ Proof using.
   introv EF N M. applys* rule_app_fun2.
   applys* triple_trm_of_cf_iter.
 Qed.
+
+*)

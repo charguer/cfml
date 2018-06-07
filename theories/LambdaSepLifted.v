@@ -292,7 +292,6 @@ Fixpoint decode (v:val) : dyn :=
   | val_int n => Dyn n
   | val_loc l => Dyn l
   | val_prim p => Dyn p
-  | val_fun x t => Dyn (v:func)
   | val_fix f x t => Dyn (v:func)
   end.
 
@@ -407,8 +406,8 @@ Arguments Hfield_not_null : clear implicits.
 (* ---------------------------------------------------------------------- *)
 (* ** Lifting of substitution *)
 
-Definition Subst (y:var) (d:dyn) (t:trm) : trm :=
-  subst y (enc d) t.
+Definition Subst1 (y:var) (d:dyn) (t:trm) : trm :=
+  subst1 y (enc d) t.
 
 Definition Substn (ys:vars) (ds:dyns) (t:trm) : trm :=
   substn ys (encs ds) t.
@@ -538,12 +537,14 @@ Proof using.
   unfold Post. hsimpl*.
 Qed.
 
+(* DEPRECATEd
 Lemma Rule_fun : forall x t1 H (Q:func->hprop),
   H ==> Q (val_fun x t1) ->
   Triple (trm_fun x t1) H Q.
 Proof using.
   introv M. applys rule_fun. unfold Post. hsimpl*.
 Qed.
+*)
 
 Lemma Rule_fix : forall f x t1 H (Q:func->hprop),
   H ==> Q (val_fix f x t1) ->
@@ -579,7 +580,7 @@ Qed.
 Lemma Rule_let : forall x t1 t2 H,
   forall A `{EA:Enc A} (Q:A->hprop) A1 `{EA1:Enc A1} (Q1:A1->hprop),
   Triple t1 H Q1 ->
-  (forall (X:A1), Triple (Subst x (Dyn X) t2) (Q1 X) Q) ->
+  (forall (X:A1), Triple (Subst1 x (Dyn X) t2) (Q1 X) Q) ->
   Triple (trm_let x t1 t2) H Q.
 Proof using.
   introv M1 M2. applys rule_let M1. intros v. unfold Post at 1.
@@ -597,10 +598,10 @@ Proof using.
   introv E N M. unfold Triple. applys* rule_apps_funs. rewrite~ length_encs.
 Qed.
 
-Lemma Rule_apps_fixs : forall xs f F (Vs:dyns) t1 H A `{EA: Enc A} (Q:A->hprop),
+Lemma Rule_apps_fixs : forall xs (f:var) F (Vs:dyns) t1 H A `{EA: Enc A} (Q:A->hprop),
   F = (val_fixs f xs t1) ->
   var_fixs f (length Vs) xs ->
-  Triple (subst f F (Substn xs Vs t1)) H Q ->
+  Triple (Substn (f::xs) ((Dyn F)::Vs) t1) H Q ->
   Triple (trm_apps F (encs Vs)) H Q.
 Proof using.
   introv E N M. unfold Triple. applys* rule_apps_fixs. rewrite~ length_encs.
@@ -618,10 +619,11 @@ Proof using. introv M. applys rule_while_raw. applys M. Qed.
 Lemma Rule_for_raw : forall (x:var) (n1 n2:int) t3 H A `{EA: Enc A} (Q:A->hprop),
   Triple (
     If (n1 <= n2)
-      then (trm_seq (subst x n1 t3) (trm_for x (n1+1) n2 t3))
+      then (trm_seq (subst1 x n1 t3) (trm_for x (n1+1) n2 t3))
       else val_unit) H Q ->
   Triple (trm_for x n1 n2 t3) H Q.
 Proof using. introv M. applys rule_for_raw. applys M. Qed.
+(* TODO: Should it be Subst1 above? *)
 
 
 (* ---------------------------------------------------------------------- *)
@@ -734,6 +736,8 @@ Proof using. intros. unfold Triple, Post. xapplys~ rule_ptr_add_nat. Qed.
 (* ********************************************************************** *)
 (* * Bonus *)
 
+(* DEPRECATED?
+
 (* ---------------------------------------------------------------------- *)
 (** Reformulation of rule for N-ary functions *)
 
@@ -753,7 +757,7 @@ Proof using. introv D N E M. applys* Rule_apps_funs. splits~. Qed.
 
 Definition Spec_fixs (f:var) (xs:vars) (t1:trm) (F:val) :=
   forall (Xs:dyns), length xs = length Xs ->
-    Triple (subst f F (Substn xs Xs t1)) ===> Triple (trm_apps F (encs Xs)).
+    Triple (subst1 f F (Substn xs Xs t1)) ===> Triple (trm_apps F (encs Xs)).
 
 Lemma Spec_fixs_val_fixs : forall f xs t1,
   var_distinct (f::xs) ->
@@ -853,6 +857,7 @@ Proof using.
   introv E M. applys rule_let_val. intros X EX. subst. applys~ M.
 Qed.
 
+*)
 
 (* ---------------------------------------------------------------------- *)
 (** Other rules for loops *)

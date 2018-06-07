@@ -11,6 +11,7 @@ License: MIT.
 Set Implicit Arguments.
 From TLC Require LibListZ.
 From Sep Require Import LambdaCF TLCbuffer.
+Export NotationForVariables NotationForTerms.
 Open Scope trm_scope.
 Open Scope heap_scope.
 Open Scope liblist_scope.
@@ -28,7 +29,7 @@ Implicit Types k : field.
 Implicit Type l p q : loc.
 Implicit Types n : int.
 
-
+ 
 (* ********************************************************************** *)
 (* * Derived basic functions *)
 
@@ -133,11 +134,11 @@ Lemma rule_get_field : forall l k v,
     (l `.` k ~~~> v)
     (fun r => \[r = v] \* (l `.` k ~~~> v)).
 Proof using.
-  intros. applys rule_app_fun. reflexivity. simpl.
-  applys rule_let. { xapplys rule_ptr_add_nat. }
-  intros r. simpl. xpull. intro_subst.
-  rewrite hfield_eq_fun_hsingle.
-  xpull ;=> N. xapplys~ rule_get.
+  intros. unfold val_get_field. xcf.
+  xapp rule_ptr_add_nat. 
+  intros r ->.
+  rewrite hfield_eq_fun_hsingle. xpull ;=> N.
+  xapps rule_get. intros ? ->. hsimpl~.
 Qed.
 
 
@@ -154,11 +155,11 @@ Lemma rule_set_field : forall v' l k v,
     (l `.` k ~~~> v')
     (fun r => \[r = val_unit] \* (l `.` k ~~~> v)).
 Proof using.
-  intros. applys rule_app_fun2. reflexivity. auto. simpl.
-  applys rule_let. { xapplys rule_ptr_add_nat. }
-  intros r. simpl. xpull. intro_subst.
-  rewrite hfield_eq_fun_hsingle.
-  xpull ;=> N. xapplys~ rule_set.
+  intros. unfold val_set_field. xcf.
+  xapp rule_ptr_add_nat. 
+  intros r ->.
+  rewrite hfield_eq_fun_hsingle. xpull ;=> N.
+  xapps rule_set. intros ? ->. hsimpl~.
 Qed.
 
 Arguments rule_set_field : clear implicits.
@@ -348,7 +349,8 @@ Proof using.
     { applys_eq (>> G L) 2. math. math. rewrite make_zero. rew_list~. }
     intros i. induction_wf IH: (upto n) i. intros L' Ei EL'.
     applys (rm M). case_if.
-    { xapp~. { rewrite index_eq_inbound. rew_list. rewrite length_make; math. }
+    { xseq. (* later: remove *) 
+      xapp~. { rewrite index_eq_inbound. rew_list. rewrite length_make; math. }
       intros r. hsimpl.
       destruct L' as [|x L']. { false. rew_list in EL'. math. }
       rewrite~ update_middle; [| rewrite length_make; math ].
@@ -361,7 +363,7 @@ Proof using.
     { xval. math E: (i = LibList.length L).
       asserts: (L' = nil). { applys length_zero_inv. math. }
       subst. rew_list. hsimpl~. } }
-  { xval. subst n. hsimpl~. }
+  { simpl ;=> _. xval. subst n. hsimpl~. }
 Qed.
 
 Hint Extern 1 (Register_spec val_array_make) => Provide rule_array_make.

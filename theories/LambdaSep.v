@@ -744,7 +744,6 @@ Proof using.
   { applys~ red_seq R1 R2. }
   { rewrite <- htop_hstar_htop. hhsimpl. }
 Qed.
-*)
 
 Lemma rule_let : forall z t1 t2 H Q Q1,
   triple t1 H Q1 ->
@@ -769,17 +768,15 @@ Proof using.
   exists h' v. splits~. { subst. applys* red_app_funs_val. }
 Qed.
 
-(* todo
 Lemma rule_apps_fixs : forall xs f F (Vs:vals) t1 H Q,
   F = (val_fixs f xs t1) ->
   var_fixs f (length Vs) xs ->
-  triple (subst f F (substn xs Vs t1)) H Q ->
+  triple (substn (f::xs) (F::Vs) t1) H Q ->
   triple (trm_apps F Vs) H Q.
 Proof using.
   introv E N M. intros H' h Hf. forwards (h'&v&R&K): (rm M) Hf.
   exists h' v. splits~. { subst. applys* red_app_fixs_val. }
 Qed.
-*)
 
 
 (* ---------------------------------------------------------------------- *)
