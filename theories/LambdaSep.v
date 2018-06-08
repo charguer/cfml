@@ -1198,6 +1198,18 @@ Proof using.
     { applys* red_if_bool. } }
 Qed.
 
+(** A rule for unary function application *)
+
+Lemma rule_app : forall (f:bind) x F V t1 H Q,
+  F = (val_fix f x t1) ->
+  triple (subst2 f F x V t1) H Q ->
+  triple (trm_app F V) H Q.
+Proof using.
+  introv EF M. subst F. intros HF h N.
+  lets~ (h'&v&R&K): (rm M) HF h.
+  exists h' v. splits~. { hint red_val. applys~ red_app. }
+Qed.
+
 
 
 (* TODO: not used, to update

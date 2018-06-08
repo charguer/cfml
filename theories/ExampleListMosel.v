@@ -163,11 +163,12 @@ Lemma rule_new_cell : forall v q,
 Proof using.
   intros. xcf. xapp rule_alloc_cell.
   intros p p' v' q'. intro_subst.
-  xapps~. xapps~. xvals~.
+  xapps~. intros _. xapps~. intros _. xvals~.
 Qed.
 
 Ltac loop := idtac; loop.
 
+(* LATER: port to MoSel
 Lemma rule_new_cell' : forall v q,
   triple (val_new_cell v q)
     \[]
@@ -182,6 +183,7 @@ Proof using.
   { auto with iFrame. }
   { unlock ;=> _. eapply rule_val. iPrepare. auto with iFrame. } }
 Qed.
+*)
 
 Hint Extern 1 (Register_spec val_new_cell) => Provide rule_new_cell.
 
@@ -306,7 +308,7 @@ Lemma rule_mlist_length : forall L (p:loc),
     (fun r => \[r = (length L : int)] \* MList L p).
 Proof using.
   intros L. induction_wf: list_sub_wf L. intros p.
-  applys rule_app_fix=>//=. applys rule_if'.
+  applys rule_app=>//=. applys rule_if'.
   - ram_apply rule_neq. auto with iFrame.
   - unlock. xpull ;=>[= Hp]. rewrite true_eq_isTrue_eq in Hp.
     xchange (MList_not_null_inv_cons p); [by auto|]. xpull=>p' x L' ?. subst.
@@ -346,7 +348,7 @@ Lemma rule_mlist_length_loop : forall L p,
     (MList L p)
     (fun r => \[r = val_int (length L)] \* MList L p).
 Proof using.
-  intros L p. eapply rule_app_fun=>//=.
+  intros L p. eapply rule_app=>//=.
   applys rule_let. { ram_apply rule_ref. auto with iFrame. }
   unlock=> ? /=. xpull=>r ->.
   applys rule_let. { ram_apply rule_ref. auto with iFrame. }

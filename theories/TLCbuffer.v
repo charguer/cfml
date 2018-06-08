@@ -178,7 +178,8 @@ Ltac fequal_base ::=
   | |- _ => f_equal_fixed
   end.
 
-(* [isubst] generalizes [intro_subst] *)
+(* [isubst] generalizes [intro_subst]
+  DEPRECATED : should use [intros ? ->] *)
 
 Ltac isbust_core tt :=
   match goal with |- forall _, _ = _ -> _ =>
@@ -206,7 +207,7 @@ Tactic Notation "cases" constr(E) :=
 Lemma list2_ind : forall A B (P:list A->list B->Prop) l1 l2,
   length l1 = length l2 ->
   P nil nil ->
-  (forall x1 xs1 x2 xs2, 
+  (forall x1 xs1 x2 xs2,
      length xs1 = length xs2 -> P xs1 xs2 -> P (x1::xs1) (x2::xs2)) ->
   P l1 l2.
 Proof using.
@@ -236,7 +237,7 @@ Tactic Notation "list2_ind" constr(E) :=
 Lemma list2_ind_last : forall A B (P:list A->list B->Prop) l1 l2,
   length l1 = length l2 ->
   P nil nil ->
-  (forall x1 xs1 x2 xs2, 
+  (forall x1 xs1 x2 xs2,
      length xs1 = length xs2 -> P xs1 xs2 -> P (xs1&x1) (xs2&x2)) ->
   P l1 l2.
 Proof using.

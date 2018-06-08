@@ -23,34 +23,31 @@ Ltac auto_star ::= jauto.
 (* ********************************************************************** *)
 (* * Derived basic functions, useful for metaprogramming *)
 
-(*
-
-(* ---------------------------------------------------------------------- *)
-(* ** Rewriting lemmas for [Subst] *)
-
-Lemma Subst_seq : forall x V t1 t2,
-  Subst1 x V (trm_seq t1 t2) = trm_seq (Subst1 x V t1) (Subst1 x V t2).
-Proof using. auto. Qed.
-
-(* LATER: complete *)
-
-
 (* ---------------------------------------------------------------------- *)
 (* ** Rewriting lemmas for [Substn] *)
 
-(** LATER: might find it useful to state definition and properties of [Substs] *)
-
 Lemma Substn_cons : forall x xs V Vs t,
-  Substn (x::xs) (V::Vs) t = Substn xs Vs (Subst x V t).
+  Substn (x::xs) (V::Vs) t = Substn xs Vs (Subst1 x V t).
+Proof using.
+  intros. unfold Substn, Subst1, encs. simpl.
+  rewrite~ substn_cons.
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Rewriting lemmas for [Subst] and [Substn] *)
+
+Lemma Subst_seq : forall x V t1 t2,
+  Subst1 x V (trm_seq t1 t2) = trm_seq (Subst1 x V t1) (Subst1 x V t2).
 Proof using. auto. Qed.
 
 Lemma Substn_val : forall xs Vs (v:val),
   length Vs = length xs ->
   Substn xs Vs v = v.
 Proof using.
-  introv E. list2_ind E; [|=> x xs' V Vs' IH].
+  introv E. list2_ind E; [|=> x xs' V Vs' L IH].
   { auto. }
-  { rewrite Substn_cons. unfold Subst. simpl. rewrite~ IH. }
+  { rewrite Substn_cons. unfold Subst1, subst1. simpl. rewrite~ IH. }
 Qed.
 
 Lemma Substn_var_neq : forall xs (Vs:dyns) x,
@@ -58,19 +55,19 @@ Lemma Substn_var_neq : forall xs (Vs:dyns) x,
   length Vs = length xs ->
   Substn xs Vs (trm_var x) = trm_var x.
 Proof using.
-  introv N E. gen N. list2_ind E; [|=> y ys' V Vs' IH]; intros N.
+  introv N E. gen N. list2_ind E; [|=> y ys' V Vs' L IH]; intros N.
   { auto. }
-  { rewrite Substn_cons. unfold Subst. simpls.
-    case_if in N. case_if. rewrite~ IH. }
+  { rewrite Substn_cons. unfold Subst1, subst1. simpls.
+    rewrite var_eq_spec in *. case_if in N. case_if. rewrite~ IH. }
 Qed.
 
 Lemma Substn_seq : forall xs Vs t1 t2,
   length xs = length Vs ->
   Substn xs Vs (trm_seq t1 t2) = trm_seq (Substn xs Vs t1) (Substn xs Vs t2).
 Proof using.
-  introv E. gen t1 t2. list2_ind E; [|=> y ys' V Vs' IH]; intros.
+  introv E. gen t1 t2. list2_ind E; [|=> y ys' V Vs' L IH]; intros.
   { auto. }
-  { do 3 rewrite Substn_cons. unfold Subst. simpl. rewrite~ IH. }
+  { do 3 rewrite Substn_cons. unfold Subst1, subst1. simpl. rewrite~ IH. }
 Qed.
 
 Lemma Substn_let : forall xs (Vs:dyns) x t1 t2,
@@ -78,24 +75,23 @@ Lemma Substn_let : forall xs (Vs:dyns) x t1 t2,
   length Vs = length xs ->
   Substn xs Vs (trm_let x t1 t2) = trm_let x (Substn xs Vs t1) (Substn xs Vs t2).
 Proof using.
-  introv N E. gen t1 t2 N. list2_ind E; [|=> y ys' V Vs' IH]; intros.
+  introv N E. gen t1 t2 N. list2_ind E; [|=> y ys' V Vs' L IH]; intros.
   { auto. }
-  { do 3 rewrite Substn_cons. unfold Subst. simpls.
-    case_if in N. case_if. rewrite~ IH. }
+  { do 3 rewrite Substn_cons. unfold Subst1, subst1. simpls.
+    rewrite var_eq_spec in *. case_if in N. case_if. rewrite~ IH. }
 Qed.
 
 Lemma Substn_app : forall xs (Vs:dyns) t1 t2,
   length Vs = length xs ->
   Substn xs Vs (trm_app t1 t2) = trm_app (Substn xs Vs t1) (Substn xs Vs t2).
 Proof using.
-  introv E. gen t1 t2. list2_ind E; [|=> y ys' V Vs' IH]; intros.
+  introv E. gen t1 t2. list2_ind E; [|=> y ys' V Vs' L IH]; intros.
   { auto. }
-  { repeat rewrite Substn_cons. unfold Subst. simpl. rewrite~ IH. }
+  { repeat rewrite Substn_cons. unfold Subst1, subst1. simpl. rewrite~ IH. }
 Qed.
 
 (* LATER: complete *)
 
-*)
 
 (* ********************************************************************** *)
 (* * Derived basic functions *)
@@ -156,7 +152,7 @@ Lemma Rule_neq : forall `{EA:Enc A} (v1 v2:A),
 Proof using.
   intros. xcf.
   xapps~. (* Details: xlet. xapp~.xpull ;=> X E. subst. *)
-  xapps. isubst. hsimpl. rew_isTrue~.
+  xapps. intros ? ->. hsimpl. rew_isTrue~.
 Qed.
 
 Hint Extern 1 (Register_Spec val_neq) => Provide Rule_neq.
@@ -483,14 +479,14 @@ Lemma Subst_new_record_aux : forall (n':nat) fs xs Vs (i n:nat) (p:loc),
   xs = var_seq i n' ->
   (i + n' = n)%nat ->
   let N := nat_to_var n in
-    (Subst N (Dyn p) (Substn xs Vs (fold_right (fun f t => trm_seq (val_set_field (f:field) (trm_var N) (nat_to_var f)) t) (trm_var N) fs)))
+    (Subst1 N (Dyn p) (Substn xs Vs (fold_right (fun f t => trm_seq (val_set_field (f:field) (trm_var N) (nat_to_var f)) t) (trm_var N) fs)))
   =  fold_right (fun fV t => let '(f,V) := fV in trm_seq (val_set_field (f:field) p (enc V)) t) p (LibList.combine fs Vs).
 Proof using.
   intros n'. induction n' as [|n'']; introv LVs Efs Exs Ein; intros N.
   { destruct xs; [|rew_list in *; false; math].
     destruct fs; [|rew_list in *; false; math].
     destruct Vs; [|rew_list in *; false; math].
-    rew_listx. unfold Subst. simpl. case_if~. }
+    rew_listx. unfold Subst1, subst1. simpl. rewrite var_eq_spec. case_if~. }
   { hide IHn''. destruct xs as [|x xs']; [rew_list in *; false; math|].
     destruct fs as [|f fs']; [rew_list in *; false; math|].
     destruct Vs as [|V Vs']; [rew_list in *; false; math|].
@@ -502,30 +498,30 @@ Proof using.
     { intros E. subst x. lets: injective_nat_to_var E. math. }
     rewrite <- Ex. rewrite <-Exs'. rew_listx.
     rewrite Substn_cons. rewrite Subst_seq. rewrite <- Ex.
-    asserts_rewrite (Subst x V (val_set_field f N (trm_var x))
+    asserts_rewrite (Subst1 x V (val_set_field f N (trm_var x))
                      = val_set_field f N (enc V)).
-    { unfold Subst. simpl. case_if. case_if~. }
+    { unfold Subst1, subst1. simpl. repeat rewrite var_eq_spec. case_if. case_if~. }
     rewrite~ Substn_seq.
     asserts_rewrite (Substn xs' Vs' (val_set_field f N ``V)
                     = (val_set_field f N ``V)).
     { do 2 rewrite~ Substn_app. do 2 rewrite~ Substn_val. rewrite~ Substn_var_neq.
       { rewrite Exs'. applys var_fresh_var_seq_ge. math. } }
     rewrite~ Subst_seq.
-    asserts_rewrite (Subst N (Dyn p) (val_set_field f N ``V) = val_set_field f p ``V).
-    { unfold Subst; simpl. case_if~. } (* todo: lemma Subst_var *)
+    asserts_rewrite (Subst1 N (Dyn p) (val_set_field f N ``V) = val_set_field f p ``V).
+    { unfold Subst1, subst1; simpl. rewrite var_eq_spec. case_if~. } (* todo: lemma Subst_var *)
     fequals.
-    match goal with |- context [Subst x V ?t'] => set (t:=t') end.
-    asserts_rewrite (Subst x V t = t).
+    match goal with |- context [Subst1 x V ?t'] => set (t:=t') end.
+    asserts_rewrite (Subst1 x V t = t).
     { subst x. cuts K: (forall n' i,
        (f < i)%nat ->
         let t := @fold_right nat trm (fun f' t =>
            trm_seq (val_set_field f' N (nat_to_var f')) t) N (nat_seq i n') in
-       Subst (nat_to_var f) V t = t).
+       Subst1 (nat_to_var f) V t = t).
      { applys K. math. }
      intros n'. gen Nxn. clears_all. induction n'; introv L; intros; subst t.
-     { simpl. unfold Subst. simpl. case_if~. } (*todo: Subst_var_neq.*)
+     { simpl. unfold Subst1, subst1. simpl. rewrite var_eq_spec. case_if~. } (*todo: Subst_var_neq.*)
      { simpl. rewrite Subst_seq. fequals.
-       { unfold Subst. simpl. case_if as C. case_if as C'.
+       { unfold Subst1, subst1. simpl. repeat rewrite var_eq_spec. case_if as C. case_if as C'.
          { lets: injective_nat_to_var C'. false; math. } { auto. } }
        { rewrite~ IHn'. } } }
     applys~ IHn'' Exs'; try math. }
@@ -546,7 +542,7 @@ Proof using.
     asserts EL: (length Vs = length xs). { unfold xs. rewrite~ length_var_seq. }
     rewrite Substn_let; [| applys var_fresh_var_seq_ge; math | auto ].
     asserts_rewrite (Substn xs Vs (val_alloc n) = val_alloc n).
-    { rewrite~ Substn_app. rewrite~ Substn_val. do 2 rewrite~ Substn_val. }
+    { rewrite~ Substn_app. (* rewrite~ Substn_val. do 2 rewrite~ Substn_val. *) }
     eapply (@Rule_let _ _ _ _ _ _ _ loc). (* todo: cleanup *)
     { xapplys Rule_alloc_nat. }
     { intros p. xpull ;=> Np. xchange~ (@Alloc_to_Record p 0%nat).

@@ -337,7 +337,7 @@ Proof using.
   xapps~. xif ;=> C.
   { xchanges~ (MList_not_null_inv_cons p) ;=> x p' L' EL.
     xapps. xapps~ (IH L'). xchange (MList_cons p).
-    xapps. hsimpl. isubst. auto. }
+    xapps. hsimpl ;=> ? ->. auto. }
   { subst. xchanges MList_null_inv ;=> EL. xvals~. }
 Qed.
 
@@ -597,7 +597,7 @@ Proof using.
     { solve_wf. }
     { hchange MList_nil. unfold I. hsimpl*. }
     { intros F LF b L1 IH. unfold I at 1. xpull ;=> p s L2 E1 E2. clears b.
-      xlet. { xapps. xapps~. } xpull; isubst.
+      xlet. { xapps. xapps~. } xpull ;=> ? ->.
       xif ;=> Cb.
       { xchanges~ (MList_not_null_inv_cons p) ;=> x p1' L1' EL1.
         xseq. (* todo: problem of parentheses around xwhile body *)
@@ -605,7 +605,7 @@ Proof using.
         { xapps~. { unfold I. hchanges~ (MList_cons p). } } }
       { xval. subst p. unfold I. hchanges~ MList_null_inv. } }
     { hsimpl. } }
-  { xpull ;=> L1 p s L2 E1 E2. xapp. hpull. isubst. hsimpl~. }
+  { xpull ;=> L1 p s L2 E1 E2. xapp. hpull ;=> ? ->. hsimpl~. }
 Qed.
 
 

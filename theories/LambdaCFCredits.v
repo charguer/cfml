@@ -136,8 +136,7 @@ Proof using.
   rewrite cf_unfold. destruct t; simpl;
    try (applys sound_for_local; intros H Q P).
   { unfolds in P. applys~ rule_val. hchanges~ P. }
-  { false. }
-  { false. }
+  { false. } 
   { unfolds in P. applys rule_fix. hchanges~ P. }
   { destruct P as (Q1&P1&P2). applys rule_if.
     { applys* IH. }
@@ -146,7 +145,6 @@ Proof using.
       case_if; applys* IH. }
     { intros v N. specializes P2 v. applys local_extract_false P2.
       intros H' Q' (b&E&S1&S2). subst. applys N. hnfs*. } }
-  { false. }
   { destruct P as (Q1&P1&P2). applys rule_let Q1.
     { applys~ IH. }
     { intros X. applys~ IH. } }
@@ -162,13 +160,15 @@ Proof using. intros. applys* sound_for_cf. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Soundness of the CF of a recursive function *)
+(* ** Soundness of the CF of a function *)
 
-Lemma triple_app_fix_of_cf : forall F v f x t H H' Q,
+Lemma triple_app_of_cf : forall F v (f:bind) x t H H' Q,
   F = val_fix f x t ->
   pay_one H H' ->
-  cf (subst f F (subst x v t)) H' Q ->
+  cf (subst2 f F x v t) H' Q ->
   triple (F v) H Q.
 Proof using.
   introv EF HP M. applys* rule_app_fix. applys* triple_of_cf.
 Qed.
+
+

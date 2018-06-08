@@ -21,27 +21,6 @@ Implicit Types n : int.
 (* ********************************************************************** *)
 (* * Basic functions *)
 
-(** todo: move *)
-Lemma rule_app : forall (f:bind) x F V t1 H Q,
-  F = (val_fix f x t1) ->
-  triple (subst2 f F x V t1) H Q ->
-  triple (trm_app F V) H Q.
-Proof using.
-  introv EF M. subst F. intros HF h N.
-  lets~ (h'&v&R&K): (rm M) HF h.
-  exists h' v. splits~. { hint red_val. applys~ red_app. }
-Qed.
-
-Lemma triple_app_of_cf_iter : forall (n:nat) F v (f:bind) x t H Q,
-  F = val_fix f x t ->
-  func_iter n cf_def cf (subst2 f F x v t) H Q ->
-  triple (F v) H Q.
-Proof using.
-  introv EF M. applys* rule_app.
-  applys* triple_trm_of_cf_iter.
-Qed.
-
-
 
 (* ---------------------------------------------------------------------- *)
 (** Increment function -- details *)
@@ -99,7 +78,7 @@ Lemma rule_incr_3 : forall p n,
     (p ~~~> n)
     (fun r => (p ~~~> (n+1))).
 Proof using.
-  intros. applys triple_app_of_cf_iter 20%nat. reflexivity. simpl.
+  intros. applys triple_app_fun_of_cf_iter 20%nat. reflexivity. simpl.
   applys local_erase. esplit. split.
   { applys local_erase. xapplys rule_get. }
   intros x. xpull. intros E. subst.
@@ -134,7 +113,7 @@ Lemma rule_incr_5 : forall p n,
 Proof using.
   xcf. xlet as x. xapp. xpull. intro_subst.
   xlet as y. xapp. xpull. intro_subst.
-  xapp. hsimpl. 
+  xapp. hsimpl.
 Qed.
 
 (** Same proof using characteristic formulae with more tactics *)

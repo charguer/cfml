@@ -1,4 +1,3 @@
-
 Set Implicit Arguments.
 From Sep Require Import LambdaSepRO SepMosel.
 
@@ -357,11 +356,11 @@ Ltac ram_apply lem :=
     eapply rule_ramified_frame_read_only_absorb
   end; [eapply lem|iPrepare].
 
-Lemma rule_let_ramified_frame_read_only_locked : forall x t1 t2 H1 H Q1 Q Q',
+Lemma rule_let_ramified_frame_read_only_locked : forall z t1 t2 H1 H Q1 Q Q',
   triple t1 H1 Q1 ->
   H ==> ROFrame H1 (locked Q1 \---* Q') ->
-  (forall (X:val), triple (subst x X t2) (Q' X) Q) ->
-  triple (trm_let x t1 t2) H Q.
+  (forall (X:val), triple (subst1 z X t2) (Q' X) Q) ->
+  triple (trm_let z t1 t2) H Q.
 Proof using. unlock. apply rule_let_ramified_frame_read_only. Qed.
 
 Ltac ram_apply_let lem :=

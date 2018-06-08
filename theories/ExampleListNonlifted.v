@@ -178,7 +178,7 @@ Lemma rule_new_cell : forall v q,
 Proof using.
   intros. xcf. xapp rule_alloc_cell.
   intros p p' v' q'. intro_subst.
-  xapps~. hsimpl. xapps~. hsimpl. xvals~.
+  xapps~. intros _. xapps~. intros _. xvals~.
 Qed.
 
 (* TODO: update?
@@ -455,7 +455,7 @@ Lemma rule_mlist_length_loop : forall L p,
     (fun r => \[r = val_int (length L)] \* MList L p).
 Proof using.
   xcf. xapp ;=> V r E; subst V. xapp ;=> V n E; subst V.
-  xwhile as R.
+  xlet. xwhile as R.
   { cuts K: (forall (nacc:int),
        R (r ~~~> p \* MList L p \* n ~~~> nacc)
          (fun r' => \[r' = val_unit] \* MList L p \* n ~~~> (nacc + length L))).
@@ -463,7 +463,7 @@ Proof using.
     gen p. induction_wf: list_sub_wf L; intros. applys (rm HR).
     xlet. { xapps. xapps. } xpulls. xif ;=> C.
     { xchanges~ (MList_not_null_inv_cons p) ;=> p' x L' EL. xseq.
-      { xseq. xapp~. hsimpl. xapps.
+      { xseq. xapp~. simpl ;=> _. xapps.
         xapps. xapps~. hsimpl. }
       { xapply (>> IH L'). { subst~. } { hsimpl. }
         { hpull. isubst. hchange (MList_cons p). subst. rew_list.
@@ -471,7 +471,7 @@ Proof using.
           (* todo: cancel on ~~> *)
     { inverts C. xchanges MList_null_inv ;=> EL. subst. rew_list.
       math_rewrite (nacc+0%nat = nacc). xvals~. } }
-  { xapp. hsimpl. isubst. fequals. }
+  { xpull. intros ? ->. xapp. hsimpl ;=> ? ->. fequals. }
 Qed.
 
 

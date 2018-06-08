@@ -421,7 +421,7 @@ Proof using.
   gen L x. induction_wf IH: lt_wf d. hide IH. intros.
   rewrite EF. xcf. rewrite <- EF.
   xapps. xif ;=> C.
-  { xapps~. xapp~. hsimpl. rewrite (@read_map int _ val _); auto.
+  { xapps~. xapp~ ;=> ? ->. rewrite (@read_map int _ val _); auto.
     (* --todo: should be rewrite read_map. *)
     inverts Hx' as; try solve [ intros; false ].
     introv _ Nx Ry. sets y: (L[x]). rename d0 into d.
@@ -458,7 +458,7 @@ Lemma rule_find : forall n R p x,
     (UF n R p)
     (fun r => \[r = R x] \* UF n R p).
 Proof using.
-  introv Ix. xcf. xapps~. xapps~. hsimpl. xvals~.
+  introv Ix. xcf. xapps~. xapps~. intros _. xvals~.
 Qed.
 
 Hint Extern 1 (Register_spec val_find) => Provide rule_find.
@@ -494,11 +494,6 @@ Proof using.
 Qed.
 
 Hint Extern 1 (Register_spec val_union) => Provide rule_union.
-
-
-
-
-
 
 
 

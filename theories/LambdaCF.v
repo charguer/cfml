@@ -215,30 +215,6 @@ Proof using.
 Qed.
 
 
-(* ---------------------------------------------------------------------- *)
-(* ** Bonus : corrolary for demos *)
-
-(* DEPRECATED
-Lemma triple_app_fun_of_cf_iter : forall n F v x t H Q,
-  F = val_fun x t ->
-  func_iter n cf_def cf (subst1 x v t) H Q ->
-  triple (F v) H Q.
-Proof using.
-  introv EF M. applys* rule_app_fun.
-  applys* triple_trm_of_cf_iter.
-Qed.
-
-
-Lemma triple_app_fix_of_cf_iter : forall n F v f x t H Q,
-  F = val_fix f x t ->
-  func_iter n cf_def cf (subst1 f F (subst1 x v t)) H Q ->
-  triple (F v) H Q.
-Proof using.
-  introv EF M. applys* rule_app_fix.
-  applys* triple_trm_of_cf_iter.
-Qed.
-*)
-
 
 (* ********************************************************************** *)
 (* * Practical proofs using characteristic formulae *)
@@ -321,7 +297,29 @@ Proof using.
   applys* rule_apps_fixs. applys* triple_trm_of_cf_iter.
 Qed.
 
+(** Bonus : two corrolaries for demos *)
+
+Lemma triple_app_fun_of_cf_iter : forall n F v x t H Q,
+  F = val_fun x t ->
+  func_iter n cf_def cf (subst1 x v t) H Q ->
+  triple (F v) H Q.
+Proof using.
+  introv EF M. applys* rule_app.
+  applys* triple_trm_of_cf_iter.
+Qed.
+
+Lemma triple_app_fix_of_cf_iter : forall n F v f x t H Q,
+  F = val_fix f x t ->
+  func_iter n cf_def cf (subst2 f F x v t) H Q ->
+  triple (F v) H Q.
+Proof using.
+  introv EF M. applys* rule_app.
+  applys* triple_trm_of_cf_iter.
+Qed.
+
 End LemmasCf.
+
+
 
 (* ---------------------------------------------------------------------- *)
 (** ** Database of lemmas *)

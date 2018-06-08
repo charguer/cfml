@@ -69,7 +69,7 @@ Proof using.
   xapps. xapps.
   xchanges (MListSeg_then_MCell_inv_neq pf pb) ;=> R.
   (* xchange (MListSeg_then_MCell_inv_neq pf pb). xpull ;=> R. *)
-  xapp. hsimpl. isubst. fequals. rew_bool_eq. rewrite R. iff; congruence.
+  xapp. hsimpl ;=> ? ->. fequals. rew_bool_eq. rewrite R. iff; congruence.
 Qed.
 
 Hint Extern 1 (Register_spec val_is_empty) => Provide rule_is_empty.
@@ -93,7 +93,7 @@ Lemma rule_push_back : forall L v p,
 Proof using.
   xcf. unfold MQueue. xpull ;=> pf pb vx vy.
   xapps. xapp rule_alloc_cell as r. intros pb' v1 v2. intro_subst.
-  xapp~. hsimpl. xapp~. hsimpl. xapp~. hchanges~ MListSeg_last.
+  xapp~. intros _. xapp~. intros _. xapp~. hchanges~ MListSeg_last.
 Qed.
 
 
@@ -137,7 +137,7 @@ Proof using.
   xcf. unfold MQueue. xpull ;=> pf pb vx vy.
   destruct L as [|x L']; tryfalse.
   rewrite MListSeg_cons_eq. xpull ;=> pf'.
-  xapps. xapps. xapps. xapp~. hsimpl. xvals~.
+  xapps. xapps. xapps. xapp~. intros _. xvals~.
 Qed.
 
 Lemma rule_pop_front' : forall L v p x,
@@ -180,7 +180,7 @@ Proof using.
     destruct L2 as [|x L2']; tryfalse.
     xchanges MListSeg_cons_eq ;=> pf2'.
     xapps. xapps. xapps. xapps.
-    xapps~. xapps~. hsimpl. xapps~. hsimpl. xapps~. hsimpl. xapps~.
+    xapps~. xapps~. intros _. xapps~. intros _. xapps~. intros _. xapps~.
     intros r. hchange (MListSeg_last pf1).
     hchange (MListSeg_concat pf1 pf2' pb2). rew_list.
     hchange (MListSeg_nil pf2). hsimpl~. }

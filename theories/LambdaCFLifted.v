@@ -340,7 +340,7 @@ Proof using.
   introv M. rewrite <- Cf_unfold_iter in M. applys* Triple_of_Cf.
 Qed.
 
-(* deprecated
+(* todo: factorize with next lemma *)
 Lemma Triple_apps_funs_of_Cf_iter : forall n F (Vs:dyns) (vs:vals) xs t A `{EA:Enc A} H (Q:A->hprop),
   F = val_funs xs t ->
   vs = encs Vs ->
@@ -351,7 +351,6 @@ Proof using.
   introv EF EV N M. rewrite var_funs_exec_eq in N. rew_istrue in N.
   subst. applys* Rule_apps_funs. applys* Triple_trm_of_Cf_iter.
 Qed.
-*)
 
 Lemma Triple_apps_fixs_of_Cf_iter : forall n F (f:var) (Vs:dyns) (vs:vals) xs t A `{EA:Enc A} H (Q:A->hprop),
   F = val_fixs f xs t ->
@@ -552,7 +551,7 @@ Ltac xcf_get_fun_from_goal tt ::=
   match goal with |- Triple ?t _ _ => xcf_get_fun_from_trm t end.
 
 Ltac xcf_post tt ::=
-  simpl; rew_enc_dyn.
+  simpl; unfold subst1; simpl; rew_enc_dyn.
 
 Ltac xcf_trm n ::=
   applys Triple_trm_of_Cf_iter n; [ xcf_post tt ].
@@ -560,6 +559,9 @@ Ltac xcf_trm n ::=
 Ltac xcf_basic_fun n f' ::=
   let f := xcf_get_fun tt in
   match f with
+  | val_funs _ _ =>
+      applys Triple_apps_funs_of_Cf_iter n;
+      [ reflexivity | try xeq_encs | reflexivity | xcf_post tt ]
   | val_fixs _ _ _ =>
       applys Triple_apps_fixs_of_Cf_iter n f';
       [ reflexivity | try xeq_encs | reflexivity | xcf_post tt ]

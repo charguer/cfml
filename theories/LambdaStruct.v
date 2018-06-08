@@ -29,7 +29,7 @@ Implicit Types k : field.
 Implicit Type l p q : loc.
 Implicit Types n : int.
 
- 
+
 (* ********************************************************************** *)
 (* * Derived basic functions *)
 
@@ -112,7 +112,7 @@ Lemma rule_neq : forall v1 v2,
     \[]
     (fun r => \[r = isTrue (v1 <> v2)]).
 Proof using.
-  xcf. xapps. xapps. hsimpl. isubst. rew_isTrue~.
+  xcf. xapps. xapps. hsimpl ;=> ? ->. rew_isTrue~.
 Qed.
 
 Hint Extern 1 (Register_spec val_neq) => Provide rule_neq.
@@ -135,7 +135,7 @@ Lemma rule_get_field : forall l k v,
     (fun r => \[r = v] \* (l `.` k ~~~> v)).
 Proof using.
   intros. unfold val_get_field. xcf.
-  xapp rule_ptr_add_nat. 
+  xapp rule_ptr_add_nat.
   intros r ->.
   rewrite hfield_eq_fun_hsingle. xpull ;=> N.
   xapps rule_get. intros ? ->. hsimpl~.
@@ -156,7 +156,7 @@ Lemma rule_set_field : forall v' l k v,
     (fun r => \[r = val_unit] \* (l `.` k ~~~> v)).
 Proof using.
   intros. unfold val_set_field. xcf.
-  xapp rule_ptr_add_nat. 
+  xapp rule_ptr_add_nat.
   intros r ->.
   rewrite hfield_eq_fun_hsingle. xpull ;=> N.
   xapps rule_set. intros ? ->. hsimpl~.
@@ -349,7 +349,7 @@ Proof using.
     { applys_eq (>> G L) 2. math. math. rewrite make_zero. rew_list~. }
     intros i. induction_wf IH: (upto n) i. intros L' Ei EL'.
     applys (rm M). case_if.
-    { xseq. (* later: remove *) 
+    { xseq. (* later: remove *)
       xapp~. { rewrite index_eq_inbound. rew_list. rewrite length_make; math. }
       intros r. hsimpl.
       destruct L' as [|x L']. { false. rew_list in EL'. math. }
