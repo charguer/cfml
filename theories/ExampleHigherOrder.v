@@ -59,7 +59,7 @@ Lemma Rule_refapply_pure : forall (f:func) `{EA:Enc A} (r:loc) (x:A),
   ->
   Triple (val_refapply ``f ``r)
     PRE (r ~~> x)
-    POST (fun (_:unit) => Hexists y, \[P x y] \* r ~~> y).
+    POST (fun (_:unit) => \exists y, \[P x y] \* r ~~> y).
 Proof using.
   introv M. xcf. xapps. xapp ;=> y E. xapp. hsimpl~.
 Qed.
@@ -72,7 +72,7 @@ Lemma Rule_refapply_effect : forall (f:func) `{EA:Enc A} (r:loc) (x:A),
   ->
   Triple (val_refapply ``f ``r)
     PRE (r ~~> x \* H)
-    POST (fun (_:unit) => Hexists y, \[P x y] \* r ~~> y \* H').
+    POST (fun (_:unit) => \exists y, \[P x y] \* r ~~> y \* H').
 Proof using.
   introv M. xcf. xapps. xapp ;=> y E. xapp. hsimpl~.
 Qed.
@@ -162,7 +162,7 @@ Implicit Types g : val.
 (** Representation *)
 
 Definition MCount (n:int) (g:val) : hprop :=
-  Hexists p, (p ~~> n) \*
+  \exists p, (p ~~> n) \*
     \[ forall n', Triple (g val_unit)
                   (p ~~> n')
                   (fun r => \[r = n'+1] \* (p ~~> (n'+1))) ].

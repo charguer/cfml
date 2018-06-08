@@ -42,7 +42,7 @@ Notation "'val_set_tl'" := (val_set_field tl).
 Fixpoint MList A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
   match L with
   | nil => \[p = null]
-  | x::L' => Hexists (p':loc), (p ~> Record`{ hd := x; tl := p' }) \* (p' ~> MList L')
+  | x::L' => \exists (p':loc), (p ~> Record`{ hd := x; tl := p' }) \* (p' ~> MList L')
   end.
 
 
@@ -91,7 +91,7 @@ Qed.
 
 Lemma MList_cons_eq : forall p A `{EA:Enc A} (x:A) L',
   p ~> MList (x::L') =
-  Hexists p', (p ~> Record`{ hd := x; tl := p' }) \* p' ~> MList L'.
+  \exists p', (p ~> Record`{ hd := x; tl := p' }) \* p' ~> MList L'.
 Proof using. intros. xunfold MList at 1. simple~. Qed.
 
 Lemma MList_cons : forall p p' A `{EA:Enc A} (x:A) L',
@@ -110,7 +110,7 @@ Qed.
 
 Lemma MList_not_null_inv_cons : forall p A `{EA:Enc A} (L:list A),
   p <> null ->
-  p ~> MList L ==> Hexists x p' L',
+  p ~> MList L ==> \exists x p' L',
        \[L = x::L']
     \* (p ~> Record`{ hd := x; tl := p' })
     \* p' ~> MList L'.
@@ -138,7 +138,7 @@ Global Opaque MList.
 Fixpoint MListSeg `{EA:Enc A} (q:loc) (L:list A) (p:loc) : hprop :=
   match L with
   | nil => \[p = q]
-  | x::L' => Hexists (p':loc), (p ~> MCell x p') \* (p' ~> MListSeg q L')
+  | x::L' => \exists (p':loc), (p ~> MCell x p') \* (p' ~> MListSeg q L')
   end.
 
 
@@ -153,7 +153,7 @@ Proof using. intros. xunfold~ MListSeg. Qed.
 
 Lemma MListSeg_cons_eq : forall `{EA:Enc A} p q x (L':list A),
   p ~> MListSeg q (x::L') =
-  Hexists (p':loc), (p ~> MCell x p') \* p' ~> MListSeg q L'.
+  \exists (p':loc), (p ~> MCell x p') \* p' ~> MListSeg q L'.
 Proof using. intros. xunfold MListSeg at 1. simple~. Qed.
 
 Global Opaque MListSeg.
@@ -230,7 +230,7 @@ Opaque val_new_cell.
 (* * Mutable queue *)
 
 Definition MQueue `{EA:Enc A} (L:list A) (p:loc) :=
-  Hexists (pf:loc), Hexists (pb:loc), Hexists (vx:A), Hexists (vy:loc),
+  \exists (pf:loc), \exists (pb:loc), \exists (vx:A), \exists (vy:loc),
     p ~> MCell pf pb \* pf ~> MListSeg pb L \* pb ~> MCell vx vy.
 
 (* Same as in [ExampleQueueNonlifted.v] *)
@@ -531,7 +531,7 @@ Qed.
 
 (* TODO: another proof using a loop invariant with segments:
 
-  Hexists L1 L2 q,
+  \exists L1 L2 q,
      \[L = L1 ++ L2] \* (n ~~> length L1) \* (f ~~> q)
      \* (p ~~> MListSeq q L1) \* (q ~~> MList L2)
   *)
@@ -590,7 +590,7 @@ Proof using.
   intros. rename p into p0. xcf. xapps ;=> rp. xapps ;=> rs.
   xseq. (* todo xwhile_inv *)
   { applys local_erase. applys Cf_while_of_Cf_while_inv. hnf.
-    sets I: (fun (b:bool) (L1:list A) => Hexists p s L2,
+    sets I: (fun (b:bool) (L1:list A) => \exists p s L2,
       \[b = isTrue (L1 <> nil)] \* \[L = rev L2 ++ L1]
       \* rp ~~> p \* p ~> MList L1 \* rs ~~> s \* s ~> MList L2).
     exists __ I (@list_sub A) __. splits.

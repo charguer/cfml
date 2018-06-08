@@ -205,7 +205,7 @@ Proof using. intros. rewrite Array_concat_eq. rewrite~ Array_one_eq. Qed.
 
 Lemma Array_middle_eq : forall n p L,
   0 <= n < length L ->
-  Array L p = Hexists L1 x L2, \[L = L1++x::L2] \* \[length L1 = n :> int] \*
+  Array L p = \exists L1 x L2, \[L = L1++x::L2] \* \[length L1 = n :> int] \*
     Array L1 p \* (abs(p+n) ~~~> x) \* Array L2 (p + length L1 + 1)%nat.
 Proof using.
   (* LATER: simplify the Z/nat math, by using a result from LibListZ directly *)
@@ -230,7 +230,7 @@ Global Opaque Array.
 
 Lemma Array_of_Alloc : forall k l,
   Alloc k l ==>
-  Hexists (L : list val), \[length L = k] \* Array L l.
+  \exists (L : list val), \[length L = k] \* Array L l.
 Proof using.
   intros. gen l. induction k; intros.
   { rew_Alloc. hsimpl (@nil val). rew_list~. }
@@ -244,7 +244,7 @@ Lemma rule_alloc_array : forall n,
   n >= 0 ->
   triple (val_alloc n)
     \[]
-    (fun r => Hexists (p:loc) (L:list val), \[r = val_loc p] \*
+    (fun r => \exists (p:loc) (L:list val), \[r = val_loc p] \*
               \[length L = n :> int] \* Array L p).
 Proof using.
   introv N. xapp. math.
@@ -337,7 +337,7 @@ Lemma rule_array_make : forall n v,
   n >= 0 ->
   triple (val_array_make n v)
     \[]
-    (fun r => Hexists p L, \[r = val_loc p] \* \[L = make n v] \* Array L p).
+    (fun r => \exists p L, \[r = val_loc p] \* \[L = make n v] \* Array L p).
 Proof using.
   introv N. xcf. xapp~ rule_alloc_array ;=> r p L Er EL. subst r.
   xapps. xseq.

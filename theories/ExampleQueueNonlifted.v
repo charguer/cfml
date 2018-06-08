@@ -27,7 +27,7 @@ Implicit Types v : val.
 (** Representation *)
 
 Definition MQueue (L:list val) (p:loc) :=
-  Hexists (pf:loc), Hexists (pb:loc), Hexists (vx:val), Hexists (vy:val),
+  \exists (pf:loc), \exists (pb:loc), \exists (vx:val), \exists (vy:val),
     MCell pf pb p \* MListSeg pb L pf \* MCell vx vy pb.
 
 
@@ -42,7 +42,7 @@ Definition val_create :=
 Lemma rule_create :
   triple (val_create val_unit)
     \[]
-    (fun r => Hexists p, \[r = val_loc p] \* MQueue nil p).
+    (fun r => \exists p, \[r = val_loc p] \* MQueue nil p).
 Proof using.
   xcf. unfold MQueue.
   xapp rule_alloc_cell as r. intros p v1 v2. intro_subst.
@@ -132,7 +132,7 @@ Lemma rule_pop_front : forall L v p,
   L <> nil ->
   triple (val_pop_front v p)
     (MQueue L p)
-    (fun v => Hexists L', \[L = v::L'] \* MQueue L' p).
+    (fun v => \exists L', \[L = v::L'] \* MQueue L' p).
 Proof using.
   xcf. unfold MQueue. xpull ;=> pf pb vx vy.
   destruct L as [|x L']; tryfalse.

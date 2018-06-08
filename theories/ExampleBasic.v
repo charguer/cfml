@@ -396,7 +396,7 @@ Qed.
       POST (fun (b:bool) => \[b = isTrue (prime n)]).
   Proof using.
     introv Hn. xcf. xapps. xapps.
-    xwhile_inv_basic (fun b k => Hexists vp,
+    xwhile_inv_basic (fun b k => \exists vp,
             \[b = isTrue (vp = true /\ k*k <= n)]
          \* \[if vp then (forall d, 1 < d < k -> Z.rem n d <> 0) else (~ prime n)]
          \* \[2 <= k]
@@ -410,7 +410,7 @@ Qed.
     { => k. xpull ;=> vp Hb Hp Hk.
       (* TODO: xclean. *) xclean. destruct Hb as (Hvp&Hkk).
       xapps. xapps. math.
-      xrets. xseq. xif (# Hexists (vp':bool), i ~~> k \* p ~~> vp' \*
+      xrets. xseq. xif (# \exists (vp':bool), i ~~> k \* p ~~> vp' \*
          \[if vp' then (forall d, 1 < d < (k+1) -> Z.rem n d <> 0) else (~ prime n)]).
         (* TODO: remove xseq *)
         { xapps. xsimpl. applys~ divide_not_prime. math_nia. }

@@ -366,12 +366,12 @@ Qed.
 Definition Cf_while_inv (F1 F2 : Formula) := fun (H:hprop) (Q:unit->hprop) =>
   exists (A:Type) (I:bool->A->hprop) (R:A->A->Prop) H',
      wf R
-  /\ (H ==> Hexists b X, I b X \* H')
+  /\ (H ==> \exists b X, I b X \* H')
   /\ (forall (F:Formula), is_local (@F unit _) -> forall b X,
-      (forall b' X', R X' X -> ^F (I b' X') (fun (_:unit) => Hexists Y, I false Y)) ->
+      (forall b' X', R X' X -> ^F (I b' X') (fun (_:unit) => \exists Y, I false Y)) ->
       ^(Local (Cf_if F1 (Local (Cf_seq F2 F)) (Local (Cf_val val_unit))))
-        (I b X) (fun (_:unit) => Hexists Y, I false Y))
-  /\ ((fun (_:unit) => Hexists X, I false X \* H') ===> Q).
+        (I b X) (fun (_:unit) => \exists Y, I false Y))
+  /\ ((fun (_:unit) => \exists X, I false X \* H') ===> Q).
 
 Lemma Cf_while_of_Cf_while_inv : forall (F1 F2 : Formula) (H:hprop) (Q:unit->hprop),
   (Cf_while_inv F1 F2) H Q ->
@@ -379,7 +379,7 @@ Lemma Cf_while_of_Cf_while_inv : forall (F1 F2 : Formula) (H:hprop) (Q:unit->hpr
 Proof using.
   introv (A&I&R&H'&MR&MH&MB&MQ). exists Q; split; [|applys @PostChange_refl].
   intros F LF HF. xchange MH. xpull ;=> b X.
-  applys local_frame (I b X) H' (fun (_:unit) => Hexists Y, I false Y);
+  applys local_frame (I b X) H' (fun (_:unit) => \exists Y, I false Y);
    [ xlocal | | hsimpl | hchanges~ MQ ]. (* todo: change goal order in weakenpost*)
   gen b. induction_wf IH: MR X. intros. applys (rm HF).
   applys MB. xlocal. intros b' X' HR'. applys~ IH.

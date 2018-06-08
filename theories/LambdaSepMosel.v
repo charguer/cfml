@@ -26,7 +26,7 @@ Module SepBasicMosel := SepLogicMosel SepBasicCore SepBasicCoreHempty SepBasicSe
 Export SepBasicMosel.ProofMode.
 
 Definition wp (t:trm) (Q:val->hprop) : hprop :=
-  Hexists H, H \* \[triple t H Q].
+  \exists H, H \* \[triple t H Q].
 
 Lemma wp_equiv : forall t H Q,
   triple t H Q <-> (H ==> wp t Q).

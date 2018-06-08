@@ -54,7 +54,7 @@ Definition Wp_triple (t:trm) : Formula :=
 
 Definition Formula_typed `{Enc A1} (F:(A1->hprop)->hprop) : Formula :=
   fun A2 (EA2:Enc A2) (Q:A2->hprop) =>
-    Hexists (Q':A1->hprop), F Q' \* \[PostChange Q' Q].
+    \exists (Q':A1->hprop), F Q' \* \[PostChange Q' Q].
 
 
 (* ---------------------------------------------------------------------- *)
@@ -91,7 +91,7 @@ Definition Wp_fail : Formula :=
 
 Definition Wp_val (v:val) : Formula :=
   Local (fun A (EA:Enc A) Q =>
-    Hexists (V:A), \[v = enc V] \* Q V).
+    \exists (V:A), \[v = enc V] \* Q V).
 
 Definition Wp_var (E:ctx) (x:var) : Formula :=
   match Ctx.lookup x E with
@@ -105,12 +105,12 @@ Definition Wp_seq (F1 F2:Formula) : Formula :=
 
 Definition Wp_let (F1:Formula) (F2of:forall `{EA1:Enc A1},A1->Formula) : Formula :=
   Local (fun A (EA:Enc A) Q =>
-    Hexists (A1:Type) (EA1:Enc A1) (Q1:A1->hprop),
+    \exists (A1:Type) (EA1:Enc A1) (Q1:A1->hprop),
       ^F1 (fun (X:A1) => ^(F2of X) Q)).
 
 Definition Wp_let_typed `{EA1:Enc A1} (F1:Formula) (F2of:A1->Formula) : Formula :=
   Local (fun `{Enc A} Q =>
-    Hexists (Q1:A1->hprop),
+    \exists (Q1:A1->hprop),
       ^F1 (fun (X:A1) => ^(F2of X) Q)).
 
 Definition Wp_app (t:trm) : Formula :=
@@ -125,19 +125,19 @@ Definition Wp_if (F0 F1 F2:Formula) : Formula :=
 
 Definition Wp_while (F1 F2:Formula) : Formula :=
   Local (Formula_typed (fun (Q:unit->hprop) =>
-    Hforall (R:Formula),
+    \forall (R:Formula),
     let F := Wp_if F1 (Wp_seq F2 R) (Wp_val val_unit) in
-    \[ is_local (@R unit _) /\ (forall Q', ^F Q' ==> ^R Q')] \--* (^R Q))).
+    \[ is_local (@R unit _) /\ (forall Q', ^F Q' ==> ^R Q')] \-* (^R Q))).
 
 
 (*
 
 Definition Wp_for_val (v1 v2:val) (F3:int->formula) : formula := local (fun Q =>
-  Hexists n1 n2, \[v1 = val_int n1 /\ v2 = val_int n2] \*
-  Hforall (S:int->formula),
+  \exists n1 n2, \[v1 = val_int n1 /\ v2 = val_int n2] \*
+  \forall (S:int->formula),
   let F i := If (i <= n2) then (Wp_seq (F3 i) (S (i+1)))
                           else (Wp_val val_unit) in
-  \[ is_local_pred S /\ (forall i, F i ===> S i)] \--* (S n1 Q)).
+  \[ is_local_pred S /\ (forall i, F i ===> S i)] \-* (S n1 Q)).
 
 Definition Wp_for (F1 F2:formula) (F3:int->formula) : formula :=
   Wp_let F1 (fun v1 => Wp_let F2 (fun v2 => Wp_for_val v1 v2 F3)).
@@ -157,9 +157,9 @@ Fixpoint Wp (E:ctx) (t:trm) : Formula :=
   | trm_var x => Wp_var E x
   | trm_fix f x t1 => Wp_val (val_fix f x (subst (Ctx.rem x (Ctx.rem f E)) t1))
   | trm_if t0 t1 t2 => Wp_if (aux t0) (aux t1) (aux t2)
-  | trm_let z t1 t2 => 
+  | trm_let z t1 t2 =>
      match z with
-     | bind_anon => Wp_seq (aux t1) (aux t2) 
+     | bind_anon => Wp_seq (aux t1) (aux t2)
      | bind_var x => Wp_let (aux t1) (fun `{EA:Enc A} X => Wp (Ctx.add x (enc X) E) t2)
      end
   | trm_app t1 t2 => Wp_app (subst E t)
@@ -213,7 +213,7 @@ Proof using.
   introv M.
   rewrite is_local_Triple. unfold SepBasicSetup.local.
   unfold Local, local. hpull ;=> Q'.
-  hsimpl (F A EA Q') ((Q' \---* Q \*+ \Top)) Q'. split.
+  hsimpl (F A EA Q') ((Q' \--* Q \*+ \Top)) Q'. split.
   { applys~ M. }
   { hchanges qwand_cancel. }
 Qed. (* TODO: simplify proof? *)
@@ -222,7 +222,7 @@ Qed. (* TODO: simplify proof? *)
     and turns it into [triple t (F Q) Q] for a fresh [Q],  then calls [xpull] *)
 
 Ltac remove_Local :=
-  match goal with |- @Triple _ _ _ _ ?Q => 
+  match goal with |- @Triple _ _ _ _ ?Q =>
     applys Triple_local_pre; try (clear Q; intros Q); fold wp end.
 
 
@@ -241,7 +241,7 @@ Definition Wp_sound t := forall E `{EA:Enc A} (Q:A->hprop),
   ^(Wp E t) Q ==> ^(Wp_triple_ E t) Q.
 *)
 
-Notation "F1 ====> F2" := (forall `{EA:Enc A}, F1 A EA ===> F2 A EA) 
+Notation "F1 ====> F2" := (forall `{EA:Enc A}, F1 A EA ===> F2 A EA)
   (at level 67).
 
 (*
@@ -327,7 +327,7 @@ Proof using.
   remove_Local. xpull ;=> A1 EA1 _. simpl. applys Rule_let.
   { rewrite Triple_eq_himpl_Wp_triple. applys* M1. }
   { intros X. rewrite Triple_eq_himpl_Wp_triple.
-    unfold Subst1. 
+    unfold Subst1.
     (* todo rewrite subst_subst_ctx_rem_same. *)
     skip_rewrite (forall v, subst1 x v (subst (Ctx.rem_var x E) t2) = subst (Ctx.add x v E) t2).
     applys* M2. }
@@ -351,7 +351,7 @@ Proof using. unfold Triple. introv (x&M). applys* rule_extract_hforall. Qed.
 Lemma Rule_extract_hwand_hpure_l : forall t (P:Prop) H `{EA:Enc A} (Q:A->hprop),
   P ->
   Triple t H Q ->
-  Triple t (\[P] \--* H) Q.
+  Triple t (\[P] \-* H) Q.
 Proof using. unfold Triple. introv M N. applys* rule_extract_hwand_hpure_l. Qed.
 
 
@@ -369,7 +369,7 @@ Proof using.
   { split.
     { applys @is_local_Wp_triple. }
     { clears Q. applys qimpl_Wp_triple. intros Q.
-      applys Rule_while_raw. 
+      applys Rule_while_raw.
       asserts_rewrite~ (
          trm_if (subst E t1) (trm_seq (subst E t2) (trm_while (subst E t1) (subst E t2))) val_unit
        = subst E (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit)).
@@ -511,7 +511,7 @@ Lemma Triple_apps_fixs_of_Wp : forall F (f:var) (Vs:dyns) (vs:vals) xs t `{EA:En
 Proof using.
   introv EF EV N M. rewrite var_fixs_exec_eq in N. rew_istrue in N.
    lets (D&L&_): N. simpl in D. rew_istrue in D. destruct D as [D1 D2].
-  subst. applys* Rule_apps_fixs. unfold Substn. 
+  subst. applys* Rule_apps_fixs. unfold Substn.
   { applys @Triple_subst_of_Wp M. }
 Qed.
 
@@ -651,7 +651,7 @@ Ltac xlocal' :=
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Tactic [xapp] 
+(* ** Tactic [xapp]
 
 Lemma xlet_lemma : forall Q1 (F1:formula) (F2:val->formula) H Q,
   is_local F1 ->
@@ -699,7 +699,7 @@ Lemma rule_incr : forall (p:loc) (n:int),
     (p ~~~> n)
     (fun (r:unit) => (p ~~~> (n+1))).
 Proof using.
-  intros. 
+  intros.
 Abort.
 (* xcf.
 

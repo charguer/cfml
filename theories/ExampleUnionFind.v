@@ -58,7 +58,7 @@ Definition roots L R :=
     the PER [R], which is a binary relation over locations. *)
 
 Definition UF (n:int) (R:int->int) (p:loc) : hprop :=
-  Hexists (L:list int),
+  \exists (L:list int),
      Array (map val_int L) p
   \* \[n = length L /\ roots L R].
 
@@ -480,7 +480,7 @@ Lemma rule_union : forall n R p x y,
   index n y ->
   triple (val_union p x y)
     (UF n R p)
-    (fun r => Hexists R', UF n R' p \* \[R' = link R x y]).
+    (fun r => \exists R', UF n R' p \* \[R' = link R x y]).
 Proof using.
   introv Dx Dy. xcf. xapps~. xapps~. xapps. xif ;=> C.
   { unfold UF. xpull ;=> L (Hn&HR).
@@ -515,7 +515,7 @@ Parameter rule_create : forall n,
   n >= 0 ->
   triple (val_create n)
     \[]
-    (fun r => Hexists p R, \[r = val_loc p] \*
+    (fun r => \exists p R, \[r = val_loc p] \*
               UF R p \* \[forall i, index n i -> R i = i]).
 
 *)

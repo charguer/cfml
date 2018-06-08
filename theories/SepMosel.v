@@ -76,11 +76,11 @@ Definition htop : hprop :=
 (* ---------------------------------------------------------------------- *)
 (* ** Some notation *)
 
-Notation "'Hexists' x1 , H" := (hexists (fun x1 => H))
+Notation "'\exists' x1 , H" := (hexists (fun x1 => H))
   (at level 39, x1 ident, H at level 50) : heap_scope.
-Notation "'Hexists' x1 x2 , H" := (Hexists x1, Hexists x2, H)
+Notation "'\exists' x1 x2 , H" := (\exists x1, \exists x2, H)
   (at level 39, x1 ident, x2 ident, H at level 50) : heap_scope.
-Notation "'Hexists' x1 x2 x3 , H" := (Hexists x1, Hexists x2, Hexists x3, H)
+Notation "'\exists' x1 x2 x3 , H" := (\exists x1, \exists x2, \exists x3, H)
   (at level 39, x1 ident, x2 ident, x3 ident, H at level 50) : heap_scope.
 
 Notation "\[ P ]" := (hpure P)
@@ -88,10 +88,10 @@ Notation "\[ P ]" := (hpure P)
 
 Notation "\Top" := (htop) : heap_scope.
 
-Notation "H1 \--* H2" := (hwand H1 H2)
+Notation "H1 \-* H2" := (hwand H1 H2)
   (at level 43) : heap_scope.
 
-Notation "Q1 \---* Q2" := (qwand Q1 Q2)
+Notation "Q1 \--* Q2" := (qwand Q1 Q2)
   (at level 43) : heap_scope.
 
 
@@ -103,7 +103,7 @@ Notation "'~~' B" := (hprop->(B->hprop)->Prop)
 
 Definition local B (F:~~B) : ~~B :=
   fun (H:hprop) (Q:B->hprop) =>
-    H ==> Hexists H1 H2 Q1,
+    H ==> \exists H1 H2 Q1,
        H1 \* H2 \* \[F H1 Q1 /\ Q1 \*+ H2 ===> Q \*+ \Top].
 
 Definition is_local B (F:~~B) :=
@@ -149,7 +149,7 @@ Ltac xlocal_core := idtac.
 Parameter local_ramified_frame : forall B (Q1:B->hprop) H1 F H Q,
   is_local F ->
   F H1 Q1 ->
-  H ==> H1 \* (Q1 \---* Q) ->
+  H ==> H1 \* (Q1 \--* Q) ->
   F H Q.
 
 End SepSetupMoselSig.
@@ -389,9 +389,9 @@ Hint Extern 1 (PrepareHProp ((_ ∗ _) -∗ _) _) =>
   simple eapply prepare_hprop_curry : typeclass_instances.
 Hint Extern 1 (PrepareHProp ((_ \* _) -∗ _) _) =>
   simple eapply prepare_hprop_curry : typeclass_instances.
-Hint Extern 1 (PrepareHProp ((_ ∗ _)%I \--* _) _) =>
+Hint Extern 1 (PrepareHProp ((_ ∗ _)%I \-* _) _) =>
   simple eapply prepare_hprop_curry : typeclass_instances.
-Hint Extern 1 (PrepareHProp ((_ \* _) \--* _) _) =>
+Hint Extern 1 (PrepareHProp ((_ \* _) \-* _) _) =>
   simple eapply prepare_hprop_curry : typeclass_instances.
 
 Instance prepare_hprop_hempty_wand (P Q : hprop) :
@@ -465,7 +465,7 @@ Ltac iPrepare :=
 Lemma local_ramified_frame_locked {B} : forall (Q1 : B → hprop) H1 F H Q,
   is_local F ->
   F H1 Q1 ->
-  H ==> H1 \* (locked Q1 \---* Q) ->
+  H ==> H1 \* (locked Q1 \--* Q) ->
   F H Q.
 Proof using. unlock. apply local_ramified_frame. Qed.
 

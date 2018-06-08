@@ -90,7 +90,7 @@ Notation "'Cell' x p1 p2" :=
 Fixpoint MTree (T:tree) (p:loc) : hprop :=
   match T with
   | Leaf => \[p = null]
-  | Node x T1 T2 => Hexists p1 p2,
+  | Node x T1 T2 => \exists p1 p2,
          (p ~> Cell x p1 p2)  (* p ~> Record`{ item := x; left := p1; right := p2 }) *)
       \* (p1 ~> MTree T1)
       \* (p2 ~> MTree T2)
@@ -134,7 +134,7 @@ Qed.
 
 Lemma MTree_node_eq : forall p x T1 T2,
   (p ~> MTree (Node x T1 T2)) =
-  Hexists p1 p2,
+  \exists p1 p2,
   (p ~> Cell x p1 p2) \* (p1 ~> MTree T1) \* (p2 ~> MTree T2).
 Proof using. intros. xunfold MTree at 1. simple~. Qed.
 
@@ -155,7 +155,7 @@ Qed.
 Lemma MTree_not_null_inv_node : forall p T,
   p <> null ->
   (p ~> MTree T) ==>
-  Hexists x p1 p2 T1 T2, \[T = Node x T1 T2] \*
+  \exists x p1 p2 T1 T2, \[T = Node x T1 T2] \*
     (p ~> Cell x p1 p2) \* (p1 ~> MTree T1) \* (p2 ~> MTree T2).
 Proof using.
   intros. hchange~ (@MTree_not_null_inv_not_leaf p). hpull. intros.
@@ -244,14 +244,14 @@ Definition MTreeDepth (n:nat) (T:tree) (p:loc) : hprop :=
   (p ~> MTree T) \* \[depth n T].
 
 Definition MTreeComplete (T:tree) (p:loc) : hprop :=
-  Hexists n, (p ~> MTree T) \* \[depth n T].
+  \exists n, (p ~> MTree T) \* \[depth n T].
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** Alternative representation *)
 
 Definition MTreeComplete' (T:tree) (p:loc) : hprop :=
-  Hexists n, (p ~> MTreeDepth n T).
+  \exists n, (p ~> MTreeDepth n T).
 
 Definition MTreeComplete'' (T:tree) (p:loc) : hprop :=
   (p ~> MTree T) \* \[exists n, depth n T].
@@ -313,7 +313,7 @@ Inductive stree : tree -> LibSet.set int -> Prop :=
     [p ~> Stree T] *)
 
 Definition Stree (E:set int) (p:loc) :=
-  Hexists (T:tree), (p ~> MTree T) \* \[stree T E].
+  \exists (T:tree), (p ~> MTree T) \* \[stree T E].
 
 
 (* ---------------------------------------------------------------------- *)
@@ -323,7 +323,7 @@ Definition Stree (E:set int) (p:loc) :=
 
 Lemma focus_Stree : forall p E,
   p ~> Stree E ==>
-  Hexists (T:tree), p ~> MTree T \* \[stree T E].
+  \exists (T:tree), p ~> MTree T \* \[stree T E].
 Proof using. intros. xunfold Stree. hsimpl~. Qed.
 
 Lemma unfocus_Stree : forall p T E,

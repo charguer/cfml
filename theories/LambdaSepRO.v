@@ -762,7 +762,7 @@ Qed.
 
 Lemma RO_hexists : forall A (J:A->hprop),
     RO (hexists J)
-  = Hexists x, RO (J x).
+  = \exists x, RO (J x).
 Proof using.
   intros. apply pred_ext_1. intros h.
   iff (h'&(x&M1)&M2&M3) (x&(h'&M1&M2&M3)).
@@ -1235,9 +1235,9 @@ Qed.
 *)
 
 Lemma rule_ref : forall v,
-  triple (val_ref v) 
-    \[] 
-    (fun r => Hexists l, \[r = val_loc l] \* l ~~~> v).
+  triple (val_ref v)
+    \[]
+    (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
 Proof using.
   intros. intros h1 h2 _ P1.
   lets E: hempty_inv P1. subst h1.
@@ -1261,7 +1261,7 @@ Proof using.
 Qed.
 
 Lemma rule_get_ro : forall v l,
-  triple (val_get (val_loc l)) 
+  triple (val_get (val_loc l))
     (RO (l ~~~> v))
     (fun x => \[x = v]).
 Proof using.
@@ -1277,7 +1277,7 @@ Proof using.
 Qed.
 
 Lemma rule_set : forall w l v,
-  triple (val_set (val_loc l) w) 
+  triple (val_set (val_loc l) w)
     (l ~~~> v)
     (fun r => \[r = val_unit] \* l ~~~> w).
 Proof using.
@@ -1399,7 +1399,7 @@ Proof using.
 Qed.
 
 Lemma normally_hwand : forall H1 H2,
-  normally (H1 \--* H2) ==> normally H1 \--* normally H2.
+  normally (H1 \-* H2) ==> normally H1 \-* normally H2.
 Proof using.
   intros. unfold hwand. rewrite normally_hexists. hpull ;=> H3.
   rewrite normally_hstar, normally_hpure. hsimpl (normally H3).
@@ -1408,13 +1408,13 @@ Qed.
 
 Lemma normally_hwand_normal : forall H1 H2,
   Normal H1 ->
-  normally (H1 \--* H2) ==> H1 \--* normally H2.
+  normally (H1 \-* H2) ==> H1 \-* normally H2.
 Proof.
   intros. hchanges normally_hwand. rewrite normally_Normal_eq; auto.
 Qed.
 
 Lemma normally_hwand_hstar : forall H1 H2,
-  H1 \* (H1 \--* normally H2) ==> H1 \* normally (H1 \--* H2).
+  H1 \* (H1 \-* normally H2) ==> H1 \* normally (H1 \-* H2).
 Proof.
   intros H1 H2 h (h1 & h2 & Hh1 & Hh2 & ? & ->). eexists _, _.
   split; [eauto|split; [|eauto]]; []. destruct Hh2 as [H0 IMPL].
@@ -1542,7 +1542,7 @@ Qed.
 (* ** Definition of the ROFrame connective *)
 
 Definition ROFrame (H1 H2 : hprop) :=
-  Hexists H3, normally H3 \* (RO(H3) \--* H1) \* (H3 \--* H2).
+  \exists H3, normally H3 \* (RO(H3) \-* H1) \* (H3 \-* H2).
 
 Lemma ROFrame_himpl : forall H1 H2 H1' H2',
   H1 ==> H1' -> H2 ==> H2' -> ROFrame H1 H2 ==> ROFrame H1' H2'.
@@ -1584,9 +1584,9 @@ Qed.
 
 Lemma ROFrame_frame_lr' : forall H1 H2 H3,
   Normal H1 ->
-  H1 \* ROFrame H2 (H1 \--* H3) ==> ROFrame (RO(H1) \* H2) H3.
+  H1 \* ROFrame H2 (H1 \-* H3) ==> ROFrame (RO(H1) \* H2) H3.
 Proof.
-  intros H1 H2 H3 NORM. hchange (@ROFrame_frame_lr H1 H2 (H1 \--* H3) NORM).
+  intros H1 H2 H3 NORM. hchange (@ROFrame_frame_lr H1 H2 (H1 \-* H3) NORM).
   hsimpl. apply ROFrame_himpl; [hsimpl|]. apply hwand_cancel.
 Qed.
 
@@ -1602,25 +1602,25 @@ Qed.
 
 Lemma rule_ramified_frame_read_only_core : forall H2 t H Q H' Q',
   triple t H' Q' ->
-  H = normally H2 \* (RO H2 \--* H') \* (H2 \--* normally (Q' \---* Q)) ->
+  H = normally H2 \* (RO H2 \-* H') \* (H2 \-* normally (Q' \--* Q)) ->
   triple t H Q.
 Proof using.
   introv M W. subst H. applys rule_consequence; [| |auto].
-  { hchange (>> normally_hwand_hstar (normally H2) (Q' \---* Q)); [|auto]; [].
+  { hchange (>> normally_hwand_hstar (normally H2) (Q' \--* Q)); [|auto]; [].
     rewrite hstar_comm. apply himpl_frame_r, hwand_himpl_l, normally_erase. }
   forwards K: rule_frame_read_only_with_frame t
-          (RO H2 \--* H') H2 (normally H2 \--* (Q' \---* Q)) Q'.
+          (RO H2 \-* H') H2 (normally H2 \-* (Q' \--* Q)) Q'.
   { applys~ rule_consequence M. hchanges (hwand_cancel (RO H2)). }
   { clear M. applys rule_consequence (rm K).
     { hsimpl. }
-    { intros x. hchange (>> normally_erase (normally H2 \--* (Q' \---* Q))).
-      hchange (>> hwand_cancel (normally H2) (Q' \---* Q)).
+    { intros x. hchange (>> normally_erase (normally H2 \-* (Q' \--* Q))).
+      hchange (>> hwand_cancel (normally H2) (Q' \--* Q)).
       hsimpl. apply qwand_cancel. } }
 Qed.
 
 Lemma rule_ramified_frame_read_only : forall t H Q H' Q',
   triple t H' Q' ->
-  H ==> ROFrame H' (normally (Q' \---* Q)) ->
+  H ==> ROFrame H' (normally (Q' \--* Q)) ->
   triple t H Q.
 Proof using.
   introv M W. applys~ rule_consequence Q (rm W).
@@ -1632,7 +1632,7 @@ Qed.
 
 Lemma rule_let_ramified_frame_read_only : forall z t1 t2 H1 H Q1 Q Q',
   triple t1 H1 Q1 ->
-  H ==> ROFrame H1 (Q1 \---* Q') ->
+  H ==> ROFrame H1 (Q1 \--* Q') ->
   (forall (X:val), triple (subst1 z X t2) (Q' X) Q) ->
   triple (trm_let z t1 t2) H Q.
 Proof.
@@ -1645,7 +1645,7 @@ Proof.
     hchange (hwand_cancel (RO H2) H1); [|hsimpl]. hsimpl.
     apply RO_covariant, normally_erase.
   - intros X. eapply rule_consequence; [|apply Ht2L|auto].
-    hchange (hwand_cancel H2 (Q1 \---* Q')).
+    hchange (hwand_cancel H2 (Q1 \--* Q')).
     { rewrite hstar_comm. apply himpl_frame_r, normally_erase. }
     hchange (qwand_himpl_hwand X). hchange (hwand_cancel (Q1 X) (Q' X)). hsimpl.
 Qed.

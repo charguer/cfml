@@ -314,7 +314,7 @@ Definition is_val_bool (v:val) : Prop :=
 Fixpoint Alloc (k:nat) (l:loc) :=
   match k with
   | O => \[]
-  | S k' => (Hexists v, l ~~~> v) \* (Alloc k' (S l)%nat)
+  | S k' => (\exists v, l ~~~> v) \* (Alloc k' (S l)%nat)
   end.
 
 Lemma Alloc_zero_eq : forall l,
@@ -322,7 +322,7 @@ Lemma Alloc_zero_eq : forall l,
 Proof using. auto. Qed.
 
 Lemma Alloc_succ_eq : forall l k,
-  Alloc (S k) l = (Hexists v, l ~~~> v) \* Alloc k (S l)%nat.
+  Alloc (S k) l = (\exists v, l ~~~> v) \* Alloc k (S l)%nat.
 Proof using. auto. Qed.
 
 Global Opaque Alloc.
@@ -624,7 +624,7 @@ Qed.
 Lemma rule_extract_hwand_hpure_l : forall t (P:Prop) H Q,
   P ->
   triple t H Q ->
-  triple t (\[P] \--* H) Q.
+  triple t (\[P] \-* H) Q.
 Proof using.
   introv HP M. intros HF h N.
   lets N': hstar_hwand (rm N).
@@ -801,9 +801,9 @@ Proof using.
 Qed.
 
 Lemma rule_while_inv : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) t1 t2 H,
-  let Q := (fun r => Hexists Y, I false Y) in
+  let Q := (fun r => \exists Y, I false Y) in
   wf R ->
-  (H ==> (Hexists b X, I b X) \* \Top) -> (* LATER: replace \top with H' *)
+  (H ==> (\exists b X, I b X) \* \Top) -> (* LATER: replace \top with H' *)
   (forall t b X,
       (forall b' X', R X' X -> triple t (I b' X') Q) ->
       triple (trm_if t1 (trm_seq t2 t) val_unit) (I b X) Q) ->
@@ -955,7 +955,7 @@ Transparent hstar hsingle hfield hexists loc null.
 Lemma rule_ref : forall v,
   triple (val_ref v)
     \[]
-    (fun r => Hexists l, \[r = val_loc l] \* l ~~~> v).
+    (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
 Proof using.
   intros. intros HF h N.
   forwards~ (l&Dl&Nl): (fmap_single_fresh null h v).
@@ -1007,7 +1007,7 @@ Lemma rule_alloc : forall n,
   n >= 0 ->
   triple (val_alloc n)
     \[]
-    (fun r => Hexists l, \[r = val_loc l /\ l <> null] \* Alloc (abs n) l).
+    (fun r => \exists l, \[r = val_loc l /\ l <> null] \* Alloc (abs n) l).
 Proof using. (* Note: [abs n] currently does not compute in Coq. *)
   introv N Hh.
   forwards~ (l&Dl&Nl): (fmap_conseq_fresh null h (abs n) val_unit).

@@ -120,7 +120,7 @@ Notation "'triple'" := triple_3.
     - [l ~~> v] describes a single memory cell, at location [l], with
       contents [v].
     - [H1 \* H2] denotes the separating conjunction of two heap predicates.
-    - [Hexists x, H] denotes an existential quantification at the level of
+    - [\exists x, H] denotes an existential quantification at the level of
       heap predicates.
 
     As we will see through this section, each of these heap predicates is
@@ -539,7 +539,7 @@ Qed.
 (** ** Existential heap predicate *)
 
 (** The _existential heap predicate_ provides existential quantification
-    at the level of heap predicates. It is written [Hexists x, H], which
+    at the level of heap predicates. It is written [\exists x, H], which
     is a notation for [hexists (fun x => H)]. It is the counterpart of the
     normal existential quantification on propositions, which is written
     [exists x, P], a notation for [ex (fun x => P)].
@@ -551,23 +551,23 @@ Qed.
 Definition hexists (A:Type) (J:A->hprop) : hprop :=
   fun h => exists x, J x h.
 
-Notation "'Hexists' x1 , H" := (hexists (fun x1 => H))
+Notation "'\exists' x1 , H" := (hexists (fun x1 => H))
   (at level 39, x1 ident, H at level 50).
 
-(** The notation [Hexists x1 x2 x3, H] shows useful to quantify several
+(** The notation [\exists x1 x2 x3, H] shows useful to quantify several
     arguments at once. *)
 
-Notation "'Hexists' x1 x2 , H" := (Hexists x1, Hexists x2, H)
+Notation "'\exists' x1 x2 , H" := (\exists x1, \exists x2, H)
   (at level 39, x1 ident, x2 ident, H at level 50).
-Notation "'Hexists' x1 x2 x3 , H" := (Hexists x1, Hexists x2, Hexists x3, H)
+Notation "'\exists' x1 x2 x3 , H" := (\exists x1, \exists x2, \exists x3, H)
   (at level 39, x1 ident, x2 ident, x3 ident, H at level 50).
-(** The notation [Hexists (x:T), H] allows us to provide an explicit
+(** The notation [\exists (x:T), H] allows us to provide an explicit
     type annotation. *)
 
-Notation "'Hexists' ( x1 : T1 ) , H" := (hexists (fun x1:T1 => H))
+Notation "'\exists' ( x1 : T1 ) , H" := (hexists (fun x1:T1 => H))
   (at level 39, x1 ident, H at level 50, only parsing).
 
-Notation "'Hexists' ( '_' : T1 ) , H" := (hexists (fun _:T1 => H))
+Notation "'\exists' ( '_' : T1 ) , H" := (hexists (fun _:T1 => H))
   (at level 39, H at level 50). (* useful when quantifying over proof terms *)
 
 (** The main role of existential quantification is to introduce abstraction.
@@ -575,12 +575,12 @@ Notation "'Hexists' ( '_' : T1 ) , H" := (hexists (fun _:T1 => H))
     by saying that it updates the contents of its target location to
     some greater contents, without revealing that the new contents is exactly
     one unit greater. Then, for a precondition [r ~~> n], we would consider
-    the postcondition [Hexists m, (r ~~> m) \* \[m > n]]. *)
+    the postcondition [\exists m, (r ~~> m) \* \[m > n]]. *)
 
 Parameter hexists_demo : forall (n:int),
   triple (incr r)
     (r ~~> n)
-    (fun v => \[v = val_unit] \* Hexists (m:int), (r ~~> m) \* \[m > n]).
+    (fun v => \[v = val_unit] \* \exists (m:int), (r ~~> m) \* \[m > n]).
 
 (** Existential quantification is also useful to specify output values
     when they have a specific shape. For example, consider the operation
@@ -594,7 +594,7 @@ Parameter hexists_demo : forall (n:int),
 Parameter rule_ref : forall (v:val),
   triple (val_ref v)
     \[]
-    (fun (r:val) => Hexists (l:loc), \[r = val_loc l] \* (l ~~> v)).
+    (fun (r:val) => \exists (l:loc), \[r = val_loc l] \* (l ~~> v)).
 
 (* EX2! (rule_ref_of_ref) *)
 (** Consider the term [val_ref (val_ref 3)], which allocates a memory
@@ -608,19 +608,19 @@ Parameter rule_ref_of_ref :
   triple (val_ref (val_ref 3))
     \[]
     (fun (r:val) =>
-        Hexists (l:loc), \[r = val_loc l] \* Hexists (l':loc),
+        \exists (l:loc), \[r = val_loc l] \* \exists (l':loc),
                          (l ~~> l') \* (l' ~~> 3)).
 (* /SOLUTION *)
 
 (** [] *)
 
 (* EX1? (hexists_permut) *)
-(** Prove that [Hexists x, Hexists y, K x y] is equivalent to
-    [Hexists y, Hexists x, K x y]. *)
+(** Prove that [\exists x, \exists y, K x y] is equivalent to
+    [\exists y, \exists x, K x y]. *)
 
 Lemma hexists_permut : forall (A B:Type) (K:A->B->hprop) (h:heap),
-  ((Hexists x, Hexists y, K x y) h) ->
-  ((Hexists y, Hexists x, K x y) h).
+  ((\exists x, \exists y, K x y) h) ->
+  ((\exists y, \exists x, K x y) h).
 Proof.
   (* ADMITTED *)
   introv (x&y&M). exists y x. apply M.
@@ -632,13 +632,13 @@ Qed.
 (* EX2? (hpure_iff_hexists_prop) *)
 (** Prove that a heap satisfies the heap predicate [\[P]] for some
     proposition [P] if and only if it satisfies the heap predicate
-    [Hexists (p:P), \[]]. The latter describes a empty heap and
+    [\exists (p:P), \[]]. The latter describes a empty heap and
     asserts the existence of a proof term [p] of type [P]. In Coq,
     asserting the existence of such a proof term of type [P] is
     equivalent to asserting that [P] is a true proposition. *)
 
 Lemma hpure_iff_hexists_proof : forall (P:Prop) (h:heap),
-  (\[P] h) <-> ((Hexists (p:P), \[]) h).
+  (\[P] h) <-> ((\exists (p:P), \[]) h).
 Proof.
   (* ADMITTED *)
   intros. split.
@@ -657,7 +657,7 @@ Qed.
     - [\[P]]
     - [l ~~> v]
     - [H1 \* H2]
-    - [Hexists x, H].
+    - [\exists x, H].
 
     and they are defined as follows. *)
 
@@ -717,7 +717,7 @@ Parameter htop_example_1 :
 Parameter htop_example_2 :
   triple t
     \[]
-    (fun (r:val) => \[r = 5] \* Hexists l, l ~~> 3).
+    (fun (r:val) => \[r = 5] \* \exists l, l ~~> 3).
 
 (** The remaining of this chapter describes a simple patch to the
     definition of triple that would allow establishing the first
@@ -773,10 +773,10 @@ Qed.
 
 (* EX2? (htop_iff_hexists_heap) *)
 (** Prove that a heap satisfies the heap predicate [\[Top]] if and
-    only if it satisfies the predicate [Hexists (H:hprop), H]. *)
+    only if it satisfies the predicate [\exists (H:hprop), H]. *)
 
 Lemma htop_iff_hexists_hprop : forall (P:Prop) (h:heap),
-  (\Top h) <-> (Hexists H, H) h.
+  (\Top h) <-> (\exists H, H) h.
 Proof.
   (* ADMITTED *)
   intros. split.

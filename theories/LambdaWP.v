@@ -38,7 +38,7 @@ Proof using. apply (Inhab_of_val (fun _ => \[])). Qed.
 (** Recall the generic definition of [weakestpre] from [SepFunctor]:
 [[
     Definition weakestpre F Q :=
-      Hexists H, H \* \[F H Q].
+      \exists H, H \* \[F H Q].
 ]]
 *)
 
@@ -53,7 +53,7 @@ Definition wp_triple (t:trm) : formula :=
 
 [[
 Definition local (F:formula) : formula :=
-  fun Q => Hexists Q', F Q' \* (Q' \---* (Q \*+ \Top)).
+  fun Q => \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
 
 Definition is_local (F:formula) :=
   F = local F.
@@ -73,7 +73,7 @@ Definition formula_ (B:Type) := (B -> hprop) -> hprop.
    pure facts. *)
 
 Definition local B (F:formula_ B) : formula_ B :=
-  fun Q => Hexists Q', F Q' \* (Q' \---* (Q \*+ \Top)).
+  fun Q => \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
 
 (** The [is_local] predicate asserts that a predicate is subject
   to all the rules that the [local] predicate transformer supports. *)
@@ -123,11 +123,11 @@ Qed.
 Lemma local_frame : forall H1 H2 F H Q,
   is_local F ->
   H ==> H1 \* H2 ->
-  H1 ==> F (fun x => H2 \--* Q x) ->
+  H1 ==> F (fun x => H2 \-* Q x) ->
   H ==> F Q.
 Proof using.
   introv L W M. rewrites (rm L). hchanges (rm W). hchanges (rm M).
-  unfold local. hsimpl (fun x => H2 \--* Q x). (* TODO: simplify *)
+  unfold local. hsimpl (fun x => H2 \-* Q x). (* TODO: simplify *)
   (* TODO: needs hqwand *)
   applys qwand_move_l. intros x. hchanges (hwand_cancel H2).
 Qed.
@@ -135,7 +135,7 @@ Qed.
 Lemma local_frame_top : forall H1 H2 F H Q,
   is_local F ->
   H ==> H1 \* H2 ->
-  H1 ==> F (fun x => H2 \--* Q x \* \Top) ->
+  H1 ==> F (fun x => H2 \-* Q x \* \Top) ->
   H ==> F Q.
 Proof using.
   introv L W M. applys* local_top. applys* local_frame.
@@ -209,7 +209,7 @@ Proof using.
   applys himpl_antisym.
   { apply~ local_erase'. }
   { unfold local, wp_triple, weakestpre.
-    hpull ;=> Q' H M. hsimpl (H \* (Q' \---* Q \*+ \Top)).
+    hpull ;=> Q' H M. hsimpl (H \* (Q' \--* Q \*+ \Top)).
     xapply M. hsimpl. intros x. hchange (qwand_himpl_hwand x Q' (Q \*+ \Top)).
     hchange (hwand_cancel (Q' x)). hsimpl. }
 Qed. (* LATER: simplify *)
@@ -245,23 +245,23 @@ Definition wp_app (t:trm) :=
   local (wp_triple t).
 
 Definition wp_if_val (v:val) (F1 F2:formula) : formula := local (fun Q =>
-  Hexists (b:bool), \[v = val_bool b] \* (if b then F1 Q else F2 Q)).
+  \exists (b:bool), \[v = val_bool b] \* (if b then F1 Q else F2 Q)).
 
 Definition wp_if (F0 F1 F2:formula) : formula :=
   wp_let F0 (fun v => wp_if_val v F1 F2).
 
 Definition wp_while (F1 F2:formula) : formula := local (fun Q =>
-  Hforall (R:formula),
+  \forall (R:formula),
   let F := wp_if F1 (wp_seq F2 R) (wp_val val_unit) in
-  \[ is_local R /\ F ===> R] \--* (R Q)).
+  \[ is_local R /\ F ===> R] \-* (R Q)).
 
 (* TODO
 Definition wp_for_val (v1 v2:val) (F3:int->formula) : formula := local (fun Q =>
-  Hexists n1 n2, \[v1 = val_int n1 /\ v2 = val_int n2] \*
-  Hforall (S:int->formula),
+  \exists n1 n2, \[v1 = val_int n1 /\ v2 = val_int n2] \*
+  \forall (S:int->formula),
   let F i := If (i <= n2) then (wp_seq (F3 i) (S (i+1)))
                           else (wp_val val_unit) in
-  \[ is_local_pred S /\ (forall i, F i ===> S i)] \--* (S n1 Q)).
+  \[ is_local_pred S /\ (forall i, F i ===> S i)] \-* (S n1 Q)).
 
 Definition wp_for (F1 F2:formula) (F3:int->formula) : formula :=
   wp_let F1 (fun v1 => wp_let F2 (fun v2 => wp_for_val v1 v2 F3)).
@@ -336,7 +336,7 @@ Proof using.
   introv M.
   rewrite is_local_triple. unfold SepBasicSetup.local.
   unfold local. hpull ;=> Q'.
-  hsimpl (F Q') ((Q' \---* Q \*+ \Top)) Q'. split.
+  hsimpl (F Q') ((Q' \--* Q \*+ \Top)) Q'. split.
   { applys~ M. }
   { hchanges qwand_cancel. }
 Qed. (* TODO: simplify proof? *)
@@ -425,7 +425,7 @@ Proof using.
   remove_local. applys rule_let.
   { rewrite triple_eq_himpl_wp_triple. applys* M1. }
   { intros X. simpl. rewrite triple_eq_himpl_wp_triple.
-    (* TODO *)  
+    (* TODO *)
     skip_rewrite (subst1 x X (subst (Ctx.rem x E) t2) =
       subst (Ctx.add x X E) t2). applys* M2. }
 Qed.

@@ -179,7 +179,7 @@ Lemma rule_ref_update : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),
   ->
   (triple (val_ref_update f p)
     PRE (p ~~~> v \* H)
-    POST (fun r => Hexists w, (p ~~~> w) \* (Q w))).
+    POST (fun r => \exists w, (p ~~~> w) \* (Q w))).
 Proof using.
   introv N M. xdef.
   applys rule_let.
@@ -220,10 +220,10 @@ Qed.
 
 
 Definition Box (n:int) (p:loc) :=
-  Hexists (q:loc), (p ~~~> q) \* (q ~~~> n).
+  \exists (q:loc), (p ~~~> q) \* (q ~~~> n).
 
 Lemma Box_unfold : forall p n,
-  (p ~> Box n) ==> Hexists (q:loc), (p ~~~> q) \* (q ~~~> n).
+  (p ~> Box n) ==> \exists (q:loc), (p ~~~> q) \* (q ~~~> n).
 Proof using. intros. xunfold Box. hsimpl. Qed.
 
 Lemma Box_fold : forall p q n,
@@ -231,7 +231,7 @@ Lemma Box_fold : forall p q n,
 Proof using. intros. xunfold Box. hsimpl. Qed.
 
 Lemma RO_Box_unfold : forall p n,
-  RO (p ~> Box n) ==> RO (p ~> Box n) \* Hexists (q:loc), RO (p ~~~> q) \* RO (q ~~~> n).
+  RO (p ~> Box n) ==> RO (p ~> Box n) \* \exists (q:loc), RO (p ~~~> q) \* RO (q ~~~> n).
 Proof using.
   intros. hchange RO_duplicatable. xunfold Box at 1.
   rew_RO. hpull ;=> q. hchanges (RO_star (p ~~~> q) (q ~~~> n)).

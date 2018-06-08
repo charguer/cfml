@@ -333,7 +333,7 @@ Qed.
 (* ** Lifting of postconditions *)
 
 Definition Post A `{Enc A} (Q:A->hprop) : val->hprop :=
-  fun v => Hexists V, \[v = enc V] \* Q V.
+  fun v => \exists V, \[v = enc V] \* Q V.
 
 Lemma Post_himpl : forall `{Enc A} Q Q',
   Q ===> Q' ->
@@ -444,7 +444,7 @@ Ltac xlocal_base tt ::=
 (* ** Lemma for changing the encoder in a triple *)
 
 Definition PostChange `{Enc A1} (Q1:A1->hprop) `{Enc A2} (Q2:A2->hprop) :=
-  forall (X:A1), Q1 X ==> Hexists (Y:A2), \[enc X = enc Y] \* Q2 Y.
+  forall (X:A1), Q1 X ==> \exists (Y:A2), \[enc X = enc Y] \* Q2 Y.
 
 Lemma PostChange_refl : forall `{EA:Enc A} (Q:A->hprop),
   PostChange Q Q.
@@ -465,7 +465,7 @@ Qed.
 Lemma Triple_enc_val_inv :
   forall (t:trm) (H:hprop) (Q1:val->hprop) `{EA2:Enc A2} (Q2:A2->hprop),
   Triple t H Q1 ->
-  (forall (X:val), Q1 X ==> Hexists (Y:A2), \[X = enc Y] \* Q2 Y) ->
+  (forall (X:val), Q1 X ==> \exists (Y:A2), \[X = enc Y] \* Q2 Y) ->
   Triple t H Q2.
 Proof using.
   introv M N. applys* (@Triple_enc_change val).
@@ -871,9 +871,9 @@ Lemma Rule_while : forall t1 t2 H Q,
   triple (trm_while t1 t2) H Q.
 
 Lemma Rule_while_inv : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) t1 t2 H,
-  let Q := (fun r => Hexists Y, I false Y) in
+  let Q := (fun r => \exists Y, I false Y) in
   wf R ->
-  (H ==> (Hexists b X, I b X) \* \Top) ->
+  (H ==> (\exists b X, I b X) \* \Top) ->
   (forall t b X,
       (forall b' X', R X' X -> triple t (I b' X') Q) ->
       triple (trm_if t1 (trm_seq t2 t) val_unit) (I b X) Q) ->

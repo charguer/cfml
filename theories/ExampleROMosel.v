@@ -105,7 +105,7 @@ Lemma rule_ref_update : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),
   ->
   (triple (val_ref_update f p)
     PRE (p ~~~> v \* H)
-    POST (fun r => Hexists w, (p ~~~> w) \* (Q w))).
+    POST (fun r => \exists w, (p ~~~> w) \* (Q w))).
 Proof using.
   introv N M. xdef. ram_apply_let rule_get_ro. { auto with iFrame. }
   unlock. move=>x /=. xpull=>->. ram_apply_let M. { auto with iFrame. }
@@ -120,10 +120,10 @@ Qed.
 (** Representation predicate and its properties *)
 
 Definition Box (n:int) (p:loc) :=
-  Hexists (q:loc), (p ~~~> q) \* (q ~~~> n).
+  \exists (q:loc), (p ~~~> q) \* (q ~~~> n).
 
 Lemma Box_unfold : forall p n,
-  (p ~> Box n) ==> Hexists (q:loc), (p ~~~> q) \* (q ~~~> n).
+  (p ~> Box n) ==> \exists (q:loc), (p ~~~> q) \* (q ~~~> n).
 Proof using. xunfold Box. auto. Qed.
 
 Lemma Box_fold : forall p q n,
@@ -131,7 +131,7 @@ Lemma Box_fold : forall p q n,
 Proof using. xunfold Box. auto. Qed.
 
 Lemma RO_Box_unfold : forall p n,
-  RO (p ~> Box n) ==> RO (p ~> Box n) \* Hexists (q:loc), RO (p ~~~> q) \* RO (q ~~~> n).
+  RO (p ~> Box n) ==> RO (p ~> Box n) \* \exists (q:loc), RO (p ~~~> q) \* RO (q ~~~> n).
 Proof using.
   iIntros (p n) "H". iDestruct (RO_duplicatable with "H") as "[$ H]". xunfold Box.
   iDestruct "H" as (q) "[??]". auto with iFrame.

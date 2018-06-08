@@ -407,7 +407,7 @@ Transparent Record repr loc.
 
 Lemma Alloc2_to_Record : forall p, p <> null ->
   Alloc (abs 2) p ==>
-    Hexists (v1:val) (v2:val),
+    \exists (v1:val) (v2:val),
     (p ~> Record `{ (0%nat) := v1; (1%nat) := v2}).
 Proof using.
   introv Np. change (abs 2) with 2%nat. rew_Alloc.
@@ -424,7 +424,7 @@ Lemma Alloc_to_Record : forall (p:loc) (start:nat) (n:nat),
   p <> null ->
   let xs := nat_seq start n in
       Alloc n (p+start)%nat
-  ==> Hexists (Vs:dyns), \[length Vs = n] \* p ~> Record (combine xs Vs).
+  ==> \exists (Vs:dyns), \[length Vs = n] \* p ~> Record (combine xs Vs).
 Proof using.
   introv Np. gen start. induction n; intros; rew_Alloc.
   { subst. hsimpl (@nil dyn). rew_list~. }
@@ -657,7 +657,7 @@ Transparent loc. (* TODO: avoid the need for this by
 
 Lemma Array_middle_eq : forall n p L,
   0 <= n < length L ->
-  (p ~> Array L) = Hexists L1 x L2, \[L = L1++x::L2] \* \[length L1 = n :> int] \*
+  (p ~> Array L) = \exists L1 x L2, \[L = L1++x::L2] \* \[length L1 = n :> int] \*
     p ~> Array L1 \* (abs(p+n) ~~> x) \* (p + length L1 + 1)%nat ~> Array L2.
 Proof using.
   intros. repeat rewrite Array_unlift.
@@ -681,7 +681,7 @@ Lemma Rule_alloc_array : forall n,
   n >= 0 ->
   Triple (val_alloc ``n)
     PRE \[]
-    POST (fun p => Hexists (L:list val), \[length L = n :> int] \* p ~> Array L).
+    POST (fun p => \exists (L:list val), \[length L = n :> int] \* p ~> Array L).
 Proof using.
   intros. unfold Triple. xapplys~ rule_alloc_array.
   intros r x L. intros E N. subst. unfold Post. hsimpl~ L.
@@ -730,7 +730,7 @@ Lemma Rule_array_make : forall n v,
   n >= 0 ->
   Triple (val_array_make ``n ``v)
     PRE \[]
-    POST (fun p => Hexists L, \[L = make n v] \* p ~> Array L).
+    POST (fun p => \exists L, \[L = make n v] \* p ~> Array L).
 Proof using.
   intros. unfold Triple. xapplys~ rule_array_make.
   intros r p L E N. unfold Post. hsimpl~ p (make n v).

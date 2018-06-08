@@ -718,9 +718,9 @@ Section RulesPrimitiveOps.
 Transparent hstar hsingle.
 
 Lemma rule_ref : forall v,
-  triple (val_ref v) 
+  triple (val_ref v)
     \[]
-    (fun r => Hexists l, \[r = val_loc l] \* l ~~~> v).
+    (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
 Proof using.
   intros. intros HF h N. rew_heap in N.
   forwards~ (l&Dl&Nl): (fmap_single_fresh null (h^s) v).
@@ -746,7 +746,7 @@ Proof using.
 Qed.
 
 Lemma rule_set : forall w l v,
-  triple (val_set (val_loc l) w) 
+  triple (val_set (val_loc l) w)
     (l ~~~> v)
     (fun r => \[r = val_unit] \* l ~~~> w).
 Proof using.

@@ -146,7 +146,7 @@ Definition val_new_cell :=
 Lemma rule_alloc_cell :
   triple (val_alloc 2%Z)
     \[]
-    (fun r => Hexists (p:loc), Hexists v1 v2,
+    (fun r => \exists (p:loc), \exists v1 v2,
               \[r = p] \* MCell v1 v2 p).
 Proof using.
   ram_apply rule_alloc; [math|]. iDestruct 1 as (l [-> ?]) "H".
@@ -159,7 +159,7 @@ Qed.
 Lemma rule_new_cell : forall v q,
   triple (val_new_cell v q)
     \[]
-    (fun r => Hexists p, \[r = val_loc p] \* MCell v q p).
+    (fun r => \exists p, \[r = val_loc p] \* MCell v q p).
 Proof using.
   intros. xcf. xapp rule_alloc_cell.
   intros p p' v' q'. intro_subst.
@@ -172,7 +172,7 @@ Ltac loop := idtac; loop.
 Lemma rule_new_cell' : forall v q,
   triple (val_new_cell v q)
     \[]
-    (fun r => Hexists p, \[r = val_loc p] \* MCell v q p).
+    (fun r => \exists p, \[r = val_loc p] \* MCell v q p).
 Proof using.
   intros. eapply rule_app_fun2 =>//=; [].
   eapply rule_let; [apply rule_alloc_cell|]=>p /=. xpull=> p' v' q' ->.
@@ -206,7 +206,7 @@ Global Opaque MCell_eq.
 Fixpoint MList (L:list val) (p:loc) : hprop :=
   match L with
   | nil => \[p = null]
-  | x::L' => Hexists (p':loc), (MCell x p' p) \* (MList L' p')
+  | x::L' => \exists (p':loc), (MCell x p' p) \* (MList L' p')
   end.
 
 
@@ -244,7 +244,7 @@ Proof using. intros. rewrite MList_nil_eq. auto. Qed.
 
 Lemma MList_cons_eq : forall p x L',
   MList (x::L') p =
-  Hexists (p':loc), MCell x p' p \* MList L' p'.
+  \exists (p':loc), MCell x p' p \* MList L' p'.
 Proof using. intros. unfold MList at 1. simple~. Qed.
 
 Lemma MList_cons : forall p p' x L',
@@ -263,7 +263,7 @@ Qed.
 Lemma MList_not_null_inv_cons : forall p L,
   p <> null ->
     MList L p ==>
-    Hexists (p':loc), Hexists x L',
+    \exists (p':loc), \exists x L',
        \[L = x::L'] \* MCell x p' p  \* MList L' p'.
 Proof using.
   iIntros (p L ?) "H".
@@ -391,7 +391,7 @@ Qed.
 Fixpoint MListSeg (q:loc) (L:list val) (p:loc) : hprop :=
   match L with
   | nil => \[p = q]
-  | x::L' => Hexists (p':loc), (MCell x p' p) \* (MListSeg q L' p')
+  | x::L' => \exists (p':loc), (MCell x p' p) \* (MListSeg q L' p')
   end.
 
 (* ---------------------------------------------------------------------- *)
@@ -406,7 +406,7 @@ Proof using. intros. unfolds~ MListSeg. Qed.
 
 Lemma MListSeg_cons_eq : forall p q x L',
   MListSeg q (x::L') p =
-  Hexists (p':loc), MCell x p' p \* MListSeg q L' p'.
+  \exists (p':loc), MCell x p' p \* MListSeg q L' p'.
 Proof using. intros. unfold MListSeg at 1. done. Qed.
 
 Global Opaque MListSeg.
