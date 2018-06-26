@@ -65,7 +65,7 @@ COQINCLUDE := \
 
 include $(TLC)/Makefile.coq
 
-
+all: _CoqProject
 
 
 
