@@ -16,7 +16,7 @@ Installation using opam.
    # install MoSel
    opam repo add iris-dev https://gitlab.mpi-sws.org/FP/opam-dev.git
    opam update
-   opam install coq-iris=branch.gen_proofmode.2018-05-29.0.9b14f90a
+   opam install coq-iris=dev.2018-07-13.0.cbf73155
 
    # install TLC from package
    opam repo add coq-released http://coq.inria.fr/opam/released
