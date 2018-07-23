@@ -259,7 +259,7 @@ Lemma Wp_sound_var : forall x,
 Proof using.
   intros. intros E A EA. simpl. applys qimpl_Wp_triple.
   intros Q. unfold Wp_var. simpl. destruct (Ctx.lookup x E).
-  { remove_Local. xpull ;=> V EQ. applys* Rule_val. }
+  { remove_Local. xpull ;=> V EQ. applys* Triple_val. }
   { remove_Local. xpull*. }
 Qed.
 
@@ -268,7 +268,7 @@ Lemma Wp_sound_val : forall v,
 Proof using.
   intros. intros E A EA. simpl. applys qimpl_Wp_triple.
   intros Q. remove_Local. xpull ;=> V EQ.
-  simpl. intros. applys* Rule_val.
+  simpl. intros. applys* Triple_val.
 Qed.
 
 (* DEPRECATED
@@ -278,7 +278,7 @@ Proof using.
   intros. intros E A EA. simpl. applys qimpl_Wp_triple.
   intros Q. remove_Local. xpull ;=> V EQ. simpl.
   applys Triple_enc_val_inv (fun r => \[r = enc V] \* (Q V)).
-  { applys Rule_fun. rewrite EQ. hsimpl~. }
+  { applys Triple_fun. rewrite EQ. hsimpl~. }
   { hpull ;=> X EX. subst X. hsimpl~. }
 Qed.
 *)
@@ -289,7 +289,7 @@ Proof using.
   intros. intros E A EA. simpl. applys qimpl_Wp_triple.
   intros Q. remove_Local. xpull ;=> V EQ. simpl.
   applys Triple_enc_val_inv (fun r => \[r = enc V] \* (Q V)).
-  { applys Rule_fix. rewrite EQ. hsimpl~. }
+  { applys Triple_fix. rewrite EQ. hsimpl~. }
   { hpull ;=> X EX. subst X. hsimpl~. }
 Qed.
 
@@ -300,7 +300,7 @@ Lemma Wp_sound_if : forall F1 F2 F3 E t1 t2 t3,
   Wp_if F1 F2 F3 ====> Wp_triple_ E (trm_if t1 t2 t3).
 Proof using.
   introv M1 M2 M3. intros A EA. applys qimpl_Wp_triple. intros Q.
-  remove_Local. xpull. intros _. simpl. applys Rule_if.
+  remove_Local. xpull. intros _. simpl. applys Triple_if.
   { rewrite Triple_eq_himpl_Wp_triple. applys* M1. }
   { intros b. simpl. remove_Local. case_if.
     { rewrite Triple_eq_himpl_Wp_triple. applys* M2. }
@@ -313,7 +313,7 @@ Lemma Wp_sound_seq : forall F1 F2 E t1 t2,
   Wp_seq F1 F2 ====> Wp_triple_ E (trm_seq t1 t2).
 Proof using.
   introv M1 M2. intros A EA. applys qimpl_Wp_triple. intros Q.
-  remove_Local. simpl. applys Rule_seq.
+  remove_Local. simpl. applys Triple_seq.
   { rewrite Triple_eq_himpl_Wp_triple. applys* M1. }
   { rewrite Triple_eq_himpl_Wp_triple. applys* M2. }
 Qed.
@@ -324,7 +324,7 @@ Lemma Wp_sound_let : forall (F1:Formula) (F2of:forall `{EA1:Enc A1},A1->Formula)
   Wp_let F1 (@F2of) ====> Wp_triple_ E (trm_let x t1 t2).
 Proof using.
   introv M1 M2. intros A EA. applys qimpl_Wp_triple. intros Q.
-  remove_Local. xpull ;=> A1 EA1 _. simpl. applys Rule_let.
+  remove_Local. xpull ;=> A1 EA1 _. simpl. applys Triple_let.
   { rewrite Triple_eq_himpl_Wp_triple. applys* M1. }
   { intros X. rewrite Triple_eq_himpl_Wp_triple.
     unfold Subst1.
@@ -343,16 +343,16 @@ Qed.
 
 
 (* TODO: move *)
-Lemma Rule_extract_hforall : forall t B (J:B->hprop) `{EA:Enc A} (Q:A->hprop),
+Lemma Triple_extract_hforall : forall t B (J:B->hprop) `{EA:Enc A} (Q:A->hprop),
   (exists x, Triple t (J x) Q) ->
   Triple t (hforall J) Q.
-Proof using. unfold Triple. introv (x&M). applys* rule_extract_hforall. Qed.
+Proof using. unfold Triple. introv (x&M). applys* triple_extract_hforall. Qed.
 
-Lemma Rule_extract_hwand_hpure_l : forall t (P:Prop) H `{EA:Enc A} (Q:A->hprop),
+Lemma Triple_extract_hwand_hpure_l : forall t (P:Prop) H `{EA:Enc A} (Q:A->hprop),
   P ->
   Triple t H Q ->
   Triple t (\[P] \-* H) Q.
-Proof using. unfold Triple. introv M N. applys* rule_extract_hwand_hpure_l. Qed.
+Proof using. unfold Triple. introv M N. applys* triple_extract_hwand_hpure_l. Qed.
 
 
 Lemma Wp_sound_while : forall F1 F2 E t1 t2,
@@ -363,13 +363,13 @@ Proof using.
   introv M1 M2. intros A EA. applys qimpl_Wp_triple. intros Q.
   remove_Local. simpl.
   unfold Formula_typed. xpull ;=> Q' C. applys Triple_enc_change (rm C).
-  applys Rule_extract_hforall.
+  applys Triple_extract_hforall.
   set (R := Wp_triple (trm_while (subst E t1) (subst E t2))).
-  exists R. simpl. applys Rule_extract_hwand_hpure_l.
+  exists R. simpl. applys Triple_extract_hwand_hpure_l.
   { split.
     { applys @is_local_Wp_triple. }
     { clears Q. applys qimpl_Wp_triple. intros Q.
-      applys Rule_while_raw.
+      applys Triple_while_raw.
       asserts_rewrite~ (
          trm_if (subst E t1) (trm_seq (subst E t2) (trm_while (subst E t1) (subst E t2))) val_unit
        = subst E (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit)).
@@ -498,7 +498,7 @@ Lemma Triple_apps_funs_of_Wp : forall F (Vs:dyns) (vs:vals) xs t `{EA:Enc A} H (
   Triple (trm_apps F vs) H Q.
 Proof using.
   introv EF EV N M. rewrite var_funs_exec_eq in N. rew_istrue in N.
-  subst. applys* Rule_apps_funs. applys* Triple_subst_of_Wp.
+  subst. applys* Triple_apps_funs. applys* Triple_subst_of_Wp.
 Qed.
 *)
 
@@ -511,7 +511,7 @@ Lemma Triple_apps_fixs_of_Wp : forall F (f:var) (Vs:dyns) (vs:vals) xs t `{EA:En
 Proof using.
   introv EF EV N M. rewrite var_fixs_exec_eq in N. rew_istrue in N.
    lets (D&L&_): N. simpl in D. rew_istrue in D. destruct D as [D1 D2].
-  subst. applys* Rule_apps_fixs. unfold Substn.
+  subst. applys* Triple_apps_fixs. unfold Substn.
   { applys @Triple_subst_of_Wp M. }
 Qed.
 
@@ -533,14 +533,14 @@ Notation "'Register_Spec' f" := (Register_Rule (trm_apps (trm_val f) _))
 (* ---------------------------------------------------------------------- *)
 (* ** Specification of primitives *)
 
-Hint Extern 1 (Register_Spec (val_prim val_ref)) => Provide Rule_ref.
-Hint Extern 1 (Register_Spec (val_prim val_get)) => Provide Rule_get.
-Hint Extern 1 (Register_Spec (val_prim val_set)) => Provide Rule_set.
-Hint Extern 1 (Register_Spec (val_prim val_alloc)) => Provide Rule_alloc.
-Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide Rule_eq.
-Hint Extern 1 (Register_Spec (val_prim val_add)) => Provide Rule_add.
-Hint Extern 1 (Register_Spec (val_prim val_sub)) => Provide Rule_sub.
-Hint Extern 1 (Register_Spec (val_prim val_ptr_add)) => Provide Rule_ptr_add.
+Hint Extern 1 (Register_Spec (val_prim val_ref)) => Provide Triple_ref.
+Hint Extern 1 (Register_Spec (val_prim val_get)) => Provide Triple_get.
+Hint Extern 1 (Register_Spec (val_prim val_set)) => Provide Triple_set.
+Hint Extern 1 (Register_Spec (val_prim val_alloc)) => Provide Triple_alloc.
+Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide Triple_eq.
+Hint Extern 1 (Register_Spec (val_prim val_add)) => Provide Triple_add.
+Hint Extern 1 (Register_Spec (val_prim val_sub)) => Provide Triple_sub.
+Hint Extern 1 (Register_Spec (val_prim val_ptr_add)) => Provide Triple_ptr_add.
 
 
 (* ********************************************************************** *)
@@ -694,7 +694,7 @@ Definition val_incr :=
     val_set 'p 'm.
 
 
-Lemma rule_incr : forall (p:loc) (n:int),
+Lemma triple_incr : forall (p:loc) (n:int),
   Triple (val_incr ``p)
     (p ~~~> n)
     (fun (r:unit) => (p ~~~> (n+1))).
@@ -727,11 +727,11 @@ lets: Triple_apps_funs_of_Wp.
 
 
 xcf.
-  xlet. { xapp. xapplys rule_get. }
+  xlet. { xapp. xapplys triple_get. }
   intros x. hpull ;=> E. subst.
-  xlet. { xapp. xapplys rule_add. }
+  xlet. { xapp. xapplys triple_add. }
   intros y. hpull ;=> E. subst.
-  xapp. xapplys rule_set. auto.
+  xapp. xapplys triple_set. auto.
 Qed.
 
 

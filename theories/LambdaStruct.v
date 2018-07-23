@@ -45,7 +45,7 @@ Definition val_incr :=
 
 (** Same proof using characteristic formulae with advanced tactics *)
 
-Lemma rule_incr : forall p n,
+Lemma triple_incr : forall p n,
   triple (val_incr p)
     (p ~~~> n)
     (fun r => (p ~~~> (n+1))).
@@ -53,7 +53,7 @@ Proof using.
   xcf. xapps. xapps. xapps. hsimpl~.
 Qed.
 
-Hint Extern 1 (Register_spec val_incr) => Provide rule_incr.
+Hint Extern 1 (Register_spec val_incr) => Provide triple_incr.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -65,7 +65,7 @@ Definition val_decr :=
     Let 'm := 'n '- 1 in
     val_set 'p 'm.
 
-Lemma rule_decr : forall p n,
+Lemma triple_decr : forall p n,
   triple (val_decr p)
     (p ~~~> n)
     (fun r => (p ~~~> (n-1))).
@@ -73,7 +73,7 @@ Proof using.
   xcf. xapps. xapps. xapps. hsimpl~.
 Qed.
 
-Hint Extern 1 (Register_spec val_decr) => Provide rule_decr.
+Hint Extern 1 (Register_spec val_decr) => Provide triple_decr.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -82,7 +82,7 @@ Hint Extern 1 (Register_spec val_decr) => Provide rule_decr.
 Definition val_not :=
   ValFun 'n := If_ 'n '= true Then false Else true.
 
-Lemma rule_not : forall (b:bool),
+Lemma triple_not : forall (b:bool),
   triple (val_not b)
     \[]
     (fun r => \[r = !b]).
@@ -92,7 +92,7 @@ Proof using.
   { xvals. fequals. destruct b; auto_false. }
 Qed.
 
-Hint Extern 1 (Register_spec val_not) => Provide rule_not.
+Hint Extern 1 (Register_spec val_not) => Provide triple_not.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -107,7 +107,7 @@ Notation "t1 '<> t2" :=
   (val_neq t1 t2)
   (at level 69) : trm_scope.
 
-Lemma rule_neq : forall v1 v2,
+Lemma triple_neq : forall v1 v2,
   triple (val_neq v1 v2)
     \[]
     (fun r => \[r = isTrue (v1 <> v2)]).
@@ -115,7 +115,7 @@ Proof using.
   xcf. xapps. xapps. hsimpl ;=> ? ->. rew_isTrue~.
 Qed.
 
-Hint Extern 1 (Register_spec val_neq) => Provide rule_neq.
+Hint Extern 1 (Register_spec val_neq) => Provide triple_neq.
 
 
 (* ********************************************************************** *)
@@ -129,16 +129,16 @@ Definition val_get_field (k:field) :=
     Let 'q := val_ptr_add 'p (nat_to_Z k) in
     val_get 'q.
 
-Lemma rule_get_field : forall l k v,
+Lemma triple_get_field : forall l k v,
   triple ((val_get_field k) l)
     (l `.` k ~~~> v)
     (fun r => \[r = v] \* (l `.` k ~~~> v)).
 Proof using.
   intros. unfold val_get_field. xcf.
-  xapp rule_ptr_add_nat.
+  xapp triple_ptr_add_nat.
   intros r ->.
   rewrite hfield_eq_fun_hsingle. xpull ;=> N.
-  xapps rule_get. intros ? ->. hsimpl~.
+  xapps triple_get. intros ? ->. hsimpl~.
 Qed.
 
 
@@ -150,19 +150,19 @@ Definition val_set_field (k:field) :=
     Let 'q := val_ptr_add 'p (nat_to_Z k) in
     val_set 'q 'v.
 
-Lemma rule_set_field : forall v' l k v,
+Lemma triple_set_field : forall v' l k v,
   triple ((val_set_field k) l v)
     (l `.` k ~~~> v')
     (fun r => \[r = val_unit] \* (l `.` k ~~~> v)).
 Proof using.
   intros. unfold val_set_field. xcf.
-  xapp rule_ptr_add_nat.
+  xapp triple_ptr_add_nat.
   intros r ->.
   rewrite hfield_eq_fun_hsingle. xpull ;=> N.
-  xapps rule_set. intros ? ->. hsimpl~.
+  xapps triple_set. intros ? ->. hsimpl~.
 Qed.
 
-Arguments rule_set_field : clear implicits.
+Arguments triple_set_field : clear implicits.
 
 
 (* ********************************************************************** *)
@@ -240,7 +240,7 @@ Proof using.
     { rew_list. math. } }
 Qed.
 
-Lemma rule_alloc_array : forall n,
+Lemma triple_alloc_array : forall n,
   n >= 0 ->
   triple (val_alloc n)
     \[]
@@ -269,7 +269,7 @@ Definition val_array_get : val :=
     Let 'n := val_ptr_add 'p 'i in
     val_get 'n.
 
-Lemma rule_array_get : forall p i L,
+Lemma triple_array_get : forall p i L,
   index L i ->
   triple (val_array_get p i)
     (Array L p)
@@ -283,7 +283,7 @@ Proof using.
   hsimpl; auto. { subst. rewrite~ read_middle. }
 Qed.
 
-Hint Extern 1 (Register_spec val_array_get) => Provide rule_array_get.
+Hint Extern 1 (Register_spec val_array_get) => Provide triple_array_get.
 
 Notation "'Array'' p `[ i ]" := (trm_app (trm_app (trm_val val_array_get) p) i)
   (at level 69, p at level 0, no associativity,
@@ -298,7 +298,7 @@ Definition val_array_set : val :=
     Let 'n := val_ptr_add 'p 'i in
     val_set 'n 'x.
 
-Lemma rule_array_set : forall p i v L,
+Lemma triple_array_set : forall p i v L,
   index L i ->
   triple (val_array_set p i v)
     (Array L p)
@@ -308,13 +308,13 @@ Proof using.
   xcf. xapps. { math. }
   rewrites (>> Array_middle_eq i). { math. }
   xpull ;=> L1 x L2 EL HL.
-  xapp rule_set. hpull ;=> r. intro_subst.
+  xapp triple_set. hpull ;=> r. intro_subst.
   rewrites (>> Array_middle_eq i (L[i := v])).
    { rewrite <- length_eq in *. rew_array. math. }
   hsimpl; auto. { subst. rewrite~ update_middle. rew_list~. }
 Qed.
 
-Hint Extern 1 (Register_spec val_array_set) => Provide rule_array_set.
+Hint Extern 1 (Register_spec val_array_set) => Provide triple_array_set.
 
 Notation "'Array'' p `[ i ] `<- x" := (trm_app (trm_app (trm_app (trm_val val_array_set) p) i) x)
   (at level 69, p at level 0, no associativity,
@@ -333,13 +333,13 @@ Definition val_array_make : val :=
     Done;;;
     'p.
 
-Lemma rule_array_make : forall n v,
+Lemma triple_array_make : forall n v,
   n >= 0 ->
   triple (val_array_make n v)
     \[]
     (fun r => \exists p L, \[r = val_loc p] \* \[L = make n v] \* Array L p).
 Proof using.
-  introv N. xcf. xapp~ rule_alloc_array ;=> r p L Er EL. subst r.
+  introv N. xcf. xapp~ triple_alloc_array ;=> r p L Er EL. subst r.
   xapps. xseq.
   { (* LATER: xfor tactic *)
     applys local_erase. esplit; esplit; splits; [reflexivity|reflexivity|].
@@ -366,7 +366,7 @@ Proof using.
   { simpl ;=> _. xval. subst n. hsimpl~. }
 Qed.
 
-Hint Extern 1 (Register_spec val_array_make) => Provide rule_array_make.
+Hint Extern 1 (Register_spec val_array_make) => Provide triple_array_make.
 
 
 (* ---------------------------------------------------------------------- *)

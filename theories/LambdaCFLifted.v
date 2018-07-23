@@ -28,8 +28,8 @@ Ltac auto_star ::= jauto.
 (* ---------------------------------------------------------------------- *)
 (* ** Type of a formula *)
 
-(** A formula is a binary relation relating a pre-condition
-    and a post-condition. *)
+(** A formula is a binary relation relating a precondition
+    and a postcondition. *)
 
 Definition Formula := forall A (EA:Enc A), hprop -> (A -> hprop) -> Prop.
 
@@ -214,23 +214,23 @@ Proof using.
   intros t. induction_wf: trm_size t.
   rewrite Cf_unfold. destruct t;
    try (applys Sound_for_Local; intros A EA H Q P).
-  { destruct P as (V&E&P). applys* Rule_val. }
+  { destruct P as (V&E&P). applys* Triple_val. }
   { false. }
   { destruct P as (V&E&P).
     applys Triple_enc_val_inv (fun r => \[r = enc V] \* H).
-    { applys Rule_fix. rewrite E. hsimpl~. }
+    { applys Triple_fix. rewrite E. hsimpl~. }
     { intros X. hpull ;=> EX. subst X. hchange P. hsimpl. simple~. } }
-  { destruct P as (Q1&P1&P2). applys @Rule_if.
+  { destruct P as (Q1&P1&P2). applys @Triple_if.
     { applys* IH. }
     { intros b. specializes P2 b. applys Sound_for_Local (rm P2).
       clears A H Q1. intros A EA H Q (b'&P1'&P2'&P3').
       asserts E: (b = b'). { destruct b; destruct b'; auto. }
       clear P1'. subst b'. case_if; applys* IH. } }
   { destruct b as [|x].
-    { destruct P as (H1&P1&P2). applys Rule_seq H1.
+    { destruct P as (H1&P1&P2). applys Triple_seq H1.
       { applys~ IH. }
       { intros X. applys~ IH. } }
-    { destruct P as (A1&EA1&Q1&P1&P2). applys Rule_let Q1.
+    { destruct P as (A1&EA1&Q1&P1&P2). applys Triple_let Q1.
       { applys~ IH. }
       { intros X. specializes P2 X.
         unfold Subst1. rewrite enc_dyn_eq. applys~ IH. } } }
@@ -238,19 +238,19 @@ Proof using.
   { hnf in P. destruct P as (Q'&P&HC). simpls.
     applys Triple_enc_change HC.
     applys P. { xlocal. } clears H Q. intros H Q P.
-    applys Rule_while_raw. applys Sound_for_Local (rm P).
-    clears A H Q Q'. intros A EA H Q (Q1&P1&P2). applys Rule_if.
+    applys Triple_while_raw. applys Sound_for_Local (rm P).
+    clears A H Q Q'. intros A EA H Q (Q1&P1&P2). applys Triple_if.
     { applys* IH. }
     { intros b. specializes P2 b. applys Sound_for_Local (rm P2).
       clears A H Q1. intros A EA H Q (b'&P1&P2&P3).
       asserts E: (b = b'). { destruct b; destruct b'; auto. }
       clears P1. subst b'. case_if as C.
       { forwards~ P2': (rm P2). applys Sound_for_Local (rm P2').
-        clears A H b. intros A EA H Q (H1&P1&P2). applys Rule_seq.
+        clears A H b. intros A EA H Q (H1&P1&P2). applys Triple_seq.
          { applys* IH. }
          { applys P2. } }
       { forwards~ P3': (rm P3). applys Sound_for_Local (rm P3').
-        clears A H b. intros A EA H Q (V&E&P). applys* Rule_val. } } }
+        clears A H b. intros A EA H Q (V&E&P). applys* Triple_val. } } }
   { destruct t1; tryfalse. destruct v0; tryfalse.
     destruct t2; tryfalse. destruct v0; tryfalse.
     renames z to n1, z0 to n2.
@@ -258,14 +258,14 @@ Proof using.
     applys Triple_enc_change HC. *)
     applys P. { intros; xlocal. } (* todo xlocal *)
     clears A H. intros i H Q P. applys Sound_for_Local (rm P).
-    clears A H. intros A EA H Q P. applys Rule_for_raw.
+    clears A H. intros A EA H Q P. applys Triple_for_raw.
     case_if as C.
     { applys Sound_for_Local (rm P). clears A H i.
-      intros A EA H Q (H1&P1&P2). applys Rule_seq.
+      intros A EA H Q (H1&P1&P2). applys Triple_seq.
       { applys* IH. }
       { applys P2. } }
     { applys Sound_for_Local (rm P). clears A H i.
-      intros A EA H Q (V&E&P). applys* Rule_val. } }
+      intros A EA H Q (V&E&P). applys* Triple_val. } }
 Qed.
 
 Theorem Triple_of_Cf : forall (t:trm) A `{EA:Enc A} H (Q:A->hprop),
@@ -349,7 +349,7 @@ Lemma Triple_apps_funs_of_Cf_iter : forall n F (Vs:dyns) (vs:vals) xs t A `{EA:E
   Triple (trm_apps F vs) H Q.
 Proof using.
   introv EF EV N M. rewrite var_funs_exec_eq in N. rew_istrue in N.
-  subst. applys* Rule_apps_funs. applys* Triple_trm_of_Cf_iter.
+  subst. applys* Triple_apps_funs. applys* Triple_trm_of_Cf_iter.
 Qed.
 
 Lemma Triple_apps_fixs_of_Cf_iter : forall n F (f:var) (Vs:dyns) (vs:vals) xs t A `{EA:Enc A} H (Q:A->hprop),
@@ -360,7 +360,7 @@ Lemma Triple_apps_fixs_of_Cf_iter : forall n F (f:var) (Vs:dyns) (vs:vals) xs t 
   Triple (trm_apps (val_fixs f xs t) vs) H Q.
 Proof using.
   introv EF EV N M. rewrite var_fixs_exec_eq in N. rew_istrue in N.
-  subst. applys* Rule_apps_fixs. applys* Triple_trm_of_Cf_iter.
+  subst. applys* Triple_apps_fixs. applys* Triple_trm_of_Cf_iter.
 Qed.
 
 Definition Cf_while_inv (F1 F2 : Formula) := fun (H:hprop) (Q:unit->hprop) =>
@@ -430,14 +430,14 @@ Ltac xspec_context G ::=
 (* ---------------------------------------------------------------------- *)
 (* ** Specification of primitives *)
 
-Hint Extern 1 (Register_Spec (val_prim val_ref)) => Provide Rule_ref.
-Hint Extern 1 (Register_Spec (val_prim val_get)) => Provide Rule_get.
-Hint Extern 1 (Register_Spec (val_prim val_set)) => Provide Rule_set.
-Hint Extern 1 (Register_Spec (val_prim val_alloc)) => Provide Rule_alloc.
-Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide Rule_eq.
-Hint Extern 1 (Register_Spec (val_prim val_add)) => Provide Rule_add.
-Hint Extern 1 (Register_Spec (val_prim val_sub)) => Provide Rule_sub.
-Hint Extern 1 (Register_Spec (val_prim val_ptr_add)) => Provide Rule_ptr_add.
+Hint Extern 1 (Register_Spec (val_prim val_ref)) => Provide Triple_ref.
+Hint Extern 1 (Register_Spec (val_prim val_get)) => Provide Triple_get.
+Hint Extern 1 (Register_Spec (val_prim val_set)) => Provide Triple_set.
+Hint Extern 1 (Register_Spec (val_prim val_alloc)) => Provide Triple_alloc.
+Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide Triple_eq.
+Hint Extern 1 (Register_Spec (val_prim val_add)) => Provide Triple_add.
+Hint Extern 1 (Register_Spec (val_prim val_sub)) => Provide Triple_sub.
+Hint Extern 1 (Register_Spec (val_prim val_ptr_add)) => Provide Triple_ptr_add.
 
 
 (*--------------------------------------------------------*)

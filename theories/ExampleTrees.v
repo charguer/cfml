@@ -187,13 +187,13 @@ Definition val_new_node :=
     'p.
 *)
 
-Lemma Rule_new_node : forall x p1 p2,
+Lemma Triple_new_node : forall x p1 p2,
   Triple (val_new_node ``x ``p1 ``p2)
     PRE \[]
     POST (fun p => (p ~> Cell x p1 p2)).
-Proof using. xrule_new_record. Qed.
+Proof using. xtriple_new_record. Qed.
 
-Hint Extern 1 (Register_Spec val_new_node) => Provide Rule_new_node.
+Hint Extern 1 (Register_Spec val_new_node) => Provide Triple_new_node.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -212,7 +212,7 @@ Definition val_tree_copy :=
 
 Hint Constructors tree_sub.
 
-Lemma Rule_tree_copy : forall p T,
+Lemma Triple_tree_copy : forall p T,
   Triple (val_tree_copy ``p)
     PRE (p ~> MTree T)
     POST (fun (p':loc) => (p ~> MTree T) \* (p' ~> MTree T)).
@@ -276,12 +276,12 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Copy of a complete binary tree *)
 
-Lemma Rule_tree_copy_complete : forall p T,
+Lemma Triple_tree_copy_complete : forall p T,
   Triple (val_tree_copy ``p)
     PRE (p ~> MTreeComplete T)
     POST (fun (p':loc) => (p ~> MTreeComplete T) \* (p' ~> MTreeComplete T)).
 Proof using.
-  intros. xunfolds MTreeComplete ;=> n Hn. xapplys* Rule_tree_copy.
+  intros. xunfolds MTreeComplete ;=> n Hn. xapplys* Triple_tree_copy.
 Qed.
 
 

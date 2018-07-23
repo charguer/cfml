@@ -5064,3 +5064,17 @@ Proof using. (* might be simplified using rule_for_trm *)
 Qed.
 
 
+
+
+
+
+
+
+(* DEPRECATEd
+Lemma Triple_fun : forall x t1 H (Q:func->hprop),
+  H ==> Q (val_fun x t1) ->
+  Triple (trm_fun x t1) H Q.
+Proof using.
+  introv M. applys triple_fun. unfold Post. hsimpl*.
+Qed.
+*)

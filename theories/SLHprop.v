@@ -165,12 +165,12 @@ Parameter hsingle_demo :
 (** The general specification of the [incr] function involves a universal
     quantification over the initial contents of the cell, as shown below. *)
 
-Parameter rule_incr : forall (n:int),
+Parameter triple_incr : forall (n:int),
   triple (incr r)
     (r ~~> n)
     (fun v => r ~~> (n+1)).
 
-(* EX1! (rule_augment) *)
+(* EX1! (triple_augment) *)
 (** State a specification for the term [val_augment r m], which takes
     as arguments a location [r] and an integer [m], and updates the cell
     at location [r] by adding [m] to its original contents. *)
@@ -178,7 +178,7 @@ Parameter rule_incr : forall (n:int),
 Parameter val_augment : val.
 
 (* SOLUTION *)
-Parameter rule_augment : forall (r:loc) (n m:int),
+Parameter triple_augment : forall (r:loc) (n m:int),
   triple (val_augment r m)
     (r ~~> n)
     (fun v => r ~~> (n + m)).
@@ -215,7 +215,7 @@ Parameter hstar_demo : forall (s:loc) (n m:int),
     (r ~~> n \* s ~~> m)
     (fun v => r ~~> (n+1) \* s ~~> m).
 
-(* EX2! (rule_swap) *)
+(* EX2! (triple_swap) *)
 (** State a specification for the term [val_swap r s], which takes as argument
     two distinct locations [r] and [s], with respective contents two integers [n]
     and [m], and that swaps the contents of the two locations. *)
@@ -223,7 +223,7 @@ Parameter hstar_demo : forall (s:loc) (n m:int),
 Parameter val_swap : val.
 
 (* SOLUTION *)
-Parameter rule_swap : forall (r s:loc) (n m:int),
+Parameter triple_swap : forall (r s:loc) (n m:int),
   triple (val_swap r s)
     (r ~~> n \* s ~~> m)
     (fun v => r ~~> m \* s ~~> n).
@@ -287,7 +287,7 @@ Notation "'triple'" := triple_4.
 
 (* QUIZ *)
 (** Is the following triple true or false? *)
-Parameter rule_cell_twice : forall (r:loc) (n:int),
+Parameter triple_cell_twice : forall (r:loc) (n:int),
   triple (val_unit)
     (r ~~> n \* r ~~> n)
     (fun v => r ~~> (n+1) \* r ~~> (n+1)).
@@ -295,13 +295,13 @@ Parameter rule_cell_twice : forall (r:loc) (n:int),
    to false, i.e. it cannot be satisfied by any input heap. *)
 (* /QUIZ *)
 
-(* EX2! (rule_cell_twice) *)
+(* EX2! (triple_cell_twice) *)
 (** Prove the above lemma.
     Hint: unfold the definition of [triple], a.k.a. [triple_4],
     and decompose the assumption on the input heap in order to
     derive a contradiction using lemma [hstar_hsingle_same_loc_inv]. *)
 
-Lemma rule_cell_twice' : forall (r:loc) (n:int),
+Lemma triple_cell_twice' : forall (r:loc) (n:int),
   triple (val_unit)
     (r ~~> n \* r ~~> n)
     (fun v => r ~~> (n+1) \* r ~~> (n+1)).
@@ -345,17 +345,17 @@ Notation "\[ P ]" := (hpure P)
     moreover asserts that the output value is one unit greater than the
     input argument. *)
 
-Parameter rule_succ : forall (n:int),
+Parameter triple_succ : forall (n:int),
   triple (val_add (val_int n))
     \[]
     (fun (r:val) => \[r = val_int (n + 1)]).
 
-(** Observe by executing [Print rule_succ] that the [val_int] constructor
+(** Observe by executing [Print triple_succ] that the [val_int] constructor
     is in fact not displayed by Coq. Indeed, it is declared as a coercion.
     In fact, we do not need to write [val_int] in the triple, as Coq is
     able to infer its occurences. Thus, we may write more concisely: *)
 
-Parameter rule_succ' : forall (n:int),
+Parameter triple_succ' : forall (n:int),
   triple (val_add n)
     \[]
     (fun (r:val) => \[r = n + 1]).
@@ -365,7 +365,7 @@ Parameter rule_succ' : forall (n:int),
     asserts an empty input heap, and moreover asserts that the output value
     is the sum of the two arguments. *)
 
-Parameter rule_add : forall (n1 n2:int),
+Parameter triple_add : forall (n1 n2:int),
   triple (val_add n1 n2)
     \[]
     (fun (r:val) => \[r = n1 + n2]).
@@ -377,7 +377,7 @@ Parameter rule_add : forall (n1 n2:int),
     appear in preconditions to describe requirements on the arguments.
     For example, division expects a nonzero integer as second argument. *)
 
-Parameter rule_div : forall (n1 n2:int),
+Parameter triple_div : forall (n1 n2:int),
   triple (val_div n1 n2)
     \[n2 <> 0]
     (fun (r:val) => \[r = n1 + n2]).
@@ -388,7 +388,7 @@ Parameter rule_div : forall (n1 n2:int),
     In the case of the division, this alternative presentation amounts to
     asserting [n2 <> 0] as hypothesis prior to the triple: *)
 
-Parameter rule_div' : forall (n1 n2:int),
+Parameter triple_div' : forall (n1 n2:int),
   n2 <> 0 ->
   triple (val_div n1 n2)
     \[]
@@ -429,7 +429,7 @@ Parameter hpure_demo :
     which is such that [x = v]. The piece of heap, described by [l ~~> v],
     is returned unchanged in the postcondition. *)
 
-Parameter rule_get : forall (v:val) (l:loc),
+Parameter triple_get : forall (v:val) (l:loc),
   triple (val_get l)
     (l ~~> v)
     (fun (r:val) => \[r = v] \* (l ~~> v)).
@@ -437,13 +437,13 @@ Parameter rule_get : forall (v:val) (l:loc),
 (** Remark: above, [val_get l] is interpreted using coercions, and stands for
     [trm_app (trm_val (val_prim val_get)) (trm_val (val_loc l))]. *)
 
-(* EX2! (rule_set) *)
+(* EX2! (triple_set) *)
 (** State a specification for the term [val_set l v], which updates the
     location [l] with the value [v]. Make sure to specify that the update
     operation returns the unit value. *)
 
 (* SOLUTION *)
-Parameter rule_set : forall (v w:val) (l:loc),
+Parameter triple_set : forall (v w:val) (l:loc),
   triple (val_set l v)
     (l ~~> w)
     (fun (r:val) => l ~~> v).
@@ -451,7 +451,7 @@ Parameter rule_set : forall (v w:val) (l:loc),
 
 (** [] *)
 
-(* EX2! (rule_free) *)
+(* EX2! (triple_free) *)
 (** State a specification for the term [val_free l], which assumes a
     location [l] to be allocated, and explicitly disposes this location.
     Note that such a free operation usually does not appear in programming
@@ -463,7 +463,7 @@ Parameter rule_set : forall (v w:val) (l:loc),
 Parameter val_free : val.
 
 (* SOLUTION *)
-Parameter rule_free : forall (v:val) (l:loc),
+Parameter triple_free : forall (v:val) (l:loc),
   triple (val_free l)
     (l ~~> v)
     (fun (r:val) => \[r = val_unit]).
@@ -591,12 +591,12 @@ Parameter hexists_demo : forall (n:int),
     heap satisfies [l ~~> v] for that particular [l]. As shown below, the
     location [l] gets existentially quantified in the postcondition. *)
 
-Parameter rule_ref : forall (v:val),
+Parameter triple_ref : forall (v:val),
   triple (val_ref v)
     \[]
     (fun (r:val) => \exists (l:loc), \[r = val_loc l] \* (l ~~> v)).
 
-(* EX2! (rule_ref_of_ref) *)
+(* EX2! (triple_ref_of_ref) *)
 (** Consider the term [val_ref (val_ref 3)], which allocates a memory
     cell with contents [3], at some location [l], then allocates a
     another memory cell with contents [l], at some location [l'], and
@@ -604,7 +604,7 @@ Parameter rule_ref : forall (v:val),
     term. *)
 
 (* SOLUTION *)
-Parameter rule_ref_of_ref :
+Parameter triple_ref_of_ref :
   triple (val_ref (val_ref 3))
     \[]
     (fun (r:val) =>

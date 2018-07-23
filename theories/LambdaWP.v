@@ -1,6 +1,7 @@
 (**
 
-This file formalizes characteristic formulae for plain Separation Logic.
+This file formalizes characteristic formulae in weakest-precondition form
+for plain Separation Logic.
 
 Author: Arthur Charguéraud.
 License: MIT.
@@ -13,9 +14,8 @@ From TLC Require Export LibFix.
 From Sep Require Export LambdaSep LambdaCFTactics.
 Open Scope heap_scope.
 
-Implicit Types v w : val.
+Implicit Types v : val.
 Implicit Types t : trm.
-
 
 
 (* ********************************************************************** *)
@@ -24,7 +24,7 @@ Implicit Types t : trm.
 (* ---------------------------------------------------------------------- *)
 (* ** Type of a WP *)
 
-(** A formula is a predicate over a post-condition. *)
+(** A formula is a predicate over a postcondition. *)
 
 Definition formula := (val -> hprop) -> hprop.
 
@@ -35,11 +35,14 @@ Proof using. apply (Inhab_of_val (fun _ => \[])). Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Semantic interpretation of a WP *)
 
-(** Recall the generic definition of [weakestpre] from [SepFunctor]:
-[[
-    Definition weakestpre F Q :=
-      \exists H, H \* \[F H Q].
-]]
+(** [wp_triple t Q] defines the weakest-precondition for term [t] 
+    and postcondition [Q]. 
+
+    [H ==> wp_triple t Q] is equivalent to [triple t H Q].
+
+    [wp_triple] is defined in terms of the generic definition 
+    of [weakestpre], which comes from [SepFunctor], and is defined as:
+    [ Definition weakestpre F Q := \exists H, H \* \[F H Q]. ]
 *)
 
 Definition wp_triple (t:trm) : formula :=
@@ -49,15 +52,24 @@ Definition wp_triple (t:trm) : formula :=
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of [local] for WP *)
 
-(** Simple case:
+(** [local F] transforms a weakestpre formula [F], e.g. of the form [wp_triple t],
+    into a logically-equivalent formula that smoothly supports applications
+    of the structural rule of Separation Logic. The definition is:
 
 [[
 Definition local (F:formula) : formula :=
   fun Q => \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
+]]
 
+   The predicate [is_local F] asserts that [F] is a formula that subject the
+   structural rules of Separation Logic. This property is captured by requiring
+   that [F] be logically equivalent to [is_local F].
+
+[[
 Definition is_local (F:formula) :=
   F = local F.
 ]]
+
 *)
 
 (** Because [local] is later reused in a more general "lifted" settings,
@@ -255,20 +267,12 @@ Definition wp_while (F1 F2:formula) : formula := local (fun Q =>
   let F := wp_if F1 (wp_seq F2 R) (wp_val val_unit) in
   \[ is_local R /\ F ===> R] \-* (R Q)).
 
-(* TODO
-Definition wp_for_val (v1 v2:val) (F3:int->formula) : formula := local (fun Q =>
-  \exists n1 n2, \[v1 = val_int n1 /\ v2 = val_int n2] \*
+Definition wp_for_val (v1 v2:val) (F1:val->formula) : formula := local (fun Q =>
+  \exists (n1:int) (n2:int), \[v1 = val_int n1 /\ v2 = val_int n2] \*
   \forall (S:int->formula),
-  let F i := If (i <= n2) then (wp_seq (F3 i) (S (i+1)))
+  let F i := If (i <= n2) then (wp_seq (F1 i) (S (i+1)))
                           else (wp_val val_unit) in
   \[ is_local_pred S /\ (forall i, F i ===> S i)] \-* (S n1 Q)).
-
-Definition wp_for (F1 F2:formula) (F3:int->formula) : formula :=
-  wp_let F1 (fun v1 => wp_let F2 (fun v2 => wp_for_val v1 v2 F3)).
-
-Definition wp_for' (F1 F2:formula) (F3:int->formula) : formula := local (fun Q =>
-  F1 (fun v1 => F2 (fun v2 => wp_for_val v1 v2 F3 Q))).
-*)
 
 
 (* ---------------------------------------------------------------------- *)
@@ -284,8 +288,11 @@ Fixpoint wp (E:ctx) (t:trm) : formula :=
   | trm_let x t1 t2 => wp_let (aux t1) (fun X => wp (Ctx.add x X E) t2)
   | trm_app t1 t2 => wp_app (subst E t)
   | trm_while t1 t2 => wp_while (aux t1) (aux t2)
-  | trm_for x t1 t2 t3 => wp_fail
-      (*wp_for' (aux t1) (aux t2) (fun X => wp (ctx_add x X E) t3) *)
+  | trm_for x t1 t2 t3 => 
+      match t1, t2 with
+      | trm_val v1, trm_val v2 => wp_for_val v1 v2 (fun X => wp (Ctx.add x X E) t3)
+      | _, _ => wp_fail
+      end
   end.
 
 
@@ -317,7 +324,7 @@ Lemma qimpl_wp_triple : forall t F,
 Proof using. introv M. intros Q. rewrite~ <- triple_eq_himpl_wp_triple. Qed.
 
 (** Another corrolary of [triple_eq_himpl_wp_triple],
-    --not needed in the proofs below *)
+    (not used in the proofs below). *)
 
 Lemma triple_wp_triple : forall t Q,
   triple t (wp_triple t Q) Q.
@@ -333,13 +340,12 @@ Lemma triple_local_pre : forall t (F:formula) Q,
   (forall Q, triple t (F Q) Q) ->
   triple t (local F Q) Q.
 Proof using.
-  introv M.
-  rewrite is_local_triple. unfold SepBasicSetup.local.
+  introv M. rewrite is_local_triple. unfold SepBasicSetup.local.
   unfold local. hpull ;=> Q'.
   hsimpl (F Q') ((Q' \--* Q \*+ \Top)) Q'. split.
   { applys~ M. }
   { hchanges qwand_cancel. }
-Qed. (* TODO: simplify proof? *)
+Qed.
 
 (** The tactic [remove_local] applies to goal of the form [triple t (local F Q) Q]
     and turns it into [triple t (F Q) Q] for a fresh [Q],  then calls [xpull] *)
@@ -374,7 +380,7 @@ Lemma wp_sound_var : forall x,
 Proof using.
   intros. intros E. applys qimpl_wp_triple. simpl.
   intros Q. unfold wp_var. destruct (Ctx.lookup x E).
-  { remove_local. apply~ rule_val. }
+  { remove_local. apply~ triple_val. }
   { remove_local. intros; false~. }
 Qed.
 
@@ -382,24 +388,15 @@ Lemma wp_sound_val : forall v,
   wp_sound (trm_val v).
 Proof using.
   intros. intros E. applys qimpl_wp_triple. simpl.
-  intros Q. remove_local. applys~ rule_val.
+  intros Q. remove_local. applys~ triple_val.
 Qed.
 
 Lemma wp_sound_fix : forall f x t,
   wp_sound (trm_fix f x t).
 Proof using.
   intros. intros E. applys qimpl_wp_triple. simpl.
-  intros Q. remove_local. lets: rule_fix. applys~ rule_fix.
+  intros Q. remove_local. lets: triple_fix. applys~ triple_fix.
 Qed.
-
-  (* TODO: inline *)
-  Lemma wp_if_val_false : forall v F1 F2 Q,
-    ~ is_val_bool v ->
-    wp_if_val v F1 F2 Q ==> \[False].
-  Proof using.
-    introv M. applys local_extract_false. intros Q'.
-    hpull ;=> v' E. inverts E. false* M. hnfs*.
-  Qed.
 
 Lemma wp_sound_if : forall F1 F2 F3 E t1 t2 t3,
   F1 ===> wp_triple_ E t1 ->
@@ -408,12 +405,13 @@ Lemma wp_sound_if : forall F1 F2 F3 E t1 t2 t3,
   wp_if F1 F2 F3 ===> wp_triple_ E (trm_if t1 t2 t3).
 Proof using.
   introv M1 M2 M3. applys qimpl_wp_triple. simpl. intros Q.
-  remove_local. applys rule_if.
+  remove_local. applys triple_if.
   { rewrite triple_eq_himpl_wp_triple. applys* M1. }
   { intros b. simpl. remove_local ;=> b' M. inverts M. case_if.
     { rewrite triple_eq_himpl_wp_triple. applys* M2. }
     { rewrite triple_eq_himpl_wp_triple. applys* M3. } }
-  { intros. applys~ wp_if_val_false. }
+  { introv N. applys local_extract_false. intros Q'.
+    hpull ;=> v' ->. false* N. hnfs*. }
 Qed.
 
 Lemma wp_sound_let : forall F1 F2 E x t1 t2,
@@ -422,12 +420,23 @@ Lemma wp_sound_let : forall F1 F2 E x t1 t2,
   wp_let F1 F2 ===> wp_triple_ E (trm_let x t1 t2).
 Proof using.
   introv M1 M2. applys qimpl_wp_triple. simpl. intros Q.
-  remove_local. applys rule_let.
+  remove_local. applys triple_let.
   { rewrite triple_eq_himpl_wp_triple. applys* M1. }
   { intros X. simpl. rewrite triple_eq_himpl_wp_triple.
     (* TODO *)
     skip_rewrite (subst1 x X (subst (Ctx.rem x E) t2) =
       subst (Ctx.add x X E) t2). applys* M2. }
+Qed.
+
+Lemma wp_sound_seq : forall F1 F2 E t1 t2,
+  F1 ===> wp_triple_ E t1 ->
+  F2 ===> wp_triple_ E t2 ->
+  wp_seq F1 F2 ===> wp_triple_ E (trm_seq t1 t2).
+Proof using.
+  introv M1 M2. applys qimpl_wp_triple. simpl. intros Q.
+  remove_local. applys triple_seq.
+  { rewrite triple_eq_himpl_wp_triple. applys* M1. }
+  { intros X. simpl. rewrite triple_eq_himpl_wp_triple. applys* M2. }
 Qed.
 
 Lemma wp_sound_app : forall t1 t2,
@@ -444,18 +453,48 @@ Lemma wp_sound_while : forall F1 F2 E t1 t2,
   wp_while F1 F2 ===> wp_triple_ E (trm_while t1 t2).
 Proof using.
   introv M1 M2. applys qimpl_wp_triple. simpl. intros Q.
-  remove_local. applys rule_extract_hforall.
+  remove_local. applys triple_extract_hforall.
   set (R := wp_triple (trm_while (subst E t1) (subst E t2))).
-  exists R. simpl. applys rule_extract_hwand_hpure_l.
+  exists R. simpl. applys triple_extract_hwand_hpure_l.
   { split.
     { applys is_local_wp_triple. }
     { clears Q. applys qimpl_wp_triple. intros Q.
-      applys rule_while_raw. rewrite~ triple_eq_himpl_wp_triple.
+      applys triple_while_raw. rewrite~ triple_eq_himpl_wp_triple.
       change ((trm_if (subst E t1) (trm_seq (subst E t2) (trm_while (subst E t1) (subst E t2))) val_unit))
         with (subst E (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit)).
       applys~ wp_sound_if.
-      { applys~ wp_sound_let. }
+      { applys* wp_sound_seq. }
       { intros Q'. applys wp_sound_val. } } }
+  { rewrite~ triple_eq_himpl_wp_triple. }
+Qed.
+
+Lemma rem_anon : forall (E:ctx),
+  Ctx.rem bind_anon E = E.
+Proof using. auto. Qed.
+
+Lemma wp_sound_for_val : forall (x:var) v1 v2 F1 E t1,
+  (forall X, F1 X ===> wp_triple_ (Ctx.add x X E) t1) ->
+  wp_for_val v1 v2 F1 ===> wp_triple_ E (trm_for x v1 v2 t1).
+Proof using. Opaque Ctx.add Ctx.rem.
+  introv M. applys qimpl_wp_triple. simpl. intros Q.
+  remove_local. intros n1 n2 (->&->).
+  applys triple_extract_hforall.
+  set (S := fun (i:int) => wp_triple (subst E (trm_for x i n2 t1))).
+  exists S. simpl. applys triple_extract_hwand_hpure_l.
+  { split.
+    { intros r. applys is_local_wp_triple. }
+    { clears Q. intros i. applys qimpl_wp_triple. intros Q.
+      simpl subst. applys triple_for_raw. rewrite~ triple_eq_himpl_wp_triple.
+      case_if.
+      { skip_rewrite (subst1 x i (subst (Ctx.rem x E) t1) = 
+                        subst (Ctx.add x (val_int i) E) t1).
+        asserts_rewrite (trm_seq (subst (Ctx.add x (val_int i) E) t1) (trm_for x (i + 1)%I n2 (subst (Ctx.rem x E) t1))
+          = (subst (Ctx.add x (val_int i) E) (trm_seq t1 (trm_for x (i + 1)%I n2 t1)))).
+        { simpl. rewrite rem_anon, Ctx.rem_add_same. auto. }
+        applys wp_sound_seq.
+        { applys* M. }
+        { unfold S. unfold wp_triple_. simpl. rewrite~ Ctx.rem_add_same. } }
+      { applys wp_sound_val E. } } }
   { rewrite~ triple_eq_himpl_wp_triple. }
 Qed.
 
@@ -476,7 +515,9 @@ Proof using.
   { applys* wp_sound_let. }
   { applys* wp_sound_app. }
   { applys* wp_sound_while. }
-  { applys himpl_wp_fail_l. }  (* TODO: for loops *)
+  { destruct t1; try solve [ applys himpl_wp_fail_l ].
+    destruct t2; try solve [ applys himpl_wp_fail_l ].
+    applys* wp_sound_for_val. }
 Qed.
 
 
@@ -583,7 +624,7 @@ Lemma triple_apps_funs_of_wp_iter : forall F (vs:vals) xs t H Q,
   triple (trm_apps F vs) H Q.
 Proof using.
   introv EF N M. rewrite var_funs_exec_eq in N. rew_istrue in N.
-  lets (_&L&_): N. applys* rule_apps_funs.
+  lets (_&L&_): N. applys* triple_apps_funs.
   applys* triple_subst_of_wp.
 Qed.
 *)
@@ -598,7 +639,7 @@ Proof using.
   lets (D&L&_): N. simpl in D. rew_istrue in D. destruct D as [D1 D2].
 Admitted.
 (* todo
-  applys* rule_apps_fixs. rewrite~ subst_substn.
+  applys* triple_apps_fixs. rewrite~ subst_substn.
   applys* triple_subst_of_wp M.
 Qed.
 *)
@@ -613,12 +654,12 @@ Qed.
   Usage of [RegisterSpecGoal], e.g.:
 
     Hint Extern 1 (RegisterSpecGoal (triple (trm_app2_val (val_prim val_eq) ?x ?y) ?H ?Q)) =>
-      Provide rule_eq.
+      Provide triple_eq.
 
   Usage of [RegisterSpecApp], e.g.:
 
     Hint Extern 1 (RegisterSpecApp (trm_app2_val (val_prim val_eq) ?x ?y)) =>
-      Provide rule_eq.
+      Provide triple_eq.
 
 *)
 
@@ -632,14 +673,14 @@ Notation "'Register_spec' f" := (Register_rule (trm_apps (trm_val f) _))
 (* ---------------------------------------------------------------------- *)
 (** ** Registering specification of primitive functions *)
 
-Hint Extern 1 (Register_spec (val_prim val_ref)) => Provide rule_ref.
-Hint Extern 1 (Register_spec (val_prim val_get)) => Provide rule_get.
-Hint Extern 1 (Register_spec (val_prim val_set)) => Provide rule_set.
-Hint Extern 1 (Register_spec (val_prim val_alloc)) => Provide rule_alloc.
-Hint Extern 1 (Register_spec (val_prim val_eq)) => Provide rule_eq.
-Hint Extern 1 (Register_spec (val_prim val_add)) => Provide rule_add.
-Hint Extern 1 (Register_spec (val_prim val_sub)) => Provide rule_sub.
-Hint Extern 1 (Register_spec (val_prim val_ptr_add)) => Provide rule_ptr_add.
+Hint Extern 1 (Register_spec (val_prim val_ref)) => Provide triple_ref.
+Hint Extern 1 (Register_spec (val_prim val_get)) => Provide triple_get.
+Hint Extern 1 (Register_spec (val_prim val_set)) => Provide triple_set.
+Hint Extern 1 (Register_spec (val_prim val_alloc)) => Provide triple_alloc.
+Hint Extern 1 (Register_spec (val_prim val_eq)) => Provide triple_eq.
+Hint Extern 1 (Register_spec (val_prim val_add)) => Provide triple_add.
+Hint Extern 1 (Register_spec (val_prim val_sub)) => Provide triple_sub.
+Hint Extern 1 (Register_spec (val_prim val_ptr_add)) => Provide triple_ptr_add.
 
 
 (* ********************************************************************** *)
@@ -729,7 +770,7 @@ Definition val_incr :=
     Let 'm := 'n '+ 1 in
     val_set 'p 'm.
 
-Lemma rule_incr : forall (p:loc) (n:int),
+Lemma triple_incr : forall (p:loc) (n:int),
   triple (val_incr p)
     (p ~~~> n)
     (fun r => p ~~~> (n+1)).
@@ -737,16 +778,24 @@ Proof using.
 admit.
 (*
   intros. xcf.
-  xlet. { xapp. xapplys rule_get. }
+  xlet. { xapp. xapplys triple_get. }
   intros x. hpull ;=> E. subst.
-  xlet. { xapp. xapplys rule_add. }
+  xlet. { xapp. xapplys triple_add. }
   intros y. hpull ;=> E. subst.
-  xapp. xapplys rule_set.
+  xapp. xapplys triple_set.
 *)
 Qed.
 
 End Test.
 
 
+(* ---------------------------------------------------------------------- *)
+(* ---------------------------------------------------------------------- *)
+(* ---------------------------------------------------------------------- *)
+(* LATER
 
-
+Definition wp_for (F1 F2:formula) (F3:int->formula) : formula :=
+  wp_let F1 (fun v1 => wp_let F2 (fun v2 => wp_for_val v1 v2 F3)).
+Definition wp_for' (F1 F2:formula) (F3:int->formula) : formula := local (fun Q =>
+  F1 (fun v1 => F2 (fun v2 => wp_for_val v1 v2 F3 Q))).
+*)

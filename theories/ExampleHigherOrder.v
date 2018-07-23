@@ -23,7 +23,7 @@ Implicit Types n : int.
 Definition val_apply : val :=
   ValFun 'f 'x := ('f 'x).
 
-Lemma Rule_apply : forall (f:func) `{EA:Enc A} (x:A),
+Lemma Triple_apply : forall (f:func) `{EA:Enc A} (x:A),
   forall (H:hprop) `{EB:Enc B} (Q:B->hprop),
   Triple (f ``x) H Q ->
   Triple (val_apply ``f ``x) H Q.
@@ -33,12 +33,12 @@ Proof using.
   xapp. hsimpl~.
 Qed.
 
-Lemma Rule_apply' : forall (f:func) `{EA:Enc A} (x:A),
+Lemma Triple_apply' : forall (f:func) `{EA:Enc A} (x:A),
   forall (H:hprop) `{EB:Enc B} (Q:B->hprop),
   Triple (val_apply f ``x)
     PRE (\[Triple (f ``x) H Q] \* H)
     POST Q.
-Proof using. intros. xpull ;=> M. applys~ Rule_apply. Qed.
+Proof using. intros. xpull ;=> M. applys~ Triple_apply. Qed.
 
 
 
@@ -51,7 +51,7 @@ Definition val_refapply : val :=
     Let 'y := 'f 'x in
     val_set 'r 'y.
 
-Lemma Rule_refapply_pure : forall (f:func) `{EA:Enc A} (r:loc) (x:A),
+Lemma Triple_refapply_pure : forall (f:func) `{EA:Enc A} (r:loc) (x:A),
   forall `{EB:Enc B} (P:A->B->Prop),
   Triple (f ``x)
     PRE \[]
@@ -64,7 +64,7 @@ Proof using.
   introv M. xcf. xapps. xapp ;=> y E. xapp. hsimpl~.
 Qed.
 
-Lemma Rule_refapply_effect : forall (f:func) `{EA:Enc A} (r:loc) (x:A),
+Lemma Triple_refapply_effect : forall (f:func) `{EA:Enc A} (r:loc) (x:A),
   forall `{EB:Enc B} (P:A->B->Prop) (H H':hprop),
   Triple (f ``x)
     PRE H
@@ -87,7 +87,7 @@ Definition val_twice : val :=
     'f '() ;;;
     'f '().
 
-Lemma Rule_twice : forall (f:func) (H H':hprop) `{EB:Enc B} (Q:B->hprop),
+Lemma Triple_twice : forall (f:func) (H H':hprop) `{EB:Enc B} (Q:B->hprop),
   Triple (f ``tt) H (fun (_:unit) => H') ->
   Triple (f ``tt) H' Q ->
   Triple (val_twice ``f) H Q.
@@ -114,17 +114,17 @@ Axiom xfor_inv_lemma : forall (I:int->hprop),
 
 
 
-Lemma Rule_consequence_post : forall t `{Enc A} (Q':A->hprop) H (Q:A->hprop),
+Lemma Triple_conseq_post : forall t `{Enc A} (Q':A->hprop) H (Q:A->hprop),
   Triple t H Q' ->
   Q' ===> Q ->
   Triple t H Q.
-Proof using. introv MH M MQ. applys* Rule_consequence MH. Qed.
+Proof using. introv MH M MQ. applys* Triple_conseq MH. Qed.
 
 Lemma xfor_simplify_inequality_lemma : forall (n:int),
   ((n-1)+1) = n.
 Proof using. math. Qed.
 
-Lemma Rule_repeat : forall (I:int->hprop) (f:func) (n:int),
+Lemma Triple_repeat : forall (I:int->hprop) (f:func) (n:int),
   n >= 0 ->
   (forall i, 0 <= i < n ->
      Triple (f ``tt)
@@ -174,7 +174,7 @@ Definition MCount (n:int) (g:val) : hprop :=
 (** Specification *)
 
 
-Lemma Rule_MCount : forall n g,
+Lemma Triple_MCount : forall n g,
   Triple (g '()) (g ~> MCount n) (fun r => \[ r = n+1 ] \* g ~> MCount (n+1)).
 Proof using.
   intros. xunfolds MCount at 1 ;=> p Hg. xapp.
@@ -194,7 +194,7 @@ Definition val_mkcounter : val :=
 (* ---------------------------------------------------------------------- *)
 (** Verification *)
 
-Lemma Rule_mkcounter :
+Lemma Triple_mkcounter :
   Triple (val_mkcounter ``val_unit)
     \[]
     (fun g => g ~> MCount 0).
@@ -203,7 +203,7 @@ Proof using.
   { intros n'. xcf. xapp~. xapp. hsimpl~. }
 Qed.
 
-Hint Extern 1 (Register_Spec val_mkcounter) => Provide Rule_mkcounter.
+Hint Extern 1 (Register_Spec val_mkcounter) => Provide Triple_mkcounter.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -215,15 +215,15 @@ Definition trm_test_mkcounter : trm :=
   Let 'm := 'c '() in
   val_add 'n 'm.
 
-Lemma rule_test_mkcounter :
+Lemma triple_test_mkcounter :
   Triple trm_test_mkcounter
     \[]
     (fun r => \[r = 3]).
 Proof using.
   xcf_trm 100%nat. (* todo: make xcf work *)
   xapp as C.
-  xapps Rule_MCount.
-  xapps Rule_MCount.
+  xapps Triple_MCount.
+  xapps Triple_MCount.
   xapps.
   hsimpl~.
 Qed.

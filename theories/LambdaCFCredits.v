@@ -20,8 +20,8 @@ Implicit Types v w : val.
 (* ********************************************************************** *)
 (* * Type of a formula *)
 
-(** A formula is a binary relation relating a pre-condition
-    and a post-condition. *)
+(** A formula is a binary relation relating a precondition
+    and a postcondition. *)
 
 Definition formula := hprop -> (val -> hprop) -> Prop.
 
@@ -135,17 +135,17 @@ Proof using.
   intros t. induction_wf: trm_size t.
   rewrite cf_unfold. destruct t; simpl;
    try (applys sound_for_local; intros H Q P).
-  { unfolds in P. applys~ rule_val. hchanges~ P. }
-  { false. } 
-  { unfolds in P. applys rule_fix. hchanges~ P. }
-  { destruct P as (Q1&P1&P2). applys rule_if.
+  { unfolds in P. applys~ triple_val. hchanges~ P. }
+  { false. }
+  { unfolds in P. applys triple_fix. hchanges~ P. }
+  { destruct P as (Q1&P1&P2). applys triple_if.
     { applys* IH. }
     { intros v. specializes P2 v. applys sound_for_local (rm P2).
       clears H Q Q1. intros H Q (b&P1'&P2'&P3'). inverts P1'.
       case_if; applys* IH. }
     { intros v N. specializes P2 v. applys local_extract_false P2.
       intros H' Q' (b&E&S1&S2). subst. applys N. hnfs*. } }
-  { destruct P as (Q1&P1&P2). applys rule_let Q1.
+  { destruct P as (Q1&P1&P2). applys triple_let Q1.
     { applys~ IH. }
     { intros X. applys~ IH. } }
   { applys P. }
@@ -168,7 +168,7 @@ Lemma triple_app_of_cf : forall F v (f:bind) x t H H' Q,
   cf (subst2 f F x v t) H' Q ->
   triple (F v) H Q.
 Proof using.
-  introv EF HP M. applys* rule_app_fix. applys* triple_of_cf.
+  introv EF HP M. applys* triple_app_fix. applys* triple_of_cf.
 Qed.
 
 

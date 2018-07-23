@@ -80,57 +80,57 @@ Qed.
 
 Definition val_get_hd := val_get_field hd.
 
-Lemma rule_get_hd : forall p v q,
+Lemma triple_get_hd : forall p v q,
   triple (val_get_hd p)
     (MCell v q p)
     (fun r => \[r = v] \* (MCell v q p)).
 Proof using.
-  intros. unfold MCell. ram_apply rule_get_field. auto with iFrame.
+  intros. unfold MCell. ram_apply triple_get_field. auto with iFrame.
 Qed.
 
-Hint Extern 1 (Register_spec val_get_hd) => Provide rule_get_hd.
+Hint Extern 1 (Register_spec val_get_hd) => Provide triple_get_hd.
 
 (** Read to tail *)
 
 Definition val_get_tl := val_get_field tl.
 
-Lemma rule_get_tl : forall p v q,
+Lemma triple_get_tl : forall p v q,
   triple (val_get_tl p)
     (MCell v q p)
     (fun r => \[r = q] \* (MCell v q p)).
 Proof using.
-  intros. unfold MCell. ram_apply rule_get_field. auto with iFrame.
+  intros. unfold MCell. ram_apply triple_get_field. auto with iFrame.
 Qed.
 
-Hint Extern 1 (Register_spec val_get_tl) => Provide rule_get_tl.
+Hint Extern 1 (Register_spec val_get_tl) => Provide triple_get_tl.
 
 (** Write to head *)
 
 Definition val_set_hd := val_set_field hd.
 
-Lemma rule_set_hd : forall p v' v vq,
+Lemma triple_set_hd : forall p v' v vq,
   triple (val_set_hd p v)
     (MCell v' vq p)
     (fun r => MCell v vq p).
 Proof using.
-  intros. unfold MCell. ram_apply rule_set_field.  auto with iFrame.
+  intros. unfold MCell. ram_apply triple_set_field.  auto with iFrame.
 Qed.
 
-Hint Extern 1 (Register_spec val_set_hd) => Provide rule_set_hd.
+Hint Extern 1 (Register_spec val_set_hd) => Provide triple_set_hd.
 
 (** Write to tail *)
 
 Definition val_set_tl := val_set_field tl.
 
-Lemma rule_set_tl : forall p v q vq',
+Lemma triple_set_tl : forall p v q vq',
   triple (val_set_tl p q)
     (MCell v vq' p)
     (fun r => MCell v q p).
 Proof using.
-  intros. unfold MCell. ram_apply rule_set_field. auto with iFrame.
+  intros. unfold MCell. ram_apply triple_set_field. auto with iFrame.
 Qed.
 
-Hint Extern 1 (Register_spec val_set_tl) => Provide rule_set_tl.
+Hint Extern 1 (Register_spec val_set_tl) => Provide triple_set_tl.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -143,25 +143,25 @@ Definition val_new_cell :=
     val_set_tl 'p 'y;;;
     'p.
 
-Lemma rule_alloc_cell :
+Lemma triple_alloc_cell :
   triple (val_alloc 2%Z)
     \[]
     (fun r => \exists (p:loc), \exists v1 v2,
               \[r = p] \* MCell v1 v2 p).
 Proof using.
-  ram_apply rule_alloc; [math|]. iDestruct 1 as (l [-> ?]) "H".
+  ram_apply triple_alloc; [math|]. iDestruct 1 as (l [-> ?]) "H".
   simpl_abs. rew_Alloc. iDestruct "H" as "(Hv1 & Hv2 & _)".
   iDestruct "Hv1" as (v1) "Hv1". iDestruct "Hv2" as (v2) "Hv2".
   iExists _, _, _. unfold MCell. rewrite hfield_eq_fun_hsingle /hd /tl.
   math_rewrite (l + 1 = S l)%nat. math_rewrite (l+0 = l)%nat. auto with iFrame.
 Qed.
 
-Lemma rule_new_cell : forall v q,
+Lemma triple_new_cell : forall v q,
   triple (val_new_cell v q)
     \[]
     (fun r => \exists p, \[r = val_loc p] \* MCell v q p).
 Proof using.
-  intros. xcf. xapp rule_alloc_cell.
+  intros. xcf. xapp triple_alloc_cell.
   intros p p' v' q'. intro_subst.
   xapps~. intros _. xapps~. intros _. xvals~.
 Qed.
@@ -169,23 +169,23 @@ Qed.
 Ltac loop := idtac; loop.
 
 (* LATER: port to MoSel
-Lemma rule_new_cell' : forall v q,
+Lemma triple_new_cell' : forall v q,
   triple (val_new_cell v q)
     \[]
     (fun r => \exists p, \[r = val_loc p] \* MCell v q p).
 Proof using.
-  intros. eapply rule_app_fun2 =>//=; [].
-  eapply rule_let; [apply rule_alloc_cell|]=>p /=. xpull=> p' v' q' ->.
-  eapply rule_seq.
-  { rewrite MCell_eq. ram_apply rule_set_hd. auto with iFrame. }
-  { unlock ;=> _. eapply rule_seq.
-    ram_apply rule_set_tl.
+  intros. eapply triple_app_fun2 =>//=; [].
+  eapply triple_let; [apply triple_alloc_cell|]=>p /=. xpull=> p' v' q' ->.
+  eapply triple_seq.
+  { rewrite MCell_eq. ram_apply triple_set_hd. auto with iFrame. }
+  { unlock ;=> _. eapply triple_seq.
+    ram_apply triple_set_tl.
   { auto with iFrame. }
-  { unlock ;=> _. eapply rule_val. iPrepare. auto with iFrame. } }
+  { unlock ;=> _. eapply triple_val. iPrepare. auto with iFrame. } }
 Qed.
 *)
 
-Hint Extern 1 (Register_spec val_new_cell) => Provide rule_new_cell.
+Hint Extern 1 (Register_spec val_new_cell) => Provide triple_new_cell.
 
 Global Opaque MCell_eq.
 
@@ -302,23 +302,23 @@ Definition val_mlist_length : val :=
 (* ---------------------------------------------------------------------- *)
 (** Verification using triples. *)
 
-Lemma rule_mlist_length : forall L (p:loc),
+Lemma triple_mlist_length : forall L (p:loc),
   triple (val_mlist_length p)
     (MList L p)
     (fun r => \[r = (length L : int)] \* MList L p).
 Proof using.
   intros L. induction_wf: list_sub_wf L. intros p.
-  applys rule_app=>//=. applys rule_if'.
-  - ram_apply rule_neq. auto with iFrame.
+  applys triple_app=>//=. applys triple_if'.
+  - ram_apply triple_neq. auto with iFrame.
   - unlock. xpull ;=>[= Hp]. rewrite true_eq_isTrue_eq in Hp.
     xchange (MList_not_null_inv_cons p); [by auto|]. xpull=>p' x L' ?. subst.
-    applys rule_let. { ram_apply rule_get_tl. auto with iFrame. }
+    applys triple_let. { ram_apply triple_get_tl. auto with iFrame. }
     unlock=> q /=. xpull=>->.
-    applys rule_let. { ram_apply (IH L'); [done|]. auto with iFrame. }
-    unlock=> n /=. xpull=>->. ram_apply rule_add.
+    applys triple_let. { ram_apply (IH L'); [done|]. auto with iFrame. }
+    unlock=> n /=. xpull=>->. ram_apply triple_add.
     iIntros "??" (?) "->". iSplitR.
     { iPureIntro. f_equal. math. } { iApply MList_cons. iFrame. }
-  - unlock. eapply rule_val. iPrepare. iIntros "HL" ([= Hp]). revert Hp.
+  - unlock. eapply triple_val. iPrepare. iIntros "HL" ([= Hp]). revert Hp.
     rewrite false_eq_isTrue_eq=>/not_not_inv. intros [= ->].
     iDestruct (MList_null_inv with "HL") as "[$ ->]". auto.
   - unlock. iIntros ([] Hb) "[? %]"=>//. destruct Hb. eexists _. auto.
@@ -343,42 +343,42 @@ Definition val_mlist_length_loop : val :=
     Done ;;;
     val_get 'n.
 
-Lemma rule_mlist_length_loop : forall L p,
+Lemma triple_mlist_length_loop : forall L p,
   triple (val_mlist_length_loop p)
     (MList L p)
     (fun r => \[r = val_int (length L)] \* MList L p).
 Proof using.
-  intros L p. eapply rule_app=>//=.
-  applys rule_let. { ram_apply rule_ref. auto with iFrame. }
+  intros L p. eapply triple_app=>//=.
+  applys triple_let. { ram_apply triple_ref. auto with iFrame. }
   unlock=> ? /=. xpull=>r ->.
-  applys rule_let. { ram_apply rule_ref. auto with iFrame. }
-  unlock=> ? /=. xpull=>n ->. applys rule_seq.
-  - applys rule_while=>t R.
+  applys triple_let. { ram_apply triple_ref. auto with iFrame. }
+  unlock=> ? /=. xpull=>n ->. applys triple_seq.
+  - applys triple_while=>t R.
     cuts K: (forall (nacc:int),
       triple t (n ~~~> nacc \* MList L p \* r ~~~> p)
           (λ r0 : val, \[r0 = '()] \* n ~~~> (nacc + length L)%Z \* MList L p)).
     { ram_apply K. auto with iFrame. }
-    gen p. induction_wf: list_sub_wf L=>p nacc. apply R. applys rule_if'.
-    + eapply rule_let. ram_apply rule_get. { auto with iFrame. }
-      unlock=>pp /=. xpull=>->. ram_apply rule_neq. eauto with iFrame.
+    gen p. induction_wf: list_sub_wf L=>p nacc. apply R. applys triple_if'.
+    + eapply triple_let. ram_apply triple_get. { auto with iFrame. }
+      unlock=>pp /=. xpull=>->. ram_apply triple_neq. eauto with iFrame.
     + unlock. xpull. intros [=Hp]. rewrite true_eq_isTrue_eq in Hp.
       xchange (MList_not_null_inv_cons p); [by auto|iPrepare; auto with iFrame|].
-      xpull=>p' x L' ?. subst. applys rule_seq.
-      { applys rule_seq. { ram_apply rule_incr. auto with iFrame. }
-        { unlock ;=> _. eapply rule_let. { ram_apply rule_get. auto with iFrame. }
-        unlock. xpull=>? -> /=. eapply rule_let.
-        { ram_apply rule_get_tl. auto with iFrame. }
-        unlock=>? /=. xpull=>->. ram_apply rule_set'. auto with iFrame. } }
+      xpull=>p' x L' ?. subst. applys triple_seq.
+      { applys triple_seq. { ram_apply triple_incr. auto with iFrame. }
+        { unlock ;=> _. eapply triple_let. { ram_apply triple_get. auto with iFrame. }
+        unlock. xpull=>? -> /=. eapply triple_let.
+        { ram_apply triple_get_tl. auto with iFrame. }
+        unlock=>? /=. xpull=>->. ram_apply triple_set'. auto with iFrame. } }
       { unlock ;=> _. ram_apply (IH L'); [done|]. iIntros. iFrame.
       iIntros (?) "$ Hn ?". iSplitL "Hn".
       * by math_rewrite ((nacc + 1) + length L' = nacc + S (length (L')))%Z.
       * iApply MList_cons. iFrame. }
-    + unlock. iApply rule_val_htop. iPrepare. iIntros "? HL ?" ([= Hp]).
+    + unlock. iApply triple_val_htop. iPrepare. iIntros "? HL ?" ([= Hp]).
       revert Hp. rewrite false_eq_isTrue_eq. intros [= ->]%not_not_inv.
       iDestruct (MList_null_inv with "HL") as "[$ ->]". rewrite plus_zero_r. by iFrame.
     + unlock. iIntros ([] Hb) "(? & ? & ? & %)"=>//. destruct Hb. eexists _. auto.
-  - unlock. xpull ;=> u U. subst u. apply rule_htop_post.
-    ram_apply rule_get. auto with iFrame.
+  - unlock. xpull ;=> u U. subst u. apply triple_htop_post.
+    ram_apply triple_get. auto with iFrame.
 Qed.
 
 

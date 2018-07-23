@@ -256,7 +256,7 @@ exists n, n > 0 \* n < 0 \* r -> n ==> r -> n * r -> n
 (* ---------------------------------------------------------------------- *)
 (* ** Frame and consequence *)
 
-Lemma rule_conseq : forall t H' Q' H Q,
+Lemma triple_conseq : forall t H' Q' H Q,
   H ==> H' ->
   triple t H' Q' ->
   Q' ===> Q ->
@@ -267,7 +267,7 @@ Proof using.
   exists h' v. splits~. { hhsimpl. hchanges (MQ v). }
 Qed.
 
-Lemma rule_frame : forall t H Q H',
+Lemma triple_frame : forall t H Q H',
   triple t H Q ->
   triple t (H \* H') (Q \*+ H').
 Proof using.
@@ -286,7 +286,7 @@ and insert them here as exercises
 (* ---------------------------------------------------------------------- *)
 (* ** Extraction rules *)
 
-Lemma rule_extract_hexists : forall t (A:Type) (J:A->hprop) Q,
+Lemma triple_extract_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, triple t (J x) Q) ->
   triple t (hexists J) Q.
 Proof using.
@@ -294,12 +294,12 @@ Proof using.
   destruct N as (x&N). applys* M.
 Qed.
 
-Lemma rule_extract_hprop : forall t (P:Prop) H Q,
+Lemma triple_extract_hprop : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
 Proof using.
-  intros t. applys (rule_extract_hprop_from_extract_hexists (triple t)).
-  applys rule_extract_hexists.
+  intros t. applys (triple_extract_hprop_from_extract_hexists (triple t)).
+  applys triple_extract_hexists.
 Qed.
 
 independent proofs
@@ -317,7 +317,7 @@ exercise
 
 support in hsimpl for \Top
 
-Lemma rule_htop_post : forall t H Q,
+Lemma triple_htop_post : forall t H Q,
   triple t H (Q \*+ \Top) ->
   triple t H Q.
 Proof using.
@@ -325,11 +325,11 @@ Proof using.
   exists h' v. splits~. { rewrite <- htop_hstar_htop. hhsimpl. }
 Qed.
 
-Lemma rule_htop_pre : forall t H Q,
+Lemma triple_htop_pre : forall t H Q,
   triple t H Q ->
   triple t (H \* \Top) Q.
 Proof using.
-  introv M. applys rule_htop_post. applys~ rule_frame.
+  introv M. applys triple_htop_post. applys~ triple_frame.
 Qed.
 
 

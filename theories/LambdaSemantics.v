@@ -164,7 +164,7 @@ Proof using.
   intros. unfold subst1, Ctx.one, Ctx.add. rewrite~ subst_empty.
 Qed.
 
-(** [subst] can be combuted  by iteratively substituting its bindings. *)
+(** [subst] can be combuted by iteratively substituting its bindings. *)
 
 Lemma subst_cons : forall x v E t,
   subst ((x,v)::E) t = subst E (subst1 x v t).
@@ -214,6 +214,93 @@ Lemma substn_cons : forall x xs v vs t,
 Proof using.
   intros. unfold substn. rewrite combine_cons. rewrite~ subst_cons.
 Qed.
+
+
+
+
+Lemma rem_rem_same : forall z (E:ctx),
+  Ctx.rem z (Ctx.rem z E) = Ctx.rem z E.
+Proof using. Admitted.
+
+Lemma rem_rem_swap : forall z1 z2 (E:ctx),
+  Ctx.rem z1 (Ctx.rem z2 E) = Ctx.rem z2 (Ctx.rem z1 E).
+Proof using. Admitted.
+
+
+
+Lemma subst1_subst_rem_neq : forall x v E t,
+  subst1 x v (subst (Ctx.rem x E) t) =
+  subst (Ctx.add x v E) t.
+Proof using. Opaque Ctx.add Ctx.rem.
+  intros. destruct x as [|x].
+  { simpl. rewrite~ subst1_anon. }
+  { unfold subst1, Ctx.one. gen E. induction t; intros; simpl; try solve [fequals].
+    { skip. }
+    { fequals. skip. }
+    { fequals. tests: (b = x).
+      { repeat rewrite Ctx.rem_add_same. rewrite rem_rem_same.
+        rewrite Ctx.rem_empty. rewrite subst_empty. auto. } 
+      { repeat rewrite~ Ctx.rem_add_neq. rewrite Ctx.rem_empty.
+        rewrite <- IHt2. rewrite~ rem_rem_swap. } }
+    { fequals. rewrite rem_rem_swap. admit. }
+Admitted.
+    
+   
+
+(*
+(** Substitutions for two distinct variables commute. *)
+
+Lemma subst1_subst1_neq : forall (x1 x2:var) v1 v2 t,
+  x1 <> x2 ->
+  subst1 x2 v2 (subst1 x1 v1 t) = subst1 x1 v1 (subst1 x2 v2 t).
+Proof using.
+  introv N. induction t; simpl; try solve [ fequals;
+  repeat case_if; simpl; repeat case_if; auto ].
+  repeat case_if; simpl; repeat case_if~.
+  { false. destruct v; destruct x1; destruct x2; false. simpls.
+    rewrite name_eq_spec in *. rew_bool_eq in *. false. }
+Qed. (* LATER: simplify *)
+
+(** Substituting for a variable that has just been substituted
+    does not further modify the term. *)
+
+Lemma subst_subst_same : forall x v1 v2 t,
+  subst1 x v2 (subst1 x v1 t) = subst1 x v1 t.
+Proof using.
+  intros. induction t; simpl; try solve [ fequals;
+  repeat case_if; simpl; repeat case_if; auto ].
+Qed.
+
+
+Lemma subst1_subst_rem_same : forall E z v t,
+    subst1 z v (subst (rem z E) t)
+  = subst E (subst1 z v t).
+Proof using.
+  intros. rewrite <- subst_add.
+
+  intros E. induction E as [|(y,w) E']; simpl; intros.
+  { auto. }
+  { rewrite var_eq_spec. case_if.
+    { subst. rewrite IHE'. rewrite~ subst_subst_same. }
+    { simpl. rewrite IHE'. rewrite~ subst_subst_neq. } }
+Qed.
+)
+
+
+Lemma subst1_subst_rem_same : forall E z v t,
+    subst1 z v (subst (rem z E) t)
+  = subst E (subst1 z v t).
+Proof using.
+  intros. rewrite <- subst_add.
+
+  intros E. induction E as [|(y,w) E']; simpl; intros.
+  { auto. }
+  { rewrite var_eq_spec. case_if.
+    { subst. rewrite IHE'. rewrite~ subst_subst_same. }
+    { simpl. rewrite IHE'. rewrite~ subst_subst_neq. } }
+Qed.
+
+*)
 
 
 (* ---------------------------------------------------------------------- *)

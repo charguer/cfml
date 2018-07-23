@@ -33,7 +33,7 @@ Lemma wp_equiv : forall t H Q,
 Proof using.
   intros. unfold wp. iff M.
   { hsimpl. rew_heap~. }
-  { applys~ rule_conseq (rm M). xpull~. }
+  { applys~ triple_conseq (rm M). xpull~. }
 Qed.
 
 Instance triple_as_valid t H Q : AsEmpValid (triple t H Q) (H -∗ wp t Q).
@@ -43,14 +43,14 @@ Instance frame_wp p t R Φ Ψ :
   (∀ v, Frame p R (Φ v) (Ψ v)) → Frame p R (wp t Φ) (wp t Ψ).
 Proof.
   rewrite /Frame /wp=> HR. iIntros "[HR H]". iDestruct "H" as (H) "[HH %]".
-  iExists (H ∗ □?p R)%I. iFrame. iPureIntro. eapply rule_frame_consequence=>//.
+  iExists (H ∗ □?p R)%I. iFrame. iPureIntro. eapply triple_frame_consequence=>//.
   iIntros (?) "[??]". iApply HR. iFrame.
 Qed.
 
 Instance wp_absorbing t Q : Absorbing (wp t Q).
 Proof.
   apply wp_equiv. rewrite /bi_absorbingly -htop_True comm.
-  apply rule_htop_pre. iIntros "$".
+  apply triple_htop_pre. iIntros "$".
 Qed.
 
 (* ********************************************************************** *)

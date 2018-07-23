@@ -363,7 +363,7 @@ Definition val_root :=
 Hint Rewrite @index_map_eq : rew_array. (*--TODO  move *)
 
 
-Lemma rule_root : forall n R p x,
+Lemma triple_root : forall n R p x,
   index n x ->
   triple (val_root p x)
     (UF n R p)
@@ -387,7 +387,7 @@ Proof using.
     xapp~ (>> IH d). hsimpl~. }
 Qed.
 
-Hint Extern 1 (Register_spec val_root) => Provide rule_root.
+Hint Extern 1 (Register_spec val_root) => Provide triple_root.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -405,7 +405,7 @@ Definition val_compress :=
 
 Hint Resolve index_map.
 
-Lemma rule_compress : forall n R p x z,
+Lemma triple_compress : forall n R p x z,
   index n x ->
   z = R x ->
   triple (val_compress p x z)
@@ -438,7 +438,7 @@ Proof using.
   { xvals~. }
 Qed.
 
-Hint Extern 1 (Register_spec val_compress) => Provide rule_compress.
+Hint Extern 1 (Register_spec val_compress) => Provide triple_compress.
 
 
 (** TODO: compress and find revisited using a loop *)
@@ -452,7 +452,7 @@ Definition val_find :=
     val_compress 'p 'x 'r ;;;
     'r.
 
-Lemma rule_find : forall n R p x,
+Lemma triple_find : forall n R p x,
   index n x ->
   triple (val_find p x)
     (UF n R p)
@@ -461,7 +461,7 @@ Proof using.
   introv Ix. xcf. xapps~. xapps~. intros _. xvals~.
 Qed.
 
-Hint Extern 1 (Register_spec val_find) => Provide rule_find.
+Hint Extern 1 (Register_spec val_find) => Provide triple_find.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -475,7 +475,7 @@ Definition val_union :=
       val_array_set 'p 'r 's
     End.
 
-Lemma rule_union : forall n R p x y,
+Lemma triple_union : forall n R p x y,
   index n x ->
   index n y ->
   triple (val_union p x y)
@@ -493,7 +493,7 @@ Proof using.
   { xvals~. rewrite~ link_related. }
 Qed.
 
-Hint Extern 1 (Register_spec val_union) => Provide rule_union.
+Hint Extern 1 (Register_spec val_union) => Provide triple_union.
 
 
 
@@ -511,7 +511,7 @@ Hint Extern 1 (Register_spec val_union) => Provide rule_union.
 
 Parameter val_create : val.
 
-Parameter rule_create : forall n,
+Parameter triple_create : forall n,
   n >= 0 ->
   triple (val_create n)
     \[]

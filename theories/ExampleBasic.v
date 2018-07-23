@@ -25,7 +25,7 @@ Implicit Types n : int.
 
 (** [val_swap] defined in [ExampleBasicNonlifted.v] *)
 
-Lemma Rule_swap_neq : forall A1 A2 `{EA1:Enc A1} `{EA2:Enc A2} (v:A1) (w:A2) p q,
+Lemma Triple_swap_neq : forall A1 A2 `{EA1:Enc A1} `{EA2:Enc A2} (v:A1) (w:A2) p q,
   Triple (val_swap ``p ``q)
     PRE (p ~~> v \* q ~~> w)
     POST (fun (r:unit) => p ~~> w \* q ~~> v).
@@ -33,7 +33,7 @@ Proof using.
   xcf. xapps. xapps. xapps. xapps. hsimpl~.
 Qed.
 
-Lemma Rule_swap_eq : forall A1 `{EA1:Enc A1} (v:A1) p,
+Lemma Triple_swap_eq : forall A1 `{EA1:Enc A1} (v:A1) p,
   Triple (val_swap ``p ``p)
     PRE (p ~~> v)
     POST (fun (r:unit) => p ~~> v).
@@ -47,7 +47,7 @@ Qed.
 
 (** [val_example_let] defined in [ExampleBasicNonlifted.v] *)
 
-Lemma Rule_val_example_let : forall n,
+Lemma Triple_val_example_let : forall n,
   Triple (val_example_let n)
     PRE \[]
     POST (fun r => \[r = 2*n]).
@@ -61,7 +61,7 @@ Qed.
 
 (** [val_example_one_ref] defined in [ExampleBasicNonlifted.v] *)
 
-Lemma Rule_val_example_one_ref : forall n,
+Lemma Triple_val_example_one_ref : forall n,
   Triple (val_example_one_ref n)
     PRE \[]
     POST (fun r => \[r = n+2]).
@@ -75,7 +75,7 @@ Qed.
 
 (** [val_example_two_ref] defined in [ExampleBasicNonlifted.v] *)
 
-Lemma Rule_val_example_two_ref : forall n,
+Lemma Triple_val_example_two_ref : forall n,
   Triple (val_example_two_ref n)
     PRE \[]
     POST (fun r => \[r = n+1]).

@@ -160,33 +160,33 @@ Proof using.
   intros t. induction_wf: trm_size t.
   rewrite cf_unfold. destruct t; simpl;
    try (applys sound_for_local; intros H Q P).
-  { unfolds in P. applys~ rule_val. hchanges~ P. }
+  { unfolds in P. applys~ triple_val. hchanges~ P. }
   { false. }
-  { unfolds in P. applys rule_fix. hchanges~ P. }
-  { destruct P as (Q1&P1&P2). applys rule_if.
+  { unfolds in P. applys triple_fix. hchanges~ P. }
+  { destruct P as (Q1&P1&P2). applys triple_if.
     { applys* IH. }
     { intros v. specializes P2 v. applys sound_for_local (rm P2).
       clears H Q Q1. intros H Q (b&P1'&P2'&P3'). inverts P1'.
       case_if; applys* IH. }
     { intros v N. specializes P2 v. applys local_extract_false P2.
       intros H' Q' (b&E&S1&S2). subst. applys N. hnfs*. } }
-  { destruct P as (Q1&P1&P2). applys rule_let Q1.
+  { destruct P as (Q1&P1&P2). applys triple_let Q1.
     { applys~ IH. }
     { intros X. applys~ IH. } }
   { applys P. }
   { hnf in P. simpls. applys P. { xlocal. } clears H Q. intros H Q P.
-    applys rule_while_raw. applys sound_for_local (rm P).
-    clears H Q. intros H Q (Q1&P1&P2). applys rule_if.
+    applys triple_while_raw. applys sound_for_local (rm P).
+    clears H Q. intros H Q (Q1&P1&P2). applys triple_if.
     { applys* IH. }
     { intros b. specializes P2 b. applys sound_for_local (rm P2).
       clears H Q1 Q. intros H Q (b'&P1&P2&P3). inverts P1. case_if.
       { forwards~ P2': (rm P2). applys sound_for_local (rm P2').
         clears H Q b'. intros H Q (H1&P1&P2).
-        applys rule_seq.
+        applys triple_seq.
          { applys* IH. }
          { hnf ;=> _. applys P2. } }
       { forwards~ P3': (rm P3). applys sound_for_local (rm P3').
-        clears H Q b'. intros H Q P. hnf in P. applys rule_val.
+        clears H Q b'. intros H Q P. hnf in P. applys triple_val.
          { hchanges* P. } } }
     { intros v N. specializes P2 v. applys local_extract_false P2.
       intros H' Q' (b&E&S1&S2). subst. applys N. hnfs*. } }
@@ -194,7 +194,7 @@ Proof using.
     hnf in P. destruct P as (n1&n2&E1&E2&P). subst v0 v1.
     simpls. applys P. { xlocal. }
     clears H Q. intros i H Q P. applys sound_for_local (rm P).
-    clears H Q. intros H Q P. applys rule_for. case_if as C.
+    clears H Q. intros H Q P. applys triple_for. case_if as C.
     { destruct P as (H1&P1&P2). exists (fun (r:val) => H1).
       splits.
       { applys* IH. }
@@ -283,7 +283,7 @@ Lemma triple_apps_funs_of_cf_iter : forall n F (vs:vals) xs t H Q,
   triple (trm_apps F vs) H Q.
 Proof using.
   introv EF N M. rewrite var_funs_exec_eq in N. rew_istrue in N.
-  applys* rule_apps_funs. applys* triple_trm_of_cf_iter.
+  applys* triple_apps_funs. applys* triple_trm_of_cf_iter.
 Qed.
 
 
@@ -294,7 +294,7 @@ Lemma triple_apps_fixs_of_cf_iter : forall n (f:var) F (vs:vals) xs t H Q,
   triple (trm_apps F vs) H Q.
 Proof using.
   introv EF N M. rewrite var_fixs_exec_eq in N. rew_istrue in N.
-  applys* rule_apps_fixs. applys* triple_trm_of_cf_iter.
+  applys* triple_apps_fixs. applys* triple_trm_of_cf_iter.
 Qed.
 
 (** Bonus : two corrolaries for demos *)
@@ -304,7 +304,7 @@ Lemma triple_app_fun_of_cf_iter : forall n F v x t H Q,
   func_iter n cf_def cf (subst1 x v t) H Q ->
   triple (F v) H Q.
 Proof using.
-  introv EF M. applys* rule_app.
+  introv EF M. applys* triple_app.
   applys* triple_trm_of_cf_iter.
 Qed.
 
@@ -313,7 +313,7 @@ Lemma triple_app_fix_of_cf_iter : forall n F v f x t H Q,
   func_iter n cf_def cf (subst2 f F x v t) H Q ->
   triple (F v) H Q.
 Proof using.
-  introv EF M. applys* rule_app.
+  introv EF M. applys* triple_app.
   applys* triple_trm_of_cf_iter.
 Qed.
 
@@ -328,12 +328,12 @@ End LemmasCf.
   Usage of [RegisterSpecGoal], e.g.:
 
     Hint Extern 1 (RegisterSpecGoal (triple (trm_app2_val (val_prim val_eq) ?x ?y) ?H ?Q)) =>
-      Provide rule_eq.
+      Provide triple_eq.
 
   Usage of [RegisterSpecApp], e.g.:
 
     Hint Extern 1 (RegisterSpecApp (trm_app2_val (val_prim val_eq) ?x ?y)) =>
-      Provide rule_eq.
+      Provide triple_eq.
 
 *)
 
@@ -347,14 +347,14 @@ Notation "'Register_spec' f" := (Register_rule (trm_apps (trm_val f) _))
 (* ---------------------------------------------------------------------- *)
 (** ** Registering specification of primitive functions *)
 
-Hint Extern 1 (Register_spec (val_prim val_ref)) => Provide rule_ref.
-Hint Extern 1 (Register_spec (val_prim val_get)) => Provide rule_get.
-Hint Extern 1 (Register_spec (val_prim val_set)) => Provide rule_set'.
-Hint Extern 1 (Register_spec (val_prim val_alloc)) => Provide rule_alloc.
-Hint Extern 1 (Register_spec (val_prim val_eq)) => Provide rule_eq.
-Hint Extern 1 (Register_spec (val_prim val_add)) => Provide rule_add.
-Hint Extern 1 (Register_spec (val_prim val_sub)) => Provide rule_sub.
-Hint Extern 1 (Register_spec (val_prim val_ptr_add)) => Provide rule_ptr_add.
+Hint Extern 1 (Register_spec (val_prim val_ref)) => Provide triple_ref.
+Hint Extern 1 (Register_spec (val_prim val_get)) => Provide triple_get.
+Hint Extern 1 (Register_spec (val_prim val_set)) => Provide triple_set'.
+Hint Extern 1 (Register_spec (val_prim val_alloc)) => Provide triple_alloc.
+Hint Extern 1 (Register_spec (val_prim val_eq)) => Provide triple_eq.
+Hint Extern 1 (Register_spec (val_prim val_add)) => Provide triple_add.
+Hint Extern 1 (Register_spec (val_prim val_sub)) => Provide triple_sub.
+Hint Extern 1 (Register_spec (val_prim val_ptr_add)) => Provide triple_ptr_add.
 
 
 (* ********************************************************************** *)
@@ -606,7 +606,7 @@ Lemma triple_app_fun2_of_cf_iter : forall n F v1 v2 x1 x2 t H Q,
   func_iter n cf_def cf (subst x2 v2 (subst x1 v1 t)) H Q ->
   triple (F v1 v2) H Q.
 Proof using.
-  introv EF N M. applys* rule_app_fun2.
+  introv EF N M. applys* triple_app_fun2.
   applys* triple_trm_of_cf_iter.
 Qed.
 

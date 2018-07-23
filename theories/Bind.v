@@ -3,7 +3,7 @@
 This file describes the representation of variables, binders, and
 contexts.
 
-Author: Arthur Charguéraud.
+Author: Arthur CharguÃ©raud.
 License: MIT.
 
 *)

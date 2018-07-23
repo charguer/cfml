@@ -460,7 +460,7 @@ Ltac iPrepare :=
    a result, we use a specific version of this lemma where Q1 is
    locked, and hence pure facts cannot escape.
 
-   This specific version is only used when the post-condition is
+   This specific version is only used when the postcondition is
    indeed an evar. *)
 Lemma local_ramified_frame_locked {B} : forall (Q1 : B → hprop) H1 F H Q,
   is_local F ->

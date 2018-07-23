@@ -39,7 +39,7 @@ The functor also provides:
 - [local F] is a predicate transformer used by characteristic formulae.
 - [is_local F], where [F] is typically a triple or a characteristic formula,
   asserts that [F] can be subject to frame, weakening, and extraction
-  of existentials and pure facts from pre-conditions. Tactics such as
+  of existentials and pure facts from preconditions. Tactics such as
   [xapply] apply the frame rule in a generic manner, and produce a
   [is_local] subgoal as side-condition.
 - [xlocal] automatically discharges goals of the form [is_local F].
@@ -345,7 +345,7 @@ Definition hwand (H1 H2 : hprop) : hprop :=
 Notation "H1 \-* H2" := (hwand H1 H2)
   (at level 43) : heap_scope.
 
-(** Magic wand for post-conditions, written [Q1 \--* Q2] *)
+(** Magic wand for postconditions, written [Q1 \--* Q2] *)
 
 Definition qwand A (Q1 Q2:A->hprop) :=
   hforall (fun x => hwand (Q1 x) (Q2 x)).
@@ -671,12 +671,12 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Auxiliary tactics used by many tactics *)
 
-(* [xprecondition tt] returns the current pre-condition. *)
+(* [xprecondition tt] returns the current precondition. *)
 
 Ltac xprecondition tt :=
   match goal with |- ?R ?H ?Q => constr:(H) end.
 
-(* [xpostcondition tt] returns the current post-condition. *)
+(* [xpostcondition tt] returns the current postcondition. *)
 
 Ltac xpostcondition tt :=
   match goal with |- ?E =>
@@ -686,7 +686,7 @@ Ltac xpostcondition tt :=
      match goal with |- ?J ?Q => constr:(Q) end. *)
 
 (** [xpostcondition_is_evar tt] returns a boolean indicating
-    whether the post-condition of the current goal is an evar. *)
+    whether the postcondition of the current goal is an evar. *)
 
 Ltac xpostcondition_is_evar tt :=
   let Q := xpostcondition tt in
@@ -1897,7 +1897,7 @@ Qed.
    pure propositions from preconditions is just a special case
    of the reasoning rule for extracting existentials from preconditions. *)
 
-Lemma rule_extract_hprop_from_extract_hexists :
+Lemma triple_extract_hprop_from_extract_hexists :
   forall (T:Type) (F:hprop->(T->hprop)->Prop),
   (forall (A:Type) (J:A->hprop) (Q:T->hprop),
     (forall x, F (J x) Q) ->
@@ -1911,9 +1911,9 @@ Proof using.
   applys M. rewrite~ hstar_hempty_l.
 Qed.
 
-Arguments rule_extract_hprop_from_extract_hexists [T].
+Arguments triple_extract_hprop_from_extract_hexists [T].
 
-Lemma rule_extract_hwand_hpure_l_from_extract_hexists_and_consequence :
+Lemma triple_extract_hwand_hpure_l_from_extract_hexists_and_consequence :
   forall (T:Type) (F:hprop->(T->hprop)->Prop),
   (forall (A:Type) (J:A->hprop) (Q:T->hprop),
     (forall x, F (J x) Q) ->
@@ -2077,7 +2077,7 @@ Proof using.
   introv LF H1 H2. applys~ local_frame_htop H2 H1.
 Qed.
 
-(** Garbage collection on post-condition from [local] *)
+(** Garbage collection on postcondition from [local] *)
 
 Lemma local_htop_post : forall Q' F H Q,
   is_local F ->
@@ -2198,7 +2198,7 @@ Proof using.
   rewrite hstar_hempty_l, hstar_comm, hstar_pure. splits*. splits*. hsimpl.
 Qed.
 
-(** Extraction of pure facts from the pre-condition under local *)
+(** Extraction of pure facts from the precondition under local *)
 
 Lemma local_extract_prop : forall F H Q P,
   is_local F ->
@@ -2210,9 +2210,9 @@ Proof using.
   applys~ local_extract_hprop.
 Qed.
 
-(** Extraction of proof obligations from the pre-condition under local *)
+(** Extraction of proof obligations from the precondition under local *)
 
-Lemma rule_extract_hwand_hpure_l : forall F (P:Prop) H Q,
+Lemma triple_extract_hwand_hpure_l : forall F (P:Prop) H Q,
   is_local F ->
   P ->
   F H Q ->
@@ -2222,7 +2222,7 @@ Proof using.
   hsimpl H \[] Q. split~. hsimpl.
 Qed.
 
-(** Extraction of contradictions from the pre-condition under local *)
+(** Extraction of contradictions from the precondition under local *)
 
 Lemma local_extract_false : forall F H Q,
   local F H Q ->
@@ -2267,7 +2267,7 @@ Ltac xpull_check tt :=
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xpull] to extract existentials and pure facts from
-      pre-conditions. *)
+      preconditions. *)
 
 (** [xpull] plays a similar role to [hpull], except that it works on
    goals of the form [F H Q], where [F] is typically a triple predicate
