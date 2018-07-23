@@ -389,7 +389,7 @@ Lemma wp_sound_fix : forall f x t,
   wp_sound (trm_fix f x t).
 Proof using.
   intros. intros E. applys qimpl_wp_triple. simpl.
-  intros Q. remove_local. applys~ rule_fix.
+  intros Q. remove_local. lets: rule_fix. applys~ rule_fix.
 Qed.
 
   (* TODO: inline *)

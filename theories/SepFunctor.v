@@ -268,6 +268,8 @@ Implicit Types P : Prop.
 
 Notation "'\exists' x1 , H" := (hexists (fun x1 => H))
   (at level 39, x1 ident, H at level 50) : heap_scope.
+Notation "'\exists' x1 x2 , H" := (\exists x1, \exists x2, H)
+  (at level 39, x1 ident, x2 ident, H at level 50) : heap_scope.
 Notation "'\exists' x1 x2 x3 , H" := (\exists x1, \exists x2, \exists x3, H)
   (at level 39, x1 ident, x2 ident, x3 ident, H at level 50) : heap_scope.
 Notation "'\exists' x1 x2 x3 x4 , H" :=
@@ -278,7 +280,7 @@ Notation "'\exists' x1 x2 x3 x4 x5 , H" :=
   (at level 39, x1 ident, x2 ident, x3 ident, x4 ident, x5 ident, H at level 50) : heap_scope.
 
 (* TODO: get this definition to work:
-Notation "'\exists' x1 .. xn , H" := 
+Notation "'\exists' x1 .. xn , H" :=
   (hexists (fun x1 => .. (hexists (fun xn => H)) ..))
   (at level 39, x1, xn ident, H at level 50) : heap_scope.
 *)

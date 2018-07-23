@@ -20,7 +20,7 @@ Open Scope fmap_scope.
 
 Ltac auto_star ::= jauto.
 
-Implicit Types f : var.
+Implicit Types f : bind.
 Implicit Types v w : val.
 Implicit Types t : trm.
 Implicit Types n : int.
@@ -430,8 +430,8 @@ Proof using.
 Qed.
 (* Details:
   introv M (h1&h2&N1&N2&N3&N4).
-  destruct (hpure_inv' N1). subst.  
-  rewrite heap_union_empty_l. 
+  destruct (hpure_inv' N1). subst.
+  rewrite heap_union_empty_l.
   applys* M.
 *)
 
@@ -513,7 +513,7 @@ Proof using.
   exists h' v. splits~. { subst. applys* red_app_funs_val. }
 Qed.
 
-Lemma hoare_apps_fixs : forall xs f F (Vs:vals) t1 H Q,
+Lemma hoare_apps_fixs : forall xs (f:var) F (Vs:vals) t1 H Q,
   F = (val_fixs f xs t1) ->
   var_fixs f (length Vs) xs ->
   hoare (substn (f::xs) (F::Vs) t1) H Q ->
@@ -634,7 +634,7 @@ Lemma is_local_triple : forall t,
 Proof using.
   intros. applys pred_ext_2. intros H Q. iff M.
   { intros h Hh. hhsimpl. split*. hsimpl. }
-  { intros H'. applys hoare_named_heap. 
+  { intros H'. applys hoare_named_heap.
     intros h (h1&h2&N1&N2&N3&N4).
     lets (H1&H2&Q1&M0): (rm M) (rm N1).
     rewrite <-hstar_assoc, hstar_comm, hstar_pure in M0.
@@ -789,7 +789,7 @@ Lemma rule_if : forall Q1 t0 t1 t2 H Q,
   triple (trm_if t0 t1 t2) H Q.
 Proof using.
   introv M1 M2 M3. intros HF.
-  applys hoare_if. 
+  applys hoare_if.
   { applys* M1. }
   { intros b. applys hoare_conseq. applys* M2. hsimpl. hsimpl. }
   { intros v Hv. hchanges~ M3. hsimpl. }
@@ -816,7 +816,7 @@ Proof using.
   exists h' v. splits~. { subst. applys* red_app_funs_val. }
 Qed.
 
-Lemma rule_apps_fixs : forall xs f F (Vs:vals) t1 H Q,
+Lemma rule_apps_fixs : forall xs (f:var) F (Vs:vals) t1 H Q,
   F = (val_fixs f xs t1) ->
   var_fixs f (length Vs) xs ->
   triple (substn (f::xs) (F::Vs) t1) H Q ->
@@ -904,6 +904,23 @@ Proof using.
   applys* rule_seq.
 Qed.
 
+(** Derived rule integrating the case analysis on whether iterations
+    are performed on not. *)
+
+Lemma rule_for : forall (x:var) (n1 n2:int) t3 H Q,
+  (If (n1 <= n2) then
+    (exists Q1,
+      triple (subst1 x n1 t3) H Q1 /\
+      (forall v, triple (trm_for x (n1+1) n2 t3) (Q1 v) Q))
+  else
+    (H ==> Q val_unit)) ->
+  triple (trm_for x n1 n2 t3) H Q.
+Proof using.
+  introv M. case_if.
+  { destruct M. applys* rule_for_le. }
+  { xapplys* rule_for_gt. { math. } hchanges* M. }
+Qed.
+
 (** Derived rule using an invariant for reasoning about a for-loop *)
 
 Section RuleForInv.
@@ -949,7 +966,7 @@ Lemma rule_get : forall v l,
     (l ~~~> v)
     (fun x => \[x = v] \* (l ~~~> v)).
 Proof using.
-  intros. applys triple_of_hoare. intros HF. 
+  intros. applys triple_of_hoare. intros HF.
   esplit; split. { applys hoare_get. } { hsimpl*. }
 Qed.
 
@@ -958,7 +975,7 @@ Lemma rule_set : forall w l v,
     (l ~~~> v)
     (fun r => \[r = val_unit] \* l ~~~> w).
 Proof using.
-  intros. applys triple_of_hoare. intros HF. 
+  intros. applys triple_of_hoare. intros HF.
   esplit; split. { applys hoare_set. } { hsimpl*. }
 Qed.
 
@@ -974,7 +991,7 @@ Lemma rule_alloc : forall n,
     \[]
     (fun r => \exists l, \[r = val_loc l /\ l <> null] \* Alloc (abs n) l).
 Proof using.
-  intros. applys triple_of_hoare. intros HF. 
+  intros. applys triple_of_hoare. intros HF.
   esplit; split. { applys~ hoare_alloc. } { hsimpl*. }
 Qed.
 
@@ -1014,7 +1031,7 @@ Lemma rule_ptr_add : forall l n,
     \[]
     (fun r => \[r = val_loc (abs (l + n))]).
 Proof using.
-  intros. applys* rule_binop. applys* redbinop_ptr_add. 
+  intros. applys* rule_binop. applys* redbinop_ptr_add.
   { rewrite~ abs_nonneg. }
 Qed.
 
@@ -1070,7 +1087,4 @@ Proof using.
 Qed.
 
 End TripleLowLevel.
-
-
-
 
