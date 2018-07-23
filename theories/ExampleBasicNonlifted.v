@@ -50,7 +50,7 @@ Proof using.
     { applys rule_add. }
     { hsimpl. } }
   simpl. intros y. apply rule_extract_hprop. intros E. subst.
-  applys rule_consequence.
+  applys rule_conseq.
   { hsimpl. }
   { applys rule_set. }
   { intros r. applys himpl_hpure_l. intros E. subst. auto. }

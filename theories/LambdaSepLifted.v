@@ -456,7 +456,7 @@ Lemma Triple_enc_change :
   PostChange Q1 Q2 ->
   Triple t H Q2.
 Proof using.
-  introv M N. unfolds Triple. applys~ rule_consequence (rm M).
+  introv M N. unfolds Triple. applys~ rule_conseq (rm M).
   unfold Post. intros v. hpull ;=> V EV. subst. applys N.
 Qed.
 
@@ -503,7 +503,7 @@ Lemma Rule_consequence : forall t H' `{Enc A} (Q':A->hprop) H (Q:A->hprop),
   Triple t H' Q' ->
   Q' ===> Q ->
   Triple t H Q.
-Proof using. introv MH M MQ. applys* rule_consequence MH. Qed.
+Proof using. introv MH M MQ. applys* rule_conseq MH. Qed.
 
 Lemma Rule_frame : forall t `{Enc A} H (Q:A->hprop) H',
   Triple t H Q ->

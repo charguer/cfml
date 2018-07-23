@@ -103,7 +103,7 @@ Proof using.
   applys* M.
 Qed.
 
-Lemma rule_consequence : forall t H' Q' H Q,
+Lemma rule_conseq : forall t H' Q' H Q,
   H ==> H' ->
   triple t H' Q' ->
   Q' ===> Q ->
@@ -576,7 +576,7 @@ Proof using.
   introv M. applys rule_htop_post. applys~ rule_val.
 Qed.
 
-(** Combination of [rule_frame] and [rule_consequence] *)
+(** Combination of [rule_frame] and [rule_conseq] *)
 
 Lemma rule_frame_consequence : forall H2 H1 Q1 t H Q,
   H ==> H1 \* H2 ->
@@ -584,7 +584,7 @@ Lemma rule_frame_consequence : forall H2 H1 Q1 t H Q,
   Q1 \*+ H2 ===> Q ->
   triple t H Q.
 Proof using.
-  introv WH M WQ. applys rule_consequence WH WQ. applys rule_frame M.
+  introv WH M WQ. applys rule_conseq WH WQ. applys rule_frame M.
 Qed.
 
 (** Combination of [rule_let] and [rule_val] *)

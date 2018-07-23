@@ -49,8 +49,8 @@ Lemma rule_xchange : forall (H1 H1':hprop), H1 ==> H1' ->
   triple t (H1' \* H2) Q ->
   triple t H Q.
 Proof using.
-  introv M1 M2 M. applys~ rule_consequence M2.
-  applys* rule_consequence (H1' \* H2). hsimpl~.
+  introv M1 M2 M. applys~ rule_conseq M2.
+  applys* rule_conseq (H1' \* H2). hsimpl~.
 Qed.
 
 Lemma rule_frame_read_only_conseq : forall t H1 Q1 H2 H Q,
@@ -60,7 +60,7 @@ Lemma rule_frame_read_only_conseq : forall t H1 Q1 H2 H Q,
   (Q1 \*+ H1) ===> Q ->
   triple t H Q.
 Proof using.
-  introv WP M N WQ. applys* rule_consequence (rm WP) (rm WQ).
+  introv WP M N WQ. applys* rule_conseq (rm WP) (rm WQ).
   forwards~ R: rule_frame_read_only t H2 Q1 H1.
   { rewrite~ hstar_comm. } { rewrite~ hstar_comm. }
 Qed.
@@ -81,7 +81,7 @@ Lemma rule_let' : forall z t1 t2 H2 H1 H Q Q1,
   triple t1 H1 Q1 ->
   (forall (X:val), triple (subst1 z X t2) (Q1 X \* H2) Q) ->
   triple (trm_let z t1 t2) H Q.
-Proof using. introv WP M1 M2. applys* rule_consequence WP. applys* rule_let. Qed.
+Proof using. introv WP M1 M2. applys* rule_conseq WP. applys* rule_let. Qed.
 
 Lemma rule_frame : forall t H1 Q1 H2,
   triple t H1 Q1 ->
@@ -89,7 +89,7 @@ Lemma rule_frame : forall t H1 Q1 H2,
   triple t (H1 \* H2) (Q1 \*+ H2).
 Proof using.
   introv M N. applys~ rule_frame_read_only.
-  applys~ rule_consequence (H1 \* \Top). hsimpl.
+  applys~ rule_conseq (H1 \* \Top). hsimpl.
   applys* rule_htop_pre.
 Qed.
 
@@ -99,7 +99,7 @@ Lemma rule_frame_conseq : forall t H1 Q1 H2 H Q,
   triple t H2 Q1 ->
   Q1 \*+ H1 ===> Q ->
   triple t H Q.
-Proof using. intros. applys* rule_consequence. applys* rule_frame. Qed.
+Proof using. intros. applys* rule_conseq. applys* rule_frame. Qed.
 
 Hint Resolve Normal_hsingle.
 
@@ -136,7 +136,7 @@ Proof using.
   rew_heap. applys rule_let (RO (p ~~~> v)).
   { applys rule_get_ro. }
   { intros x; simpl. xpull ;=> E. subst x.
-    applys rule_consequence M; hsimpl. }
+    applys rule_conseq M; hsimpl. }
 Qed.
 
 (* Note: this specification allows [f] to call [val_get] on [r],
@@ -187,7 +187,7 @@ Proof using.
   { intros x; simpl. xpull ;=> E. subst x.
     applys rule_let' \[]. { hsimpl. }
     applys~ rule_frame_read_only_conseq (p ~~~> v).
-    { applys rule_consequence M; hsimpl. }
+    { applys rule_conseq M; hsimpl. }
     { hsimpl. }
     { clear M. intros y; simpl. xpull.
       applys~ rule_frame_conseq (Q y).
@@ -210,7 +210,7 @@ Lemma rule_htop_pre' : forall H2 H1 t H Q,
   triple t H1 Q ->
   triple t H Q.
 Proof using.
-  introv W M. applys rule_consequence; [| applys rule_htop_pre M |].
+  introv W M. applys rule_conseq; [| applys rule_htop_pre M |].
   { hchange W. hsimpl. } { auto. }
 Qed.
 

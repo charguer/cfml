@@ -4967,3 +4967,99 @@ Proof using.
   intros. applys* hoare_consequence.
 Qed.
 *)
+
+
+
+
+(** Tactic to apply hoare rules modulo consequence *)
+
+Ltac hoare_apply_core M :=
+  applys hoare_consequence M; try solve [ hsimpl.
+
+Tactic Notation "hoare_apply" constr(M) :=
+  hoare_apply_core M.
+Tactic Notation "hoare_apply" "~" constr(M) :=
+  hoare_apply_core M; auto_tilde.
+Tactic Notation "hoare_apply" "*" constr(M) :=
+  hoare_apply_core M; auto_star.
+
+
+
+(** Derived rule integrating the case analysis on whether iterations
+    are performed on not *)
+
+Lemma rule_for : forall (x:var) (n1 n2:int) t3 H Q,
+  (If (n1 <= n2) then
+    (exists Q1,
+      triple (subst1 x n1 t3) H Q1 /\
+      (forall v, triple (trm_for x (n1+1) n2 t3) (Q1 v) Q))
+  else
+    (H ==> Q val_unit)) ->
+  triple (trm_for x n1 n2 t3) H Q.
+Proof using.
+  introv M. case_if.
+  { destruct M. applys* rule_for_le. }
+  { xapplys* rule_for_gt. { math. } hchanges* M. }
+Qed.
+
+
+
+
+
+
+
+(** Rules for for-loop not in normal form *)
+
+Lemma rule_for_trm : forall (x:var) (t1 t2 t3:trm) H (Q:val->hprop) (Q1:val->hprop),
+  triple t1 H Q1 ->
+  (forall v1, exists Q2,
+      triple t2 (Q1 v1) Q2
+   /\ (forall v2, triple (trm_for x v1 v2 t3) (Q2 v2) Q)) ->
+  triple (trm_for x t1 t2 t3) H Q.
+Proof using.
+  introv M1 M2. intros HF h Hf. forwards (h1'&v1&R1&K1): (rm M1) Hf.
+  lets (Q2&M2'&M3): ((rm M2) v1).
+  forwards* (h2'&v2&R2&K2): (rm M2') h1'.
+  rewrite <- (hstar_assoc \Top \Top) in K2. rewrite htop_hstar_htop in K2.
+  forwards* (h'&v'&R'&K'): ((rm M3) v2) h2'.
+  exists h' v'. splits~.
+  { applys* red_for_arg. }
+  { rewrite <- htop_hstar_htop. rew_heap~. }
+Qed.
+
+Definition is_val_int (v:val) :=
+  exists n, v = val_int n.
+
+(* full rule, too complex *)
+Lemma rule_for_trm_int : forall (x:var) (t1 t2 t3:trm) H (Q:val->hprop) (Q1:val->hprop),
+  triple t1 H Q1 ->
+  (forall v, ~ is_val_int v -> (Q1 v) ==> \[False]) ->
+  (forall (n1:int), exists Q2,
+      triple t2 (Q1 (val_int n1)) Q2
+   /\ (forall v, ~ is_val_int v -> (Q2 v) ==> \[False])
+   /\ (forall (n2:int), triple (trm_for x n1 n2 t3) (Q2 (val_int n2)) Q)) ->
+  triple (trm_for x t1 t2 t3) H Q.
+Proof using. (* might be simplified using rule_for_trm *)
+  introv M1 nQ1 M2. intros HF h Hf. forwards (h1'&v1&R1&K1): (rm M1) Hf.
+  tests C1: (is_val_int v1).
+  { destruct C1 as (n1&E). subst. lets (Q2&M2'&nQ2&M3): ((rm M2) n1).
+    forwards* (h2'&v2&R2&K2): (rm M2') h1'.
+    rewrite <- (hstar_assoc \Top \Top) in K2. rewrite htop_hstar_htop in K2.
+    tests C2: (is_val_int v2).
+    { destruct C2 as (n2&E). subst.
+      forwards* (h'&v'&R'&K'): ((rm M3) n2) h2'.
+      exists h' v'. splits~.
+      { applys* red_for_arg. }
+      { rewrite <- htop_hstar_htop. rew_heap~. } }
+    { specializes nQ2 C2.
+      asserts Z: ((\[False] \* \Top \* HF) h2').
+      { applys himpl_trans K2. hchange nQ2. hsimpl. hsimpl. }
+      repeat rewrite hfalse_hstar_any in Z.
+      lets: hpure_inv Z. false*. } } (* LATER: shorten *)
+  { specializes nQ1 C1.
+    asserts Z: ((\[False] \* \Top \* HF) h1').
+    { applys himpl_trans K1. hchange nQ1. hsimpl. hsimpl. }
+    repeat rewrite hfalse_hstar_any in Z.
+    lets: hpure_inv Z. false*. } (* LATER: shorten *)
+Qed.
+

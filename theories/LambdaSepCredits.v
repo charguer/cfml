@@ -579,7 +579,7 @@ Proof using.
   applys rule_extract_hexists.
 Qed.
 
-Lemma rule_consequence : forall t H' Q' H Q,
+Lemma rule_conseq : forall t H' Q' H Q,
   H ==> H' ->
   triple t H' Q' ->
   Q' ===> Q ->

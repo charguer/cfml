@@ -337,7 +337,7 @@ Lemma rule_ramified_frame_read_only_absorb : forall t H Q H' Q',
   H ==> (<absorb> ROFrame H' (normally (Q' \--* Q)))%I ->
   triple t H Q.
 Proof using.
-  intros t H Q H' Q' Ht HH. eapply rule_consequence; first last; [done| |].
+  intros t H Q H' Q' Ht HH. eapply rule_conseq; first last; [done| |].
   eapply rule_htop_pre, rule_ramified_frame_read_only;
     [eassumption|iIntros "?"; iAssumption].
   iIntros "H". by iDestruct (HH with "H") as ">$".

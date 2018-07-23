@@ -400,7 +400,7 @@ Definition hoare (t:trm) (H:hprop) (Q:val->hprop) :=
 (* ---------------------------------------------------------------------- *)
 (* ** Hoare structural rules *)
 
-Lemma hoare_consequence : forall t H' Q' H Q,
+Lemma hoare_conseq : forall t H' Q' H Q,
   hoare t H' Q' ->
   H ==> H' ->
   Q' ===> Q ->
@@ -414,12 +414,12 @@ Qed.
 Lemma hoare_extract_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, hoare t (J x) Q) ->
   hoare t (hexists J) Q.
-Proof using. introv M (x&HF). applys* M. Qed.
+Proof using. introv M (x&Hh). applys* M. Qed.
 
 Lemma hoare_extract_hforall : forall t (A:Type) (J:A->hprop) Q,
   (exists x, hoare t (J x) Q) ->
   hoare t (hforall J) Q.
-Proof using. introv (x&M) HF. applys* M. Qed.
+Proof using. introv (x&M) Hh. applys* M. Qed.
 
 Lemma hoare_extract_hprop : forall t (P:Prop) H Q,
   (P -> hoare t H Q) ->
@@ -442,7 +442,7 @@ Lemma hoare_extract_hwand_hpure_l : forall t (P:Prop) H Q,
 Proof using.
   introv HP M. applys~ rule_extract_hwand_hpure_l_from_extract_hexists_and_consequence.
   { applys* hoare_extract_hexists. }
-  { intros. applys* hoare_consequence. }
+  { introv N W. applys* hoare_conseq. }
 Qed.
 (* Details:
   introv HP M. intros h (H1&(h1&h2&N1&N2&N3&N4)).
@@ -464,7 +464,7 @@ Lemma hoare_val : forall v H Q,
   H ==> Q v ->
   hoare (trm_val v) H Q.
 Proof using.
-  introv M. intros h HF. exists h v. splits.
+  introv M. intros h Hh. exists h v. splits.
   { applys red_val. }
   { hhsimpl~. }
 Qed.
@@ -473,7 +473,7 @@ Lemma hoare_fix : forall (f z:bind) t1 H Q,
   H ==> Q (val_fix f z t1) ->
   hoare (trm_fix f z t1) H Q.
 Proof using.
-  introv M. intros h HF. exists___. splits.
+  introv M. intros h Hh. exists___. splits.
   { applys~ red_fix. }
   { hhsimpl~. }
 Qed.
@@ -483,18 +483,51 @@ Lemma hoare_let : forall z t1 t2 H Q Q1,
   (forall (X:val), hoare (subst1 z X t2) (Q1 X) Q) ->
   hoare (trm_let z t1 t2) H Q.
 Proof using.
-  introv M1 M2 HF.
+  introv M1 M2 Hh.
   forwards* (h1'&v1&R1&K1): (rm M1).
   forwards* (h2'&v2&R2&K2): (rm M2).
-  exists h2' v2. splits~.
-  { applys~ red_let R2. }
+  exists h2' v2. splits~. { applys~ red_let R2. }
+Qed.
+
+Lemma hoare_if : forall Q1 t0 t1 t2 H Q,
+  hoare t0 H Q1 ->
+  (forall (b:bool), hoare (if b then t1 else t2) (Q1 b) Q) ->
+  (forall v, ~ is_val_bool v -> (Q1 v) ==> \[False]) ->
+  hoare (trm_if t0 t1 t2) H Q.
+Proof using.
+  introv M1 M2 M3. intros h Hh.
+  forwards* (h1'&v&R1&K1): (rm M1).
+  tests C: (is_val_bool v).
+  { destruct C as (b&E). subst. forwards* (h'&v'&R&K): (rm M2).
+    exists h' v'. splits~. { applys* red_if. } }
+  { false* M3. }
+Qed.
+
+Lemma hoare_apps_funs : forall xs F (Vs:vals) t1 H Q,
+  F = (val_funs xs t1) ->
+  var_funs (length Vs) xs ->
+  hoare (substn xs Vs t1) H Q ->
+  hoare (trm_apps F Vs) H Q.
+Proof using.
+  introv E N M. intros h Hh. forwards* (h'&v&R&K): (rm M).
+  exists h' v. splits~. { subst. applys* red_app_funs_val. }
+Qed.
+
+Lemma hoare_apps_fixs : forall xs f F (Vs:vals) t1 H Q,
+  F = (val_fixs f xs t1) ->
+  var_fixs f (length Vs) xs ->
+  hoare (substn (f::xs) (F::Vs) t1) H Q ->
+  hoare (trm_apps F Vs) H Q.
+Proof using.
+  introv E N M. intros h Hh. forwards* (h'&v&R&K): (rm M).
+  exists h' v. splits~. { subst. applys* red_app_fixs_val. }
 Qed.
 
 Lemma hoare_while_raw : forall t1 t2 H Q,
   hoare (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) H Q ->
   hoare (trm_while t1 t2) H Q.
 Proof using.
-  introv M HF. forwards* (h1'&v1&R1&K1): (rm M).
+  introv M Hh. forwards* (h1'&v1&R1&K1): (rm M).
   exists h1' v1. splits~. { applys* red_while. }
 Qed.
 
@@ -505,7 +538,7 @@ Lemma hoare_for_raw : forall (x:var) (n1 n2:int) t3 H (Q:val->hprop),
       else val_unit) H Q ->
   hoare (trm_for x n1 n2 t3) H Q.
 Proof using.
-  introv M HF. forwards* (h1'&v1&R1&K1): (rm M).
+  introv M Hh. forwards* (h1'&v1&R1&K1): (rm M).
   exists h1' v1. splits~. { applys* red_for. }
 Qed.
 
@@ -522,7 +555,7 @@ Lemma hoare_ref : forall H v,
     H
     (fun r => (\exists l, \[r = val_loc l] \* l ~~~> v) \* H).
 Proof using.
-  intros. intros h HF.
+  intros. intros h Hh.
   forwards~ (l&Dl&Nl): (fmap_single_fresh null h v).
   forwards~ Hh1': hsingle_fmap_single l v.
   sets h1': (fmap_single l v).
@@ -536,8 +569,8 @@ Lemma hoare_get : forall H v l,
     ((l ~~~> v) \* H)
     (fun x => \[x = v] \* (l ~~~> v) \* H).
 Proof using.
-  intros. intros h HF. exists h v. splits~.
-  { applys red_get. destruct HF as (h1&h2&(N1a&N1b)&N2&N3&N4).
+  intros. intros h Hh. exists h v. splits~.
+  { applys red_get. destruct Hh as (h1&h2&(N1a&N1b)&N2&N3&N4).
     subst h. applys~ fmap_union_single_l_read. }
   { hhsimpl~. }
 Qed.
@@ -547,7 +580,7 @@ Lemma hoare_set : forall H w l v,
     ((l ~~~> v) \* H)
     (fun r => \[r = val_unit] \* (l ~~~> w) \* H).
 Proof using.
-  intros. intros h HF. destruct HF as (h1&h2&(N1a&N1b)&N2&N3&N4).
+  intros. intros h Hh. destruct Hh as (h1&h2&(N1a&N1b)&N2&N3&N4).
   forwards~ Hh1': hsingle_fmap_single l w.
   sets h1': (fmap_single l w).
   exists (h1' \u h2) val_unit. splits~.
@@ -606,7 +639,7 @@ Proof using.
     lets (H1&H2&Q1&M0): (rm M) (rm N1).
     rewrite <-hstar_assoc, hstar_comm, hstar_pure in M0.
     destruct M0 as ((M1&M2)&M3).
-    applys hoare_consequence (M1 (H2 \* H')).
+    applys hoare_conseq (M1 (H2 \* H')).
     { subst. rewrite <- hstar_assoc. intros h ->. apply~ hstar_intro. }
     { intros x. hchanges (M2 x). } }
 Qed.
@@ -621,13 +654,13 @@ Ltac xlocal_base tt ::=
 (* ---------------------------------------------------------------------- *)
 (* ** SL rules structural *)
 
-Lemma rule_consequence : forall t H' Q' H Q,
-  H ==> H' ->
+Lemma rule_conseq : forall t H' Q' H Q,
   triple t H' Q' ->
+  H ==> H' ->
   Q' ===> Q ->
   triple t H Q.
 Proof using.
-  introv MH M MQ. intros HF. applys hoare_consequence M.
+  introv M MH MQ. intros HF. applys hoare_conseq M.
   { hchanges MH. }
   { intros x. hchanges (MQ x). }
 Qed.
@@ -646,7 +679,7 @@ Lemma rule_extract_hforall : forall t A (J:A->hprop) Q,
 Proof using.
   introv (x&M). intros HF.
   forwards* N: hoare_extract_hforall (fun x => J x \* HF).
-  applys* hoare_consequence. applys hstar_hforall.
+  applys* hoare_conseq. applys hstar_hforall.
 Qed.
 
 Lemma rule_extract_hprop : forall t (P:Prop) H Q,
@@ -664,7 +697,7 @@ Lemma rule_extract_hwand_hpure_l : forall t (P:Prop) H Q,
 Proof using.
   introv HP M. intros HF.
   forwards* N: hoare_extract_hwand_hpure_l P.
-  applys* hoare_consequence. applys hstar_hwand.
+  applys* hoare_conseq. applys hstar_hwand.
 Qed.
 
 Lemma rule_frame : forall t H Q H',
@@ -672,7 +705,7 @@ Lemma rule_frame : forall t H Q H',
   triple t (H \* H') (Q \*+ H').
 Proof using.
   introv M. intros HF.
-  applys hoare_consequence (M (HF \* H')); hsimpl.
+  applys hoare_conseq (M (HF \* H')); hsimpl.
 Qed.
 
 Lemma rule_htop_post : forall t H Q,
@@ -680,7 +713,7 @@ Lemma rule_htop_post : forall t H Q,
   triple t H Q.
 Proof using.
   introv M. unfolds triple. intros HF.
-  applys hoare_consequence (M HF); hsimpl.
+  applys hoare_conseq (M HF); hsimpl.
 Qed.
 
 Lemma rule_htop_pre : forall t H Q,
@@ -688,6 +721,16 @@ Lemma rule_htop_pre : forall t H Q,
   triple t (H \* \Top) Q.
 Proof using.
   introv M. applys rule_htop_post. applys~ rule_frame.
+Qed.
+
+Lemma rule_combined : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q \*+ \Top ->
+  triple t H Q.
+Proof using.
+  introv M WH WQ. applys rule_htop_post. applys rule_conseq.
+  { applys* rule_frame. } { eauto. } { eauto. }
 Qed.
 
 
@@ -715,26 +758,19 @@ Lemma rule_let : forall z t1 t2 H Q Q1,
 Proof using.
   introv M1 M2. intros HF. applys hoare_let.
   { applys M1. }
-  { intros X. simpl. applys hoare_consequence.
+  { intros X. simpl. applys hoare_conseq.
     { applys M2. }
     { hsimpl. }
     { intros v. hsimpl. } }
 Qed.
 
-
 Lemma rule_seq : forall t1 t2 H Q Q1,
   triple t1 H Q1 ->
   (forall (X:val), triple t2 (Q1 X) Q) ->
   triple (trm_seq t1 t2) H Q.
-Proof using. 00
-  introv M1 M2. intros HF h N.
-  lets~ (h1'&v1&R1&K1): (rm M1) HF h.
-  subst. forwards* (h2'&v2&R2&K2): (rm M2) (\Top \* HF) h1'.
-  exists h2' v2. splits~.
-  { applys~ red_seq R1 R2. }
-  { rewrite <- htop_hstar_htop. hhsimpl. }
+Proof using.
+  introv M1 M2. applys* rule_let. intros. rewrite* subst1_anon.
 Qed.
-
 
 Lemma rule_if : forall Q1 t0 t1 t2 H Q,
   triple t0 H Q1 ->
@@ -742,18 +778,11 @@ Lemma rule_if : forall Q1 t0 t1 t2 H Q,
   (forall v, ~ is_val_bool v -> (Q1 v) ==> \[False]) ->
   triple (trm_if t0 t1 t2) H Q.
 Proof using.
-  introv M1 M2 M3. intros HF h N.
-  forwards* (h1'&v&R1&K1): (rm M1) HF h.
-  tests C: (is_val_bool v).
-  { destruct C as (b&E). subst. forwards* (h'&v'&R&K): (rm M2) h1'.
-    exists h' v'. splits~.
-    { applys* red_if. }
-    { rewrite <- htop_hstar_htop. rew_heap~. } }
-  { specializes M3 C.
-    asserts Z: ((\[False] \* \Top \* HF) h1').
-    { applys himpl_trans K1. hchange M3. hsimpl. hsimpl. }
-    repeat rewrite hfalse_hstar_any in Z.
-    lets: hpure_inv Z. false*. } (* LATER: shorten this *)
+  introv M1 M2 M3. intros HF.
+  applys hoare_if. 
+  { applys* M1. }
+  { intros b. applys hoare_conseq. applys* M2. hsimpl. hsimpl. }
+  { intros v Hv. hchanges~ M3. hsimpl. }
 Qed.
 
 Lemma rule_if_bool : forall (b:bool) t1 t2 H Q,
@@ -766,7 +795,6 @@ Proof using.
   { intros b'. applys~ rule_extract_hprop. intros E. inverts E. case_if*. }
   { intros v' N. hpull. intros E. inverts~ E. false N. hnfs*. }
 Qed.
-
 
 Lemma rule_apps_funs : forall xs F (Vs:vals) t1 H Q,
   F = (val_funs xs t1) ->
@@ -792,13 +820,17 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** SL Rules for loops *)
 
+(** Rule for unfolding the body of a while loop once *)
+
 Lemma rule_while_raw : forall t1 t2 H Q,
   triple (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) H Q ->
   triple (trm_while t1 t2) H Q.
 Proof using.
-  introv M. intros H' h Hf. forwards (h'&v&R&K): (rm M) Hf.
-  exists h' v. splits~. { applys* red_while. }
+  introv M. intros h Hf. apply hoare_while_raw. applys* M.
 Qed.
+
+(** Derived rule helping the set up of proof by inductions,
+    by abstracting [trm_while t1 t2] as a fresh variable [t]. *)
 
 Lemma rule_while : forall t1 t2 H Q,
   (forall t,
@@ -810,20 +842,24 @@ Proof using.
   introv M. applys M. introv K. applys rule_while_raw. applys K.
 Qed.
 
-Lemma rule_while_inv : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) t1 t2 H,
-  let Q := (fun r => \exists Y, I false Y) in
+(** Derived rule for reasoning about a while loop using a loop invariant *)
+
+Lemma rule_while_inv : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) H' t1 t2 H Q,
+  let Q' := (fun r => \exists Y, I false Y) in
   wf R ->
-  (H ==> (\exists b X, I b X) \* \Top) -> (* LATER: replace \top with H' *)
+  (H ==> (\exists b X, I b X) \* H') ->
   (forall t b X,
-      (forall b' X', R X' X -> triple t (I b' X') Q) ->
-      triple (trm_if t1 (trm_seq t2 t) val_unit) (I b X) Q) ->
-  triple (trm_while t1 t2) H Q. (* LATER: allow for weakening on Q *)
+      (forall b' X', R X' X -> triple t (I b' X') Q') ->
+      triple (trm_if t1 (trm_seq t2 t) val_unit) (I b X) Q') ->
+  Q' \*+ H' ===> Q \*+ \Top ->
+  triple (trm_while t1 t2) H Q.
 Proof using.
-  introv WR H0 HX. xchange (rm H0). xpull ;=> b0 X0.
-  rewrite hstar_comm. applys rule_htop_pre. gen b0.
-  induction_wf IH: WR X0. intros. applys rule_while_raw.
+  introv WR WH HX WQ. applys rule_combined WH WQ. xpull ;=> b0 X0.
+  gen b0. induction_wf IH: WR X0. intros. applys rule_while_raw.
   applys HX. intros b' X' HR'. applys~ IH.
 Qed.
+
+(** Rule for unfolding the body of a for-loop once *)
 
 Lemma rule_for_raw : forall (x:var) (n1 n2:int) t3 H (Q:val->hprop),
   triple (
@@ -832,51 +868,38 @@ Lemma rule_for_raw : forall (x:var) (n1 n2:int) t3 H (Q:val->hprop),
       else val_unit) H Q ->
   triple (trm_for x n1 n2 t3) H Q.
 Proof using.
-  introv M. intros H' h Hf. forwards (h'&v&R&K): (rm M) Hf.
-  exists h' v. splits~. { applys~ red_for. }
+  introv M. intros h Hf. apply hoare_for_raw. applys* M.
 Qed.
 
-(* LATER: simplify proof using rule_for_raw *)
+(** Derived rule for the case of a loop that performs no iteratation *)
+
 Lemma rule_for_gt : forall x n1 n2 t3 H Q,
   n1 > n2 ->
   H ==> Q val_unit \* \Top ->
   triple (trm_for x n1 n2 t3) H Q.
 Proof using.
-  introv N M. intros H' h Hf. exists h val_unit. splits~.
-  { applys* red_for_gt. }
-  { hhsimpl. hchanges~ M. }
+  introv N M. applys rule_for_raw. case_if; [math|].
+  applys rule_htop_post. applys* rule_val.
 Qed.
 
-(* LATER: simplify proof using rule_for_raw *)
+(** Derived rule for the case of a loop that performs some iteratations *)
+
 Lemma rule_for_le : forall Q1 (x:var) n1 n2 t3 H Q,
   n1 <= n2 ->
   triple (subst1 x n1 t3) H Q1 ->
   (forall v, triple (trm_for x (n1+1) n2 t3) (Q1 v) Q) ->
   triple (trm_for x n1 n2 t3) H Q.
 Proof using.
-  introv N M1 M2. intros HF h Hf. forwards (h1'&v1&R1&K1): (rm M1) Hf.
-  forwards* (h2'&v2&R2&K2): (rm M2) (\Top \* HF) h1'.
-  exists h2' v2. splits~.
-  { applys* red_for_le. }
-  { rewrite <- htop_hstar_htop. hhsimpl. }
+  introv N M1 M2. applys rule_for_raw. case_if; [|math].
+  applys* rule_seq.
 Qed.
 
-(* LATER: simplify proof using rule_for_raw *)
-Lemma rule_for : forall (x:var) (n1 n2:int) t3 H Q,
-  (If (n1 <= n2) then
-    (exists Q1,
-      triple (subst1 x n1 t3) H Q1 /\
-      (forall v, triple (trm_for x (n1+1) n2 t3) (Q1 v) Q))
-  else
-    (H ==> Q val_unit)) ->
-  triple (trm_for x n1 n2 t3) H Q.
-Proof using.
-  introv M. case_if.
-  { destruct M. applys* rule_for_le. }
-  { xapplys* rule_for_gt. { math. } hchanges* M. }
-Qed.
+(** Derived rule using an invariant for reasoning about a for-loop *)
 
-(* LATER: simplify proof using rule_for_raw *)
+Section RuleForInv.
+
+Ltac auto_star ::= auto with maths.
+
 Lemma rule_for_inv : forall (I:int->hprop) H' (x:var) n1 n2 t3 H Q,
   (n1 <= n2+1) ->
   (H ==> I n1 \* H') ->
@@ -887,73 +910,16 @@ Lemma rule_for_inv : forall (I:int->hprop) H' (x:var) n1 n2 t3 H Q,
 Proof using.
   introv N M1 M2 M3. xchange (rm M1). gen N M2.
   induction_wf IH: (wf_upto (n2+1)) n1; intros.
-  asserts M4: (triple (trm_for x (n2 + 1)%I n2 t3) (I (n2+1) \* H') Q).
-  { applys rule_for_gt. { math. }
-    { hchanges M3. } }
   tests C: (n1 = n2+1).
-  { xapplys M4. }
-  { applys rule_for_le.
-    { math. }
-    { xapplys M2. { math. } }
-    { simpl. xpull ;=> _. tests C': (n1 = n2).
-      { xapplys M4. }
-      { xapplys IH. { hnf; math. } { math. } { intros. applys M2. math. } } } }
+  { xapply* rule_for_gt. hchanges M3. }
+  { applys* rule_for_le.
+    { xapplys* M2. }
+    { xpull ;=> _. tests C': (n1 = n2).
+      { xapply* rule_for_gt. hchanges M3. }
+      { xapplys* IH. } } }
 Qed.
 
-(** Rules for for-loop not in normal form *)
-
-Lemma rule_for_trm : forall (x:var) (t1 t2 t3:trm) H (Q:val->hprop) (Q1:val->hprop),
-  triple t1 H Q1 ->
-  (forall v1, exists Q2,
-      triple t2 (Q1 v1) Q2
-   /\ (forall v2, triple (trm_for x v1 v2 t3) (Q2 v2) Q)) ->
-  triple (trm_for x t1 t2 t3) H Q.
-Proof using.
-  introv M1 M2. intros HF h Hf. forwards (h1'&v1&R1&K1): (rm M1) Hf.
-  lets (Q2&M2'&M3): ((rm M2) v1).
-  forwards* (h2'&v2&R2&K2): (rm M2') h1'.
-  rewrite <- (hstar_assoc \Top \Top) in K2. rewrite htop_hstar_htop in K2.
-  forwards* (h'&v'&R'&K'): ((rm M3) v2) h2'.
-  exists h' v'. splits~.
-  { applys* red_for_arg. }
-  { rewrite <- htop_hstar_htop. rew_heap~. }
-Qed.
-
-Definition is_val_int (v:val) :=
-  exists n, v = val_int n.
-
-(* full rule, too complex *)
-Lemma rule_for_trm_int : forall (x:var) (t1 t2 t3:trm) H (Q:val->hprop) (Q1:val->hprop),
-  triple t1 H Q1 ->
-  (forall v, ~ is_val_int v -> (Q1 v) ==> \[False]) ->
-  (forall (n1:int), exists Q2,
-      triple t2 (Q1 (val_int n1)) Q2
-   /\ (forall v, ~ is_val_int v -> (Q2 v) ==> \[False])
-   /\ (forall (n2:int), triple (trm_for x n1 n2 t3) (Q2 (val_int n2)) Q)) ->
-  triple (trm_for x t1 t2 t3) H Q.
-Proof using. (* might be simplified using rule_for_trm *)
-  introv M1 nQ1 M2. intros HF h Hf. forwards (h1'&v1&R1&K1): (rm M1) Hf.
-  tests C1: (is_val_int v1).
-  { destruct C1 as (n1&E). subst. lets (Q2&M2'&nQ2&M3): ((rm M2) n1).
-    forwards* (h2'&v2&R2&K2): (rm M2') h1'.
-    rewrite <- (hstar_assoc \Top \Top) in K2. rewrite htop_hstar_htop in K2.
-    tests C2: (is_val_int v2).
-    { destruct C2 as (n2&E). subst.
-      forwards* (h'&v'&R'&K'): ((rm M3) n2) h2'.
-      exists h' v'. splits~.
-      { applys* red_for_arg. }
-      { rewrite <- htop_hstar_htop. rew_heap~. } }
-    { specializes nQ2 C2.
-      asserts Z: ((\[False] \* \Top \* HF) h2').
-      { applys himpl_trans K2. hchange nQ2. hsimpl. hsimpl. }
-      repeat rewrite hfalse_hstar_any in Z.
-      lets: hpure_inv Z. false*. } } (* LATER: shorten *)
-  { specializes nQ1 C1.
-    asserts Z: ((\[False] \* \Top \* HF) h1').
-    { applys himpl_trans K1. hchange nQ1. hsimpl. hsimpl. }
-    repeat rewrite hfalse_hstar_any in Z.
-    lets: hpure_inv Z. false*. } (* LATER: shorten *)
-Qed.
+End RuleForInv.
 
 
 (* ---------------------------------------------------------------------- *)

@@ -256,7 +256,7 @@ exists n, n > 0 \* n < 0 \* r -> n ==> r -> n * r -> n
 (* ---------------------------------------------------------------------- *)
 (* ** Frame and consequence *)
 
-Lemma rule_consequence : forall t H' Q' H Q,
+Lemma rule_conseq : forall t H' Q' H Q,
   H ==> H' ->
   triple t H' Q' ->
   Q' ===> Q ->
