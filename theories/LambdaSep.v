@@ -604,7 +604,7 @@ Proof using. (* Note: [abs n] currently does not compute in Coq. *)
     { exists l. applys~ himpl_hpure_r. applys~ Alloc_fmap_conseq. } }
 Qed.
 
-Lemma hoare_redbinop : forall H op v1 v2 v,
+Lemma hoare_binop : forall v H op v1 v2,
   redbinop op v1 v2 v ->
   hoare (op v1 v2)
     H
@@ -649,6 +649,16 @@ Qed.
 Ltac xlocal_base tt ::=
   try first [ applys is_local_local
             | applys is_local_triple ].
+
+(** Lemma to introduce hoare instances for establishing triples,
+    integrating the consequence rule. *)
+
+Lemma triple_of_hoare : forall t H Q,
+  (forall H', exists Q', hoare t (H \* H') Q' /\ Q' ===> Q \*+ H' \*+ \Top) ->
+  triple t H Q.
+Proof using.
+  introv M. intros HF. lets (Q'&N&W): M HF. applys* hoare_conseq N.
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -712,7 +722,7 @@ Lemma rule_htop_post : forall t H Q,
   triple t H (Q \*+ \Top) ->
   triple t H Q.
 Proof using.
-  introv M. unfolds triple. intros HF.
+  introv M. intros HF.
   applys hoare_conseq (M HF); hsimpl.
 Qed.
 
@@ -930,14 +940,8 @@ Lemma rule_ref : forall v,
     \[]
     (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
 Proof using.
-  intros. intros HF h N.
-  forwards~ (l&Dl&Nl): (fmap_single_fresh null h v).
-  sets h1': (fmap_single l v).
-  exists (h1' \u h) (val_loc l). splits~.
-  { applys~ red_ref. }
-  { exists h1' h. split.
-    { exists l. applys~ himpl_hpure_r. unfold h1'. hnfs~. }
-    { splits~. hhsimpl~. } }
+  intros. applys triple_of_hoare. intros HF. rew_heap.
+  esplit; split. { applys hoare_ref. } { hsimpl*. }
 Qed.
 
 Lemma rule_get : forall v l,
@@ -945,10 +949,8 @@ Lemma rule_get : forall v l,
     (l ~~~> v)
     (fun x => \[x = v] \* (l ~~~> v)).
 Proof using.
-  intros. intros HF h N. exists h v. splits~.
-  { applys red_get. destruct N as (?&?&(?&?)&?&?&?).
-    subst h. applys~ fmap_union_single_l_read. }
-  { rew_heap. rewrite hstar_pure. split~. hhsimpl~. }
+  intros. applys triple_of_hoare. intros HF. 
+  esplit; split. { applys hoare_get. } { hsimpl*. }
 Qed.
 
 Lemma rule_set : forall w l v,
@@ -956,14 +958,8 @@ Lemma rule_set : forall w l v,
     (l ~~~> v)
     (fun r => \[r = val_unit] \* l ~~~> w).
 Proof using.
-  intros. intros HF h N. destruct N as (h1&h2&(N0&N1)&N2&N3&N4).
-  hnf in N1. sets h1': (fmap_single l w).
-  exists (h1' \u h2) val_unit. splits~.
-  { applys red_set. subst h h1. applys~ fmap_union_single_to_update. }
-  { rew_heap. rewrite hstar_pure. split~. exists h1' h2. splits~.
-    { hnfs~. }
-    { hhsimpl~. }
-    { subst h1. applys~ fmap_disjoint_single_set v. } }
+  intros. applys triple_of_hoare. intros HF. 
+  esplit; split. { applys hoare_set. } { hsimpl*. }
 Qed.
 
 Lemma rule_set' : forall w l v,
@@ -977,51 +973,40 @@ Lemma rule_alloc : forall n,
   triple (val_alloc n)
     \[]
     (fun r => \exists l, \[r = val_loc l /\ l <> null] \* Alloc (abs n) l).
-Proof using. (* Note: [abs n] currently does not compute in Coq. *)
-  introv N Hh.
-  forwards~ (l&Dl&Nl): (fmap_conseq_fresh null h (abs n) val_unit).
-  sets h1': (fmap_conseq l (abs n) val_unit).
-  exists (h1' \u h) (val_loc l). splits~.
-  { applys (red_alloc (abs n)); eauto.
-    rewrite~ abs_nonneg. }
-  { exists h1' h. split.
-    { exists l. applys~ himpl_hpure_r. applys~ Alloc_fmap_conseq. }
-    { splits~. hhsimpl~. } }
+Proof using.
+  intros. applys triple_of_hoare. intros HF. 
+  esplit; split. { applys~ hoare_alloc. } { hsimpl*. }
 Qed.
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** SL rules for other primitive functions *)
 
+Lemma rule_binop : forall v op v1 v2,
+  redbinop op v1 v2 v ->
+  triple (op v1 v2) \[] (fun r => \[r = v]).
+Proof using.
+  introv R. applys triple_of_hoare. intros HF.
+  esplit; split. { applys* hoare_binop. } { hsimpl*. }
+Qed.
+
 Lemma rule_eq : forall v1 v2,
   triple (val_eq v1 v2)
     \[]
     (fun r => \[r = isTrue (v1 = v2)]).
-Proof using.
-  introv Hh. exists___. splits.
-  { applys* red_eq. }
-  { hhsimpl~. }
-Qed.
+Proof using. intros. applys* rule_binop. applys redbinop_eq. Qed.
 
 Lemma rule_add : forall n1 n2,
   triple (val_add n1 n2)
     \[]
     (fun r => \[r = val_int (n1 + n2)]).
-Proof using.
-  introv Hh. exists___. splits.
-  { applys* red_add. }
-  { hhsimpl*. }
-Qed.
+Proof using. intros. applys* rule_binop. applys* redbinop_add. Qed.
 
 Lemma rule_sub : forall n1 n2,
   triple (val_sub n1 n2)
     \[]
     (fun r => \[r = val_int (n1 - n2)]).
-Proof using.
-  introv Hh. exists___. splits.
-  { applys* red_sub. }
-  { hhsimpl*. }
-Qed.
+Proof using. intros. applys* rule_binop. applys* redbinop_sub. Qed.
 
 Lemma rule_ptr_add : forall l n,
   l + n >= 0 ->
@@ -1029,10 +1014,11 @@ Lemma rule_ptr_add : forall l n,
     \[]
     (fun r => \[r = val_loc (abs (l + n))]).
 Proof using.
-  introv N Hh. exists___. splits.
-  { applys* red_ptr_add (abs (l + n)). rewrite~ abs_nonneg. }
-  { hhsimpl*. }
+  intros. applys* rule_binop. applys* redbinop_ptr_add. 
+  { rewrite~ abs_nonneg. }
 Qed.
+
+(** Derived rule for pointer addition for [nat] addition *)
 
 Lemma rule_ptr_add_nat : forall l (f:nat),
   triple (val_ptr_add l f)
@@ -1044,19 +1030,6 @@ Proof using.
     applys eq_nat_of_eq_int. rewrite abs_nonneg; math. }
 Qed.
 
-(** Alternative direct proof for [rule_ptr_add_nat] *)
-
-Lemma rule_ptr_add_nat' : forall l (f:nat),
-  triple (val_ptr_add l f)
-    \[]
-    (fun r => \[r = val_loc (l+f)%nat]).
-Proof using.
-  introv Hh. exists___. splits.
-  { applys* red_ptr_add_nat. }
-  { hhsimpl*. }
-Qed.
-
-
 
 (* ********************************************************************** *)
 (* * Bonus *)
@@ -1064,40 +1037,39 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Alternative, low-level definition of triples *)
 
-Section TripleAlternative.
-
-Hint Extern 1 (\# _ _ _) => fmap_disjoint_pre.
-
 Definition triple' t H Q :=
   forall h1 h2,
   \# h1 h2 ->
   H h1 ->
   exists h1' h3' v,
        \# h1' h2 h3'
-    /\ red (h1 \u h2) t (h1' \u h3' \u h2) v
+    /\ red (h1 \u h2) t (h1' \u h2 \u h3') v
     /\ (Q v) h1'.
+
+
+Section TripleLowLevel.
+
+Hint Extern 1 (\# _ _ _) => fmap_disjoint_pre.
 
 Lemma triple_eq_triple' : triple = triple'.
 Proof using.
   hint htop_intro.
   applys pred_ext_3. intros t H Q.
-  unfold triple, triple'. iff M.
+  unfold triple, triple', hoare. iff M.
   { introv D P1.
-    forwards~ (h'&v&R1&R2): M (=h2) (h1 \u h2).
-    { exists~ h1 h2. }
-    rewrite <- hstar_assoc in R2.
-    destruct R2 as (h1''&h2'&N0&N1&N2&N3). subst h2'.
-    destruct N0 as (h1'&h3'&T0&T1&T2&T3).
-    exists h1' h3' v. splits~. { fmap_red. } }
+    forwards~ (h'&v&R1&R2): M (=h2) (h1 \u h2). { apply~ hstar_intro. }
+    destruct R2 as (h2'&h1''&N0&N1&N2&N3).
+    destruct N0 as (h1'&h3'&T0&T1&T2&T3). subst.
+    exists h1' h1'' v. splits~. { fmap_red. } }
   { introv (h1&h2&N1&N2&D&U).
     forwards~ (h1'&h3'&v&R1&R2&R3): M h1 h2.
     exists (h1' \u h3' \u h2) v. splits~.
     { fmap_red. }
-    { exists~ h1' (h3' \u h2). splits~.
-      exists h3' h2. splits~. } }
+    { subst. rewrite hstar_assoc. apply~ hstar_intro.
+      rewrite hstar_comm. applys~ hstar_intro. } }
 Qed.
 
-End TripleAlternative.
+End TripleLowLevel.
 
 
 

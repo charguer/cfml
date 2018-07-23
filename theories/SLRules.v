@@ -51,5 +51,15 @@ Require Import LambdaSemantics LambdaSep.
 
 
 
+(* Note: specialized version of consequence *)
+Lemma rule_htop_post_remove : forall t H Q,
+  triple t H Q ->
+  triple t H (Q \*+ \Top).
+Proof using.
+  introv M. intros HF.
+  applys hoare_conseq (M HF); hsimpl.
+Qed.
+
+
 
 
