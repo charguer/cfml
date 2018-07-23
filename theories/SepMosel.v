@@ -183,7 +183,7 @@ Definition hpersistently (H : hprop) : hprop :=
 Definition hpure_abs (φ : Prop) : hprop := \[φ] \* \Top.
 
 Program Canonical Structure hpropI : bi :=
-  Bi hprop _ _ (@pred_incl _) hempty hpure_abs hand hor
+  Bi hprop _ _ (@himpl _) hempty hpure_abs hand hor
      (@pred_impl _) hforall hexists hstar hwand hpersistently _ _.
 Next Obligation. apply discrete_ofe_mixin, _. Qed.
 Next Obligation.
@@ -223,14 +223,14 @@ Next Obligation.
   - intros A Ψ a ? H. apply H.
   - by eexists.
   - intros A Φ Q H ? []. by eapply H.
-  - intros ??????. eapply pred_incl_trans. by apply himpl_frame_r.
+  - intros ??????. eapply himpl_trans. by apply himpl_frame_r.
     rewrite (hstar_comm P Q') (hstar_comm Q Q'). by apply himpl_frame_r.
   - intros. by rewrite hstar_hempty_l.
   - intros. by rewrite hstar_hempty_l.
   - intros. by rewrite hstar_comm.
   - intros. by rewrite hstar_assoc.
   - intros P Q R H ??. exists P. rewrite hstar_comm hstar_pure. auto.
-  - intros P Q R H. eapply pred_incl_trans.
+  - intros P Q R H. eapply himpl_trans.
     { rewrite hstar_comm. by apply himpl_frame_r. }
     unfold hwand. rewrite hstar_comm hstar_hexists=>h [F HF].
     rewrite (hstar_comm F) hstar_assoc hstar_pure in HF. destruct HF as [HR HF].

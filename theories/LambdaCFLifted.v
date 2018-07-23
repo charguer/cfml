@@ -646,7 +646,7 @@ Ltac xvals_core tt ::=
 
 Ltac xval_as_basic X EX ::=
   match goal with
-  | |- Local ?F ?H ?Q => is_evar Q; applys local_erase; applys refl_rel_incl'
+  | |- Local ?F ?H ?Q => is_evar Q; applys local_erase; applys refl_qimpl
   | _ => applys xval_htop_as_lemma; intros X EX
   end.
 
@@ -739,7 +739,7 @@ Ltac xfail_core tt ::=
   Ltac xapply_core H cont1 cont2 :=
     forwards_nounfold_then H ltac:(fun K =>
       match xpostcondition_is_evar tt with
-      | true => eapply local_frame; [ xlocal | sapply K | cont1 tt | try apply refl_rel_incl' ]
+      | true => eapply local_frame; [ xlocal | sapply K | cont1 tt | try apply refl_qimpl ]
       | false => eapply local_frame_htop; [ xlocal | sapply K | cont1 tt | cont2 tt ]
       end).
 *)
@@ -778,7 +778,7 @@ Ltac fast_apply E :=
 Ltac xapply_core H cont1 cont2 ::=
   forwards_nounfold_then H ltac:(fun K =>
     match xpostcondition_is_evar tt with
-    | true => eapply local_frame; [ xlocal | fast_apply K | cont1 tt | try apply refl_rel_incl' ]
+    | true => eapply local_frame; [ xlocal | fast_apply K | cont1 tt | try apply refl_qimpl ]
     | false => eapply local_frame_htop; [ xlocal | fast_apply K | cont1 tt | cont2 tt ]
     end).
 

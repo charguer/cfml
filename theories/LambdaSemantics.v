@@ -216,6 +216,12 @@ Proof using.
 Qed.
 
 
+(* ---------------------------------------------------------------------- *)
+(** Proof of equivalence with simple capture-avoiding substitution *)
+
+(* LATER *)
+
+
 (* ********************************************************************** *)
 (* * Source language semantics *)
 
@@ -237,8 +243,28 @@ Section Red.
 
 Local Open Scope fmap_scope.
 
+
+(** Evaluation rules for binary operations *)
+
+Inductive redbinop : prim -> val -> val -> val -> Prop :=
+  | redbinop_add : forall n1 n2 n',
+      n' = n1 + n2 ->
+      redbinop val_add (val_int n1) (val_int n2) (val_int n')
+  | redbinop_sub : forall n1 n2 n',
+      n' = n1 - n2 ->
+      redbinop val_sub (val_int n1) (val_int n2) (val_int n')
+  | redbinop_ptr_add : forall l' l n,
+      (l':nat) = (l:nat) + n :> int ->
+      redbinop val_ptr_add (val_loc l) (val_int n) (val_loc l')
+  | redbinop_eq : forall v1 v2,
+      redbinop val_eq v1 v2 (val_bool (isTrue (v1 = v2))).
+
+
+(** Reduction rules for terms in A-normal form.
+
+    TODO: add rules for reducing arguments. *)
+
 Inductive red : state -> trm -> state -> val -> Prop :=
-  (* Core constructs *)
   | red_val : forall m v,
       red m v m v
   | red_fix : forall m f z t1,
@@ -260,20 +286,15 @@ Inductive red : state -> trm -> state -> val -> Prop :=
   | red_while : forall m1 m2 t1 t2 r,
       red m1 (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) m2 r ->
       red m1 (trm_while t1 t2) m2 r
-  | red_for_arg : forall m1 m2 m3 m4 v1 v2 x t1 t2 t3 r,
-      (* LATER: add [not_is_val t1 \/ not_is_val t2] *)
-      red m1 t1 m2 v1 ->
-      red m2 t2 m3 v2 ->
-      red m3 (trm_for x v1 v2 t3) m4 r ->
-      red m1 (trm_for x t1 t2 t3) m4 r
   | red_for : forall m1 m2 (x:var) n1 n2 t3 r,
       red m1 (
         If (n1 <= n2)
           then (trm_seq (subst1 x n1 t3) (trm_for x (n1+1) n2 t3))
           else val_unit) m2 r ->
       red m1 (trm_for x n1 n2 t3) m2 r
-
-  (* Primitive operations on the heap *)
+  | red_binop : forall op m v1 v2 v,
+      redbinop op v1 v2 v ->
+      red m (op v1 v2) m v
   | red_ref : forall ma mb v l,
       mb = (fmap_single l v) ->
       l <> null ->
@@ -290,26 +311,26 @@ Inductive red : state -> trm -> state -> val -> Prop :=
       n = nat_to_Z k ->
       l <> null ->
       \# ma mb ->
-      red ma (val_alloc (val_int n)) (mb \+ ma) (val_loc l)
-  (* Other primitive operations *)
-  | red_add : forall m n1 n2 n',
-      n' = n1 + n2 ->
-      red m (val_add (val_int n1) (val_int n2)) m (val_int n')
-  | red_sub : forall m n1 n2 n',
-      n' = n1 - n2 ->
-      red m (val_sub (val_int n1) (val_int n2)) m (val_int n')
-  | red_ptr_add : forall l' m l n,
-      (l':nat) = (l:nat) + n :> int ->
-      red m (val_ptr_add (val_loc l) (val_int n)) m (val_loc l')
-  | red_eq : forall m v1 v2,
-      red m (val_eq v1 v2) m (val_bool (isTrue (v1 = v2))).
+      red ma (val_alloc (val_int n)) (mb \+ ma) (val_loc l).
 
-  (* Remark: alternative for red_for rules.
+End Red.
+
+
+  (*  --- TODO
+
+  Remark: alternative for red_for rules.
     | red_for : forall m1 m2 m3 m4 v1 v2 x t1 t2 t3 r,
         red m1 (
           (trm_seq (trm_let x n1 t3) (trm_for x (n1+1) n2 t3))
           val_unit) m2 r ->
         red m1 (trm_for x n1 n2 t3) m2 r
+
+  | red_for_arg : forall m1 m2 m3 m4 v1 v2 x t1 t2 t3 r,
+      (not_is_val t1 \/ not_is_val t2) ->
+      red m1 t1 m2 v1 ->
+      red m2 t2 m3 v2 ->
+      red m3 (trm_for x v1 v2 t3) m4 r ->
+      red m1 (trm_for x t1 t2 t3) m4 r
 
   Definition trm_is_val (t:trm) : Prop :=
   match t with
@@ -319,7 +340,6 @@ Inductive red : state -> trm -> state -> val -> Prop :=
 
   *)
 
-End Red.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -345,7 +365,7 @@ Proof using. introv M1 M2. applys* red_let. rewrite* subst1_anon. Qed.
 
 Lemma red_ptr_add_nat : forall m l (f : nat),
   red m (val_ptr_add (val_loc l) (val_int f)) m (val_loc (l+f)%nat).
-Proof using. intros. applys* red_ptr_add. math. Qed.
+Proof using. intros. applys* red_binop. applys* redbinop_ptr_add. math. Qed.
 
 Lemma red_if_bool : forall m1 m2 b r t1 t2,
   red m1 (if b then t1 else t2) m2 r ->
@@ -516,6 +536,7 @@ Qed.
 (** Reduction rules for n-ary applications *)
 
 (* Internal lemma *)
+
 Lemma red_app_funs_val_ind : forall xs vs m1 m2 tf t r,
   red m1 tf m1 (val_funs xs t) ->
   red m1 (substn xs vs t) m2 r ->
@@ -574,9 +595,10 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Rewriting lemmas and tactics to "fold" n-ary functions,
-    i.e. to introduce [trm_apps] and [trm_funs] and [trm_fixs] from
-    the iterated application of the corresponding unary constructors. *)
+(** Rewriting lemmas and tactics to "fold" n-ary functions. *)
+
+(** The tactic [rew_nary] introduce [trm_apps] and [trm_fixs]
+    in place of nested applications of [trm_app] and [trm_fun]. *)
 
 Lemma trm_apps_fold_start : forall t1 t2,
   trm_app t1 t2 = trm_apps t1 (t2::nil).

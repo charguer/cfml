@@ -9,6 +9,7 @@ Require Import LambdaSemantics LambdaSep.
 
 (** * Heap entailment *)
 
+CHANGE
 
 Notation "P ==> Q" := (pred_incl P Q)
   (at level 55, right associativity) : heap_scope.

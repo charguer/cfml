@@ -63,9 +63,10 @@ COQINCLUDE := \
   -R $(TLC) TLC \
   -R $(PWD) Sep
 
+
 include $(TLC)/Makefile.coq
 
-
+all: _CoqProject
 
 
 

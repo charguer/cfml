@@ -75,23 +75,27 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of entailment *)
 
-(** TLC defines [pred_le P Q] as [forall x, P x -> Q x]. *)
 
-Notation "P ==> Q" := (pred_incl P Q)
+(** [H1 ==> H2] is defined as [forall h, H1 h -> H2 h]. *)
+
+Definition himpl A (H1 H2:A->Prop) :=
+  forall x, H1 x -> H2 x.
+
+Notation "H1 ==> H2" := (himpl H1 H2)
   (at level 55, right associativity) : heap_scope.
 
-(* [rel_incl'] is like TLC's [rel_incl] but defined in terms of [pred_incl]
-   so that after [intros r] we get an entailment. *)
+(** [Q1 ===> Q2] is defined as [forall x h, Q1 x h -> Q2 x h].
+    It is thus equivalent to [forall x, Q1 x ==> Q2 x].
+    Thus, invoking [intro] on a [===>] goal leaves a [==>] goal. *)
 
-Definition rel_incl' A B (P Q:A->B->Prop) :=
-  forall r, pred_incl (P r) (Q r).
+Definition qimpl A B (Q1 Q2:A->B->Prop) :=
+  forall r, himpl (Q1 r) (Q2 r).
 
-Notation "P ===> Q" := (rel_incl' P Q)
+Notation "Q1 ===> Q2" := (qimpl Q1 Q2)
   (at level 55, right associativity) : heap_scope.
 
 Open Scope heap_scope.
 
-(* LATER define [himpl] to mean [pred_incl] and [qimpl] to mean [rel_incl'] *)
 
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of entailment *)
@@ -102,7 +106,7 @@ Section HimplProp.
 Variable A : Type.
 Implicit Types H : A -> Prop.
 
-Hint Unfold pred_incl.
+Hint Unfold himpl.
 
 (** Entailment is reflexive, symmetric, transitive *)
 
@@ -152,11 +156,11 @@ Hint Resolve himpl_refl.
 
 (** Reflexivity for postconditions *)
 
-Lemma refl_rel_incl' : forall A B (Q:A->B->Prop),
+Lemma refl_qimpl : forall A B (Q:A->B->Prop),
   Q ===> Q.
-Proof using. apply refl_rel_incl. Qed.
+Proof using. intros. hnfs*. Qed.
 
-Hint Resolve refl_rel_incl'.
+Hint Resolve refl_qimpl.
 
 
 
@@ -504,6 +508,11 @@ Proof using. introv W. intros h M x. applys W. applys M. Qed.
 (* Note: missing properties for [himpl] on [hand] and [hor].
    For properties on [hwand], see further on. *)
 
+Lemma hwand_eq_hexists_hstar_hpure : forall H1 H2, 
+  (H1 \-* H2) = (\exists H, H \* \[H \* H1 ==> H2]).
+Proof using. auto. Qed.
+
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [htop] *)
@@ -537,28 +546,6 @@ Proof using.
     applys~ himpl_hexists_r (H' \* H). }
   { applys~ himpl_htop_r. }
 Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Auxiliary lemma showing that reasoning rule for extracting
-   pure propositions from preconditions is just a special case
-   of the reasoning rule for extracting existentials from preconditions. *)
-
-Lemma rule_extract_hprop_from_extract_hexists :
-  forall (T:Type) (F:hprop->(T->hprop)->Prop),
-  (forall (A:Type) (J:A->hprop) (Q:T->hprop),
-    (forall x, F (J x) Q) ->
-    F (hexists J) Q) ->
-  (forall P H Q,
-    (P -> F H Q) ->
-    F (\[P] \* H) Q).
-Proof using.
-  introv M. introv N. rewrite hpure_eq_hexists_empty.
-  rewrite hstar_hexists.
-  applys M. rewrite~ hstar_hempty_l.
-Qed.
-
-Arguments rule_extract_hprop_from_extract_hexists [T].
 
 
 (* ---------------------------------------------------------------------- *)
@@ -819,9 +806,9 @@ Qed.
 
 Ltac hpull_prepare tt :=
   match goal with
-  | |- @rel_incl' unit _ _ _ => let t := fresh "_tt" in intros t; destruct t
-  | |- @rel_incl' _ _ _ _ => let r := fresh "r" in intros r
-  | |- pred_incl _ _ => idtac
+  | |- @qimpl unit _ _ _ => let t := fresh "_tt" in intros t; destruct t
+  | |- @qimpl _ _ _ _ => let r := fresh "r" in intros r
+  | |- himpl _ _ => idtac
   | _ => fail 1 "not a goal for hpull"
   end.
 
@@ -1309,12 +1296,12 @@ Ltac check_arg_true v :=
 
 Ltac hcancel_prepare tt :=
   match goal with
-  | |- @rel_incl' _ _ _ ?Q' => is_evar Q'; apply refl_rel_incl'
-  | |- @rel_incl' unit _ ?Q ?Q' => let t := fresh "_tt" in intros t; destruct t
+  | |- @qimpl _ _ _ ?Q' => is_evar Q'; apply refl_qimpl
+  | |- @qimpl unit _ ?Q ?Q' => let t := fresh "_tt" in intros t; destruct t
   | |- eq _ _ => applys himpl_antisym
-  | |- @rel_incl' _ _ _ _ => let r := fresh "r" in intros r
-  | |- pred_incl _ ?H' => is_evar H'; apply himpl_refl
-  | |- pred_incl _ _ => idtac
+  | |- @qimpl _ _ _ _ => let r := fresh "r" in intros r
+  | |- himpl _ ?H' => is_evar H'; apply himpl_refl
+  | |- himpl _ _ => idtac
   end.
 
 Ltac hcancel_setup tt :=
@@ -1897,6 +1884,49 @@ Qed.
 
 
 (* ********************************************************************** *)
+(** Derived principles for triples *)
+
+(* ---------------------------------------------------------------------- *)
+(* ** Auxiliary lemma showing that reasoning rule for extracting
+   pure propositions from preconditions is just a special case
+   of the reasoning rule for extracting existentials from preconditions. *)
+
+Lemma rule_extract_hprop_from_extract_hexists :
+  forall (T:Type) (F:hprop->(T->hprop)->Prop),
+  (forall (A:Type) (J:A->hprop) (Q:T->hprop),
+    (forall x, F (J x) Q) ->
+    F (hexists J) Q) ->
+  (forall P H Q,
+    (P -> F H Q) ->
+    F (\[P] \* H) Q).
+Proof using.
+  introv M. introv N. rewrite hpure_eq_hexists_empty.
+  rewrite hstar_hexists.
+  applys M. rewrite~ hstar_hempty_l.
+Qed.
+
+Arguments rule_extract_hprop_from_extract_hexists [T].
+
+Lemma rule_extract_hwand_hpure_l_from_extract_hexists_and_consequence :
+  forall (T:Type) (F:hprop->(T->hprop)->Prop),
+  (forall (A:Type) (J:A->hprop) (Q:T->hprop),
+    (forall x, F (J x) Q) ->
+    F (hexists J) Q) ->
+  (forall H1 H2 (Q:T->hprop),
+    F H1 Q ->
+    H2 ==> H1 ->
+    F H2 Q) ->
+  (forall P H Q,
+    P -> 
+    F H Q ->
+    F (\[P] \-* H) Q).
+Proof using.
+  introv M W HP. introv N. rewrite hwand_eq_hexists_hstar_hpure.
+  applys M. intros. applys* W. hpull. introv R. hchanges~ R.
+Qed.
+
+
+(* ********************************************************************** *)
 (* * Predicates [local] and [is_local] for structural operations *)
 
 (* ---------------------------------------------------------------------- *)
@@ -2362,7 +2392,7 @@ Tactic Notation "xpulls" "*" := xpulls; auto_star.
 Ltac xapply_core H cont1 cont2 :=
   forwards_nounfold_then H ltac:(fun K =>
     match xpostcondition_is_evar tt with
-    | true => eapply local_frame; [ xlocal | sapply K | cont1 tt | try apply refl_rel_incl' ]
+    | true => eapply local_frame; [ xlocal | sapply K | cont1 tt | try apply refl_qimpl ]
     | false => eapply local_frame_htop; [ xlocal | sapply K | cont1 tt | cont2 tt ]
     end).
 

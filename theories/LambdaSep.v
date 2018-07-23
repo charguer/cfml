@@ -204,7 +204,12 @@ Implicit Types Q : val->hprop.
 (* * Specific properties of the logic *)
 
 (* ---------------------------------------------------------------------- *)
-(* ** Auxiliary lemma for hstar *)
+(* ** Auxiliary lemmas *)
+
+Lemma hpure_inv' : forall P h,
+  \[P] h ->
+  P /\ h = heap_empty.
+Proof using. introv M. lets (HP&HE): hpure_inv M. lets*: hempty_inv HE. Qed.
 
 Lemma hstar_intro : forall H1 H2 h1 h2,
   H1 h1 ->
@@ -224,6 +229,11 @@ Definition hsingle (l:loc) (v:val) : hprop :=
 
 Notation "l '~~~>' v" := (hsingle l v)
   (at level 32, no associativity) : heap_scope.
+
+Lemma hsingle_fmap_single : forall l v,
+  l <> null ->
+  (l ~~~> v) (fmap_single l v).
+Proof using. intros. split~. Qed.
 
 Lemma hstar_hsingle_same_loc_disjoint : forall l v1 v2,
   (l ~~~> v1) \* (l ~~~> v2) ==> \[False].
@@ -376,23 +386,19 @@ Ltac simpl_abs := (* LATER: will be removed once [abs] computes *)
   end.
 
 
+
 (* ********************************************************************** *)
-(* * New Reasoning Rules *)
-
-Module New.
-
+(* * Hoare reasoning rules *)
 
 (* ---------------------------------------------------------------------- *)
-(* ** Hoare rules *)
-
+(* ** Definition of Hoare triples *)
 
 Definition hoare (t:trm) (H:hprop) (Q:val->hprop) :=
   forall h, H h -> exists h' v, red h t h' v /\ Q v h'.
 
-Lemma hoare_extract_hexists : forall t (A:Type) (J:A->hprop) Q,
-  (forall x, hoare t (J x) Q) ->
-  hoare t (hexists J) Q.
-Proof using. introv M (x&HF). applys* M. Qed.
+
+(* ---------------------------------------------------------------------- *)
+(* ** Hoare structural rules *)
 
 Lemma hoare_consequence : forall t H' Q' H Q,
   hoare t H' Q' ->
@@ -405,21 +411,55 @@ Proof using.
   exists h' v. splits~. { hhsimpl. auto. }
 Qed.
 
-(*
-Lemma hoare_consequence_post : forall t Q' H Q,
-  hoare t H Q' ->
-  Q' ===> Q ->
-  hoare t H Q.
+Lemma hoare_extract_hexists : forall t (A:Type) (J:A->hprop) Q,
+  (forall x, hoare t (J x) Q) ->
+  hoare t (hexists J) Q.
+Proof using. introv M (x&HF). applys* M. Qed.
+
+Lemma hoare_extract_hforall : forall t (A:Type) (J:A->hprop) Q,
+  (exists x, hoare t (J x) Q) ->
+  hoare t (hforall J) Q.
+Proof using. introv (x&M) HF. applys* M. Qed.
+
+Lemma hoare_extract_hprop : forall t (P:Prop) H Q,
+  (P -> hoare t H Q) ->
+  hoare t (\[P] \* H) Q.
 Proof using.
-  intros. applys* hoare_consequence.
+  introv M. applys~ rule_extract_hprop_from_extract_hexists.
+  { applys* hoare_extract_hexists. }
 Qed.
+(* Details:
+  introv M (h1&h2&N1&N2&N3&N4).
+  destruct (hpure_inv' N1). subst.  
+  rewrite heap_union_empty_l. 
+  applys* M.
 *)
+
+Lemma hoare_extract_hwand_hpure_l : forall t (P:Prop) H Q,
+  P ->
+  hoare t H Q ->
+  hoare t (\[P] \-* H) Q.
+Proof using.
+  introv HP M. applys~ rule_extract_hwand_hpure_l_from_extract_hexists_and_consequence.
+  { applys* hoare_extract_hexists. }
+  { intros. applys* hoare_consequence. }
+Qed.
+(* Details:
+  introv HP M. intros h (H1&(h1&h2&N1&N2&N3&N4)).
+  lets (N2'&E): (hpure_inv' (rm N2)). subst.
+  rewrite heap_union_empty_r.
+  applys* M. applys N2'. hhsimpl~.
+*)
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Hoare rules for term constructs *)
 
 Lemma hoare_val : forall v H Q,
   H ==> Q v ->
   hoare (trm_val v) H Q.
 Proof using.
-  introv M HF. exists h v. splits.
+  introv M. intros h HF. exists h v. splits.
   { applys red_val. }
   { hhsimpl~. }
 Qed.
@@ -428,7 +468,7 @@ Lemma hoare_fix : forall (f z:bind) t1 H Q,
   H ==> Q (val_fix f z t1) ->
   hoare (trm_fix f z t1) H Q.
 Proof using.
-  introv M HF. exists___. splits.
+  introv M. intros h HF. exists___. splits.
   { applys~ red_fix. }
   { hhsimpl~. }
 Qed.
@@ -439,19 +479,140 @@ Lemma hoare_let : forall z t1 t2 H Q Q1,
   hoare (trm_let z t1 t2) H Q.
 Proof using.
   introv M1 M2 HF.
-  lets~ (h1'&v1&R1&K1): (rm M1) h.
-  forwards* (h2'&v2&R2&K2): (rm M2) h1'.
+  forwards* (h1'&v1&R1&K1): (rm M1).
+  forwards* (h2'&v2&R2&K2): (rm M2).
   exists h2' v2. splits~.
   { applys~ red_let R2. }
 Qed.
 
+Lemma hoare_while_raw : forall t1 t2 H Q,
+  hoare (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) H Q ->
+  hoare (trm_while t1 t2) H Q.
+Proof using.
+  introv M HF. forwards* (h1'&v1&R1&K1): (rm M).
+  exists h1' v1. splits~. { applys* red_while. }
+Qed.
+
+Lemma hoare_for_raw : forall (x:var) (n1 n2:int) t3 H (Q:val->hprop),
+  hoare (
+    If (n1 <= n2)
+      then (trm_seq (subst1 x n1 t3) (trm_for x (n1+1) n2 t3))
+      else val_unit) H Q ->
+  hoare (trm_for x n1 n2 t3) H Q.
+Proof using.
+  introv M HF. forwards* (h1'&v1&R1&K1): (rm M).
+  exists h1' v1. splits~. { applys* red_for. }
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** SL rules *)
+(* ** Hoare rules for primitives *)
+
+Section HoarePrimitives.
+Transparent hstar hsingle hfield hexists loc null.
+Hint Unfold hsingle.
+
+Lemma hoare_ref : forall H v,
+  hoare (val_ref v)
+    H
+    (fun r => (\exists l, \[r = val_loc l] \* l ~~~> v) \* H).
+Proof using.
+  intros. intros h HF.
+  forwards~ (l&Dl&Nl): (fmap_single_fresh null h v).
+  forwards~ Hh1': hsingle_fmap_single l v.
+  sets h1': (fmap_single l v).
+  exists (h1' \u h) (val_loc l). splits~.
+  { applys~ red_ref. }
+  { exists h1' h. splits~. { exists l. hhsimpl~. } }
+Qed.
+
+Lemma hoare_get : forall H v l,
+  hoare (val_get (val_loc l))
+    ((l ~~~> v) \* H)
+    (fun x => \[x = v] \* (l ~~~> v) \* H).
+Proof using.
+  intros. intros h HF. exists h v. splits~.
+  { applys red_get. destruct HF as (h1&h2&(N1a&N1b)&N2&N3&N4).
+    subst h. applys~ fmap_union_single_l_read. }
+  { hhsimpl~. }
+Qed.
+
+Lemma hoare_set : forall H w l v,
+  hoare (val_set (val_loc l) w)
+    ((l ~~~> v) \* H)
+    (fun r => \[r = val_unit] \* (l ~~~> w) \* H).
+Proof using.
+  intros. intros h HF. destruct HF as (h1&h2&(N1a&N1b)&N2&N3&N4).
+  forwards~ Hh1': hsingle_fmap_single l w.
+  sets h1': (fmap_single l w).
+  exists (h1' \u h2) val_unit. splits~.
+  { applys red_set. subst h h1. applys~ fmap_union_single_to_update. }
+  { rewrite hstar_pure. split~. exists h1' h2. splits~.
+    { applys~ fmap_disjoint_single_set v. } }
+Qed.
+
+Lemma hoare_alloc : forall H n,
+  n >= 0 ->
+  hoare (val_alloc n)
+    H
+    (fun r => (\exists l, \[r = val_loc l /\ l <> null] \* Alloc (abs n) l) \* H).
+Proof using. (* Note: [abs n] currently does not compute in Coq. *)
+  introv N. intros h Hh.
+  forwards~ (l&Dl&Nl): (fmap_conseq_fresh null h (abs n) val_unit).
+  sets h1': (fmap_conseq l (abs n) val_unit).
+  exists (h1' \u h) (val_loc l). splits~.
+  { applys~ (red_alloc (abs n)). rewrite~ abs_nonneg. }
+  { exists h1' h. split.
+    { exists l. applys~ himpl_hpure_r. applys~ Alloc_fmap_conseq. }
+    { splits~. } }
+Qed.
+
+Lemma hoare_redbinop : forall H op v1 v2 v,
+  redbinop op v1 v2 v ->
+  hoare (op v1 v2)
+    H
+    (fun r => \[r = v] \* H).
+Proof using.
+  introv R. intros h Hh. exists h v. splits.
+  { applys* red_binop. }
+  { hhsimpl~. }
+Qed.
+
+End HoarePrimitives.
+
+
+(* ********************************************************************** *)
+(* * SL Reasoning Rules *)
 
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) :=
-  forall H', hoare t (H \* H') (Q \*+ \Top \*+ H').
+  forall H', hoare t (H \* H') (Q \*+ H' \*+ \Top).
+
+
+---
+Lemma is_local_triple : forall t,
+  is_local (triple t).
+Proof using.
+  intros. applys pred_ext_2. intros H Q. iff M.
+  { intros h Hh. forwards (h'&v&N1&N2): M \[] h. { hhsimpl. }
+    exists H \[] Q. hhsimpl. splits~. hsimpl. }
+  { intros H' h Hh. lets (h1&h2&N1&N2&N3&N4): Hh. hnf in M.
+    lets (H1&H2&Q1&R): M N1. rewrite <-hstar_assoc, hstar_comm, hstar_pure in R.
+    lets ((R1&R2)&R3): R.
+    forwards (h'&v&S1&S2): R1 (H2\*H') h.
+    { subst h. rewrite <- hstar_assoc. exists~ h1 h2. }
+    exists h' v. splits~. rewrite <- htop_hstar_htop.
+    applys himpl_inv S2.
+    hchange (R2 v). rew_heap.
+    rewrite (hstar_comm_assoc \Top H'). hsimpl. }
+Qed.
+
+(** Make tactic [xlocal] aware that triples are local *)
+
+Ltac xlocal_base tt ::=
+  try first [ applys is_local_local
+            | applys is_local_triple ].
+
+
 
 
 Lemma rule_extract_hexists : forall t (A:Type) (J:A->hprop) Q,
@@ -461,6 +622,39 @@ Proof using.
   introv M. intros HF. rewrite hstar_hexists.
   applys hoare_extract_hexists. intros. applys* M.
 Qed.
+
+
+Lemma rule_extract_hforall : forall t (A:Type) (J:A->hprop) Q,
+  (exists x, triple t (J x) Q) ->
+  triple t (hforall J) Q.
+Proof using..
+..
+  introv (x&M). intros HF h N. lets N': hstar_hforall (rm N) x.
+  applys* M.
+Qed.
+
+Lemma rule_extract_hprop : forall t (P:Prop) H Q,
+  (P -> triple t H Q) ->
+  triple t (\[P] \* H) Q.
+Proof using. ...
+  intros t. applys (rule_extract_hprop_from_extract_hexists (triple t)).
+  applys rule_extract_hexists.
+Qed.
+
+Lemma rule_extract_hwand_hpure_l : forall t (P:Prop) H Q,
+  P ->
+  triple t H Q ->
+  triple t (\[P] \-* H) Q.
+Proof using. ...
+  introv HP M. intros HF h N.
+  lets N': hstar_hwand (rm N).
+  lets U: (conj (rm HP) (rm N')). rewrite <- hstar_pure in U.
+  lets U': hwand_cancel (rm U).
+  applys* M.
+Qed.
+
+
+
 
 Lemma rule_consequence : forall t H' Q' H Q,
   H ==> H' ->
@@ -500,6 +694,10 @@ Proof using.
   introv M. applys rule_htop_post. applys~ rule_frame.
 Qed.
 
+
+---
+
+
 Lemma rule_val : forall v H Q,
   H ==> Q v ->
   triple (trm_val v) H Q.
@@ -527,179 +725,20 @@ Proof using.
     { intros v. hsimpl. } }
 Qed.
 
-End New.
 
-
-(* ********************************************************************** *)
-(* * Reasoning Rules *)
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Definition of triples *)
-
-(** This is a total-correctness definition of a triple, for a
-  deterministic language. (Remark: our definition makes sense even though
-  technically allocation picks fresh locations in a non-deterministic
-  manner, because identity of locations do not influence program
-  behaviors.)
-
-  Below, the evaluation of [t] in state [h] terminates on value [v]
-  in state [h'], when [h] satisfies the pre-condition [H] starred
-  with a heap predicate [H'] describing the framed part, and where
-  the final state [h'] satisfies the post-condition [Q] applied to the
-  result value [v], starred with the framed part [H'], and starred
-  with [\Top] to account for garbage collection.
-
-  Remark: in a C-style language, [\Top] needs to be defined in a
-  more restrictive way to enforce deallocation of malloc-ed blocks. *)
-
-Definition triple (t:trm) (H:hprop) (Q:val->hprop) :=
-  forall H' h,
-  (H \* H') h ->
-  exists h' v,
-       red h t h' v
-    /\ (Q v \* \Top \* H') h'.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Triples satisfy the [local] predicate *)
-
-(** This lemma is exploited indirectly by tactics such as [xapply],
-  which perform application of lemmas modulo framing. *)
-
-Lemma is_local_triple : forall t,
-  is_local (triple t).
-Proof using.
-  intros. applys pred_ext_2. intros H Q. iff M.
-  { intros h Hh. forwards (h'&v&N1&N2): M \[] h. { hhsimpl. }
-    exists H \[] Q. hhsimpl. splits~. hsimpl. }
-  { intros H' h Hh. lets (h1&h2&N1&N2&N3&N4): Hh. hnf in M.
-    lets (H1&H2&Q1&R): M N1. rewrite <-hstar_assoc, hstar_comm, hstar_pure in R.
-    lets ((R1&R2)&R3): R.
-    forwards (h'&v&S1&S2): R1 (H2\*H') h.
-    { subst h. rewrite <- hstar_assoc. exists~ h1 h2. }
-    exists h' v. splits~. rewrite <- htop_hstar_htop.
-    applys himpl_inv S2.
-    hchange (R2 v). rew_heap.
-    rewrite (hstar_comm_assoc \Top H'). hsimpl. }
+Lemma rule_seq : forall t1 t2 H Q Q1,
+  triple t1 H Q1 ->
+  (forall (X:val), triple t2 (Q1 X) Q) ->
+  triple (trm_seq t1 t2) H Q.
+Proof using. 00
+  introv M1 M2. intros HF h N.
+  lets~ (h1'&v1&R1&K1): (rm M1) HF h.
+  subst. forwards* (h2'&v2&R2&K2): (rm M2) (\Top \* HF) h1'.
+  exists h2' v2. splits~.
+  { applys~ red_seq R1 R2. }
+  { rewrite <- htop_hstar_htop. hhsimpl. }
 Qed.
 
-(** Make tactic [xlocal] aware that triples are local *)
-
-Ltac xlocal_base tt ::=
-  try first [ applys is_local_local
-            | applys is_local_triple ].
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Structural rules *)
-
-(** Note: all these rules could be derived directly from the fact that
-    [triple] satisfies [is_local], using lemmas from [SepFunctor] *)
-
-Lemma rule_extract_hexists : forall t (A:Type) (J:A->hprop) Q,
-  (forall x, triple t (J x) Q) ->
-  triple t (hexists J) Q.
-Proof using.
-  introv M. intros HF h N. rewrite hstar_hexists in N.
-  destruct N as (x&N). applys* M.
-Qed.
-
-Lemma rule_extract_hforall : forall t (A:Type) (J:A->hprop) Q,
-  (exists x, triple t (J x) Q) ->
-  triple t (hforall J) Q.
-Proof using.
-  introv (x&M). intros HF h N. lets N': hstar_hforall (rm N) x.
-  applys* M.
-Qed.
-
-Lemma rule_extract_hprop : forall t (P:Prop) H Q,
-  (P -> triple t H Q) ->
-  triple t (\[P] \* H) Q.
-Proof using.
-  intros t. applys (rule_extract_hprop_from_extract_hexists (triple t)).
-  applys rule_extract_hexists.
-Qed.
-
-Lemma rule_extract_hwand_hpure_l : forall t (P:Prop) H Q,
-  P ->
-  triple t H Q ->
-  triple t (\[P] \-* H) Q.
-Proof using.
-  introv HP M. intros HF h N.
-  lets N': hstar_hwand (rm N).
-  lets U: (conj (rm HP) (rm N')). rewrite <- hstar_pure in U.
-  lets U': hwand_cancel (rm U).
-  applys* M.
-Qed.
-
-Lemma rule_consequence : forall t H' Q' H Q,
-  H ==> H' ->
-  triple t H' Q' ->
-  Q' ===> Q ->
-  triple t H Q.
-Proof using.
-  introv MH M MQ. intros HF h N.
-  forwards (h'&v&R&K): (rm M) HF h. { hhsimpl~. }
-  exists h' v. splits~. { hhsimpl. hchanges (MQ v). }
-Qed.
-
-Lemma rule_frame : forall t H Q H',
-  triple t H Q ->
-  triple t (H \* H') (Q \*+ H').
-Proof using.
-  introv M. intros HF h N. rewrite hstar_assoc in N.
-  forwards (h'&v&R&K): (rm M) (H' \* HF) h. { hhsimpl~. }
-  exists h' v. splits~. { hhsimpl~. }
-Qed.
-
-Lemma rule_htop_post : forall t H Q,
-  triple t H (Q \*+ \Top) ->
-  triple t H Q.
-Proof using.
-  introv M. intros HF h N. forwards* (h'&v&R&K): (rm M) HF h.
-  exists h' v. splits~. { rewrite <- htop_hstar_htop. hhsimpl. }
-Qed.
-
-Lemma rule_htop_pre : forall t H Q,
-  triple t H Q ->
-  triple t (H \* \Top) Q.
-Proof using.
-  introv M. applys rule_htop_post. applys~ rule_frame.
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Term rules *)
-
-Lemma rule_val : forall v H Q,
-  H ==> Q v ->
-  triple (trm_val v) H Q.
-Proof using.
-  introv M. intros HF h N. exists h v. splits.
-  { applys red_val. }
-  { hhsimpl. hchanges M. }
-Qed.
-
-(*
-Lemma rule_fun : forall x t1 H Q,
-  H ==> Q (val_fun x t1) ->
-  triple (trm_fun x t1) H Q.
-Proof using.
-  introv M. intros HF h N. exists___. splits.
-  { applys red_fun. }
-  { hhsimpl. hchanges M. }
-Qed.
-*)
-
-Lemma rule_fix : forall (f z:bind) t1 H Q,
-  H ==> Q (val_fix f z t1) ->
-  triple (trm_fix f z t1) H Q.
-Proof using.
-  introv M. intros HF h N. exists___. splits.
-  { applys red_fix. }
-  { hhsimpl. hchanges M. }
-Qed.
 
 Lemma rule_if : forall Q1 t0 t1 t2 H Q,
   triple t0 H Q1 ->
@@ -732,31 +771,6 @@ Proof using.
   { intros v' N. hpull. intros E. inverts~ E. false N. hnfs*. }
 Qed.
 
-Lemma rule_seq : forall t1 t2 H Q Q1,
-  triple t1 H Q1 ->
-  (forall (X:val), triple t2 (Q1 X) Q) ->
-  triple (trm_seq t1 t2) H Q.
-Proof using.
-  introv M1 M2. intros HF h N.
-  lets~ (h1'&v1&R1&K1): (rm M1) HF h.
-  subst. forwards* (h2'&v2&R2&K2): (rm M2) (\Top \* HF) h1'.
-  exists h2' v2. splits~.
-  { applys~ red_seq R1 R2. }
-  { rewrite <- htop_hstar_htop. hhsimpl. }
-Qed.
-
-Lemma rule_let : forall z t1 t2 H Q Q1,
-  triple t1 H Q1 ->
-  (forall (X:val), triple (subst1 z X t2) (Q1 X) Q) ->
-  triple (trm_let z t1 t2) H Q.
-Proof using.
-  introv M1 M2. intros HF h N.
-  lets~ (h1'&v1&R1&K1): (rm M1) HF h.
-  forwards* (h2'&v2&R2&K2): (rm M2) (\Top \* HF) h1'.
-  exists h2' v2. splits~.
-  { applys~ red_let R2. }
-  { rewrite <- htop_hstar_htop. hhsimpl. }
-Qed.
 
 Lemma rule_apps_funs : forall xs F (Vs:vals) t1 H Q,
   F = (val_funs xs t1) ->
@@ -1090,6 +1104,7 @@ Proof using.
 Qed.
 
 
+
 (* ********************************************************************** *)
 (* * Bonus *)
 
@@ -1132,245 +1147,5 @@ Qed.
 End TripleAlternative.
 
 
-(* ---------------------------------------------------------------------- *)
-(* ** Practical additional rules *)
-
-(** Combination of [rule_val] and [rule_htop_post] *)
-
-Lemma rule_val_htop : forall v H Q,
-  H ==> Q v \* \Top ->
-  triple (trm_val v) H Q.
-Proof using.
-  introv M. applys rule_htop_post. applys~ rule_val.
-Qed.
-
-(** Combination of [rule_frame] and [rule_consequence] *)
-
-Lemma rule_frame_consequence : forall H2 H1 Q1 t H Q,
-  H ==> H1 \* H2 ->
-  triple t H1 Q1 ->
-  Q1 \*+ H2 ===> Q ->
-  triple t H Q.
-Proof using.
-  introv WH M WQ. applys rule_consequence WH WQ. applys rule_frame M.
-Qed.
-
-(** Combination of [rule_let] and [rule_val] *)
-
-Lemma rule_let_val : forall z v1 t2 H Q,
-  (forall (X:val), X = v1 -> triple (subst1 z X t2) H Q) ->
-  triple (trm_let z (trm_val v1) t2) H Q.
-Proof using.
-  introv M. forwards~ M': (rm M).
-  applys_eq~ (>> rule_let H (fun x => \[x = v1] \* H)) 2.
-  { applys rule_val. hsimpl~. }
-  { intros X. applys rule_extract_hprop. intro_subst. applys M'. }
-Qed.
-
-(** A rule of conditionals with case analysis already done *)
-
-Lemma rule_if' : forall Q1 t0 t1 t2 H Q,
-  triple t0 H Q1 ->
-  triple t1 (Q1 true) Q ->
-  triple t2 (Q1 false) Q ->
-  (forall v, ~ is_val_bool v -> (Q1 v) ==> \[False]) ->
-  triple (trm_if t0 t1 t2) H Q.
-Proof using.
-  introv M1 M2 M3 M4. applys* rule_if.
-  { intros b. case_if*. }
-Qed.
-
-(** A direct proof for [rule_if_bool] *)
-
-Lemma rule_if_bool' : forall v t1 t2 H Q,
-  (v = true -> triple t1 H Q) ->
-  (v = false -> triple t2 H Q) ->
-  (is_val_bool v) ->
-  triple (trm_if v t1 t2) H Q.
-Proof using.
-  introv M1 M2 (b&E). intros HF h N. subst v.
-  destruct b.
-  { forwards* (h'&v'&R&K): (rm M1) h.
-    exists h' v'. splits~.
-    { applys* red_if_bool. } }
-  { forwards* (h'&v'&R&K): (rm M2) h.
-    exists h' v'. splits~.
-    { applys* red_if_bool. } }
-Qed.
-
-(** A rule for unary function application *)
-
-Lemma rule_app : forall (f:bind) x F V t1 H Q,
-  F = (val_fix f x t1) ->
-  triple (subst2 f F x V t1) H Q ->
-  triple (trm_app F V) H Q.
-Proof using.
-  introv EF M. subst F. intros HF h N.
-  lets~ (h'&v&R&K): (rm M) HF h.
-  exists h' v. splits~. { hint red_val. applys~ red_app. }
-Qed.
 
 
-
-(* TODO: not used, to update
-
-(* ---------------------------------------------------------------------- *)
-(** Reformulation of the rule for N-ary functions *)
-
-Definition spec_funs (xs:vars) (t1:trm) (F:val) :=
-  forall (Xs:vals), length xs = length Xs ->
-    triple (substn xs Xs t1) ===> triple (trm_apps F Xs).
-
-Lemma spec_funs_val_funs : forall xs t1,
-  var_distinct xs ->
-  xs <> nil ->
-  spec_funs xs t1 (val_funs xs t1).
-Proof using. introv D N L M. applys* rule_apps_funs. splits~. Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Reformulation of the rule for N-ary recursive functions *)
-
-Definition spec_fixs (f:var) (xs:vars) (t1:trm) (F:val) :=
-  forall (Xs:vals), length xs = length Xs ->
-    triple (subst1 f F (substn xs Xs t1)) ===> triple (trm_apps F Xs).
-
-Lemma spec_fixs_val_fixs : forall f xs t1,
-  var_distinct (f::xs) ->
-  xs <> nil ->
-  spec_fixs f xs t1 (val_fixs f xs t1).
-Proof using. introv D N L M. applys* rule_apps_fixs. splits~. Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Functions of one argument *)
-
-Lemma rule_app_fun : forall x F V t1 H Q,
-  F = (val_fun x t1) ->
-  triple (subst x V t1) H Q ->
-  triple (trm_app F V) H Q.
-Proof using.
-  introv EF M. subst F. intros HF h N.
-  lets~ (h'&v&R&K): (rm M) HF h.
-  exists h' v. splits~. { applys~ red_app_fun. }
-Qed.
-
-Definition spec_fun (x:var) (t1:trm) (F:val) :=
-  forall X, triple (subst x X t1) ===> triple (trm_app F X).
-
-Lemma spec_fun_val_fun : forall x t1,
-  spec_fun x t1 (val_fun x t1).
-Proof using. introv. intros X H Q M. applys* rule_app_fun. Qed.
-
-Lemma rule_fun_spec : forall x t1 H Q,
-  (forall (F:val), spec_fun x t1 F -> H ==> Q F) ->
-  triple (trm_fun x t1) H Q.
-Proof using.
-  introv M. forwards M': (rm M) (val_fun x t1).
-  { applys spec_fun_val_fun. }
-  { applys~ rule_fun. }
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Recursive functions of one argument *)
-
-Lemma rule_app_fix : forall f x F V t1 H Q,
-  F = (val_fix f x t1) ->
-  triple (subst f F (subst x V t1)) H Q ->
-  triple (trm_app F V) H Q.
-Proof using.
-  introv EF M. subst F. intros HF h N.
-  lets~ (h'&v&R&K): (rm M) HF h.
-  exists h' v. splits~. { applys~ red_app_fix. }
-Qed.
-
-Definition spec_fix (f:var) (x:var) (t1:trm) (F:val) :=
-  forall X, triple (subst f F (subst x X t1)) ===> triple (trm_app F X).
-
-Lemma spec_fix_val_fix : forall f x t1,
-  spec_fix f x t1 (val_fix f x t1).
-Proof using. introv. intros X H Q M. applys* rule_app_fix. Qed.
-
-Lemma rule_fix_spec : forall f x t1 H Q,
-  (forall (F:val), spec_fix f x t1 F -> H ==> Q F) ->
-  triple (trm_fix f x t1) H Q.
-Proof using.
-  introv M. forwards M': (rm M) (val_fix f x t1).
-  { applys spec_fix_val_fix. }
-  { applys~ rule_fix. }
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Functions of two arguments *)
-
-Notation "'val_fun2' x1 x2 t" := (val_fun x1 (trm_fun x2 t))
-  (at level 69, x1 ident, x2 ident, only parsing).
-
-Lemma red_app_fun2 : forall m1 m2 vf v1 v2 x1 x2 t r,
-  vf = val_fun2 x1 x2 t ->
-  red m1 (subst x2 v2 (subst x1 v1 t)) m2 r ->
-  x1 <> x2 ->
-  red m1 (vf v1 v2) m2 r.
-Proof using.
-  hint red_val.
-  introv E M N. subst. applys~ red_app_arg.
-  { applys~ red_app_fun. simpl. case_if. applys red_fun. }
-  { applys~ red_app_fun. }
-Qed.
-
-Definition spec_fun2 (x1 x2:var) (t1:trm) (F:val) :=
-  forall X1 X2, triple (subst x2 X2 (subst x1 X1 t1)) ===> triple (F X1 X2).
-
-Lemma rule_app_fun2 : forall x1 x2 F V1 V2 t1 H Q,
-  F = val_fun2 x1 x2 t1 ->
-  x1 <> x2 ->
-  triple (subst x2 V2 (subst x1 V1 t1)) H Q ->
-  triple (F V1 V2) H Q.
-Proof using.
-  introv E N M. intros H' h Hf. forwards (h'&v&R&K): (rm M) Hf.
-  exists h' v. splits~. { applys* red_app_fun2. }
-Qed.
-
-Lemma spec_fun2_val_fun2 : forall x1 x2 t1,
-  x1 <> x2 ->
-  spec_fun2 x1 x2 t1 (val_fun2 x1 x2 t1).
-Proof using. introv. intros X1 X2 H Q M. applys* rule_app_fun2. Qed.
-
-*)
-
-(* ---------------------------------------------------------------------- *)
-(** Combination of [rule_let] and [rule_fun] or [rule_fix] *)
-
-(* not used, to update
-
-Lemma rule_let_fun : forall f x t1 t2 H Q,
-  (forall (F:val), spec_fun x t1 F -> triple (subst f F t2) H Q) ->
-  triple (trm_let f (trm_fun x t1) t2) H Q.
-Proof using.
-  introv M. applys rule_let (fun F => \[spec_fun x t1 F] \* H).
-  { applys rule_fun. introv HF. hsimpl~. }
-  { intros F. applys rule_extract_hprop. applys M. }
-Qed.
-
-Lemma rule_let_fix : forall f x t1 t2 H Q,
-  (forall (F:val), spec_fix f x t1 F -> triple (subst f F t2) H Q) ->
-  triple (trm_let f (trm_fix f x t1) t2) H Q.
-Proof using.
-  introv M. applys rule_let (fun F => \[spec_fix f x t1 F] \* H).
-  { applys rule_fix. introv HF. hsimpl~. }
-  { intros F. applys rule_extract_hprop. applys M. }
-Qed.
-
-Lemma rule_let_fun2 : forall f x1 x2 t1 t2 H Q,
-  (forall (F:val), spec_fun2 x1 x2 t1 F -> triple (subst f F t2) H Q) ->
-  x1 <> x2 ->
-  triple (trm_let f (trm_fun x1 (trm_fun x2 t1)) t2) H Q.
-Proof using.
-  introv M N. applys rule_let (fun F => \[spec_fun2 x1 x2 t1 F] \* H).
-  { applys rule_func_val. hsimpl. applys~ spec_fun2_val_fun2. }
-  { intros F. applys rule_extract_hprop. applys M. }
-Qed.
-
-*)

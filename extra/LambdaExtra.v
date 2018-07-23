@@ -4940,3 +4940,30 @@ Proof using. (*
     rewrite var_eq_spec in *. case_if. rewrite~ IHE'. }
 *) admit.
 Qed.
+
+
+
+  | red_add : forall m n1 n2 n',
+      n' = n1 + n2 ->
+      red m (val_add (val_int n1) (val_int n2)) m (val_int n')
+  | red_sub : forall m n1 n2 n',
+      n' = n1 - n2 ->
+      red m (val_sub (val_int n1) (val_int n2)) m (val_int n')
+  | red_ptr_add : forall l' m l n,
+      (l':nat) = (l:nat) + n :> int ->
+      red m (val_ptr_add (val_loc l) (val_int n)) m (val_loc l')
+  | red_eq : forall m v1 v2,
+      red m (val_eq v1 v2) m (val_bool (isTrue (v1 = v2)))
+
+
+
+
+(*
+Lemma hoare_consequence_post : forall t Q' H Q,
+  hoare t H Q' ->
+  Q' ===> Q ->
+  hoare t H Q.
+Proof using.
+  intros. applys* hoare_consequence.
+Qed.
+*)

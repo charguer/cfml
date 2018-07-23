@@ -320,7 +320,6 @@ Qed.
 End LemmasCf.
 
 
-
 (* ---------------------------------------------------------------------- *)
 (** ** Database of lemmas *)
 
@@ -406,7 +405,7 @@ Ltac xseq_core tt ::=
   xlet_core tt; [ | try xseq_clear_val tt ].
 
 Ltac xseq_try_remove_val tt :=
-  match goal with 
+  match goal with
   |- val -> _ => intros _
   end.
 
@@ -545,13 +544,13 @@ Ltac xval_template xlet_tactic xval_tactic xlet_cont :=
 
 Ltac xval_basic tt :=
   match goal with
-  | |- local ?F ?H ?Q => is_evar Q; applys local_erase; applys refl_rel_incl'
+  | |- local ?F ?H ?Q => is_evar Q; applys local_erase; applys refl_qimpl
   | _ => applys xval_htop_lemma
   end.
 
 Ltac xval_as_basic X EX :=
   match goal with
-  | |- local ?F ?H ?Q => is_evar Q; applys local_erase; applys refl_rel_incl'
+  | |- local ?F ?H ?Q => is_evar Q; applys local_erase; applys refl_qimpl
   | _ => applys xval_htop_as_lemma; intros X EX
   end.
 
