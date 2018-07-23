@@ -508,7 +508,7 @@ Proof using. introv W. intros h M x. applys W. applys M. Qed.
 (* Note: missing properties for [himpl] on [hand] and [hor].
    For properties on [hwand], see further on. *)
 
-Lemma hwand_eq_hexists_hstar_hpure : forall H1 H2, 
+Lemma hwand_eq_hexists_hstar_hpure : forall H1 H2,
   (H1 \-* H2) = (\exists H, H \* \[H \* H1 ==> H2]).
 Proof using. auto. Qed.
 
@@ -1917,7 +1917,7 @@ Lemma rule_extract_hwand_hpure_l_from_extract_hexists_and_consequence :
     H2 ==> H1 ->
     F H2 Q) ->
   (forall P H Q,
-    P -> 
+    P ->
     F H Q ->
     F (\[P] \-* H) Q).
 Proof using.

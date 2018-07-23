@@ -215,7 +215,7 @@ Lemma hstar_intro : forall H1 H2 h1 h2,
   H1 h1 ->
   H2 h2 ->
   \# h1 h2 ->
-  (H1 \* H2) (h1 \+ h2).
+  (H1 \* H2) (h1 \u h2).
 Proof using. intros. exists~ h1 h2. Qed.
 
 
@@ -451,6 +451,11 @@ Qed.
   applys* M. applys N2'. hhsimpl~.
 *)
 
+Lemma hoare_named_heap : forall t H Q,
+  (forall h, H h -> hoare t (= h) Q) ->
+  hoare t H Q.
+Proof using. introv M. intros h Hh. applys* M. Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Hoare rules for term constructs *)
@@ -523,7 +528,7 @@ Proof using.
   sets h1': (fmap_single l v).
   exists (h1' \u h) (val_loc l). splits~.
   { applys~ red_ref. }
-  { exists h1' h. splits~. { exists l. hhsimpl~. } }
+  { apply~ hstar_intro. { exists l. hhsimpl~. } }
 Qed.
 
 Lemma hoare_get : forall H v l,
@@ -547,7 +552,7 @@ Proof using.
   sets h1': (fmap_single l w).
   exists (h1' \u h2) val_unit. splits~.
   { applys red_set. subst h h1. applys~ fmap_union_single_to_update. }
-  { rewrite hstar_pure. split~. exists h1' h2. splits~.
+  { rewrite hstar_pure. split~. apply~ hstar_intro.
     { applys~ fmap_disjoint_single_set v. } }
 Qed.
 
@@ -562,9 +567,8 @@ Proof using. (* Note: [abs n] currently does not compute in Coq. *)
   sets h1': (fmap_conseq l (abs n) val_unit).
   exists (h1' \u h) (val_loc l). splits~.
   { applys~ (red_alloc (abs n)). rewrite~ abs_nonneg. }
-  { exists h1' h. split.
-    { exists l. applys~ himpl_hpure_r. applys~ Alloc_fmap_conseq. }
-    { splits~. } }
+  { apply~ hstar_intro.
+    { exists l. applys~ himpl_hpure_r. applys~ Alloc_fmap_conseq. } }
 Qed.
 
 Lemma hoare_redbinop : forall H op v1 v2 v,
@@ -584,26 +588,27 @@ End HoarePrimitives.
 (* ********************************************************************** *)
 (* * SL Reasoning Rules *)
 
+(* ---------------------------------------------------------------------- *)
+(* ** Definition of SL triples *)
+
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) :=
   forall H', hoare t (H \* H') (Q \*+ H' \*+ \Top).
 
+(** SL triples are "local", in the sense of SepFunctor *)
 
----
 Lemma is_local_triple : forall t,
   is_local (triple t).
 Proof using.
   intros. applys pred_ext_2. intros H Q. iff M.
-  { intros h Hh. forwards (h'&v&N1&N2): M \[] h. { hhsimpl. }
-    exists H \[] Q. hhsimpl. splits~. hsimpl. }
-  { intros H' h Hh. lets (h1&h2&N1&N2&N3&N4): Hh. hnf in M.
-    lets (H1&H2&Q1&R): M N1. rewrite <-hstar_assoc, hstar_comm, hstar_pure in R.
-    lets ((R1&R2)&R3): R.
-    forwards (h'&v&S1&S2): R1 (H2\*H') h.
-    { subst h. rewrite <- hstar_assoc. exists~ h1 h2. }
-    exists h' v. splits~. rewrite <- htop_hstar_htop.
-    applys himpl_inv S2.
-    hchange (R2 v). rew_heap.
-    rewrite (hstar_comm_assoc \Top H'). hsimpl. }
+  { intros h Hh. hhsimpl. split*. hsimpl. }
+  { intros H'. applys hoare_named_heap. 
+    intros h (h1&h2&N1&N2&N3&N4).
+    lets (H1&H2&Q1&M0): (rm M) (rm N1).
+    rewrite <-hstar_assoc, hstar_comm, hstar_pure in M0.
+    destruct M0 as ((M1&M2)&M3).
+    applys hoare_consequence (M1 (H2 \* H')).
+    { subst. rewrite <- hstar_assoc. intros h ->. apply~ hstar_intro. }
+    { intros x. hchanges (M2 x). } }
 Qed.
 
 (** Make tactic [xlocal] aware that triples are local *)
@@ -613,48 +618,8 @@ Ltac xlocal_base tt ::=
             | applys is_local_triple ].
 
 
-
-
-Lemma rule_extract_hexists : forall t (A:Type) (J:A->hprop) Q,
-  (forall x, triple t (J x) Q) ->
-  triple t (hexists J) Q.
-Proof using.
-  introv M. intros HF. rewrite hstar_hexists.
-  applys hoare_extract_hexists. intros. applys* M.
-Qed.
-
-
-Lemma rule_extract_hforall : forall t (A:Type) (J:A->hprop) Q,
-  (exists x, triple t (J x) Q) ->
-  triple t (hforall J) Q.
-Proof using..
-..
-  introv (x&M). intros HF h N. lets N': hstar_hforall (rm N) x.
-  applys* M.
-Qed.
-
-Lemma rule_extract_hprop : forall t (P:Prop) H Q,
-  (P -> triple t H Q) ->
-  triple t (\[P] \* H) Q.
-Proof using. ...
-  intros t. applys (rule_extract_hprop_from_extract_hexists (triple t)).
-  applys rule_extract_hexists.
-Qed.
-
-Lemma rule_extract_hwand_hpure_l : forall t (P:Prop) H Q,
-  P ->
-  triple t H Q ->
-  triple t (\[P] \-* H) Q.
-Proof using. ...
-  introv HP M. intros HF h N.
-  lets N': hstar_hwand (rm N).
-  lets U: (conj (rm HP) (rm N')). rewrite <- hstar_pure in U.
-  lets U': hwand_cancel (rm U).
-  applys* M.
-Qed.
-
-
-
+(* ---------------------------------------------------------------------- *)
+(* ** SL rules structural *)
 
 Lemma rule_consequence : forall t H' Q' H Q,
   H ==> H' ->
@@ -667,14 +632,47 @@ Proof using.
   { intros x. hchanges (MQ x). }
 Qed.
 
+Lemma rule_extract_hexists : forall t (A:Type) (J:A->hprop) Q,
+  (forall x, triple t (J x) Q) ->
+  triple t (hexists J) Q.
+Proof using.
+  introv M. intros HF. rewrite hstar_hexists.
+  applys hoare_extract_hexists. intros. applys* M.
+Qed.
+
+Lemma rule_extract_hforall : forall t A (J:A->hprop) Q,
+  (exists x, triple t (J x) Q) ->
+  triple t (hforall J) Q.
+Proof using.
+  introv (x&M). intros HF.
+  forwards* N: hoare_extract_hforall (fun x => J x \* HF).
+  applys* hoare_consequence. applys hstar_hforall.
+Qed.
+
+Lemma rule_extract_hprop : forall t (P:Prop) H Q,
+  (P -> triple t H Q) ->
+  triple t (\[P] \* H) Q.
+Proof using.
+  introv M. intros HF. rewrite hstar_assoc.
+  applys hoare_extract_hprop. intros. applys* M.
+Qed.
+
+Lemma rule_extract_hwand_hpure_l : forall t (P:Prop) H Q,
+  P ->
+  triple t H Q ->
+  triple t (\[P] \-* H) Q.
+Proof using.
+  introv HP M. intros HF.
+  forwards* N: hoare_extract_hwand_hpure_l P.
+  applys* hoare_consequence. applys hstar_hwand.
+Qed.
+
 Lemma rule_frame : forall t H Q H',
   triple t H Q ->
   triple t (H \* H') (Q \*+ H').
 Proof using.
   introv M. intros HF.
-  applys hoare_consequence (M (HF \* H')).
-  { hsimpl. }
-  { hsimpl. }
+  applys hoare_consequence (M (HF \* H')); hsimpl.
 Qed.
 
 Lemma rule_htop_post : forall t H Q,
@@ -682,9 +680,7 @@ Lemma rule_htop_post : forall t H Q,
   triple t H Q.
 Proof using.
   introv M. unfolds triple. intros HF.
-  applys hoare_consequence (M HF).
-  { hsimpl. }
-  { intros x. hsimpl. }
+  applys hoare_consequence (M HF); hsimpl.
 Qed.
 
 Lemma rule_htop_pre : forall t H Q,
@@ -695,8 +691,8 @@ Proof using.
 Qed.
 
 
----
-
+(* ---------------------------------------------------------------------- *)
+(* ** SL rules for terms *)
 
 Lemma rule_val : forall v H Q,
   H ==> Q v ->
@@ -794,7 +790,7 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Rules for loops *)
+(* ** SL Rules for loops *)
 
 Lemma rule_while_raw : forall t1 t2 H Q,
   triple (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) H Q ->
@@ -961,10 +957,7 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Primitive functions over the state *)
-
-Section RulesStateOps.
-Transparent hstar hsingle hfield hexists loc null.
+(* ** SL rules for primitive functions over the state *)
 
 Lemma rule_ref : forall v,
   triple (val_ref v)
@@ -1013,10 +1006,6 @@ Lemma rule_set' : forall w l v,
     (fun r => l ~~~> w).
 Proof using. intros. xapplys* rule_set. Qed.
 
-
-(* ---------------------------------------------------------------------- *)
-(** Alloc function *)
-
 Lemma rule_alloc : forall n,
   n >= 0 ->
   triple (val_alloc n)
@@ -1034,11 +1023,9 @@ Proof using. (* Note: [abs n] currently does not compute in Coq. *)
     { splits~. hhsimpl~. } }
 Qed.
 
-End RulesStateOps.
-
 
 (* ---------------------------------------------------------------------- *)
-(** Other primitive functions *)
+(* ** SL rules for other primitive functions *)
 
 Lemma rule_eq : forall v1 v2,
   triple (val_eq v1 v2)
