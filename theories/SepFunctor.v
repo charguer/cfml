@@ -2559,6 +2559,16 @@ Proof using.
   introv L W. unfold weakestpre. hpull ;=> H1 M. hsimpl. xapplys M.
 Qed.
 
+Lemma weakestpre_conseq_wand : forall B (F:~~B) Q1 Q2, 
+  is_local F ->
+  (Q1 \--* Q2) \* weakestpre F Q1 ==> weakestpre F Q2.
+Proof using.
+  introv L. unfold weakestpre. hpull ;=> H1 M.
+  hsimpl. rew_heap. xapplys M. intros r.
+  hchange (qwand_himpl_hwand r).
+  hchanges (hwand_cancel (Q1 r)).
+Qed.
+
 Lemma weakestpre_frame : forall B (F:~~B) H Q,
   is_local F ->
   (weakestpre F Q) \* H ==> weakestpre F (Q \*+ H).

@@ -1,5 +1,23 @@
 (**
 
+
+
+
+!!!DEPRECATED!!!
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 This file defines tactic notations useful for characteristic formulae
 
 Author: Arthur Charguéraud.
@@ -10,7 +28,6 @@ License: MIT.
 
 Set Implicit Arguments.
 From Sep Require Export LambdaSemantics.
-
 
 
 (* ---------------------------------------------------------------------- *)

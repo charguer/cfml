@@ -239,13 +239,13 @@ Proof using. Opaque Ctx.add Ctx.rem.
     { fequals. skip. }
     { fequals. tests: (b = x).
       { repeat rewrite Ctx.rem_add_same. rewrite rem_rem_same.
-        rewrite Ctx.rem_empty. rewrite subst_empty. auto. } 
+        rewrite Ctx.rem_empty. rewrite subst_empty. auto. }
       { repeat rewrite~ Ctx.rem_add_neq. rewrite Ctx.rem_empty.
         rewrite <- IHt2. rewrite~ rem_rem_swap. } }
     { fequals. rewrite rem_rem_swap. admit. }
 Admitted.
-    
-   
+
+
 
 (*
 (** Substitutions for two distinct variables commute. *)
@@ -580,15 +580,17 @@ Notation val_funs := (val_fixs bind_anon).
 Lemma subst_trm_funs : forall y w xs t,
   var_fresh y xs ->
   subst1 y w (trm_funs xs t) = trm_funs xs (subst1 y w t).
-Proof using.
+Proof using. Admitted.
+(*
   introv N. unfold subst1. induction xs as [|x xs']; simpls; fequals.
   { rewrite var_eq_spec in *. case_if. rewrite~ <- IHxs'. }
-Qed.
+Qed.*)
 
 Lemma subst_trm_fixs : forall y w f xs t,
   var_fresh y (f::xs) ->
   subst1 y w (trm_fixs f xs t) = trm_fixs f xs (subst1 y w t).
-Proof using.
+Proof using. Admitted.
+(*
   introv N. destruct xs as [|x xs'].
   { auto. }
   { unfold subst1. simpls. repeat rewrite var_eq_spec in *.
@@ -598,6 +600,7 @@ Proof using.
     simpls. rewrite~ K. }
 Qed.  (* LATER: simplify *)
 
+*)
 
 (* ---------------------------------------------------------------------- *)
 (** Reduction rules for n-ary functions *)
@@ -637,11 +640,11 @@ Proof using.
     tests C: (xs' = nil).
     { rew_list in *. asserts: (vs' = nil).
       { applys length_zero_inv. math. } subst vs'.
-      simpls. applys* red_app. applys* red_val. }
+      simpls. applys* red_app. applys* red_val.
+      rewrite subst2_eq_subst1_subst1, subst1_anon. auto. }
     { rewrite substn_cons in M2. applys~ IH M2. applys* red_app.
       { applys* red_val. }
-      { simpl. unfold subst2. simpl. rew_ctx.
-        rewrite subst_add. rewrite subst_empty.
+      { simpl. rewrite subst2_eq_subst1_subst1, subst1_anon.
         rewrite~ subst_trm_funs. applys~ red_funs. } } }
 Qed.
 
