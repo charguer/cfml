@@ -63,7 +63,7 @@ Tactic Notation "xspec" :=
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Registering specifications for lifted triples *)
+(* ** Registering specifications for lifted triple *)
 
 Notation "'Register_Spec' f" := (Register_goal (Triple (trm_apps (trm_val f) _) _ _))
   (at level 69) : charac.
@@ -645,7 +645,7 @@ Definition Wp_let (F1:Formula) (F2of:forall `{EA1:Enc A1},A1->Formula) : Formula
 *)
 
 
-Lemma xlet_instantiate : forall A1 `{EA1:Enc A1} H Fof,
+Lemma xlet_instantiate : forall A1 (EA1:Enc A1) H Fof,
   H ==> Fof A1 EA1 ->
   H ==> \exists (A1:Type) (EA1:Enc A1), Fof A1 EA1.
 Proof using. introv M. hsimpl* A1 EA1. Qed.
@@ -710,6 +710,13 @@ Definition val_incr :=
     Let 'm := 'n '+ 1 in
     val_set 'p 'm.
 
+(* TODO: get that to work
+Notation "'`Let' x ':=' F1 'in' F2" :=
+  ((Wp_let F1 (fun _ _  x => F2)))
+  (at level 69,  x ident, right associativity,
+  format "'[v' '[' '`Let'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : charac.
+*)
+
 Lemma triple_incr : forall (p:loc) (n:int),
   TRIPLE (val_incr ``p)
     PRE (p ~~> n)
@@ -727,7 +734,9 @@ Proof using.
   { reflexivity. }
   xcf_post tt.
   (* xlet details *)
-  applys Local_erase'. applys xlet_instantiate Enc_int. (* todo: prevent resolution of encoder *)
+  applys Local_erase'. 
+  notypeclasses refine (xlet_instantiate _ _ _).
+  (* applys @xlet_instantiate Enc_int. (* todo: prevent resolution of encoder *)*)
   (* xapp details *)
   applys Local_erase'. applys @xapp_lemma.
   { applys Triple_get. }
