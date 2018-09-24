@@ -95,128 +95,221 @@ Coercion trm_app : trm >-> Funclass.
 
 
 (* ********************************************************************** *)
-(* * Definition of capture avoiding substitution *)
+(* * Definition of substitution *)
 
 (* ---------------------------------------------------------------------- *)
-(** Substition of bindings in a term *)
+(** Definition of standard capture-avoiding substitution *)
 
-(** [ctx] is the type of bindings from variables to values *)
+(** Substitution of a variable with a value. *)
+
+Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
+  let aux t := subst y w t in
+  let aux_no_capture z t := If z = bind_var y then t else aux t in
+  match t with
+  | trm_val v => trm_val v
+  | trm_var x => if var_eq x y then trm_val w else t
+  | trm_fix f z t1 => trm_fix f z (If f = y then t1 else
+                                   aux_no_capture z t1)
+  | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
+  | trm_let z t1 t2 => trm_let z (aux t1) (aux_no_capture z t2)
+  | trm_app t1 t2 => trm_app (aux t1) (aux t2)
+  | trm_while t1 t2 => trm_while (aux t1) (aux t2)
+  | trm_for x t1 t2 t3 => trm_for x (aux t1) (aux t2) (aux_no_capture x t3)
+  end.
+
+(** Recall from [Bind.v] that a value of type [bind] is either 
+    a variable of the form [bind_var x] or the anonymous binder [bind_anon] *)
+
+(** [subst1 z v t] substitutes [z] with [v] in [t], 
+    or do nothing if [z] is the anonymous binder. *)
+
+Definition subst1 (z:bind) (v:val) (t:trm) :=
+  match z with
+  | bind_anon => t
+  | bind_var x => subst x v t 
+  end.
+
+(** [subst2] is a shorthand that iterates two calls to [subst1]. *)
+
+Definition subst2 (z1:bind) (v1:val) (z2:bind) (v2:val) (t:trm) :=
+   subst1 z2 v2 (subst1 z1 v1 t).
+
+(** [substn xs vs t] is an iterated version of [subst].
+    It substitutes the values [vs] for the corresponding variables in [xs].
+    This operation is only specified when [length xs = length vs]. *)
+
+Fixpoint substn (xs:vars) (vs:vals) (t:trm) : trm :=
+  match xs,vs with
+  | x::xs', v::vs' => substn xs' vs' (subst x v t)
+  | _,_ => t
+  end.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Definition of iterated substitution *)
+
+(** To efficiently compute characteristic formulae, we introduce an
+    n-ary substitution function. *)
+
+(** [ctx] is the type of bindings from variables to values, using a 
+    definition from [Bind.v]. *)
 
 Definition ctx := Ctx.ctx val.
 
-(** [subst E t] substitutes all the bindings from [E] inside [t] *)
+(** [isubst E t] substitutes all the bindings from [E] inside [t]. *)
 
-Fixpoint subst (E:ctx) (t:trm) : trm :=
-  let aux := subst E in
+Fixpoint isubst (E:ctx) (t:trm) : trm :=
+  let aux := isubst E in
   match t with
   | trm_val v => trm_val v
   | trm_var x => match Ctx.lookup x E with
                  | None => t
                  | Some v => v
                  end
-  | trm_fix f z t1 => trm_fix f z (subst (Ctx.rem z (Ctx.rem f E)) t1)
+  | trm_fix f z t1 => trm_fix f z (isubst (Ctx.rem z (Ctx.rem f E)) t1)
   | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
-  | trm_let z t1 t2 => trm_let z (aux t1) (subst (Ctx.rem z E) t2)
+  | trm_let z t1 t2 => trm_let z (aux t1) (isubst (Ctx.rem z E) t2)
   | trm_app t1 t2 => trm_app (aux t1) (aux t2)
   | trm_while t1 t2 => trm_while (aux t1) (aux t2)
-  | trm_for x t1 t2 t3 => trm_for x (aux t1) (aux t2) (subst (Ctx.rem x E) t3)
+  | trm_for x t1 t2 t3 => trm_for x (aux t1) (aux t2) (isubst (Ctx.rem x E) t3)
   end.
 
+(** Recall that [one z v] is a shorthand for [add z v empty], and that
+    [add] ignores anonymous binders. *)
 
-(* ---------------------------------------------------------------------- *)
-(** Special calls to [subst] on 1, 2, or n bindings. *)
+(** [isubst1 z v t] replaces occurences of binder [z] with [v] in [t]. *)
 
-(** [subst1 z v t] replaces occurences of binder [z] with [v] in [t]. *)
+Definition isubst1 (z:bind) (v:val) (t:trm) :=
+  isubst (Ctx.one z v) t.
 
-Definition subst1 (z:bind) (v:val) (t:trm) :=
-  subst (Ctx.one z v) t.
+(** [isubst2 z1 v1 z2 v2 t] is similar. *)
 
-(** [subst2 z1 v1 z2 v2 t] is similar. *)
+Definition isubst2 (z1:bind) (v1:val) (z2:bind) (v2:val) (t:trm) :=
+   isubst (Ctx.add z1 v1 (Ctx.one z2 v2)) t.
 
-Definition subst2 (z1:bind) (v1:val) (z2:bind) (v2:val) (t:trm) :=
-   subst (Ctx.add z1 v1 (Ctx.one z2 v2)) t.
-
-(** [substn xs vs t] is a shorthand for [substs (List.combine xs vs) t].
+(** [isubstn xs vs t] is a shorthand for [substs (List.combine xs vs) t].
     It substitutes the values [vs] for the corresponding variables in [xs].
     This operation is only specified when [length xs = length vs]. *)
 
-Definition substn (xs:vars) (vs:vals) (t:trm) : trm :=
-  subst (LibList.combine xs vs) t.
+Definition isubstn (xs:vars) (vs:vals) (t:trm) : trm :=
+  isubst (LibList.combine xs vs) t.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Lemmas about substitution *)
+(** Relationship between substitution and iterated substitution *)
 
-(** [subst] with [empty] changes nothing. *)
+(** [isubst] with [empty] changes nothing. *)
 
-Lemma subst_empty : forall t,
-  subst Ctx.empty t = t.
+Lemma isubst_empty : forall t,
+  isubst Ctx.empty t = t.
 Proof using.
   intros. induction t; simpl;
    try solve [ repeat rewrite Ctx.rem_empty; fequals* ].
 Qed.
 
-(** [subst1 z v t]  returns [t] unchanged when [z] is anonymous. *)
+(** [isubst] with [add] is like calling [subst] first *)
 
-Lemma subst1_anon : forall v t,
-  subst1 bind_anon v t = t.
+Lemma isubst_cons : forall x v E t,
+  isubst ((x,v)::E) t = isubst E (subst x v t).
 Proof using.
-  intros. unfold subst1, Ctx.one, Ctx.add. rewrite~ subst_empty.
+  intros. rew_ctx. gen E.
+  induction t; intros; simpl; try solve [ fequals* ].
+  { rewrite var_eq_spec. case_if*. }
+  { rew_ctx. fequals. case_if.
+    { subst. rewrite* Ctx.rem_add_same. }
+    { rewrites* (>> Ctx.rem_add_neq b). case_if.
+      { subst. rewrite* Ctx.rem_add_same. }
+      { rewrite* Ctx.rem_add_neq. } } }
+  { rew_ctx. fequals. case_if.
+    { subst. rewrite* Ctx.rem_add_same. }
+    { rewrite~ Ctx.rem_add_neq. } }
+  { rew_ctx. fequals. rewrite var_eq_spec. do 2 case_if*. }
 Qed.
 
-(** [subst] can be combuted by iteratively substituting its bindings. *)
-
-Lemma subst_cons : forall x v E t,
-  subst ((x,v)::E) t = subst E (subst1 x v t).
-Proof using.
-  intros. unfold subst1. simpl. rew_ctx. gen E.
-    induction t; intros; simpl; try solve [ fequals* ].
-    { rewrite var_eq_spec. case_if~. }
-    { rew_ctx. fequals. tests: (b = x).
-      { repeat rewrite Ctx.rem_add_same. fequals.
-        rewrite Ctx.rem_empty, subst_empty. auto. }
-      { repeat rewrites~ (>> Ctx.rem_add_neq b). rewrite Ctx.rem_empty.
-        tests: (b0 = x).
-        { repeat rewrite Ctx.rem_add_same.
-          rewrite Ctx.rem_empty. rewrite~ subst_empty. }
-        { repeat rewrite~ Ctx.rem_add_neq. rewrite Ctx.rem_empty.
-          rewrite~ IHt. } } }
-  { rew_ctx. fequals. tests: (b = x).
-    { do 2 rewrite Ctx.rem_add_same. fequals. rewrite~ subst_empty. }
-    { do 2 (rewrite~ Ctx.rem_add_neq). rewrite Ctx.rem_empty. rewrite~ IHt2. } }
-  { admit. (* todo for loops *) }
-Qed.
-
-(** Lifting of the above lemma to handle the substitution of binders. *)
-
-Lemma subst_add : forall z v E t,
-  subst (Ctx.add z v E) t = subst E (subst1 z v t).
+Lemma isubst_add : forall z v E t,
+  isubst (Ctx.add z v E) t = isubst E (subst1 z v t).
 Proof using.
   intros. destruct z as [|x].
-  { simpl. rewrite~ subst1_anon. }
-  { applys~ subst_cons. }
+  { auto. }
+  { applys~ isubst_cons. }
+Qed.
+
+(** [isubst1] matches [subst1] *)
+
+Lemma isubst1_eq_subst1 : forall z v t,
+  isubst1 z v t = subst1 z v t.
+Proof using. 
+  intros. unfold isubst1, Ctx.one.
+  rewrite isubst_add, isubst_empty. auto.
 Qed.
 
 (** Reformulation of the definition of [subst2] *)
 
 Lemma subst2_eq_subst1_subst1 : forall x1 x2 v1 v2 t,
   subst2 x1 v1 x2 v2 t = subst1 x2 v2 (subst1 x1 v1 t).
-Proof using. intros. unfold subst2. rewrite~ subst_add. Qed.
+Proof using. auto. Qed.
+
+(** Reformulation of the definition of [isubst2] *)
+
+Lemma isubst2_eq_isubst1_isubst1 : forall x1 x2 v1 v2 t,
+  isubst2 x1 v1 x2 v2 t = isubst1 x2 v2 (isubst1 x1 v1 t).
+Proof using.
+  intros. unfold isubst2. rewrite~ isubst_add.
+  rewrites (>> isubst1_eq_subst1 x1). auto.
+Qed.
+
+(** [isubst2] matches [subst2] *)
+
+Lemma isubst2_eq_subst2 : forall z1 v1 z2 v2 t,
+  isubst2 z1 v1 z2 v2 t = subst2 z1 v1 z2 v2 t.
+Proof using. 
+  intros. rewrite isubst2_eq_isubst1_isubst1, subst2_eq_subst1_subst1.
+  do 2 rewrite isubst1_eq_subst1. auto.
+Qed.
 
 (** Distribution of [substn] on [nil] and [cons] lists *)
 
 Lemma substn_nil : forall t,
   substn nil nil t = t.
-Proof using. intros. unfold substn. simpl. rew_ctx. apply subst_empty. Qed.
+Proof using. auto. Qed.
 
 Lemma substn_cons : forall x xs v vs t,
   substn (x::xs) (v::vs) t = substn xs vs (subst1 x v t).
+Proof using. auto. Qed.
+
+(** Distribution of [isubstn] on [nil] and [cons] lists *)
+
+Lemma isubstn_nil : forall t,
+  isubstn nil nil t = t.
+Proof using. intros. unfold isubstn. simpl. rew_ctx. apply isubst_empty. Qed.
+
+Lemma isubstn_cons : forall x xs v vs t,
+  isubstn (x::xs) (v::vs) t = isubstn xs vs (subst1 x v t).
 Proof using.
-  intros. unfold substn. rewrite combine_cons. rewrite~ subst_cons.
+  intros. unfold isubstn. rewrite combine_cons. rewrite~ isubst_cons.
+Qed.
+
+(** [isubstn] matches [substn] *)
+
+Lemma isubstn_eq_substn : forall xs vs t,
+  length xs = length vs ->
+  isubstn xs vs t = substn xs vs t.
+Proof using. 
+  introv E. gen t. list2_ind~ xs vs; intros.
+  { rewrite* isubstn_nil. }
+  { rewrite* isubstn_cons. }
+Qed.
+
+(** [isubst1 z v t] returns [t] unchanged when [z] is anonymous. *)
+
+Lemma isubst1_anon : forall v t,
+  isubst1 bind_anon v t = t.
+Proof using.
+  intros. unfold isubst1, Ctx.one, Ctx.add. rewrite~ isubst_empty.
 Qed.
 
 
-
+(*
 
 Lemma rem_rem_same : forall z (E:ctx),
   Ctx.rem z (Ctx.rem z E) = Ctx.rem z E.
@@ -226,25 +319,24 @@ Lemma rem_rem_swap : forall z1 z2 (E:ctx),
   Ctx.rem z1 (Ctx.rem z2 E) = Ctx.rem z2 (Ctx.rem z1 E).
 Proof using. Admitted.
 
-
-
-Lemma subst1_subst_rem_neq : forall x v E t,
-  subst1 x v (subst (Ctx.rem x E) t) =
-  subst (Ctx.add x v E) t.
+Lemma isubst1_isubst_rem_neq : forall x v E t,
+  isubst1 x v (isubst (Ctx.rem x E) t) =
+  isubst (Ctx.add x v E) t.
 Proof using. Opaque Ctx.add Ctx.rem.
   intros. destruct x as [|x].
-  { simpl. rewrite~ subst1_anon. }
-  { unfold subst1, Ctx.one. gen E. induction t; intros; simpl; try solve [fequals].
+  { simpl. rewrite~ isubst1_anon. }
+  { unfold isubst1, Ctx.one. gen E. induction t; intros; simpl; try solve [fequals].
     { skip. }
     { fequals. skip. }
     { fequals. tests: (b = x).
       { repeat rewrite Ctx.rem_add_same. rewrite rem_rem_same.
-        rewrite Ctx.rem_empty. rewrite subst_empty. auto. }
+        rewrite Ctx.rem_empty. rewrite isubst_empty. auto. }
       { repeat rewrite~ Ctx.rem_add_neq. rewrite Ctx.rem_empty.
         rewrite <- IHt2. rewrite~ rem_rem_swap. } }
     { fequals. rewrite rem_rem_swap. admit. }
 Admitted.
 
+*)
 
 
 (*
@@ -448,7 +540,7 @@ Lemma red_seq : forall m1 m2 m3 t1 t2 r1 r,
   red m1 t1 m2 r1 ->
   red m2 t2 m3 r ->
   red m1 (trm_seq t1 t2) m3 r.
-Proof using. introv M1 M2. applys* red_let. rewrite* subst1_anon. Qed.
+Proof using. introv M1 M2. applys* red_let. (* rewrite* subst1_anon. *) Qed.
 
 Lemma red_ptr_add_nat : forall m l (f : nat),
   red m (val_ptr_add (val_loc l) (val_int f)) m (val_loc (l+f)%nat).
@@ -641,10 +733,10 @@ Proof using.
     { rew_list in *. asserts: (vs' = nil).
       { applys length_zero_inv. math. } subst vs'.
       simpls. applys* red_app. applys* red_val.
-      rewrite subst2_eq_subst1_subst1, subst1_anon. auto. }
+      (* rewrite subst2_eq_subst1_subst1, subst1_anon. auto. *) }
     { rewrite substn_cons in M2. applys~ IH M2. applys* red_app.
       { applys* red_val. }
-      { simpl. rewrite subst2_eq_subst1_subst1, subst1_anon.
+      { (* simpl. rewrite subst2_eq_subst1_subst1, subst1_anon. *)
         rewrite~ subst_trm_funs. applys~ red_funs. } } }
 Qed.
 
@@ -679,7 +771,7 @@ Proof using.
       { hint red_val. applys* red_app.
         rewrite subst2_eq_subst1_subst1. do 2 rewrite~ subst_trm_funs.
         applys* red_funs. }
-      { do 2 rewrite substn_cons in M. applys M. }
+      { (* do 2 rewrite substn_cons in M. *) applys M. }
       { splits*. } } }
 Qed.
 
@@ -783,23 +875,23 @@ Fixpoint trm_size (t:trm) : nat :=
   | trm_for x t1 t2 t3 => 1 + trm_size t1 + trm_size t2 + trm_size t3
   end.
 
-Lemma trm_size_subst : forall t E,
-  trm_size (subst E t) = trm_size t.
+Lemma trm_size_isubst : forall t E,
+  trm_size (isubst E t) = trm_size t.
 Proof using.
   intros t. induction t; intros; simpl; repeat case_if; auto.
   { destruct~ (Ctx.lookup v E). }
 Qed.
 
-Lemma trm_size_subst1 : forall t z v,
-  trm_size (subst1 z v t) = trm_size t.
-Proof using. intros. applys trm_size_subst. Qed.
+Lemma trm_size_isubst1 : forall t z v,
+  trm_size (isubst1 z v t) = trm_size t.
+Proof using. intros. applys trm_size_isubst. Qed.
 
 (** Hint for induction on size. Proves subgoals of the form
     [measure trm_size t1 t2], when [t1] and [t2] may have some
     structure or involve substitutions. *)
 
 Ltac solve_measure_trm_size tt :=
-  unfold measure in *; simpls; repeat rewrite trm_size_subst1; math.
+  unfold measure in *; simpls; repeat rewrite trm_size_isubst1; math.
 
 Hint Extern 1 (measure trm_size _ _) => solve_measure_trm_size tt.
 
