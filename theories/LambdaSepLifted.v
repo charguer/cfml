@@ -534,21 +534,21 @@ Lemma Triple_extract_hexists : forall t `{Enc A} B (J:B->hprop) (Q:A->hprop),
   Triple t (hexists J) Q.
 Proof using. intros. applys~ triple_extract_hexists. Qed.
 
-Lemma Triple_extract_hforall : forall t `{Enc A} B (J:B->hprop) (Q:A->hprop),
+Lemma Triple_extract_hforall : forall t B (J:B->hprop) `{EA:Enc A} (Q:A->hprop),
   (exists x, Triple t (J x) Q) ->
   Triple t (hforall J) Q.
-Proof using. intros. applys~ triple_extract_hforall. Qed.
+Proof using. unfold Triple. introv (x&M). applys* triple_extract_hforall. Qed.
 
 Lemma Triple_extract_hprop : forall t (P:Prop) `{Enc A} H (Q:A->hprop),
   (P -> Triple t H Q) ->
   Triple t (\[P] \* H) Q.
 Proof using. intros. applys~ triple_extract_hprop. Qed.
 
-Lemma Triple_extract_hwand_hpure_l : forall t (P:Prop) `{Enc A} H (Q:A->hprop),
+Lemma Triple_extract_hwand_hpure_l : forall t (P:Prop) H `{EA:Enc A} (Q:A->hprop),
   P ->
   Triple t H Q ->
   Triple t (\[P] \-* H) Q.
-Proof using. intros. applys~ triple_extract_hwand_hpure_l. Qed.
+Proof using. unfold Triple. introv M N. applys* triple_extract_hwand_hpure_l. Qed.
 
 Lemma Triple_frame : forall t `{Enc A} H (Q:A->hprop) H',
   Triple t H Q ->

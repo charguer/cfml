@@ -779,7 +779,7 @@ Lemma triple_seq : forall t1 t2 H Q Q1,
   (forall (X:val), triple t2 (Q1 X) Q) ->
   triple (trm_seq t1 t2) H Q.
 Proof using.
-  introv M1 M2. applys* triple_let. intros. rewrite* subst1_anon.
+  introv M1 M2. applys* triple_let. (* BIND intros. rewrite* subst1_anon. *)
 Qed.
 
 Lemma triple_if : forall Q1 t0 t1 t2 H Q,

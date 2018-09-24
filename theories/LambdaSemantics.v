@@ -107,7 +107,7 @@ Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
   let aux_no_capture z t := If z = bind_var y then t else aux t in
   match t with
   | trm_val v => trm_val v
-  | trm_var x => if var_eq x y then trm_val w else t
+  | trm_var x => If x = y then trm_val w else t
   | trm_fix f z t1 => trm_fix f z (If f = y then t1 else
                                    aux_no_capture z t1)
   | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
@@ -200,12 +200,16 @@ Definition isubstn (xs:vars) (vs:vals) (t:trm) : trm :=
 
 (** [isubst] with [empty] changes nothing. *)
 
-Lemma isubst_empty : forall t,
-  isubst Ctx.empty t = t.
+Lemma isubst_nil : forall t,
+  isubst nil t = t.
 Proof using.
   intros. induction t; simpl;
    try solve [ repeat rewrite Ctx.rem_empty; fequals* ].
 Qed.
+
+Lemma isubst_empty : forall t,
+  isubst Ctx.empty t = t.
+Proof using. applys isubst_nil. Qed.
 
 (** [isubst] with [add] is like calling [subst] first *)
 
@@ -214,7 +218,7 @@ Lemma isubst_cons : forall x v E t,
 Proof using.
   intros. rew_ctx. gen E.
   induction t; intros; simpl; try solve [ fequals* ].
-  { rewrite var_eq_spec. case_if*. }
+  { rewrite var_eq_spec. do 2 case_if*. }
   { rew_ctx. fequals. case_if.
     { subst. rewrite* Ctx.rem_add_same. }
     { rewrites* (>> Ctx.rem_add_neq b). case_if.
@@ -308,97 +312,51 @@ Proof using.
   intros. unfold isubst1, Ctx.one, Ctx.add. rewrite~ isubst_empty.
 Qed.
 
-
-(*
-
-Lemma rem_rem_same : forall z (E:ctx),
-  Ctx.rem z (Ctx.rem z E) = Ctx.rem z E.
-Proof using. Admitted.
-
-Lemma rem_rem_swap : forall z1 z2 (E:ctx),
-  Ctx.rem z1 (Ctx.rem z2 E) = Ctx.rem z2 (Ctx.rem z1 E).
-Proof using. Admitted.
-
-Lemma isubst1_isubst_rem_neq : forall x v E t,
-  isubst1 x v (isubst (Ctx.rem x E) t) =
-  isubst (Ctx.add x v E) t.
-Proof using. Opaque Ctx.add Ctx.rem.
-  intros. destruct x as [|x].
-  { simpl. rewrite~ isubst1_anon. }
-  { unfold isubst1, Ctx.one. gen E. induction t; intros; simpl; try solve [fequals].
-    { skip. }
-    { fequals. skip. }
-    { fequals. tests: (b = x).
-      { repeat rewrite Ctx.rem_add_same. rewrite rem_rem_same.
-        rewrite Ctx.rem_empty. rewrite isubst_empty. auto. }
-      { repeat rewrite~ Ctx.rem_add_neq. rewrite Ctx.rem_empty.
-        rewrite <- IHt2. rewrite~ rem_rem_swap. } }
-    { fequals. rewrite rem_rem_swap. admit. }
-Admitted.
-
-*)
-
-
-(*
 (** Substitutions for two distinct variables commute. *)
 
-Lemma subst1_subst1_neq : forall (x1 x2:var) v1 v2 t,
+Lemma subst_subst_neq : forall x1 x2 v1 v2 t,
   x1 <> x2 ->
-  subst1 x2 v2 (subst1 x1 v1 t) = subst1 x1 v1 (subst1 x2 v2 t).
+  subst x2 v2 (subst x1 v1 t) = subst x1 v1 (subst x2 v2 t).
 Proof using.
   introv N. induction t; simpl; try solve [ fequals;
   repeat case_if; simpl; repeat case_if; auto ].
   repeat case_if; simpl; repeat case_if~.
-  { false. destruct v; destruct x1; destruct x2; false. simpls.
-    rewrite name_eq_spec in *. rew_bool_eq in *. false. }
-Qed. (* LATER: simplify *)
+Qed. 
 
 (** Substituting for a variable that has just been substituted
     does not further modify the term. *)
 
 Lemma subst_subst_same : forall x v1 v2 t,
-  subst1 x v2 (subst1 x v1 t) = subst1 x v1 t.
+  subst x v2 (subst x v1 t) = subst x v1 t.
 Proof using.
   intros. induction t; simpl; try solve [ fequals;
   repeat case_if; simpl; repeat case_if; auto ].
 Qed.
 
+(** A step of an iterated substitution can be postponed until the end 
+    if we remove it from the context. *)
 
-Lemma subst1_subst_rem_same : forall E z v t,
-    subst1 z v (subst (rem z E) t)
-  = subst E (subst1 z v t).
+Lemma isubst_subst_eq_subst_isubst_rem : forall (x:var) v E t,
+  isubst E (subst x v t) = subst x v (isubst (Ctx.rem x E) t).
 Proof using.
-  intros. rewrite <- subst_add.
-
-  intros E. induction E as [|(y,w) E']; simpl; intros.
-  { auto. }
-  { rewrite var_eq_spec. case_if.
-    { subst. rewrite IHE'. rewrite~ subst_subst_same. }
-    { simpl. rewrite IHE'. rewrite~ subst_subst_neq. } }
-Qed.
-)
-
-
-Lemma subst1_subst_rem_same : forall E z v t,
-    subst1 z v (subst (rem z E) t)
-  = subst E (subst1 z v t).
-Proof using.
-  intros. rewrite <- subst_add.
-
-  intros E. induction E as [|(y,w) E']; simpl; intros.
-  { auto. }
-  { rewrite var_eq_spec. case_if.
-    { subst. rewrite IHE'. rewrite~ subst_subst_same. }
-    { simpl. rewrite IHE'. rewrite~ subst_subst_neq. } }
+  intros. gen t. induction E as [| (y,w) E']; intros; rew_ctx.
+  { rewrite Ctx.rem_empty. do 2 rewrite isubst_empty. auto. }
+  { tests EQ: (x = y). 
+    { rewrite Ctx.rem_add_same. rewrite isubst_add. unfold subst1.
+      rewrite subst_subst_same. rewrite* IHE'. }
+    { rewrite Ctx.rem_add_neq; auto_false. do 2 rewrite isubst_add. 
+      unfold subst1. rewrite* subst_subst_neq. } }
 Qed.
 
-*)
+Lemma isubst_add_eq_subst1_isubst : forall z v E t,
+  isubst (Ctx.add z v E) t = subst1 z v (isubst (Ctx.rem z E) t).
+Proof using.
+  intros. destruct z as [|x].
+  { auto. }
+  { rewrite isubst_add. unfold subst1. 
+    rewrite* isubst_subst_eq_subst_isubst_rem. }
+Qed.
 
-
-(* ---------------------------------------------------------------------- *)
-(** Proof of equivalence with simple capture-avoiding substitution *)
-
-(* LATER *)
 
 
 (* ********************************************************************** *)
@@ -540,7 +498,7 @@ Lemma red_seq : forall m1 m2 m3 t1 t2 r1 r,
   red m1 t1 m2 r1 ->
   red m2 t2 m3 r ->
   red m1 (trm_seq t1 t2) m3 r.
-Proof using. introv M1 M2. applys* red_let. (* rewrite* subst1_anon. *) Qed.
+Proof using. introv M1 M2. applys* red_let. (* BIND rewrite* subst1_anon. *) Qed.
 
 Lemma red_ptr_add_nat : forall m l (f : nat),
   red m (val_ptr_add (val_loc l) (val_int f)) m (val_loc (l+f)%nat).
@@ -733,10 +691,10 @@ Proof using.
     { rew_list in *. asserts: (vs' = nil).
       { applys length_zero_inv. math. } subst vs'.
       simpls. applys* red_app. applys* red_val.
-      (* rewrite subst2_eq_subst1_subst1, subst1_anon. auto. *) }
+      (* BIND rewrite subst2_eq_subst1_subst1, subst1_anon. auto. *) }
     { rewrite substn_cons in M2. applys~ IH M2. applys* red_app.
       { applys* red_val. }
-      { (* simpl. rewrite subst2_eq_subst1_subst1, subst1_anon. *)
+      { (* BIND simpl. rewrite subst2_eq_subst1_subst1, subst1_anon. *)
         rewrite~ subst_trm_funs. applys~ red_funs. } } }
 Qed.
 
@@ -771,7 +729,7 @@ Proof using.
       { hint red_val. applys* red_app.
         rewrite subst2_eq_subst1_subst1. do 2 rewrite~ subst_trm_funs.
         applys* red_funs. }
-      { (* do 2 rewrite substn_cons in M. *) applys M. }
+      { (* BIND do 2 rewrite substn_cons in M. *) applys M. }
       { splits*. } } }
 Qed.
 

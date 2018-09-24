@@ -282,10 +282,10 @@ Fixpoint wp (E:ctx) (t:trm) : formula :=
   match t with
   | trm_val v => wp_val v
   | trm_var x => wp_var E x
-  | trm_fix f x t1 => wp_val (val_fix f x (subst (Ctx.rem x (Ctx.rem f E)) t1))
+  | trm_fix f x t1 => wp_val (val_fix f x (isubst (Ctx.rem x (Ctx.rem f E)) t1))
   | trm_if t0 t1 t2 => wp_if (aux t0) (aux t1) (aux t2)
   | trm_let x t1 t2 => wp_let (aux t1) (fun X => wp (Ctx.add x X E) t2)
-  | trm_app t1 t2 => wp_app (subst E t)
+  | trm_app t1 t2 => wp_app (isubst E t)
   | trm_while t1 t2 => wp_while (aux t1) (aux t2)
   | trm_for x t1 t2 t3 => 
       match t1, t2 with
@@ -360,7 +360,7 @@ Ltac remove_local :=
 (** [wp_triple_ E t] is a shorthand for [wp_triple (substs E t)] *)
 
 Definition wp_triple_ E t :=
-  wp_triple (subst E t).
+  wp_triple (isubst E t).
 
 (** [wp_sound t] asserts that [wp] is sound for all contexts [E],
     in the sense that the syntactic wp entails the semantics wp:
@@ -422,9 +422,7 @@ Proof using.
   remove_local. applys triple_let.
   { rewrite triple_eq_himpl_wp_triple. applys* M1. }
   { intros X. simpl. rewrite triple_eq_himpl_wp_triple.
-    (* TODO *)
-    skip_rewrite (subst1 x X (subst (Ctx.rem x E) t2) =
-      subst (Ctx.add x X E) t2). applys* M2. }
+    rewrite <- isubst_add_eq_subst1_isubst. applys* M2. }
 Qed.
 
 Lemma wp_sound_seq : forall F1 F2 E t1 t2,
@@ -453,14 +451,14 @@ Lemma wp_sound_while : forall F1 F2 E t1 t2,
 Proof using.
   introv M1 M2. applys qimpl_wp_triple. simpl. intros Q.
   remove_local. applys triple_extract_hforall.
-  set (R := wp_triple (trm_while (subst E t1) (subst E t2))).
+  set (R := wp_triple (trm_while (isubst E t1) (isubst E t2))).
   exists R. simpl. applys triple_extract_hwand_hpure_l.
   { split.
     { applys is_local_wp_triple. }
     { clears Q. applys qimpl_wp_triple. intros Q.
       applys triple_while_raw. rewrite~ triple_eq_himpl_wp_triple.
-      change ((trm_if (subst E t1) (trm_seq (subst E t2) (trm_while (subst E t1) (subst E t2))) val_unit))
-        with (subst E (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit)).
+      change ((trm_if (isubst E t1) (trm_seq (isubst E t2) (trm_while (isubst E t1) (isubst E t2))) val_unit))
+        with (isubst E (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit)).
       applys~ wp_sound_if. 
       { applys* wp_sound_seq. eauto. }
       { intros Q'. applys wp_sound_val. } } }
@@ -478,17 +476,16 @@ Proof using. Opaque Ctx.add Ctx.rem.
   introv M. applys qimpl_wp_triple. simpl. intros Q.
   remove_local. intros n1 n2 (->&->).
   applys triple_extract_hforall.
-  set (S := fun (i:int) => wp_triple (subst E (trm_for x i n2 t1))).
+  set (S := fun (i:int) => wp_triple (isubst E (trm_for x i n2 t1))).
   exists S. simpl. applys triple_extract_hwand_hpure_l.
   { split.
     { intros r. applys is_local_wp_triple. }
     { clears Q. intros i. applys qimpl_wp_triple. intros Q.
-      simpl subst. applys triple_for_raw. rewrite~ triple_eq_himpl_wp_triple.
-      case_if.
-      { skip_rewrite (subst1 x i (subst (Ctx.rem x E) t1) = 
-                        subst (Ctx.add x (val_int i) E) t1).
-        asserts_rewrite (trm_seq (subst (Ctx.add x (val_int i) E) t1) (trm_for x (i + 1)%I n2 (subst (Ctx.rem x E) t1))
-          = (subst (Ctx.add x (val_int i) E) (trm_seq t1 (trm_for x (i + 1)%I n2 t1)))).
+      simpl subst. applys triple_for_raw. fold isubst.
+      rewrite~ triple_eq_himpl_wp_triple. case_if.
+      { rewrite <- isubst_add_eq_subst1_isubst.
+        asserts_rewrite (trm_seq (isubst (Ctx.add x (val_int i) E) t1) (trm_for x (i + 1)%I n2 (isubst (Ctx.rem x E) t1))
+          = (isubst (Ctx.add x (val_int i) E) (trm_seq t1 (trm_for x (i + 1)%I n2 t1)))).
         { simpl. rewrite rem_anon, Ctx.rem_add_same. auto. }
         applys wp_sound_seq.
         { applys* M. }
@@ -523,22 +520,22 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Corrolaries of the soundness of [wp] *)
 
-Lemma triple_subst_wp : forall t E Q,
-  triple (subst E t) (wp E t Q) Q.
+Lemma triple_isubst_wp : forall t E Q,
+  triple (isubst E t) (wp E t Q) Q.
 Proof using.
   intros. rewrite triple_eq_himpl_wp_triple. applys wp_sound_trm.
 Qed.
 
-Lemma triple_subst_of_wp : forall t E H Q,
+Lemma triple_isubst_of_wp : forall t E H Q,
   H ==> wp E t Q ->
-  triple (subst E t) H Q.
-Proof using. introv M. xchanges M. applys triple_subst_wp. Qed.
+  triple (isubst E t) H Q.
+Proof using. introv M. xchanges M. applys triple_isubst_wp. Qed.
 
 Lemma triple_of_wp : forall (t:trm) H Q,
   H ==> wp Ctx.empty t Q ->
   triple t H Q.
 Proof using.
-  introv M. rewrite <- (subst_empty t). applys~ triple_subst_of_wp.
+  introv M. rewrite <- (isubst_empty t). applys~ triple_isubst_of_wp.
 Qed.
 
 

@@ -158,14 +158,14 @@ Fixpoint Wp (E:ctx) (t:trm) : Formula :=
   match t with
   | trm_val v => Wp_val v
   | trm_var x => Wp_var E x
-  | trm_fix f x t1 => Wp_val (val_fix f x (subst (Ctx.rem x (Ctx.rem f E)) t1))
+  | trm_fix f x t1 => Wp_val (val_fix f x (isubst (Ctx.rem x (Ctx.rem f E)) t1))
   | trm_if t0 t1 t2 => Wp_if (aux t0) (aux t1) (aux t2)
   | trm_let z t1 t2 =>
      match z with
      | bind_anon => Wp_seq (aux t1) (aux t2)
      | bind_var x => Wp_let (aux t1) (fun `{EA:Enc A} X => Wp (Ctx.add x (enc X) E) t2)
      end
-  | trm_app t1 t2 => Wp_app (subst E t)
+  | trm_app t1 t2 => Wp_app (isubst E t)
   | trm_while t1 t2 => Wp_while (aux t1) (aux t2)
   | trm_for x t1 t2 t3 => Wp_fail
       (* TODO Wp_for' (aux t1) (aux t2) (fun X => Wp (ctx_add x X E) t3) *)
@@ -232,10 +232,10 @@ Ltac remove_Local :=
 (* ---------------------------------------------------------------------- *)
 (* ** Soundness of [wp] *)
 
-(** [Wp_Triple_ E t] is a shorthand for [wp_triple (subst E t)] *)
+(** [Wp_Triple_ E t] is a shorthand for [wp_triple (isubst E t)] *)
 
 Definition Wp_Triple_ E t :=
-  Wp_Triple (subst E t).
+  Wp_Triple (isubst E t).
 
 (** [Wp_sound t] asserts that [wp] is sound for all contexts [E],
     in the sense that the syntactic wp entails the semantics wp. *)
@@ -284,7 +284,7 @@ Proof using.
   intros Q. remove_Local. xpull ;=> V EQ. simpl.
   applys Triple_enc_val_inv (fun r => \[r = enc V] \* (Q V)).
   { applys Triple_fun. rewrite EQ. hsimpl~. }
-  { hpull ;=> X EX. subst X. hsimpl~. }
+  { hpull ;=> X EX. isubst X. hsimpl~. }
 Qed.
 *)
 
@@ -328,14 +328,12 @@ Lemma Wp_sound_let : forall (F1:Formula) (F2of:forall `{EA1:Enc A1},A1->Formula)
   (forall `{EA:Enc A} (X:A), F2of X ====> Wp_Triple_ (Ctx.add x (enc X) E) t2) ->
   Wp_let F1 (@F2of) ====> Wp_Triple_ E (trm_let x t1 t2).
 Proof using.
+  Opaque Ctx.rem.
   introv M1 M2. intros A EA. applys qimpl_Wp_Triple. intros Q.
   remove_Local. xpull ;=> A1 EA1. simpl. applys Triple_let.
   { rewrite Triple_eq_himpl_Wp_Triple. applys* M1. }
   { intros X. rewrite Triple_eq_himpl_Wp_Triple.
-    unfold Subst1.
-    (* todo rewrite subst_subst_ctx_rem_same. *)
-    skip_rewrite (forall v, subst1 x v (subst (Ctx.rem_var x E) t2) = subst (Ctx.add x v E) t2).
-    applys* M2. }
+    unfold Subst1. rewrite <- isubst_add_eq_subst1_isubst. applys* M2. }
 Qed.
 
 Lemma Wp_sound_app : forall t1 t2,
@@ -346,20 +344,6 @@ Proof using.
   rewrite Triple_eq_himpl_Wp_Triple. hsimpl.
 Qed.
 
-
-(* TODO: move *)
-Lemma Triple_extract_hforall : forall t B (J:B->hprop) `{EA:Enc A} (Q:A->hprop),
-  (exists x, Triple t (J x) Q) ->
-  Triple t (hforall J) Q.
-Proof using. unfold Triple. introv (x&M). applys* triple_extract_hforall. Qed.
-
-Lemma Triple_extract_hwand_hpure_l : forall t (P:Prop) H `{EA:Enc A} (Q:A->hprop),
-  P ->
-  Triple t H Q ->
-  Triple t (\[P] \-* H) Q.
-Proof using. unfold Triple. introv M N. applys* triple_extract_hwand_hpure_l. Qed.
-
-
 Lemma Wp_sound_while : forall F1 F2 E t1 t2,
   F1 ====> Wp_Triple_ E t1 ->
   F2 ====> Wp_Triple_ E t2 ->
@@ -369,15 +353,15 @@ Proof using.
   remove_Local. simpl.
   unfold Formula_typed. xpull ;=> Q' C. applys Triple_enc_change (rm C).
   applys Triple_extract_hforall.
-  set (R := Wp_Triple (trm_while (subst E t1) (subst E t2))).
+  set (R := Wp_Triple (trm_while (isubst E t1) (isubst E t2))).
   exists R. simpl. applys Triple_extract_hwand_hpure_l.
   { split.
     { applys @is_local_Wp_Triple. }
     { clears Q. applys qimpl_Wp_Triple. intros Q.
       applys Triple_while_raw.
       asserts_rewrite~ (
-         trm_if (subst E t1) (trm_seq (subst E t2) (trm_while (subst E t1) (subst E t2))) val_unit
-       = subst E (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit)).
+         trm_if (isubst E t1) (trm_seq (isubst E t2) (trm_while (isubst E t1) (isubst E t2))) val_unit
+       = isubst E (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit)).
       rewrite Triple_eq_himpl_Wp_Triple. applys~ Wp_sound_if.
       { applys~ Wp_sound_seq. }
       { intros A1 EA1 Q''. applys Wp_sound_val. } } }
@@ -411,23 +395,23 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Corrolaries of the soundness of [wp] *)
 
-Lemma Triple_subst_Wp : forall t E `{EA:Enc A} (Q:A->hprop),
-  Triple (subst E t) (^(Wp E t) Q) Q.
+Lemma Triple_isubst_Wp : forall t E `{EA:Enc A} (Q:A->hprop),
+  Triple (isubst E t) (^(Wp E t) Q) Q.
 Proof using.
   intros. rewrite Triple_eq_himpl_Wp_Triple. applys Wp_sound_trm.
 Qed.
 
-Lemma Triple_subst_of_Wp : forall t E H `{EA:Enc A} (Q:A->hprop),
+Lemma Triple_isubst_of_Wp : forall t E H `{EA:Enc A} (Q:A->hprop),
   H ==> ^(Wp E t) Q ->
-  Triple (subst E t) H Q.
-Proof using. introv M. xchanges M. applys Triple_subst_Wp. Qed.
+  Triple (isubst E t) H Q.
+Proof using. introv M. xchanges M. applys Triple_isubst_Wp. Qed.
 
 Lemma Triple_of_Wp : forall (t:trm) H `{EA:Enc A} (Q:A->hprop),
   H ==> ^(Wp Ctx.empty t) Q ->
   Triple t H Q.
 Proof using.
-  introv M. xchanges M. pattern t at 1; rewrite <- (subst_empty t).
-  applys Triple_subst_Wp.
+  introv M. xchanges M. pattern t at 1; rewrite <- (isubst_empty t).
+  applys Triple_isubst_Wp.
 Qed.
 
 
@@ -435,6 +419,14 @@ Qed.
 
 (* ---------------------------------------------------------------------- *)
 (* ** Lemmas for tactics *)
+
+Lemma Substn_eq_isubstn : forall xs (Vs:dyns) t,
+  length xs = length Vs ->
+  Substn xs Vs t = isubstn xs (encs Vs) t.
+Proof using.
+  introv E. unfold Substn. rewrite~ isubstn_eq_substn.
+  rewrite* length_encs.
+Qed.
 
 Lemma Triple_apps_funs_of_Wp : forall F (Vs:dyns) (vs:vals) xs t `{EA:Enc A} H (Q:A->hprop),
   F = val_funs xs t ->
@@ -444,7 +436,9 @@ Lemma Triple_apps_funs_of_Wp : forall F (Vs:dyns) (vs:vals) xs t `{EA:Enc A} H (
   Triple (trm_apps F vs) H Q.
 Proof using.
   introv EF EV N M. rewrite var_funs_exec_eq in N. rew_istrue in N.
-  subst. applys* Triple_apps_funs. applys* Triple_subst_of_Wp.
+  subst. applys* Triple_apps_funs. 
+  unfolds in N. rewrite* Substn_eq_isubstn.
+  applys* Triple_isubst_of_Wp.
 Qed.
 
 
@@ -456,9 +450,11 @@ Lemma Triple_apps_fixs_of_Wp : forall F (f:var) (Vs:dyns) (vs:vals) xs t `{EA:En
   Triple (trm_apps F vs) H Q.
 Proof using.
   introv EF EV N M. rewrite var_fixs_exec_eq in N. rew_istrue in N.
-   lets (D&L&_): N. simpl in D. rew_istrue in D. destruct D as [D1 D2].
-  subst. applys* Triple_apps_fixs. unfold Substn.
-  { applys @Triple_subst_of_Wp M. }
+  lets (D&L&_): N. simpl in D. rew_istrue in D. destruct D as [D1 D2].
+  subst. applys* Triple_apps_fixs.
+  rewrite~ Substn_eq_isubstn. 
+  { applys @Triple_isubst_of_Wp M. }
+  { rew_list. math. }
 Qed.
 
 
