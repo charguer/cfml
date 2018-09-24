@@ -630,27 +630,21 @@ Notation val_funs := (val_fixs bind_anon).
 Lemma subst_trm_funs : forall y w xs t,
   var_fresh y xs ->
   subst1 y w (trm_funs xs t) = trm_funs xs (subst1 y w t).
-Proof using. Admitted.
-(*
+Proof using. 
   introv N. unfold subst1. induction xs as [|x xs']; simpls; fequals.
-  { rewrite var_eq_spec in *. case_if. rewrite~ <- IHxs'. }
-Qed.*)
+  { rewrite var_eq_spec in *. case_if. do 2 case_if. rewrite~ <- IHxs'. }
+Qed.
 
 Lemma subst_trm_fixs : forall y w f xs t,
   var_fresh y (f::xs) ->
   subst1 y w (trm_fixs f xs t) = trm_fixs f xs (subst1 y w t).
-Proof using. Admitted.
-(*
+Proof using. 
   introv N. destruct xs as [|x xs'].
   { auto. }
   { unfold subst1. simpls. repeat rewrite var_eq_spec in *.
-    do 2 case_if in N. simpl. rewrite var_eq_spec. case_if~.
-    fequals.
-    forwards K: subst_trm_funs N. unfold subst1, Ctx.one in K.
-    simpls. rewrite~ K. }
-Qed.  (* LATER: simplify *)
+    do 2 case_if in N. do 2 case_if~. fequals. applys* subst_trm_funs. }
+Qed.
 
-*)
 
 (* ---------------------------------------------------------------------- *)
 (** Reduction rules for n-ary functions *)
