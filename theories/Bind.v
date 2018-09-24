@@ -356,6 +356,10 @@ Proof using.
   rewrite var_eq_spec in *. case_if~.
 Qed.
 
+Lemma rem_anon : forall E,
+  Ctx.rem bind_anon E = E.
+Proof using. auto. Qed.
+
 (** [rem x empty] *)
 
 Lemma rem_empty : forall z,

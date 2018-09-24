@@ -465,10 +465,6 @@ Proof using.
   { rewrite~ triple_eq_himpl_wp_triple. }
 Qed.
 
-Lemma rem_anon : forall (E:ctx),
-  Ctx.rem bind_anon E = E.
-Proof using. auto. Qed.
-
 Lemma wp_sound_for_val : forall (x:var) v1 v2 F1 E t1,
   (forall X, F1 X ===> wp_triple_ (Ctx.add x X E) t1) ->
   wp_for_val v1 v2 F1 ===> wp_triple_ E (trm_for x v1 v2 t1).
@@ -486,7 +482,7 @@ Proof using. Opaque Ctx.add Ctx.rem.
       { rewrite <- isubst_add_eq_subst1_isubst.
         asserts_rewrite (trm_seq (isubst (Ctx.add x (val_int i) E) t1) (trm_for x (i + 1)%I n2 (isubst (Ctx.rem x E) t1))
           = (isubst (Ctx.add x (val_int i) E) (trm_seq t1 (trm_for x (i + 1)%I n2 t1)))).
-        { simpl. rewrite rem_anon, Ctx.rem_add_same. auto. }
+        { simpl. rewrite Ctx.rem_anon, Ctx.rem_add_same. auto. }
         applys wp_sound_seq.
         { applys* M. }
         { unfold S. unfold wp_triple_. simpl. rewrite~ Ctx.rem_add_same. } }
