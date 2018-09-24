@@ -132,16 +132,15 @@ Definition Wp_while (F1 F2:Formula) : Formula :=
     let F := Wp_if F1 (Wp_seq F2 R) (Wp_val val_unit) in
     \[ is_local (@R unit _) /\ (forall Q', ^F Q' ==> ^R Q')] \-* (^R Q))).
 
+Definition Wp_for_val (v1 v2:val) (F1:val->Formula) : Formula := 
+  Local (Formula_typed (fun (Q:unit->hprop) =>
+    \exists n1 n2, \[v1 = val_int n1 /\ v2 = val_int n2] \*
+    \forall (S:int->Formula),
+    let F i := If (i <= n2) then (Wp_seq (F1 i) (S (i+1)))
+                            else (Wp_val val_unit) in
+    \[ (forall i, is_local (S i unit _)) /\ (forall i Q', ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
 
 (*
-
-Definition Wp_for_val (v1 v2:val) (F3:int->formula) : formula := local (fun Q =>
-  \exists n1 n2, \[v1 = val_int n1 /\ v2 = val_int n2] \*
-  \forall (S:int->formula),
-  let F i := If (i <= n2) then (Wp_seq (F3 i) (S (i+1)))
-                          else (Wp_val val_unit) in
-  \[ is_local_pred S /\ (forall i, F i ===> S i)] \-* (S n1 Q)).
-
 Definition Wp_for (F1 F2:formula) (F3:int->formula) : formula :=
   Wp_let F1 (fun v1 => Wp_let F2 (fun v2 => Wp_for_val v1 v2 F3)).
 
@@ -167,8 +166,11 @@ Fixpoint Wp (E:ctx) (t:trm) : Formula :=
      end
   | trm_app t1 t2 => Wp_app (isubst E t)
   | trm_while t1 t2 => Wp_while (aux t1) (aux t2)
-  | trm_for x t1 t2 t3 => Wp_fail
-      (* TODO Wp_for' (aux t1) (aux t2) (fun X => Wp (ctx_add x X E) t3) *)
+  | trm_for x t1 t2 t3 => 
+      match t1, t2 with
+      | trm_val v1, trm_val v2 => Wp_for_val v1 v2 (fun X => Wp (Ctx.add x X E) t3)
+      | _, _ => Wp_fail
+      end
   end.
 
 
@@ -276,18 +278,6 @@ Proof using.
   simpl. intros. applys* Triple_val.
 Qed.
 
-(* DEPRECATED
-Lemma Wp_sound_fun : forall x t,
-  Wp_sound (trm_fun x t).
-Proof using.
-  intros. intros E A EA. simpl. applys qimpl_Wp_Triple.
-  intros Q. remove_Local. xpull ;=> V EQ. simpl.
-  applys Triple_enc_val_inv (fun r => \[r = enc V] \* (Q V)).
-  { applys Triple_fun. rewrite EQ. hsimpl~. }
-  { hpull ;=> X EX. isubst X. hsimpl~. }
-Qed.
-*)
-
 Lemma Wp_sound_fix : forall f x t,
   Wp_sound (trm_fix f x t).
 Proof using.
@@ -368,6 +358,33 @@ Proof using.
   { rewrite~ @Triple_eq_himpl_Wp_Triple. }
 Qed.
 
+Lemma Wp_sound_for_val : forall (x:var) v1 v2 F1 E t1,
+  (forall X, F1 X ====> Wp_Triple_ (Ctx.add x X E) t1) ->
+  Wp_for_val v1 v2 F1 ====> Wp_Triple_ E (trm_for x v1 v2 t1).
+Proof using. Opaque Ctx.add Ctx.rem.
+  introv M. intros A EA. applys qimpl_Wp_Triple. intros Q.
+  remove_Local. simpl.
+  unfold Formula_typed. xpull ;=> Q' n1 n2 (->&->) C.
+  applys Triple_enc_change (rm C).
+  applys Triple_extract_hforall.
+  set (S := fun (i:int) => Wp_Triple (isubst E (trm_for x i n2 t1))).
+  exists S. simpl. applys Triple_extract_hwand_hpure_l.
+  { split.
+    { intros r. applys @is_local_Wp_Triple. }
+    { clears Q. intros i. applys qimpl_Wp_Triple. intros Q.
+      applys Triple_for_raw. fold isubst.
+      rewrite~ @Triple_eq_himpl_Wp_Triple. case_if.
+      { unfold Subst1. rewrite <- isubst_add_eq_subst1_isubst.
+        asserts_rewrite (trm_seq (isubst (Ctx.add x (``i) E) t1) (trm_for x (i + 1)%I n2 (isubst (Ctx.rem x E) t1))
+          = (isubst (Ctx.add x (``i) E) (trm_seq t1 (trm_for x (i + 1)%I n2 t1)))).
+        { simpl. rewrite Ctx.rem_anon, Ctx.rem_add_same. auto. }
+        applys Wp_sound_seq.
+        { applys* M. }
+        { unfold S. unfold Wp_Triple_. simpl. rewrite~ Ctx.rem_add_same. } }
+      { applys Wp_sound_val E. } } }
+  { rewrite~ @Triple_eq_himpl_Wp_Triple. }
+Qed.
+
 Lemma himpl_wp_fail_l : forall `{EA:Enc A} (Q:A->hprop) H,
   ^Wp_fail Q ==> H.
 Proof using. intros. unfold Wp_fail, Local, local. hpull. Qed.
@@ -377,7 +394,7 @@ Proof using. intros. unfold Wp_fail, Local, local. hpull. Qed.
 Lemma Wp_sound_trm : forall t,
   Wp_sound t.
 Proof using.
-  intros t. induction t; intros E Q.
+  intros t. induction t; intros E A EA Q.
   { applys Wp_sound_val. }
   { applys Wp_sound_var. }
   { applys Wp_sound_fix. }
@@ -388,7 +405,9 @@ Proof using.
     { applys* Wp_sound_let. } }
   { applys* Wp_sound_app. }
   { applys* Wp_sound_while. }
-  { simpl. intros. intros Q'. applys @himpl_wp_fail_l. }  (* TODO: for loops *)
+  { destruct t1; try solve [ applys @himpl_wp_fail_l ].
+    destruct t2; try solve [ applys @himpl_wp_fail_l ].
+    applys* Wp_sound_for_val. }
 Qed.
 
 
@@ -413,8 +432,6 @@ Proof using.
   introv M. xchanges M. pattern t at 1; rewrite <- (isubst_empty t).
   applys Triple_isubst_Wp.
 Qed.
-
-
 
 
 (* ---------------------------------------------------------------------- *)
@@ -508,13 +525,11 @@ Notation "'`While' F1 'Do' F2 'Done'" :=
    format "'[v' '`While'  F1  'Do'  '/' '[' F2 ']' '/'  'Done' ']'")
    : charac.
 
-(*
 Notation "'`For' x '=' n1 'To' n2 'Do' F3 'Done'" :=
-  ((Wp_for n1 n2 (fun x => F3)))
+  ((Wp_for_val n1 n2 (fun x => F3)))
   (at level 69, x ident,
    format "'[v' '`For'  x  '='  n1  'To'  n2  'Do'  '/' '[' F3 ']' '/'  'Done' ']'")
   : charac.
-*)
 
 Open Scope charac.
 

@@ -477,7 +477,7 @@ Proof using. Opaque Ctx.add Ctx.rem.
   { split.
     { intros r. applys is_local_wp_triple. }
     { clears Q. intros i. applys qimpl_wp_triple. intros Q.
-      simpl subst. applys triple_for_raw. fold isubst.
+      applys triple_for_raw. fold isubst.
       rewrite~ triple_eq_himpl_wp_triple. case_if.
       { rewrite <- isubst_add_eq_subst1_isubst.
         asserts_rewrite (trm_seq (isubst (Ctx.add x (val_int i) E) t1) (trm_for x (i + 1)%I n2 (isubst (Ctx.rem x E) t1))

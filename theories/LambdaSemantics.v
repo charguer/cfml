@@ -117,16 +117,16 @@ Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
   | trm_for x t1 t2 t3 => trm_for x (aux t1) (aux t2) (aux_no_capture x t3)
   end.
 
-(** Recall from [Bind.v] that a value of type [bind] is either 
+(** Recall from [Bind.v] that a value of type [bind] is either
     a variable of the form [bind_var x] or the anonymous binder [bind_anon] *)
 
-(** [subst1 z v t] substitutes [z] with [v] in [t], 
+(** [subst1 z v t] substitutes [z] with [v] in [t],
     or do nothing if [z] is the anonymous binder. *)
 
 Definition subst1 (z:bind) (v:val) (t:trm) :=
   match z with
   | bind_anon => t
-  | bind_var x => subst x v t 
+  | bind_var x => subst x v t
   end.
 
 (** [subst2] is a shorthand that iterates two calls to [subst1]. *)
@@ -151,7 +151,7 @@ Fixpoint substn (xs:vars) (vs:vals) (t:trm) : trm :=
 (** To efficiently compute characteristic formulae, we introduce an
     n-ary substitution function. *)
 
-(** [ctx] is the type of bindings from variables to values, using a 
+(** [ctx] is the type of bindings from variables to values, using a
     definition from [Bind.v]. *)
 
 Definition ctx := Ctx.ctx val.
@@ -242,7 +242,7 @@ Qed.
 
 Lemma isubst1_eq_subst1 : forall z v t,
   isubst1 z v t = subst1 z v t.
-Proof using. 
+Proof using.
   intros. unfold isubst1, Ctx.one.
   rewrite isubst_add, isubst_empty. auto.
 Qed.
@@ -266,7 +266,7 @@ Qed.
 
 Lemma isubst2_eq_subst2 : forall z1 v1 z2 v2 t,
   isubst2 z1 v1 z2 v2 t = subst2 z1 v1 z2 v2 t.
-Proof using. 
+Proof using.
   intros. rewrite isubst2_eq_isubst1_isubst1, subst2_eq_subst1_subst1.
   do 2 rewrite isubst1_eq_subst1. auto.
 Qed.
@@ -298,7 +298,7 @@ Qed.
 Lemma isubstn_eq_substn : forall xs vs t,
   length xs = length vs ->
   isubstn xs vs t = substn xs vs t.
-Proof using. 
+Proof using.
   introv E. gen t. list2_ind~ xs vs; intros.
   { rewrite* isubstn_nil. }
   { rewrite* isubstn_cons. }
@@ -321,7 +321,7 @@ Proof using.
   introv N. induction t; simpl; try solve [ fequals;
   repeat case_if; simpl; repeat case_if; auto ].
   repeat case_if; simpl; repeat case_if~.
-Qed. 
+Qed.
 
 (** Substituting for a variable that has just been substituted
     does not further modify the term. *)
@@ -333,7 +333,7 @@ Proof using.
   repeat case_if; simpl; repeat case_if; auto ].
 Qed.
 
-(** A step of an iterated substitution can be postponed until the end 
+(** A step of an iterated substitution can be postponed until the end
     if we remove it from the context. *)
 
 Lemma isubst_subst_eq_subst_isubst_rem : forall (x:var) v E t,
@@ -341,10 +341,10 @@ Lemma isubst_subst_eq_subst_isubst_rem : forall (x:var) v E t,
 Proof using.
   intros. gen t. induction E as [| (y,w) E']; intros; rew_ctx.
   { rewrite Ctx.rem_empty. do 2 rewrite isubst_empty. auto. }
-  { tests EQ: (x = y). 
+  { tests EQ: (x = y).
     { rewrite Ctx.rem_add_same. rewrite isubst_add. unfold subst1.
       rewrite subst_subst_same. rewrite* IHE'. }
-    { rewrite Ctx.rem_add_neq; auto_false. do 2 rewrite isubst_add. 
+    { rewrite Ctx.rem_add_neq; auto_false. do 2 rewrite isubst_add.
       unfold subst1. rewrite* subst_subst_neq. } }
 Qed.
 
@@ -353,7 +353,7 @@ Lemma isubst_add_eq_subst1_isubst : forall z v E t,
 Proof using.
   intros. destruct z as [|x].
   { auto. }
-  { rewrite isubst_add. unfold subst1. 
+  { rewrite isubst_add. unfold subst1.
     rewrite* isubst_subst_eq_subst_isubst_rem. }
 Qed.
 
@@ -630,7 +630,7 @@ Notation val_funs := (val_fixs bind_anon).
 Lemma subst_trm_funs : forall y w xs t,
   var_fresh y xs ->
   subst1 y w (trm_funs xs t) = trm_funs xs (subst1 y w t).
-Proof using. 
+Proof using.
   introv N. unfold subst1. induction xs as [|x xs']; simpls; fequals.
   { rewrite var_eq_spec in *. case_if. do 2 case_if. rewrite~ <- IHxs'. }
 Qed.
@@ -638,7 +638,7 @@ Qed.
 Lemma subst_trm_fixs : forall y w f xs t,
   var_fresh y (f::xs) ->
   subst1 y w (trm_fixs f xs t) = trm_fixs f xs (subst1 y w t).
-Proof using. 
+Proof using.
   introv N. destruct xs as [|x xs'].
   { auto. }
   { unfold subst1. simpls. repeat rewrite var_eq_spec in *.
