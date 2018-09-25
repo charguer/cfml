@@ -10,7 +10,7 @@ License: MIT.
 
 Set Implicit Arguments.
 From TLC Require Export LibFix.
-From Sep Require Export LambdaSep LambdaCFTactics.
+From Sep Require Export LambdaSep.
 Open Scope heap_scope.
 
 Implicit Types v w : val.
@@ -70,7 +70,7 @@ Definition cf_while (F1 F2:formula) : formula := fun H Q =>
   (forall H' Q', F H' Q' -> R H' Q') ->
   R H Q.
 
-Definition cf_for (v1 v2:val) (F3:int->formula) : formula := fun H Q =>
+Definition cf_for_val (v1 v2:val) (F3:int->formula) : formula := fun H Q =>
   exists n1 n2, (v1 = val_int n1) /\ (v2 = val_int n2) /\
   (forall (S:int->formula), is_local_pred S ->
    let F i := local (If (i <= n2) then (cf_seq (F3 i) (S (i+1)))
@@ -88,18 +88,18 @@ Definition cf_for (v1 v2:val) (F3:int->formula) : formula := fun H Q =>
     function, and [cf] is then defined as the fixpoint of [cf_def].
     Subsequently, the fixed-point equation is established. *)
 
-Definition cf_def cf (t:trm) :=
+Definition cf_def cf (t:trm) : formula :=
   match t with
   | trm_val v => local (cf_val v)
   | trm_var x => local (cf_fail) (* unbound variable *)
-  | trm_fix f x t1 => local (cf_val (val_fix f x t1))
+  | trm_fix f z t1 => local (cf_val (val_fix f z t1))
   | trm_if t0 t1 t2 => local (cf_if (cf t0) (cf t1) (cf t2))
-  | trm_let x t1 t2 => local (cf_let (cf t1) (fun X => cf (subst1 x X t2)))
+  | trm_let z t1 t2 => local (cf_let (cf t1) (fun X => cf (subst1 z X t2)))
   | trm_app t1 t2 => local (triple t)
   | trm_while t1 t2 => local (cf_while (cf t1) (cf t2))
   | trm_for x t1 t2 t3 => local (
       match t1, t2 with
-      | trm_val v1, trm_val v2 => cf_for v1 v2 (fun X => cf (subst1 x X t3))
+      | trm_val v1, trm_val v2 => cf_for_val v1 v2 (fun X => cf (subst1 x X t3))
       | _, _ => cf_fail
       end)
   end.
@@ -109,9 +109,17 @@ Definition cf := FixFun cf_def.
 Ltac fixfun_auto := try solve [
   try fequals; auto; try apply fun_ext_1; auto ].
 
+Lemma trm_size_subst1 : forall t z v,
+  trm_size (subst1 z v t) = trm_size t.
+Proof using. intros. rewrite <- isubst1_eq_subst1. apply trm_size_isubst1. Qed.
+
+Ltac solve_measure_trm_size tt ::=
+  unfold measure in *; simpls; repeat rewrite trm_size_subst1; math.
+
 Lemma cf_unfold_iter : forall n t,
   cf t = func_iter n cf_def cf t.
 Proof using.
+  Opaque subst1.
   applys~ (FixFun_fix_iter (measure trm_size)). auto with wf.
   intros f1 f2 t IH. unfold cf_def.
   destruct t.
@@ -119,7 +127,7 @@ Proof using.
   { fequals. }
   { fequals. }
   { fequals. fequals~. }
-  { fequals. fequals~. applys~ fun_ext_1. }
+  { fequals. fequals~. applys~ fun_ext_1. } 
   { fequals. }
   { fequal. (* later: why slow? *) fequals~. }
   { destruct t1; fequals~. destruct t2; fequals~.
@@ -259,7 +267,7 @@ Notation "'`While' F1 'Do' F2 'Done'" :=
    : charac.
 
 Notation "'`For' x '=' v1 'To' v2 'Do' F3 'Done'" :=
-  (local (cf_for v1 v2 (fun x => F3)))
+  (local (cf_for_val v1 v2 (fun x => F3)))
   (at level 69, x ident, (* t1 at level 0, t2 at level 0, *)
    format "'[v' '`For'  x  '='  v1  'To'  v2  'Do'  '/' '[' F3 ']' '/'  'Done' ']'")
   : charac.
@@ -297,7 +305,8 @@ Proof using.
   applys* triple_apps_fixs. applys* triple_trm_of_cf_iter.
 Qed.
 
-(** Bonus : two corrolaries for demos *)
+(** Bonus : two corrolaries for demos
+DEPRECATED?
 
 Lemma triple_app_fun_of_cf_iter : forall n F v x t H Q,
   F = val_fun x t ->
@@ -317,8 +326,19 @@ Proof using.
   applys* triple_trm_of_cf_iter.
 Qed.
 
+*)
+
 End LemmasCf.
 
+
+
+
+
+
+(* ********************************************************************** *)
+(* * DEPRECATED
+
+LambdaCFTactics
 
 (* ---------------------------------------------------------------------- *)
 (** ** Database of lemmas *)
@@ -609,5 +629,7 @@ Proof using.
   introv EF N M. applys* triple_app_fun2.
   applys* triple_trm_of_cf_iter.
 Qed.
+
+*)
 
 *)

@@ -34,9 +34,11 @@ export TLC
 ##############################################################################
 # List of files
 
-SRC_CORE := TLCbuffer Fmap Bind SepFunctor LambdaSemantics LambdaSep LambdaWP LambdaSepLifted LambdaWPLifted LambdaWPTactics LambdaCF LambdaStruct LambdaSepRO LambdaSepCredits LambdaSepLifted LambdaCFLifted LambdaStructLifted Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleList LambdaCFCredits ExampleRO 
+SRC_CORE := TLCbuffer Fmap Bind SepFunctor LambdaSemantics LambdaSep LambdaWP LambdaSepLifted LambdaWPLifted LambdaWPTactics LambdaCF LambdaSepLifted LambdaCFLifted 
 
-SRC_SF := SLSemantics SLHprop SLHimpl SLRules SLWP 
+OTHERS := LambdaStruct LambdaSepRO LambdaSepCredits LambdaStructLifted Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleList LambdaCFCredits ExampleRO 
+
+SRC_SF := SLFSemantics SLFHprop SLFHimpl SLFRules SLWP 
 
 SRC_MOSEL := SepMosel LambdaSepMosel LambdaSepROMosel ExampleROMosel ExampleListMosel
 

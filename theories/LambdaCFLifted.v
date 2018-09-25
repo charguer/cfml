@@ -127,9 +127,10 @@ Definition Cf_while (F1 F2 : Formula) : Formula :=
          ^(F:Formula) H' Q') ->
       ^(F:Formula) H Q).
 
-Definition Cf_for (n1 n2 : int) (F1 : int->Formula) : Formula :=
+(* TODO: this is too weak, for loops must support bounds that are variables *)
+Definition Cf_for_val (n1 n2:int) (F1 : int->Formula) : Formula :=
   (* Formula_typed (fun H (Q:unit->hprop) => *)
-  fun `{Enc A} H (Q:A->hprop) =>
+  fun `{Enc A} H (Q:A->hprop) =>  
     forall (S:int->Formula), (forall i, is_local (@S i unit _)) ->
     let F i := Local (If (i <= n2) then (Local (Cf_seq (F1 i) (S (i+1))))
                              else (Local (Cf_val val_unit))) in
@@ -144,7 +145,7 @@ Definition Cf_def Cf (t:trm) : Formula :=
   match t with
   | trm_val v => Local (Cf_val v)
   | trm_var x => Local (Cf_fail) (* unbound variable *)
-  | trm_fix f x t1 => Local (Cf_val (val_fix f x t1))
+  | trm_fix f z t1 => Local (Cf_val (val_fix f z t1))
   | trm_if t0 t1 t2 => Local (Cf_if (Cf t0) (Cf t1) (Cf t2))
   | trm_let z t1 t2 =>
      Local (match z with
@@ -157,7 +158,7 @@ Definition Cf_def Cf (t:trm) : Formula :=
   | trm_for x t1 t2 t3 => Local (
       match t1, t2 with
       | trm_val (val_int n1), trm_val (val_int n2) =>
-            Cf_for n1 n2 (fun X => Cf (subst1 x X t3))
+            Cf_for_val n1 n2 (fun X => Cf (subst1 x X t3))
       | _, _ => Cf_fail (* not supported *)
       end)
   end.
@@ -167,6 +168,7 @@ Definition Cf := FixFun Cf_def.
 Lemma Cf_unfold_iter : forall n t,
   Cf t = func_iter n Cf_def Cf t.
 Proof using.
+  Opaque subst1.
   applys~ (FixFun_fix_iter (measure trm_size)). auto with wf.
   intros f1 f2 t IH. unfold Cf_def.
   destruct t; fequals.
@@ -174,7 +176,7 @@ Proof using.
   { destruct b.
     { fequals~. }
     { fequals~. applys~ fun_ext_3. } }
-  { fequals~. }
+  { fequals~. } 
   { destruct t1; fequals~. destruct v0; fequals~.
     destruct t2; fequals~. destruct v0; fequals~.
     applys~ fun_ext_1. }
@@ -233,7 +235,7 @@ Proof using.
     { destruct P as (A1&EA1&Q1&P1&P2). applys Triple_let Q1.
       { applys~ IH. }
       { intros X. specializes P2 X.
-        unfold Subst1. rewrite enc_dyn_eq. applys~ IH. } } }
+        unfold Subst1. applys~ IH. } } }
   { auto. }
   { hnf in P. destruct P as (Q'&P&HC). simpls.
     applys Triple_enc_change HC.
@@ -262,7 +264,7 @@ Proof using.
     case_if as C.
     { applys Sound_for_Local (rm P). clears A H i.
       intros A EA H Q (H1&P1&P2). applys Triple_seq.
-      { applys* IH. }
+      { applys* IH. unfolds~ Subst1. }
       { applys P2. } }
     { applys Sound_for_Local (rm P). clears A H i.
       intros A EA H Q (V&E&P). applys* Triple_val. } }
@@ -322,7 +324,7 @@ Notation "'`While' F1 'Do' F2 'Done'" :=
    : charac.
 
 Notation "'`For' x '=' n1 'To' n2 'Do' F3 'Done'" :=
-  (Local (Cf_for n1 n2 (fun x => F3)))
+  (Local (Cf_for_val n1 n2 (fun x => F3)))
   (at level 69, x ident,
    format "'[v' '`For'  x  '='  n1  'To'  n2  'Do'  '/' '[' F3 ']' '/'  'Done' ']'")
   : charac.
@@ -385,6 +387,9 @@ Proof using.
   applys MB. xlocal. intros b' X' HR'. applys~ IH.
 Qed.
 
+
+
+(* DEPRECATED
 
 (* ********************************************************************** *)
 (* * CFLifted tactics *)
@@ -808,3 +813,6 @@ Ltac xwhile_basic xwhile_intros_tactic ::=
   applys local_erase;
   xformula_typed_elim tt;
   xwhile_intros_tactic tt.
+
+
+*)
