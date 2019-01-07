@@ -34,15 +34,16 @@ export TLC
 ##############################################################################
 # List of files
 
-SRC_CORE := TLCbuffer Fmap Bind SepFunctor LambdaSemantics LambdaSep LambdaWP LambdaSepLifted LambdaWPLifted LambdaWPTactics LambdaCF LambdaSepLifted LambdaCFLifted 
+SRC_CORE := TLCbuffer Fmap Bind SepFunctor LambdaSemantics LambdaSep LambdaWP LambdaSepLifted LambdaWPLifted LambdaWPTactics 
 
-OTHERS := LambdaStruct LambdaSepRO LambdaSepCredits LambdaStructLifted Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleList LambdaCFCredits ExampleRO 
+OTHERS := LambdaCF LambdaSepLifted LambdaCFLifted LambdaStruct LambdaSepRO LambdaSepCredits LambdaStructLifted Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleList LambdaCFCredits ExampleRO 
 
 SRC_SF := SLFSemantics SLFHprop SLFHimpl SLFRules SLWP 
 
 SRC_MOSEL := SepMosel LambdaSepMosel LambdaSepROMosel ExampleROMosel ExampleListMosel
 
-SRC := $(SRC_CORE) $(SRC_SF) $(SRC_MOSEL)
+SRC := $(SRC_CORE) 
+# $(SRC_SF) $(SRC_MOSEL)
 
 
 # using the variable SRC_CUSTOM, one can modify the compilation targets and/or their order.
