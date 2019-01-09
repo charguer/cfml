@@ -12,7 +12,7 @@ Set Implicit Arguments.
 From TLC Require Export LibString LibList LibCore.
 From Sep Require Export Fmap TLCbuffer.
 Open Scope string_scope.
-
+Generalizable Variables A.
 
 (* ********************************************************************** *)
 (* * Variables *)
@@ -87,6 +87,18 @@ Lemma var_distinct_exec_eq : forall xs,
 Proof using.
   intros. induction xs as [|x xs']; simpl; rew_isTrue.
   { auto. } { rewrite~ IHxs'. }
+Qed.
+
+(** Elimination lemma for [var_fresh] *)
+
+Lemma var_fresh_mem_inv : forall y x xs,
+  var_fresh x xs ->
+  mem y xs ->
+  x <> y.
+Proof using.
+  introv H M N. subst. induction xs as [|x xs'].
+  { inverts M. }
+  { simpls. rewrite var_eq_spec in H. case_if. inverts~ M. }
 Qed.
 
 
@@ -324,6 +336,46 @@ Fixpoint lookup A (x:var) (E:ctx A) : option A :=
 Definition fresh A (x:var) (E:ctx A) : Prop :=
   lookup x E = None.
 
+(** More operations follow, to support pattern matching *)
+
+(** [rem_vars xs E] removes several variables from [E]. *)
+
+Fixpoint rem_vars A (xs:list var) (E:ctx A) : ctx A :=
+  match xs with
+  | nil => E
+  | x::xs' => rem_vars xs' (rem_var x E)
+  end.
+
+(** [one_var x v] consists of a single binding from variable [x] 
+    to the value [v]. *)
+
+Definition one_var A (x:var) (v:A) : ctx A :=
+  (x,v)::nil.
+
+(** [combine xs vs] binds the variables [xs] to the values [vs].
+    The two lists should have equal lengths, and the [xs] should be distinct
+    from each others. *)
+
+Definition combine A (xs:list var) (vs:list A) : ctx A :=
+  List.combine xs vs. (* LATER: use [LibListExec.combine] *)
+
+(** [app E1 E2] appends two contexts. 
+    Binders from [E1] may shadow those from [E2]. *)
+
+Definition app A (E1 E2:ctx A) : ctx A :=
+  List.app E1 E2.
+
+(** [lookup_or_arbitrary x E] returns
+    - [v] is [x] is bound to [v] in [E],
+    - [arbitrary] if [x] is not bound in [E]. *)
+
+Definition lookup_or_arbitrary `{Inhab A} (x:var) (E:ctx A) : A :=
+  match lookup x E with
+  | None => arbitrary
+  | Some v => v
+  end.
+
+  
 
 (* ---------------------------------------------------------------------- *)
 (** Properties of operations on contexts *)
@@ -399,6 +451,47 @@ Proof using.
   { simpls. lets (N1&N2): fresh_inv (rm M).
     rewrite var_eq_spec in *. case_if. rewrite~ IHE'. }
 Qed.
+
+Lemma rem_vars_nil : forall xs,
+  rem_vars xs (nil:ctx A) = nil.
+Proof using. intros. induction xs; simple*. Qed.
+
+Lemma rem_vars_add_same : forall x v xs E,
+  mem x xs ->
+  rem_vars xs (Ctx.add x v E) = rem_vars xs E.
+Proof using.
+  introv M. gen E. induction xs as [|y xs']; intros.
+  { inverts M. }
+  { simpl. rewrite var_eq_spec. case_if.
+    { auto. }
+    { inverts M; tryfalse. rewrite cons_eq_ctx_add. rewrite~ IHxs'. } }
+Qed.
+
+Lemma rem_vars_add_not_mem : forall x v xs E,
+  ~ mem x xs ->
+  rem_vars xs (Ctx.add x v E) = add x v (rem_vars xs E).
+Proof using.
+  introv M. gen E. induction xs as [|y xs']; intros.
+  { auto. }
+  { simpl. lets (N&M'): not_mem_inv (rm M). rewrite var_eq_spec. case_if. 
+    rewrite cons_eq_ctx_add. rewrite~ IHxs'. }
+Qed.
+
+Lemma lookup_or_arbitrary_cons : forall `{Inhab A} x y v (E:ctx A),
+  lookup_or_arbitrary x ((y,v)::E) = If x = y then v else lookup_or_arbitrary x E.
+Proof using.
+  intros. unfold lookup_or_arbitrary. simpl lookup.
+  repeat rewrite var_eq_spec. repeat case_if~.
+Qed.
+
+Lemma lookup_or_arbitrary_cons_same : forall `{Inhab A} x v (E:ctx A),
+  lookup_or_arbitrary x ((x,v)::E) = v.
+Proof using. intros. rewrite~ lookup_or_arbitrary_cons. case_if~. Qed.
+
+Lemma lookup_or_arbitrary_cons_neq : forall `{Inhab A} x y v (E:ctx A),
+  x <> y ->
+  lookup_or_arbitrary x ((y,v)::E) = lookup_or_arbitrary x E.
+Proof using. intros. rewrite~ lookup_or_arbitrary_cons. case_if~. Qed.
 
 End CtxOps.
 

@@ -30,6 +30,8 @@ Definition null : loc := 0%nat.
 
 Definition field := nat.
 
+Definition idconstr := nat.
+
 Global Opaque field loc.
 
 
@@ -46,6 +48,13 @@ Inductive prim : Type :=
   | val_add : prim
   | val_ptr_add : prim.
 
+Inductive pat : Type :=
+  | pat_var : var -> pat (* not very useful for the moment, but let's have it *)
+  | pat_constr : idconstr -> list var -> pat. (* non recursive, for the moment *)
+
+  (* Note: [pat_any] can be encoded as [pat_var x] for a fresh [x].
+    [pat_bool] and [pat_int] can be simulated using conditionals. *)
+
 Inductive val : Type :=
   | val_unit : val
   | val_bool : bool -> val
@@ -53,16 +62,23 @@ Inductive val : Type :=
   | val_loc : loc -> val
   | val_prim : prim -> val
   | val_fix : bind -> bind -> trm -> val
+  | val_constr : idconstr -> list val -> val
 
 with trm : Type :=
   | trm_val : val -> trm
   | trm_var : var -> trm
   | trm_fix : bind -> bind -> trm -> trm
+  | trm_constr : idconstr -> list trm -> trm
   | trm_if : trm -> trm -> trm -> trm
   | trm_let : bind -> trm -> trm -> trm
   | trm_app : trm -> trm -> trm
   | trm_while : trm -> trm -> trm
-  | trm_for : var -> trm -> trm -> trm -> trm.
+  | trm_for : var -> trm -> trm -> trm -> trm
+  | trm_case : trm -> pat -> trm -> trm -> trm
+  | trm_fail : trm.
+  
+  (* Note: [match v with p1 -> t1 | p2 -> t2] is encoded as 
+     [trm_case v p1 t1 (trm_case v p2 t2 trm_fail)] *)
 
 (** The type of values is inhabited *)
 
@@ -93,9 +109,89 @@ Coercion trm_var : var >-> trm.
 Coercion trm_app : trm >-> Funclass.
 
 
+(* ---------------------------------------------------------------------- *)
+(** Induction principle for terms *)
+
+(** The following section provides support for
+   [induction t using trm_induct] to conduct induction over terms
+   and provide a useful induction hypothesis for the case of [trm_constr]. *)
+
+(** An induction principle for [trm] *)
+
+Section Trm_induct. 
+(* Obtained from [Print trm_ind] then manual editing for introducing [Q]. *)
+Variables
+  (P : trm -> Prop) 
+  (Q : list trm -> Prop)
+  (Q1 : Q nil)
+  (Q2 : forall t l, P t -> Q l -> Q (t::l))
+  (f : forall v : val, P v) 
+  (f0 : forall v : var, P v)
+  (f1 : forall (b b0 : bind) (t : trm), P t -> P (trm_fix b b0 t))
+  (f2 : forall (i : idconstr) (l : list trm), Q l -> P (trm_constr i l))
+  (f3 : forall t : trm, P t -> forall t0 : trm, P t0 -> forall t1 : trm, P t1 -> P (trm_if t t0 t1))
+  (f4 : forall (b : bind) (t : trm), P t -> forall t0 : trm, P t0 -> P (trm_let b t t0))
+  (f5 : forall t : trm, P t -> forall t0 : trm, P t0 -> P (t t0))
+  (f6 : forall t : trm, P t -> forall t0 : trm, P t0 -> P (trm_while t t0))
+  (f7 : forall (v : var) (t : trm), P t -> forall t0 : trm, P t0 -> forall t1 : trm, P t1 -> P (trm_for v t t0 t1))
+  (f8 : forall t : trm, P t -> forall (p : pat) (t0 : trm), P t0 -> forall t1 : trm, P t1 -> P (trm_case t p t0 t1))
+  (f9 : P trm_fail).
+
+Definition trm_induct_gen := fix F (t : trm) : P t :=
+  match t as t0 return (P t0) with
+  | trm_val v => @f v
+  | trm_var v => @f0 v
+  | trm_fix b b0 t0 => @f1 b b0 t0 (F t0)
+  | trm_constr i l => @f2 i l ((fix trm_list_induct (l : list trm) : Q l :=
+      match l as x return Q x with
+      | nil   => Q1
+      | t::l' => Q2 (F t) (trm_list_induct l')
+      end) l)
+  | trm_if t0 t1 t2 => @f3 t0 (F t0) t1 (F t1) t2 (F t2)
+  | trm_let b t0 t1 => @f4 b t0 (F t0) t1 (F t1)
+  | trm_app t0 t1 => @f5 t0 (F t0) t1 (F t1)
+  | trm_while t0 t1 => @f6 t0 (F t0) t1 (F t1)
+  | trm_for v t0 t1 t2 => @f7 v t0 (F t0) t1 (F t1) t2 (F t2)
+  | trm_case t0 p t1 t2 => @f8 t0 (F t0) p t1 (F t1) t2 (F t2)
+  | trm_fail => @f9
+  end.
+
+End Trm_induct.
+
+Lemma trm_induct : forall P : trm -> Prop,
+  (forall v : val, P v) ->
+  (forall v : var, P v) ->
+  (forall (b b0 : bind) (t : trm), P t -> P (trm_fix b b0 t)) ->
+  (forall (i : idconstr) (l : list trm), (forall t, mem t l -> P t) -> P (trm_constr i l)) ->
+  (forall t : trm, P t -> forall t0 : trm, P t0 -> forall t1 : trm, P t1 -> P (trm_if t t0 t1)) ->
+  (forall (b : bind) (t : trm), P t -> forall t0 : trm, P t0 -> P (trm_let b t t0)) ->
+  (forall t : trm, P t -> forall t0 : trm, P t0 -> P (t t0)) ->
+  (forall t : trm, P t -> forall t0 : trm, P t0 -> P (trm_while t t0)) ->
+  (forall (v : var) (t : trm), P t -> forall t0 : trm, P t0 -> forall t1 : trm, P t1 -> P (trm_for v t t0 t1)) ->
+  (forall t : trm, P t -> forall (p : pat) (t0 : trm), P t0 -> forall t1 : trm, P t1 -> P (trm_case t p t0 t1)) ->
+  P trm_fail -> 
+  forall t : trm, P t.
+Proof using.
+  intros. gen t. eapply trm_induct_gen with (Q := fun l =>
+    forall t, mem t l -> P t); auto.
+  { introv M. inverts M. }
+  { introv M1 M2 M3. inverts~ M3. }
+Qed.
+
+
 
 (* ********************************************************************** *)
 (* * Definition of substitution *)
+
+(* ---------------------------------------------------------------------- *)
+(** Variables from a pattern *)
+
+Definition patvars (p:pat) : list var :=
+  match p with
+  | pat_var x => x::nil
+  | pat_constr id xs => xs
+  end.
+
 
 (* ---------------------------------------------------------------------- *)
 (** Definition of standard capture-avoiding substitution *)
@@ -103,18 +199,25 @@ Coercion trm_app : trm >-> Funclass.
 (** Substitution of a variable with a value. *)
 
 Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
-  let aux t := subst y w t in
-  let aux_no_capture z t := If z = bind_var y then t else aux t in
+  let aux t := 
+    subst y w t in
+  let aux_no_capture z t := 
+    If z = bind_var y then t else aux t in
+  let aux_no_captures xs t := 
+    If LibList.mem y xs then t else aux t in
   match t with
   | trm_val v => trm_val v
   | trm_var x => If x = y then trm_val w else t
   | trm_fix f z t1 => trm_fix f z (If f = y then t1 else
                                    aux_no_capture z t1)
+  | trm_constr id ts => trm_constr id (List.map aux ts)
   | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
   | trm_let z t1 t2 => trm_let z (aux t1) (aux_no_capture z t2)
   | trm_app t1 t2 => trm_app (aux t1) (aux t2)
   | trm_while t1 t2 => trm_while (aux t1) (aux t2)
   | trm_for x t1 t2 t3 => trm_for x (aux t1) (aux t2) (aux_no_capture x t3)
+  | trm_case t1 p t2 t3 => trm_case (aux t1) p (aux_no_captures (patvars p) t2) (aux t3)
+  | trm_fail => trm_fail
   end.
 
 (** Recall from [Bind.v] that a value of type [bind] is either
@@ -167,11 +270,14 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
                  | Some v => v
                  end
   | trm_fix f z t1 => trm_fix f z (isubst (Ctx.rem z (Ctx.rem f E)) t1)
+  | trm_constr id ts => trm_constr id (List.map aux ts)
   | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
   | trm_let z t1 t2 => trm_let z (aux t1) (isubst (Ctx.rem z E) t2)
   | trm_app t1 t2 => trm_app (aux t1) (aux t2)
   | trm_while t1 t2 => trm_while (aux t1) (aux t2)
   | trm_for x t1 t2 t3 => trm_for x (aux t1) (aux t2) (isubst (Ctx.rem x E) t3)
+  | trm_case t1 p t2 t3 => trm_case (aux t1) p (isubst (Ctx.rem_vars (patvars p) E) t2) (aux t3)
+  | trm_fail => trm_fail
   end.
 
 (** Recall that [one z v] is a shorthand for [add z v empty], and that
@@ -203,8 +309,12 @@ Definition isubstn (xs:vars) (vs:vals) (t:trm) : trm :=
 Lemma isubst_nil : forall t,
   isubst nil t = t.
 Proof using.
-  intros. induction t; simpl;
+  intros. induction t using trm_induct; simpl;
    try solve [ repeat rewrite Ctx.rem_empty; fequals* ].
+  { rewrite List_map_eq. fequals. induction l as [|t l'].
+    { auto. }
+    { rew_listx. fequals*. } }
+  { rewrite Ctx.rem_vars_nil, IHt1, IHt2, IHt3. auto. }
 Qed.
 
 Lemma isubst_empty : forall t,
@@ -217,17 +327,24 @@ Lemma isubst_cons : forall x v E t,
   isubst ((x,v)::E) t = isubst E (subst x v t).
 Proof using.
   intros. rew_ctx. gen E.
-  induction t; intros; simpl; try solve [ fequals* ].
+  induction t using trm_induct; intros; simpl; try solve [ fequals* ].
   { rewrite var_eq_spec. do 2 case_if*. }
   { rew_ctx. fequals. case_if.
     { subst. rewrite* Ctx.rem_add_same. }
     { rewrites* (>> Ctx.rem_add_neq b). case_if.
       { subst. rewrite* Ctx.rem_add_same. }
       { rewrite* Ctx.rem_add_neq. } } }
+  { rename H into IH. repeat rewrite List_map_eq. rew_ctx. fequals.
+    induction l as [|t l'].
+    { auto. }
+    { rew_listx. rewrite* IHl'. fequals*. } }
   { rew_ctx. fequals. case_if.
     { subst. rewrite* Ctx.rem_add_same. }
     { rewrite~ Ctx.rem_add_neq. } }
   { rew_ctx. fequals. rewrite var_eq_spec. do 2 case_if*. }
+  { rew_ctx. fequals. case_if.  
+    { rewrite~ Ctx.rem_vars_add_same. }
+    { rewrite~ Ctx.rem_vars_add_not_mem. } }
 Qed.
 
 Lemma isubst_add : forall z v E t,
@@ -318,9 +435,12 @@ Lemma subst_subst_neq : forall x1 x2 v1 v2 t,
   x1 <> x2 ->
   subst x2 v2 (subst x1 v1 t) = subst x1 v1 (subst x2 v2 t).
 Proof using.
-  introv N. induction t; simpl; try solve [ fequals;
+  introv N. induction t using trm_induct; simpl; try solve [ fequals;
   repeat case_if; simpl; repeat case_if; auto ].
-  repeat case_if; simpl; repeat case_if~.
+  { repeat case_if; simpl; repeat case_if~. }
+  { fequals. repeat rewrite List_map_eq. induction l as [|t l'].
+    { auto. }
+    { rew_listx. fequals*. } }
 Qed.
 
 (** Substituting for a variable that has just been substituted
@@ -329,8 +449,11 @@ Qed.
 Lemma subst_subst_same : forall x v1 v2 t,
   subst x v2 (subst x v1 t) = subst x v1 t.
 Proof using.
-  intros. induction t; simpl; try solve [ fequals;
+  intros. induction t using trm_induct; simpl; try solve [ fequals;
   repeat case_if; simpl; repeat case_if; auto ].
+  { fequals. repeat rewrite List_map_eq. induction l as [|t l'].
+    { auto. }
+    { rew_listx. fequals*. } }
 Qed.
 
 (** A step of an iterated substitution can be postponed until the end
@@ -358,6 +481,19 @@ Proof using.
 Qed.
 
 
+(* ---------------------------------------------------------------------- *)
+(** Pattern substitution *)
+
+(** [patsubst G p] computes the value obtained by instantiating the
+    pattern [p] with the bindings from [G]. *)
+
+Definition patsubst (G:ctx) (p:pat) : val :=
+  let get x := Ctx.lookup_or_arbitrary x G in
+  match p with
+  | pat_var x => get x
+  | pat_constr id xs => val_constr id (LibList.map get xs)
+  end.
+
 
 (* ********************************************************************** *)
 (* * Source language semantics *)
@@ -365,6 +501,7 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Big-step evaluation *)
 
+Implicit Types p : pat.
 Implicit Types t : trm.
 Implicit Types v : val.
 Implicit Types l : loc.
@@ -373,13 +510,13 @@ Implicit Types b : bool.
 Implicit Types n : int.
 Implicit Types x : var.
 Implicit Types z : bind.
+Implicit Types G : ctx.
 
 Definition state := fmap loc val.
 
 Section Red.
 
 Local Open Scope fmap_scope.
-
 
 (** Evaluation rules for binary operations *)
 
@@ -397,15 +534,17 @@ Inductive redbinop : prim -> val -> val -> val -> Prop :=
       redbinop val_eq v1 v2 (val_bool (isTrue (v1 = v2))).
 
 
-(** Reduction rules for terms in A-normal form.
-
-    TODO: add rules for reducing arguments. *)
+(** Evaluation rules for terms in A-normal form. *)
+    (* TODO: add rules to evaluate terms not in A-normal form. *)
 
 Inductive red : state -> trm -> state -> val -> Prop :=
+  (* [red] for language constructs *)
   | red_val : forall m v,
       red m v m v
   | red_fix : forall m f z t1,
       red m (trm_fix f z t1) m (val_fix f z t1)
+  | red_constr : forall m id (vs:list val), (* restricted to value arguments *)
+      red m (trm_constr id (LibList.map trm_val vs)) m (val_constr id vs)
   | red_if : forall m1 m2 m3 b r t0 t1 t2,
       red m1 t0 m2 (val_bool b) ->
       red m2 (if b then t1 else t2) m3 r ->
@@ -423,12 +562,21 @@ Inductive red : state -> trm -> state -> val -> Prop :=
   | red_while : forall m1 m2 t1 t2 r,
       red m1 (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) m2 r ->
       red m1 (trm_while t1 t2) m2 r
-  | red_for : forall m1 m2 (x:var) n1 n2 t3 r,
+  | red_for : forall m1 m2 (x:var) n1 n2 t3 r, (* restricted to value arguments *)
       red m1 (
         If (n1 <= n2)
           then (trm_seq (subst1 x n1 t3) (trm_for x (n1+1) n2 t3))
           else val_unit) m2 r ->
       red m1 (trm_for x n1 n2 t3) m2 r
+  | red_case_match : forall m1 m2 v G p t2 t3 r, (* restricted to value arguments *)
+      v = patsubst G p ->
+      red m1 (isubst G t2) m2 r ->
+      red m1 (trm_case v p t2 t3) m2 r
+  | red_case_mismatch : forall m1 m2 v p t2 t3 r, (* restricted to value arguments *)
+      (forall G, v <> patsubst G p) ->
+      red m1 t3 m2 r ->
+      red m1 (trm_case v p t2 t3) m2 r
+  (* [red] for applied primitives *)
   | red_binop : forall op m v1 v2 v,
       redbinop op v1 v2 v ->
       red m (op v1 v2) m v
@@ -449,6 +597,8 @@ Inductive red : state -> trm -> state -> val -> Prop :=
       l <> null ->
       \# ma mb ->
       red ma (val_alloc (val_int n)) (mb \+ ma) (val_loc l).
+
+  (* Note: there is no reduction rule for [trm_fail]. *)
 
 End Red.
 
@@ -820,18 +970,25 @@ Fixpoint trm_size (t:trm) : nat :=
   | trm_var x => 1
   | trm_val v => 1
   | trm_fix f x t1 => 1 + trm_size t1
+  | trm_constr id ts => 1 + List.fold_right (fun t acc => (acc + trm_size t)%nat) 0%nat ts (* TODO: list_sum *)
   | trm_if t0 t1 t2 => 1 + trm_size t0 + trm_size t1 + trm_size t2
   | trm_let x t1 t2 => 1 + trm_size t1 + trm_size t2
   | trm_app t1 t2 => 1 + trm_size t1 + trm_size t2
   | trm_while t1 t2 => 1 + trm_size t1 + trm_size t2
   | trm_for x t1 t2 t3 => 1 + trm_size t1 + trm_size t2 + trm_size t3
+  | trm_case t1 p t2 t3 => 1 + trm_size t1 + trm_size t2 + trm_size t3
+  | trm_fail => 1
   end.
 
 Lemma trm_size_isubst : forall t E,
   trm_size (isubst E t) = trm_size t.
 Proof using.
-  intros t. induction t; intros; simpl; repeat case_if; auto.
+  intros t. induction t using trm_induct; intros; simpl; repeat case_if; auto.
   { destruct~ (Ctx.lookup v E). }
+  { repeat rewrite List_fold_right_eq. repeat rewrite List_map_eq.
+    fequals. induction l as [|t l'].
+    { auto. }
+    { rew_listx. fequals*. } }
 Qed.
 
 Lemma trm_size_isubst1 : forall t z v,

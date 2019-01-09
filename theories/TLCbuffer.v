@@ -103,6 +103,15 @@ Qed.
 From TLC Require Import LibLogic. (* needed? *)
 From TLC Require Import LibReflect.
 
+Lemma not_mem_inv : forall A x y (l:list A), 
+  ~ mem x (y::l) ->
+  x <> y /\ ~ mem x l.
+Proof using.
+  introv M. split.
+  { intro_subst. false* M. }
+  { intros N. false* M. }
+Qed.
+
 Definition is_not_nil A (l:list A) : bool :=
   match l with
   | nil => false
@@ -119,6 +128,9 @@ Lemma List_length_eq : forall A (l:list A),
   List.length l = LibList.length l.
 Proof using. intros. induction l; simpl; rew_list; auto. Qed.
 
+Lemma List_fold_right_eq : forall A B (f:A->B->B) (l:list A) (b:B),
+  List.fold_right f b l = LibList.fold_right f b l.
+Proof using. intros. induction l; simpl; rew_list; fequals. Qed.
 
 Lemma List_app_eq : forall A (L1 L2:list A),
   List.app L1 L2 = LibList.app L1 L2.
@@ -149,7 +161,17 @@ Proof using.
   { rew_list in E. simpl. fequals~. }
 Qed.
 
+Hint Rewrite LibList.length_map : rew_listx.
 
+
+(** The congruence rule for [map] on lists *)
+
+Lemma map_congr : forall A B (f1 f2 : A->B) l,
+  (forall x, mem x l -> f1 x = f2 x) ->
+  LibList.map f1 l = LibList.map f2 l.
+Proof using. 
+  introv H. induction l. { auto. } { rew_listx. fequals~. }
+Qed.
 
 (*----------------------*)
 (* Hint for LibListZ *)
