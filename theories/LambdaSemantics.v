@@ -13,24 +13,24 @@ License: MIT.
 
 Set Implicit Arguments.
 From TLC Require Export LibString LibList LibCore.
-From Sep Require Export Fmap TLCbuffer.
+From Sep Require Export Fmap Bind TLCbuffer.
 Open Scope string_scope.
 
 
 (* ********************************************************************** *)
 (* * Source language syntax *)
 
-(* ---------------------------------------------------------------------- *)
-(** Representation of variables and locations *)
 
-Definition var := string.
+(* ---------------------------------------------------------------------- *)
+(** Representation of locations and fields *)
+
 Definition loc := nat.
+
 Definition null : loc := 0%nat.
+
 Definition field := nat.
 
-Definition eq_var_dec := String.string_dec.
-
-Global Opaque field var loc.
+Global Opaque field loc.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -52,17 +52,14 @@ Inductive val : Type :=
   | val_int : int -> val
   | val_loc : loc -> val
   | val_prim : prim -> val
-  | val_fun : var -> trm -> val
-  | val_fix : var -> var -> trm -> val
+  | val_fix : bind -> bind -> trm -> val
 
 with trm : Type :=
   | trm_val : val -> trm
   | trm_var : var -> trm
-  | trm_fun : var -> trm -> trm
-  | trm_fix : var -> var -> trm -> trm
+  | trm_fix : bind -> bind -> trm -> trm
   | trm_if : trm -> trm -> trm -> trm
-  | trm_seq : trm -> trm -> trm
-  | trm_let : var -> trm -> trm -> trm
+  | trm_let : bind -> trm -> trm -> trm
   | trm_app : trm -> trm -> trm
   | trm_while : trm -> trm -> trm
   | trm_for : var -> trm -> trm -> trm -> trm.
@@ -71,6 +68,17 @@ with trm : Type :=
 
 Global Instance Inhab_val : Inhab val.
 Proof using. apply (Inhab_of_val val_unit). Qed.
+
+(** Encoded constructs *)
+
+Notation trm_seq := (trm_let bind_anon).
+Notation trm_fun := (trm_fix bind_anon).
+Notation val_fun := (val_fix bind_anon).
+
+(** Shorthand [vars], [vals] and [trms] for lists of items. *)
+
+Definition vals : Type := list val.
+Definition trms : Type := list trm.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -85,38 +93,277 @@ Coercion trm_var : var >-> trm.
 Coercion trm_app : trm >-> Funclass.
 
 
+
 (* ********************************************************************** *)
-(* * Source language semantics *)
+(* * Definition of substitution *)
 
 (* ---------------------------------------------------------------------- *)
-(** Definition of capture-avoiding substitution *)
+(** Definition of standard capture-avoiding substitution *)
+
+(** Substitution of a variable with a value. *)
 
 Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
   let aux t := subst y w t in
-  let aux_no_capture x t := if eq_var_dec x y then t else aux t in
+  let aux_no_capture z t := If z = bind_var y then t else aux t in
   match t with
   | trm_val v => trm_val v
-  | trm_var x => if eq_var_dec x y then trm_val w else t
-  | trm_fun x t1 => trm_fun x (aux_no_capture x t1)
-  | trm_fix f x t1 => trm_fix f x (if eq_var_dec f y then t1 else
-                                   aux_no_capture x t1)
+  | trm_var x => If x = y then trm_val w else t
+  | trm_fix f z t1 => trm_fix f z (If f = y then t1 else
+                                   aux_no_capture z t1)
   | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
-  | trm_seq t1 t2 => trm_seq (aux t1) (aux t2)
-  | trm_let x t1 t2 => trm_let x (aux t1) (aux_no_capture x t2)
+  | trm_let z t1 t2 => trm_let z (aux t1) (aux_no_capture z t2)
   | trm_app t1 t2 => trm_app (aux t1) (aux t2)
   | trm_while t1 t2 => trm_while (aux t1) (aux t2)
   | trm_for x t1 t2 t3 => trm_for x (aux t1) (aux t2) (aux_no_capture x t3)
   end.
 
+(** Recall from [Bind.v] that a value of type [bind] is either
+    a variable of the form [bind_var x] or the anonymous binder [bind_anon] *)
+
+(** [subst1 z v t] substitutes [z] with [v] in [t],
+    or do nothing if [z] is the anonymous binder. *)
+
+Definition subst1 (z:bind) (v:val) (t:trm) :=
+  match z with
+  | bind_anon => t
+  | bind_var x => subst x v t
+  end.
+
+(** [subst2] is a shorthand that iterates two calls to [subst1]. *)
+
+Definition subst2 (z1:bind) (v1:val) (z2:bind) (v2:val) (t:trm) :=
+   subst1 z2 v2 (subst1 z1 v1 t).
+
+(** [substn xs vs t] is an iterated version of [subst].
+    It substitutes the values [vs] for the corresponding variables in [xs].
+    This operation is only specified when [length xs = length vs]. *)
+
+Fixpoint substn (xs:vars) (vs:vals) (t:trm) : trm :=
+  match xs,vs with
+  | x::xs', v::vs' => substn xs' vs' (subst x v t)
+  | _,_ => t
+  end.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Definition of iterated substitution *)
+
+(** To efficiently compute characteristic formulae, we introduce an
+    n-ary substitution function. *)
+
+(** [ctx] is the type of bindings from variables to values, using a
+    definition from [Bind.v]. *)
+
+Definition ctx := Ctx.ctx val.
+
+(** [isubst E t] substitutes all the bindings from [E] inside [t]. *)
+
+Fixpoint isubst (E:ctx) (t:trm) : trm :=
+  let aux := isubst E in
+  match t with
+  | trm_val v => trm_val v
+  | trm_var x => match Ctx.lookup x E with
+                 | None => t
+                 | Some v => v
+                 end
+  | trm_fix f z t1 => trm_fix f z (isubst (Ctx.rem z (Ctx.rem f E)) t1)
+  | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
+  | trm_let z t1 t2 => trm_let z (aux t1) (isubst (Ctx.rem z E) t2)
+  | trm_app t1 t2 => trm_app (aux t1) (aux t2)
+  | trm_while t1 t2 => trm_while (aux t1) (aux t2)
+  | trm_for x t1 t2 t3 => trm_for x (aux t1) (aux t2) (isubst (Ctx.rem x E) t3)
+  end.
+
+(** Recall that [one z v] is a shorthand for [add z v empty], and that
+    [add] ignores anonymous binders. *)
+
+(** [isubst1 z v t] replaces occurences of binder [z] with [v] in [t]. *)
+
+Definition isubst1 (z:bind) (v:val) (t:trm) :=
+  isubst (Ctx.one z v) t.
+
+(** [isubst2 z1 v1 z2 v2 t] is similar. *)
+
+Definition isubst2 (z1:bind) (v1:val) (z2:bind) (v2:val) (t:trm) :=
+   isubst (Ctx.add z1 v1 (Ctx.one z2 v2)) t.
+
+(** [isubstn xs vs t] is a shorthand for [substs (List.combine xs vs) t].
+    It substitutes the values [vs] for the corresponding variables in [xs].
+    This operation is only specified when [length xs = length vs]. *)
+
+Definition isubstn (xs:vars) (vs:vals) (t:trm) : trm :=
+  isubst (LibList.combine xs vs) t.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Relationship between substitution and iterated substitution *)
+
+(** [isubst] with [empty] changes nothing. *)
+
+Lemma isubst_nil : forall t,
+  isubst nil t = t.
+Proof using.
+  intros. induction t; simpl;
+   try solve [ repeat rewrite Ctx.rem_empty; fequals* ].
+Qed.
+
+Lemma isubst_empty : forall t,
+  isubst Ctx.empty t = t.
+Proof using. applys isubst_nil. Qed.
+
+(** [isubst] with [add] is like calling [subst] first *)
+
+Lemma isubst_cons : forall x v E t,
+  isubst ((x,v)::E) t = isubst E (subst x v t).
+Proof using.
+  intros. rew_ctx. gen E.
+  induction t; intros; simpl; try solve [ fequals* ].
+  { rewrite var_eq_spec. do 2 case_if*. }
+  { rew_ctx. fequals. case_if.
+    { subst. rewrite* Ctx.rem_add_same. }
+    { rewrites* (>> Ctx.rem_add_neq b). case_if.
+      { subst. rewrite* Ctx.rem_add_same. }
+      { rewrite* Ctx.rem_add_neq. } } }
+  { rew_ctx. fequals. case_if.
+    { subst. rewrite* Ctx.rem_add_same. }
+    { rewrite~ Ctx.rem_add_neq. } }
+  { rew_ctx. fequals. rewrite var_eq_spec. do 2 case_if*. }
+Qed.
+
+Lemma isubst_add : forall z v E t,
+  isubst (Ctx.add z v E) t = isubst E (subst1 z v t).
+Proof using.
+  intros. destruct z as [|x].
+  { auto. }
+  { applys~ isubst_cons. }
+Qed.
+
+(** [isubst1] matches [subst1] *)
+
+Lemma isubst1_eq_subst1 : forall z v t,
+  isubst1 z v t = subst1 z v t.
+Proof using.
+  intros. unfold isubst1, Ctx.one.
+  rewrite isubst_add, isubst_empty. auto.
+Qed.
+
+(** Reformulation of the definition of [subst2] *)
+
+Lemma subst2_eq_subst1_subst1 : forall x1 x2 v1 v2 t,
+  subst2 x1 v1 x2 v2 t = subst1 x2 v2 (subst1 x1 v1 t).
+Proof using. auto. Qed.
+
+(** Reformulation of the definition of [isubst2] *)
+
+Lemma isubst2_eq_isubst1_isubst1 : forall x1 x2 v1 v2 t,
+  isubst2 x1 v1 x2 v2 t = isubst1 x2 v2 (isubst1 x1 v1 t).
+Proof using.
+  intros. unfold isubst2. rewrite~ isubst_add.
+  rewrites (>> isubst1_eq_subst1 x1). auto.
+Qed.
+
+(** [isubst2] matches [subst2] *)
+
+Lemma isubst2_eq_subst2 : forall z1 v1 z2 v2 t,
+  isubst2 z1 v1 z2 v2 t = subst2 z1 v1 z2 v2 t.
+Proof using.
+  intros. rewrite isubst2_eq_isubst1_isubst1, subst2_eq_subst1_subst1.
+  do 2 rewrite isubst1_eq_subst1. auto.
+Qed.
+
+(** Distribution of [substn] on [nil] and [cons] lists *)
+
+Lemma substn_nil : forall t,
+  substn nil nil t = t.
+Proof using. auto. Qed.
+
+Lemma substn_cons : forall x xs v vs t,
+  substn (x::xs) (v::vs) t = substn xs vs (subst1 x v t).
+Proof using. auto. Qed.
+
+(** Distribution of [isubstn] on [nil] and [cons] lists *)
+
+Lemma isubstn_nil : forall t,
+  isubstn nil nil t = t.
+Proof using. intros. unfold isubstn. simpl. rew_ctx. apply isubst_empty. Qed.
+
+Lemma isubstn_cons : forall x xs v vs t,
+  isubstn (x::xs) (v::vs) t = isubstn xs vs (subst1 x v t).
+Proof using.
+  intros. unfold isubstn. rewrite combine_cons. rewrite~ isubst_cons.
+Qed.
+
+(** [isubstn] matches [substn] *)
+
+Lemma isubstn_eq_substn : forall xs vs t,
+  length xs = length vs ->
+  isubstn xs vs t = substn xs vs t.
+Proof using.
+  introv E. gen t. list2_ind~ xs vs; intros.
+  { rewrite* isubstn_nil. }
+  { rewrite* isubstn_cons. }
+Qed.
+
+(** [isubst1 z v t] returns [t] unchanged when [z] is anonymous. *)
+
+Lemma isubst1_anon : forall v t,
+  isubst1 bind_anon v t = t.
+Proof using.
+  intros. unfold isubst1, Ctx.one, Ctx.add. rewrite~ isubst_empty.
+Qed.
+
+(** Substitutions for two distinct variables commute. *)
+
+Lemma subst_subst_neq : forall x1 x2 v1 v2 t,
+  x1 <> x2 ->
+  subst x2 v2 (subst x1 v1 t) = subst x1 v1 (subst x2 v2 t).
+Proof using.
+  introv N. induction t; simpl; try solve [ fequals;
+  repeat case_if; simpl; repeat case_if; auto ].
+  repeat case_if; simpl; repeat case_if~.
+Qed.
+
+(** Substituting for a variable that has just been substituted
+    does not further modify the term. *)
+
+Lemma subst_subst_same : forall x v1 v2 t,
+  subst x v2 (subst x v1 t) = subst x v1 t.
+Proof using.
+  intros. induction t; simpl; try solve [ fequals;
+  repeat case_if; simpl; repeat case_if; auto ].
+Qed.
+
+(** A step of an iterated substitution can be postponed until the end
+    if we remove it from the context. *)
+
+Lemma isubst_subst_eq_subst_isubst_rem : forall (x:var) v E t,
+  isubst E (subst x v t) = subst x v (isubst (Ctx.rem x E) t).
+Proof using.
+  intros. gen t. induction E as [| (y,w) E']; intros; rew_ctx.
+  { rewrite Ctx.rem_empty. do 2 rewrite isubst_empty. auto. }
+  { tests EQ: (x = y).
+    { rewrite Ctx.rem_add_same. rewrite isubst_add. unfold subst1.
+      rewrite subst_subst_same. rewrite* IHE'. }
+    { rewrite Ctx.rem_add_neq; auto_false. do 2 rewrite isubst_add.
+      unfold subst1. rewrite* subst_subst_neq. } }
+Qed.
+
+Lemma isubst_add_eq_subst1_isubst : forall z v E t,
+  isubst (Ctx.add z v E) t = subst1 z v (isubst (Ctx.rem z E) t).
+Proof using.
+  intros. destruct z as [|x].
+  { auto. }
+  { rewrite isubst_add. unfold subst1.
+    rewrite* isubst_subst_eq_subst_isubst_rem. }
+Qed.
+
+
+
+(* ********************************************************************** *)
+(* * Source language semantics *)
 
 (* ---------------------------------------------------------------------- *)
 (** Big-step evaluation *)
-
-Section Red.
-
-Definition state := fmap loc val.
-
-Local Open Scope fmap_scope.
 
 Implicit Types t : trm.
 Implicit Types v : val.
@@ -124,40 +371,67 @@ Implicit Types l : loc.
 Implicit Types i : field.
 Implicit Types b : bool.
 Implicit Types n : int.
+Implicit Types x : var.
+Implicit Types z : bind.
+
+Definition state := fmap loc val.
+
+Section Red.
+
+Local Open Scope fmap_scope.
+
+
+(** Evaluation rules for binary operations *)
+
+Inductive redbinop : prim -> val -> val -> val -> Prop :=
+  | redbinop_add : forall n1 n2 n',
+      n' = n1 + n2 ->
+      redbinop val_add (val_int n1) (val_int n2) (val_int n')
+  | redbinop_sub : forall n1 n2 n',
+      n' = n1 - n2 ->
+      redbinop val_sub (val_int n1) (val_int n2) (val_int n')
+  | redbinop_ptr_add : forall l' l n,
+      (l':nat) = (l:nat) + n :> int ->
+      redbinop val_ptr_add (val_loc l) (val_int n) (val_loc l')
+  | redbinop_eq : forall v1 v2,
+      redbinop val_eq v1 v2 (val_bool (isTrue (v1 = v2))).
+
+
+(** Reduction rules for terms in A-normal form.
+
+    TODO: add rules for reducing arguments. *)
 
 Inductive red : state -> trm -> state -> val -> Prop :=
   | red_val : forall m v,
       red m v m v
-  | red_fun : forall m x t1,
-      red m (trm_fun x t1) m (val_fun x t1)
-  | red_fix : forall m f x t1,
-      red m (trm_fix f x t1) m (val_fix f x t1)
+  | red_fix : forall m f z t1,
+      red m (trm_fix f z t1) m (val_fix f z t1)
   | red_if : forall m1 m2 m3 b r t0 t1 t2,
       red m1 t0 m2 (val_bool b) ->
       red m2 (if b then t1 else t2) m3 r ->
       red m1 (trm_if t0 t1 t2) m3 r
-  | red_seq : forall m1 m2 m3 t1 t2 v1 r,
+  | red_let : forall m1 m2 m3 z t1 t2 v1 r,
       red m1 t1 m2 v1 ->
-      red m2 t2 m3 r ->
-      red m1 (trm_seq t1 t2) m3 r
-  | red_let : forall m1 m2 m3 x t1 t2 v1 r,
-      red m1 t1 m2 v1 ->
-      red m2 (subst x v1 t2) m3 r ->
-      red m1 (trm_let x t1 t2) m3 r
-  | red_app_arg : forall m1 m2 m3 m4 t1 t2 v1 v2 r,
-      (* LATER: add [not_is_val t1 \/ not_is_val t2] *)
+      red m2 (subst1 z v1 t2) m3 r ->
+      red m1 (trm_let z t1 t2) m3 r
+  | red_app : forall m1 m2 m3 m4 t1 t2 f z t3 v1 v2 r,
       red m1 t1 m2 v1 ->
       red m2 t2 m3 v2 ->
-      red m3 (trm_app v1 v2) m4 r ->
+      v1 = val_fix f z t3 ->
+      red m3 (subst2 f v1 z v2 t3) m4 r ->
       red m1 (trm_app t1 t2) m4 r
-  | red_app_fun : forall m1 m2 v1 v2 x t r,
-      v1 = val_fun x t ->
-      red m1 (subst x v2 t) m2 r ->
-      red m1 (trm_app v1 v2) m2 r
-  | red_app_fix : forall m1 m2 v1 v2 f x t r,
-      v1 = val_fix f x t ->
-      red m1 (subst f v1 (subst x v2 t)) m2 r ->
-      red m1 (trm_app v1 v2) m2 r
+  | red_while : forall m1 m2 t1 t2 r,
+      red m1 (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) m2 r ->
+      red m1 (trm_while t1 t2) m2 r
+  | red_for : forall m1 m2 (x:var) n1 n2 t3 r,
+      red m1 (
+        If (n1 <= n2)
+          then (trm_seq (subst1 x n1 t3) (trm_for x (n1+1) n2 t3))
+          else val_unit) m2 r ->
+      red m1 (trm_for x n1 n2 t3) m2 r
+  | red_binop : forall op m v1 v2 v,
+      redbinop op v1 v2 v ->
+      red m (op v1 v2) m v
   | red_ref : forall ma mb v l,
       mb = (fmap_single l v) ->
       l <> null ->
@@ -174,48 +448,61 @@ Inductive red : state -> trm -> state -> val -> Prop :=
       n = nat_to_Z k ->
       l <> null ->
       \# ma mb ->
-      red ma (val_alloc (val_int n)) (mb \+ ma) (val_loc l)
-  | red_add : forall m n1 n2 n',
-      n' = n1 + n2 ->
-      red m (val_add (val_int n1) (val_int n2)) m (val_int n')
-  | red_sub : forall m n1 n2 n',
-      n' = n1 - n2 ->
-      red m (val_sub (val_int n1) (val_int n2)) m (val_int n')
-  | red_ptr_add : forall l' m l n,
-      (l':nat) = (l:nat) + n :> int ->
-      red m (val_ptr_add (val_loc l) (val_int n)) m (val_loc l')
-  | red_eq : forall m v1 v2,
-      red m (val_eq v1 v2) m (val_bool (isTrue (v1 = v2)))
-  | red_while : forall m1 m2 t1 t2 r,
-      red m1 (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) m2 r ->
-      red m1 (trm_while t1 t2) m2 r
-  | red_for_arg : forall m1 m2 m3 m4 v1 v2 x t1 t2 t3 r,
-      (* LATER: add [not_is_val t1 \/ not_is_val t2] *)
-      red m1 t1 m2 v1 ->
-      red m2 t2 m3 v2 ->
-      red m3 (trm_for x v1 v2 t3) m4 r ->
-      red m1 (trm_for x t1 t2 t3) m4 r
-  | red_for : forall m1 m2 x n1 n2 t3 r,
-      red m1 (
-        If (n1 <= n2)
-          then (trm_seq (subst x n1 t3) (trm_for x (n1+1) n2 t3))
-          else val_unit) m2 r ->
-      red m1 (trm_for x n1 n2 t3) m2 r.
+      red ma (val_alloc (val_int n)) (mb \+ ma) (val_loc l).
 
-  (* Remark: alternative for red_for rules.
+End Red.
+
+
+  (*  --- TODO
+
+  Remark: alternative for red_for rules.
     | red_for : forall m1 m2 m3 m4 v1 v2 x t1 t2 t3 r,
         red m1 (
           (trm_seq (trm_let x n1 t3) (trm_for x (n1+1) n2 t3))
           val_unit) m2 r ->
         red m1 (trm_for x n1 n2 t3) m2 r
+
+  | red_for_arg : forall m1 m2 m3 m4 v1 v2 x t1 t2 t3 r,
+      (not_is_val t1 \/ not_is_val t2) ->
+      red m1 t1 m2 v1 ->
+      red m2 t2 m3 v2 ->
+      red m3 (trm_for x v1 v2 t3) m4 r ->
+      red m1 (trm_for x t1 t2 t3) m4 r
+
+  Definition trm_is_val (t:trm) : Prop :=
+  match t with
+  | trm_val v => True
+  | _ => False
+  end.
+
   *)
+
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Derived rules *)
 
+Lemma red_fun : forall m x t1,
+  red m (trm_fun x t1) m (val_fun x t1).
+Proof using. intros. apply red_fix. Qed.
+
+Lemma red_app_fun : forall m1 m2 m3 m4 t1 t2 z t3 v1 v2 r,
+  red m1 t1 m2 v1 ->
+  red m2 t2 m3 v2 ->
+  v1 = val_fun z t3 ->
+  red m3 (subst1 z v2 t3) m4 r ->
+  red m1 (trm_app t1 t2) m4 r.
+Proof using. intros. applys* red_app. Qed.
+
+Lemma red_seq : forall m1 m2 m3 t1 t2 r1 r,
+  red m1 t1 m2 r1 ->
+  red m2 t2 m3 r ->
+  red m1 (trm_seq t1 t2) m3 r.
+Proof using. introv M1 M2. applys* red_let. (* BIND rewrite* subst1_anon. *) Qed.
+
 Lemma red_ptr_add_nat : forall m l (f : nat),
   red m (val_ptr_add (val_loc l) (val_int f)) m (val_loc (l+f)%nat).
-Proof using. intros. applys* red_ptr_add. math. Qed.
+Proof using. intros. applys* red_binop. applys* redbinop_ptr_add. math. Qed.
 
 Lemma red_if_bool : forall m1 m2 b r t1 t2,
   red m1 (if b then t1 else t2) m2 r ->
@@ -224,7 +511,7 @@ Proof using. introv M1. applys* red_if. applys red_val. Qed.
 
 Lemma red_for_le : forall m1 m2 m3 x n1 n2 t3 v1 r,
   n1 <= n2 ->
-  red m1 (subst x n1 t3) m2 v1 ->
+  red m1 (subst1 x n1 t3) m2 v1 ->
   red m2 (trm_for x (n1+1) n2 t3) m3 r ->
   red m1 (trm_for x n1 n2 t3) m3 r.
 Proof using.
@@ -242,568 +529,15 @@ Proof using.
   { applys red_val. }
 Qed.
 
-End Red.
-
-
-(* ********************************************************************** *)
-(* * Notation for terms *)
 
 (* ---------------------------------------------------------------------- *)
-(** Notation for program variables *)
+(* ** Tactic [fmap_red], defined in file [Fmap] for proving [red] goals
+      modulo equalities between states, gets instantiated here. *)
 
-Notation "''a'" := ("a":var) : var_scope.
-Notation "''b'" := ("b":var) : var_scope.
-Notation "''c'" := ("c":var) : var_scope.
-Notation "''d'" := ("d":var) : var_scope.
-Notation "''e'" := ("e":var) : var_scope.
-Notation "''f'" := ("f":var) : var_scope.
-Notation "''g'" := ("g":var) : var_scope.
-Notation "''h'" := ("h":var) : var_scope.
-Notation "''i'" := ("i":var) : var_scope.
-Notation "''j'" := ("j":var) : var_scope.
-Notation "''k'" := ("k":var) : var_scope.
-Notation "''l'" := ("l":var) : var_scope.
-Notation "''m'" := ("m":var) : var_scope.
-Notation "''n'" := ("n":var) : var_scope.
-Notation "''o'" := ("o":var) : var_scope.
-Notation "''p'" := ("p":var) : var_scope.
-Notation "''q'" := ("q":var) : var_scope.
-Notation "''r'" := ("r":var) : var_scope.
-Notation "''s'" := ("s":var) : var_scope.
-Notation "''t'" := ("t":var) : var_scope.
-Notation "''u'" := ("u":var) : var_scope.
-Notation "''v'" := ("v":var) : var_scope.
-Notation "''w'" := ("w":var) : var_scope.
-Notation "''x'" := ("x":var) : var_scope.
-Notation "''y'" := ("y":var) : var_scope.
-Notation "''z'" := ("z":var) : var_scope.
+Ltac fmap_red_base tt ::=
+  match goal with H: red _ ?t _ _ |- red _ ?t _ _ =>
+    applys_eq H 2 4; try fmap_eq end.
 
-Notation "''a1'" := ("a1":var) : var_scope.
-Notation "''b1'" := ("b1":var) : var_scope.
-Notation "''c1'" := ("c1":var) : var_scope.
-Notation "''d1'" := ("d1":var) : var_scope.
-Notation "''e1'" := ("e1":var) : var_scope.
-Notation "''f1'" := ("f1":var) : var_scope.
-Notation "''g1'" := ("g1":var) : var_scope.
-Notation "''h1'" := ("h1":var) : var_scope.
-Notation "''i1'" := ("i1":var) : var_scope.
-Notation "''j1'" := ("j1":var) : var_scope.
-Notation "''k1'" := ("k1":var) : var_scope.
-Notation "''l1'" := ("l1":var) : var_scope.
-Notation "''m1'" := ("m1":var) : var_scope.
-Notation "''n1'" := ("n1":var) : var_scope.
-Notation "''o1'" := ("o1":var) : var_scope.
-Notation "''p1'" := ("p1":var) : var_scope.
-Notation "''q1'" := ("q1":var) : var_scope.
-Notation "''r1'" := ("r1":var) : var_scope.
-Notation "''s1'" := ("s1":var) : var_scope.
-Notation "''t1'" := ("t1":var) : var_scope.
-Notation "''u1'" := ("u1":var) : var_scope.
-Notation "''v1'" := ("v1":var) : var_scope.
-Notation "''w1'" := ("w1":var) : var_scope.
-Notation "''x1'" := ("x1":var) : var_scope.
-Notation "''y1'" := ("y1":var) : var_scope.
-Notation "''z1'" := ("z1":var) : var_scope.
-
-Notation "''a2'" := ("a2":var) : var_scope.
-Notation "''b2'" := ("b2":var) : var_scope.
-Notation "''c2'" := ("c2":var) : var_scope.
-Notation "''d2'" := ("d2":var) : var_scope.
-Notation "''e2'" := ("e2":var) : var_scope.
-Notation "''f2'" := ("f2":var) : var_scope.
-Notation "''g2'" := ("g2":var) : var_scope.
-Notation "''h2'" := ("h2":var) : var_scope.
-Notation "''i2'" := ("i2":var) : var_scope.
-Notation "''j2'" := ("j2":var) : var_scope.
-Notation "''k2'" := ("k2":var) : var_scope.
-Notation "''l2'" := ("l2":var) : var_scope.
-Notation "''m2'" := ("m2":var) : var_scope.
-Notation "''n2'" := ("n2":var) : var_scope.
-Notation "''o2'" := ("o2":var) : var_scope.
-Notation "''p2'" := ("p2":var) : var_scope.
-Notation "''q2'" := ("q2":var) : var_scope.
-Notation "''r2'" := ("r2":var) : var_scope.
-Notation "''s2'" := ("s2":var) : var_scope.
-Notation "''t2'" := ("t2":var) : var_scope.
-Notation "''u2'" := ("u2":var) : var_scope.
-Notation "''v2'" := ("v2":var) : var_scope.
-Notation "''w2'" := ("w2":var) : var_scope.
-Notation "''x2'" := ("x2":var) : var_scope.
-Notation "''y2'" := ("y2":var) : var_scope.
-Notation "''z2'" := ("z2":var) : var_scope.
-
-Notation "''a3'" := ("a3":var) : var_scope.
-Notation "''b3'" := ("b3":var) : var_scope.
-Notation "''c3'" := ("c3":var) : var_scope.
-Notation "''d3'" := ("d3":var) : var_scope.
-Notation "''e3'" := ("e3":var) : var_scope.
-Notation "''f3'" := ("f3":var) : var_scope.
-Notation "''g3'" := ("g3":var) : var_scope.
-Notation "''h3'" := ("h3":var) : var_scope.
-Notation "''i3'" := ("i3":var) : var_scope.
-Notation "''j3'" := ("j3":var) : var_scope.
-Notation "''k3'" := ("k3":var) : var_scope.
-Notation "''l3'" := ("l3":var) : var_scope.
-Notation "''m3'" := ("m3":var) : var_scope.
-Notation "''n3'" := ("n3":var) : var_scope.
-Notation "''o3'" := ("o3":var) : var_scope.
-Notation "''p3'" := ("p3":var) : var_scope.
-Notation "''q3'" := ("q3":var) : var_scope.
-Notation "''r3'" := ("r3":var) : var_scope.
-Notation "''s3'" := ("s3":var) : var_scope.
-Notation "''t3'" := ("t3":var) : var_scope.
-Notation "''u3'" := ("u3":var) : var_scope.
-Notation "''v3'" := ("v3":var) : var_scope.
-Notation "''w3'" := ("w3":var) : var_scope.
-Notation "''x3'" := ("x3":var) : var_scope.
-Notation "''y3'" := ("y3":var) : var_scope.
-Notation "''z3'" := ("z3":var) : var_scope.
-
-Open Scope var_scope.
-
-(* Note: for variable names with several letters, add your own definition *)
-
-
-(* ---------------------------------------------------------------------- *)
-(** Notation for concrete programs *)
-
-Notation "'()" := val_unit : trm_scope.
-
-Notation "'If_' t0 'Then' t1 'Else' t2" :=
-  (trm_if t0 t1 t2)
-  (at level 69, t0 at level 0) : trm_scope.
-
-Notation "'If_' t0 'Then' t1 'End'" :=
-  (trm_if t0 t1 val_unit)
-  (at level 69, t0 at level 0) : trm_scope.
-
-Notation "'Let' x ':=' t1 'in' t2" :=
-  (trm_let x t1 t2)
-  (at level 69, x at level 0, right associativity,
-  format "'[v' '[' 'Let'  x  ':='  t1  'in' ']'  '/'  '[' t2 ']' ']'") : trm_scope.
-
-Notation "'Let' 'Rec' f x ':=' t1 'in' t2" :=
-  (trm_let f (trm_fix f x t1) t2)
-  (at level 69, f at level 0, x at level 0, right associativity,
-  format "'[v' '[' 'Let'  'Rec'  f  x  ':='  t1  'in' ']'  '/'  '[' t2 ']' ']'") : trm_scope.
-
-Notation "t1 ;;; t2" :=
-  (trm_seq t1 t2)
-  (at level 68, right associativity, only parsing,
-   format "'[v' '[' t1 ']'  ;;;  '/'  '[' t2 ']' ']'") : trm_scope.
-
-Notation "'Fix' f x ':=' t" :=
-  (trm_fix f x t)
-  (at level 69, f at level 0, x at level 0) : trm_scope.
-
-Notation "'Fix' f x1 x2 ':=' t" :=
-  (trm_fix f x1 (trm_fun x2 t))
-  (at level 69, f at level 0, x1 at level 0, x2 at level 0) : trm_scope.
-
-Notation "'Fix' f x1 x2 x3 ':=' t" :=
-  (trm_fix f x1 (trm_fun x2 (trm_fun x3 t)))
-  (at level 69, f at level 0, x1 at level 0, x2 at level 0, x3 at level 0) : trm_scope.
-
-Notation "'ValFix' f x ':=' t" :=
-  (val_fix f x t)
-  (at level 69, f at level 0, x at level 0) : trm_scope.
-
-Notation "'ValFix' f x1 x2 ':=' t" :=
-  (val_fix f x1 (trm_fun x2 t))
-  (at level 69, f at level 0, x1 at level 0, x2 at level 0) : trm_scope.
-
-Notation "'ValFix' f x1 x2 x3 ':=' t" :=
-  (val_fix f x1 (trm_fun x2 (trm_fun x3 t)))
-  (at level 69, f at level 0, x1 at level 0, x2 at level 0, x3 at level 0) : trm_scope.
-
-Notation "'Fun' x1 ':=' t" :=
-  (trm_fun x1 t)
-  (at level 69, x1 at level 0) : trm_scope.
-
-Notation "'Fun' x1 x2 ':=' t" :=
-  (trm_fun x1 (trm_fun x2 t))
-  (at level 69, x1 at level 0, x2 at level 0) : trm_scope.
-
-Notation "'Fun' x1 x2 x3 ':=' t" :=
-  (trm_fun x1 (trm_fun x2 (trm_fun x3 t)))
-  (at level 69, x1 at level 0, x2 at level 0, x3 at level 0) : trm_scope.
-
-Notation "'ValFun' x1 ':=' t" :=
-  (val_fun x1 t)
-  (at level 69, x1 at level 0) : trm_scope.
-
-Notation "'ValFun' x1 x2 ':=' t" :=
-  (val_fun x1 (trm_fun x2 t))
-  (at level 69, x1 at level 0, x2 at level 0) : trm_scope.
-
-Notation "'ValFun' x1 x2 x3 ':=' t" :=
-  (val_fun x1 (trm_fun x2 (trm_fun x3 t)))
-  (at level 69, x1 at level 0, x2 at level 0, x3 at level 0) : trm_scope.
-
-Notation "'LetFun' f x1 ':=' t1 'in' t2" :=
-  (trm_let f (trm_fun x1 t1) t2)
-  (at level 69, f at level 0, x1 at level 0) : trm_scope.
-
-Notation "'LetFun' f x1 x2 ':=' t1 'in' t2" :=
-  (trm_let f (trm_fun x1 (trm_fun x2 t1)) t2)
-  (at level 69, f at level 0, x1 at level 0, x2 at level 0) : trm_scope.
-
-Notation "'LetFun' f x1 x2 x3 ':=' t1 'in' t2" :=
-  (trm_let f (trm_fun x1 (trm_fun x2 (trm_fun x3 t1))) t2)
-  (at level 69, f at level 0, x1 at level 0, x2 at level 0, x3 at level 0) : trm_scope.
-
-Notation "'LetFix' f x1 ':=' t1 'in' t2" :=
-  (trm_let f (trm_fix f x1 t1) t2)
-  (at level 69, f at level 0, x1 at level 0) : trm_scope.
-
-Notation "'LetFix' f x1 x2 ':=' t1 'in' t2" :=
-  (trm_let f (trm_fix f x1 (trm_fun x2 t1)) t2)
-  (at level 69, f at level 0, x1 at level 0, x2 at level 0) : trm_scope.
-
-Notation "'LetFix' f x1 x2 x3 ':=' t1 'in' t2" :=
-  (trm_let f (trm_fix f x1 (trm_fun x2 (trm_fun x3 t1))) t2)
-  (at level 69, f at level 0, x1 at level 0, x2 at level 0, x3 at level 0) : trm_scope.
-
-Notation "'While' t1 'Do' t2 'Done'" :=
-  (trm_while t1 t2)
-  (at level 69, t2 at level 68,
-   format "'[v' 'While'  t1  'Do'  '/' '[' t2 ']' '/'  'Done' ']'")
-   : trm_scope.
-
-Notation "'For' x ':=' t1 'To' t2 'Do' t3 'Done'" :=
-  (trm_for x t1 t2 t3)
-  (at level 69, x at level 0, (* t1 at level 0, t2 at level 0, *)
-   format "'[v' 'For'  x  ':='  t1  'To'  t2  'Do'  '/' '[' t3 ']' '/'  'Done' ']'")
-  : trm_scope.
-
-Notation "'ref t" :=
-  (val_ref t)
-  (at level 67) : trm_scope.
-
-Notation "'! t" :=
-  (val_get t)
-  (at level 67) : trm_scope.
-
-Notation "t1 ':= t2" :=
-  (val_set t1 t2)
-  (at level 67) : trm_scope.
-
-Notation "t1 '+ t2" :=
-  (val_add t1 t2)
-  (at level 69) : trm_scope.
-
-Notation "t1 '- t2" :=
-  (val_sub t1 t2)
-  (at level 69) : trm_scope.
-
-Notation "t1 '= t2" :=
-  (val_eq t1 t2)
-  (at level 69) : trm_scope.
-
-
-(* ********************************************************************** *)
-(* * Size of a term *)
-
-(* ---------------------------------------------------------------------- *)
-(** Size of a term, where all values counting for one unit. *)
-
-Fixpoint trm_size (t:trm) : nat :=
-  match t with
-  | trm_var x => 1
-  | trm_val v => 1
-  | trm_fun x t1 => 1 + trm_size t1
-  | trm_fix f x t1 => 1 + trm_size t1
-  | trm_if t0 t1 t2 => 1 + trm_size t0 + trm_size t1 + trm_size t2
-  | trm_seq t1 t2 => 1 + trm_size t1 + trm_size t2
-  | trm_let x t1 t2 => 1 + trm_size t1 + trm_size t2
-  | trm_app t1 t2 => 1 + trm_size t1 + trm_size t2
-  | trm_while t1 t2 => 1 + trm_size t1 + trm_size t2
-  | trm_for x t1 t2 t3 => 1 + trm_size t1 + trm_size t2 + trm_size t3
-  end.
-
-Lemma trm_size_subst : forall t x v,
-  trm_size (subst x v t) = trm_size t.
-Proof using.
-  intros. induction t; simpl; repeat case_if; auto.
-Qed.
-
-(** Hint for induction on size. Proves subgoals of the form
-    [measure trm_size t1 t2], when [t1] and [t2] may have some
-    structure or involve substitutions. *)
-
-Ltac solve_measure_trm_size tt :=
-  unfold measure in *; simpls; repeat rewrite trm_size_subst; math.
-
-Hint Extern 1 (measure trm_size _ _) => solve_measure_trm_size tt.
-
-
-
-
-(* ********************************************************************** *)
-(* * More on substitutions *)
-
-(* ---------------------------------------------------------------------- *)
-(** Properties of substitution *)
-
-(** Substitutions for two distinct variables commute. *)
-
-Lemma subst_subst_neq : forall x1 x2 v1 v2 t,
-  x1 <> x2 ->
-  subst x2 v2 (subst x1 v1 t) = subst x1 v1 (subst x2 v2 t).
-Proof using.
-  introv N. induction t; simpl; try solve [ fequals;
-  repeat case_if; simpl; repeat case_if; auto ].
-  repeat case_if; simpl; repeat case_if~.
-Qed. (* LATER: simplify *)
-
-(** Substituting for a variable that has just been substituted
-    does not further modify the term. *)
-
-Lemma subst_subst_same : forall x v1 v2 t,
-  subst x v2 (subst x v1 t) = subst x v1 t.
-Proof using.
-  intros. induction t; simpl; try solve [ fequals;
-  repeat case_if; simpl; repeat case_if; auto ].
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Distinct variables *)
-
-(** [vars] is the type of a list of variables *)
-
-Definition vars : Type := list var.
-
-(** [var_fresh y xs] asserts that [y] does not belong to the list [xs] *)
-
-Fixpoint var_fresh (y:var) (xs:vars) : bool :=
-  match xs with
-  | nil => true
-  | x::xs' => if eq_var_dec x y then false else var_fresh y xs'
-  end.
-
-(** [var_distinct xs] asserts that [xs] consists of a list of distinct variables. *)
-
-Fixpoint var_distinct (xs:vars) : bool :=
-  match xs with
-  | nil => true
-  | x::xs' => var_fresh x xs' && var_distinct xs'
-  end.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Iterated substitution *)
-
-(** [ctx] describes a list of bindings *)
-
-Definition ctx := list (var*val).
-
-(** [ctx_empty] describes the empty context *)
-
-Definition ctx_empty : ctx :=
-  nil.
-
-(** [ctx_add x v E] extends [E] with a binding from [x] to [v] *)
-
-Definition ctx_add (x:var) (v:val) (E:ctx) :=
-  (x,v)::E.
-
-(** [ctx_rem x E] removes all bindings on [x] stored in [E] *)
-
-Fixpoint ctx_rem (x:var) (E:ctx) : ctx :=
-  match E with
-  | nil => nil
-  | (y,v)::E' =>
-    let E'' := ctx_rem x E' in
-    if eq_var_dec x y then E'' else (y,v)::E''
-  end.
-
-(** [ctx_lookup x E] returns
-    - [None] if [x] is not bound in [E]
-    - [Some v] if [x] is bound to [v] in [E]. *)
-
-Fixpoint ctx_lookup (x:var) (E:ctx) : option val :=
-  match E with
-  | nil => None
-  | (y,v)::E' => if eq_var_dec x y
-                   then Some v
-                   else ctx_lookup x E'
-  end.
-
-(** [ctx_fresh x E] asserts that [x] is not bound in [E] *)
-
-Definition ctx_fresh (x:var) (E:ctx) : Prop :=
-  ctx_lookup x E = None.
-
-(** [substs E t] substitutes all the bindings from [E] inside [t] *)
-
-Fixpoint substs (E:ctx) (t:trm) :=
-  match E with
-  | nil => t
-  | (x,v)::E' => substs E' (subst x v t)
-  end.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Properties of iterated substitution *)
-
-(** Simplification equalities for [ctx_rem] *)
-
-Lemma ctx_rem_same : forall x v E,
-  ctx_rem x ((x,v)::E) = ctx_rem x E.
-Proof using. intros. simpl. case_if~. Qed.
-
-Lemma ctx_rem_neq : forall x y v E,
-  x <> y ->
-  ctx_rem x ((y,v)::E) = (y,v)::(ctx_rem x E).
-Proof using. intros. simpl. case_if~. Qed.
-
-(** Auxiliary results *)
-
-Lemma ctx_rem_fresh : forall x E,
-  ctx_fresh x E ->
-  ctx_rem x E = E.
-Proof using.
-  introv M. unfolds ctx_fresh. induction E as [|(y,v) E'].
-  { auto. } { simpls. case_if. fequals. rewrite~ IHE'. }
-Qed.
-
-(** Substituting for [E] without [x] then substituting for [x]
-    is equivalent to substituting for [x] then for [E]
-    (even if [x] is bound in [E]). *)
-
-Lemma subst_substs_ctx_rem_same : forall E x v t,
-    subst x v (substs (ctx_rem x E) t)
-  = substs E (subst x v t).
-Proof using.
-  intros E. induction E as [|(y,w) E']; simpl; intros.
-  { auto. }
-  { case_if.
-    { subst. rewrite IHE'. rewrite~ subst_subst_same. }
-    { simpl. rewrite IHE'. rewrite~ subst_subst_neq. } }
-Qed.
-
-Lemma subst_substs : forall x v E t,
-  ctx_fresh x E ->
-  subst x v (substs E t) = substs E (subst x v t).
-Proof using.
-  introv M. forwards N: subst_substs_ctx_rem_same E x v t.
-  rewrite~ ctx_rem_fresh in N.
-Qed.
-
-(** The following lemmas describe how iterated substitution
-    distributes over the construction of the language *)
-
-Ltac substs_simpl_proof :=
-  let x := fresh "x" in let w := fresh "w" in
-  let E := fresh "E" in let E' := fresh "E'" in
-  let IH := fresh "IH" in
-  intros E; induction E as [|(x,w) E' IH]; intros; simpl;
-  [ | try rewrite IH ]; auto.
-
-Lemma substs_val : forall E v,
-  substs E (trm_val v) = v.
-Proof using. substs_simpl_proof. Qed.
-
-Lemma substs_var : forall E x,
-    substs E (trm_var x)
-  = match ctx_lookup x E with
-    | None => trm_var x
-    | Some v => v end.
-Proof using.
-  substs_simpl_proof.
-  { case_if. { rewrite~ substs_val. } { auto. } }
-Qed.
-
-Lemma substs_fun : forall E x t,
-  substs E (trm_fun x t) = trm_fun x (substs (ctx_rem x E) t).
-Proof using. substs_simpl_proof. { fequals; case_if~. } Qed.
-
-Lemma substs_fix : forall E f x t,
-  substs E (trm_fix f x t) = trm_fix f x (substs (ctx_rem x (ctx_rem f E)) t).
-Proof using.
-  substs_simpl_proof.
-  { fequals. case_if~. case_if~.
-    { subst. rewrite~ ctx_rem_same. }
-    { rewrite~ ctx_rem_neq. } }
-Qed.
-
-Lemma substs_if : forall E t1 t2 t3,
-   substs E (trm_if t1 t2 t3)
- = trm_if (substs E t1) (substs E t2) (substs E t3).
-Proof using. substs_simpl_proof. Qed.
-
-Lemma substs_app : forall E t1 t2,
-   substs E (trm_app t1 t2)
- = trm_app (substs E t1) (substs E t2).
-Proof using. substs_simpl_proof. Qed.
-
-Lemma substs_seq : forall E t1 t2,
-   substs E (trm_seq t1 t2)
- = trm_seq (substs E t1) (substs E t2).
-Proof using. substs_simpl_proof. Qed.
-
-Lemma substs_let : forall E x t1 t2,
-   substs E (trm_let x t1 t2)
- = trm_let x (substs E t1) (substs (ctx_rem x E) t2).
-Proof using. substs_simpl_proof. { fequals. case_if~. } Qed.
-
-Lemma substs_while : forall E t1 t2,
-   substs E (trm_while t1 t2)
- = trm_while (substs E t1) (substs E t2).
-Proof using. substs_simpl_proof. Qed.
-
-
-
-(* ---------------------------------------------------------------------- *)
-(** N-ary substitution *)
-
-(** Shorthand [vals] and [trms] for lists of values and terms *)
-
-Definition vals : Type := list val.
-Definition trms : Type := list trm.
-
-(** [substn xs vs t] is a shorthand for [substs (List.combine xs vs) t].
-    It substitutes the values [vs] for the corresponding variables in [xs].
-    This operation is only specified when [length xs = length vs]. *)
-
-Definition substn (xs:vars) (vs:vals) (t:trm) : trm :=
-  substs (LibList.combine xs vs) t.
-
-(** Distribution of [substn] on [nil] and [cons] lists *)
-
-Lemma substn_nil : forall t,
-  substn nil nil t = t.
-Proof using. auto. Qed.
-
-Lemma substn_cons : forall x xs v vs t,
-  substn (x::xs) (v::vs) t = substn xs vs (subst x v t).
-Proof using. auto. Qed.
-
-(** Auxiliary results for freshness of bindings w.r.t. combine *)
-
-Lemma ctx_fresh_combine : forall x ys vs,
-  var_fresh x ys ->
-  length ys = length vs ->
-  ctx_fresh x (LibList.combine ys vs).
-Proof using.
-  intros x ys. unfold ctx_fresh.
-  induction ys as [|y ys']; simpl; intros [|v vs] M L;
-   rew_list in *; try solve [ false; math ].
-  { auto. }
-  { simpl. do 2 case_if. rewrite~ IHys'. }
-Qed.
-
-(* Permutation lemma for substitution and n-ary substitution *)
-
-Lemma subst_substn : forall x v ys ws t,
-  var_fresh x ys ->
-  length ys = length ws ->
-  subst x v (substn ys ws t) = substn ys ws (subst x v t).
-Proof using.
-  introv M L. unfold substn. rewrite~ subst_substs.
-  applys~ ctx_fresh_combine.
-Qed.
 
 
 (* ********************************************************************** *)
@@ -852,86 +586,68 @@ Tactic Notation "rew_vals_to_trms" :=
 (* ---------------------------------------------------------------------- *)
 (** N-ary applications and N-ary functions *)
 
+(** [trm_apps t (t1::...tn::nil] describes the application term
+    [t t1 .. tn]. *)
+
 Fixpoint trm_apps (tf:trm) (ts:trms) : trm :=
   match ts with
   | nil => tf
   | t::ts' => trm_apps (trm_app tf t) ts'
   end.
 
-Fixpoint trm_funs (xs:vars) (t:trm) : trm :=
+(** [trm_fixs f (x1::...xn::nil) t] describes the function term
+    [trm_fix f x1 (trm_fun x2 ... (trm_fun xn t) ..)]. *)
+
+Fixpoint trm_fixs (f:bind) (xs:vars) (t:trm) : trm :=
   match xs with
   | nil => t
-  | x::xs' => trm_fun x (trm_funs xs' t)
+  | x::xs' => trm_fix f x (trm_fixs bind_anon xs' t)
   end.
 
-Definition val_funs (xs:vars) (t:trm) : val :=
+(** [val_fixs f (x1::...xn::nil) t] describes the function value
+    [val_fix f x1 (trm_fun x2 ... (trm_fun xn t) ..)]. *)
+
+Definition val_fixs (f:bind) (xs:vars) (t:trm) : val :=
   match xs with
   | nil => arbitrary
-  | x::xs' => val_fun x (trm_funs xs' t)
+  | x::xs' => val_fix f x (trm_fixs bind_anon xs' t)
   end.
 
-Definition trm_fixs (f:var) (xs:vars) (t:trm) : trm :=
-  match xs with
-  | nil => t
-  | x::xs' => trm_fix f x (trm_funs xs' t)
-  end.
+(** [trm_funs (x1::...xn::nil) t] describes the function term
+    [trm_fun x1 (trm_fun x2 ... (trm_fun xn t) ..)]. *)
 
-Definition val_fixs (f:var) (xs:vars) (t:trm) : val :=
-  match xs with
-  | nil => arbitrary
-  | x::xs' => val_fix f x (trm_funs xs' t)
-  end.
+Notation trm_funs := (trm_fixs bind_anon).
+
+(** [val_fun (x1::...xn::nil) t] describes the function value
+    [val_fun x1 (trm_fun x2 ... (trm_fun xn t) ..)]. *)
+
+Notation val_funs := (val_fixs bind_anon).
 
 
 (* ---------------------------------------------------------------------- *)
-(** Nonempty list of distinct variables *)
+(** Distribution of [subst] over n-ary functions *)
 
-Definition var_funs (n:nat) (xs:vars) : Prop :=
-     var_distinct xs
-  /\ length xs = n
-  /\ xs <> nil.
-
-(** Computable version of the above definition
-    LATER use TLC exec *)
-
-Definition var_funs_exec (n:nat) (xs:vars) : bool :=
-     nat_compare n (List.length xs)
-  && is_not_nil xs
-  && var_distinct xs.
-
-Lemma var_funs_exec_eq : forall n xs,
-  var_funs_exec n xs = isTrue (var_funs n xs).
+Lemma subst_trm_funs : forall y w xs t,
+  var_fresh y xs ->
+  subst1 y w (trm_funs xs t) = trm_funs xs (subst1 y w t).
 Proof using.
-  intros. unfold var_funs_exec, var_funs.
-  rewrite nat_compare_eq.
-  rewrite is_not_nil_eq.
-  rewrite List_length_eq.
-  extens. rew_istrue. iff*.
+  introv N. unfold subst1. induction xs as [|x xs']; simpls; fequals.
+  { rewrite var_eq_spec in *. case_if. do 2 case_if. rewrite~ <- IHxs'. }
 Qed.
 
-Definition var_fixs (f:var) (n:nat) (xs:vars) : Prop :=
-     var_distinct (f::xs)
-  /\ length xs = n
-  /\ xs <> nil.
-
-Definition var_fixs_exec (f:var) (n:nat) (xs:vars) : bool :=
-     nat_compare n (List.length xs)
-  && is_not_nil xs
-  && var_distinct (f::xs).
-
-Lemma var_fixs_exec_eq : forall f n xs,
-  var_fixs_exec f n xs = isTrue (var_fixs f n xs).
+Lemma subst_trm_fixs : forall y w f xs t,
+  var_fresh y (f::xs) ->
+  subst1 y w (trm_fixs f xs t) = trm_fixs f xs (subst1 y w t).
 Proof using.
-  intros. unfold var_fixs_exec, var_fixs.
-  rewrite nat_compare_eq.
-  rewrite is_not_nil_eq.
-  rewrite List_length_eq.
-  extens. rew_istrue. iff*.
+  introv N. destruct xs as [|x xs'].
+  { auto. }
+  { unfold subst1. simpls. repeat rewrite var_eq_spec in *.
+    do 2 case_if in N. do 2 case_if~. fequals. applys* subst_trm_funs. }
 Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Properties of n-ary functions *)
+(** Reduction rules for n-ary functions *)
 
 Lemma red_funs : forall m xs t,
   xs <> nil ->
@@ -941,13 +657,19 @@ Proof using.
   simpl. applys red_fun.
 Qed.
 
-Lemma subst_trm_funs : forall y w xs t,
-  var_fresh y xs ->
-  subst y w (trm_funs xs t) = trm_funs xs (subst y w t).
+Lemma red_fixs : forall m f xs t,
+  xs <> nil ->
+  red m (trm_fixs f xs t) m (val_fixs f xs t).
 Proof using.
-  introv N. induction xs as [|x xs']; simpls; fequals.
-  { case_if. rewrite~ IHxs'. }
+  introv N. destruct xs as [|x xs']. { false. }
+  simpl. applys red_fix.
 Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Reduction rules for n-ary applications *)
+
+(* Internal lemma *)
 
 Lemma red_app_funs_val_ind : forall xs vs m1 m2 tf t r,
   red m1 tf m1 (val_funs xs t) ->
@@ -955,18 +677,22 @@ Lemma red_app_funs_val_ind : forall xs vs m1 m2 tf t r,
   var_funs (length vs) xs ->
   red m1 (trm_apps tf vs) m2 r.
 Proof using.
-  hint red_val.
-  intros xs. induction xs as [|x xs']; introv R M (N&L&P).
-  { false. } clear P.
-  { destruct vs as [|v vs']; rew_list in *. { false; math. }
-    simpls. tests C: (xs' = nil).
+  introv M1 M2 (F&L&N). gen tf t r m1 m2 F N. list2_ind~ xs vs; intros.
+  { false. }
+  { rename xs1 into xs', x1 into x1, x2 into v1, xs2 into vs', H0 into IH.
+    simpl in F. rew_istrue in F. destruct F as (F1&F').
+    tests C: (xs' = nil).
     { rew_list in *. asserts: (vs' = nil).
-      { applys length_zero_inv. math. } subst vs'. clear L.
-      simpls. applys~ red_app_arg R. applys~ red_app_fun. }
-    { rew_istrue in N. destruct N as [F N']. applys~ IHxs' M.
-      applys~ red_app_arg R. applys~ red_app_fun.
-      rewrite~ subst_trm_funs. applys~ red_funs. splits~. } }
+      { applys length_zero_inv. math. } subst vs'.
+      simpls. applys* red_app. applys* red_val.
+      (* BIND rewrite subst2_eq_subst1_subst1, subst1_anon. auto. *) }
+    { rewrite substn_cons in M2. applys~ IH M2. applys* red_app.
+      { applys* red_val. }
+      { (* BIND simpl. rewrite subst2_eq_subst1_subst1, subst1_anon. *)
+        rewrite~ subst_trm_funs. applys~ red_funs. } } }
 Qed.
+
+(** Reduction rule for n-ary functions *)
 
 Lemma red_app_funs_val : forall xs vs m1 m2 vf t r,
   vf = val_funs xs t ->
@@ -978,50 +704,35 @@ Proof using.
   { subst. apply~ red_val. }
 Qed.
 
+(** Reduction rule for n-ary recursive functions *)
 
-(* ---------------------------------------------------------------------- *)
-(** Properties of n-ary recursive functions *)
-
-Lemma red_fixs : forall m f xs t,
-  xs <> nil ->
-  red m (trm_fixs f xs t) m (val_fixs f xs t).
-Proof using.
-  introv N. destruct xs as [|x xs']. { false. }
-  simpl. applys red_fix.
-Qed.
-
-Lemma subst_trm_fixs : forall y w f xs t,
-  var_fresh y (f::xs) ->
-  subst y w (trm_fixs f xs t) = trm_fixs f xs (subst y w t).
-Proof using.
-  introv N. unfold trm_fixs. destruct xs as [|x xs'].
-  { auto. }
-  { simpls. do 2 case_if in N. rewrite~ subst_trm_funs. }
-Qed.
-
-Lemma red_app_fixs_val : forall xs vs m1 m2 vf f t r,
+Lemma red_app_fixs_val : forall xs (vs:vals) m1 m2 vf (f:var) t r,
   vf = val_fixs f xs t ->
-  red m1 (subst f vf (substn xs vs t)) m2 r ->
+  red m1 (substn (f::xs) (vf::vs) t) m2 r ->
   var_fixs f (length vs) xs ->
   red m1 (trm_apps vf vs) m2 r.
 Proof using.
   introv E M (N&L&P). destruct xs as [|x xs']. { false. }
   { destruct vs as [|v vs']; rew_list in *. { false; math. } clear P.
-    simpls. case_if*. rew_istrue in *. destruct N as (N1&N2&N3).
+    destruct N as (N1&N2&N3). simpls. case_if.
     tests C':(xs' = nil).
     { rew_list in *. asserts: (vs' = nil).
       { applys length_zero_inv. math. } subst vs'. clear L.
-      simpls. applys* red_app_fix. }
+      subst vf. simpls. hint red_val. applys* red_app. }
     { applys~ red_app_funs_val_ind.
-      { applys* red_app_fix. do 2 rewrite~ subst_trm_funs. applys~ red_funs. }
-      { rewrite~ subst_substn in M. { rewrite~ substn_cons in M.
-        rewrite~ subst_subst_neq. } { simpl. case_if~. } }
+      { hint red_val. applys* red_app.
+        rewrite subst2_eq_subst1_subst1. do 2 rewrite~ subst_trm_funs.
+        applys* red_funs. }
+      { (* BIND do 2 rewrite substn_cons in M. *) applys M. }
       { splits*. } } }
 Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Folding of n-ary functions *)
+(** Rewriting lemmas and tactics to "fold" n-ary functions. *)
+
+(** The tactic [rew_nary] introduce [trm_apps] and [trm_fixs]
+    in place of nested applications of [trm_app] and [trm_fun]. *)
 
 Lemma trm_apps_fold_start : forall t1 t2,
   trm_app t1 t2 = trm_apps t1 (t2::nil).
@@ -1038,14 +749,6 @@ Proof using.
   { rewrite <- trm_apps_fold_next. simpl. congruence. }
 Qed.
 
-Lemma trm_funs_fold_start : forall x t,
-  trm_fun x t = trm_funs (x::nil) t.
-Proof using. auto. Qed.
-
-Lemma trm_funs_fold_next : forall x xs t,
-  trm_funs (x::nil) (trm_funs xs t) = trm_funs (x::xs) t.
-Proof using. auto. Qed.
-
 Lemma trm_fixs_fold_start : forall f x t,
   trm_fix f x t = trm_fixs f (x::nil) t.
 Proof using. auto. Qed.
@@ -1057,7 +760,7 @@ Proof using.
   intros. induction xs. { auto. } { simpl. congruence. }
 Qed.
 
-(* for innermost first rewriting strategy
+(* for innermost-first rewriting strategy
 Lemma trm_fixs_fold_next : forall f x xs t,
   trm_fixs f (x::nil) (trm_funs xs t) = trm_fixs f (x::xs) t.
 Proof using. auto. Qed.
@@ -1065,18 +768,6 @@ Proof using. auto. Qed.
 
 Lemma trm_fixs_fold_app : forall f x xs ys t,
   trm_fixs f (x::xs) (trm_funs ys t) = trm_fixs f (x :: List.app xs ys) t.
-Proof using. intros. simpl. rewrite~ trm_funs_fold_app. Qed.
-
-Lemma val_funs_fold_start : forall x t,
-  val_fun x t = val_funs (x::nil) t.
-Proof using. auto. Qed.
-
-Lemma val_funs_fold_app : forall x xs ys t,
-  val_funs (x::xs) (trm_funs ys t) = val_funs (List.app (x::xs) ys) t.
-Proof using. intros. simpl. rewrite~ trm_funs_fold_app. Qed.
-
-Lemma val_funs_fold_app' : forall x xs ys t,
-  val_funs (List.app (x::nil) xs) (trm_funs ys t) = val_funs (List.app (x::xs) ys) t.
 Proof using. intros. simpl. rewrite~ trm_funs_fold_app. Qed.
 
 Lemma val_fixs_fold_start : forall f x t,
@@ -1093,9 +784,7 @@ Proof using. intros. simpl. rewrite~ trm_funs_fold_app. Qed.
 
 Hint Rewrite
   trm_apps_fold_start trm_apps_fold_next trm_apps_fold_concat
-  trm_funs_fold_start trm_funs_fold_next
   trm_fixs_fold_start trm_fixs_fold_app
-  val_funs_fold_start val_funs_fold_app val_funs_fold_app'
   val_fixs_fold_start val_fixs_fold_app val_fixs_fold_app' : rew_nary.
 
 Tactic Notation "rew_nary" :=
@@ -1107,124 +796,201 @@ Tactic Notation "rew_nary" "in" "*" :=
   (* rewrite_strat (any (innermost (hints rew_nary))).
      => way too slow! *)
 
-Lemma rew_nary_demo_1 : forall f x y z t1 t2 t,
-  val_fix f x (trm_fun y (trm_fun z (f t1 x y t2))) = t.
+(* Demos:
+Lemma rew_nary_demo_1 : forall (f x y z:var) t1 t2 v,
+  val_fix f x (trm_fun y (trm_fun z (f t1 x y t2))) = v.
 Proof using. intros. rew_nary. Abort.
 
-Lemma rew_nary_demo_2 : forall f x y t,
-  val_fun f (trm_fun x (trm_fun y (x y))) = t.
+Lemma rew_nary_demo_2 : forall f x1 x2 v,
+  val_fun f (trm_fun x1 (trm_fun x2 (x1 x2))) = v.
 Proof using. intros. rew_nary. Abort.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Sequence of consecutive variables *)
-
-(** [nat_to_var n] converts [nat] values into distinct
-    [var] values.
-    Warning: the current implementation is inefficient. *)
-
-Definition dummy_char := Ascii.ascii_of_nat 0%nat.
-
-Fixpoint nat_to_var (n:nat) : var :=
-  match n with
-  | O => String.EmptyString
-  | S n' => String.String dummy_char (nat_to_var n')
-  end.
-
-Lemma injective_nat_to_var : injective nat_to_var.
-Proof using.
-  intros n. induction n as [|n']; intros m E; destruct m as [|m']; tryfalse.
-  { auto. }
-  { inverts E. fequals~. }
-Qed.
-
-(** [var_seq i n] generates a list of variables [x1;x2;..;xn]
-    with [x1=i] and [xn=i+n-1]. Such lists are useful for
-    generic programming. *)
-
-Fixpoint var_seq (start:nat) (nb:nat) : vars :=
-  match nb with
-  | O => nil
-  | S nb' => (nat_to_var start) :: var_seq (S start) nb'
-  end.
-
-Section Var_seq.
-Implicit Types start nb : nat.
-
-Lemma var_fresh_var_seq_lt : forall x start nb,
-  (x < start)%nat ->
-  var_fresh (nat_to_var x) (var_seq start nb).
-Proof using.
-  intros. gen start. induction nb; intros.
-  { auto. }
-  { simpl. case_if.
-    { lets: injective_nat_to_var C. math. }
-    { applys IHnb. math. } }
-Qed.
-
-Lemma var_fresh_var_seq_ge : forall x start nb,
-  (x >= start+nb)%nat ->
-  var_fresh (nat_to_var x) (var_seq start nb).
-Proof using.
-  intros. gen start. induction nb; intros.
-  { auto. }
-  { simpl. case_if.
-    { lets: injective_nat_to_var C. math. }
-    { applys IHnb. math. } }
-Qed.
-
-Lemma var_distinct_var_seq : forall start nb,
-  var_distinct (var_seq start nb).
-Proof using.
-  intros. gen start. induction nb; intros.
-  { auto. }
-  { simpl. rew_istrue. split.
-    { applys var_fresh_var_seq_lt. math. }
-    { auto. } }
-Qed.
-
-Lemma length_var_seq : forall start nb,
-  length (var_seq start nb) = nb.
-Proof using.
-  intros. gen start. induction nb; simpl; intros.
-  { auto. } { rew_list. rewrite~ IHnb. }
-Qed.
-
-Lemma var_funs_var_seq : forall start nb,
-  (nb > 0%nat)%nat ->
-  var_funs nb (var_seq start nb).
-Proof using.
-  introv E. splits.
-  { applys var_distinct_var_seq. }
-  { applys length_var_seq. }
-  { destruct nb. { false. math. } { simpl. auto_false. } }
-Qed.
-
-End Var_seq.
-
+*)
 
 
 (* ********************************************************************** *)
-(* * Tactics  *)
+(* * Size of a term *)
 
 (* ---------------------------------------------------------------------- *)
-(* ** Tactic [fmap_red] for proving [red] goals modulo
-      equalities between states *)
+(** Size of a term, where all values counting for one unit. *)
 
-Ltac fmap_red_base tt ::=
-  match goal with H: red _ ?t _ _ |- red _ ?t _ _ =>
-    applys_eq H 2 4; try fmap_eq end.
+(** The definition of size can be useful for some tricky inductions *)
 
+Fixpoint trm_size (t:trm) : nat :=
+  match t with
+  | trm_var x => 1
+  | trm_val v => 1
+  | trm_fix f x t1 => 1 + trm_size t1
+  | trm_if t0 t1 t2 => 1 + trm_size t0 + trm_size t1 + trm_size t2
+  | trm_let x t1 t2 => 1 + trm_size t1 + trm_size t2
+  | trm_app t1 t2 => 1 + trm_size t1 + trm_size t2
+  | trm_while t1 t2 => 1 + trm_size t1 + trm_size t2
+  | trm_for x t1 t2 t3 => 1 + trm_size t1 + trm_size t2 + trm_size t3
+  end.
+
+Lemma trm_size_isubst : forall t E,
+  trm_size (isubst E t) = trm_size t.
+Proof using.
+  intros t. induction t; intros; simpl; repeat case_if; auto.
+  { destruct~ (Ctx.lookup v E). }
+Qed.
+
+Lemma trm_size_isubst1 : forall t z v,
+  trm_size (isubst1 z v t) = trm_size t.
+Proof using. intros. applys trm_size_isubst. Qed.
+
+(** Hint for induction on size. Proves subgoals of the form
+    [measure trm_size t1 t2], when [t1] and [t2] may have some
+    structure or involve substitutions. *)
+
+Ltac solve_measure_trm_size tt :=
+  unfold measure in *; simpls; repeat rewrite trm_size_isubst1; math.
+
+Hint Extern 1 (measure trm_size _ _) => solve_measure_trm_size tt.
+
+
+(* ********************************************************************** *)
+(* * Notation for terms *)
 
 (* ---------------------------------------------------------------------- *)
-(* ** Tactic [var_neq] for proving two concrete variables distinct;
-      also registered as hint for [auto] *)
+(** Notation for concrete programs *)
 
-Ltac var_neq :=
-  match goal with |- ?x <> ?y :> var =>
-    solve [ let E := fresh in
-            destruct (eq_var_dec x y) as [E|E];
-              [ false | apply E ] ] end.
+Module NotationForTerms.
 
-Hint Extern 1 (?x <> ?y) => var_neq.
+(** Note: below, many occurences of [x] have type [bind], and not [var] *)
+
+Notation "'()" := val_unit : trm_scope.
+
+Notation "'If_' t0 'Then' t1 'Else' t2" :=
+  (trm_if t0 t1 t2)
+  (at level 69, t0 at level 0) : trm_scope.
+
+Notation "'If_' t0 'Then' t1 'End'" :=
+  (trm_if t0 t1 val_unit)
+  (at level 69, t0 at level 0) : trm_scope.
+
+Notation "'Let' x ':=' t1 'in' t2" :=
+  (trm_let x t1 t2)
+  (at level 69, x at level 0, right associativity,
+  format "'[v' '[' 'Let'  x  ':='  t1  'in' ']'  '/'  '[' t2 ']' ']'") : trm_scope.
+
+Notation "'Let' 'Rec' f x1 ':=' t1 'in' t2" :=
+  (trm_let f (trm_fix f x1 t1) t2)
+  (at level 69, f, x1 at level 0, right associativity,
+  format "'[v' '[' 'Let'  'Rec'  f  x1  ':='  t1  'in' ']'  '/'  '[' t2 ']' ']'") : trm_scope.
+
+Notation "'Let' 'Rec' f x1 x2 .. xn ':=' t1 'in' t2" :=
+  (trm_let f (trm_fix f x1 (trm_fun x2 .. (trm_fun xn t1) ..) t2))
+  (at level 69, f, x1, x2, xn at level 0, right associativity,
+  format "'[v' '[' 'Let'  'Rec'  f  x1  x2  ..  xn  ':='  t1  'in' ']'  '/'  '[' t2 ']' ']'") : trm_scope.
+
+  (* LATER: the above might need to be fixed. Here is how to test it:
+     Definition test2 := Let Rec 'f 'x 'y := val_unit in val_unit.
+     Print test2. *)
+
+Notation "t1 ;;; t2" :=
+  (trm_seq t1 t2)
+  (at level 68, right associativity, only parsing,
+   format "'[v' '[' t1 ']'  ;;;  '/'  '[' t2 ']' ']'") : trm_scope.
+
+Notation "'Fix' f x1 ':=' t" :=
+  (trm_fix f x1 t)
+  (at level 69, f, x1 at level 0) : trm_scope.
+
+Notation "'Fix' f x1 x2 ':=' t" :=
+  (trm_fix f x1 (trm_fun x2 t))
+  (at level 69, f, x1, x2 at level 0) : trm_scope.
+
+Notation "'Fix' f x1 x2 .. xn ':=' t" :=
+  (trm_fix f x1 (trm_fun x2 .. (trm_fun xn t) ..))
+  (at level 69, f, x1, x2, xn at level 0) : trm_scope.
+
+Notation "'ValFix' f x1 ':=' t" :=
+  (val_fix f x1 t)
+  (at level 69, f, x1 at level 0) : trm_scope.
+
+Notation "'ValFix' f x1 x2 .. xn ':=' t" :=
+  (val_fix f x1 (trm_fun x2 .. (trm_fun xn t) ..))
+  (at level 69, f, x1, x2, xn at level 0) : trm_scope.
+
+Notation "'Fun' x1 ':=' t" :=
+  (trm_fun x1 t)
+  (at level 69, x1 at level 0) : trm_scope.
+
+Notation "'Fun' x1 x2 .. xn ':=' t" :=
+  (trm_fun x1 (trm_fun x2 .. (trm_fun xn t) ..))
+  (at level 69, x1, x2, xn at level 0) : trm_scope.
+
+Notation "'ValFun' x1 ':=' t" :=
+  (val_fun x1 t)
+  (at level 69, x1 at level 0) : trm_scope.
+
+Notation "'ValFun' x1 x2 .. xn ':=' t" :=
+  (val_fun x1 (trm_fun x2 .. (trm_fun xn t) ..))
+  (at level 69, x1, x2, xn at level 0) : trm_scope.
+
+Notation "'LetFun' f x1 ':=' t1 'in' t2" :=
+  (trm_let f (trm_fun x1 t1) t2)
+  (at level 69, f at level 0, x1 at level 0) : trm_scope.
+
+Notation "'LetFun' f x1 x2 .. xn ':=' t1 'in' t2" :=
+  (trm_let f (trm_fun x1 (trm_fun x2 .. (trm_fun xn t1) ..)) t2)
+  (at level 69, f, x1, x2, xn at level 0) : trm_scope.
+
+Notation "'LetFix' f x1 ':=' t1 'in' t2" :=
+  (trm_let f (trm_fix f x1 t1) t2)
+  (at level 69, f at level 0, x1 at level 0) : trm_scope.
+
+Notation "'While' t1 'Do' t2 'Done'" :=
+  (trm_while t1 t2)
+  (at level 69, t2 at level 68,
+   format "'[v' 'While'  t1  'Do'  '/' '[' t2 ']' '/'  'Done' ']'")
+   : trm_scope.
+
+Notation "'For' x ':=' t1 'To' t2 'Do' t3 'Done'" :=
+  (trm_for x t1 t2 t3)
+  (at level 69, x at level 0, (* t1 at level 0, t2 at level 0, *)
+   format "'[v' 'For'  x  ':='  t1  'To'  t2  'Do'  '/' '[' t3 ']' '/'  'Done' ']'")
+  : trm_scope.
+
+Notation "'ref t" :=
+  (val_ref t)
+  (at level 67) : trm_scope.
+
+Notation "'! t" :=
+  (val_get t)
+  (at level 67) : trm_scope.
+
+Notation "t1 ':= t2" :=
+  (val_set t1 t2)
+  (at level 67) : trm_scope.
+
+Notation "t1 '+ t2" :=
+  (val_add t1 t2)
+  (at level 69) : trm_scope.
+
+Notation "t1 '- t2" :=
+  (val_sub t1 t2)
+  (at level 69) : trm_scope.
+
+Notation "t1 '= t2" :=
+  (val_eq t1 t2)
+  (at level 69) : trm_scope.
+
+
+(* Demo for the above notation:
+
+  Open Scope trm_scope.
+  Import NotationForVariables.
+  Definition test := Fun 'x := val_unit.
+  Definition test2 := Fun 'x 'y 'z := val_unit.
+  Definition test1 := Fix 'f 'x1 := val_unit.
+  Definition test2 := Fix 'f 'x1 'x2 := val_unit.
+  Print test2.
+  Definition test1 := LetFix 'f 'x1 := val_unit in val_unit.
+  Definition test2 := LetFix 'f 'x1 'x2 := val_unit in val_unit.
+*)
+
+End NotationForTerms.
+
+
 

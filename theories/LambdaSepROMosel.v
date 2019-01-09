@@ -1,4 +1,3 @@
-
 Set Implicit Arguments.
 From Sep Require Import LambdaSepRO SepMosel.
 
@@ -333,39 +332,39 @@ Proof. by rewrite /PrepareHProp=>-> ->. Qed.
 
 (** Tactics *)
 
-Lemma rule_ramified_frame_read_only_absorb : forall t H Q H' Q',
+Lemma triple_ramified_frame_read_only_absorb : forall t H Q H' Q',
   triple t H' Q' ->
-  H ==> (<absorb> ROFrame H' (normally (Q' \---* Q)))%I ->
+  H ==> (<absorb> ROFrame H' (normally (Q' \--* Q)))%I ->
   triple t H Q.
 Proof using.
-  intros t H Q H' Q' Ht HH. eapply rule_consequence; first last; [done| |].
-  eapply rule_htop_pre, rule_ramified_frame_read_only;
+  intros t H Q H' Q' Ht HH. eapply triple_conseq; first last; [done| |].
+  eapply triple_htop_pre, triple_ramified_frame_read_only;
     [eassumption|iIntros "?"; iAssumption].
   iIntros "H". by iDestruct (HH with "H") as ">$".
 Qed.
 
-Lemma rule_ramified_frame_read_only_absorb_locked : forall t H Q H' Q',
+Lemma triple_ramified_frame_read_only_absorb_locked : forall t H Q H' Q',
   triple t H' Q' ->
-  H ==> (<absorb> ROFrame H' (normally (locked Q' \---* Q)))%I ->
+  H ==> (<absorb> ROFrame H' (normally (locked Q' \--* Q)))%I ->
   triple t H Q.
-Proof using. unlock. apply rule_ramified_frame_read_only_absorb. Qed.
+Proof using. unlock. apply triple_ramified_frame_read_only_absorb. Qed.
 
 Ltac ram_apply lem :=
   lazymatch goal with
   | |- triple _ _ ?Q =>
-    (is_evar Q; eapply rule_ramified_frame_read_only_absorb_locked) ||
-    eapply rule_ramified_frame_read_only_absorb
+    (is_evar Q; eapply triple_ramified_frame_read_only_absorb_locked) ||
+    eapply triple_ramified_frame_read_only_absorb
   end; [eapply lem|iPrepare].
 
-Lemma rule_let_ramified_frame_read_only_locked : forall x t1 t2 H1 H Q1 Q Q',
+Lemma triple_let_ramified_frame_read_only_locked : forall z t1 t2 H1 H Q1 Q Q',
   triple t1 H1 Q1 ->
-  H ==> ROFrame H1 (locked Q1 \---* Q') ->
-  (forall (X:val), triple (subst x X t2) (Q' X) Q) ->
-  triple (trm_let x t1 t2) H Q.
-Proof using. unlock. apply rule_let_ramified_frame_read_only. Qed.
+  H ==> ROFrame H1 (locked Q1 \--* Q') ->
+  (forall (X:val), triple (subst1 z X t2) (Q' X) Q) ->
+  triple (trm_let z t1 t2) H Q.
+Proof using. unlock. apply triple_let_ramified_frame_read_only. Qed.
 
 Ltac ram_apply_let lem :=
-  eapply rule_let_ramified_frame_read_only_locked; [eapply lem|iPrepare|].
+  eapply triple_let_ramified_frame_read_only_locked; [eapply lem|iPrepare|].
 
 (* ********************************************************************** *)
 

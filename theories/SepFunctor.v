@@ -16,7 +16,7 @@ The functor in this file assumes:
 
 The functor also provides:
 
-- derived heap operators: \[], (Hexists _,_), \Top
+- derived heap operators: \[], (\exists _,_), \Top
 - a number of useful lemmas for reasoning about these operators
 - notation for representation predicates: [x ~> R X].
 
@@ -39,7 +39,7 @@ The functor also provides:
 - [local F] is a predicate transformer used by characteristic formulae.
 - [is_local F], where [F] is typically a triple or a characteristic formula,
   asserts that [F] can be subject to frame, weakening, and extraction
-  of existentials and pure facts from pre-conditions. Tactics such as
+  of existentials and pure facts from preconditions. Tactics such as
   [xapply] apply the frame rule in a generic manner, and produce a
   [is_local] subgoal as side-condition.
 - [xlocal] automatically discharges goals of the form [is_local F].
@@ -75,23 +75,27 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of entailment *)
 
-(** TLC defines [pred_le P Q] as [forall x, P x -> Q x]. *)
 
-Notation "P ==> Q" := (pred_incl P Q)
+(** [H1 ==> H2] is defined as [forall h, H1 h -> H2 h]. *)
+
+Definition himpl A (H1 H2:A->Prop) :=
+  forall x, H1 x -> H2 x.
+
+Notation "H1 ==> H2" := (himpl H1 H2)
   (at level 55, right associativity) : heap_scope.
 
-(* [rel_incl'] is like TLC's [rel_incl] but defined in terms of [pred_incl]
-   so that after [intros r] we get an entailment. *)
+(** [Q1 ===> Q2] is defined as [forall x h, Q1 x h -> Q2 x h].
+    It is thus equivalent to [forall x, Q1 x ==> Q2 x].
+    Thus, invoking [intro] on a [===>] goal leaves a [==>] goal. *)
 
-Definition rel_incl' A B (P Q:A->B->Prop) :=
-  forall r, pred_incl (P r) (Q r).
+Definition qimpl A B (Q1 Q2:A->B->Prop) :=
+  forall r, himpl (Q1 r) (Q2 r).
 
-Notation "P ===> Q" := (rel_incl' P Q)
+Notation "Q1 ===> Q2" := (qimpl Q1 Q2)
   (at level 55, right associativity) : heap_scope.
 
 Open Scope heap_scope.
 
-(* LATER define [himpl] to mean [pred_incl] and [qimpl] to mean [rel_incl'] *)
 
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of entailment *)
@@ -102,7 +106,7 @@ Section HimplProp.
 Variable A : Type.
 Implicit Types H : A -> Prop.
 
-Hint Unfold pred_incl.
+Hint Unfold himpl.
 
 (** Entailment is reflexive, symmetric, transitive *)
 
@@ -152,11 +156,11 @@ Hint Resolve himpl_refl.
 
 (** Reflexivity for postconditions *)
 
-Lemma refl_rel_incl' : forall A B (Q:A->B->Prop),
+Lemma refl_qimpl : forall A B (Q:A->B->Prop),
   Q ===> Q.
-Proof using. apply refl_rel_incl. Qed.
+Proof using. intros. hnfs*. Qed.
 
-Hint Resolve refl_rel_incl'.
+Hint Resolve refl_qimpl.
 
 
 
@@ -262,31 +266,37 @@ Implicit Types P : Prop.
 
 (** Notation for [hexists] *)
 
-Notation "'Hexists' x1 , H" := (hexists (fun x1 => H))
+Notation "'\exists' x1 , H" := (hexists (fun x1 => H))
   (at level 39, x1 ident, H at level 50) : heap_scope.
-Notation "'Hexists' x1 x2 , H" := (Hexists x1, Hexists x2, H)
+Notation "'\exists' x1 x2 , H" := (\exists x1, \exists x2, H)
   (at level 39, x1 ident, x2 ident, H at level 50) : heap_scope.
-Notation "'Hexists' x1 x2 x3 , H" := (Hexists x1, Hexists x2, Hexists x3, H)
+Notation "'\exists' x1 x2 x3 , H" := (\exists x1, \exists x2, \exists x3, H)
   (at level 39, x1 ident, x2 ident, x3 ident, H at level 50) : heap_scope.
-Notation "'Hexists' x1 x2 x3 x4 , H" :=
-  (Hexists x1, Hexists x2, Hexists x3, Hexists x4, H)
+Notation "'\exists' x1 x2 x3 x4 , H" :=
+  (\exists x1, \exists x2, \exists x3, \exists x4, H)
   (at level 39, x1 ident, x2 ident, x3 ident, x4 ident, H at level 50) : heap_scope.
-Notation "'Hexists' x1 x2 x3 x4 x5 , H" :=
-  (Hexists x1, Hexists x2, Hexists x3, Hexists x4, Hexists x5, H)
+Notation "'\exists' x1 x2 x3 x4 x5 , H" :=
+  (\exists x1, \exists x2, \exists x3, \exists x4, \exists x5, H)
   (at level 39, x1 ident, x2 ident, x3 ident, x4 ident, x5 ident, H at level 50) : heap_scope.
 
-Notation "'Hexists' ( x1 : T1 ) , H" := (hexists (fun x1:T1 => H))
+(* TODO: get this definition to work:
+Notation "'\exists' x1 .. xn , H" :=
+  (hexists (fun x1 => .. (hexists (fun xn => H)) ..))
+  (at level 39, x1, xn ident, H at level 50) : heap_scope.
+*)
+
+Notation "'\exists' ( x1 : T1 ) , H" := (hexists (fun x1:T1 => H))
   (at level 39, x1 ident, H at level 50, only parsing) : heap_scope.
-Notation "'Hexists' ( x1 : T1 ) ( x2 : T2 ) , H" := (Hexists (x1:T1), Hexists (x2:T2), H)
-  (at level 39, x1 ident, x2 ident, H at level 50) : heap_scope.
-Notation "'Hexists' ( x1 : T1 ) ( x2 : T2 ) ( x3 : T3 ) , H" := (Hexists (x1:T1), Hexists (x2:T2), Hexists (x3:T3), H)
-  (at level 39, x1 ident, x2 ident, x3 ident, H at level 50) : heap_scope.
+Notation "'\exists' ( x1 : T1 ) ( x2 : T2 ) , H" := (\exists (x1:T1), \exists (x2:T2), H)
+  (at level 39, x1 ident, x2 ident, H at level 50, only parsing) : heap_scope.
+Notation "'\exists' ( x1 : T1 ) ( x2 : T2 ) ( x3 : T3 ) , H" := (\exists (x1:T1), \exists (x2:T2), \exists (x3:T3), H)
+  (at level 39, x1 ident, x2 ident, x3 ident, H at level 50, only parsing) : heap_scope.
 
 (** Notation for [hforall] *)
 
-Notation "'Hforall' x1 , H" := (hforall (fun x1 => H))
+Notation "'\forall' x1 , H" := (hforall (fun x1 => H))
   (at level 39, x1 ident, H at level 50) : heap_scope.
-Notation "'Hforall' ( x1 : T1 ) , H" := (hforall (fun x1:T1 => H))
+Notation "'\forall' ( x1 : T1 ) , H" := (hforall (fun x1:T1 => H))
   (at level 39, x1 ident, H at level 50, only parsing) : heap_scope.
 
 
@@ -320,27 +330,27 @@ Notation "\[ P ]" := (hpure P)
   (at level 0, P at level 99, format "\[ P ]") : heap_scope.
 
 (** The "Top" predicate, written [\Top], which holds of any heap,
-  implemented as [Hexists H, H]. *)
+  implemented as [\exists H, H]. *)
 
 Definition htop : hprop :=
   hexists (fun (H:hprop) => H).
 
 Notation "\Top" := (htop) : heap_scope.
 
-(** Magic wand, written [H1 \--* H2] *)
+(** Magic wand, written [H1 \-* H2] *)
 
 Definition hwand (H1 H2 : hprop) : hprop :=
   hexists (fun (H:hprop) => H \* (hpure (H \* H1 ==> H2))).
 
-Notation "H1 \--* H2" := (hwand H1 H2)
+Notation "H1 \-* H2" := (hwand H1 H2)
   (at level 43) : heap_scope.
 
-(** Magic wand for post-conditions, written [Q1 \---* Q2] *)
+(** Magic wand for postconditions, written [Q1 \--* Q2] *)
 
 Definition qwand A (Q1 Q2:A->hprop) :=
   hforall (fun x => hwand (Q1 x) (Q2 x)).
 
-Notation "Q1 \---* Q2" := (qwand Q1 Q2)
+Notation "Q1 \--* Q2" := (qwand Q1 Q2)
   (at level 43) : heap_scope.
 
 Open Scope heap_scope.
@@ -454,7 +464,7 @@ Proof using.
 Qed.
 
 Lemma hpure_eq_hexists_empty : forall P,
-  \[P] = (Hexists (p:P), \[]).
+  \[P] = (\exists (p:P), \[]).
 Proof using. auto. Qed.
 
 (** Properties of [hexists] *)
@@ -504,6 +514,11 @@ Proof using. introv W. intros h M x. applys W. applys M. Qed.
 (* Note: missing properties for [himpl] on [hand] and [hor].
    For properties on [hwand], see further on. *)
 
+Lemma hwand_eq_hexists_hstar_hpure : forall H1 H2,
+  (H1 \-* H2) = (\exists H, H \* \[H \* H1 ==> H2]).
+Proof using. auto. Qed.
+
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [htop] *)
@@ -513,7 +528,7 @@ Lemma htop_intro : forall h,
 Proof using. intros. exists~ (=h). Qed.
 
 Lemma htop_eq :
-  \Top = (Hexists H, H).
+  \Top = (\exists H, H).
 Proof using. auto. Qed.
 
 Lemma himpl_htop_r : forall H H',
@@ -540,28 +555,6 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Auxiliary lemma showing that reasoning rule for extracting
-   pure propositions from preconditions is just a special case
-   of the reasoning rule for extracting existentials from preconditions. *)
-
-Lemma rule_extract_hprop_from_extract_hexists :
-  forall (T:Type) (F:hprop->(T->hprop)->Prop),
-  (forall (A:Type) (J:A->hprop) (Q:T->hprop),
-    (forall x, F (J x) Q) ->
-    F (hexists J) Q) ->
-  (forall P H Q,
-    (P -> F H Q) ->
-    F (\[P] \* H) Q).
-Proof using.
-  introv M. introv N. rewrite hpure_eq_hexists_empty.
-  rewrite hstar_hexists.
-  applys M. rewrite~ hstar_hempty_l.
-Qed.
-
-Arguments rule_extract_hprop_from_extract_hexists [T].
-
-
-(* ---------------------------------------------------------------------- *)
 (* ** Definition of [local] *)
 
 (** Type of characteristic formulae on values of type B *)
@@ -577,7 +570,7 @@ Notation "'~~' B" := (hprop->(B->hprop)->Prop)
 
 Definition local B (F:~~B) : ~~B :=
   fun (H:hprop) (Q:B->hprop) =>
-    H ==> Hexists H1 H2 Q1,
+    H ==> \exists H1 H2 Q1,
        H1 \* H2 \* \[F H1 Q1 /\ Q1 \*+ H2 ===> Q \*+ \Top].
 
 (** The [is_local] predicate asserts that a predicate is subject
@@ -678,12 +671,12 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Auxiliary tactics used by many tactics *)
 
-(* [xprecondition tt] returns the current pre-condition. *)
+(* [xprecondition tt] returns the current precondition. *)
 
 Ltac xprecondition tt :=
   match goal with |- ?R ?H ?Q => constr:(H) end.
 
-(* [xpostcondition tt] returns the current post-condition. *)
+(* [xpostcondition tt] returns the current postcondition. *)
 
 Ltac xpostcondition tt :=
   match goal with |- ?E =>
@@ -693,7 +686,7 @@ Ltac xpostcondition tt :=
      match goal with |- ?J ?Q => constr:(Q) end. *)
 
 (** [xpostcondition_is_evar tt] returns a boolean indicating
-    whether the post-condition of the current goal is an evar. *)
+    whether the postcondition of the current goal is an evar. *)
 
 Ltac xpostcondition_is_evar tt :=
   let Q := xpostcondition tt in
@@ -819,9 +812,9 @@ Qed.
 
 Ltac hpull_prepare tt :=
   match goal with
-  | |- @rel_incl' unit _ _ _ => let t := fresh "_tt" in intros t; destruct t
-  | |- @rel_incl' _ _ _ _ => let r := fresh "r" in intros r
-  | |- pred_incl _ _ => idtac
+  | |- @qimpl unit _ _ _ => let t := fresh "_tt" in intros t; destruct t
+  | |- @qimpl _ _ _ _ => let r := fresh "r" in intros r
+  | |- himpl _ _ => idtac
   | _ => fail 1 "not a goal for hpull"
   end.
 
@@ -887,7 +880,7 @@ Tactic Notation "hpulls" "*" := hpulls; auto_star.
 (*-- Demo --*)
 
 Lemma hpull_demo : forall H1 H2 H3 H,
-   (H1 \* \[] \* (H2 \* Hexists (y:int), \[y = y]) \* H3) ==> H.
+   (H1 \* \[] \* (H2 \* \exists (y:int), \[y = y]) \* H3) ==> H.
 Proof using.
   intros. dup.
   { hpull. admit. (* demo *) }
@@ -951,12 +944,12 @@ Ltac hpull_check tt :=
 (*-- Demo --*)
 
 Lemma hpull_check_demo_1 : forall H1 H3 H,
-  let H2 := Hexists (y:int), \[y = y] in
+  let H2 := \exists (y:int), \[y = y] in
   (H1 \* H2 \* H3) ==> H.
 Proof using. intros. hpull_check tt. (* --> accepts *) Abort.
 
 Lemma hpull_check_demo_2 : forall H1 H2 H3 H,
-  (H1 \* \[] \* (H2 \* Hexists (y:int), \[y = y]) \* H3) ==> H.
+  (H1 \* \[] \* (H2 \* \exists (y:int), \[y = y]) \* H3) ==> H.
 Proof using. intros. (* hpull_check tt. --> blocks *) Abort.
 
 
@@ -993,12 +986,12 @@ Proof using. intros. (* hpull_check tt. --> blocks *) Abort.
    Remark: the reason for the special treatment of [x ~> ...] is that
    it is very useful to be able to automatically cancel out
    [x ~> R X] from the LHS with [x ~> R ?Y], for some evar [?Y] which
-   typically is introduced from an existential, e.g. [Hexists Y, x ~> R Y].
+   typically is introduced from an existential, e.g. [\exists Y, x ~> R Y].
 
    Remark: importantly, [hsimpl] does not attempt any simplification on
    a representation predicate of the form [?x ~> ...], when the [?x]
    is an uninstantiated evar. Such situation may arise for example
-   with the following RHS: [Hexists p, (r ~> Ref p) \* (p ~> Ref 3)].
+   with the following RHS: [\exists p, (r ~> Ref p) \* (p ~> Ref 3)].
 
    As a special feature, [hsimpl] may be provided optional arguments
    for instantiating the existentials (instead of introducing evars).
@@ -1309,12 +1302,12 @@ Ltac check_arg_true v :=
 
 Ltac hcancel_prepare tt :=
   match goal with
-  | |- @rel_incl' _ _ _ ?Q' => is_evar Q'; apply refl_rel_incl'
-  | |- @rel_incl' unit _ ?Q ?Q' => let t := fresh "_tt" in intros t; destruct t
+  | |- @qimpl _ _ _ ?Q' => is_evar Q'; apply refl_qimpl
+  | |- @qimpl unit _ ?Q ?Q' => let t := fresh "_tt" in intros t; destruct t
   | |- eq _ _ => applys himpl_antisym
-  | |- @rel_incl' _ _ _ _ => let r := fresh "r" in intros r
-  | |- pred_incl _ ?H' => is_evar H'; apply himpl_refl
-  | |- pred_incl _ _ => idtac
+  | |- @qimpl _ _ _ _ => let r := fresh "r" in intros r
+  | |- himpl _ ?H' => is_evar H'; apply himpl_refl
+  | |- himpl _ _ => idtac
   end.
 
 Ltac hcancel_setup tt :=
@@ -1597,14 +1590,14 @@ Abort.
 
     Lemma hsimpl_demo_1 : forall r,
       (r ~~~> 6) ==>
-      (Hexists (n:int), (r ~~~> n) \* \[even n]).
+      (\exists (n:int), (r ~~~> n) \* \[even n]).
     Proof using.
       intros. hsimpl. auto.
     Qed.
 
     Lemma hpull_demo_1 : forall r,
-      (Hexists (n:int), (r ~~~> n) \* \[even n]) ==>
-      (Hexists (m:int), \[even m] \* (r ~~~> (m + 2))).
+      (\exists (n:int), (r ~~~> n) \* \[even n]) ==>
+      (\exists (m:int), \[even m] \* (r ~~~> (m + 2))).
     Proof using.
       intros. hpull. intros n Hn.
       hsimpl (n-2).
@@ -1752,20 +1745,20 @@ Tactic Notation "hchange" constr(E1) constr(E2) constr(E3) :=
 
 Lemma hwand_himpl_r : forall H1 H2 H2',
   H2 ==> H2' ->
-  (H1 \--* H2) ==> (H1 \--* H2').
+  (H1 \-* H2) ==> (H1 \-* H2').
 Proof using.
   intros. unfold hwand. hsimpl ;=> H3 M. hchanges~ M.
 Qed.
 
 Lemma hwand_himpl_l : forall H1' H1 H2,
   H1' ==> H1 ->
-  (H1 \--* H2) ==> (H1' \--* H2).
+  (H1 \-* H2) ==> (H1' \-* H2).
 Proof using.
   intros. unfold hwand. hsimpl ;=> H3 M. hchanges M. hchanges H.
 Qed.
 
 Lemma hwand_cancel : forall H1 H2,
-  H1 \* (H1 \--* H2) ==> H2.
+  H1 \* (H1 \-* H2) ==> H2.
 Proof using.
   intros. unfold hwand. hsimpl ;=> H3 M. hchanges M.
 Qed.
@@ -1773,7 +1766,7 @@ Qed.
 Arguments hwand_cancel : clear implicits.
 
 Lemma hwand_move_r : forall H1 H2 H3,
-  H1 ==> (H2 \--* H3) ->
+  H1 ==> (H2 \-* H3) ->
   H1 \* H2 ==> H3.
 Proof using.
   introv M. hchange (>> himpl_frame_r H2 M).
@@ -1782,11 +1775,11 @@ Qed.
 
 Lemma hwand_move_l : forall H1 H2 H3,
   H1 \* H2 ==> H3 ->
-  H1 ==> (H2 \--* H3).
+  H1 ==> (H2 \-* H3).
 Proof using. introv M. unfold hwand. hsimpl~. Qed.
 
 Lemma hwand_cancel_part : forall H1 H2 H3,
-  H1 \* ((H1 \* H2) \--* H3) ==> (H2 \--* H3).
+  H1 \* ((H1 \* H2) \-* H3) ==> (H2 \-* H3).
 Proof using.
   intros. unfold hwand. hsimpl ;=> H4 M. hchanges M.
 Qed.
@@ -1794,29 +1787,29 @@ Qed.
 Arguments hwand_cancel_part : clear implicits.
 
 Lemma hwand_move_part_r : forall H1 H2 H3 H4,
-  H2 ==> ((H1 \* H3) \--* H4) ->
-  H1 \* H2 ==> (H3 \--* H4).
+  H2 ==> ((H1 \* H3) \-* H4) ->
+  H1 \* H2 ==> (H3 \-* H4).
 Proof using.
   introv M. hchange (>> himpl_frame_r H1 M).
   rew_heap. apply hwand_cancel_part.
 Qed.
 
 Lemma hwand_move_part_l : forall H1 H2 H3 H4,
-  H1 \* H2 ==> (H3 \--* H4) ->
-  H2 ==> ((H1 \* H3) \--* H4).
+  H1 \* H2 ==> (H3 \-* H4) ->
+  H2 ==> ((H1 \* H3) \-* H4).
 Proof using.
   introv M. unfold hwand. hsimpl. hchanges (hwand_move_r M).
 Qed.
 
 Lemma hwand_of_himpl : forall (H1 H2:hprop),
   H1 ==> H2 ->
-  \[] ==> (H1 \--* H2).
+  \[] ==> (H1 \-* H2).
 Proof using.
   introv M. unfold hwand. hsimpl \[]. hchanges M.
 Qed.
 
 Lemma hstar_hwand : forall H1 H2 H3,
-  (H1 \--* H2) \* H3 ==> H1 \--* (H2 \* H3).
+  (H1 \-* H2) \* H3 ==> H1 \-* (H2 \* H3).
 Proof using.
   intros. unfold hwand. hsimpl ;=> H4 M. hchanges M.
 Qed.
@@ -1824,7 +1817,7 @@ Qed.
 Arguments hstar_hwand : clear implicits.
 
 Lemma hstar_qwand : forall H A (Q1 Q2:A->hprop),
-  (Q1 \---* Q2) \* H ==> Q1 \---* (Q2 \*+ H).
+  (Q1 \--* Q2) \* H ==> Q1 \--* (Q2 \*+ H).
 Proof using.
   intros. unfold qwand. hchanges hstar_hforall.
   applys himpl_hforall. intros x.
@@ -1834,7 +1827,7 @@ Qed.
 Lemma hwand_hpure_himpl : forall (P:Prop) H1 H2,
   P ->
   H1 ==> H2 ->
-  \[P] \--* H1 ==> H2.
+  \[P] \-* H1 ==> H2.
 Proof using.
   introv N M. intros h Hh. lets U: (conj N Hh).
   rewrite <- hstar_pure in U. lets U': hwand_cancel U. applys* M.
@@ -1845,7 +1838,7 @@ Qed.
 (* ** Magic wand on [A->hprop] *)
 
 Lemma qwand_himpl_hwand: forall A (x:A) (Q1 Q2:A->hprop),
-  (Q1 \---* Q2) ==> (Q1 x \--* Q2 x).
+  (Q1 \--* Q2) ==> (Q1 x \-* Q2 x).
 Proof using.
   intros. unfold qwand, hforall. intros h. auto.
 Qed.
@@ -1853,7 +1846,7 @@ Qed.
 Arguments qwand_himpl_hwand [ A ].
 
 Lemma qwand_cancel : forall A (Q1 Q2:A->hprop),
-  Q1 \*+ (Q1 \---* Q2) ===> Q2.
+  Q1 \*+ (Q1 \--* Q2) ===> Q2.
 Proof using.
   intros. intros x.
   hchange (qwand_himpl_hwand x Q1 Q2).
@@ -1861,7 +1854,7 @@ Proof using.
 Qed.
 
 Lemma qwand_cancel_part : forall H A (Q1 Q2:A->hprop),
-  H \* ((Q1 \*+ H) \---* Q2) ==> (Q1 \---* Q2).
+  H \* ((Q1 \*+ H) \--* Q2) ==> (Q1 \--* Q2).
 Proof using.
   intros. unfold qwand. rewrite hstar_comm. hchange hstar_hforall. rew_heap.
   applys himpl_hforall. intros x.
@@ -1871,7 +1864,7 @@ Qed.
 
 Lemma qwand_of_qimpl : forall A (Q1 Q2:A->hprop),
   Q1 ===> Q2 ->
-  \[] ==> (Q1 \---* Q2).
+  \[] ==> (Q1 \--* Q2).
 Proof using.
   introv M. unfold qwand, hforall. intros h N x. hhsimpl.
   hchanges (hwand_of_himpl (M x)).
@@ -1881,7 +1874,7 @@ Arguments qwand_of_qimpl [A].
 
 Lemma qwand_himpl_r : forall A (Q1 Q2 Q2':A->hprop),
   Q2 ===> Q2' ->
-  (Q1 \---* Q2) ==> (Q1 \---* Q2').
+  (Q1 \--* Q2) ==> (Q1 \--* Q2').
 Proof using.
   introv M. unfold qwand. applys himpl_hforall.
   intros x. applys* hwand_himpl_r.
@@ -1889,10 +1882,53 @@ Qed.
 
 Lemma qwand_move_l : forall H A (Q1 Q2:A->hprop),
   Q1 \*+ H ===> Q2 ->
-  H ==> (Q1 \---* Q2).
+  H ==> (Q1 \--* Q2).
 Proof using.
   introv M. unfold qwand. intros h Hh x. hhsimpl.
   applys hwand_move_l. hchanges M.
+Qed.
+
+
+(* ********************************************************************** *)
+(** Derived principles for triples *)
+
+(* ---------------------------------------------------------------------- *)
+(* ** Auxiliary lemma showing that reasoning rule for extracting
+   pure propositions from preconditions is just a special case
+   of the reasoning rule for extracting existentials from preconditions. *)
+
+Lemma triple_extract_hprop_from_extract_hexists :
+  forall (T:Type) (F:hprop->(T->hprop)->Prop),
+  (forall (A:Type) (J:A->hprop) (Q:T->hprop),
+    (forall x, F (J x) Q) ->
+    F (hexists J) Q) ->
+  (forall P H Q,
+    (P -> F H Q) ->
+    F (\[P] \* H) Q).
+Proof using.
+  introv M. introv N. rewrite hpure_eq_hexists_empty.
+  rewrite hstar_hexists.
+  applys M. rewrite~ hstar_hempty_l.
+Qed.
+
+Arguments triple_extract_hprop_from_extract_hexists [T].
+
+Lemma triple_extract_hwand_hpure_l_from_extract_hexists_and_consequence :
+  forall (T:Type) (F:hprop->(T->hprop)->Prop),
+  (forall (A:Type) (J:A->hprop) (Q:T->hprop),
+    (forall x, F (J x) Q) ->
+    F (hexists J) Q) ->
+  (forall H1 H2 (Q:T->hprop),
+    F H1 Q ->
+    H2 ==> H1 ->
+    F H2 Q) ->
+  (forall P H Q,
+    P ->
+    F H Q ->
+    F (\[P] \-* H) Q).
+Proof using.
+  introv M W HP. introv N. rewrite hwand_eq_hexists_hstar_hpure.
+  applys M. intros. applys* W. hpull. introv R. hchanges~ R.
 Qed.
 
 
@@ -1999,10 +2035,10 @@ Qed.
 Lemma local_ramified_frame : forall Q1 H1 F H Q,
   is_local F ->
   F H1 Q1 ->
-  H ==> H1 \* (Q1 \---* Q) ->
+  H ==> H1 \* (Q1 \--* Q) ->
   F H Q.
 Proof using.
-  introv L M W. applys~ local_frame (Q1 \---* Q) M.
+  introv L M W. applys~ local_frame (Q1 \--* Q) M.
   hchanges qwand_cancel.
 Qed.
 
@@ -2011,10 +2047,10 @@ Qed.
 Lemma local_ramified_frame_htop : forall Q1 H1 F H Q,
   is_local F ->
   F H1 Q1 ->
-  H ==> H1 \* (Q1 \---* Q \*+ \Top) ->
+  H ==> H1 \* (Q1 \--* Q \*+ \Top) ->
   F H Q.
 Proof using.
-  introv L M W. applys~ local_frame_htop (Q1 \---* Q \*+ \Top) M.
+  introv L M W. applys~ local_frame_htop (Q1 \--* Q \*+ \Top) M.
   hchanges qwand_cancel.
 Qed.
 
@@ -2041,7 +2077,7 @@ Proof using.
   introv LF H1 H2. applys~ local_frame_htop H2 H1.
 Qed.
 
-(** Garbage collection on post-condition from [local] *)
+(** Garbage collection on postcondition from [local] *)
 
 Lemma local_htop_post : forall Q' F H Q,
   is_local F ->
@@ -2162,7 +2198,7 @@ Proof using.
   rewrite hstar_hempty_l, hstar_comm, hstar_pure. splits*. splits*. hsimpl.
 Qed.
 
-(** Extraction of pure facts from the pre-condition under local *)
+(** Extraction of pure facts from the precondition under local *)
 
 Lemma local_extract_prop : forall F H Q P,
   is_local F ->
@@ -2174,19 +2210,19 @@ Proof using.
   applys~ local_extract_hprop.
 Qed.
 
-(** Extraction of proof obligations from the pre-condition under local *)
+(** Extraction of proof obligations from the precondition under local *)
 
-Lemma rule_extract_hwand_hpure_l : forall F (P:Prop) H Q,
+Lemma triple_extract_hwand_hpure_l : forall F (P:Prop) H Q,
   is_local F ->
   P ->
   F H Q ->
-  F (\[P] \--* H) Q.
+  F (\[P] \-* H) Q.
 Proof using.
   introv L N M. rewrite L. unfold local. applys~ hwand_hpure_himpl.
   hsimpl H \[] Q. split~. hsimpl.
 Qed.
 
-(** Extraction of contradictions from the pre-condition under local *)
+(** Extraction of contradictions from the precondition under local *)
 
 Lemma local_extract_false : forall F H Q,
   local F H Q ->
@@ -2231,7 +2267,7 @@ Ltac xpull_check tt :=
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xpull] to extract existentials and pure facts from
-      pre-conditions. *)
+      preconditions. *)
 
 (** [xpull] plays a similar role to [hpull], except that it works on
    goals of the form [F H Q], where [F] is typically a triple predicate
@@ -2362,7 +2398,7 @@ Tactic Notation "xpulls" "*" := xpulls; auto_star.
 Ltac xapply_core H cont1 cont2 :=
   forwards_nounfold_then H ltac:(fun K =>
     match xpostcondition_is_evar tt with
-    | true => eapply local_frame; [ xlocal | sapply K | cont1 tt | try apply refl_rel_incl' ]
+    | true => eapply local_frame; [ xlocal | sapply K | cont1 tt | try apply refl_qimpl ]
     | false => eapply local_frame_htop; [ xlocal | sapply K | cont1 tt | cont2 tt ]
     end).
 
@@ -2504,7 +2540,7 @@ Tactic Notation "xchange_show" "<-" constr(E) :=
 (* ** Definition of the weakest precondition for a formula *)
 
 Definition weakestpre (B : Type) (F:hprop->(B->hprop)->Prop) (Q:B->hprop) : hprop :=
-  Hexists (H:hprop), H \* \[F H Q].
+  \exists (H:hprop), H \* \[F H Q].
 
 Lemma weakestpre_eq : forall B (F:~~B) H Q,
   is_local F -> (* in fact, only requires weaken-pre and extract-hexists rules to hold *)
@@ -2521,6 +2557,16 @@ Lemma weakestpre_conseq : forall B (F:~~B) Q1 Q2,
   weakestpre F Q1 ==> weakestpre F Q1.
 Proof using.
   introv L W. unfold weakestpre. hpull ;=> H1 M. hsimpl. xapplys M.
+Qed.
+
+Lemma weakestpre_conseq_wand : forall B (F:~~B) Q1 Q2, 
+  is_local F ->
+  (Q1 \--* Q2) \* weakestpre F Q1 ==> weakestpre F Q2.
+Proof using.
+  introv L. unfold weakestpre. hpull ;=> H1 M.
+  hsimpl. rew_heap. xapplys M. intros r.
+  hchange (qwand_himpl_hwand r).
+  hchanges (hwand_cancel (Q1 r)).
 Qed.
 
 Lemma weakestpre_frame : forall B (F:~~B) H Q,

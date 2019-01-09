@@ -58,7 +58,7 @@ Definition roots L R :=
     the PER [R], which is a binary relation over locations. *)
 
 Definition UF (n:int) (R:int->int) (p:loc) : hprop :=
-  Hexists (L:list int),
+  \exists (L:list int),
      Array (map val_int L) p
   \* \[n = length L /\ roots L R].
 
@@ -363,7 +363,7 @@ Definition val_root :=
 Hint Rewrite @index_map_eq : rew_array. (*--TODO  move *)
 
 
-Lemma rule_root : forall n R p x,
+Lemma triple_root : forall n R p x,
   index n x ->
   triple (val_root p x)
     (UF n R p)
@@ -387,7 +387,7 @@ Proof using.
     xapp~ (>> IH d). hsimpl~. }
 Qed.
 
-Hint Extern 1 (Register_spec val_root) => Provide rule_root.
+Hint Extern 1 (Register_spec val_root) => Provide triple_root.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -405,7 +405,7 @@ Definition val_compress :=
 
 Hint Resolve index_map.
 
-Lemma rule_compress : forall n R p x z,
+Lemma triple_compress : forall n R p x z,
   index n x ->
   z = R x ->
   triple (val_compress p x z)
@@ -421,7 +421,7 @@ Proof using.
   gen L x. induction_wf IH: lt_wf d. hide IH. intros.
   rewrite EF. xcf. rewrite <- EF.
   xapps. xif ;=> C.
-  { xapps~. xapp~. hsimpl. rewrite (@read_map int _ val _); auto.
+  { xapps~. xapp~ ;=> ? ->. rewrite (@read_map int _ val _); auto.
     (* --todo: should be rewrite read_map. *)
     inverts Hx' as; try solve [ intros; false ].
     introv _ Nx Ry. sets y: (L[x]). rename d0 into d.
@@ -438,7 +438,7 @@ Proof using.
   { xvals~. }
 Qed.
 
-Hint Extern 1 (Register_spec val_compress) => Provide rule_compress.
+Hint Extern 1 (Register_spec val_compress) => Provide triple_compress.
 
 
 (** TODO: compress and find revisited using a loop *)
@@ -452,16 +452,16 @@ Definition val_find :=
     val_compress 'p 'x 'r ;;;
     'r.
 
-Lemma rule_find : forall n R p x,
+Lemma triple_find : forall n R p x,
   index n x ->
   triple (val_find p x)
     (UF n R p)
     (fun r => \[r = R x] \* UF n R p).
 Proof using.
-  introv Ix. xcf. xapps~. xapps~. hsimpl. xvals~.
+  introv Ix. xcf. xapps~. xapps~. intros _. xvals~.
 Qed.
 
-Hint Extern 1 (Register_spec val_find) => Provide rule_find.
+Hint Extern 1 (Register_spec val_find) => Provide triple_find.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -475,12 +475,12 @@ Definition val_union :=
       val_array_set 'p 'r 's
     End.
 
-Lemma rule_union : forall n R p x y,
+Lemma triple_union : forall n R p x y,
   index n x ->
   index n y ->
   triple (val_union p x y)
     (UF n R p)
-    (fun r => Hexists R', UF n R' p \* \[R' = link R x y]).
+    (fun r => \exists R', UF n R' p \* \[R' = link R x y]).
 Proof using.
   introv Dx Dy. xcf. xapps~. xapps~. xapps. xif ;=> C.
   { unfold UF. xpull ;=> L (Hn&HR).
@@ -493,12 +493,7 @@ Proof using.
   { xvals~. rewrite~ link_related. }
 Qed.
 
-Hint Extern 1 (Register_spec val_union) => Provide rule_union.
-
-
-
-
-
+Hint Extern 1 (Register_spec val_union) => Provide triple_union.
 
 
 
@@ -516,11 +511,11 @@ Hint Extern 1 (Register_spec val_union) => Provide rule_union.
 
 Parameter val_create : val.
 
-Parameter rule_create : forall n,
+Parameter triple_create : forall n,
   n >= 0 ->
   triple (val_create n)
     \[]
-    (fun r => Hexists p R, \[r = val_loc p] \*
+    (fun r => \exists p R, \[r = val_loc p] \*
               UF R p \* \[forall i, index n i -> R i = i]).
 
 *)

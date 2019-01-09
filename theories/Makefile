@@ -34,16 +34,23 @@ export TLC
 ##############################################################################
 # List of files
 
-SRC_CORE := TLCbuffer Fmap SepFunctor LambdaSemantics LambdaSep LambdaCFTactics LambdaWP LambdaCF LambdaSepLifted LambdaWPLifted  LambdaStruct LambdaSepRO LambdaSepCredits LambdaSepLifted LambdaCFLifted LambdaStructLifted Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleList LambdaCFCredits ExampleRO 
+SRC_CORE := TLCbuffer Fmap Bind SepFunctor LambdaSemantics LambdaSep LambdaWP LambdaSepLifted LambdaWPLifted LambdaWPTactics  
 
-SRC_SF := SLSemantics SLHprop SLHimpl SLRules SLWP 
+SRC_MORE := LambdaSepCredits LambdaSepRO
+
+SRC_CF := LambdaCF LambdaSepLifted LambdaCFLifted LambdaStruct  LambdaStructLifted
+
+SRC_EXAMPLES := Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleList LambdaCFCredits ExampleRO 
+
+SRC_SF := SLFSemantics SLFHprop SLFHimpl SLFRules SLWP 
 
 SRC_MOSEL := SepMosel LambdaSepMosel LambdaSepROMosel ExampleROMosel ExampleListMosel
 
-SRC := $(SRC_CORE) $(SRC_SF) $(SRC_MOSEL)
+SRC := $(SRC_CORE) $(SRC_MORE)
+# $(SRC_EXAMPLES) $(SRC_SF) $(SRC_MOSEL)
 
 
-# using the variable SRC_CUSTOM, one can modify the compilation targets and/or their order.
+# using the variable SRC_FORCE, one can modify the compilation targets and/or their order.
 
 ifdef SRC_FORCE 
 	SRC := $(SRC_FORCE)
@@ -62,6 +69,7 @@ COQFLAGS:=-w -notation-overridden,-implicits-in-term,-redundant-canonical-projec
 COQINCLUDE := \
   -R $(TLC) TLC \
   -R $(PWD) Sep
+
 
 include $(TLC)/Makefile.coq
 

@@ -9,6 +9,7 @@ License: MIT.
 
 Set Implicit Arguments.
 From Sep Require Import LambdaSepRO LambdaSepROMosel.
+Import NotationForTerms NotationForVariables.
 Import ProofMode.
 Generalizable Variables A B.
 Open Scope trm_scope.
@@ -34,7 +35,7 @@ Tactic Notation "xletapp" constr(M) :=
 (** Tactic to reason about [let f x = t1 in t2] *)
 
 Tactic Notation "xletfun" :=
-  applys rule_letfun; simpl; xpull.
+  applys triple_letfun; simpl; xpull.
 
 (** Tactic to reason about [triple (f x) H Q], by unfolding
     the definition of [f]. *)
@@ -45,10 +46,10 @@ Tactic Notation "xdef" :=
    match goal with
    | H: f =_ |- _ =>
      rew_nary in H;
-     applys rule_apps_funs;
+     applys triple_apps_funs;
      [ applys H | auto | simpl ]
    | |- _ =>
-     applys rule_apps_funs;
+     applys triple_apps_funs;
      [ unfold f; rew_nary; reflexivity | auto | simpl ]
   end
  end.
@@ -73,7 +74,7 @@ Definition val_ref_apply :=
     Let 'x := val_get 'p in
     'f 'x.
 
-Lemma rule_ref_apply : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),
+Lemma triple_ref_apply : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),
   (triple (f v)
     PRE (RO(p ~~~> v) \* H)
     POST Q)
@@ -82,7 +83,7 @@ Lemma rule_ref_apply : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),
     PRE (RO(p ~~~> v) \* H)
     POST Q).
 Proof using.
-  introv M. xdef. ram_apply_let rule_get_ro. { auto with iFrame. }
+  introv M. xdef. ram_apply_let triple_get_ro. { auto with iFrame. }
   move=>X /=. xpull=>->. done.
 Qed.
 
@@ -96,7 +97,7 @@ Definition val_ref_update :=
     Let 'y := 'f 'x in
     val_set 'p 'y.
 
-Lemma rule_ref_update : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),
+Lemma triple_ref_update : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),
   Normal_post Q -> (* todo: this might not be needed if using "normally" *)
   (triple (f v)
     PRE (RO(p ~~~> v) \* H)
@@ -104,11 +105,11 @@ Lemma rule_ref_update : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),
   ->
   (triple (val_ref_update f p)
     PRE (p ~~~> v \* H)
-    POST (fun r => Hexists w, (p ~~~> w) \* (Q w))).
+    POST (fun r => \exists w, (p ~~~> w) \* (Q w))).
 Proof using.
-  introv N M. xdef. ram_apply_let rule_get_ro. { auto with iFrame. }
+  introv N M. xdef. ram_apply_let triple_get_ro. { auto with iFrame. }
   unlock. move=>x /=. xpull=>->. ram_apply_let M. { auto with iFrame. }
-  unlock. move=>y /=. ram_apply rule_set. { auto 10 with iFrame. }
+  unlock. move=>y /=. ram_apply triple_set. { auto 10 with iFrame. }
 Qed.
 
 
@@ -119,10 +120,10 @@ Qed.
 (** Representation predicate and its properties *)
 
 Definition Box (n:int) (p:loc) :=
-  Hexists (q:loc), (p ~~~> q) \* (q ~~~> n).
+  \exists (q:loc), (p ~~~> q) \* (q ~~~> n).
 
 Lemma Box_unfold : forall p n,
-  (p ~> Box n) ==> Hexists (q:loc), (p ~~~> q) \* (q ~~~> n).
+  (p ~> Box n) ==> \exists (q:loc), (p ~~~> q) \* (q ~~~> n).
 Proof using. xunfold Box. auto. Qed.
 
 Lemma Box_fold : forall p q n,
@@ -130,7 +131,7 @@ Lemma Box_fold : forall p q n,
 Proof using. xunfold Box. auto. Qed.
 
 Lemma RO_Box_unfold : forall p n,
-  RO (p ~> Box n) ==> RO (p ~> Box n) \* Hexists (q:loc), RO (p ~~~> q) \* RO (q ~~~> n).
+  RO (p ~> Box n) ==> RO (p ~> Box n) \* \exists (q:loc), RO (p ~~~> q) \* RO (q ~~~> n).
 Proof using.
   iIntros (p n) "H". iDestruct (RO_duplicatable with "H") as "[$ H]". xunfold Box.
   iDestruct "H" as (q) "[??]". auto with iFrame.
@@ -162,14 +163,14 @@ Definition val_box_get :=
     Let 'q := val_get 'p in
     val_get 'q.
 
-Lemma rule_box_get : forall p n,
+Lemma triple_box_get : forall p n,
   triple (val_box_get p)
     PRE (RO (p ~> Box n))
     POST (fun r => \[r = val_int n]).
 Proof using.
   intros. xdef. xchanges (RO_Box_unfold p) ;=> q.
-  xletapp rule_get_ro => ? ->.
-  ram_apply rule_get_ro. auto 10 with iFrame.
+  xletapp triple_get_ro => ? ->.
+  ram_apply triple_get_ro. auto 10 with iFrame.
 Qed.
 
 
@@ -192,7 +193,7 @@ Definition val_box_up2 :=
     Let 'm := 'a1 '+ 'a2 in
     val_set 'q 'm.
 
-Lemma rule_box_up2 : forall (F:int->int) n (f:val) p,
+Lemma triple_box_up2 : forall (F:int->int) n (f:val) p,
   (forall (x:int), triple (f x)
       PRE (RO(p ~> Box n))
       POST (fun r => \[r = val_int (F x)])) ->
@@ -201,24 +202,24 @@ Lemma rule_box_up2 : forall (F:int->int) n (f:val) p,
     POST (fun r => p ~> Box (2 * F n)).
 Proof using.
   introv M. xdef. xchange (Box_unfold p). xpull ;=> q.
-  xletapp rule_get_ro => ? ->.
-  xletapp rule_get_ro => ? ->.
+  xletapp triple_get_ro => ? ->.
+  xletapp triple_get_ro => ? ->.
   ram_apply_let M.
   { rewrite -RO_Box_fold. iIntros "Hq Hp". iCombine "Hp Hq" as "H".
     auto with iFrame. }
   unlock. xpull => /= a1 ->.
-  xletapp rule_get_ro => ? ->.
+  xletapp triple_get_ro => ? ->.
   ram_apply_let M.
   { rewrite -RO_Box_fold. iIntros "Hq Hp". iCombine "Hp Hq" as "H".
     auto with iFrame. }
   unlock. xpull => /= a2 ->.
-  xletapp rule_add => ? ->.
-  ram_apply rule_set.
+  xletapp triple_add => ? ->.
+  ram_apply triple_set.
   iIntros "Hp $ !>!> % -> Hq". iApply Box_fold. iFrame.
   by math_rewrite (2 * F n = F n + F n)%Z.
 Qed.
 
-Arguments rule_box_up2 : clear implicits.
+Arguments triple_box_up2 : clear implicits.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -234,20 +235,20 @@ Definition val_box_demo :=
     Let 'u := val_box_up2 'f 'p in
     val_box_get 'p.
 
-Lemma rule_box_demo : forall (n:int),
+Lemma triple_box_demo : forall (n:int),
   triple (val_box_demo n)
     PRE \[]
     POST (fun r => \[r = val_int (4*n)]).
 Proof using.
   intros. xdef.
-  xletapp rule_ref => ? q ->.
-  xletapp rule_ref => ? p ->.
+  xletapp triple_ref => ? q ->.
+  xletapp triple_ref => ? p ->.
   xletfun => F HF.
-  ram_apply_let (rule_box_up2 (fun (x:int) => (x + n)%Z) n).
-  { intros. xdef. xletapp rule_box_get => m ->.
-    ram_apply rule_add. { auto 10 with iFrame. } }
+  ram_apply_let (triple_box_up2 (fun (x:int) => (x + n)%Z) n).
+  { intros. xdef. xletapp triple_box_get => m ->.
+    ram_apply triple_add. { auto 10 with iFrame. } }
   { iIntros "Hq Hp". iDestruct (Box_fold with "[$Hq $Hp]") as "$".
     auto with iFrame. }
-  unlock. xpull=> u. apply rule_htop_post. ram_apply rule_box_get.
+  unlock. xpull=> u. apply triple_htop_post. ram_apply triple_box_get.
   math_rewrite (2 * (n + n) = 4 * n)%Z. auto 10 with iFrame.
 Qed.

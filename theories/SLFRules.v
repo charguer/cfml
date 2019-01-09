@@ -45,3 +45,32 @@ Require Import LambdaSemantics LambdaSep.
 (** ** Pure functions *)
 
 (** ** Functions operating on the state *)
+
+
+
+
+
+
+(* Note: specialized version of consequence *)
+Lemma triple_htop_post_remove : forall t H Q,
+  triple t H Q ->
+  triple t H (Q \*+ \Top).
+Proof using.
+  introv M. intros HF.
+  applys hoare_conseq (M HF); hsimpl.
+Qed.
+
+
+
+
+
+
+Lemma Triple_seq : forall t1 t2 H,
+  forall A `{EA:Enc A} (Q:A->hprop) (Q1:unit->hprop),
+  Triple t1 H Q1 ->
+  Triple t2 (Q1 tt) Q ->
+  Triple (trm_seq t1 t2) H Q.
+Proof using.
+
+  introv M1 M2. applys* Triple_let M1. intros X.
+  unfold Subst1. rewrite subst1_anon. destruct X. applys M2.

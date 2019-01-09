@@ -44,7 +44,6 @@ Lemma red_if_bool : forall n m1 m2 (b:bool) r t1 t2,
      red n m1 (trm_if b t1 t2) m2 r.
 
 
-
 Lemma rule_func_val : forall fopt x t1 H Q,
   H ==> Q (val_func fopt x t1) ->
   normal H ->
@@ -4600,6 +4599,109 @@ Definition Weakestpre (T:forall `{Enc A},hprop->(A->hprop)->Prop) : Formula :=
     Hexists (H:hprop), H \* \[T H Q].
 
 
+(* ********************************************************************** *)
+(* * Size of a term *)
+
+(* ---------------------------------------------------------------------- *)
+(** Size of a term, where all values counting for one unit. *)
+
+(* TODO: will be deprecated soon *)
+
+Fixpoint trm_size (t:trm) : nat :=
+  match t with
+  | trm_var x => 1
+  | trm_val v => 1
+  | trm_fun x t1 => 1 + trm_size t1
+  | trm_fix f x t1 => 1 + trm_size t1
+  | trm_if t0 t1 t2 => 1 + trm_size t0 + trm_size t1 + trm_size t2
+  | trm_seq t1 t2 => 1 + trm_size t1 + trm_size t2
+  | trm_let x t1 t2 => 1 + trm_size t1 + trm_size t2
+  | trm_app t1 t2 => 1 + trm_size t1 + trm_size t2
+  | trm_while t1 t2 => 1 + trm_size t1 + trm_size t2
+  | trm_for x t1 t2 t3 => 1 + trm_size t1 + trm_size t2 + trm_size t3
+  end.
+
+Lemma trm_size_subst : forall t x v,
+  trm_size (subst x v t) = trm_size t.
+Proof using.
+  intros. induction t; simpl; repeat case_if; auto.
+Qed.
+
+(** Hint for induction on size. Proves subgoals of the form
+    [measure trm_size t1 t2], when [t1] and [t2] may have some
+    structure or involve substitutions. *)
+
+Ltac solve_measure_trm_size tt :=
+  unfold measure in *; simpls; repeat rewrite trm_size_subst; math.
+
+Hint Extern 1 (measure trm_size _ _) => solve_measure_trm_size tt.
+
+
+(*
+Fixpoint ctx_fresh (x:var) (E:ctx) : bool :=
+  match E with
+  | nil => true
+  | (y,v)::E' => if var_eq x y then false else ctx_fresh x E'
+  end.
+*)
+
+
+
+  (* deprecated
+  | red_app_arg : forall m1 m2 m3 m4 t1 t2 v1 v2 r,
+      (~ trm_is_val t1 \/ ~ trm_is_val t2) ->
+      red m1 t1 m2 v1 ->
+      red m2 t2 m3 v2 ->
+      red m3 (trm_app v1 v2) m4 r ->
+      red m1 (trm_app t1 t2) m4 r
+  | red_app_fix : forall m1 m2 v1 v2 f x t r,
+      red m1 (trm_app v1 v2) m2 r
+   *)
+
+
+
+
+
+(*
+Definition trm_seq (t1:trm) (t2:trm) :=
+  trm_let bind_anon t1 t2.
+
+Definition trm_fun (x:var) (t1:trm) :=
+  trm_fix bind_anon x t1.
+
+Definition val_fun (x:var) (t1:trm) :=
+  val_fix bind_anon x t1.
+*)
+
+
+
+(*
+*)
+
+
+(* todo deprecated
+  Fixpoint trm_funs (xs:vars) (t:trm) : trm :=
+    match xs with
+    | nil => t
+    | x::xs' => trm_fun x (trm_funs xs' t)
+    end.
+
+  Definition val_funs (xs:vars) (t:trm) : val :=
+    match xs with
+    | nil => arbitrary
+    | x::xs' => val_fun x (trm_funs xs' t)
+    end.
+*)
+
+
+Notation "'trm_seq' t1 t2" := (trm_let bind_anon t1 t2)
+  (at level 69, t1 at level 0, t2 at level 0).
+
+Notation "'trm_fun' x t1" := (trm_fix bind_anon x t1)
+  (at level 69, x at level 0, t1 at level 0).
+
+Notation "'val_fun' x t1" := (val_fix bind_anon x t1)
+  (at level 69, x at level 0, t1 at level 0).
 
 (* todo: deprecated
 Lemma rule_seq : forall t1 t2 H Q Q1,
@@ -4625,7 +4727,7 @@ Qed.
 *)
 
 
-(** An alternative statement for [rule_seq] 
+(** An alternative statement for [rule_seq]
 todo deprecated
 
 Lemma rule_seq' : forall t1 t2 H Q H1,
@@ -4670,3 +4772,636 @@ Definition cf_seq (F1 F2:formula) : formula := fun H Q =>
      /\ F2 H1 Q
      /\  (forall v, ~ is_val_unit v -> (Q1 v) ==> \[False]).
 *)
+
+
+
+Lemma substn_last : forall x xs v vs t,
+  length xs = length vs ->
+  substn (xs&x) (vs&v) t = subst1 x v (substn xs vs t).
+Proof using.
+  intros. unfold substn. rewrite~ combine_last.
+  rew_ctx. rewrite~ subst_add. Qed.
+
+
+
+(* DEPRECATED
+
+Lemma subst_last : forall E x v t,
+  subst (E & (x,v)) t = subst1 x v (subst E t).
+
+Proof using.
+  intros E. induction E as [|(x',v') E']; intros; rew_list.
+  { rew_ctx. rewrite~ subst_empty. }
+  {
+
+ using list_ind_last; intros.
+  { rew_ctx. rewrite~ subst_empty. }
+  { destruct a as [x' v'].
+
+ rew_list.  rew_list.
+  { rewrite IHE'.
+
+subst (rev (combine xs vs) & (x, v)) t =
+subst (rev (combine xs vs)) (subst1 x v t)
+*)
+
+(* NEEDED in lambdawp:
+subst (add x v E) t = subst1 x v (subst (rem x E) t)
+*)
+
+(*
+Lemma subst1_subst_rem_same : forall E z v t,
+    subst1 z v (subst (rem z E) t)
+  = subst E (subst1 z v t).
+Proof using.
+  intros. rewrite <- subst_add.
+
+  intros E. induction E as [|(y,w) E']; simpl; intros.
+  { auto. }
+  { rewrite var_eq_spec. case_if.
+    { subst. rewrite IHE'. rewrite~ subst_subst_same. }
+    { simpl. rewrite IHE'. rewrite~ subst_subst_neq. } }
+Qed.
+
+Admitted.
+
+Lemma subst1_subst : forall x v E t,
+  fresh x E ->
+  subst1 x v (subst E t) = subst E (subst1 x v t).
+Proof using.
+  introv M. rewrite <- (@subst1_subst_rem_same E x v t).
+  fequals. rewrite~ rem_fresh.
+Qed.
+*)
+
+(*
+
+  (** Substituting for [E] without [x] then substituting for [x]
+      is equivalent to substituting for [x] then for [E]
+      (even if [x] is bound in [E]). *)
+
+
+  (** Substitutions for two distinct variables commute. *)
+
+  Lemma subst1_subst1_neq : forall x1 x2 v1 v2 t,
+    x1 <> x2 ->
+    subst1 x2 v2 (subst1 x1 v1 t) = subst1 x1 v1 (subst1 x2 v2 t).
+  Proof using.
+    introv N. induction t; simpl; try solve [ fequals;
+    repeat case_if; simpl; repeat case_if; auto ].
+    repeat case_if; simpl; repeat case_if~.
+    { false. destruct v; destruct x1; destruct x2; false. simpls.
+      rewrite name_eq_spec in *. rew_bool_eq in *. false. }
+  Qed. (* LATER: simplify *)
+
+  (** Substituting for a variable that has just been substituted
+      does not further modify the term. *)
+
+  Lemma subst_subst_same : forall x v1 v2 t,
+    subst1 x v2 (subst1 x v1 t) = subst1 x v1 t.
+  Proof using.
+    intros. induction t; simpl; try solve [ fequals;
+    repeat case_if; simpl; repeat case_if; auto ].
+  Qed.
+*)
+
+
+
+
+(** Auxiliary results for freshness of bindings w.r.t. combine *)
+
+
+(*
+Lemma fresh_combine : forall x ys vs,
+  var_fresh x ys ->
+  length ys = length vs ->
+  Ctx.fresh x (LibList.combine ys vs).
+Proof using.
+  intros x ys. unfold Ctx.fresh.
+  induction ys as [|y ys']; simpl; intros [|v vs] M L;
+   rew_list in *; try solve [ false; math ].
+  { auto. }
+  { simpl. rewrite var_eq_spec in *. do 2 case_if. rewrite~ IHys'. }
+Qed.
+
+(* Permutation lemma for substitution and n-ary substitution *)
+
+Lemma subst_substn : forall x v ys ws t,
+  var_fresh x ys ->
+  length ys = length ws ->
+  subst1 x v (substn ys ws t) = substn ys ws (subst1 x v t).
+Proof using.
+  introv M L. unfold substn. rewrite~ subst1_subst.
+  applys~ fresh_combine.
+Qed.
+
+*)
+
+(*
+Lemma red_app_fixs_val : forall xs (vs:vals) m1 m2 tf (vf:val) (f:var) t r,
+  red m1 tf m1 vf ->
+  vf = val_fixs f xs t ->
+  red m1 (substn (f::xs) (vf::vs) t) m2 r ->
+  var_fixs f (length vs) xs ->
+  red m1 (trm_apps tf vs) m2 r.
+Proof using.
+  introv M1 EQ M2 (F&L&N). gen tf t r m1 m2 F N. list2_ind~ xs vs; intros.
+  (* LATER: replace list2_ind by list2_inv *)
+  { false. }
+  { rename xs1 into xs', x1 into x1, x2 into v1, xs2 into vs'. clear H0.
+    simpl in F. rew_istrue in F. destruct F as (F1&F').
+    tests C: (xs' = nil).
+    { rew_list in *. asserts: (vs' = nil).
+      { applys length_zero_inv. math. } subst vs'.
+      simpls. applys* red_app. applys* red_val. applys* M2. }
+    { subst vf. applys red_app. applys~ red_app_funs_val_ind.
+      { applys red_val. eauto. applys* red_app_fix. do 2 rewrite~ subst_trm_funs. applys~ red_funs. }
+      { rewrite~ subst_substn in M. { rewrite~ substn_cons in M.
+        rewrite~ subst_subst_neq. } { simpl. case_if~. } }
+      { splits*. } } }
+
+do 2 rewrite substn_cons in M2. applys~ IH M2. applys* red_app.
+      { applys* red_val. }
+      { simpl. unfold subst2. simpl. rew_ctx.
+        rewrite subst_add. rewrite subst_empty.
+        rewrite~ subst_trm_funs. applys~ red_funs. } } }
+Qed.
+*)
+
+
+
+Lemma rem_rem_neq : forall z1 z2 E,
+  Ctx.rem z1 (Ctx.rem z2 E) = Ctx.rem z2 (Ctx.rem z1 E).
+Proof using. (*
+
+  introv M. unfold rem. induction E as [|(y,v) E'].
+  { auto. }
+  { simpls. lets (N1&N2): fresh_inv (rm M).
+    rewrite var_eq_spec in *. case_if. rewrite~ IHE'. }
+*) admit.
+Qed.
+
+
+
+  | red_add : forall m n1 n2 n',
+      n' = n1 + n2 ->
+      red m (val_add (val_int n1) (val_int n2)) m (val_int n')
+  | red_sub : forall m n1 n2 n',
+      n' = n1 - n2 ->
+      red m (val_sub (val_int n1) (val_int n2)) m (val_int n')
+  | red_ptr_add : forall l' m l n,
+      (l':nat) = (l:nat) + n :> int ->
+      red m (val_ptr_add (val_loc l) (val_int n)) m (val_loc l')
+  | red_eq : forall m v1 v2,
+      red m (val_eq v1 v2) m (val_bool (isTrue (v1 = v2)))
+
+
+
+
+(*
+Lemma hoare_consequence_post : forall t Q' H Q,
+  hoare t H Q' ->
+  Q' ===> Q ->
+  hoare t H Q.
+Proof using.
+  intros. applys* hoare_consequence.
+Qed.
+*)
+
+
+
+
+(** Tactic to apply hoare rules modulo consequence *)
+
+Ltac hoare_apply_core M :=
+  applys hoare_consequence M; try solve [ hsimpl.
+
+Tactic Notation "hoare_apply" constr(M) :=
+  hoare_apply_core M.
+Tactic Notation "hoare_apply" "~" constr(M) :=
+  hoare_apply_core M; auto_tilde.
+Tactic Notation "hoare_apply" "*" constr(M) :=
+  hoare_apply_core M; auto_star.
+
+
+
+(** Derived rule integrating the case analysis on whether iterations
+    are performed on not *)
+
+Lemma rule_for : forall (x:var) (n1 n2:int) t3 H Q,
+  (If (n1 <= n2) then
+    (exists Q1,
+      triple (subst1 x n1 t3) H Q1 /\
+      (forall v, triple (trm_for x (n1+1) n2 t3) (Q1 v) Q))
+  else
+    (H ==> Q val_unit)) ->
+  triple (trm_for x n1 n2 t3) H Q.
+Proof using.
+  introv M. case_if.
+  { destruct M. applys* rule_for_le. }
+  { xapplys* rule_for_gt. { math. } hchanges* M. }
+Qed.
+
+
+
+
+
+
+
+(** Rules for for-loop not in normal form *)
+
+Lemma rule_for_trm : forall (x:var) (t1 t2 t3:trm) H (Q:val->hprop) (Q1:val->hprop),
+  triple t1 H Q1 ->
+  (forall v1, exists Q2,
+      triple t2 (Q1 v1) Q2
+   /\ (forall v2, triple (trm_for x v1 v2 t3) (Q2 v2) Q)) ->
+  triple (trm_for x t1 t2 t3) H Q.
+Proof using.
+  introv M1 M2. intros HF h Hf. forwards (h1'&v1&R1&K1): (rm M1) Hf.
+  lets (Q2&M2'&M3): ((rm M2) v1).
+  forwards* (h2'&v2&R2&K2): (rm M2') h1'.
+  rewrite <- (hstar_assoc \Top \Top) in K2. rewrite htop_hstar_htop in K2.
+  forwards* (h'&v'&R'&K'): ((rm M3) v2) h2'.
+  exists h' v'. splits~.
+  { applys* red_for_arg. }
+  { rewrite <- htop_hstar_htop. rew_heap~. }
+Qed.
+
+Definition is_val_int (v:val) :=
+  exists n, v = val_int n.
+
+(* full rule, too complex *)
+Lemma rule_for_trm_int : forall (x:var) (t1 t2 t3:trm) H (Q:val->hprop) (Q1:val->hprop),
+  triple t1 H Q1 ->
+  (forall v, ~ is_val_int v -> (Q1 v) ==> \[False]) ->
+  (forall (n1:int), exists Q2,
+      triple t2 (Q1 (val_int n1)) Q2
+   /\ (forall v, ~ is_val_int v -> (Q2 v) ==> \[False])
+   /\ (forall (n2:int), triple (trm_for x n1 n2 t3) (Q2 (val_int n2)) Q)) ->
+  triple (trm_for x t1 t2 t3) H Q.
+Proof using. (* might be simplified using rule_for_trm *)
+  introv M1 nQ1 M2. intros HF h Hf. forwards (h1'&v1&R1&K1): (rm M1) Hf.
+  tests C1: (is_val_int v1).
+  { destruct C1 as (n1&E). subst. lets (Q2&M2'&nQ2&M3): ((rm M2) n1).
+    forwards* (h2'&v2&R2&K2): (rm M2') h1'.
+    rewrite <- (hstar_assoc \Top \Top) in K2. rewrite htop_hstar_htop in K2.
+    tests C2: (is_val_int v2).
+    { destruct C2 as (n2&E). subst.
+      forwards* (h'&v'&R'&K'): ((rm M3) n2) h2'.
+      exists h' v'. splits~.
+      { applys* red_for_arg. }
+      { rewrite <- htop_hstar_htop. rew_heap~. } }
+    { specializes nQ2 C2.
+      asserts Z: ((\[False] \* \Top \* HF) h2').
+      { applys himpl_trans K2. hchange nQ2. hsimpl. hsimpl. }
+      repeat rewrite hfalse_hstar_any in Z.
+      lets: hpure_inv Z. false*. } } (* LATER: shorten *)
+  { specializes nQ1 C1.
+    asserts Z: ((\[False] \* \Top \* HF) h1').
+    { applys himpl_trans K1. hchange nQ1. hsimpl. hsimpl. }
+    repeat rewrite hfalse_hstar_any in Z.
+    lets: hpure_inv Z. false*. } (* LATER: shorten *)
+Qed.
+
+
+
+
+
+
+
+
+(* DEPRECATEd
+Lemma Triple_fun : forall x t1 H (Q:func->hprop),
+  H ==> Q (val_fun x t1) ->
+  Triple (trm_fun x t1) H Q.
+Proof using.
+  introv M. applys triple_fun. unfold Post. hsimpl*.
+Qed.
+*)
+
+
+
+
+
+(* ********************************************************************** *)
+(* * Tactics for progressing through proofs *)
+
+(** Extends tactics defined in [LambdaCFTactics.v] *)
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xcf] *)
+
+Ltac xcf_get_fun_from_goal tt ::=
+  match goal with |- triple ?t _ _ => xcf_get_fun_from_trm t end.
+
+Ltac xcf_post tt :=
+  simpl.
+
+Ltac xcf_trm n ::= (* for WP2 *)
+ (*  applys triple_trm_of_wp_iter n; [ xcf_post tt ]. *) fail.
+
+
+Ltac xcf_basic_fun n f' ::= (* for WP2 *)
+  let f := xcf_get_fun tt in
+  match f with
+(*
+  | val_funs _ _ => (* TODO: use (apply (@..)) instead of applys? same in cflifted *)
+      applys triple_apps_funs_of_wp_iter;
+      [ reflexivity | reflexivity | xcf_post tt ]
+*)
+  | val_fixs _ _ _ =>
+      applys triple_apps_fixs_of_wp_iter f';
+      [ try unfold f'; rew_nary; try reflexivity (* TODO: how in LambdaCF? *)
+        (* reflexivity *)
+      | reflexivity
+      | xcf_post tt ]
+
+  end.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xlocal] *)
+
+Ltac xlocal' :=
+  try solve [ apply is_local_local ].
+  (*   | apply is_local_wp_triple ]. *)
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xapp] *)
+
+Lemma xlet_lemma : forall Q1 (F1:formula) (F2:val->formula) H Q,
+  is_local F1 ->
+  H ==> F1 Q1 ->
+  (forall X, Q1 X ==> F2 X Q) ->
+  H ==> wp_let F1 F2 Q.
+Proof using.
+  introv L M1 M2. applys local_erase'. applys~ local_weaken M1.
+Qed.
+
+Ltac xlet_core tt ::=
+  applys xlet_lemma; [ xlocal' | | ].
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xapp] *)
+
+Lemma xapp_lemma : forall t H Q,
+  triple t H Q ->
+  H ==> (wp_app t) Q.
+Proof using.
+  introv M. applys local_erase'. unfold wp_triple, weakestpre. hsimpl~ H.
+Qed.
+
+Ltac xapp_core tt ::=
+  applys xapp_lemma.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Example proof of the [incr] function *)
+
+Module Test.
+Import NotationForVariables NotationForTerms.
+Open Scope trm_scope.
+
+Definition val_incr :=
+  ValFun 'p :=
+    Let 'n := val_get 'p in
+    Let 'm := 'n '+ 1 in
+    val_set 'p 'm.
+
+Lemma triple_incr : forall (p:loc) (n:int),
+  triple (val_incr p)
+    (p ~~~> n)
+    (fun r => p ~~~> (n+1)).
+Proof using.
+admit.
+(*
+  intros. xcf.
+  xlet. { xapp. xapplys triple_get. }
+  intros x. hpull ;=> E. subst.
+  xlet. { xapp. xapplys triple_add. }
+  intros y. hpull ;=> E. subst.
+  xapp. xapplys triple_set.
+*)
+Qed.
+
+End Test.
+
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** Database of lemmas *)
+
+(** We here use the notation [Register] and [Provide] from the TLC library.
+
+  Usage of [RegisterSpecGoal], e.g.:
+
+    Hint Extern 1 (RegisterSpecGoal (triple (trm_app2_val (val_prim val_eq) ?x ?y) ?H ?Q)) =>
+      Provide triple_eq.
+
+  Usage of [RegisterSpecApp], e.g.:
+
+    Hint Extern 1 (RegisterSpecApp (trm_app2_val (val_prim val_eq) ?x ?y)) =>
+      Provide triple_eq.
+
+*)
+
+Notation "'Register_rule' t" := (Register_goal (triple t _ _))
+  (at level 69) : charac.
+
+Notation "'Register_spec' f" := (Register_rule (trm_apps (trm_val f) _))
+  (at level 69) : charac.
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** Registering specification of primitive functions *)
+
+Hint Extern 1 (Register_spec (val_prim val_ref)) => Provide triple_ref.
+Hint Extern 1 (Register_spec (val_prim val_get)) => Provide triple_get.
+Hint Extern 1 (Register_spec (val_prim val_set)) => Provide triple_set.
+Hint Extern 1 (Register_spec (val_prim val_alloc)) => Provide triple_alloc.
+Hint Extern 1 (Register_spec (val_prim val_eq)) => Provide triple_eq.
+Hint Extern 1 (Register_spec (val_prim val_add)) => Provide triple_add.
+Hint Extern 1 (Register_spec (val_prim val_sub)) => Provide triple_sub.
+Hint Extern 1 (Register_spec (val_prim val_ptr_add)) => Provide triple_ptr_add.
+
+
+
+
+(* ********************************************************************** *)
+(* * Practical proofs using characteristic formulae *)
+
+(* ---------------------------------------------------------------------- *)
+(* ** Notation for computd WP *)
+
+Notation "'`Val' v" :=
+  ((wp_val v))
+  (at level 69) : charac.
+
+Notation "'`LetIf' F0 'Then' F1 'Else' F2" :=
+  ((wp_if F0 F1 F2))
+  (at level 69, F0 at level 0) : charac.
+
+Notation "'`If' v 'Then' F1 'Else' F2" :=
+  ((wp_if_val v F1 F2))
+  (at level 69) : charac.
+
+Notation "'`Seq' F1 ;;; F2" :=
+  ((wp_seq F1 F2))
+  (at level 68, right associativity,
+   format "'[v' '`Seq'  '[' F1 ']'  ;;;  '/'  '[' F2 ']' ']'") : charac.
+
+Notation "'`Let' x ':=' F1 'in' F2" :=
+  ((wp_let F1 (fun x => F2)))
+  (at level 69, x ident, right associativity,
+  format "'[v' '[' '`Let'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : charac.
+
+Notation "'`App' t " :=
+  ((wp_app t))
+  (at level 68, t at level 0) : charac.
+
+Notation "'`Fail'" :=
+  ((wp_fail))
+  (at level 69) : charac.
+
+Notation "'`While' F1 'Do' F2 'Done'" :=
+  ((wp_while F1 F2))
+  (at level 69, F2 at level 68,
+   format "'[v' '`While'  F1  'Do'  '/' '[' F2 ']' '/'  'Done' ']'")
+   : charac.
+
+(* TODO
+Notation "'`For' x '=' v1 'To' v2 'Do' F3 'Done'" :=
+  ((wp_for v1 v2 (fun x => F3)))
+  (at level 69, x ident, (* t1 at level 0, t2 at level 0, *)
+   format "'[v' '`For'  x  '='  v1  'To'  v2  'Do'  '/' '[' F3 ']' '/'  'Done' ']'")
+  : charac.
+*)
+
+Open Scope charac.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Lemmas for tactics *)
+
+(*
+Lemma triple_apps_funs_of_wp_iter : forall F (vs:vals) xs t H Q,
+  F = val_funs xs t ->
+  var_funs_exec (length vs) xs ->
+  H ==> wp (LibList.combine xs vs) t Q ->
+  triple (trm_apps F vs) H Q.
+Proof using.
+  introv EF N M. rewrite var_funs_exec_eq in N. rew_istrue in N.
+  lets (_&L&_): N. applys* triple_apps_funs.
+  applys* triple_subst_of_wp.
+Qed.
+*)
+
+Lemma triple_apps_fixs_of_wp_iter : forall (f:var) F (vs:vals) xs t H Q,
+  F = val_fixs f xs t ->
+  var_fixs_exec f (length vs) xs ->
+  H ==> wp (LibList.combine (f::xs) (F::vs)) t Q ->
+  triple (trm_apps F vs) H Q.
+Proof using.
+  introv EF N M. rewrite var_fixs_exec_eq in N. rew_istrue in N.
+  lets (D&L&_): N. simpl in D. rew_istrue in D. destruct D as [D1 D2].
+Admitted.
+(* todo
+  applys* triple_apps_fixs. rewrite~ subst_substn.
+  applys* triple_subst_of_wp M.
+Qed.
+*)
+
+
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* ---------------------------------------------------------------------- *)
+(* ---------------------------------------------------------------------- *)
+(* LATER
+
+Definition wp_for (F1 F2:formula) (F3:int->formula) : formula :=
+  wp_let F1 (fun v1 => wp_let F2 (fun v2 => wp_for_val v1 v2 F3)).
+Definition wp_for' (F1 F2:formula) (F3:int->formula) : formula := local (fun Q =>
+  F1 (fun v1 => F2 (fun v2 => wp_for_val v1 v2 F3 Q))).
+*)
+
+
+
+(* ********************************************************************** *)
+(* * Example proof *)
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xapp] *)
+
+Lemma xapp_lemma : forall t H Q,
+  triple t H Q ->
+  H ==> (wp_app t) Q.
+Proof using.
+  introv M. applys local_erase'. unfold wp_triple, weakestpre. hsimpl~ H.
+Qed.
+
+Ltac xapp_core tt ::=
+  applys xapp_lemma.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Example proof of the [incr] function *)
+
+Module Test.
+Import NotationForVariables NotationForTerms.
+Open Scope trm_scope.
+
+Definition val_incr :=
+  ValFun 'p :=
+    Let 'n := val_get 'p in
+    Let 'm := 'n '+ 1 in
+    val_set 'p 'm.
+
+Lemma triple_incr : forall (p:loc) (n:int),
+  triple (val_incr p)
+    (p ~~~> n)
+    (fun r => p ~~~> (n+1)).
+Proof using.
+admit.
+(*
+  intros. xcf.
+  xlet. { xapp. xapplys triple_get. }
+  intros x. hpull ;=> E. subst.
+  xlet. { xapp. xapplys triple_add. }
+  intros y. hpull ;=> E. subst.
+  xapp. xapplys triple_set.
+*)
+Qed.
+
+End Test.
+
+
+(** Extends tactics defined in [LambdaCFTactics.v] *)
+
+
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xapp] demo
+
+Lemma xlet_lemma : forall Q1 (F1:formula) (F2:val->formula) H Q,
+  is_local F1 ->
+  H ==> F1 Q1 ->
+  (forall X, Q1 X ==> F2 X Q) ->
+  H ==> wp_let F1 F2 Q.
+Proof using.
+  introv L M1 M2. applys local_erase'. applys~ local_weaken M1.
+Qed.
+
+Ltac xlet_core tt ::=
+  applys xlet_lemma; [ xlocal' | | ].
+
+*)
+
+

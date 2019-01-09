@@ -762,7 +762,7 @@ Qed.
 
 Lemma RO_hexists : forall A (J:A->hprop),
     RO (hexists J)
-  = Hexists x, RO (J x).
+  = \exists x, RO (J x).
 Proof using.
   intros. apply pred_ext_1. intros h.
   iff (h'&(x&M1)&M2&M3) (x&(h'&M1&M2&M3)).
@@ -898,20 +898,20 @@ Definition triple (t:trm) (H:hprop) (Q:val->hprop) :=
 (* ---------------------------------------------------------------------- *)
 (* ** Structural rules *)
 
-Lemma rule_extract_hexists : forall t A (J:A->hprop) Q,
+Lemma triple_extract_hexists : forall t A (J:A->hprop) Q,
   (forall x, triple t (J x) Q) ->
   triple t (hexists J) Q.
 Proof using. introv M D (x&Jx). applys* M. Qed.
 
-Lemma rule_extract_hprop : forall t (P:Prop) H Q,
+Lemma triple_extract_hprop : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
 Proof using.
-  intros t. applys (rule_extract_hprop_from_extract_hexists (triple t)).
-  applys rule_extract_hexists.
+  intros t. applys (triple_extract_hprop_from_extract_hexists (triple t)).
+  applys triple_extract_hexists.
 Qed.
 
-Lemma rule_extract_or : forall t H1 H2 Q,
+Lemma triple_extract_or : forall t H1 H2 Q,
   triple t H1 Q ->
   triple t H2 Q ->
   triple t (hor H1 H2) Q.
@@ -919,7 +919,7 @@ Proof using.
   introv M1 M2 D [M|M]. applys* M1. applys* M2.
 Qed.
 
-Lemma rule_htop_post : forall t H Q,
+Lemma triple_htop_post : forall t H Q,
   triple t H (Q \*+ \Top) ->
   triple t H Q.
 Proof using.
@@ -928,7 +928,7 @@ Proof using.
   exists h1' v. splits~. applys~ on_rw_sub_htop.
 Qed.
 
-Lemma rule_htop_pre : forall t H Q,
+Lemma triple_htop_pre : forall t H Q,
   triple t H Q ->
   triple t (H \* \Top) Q.
 Proof using.
@@ -942,7 +942,7 @@ Proof using.
   { applys~ on_rw_sub_union_r. }
 Qed.
 
-Lemma rule_consequence : forall t H' Q' H Q,
+Lemma triple_conseq : forall t H' Q' H Q,
   H ==> H' ->
   triple t H' Q' ->
   Q' ===> Q ->
@@ -955,17 +955,17 @@ Proof using.
   { applys~ on_rw_sub_weaken Q'. }
 Qed.
 
-Lemma rule_or_symmetric : forall t H1 H2 Q1 Q2,
+Lemma triple_or_symmetric : forall t H1 H2 Q1 Q2,
   triple t H1 Q1 ->
   triple t H2 Q2 ->
   triple t (hor H1 H2) (fun x => hor (Q1 x) (Q2 x)).
 Proof using.
-  introv M1 M2. apply~ rule_extract_or.
-  applys~ rule_consequence. applys M1. { intros_all. hnfs*. }
-  applys~ rule_consequence. applys M2. { intros_all. hnfs*. }
+  introv M1 M2. apply~ triple_extract_or.
+  applys~ triple_conseq. applys M1. { intros_all. hnfs*. }
+  applys~ triple_conseq. applys M2. { intros_all. hnfs*. }
 Qed.
 
-Lemma rule_frame_read_only : forall t H1 Q1 H2,
+Lemma triple_frame_read_only : forall t H1 Q1 H2,
   triple t (H1 \* RO H2) Q1 ->
   Normal H2 ->
   triple t (H1 \* H2) (Q1 \*+ H2).
@@ -1043,17 +1043,17 @@ Proof using.
      { exists~ hx hb. } }
 Qed.
 
-Lemma rule_frame : forall t H1 Q1 H2,
+Lemma triple_frame : forall t H1 Q1 H2,
   triple t H1 Q1 ->
   Normal H2 ->
   triple t (H1 \* H2) (Q1 \*+ H2).
 Proof using.
-  introv M N. applys~ rule_frame_read_only.
-  applys rule_consequence (H1 \* \Top). hsimpl.
-  applys* rule_htop_pre. auto.
+  introv M N. applys~ triple_frame_read_only.
+  applys triple_conseq (H1 \* \Top). hsimpl.
+  applys* triple_htop_pre. auto.
 Qed.
 
-Lemma rule_red : forall t1 t2 H Q,
+Lemma triple_red : forall t1 t2 H Q,
   (forall m m' r, red m t1 m' r -> red m t2 m' r) ->
   triple t1 H Q ->
   triple t2 H Q.
@@ -1068,14 +1068,14 @@ Qed.
 
 Lemma xpull_hprop (H1 H2 : hprop) (P : Prop) (Q : val -> hprop) (t : trm) :
   (P -> triple t (H1 \* H2) Q) -> triple t (H1 \* \[P] \* H2) Q.
-Proof. intros. rewrite hstar_comm_assoc. auto using rule_extract_hprop. Qed.
+Proof. intros. rewrite hstar_comm_assoc. auto using triple_extract_hprop. Qed.
 
 Lemma xpull_hexists (H1 H2 : hprop) (A : Type) (J:A->hprop)
       (Q : val -> hprop) (t : trm) :
   (forall x, triple t (H1 \* ((J x) \* H2)) Q) ->
   triple t (H1 \* (hexists J \* H2)) Q.
 Proof using.
-  intros. rewrite hstar_comm_assoc, hstar_hexists. apply rule_extract_hexists.
+  intros. rewrite hstar_comm_assoc, hstar_hexists. apply triple_extract_hexists.
   intros. rewrite~ hstar_comm_assoc.
 Qed.
 
@@ -1097,7 +1097,7 @@ Lemma xchange_lemma' : forall H1 H1' H2 t H Q,
   triple t (H1' \* H2) Q ->
   triple t H Q.
 Proof using.
-  introv W1 W2 M. applys~ rule_consequence M.
+  introv W1 W2 M. applys~ triple_conseq M.
   hchange W2. hchanges W1.
 Qed.
 
@@ -1113,7 +1113,7 @@ Ltac xchange_with_core cont1 cont2 H H' ::=
 (* ---------------------------------------------------------------------- *)
 (* ** Term rules *)
 
-Lemma rule_val : forall v H Q,
+Lemma triple_val : forall v H Q,
   H ==> Q v ->
   Normal H ->
   triple (trm_val v) H Q.
@@ -1124,7 +1124,8 @@ Proof using.
   { specializes M P1. applys~ on_rw_sub_base. }
 Qed.
 
-Lemma rule_fun : forall x t1 H Q,
+(* DEPRECATED
+Lemma triple_fun : forall x t1 H Q,
   H ==> Q (val_fun x t1) ->
   Normal H ->
   triple (trm_fun x t1) H Q.
@@ -1133,18 +1134,19 @@ Proof using.
   { applys red_fun. }
   { specializes M P1. applys~ on_rw_sub_base. }
 Qed.
+*)
 
-Lemma rule_fix : forall f x t1 H Q,
-  H ==> Q (val_fix f x t1) ->
+Lemma triple_fix : forall (f z:bind) t1 H Q,
+  H ==> Q (val_fix f z t1) ->
   Normal H ->
-  triple (trm_fix f x t1) H Q.
+  triple (trm_fix f z t1) H Q.
 Proof using.
   introv M HS. intros h1 h2 D P1. exists___. splits*.
   { applys red_fix. }
   { specializes M P1. applys~ on_rw_sub_base. }
 Qed.
 
-Lemma rule_if_bool : forall (b:bool) t1 t2 H Q,
+Lemma triple_if_bool : forall (b:bool) t1 t2 H Q,
   triple (if b then t1 else t2) H Q ->
   triple (trm_if b t1 t2) H Q.
 Proof using.
@@ -1152,10 +1154,10 @@ Proof using.
   exists h' v'. splits~. { applys~ red_if_bool. }
 Qed.
 
-Lemma rule_let : forall x t1 t2 H1 H2 Q Q1,
+Lemma triple_let : forall z t1 t2 H1 H2 Q Q1,
   triple t1 H1 Q1 ->
-  (forall (X:val), triple (subst x X t2) (Q1 X \* H2) Q) ->
-  triple (trm_let x t1 t2) (H1 \* H2) Q.
+  (forall (X:val), triple (subst1 z X t2) (Q1 X \* H2) Q) ->
+  triple (trm_let z t1 t2) (H1 \* H2) Q.
 Proof using.
   introv M1 M2. intros h1 h2 D (h11&h12&P11&P12&R1&R2).
   subst h1. lets~ (D1&D2): heap_compat_union_l_inv (rm D).
@@ -1185,55 +1187,57 @@ Proof using.
   { applys~ on_rw_sub_union_r. }
 Qed.
 
-Lemma rule_let_simple : forall x t1 t2 H Q Q1,
+Lemma triple_let_simple : forall z t1 t2 H Q Q1,
   triple t1 H Q1 ->
-  (forall (X:val), triple (subst x X t2) (Q1 X) Q) ->
-  triple (trm_let x t1 t2) H Q.
+  (forall (X:val), triple (subst1 z X t2) (Q1 X) Q) ->
+  triple (trm_let z t1 t2) H Q.
 Proof using.
   introv M1 M2.
-  applys_eq~ (>> rule_let \[] M1) 1 2.
+  applys_eq~ (>> triple_let \[] M1) 1 2.
   { intros X. rewrite* hstar_hempty_r. }
   { rewrite* hstar_hempty_r. }
 Qed.
 
-Lemma rule_let_val : forall x v1 t2 H Q,
-  (forall (X:val), X = v1 -> triple (subst x X t2) H Q) ->
-  triple (trm_let x (trm_val v1) t2) H Q.
+Lemma triple_let_val : forall z v1 t2 H Q,
+  (forall (X:val), X = v1 -> triple (subst1 z X t2) H Q) ->
+  triple (trm_let z (trm_val v1) t2) H Q.
 Proof using.
   introv M. forwards~ M': M.
-  applys_eq (>> rule_let \[] (fun x => \[x = v1])) 2.
-  { applys rule_val. rewrite <- (@hstar_hempty_r \[v1=v1]).
+  applys_eq (>> triple_let \[] (fun x => \[x = v1])) 2.
+  { applys triple_val. rewrite <- (@hstar_hempty_r \[v1=v1]).
     applys~ himpl_hpure_r. applys Normal_hempty. }
-  { intros X. applys rule_extract_hprop. applys M. }
+  { intros X. applys triple_extract_hprop. applys M. }
   { rewrite~ hstar_hempty_l. }
 Qed.
 
-Lemma rule_app_fix : forall f F x X t1 H Q,
+Lemma triple_app_fix : forall (f:bind) F x X t1 H Q,
   F = val_fix f x t1 ->
-  triple (subst f F (subst x X t1)) H Q ->
+  triple (subst2 f F x X t1) H Q ->
   triple (trm_app F X) H Q.
 Proof using.
-  introv EF M. subst. applys rule_red (rm M).
-  introv R. applys* red_app_fix.
+  introv EF M. subst. applys triple_red (rm M).
+  introv R. hint red_val. applys* red_app.
 Qed.
 
+(* TEMPORARY
 Definition spec_fix (f:var) (x:var) (t1:trm) (F:val) :=
   forall X, triple (subst f F (subst x X t1)) ===> triple (trm_app F X).
 
-Lemma rule_let_fix : forall f x t1 t2 H Q,
+Lemma triple_let_fix : forall f x t1 t2 H Q,
   (forall (F:val), spec_fix f x t1 F -> triple (subst f F t2) H Q) ->
   Normal H ->
   triple (trm_let f (trm_fix f x t1) t2) H Q.
 Proof using.
-  introv M HS. applys rule_let_simple (fun F => \[spec_fix f x t1 F] \* H).
-  { applys~ rule_fix. hsimpl~. introv R. applys* rule_app_fix. }
-  { intros F. applys rule_extract_hprop. applys M. }
+  introv M HS. applys triple_let_simple (fun F => \[spec_fix f x t1 F] \* H).
+  { applys~ triple_fix. hsimpl~. introv R. applys* triple_app_fix. }
+  { intros F. applys triple_extract_hprop. applys M. }
 Qed.
+*)
 
-Lemma rule_ref : forall v,
-  triple (val_ref v) 
-    \[] 
-    (fun r => Hexists l, \[r = val_loc l] \* l ~~~> v).
+Lemma triple_ref : forall v,
+  triple (val_ref v)
+    \[]
+    (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
 Proof using.
   intros. intros h1 h2 _ P1.
   lets E: hempty_inv P1. subst h1.
@@ -1256,8 +1260,8 @@ Proof using.
     applys~ himpl_hpure_r (l ~~~> v). split~. }
 Qed.
 
-Lemma rule_get_ro : forall v l,
-  triple (val_get (val_loc l)) 
+Lemma triple_get_ro : forall v l,
+  triple (val_get (val_loc l))
     (RO (l ~~~> v))
     (fun x => \[x = v]).
 Proof using.
@@ -1272,8 +1276,8 @@ Proof using.
     { applys~ hpure_intro. applys hempty_intro. } }
 Qed.
 
-Lemma rule_set : forall w l v,
-  triple (val_set (val_loc l) w) 
+Lemma triple_set : forall w l v,
+  triple (val_set (val_loc l) w)
     (l ~~~> v)
     (fun r => \[r = val_unit] \* l ~~~> w).
 Proof using.
@@ -1294,14 +1298,14 @@ Proof using.
   { applys~ on_rw_sub_base. applys~ himpl_hpure_r (l ~~~> w). split~. }
 Qed.
 
-Lemma rule_add : forall (n1 n2:int),
+Lemma triple_add : forall (n1 n2:int),
   triple (val_add n1 n2)
     \[]
     (fun r => \[r = val_int (n1 + n2)]).
 Proof using.
   intros. intros h1 h2 D E.
   exists h1 (n1+n2). splits~.
-  { applys* red_add. }
+  { applys* red_binop. applys* redbinop_add. }
   { exists heap_empty h1. splits~.
     { applys~ heap_compat_empty_l. }
     { heap_eq. }
@@ -1395,7 +1399,7 @@ Proof using.
 Qed.
 
 Lemma normally_hwand : forall H1 H2,
-  normally (H1 \--* H2) ==> normally H1 \--* normally H2.
+  normally (H1 \-* H2) ==> normally H1 \-* normally H2.
 Proof using.
   intros. unfold hwand. rewrite normally_hexists. hpull ;=> H3.
   rewrite normally_hstar, normally_hpure. hsimpl (normally H3).
@@ -1404,13 +1408,13 @@ Qed.
 
 Lemma normally_hwand_normal : forall H1 H2,
   Normal H1 ->
-  normally (H1 \--* H2) ==> H1 \--* normally H2.
+  normally (H1 \-* H2) ==> H1 \-* normally H2.
 Proof.
   intros. hchanges normally_hwand. rewrite normally_Normal_eq; auto.
 Qed.
 
 Lemma normally_hwand_hstar : forall H1 H2,
-  H1 \* (H1 \--* normally H2) ==> H1 \* normally (H1 \--* H2).
+  H1 \* (H1 \-* normally H2) ==> H1 \* normally (H1 \-* H2).
 Proof.
   intros H1 H2 h (h1 & h2 & Hh1 & Hh2 & ? & ->). eexists _, _.
   split; [eauto|split; [|eauto]]; []. destruct Hh2 as [H0 IMPL].
@@ -1437,7 +1441,7 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Read-only frame rule reformulated using normally *)
 
-Lemma rule_frame_read_only' : forall t H1 Q1 H2,
+Lemma triple_frame_read_only' : forall t H1 Q1 H2,
   triple t (H1 \* RO H2) Q1 ->
   triple t (H1 \* normally H2) (Q1 \*+ normally H2).
 Proof using.
@@ -1516,21 +1520,21 @@ Qed.
 
 (** Derived rule with both frame and read-only frame, using normally *)
 
-Lemma rule_frame_read_only_with_frame : forall t H1 H2 H3 Q1,
+Lemma triple_frame_read_only_with_frame : forall t H1 H2 H3 Q1,
   triple t (H1 \* RO H2) Q1 ->
   triple t (H1 \* normally H2 \* normally H3) ((Q1 \*+ normally H2) \*+ normally H3).
 Proof using.
-  introv M. rewrite <- hstar_assoc. applys rule_frame.
-  { applys~ rule_frame_read_only'. }
+  introv M. rewrite <- hstar_assoc. applys triple_frame.
+  { applys~ triple_frame_read_only'. }
   { applys Normal_normally. }
 Qed.
 
-Lemma rule_frame_read_only_with_frame' : forall t H1 H2 H3 Q1,
+Lemma triple_frame_read_only_with_frame' : forall t H1 H2 H3 Q1,
   triple t (H1 \* RO H2) Q1 ->
   triple t (H1 \* normally H2 \* normally H3) ((Q1 \*+ normally H2) \*+ H3).
 Proof using.
-  introv M. lets N: rule_frame_read_only_with_frame H3 M.
-  applys rule_consequence N. { hsimpl. } { intros x. hsimpl. apply normally_erase. }
+  introv M. lets N: triple_frame_read_only_with_frame H3 M.
+  applys triple_conseq N. { hsimpl. } { intros x. hsimpl. apply normally_erase. }
 Qed.
 
 
@@ -1538,7 +1542,7 @@ Qed.
 (* ** Definition of the ROFrame connective *)
 
 Definition ROFrame (H1 H2 : hprop) :=
-  Hexists H3, normally H3 \* (RO(H3) \--* H1) \* (H3 \--* H2).
+  \exists H3, normally H3 \* (RO(H3) \-* H1) \* (H3 \-* H2).
 
 Lemma ROFrame_himpl : forall H1 H2 H1' H2',
   H1 ==> H1' -> H2 ==> H2' -> ROFrame H1 H2 ==> ROFrame H1' H2'.
@@ -1580,9 +1584,9 @@ Qed.
 
 Lemma ROFrame_frame_lr' : forall H1 H2 H3,
   Normal H1 ->
-  H1 \* ROFrame H2 (H1 \--* H3) ==> ROFrame (RO(H1) \* H2) H3.
+  H1 \* ROFrame H2 (H1 \-* H3) ==> ROFrame (RO(H1) \* H2) H3.
 Proof.
-  intros H1 H2 H3 NORM. hchange (@ROFrame_frame_lr H1 H2 (H1 \--* H3) NORM).
+  intros H1 H2 H3 NORM. hchange (@ROFrame_frame_lr H1 H2 (H1 \-* H3) NORM).
   hsimpl. apply ROFrame_himpl; [hsimpl|]. apply hwand_cancel.
 Qed.
 
@@ -1596,52 +1600,52 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Ramified read-only frame rule *)
 
-Lemma rule_ramified_frame_read_only_core : forall H2 t H Q H' Q',
+Lemma triple_ramified_frame_read_only_core : forall H2 t H Q H' Q',
   triple t H' Q' ->
-  H = normally H2 \* (RO H2 \--* H') \* (H2 \--* normally (Q' \---* Q)) ->
+  H = normally H2 \* (RO H2 \-* H') \* (H2 \-* normally (Q' \--* Q)) ->
   triple t H Q.
 Proof using.
-  introv M W. subst H. applys rule_consequence; [| |auto].
-  { hchange (>> normally_hwand_hstar (normally H2) (Q' \---* Q)); [|auto]; [].
+  introv M W. subst H. applys triple_conseq; [| |auto].
+  { hchange (>> normally_hwand_hstar (normally H2) (Q' \--* Q)); [|auto]; [].
     rewrite hstar_comm. apply himpl_frame_r, hwand_himpl_l, normally_erase. }
-  forwards K: rule_frame_read_only_with_frame t
-          (RO H2 \--* H') H2 (normally H2 \--* (Q' \---* Q)) Q'.
-  { applys~ rule_consequence M. hchanges (hwand_cancel (RO H2)). }
-  { clear M. applys rule_consequence (rm K).
+  forwards K: triple_frame_read_only_with_frame t
+          (RO H2 \-* H') H2 (normally H2 \-* (Q' \--* Q)) Q'.
+  { applys~ triple_conseq M. hchanges (hwand_cancel (RO H2)). }
+  { clear M. applys triple_conseq (rm K).
     { hsimpl. }
-    { intros x. hchange (>> normally_erase (normally H2 \--* (Q' \---* Q))).
-      hchange (>> hwand_cancel (normally H2) (Q' \---* Q)).
+    { intros x. hchange (>> normally_erase (normally H2 \-* (Q' \--* Q))).
+      hchange (>> hwand_cancel (normally H2) (Q' \--* Q)).
       hsimpl. apply qwand_cancel. } }
 Qed.
 
-Lemma rule_ramified_frame_read_only : forall t H Q H' Q',
+Lemma triple_ramified_frame_read_only : forall t H Q H' Q',
   triple t H' Q' ->
-  H ==> ROFrame H' (normally (Q' \---* Q)) ->
+  H ==> ROFrame H' (normally (Q' \--* Q)) ->
   triple t H Q.
 Proof using.
-  introv M W. applys~ rule_consequence Q (rm W).
-  applys rule_extract_hexists. intros H2.
+  introv M W. applys~ triple_conseq Q (rm W).
+  applys triple_extract_hexists. intros H2.
   asserts M': (triple t H' Q').
-  { applys* rule_consequence H'. }
-  clear M. applys* rule_ramified_frame_read_only_core.
+  { applys* triple_conseq H'. }
+  clear M. applys* triple_ramified_frame_read_only_core.
 Qed.
 
-Lemma rule_let_ramified_frame_read_only : forall x t1 t2 H1 H Q1 Q Q',
+Lemma triple_let_ramified_frame_read_only : forall z t1 t2 H1 H Q1 Q Q',
   triple t1 H1 Q1 ->
-  H ==> ROFrame H1 (Q1 \---* Q') ->
-  (forall (X:val), triple (subst x X t2) (Q' X) Q) ->
-  triple (trm_let x t1 t2) H Q.
+  H ==> ROFrame H1 (Q1 \--* Q') ->
+  (forall (X:val), triple (subst1 z X t2) (Q' X) Q) ->
+  triple (trm_let z t1 t2) H Q.
 Proof.
   intros x t1 t2 H1 H Q1 Q Q' Ht1 IMPL Ht2L.
-  eapply rule_consequence; [apply IMPL| |auto].
-  apply rule_extract_hexists. intros H2. rewrite <-hstar_assoc.
-  eapply rule_let.
-  - rewrite hstar_comm. apply rule_frame_read_only, _.
-    eapply rule_consequence; [|apply Ht1|auto].
+  eapply triple_conseq; [apply IMPL| |auto].
+  apply triple_extract_hexists. intros H2. rewrite <-hstar_assoc.
+  eapply triple_let.
+  - rewrite hstar_comm. apply triple_frame_read_only, _.
+    eapply triple_conseq; [|apply Ht1|auto].
     hchange (hwand_cancel (RO H2) H1); [|hsimpl]. hsimpl.
     apply RO_covariant, normally_erase.
-  - intros X. eapply rule_consequence; [|apply Ht2L|auto].
-    hchange (hwand_cancel H2 (Q1 \---* Q')).
+  - intros X. eapply triple_conseq; [|apply Ht2L|auto].
+    hchange (hwand_cancel H2 (Q1 \--* Q')).
     { rewrite hstar_comm. apply himpl_frame_r, normally_erase. }
     hchange (qwand_himpl_hwand X). hchange (hwand_cancel (Q1 X) (Q' X)). hsimpl.
 Qed.
@@ -1650,7 +1654,7 @@ Qed.
 (* ********************************************************************** *)
 (* * Derived rules for practical proofs *)
 
-Lemma rule_apps_funs : forall xs F (Vs:vals) t1 H Q,
+Lemma triple_apps_funs : forall xs F (Vs:vals) t1 H Q,
   F = (val_funs xs t1) ->
   var_funs (LibList.length Vs) xs ->
   triple (substn xs Vs t1) H Q ->
@@ -1667,32 +1671,32 @@ Proof using. introv M. rewrite var_funs_exec_eq in M. rew_istrue~ in M. Qed.
 
 Hint Resolve var_funs_exec_elim.
 
-Lemma rule_let' : forall x t1 t2 H2 H1 H Q Q1,
+Lemma triple_let' : forall z t1 t2 H2 H1 H Q Q1,
   H ==> (H1 \* H2) ->
   triple t1 H1 Q1 ->
-  (forall (X:val), triple (subst x X t2) (Q1 X \* H2) Q) ->
-  triple (trm_let x t1 t2) H Q.
-Proof using. introv WP M1 M2. applys* rule_consequence WP. applys* rule_let. Qed.
+  (forall (X:val), triple (subst1 z X t2) (Q1 X \* H2) Q) ->
+  triple (trm_let z t1 t2) H Q.
+Proof using. introv WP M1 M2. applys* triple_conseq WP. applys* triple_let. Qed.
 
-Lemma rule_letfun : forall f x t1 t2 H Q,
-  (forall F, triple (subst f F t2) (\[F = val_fun x t1] \* H) Q) ->
+Lemma triple_letfun : forall (f:bind) x t1 t2 H Q,
+  (forall F, triple (subst1 f F t2) (\[F = val_fun x t1] \* H) Q) ->
   triple (trm_let f (trm_fun x t1) t2) H Q.
 Proof using.
-  introv M. applys rule_let' H (fun F => \[F = val_fun x t1]).
+  introv M. applys triple_let' H (fun F => \[F = val_fun x t1]).
   { hsimpl. }
-  { applys rule_fun. hsimpl~. typeclass. }
+  { applys triple_fix. hsimpl~. typeclass. }
   { intros F. applys M. }
 Qed.
 
-Lemma rule_frame_read_only_conseq : forall t H1 Q1 H2 H Q,
+Lemma triple_frame_read_only_conseq : forall t H1 Q1 H2 H Q,
   H ==> (H1 \* H2) ->
   Normal H1 ->
   triple t (RO H1 \* H2) Q1 ->
   (Q1 \*+ H1) ===> Q ->
   triple t H Q.
 Proof using.
-  introv WP M N WQ. applys* rule_consequence (rm WP) (rm WQ).
-  forwards~ R: rule_frame_read_only t H2 Q1 H1.
+  introv WP M N WQ. applys* triple_conseq (rm WP) (rm WQ).
+  forwards~ R: triple_frame_read_only t H2 Q1 H1.
   { rewrite~ hstar_comm. } { rewrite~ hstar_comm. }
 Qed.
 

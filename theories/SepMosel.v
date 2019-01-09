@@ -76,11 +76,11 @@ Definition htop : hprop :=
 (* ---------------------------------------------------------------------- *)
 (* ** Some notation *)
 
-Notation "'Hexists' x1 , H" := (hexists (fun x1 => H))
+Notation "'\exists' x1 , H" := (hexists (fun x1 => H))
   (at level 39, x1 ident, H at level 50) : heap_scope.
-Notation "'Hexists' x1 x2 , H" := (Hexists x1, Hexists x2, H)
+Notation "'\exists' x1 x2 , H" := (\exists x1, \exists x2, H)
   (at level 39, x1 ident, x2 ident, H at level 50) : heap_scope.
-Notation "'Hexists' x1 x2 x3 , H" := (Hexists x1, Hexists x2, Hexists x3, H)
+Notation "'\exists' x1 x2 x3 , H" := (\exists x1, \exists x2, \exists x3, H)
   (at level 39, x1 ident, x2 ident, x3 ident, H at level 50) : heap_scope.
 
 Notation "\[ P ]" := (hpure P)
@@ -88,10 +88,10 @@ Notation "\[ P ]" := (hpure P)
 
 Notation "\Top" := (htop) : heap_scope.
 
-Notation "H1 \--* H2" := (hwand H1 H2)
+Notation "H1 \-* H2" := (hwand H1 H2)
   (at level 43) : heap_scope.
 
-Notation "Q1 \---* Q2" := (qwand Q1 Q2)
+Notation "Q1 \--* Q2" := (qwand Q1 Q2)
   (at level 43) : heap_scope.
 
 
@@ -103,7 +103,7 @@ Notation "'~~' B" := (hprop->(B->hprop)->Prop)
 
 Definition local B (F:~~B) : ~~B :=
   fun (H:hprop) (Q:B->hprop) =>
-    H ==> Hexists H1 H2 Q1,
+    H ==> \exists H1 H2 Q1,
        H1 \* H2 \* \[F H1 Q1 /\ Q1 \*+ H2 ===> Q \*+ \Top].
 
 Definition is_local B (F:~~B) :=
@@ -149,7 +149,7 @@ Ltac xlocal_core := idtac.
 Parameter local_ramified_frame : forall B (Q1:B->hprop) H1 F H Q,
   is_local F ->
   F H1 Q1 ->
-  H ==> H1 \* (Q1 \---* Q) ->
+  H ==> H1 \* (Q1 \--* Q) ->
   F H Q.
 
 End SepSetupMoselSig.
@@ -183,7 +183,7 @@ Definition hpersistently (H : hprop) : hprop :=
 Definition hpure_abs (φ : Prop) : hprop := \[φ] \* \Top.
 
 Program Canonical Structure hpropI : bi :=
-  Bi hprop _ _ (@pred_incl _) hempty hpure_abs hand hor
+  Bi hprop _ _ (@himpl _) hempty hpure_abs hand hor
      (@pred_impl _) hforall hexists hstar hwand hpersistently _ _.
 Next Obligation. apply discrete_ofe_mixin, _. Qed.
 Next Obligation.
@@ -223,14 +223,14 @@ Next Obligation.
   - intros A Ψ a ? H. apply H.
   - by eexists.
   - intros A Φ Q H ? []. by eapply H.
-  - intros ??????. eapply pred_incl_trans. by apply himpl_frame_r.
+  - intros ??????. eapply himpl_trans. by apply himpl_frame_r.
     rewrite (hstar_comm P Q') (hstar_comm Q Q'). by apply himpl_frame_r.
   - intros. by rewrite hstar_hempty_l.
   - intros. by rewrite hstar_hempty_l.
   - intros. by rewrite hstar_comm.
   - intros. by rewrite hstar_assoc.
   - intros P Q R H ??. exists P. rewrite hstar_comm hstar_pure. auto.
-  - intros P Q R H. eapply pred_incl_trans.
+  - intros P Q R H. eapply himpl_trans.
     { rewrite hstar_comm. by apply himpl_frame_r. }
     unfold hwand. rewrite hstar_comm hstar_hexists=>h [F HF].
     rewrite (hstar_comm F) hstar_assoc hstar_pure in HF. destruct HF as [HR HF].
@@ -389,9 +389,9 @@ Hint Extern 1 (PrepareHProp ((_ ∗ _) -∗ _) _) =>
   simple eapply prepare_hprop_curry : typeclass_instances.
 Hint Extern 1 (PrepareHProp ((_ \* _) -∗ _) _) =>
   simple eapply prepare_hprop_curry : typeclass_instances.
-Hint Extern 1 (PrepareHProp ((_ ∗ _)%I \--* _) _) =>
+Hint Extern 1 (PrepareHProp ((_ ∗ _)%I \-* _) _) =>
   simple eapply prepare_hprop_curry : typeclass_instances.
-Hint Extern 1 (PrepareHProp ((_ \* _) \--* _) _) =>
+Hint Extern 1 (PrepareHProp ((_ \* _) \-* _) _) =>
   simple eapply prepare_hprop_curry : typeclass_instances.
 
 Instance prepare_hprop_hempty_wand (P Q : hprop) :
@@ -460,12 +460,12 @@ Ltac iPrepare :=
    a result, we use a specific version of this lemma where Q1 is
    locked, and hence pure facts cannot escape.
 
-   This specific version is only used when the post-condition is
+   This specific version is only used when the postcondition is
    indeed an evar. *)
 Lemma local_ramified_frame_locked {B} : forall (Q1 : B → hprop) H1 F H Q,
   is_local F ->
   F H1 Q1 ->
-  H ==> H1 \* (locked Q1 \---* Q) ->
+  H ==> H1 \* (locked Q1 \--* Q) ->
   F H Q.
 Proof using. unlock. apply local_ramified_frame. Qed.
 

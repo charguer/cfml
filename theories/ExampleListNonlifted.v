@@ -92,58 +92,58 @@ Qed.
 
 Definition val_get_hd := val_get_field hd.
 
-Lemma rule_get_hd : forall p v q,
+Lemma triple_get_hd : forall p v q,
   triple (val_get_hd p)
     (MCell v q p)
     (fun r => \[r = v] \* (MCell v q p)).
 Proof using.
-  intros. unfold MCell. xapplys rule_get_field. auto.
+  intros. unfold MCell. xapplys triple_get_field. auto.
 Qed.
 
-Hint Extern 1 (Register_spec val_get_hd) => Provide rule_get_hd.
+Hint Extern 1 (Register_spec val_get_hd) => Provide triple_get_hd.
 
 (** Read to tail *)
 
 Definition val_get_tl := val_get_field tl.
 
-Lemma rule_get_tl : forall p v q,
+Lemma triple_get_tl : forall p v q,
   triple (val_get_tl p)
     (MCell v q p)
     (fun r => \[r = q] \* (MCell v q p)).
 Proof using.
   intros. unfold MCell.
-  xapplys rule_get_field. auto.
+  xapplys triple_get_field. auto.
 Qed.
 
-Hint Extern 1 (Register_spec val_get_tl) => Provide rule_get_tl.
+Hint Extern 1 (Register_spec val_get_tl) => Provide triple_get_tl.
 
 (** Write to head *)
 
 Definition val_set_hd := val_set_field hd.
 
-Lemma rule_set_hd : forall p v' v vq,
+Lemma triple_set_hd : forall p v' v vq,
   triple (val_set_hd p v)
     (MCell v' vq p)
     (fun r => MCell v vq p).
 Proof using.
-  intros. unfold MCell. xapplys (rule_set_field v').
+  intros. unfold MCell. xapplys (triple_set_field v').
 Qed.
 
-Hint Extern 1 (Register_spec val_set_hd) => Provide rule_set_hd.
+Hint Extern 1 (Register_spec val_set_hd) => Provide triple_set_hd.
 
 (** Write to tail *)
 
 Definition val_set_tl := val_set_field tl.
 
-Lemma rule_set_tl : forall p v q vq',
+Lemma triple_set_tl : forall p v q vq',
   triple (val_set_tl p q)
     (MCell v vq' p)
     (fun r => MCell v q p).
 Proof using.
-  intros. unfold MCell. xapplys (rule_set_field vq').
+  intros. unfold MCell. xapplys (triple_set_field vq').
 Qed.
 
-Hint Extern 1 (Register_spec val_set_tl) => Provide rule_set_tl.
+Hint Extern 1 (Register_spec val_set_tl) => Provide triple_set_tl.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -156,13 +156,13 @@ Definition val_new_cell :=
     val_set_tl 'p 'y;;;
     'p.
 
-Lemma rule_alloc_cell :
+Lemma triple_alloc_cell :
   triple (val_alloc 2)
     \[]
-    (fun r => Hexists (p:loc), Hexists v1 v2,
+    (fun r => \exists (p:loc), \exists v1 v2,
               \[r = p] \* MCell v1 v2 p).
 Proof using.
-  xapply rule_alloc. { math. } { hsimpl. }
+  xapply triple_alloc. { math. } { hsimpl. }
   { intros r. hpull ;=> l (E&N). subst.
     simpl_abs. rew_Alloc. hpull ;=> v1 v2.
     unfold MCell. rewrite hfield_eq_fun_hsingle.
@@ -171,32 +171,32 @@ Proof using.
     math_rewrite (l+0 = l)%nat. hsimpl. }
 Qed.
 
-Lemma rule_new_cell : forall v q,
+Lemma triple_new_cell : forall v q,
   triple (val_new_cell v q)
     \[]
-    (fun r => Hexists p, \[r = val_loc p] \* MCell v q p).
+    (fun r => \exists p, \[r = val_loc p] \* MCell v q p).
 Proof using.
-  intros. xcf. xapp rule_alloc_cell.
+  intros. xcf. xapp triple_alloc_cell.
   intros p p' v' q'. intro_subst.
-  xapps~. hsimpl. xapps~. hsimpl. xvals~.
+  xapps~. intros _. xapps~. intros _. xvals~.
 Qed.
 
 (* TODO: update?
-Lemma rule_new_cell : forall v q,
+Lemma triple_new_cell : forall v q,
   triple (val_new_cell v q)
     \[]
-    (fun r => Hexists p, \[r = val_loc p] \* MCell v q p).
+    (fun r => \exists p, \[r = val_loc p] \* MCell v q p).
 Proof using.
-  intros. applys rule_app_fun2. reflexivity. auto. simpl.
-  applys rule_let. { applys rule_alloc_cell. }
+  intros. applys triple_app_fun2. reflexivity. auto. simpl.
+  applys triple_let. { applys triple_alloc_cell. }
   intros p. xpull ;=> p' v' q'. intro_subst. simpl.
-  applys rule_seq. { xapplys rule_set_hd. }
-  applys rule_seq. { xapplys rule_set_tl. }
-  applys rule_val. hsimpl. auto.
+  applys triple_seq. { xapplys triple_set_hd. }
+  applys triple_seq. { xapplys triple_set_tl. }
+  applys triple_val. hsimpl. auto.
 Qed.
 *)
 
-Hint Extern 1 (Register_spec val_new_cell) => Provide rule_new_cell.
+Hint Extern 1 (Register_spec val_new_cell) => Provide triple_new_cell.
 
 Global Opaque MCell_eq.
 
@@ -217,7 +217,7 @@ Global Opaque MCell_eq.
 Fixpoint MList (L:list val) (p:loc) : hprop :=
   match L with
   | nil => \[p = null]
-  | x::L' => Hexists (p':loc), (MCell x p' p) \* (MList L' p')
+  | x::L' => \exists (p':loc), (MCell x p' p) \* (MList L' p')
   end.
 
 
@@ -270,7 +270,7 @@ Proof using. intros. rewrite MList_nil_eq. hsimpl~. Qed.
 
 Lemma MList_cons_eq : forall p x L',
   MList (x::L') p =
-  Hexists (p':loc), MCell x p' p \* MList L' p'.
+  \exists (p':loc), MCell x p' p \* MList L' p'.
 Proof using. intros. unfold MList at 1. simple~. Qed.
 
 Lemma MList_cons : forall p p' x L',
@@ -289,7 +289,7 @@ Qed.
 Lemma MList_not_null_inv_cons : forall p L,
   p <> null ->
     MList L p ==>
-    Hexists (p':loc), Hexists x L',
+    \exists (p':loc), \exists x L',
        \[L = x::L'] \* MCell x p' p  \* MList L' p'.
 Proof using.
   intros. hchange~ (@MList_not_null_inv_not_nil p).
@@ -330,27 +330,27 @@ Definition val_mlist_length : val :=
 
 (* TODO: fix the proof. it is meant to give an idea of the length.
 
-  Lemma rule_mlist_length_1 : forall L (p:loc),
+  Lemma triple_mlist_length_1 : forall L (p:loc),
     triple (val_mlist_length p)
       (MList L p)
       (fun r => \[r = (length L : int)] \* MList L p).
   Proof using.
     intros L. induction_wf: list_sub_wf L. intros p.
-    applys rule_app_fix. reflexivity. simpl.
-    applys rule_if'. { xapplys rule_neq. }
+    applys triple_app_fix. reflexivity. simpl.
+    applys triple_if'. { xapplys triple_neq. }
     simpl. intros X. xpull. intros EX. subst X.
     case_if as C1; case_if as C2; tryfalse.
     { inverts C2. xchange MList_null_inv.
-      xpull. intros EL. applys rule_val. hsimpl. subst~. }
+      xpull. intros EL. applys triple_val. hsimpl. subst~. }
     { xchange (MList_not_null_inv_cons p). { auto. }
-      xpull. intros x p' L' EL. applys rule_let.
-      { xapplys rule_get_tl. }
+      xpull. intros x p' L' EL. applys triple_let.
+      { xapplys triple_get_tl. }
       { simpl. intros p''. xpull. intros E. subst p''.
-        applys rule_let.
+        applys triple_let.
         { simpl. xapplys IH. { subst~. } }
         { simpl. intros r. xpull. intros Er. subst r.
           xchange (MList_cons p p' x L').
-          xapplys rule_add_int.
+          xapplys triple_add_int.
           { intros. subst L. hsimpl. }
           { intros. subst. rew_length. fequals. math. } } } }
   Qed.
@@ -362,7 +362,7 @@ Definition val_mlist_length : val :=
 
 (** Observe how, in the proof below, the deep embedding is never revealed. *)
 
-Lemma rule_mlist_length_2 : forall L p,
+Lemma triple_mlist_length_2 : forall L p,
   triple (val_mlist_length p)
     (MList L p)
     (fun r => \[r = val_int (length L)] \* MList L p).
@@ -370,18 +370,18 @@ Proof using.
   intros L. induction_wf: list_sub_wf L. intros p.
   applys triple_app_fix_of_cf_iter 20%nat. reflexivity.
   simpl. applys local_erase. esplit. split.
-  { applys local_erase. xapplys rule_neq. }
+  { applys local_erase. xapplys triple_neq. }
   intros X. xpull. intros EX. subst X.
   applys local_erase. esplit. splits. eauto.
   { intros C. rew_bool_eq in *. xchange (MList_not_null_inv_cons p). { auto. }
     xpull. intros p' x L' EL.
     applys local_erase. esplit. split.
-    { applys local_erase. xapplys rule_get_tl. }
+    { applys local_erase. xapplys triple_get_tl. }
     intros p''. xpull. intros E. subst p''.
     applys local_erase. esplit. split.
     { applys local_erase. xapplys IH. { subst~. } }
     { intros r. xpull. intros Er. xchange (MList_cons p).
-      subst r L. applys local_erase. xapplys rule_add.
+      subst r L. applys local_erase. xapplys triple_add.
       { intros. subst. rew_list. fequals. math. } } }
   { intros C. rew_bool_eq in *. applys local_erase. unfolds. inverts C.
     xchange MList_null_inv. hpull. intros EL.
@@ -392,7 +392,7 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Verification using characteristic formulae, and basic tactics. *)
 
-Lemma rule_mlist_length_3 : forall L p,
+Lemma triple_mlist_length_3 : forall L p,
   triple (val_mlist_length p)
     (MList L p)
     (fun r => \[r = val_int (length L)] \* MList L p).
@@ -415,7 +415,7 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Verification using characteristic formulae, and advanced tactics. *)
 
-Lemma rule_mlist_length_1 : forall L p,
+Lemma triple_mlist_length_1 : forall L p,
   triple (val_mlist_length p)
     (MList L p)
     (fun r => \[r = val_int (length L)] \* MList L p).
@@ -449,13 +449,13 @@ Definition val_mlist_length_loop : val :=
     Done ;;;
     val_get 'n.
 
-Lemma rule_mlist_length_loop : forall L p,
+Lemma triple_mlist_length_loop : forall L p,
   triple (val_mlist_length_loop p)
     (MList L p)
     (fun r => \[r = val_int (length L)] \* MList L p).
 Proof using.
   xcf. xapp ;=> V r E; subst V. xapp ;=> V n E; subst V.
-  xwhile as R.
+  xlet. xwhile as R.
   { cuts K: (forall (nacc:int),
        R (r ~~~> p \* MList L p \* n ~~~> nacc)
          (fun r' => \[r' = val_unit] \* MList L p \* n ~~~> (nacc + length L))).
@@ -463,7 +463,7 @@ Proof using.
     gen p. induction_wf: list_sub_wf L; intros. applys (rm HR).
     xlet. { xapps. xapps. } xpulls. xif ;=> C.
     { xchanges~ (MList_not_null_inv_cons p) ;=> p' x L' EL. xseq.
-      { xseq. xapp~. hsimpl. xapps.
+      { xseq. xapp~. simpl ;=> _. xapps.
         xapps. xapps~. hsimpl. }
       { xapply (>> IH L'). { subst~. } { hsimpl. }
         { hpull. isubst. hchange (MList_cons p). subst. rew_list.
@@ -471,7 +471,7 @@ Proof using.
           (* todo: cancel on ~~> *)
     { inverts C. xchanges MList_null_inv ;=> EL. subst. rew_list.
       math_rewrite (nacc+0%nat = nacc). xvals~. } }
-  { xapp. hsimpl. isubst. fequals. }
+  { xpull. intros ? ->. xapp. hsimpl ;=> ? ->. fequals. }
 Qed.
 
 
@@ -485,7 +485,7 @@ Qed.
 Fixpoint MListSeg (q:loc) (L:list val) (p:loc) : hprop :=
   match L with
   | nil => \[p = q]
-  | x::L' => Hexists (p':loc), (MCell x p' p) \* (MListSeg q L' p')
+  | x::L' => \exists (p':loc), (MCell x p' p) \* (MListSeg q L' p')
   end.
 
 (* ---------------------------------------------------------------------- *)
@@ -516,7 +516,7 @@ Proof using. intros. unfolds~ MListSeg. Qed.
 
 Lemma MListSeg_cons_eq : forall p q x L',
   MListSeg q (x::L') p =
-  Hexists (p':loc), MCell x p' p \* MListSeg q L' p'.
+  \exists (p':loc), MCell x p' p \* MListSeg q L' p'.
 Proof using. intros. unfold MListSeg at 1. simple~. Qed.
 
 Global Opaque MListSeg.

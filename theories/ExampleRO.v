@@ -10,6 +10,7 @@ License: MIT.
 Set Implicit Arguments.
 From Sep Require Import LambdaSepRO.
 Generalizable Variables A B.
+Export NotationForVariables NotationForTerms.
 Open Scope trm_scope.
 Ltac auto_star ::= jauto.
 
@@ -21,7 +22,7 @@ Implicit Types v : val.
 (*------------------------------------------------------------------*)
 (** Auxiliary *)
 
-Lemma rule_apps_funs : forall xs F (Vs:vals) t1 H Q,
+Lemma triple_apps_funs : forall xs F (Vs:vals) t1 H Q,
   F = (val_funs xs t1) ->
   var_funs (length Vs) xs ->
   triple (substn xs Vs t1) H Q ->
@@ -42,63 +43,63 @@ Lemma RO_himpl_RO_hstar_RO : forall H,
   RO H ==> (RO H \* RO H).
 Proof using. intros. applys RO_duplicatable. Qed.
 
-Lemma rule_xchange : forall (H1 H1':hprop), H1 ==> H1' ->
+Lemma triple_xchange : forall (H1 H1':hprop), H1 ==> H1' ->
   forall t H H2 Q,
   H ==> H1 \* H2 ->
   triple t (H1' \* H2) Q ->
   triple t H Q.
 Proof using.
-  introv M1 M2 M. applys~ rule_consequence M2.
-  applys* rule_consequence (H1' \* H2). hsimpl~.
+  introv M1 M2 M. applys~ triple_conseq M2.
+  applys* triple_conseq (H1' \* H2). hsimpl~.
 Qed.
 
-Lemma rule_frame_read_only_conseq : forall t H1 Q1 H2 H Q,
+Lemma triple_frame_read_only_conseq : forall t H1 Q1 H2 H Q,
   H ==> (H1 \* H2) ->
   Normal H1 ->
   triple t (RO H1 \* H2) Q1 ->
   (Q1 \*+ H1) ===> Q ->
   triple t H Q.
 Proof using.
-  introv WP M N WQ. applys* rule_consequence (rm WP) (rm WQ).
-  forwards~ R: rule_frame_read_only t H2 Q1 H1.
+  introv WP M N WQ. applys* triple_conseq (rm WP) (rm WQ).
+  forwards~ R: triple_frame_read_only t H2 Q1 H1.
   { rewrite~ hstar_comm. } { rewrite~ hstar_comm. }
 Qed.
 
-Lemma rule_get : forall v l,
+Lemma triple_get : forall v l,
   triple (val_get (val_loc l))
     (l ~~~> v)
     (fun x => \[x = v] \* l ~~~> v).
 Proof using.
-  intros. applys rule_frame_read_only_conseq (l ~~~> v).
+  intros. applys triple_frame_read_only_conseq (l ~~~> v).
   { hsimpl. } { apply _. }
-  { rew_heap. applys rule_get_ro. }
+  { rew_heap. applys triple_get_ro. }
   { auto. }
 Qed.
 
-Lemma rule_let' : forall x t1 t2 H2 H1 H Q Q1,
+Lemma triple_let' : forall z t1 t2 H2 H1 H Q Q1,
   H ==> (H1 \* H2) ->
   triple t1 H1 Q1 ->
-  (forall (X:val), triple (subst x X t2) (Q1 X \* H2) Q) ->
-  triple (trm_let x t1 t2) H Q.
-Proof using. introv WP M1 M2. applys* rule_consequence WP. applys* rule_let. Qed.
+  (forall (X:val), triple (subst1 z X t2) (Q1 X \* H2) Q) ->
+  triple (trm_let z t1 t2) H Q.
+Proof using. introv WP M1 M2. applys* triple_conseq WP. applys* triple_let. Qed.
 
-Lemma rule_frame : forall t H1 Q1 H2,
+Lemma triple_frame : forall t H1 Q1 H2,
   triple t H1 Q1 ->
   Normal H2 ->
   triple t (H1 \* H2) (Q1 \*+ H2).
 Proof using.
-  introv M N. applys~ rule_frame_read_only.
-  applys~ rule_consequence (H1 \* \Top). hsimpl.
-  applys* rule_htop_pre.
+  introv M N. applys~ triple_frame_read_only.
+  applys~ triple_conseq (H1 \* \Top). hsimpl.
+  applys* triple_htop_pre.
 Qed.
 
-Lemma rule_frame_conseq : forall t H1 Q1 H2 H Q,
+Lemma triple_frame_conseq : forall t H1 Q1 H2 H Q,
   H ==> H2 \* H1 ->
   Normal H1 ->
   triple t H2 Q1 ->
   Q1 \*+ H1 ===> Q ->
   triple t H Q.
-Proof using. intros. applys* rule_consequence. applys* rule_frame. Qed.
+Proof using. intros. applys* triple_conseq. applys* triple_frame. Qed.
 
 Hint Resolve Normal_hsingle.
 
@@ -109,19 +110,20 @@ Hint Resolve Normal_hsingle.
 Tactic Notation "xdef" :=
   rew_nary; rew_vals_to_trms;
   match goal with |- triple (trm_apps (trm_val ?f) _) _ _ =>
-   applys rule_apps_funs;
+   applys triple_apps_funs;
    [unfold f; rew_nary; reflexivity | auto | simpl]
   end.
 
 (* ---------------------------------------------------------------------- *)
 (** Apply a function to the contents of a reference *)
 
+
 Definition val_ref_apply :=
   ValFun 'f 'p :=
     Let 'x := val_get 'p in
     'f 'x.
 
-Lemma rule_ref_apply : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),
+Lemma triple_ref_apply : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),
   (triple (f v)
     PRE (RO(p ~~~> v) \* H)
     POST Q)
@@ -131,10 +133,10 @@ Lemma rule_ref_apply : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),
     POST Q).
 Proof using.
   introv M. xdef. xchange (@RO_himpl_RO_hstar_RO (p ~~~> v)).
-  rew_heap. applys rule_let (RO (p ~~~> v)).
-  { applys rule_get_ro. }
+  rew_heap. applys triple_let (RO (p ~~~> v)).
+  { applys triple_get_ro. }
   { intros x; simpl. xpull ;=> E. subst x.
-    applys rule_consequence M; hsimpl. }
+    applys triple_conseq M; hsimpl. }
 Qed.
 
 (* Note: this specification allows [f] to call [val_get] on [r],
@@ -148,7 +150,7 @@ Qed.
         val_add 'x 'y in
       val_ref_apply 'f 'p.
 
-  Lemma rule_demo_1 : forall (n:int),
+  Lemma triple_demo_1 : forall (n:int),
     triple (val_demo_1 n)
       PRE \[]
       POST (fun r => \[r = val_int (2*n)]).
@@ -169,7 +171,7 @@ Definition val_ref_update :=
     Let 'y := 'f 'x in
     val_set 'p 'y.
 
-Lemma rule_ref_update : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),
+Lemma triple_ref_update : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),
   Normal_post Q -> (* todo: this might not be needed if using "normally" *)
   (triple (f v)
     PRE (RO(p ~~~> v) \* H)
@@ -177,19 +179,19 @@ Lemma rule_ref_update : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop),
   ->
   (triple (val_ref_update f p)
     PRE (p ~~~> v \* H)
-    POST (fun r => Hexists w, (p ~~~> w) \* (Q w))).
+    POST (fun r => \exists w, (p ~~~> w) \* (Q w))).
 Proof using.
   introv N M. xdef.
-  applys rule_let.
-  { applys rule_get. }
+  applys triple_let.
+  { applys triple_get. }
   { intros x; simpl. xpull ;=> E. subst x.
-    applys rule_let' \[]. { hsimpl. }
-    applys~ rule_frame_read_only_conseq (p ~~~> v).
-    { applys rule_consequence M; hsimpl. }
+    applys triple_let' \[]. { hsimpl. }
+    applys~ triple_frame_read_only_conseq (p ~~~> v).
+    { applys triple_conseq M; hsimpl. }
     { hsimpl. }
     { clear M. intros y; simpl. xpull.
-      applys~ rule_frame_conseq (Q y).
-      { applys rule_set. }
+      applys~ triple_frame_conseq (Q y).
+      { applys triple_set. }
       { hsimpl~. } } }
 Qed.
 
@@ -203,12 +205,12 @@ Hint Rewrite RO_hexists RO_pure : rew_RO.
 Tactic Notation "rew_RO" :=
   autorewrite with rew_RO.
 
-Lemma rule_htop_pre' : forall H2 H1 t H Q,
+Lemma triple_htop_pre' : forall H2 H1 t H Q,
   H ==> H1 \* H2 ->
   triple t H1 Q ->
   triple t H Q.
 Proof using.
-  introv W M. applys rule_consequence; [| applys rule_htop_pre M |].
+  introv W M. applys triple_conseq; [| applys triple_htop_pre M |].
   { hchange W. hsimpl. } { auto. }
 Qed.
 
@@ -218,10 +220,10 @@ Qed.
 
 
 Definition Box (n:int) (p:loc) :=
-  Hexists (q:loc), (p ~~~> q) \* (q ~~~> n).
+  \exists (q:loc), (p ~~~> q) \* (q ~~~> n).
 
 Lemma Box_unfold : forall p n,
-  (p ~> Box n) ==> Hexists (q:loc), (p ~~~> q) \* (q ~~~> n).
+  (p ~> Box n) ==> \exists (q:loc), (p ~~~> q) \* (q ~~~> n).
 Proof using. intros. xunfold Box. hsimpl. Qed.
 
 Lemma Box_fold : forall p q n,
@@ -229,7 +231,7 @@ Lemma Box_fold : forall p q n,
 Proof using. intros. xunfold Box. hsimpl. Qed.
 
 Lemma RO_Box_unfold : forall p n,
-  RO (p ~> Box n) ==> RO (p ~> Box n) \* Hexists (q:loc), RO (p ~~~> q) \* RO (q ~~~> n).
+  RO (p ~> Box n) ==> RO (p ~> Box n) \* \exists (q:loc), RO (p ~~~> q) \* RO (q ~~~> n).
 Proof using.
   intros. hchange RO_duplicatable. xunfold Box at 1.
   rew_RO. hpull ;=> q. hchanges (RO_star (p ~~~> q) (q ~~~> n)).
@@ -247,17 +249,17 @@ Definition val_box_get :=
     Let 'q := val_get 'p in
     val_get 'q.
 
-Lemma rule_box_get : forall p n,
+Lemma triple_box_get : forall p n,
   triple (val_box_get p)
     PRE (RO (p ~> Box n))
     POST (fun r => \[r = val_int n]).
 Proof using.
   intros. xdef. xchange (RO_Box_unfold p). xpull ;=> q.
-  applys rule_htop_pre' (RO (p ~> Box n)). hsimpl. (* not need, ideally *)
-  rew_heap. applys rule_let' __ (RO (p ~~~> q)).
+  applys triple_htop_pre' (RO (p ~> Box n)). hsimpl. (* not need, ideally *)
+  rew_heap. applys triple_let' __ (RO (p ~~~> q)).
   { hsimpl. }
-  { applys rule_get_ro. }
-  { intros x; simpl; xpull ;=> E; subst x. applys rule_get_ro. }
+  { applys triple_get_ro. }
+  { intros x; simpl; xpull ;=> E; subst x. applys triple_get_ro. }
 Qed.
 
 
@@ -281,7 +283,7 @@ Definition val_box_twice :=
     Let 'm := 'a1 '+ 'a2 in
     val_set 'q 'm.
 
-Lemma rule_box_twice : forall (f:val) p n (F:int->int),
+Lemma triple_box_twice : forall (f:val) p n (F:int->int),
   (forall (x:int) H, triple (val_box_twice f x)
       PRE (RO(p ~> Box n) \* H)
       POST (fun r => \[r = val_int (F x)] \* H)) ->
@@ -290,13 +292,13 @@ Lemma rule_box_twice : forall (f:val) p n (F:int->int),
     POST (fun r => p ~> Box (2 * F n)).
 Proof using.
   introv M. xdef. xchange (Box_unfold p). xpull ;=> q.
-  applys rule_let' __ (p ~~~> q).
+  applys triple_let' __ (p ~~~> q).
   { hsimpl. }
-  { rew_heap. applys rule_get. }
+  { rew_heap. applys triple_get. }
   { intros x; simpl; xpull ;=> E; subst x.
-  applys rule_let' __ (q ~~~> n).
+  applys triple_let' __ (q ~~~> n).
   { hsimpl. }
-  { rew_heap. applys rule_get. }
+  { rew_heap. applys triple_get. }
   { intros x; simpl; xpull ;=> E; subst x.
 Abort.
 

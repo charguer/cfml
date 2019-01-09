@@ -20,8 +20,8 @@ Implicit Types v w : val.
 (* ********************************************************************** *)
 (* * Type of a formula *)
 
-(** A formula is a binary relation relating a pre-condition
-    and a post-condition. *)
+(** A formula is a binary relation relating a precondition
+    and a postcondition. *)
 
 Definition formula := hprop -> (val -> hprop) -> Prop.
 
@@ -80,10 +80,8 @@ Definition cf_def cf (t:trm) :=
   | trm_var x => local (cf_fail) (* unbound variable *)
   | trm_fix f x t1 => local (cf_val (val_fix f x t1))
   | trm_if t0 t1 t2 => local (cf_if (cf t0) (cf t1) (cf t2))
-  | trm_let x t1 t2 => local (cf_let (cf t1) (fun X => cf (subst x X t2)))
+  | trm_let x t1 t2 => local (cf_let (cf t1) (fun X => cf (subst1 x X t2)))
   | trm_app t1 t2 => local (triple t)
-  | trm_fun x t1 => local (cf_fail) (* unsupported *)
-  | trm_seq t1 t2 => local (cf_fail) (* unsupported *)
   | trm_while t1 t2 => local (cf_fail) (* unsupported *)
   | trm_for x t1 t2 t3 => local (cf_fail) (* unsupported *)
   end.
@@ -137,19 +135,17 @@ Proof using.
   intros t. induction_wf: trm_size t.
   rewrite cf_unfold. destruct t; simpl;
    try (applys sound_for_local; intros H Q P).
-  { unfolds in P. applys~ rule_val. hchanges~ P. }
+  { unfolds in P. applys~ triple_val. hchanges~ P. }
   { false. }
-  { false. }
-  { unfolds in P. applys rule_fix. hchanges~ P. }
-  { destruct P as (Q1&P1&P2). applys rule_if.
+  { unfolds in P. applys triple_fix. hchanges~ P. }
+  { destruct P as (Q1&P1&P2). applys triple_if.
     { applys* IH. }
     { intros v. specializes P2 v. applys sound_for_local (rm P2).
       clears H Q Q1. intros H Q (b&P1'&P2'&P3'). inverts P1'.
       case_if; applys* IH. }
     { intros v N. specializes P2 v. applys local_extract_false P2.
       intros H' Q' (b&E&S1&S2). subst. applys N. hnfs*. } }
-  { false. }
-  { destruct P as (Q1&P1&P2). applys rule_let Q1.
+  { destruct P as (Q1&P1&P2). applys triple_let Q1.
     { applys~ IH. }
     { intros X. applys~ IH. } }
   { applys P. }
@@ -164,13 +160,15 @@ Proof using. intros. applys* sound_for_cf. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Soundness of the CF of a recursive function *)
+(* ** Soundness of the CF of a function *)
 
-Lemma triple_app_fix_of_cf : forall F v f x t H H' Q,
+Lemma triple_app_of_cf : forall F v (f:bind) x t H H' Q,
   F = val_fix f x t ->
   pay_one H H' ->
-  cf (subst f F (subst x v t)) H' Q ->
+  cf (subst2 f F x v t) H' Q ->
   triple (F v) H Q.
 Proof using.
-  introv EF HP M. applys* rule_app_fix. applys* triple_of_cf.
+  introv EF HP M. applys* triple_app_fix. applys* triple_of_cf.
 Qed.
+
+

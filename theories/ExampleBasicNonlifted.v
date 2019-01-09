@@ -36,61 +36,61 @@ Definition val_incr :=
 
 (** Low-level proof *)
 
-Lemma rule_incr_1 : forall p n,
+Lemma triple_incr_1 : forall p n,
   triple (val_incr p)
     (p ~~~> n)
     (fun r => (p ~~~> (n+1))).
 Proof using.
-  intros. applys rule_app_fun. reflexivity. simpl.
-  applys rule_let. { applys rule_get. } simpl.
-  intros x. apply rule_extract_hprop. intros E. subst.
-  applys rule_let.
-  { applys rule_frame_consequence (p ~~~> n).
+  intros. applys triple_app. reflexivity. simpl.
+  applys triple_let. { applys triple_get. } simpl.
+  intros x. apply triple_extract_hprop. intros E. subst.
+  applys triple_let.
+  { applys triple_frame_consequence (p ~~~> n).
     { hsimpl. }
-    { applys rule_add. }
+    { applys triple_add. }
     { hsimpl. } }
-  simpl. intros y. apply rule_extract_hprop. intros E. subst.
-  applys rule_consequence.
+  simpl. intros y. apply triple_extract_hprop. intros E. subst.
+  applys triple_conseq.
   { hsimpl. }
-  { applys rule_set. }
+  { applys triple_set. }
   { intros r. applys himpl_hpure_l. intros E. subst. auto. }
 Qed.
 
 (** Same proof using [xapply], [xapplys] and [xpull] *)
 
-Lemma rule_incr_2 : forall p n,
+Lemma triple_incr_2 : forall p n,
   triple (val_incr p)
     (p ~~~> n)
     (fun r => (p ~~~> (n+1))).
 Proof using.
-  intros. applys rule_app_fun. reflexivity. simpl.
-  applys rule_let. { applys rule_get. } simpl.
+  intros. applys triple_app. reflexivity. simpl.
+  applys triple_let. { applys triple_get. } simpl.
   intros x. xpull. intros E. subst.
-  applys rule_let. { xapplys rule_add. }
+  applys triple_let. { xapplys triple_add. }
   simpl. intros y. xpull. intro_subst.
-  xapplys rule_set.
+  xapplys triple_set.
 Qed.
 
 (** Same proof using characteristic formulae without tactics *)
 
-Lemma rule_incr_3 : forall p n,
+Lemma triple_incr_3 : forall p n,
   triple (val_incr p)
     (p ~~~> n)
     (fun r => (p ~~~> (n+1))).
 Proof using.
   intros. applys triple_app_fun_of_cf_iter 20%nat. reflexivity. simpl.
   applys local_erase. esplit. split.
-  { applys local_erase. xapplys rule_get. }
+  { applys local_erase. xapplys triple_get. }
   intros x. xpull. intros E. subst.
   applys local_erase. esplit. split.
-  { applys local_erase. xapplys rule_add. }
+  { applys local_erase. xapplys triple_add. }
   intros y. xpull. intros E. subst.
-  applys local_erase. xapplys rule_set.
+  applys local_erase. xapplys triple_set.
 Qed.
 
 (** Same proof using support for nary functions *)
 
-Lemma rule_incr_4 : forall p n,
+Lemma triple_incr_4 : forall p n,
   triple (val_incr p)
     (p ~~~> n)
     (fun r => (p ~~~> (n+1))).
@@ -106,19 +106,19 @@ Abort.
 
 (** Same proof using characteristic formulae with tactics *)
 
-Lemma rule_incr_5 : forall p n,
+Lemma triple_incr_5 : forall p n,
   triple (val_incr p)
     (p ~~~> n)
     (fun r => (p ~~~> (n+1))).
 Proof using.
   xcf. xlet as x. xapp. xpull. intro_subst.
   xlet as y. xapp. xpull. intro_subst.
-  xapp. hsimpl. 
+  xapp. hsimpl.
 Qed.
 
 (** Same proof using characteristic formulae with more tactics *)
 
-Lemma rule_incr_6 : forall p n,
+Lemma triple_incr_6 : forall p n,
   triple (val_incr p)
     (p ~~~> n)
     (fun r => (p ~~~> (n+1))).
@@ -131,7 +131,7 @@ Qed.
 (** Same proof using characteristic formulae with yet more
   powerful tactics *)
 
-Lemma rule_incr__7 : forall p n,
+Lemma triple_incr__7 : forall p n,
   triple (val_incr p)
     (p ~~~> n)
     (fun r => (p ~~~> (n+1))).
@@ -139,40 +139,40 @@ Proof using.
   xcf. xapps. xapps. xapps. hsimpl~.
 Qed.
 
-Hint Extern 1 (Register_spec val_incr) => Provide rule_incr__7.
+Hint Extern 1 (Register_spec val_incr) => Provide triple_incr__7.
 
 
 (* ---------------------------------------------------------------------- *)
 (** Calling incr from a larger context *)
 
-Lemma rule_incr_with_other_1 : forall p n q m,
+Lemma triple_incr_with_other_1 : forall p n q m,
   triple (val_incr p)
     (p ~~~> n \* q ~~~> m)
     (fun r => (p ~~~> (n+1)) \* q ~~~> m).
 Proof using.
-  intros. applys rule_frame_consequence (q ~~~> m).
+  intros. applys triple_frame_consequence (q ~~~> m).
   { hsimpl. }
-  { rew_heap. apply rule_incr_5. }
+  { rew_heap. apply triple_incr_5. }
   { intros r. hsimpl. }
 Qed.
 
-Lemma rule_incr_with_other_2 : forall p n q m,
+Lemma triple_incr_with_other_2 : forall p n q m,
   triple (val_incr p)
     (p ~~~> n \* q ~~~> m)
     (fun r => (p ~~~> (n+1)) \* q ~~~> m).
 Proof using.
-  intros. xapply rule_incr_5.
+  intros. xapply triple_incr_5.
   { hsimpl. }
   { intros r. hsimpl. }
 Qed.
 
-Lemma rule_incr_with_other : forall p n q m,
+Lemma triple_incr_with_other : forall p n q m,
   triple (val_incr p)
     (p ~~~> n \* q ~~~> m)
     (fun r => (p ~~~> (n+1)) \* q ~~~> m).
 Proof using. intros. xapps. hsimpl~. Qed.
 
-Lemma rule_incr_with_frame : forall p n H,
+Lemma triple_incr_with_frame : forall p n H,
   triple (val_incr p)
     (p ~~~> n \* H)
     (fun r => (p ~~~> (n+1)) \* H).
@@ -189,21 +189,21 @@ Definition val_swap :=
     val_set 'p 'y ;;;
     val_set 'q 'x.
 
-Lemma rule_swap_neq : forall p q v w,
+Lemma triple_swap_neq : forall p q v w,
   triple (val_swap p q)
     (p ~~~> v \* q ~~~> w)
     (fun r => p ~~~> w \* q ~~~> v).
 Proof using.
-  xcf. xapps. xapps. xapp. hsimpl. (* LATER: automate hsimpl *)
+  xcf. xapps. xapps. xapp. intros _.
   xapps. hsimpl~.
 Qed.
 
-Lemma rule_swap_eq : forall p v,
+Lemma triple_swap_eq : forall p v,
   triple (val_swap p p)
     (p ~~~> v)
     (fun r => p ~~~> v).
 Proof using.
-  xcf. xapps. xapps. xapp~. hsimpl. xapps. hsimpl~.
+  xcf. xapps. xapps. xapp~. intros _. xapps. hsimpl~.
 Qed.
 
 
@@ -217,12 +217,12 @@ Definition val_succ_using_incr :=
     Let 'x := val_get 'p in
     'x.
 
-Lemma rule_succ_using_incr : forall n,
+Lemma triple_succ_using_incr : forall n,
   triple (val_succ_using_incr n)
     \[]
     (fun r => \[r = n+1]).
 Proof using.
-  xcf. xapp as p. intros; subst. xapp~. hsimpl. xapps~.
+  xcf. xapp as p. intros; subst. xapp~. intros _. xapps~.
   (* not possible: applys local_erase. unfold cf_val. hsimpl. *)
   xvals~.
 Qed.
@@ -242,12 +242,12 @@ Definition val_incr_twice :=
     val_incr 'p ;;;
     val_incr 'p.
 
-Lemma rule_incr_twice : forall p n,
+Lemma triple_incr_twice : forall p n,
   triple (val_incr_twice p)
     (p ~~~> n)
     (fun r => p ~~~> (n+2)).
 Proof using.
-  xcf. xapp. auto. hsimpl.
+  xcf. xapp. auto. intros _.
   xapps. (* same as [xapp; hpull] *)
   intros; subst.
   math_rewrite ((n + 1) + 1 = (n + 2)). (* TODO: avoid this ?*)
@@ -264,7 +264,7 @@ Definition val_example_let :=
     Let 'b := 'n '- 1 in
     'a '+ 'b.
 
-Lemma rule_val_example_let : forall n,
+Lemma triple_val_example_let : forall n,
   triple (val_example_let n)
     \[]
     (fun r => \[r = 2*n]).
@@ -291,7 +291,7 @@ Definition val_example_one_ref :=
     val_incr 'i ;;;
     '!'i.
 
-Lemma rule_example_one_ref : forall n,
+Lemma triple_example_one_ref : forall n,
   triple (val_example_one_ref n)
     \[]
     (fun r => \[r = n+2]).
@@ -299,7 +299,7 @@ Proof using.
   xcf.
   xapp. intros; subst.
   xapp. intros I i ?. subst.
-  xapp. hsimpl.
+  xapp. intros _.
   xapp. intros r. hsimpl. intros; subst. fequals. math.
 Qed.
 
@@ -332,15 +332,15 @@ Definition val_example_two_ref :=
     Let 'r2 := '!'r in
     'i2 '+ 'r2.
 
-Lemma rule_example_two_ref : forall n,
+Lemma triple_example_two_ref : forall n,
   triple (val_example_two_ref n)
     \[]
     (fun r => \[r = n+1]).
 Proof using.
   xcf. xapp ;=> i i' Ei. subst.
   xapp ;=> r r' Er. subst.
-  xapp~. hsimpl. xapp~. hsimpl.
-  xapps. xapps. xapps. xapps~. hsimpl.
+  xapp~. intros _. xapp~. intros _.
+  xapps. xapps. xapps. xapps~. intros _.
   xapps. xapps. xapps.
   hsimpl. intros. subst. fequals. math.
 Qed.

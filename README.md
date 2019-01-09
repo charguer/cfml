@@ -124,6 +124,9 @@ by Arthur Charguéraud and François Pottier
  * The file __Fmap.v__
    defines a representation of finite maps, used to represent stores.
 
+ * The file __Bind.v__
+   defines binders and contexts.
+
  * The file __SepFunctor.v__
    contains a functor with derived properties for Separation Logic.
 
@@ -136,15 +139,48 @@ by Arthur Charguéraud and François Pottier
  * The file __LambdaSep.v__
    defines a plain Separation Logic (and proves its soundness).
 
+ * The file __LambdaWP.v__
+   defines weakest precondition style characteristic formulae 
+   for plain Separation Logic.
+
+
+## Lifted SL
+
+ * The file __LambdaSepLifted.v__
+   defines lifted Separation Logic.
+
+ * The file __LambdaWPLifted.v__
+   defines weakest precondition style characteristic formulae.
+   for lifted Separation Logic.
+
+ * The file __LambdaWPTactics.v__
+   introduces tactics to conduct practical proofs using these lifted WP.   
+
+
+## Read-only SL
+
+ * The file __LambdaSepRO.v__
+   defines a Separation Logic with read-only permissions.
+
+
+## Time-credits SL
+
+ * The file __LambdaSepCredits.v__
+   defines a Separation Logic with time credits.
+
+
+
+#############################################################
+# Currently doesn't compile
+
+
+## Plain SL
+
  * The file __LambdaCFTactics.v__
    defines notation and tactics for characteristic formulae.
 
  * The file __LambdaCF.v__
    defines characteristic formulae for plain Separation Logic.
-
- * The file __LambdaWP.v__
-   defines weakest precondition style characteristic formulae 
-   for plain Separation Logic.
 
  * The file __LambdaStruct.v__
    defines specifications for basic derived operations, for records 
@@ -171,7 +207,6 @@ by Arthur Charguéraud and François Pottier
 
  * The file __ExamplesListMosel.v__
    gives examples of list proofs using MoSel (nonlifted version).
-
 
 ## Lifted SL
 
@@ -201,9 +236,6 @@ by Arthur Charguéraud and François Pottier
 
 ## Read-only SL
 
- * The file __LambdaSepRO.v__
-   defines a Separation Logic with read-only permissions.
-
  * The file __ExampleRO.v__
    gives examples of proofs using RO logic.
 
@@ -215,9 +247,6 @@ by Arthur Charguéraud and François Pottier
 
 
 ## Time-credits SL
-
- * The file __LambdaSepCredits.v__
-   defines a Separation Logic with time credits.
 
  * The file __LambdaCFCredits.v__
    defines characteristic formulae for Separation Logic with credits.

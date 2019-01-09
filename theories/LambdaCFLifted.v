@@ -28,8 +28,8 @@ Ltac auto_star ::= jauto.
 (* ---------------------------------------------------------------------- *)
 (* ** Type of a formula *)
 
-(** A formula is a binary relation relating a pre-condition
-    and a post-condition. *)
+(** A formula is a binary relation relating a precondition
+    and a postcondition. *)
 
 Definition Formula := forall A (EA:Enc A), hprop -> (A -> hprop) -> Prop.
 
@@ -127,9 +127,10 @@ Definition Cf_while (F1 F2 : Formula) : Formula :=
          ^(F:Formula) H' Q') ->
       ^(F:Formula) H Q).
 
-Definition Cf_for (n1 n2 : int) (F1 : int->Formula) : Formula :=
+(* TODO: this is too weak, for loops must support bounds that are variables *)
+Definition Cf_for_val (n1 n2:int) (F1 : int->Formula) : Formula :=
   (* Formula_typed (fun H (Q:unit->hprop) => *)
-  fun `{Enc A} H (Q:A->hprop) =>
+  fun `{Enc A} H (Q:A->hprop) =>  
     forall (S:int->Formula), (forall i, is_local (@S i unit _)) ->
     let F i := Local (If (i <= n2) then (Local (Cf_seq (F1 i) (S (i+1))))
                              else (Local (Cf_val val_unit))) in
@@ -144,18 +145,20 @@ Definition Cf_def Cf (t:trm) : Formula :=
   match t with
   | trm_val v => Local (Cf_val v)
   | trm_var x => Local (Cf_fail) (* unbound variable *)
-  | trm_fun x t1 => Local (Cf_val (val_fun x t1))
-  | trm_fix f x t1 => Local (Cf_val (val_fix f x t1))
+  | trm_fix f z t1 => Local (Cf_val (val_fix f z t1))
   | trm_if t0 t1 t2 => Local (Cf_if (Cf t0) (Cf t1) (Cf t2))
-  | trm_seq t1 t2 => Local (Cf_seq (Cf t1) (Cf t2))
-  | trm_let y t1 t2 => Local (Cf_let (Cf t1)
-                                (fun `{EA:Enc A} (X:A) => Cf (subst y (enc X) t2)))
+  | trm_let z t1 t2 =>
+     Local (match z with
+     | bind_anon => Cf_seq (Cf t1) (Cf t2)
+     | bind_var x => Cf_let (Cf t1)
+                                (fun `{EA:Enc A} (X:A) => Cf (subst1 x (enc X) t2))
+     end)
   | trm_app t1 t2 => Local (Cf_app t)
   | trm_while t1 t2 => Local (Cf_while (Cf t1) (Cf t2))
   | trm_for x t1 t2 t3 => Local (
       match t1, t2 with
       | trm_val (val_int n1), trm_val (val_int n2) =>
-            Cf_for n1 n2 (fun X => Cf (subst x X t3))
+            Cf_for_val n1 n2 (fun X => Cf (subst1 x X t3))
       | _, _ => Cf_fail (* not supported *)
       end)
   end.
@@ -165,13 +168,15 @@ Definition Cf := FixFun Cf_def.
 Lemma Cf_unfold_iter : forall n t,
   Cf t = func_iter n Cf_def Cf t.
 Proof using.
+  Opaque subst1.
   applys~ (FixFun_fix_iter (measure trm_size)). auto with wf.
   intros f1 f2 t IH. unfold Cf_def.
   destruct t; fequals.
   { fequals~. }
-  { fequals~. }
-  { fequals~. applys~ fun_ext_3. }
-  { fequals~. }
+  { destruct b.
+    { fequals~. }
+    { fequals~. applys~ fun_ext_3. } }
+  { fequals~. } 
   { destruct t1; fequals~. destruct v0; fequals~.
     destruct t2; fequals~. destruct v0; fequals~.
     applys~ fun_ext_1. }
@@ -211,46 +216,43 @@ Proof using.
   intros t. induction_wf: trm_size t.
   rewrite Cf_unfold. destruct t;
    try (applys Sound_for_Local; intros A EA H Q P).
-  { destruct P as (V&E&P). applys* Rule_val. }
+  { destruct P as (V&E&P). applys* Triple_val. }
   { false. }
   { destruct P as (V&E&P).
     applys Triple_enc_val_inv (fun r => \[r = enc V] \* H).
-    { applys Rule_fun. rewrite E. hsimpl~. }
-    { intros X. hpull ;=> EX. subst X. hchange P. hsimpl V. simple~. } }
-  { destruct P as (V&E&P).
-    applys Triple_enc_val_inv (fun r => \[r = enc V] \* H).
-    { applys Rule_fix. rewrite E. hsimpl~. }
+    { applys Triple_fix. rewrite E. hsimpl~. }
     { intros X. hpull ;=> EX. subst X. hchange P. hsimpl. simple~. } }
-  { destruct P as (Q1&P1&P2). applys @Rule_if.
+  { destruct P as (Q1&P1&P2). applys @Triple_if.
     { applys* IH. }
     { intros b. specializes P2 b. applys Sound_for_Local (rm P2).
       clears A H Q1. intros A EA H Q (b'&P1'&P2'&P3').
       asserts E: (b = b'). { destruct b; destruct b'; auto. }
       clear P1'. subst b'. case_if; applys* IH. } }
-  { destruct P as (H1&P1&P2). applys Rule_seq H1.
-    { applys~ IH. }
-    { intros X. applys~ IH. } }
-  { destruct P as (A1&EA1&Q1&P1&P2). applys Rule_let Q1.
-    { applys~ IH. }
-    { intros X. specializes P2 X.
-      unfold Subst. rewrite enc_dyn_eq. applys~ IH. } }
+  { destruct b as [|x].
+    { destruct P as (H1&P1&P2). applys Triple_seq H1.
+      { applys~ IH. }
+      { intros X. applys~ IH. } }
+    { destruct P as (A1&EA1&Q1&P1&P2). applys Triple_let Q1.
+      { applys~ IH. }
+      { intros X. specializes P2 X.
+        unfold Subst1. applys~ IH. } } }
   { auto. }
   { hnf in P. destruct P as (Q'&P&HC). simpls.
     applys Triple_enc_change HC.
     applys P. { xlocal. } clears H Q. intros H Q P.
-    applys Rule_while_raw. applys Sound_for_Local (rm P).
-    clears A H Q Q'. intros A EA H Q (Q1&P1&P2). applys Rule_if.
+    applys Triple_while_raw. applys Sound_for_Local (rm P).
+    clears A H Q Q'. intros A EA H Q (Q1&P1&P2). applys Triple_if.
     { applys* IH. }
     { intros b. specializes P2 b. applys Sound_for_Local (rm P2).
       clears A H Q1. intros A EA H Q (b'&P1&P2&P3).
       asserts E: (b = b'). { destruct b; destruct b'; auto. }
       clears P1. subst b'. case_if as C.
       { forwards~ P2': (rm P2). applys Sound_for_Local (rm P2').
-        clears A H b. intros A EA H Q (H1&P1&P2). applys Rule_seq.
+        clears A H b. intros A EA H Q (H1&P1&P2). applys Triple_seq.
          { applys* IH. }
          { applys P2. } }
       { forwards~ P3': (rm P3). applys Sound_for_Local (rm P3').
-        clears A H b. intros A EA H Q (V&E&P). applys* Rule_val. } } }
+        clears A H b. intros A EA H Q (V&E&P). applys* Triple_val. } } }
   { destruct t1; tryfalse. destruct v0; tryfalse.
     destruct t2; tryfalse. destruct v0; tryfalse.
     renames z to n1, z0 to n2.
@@ -258,14 +260,14 @@ Proof using.
     applys Triple_enc_change HC. *)
     applys P. { intros; xlocal. } (* todo xlocal *)
     clears A H. intros i H Q P. applys Sound_for_Local (rm P).
-    clears A H. intros A EA H Q P. applys Rule_for_raw.
+    clears A H. intros A EA H Q P. applys Triple_for_raw.
     case_if as C.
     { applys Sound_for_Local (rm P). clears A H i.
-      intros A EA H Q (H1&P1&P2). applys Rule_seq.
-      { applys* IH. }
+      intros A EA H Q (H1&P1&P2). applys Triple_seq.
+      { applys* IH. unfolds~ Subst1. }
       { applys P2. } }
     { applys Sound_for_Local (rm P). clears A H i.
-      intros A EA H Q (V&E&P). applys* Rule_val. } }
+      intros A EA H Q (V&E&P). applys* Triple_val. } }
 Qed.
 
 Theorem Triple_of_Cf : forall (t:trm) A `{EA:Enc A} H (Q:A->hprop),
@@ -322,7 +324,7 @@ Notation "'`While' F1 'Do' F2 'Done'" :=
    : charac.
 
 Notation "'`For' x '=' n1 'To' n2 'Do' F3 'Done'" :=
-  (Local (Cf_for n1 n2 (fun x => F3)))
+  (Local (Cf_for_val n1 n2 (fun x => F3)))
   (at level 69, x ident,
    format "'[v' '`For'  x  '='  n1  'To'  n2  'Do'  '/' '[' F3 ']' '/'  'Done' ']'")
   : charac.
@@ -340,6 +342,7 @@ Proof using.
   introv M. rewrite <- Cf_unfold_iter in M. applys* Triple_of_Cf.
 Qed.
 
+(* todo: factorize with next lemma *)
 Lemma Triple_apps_funs_of_Cf_iter : forall n F (Vs:dyns) (vs:vals) xs t A `{EA:Enc A} H (Q:A->hprop),
   F = val_funs xs t ->
   vs = encs Vs ->
@@ -348,29 +351,29 @@ Lemma Triple_apps_funs_of_Cf_iter : forall n F (Vs:dyns) (vs:vals) xs t A `{EA:E
   Triple (trm_apps F vs) H Q.
 Proof using.
   introv EF EV N M. rewrite var_funs_exec_eq in N. rew_istrue in N.
-  subst. applys* Rule_apps_funs. applys* Triple_trm_of_Cf_iter.
+  subst. applys* Triple_apps_funs. applys* Triple_trm_of_Cf_iter.
 Qed.
 
-Lemma Triple_apps_fixs_of_Cf_iter : forall n F f (Vs:dyns) (vs:vals) xs t A `{EA:Enc A} H (Q:A->hprop),
+Lemma Triple_apps_fixs_of_Cf_iter : forall n F (f:var) (Vs:dyns) (vs:vals) xs t A `{EA:Enc A} H (Q:A->hprop),
   F = val_fixs f xs t ->
   vs = encs Vs ->
   var_fixs_exec f (length Vs) xs ->
-  func_iter n Cf_def Cf (subst f F (Substn xs Vs t)) A EA H Q ->
+  func_iter n Cf_def Cf (Substn (f::xs) ((Dyn F)::Vs) t) A EA H Q ->
   Triple (trm_apps (val_fixs f xs t) vs) H Q.
 Proof using.
   introv EF EV N M. rewrite var_fixs_exec_eq in N. rew_istrue in N.
-  subst. applys* Rule_apps_fixs. applys* Triple_trm_of_Cf_iter.
+  subst. applys* Triple_apps_fixs. applys* Triple_trm_of_Cf_iter.
 Qed.
 
 Definition Cf_while_inv (F1 F2 : Formula) := fun (H:hprop) (Q:unit->hprop) =>
   exists (A:Type) (I:bool->A->hprop) (R:A->A->Prop) H',
      wf R
-  /\ (H ==> Hexists b X, I b X \* H')
+  /\ (H ==> \exists b X, I b X \* H')
   /\ (forall (F:Formula), is_local (@F unit _) -> forall b X,
-      (forall b' X', R X' X -> ^F (I b' X') (fun (_:unit) => Hexists Y, I false Y)) ->
+      (forall b' X', R X' X -> ^F (I b' X') (fun (_:unit) => \exists Y, I false Y)) ->
       ^(Local (Cf_if F1 (Local (Cf_seq F2 F)) (Local (Cf_val val_unit))))
-        (I b X) (fun (_:unit) => Hexists Y, I false Y))
-  /\ ((fun (_:unit) => Hexists X, I false X \* H') ===> Q).
+        (I b X) (fun (_:unit) => \exists Y, I false Y))
+  /\ ((fun (_:unit) => \exists X, I false X \* H') ===> Q).
 
 Lemma Cf_while_of_Cf_while_inv : forall (F1 F2 : Formula) (H:hprop) (Q:unit->hprop),
   (Cf_while_inv F1 F2) H Q ->
@@ -378,12 +381,15 @@ Lemma Cf_while_of_Cf_while_inv : forall (F1 F2 : Formula) (H:hprop) (Q:unit->hpr
 Proof using.
   introv (A&I&R&H'&MR&MH&MB&MQ). exists Q; split; [|applys @PostChange_refl].
   intros F LF HF. xchange MH. xpull ;=> b X.
-  applys local_frame (I b X) H' (fun (_:unit) => Hexists Y, I false Y);
+  applys local_frame (I b X) H' (fun (_:unit) => \exists Y, I false Y);
    [ xlocal | | hsimpl | hchanges~ MQ ]. (* todo: change goal order in weakenpost*)
   gen b. induction_wf IH: MR X. intros. applys (rm HF).
   applys MB. xlocal. intros b' X' HR'. applys~ IH.
 Qed.
 
+
+
+(* DEPRECATED
 
 (* ********************************************************************** *)
 (* * CFLifted tactics *)
@@ -429,14 +435,14 @@ Ltac xspec_context G ::=
 (* ---------------------------------------------------------------------- *)
 (* ** Specification of primitives *)
 
-Hint Extern 1 (Register_Spec (val_prim val_ref)) => Provide Rule_ref.
-Hint Extern 1 (Register_Spec (val_prim val_get)) => Provide Rule_get.
-Hint Extern 1 (Register_Spec (val_prim val_set)) => Provide Rule_set.
-Hint Extern 1 (Register_Spec (val_prim val_alloc)) => Provide Rule_alloc.
-Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide Rule_eq.
-Hint Extern 1 (Register_Spec (val_prim val_add)) => Provide Rule_add.
-Hint Extern 1 (Register_Spec (val_prim val_sub)) => Provide Rule_sub.
-Hint Extern 1 (Register_Spec (val_prim val_ptr_add)) => Provide Rule_ptr_add.
+Hint Extern 1 (Register_Spec (val_prim val_ref)) => Provide Triple_ref.
+Hint Extern 1 (Register_Spec (val_prim val_get)) => Provide Triple_get.
+Hint Extern 1 (Register_Spec (val_prim val_set)) => Provide Triple_set.
+Hint Extern 1 (Register_Spec (val_prim val_alloc)) => Provide Triple_alloc.
+Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide Triple_eq.
+Hint Extern 1 (Register_Spec (val_prim val_add)) => Provide Triple_add.
+Hint Extern 1 (Register_Spec (val_prim val_sub)) => Provide Triple_sub.
+Hint Extern 1 (Register_Spec (val_prim val_ptr_add)) => Provide Triple_ptr_add.
 
 
 (*--------------------------------------------------------*)
@@ -550,7 +556,7 @@ Ltac xcf_get_fun_from_goal tt ::=
   match goal with |- Triple ?t _ _ => xcf_get_fun_from_trm t end.
 
 Ltac xcf_post tt ::=
-  simpl; rew_enc_dyn.
+  simpl; unfold subst1; simpl; rew_enc_dyn.
 
 Ltac xcf_trm n ::=
   applys Triple_trm_of_Cf_iter n; [ xcf_post tt ].
@@ -645,7 +651,7 @@ Ltac xvals_core tt ::=
 
 Ltac xval_as_basic X EX ::=
   match goal with
-  | |- Local ?F ?H ?Q => is_evar Q; applys local_erase; applys refl_rel_incl'
+  | |- Local ?F ?H ?Q => is_evar Q; applys local_erase; applys refl_qimpl
   | _ => applys xval_htop_as_lemma; intros X EX
   end.
 
@@ -738,7 +744,7 @@ Ltac xfail_core tt ::=
   Ltac xapply_core H cont1 cont2 :=
     forwards_nounfold_then H ltac:(fun K =>
       match xpostcondition_is_evar tt with
-      | true => eapply local_frame; [ xlocal | sapply K | cont1 tt | try apply refl_rel_incl' ]
+      | true => eapply local_frame; [ xlocal | sapply K | cont1 tt | try apply refl_qimpl ]
       | false => eapply local_frame_htop; [ xlocal | sapply K | cont1 tt | cont2 tt ]
       end).
 *)
@@ -777,7 +783,7 @@ Ltac fast_apply E :=
 Ltac xapply_core H cont1 cont2 ::=
   forwards_nounfold_then H ltac:(fun K =>
     match xpostcondition_is_evar tt with
-    | true => eapply local_frame; [ xlocal | fast_apply K | cont1 tt | try apply refl_rel_incl' ]
+    | true => eapply local_frame; [ xlocal | fast_apply K | cont1 tt | try apply refl_qimpl ]
     | false => eapply local_frame_htop; [ xlocal | fast_apply K | cont1 tt | cont2 tt ]
     end).
 
@@ -807,3 +813,6 @@ Ltac xwhile_basic xwhile_intros_tactic ::=
   applys local_erase;
   xformula_typed_elim tt;
   xwhile_intros_tactic tt.
+
+
+*)

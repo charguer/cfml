@@ -52,15 +52,15 @@ Inductive red : nat -> state -> trm -> state -> val -> Prop :=
       red n1 m1 t0 m2 (val_bool b) ->
       red n2 m2 (if b then t1 else t2) m3 r ->
       red (n1+n2) m1 (trm_if t0 t1 t2) m3 r
-  | red_let : forall n1 n2 m1 m2 m3 x t1 t2 v1 r,
+  | red_let : forall n1 n2 m1 m2 m3 z t1 t2 v1 r,
       red n1 m1 t1 m2 v1 ->
-      red n2 m2 (subst x v1 t2) m3 r ->
-      red (n1+n2) m1 (trm_let x t1 t2) m3 r
+      red n2 m2 (subst1 z v1 t2) m3 r ->
+      red (n1+n2) m1 (trm_let z t1 t2) m3 r
   | red_app_arg : forall n1 n2 n3 m1 m2 m3 m4 t1 t2 v1 v2 f x t r,
       red n1 m1 t1 m2 v1 ->
       red n2 m2 t2 m3 v2 ->
       v1 = val_fix f x t ->
-      red n3 m3 (subst f v1 (subst x v2 t)) m4 r ->
+      red n3 m3 (subst2 f v1 x v2 t) m4 r ->
       red (n1+n2+n3+1) m1 (trm_app t1 t2) m4 r
   | red_ref : forall ma mb v l,
       mb = (fmap_single l v) ->
@@ -77,7 +77,7 @@ Hint Resolve red_val.
 
 Lemma red_app_fix_val : forall n m1 m2 v1 v2 f x t r,
   v1 = val_fix f x t ->
-  red n m1 (subst f v1 (subst x v2 t)) m2 r ->
+  red n m1 (subst2 f v1 x v2 t) m2 r ->
   red (n+1) m1 (trm_app v1 v2) m2 r.
 Proof using.
   introv E M. subst. applys equates_5.
@@ -563,7 +563,7 @@ Definition pay_one H H' :=
 (* ---------------------------------------------------------------------- *)
 (* ** Structural rules *)
 
-Lemma rule_extract_hexists : forall t (A:Type) (J:A->hprop) Q,
+Lemma triple_extract_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, triple t (J x) Q) ->
   triple t (hexists J) Q.
 Proof using.
@@ -571,15 +571,15 @@ Proof using.
   destruct N as (x&N). applys* M.
 Qed.
 
-Lemma rule_extract_hprop : forall t (P:Prop) H Q,
+Lemma triple_extract_hprop : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
 Proof using.
-  intros t. applys (rule_extract_hprop_from_extract_hexists (triple t)).
-  applys rule_extract_hexists.
+  intros t. applys (triple_extract_hprop_from_extract_hexists (triple t)).
+  applys triple_extract_hexists.
 Qed.
 
-Lemma rule_consequence : forall t H' Q' H Q,
+Lemma triple_conseq : forall t H' Q' H Q,
   H ==> H' ->
   triple t H' Q' ->
   Q' ===> Q ->
@@ -590,7 +590,7 @@ Proof using.
   exists n h' v. splits~. { hhsimpl. hchanges~ (MQ v). }
 Qed.
 
-Lemma rule_frame : forall t H Q H',
+Lemma triple_frame : forall t H Q H',
   triple t H Q ->
   triple t (H \* H') (Q \*+ H').
 Proof using.
@@ -599,7 +599,7 @@ Proof using.
   exists n h' v. splits~. { hhsimpl~. }
 Qed.
 
-Lemma rule_htop_post : forall t H Q,
+Lemma triple_htop_post : forall t H Q,
   triple t H (Q \*+ \Top) ->
   triple t H Q.
 Proof using.
@@ -607,18 +607,18 @@ Proof using.
   exists n h' v. splits~. { rewrite <- htop_hstar_htop. hhsimpl. }
 Qed.
 
-Lemma rule_htop_pre : forall t H Q,
+Lemma triple_htop_pre : forall t H Q,
   triple t H Q ->
   triple t (H \* \Top) Q.
 Proof using.
-  introv M. applys rule_htop_post. applys~ rule_frame.
+  introv M. applys triple_htop_post. applys~ triple_frame.
 Qed.
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** Term rules *)
 
-Lemma rule_val : forall v H Q,
+Lemma triple_val : forall v H Q,
   H ==> Q v ->
   triple (trm_val v) H Q.
 Proof using.
@@ -627,9 +627,9 @@ Proof using.
   { hhsimpl. hchanges M. }
 Qed.
 
-Lemma rule_fix : forall f x t1 H Q,
-  H ==> Q (val_fix f x t1) ->
-  triple (trm_fix f x t1) H Q.
+Lemma triple_fix : forall (f z:bind) t1 H Q,
+  H ==> Q (val_fix f z t1) ->
+  triple (trm_fix f z t1) H Q.
 Proof using.
   introv M. intros HF h N. exists___. splits.
   { applys red_fix. }
@@ -640,7 +640,7 @@ Qed.
 Definition is_val_bool (v:val) : Prop :=
   exists b, v = val_bool b.
 
-Lemma rule_if : forall Q1 t0 t1 t2 H Q,
+Lemma triple_if : forall Q1 t0 t1 t2 H Q,
   triple t0 H Q1 ->
   (forall (b:bool), triple (if b then t1 else t2) (Q1 b) Q) ->
   (forall v, ~ is_val_bool v -> (Q1 v) ==> \[False]) ->
@@ -661,21 +661,21 @@ Proof using.
     lets: hpure_inv Z. false*. } (* TODO: shorten this *)
 Qed.
 
-Lemma rule_if_bool : forall (b:bool) t1 t2 H Q,
+Lemma triple_if_bool : forall (b:bool) t1 t2 H Q,
   (b = true -> triple t1 H Q) ->
   (b = false -> triple t2 H Q) ->
   triple (trm_if b t1 t2) H Q.
 Proof using.
-  introv M1 M2. applys rule_if (fun r => \[r = val_bool b] \* H).
-  { applys rule_val. hsimpl~. }
-  { intros b'. applys~ rule_extract_hprop. intros E. inverts E. case_if*. }
+  introv M1 M2. applys triple_if (fun r => \[r = val_bool b] \* H).
+  { applys triple_val. hsimpl~. }
+  { intros b'. applys~ triple_extract_hprop. intros E. inverts E. case_if*. }
   { intros v' N. hpull. intros E. inverts~ E. false N. hnfs*. }
 Qed.
 
-Lemma rule_let : forall x t1 t2 H Q Q1,
+Lemma triple_let : forall z t1 t2 H Q Q1,
   triple t1 H Q1 ->
-  (forall (X:val), triple (subst x X t2) (Q1 X) Q) ->
-  triple (trm_let x t1 t2) H Q.
+  (forall (X:val), triple (subst1 z X t2) (Q1 X) Q) ->
+  triple (trm_let z t1 t2) H Q.
 Proof using.
   introv M1 M2. intros HF h N.
   lets~ (n1&h1'&v1&R1&K1&C1): (rm M1) HF h.
@@ -686,20 +686,20 @@ Proof using.
   { math. }
 Qed.
 
-Lemma rule_let_val : forall x v1 t2 H Q,
-  (forall (X:val), X = v1 -> triple (subst x X t2) H Q) ->
-  triple (trm_let x (trm_val v1) t2) H Q.
+Lemma triple_let_val : forall z v1 t2 H Q,
+  (forall (X:val), X = v1 -> triple (subst1 z X t2) H Q) ->
+  triple (trm_let z (trm_val v1) t2) H Q.
 Proof using.
   introv M. forwards~ M': (rm M).
-  applys_eq~ (>> rule_let H (fun x => \[x = v1] \* H)) 2.
-  { applys rule_val. hsimpl~. }
-  { intros X. applys rule_extract_hprop. intro_subst. applys M'. }
+  applys_eq~ (>> triple_let H (fun x => \[x = v1] \* H)) 2.
+  { applys triple_val. hsimpl~. }
+  { intros X. applys triple_extract_hprop. intro_subst. applys M'. }
 Qed.
 
-Lemma rule_app_fix : forall f x F V t1 H H' Q,
+Lemma triple_app_fix : forall f x F V t1 H H' Q,
   F = (val_fix f x t1) ->
   pay_one H H' ->
-  triple (subst f F (subst x V t1)) H' Q ->
+  triple (subst2 f F x V t1) H' Q ->
   triple (trm_app F V) H Q.
 Proof using.
   introv EF HP M. intros HF h N. unfolds pay_one.
@@ -717,10 +717,10 @@ Qed.
 Section RulesPrimitiveOps.
 Transparent hstar hsingle.
 
-Lemma rule_ref : forall v,
-  triple (val_ref v) 
+Lemma triple_ref : forall v,
+  triple (val_ref v)
     \[]
-    (fun r => Hexists l, \[r = val_loc l] \* l ~~~> v).
+    (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
 Proof using.
   intros. intros HF h N. rew_heap in N.
   forwards~ (l&Dl&Nl): (fmap_single_fresh null (h^s) v).
@@ -732,7 +732,7 @@ Proof using.
     { splits~. hhsimpl~. } }
 Qed.
 
-Lemma rule_get : forall v l,
+Lemma triple_get : forall v l,
   triple (val_get (val_loc l))
     (l ~~~> v)
     (fun x => \[x = v] \* (l ~~~> v)).
@@ -745,8 +745,8 @@ Proof using.
   { rew_heap. rewrite hstar_pure. split~. hhsimpl~. }
 Qed.
 
-Lemma rule_set : forall w l v,
-  triple (val_set (val_loc l) w) 
+Lemma triple_set : forall w l v,
+  triple (val_set (val_loc l) w)
     (l ~~~> v)
     (fun r => \[r = val_unit] \* l ~~~> w).
 Proof using.
@@ -868,18 +868,20 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Derived rule for let-binding of a recursive function *)
 
+(* TEMPORARY *)
+
 Definition spec_fix (f:var) (x:var) (t1:trm) (F:val) :=
   forall X H H' Q,
     pay_one H H' ->
-    triple (subst f F (subst x X t1)) H' Q ->
+    triple (subst2 f F x X t1) H' Q ->
     triple (trm_app F X) H Q.
 
-Lemma rule_let_fix : forall f x t1 t2 H Q,
-  (forall (F:val), spec_fix f x t1 F -> triple (subst f F t2) H Q) ->
+Lemma triple_let_fix : forall f x t1 t2 H Q,
+  (forall (F:val), spec_fix f x t1 F -> triple (subst1 f F t2) H Q) ->
   triple (trm_let f (trm_fix f x t1) t2) H Q.
 Proof using.
-  introv M. applys rule_let (fun F => \[spec_fix f x t1 F] \* H).
-  { applys rule_fix. hsimpl~.
-    intros F H' H'' Q' M1 M2. applys* rule_app_fix. }
-  { intros F. applys rule_extract_hprop. applys M. }
+  introv M. applys triple_let (fun F => \[spec_fix f x t1 F] \* H).
+  { applys triple_fix. hsimpl~.
+    intros F H' H'' Q' M1 M2. applys* triple_app_fix. }
+  { intros F. applys triple_extract_hprop. applys M. }
 Qed.

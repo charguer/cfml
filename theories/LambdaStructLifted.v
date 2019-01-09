@@ -18,65 +18,36 @@ Generalizable Variables A.
 Ltac auto_star ::= jauto.
 
 
-(* TODO: move to TLC buffer *)
-
-Lemma list2_ind : forall A B (P:list A->list B->Prop) l1 l2,
-  length l1 = length l2 ->  
-  P nil nil ->
-  (forall x1 xs1 x2 xs2, P xs1 xs2 -> P (x1::xs1) (x2::xs2)) -> 
-  P l1 l2.
-Proof using.
-  introv E M1 M2. gen l2. induction l1 as [|x1 l1']; intros;
-   destruct l2 as [|x2 l2']; try solve [false; math]; auto.
-Qed.
-
-Tactic Notation "list2_ind" constr(l1) constr(l2) :=
-  pattern l2; pattern l1;
-  match goal with |- (fun a => (fun b => @?P a b) _) _ => 
-   (* applys list2_ind P *)
-   let X := fresh "P" in set (X := P); applys list2_ind X; unfold X; try clear X
- end.
-
-Tactic Notation "list2_ind" "~" constr(l1) constr(l2) :=
-  list2_ind l1 l2; auto_tilde.
-
-Tactic Notation "list2_ind" "*" constr(l1) constr(l2) :=
-  list2_ind l1 l2; auto_star.
-
-Tactic Notation "list2_ind" constr(E) :=
-  match type of E with length ?l1 = length ?l2 =>
-    list2_ind l1 l2; [ apply E | | ] end.
 
 
 (* ********************************************************************** *)
 (* * Derived basic functions, useful for metaprogramming *)
 
 (* ---------------------------------------------------------------------- *)
-(* ** Rewriting lemmas for [Subst] *)
+(* ** Rewriting lemmas for [Substn] *)
 
-Lemma Subst_seq : forall x V t1 t2,
-  Subst x V (trm_seq t1 t2) = trm_seq (Subst x V t1) (Subst x V t2).
-Proof using. auto. Qed.
-
-(* LATER: complete *)
+Lemma Substn_cons : forall x xs V Vs t,
+  Substn (x::xs) (V::Vs) t = Substn xs Vs (Subst1 x V t).
+Proof using.
+  intros. unfold Substn, Subst1, encs. simpl.
+  rewrite~ substn_cons.
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Rewriting lemmas for [Substn] *)
+(* ** Rewriting lemmas for [Subst] and [Substn] *)
 
-(** LATER: might find it useful to state definition and properties of [Substs] *)
-
-Lemma Substn_cons : forall x xs V Vs t,
-  Substn (x::xs) (V::Vs) t = Substn xs Vs (Subst x V t).
+Lemma Subst_seq : forall x V t1 t2,
+  Subst1 x V (trm_seq t1 t2) = trm_seq (Subst1 x V t1) (Subst1 x V t2).
 Proof using. auto. Qed.
 
 Lemma Substn_val : forall xs Vs (v:val),
   length Vs = length xs ->
   Substn xs Vs v = v.
 Proof using.
-  introv E. list2_ind E; [|=> x xs' V Vs' IH].
+  introv E. list2_ind E; [|=> x xs' V Vs' L IH].
   { auto. }
-  { rewrite Substn_cons. unfold Subst. simpl. rewrite~ IH. }
+  { rewrite Substn_cons. unfold Subst1, subst1. simpl. rewrite~ IH. }
 Qed.
 
 Lemma Substn_var_neq : forall xs (Vs:dyns) x,
@@ -84,19 +55,19 @@ Lemma Substn_var_neq : forall xs (Vs:dyns) x,
   length Vs = length xs ->
   Substn xs Vs (trm_var x) = trm_var x.
 Proof using.
-  introv N E. gen N. list2_ind E; [|=> y ys' V Vs' IH]; intros N.
+  introv N E. gen N. list2_ind E; [|=> y ys' V Vs' L IH]; intros N.
   { auto. }
-  { rewrite Substn_cons. unfold Subst. simpls.
-    case_if in N. case_if. rewrite~ IH. }
+  { rewrite Substn_cons. unfold Subst1, subst1. simpls.
+    rewrite var_eq_spec in *. case_if in N. case_if. rewrite~ IH. }
 Qed.
 
 Lemma Substn_seq : forall xs Vs t1 t2,
   length xs = length Vs ->
   Substn xs Vs (trm_seq t1 t2) = trm_seq (Substn xs Vs t1) (Substn xs Vs t2).
 Proof using.
-  introv E. gen t1 t2. list2_ind E; [|=> y ys' V Vs' IH]; intros.
+  introv E. gen t1 t2. list2_ind E; [|=> y ys' V Vs' L IH]; intros.
   { auto. }
-  { do 3 rewrite Substn_cons. unfold Subst. simpl. rewrite~ IH. }
+  { do 3 rewrite Substn_cons. unfold Subst1, subst1. simpl. rewrite~ IH. }
 Qed.
 
 Lemma Substn_let : forall xs (Vs:dyns) x t1 t2,
@@ -104,19 +75,19 @@ Lemma Substn_let : forall xs (Vs:dyns) x t1 t2,
   length Vs = length xs ->
   Substn xs Vs (trm_let x t1 t2) = trm_let x (Substn xs Vs t1) (Substn xs Vs t2).
 Proof using.
-  introv N E. gen t1 t2 N. list2_ind E; [|=> y ys' V Vs' IH]; intros.
+  introv N E. gen t1 t2 N. list2_ind E; [|=> y ys' V Vs' L IH]; intros.
   { auto. }
-  { do 3 rewrite Substn_cons. unfold Subst. simpls.
-    case_if in N. case_if. rewrite~ IH. }
+  { do 3 rewrite Substn_cons. unfold Subst1, subst1. simpls.
+    rewrite var_eq_spec in *. case_if in N. case_if. rewrite~ IH. }
 Qed.
 
 Lemma Substn_app : forall xs (Vs:dyns) t1 t2,
   length Vs = length xs ->
   Substn xs Vs (trm_app t1 t2) = trm_app (Substn xs Vs t1) (Substn xs Vs t2).
 Proof using.
-  introv E. gen t1 t2. list2_ind E; [|=> y ys' V Vs' IH]; intros.
+  introv E. gen t1 t2. list2_ind E; [|=> y ys' V Vs' L IH]; intros.
   { auto. }
-  { repeat rewrite Substn_cons. unfold Subst. simpl. rewrite~ IH. }
+  { repeat rewrite Substn_cons. unfold Subst1, subst1. simpl. rewrite~ IH. }
 Qed.
 
 (* LATER: complete *)
@@ -128,7 +99,7 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Increment *)
 
-Lemma Rule_incr : forall (p:loc) (n:int),
+Lemma Triple_incr : forall (p:loc) (n:int),
   Triple (val_incr ``p)
     PRE (p ~~> n)
     POST (fun (r:unit) => p ~~> (n+1)).
@@ -136,7 +107,7 @@ Proof using.
   xcf. xapps. xapps. xapps. hsimpl~.
 Qed.
 
-Hint Extern 1 (Register_Spec val_incr) => Provide Rule_incr.
+Hint Extern 1 (Register_Spec val_incr) => Provide Triple_incr.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -144,7 +115,7 @@ Hint Extern 1 (Register_Spec val_incr) => Provide Rule_incr.
 
 (** [val_decr] defined in [ExampleBasicNonLifted.v] *)
 
-Lemma Rule_decr : forall (p:loc) (n:int),
+Lemma Triple_decr : forall (p:loc) (n:int),
   Triple (val_decr ``p)
     PRE (p ~~> n)
     POST (fun (r:unit) => p ~~> (n-1)).
@@ -152,28 +123,28 @@ Proof using.
   xcf. xapps. xapps. xapps. hsimpl~.
 Qed.
 
-Hint Extern 1 (Register_Spec val_decr) => Provide Rule_decr.
+Hint Extern 1 (Register_Spec val_decr) => Provide Triple_decr.
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** Negation *)
 
-Lemma Rule_not : forall (b:bool),
+Lemma Triple_not : forall (b:bool),
   Triple (val_not b)
     PRE \[]
     POST (fun b' => \[b' = !b]).
 Proof using.
-  intros. unfold Triple, Post. xapply rule_not. (*todo: xapplys bug *)
+  intros. unfold Triple, Post. xapply triple_not. (*todo: xapplys bug *)
   hsimpl. hpull. intros. subst. hsimpl~ (!b).
 Qed.
 
-Hint Extern 1 (Register_Spec val_not) => Provide Rule_not.
+Hint Extern 1 (Register_Spec val_not) => Provide Triple_not.
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** Disequality *)
 
-Lemma Rule_neq : forall `{EA:Enc A} (v1 v2:A),
+Lemma Triple_neq : forall `{EA:Enc A} (v1 v2:A),
   Enc_injective EA ->
   Triple (val_neq ``v1 ``v2)
     PRE \[]
@@ -181,10 +152,10 @@ Lemma Rule_neq : forall `{EA:Enc A} (v1 v2:A),
 Proof using.
   intros. xcf.
   xapps~. (* Details: xlet. xapp~.xpull ;=> X E. subst. *)
-  xapps. isubst. hsimpl. rew_isTrue~.
+  xapps. intros ? ->. hsimpl. rew_isTrue~.
 Qed.
 
-Hint Extern 1 (Register_Spec val_neq) => Provide Rule_neq.
+Hint Extern 1 (Register_Spec val_neq) => Provide Triple_neq.
 
 
 (* ********************************************************************** *)
@@ -269,27 +240,27 @@ Delimit Scope fields_scope with fields.
 (* ---------------------------------------------------------------------- *)
 (* ** Derived small-footprint lifted specifications for records *)
 
-Section Rule_fields.
+Section Triple_fields.
 Transparent Hfield.
 
-Lemma Rule_get_field : forall (l:loc) f `{EA:Enc A} (V:A),
+Lemma Triple_get_field : forall (l:loc) f `{EA:Enc A} (V:A),
   Triple ((val_get_field f) l)
     PRE (l `.` f ~~> V)
     POST (fun r => \[r = V] \* (l `.` f ~~> V)).
 Proof using.
-  intros. unfold Triple, Post. rewrite Hfield_to_hfield. xapplys~ rule_get_field.
+  intros. unfold Triple, Post. rewrite Hfield_to_hfield. xapplys~ triple_get_field.
 Qed.
 
-Lemma Rule_set_field : forall `{EA1:Enc A1} (V1:A1) (l:loc) f `{EA2:Enc A2} (V2:A2),
+Lemma Triple_set_field : forall `{EA1:Enc A1} (V1:A1) (l:loc) f `{EA2:Enc A2} (V2:A2),
   Triple ((val_set_field f) l ``V2)
     PRE (l `.` f ~~> V1)
     POST (fun (r:unit) => l `.` f ~~> V2).
 Proof using.
-  intros. unfold Triple, Post. rewrite Hfield_to_hfield. xapply~ rule_set_field.
+  intros. unfold Triple, Post. rewrite Hfield_to_hfield. xapply~ triple_set_field.
   hsimpl. hsimpl~ tt.
 Qed.
 
-End Rule_fields.
+End Triple_fields.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -323,7 +294,7 @@ Proof using.
   induction L as [|[F D] L']; [false|].
   destruct D as [A EA V]. simpl in E.
   xunfold Record at 1. xunfold Record at 2. case_if. (*--todo fix subst *)
-  { subst. inverts E. xapplys~ Rule_get_field. }
+  { subst. inverts E. xapplys~ Triple_get_field. }
   { specializes IHL' (rm E). xapplys~ IHL'. }
 Qed.
 
@@ -356,7 +327,7 @@ Proof using.
   gen L'. induction L as [|[f' D] T]; intros; [false|].
   destruct D as [A' EA' V]. simpl in E.
   xunfold Record at 1. simpl. case_if. (*--todo fix subst *)
-  { subst. inverts E. xapply~ Rule_set_field. intros _. xunfold Record at 2. simpl. hsimpl. }
+  { subst. inverts E. xapply~ Triple_set_field. intros _. xunfold Record at 2. simpl. hsimpl. }
   { cases (record_set_compute_dyn f (Dyn W) T) as C'; [|false].
     inverts E. specializes~ IHT r. xapply IHT. hsimpl.
     intros. xunfold Record at 2. simpl. hsimpl~. }
@@ -368,7 +339,7 @@ Global Opaque Record.
 (* ---------------------------------------------------------------------- *)
 (* ** Tactics for generating specifications for get and set on records *)
 
-(** Auxiliary tactic to read the record state from the pre-condition *)
+(** Auxiliary tactic to read the record state from the precondition *)
 
 Ltac xspec_record_repr_compute r H :=
   match H with context [ r ~> Record ?L ] => constr:(L) end.
@@ -436,7 +407,7 @@ Transparent Record repr loc.
 
 Lemma Alloc2_to_Record : forall p, p <> null ->
   Alloc (abs 2) p ==>
-    Hexists (v1:val) (v2:val),
+    \exists (v1:val) (v2:val),
     (p ~> Record `{ (0%nat) := v1; (1%nat) := v2}).
 Proof using.
   introv Np. change (abs 2) with 2%nat. rew_Alloc.
@@ -453,7 +424,7 @@ Lemma Alloc_to_Record : forall (p:loc) (start:nat) (n:nat),
   p <> null ->
   let xs := nat_seq start n in
       Alloc n (p+start)%nat
-  ==> Hexists (Vs:dyns), \[length Vs = n] \* p ~> Record (combine xs Vs).
+  ==> \exists (Vs:dyns), \[length Vs = n] \* p ~> Record (combine xs Vs).
 Proof using.
   introv Np. gen start. induction n; intros; rew_Alloc.
   { subst. hsimpl (@nil dyn). rew_list~. }
@@ -480,12 +451,12 @@ Definition val_new_record_2 :=
     val_set_field 1%nat 'p 'y;;;
     'p.
 
-Lemma Rule_new_record_2 : forall `{EA1:Enc A1} `{EA2:Enc A2} (v1:A1) (v2:A2),
+Lemma Triple_new_record_2 : forall `{EA1:Enc A1} `{EA2:Enc A2} (v1:A1) (v2:A2),
   Triple (val_new_record_2 ``v1 ``v2)
     PRE \[]
     POST (fun p => p ~> Record`{ 0%nat := v1 ; 1%nat := v2 }).
 Proof using.
-  xcf. xapp Rule_alloc as p. { math. } (* TODO: try Rule_alloc_nat *)
+  xcf. xapp Triple_alloc as p. { math. } (* TODO: try Triple_alloc_nat *)
   intros Np. xchanges~ Alloc2_to_Record ;=> w1 w2.
   xapp. xapp. xval~. hsimpl.
 Qed.
@@ -508,14 +479,14 @@ Lemma Subst_new_record_aux : forall (n':nat) fs xs Vs (i n:nat) (p:loc),
   xs = var_seq i n' ->
   (i + n' = n)%nat ->
   let N := nat_to_var n in
-    (Subst N (Dyn p) (Substn xs Vs (fold_right (fun f t => trm_seq (val_set_field (f:field) (trm_var N) (nat_to_var f)) t) (trm_var N) fs)))
+    (Subst1 N (Dyn p) (Substn xs Vs (fold_right (fun f t => trm_seq (val_set_field (f:field) (trm_var N) (nat_to_var f)) t) (trm_var N) fs)))
   =  fold_right (fun fV t => let '(f,V) := fV in trm_seq (val_set_field (f:field) p (enc V)) t) p (LibList.combine fs Vs).
 Proof using.
   intros n'. induction n' as [|n'']; introv LVs Efs Exs Ein; intros N.
   { destruct xs; [|rew_list in *; false; math].
     destruct fs; [|rew_list in *; false; math].
     destruct Vs; [|rew_list in *; false; math].
-    rew_listx. unfold Subst. simpl. case_if~. }
+    rew_listx. unfold Subst1, subst1. simpl. rewrite var_eq_spec. case_if~. }
   { hide IHn''. destruct xs as [|x xs']; [rew_list in *; false; math|].
     destruct fs as [|f fs']; [rew_list in *; false; math|].
     destruct Vs as [|V Vs']; [rew_list in *; false; math|].
@@ -527,36 +498,36 @@ Proof using.
     { intros E. subst x. lets: injective_nat_to_var E. math. }
     rewrite <- Ex. rewrite <-Exs'. rew_listx.
     rewrite Substn_cons. rewrite Subst_seq. rewrite <- Ex.
-    asserts_rewrite (Subst x V (val_set_field f N (trm_var x))
+    asserts_rewrite (Subst1 x V (val_set_field f N (trm_var x))
                      = val_set_field f N (enc V)).
-    { unfold Subst. simpl. case_if. case_if~. }
+    { unfold Subst1, subst1. simpl. repeat rewrite var_eq_spec. case_if. case_if~. }
     rewrite~ Substn_seq.
     asserts_rewrite (Substn xs' Vs' (val_set_field f N ``V)
                     = (val_set_field f N ``V)).
     { do 2 rewrite~ Substn_app. do 2 rewrite~ Substn_val. rewrite~ Substn_var_neq.
       { rewrite Exs'. applys var_fresh_var_seq_ge. math. } }
     rewrite~ Subst_seq.
-    asserts_rewrite (Subst N (Dyn p) (val_set_field f N ``V) = val_set_field f p ``V).
-    { unfold Subst; simpl. case_if~. } (* todo: lemma Subst_var *)
+    asserts_rewrite (Subst1 N (Dyn p) (val_set_field f N ``V) = val_set_field f p ``V).
+    { unfold Subst1, subst1; simpl. rewrite var_eq_spec. case_if~. } (* todo: lemma Subst_var *)
     fequals.
-    match goal with |- context [Subst x V ?t'] => set (t:=t') end.
-    asserts_rewrite (Subst x V t = t).
+    match goal with |- context [Subst1 x V ?t'] => set (t:=t') end.
+    asserts_rewrite (Subst1 x V t = t).
     { subst x. cuts K: (forall n' i,
        (f < i)%nat ->
         let t := @fold_right nat trm (fun f' t =>
            trm_seq (val_set_field f' N (nat_to_var f')) t) N (nat_seq i n') in
-       Subst (nat_to_var f) V t = t).
+       Subst1 (nat_to_var f) V t = t).
      { applys K. math. }
      intros n'. gen Nxn. clears_all. induction n'; introv L; intros; subst t.
-     { simpl. unfold Subst. simpl. case_if~. } (*todo: Subst_var_neq.*)
+     { simpl. unfold Subst1, subst1. simpl. rewrite var_eq_spec. case_if~. } (*todo: Subst_var_neq.*)
      { simpl. rewrite Subst_seq. fequals.
-       { unfold Subst. simpl. case_if as C. case_if as C'.
+       { unfold Subst1, subst1. simpl. repeat rewrite var_eq_spec. case_if as C. case_if as C'.
          { lets: injective_nat_to_var C'. false; math. } { auto. } }
        { rewrite~ IHn'. } } }
     applys~ IHn'' Exs'; try math. }
 Qed.
 
-Lemma Rule_new_record : forall (n:nat) (Vs:dyns),
+Lemma Triple_new_record : forall (n:nat) (Vs:dyns),
   (n > 0)%nat ->
   n = length Vs ->
   let fs := nat_seq 0%nat n in
@@ -564,16 +535,16 @@ Lemma Rule_new_record : forall (n:nat) (Vs:dyns),
     PRE \[]
     POST (fun p => p ~> Record (combine fs Vs)).
 Proof using.
-  introv HP LVs. intros fs. applys Rule_apps_funs.
+  introv HP LVs. intros fs. applys Triple_apps_funs.
   { reflexivity. }
   { subst. applys~ var_funs_var_seq. }
   { set (xs := var_seq 0 n).
     asserts EL: (length Vs = length xs). { unfold xs. rewrite~ length_var_seq. }
     rewrite Substn_let; [| applys var_fresh_var_seq_ge; math | auto ].
     asserts_rewrite (Substn xs Vs (val_alloc n) = val_alloc n).
-    { rewrite~ Substn_app. rewrite~ Substn_val. do 2 rewrite~ Substn_val. }
-    eapply (@Rule_let _ _ _ _ _ _ _ loc). (* todo: cleanup *)
-    { xapplys Rule_alloc_nat. }
+    { rewrite~ Substn_app. (* rewrite~ Substn_val. do 2 rewrite~ Substn_val. *) }
+    eapply (@Triple_let _ _ _ _ _ _ _ loc). (* todo: cleanup *)
+    { xapplys Triple_alloc_nat. }
     { intros p. xpull ;=> Np. xchange~ (@Alloc_to_Record p 0%nat).
       { math_rewrite ((p+0)%nat = p). hsimpl. } (* todo simplify *)
         xpull ;=> Ws LWs. fold xs. fold fs.
@@ -588,21 +559,21 @@ Proof using.
           destruct Vs; [|rew_list in *; false; math].
           destruct Ws; [|rew_list in *; false; math].
           rew_list in *. subst. simpls.
-          applys~ Rule_val p. hsimpl~. }
+          applys~ Triple_val p. hsimpl~. }
         { destruct xs as [|xs']; [rew_list in *; false; math|].
           destruct Vs as [|V Vs']; [rew_list in *; false; math|].
           destruct Ws as [|W Ws'] ; [rew_list in *; false; math|].
           rew_list in *. simpl in fs. subst fs.
           do 2 rewrite combine_cons. rew_listx.
-            rewrite Record_cons. applys Rule_seq.
-            { xapplys @Rule_set_field. }
+            rewrite Record_cons. applys Triple_seq.
+            { xapplys @Triple_set_field. }
             { simpl. lets M: (>> IHn' (S start) Vs' Ws' __);
               try rewrite length_var_seq; try math.
               xapply M. { hsimpl. }
               { intros p'. rewrite Record_cons. hsimpl~. } } } } }
 Qed.
 
-Lemma Rule_new_record' : forall (n:nat) (Vs:dyns) (vs:vals) (Q:loc->hprop),
+Lemma Triple_new_record' : forall (n:nat) (Vs:dyns) (vs:vals) (Q:loc->hprop),
   vs = (encs Vs) ->
   (n = List.length Vs)%nat ->
   (n > 0)%nat ->
@@ -612,20 +583,20 @@ Lemma Rule_new_record' : forall (n:nat) (Vs:dyns) (vs:vals) (Q:loc->hprop),
 Proof using.
   introv E HL HP HQ. rewrite List_length_eq in HL.
   rewrite List_combine_eq in HQ; [| rewrite~ length_nat_seq].
-  subst. xapply~ Rule_new_record. hsimpl. hchanges~ HQ.
+  subst. xapply~ Triple_new_record. hsimpl. hchanges~ HQ.
 Qed.
 
-(** Tactic [xrule_new_record] for proving the specification
+(** Tactic [xtriple_new_record] for proving the specification
     triple for the allocation of a specific record.
     For an example, check out in [ExampleTree.v],
-    Definition [val_new_node] and Lemma [Rule_new_node]. *)
+    Definition [val_new_node] and Lemma [Triple_new_node]. *)
 
-Ltac xrule_new_record_core tt :=
-  intros; rew_nary; rew_vals_to_trms; applys Rule_new_record';
+Ltac xtriple_new_record_core tt :=
+  intros; rew_nary; rew_vals_to_trms; applys Triple_new_record';
   [ xeq_encs | auto | math | hsimpl ].
 
-Tactic Notation "xrule_new_record" :=
-  xrule_new_record_core tt.
+Tactic Notation "xtriple_new_record" :=
+  xtriple_new_record_core tt.
 
 
 (* ********************************************************************** *)
@@ -686,7 +657,7 @@ Transparent loc. (* TODO: avoid the need for this by
 
 Lemma Array_middle_eq : forall n p L,
   0 <= n < length L ->
-  (p ~> Array L) = Hexists L1 x L2, \[L = L1++x::L2] \* \[length L1 = n :> int] \*
+  (p ~> Array L) = \exists L1 x L2, \[L = L1++x::L2] \* \[length L1 = n :> int] \*
     p ~> Array L1 \* (abs(p+n) ~~> x) \* (p + length L1 + 1)%nat ~> Array L2.
 Proof using.
   intros. repeat rewrite Array_unlift.
@@ -706,13 +677,13 @@ End ArrayProp.
 
 Global Opaque Array.
 
-Lemma Rule_alloc_array : forall n,
+Lemma Triple_alloc_array : forall n,
   n >= 0 ->
   Triple (val_alloc ``n)
     PRE \[]
-    POST (fun p => Hexists (L:list val), \[length L = n :> int] \* p ~> Array L).
+    POST (fun p => \exists (L:list val), \[length L = n :> int] \* p ~> Array L).
 Proof using.
-  intros. unfold Triple. xapplys~ rule_alloc_array.
+  intros. unfold Triple. xapplys~ triple_alloc_array.
   intros r x L. intros E N. subst. unfold Post. hsimpl~ L.
   rewrite Array_unlift. rewrite map_id_ext. hsimpl.
   { intros v. rewrite~ enc_val_eq. }
@@ -727,45 +698,45 @@ Implicit Types L : list A.
 
 Hint Resolve index_map.
 
-Lemma Rule_array_get : forall p i L,
+Lemma Triple_array_get : forall p i L,
   index L i ->
   Triple (val_array_get ``p ``i)
     PRE (p ~> Array L)
     POST (fun (r:A) => \[r = L[i]] \* p ~> Array L).
 Proof using.
   intros. unfold Triple. rewrite Array_unlift.
-  xapplys~ rule_array_get. intros r E.
+  xapplys~ triple_array_get. intros r E.
  lets M: (@read_map A _ val) L. rewrites~ (rm M) in E. (* todo: polish *)
   unfold Post. subst. hsimpl*.
 Qed.
 
-Hint Extern 1 (Register_Spec val_array_get) => Provide Rule_array_get.
+Hint Extern 1 (Register_Spec val_array_get) => Provide Triple_array_get.
 
-Lemma Rule_array_set : forall p i v L,
+Lemma Triple_array_set : forall p i v L,
   index L i ->
   Triple (val_array_set ``p ``i ``v)
     PRE (p ~> Array L)
     POST (fun (_:unit) => p ~> Array (L[i:=v])).
 Proof using.
   intros. unfold Triple. rewrite Array_unlift.
-  xapplys~ rule_array_set. intros r E.
+  xapplys~ triple_array_set. intros r E.
   rewrite~ <- map_update.
   unfold Post. subst. rewrite Array_unlift. hsimpl~ tt.
 Qed.
 
-Hint Extern 1 (Register_Spec val_array_set) => Provide Rule_array_set.
+Hint Extern 1 (Register_Spec val_array_set) => Provide Triple_array_set.
 
-Lemma Rule_array_make : forall n v,
+Lemma Triple_array_make : forall n v,
   n >= 0 ->
   Triple (val_array_make ``n ``v)
     PRE \[]
-    POST (fun p => Hexists L, \[L = make n v] \* p ~> Array L).
+    POST (fun p => \exists L, \[L = make n v] \* p ~> Array L).
 Proof using.
-  intros. unfold Triple. xapplys~ rule_array_make.
+  intros. unfold Triple. xapplys~ triple_array_make.
   intros r p L E N. unfold Post. hsimpl~ p (make n v).
   rewrite Array_unlift. subst L. rewrite map_make; [|math]. hsimpl.
 Qed.
 
-Hint Extern 1 (Register_Spec val_array_make) => Provide Rule_array_make.
+Hint Extern 1 (Register_Spec val_array_make) => Provide Triple_array_make.
 
 End ArrayRules.

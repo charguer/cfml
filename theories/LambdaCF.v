@@ -10,7 +10,7 @@ License: MIT.
 
 Set Implicit Arguments.
 From TLC Require Export LibFix.
-From Sep Require Export LambdaSep LambdaCFTactics.
+From Sep Require Export LambdaSep.
 Open Scope heap_scope.
 
 Implicit Types v w : val.
@@ -70,7 +70,7 @@ Definition cf_while (F1 F2:formula) : formula := fun H Q =>
   (forall H' Q', F H' Q' -> R H' Q') ->
   R H Q.
 
-Definition cf_for (v1 v2:val) (F3:int->formula) : formula := fun H Q =>
+Definition cf_for_val (v1 v2:val) (F3:int->formula) : formula := fun H Q =>
   exists n1 n2, (v1 = val_int n1) /\ (v2 = val_int n2) /\
   (forall (S:int->formula), is_local_pred S ->
    let F i := local (If (i <= n2) then (cf_seq (F3 i) (S (i+1)))
@@ -88,20 +88,18 @@ Definition cf_for (v1 v2:val) (F3:int->formula) : formula := fun H Q =>
     function, and [cf] is then defined as the fixpoint of [cf_def].
     Subsequently, the fixed-point equation is established. *)
 
-Definition cf_def cf (t:trm) :=
+Definition cf_def cf (t:trm) : formula :=
   match t with
   | trm_val v => local (cf_val v)
   | trm_var x => local (cf_fail) (* unbound variable *)
-  | trm_fun x t1 => local (cf_val (val_fun x t1))
-  | trm_fix f x t1 => local (cf_val (val_fix f x t1))
+  | trm_fix f z t1 => local (cf_val (val_fix f z t1))
   | trm_if t0 t1 t2 => local (cf_if (cf t0) (cf t1) (cf t2))
-  | trm_seq t1 t2 => local (cf_seq (cf t1) (cf t2))
-  | trm_let x t1 t2 => local (cf_let (cf t1) (fun X => cf (subst x X t2)))
+  | trm_let z t1 t2 => local (cf_let (cf t1) (fun X => cf (subst1 z X t2)))
   | trm_app t1 t2 => local (triple t)
   | trm_while t1 t2 => local (cf_while (cf t1) (cf t2))
   | trm_for x t1 t2 t3 => local (
       match t1, t2 with
-      | trm_val v1, trm_val v2 => cf_for v1 v2 (fun X => cf (subst x X t3))
+      | trm_val v1, trm_val v2 => cf_for_val v1 v2 (fun X => cf (subst1 x X t3))
       | _, _ => cf_fail
       end)
   end.
@@ -111,16 +109,27 @@ Definition cf := FixFun cf_def.
 Ltac fixfun_auto := try solve [
   try fequals; auto; try apply fun_ext_1; auto ].
 
+Lemma trm_size_subst1 : forall t z v,
+  trm_size (subst1 z v t) = trm_size t.
+Proof using. intros. rewrite <- isubst1_eq_subst1. apply trm_size_isubst1. Qed.
+
+Ltac solve_measure_trm_size tt ::=
+  unfold measure in *; simpls; repeat rewrite trm_size_subst1; math.
+
 Lemma cf_unfold_iter : forall n t,
   cf t = func_iter n cf_def cf t.
 Proof using.
+  Opaque subst1.
   applys~ (FixFun_fix_iter (measure trm_size)). auto with wf.
   intros f1 f2 t IH. unfold cf_def.
-  destruct t; fequals.
-  { fequals~. }
-  { fequals~. }
-  { fequals~. applys~ fun_ext_1. }
-  { fequals~. }
+  destruct t.
+  { fequals. }
+  { fequals. }
+  { fequals. }
+  { fequals. fequals~. }
+  { fequals. fequals~. applys~ fun_ext_1. } 
+  { fequals. }
+  { fequal. (* later: why slow? *) fequals~. }
   { destruct t1; fequals~. destruct t2; fequals~.
     applys~ fun_ext_1. }
 Qed.
@@ -159,37 +168,33 @@ Proof using.
   intros t. induction_wf: trm_size t.
   rewrite cf_unfold. destruct t; simpl;
    try (applys sound_for_local; intros H Q P).
-  { unfolds in P. applys~ rule_val. hchanges~ P. }
+  { unfolds in P. applys~ triple_val. hchanges~ P. }
   { false. }
-  { unfolds in P. applys rule_fun. hchanges~ P. }
-  { unfolds in P. applys rule_fix. hchanges~ P. }
-  { destruct P as (Q1&P1&P2). applys rule_if.
+  { unfolds in P. applys triple_fix. hchanges~ P. }
+  { destruct P as (Q1&P1&P2). applys triple_if.
     { applys* IH. }
     { intros v. specializes P2 v. applys sound_for_local (rm P2).
       clears H Q Q1. intros H Q (b&P1'&P2'&P3'). inverts P1'.
       case_if; applys* IH. }
     { intros v N. specializes P2 v. applys local_extract_false P2.
       intros H' Q' (b&E&S1&S2). subst. applys N. hnfs*. } }
-  { destruct P as (H1&P1&P2). applys rule_seq (fun (r:val) => H1).
-    { applys~ IH. }
-    { intros X. applys~ IH. } }
-  { destruct P as (Q1&P1&P2). applys rule_let Q1.
+  { destruct P as (Q1&P1&P2). applys triple_let Q1.
     { applys~ IH. }
     { intros X. applys~ IH. } }
   { applys P. }
   { hnf in P. simpls. applys P. { xlocal. } clears H Q. intros H Q P.
-    applys rule_while_raw. applys sound_for_local (rm P).
-    clears H Q. intros H Q (Q1&P1&P2). applys rule_if.
+    applys triple_while_raw. applys sound_for_local (rm P).
+    clears H Q. intros H Q (Q1&P1&P2). applys triple_if.
     { applys* IH. }
     { intros b. specializes P2 b. applys sound_for_local (rm P2).
       clears H Q1 Q. intros H Q (b'&P1&P2&P3). inverts P1. case_if.
       { forwards~ P2': (rm P2). applys sound_for_local (rm P2').
         clears H Q b'. intros H Q (H1&P1&P2).
-        applys rule_seq.
+        applys triple_seq.
          { applys* IH. }
          { hnf ;=> _. applys P2. } }
       { forwards~ P3': (rm P3). applys sound_for_local (rm P3').
-        clears H Q b'. intros H Q P. hnf in P. applys rule_val.
+        clears H Q b'. intros H Q P. hnf in P. applys triple_val.
          { hchanges* P. } } }
     { intros v N. specializes P2 v. applys local_extract_false P2.
       intros H' Q' (b&E&S1&S2). subst. applys N. hnfs*. } }
@@ -197,7 +202,7 @@ Proof using.
     hnf in P. destruct P as (n1&n2&E1&E2&P). subst v0 v1.
     simpls. applys P. { xlocal. }
     clears H Q. intros i H Q P. applys sound_for_local (rm P).
-    clears H Q. intros H Q P. applys rule_for. case_if as C.
+    clears H Q. intros H Q P. applys triple_for. case_if as C.
     { destruct P as (H1&P1&P2). exists (fun (r:val) => H1).
       splits.
       { applys* IH. }
@@ -217,27 +222,6 @@ Proof using.
   introv M. rewrite <- cf_unfold_iter in M. applys* triple_of_cf.
 Qed.
 
-
-(* ---------------------------------------------------------------------- *)
-(* ** Bonus : corrolary for demos *)
-
-Lemma triple_app_fun_of_cf_iter : forall n F v x t H Q,
-  F = val_fun x t ->
-  func_iter n cf_def cf (subst x v t) H Q ->
-  triple (F v) H Q.
-Proof using.
-  introv EF M. applys* rule_app_fun.
-  applys* triple_trm_of_cf_iter.
-Qed.
-
-Lemma triple_app_fix_of_cf_iter : forall n F v f x t H Q,
-  F = val_fix f x t ->
-  func_iter n cf_def cf (subst f F (subst x v t)) H Q ->
-  triple (F v) H Q.
-Proof using.
-  introv EF M. applys* rule_app_fix.
-  applys* triple_trm_of_cf_iter.
-Qed.
 
 
 (* ********************************************************************** *)
@@ -283,7 +267,7 @@ Notation "'`While' F1 'Do' F2 'Done'" :=
    : charac.
 
 Notation "'`For' x '=' v1 'To' v2 'Do' F3 'Done'" :=
-  (local (cf_for v1 v2 (fun x => F3)))
+  (local (cf_for_val v1 v2 (fun x => F3)))
   (at level 69, x ident, (* t1 at level 0, t2 at level 0, *)
    format "'[v' '`For'  x  '='  v1  'To'  v2  'Do'  '/' '[' F3 ']' '/'  'Done' ']'")
   : charac.
@@ -299,6 +283,7 @@ Implicit Types n : nat.
 Implicit Types F : val.
 Implicit Types f x : var.
 
+(* deprecated : bind a way to factorize below using substf *)
 Lemma triple_apps_funs_of_cf_iter : forall n F (vs:vals) xs t H Q,
   F = val_funs xs t ->
   var_funs_exec (length vs) xs ->
@@ -306,21 +291,54 @@ Lemma triple_apps_funs_of_cf_iter : forall n F (vs:vals) xs t H Q,
   triple (trm_apps F vs) H Q.
 Proof using.
   introv EF N M. rewrite var_funs_exec_eq in N. rew_istrue in N.
-  applys* rule_apps_funs. applys* triple_trm_of_cf_iter.
+  applys* triple_apps_funs. applys* triple_trm_of_cf_iter.
 Qed.
 
-Lemma triple_apps_fixs_of_cf_iter : forall n f F (vs:vals) xs t H Q,
+
+Lemma triple_apps_fixs_of_cf_iter : forall n (f:var) F (vs:vals) xs t H Q,
   F = val_fixs f xs t ->
   var_fixs_exec f (length vs) xs ->
-  func_iter n cf_def cf (subst f F (substn xs vs t)) H Q ->
+  func_iter n cf_def cf (substn (f::xs) (F::vs) t) H Q ->
   triple (trm_apps F vs) H Q.
 Proof using.
   introv EF N M. rewrite var_fixs_exec_eq in N. rew_istrue in N.
-  applys* rule_apps_fixs. applys* triple_trm_of_cf_iter.
+  applys* triple_apps_fixs. applys* triple_trm_of_cf_iter.
 Qed.
+
+(** Bonus : two corrolaries for demos
+DEPRECATED?
+
+Lemma triple_app_fun_of_cf_iter : forall n F v x t H Q,
+  F = val_fun x t ->
+  func_iter n cf_def cf (subst1 x v t) H Q ->
+  triple (F v) H Q.
+Proof using.
+  introv EF M. applys* triple_app.
+  applys* triple_trm_of_cf_iter.
+Qed.
+
+Lemma triple_app_fix_of_cf_iter : forall n F v f x t H Q,
+  F = val_fix f x t ->
+  func_iter n cf_def cf (subst2 f F x v t) H Q ->
+  triple (F v) H Q.
+Proof using.
+  introv EF M. applys* triple_app.
+  applys* triple_trm_of_cf_iter.
+Qed.
+
+*)
 
 End LemmasCf.
 
+
+
+
+
+
+(* ********************************************************************** *)
+(* * DEPRECATED
+
+LambdaCFTactics
 
 (* ---------------------------------------------------------------------- *)
 (** ** Database of lemmas *)
@@ -330,12 +348,12 @@ End LemmasCf.
   Usage of [RegisterSpecGoal], e.g.:
 
     Hint Extern 1 (RegisterSpecGoal (triple (trm_app2_val (val_prim val_eq) ?x ?y) ?H ?Q)) =>
-      Provide rule_eq.
+      Provide triple_eq.
 
   Usage of [RegisterSpecApp], e.g.:
 
     Hint Extern 1 (RegisterSpecApp (trm_app2_val (val_prim val_eq) ?x ?y)) =>
-      Provide rule_eq.
+      Provide triple_eq.
 
 *)
 
@@ -349,14 +367,14 @@ Notation "'Register_spec' f" := (Register_rule (trm_apps (trm_val f) _))
 (* ---------------------------------------------------------------------- *)
 (** ** Registering specification of primitive functions *)
 
-Hint Extern 1 (Register_spec (val_prim val_ref)) => Provide rule_ref.
-Hint Extern 1 (Register_spec (val_prim val_get)) => Provide rule_get.
-Hint Extern 1 (Register_spec (val_prim val_set)) => Provide rule_set'.
-Hint Extern 1 (Register_spec (val_prim val_alloc)) => Provide rule_alloc.
-Hint Extern 1 (Register_spec (val_prim val_eq)) => Provide rule_eq.
-Hint Extern 1 (Register_spec (val_prim val_add)) => Provide rule_add.
-Hint Extern 1 (Register_spec (val_prim val_sub)) => Provide rule_sub.
-Hint Extern 1 (Register_spec (val_prim val_ptr_add)) => Provide rule_ptr_add.
+Hint Extern 1 (Register_spec (val_prim val_ref)) => Provide triple_ref.
+Hint Extern 1 (Register_spec (val_prim val_get)) => Provide triple_get.
+Hint Extern 1 (Register_spec (val_prim val_set)) => Provide triple_set'.
+Hint Extern 1 (Register_spec (val_prim val_alloc)) => Provide triple_alloc.
+Hint Extern 1 (Register_spec (val_prim val_eq)) => Provide triple_eq.
+Hint Extern 1 (Register_spec (val_prim val_add)) => Provide triple_add.
+Hint Extern 1 (Register_spec (val_prim val_sub)) => Provide triple_sub.
+Hint Extern 1 (Register_spec (val_prim val_ptr_add)) => Provide triple_ptr_add.
 
 
 (* ********************************************************************** *)
@@ -371,7 +389,7 @@ Ltac xcf_get_fun_from_goal tt ::=
   match goal with |- triple ?t _ _ => xcf_get_fun_from_trm t end.
 
 Ltac xcf_post tt :=
-  simpl.
+  simpl; unfold subst1; simpl.
 
 Ltac xcf_trm n ::=
   applys triple_trm_of_cf_iter n; [ xcf_post tt ].
@@ -406,6 +424,10 @@ Ltac xseq_clear_val tt :=
 Ltac xseq_core tt ::=
   xlet_core tt; [ | try xseq_clear_val tt ].
 
+Ltac xseq_try_remove_val tt :=
+  match goal with
+  |- val -> _ => intros _
+  end.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -464,7 +486,7 @@ Ltac xapp_template xlet_tactic xapp_tactic xlet_cont ::=
   match goal with
   | |- local (cf_let _ _) _ _ => xlet_tactic tt; [ xapp_tactic tt | xlet_cont tt ]
   | |- local (cf_if _ _ _) _ _ => xlet_tactic tt; [ xapp_tactic tt | xlet_cont tt ]
-  | |- local (cf_seq _ _) _ _ => xseq; [ xapp_tactic tt | ]
+  | |- local (cf_seq _ _) _ _ => xseq; [ xapp_tactic tt | xseq_try_remove_val tt ]
   | _ => xapp_tactic tt
   end.
 
@@ -542,13 +564,13 @@ Ltac xval_template xlet_tactic xval_tactic xlet_cont :=
 
 Ltac xval_basic tt :=
   match goal with
-  | |- local ?F ?H ?Q => is_evar Q; applys local_erase; applys refl_rel_incl'
+  | |- local ?F ?H ?Q => is_evar Q; applys local_erase; applys refl_qimpl
   | _ => applys xval_htop_lemma
   end.
 
 Ltac xval_as_basic X EX :=
   match goal with
-  | |- local ?F ?H ?Q => is_evar Q; applys local_erase; applys refl_rel_incl'
+  | |- local ?F ?H ?Q => is_evar Q; applys local_erase; applys refl_qimpl
   | _ => applys xval_htop_as_lemma; intros X EX
   end.
 
@@ -597,12 +619,17 @@ Ltac xwhile_core xwhile_tactic ::=
 (* ********************************************************************** *)
 (* * Bonus *)
 
+(* DEPRECATED
 Lemma triple_app_fun2_of_cf_iter : forall n F v1 v2 x1 x2 t H Q,
   F = val_fun2 x1 x2 t ->
   x1 <> x2 ->
   func_iter n cf_def cf (subst x2 v2 (subst x1 v1 t)) H Q ->
   triple (F v1 v2) H Q.
 Proof using.
-  introv EF N M. applys* rule_app_fun2.
+  introv EF N M. applys* triple_app_fun2.
   applys* triple_trm_of_cf_iter.
 Qed.
+
+*)
+
+*)

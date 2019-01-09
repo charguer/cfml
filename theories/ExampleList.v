@@ -42,7 +42,7 @@ Notation "'val_set_tl'" := (val_set_field tl).
 Fixpoint MList A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
   match L with
   | nil => \[p = null]
-  | x::L' => Hexists (p':loc), (p ~> Record`{ hd := x; tl := p' }) \* (p' ~> MList L')
+  | x::L' => \exists (p':loc), (p ~> Record`{ hd := x; tl := p' }) \* (p' ~> MList L')
   end.
 
 
@@ -91,7 +91,7 @@ Qed.
 
 Lemma MList_cons_eq : forall p A `{EA:Enc A} (x:A) L',
   p ~> MList (x::L') =
-  Hexists p', (p ~> Record`{ hd := x; tl := p' }) \* p' ~> MList L'.
+  \exists p', (p ~> Record`{ hd := x; tl := p' }) \* p' ~> MList L'.
 Proof using. intros. xunfold MList at 1. simple~. Qed.
 
 Lemma MList_cons : forall p p' A `{EA:Enc A} (x:A) L',
@@ -110,7 +110,7 @@ Qed.
 
 Lemma MList_not_null_inv_cons : forall p A `{EA:Enc A} (L:list A),
   p <> null ->
-  p ~> MList L ==> Hexists x p' L',
+  p ~> MList L ==> \exists x p' L',
        \[L = x::L']
     \* (p ~> Record`{ hd := x; tl := p' })
     \* p' ~> MList L'.
@@ -138,7 +138,7 @@ Global Opaque MList.
 Fixpoint MListSeg `{EA:Enc A} (q:loc) (L:list A) (p:loc) : hprop :=
   match L with
   | nil => \[p = q]
-  | x::L' => Hexists (p':loc), (p ~> MCell x p') \* (p' ~> MListSeg q L')
+  | x::L' => \exists (p':loc), (p ~> MCell x p') \* (p' ~> MListSeg q L')
   end.
 
 
@@ -153,7 +153,7 @@ Proof using. intros. xunfold~ MListSeg. Qed.
 
 Lemma MListSeg_cons_eq : forall `{EA:Enc A} p q x (L':list A),
   p ~> MListSeg q (x::L') =
-  Hexists (p':loc), (p ~> MCell x p') \* p' ~> MListSeg q L'.
+  \exists (p':loc), (p ~> MCell x p') \* p' ~> MListSeg q L'.
 Proof using. intros. xunfold MListSeg at 1. simple~. Qed.
 
 Global Opaque MListSeg.
@@ -215,13 +215,13 @@ Definition val_new_cell :=
     'p.
 *)
 
-Lemma Rule_new_cell : forall `{EA:Enc A} (x:A) (q:loc),
+Lemma Triple_new_cell : forall `{EA:Enc A} (x:A) (q:loc),
   Triple (val_new_cell ``x ``q)
     PRE \[]
     POST (fun p => (p ~> MCell x q)).
-Proof using. xrule_new_record. Qed.
+Proof using. xtriple_new_record. Qed.
 
-Hint Extern 1 (Register_Spec val_new_cell) => Provide Rule_new_cell.
+Hint Extern 1 (Register_Spec val_new_cell) => Provide Triple_new_cell.
 
 Opaque val_new_cell.
 
@@ -230,7 +230,7 @@ Opaque val_new_cell.
 (* * Mutable queue *)
 
 Definition MQueue `{EA:Enc A} (L:list A) (p:loc) :=
-  Hexists (pf:loc), Hexists (pb:loc), Hexists (vx:A), Hexists (vy:loc),
+  \exists (pf:loc), \exists (pb:loc), \exists (vx:A), \exists (vy:loc),
     p ~> MCell pf pb \* pf ~> MListSeg pb L \* pb ~> MCell vx vy.
 
 (* Same as in [ExampleQueueNonlifted.v] *)
@@ -241,13 +241,13 @@ Definition val_is_empty :=
     Let 'y := val_get_tl 'p in
     val_eq 'x 'y.
 
-Parameter Rule_is_empty : forall `{EA:Enc A} (L:list A) p,
+Parameter Triple_is_empty : forall `{EA:Enc A} (L:list A) p,
   Triple (val_is_empty p)
     (p ~> MQueue L)
     (fun r => \[r = isTrue (L = nil)] \* p ~> MQueue L).
 (* LATER: similar proof to ExampleQueueNonLifted, todo *)
 
-Hint Extern 1 (Register_Spec val_is_empty) => Provide Rule_is_empty.
+Hint Extern 1 (Register_Spec val_is_empty) => Provide Triple_is_empty.
 
 Definition val_transfer :=
   ValFun 'p1 'p2 :=
@@ -264,7 +264,7 @@ Definition val_transfer :=
        val_set_tl 'p2 'f2
     End.
 
-Lemma Rule_transfer : forall `{EA:Enc A} (L1 L2:list A) p1 p2,
+Lemma Triple_transfer : forall `{EA:Enc A} (L1 L2:list A) p1 p2,
   Triple (val_transfer p1 p2)
     (p1 ~> MQueue L1 \* p2 ~> MQueue L2)
     (fun (_:unit) => p1 ~> MQueue (L1 ++ L2) \* p2 ~> MQueue nil).
@@ -295,7 +295,7 @@ Definition val_mlist_copy :=
       val_new_cell 'x 'p2
    ).
 
-Lemma Rule_mlist_copy : forall p (L:list int),
+Lemma Triple_mlist_copy : forall p (L:list int),
   Triple (val_mlist_copy ``p)
     PRE (p ~> MList L)
     POST (fun (p':loc) =>
@@ -309,7 +309,7 @@ Proof using.
     intros p'. do 2 rewrite MList_cons_eq. hsimpl. }
 Qed.
 
-Hint Extern 1 (Register_Spec val_mlist_copy) => Provide Rule_mlist_copy.
+Hint Extern 1 (Register_Spec val_mlist_copy) => Provide Triple_mlist_copy.
 
 
 
@@ -328,7 +328,7 @@ Definition val_mlist_length : val :=
       0
     ).
 
-Lemma Rule_mlist_length : forall A `{EA:Enc A} (L:list A) (p:loc),
+Lemma Triple_mlist_length : forall A `{EA:Enc A} (L:list A) (p:loc),
   Triple (val_mlist_length ``p)
     PRE (p ~> MList L)
     POST (fun (r:int) => \[r = length L] \* p ~> MList L).
@@ -337,7 +337,7 @@ Proof using.
   xapps~. xif ;=> C.
   { xchanges~ (MList_not_null_inv_cons p) ;=> x p' L' EL.
     xapps. xapps~ (IH L'). xchange (MList_cons p).
-    xapps. hsimpl. isubst. auto. }
+    xapps. hsimpl ;=> ? ->. auto. }
   { subst. xchanges MList_null_inv ;=> EL. xvals~. }
 Qed.
 
@@ -356,7 +356,7 @@ Definition val_mlist_append : val :=
       val_new_cell 'x 'p
     ).
 
-Lemma Rule_mlist_append : forall (L1 L2:list int) (p1 p2:loc),
+Lemma Triple_mlist_append : forall (L1 L2:list int) (p1 p2:loc),
   Triple (val_mlist_append ``p1 ``p2)
     PRE (p1 ~> MList L1 \* p2 ~> MList L2)
     POST (fun (p:loc) =>
@@ -376,7 +376,7 @@ Qed.
 (* ********************************************************************** *)
 (* * Out-of-place append of two aliased mutable lists *)
 
-Lemma Rule_mlist_append_aliased : forall (L:list int) (p1:loc),
+Lemma Triple_mlist_append_aliased : forall (L:list int) (p1:loc),
   Triple (val_mlist_append ``p1 ``p1)
     PRE (p1 ~> MList L)
     POST (fun (p:loc) => p ~> MList (L++L) \* p1 ~> MList L).
@@ -415,7 +415,7 @@ Definition val_mlist_iter : val :=
       'g 'f 'q
     End.
 
-Lemma Rule_mlist_iter : forall `{EA:Enc A} (I:list A->hprop) (L:list A) (f:func) (p:loc),
+Lemma Triple_mlist_iter : forall `{EA:Enc A} (I:list A->hprop) (L:list A) (f:func) (p:loc),
   (forall x K,
     Triple (f ``x)
       PRE (I K)
@@ -441,7 +441,7 @@ Proof using.
     xvals~. }
 Qed.
 
-Lemma Rule_mlist_iter_general : forall `{EA:Enc A} (I:list A->hprop) (L:list A) (f:func) (p:loc),
+Lemma Triple_mlist_iter_general : forall `{EA:Enc A} (I:list A->hprop) (L:list A) (f:func) (p:loc),
   (forall x L1 L2, L = L1++x::L2 ->
     Triple (f ``x)
       PRE (I L1)
@@ -478,13 +478,13 @@ Definition val_mlist_length_using_iter : val :=
     val_mlist_iter 'f 'p ;;;
     val_get 'r.
 
-Lemma Rule_mlist_length_using_iter : forall A `{EA:Enc A} (L:list A) (p:loc),
+Lemma Triple_mlist_length_using_iter : forall A `{EA:Enc A} (L:list A) (p:loc),
   Triple (val_mlist_length_using_iter ``p)
     PRE (p ~> MList L)
     POST (fun (r:int) => \[r = length L] \* p ~> MList L).
 Proof using.
   xcf. xapps ;=> R. xval ;=> F HF.
-  xapp (@Rule_mlist_iter _ _ (fun (K:list A) => R ~~> length K)).
+  xapp (@Triple_mlist_iter _ _ (fun (K:list A) => R ~~> length K)).
   { intros x K. xcf. unfold Substn, substn; simpl. (* todo: Unfold *)
     xapp. hsimpl. rew_list; math. }
   xapps ;=> r Hr. hsimpl~.
@@ -509,7 +509,7 @@ Definition val_mlist_length_loop : val :=
     Done ;;;
     val_get 'n.
 
-Lemma Rule_mlist_length_loop : forall A `{EA:Enc A} (L:list A) (p:loc),
+Lemma Triple_mlist_length_loop : forall A `{EA:Enc A} (L:list A) (p:loc),
   Triple (val_mlist_length_loop ``p)
     PRE (p ~> MList L)
     POST (fun (r:int) => \[r = length L] \* p ~> MList L).
@@ -531,7 +531,7 @@ Qed.
 
 (* TODO: another proof using a loop invariant with segments:
 
-  Hexists L1 L2 q,
+  \exists L1 L2 q,
      \[L = L1 ++ L2] \* (n ~~> length L1) \* (f ~~> q)
      \* (p ~~> MListSeq q L1) \* (q ~~> MList L2)
   *)
@@ -550,7 +550,7 @@ Definition val_mlist_incr : val :=
       'f 'q
     ) End.
 
-Lemma Rule_mlist_incr : forall (L:list int) (p:loc),
+Lemma Triple_mlist_incr : forall (L:list int) (p:loc),
   Triple (val_mlist_incr ``p)
     PRE (p ~> MList L)
     POST (fun (r:unit) => p ~> MList (LibList.map (fun x => x+1) L)).
@@ -582,7 +582,7 @@ Definition val_mlist_in_place_rev : val :=
     Done ;;;
     val_get 's.
 
-Lemma Rule_mlist_in_place_rev : forall A `{EA:Enc A} (L:list A) (p:loc),
+Lemma Triple_mlist_in_place_rev : forall A `{EA:Enc A} (L:list A) (p:loc),
   Triple (val_mlist_in_place_rev ``p)
     PRE (p ~> MList L)
     POST (fun (p':loc) => p' ~> MList (rev L)).
@@ -590,14 +590,14 @@ Proof using.
   intros. rename p into p0. xcf. xapps ;=> rp. xapps ;=> rs.
   xseq. (* todo xwhile_inv *)
   { applys local_erase. applys Cf_while_of_Cf_while_inv. hnf.
-    sets I: (fun (b:bool) (L1:list A) => Hexists p s L2,
+    sets I: (fun (b:bool) (L1:list A) => \exists p s L2,
       \[b = isTrue (L1 <> nil)] \* \[L = rev L2 ++ L1]
       \* rp ~~> p \* p ~> MList L1 \* rs ~~> s \* s ~> MList L2).
     exists __ I (@list_sub A) __. splits.
     { solve_wf. }
     { hchange MList_nil. unfold I. hsimpl*. }
     { intros F LF b L1 IH. unfold I at 1. xpull ;=> p s L2 E1 E2. clears b.
-      xlet. { xapps. xapps~. } xpull; isubst.
+      xlet. { xapps. xapps~. } xpull ;=> ? ->.
       xif ;=> Cb.
       { xchanges~ (MList_not_null_inv_cons p) ;=> x p1' L1' EL1.
         xseq. (* todo: problem of parentheses around xwhile body *)
@@ -605,7 +605,7 @@ Proof using.
         { xapps~. { unfold I. hchanges~ (MList_cons p). } } }
       { xval. subst p. unfold I. hchanges~ MList_null_inv. } }
     { hsimpl. } }
-  { xpull ;=> L1 p s L2 E1 E2. xapp. hpull. isubst. hsimpl~. }
+  { xpull ;=> L1 p s L2 E1 E2. xapp. hpull ;=> ? ->. hsimpl~. }
 Qed.
 
 
@@ -622,7 +622,7 @@ Definition val_mlist_cps_append : val :=
       'f 't 'q 'k2
     ).
 
-Lemma Rule_mlist_cps_append : forall A `{EA:Enc A} (L M:list A) (p q:loc) (k:func),
+Lemma Triple_mlist_cps_append : forall A `{EA:Enc A} (L M:list A) (p q:loc) (k:func),
   forall `{EB: Enc B} (H:hprop) (Q:B->hprop),
   (forall (r:loc), Triple (k ``r)
      PRE (r ~> MList (L ++ M) \* H)

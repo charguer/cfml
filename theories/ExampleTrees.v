@@ -90,7 +90,7 @@ Notation "'Cell' x p1 p2" :=
 Fixpoint MTree (T:tree) (p:loc) : hprop :=
   match T with
   | Leaf => \[p = null]
-  | Node x T1 T2 => Hexists p1 p2,
+  | Node x T1 T2 => \exists p1 p2,
          (p ~> Cell x p1 p2)  (* p ~> Record`{ item := x; left := p1; right := p2 }) *)
       \* (p1 ~> MTree T1)
       \* (p2 ~> MTree T2)
@@ -134,7 +134,7 @@ Qed.
 
 Lemma MTree_node_eq : forall p x T1 T2,
   (p ~> MTree (Node x T1 T2)) =
-  Hexists p1 p2,
+  \exists p1 p2,
   (p ~> Cell x p1 p2) \* (p1 ~> MTree T1) \* (p2 ~> MTree T2).
 Proof using. intros. xunfold MTree at 1. simple~. Qed.
 
@@ -155,7 +155,7 @@ Qed.
 Lemma MTree_not_null_inv_node : forall p T,
   p <> null ->
   (p ~> MTree T) ==>
-  Hexists x p1 p2 T1 T2, \[T = Node x T1 T2] \*
+  \exists x p1 p2 T1 T2, \[T = Node x T1 T2] \*
     (p ~> Cell x p1 p2) \* (p1 ~> MTree T1) \* (p2 ~> MTree T2).
 Proof using.
   intros. hchange~ (@MTree_not_null_inv_not_leaf p). hpull. intros.
@@ -187,13 +187,13 @@ Definition val_new_node :=
     'p.
 *)
 
-Lemma Rule_new_node : forall x p1 p2,
+Lemma Triple_new_node : forall x p1 p2,
   Triple (val_new_node ``x ``p1 ``p2)
     PRE \[]
     POST (fun p => (p ~> Cell x p1 p2)).
-Proof using. xrule_new_record. Qed.
+Proof using. xtriple_new_record. Qed.
 
-Hint Extern 1 (Register_Spec val_new_node) => Provide Rule_new_node.
+Hint Extern 1 (Register_Spec val_new_node) => Provide Triple_new_node.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -212,7 +212,7 @@ Definition val_tree_copy :=
 
 Hint Constructors tree_sub.
 
-Lemma Rule_tree_copy : forall p T,
+Lemma Triple_tree_copy : forall p T,
   Triple (val_tree_copy ``p)
     PRE (p ~> MTree T)
     POST (fun (p':loc) => (p ~> MTree T) \* (p' ~> MTree T)).
@@ -244,14 +244,14 @@ Definition MTreeDepth (n:nat) (T:tree) (p:loc) : hprop :=
   (p ~> MTree T) \* \[depth n T].
 
 Definition MTreeComplete (T:tree) (p:loc) : hprop :=
-  Hexists n, (p ~> MTree T) \* \[depth n T].
+  \exists n, (p ~> MTree T) \* \[depth n T].
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** Alternative representation *)
 
 Definition MTreeComplete' (T:tree) (p:loc) : hprop :=
-  Hexists n, (p ~> MTreeDepth n T).
+  \exists n, (p ~> MTreeDepth n T).
 
 Definition MTreeComplete'' (T:tree) (p:loc) : hprop :=
   (p ~> MTree T) \* \[exists n, depth n T].
@@ -276,12 +276,12 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Copy of a complete binary tree *)
 
-Lemma Rule_tree_copy_complete : forall p T,
+Lemma Triple_tree_copy_complete : forall p T,
   Triple (val_tree_copy ``p)
     PRE (p ~> MTreeComplete T)
     POST (fun (p':loc) => (p ~> MTreeComplete T) \* (p' ~> MTreeComplete T)).
 Proof using.
-  intros. xunfolds MTreeComplete ;=> n Hn. xapplys* Rule_tree_copy.
+  intros. xunfolds MTreeComplete ;=> n Hn. xapplys* Triple_tree_copy.
 Qed.
 
 
@@ -313,7 +313,7 @@ Inductive stree : tree -> LibSet.set int -> Prop :=
     [p ~> Stree T] *)
 
 Definition Stree (E:set int) (p:loc) :=
-  Hexists (T:tree), (p ~> MTree T) \* \[stree T E].
+  \exists (T:tree), (p ~> MTree T) \* \[stree T E].
 
 
 (* ---------------------------------------------------------------------- *)
@@ -323,7 +323,7 @@ Definition Stree (E:set int) (p:loc) :=
 
 Lemma focus_Stree : forall p E,
   p ~> Stree E ==>
-  Hexists (T:tree), p ~> MTree T \* \[stree T E].
+  \exists (T:tree), p ~> MTree T \* \[stree T E].
 Proof using. intros. xunfold Stree. hsimpl~. Qed.
 
 Lemma unfocus_Stree : forall p T E,
