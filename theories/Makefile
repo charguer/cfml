@@ -50,7 +50,7 @@ SRC := $(SRC_CORE) $(SRC_MORE)
 # $(SRC_EXAMPLES) $(SRC_SF) $(SRC_MOSEL)
 
 
-# using the variable SRC_CUSTOM, one can modify the compilation targets and/or their order.
+# using the variable SRC_FORCE, one can modify the compilation targets and/or their order.
 
 ifdef SRC_FORCE 
 	SRC := $(SRC_FORCE)
