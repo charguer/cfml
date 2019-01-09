@@ -662,7 +662,7 @@ Instance Normal_hor : forall H1 H2,
   Normal H1 ->
   Normal H2 ->
   Normal (hor H1 H2).
-Proof using.
+Proof using. TODO FIX 
   introv M1 M2 [N|N].
   { rewrites~ (>> M1 N). }
   { rewrites~ (>> M2 N). }
@@ -671,12 +671,12 @@ Qed.
 Instance Normal_hand_l : forall H1 H2,
   Normal H1 ->
   Normal (hand H1 H2).
-Proof using. introv M (N1&N2). forwards*: M N1. Qed.
+Proof using. TODO FIX introv M (N1&N2). forwards*: M N1. Qed.
 
 Instance Normal_hand_r : forall H1 H2,
   Normal H2 ->
   Normal (hand H1 H2).
-Proof using. introv M (N1&N2). forwards*: M N2. Qed.
+Proof using. TODO FIX  introv M (N1&N2). forwards*: M N2. Qed.
 
 Lemma Normal_himpl : forall H1 H2,
   Normal H2 ->

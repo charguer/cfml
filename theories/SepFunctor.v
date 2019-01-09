@@ -301,20 +301,6 @@ Notation "'\forall' ( x1 : T1 ) , H" := (hforall (fun x1:T1 => H))
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Other core heap predicates *)
-
-(** Disjunction *)
-
-Definition hor (H1 H2 : hprop) : hprop :=
-  fun h => H1 h \/ H2 h.
-
-(** Non-separating conjunction *)
-
-Definition hand (H1 H2 : hprop) : hprop :=
-  fun h => H1 h /\ H2 h.
-
-
-(* ---------------------------------------------------------------------- *)
 (* ** Derived heap predicates *)
 
 (** Pure propositions lifted to heap predicates,
@@ -355,6 +341,16 @@ Notation "Q1 \--* Q2" := (qwand Q1 Q2)
 
 Open Scope heap_scope.
 Delimit Scope heap_scope with hprop.
+
+(** Disjunction, equivalent to [fun h => H1 h \/ H2 h] *)
+
+Definition hor (H1 H2 : hprop) : hprop :=
+  \exists (b:bool), if b then H1 else H2.
+
+(** Non-separating conjunction, equivalent to [fun h => H1 h /\ H2 h] *)
+
+Definition hand (H1 H2 : hprop) : hprop :=
+  \forall (b:bool), if b then H1 else H2.
 
 
 (* ---------------------------------------------------------------------- *)

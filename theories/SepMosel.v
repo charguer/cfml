@@ -58,10 +58,10 @@ Definition hpure (P:Prop) : hprop :=
   hexists (fun (p:P) => hempty).
 
 Definition hor (H1 H2 : hprop) : hprop :=
-  fun h => H1 h \/ H2 h.
+  hexists (fun (b:bool) => if b then H1 else H2).
 
 Definition hand (H1 H2 : hprop) : hprop :=
-  fun h => H1 h /\ H2 h.
+  hforall (fun (b:bool) => if b then H1 else H2).
 
 Definition hwand (H1 H2 : hprop) : hprop :=
   hexists (fun (H:hprop) => H \* (hpure (H \* H1 ==> H2))).
