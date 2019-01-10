@@ -662,21 +662,31 @@ Instance Normal_hor : forall H1 H2,
   Normal H1 ->
   Normal H2 ->
   Normal (hor H1 H2).
-Proof using. TODO FIX 
-  introv M1 M2 [N|N].
-  { rewrites~ (>> M1 N). }
-  { rewrites~ (>> M2 N). }
+Proof using. 
+  introv M1 M2. applys Normal_hexists. intros b. case_if*.
 Qed.
+
+(* TODO
+Instance Normal_hforall : forall A (J:A->hprop),
+  Normal_post J ->
+  Normal (hforall J).
+Proof using. introv M N. rewrites~ (>> M N). Qed.
+..
 
 Instance Normal_hand_l : forall H1 H2,
   Normal H1 ->
   Normal (hand H1 H2).
-Proof using. TODO FIX introv M (N1&N2). forwards*: M N1. Qed.
+Proof using. 
+  introv M1. applys Normal_hforall. intros b. case_if*.
+
+TODO FIX introv M (N1&N2). forwards*: M N1. Qed.
 
 Instance Normal_hand_r : forall H1 H2,
   Normal H2 ->
   Normal (hand H1 H2).
 Proof using. TODO FIX  introv M (N1&N2). forwards*: M N2. Qed.
+
+*)
 
 Lemma Normal_himpl : forall H1 H2,
   Normal H2 ->
