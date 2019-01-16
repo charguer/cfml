@@ -964,7 +964,7 @@ Proof using.
   { applys~ on_rw_sub_weaken Q'. }
 Qed.
 
-Lemma triple_or : forall t H1 H2 Q,
+Lemma triple_hor : forall t H1 H2 Q,
   triple t H1 Q ->
   triple t H2 Q ->
   triple t (hor H1 H2) Q.
@@ -973,13 +973,12 @@ Proof using.
   intros b. destruct* b.
 Qed.
 
-
-Lemma triple_or_symmetric : forall t H1 H2 Q1 Q2,
+Lemma triple_hor_symmetric : forall t H1 H2 Q1 Q2,
   triple t H1 Q1 ->
   triple t H2 Q2 ->
   triple t (hor H1 H2) (fun x => hor (Q1 x) (Q2 x)).
 Proof using.
-  introv M1 M2. apply~ triple_or.
+  introv M1 M2. apply~ triple_hor.
   { applys~ triple_conseq. applys M1. intros x. applys himpl_hor_r_r. }
   { applys~ triple_conseq. applys M2. intros x. applys himpl_hor_r_l. }
 Qed.

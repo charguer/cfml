@@ -273,6 +273,11 @@ Definition wp_for_val (v1 v2:val) (F1:val->formula) : formula := local (fun Q =>
                           else (wp_val val_unit) in
   \[ is_local_pred S /\ (forall i, F i ===> S i)] \-* (S n1 Q)).
 
+Definition wp_case (v:val) (p:pat) (F1:ctx->formula) (F2:formula) : formula :=
+  local (fun Q => 
+    hand (\forall (S:ctx), \[v = patsubst S p] \-* F1 S Q)
+         (\[forall (S:ctx), v <> patsubst S p] \-* F2 Q) ).
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of the CF generator *)
@@ -283,6 +288,17 @@ Fixpoint wp (E:ctx) (t:trm) : formula :=
   | trm_val v => wp_val v
   | trm_var x => wp_var E x
   | trm_fix f x t1 => wp_val (val_fix f x (isubst (Ctx.rem x (Ctx.rem f E)) t1))
+  | trm_constr id ts =>
+      (fix getval acc ts :=
+        match ts with
+        | nil => wp_val (val_constr id (List.rev acc))
+        | t1::ts' => 
+          match t1 with 
+          | trm_val v1 => getval (v1::acc) ts'
+          | _ => wp_fail
+          end
+        end) 
+      nil ts
   | trm_if t0 t1 t2 => wp_if (aux t0) (aux t1) (aux t2)
   | trm_let x t1 t2 => wp_let (aux t1) (fun X => wp (Ctx.add x X E) t2)
   | trm_app t1 t2 => wp_app (isubst E t)
@@ -292,8 +308,13 @@ Fixpoint wp (E:ctx) (t:trm) : formula :=
       | trm_val v1, trm_val v2 => wp_for_val v1 v2 (fun X => wp (Ctx.add x X E) t3)
       | _, _ => wp_fail
       end
+  | trm_case t1 p t2 t3 => 
+     match t1 with
+     | trm_val v1 => wp_case v1 p (fun (S:ctx) => wp (Ctx.app S E) t2) (aux t3)
+     | _ => wp_fail
+     end
+  | trm_fail => wp_fail
   end.
-
 
 
 (* ********************************************************************** *)
@@ -371,8 +392,20 @@ Definition wp_triple_ E t :=
 Definition wp_sound t := forall E,
   wp E t ===> wp_triple_ E t.
 
+(** Lemma for [wp_fail] *)
+
+Lemma himpl_wp_fail_l : forall Q H,
+  wp_fail Q ==> H.
+Proof using. intros. unfold wp_fail, local. hpull. Qed.
 
 (** Soundness of the [wp] for the various constructs *)
+
+Lemma wp_sound_fail :
+  wp_sound trm_fail.
+Proof using.
+  intros. intros E. applys qimpl_wp_triple. simpl.
+  intros Q. remove_local. intros. false.
+Qed.
 
 Lemma wp_sound_var : forall x,
   wp_sound (trm_var x).
@@ -395,6 +428,27 @@ Lemma wp_sound_fix : forall f x t,
 Proof using.
   intros. intros E. applys qimpl_wp_triple. simpl.
   intros Q. remove_local. lets: triple_fix. applys~ triple_fix.
+Qed.
+
+Lemma wp_sound_constr : forall id ts,
+  wp_sound (trm_constr id ts).
+Proof using.
+(* TODO
+  intros. intros E. applys qimpl_wp_triple. simpl.
+  set (getval := 
+    (fix getval (acc : list val) (ts0 : list trm) {struct ts0} : formula :=
+      match ts0 with
+      | nil => wp_val (val_constr id (List.rev acc))
+      | trm_val v1 :: ts' => getval (v1 :: acc) ts'
+      | _ => wp_fail
+      end)).
+  intros Q. generalize (@nil val) as vs.
+  induction ts as [|t ts']; intros.
+  { simpl.
+
+ remove_local. applys~ triple_val.
+*)
+skip.
 Qed.
 
 Lemma wp_sound_if : forall F1 F2 F3 E t1 t2 t3,
@@ -490,9 +544,50 @@ Proof using. Opaque Ctx.add Ctx.rem.
   { rewrite~ triple_eq_himpl_wp_triple. }
 Qed.
 
-Lemma himpl_wp_fail_l : forall Q H,
-  wp_fail Q ==> H.
-Proof using. intros. unfold wp_fail, local. hpull. Qed.
+(* TODO: move to LambdaSep *)
+Lemma triple_hor : forall t H1 H2 Q,
+  triple t H1 Q ->
+  triple t H2 Q ->
+  triple t (hor H1 H2) Q.
+Proof using.
+  introv M1 M2. unfold hor. applys triple_hexists.
+  intros b. destruct* b.
+Qed.
+
+Lemma triple_hand_l : forall t H1 H2 Q,
+  triple t H1 Q ->
+  triple t (hand H1 H2) Q.
+Proof using.
+  introv M1. unfold hand. applys triple_hforall. exists* true.
+Qed.
+
+Lemma triple_hand_r : forall t H1 H2 Q,
+  triple t H2 Q ->
+  triple t (hand H1 H2) Q.
+Proof using.
+  introv M1. unfold hand. applys triple_hforall. exists* false.
+Qed.
+
+Lemma triple_hforall_for : forall A (x:A) t (J:A->hprop) Q,
+  triple t (J x) Q ->
+  triple t (hforall J) Q.
+Proof using. intros. applys* triple_hforall. Qed.
+
+Lemma wp_sound_case : forall v1 p F1 F2 t1 t2 E,
+  (forall (S:ctx), F1 S ===> wp_triple_ (Ctx.app S E) t1) ->
+  F2 ===> wp_triple_ E t2 ->
+  wp_case v1 p F1 F2 ===> wp_triple_ E (trm_case v1 p t1 t2).
+Proof using.
+  introv M1 M2. applys qimpl_wp_triple. simpl. intros Q.
+  remove_local. tests C: (exists (S:ctx), v1 = patsubst S p).
+  { destruct C as (S&Ev1). applys triple_hand_l.
+    applys triple_hforall_for S. applys~ triple_hwand_hpure_l.
+    (* TODO: applys triple_case.
+    applys M2. *).  skip. }
+  { applys triple_hand_r. applys* triple_hwand_hpure_l.
+    (* TODO: applys triple_case.
+    applys M2. *).  skip.  }
+Qed.
 
 (** Putting it all together *)
 
@@ -503,6 +598,7 @@ Proof using.
   { applys wp_sound_val. }
   { applys wp_sound_var. }
   { applys wp_sound_fix. }
+  { applys* wp_sound_constr. }
   { applys* wp_sound_if. }
   { applys* wp_sound_let. }
   { applys* wp_sound_app. }
@@ -510,6 +606,9 @@ Proof using.
   { destruct t1; try solve [ applys himpl_wp_fail_l ].
     destruct t2; try solve [ applys himpl_wp_fail_l ].
     applys* wp_sound_for_val. }
+  { destruct t1; try solve [ applys himpl_wp_fail_l ].
+    applys* wp_sound_case. }
+  { applys wp_sound_fail. }
 Qed.
 
 
