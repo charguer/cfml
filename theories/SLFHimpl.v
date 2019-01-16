@@ -286,7 +286,7 @@ and insert them here as exercises
 (* ---------------------------------------------------------------------- *)
 (* ** Extraction rules *)
 
-Lemma triple_extract_hexists : forall t (A:Type) (J:A->hprop) Q,
+Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, triple t (J x) Q) ->
   triple t (hexists J) Q.
 Proof using.
@@ -294,12 +294,12 @@ Proof using.
   destruct N as (x&N). applys* M.
 Qed.
 
-Lemma triple_extract_hprop : forall t (P:Prop) H Q,
+Lemma triple_hprop : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
 Proof using.
-  intros t. applys (triple_extract_hprop_from_extract_hexists (triple t)).
-  applys triple_extract_hexists.
+  intros t. applys (triple_hprop_from_hexists (triple t)).
+  applys triple_hexists.
 Qed.
 
 independent proofs

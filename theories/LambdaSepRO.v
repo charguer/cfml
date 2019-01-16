@@ -915,17 +915,17 @@ Definition triple (t:trm) (H:hprop) (Q:val->hprop) :=
 (* ---------------------------------------------------------------------- *)
 (* ** Structural rules *)
 
-Lemma triple_extract_hexists : forall t A (J:A->hprop) Q,
+Lemma triple_hexists : forall t A (J:A->hprop) Q,
   (forall x, triple t (J x) Q) ->
   triple t (hexists J) Q.
 Proof using. introv M D (x&Jx). applys* M. Qed.
 
-Lemma triple_extract_hprop : forall t (P:Prop) H Q,
+Lemma triple_hprop : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
 Proof using.
-  intros t. applys (triple_extract_hprop_from_extract_hexists (triple t)).
-  applys triple_extract_hexists.
+  intros t. applys (triple_hprop_from_hexists (triple t)).
+  applys triple_hexists.
 Qed.
 
 Lemma triple_htop_post : forall t H Q,
@@ -969,7 +969,7 @@ Lemma triple_or : forall t H1 H2 Q,
   triple t H2 Q ->
   triple t (hor H1 H2) Q.
 Proof using.
-  introv M1 M2. unfold hor. applys triple_extract_hexists.
+  introv M1 M2. unfold hor. applys triple_hexists.
   intros b. destruct* b.
 Qed.
 
@@ -1087,14 +1087,14 @@ Qed.
 
 Lemma xpull_hprop (H1 H2 : hprop) (P : Prop) (Q : val -> hprop) (t : trm) :
   (P -> triple t (H1 \* H2) Q) -> triple t (H1 \* \[P] \* H2) Q.
-Proof. intros. rewrite hstar_comm_assoc. auto using triple_extract_hprop. Qed.
+Proof. intros. rewrite hstar_comm_assoc. auto using triple_hprop. Qed.
 
 Lemma xpull_hexists (H1 H2 : hprop) (A : Type) (J:A->hprop)
       (Q : val -> hprop) (t : trm) :
   (forall x, triple t (H1 \* ((J x) \* H2)) Q) ->
   triple t (H1 \* (hexists J \* H2)) Q.
 Proof using.
-  intros. rewrite hstar_comm_assoc, hstar_hexists. apply triple_extract_hexists.
+  intros. rewrite hstar_comm_assoc, hstar_hexists. apply triple_hexists.
   intros. rewrite~ hstar_comm_assoc.
 Qed.
 
@@ -1225,7 +1225,7 @@ Proof using.
   applys_eq (>> triple_let \[] (fun x => \[x = v1])) 2.
   { applys triple_val. rewrite <- (@hstar_hempty_r \[v1=v1]).
     applys~ himpl_hpure_r. applys Normal_hempty. }
-  { intros X. applys triple_extract_hprop. applys M. }
+  { intros X. applys triple_hprop. applys M. }
   { rewrite~ hstar_hempty_l. }
 Qed.
 
@@ -1249,7 +1249,7 @@ Lemma triple_let_fix : forall f x t1 t2 H Q,
 Proof using.
   introv M HS. applys triple_let_simple (fun F => \[spec_fix f x t1 F] \* H).
   { applys~ triple_fix. hsimpl~. introv R. applys* triple_app_fix. }
-  { intros F. applys triple_extract_hprop. applys M. }
+  { intros F. applys triple_hprop. applys M. }
 Qed.
 *)
 
@@ -1671,7 +1671,7 @@ Lemma triple_ramified_frame_read_only : forall t H Q H' Q',
   triple t H Q.
 Proof using.
   introv M W. applys~ triple_conseq Q (rm W).
-  applys triple_extract_hexists. intros H2.
+  applys triple_hexists. intros H2.
   asserts M': (triple t H' Q').
   { applys* triple_conseq H'. }
   clear M. applys* triple_ramified_frame_read_only_core.
@@ -1685,7 +1685,7 @@ Lemma triple_let_ramified_frame_read_only : forall z t1 t2 H1 H Q1 Q Q',
 Proof.
   intros x t1 t2 H1 H Q1 Q Q' Ht1 IMPL Ht2L.
   eapply triple_conseq; [apply IMPL| |auto].
-  apply triple_extract_hexists. intros H2. rewrite <-hstar_assoc.
+  apply triple_hexists. intros H2. rewrite <-hstar_assoc.
   eapply triple_let.
   - rewrite hstar_comm. apply triple_frame_read_only, _.
     eapply triple_conseq; [|apply Ht1|auto].

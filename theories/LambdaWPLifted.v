@@ -342,9 +342,9 @@ Proof using.
   introv M1 M2. intros A EA. applys qimpl_Wp_Triple. intros Q.
   remove_Local. simpl.
   unfold Formula_typed. xpull ;=> Q' C. applys Triple_enc_change (rm C).
-  applys Triple_extract_hforall.
+  applys Triple_hforall.
   set (R := Wp_Triple (trm_while (isubst E t1) (isubst E t2))).
-  exists R. simpl. applys Triple_extract_hwand_hpure_l.
+  exists R. simpl. applys Triple_hwand_hpure_l.
   { split.
     { applys @is_local_Wp_Triple. }
     { clears Q. applys qimpl_Wp_Triple. intros Q.
@@ -366,9 +366,9 @@ Proof using. Opaque Ctx.add Ctx.rem.
   remove_Local. simpl.
   unfold Formula_typed. xpull ;=> Q' n1 n2 (->&->) C.
   applys Triple_enc_change (rm C).
-  applys Triple_extract_hforall.
+  applys Triple_hforall.
   set (S := fun (i:int) => Wp_Triple (isubst E (trm_for x i n2 t1))).
-  exists S. simpl. applys Triple_extract_hwand_hpure_l.
+  exists S. simpl. applys Triple_hwand_hpure_l.
   { split.
     { intros r. applys @is_local_Wp_Triple. }
     { clears Q. intros i. applys qimpl_Wp_Triple. intros Q.

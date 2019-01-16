@@ -563,7 +563,7 @@ Definition pay_one H H' :=
 (* ---------------------------------------------------------------------- *)
 (* ** Structural rules *)
 
-Lemma triple_extract_hexists : forall t (A:Type) (J:A->hprop) Q,
+Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, triple t (J x) Q) ->
   triple t (hexists J) Q.
 Proof using.
@@ -571,12 +571,12 @@ Proof using.
   destruct N as (x&N). applys* M.
 Qed.
 
-Lemma triple_extract_hprop : forall t (P:Prop) H Q,
+Lemma triple_hprop : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
 Proof using.
-  intros t. applys (triple_extract_hprop_from_extract_hexists (triple t)).
-  applys triple_extract_hexists.
+  intros t. applys (triple_hprop_from_hexists (triple t)).
+  applys triple_hexists.
 Qed.
 
 Lemma triple_conseq : forall t H' Q' H Q,
@@ -668,7 +668,7 @@ Lemma triple_if_bool : forall (b:bool) t1 t2 H Q,
 Proof using.
   introv M1 M2. applys triple_if (fun r => \[r = val_bool b] \* H).
   { applys triple_val. hsimpl~. }
-  { intros b'. applys~ triple_extract_hprop. intros E. inverts E. case_if*. }
+  { intros b'. applys~ triple_hprop. intros E. inverts E. case_if*. }
   { intros v' N. hpull. intros E. inverts~ E. false N. hnfs*. }
 Qed.
 
@@ -693,7 +693,7 @@ Proof using.
   introv M. forwards~ M': (rm M).
   applys_eq~ (>> triple_let H (fun x => \[x = v1] \* H)) 2.
   { applys triple_val. hsimpl~. }
-  { intros X. applys triple_extract_hprop. intro_subst. applys M'. }
+  { intros X. applys triple_hprop. intro_subst. applys M'. }
 Qed.
 
 Lemma triple_app_fix : forall f x F V t1 H H' Q,
@@ -883,5 +883,5 @@ Proof using.
   introv M. applys triple_let (fun F => \[spec_fix f x t1 F] \* H).
   { applys triple_fix. hsimpl~.
     intros F H' H'' Q' M1 M2. applys* triple_app_fix. }
-  { intros F. applys triple_extract_hprop. applys M. }
+  { intros F. applys triple_hprop. applys M. }
 Qed.

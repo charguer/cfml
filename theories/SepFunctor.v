@@ -1412,7 +1412,7 @@ Ltac hcancel_find_repr l HL cont :=
   | _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* repr _ l \* _ => apply hcancel_cancel_eq_10
   end; [ cont tt | ].
 
-Ltac hcancel_extract_hexists tt :=
+Ltac hcancel_hexists tt :=
   first [
     hcancel_hint_next ltac:(fun x =>
       match x with
@@ -1460,7 +1460,7 @@ Ltac hcancel_step tt :=
     | ?H => hcancel_hook H
     | \[] => apply hcancel_empty
     | \[_] => apply hcancel_hprop
-    | hexists _ => hcancel_extract_hexists tt
+    | hexists _ => hcancel_hexists tt
     | _ \* _ => apply hcancel_assoc
     | ?H =>
        first [ is_evar H; fail 1 | idtac ];
@@ -1488,7 +1488,7 @@ Ltac hcancel_step_debug tt :=
     | ?H => hcancel_hook H; idtac "hook"
     | \[] => apply hcancel_empty
     | \[_] => apply hcancel_hprop
-    | hexists _ => hcancel_extract_hexists tt
+    | hexists _ => hcancel_hexists tt
     | _ \* _ => idtac "sep"; apply hcancel_assoc
     | ?H => idtac "find";
         first [ has_evar H; idtac "has evar"; fail 1 | idtac "has no evar" ];
@@ -1937,7 +1937,7 @@ Qed.
    pure propositions from preconditions is just a special case
    of the reasoning rule for extracting existentials from preconditions. *)
 
-Lemma triple_extract_hprop_from_extract_hexists :
+Lemma triple_hprop_from_hexists :
   forall (T:Type) (F:hprop->(T->hprop)->Prop),
   (forall (A:Type) (J:A->hprop) (Q:T->hprop),
     (forall x, F (J x) Q) ->
@@ -1951,9 +1951,9 @@ Proof using.
   applys M. rewrite~ hstar_hempty_l.
 Qed.
 
-Arguments triple_extract_hprop_from_extract_hexists [T].
+Arguments triple_hprop_from_hexists [T].
 
-Lemma triple_extract_hwand_hpure_l_from_extract_hexists_and_consequence :
+Lemma triple_hwand_hpure_l_from_hexists_and_consequence :
   forall (T:Type) (F:hprop->(T->hprop)->Prop),
   (forall (A:Type) (J:A->hprop) (Q:T->hprop),
     (forall x, F (J x) Q) ->
@@ -2186,7 +2186,7 @@ Proof using. intros. apply* local_weaken. Qed.
 
 (** Extraction of pure facts from [local] *)
 
-Lemma local_extract_hprop : forall F H P Q,
+Lemma local_hprop : forall F H P Q,
   is_local F ->
   (P -> F H Q) ->
   F (\[P] \* H) Q.
@@ -2196,7 +2196,7 @@ Qed.
 
 (** Extraction of existentials from [local] *)
 
-Lemma local_extract_hexists_heap : forall F A (J:A->hprop) Q,
+Lemma local_hexists_heap : forall F A (J:A->hprop) Q,
   is_local F ->
   (forall x, F (J x) Q) ->
   F (hexists J) Q.
@@ -2206,7 +2206,7 @@ Qed.
 
 (** Extraction of existentials below a star from [local] *)
 
-Lemma local_extract_hexists : forall F H A (J:A->hprop) Q,
+Lemma local_hexists : forall F H A (J:A->hprop) Q,
   is_local F ->
   (forall x, F ((J x) \* H) Q) ->
    F (hexists J \* H) Q.
@@ -2217,7 +2217,7 @@ Qed.
 
 (** Extraction of forall below a star from [local] *)
 
-Lemma local_extract_hforall : forall B (F:~~B) H A (J:A->hprop) Q,
+Lemma local_hforall : forall B (F:~~B) H A (J:A->hprop) Q,
   is_local F ->
   (exists x, F ((J x) \* H) Q) ->
   F (hforall J \* H) Q.
@@ -2240,19 +2240,19 @@ Qed.
 
 (** Extraction of pure facts from the precondition under local *)
 
-Lemma local_extract_prop : forall F H Q P,
+Lemma local_prop : forall F H Q P,
   is_local F ->
   (H ==> H \* \[P]) ->
   (P -> F H Q) ->
   F H Q.
 Proof using.
   introv L M N. applys~ local_weaken_pre M. rewrite hstar_comm.
-  applys~ local_extract_hprop.
+  applys~ local_hprop.
 Qed.
 
 (** Extraction of proof obligations from the precondition under local *)
 
-Lemma triple_extract_hwand_hpure_l : forall F (P:Prop) H Q,
+Lemma triple_hwand_hpure_l : forall F (P:Prop) H Q,
   is_local F ->
   P ->
   F H Q ->
@@ -2264,7 +2264,7 @@ Qed.
 
 (** Extraction of contradictions from the precondition under local *)
 
-Lemma local_extract_false : forall F H Q,
+Lemma local_false : forall F H Q,
   local F H Q ->
   (forall H' Q', F H' Q' -> False) ->
   (H ==> \[False]).
@@ -2348,7 +2348,7 @@ Proof using. intros. rew_heap. auto. Qed.
 Lemma xpull_hprop : forall B (F:~~B) H1 H2 P Q,
   is_local F -> (P -> F (H1 \* H2) Q) -> F (H1 \* (\[P] \* H2)) Q.
 Proof using.
-  intros. rewrite hstar_comm_assoc. apply~ local_extract_hprop.
+  intros. rewrite hstar_comm_assoc. apply~ local_hprop.
 Qed.
 
 Lemma xpull_id : forall A (x X : A) B (F:~~B) H1 H2 Q,
@@ -2360,7 +2360,7 @@ Lemma xpull_hexists : forall B (F:~~B) H1 H2 A (J:A->hprop) Q,
   (forall x, F (H1 \* ((J x) \* H2)) Q) ->
    F (H1 \* (hexists J \* H2)) Q.
 Proof using.
-  intros. rewrite hstar_comm_assoc. apply~ local_extract_hexists.
+  intros. rewrite hstar_comm_assoc. apply~ local_hexists.
   intros. rewrite~ hstar_comm_assoc.
 Qed.
 

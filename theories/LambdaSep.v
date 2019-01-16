@@ -411,22 +411,22 @@ Proof using.
   exists h' v. splits~. { hhsimpl. auto. }
 Qed.
 
-Lemma hoare_extract_hexists : forall t (A:Type) (J:A->hprop) Q,
+Lemma hoare_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, hoare t (J x) Q) ->
   hoare t (hexists J) Q.
 Proof using. introv M (x&Hh). applys* M. Qed.
 
-Lemma hoare_extract_hforall : forall t (A:Type) (J:A->hprop) Q,
+Lemma hoare_hforall : forall t (A:Type) (J:A->hprop) Q,
   (exists x, hoare t (J x) Q) ->
   hoare t (hforall J) Q.
 Proof using. introv (x&M) Hh. applys* M. Qed.
 
-Lemma hoare_extract_hprop : forall t (P:Prop) H Q,
+Lemma hoare_hprop : forall t (P:Prop) H Q,
   (P -> hoare t H Q) ->
   hoare t (\[P] \* H) Q.
 Proof using.
-  introv M. applys~ triple_extract_hprop_from_extract_hexists.
-  { applys* hoare_extract_hexists. }
+  introv M. applys~ triple_hprop_from_hexists.
+  { applys* hoare_hexists. }
 Qed.
 (* Details:
   introv M (h1&h2&N1&N2&N3&N4).
@@ -435,13 +435,13 @@ Qed.
   applys* M.
 *)
 
-Lemma hoare_extract_hwand_hpure_l : forall t (P:Prop) H Q,
+Lemma hoare_hwand_hpure_l : forall t (P:Prop) H Q,
   P ->
   hoare t H Q ->
   hoare t (\[P] \-* H) Q.
 Proof using.
-  introv HP M. applys~ triple_extract_hwand_hpure_l_from_extract_hexists_and_consequence.
-  { applys* hoare_extract_hexists. }
+  introv HP M. applys~ triple_hwand_hpure_l_from_hexists_and_consequence.
+  { applys* hoare_hexists. }
   { introv N W. applys* hoare_conseq. }
 Qed.
 (* Details:
@@ -675,38 +675,38 @@ Proof using.
   { intros x. hchanges (MQ x). }
 Qed.
 
-Lemma triple_extract_hexists : forall t (A:Type) (J:A->hprop) Q,
+Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, triple t (J x) Q) ->
   triple t (hexists J) Q.
 Proof using.
   introv M. intros HF. rewrite hstar_hexists.
-  applys hoare_extract_hexists. intros. applys* M.
+  applys hoare_hexists. intros. applys* M.
 Qed.
 
-Lemma triple_extract_hforall : forall t A (J:A->hprop) Q,
+Lemma triple_hforall : forall t A (J:A->hprop) Q,
   (exists x, triple t (J x) Q) ->
   triple t (hforall J) Q.
 Proof using.
   introv (x&M). intros HF.
-  forwards* N: hoare_extract_hforall (fun x => J x \* HF).
+  forwards* N: hoare_hforall (fun x => J x \* HF).
   applys* hoare_conseq. applys hstar_hforall.
 Qed.
 
-Lemma triple_extract_hprop : forall t (P:Prop) H Q,
+Lemma triple_hprop : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
 Proof using.
   introv M. intros HF. rewrite hstar_assoc.
-  applys hoare_extract_hprop. intros. applys* M.
+  applys hoare_hprop. intros. applys* M.
 Qed.
 
-Lemma triple_extract_hwand_hpure_l : forall t (P:Prop) H Q,
+Lemma triple_hwand_hpure_l : forall t (P:Prop) H Q,
   P ->
   triple t H Q ->
   triple t (\[P] \-* H) Q.
 Proof using.
   introv HP M. intros HF.
-  forwards* N: hoare_extract_hwand_hpure_l P.
+  forwards* N: hoare_hwand_hpure_l P.
   applys* hoare_conseq. applys hstar_hwand.
 Qed.
 
@@ -802,7 +802,7 @@ Lemma triple_if_bool : forall (b:bool) t1 t2 H Q,
 Proof using.
   introv M1 M2. applys triple_if (fun r => \[r = val_bool b] \* H).
   { applys triple_val. hsimpl~. }
-  { intros b'. applys~ triple_extract_hprop. intros E. inverts E. case_if*. }
+  { intros b'. applys~ triple_hprop. intros E. inverts E. case_if*. }
   { intros v' N. hpull. intros E. inverts~ E. false N. hnfs*. }
 Qed.
 

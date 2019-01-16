@@ -173,7 +173,7 @@ Qed.
 
 (** Contradictions can be extracted from local formulae *)
 
-Lemma local_extract_false : forall F Q,
+Lemma local_false : forall F Q,
   (forall Q', F Q' ==> \[False]) ->
   (local F Q ==> \[False]).
 Proof using.
@@ -409,7 +409,7 @@ Proof using.
   { intros b. simpl. remove_local ;=> b' M. inverts M. case_if.
     { rewrite triple_eq_himpl_wp_triple. applys* M2. }
     { rewrite triple_eq_himpl_wp_triple. applys* M3. } }
-  { introv N. applys local_extract_false. intros Q'.
+  { introv N. applys local_false. intros Q'.
     hpull ;=> v' ->. false* N. hnfs*. }
 Qed.
 
@@ -450,9 +450,9 @@ Lemma wp_sound_while : forall F1 F2 E t1 t2,
   wp_while F1 F2 ===> wp_triple_ E (trm_while t1 t2).
 Proof using.
   introv M1 M2. applys qimpl_wp_triple. simpl. intros Q.
-  remove_local. applys triple_extract_hforall.
+  remove_local. applys triple_hforall.
   set (R := wp_triple (trm_while (isubst E t1) (isubst E t2))).
-  exists R. simpl. applys triple_extract_hwand_hpure_l.
+  exists R. simpl. applys triple_hwand_hpure_l.
   { split.
     { applys is_local_wp_triple. }
     { clears Q. applys qimpl_wp_triple. intros Q.
@@ -471,9 +471,9 @@ Lemma wp_sound_for_val : forall (x:var) v1 v2 F1 E t1,
 Proof using. Opaque Ctx.add Ctx.rem.
   introv M. applys qimpl_wp_triple. simpl. intros Q.
   remove_local. intros n1 n2 (->&->).
-  applys triple_extract_hforall.
+  applys triple_hforall.
   set (S := fun (i:int) => wp_triple (isubst E (trm_for x i n2 t1))).
-  exists S. simpl. applys triple_extract_hwand_hpure_l.
+  exists S. simpl. applys triple_hwand_hpure_l.
   { split.
     { intros r. applys is_local_wp_triple. }
     { clears Q. intros i. applys qimpl_wp_triple. intros Q.

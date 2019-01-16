@@ -176,7 +176,7 @@ Proof using.
     { intros v. specializes P2 v. applys sound_for_local (rm P2).
       clears H Q Q1. intros H Q (b&P1'&P2'&P3'). inverts P1'.
       case_if; applys* IH. }
-    { intros v N. specializes P2 v. applys local_extract_false P2.
+    { intros v N. specializes P2 v. applys local_false P2.
       intros H' Q' (b&E&S1&S2). subst. applys N. hnfs*. } }
   { destruct P as (Q1&P1&P2). applys triple_let Q1.
     { applys~ IH. }
@@ -196,7 +196,7 @@ Proof using.
       { forwards~ P3': (rm P3). applys sound_for_local (rm P3').
         clears H Q b'. intros H Q P. hnf in P. applys triple_val.
          { hchanges* P. } } }
-    { intros v N. specializes P2 v. applys local_extract_false P2.
+    { intros v N. specializes P2 v. applys local_false P2.
       intros H' Q' (b&E&S1&S2). subst. applys N. hnfs*. } }
   { destruct t1; tryfalse. destruct t2; tryfalse.
     hnf in P. destruct P as (n1&n2&E1&E2&P). subst v0 v1.
