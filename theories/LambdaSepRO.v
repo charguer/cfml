@@ -653,40 +653,41 @@ Proof using.
   rewrite~ fmap_union_empty_r.
 Qed.
 
+Generalizable Variables A. (* TODO: move *)
+
 Instance Normal_hexists : forall A (J:A->hprop),
   Normal_post J ->
   Normal (hexists J).
 Proof using. introv M (x&N). rewrites~ (>> M N). Qed.
 
+Instance Normal_hforall_inhab : forall `{Inhab A} (J:A->hprop),
+  Normal_post J ->
+  Normal (hforall J).
+Proof using.
+  introv IA M N. lets M': M arbitrary. lets N': N arbitrary.
+  applys M' N'.
+Qed.
+
+Instance Normal_hforall : forall A (x:A) (J:A->hprop),
+  Normal (J x) ->
+  Normal (hforall J).
+Proof using. introv M N. applys M N. Qed.
+
 Instance Normal_hor : forall H1 H2,
   Normal H1 ->
   Normal H2 ->
   Normal (hor H1 H2).
-Proof using. 
-  introv M1 M2. applys Normal_hexists. intros b. case_if*.
-Qed.
-
-(* TODO
-Instance Normal_hforall : forall A (J:A->hprop),
-  Normal_post J ->
-  Normal (hforall J).
-Proof using. introv M N. rewrites~ (>> M N). Qed.
-..
+Proof using. introv M1 M2. applys Normal_hexists. intros b. case_if*. Qed.
 
 Instance Normal_hand_l : forall H1 H2,
   Normal H1 ->
   Normal (hand H1 H2).
-Proof using. 
-  introv M1. applys Normal_hforall. intros b. case_if*.
-
-TODO FIX introv M (N1&N2). forwards*: M N1. Qed.
+Proof using. introv M1. applys* Normal_hforall true. Qed.
 
 Instance Normal_hand_r : forall H1 H2,
   Normal H2 ->
   Normal (hand H1 H2).
-Proof using. TODO FIX  introv M (N1&N2). forwards*: M N2. Qed.
-
-*)
+Proof using. introv M1. applys* Normal_hforall false. Qed.
 
 Lemma Normal_himpl : forall H1 H2,
   Normal H2 ->
@@ -780,13 +781,19 @@ Proof using.
   { exists h'. splits~. { exists~ x. } }
 Qed.
 
+(* NOT NEEDED? 
+Lemma RO_if : forall (b:bool) H1 H2,
+    RO (if b then H1 else H2)
+  = (if b then RO H1 else RO H2).
+Proof using. intros. destruct* b. Qed.
+*)
+
 Lemma RO_or : forall H1 H2,
      RO (hor H1 H2)
   ==> hor (RO H1) (RO H2).
 Proof using.
-  intros. intros h (h'&[M1|M1]&M2&M3).
-  { left. exists h'. split~. }
-  { right. exists h'. split~. }
+  intros. unfolds hor. rewrite RO_hexists.
+  applys himpl_hexists. intros b. destruct* b.
 Qed.
 
 Lemma RO_star : forall H1 H2,
@@ -921,14 +928,6 @@ Proof using.
   applys triple_extract_hexists.
 Qed.
 
-Lemma triple_extract_or : forall t H1 H2 Q,
-  triple t H1 Q ->
-  triple t H2 Q ->
-  triple t (hor H1 H2) Q.
-Proof using.
-  introv M1 M2 D [M|M]. applys* M1. applys* M2.
-Qed.
-
 Lemma triple_htop_post : forall t H Q,
   triple t H (Q \*+ \Top) ->
   triple t H Q.
@@ -965,14 +964,24 @@ Proof using.
   { applys~ on_rw_sub_weaken Q'. }
 Qed.
 
+Lemma triple_or : forall t H1 H2 Q,
+  triple t H1 Q ->
+  triple t H2 Q ->
+  triple t (hor H1 H2) Q.
+Proof using.
+  introv M1 M2. unfold hor. applys triple_extract_hexists.
+  intros b. destruct* b.
+Qed.
+
+
 Lemma triple_or_symmetric : forall t H1 H2 Q1 Q2,
   triple t H1 Q1 ->
   triple t H2 Q2 ->
   triple t (hor H1 H2) (fun x => hor (Q1 x) (Q2 x)).
 Proof using.
-  introv M1 M2. apply~ triple_extract_or.
-  applys~ triple_conseq. applys M1. { intros_all. hnfs*. }
-  applys~ triple_conseq. applys M2. { intros_all. hnfs*. }
+  introv M1 M2. apply~ triple_or.
+  { applys~ triple_conseq. applys M1. intros x. applys himpl_hor_r_r. }
+  { applys~ triple_conseq. applys M2. intros x. applys himpl_hor_r_l. }
 Qed.
 
 Lemma triple_frame_read_only : forall t H1 Q1 H2,
@@ -1387,12 +1396,40 @@ Proof using.
     { auto. } }
 Qed.
 
+Lemma normally_hforall_drop : forall A (J:A->hprop),
+  normally (hforall J) ==> hforall (fun x => (J x)).
+Proof using.
+  intros. unfolds normally, hforall.
+  intros h N x. autos*.
+Qed.
+
+Lemma normally_hor : forall H1 H2,
+  normally (hor H1 H2) = hor (normally H1) (normally H2).
+Proof using.
+  intros H1 H2. unfolds hor. rewrite normally_hexists. 
+  fequals. applys fun_ext_1. intros b. destruct* b.
+Qed.
+
 Lemma normally_hand_l : forall H1 H2,
   normally (hand H1 H2) = hand (normally H1) H2.
 Proof using.
-  intros H1 H2. applys himpl_antisym.
-  - intros ? [[??]?]. split; [split|]; auto.
-  - intros ? [[??]?]. split; [split|]; auto.
+  intros H1 H2. unfolds hand. applys himpl_antisym.
+  { rewrite normally_hforall; [|typeclass].
+    applys himpl_hforall_r. intros b. destruct b.
+    { applys* himpl_hforall_l_for true. }
+    { applys* himpl_hforall_l_for false. applys* normally_erase. } }
+  { (* TODO: is it possible to complete this proof without revealing [h]? *)
+    intros h M. lets M1: M true. lets M2: M false.
+    rewrite normally_hforall; [|typeclass]. intros b. destruct b.
+    { auto. }
+    { destruct M1. split*. } }
+Qed.
+
+Lemma normally_hand_r : forall H1 H2,
+  normally (hand H1 H2) = hand H1 (normally H2).
+Proof using.
+  intros. rewrite hand_sym. rewrite normally_hand_l.
+  rewrite* hand_sym.
 Qed.
 
 Lemma normally_hstar : forall H1 H2,

@@ -502,18 +502,62 @@ Lemma himpl_hforall_l : forall A (J:A->hprop) H,
   (hforall J) ==> H.
 Proof using. introv (x&M). intros h Hh. apply~ M. Qed.
 
+Lemma himpl_hforall_l_for : forall A x (J:A->hprop) H,
+  (J x ==> H) ->
+  (hforall J) ==> H.
+Proof using. introv M. applys* himpl_hforall_l. Qed.
+
 Lemma himpl_hforall : forall A (J1 J2:A->hprop),
   J1 ===> J2 ->
   hforall J1 ==> hforall J2.
 Proof using. introv W. intros h M x. applys W. applys M. Qed.
 
-(* Note: missing properties for [himpl] on [hand] and [hor].
+(** Properties of [hor] *)
+
+Lemma hor_sym : forall H1 H2,
+  hor H1 H2 = hor H2 H1.
+Proof using.
+  intros. unfold hor. applys himpl_antisym.
+  { applys himpl_hexists_l. intros b.
+    applys himpl_hexists_r (neg b). destruct* b. }
+  { applys himpl_hexists_l. intros b.
+    applys himpl_hexists_r (neg b). destruct* b. }
+Qed.
+
+Lemma himpl_hor_r_r : forall H1 H2,
+  H1 ==> hor H1 H2.
+Proof using. intros. unfolds hor. exists* true. Qed.
+
+Lemma himpl_hor_r_l : forall H1 H2,
+  H2 ==> hor H1 H2.
+Proof using. intros. unfolds hor. exists* false. Qed.
+
+(** Properties of [hand] *)
+
+Lemma hand_sym : forall H1 H2,
+  hand H1 H2 = hand H2 H1.
+Proof using.
+  intros. unfold hand. applys himpl_antisym.
+  { applys himpl_hforall_r. intros b.
+    applys himpl_hforall_l_for (neg b). destruct* b. }
+  { applys himpl_hforall_r. intros b.
+    applys himpl_hforall_l_for (neg b). destruct* b. }
+Qed.
+
+Lemma himpl_hand_l_r : forall H1 H2,
+  hand H1 H2 ==> H1.
+Proof using. intros. unfolds hand. applys* himpl_hforall_l_for true. Qed.
+
+Lemma himpl_hand_l_l : forall H1 H2,
+  hand H1 H2 ==> H2.
+Proof using. intros. unfolds hand. applys* himpl_hforall_l_for false. Qed.
+
+(* Note: there are still missing properties for [himpl] on [hand] and [hor].
    For properties on [hwand], see further on. *)
 
 Lemma hwand_eq_hexists_hstar_hpure : forall H1 H2,
   (H1 \-* H2) = (\exists H, H \* \[H \* H1 ==> H2]).
 Proof using. auto. Qed.
-
 
 
 (* ---------------------------------------------------------------------- *)
