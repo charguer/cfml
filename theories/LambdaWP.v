@@ -319,6 +319,19 @@ Fixpoint wp (E:ctx) (t:trm) : formula :=
   end.
 
 
+Definition wp_constr E id := 
+  fix mk (rvs : list val) (ts : list trm) {struct ts} : formula :=
+  match ts with
+  | nil => wp_val (val_constr id (List.rev rvs))
+  | trm_val v :: ts' => mk (v :: rvs) ts'
+  | trm_var x :: ts' => match Ctx.lookup x E with
+                        | Some v => mk (v :: rvs) ts'
+                        | None => wp_fail
+                        end
+  | t1 :: ts' => wp_let (wp E t1) (fun v : val => mk (v :: rvs) ts')
+  end.
+
+
 (* ********************************************************************** *)
 (* * Soundness proof *)
 
@@ -540,56 +553,12 @@ Proof using.
     rewrite triple_eq_himpl_wp_triple. applys M2. }
 Qed.
 
-Definition mk_constr E id := 
-  fix mk (rvs : list val) (ts : list trm) {struct ts} : formula :=
-  match ts with
-  | nil => wp_val (val_constr id (List.rev rvs))
-  | trm_val v :: ts' => mk (v :: rvs) ts'
-  | trm_var x :: ts' => match Ctx.lookup x E with
-                        | Some v => mk (v :: rvs) ts'
-                        | None => wp_fail
-                        end
-  | t1 :: ts' => wp_let (wp E t1) (fun v : val => mk (v :: rvs) ts')
-  end.
-
-Lemma map_isubst_trms_vals : forall E vs,
-  LibList.map (isubst E) (trms_vals vs) = trms_vals vs.
-Proof using.
-  intros. induction vs as [|v vs']; simpl. 
-  { auto. }
-  { rew_listx. simpl. fequals. } 
-Qed.
-
-Lemma isubst_trm_constr_args : forall E id vs t ts,
-  isubst E (trm_constr id (trms_vals vs ++ t :: ts)) = 
-  trm_constr id (trms_vals vs ++ isubst E t :: LibList.map (isubst E) ts).
-Proof using.
-  intros. simpl. fequals. rewrite List_map_eq. rew_listx. 
-  rewrite map_isubst_trms_vals. fequals.
-Qed.
-
-
-Definition trm_is_var (t:trm) : Prop :=
-  exists x, t = trm_var x.
-
-
-Lemma isubst_not_val_not_var : forall E t,
-  ~ trm_is_val t -> 
-  ~ trm_is_var t ->
-  ~ trm_is_val (isubst E t).
-Proof using.
-  introv N1 N2 N3. destruct t; simpls; 
-    try solve [ destruct N3 as (v'&Ev'); false ].
-  { false. }
-  { false N2. hnfs*. }
-Qed.
-
 Lemma wp_sound_constr : forall E id ts,
   (forall t, mem t ts -> wp_sound t) ->
-  mk_constr E id nil ts ===> wp_triple_ E (trm_constr id ts).
+  wp_constr E id nil ts ===> wp_triple_ E (trm_constr id ts).
 Proof using.
   introv IHwp. cuts M: (forall rvs,  
-   mk_constr E id rvs ts ===> wp_triple_ E (trm_constr id ((trms_vals (LibList.rev rvs))++ts))).
+   wp_constr E id rvs ts ===> wp_triple_ E (trm_constr id ((trms_vals (LibList.rev rvs))++ts))).
   { applys M. }
   induction ts as [|t ts']; intros.
   { simpl. rewrite List_rev_eq. rew_list. applys qimpl_wp_triple.
@@ -598,13 +567,13 @@ Proof using.
   { specializes IHts' __. { intros t' Ht'. applys* IHwp. }
     asserts IHt: (wp_sound t). { applys* IHwp. } clear IHwp.
     asserts IH: (forall v,
-           mk_constr E id (v :: rvs) ts' 
+           wp_constr E id (v :: rvs) ts' 
       ===> wp_triple (trm_constr id (trms_vals (rev rvs) ++ trm_val v :: map (isubst E) ts'))).
     { intros. forwards M: IHts' (v::rvs). rew_listx~ in M.
       unfold wp_triple_ in M. rewrite isubst_trm_constr_args in M. simple*. }
     asserts Common: (
       ~ trm_is_val (isubst E t) ->
-           wp_let (wp E t) (fun v : val => mk_constr E id (v :: rvs) ts')
+           wp_let (wp E t) (fun v : val => wp_constr E id (v :: rvs) ts')
       ===> wp_triple_ E (trm_constr id (trms_vals (rev rvs) ++ t :: ts'))).
     { introv Ht. applys qimpl_wp_triple. intros Q. remove_local. unfolds in IHt.
       rewrite isubst_trm_constr_args. applys~ triple_constr_trm.
@@ -635,7 +604,7 @@ Proof using.
   { applys wp_sound_val. }
   { applys wp_sound_var. }
   { applys wp_sound_fix. }
-  { applys* wp_sound_constr Q. } (* simpl; fold (mk_constr E i) *)
+  { applys* wp_sound_constr Q. } (* simpl; fold (wp_constr E i) *)
   { applys* wp_sound_if. }
   { applys* wp_sound_let. }
   { applys* wp_sound_app. }
@@ -683,7 +652,7 @@ Proof.
   Hint Extern 1 (is_local _) => (apply is_local_local).
   intros. destruct~ t.
   { rename v into x. simpl. unfold wp_var. destruct~ (Ctx.lookup x E). }
-  { rename l into ts. simpl; fold (mk_constr E i). generalize (@nil val).
+  { rename l into ts. simpl; fold (wp_constr E i). generalize (@nil val).
     induction ts as [|t ts']; intros; auto.
     { simpl. destruct~ t. { rename v into x. destruct~ (Ctx.lookup x E). } } }
   { destruct t1; destruct~ t2. }

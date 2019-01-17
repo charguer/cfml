@@ -98,6 +98,9 @@ Notation trms_vals := (LibList.map trm_val).
 Definition trm_is_val (t:trm) : Prop :=
   exists v, t = trm_val v.
 
+Definition trm_is_var (t:trm) : Prop :=
+  exists x, t = trm_var x.
+
 (** Shorthand [vars], [vals] and [trms] for lists of items. *)
 
 Definition vals : Type := list val.
@@ -508,6 +511,39 @@ Proof using.
   { do 2 rewrite isubst_cons.
     rewrite IHG'. fequals. rewrite Ctx.rem_var_eq_rem.
     rewrite~ <- isubst_subst_eq_subst_isubst_rem. }
+Qed.
+
+(** Only the substitution applied to a variable or a value can produce a value *)
+
+Lemma isubst_not_val_not_var : forall E t,
+  ~ trm_is_val t -> 
+  ~ trm_is_var t ->
+  ~ trm_is_val (isubst E t).
+Proof using.
+  introv N1 N2 N3. destruct t; simpls; 
+    try solve [ destruct N3 as (v'&Ev'); false ].
+  { false. }
+  { false N2. hnfs*. }
+Qed.
+
+(** Substitution on list of values is the identity *)
+
+Lemma map_isubst_trms_vals : forall E vs,
+  LibList.map (isubst E) (trms_vals vs) = trms_vals vs.
+Proof using.
+  intros. induction vs as [|v vs']; simpl. 
+  { auto. }
+  { rew_listx. simpl. fequals. } 
+Qed.
+
+(** Substitution lemma for constructors *)
+
+Lemma isubst_trm_constr_args : forall E id vs t ts,
+  isubst E (trm_constr id (trms_vals vs ++ t :: ts)) = 
+  trm_constr id (trms_vals vs ++ isubst E t :: LibList.map (isubst E) ts).
+Proof using.
+  intros. simpl. fequals. rewrite List_map_eq. rew_listx. 
+  rewrite map_isubst_trms_vals. fequals.
 Qed.
 
 
