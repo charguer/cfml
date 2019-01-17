@@ -635,7 +635,7 @@ Proof using.
   { applys wp_sound_val. }
   { applys wp_sound_var. }
   { applys wp_sound_fix. }
-  { applys* wp_sound_constr Q. } (* fold (mk_constr E i). *)
+  { applys* wp_sound_constr Q. } (* simpl; fold (mk_constr E i) *)
   { applys* wp_sound_if. }
   { applys* wp_sound_let. }
   { applys* wp_sound_app. }
@@ -680,13 +680,12 @@ Qed.
 Lemma is_local_wp : forall E t,
   is_local (wp E t).
 Proof.
-  intros. destruct t; try solve [ apply is_local_local ].
-  { rename v into x. simpl. unfold wp_var.
-    destruct (Ctx.lookup x E); apply is_local_local. }
-  { skip. (* TODO constr *) }
-  { destruct t1; destruct t2; try solve [ apply is_local_local ]. }
-  { destruct t1; try solve [ apply is_local_local ]. }
+  Hint Extern 1 (is_local _) => (apply is_local_local).
+  intros. destruct~ t.
+  { rename v into x. simpl. unfold wp_var. destruct~ (Ctx.lookup x E). }
+  { rename l into ts. simpl; fold (mk_constr E i). generalize (@nil val).
+    induction ts as [|t ts']; intros; auto.
+    { simpl. destruct~ t. { rename v into x. destruct~ (Ctx.lookup x E). } } }
+  { destruct t1; destruct~ t2. }
+  { destruct~ t1. }
 Qed.
-
-
-
