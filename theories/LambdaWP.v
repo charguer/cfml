@@ -288,17 +288,22 @@ Fixpoint wp (E:ctx) (t:trm) : formula :=
   | trm_val v => wp_val v
   | trm_var x => wp_var E x
   | trm_fix f x t1 => wp_val (val_fix f x (isubst (Ctx.rem x (Ctx.rem f E)) t1))
-  | trm_constr id ts =>
-      (fix getval acc ts :=
+  | trm_constr id ts => 
+      (fix mk rvs ts :=
         match ts with
-        | nil => wp_val (val_constr id (List.rev acc))
+        | nil => wp_val (val_constr id (List.rev rvs))
         | t1::ts' => 
           match t1 with 
-          | trm_val v1 => getval (v1::acc) ts'
-          | _ => wp_fail
+          | trm_val v => mk (v::rvs) ts'
+          | trm_var x =>
+             match Ctx.lookup x E with
+              | None => wp_fail
+              | Some v => mk (v::rvs) ts'
+              end
+          | _ => wp_let (aux t1) (fun v => mk (v::rvs) ts')
           end
         end) 
-      nil ts
+      nil ts 
   | trm_if t0 t1 t2 => wp_if (aux t0) (aux t1) (aux t2)
   | trm_let x t1 t2 => wp_let (aux t1) (fun X => wp (Ctx.add x X E) t2)
   | trm_app t1 t2 => wp_app (isubst E t)
@@ -430,27 +435,6 @@ Proof using.
   intros Q. remove_local. lets: triple_fix. applys~ triple_fix.
 Qed.
 
-Lemma wp_sound_constr : forall id ts,
-  wp_sound (trm_constr id ts).
-Proof using.
-(* TODO
-  intros. intros E. applys qimpl_wp_triple. simpl.
-  set (getval := 
-    (fix getval (acc : list val) (ts0 : list trm) {struct ts0} : formula :=
-      match ts0 with
-      | nil => wp_val (val_constr id (List.rev acc))
-      | trm_val v1 :: ts' => getval (v1 :: acc) ts'
-      | _ => wp_fail
-      end)).
-  intros Q. generalize (@nil val) as vs.
-  induction ts as [|t ts']; intros.
-  { simpl.
-
- remove_local. applys~ triple_val.
-*)
-skip.
-Qed.
-
 Lemma wp_sound_if : forall F1 F2 F3 E t1 t2 t3,
   F1 ===> wp_triple_ E t1 ->
   F2 ===> wp_triple_ E t2 ->
@@ -568,7 +552,7 @@ Proof using.
   { applys wp_sound_val. }
   { applys wp_sound_var. }
   { applys wp_sound_fix. }
-  { applys* wp_sound_constr. }
+  { skip. (* applys* wp_sound_constr. *) } 
   { applys* wp_sound_if. }
   { applys* wp_sound_let. }
   { applys* wp_sound_app. }

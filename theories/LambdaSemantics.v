@@ -91,6 +91,13 @@ Notation trm_seq := (trm_let bind_anon).
 Notation trm_fun := (trm_fix bind_anon).
 Notation val_fun := (val_fix bind_anon).
 
+(** Values into terms *)
+
+Notation trms_vals := (LibList.map trm_val).
+
+Definition trm_is_val (t:trm) : Prop :=
+  exists v, t = trm_val v.
+
 (** Shorthand [vars], [vals] and [trms] for lists of items. *)
 
 Definition vals : Type := list val.
@@ -566,8 +573,13 @@ Inductive red : state -> trm -> state -> val -> Prop :=
       red m v m v
   | red_fix : forall m f z t1,
       red m (trm_fix f z t1) m (val_fix f z t1)
-  | red_constr : forall m id (vs:list val), (* restricted to value arguments *)
-      red m (trm_constr id (LibList.map trm_val vs)) m (val_constr id vs)
+  | red_constr_val : forall m id vs,
+      red m (trm_constr id (trms_vals vs)) m (val_constr id vs)
+  | red_constr_trm : forall m1 m2 m3 id ts vs t1 v1 r,
+      ~ trm_is_val t1 ->
+      red m1 t1 m2 v1 ->
+      red m2 (trm_constr id ((trms_vals vs)++(trm_val v1)::ts)) m3 r ->
+      red m1 (trm_constr id ((trms_vals vs)++t1::ts)) m3 r
   | red_if : forall m1 m2 m3 b r t0 t1 t2,
       red m1 t0 m2 (val_bool b) ->
       red m2 (if b then t1 else t2) m3 r ->
@@ -622,9 +634,9 @@ Inductive red : state -> trm -> state -> val -> Prop :=
       \# ma mb ->
       red ma (val_alloc (val_int n)) (mb \+ ma) (val_loc l).
 
-  (* Note: there is no reduction rule for [trm_fail]. *)
-
 End Red.
+
+  (* Note: there is no reduction rule for [trm_fail]. *)
 
 
   (*  --- TODO

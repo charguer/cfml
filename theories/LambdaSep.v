@@ -478,13 +478,25 @@ Proof using.
   { hhsimpl~. }
 Qed.
 
-Lemma hoare_constr : forall id vs H Q, (* todo: generalized to terms *)
+Lemma hoare_constr_val : forall id vs H Q, 
   H ==> Q (val_constr id vs) ->
-  hoare (trm_constr id (LibList.map trm_val vs)) H Q.
+  hoare (trm_constr id (trms_vals vs)) H Q.
 Proof using.
   introv M. intros h Hh. exists h (val_constr id vs). splits.
-  { applys red_constr. }
+  { applys red_constr_val. }
   { hhsimpl~. }
+Qed.
+
+Lemma hoare_constr_trm : forall id ts t1 vs H Q Q1,
+  ~ trm_is_val t1 ->
+  hoare t1 H Q1 -> 
+  (forall (X:val), hoare (trm_constr id ((trms_vals vs)++(trm_val X)::ts)) (Q1 X) Q) ->
+  hoare (trm_constr id ((trms_vals vs)++t1::ts)) H Q.
+Proof using.
+  introv Ht1 M1 M2. intros h Hh.
+  forwards* (h1'&v1&R1&K1): (rm M1).
+  forwards* (h2'&v2&R2&K2): (rm M2).
+  exists h2' v2. splits~. { applys~ red_constr_trm R2. }
 Qed.
 
 Lemma hoare_let : forall z t1 t2 H Q Q1,
@@ -811,11 +823,24 @@ Proof using.
   introv M. intros HF. applys hoare_fix. { hchanges M. }
 Qed.
 
-Lemma triple_constr : forall id vs H Q, (* todo: generalized to terms *)
+Lemma triple_constr_val : forall id vs H Q,
   H ==> Q (val_constr id vs) ->
   triple (trm_constr id (LibList.map trm_val vs)) H Q.
 Proof using.
-  introv M. intros HF. applys hoare_constr. { hchanges M. }
+  introv M. intros HF. applys hoare_constr_val. { hchanges M. }
+Qed.
+
+Lemma triple_constr_trm : forall id ts t1 vs H Q Q1,
+  ~ trm_is_val t1 ->
+  triple t1 H Q1 -> 
+  (forall (X:val), triple (trm_constr id ((trms_vals vs)++(trm_val X)::ts)) (Q1 X) Q) ->
+  triple (trm_constr id ((trms_vals vs)++t1::ts)) H Q.
+Proof using.
+  introv Ht1 M1 M2. intros HF. applys~ hoare_constr_trm.
+  { intros X. simpl. applys hoare_conseq.
+    { applys M2. }
+    { hsimpl. }
+    { intros v. hsimpl. } }
 Qed.
 
 Lemma triple_let : forall z t1 t2 H Q Q1,
