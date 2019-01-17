@@ -278,6 +278,18 @@ Definition wp_case (v:val) (p:pat) (F1:ctx->formula) (F2:formula) : formula :=
     hand (\forall (G:ctx), \[Ctx.dom G = patvars p /\ v = patsubst G p] \-* F1 G Q)
          (\[forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p] \-* F2 Q) ).
 
+Definition wp_constr wp E id := 
+  fix mk (rvs : list val) (ts : list trm) {struct ts} : formula :=
+  match ts with
+  | nil => wp_val (val_constr id (List.rev rvs))
+  | trm_val v :: ts' => mk (v :: rvs) ts'
+  | trm_var x :: ts' => match Ctx.lookup x E with
+                        | Some v => mk (v :: rvs) ts'
+                        | None => wp_fail
+                        end
+  | t1 :: ts' => wp_let (wp E t1) (fun v : val => mk (v :: rvs) ts')
+  end.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of the CF generator *)
@@ -288,19 +300,7 @@ Fixpoint wp (E:ctx) (t:trm) : formula :=
   | trm_val v => wp_val v
   | trm_var x => wp_var E x
   | trm_fix f x t1 => wp_val (val_fix f x (isubst (Ctx.rem x (Ctx.rem f E)) t1))
-  | trm_constr id ts => 
-     (fix mk rvs ts :=
-        match ts with
-        | nil => wp_val (val_constr id (List.rev rvs))
-        | (trm_val v)::ts' => mk (v::rvs) ts'
-        | (trm_var x)::ts' =>
-             match Ctx.lookup x E with
-              | None => wp_fail
-              | Some v => mk (v::rvs) ts'
-              end
-        | t1::ts' => wp_let (aux t1) (fun v => mk (v::rvs) ts')
-        end) 
-      nil ts 
+  | trm_constr id ts => wp_constr wp E id nil ts
   | trm_if t0 t1 t2 => wp_if (aux t0) (aux t1) (aux t2)
   | trm_let x t1 t2 => wp_let (aux t1) (fun X => wp (Ctx.add x X E) t2)
   | trm_app t1 t2 => wp_app (isubst E t)
@@ -316,19 +316,6 @@ Fixpoint wp (E:ctx) (t:trm) : formula :=
      | _ => wp_fail
      end
   | trm_fail => wp_fail
-  end.
-
-
-Definition wp_constr E id := 
-  fix mk (rvs : list val) (ts : list trm) {struct ts} : formula :=
-  match ts with
-  | nil => wp_val (val_constr id (List.rev rvs))
-  | trm_val v :: ts' => mk (v :: rvs) ts'
-  | trm_var x :: ts' => match Ctx.lookup x E with
-                        | Some v => mk (v :: rvs) ts'
-                        | None => wp_fail
-                        end
-  | t1 :: ts' => wp_let (wp E t1) (fun v : val => mk (v :: rvs) ts')
   end.
 
 
@@ -555,10 +542,10 @@ Qed.
 
 Lemma wp_sound_constr : forall E id ts,
   (forall t, mem t ts -> wp_sound t) ->
-  wp_constr E id nil ts ===> wp_triple_ E (trm_constr id ts).
+  wp_constr wp E id nil ts ===> wp_triple_ E (trm_constr id ts).
 Proof using.
   introv IHwp. cuts M: (forall rvs,  
-   wp_constr E id rvs ts ===> wp_triple_ E (trm_constr id ((trms_vals (LibList.rev rvs))++ts))).
+   wp_constr wp E id rvs ts ===> wp_triple_ E (trm_constr id ((trms_vals (LibList.rev rvs))++ts))).
   { applys M. }
   induction ts as [|t ts']; intros.
   { simpl. rewrite List_rev_eq. rew_list. applys qimpl_wp_triple.
@@ -567,13 +554,13 @@ Proof using.
   { specializes IHts' __. { intros t' Ht'. applys* IHwp. }
     asserts IHt: (wp_sound t). { applys* IHwp. } clear IHwp.
     asserts IH: (forall v,
-           wp_constr E id (v :: rvs) ts' 
+           wp_constr wp E id (v :: rvs) ts' 
       ===> wp_triple (trm_constr id (trms_vals (rev rvs) ++ trm_val v :: map (isubst E) ts'))).
     { intros. forwards M: IHts' (v::rvs). rew_listx~ in M.
       unfold wp_triple_ in M. rewrite isubst_trm_constr_args in M. simple*. }
     asserts Common: (
       ~ trm_is_val (isubst E t) ->
-           wp_let (wp E t) (fun v : val => wp_constr E id (v :: rvs) ts')
+           wp_let (wp E t) (fun v : val => wp_constr wp E id (v :: rvs) ts')
       ===> wp_triple_ E (trm_constr id (trms_vals (rev rvs) ++ t :: ts'))).
     { introv Ht. applys qimpl_wp_triple. intros Q. remove_local. unfolds in IHt.
       rewrite isubst_trm_constr_args. applys~ triple_constr_trm.
@@ -604,7 +591,7 @@ Proof using.
   { applys wp_sound_val. }
   { applys wp_sound_var. }
   { applys wp_sound_fix. }
-  { applys* wp_sound_constr Q. } (* simpl; fold (wp_constr E i) *)
+  { applys* wp_sound_constr Q. }
   { applys* wp_sound_if. }
   { applys* wp_sound_let. }
   { applys* wp_sound_app. }
@@ -652,7 +639,7 @@ Proof.
   Hint Extern 1 (is_local _) => (apply is_local_local).
   intros. destruct~ t.
   { rename v into x. simpl. unfold wp_var. destruct~ (Ctx.lookup x E). }
-  { rename l into ts. simpl; fold (wp_constr E i). generalize (@nil val).
+  { rename l into ts. simpl. generalize (@nil val).
     induction ts as [|t ts']; intros; auto.
     { simpl. destruct~ t. { rename v into x. destruct~ (Ctx.lookup x E). } } }
   { destruct t1; destruct~ t2. }
