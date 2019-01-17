@@ -275,8 +275,8 @@ Definition wp_for_val (v1 v2:val) (F1:val->formula) : formula := local (fun Q =>
 
 Definition wp_case (v:val) (p:pat) (F1:ctx->formula) (F2:formula) : formula :=
   local (fun Q => 
-    hand (\forall (S:ctx), \[v = patsubst S p] \-* F1 S Q)
-         (\[forall (S:ctx), v <> patsubst S p] \-* F2 Q) ).
+    hand (\forall (G:ctx), \[v = patsubst G p] \-* F1 G Q)
+         (\[forall (G:ctx), v <> patsubst G p] \-* F2 Q) ).
 
 
 (* ---------------------------------------------------------------------- *)
@@ -310,7 +310,8 @@ Fixpoint wp (E:ctx) (t:trm) : formula :=
       end
   | trm_case t1 p t2 t3 => 
      match t1 with
-     | trm_val v1 => wp_case v1 p (fun (S:ctx) => wp (Ctx.app S E) t2) (aux t3)
+     | trm_val v1 => wp_case v1 p (fun (G:ctx) => wp (Ctx.app (Ctx.rem_vars (patvars p) E) G) t2) (aux t3)
+                  (* TODO wp (Ctx.app G E) t2 *)
      | _ => wp_fail
      end
   | trm_fail => wp_fail
@@ -544,49 +545,42 @@ Proof using. Opaque Ctx.add Ctx.rem.
   { rewrite~ triple_eq_himpl_wp_triple. }
 Qed.
 
-(* TODO: move to LambdaSep *)
-Lemma triple_hor : forall t H1 H2 Q,
-  triple t H1 Q ->
-  triple t H2 Q ->
-  triple t (hor H1 H2) Q.
+Lemma isubst_app_eq_isubst_isubst : forall G E t,
+  isubst (Ctx.app G E) t = isubst E (isubst G t).
 Proof using.
-  introv M1 M2. unfold hor. applys triple_hexists.
-  intros b. destruct* b.
+  intros G. induction G as [|(y,w) G']; intros; simpl.
+  { rewrite~ isubst_nil. }
+  { do 2 rewrite isubst_cons. rewrite~ IHG'. }
 Qed.
 
-Lemma triple_hand_l : forall t H1 H2 Q,
-  triple t H1 Q ->
-  triple t (hand H1 H2) Q.
+Lemma isubst_app_eq_isubst_isubst_rem_vars : forall G E t p,
+  isubst (Ctx.app G E) t = isubst G (isubst (Ctx.rem_vars (patvars p) E) t).
 Proof using.
-  introv M1. unfold hand. applys triple_hforall. exists* true.
+  intros G. induction G as [|(y,w) G']; intros.
+  { simpl. rewrite isubst_nil. 
+skip. } skip.
 Qed.
 
-Lemma triple_hand_r : forall t H1 H2 Q,
-  triple t H2 Q ->
-  triple t (hand H1 H2) Q.
+Lemma isubst_eq : forall G E p t,
+  isubst (Ctx.app (Ctx.rem_vars (patvars p) E) G) t = isubst (Ctx.app G E) t.
 Proof using.
-  introv M1. unfold hand. applys triple_hforall. exists* false.
+  skip.
 Qed.
 
-Lemma triple_hforall_for : forall A (x:A) t (J:A->hprop) Q,
-  triple t (J x) Q ->
-  triple t (hforall J) Q.
-Proof using. intros. applys* triple_hforall. Qed.
 
-Lemma wp_sound_case : forall v1 p F1 F2 t1 t2 E,
-  (forall (S:ctx), F1 S ===> wp_triple_ (Ctx.app S E) t1) ->
+Lemma wp_sound_case : forall v1 p F1 F2 t1 t2 E, (* TODO (wp_triple_ G E t1) *)
+  (forall (G:ctx), F1 G ===> wp_triple_ (Ctx.app (Ctx.rem_vars (patvars p) E) G) t1) ->
   F2 ===> wp_triple_ E t2 ->
   wp_case v1 p F1 F2 ===> wp_triple_ E (trm_case v1 p t1 t2).
 Proof using.
   introv M1 M2. applys qimpl_wp_triple. simpl. intros Q.
-  remove_local. tests C: (exists (S:ctx), v1 = patsubst S p).
-  { destruct C as (S&Ev1). applys triple_hand_l.
-    applys triple_hforall_for S. applys~ triple_hwand_hpure_l.
-    (* TODO: applys triple_case.
-    applys M2. *).  skip. }
-  { applys triple_hand_r. applys* triple_hwand_hpure_l.
-    (* TODO: applys triple_case.
-    applys M2. *).  skip.  }
+  remove_local. applys triple_case.
+  { intros G Hv1. applys triple_hand_l. applys triple_hforall_for G.
+    applys~ triple_hwand_hpure_l. rewrite triple_eq_himpl_wp_triple.
+    rewrite <- isubst_app_eq_isubst_isubst.
+    (* TODO rewrite <- isubst_app_eq_isubst_isubst_rem_vars. *) applys M1. }
+  { introv Hv1. applys triple_hand_r. applys* triple_hwand_hpure_l. 
+    rewrite triple_eq_himpl_wp_triple. applys M2. }
 Qed.
 
 (** Putting it all together *)
@@ -646,7 +640,9 @@ Proof.
   intros. destruct t; try solve [ apply is_local_local ].
   { rename v into x. simpl. unfold wp_var.
     destruct (Ctx.lookup x E); apply is_local_local. }
+  { skip. (* TODO constr *) }
   { destruct t1; destruct t2; try solve [ apply is_local_local ]. }
+  { destruct t1; try solve [ apply is_local_local ]. }
 Qed.
 
 

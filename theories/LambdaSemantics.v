@@ -457,7 +457,7 @@ Proof using.
 Qed.
 
 (** A step of an iterated substitution can be postponed until the end
-    if we remove it from the context. *)
+    if we remove its variable from the context. *)
 
 Lemma isubst_subst_eq_subst_isubst_rem : forall (x:var) v E t,
   isubst E (subst x v t) = subst x v (isubst (Ctx.rem x E) t).
@@ -479,6 +479,16 @@ Proof using.
   { rewrite isubst_add. unfold subst1.
     rewrite* isubst_subst_eq_subst_isubst_rem. }
 Qed.
+
+(** A multisubstitution can be postponed until the end
+    if we remove its variables from the context. *)
+
+Lemma isubst_app_eq_isubst_isubst_rem_vars : forall G E t p,
+  isubst (Ctx.app G E) t = isubst G (isubst (Ctx.rem_vars (patvars p) E) t).
+Proof using.
+  intros G. induction G as [|(y,w) G']; intros.
+  { simpl. rewrite isubst_nil. 
+Admitted.
 
 
 (* ---------------------------------------------------------------------- *)

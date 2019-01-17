@@ -400,6 +400,10 @@ Proof using. auto. Qed.
 (* ---------------------------------------------------------------------- *)
 (** Properties of operations on contexts  *)
 
+Lemma rem_var_eq_rem : forall x E,
+  rem_var x E = rem x E.
+Proof using. auto. Qed.
+
 Lemma fresh_inv : forall (x1 x2:var) v E,
   fresh x1 (add x2 v E) ->
   x1 <> x2 /\ fresh x1 E.
@@ -500,7 +504,7 @@ End Ctx.
 (* LATER: how to place this rewrite base and tactics inside the
    module and still be able to use it without importing the module? *)
 
-Hint Rewrite Ctx.nil_eq_ctx_empty Ctx.cons_eq_ctx_add : rew_ctx.
+Hint Rewrite Ctx.nil_eq_ctx_empty Ctx.cons_eq_ctx_add Ctx.rem_var_eq_rem : rew_ctx.
 
 Tactic Notation "rew_ctx" :=
   autorewrite with rew_ctx.

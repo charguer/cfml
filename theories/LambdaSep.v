@@ -478,6 +478,15 @@ Proof using.
   { hhsimpl~. }
 Qed.
 
+Lemma hoare_constr : forall id vs H Q, (* todo: generalized to terms *)
+  H ==> Q (val_constr id vs) ->
+  hoare (trm_constr id (LibList.map trm_val vs)) H Q.
+Proof using.
+  introv M. intros h Hh. exists h (val_constr id vs). splits.
+  { applys red_constr. }
+  { hhsimpl~. }
+Qed.
+
 Lemma hoare_let : forall z t1 t2 H Q Q1,
   hoare t1 H Q1 ->
   (forall (X:val), hoare (subst1 z X t2) (Q1 X) Q) ->
@@ -540,6 +549,18 @@ Lemma hoare_for_raw : forall (x:var) (n1 n2:int) t3 H (Q:val->hprop),
 Proof using.
   introv M Hh. forwards* (h1'&v1&R1&K1): (rm M).
   exists h1' v1. splits~. { applys* red_for. }
+Qed.
+
+Lemma hoare_case : forall v p t2 t3 H Q,
+  (forall (G:ctx), v = patsubst G p -> hoare (isubst G t2) H Q) ->
+  ((forall (G:ctx), v <> patsubst G p) -> hoare t3 H Q) ->
+  hoare (trm_case v p t2 t3) H Q.
+Proof using.
+  introv M1 M2 Hh. tests C: (exists (G:ctx), v = patsubst G p).
+  { destruct C as (G&Ev). forwards* (h1'&v1&R1&K1): (rm M1).
+    exists h1' v1. splits~. { applys~ red_case_match R1. } }
+  { forwards* (h1'&v1&R1&K1): (rm M2).
+    exists h1' v1. splits~. { applys~ red_case_mismatch R1. } }
 Qed.
 
 
@@ -692,6 +713,11 @@ Proof using.
   applys* hoare_conseq. applys hstar_hforall.
 Qed.
 
+Lemma triple_hforall_for : forall A (x:A) t (J:A->hprop) Q,
+  triple t (J x) Q ->
+  triple t (hforall J) Q.
+Proof using. intros. applys* triple_hforall. Qed.
+
 Lemma triple_hprop : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
@@ -708,6 +734,29 @@ Proof using.
   introv HP M. intros HF.
   forwards* N: hoare_hwand_hpure_l P.
   applys* hoare_conseq. applys hstar_hwand.
+Qed.
+
+Lemma triple_hor : forall t H1 H2 Q,
+  triple t H1 Q ->
+  triple t H2 Q ->
+  triple t (hor H1 H2) Q.
+Proof using.
+  introv M1 M2. unfold hor. applys triple_hexists.
+  intros b. destruct* b.
+Qed.
+
+Lemma triple_hand_l : forall t H1 H2 Q,
+  triple t H1 Q ->
+  triple t (hand H1 H2) Q.
+Proof using.
+  introv M1. unfold hand. applys triple_hforall. exists* true.
+Qed.
+
+Lemma triple_hand_r : forall t H1 H2 Q,
+  triple t H2 Q ->
+  triple t (hand H1 H2) Q.
+Proof using.
+  introv M1. unfold hand. applys triple_hforall. exists* false.
 Qed.
 
 Lemma triple_frame : forall t H Q H',
@@ -759,6 +808,13 @@ Lemma triple_fix : forall f z t1 H Q,
   triple (trm_fix f z t1) H Q.
 Proof using.
   introv M. intros HF. applys hoare_fix. { hchanges M. }
+Qed.
+
+Lemma triple_constr : forall id vs H Q, (* todo: generalized to terms *)
+  H ==> Q (val_constr id vs) ->
+  triple (trm_constr id (LibList.map trm_val vs)) H Q.
+Proof using.
+  introv M. intros HF. applys hoare_constr. { hchanges M. }
 Qed.
 
 Lemma triple_let : forall z t1 t2 H Q Q1,
@@ -947,6 +1003,20 @@ Proof using.
 Qed.
 
 End RuleForInv.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** SL rules for pattern matching *)
+
+Lemma triple_case : forall v p t2 t3 H Q,
+  (forall (G:ctx), v = patsubst G p -> triple (isubst G t2) H Q) ->
+  ((forall (G:ctx), v <> patsubst G p) -> triple t3 H Q) ->
+  triple (trm_case v p t2 t3) H Q.
+Proof using.
+  introv M1 M2. intros HF. applys hoare_case.
+  { introv Hv. applys* M1. }
+  { introv Hv. applys* M2. }
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
