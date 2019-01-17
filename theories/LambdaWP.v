@@ -289,19 +289,16 @@ Fixpoint wp (E:ctx) (t:trm) : formula :=
   | trm_var x => wp_var E x
   | trm_fix f x t1 => wp_val (val_fix f x (isubst (Ctx.rem x (Ctx.rem f E)) t1))
   | trm_constr id ts => 
-      (fix mk rvs ts :=
+     (fix mk rvs ts :=
         match ts with
         | nil => wp_val (val_constr id (List.rev rvs))
-        | t1::ts' => 
-          match t1 with 
-          | trm_val v => mk (v::rvs) ts'
-          | trm_var x =>
+        | (trm_val v)::ts' => mk (v::rvs) ts'
+        | (trm_var x)::ts' =>
              match Ctx.lookup x E with
               | None => wp_fail
               | Some v => mk (v::rvs) ts'
               end
-          | _ => wp_let (aux t1) (fun v => mk (v::rvs) ts')
-          end
+        | t1::ts' => wp_let (aux t1) (fun v => mk (v::rvs) ts')
         end) 
       nil ts 
   | trm_if t0 t1 t2 => wp_if (aux t0) (aux t1) (aux t2)
@@ -432,7 +429,7 @@ Lemma wp_sound_fix : forall f x t,
   wp_sound (trm_fix f x t).
 Proof using.
   intros. intros E. applys qimpl_wp_triple. simpl.
-  intros Q. remove_local. lets: triple_fix. applys~ triple_fix.
+  intros Q. remove_local. applys~ triple_fix.
 Qed.
 
 Lemma wp_sound_if : forall F1 F2 F3 E t1 t2 t3,
@@ -543,16 +540,102 @@ Proof using.
     rewrite triple_eq_himpl_wp_triple. applys M2. }
 Qed.
 
+Definition mk_constr E id := 
+  fix mk (rvs : list val) (ts : list trm) {struct ts} : formula :=
+  match ts with
+  | nil => wp_val (val_constr id (List.rev rvs))
+  | trm_val v :: ts' => mk (v :: rvs) ts'
+  | trm_var x :: ts' => match Ctx.lookup x E with
+                        | Some v => mk (v :: rvs) ts'
+                        | None => wp_fail
+                        end
+  | t1 :: ts' => wp_let (wp E t1) (fun v : val => mk (v :: rvs) ts')
+  end.
+
+Lemma map_isubst_trms_vals : forall E vs,
+  LibList.map (isubst E) (trms_vals vs) = trms_vals vs.
+Proof using.
+  intros. induction vs as [|v vs']; simpl. 
+  { auto. }
+  { rew_listx. simpl. fequals. } 
+Qed.
+
+Lemma isubst_trm_constr_args : forall E id vs t ts,
+  isubst E (trm_constr id (trms_vals vs ++ t :: ts)) = 
+  trm_constr id (trms_vals vs ++ isubst E t :: LibList.map (isubst E) ts).
+Proof using.
+  intros. simpl. fequals. rewrite List_map_eq. rew_listx. 
+  rewrite map_isubst_trms_vals. fequals.
+Qed.
+
+
+Definition trm_is_var (t:trm) : Prop :=
+  exists x, t = trm_var x.
+
+
+Lemma isubst_not_val_not_var : forall E t,
+  ~ trm_is_val t -> 
+  ~ trm_is_var t ->
+  ~ trm_is_val (isubst E t).
+Proof using.
+  introv N1 N2 N3. destruct t; simpls; 
+    try solve [ destruct N3 as (v'&Ev'); false ].
+  { false. }
+  { false N2. hnfs*. }
+Qed.
+
+Lemma wp_sound_constr : forall E id ts,
+  (forall t, mem t ts -> wp_sound t) ->
+  mk_constr E id nil ts ===> wp_triple_ E (trm_constr id ts).
+Proof using.
+  introv IHwp. cuts M: (forall rvs,  
+   mk_constr E id rvs ts ===> wp_triple_ E (trm_constr id ((trms_vals (LibList.rev rvs))++ts))).
+  { applys M. }
+  induction ts as [|t ts']; intros.
+  { simpl. rewrite List_rev_eq. rew_list. applys qimpl_wp_triple.
+    simpl. rewrite List_map_eq.
+    intros Q. remove_local. rewrite map_isubst_trms_vals. applys~ triple_constr_val. }
+  { specializes IHts' __. { intros t' Ht'. applys* IHwp. }
+    asserts IHt: (wp_sound t). { applys* IHwp. } clear IHwp.
+    asserts IH: (forall v,
+           mk_constr E id (v :: rvs) ts' 
+      ===> wp_triple (trm_constr id (trms_vals (rev rvs) ++ trm_val v :: map (isubst E) ts'))).
+    { intros. forwards M: IHts' (v::rvs). rew_listx~ in M.
+      unfold wp_triple_ in M. rewrite isubst_trm_constr_args in M. simple*. }
+    asserts Common: (
+      ~ trm_is_val (isubst E t) ->
+           wp_let (wp E t) (fun v : val => mk_constr E id (v :: rvs) ts')
+      ===> wp_triple_ E (trm_constr id (trms_vals (rev rvs) ++ t :: ts'))).
+    { introv Ht. applys qimpl_wp_triple. intros Q. remove_local. unfolds in IHt.
+      rewrite isubst_trm_constr_args. applys~ triple_constr_trm.
+      { rewrite triple_eq_himpl_wp_triple. applys IHt. }
+      { intros X. simpl. rewrite triple_eq_himpl_wp_triple. applys IH. } }
+    simpl. tests C1: (trm_is_val t).
+    { destruct C1 as (v&Et). subst. forwards M: IHts' (v::rvs). rew_listx~ in M. }
+    { tests C2: (trm_is_var t).
+      { destruct C2 as (x&Et).      
+        { subst. applys qimpl_wp_triple. intros Q. case_eq (Ctx.lookup x E).
+          { intros v Ev. rewrite isubst_trm_constr_args. simpl. rewrite Ev.
+            rewrite triple_eq_himpl_wp_triple. applys IH. }
+          { introv N. remove_local. intros; false. } } }
+      { destruct t; try solve [ 
+          applys Common; unfold trm_is_val; rew_logic; introv N; tryfalse ].
+        { false C1. hnfs*. }
+        { false C2. hnfs*. } } } }
+Qed.
+
+(* TODO: replace all List_foo_eq with a rew_list_exec tactic *)
+
 (** Putting it all together *)
 
 Lemma wp_sound_trm : forall t,
   wp_sound t.
 Proof using.
-  intros t. induction t; intros E Q.
+  intros t. induction t using trm_induct; intros E Q.
   { applys wp_sound_val. }
   { applys wp_sound_var. }
   { applys wp_sound_fix. }
-  { skip. (* applys* wp_sound_constr. *) } 
+  { applys* wp_sound_constr Q. } (* fold (mk_constr E i). *)
   { applys* wp_sound_if. }
   { applys* wp_sound_let. }
   { applys* wp_sound_app. }
