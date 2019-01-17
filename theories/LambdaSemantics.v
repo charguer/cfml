@@ -564,9 +564,6 @@ Definition patsubst (G:ctx) (p:pat) : val :=
 (* ********************************************************************** *)
 (* * Source language semantics *)
 
-(* ---------------------------------------------------------------------- *)
-(** Big-step evaluation *)
-
 Implicit Types p : pat.
 Implicit Types t : trm.
 Implicit Types v : val.
@@ -578,7 +575,35 @@ Implicit Types x : var.
 Implicit Types z : bind.
 Implicit Types G : ctx.
 
+(* ---------------------------------------------------------------------- *)
+(* ** State *)
+
 Definition state := fmap loc val.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Evaluation contexts *)
+
+(** Evaluation contexts *)
+
+Inductive evalctx : (trm -> trm) -> Prop :=
+  | evalctx_let : forall z t2,
+      evalctx (fun t1 => trm_let z t1 t2)
+  | evalctx_case : forall p t2 t3,
+      evalctx (fun t1 => trm_case t1 p t2 t3).
+
+(** Substitution for variables in evaluation contexts *)
+
+Lemma isubst_evalctx_trm_var : forall E C x v,
+  evalctx C ->
+  Ctx.lookup x E = Some v ->
+  isubst E (C (trm_var x)) = isubst E (C v).
+Proof using. introv HC HE. inverts HC; simpl; rewrite HE; simpl; auto. Qed.
+
+
+
+(* ---------------------------------------------------------------------- *)
+(** Big-step evaluation *)
 
 Section Red.
 
@@ -599,11 +624,17 @@ Inductive redbinop : prim -> val -> val -> val -> Prop :=
   | redbinop_eq : forall v1 v2,
       redbinop val_eq v1 v2 (val_bool (isTrue (v1 = v2))).
 
-
 (** Evaluation rules for terms in A-normal form. *)
     (* TODO: add rules to evaluate terms not in A-normal form. *)
 
 Inductive red : state -> trm -> state -> val -> Prop :=
+  (* [red] for evaluation contexts *)
+  | red_evalctx : forall t1 m1 m2 m3 C v1 r, 
+      evalctx C ->
+      ~ trm_is_val t1 ->
+      red m1 t1 m2 v1 ->
+      red m2 (C v1) m3 r ->
+      red m1 (C t1) m3 r
   (* [red] for language constructs *)
   | red_val : forall m v,
       red m v m v
@@ -639,12 +670,17 @@ Inductive red : state -> trm -> state -> val -> Prop :=
           then (trm_seq (subst1 x n1 t3) (trm_for x (n1+1) n2 t3))
           else val_unit) m2 r ->
       red m1 (trm_for x n1 n2 t3) m2 r
-  | red_case_match : forall m1 m2 v G p t2 t3 r, (* restricted to value arguments *)
+  | red_case_trm : forall m1 m2 m3 v1 t1 p t2 t3 r,
+      ~ trm_is_val t1 ->
+      red m1 t1 m2 v1 ->
+      red m2 (trm_case v1 p t2 t3) m3 r ->
+      red m1 (trm_case t1 p t2 t3) m3 r
+  | red_case_match : forall m1 m2 v G p t2 t3 r,
       Ctx.dom G = patvars p ->
       v = patsubst G p ->
       red m1 (isubst G t2) m2 r ->
       red m1 (trm_case v p t2 t3) m2 r
-  | red_case_mismatch : forall m1 m2 v p t2 t3 r, (* restricted to value arguments *)
+  | red_case_mismatch : forall m1 m2 v p t2 t3 r,
       (forall G, Ctx.dom G = patvars p -> v <> patsubst G p) ->
       red m1 t3 m2 r ->
       red m1 (trm_case v p t2 t3) m2 r
@@ -698,7 +734,6 @@ End Red.
   end.
 
   *)
-
 
 
 (* ---------------------------------------------------------------------- *)
