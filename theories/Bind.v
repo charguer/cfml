@@ -281,6 +281,14 @@ Definition ctx (A:Type) : Type :=
 (* ---------------------------------------------------------------------- *)
 (** Operations of contexts *)
 
+(** [dom E] gives the list of variables bound by [E] *)
+
+Fixpoint dom A (E:ctx A) : vars :=
+  match E with
+  | nil => nil
+  | (y,v)::E' => y::(dom E')
+  end.
+
 (** [empty] describes the empty context *)
 
 Definition empty A : ctx A :=
@@ -344,6 +352,13 @@ Fixpoint rem_vars A (xs:list var) (E:ctx A) : ctx A :=
   match xs with
   | nil => E
   | x::xs' => rem_vars xs' (rem_var x E)
+  end.
+
+  (* alternative *)
+Fixpoint rem_vars' A (xs:list var) (E:ctx A) : ctx A :=
+  match xs with
+  | nil => E
+  | x::xs' => rem_var x (rem_vars' xs' E)
   end.
 
 (** [one_var x v] consists of a single binding from variable [x] 
@@ -456,18 +471,46 @@ Proof using.
     rewrite var_eq_spec in *. case_if. rewrite~ IHE'. }
 Qed.
 
+Lemma rem_var_rem_var : forall x y E,
+  rem_var x (rem_var y E) = rem_var y (rem_var x E).
+Proof using. 
+  intros. induction E as [| (z,w) E']; simpl.
+  { auto. }
+  { repeat rewrite var_eq_spec. repeat case_if.
+    { auto. }
+    { subst. simpl. rewrite var_eq_spec. case_if. auto. }
+    { subst. simpl. rewrite var_eq_spec. case_if. auto. }
+    { simpl. repeat rewrite var_eq_spec. repeat case_if. fequals. } }
+Qed.
+
+Lemma rem_var_rem_vars : forall xs x E,
+  rem_var x (rem_vars xs E) = rem_vars xs (rem_var x E).
+Proof using. 
+  intros xs. induction xs as [|y xs']; intros; simpl.
+  { auto. }
+  { rewrite rem_var_rem_var. rewrite~ IHxs'. }
+Qed.
+
+Lemma rem_vars_eq_rem_vars' :
+  @rem_vars A = @rem_vars' A.
+Proof using.
+  applys fun_ext_2. intros xs. induction xs as [|x xs']; intros E; simpl.
+  { auto. }
+  { rewrite <- rem_var_rem_vars. rewrite~ IHxs'. }
+Qed.
+
 Lemma rem_vars_nil : forall xs,
   rem_vars xs (nil:ctx A) = nil.
-Proof using. intros. induction xs; simple*. Qed.
+Proof using. intros. induction xs; simpl. { auto. } { rewrite~ IHxs. } Qed.
 
-Lemma rem_vars_add_same : forall x v xs E,
+Lemma rem_vars_add_mem : forall x v xs E,
   mem x xs ->
   rem_vars xs (Ctx.add x v E) = rem_vars xs E.
 Proof using.
   introv M. gen E. induction xs as [|y xs']; intros.
   { inverts M. }
   { simpl. rewrite var_eq_spec. case_if.
-    { auto. }
+    { auto. } 
     { inverts M; tryfalse. rewrite cons_eq_ctx_add. rewrite~ IHxs'. } }
 Qed.
 
@@ -480,6 +523,8 @@ Proof using.
   { simpl. lets (N&M'): not_mem_inv (rm M). rewrite var_eq_spec. case_if. 
     rewrite cons_eq_ctx_add. rewrite~ IHxs'. }
 Qed.
+
+(* TODO: would it be easier to do everything using [rem_vars']? *)
 
 Lemma lookup_or_arbitrary_cons : forall `{Inhab A} x y v (E:ctx A),
   lookup_or_arbitrary x ((y,v)::E) = If x = y then v else lookup_or_arbitrary x E.

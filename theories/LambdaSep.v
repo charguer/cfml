@@ -552,15 +552,16 @@ Proof using.
 Qed.
 
 Lemma hoare_case : forall v p t2 t3 H Q,
-  (forall (G:ctx), v = patsubst G p -> hoare (isubst G t2) H Q) ->
-  ((forall (G:ctx), v <> patsubst G p) -> hoare t3 H Q) ->
+  (forall (G:ctx), Ctx.dom G = patvars p -> v = patsubst G p -> hoare (isubst G t2) H Q) ->
+  ((forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p) -> hoare t3 H Q) ->
   hoare (trm_case v p t2 t3) H Q.
 Proof using.
-  introv M1 M2 Hh. tests C: (exists (G:ctx), v = patsubst G p).
-  { destruct C as (G&Ev). forwards* (h1'&v1&R1&K1): (rm M1).
+  introv M1 M2 Hh. tests C: (exists (G:ctx), Ctx.dom G = patvars p /\ v = patsubst G p).
+  { destruct C as (G&DG&Ev). forwards* (h1'&v1&R1&K1): (rm M1).
     exists h1' v1. splits~. { applys~ red_case_match R1. } }
   { forwards* (h1'&v1&R1&K1): (rm M2).
-    exists h1' v1. splits~. { applys~ red_case_mismatch R1. } }
+    exists h1' v1. splits~. { applys~ red_case_mismatch R1.
+      intros G HG. specializes C G. rew_logic in C. destruct* C. } }
 Qed.
 
 
@@ -1009,13 +1010,13 @@ End RuleForInv.
 (* ** SL rules for pattern matching *)
 
 Lemma triple_case : forall v p t2 t3 H Q,
-  (forall (G:ctx), v = patsubst G p -> triple (isubst G t2) H Q) ->
-  ((forall (G:ctx), v <> patsubst G p) -> triple t3 H Q) ->
+  (forall (G:ctx), Ctx.dom G = patvars p -> v = patsubst G p -> triple (isubst G t2) H Q) ->
+  ((forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p) -> triple t3 H Q) ->
   triple (trm_case v p t2 t3) H Q.
 Proof using.
   introv M1 M2. intros HF. applys hoare_case.
-  { introv Hv. applys* M1. }
-  { introv Hv. applys* M2. }
+  { introv HG Hv. applys* M1. }
+  { introv HG Hv. applys* M2. }
 Qed.
 
 

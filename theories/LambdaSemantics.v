@@ -186,7 +186,7 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Variables from a pattern *)
 
-Definition patvars (p:pat) : list var :=
+Definition patvars (p:pat) : vars :=
   match p with
   | pat_var x => x::nil
   | pat_constr id xs => xs
@@ -343,7 +343,7 @@ Proof using.
     { rewrite~ Ctx.rem_add_neq. } }
   { rew_ctx. fequals. rewrite var_eq_spec. do 2 case_if*. }
   { rew_ctx. fequals. case_if.  
-    { rewrite~ Ctx.rem_vars_add_same. }
+    { rewrite~ Ctx.rem_vars_add_mem. }
     { rewrite~ Ctx.rem_vars_add_not_mem. } }
 Qed.
 
@@ -483,12 +483,25 @@ Qed.
 (** A multisubstitution can be postponed until the end
     if we remove its variables from the context. *)
 
-Lemma isubst_app_eq_isubst_isubst_rem_vars : forall G E t p,
-  isubst (Ctx.app G E) t = isubst G (isubst (Ctx.rem_vars (patvars p) E) t).
+(* currently not used *)
+Lemma isubst_app_eq_isubst_isubst : forall G E t,
+  isubst (Ctx.app G E) t = isubst E (isubst G t).
 Proof using.
-  intros G. induction G as [|(y,w) G']; intros.
-  { simpl. rewrite isubst_nil. 
-Admitted.
+  intros G. induction G as [|(y,w) G']; intros; simpl.
+  { rewrite~ isubst_nil. }
+  { do 2 rewrite isubst_cons. rewrite~ IHG'. }
+Qed.
+
+Lemma isubst_app_eq_isubst_isubst_rem_vars : forall G E t,
+  isubst (Ctx.app G E) t = isubst G (isubst (Ctx.rem_vars (Ctx.dom G) E) t).
+Proof using.
+  rewrite Ctx.rem_vars_eq_rem_vars'.
+  intros G. induction G as [|(y,w) G']; intros; simpl.
+  { rewrite~ isubst_nil. }
+  { do 2 rewrite isubst_cons.
+    rewrite IHG'. fequals. rewrite Ctx.rem_var_eq_rem.
+    rewrite~ <- isubst_subst_eq_subst_isubst_rem. }
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -579,11 +592,12 @@ Inductive red : state -> trm -> state -> val -> Prop :=
           else val_unit) m2 r ->
       red m1 (trm_for x n1 n2 t3) m2 r
   | red_case_match : forall m1 m2 v G p t2 t3 r, (* restricted to value arguments *)
+      Ctx.dom G = patvars p ->
       v = patsubst G p ->
       red m1 (isubst G t2) m2 r ->
       red m1 (trm_case v p t2 t3) m2 r
   | red_case_mismatch : forall m1 m2 v p t2 t3 r, (* restricted to value arguments *)
-      (forall G, v <> patsubst G p) ->
+      (forall G, Ctx.dom G = patvars p -> v <> patsubst G p) ->
       red m1 t3 m2 r ->
       red m1 (trm_case v p t2 t3) m2 r
   (* [red] for applied primitives *)
