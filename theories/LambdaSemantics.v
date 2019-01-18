@@ -597,6 +597,10 @@ Inductive evalctx : (trm -> trm) -> Prop :=
       evalctx (fun t1 => trm_app t1 t2)
   | evalctx_app2 : forall v1,
       evalctx (fun t2 => trm_app v1 t2)
+(* LATER  | evalctx_app2 : forall t1,
+      evalctx (fun t2 => trm_app t1 t2)
+  | evalctx_app1 : forall t2,
+      evalctx (fun t1 => trm_app t1 t2) *)
   | evalctx_for1 : forall x t2 t3,
       evalctx (fun t1 => trm_for x t1 t2 t3)
   | evalctx_for2 : forall x v1 t3,

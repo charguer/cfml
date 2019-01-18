@@ -533,3 +533,31 @@ Notation "'`For' x '=' n1 'To' n2 'Do' F3 'Done'" :=
 
 Open Scope charac.
 
+
+
+
+
+(* Builtin functions:
+
+
+  | val_eq : prim
+  | val_sub : prim
+  | val_add : prim
+mul
+opp => unary
+neg => unary
+neq
+le
+lt
+ge
+gt
+
+   "=", (Primitive_binary_only_numbers, "(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (Coq.Init.Logic.eq x__ y__))");
+   "<>", (Primitive_binary_only_numbers, "(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (Coq.Init.Logic.not (Coq.Init.Logic.eq x__ y__)))");
+   "<", (Primitive_binary_only_numbers, "(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (@TLC.LibOrder.lt _ (@TLC.LibOrder.lt_of_le Coq.ZArith.BinInt.Z TLC.LibInt.le_int_inst) x__ y__))");
+   "<=", (Primitive_binary_only_numbers, "(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (@TLC.LibOrder.le _ TLC.LibInt.le_int_inst x__ y__))");
+   ">", (Primitive_binary_only_numbers, "(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (@TLC.LibOrder.gt _ (@TLC.LibOrder.gt_of_le _ TLC.LibInt.le_int_inst) x__ y__))");
+   ">=", (Primitive_binary_only_numbers, "(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (@TLC.LibOrder.ge _ (@TLC.LibOrder.ge_of_le _ TLC.LibInt.le_int_inst) x__ y__))");
+
+
+*)

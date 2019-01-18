@@ -278,8 +278,21 @@ Definition wp_getval wp (E:ctx) (t1:trm) (F2of:val->formula) : formula :=
   | _ => wp_let (wp E t1) F2of
   end.
 
-Definition wp_app (t:trm) :=
-  local (wp_triple t).
+Definition wp_app_val (E:ctx) (t:trm) : formula :=
+  local (wp_triple (isubst E t)).
+
+Definition wp_app wp (E:ctx) : list val -> trm -> formula := 
+  (fix mk (vs : list val) (t : trm) : formula :=
+    match t with
+    | trm_app t1 t2 => 
+        wp_getval wp E t2 (fun v2 =>
+          match t1 with
+          | trm_app _ _ => mk (v2::vs) t1
+          | _ => wp_getval wp E t1 (fun v1 =>
+                   wp_app_val E (trm_apps v1 (trms_vals (v2::vs))))
+          end)
+    | _ => wp_fail 
+    end).
 
 Definition wp_if_val (v:val) (F1 F2:formula) : formula := local (fun Q =>
   \exists (b:bool), \[v = val_bool b] \* (if b then F1 Q else F2 Q)).
@@ -304,8 +317,8 @@ Definition wp_case (v:val) (p:pat) (F1:ctx->formula) (F2:formula) : formula :=
     hand (\forall (G:ctx), \[Ctx.dom G = patvars p /\ v = patsubst G p] \-* F1 G Q)
          (\[forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p] \-* F2 Q) ).
 
-Definition wp_constr wp (E:ctx) (id:idconstr) := 
-  fix mk (rvs : list val) (ts : list trm) {struct ts} : formula :=
+Definition wp_constr wp (E:ctx) (id:idconstr) : list val -> list trm -> formula := 
+  fix mk (rvs : list val) (ts : list trm) : formula :=
     match ts with
     | nil => wp_val (val_constr id (List.rev rvs))
     | t1::ts' => wp_getval wp E t1 (fun v1 => mk (v1::rvs) ts')
@@ -324,10 +337,7 @@ Fixpoint wp (E:ctx) (t:trm) : formula :=
   | trm_constr id ts => wp_constr wp E id nil ts
   | trm_if t0 t1 t2 => wp_if (aux t0) (aux t1) (aux t2)
   | trm_let x t1 t2 => wp_let (aux t1) (fun X => wp (Ctx.add x X E) t2)
-  | trm_app t1 t2 => 
-     wp_getval wp E t1 (fun v1 =>
-       wp_getval wp E t2 (fun v2 =>
-         wp_app (trm_app v1 v2)))
+  | trm_app t1 t2 => wp_app wp E nil t
   | trm_while t1 t2 => wp_while (aux t1) (aux t2)
   | trm_for x t1 t2 t3 => 
       wp_getval wp E t1 (fun v1 =>
@@ -416,6 +426,16 @@ Lemma himpl_wp_fail_l : forall Q H,
   wp_fail Q ==> H.
 Proof using. intros. unfold wp_fail, local. hpull. Qed.
 
+Lemma qimpl_wp_fail_l : forall F,
+  wp_fail ===> F.
+Proof using. intros. intros Q. applys himpl_wp_fail_l. Qed.
+
+Lemma triple_wp_fail : forall t Q Q',
+  triple t (wp_fail Q) Q'.
+Proof using. 
+  intros. rewrite triple_eq_himpl_wp_triple. applys himpl_wp_fail_l.
+Qed.
+
 (** Soundness of the [wp] for the various constructs *)
 
 (* TODO: replace all List_foo_eq with a rew_list_exec tactic *)
@@ -444,10 +464,7 @@ Qed.
 
 Lemma wp_sound_fail :
   wp_sound trm_fail.
-Proof using.
-  intros. intros E. applys qimpl_wp_triple. simpl.
-  intros Q. remove_local. intros. false.
-Qed.
+Proof using. intros. intros E Q. applys himpl_wp_fail_l. Qed.
 
 Lemma wp_sound_var : forall x,
   wp_sound (trm_var x).
@@ -455,7 +472,7 @@ Proof using.
   intros. intros E. applys qimpl_wp_triple. simpl.
   intros Q. unfold wp_var. destruct (Ctx.lookup x E).
   { remove_local. apply~ triple_val. }
-  { remove_local. intros; false~. }
+  { applys~ triple_wp_fail. }
 Qed.
 
 Lemma wp_sound_val : forall v,
@@ -511,15 +528,43 @@ Proof using.
   { intros X. simpl. rewrite triple_eq_himpl_wp_triple. applys* M2. }
 Qed.
 
-Lemma wp_sound_app_trm : forall E t1 t2,
-  wp_sound t1 ->
-  wp_sound t2 ->
-  wp E (trm_app t1 t2) ===> wp_triple_ E (trm_app t1 t2).
+Lemma wp_sound_app_val : forall E t,
+  wp_app_val E t ===> wp_triple_ E t.
 Proof using.
-  introv M1 M2. intros Q. simpl.
-  applys~ wp_sound_getval (fun t1 => trm_app t1 t2).
-  intros v1. applys~ wp_sound_getval (fun t2 => trm_app v1 t2).
-  intros v2. applys* local_erase_l. applys is_local_wp_triple.
+  intros. intros Q. unfold wp_app_val. applys~ local_erase_l.
+  applys is_local_wp_triple.
+Qed.
+
+
+Axiom evalctx_app2 : forall t1,
+      evalctx (fun t2 => trm_app t1 t2).
+Axiom evalctx_app1 : forall t2,
+      evalctx (fun t1 => trm_app t1 t2) .
+
+Lemma wp_sound_app : forall E t,
+  (forall ti, wp_sound ti) -> (* TODO: remove cheating for IH *)
+  wp_app wp E nil t ===> wp_triple_ E t.
+Proof using.
+  introv IHwp. cuts M: (forall vs,  
+   wp_app wp E vs t ===> wp_triple_ E (trm_apps t (trms_vals vs))).
+  { applys M. }
+  induction t; intros; try solve [  simpl; apply qimpl_wp_fail_l ].
+  applys wp_sound_getval (fun t2 => 
+    trm_apps (trm_app t1 t2) (trms_vals vs)). 
+  { skip. (* TODO: rec eval ctx *) }
+  { applys IHwp. (* TODO: fix IH *) }
+  fold (wp_app wp E).
+  intros v2.
+  asserts Common: (wp_getval wp E t1 (fun v1 =>
+    wp_app_val E  (trm_apps v1 (trms_vals (v2::vs))))
+    ===> wp_triple_ E (trm_apps (t1 v2) (trms_vals vs))).
+  { applys wp_sound_getval (fun t1 => 
+    trm_apps (trm_app t1 v2) (trms_vals vs)). 
+    { skip. (* TODO: rec eval ctx *) } 
+    { apply IHwp. (* TODO: fix IH *) }
+    { intros v1. applys wp_sound_app_val. } }
+  destruct t1; try apply Common.
+  { lets IH: IHt1 (v2::vs). apply IH. }
 Qed.
 
 Lemma wp_sound_while : forall F1 F2 E t1 t2,
@@ -636,7 +681,7 @@ Proof using.
   { applys* wp_sound_constr Q. }
   { applys* wp_sound_if. }
   { applys* wp_sound_let. }
-  { applys* wp_sound_app_trm. }
+  { applys* wp_sound_app. skip. (* TODO IH *) }
   { applys* wp_sound_while. }
   { applys* wp_sound_for_trm. }
   { applys* wp_sound_case_trm. }
@@ -692,11 +737,24 @@ Hint Resolve is_local_wp_getval.
 Lemma is_local_wp : forall E t,
   is_local (wp E t).
 Proof.
-  intros. induction t using trm_induct; simpl; eauto.
-  { rename v into x. simpl. unfold wp_var. destruct_lookup~. }
-  { rename l into ts. simpl. generalize (@nil val).
+  intros. induction t using trm_induct; try solve [ simpl; eauto ]. 
+  { simpl. rename v into x. simpl. unfold wp_var. destruct_lookup~. }
+  { simpl. rename l into ts. simpl. generalize (@nil val) as rvs.
     induction ts as [|t ts']; intros; auto.
     { applys* is_local_wp_getval. } }
+  { (* TODO: fix induction: and state as separate lemma?, like is_local_constr *)
+    unfold wp; fold wp. 
+    generalize (@nil val) as vs. 
+    generalize (trm_app t1 t2) as t. clears t1 t2.
+    induction t; intros; auto. 
+    { simpl. applys* is_local_wp_getval.
+      { skip. (* IH *) }
+      { intros v2. destruct t1; 
+         try solve [ apply is_local_local | applys is_local_wp_getval ]. (* auto *)
+        { applys is_local_wp_getval. 
+          { skip. (* IH *) }
+          { intros v1. auto. } }
+        { applys IHt1. } (* auto. *) } } }
 Qed.
 
 End IsLocalWp.

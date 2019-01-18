@@ -34,12 +34,12 @@ export TLC
 ##############################################################################
 # List of files
 
-SRC_CORE := TLCbuffer Fmap Bind LambdaSemantics SepFunctor LambdaSep LambdaWP
+SRC_CORE := TLCbuffer Fmap Bind LambdaSemantics SepFunctor LambdaSep LambdaWP LambdaSepLifted
 #  LambdaSepLifted LambdaWPLifted LambdaWPTactics  
 
 SRC_MORE := LambdaSepCredits LambdaSepRO
 
-SRC_CF := LambdaCF LambdaSepLifted LambdaCFLifted LambdaStruct  LambdaStructLifted
+SRC_CF := LambdaCF LambdaCFLifted LambdaStruct LambdaStructLifted
 
 SRC_EXAMPLES := Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleList LambdaCFCredits ExampleRO 
 

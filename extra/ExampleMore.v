@@ -332,3 +332,30 @@ simpl. applys~ wp_sound_getval (fun t1 => trm_for v t1 t2 t3).
     simpl. applys~ wp_sound_getval (fun t1 => trm_case t1 p t2 t3).
     intros v. applys~ wp_sound_case_val. *) }
   { applys wp_sound_fail. }
+
+  (* TODO alternative but non
+Definition wp_app wp (E:ctx) : list val -> trm -> formula := 
+  (fix mk (rvs : list val) (t : trm) {struct t} : formula :=
+    match t with
+    | trm_app t1 t2 => wp_getval wp E t2 (fun v2 => mk (v2::rvs) t1)
+    | _ => wp_fail (* wp_getval wp E t (fun v =>
+             local (wp_triple (trm_apps v (trms_vals (List.rev rvs))))) *)
+    end) .
+*)
+
+(* TODO    wp_getval wp E t1 (fun v1 =>
+       wp_getval wp E t2 (fun v2 =>
+         wp_app (trm_app v1 v2))) *)
+
+
+         
+Lemma wp_sound_app_trm : forall E t1 t2,
+  wp_sound t1 ->
+  wp_sound t2 ->
+  wp E (trm_app_val t1 t2) ===> wp_triple_ E (trm_app t1 t2).
+Proof using.
+  introv M1 M2. intros Q. simpl.
+  applys~ wp_sound_getval (fun t1 => trm_app t1 t2).
+  intros v1. applys~ wp_sound_getval (fun t2 => trm_app v1 t2).
+  intros v2. applys* local_erase_l. applys is_local_wp_triple.
+Qed.
