@@ -539,7 +539,7 @@ Lemma wp_sound_case_val : forall v1 p F2 F3 t2 t3 E,
   wp_case v1 p F2 F3 ===> wp_triple_ E (trm_case v1 p t2 t3).
 Proof using.
   introv M1 M2. applys qimpl_wp_triple. simpl. intros Q.
-  remove_local. applys triple_case_val.
+  remove_local. applys triple_case.
   { intros G HG Hv1. rewrites <- (rm HG).
     applys triple_hand_l. applys triple_hforall_for G.
     applys~ triple_hwand_hpure_l. rewrite triple_eq_himpl_wp_triple.
@@ -558,7 +558,7 @@ Proof using.
   induction ts as [|t ts']; intros.
   { simpl. rewrite List_rev_eq. rew_list. applys qimpl_wp_triple.
     simpl. rewrite List_map_eq.
-    intros Q. remove_local. rewrite map_isubst_trms_vals. applys~ triple_constr_val. }
+    intros Q. remove_local. rewrite map_isubst_trms_vals. applys~ triple_constr. }
   { specializes IHts' __. { intros t' Ht'. applys* IHwp. }
     asserts IHt: (wp_sound t). { applys* IHwp. } clear IHwp.
     asserts IH: (forall v,
