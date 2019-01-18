@@ -335,7 +335,7 @@ Fixpoint wp (E:ctx) (t:trm) : formula :=
           wp_for_val v1 v2 (fun X => wp (Ctx.add x X E) t3)))
   | trm_case t1 p t2 t3 => 
       wp_getval wp E t1 (fun v1 =>
-        wp_case v1 p (fun (G:ctx) => wp (Ctx.app G E) t2) (aux t3))
+        wp_case v1 p (fun G => wp (Ctx.app G E) t2) (aux t3))
   | trm_fail => wp_fail
   end.
 

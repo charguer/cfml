@@ -113,6 +113,14 @@ Proof using. auto. Qed.
 
 Definition func := val.
 
+(* ---------------------------------------------------------------------- *)
+(* ** ConstrType type *)
+
+(** Let [constrtype] be a type to represent data constructors. *)
+
+Inductive tyconstr : Type :=
+  | constr : idconstr -> vals -> tyconstr.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Encoder instances *)
@@ -141,8 +149,12 @@ Proof using. constructor. applys (fun (x:val) => x). Defined.
 Instance Enc_prim : Enc prim.
 Proof using. constructor. applys (fun (p:prim) => val_prim p). Defined.
 
+Instance Enc_tyconstr : Enc tyconstr.
+Proof using. constructor. applys (fun (cstr:tyconstr) => 
+  match cstr with constr id vs => val_constr id vs end). Defined.
+
 Global Opaque Enc_dyn Enc_loc Enc_unit Enc_bool Enc_int
-              Enc_func Enc_val Enc_prim.
+              Enc_func Enc_val Enc_prim Enc_tyconstr.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -176,6 +188,10 @@ Lemma enc_prim_eq : forall (p:prim),
   enc p = p.
 Proof using. auto. Qed.
 
+Lemma enc_constr_eq : forall id vs,
+  enc (constr id vs) = val_constr id vs.
+Proof using. auto. Qed.
+
 (** Specification of encoders for values of type [dyn] *)
 
 Lemma enc_dyn_eq_dyn_to_val : forall (d:dyn),
@@ -191,7 +207,7 @@ Proof using. auto. Qed.
 (** [rew_enc] normalizes all encoders. *)
 
 Hint Rewrite enc_dyn_make enc_loc_eq enc_unit_eq enc_bool_eq enc_int_eq
-             enc_func_eq enc_val_eq enc_prim_eq : rew_enc.
+             enc_func_eq enc_val_eq enc_prim_eq enc_constr_eq : rew_enc.
 
 Tactic Notation "rew_enc" :=
   autorewrite with rew_enc.
@@ -300,6 +316,9 @@ Fixpoint decode (v:val) : dyn :=
   | val_loc l => Dyn l
   | val_prim p => Dyn p
   | val_fix f x t => Dyn (v:func)
+  | val_constr id vs => Dyn (constr id vs)
+     (* Note: universe constraints prevent decoding to 
+        [Dyn (Constr id (List.map decode vs))] *)
   end.
 
 Lemma enc_decode' : forall (v:val),
@@ -539,6 +558,16 @@ Lemma Triple_hforall : forall t B (J:B->hprop) `{EA:Enc A} (Q:A->hprop),
   Triple t (hforall J) Q.
 Proof using. unfold Triple. introv (x&M). applys* triple_hforall. Qed.
 
+Lemma Triple_hforall_for : forall B (x:B) t (J:B->hprop) `{EA:Enc A} (Q:A->hprop),
+  Triple t (J x) Q ->
+  Triple t (hforall J) Q.
+Proof using. intros. applys* Triple_hforall. Qed.
+
+Lemma triple_hforall_for : forall A (x:A) t (J:A->hprop) Q,
+  triple t (J x) Q ->
+  triple t (hforall J) Q.
+Proof using. intros. applys* triple_hforall. Qed.
+
 Lemma Triple_hprop : forall t (P:Prop) `{Enc A} H (Q:A->hprop),
   (P -> Triple t H Q) ->
   Triple t (\[P] \* H) Q.
@@ -556,6 +585,22 @@ Lemma Triple_frame : forall t `{Enc A} H (Q:A->hprop) H',
 Proof using.
   introv M. unfold Triple. rewrite Post_star. applys* triple_frame.
 Qed.
+
+Lemma Triple_hor : forall t H1 H2 `{Enc A} (Q:A->hprop),
+  Triple t H1 Q ->
+  Triple t H2 Q ->
+  Triple t (hor H1 H2) Q.
+Proof using. introv M1 M2. applys* triple_hor. Qed.
+
+Lemma triple_hand_l : forall t H1 H2 `{Enc A} (Q:A->hprop),
+  Triple t H1 Q ->
+  Triple t (hand H1 H2) Q.
+Proof using. introv M1 M2. applys* triple_hand_l. Qed.
+
+Lemma Triple_hand_r : forall t H1 H2 `{Enc A} (Q:A->hprop),
+  Triple t H2 Q ->
+  Triple t (hand H1 H2) Q.
+Proof using. introv M1 M2. applys* triple_hand_r. Qed.
 
 Lemma Triple_htop_post : forall t `{Enc A} H (Q:A->hprop),
   Triple t H (Q \*+ \Top) ->
@@ -599,14 +644,29 @@ Proof using.
   introv M. applys triple_fix. unfold Post. hsimpl*.
 Qed.
 
+Lemma Triple_constr : forall id vs H (Q:tyconstr->hprop),
+  H ==> Q (constr id vs) ->
+  Triple (trm_constr id (LibList.map trm_val vs)) H Q.
+Proof using. introv M. applys triple_constr. unfold Post. hsimpl*. Qed.
+
+Lemma Triple_constr_trm : forall id ts t1 vs H,
+  forall A `{EA:Enc A} (Q:A->hprop) A1 `{EA1:Enc A1} (Q1:A1->hprop),
+  Triple t1 H Q1 -> 
+  (forall (X:A1), Triple (trm_constr id ((trms_vals vs)++(trm_val ``X)::ts)) (Q1 X) Q) ->
+  Triple (trm_constr id ((trms_vals vs)++t1::ts)) H Q.
+Proof using.
+  introv M1 M2. applys* triple_constr_trm M1.
+  intros v. unfold Post at 1. xpull ;=> V ->. subst. applys M2.
+Qed.
+
 Lemma Triple_let : forall z t1 t2 H,
   forall A `{EA:Enc A} (Q:A->hprop) A1 `{EA1:Enc A1} (Q1:A1->hprop),
   Triple t1 H Q1 ->
   (forall (X:A1), Triple (Subst1 z X t2) (Q1 X) Q) ->
   Triple (trm_let z t1 t2) H Q.
 Proof using.
-  introv M1 M2. applys triple_let M1. intros v. unfold Post at 1.
-  xpull. intros V E. subst. applys M2.
+  introv M1 M2. applys triple_let M1. 
+  intros v. unfold Post at 1. xpull ;=> V ->. subst. applys M2.
 Qed.
 
 Lemma Triple_seq : forall t1 t2 H,
@@ -629,7 +689,7 @@ Proof using.
   introv M1 M2. applys* triple_if.
   { intros b. unfold Post. xpull ;=> V E.
     asserts E': (V = b). { destruct* V. } clears E. subst V. applys M2. }
-  { intros v N. unfold Post. hpull ;=> V E. subst. false N.
+  { intros v N. unfold Post. hpull ;=> V ->. false N.
     rewrite enc_bool_eq. hnfs*. } (* LATER : simplify? *)
 Qed.
 
@@ -663,6 +723,25 @@ Lemma Triple_for_raw : forall (x:var) (n1 n2:int) t3 H A `{EA: Enc A} (Q:A->hpro
       else val_unit) H Q ->
   Triple (trm_for x n1 n2 t3) H Q.
 Proof using. introv M. applys triple_for_raw. applys M. Qed.
+
+Lemma Triple_case_trm : forall t1 p t2 t3 H,
+  forall A `{EA:Enc A} (Q:A->hprop) A1 `{EA1:Enc A1} (Q1:A1->hprop),
+  Triple t1 H Q1 -> 
+  (forall (X:A1), Triple (trm_case (``X) p t2 t3) (Q1 X) Q) ->
+  Triple (trm_case t1 p t2 t3) H Q.
+Proof using.
+  introv M1 M2. applys* triple_case_trm.
+  intros v. unfold Post at 1. xpull ;=> V ->. applys M2.
+Qed.
+
+Lemma Triple_case : forall v p t2 t3 H `{EA:Enc A} (Q:A->hprop),
+  (forall (G:ctx), Ctx.dom G = patvars p -> v = patsubst G p -> Triple (isubst G t2) H Q) ->
+  ((forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p) -> Triple t3 H Q) ->
+  Triple (trm_case v p t2 t3) H Q.
+Proof using. introv M1 M2. applys* triple_case.
+  { introv HG Hv. applys* M1. }
+  { introv HG Hv. applys* M2. }
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
