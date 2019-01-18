@@ -850,6 +850,8 @@ Proof using.
   { intros v. applys* hoare_of_triple. }
 Qed.
 
+(** Substitution commutes with evaluation contexts, for triples *)
+
 Lemma triple_isubst_evalctx : forall E C t1 H Q Q1,
   evalctx C ->
   triple (isubst E t1) H Q1 ->
@@ -866,6 +868,8 @@ Proof using.
   { applys triple_evalctx (fun t1 => trm_if t1 (isubst E t2) (isubst E t3)); eauto. }
   { applys triple_evalctx (fun t1 => trm_app t1 (isubst E t2)); eauto. }
   { applys triple_evalctx (fun t1 => trm_app v1 t1); eauto. }
+  { applys triple_evalctx (fun t1 => trm_for x t1 (isubst E t2) (isubst (Ctx.rem x E) t3)); eauto. }
+  { applys triple_evalctx (fun t2 => trm_for x v1 t2 (isubst (Ctx.rem x E) t3)); eauto. }
   { applys triple_evalctx (fun t1 => trm_case t1 p (isubst (Ctx.rem_vars (patvars p) E) t2) (isubst E t3)); eauto. }
 Qed.
 

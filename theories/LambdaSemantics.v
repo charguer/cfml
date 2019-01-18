@@ -597,6 +597,10 @@ Inductive evalctx : (trm -> trm) -> Prop :=
       evalctx (fun t1 => trm_app t1 t2)
   | evalctx_app2 : forall v1,
       evalctx (fun t2 => trm_app v1 t2)
+  | evalctx_for1 : forall x t2 t3,
+      evalctx (fun t1 => trm_for x t1 t2 t3)
+  | evalctx_for2 : forall x v1 t3,
+      evalctx (fun t2 => trm_for x v1 t2 t3)
   | evalctx_case : forall p t2 t3,
       evalctx (fun t1 => trm_case t1 p t2 t3).
 
@@ -611,6 +615,20 @@ Proof using.
    try solve [ simpl; rewrite~ HE ].
   { do 2 rewrite isubst_trm_constr_args. simpl; rewrite~ HE. }
 Qed.
+
+(* TODO: LATER use an inductive grammar of evalcxt,
+   plus a applyctx function to perform the substitution,
+   so as to be able to define the notion of substitution
+   into an evaluation context 
+
+    Lemma isubst_evalctx : forall E C t,
+      evalctx C ->
+        isubst E (evalctx_apply C t) 
+      = evalctx_apply (evalctx_subst E C) (isubst E t).
+    Proof using. 
+      introv HC. inverts HC.
+Qed.
+*)
 
 (** The application of an evaluation context yield not a value *)
 

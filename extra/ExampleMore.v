@@ -323,3 +323,12 @@
 
 
 *)
+
+simpl. applys~ wp_sound_getval (fun t1 => trm_for v t1 t2 t3).
+    intros v1. applys~ wp_sound_getval (fun t2 => trm_for v v1 t2 t3).
+    intros v2. applys~ wp_sound_for_val. }
+  { applys* wp_sound_case_trm. 
+    (* TODO inlined:
+    simpl. applys~ wp_sound_getval (fun t1 => trm_case t1 p t2 t3).
+    intros v. applys~ wp_sound_case_val. *) }
+  { applys wp_sound_fail. }
