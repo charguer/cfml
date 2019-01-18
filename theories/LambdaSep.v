@@ -462,12 +462,11 @@ Proof using. introv M. intros h Hh. applys* M. Qed.
 
 Lemma hoare_evalctx : forall C t1 H Q Q1,
   evalctx C ->
-  ~ trm_is_val t1 ->
   hoare t1 H Q1 ->
   (forall v, hoare (C v) (Q1 v) Q) ->
   hoare (C t1) H Q.
 Proof using.
-  introv HC N M1 M2 Hh.
+  introv HC M1 M2 Hh.
   forwards* (h1'&v1&R1&K1): (rm M1).
   forwards* (h2'&v2&R2&K2): (rm M2).
   exists h2' v2. splits~. { applys~ red_evalctx R2. }
@@ -491,22 +490,21 @@ Proof using.
   { hhsimpl~. }
 Qed.
 
-Lemma hoare_constr_val : forall id vs H Q,
+Lemma hoare_constr : forall id vs H Q,
   H ==> Q (val_constr id vs) ->
   hoare (trm_constr id (trms_vals vs)) H Q.
 Proof using.
   introv M. intros h Hh. exists h (val_constr id vs). splits.
-  { applys red_constr_val. }
+  { applys red_constr. }
   { hhsimpl~. }
 Qed.
 
 Lemma hoare_constr_trm : forall id ts t1 vs H Q Q1,
-  ~ trm_is_val t1 ->
   hoare t1 H Q1 -> 
   (forall v, hoare (trm_constr id ((trms_vals vs)++(trm_val v)::ts)) (Q1 v) Q) ->
   hoare (trm_constr id ((trms_vals vs)++t1::ts)) H Q.
 Proof using.
-  introv Ht1 M1 M2. intros h Hh.
+  introv M1 M2. intros h Hh.
   forwards* (h1'&v1&R1&K1): (rm M1).
   forwards* (h2'&v2&R2&K2): (rm M2).
   exists h2' v2. splits~. { applys~ red_constr_trm R2. }
@@ -520,7 +518,7 @@ Proof using.
   introv M1 M2 Hh.
   forwards* (h1'&v1&R1&K1): (rm M1).
   forwards* (h2'&v2&R2&K2): (rm M2).
-  exists h2' v2. splits~. { applys~ red_let R2. }
+  exists h2' v2. splits~. { applys~ red_let_trm R2. }
 Qed.
 
 Lemma hoare_if : forall Q1 t0 t1 t2 H Q,
@@ -533,7 +531,7 @@ Proof using.
   forwards* (h1'&v&R1&K1): (rm M1).
   tests C: (is_val_bool v).
   { destruct C as (b&E). subst. forwards* (h'&v'&R&K): (rm M2).
-    exists h' v'. splits~. { applys* red_if. } }
+    exists h' v'. splits~. { applys* red_if_trm. } }
   { false* M3. }
 Qed.
 
@@ -576,7 +574,7 @@ Proof using.
   exists h1' v1. splits~. { applys* red_for. }
 Qed.
 
-Lemma hoare_case_val : forall v p t2 t3 H Q,
+Lemma hoare_case : forall v p t2 t3 H Q,
   (forall (G:ctx), Ctx.dom G = patvars p -> v = patsubst G p -> hoare (isubst G t2) H Q) ->
   ((forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p) -> hoare t3 H Q) ->
   hoare (trm_case v p t2 t3) H Q.
@@ -590,12 +588,11 @@ Proof using.
 Qed.
 
 Lemma hoare_case_trm : forall t1 p t2 t3 H Q Q1,
-  ~ trm_is_val t1 ->
   hoare t1 H Q1 -> 
   (forall v, hoare (trm_case v p t2 t3) (Q1 v) Q) ->
   hoare (trm_case t1 p t2 t3) H Q.
 Proof using.
-  introv Ht1 M1 M2. intros h Hh.
+  introv M1 M2. intros h Hh.
   forwards* (h1'&v1&R1&K1): (rm M1).
   forwards* (h2'&v2&R2&K2): (rm M2).
   exists h2' v2. splits~. { applys~ red_case_trm R2. }
@@ -719,6 +716,15 @@ Proof using.
   introv M. intros HF. lets (Q'&N&W): M HF. applys* hoare_conseq N.
 Qed.
 
+(** Lemma to reciprocally deduce a hoare triple from a SL triple *)
+
+Lemma hoare_of_triple : forall t H Q HF,
+  triple t H Q ->
+  hoare t ((H \* HF) \* \Top) (fun r => (Q r \* HF) \* \Top).
+Proof using.
+  introv M. applys hoare_conseq. { applys M. } { hsimpl. } { hsimpl. }
+Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** SL rules structural *)
@@ -836,40 +842,31 @@ Qed.
 
 Lemma triple_evalctx : forall C t1 H Q Q1,
   evalctx C ->
-  ~ trm_is_val t1 ->
   triple t1 H Q1 ->
   (forall v, triple (C v) (Q1 v) Q) ->
   triple (C t1) H Q.
 Proof using.
-  introv HC N M1 M2. intros HF. applys~ hoare_evalctx.
-  { intros X. simpl. applys hoare_conseq.
-    { applys M2. }
-    { hsimpl. }
-    { intros v. hsimpl. } }
+  introv HC M1 M2. intros HF. applys~ hoare_evalctx.
+  { intros v. applys* hoare_of_triple. }
 Qed.
 
 Lemma triple_isubst_evalctx : forall E C t1 H Q Q1,
   evalctx C ->
-  ~ trm_is_val t1 ->
-  ~ trm_is_var t1 ->
   triple (isubst E t1) H Q1 ->
   (forall v, triple (isubst E (C v)) (Q1 v) Q) ->
   triple (isubst E (C t1)) H Q.
 Proof using.
   Hint Constructors evalctx.
   Hint Resolve isubst_not_val_not_var.
-  introv HC N1 N2 M1 M2. intros HF. inverts HC.
-  { simpl. applys~ hoare_evalctx (fun t1 => trm_let z t1 (isubst (Ctx.rem z E) t2)).
-    { intros X. simpl. applys hoare_conseq.
-      { applys M2. }
-      { hsimpl. }
-      { intros v. hsimpl. } } }
-  { simpl. applys~ hoare_evalctx (fun t1 => trm_case t1 p (isubst (Ctx.rem_vars (patvars p) E) t2) (isubst E t3)).
-    { intros X. simpl. applys hoare_conseq.
-      { applys M2. }
-      { hsimpl. }
-      { intros v. hsimpl. } } } 
-  (* TODO: factorize proof better *)
+  introv HC M1 M2. intros HF. inverts HC. (* simpl *)
+  { rewrite isubst_trm_constr_args.
+    applys triple_evalctx (fun t1 => trm_constr id (trms_vals vs ++ t1 :: map (isubst E) ts)); eauto.
+    intros v. specializes M2 v. rewrite isubst_trm_constr_args in M2. applys M2. }
+  { applys triple_evalctx (fun t1 => trm_let z t1 (isubst (Ctx.rem z E) t2)); eauto. }
+  { applys triple_evalctx (fun t1 => trm_if t1 (isubst E t2) (isubst E t3)); eauto. }
+  { applys triple_evalctx (fun t1 => trm_app t1 (isubst E t2)); eauto. }
+  { applys triple_evalctx (fun t1 => trm_app v1 t1); eauto. }
+  { applys triple_evalctx (fun t1 => trm_case t1 p (isubst (Ctx.rem_vars (patvars p) E) t2) (isubst E t3)); eauto. }
 Qed.
 
 Lemma triple_val : forall v H Q,
@@ -886,24 +883,20 @@ Proof using.
   introv M. intros HF. applys hoare_fix. { hchanges M. }
 Qed.
 
-Lemma triple_constr_val : forall id vs H Q,
+Lemma triple_constr : forall id vs H Q,
   H ==> Q (val_constr id vs) ->
   triple (trm_constr id (LibList.map trm_val vs)) H Q.
 Proof using.
-  introv M. intros HF. applys hoare_constr_val. { hchanges M. }
+  introv M. intros HF. applys hoare_constr. { hchanges M. }
 Qed.
 
 Lemma triple_constr_trm : forall id ts t1 vs H Q Q1,
-  ~ trm_is_val t1 ->
   triple t1 H Q1 -> 
   (forall (X:val), triple (trm_constr id ((trms_vals vs)++(trm_val X)::ts)) (Q1 X) Q) ->
   triple (trm_constr id ((trms_vals vs)++t1::ts)) H Q.
 Proof using.
-  introv Ht1 M1 M2. intros HF. applys~ hoare_constr_trm.
-  { intros X. simpl. applys hoare_conseq.
-    { applys M2. }
-    { hsimpl. }
-    { intros v. hsimpl. } }
+  introv M1 M2. intros HF. applys~ hoare_constr_trm.
+  { intros v. applys* hoare_of_triple. }
 Qed.
 
 Lemma triple_let : forall z t1 t2 H Q Q1,
@@ -913,10 +906,7 @@ Lemma triple_let : forall z t1 t2 H Q Q1,
 Proof using.
   introv M1 M2. intros HF. applys hoare_let.
   { applys M1. }
-  { intros X. simpl. applys hoare_conseq.
-    { applys M2. }
-    { hsimpl. }
-    { intros v. hsimpl. } }
+  { intros v. applys* hoare_of_triple. }
 Qed.
 
 Lemma triple_seq : forall t1 t2 H Q Q1,
@@ -936,7 +926,7 @@ Proof using.
   introv M1 M2 M3. intros HF.
   applys hoare_if.
   { applys* M1. }
-  { intros b. applys hoare_conseq. applys* M2. hsimpl. hsimpl. }
+  { intros b. applys* hoare_of_triple. }
   { intros v Hv. hchanges~ M3. hsimpl. }
 Qed.
 
@@ -1098,24 +1088,20 @@ End RuleForInv.
 (* ** SL rules for pattern matching *)
 
 Lemma triple_case_trm : forall t1 p t2 t3 H Q Q1,
-  ~ trm_is_val t1 ->
   triple t1 H Q1 -> 
   (forall v, triple (trm_case v p t2 t3) (Q1 v) Q) ->
   triple (trm_case t1 p t2 t3) H Q.
 Proof using.
-  introv N M1 M2. intros HF. applys~ hoare_case_trm.
-  { intros X. simpl. applys hoare_conseq.
-    { applys M2. }
-    { hsimpl. }
-    { intros v. hsimpl. } }
-Qed. (* LATER: factorize this proof pattern? *)
+  introv M1 M2. intros HF. applys~ hoare_case_trm.
+  { intros b. applys* hoare_of_triple. }
+Qed.
 
-Lemma triple_case_val : forall v p t2 t3 H Q,
+Lemma triple_case : forall v p t2 t3 H Q,
   (forall (G:ctx), Ctx.dom G = patvars p -> v = patsubst G p -> triple (isubst G t2) H Q) ->
   ((forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p) -> triple t3 H Q) ->
   triple (trm_case v p t2 t3) H Q.
 Proof using.
-  introv M1 M2. intros HF. applys hoare_case_val.
+  introv M1 M2. intros HF. applys hoare_case.
   { introv HG Hv. applys* M1. }
   { introv HG Hv. applys* M2. }
 Qed.

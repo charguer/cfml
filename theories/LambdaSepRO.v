@@ -1188,7 +1188,7 @@ Proof using.
   { exists~ hx h12. }
   forwards~ (T1a&T1b): heap_compat_union_r_inv T1.
   exists (h1'' \u hy) v2. splits~.
-  { applys red_let.
+  { applys red_let_trm.
     { applys_eq~ N2 2 4. rewrite~ heap_union_assoc. }
     { applys_eq~ T2 2 4.
       { fequals.
@@ -1234,7 +1234,7 @@ Lemma triple_app_fix : forall (f:bind) F x X t1 H Q,
   triple (trm_app F X) H Q.
 Proof using.
   introv EF M. subst. applys triple_red (rm M).
-  introv R. hint red_val. applys* red_app.
+  introv R. hint red_val. applys* red_app_trm.
 Qed.
 
 (* TEMPORARY

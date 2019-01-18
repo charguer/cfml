@@ -587,8 +587,16 @@ Definition state := fmap loc val.
 (** Evaluation contexts *)
 
 Inductive evalctx : (trm -> trm) -> Prop :=
+  | evalctx_constr : forall id vs ts,
+      evalctx (fun t1 => trm_constr id ((trms_vals vs)++t1::ts))
   | evalctx_let : forall z t2,
       evalctx (fun t1 => trm_let z t1 t2)
+  | evalctx_if : forall t2 t3,
+      evalctx (fun t1 => trm_if t1 t2 t3)
+  | evalctx_app1 : forall t2,
+      evalctx (fun t1 => trm_app t1 t2)
+  | evalctx_app2 : forall v1,
+      evalctx (fun t2 => trm_app v1 t2)
   | evalctx_case : forall p t2 t3,
       evalctx (fun t1 => trm_case t1 p t2 t3).
 
@@ -598,8 +606,18 @@ Lemma isubst_evalctx_trm_var : forall E C x v,
   evalctx C ->
   Ctx.lookup x E = Some v ->
   isubst E (C (trm_var x)) = isubst E (C v).
-Proof using. introv HC HE. inverts HC; simpl; rewrite HE; simpl; auto. Qed.
+Proof using. 
+  introv HC HE. inverts HC; 
+   try solve [ simpl; rewrite~ HE ].
+  { do 2 rewrite isubst_trm_constr_args. simpl; rewrite~ HE. }
+Qed.
 
+(** The application of an evaluation context yield not a value *)
+
+Lemma evalctx_not_val : forall C t v,
+  evalctx C ->
+  C t <> v.
+Proof using. introv HC N. inverts HC; tryfalse. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -629,9 +647,9 @@ Inductive redbinop : prim -> val -> val -> val -> Prop :=
 
 Inductive red : state -> trm -> state -> val -> Prop :=
   (* [red] for evaluation contexts *)
-  | red_evalctx : forall t1 m1 m2 m3 C v1 r, 
+  | red_evalctx_not_val : forall t1 m1 m2 m3 C v1 r, 
       evalctx C ->
-      ~ trm_is_val t1 ->
+      ~ trm_is_val t1 -> (* this premise later proved to be optional *)
       red m1 t1 m2 v1 ->
       red m2 (C v1) m3 r ->
       red m1 (C t1) m3 r
@@ -640,27 +658,18 @@ Inductive red : state -> trm -> state -> val -> Prop :=
       red m v m v
   | red_fix : forall m f z t1,
       red m (trm_fix f z t1) m (val_fix f z t1)
-  | red_constr_val : forall m id vs,
+  | red_constr : forall m id vs,
       red m (trm_constr id (trms_vals vs)) m (val_constr id vs)
-  | red_constr_trm : forall m1 m2 m3 id ts vs t1 v1 r,
-      ~ trm_is_val t1 ->
-      red m1 t1 m2 v1 ->
-      red m2 (trm_constr id ((trms_vals vs)++(trm_val v1)::ts)) m3 r ->
-      red m1 (trm_constr id ((trms_vals vs)++t1::ts)) m3 r
-  | red_if : forall m1 m2 m3 b r t0 t1 t2,
-      red m1 t0 m2 (val_bool b) ->
-      red m2 (if b then t1 else t2) m3 r ->
-      red m1 (trm_if t0 t1 t2) m3 r
-  | red_let : forall m1 m2 m3 z t1 t2 v1 r,
-      red m1 t1 m2 v1 ->
-      red m2 (subst1 z v1 t2) m3 r ->
-      red m1 (trm_let z t1 t2) m3 r
-  | red_app : forall m1 m2 m3 m4 t1 t2 f z t3 v1 v2 r,
-      red m1 t1 m2 v1 ->
-      red m2 t2 m3 v2 ->
+  | red_if : forall m1 m2 b r t1 t2,
+      red m1 (if b then t1 else t2) m2 r ->
+      red m1 (trm_if (val_bool b) t1 t2) m2 r
+  | red_let : forall m1 m2 z v1 t2 r,
+      red m1 (subst1 z v1 t2) m2 r ->
+      red m1 (trm_let z v1 t2) m2 r
+  | red_app : forall m1 m2 f z t3 v1 v2 r,
       v1 = val_fix f z t3 ->
-      red m3 (subst2 f v1 z v2 t3) m4 r ->
-      red m1 (trm_app t1 t2) m4 r
+      red m1 (subst2 f v1 z v2 t3) m2 r ->
+      red m1 (trm_app v1 v2) m2 r
   | red_while : forall m1 m2 t1 t2 r,
       red m1 (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) m2 r ->
       red m1 (trm_while t1 t2) m2 r
@@ -670,11 +679,6 @@ Inductive red : state -> trm -> state -> val -> Prop :=
           then (trm_seq (subst1 x n1 t3) (trm_for x (n1+1) n2 t3))
           else val_unit) m2 r ->
       red m1 (trm_for x n1 n2 t3) m2 r
-  | red_case_trm : forall m1 m2 m3 v1 t1 p t2 t3 r,
-      ~ trm_is_val t1 ->
-      red m1 t1 m2 v1 ->
-      red m2 (trm_case v1 p t2 t3) m3 r ->
-      red m1 (trm_case t1 p t2 t3) m3 r
   | red_case_match : forall m1 m2 v G p t2 t3 r,
       Ctx.dom G = patvars p ->
       v = patsubst G p ->
@@ -739,6 +743,73 @@ End Red.
 (* ---------------------------------------------------------------------- *)
 (* ** Derived rules *)
 
+Section Derived.
+Hint Constructors evalctx.
+
+(** Generalization of the evaluation context rule for terms
+    that might already be values *)
+
+Lemma red_evalctx : forall m1 m2 m3 t1 v1 C r,
+  evalctx C ->
+  red m1 t1 m2 v1 ->
+  red m2 (C v1) m3 r ->
+  red m1 (C t1) m3 r.
+Proof using.
+  introv HC M1 M2. tests CV: (trm_is_val t1).
+  { destruct CV as (v'&Ev'). subst. inverts M1.
+    { false evalctx_not_val; eauto. } 
+    { auto. } }
+  { applys* red_evalctx_not_val C. }
+Qed.
+
+(** Other derived rules *)
+
+Lemma red_let_trm : forall m1 m2 m3 z t1 t2 v1 r,
+  red m1 t1 m2 v1 ->
+  red m2 (subst1 z v1 t2) m3 r ->
+  red m1 (trm_let z t1 t2) m3 r.
+Proof using.
+  introv M1 M2. applys* red_evalctx (fun t1 => trm_let z t1 t2).
+  applys* red_let. 
+Qed.
+
+Lemma red_if_trm : forall m1 m2 m3 b r t0 t1 t2,
+  red m1 t0 m2 (val_bool b) ->
+  red m2 (if b then t1 else t2) m3 r ->
+  red m1 (trm_if t0 t1 t2) m3 r.
+Proof using.
+  introv M1 M2. applys* red_evalctx (fun t0 => trm_if t0 t1 t2).
+  applys* red_if. 
+Qed.
+
+Lemma red_constr_trm : forall m1 m2 m3 id ts vs t1 v1 r,
+  red m1 t1 m2 v1 ->
+  red m2 (trm_constr id ((trms_vals vs)++(trm_val v1)::ts)) m3 r ->
+  red m1 (trm_constr id ((trms_vals vs)++t1::ts)) m3 r.
+Proof using.
+  introv M1 M2. 
+  applys* red_evalctx (fun t1 => trm_constr id ((trms_vals vs)++t1::ts)).
+Qed.
+
+Lemma red_app_trm : forall m1 m2 m3 m4 t1 t2 f z t3 v1 v2 r,
+  red m1 t1 m2 v1 ->
+  red m2 t2 m3 v2 ->
+  v1 = val_fix f z t3 ->
+  red m3 (subst2 f v1 z v2 t3) m4 r ->
+  red m1 (trm_app t1 t2) m4 r.
+Proof using. 
+  introv M1 M2 EQ M3. applys* red_evalctx (fun t1 => trm_app t1 t2).
+  applys* red_evalctx (fun t2 => trm_app v1 t2). applys* red_app.
+Qed.
+
+Lemma red_case_trm : forall m1 m2 m3 v1 t1 p t2 t3 r,
+  red m1 t1 m2 v1 ->
+  red m2 (trm_case v1 p t2 t3) m3 r ->
+  red m1 (trm_case t1 p t2 t3) m3 r.
+Proof using.
+  introv M1 M2. applys* red_evalctx (fun t1 => trm_case t1 p t2 t3).
+Qed.
+
 Lemma red_fun : forall m x t1,
   red m (trm_fun x t1) m (val_fun x t1).
 Proof using. intros. apply red_fix. Qed.
@@ -749,13 +820,13 @@ Lemma red_app_fun : forall m1 m2 m3 m4 t1 t2 z t3 v1 v2 r,
   v1 = val_fun z t3 ->
   red m3 (subst1 z v2 t3) m4 r ->
   red m1 (trm_app t1 t2) m4 r.
-Proof using. intros. applys* red_app. Qed.
+Proof using. intros. applys* red_app_trm. Qed.
 
 Lemma red_seq : forall m1 m2 m3 t1 t2 r1 r,
   red m1 t1 m2 r1 ->
   red m2 t2 m3 r ->
   red m1 (trm_seq t1 t2) m3 r.
-Proof using. introv M1 M2. applys* red_let. (* BIND rewrite* subst1_anon. *) Qed.
+Proof using. introv M1 M2. applys* red_let_trm. Qed.
 
 Lemma red_ptr_add_nat : forall m l (f : nat),
   red m (val_ptr_add (val_loc l) (val_int f)) m (val_loc (l+f)%nat).
@@ -764,7 +835,7 @@ Proof using. intros. applys* red_binop. applys* redbinop_ptr_add. math. Qed.
 Lemma red_if_bool : forall m1 m2 b r t1 t2,
   red m1 (if b then t1 else t2) m2 r ->
   red m1 (trm_if b t1 t2) m2 r.
-Proof using. introv M1. applys* red_if. applys red_val. Qed.
+Proof using. introv M1. applys* red_if. Qed.
 
 Lemma red_for_le : forall m1 m2 m3 x n1 n2 t3 v1 r,
   n1 <= n2 ->
@@ -786,6 +857,7 @@ Proof using.
   { applys red_val. }
 Qed.
 
+End Derived.
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [fmap_red], defined in file [Fmap] for proving [red] goals
@@ -941,9 +1013,9 @@ Proof using.
     tests C: (xs' = nil).
     { rew_list in *. asserts: (vs' = nil).
       { applys length_zero_inv. math. } subst vs'.
-      simpls. applys* red_app. applys* red_val.
+      simpls. applys* red_app_trm. applys* red_val.
       (* BIND rewrite subst2_eq_subst1_subst1, subst1_anon. auto. *) }
-    { rewrite substn_cons in M2. applys~ IH M2. applys* red_app.
+    { rewrite substn_cons in M2. applys~ IH M2. applys* red_app_trm.
       { applys* red_val. }
       { (* BIND simpl. rewrite subst2_eq_subst1_subst1, subst1_anon. *)
         rewrite~ subst_trm_funs. applys~ red_funs. } } }

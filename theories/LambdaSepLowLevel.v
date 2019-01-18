@@ -224,7 +224,7 @@ Proof using.
   lets~ (h1'&v1&R1&K1): (rm M1) HF h.
   forwards* (h2'&v2&R2&K2): (rm M2) (\Top \* HF) h1'.
   exists h2' v2. splits~.
-  { applys~ red_let R2. }
+  { applys~ red_let_trm R2. }
   { rewrite <- htop_hstar_htop. hhsimpl. }
 Qed.
 
