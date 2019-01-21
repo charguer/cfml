@@ -331,9 +331,9 @@ Definition wp_for_val (v1 v2:val) (F1:val->formula) : formula := local (fun Q =>
                           else (wp_val val_unit) in
   \[ is_local_pred S /\ (forall i, F i ===> S i)] \-* (S n1 Q)).
 
-Definition wp_case_val (v:val) (p:pat) (F1:ctx->formula) (F2:formula) : formula :=
+Definition wp_case_val (v:val) (p:pat) (F1of:ctx->formula) (F2:formula) : formula :=
   local (fun Q => 
-    hand (\forall (G:ctx), \[Ctx.dom G = patvars p /\ v = patsubst G p] \-* F1 G Q)
+    hand (\forall (G:ctx), \[Ctx.dom G = patvars p /\ v = patsubst G p] \-* F1of G Q)
          (\[forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p] \-* F2 Q) ).
 
 
