@@ -207,7 +207,7 @@ Ltac xcf_fun n :=
   let f' := xcf_get_fun tt in
   xcf_reveal_fun tt;
   rew_nary;
-  rew_vals_to_trms;
+  rew_trms_vals;
   xcf_basic_fun n f'.
 
 Ltac xcf_core n :=
@@ -727,7 +727,7 @@ Proof using.
   xcf_prepare_args tt.
   xcf_reveal_fun tt.
   rew_nary.
-  rew_vals_to_trms.
+  rew_trms_vals.
   applys Triple_apps_funs_of_Wp val_incr.
   { try unfold val_incr; rew_nary; try reflexivity. }
   { try xeq_encs. }

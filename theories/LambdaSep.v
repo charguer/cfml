@@ -552,7 +552,7 @@ Lemma hoare_apps_fixs : forall xs (f:var) F (Vs:vals) t1 H Q,
   hoare (trm_apps F Vs) H Q.
 Proof using.
   introv E N M. intros h Hh. forwards* (h'&v&R&K): (rm M).
-  exists h' v. splits~. { subst. applys* red_app_fixs_val. }
+  exists h' v. splits~. { subst. applys* red_apps_fixs. }
 Qed.
 
 Lemma hoare_while_raw : forall t1 t2 H Q,
@@ -962,7 +962,7 @@ Lemma triple_apps_fixs : forall xs (f:var) F (Vs:vals) t1 H Q,
   triple (trm_apps F Vs) H Q.
 Proof using.
   introv E N M. intros H' h Hf. forwards (h'&v&R&K): (rm M) Hf.
-  exists h' v. splits~. { subst. applys* red_app_fixs_val. }
+  exists h' v. splits~. { subst. applys* red_apps_fixs. }
 Qed.
 
 

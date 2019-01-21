@@ -108,7 +108,7 @@ Hint Resolve Normal_hsingle.
 (* * Formalisation of higher-order iterator on a reference *)
 
 Tactic Notation "xdef" :=
-  rew_nary; rew_vals_to_trms;
+  rew_nary; rew_trms_vals;
   match goal with |- triple (trm_apps (trm_val ?f) _) _ _ =>
    applys triple_apps_funs;
    [unfold f; rew_nary; reflexivity | auto | simpl]

@@ -245,7 +245,7 @@ Lemma triple_apps_fixs : forall xs f F (Vs:vals) t1 H Q,
   triple (trm_apps F Vs) H Q.
 Proof using.
   introv E N M. intros H' h Hf. forwards (h'&v&R&K): (rm M) Hf.
-  exists h' v. splits~. { subst. applys* red_app_fixs_val. }
+  exists h' v. splits~. { subst. applys* red_apps_fixs. }
 Qed.
 
 

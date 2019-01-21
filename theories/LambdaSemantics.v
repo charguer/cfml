@@ -61,17 +61,17 @@ Inductive val : Type :=
   | val_int : int -> val
   | val_loc : loc -> val
   | val_prim : prim -> val
-  | val_fix : bind -> bind -> trm -> val
+  | val_fixs : bind -> list var -> trm -> val
   | val_constr : idconstr -> list val -> val
 
 with trm : Type :=
   | trm_val : val -> trm
   | trm_var : var -> trm
-  | trm_fix : bind -> bind -> trm -> trm
+  | trm_fixs : bind -> list var -> trm -> trm
   | trm_constr : idconstr -> list trm -> trm
   | trm_if : trm -> trm -> trm -> trm
   | trm_let : bind -> trm -> trm -> trm
-  | trm_app : trm -> trm -> trm
+  | trm_apps : trm -> list trm -> trm
   | trm_while : trm -> trm -> trm
   | trm_for : var -> trm -> trm -> trm -> trm
   | trm_case : trm -> pat -> trm -> trm -> trm
@@ -80,20 +80,17 @@ with trm : Type :=
   (* Note: [match v with p1 -> t1 | p2 -> t2] is encoded as 
      [trm_case v p1 t1 (trm_case v p2 t2 trm_fail)] *)
 
+(** Shorthand [vars], [vals] and [trms] for lists of items. *)
+
+Definition vals : Type := list val.
+Definition trms : Type := list trm.
+
 (** The type of values is inhabited *)
 
 Global Instance Inhab_val : Inhab val.
 Proof using. apply (Inhab_of_val val_unit). Qed.
 
-(** Encoded constructs *)
-
-Notation trm_seq := (trm_let bind_anon).
-Notation trm_fun := (trm_fix bind_anon).
-Notation val_fun := (val_fix bind_anon).
-
 (** Values into terms *)
-
-Notation trms_vals := (LibList.map trm_val).
 
 Definition trm_is_val (t:trm) : Prop :=
   exists v, t = trm_val v.
@@ -101,10 +98,54 @@ Definition trm_is_val (t:trm) : Prop :=
 Definition trm_is_var (t:trm) : Prop :=
   exists x, t = trm_var x.
 
-(** Shorthand [vars], [vals] and [trms] for lists of items. *)
 
-Definition vals : Type := list val.
-Definition trms : Type := list trm.
+(* ---------------------------------------------------------------------- *)
+(** Coercions from values to terms *)
+
+Coercion trms_vals (vs:vals) : list trm :=
+  List.map trm_val vs.
+
+Lemma trms_vals_fold_start : forall v,
+  (trm_val v)::nil = trms_vals (v::nil).
+Proof using. auto. Qed.
+
+Lemma trms_vals_fold_next : forall v vs,
+  (trm_val v)::(trms_vals vs) = trms_vals (v::vs).
+Proof using. auto. Qed.
+
+Hint Rewrite trms_vals_fold_start trms_vals_fold_next : rew_trms_vals.
+
+Tactic Notation "rew_trms_vals" :=
+  autorewrite with rew_trms_vals.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Encoded constructs *)
+
+(** Sequence *)
+
+Notation trm_seq := (trm_let bind_anon).
+
+(** Non-recursive functions *)
+
+Notation trm_funs := (trm_fixs bind_anon).
+
+Notation val_funs := (val_fixs bind_anon).
+
+(** Unary functions *)
+
+Definition val_fix f x t1 := 
+  val_fixs f (x::nil) t1.
+
+Definition trm_fix f x t1 := 
+  trm_fixs f (x::nil) t1.
+
+Definition trm_app t0 t1 :=
+  trm_apps t0 (t1::nil).
+
+Notation val_fun := (val_fix bind_anon).
+
+Notation trm_fun := (trm_fix bind_anon).
 
 
 (* ---------------------------------------------------------------------- *)
@@ -116,7 +157,27 @@ Coercion val_int : Z >-> val.
 Coercion val_loc : loc >-> val.
 Coercion trm_val : val >-> trm.
 Coercion trm_var : var >-> trm.
-Coercion trm_app : trm >-> Funclass.
+
+(** Coercions for turning [t1 t2 t3] into [trm_apps t1 (t2::t3::nil)] *)
+
+Inductive combiner :=
+  | combiner_nil : trm -> trm -> combiner
+  | combiner_cons : combiner -> trm -> combiner.
+
+Coercion combiner_nil : trm >-> Funclass.
+Coercion combiner_cons : combiner >-> Funclass.
+
+Fixpoint combiner_to_trm (c:combiner) : trm :=
+  match c with 
+  | combiner_nil t1 t2 => trm_apps t1 (t2::nil)
+  | combiner_cons c1 t2 => 
+      match combiner_to_trm c1 with
+      | trm_apps t1 ts => trm_apps t1 (ts++t2::nil)
+      | t1 => trm_apps t1 (t2::nil)
+      end
+  end.
+
+Coercion combiner_to_trm : combiner >-> trm.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -137,11 +198,11 @@ Variables
   (Q2 : forall t l, P t -> Q l -> Q (t::l))
   (f : forall v : val, P v) 
   (f0 : forall v : var, P v)
-  (f1 : forall (b b0 : bind) (t : trm), P t -> P (trm_fix b b0 t))
+  (f1 : forall (b : bind) (xs : list var) (t : trm), P t -> P (trm_fixs b xs t))
   (f2 : forall (i : idconstr) (l : list trm), Q l -> P (trm_constr i l))
   (f3 : forall t : trm, P t -> forall t0 : trm, P t0 -> forall t1 : trm, P t1 -> P (trm_if t t0 t1))
   (f4 : forall (b : bind) (t : trm), P t -> forall t0 : trm, P t0 -> P (trm_let b t t0))
-  (f5 : forall t : trm, P t -> forall t0 : trm, P t0 -> P (t t0))
+  (f5 : forall t : trm, P t -> forall (l : list trm), Q l -> P (trm_apps t l))
   (f6 : forall t : trm, P t -> forall t0 : trm, P t0 -> P (trm_while t t0))
   (f7 : forall (v : var) (t : trm), P t -> forall t0 : trm, P t0 -> forall t1 : trm, P t1 -> P (trm_for v t t0 t1))
   (f8 : forall t : trm, P t -> forall (p : pat) (t0 : trm), P t0 -> forall t1 : trm, P t1 -> P (trm_case t p t0 t1))
@@ -151,7 +212,7 @@ Definition trm_induct_gen := fix F (t : trm) : P t :=
   match t as t0 return (P t0) with
   | trm_val v => @f v
   | trm_var v => @f0 v
-  | trm_fix b b0 t0 => @f1 b b0 t0 (F t0)
+  | trm_fixs b xs t0 => @f1 b xs t0 (F t0)
   | trm_constr i l => @f2 i l ((fix trm_list_induct (l : list trm) : Q l :=
       match l as x return Q x with
       | nil   => Q1
@@ -159,7 +220,11 @@ Definition trm_induct_gen := fix F (t : trm) : P t :=
       end) l)
   | trm_if t0 t1 t2 => @f3 t0 (F t0) t1 (F t1) t2 (F t2)
   | trm_let b t0 t1 => @f4 b t0 (F t0) t1 (F t1)
-  | trm_app t0 t1 => @f5 t0 (F t0) t1 (F t1)
+  | trm_apps t0 l => @f5 t0 (F t0) l ((fix trm_list_induct (l : list trm) : Q l :=
+      match l as x return Q x with
+      | nil   => Q1
+      | t::l' => Q2 (F t) (trm_list_induct l')
+      end) l)
   | trm_while t0 t1 => @f6 t0 (F t0) t1 (F t1)
   | trm_for v t0 t1 t2 => @f7 v t0 (F t0) t1 (F t1) t2 (F t2)
   | trm_case t0 p t1 t2 => @f8 t0 (F t0) p t1 (F t1) t2 (F t2)
@@ -171,11 +236,11 @@ End Trm_induct.
 Lemma trm_induct : forall P : trm -> Prop,
   (forall v : val, P v) ->
   (forall v : var, P v) ->
-  (forall (b b0 : bind) (t : trm), P t -> P (trm_fix b b0 t)) ->
+  (forall (b : bind) (xs : list var) (t : trm), P t -> P (trm_fixs b xs t)) ->
   (forall (i : idconstr) (l : list trm), (forall t, mem t l -> P t) -> P (trm_constr i l)) ->
   (forall t : trm, P t -> forall t0 : trm, P t0 -> forall t1 : trm, P t1 -> P (trm_if t t0 t1)) ->
   (forall (b : bind) (t : trm), P t -> forall t0 : trm, P t0 -> P (trm_let b t t0)) ->
-  (forall t : trm, P t -> forall t0 : trm, P t0 -> P (t t0)) ->
+  (forall t : trm, P t -> forall (l : list trm), (forall t, mem t l -> P t) -> P (trm_apps t l)) ->
   (forall t : trm, P t -> forall t0 : trm, P t0 -> P (trm_while t t0)) ->
   (forall (v : var) (t : trm), P t -> forall t0 : trm, P t0 -> forall t1 : trm, P t1 -> P (trm_for v t t0 t1)) ->
   (forall t : trm, P t -> forall (p : pat) (t0 : trm), P t0 -> forall t1 : trm, P t1 -> P (trm_case t p t0 t1)) ->
@@ -218,12 +283,12 @@ Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
   match t with
   | trm_val v => trm_val v
   | trm_var x => If x = y then trm_val w else t
-  | trm_fix f z t1 => trm_fix f z (If f = y then t1 else
-                                   aux_no_capture z t1)
+  | trm_fixs f xs t1 => trm_fixs f xs (If f = y then t1 else
+                                   aux_no_captures xs t1)
   | trm_constr id ts => trm_constr id (List.map aux ts)
   | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
   | trm_let z t1 t2 => trm_let z (aux t1) (aux_no_capture z t2)
-  | trm_app t1 t2 => trm_app (aux t1) (aux t2)
+  | trm_apps t0 ts => trm_apps (aux t0) (List.map aux ts)
   | trm_while t1 t2 => trm_while (aux t1) (aux t2)
   | trm_for x t1 t2 t3 => trm_for x (aux t1) (aux t2) (aux_no_capture x t3)
   | trm_case t1 p t2 t3 => trm_case (aux t1) p (aux_no_captures (patvars p) t2) (aux t3)
@@ -243,6 +308,7 @@ Definition subst1 (z:bind) (v:val) (t:trm) :=
   end.
 
 (** [subst2] is a shorthand that iterates two calls to [subst1]. *)
+(* TODO: deprecate *)
 
 Definition subst2 (z1:bind) (v1:val) (z2:bind) (v2:val) (t:trm) :=
    subst1 z2 v2 (subst1 z1 v1 t).
@@ -279,11 +345,11 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
                  | None => t
                  | Some v => v
                  end
-  | trm_fix f z t1 => trm_fix f z (isubst (Ctx.rem z (Ctx.rem f E)) t1)
+  | trm_fixs f xs t1 => trm_fixs f xs (isubst (Ctx.rem_vars xs (Ctx.rem f E)) t1)
   | trm_constr id ts => trm_constr id (List.map aux ts)
   | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
   | trm_let z t1 t2 => trm_let z (aux t1) (isubst (Ctx.rem z E) t2)
-  | trm_app t1 t2 => trm_app (aux t1) (aux t2)
+  | trm_apps t0 ts => trm_apps (aux t0) (List.map aux ts)
   | trm_while t1 t2 => trm_while (aux t1) (aux t2)
   | trm_for x t1 t2 t3 => trm_for x (aux t1) (aux t2) (isubst (Ctx.rem x E) t3)
   | trm_case t1 p t2 t3 => trm_case (aux t1) p (isubst (Ctx.rem_vars (patvars p) E) t2) (aux t3)
@@ -312,6 +378,28 @@ Definition isubstn (xs:vars) (vs:vals) (t:trm) : trm :=
 
 
 (* ---------------------------------------------------------------------- *)
+(** Distribution of [subst] over n-ary functions *)
+
+Lemma subst_trm_fixs : forall y w f xs t,
+  var_fresh y (f::xs) ->
+  subst1 y w (trm_fixs f xs t) = trm_fixs f xs (subst1 y w t).
+Proof using.
+  introv N. simpls. rewrite var_eq_spec in N. repeat case_if.
+  { false* var_fresh_mem_inv. }
+  { auto. }
+Qed.
+
+Lemma subst_trm_funs : forall y w xs t,
+  var_fresh y xs ->
+  subst1 y w (trm_funs xs t) = trm_funs xs (subst1 y w t).
+Proof using. 
+  introv N. simpls. repeat case_if. 
+  { false* var_fresh_mem_inv. }
+  { auto. }
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
 (** Relationship between substitution and iterated substitution *)
 
 (** [isubst] with [empty] changes nothing. *)
@@ -321,7 +409,11 @@ Lemma isubst_nil : forall t,
 Proof using.
   intros. induction t using trm_induct; simpl;
    try solve [ repeat rewrite Ctx.rem_empty; fequals* ].
-  { rewrite List_map_eq. fequals. induction l as [|t l'].
+  { rew_ctx. rewrite Ctx.rem_empty. rewrite Ctx.rem_vars_nil. rewrite~ IHt. }
+  { rewrite List_map_eq. fequals. induction l as [|t' l'].
+    { auto. }
+    { rew_listx. fequals*. } }
+  { rewrite List_map_eq. fequals. induction l as [|t' l'].
     { auto. }
     { rew_listx. fequals*. } }
   { rewrite Ctx.rem_vars_nil, IHt1, IHt2, IHt3. auto. }
@@ -341,16 +433,21 @@ Proof using.
   { rewrite var_eq_spec. do 2 case_if*. }
   { rew_ctx. fequals. case_if.
     { subst. rewrite* Ctx.rem_add_same. }
+  skip. (*
     { rewrites* (>> Ctx.rem_add_neq b). case_if.
-      { subst. rewrite* Ctx.rem_add_same. }
-      { rewrite* Ctx.rem_add_neq. } } }
+      { skip. (*  subst. rewrite* Ctx.rem_add_same.  *) }
+      { rewrite* Ctx.rem_add_neq. } } } *) }
   { rename H into IH. repeat rewrite List_map_eq. rew_ctx. fequals.
-    induction l as [|t l'].
+    induction l as [|t' l'].
     { auto. }
     { rew_listx. rewrite* IHl'. fequals*. } }
   { rew_ctx. fequals. case_if.
     { subst. rewrite* Ctx.rem_add_same. }
     { rewrite~ Ctx.rem_add_neq. } }
+  { rename H into IH. repeat rewrite List_map_eq. rew_ctx. fequals.
+    induction l as [|t' l'].
+    { auto. }
+    { rew_listx. rewrite* IHl'. fequals*. } } 
   { rew_ctx. fequals. rewrite var_eq_spec. do 2 case_if*. }
   { rew_ctx. fequals. case_if.  
     { rewrite~ Ctx.rem_vars_add_mem. }
@@ -448,7 +545,10 @@ Proof using.
   introv N. induction t using trm_induct; simpl; try solve [ fequals;
   repeat case_if; simpl; repeat case_if; auto ].
   { repeat case_if; simpl; repeat case_if~. }
-  { fequals. repeat rewrite List_map_eq. induction l as [|t l'].
+  { fequals. repeat rewrite List_map_eq. induction l as [|t' l'].
+    { auto. }
+    { rew_listx. fequals*. } }
+  { fequals. repeat rewrite List_map_eq. induction l as [|t' l'].
     { auto. }
     { rew_listx. fequals*. } }
 Qed.
@@ -461,7 +561,10 @@ Lemma subst_subst_same : forall x v1 v2 t,
 Proof using.
   intros. induction t using trm_induct; simpl; try solve [ fequals;
   repeat case_if; simpl; repeat case_if; auto ].
-  { fequals. repeat rewrite List_map_eq. induction l as [|t l'].
+  { fequals. repeat rewrite List_map_eq. induction l as [|t' l'].
+    { auto. }
+    { rew_listx. fequals*. } }
+  { fequals. repeat rewrite List_map_eq. induction l as [|t' l'].
     { auto. }
     { rew_listx. fequals*. } }
 Qed.
@@ -536,11 +639,19 @@ Proof using.
   { rew_listx. simpl. fequals. } 
 Qed.
 
-(** Substitution lemma for constructors *)
+(** Substitution lemma for nary constructors and applications *)
 
 Lemma isubst_trm_constr_args : forall E id vs t ts,
   isubst E (trm_constr id (trms_vals vs ++ t :: ts)) = 
   trm_constr id (trms_vals vs ++ isubst E t :: LibList.map (isubst E) ts).
+Proof using.
+  intros. simpl. fequals. rewrite List_map_eq. rew_listx. 
+  rewrite map_isubst_trms_vals. fequals.
+Qed.
+
+Lemma isubst_trm_apps_args : forall E t0 vs t ts,
+  isubst E (trm_apps t0 (trms_vals vs ++ t :: ts)) = 
+  trm_apps (isubst E t0) (trms_vals vs ++ isubst E t :: LibList.map (isubst E) ts).
 Proof using.
   intros. simpl. fequals. rewrite List_map_eq. rew_listx. 
   rewrite map_isubst_trms_vals. fequals.
@@ -567,13 +678,17 @@ Definition patsubst (G:ctx) (p:pat) : val :=
 Implicit Types p : pat.
 Implicit Types t : trm.
 Implicit Types v : val.
+Implicit Types ts : trms.
+Implicit Types vs : vals.
 Implicit Types l : loc.
 Implicit Types i : field.
 Implicit Types b : bool.
 Implicit Types n : int.
 Implicit Types x : var.
+Implicit Types f : bind.
 Implicit Types z : bind.
 Implicit Types G : ctx.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** State *)
@@ -587,20 +702,21 @@ Definition state := fmap loc val.
 (** Evaluation contexts *)
 
 Inductive evalctx : (trm -> trm) -> Prop :=
+  (* LATER
+  | evalctx_compose : forall C1 C2,
+      evalctx C1 ->
+      evalctx C2 ->
+      evalctx (fun t => C1 (C2 t)) *)
   | evalctx_constr : forall id vs ts,
       evalctx (fun t1 => trm_constr id ((trms_vals vs)++t1::ts))
   | evalctx_let : forall z t2,
       evalctx (fun t1 => trm_let z t1 t2)
   | evalctx_if : forall t2 t3,
-      evalctx (fun t1 => trm_if t1 t2 t3)
-  | evalctx_app1 : forall t2,
-      evalctx (fun t1 => trm_app t1 t2)
-  | evalctx_app2 : forall v1,
-      evalctx (fun t2 => trm_app v1 t2)
-(* LATER  | evalctx_app2 : forall t1,
-      evalctx (fun t2 => trm_app t1 t2)
-  | evalctx_app1 : forall t2,
-      evalctx (fun t1 => trm_app t1 t2) *)
+      evalctx (fun t1 => trm_if t1 t2 t3) 
+  | evalctx_apps_fun : forall t2 ts,
+      evalctx (fun t0 => trm_apps t0 ts)
+  | evalctx_apps_arg : forall v0 vs ts,
+      evalctx (fun t1 => trm_apps v0 ((trms_vals vs)++t1::ts))
   | evalctx_for1 : forall x t2 t3,
       evalctx (fun t1 => trm_for x t1 t2 t3)
   | evalctx_for2 : forall x v1 t3,
@@ -618,6 +734,7 @@ Proof using.
   introv HC HE. inverts HC; 
    try solve [ simpl; rewrite~ HE ].
   { do 2 rewrite isubst_trm_constr_args. simpl; rewrite~ HE. }
+  { do 2 rewrite isubst_trm_apps_args. simpl; rewrite~ HE. }
 Qed.
 
 (* TODO: LATER use an inductive grammar of evalcxt,
@@ -640,6 +757,12 @@ Lemma evalctx_not_val : forall C t v,
   evalctx C ->
   C t <> v.
 Proof using. introv HC N. inverts HC; tryfalse. Qed.
+
+(** Derived *)
+
+Lemma evalctx_app_arg : forall v0,
+  evalctx (fun t1 : trm => trm_apps v0 (t1::nil)).
+Proof using. intros. applys evalctx_apps_arg (@nil val) (@nil trm). Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -678,8 +801,9 @@ Inductive red : state -> trm -> state -> val -> Prop :=
   (* [red] for language constructs *)
   | red_val : forall m v,
       red m v m v
-  | red_fix : forall m f z t1,
-      red m (trm_fix f z t1) m (val_fix f z t1)
+  | red_fixs : forall m f xs t1,
+      xs <> nil ->
+      red m (trm_fixs f xs t1) m (val_fixs f xs t1)
   | red_constr : forall m id vs,
       red m (trm_constr id (trms_vals vs)) m (val_constr id vs)
   | red_if : forall m1 m2 b r t1 t2,
@@ -688,10 +812,18 @@ Inductive red : state -> trm -> state -> val -> Prop :=
   | red_let : forall m1 m2 z v1 t2 r,
       red m1 (subst1 z v1 t2) m2 r ->
       red m1 (trm_let z v1 t2) m2 r
-  | red_app : forall m1 m2 f z t3 v1 v2 r,
-      v1 = val_fix f z t3 ->
-      red m1 (subst2 f v1 z v2 t3) m2 r ->
-      red m1 (trm_app v1 v2) m2 r
+  (* LATER: factorize using [subst1 f v0 (isubstn xs vs) t]   
+      and a relatex version of var_fixs that accept a [f:bind] *)
+  | red_apps_funs : forall m1 m2  xs t3 v0 vs r,
+      v0 = val_funs xs t3 ->
+      var_funs (length vs) xs ->
+      red m1 (isubstn xs vs t3) m2 r ->
+      red m1 (trm_apps v0 vs) m2 r
+  | red_apps_fixs : forall m1 m2 (f:var) xs t3 v0 vs r,
+      v0 = val_fixs f xs t3 ->
+      var_fixs f (length vs) xs ->
+      red m1 (isubstn (f::xs) (v0::vs) t3) m2 r ->
+      red m1 (trm_apps v0 vs) m2 r
   | red_while : forall m1 m2 t1 t2 r,
       red m1 (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) m2 r ->
       red m1 (trm_while t1 t2) m2 r
@@ -766,7 +898,8 @@ End Red.
 (* ** Derived rules *)
 
 Section Derived.
-Hint Constructors evalctx.
+Hint Constructors evalctx. 
+Hint Resolve evalctx_app_arg.
 
 (** Generalization of the evaluation context rule for terms
     that might already be values *)
@@ -785,6 +918,19 @@ Proof using.
 Qed.
 
 (** Other derived rules *)
+
+Lemma red_funs : forall m xs t,
+  xs <> nil ->
+  red m (trm_funs xs t) m (val_funs xs t).
+Proof using. introv N. applys* red_fixs. Qed.
+
+Lemma red_fix : forall m f x t1,
+  red m (trm_fix f x t1) m (val_fix f x t1).
+Proof using. intros. applys* red_fixs. auto_false. Qed.
+
+Lemma red_fun : forall m x t1,
+  red m (trm_fun x t1) m (val_fun x t1).
+Proof using. intros. apply red_fix. Qed.
 
 Lemma red_let_trm : forall m1 m2 m3 z t1 t2 v1 r,
   red m1 t1 m2 v1 ->
@@ -813,15 +959,31 @@ Proof using.
   applys* red_evalctx (fun t1 => trm_constr id ((trms_vals vs)++t1::ts)).
 Qed.
 
-Lemma red_app_trm : forall m1 m2 m3 m4 t1 t2 f z t3 v1 v2 r,
+Lemma red_app : forall m1 m2 f x t3 v1 v2 r,
+  v1 = val_fix f x t3 ->
+  f <> x ->
+  red m1 (subst2 f v1 x v2 t3) m2 r ->
+  red m1 (trm_app v1 v2) m2 r.
+Proof using.
+  introv EQ N M. destruct f as [|f].
+  { applys* red_apps_funs (v2::nil). 
+    { simpls. splits; auto_false. splits*. }
+    { simpls. rewrite isubstn_cons. rewrite* isubstn_nil. } }
+  { applys* red_apps_fixs (v2::nil). 
+    { simpls. splits; auto_false. splits*. simpls. rewrite var_eq_spec. case_if*. }
+    { simpls. do 2 rewrite isubstn_cons. rewrite* isubstn_nil. } }
+Qed. (* LATER: clean up *)
+
+Lemma red_app_trm : forall m1 m2 m3 m4 t1 t2 f x t3 v1 v2 r,
   red m1 t1 m2 v1 ->
   red m2 t2 m3 v2 ->
-  v1 = val_fix f z t3 ->
-  red m3 (subst2 f v1 z v2 t3) m4 r ->
+  v1 = val_fix f x t3 ->
+  f <> x ->
+  red m3 (subst2 f v1 x v2 t3) m4 r ->
   red m1 (trm_app t1 t2) m4 r.
 Proof using. 
-  introv M1 M2 EQ M3. applys* red_evalctx (fun t1 => trm_app t1 t2).
-  applys* red_evalctx (fun t2 => trm_app v1 t2). applys* red_app.
+  introv M1 M2 EQ N M3. applys* red_evalctx (fun t1 => trm_apps t1 (t2::nil)).
+  applys* red_evalctx (fun t2 => trm_apps v1 (t2::nil)). applys* red_app.
 Qed.
 
 Lemma red_case_trm : forall m1 m2 m3 v1 t1 p t2 t3 r,
@@ -832,17 +994,13 @@ Proof using.
   introv M1 M2. applys* red_evalctx (fun t1 => trm_case t1 p t2 t3).
 Qed.
 
-Lemma red_fun : forall m x t1,
-  red m (trm_fun x t1) m (val_fun x t1).
-Proof using. intros. apply red_fix. Qed.
-
-Lemma red_app_fun : forall m1 m2 m3 m4 t1 t2 z t3 v1 v2 r,
+Lemma red_app_fun : forall m1 m2 m3 m4 t1 t2 x t3 v1 v2 r,
   red m1 t1 m2 v1 ->
   red m2 t2 m3 v2 ->
-  v1 = val_fun z t3 ->
-  red m3 (subst1 z v2 t3) m4 r ->
+  v1 = val_fun x t3 ->
+  red m3 (subst1 x v2 t3) m4 r ->
   red m1 (trm_app t1 t2) m4 r.
-Proof using. intros. applys* red_app_trm. Qed.
+Proof using. intros. applys* red_app_trm. auto_false. Qed.
 
 Lemma red_seq : forall m1 m2 m3 t1 t2 r1 r,
   red m1 t1 m2 r1 ->
@@ -892,273 +1050,6 @@ Ltac fmap_red_base tt ::=
 
 
 (* ********************************************************************** *)
-(* * N-ary functions and applications *)
-
-(** [trm_apps t ts] denotes a n-ary application of [t] to the
-    arguments from the list [ts].
-
-    [trm_funs xs t] denotes a n-ary function with arguments [xs]
-    and body [t].
-
-    [trm_fixs f xs t] denotes a n-ary recursive function [f]
-    with arguments [xs] and body [t].
-
-  The tactic [rew_nary] can be used to convert terms in the goal
-  to using the nary constructs wherever possible.
-
-  The operation [substn xs vs t] substitutes the variables [xs]
-  with the values [vs] inside the term [t].
-*)
-
-
-(* ---------------------------------------------------------------------- *)
-(** Coercions from values to terms *)
-
-Coercion vals_to_trms (vs:vals) : trms :=
-  List.map trm_val vs.
-
-(** Tactic [rew_vals_to_trms] to fold the coercion where possible *)
-
-Lemma vals_to_trms_fold_start : forall v,
-  (trm_val v)::nil = vals_to_trms (v::nil).
-Proof using. auto. Qed.
-
-Lemma vals_to_trms_fold_next : forall v vs,
-  (trm_val v)::(vals_to_trms vs) = vals_to_trms (v::vs).
-Proof using. auto. Qed.
-
-Hint Rewrite vals_to_trms_fold_start vals_to_trms_fold_next
-  : rew_vals_to_trms.
-
-Tactic Notation "rew_vals_to_trms" :=
-  autorewrite with rew_vals_to_trms.
-
-
-(* ---------------------------------------------------------------------- *)
-(** N-ary applications and N-ary functions *)
-
-(** [trm_apps t (t1::...tn::nil] describes the application term
-    [t t1 .. tn]. *)
-
-Fixpoint trm_apps (tf:trm) (ts:trms) : trm :=
-  match ts with
-  | nil => tf
-  | t::ts' => trm_apps (trm_app tf t) ts'
-  end.
-
-(** [trm_fixs f (x1::...xn::nil) t] describes the function term
-    [trm_fix f x1 (trm_fun x2 ... (trm_fun xn t) ..)]. *)
-
-Fixpoint trm_fixs (f:bind) (xs:vars) (t:trm) : trm :=
-  match xs with
-  | nil => t
-  | x::xs' => trm_fix f x (trm_fixs bind_anon xs' t)
-  end.
-
-(** [val_fixs f (x1::...xn::nil) t] describes the function value
-    [val_fix f x1 (trm_fun x2 ... (trm_fun xn t) ..)]. *)
-
-Definition val_fixs (f:bind) (xs:vars) (t:trm) : val :=
-  match xs with
-  | nil => arbitrary
-  | x::xs' => val_fix f x (trm_fixs bind_anon xs' t)
-  end.
-
-(** [trm_funs (x1::...xn::nil) t] describes the function term
-    [trm_fun x1 (trm_fun x2 ... (trm_fun xn t) ..)]. *)
-
-Notation trm_funs := (trm_fixs bind_anon).
-
-(** [val_fun (x1::...xn::nil) t] describes the function value
-    [val_fun x1 (trm_fun x2 ... (trm_fun xn t) ..)]. *)
-
-Notation val_funs := (val_fixs bind_anon).
-
-
-(* ---------------------------------------------------------------------- *)
-(** Distribution of [subst] over n-ary functions *)
-
-Lemma subst_trm_funs : forall y w xs t,
-  var_fresh y xs ->
-  subst1 y w (trm_funs xs t) = trm_funs xs (subst1 y w t).
-Proof using.
-  introv N. unfold subst1. induction xs as [|x xs']; simpls; fequals.
-  { rewrite var_eq_spec in *. case_if. do 2 case_if. rewrite~ <- IHxs'. }
-Qed.
-
-Lemma subst_trm_fixs : forall y w f xs t,
-  var_fresh y (f::xs) ->
-  subst1 y w (trm_fixs f xs t) = trm_fixs f xs (subst1 y w t).
-Proof using.
-  introv N. destruct xs as [|x xs'].
-  { auto. }
-  { unfold subst1. simpls. repeat rewrite var_eq_spec in *.
-    do 2 case_if in N. do 2 case_if~. fequals. applys* subst_trm_funs. }
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Reduction rules for n-ary functions *)
-
-Lemma red_funs : forall m xs t,
-  xs <> nil ->
-  red m (trm_funs xs t) m (val_funs xs t).
-Proof using.
-  introv N. destruct xs as [|x xs']. { false. }
-  simpl. applys red_fun.
-Qed.
-
-Lemma red_fixs : forall m f xs t,
-  xs <> nil ->
-  red m (trm_fixs f xs t) m (val_fixs f xs t).
-Proof using.
-  introv N. destruct xs as [|x xs']. { false. }
-  simpl. applys red_fix.
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Reduction rules for n-ary applications *)
-
-(* Internal lemma *)
-
-Lemma red_app_funs_val_ind : forall xs vs m1 m2 tf t r,
-  red m1 tf m1 (val_funs xs t) ->
-  red m1 (substn xs vs t) m2 r ->
-  var_funs (length vs) xs ->
-  red m1 (trm_apps tf vs) m2 r.
-Proof using.
-  introv M1 M2 (F&L&N). gen tf t r m1 m2 F N. list2_ind~ xs vs; intros.
-  { false. }
-  { rename xs1 into xs', x1 into x1, x2 into v1, xs2 into vs', H0 into IH.
-    simpl in F. rew_istrue in F. destruct F as (F1&F').
-    tests C: (xs' = nil).
-    { rew_list in *. asserts: (vs' = nil).
-      { applys length_zero_inv. math. } subst vs'.
-      simpls. applys* red_app_trm. applys* red_val.
-      (* BIND rewrite subst2_eq_subst1_subst1, subst1_anon. auto. *) }
-    { rewrite substn_cons in M2. applys~ IH M2. applys* red_app_trm.
-      { applys* red_val. }
-      { (* BIND simpl. rewrite subst2_eq_subst1_subst1, subst1_anon. *)
-        rewrite~ subst_trm_funs. applys~ red_funs. } } }
-Qed.
-
-(** Reduction rule for n-ary functions *)
-
-Lemma red_app_funs_val : forall xs vs m1 m2 vf t r,
-  vf = val_funs xs t ->
-  red m1 (substn xs vs t) m2 r ->
-  var_funs (length vs) xs ->
-  red m1 (trm_apps vf vs) m2 r.
-Proof using.
-  introv R M N. applys* red_app_funs_val_ind.
-  { subst. apply~ red_val. }
-Qed.
-
-(** Reduction rule for n-ary recursive functions *)
-
-Lemma red_app_fixs_val : forall xs (vs:vals) m1 m2 vf (f:var) t r,
-  vf = val_fixs f xs t ->
-  red m1 (substn (f::xs) (vf::vs) t) m2 r ->
-  var_fixs f (length vs) xs ->
-  red m1 (trm_apps vf vs) m2 r.
-Proof using.
-  introv E M (N&L&P). destruct xs as [|x xs']. { false. }
-  { destruct vs as [|v vs']; rew_list in *. { false; math. } clear P.
-    destruct N as (N1&N2&N3). simpls. case_if.
-    tests C':(xs' = nil).
-    { rew_list in *. asserts: (vs' = nil).
-      { applys length_zero_inv. math. } subst vs'. clear L.
-      subst vf. simpls. hint red_val. applys* red_app. }
-    { applys~ red_app_funs_val_ind.
-      { hint red_val. applys* red_app.
-        rewrite subst2_eq_subst1_subst1. do 2 rewrite~ subst_trm_funs.
-        applys* red_funs. }
-      { (* BIND do 2 rewrite substn_cons in M. *) applys M. }
-      { splits*. } } }
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Rewriting lemmas and tactics to "fold" n-ary functions. *)
-
-(** The tactic [rew_nary] introduce [trm_apps] and [trm_fixs]
-    in place of nested applications of [trm_app] and [trm_fun]. *)
-
-Lemma trm_apps_fold_start : forall t1 t2,
-  trm_app t1 t2 = trm_apps t1 (t2::nil).
-Proof using. auto. Qed.
-
-Lemma trm_apps_fold_next : forall t1 t2 t3s,
-  trm_apps (trm_app t1 t2) t3s = trm_apps t1 (t2::t3s).
-Proof using. auto. Qed.
-
-Lemma trm_apps_fold_concat : forall t1 t2s t3s,
-  trm_apps (trm_apps t1 t2s) t3s = trm_apps t1 (List.app t2s t3s).
-Proof using.
-  intros. gen t1; induction t2s; intros. { auto. }
-  { rewrite <- trm_apps_fold_next. simpl. congruence. }
-Qed.
-
-Lemma trm_fixs_fold_start : forall f x t,
-  trm_fix f x t = trm_fixs f (x::nil) t.
-Proof using. auto. Qed.
-
-(* subsumed by iteration of trm_funs_fold_next *)
-Lemma trm_funs_fold_app : forall xs ys t,
-  trm_funs xs (trm_funs ys t) = trm_funs (List.app xs ys) t.
-Proof using.
-  intros. induction xs. { auto. } { simpl. congruence. }
-Qed.
-
-(* for innermost-first rewriting strategy
-Lemma trm_fixs_fold_next : forall f x xs t,
-  trm_fixs f (x::nil) (trm_funs xs t) = trm_fixs f (x::xs) t.
-Proof using. auto. Qed.
-*)
-
-Lemma trm_fixs_fold_app : forall f x xs ys t,
-  trm_fixs f (x::xs) (trm_funs ys t) = trm_fixs f (x :: List.app xs ys) t.
-Proof using. intros. simpl. rewrite~ trm_funs_fold_app. Qed.
-
-Lemma val_fixs_fold_start : forall f x t,
-  val_fix f x t = val_fixs f (x::nil) t.
-Proof using. auto. Qed.
-
-Lemma val_fixs_fold_app : forall f x xs ys t,
-  val_fixs f (x::xs) (trm_funs ys t) = val_fixs f (List.app (x::xs) ys) t.
-Proof using. intros. simpl. rewrite~ trm_funs_fold_app. Qed.
-
-Lemma val_fixs_fold_app' : forall f x xs ys t,
-  val_fixs f (List.app (x::nil) xs) (trm_funs ys t) = val_fixs f (List.app (x::xs) ys) t.
-Proof using. intros. simpl. rewrite~ trm_funs_fold_app. Qed.
-
-Hint Rewrite
-  trm_apps_fold_start trm_apps_fold_next trm_apps_fold_concat
-  trm_fixs_fold_start trm_fixs_fold_app
-  val_fixs_fold_start val_fixs_fold_app val_fixs_fold_app' : rew_nary.
-
-Tactic Notation "rew_nary" :=
-  autorewrite with rew_nary; simpl List.app.
-Tactic Notation "rew_nary" "in" hyp(H) :=
-  autorewrite with rew_nary in H; simpl List.app in H.
-Tactic Notation "rew_nary" "in" "*" :=
-  autorewrite with rew_nary in *; simpl List.app in *.
-  (* rewrite_strat (any (innermost (hints rew_nary))).
-     => way too slow! *)
-
-(* Demos:
-Lemma rew_nary_demo_1 : forall (f x y z:var) t1 t2 v,
-  val_fix f x (trm_fun y (trm_fun z (f t1 x y t2))) = v.
-Proof using. intros. rew_nary. Abort.
-
-Lemma rew_nary_demo_2 : forall f x1 x2 v,
-  val_fun f (trm_fun x1 (trm_fun x2 (x1 x2))) = v.
-Proof using. intros. rew_nary. Abort.
-*)
-
-
-(* ********************************************************************** *)
 (* * Size of a term *)
 
 (* ---------------------------------------------------------------------- *)
@@ -1170,11 +1061,11 @@ Fixpoint trm_size (t:trm) : nat :=
   match t with
   | trm_var x => 1
   | trm_val v => 1
-  | trm_fix f x t1 => 1 + trm_size t1
+  | trm_fixs f xs t1 => 1 + trm_size t1
   | trm_constr id ts => 1 + List.fold_right (fun t acc => (acc + trm_size t)%nat) 0%nat ts (* TODO: list_sum *)
   | trm_if t0 t1 t2 => 1 + trm_size t0 + trm_size t1 + trm_size t2
   | trm_let x t1 t2 => 1 + trm_size t1 + trm_size t2
-  | trm_app t1 t2 => 1 + trm_size t1 + trm_size t2
+  | trm_apps t0 ts => 1 + List.fold_right (fun t acc => (acc + trm_size t)%nat) 0%nat ts (* TODO: list_sum *)
   | trm_while t1 t2 => 1 + trm_size t1 + trm_size t2
   | trm_for x t1 t2 t3 => 1 + trm_size t1 + trm_size t2 + trm_size t3
   | trm_case t1 p t2 t3 => 1 + trm_size t1 + trm_size t2 + trm_size t3
@@ -1187,7 +1078,11 @@ Proof using.
   intros t. induction t using trm_induct; intros; simpl; repeat case_if; auto.
   { destruct~ (Ctx.lookup v E). }
   { repeat rewrite List_fold_right_eq. repeat rewrite List_map_eq.
-    fequals. induction l as [|t l'].
+    fequals. induction l as [|t' l'].
+    { auto. }
+    { rew_listx. fequals*. } }
+  { repeat rewrite List_fold_right_eq. repeat rewrite List_map_eq.
+    fequals. induction l as [|t' l'].
     { auto. }
     { rew_listx. fequals*. } }
 Qed.
@@ -1251,52 +1146,58 @@ Notation "t1 ;;; t2" :=
    format "'[v' '[' t1 ']'  ;;;  '/'  '[' t2 ']' ']'") : trm_scope.
 
 Notation "'Fix' f x1 ':=' t" :=
-  (trm_fix f x1 t)
+  (trm_fix f (x1::nil) t)
   (at level 69, f, x1 at level 0) : trm_scope.
 
+(* DEPRECATED
 Notation "'Fix' f x1 x2 ':=' t" :=
-  (trm_fix f x1 (trm_fun x2 t))
+  (trm_fix f (x1::x2::nil) t)
   (at level 69, f, x1, x2 at level 0) : trm_scope.
+*)
 
 Notation "'Fix' f x1 x2 .. xn ':=' t" :=
-  (trm_fix f x1 (trm_fun x2 .. (trm_fun xn t) ..))
-  (at level 69, f, x1, x2, xn at level 0) : trm_scope.
+  (trm_fixs f (cons x1 (cons x2 .. (cons xn nil) ..)) t)
+(at level 69, f, x1, x2, xn at level 0) : trm_scope.
 
 Notation "'ValFix' f x1 ':=' t" :=
-  (val_fix f x1 t)
+  (val_fixs f x1 t)
   (at level 69, f, x1 at level 0) : trm_scope.
 
 Notation "'ValFix' f x1 x2 .. xn ':=' t" :=
-  (val_fix f x1 (trm_fun x2 .. (trm_fun xn t) ..))
-  (at level 69, f, x1, x2, xn at level 0) : trm_scope.
+  (val_fixs f (cons x1 (cons x2 .. (cons xn nil) ..)) t)
+(at level 69, f, x1, x2, xn at level 0) : trm_scope.
 
 Notation "'Fun' x1 ':=' t" :=
-  (trm_fun x1 t)
+  (trm_funs (x1::nil t))
   (at level 69, x1 at level 0) : trm_scope.
 
 Notation "'Fun' x1 x2 .. xn ':=' t" :=
-  (trm_fun x1 (trm_fun x2 .. (trm_fun xn t) ..))
+  (trm_funs (cons x1 (cons x2 .. (cons xn nil) ..)) t)
   (at level 69, x1, x2, xn at level 0) : trm_scope.
 
 Notation "'ValFun' x1 ':=' t" :=
-  (val_fun x1 t)
+  (val_funs x1 t)
   (at level 69, x1 at level 0) : trm_scope.
 
 Notation "'ValFun' x1 x2 .. xn ':=' t" :=
-  (val_fun x1 (trm_fun x2 .. (trm_fun xn t) ..))
+  (val_funs (cons x1 (cons x2 .. (cons xn nil) ..)) t)
   (at level 69, x1, x2, xn at level 0) : trm_scope.
 
 Notation "'LetFun' f x1 ':=' t1 'in' t2" :=
-  (trm_let f (trm_fun x1 t1) t2)
-  (at level 69, f at level 0, x1 at level 0) : trm_scope.
+  (trm_let f (trm_funs (x1::nil) t1) t2)
+  (at level 69, f, x1 at level 0) : trm_scope.
 
 Notation "'LetFun' f x1 x2 .. xn ':=' t1 'in' t2" :=
-  (trm_let f (trm_fun x1 (trm_fun x2 .. (trm_fun xn t1) ..)) t2)
+  (trm_let f (trm_funs (cons x1 (cons x2 .. (cons xn nil) ..)) t1) t2)
   (at level 69, f, x1, x2, xn at level 0) : trm_scope.
 
 Notation "'LetFix' f x1 ':=' t1 'in' t2" :=
-  (trm_let f (trm_fix f x1 t1) t2)
-  (at level 69, f at level 0, x1 at level 0) : trm_scope.
+  (trm_let f (trm_fixs f (x1::nil) t1) t2)
+  (at level 69, f, x1 at level 0) : trm_scope.
+
+Notation "'LetFix' f x1 x2 .. xn ':=' t1 'in' t2" :=
+  (trm_let f (trm_fixs f (cons x1 (cons x2 .. (cons xn nil) ..)) t1) t2)
+  (at level 69, f, x1, x2, xn at level 0) : trm_scope.
 
 Notation "'While' t1 'Do' t2 'Done'" :=
   (trm_while t1 t2)
@@ -1349,6 +1250,7 @@ Notation "t1 '= t2" :=
 *)
 
 End NotationForTerms.
+
 
 
 

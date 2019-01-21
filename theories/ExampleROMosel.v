@@ -41,7 +41,7 @@ Tactic Notation "xletfun" :=
     the definition of [f]. *)
 
 Tactic Notation "xdef" :=
-  rew_nary; rew_vals_to_trms;
+  rew_nary; rew_trms_vals;
   match goal with |- triple (trm_apps (trm_val ?f) _) _ _ =>
    match goal with
    | H: f =_ |- _ =>

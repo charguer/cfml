@@ -110,7 +110,7 @@ Ltac xcf_fun n :=
   let f' := xcf_get_fun tt in
   xcf_reveal_fun tt;
   rew_nary;
-  rew_vals_to_trms;
+  rew_trms_vals;
   xcf_basic_fun n f'.
 
 Ltac xcf_core n :=

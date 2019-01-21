@@ -96,7 +96,7 @@ Lemma triple_incr_4 : forall p n,
     (fun r => (p ~~~> (n+1))).
 Proof using.
   intros. rew_nary. unfold val_incr.
-  rew_nary. rew_vals_to_trms. (* show coercion *)
+  rew_nary. rew_trms_vals. (* show coercion *)
   applys triple_apps_funs_of_cf_iter 20%nat.
   { reflexivity. }
   { reflexivity. }

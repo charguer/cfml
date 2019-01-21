@@ -592,7 +592,7 @@ Qed.
     Definition [val_new_node] and Lemma [Triple_new_node]. *)
 
 Ltac xtriple_new_record_core tt :=
-  intros; rew_nary; rew_vals_to_trms; applys Triple_new_record';
+  intros; rew_nary; rew_trms_vals; applys Triple_new_record';
   [ xeq_encs | auto | math | hsimpl ].
 
 Tactic Notation "xtriple_new_record" :=
