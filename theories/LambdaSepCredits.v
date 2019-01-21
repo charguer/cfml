@@ -627,9 +627,9 @@ Proof using.
   { hhsimpl. hchanges M. }
 Qed.
 
-Lemma triple_fix : forall (f z:bind) t1 H Q,
-  H ==> Q (val_fix f z t1) ->
-  triple (trm_fix f z t1) H Q.
+Lemma triple_fix : forall f x t1 H Q,
+  H ==> Q (val_fix f x t1) ->
+  triple (trm_fix f x t1) H Q.
 Proof using.
   introv M. intros HF h N. exists___. splits.
   { applys red_fix. }

@@ -172,7 +172,7 @@ Fixpoint combiner_to_trm (c:combiner) : trm :=
   | combiner_nil t1 t2 => trm_apps t1 (t2::nil)
   | combiner_cons c1 t2 => 
       match combiner_to_trm c1 with
-      | trm_apps t1 ts => trm_apps t1 (ts++t2::nil)
+      | trm_apps t1 ts => trm_apps t1 (List.app ts (t2::nil))
       | t1 => trm_apps t1 (t2::nil)
       end
   end.
@@ -812,17 +812,17 @@ Inductive red : state -> trm -> state -> val -> Prop :=
   | red_let : forall m1 m2 z v1 t2 r,
       red m1 (subst1 z v1 t2) m2 r ->
       red m1 (trm_let z v1 t2) m2 r
-  (* LATER: factorize using [subst1 f v0 (isubstn xs vs) t]   
+  (* LATER: factorize using [subst1 f v0 (substn xs vs) t]   
       and a relatex version of var_fixs that accept a [f:bind] *)
   | red_apps_funs : forall m1 m2  xs t3 v0 vs r,
       v0 = val_funs xs t3 ->
       var_funs (length vs) xs ->
-      red m1 (isubstn xs vs t3) m2 r ->
+      red m1 (substn xs vs t3) m2 r ->
       red m1 (trm_apps v0 vs) m2 r
   | red_apps_fixs : forall m1 m2 (f:var) xs t3 v0 vs r,
       v0 = val_fixs f xs t3 ->
       var_fixs f (length vs) xs ->
-      red m1 (isubstn (f::xs) (v0::vs) t3) m2 r ->
+      red m1 (substn (f::xs) (v0::vs) t3) m2 r ->
       red m1 (trm_apps v0 vs) m2 r
   | red_while : forall m1 m2 t1 t2 r,
       red m1 (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) m2 r ->
@@ -967,11 +967,9 @@ Lemma red_app : forall m1 m2 f x t3 v1 v2 r,
 Proof using.
   introv EQ N M. destruct f as [|f].
   { applys* red_apps_funs (v2::nil). 
-    { simpls. splits; auto_false. splits*. }
-    { simpls. rewrite isubstn_cons. rewrite* isubstn_nil. } }
+    { simpls. splits; auto_false. splits*. } }
   { applys* red_apps_fixs (v2::nil). 
-    { simpls. splits; auto_false. splits*. simpls. rewrite var_eq_spec. case_if*. }
-    { simpls. do 2 rewrite isubstn_cons. rewrite* isubstn_nil. } }
+    { simpls. splits; auto_false. splits*. simpls. rewrite var_eq_spec. case_if*. } }
 Qed. (* LATER: clean up *)
 
 Lemma red_app_trm : forall m1 m2 m3 m4 t1 t2 f x t3 v1 v2 r,

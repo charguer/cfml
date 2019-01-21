@@ -23,6 +23,7 @@ Ltac auto_star ::= jauto.
 Implicit Types f : bind.
 Implicit Types v w : val.
 Implicit Types t : trm.
+Implicit Types vs : vals.
 Implicit Types n : int.
 Implicit Types l : loc.
 Implicit Types k : field.
@@ -481,9 +482,9 @@ Proof using.
   { hhsimpl~. }
 Qed.
 
-Lemma hoare_fix : forall (f z:bind) t1 H Q,
-  H ==> Q (val_fix f z t1) ->
-  hoare (trm_fix f z t1) H Q.
+Lemma hoare_fix : forall (f:bind) x t1 H Q,
+  H ==> Q (val_fix f x t1) ->
+  hoare (trm_fix f x t1) H Q.
 Proof using.
   introv M. intros h Hh. exists___. splits.
   { applys~ red_fix. }
@@ -542,7 +543,7 @@ Lemma hoare_apps_funs : forall xs F (Vs:vals) t1 H Q,
   hoare (trm_apps F Vs) H Q.
 Proof using.
   introv E N M. intros h Hh. forwards* (h'&v&R&K): (rm M).
-  exists h' v. splits~. { subst. applys* red_app_funs_val. }
+  exists h' v. splits~. { subst. applys* red_apps_funs. }
 Qed.
 
 Lemma hoare_apps_fixs : forall xs (f:var) F (Vs:vals) t1 H Q,
@@ -866,8 +867,10 @@ Proof using.
     intros v. specializes M2 v. rewrite isubst_trm_constr_args in M2. applys M2. }
   { applys triple_evalctx (fun t1 => trm_let z t1 (isubst (Ctx.rem z E) t2)); eauto. }
   { applys triple_evalctx (fun t1 => trm_if t1 (isubst E t2) (isubst E t3)); eauto. }
-  { applys triple_evalctx (fun t1 => trm_app t1 (isubst E t2)); eauto. }
-  { applys triple_evalctx (fun t1 => trm_app v1 t1); eauto. }
+  { applys triple_evalctx (fun t0 => trm_apps t0 (List.map (isubst E) ts)); eauto. }
+  { rewrite isubst_trm_apps_args.
+    applys triple_evalctx (fun t1 => trm_apps v0 (trms_vals vs ++ t1 :: map (isubst E) ts)); eauto.
+    intros v. specializes M2 v. rewrite isubst_trm_apps_args in M2. applys M2. }
   { applys triple_evalctx (fun t1 => trm_for x t1 (isubst E t2) (isubst (Ctx.rem x E) t3)); eauto. }
   { applys triple_evalctx (fun t2 => trm_for x v1 t2 (isubst (Ctx.rem x E) t3)); eauto. }
   { applys triple_evalctx (fun t1 => trm_case t1 p (isubst (Ctx.rem_vars (patvars p) E) t2) (isubst E t3)); eauto. }
@@ -889,7 +892,7 @@ Qed.
 
 Lemma triple_constr : forall id vs H Q,
   H ==> Q (val_constr id vs) ->
-  triple (trm_constr id (LibList.map trm_val vs)) H Q.
+  triple (trm_constr id vs) H Q.
 Proof using.
   introv M. intros HF. applys hoare_constr. { hchanges M. }
 Qed.
@@ -952,7 +955,7 @@ Lemma triple_apps_funs : forall xs F (Vs:vals) t1 H Q,
   triple (trm_apps F Vs) H Q.
 Proof using.
   introv E N M. intros H' h Hf. forwards (h'&v&R&K): (rm M) Hf.
-  exists h' v. splits~. { subst. applys* red_app_funs_val. }
+  exists h' v. splits~. { subst. applys* red_apps_funs. }
 Qed.
 
 Lemma triple_apps_fixs : forall xs (f:var) F (Vs:vals) t1 H Q,

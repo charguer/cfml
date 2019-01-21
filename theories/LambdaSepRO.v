@@ -1154,10 +1154,10 @@ Proof using.
 Qed.
 *)
 
-Lemma triple_fix : forall (f z:bind) t1 H Q,
-  H ==> Q (val_fix f z t1) ->
+Lemma triple_fix : forall f x t1 H Q,
+  H ==> Q (val_fix f x t1) ->
   Normal H ->
-  triple (trm_fix f z t1) H Q.
+  triple (trm_fix f x t1) H Q.
 Proof using.
   introv M HS. intros h1 h2 D P1. exists___. splits*.
   { applys red_fix. }
@@ -1230,10 +1230,11 @@ Qed.
 
 Lemma triple_app_fix : forall (f:bind) F x X t1 H Q,
   F = val_fix f x t1 ->
+  f <> x ->
   triple (subst2 f F x X t1) H Q ->
   triple (trm_app F X) H Q.
 Proof using.
-  introv EF M. subst. applys triple_red (rm M).
+  introv EF N M. subst. applys triple_red (rm M).
   introv R. hint red_val. applys* red_app_trm.
 Qed.
 
@@ -1708,7 +1709,7 @@ Lemma triple_apps_funs : forall xs F (Vs:vals) t1 H Q,
 Proof using.
   introv E N M. intros h1 h2 D H1.
   forwards~ (h1'&v&N1&N2&N3&N4): (rm M) h2 H1.
-  exists h1' v. splits~. { subst. applys~ red_app_funs_val. }
+  exists h1' v. splits~. { subst. applys~ red_apps_funs. }
 Qed.
 
 Lemma var_funs_exec_elim : forall (n:nat) xs,
