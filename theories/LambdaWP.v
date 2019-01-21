@@ -590,7 +590,7 @@ Proof using.
 Qed.
 
 Lemma wp_sound_apps_val : forall v0 vs,
-  wp_apps_val v0 vs ===> wp_triple (trm_apps v0 vs). (* no subst *)
+  wp_apps_val v0 vs ===> wp_triple (trm_apps v0 vs).
 Proof using.
   Hint Constructors redunop redbinop.
   intros.
@@ -643,9 +643,7 @@ Proof using.
     { applys is_local_wp_triple. }
     { clears Q. applys qimpl_wp_triple. intros Q.
       applys triple_while_raw. apply~ triple_of_wp.
-      change ((trm_if (isubst E t1) (trm_seq (isubst E t2) (trm_while (isubst E t1) (isubst E t2))) val_unit))
-        with (isubst E (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit)).
-      applys~ wp_sound_if. 
+      applys* wp_sound_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit.
       { applys* wp_sound_seq. eauto. }
       { intros Q'. applys wp_sound_val. } } }
   { apply~ triple_of_wp. }
@@ -656,8 +654,7 @@ Lemma wp_sound_for_val : forall (x:var) v1 v2 F1 E t1,
   wp_for_val v1 v2 F1 ===> wp_triple_ E (trm_for x v1 v2 t1).
 Proof using. Opaque Ctx.add Ctx.rem.
   introv M. applys qimpl_wp_triple. simpl. intros Q.
-  remove_local. intros n1 n2 (->&->).
-  applys triple_hforall.
+  remove_local. intros n1 n2 (->&->). applys triple_hforall.
   set (S := fun (i:int) => wp_triple (isubst E (trm_for x i n2 t1))).
   exists S. simpl. applys triple_hwand_hpure_l.
   { split.
@@ -666,12 +663,9 @@ Proof using. Opaque Ctx.add Ctx.rem.
       applys triple_for_raw. fold isubst.
       apply~ triple_of_wp. case_if.
       { rewrite <- isubst_add_eq_subst1_isubst.
-        asserts_rewrite (trm_seq (isubst (Ctx.add x (val_int i) E) t1) (trm_for x (i + 1)%I n2 (isubst (Ctx.rem x E) t1))
-          = (isubst (Ctx.add x (val_int i) E) (trm_seq t1 (trm_for x (i + 1)%I n2 t1)))).
-        { simpl. rewrite Ctx.rem_anon, Ctx.rem_add_same. auto. }
-        applys wp_sound_seq.
-        { applys* M. }
-        { unfold S. unfold wp_triple_. simpl. rewrite~ Ctx.rem_add_same. } }
+        lets G: wp_sound_seq (Ctx.add x (val_int i) E) t1 (trm_for x (i + 1)%I n2 t1) .
+        unfold wp_triple_ in G. simpl in G. rewrite Ctx.rem_anon, Ctx.rem_add_same in G.
+        applys (rm G). { applys* M. } { unfolds* S. } }
       { applys wp_sound_val E. } } }
   { apply~ triple_of_wp. }
 Qed.
@@ -719,7 +713,8 @@ Lemma wp_sound_constr : forall E id ts,
   wp_constr wp E id nil ts ===> wp_triple_ E (trm_constr id ts).
 Proof using.
   introv IHwp. cuts M: (forall rvs,  
-   wp_constr wp E id rvs ts ===> wp_triple_ E (trm_constr id ((trms_vals (LibList.rev rvs))++ts))).
+         wp_constr wp E id rvs ts 
+    ===> wp_triple_ E (trm_constr id ((trms_vals (LibList.rev rvs))++ts))).
   { applys M. }
   induction ts as [|t ts']; intros.
   { simpl. rewrite List_rev_eq. rew_list. applys qimpl_wp_triple.
@@ -741,7 +736,7 @@ Proof using.
   { applys wp_sound_val. }
   { applys wp_sound_var. }
   { applys wp_sound_fixs. }
-  { applys* wp_sound_constr Q. }
+  { applys* wp_sound_constr. }
   { applys* wp_sound_if. }
   { applys* wp_sound_let. }
   { applys* wp_sound_apps. }
