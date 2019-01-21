@@ -280,17 +280,11 @@ Definition wp_getval wp (E:ctx) (t1:trm) (F2of:val->formula) : formula :=
 
 Definition wp_app_val (v0:val) (vs:vals) : formula := 
   match v0 with
-  | val_prim 
-
-  | val_ref : prim
-  | val_get : prim
-  | val_set : prim
-  | val_alloc : prim
-  | val_eq : prim
-  | val_sub : prim
-  | val_add : prim
-  | val_ptr_add : prim.
-
+  | val_prim val_eq => wp_binop (fun v1 v2 => isTrue (v1 + v2))
+  | val_prim val_add => wp_binop_int (fun n1 n2 => n1 + n2)
+  (* TODO: other primitives *)
+  | _ => local (wp_triple (trm_apps v0 vs))
+  end.
 
 (* Definition wp_app_val (E:ctx) (t:trm) : formula := 
   local (wp_triple (isubst E t)). *)

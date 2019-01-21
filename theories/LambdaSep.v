@@ -661,6 +661,17 @@ Proof using. (* Note: [abs n] currently does not compute in Coq. *)
     { exists l. applys~ himpl_hpure_r. applys~ Alloc_fmap_conseq. } }
 Qed.
 
+Lemma hoare_unop : forall v H op v1,
+  redunop op v1 v ->
+  hoare (op v1)
+    H
+    (fun r => \[r = v] \* H).
+Proof using.
+  introv R. intros h Hh. exists h v. splits.
+  { applys* red_unop. }
+  { hhsimpl~. }
+Qed.
+
 Lemma hoare_binop : forall v H op v1 v2,
   redbinop op v1 v2 v ->
   hoare (op v1 v2)
@@ -1163,6 +1174,26 @@ Qed.
 
 (* ---------------------------------------------------------------------- *)
 (* ** SL rules for other primitive functions *)
+
+Lemma triple_unop : forall v op v1,
+  redunop op v1 v ->
+  triple (op v1) \[] (fun r => \[r = v]).
+Proof using.
+  introv R. applys triple_of_hoare. intros HF.
+  esplit; split. { applys* hoare_unop. } { hsimpl*. }
+Qed.
+
+Lemma triple_neg : forall (b1:bool),
+  triple (val_neg b1)
+    \[]
+    (fun r => \[r = val_bool (neg b1)]).
+Proof using. intros. applys* triple_unop. applys* redunop_neg. Qed.
+
+Lemma triple_opp : forall n1,
+  triple (val_opp n1)
+    \[]
+    (fun r => \[r = val_int (- n1)]).
+Proof using. intros. applys* triple_unop. applys* redunop_opp. Qed.
 
 Lemma triple_binop : forall v op v1 v2,
   redbinop op v1 v2 v ->

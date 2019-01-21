@@ -43,6 +43,8 @@ Inductive prim : Type :=
   | val_get : prim
   | val_set : prim
   | val_alloc : prim
+  | val_neg : prim
+  | val_opp : prim
   | val_eq : prim
   | val_neq : prim
   | val_sub : prim
@@ -787,6 +789,14 @@ Notation "x `mod` y" := (Z.rem x y)
   (at level 69, no associativity) : charac.
  TODO: check levels for these notations *)
 
+(** Evaluation rules for unary operations *)
+
+Inductive redunop : prim -> val -> val -> Prop :=
+  | redunop_neg : forall b1,
+      redunop val_neg (val_bool b1) (val_bool (neg b1))
+  | redunop_opp : forall n1,
+      redunop val_opp (val_int n1) (val_int (- n1)).
+
 (** Evaluation rules for binary operations *)
 
 Inductive redbinop : prim -> val -> val -> val -> Prop :=
@@ -871,6 +881,9 @@ Inductive red : state -> trm -> state -> val -> Prop :=
       red m1 t3 m2 r ->
       red m1 (trm_case v p t2 t3) m2 r
   (* [red] for applied primitives *)
+  | red_unop : forall op m v1 v,
+      redunop op v1 v ->
+      red m (op v1) m v
   | red_binop : forall op m v1 v2 v,
       redbinop op v1 v2 v ->
       red m (op v1 v2) m v
