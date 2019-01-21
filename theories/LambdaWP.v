@@ -262,18 +262,11 @@ Definition wp_var (E:ctx) (x:var) : formula :=
   | Some v => wp_val v
   end.
 
-Definition wp_constr wp (E:ctx) (id:idconstr) : list val -> list trm -> formula := 
-  fix mk (rvs : list val) (ts : list trm) : formula :=
-    match ts with
-    | nil => wp_val (val_constr id (List.rev rvs))
-    | t1::ts' => wp_getval wp E t1 (fun v1 => mk (v1::rvs) ts')
-    end.
+Definition wp_let (F1:formula) (F2of:val->formula) : formula := local (fun Q =>
+  F1 (fun X => F2of X Q)).
 
 Definition wp_seq (F1 F2:formula) : formula := local (fun Q =>
   F1 (fun X => F2 Q)).
-
-Definition wp_let (F1:formula) (F2of:val->formula) : formula := local (fun Q =>
-  F1 (fun X => F2of X Q)).
 
 Definition wp_getval wp (E:ctx) (t1:trm) (F2of:val->formula) : formula :=
   match t1 with
@@ -284,6 +277,13 @@ Definition wp_getval wp (E:ctx) (t1:trm) (F2of:val->formula) : formula :=
                         end
   | _ => wp_let (wp E t1) F2of
   end.
+
+Definition wp_constr wp (E:ctx) (id:idconstr) : list val -> list trm -> formula := 
+  fix mk (rvs : list val) (ts : list trm) : formula :=
+    match ts with
+    | nil => wp_val (val_constr id (List.rev rvs))
+    | t1::ts' => wp_getval wp E t1 (fun v1 => mk (v1::rvs) ts')
+    end.
 
 Definition wp_unop_int (v1:val) (F:int->val) : formula := local (fun Q =>
   \exists n1, \[v1 = val_int n1] \* Q (F n1)).

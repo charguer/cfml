@@ -190,7 +190,7 @@ Definition Wp_for_val (v1 v2:val) (F1:val->Formula) : Formula :=
     \[ (forall i, is_local (S i unit _)) /\ (forall i Q', ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
 
 
-Definition wp_case (v:val) (p:pat) (F1:ctx->formula) (F2:formula) : formula :=
+Definition Wp_case (v:val) (p:pat) (F1:ctx->formula) (F2:formula) : formula :=
   local (fun Q => 
     hand (\forall (G:ctx), \[Ctx.dom G = patvars p /\ v = patsubst G p] \-* F1 G Q)
          (\[forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p] \-* F2 Q) ).
