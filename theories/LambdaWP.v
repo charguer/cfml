@@ -278,20 +278,31 @@ Definition wp_getval wp (E:ctx) (t1:trm) (F2of:val->formula) : formula :=
   | _ => wp_let (wp E t1) F2of
   end.
 
-Definition wp_app_val (E:ctx) (t:trm) : formula :=
-  local (wp_triple (isubst E t)).
+Definition wp_app_val (v0:val) (vs:vals) : formula := 
+  match v0 with
+  | val_prim 
 
-Definition wp_app wp (E:ctx) : list val -> trm -> formula := 
-  (fix mk (vs : list val) (t : trm) : formula :=
-    match t with
-    | trm_app t1 t2 => 
-        wp_getval wp E t2 (fun v2 =>
-          match t1 with
-          | trm_app _ _ => mk (v2::vs) t1
-          | _ => wp_getval wp E t1 (fun v1 =>
-                   wp_app_val E (trm_apps v1 (trms_vals (v2::vs))))
-          end)
-    | _ => wp_fail 
+  | val_ref : prim
+  | val_get : prim
+  | val_set : prim
+  | val_alloc : prim
+  | val_eq : prim
+  | val_sub : prim
+  | val_add : prim
+  | val_ptr_add : prim.
+
+
+(* Definition wp_app_val (E:ctx) (t:trm) : formula := 
+  local (wp_triple (isubst E t)). *)
+  (* Note that the substitution is usually the identity
+     because [t] is the application of a value to values *)
+    (* wp_app_val E (trm_apps v0 (trms_vals (List.rev rvs))) *)
+
+Definition wp_apps wp (E:ctx) (v0:val) : list val -> list trm -> formula := 
+  (fix mk (rvs : list val) (ts : list trm) : formula :=
+    match ts with
+    | nil => wp_apps_val v0 (List.rev rvs)
+    | t1::ts' => wp_getval wp E t1 (fun v1 => mk (v1::rvs) ts')
     end).
 
 Definition wp_if_val (v:val) (F1 F2:formula) : formula := local (fun Q =>
@@ -333,11 +344,11 @@ Fixpoint wp (E:ctx) (t:trm) : formula :=
   match t with
   | trm_val v => wp_val v
   | trm_var x => wp_var E x
-  | trm_fix f x t1 => wp_val (val_fix f x (isubst (Ctx.rem x (Ctx.rem f E)) t1))
+  | trm_fixs f xs t1 => wp_val (val_fixs f xs (isubst (Ctx.rem_vars xs (Ctx.rem f E)) t1))
   | trm_constr id ts => wp_constr wp E id nil ts
   | trm_if t0 t1 t2 => wp_if (aux t0) (aux t1) (aux t2)
   | trm_let x t1 t2 => wp_let (aux t1) (fun X => wp (Ctx.add x X E) t2)
-  | trm_app t1 t2 => wp_app wp E nil t
+  | trm_apps t0 ts => wp_getval wp E t0 (fun v0 => wp_apps wp E v0 nil ts)
   | trm_while t1 t2 => wp_while (aux t1) (aux t2)
   | trm_for x t1 t2 t3 => 
       wp_getval wp E t1 (fun v1 =>

@@ -1190,6 +1190,50 @@ Lemma triple_sub : forall n1 n2,
     (fun r => \[r = val_int (n1 - n2)]).
 Proof using. intros. applys* triple_binop. applys* redbinop_sub. Qed.
 
+Lemma triple_mul : forall n1 n2,
+  triple (val_mul n1 n2)
+    \[]
+    (fun r => \[r = val_int (n1 * n2)]).
+Proof using. intros. applys* triple_binop. applys* redbinop_mul. Qed.
+
+Lemma triple_div : forall n1 n2,
+  n2 <> 0 ->
+  triple (val_div n1 n2)
+    \[]
+    (fun r => \[r = val_int (Z.quot n1 n2)]).
+Proof using. intros. applys* triple_binop. applys* redbinop_div. Qed.
+
+Lemma triple_mod : forall n1 n2,
+  n2 <> 0 ->
+  triple (val_mod n1 n2)
+    \[]
+    (fun r => \[r = val_int (Z.rem n1 n2)]).
+Proof using. intros. applys* triple_binop. applys* redbinop_mod. Qed.
+
+Lemma triple_le : forall n1 n2,
+  triple (val_le n1 n2)
+    \[]
+    (fun r => \[r = isTrue (n1 <= n2)]).
+Proof using. intros. applys* triple_binop. applys* redbinop_le. Qed.
+
+Lemma triple_lt : forall n1 n2,
+  triple (val_lt n1 n2)
+    \[]
+    (fun r => \[r = isTrue (n1 < n2)]).
+Proof using. intros. applys* triple_binop. applys* redbinop_lt. Qed.
+
+Lemma triple_ge : forall n1 n2,
+  triple (val_ge n1 n2)
+    \[]
+    (fun r => \[r = isTrue (n1 >= n2)]).
+Proof using. intros. applys* triple_binop. applys* redbinop_ge. Qed.
+
+Lemma triple_gt : forall n1 n2,
+  triple (val_gt n1 n2)
+    \[]
+    (fun r => \[r = isTrue (n1 > n2)]).
+Proof using. intros. applys* triple_binop. applys* redbinop_gt. Qed.
+
 Lemma triple_ptr_add : forall l n,
   l + n >= 0 ->
   triple (val_ptr_add l n)

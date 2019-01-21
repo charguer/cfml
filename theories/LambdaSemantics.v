@@ -44,8 +44,16 @@ Inductive prim : Type :=
   | val_set : prim
   | val_alloc : prim
   | val_eq : prim
+  | val_neq : prim
   | val_sub : prim
   | val_add : prim
+  | val_mul : prim
+  | val_mod : prim
+  | val_div : prim
+  | val_le : prim
+  | val_lt : prim
+  | val_ge : prim
+  | val_gt : prim
   | val_ptr_add : prim.
 
 Inductive pat : Type :=
@@ -772,23 +780,43 @@ Section Red.
 
 Local Open Scope fmap_scope.
 
+(*
+Notation "x `/` y" := (Z.quot x y)
+  (at level 69, right associativity) : charac.
+Notation "x `mod` y" := (Z.rem x y)
+  (at level 69, no associativity) : charac.
+ TODO: check levels for these notations *)
+
 (** Evaluation rules for binary operations *)
 
 Inductive redbinop : prim -> val -> val -> val -> Prop :=
-  | redbinop_add : forall n1 n2 n',
-      n' = n1 + n2 ->
-      redbinop val_add (val_int n1) (val_int n2) (val_int n')
-  | redbinop_sub : forall n1 n2 n',
-      n' = n1 - n2 ->
-      redbinop val_sub (val_int n1) (val_int n2) (val_int n')
   | redbinop_ptr_add : forall l' l n,
       (l':nat) = (l:nat) + n :> int ->
       redbinop val_ptr_add (val_loc l) (val_int n) (val_loc l')
   | redbinop_eq : forall v1 v2,
-      redbinop val_eq v1 v2 (val_bool (isTrue (v1 = v2))).
-
-(** Evaluation rules for terms in A-normal form. *)
-    (* TODO: add rules to evaluate terms not in A-normal form. *)
+      redbinop val_eq v1 v2 (val_bool (isTrue (v1 = v2)))
+  | redbinop_neq : forall v1 v2,
+      redbinop val_neq v1 v2 (val_bool (isTrue (v1 <> v2)))
+  | redbinop_add : forall n1 n2,
+      redbinop val_add (val_int n1) (val_int n2) (val_int (n1 + n2))
+  | redbinop_sub : forall n1 n2,
+      redbinop val_sub (val_int n1) (val_int n2) (val_int (n1 - n2))
+  | redbinop_mul : forall n1 n2,
+      redbinop val_mul (val_int n1) (val_int n2) (val_int (n1 * n2))
+  | redbinop_div : forall n1 n2,
+      n2 <> 0 ->
+      redbinop val_div (val_int n1) (val_int n2) (val_int (Z.quot n1 n2))
+  | redbinop_mod : forall n1 n2,
+      n2 <> 0 ->
+      redbinop val_mod (val_int n1) (val_int n2) (val_int (Z.rem n1 n2))
+  | redbinop_le : forall n1 n2,
+      redbinop val_le (val_int n1) (val_int n2) (val_bool (isTrue (n1 <= n2)))
+  | redbinop_lt : forall n1 n2,
+      redbinop val_lt (val_int n1) (val_int n2) (val_bool (isTrue (n1 < n2)))
+  | redbinop_ge : forall n1 n2,
+      redbinop val_ge (val_int n1) (val_int n2) (val_bool (isTrue (n1 >= n2)))
+  | redbinop_gt : forall n1 n2,
+      redbinop val_gt (val_int n1) (val_int n2) (val_bool (isTrue (n1 > n2))).
 
 Inductive red : state -> trm -> state -> val -> Prop :=
   (* [red] for evaluation contexts *)
