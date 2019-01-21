@@ -482,12 +482,13 @@ Proof using.
   { hhsimpl~. }
 Qed.
 
-Lemma hoare_fix : forall (f:bind) x t1 H Q,
-  H ==> Q (val_fix f x t1) ->
-  hoare (trm_fix f x t1) H Q.
+Lemma hoare_fixs : forall (f:bind) xs t1 H Q,
+  xs <> nil ->
+  H ==> Q (val_fixs f xs t1) ->
+  hoare (trm_fixs f xs t1) H Q.
 Proof using.
-  introv M. intros h Hh. exists___. splits.
-  { applys~ red_fix. }
+  introv N M. intros h Hh. exists___. splits.
+  { applys~ red_fixs. }
   { hhsimpl~. }
 Qed.
 
@@ -894,11 +895,12 @@ Proof using.
   introv M. intros HF. applys hoare_val. { hchanges M. }
 Qed.
 
-Lemma triple_fix : forall f z t1 H Q,
-  H ==> Q (val_fix f z t1) ->
-  triple (trm_fix f z t1) H Q.
+Lemma triple_fixs : forall f xs t1 H Q,
+  xs <> nil ->
+  H ==> Q (val_fixs f xs t1) ->
+  triple (trm_fixs f xs t1) H Q.
 Proof using.
-  introv M. intros HF. applys hoare_fix. { hchanges M. }
+  introv N M. intros HF. applys~ hoare_fixs. { hchanges M. }
 Qed.
 
 Lemma triple_constr : forall id vs H Q,

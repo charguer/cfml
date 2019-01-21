@@ -44,6 +44,8 @@
   (** Array *)
 
   let demo_array () =
+
+
     let t = Array.make 3 true in
     t.(0) <- false;
     t.(1) <- false;
@@ -359,3 +361,80 @@ Proof using.
   intros v1. applys~ wp_sound_getval (fun t2 => trm_app v1 t2).
   intros v2. applys* local_erase_l. applys is_local_wp_triple.
 Qed.
+
+
+(* TODO *)
+Lemma trms_vals_rev : forall vs,
+  trms_vals (rev vs) = rev (trms_vals vs).
+Proof using. intros. unfold trms_vals. rewrite~ LibList.map_rev. Qed.
+
+
+
+(* ALT
+
+Lemma wp_sound_redbinop : forall v op v1 v2 E,
+  redbinop op v1 v2 v ->
+  wp_val v ===> wp_triple_ E (trm_apps op (trms_vals (v1::v2::nil))).
+Proof using.
+  introv M. applys qimpl_wp_triple; intros Q; simpl.
+  remove_local. applys triple_combined.
+  { applys triple_binop M. } { hsimpl. } { hpull ;=> ? ->. hsimpl. }
+Qed.
+
+Lemma wp_sound_redunop_int : forall (F:int->val) op v1 E,
+  (forall (n1:int), redunop op n1 (F n1)) ->
+  wp_unop_int v1 F ===> wp_triple_ E (trm_apps op (trms_vals (v1::nil))).
+Proof using.
+  introv M. applys qimpl_wp_triple; intros Q; simpl.
+  remove_local. intros n1 ->. applys triple_combined.
+  { applys triple_unop M. } { hsimpl. } { hpull ;=> ? ->. hsimpl. }
+Qed.
+
+Lemma wp_sound_redunop_bool : forall (F:bool->val) op v1 E,
+  (forall (b1:bool), redunop op b1 (F b1)) ->
+  wp_unop_bool v1 F ===> wp_triple_ E (trm_apps op (trms_vals (v1::nil))).
+Proof using.
+  introv M. applys qimpl_wp_triple; intros Q; simpl.
+  remove_local. intros n1 ->. applys triple_combined.
+  { applys triple_unop M. } { hsimpl. } { hpull ;=> ? ->. hsimpl. }
+Qed.
+
+Lemma wp_sound_redbinop_int : forall (F:int->int->val) op v1 v2 E,
+  (forall (n1 n2:int), redbinop op n1 n2 (F n1 n2)) ->
+  wp_binop_int v1 v2 F ===> wp_triple_ E (trm_apps op (trms_vals (v1::v2::nil))).
+Proof using.
+  introv M. applys qimpl_wp_triple; intros Q; simpl.
+  remove_local. intros n1 n2 (->&->). applys triple_combined.
+  { applys triple_binop M. } { hsimpl. } { hpull ;=> ? ->. hsimpl. }
+Qed.
+
+Lemma wp_sound_apps_val : forall E v0 vs,
+  wp_apps_val v0 vs ===> wp_triple_ E (trm_apps v0 vs).
+Proof using.
+  Hint Constructors redunop redbinop.
+  intros.
+  asserts Common: (local (wp_triple (trm_apps v0 vs)) ===> wp_triple_ E (trm_apps v0 vs)).
+  { apply~ local_erase_l. { applys is_local_wp_triple. } 
+    intros Q. applys qimpl_wp_triple. intros Q'; clear Q. simpl.
+     rewrite List_map_eq. rewrite map_isubst_trms_vals. applys triple_wp_triple. }
+  intros Q. destruct v0; try solve [ apply Common ].
+  rename p into p. destruct p; try solve [ apply Common ];
+   destruct vs as [|v1 [|v2 [|]]]; try solve [ apply Common ].
+  { applys* wp_sound_redunop_bool. }
+  { applys* wp_sound_redunop_int. }
+  { applys* wp_sound_redbinop. }
+  { applys* wp_sound_redbinop. eauto. }
+  { applys* wp_sound_redbinop_int. }
+  { applys* wp_sound_redbinop_int. }
+  { applys* wp_sound_redbinop_int. }
+Qed.
+
+*)
+
+
+(* DEPRECATED
+  Definition wp_app_val (E:ctx) (t:trm) : formula := 
+  local (wp_triple (isubst E t)). *)
+  (* Note that the substitution is usually the identity
+     because [t] is the application of a value to values *)
+    (* wp_app_val E (trm_apps v0 (trms_vals (List.rev rvs))) *)

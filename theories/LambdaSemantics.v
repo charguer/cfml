@@ -113,7 +113,7 @@ Definition trm_is_var (t:trm) : Prop :=
 (** Coercions from values to terms *)
 
 Coercion trms_vals (vs:vals) : list trm :=
-  List.map trm_val vs.
+  LibList.map trm_val vs.
 
 Lemma trms_vals_fold_start : forall v,
   (trm_val v)::nil = trms_vals (v::nil).
@@ -127,6 +127,12 @@ Hint Rewrite trms_vals_fold_start trms_vals_fold_next : rew_trms_vals.
 
 Tactic Notation "rew_trms_vals" :=
   autorewrite with rew_trms_vals.
+
+Import LibList.
+
+Lemma app_trms_vals_rev_cons : forall v vs ts,
+  trms_vals (rev (v::vs)) ++ ts = trms_vals (rev vs) ++ trm_val v :: ts.
+Proof using. intros. unfold trms_vals. rew_listx~. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -646,7 +652,7 @@ Lemma map_isubst_trms_vals : forall E vs,
 Proof using.
   intros. induction vs as [|v vs']; simpl. 
   { auto. }
-  { rew_listx. simpl. fequals. } 
+  { unfold trms_vals. rew_listx. simpl. fequals*. } 
 Qed.
 
 (** Substitution lemma for nary constructors and applications *)
@@ -659,13 +665,18 @@ Proof using.
   rewrite map_isubst_trms_vals. fequals.
 Qed.
 
-Lemma isubst_trm_apps_args : forall E t0 vs t ts,
-  isubst E (trm_apps t0 (trms_vals vs ++ t :: ts)) = 
-  trm_apps (isubst E t0) (trms_vals vs ++ isubst E t :: LibList.map (isubst E) ts).
+Lemma isubst_trm_apps_app : forall E t0 vs ts,
+  isubst E (trm_apps t0 (trms_vals vs ++ ts)) = 
+  trm_apps (isubst E t0) (trms_vals vs ++ LibList.map (isubst E) ts).
 Proof using.
   intros. simpl. fequals. rewrite List_map_eq. rew_listx. 
   rewrite map_isubst_trms_vals. fequals.
 Qed.
+
+Lemma isubst_trm_apps_args : forall E t0 vs t ts,
+  isubst E (trm_apps t0 (trms_vals vs ++ t :: ts)) = 
+  trm_apps (isubst E t0) (trms_vals vs ++ isubst E t :: LibList.map (isubst E) ts).
+Proof using. intros. rewrite isubst_trm_apps_app. fequals. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
