@@ -1211,6 +1211,12 @@ Lemma triple_eq : forall v1 v2,
     (fun r => \[r = isTrue (v1 = v2)]).
 Proof using. intros. applys* triple_binop. applys redbinop_eq. Qed.
 
+Lemma triple_neq : forall v1 v2,
+  triple (val_neq v1 v2)
+    \[]
+    (fun r => \[r = isTrue (v1 <> v2)]).
+Proof using. intros. applys* triple_binop. applys redbinop_neq. Qed.
+
 Lemma triple_add : forall n1 n2,
   triple (val_add n1 n2)
     \[]

@@ -153,8 +153,22 @@ Instance Enc_tyconstr : Enc tyconstr.
 Proof using. constructor. applys (fun (cstr:tyconstr) => 
   match cstr with constr id vs => val_constr id vs end). Defined.
 
+Instance Enc_option : forall `{Enc A}, Enc (option A).
+Proof using. constructor. applys (fun o => match o with
+  | None => val_constr 0%nat nil
+  | Some x => val_constr 1%nat ((``x)::nil)
+  end). Defined.
+
+Instance Enc_list : forall `{Enc A}, Enc (list A).
+Proof using. constructor. applys (fix f (l:list A) :=
+  match l with
+  | nil => val_constr 0%nat nil
+  | x::l' => val_constr 1%nat ((``x)::(f l')::nil)
+  end). Defined.
+
 Global Opaque Enc_dyn Enc_loc Enc_unit Enc_bool Enc_int
-              Enc_func Enc_val Enc_prim Enc_tyconstr.
+              Enc_func Enc_val Enc_prim Enc_tyconstr
+              Enc_list Enc_option.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -192,6 +206,22 @@ Lemma enc_constr_eq : forall id vs,
   enc (constr id vs) = val_constr id vs.
 Proof using. auto. Qed.
 
+Lemma enc_list_none : forall `{Enc A},
+  enc (@None A) = val_constr 0%nat nil.
+Proof using. auto. Qed.
+
+Lemma enc_list_some : forall `{Enc A} x,
+  enc (Some x) = val_constr 1%nat (``x :: nil).
+Proof using. auto. Qed.
+
+Lemma enc_list_nil : forall `{Enc A},
+  enc (@nil A) = val_constr 0%nat nil.
+Proof using. auto. Qed.
+
+Lemma enc_list_cons : forall `{Enc A} x (l:list A),
+  enc (x::l) = val_constr 1%nat (``x :: ``l :: nil).
+Proof using. auto. Qed.
+
 (** Specification of encoders for values of type [dyn] *)
 
 Lemma enc_dyn_eq_dyn_to_val : forall (d:dyn),
@@ -207,7 +237,8 @@ Proof using. auto. Qed.
 (** [rew_enc] normalizes all encoders. *)
 
 Hint Rewrite enc_dyn_make enc_loc_eq enc_unit_eq enc_bool_eq enc_int_eq
-             enc_func_eq enc_val_eq enc_prim_eq enc_constr_eq : rew_enc.
+             enc_func_eq enc_val_eq enc_prim_eq enc_constr_eq
+             @enc_list_none @enc_list_some @enc_list_nil @enc_list_cons : rew_enc.
 
 Tactic Notation "rew_enc" :=
   autorewrite with rew_enc.
@@ -261,8 +292,28 @@ Proof using.
   congruence.
 Qed.
 
+Lemma Enc_injective_option : forall A (EA:Enc A), 
+  Enc_injective EA ->
+  Enc_injective (@Enc_option A EA).
+Proof using.
+  introv HEA. intros o1 o2 E.
+  induction o1; destruct o2; simpls; tryfalse.
+  { rew_enc in E. inverts E. fequals*. }
+  { auto. }
+Qed.
+
+Lemma Enc_injective_list : forall A (EA:Enc A), 
+  Enc_injective EA ->
+  Enc_injective (@Enc_list A EA).
+Proof using.
+  introv HEA. intros l1 l2 E. gen l2.
+  induction l1; intros; destruct l2; simpls; tryfalse.
+  { auto. }
+  { rew_enc in E. inverts E. fequals*. }
+Qed.
+
 Hint Resolve Enc_injective_loc Enc_injective_unit Enc_injective_bool
-             Enc_injective_int. (* TODO: put in a base? *)
+             Enc_injective_int Enc_injective_option Enc_injective_list. (* TODO: put in a base? *)
 
 
 (* ---------------------------------------------------------------------- *)
@@ -284,6 +335,8 @@ Notation "``[ x , y , .. , z ]" :=
 Open Scope dyns_scope.
 Delimit Scope dyns_scope with dyn.
 Bind Scope dyns_scope with dyns.
+
+(* DEPRECATED ?*)
 
 
 (* ---------------------------------------------------------------------- *)
@@ -315,7 +368,7 @@ Fixpoint decode (v:val) : dyn :=
   | val_int n => Dyn n
   | val_loc l => Dyn l
   | val_prim p => Dyn p
-  | val_fix f x t => Dyn (v:func)
+  | val_fixs f xs t => Dyn (v:func)
   | val_constr id vs => Dyn (constr id vs)
      (* Note: universe constraints prevent decoding to 
         [Dyn (Constr id (List.map decode vs))] *)
@@ -637,11 +690,12 @@ Proof using.
   unfold Post. hsimpl*.
 Qed.
 
-Lemma Triple_fix : forall f x t1 H (Q:func->hprop),
-  H ==> Q (val_fix f x t1) ->
-  Triple (trm_fix f x t1) H Q.
+Lemma Triple_fixs : forall f xs t1 H (Q:func->hprop),
+  xs <> nil ->
+  H ==> Q (val_fixs f xs t1) ->
+  Triple (trm_fixs f xs t1) H Q.
 Proof using.
-  introv M. applys triple_fix. unfold Post. hsimpl*.
+  introv N M. applys* triple_fixs. unfold Post. hsimpl*.
 Qed.
 
 Lemma Triple_constr : forall id vs H (Q:tyconstr->hprop),
@@ -803,6 +857,31 @@ Qed.
 
 End RulesStateOps.
 
+Lemma Triple_ptr_add : forall (l:loc) (n:int),
+  (l:nat) + n >= 0 ->
+  Triple (val_ptr_add l n)
+    \[]
+    (fun l' => \[(l':nat) = abs ((l:nat) + n)]).
+Proof using. intros. unfold Triple, Post. xapplys~ triple_ptr_add. Qed.
+
+Lemma Triple_ptr_add_nat : forall (l:loc) (f:nat),
+  Triple (val_ptr_add l f)
+    \[]
+    (fun l' => \[(l':nat) = (l+f)%nat]).
+Proof using. intros. unfold Triple, Post. xapplys~ triple_ptr_add_nat. Qed.
+
+Lemma Triple_neg : forall b1,
+  Triple (val_neg b1)
+    \[]
+    (fun b => \[b = neg b1]).
+Proof using. intros. unfold Triple, Post. xapplys~ triple_neg. Qed.
+
+Lemma Triple_opp : forall n1,
+  Triple (val_opp n1)
+    \[]
+    (fun n => \[n = - n1]).
+Proof using. intros. unfold Triple, Post. xapplys~ triple_opp. Qed.
+
 Lemma Triple_eq_val : forall v1 v2,
   Triple (val_eq v1 v2)
     \[]
@@ -818,8 +897,25 @@ Lemma Triple_eq : forall `{EA:Enc A},
 Proof using.
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_eq_val. } (* todo: why sapply ? *)
-  unfolds. hpulls. hsimpl*. unfolds Enc_injective. unfolds injective.
-  rewrite~ Enc_injective_eq.
+  unfolds. hpulls. hsimpl*. rewrite~ Enc_injective_eq.
+Qed.
+
+Lemma Triple_neq_val : forall v1 v2,
+  Triple (val_neq v1 v2)
+    \[]
+    (fun b => \[ b = isTrue (v1 <> v2) ]).
+Proof using. intros. unfold Triple, Post. xapplys~ triple_neq. Qed.
+
+Lemma Triple_neq : forall `{EA:Enc A},
+  Enc_injective EA ->
+  forall (v1 v2 : A),
+  Triple (val_neq ``v1 ``v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (v1 <> v2)]).
+Proof using.
+  introv I. intros.
+  applys (@Triple_enc_change bool). { sapply Triple_neq_val. } 
+  unfolds. hpulls. hsimpl*. rewrite* Enc_injective_eq.
 Qed.
 
 Lemma Triple_add : forall n1 n2,
@@ -834,15 +930,47 @@ Lemma Triple_sub : forall n1 n2,
     (fun n => \[n = n1 - n2]).
 Proof using. intros. unfold Triple, Post. xapplys~ triple_sub. Qed.
 
-Lemma Triple_ptr_add : forall (l:loc) (n:int),
-  (l:nat) + n >= 0 ->
-  Triple (val_ptr_add l n)
+Lemma Triple_mul : forall n1 n2,
+  Triple (val_mul n1 n2)
     \[]
-    (fun l' => \[(l':nat) = abs ((l:nat) + n)]).
-Proof using. intros. unfold Triple, Post. xapplys~ triple_ptr_add. Qed.
+    (fun n => \[n = n1 * n2]).
+Proof using. intros. unfold Triple, Post. xapplys~ triple_mul. Qed.
 
-Lemma Triple_ptr_add_nat : forall (l:loc) (f:nat),
-  Triple (val_ptr_add l f)
+Lemma Triple_div : forall n1 n2,
+  n2 <> 0 ->
+  Triple (val_div n1 n2)
     \[]
-    (fun l' => \[(l':nat) = (l+f)%nat]).
-Proof using. intros. unfold Triple, Post. xapplys~ triple_ptr_add_nat. Qed.
+    (fun n => \[n = Z.quot n1 n2]).
+Proof using. intros. unfold Triple, Post. xapplys~ triple_div. Qed.
+
+Lemma Triple_mod : forall n1 n2,
+  n2 <> 0 ->
+  Triple (val_mod n1 n2)
+    \[]
+    (fun n => \[n = Z.rem n1 n2]).
+Proof using. intros. unfold Triple, Post. xapplys~ triple_mod. Qed.
+
+Lemma Triple_le : forall n1 n2,
+  Triple (val_le n1 n2)
+    \[]
+    (fun b => \[b = isTrue (n1 <= n2)]).
+Proof using. intros. unfold Triple, Post. xapplys~ triple_le. Qed.
+
+Lemma Triple_lt : forall n1 n2,
+  Triple (val_lt n1 n2)
+    \[]
+    (fun b => \[b = isTrue (n1 < n2)]).
+Proof using. intros. unfold Triple, Post. xapplys~ triple_lt. Qed.
+
+Lemma Triple_ge : forall n1 n2,
+  Triple (val_ge n1 n2)
+    \[]
+    (fun b => \[b = isTrue (n1 >= n2)]).
+Proof using. intros. unfold Triple, Post. xapplys~ triple_ge. Qed.
+
+Lemma Triple_gt : forall n1 n2,
+  Triple (val_gt n1 n2)
+    \[]
+    (fun b => \[b = isTrue (n1 > n2)]).
+Proof using. intros. unfold Triple, Post. xapplys~ triple_gt. Qed.
+
