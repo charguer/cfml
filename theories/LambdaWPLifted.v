@@ -102,6 +102,13 @@ Definition Wp_var (E:ctx) (x:var) : Formula :=
   | Some v => Wp_val v
   end.
 
+Definition wp_constr wp (E:ctx) (id:idconstr) : list val -> list trm -> formula := 
+  fix mk (rvs : list val) (ts : list trm) : formula :=
+    match ts with
+    | nil => wp_val (val_constr id (List.rev rvs))
+    | t1::ts' => wp_getval wp E t1 (fun v1 => mk (v1::rvs) ts')
+    end.
+
 Definition Wp_seq (F1 F2:Formula) : Formula :=
   Local (fun A (EA:Enc A) Q =>
     ^F1 (fun (X:unit) => ^F2 Q)).
@@ -182,7 +189,14 @@ Definition Wp_for_val (v1 v2:val) (F1:val->Formula) : Formula :=
                             else (Wp_val val_unit) in
     \[ (forall i, is_local (S i unit _)) /\ (forall i Q', ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
 
-(*
+
+Definition wp_case (v:val) (p:pat) (F1:ctx->formula) (F2:formula) : formula :=
+  local (fun Q => 
+    hand (\forall (G:ctx), \[Ctx.dom G = patvars p /\ v = patsubst G p] \-* F1 G Q)
+         (\[forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p] \-* F2 Q) ).
+
+
+(* LATER
 Definition Wp_for (F1 F2:formula) (F3:int->formula) : formula :=
   Wp_let F1 (fun v1 => Wp_let F2 (fun v2 => Wp_for_val v1 v2 F3)).
 
@@ -199,22 +213,30 @@ Fixpoint Wp (E:ctx) (t:trm) : Formula :=
   match t with
   | trm_val v => Wp_val v
   | trm_var x => Wp_var E x
-  | trm_fix f x t1 => Wp_val (val_fix f x (isubst (Ctx.rem x (Ctx.rem f E)) t1))
-  | trm_if t0 t1 t2 => Wp_if (aux t0) (aux t1) (aux t2)
+  | trm_fixs f x t1 =>
+      match xs with 
+      | nil => Wp_fail
+      | _ => Wp_val (val_fixs f xs (isubst (Ctx.rem_vars xs (Ctx.rem f E)) t1))
+      end
+  | trm_if t0 t1 t2 => Wp_getval wp E t0 (fun v0 => wp_if_val v0 (aux t1) (aux t2))
   | trm_let z t1 t2 =>
      match z with
      | bind_anon => Wp_seq (aux t1) (aux t2)
      | bind_var x => Wp_let (aux t1) (fun `{EA:Enc A} X => Wp (Ctx.add x (enc X) E) t2)
      end
-  | trm_app t1 t2 => Wp_app (isubst E t)
+  | trm_appa t0 ts => Wp_getval wp E t0 (fun v0 => Wp_apps wp E v0 nil ts)
   | trm_while t1 t2 => Wp_while (aux t1) (aux t2)
   | trm_for x t1 t2 t3 => 
-      match t1, t2 with
-      | trm_val v1, trm_val v2 => Wp_for_val v1 v2 (fun X => Wp (Ctx.add x X E) t3)
-      | _, _ => Wp_fail
-      end
+     Wp_getval wp E t1 (fun v1 =>
+       Wp_getval wp E t2 (fun v2 =>
+         Wp_for_val v1 v2 (fun X => Wp (Ctx.add x X E) t3)))
+  | trm_case t1 p t2 t3 =>
+      Wp_getval wp E t1 (fun v1 =>
+        Wp_case v1 p (fun G => Wp (Ctx.app G E) t2) (aux t3))
+  | trm_fail => Wp_fail
   end.
 
+(* LATER: uniformiser t0 vs t1 for trm_if *)
 
 (* ********************************************************************** *)
 (* * Soundness proof *)

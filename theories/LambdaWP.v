@@ -262,6 +262,13 @@ Definition wp_var (E:ctx) (x:var) : formula :=
   | Some v => wp_val v
   end.
 
+Definition wp_constr wp (E:ctx) (id:idconstr) : list val -> list trm -> formula := 
+  fix mk (rvs : list val) (ts : list trm) : formula :=
+    match ts with
+    | nil => wp_val (val_constr id (List.rev rvs))
+    | t1::ts' => wp_getval wp E t1 (fun v1 => mk (v1::rvs) ts')
+    end.
+
 Definition wp_seq (F1 F2:formula) : formula := local (fun Q =>
   F1 (fun X => F2 Q)).
 
@@ -324,17 +331,10 @@ Definition wp_for_val (v1 v2:val) (F1:val->formula) : formula := local (fun Q =>
                           else (wp_val val_unit) in
   \[ is_local_pred S /\ (forall i, F i ===> S i)] \-* (S n1 Q)).
 
-Definition wp_case (v:val) (p:pat) (F1:ctx->formula) (F2:formula) : formula :=
+Definition wp_case_val (v:val) (p:pat) (F1:ctx->formula) (F2:formula) : formula :=
   local (fun Q => 
     hand (\forall (G:ctx), \[Ctx.dom G = patvars p /\ v = patsubst G p] \-* F1 G Q)
          (\[forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p] \-* F2 Q) ).
-
-Definition wp_constr wp (E:ctx) (id:idconstr) : list val -> list trm -> formula := 
-  fix mk (rvs : list val) (ts : list trm) : formula :=
-    match ts with
-    | nil => wp_val (val_constr id (List.rev rvs))
-    | t1::ts' => wp_getval wp E t1 (fun v1 => mk (v1::rvs) ts')
-    end.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -361,9 +361,11 @@ Fixpoint wp (E:ctx) (t:trm) : formula :=
           wp_for_val v1 v2 (fun X => wp (Ctx.add x X E) t3)))
   | trm_case t1 p t2 t3 => 
       wp_getval wp E t1 (fun v1 =>
-        wp_case v1 p (fun G => wp (Ctx.app G E) t2) (aux t3))
+        wp_case_val v1 p (fun G => wp (Ctx.app G E) t2) (aux t3))
   | trm_fail => wp_fail
   end.
+
+  (* Note: no special handling of trm_seq, unlike in LambdaWPLifted. *)
 
 
 (* ********************************************************************** *)
@@ -702,7 +704,7 @@ Qed.
 Lemma wp_sound_case_val : forall v1 p F2 F3 t2 t3 E,
   (forall (G:ctx), F2 G ===> wp_triple_ (Ctx.app G E) t2) ->
   F3 ===> wp_triple_ E t3 ->
-  wp_case v1 p F2 F3 ===> wp_triple_ E (trm_case v1 p t2 t3).
+  wp_case_val v1 p F2 F3 ===> wp_triple_ E (trm_case v1 p t2 t3).
 Proof using.
   introv M1 M2. applys qimpl_wp_triple. simpl. intros Q.
   remove_local. applys triple_case.
