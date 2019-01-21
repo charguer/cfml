@@ -351,7 +351,7 @@ Fixpoint wp (E:ctx) (t:trm) : formula :=
       | _ => wp_val (val_fixs f xs (isubst (Ctx.rem_vars xs (Ctx.rem f E)) t1))
       end
   | trm_constr id ts => wp_constr wp E id nil ts
-  | trm_if t0 t1 t2 => wp_if (aux t0) (aux t1) (aux t2)
+  | trm_if t0 t1 t2 => wp_getval wp E t0 (fun v0 => wp_if_val v0 (aux t1) (aux t2))
   | trm_let x t1 t2 => wp_let (aux t1) (fun X => wp (Ctx.add x X E) t2)
   | trm_apps t0 ts => wp_getval wp E t0 (fun v0 => wp_apps wp E v0 nil ts)
   | trm_while t1 t2 => wp_while (aux t1) (aux t2)
@@ -514,20 +514,37 @@ Proof using.
   { remove_local. applys~ triple_fixs. auto_false. }
 Qed.
 
-Lemma wp_sound_if : forall F1 F2 F3 E t1 t2 t3,
+Lemma wp_sound_if_val : forall v0 F1 F2 E t1 t2,
+  F1 ===> wp_triple_ E t1 ->
+  F2 ===> wp_triple_ E t2 ->
+  wp_if_val v0 F1 F2 ===> wp_triple_ E (trm_if v0 t1 t2).
+Proof using.
+  introv M1 M2. applys qimpl_wp_triple. simpl. intros Q.
+  remove_local. intros b ->. applys triple_if_bool.
+  apply triple_of_wp. case_if*.
+Qed.
+
+Lemma wp_sound_if_trm : forall F1 F2 F3 E t1 t2 t3,
   F1 ===> wp_triple_ E t1 ->
   F2 ===> wp_triple_ E t2 ->
   F3 ===> wp_triple_ E t3 ->
   wp_if F1 F2 F3 ===> wp_triple_ E (trm_if t1 t2 t3).
 Proof using.
-  introv M1 M2 M3. applys qimpl_wp_triple. simpl. intros Q.
-  remove_local. applys triple_if.
-  { apply triple_of_wp. applys* M1. }
-  { intros b. simpl. remove_local ;=> b' M. inverts M. case_if.
-    { apply triple_of_wp. applys* M2. }
-    { apply triple_of_wp. applys* M3. } }
-  { introv N. applys local_false. intros Q'.
-    hpull ;=> v' ->. false* N. hnfs*. }
+  introv M1 M2 M3. applys qimpl_wp_triple. intros Q.
+  simpl. unfold wp_if. remove_local. applys triple_if_trm.
+  { apply triple_of_wp. applys M1. }
+  { intros v. apply triple_of_wp. applys* wp_sound_if_val. }
+Qed.
+
+Lemma wp_sound_if : forall t1 t2 t3,
+  wp_sound t1 ->
+  wp_sound t2 ->
+  wp_sound t3 ->
+  wp_sound (trm_if t1 t2 t3).
+Proof using.
+  intros. intros E. simpl.
+  applys~ wp_sound_getval (fun t1 => trm_if t1 t2 t3).
+  intros v1. applys~ wp_sound_if_val.
 Qed.
 
 Lemma wp_sound_let : forall F1 F2 E x t1 t2,
@@ -643,7 +660,7 @@ Proof using.
     { applys is_local_wp_triple. }
     { clears Q. applys qimpl_wp_triple. intros Q.
       applys triple_while_raw. apply~ triple_of_wp.
-      applys* wp_sound_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit.
+      applys* wp_sound_if_trm t1 (trm_seq t2 (trm_while t1 t2)) val_unit.
       { applys* wp_sound_seq. eauto. }
       { intros Q'. applys wp_sound_val. } } }
   { apply~ triple_of_wp. }

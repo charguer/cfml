@@ -116,7 +116,49 @@ Definition Wp_let_typed `{EA1:Enc A1} (F1:Formula) (F2of:A1->Formula) : Formula 
     \exists (Q1:A1->hprop),
       ^F1 (fun (X:A1) => ^(F2of X) Q)).
 
-Definition Wp_app (t:trm) : Formula :=
+
+**Definition wp_getval wp (E:ctx) (t1:trm) (F2of:val->formula) : formula :=
+  match t1 with
+  | trm_val v => F2of v
+  | trm_var x => match Ctx.lookup x E with
+                        | Some v => F2of v
+                        | None => wp_fail
+                        end
+  | _ => wp_let (wp E t1) F2of
+  end.
+
+
+Definition wp_unop_int (v1:val) (F:int->val) : formula := local (fun Q =>
+  \exists n1, \[v1 = val_int n1] \* Q (F n1)).
+
+Definition wp_unop_bool (v1:val) (F:bool->val) : formula := local (fun Q =>
+  \exists b1, \[v1 = val_bool b1] \* Q (F b1)).
+
+Definition wp_binop_int (v1 v2:val) (F:int->int->val) : formula := local (fun Q =>
+  \exists n1 n2, \[v1 = val_int n1 /\ v2 = val_int n2] \* Q (F n1 n2)).
+
+Definition wp_apps_val (v0:val) (vs:vals) : formula := 
+  match v0, vs with
+  | val_prim val_opp, (v1::nil) => wp_unop_int v1 (fun n1 => - n1)
+  | val_prim val_neg, (v1::nil) => wp_unop_bool v1 (fun b1 => neg b1)
+  | val_prim val_eq, (v1::v2::nil) => wp_val (isTrue (v1 = v2))
+  | val_prim val_neq, (v1::v2::nil) => wp_val (isTrue (v1 <> v2))
+  | val_prim val_add, (v1::v2::nil) => wp_binop_int v1 v2 (fun n1 n2 => n1 + n2)
+  | val_prim val_sub, (v1::v2::nil) => wp_binop_int v1 v2 (fun n1 n2 => n1 - n2)
+  | val_prim val_mul, (v1::v2::nil) => wp_binop_int v1 v2 (fun n1 n2 => n1 * n2)
+  | _, _ => local (wp_triple (trm_apps v0 vs))
+  end.  (* not included: arithmetic comparisons *)
+
+Definition wp_apps wp (E:ctx) (v0:val) : list val -> list trm -> formula := 
+  (fix mk (rvs : list val) (ts : list trm) : formula :=
+    match ts with
+    | nil => wp_apps_val v0 (List.rev rvs)
+    | t1::ts' => wp_getval wp E t1 (fun v1 => mk (v1::rvs) ts')
+    end).
+
+
+
+//Definition Wp_app (t:trm) : Formula :=
   Local (Wp_Triple t).
 
 Definition Wp_if_val (b:bool) (F1 F2:Formula) : Formula :=

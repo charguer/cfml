@@ -438,3 +438,19 @@ Qed.
   (* Note that the substitution is usually the identity
      because [t] is the application of a value to values *)
     (* wp_app_val E (trm_apps v0 (trms_vals (List.rev rvs))) *)
+
+
+
+(*  DEPRECATED
+Lemma hoare_if : forall Q1 t0 t1 t2 H Q,
+  hoare t0 H Q1 ->
+  (forall (b:bool), hoare (if b then t1 else t2) (Q1 b) Q) ->
+  (forall v, ~ is_val_bool v -> (Q1 v) ==> \[False]) ->
+  hoare (trm_if t0 t1 t2) H Q.
+Proof using.
+  introv M1 M2 M3. applys* hoare_if_trm.
+  intros v. tests C: (is_val_bool v).
+  { destruct C as (b&E). subst. applys* hoare_if_bool. }
+  { ... M3 false .. }
+Qed.
+*)
