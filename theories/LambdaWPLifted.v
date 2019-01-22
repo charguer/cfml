@@ -116,11 +116,29 @@ Definition Wp_seq (F1 F2:Formula) : Formula :=
   Local (fun A (EA:Enc A) Q =>
     ^F1 (fun (X:unit) => ^F2 Q)).
 
-Definition Wp_getval wp (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
+Definition Wp_letval (v:val) (F2of:forall `{EA1:Enc A1},A1->Formula) : Formula :=
+  Local (fun A (EA:Enc A) Q =>
+    \exists (A1:Type) (EA1:Enc A1) (V:A1), \[v = enc V] \* ^(F2of V) Q).
+
+Definition Wp_letval_typed `{EA1:Enc A1} (v:val) (F2of:A1->Formula) : Formula :=
+  Local (fun A (EA:Enc A) Q =>
+    \exists (V:A1), \[v = enc V] \* ^(F2of V) Q).
+
+Definition Wp_getval wp (E:ctx) (t1:trm) (F2of:forall A1 {EA1:Enc A1},A1->Formula) : Formula :=
   match t1 with
-  | trm_val v => F2of v
+  | trm_val v => Wp_letval v F2of
   | trm_var x => match Ctx.lookup x E with
-                        | Some v => F2of v
+                        | Some v => Wp_letval v F2of
+                        | None => Wp_fail
+                        end
+  | _ => Wp_let (wp E t1) F2of
+  end.
+
+Definition Wp_getval_typed wp (E:ctx) `{EA1:Enc A1} (t1:trm) (F2of:A1->Formula) : Formula :=
+  match t1 with
+  | trm_val v => Wp_letval_typed v F2of
+  | trm_var x => match Ctx.lookup x E with
+                        | Some v => Wp_letval_typed v F2of
                         | None => Wp_fail
                         end
   | _ => Wp_let_typed (wp E t1) F2of
@@ -130,7 +148,7 @@ Definition Wp_constr wp (E:ctx) (id:idconstr) : list val -> list trm -> Formula 
   fix mk (rvs : list val) (ts : list trm) : Formula :=
     match ts with
     | nil => Wp_val (val_constr id (List.rev rvs))
-    | t1::ts' => Wp_getval wp E t1 (fun v1 => mk (v1::rvs) ts')
+    | t1::ts' => Wp_getval wp E t1 (fun `{EA:Enc A} (V1:A) => mk ((enc V1)::rvs) ts')
     end.
 
 Definition Wp_unop_int (v1:val) (F:int->int) : Formula := 
@@ -161,7 +179,7 @@ Definition Wp_apps wp (E:ctx) (v0:val) : list val -> list trm -> Formula :=
   (fix mk (rvs : list val) (ts : list trm) : Formula :=
     match ts with
     | nil => Wp_apps_val v0 (List.rev rvs)
-    | t1::ts' => Wp_getval wp E t1 (fun v1 => mk (v1::rvs) ts')
+    | t1::ts' => Wp_getval wp E t1 (fun `{EA:Enc A} (V1:A) => mk ((enc V1)::rvs) ts')
     end).
 
 Definition Wp_if_val (b:bool) (F1 F2:Formula) : Formula :=
@@ -177,18 +195,17 @@ Definition Wp_while (F1 F2:Formula) : Formula :=
     let F := Wp_if F1 (Wp_seq F2 R) (Wp_val val_unit) in
     \[ is_local (@R unit _) /\ (forall Q', ^F Q' ==> ^R Q')] \-* (^R Q))).
 
-Definition Wp_for_val (v1 v2:val) (F1:val->Formula) : Formula := 
+Definition Wp_for_int (n1 n2:int) (F1:int->Formula) : Formula := 
   Local (Formula_typed (fun (Q:unit->hprop) =>
-    \exists n1 n2, \[v1 = val_int n1 /\ v2 = val_int n2] \*
     \forall (S:int->Formula),
     let F i := If (i <= n2) then (Wp_seq (F1 i) (S (i+1)))
                             else (Wp_val val_unit) in
     \[ (forall i, is_local (S i unit _)) /\ (forall i Q', ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
 
-Definition Wp_case_val (v:val) (p:pat) (F1of:ctx->Formula) (F2:Formula) : Formula :=
+Definition Wp_case_val `{EA1:Enc A1} (V1:A1) (p:pat) (F1of:ctx->Formula) (F2:Formula) : Formula :=
   Local (fun `{Enc A} Q => 
-    hand (\forall (G:ctx), \[Ctx.dom G = patvars p /\ v = patsubst G p] \-* ^(F1of G) Q)
-         (\[forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p] \-* ^F2 Q) ).
+    hand (\forall (G:ctx), \[Ctx.dom G = patvars p /\ (enc V1) = patsubst G p] \-* ^(F1of G) Q)
+         (\[forall (G:ctx), Ctx.dom G = patvars p -> (enc V1) <> patsubst G p] \-* ^F2 Q) ).
 
 
 (* LATER
@@ -215,28 +232,27 @@ Fixpoint Wp (E:ctx) (t:trm) : Formula :=
       end
   | trm_constr id ts => Wp_constr Wp E id nil ts
   | trm_if t0 t1 t2 =>
-     Wp_let_typed (aux t0) (fun b0 => Wp_if_val b0 (aux t1) (aux t2))
-     (* Wp_getval_typed Wp E t0 (fun b0 => Wp_if_val b0 (aux t1) (aux t2)) *)
+     Wp_getval_typed Wp E t0 (fun b0 => Wp_if_val b0 (aux t1) (aux t2))
   | trm_let z t1 t2 =>
      match z with
      | bind_anon => Wp_seq (aux t1) (aux t2)
-     | bind_var x => Wp_let (aux t1) (fun `{EA:Enc A} X => Wp (Ctx.add x (enc X) E) t2)
+     | bind_var x => Wp_let (aux t1) (fun `{EA:Enc A} (X:A) => Wp (Ctx.add x (enc X) E) t2)
      end
-  | trm_apps t0 ts => Wp_getval Wp E t0 (fun v0 => Wp_apps Wp E v0 nil ts)
+  | trm_apps t0 ts => Wp_getval_typed Wp E t0 (fun (v0:func) => Wp_apps Wp E v0 nil ts)
   | trm_while t1 t2 => Wp_while (aux t1) (aux t2)
   | trm_for x t1 t2 t3 => 
-     Wp_getval Wp E t1 (fun v1 =>
-       Wp_getval Wp E t2 (fun v2 =>
-         Wp_for_val v1 v2 (fun X => Wp (Ctx.add x X E) t3)))
+     Wp_getval_typed Wp E t1 (fun n1 =>
+       Wp_getval_typed Wp E t2 (fun n2 =>
+         Wp_for_int n1 n2 (fun n => Wp (Ctx.add x (enc n) E) t3)))
   | trm_case t1 p t2 t3 =>
-      Wp_getval Wp E t1 (fun v1 =>
+      Wp_getval Wp E t1 (fun `{EA:Enc A} (v1:A) =>
         Wp_case_val v1 p (fun G => Wp (Ctx.app G E) t2) (aux t3))
   | trm_fail => Wp_fail
   end.
 
 (* LATER: uniformiser t0 vs t1 for trm_if *)
-
-
+(* 
+ *)
 (* ********************************************************************** *)
 (* * Soundness proof *)
 
@@ -623,4 +639,4 @@ gt
    ">=", (Primitive_binary_only_numbers, "(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (@TLC.LibOrder.ge _ (@TLC.LibOrder.ge_of_le _ TLC.LibInt.le_int_inst) x__ y__))");
 
 
-*)
+*
