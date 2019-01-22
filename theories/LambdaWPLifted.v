@@ -151,6 +151,7 @@ Definition Wp_constr wp (E:ctx) (id:idconstr) : list val -> list trm -> Formula 
     | t1::ts' => Wp_getval wp E t1 (fun `{EA:Enc A} (V1:A) => mk ((enc V1)::rvs) ts')
     end.
 
+(* DEPRECATED
 Definition Wp_unop_int (v1:val) (F:int->int) : Formula := 
   Local (Formula_typed (fun (Q:int->hprop) =>
     \exists n1, \[v1 = val_int n1] \* Q (F n1))).
@@ -162,9 +163,12 @@ Definition Wp_unop_bool (v1:val) (F:bool->bool) : Formula :=
 Definition Wp_binop_int (v1 v2:val) (F:int->int->int) : Formula :=
   Local (Formula_typed (fun (Q:int->hprop) =>
     \exists n1 n2, \[v1 = val_int n1 /\ v2 = val_int n2] \* Q (F n1 n2))).
+*)
 
-Definition Wp_apps_val (v0:val) (vs:vals) : Formula := 
-  match v0, vs with
+Definition Wp_app (t:trm) : Formula := 
+  Local (Wp_Triple t).
+
+(* TODO
   | val_prim val_opp, (v1::nil) => Wp_unop_int v1 (fun n1 => - n1)
   | val_prim val_neg, (v1::nil) => Wp_unop_bool v1 (fun b1 => neg b1)
   | val_prim val_eq, (v1::v2::nil) => Wp_val (isTrue (v1 = v2))
@@ -172,15 +176,24 @@ Definition Wp_apps_val (v0:val) (vs:vals) : Formula :=
   | val_prim val_add, (v1::v2::nil) => Wp_binop_int v1 v2 (fun n1 n2 => n1 + n2)
   | val_prim val_sub, (v1::v2::nil) => Wp_binop_int v1 v2 (fun n1 n2 => n1 - n2)
   | val_prim val_mul, (v1::v2::nil) => Wp_binop_int v1 v2 (fun n1 n2 => n1 * n2)
-  | _, _ => Local (Wp_Triple (trm_apps v0 vs))
-  end.  (* not included: arithmetic comparisons *)
+*)
+(* not included: arithmetic comparisons *)
 
-Definition Wp_apps wp (E:ctx) (v0:val) : list val -> list trm -> Formula := 
+Definition Wp_apps wp (E:ctx) (v0:func) : list val -> list trm -> Formula := 
   (fix mk (rvs : list val) (ts : list trm) : Formula :=
     match ts with
-    | nil => Wp_apps_val v0 (List.rev rvs)
+    | nil => Wp_app (trm_apps v0 (trms_vals (List.rev rvs)))
     | t1::ts' => Wp_getval wp E t1 (fun `{EA:Enc A} (V1:A) => mk ((enc V1)::rvs) ts')
     end).
+
+Definition Wp_apps_or_prim Wp (E:ctx) (t0:trm) (ts:list trm) : Formula :=
+  match t0, ts with
+  | trm_val (val_prim val_add), (t1::t2::nil) => 
+     Wp_getval_typed Wp E t1 (fun n1 => 
+       Wp_getval_typed Wp E t2 (fun n2 => 
+         Formula_typed (fun (Q:int->hprop) => Q (n1 + n2))))
+  | _,_ => Wp_getval_typed Wp E t0 (fun (v0:func) => Wp_apps Wp E v0 nil ts)
+  end.
 
 Definition Wp_if_val (b:bool) (F1 F2:Formula) : Formula :=
   Local (fun `{Enc A} Q =>
@@ -238,7 +251,7 @@ Fixpoint Wp (E:ctx) (t:trm) : Formula :=
      | bind_anon => Wp_seq (aux t1) (aux t2)
      | bind_var x => Wp_let (aux t1) (fun `{EA:Enc A} (X:A) => Wp (Ctx.add x (enc X) E) t2)
      end
-  | trm_apps t0 ts => Wp_getval_typed Wp E t0 (fun (v0:func) => Wp_apps Wp E v0 nil ts)
+  | trm_apps t0 ts => Wp_apps_or_prim Wp E t0 ts
   | trm_while t1 t2 => Wp_while (aux t1) (aux t2)
   | trm_for x t1 t2 t3 => 
      Wp_getval_typed Wp E t1 (fun n1 =>
@@ -252,7 +265,7 @@ Fixpoint Wp (E:ctx) (t:trm) : Formula :=
 
 (* LATER: uniformiser t0 vs t1 for trm_if *)
 (* 
- *)
+
 (* ********************************************************************** *)
 (* * Soundness proof *)
 
@@ -504,18 +517,24 @@ Lemma Triple_isubst_of_Wp : forall t E H `{EA:Enc A} (Q:A->hprop),
   Triple (isubst E t) H Q.
 Proof using. introv M. xchanges M. applys Triple_isubst_Wp. Qed.
 
+ *)
+
 Lemma Triple_of_Wp : forall (t:trm) H `{EA:Enc A} (Q:A->hprop),
   H ==> ^(Wp Ctx.empty t) Q ->
   Triple t H Q.
 Proof using.
+Admitted.
+
+(*
   introv M. xchanges M. pattern t at 1; rewrite <- (isubst_empty t).
   applys Triple_isubst_Wp.
 Qed.
-
+*)
 
 (* ---------------------------------------------------------------------- *)
 (* ** Lemmas for tactics *)
 
+(*
 Lemma Substn_eq_isubstn : forall xs (Vs:dyns) t,
   length xs = length Vs ->
   Substn xs Vs t = isubstn xs (encs Vs) t.
@@ -524,6 +543,8 @@ Proof using.
   rewrite* length_encs.
 Qed.
 
+*)
+
 Lemma Triple_apps_funs_of_Wp : forall F (Vs:dyns) (vs:vals) xs t `{EA:Enc A} H (Q:A->hprop),
   F = val_funs xs t ->
   vs = encs Vs ->
@@ -531,12 +552,14 @@ Lemma Triple_apps_funs_of_Wp : forall F (Vs:dyns) (vs:vals) xs t `{EA:Enc A} H (
   H ==> ^(Wp (combine xs (encs Vs)) t) Q ->
   Triple (trm_apps F vs) H Q.
 Proof using.
+Admitted.
+(*
   introv EF EV N M. rewrite var_funs_exec_eq in N. rew_istrue in N.
   subst. applys* Triple_apps_funs. 
   unfolds in N. rewrite* Substn_eq_isubstn.
   applys* Triple_isubst_of_Wp.
 Qed.
-
+*)
 
 Lemma Triple_apps_fixs_of_Wp : forall F (f:var) (Vs:dyns) (vs:vals) xs t `{EA:Enc A} H (Q:A->hprop),
   F = val_fixs f xs t ->
@@ -545,6 +568,8 @@ Lemma Triple_apps_fixs_of_Wp : forall F (f:var) (Vs:dyns) (vs:vals) xs t `{EA:En
   H ==> ^(Wp (combine (f::xs) (encs ((Dyn F)::Vs))) t) Q ->
   Triple (trm_apps F vs) H Q.
 Proof using.
+Admitted.
+(*
   introv EF EV N M. rewrite var_fixs_exec_eq in N. rew_istrue in N.
   lets (D&L&_): N. simpl in D. rew_istrue in D. destruct D as [D1 D2].
   subst. applys* Triple_apps_fixs.
@@ -552,7 +577,7 @@ Proof using.
   { applys @Triple_isubst_of_Wp M. }
   { rew_list. math. }
 Qed.
-
+*)
 
 (* todo: factorize above two using anon? *)
 
@@ -571,19 +596,6 @@ Notation "'`Val' v" :=
   ((Wp_val v))
   (at level 69) : charac.
 
-Notation "'`LetIf' F0 'Then' F1 'Else' F2" :=
-  ((Wp_if F0 F1 F2))
-  (at level 69, F0 at level 0) : charac.
-
-Notation "'`If' v 'Then' F1 'Else' F2" :=
-  ((Wp_if_val v F1 F2))
-  (at level 69) : charac.
-
-Notation "'`Seq' F1 ;;; F2" :=
-  ((Wp_seq F1 F2))
-  (at level 68, right associativity,
-   format "'[v' '`Seq'  '[' F1 ']'  ;;;  '/'  '[' F2 ']' ']'") : charac.
-
 Notation "'``Let' x ':=' F1 'in' F2" :=
   ((Wp_let_typed F1 (fun x => F2)))
   (at level 69, x ident, right associativity,
@@ -594,9 +606,32 @@ Notation "'`Let' [ A EA ] x ':=' F1 'in' F2" :=
   (at level 69, A at level 0, EA at level 0, x ident, right associativity,
   format "'[v' '[' '`Let'  [ A  EA ]  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : charac.
 
+Notation "'`Seq' F1 ;;; F2" :=
+  ((Wp_seq F1 F2))
+  (at level 68, right associativity,
+   format "'[v' '`Seq'  '[' F1 ']'  ;;;  '/'  '[' F2 ']' ']'") : charac.
+
+Notation "'``Letval' x ':=' v 'in' F2" :=
+  ((Wp_letval_typed v (fun x => F2)))
+  (at level 69, x ident, right associativity,
+  format "'[v' '[' '``Letval'  x  ':='  v  'in' ']'  '/'  '[' F2 ']' ']'") : charac.
+
+Notation "'`Letval' [ A EA ] x ':=' v 'in' F2" :=
+  ((Wp_letval v (fun A EA x => F2)))
+  (at level 69, A at level 0, EA at level 0, x ident, right associativity,
+  format "'[v' '[' '`Letval'  [ A  EA ]  x  ':='  v  'in' ']'  '/'  '[' F2 ']' ']'") : charac.
+
 Notation "'`App' t " :=
   ((Wp_app t))
   (at level 68, t at level 0) : charac.
+
+Notation "'`Ifval' b 'Then' F1 'Else' F2" :=
+  ((Wp_if_val b F1 F2))
+  (at level 69) : charac.
+
+Notation "'`If' F0 'Then' F1 'Else' F2" :=
+  ((Wp_if F0 F1 F2))
+  (at level 69, F0 at level 0) : charac.
 
 Notation "'`While' F1 'Do' F2 'Done'" :=
   ((Wp_while F1 F2))
@@ -605,38 +640,14 @@ Notation "'`While' F1 'Do' F2 'Done'" :=
    : charac.
 
 Notation "'`For' x '=' n1 'To' n2 'Do' F3 'Done'" :=
-  ((Wp_for_val n1 n2 (fun x => F3)))
+  ((Wp_for_int n1 n2 (fun x => F3)))
   (at level 69, x ident,
    format "'[v' '`For'  x  '='  n1  'To'  n2  'Do'  '/' '[' F3 ']' '/'  'Done' ']'")
   : charac.
 
+Notation "'Case' V1 '=' p [ G ] 'Then' F1 'Else' F2" :=
+  (Wp_case_val V1 p (fun G => F1) F2)
+  (at level 69) : charac.
+
 Open Scope charac.
 
-
-
-
-
-(* Builtin functions:
-
-
-  | val_eq : prim
-  | val_sub : prim
-  | val_add : prim
-mul
-opp => unary
-neg => unary
-neq
-le
-lt
-ge
-gt
-
-   "=", (Primitive_binary_only_numbers, "(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (Coq.Init.Logic.eq x__ y__))");
-   "<>", (Primitive_binary_only_numbers, "(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (Coq.Init.Logic.not (Coq.Init.Logic.eq x__ y__)))");
-   "<", (Primitive_binary_only_numbers, "(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (@TLC.LibOrder.lt _ (@TLC.LibOrder.lt_of_le Coq.ZArith.BinInt.Z TLC.LibInt.le_int_inst) x__ y__))");
-   "<=", (Primitive_binary_only_numbers, "(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (@TLC.LibOrder.le _ TLC.LibInt.le_int_inst x__ y__))");
-   ">", (Primitive_binary_only_numbers, "(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (@TLC.LibOrder.gt _ (@TLC.LibOrder.gt_of_le _ TLC.LibInt.le_int_inst) x__ y__))");
-   ">=", (Primitive_binary_only_numbers, "(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (@TLC.LibOrder.ge _ (@TLC.LibOrder.ge_of_le _ TLC.LibInt.le_int_inst) x__ y__))");
-
-
-*
