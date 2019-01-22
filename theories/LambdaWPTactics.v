@@ -750,7 +750,11 @@ Proof using.
   { reflexivity. }
   { try xeq_encs. }
   { reflexivity. }
-  simpl. rew_enc_dyn. (* xcf_post tt. *)
+  simpl. rew_enc_dyn. 
+unfold Wp_case_val. simpl.
+unfold Ctx.lookup_or_arbitrary. simpl.
+unfold Wp_var. simpl. unfold fand. simpl.
+(* xcf_post tt. *)
 Admitted.
 
 
