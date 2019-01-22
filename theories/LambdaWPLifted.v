@@ -248,6 +248,35 @@ Definition Wp_for_int (n1 n2:int) (F1:int->Formula) : Formula :=
     \[ (forall i, is_local (S i unit _)) /\ (forall i Q', ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
 
 
+
+Fixpoint hprop_forall_pat_vars (G:ctx) (xs:vars) (Hof:ctx->hprop) : hprop :=
+  match xs with
+  | nil => Hof G
+  | x::xs' => \forall (X:val), hprop_forall_pat_vars (Ctx.add x X G) xs' Hof
+  end.
+
+Fixpoint prop_forall_pat_vars (G:ctx) (xs:vars) (Hof:ctx->Prop) : Prop :=
+  match xs with
+  | nil => Hof G
+  | x::xs' => forall (X:val), prop_forall_pat_vars (Ctx.add x X G) xs' Hof
+  end.
+
+Definition Wp_case_val Wp (E:ctx) (v1:val) (p:pat) (t2:trm) (t3:trm) : Formula :=
+  Local (fun `{Enc A} Q => 
+    hand (hprop_forall_pat_vars Ctx.empty (patvars p) (fun G => \[v1 = patsubst G p] \-* ^(Wp (Ctx.app G E) t2) Q))
+         (\[prop_forall_pat_vars Ctx.empty (patvars p) (fun G => v1 <> patsubst G p)] \-* ^(Wp E t3) Q) ).
+
+
+(* Not computing so well
+Fixpoint hprop_forall_pat_vars (G:ctx) (xs:vars) (Hof:ctx->hprop) : hprop :=
+  match xs with
+  | nil => Hof G
+  | x::xs' => \forall (X:val), hprop_forall_pat_vars (Ctx.add x X G) xs' Hof
+  end.
+
+*)
+
+
 (* Factorized yet obfuscated version:
 
 Definition forall_pat_vars (T:Type) (Forall:(val->T)->T) (K:ctx->T) : ctx -> vars -> T :=
@@ -266,23 +295,6 @@ Definition Wp_case_val (v1:val) (p:pat) (F1of:ctx->Formula) (F2:Formula) : Formu
          (\[forall_pat_vars pforall (fun G => v1 <> patsubst G p) Ctx.empty (patvars p)] \-* ^F2 Q) ).
 
 *)
-
-Fixpoint hprop_forall_pat_vars (G:ctx) (xs:vars) (Hof:ctx->hprop) : hprop :=
-  match xs with
-  | nil => Hof G
-  | x::xs' => \forall (X:val), hprop_forall_pat_vars (Ctx.add x X G) xs' Hof
-  end.
-
-Fixpoint prop_forall_pat_vars (G:ctx) (xs:vars) (Hof:ctx->Prop) : Prop :=
-  match xs with
-  | nil => Hof G
-  | x::xs' => forall (X:val), prop_forall_pat_vars (Ctx.add x X G) xs' Hof
-  end.
-
-Definition Wp_case_val (v1:val) (p:pat) (F1of:ctx->Formula) (F2:Formula) : Formula :=
-  Local (fun `{Enc A} Q => 
-    hand (hprop_forall_pat_vars Ctx.empty (patvars p) (fun G => \[v1 = patsubst G p] \-* ^(F1of G) Q))
-         (\[prop_forall_pat_vars Ctx.empty (patvars p) (fun G => v1 <> patsubst G p)] \-* ^F2 Q) ).
 
 
 
@@ -329,7 +341,7 @@ Fixpoint Wp (E:ctx) (t:trm) : Formula :=
          Wp_for_int n1 n2 (fun n => Wp (Ctx.add x (enc n) E) t3)))
   | trm_case t1 p t2 t3 =>
       Wp_getval' Wp E t1 (fun v1 =>
-        Wp_case_val v1 p (fun G => Wp (Ctx.app G E) t2) (aux t3))
+        Wp_case_val Wp E v1 p t2 t3)
   | trm_fail => Wp_fail
   end.
 
