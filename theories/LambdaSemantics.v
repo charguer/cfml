@@ -59,8 +59,11 @@ Inductive prim : Type :=
   | val_ptr_add : prim.
 
 Inductive pat : Type :=
-  | pat_var : var -> pat (* not very useful for the moment, but let's have it *)
-  | pat_constr : idconstr -> list var -> pat. (* non recursive, for the moment *)
+  | pat_var : var -> pat
+  | pat_unit : pat 
+  | pat_bool : bool -> pat
+  | pat_int : int -> pat
+  | pat_constr : idconstr -> list pat -> pat.
 
   (* Note: [pat_any] can be encoded as [pat_var x] for a fresh [x].
     [pat_bool] and [pat_int] can be simulated using conditionals. *)
@@ -277,10 +280,13 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Variables from a pattern *)
 
-Definition patvars (p:pat) : vars :=
+Fixpoint patvars (p:pat) : vars :=
   match p with
   | pat_var x => x::nil
-  | pat_constr id xs => xs
+  | pat_unit => nil 
+  | pat_bool b => nil
+  | pat_int n => nil
+  | pat_constr id ps => List.fold_right (fun p acc => List.app (patvars p) acc) nil ps
   end.
 
 
@@ -685,11 +691,13 @@ Proof using. intros. rewrite isubst_trm_apps_app. fequals. Qed.
 (** [patsubst G p] computes the value obtained by instantiating the
     pattern [p] with the bindings from [G]. *)
 
-Definition patsubst (G:ctx) (p:pat) : val :=
-  let get x := Ctx.lookup_or_arbitrary x G in
+Fixpoint patsubst (G:ctx) (p:pat) : val :=
   match p with
-  | pat_var x => get x
-  | pat_constr id xs => val_constr id (LibList.map get xs)
+  | pat_var x => Ctx.lookup_or_arbitrary x G
+  | pat_unit => val_unit 
+  | pat_bool b => val_bool b
+  | pat_int n => val_int n
+  | pat_constr id ps => val_constr id (List.map (patsubst G) ps)
   end.
 
 

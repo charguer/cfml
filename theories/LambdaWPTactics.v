@@ -607,7 +607,7 @@ Lemma xapp_triple_to_WP : forall A `{EA:Enc A} (Q1:A->hprop) t H1,
   H1 ==> WP t Q1.
 Proof using. introv M. applys* himpl_weakestpre. Qed.
 
-Lemma xapp_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
+Lemma xapp_lemma' : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
   Triple t H1 Q1 ->
   H ==> H1 \* (Q1 \--* Q) ->
   H ==> WP t Q.
@@ -617,6 +617,15 @@ Proof using.
   applys weakestpre_conseq_wand.
   applys is_local_Triple.
 Qed.
+
+Lemma xapp_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
+  Triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* Q) ->
+  H ==> ^(Local (Wp_Triple t)) Q.
+Proof using.
+  introv M1 M2. applys Local_erase'. applys* xapp_lemma'.
+Qed.
+
 
 (*
 hsimpl_wand exploits:
@@ -711,7 +720,7 @@ Proof using.
   let f := xcf_get_fun tt in 
   unfold f.
   rew_trms_vals.
-  applys Triple_apps_funs_of_Wp val_incr.
+  applys Triple_apps_funs_of_Wp.
   { reflexivity. }
   { try xeq_encs. }
   { reflexivity. }
@@ -719,14 +728,13 @@ Proof using.
   (* fst call *)
   apply Local_erase'.
   apply Local_erase'.
-  apply Local_erase'. applys @xapp_lemma. { applys Triple_get. }
+  applys @xapp_lemma. { applys Triple_get. }
   hsimpl.
   hsimpl_wand. (* todo: extend hsimpl to do this step *)
   hpull ;=> ? ->.
   (* return *)
   applys @Formula_typed_val. 
   (* snd call *)
-  apply @Local_erase'.
   applys @xapp_lemma. { eapply @Triple_set. }
   hsimpl.
   hsimpl_wand.
@@ -753,5 +761,144 @@ then just:
 
 *)
 
+(** The type of patterns is inhabited *)
+
+Global Instance Inhab_pat : Inhab pat.
+Proof using. apply (Inhab_of_val pat_unit). Qed.
+
+Fixpoint trm_to_pat (t:trm) : pat :=
+  match t with
+  | trm_var x => pat_var x
+  | trm_constr id ts => pat_constr id (List.map trm_to_pat ts)
+  | trm_val (val_unit) => pat_unit
+  | trm_val (val_bool b) => pat_bool b
+  | trm_val (val_int n) => pat_int n
+  | _ => arbitrary
+  end.
+
+Coercion trm_to_pat : trm >-> pat.
+
+
+Notation "'Case' t1 '=' p 'Then' t2 'Else' t3" :=
+  (trm_case t1 p t2 t3)
+  (at level 69) : trm_scope.
+
+Notation "'Fail" := trm_fail : trm_scope.
+
+
+Notation "t1 '';;' t2" :=
+  (trm_seq t1 t2)
+  (at level 68, right associativity, only parsing,
+   format "'[v' '[' t1 ']'  '';;'  '/'  '[' t2 ']' ']'") : trm_scope.
+
+
+Notation "'Match' v 'With' ''|' p1 ''=>' t1 ''|' p2 ''=>' t2 'End'" :=
+  (trm_case (v:var) p1 t1 (trm_case v p2 t2 trm_fail))
+  (at level 69) : trm_scope.
+
+Notation "'nil" :=
+  (trm_constr 0%nat nil)
+  (at level 0) : trm_scope.
+
+Notation "t1 ':: t2" :=
+  (trm_constr 1%nat ((t1:trm)::(t2:trm)::nil))
+  (at level 67) : trm_scope.
+
+Notation "'nil" :=
+  (val_constr 0%nat nil)
+  (at level 0, only printing) : val_scope.
+
+Notation "v1 ':: v2" :=
+  (val_constr 1%nat ((v1:val)::(v2:val)::nil))
+  (at level 67, only printing) : val_scope.
+
+Open Scope val_scope.
+
+
+Definition val_empty : val :=
+  ValFun 'u :=
+   val_ref 'nil.
+
+Definition val_push : val :=
+  ValFun 'p 'x :=
+   'p ':= ('x ':: (val_get 'p)).
+
+Definition val_pop : val :=
+  ValFun 'p :=
+   (Let 'q := val_get 'p in
+   Match 'q With
+   '| 'nil '=> 'Fail
+   '| 'x ':: 'r '=> 'p ':= 'r ';; 'x
+   End).
+
+Lemma xval_lemma : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
+  v = ``V ->
+  H ==> Q V ->
+  H ==> ^(Wp_val v) Q.
+Proof using. introv E N. subst. applys Local_erase'. hsimpl~ V. Qed.
+
+Lemma xval_lemma_val : forall `{EA:Enc A} (V:A) v H (Q:val->hprop),
+  v = ``V ->
+  H ==> Q (``V) ->
+  H ==> ^(Wp_val v) Q.
+Proof using. introv E N. subst. applys Local_erase'. hsimpl~ (``V). Qed.
+
+
+Definition Stack `{Enc A} (L:list A) (p:loc) : hprop :=
+  p ~~> L.
+
+Lemma triple_empty : forall `{Enc A} (u:unit),
+  TRIPLE (val_empty ``u)
+    PRE \[]
+    POST (fun p => (p ~> Stack (@nil A))).
+Proof using.
+  intros.
+ (* xcf details: *)
+  simpl combiner_to_trm.
+  xcf_prepare_args tt. (* -- not needed here *)
+  let f := xcf_get_fun tt in 
+  unfold f.
+  rew_trms_vals.
+  applys Triple_apps_funs_of_Wp.
+  { reflexivity. }
+  { try xeq_encs. }
+  { reflexivity. }
+  simpl. rew_enc_dyn. (* xcf_post tt. *)
+  (* xval *)
+  apply Local_erase'.
+  applys~ (xval_lemma_val (@nil A)).
+  (* xapp *)
+  applys @xapp_lemma. { eapply @Triple_ref. }
+  hsimpl; hsimpl_wand; hsimpl.
+Qed.
+
+
+
+
 
 End Test.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
