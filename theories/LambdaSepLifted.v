@@ -155,15 +155,15 @@ Proof using. constructor. applys (fun (cstr:tyconstr) =>
 
 Instance Enc_option : forall `{Enc A}, Enc (option A).
 Proof using. constructor. applys (fun o => match o with
-  | None => val_constr 0%nat nil
-  | Some x => val_constr 1%nat ((``x)::nil)
+  | None => val_constr "none" nil
+  | Some x => val_constr "some" ((``x)::nil)
   end). Defined.
 
 Instance Enc_list : forall `{Enc A}, Enc (list A).
 Proof using. constructor. applys (fix f (l:list A) :=
   match l with
-  | nil => val_constr 0%nat nil
-  | x::l' => val_constr 1%nat ((``x)::(f l')::nil)
+  | nil => val_constr "nil" nil
+  | x::l' => val_constr "cons" ((``x)::(f l')::nil)
   end). Defined.
 
 Global Opaque Enc_dyn Enc_loc Enc_unit Enc_bool Enc_int
@@ -207,19 +207,19 @@ Lemma enc_constr_eq : forall id vs,
 Proof using. auto. Qed.
 
 Lemma enc_list_none : forall `{Enc A},
-  enc (@None A) = val_constr 0%nat nil.
+  enc (@None A) = val_constr "none" nil.
 Proof using. auto. Qed.
 
 Lemma enc_list_some : forall `{Enc A} x,
-  enc (Some x) = val_constr 1%nat (``x :: nil).
+  enc (Some x) = val_constr "some" (``x :: nil).
 Proof using. auto. Qed.
 
 Lemma enc_list_nil : forall `{Enc A},
-  enc (@nil A) = val_constr 0%nat nil.
+  enc (@nil A) = val_constr "nil" nil.
 Proof using. auto. Qed.
 
 Lemma enc_list_cons : forall `{Enc A} x (l:list A),
-  enc (x::l) = val_constr 1%nat (``x :: ``l :: nil).
+  enc (x::l) = val_constr "cons" (``x :: ``l :: nil).
 Proof using. auto. Qed.
 
 (** Specification of encoders for values of type [dyn] *)

@@ -30,7 +30,7 @@ Definition null : loc := 0%nat.
 
 Definition field := nat.
 
-Definition idconstr := nat.
+Definition idconstr := var.
 
 Global Opaque field loc.
 
@@ -1198,10 +1198,16 @@ Notation "'Let' 'Rec' f x1 x2 .. xn ':=' t1 'in' t2" :=
      Definition test2 := Let Rec 'f 'x 'y := val_unit in val_unit.
      Print test2. *)
 
-Notation "t1 ;;; t2" :=
+Notation "t1 '';' t2" :=
+  (trm_seq t1 t2)
+  (at level 68, right associativity,
+   format "'[v' '[' t1 ']'  '';'  '/'  '[' t2 ']' ']'") : trm_scope.
+(* 
+Notation "t1 ;;; t2" := DEPRECATED
   (trm_seq t1 t2)
   (at level 68, right associativity, only parsing,
    format "'[v' '[' t1 ']'  ;;;  '/'  '[' t2 ']' ']'") : trm_scope.
+ *)
 
 Notation "'Fix' f x1 ':=' t" :=
   (trm_fix f (x1::nil) t)
@@ -1269,6 +1275,20 @@ Notation "'For' x ':=' t1 'To' t2 'Do' t3 'Done'" :=
    format "'[v' 'For'  x  ':='  t1  'To'  t2  'Do'  '/' '[' t3 ']' '/'  'Done' ']'")
   : trm_scope.
 
+Notation "'Fail" := trm_fail : trm_scope.
+
+Notation "'Case' t1 '=' p 'Then' t2 'Else' t3" :=
+  (trm_case t1 p t2 t3)
+  (at level 69) : trm_scope.
+
+Notation "'Match' v 'With' ''|' p1 ''=>' t1 ''|' p2 ''=>' t2 'End'" :=
+  (trm_case (v:var) p1 t1 (trm_case v p2 t2 trm_fail))
+  (at level 69) : trm_scope.
+
+Notation "'Match' v 'With' ''|' p1 ''=>' t1 ''|' p2 ''=>' t2 'End'" :=
+  (trm_case (v:var) p1 t1 (trm_case v p2 t2 trm_fail))
+  (at level 69) : trm_scope.
+
 Notation "'ref t" :=
   (val_ref t)
   (at level 67) : trm_scope.
@@ -1279,6 +1299,14 @@ Notation "'! t" :=
 
 Notation "t1 ':= t2" :=
   (val_set t1 t2)
+  (at level 67) : trm_scope.
+
+Notation "'not t" :=
+  (val_neg t)
+  (at level 67) : trm_scope.
+
+Notation "'- t" :=
+  (val_add t)
   (at level 67) : trm_scope.
 
 Notation "t1 '+ t2" :=
@@ -1292,6 +1320,62 @@ Notation "t1 '- t2" :=
 Notation "t1 '= t2" :=
   (val_eq t1 t2)
   (at level 69) : trm_scope.
+
+Notation "t1 '<> t2" :=
+  (val_neq t1 t2)
+  (at level 69) : trm_scope.
+
+(* TODO: conflict with TCL? to resolve *)
+
+Notation "t1 '<= t2" :=
+  (val_le t1 t2)
+  (at level 70) : trm_scope.
+
+Notation "t1 '< t2" :=
+  (val_lt t1 t2)
+  (at level 70) : trm_scope.
+
+Notation "t1 '>= t2" :=
+  (val_ge t1 t2)
+  (at level 70) : trm_scope.
+
+Notation "t1 '> t2" :=
+  (val_gt t1 t2)
+  (at level 70) : trm_scope.
+
+Notation "'none" :=
+  (trm_constr "none" nil)
+  (at level 0) : trm_scope.
+
+Notation "'some t1" :=
+  (trm_constr "some" (t1:trm)::nil)
+  (at level 67) : trm_scope.
+
+Notation "'none" :=
+  (val_constr "none" nil)
+  (at level 0, only printing) : val_scope.
+
+Notation "'some t1" :=
+  (val_constr "some" (t1::nil))
+  (at level 67, only printing) : val_scope.
+
+Notation "'nil" :=
+  (trm_constr "nil" nil)
+  (at level 0) : trm_scope.
+
+Notation "t1 ':: t2" :=
+  (trm_constr "cons" ((t1:trm)::(t2:trm)::nil))
+  (at level 67) : trm_scope.
+
+Notation "'nil" :=
+  (val_constr "nil" nil)
+  (at level 0, only printing) : val_scope.
+
+Notation "v1 ':: v2" :=
+  (val_constr "cons" (v1::v2::nil))
+  (at level 67, only printing) : val_scope.
+
+Open Scope val_scope.
 
 
 (* Demo for the above notation:

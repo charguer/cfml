@@ -158,6 +158,17 @@ Definition Wp_getval_val wp (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
   | _ => Wp_let_typed (wp E t1) F2of
   end.
 
+Definition Wp_getval' wp (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
+  match t1 with
+  | trm_val v => F2of v
+  | trm_var x => match Ctx.lookup x E with
+                        | Some v => F2of v
+                        | None => Wp_fail
+                        end
+  | _ => Wp_let (wp E t1) (fun `{EA1:Enc A1} (V1:A1) => F2of (``V1))
+  end.
+
+
 Definition Wp_getval_int wp (E:ctx) (t1:trm) (F2of:int->Formula) : Formula :=
   match t1 with
   | trm_val (val_int n) => F2of n
@@ -168,7 +179,8 @@ Definition Wp_constr wp (E:ctx) (id:idconstr) : list val -> list trm -> Formula 
   fix mk (rvs : list val) (ts : list trm) : Formula :=
     match ts with
     | nil => Wp_val (val_constr id (List.rev rvs))
-    | t1::ts' => Wp_getval_val wp E t1 (fun v1 => mk (v1::rvs) ts')
+    | t1::ts' => Wp_getval' wp E t1 (fun v1 => mk (v1::rvs) ts')
+    (* DEPRECATED Wp_getval_val wp E t1 (fun v1 => mk (v1::rvs) ts') *)
     end.
 
 (* DEPRECATED
@@ -235,10 +247,17 @@ Definition Wp_for_int (n1 n2:int) (F1:int->Formula) : Formula :=
                             else (Wp_val val_unit) in
     \[ (forall i, is_local (S i unit _)) /\ (forall i Q', ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
 
+(*
 Definition Wp_case_val `{EA1:Enc A1} (V1:A1) (p:pat) (F1of:ctx->Formula) (F2:Formula) : Formula :=
   Local (fun `{Enc A} Q => 
     hand (\forall (G:ctx), \[Ctx.dom G = patvars p /\ (enc V1) = patsubst G p] \-* ^(F1of G) Q)
          (\[forall (G:ctx), Ctx.dom G = patvars p -> (enc V1) <> patsubst G p] \-* ^F2 Q) ).
+*)
+
+Definition Wp_case_val (v1:val) (p:pat) (F1of:ctx->Formula) (F2:Formula) : Formula :=
+  Local (fun `{Enc A} Q => 
+    hand (\forall (G:ctx), \[Ctx.dom G = patvars p /\ v1 = patsubst G p] \-* ^(F1of G) Q)
+         (\[forall (G:ctx), Ctx.dom G = patvars p -> v1 <> patsubst G p] \-* ^F2 Q) ).
 
 
 (* LATER
@@ -278,7 +297,7 @@ Fixpoint Wp (E:ctx) (t:trm) : Formula :=
        Wp_getval_typed Wp E t2 (fun n2 =>
          Wp_for_int n1 n2 (fun n => Wp (Ctx.add x (enc n) E) t3)))
   | trm_case t1 p t2 t3 =>
-      Wp_getval Wp E t1 (fun `{EA:Enc A} (v1:A) =>
+      Wp_getval' Wp E t1 (fun v1 =>
         Wp_case_val v1 p (fun G => Wp (Ctx.app G E) t2) (aux t3))
   | trm_fail => Wp_fail
   end.
@@ -695,7 +714,9 @@ Notation "'`For' x '=' n1 'To' n2 'Do' F3 'Done'" :=
 
 Notation "'Case' V1 '=' p [ G ] 'Then' F1 'Else' F2" :=
   (Wp_case_val V1 p (fun G => F1) F2)
-  (at level 69) : charac.
+  (at level 69,
+   format "'[v' 'Case'  V1  '='  p  [ G ] '/' '[' 'Then' F1 ']'  '[' '/' 'Else' F2 ']' '/' ']'") : charac.
+
 
 Open Scope charac.
 

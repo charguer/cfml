@@ -589,11 +589,19 @@ Definition Wp_let (F1:Formula) (F2of:forall `{EA1:Enc A1},A1->Formula) : Formula
 
 *)
 
+(* use:  notypeclasses refine (xlet_instantiate _ _ _). *)
 
-Lemma xlet_instantiate : forall A1 (EA1:Enc A1) H Fof,
+Lemma xlet_instantiate' : forall A1 (EA1:Enc A1) H Fof,
   H ==> Fof A1 EA1 ->
   H ==> \exists (A1:Type) (EA1:Enc A1), Fof A1 EA1.
 Proof using. introv M. hsimpl* A1 EA1. Qed.
+
+Lemma xlet_instantiate : forall A1 (EA1:Enc A1) H `{EA:Enc A} (Q:A->hprop) (F1:Formula) (F2of:forall `{EA1:Enc A2},A2->Formula),
+  H ==> ^F1 (fun (X:A1) => ^(F2of X) Q) ->
+  H ==> ^(Wp_let F1 (@F2of)) Q.
+Proof using.
+  introv M. applys Local_erase'. notypeclasses refine (xlet_instantiate' _ _ _). applys M.
+Qed.
 
 (*
 Lemma xlet_typed_instantiate : forall A1 (EA1:Enc A1) H Fof,
@@ -768,7 +776,7 @@ Proof using. apply (Inhab_of_val pat_unit). Qed.
 
 Fixpoint trm_to_pat (t:trm) : pat :=
   match t with
-  | trm_var x => pat_var x
+  | trm_var x => pat_var (x:var)
   | trm_constr id ts => pat_constr id (List.map trm_to_pat ts)
   | trm_val (val_unit) => pat_unit
   | trm_val (val_bool b) => pat_bool b
@@ -779,40 +787,24 @@ Fixpoint trm_to_pat (t:trm) : pat :=
 Coercion trm_to_pat : trm >-> pat.
 
 
-Notation "'Case' t1 '=' p 'Then' t2 'Else' t3" :=
-  (trm_case t1 p t2 t3)
-  (at level 69) : trm_scope.
-
-Notation "'Fail" := trm_fail : trm_scope.
 
 
-Notation "t1 '';;' t2" :=
-  (trm_seq t1 t2)
-  (at level 68, right associativity, only parsing,
-   format "'[v' '[' t1 ']'  '';;'  '/'  '[' t2 ']' ']'") : trm_scope.
+
+Lemma xval_lemma : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
+  v = ``V ->
+  H ==> Q V ->
+  H ==> ^(Wp_val v) Q.
+Proof using. introv E N. subst. applys Local_erase'. hsimpl~ V. Qed.
+
+Lemma xval_lemma_val : forall `{EA:Enc A} (V:A) v H (Q:val->hprop),
+  v = ``V ->
+  H ==> Q (``V) ->
+  H ==> ^(Wp_val v) Q.
+Proof using. introv E N. subst. applys Local_erase'. hsimpl~ (``V). Qed.
 
 
-Notation "'Match' v 'With' ''|' p1 ''=>' t1 ''|' p2 ''=>' t2 'End'" :=
-  (trm_case (v:var) p1 t1 (trm_case v p2 t2 trm_fail))
-  (at level 69) : trm_scope.
 
-Notation "'nil" :=
-  (trm_constr 0%nat nil)
-  (at level 0) : trm_scope.
 
-Notation "t1 ':: t2" :=
-  (trm_constr 1%nat ((t1:trm)::(t2:trm)::nil))
-  (at level 67) : trm_scope.
-
-Notation "'nil" :=
-  (val_constr 0%nat nil)
-  (at level 0, only printing) : val_scope.
-
-Notation "v1 ':: v2" :=
-  (val_constr 1%nat ((v1:val)::(v2:val)::nil))
-  (at level 67, only printing) : val_scope.
-
-Open Scope val_scope.
 
 
 Definition val_empty : val :=
@@ -828,24 +820,63 @@ Definition val_pop : val :=
    (Let 'q := val_get 'p in
    Match 'q With
    '| 'nil '=> 'Fail
-   '| 'x ':: 'r '=> 'p ':= 'r ';; 'x
+   '| 'x ':: 'r '=> ('p ':= 'r) '; 'x
    End).
-
-Lemma xval_lemma : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
-  v = ``V ->
-  H ==> Q V ->
-  H ==> ^(Wp_val v) Q.
-Proof using. introv E N. subst. applys Local_erase'. hsimpl~ V. Qed.
-
-Lemma xval_lemma_val : forall `{EA:Enc A} (V:A) v H (Q:val->hprop),
-  v = ``V ->
-  H ==> Q (``V) ->
-  H ==> ^(Wp_val v) Q.
-Proof using. introv E N. subst. applys Local_erase'. hsimpl~ (``V). Qed.
-
 
 Definition Stack `{Enc A} (L:list A) (p:loc) : hprop :=
   p ~~> L.
+
+
+Notation "'nil" :=
+  (pat_constr "nil" nil)
+  (at level 0, only printing) : pat_scope.
+
+Notation "p1 ':: p2" :=
+  (pat_constr "cons" (p1::p2::nil))
+  (at level 67, only printing) : pat_scope.
+
+Open Scope pat_scope.
+
+
+Notation "'Case' V1 '=' p [ G ] 'Then' F1 'Else' F2" :=
+  (Wp_case_val V1 p (fun G => F1) F2)
+  (at level 69,
+   format "'[v' 'Case'  V1  '='  p  [ G ] '/' '[' 'Then' F1 ']'  '[' '/' 'Else' F2 ']' '/' ']'") : charac.
+
+Notation "'Match' V1 'With' ''|' p1 [ G1 ] ''=>' F1 ''|' p2 [ G2 ] ''=>' F2" :=
+  (Wp_case_val V1 p1 (fun G1 => F1) (Wp_case_val V1 p2 (fun G2 => F2) Wp_fail))
+  (at level 69, 
+   format "'[v' 'Match'  V1  'With'  '[' '/' ''|'  p1  [ G1 ]  ''=>'  '/' F1 ']'  '[' '/' ''|'  p2  [ G2 ]  ''=>'  '/' F2 ']' ']'")
+  : charac.
+
+
+
+Coercion pat_var : var >-> pat.
+Coercion pat_bool : bool >-> pat.
+Coercion pat_int : Z >-> pat.
+
+(* todo: why [pat_var "x"] displays with quotes? *)
+
+Lemma triple_pop : forall `{Enc A} (p:loc) (L:list A),
+  L <> nil ->
+  TRIPLE (val_pop ``p)
+    PRE (p ~> Stack L)
+    POST (fun (x:A) => \exists L', \[L = x::L'] \* (p ~> Stack L')).
+Proof using.
+  intros.
+  (* xcf details: *)
+  simpl combiner_to_trm.
+  xcf_prepare_args tt. (* -- not needed here *)
+  let f := xcf_get_fun tt in 
+  unfold f.
+  rew_trms_vals.
+  applys Triple_apps_funs_of_Wp.
+  { reflexivity. }
+  { try xeq_encs. }
+  { reflexivity. }
+  simpl. rew_enc_dyn. (* xcf_post tt. *)
+Admitted.
+
 
 Lemma triple_empty : forall `{Enc A} (u:unit),
   TRIPLE (val_empty ``u)
@@ -864,12 +895,60 @@ Proof using.
   { try xeq_encs. }
   { reflexivity. }
   simpl. rew_enc_dyn. (* xcf_post tt. *)
-  (* xval *)
+  (* xletval *)
   apply Local_erase'.
+  (* xval *)
   applys~ (xval_lemma_val (@nil A)).
   (* xapp *)
   applys @xapp_lemma. { eapply @Triple_ref. }
-  hsimpl; hsimpl_wand; hsimpl.
+  hsimpl; hsimpl_wand.
+  hsimpl.
+Qed.
+
+(*
+Definition enc_list `{Enc A} := (fix f (l:list A) :=
+  match l with
+  | nil => val_constr 0%nat nil
+  | x::l' => val_constr 1%nat ((``x)::(f l')::nil)
+  end).
+
+Instance Enc_list2 : forall `{Enc A}, Enc (list A).
+Proof using. constructor. applys enc_list. Defined.
+
+Opaque enc_list.
+*)
+
+Lemma triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
+  TRIPLE (val_push ``p ``x)
+    PRE (p ~> Stack L)
+    POST (fun (u:unit) => (p ~> Stack (x::L))).
+Proof using.
+  intros.
+  (* xcf details: *)
+  simpl combiner_to_trm.
+  xcf_prepare_args tt. (* -- not needed here *)
+  let f := xcf_get_fun tt in 
+  unfold f.
+  rew_trms_vals.
+  applys Triple_apps_funs_of_Wp.
+  { reflexivity. }
+  { try xeq_encs. }
+  { reflexivity. }
+  simpl. rew_enc_dyn. (* xcf_post tt. *)
+  (* xunfold *)
+  xunfold Stack.
+  (* xval *)
+  apply Local_erase'.
+  (* xlet *)
+  notypeclasses refine (xlet_instantiate _ _ _ _ _).
+  (* xapps *)
+  applys @xapp_lemma. { eapply @Triple_get. }
+  hsimpl. hsimpl_wand. hsimpl ;=> ? ->.
+  (* xval *)
+  applys~ (xval_lemma_val (x::L)).
+  (* xapps *)
+  applys @xapp_lemma. { eapply @Triple_set. }
+  hsimpl. hsimpl_wand. hsimpl ;=> ? ->.
 Qed.
 
 
