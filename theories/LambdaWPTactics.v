@@ -169,27 +169,11 @@ Tactic Notation "rew_dyn" "in" "*" :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xcf] *)
 
-Ltac xcf_trm n :=
-  fail "not instantiated".
-
-Ltac xcf_basic_fun n f' :=
-  fail "not instantiated".
-
 Ltac xcf_get_fun_remove_encs f :=
   constr:(f).
 
-Ltac xcf_get_fun_from_trm t :=
-  match t with
-  | trm_apps (trm_val ?f) _ => xcf_get_fun_remove_encs f
-  | trm_app ?t1 ?t2 =>
-      match t1 with
-      | trm_app ?t11 ?t12 => xcf_get_fun_from_trm t1
-      | ?f => xcf_get_fun_remove_encs f
-      end
-  end.
-
 Ltac xcf_get_fun_from_goal tt :=
-  fail "not instantiated".
+  match goal with |- @Triple (trm_apps ?t _) _ _ _ _ => constr:(t) end.
 
 Ltac xcf_get_fun tt :=
   xcf_get_fun_from_goal tt.
@@ -199,16 +183,32 @@ Ltac xcf_reveal_fun tt :=
        first [ unfold f
              | match goal with H: f = _ |- _ => rewrite H end ]).
 
-Ltac xcf_prepare_args tt :=
-  rew_nary.
+Ltac xcf_trm n :=
+ (*  applys triple_trm_of_wp_iter n; [ xcf_post tt ]. *) fail.
+
+Ltac xcf_post tt :=
+  simpl; rew_enc_dyn.
+
+Ltac xcf_basic_fun n f':=
+  let f := xcf_get_fun tt in
+  match f with
+  | val_fixs _ _ _ =>
+      applys Triple_apps_fixs_of_Wp f';
+      [ try unfold f'; try reflexivity (* TODO: how in LambdaCF? *)
+        (* reflexivity *)
+      | try xeq_encs
+      | reflexivity
+      | xcf_post tt ]
+  end.
 
 Ltac xcf_fun n :=
-  xcf_prepare_args tt;
   let f' := xcf_get_fun tt in
   xcf_reveal_fun tt;
-  rew_nary;
-  rew_trms_vals;
+  (*rew_trms_vals;*)
   xcf_basic_fun n f'.
+
+Ltac xcf_prepare_args tt :=
+  try xdecode_args tt.
 
 Ltac xcf_core n :=
   intros; first [ xcf_fun n | xcf_trm n ].
@@ -220,62 +220,7 @@ Tactic Notation "xcf_depth" constr(depth) :=
   xcf_core depth.
 
 
-(* DEPRECATED  For nonlifted
 
-Ltac xcf_get_fun_from_goal tt ::=
-  match goal with |- triple ?t _ _ => xcf_get_fun_from_trm t end.
-
-Ltac xcf_post tt :=
-  simpl.
-
-Ltac xcf_trm n ::= (* for WP2 *)
- (*  applys triple_trm_of_wp_iter n; [ xcf_post tt ]. *) fail.
-
-
-Ltac xcf_basic_fun n f' ::= (* for WP2 *)
-  let f := xcf_get_fun tt in
-  match f with
-(*
-  | val_funs _ _ => (* TODO: use (apply (@..)) instead of applys? same in cflifted *)
-      applys triple_apps_funs_of_wp_iter;
-      [ reflexivity | reflexivity | xcf_post tt ]
-*)
-  | val_fixs _ _ _ =>
-      applys triple_apps_fixs_of_wp_iter f';
-      [ try unfold f'; rew_nary; try reflexivity (* TODO: how in LambdaCF? *)
-        (* reflexivity *)
-      | reflexivity
-      | xcf_post tt ]
-
-  end.
-
-*)
-
-Ltac xcf_get_fun_from_goal tt ::=
-  match goal with |- @Triple ?t _ _ _ _ => xcf_get_fun_from_trm t end.
-
-Ltac xcf_post tt :=
-  simpl; rew_enc_dyn.
-
-Ltac xcf_trm n ::= (* for WP2 *)
- (*  applys triple_trm_of_wp_iter n; [ xcf_post tt ]. *) fail.
-
-
-Ltac xcf_basic_fun n f' ::= (* for WP2 *)
-  let f := xcf_get_fun tt in
-  match f with
-  | val_fixs _ _ _ =>
-      applys Triple_apps_fixs_of_Wp f';
-      [ try unfold f'; rew_nary; try reflexivity (* TODO: how in LambdaCF? *)
-        (* reflexivity *)
-      | try xeq_encs
-      | reflexivity
-      | xcf_post tt ]
-  end.
-
-Ltac xcf_prepare_args tt ::=
-  rew_nary;
-  try xdecode_args tt.
 
 
 (* ********************************************************************** *)
@@ -650,6 +595,12 @@ Lemma xlet_instantiate : forall A1 (EA1:Enc A1) H Fof,
   H ==> \exists (A1:Type) (EA1:Enc A1), Fof A1 EA1.
 Proof using. introv M. hsimpl* A1 EA1. Qed.
 
+(*
+Lemma xlet_typed_instantiate : forall A1 (EA1:Enc A1) H Fof,
+  H ==> Fof A1 EA1 ->
+  H ==> \exists (A1:Type) (EA1:Enc A1), Fof A1 EA1.
+Proof using. introv M. hsimpl* A1 EA1. Qed.
+*)
 
 Lemma xapp_triple_to_WP : forall A `{EA:Enc A} (Q1:A->hprop) t H1,
   Triple t H1 Q1 ->
@@ -669,7 +620,6 @@ Qed.
 
 (*
 hsimpl_wand exploits:
-
 
 hwand_of_himpl
   H1 ==> H2 ->
@@ -704,11 +654,19 @@ Module Test.
 Import NotationForVariables NotationForTerms.
 Open Scope trm_scope.
 
+(*
 Definition val_incr :=
   ValFun 'p :=
     Let 'n := val_get 'p in
     Let 'm := 'n '+ 1 in
     val_set 'p 'm.
+*)
+
+Definition val_incr : val :=
+  ValFun 'p :=
+   'p ':= ((val_get 'p) '+ 1).
+
+
 
 (* TODO: get that to work
 Notation "'`Let' x ':=' F1 'in' F2" :=
@@ -717,6 +675,30 @@ Notation "'`Let' x ':=' F1 'in' F2" :=
   format "'[v' '[' '`Let'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : charac.
 *)
 
+Ltac xcf_get_fun_from_goal tt ::=
+  match goal with |- @Triple (trm_apps (trm_val ?f) _) _ _ _ _ => constr:(f) end.
+
+
+Notation "'`Return' F " :=
+  (Formula_typed F)
+  (at level 68) : charac.
+
+Lemma Formula_typed_simpl : forall `{Enc A1} (F:(A1->hprop)->hprop) (Q:A1->hprop) H,
+  H ==> F Q ->
+  H ==> ^(Formula_typed F) Q.
+Proof using.
+  introv M. unfold Formula_typed. hsimpl* Q. applys PostChange_refl.
+Qed.
+
+Lemma Formula_typed_val : forall `{Enc A1} (F:(A1->hprop)->hprop) (Q:val->hprop) H,
+  H ==> F (fun (X:A1) => Q (enc X)) ->
+  H ==> ^(Formula_typed F) Q.
+Proof using.
+  introv M. unfold Formula_typed. hsimpl* Q.
+  unfold PostChange. intros X. hsimpl* X.
+Qed.
+
+
 Lemma triple_incr : forall (p:loc) (n:int),
   TRIPLE (val_incr ``p)
     PRE (p ~~> n)
@@ -724,40 +706,32 @@ Lemma triple_incr : forall (p:loc) (n:int),
 Proof using.
   intros.
   (* xcf details: *)
-  xcf_prepare_args tt.
-  xcf_reveal_fun tt.
-  rew_nary.
+  simpl combiner_to_trm.
+  xcf_prepare_args tt. (* -- not needed here *)
+  let f := xcf_get_fun tt in 
+  unfold f.
   rew_trms_vals.
   applys Triple_apps_funs_of_Wp val_incr.
-  { try unfold val_incr; rew_nary; try reflexivity. }
+  { reflexivity. }
   { try xeq_encs. }
   { reflexivity. }
-  xcf_post tt.
-  (* xlet details *)
-  applys Local_erase'. 
-  notypeclasses refine (xlet_instantiate _ _ _).
-  (* applys @xlet_instantiate Enc_int. (* todo: prevent resolution of encoder *)*)
-  (* xapp details *)
-  applys Local_erase'. applys @xapp_lemma.
-  { applys Triple_get. }
+  simpl. rew_enc_dyn. (* xcf_post tt. *)
+  (* fst call *)
+  apply Local_erase'.
+  apply Local_erase'.
+  apply Local_erase'. applys @xapp_lemma. { applys Triple_get. }
   hsimpl.
   hsimpl_wand. (* todo: extend hsimpl to do this step *)
   hpull ;=> ? ->.
-  (* xapp details *)
-  applys Local_erase'. applys xlet_instantiate Enc_int.
-  applys Local_erase'. applys @xapp_lemma.
-  { applys Triple_add. }
-  hsimpl.
-  hsimpl_wand.
-  hpull ;=> ? ->.  
-  (* xapp details *)
-  applys Local_erase'. applys @xapp_lemma.
-  { applys Triple_set Enc_int. }
+  (* return *)
+  applys @Formula_typed_val. 
+  (* snd call *)
+  apply @Local_erase'.
+  applys @xapp_lemma. { eapply @Triple_set. }
   hsimpl.
   hsimpl_wand.
   hsimpl.
 Qed.
-
 
 (* SHOULD BE:
 
@@ -780,4 +754,4 @@ then just:
 *)
 
 
-End Test.Z.a
+End Test.

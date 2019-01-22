@@ -96,6 +96,11 @@ Definition Wp_val (v:val) : Formula :=
   Local (fun A (EA:Enc A) Q =>
     \exists (V:A), \[v = enc V] \* Q V).
 
+(*
+Definition Wp_val_typed `{EA1:Enc A1} (V:A1) : Formula :=
+  Local (fun A (EA:Enc A) Q => Q V1).
+*)
+
 Definition Wp_var (E:ctx) (x:var) : Formula :=
   match Ctx.lookup x E with
   | None => Wp_fail
@@ -109,8 +114,7 @@ Definition Wp_let (F1:Formula) (F2of:forall `{EA1:Enc A1},A1->Formula) : Formula
 
 Definition Wp_let_typed `{EA1:Enc A1} (F1:Formula) (F2of:A1->Formula) : Formula :=
   Local (fun `{Enc A} Q =>
-    \exists (Q1:A1->hprop),
-      ^F1 (fun (X:A1) => ^(F2of X) Q)).
+    ^F1 (fun (X:A1) => ^(F2of X) Q)).
 
 Definition Wp_seq (F1 F2:Formula) : Formula :=
   Local (fun A (EA:Enc A) Q =>
@@ -144,11 +148,27 @@ Definition Wp_getval_typed wp (E:ctx) `{EA1:Enc A1} (t1:trm) (F2of:A1->Formula) 
   | _ => Wp_let_typed (wp E t1) F2of
   end.
 
+Definition Wp_getval_val wp (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
+  match t1 with
+  | trm_val v => F2of v
+  | trm_var x => match Ctx.lookup x E with
+                        | Some v => F2of v
+                        | None => Wp_fail
+                        end
+  | _ => Wp_let_typed (wp E t1) F2of
+  end.
+
+Definition Wp_getval_int wp (E:ctx) (t1:trm) (F2of:int->Formula) : Formula :=
+  match t1 with
+  | trm_val (val_int n) => F2of n
+  | _ => Wp_getval_typed wp E t1 F2of
+  end.
+
 Definition Wp_constr wp (E:ctx) (id:idconstr) : list val -> list trm -> Formula := 
   fix mk (rvs : list val) (ts : list trm) : Formula :=
     match ts with
     | nil => Wp_val (val_constr id (List.rev rvs))
-    | t1::ts' => Wp_getval wp E t1 (fun `{EA:Enc A} (V1:A) => mk ((enc V1)::rvs) ts')
+    | t1::ts' => Wp_getval_val wp E t1 (fun v1 => mk (v1::rvs) ts')
     end.
 
 (* DEPRECATED
@@ -183,16 +203,16 @@ Definition Wp_apps wp (E:ctx) (v0:func) : list val -> list trm -> Formula :=
   (fix mk (rvs : list val) (ts : list trm) : Formula :=
     match ts with
     | nil => Wp_app (trm_apps v0 (trms_vals (List.rev rvs)))
-    | t1::ts' => Wp_getval wp E t1 (fun `{EA:Enc A} (V1:A) => mk ((enc V1)::rvs) ts')
+    | t1::ts' => Wp_getval_val wp E t1 (fun v1 => mk (v1::rvs) ts')
     end).
 
 Definition Wp_apps_or_prim Wp (E:ctx) (t0:trm) (ts:list trm) : Formula :=
   match t0, ts with
   | trm_val (val_prim val_add), (t1::t2::nil) => 
-     Wp_getval_typed Wp E t1 (fun n1 => 
-       Wp_getval_typed Wp E t2 (fun n2 => 
+     Wp_getval_int Wp E t1 (fun n1 => 
+       Wp_getval_int Wp E t2 (fun n2 => 
          Formula_typed (fun (Q:int->hprop) => Q (n1 + n2))))
-  | _,_ => Wp_getval_typed Wp E t0 (fun (v0:func) => Wp_apps Wp E v0 nil ts)
+  | _,_ => Wp_getval_val Wp E t0 (fun v0 => Wp_apps Wp E v0 nil ts)
   end.
 
 Definition Wp_if_val (b:bool) (F1 F2:Formula) : Formula :=
@@ -620,10 +640,38 @@ Notation "'`Letval' [ A EA ] x ':=' v 'in' F2" :=
   ((Wp_letval v (fun A EA x => F2)))
   (at level 69, A at level 0, EA at level 0, x ident, right associativity,
   format "'[v' '[' '`Letval'  [ A  EA ]  x  ':='  v  'in' ']'  '/'  '[' F2 ']' ']'") : charac.
+ 
+(*
+Notation "'`App' f t1 " :=
+  (Wp_app (trm_apps f (t1::nil)))
+  (at level 68, f, t1 at level 0) : charac.
 
-Notation "'`App' t " :=
+Notation "'`App' f t1 t2 " :=
+  (Wp_app (trm_apps f (t1::t2::nil)))
+  (at level 68, f, t1, t2 at level 0) : charac.
+
+Notation "'`App' f t1 t2 t3 " :=
+  (Wp_app (trm_apps f (t1::t2::t3::nil)))
+  (at level 68, f, t1, t2, t3 at level 0) : charac.
+*)
+
+Notation "'`App' f v1 " :=
+  (Wp_app (trm_apps f (trms_vals (v1::nil))))
+  (at level 68, f, v1 at level 0) : charac.
+
+Notation "'`App' f v1 v2 " :=
+  (Wp_app (trm_apps f (trms_vals (v1::v2::nil))))
+  (at level 68, f, v1, v2 at level 0) : charac.
+
+Notation "'`App' f v1 v2 v3 " :=
+  (Wp_app (trm_apps f (trms_vals (v1::v2::v3::nil))))
+  (at level 68, f, v1, v2, v3 at level 0) : charac.
+
+(*
+Notation "'`Apptrm' t " :=
   ((Wp_app t))
   (at level 68, t at level 0) : charac.
+*)
 
 Notation "'`Ifval' b 'Then' F1 'Else' F2" :=
   ((Wp_if_val b F1 F2))

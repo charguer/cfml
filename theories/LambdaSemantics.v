@@ -1226,7 +1226,7 @@ Notation "'Fun' x1 x2 .. xn ':=' t" :=
   (at level 69, x1, x2, xn at level 0) : trm_scope.
 
 Notation "'ValFun' x1 ':=' t" :=
-  (val_funs x1 t)
+  (val_funs (x1::nil) t)
   (at level 69, x1 at level 0) : trm_scope.
 
 Notation "'ValFun' x1 x2 .. xn ':=' t" :=

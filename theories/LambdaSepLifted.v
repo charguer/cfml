@@ -820,22 +820,32 @@ Qed.
 
 (** Specification of [set] allowing for change in type (i.e. strong update). *)
 
-Lemma Triple_set' : forall v1 A2 `{EA2:Enc A2} (V2:A2) l,
-  Triple (val_set ``l ``V2)
-    (l ~~> v1)
+Lemma Triple_set_strong : forall A1 A2 `{EA1:Enc A1} (V1:A1) `{EA2:Enc A2} (V2:A2) l,
+  Triple (val_set l ``V2)
+    (l ~~> V1)
     (fun u => l ~~> V2).
 Proof using.
   intros. unfold Triple. rewrite Hsingle_to_hsingle. xapplys triple_set.
   intros. subst. unfold Post. hsimpl~ tt.
 Qed.
 
+Lemma Triple_set_strong_val : forall v1 A2 `{EA2:Enc A2} (V2:A2) l,
+  Triple (val_set ``l ``V2)
+    (l ~~> v1)
+    (fun u => l ~~> V2).
+Proof using.
+  intros. applys Triple_set_strong.
+Qed.
+
 (** Specification of [set] for writes preserving the type. *)
 
-Lemma Triple_set : forall A1 A2 `{EA1:Enc A1} (V1:A1) `{EA2:Enc A2} (V2:A2) l,
-  Triple (val_set l ``V2)
+Lemma Triple_set : forall A1 `{EA1:Enc A1} (V1 V2:A1) l,
+  Triple (val_set ``l ``V2)
     (l ~~> V1)
     (fun u => l ~~> V2).
-Proof using. intros. applys~ Triple_set'. Qed.
+Proof using.
+  intros. applys Triple_set_strong.
+Qed.
 
 Lemma Triple_alloc : forall n,
   n >= 0 ->
