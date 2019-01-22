@@ -247,25 +247,56 @@ Definition Wp_for_int (n1 n2:int) (F1:int->Formula) : Formula :=
                             else (Wp_val val_unit) in
     \[ (forall i, is_local (S i unit _)) /\ (forall i Q', ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
 
-(*
+
+(* Factorized yet obfuscated version:
+
+Definition forall_pat_vars (T:Type) (Forall:(val->T)->T) (K:ctx->T) : ctx -> vars -> T :=
+  fix mk (G:ctx) (xs:vars) : T :=
+    match xs with
+    | nil => K G
+    | x::xs' => Forall (fun (X:val) => mk (Ctx.add x X G) xs')
+    end.
+
+Definition pforall (F:val->Prop) : Prop := 
+  forall (v:val), F v.
+
+Definition Wp_case_val (v1:val) (p:pat) (F1of:ctx->Formula) (F2:Formula) : Formula :=
+  Local (fun `{Enc A} Q => 
+    hand (forall_pat_vars (@hforall val) (fun G => \[v1 = patsubst G p] \-* ^(F1of G) Q) Ctx.empty (patvars p) )
+         (\[forall_pat_vars pforall (fun G => v1 <> patsubst G p) Ctx.empty (patvars p)] \-* ^F2 Q) ).
+
+*)
+
+Fixpoint hprop_forall_pat_vars (G:ctx) (xs:vars) (Hof:ctx->hprop) : hprop :=
+  match xs with
+  | nil => Hof G
+  | x::xs' => \forall (X:val), hprop_forall_pat_vars (Ctx.add x X G) xs' Hof
+  end.
+
+Fixpoint prop_forall_pat_vars (G:ctx) (xs:vars) (Hof:ctx->Prop) : Prop :=
+  match xs with
+  | nil => Hof G
+  | x::xs' => forall (X:val), prop_forall_pat_vars (Ctx.add x X G) xs' Hof
+  end.
+
+Definition Wp_case_val (v1:val) (p:pat) (F1of:ctx->Formula) (F2:Formula) : Formula :=
+  Local (fun `{Enc A} Q => 
+    hand (hprop_forall_pat_vars Ctx.empty (patvars p) (fun G => \[v1 = patsubst G p] \-* ^(F1of G) Q))
+         (\[prop_forall_pat_vars Ctx.empty (patvars p) (fun G => v1 <> patsubst G p)] \-* ^F2 Q) ).
+
+
+
+(* DEPRECATED
 Definition Wp_case_val `{EA1:Enc A1} (V1:A1) (p:pat) (F1of:ctx->Formula) (F2:Formula) : Formula :=
   Local (fun `{Enc A} Q => 
     hand (\forall (G:ctx), \[Ctx.dom G = patvars p /\ (enc V1) = patsubst G p] \-* ^(F1of G) Q)
          (\[forall (G:ctx), Ctx.dom G = patvars p -> (enc V1) <> patsubst G p] \-* ^F2 Q) ).
-*)
+
 
 Definition Wp_case_val (v1:val) (p:pat) (F1of:ctx->Formula) (F2:Formula) : Formula :=
   Local (fun `{Enc A} Q => 
     hand (\forall (G:ctx), \[Ctx.dom G = patvars p /\ v1 = patsubst G p] \-* ^(F1of G) Q)
          (\[forall (G:ctx), Ctx.dom G = patvars p -> v1 <> patsubst G p] \-* ^F2 Q) ).
-
-
-(* LATER
-Definition Wp_for (F1 F2:formula) (F3:int->formula) : formula :=
-  Wp_let F1 (fun v1 => Wp_let F2 (fun v2 => Wp_for_val v1 v2 F3)).
-
-Definition Wp_for' (F1 F2:formula) (F3:int->formula) : formula := local (fun Q =>
-  F1 (fun v1 => F2 (fun v2 => Wp_for_val v1 v2 F3 Q))).
 *)
 
 
