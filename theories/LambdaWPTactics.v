@@ -173,7 +173,7 @@ Ltac xcf_get_fun_remove_encs f :=
   constr:(f).
 
 Ltac xcf_get_fun_from_goal tt :=
-  match goal with |- @Triple (trm_apps ?t _) _ _ _ _ => constr:(t) end.
+  match goal with |- @Triple (trm_apps (trm_val ?f) _) _ _ _ _ => constr:(f) end.
 
 Ltac xcf_get_fun tt :=
   xcf_get_fun_from_goal tt.
@@ -671,18 +671,6 @@ Module Test.
 Import NotationForVariables NotationForTerms.
 Open Scope trm_scope.
 
-(*
-Definition val_incr :=
-  ValFun 'p :=
-    Let 'n := val_get 'p in
-    Let 'm := 'n '+ 1 in
-    val_set 'p 'm.
-*)
-
-Definition val_incr : val :=
-  ValFun 'p :=
-   'p ':= ((val_get 'p) '+ 1).
-
 
 
 (* TODO: get that to work
@@ -691,14 +679,6 @@ Notation "'`Let' x ':=' F1 'in' F2" :=
   (at level 69,  x ident, right associativity,
   format "'[v' '[' '`Let'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : charac.
 *)
-
-Ltac xcf_get_fun_from_goal tt ::=
-  match goal with |- @Triple (trm_apps (trm_val ?f) _) _ _ _ _ => constr:(f) end.
-
-
-Notation "'`Return' F " :=
-  (Formula_typed F)
-  (at level 68) : charac.
 
 Lemma Formula_typed_simpl : forall `{Enc A1} (F:(A1->hprop)->hprop) (Q:A1->hprop) H,
   H ==> F Q ->
@@ -715,81 +695,6 @@ Proof using.
   unfold PostChange. intros X. hsimpl* X.
 Qed.
 
-
-Lemma triple_incr : forall (p:loc) (n:int),
-  TRIPLE (val_incr ``p)
-    PRE (p ~~> n)
-    POST (fun (r:unit) => (p ~~> (n+1))).
-Proof using.
-  intros.
-  (* xcf details: *)
-  simpl combiner_to_trm.
-  xcf_prepare_args tt. (* -- not needed here *)
-  let f := xcf_get_fun tt in 
-  unfold f.
-  rew_trms_vals.
-  applys Triple_apps_funs_of_Wp.
-  { reflexivity. }
-  { try xeq_encs. }
-  { reflexivity. }
-  simpl. rew_enc_dyn. (* xcf_post tt. *)
-  (* fst call *)
-  apply Local_erase'.
-  apply Local_erase'.
-  applys @xapp_lemma. { applys Triple_get. }
-  hsimpl.
-  hsimpl_wand. (* todo: extend hsimpl to do this step *)
-  hpull ;=> ? ->.
-  (* return *)
-  applys @Formula_typed_val. 
-  (* snd call *)
-  applys @xapp_lemma. { eapply @Triple_set. }
-  hsimpl.
-  hsimpl_wand.
-  hsimpl.
-Qed.
-
-(* SHOULD BE:
-
-  xcf.
-  xlet. { xapp. xapplys triple_get. }
-  hpull ;=> ? ->.
-  xlet. { xapp. xapplys triple_add. }
-  hpull ;=> ? ->.
-  xapp. xapplys triple_set. auto.
-
-
-then just:
-
-  xcf.
-  xapp.
-  xapp.
-  xapp.
-
-
-*)
-
-(** The type of patterns is inhabited *)
-
-Global Instance Inhab_pat : Inhab pat.
-Proof using. apply (Inhab_of_val pat_unit). Qed.
-
-Fixpoint trm_to_pat (t:trm) : pat :=
-  match t with
-  | trm_var x => pat_var (x:var)
-  | trm_constr id ts => pat_constr id (List.map trm_to_pat ts)
-  | trm_val (val_unit) => pat_unit
-  | trm_val (val_bool b) => pat_bool b
-  | trm_val (val_int n) => pat_int n
-  | _ => arbitrary
-  end.
-
-Coercion trm_to_pat : trm >-> pat.
-
-
-
-
-
 Lemma xval_lemma : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
   v = ``V ->
   H ==> Q V ->
@@ -801,7 +706,6 @@ Lemma xval_lemma_val : forall `{EA:Enc A} (V:A) v H (Q:val->hprop),
   H ==> Q (``V) ->
   H ==> ^(Wp_val v) Q.
 Proof using. introv E N. subst. applys Local_erase'. hsimpl~ (``V). Qed.
-
 
 
 
@@ -826,34 +730,6 @@ Definition val_pop : val :=
 Definition Stack `{Enc A} (L:list A) (p:loc) : hprop :=
   p ~~> L.
 
-
-Notation "'nil" :=
-  (pat_constr "nil" nil)
-  (at level 0, only printing) : pat_scope.
-
-Notation "p1 ':: p2" :=
-  (pat_constr "cons" (p1::p2::nil))
-  (at level 67, only printing) : pat_scope.
-
-Open Scope pat_scope.
-
-
-Notation "'Case' V1 '=' p [ G ] 'Then' F1 'Else' F2" :=
-  (Wp_case_val V1 p (fun G => F1) F2)
-  (at level 69,
-   format "'[v' 'Case'  V1  '='  p  [ G ] '/' '[' 'Then' F1 ']'  '[' '/' 'Else' F2 ']' '/' ']'") : charac.
-
-Notation "'Match' V1 'With' ''|' p1 [ G1 ] ''=>' F1 ''|' p2 [ G2 ] ''=>' F2" :=
-  (Wp_case_val V1 p1 (fun G1 => F1) (Wp_case_val V1 p2 (fun G2 => F2) Wp_fail))
-  (at level 69, 
-   format "'[v' 'Match'  V1  'With'  '[' '/' ''|'  p1  [ G1 ]  ''=>'  '/' F1 ']'  '[' '/' ''|'  p2  [ G2 ]  ''=>'  '/' F2 ']' ']'")
-  : charac.
-
-
-
-Coercion pat_var : var >-> pat.
-Coercion pat_bool : bool >-> pat.
-Coercion pat_int : Z >-> pat.
 
 (* todo: why [pat_var "x"] displays with quotes? *)
 
@@ -954,8 +830,75 @@ Qed.
 
 
 
+(*
+Definition val_incr :=
+  ValFun 'p :=
+    Let 'n := val_get 'p in
+    Let 'm := 'n '+ 1 in
+    val_set 'p 'm.
+*)
+
+Definition val_incr : val :=
+  ValFun 'p :=
+   'p ':= ((val_get 'p) '+ 1).
+
+
+
+Lemma triple_incr : forall (p:loc) (n:int),
+  TRIPLE (val_incr ``p)
+    PRE (p ~~> n)
+    POST (fun (r:unit) => (p ~~> (n+1))).
+Proof using.
+  intros.
+  (* xcf details: *)
+  simpl combiner_to_trm.
+  xcf_prepare_args tt. (* -- not needed here *)
+  let f := xcf_get_fun tt in 
+  unfold f.
+  rew_trms_vals.
+  applys Triple_apps_funs_of_Wp.
+  { reflexivity. }
+  { try xeq_encs. }
+  { reflexivity. }
+  simpl. rew_enc_dyn. (* xcf_post tt. *)
+  (* fst call *)
+  apply Local_erase'.
+  apply Local_erase'.
+  applys @xapp_lemma. { applys Triple_get. }
+  hsimpl.
+  hsimpl_wand. (* todo: extend hsimpl to do this step *)
+  hpull ;=> ? ->.
+  (* return *)
+  applys @Formula_typed_val. 
+  (* snd call *)
+  applys @xapp_lemma. { eapply @Triple_set. }
+  hsimpl.
+  hsimpl_wand.
+  hsimpl.
+Qed.
+
+(* SHOULD BE:
+
+  xcf.
+  xlet. { xapp. xapplys triple_get. }
+  hpull ;=> ? ->.
+  xlet. { xapp. xapplys triple_add. }
+  hpull ;=> ? ->.
+  xapp. xapplys triple_set. auto.
+
+
+then just:
+
+  xcf.
+  xapp.
+  xapp.
+  xapp.
+
+
+*)
 
 End Test.
+
 
 
 

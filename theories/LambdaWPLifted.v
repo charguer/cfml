@@ -666,6 +666,10 @@ Notation "'`Val' v" :=
   ((Wp_val v))
   (at level 69) : charac.
 
+Notation "'`Return' F " :=
+  (Formula_typed F)
+  (at level 68) : charac.
+
 Notation "'``Let' x ':=' F1 'in' F2" :=
   ((Wp_let_typed F1 (fun x => F2)))
   (at level 69, x ident, right associativity,
@@ -748,6 +752,11 @@ Notation "'Case' V1 '=' p [ G ] 'Then' F1 'Else' F2" :=
   (at level 69,
    format "'[v' 'Case'  V1  '='  p  [ G ] '/' '[' 'Then' F1 ']'  '[' '/' 'Else' F2 ']' '/' ']'") : charac.
 
+Notation "'Match' V1 'With' ''|' p1 [ G1 ] ''=>' F1 ''|' p2 [ G2 ] ''=>' F2" :=
+  (Wp_case_val V1 p1 (fun G1 => F1) (Wp_case_val V1 p2 (fun G2 => F2) Wp_fail))
+  (at level 69, 
+   format "'[v' 'Match'  V1  'With'  '[' '/' ''|'  p1  [ G1 ]  ''=>'  '/' F1 ']'  '[' '/' ''|'  p2  [ G2 ]  ''=>'  '/' F2 ']' ']'")
+  : charac.
 
 Open Scope charac.
 

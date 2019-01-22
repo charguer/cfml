@@ -98,10 +98,21 @@ with trm : Type :=
 Definition vals : Type := list val.
 Definition trms : Type := list trm.
 
+(** The type of patterns is inhabited *)
+
+Global Instance Inhab_pat : Inhab pat.
+Proof using. apply (Inhab_of_val pat_unit). Qed.
+
 (** The type of values is inhabited *)
 
 Global Instance Inhab_val : Inhab val.
 Proof using. apply (Inhab_of_val val_unit). Qed.
+
+(** The type of terms is inhabited *)
+
+Global Instance Inhab_trm : Inhab trm.
+Proof using. apply (Inhab_of_val (trm_val val_unit)). Qed.
+
 
 (** Values into terms *)
 
@@ -111,31 +122,6 @@ Definition trm_is_val (t:trm) : Prop :=
 Definition trm_is_var (t:trm) : Prop :=
   exists x, t = trm_var x.
 
-
-(* ---------------------------------------------------------------------- *)
-(** Coercions from values to terms *)
-
-Coercion trms_vals (vs:vals) : list trm :=
-  LibList.map trm_val vs.
-
-Lemma trms_vals_fold_start : forall v,
-  (trm_val v)::nil = trms_vals (v::nil).
-Proof using. auto. Qed.
-
-Lemma trms_vals_fold_next : forall v vs,
-  (trm_val v)::(trms_vals vs) = trms_vals (v::vs).
-Proof using. auto. Qed.
-
-Hint Rewrite trms_vals_fold_start trms_vals_fold_next : rew_trms_vals.
-
-Tactic Notation "rew_trms_vals" :=
-  autorewrite with rew_trms_vals.
-
-Import LibList.
-
-Lemma app_trms_vals_rev_cons : forall v vs ts,
-  trms_vals (rev (v::vs)) ++ ts = trms_vals (rev vs) ++ trm_val v :: ts.
-Proof using. intros. unfold trms_vals. rew_listx~. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -170,14 +156,60 @@ Notation trm_fun := (trm_fix bind_anon).
 (* ---------------------------------------------------------------------- *)
 (** Coercions *)
 
+(** Parsing facility: coercions from list of values to list of terms *)
+
+Coercion trms_vals (vs:vals) : list trm :=
+  LibList.map trm_val vs.
+
+Lemma trms_vals_fold_start : forall v,
+  (trm_val v)::nil = trms_vals (v::nil).
+Proof using. auto. Qed.
+
+Lemma trms_vals_fold_next : forall v vs,
+  (trm_val v)::(trms_vals vs) = trms_vals (v::vs).
+Proof using. auto. Qed.
+
+Hint Rewrite trms_vals_fold_start trms_vals_fold_next : rew_trms_vals.
+
+Tactic Notation "rew_trms_vals" :=
+  autorewrite with rew_trms_vals.
+
+Import LibList.
+
+Lemma app_trms_vals_rev_cons : forall v vs ts,
+  trms_vals (rev (v::vs)) ++ ts = trms_vals (rev vs) ++ trm_val v :: ts.
+Proof using. intros. unfold trms_vals. rew_listx~. Qed.
+
+(** Parsing facility: coercions for constructors *)
+
+Coercion pat_var : var >-> pat.
+Coercion pat_bool : bool >-> pat.
+Coercion pat_int : Z >-> pat.
+
 Coercion val_prim : prim >-> val.
 Coercion val_bool : bool >-> val.
 Coercion val_int : Z >-> val.
 Coercion val_loc : loc >-> val.
+
 Coercion trm_val : val >-> trm.
 Coercion trm_var : var >-> trm.
 
-(** Coercions for turning [t1 t2 t3] into [trm_apps t1 (t2::t3::nil)] *)
+(** Parsing facility: using term syntax to parse patterns *)
+
+Fixpoint trm_to_pat (t:trm) : pat :=
+  match t with
+  | trm_var x => pat_var (x:var)
+  | trm_constr id ts => pat_constr id (List.map trm_to_pat ts)
+  | trm_val (val_unit) => pat_unit
+  | trm_val (val_bool b) => pat_bool b
+  | trm_val (val_int n) => pat_int n
+  | _ => arbitrary
+  end.
+
+Coercion trm_to_pat : trm >-> pat.
+
+(** Parsing facility: coercions for turning [t1 t2 t3] 
+    into [trm_apps t1 (t2::t3::nil)] *)
 
 Inductive combiner :=
   | combiner_nil : trm -> trm -> combiner
@@ -1359,6 +1391,14 @@ Notation "'some t1" :=
   (val_constr "some" (t1::nil))
   (at level 67, only printing) : val_scope.
 
+Notation "'none" :=
+  (pat_constr "none" nil)
+  (at level 0, only printing) : pat_scope.
+
+Notation "'some p1" :=
+  (pat_constr "some" (p1::nil))
+  (at level 67, only printing) : pat_scope.
+
 Notation "'nil" :=
   (trm_constr "nil" nil)
   (at level 0) : trm_scope.
@@ -1374,6 +1414,16 @@ Notation "'nil" :=
 Notation "v1 ':: v2" :=
   (val_constr "cons" (v1::v2::nil))
   (at level 67, only printing) : val_scope.
+
+Notation "'nil" :=
+  (pat_constr "nil" nil)
+  (at level 0, only printing) : pat_scope.
+
+Notation "p1 ':: p2" :=
+  (pat_constr "cons" (p1::p2::nil))
+  (at level 67, only printing) : pat_scope.
+
+Open Scope pat_scope.
 
 Open Scope val_scope.
 
