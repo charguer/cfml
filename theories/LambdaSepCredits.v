@@ -477,15 +477,30 @@ Global Opaque hsingle.
 (* ---------------------------------------------------------------------- *)
 (* ** Credits heap *)
 
+Definition heap_credits (n:credits) : heap :=
+  (fmap_empty:state, n).
+
 Definition hcredits (n:credits) : hprop :=
-  fun h => h^s = fmap_empty /\ h^c = n.
+  fun h => h = heap_credits n.
 
 Notation "'\$' n" := (hcredits n)
   (at level 40, format "\$ n") : heap_scope.
 
-Lemma hcredits_inv : forall h n,
-  (\$ n) h -> h = (fmap_empty,n).
-Proof using. intros (m,n') n (M1&M2). simpls. subst*. Qed.
+Lemma hcredits_heap_credits : forall n,
+  (\$n) (heap_credits n).
+Proof using. intros. unfolds* hcredits. Qed.
+
+Lemma hcredits_inv : forall n h,
+  (\$n) h -> 
+  h^s = fmap_empty /\ h^c = n.
+Proof using.
+  introv N. unfolds hcredits, heap_credits. subst*.
+Qed.
+
+Lemma hcredits_inv_pair : forall h n,
+  (\$ n) h -> 
+  h = (fmap_empty,n).
+Proof using. introv N. lets (?&?): hcredits_inv N. subst*. Qed.
 
 Global Opaque hcredits.
 
@@ -539,7 +554,13 @@ Global Opaque hgc.
 (** Properties of [haffine] *)
 
 Section Affine.
-Transparent hstar haffine hexists hpure hgc hsingle hcredits.
+Transparent hstar hempty haffine hexists hpure hgc hsingle hcredits.
+
+Lemma haffine_heap_inv : forall H h,
+  haffine H ->
+  H h ->
+  h^c >= 0.
+Proof using. introv F M. applys F M. Qed.
 
 Lemma haffine_hempty :
   haffine \[].
@@ -584,34 +605,67 @@ Lemma haffine_hcredits : forall n,
   n >= 0 ->
   haffine (\$ n).
 Proof using.
-  introv N (Hs&Hc). unfold heap_affine. rewrite* Hc.
+  introv N Hh. lets (Hs&Hc): hcredits_inv Hh. unfold heap_affine. rewrite* Hc.
+Qed.
+
+(** Properties of [hgc] *)
+
+Lemma hgc_heap_inv : forall h,
+  \GC h ->
+  h^c >= 0.
+Proof using. introv N. applys* haffine_heap_inv. applys haffine_hgc. Qed.
+
+Lemma hgc_intro : forall h,
+  heap_affine h ->
+  \GC h.
+Proof using.
+  introv N. exists (=h). exists heap_empty h. splits*. 
+  { applys* hpure_intro.
+    { unfolds* hempty. }
+    { unfolds haffine. introv ->; auto. } }
+Qed.
+
+Lemma hgc_hstar_hgc :
+  \GC \* \GC = \GC.
+Proof using.
+  unfold hgc. applys himpl_antisym.
+  { hpull ;=> H1 M1 H2 M2. hsimpl (H1 \* H2). applys* haffine_hstar. }
+  { hpull ;=> H M. hsimpl H \[]. applys haffine_hempty. auto. }
+Qed.
+
+Lemma hempty_himpl_hgc : \[] ==> \GC.
+Proof using.
+  intros h Hh. applys hgc_intro. lets ->: hempty_inv Hh. applys heap_affine_heap_empty.
 Qed.
 
 End Affine.
+
+(** Configure [hsimpl] to exploit the lemma [hempty_himpl_hgc] *)
+
+Ltac hsimpl_post_before_generalize tt ::=
+  try solve [ applys hempty_himpl_hgc ].
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of credits *)
 
 Section Credits.
-Transparent hcredits hempty hpure hstar heap_union heap_disjoint.
+Transparent hcredits hempty hpure hstar heap_credits heap_union heap_disjoint.
 
 Lemma hcredits_zero_eq : \$ 0 = \[].
 Proof using.
   unfold hcredits, hempty, heap_empty.
-  applys pred_ext_1. intros [m n]; simpl. iff [M1 M2] M.
-  { subst~. }
-  { inverts~ M. }
+  applys pred_ext_1. intros [m n]; simpl. unfold heap_credits. iff*.
 Qed.
 
 Lemma hcredits_add_eq : forall n m,
   \$ (n+m) = \$ n \* \$ m.
 Proof using.
-  intros c1 c2. unfold hcredits, hstar, heap_union, heap_disjoint.
-  applys pred_ext_1. intros [m n].
-  iff [M1 M2] ([m1 n1]&[m2 n2]&(M1&E1)&(M2&E2)&M3&M4).
-  { exists (fmap_empty:state,c1) (fmap_empty:state,c2). simpls. splits*. }
-  { simpls. inverts M4. subst. split~. fmap_eq. }
+  intros c1 c2. unfold hcredits, hstar, heap_union, heap_disjoint, heap_credits.
+  applys pred_ext_1. intros [m n]. iff M.
+  { inverts M. exists___. splits*; simpl; try fmap_eq. { fequals. math. } }
+  { destruct M as ([m1 n1]&[m2 n2]&M3&M4&M5&M6).
+    inverts M3. inverts M4. rewrite M6. simpl. fmap_eq. fequals. }
 Qed.
 
 Lemma hcredits_sub : forall n m,
@@ -659,8 +713,28 @@ Definition triple t H Q :=
   (H \* H') h ->
   exists n h' v,
        red n (h^s) t (h'^s) v
-    /\ (Q v \* \Top \* H') h'
+    /\ (Q v \* \GC \* H') h'
     /\ (h^c = n + h'^c).
+
+(** Interpretation of triples for full executions:
+    the number of credits in the precondition is an upper bound 
+    on the number of steps taken by the execution. *)
+
+Lemma triple_hcredits_haffine_post : forall t n Q,
+  triple t (\$ n) Q ->
+  haffine_post Q ->
+  exists n' h v,
+     red n' fmap_empty t (h^s) v
+  /\ (Q v \* \GC) h
+  /\ ((n':int) <= n).
+Proof using.
+  introv M F. forwards (n'&h&v&R&K&C): (rm M) hempty (heap_credits n).
+  { rew_heap. applys hcredits_heap_credits. }
+  rew_heap in K. exists n' h v. splits*.
+  { simpls. forwards N: haffine_heap_inv K. 
+    { applys haffine_hstar. applys* F. applys haffine_hgc. } 
+   math. }
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -709,19 +783,19 @@ Proof using.
   exists n h' v. splits~. { hhsimpl~. }
 Qed.
 
-Lemma triple_htop_post : forall t H Q,
-  triple t H (Q \*+ \Top) ->
+Lemma triple_hgc_post : forall t H Q,
+  triple t H (Q \*+ \GC) ->
   triple t H Q.
 Proof using.
   introv M. intros HF h N. forwards* (n&h'&v&R&K&C): (rm M) HF h.
-  exists n h' v. splits~. { rewrite <- htop_hstar_htop. hhsimpl. }
+  exists n h' v. splits~. { rewrite <- hgc_hstar_hgc. hhsimpl. }
 Qed.
 
-Lemma triple_htop_pre : forall t H Q,
+Lemma triple_hgc_pre : forall t H Q,
   triple t H Q ->
-  triple t (H \* \Top) Q.
+  triple t (H \* \GC) Q.
 Proof using.
-  introv M. applys triple_htop_post. applys~ triple_frame.
+  introv M. applys triple_hgc_post. applys~ triple_frame.
 Qed.
 
 
@@ -732,7 +806,7 @@ Lemma triple_val : forall v H Q,
   H ==> Q v ->
   triple (trm_val v) H Q.
 Proof using.
-  introv M. intros HF h N. exists 0 h v. splits~.
+  introv M. intros HF h N. exists 0%nat h v. splits~.
   { applys red_val. }
   { hhsimpl. hchanges M. }
 Qed.
@@ -760,9 +834,9 @@ Proof using.
   forwards* (n&h1'&v&R1&K1&C1): (rm M1) HF h.
   tests C: (is_val_bool v).
   { destruct C as (b&E). subst. forwards* (n'&h'&v'&R&K&C2): (rm M2) h1'.
-    exists (n+n') h' v'. splits~.
+    exists (n+n')%nat h' v'. splits~.
     { applys* red_if. }
-    { rewrite <- htop_hstar_htop. rew_heap~. }
+    { rewrite <- hgc_hstar_hgc. rew_heap~. }
     { math. } }
   { specializes M3 C.
     asserts Z: ((\[False] \* \Top \* HF) h1').
@@ -789,10 +863,10 @@ Lemma triple_let : forall z t1 t2 H Q Q1,
 Proof using.
   introv M1 M2. intros HF h N.
   lets~ (n1&h1'&v1&R1&K1&C1): (rm M1) HF h.
-  forwards* (n2&h2'&v2&R2&K2&C2): (rm M2) (\Top \* HF) h1'.
-  exists (n1+n2) h2' v2. splits~.
+  forwards* (n2&h2'&v2&R2&K2&C2): (rm M2) (\GC \* HF) h1'.
+  exists (n1+n2)%nat h2' v2. splits~.
   { applys~ red_let R2. }
-  { rewrite <- htop_hstar_htop. hhsimpl. }
+  { rewrite <- hgc_hstar_hgc. hhsimpl. }
   { math. }
 Qed.
 
@@ -816,10 +890,10 @@ Proof using.
   lets HP': himpl_frame_l HF (rm HP).
   lets N': (rm HP') (rm N). rew_heap in N'.
   destruct N' as (h1&h2&N1&N2&N3&N4).
-  lets N1': hcredits_inv (rm N1). inverts N1'.
+  lets N1': hcredits_inv_pair (rm N1). inverts N1'.
   lets (Na&Nb): heap_eq_forward (rm N4). simpls. subst.
   lets~ (n&h'&v&R&K&C): (rm M) HF h2.
-  exists (n+1) h' v. splits~.
+  exists (n+1)%nat h' v. splits~.
   { applys* red_app_fix_val. fmap_red~. }
   { math. }
 Qed.
@@ -835,7 +909,7 @@ Proof using.
   intros. intros HF h N. rew_heap in N.
   forwards~ (l&Dl&Nl): (fmap_single_fresh null (h^s) v).
   sets m1': (fmap_single l v).
-  exists 0 ((m1' \+ h^s),h^c) (val_loc l). splits~.
+  exists 0%nat ((m1' \+ h^s),h^c) (val_loc l). splits~.
   { applys~ red_ref. }
   { exists (m1',0) h. split.
     { exists l. applys~ himpl_hpure_r. unfold m1'. hnfs~. }
@@ -850,7 +924,7 @@ Proof using.
   intros. intros HF h N. lets N': N.
   destruct N as (h1&h2&(N1a&N1b)&N2&N3&N4).
   forwards (E1&E2): heap_eq_forward (rm N4). simpls.
-  exists 0 h v. splits~.
+  exists 0%nat h v. splits~.
   { applys red_get. rewrite E1. applys~ fmap_union_single_l_read. }
   { rew_heap. rewrite hstar_pure. split~. hhsimpl~. }
 Qed.
@@ -863,7 +937,7 @@ Proof using.
   intros. intros HF h N. destruct N as (h1&h2&(N1a&N1b&N1c)&N2&N3&N4).
   forwards (E1&E2): heap_eq_forward (rm N4). simpls.
   sets m1': (fmap_single l w).
-  exists 0 ((m1' \+ h2^s), h2^c) val_unit. splits~.
+  exists 0%nat ((m1' \+ h2^s), h2^c) val_unit. splits~.
   { applys red_set. rewrite E1. unfold m1'. rewrite N1a.
     applys~ fmap_union_single_to_update. }
   { rew_heap. rewrite hstar_pure. split~.
@@ -883,10 +957,20 @@ End RulesPrimitiveOps.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Triples satisfy the [local] predicate *)
+(* ** Triples satisfy a variant of the [local] predicate, 
+      where [\Top] is replaced with [\GC]. *)
 
-Lemma is_local_triple : forall t,
-  is_local (triple t).
+
+Definition local' B (F:~~B) : ~~B :=
+  fun (H:hprop) (Q:B->hprop) =>
+    H ==> \exists H1 H2 Q1,
+       H1 \* H2 \* \[F H1 Q1 /\ Q1 \*+ H2 ===> Q \*+ \GC].
+
+Definition is_local' B (F:~~B) :=
+  F = local' F.
+
+Lemma is_local'_triple : forall t,
+  is_local' (triple t).
 Proof using.
   intros. applys pred_ext_2. intros H Q. iff M.
   { intros h Hh. forwards (h'&v&N1&N2): M \[] h.
@@ -897,7 +981,7 @@ Proof using.
     lets ((R1&R2)&R3): R.
     forwards (n&h'&v&S1&S2&S3): R1 (H2\*H') h.
     { subst h. rewrite <- hstar_assoc. exists~ h1 h2. }
-    exists n h' v. splits~. rewrite <- htop_hstar_htop.
+    exists n h' v. splits~. rewrite <- hgc_hstar_hgc.
     applys himpl_inv S2.
     hchange (R2 v). hsimpl. }
 Qed.
@@ -911,7 +995,7 @@ Definition triple' (t:trm) (H:hprop) (Q:val->hprop) :=
   (H \* H') (m, c) ->
   exists n m' c' v,
        red n m t m' v
-    /\ (Q v \* \Top \* H') (m', c')
+    /\ (Q v \* \GC \* H') (m', c')
     /\ (c = n + c').
 
 Lemma triple_eq_triple' : triple = triple'.
@@ -929,6 +1013,7 @@ Qed.
 
 (* ---------------------------------------------------------------------- *)
 (* ** Alternative, lower-level definition of triples *)
+
 
 Definition triple'' t H Q :=
   forall m1 c1 m2,
@@ -948,7 +1033,7 @@ Proof using.
   unfold triple', triple''. iff M.
   { introv D P1.
     forwards~ (n&m'&c'&v&R1&R2&R4): M (=(m2,0)) (m1 \+ m2) c1.
-    { exists (m1,c1) (m2,0). splits~. applys heap_eq. simple~. }
+    { exists (m1,c1) (m2,0). splits~. applys heap_eq. simpl. splits*. math. }
     rewrite <- hstar_assoc in R2.
     destruct R2 as ((m1''&c1'')&h2'&N0&N1&N2&N3). subst h2'.
     destruct N0 as ((m1'&c1')&(m3'&c3')&T0&T1&T2&T3).
@@ -959,7 +1044,7 @@ Proof using.
     { subst. rew_disjoint; simpls; rew_disjoint. destruct N2.
      splits~. }
     { fmap_red. }
-    { math. } }
+    { lets P: hgc_heap_inv T1. simpls. math. } }
   { introv (h1&h2&N1&N2&D&U).
     forwards~ (n&m1'&m3'&c1'&v&R1&R2&R3&R4): M (h1^s) (h1^c) (h2^s).
     { applys_eq N1 1. applys~ heap_eq. }
@@ -968,17 +1053,17 @@ Proof using.
     { fmap_red. }
     { exists (m1',c1') (m3' \+ h2^s, (h2^c + h1^c - n - c1')). splits~.
       { exists (m3',(h1^c - n - c1')) h2. splits~.
-        { applys heap_eq. splits~. simpls. math. } }
-      { subst. rew_disjoint; simpls; rew_disjoint. autos*. }
+        { applys hgc_intro. unfold heap_affine. simpl. math. }
+      { subst. rew_disjoint; simpls; rew_disjoint.
+        unfold heap_union. simpl. fequals. math. } }
+      { subst. rew_disjoint; simpls; rew_disjoint. splits*. }
       { applys heap_eq. splits~. simpls. subst. math. } }
-    { math. }  }
+    { math. } }
 Qed.
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** Derived rule for let-binding of a recursive function *)
-
-(* TEMPORARY *)
 
 Definition spec_fix (f:var) (x:var) (t1:trm) (F:val) :=
   forall X H H' Q,
