@@ -100,13 +100,13 @@ Module Export SepCreditsCore <: SepCore.
 
 (** Representation of credits *)
 
-Definition credits : Type := int.
+Definition credits : Type := nat.
 
 (** Zero and one credits *)
 
-Definition credits_zero : credits := 0.
+Definition credits_zero : credits := 0%nat.
 
-Definition credits_one : credits := 1.
+Definition credits_one : credits := 1%nat.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -119,7 +119,7 @@ Definition heap : Type := (state * credits)%type.
 (** Empty heap *)
 
 Definition heap_empty : heap :=
-  (fmap_empty, 0).
+  (fmap_empty, 0%nat).
 
 (** Projections *)
 
@@ -148,7 +148,7 @@ Notation "\# h1 h2" := (heap_disjoint h1 h2)
 (** Union of heaps *)
 
 Definition heap_union (h1 h2 : heap) : heap :=
-   (h1^s \+ h2^s, h1^c + h2^c).
+   (h1^s \+ h2^s, (h1^c + h2^c)%nat).
 
 Notation "h1 \u h2" := (heap_union h1 h2)
    (at level 37, right associativity) : heap_scope.
@@ -319,7 +319,7 @@ Lemma heap_union_state : forall h1 h2,
 Proof using. intros (m1&n1) (m2&n2). auto. Qed.
 
 Lemma heap_union_credits : forall h1 h2,
-  heap_credits (h1 \u h2) = (heap_credits h1 + heap_credits h2).
+  heap_credits (h1 \u h2) = (heap_credits h1 + heap_credits h2)%nat.
 Proof using. intros (m1&n1) (m2&n2). auto. Qed.
 
 Hint Resolve heap_union_comm
@@ -435,14 +435,12 @@ End SepCreditsCore.
 Module Export SepCreditsSetup := SepSetup SepCreditsCore.
 Export SepCreditsCore.
 
-Implicit Types n : credits.
 Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
 
 
 (* ********************************************************************** *)
 (* * Specific properties of the logic *)
-
 
 (* ---------------------------------------------------------------------- *)
 (* ** Singleton heap *)
@@ -477,7 +475,7 @@ Global Opaque hsingle.
 (* ---------------------------------------------------------------------- *)
 (* ** Credits heap *)
 
-Definition hcredits (n:credits) : hprop :=
+Definition hcredits (n:nat) : hprop :=
   fun h => h^s = fmap_empty /\ h^c = n.
 
 Notation "'\$' n" := (hcredits n)
@@ -491,112 +489,13 @@ Global Opaque hcredits.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Affine heaps *)
-
-(** Affine heaps are those such that [heap_credits c >= 0] *)
-
-Definition heap_affine (h:heap) : Prop :=
-  h^c >= 0.
-
-(** Properties of [heap_affine] *)
-
-Lemma heap_affine_heap_empty :
-  heap_affine heap_empty.
-Proof using. unfold heap_affine, heap_empty. simpl. math. Qed.
-
-Lemma heap_affine_heap_union : forall h1 h2,
-  heap_affine h1 ->
-  heap_affine h2 ->
-  heap_affine (h1 \u h2).
-Proof using.
-  intros [m1 n1] [m2 n2] M1 M2. unfolds heap_affine, heap_union.
-  simpls. math.
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Affine heap predicates *)
-
-(** Affine heap predicates *)
-
-Definition haffine (H : hprop) : Prop :=
-  forall h, H h -> heap_affine h.
-
-Definition haffine_post (A:Type) (J:A->hprop) : Prop :=
-  forall x, haffine (J x).
-
-Global Opaque haffine.
-
-(** Affine version of [\Top] *)
-
-Definition hgc : hprop :=
-  \exists H, \[haffine H] \* H.
-
-Notation "\GC" := (hgc) : heap_scope.
-
-Global Opaque hgc.
-
-(** Properties of [haffine] *)
-
-Section Affine.
-Transparent hstar haffine hexists hpure hgc hsingle hcredits.
-
-Lemma haffine_hempty :
-  haffine \[].
-Proof using.
-  introv M. lets ->: hempty_inv M. applys heap_affine_heap_empty.
-Qed.
-
-Lemma haffine_hstar : forall H1 H2,
-  haffine H1 ->
-  haffine H2 ->
-  haffine (H1 \* H2).
-Proof using.
-  introv F1 F2 (h1&h2&M1&M2&D&->). applys* heap_affine_heap_union.
-Qed.
-
-Lemma haffine_hexists : forall A (J:A->hprop),
-  haffine_post J ->
-  haffine (hexists J).
-Proof using. introv F1 (x&Hx). applys* F1. Qed.
-
-Lemma haffine_hpure : forall P,
-  haffine \[P].
-Proof using.
-  intros. applys* haffine_hexists. intros HP. applys* haffine_hempty.
-Qed.
-
-Lemma haffine_hgc :
-  haffine \GC.
-Proof using.
-  introv (H&(h1&h2&M1&M2&D&->)). lets (FH&E1): hpure_inv (rm M1).
-  lets ->: hempty_inv E1. rew_heap. applys* FH.
-Qed.
-
-Lemma haffine_hsingle : forall l v,
-  haffine (hsingle l v).
-Proof using.
-  introv (E&Ec&_). unfold heap_affine. rewrite Ec.
-  unfold credits_zero. math.
-Qed.
-
-Lemma haffine_hcredits : forall n,
-  n >= 0 ->
-  haffine (\$ n).
-Proof using.
-  introv N (Hs&Hc). unfold heap_affine. rewrite* Hc.
-Qed.
-
-End Affine.
-
-
-(* ---------------------------------------------------------------------- *)
 (* ** Properties of credits *)
 
 Section Credits.
-Transparent hcredits hempty hpure hstar heap_union heap_disjoint.
+Transparent hcredits hempty hpure hstar
+  heap_union heap_disjoint.
 
-Lemma hcredits_zero_eq : \$ 0 = \[].
+Lemma credits_zero_eq : \$ 0 = \[].
 Proof using.
   unfold hcredits, hempty, heap_empty.
   applys pred_ext_1. intros [m n]; simpl. iff [M1 M2] M.
@@ -604,7 +503,7 @@ Proof using.
   { inverts~ M. }
 Qed.
 
-Lemma hcredits_add_eq : forall n m,
+Lemma credits_split_add : forall (n m : nat),
   \$ (n+m) = \$ n \* \$ m.
 Proof using.
   intros c1 c2. unfold hcredits, hstar, heap_union, heap_disjoint.
@@ -614,21 +513,12 @@ Proof using.
   { simpls. inverts M4. subst. split~. fmap_eq. }
 Qed.
 
-Lemma hcredits_sub : forall n m,
-  (n >= m) ->
+Lemma credits_substract : forall (n m : nat),
+  (n >= m)%nat ->
   \$ n ==> \$ m \* \$ (n-m).
 Proof using.
-  introv M. rewrite <- hcredits_add_eq.
-  math_rewrite (m + (n-m) = n). auto.
-Qed.
-
-Lemma hcredits_drop : forall n m,
-  n >= m -> 
-  exists H', haffine H' /\ \$ n ==> \$ m \* H'.
-Proof using.
-  introv M. exists (\$(n-m)). split.
-  { apply haffine_hcredits. math. }
-  { applys* hcredits_sub. }
+  introv M. rewrite <- credits_split_add.
+  math_rewrite (m + (n-m) = n)%nat. auto.
 Qed.
 
 End Credits.
@@ -660,14 +550,14 @@ Definition triple t H Q :=
   exists n h' v,
        red n (h^s) t (h'^s) v
     /\ (Q v \* \Top \* H') h'
-    /\ (h^c = n + h'^c).
+    /\ (h^c = n + h'^c)%nat.
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** Definitions of [pay] *)
 
 Definition pay_one H H' :=
-  H ==> (\$ 1) \* H'.
+  H ==> (\$ 1%nat) \* H'.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -732,7 +622,7 @@ Lemma triple_val : forall v H Q,
   H ==> Q v ->
   triple (trm_val v) H Q.
 Proof using.
-  introv M. intros HF h N. exists 0 h v. splits~.
+  introv M. intros HF h N. exists 0%nat h v. splits~.
   { applys red_val. }
   { hhsimpl. hchanges M. }
 Qed.
@@ -760,7 +650,7 @@ Proof using.
   forwards* (n&h1'&v&R1&K1&C1): (rm M1) HF h.
   tests C: (is_val_bool v).
   { destruct C as (b&E). subst. forwards* (n'&h'&v'&R&K&C2): (rm M2) h1'.
-    exists (n+n') h' v'. splits~.
+    exists (n+n')%nat h' v'. splits~.
     { applys* red_if. }
     { rewrite <- htop_hstar_htop. rew_heap~. }
     { math. } }
@@ -790,7 +680,7 @@ Proof using.
   introv M1 M2. intros HF h N.
   lets~ (n1&h1'&v1&R1&K1&C1): (rm M1) HF h.
   forwards* (n2&h2'&v2&R2&K2&C2): (rm M2) (\Top \* HF) h1'.
-  exists (n1+n2) h2' v2. splits~.
+  exists (n1+n2)%nat h2' v2. splits~.
   { applys~ red_let R2. }
   { rewrite <- htop_hstar_htop. hhsimpl. }
   { math. }
@@ -819,7 +709,7 @@ Proof using.
   lets N1': hcredits_inv (rm N1). inverts N1'.
   lets (Na&Nb): heap_eq_forward (rm N4). simpls. subst.
   lets~ (n&h'&v&R&K&C): (rm M) HF h2.
-  exists (n+1) h' v. splits~.
+  exists (n+1)%nat h' v. splits~.
   { applys* red_app_fix_val. fmap_red~. }
   { math. }
 Qed.
@@ -835,9 +725,9 @@ Proof using.
   intros. intros HF h N. rew_heap in N.
   forwards~ (l&Dl&Nl): (fmap_single_fresh null (h^s) v).
   sets m1': (fmap_single l v).
-  exists 0 ((m1' \+ h^s),h^c) (val_loc l). splits~.
+  exists 0%nat ((m1' \+ h^s),h^c) (val_loc l). splits~.
   { applys~ red_ref. }
-  { exists (m1',0) h. split.
+  { exists (m1',0%nat) h. split.
     { exists l. applys~ himpl_hpure_r. unfold m1'. hnfs~. }
     { splits~. hhsimpl~. } }
 Qed.
@@ -850,7 +740,7 @@ Proof using.
   intros. intros HF h N. lets N': N.
   destruct N as (h1&h2&(N1a&N1b)&N2&N3&N4).
   forwards (E1&E2): heap_eq_forward (rm N4). simpls.
-  exists 0 h v. splits~.
+  exists 0%nat h v. splits~.
   { applys red_get. rewrite E1. applys~ fmap_union_single_l_read. }
   { rew_heap. rewrite hstar_pure. split~. hhsimpl~. }
 Qed.
@@ -863,11 +753,11 @@ Proof using.
   intros. intros HF h N. destruct N as (h1&h2&(N1a&N1b&N1c)&N2&N3&N4).
   forwards (E1&E2): heap_eq_forward (rm N4). simpls.
   sets m1': (fmap_single l w).
-  exists 0 ((m1' \+ h2^s), h2^c) val_unit. splits~.
+  exists 0%nat ((m1' \+ h2^s), h2^c) val_unit. splits~.
   { applys red_set. rewrite E1. unfold m1'. rewrite N1a.
     applys~ fmap_union_single_to_update. }
   { rew_heap. rewrite hstar_pure. split~.
-    { exists (m1',0) h2. splits~.
+    { exists (m1',0%nat) h2. splits~.
       { hnfs~. }
       { hhsimpl~. }
       { unfold m1'. unfolds heap_disjoint. rewrite N1a in N3.
@@ -912,7 +802,7 @@ Definition triple' (t:trm) (H:hprop) (Q:val->hprop) :=
   exists n m' c' v,
        red n m t m' v
     /\ (Q v \* \Top \* H') (m', c')
-    /\ (c = n + c').
+    /\ (c = n + c')%nat.
 
 Lemma triple_eq_triple' : triple = triple'.
 Proof using.
@@ -938,7 +828,7 @@ Definition triple'' t H Q :=
        fmap_disjoint_3 m1' m3' m2
     /\ red n (m1 \+ m2) t (m1' \+ m3' \+ m2) v
     /\ (Q v) (m1',c1')
-    /\ (c1 >= n + c1').
+    /\ (c1 >= n + c1')%nat.
 
 Lemma triple_eq_triple'' : triple = triple''.
 Proof using.
@@ -947,8 +837,8 @@ Proof using.
   rewrite triple_eq_triple'.
   unfold triple', triple''. iff M.
   { introv D P1.
-    forwards~ (n&m'&c'&v&R1&R2&R4): M (=(m2,0)) (m1 \+ m2) c1.
-    { exists (m1,c1) (m2,0). splits~. applys heap_eq. simple~. }
+    forwards~ (n&m'&c'&v&R1&R2&R4): M (=(m2,0%nat)) (m1 \+ m2) c1.
+    { exists (m1,c1) (m2,0%nat). splits~. applys heap_eq. simple~. }
     rewrite <- hstar_assoc in R2.
     destruct R2 as ((m1''&c1'')&h2'&N0&N1&N2&N3). subst h2'.
     destruct N0 as ((m1'&c1')&(m3'&c3')&T0&T1&T2&T3).
@@ -964,10 +854,10 @@ Proof using.
     forwards~ (n&m1'&m3'&c1'&v&R1&R2&R3&R4): M (h1^s) (h1^c) (h2^s).
     { applys_eq N1 1. applys~ heap_eq. }
     lets (?&?): heap_eq_forward (rm U). simpls.
-    exists n (m1' \+ m3' \+ h2^s) (c-n) v. splits~.
+    exists n (m1' \+ m3' \+ h2^s) (c-n)%nat v. splits~.
     { fmap_red. }
-    { exists (m1',c1') (m3' \+ h2^s, (h2^c + h1^c - n - c1')). splits~.
-      { exists (m3',(h1^c - n - c1')) h2. splits~.
+    { exists (m1',c1') (m3' \+ h2^s, (h2^c + h1^c - n - c1')%nat). splits~.
+      { exists (m3',(h1^c - n - c1')%nat) h2. splits~.
         { applys heap_eq. splits~. simpls. math. } }
       { subst. rew_disjoint; simpls; rew_disjoint. autos*. }
       { applys heap_eq. splits~. simpls. subst. math. } }

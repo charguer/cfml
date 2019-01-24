@@ -36,7 +36,7 @@ export TLC
 
 SRC_CORE := TLCbuffer Fmap Bind LambdaSemantics SepFunctor LambdaSep LambdaWP LambdaSepLifted LambdaWPLifted LambdaWPTactics
 
-SRC_MORE := LambdaSepCredits LambdaSepRO
+SRC_MORE := LambdaSepCredits LambdaSepCreditsNonneg LambdaSepRO
 
 SRC_CF := LambdaCF LambdaCFLifted LambdaStruct LambdaStructLifted
 
