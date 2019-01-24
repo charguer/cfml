@@ -497,11 +497,6 @@ Proof using.
   introv N. unfolds hcredits, heap_credits. subst*.
 Qed.
 
-Lemma hcredits_inv_pair : forall h n,
-  (\$ n) h -> 
-  h = (fmap_empty,n).
-Proof using. introv N. lets (?&?): hcredits_inv N. subst*. Qed.
-
 Global Opaque hcredits.
 
 
@@ -890,8 +885,8 @@ Proof using.
   lets HP': himpl_frame_l HF (rm HP).
   lets N': (rm HP') (rm N). rew_heap in N'.
   destruct N' as (h1&h2&N1&N2&N3&N4).
-  lets N1': hcredits_inv_pair (rm N1). inverts N1'.
-  lets (Na&Nb): heap_eq_forward (rm N4). simpls. subst.
+  lets (N1'&N2'): hcredits_inv (rm N1).
+  destruct h1 as [n1 c1]. simpls. subst. simpls.
   lets~ (n&h'&v&R&K&C): (rm M) HF h2.
   exists (n+1)%nat h' v. splits~.
   { applys* red_app_fix_val. fmap_red~. }
