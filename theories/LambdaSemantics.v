@@ -725,7 +725,12 @@ Proof using. intros. rewrite isubst_trm_apps_app. fequals. Qed.
 
 Fixpoint patsubst (G:ctx) (p:pat) : val :=
   match p with
-  | pat_var x => Ctx.lookup_or_arbitrary x G
+  | pat_var x => 
+      (* Ctx.lookup_or_arbitrary x G ==> fails to compute (why?) *)
+        match Ctx.lookup x G with
+      | None => val_unit (* arbitrary *)
+      | Some v => v
+      end
   | pat_unit => val_unit 
   | pat_bool b => val_bool b
   | pat_int n => val_int n

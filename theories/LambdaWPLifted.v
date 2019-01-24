@@ -249,22 +249,28 @@ Definition Wp_for_int (n1 n2:int) (F1:int->Formula) : Formula :=
 
 
 
-Fixpoint hprop_forall_pat_vars (Hof:ctx->hprop) (G:ctx) (xs:vars) : hprop :=
+Fixpoint hprop_forall_vars (Hof:ctx->hprop) (G:ctx) (xs:vars) : hprop :=
   match xs with
   | nil => Hof G
-  | x::xs' => \forall (X:val), hprop_forall_pat_vars Hof (Ctx.add x X G) xs'
+  | x::xs' => \forall (X:val), hprop_forall_vars Hof (Ctx.add x X G) xs'
   end.
 
-Fixpoint prop_forall_pat_vars (Hof:ctx->Prop) (G:ctx) (xs:vars) : Prop :=
+Fixpoint prop_forall_vars (Hof:ctx->Prop) (G:ctx) (xs:vars) : Prop :=
   match xs with
   | nil => Hof G
-  | x::xs' => forall (X:val), prop_forall_pat_vars Hof (Ctx.add x X G) xs'
+  | x::xs' => forall (X:val), prop_forall_vars Hof (Ctx.add x X G) xs'
   end.
 
 
 Definition fand (F1 F2:Formula) : Formula :=
   Local (fun `{Enc A} Q => hand (^F1 Q) (^F2 Q)).
 
+
+Definition Wp_case_val (F2:Formula) (P:Prop) (F3:Formula) : Formula :=
+  Local (fun `{Enc A} Q =>
+    hand (^F2 Q) (\[P] \-* ^F3 Q)).
+
+(*
 Definition Wp_case_val Wp (E:ctx) (v1:val) (p:pat) (t2:trm) (F3:Formula) : Formula :=
   let F1 A (EA:Enc A) (Q:A->hprop) := 
      hprop_forall_pat_vars (fun G => \[v1 = patsubst G p] \-* ^(Wp (Ctx.app G E) t2) Q) Ctx.empty (patvars p) in
@@ -272,7 +278,7 @@ Definition Wp_case_val Wp (E:ctx) (v1:val) (p:pat) (t2:trm) (F3:Formula) : Formu
      let P := prop_forall_pat_vars (fun G => v1 <> patsubst G p) Ctx.empty (patvars p) in
      (\[P] \-* ^F3 Q) in
   fand F1 F2.
-
+*)
 
 (* not unfolding all
 
@@ -363,7 +369,12 @@ Fixpoint Wp (E:ctx) (t:trm) : Formula :=
          Wp_for_int n1 n2 (fun n => Wp (Ctx.add x (enc n) E) t3)))
   | trm_case t1 p t2 t3 =>
       Wp_getval' Wp E t1 (fun v1 =>
-        Wp_case_val Wp E v1 p t2 (aux t3))
+        let xs := patvars p in
+        let F1 A (EA:Enc A) (Q:A->hprop) := 
+           hprop_forall_vars (fun G => let E' := (Ctx.app G E) in
+              \[v1 = patsubst G p] \-* ^(Wp E' t2) Q) Ctx.empty xs in
+        let P := prop_forall_vars (fun G => v1 <> patsubst G p) Ctx.empty xs in
+        Wp_case_val F1 P (aux t3))
   | trm_fail => Wp_fail
   end.
 
