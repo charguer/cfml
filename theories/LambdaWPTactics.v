@@ -884,6 +884,66 @@ Proof using.
     { intros N. false* N. } }
 Qed.
 
+Lemma Triple_apps_funs_of_Wp' : forall F (Vs:dyns) (vs:vals) (ts:trms) xs t `{EA:Enc A} H (Q:A->hprop),
+  F = val_funs xs t ->
+  ts = trms_vals vs ->
+  vs = encs Vs ->
+  var_funs_exec (length Vs) xs ->
+  H ==> ^(Wp (combine xs (encs Vs)) t) Q ->
+  Triple (trm_apps F ts) H Q.
+Proof using.
+  intros. subst. applys* Triple_apps_funs_of_Wp.
+Qed.
+(*
+  xcf_prepare_args tt. (* -- not needed here *)
+*)
+
+Fixpoint trms_to_vals_rec (acc:vals) (ts:trms) : option vals :=
+  match ts with
+  | nil => Some (List.rev acc)
+  | trm_val v :: ts' => trms_to_vals_rec (v::acc) ts'
+  | _ => None
+  end.
+
+Definition trms_to_vals (ts:trms) : option vals :=
+  trms_to_vals_rec nil ts.
+
+Axiom List_rev_eq : List.rev = LibList.rev.
+
+
+Lemma trms_to_vals_rec_spec : forall ts vs acc, 
+  trms_to_vals_rec acc ts = Some vs ->
+  trms_vals (List.rev acc) ++ ts = trms_vals vs.
+Proof using. 
+  intros ts. induction ts as [|t ts']; simpl; introv E.
+  { inverts E. rew_list~. }
+  { destruct t; inverts E as E. forwards IH: IHts' E.
+    rewrite List_rev_eq in *. unfold trms_vals in *.
+    rew_listx~ in IH. }
+Qed.
+
+Lemma trms_to_vals_spec : forall ts vs,
+  trms_to_vals ts = Some vs ->
+  ts = trms_vals vs.
+Proof using. intros. applys* trms_to_vals_rec_spec (@nil val). Qed.
+
+
+Lemma Triple_apps_funs_of_Wp'' : forall F (vs:vals) (ts:trms) xs t `{EA:Enc A} H (Q:A->hprop),
+  F = val_funs xs t ->
+  trms_to_vals ts = Some vs ->
+  var_funs_exec (length vs) xs ->
+  H ==> ^(Wp (combine xs vs) t) Q ->
+  Triple (trm_apps F ts) H Q.
+Proof using.
+  introv M1 M2 M3 M4. lets: trms_to_vals_spec M2.
+  skip.
+Qed.
+(*
+  xcf_prepare_args tt. (* -- not needed here *)
+*)
+
+
+
 Lemma triple_pop : forall `{Enc A} (p:loc) (L:list A),
   L <> nil ->
   TRIPLE (val_pop ``p)
@@ -891,18 +951,19 @@ Lemma triple_pop : forall `{Enc A} (p:loc) (L:list A),
     POST (fun (x:A) => \exists L', \[L = x::L'] \* (p ~> Stack L')).
 Proof using.
   intros.
-  (* xcf details: *)
+  (* xcf details: 
   simpl combiner_to_trm.
-  xcf_prepare_args tt. (* -- not needed here *)
-  let f := xcf_get_fun tt in 
-  unfold f.
-  rew_trms_vals.
-  applys Triple_apps_funs_of_Wp.
+  applys Triple_apps_funs_of_Wp'.
   { reflexivity. }
+  { rew_trms_vals. reflexivity. }
   { try xeq_encs. }
+  { reflexivity. } *)
+  applys Triple_apps_funs_of_Wp''.
   { reflexivity. }
-  simpl; unfold Wp_var; simpl. rew_enc_dyn.
-  tag. 
+  { reflexivity. }
+  { reflexivity. }
+  simpl; unfold Wp_var; simpl; rew_enc_dyn.
+  tag.
   (* start *)
   xunfold Stack.
   (* xlet *)
@@ -951,13 +1012,14 @@ Lemma triple_test2 : forall (p:loc),
 Proof using.
   intros.
   (* xcf details: *)
-  simpl combiner_to_trm.
+ (* simpl combiner_to_trm.
   xcf_prepare_args tt. (* -- not needed here *)
   let f := xcf_get_fun tt in 
   unfold f.
-  rew_trms_vals.
-  applys Triple_apps_funs_of_Wp.
+  rew_trms_vals. *)
+  applys Triple_apps_funs_of_Wp'.
   { reflexivity. }
+  { rew_trms_vals. auto. }
   { try xeq_encs. }
   { reflexivity. }
   simpl. rew_enc_dyn.
