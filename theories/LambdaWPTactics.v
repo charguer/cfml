@@ -730,7 +730,23 @@ Notation "'\forall' ( x1 : T1 ) ( x2 : T2 ) ( x3 : T3 ) , H" := (\forall (x1:T1)
   (at level 39, x1 ident, x2 ident, x3 ident, H at level 50, only parsing) : heap_scope.
 
 
+Notation "''nil'" :=
+  (val_constr "nil" (@nil _))
+  (at level 0) : val_scope.
 
+Notation "v1 ':: v2" :=
+  (val_constr "cons" ((v1:val)::(v2:val)::nil))
+  (at level 67) : val_scope.
+
+
+
+
+
+Open Scope val_scope.
+Open Scope trm_scope.
+Delimit Scope val_scope with val.
+
+Delimit Scope trm_scope with trm.
 
 
 Definition val_empty : val :=
@@ -779,21 +795,23 @@ Definition val_test2 : val :=
   ValFun 'p :=
     Case' 'p = 'x Then 'x Else 'Fail.
 
-Notation "'`Case' v '=' p 'Then' F1 'Else' F2" :=
-  (Wp_case_val (fun A EA Q => \[v = p] \-* F1 A EA Q) (v <> p) F2)
-  (at level 69, v, p at level 0,
-   format "'[v' '`Case'  v  '='  p  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
+
+
+Notation "'`Case' v '=' vp 'Then' F1 'Else' F2" :=
+  (Wp_case_val (fun A EA Q => \[v = vp%val] \-* F1 A EA Q) (v <> vp%val) F2)
+  (at level 69, v, vp at level 0,
+   format "'[v' '`Case'  v  '=' vp  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
    : charac.
 
 
 Notation "'`Case' v '=' vp [ x1 x2 ] 'Then' F1 'Else' F2" :=
-  (Wp_case_val (fun A EA Q => \forall x1 x2, \[v = vp] \-* F1 A EA Q) (forall x1 x2, v <> vp) F2)
+  (Wp_case_val (fun A EA Q => \forall x1 x2, \[v = vp%val] \-* F1 A EA Q) (forall x1 x2, v <> vp%val) F2)
   (at level 69, v, vp at level 0, x1 ident, x2 ident,
    format "'[v' '`Case'  v  '='  vp  [ x1  x2 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
    : charac.
 
 Notation "'`Case' v '=' vp [ x1 ] 'Then' F1 'Else' F2" :=
-  (Wp_case_val (fun A EA Q => \forall x1, \[v = vp] \-* F1 A EA Q) (forall x1, v <> vp) F2)
+  (Wp_case_val (fun A EA Q => \forall x1, \[v = vp%val] \-* F1 A EA Q) (forall x1, v <> vp%val) F2)
   (at level 69, v, vp at level 0, x1 ident,
    format "'[v' '`Case'  v  '='  vp  [ x1 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
    : charac.
@@ -801,8 +819,8 @@ Notation "'`Case' v '=' vp [ x1 ] 'Then' F1 'Else' F2" :=
 
 
 Notation "'`Match' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>' F2" :=
-  (`Case v = vp1 Then F1 Else 
-   `Case v = vp2 [ x21 x22 ] Then F2 Else 
+  (`Case v = vp1%val Then F1 Else 
+   `Case v = vp2%val [ x21 x22 ] Then F2 Else 
    `Fail) (at level 69, v, vp1, vp2 at level 0, x21 ident, x22 ident,
    format "'[v' '`Match'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
   : charac.
@@ -851,26 +869,13 @@ Qed.
 Generalizable Variables B.
 
 
-Notation "''nil'" :=
-  (val_constr "nil" (@nil _))
-  (at level 0, only printing) : val_scope.
-
-Notation "v1 ':: v2" :=
-  (val_constr "cons" (v1::v2::nil))
-  (at level 67, only printing) : val_scope.
-
-Open Scope val_scope.
-Delimit Scope val_scope with val.
-
-Delimit Scope trm_scope with trm.
-
 
 Lemma xmatch_list : forall `{EA:Enc A} (L:list A) (F1:Formula) (F2:val->val->Formula) H `{HB:Enc B} (Q:B->hprop),
   (L = nil -> H ==> ^F1 Q) ->
   (forall X L', L = X::L' -> H ==> ^(F2 ``X ``L') Q) ->
   H ==> ^(`Match ``L With
-         '| (val_constr "nil" (@nil _)) '=> F1
-         '| (val_constr "cons" (vX::vL'::nil)) [vX vL'] '=> F2 vX vL') Q.
+         '| 'nil '=> F1
+         '| vX ':: vL' [vX vL'] '=> F2 vX vL') Q.
 Proof using.
   introv M1 M2. applys xcase_lemma0 ;=> E1.
   { destruct L; rew_enc in *; tryfalse. applys* M1. }
