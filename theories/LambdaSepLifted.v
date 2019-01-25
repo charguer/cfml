@@ -44,7 +44,7 @@ Notation "`` V" := (enc V) (at level 8, format "`` V").
 (** Notation for lists of encoded values *)
 
 Notation "``[ ]" :=
-  (@nil val) (format "``[ ]") : enc_scope.
+  (@nil val) (format "``[ ]", only parsing) : enc_scope.
 Notation "``[ x ]" :=
   (cons (enc x) nil) : enc_scope.
 Notation "``[ x , y , .. , z ]" :=

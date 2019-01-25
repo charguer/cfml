@@ -753,45 +753,6 @@ Definition Stack `{Enc A} (L:list A) (p:loc) : hprop :=
   p ~~> L.
 
 
-Notation "'Case'' t1 '=' p 'Then' t2 'Else' t3" :=
-  (trm_case t1 p t2 t3)
-  (at level 69, t1 at level 0) : trm_scope.
-
-Definition val_test1 : val :=
-  ValFun 'p :=
-    Case' 'p = pat_unit Then 'Fail Else 'Fail.
-
-Definition val_test2 : val :=
-  ValFun 'p :=
-    Case' 'p = 'x Then 'x Else 'Fail.
-
-Notation "'`Case' v1 '=' v2 'Then' F1 'Else' F2" :=
-  (Wp_case_val (fun A EA Q => \[v1 = v2] \-* F1 A EA Q) (v1 <> v2) F2)
-  (at level 69,
-   format "'[v' '`Case'  v1  '='  v2  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
-   : charac.
-
-
-Notation "'`Case' v1 '=' v2 [ X1 X2 ] 'Then' F1 'Else' F2" :=
-  (Wp_case_val (fun A EA Q => \forall x1 x2, \[v1 = v2] \-* F1 A EA Q) (forall x1 x2, v1 <> v2) F2)
-  (at level 69,
-   format "'[v' '`Case'  v1  '='  v2  [ X1 X2 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
-   : charac.
-
-
-Notation "'`Case'' v1 '=' v2 [ x1 x2 ] 'Then' F1 'Else' F2" :=
-  (Wp_case_val (fun A EA Q => \forall x1 x2, \[v1 = v2] \-* F1 A EA Q) (forall x1 x2, v1 <> v2) F2)
-  (at level 69,
-   format "'[v' '`Case''  v1  '='  v2  [ x1 x2 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
-   : charac.
-
-Notation "'`Case' v1 '=' v2 [ x1 ] 'Then' F1 'Else' F2" :=
-  (Wp_case_val (fun A EA Q => \forall x1, \[v1 = v2] \-* F1 A EA Q) (forall x1, v1 <> v2) F2)
-  (at level 69,
-   format "'[v' '`Case'  v1  '='  v2  [ x1 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
-   : charac.
-
-
 
 Definition tag_himpl_wp (A:Type) (X:A) := X.
 
@@ -804,6 +765,179 @@ Notation "'PRE' H 'CODE' F 'POST' Q" := (tag_himpl_wp (H ==> F _ _ Q))
   (at level 67, format "'[v' 'PRE'  H '/' 'CODE'  F '/' 'POST'  Q ']'") : charac.
 
 Ltac tag := applys tag_himpl_wp_intro.
+
+
+Notation "'Case'' t1 '=' p 'Then' t2 'Else' t3" :=
+  (trm_case t1 p t2 t3)
+  (at level 69, t1 at level 0) : trm_scope.
+
+Definition val_test1 : val :=
+  ValFun 'p :=
+    Case' 'p = pat_unit Then 'Fail Else 'Fail.
+
+Definition val_test2 : val :=
+  ValFun 'p :=
+    Case' 'p = 'x Then 'x Else 'Fail.
+
+Notation "'`Case' v '=' p 'Then' F1 'Else' F2" :=
+  (Wp_case_val (fun A EA Q => \[v = p] \-* F1 A EA Q) (v <> p) F2)
+  (at level 69, v, p at level 0,
+   format "'[v' '`Case'  v  '='  p  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
+   : charac.
+
+
+Notation "'`Case' v '=' vp [ x1 x2 ] 'Then' F1 'Else' F2" :=
+  (Wp_case_val (fun A EA Q => \forall x1 x2, \[v = vp] \-* F1 A EA Q) (forall x1 x2, v <> vp) F2)
+  (at level 69, v, vp at level 0, x1 ident, x2 ident,
+   format "'[v' '`Case'  v  '='  vp  [ x1  x2 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
+   : charac.
+
+Notation "'`Case' v '=' vp [ x1 ] 'Then' F1 'Else' F2" :=
+  (Wp_case_val (fun A EA Q => \forall x1, \[v = vp] \-* F1 A EA Q) (forall x1, v <> vp) F2)
+  (at level 69, v, vp at level 0, x1 ident,
+   format "'[v' '`Case'  v  '='  vp  [ x1 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
+   : charac.
+
+
+
+Notation "'`Match' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>' F2" :=
+  (`Case v = vp1 Then F1 Else 
+   `Case v = vp2 [ x21 x22 ] Then F2 Else 
+   `Fail) (at level 69, v, vp1, vp2 at level 0, x21 ident, x22 ident,
+   format "'[v' '`Match'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
+  : charac.
+
+
+Lemma himpl_hand_r : forall H1 H2 H3,
+  H1 ==> H2 ->
+  H1 ==> H3 ->
+  H1 ==> hand H2 H3.
+Proof using. introv M1 M2 Hh. intros b. case_if*. Qed.
+
+Lemma hwand_move_l_pure : forall H1 H2 (P:Prop),
+  (P -> H1 ==> H2) ->
+  H1 ==> (\[P] \-* H2).
+Proof using. introv M. applys hwand_move_l. hsimpl*. Qed.
+
+
+
+Lemma xcase_lemma : forall F1 (P:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
+  (H ==> ^F1 Q) ->
+  (P -> H ==> ^F2 Q) ->
+  H ==> ^(Wp_case_val F1 P F2) Q.
+Proof using. 
+  introv M1 M2. apply Local_erase'. applys himpl_hand_r. 
+  { auto. }
+  { applys* hwand_move_l_pure. }
+Qed.
+
+Lemma xcase_lemma0 : forall F1 (P1 P2:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
+  (P1 -> H ==> ^F1 Q) ->
+  (P2 -> H ==> ^F2 Q) ->
+  H ==> ^(Wp_case_val (fun `{EA1:Enc A1} (Q:A1->hprop) => \[P1] \-* ^F1 Q) P2 F2) Q.
+Proof using. 
+  introv M1 M2. applys* xcase_lemma. { applys* hwand_move_l_pure. }
+Qed.
+
+Lemma xcase_lemma2 : forall (F1:val->val->Formula) (P1:val->val->Prop) (P2:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
+  (forall x1 x2, P1 x1 x2 -> H ==> ^(F1 x1 x2) Q) ->
+  (P2 -> H ==> ^F2 Q) ->
+  H ==> ^(Wp_case_val (fun `{EA1:Enc A1} (Q:A1->hprop) => \forall x1 x2, \[P1 x1 x2] \-* ^(F1 x1 x2) Q) P2 F2) Q.
+Proof using. 
+  introv M1 M2. applys* xcase_lemma.
+  { repeat (applys himpl_hforall_r ;=> ?). applys* hwand_move_l_pure. }
+Qed.
+
+Generalizable Variables B.
+
+
+Notation "''nil'" :=
+  (val_constr "nil" (@nil _))
+  (at level 0, only printing) : val_scope.
+
+Notation "v1 ':: v2" :=
+  (val_constr "cons" (v1::v2::nil))
+  (at level 67, only printing) : val_scope.
+
+Open Scope val_scope.
+Delimit Scope val_scope with val.
+
+Delimit Scope trm_scope with trm.
+
+
+Lemma xmatch_list : forall `{EA:Enc A} (L:list A) (F1:Formula) (F2:val->val->Formula) H `{HB:Enc B} (Q:B->hprop),
+  (L = nil -> H ==> ^F1 Q) ->
+  (forall X L', L = X::L' -> H ==> ^(F2 ``X ``L') Q) ->
+  H ==> ^(`Match ``L With
+         '| (val_constr "nil" (@nil _)) '=> F1
+         '| (val_constr "cons" (vX::vL'::nil)) [vX vL'] '=> F2 vX vL') Q.
+Proof using.
+  introv M1 M2. applys xcase_lemma0 ;=> E1.
+  { destruct L; rew_enc in *; tryfalse. applys* M1. }
+  { destruct L; rew_enc in *; tryfalse. applys xcase_lemma2.
+    { intros x1 x2 Hx. inverts Hx. applys* M2. }
+    { intros N. false* N. } }
+Qed.
+
+Lemma triple_pop : forall `{Enc A} (p:loc) (L:list A),
+  L <> nil ->
+  TRIPLE (val_pop ``p)
+    PRE (p ~> Stack L)
+    POST (fun (x:A) => \exists L', \[L = x::L'] \* (p ~> Stack L')).
+Proof using.
+  intros.
+  (* xcf details: *)
+  simpl combiner_to_trm.
+  xcf_prepare_args tt. (* -- not needed here *)
+  let f := xcf_get_fun tt in 
+  unfold f.
+  rew_trms_vals.
+  applys Triple_apps_funs_of_Wp.
+  { reflexivity. }
+  { try xeq_encs. }
+  { reflexivity. }
+  simpl; unfold Wp_var; simpl. rew_enc_dyn.
+  tag. 
+  (* start *)
+  xunfold Stack.
+  (* xlet *)
+  notypeclasses refine (xlet_instantiate _ _ _ _ _). tag.
+  (* xapp *)
+  applys @xapp_lemma. { eapply @Triple_get. }
+  hsimpl; hsimpl_wand; hsimpl ;=> ? ->. tag.
+  dup.
+  (* xcase manual *)
+  { applys xcase_lemma0 ;=> E1.
+    { destruct L; tryfalse. }
+    { applys xcase_lemma2.
+      2: { intros E. destruct L; rew_enc in *; tryfalse. }
+      { intros x1 x2 E2. destruct L as [|x L']; rew_enc in *; tryfalse.
+        inverts E2.
+        (* xseq *)
+        (* applys xseq_lemma. *)  apply Local_erase'.
+        (* xapp *)
+        applys @xapp_lemma. { applys @Triple_set. }
+        hsimpl; hsimpl_wand. hsimpl.
+        (* xval *)
+       applys~ xval_lemma.
+        (* post *)
+        hsimpl~. } } }
+  (* xcase with lemma for match list *)
+  { applys xmatch_list.
+    { intros HL. false. }
+    { intros X L' HL. 
+      (* xseq *)
+      (* applys xseq_lemma. *)  apply Local_erase'.
+      (* xapp *)
+      applys @xapp_lemma. { applys @Triple_set. }
+      hsimpl; hsimpl_wand. hsimpl.
+      (* xval *)
+     applys~ xval_lemma.
+      (* post *)
+      hsimpl~. } }
+Qed.
+
+
 
 Lemma triple_test2 : forall (p:loc),
   TRIPLE (val_test2 ``p)
@@ -848,89 +982,6 @@ Proof using.
   tag.
 Admitted.
 
-Lemma himpl_hand_r : forall H1 H2 H3,
-  H1 ==> H2 ->
-  H1 ==> H3 ->
-  H1 ==> hand H2 H3.
-Proof using. introv M1 M2 Hh. intros b. case_if*. Qed.
-
-Lemma hwand_move_l_pure : forall H1 H2 (P:Prop),
-  (P -> H1 ==> H2) ->
-  H1 ==> (\[P] \-* H2).
-Proof using. introv M. applys hwand_move_l. hsimpl*. Qed.
-
-
-
-Lemma xcase_lemma : forall F1 (P:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
-  (H ==> ^F1 Q) ->
-  (P -> H ==> ^F2 Q) ->
-  H ==> ^(Wp_case_val F1 P F2) Q.
-Proof using. 
-  introv M1 M2. apply Local_erase'. applys himpl_hand_r. 
-  { auto. }
-  { applys* hwand_move_l_pure. }
-Qed.
-
-Lemma xcase_lemma0 : forall F1 (P1 P2:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
-  (P1 -> H ==> ^F1 Q) ->
-  (P2 -> H ==> ^F2 Q) ->
-  H ==> ^(Wp_case_val (fun `{EA1:Enc A1} (Q:A1->hprop) => \[P1] \-* ^F1 Q) P2 F2) Q.
-Proof using. 
-  introv M1 M2. applys* xcase_lemma. { applys* hwand_move_l_pure. }
-Qed.
-
-Lemma xcase_lemma2 : forall (F1:val->val->Formula) (P1:val->val->Prop) (P2:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
-  (forall x1 x2, P1 x1 x2 -> H ==> ^(F1 x1 x2) Q) ->
-  (P2 -> H ==> ^F2 Q) ->
-  H ==> ^(Wp_case_val (fun `{EA1:Enc A1} (Q:A1->hprop) => \forall x1 x2, \[P1 x1 x2] \-* ^(F1 x1 x2) Q) P2 F2) Q.
-Proof using. 
-  introv M1 M2. applys* xcase_lemma.
-  { repeat (applys himpl_hforall_r ;=> ?). applys* hwand_move_l_pure. }
-Qed.
-
-Lemma triple_pop : forall `{Enc A} (p:loc) (L:list A),
-  L <> nil ->
-  TRIPLE (val_pop ``p)
-    PRE (p ~> Stack L)
-    POST (fun (x:A) => \exists L', \[L = x::L'] \* (p ~> Stack L')).
-Proof using.
-  intros.
-  (* xcf details: *)
-  simpl combiner_to_trm.
-  xcf_prepare_args tt. (* -- not needed here *)
-  let f := xcf_get_fun tt in 
-  unfold f.
-  rew_trms_vals.
-  applys Triple_apps_funs_of_Wp.
-  { reflexivity. }
-  { try xeq_encs. }
-  { reflexivity. }
-  simpl; unfold Wp_var; simpl. rew_enc_dyn.
-  tag.
-  (* start *)
-  xunfold Stack.
-  (* xlet *)
-  notypeclasses refine (xlet_instantiate _ _ _ _ _). tag.
-  (* xapp *)
-  applys @xapp_lemma. { eapply @Triple_get. }
-  hsimpl; hsimpl_wand; hsimpl ;=> ? ->. tag.
-  (* xcase *)
-  applys xcase_lemma0 ;=> E1.
-  { destruct L; tryfalse. }
-  { applys xcase_lemma2.
-    2: { intros E. destruct L; rew_enc in *; tryfalse. }
-    { intros x1 x2 E2. destruct L as [|x L']; rew_enc in *; tryfalse.
-      inverts E2.
-      (* xseq *)
-      (* applys xseq_lemma. *)  apply Local_erase'.
-      (* xapp *)
-      applys @xapp_lemma. { applys @Triple_set. }
-      hsimpl; hsimpl_wand. hsimpl.
-      (* xval *)
-     applys~ xval_lemma.
-      (* post *)
-      hsimpl~. } }
-Qed.
 
 Lemma triple_empty : forall `{Enc A} (u:unit),
   TRIPLE (val_empty ``u)

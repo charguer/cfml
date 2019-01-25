@@ -1380,31 +1380,31 @@ Notation "t1 '> t2" :=
   (val_gt t1 t2)
   (at level 70) : trm_scope.
 
-Notation "'none" :=
+Notation "''none'" :=
   (trm_constr "none" nil)
   (at level 0) : trm_scope.
 
-Notation "'some t1" :=
+Notation "''some' t1" :=
   (trm_constr "some" (t1:trm)::nil)
   (at level 67) : trm_scope.
 
-Notation "'none" :=
+Notation "''none'" :=
   (val_constr "none" nil)
   (at level 0, only printing) : val_scope.
 
-Notation "'some t1" :=
+Notation "''some' t1" :=
   (val_constr "some" (t1::nil))
   (at level 67, only printing) : val_scope.
 
-Notation "'none" :=
+Notation "''none'" :=
   (pat_constr "none" nil)
   (at level 0, only printing) : pat_scope.
 
-Notation "'some p1" :=
+Notation "''some' p1" :=
   (pat_constr "some" (p1::nil))
   (at level 67, only printing) : pat_scope.
 
-Notation "'nil" :=
+Notation "''nil'" :=
   (trm_constr "nil" nil)
   (at level 0) : trm_scope.
 
@@ -1412,7 +1412,7 @@ Notation "t1 ':: t2" :=
   (trm_constr "cons" ((t1:trm)::(t2:trm)::nil))
   (at level 67) : trm_scope.
 
-Notation "'nil" :=
+Notation "''nil'" :=
   (val_constr "nil" nil)
   (at level 0, only printing) : val_scope.
 
@@ -1420,7 +1420,7 @@ Notation "v1 ':: v2" :=
   (val_constr "cons" (v1::v2::nil))
   (at level 67, only printing) : val_scope.
 
-Notation "'nil" :=
+Notation "''nil'" :=
   (pat_constr "nil" nil)
   (at level 0, only printing) : pat_scope.
 
