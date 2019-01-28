@@ -1253,6 +1253,8 @@ Module NotationForTerms.
 
 Notation "'()" := val_unit : trm_scope.
 
+(** Note: using [If_] instead of [If] to avoid parsing conflict *)
+
 Notation "'If_' t0 'Then' t1 'Else' t2" :=
   (trm_if t0 t1 t2)
   (at level 69, t0 at level 0) : trm_scope.

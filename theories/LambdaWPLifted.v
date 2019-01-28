@@ -235,7 +235,7 @@ Definition Wp_apps Wp (E:ctx) (v0:func) : list val -> list trm -> Formula :=
   (fix mk (rvs : list val) (ts : list trm) : Formula :=
     match ts with
     | nil => is_Wp (Wp_app (trm_apps v0 (trms_vals (List.rev rvs))))
-    | t1::ts' => Wp_getval_val Wp E t1 (fun v1 => mk (v1::rvs) ts')
+    | t1::ts' => Wp_getval' Wp E t1 (fun v1 => mk (v1::rvs) ts')
     end).
 
 Definition Wp_apps_or_prim Wp (E:ctx) (t0:trm) (ts:list trm) : Formula :=
@@ -813,41 +813,41 @@ Notation "'Case' v '=' vp [ x1 x2 ] 'Then' F1 'Else' F2" :=
    format "'[v' 'Case'  v  '='  vp  [ x1  x2 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
    : wp_scope.
 
-(** Needs to use [Match'] as keyword otherwise there is a parsing conflict *)
+(** Needs to use [Match_] as keyword otherwise there is a parsing conflict *)
 
-Notation "'Match'' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 ''=>' F2" :=
+Notation "'Match_' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 ''=>' F2" :=
   (Case v = vp1%val Then F1 Else 
    is_Wp (Case v = vp2%val Then F2 Else 
    is_Wp (Fail))) (at level 69, v, vp1, vp2 at level 0,
-   format "'[v' 'Match''  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  ''=>'  '/' F2 ']' ']'")
+   format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  ''=>'  '/' F2 ']' ']'")
   : wp_scope.
 
-Notation "'Match'' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 ] ''=>' F2" :=
+Notation "'Match_' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 ] ''=>' F2" :=
   (Case v = vp1%val Then F1 Else 
    is_Wp (Case v = vp2%val [ x21 ] Then F2 Else 
    is_Wp (Fail))) (at level 69, v, vp1, vp2 at level 0, x21 ident,
-   format "'[v' 'Match''  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21 ]  ''=>'  '/' F2 ']' ']'")
+   format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21 ]  ''=>'  '/' F2 ']' ']'")
   : wp_scope.
 
-Notation "'Match'' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>' F2" :=
+Notation "'Match_' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>' F2" :=
   (Case v = vp1%val Then F1 Else 
    is_Wp (Case v = vp2%val [ x21 x22 ] Then F2 Else 
    is_Wp (Fail))) (at level 69, v, vp1, vp2 at level 0, x21 ident, x22 ident,
-   format "'[v' 'Match''  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
+   format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
   : wp_scope.
 
-Notation "'Match'' v 'With' ''|' vp1 [ x11 ] ''=>' F1 ''|' vp2 [ x21 ] ''=>' F2" :=
+Notation "'Match_' v 'With' ''|' vp1 [ x11 ] ''=>' F1 ''|' vp2 [ x21 ] ''=>' F2" :=
   (Case v = vp1%val [ x11 ] Then F1 Else 
    is_Wp (Case v = vp2%val [ x21 ] Then F2 Else 
    is_Wp (Fail))) (at level 69, v, vp1, vp2 at level 0, x11 ident, x21 ident,
-   format "'[v' 'Match''  v  'With'  '[' '/' ''|'  vp1  [ x11 ] ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  ]  ''=>'  '/' F2 ']' ']'")
+   format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  [ x11 ] ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  ]  ''=>'  '/' F2 ']' ']'")
   : wp_scope.
 
-Notation "'Match'' v 'With' ''|' vp1 [ x11 ] ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>' F2" :=
+Notation "'Match_' v 'With' ''|' vp1 [ x11 ] ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>' F2" :=
   (Case v = vp1%val [ x11 ] Then F1 Else 
    is_Wp (Case v = vp2%val [ x21 x22 ] Then F2 Else 
    is_Wp (Fail))) (at level 69, v, vp1, vp2 at level 0, x11 ident, x21 ident, x22 ident,
-   format "'[v' 'Match''  v  'With'  '[' '/' ''|'  vp1  [ x11 ] ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
+   format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  [ x11 ] ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
   : wp_scope.
 
 

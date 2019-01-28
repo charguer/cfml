@@ -96,7 +96,7 @@ Lemma Triple_apps_fixs_of_Wp : forall F (f:var) vs ts xs t `{EA:Enc A} H (Q:A->h
   trms_to_vals ts = Some vs ->
   var_fixs_exec f (length vs) xs ->
   H ==> ^(Wp (combine (f::xs) (F::vs)) t) Q ->
-  Triple (trm_apps F vs) H Q.
+  Triple (trm_apps F ts) H Q.
 Proof using.
   introv HF Hvs Hxs M. lets ->: trms_to_vals_spec Hvs.
   rewrite var_fixs_exec_eq in Hxs. rew_istrue in Hxs. lets (_&Lxs&_): Hxs.
@@ -160,7 +160,7 @@ Lemma xapp_triple_to_Wp_Triple : forall A `{EA:Enc A} (Q1:A->hprop) t H1,
   H1 ==> ^(Wp_Triple t) Q1.
 Proof using. introv M. applys* himpl_weakestpre. Qed.
 
-Lemma xapp_lemma' : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
+Lemma xapp_lemma' : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q, (* DEPRECATED *)
   Triple t H1 Q1 ->
   H ==> H1 \* (Q1 \--* Q) ->
   H ==> ^(Wp_Triple t) Q.
@@ -225,7 +225,7 @@ Qed.
 Lemma xmatch_list : forall `{EA:Enc A} (L:list A) (F1:Formula) (F2:val->val->Formula) H `{HB:Enc B} (Q:B->hprop),
   (L = nil -> H ==> ^F1 Q) ->
   (forall X L', L = X::L' -> H ==> ^(F2 ``X ``L') Q) ->
-  H ==> ^(Match' ``L With
+  H ==> ^(Match_ ``L With
          '| 'nil '=> F1
          '| vX ':: vL' [vX vL'] '=> F2 vX vL') Q.
 Proof using.
@@ -278,9 +278,8 @@ Definition val_incr : val :=
    'p ':= ('n '+ 1).
 *)
 
-
-Lemma triple_incr : forall (p:loc) (n:int),
-  TRIPLE (val_incr ``p)
+Lemma Triple_incr : forall (p:loc) (n:int),
+  TRIPLE (val_incr p)
     PRE (p ~~> n)
     POST (fun (r:unit) => (p ~~> (n+1))).
 Proof using.
@@ -293,10 +292,14 @@ Proof using.
   { reflexivity. }
   { reflexivity. }
   simpl.
+  (* xlet-poly *)
+  notypeclasses refine (xlet_instantiate _ _ _ _ _).
+(* DEPRECATED
   (* xlet *)
-  applys xlet_lemma.
+  applys Local_erase. 
+*)
   (* xlet *)
-  applys xlet_lemma.
+  eapply Local_erase.
   (* xapps *)
   applys @xapp_lemma. { applys Triple_get. } hsimpl ;=> ? ->.
   (* return *)
@@ -306,6 +309,7 @@ Proof using.
   (* done *) 
   auto.
 Qed.
+
 
 (* TODO SHOULD BE:
 
@@ -335,7 +339,7 @@ Definition val_test1 : val :=
   ValFun 'p :=
     Case' 'p = pat_unit Then 'Fail Else 'Fail.
 
-Lemma triple_test1 : forall (p:loc),
+Lemma Triple_test1 : forall (p:loc),
   TRIPLE (val_test1 ``p)
     PRE \[]
     POST (fun (u:unit) => \[]).
@@ -353,8 +357,8 @@ Definition val_test2 : val :=
   ValFun 'p :=
     Case' 'p = 'x Then 'x Else 'Fail.
 
-Lemma triple_test2 : forall (p:loc),
-  TRIPLE (val_test2 ``p)
+Lemma Triple_test2 : forall (p:loc),
+  TRIPLE (val_test2 p)
     PRE \[]
     POST (fun (u:unit) => \[]).
 Proof using.
@@ -375,7 +379,7 @@ Definition val_test0 : val :=
     'Fail.
 
 Lemma triple_test0 : forall (p:loc),
-  TRIPLE (val_test0 ``p)
+  TRIPLE (val_test0 p)
     PRE \[]
     POST (fun (u:unit) => \[]).
 Proof using.
@@ -388,11 +392,10 @@ Admitted.
 (* ---------------------------------------------------------------------- *)
 (* ** Stack *)
 
-(* TODO: is_empty, append *)
 
 Definition val_is_empty : val :=
   ValFun 'p :=
-    (val_get 'p '= true).
+    val_get 'p '= true.
 
 Definition val_empty : val :=
   ValFun 'u :=
@@ -410,16 +413,20 @@ Definition val_pop : val :=
    '| 'x ':: 'r '=> ('p ':= 'r) '; 'x
    End).
 
+
+
 Definition Stack `{Enc A} (L:list A) (p:loc) : hprop :=
   p ~~> L.
 
-Lemma triple_pop : forall `{Enc A} (p:loc) (L:list A),
+
+
+Lemma Triple_pop : forall `{Enc A} (p:loc) (L:list A),
   L <> nil ->
-  TRIPLE (val_pop ``p)
+  TRIPLE (val_pop p)
     PRE (p ~> Stack L)
     POST (fun (x:A) => \exists L', \[L = x::L'] \* (p ~> Stack L')).
 Proof using.
-  intros.
+  introv N.
   (* xcf *)
   applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
   (* xunfold *)
@@ -460,17 +467,22 @@ Proof using.
 Qed.
 
 
+Coercion val_unit (u:unit) : val := val_unit.
 
-Lemma triple_empty : forall `{Enc A} (u:unit),
-  TRIPLE (val_empty ``u)
+
+Lemma Triple_empty : forall `{Enc A} (u:unit),
+  TRIPLE (val_empty u)
     PRE \[]
     POST (fun p => (p ~> Stack (@nil A))).
 Proof using.
-  intros.
   (* xcf *)
-  applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
+  intros. applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
+  (* xlet-poly *)
+  notypeclasses refine (xlet_instantiate _ _ _ _ _).
+(* DEPRECATED
   (* xletval *)
   applys xlet_lemma.
+*)
   (* xval *)
   applys~ (xval_lemma_val (@nil A)).
   (* xapp *)
@@ -480,18 +492,17 @@ Proof using.
 Qed.
 
 
-Lemma triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
-  TRIPLE (val_push ``p ``x)
+Lemma Triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
+  TRIPLE (val_push p (``x))
     PRE (p ~> Stack L)
     POST (fun (u:unit) => (p ~> Stack (x::L))).
 Proof using.
-  intros.
   (* xcf *)
-  applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
+  intros. applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
   (* xunfold *)
   xunfold Stack.
-  (* xlet *)
-  applys xlet_lemma.
+  (* xlet-poly *)
+  notypeclasses refine (xlet_instantiate _ _ _ _ _).
   (* xlet-poly *)
   notypeclasses refine (xlet_instantiate _ _ _ _ _).
   (* xapps *)
@@ -504,6 +515,64 @@ Proof using.
   auto.
 Qed.
 
+
+(*
+Lemma xapp_post : forall H H1 A (Q1 Q:A->hprop),
+  (forall r, H \* Q1 r ==> H1 \* Q r) -> 
+  H ==> H1 \* (Q1 \--* Q).
+Proof using.
+Transparent hstar.
+  introv M. unfold qwand. intros h Hh. hnf.
+  intros (h1&h2&M1).
+Search hwand.
+lets: hstar_hforall H1 (fun x : A => hwand (Q1 x) (Q x)). lets: M r.
+Qed.
+*)
+
+Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),
+  TRIPLE (val_is_empty p)
+    PRE (p ~> Stack L)
+    POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stack L).
+Proof using.
+  (* xcf *)
+  intros. applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
+  (* xunfold *)
+  xunfold Stack.
+  (* xlet-poly *)
+  notypeclasses refine (xlet_instantiate _ _ _ _ _).
+  (* xapps *)
+  applys @xapp_lemma. { eapply @Triple_get. } hsimpl ;=> ? ->.
+  (* xapps *)
+lets: @xapp_lemma.
+  applys @xapp_lemma. { eapply @Triple_eq_val. } simpl.
+  hsimpl. 
+Admitted.
+
+
+
+
+Definition val_rev_append : val :=
+  ValFix 'f 'p1 'p2 :=
+    If_ val_is_empty 'p1 Then '() Else 
+       Let 'x := val_pop 'p1 in
+       val_push 'p2 'x ';
+       'f 'p1 'p2.
+
+Opaque Stack.
+
+Lemma Triple_rev_append : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
+  TRIPLE (val_rev_append p1 p2)
+    PRE (p1 ~> Stack L1 \* p2 ~> Stack L2)
+    POST (fun (u:unit) => p1 ~> Stack nil \* p2 ~> Stack (rev L1 ++ L2)).
+Proof using.
+  intros. gen p1 p2 L2. induction_wf IH: (@list_sub A) L1. intros.
+  (* xcf *)
+  intros. applys Triple_apps_fixs_of_Wp; try reflexivity; simpl.
+  (* xlet *)
+  applys xlet_lemma.
+  (* xapps *)
+  applys @xapp_lemma. { eapply @Triple_is_empty. } hsimpl. 
+Admitted.
 
 
 End Test.
