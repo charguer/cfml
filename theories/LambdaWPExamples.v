@@ -283,16 +283,12 @@ Proof using.
   apply Local_erase.
   apply Local_erase.
   applys @xapp_lemma. { applys Triple_get. }
-  hsimpl.
-  hsimpl_wand. (* todo: extend hsimpl to do this step *)
-  hpull ;=> ? ->.
+  hsimpl ;=> ? ->.
   (* return *)
   applys @Formula_typed_val. 
   (* snd call *)
   applys @xapp_lemma. { eapply @Triple_set. }
-  hsimpl.
-  hsimpl_wand.
-  hsimpl.
+  hsimpl. auto.
 Qed.
 
 (* SHOULD BE:
@@ -427,7 +423,7 @@ Proof using.
   notypeclasses refine (xlet_instantiate _ _ _ _ _).
   (* xapp *)
   applys @xapp_lemma. { eapply @Triple_get. }
-  hsimpl; hsimpl_wand; hsimpl ;=> ? ->.
+  hsimpl ;=> ? ->.
   dup.
   (* xcase manual *)
   { applys xcase_lemma0 ;=> E1.
@@ -440,9 +436,9 @@ Proof using.
         (* applys xseq_lemma. *)  apply Local_erase.
         (* xapp *)
         applys @xapp_lemma. { applys @Triple_set. }
-        hsimpl; hsimpl_wand. hsimpl.
+        hsimpl.
         (* xval *)
-       applys~ xval_lemma.
+        applys~ xval_lemma.
         (* post *)
         hsimpl~. } } }
   (* xcase with lemma for match list *)
@@ -453,7 +449,7 @@ Proof using.
       (* applys xseq_lemma. *)  apply Local_erase.
       (* xapp *)
       applys @xapp_lemma. { applys @Triple_set. }
-      hsimpl; hsimpl_wand. hsimpl.
+      hsimpl.
       (* xval *)
      applys~ xval_lemma.
       (* post *)
@@ -476,8 +472,7 @@ Proof using.
   applys~ (xval_lemma_val (@nil A)).
   (* xapp *)
   applys @xapp_lemma. { eapply @Triple_ref. }
-  hsimpl; hsimpl_wand.
-  hsimpl.
+  hsimpl. auto.
 Qed.
 
 
@@ -497,12 +492,12 @@ Proof using.
   notypeclasses refine (xlet_instantiate _ _ _ _ _).
   (* xapps *)
   applys @xapp_lemma. { eapply @Triple_get. }
-  hsimpl. hsimpl_wand. hsimpl ;=> ? ->.
+  hsimpl ;=> ? ->.
   (* xval *)
   applys~ (xval_lemma_val (x::L)).
   (* xapps *)
   applys @xapp_lemma. { eapply @Triple_set. }
-  hsimpl. hsimpl_wand. hsimpl ;=> ? ->.
+  hsimpl. auto.
 Qed.
 
 

@@ -120,10 +120,7 @@ Lemma local_weaken : forall Q' F H Q,
   H ==> F Q'.
 Proof using.
   introv L M W. rewrite (rm L). hchanges (rm M).
-  unfold local. hsimpl Q.
-  hchanges (>> qwand_of_qimpl W).
-  (* TODO: simplify *)
-  applys qwand_himpl_r. hsimpl.
+  unfold local. hsimpl Q. intros r. hchanges W.
 Qed.
 
 Lemma local_top : forall F H Q,
