@@ -63,21 +63,6 @@ Definition Formula_typed `{Enc A1} (F:(A1->hprop)->hprop) : Formula :=
   fun A2 (EA2:Enc A2) (Q:A2->hprop) =>
     \exists (Q':A1->hprop), F Q' \* \[PostChange Q' Q].
 
-Lemma Formula_typed_simpl : forall `{Enc A1} (F:(A1->hprop)->hprop) (Q:A1->hprop) H,
-  H ==> F Q ->
-  H ==> ^(Formula_typed F) Q.
-Proof using.
-  introv M. unfold Formula_typed. hsimpl* Q. applys PostChange_refl.
-Qed.
-
-Lemma Formula_typed_val : forall `{Enc A1} (F:(A1->hprop)->hprop) (Q:val->hprop) H,
-  H ==> F (fun (X:A1) => Q (enc X)) ->
-  H ==> ^(Formula_typed F) Q.
-Proof using.
-  introv M. unfold Formula_typed. hsimpl* Q.
-  unfold PostChange. intros X. hsimpl* X.
-Qed.
-
 
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of [Local] for WP *)

@@ -237,7 +237,24 @@ Proof using.
 Qed.
 
 
+Definition xseq_lemma := @Local_erase.
+Definition xlet_lemma := @Local_erase.
 
+
+Lemma xreturn_lemma_typed : forall `{Enc A1} (F:(A1->hprop)->hprop) (Q:A1->hprop) H,
+  H ==> F Q ->
+  H ==> ^(Formula_typed F) Q.
+Proof using.
+  introv M. unfold Formula_typed. hsimpl* Q. applys PostChange_refl.
+Qed.
+
+Lemma xreturn_lemma_val : forall `{Enc A1} (F:(A1->hprop)->hprop) (Q:val->hprop) H,
+  H ==> F (fun (X:A1) => Q (enc X)) ->
+  H ==> ^(Formula_typed F) Q.
+Proof using.
+  introv M. unfold Formula_typed. hsimpl* Q.
+  unfold PostChange. intros X. hsimpl* X.
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -268,30 +285,29 @@ Lemma triple_incr : forall (p:loc) (n:int),
     POST (fun (r:unit) => (p ~~> (n+1))).
 Proof using.
   intros.
-  (* xcf details: *)
+  (* optional simplification step to reveal [trm_apps] *)
   simpl combiner_to_trm.
-  (* xcf_prepare_args tt.  -- not needed here *)
-  (* let f := xcf_get_fun tt in 
-  unfold f. 
-  rew_trms_vals. *)
+  (* xcf *)
   applys Triple_apps_funs_of_Wp.
   { reflexivity. }
   { reflexivity. }
   { reflexivity. }
-  simpl. rew_enc_dyn. (* xcf_post tt. *)
-  (* fst call *)
-  apply Local_erase.
-  apply Local_erase.
-  applys @xapp_lemma. { applys Triple_get. }
-  hsimpl ;=> ? ->.
+  simpl.
+  (* xlet *)
+  applys xlet_lemma.
+  (* xlet *)
+  applys xlet_lemma.
+  (* xapps *)
+  applys @xapp_lemma. { applys Triple_get. } hsimpl ;=> ? ->.
   (* return *)
-  applys @Formula_typed_val. 
-  (* snd call *)
-  applys @xapp_lemma. { eapply @Triple_set. }
-  hsimpl. auto.
+  applys @xreturn_lemma_val.
+  (* xapp *)
+  applys @xapp_lemma. { eapply @Triple_set. } hsimpl.
+  (* done *) 
+  auto.
 Qed.
 
-(* SHOULD BE:
+(* TODO SHOULD BE:
 
   xcf.
   xlet. { xapp. xapplys triple_get. }
@@ -300,14 +316,12 @@ Qed.
   hpull ;=> ? ->.
   xapp. xapplys triple_set. auto.
 
-
 then just:
 
   xcf.
   xapp.
   xapp.
   xapp.
-
 
 *)
 
@@ -327,8 +341,7 @@ Lemma triple_test1 : forall (p:loc),
     POST (fun (u:unit) => \[]).
 Proof using.
   intros.
-  (* xcf details: *)
-  simpl combiner_to_trm.
+  (* xcf *)
   applys Triple_apps_funs_of_Wp; try reflexivity. simpl.
 Admitted.
 
@@ -346,14 +359,8 @@ Lemma triple_test2 : forall (p:loc),
     POST (fun (u:unit) => \[]).
 Proof using.
   intros.
-  (* xcf details: *)
- (* simpl combiner_to_trm.
-  xcf_prepare_args tt. (* -- not needed here *)
-  let f := xcf_get_fun tt in 
-  unfold f.
-  rew_trms_vals. *)
+  (* xcf *)
   applys Triple_apps_funs_of_Wp; try reflexivity. simpl.
-  (* unfold Wp_var. simpl. *)
 Admitted.
 
 
@@ -373,7 +380,7 @@ Lemma triple_test0 : forall (p:loc),
     POST (fun (u:unit) => \[]).
 Proof using.
   intros.
-  (* xcf details: *)
+  (* xcf *)
   applys Triple_apps_funs_of_Wp; try reflexivity. simpl.
 Admitted.
 
@@ -409,23 +416,29 @@ Lemma triple_pop : forall `{Enc A} (p:loc) (L:list A),
     POST (fun (x:A) => \exists L', \[L = x::L'] \* (p ~> Stack L')).
 Proof using.
   intros.
-  (* xcf details: 
-  simpl combiner_to_trm.
-  applys Triple_apps_funs_of_Wp'.
-  { reflexivity. }
-  { rew_trms_vals. reflexivity. }
-  { try xeq_encs. }
-  { reflexivity. } *)
+  (* xcf *)
   applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
-  (* start *)
+  (* xunfold *)
   xunfold Stack.
-  (* xlet *)
+  (* xlet-poly *)
   notypeclasses refine (xlet_instantiate _ _ _ _ _).
-  (* xapp *)
-  applys @xapp_lemma. { eapply @Triple_get. }
-  hsimpl ;=> ? ->.
+  (* xapps *)
+  applys @xapp_lemma. { eapply @Triple_get. } hsimpl ;=> ? ->.
+  (* Two ways of completing the proof *)
   dup.
-  (* xcase manual *)
+  (* xcase with lemma for match list *)
+  { applys xmatch_list.
+    { intros HL. false. }
+    { intros X L' HL. 
+      (* xseq *)
+      applys xseq_lemma.
+      (* xapp *)
+      applys @xapp_lemma. { applys @Triple_set. } hsimpl.
+      (* xval *)
+      applys~ xval_lemma.
+      (* done *)
+      hsimpl~. } }
+  (* inlining the proof of xmatch_list *)
   { applys xcase_lemma0 ;=> E1.
     { destruct L; tryfalse. }
     { applys xcase_lemma2.
@@ -433,27 +446,13 @@ Proof using.
       { intros x1 x2 E2. destruct L as [|x L']; rew_enc in *; tryfalse.
         inverts E2.
         (* xseq *)
-        (* applys xseq_lemma. *)  apply Local_erase.
+        applys xseq_lemma.
         (* xapp *)
-        applys @xapp_lemma. { applys @Triple_set. }
-        hsimpl.
+        applys @xapp_lemma. { applys @Triple_set. } hsimpl.
         (* xval *)
         applys~ xval_lemma.
         (* post *)
         hsimpl~. } } }
-  (* xcase with lemma for match list *)
-  { applys xmatch_list.
-    { intros HL. false. }
-    { intros X L' HL. 
-      (* xseq *)
-      (* applys xseq_lemma. *)  apply Local_erase.
-      (* xapp *)
-      applys @xapp_lemma. { applys @Triple_set. }
-      hsimpl.
-      (* xval *)
-     applys~ xval_lemma.
-      (* post *)
-      hsimpl~. } }
 Qed.
 
 
@@ -464,15 +463,16 @@ Lemma triple_empty : forall `{Enc A} (u:unit),
     POST (fun p => (p ~> Stack (@nil A))).
 Proof using.
   intros.
-  (* xcf details: *)
+  (* xcf *)
   applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
   (* xletval *)
-  apply Local_erase.
+  applys xlet_lemma.
   (* xval *)
   applys~ (xval_lemma_val (@nil A)).
   (* xapp *)
-  applys @xapp_lemma. { eapply @Triple_ref. }
-  hsimpl. auto.
+  applys @xapp_lemma. { eapply @Triple_ref. } hsimpl.
+  (* done *)
+  auto.
 Qed.
 
 
@@ -482,22 +482,22 @@ Lemma triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
     POST (fun (u:unit) => (p ~> Stack (x::L))).
 Proof using.
   intros.
-  (* xcf details: *)
+  (* xcf *)
   applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
   (* xunfold *)
   xunfold Stack.
-  (* xval *)
-  apply Local_erase.
   (* xlet *)
+  applys xlet_lemma.
+  (* xlet-poly *)
   notypeclasses refine (xlet_instantiate _ _ _ _ _).
   (* xapps *)
-  applys @xapp_lemma. { eapply @Triple_get. }
-  hsimpl ;=> ? ->.
+  applys @xapp_lemma. { eapply @Triple_get. } hsimpl ;=> ? ->.
   (* xval *)
   applys~ (xval_lemma_val (x::L)).
   (* xapps *)
-  applys @xapp_lemma. { eapply @Triple_set. }
-  hsimpl. auto.
+  applys @xapp_lemma. { eapply @Triple_set. } hsimpl. 
+  (* done *)
+  auto.
 Qed.
 
 
