@@ -126,6 +126,15 @@ Definition Wp_var (E:ctx) (x:var) : Formula :=
   | Some v => Wp_val v
   end.
 
+(** [Wp_var] prevents [simpl] from simplifying context lookups, hence we
+    inline its definition at the place of use, using a notation. *)
+
+Notation "'`Wp_var' E x" :=
+  (match Ctx.lookup x E with
+  | None => Wp_fail
+  | Some v => Wp_val v
+  end) (at level 37, E at level 0, x at level 0).
+
 Definition Wp_let (F1:Formula) (F2of:forall `{EA1:Enc A1},A1->Formula) : Formula :=
   Local (fun A (EA:Enc A) Q =>
     \exists (A1:Type) (EA1:Enc A1),
@@ -366,7 +375,7 @@ Fixpoint Wp (E:ctx) (t:trm) : Formula :=
   let aux := Wp E in
   match t with
   | trm_val v => Wp_val v
-  | trm_var x => Wp_var E x
+  | trm_var x => `Wp_var E x
   | trm_fixs f xs t1 =>
       match xs with 
       | nil => Wp_fail

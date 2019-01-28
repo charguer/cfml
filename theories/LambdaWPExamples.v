@@ -370,8 +370,7 @@ Proof using.
   intros.
   (* xcf details: *)
   simpl combiner_to_trm.
-  applys Triple_apps_funs_of_Wp''; try reflexivity.
-  simpl. rew_enc_dyn.
+  applys Triple_apps_funs_of_Wp''; try reflexivity. simpl.
 Admitted.
 
 
@@ -394,9 +393,8 @@ Proof using.
   let f := xcf_get_fun tt in 
   unfold f.
   rew_trms_vals. *)
-  applys Triple_apps_funs_of_Wp''; try reflexivity.
-  unfold Ctx.lookup_or_arbitrary. simpl.
-  unfold Wp_var. simpl.
+  applys Triple_apps_funs_of_Wp''; try reflexivity. simpl.
+  (* unfold Wp_var. simpl. *)
 Admitted.
 
 
@@ -444,7 +442,8 @@ Proof using.
   { reflexivity. }
   { reflexivity. }
   { reflexivity. }
-  simpl; unfold Wp_var.
+  simpl.
+  (* simpl; unfold Wp_var; simpl. *)
   (* start *)
   xunfold Stack.
   (* xlet *)
@@ -493,8 +492,7 @@ Lemma triple_empty : forall `{Enc A} (u:unit),
 Proof using.
   intros.
   (* xcf details: *)
-  applys Triple_apps_funs_of_Wp''; try reflexivity.
-  simpl.
+  applys Triple_apps_funs_of_Wp''; try reflexivity. simpl.
   (* xletval *)
   apply Local_erase'.
   (* xval *)
@@ -525,7 +523,6 @@ Lemma triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
 Proof using.
   intros.
   (* xcf details: *)
-  simpl combiner_to_trm.
   applys Triple_apps_funs_of_Wp''; try reflexivity. simpl.
   (* xunfold *)
   xunfold Stack.
