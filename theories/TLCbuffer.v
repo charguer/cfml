@@ -124,37 +124,37 @@ Proof.
   intros. destruct l; simpl; rew_bool_eq; auto_false.
 Qed.
 
-Lemma List_length_eq : forall A (l:list A),
-  List.length l = LibList.length l.
-Proof using. intros. induction l; simpl; rew_list; auto. Qed.
+Lemma List_length_eq :
+  List.length = LibList.length.
+Proof using. extens ;=> A l. induction l; simpl; rew_list; auto. Qed.
 
 Lemma List_fold_right_eq : forall A B (f:A->B->B) (l:list A) (b:B),
   List.fold_right f b l = LibList.fold_right f b l.
 Proof using. intros. induction l; simpl; rew_list; fequals. Qed.
 
-Lemma List_app_eq : forall A (L1 L2:list A),
-  List.app L1 L2 = LibList.app L1 L2.
+Lemma List_app_eq :
+  List.app = LibList.app.
 Proof using.
-  intros. induction L1; simpl; rew_list; congruence.
+  extens ;=> A L1 L2. induction L1; simpl; rew_list; congruence.
 Qed.
 
-Lemma List_rev_eq : forall A (L:list A),
-  List.rev L = LibList.rev L.
+Lemma List_rev_eq : forall A, (* LATER: why fails if A is not quantified here? *)
+  @List.rev A = @LibList.rev A.
 Proof using.
-  intros. induction L; simpl; rew_list. { auto. }
-  { rewrite List_app_eq. congruence. }
+  extens ;=> L. induction L; simpl; rew_list. { auto. }
+  { rewrite List_app_eq. simpl. congruence. }
 Qed.
 
-Lemma List_map_eq : forall A B (f:A->B) (L:list A),
-  List.map f L = LibList.map f L.
+Lemma List_map_eq :
+  List.map = LibList.map.
 Proof using.
-  intros. induction L; simpl; rew_listx; congruence.
+  extens ;=> A B f L. induction L; simpl; rew_listx; congruence.
 Qed.
 
 Lemma List_combine_eq : forall A B (L1:list A) (L2:list B),
   length L1 = length L2 ->
   List.combine L1 L2 = LibList.combine L1 L2.
-Proof using.
+Proof using. (* LATER: redo proof using list2_ind *)
   introv E. gen L2.
   induction L1 as [|x1 L1']; intros; destruct L2 as [|x2 L2']; tryfalse.
   { auto. }

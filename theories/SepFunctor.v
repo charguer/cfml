@@ -296,8 +296,23 @@ Notation "'\exists' ( x1 : T1 ) ( x2 : T2 ) ( x3 : T3 ) , H" := (\exists (x1:T1)
 
 Notation "'\forall' x1 , H" := (hforall (fun x1 => H))
   (at level 39, x1 ident, H at level 50) : heap_scope.
+Notation "'\forall' x1 x2 , H" := (\forall x1, \forall x2, H)
+  (at level 39, x1 ident, x2 ident, H at level 50) : heap_scope.
+Notation "'\forall' x1 x2 x3 , H" := (\forall x1, \forall x2, \forall x3, H)
+  (at level 39, x1 ident, x2 ident, x3 ident, H at level 50) : heap_scope.
+Notation "'\forall' x1 x2 x3 x4 , H" :=
+  (\forall x1, \forall x2, \forall x3, \forall x4, H)
+  (at level 39, x1 ident, x2 ident, x3 ident, x4 ident, H at level 50) : heap_scope.
+Notation "'\forall' x1 x2 x3 x4 x5 , H" :=
+  (\forall x1, \forall x2, \forall x3, \forall x4, \forall x5, H)
+  (at level 39, x1 ident, x2 ident, x3 ident, x4 ident, x5 ident, H at level 50) : heap_scope.
+
 Notation "'\forall' ( x1 : T1 ) , H" := (hforall (fun x1:T1 => H))
   (at level 39, x1 ident, H at level 50, only parsing) : heap_scope.
+Notation "'\forall' ( x1 : T1 ) ( x2 : T2 ) , H" := (\forall (x1:T1), \forall (x2:T2), H)
+  (at level 39, x1 ident, x2 ident, H at level 50, only parsing) : heap_scope.
+Notation "'\forall' ( x1 : T1 ) ( x2 : T2 ) ( x3 : T3 ) , H" := (\forall (x1:T1), \forall (x2:T2), \forall (x3:T3), H)
+  (at level 39, x1 ident, x2 ident, x3 ident, H at level 50, only parsing) : heap_scope.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -552,12 +567,36 @@ Lemma himpl_hand_l_l : forall H1 H2,
   hand H1 H2 ==> H2.
 Proof using. intros. unfolds hand. applys* himpl_hforall_l_for false. Qed.
 
+Lemma himpl_hand_r : forall H1 H2 H3,
+  H1 ==> H2 ->
+  H1 ==> H3 ->
+  H1 ==> hand H2 H3.
+Proof using. introv M1 M2 Hh. intros b. case_if*. Qed.
+
 (* Note: there are still missing properties for [himpl] on [hand] and [hor].
    For properties on [hwand], see further on. *)
 
-Lemma hwand_eq_hexists_hstar_hpure : forall H1 H2,
+(* TODO: decide whether should stay here *)
+
+Lemma hwand_eq_hexists_hstar_hpure' : forall H1 H2,
   (H1 \-* H2) = (\exists H, H \* \[H \* H1 ==> H2]).
 Proof using. auto. Qed.
+
+Lemma hwand_of_himpl' : forall H1 H2,
+  H1 ==> H2 ->
+  \[] ==> (H1 \-* H2).
+Proof using.
+  introv M. rewrite hwand_eq_hexists_hstar_hpure'.
+  applys himpl_hexists_r \[]. rewrite hstar_comm. 
+  applys himpl_hpure_r. { rewrite* hstar_hempty_l. } { auto. }
+Qed.
+
+Lemma qwand_of_qimpl' : forall A (Q1 Q2:A->hprop),
+  Q1 ===> Q2 ->
+  \[] ==> Q1 \--* Q2.
+Proof using.
+  introv M. applys himpl_hforall_r. intros x. applys* hwand_of_himpl'.
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1647,7 +1686,6 @@ Abort.
 
 *)
 
-
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [hhsimpl] to prove [H h] from [H' h] *)
 
@@ -1783,6 +1821,10 @@ Tactic Notation "hchange" constr(E1) constr(E2) constr(E3) :=
 (* ---------------------------------------------------------------------- *)
 (* ** Magic wand on [hprop] *)
 
+Lemma hwand_eq_hexists_hstar_hpure : forall H1 H2,
+  (H1 \-* H2) = (\exists H, H \* \[H \* H1 ==> H2]).
+Proof using. auto. Qed.
+
 Lemma hwand_himpl_r : forall H1 H2 H2',
   H2 ==> H2' ->
   (H1 \-* H2) ==> (H1 \-* H2').
@@ -1817,6 +1859,11 @@ Lemma hwand_move_l : forall H1 H2 H3,
   H1 \* H2 ==> H3 ->
   H1 ==> (H2 \-* H3).
 Proof using. introv M. unfold hwand. hsimpl~. Qed.
+
+Lemma hwand_move_l_pure : forall H1 H2 (P:Prop),
+  (P -> H1 ==> H2) ->
+  H1 ==> (\[P] \-* H2).
+Proof using. introv M. applys hwand_move_l. hsimpl*. Qed.
 
 Lemma hwand_cancel_part : forall H1 H2 H3,
   H1 \* ((H1 \* H2) \-* H3) ==> (H2 \-* H3).
@@ -1927,6 +1974,39 @@ Proof using.
   introv M. unfold qwand. intros h Hh x. hhsimpl.
   applys hwand_move_l. hchanges M.
 Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [hsimpl_wand] *)
+
+(* TODO: merge into hsimpl *)
+
+(*
+hsimpl_wand exploits:
+
+hwand_of_himpl
+  H1 ==> H2 ->
+  \[] ==> (H1 \-* H2).
+
+qwand_of_qimpl
+  Q1 ===> Q2 ->
+  \[] ==> Q1 \--* Q2.
+
+hwand_move_l
+  H1 \* H2 ==> H3 ->
+  H1 ==> (H2 \-* H3).
+
+qwand_move_l
+  Q1 \*+ H ===> Q2 ->
+  H ==> (Q1 \--* Q2).
+*)
+
+
+Ltac hsimpl_wand :=
+  first [ applys qwand_of_qimpl 
+        | applys qwand_move_l
+        | applys hwand_of_himpl 
+        | applys hwand_move_l ].
 
 
 (* ********************************************************************** *)

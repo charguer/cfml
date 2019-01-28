@@ -232,6 +232,36 @@ Coercion combiner_to_trm : combiner >-> trm.
 
 
 (* ---------------------------------------------------------------------- *)
+(** A computable inverse function for [trms_vals] *)
+
+Fixpoint trms_to_vals_rec (acc:vals) (ts:trms) : option vals :=
+  match ts with
+  | nil => Some (List.rev acc)
+  | trm_val v :: ts' => trms_to_vals_rec (v::acc) ts'
+  | _ => None
+  end.
+
+Definition trms_to_vals (ts:trms) : option vals :=
+  trms_to_vals_rec nil ts.
+
+Lemma trms_to_vals_rec_spec : forall ts vs acc, 
+  trms_to_vals_rec acc ts = Some vs ->
+  trms_vals (List.rev acc) ++ ts = trms_vals vs.
+Proof using. 
+  intros ts. induction ts as [|t ts']; simpl; introv E.
+  { inverts E. rew_list~. }
+  { destruct t; inverts E as E. forwards IH: IHts' E.
+    rewrite List_rev_eq in *. unfold trms_vals in *.
+    rew_listx~ in IH. }
+Qed.
+
+Lemma trms_to_vals_spec : forall ts vs,
+  trms_to_vals ts = Some vs ->
+  ts = trms_vals vs.
+Proof using. intros. applys* trms_to_vals_rec_spec (@nil val). Qed.
+
+
+(* ---------------------------------------------------------------------- *)
 (** Induction principle for terms *)
 
 (** The following section provides support for
@@ -1202,6 +1232,21 @@ Hint Extern 1 (measure trm_size _ _) => solve_measure_trm_size tt.
 (* ---------------------------------------------------------------------- *)
 (** Notation for concrete programs *)
 
+(* LATER VERSION OF COQ
+Declare Scope val_scope.
+Declare Scope pat_scope.
+Declare Scope trm_scope.
+*)
+
+Notation "'dummy_val'" := True (only parsing) : val_scope.
+Notation "'dummy_pat'" := True (only parsing) : pat_scope.
+Notation "'dummy_trm'" := True (only parsing) : trm_scope.
+
+
+Delimit Scope val_scope with val.
+Delimit Scope pat_scope with pat.
+Delimit Scope trm_scope with trm.
+
 Module NotationForTerms.
 
 (** Note: below, many occurences of [x] have type [bind], and not [var] *)
@@ -1314,9 +1359,9 @@ Notation "'For' x ':=' t1 'To' t2 'Do' t3 'Done'" :=
 
 Notation "'Fail" := trm_fail : trm_scope.
 
-Notation "'Case' t1 '=' p 'Then' t2 'Else' t3" :=
+Notation "'Case'' t1 '=' p 'Then' t2 'Else' t3" :=
   (trm_case t1 p t2 t3)
-  (at level 69) : trm_scope.
+  (at level 69, t1 at level 0) : trm_scope.
 
 Notation "'Match' v 'With' ''|' p1 ''=>' t1 ''|' p2 ''=>' t2 'End'" :=
   (trm_case (v:var) p1 t1 (trm_case v p2 t2 trm_fail))
@@ -1413,12 +1458,12 @@ Notation "t1 ':: t2" :=
   (at level 67) : trm_scope.
 
 Notation "''nil'" :=
-  (val_constr "nil" nil)
-  (at level 0, only printing) : val_scope.
+  (val_constr "nil" (@nil _))
+  (at level 0) : val_scope.
 
 Notation "v1 ':: v2" :=
-  (val_constr "cons" (v1::v2::nil))
-  (at level 67, only printing) : val_scope.
+  (val_constr "cons" ((v1:val)::(v2:val)::nil))
+  (at level 67) : val_scope.
 
 Notation "''nil'" :=
   (pat_constr "nil" nil)
@@ -1428,8 +1473,9 @@ Notation "p1 ':: p2" :=
   (pat_constr "cons" (p1::p2::nil))
   (at level 67, only printing) : pat_scope.
 
-Open Scope pat_scope.
 
+Open Scope trm_scope.
+Open Scope pat_scope.
 Open Scope val_scope.
 
 
