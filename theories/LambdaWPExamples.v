@@ -390,6 +390,10 @@ Admitted.
 
 (* TODO: is_empty, append *)
 
+Definition val_is_empty : val :=
+  ValFun 'p :=
+    (val_get 'p '= true).
+
 Definition val_empty : val :=
   ValFun 'u :=
    val_ref 'nil.

@@ -1393,19 +1393,19 @@ Notation "'- t" :=
 
 Notation "t1 '+ t2" :=
   (val_add t1 t2)
-  (at level 69) : trm_scope.
+  (at level 68) : trm_scope.
 
 Notation "t1 '- t2" :=
   (val_sub t1 t2)
-  (at level 69) : trm_scope.
+  (at level 68) : trm_scope.
 
 Notation "t1 '= t2" :=
   (val_eq t1 t2)
-  (at level 69) : trm_scope.
+  (at level 68) : trm_scope.
 
 Notation "t1 '<> t2" :=
   (val_neq t1 t2)
-  (at level 69) : trm_scope.
+  (at level 68) : trm_scope.
 
 (* TODO: conflict with TCL? to resolve *)
 
