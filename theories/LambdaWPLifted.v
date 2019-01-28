@@ -701,8 +701,8 @@ Delimit Scope wp_scope with wp.
 Open Scope wp_scope.
 
 Notation "'`' F" :=
-  ((is_Wp F))
-  (at level 69) : wp_scope.
+  ((is_Wp F%wp))
+  (at level 69, format "'`' F") : wp_scope.
 
 Notation "'CODE' F 'POST' Q" := ((is_Wp F) _ _ Q)
   (at level 8, F, Q at level 0,
@@ -713,147 +713,147 @@ Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (is_Wp F) _ _ Q)
    format "'[v' 'PRE'  H  '/' 'CODE'  F '/' 'POST'  Q ']'") : wp_scope.
 
 
-Notation "'`Fail'" :=
+Notation "'Fail'" :=
   ((Wp_fail))
   (at level 69) : wp_scope.
 
-Notation "'`Val' v" :=
+Notation "'Val' v" :=
   ((Wp_val v))
   (at level 69) : wp_scope.
 
-Notation "'`Return' F " :=
+Notation "'Return' F " :=
   (Formula_typed F)
   (at level 68) : wp_scope.
 
-Notation "'``Let' x ':=' F1 'in' F2" :=
+Notation "'`Let' x ':=' F1 'in' F2" :=
   ((Wp_let_typed F1 (fun x => F2)))
   (at level 69, x ident, right associativity,
-  format "'[v' '[' '``Let'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
+  format "'[v' '[' '`Let'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
 
-Notation "'`Let' [ A EA ] x ':=' F1 'in' F2" :=
+Notation "'Let' [ A EA ] x ':=' F1 'in' F2" :=
   ((Wp_let F1 (fun A EA x => F2)))
   (at level 69, A at level 0, EA at level 0, x ident, right associativity,
-  format "'[v' '[' '`Let'  [ A  EA ]  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
+  format "'[v' '[' 'Let'  [ A  EA ]  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
 
-Notation "'`Seq' F1 ;;; F2" :=
+Notation "'Seq' F1 ;;; F2" :=
   ((Wp_seq F1 F2))
   (at level 68, right associativity,
-   format "'[v' '`Seq'  '[' F1 ']'  ;;;  '/'  '[' F2 ']' ']'") : wp_scope.
+   format "'[v' 'Seq'  '[' F1 ']'  ;;;  '/'  '[' F2 ']' ']'") : wp_scope.
 
-Notation "'``Letval' x ':=' v 'in' F2" :=
+Notation "'`Letval' x ':=' v 'in' F2" :=
   ((Wp_letval_typed v (fun x => F2)))
   (at level 69, x ident, right associativity,
-  format "'[v' '[' '``Letval'  x  ':='  v  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
+  format "'[v' '[' '`Letval'  x  ':='  v  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
 
-Notation "'`Letval' [ A EA ] x ':=' v 'in' F2" :=
+Notation "'Letval' [ A EA ] x ':=' v 'in' F2" :=
   ((Wp_letval v (fun A EA x => F2)))
   (at level 69, A at level 0, EA at level 0, x ident, right associativity,
-  format "'[v' '[' '`Letval'  [ A  EA ]  x  ':='  v  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
+  format "'[v' '[' 'Letval'  [ A  EA ]  x  ':='  v  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
  
 (*
-Notation "'`App' f t1 " :=
+Notation "'App' f t1 " :=
   (Wp_app (trm_apps f (t1::nil)))
   (at level 68, f, t1 at level 0) : wp_scope.
 
-Notation "'`App' f t1 t2 " :=
+Notation "'App' f t1 t2 " :=
   (Wp_app (trm_apps f (t1::t2::nil)))
   (at level 68, f, t1, t2 at level 0) : wp_scope.
 
-Notation "'`App' f t1 t2 t3 " :=
+Notation "'App' f t1 t2 t3 " :=
   (Wp_app (trm_apps f (t1::t2::t3::nil)))
   (at level 68, f, t1, t2, t3 at level 0) : wp_scope.
 *)
 
-Notation "'`App' f v1 " :=
+Notation "'App' f v1 " :=
   ((Wp_app (trm_apps f (trms_vals (v1::nil)))))
   (at level 68, f, v1 at level 0) : wp_scope.
 
-Notation "'`App' f v1 v2 " :=
+Notation "'App' f v1 v2 " :=
   ((Wp_app (trm_apps f (trms_vals (v1::v2::nil)))))
   (at level 68, f, v1, v2 at level 0) : wp_scope.
 
-Notation "'`App' f v1 v2 v3 " :=
+Notation "'App' f v1 v2 v3 " :=
   ((Wp_app (trm_apps f (trms_vals (v1::v2::v3::nil)))))
   (at level 68, f, v1, v2, v3 at level 0) : wp_scope.
 
 (* TODO: recursive notation for App *)
 
 (*
-Notation "'`Apptrm' t " :=
+Notation "'Apptrm' t " :=
   ((Wp_app t))
   (at level 68, t at level 0) : wp_scope.
 *)
 
-Notation "'`Ifval' b 'Then' F1 'Else' F2" :=
+Notation "'Ifval' b 'Then' F1 'Else' F2" :=
   ((Wp_if_val b F1 F2))
   (at level 69) : wp_scope.
 
-Notation "'`If' F0 'Then' F1 'Else' F2" :=
+Notation "'If' F0 'Then' F1 'Else' F2" :=
   ((Wp_if F0 F1 F2))
   (at level 69, F0 at level 0) : wp_scope.
 
-Notation "'`While' F1 'Do' F2 'Done'" :=
+Notation "'While' F1 'Do' F2 'Done'" :=
   ((Wp_while F1 F2))
   (at level 69, F2 at level 68,
-   format "'[v' '`While'  F1  'Do'  '/' '[' F2 ']' '/'  'Done' ']'")
+   format "'[v' 'While'  F1  'Do'  '/' '[' F2 ']' '/'  'Done' ']'")
    : wp_scope.
 
-Notation "'`For' x '=' n1 'To' n2 'Do' F3 'Done'" :=
+Notation "'For' x '=' n1 'To' n2 'Do' F3 'Done'" :=
   ((Wp_for_int n1 n2 (fun x => F3)))
   (at level 69, x ident,
-   format "'[v' '`For'  x  '='  n1  'To'  n2  'Do'  '/' '[' F3 ']' '/'  'Done' ']'")
+   format "'[v' 'For'  x  '='  n1  'To'  n2  'Do'  '/' '[' F3 ']' '/'  'Done' ']'")
   : wp_scope.
 
-Notation "'`Case' v '=' vp 'Then' F1 'Else' F2" :=
+Notation "'Case' v '=' vp 'Then' F1 'Else' F2" :=
   ((Wp_case_val (fun A EA Q => \[v = vp%val] \-* F1 A EA Q) (v <> vp%val) F2))
   (at level 69, v, vp at level 0,
-   format "'[v' '`Case'  v  '=' vp  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
+   format "'[v' 'Case'  v  '=' vp  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
    : wp_scope.
 
-Notation "'`Case' v '=' vp [ x1 ] 'Then' F1 'Else' F2" :=
+Notation "'Case' v '=' vp [ x1 ] 'Then' F1 'Else' F2" :=
   ((Wp_case_val (fun A EA Q => \forall x1, \[v = vp%val] \-* F1 A EA Q) (forall x1, v <> vp%val) F2))
   (at level 69, v, vp at level 0, x1 ident,
-   format "'[v' '`Case'  v  '='  vp  [ x1 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
+   format "'[v' 'Case'  v  '='  vp  [ x1 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
    : wp_scope.
 
-Notation "'`Case' v '=' vp [ x1 x2 ] 'Then' F1 'Else' F2" :=
+Notation "'Case' v '=' vp [ x1 x2 ] 'Then' F1 'Else' F2" :=
   ((Wp_case_val (fun A EA Q => \forall x1 x2, \[v = vp%val] \-* F1 A EA Q) (forall x1 x2, v <> vp%val) F2))
   (at level 69, v, vp at level 0, x1 ident, x2 ident,
-   format "'[v' '`Case'  v  '='  vp  [ x1  x2 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
+   format "'[v' 'Case'  v  '='  vp  [ x1  x2 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
    : wp_scope.
 
-Notation "'`Case' v '=' vp [ x1 x2 ] 'Then' F1 'Else' F2" :=
+Notation "'Case' v '=' vp [ x1 x2 ] 'Then' F1 'Else' F2" :=
   ((Wp_case_val (fun A EA Q => \forall x1 x2, \[v = vp%val] \-* F1 A EA Q) (forall x1 x2, v <> vp%val) F2))
   (at level 69, v, vp at level 0, x1 ident, x2 ident,
-   format "'[v' '`Case'  v  '='  vp  [ x1  x2 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
+   format "'[v' 'Case'  v  '='  vp  [ x1  x2 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
    : wp_scope.
 
-Notation "'`Match' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 ] ''=>' F2" :=
-  (`Case v = vp1%val Then F1 Else 
-   `Case v = vp2%val [ x21 x22 ] Then F2 Else 
-   `Fail) (at level 69, v, vp1, vp2 at level 0, x21 ident,
-   format "'[v' '`Match'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21 ]  ''=>'  '/' F2 ']' ']'")
+Notation "'Match' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 ] ''=>' F2" :=
+  (Case v = vp1%val Then F1 Else 
+   Case v = vp2%val [ x21 x22 ] Then F2 Else 
+   Fail) (at level 69, v, vp1, vp2 at level 0, x21 ident,
+   format "'[v' 'Match'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21 ]  ''=>'  '/' F2 ']' ']'")
   : wp_scope.
 
-Notation "'`Match' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>' F2" :=
-  (`Case v = vp1%val Then F1 Else 
-   `Case v = vp2%val [ x21 x22 ] Then F2 Else 
-   `Fail) (at level 69, v, vp1, vp2 at level 0, x21 ident, x22 ident,
-   format "'[v' '`Match'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
+Notation "'Match' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>' F2" :=
+  (Case v = vp1%val Then F1 Else 
+   Case v = vp2%val [ x21 x22 ] Then F2 Else 
+   Fail) (at level 69, v, vp1, vp2 at level 0, x21 ident, x22 ident,
+   format "'[v' 'Match'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
   : wp_scope.
 
-Notation "'`Match' v 'With' ''|' vp1 [ x11 ] ''=>' F1 ''|' vp2 [ x21 ] ''=>' F2" :=
-  (`Case v = vp1%val [ x11 ] Then F1 Else 
-   `Case v = vp2%val [ x21 ] Then F2 Else 
-   `Fail) (at level 69, v, vp1, vp2 at level 0, x11 ident, x21 ident,
-   format "'[v' '`Match'  v  'With'  '[' '/' ''|'  vp1  [ x11 ] ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  ]  ''=>'  '/' F2 ']' ']'")
+Notation "'Match' v 'With' ''|' vp1 [ x11 ] ''=>' F1 ''|' vp2 [ x21 ] ''=>' F2" :=
+  (Case v = vp1%val [ x11 ] Then F1 Else 
+   Case v = vp2%val [ x21 ] Then F2 Else 
+   Fail) (at level 69, v, vp1, vp2 at level 0, x11 ident, x21 ident,
+   format "'[v' 'Match'  v  'With'  '[' '/' ''|'  vp1  [ x11 ] ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  ]  ''=>'  '/' F2 ']' ']'")
   : wp_scope.
 
-Notation "'`Match' v 'With' ''|' vp1 [ x11 ] ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>' F2" :=
-  (`Case v = vp1%val [ x11 ] Then F1 Else 
-   `Case v = vp2%val [ x21 x22 ] Then F2 Else 
-   `Fail) (at level 69, v, vp1, vp2 at level 0, x11 ident, x21 ident, x22 ident,
-   format "'[v' '`Match'  v  'With'  '[' '/' ''|'  vp1  [ x11 ] ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
+Notation "'Match' v 'With' ''|' vp1 [ x11 ] ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>' F2" :=
+  (Case v = vp1%val [ x11 ] Then F1 Else 
+   Case v = vp2%val [ x21 x22 ] Then F2 Else 
+   Fail) (at level 69, v, vp1, vp2 at level 0, x11 ident, x21 ident, x22 ident,
+   format "'[v' 'Match'  v  'With'  '[' '/' ''|'  vp1  [ x11 ] ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
   : wp_scope.
 
 
