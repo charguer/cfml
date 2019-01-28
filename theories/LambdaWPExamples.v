@@ -225,7 +225,7 @@ Qed.
 Lemma xmatch_list : forall `{EA:Enc A} (L:list A) (F1:Formula) (F2:val->val->Formula) H `{HB:Enc B} (Q:B->hprop),
   (L = nil -> H ==> ^F1 Q) ->
   (forall X L', L = X::L' -> H ==> ^(F2 ``X ``L') Q) ->
-  H ==> ^(`Match ``L With
+  H ==> ^(Match' ``L With
          '| 'nil '=> F1
          '| vX ':: vL' [vX vL'] '=> F2 vX vL') Q.
 Proof using.
@@ -320,6 +320,7 @@ then just:
 (* ---------------------------------------------------------------------- *)
 (* ** Case without variables *)
 
+
 Definition val_test1 : val :=
   ValFun 'p :=
     Case' 'p = pat_unit Then 'Fail Else 'Fail.
@@ -360,6 +361,26 @@ Proof using.
 Admitted.
 
 
+(* ---------------------------------------------------------------------- *)
+(* ** Match without variables *)
+
+
+Definition val_test0 : val :=
+  ValFun 'p :=
+    Case' 'p = pat_unit Then 'Fail Else
+    Case' 'p = pat_unit Then 'p Else 
+    'Fail.
+
+Lemma triple_test0 : forall (p:loc),
+  TRIPLE (val_test0 ``p)
+    PRE \[]
+    POST (fun (u:unit) => \[]).
+Proof using.
+  intros.
+  (* xcf details: *)
+  applys Triple_apps_funs_of_Wp; try reflexivity. simpl.
+Admitted.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Stack *)
@@ -385,9 +406,6 @@ Definition val_pop : val :=
 Definition Stack `{Enc A} (L:list A) (p:loc) : hprop :=
   p ~~> L.
 
-
-
-
 Lemma triple_pop : forall `{Enc A} (p:loc) (L:list A),
   L <> nil ->
   TRIPLE (val_pop ``p)
@@ -403,7 +421,6 @@ Proof using.
   { try xeq_encs. }
   { reflexivity. } *)
   applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
-  (* simpl; unfold Wp_var; simpl. *)
   (* start *)
   xunfold Stack.
   (* xlet *)
@@ -463,18 +480,6 @@ Proof using.
   hsimpl.
 Qed.
 
-(*
-Definition enc_list `{Enc A} := (fix f (l:list A) :=
-  match l with
-  | nil => val_constr 0%nat nil
-  | x::l' => val_constr 1%nat ((``x)::(f l')::nil)
-  end).
-
-Instance Enc_list2 : forall `{Enc A}, Enc (list A).
-Proof using. constructor. applys enc_list. Defined.
-
-Opaque enc_list.
-*)
 
 Lemma triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
   TRIPLE (val_push ``p ``x)

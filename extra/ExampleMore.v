@@ -516,3 +516,18 @@ Admitted.
   { rew_list. math. }
 Qed.
 *)
+
+
+
+(*
+Definition enc_list `{Enc A} := (fix f (l:list A) :=
+  match l with
+  | nil => val_constr 0%nat nil
+  | x::l' => val_constr 1%nat ((``x)::(f l')::nil)
+  end).
+
+Instance Enc_list2 : forall `{Enc A}, Enc (list A).
+Proof using. constructor. applys enc_list. Defined.
+
+Opaque enc_list.
+*)

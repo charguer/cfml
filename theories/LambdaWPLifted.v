@@ -702,7 +702,7 @@ Open Scope wp_scope.
 
 Notation "'`' F" :=
   ((is_Wp F%wp))
-  (at level 69, format "'`' F") : wp_scope.
+  (at level 69, F at level 100, format "'`' F") : wp_scope.
 
 Notation "'CODE' F 'POST' Q" := ((is_Wp F) _ _ Q)
   (at level 8, F, Q at level 0,
@@ -828,32 +828,41 @@ Notation "'Case' v '=' vp [ x1 x2 ] 'Then' F1 'Else' F2" :=
    format "'[v' 'Case'  v  '='  vp  [ x1  x2 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
    : wp_scope.
 
-Notation "'Match' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 ] ''=>' F2" :=
+(** Needs to use [Match'] as keyword otherwise there is a parsing conflict *)
+
+Notation "'Match'' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 ''=>' F2" :=
   (Case v = vp1%val Then F1 Else 
-   Case v = vp2%val [ x21 x22 ] Then F2 Else 
-   Fail) (at level 69, v, vp1, vp2 at level 0, x21 ident,
-   format "'[v' 'Match'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21 ]  ''=>'  '/' F2 ']' ']'")
+   is_Wp (Case v = vp2%val Then F2 Else 
+   is_Wp (Fail))) (at level 69, v, vp1, vp2 at level 0,
+   format "'[v' 'Match''  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  ''=>'  '/' F2 ']' ']'")
   : wp_scope.
 
-Notation "'Match' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>' F2" :=
+Notation "'Match'' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 ] ''=>' F2" :=
   (Case v = vp1%val Then F1 Else 
-   Case v = vp2%val [ x21 x22 ] Then F2 Else 
-   Fail) (at level 69, v, vp1, vp2 at level 0, x21 ident, x22 ident,
-   format "'[v' 'Match'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
+   is_Wp (Case v = vp2%val [ x21 ] Then F2 Else 
+   is_Wp (Fail))) (at level 69, v, vp1, vp2 at level 0, x21 ident,
+   format "'[v' 'Match''  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21 ]  ''=>'  '/' F2 ']' ']'")
   : wp_scope.
 
-Notation "'Match' v 'With' ''|' vp1 [ x11 ] ''=>' F1 ''|' vp2 [ x21 ] ''=>' F2" :=
-  (Case v = vp1%val [ x11 ] Then F1 Else 
-   Case v = vp2%val [ x21 ] Then F2 Else 
-   Fail) (at level 69, v, vp1, vp2 at level 0, x11 ident, x21 ident,
-   format "'[v' 'Match'  v  'With'  '[' '/' ''|'  vp1  [ x11 ] ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  ]  ''=>'  '/' F2 ']' ']'")
+Notation "'Match'' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>' F2" :=
+  (Case v = vp1%val Then F1 Else 
+   is_Wp (Case v = vp2%val [ x21 x22 ] Then F2 Else 
+   is_Wp (Fail))) (at level 69, v, vp1, vp2 at level 0, x21 ident, x22 ident,
+   format "'[v' 'Match''  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
   : wp_scope.
 
-Notation "'Match' v 'With' ''|' vp1 [ x11 ] ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>' F2" :=
+Notation "'Match'' v 'With' ''|' vp1 [ x11 ] ''=>' F1 ''|' vp2 [ x21 ] ''=>' F2" :=
   (Case v = vp1%val [ x11 ] Then F1 Else 
-   Case v = vp2%val [ x21 x22 ] Then F2 Else 
-   Fail) (at level 69, v, vp1, vp2 at level 0, x11 ident, x21 ident, x22 ident,
-   format "'[v' 'Match'  v  'With'  '[' '/' ''|'  vp1  [ x11 ] ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
+   is_Wp (Case v = vp2%val [ x21 ] Then F2 Else 
+   is_Wp (Fail))) (at level 69, v, vp1, vp2 at level 0, x11 ident, x21 ident,
+   format "'[v' 'Match''  v  'With'  '[' '/' ''|'  vp1  [ x11 ] ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  ]  ''=>'  '/' F2 ']' ']'")
+  : wp_scope.
+
+Notation "'Match'' v 'With' ''|' vp1 [ x11 ] ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>' F2" :=
+  (Case v = vp1%val [ x11 ] Then F1 Else 
+   is_Wp (Case v = vp2%val [ x21 x22 ] Then F2 Else 
+   is_Wp (Fail))) (at level 69, v, vp1, vp2 at level 0, x11 ident, x21 ident, x22 ident,
+   format "'[v' 'Match''  v  'With'  '[' '/' ''|'  vp1  [ x11 ] ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
   : wp_scope.
 
 
