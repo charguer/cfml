@@ -102,6 +102,13 @@ Hint Resolve is_local_Local.
 
 
 (* ---------------------------------------------------------------------- *)
+(* ** Tag for improved pretty-printing of CF *)
+
+Definition is_Wp (F:Formula) : Formula := F.
+
+
+
+(* ---------------------------------------------------------------------- *)
 (* ** Definition of CF blocks *)
 
 (** These auxiliary definitions give the characteristic formula
@@ -242,7 +249,7 @@ Definition Wp_app (t:trm) : Formula :=
 Definition Wp_apps Wp (E:ctx) (v0:func) : list val -> list trm -> Formula := 
   (fix mk (rvs : list val) (ts : list trm) : Formula :=
     match ts with
-    | nil => Wp_app (trm_apps v0 (trms_vals (List.rev rvs)))
+    | nil => is_Wp (Wp_app (trm_apps v0 (trms_vals (List.rev rvs))))
     | t1::ts' => Wp_getval_val Wp E t1 (fun v1 => mk (v1::rvs) ts')
     end).
 
@@ -367,13 +374,12 @@ Definition Wp_case_val (v1:val) (p:pat) (F1of:ctx->Formula) (F2:Formula) : Formu
          (\[forall (G:ctx), Ctx.dom G = patvars p -> v1 <> patsubst G p] \-* ^F2 Q) ).
 *)
 
-
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of the CF generator *)
 
 Fixpoint Wp (E:ctx) (t:trm) : Formula :=
   let aux := Wp E in
-  match t with
+  is_Wp match t with
   | trm_val v => Wp_val v
   | trm_var x => `Wp_var E x
   | trm_fixs f xs t1 =>
@@ -383,7 +389,8 @@ Fixpoint Wp (E:ctx) (t:trm) : Formula :=
       end
   | trm_constr id ts => Wp_constr Wp E id nil ts
   | trm_if t0 t1 t2 =>
-     Wp_getval_typed Wp E t0 (fun b0 => Wp_if_val b0 (aux t1) (aux t2))
+     Wp_getval_typed Wp E t0 (fun b0 => 
+       is_Wp (Wp_if_val b0 (aux t1) (aux t2)))
   | trm_let z t1 t2 =>
      match z with
      | bind_anon => Wp_seq (aux t1) (aux t2)
@@ -394,7 +401,7 @@ Fixpoint Wp (E:ctx) (t:trm) : Formula :=
   | trm_for x t1 t2 t3 => 
      Wp_getval_typed Wp E t1 (fun n1 =>
        Wp_getval_typed Wp E t2 (fun n2 =>
-         Wp_for_int n1 n2 (fun n => Wp (Ctx.add x (enc n) E) t3)))
+         is_Wp (Wp_for_int n1 n2 (fun n => Wp (Ctx.add x (enc n) E) t3))))
   | trm_case t1 p t2 t3 =>
       Wp_getval' Wp E t1 (fun v1 =>
         let xs := patvars p in
@@ -407,7 +414,7 @@ Fixpoint Wp (E:ctx) (t:trm) : Formula :=
   end.
 
 (* LATER: uniformiser t0 vs t1 for trm_if *)
-(* 
+ 
 
 (* ********************************************************************** *)
 (* * Soundness proof *)
@@ -444,14 +451,23 @@ Proof using. introv M. intros Q. rewrite~ <- Triple_eq_himpl_Wp_Triple. Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Soundness of the [local] transformer *)
 
-(** The [local] transformer is sound w.r.t. [triple] *)
+(** [The [Local] transformer may be stripped from the postcondition. *)
+
+Lemma Local_erase : forall H F `{EA:Enc A} (Q:A->hprop),
+  H ==> ^F Q ->
+  H ==> ^(Local F) Q.
+Proof using.
+  introv M. hchanges M. applys local_erase.
+Qed.
+
+(** The [Local] transformer is sound w.r.t. [Triple], in other words, it
+    may be stripped from the precondition. *)
 
 Lemma Triple_local_pre : forall t (F:Formula) `{EA:Enc A} (Q:A->hprop),
   (forall Q, Triple t (^F Q) Q) ->
   Triple t (^(Local F) Q) Q.
 Proof using.
-  introv M.
-  rewrite is_local_Triple. unfold SepBasicSetup.local.
+  introv M. rewrite is_local_Triple. unfold SepBasicSetup.local.
   unfold Local, local. hpull ;=> Q'.
   hsimpl (F A EA Q') ((Q' \--* Q \*+ \Top)) Q'. split.
   { applys~ M. }
@@ -465,7 +481,7 @@ Ltac remove_Local :=
   match goal with |- @Triple _ _ _ _ ?Q =>
     applys Triple_local_pre; try (clear Q; intros Q); fold wp end.
 
-
+(*
 (* ---------------------------------------------------------------------- *)
 (* ** Soundness of [wp] *)
 
@@ -644,6 +660,8 @@ Proof using.
     destruct t2; try solve [ applys @himpl_wp_fail_l ].
     applys* Wp_sound_for_val. }
 Qed.
+ *)
+
 
 
 (* ---------------------------------------------------------------------- *)
@@ -651,36 +669,29 @@ Qed.
 
 Lemma Triple_isubst_Wp : forall t E `{EA:Enc A} (Q:A->hprop),
   Triple (isubst E t) (^(Wp E t) Q) Q.
-Proof using.
+Proof using. Admitted. (* TODO
   intros. rewrite Triple_eq_himpl_Wp_Triple. applys Wp_sound_trm.
-Qed.
+Qed.*)
 
 Lemma Triple_isubst_of_Wp : forall t E H `{EA:Enc A} (Q:A->hprop),
   H ==> ^(Wp E t) Q ->
   Triple (isubst E t) H Q.
 Proof using. introv M. xchanges M. applys Triple_isubst_Wp. Qed.
 
- *)
-
 Lemma Triple_of_Wp : forall (t:trm) H `{EA:Enc A} (Q:A->hprop),
   H ==> ^(Wp Ctx.empty t) Q ->
   Triple t H Q.
 Proof using.
-Admitted.
-
-(*
   introv M. xchanges M. pattern t at 1; rewrite <- (isubst_empty t).
   applys Triple_isubst_Wp.
 Qed.
-*)
-
 
 
 (* ********************************************************************** *)
 (* * Notation for characteristic formulae *)
 
 (* ---------------------------------------------------------------------- *)
-(* ** Notation for computd WP *)
+(* ** Notation for computed WP *)
 
 (* FUTURE VERSION OF COQ
    Declare Scope wp_scope. *)
@@ -688,6 +699,19 @@ Qed.
 Notation "'dummy_wp'" := True (only parsing) : wp_scope.
 Delimit Scope wp_scope with wp.
 Open Scope wp_scope.
+
+Notation "'`' F" :=
+  ((is_Wp F))
+  (at level 69) : wp_scope.
+
+Notation "'CODE' F 'POST' Q" := ((is_Wp F) _ _ Q)
+  (at level 8, F, Q at level 0,
+   format "'[v' 'CODE'  F '/' 'POST'  Q ']'") : wp_scope.
+
+Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (is_Wp F) _ _ Q)
+  (at level 8, H, F, Q at level 0,
+   format "'[v' 'PRE'  H  '/' 'CODE'  F '/' 'POST'  Q ']'") : wp_scope.
+
 
 Notation "'`Fail'" :=
   ((Wp_fail))
@@ -741,16 +765,18 @@ Notation "'`App' f t1 t2 t3 " :=
 *)
 
 Notation "'`App' f v1 " :=
-  (Wp_app (trm_apps f (trms_vals (v1::nil))))
+  ((Wp_app (trm_apps f (trms_vals (v1::nil)))))
   (at level 68, f, v1 at level 0) : wp_scope.
 
 Notation "'`App' f v1 v2 " :=
-  (Wp_app (trm_apps f (trms_vals (v1::v2::nil))))
+  ((Wp_app (trm_apps f (trms_vals (v1::v2::nil)))))
   (at level 68, f, v1, v2 at level 0) : wp_scope.
 
 Notation "'`App' f v1 v2 v3 " :=
-  (Wp_app (trm_apps f (trms_vals (v1::v2::v3::nil))))
+  ((Wp_app (trm_apps f (trms_vals (v1::v2::v3::nil)))))
   (at level 68, f, v1, v2, v3 at level 0) : wp_scope.
+
+(* TODO: recursive notation for App *)
 
 (*
 Notation "'`Apptrm' t " :=
@@ -779,25 +805,25 @@ Notation "'`For' x '=' n1 'To' n2 'Do' F3 'Done'" :=
   : wp_scope.
 
 Notation "'`Case' v '=' vp 'Then' F1 'Else' F2" :=
-  (Wp_case_val (fun A EA Q => \[v = vp%val] \-* F1 A EA Q) (v <> vp%val) F2)
+  ((Wp_case_val (fun A EA Q => \[v = vp%val] \-* F1 A EA Q) (v <> vp%val) F2))
   (at level 69, v, vp at level 0,
    format "'[v' '`Case'  v  '=' vp  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
    : wp_scope.
 
 Notation "'`Case' v '=' vp [ x1 ] 'Then' F1 'Else' F2" :=
-  (Wp_case_val (fun A EA Q => \forall x1, \[v = vp%val] \-* F1 A EA Q) (forall x1, v <> vp%val) F2)
+  ((Wp_case_val (fun A EA Q => \forall x1, \[v = vp%val] \-* F1 A EA Q) (forall x1, v <> vp%val) F2))
   (at level 69, v, vp at level 0, x1 ident,
    format "'[v' '`Case'  v  '='  vp  [ x1 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
    : wp_scope.
 
 Notation "'`Case' v '=' vp [ x1 x2 ] 'Then' F1 'Else' F2" :=
-  (Wp_case_val (fun A EA Q => \forall x1 x2, \[v = vp%val] \-* F1 A EA Q) (forall x1 x2, v <> vp%val) F2)
+  ((Wp_case_val (fun A EA Q => \forall x1 x2, \[v = vp%val] \-* F1 A EA Q) (forall x1 x2, v <> vp%val) F2))
   (at level 69, v, vp at level 0, x1 ident, x2 ident,
    format "'[v' '`Case'  v  '='  vp  [ x1  x2 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
    : wp_scope.
 
 Notation "'`Case' v '=' vp [ x1 x2 ] 'Then' F1 'Else' F2" :=
-  (Wp_case_val (fun A EA Q => \forall x1 x2, \[v = vp%val] \-* F1 A EA Q) (forall x1 x2, v <> vp%val) F2)
+  ((Wp_case_val (fun A EA Q => \forall x1 x2, \[v = vp%val] \-* F1 A EA Q) (forall x1 x2, v <> vp%val) F2))
   (at level 69, v, vp at level 0, x1 ident, x2 ident,
    format "'[v' '`Case'  v  '='  vp  [ x1  x2 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
    : wp_scope.

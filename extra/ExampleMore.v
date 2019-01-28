@@ -454,3 +454,65 @@ Proof using.
   { ... M3 false .. }
 Qed.
 *)
+
+
+
+(*
+Lemma Substn_eq_isubstn : forall xs (Vs:dyns) t,
+  length xs = length Vs ->
+  Substn xs Vs t = isubstn xs (encs Vs) t.
+Proof using.
+  introv E. unfold Substn. rewrite~ isubstn_eq_substn.
+  rewrite* length_encs.
+Qed.
+
+*)
+
+
+Lemma Triple_apps_funs_of_Wp : forall F (Vs:dyns) (vs:vals) xs t `{EA:Enc A} H (Q:A->hprop),
+  F = val_funs xs t ->
+  vs = encs Vs ->
+  var_funs_exec (length Vs) xs ->
+  H ==> ^(Wp (combine xs (encs Vs)) t) Q ->
+  Triple (trm_apps F vs) H Q.
+Proof using.
+Admitted.
+(*
+  introv EF EV N M. rewrite var_funs_exec_eq in N. rew_istrue in N.
+  subst. applys* Triple_apps_funs. 
+  unfolds in N. rewrite* Substn_eq_isubstn.
+  applys* Triple_isubst_of_Wp.
+Qed.
+*)
+
+Lemma Triple_apps_funs_of_Wp' : forall F (Vs:dyns) (vs:vals) (ts:trms) xs t `{EA:Enc A} H (Q:A->hprop),
+  F = val_funs xs t ->
+  ts = trms_vals vs ->
+  vs = encs Vs ->
+  var_funs_exec (length Vs) xs ->
+  H ==> ^(Wp (combine xs (encs Vs)) t) Q ->
+  Triple (trm_apps F ts) H Q.
+Proof using.
+  intros. subst. applys* Triple_apps_funs_of_Wp.
+Qed.
+(*
+  xcf_prepare_args tt. (* -- not needed here *)
+*)
+
+Lemma Triple_apps_fixs_of_Wp : forall F (f:var) (Vs:dyns) (vs:vals) xs t `{EA:Enc A} H (Q:A->hprop),
+  F = val_fixs f xs t ->
+  vs = encs Vs ->
+  var_fixs_exec f (length Vs) xs ->
+  H ==> ^(Wp (combine (f::xs) (encs ((Dyn F)::Vs))) t) Q ->
+  Triple (trm_apps F vs) H Q.
+Proof using.
+Admitted.
+(*
+  introv EF EV N M. rewrite var_fixs_exec_eq in N. rew_istrue in N.
+  lets (D&L&_): N. simpl in D. rew_istrue in D. destruct D as [D1 D2].
+  subst. applys* Triple_apps_fixs.
+  rewrite~ Substn_eq_isubstn. 
+  { applys @Triple_isubst_of_Wp M. }
+  { rew_list. math. }
+Qed.
+*)

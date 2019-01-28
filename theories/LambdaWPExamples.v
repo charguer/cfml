@@ -40,19 +40,23 @@ Ltac hsimpl_wand ::=
 
 Notation "'TRIPLE' t 'PRE' H 'POST' Q" :=
   (Triple t H Q)
-  (at level 39, t at level 0) : triple_scope.
+  (at level 39, t at level 0,
+  format "'[v' 'TRIPLE'  t  '/' 'PRE'  H  '/' 'POST'  Q ']'") : triple_scope.
 
-Notation "'TRIPLE' t 'PRE' H1 'RET' v 'POST' H2" :=
+Notation "'`Triple' t 'PRE' H1 'RET' v 'POST' H2" :=
   (Triple t H1 (fun r => \[r = v] \* H2))
-  (at level 39, t at level 0) : triple_scope.
+  (at level 39, t at level 0,
+   format "'[v' '`Triple'  t  '/' 'PRE'  H1  '/'  'RET'  v  '/'  'POST'  H2 ']'") : triple_scope.
 
-Notation "'TRIPLE' t 'PRE' H1 'BIND' x1 'RET' v 'POST' H2" :=
+(* LATER
+Notation "'`Triple' t 'PRE' H1 'BIND' x1 'RET' v 'POST' H2" :=
   (Triple t H1 (fun r => \exists x1, \[r = v] \* H2))
   (at level 39, t at level 0, x1 ident) : triple_scope.
 
-Notation "'TRIPLE' t 'PRE' H1 'BIND' x1 x2 'RET' v 'POST' H2" :=
+Notation "'`Triple' t 'PRE' H1 'BIND' x1 x2 'RET' v 'POST' H2" :=
   (Triple t H1 (fun r => \exists x1 x2, \[r = v] \* H2))
   (at level 39, t at level 0, x1 ident, x2 ident) : triple_scope.
+*)
 
 Open Scope triple_scope.
 
@@ -67,12 +71,49 @@ Proof using. introv M. applys himpl_weakestpre. applys* Triple_of_Wp. Qed.
 
 
 
-Lemma Local_erase' : forall H F `{EA:Enc A} (Q:A->hprop),
-  H ==> ^F Q ->
-  H ==> ^(Local F) Q.
+
+(* ---------------------------------------------------------------------- *)
+(* ** Lemmas for tactics *)
+
+Implicit Types vs : vals.
+Implicit Types ts : trms.
+
+Lemma Triple_apps_funs_of_Wp : forall F vs ts xs t `{EA:Enc A} H (Q:A->hprop),
+  F = val_funs xs t ->
+  trms_to_vals ts = Some vs ->
+  var_funs_exec (length vs) xs ->
+  H ==> ^(Wp (combine xs vs) t) Q ->
+  Triple (trm_apps F ts) H Q.
 Proof using.
-  introv M. hchanges M. applys local_erase.
+  introv HF Hvs Hxs M. lets ->: trms_to_vals_spec Hvs.
+  rewrite var_funs_exec_eq in Hxs. rew_istrue in Hxs. lets (_&Lxs&_): Hxs.
+  applys* Triple_apps_funs. rewrite~ <- isubstn_eq_substn.
+  applys* Triple_isubst_of_Wp.
 Qed.
+
+Lemma Triple_apps_fixs_of_Wp : forall F (f:var) vs ts xs t `{EA:Enc A} H (Q:A->hprop),
+  F = val_fixs f xs t ->
+  trms_to_vals ts = Some vs ->
+  var_fixs_exec f (length vs) xs ->
+  H ==> ^(Wp (combine (f::xs) (F::vs)) t) Q ->
+  Triple (trm_apps F vs) H Q.
+Proof using.
+  introv HF Hvs Hxs M. lets ->: trms_to_vals_spec Hvs.
+  rewrite var_fixs_exec_eq in Hxs. rew_istrue in Hxs. lets (_&Lxs&_): Hxs.
+  applys* Triple_apps_fixs. rewrite <- isubstn_eq_substn; [|rew_list~].
+  applys* Triple_isubst_of_Wp.
+Qed.
+
+
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Lemmas for tactics *)
+
+
+
+
 
 (*
 Lemma xlet_lemma : forall Q1 (F1:formula) (F2of:forall `{EA1:Enc A1},A1->Formula) H Q,
@@ -104,7 +145,7 @@ Lemma xlet_instantiate : forall A1 (EA1:Enc A1) H `{EA:Enc A} (Q:A->hprop) (F1:F
   H ==> ^F1 (fun (X:A1) => ^(F2of X) Q) ->
   H ==> ^(Wp_let F1 (@F2of)) Q.
 Proof using.
-  introv M. applys Local_erase'. notypeclasses refine (xlet_instantiate' _ _ _). applys M.
+  introv M. applys Local_erase. notypeclasses refine (xlet_instantiate' _ _ _). applys M.
 Qed.
 
 (*
@@ -135,7 +176,7 @@ Lemma xapp_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
   H ==> H1 \* (Q1 \--* Q) ->
   H ==> ^(Local (Wp_Triple t)) Q.
 Proof using.
-  introv M1 M2. applys Local_erase'. applys* xapp_lemma'.
+  introv M1 M2. applys Local_erase. applys* xapp_lemma'.
 Qed.
 
 
@@ -144,13 +185,13 @@ Lemma xval_lemma : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
   v = ``V ->
   H ==> Q V ->
   H ==> ^(Wp_val v) Q.
-Proof using. introv E N. subst. applys Local_erase'. hsimpl~ V. Qed.
+Proof using. introv E N. subst. applys Local_erase. hsimpl~ V. Qed.
 
 Lemma xval_lemma_val : forall `{EA:Enc A} (V:A) v H (Q:val->hprop),
   v = ``V ->
   H ==> Q (``V) ->
   H ==> ^(Wp_val v) Q.
-Proof using. introv E N. subst. applys Local_erase'. hsimpl~ (``V). Qed.
+Proof using. introv E N. subst. applys Local_erase. hsimpl~ (``V). Qed.
 
 
 
@@ -159,7 +200,7 @@ Lemma xcase_lemma : forall F1 (P:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
   (P -> H ==> ^F2 Q) ->
   H ==> ^(Wp_case_val F1 P F2) Q.
 Proof using. 
-  introv M1 M2. apply Local_erase'. applys himpl_hand_r. 
+  introv M1 M2. apply Local_erase. applys himpl_hand_r. 
   { auto. }
   { applys* hwand_move_l_pure. }
 Qed.
@@ -197,85 +238,6 @@ Qed.
 
 
 
-(* ---------------------------------------------------------------------- *)
-(* ** Lemmas for tactics *)
-
-(*
-Lemma Substn_eq_isubstn : forall xs (Vs:dyns) t,
-  length xs = length Vs ->
-  Substn xs Vs t = isubstn xs (encs Vs) t.
-Proof using.
-  introv E. unfold Substn. rewrite~ isubstn_eq_substn.
-  rewrite* length_encs.
-Qed.
-
-*)
-
-Lemma Triple_apps_funs_of_Wp : forall F (Vs:dyns) (vs:vals) xs t `{EA:Enc A} H (Q:A->hprop),
-  F = val_funs xs t ->
-  vs = encs Vs ->
-  var_funs_exec (length Vs) xs ->
-  H ==> ^(Wp (combine xs (encs Vs)) t) Q ->
-  Triple (trm_apps F vs) H Q.
-Proof using.
-Admitted.
-(*
-  introv EF EV N M. rewrite var_funs_exec_eq in N. rew_istrue in N.
-  subst. applys* Triple_apps_funs. 
-  unfolds in N. rewrite* Substn_eq_isubstn.
-  applys* Triple_isubst_of_Wp.
-Qed.
-*)
-
-Lemma Triple_apps_fixs_of_Wp : forall F (f:var) (Vs:dyns) (vs:vals) xs t `{EA:Enc A} H (Q:A->hprop),
-  F = val_fixs f xs t ->
-  vs = encs Vs ->
-  var_fixs_exec f (length Vs) xs ->
-  H ==> ^(Wp (combine (f::xs) (encs ((Dyn F)::Vs))) t) Q ->
-  Triple (trm_apps F vs) H Q.
-Proof using.
-Admitted.
-(*
-  introv EF EV N M. rewrite var_fixs_exec_eq in N. rew_istrue in N.
-  lets (D&L&_): N. simpl in D. rew_istrue in D. destruct D as [D1 D2].
-  subst. applys* Triple_apps_fixs.
-  rewrite~ Substn_eq_isubstn. 
-  { applys @Triple_isubst_of_Wp M. }
-  { rew_list. math. }
-Qed.
-*)
-
-(* todo: factorize above two using anon? *)
-
-
-Lemma Triple_apps_funs_of_Wp' : forall F (Vs:dyns) (vs:vals) (ts:trms) xs t `{EA:Enc A} H (Q:A->hprop),
-  F = val_funs xs t ->
-  ts = trms_vals vs ->
-  vs = encs Vs ->
-  var_funs_exec (length Vs) xs ->
-  H ==> ^(Wp (combine xs (encs Vs)) t) Q ->
-  Triple (trm_apps F ts) H Q.
-Proof using.
-  intros. subst. applys* Triple_apps_funs_of_Wp.
-Qed.
-(*
-  xcf_prepare_args tt. (* -- not needed here *)
-*)
-
-Lemma Triple_apps_funs_of_Wp'' : forall F (vs:vals) (ts:trms) xs t `{EA:Enc A} H (Q:A->hprop),
-  F = val_funs xs t ->
-  trms_to_vals ts = Some vs ->
-  var_funs_exec (length vs) xs ->
-  H ==> ^(Wp (combine xs vs) t) Q ->
-  Triple (trm_apps F ts) H Q.
-Proof using.
-  introv M1 M2 M3 M4. lets: trms_to_vals_spec M2.
-  skip.
-Qed.
-(*
-  xcf_prepare_args tt. (* -- not needed here *)
-*)
-
 
 
 (* ---------------------------------------------------------------------- *)
@@ -312,14 +274,14 @@ Proof using.
   (* let f := xcf_get_fun tt in 
   unfold f. 
   rew_trms_vals. *)
-  applys Triple_apps_funs_of_Wp''.
+  applys Triple_apps_funs_of_Wp.
   { reflexivity. }
   { reflexivity. }
   { reflexivity. }
   simpl. rew_enc_dyn. (* xcf_post tt. *)
   (* fst call *)
-  apply Local_erase'.
-  apply Local_erase'.
+  apply Local_erase.
+  apply Local_erase.
   applys @xapp_lemma. { applys Triple_get. }
   hsimpl.
   hsimpl_wand. (* todo: extend hsimpl to do this step *)
@@ -370,7 +332,7 @@ Proof using.
   intros.
   (* xcf details: *)
   simpl combiner_to_trm.
-  applys Triple_apps_funs_of_Wp''; try reflexivity. simpl.
+  applys Triple_apps_funs_of_Wp; try reflexivity. simpl.
 Admitted.
 
 
@@ -393,7 +355,7 @@ Proof using.
   let f := xcf_get_fun tt in 
   unfold f.
   rew_trms_vals. *)
-  applys Triple_apps_funs_of_Wp''; try reflexivity. simpl.
+  applys Triple_apps_funs_of_Wp; try reflexivity. simpl.
   (* unfold Wp_var. simpl. *)
 Admitted.
 
@@ -424,6 +386,8 @@ Definition Stack `{Enc A} (L:list A) (p:loc) : hprop :=
   p ~~> L.
 
 
+
+
 Lemma triple_pop : forall `{Enc A} (p:loc) (L:list A),
   L <> nil ->
   TRIPLE (val_pop ``p)
@@ -438,11 +402,7 @@ Proof using.
   { rew_trms_vals. reflexivity. }
   { try xeq_encs. }
   { reflexivity. } *)
-  applys Triple_apps_funs_of_Wp''.
-  { reflexivity. }
-  { reflexivity. }
-  { reflexivity. }
-  simpl.
+  applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
   (* simpl; unfold Wp_var; simpl. *)
   (* start *)
   xunfold Stack.
@@ -460,7 +420,7 @@ Proof using.
       { intros x1 x2 E2. destruct L as [|x L']; rew_enc in *; tryfalse.
         inverts E2.
         (* xseq *)
-        (* applys xseq_lemma. *)  apply Local_erase'.
+        (* applys xseq_lemma. *)  apply Local_erase.
         (* xapp *)
         applys @xapp_lemma. { applys @Triple_set. }
         hsimpl; hsimpl_wand. hsimpl.
@@ -473,7 +433,7 @@ Proof using.
     { intros HL. false. }
     { intros X L' HL. 
       (* xseq *)
-      (* applys xseq_lemma. *)  apply Local_erase'.
+      (* applys xseq_lemma. *)  apply Local_erase.
       (* xapp *)
       applys @xapp_lemma. { applys @Triple_set. }
       hsimpl; hsimpl_wand. hsimpl.
@@ -492,9 +452,9 @@ Lemma triple_empty : forall `{Enc A} (u:unit),
 Proof using.
   intros.
   (* xcf details: *)
-  applys Triple_apps_funs_of_Wp''; try reflexivity. simpl.
+  applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
   (* xletval *)
-  apply Local_erase'.
+  apply Local_erase.
   (* xval *)
   applys~ (xval_lemma_val (@nil A)).
   (* xapp *)
@@ -523,11 +483,11 @@ Lemma triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
 Proof using.
   intros.
   (* xcf details: *)
-  applys Triple_apps_funs_of_Wp''; try reflexivity. simpl.
+  applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
   (* xunfold *)
   xunfold Stack.
   (* xval *)
-  apply Local_erase'.
+  apply Local_erase.
   (* xlet *)
   notypeclasses refine (xlet_instantiate _ _ _ _ _).
   (* xapps *)

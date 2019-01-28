@@ -26,6 +26,7 @@ Implicit Types l : loc.
 Implicit Types u : unit.
 Implicit Types z : bind.
 Implicit Types v : val.
+Implicit Types vs : vals.
 Implicit Types n : int.
 Implicit Types b : bool.
 
@@ -747,22 +748,22 @@ Proof using.
     rewrite enc_bool_eq. hnfs*. } (* LATER : simplify? *)
 Qed.
 
-Lemma Triple_apps_funs : forall xs F (Vs:dyns) t1 H A `{EA: Enc A} (Q:A->hprop),
+Lemma Triple_apps_funs : forall xs F vs t1 H A `{EA: Enc A} (Q:A->hprop),
   F = (val_funs xs t1) ->
-  var_funs (length Vs) xs ->
-  Triple (Substn xs Vs t1) H Q ->
-  Triple (trm_apps F (encs Vs)) H Q.
+  var_funs (length vs) xs ->
+  Triple (substn xs vs t1) H Q ->
+  Triple (trm_apps F vs) H Q.
 Proof using.
-  introv E N M. unfold Triple. applys* triple_apps_funs. rewrite~ length_encs.
+  introv E N M. unfold Triple. applys* triple_apps_funs.
 Qed.
 
-Lemma Triple_apps_fixs : forall xs (f:var) F (Vs:dyns) t1 H A `{EA: Enc A} (Q:A->hprop),
+Lemma Triple_apps_fixs : forall xs (f:var) F vs t1 H A `{EA: Enc A} (Q:A->hprop),
   F = (val_fixs f xs t1) ->
-  var_fixs f (length Vs) xs ->
-  Triple (Substn (f::xs) ((Dyn F)::Vs) t1) H Q ->
-  Triple (trm_apps F (encs Vs)) H Q.
+  var_fixs f (length vs) xs ->
+  Triple (substn (f::xs) (F::vs) t1) H Q ->
+  Triple (trm_apps F vs) H Q.
 Proof using.
-  introv E N M. unfold Triple. applys* triple_apps_fixs. rewrite~ length_encs.
+  introv E N M. unfold Triple. applys* triple_apps_fixs.
 Qed.
 
 Lemma Triple_while_raw : forall t1 t2 H A `{EA: Enc A} (Q:A->hprop),
@@ -984,3 +985,26 @@ Lemma Triple_gt : forall n1 n2,
     (fun b => \[b = isTrue (n1 > n2)]).
 Proof using. intros. unfold Triple, Post. xapplys~ triple_gt. Qed.
 
+
+
+
+(* ********************************************************************** *)
+(* * Extra -- not needed? *)
+
+Lemma Triple_apps_funs' : forall xs F (Vs:dyns) t1 H A `{EA: Enc A} (Q:A->hprop),
+  F = (val_funs xs t1) ->
+  var_funs (length Vs) xs ->
+  Triple (Substn xs Vs t1) H Q ->
+  Triple (trm_apps F (encs Vs)) H Q.
+Proof using.
+  introv E N M. unfold Triple. applys* triple_apps_funs. rewrite~ length_encs.
+Qed.
+
+Lemma Triple_apps_fixs' : forall xs (f:var) F (Vs:dyns) t1 H A `{EA: Enc A} (Q:A->hprop),
+  F = (val_fixs f xs t1) ->
+  var_fixs f (length Vs) xs ->
+  Triple (Substn (f::xs) ((Dyn F)::Vs) t1) H Q ->
+  Triple (trm_apps F (encs Vs)) H Q.
+Proof using.
+  introv E N M. unfold Triple. applys* triple_apps_fixs. rewrite~ length_encs.
+Qed.
