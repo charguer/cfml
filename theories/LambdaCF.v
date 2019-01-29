@@ -564,13 +564,13 @@ Ltac xval_template xlet_tactic xval_tactic xlet_cont :=
 
 Ltac xval_basic tt :=
   match goal with
-  | |- local ?F ?H ?Q => is_evar Q; applys local_erase; applys refl_qimpl
+  | |- local ?F ?H ?Q => is_evar Q; applys local_erase; applys qimpl_refl
   | _ => applys xval_htop_lemma
   end.
 
 Ltac xval_as_basic X EX :=
   match goal with
-  | |- local ?F ?H ?Q => is_evar Q; applys local_erase; applys refl_qimpl
+  | |- local ?F ?H ?Q => is_evar Q; applys local_erase; applys qimpl_refl
   | _ => applys xval_htop_as_lemma; intros X EX
   end.
 

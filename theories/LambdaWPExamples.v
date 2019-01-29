@@ -28,11 +28,6 @@ Open Scope trm_scope.
 (* ********************************************************************** *)
 (* * Demo *)
 
-Ltac hsimpl_wand ::=
-  first [ applys qwand_of_qimpl 
-        | applys hwand_of_himpl ].
-
-
 
 
 (* ---------------------------------------------------------------------- *)
@@ -179,8 +174,6 @@ Proof using.
   introv M1 M2. applys Local_erase. applys* xapp_lemma'.
 Qed.
 
-
-
 Lemma xval_lemma : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
   v = ``V ->
   H ==> Q V ->
@@ -256,6 +249,19 @@ Proof using.
   unfold PostChange. intros X. hsimpl* X.
 Qed.
 
+Lemma xifval_lemma : forall `{EA:Enc A} b H (Q:A->hprop) (F1 F2:Formula),
+  (b = true -> H ==> ^F1 Q) ->
+  (b = false -> H ==> ^F2 Q) ->
+  H ==> ^(Wp_if_val b F1 F2) Q.
+Proof using. introv E N. applys Local_erase. case_if*. Qed.
+
+Lemma xifval_lemma_isTrue : forall `{EA:Enc A} (P:Prop) H (Q:A->hprop) (F1 F2:Formula),
+  (P -> H ==> ^F1 Q) ->
+  (~ P -> H ==> ^F2 Q) ->
+  H ==> ^(Wp_if_val (isTrue P) F1 F2) Q.
+Proof using. introv E N. applys Local_erase. case_if*. Qed.
+
+
 
 (* ---------------------------------------------------------------------- *)
 (* * Example proofs *)
@@ -294,10 +300,6 @@ Proof using.
   simpl.
   (* xlet-poly *)
   notypeclasses refine (xlet_instantiate _ _ _ _ _).
-(* DEPRECATED
-  (* xlet *)
-  applys Local_erase. 
-*)
   (* xlet *)
   eapply Local_erase.
   (* xapps *)
@@ -395,7 +397,7 @@ Admitted.
 
 Definition val_is_empty : val :=
   ValFun 'p :=
-    val_get 'p '= true.
+    val_get 'p '= 'nil.
 
 Definition val_empty : val :=
   ValFun 'u :=
@@ -413,12 +415,40 @@ Definition val_pop : val :=
    '| 'x ':: 'r '=> ('p ':= 'r) '; 'x
    End).
 
+Definition val_rev_append : val :=
+  ValFix 'f 'p1 'p2 :=
+    If_ val_is_empty 'p1 Then '() Else 
+       Let 'x := val_pop 'p1 in
+       val_push 'p2 'x ';
+       'f 'p1 'p2.
 
 
 Definition Stack `{Enc A} (L:list A) (p:loc) : hprop :=
   p ~~> L.
 
 
+Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),
+  TRIPLE (val_is_empty p)
+    PRE (p ~> Stack L)
+    POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stack L).
+Proof using.
+  (* xcf *)
+  intros. applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
+  (* xunfold *)
+  xunfold Stack.
+  (* xlet-poly *)
+  notypeclasses refine (xlet_instantiate _ _ _ _ _).
+  (* xapps *)
+  applys @xapp_lemma. { eapply @Triple_get. } hsimpl ;=> ? ->.
+  (* xlet-poly *)
+  notypeclasses refine (xlet_instantiate _ _ _ _ _).
+  (* xval *)
+  applys~ (xval_lemma nil).
+  (* xapps *)
+  applys @xapp_lemma. { eapply @Triple_eq_val. } hsimpl ;=> ? ->.
+  (* done *)
+  hsimpl. rewrite* @Enc_injective_value_eq_r.
+Qed.
 
 Lemma Triple_pop : forall `{Enc A} (p:loc) (L:list A),
   L <> nil ->
@@ -466,10 +496,6 @@ Proof using.
         hsimpl~. } } }
 Qed.
 
-
-Coercion val_unit (u:unit) : val := val_unit.
-
-
 Lemma Triple_empty : forall `{Enc A} (u:unit),
   TRIPLE (val_empty u)
     PRE \[]
@@ -479,10 +505,6 @@ Proof using.
   intros. applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
   (* xlet-poly *)
   notypeclasses refine (xlet_instantiate _ _ _ _ _).
-(* DEPRECATED
-  (* xletval *)
-  applys xlet_lemma.
-*)
   (* xval *)
   applys~ (xval_lemma_val (@nil A)).
   (* xapp *)
@@ -490,7 +512,6 @@ Proof using.
   (* done *)
   auto.
 Qed.
-
 
 Lemma Triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
   TRIPLE (val_push p (``x))
@@ -515,49 +536,6 @@ Proof using.
   auto.
 Qed.
 
-
-(*
-Lemma xapp_post : forall H H1 A (Q1 Q:A->hprop),
-  (forall r, H \* Q1 r ==> H1 \* Q r) -> 
-  H ==> H1 \* (Q1 \--* Q).
-Proof using.
-Transparent hstar.
-  introv M. unfold qwand. intros h Hh. hnf.
-  intros (h1&h2&M1).
-Search hwand.
-lets: hstar_hforall H1 (fun x : A => hwand (Q1 x) (Q x)). lets: M r.
-Qed.
-*)
-
-Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),
-  TRIPLE (val_is_empty p)
-    PRE (p ~> Stack L)
-    POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stack L).
-Proof using.
-  (* xcf *)
-  intros. applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
-  (* xunfold *)
-  xunfold Stack.
-  (* xlet-poly *)
-  notypeclasses refine (xlet_instantiate _ _ _ _ _).
-  (* xapps *)
-  applys @xapp_lemma. { eapply @Triple_get. } hsimpl ;=> ? ->.
-  (* xapps *)
-lets: @xapp_lemma.
-  applys @xapp_lemma. { eapply @Triple_eq_val. } simpl.
-  hsimpl. 
-Admitted.
-
-
-
-
-Definition val_rev_append : val :=
-  ValFix 'f 'p1 'p2 :=
-    If_ val_is_empty 'p1 Then '() Else 
-       Let 'x := val_pop 'p1 in
-       val_push 'p2 'x ';
-       'f 'p1 'p2.
-
 Opaque Stack.
 
 Lemma Triple_rev_append : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
@@ -571,11 +549,45 @@ Proof using.
   (* xlet *)
   applys xlet_lemma.
   (* xapps *)
-  applys @xapp_lemma. { eapply @Triple_is_empty. } hsimpl. 
-Admitted.
+  applys @xapp_lemma. { eapply @Triple_is_empty. } hsimpl ;=> ? ->.
+  (* xif *)
+  applys @xifval_lemma_isTrue ;=> C.
+  (* case nil *)
+  { (* xval *)
+    applys~ (xval_lemma tt).
+    (* done *)
+    hsimpl. subst. rew_list~. }
+  (* case cons *)
+  { (* xlet-poly *)
+    notypeclasses refine (xlet_instantiate _ _ _ _ _).
+    (* xapp *)
+    applys @xapp_lemma. { applys @Triple_pop. eauto. } hsimpl ;=> x L1' E.
+    (* xseq *)
+    applys xseq_lemma.
+    (* xapp *)
+    applys @xapp_lemma. { applys @Triple_push. } hsimpl.
+    (* xapp *)
+    applys @xapp_lemma. { applys IH L1'. subst*. } hsimpl.
+    (* done *)
+    hsimpl. subst. rew_list~. }
+Qed.
 
 
 End Test.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

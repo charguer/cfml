@@ -129,8 +129,7 @@ Lemma local_top : forall F H Q,
   H ==> F Q.
 Proof using.
   introv L M. rewrite L. hchanges (rm M). unfold local.
-  hsimpl (Q \*+ \Top). hchanges (qwand_of_qimpl (Q \*+ \Top)).
-  hsimpl.
+  hsimpl (Q \*+ \Top). hsimpl.
 Qed.
 
 Lemma local_frame : forall H1 H2 F H Q,
@@ -140,9 +139,8 @@ Lemma local_frame : forall H1 H2 F H Q,
   H ==> F Q.
 Proof using.
   introv L W M. rewrites (rm L). hchanges (rm W). hchanges (rm M).
-  unfold local. hsimpl (fun x => H2 \-* Q x). (* TODO: simplify *)
-  (* TODO: needs hqwand *)
-  applys qwand_move_l. intros x. hchanges (hwand_cancel H2).
+  unfold local. hsimpl (fun x => H2 \-* Q x). intros r.
+  hchanges (hwand_cancel H2).
 Qed.
 
 Lemma local_frame_top : forall H1 H2 F H Q,
@@ -163,7 +161,7 @@ Qed.
 Lemma local_erase : forall F Q,
   F Q ==> local F Q.
 Proof using.
-  intros. unfold local. hsimpl. hchanges (qwand_of_qimpl Q). hsimpl.
+  intros. unfold local. repeat hsimpl.
 Qed.
 
 Lemma local_erase' : forall H F Q,
@@ -209,11 +207,12 @@ Lemma local_local : forall F,
   local (local F) = local F.
 Proof using.
   intros F. applys fun_ext_1. intros Q. applys himpl_antisym.
-  { unfold local. hpull ;=> Q' Q''. hsimpl Q''.
-    hchanges hstar_qwand. applys qwand_himpl_r.
-    intros x.
+  { unfold local. hpull ;=> Q' Q''. hsimpl Q''. intros x.
     hchanges (qwand_himpl_hwand x Q' (Q \*+ \Top)).
+    hchanges (qwand_himpl_hwand x Q'' (Q' \*+ \Top)).
+    hchanges (hwand_cancel (Q'' x) (Q' x \* \Top)).
     hchanges (hwand_cancel (Q' x) (Q x \* \Top)). }
+    (* LATER: tactic to automate hchanges of hwand_cancel *)
   { hchanges local_erase. }
 Qed.
 

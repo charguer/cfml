@@ -186,6 +186,7 @@ Coercion pat_var : var >-> pat.
 Coercion pat_bool : bool >-> pat.
 Coercion pat_int : Z >-> pat.
 
+Coercion val_unit' (u:unit) : val := val_unit.
 Coercion val_prim : prim >-> val.
 Coercion val_bool : bool >-> val.
 Coercion val_int : Z >-> val.

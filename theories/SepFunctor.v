@@ -156,11 +156,11 @@ Hint Resolve himpl_refl.
 
 (** Reflexivity for postconditions *)
 
-Lemma refl_qimpl : forall A B (Q:A->B->Prop),
+Lemma qimpl_refl : forall A B (Q:A->B->Prop),
   Q ===> Q.
 Proof using. intros. hnfs*. Qed.
 
-Hint Resolve refl_qimpl.
+Hint Resolve qimpl_refl.
 
 
 
@@ -573,30 +573,26 @@ Lemma himpl_hand_r : forall H1 H2 H3,
   H1 ==> hand H2 H3.
 Proof using. introv M1 M2 Hh. intros b. case_if*. Qed.
 
-(* Note: there are still missing properties for [himpl] on [hand] and [hor].
-   For properties on [hwand], see further on. *)
+(** Properties of [hwand] and [qwand] necessary for [hsimpl];
+    the remaining properties are proved later using [hsimpl]. *)
 
-Lemma hwand_eq_hexists_hstar_hpure : forall H1 H2,
-  (H1 \-* H2) = (\exists H, H \* \[H \* H1 ==> H2]).
-Proof using. auto. Qed.
-
-Lemma hwand_of_himpl : forall H1 H2,
-  H1 ==> H2 ->
-  \[] ==> (H1 \-* H2).
-Proof using.
-  introv M. unfold hwand. applys himpl_hexists_r \[].
+Lemma hwand_move_l : forall H1 H2 H3,
+  H1 \* H2 ==> H3 ->
+  H1 ==> (H2 \-* H3).
+Proof using. 
+  introv M. unfold hwand. applys himpl_hexists_r H1.
   rewrite hstar_comm. applys~ himpl_hpure_r.
-  { rewrite* hstar_hempty_l. }
 Qed.
 
-Lemma qwand_of_qimpl : forall A (Q1 Q2:A->hprop),
-  Q1 ===> Q2 ->
-  \[] ==> Q1 \--* Q2.
+Lemma qwand_move_l : forall A (Q1 Q2:A->hprop) H,
+  Q1 \*+ H ===> Q2 ->
+  H ==> (Q1 \--* Q2).
 Proof using.
-  introv M. applys himpl_hforall_r. intros x. applys* hwand_of_himpl.
+  introv M. unfold qwand. applys himpl_hforall_r. intros x.
+  applys* hwand_move_l. rewrite* hstar_comm.
 Qed.
 
-Arguments qwand_of_qimpl [A].
+Arguments qwand_move_l [A].
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1345,6 +1341,26 @@ Lemma hcancel_start_10 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9 H10 H',
 (* Proof using. intros. rew_heap in H. auto. Qed. *)
 Admitted. (* commented out for faster compilation *)
 
+Lemma hwand_move_l_hempty_when_hempty_l : forall H1 H2,
+  H1 ==> H2 ->
+  \[] ==> (H1 \-* H2).
+Proof using.
+  introv M. applys hwand_move_l \[]. { rewrite* hstar_hempty_l. }
+Qed.
+
+Lemma qwand_move_l_hempty_when_hempty_l : forall A (Q1 Q2:A->hprop),
+  Q1 ===> Q2 ->
+  \[] ==> Q1 \--* Q2.
+Proof using.
+  introv M. applys qwand_move_l \[]. { intros x. rewrite* hstar_hempty_r. }
+Qed.
+
+Arguments qwand_move_l_hempty_when_hempty_l [A].
+
+Lemma himpl_hwand_r_instantiate : forall A (Q:A->hprop) H,
+  H ==> (Q \--* (Q \*+ H)).
+Proof using. intros. applys qwand_move_l. applys qimpl_refl. Qed.
+
 (** Tactics *)
 
 Ltac hcancel_left_empty tt :=
@@ -1381,7 +1397,7 @@ Ltac check_arg_true v :=
 
 Ltac hcancel_prepare tt :=
   match goal with
-  | |- @qimpl _ _ _ ?Q' => is_evar Q'; apply refl_qimpl
+  | |- @qimpl _ _ _ ?Q' => is_evar Q'; apply qimpl_refl
   | |- @qimpl unit _ ?Q ?Q' => let t := fresh "_tt" in intros t; destruct t
   | |- eq _ _ => applys himpl_antisym
   | |- @qimpl _ _ _ _ => let r := fresh "r" in intros r
@@ -1575,10 +1591,28 @@ Ltac hsimpl_post tt :=
   gen_until_mark_with_processing ltac:(himpl_post_processing_for_hyp);
   hsimpl_post_after_generalize tt.
 
+(** The tactic [hsimpl_remove_wand] eliminates the outermost magic wand on the
+    right-hand side of an entailment. It essentially applies one of these two
+    lemmas, or a specialized version of them.
+[[
+      hwand_move_l:
+        H1 \* H2 ==> H3 ->
+        H1 ==> (H2 \-* H3).
+
+      qwand_move_l:
+        Q1 \*+ H ===> Q2 ->
+        H ==> (Q1 \--* Q2).
+]]
+*)
+
 Ltac hsimpl_remove_wand tt :=
   try match goal with
-  | |- \[] ==> (?Q1 \--* ?Q2) => applys qwand_of_qimpl; hpull
-  | |- \[] ==> (?H1 \-* ?H2) => applys hwand_of_himpl; hpull
+  | |- \[] ==> (?Q1 \--* ?Q2) => applys qwand_move_l_hempty_when_hempty_l; hpull
+  | |- \[] ==> (?H1 \-* ?H2) => applys hwand_move_l_hempty_when_hempty_l; hpull
+  | |- ?H ==> (?Q1 \--* ?Q2) => 
+      first [ is_evar Q2; solve [ applys himpl_hwand_r_instantiate ]
+            | applys qwand_move_l; hpull ]
+  | |- ?H ==> (?H1 \-* ?H2) => applys hwand_move_l; hpull
   end.
 
 Ltac hsimpl_core tt :=
@@ -1826,7 +1860,11 @@ Tactic Notation "hchange" constr(E1) constr(E2) constr(E3) :=
 (* * Properties of the magic wand *)
 
 (* ---------------------------------------------------------------------- *)
-(* ** Magic wand on [hprop] *)
+(* ** Properties of [hwand] *)
+
+Lemma hwand_eq_hexists_hstar_hpure : forall H1 H2,
+  (H1 \-* H2) = (\exists H, H \* \[H \* H1 ==> H2]).
+Proof using. auto. Qed.
 
 Lemma hwand_himpl_r : forall H1 H2 H2',
   H2 ==> H2' ->
@@ -1857,11 +1895,6 @@ Proof using.
   introv M. hchange (>> himpl_frame_r H2 M).
   rew_heap. apply hwand_cancel.
 Qed.
-
-Lemma hwand_move_l : forall H1 H2 H3,
-  H1 \* H2 ==> H3 ->
-  H1 ==> (H2 \-* H3).
-Proof using. introv M. unfold hwand. hsimpl~. Qed.
 
 Lemma hwand_move_l_pure : forall H1 H2 (P:Prop),
   (P -> H1 ==> H2) ->
@@ -1918,7 +1951,7 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Magic wand on [A->hprop] *)
+(* ** Properties of [qwand] *)
 
 Lemma qwand_himpl_hwand: forall A (x:A) (Q1 Q2:A->hprop),
   (Q1 \--* Q2) ==> (Q1 x \-* Q2 x).
@@ -1952,45 +1985,6 @@ Proof using.
   introv M. unfold qwand. applys himpl_hforall.
   intros x. applys* hwand_himpl_r.
 Qed.
-
-Lemma qwand_move_l : forall H A (Q1 Q2:A->hprop),
-  Q1 \*+ H ===> Q2 ->
-  H ==> (Q1 \--* Q2).
-Proof using.
-  introv M. unfold qwand. intros h Hh x. hhsimpl.
-  applys hwand_move_l. hchanges M.
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Tactic [hsimpl_wand] *)
-
-(** The tactic [hsimpl_wand] applies tries to apply one of the following
-    lemmas, in order to eliminate a [hwand] on the right-hand side of an
-    entailment. Note that the two first lemma are already handled by [hsimpl].
-
-      hwand_of_himpl
-        H1 ==> H2 ->
-        \[] ==> (H1 \-* H2).
-
-      qwand_of_qimpl
-        Q1 ===> Q2 ->
-        \[] ==> Q1 \--* Q2.
-
-      hwand_move_l
-        H1 \* H2 ==> H3 ->
-        H1 ==> (H2 \-* H3).
-
-      qwand_move_l
-        Q1 \*+ H ===> Q2 ->
-        H ==> (Q1 \--* Q2).
-*)
-
-Ltac hsimpl_wand :=
-  first [ applys qwand_of_qimpl 
-        | applys qwand_move_l
-        | applys hwand_of_himpl 
-        | applys hwand_move_l ].
 
 
 (* ********************************************************************** *)
@@ -2502,7 +2496,7 @@ Tactic Notation "xpulls" "*" := xpulls; auto_star.
 Ltac xapply_core H cont1 cont2 :=
   forwards_nounfold_then H ltac:(fun K =>
     match xpostcondition_is_evar tt with
-    | true => eapply local_frame; [ xlocal | sapply K | cont1 tt | try apply refl_qimpl ]
+    | true => eapply local_frame; [ xlocal | sapply K | cont1 tt | try apply qimpl_refl ]
     | false => eapply local_frame_htop; [ xlocal | sapply K | cont1 tt | cont2 tt ]
     end).
 

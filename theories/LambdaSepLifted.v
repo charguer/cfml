@@ -263,6 +263,8 @@ Tactic Notation "rew_enc_dyn" "in" "*" :=
 (* ---------------------------------------------------------------------- *)
 (* ** Injectivity of encoders *)
 
+(* ** Injectivity of encoders for entire types *)
+
 Definition Enc_injective A (EA:Enc A) :=
   injective enc.
 
@@ -314,7 +316,39 @@ Proof using.
 Qed.
 
 Hint Resolve Enc_injective_loc Enc_injective_unit Enc_injective_bool
-             Enc_injective_int Enc_injective_option Enc_injective_list. (* TODO: put in a base? *)
+             Enc_injective_int @Enc_injective_option @Enc_injective_list.
+             (* TODO: put in a base? *)
+
+(* ** Injectivity of encoders for specific values
+      (useful in many cases to avoid the need for an hypothesis
+      of the form [Enc_injective EA] *)
+
+Definition Enc_injective_value A `{EA:Enc A} (V1:A) :=
+  forall V2, (enc V1 = enc V2) -> (V1 = V2).
+
+Lemma Enc_injective_value_eq_l : forall `{EA:Enc A} (V1:A),
+  Enc_injective_value V1 ->
+  forall V2, (enc V1 = enc V2) = (V1 = V2).
+Proof using. introv E. extens. iff M. { applys~ E. } { subst~. } Qed.
+
+Lemma Enc_injective_value_eq_r : forall `{EA:Enc A} (V1:A),
+  Enc_injective_value V1 ->
+  forall V2, (enc V2 = enc V1) = (V2 = V1).
+Proof using. introv E. extens. iff M. { symmetry. applys~ E. } { subst~. } Qed.
+
+Lemma Enc_injective_nil : forall `{EA:Enc A},
+  Enc_injective_value (@nil A).
+Proof using.
+  intros A EA l E. destruct l; intros; simpls; tryfalse. { auto. }
+Qed.
+
+Lemma Enc_injective_none : forall `{EA:Enc A},
+  Enc_injective_value (@None A).
+Proof using.
+  intros A EA o E. destruct o; intros; simpls; tryfalse. { auto. }
+Qed.
+
+Hint Resolve @Enc_injective_nil @Enc_injective_none.
 
 
 (* ---------------------------------------------------------------------- *)
