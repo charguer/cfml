@@ -54,48 +54,18 @@ Definition wp_triple_ E t :=
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Definition of [flocal] for WP *)
+(* ** Definition of [is_flocal] for WP *)
 
-(** [flocal F] transforms a weakestpre formula [F], e.g. of the form [wp_triple t],
-    into a logically-equivalent formula that smoothly supports applications
-    of the structural rule of Separation Logic. The definition is:
-
-[[
-Definition flocal (F:formula) : formula :=
-  fun Q => \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
-]]
-
-   The predicate [is_local F] asserts that [F] is a formula that subject the
-   structural rules of Separation Logic. This property is captured by requiring
-   that [F] be logically equivalent to [is_local F].
-
-[[
-Definition is_flocal (F:formula) :=
-  F = local F.
-]]
-
-*)
-
-(** Because [local] is later reused in a more general "lifted" settings,
-    we need to make the type of formula parameterized by the return type,
-    when defining [local]. *)
+(** Type of formulae (more general than what is needed in the current file,  
+    anticipating for needs in [LambdaWPLifted] *)
 
 Definition formula_ (B:Type) := (B -> hprop) -> hprop.
 
-(** The [flocal] predicate is a predicate transformer that typically
-   applies to a WP, and allows for application
-   of the frame rule, of the rule of consequence, of the garbage
-   collection rule, and of extraction rules for existentials and
-   pure facts. *)
-
-Definition flocal B (F:formula_ B) : formula_ B :=
-  fun Q => \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
-
-(** The [is_flocal] predicate asserts that a predicate is subject
-  to all the rules that the [flocal] predicate transformer supports. *)
+(** [is_flocal F] asserts that one is able to establish [F Q]
+    by establishing [F Q'] for a [Q'] that entails [Q]. *)
 
 Definition is_flocal B (F:formula_ B) :=
-  F = flocal F.
+  forall Q, (\exists Q', F Q' \* (Q' \--* (Q \*+ \Top))) ==> F Q.
 
 (** [is_flocal_pred S] asserts that [is_flocal (S x)] holds for any [x].
     It is useful for describing loop invariants. *)
@@ -104,59 +74,113 @@ Definition is_flocal_pred B A (S:A->formula_ B) :=
   forall x, is_flocal (S x).
 
 
-
 (* ---------------------------------------------------------------------- *)
-(* ** Elimination rules for [is_flocal] *)
+(* ** Rules for [is_flocal] *)
 
-Section LocalProp.
+Section IsFlocal.
 Variable (B : Type).
 Implicit Type Q : B->hprop.
 Implicit Type F : formula_ B.
 
-Lemma flocal_conseq : forall Q' F H Q,
+(** A introduction rule to establish [is_flocal], exposing the definition *)
+
+Lemma is_flocal_intro : forall F,
+  (forall Q, (\exists Q', F Q' \* (Q' \--* (Q \*+ \Top))) ==> F Q) ->
+  is_flocal F.
+Proof using. auto. Qed.
+
+(** Introduction rule for [is_flocal] on [weakestpre] *)
+
+Lemma is_flocal_weakestpre : forall (T:hprop->(B->hprop)->Prop),
+  SepBasicSetup.is_local T ->
+  is_flocal (weakestpre T).
+Proof using.
+  introv L. applys is_flocal_intro. intros Q. unfold weakestpre.
+  hpull ;=> Q' H M. hsimpl (H \* (Q' \--* Q \*+ \Top)).
+  applys* is_local_ramified_frame_htop.
+Qed.
+
+(** An elimination rule for [is_flocal] *)
+
+Lemma is_flocal_elim : forall F H Q,
+  is_flocal F ->
+  (H ==> \exists Q', F Q' \* (Q' \--* (Q \*+ \Top))) ->
+  H ==> F Q.
+Proof using. introv L M. lets N: (L Q). applys* himpl_trans N. Qed.
+
+(** An elimination rule for [is_flocal] without [\Top] *)
+
+Lemma is_flocal_elim_nohtop : forall F H Q,
+  is_flocal F ->
+  (H ==> \exists Q', F Q' \* (Q' \--* Q)) ->
+  H ==> F Q.
+Proof using. 
+  introv L M. applys~ is_flocal_elim. hchange M.
+  hpull ;=> Q'. hsimpl Q'. intros r. 
+  hchange (qwand_himpl_hwand r).
+  hchanges (hwand_cancel (Q' r)).
+Qed.
+
+(** Other specialized elimination rules *)
+
+Lemma is_flocal_conseq : forall Q' F H Q,
   is_flocal F ->
   H ==> F Q ->
   Q ===> Q' ->
   H ==> F Q'.
 Proof using.
-  introv L M W. rewrite (rm L). hchanges (rm M).
-  unfold flocal. hsimpl Q. intros r. hchanges W.
+  introv L M W. applys~ is_flocal_elim.
+  hchange (rm M). hsimpl Q. hchanges W.
 Qed.
 
-Lemma flocal_top : forall F H Q,
+Lemma is_flocal_top : forall F H Q,
   is_flocal F ->
   H ==> F (Q \*+ \Top) ->
   H ==> F Q.
 Proof using.
-  introv L M. rewrite L. hchanges (rm M). unfold flocal.
-  hsimpl (Q \*+ \Top). hsimpl.
+  introv L M. applys~ is_flocal_elim.
+  hchange (rm M). hsimpl (Q \*+ \Top). hsimpl.
 Qed.
 
-Lemma flocal_frame : forall H1 H2 F H Q,
+Lemma is_flocal_frame : forall H1 H2 F H Q,
   is_flocal F ->
   H ==> H1 \* H2 ->
   H1 ==> F (fun x => H2 \-* Q x) ->
   H ==> F Q.
 Proof using.
-  introv L W M. rewrites (rm L). hchanges (rm W). hchanges (rm M).
-  unfold flocal. hsimpl (fun x => H2 \-* Q x). intros r.
+  introv L W M. applys~ is_flocal_elim. hchange W. hchange M.
+  hsimpl (fun x => H2 \-* Q x). intros r.
   hchanges (hwand_cancel H2).
 Qed.
 
-Lemma flocal_frame_top : forall H1 H2 F H Q,
+Lemma is_flocal_frame_top : forall H1 H2 F H Q,
   is_flocal F ->
   H ==> H1 \* H2 ->
   H1 ==> F (fun x => H2 \-* Q x \* \Top) ->
   H ==> F Q.
 Proof using.
-  introv L W M. applys* flocal_top. applys* flocal_frame.
+  introv L W M. applys* is_flocal_top. applys* is_flocal_frame.
 Qed.
+
+End IsFlocal.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Properties of [flocal] for WP *)
+(* ** Definition of [flocal] for WP *)
 
-(** Local can be erased *)
+(** [flocal F] transforms a formula [F] into one that satisfies [is_flocal]. *)
+
+Definition flocal B (F:formula_ B) : formula_ B :=
+  fun Q => \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
+
+(** Properties *)
+
+Section Flocal.
+Variable (B : Type).
+Implicit Type Q : B->hprop.
+Implicit Type F : formula_ B.
+
+(** [flocal] can be erased *)
 
 Lemma flocal_erase : forall F Q,
   F Q ==> flocal F Q.
@@ -164,11 +188,50 @@ Proof using.
   intros. unfold flocal. repeat hsimpl.
 Qed.
 
-Lemma flocal_erase' : forall H F Q,
+(** [flocal] can be erased, with transitivity *)
+
+Lemma flocal_erase' : forall H F Q, (* TODO: rename *)
   H ==> F Q ->
   H ==> flocal F Q.
 Proof using.
   introv M. hchanges M. applys flocal_erase.
+Qed.
+
+(** [flocal] is idempotent, i.e. nested applications
+   of [flocal] are redundant *)
+
+Lemma flocal_flocal : forall F,
+  flocal (flocal F) = flocal F.
+Proof using.
+  intros F. applys fun_ext_1. intros Q. applys himpl_antisym.
+  { unfold flocal. hpull ;=> Q' Q''. hsimpl Q''. intros x.
+    hchanges (qwand_himpl_hwand x Q' (Q \*+ \Top)).
+    hchanges (qwand_himpl_hwand x Q'' (Q' \*+ \Top)).
+    hchanges (hwand_cancel (Q'' x) (Q' x \* \Top)).
+    hchanges (hwand_cancel (Q' x) (Q x \* \Top)). }
+    (* LATER: tactic to automate hchanges of hwand_cancel *)
+  { hchanges flocal_erase. }
+Qed.
+
+(** A definition whose head is [flocal] satisfies [is_flocal] *)
+
+Lemma is_flocal_flocal : forall F,
+  is_flocal (flocal F).
+Proof using.
+  intros. applys is_flocal_intro. intros Q.
+  pattern flocal at 1. rewrite <- flocal_flocal.
+  unfold flocal. auto.
+Qed.
+
+(** A [flocal] can be introduced at the head of a formula satisfying [is_flocal] *)
+
+Lemma eq_flocal_of_is_flocal : forall F,
+  is_flocal F -> 
+  F = flocal F.
+Proof using.
+  introv L. applys fun_ext_1 ;=> Q. applys himpl_antisym.
+  { applys~ flocal_erase. }
+  { applys~ is_flocal_elim. }
 Qed.
 
 (** Contradictions can be extracted from flocal formulae *)
@@ -197,47 +260,10 @@ Lemma flocal_erase_l : forall F1 F2,
   F1 ===> F2 ->
   flocal F1 ===> F2.
 Proof using.
-  introv LF M. rewrite LF. intros Q. applys* flocal_weaken.
+  introv LF M. rewrite~ (eq_flocal_of_is_flocal LF). applys* flocal_weaken.
 Qed.
 
-(** [flocal] is idempotent, i.e. nested applications
-   of [flocal] are redundant *)
-
-Lemma flocal_flocal : forall F,
-  flocal (flocal F) = flocal F.
-Proof using.
-  intros F. applys fun_ext_1. intros Q. applys himpl_antisym.
-  { unfold flocal. hpull ;=> Q' Q''. hsimpl Q''. intros x.
-    hchanges (qwand_himpl_hwand x Q' (Q \*+ \Top)).
-    hchanges (qwand_himpl_hwand x Q'' (Q' \*+ \Top)).
-    hchanges (hwand_cancel (Q'' x) (Q' x \* \Top)).
-    hchanges (hwand_cancel (Q' x) (Q x \* \Top)). }
-    (* LATER: tactic to automate hchanges of hwand_cancel *)
-  { hchanges flocal_erase. }
-Qed.
-
-(** A definition whose head is [flocal] satisfies [is_flocal] *)
-
-Lemma is_flocal_flocal : forall F,
-  is_flocal (flocal F).
-Proof using. intros. unfolds. rewrite~ flocal_flocal. Qed.
-
-(** Introduction rule for [is_flocal] on [weakestpre] *)
-
-Lemma is_flocal_weakestpre : forall (T:hprop->(B->hprop)->Prop),
-  SepBasicSetup.is_local T ->
-  is_flocal (weakestpre T).
-Proof using.
-  introv L. unfold is_flocal. applys fun_ext_1 ;=> Q.
-  applys himpl_antisym.
-  { apply~ flocal_erase'. }
-  { unfold flocal, wp_triple, weakestpre.
-    hpull ;=> Q' H M. hsimpl (H \* (Q' \--* Q \*+ \Top)).
-    xapply M. hsimpl. intros x. hchange (qwand_himpl_hwand x Q' (Q \*+ \Top)).
-    hchange (hwand_cancel (Q' x)). hsimpl. }
-Qed. (* LATER: simplify *)
-
-End LocalProp.
+End Flocal.
 
 
 (* ---------------------------------------------------------------------- *)

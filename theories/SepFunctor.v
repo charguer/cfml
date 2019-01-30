@@ -2010,26 +2010,26 @@ Lemma is_local_elim : forall F H Q,
   F H Q.
 Proof using. auto. Qed.
 
-(** An elimination rule for [is_local] without [\Top] *)
+(** An elimination rule for [is_local] without [htop] *)
 
 Lemma is_local_elim_frame : forall F H Q,
   is_local F ->
   (H ==> \exists H1 H2 Q1, H1 \* H2 \* \[F H1 Q1 /\ Q1 \*+ H2 ===> Q]) ->
   F H Q.
 Proof using. 
-  introv L M. applys L. hchange M. hpull ;=> H1 H2 Q1 (N1&N2). 
-  hsimpl H1 H2 Q1. splits~. hchanges N2.
+  introv L M. applys~ is_local_elim. hchange M.
+  hpull ;=> H1 H2 Q1 (N1&N2). hsimpl H1 H2 Q1. split~. hchanges N2.
 Qed.
 
-(** An elimination rule for [is_local] specialized for no frame *)
+(** An elimination rule for [is_local] specialized for no frame, and no [htop] *)
 
 Lemma is_local_elim_conseq_pre : forall F H Q,
   is_local F ->
   (H ==> \exists H1, H1 \* \[F H1 Q]) ->
   F H Q.
 Proof using.
-  introv L M. applys L. hchange M. hpull ;=> H1 N.
-  hsimpl H1 \[] Q. splits*. hsimpl.
+  introv L M. applys~ is_local_elim_frame. hchange M.
+  hpull ;=> H1 N. hsimpl H1 \[] Q. splits*. hsimpl.
 Qed.
 
 (** Weaken and frame and gc property [local] *)
@@ -2363,6 +2363,17 @@ Qed.
 Lemma is_local_local : forall F,
   is_local (local F).
 Proof using. introv M. rewrite <- local_local. applys M. Qed.
+
+(** A [local] can be introduced at the head of a formula satisfying [is_local] *)
+
+Lemma eq_local_of_is_local : forall F,
+  is_local F -> 
+  F = local F.
+Proof using.
+  introv L. applys pred_ext_2. intros H Q. iff M.
+  { applys~ local_erase. }
+  { applys~ is_local_elim. }
+Qed.
 
 (** [local] is a covariant transformer w.r.t. predicate inclusion *)
 
