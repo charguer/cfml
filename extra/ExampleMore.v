@@ -589,3 +589,117 @@ Ltac xlocal_base tt ::=
   try first [ applys is_local_local
             | applys is_local_triple
             | applys is_local_Triple ].
+
+            
+(*
+(* ---------------------------------------------------------------------- *)
+(** Notation for WP *)
+
+(** [WP] denotes [Wp_triple], which is [Weakestpre (@Triple t)],
+    where [Weakestpre] is the lifted version of the generic [weakestpre]
+    predicate defined in [SepFunctor]. *)
+
+Notation "'WP' t Q" := (^(Wp_Triple t) Q)
+  (at level 39, t at level 0, Q at level 0) : triple_scope.
+
+Open Scope triple_scope.
+*)
+
+
+
+
+
+(* ********************************************************************** *)
+(* * Notation for triples *)
+
+
+
+
+
+(* ---------------------------------------------------------------------- *)
+(** WIP... *)
+
+(** Notation [TRIPLE t PRE H POST Q]
+    in weakest-precondition form *)
+
+(*
+Definition TRIPLE_def t H `{EA:Enc A} (Q:A->hprop) :=
+  forall Q', H \* \[Q ===> Q'] ==> WP t Q'.
+
+Notation "'TRIPLE' t 'PRE' H1 'POST' Q1" :=
+  (TRIPLE_def t H1 Q1)
+  (at level 39, t at level 0) : triple_scope.
+
+
+Notation "'TRIPLE' t 'PRE' H1 'POST' Q1" :=
+  (forall Q, H1 \* \[Q1 ===> Q] ==> WP t Q)
+  (at level 39, t at level 0) : triple_scope.
+
+*)
+
+(** Notation [TRIPLE t PRE H BIND x y RET v POST Q] 
+    in weakest-precondition form  
+
+Notation "'TRIPLE' t 'PRE' H1 'RET' v 'POST' H2" :=
+  (forall Q, H1 \* \[(fun r => \[r = v] \* H2) ===> Q] ==> WP t Q)
+  (at level 39, t at level 0) : triple_scope.
+
+Notation "'TRIPLE' t 'PRE' H1 'BIND' x1 'RET' v 'POST' H2" :=
+  (TRIPLE t PRE H1 POST (fun r => \exists x1, \[r = v] \* H2))
+  (* (forall Q, H1 \* \[(fun r => \exists x1, \[r = v] \* H2) ===> Q] ==> Wp_Triple t Q) *)
+  (at level 39, t at level 0, x1 ident) : triple_scope.
+*)
+
+(* ALTERNATIVE
+
+Notation "'TRIPLE' t 'PRE' H1 'RET' v 'POST' H2" :=
+  (forall Q, H1 \* \[H2 ==> Q v] ==> WP t Q)
+  (at level 68, t at level 0) : triple_scope.
+
+Notation "'TRIPLE' t 'PRE' H1 'BIND' x1 'RET' v 'POST' H2" :=
+  (forall Q, H1 \* \[forall x1, H2 ==> Q v] ==> WP t Q)
+  (at level 68, t at level 0, x1 ident) : triple_scope.
+
+Notation "'TRIPLE' t 'PRE' H1 'BIND' x1 x2 x3 'RET' v 'POST' H2" :=
+  (forall Q, H1 \* \[forall x1 x2 x3, H2 ==> Q v] ==> WP t Q)
+  (at level 68, t at level 0, x1 ident, x2 ident, x3 ident) : triple_scope.
+
+Notation "'TRIPLE' t 'PRE' H1 'BIND' x1 x2 x3 x4 'RET' v 'POST' H2" :=
+  (forall Q, H1 \* \[forall x1 x2 x3 x4, H2 ==> Q v] ==> WP t Q)
+  (at level 68, t at level 0, x1 ident, x2 ident, x3 ident, x4 ident) : triple_scope.
+
+*)
+
+(* TODO: use recursive notation *)
+
+
+(* TODO:
+
+Notation "'TRIPLE' t 'PRE' H1 'BIND' x1 'RET' v 'POST' H2" :=
+  (Triple t H1 (fun r => \exists x1, \[r = v] \* H2) Q)
+ or just:
+  (forall Q, H1 \* \[forall x1, H2 ==> Q v] ==> WP t Q)
+  (at level 68, t at level 0, x1 ident) : triple_scope.
+
+*)
+
+
+
+
+
+
+
+(* DEPRECATED
+Definition tag_himpl_wp (A:Type) (X:A) := X.
+
+Lemma tag_himpl_wp_intro : forall H F `{EA:Enc A} (Q:A->hprop),
+  tag_himpl_wp (H ==> ^F Q) ->
+  H ==> ^F Q.
+Proof using. auto. Qed.
+
+Notation "'PRE' H 'CODE' F 'POST' Q" := (tag_himpl_wp (H ==> F _ _ Q)) 
+  (at level 67, format "'[v' 'PRE'  H '/' 'CODE'  F '/' 'POST'  Q ']'") : charac.
+
+Ltac tag := applys tag_himpl_wp_intro.
+
+*)

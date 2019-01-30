@@ -11,18 +11,13 @@ License: MIT.
 
 
 Set Implicit Arguments.
-From Sep Require Export LambdaWPLifted.
-Open Scope heap_scope.
+From Sep Require Export LambdaWPTactics.
 Generalizable Variables A B.
-
-Implicit Types v w : val.
-Implicit Types t : trm.
 
 Import NotationForVariables NotationForTerms.
 Open Scope val_scope.
 Open Scope pat_scope.
 Open Scope trm_scope.
-
 
 
 (* ********************************************************************** *)
@@ -200,11 +195,11 @@ Proof using.
   { reflexivity. }
   simpl.
   (* xlet-poly *)
-  notypeclasses refine (xlet_instantiate _ _ _ _ _).
+  notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xlet *)
   eapply Local_erase.
   (* xapps *)
-  applys @xapp_lemma. { applys Triple_get. } hsimpl ;=> ? ->.
+  applys @xapps_lemma. { applys Triple_get. } hsimpl.
   (* return *)
   applys @xreturn_lemma_val.
   (* xapp *)
@@ -488,17 +483,17 @@ Proof using.
   (* xunfold *)
   xunfold Stack.
   (* xlet-poly *)
-  notypeclasses refine (xlet_instantiate _ _ _ _ _).
+  notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xapps *)
-  applys @xapp_lemma. { eapply @Triple_get. } hsimpl ;=> ? ->.
+  applys @xapps_lemma. { eapply @Triple_get. } hsimpl.
   (* xlet-poly *)
-  notypeclasses refine (xlet_instantiate _ _ _ _ _).
+  notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xval *)
   applys~ (xval_lemma nil).
   (* xapps *)
-  applys @xapp_lemma. { eapply @Triple_eq_val. } hsimpl ;=> ? ->.
+  applys @xapps_lemma_pure. { applys @Triple_eq_val. } hsimpl.
   (* done *)
-  hsimpl. rewrite* @Enc_injective_value_eq_r.
+  rewrite* @Enc_injective_value_eq_r.
 Qed.
 
 Lemma Triple_pop : forall `{Enc A} (p:loc) (L:list A),
@@ -513,13 +508,13 @@ Proof using.
   (* xunfold *)
   xunfold Stack.
   (* xlet-poly *)
-  notypeclasses refine (xlet_instantiate _ _ _ _ _).
+  notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xapps *)
-  applys @xapp_lemma. { eapply @Triple_get. } hsimpl ;=> ? ->.
+  applys @xapps_lemma. { eapply @Triple_get. } hsimpl.
   (* Two ways of completing the proof *)
   dup.
   (* xcase with lemma for match list *)
-  { applys xmatch_list.
+  { applys xmatch_lemma_list.
     { intros HL. false. }
     { intros X L' HL. 
       (* xseq *)
@@ -555,7 +550,7 @@ Proof using.
   (* xcf *)
   intros. applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
   (* xlet-poly *)
-  notypeclasses refine (xlet_instantiate _ _ _ _ _).
+  notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xval *)
   applys~ (xval_lemma_val (@nil A)).
   (* xapp *)
@@ -574,11 +569,11 @@ Proof using.
   (* xunfold *)
   xunfold Stack.
   (* xlet-poly *)
-  notypeclasses refine (xlet_instantiate _ _ _ _ _).
+  notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xlet-poly *)
-  notypeclasses refine (xlet_instantiate _ _ _ _ _).
+  notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xapps *)
-  applys @xapp_lemma. { eapply @Triple_get. } hsimpl ;=> ? ->.
+  applys @xapps_lemma. { eapply @Triple_get. } hsimpl.
   (* xval *)
   applys~ (xval_lemma_val (x::L)).
   (* xapps *)
@@ -589,6 +584,9 @@ Qed.
 
 Opaque Stack.
 
+
+
+
 Lemma Triple_rev_append : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
   TRIPLE (val_rev_append p1 p2)
     PRE (p1 ~> Stack L1 \* p2 ~> Stack L2)
@@ -598,9 +596,9 @@ Proof using.
   (* xcf *)
   intros. applys Triple_apps_fixs_of_Wp; try reflexivity; simpl.
   (* xlet *)
-  applys xlet_lemma.
+  applys xlet_typed_lemma.
   (* xapps *)
-  applys @xapp_lemma. { eapply @Triple_is_empty. } hsimpl ;=> ? ->.
+  applys @xapps_lemma. { eapply @Triple_is_empty. } hsimpl.
   (* xif *)
   applys @xifval_lemma_isTrue ;=> C.
   (* case nil *)
@@ -610,7 +608,7 @@ Proof using.
     hsimpl. subst. rew_list~. }
   (* case cons *)
   { (* xlet-poly *)
-    notypeclasses refine (xlet_instantiate _ _ _ _ _).
+    notypeclasses refine (xlet_lemma _ _ _ _ _).
     (* xapp *)
     applys @xapp_lemma. { applys @Triple_pop. eauto. } hsimpl ;=> x L1' E.
     (* xseq *)

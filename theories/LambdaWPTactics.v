@@ -10,16 +10,24 @@ License: MIT.
 *)
 
 
+
 Set Implicit Arguments.
 From Sep Require Export LambdaWPLifted.
 Open Scope heap_scope.
 Generalizable Variables A B.
+
+Import NotationForVariables NotationForTerms.
+Open Scope val_scope.
+Open Scope pat_scope.
+Open Scope trm_scope.
 
 Implicit Types v w : val.
 Implicit Types t : trm.
 Implicit Types vs : vals.
 Implicit Types ts : trms.
 Implicit Types H : hprop.
+
+
 
 
 (* ********************************************************************** *)
@@ -56,7 +64,7 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Lemmas for [xapp] *)
+(* ** Lemmas for [xapp] and [xapps] *)
 
 Lemma xapp_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
   Triple t H1 Q1 ->
@@ -69,9 +77,26 @@ Proof using.
   applys* Triple_ramified_frame. hsimpl.
 Qed.
 
+Lemma xapps_lemma : forall A `{EA:Enc A} (V:A) H2 t H1 H Q,
+  Triple t H1 (fun r => \[r = V] \* H2) ->
+  H ==> H1 \* (H2 \-* Q V) ->
+  H ==> ^(Wp_app t) Q.
+Proof using.
+  introv M1 M2. applys xapp_lemma M1. hchanges M2.
+  intros ? ->. hchanges (hwand_cancel H2).
+Qed.
+
+Lemma xapps_lemma_pure : forall A `{EA:Enc A} (V:A) t H1 H Q,
+  Triple t H1 (fun r => \[r = V]) ->
+  H ==> H1 \* (Q V) ->
+  H ==> ^(Wp_app t) Q.
+Proof using.
+  introv M1 M2. applys xapps_lemma \[]; rew_heap; eauto.
+Qed.
+
 
 (* ---------------------------------------------------------------------- *)
-(* ** Lemmas for [xval] and [xreturn] *)
+(* ** Lemmas for [xval] *)
 
 Lemma xval_lemma : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
   v = ``V ->
@@ -86,24 +111,40 @@ Lemma xval_lemma_val : forall `{EA:Enc A} (V:A) v H (Q:val->hprop),
 Proof using. introv E N. subst. applys Local_erase. hsimpl~ (``V). Qed.
 
 
+(* ---------------------------------------------------------------------- *)
+(* ** Lemmas for [xreturn] *)
+
+Lemma xreturn_lemma_typed : forall `{Enc A1} (F:(A1->hprop)->hprop) (Q:A1->hprop) H,
+  H ==> F Q ->
+  H ==> ^(Formula_typed F) Q.
+Proof using.
+  introv M. unfold Formula_typed. hsimpl* Q. applys PostChange_refl.
+Qed.
+
+Lemma xreturn_lemma_val : forall `{Enc A1} (F:(A1->hprop)->hprop) (Q:val->hprop) H,
+  H ==> F (fun (X:A1) => Q (enc X)) ->
+  H ==> ^(Formula_typed F) Q.
+Proof using.
+  introv M. unfold Formula_typed. hsimpl* Q.
+  unfold PostChange. intros X. hsimpl* X.
+Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Lemmas for [xlet] and [xseq] *)
 
-Lemma xlet_instantiate : forall A1 (EA1:Enc A1) H `{EA:Enc A} (Q:A->hprop) (F1:Formula) (F2of:forall `{EA1:Enc A2},A2->Formula),
-  H ==> ^F1 (fun (X:A1) => ^(F2of X) Q) ->
+Lemma xlet_lemma : forall A1 (EA1:Enc A1) H `{EA:Enc A} (Q:A->hprop) (F1:Formula) (F2of:forall `{EA1:Enc A2},A2->Formula),
+  H ==> ^F1 (fun (X:A1) => ^(F2of X) Q) -> 
   H ==> ^(Wp_let F1 (@F2of)) Q.
-Proof using.
-  introv M. applys Local_erase. hsimpl* A1 EA1. Qed.
+Proof using. introv M. applys Local_erase. hsimpl* A1 EA1. Qed.
+
+Definition xlet_typed_lemma := @Local_erase.
+
+Definition xseq_lemma := @Local_erase.
 
 
-
-
-
-
-
-
-
+(* ---------------------------------------------------------------------- *)
+(* ** Lemmas for [xcase] *)
 
 Lemma xcase_lemma : forall F1 (P:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
   (H ==> ^F1 Q) ->
@@ -132,7 +173,7 @@ Proof using.
   { repeat (applys himpl_hforall_r ;=> ?). applys* hwand_move_l_pure. }
 Qed.
 
-Lemma xmatch_list : forall `{EA:Enc A} (L:list A) (F1:Formula) (F2:val->val->Formula) H `{HB:Enc B} (Q:B->hprop),
+Lemma xmatch_lemma_list : forall `{EA:Enc A} (L:list A) (F1:Formula) (F2:val->val->Formula) H `{HB:Enc B} (Q:B->hprop),
   (L = nil -> H ==> ^F1 Q) ->
   (forall X L', L = X::L' -> H ==> ^(F2 ``X ``L') Q) ->
   H ==> ^(Match_ ``L With
@@ -147,24 +188,8 @@ Proof using.
 Qed.
 
 
-Definition xseq_lemma := @Local_erase.
-Definition xlet_lemma := @Local_erase.
-
-
-Lemma xreturn_lemma_typed : forall `{Enc A1} (F:(A1->hprop)->hprop) (Q:A1->hprop) H,
-  H ==> F Q ->
-  H ==> ^(Formula_typed F) Q.
-Proof using.
-  introv M. unfold Formula_typed. hsimpl* Q. applys PostChange_refl.
-Qed.
-
-Lemma xreturn_lemma_val : forall `{Enc A1} (F:(A1->hprop)->hprop) (Q:val->hprop) H,
-  H ==> F (fun (X:A1) => Q (enc X)) ->
-  H ==> ^(Formula_typed F) Q.
-Proof using.
-  introv M. unfold Formula_typed. hsimpl* Q.
-  unfold PostChange. intros X. hsimpl* X.
-Qed.
+(* ---------------------------------------------------------------------- *)
+(* ** Lemmas for [xif] *)
 
 Lemma xifval_lemma : forall `{EA:Enc A} b H (Q:A->hprop) (F1 F2:Formula),
   (b = true -> H ==> ^F1 Q) ->
@@ -209,6 +234,7 @@ Open Scope triple_scope.
 
 
 
+(*
 
 (* ********************************************************************** *)
 (* * Database for registering a specification for each program. *)
@@ -618,100 +644,6 @@ Tactic Notation "xwhile" "as" ident(R) ident(LR) ident(HR) :=
 
 
 
-(* ********************************************************************** *)
-(* * Notation for triples *)
-
-
-
-
-
-(* ---------------------------------------------------------------------- *)
-(** WIP... *)
-
-(** Notation [TRIPLE t PRE H POST Q]
-    in weakest-precondition form *)
-
-(*
-Definition TRIPLE_def t H `{EA:Enc A} (Q:A->hprop) :=
-  forall Q', H \* \[Q ===> Q'] ==> WP t Q'.
-
-Notation "'TRIPLE' t 'PRE' H1 'POST' Q1" :=
-  (TRIPLE_def t H1 Q1)
-  (at level 39, t at level 0) : triple_scope.
-
-
-Notation "'TRIPLE' t 'PRE' H1 'POST' Q1" :=
-  (forall Q, H1 \* \[Q1 ===> Q] ==> WP t Q)
-  (at level 39, t at level 0) : triple_scope.
-
-*)
-
-(** Notation [TRIPLE t PRE H BIND x y RET v POST Q] 
-    in weakest-precondition form  
-
-Notation "'TRIPLE' t 'PRE' H1 'RET' v 'POST' H2" :=
-  (forall Q, H1 \* \[(fun r => \[r = v] \* H2) ===> Q] ==> WP t Q)
-  (at level 39, t at level 0) : triple_scope.
-
-Notation "'TRIPLE' t 'PRE' H1 'BIND' x1 'RET' v 'POST' H2" :=
-  (TRIPLE t PRE H1 POST (fun r => \exists x1, \[r = v] \* H2))
-  (* (forall Q, H1 \* \[(fun r => \exists x1, \[r = v] \* H2) ===> Q] ==> Wp_Triple t Q) *)
-  (at level 39, t at level 0, x1 ident) : triple_scope.
-*)
-
-(* ALTERNATIVE
-
-Notation "'TRIPLE' t 'PRE' H1 'RET' v 'POST' H2" :=
-  (forall Q, H1 \* \[H2 ==> Q v] ==> WP t Q)
-  (at level 68, t at level 0) : triple_scope.
-
-Notation "'TRIPLE' t 'PRE' H1 'BIND' x1 'RET' v 'POST' H2" :=
-  (forall Q, H1 \* \[forall x1, H2 ==> Q v] ==> WP t Q)
-  (at level 68, t at level 0, x1 ident) : triple_scope.
-
-Notation "'TRIPLE' t 'PRE' H1 'BIND' x1 x2 x3 'RET' v 'POST' H2" :=
-  (forall Q, H1 \* \[forall x1 x2 x3, H2 ==> Q v] ==> WP t Q)
-  (at level 68, t at level 0, x1 ident, x2 ident, x3 ident) : triple_scope.
-
-Notation "'TRIPLE' t 'PRE' H1 'BIND' x1 x2 x3 x4 'RET' v 'POST' H2" :=
-  (forall Q, H1 \* \[forall x1 x2 x3 x4, H2 ==> Q v] ==> WP t Q)
-  (at level 68, t at level 0, x1 ident, x2 ident, x3 ident, x4 ident) : triple_scope.
-
-*)
-
-(* TODO: use recursive notation *)
-
-
-(* TODO:
-
-Notation "'TRIPLE' t 'PRE' H1 'BIND' x1 'RET' v 'POST' H2" :=
-  (Triple t H1 (fun r => \exists x1, \[r = v] \* H2) Q)
- or just:
-  (forall Q, H1 \* \[forall x1, H2 ==> Q v] ==> WP t Q)
-  (at level 68, t at level 0, x1 ident) : triple_scope.
-
-*)
-
-
-
-
-
-
-
-(* DEPRECATED
-Definition tag_himpl_wp (A:Type) (X:A) := X.
-
-Lemma tag_himpl_wp_intro : forall H F `{EA:Enc A} (Q:A->hprop),
-  tag_himpl_wp (H ==> ^F Q) ->
-  H ==> ^F Q.
-Proof using. auto. Qed.
-
-Notation "'PRE' H 'CODE' F 'POST' Q" := (tag_himpl_wp (H ==> F _ _ Q)) 
-  (at level 67, format "'[v' 'PRE'  H '/' 'CODE'  F '/' 'POST'  Q ']'") : charac.
-
-Ltac tag := applys tag_himpl_wp_intro.
-
-*)
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xapp] demo
@@ -730,32 +662,8 @@ Ltac xapp_core tt ::=
 
 
 
-(*
-(* ---------------------------------------------------------------------- *)
-(** Notation for WP *)
 
-(** [WP] denotes [Wp_triple], which is [Weakestpre (@Triple t)],
-    where [Weakestpre] is the lifted version of the generic [weakestpre]
-    predicate defined in [SepFunctor]. *)
 
-Notation "'WP' t Q" := (^(Wp_Triple t) Q)
-  (at level 39, t at level 0, Q at level 0) : triple_scope.
 
-Open Scope triple_scope.
+
 *)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

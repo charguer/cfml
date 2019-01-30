@@ -1861,6 +1861,16 @@ Lemma hwand_eq_hexists_hstar_hpure : forall H1 H2,
   (H1 \-* H2) = (\exists H, H \* \[H \* H1 ==> H2]).
 Proof using. auto. Qed.
 
+Lemma hwand_hempty_l : forall H,
+  (\[] \-* H) = H.
+Proof using.
+  intros. unfold hwand. applys himpl_antisym.
+  { hpull ;=> H' M. hchanges M. }
+  { hsimpl. }
+Qed.
+
+Hint Rewrite hwand_hempty_l : rew_heap.
+
 Lemma hwand_himpl_r : forall H1 H2 H2',
   H2 ==> H2' ->
   (H1 \-* H2) ==> (H1 \-* H2').
