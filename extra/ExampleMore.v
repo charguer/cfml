@@ -580,3 +580,12 @@ Proof using.
   applys weakestpre_conseq_wand.
   applys is_local_Triple.
 Qed.
+
+
+
+(** Extension of [xlocal] tactic *)
+
+Ltac xlocal_base tt ::=
+  try first [ applys is_local_local
+            | applys is_local_triple
+            | applys is_local_Triple ].

@@ -1,10 +1,14 @@
 
 Set Implicit Arguments.
 From Sep Require LambdaSep LambdaSepLifted.
-
+Generalizable Variables A.
 
 (* ********************************************************************** *)
-(* * Additional lemmas *)
+(* * Alternative proofs for LambdaSep *)
+
+Module LambdaSepAlt.
+Import LambdaSep.
+Implicit Types P : Prop.
 
 (* ---------------------------------------------------------------------- *)
 (* ** Auxiliary lemma showing that reasoning rule for extracting
@@ -45,13 +49,8 @@ Proof using.
   applys M. intros. applys* W. hpull. introv R. hchanges~ R.
 Qed.
 
-
-
-(* ********************************************************************** *)
-(* * Additional proofs for structural rules of LambdaSep's [hoare] triples *)
-
-Module LambdaSepAlt.
-Import LambdaSep.
+(* ---------------------------------------------------------------------- *)
+(* ** Additional proofs for structural rules of LambdaSep's [hoare] triples *)
 
 Lemma hoare_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, hoare t (J x) Q) ->
@@ -93,10 +92,8 @@ Qed.
   applys* M. applys N2'. hhsimpl~.
 *)
 
-
-
-(* ********************************************************************** *)
-(* * Alternative proofs for structural rules of LambdaSep's SL [triple] *)
+(* ---------------------------------------------------------------------- *)
+(* ** Alternative proofs for structural rules of LambdaSep's SL [triple] *)
 
 Implicit Types H : hprop.
 Implicit Types Q : val -> hprop.
@@ -216,7 +213,11 @@ End LambdaSepAlt.
 (* * Alternative proofs for structural rules of LambdaSep's SL [triple] *)
 
 Module LambdaSepLiftedAlt.
+Import LambdaSep LambdaSepLifted.
+
 Implicit Types H : hprop.
+
+Hint Resolve Post_himpl.
 
 Lemma Triple_conseq : forall t H' `{Enc A} (Q':A->hprop) H (Q:A->hprop),
   H ==> H' ->
@@ -307,8 +308,8 @@ Lemma Triple_combined : forall t H1 H2 `{Enc A} (Q1 Q:A->hprop) H,
   Q1 \*+ H2 ===> Q \*+ \Top ->
   Triple t H Q.
 Proof using.
-  introv M WH WQ. applys* triple_combined. 
+  introv M WH WQ. applys* triple_conseq_frame_htop.
   do 2 rewrite <- Post_star. apply* Post_himpl.
 Qed.
 
-End Structural.
+End LambdaSepLiftedAlt.
