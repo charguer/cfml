@@ -58,9 +58,6 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Lemmas for [xapp] *)
 
-
-
-
 Lemma xapp_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
   Triple t H1 Q1 ->
   H ==> H1 \* (Q1 \--* Q) ->

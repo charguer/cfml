@@ -34,11 +34,9 @@ export TLC
 ##############################################################################
 # List of files
 
-SRC_CORE := TLCbuffer Fmap Bind LambdaSemantics SepFunctor LambdaSep  LambdaSepLifted LambdaSepAltProofs LambdaWP LambdaWPLifted LambdaWPExamples 
+SRC_CORE := TLCbuffer Fmap Bind LambdaSemantics SepFunctor LambdaSep LambdaWP LambdaSepLifted LambdaWPLifted LambdaWPTactics LambdaWPExamples 
 
-# LambdaWPTactics
-
-SRC_MORE := LambdaSepCredits LambdaSepCreditsNat LambdaSepRO
+SRC_MORE := LambdaSepAltProofs LambdaSepCredits LambdaSepCreditsNat LambdaSepRO
 
 SRC_CF := LambdaCF LambdaCFLifted LambdaStruct LambdaStructLifted
 

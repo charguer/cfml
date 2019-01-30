@@ -70,20 +70,20 @@ Definition Formula_typed `{Enc A1} (F:(A1->hprop)->hprop) : Formula :=
 (** The [Local] predicate lifts [local]. *)
 
 Definition Local (F:Formula) : Formula :=
-  fun A `{EA:Enc A} Q => local (@F A EA) Q.
+  fun A `{EA:Enc A} Q => flocal (@F A EA) Q.
 
-Lemma local_Local_eq : forall A `{EA:Enc A} (F:Formula),
-  local (@Local F A EA) = (@Local F A EA).
+Lemma flocal_Local_eq : forall A `{EA:Enc A} (F:Formula),
+  flocal (@Local F A EA) = (@Local F A EA).
 Proof using.
   intros. apply fun_ext_1. intros Q.
-  unfold Local. rewrite local_local. split~.
+  unfold Local. rewrite flocal_flocal. split~.
 Qed.
 
-Lemma is_local_Local : forall A `{EA:Enc A} (F:Formula),
-  is_local (@Local F A EA).
-Proof using. intros. unfolds. rewrite~ local_Local_eq. Qed.
+Lemma is_flocal_Local : forall A `{EA:Enc A} (F:Formula),
+  is_flocal (@Local F A EA).
+Proof using. intros. unfolds. rewrite~ flocal_Local_eq. Qed.
 
-Hint Resolve is_local_Local.
+Hint Resolve is_flocal_Local.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -258,14 +258,14 @@ Definition Wp_while (F1 F2:Formula) : Formula :=
   Local (Formula_typed (fun (Q:unit->hprop) =>
     \forall (R:Formula),
     let F := Wp_if F1 (Wp_seq F2 R) (Wp_val val_unit) in
-    \[ is_local (@R unit _) /\ (forall Q', ^F Q' ==> ^R Q')] \-* (^R Q))).
+    \[ is_flocal (@R unit _) /\ (forall Q', ^F Q' ==> ^R Q')] \-* (^R Q))).
 
 Definition Wp_for_int (n1 n2:int) (F1:int->Formula) : Formula := 
   Local (Formula_typed (fun (Q:unit->hprop) =>
     \forall (S:int->Formula),
     let F i := If (i <= n2) then (Wp_seq (F1 i) (S (i+1)))
                             else (Wp_val val_unit) in
-    \[ (forall i, is_local (S i unit _)) /\ (forall i Q', ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
+    \[ (forall i, is_flocal (S i unit _)) /\ (forall i Q', ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
 
 
 
@@ -410,11 +410,11 @@ Fixpoint Wp (E:ctx) (t:trm) : Formula :=
 
 (** [Wp_Triple t] is a local formula *)
 
-Lemma is_local_Wp_Triple : forall `{EA:Enc A} t,
-  is_local ((Wp_Triple t) A EA).
+Lemma is_flocal_Wp_Triple : forall `{EA:Enc A} t,
+  is_flocal ((Wp_Triple t) A EA).
 Proof using.
   intros. unfolds Wp_Triple. unfolds Weakestpre.
-  applys is_local_weakestpre. applys is_local_Triple.
+  applys is_flocal_weakestpre. applys is_local_Triple.
 Qed.
 
 (** Equivalence between a [triple] and its weakest-precondition presentation. *)
@@ -435,7 +435,7 @@ Proof using. introv M. intros Q. rewrite~ <- Triple_eq_himpl_Wp_Triple. Qed.
 Lemma himpl_Wp_Triple_of_Triple : forall A `{EA:Enc A} (Q1:A->hprop) t H1,
   Triple t H1 Q1 ->
   H1 ==> ^(Wp_Triple t) Q1.
-Proof using. introv M. rewrite* Triple_eq_himpl_Wp_Triple. Qed.
+Proof using. introv M. rewrite* <- Triple_eq_himpl_Wp_Triple. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -447,29 +447,28 @@ Lemma Local_erase : forall H F `{EA:Enc A} (Q:A->hprop),
   H ==> ^F Q ->
   H ==> ^(Local F) Q.
 Proof using.
-  introv M. hchanges M. applys local_erase.
+  introv M. hchanges M. applys flocal_erase.
 Qed.
 
 (** The [Local] transformer is sound w.r.t. [Triple], in other words, it
     may be stripped from the precondition. *)
 
-Lemma Triple_local_pre : forall t (F:Formula) `{EA:Enc A} (Q:A->hprop),
+Lemma Triple_Local_pre : forall t (F:Formula) `{EA:Enc A} (Q:A->hprop),
   (forall Q, Triple t (^F Q) Q) ->
   Triple t (^(Local F) Q) Q.
 Proof using.
-  introv M. rewrite is_local_Triple. unfold SepBasicSetup.local.
-  unfold Local, local. hpull ;=> Q'.
-  hsimpl (F A EA Q') ((Q' \--* Q \*+ \Top)) Q'. split.
-  { applys~ M. }
+  introv M. applys~ is_local_elim.
+  unfold Local, flocal. hpull ;=> Q'.
+  hsimpl (^F Q') ((Q' \--* Q \*+ \Top)) Q'. split~.
   { hchanges qwand_cancel. }
-Qed. (* TODO: simplify proof? *)
+Qed.
 
 (** The tactic [remove_Local] applies to goal of the form [triple t (local F Q) Q]
     and turns it into [triple t (F Q) Q] for a fresh [Q],  then calls [xpull] *)
 
 Ltac remove_Local :=
   match goal with |- @Triple _ _ _ _ ?Q =>
-    applys Triple_local_pre; try (clear Q; intros Q); fold wp end.
+    applys Triple_Local_pre; try (clear Q; intros Q); fold wp end.
 
 (*
 (* ---------------------------------------------------------------------- *)
@@ -859,14 +858,3 @@ Notation "'Match_' v 'With' ''|' vp1 [ x11 ] ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>'
    format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  [ x11 ] ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
   : wp_scope.
 
-
-
-
-
-
-(* TODO: get that to work
-Notation "'`Let' x ':=' F1 'in' F2" :=
-  ((Wp_let F1 (fun _ _  x => F2)))
-  (at level 69,  x ident, right associativity,
-  format "'[v' '[' '`Let'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
-*)
