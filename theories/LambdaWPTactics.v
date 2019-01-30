@@ -34,9 +34,9 @@ Implicit Types H : hprop.
 (* * Reasoning rules for manipulating goals of the form [H ==> ^(Wp t) Q]. *)
 
 (* ---------------------------------------------------------------------- *)
-(* ** Lemmas for [xcf], proving goals of the form [Triples (trm_apps F ts)] *)
+(* ** Lemmas for [xtriple], proving goals of the form [Triples (trm_apps F ts)] *)
 
-Lemma xcf_lemma_funs : forall F vs ts xs t `{EA:Enc A} H (Q:A->hprop),
+Lemma xtriple_lemma_funs : forall F vs ts xs t `{EA:Enc A} H (Q:A->hprop),
   F = val_funs xs t ->
   trms_to_vals ts = Some vs ->
   var_funs_exec (length vs) xs ->
@@ -49,7 +49,7 @@ Proof using.
   applys* Triple_isubst_of_Wp.
 Qed.
 
-Lemma xcf_lemma_fixs : forall F (f:var) vs ts xs t `{EA:Enc A} H (Q:A->hprop),
+Lemma xtriple_lemma_fixs : forall F (f:var) vs ts xs t `{EA:Enc A} H (Q:A->hprop),
   F = val_fixs f xs t ->
   trms_to_vals ts = Some vs ->
   var_fixs_exec f (length vs) xs ->

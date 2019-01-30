@@ -188,8 +188,8 @@ Proof using.
   intros.
   (* optional simplification step to reveal [trm_apps] *)
   simpl combiner_to_trm.
-  (* xcf *)
-  applys xcf_lemma_funs.
+  (* xtriple *)
+  applys xtriple_lemma_funs.
   { reflexivity. }
   { reflexivity. }
   { reflexivity. }
@@ -218,7 +218,7 @@ Qed.
 
 (* TODO SHOULD BE:
 
-  xcf.
+  xtriple.
   xlet. { xapp. xapplys triple_get. }
   hpull ;=> ? ->.
   xlet. { xapp. xapplys triple_add. }
@@ -227,7 +227,7 @@ Qed.
 
 then just:
 
-  xcf.
+  xtriple.
   xapp.
   xapp.
   xapp.
@@ -251,7 +251,7 @@ Lemma Triple_swap_neq : forall A1 A2 `{EA1:Enc A1} `{EA2:Enc A2} (v:A1) (w:A2) p
     PRE (p ~~> v \* q ~~> w)
     POST (fun (r:unit) => p ~~> w \* q ~~> v).
 Proof using.
-  xcf. xapps. xapps. xapps. xapps. hsimpl~.
+  xtriple. xapps. xapps. xapps. xapps. hsimpl~.
 Qed.
 
 Lemma Triple_swap_eq : forall A1 `{EA1:Enc A1} (v:A1) p,
@@ -259,7 +259,7 @@ Lemma Triple_swap_eq : forall A1 `{EA1:Enc A1} (v:A1) p,
     PRE (p ~~> v)
     POST (fun (r:unit) => p ~~> v).
 Proof using.
-  xcf. xapps. xapps. xapps. xapps. hsimpl~.
+  xtriple. xapps. xapps. xapps. xapps. hsimpl~.
 Qed.
 
 
@@ -278,7 +278,7 @@ Lemma triple_succ_using_incr : forall n,
     \[]
     (fun r => \[r = n+1]).
 Proof using.
-  xcf. xapp as p. intros; subst. xapp~. intros _. xapps~.
+  xtriple. xapp as p. intros; subst. xapp~. intros _. xapps~.
   (* not possible: applys local_erase. unfold cf_val. hsimpl. *)
   xvals~.
 Qed.
@@ -299,7 +299,7 @@ Lemma Triple_val_example_let : forall n,
     PRE \[]
     POST (fun r => \[r = 2*n]).
 Proof using.
-  xcf. xapps. xapps. xapp. hsimpl. math.
+  xtriple. xapps. xapps. xapp. hsimpl. math.
 Qed.
 
 
@@ -325,7 +325,7 @@ Lemma Triple_val_example_one_ref : forall n,
     PRE \[]
     POST (fun r => \[r = n+2]).
 Proof using.
-  xcf. xapps. xapps ;=> r. xapp~. xapp~. hsimpl. math.
+  xtriple. xapps. xapps ;=> r. xapp~. xapp~. hsimpl. math.
 Qed.
 
 
@@ -361,7 +361,7 @@ Lemma Triple_val_example_two_ref : forall n,
     PRE \[]
     POST (fun r => \[r = n+1]).
 Proof using.
-  xcf. xapp ;=> i. xapp ;=> r.
+  xtriple. xapp ;=> i. xapp ;=> r.
   xapp~. xapp~. xapps. xapps. xapps. xapps~.
   xapps. xapps. xapps.
   hsimpl. math.
@@ -390,8 +390,8 @@ Lemma Triple_test1 : forall (p:loc),
     POST (fun (u:unit) => \[]).
 Proof using.
   intros.
-  (* xcf *)
-  applys xcf_lemma_funs; try reflexivity. simpl.
+  (* xtriple *)
+  applys xtriple_lemma_funs; try reflexivity. simpl.
 Admitted.
 
 
@@ -408,8 +408,8 @@ Lemma Triple_test2 : forall (p:loc),
     POST (fun (u:unit) => \[]).
 Proof using.
   intros.
-  (* xcf *)
-  applys xcf_lemma_funs; try reflexivity. simpl.
+  (* xtriple *)
+  applys xtriple_lemma_funs; try reflexivity. simpl.
 Admitted.
 
 
@@ -429,8 +429,8 @@ Lemma triple_test0 : forall (p:loc),
     POST (fun (u:unit) => \[]).
 Proof using.
   intros.
-  (* xcf *)
-  applys xcf_lemma_funs; try reflexivity. simpl.
+  (* xtriple *)
+  applys xtriple_lemma_funs; try reflexivity. simpl.
 Admitted.
 
 
@@ -478,8 +478,8 @@ Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),
     PRE (p ~> Stack L)
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stack L).
 Proof using.
-  (* xcf *)
-  intros. applys xcf_lemma_funs; try reflexivity; simpl.
+  (* xtriple *)
+  intros. applys xtriple_lemma_funs; try reflexivity; simpl.
   (* xunfold *)
   xunfold Stack.
   (* xlet-poly *)
@@ -503,8 +503,8 @@ Lemma Triple_pop : forall `{Enc A} (p:loc) (L:list A),
     POST (fun (x:A) => \exists L', \[L = x::L'] \* (p ~> Stack L')).
 Proof using.
   introv N.
-  (* xcf *)
-  applys xcf_lemma_funs; try reflexivity; simpl.
+  (* xtriple *)
+  applys xtriple_lemma_funs; try reflexivity; simpl.
   (* xunfold *)
   xunfold Stack.
   (* xlet-poly *)
@@ -515,7 +515,9 @@ Proof using.
   dup.
   (* xcase with lemma for match list *)
   { applys xmatch_lemma_list.
-    { intros HL. false. }
+    { intros HL. 
+      (* xfail *)
+      false. }
     { intros X L' HL. 
       (* xseq *)
       applys xseq_lemma.
@@ -547,8 +549,8 @@ Lemma Triple_empty : forall `{Enc A} (u:unit),
     PRE \[]
     POST (fun p => (p ~> Stack (@nil A))).
 Proof using.
-  (* xcf *)
-  intros. applys xcf_lemma_funs; try reflexivity; simpl.
+  (* xtriple *)
+  intros. applys xtriple_lemma_funs; try reflexivity; simpl.
   (* xlet-poly *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xval *)
@@ -564,8 +566,8 @@ Lemma Triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
     PRE (p ~> Stack L)
     POST (fun (u:unit) => (p ~> Stack (x::L))).
 Proof using.
-  (* xcf *)
-  intros. applys xcf_lemma_funs; try reflexivity; simpl.
+  (* xtriple *)
+  intros. applys xtriple_lemma_funs; try reflexivity; simpl.
   (* xunfold *)
   xunfold Stack.
   (* xlet-poly *)
@@ -584,17 +586,14 @@ Qed.
 
 Opaque Stack.
 
-
-
-
 Lemma Triple_rev_append : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
   TRIPLE (val_rev_append p1 p2)
     PRE (p1 ~> Stack L1 \* p2 ~> Stack L2)
     POST (fun (u:unit) => p1 ~> Stack nil \* p2 ~> Stack (rev L1 ++ L2)).
 Proof using.
   intros. gen p1 p2 L2. induction_wf IH: (@list_sub A) L1. intros.
-  (* xcf *)
-  intros. applys xcf_lemma_fixs; try reflexivity; simpl.
+  (* xtriple *)
+  intros. applys xtriple_lemma_fixs; try reflexivity; simpl.
   (* xlet *)
   applys xlet_typed_lemma.
   (* xapps *)
