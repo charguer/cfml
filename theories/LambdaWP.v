@@ -113,7 +113,7 @@ Variable (B : Type).
 Implicit Type Q : B->hprop.
 Implicit Type F : formula_ B.
 
-Lemma local_weaken : forall Q' F H Q,
+Lemma local_conseq : forall Q' F H Q,
   is_local F ->
   H ==> F Q ->
   Q ===> Q' ->
@@ -182,7 +182,7 @@ Qed.
 
 (** [local] is a covariant transformer w.r.t. predicate inclusion *)
 
-Lemma local_weaken_body : forall F F',
+Lemma local_weaken : forall F F',
   F ===> F' ->
   local F ===> local F'.
 Proof using.
@@ -197,7 +197,7 @@ Lemma local_erase_l : forall F1 F2,
   F1 ===> F2 ->
   local F1 ===> F2.
 Proof using.
-  introv LF M. rewrite LF. intros Q. applys* local_weaken_body.
+  introv LF M. rewrite LF. intros Q. applys* local_weaken.
 Qed.
 
 (** [local] is idempotent, i.e. nested applications
@@ -651,9 +651,9 @@ Lemma wp_sound_while : forall F1 F2 E t1 t2,
   wp_while F1 F2 ===> wp_triple_ E (trm_while t1 t2).
 Proof using.
   introv M1 M2. applys qimpl_wp_triple. simpl. intros Q.
-  remove_local. applys triple_hforall.
+  remove_local. 
   set (R := wp_triple (trm_while (isubst E t1) (isubst E t2))).
-  exists R. simpl. applys triple_hwand_hpure_l.
+  applys triple_hforall R. simpl. applys triple_hwand_hpure_l.
   { split.
     { applys is_local_wp_triple. }
     { clears Q. applys qimpl_wp_triple. intros Q.
@@ -669,9 +669,9 @@ Lemma wp_sound_for_val : forall (x:var) v1 v2 F1 E t1,
   wp_for_val v1 v2 F1 ===> wp_triple_ E (trm_for x v1 v2 t1).
 Proof using. Opaque Ctx.add Ctx.rem.
   introv M. applys qimpl_wp_triple. simpl. intros Q.
-  remove_local. intros n1 n2 (->&->). applys triple_hforall.
+  remove_local. intros n1 n2 (->&->). 
   set (S := fun (i:int) => wp_triple (isubst E (trm_for x i n2 t1))).
-  exists S. simpl. applys triple_hwand_hpure_l.
+  applys triple_hforall S. simpl. applys triple_hwand_hpure_l.
   { split.
     { intros r. applys is_local_wp_triple. }
     { clears Q. intros i. applys qimpl_wp_triple. intros Q.
@@ -705,7 +705,7 @@ Proof using.
   introv M1 M2. applys qimpl_wp_triple. simpl. intros Q.
   remove_local. applys triple_case.
   { intros G HG Hv1. rewrites <- (rm HG).
-    applys triple_hand_l. applys triple_hforall_for G.
+    applys triple_hand_l. applys triple_hforall G.
     applys~ triple_hwand_hpure_l. apply triple_of_wp.
     rewrite <- isubst_app_eq_isubst_isubst_rem_vars. applys M1. }
   { introv Hv1. applys triple_hand_r. applys* triple_hwand_hpure_l. 

@@ -75,7 +75,7 @@ Proof using.
   destruct N as (x&N). applys* M.
 Qed.
 
-Lemma triple_hforall : forall t (A:Type) (J:A->hprop) Q,
+Lemma triple_hforall_exists : forall t (A:Type) (J:A->hprop) Q,
   (exists x, triple t (J x) Q) ->
   triple t (hforall J) Q.
 Proof using.

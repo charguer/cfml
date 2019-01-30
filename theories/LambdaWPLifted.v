@@ -431,6 +431,11 @@ Lemma qimpl_Wp_Triple : forall t `{EA:Enc A} F,
   F ===> ((Wp_Triple t) A EA).
 Proof using. introv M. intros Q. rewrite~ <- Triple_eq_himpl_Wp_Triple. Qed.
 
+(** Another formulation of the same corrolary --- not currently used *)
+Lemma himpl_Wp_Triple_of_Triple : forall A `{EA:Enc A} (Q1:A->hprop) t H1,
+  Triple t H1 Q1 ->
+  H1 ==> ^(Wp_Triple t) Q1.
+Proof using. introv M. rewrite* Triple_eq_himpl_Wp_Triple. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -578,9 +583,8 @@ Proof using.
   introv M1 M2. intros A EA. applys qimpl_Wp_Triple. intros Q.
   remove_Local. simpl.
   unfold Formula_typed. xpull ;=> Q' C. applys Triple_enc_change (rm C).
-  applys Triple_hforall.
   set (R := Wp_Triple (trm_while (isubst E t1) (isubst E t2))).
-  exists R. simpl. applys Triple_hwand_hpure_l.
+  applys Triple_hforall R. simpl. applys Triple_hwand_hpure_l.
   { split.
     { applys @is_local_Wp_Triple. }
     { clears Q. applys qimpl_Wp_Triple. intros Q.
@@ -602,9 +606,8 @@ Proof using. Opaque Ctx.add Ctx.rem.
   remove_Local. simpl.
   unfold Formula_typed. xpull ;=> Q' n1 n2 (->&->) C.
   applys Triple_enc_change (rm C).
-  applys Triple_hforall.
   set (S := fun (i:int) => Wp_Triple (isubst E (trm_for x i n2 t1))).
-  exists S. simpl. applys Triple_hwand_hpure_l.
+  applys Triple_hforall S. simpl. applys Triple_hwand_hpure_l.
   { split.
     { intros r. applys @is_local_Wp_Triple. }
     { clears Q. intros i. applys qimpl_Wp_Triple. intros Q.
@@ -670,6 +673,12 @@ Proof using.
   introv M. xchanges M. pattern t at 1; rewrite <- (isubst_empty t).
   applys Triple_isubst_Wp.
 Qed.
+
+(* not used *)
+Lemma Wp_Triple_of_Wp : forall t H `{EA:Enc A} (Q:A->hprop),
+  H ==> ^(Wp Ctx.empty t) Q ->
+  H ==> ^(Wp_Triple t) Q.
+Proof using. introv M. applys himpl_weakestpre. applys* Triple_of_Wp. Qed.
 
 
 (* ********************************************************************** *)

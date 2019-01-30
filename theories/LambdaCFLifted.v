@@ -207,7 +207,7 @@ Lemma Sound_for_Local : forall t (F:Formula),
   Sound_for t (Local F).
 Proof using.
   unfold sound_for. introv SF. intros A EA H Q M.
-  rewrite is_local_Triple. applys local_weaken_body M. applys SF.
+  rewrite is_local_Triple. applys local_weaken M. applys SF.
 Qed.
 
 Lemma Sound_for_Cf : forall (t:trm),

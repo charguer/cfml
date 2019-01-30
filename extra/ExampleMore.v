@@ -531,3 +531,52 @@ Proof using. constructor. applys enc_list. Defined.
 
 Opaque enc_list.
 *)
+
+
+Lemma xlet_instantiate' : forall A1 (EA1:Enc A1) H Fof,
+  H ==> Fof A1 EA1 ->
+  H ==> \exists (A1:Type) (EA1:Enc A1), Fof A1 EA1.
+Proof using. introv M. hsimpl* A1 EA1. Qed.
+
+
+
+
+(*
+Lemma xlet_lemma : forall Q1 (F1:formula) (F2of:forall `{EA1:Enc A1},A1->Formula) H Q,
+  is_local F1 ->
+  H ==> F1 Q1 ->
+  (forall X, Q1 X ==> F2 X Q) ->
+  H ==> Wp_let F1 F2of Q.
+Proof using.
+  introv L M1 M2. applys local_erase'. applys~ local_weaken M1.
+Qed.
+
+
+
+Definition Wp_let (F1:Formula) (F2of:forall `{EA1:Enc A1},A1->Formula) : Formula :=
+  Local (fun A (EA:Enc A) Q =>
+    \exists (A1:Type) (EA1:Enc A1) ,
+      ^F1 (fun (X:A1) => ^(F2of X) Q)).
+
+*)
+
+(* use:  notypeclasses refine (xlet_instantiate _ _ _). *)
+
+
+(*
+Lemma xlet_typed_instantiate : forall A1 (EA1:Enc A1) H Fof,
+  H ==> Fof A1 EA1 ->
+  H ==> \exists (A1:Type) (EA1:Enc A1), Fof A1 EA1.
+Proof using. introv M. hsimpl* A1 EA1. Qed.
+*)
+
+Lemma xapp_lemma' : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q, (* DEPRECATED *)
+  Triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* Q) ->
+  H ==> ^(Wp_Triple t) Q.
+Proof using. 
+  introv M1 M2. lets M: xapp_triple_to_Wp_Triple (rm M1).
+  hchanges (rm M2). hchanges (rm M).
+  applys weakestpre_conseq_wand.
+  applys is_local_Triple.
+Qed.
