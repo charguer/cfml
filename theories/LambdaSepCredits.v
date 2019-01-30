@@ -576,6 +576,11 @@ Lemma haffine_hexists : forall A (J:A->hprop),
   haffine (hexists J).
 Proof using. introv F1 (x&Hx). applys* F1. Qed.
 
+Lemma haffine_hforall : forall A `{Inhab A} (J:A->hprop),
+  haffine_post J ->
+  haffine (hforall J).
+Proof using. introv IA F1 Hx. applys* F1 arbitrary. Qed.
+
 Lemma haffine_hpure : forall P,
   haffine \[P].
 Proof using.
