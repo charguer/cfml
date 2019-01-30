@@ -189,7 +189,7 @@ Proof using.
   (* optional simplification step to reveal [trm_apps] *)
   simpl combiner_to_trm.
   (* xcf *)
-  applys Triple_apps_funs_of_Wp.
+  applys xcf_lemma_funs.
   { reflexivity. }
   { reflexivity. }
   { reflexivity. }
@@ -391,7 +391,7 @@ Lemma Triple_test1 : forall (p:loc),
 Proof using.
   intros.
   (* xcf *)
-  applys Triple_apps_funs_of_Wp; try reflexivity. simpl.
+  applys xcf_lemma_funs; try reflexivity. simpl.
 Admitted.
 
 
@@ -409,7 +409,7 @@ Lemma Triple_test2 : forall (p:loc),
 Proof using.
   intros.
   (* xcf *)
-  applys Triple_apps_funs_of_Wp; try reflexivity. simpl.
+  applys xcf_lemma_funs; try reflexivity. simpl.
 Admitted.
 
 
@@ -430,7 +430,7 @@ Lemma triple_test0 : forall (p:loc),
 Proof using.
   intros.
   (* xcf *)
-  applys Triple_apps_funs_of_Wp; try reflexivity. simpl.
+  applys xcf_lemma_funs; try reflexivity. simpl.
 Admitted.
 
 
@@ -479,7 +479,7 @@ Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stack L).
 Proof using.
   (* xcf *)
-  intros. applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
+  intros. applys xcf_lemma_funs; try reflexivity; simpl.
   (* xunfold *)
   xunfold Stack.
   (* xlet-poly *)
@@ -504,7 +504,7 @@ Lemma Triple_pop : forall `{Enc A} (p:loc) (L:list A),
 Proof using.
   introv N.
   (* xcf *)
-  applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
+  applys xcf_lemma_funs; try reflexivity; simpl.
   (* xunfold *)
   xunfold Stack.
   (* xlet-poly *)
@@ -548,7 +548,7 @@ Lemma Triple_empty : forall `{Enc A} (u:unit),
     POST (fun p => (p ~> Stack (@nil A))).
 Proof using.
   (* xcf *)
-  intros. applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
+  intros. applys xcf_lemma_funs; try reflexivity; simpl.
   (* xlet-poly *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xval *)
@@ -565,7 +565,7 @@ Lemma Triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
     POST (fun (u:unit) => (p ~> Stack (x::L))).
 Proof using.
   (* xcf *)
-  intros. applys Triple_apps_funs_of_Wp; try reflexivity; simpl.
+  intros. applys xcf_lemma_funs; try reflexivity; simpl.
   (* xunfold *)
   xunfold Stack.
   (* xlet-poly *)
@@ -594,7 +594,7 @@ Lemma Triple_rev_append : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
 Proof using.
   intros. gen p1 p2 L2. induction_wf IH: (@list_sub A) L1. intros.
   (* xcf *)
-  intros. applys Triple_apps_fixs_of_Wp; try reflexivity; simpl.
+  intros. applys xcf_lemma_fixs; try reflexivity; simpl.
   (* xlet *)
   applys xlet_typed_lemma.
   (* xapps *)

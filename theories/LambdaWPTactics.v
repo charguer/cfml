@@ -36,7 +36,7 @@ Implicit Types H : hprop.
 (* ---------------------------------------------------------------------- *)
 (* ** Lemmas for [xcf], proving goals of the form [Triples (trm_apps F ts)] *)
 
-Lemma Triple_apps_funs_of_Wp : forall F vs ts xs t `{EA:Enc A} H (Q:A->hprop),
+Lemma xcf_lemma_funs : forall F vs ts xs t `{EA:Enc A} H (Q:A->hprop),
   F = val_funs xs t ->
   trms_to_vals ts = Some vs ->
   var_funs_exec (length vs) xs ->
@@ -49,7 +49,7 @@ Proof using.
   applys* Triple_isubst_of_Wp.
 Qed.
 
-Lemma Triple_apps_fixs_of_Wp : forall F (f:var) vs ts xs t `{EA:Enc A} H (Q:A->hprop),
+Lemma xcf_lemma_fixs : forall F (f:var) vs ts xs t `{EA:Enc A} H (Q:A->hprop),
   F = val_fixs f xs t ->
   trms_to_vals ts = Some vs ->
   var_fixs_exec f (length vs) xs ->
