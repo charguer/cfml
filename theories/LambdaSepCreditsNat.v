@@ -8,8 +8,7 @@ François Pottier described in the following papers:
   Complexity of an Efficient Union-Find Implementation (ITP'15)
 
 - Verifying the Correctness and Amortized Complexity of a Union-Find
-  Implementation in Separation Logic with Time Credits
-  (Draft journal paper)
+  Implementation in Separation Logic with Time Credits (JAR'17)
 
 This file contains:
 - a definition of heaps as finite maps from location to values
@@ -575,8 +574,8 @@ Lemma triple_hprop : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
 Proof using.
-  intros t. applys (triple_hprop_from_hexists (triple t)).
-  applys triple_hexists.
+  introv M. rewrite hpure_eq_hexists_empty. rewrite hstar_hexists.
+  rew_heap. applys* triple_hexists.
 Qed.
 
 Lemma triple_conseq : forall t H' Q' H Q,
@@ -775,6 +774,7 @@ End RulesPrimitiveOps.
 (* ---------------------------------------------------------------------- *)
 (* ** Triples satisfy the [local] predicate *)
 
+(* TODO update
 Lemma is_local_triple : forall t,
   is_local (triple t).
 Proof using.
@@ -791,6 +791,7 @@ Proof using.
     applys himpl_inv S2.
     hchange (R2 v). hsimpl. }
 Qed.
+*)
 
 
 (* ---------------------------------------------------------------------- *)

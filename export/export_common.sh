@@ -50,6 +50,14 @@ for i in ${FILES} ; do
   cp $SOURCES/$i.v $ARCHIVE ;
 done
 
+# Anonymize if requested
+if [ ! -z "${ANONYMIZE}" ]; then
+  echo "Anonimizing files..."
+  for i in ${FILES} ; do
+    sed -i'' 's/Arthur\ Charguéraud/Anonymous/g;s/François\ Pottier/Anonymous/g;s/Armaël\ Guéneau\ Pottier/Anonymous/g;s/Jacques-Henri\ Jourdan/Anonymous/g;' $ARCHIVE/$i.v
+  done
+fi
+
 # Add a HASH (current git hash) and DATE file to record the version
 HASH="git log -1 --pretty=%H"
 DATE="/bin/date +%Y%m%d"

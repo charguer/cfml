@@ -38,7 +38,7 @@ Remarks:
   
   Alternatively, one can also use TLC from sources:
      https://gitlab.inria.fr/charguer/tlc
-  in which case you'll to add a file "settings.sh" with contents, e.g.
+  in which case you'll have to add a file "settings.sh" with contents, e.g.
   "TLC=~/tlc/src"
 
 
