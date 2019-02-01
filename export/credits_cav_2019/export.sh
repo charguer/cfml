@@ -4,5 +4,6 @@
 TARGET="sepcreditsZ"
 
 ANONYMIZE="1"
+INCLUDETLC="/home/charguer/tlc/src"
 
 source ../export_common.sh

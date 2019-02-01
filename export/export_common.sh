@@ -21,6 +21,9 @@ fi
 # The absolute name of the archive directory.
 ARCHIVE=`pwd`/$TARGET
 
+# The absolute name to the source directory.
+THEORIES=${ARCHIVE}/theories
+
 # The absolute name of the local folder.
 LOCAL=`pwd`
 
@@ -32,32 +35,51 @@ rm -rf $ARCHIVE $ARCHIVE.tar.gz
 
 # Create the archive folder
 mkdir $ARCHIVE
+mkdir -p $THEORIES
 echo "Copying files into $ARCHIVE"
 
 # Copy Makefile from the root as Makefile.main in the archive
-cp $SOURCES/Makefile $ARCHIVE/Makefile.main
+cp $SOURCES/Makefile $THEORIES/Makefile.main
 
-# Copy local Makefile and README.md in the archive
-cp $LOCAL/Makefile $ARCHIVE
+# Copy local Makefiles and README.md and extra files in the archive
+cp $LOCAL/Makefile $ARCHIVE/Makefile
+cp $LOCAL/Makefile.theories $THEORIES/Makefile
 cp $LOCAL/README.md $ARCHIVE
+if [ ! -z "${EXTRAFILES:-}" ]; then
+  for i in ${EXTRAFILES} ; do
+    cp $LOCAL/$i $ARCHIVE ;
+  done
+fi
 
 # The list of files to export is read from the local Makefile
-FILES_FROM_MAKEFILE=`sed -n -e '/SRC_FORCE := /p' Makefile`
+FILES_FROM_MAKEFILE=`sed -n -e '/SRC_FORCE := /p' Makefile.theories`
 FILES=$(echo $FILES_FROM_MAKEFILE| cut -d'=' -f 2)
 
 # Copy a subset of CFML/model into the archive.
 for i in ${FILES} ; do
-  cp $SOURCES/$i.v $ARCHIVE ;
+  cp $SOURCES/$i.v $THEORIES ;
 done
 
 # Anonymize if requested
 TAROPTIONS=""
-if [ ! -z "${ANONYMIZE}" ]; then
+if [ ! -z "${ANONYMIZE:-}" ]; then
   TAROPTIONS="--owner=0 --group=0"
-  echo "Anonimizing files..."
+  echo "Anonymizing files..."
   for i in ${FILES} ; do
-    sed -i'' 's/Arthur\ Charguéraud/Anonymous/g;s/François\ Pottier/Anonymous/g;s/Armaël\ Guéneau\ Pottier/Anonymous/g;s/Jacques-Henri\ Jourdan/Anonymous/g;' $ARCHIVE/$i.v
+    sed -i'' 's/Arthur\ Charguéraud/Anonymous/g;s/François\ Pottier/Anonymous/g;s/Armaël\ Guéneau\ Pottier/Anonymous/g;s/Jacques-Henri\ Jourdan/Anonymous/g;' $THEORIES/$i.v
   done
+fi
+
+# Include TLC files if requested
+if [ ! -z "${INCLUDETLC}" ]; then
+  echo "Including TLC files..."
+  mkdir -p ${ARCHIVE}/TLC
+  TLCSRC=`ls ${INCLUDETLC}/*.v`
+  for i in ${TLCSRC} ; do
+    cp $i $ARCHIVE/TLC ;
+  done
+  cp $INCLUDETLC/Makefile.coq $ARCHIVE/TLC ;
+  cp $INCLUDETLC/Makefile $ARCHIVE/TLC ;
 fi
 
 # Add a HASH (current git hash) and DATE file to record the version

@@ -67,8 +67,8 @@ V := $(addprefix $(PWD)/,$(SRC:=.v))
 COQFLAGS:=-w -notation-overridden,-implicits-in-term,-redundant-canonical-projection,-several-object-files
 
 COQINCLUDE := \
-  -R $(TLC) TLC \
-  -R $(PWD) Sep
+  -Q $(TLC) TLC \
+  -Q $(PWD) Sep
 
 
 include $(TLC)/Makefile.coq

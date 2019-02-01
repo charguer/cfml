@@ -1,0 +1,8 @@
+
+SRC_FORCE := TLCbuffer Bind Fmap SepFunctor LambdaSemantics LambdaSepCredits
+
+PWD := $(shell pwd)
+
+TLC := $(PWD)/../TLC
+
+-include Makefile.main
