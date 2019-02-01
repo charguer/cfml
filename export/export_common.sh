@@ -51,7 +51,9 @@ for i in ${FILES} ; do
 done
 
 # Anonymize if requested
+TAROPTIONS=""
 if [ ! -z "${ANONYMIZE}" ]; then
+  TAROPTIONS="--owner=0 --group=0"
   echo "Anonimizing files..."
   for i in ${FILES} ; do
     sed -i'' 's/Arthur\ Charguéraud/Anonymous/g;s/François\ Pottier/Anonymous/g;s/Armaël\ Guéneau\ Pottier/Anonymous/g;s/Jacques-Henri\ Jourdan/Anonymous/g;' $ARCHIVE/$i.v
@@ -66,7 +68,7 @@ $DATE > $ARCHIVE/DATE
 
 # Create a .tar.gz file
 echo "Creating $TARGET.tar.gz with contents:"
-tar -cvzf $TARGET.tar.gz $TARGET
+tar ${TAROPTIONS} -cvzf $TARGET.tar.gz $TARGET
 
 # Try to compile (unless disabled).
 if [ -z "${NO_TEST:-}" ]; then
