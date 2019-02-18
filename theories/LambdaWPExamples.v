@@ -419,11 +419,8 @@ Definition X : field := 0%nat.
 Definition Y : field := 1%nat.
 Definition S : field := 2%nat.
 
-(*
 Definition Point (p:loc) : hprop :=
-  \exists x y s, p ~> Record`{ X := x; Y := y; S := s } \* [ s = x + y ].
-*)
-
+  \exists x y s, p ~> Record`{ X := x; Y := y; S := s } \* \[ s = x + y ].
 
 End Point.
 
@@ -434,24 +431,97 @@ End Point.
 
 Module MList.
 
+Definition Nil : val := val_constr "nil" nil.
+Definition Cons `{Enc A} (V:A) (p:loc) : val := val_constr "cons" (``V::``p::nil).
+
+Definition trm_Nil : trm := trm_constr "nil" nil.
+Definition trm_Cons (t1 t2:trm) : trm := trm_constr "cons" (t1::t2::nil).
+
+Definition pat_Nil : pat := pat_constr "nil" nil.
+Definition pat_Cons (p1 p2:pat) : pat := pat_constr "cons" (p1::p2::nil).
+
+
 (*
   course -> For recursive predicate: would be useful to recall the duality between
   `Fixpoint` and `Inductive` for defining predicates, taking the example of `In` and `Forall` on lists.
 *)
 
 Fixpoint MList A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
-  \exists v, p ~~> v  \*
+  \exists v, p ~~> v \*
   match L with
   | nil => \[v = Nil]
-  | x::L => \exists p', \[v = Cons(x,p')] \* (p' ~> MList L')
+  | x::L' => \exists p', \[v = Cons x p'] \* (MList L' p')
   end.
+
+Lemma MList_unfold : 
+  MList = fun A `{EA:Enc A} (L:list A) (p:loc) =>
+    \exists v, p ~~> v \*
+    match L with
+    | nil => \[v = Nil]
+    | x::L' => \exists p', \[v = Cons x p'] \* (MList L' p')
+    end.
+Proof using. applys fun_ext_4; intros A EA L p. destruct L; auto. Qed.
+ 
+
+
+(* ---------------------------------------------------------------------- *)
+(** Length *)
+
+(* TODO : move *)
+Notation "'ValFix' f x1 ':=' t" :=
+  (val_fixs f (x1::nil) t)
+  (at level 69, f, x1 at level 0) : trm_scope.
+
+
+Definition val_mlist_length : val :=
+  ValFix 'f 'p :=
+    Let 'v := val_get 'p in
+    Match 'v With
+    '| pat_Nil '=> 0
+    '| pat_Cons 'x 'q '=> 1 '+ 'f 'q
+    End.
+
+Lemma Triple_mlist_length_1 : forall `{EA:Enc A} (L:list A) (p:loc),
+  TRIPLE (val_mlist_length p)
+    PRE (MList L p)
+    POST (fun (r:int) => \[r = length L] \* MList L p).
+Proof using.
+  intros. gen p. induction_wf IH: (@list_sub A) L. intros.
+  (* xtriple *)
+  intros. applys xtriple_lemma_fixs; try reflexivity; simpl.
+  (* xlet-poly *)
+  notypeclasses refine (xlet_lemma _ _ _ _ _).
+  (* xunfold *)
+  pattern MList at 1. rewrite MList_unfold. hpull ;=> v.
+  (* xapps *)
+  applys @xapps_lemma. { applys @Triple_get. } hsimpl.
+  (* xcase *)
+  applys xcase_lemma0 ;=> E1.
+  { destruct L as [|x L']; hpull.
+    { intros ->. applys~ @xval_lemma 0. hsimpl. skip. (* TODO *) rew_list~. }
+    { intros q ->. tryfalse. } }
+  { applys xcase_lemma2.
+    { intros x q E.
+      destruct L as [|x' L']; hpull.
+      { intros ->. tryfalse. }
+      { intros q' E'. subst v. rewrite enc_val_eq in *. inverts E.
+        (* xlet *)
+        eapply Local_erase. (* TODO: change to : applys xlet_lemma. *)
+        (* xapp *)
+        applys @xapp_lemma. { applys* IH. } hsimpl ;=> r ->.
+        (* return *)
+        applys @xreturn_lemma_typed. (* TODO: rename*)
+        (* done *)
+        pattern MList at 2. rewrite MList_unfold. hsimpl*. rew_list; math. } }
+    { intros N. destruct L as [|x L']; hpull.
+      { intros ->. rewrite enc_val_eq in *. unfolds Nil. false. }
+      { intros q ->. rewrite enc_val_eq in *. unfolds @Cons. false. } } }
+Qed.
+
+
 
 
 (*
-    ```
-
-    ```
-
 
    length : using recursion + using loop
    copy : using recursion + using loop
