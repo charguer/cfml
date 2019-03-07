@@ -287,7 +287,8 @@ Ltac xspec_record_get_loc v :=
   end.
 
 Ltac xspec_record_get_compute tt :=
-  match goal with |- Triple (trm_apps (trm_val (val_get_field ?f)) ((trm_val ?v)::nil)) ?H _ =>
+(* TODO   match goal with |- Triple (trm_apps (trm_val (val_get_field ?f)) ((trm_val ?v)::nil)) ?H _ => *)
+  match goal with |- Triple (trm_apps (trm_val (val_get_field ?f)) (trms_vals (?v::nil))) ?H _ =>
     let r := xspec_record_get_loc v in
     let L := xspec_record_repr_compute r H in
     xspec_record_get_compute_for f L end.
@@ -306,7 +307,8 @@ Ltac xspec_record_set_compute_for f W L :=
   [ reflexivity | revert G ].
 
 Ltac xspec_record_set_compute tt :=
-  match goal with |- Triple (trm_apps (trm_val (val_set_field ?f)) ((trm_val ?v)::(trm_val ?w)::nil)) ?H _ =>
+(*  match goal with |- Triple (trm_apps (trm_val (val_set_field ?f)) ((trm_val ?v)::(trm_val ?w)::nil)) ?H _ =>*)
+  match goal with |- Triple (trm_apps (trm_val (val_set_field ?f)) (trms_vals (?v::?w::nil))) ?H _ =>
     let r := xspec_record_get_loc v in
     let W := xspec_record_get_arg w in
     let L := xspec_record_repr_compute r H in
@@ -328,99 +330,98 @@ Ltac xspec_record tt :=
 
 
 
-(* ********************************************************************** *)
-(* * Point *)
-
-Module Factorial.
-
-Parameter facto : int -> int.
-Parameter facto_zero : facto 0 = 1.
-Parameter facto_one : facto 1 = 1.
-Parameter facto_succ : forall n, n >= 1 -> facto n = n * facto(n-1).
-
-(*
-
-  let rec facto_rec n =
-    if n <= 1 then 1 else n * facto_rec (n-1)
-
-  let facto_ref_rec_up n =
-    let r = ref 1 in
-    let rec f x =
-      if x <= n
-        then r := !r * x; f (x+1) in
-    f 1;
-    !r
-
-  let facto_ref_rec_down n =
-    let r = ref 1 in
-    let rec f n =
-      if n > 1
-        then r := !r * n; f (n-1) in
-    f n; 
-    !r
-
-  let facto_for n =
-    let r = ref 1 in
-    for x = 1 to n do
-      r := !r * x;
-    done;
-    !r
-
-  let facto_for_down n =
-    let r = ref 1 in
-    for x = 0 to n-1 do 
-      r := !r * (n-x);
-    done;
-    !r
-
-  let facto_for_downto n =
-    let r = ref 1 in
-    for x = n downto 1 do 
-      r := !r * x;
-    done;
-    !r
-
-  let facto_for_downto2 n =
-    let r = ref 1 in
-    for x = n downto 2 do 
-      r := !r * x;
-    done;
-    !r
-
-  let facto_while_up n =
-    let r = ref 1 in
-    let x = ref 1 in
-    while get x <= n do
-      r := !r * !x;
-      incr x;
-    done;
-    !r
-
-  let facto_while_down n =
-    let r = ref 1 in
-    let x = ref n in
-    while get x > 1 do
-      r := !r * !x;
-      decr x;
-    done;
-    !r
-*)
-
-End Factorial.
-
-
 
 (* ********************************************************************** *)
 (* * Point *)
+
+(* TODO *)
+Notation "t1 ''.' f" :=
+  (val_get_field f t1)
+  (at level 66, f at level 0, format "t1 ''.' f" ) : trm_scope.
+
+
+Notation "'Set' t1 ''.' f '':=' t2" :=
+  (val_set_field f t1 t2)
+  (at level 65, t1 at level 0, f at level 0, format "'Set' t1 ''.' f  '':=' t2") : trm_scope.
+
+
+Lemma himpl_wp_app_of_Triple : forall A `{EA:Enc A} (Q:A->hprop) t H,
+  Triple t H Q ->
+  H ==> ^(Wp_app t) Q.
+Proof using. intros. applys Local_erase. rewrite~ <- Triple_eq_himpl_Wp_Triple. Qed.
+
+
 
 Module Point.
+Implicit Type p : loc.
+Implicit Type x y k : int.
 
 Definition X : field := 0%nat.
 Definition Y : field := 1%nat.
-Definition S : field := 2%nat.
+Definition K : field := 2%nat.
 
-Definition Point (p:loc) : hprop :=
-  \exists x y s, p ~> Record`{ X := x; Y := y; S := s } \* \[ s = x + y ].
+Definition Point (x y:int) (p:loc) : hprop :=
+  \exists k, p ~> Record`{ X := x; Y := y; K := k } \* \[ k = x + y ].
+
+
+Definition val_move_X : val :=
+  ValFun 'p :=
+   Set 'p'.X ':= ('p'.X '+ 1) ';
+   Set 'p'.K ':= ('p'.K '+ 1).
+
+
+(* TODO: 
+   Set 'p '. X ':= ('p '.X '+ 1).
+   won't parse 
+*)
+
+
+Lemma Triple_move_X : forall p x y,
+  TRIPLE (val_move_X p)
+    PRE (Point x y p)
+    POST (fun (_:unit) => (Point (x+1) y p)).
+Proof using.
+  intros.
+  (* xtriple *)
+  applys xtriple_lemma_funs; try reflexivity; simpl.
+  (* xunfold *)
+  unfold Point. hpull ;=> k Hk.
+  (* xseq *)
+  applys xseq_lemma.
+  (* xlet-poly *) (* TODO: check why double let *)
+  notypeclasses refine (xlet_lemma _ _ _ _ _).
+  (* xlet *)
+  eapply Local_erase.
+  (* xapps record *)
+  applys @himpl_wp_app_of_Triple.
+  xspec_record tt ;=> M1. (* xspec_record_get_compute tt *)
+  applys Triple_ramified_frame. { applys M1. } hsimpl ;=> ? ->. (* todo: xapp lemma *)
+  (* xreturn *)
+  applys @xreturn_lemma_typed.
+  (* xapps record *)
+  applys himpl_wp_app_of_Triple.
+  xspec_record tt ;=> M2. (* xspec_record_get_compute tt *)
+  applys Triple_ramified_frame. { applys M2. } hsimpl.
+
+  (* xlet-poly *) (* TODO: check why double let *)
+  notypeclasses refine (xlet_lemma _ _ _ _ _).
+  (* xlet *)
+  eapply Local_erase.
+  (* xapps record *)
+  applys @himpl_wp_app_of_Triple.
+  xspec_record tt ;=> M1'. (* xspec_record_get_compute tt *)
+  applys Triple_ramified_frame. { applys M1'. } hsimpl ;=> ? ->. (* todo: xapp lemma *)
+  (* xreturn *)
+  applys @xreturn_lemma_typed.
+  (* xapps record *)
+  applys himpl_wp_app_of_Triple.
+  xspec_record tt ;=> M2'. (* xspec_record_get_compute tt *)
+  applys Triple_ramified_frame. { applys M2'. } hsimpl.
+
+  (* done *)
+  hsimpl. math.
+Qed.
+
 
 End Point.
 
@@ -509,7 +510,7 @@ Proof using.
         eapply Local_erase. (* TODO: change to : applys xlet_lemma. *)
         (* xapp *)
         applys @xapp_lemma. { applys* IH. } hsimpl ;=> r ->.
-        (* return *)
+        (* xreturn *)
         applys @xreturn_lemma_typed. (* TODO: rename*)
         (* done *)
         pattern MList at 2. rewrite MList_unfold. hsimpl*. rew_list; math. } }
@@ -577,7 +578,7 @@ Proof using.
   eapply Local_erase.
   (* xapps *)
   applys @xapps_lemma. { applys Triple_get. } hsimpl.
-  (* return *)
+  (* xreturn *)
   applys @xreturn_lemma_val.
   (* xapp *)
   applys @xapp_lemma. { eapply @Triple_set. } hsimpl.
@@ -999,6 +1000,89 @@ Qed.
 
 
 End Stack.
+
+
+
+(* ********************************************************************** *)
+(* * Factorial *)
+
+Module Factorial.
+
+Parameter facto : int -> int.
+Parameter facto_zero : facto 0 = 1.
+Parameter facto_one : facto 1 = 1.
+Parameter facto_succ : forall n, n >= 1 -> facto n = n * facto(n-1).
+
+(*
+
+  let rec facto_rec n =
+    if n <= 1 then 1 else n * facto_rec (n-1)
+
+  let facto_ref_rec_up n =
+    let r = ref 1 in
+    let rec f x =
+      if x <= n
+        then r := !r * x; f (x+1) in
+    f 1;
+    !r
+
+  let facto_ref_rec_down n =
+    let r = ref 1 in
+    let rec f n =
+      if n > 1
+        then r := !r * n; f (n-1) in
+    f n; 
+    !r
+
+  let facto_for n =
+    let r = ref 1 in
+    for x = 1 to n do
+      r := !r * x;
+    done;
+    !r
+
+  let facto_for_down n =
+    let r = ref 1 in
+    for x = 0 to n-1 do 
+      r := !r * (n-x);
+    done;
+    !r
+
+  let facto_for_downto n =
+    let r = ref 1 in
+    for x = n downto 1 do 
+      r := !r * x;
+    done;
+    !r
+
+  let facto_for_downto2 n =
+    let r = ref 1 in
+    for x = n downto 2 do 
+      r := !r * x;
+    done;
+    !r
+
+  let facto_while_up n =
+    let r = ref 1 in
+    let x = ref 1 in
+    while get x <= n do
+      r := !r * !x;
+      incr x;
+    done;
+    !r
+
+  let facto_while_down n =
+    let r = ref 1 in
+    let x = ref n in
+    while get x > 1 do
+      r := !r * !x;
+      decr x;
+    done;
+    !r
+*)
+
+End Factorial.
+
 
 
 
