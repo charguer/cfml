@@ -352,6 +352,88 @@ Proof using. intros. applys Local_erase. rewrite~ <- Triple_eq_himpl_Wp_Triple. 
 
 
 
+Lemma xapp_record_set : forall A1 `{EA1:Enc A1} (W:A1)(Q:unit->hprop) H H1 (p:loc) (f:field) (L:Record_fields),
+  H ==> p ~> Record L \* H1 ->
+  match record_set_compute_dyn f (Dyn W) L with
+  | None => False
+  | Some L' =>  
+      p ~> Record L' \* H1 ==> Q tt
+  end ->
+  H ==> ^(Wp_app (trm_apps (trm_val (val_set_field f)) (trms_vals ((p:val)::(``W)::nil)))) Q.
+Proof using.
+  introv M1 M2.
+  hchanges (rm M1).
+  lets R: record_set_compute_spec_correct f W L.
+  unfolds record_set_compute_spec.
+  destruct (record_set_compute_dyn f (Dyn W) L); tryfalse.
+  forwards R': R; eauto. clear R. specializes R' p. 
+  applys himpl_wp_app_of_Triple.
+  xapplys R'. hsimpl. hchanges M2. 
+Qed. (* TODO: simplify proof *)
+
+
+
+Lemma xapp_record_get : forall A `{EA:Enc A} (Q:A->hprop) H H1 (p:loc) (f:field) (L:Record_fields),
+  H ==> p ~> Record L \* H1 ->
+  match record_get_compute_dyn f L with
+  | None => False
+  | Some (Dyn V) =>  
+      PostChange (fun x => \[x = V] \* p ~> Record L \* H1) Q
+  end ->
+  H ==> ^(Wp_app (trm_apps (trm_val (val_get_field f)) (trms_vals ((p:val)::nil)))) Q.
+Proof using.
+  introv M1 M2.
+  hchanges (rm M1).
+  lets R: record_get_compute_spec_correct f L.
+  unfolds record_get_compute_spec.
+  destruct (record_get_compute_dyn f L); tryfalse. destruct d as [T V].
+  forwards R': R; eauto. clear R. specializes R' p. 
+  applys himpl_wp_app_of_Triple. Search PostChange.
+  applys Triple_enc_change M2.
+  xapplys R'. auto.
+Qed. (* TODO: simplify proof *)
+
+Lemma PostChange_same : forall `{EA:Enc A} (Q1 Q2:A->hprop),
+  Q1 ===> Q2 ->
+  PostChange Q1 Q2.
+Proof using. introv M. unfolds. intros X. hchanges* M. Qed.
+
+
+
+Lemma PostChange_same_subst : forall H `{EA:Enc A} (V:A) (Q:A->hprop),
+  H ==> Q V ->
+  PostChange (fun x => \[x = V] \* H) Q.
+Proof using. introv M. applys PostChange_same. hpull ;=> ? ->. auto. Qed.
+
+
+
+Definition record_get_compute_spec' (f:field) (L:Record_fields) : option Prop :=
+  match record_get_compute_dyn f L with
+  | None => None
+  | Some (Dyn V) => Some (forall p H H1 Q,
+     H ==> p ~> Record L \* H1 ->
+     p ~> Record L \* H1 ==> Q V -> (* nosubst: (fun x => \[x = v] \* H) ===> Q *)
+     H ==> ^(Wp_app (trm_apps (trm_val (val_get_field f)) (trms_vals ((p:val)::nil)))) Q)
+  end.
+
+Lemma record_get_compute_spec_correct' : forall (f:field) L (P:Prop),
+  record_get_compute_spec' f L = Some P ->
+  P.
+Proof using.
+  introv M. unfolds record_get_compute_spec'.
+  lets R: record_get_compute_spec_correct f L.
+  unfolds record_get_compute_spec. 
+  destruct (record_get_compute_dyn f L) as [[T ET V]|]; tryfalse.
+  inverts M. introv M1 M2.
+  forwards R': R. eauto. 
+  hchange M1. apply himpl_wp_app_of_Triple. xapplys R'.
+  intros. subst. hchanges M2.
+Qed.
+
+
+
+
+
 Module Point.
 Implicit Type p : loc.
 Implicit Type x y k : int.
@@ -392,31 +474,56 @@ Proof using.
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xlet *)
   eapply Local_erase.
-  (* xapps record *)
-  applys @himpl_wp_app_of_Triple.
-  xspec_record tt ;=> M1. (* xspec_record_get_compute tt *)
-  applys Triple_ramified_frame. { applys M1. } hsimpl ;=> ? ->. (* todo: xapp lemma *)
+  (* xapps record, strategy 2 
+
+  match goal with |- PRE ?H CODE (`App (trm_val (val_get_field ?f)) ?v) POST _ => 
+    let r := xspec_record_get_loc v in
+    let L := xspec_record_repr_compute r H in 
+  let G := fresh in 
+  forwards G: (record_get_compute_spec_correct' f L);
+  [ reflexivity | applys G ]; try clear G end. 
+   hsimpl. 
+*)
+
+  (* xapps record, strategy 1 *)
+
+  applys xapp_record_get. hsimpl. simpl. applys @PostChange_same_subst. rew_heap.
+
+    (* variante 
+    applys @himpl_wp_app_of_Triple.
+    xspec_record tt ;=> M1. (* xspec_record_get_compute tt *)
+    applys Triple_ramified_frame. { applys M1. } hsimpl ;=> ? ->. (* todo: xapp lemma *)
+    *)
   (* xreturn *)
   applys @xreturn_lemma_typed.
   (* xapps record *)
-  applys himpl_wp_app_of_Triple.
-  xspec_record tt ;=> M2. (* xspec_record_get_compute tt *)
-  applys Triple_ramified_frame. { applys M2. } hsimpl.
+  applys xapp_record_set. hsimpl. simpl.
+    (* variante
+    applys himpl_wp_app_of_Triple.
+    xspec_record tt ;=> M2. (* xspec_record_get_compute tt *)
+    applys Triple_ramified_frame. { applys M2. } hsimpl.
+    *)
 
   (* xlet-poly *) (* TODO: check why double let *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xlet *)
   eapply Local_erase.
   (* xapps record *)
-  applys @himpl_wp_app_of_Triple.
-  xspec_record tt ;=> M1'. (* xspec_record_get_compute tt *)
-  applys Triple_ramified_frame. { applys M1'. } hsimpl ;=> ? ->. (* todo: xapp lemma *)
+  applys xapp_record_get. hsimpl. simpl. applys @PostChange_same_subst. rew_heap.
+    (* variante:
+    applys @himpl_wp_app_of_Triple.
+    xspec_record tt ;=> M1'. (* xspec_record_get_compute tt *)
+    applys Triple_ramified_frame. { applys M1'. } hsimpl ;=> ? ->. (* todo: xapp lemma *)
+    *)
   (* xreturn *)
   applys @xreturn_lemma_typed.
   (* xapps record *)
-  applys himpl_wp_app_of_Triple.
-  xspec_record tt ;=> M2'. (* xspec_record_get_compute tt *)
-  applys Triple_ramified_frame. { applys M2'. } hsimpl.
+    applys xapp_record_set. hsimpl. simpl.
+    (* variante:
+    applys himpl_wp_app_of_Triple.
+    xspec_record tt ;=> M2'. (* xspec_record_get_compute tt *)
+    applys Triple_ramified_frame. { applys M2'. } hsimpl.
+    *)
 
   (* done *)
   hsimpl. math.
