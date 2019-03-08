@@ -181,6 +181,17 @@ Parameter heap : Type.
 
 Definition hprop := heap -> Prop.
 
+(** Characterization of affine heaps: 
+    the [haffine H] asserts that [H] only holds for affine heaps. *)
+
+Parameter heap_affine : heap -> Prop.
+
+Definition haffine (H : hprop) : Prop :=
+  forall h, H h -> heap_affine h.
+
+Definition haffine_post (A:Type) (J:A->hprop) : Prop :=
+  forall x, haffine (J x).
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Core operators *)
@@ -244,6 +255,16 @@ Parameter hstar_hforall : forall H A (J:A->hprop),
 Parameter himpl_frame_l : forall H2 H1 H1',
   H1 ==> H1' ->
   (H1 \* H2) ==> (H1' \* H2).
+
+(** Properties of haffine *)
+
+Parameter haffine_hempty :
+  haffine \[].
+
+Parameter haffine_hstar : forall H1 H2,
+  haffine H1 ->
+  haffine H2 ->
+  haffine (H1 \* H2).
 
 End SepCore.
 
@@ -337,6 +358,14 @@ Definition htop : hprop :=
   hexists (fun (H:hprop) => H).
 
 Notation "\Top" := (htop) : heap_scope.
+
+(** The "GC" predicate, written [\GC], which holds of any heap,
+  implemented as [\exists H, \[affine H] \* H]. *)
+
+Definition hgc : hprop :=
+  \exists H, \[haffine H] \* H.
+
+Notation "\GC" := (hgc) : heap_scope.
 
 (** Magic wand, written [H1 \-* H2] *)
 
@@ -606,13 +635,18 @@ Lemma htop_eq :
   \Top = (\exists H, H).
 Proof using. auto. Qed.
 
-Lemma himpl_htop_r : forall H H',
+Lemma himpl_same_hstar_htop_r : forall H,
+  H ==> H \* \Top.
+Proof using.
+  intros. rewrite htop_eq. rewrite hstar_comm. rewrite hstar_hexists.
+  applys himpl_hexists_r \[]. rewrite~ hstar_hempty_l.
+Qed.
+
+Lemma himpl_hstar_htop_r : forall H H',
   H ==> H' ->
   H ==> H' \* \Top.
 Proof using.
-  introv M. unfold htop. rewrite (hstar_comm H').
-  rewrite hstar_hexists.
-  applys himpl_hexists_r \[]. rewrite~ hstar_hempty_l.
+  introv M. applys himpl_trans (rm M). applys himpl_same_hstar_htop_r.
 Qed.
 
 Lemma htop_hstar_htop :
@@ -625,7 +659,88 @@ Proof using.
     rewrite hstar_hexists.
     applys himpl_hexists_l. intros H'.
     applys~ himpl_hexists_r (H' \* H). }
-  { applys~ himpl_htop_r. }
+  { applys~ himpl_hstar_htop_r. }
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Affine heap predicates *)
+
+Lemma haffine_hexists : forall A (J:A->hprop),
+  haffine_post J ->
+  haffine (hexists J).
+Proof using. introv F1 (x&Hx). applys* F1. Qed.
+
+Lemma haffine_hforall : forall A `{Inhab A} (J:A->hprop),
+  haffine_post J ->
+  haffine (hforall J).
+Proof using. introv IA F1 Hx. applys* F1 arbitrary. Qed.
+
+Lemma haffine_hpure : forall P,
+  haffine \[P].
+Proof using.
+  intros. applys* haffine_hexists. intros HP. applys* haffine_hempty.
+Qed.
+
+Lemma haffine_hgc :
+  haffine \GC.
+Proof using.
+  applys haffine_hexists. intros H h Hh. rewrite hstar_pure in Hh.
+  destruct Hh as [M N]. applys* M.
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Properties of [hgc] *)
+
+Lemma hgc_eq :
+  \GC = (\exists H, \[haffine H] \* H).
+Proof using. auto. Qed.
+
+Lemma himpl_hgc_r : forall H,
+  haffine H ->
+  H ==> \GC.
+Proof using.
+  introv M. rewrite hgc_eq. applys himpl_hexists_r H. applys~ himpl_hpure_r.
+Qed.
+
+Lemma himpl_same_hstar_hgc_r : forall H,
+  H ==> H \* \GC.
+Proof using.
+  intros. rewrite hgc_eq. rewrite hstar_comm. rewrite hstar_hexists.
+  applys himpl_hexists_r \[]. rewrite hstar_hempty_r.
+  applys~ himpl_hpure_r. applys haffine_hempty.
+Qed.
+
+Lemma himpl_hstar_hgc_r : forall H H',
+  H ==> H' ->
+  H ==> H' \* \GC.
+Proof using.
+  introv M. applys himpl_trans (rm M). applys himpl_same_hstar_hgc_r.
+Qed.
+
+Lemma hgc_hstar_hgc :
+  \GC \* \GC = \GC.
+Proof using.
+  repeat rewrite hgc_eq. applys himpl_antisym.
+  { rewrite hstar_hexists. applys himpl_hexists_l ;=> H.
+    rewrite hstar_comm. rewrite hstar_hexists. applys himpl_hexists_l ;=> H'.
+    applys~ himpl_hexists_r (H' \* H). rewrite hstar_assoc.
+    applys himpl_hpure_l ;=> MH'. rewrite <- (hstar_comm H).
+    rewrite <- hstar_assoc. rewrite hstar_comm.
+    applys himpl_hpure_l ;=> MH. applys~ himpl_hpure_r.
+    applys~ haffine_hstar. }
+  { applys~ himpl_hstar_hgc_r. }
+Qed.
+  (* Same proof using tactics:
+       unfold hgc. applys himpl_antisym.
+      { hpull ;=> H1 M1 H2 M2. hsimpl (H1 \* H2). applys* haffine_hstar. }
+      { hpull ;=> H M. hsimpl H \[]. applys haffine_hempty. auto. } *)
+
+Lemma hempty_himpl_hgc : \[] ==> \GC.
+Proof using.
+  rewrite hgc_eq. applys himpl_hexists_r \[]. 
+  applys~ himpl_hpure_r. applys haffine_hempty.
 Qed.
 
 
@@ -641,12 +756,12 @@ Notation "'~~' B" := (hprop->(B->hprop)->Prop)
     if it is sufficient for establishing [F H Q] to establish that the
     the formula holds on a subheap, in the sense that [F H1 Q1] with
     [H = H1 \* H2] and [Q = Q1 \*+ H2]. 
-    (Technically, we add an extra [\Top] in to capture the affinity of the logic.) *)
+    (Technically, we add an extra [\GC] in to capture the affinity of the logic.) *)
 
 Definition is_local B (F:~~B) : Prop :=
   forall H Q, 
     (H ==> \exists H1 H2 Q1, H1 \* H2 \*
-             \[F H1 Q1 /\ Q1 \*+ H2 ===> Q \*+ \Top]) ->
+             \[F H1 Q1 /\ Q1 \*+ H2 ===> Q \*+ \GC]) ->
     F H Q.
 
 (** [is_local_pred S] asserts that [is_local (S x)] holds for any [x].
@@ -684,8 +799,7 @@ Definition Id {A:Type} (X:A) (x:A) :=
 (* ---------------------------------------------------------------------- *)
 (* ** Set operators to be opaque *)
 
-Global Opaque hempty hpure hstar hexists htop.
-
+Global Opaque hempty hpure hstar hexists htop hgc haffine.
 
 
 
@@ -812,6 +926,38 @@ Ltac on_formula_post cont :=
 
 Ltac remove_empty_heaps_formula tt :=
   repeat (on_formula_pre ltac:(remove_empty_heaps_from)).
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [haffine] simplifies a goal [haffine H] using structural
+      rules. It may be extended to support custom extensions. *)
+
+Ltac haffine_custom tt :=
+  fail.
+
+(* example extension:
+
+  Ltac haffine_custom tt ::=
+    repeat match goal with
+    | |- haffine (hcredits _) => apply affine_credits; auto with zarith
+    end.
+
+*)
+
+Ltac haffine_core tt :=
+  repeat match goal with
+  | |- haffine (hempty) => apply haffine_hempty
+  | |- haffine (hpure _) => apply haffine_hpure
+  | |- haffine (hstar _ _) => apply haffine_hstar
+  | |- haffine (hgc) => apply haffine_hgc
+  | |- haffine (hexists _) => apply haffine_hexists
+  | |- haffine (hforall _) => apply haffine_hforall
+  | |- haffine_post (_) => intros ? (* todo: interesting to have? *)
+  | _ => haffine_custom tt
+  end.
+
+Tactic Notation "haffine" :=
+  haffine_core tt.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1040,7 +1186,7 @@ Proof using. intros. (* hpull_check tt. --> blocks *) Abort.
 
    At the end, there remains a heap entailment with a simplified
    LHS and a simplified RHS, with items not cancelled out.
-   At this point, if the goal is of the form [H ==> \Top] or
+   At this point, if the goal is of the form [H ==> \GC] or [H ==> \Top] or
    [H ==> ?H'] for some evar [H'], then [hsimpl] solves the goal.
    Else, it leaves whatever remains.
 
@@ -1155,6 +1301,13 @@ Proof using.
   Transparent htop. intros. unfold htop. introv M. exists~ H.
 Qed.
 
+Definition hcancel_hgc := himpl_hgc_r. 
+  (* haffine H -> H ==> \GC *)
+
+Lemma hcancel_hgc_hempty :
+  \[] ==> \GC.
+Proof using. applys hcancel_hgc. applys haffine_hempty. Qed.
+
 Lemma hcancel_hempty_hstar_evar : forall H,
   H ==> \[] \* H.
 Proof using. intros. rew_heap~. Qed.
@@ -1163,16 +1316,19 @@ Lemma hcancel_evar_hstar_hempty : forall H,
   H ==> H \* \[].
 Proof using. intros. rew_heap~. Qed.
 
+Definition hcancel_evar_hstar_htop := himpl_same_hstar_htop_r.
+  (* H ==> H \* \Top. *)
+
 Lemma hcancel_htop_hstar_evar : forall H,
   H ==> \Top \* H.
-Proof using.
-  Transparent htop. intros H. unfold htop.
-  rewrite hstar_hexists. applys himpl_hexists_r \[]. rew_heap~.
-Qed.
+Proof using. intros. rewrite hstar_comm. applys hcancel_evar_hstar_htop. Qed.
 
-Lemma hcancel_evar_hstar_htop : forall H,
-  H ==> H \* \Top.
-Proof using. intros. rewrite hstar_comm. applys hcancel_htop_hstar_evar. Qed.
+Definition hcancel_evar_hstar_hgc := himpl_same_hstar_hgc_r.
+  (* H ==> H \* \GC *)
+
+Lemma hcancel_hgc_hstar_evar : forall H,
+  H ==> \GC \* H.
+Proof using. intros. rewrite hstar_comm. applys hcancel_evar_hstar_hgc. Qed.
 
 Lemma hcancel_cancel_1 : forall H HA HR HT,
   HT ==> HA \* HR ->
@@ -1414,9 +1570,13 @@ Ltac hcancel_cleanup tt :=
   try remove_empty_heaps_right tt;
   try remove_empty_heaps_left tt;
   try apply himpl_refl;
+  try apply hcancel_hgc_hempty;
+  try apply hcancel_hgc;
   try apply hcancel_htop;
   try apply hcancel_hempty_hstar_evar;
   try apply hcancel_evar_hstar_hempty;
+  try apply hcancel_hgc_hstar_evar;
+  try apply hcancel_evar_hstar_hgc;
   try apply hcancel_htop_hstar_evar;
   try apply hcancel_evar_hstar_htop.
 
@@ -1507,6 +1667,7 @@ Ltac hcancel_step tt :=
   | ?H \* _ =>
     match H with
     | \Top => apply hcancel_keep
+    | \GC => apply hcancel_keep
     | ?H => hcancel_hook H
     | \[] => apply hcancel_empty
     | \[_] => apply hcancel_hprop
@@ -1650,6 +1811,12 @@ Tactic Notation "hsimpl" "*" constr(X1) constr(X2) constr(X3) :=
 
 (*-- Demo --*)
 
+Lemma haffine_demo_1 : forall H1 H2 H3,
+  haffine (H1 \* H2 \* \exists (x:int), \[x=x] \* H3).
+Proof using.
+  intros. haffine.
+Abort.
+
 Lemma hsimpl_demo_1 : forall H1 H2 H3 H4 H5,
   H1 \* H2 \* H3 \* H4 ==> H4 \* H3 \* H5 \* H2.
 Proof using.
@@ -1684,6 +1851,16 @@ Proof using.
   intros. set (H:=\Top) at 2. rewrite htop_eq.
   unfold H. hsimpl.
 Abort.
+
+Lemma hsimpl_demo_6 : forall H1 H2,
+  haffine H2 ->
+  H1 \* H2 ==> H1 \* \GC.
+Proof using. intros. hsimpl. auto. Qed.
+
+Lemma hsimpl_demo_7 : forall H1 H2,
+  haffine H2 ->
+  H1 \* H2 \* \GC ==> H1 \* H2 \* \GC \* \GC.
+Proof using. intros. hsimpl. Qed.
 
 Lemma demo_hsimpl_hints : exists n, n = 3.
 Proof using.
@@ -2001,13 +2178,14 @@ Qed.
 Section IsLocal.
 Variables (B : Type).
 Implicit Types (F : ~~B).
+Hint Resolve haffine_hempty.
 
 (** A introduction rule to establish [is_local], exposing the definition *)
 
 Lemma is_local_intro : forall F,
   (forall H Q, 
     (H ==> \exists H1 H2 Q1, H1 \* H2 \*
-             \[F H1 Q1 /\ Q1 \*+ H2 ===> Q \*+ \Top]) ->
+             \[F H1 Q1 /\ Q1 \*+ H2 ===> Q \*+ \GC]) ->
     F H Q) ->
   is_local F.
 Proof using. auto. Qed.
@@ -2016,7 +2194,7 @@ Proof using. auto. Qed.
 
 Lemma is_local_elim : forall F H Q,
   is_local F ->
-  (H ==> \exists H1 H2 Q1, H1 \* H2 \* \[F H1 Q1 /\ Q1 \*+ H2 ===> Q \*+ \Top]) ->
+  (H ==> \exists H1 H2 Q1, H1 \* H2 \* \[F H1 Q1 /\ Q1 \*+ H2 ===> Q \*+ \GC]) ->
   F H Q.
 Proof using. auto. Qed.
 
@@ -2028,7 +2206,7 @@ Lemma is_local_elim_frame : forall F H Q,
   F H Q.
 Proof using. 
   introv L M. applys~ is_local_elim. hchange M.
-  hpull ;=> H1 H2 Q1 (N1&N2). hsimpl H1 H2 Q1. split~. hchanges N2.
+  hpull ;=> H1 H2 Q1 (N1&N2). hsimpl H1 H2 Q1. split~. hchanges~ N2.
 Qed.
 
 (** An elimination rule for [is_local] specialized for no frame, and no [htop] *)
@@ -2044,11 +2222,11 @@ Qed.
 
 (** Weaken and frame and gc property [local] *)
 
-Lemma is_local_conseq_frame_htop : forall F H H1 H2 Q1 Q,
+Lemma is_local_conseq_frame_hgc : forall F H H1 H2 Q1 Q,
   is_local F ->
   F H1 Q1 ->
   H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \Top ->
+  Q1 \*+ H2 ===> Q \*+ \GC ->
   F H Q.
 Proof using.
   introv L M WH WQ. applys~ is_local_elim. hchanges* WH.
@@ -2063,7 +2241,7 @@ Lemma is_local_conseq_frame : forall H1 H2 Q1 F H Q,
   Q1 \*+ H2 ===> Q ->
   F H Q.
 Proof using.
-  introv L M WH WQ. applys* is_local_conseq_frame_htop M. hchanges WQ.
+  introv L M WH WQ. applys* is_local_conseq_frame_hgc M. hchanges~ WQ.
 Qed.
 
 (** Frame rule *)
@@ -2086,15 +2264,15 @@ Proof using.
   hchanges qwand_cancel.
 Qed.
 
-(** Ramified frame rule with top *)
+(** Ramified frame rule with \GC *)
 
-Lemma is_local_ramified_frame_htop : forall Q1 H1 F H Q,
+Lemma is_local_ramified_frame_hgc : forall Q1 H1 F H Q,
   is_local F ->
   F H1 Q1 ->
-  H ==> H1 \* (Q1 \--* Q \*+ \Top) ->
+  H ==> H1 \* (Q1 \--* Q \*+ \GC) ->
   F H Q.
 Proof using.
-  introv L M WH. applys~ is_local_conseq_frame_htop (Q1 \--* Q \*+ \Top) M.
+  introv L M WH. applys~ is_local_conseq_frame_hgc (Q1 \--* Q \*+ \GC) M.
   hchanges qwand_cancel.
 Qed.
 
@@ -2107,76 +2285,77 @@ Lemma is_local_conseq : forall H' Q' F H Q,
   Q' ===> Q ->
   F H Q.
 Proof using.
-  introv L M WH WQ. applys* is_local_conseq_frame_htop \[] M. 
+  introv L M WH WQ. applys* is_local_conseq_frame_hgc \[] M. 
   { hsimpl*. } { hchanges WQ. }
 Qed.
 
 (** Garbage collection on precondition from [local] *)
 
-Lemma is_local_htop_pre : forall F H Q,
+Lemma is_local_hgc_pre : forall F H Q,
   is_local F ->
   F H Q ->
-  F (H \* \Top) Q.
-Proof using. introv L M. applys~ is_local_conseq_frame_htop M. Qed.
+  F (H \* \GC) Q.
+Proof using. introv L M. applys~ is_local_conseq_frame_hgc M. Qed.
 
-Lemma is_local_conseq_pre_htop : forall H' F H Q,
+Lemma is_local_conseq_pre_hgc : forall H' F H Q,
   is_local F ->
-  H ==> H' \* \Top ->
+  H ==> H' \* \GC ->
   F H' Q ->
   F H Q.
-Proof using. introv L WH M. applys* is_local_conseq_frame_htop M. Qed.
+Proof using. introv L WH M. applys* is_local_conseq_frame_hgc M. Qed.
 
 (** Garbage collection on postcondition from [local] *)
 
-Lemma is_local_htop_post : forall F H Q,
+Lemma is_local_hgc_post : forall F H Q,
   is_local F ->
-  F H (Q \*+ \Top) ->
+  F H (Q \*+ \GC) ->
   F H Q.
-Proof using. introv L M. applys* is_local_conseq_frame_htop \[] M; hsimpl. Qed.
+Proof using. introv L M. applys* is_local_conseq_frame_hgc \[] M; hsimpl. Qed.
 
-Lemma is_local_conseq_post_htop : forall Q' F H Q,
+Lemma is_local_conseq_post_hgc : forall Q' F H Q,
   is_local F ->
   F H Q' ->
-  Q' ===> Q \*+ \Top ->
+  Q' ===> Q \*+ \GC ->
   F H Q.
 Proof using.
-  introv L M WQ. applys* is_local_conseq_frame_htop \[] M.
+  introv L M WQ. applys* is_local_conseq_frame_hgc \[] M.
   { hsimpl. } { hchanges WQ. }
 Qed.
 
 (** Variant of the above, useful for tactics to specify
     the garbage collected part *)
 
-Lemma is_local_htop_pre_on : forall HG H' F H Q,
+Lemma is_local_hgc_pre_on : forall HG H' F H Q,
   is_local F ->
+  haffine HG ->
   H ==> HG \* H' ->
   F H' Q ->
   F H Q.
-Proof using. introv L WH M. applys~ is_local_conseq_pre_htop M. hchanges WH. Qed.
+Proof using. introv L K WH M. applys~ is_local_conseq_pre_hgc M. hchanges~ WH. Qed.
 
 (** Weakening on pre and post with gc-post from [local] *)
 
-Lemma is_local_conseq_htop_post : forall H' Q' F H Q,
+Lemma is_local_conseq_hgc_post : forall H' Q' F H Q,
   is_local F ->
   F H' Q' ->
   H ==> H' ->
-  Q' ===> Q \*+ \Top ->
+  Q' ===> Q \*+ \GC ->
   F H Q.
 Proof using.
-  introv L M WH WQ. applys~ is_local_conseq_frame_htop \[] M.
+  introv L M WH WQ. applys~ is_local_conseq_frame_hgc \[] M.
   { hchanges WH. } { hchanges WQ. }
 Qed.
 
 (** Weakening on pre and post with gc-pre from [local] *)
 
-Lemma is_local_conseq_htop_pre : forall H' Q' F H Q,
+Lemma is_local_conseq_hgc_pre : forall H' Q' F H Q,
   is_local F ->
   F H' Q' ->
-  H ==> H' \* \Top ->
+  H ==> H' \* \GC ->
   Q' ===> Q ->
   F H Q.
 Proof using.
-  introv L M WH WQ. applys~ is_local_conseq_frame_htop \Top M.
+  introv L M WH WQ. applys~ is_local_conseq_frame_hgc \GC M.
   { hchanges WQ. }
 Qed.
 
@@ -2339,7 +2518,7 @@ Global Opaque is_local.
 Definition local B (F:~~B) : ~~B :=
   fun (H:hprop) (Q:B->hprop) =>
     H ==> \exists H1 H2 Q1,
-       H1 \* H2 \* \[F H1 Q1 /\ Q1 \*+ H2 ===> Q \*+ \Top].
+       H1 \* H2 \* \[F H1 Q1 /\ Q1 \*+ H2 ===> Q \*+ \GC].
 
 Section Local.
 Transparent is_local.
@@ -2362,9 +2541,10 @@ Lemma local_local : forall F,
   local (local F) = local F.
 Proof using.
   extens. intros H Q. iff M.
-  { unfold local. eapply himpl_trans; [now apply M|]. hpull;=>H1 H2 Q1 [P1 P2].
-    unfold local in P1. hchange P1. hpull;=>H1' H2' Q1' [P1' P2'].
-    apply (himpl_hexists_r H1'). hsimpl. splits*. hchange P2'. hchange P2. hsimpl. }
+  { unfold local. eapply himpl_trans; [apply M|]. hpull ;=> H1 H2 Q1 [P1 P2].
+    unfold local in P1. hchange P1. hpull ;=> H1' H2' Q1' [P1' P2'].
+    applys himpl_hexists_r H1'. hsimpl. splits*. hchange P2'. hchange P2.
+    hsimpl. haffine. }
   { apply~ local_erase. }
 Qed.
 
@@ -2566,7 +2746,7 @@ Tactic Notation "xpulls" "*" := xpulls; auto_star.
     It applies to a goal of the form [F H Q], and replaces it
     with [F ?H' ?Q'], applies [E] to the goal, then produces
     the side condition [H ==> ?H'] and,
-    - if [Q] is instantiated, then leaves [?Q' ===> Q \* \Top]
+    - if [Q] is instantiated, then leaves [?Q' ===> Q \* \GC]
     - otherwise it instantiates [Q] with [Q'].
 
     [xapplys E] is like [xapply E] but also attemps to simplify
@@ -2577,7 +2757,7 @@ Ltac xapply_core H cont1 cont2 :=
   forwards_nounfold_then H ltac:(fun K =>
     match xpostcondition_is_evar tt with
     | true => eapply is_local_conseq_frame; [ xlocal | sapply K | cont1 tt | try apply qimpl_refl ]
-    | false => eapply is_local_conseq_frame_htop; [ xlocal | sapply K | cont1 tt | cont2 tt ]
+    | false => eapply is_local_conseq_frame_hgc; [ xlocal | sapply K | cont1 tt | cont2 tt ]
     end).
 
 Ltac xapply_base H :=
@@ -2756,7 +2936,7 @@ Qed.
 
 Lemma weakestpre_absorb : forall B (F:~~B) Q,
   is_local F ->
-  weakestpre F Q \* \Top ==> weakestpre F Q.
+  weakestpre F Q \* \GC ==> weakestpre F Q.
 Proof using.
   introv L. unfold weakestpre. hpull ;=> H1 M. hsimpl. xapplys M.
 Qed.
@@ -2959,6 +3139,5 @@ Tactic Notation "xunfolds" constr(E) "at" constr(n) :=
 (* ** Set [repr] to be opaque *)
 
 Global Opaque repr.
-
 
 End SepSetup.

@@ -533,22 +533,6 @@ Qed.
 
 (** Affine heap predicates *)
 
-Definition haffine (H : hprop) : Prop :=
-  forall h, H h -> heap_affine h.
-
-Definition haffine_post (A:Type) (J:A->hprop) : Prop :=
-  forall x, haffine (J x).
-
-Global Opaque haffine.
-
-(** Affine version of [\Top] *)
-
-Definition hgc : hprop :=
-  \exists H, \[haffine H] \* H.
-
-Notation "\GC" := (hgc) : heap_scope.
-
-Global Opaque hgc.
 
 (** Properties of [haffine] *)
 
