@@ -680,6 +680,25 @@ Proof using.
    math. }
 Qed.
 
+(** Triple satisfy the [is_local] predicate *)
+
+Lemma is_local_triple : forall t,
+  is_local (triple t).
+Proof using.
+  intros. applys is_local_intro. intros H Q M H'. 
+  intros h (h1&h2&N1&N2&N3&N4). hnf in M.
+  lets (H1&H2&Q1&R): M N1.
+  rewrite <- hstar_assoc, hstar_comm, hstar_pure in R.
+  lets ((R1&R2)&R3): R.
+  forwards (n&h'&v&S1&S2&S3): R1 (H2\*H') h.
+  { subst h. rewrite <- hstar_assoc. exists~ h1 h2. }
+  exists n h' v. splits~. rewrite <- hgc_hstar_hgc.
+  applys himpl_inv S2.
+  hchange (R2 v). hsimpl.
+Qed.
+
+Hint Resolve is_local_triple.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Definitions of [pay] *)
@@ -691,56 +710,76 @@ Definition pay_one H H' :=
 (* ---------------------------------------------------------------------- *)
 (* ** Structural rules *)
 
-Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
-  (forall x, triple t (J x) Q) ->
-  triple t (hexists J) Q.
-Proof using.
-  introv M. intros HF h N. rewrite hstar_hexists in N.
-  destruct N as (x&N). applys* M.
-Qed.
-
-Lemma triple_hprop : forall t (P:Prop) H Q,
-  (P -> triple t H Q) ->
-  triple t (\[P] \* H) Q.
-Proof using.
-  introv M. rewrite hpure_eq_hexists_empty. rewrite hstar_hexists.
-  rew_heap. applys* triple_hexists.
-Qed.
-
 Lemma triple_conseq : forall t H' Q' H Q,
-  H ==> H' ->
   triple t H' Q' ->
+  H ==> H' ->
   Q' ===> Q ->
   triple t H Q.
-Proof using.
-  introv MH M MQ. intros HF h N.
-  forwards (n&h'&v&R&K&C): (rm M) HF h. { hhsimpl~. }
-  exists n h' v. splits~. { hhsimpl. hchanges~ (MQ v). }
-Qed.
+Proof using. intros. applys* is_local_conseq. Qed.
 
 Lemma triple_frame : forall t H Q H',
   triple t H Q ->
   triple t (H \* H') (Q \*+ H').
-Proof using.
-  introv M. intros HF h N. rewrite hstar_assoc in N.
-  forwards (n&h'&v&R&K&C): (rm M) (H' \* HF) h. { hhsimpl~. }
-  exists n h' v. splits~. { hhsimpl~. }
-Qed.
-
-Lemma triple_hgc_post : forall t H Q,
-  triple t H (Q \*+ \GC) ->
-  triple t H Q.
-Proof using.
-  introv M. intros HF h N. forwards* (n&h'&v&R&K&C): (rm M) HF h.
-  exists n h' v. splits~. { rewrite <- hgc_hstar_hgc. hhsimpl. }
-Qed.
+Proof using. intros. applys* is_local_frame. Qed.
 
 Lemma triple_hgc_pre : forall t H Q,
   triple t H Q ->
   triple t (H \* \GC) Q.
-Proof using.
-  introv M. applys triple_hgc_post. applys~ triple_frame.
-Qed.
+Proof using. intros. applys* is_local_hgc_pre. Qed.
+
+Lemma triple_hgc_post : forall t H Q,
+  triple t H (Q \*+ \GC) ->
+  triple t H Q.
+Proof using. intros. applys* is_local_hgc_post. Qed.
+
+Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
+  (forall x, triple t (J x) Q) ->
+  triple t (hexists J) Q.
+Proof using. intros. applys* is_local_hexists. Qed.
+
+Lemma triple_hforall : forall A (x:A) t (J:A->hprop) Q,
+  triple t (J x) Q ->
+  triple t (hforall J) Q.
+Proof using. intros. applys* is_local_hforall. Qed.
+
+Lemma triple_hforall_exists : forall t A (J:A->hprop) Q, (* TODO: needed?*)
+  (exists x, triple t (J x) Q) ->
+  triple t (hforall J) Q.
+Proof using. intros. applys* is_local_hforall_exists. Qed.
+
+Lemma triple_hprop : forall t (P:Prop) H Q,
+  (P -> triple t H Q) ->
+  triple t (\[P] \* H) Q.
+Proof using. intros. applys* is_local_hprop. Qed.
+
+Lemma triple_hwand_hpure_l : forall t (P:Prop) H Q,
+  P ->
+  triple t H Q ->
+  triple t (\[P] \-* H) Q.
+Proof using. intros. applys* is_local_hwand_hpure_l. Qed.
+
+Lemma triple_hor : forall t H1 H2 Q,
+  triple t H1 Q ->
+  triple t H2 Q ->
+  triple t (hor H1 H2) Q.
+Proof using. intros. applys* is_local_hor. Qed.
+
+Lemma triple_hand_l : forall t H1 H2 Q,
+  triple t H1 Q ->
+  triple t (hand H1 H2) Q.
+Proof using. intros. applys* is_local_hand_l. Qed.
+
+Lemma triple_hand_r : forall t H1 H2 Q,
+  triple t H2 Q ->
+  triple t (hand H1 H2) Q.
+Proof using. intros. applys* is_local_hand_r. Qed.
+
+Lemma triple_conseq_frame_hgc : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q \*+ \GC ->
+  triple t H Q.
+Proof using. intros. applys* is_local_conseq_frame_hgc. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -899,38 +938,6 @@ End RulesPrimitiveOps.
 (* ********************************************************************** *)
 (* * Bonus *)
 
-
-(* ---------------------------------------------------------------------- *)
-(* ** Triples satisfy a variant of the [local] predicate, 
-      where [\Top] is replaced with [\GC]. *)
-
-
-Definition local' B (F:~~B) : ~~B :=
-  fun (H:hprop) (Q:B->hprop) =>
-    H ==> \exists H1 H2 Q1,
-       H1 \* H2 \* \[F H1 Q1 /\ Q1 \*+ H2 ===> Q \*+ \GC].
-
-Definition is_local' B (F:~~B) :=
-  F = local' F.
-
-Lemma is_local'_triple : forall t,
-  is_local' (triple t).
-Proof using.
-  intros. applys pred_ext_2. intros H Q. iff M.
-  { intros h Hh. forwards (h'&v&N1&N2): M \[] h.
-    { hhsimpl. }
-    exists H \[] Q. hhsimpl. split~. hsimpl. }
-  { intros H' h Hh. lets (h1&h2&N1&N2&N3&N4): Hh. hnf in M.
-    lets (H1&H2&Q1&R): M N1. rewrite <-hstar_assoc, hstar_comm, hstar_pure in R.
-    lets ((R1&R2)&R3): R.
-    forwards (n&h'&v&S1&S2&S3): R1 (H2\*H') h.
-    { subst h. rewrite <- hstar_assoc. exists~ h1 h2. }
-    exists n h' v. splits~. rewrite <- hgc_hstar_hgc.
-    applys himpl_inv S2.
-    hchange (R2 v). hsimpl. }
-Qed.
-
-
 (* ---------------------------------------------------------------------- *)
 (* ** Alternative, slightly lower-level definition of triples *)
 
@@ -957,7 +964,6 @@ Qed.
 
 (* ---------------------------------------------------------------------- *)
 (* ** Alternative, lower-level definition of triples *)
-
 
 Definition triple'' t H Q :=
   forall m1 c1 m2,
@@ -1024,3 +1030,62 @@ Proof using.
     intros F H' H'' Q' M1 M2. applys* triple_app_fix. }
   { intros F. applys triple_hprop. applys M. }
 Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Direct proofs for structural rules *)
+
+Module AltStruct.
+
+Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
+  (forall x, triple t (J x) Q) ->
+  triple t (hexists J) Q.
+Proof using.
+  introv M. intros HF h N. rewrite hstar_hexists in N.
+  destruct N as (x&N). applys* M.
+Qed.
+
+Lemma triple_hprop : forall t (P:Prop) H Q,
+  (P -> triple t H Q) ->
+  triple t (\[P] \* H) Q.
+Proof using.
+  introv M. rewrite hpure_eq_hexists_empty. rewrite hstar_hexists.
+  rew_heap. applys* triple_hexists.
+Qed.
+
+Lemma triple_conseq : forall t H' Q' H Q,
+  H ==> H' ->
+  triple t H' Q' ->
+  Q' ===> Q ->
+  triple t H Q.
+Proof using.
+  introv MH M MQ. intros HF h N.
+  forwards (n&h'&v&R&K&C): (rm M) HF h. { hhsimpl~. }
+  exists n h' v. splits~. { hhsimpl. hchanges~ (MQ v). }
+Qed.
+
+Lemma triple_frame : forall t H Q H',
+  triple t H Q ->
+  triple t (H \* H') (Q \*+ H').
+Proof using.
+  introv M. intros HF h N. rewrite hstar_assoc in N.
+  forwards (n&h'&v&R&K&C): (rm M) (H' \* HF) h. { hhsimpl~. }
+  exists n h' v. splits~. { hhsimpl~. }
+Qed.
+
+Lemma triple_hgc_post : forall t H Q,
+  triple t H (Q \*+ \GC) ->
+  triple t H Q.
+Proof using.
+  introv M. intros HF h N. forwards* (n&h'&v&R&K&C): (rm M) HF h.
+  exists n h' v. splits~. { rewrite <- hgc_hstar_hgc. hhsimpl. }
+Qed.
+
+Lemma triple_hgc_pre : forall t H Q,
+  triple t H Q ->
+  triple t (H \* \GC) Q.
+Proof using.
+  introv M. applys triple_hgc_post. applys~ triple_frame.
+Qed.
+
+End AltStruct.

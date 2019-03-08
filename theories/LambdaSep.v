@@ -75,6 +75,10 @@ Definition hprop := heap -> Prop.
 Definition haffine (H : hprop) : Prop :=
   forall h, H h -> heap_affine h.
 
+Lemma haffine_any : forall H,
+  haffine H.
+Proof using. introv M. hnfs*. Qed.
+
 (** Empty heap predicate: [ \[] ] *)
 
 Definition hempty : hprop :=
@@ -191,10 +195,6 @@ Lemma himpl_frame_l : forall H2 H1 H1',
   H1 ==> H1' ->
   (H1 \* H2) ==> (H1' \* H2).
 Proof using. introv W (h1&h2&?). exists* h1 h2. Qed.
-
-Lemma haffine_any : forall H,
-  haffine H.
-Proof using. introv M. hnfs*. Qed.
 
 Lemma haffine_hempty :
   haffine \[].

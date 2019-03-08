@@ -35,6 +35,10 @@ Module Export SepROCore <: SepCore.
 Definition heap : Type :=
   { h : (state*state)%type | let '(f,r) := h in fmap_disjoint f r }.
 
+(** Affinity is trivial *)
+
+Definition heap_affine (h:heap) := True.
+
 (** Projections *)
 
 Definition heap_f (h:heap) : state :=
@@ -90,6 +94,15 @@ Notation "h1 \u h2" := (heap_union h1 h2)
 (** Type of heap predicates *)
 
 Definition hprop := heap -> Prop.
+
+(** Affinity is defined in the standard way *)
+
+Definition haffine (H : hprop) : Prop :=
+  forall h, H h -> heap_affine h.
+
+Lemma haffine_any : forall H,
+  haffine H.
+Proof using. introv M. hnfs*. Qed.
 
 (** Heap predicates *)
 
@@ -548,6 +561,16 @@ Lemma himpl_frame_l : forall H2 H1 H1',
   (H1 \* H2) ==> (H1' \* H2).
 Proof using. introv W (h1&h2&?). exists* h1 h2. Qed.
 
+Lemma haffine_hempty :
+  haffine \[].
+Proof using. applys haffine_any. Qed.
+
+Lemma haffine_hstar : forall H1 H2,
+  haffine H1 ->
+  haffine H2 ->
+  haffine (H1 \* H2).
+Proof using. intros. applys haffine_any. Qed.
+
 End Properties.
 
 End SepROCore.
@@ -565,6 +588,22 @@ Export SepROCore.
 Implicit Types h : heap.
 Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Auxiliary lemmas *)
+
+Section Aux.
+
+(* LATER: add hpure_inv' and hstar_intro like in LambdaSep *)
+
+Lemma hgc_intro : forall h,
+  \GC h.
+Proof using. intros. applys hgc_of_heap_affine. hnfs*. Qed.
+
+End Aux.
+
+Global Opaque heap_affine.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -924,8 +963,8 @@ Lemma triple_hprop : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
 Proof using.
-  intros t. applys (triple_hprop_from_hexists (triple t)).
-  applys triple_hexists.
+  introv M. rewrite hpure_eq_hexists_empty. rewrite hstar_hexists.
+  rew_heap. applys* triple_hexists.
 Qed.
 
 Lemma triple_htop_post : forall t H Q,
@@ -1458,6 +1497,7 @@ Lemma normally_hwand_normal : forall H1 H2,
   normally (H1 \-* H2) ==> H1 \-* normally H2.
 Proof.
   intros. hchanges normally_hwand. rewrite normally_Normal_eq; auto.
+  hchanges (hwand_cancel H1).
 Qed.
 
 Lemma normally_hwand_hstar : forall H1 H2,
@@ -1613,7 +1653,7 @@ Lemma ROFrame_frame_l : forall H1 H2 H3,
   H1 \* ROFrame H2 H3 ==> ROFrame (H1 \* H2) H3.
 Proof.
   intros. unfold ROFrame. hpull ;=> HF. apply himpl_hexists_r with HF. hsimpl.
-  apply hwand_move_l. hsimpl. apply hwand_cancel.
+  hchanges (hwand_cancel (RO HF)).
 Qed.
 
 Lemma ROFrame_frame_lr : forall H1 H2 H3,
@@ -1641,7 +1681,7 @@ Lemma ROFrame_frame_r : forall H1 H2 H3,
   H1 \* ROFrame H2 H3 ==> ROFrame H2 (H1 \* H3).
 Proof.
   intros H1 H2 H3. unfold ROFrame. hpull ;=> HF. apply himpl_hexists_r with HF.
-  hsimpl. apply hwand_move_l. hsimpl. apply hwand_cancel.
+  hsimpl. hchanges (hwand_cancel HF).
 Qed.
 
 (* ---------------------------------------------------------------------- *)
