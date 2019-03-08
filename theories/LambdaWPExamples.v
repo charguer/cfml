@@ -21,6 +21,38 @@ Open Scope trm_scope.
 
 
 
+Arguments var_eq s1 s2 /.
+Arguments eq_var_dec s1 s2 /. 
+Arguments string_dec s1 s2 /. 
+Arguments string_rec P /.
+Arguments string_rect P /.
+Arguments sumbool_rec A B P /.
+Arguments sumbool_rect A B P /.
+Arguments Ascii.ascii_dec a b /.
+Arguments Ascii.ascii_rec P /.
+Arguments Ascii.ascii_rect P /.
+
+Arguments Bool.bool_dec b1 b2 /.
+Arguments bool_rec P /.
+Arguments bool_rect P /.
+
+
+Ltac xwp_simpl :=
+   cbn beta delta [ combine
+  List.rev Datatypes.app List.fold_right List.map
+   Wp_app Wp_getval_typed Wp_constr
+   Wp_getval Wp Wp_case_val  Wp_getval_val Wp_apps Wp_app Wp_getval_int
+  hprop_forall_vars prop_forall_vars
+   patvars  patsubst  trm_to_pat
+     Ctx.app Ctx.empty  Ctx.lookup Ctx.add 
+      combiner_to_trm Wp_apps_or_prim
+      var_eq eq_var_dec string_dec 
+     string_rec string_rect sumbool_rec sumbool_rect
+     Ascii.ascii_dec Ascii.ascii_rec Ascii.ascii_rect 
+    Bool.bool_dec bool_rec  bool_rect] iota zeta.
+ 
+
+
 (* ********************************************************************** *)
 (* * Records *)
 
@@ -924,6 +956,7 @@ End Test.
 (* ********************************************************************** *)
 (* * Stack *)
 
+
 Module Stack.
 
 Definition val_is_empty : val :=
@@ -964,7 +997,7 @@ Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stack L).
 Proof using.
   (* xtriple *)
-  intros. applys xtriple_lemma_funs; try reflexivity; simpl.
+  intros. applys xtriple_lemma_funs; try reflexivity; xwp_simpl.
   (* xunfold *)
   xunfold Stack.
   (* xlet-poly *)
@@ -989,7 +1022,7 @@ Lemma Triple_pop : forall `{Enc A} (p:loc) (L:list A),
 Proof using.
   introv N.
   (* xtriple *)
-  applys xtriple_lemma_funs; try reflexivity; simpl.
+  applys xtriple_lemma_funs; try reflexivity; xwp_simpl.
   (* xunfold *)
   xunfold Stack.
   (* xlet-poly *)
@@ -1035,7 +1068,7 @@ Lemma Triple_empty : forall `{Enc A} (u:unit),
     POST (fun p => (p ~> Stack (@nil A))).
 Proof using.
   (* xtriple *)
-  intros. applys xtriple_lemma_funs; try reflexivity; simpl.
+  intros. applys xtriple_lemma_funs; try reflexivity; xwp_simpl.
   (* xlet-poly *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xval *)
@@ -1052,7 +1085,7 @@ Lemma Triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
     POST (fun (u:unit) => (p ~> Stack (x::L))).
 Proof using.
   (* xtriple *)
-  intros. applys xtriple_lemma_funs; try reflexivity; simpl.
+  intros. applys xtriple_lemma_funs; try reflexivity; xwp_simpl.
   (* xunfold *)
   xunfold Stack.
   (* xlet-poly *)
@@ -1071,6 +1104,7 @@ Qed.
 
 Opaque Stack.
 
+
 Lemma Triple_rev_append : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
   TRIPLE (val_rev_append p1 p2)
     PRE (p1 ~> Stack L1 \* p2 ~> Stack L2)
@@ -1078,7 +1112,8 @@ Lemma Triple_rev_append : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
 Proof using.
   intros. gen p1 p2 L2. induction_wf IH: (@list_sub A) L1. intros.
   (* xtriple *)
-  intros. applys xtriple_lemma_fixs; try reflexivity; simpl.
+  intros. applys xtriple_lemma_fixs; try reflexivity; xwp_simpl.
+simpl. (* TODO ! *)
   (* xlet *)
   applys xlet_typed_lemma.
   (* xapps *)

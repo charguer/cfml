@@ -148,7 +148,8 @@ Definition Wp_letval_typed `{EA1:Enc A1} (v:val) (F2of:A1->Formula) : Formula :=
   Local (fun A (EA:Enc A) Q =>
     \exists (V:A1), \[v = enc V] \* ^(F2of V) Q).
 
-Definition Wp_getval Wp (E:ctx) (t1:trm) (F2of:forall A1 {EA1:Enc A1},A1->Formula) : Formula :=
+(* DEPRECATED
+Definition Wp_getval' Wp (E:ctx) (t1:trm) (F2of:forall A1 {EA1:Enc A1},A1->Formula) : Formula :=
   match t1 with
   | trm_val v => Wp_letval v F2of
   | trm_var x => match Ctx.lookup x E with
@@ -157,6 +158,7 @@ Definition Wp_getval Wp (E:ctx) (t1:trm) (F2of:forall A1 {EA1:Enc A1},A1->Formul
                         end
   | _ => Wp_let (Wp E t1) F2of
   end.
+*)
 
 Definition Wp_getval_typed Wp (E:ctx) `{EA1:Enc A1} (t1:trm) (F2of:A1->Formula) : Formula :=
   match t1 with
@@ -168,6 +170,7 @@ Definition Wp_getval_typed Wp (E:ctx) `{EA1:Enc A1} (t1:trm) (F2of:A1->Formula) 
   | _ => Wp_let_typed (Wp E t1) F2of
   end.
 
+(* NEEDED?
 Definition Wp_getval_val Wp (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
   match t1 with
   | trm_val v => F2of v
@@ -177,8 +180,8 @@ Definition Wp_getval_val Wp (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
                         end
   | _ => Wp_let_typed (Wp E t1) F2of
   end.
-
-Definition Wp_getval' Wp (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
+*)
+Definition Wp_getval Wp (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
   match t1 with
   | trm_val v => F2of v
   | trm_var x => match Ctx.lookup x E with
@@ -188,6 +191,7 @@ Definition Wp_getval' Wp (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
   | _ => Wp_let (Wp E t1) (fun `{EA1:Enc A1} (V1:A1) => F2of (``V1))
   end.
 
+Definition Wp_getval_val := Wp_getval.
 
 Definition Wp_getval_int Wp (E:ctx) (t1:trm) (F2of:int->Formula) : Formula :=
   match t1 with
@@ -199,7 +203,7 @@ Definition Wp_constr Wp (E:ctx) (id:idconstr) : list val -> list trm -> Formula 
   fix mk (rvs : list val) (ts : list trm) : Formula :=
     match ts with
     | nil => Wp_val (val_constr id (List.rev rvs))
-    | t1::ts' => Wp_getval' Wp E t1 (fun v1 => mk (v1::rvs) ts')
+    | t1::ts' => Wp_getval Wp E t1 (fun v1 => mk (v1::rvs) ts')
     (* DEPRECATED Wp_getval_val wp E t1 (fun v1 => mk (v1::rvs) ts') *)
     end.
 
@@ -235,7 +239,7 @@ Definition Wp_apps Wp (E:ctx) (v0:func) : list val -> list trm -> Formula :=
   (fix mk (rvs : list val) (ts : list trm) : Formula :=
     match ts with
     | nil => is_Wp (Wp_app (trm_apps v0 (trms_vals (List.rev rvs))))
-    | t1::ts' => Wp_getval' Wp E t1 (fun v1 => mk (v1::rvs) ts')
+    | t1::ts' => Wp_getval Wp E t1 (fun v1 => mk (v1::rvs) ts')
     end).
 
 Definition Wp_apps_or_prim Wp (E:ctx) (t0:trm) (ts:list trm) : Formula :=
@@ -282,8 +286,6 @@ Fixpoint prop_forall_vars (Hof:ctx->Prop) (G:ctx) (xs:vars) : Prop :=
   end.
 
 
-Definition fand (F1 F2:Formula) : Formula :=
-  Local (fun `{Enc A} Q => hand (^F1 Q) (^F2 Q)).
 
 
 Definition Wp_case_val (F2:Formula) (P:Prop) (F3:Formula) : Formula :=
@@ -291,6 +293,10 @@ Definition Wp_case_val (F2:Formula) (P:Prop) (F3:Formula) : Formula :=
     hand (^F2 Q) (\[P] \-* ^F3 Q)).
 
 (*
+Definition fand (F1 F2:Formula) : Formula :=
+  Local (fun `{Enc A} Q => hand (^F1 Q) (^F2 Q)).
+
+
 Definition Wp_case_val Wp (E:ctx) (v1:val) (p:pat) (t2:trm) (F3:Formula) : Formula :=
   let F1 A (EA:Enc A) (Q:A->hprop) := 
      hprop_forall_pat_vars (fun G => \[v1 = patsubst G p] \-* ^(Wp (Ctx.app G E) t2) Q) Ctx.empty (patvars p) in
@@ -388,7 +394,7 @@ Fixpoint Wp (E:ctx) (t:trm) : Formula :=
        Wp_getval_typed Wp E t2 (fun n2 =>
          is_Wp (Wp_for_int n1 n2 (fun n => Wp (Ctx.add x (enc n) E) t3))))
   | trm_case t1 p t2 t3 =>
-      Wp_getval' Wp E t1 (fun v1 =>
+      Wp_getval Wp E t1 (fun v1 =>
         let xs := patvars p in
         let F1 A (EA:Enc A) (Q:A->hprop) := 
            hprop_forall_vars (fun G => let E' := (Ctx.app G E) in
