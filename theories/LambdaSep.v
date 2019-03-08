@@ -230,6 +230,8 @@ Implicit Types Q : val->hprop.
 (* ---------------------------------------------------------------------- *)
 (* ** Auxiliary lemmas *)
 
+Section Aux.
+
 Lemma hpure_inv' : forall P h,
   \[P] h ->
   P /\ h = heap_empty.
@@ -244,7 +246,11 @@ Proof using. intros. exists~ h1 h2. Qed.
 
 Lemma hgc_intro : forall h,
   \GC h.
-Proof using. intros. applys~ himpl_hgc_r (=h). applys haffine_any. Qed.
+Proof using. intros. applys hgc_of_heap_affine. hnfs*. Qed.
+
+End Aux.
+
+Global Opaque heap_affine.
 
 
 (* ---------------------------------------------------------------------- *)

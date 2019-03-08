@@ -668,6 +668,10 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Affine heap predicates *)
 
+Lemma haffine_eq : forall H,
+  haffine H = (forall h, H h -> heap_affine h).
+Proof using. auto. Qed.
+
 Lemma haffine_hexists : forall A (J:A->hprop),
   haffine_post J ->
   haffine (hexists J).
@@ -699,11 +703,19 @@ Lemma hgc_eq :
   \GC = (\exists H, \[haffine H] \* H).
 Proof using. auto. Qed.
 
+Lemma hgc_of_heap_affine : forall h,
+  heap_affine h ->
+  \GC h.
+Proof using.
+  intros. rewrite hgc_eq. exists (=h).
+  rewrite hstar_pure. split~. { introv ->. auto. }
+Qed.
+
 Lemma himpl_hgc_r : forall H,
   haffine H ->
   H ==> \GC.
 Proof using.
-  introv M. rewrite hgc_eq. applys himpl_hexists_r H. applys~ himpl_hpure_r.
+  introv M. intros h Hh. applys* hgc_of_heap_affine.
 Qed.
   (* Note that lemma above can also be read as:
     haffine H ->

@@ -106,6 +106,10 @@ Module Export SepCreditsCore <: SepCore.
 
 Definition credits : Type := int.
 
+(** Hint for [math] tactic to unfold [credits] definition *)
+
+Ltac math_0 ::= unfolds credits.
+
 (** Zero and one credits *)
 
 Definition credits_zero : credits := 0.
@@ -157,6 +161,28 @@ Definition heap_union (h1 h2 : heap) : heap :=
 Notation "h1 \u h2" := (heap_union h1 h2)
    (at level 37, right associativity) : heap_scope.
 
+(** Affine heaps are those such that [heap_credits c >= 0] *)
+
+Definition heap_affine (h:heap) : Prop :=
+  h^c >= 0.
+
+(** Properties of [heap_affine] *)
+
+Lemma heap_affine_heap_empty :
+  heap_affine heap_empty.
+Proof using.
+  unfold heap_affine, heap_empty. simpl. math.
+Qed.
+
+Lemma heap_affine_heap_union : forall h1 h2,
+  heap_affine h1 ->
+  heap_affine h2 ->
+  heap_affine (h1 \u h2).
+Proof using.
+  intros [m1 n1] [m2 n2] M1 M2. unfolds heap_affine, heap_union.
+  simpls. math.
+Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (** Hprop *)
@@ -164,6 +190,11 @@ Notation "h1 \u h2" := (heap_union h1 h2)
 (** Type of heap predicates *)
 
 Definition hprop := heap -> Prop.
+
+(** Affinity is defined in the standard way *)
+
+Definition haffine (H : hprop) : Prop :=
+  forall h, H h -> heap_affine h.
 
 (** Heap predicates *)
 
@@ -217,8 +248,6 @@ Tactic Notation "fmap_disjoint_pre" :=
   subst; rew_disjoint; jauto_set.
 
 Hint Extern 1 (\# _ _) => fmap_disjoint_pre.
-
-Ltac math_0 ::= unfolds credits.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -424,6 +453,20 @@ Lemma himpl_frame_l : forall H2 H1 H1',
   (H1 \* H2) ==> (H1' \* H2).
 Proof using. introv W (h1&h2&?). exists* h1 h2. Qed.
 
+Lemma haffine_hempty :
+  haffine \[].
+Proof using.
+  introv M. lets ->: hempty_inv M. applys heap_affine_heap_empty.
+Qed.
+
+Lemma haffine_hstar : forall H1 H2,
+  haffine H1 ->
+  haffine H2 ->
+  haffine (H1 \* H2).
+Proof using.
+  introv F1 F2 (h1&h2&M1&M2&D&->). applys* heap_affine_heap_union.
+Qed.
+
 End Properties.
 
 End SepCreditsCore.
@@ -466,6 +509,14 @@ Proof using.
   unfolds in D. rewrite <- E1. rewrite <- E2. auto.
 Qed.
 
+Lemma haffine_hsingle : forall l v,
+  haffine (hsingle l v).
+Proof using.
+  intros. rewrite haffine_eq.
+  introv (E&Ec&_). unfold heap_affine. rewrite Ec.
+  unfold credits_zero. math.
+Qed.
+
 Global Opaque hsingle.
 
 (* ** Configure [hcancel] to make it aware of [hsingle] *)
@@ -501,43 +552,27 @@ Proof using.
   introv N. unfolds hcredits, heap_credits. subst*.
 Qed.
 
+Lemma haffine_hcredits : forall n,
+  n >= 0 ->
+  haffine (\$ n).
+Proof using.
+  introv N. rewrite haffine_eq. introv Hh.
+  lets (Hs&Hc): hcredits_inv Hh. unfold heap_affine. rewrite* Hc.
+Qed.
+
 Global Opaque hcredits.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Affine heaps *)
-
-(** Affine heaps are those such that [heap_credits c >= 0] *)
-
-Definition heap_affine (h:heap) : Prop :=
-  h^c >= 0.
-
-(** Properties of [heap_affine] *)
-
-Lemma heap_affine_heap_empty :
-  heap_affine heap_empty.
-Proof using. unfold heap_affine, heap_empty. simpl. math. Qed.
-
-Lemma heap_affine_heap_union : forall h1 h2,
-  heap_affine h1 ->
-  heap_affine h2 ->
-  heap_affine (h1 \u h2).
-Proof using.
-  intros [m1 n1] [m2 n2] M1 M2. unfolds heap_affine, heap_union.
-  simpls. math.
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Affine heap predicates *)
-
-(** Affine heap predicates *)
-
-
-(** Properties of [haffine] *)
+(* ** Affinity *)
 
 Section Affine.
-Transparent hstar hempty haffine hexists hpure hgc hsingle hcredits.
+Transparent haffine.
+
+Lemma hgc_intro : forall h,
+  h^c >= 0 ->
+  \GC h.
+Proof using. introv N. applys* hgc_of_heap_affine. Qed.
 
 Lemma haffine_heap_inv : forall H h,
   haffine H ->
@@ -545,93 +580,14 @@ Lemma haffine_heap_inv : forall H h,
   h^c >= 0.
 Proof using. introv F M. applys F M. Qed.
 
-Lemma haffine_hempty :
-  haffine \[].
-Proof using.
-  introv M. lets ->: hempty_inv M. applys heap_affine_heap_empty.
-Qed.
-
-Lemma haffine_hstar : forall H1 H2,
-  haffine H1 ->
-  haffine H2 ->
-  haffine (H1 \* H2).
-Proof using.
-  introv F1 F2 (h1&h2&M1&M2&D&->). applys* heap_affine_heap_union.
-Qed.
-
-Lemma haffine_hexists : forall A (J:A->hprop),
-  haffine_post J ->
-  haffine (hexists J).
-Proof using. introv F1 (x&Hx). applys* F1. Qed.
-
-Lemma haffine_hforall : forall A `{Inhab A} (J:A->hprop),
-  haffine_post J ->
-  haffine (hforall J).
-Proof using. introv IA F1 Hx. applys* F1 arbitrary. Qed.
-
-Lemma haffine_hpure : forall P,
-  haffine \[P].
-Proof using.
-  intros. applys* haffine_hexists. intros HP. applys* haffine_hempty.
-Qed.
-
-Lemma haffine_hgc :
-  haffine \GC.
-Proof using.
-  introv (H&(h1&h2&M1&M2&D&->)). lets (FH&E1): hpure_inv (rm M1).
-  lets ->: hempty_inv E1. rew_heap. applys* FH.
-Qed.
-
-Lemma haffine_hsingle : forall l v,
-  haffine (hsingle l v).
-Proof using.
-  introv (E&Ec&_). unfold heap_affine. rewrite Ec.
-  unfold credits_zero. math.
-Qed.
-
-Lemma haffine_hcredits : forall n,
-  n >= 0 ->
-  haffine (\$ n).
-Proof using.
-  introv N Hh. lets (Hs&Hc): hcredits_inv Hh. unfold heap_affine. rewrite* Hc.
-Qed.
-
-(** Properties of [hgc] *)
-
 Lemma hgc_heap_inv : forall h,
   \GC h ->
   h^c >= 0.
 Proof using. introv N. applys* haffine_heap_inv. applys haffine_hgc. Qed.
 
-Lemma hgc_intro : forall h,
-  heap_affine h ->
-  \GC h.
-Proof using.
-  introv N. exists (=h). exists heap_empty h. splits*. 
-  { applys* hpure_intro.
-    { unfolds* hempty. }
-    { unfolds haffine. introv ->; auto. } }
-Qed.
-
-Lemma hgc_hstar_hgc :
-  \GC \* \GC = \GC.
-Proof using.
-  unfold hgc. applys himpl_antisym.
-  { hpull ;=> H1 M1 H2 M2. hsimpl (H1 \* H2). applys* haffine_hstar. }
-  { hpull ;=> H M. hsimpl H \[]. applys haffine_hempty. auto. }
-Qed.
-
-Lemma hempty_himpl_hgc : \[] ==> \GC.
-Proof using.
-  intros h Hh. applys hgc_intro. lets ->: hempty_inv Hh. applys heap_affine_heap_empty.
-Qed.
-
 End Affine.
 
-(** Configure [hsimpl] to exploit the lemma [hempty_himpl_hgc] *)
-
-Ltac hsimpl_post_before_generalize tt ::=
-  try solve [ applys hempty_himpl_hgc ].
+Global Opaque heap_affine.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1041,7 +997,7 @@ Proof using.
     { fmap_red. }
     { exists (m1',c1') (m3' \+ h2^s, (h2^c + h1^c - n - c1')). splits~.
       { exists (m3',(h1^c - n - c1')) h2. splits~.
-        { applys hgc_intro. unfold heap_affine. simpl. math. }
+        { applys hgc_intro. simpl. math. }
       { subst. rew_disjoint; simpls; rew_disjoint.
         unfold heap_union. simpl. fequals. math. } }
       { subst. rew_disjoint; simpls; rew_disjoint. splits*. }
