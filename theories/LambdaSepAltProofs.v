@@ -181,28 +181,28 @@ Proof using.
   applys hoare_conseq (M (HF \* H')); hsimpl.
 Qed.
 
-Lemma triple_htop_post : forall t H Q,
-  triple t H (Q \*+ \Top) ->
+Lemma triple_hgc_post : forall t H Q,
+  triple t H (Q \*+ \GC) ->
   triple t H Q.
 Proof using.
   introv M. intros HF.
   applys hoare_conseq (M HF); hsimpl.
 Qed.
 
-Lemma triple_htop_pre : forall t H Q,
+Lemma triple_hgc_pre : forall t H Q,
   triple t H Q ->
-  triple t (H \* \Top) Q.
+  triple t (H \* \GC) Q.
 Proof using.
-  introv M. applys triple_htop_post. applys~ triple_frame.
+  introv M. applys triple_hgc_post. applys~ triple_frame.
 Qed.
 
 Lemma triple_combined : forall H2 H1 Q1 t H Q,
   triple t H1 Q1 ->
   H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \Top ->
+  Q1 \*+ H2 ===> Q \*+ \GC ->
   triple t H Q.
 Proof using.
-  introv M WH WQ. applys triple_htop_post. applys triple_conseq.
+  introv M WH WQ. applys triple_hgc_post. applys triple_conseq.
   { applys* triple_frame. } { eauto. } { eauto. }
 Qed.
 
@@ -261,9 +261,9 @@ Proof using.
 Qed.
 
 (*
-Lemma Triple_ramified_frame_htop : forall t `{Enc A} H H1 (Q1 Q:A->hprop),
+Lemma Triple_ramified_frame_hgc : forall t `{Enc A} H H1 (Q1 Q:A->hprop),
   Triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* Q \*+ \Top) ->
+  H ==> H1 \* (Q1 \--* Q \*+ \GC) ->
   Triple t H Q.
 Proof using. .. Qed.
 
@@ -290,25 +290,25 @@ Lemma Triple_hand_r : forall t H1 H2 `{Enc A} (Q:A->hprop),
   Triple t (hand H1 H2) Q.
 Proof using. introv M1 M2. applys* triple_hand_r. Qed.
 
-Lemma Triple_htop_post : forall t `{Enc A} H (Q:A->hprop),
-  Triple t H (Q \*+ \Top) ->
+Lemma Triple_hgc_post : forall t `{Enc A} H (Q:A->hprop),
+  Triple t H (Q \*+ \GC) ->
   Triple t H Q.
 Proof using.
-  introv M. unfolds Triple. rewrite Post_star in M. applys* triple_htop_post.
+  introv M. unfolds Triple. rewrite Post_star in M. applys* triple_hgc_post.
 Qed.
 
-Lemma Triple_htop_pre : forall t `{Enc A} H (Q:A->hprop),
+Lemma Triple_hgc_pre : forall t `{Enc A} H (Q:A->hprop),
   Triple t H Q ->
-  Triple t (H \* \Top) Q.
-Proof using. introv M. applys* triple_htop_pre. Qed.
+  Triple t (H \* \GC) Q.
+Proof using. introv M. applys* triple_hgc_pre. Qed.
 
 Lemma Triple_combined : forall t H1 H2 `{Enc A} (Q1 Q:A->hprop) H,
   Triple t H1 Q1 ->
   H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \Top ->
+  Q1 \*+ H2 ===> Q \*+ \GC ->
   Triple t H Q.
 Proof using.
-  introv M WH WQ. applys* triple_conseq_frame_htop.
+  introv M WH WQ. applys* triple_conseq_frame_hgc.
   do 2 rewrite <- Post_star. apply* Post_himpl.
 Qed.
 

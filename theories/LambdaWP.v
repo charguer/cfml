@@ -65,7 +65,7 @@ Definition formula_ (B:Type) := (B -> hprop) -> hprop.
     by establishing [F Q'] for a [Q'] that entails [Q]. *)
 
 Definition is_flocal B (F:formula_ B) :=
-  forall Q, (\exists Q', F Q' \* (Q' \--* (Q \*+ \Top))) ==> F Q.
+  forall Q, (\exists Q', F Q' \* (Q' \--* (Q \*+ \GC))) ==> F Q.
 
 (** [is_flocal_pred S] asserts that [is_flocal (S x)] holds for any [x].
     It is useful for describing loop invariants. *)
@@ -85,7 +85,7 @@ Implicit Type F : formula_ B.
 (** A introduction rule to establish [is_flocal], exposing the definition *)
 
 Lemma is_flocal_intro : forall F,
-  (forall Q, (\exists Q', F Q' \* (Q' \--* (Q \*+ \Top))) ==> F Q) ->
+  (forall Q, (\exists Q', F Q' \* (Q' \--* (Q \*+ \GC))) ==> F Q) ->
   is_flocal F.
 Proof using. auto. Qed.
 
@@ -96,21 +96,21 @@ Lemma is_flocal_weakestpre : forall (T:hprop->(B->hprop)->Prop),
   is_flocal (weakestpre T).
 Proof using.
   introv L. applys is_flocal_intro. intros Q. unfold weakestpre.
-  hpull ;=> Q' H M. hsimpl (H \* (Q' \--* Q \*+ \Top)).
-  applys* is_local_ramified_frame_htop.
+  hpull ;=> Q' H M. hsimpl (H \* (Q' \--* Q \*+ \GC)).
+  applys* is_local_ramified_frame_hgc.
 Qed.
 
 (** An elimination rule for [is_flocal] *)
 
 Lemma is_flocal_elim : forall F H Q,
   is_flocal F ->
-  (H ==> \exists Q', F Q' \* (Q' \--* (Q \*+ \Top))) ->
+  (H ==> \exists Q', F Q' \* (Q' \--* (Q \*+ \GC))) ->
   H ==> F Q.
 Proof using. introv L M. lets N: (L Q). applys* himpl_trans N. Qed.
 
-(** An elimination rule for [is_flocal] without [\Top] *)
+(** An elimination rule for [is_flocal] without [\GC] *)
 
-Lemma is_flocal_elim_nohtop : forall F H Q,
+Lemma is_flocal_elim_nohgc : forall F H Q,
   is_flocal F ->
   (H ==> \exists Q', F Q' \* (Q' \--* Q)) ->
   H ==> F Q.
@@ -133,13 +133,13 @@ Proof using.
   hchange (rm M). hsimpl Q. hchanges W.
 Qed.
 
-Lemma is_flocal_top : forall F H Q,
+Lemma is_flocal_hgc : forall F H Q,
   is_flocal F ->
-  H ==> F (Q \*+ \Top) ->
+  H ==> F (Q \*+ \GC) ->
   H ==> F Q.
 Proof using.
   introv L M. applys~ is_flocal_elim.
-  hchange (rm M). hsimpl (Q \*+ \Top). hsimpl.
+  hchange (rm M). hsimpl (Q \*+ \GC). hsimpl.
 Qed.
 
 Lemma is_flocal_frame : forall H1 H2 F H Q,
@@ -153,13 +153,13 @@ Proof using.
   hchanges (hwand_cancel H2).
 Qed.
 
-Lemma is_flocal_frame_top : forall H1 H2 F H Q,
+Lemma is_flocal_frame_hgc : forall H1 H2 F H Q,
   is_flocal F ->
   H ==> H1 \* H2 ->
-  H1 ==> F (fun x => H2 \-* Q x \* \Top) ->
+  H1 ==> F (fun x => H2 \-* Q x \* \GC) ->
   H ==> F Q.
 Proof using.
-  introv L W M. applys* is_flocal_top. applys* is_flocal_frame.
+  introv L W M. applys* is_flocal_hgc. applys* is_flocal_frame.
 Qed.
 
 End IsFlocal.
@@ -171,7 +171,7 @@ End IsFlocal.
 (** [flocal F] transforms a formula [F] into one that satisfies [is_flocal]. *)
 
 Definition flocal B (F:formula_ B) : formula_ B :=
-  fun Q => \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
+  fun Q => \exists Q', F Q' \* (Q' \--* (Q \*+ \GC)).
 
 (** Properties *)
 
@@ -205,10 +205,10 @@ Lemma flocal_flocal : forall F,
 Proof using.
   intros F. applys fun_ext_1. intros Q. applys himpl_antisym.
   { unfold flocal. hpull ;=> Q' Q''. hsimpl Q''. intros x.
-    hchanges (qwand_himpl_hwand x Q' (Q \*+ \Top)).
-    hchanges (qwand_himpl_hwand x Q'' (Q' \*+ \Top)).
-    hchanges (hwand_cancel (Q'' x) (Q' x \* \Top)).
-    hchanges (hwand_cancel (Q' x) (Q x \* \Top)). }
+    hchanges (qwand_himpl_hwand x Q' (Q \*+ \GC)).
+    hchanges (qwand_himpl_hwand x Q'' (Q' \*+ \GC)).
+    hchanges (hwand_cancel (Q'' x) (Q' x \* \GC)).
+    hchanges (hwand_cancel (Q' x) (Q x \* \GC)). }
     (* LATER: tactic to automate hchanges of hwand_cancel *)
   { hchanges flocal_erase. }
 Qed.
@@ -442,7 +442,7 @@ Lemma triple_flocal_pre : forall t (F:formula) Q,
 Proof using.
   introv M. applys~ is_local_elim.
   unfold flocal. hpull ;=> Q'.
-  hsimpl (F Q') ((Q' \--* Q \*+ \Top)) Q'. split~.
+  hsimpl (F Q') ((Q' \--* Q \*+ \GC)) Q'. split~.
   { hchanges qwand_cancel. }
 Qed.
 

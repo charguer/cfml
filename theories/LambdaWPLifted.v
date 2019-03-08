@@ -459,7 +459,7 @@ Lemma Triple_Local_pre : forall t (F:Formula) `{EA:Enc A} (Q:A->hprop),
 Proof using.
   introv M. applys~ is_local_elim.
   unfold Local, flocal. hpull ;=> Q'.
-  hsimpl (^F Q') ((Q' \--* Q \*+ \Top)) Q'. split~.
+  hsimpl (^F Q') ((Q' \--* Q \*+ \GC)) Q'. split~.
   { hchanges qwand_cancel. }
 Qed.
 

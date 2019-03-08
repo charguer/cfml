@@ -643,11 +643,11 @@ Lemma Triple_frame : forall t `{Enc A} H (Q:A->hprop) H',
   Triple t (H \* H') (Q \*+ H').
 Proof using. intros. applys* is_local_frame. Qed.
 
-Lemma Triple_ramified_frame_htop : forall t `{Enc A} H H1 (Q1 Q:A->hprop),
+Lemma Triple_ramified_frame_hgc : forall t `{Enc A} H H1 (Q1 Q:A->hprop),
   Triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* Q \*+ \Top) ->
+  H ==> H1 \* (Q1 \--* Q \*+ \GC) ->
   Triple t H Q.
-Proof using. intros. applys* is_local_ramified_frame_htop. Qed.
+Proof using. intros. applys* is_local_ramified_frame_hgc. Qed.
 
 Lemma Triple_ramified_frame : forall t `{Enc A} H H1 (Q1 Q:A->hprop),
   Triple t H1 Q1 ->
@@ -655,15 +655,15 @@ Lemma Triple_ramified_frame : forall t `{Enc A} H H1 (Q1 Q:A->hprop),
   Triple t H Q.
 Proof using. intros. applys* is_local_ramified_frame. Qed.
 
-Lemma Triple_htop_pre : forall t `{Enc A} H (Q:A->hprop),
+Lemma Triple_hgc_pre : forall t `{Enc A} H (Q:A->hprop),
   Triple t H Q ->
-  Triple t (H \* \Top) Q.
-Proof using. intros. applys* is_local_htop_pre. Qed.
+  Triple t (H \* \GC) Q.
+Proof using. intros. applys* is_local_hgc_pre. Qed.
 
-Lemma Triple_htop_post : forall t `{Enc A} H (Q:A->hprop),
-  Triple t H (Q \*+ \Top) ->
+Lemma Triple_hgc_post : forall t `{Enc A} H (Q:A->hprop),
+  Triple t H (Q \*+ \GC) ->
   Triple t H Q.
-Proof using. intros. applys~ is_local_htop_post. Qed.
+Proof using. intros. applys~ is_local_hgc_post. Qed.
 
 Lemma Triple_hexists : forall t `{Enc A} B (J:B->hprop) (Q:A->hprop),
   (forall x, Triple t (J x) Q) ->
@@ -707,12 +707,12 @@ Lemma Triple_hand_r : forall t H1 H2 `{Enc A} (Q:A->hprop),
   Triple t (hand H1 H2) Q.
 Proof using. intros. applys~ is_local_hand_r. Qed.
 
-Lemma Triple_conseq_frame_htop : forall t H1 H2 `{Enc A} (Q1 Q:A->hprop) H,
+Lemma Triple_conseq_frame_hgc : forall t H1 H2 `{Enc A} (Q1 Q:A->hprop) H,
   Triple t H1 Q1 ->
   H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \Top ->
+  Q1 \*+ H2 ===> Q \*+ \GC ->
   Triple t H Q.
-Proof using. intros. applys* is_local_conseq_frame_htop. Qed.
+Proof using. intros. applys* is_local_conseq_frame_hgc. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
