@@ -189,9 +189,6 @@ Parameter heap_affine : heap -> Prop.
 Definition haffine (H : hprop) : Prop :=
   forall h, H h -> heap_affine h.
 
-Definition haffine_post (A:Type) (J:A->hprop) : Prop :=
-  forall x, haffine (J x).
-
 
 (* ---------------------------------------------------------------------- *)
 (* ** Core operators *)
@@ -395,6 +392,11 @@ Definition hor (H1 H2 : hprop) : hprop :=
 
 Definition hand (H1 H2 : hprop) : hprop :=
   \forall (b:bool), if b then H1 else H2.
+
+(** Affinity for postconditions *)
+
+Definition haffine_post (A:Type) (J:A->hprop) : Prop :=
+  forall x, haffine (J x).
 
 
 (* ---------------------------------------------------------------------- *)
@@ -703,6 +705,11 @@ Lemma himpl_hgc_r : forall H,
 Proof using.
   introv M. rewrite hgc_eq. applys himpl_hexists_r H. applys~ himpl_hpure_r.
 Qed.
+  (* Note that lemma above can also be read as:
+    haffine H ->
+    H h ->
+    \GC h.
+  *)
 
 Lemma himpl_same_hstar_hgc_r : forall H,
   H ==> H \* \GC.
@@ -1570,8 +1577,7 @@ Ltac hcancel_cleanup tt :=
   try remove_empty_heaps_right tt;
   try remove_empty_heaps_left tt;
   try apply himpl_refl;
-  try apply hcancel_hgc_hempty;
-  try apply hcancel_hgc;
+  try (apply hcancel_hgc; try solve [ haffine ]);
   try apply hcancel_htop;
   try apply hcancel_hempty_hstar_evar;
   try apply hcancel_evar_hstar_hempty;
@@ -2543,8 +2549,7 @@ Proof using.
   extens. intros H Q. iff M.
   { unfold local. eapply himpl_trans; [apply M|]. hpull ;=> H1 H2 Q1 [P1 P2].
     unfold local in P1. hchange P1. hpull ;=> H1' H2' Q1' [P1' P2'].
-    applys himpl_hexists_r H1'. hsimpl. splits*. hchange P2'. hchange P2.
-    hsimpl. haffine. }
+    applys himpl_hexists_r H1'. hsimpl. splits*. hchange P2'. hchange P2. hsimpl. }
   { apply~ local_erase. }
 Qed.
 

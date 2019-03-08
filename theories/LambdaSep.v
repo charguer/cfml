@@ -43,6 +43,10 @@ Module Export SepBasicCore <: SepCore.
 
 Definition heap : Type := (state)%type.
 
+(** Affinity is trivial *)
+
+Definition heap_affine (h:heap) := True.
+
 (** For uniformity with other instantiations of the Separation Logic
   functor, we introduce local names for operations and lemmas on heaps. *)
 
@@ -65,6 +69,11 @@ Definition heap_union_comm := fmap_union_comm_of_disjoint.
 (** A heap predicate, type [hprop] is a predicate over such heaps. *)
 
 Definition hprop := heap -> Prop.
+
+(** Affinity is defined in the standard way *)
+
+Definition haffine (H : hprop) : Prop :=
+  forall h, H h -> heap_affine h.
 
 (** Empty heap predicate: [ \[] ] *)
 
@@ -183,6 +192,20 @@ Lemma himpl_frame_l : forall H2 H1 H1',
   (H1 \* H2) ==> (H1' \* H2).
 Proof using. introv W (h1&h2&?). exists* h1 h2. Qed.
 
+Lemma haffine_any : forall H,
+  haffine H.
+Proof using. introv M. hnfs*. Qed.
+
+Lemma haffine_hempty :
+  haffine \[].
+Proof using. applys haffine_any. Qed.
+
+Lemma haffine_hstar : forall H1 H2,
+  haffine H1 ->
+  haffine H2 ->
+  haffine (H1 \* H2).
+Proof using. intros. applys haffine_any. Qed.
+
 End Properties.
 
 End SepBasicCore.
@@ -218,6 +241,10 @@ Lemma hstar_intro : forall H1 H2 h1 h2,
   \# h1 h2 ->
   (H1 \* H2) (h1 \u h2).
 Proof using. intros. exists~ h1 h2. Qed.
+
+Lemma hgc_intro : forall h,
+  \GC h.
+Proof using. intros. applys~ himpl_hgc_r (=h). applys haffine_any. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -301,7 +328,7 @@ Global Opaque hsingle hfield.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Configuration of [hsimpl] *)
+(* ** Configuration of tactics *)
 
 (* ** Configure [hsimpl] to make it aware of [hsingle] *)
 
@@ -310,6 +337,11 @@ Ltac hcancel_hook H ::=
   | hsingle _ _ => hcancel_try_same tt
   | hfield _ _ _ => hcancel_try_same tt
   end.
+
+(* ** Configure [haffine] to make it aware of [haffine_any] *)
+
+Ltac haffine_custom tt ::=
+  apply haffine_any.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -657,7 +689,7 @@ End HoarePrimitives.
 (* ** Definition of SL triples *)
 
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) :=
-  forall H', hoare t (H \* H') (Q \*+ H' \*+ \Top).
+  forall H', hoare t (H \* H') (Q \*+ H' \*+ \GC).
 
 (** SL triples satisfy [is_local], in the sense of SepFunctor *)
 
@@ -680,7 +712,7 @@ Hint Resolve is_local_triple.
     integrating the consequence rule. *)
 
 Lemma triple_of_hoare : forall t H Q,
-  (forall H', exists Q', hoare t (H \* H') Q' /\ Q' ===> Q \*+ H' \*+ \Top) ->
+  (forall H', exists Q', hoare t (H \* H') Q' /\ Q' ===> Q \*+ H' \*+ \GC) ->
   triple t H Q.
 Proof using.
   introv M. intros HF. lets (Q'&N&W): M HF. applys* hoare_conseq N.
@@ -690,7 +722,7 @@ Qed.
 
 Lemma hoare_of_triple : forall t H Q HF,
   triple t H Q ->
-  hoare t ((H \* HF) \* \Top) (fun r => (Q r \* HF) \* \Top).
+  hoare t ((H \* HF) \* \GC) (fun r => (Q r \* HF) \* \GC).
 Proof using.
   introv M. applys hoare_conseq. { applys M. } { hsimpl. } { hsimpl. }
 Qed.
@@ -711,15 +743,15 @@ Lemma triple_frame : forall t H Q H',
   triple t (H \* H') (Q \*+ H').
 Proof using. intros. applys* is_local_frame. Qed.
 
-Lemma triple_htop_pre : forall t H Q,
+Lemma triple_hgc_pre : forall t H Q,
   triple t H Q ->
-  triple t (H \* \Top) Q.
-Proof using. intros. applys* is_local_htop_pre. Qed.
+  triple t (H \* \GC) Q.
+Proof using. intros. applys* is_local_hgc_pre. Qed.
 
-Lemma triple_htop_post : forall t H Q,
-  triple t H (Q \*+ \Top) ->
+Lemma triple_hgc_post : forall t H Q,
+  triple t H (Q \*+ \GC) ->
   triple t H Q.
-Proof using. intros. applys* is_local_htop_post. Qed.
+Proof using. intros. applys* is_local_hgc_post. Qed.
 
 Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, triple t (J x) Q) ->
@@ -763,12 +795,12 @@ Lemma triple_hand_r : forall t H1 H2 Q,
   triple t (hand H1 H2) Q.
 Proof using. intros. applys* is_local_hand_r. Qed.
 
-Lemma triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
+Lemma triple_conseq_frame_hgc : forall H2 H1 Q1 t H Q,
   triple t H1 Q1 ->
   H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \Top ->
+  Q1 \*+ H2 ===> Q \*+ \GC ->
   triple t H Q.
-Proof using. intros. applys* is_local_conseq_frame_htop. Qed.
+Proof using. intros. applys* is_local_conseq_frame_hgc. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -949,10 +981,10 @@ Lemma triple_while_inv : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) H' t1
   (forall t b X,
       (forall b' X', R X' X -> triple t (I b' X') Q') ->
       triple (trm_if t1 (trm_seq t2 t) val_unit) (I b X) Q') ->
-  Q' \*+ H' ===> Q \*+ \Top ->
+  Q' \*+ H' ===> Q \*+ \GC ->
   triple (trm_while t1 t2) H Q.
 Proof using.
-  introv WR WH HX WQ. applys triple_conseq_frame_htop WH WQ.
+  introv WR WH HX WQ. applys triple_conseq_frame_hgc WH WQ.
   xpull ;=> b0 X0. gen b0. induction_wf IH: WR X0.
   intros. applys triple_while_raw.
   applys HX. intros b' X' HR'. applys~ IH.
@@ -974,11 +1006,11 @@ Qed.
 
 Lemma triple_for_gt : forall x n1 n2 t3 H Q,
   n1 > n2 ->
-  H ==> Q val_unit \* \Top ->
+  H ==> Q val_unit \* \GC ->
   triple (trm_for x n1 n2 t3) H Q.
 Proof using.
   introv N M. applys triple_for_raw. case_if; [math|].
-  applys triple_htop_post. applys* triple_val.
+  applys triple_hgc_post. applys* triple_val.
 Qed.
 
 (** Derived rule for the case of a loop that performs some iteratations *)
@@ -1021,7 +1053,7 @@ Lemma triple_for_inv : forall (I:int->hprop) H' (x:var) n1 n2 t3 H Q,
   (H ==> I n1 \* H') ->
   (forall i, n1 <= i <= n2 ->
      triple (subst1 x i t3) (I i) (fun r => I (i+1))) ->
-  (I (n2+1) \* H' ==> Q val_unit \* \Top) ->
+  (I (n2+1) \* H' ==> Q val_unit \* \GC) ->
   triple (trm_for x n1 n2 t3) H Q.
 Proof using.
   introv N M1 M2 M3. xchange (rm M1). gen N M2.
@@ -1252,7 +1284,6 @@ Hint Extern 1 (\# _ _ _) => fmap_disjoint_pre.
 
 Lemma triple_eq_triple' : triple = triple'.
 Proof using.
-  hint htop_intro.
   applys pred_ext_3. intros t H Q.
   unfold triple, triple', hoare. iff M.
   { introv D P1.
@@ -1265,7 +1296,7 @@ Proof using.
     exists (h1' \u h3' \u h2) v. splits~.
     { fmap_red. }
     { subst. rewrite hstar_assoc. apply~ hstar_intro.
-      rewrite hstar_comm. applys~ hstar_intro. } }
+      rewrite hstar_comm. applys~ hstar_intro. applys hgc_intro. } }
 Qed.
 
 End TripleLowLevel.
