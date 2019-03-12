@@ -387,7 +387,8 @@ Fixpoint Wp (E:ctx) (t:trm) : Formula :=
      | bind_anon => Wp_seq (aux t1) (aux t2)
      | bind_var x => Wp_let (aux t1) (fun `{EA:Enc A} (X:A) => Wp (Ctx.add x (enc X) E) t2)
      end
-  | trm_apps t0 ts => Wp_apps_or_prim Wp E t0 ts
+  | trm_apps t0 ts => Wp_getval_val Wp E t0 (fun v0 => Wp_apps Wp E v0 nil ts)
+      (* Wp_apps_or_prim Wp E t0 ts *)
   | trm_while t1 t2 => Wp_while (aux t1) (aux t2)
   | trm_for x t1 t2 t3 => 
      Wp_getval_typed Wp E t1 (fun n1 =>

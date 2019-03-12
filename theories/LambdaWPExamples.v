@@ -488,7 +488,11 @@ Definition val_move_X : val :=
    Set 'p '. X ':= ('p '.X '+ 1).
    won't parse 
 *)
+Arguments val_set_field k /.
+Arguments val_get_field k /.
 
+
+Opaque val_set_field val_get_field.
 
 Lemma Triple_move_X : forall p x y,
   TRIPLE (val_move_X p)
@@ -497,15 +501,15 @@ Lemma Triple_move_X : forall p x y,
 Proof using.
   intros.
   (* xtriple *)
-  applys xtriple_lemma_funs; try reflexivity; simpl.
+  applys xtriple_lemma_funs; try reflexivity. xwp_simpl.
   (* xunfold *)
   unfold Point. hpull ;=> k Hk.
   (* xseq *)
   applys xseq_lemma.
-  (* xlet-poly *) (* TODO: check why double let *)
+  (* xlet-poly *) 
   notypeclasses refine (xlet_lemma _ _ _ _ _).
-  (* xlet *)
-  eapply Local_erase.
+  (* xlet-poly *)
+  notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xapps record, strategy 2 
 
   match goal with |- PRE ?H CODE (`App (trm_val (val_get_field ?f)) ?v) POST _ => 
@@ -526,8 +530,10 @@ Proof using.
     xspec_record tt ;=> M1. (* xspec_record_get_compute tt *)
     applys Triple_ramified_frame. { applys M1. } hsimpl ;=> ? ->. (* todo: xapp lemma *)
     *)
-  (* xreturn *)
-  applys @xreturn_lemma_typed.
+
+  (* xapps *)
+  applys @xapps_lemma_pure. { applys @Triple_add. } hsimpl.
+
   (* xapps record *)
   applys xapp_record_set. hsimpl. simpl.
     (* variante
@@ -536,10 +542,10 @@ Proof using.
     applys Triple_ramified_frame. { applys M2. } hsimpl.
     *)
 
-  (* xlet-poly *) (* TODO: check why double let *)
+  (* xlet-poly *) 
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xlet *)
-  eapply Local_erase.
+  notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xapps record *)
   applys xapp_record_get. hsimpl. simpl. applys @PostChange_same_subst. rew_heap.
     (* variante:
@@ -547,8 +553,10 @@ Proof using.
     xspec_record tt ;=> M1'. (* xspec_record_get_compute tt *)
     applys Triple_ramified_frame. { applys M1'. } hsimpl ;=> ? ->. (* todo: xapp lemma *)
     *)
-  (* xreturn *)
-  applys @xreturn_lemma_typed.
+  (* xapps *)
+  applys @xapps_lemma_pure. { applys @Triple_add. } hsimpl.
+
+
   (* xapps record *)
     applys xapp_record_set. hsimpl. simpl.
     (* variante:
@@ -690,12 +698,12 @@ Proof using.
       destruct L as [|x' L']; hpull.
       { intros ->. tryfalse. }
       { intros q' E'. subst v. rewrite enc_val_eq in *. inverts E.
-        (* xlet *)
-        eapply Local_erase. (* TODO: change to : applys xlet_lemma. *)
+        (* xlet-poly *)
+        notypeclasses refine (xlet_lemma _ _ _ _ _).
         (* xapp *)
         applys @xapp_lemma. { applys* IH. } hsimpl ;=> r ->.
-        (* xreturn *)
-        applys @xreturn_lemma_typed. (* TODO: rename*)
+        (* xapps *)
+        applys @xapps_lemma_pure. { applys Triple_add. } hsimpl.
         (* done *)
         pattern MList at 2. rewrite MList_unfold. hsimpl*. rew_list; math. } }
     { intros N. destruct L as [|x L']; hpull.
@@ -759,11 +767,11 @@ Proof using.
   (* xlet-poly *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xlet *)
-  eapply Local_erase.
+  notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xapps *)
   applys @xapps_lemma. { applys Triple_get. } hsimpl.
-  (* xreturn *)
-  applys @xreturn_lemma_val.
+  (* xapps *)
+  applys @xapps_lemma_pure. { applys Triple_add. } hsimpl.
   (* xapp *)
   applys @xapp_lemma. { eapply @Triple_set. } hsimpl.
   (* done *) 
