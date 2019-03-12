@@ -571,14 +571,17 @@ End Point.
 
 Module MList.
 
+
 Definition Nil : val := val_constr "nil" nil.
 Definition Cons `{Enc A} (V:A) (p:loc) : val := val_constr "cons" (``V::``p::nil).
 
+(*
 Definition trm_Nil : trm := trm_constr "nil" nil.
 Definition trm_Cons (t1 t2:trm) : trm := trm_constr "cons" (t1::t2::nil).
 
 Definition pat_Nil : pat := pat_constr "nil" nil.
 Definition pat_Cons (p1 p2:pat) : pat := pat_constr "cons" (p1::p2::nil).
+*)
 
 
 (*
@@ -607,6 +610,48 @@ Proof using. applys fun_ext_4; intros A EA L p. destruct L; auto. Qed.
 (* ---------------------------------------------------------------------- *)
 (** Length *)
 
+
+Notation "''#' C" :=
+  (val_constr C nil)
+  (at level 69, C at level 0, format "''#' C") : val_scope.
+
+Notation "''#' C x1" :=
+  (val_constr C (x1::nil))
+  (at level 69, C, x1 at level 0, format "''#' C  x1") : val_scope.
+
+Notation "''#' C x1 x2" :=
+  (val_constr C (x1::x2::nil))
+  (at level 69, C, x1, x2 at level 0, format "''#' C  x1  x2") : val_scope.
+
+
+Notation "''#' C" :=
+  (trm_constr C (@nil trm))
+  (at level 69, C at level 0, format "''#' C") : trm_scope.
+
+Notation "''#' C x1" :=
+  (trm_constr C (@cons trm x1 (@nil trm)))
+  (at level 69, C, x1 at level 0, format "''#' C  x1") : trm_scope.
+
+Notation "''#' C x1 x2" :=
+  (trm_constr C (@cons trm x1 (cons trm x2 (@nil trm))))
+  (at level 69, C, x1, x2 at level 0, format "''#' C  x1  x2") : trm_scope.
+
+
+Notation "''#' C x1" :=
+  (trm_constr C ((x1:trm)::(@nil trm)))
+  (at level 69, C, x1 at level 0, only parsing) : trm_scope.
+
+Notation "''#' C x1 x2" :=
+  (trm_constr C ((x1:trm)::(x2:trm)::(@nil trm)))
+  (at level 69, C, x1, x2 at level 0, only parsing) : trm_scope.
+
+Open Scope val_scope.
+Open Scope trm_scope.
+
+
+
+
+
 (* TODO : move *)
 Notation "'ValFix' f x1 ':=' t" :=
   (val_fixs f (x1::nil) t)
@@ -617,8 +662,8 @@ Definition val_mlist_length : val :=
   ValFix 'f 'p :=
     Let 'v := val_get 'p in
     Match 'v With
-    '| pat_Nil '=> 0
-    '| pat_Cons 'x 'q '=> 1 '+ 'f 'q
+    '| '#"nil" '=> 0
+    '| '#"cons" 'x 'q '=> 1 '+ 'f 'q
     End.
 
 Lemma Triple_mlist_length_1 : forall `{EA:Enc A} (L:list A) (p:loc),
@@ -628,7 +673,7 @@ Lemma Triple_mlist_length_1 : forall `{EA:Enc A} (L:list A) (p:loc),
 Proof using.
   intros. gen p. induction_wf IH: (@list_sub A) L. intros.
   (* xtriple *)
-  intros. applys xtriple_lemma_fixs; try reflexivity; simpl.
+  intros. applys xtriple_lemma_fixs; try reflexivity. xwp_simpl.
   (* xlet-poly *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xunfold *)
@@ -1244,3 +1289,39 @@ End Factorial.
 
 
 
+
+(*
+
+Arguments trm_to_pat t /.
+
+Arguments hprop_forall_vars Hof G xs /.
+Arguments prop_forall_vars Hof G xs /.
+Arguments patvars p /.
+
+
+Ltac xwp_simpl ::=
+   cbn beta delta [ combine
+  List.rev Datatypes.app List.fold_right List.map
+   Wp_app Wp_getval_typed Wp_constr 
+   Wp_getval Wp Wp_case_val  Wp_getval_val Wp_apps Wp_app Wp_getval_int
+  hprop_forall_vars prop_forall_vars
+   patvars  patsubst  trm_to_pat
+     Ctx.app Ctx.empty  Ctx.lookup Ctx.add 
+      combiner_to_trm Wp_apps_or_prim
+      var_eq eq_var_dec string_dec 
+     string_rec string_rect sumbool_rec sumbool_rect
+     Ascii.ascii_dec Ascii.ascii_rec Ascii.ascii_rect 
+    Bool.bool_dec bool_rec  bool_rect] iota zeta.
+Definition Nil : val := val_constr "nil" nil.
+Definition Cons `{Enc A} (V:A) (p:loc) : val := val_constr "cons" (``V::``p::nil).
+
+Definition trm_Nil : trm := trm_constr "nil" nil.
+Definition trm_Cons (t1 t2:trm) : trm := trm_constr "cons" (t1::t2::nil).
+
+Definition pat_Nil : pat := pat_constr "nil" nil.
+Definition pat_Cons (p1 p2:pat) : pat := pat_constr "cons" (p1::p2::nil).
+
+
+
+
+*)
