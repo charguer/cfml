@@ -291,7 +291,7 @@ Proof using.
     intros _. xunfold Record at 2. simpl. hsimpl. }
   { cases (record_set_compute_dyn f (Dyn W) T) as C'; [|false].
     inverts E. specializes~ IHT r. xapply IHT. hsimpl.
-    intros. xunfold Record at 2. simpl. hsimpl~. }
+    intros. xunfold Record at 2. hsimpl~. }
 Qed.
 
 Global Opaque Record.
@@ -383,8 +383,8 @@ Lemma himpl_wp_app_of_Triple : forall A `{EA:Enc A} (Q:A->hprop) t H,
 Proof using. intros. applys Local_erase. rewrite~ <- Triple_eq_himpl_Wp_Triple. Qed.
 
 
-
-Lemma xapp_record_set : forall A1 `{EA1:Enc A1} (W:A1)(Q:unit->hprop) H H1 (p:loc) (f:field) (L:Record_fields),
+(* DEPRECATED
+Lemma xapp_record_set : forall A1 `{EA1:Enc A1} (W:A1) (Q:unit->hprop) H H1 (p:loc) (f:field) (L:Record_fields),
   H ==> p ~> Record L \* H1 ->
   match record_set_compute_dyn f (Dyn W) L with
   | None => False
@@ -402,9 +402,56 @@ Proof using.
   applys himpl_wp_app_of_Triple.
   xapplys R'. hsimpl. hchanges M2. 
 Qed. (* TODO: simplify proof *)
+*)
+
+
+Lemma xapp_record_set : forall A1 `{EA1:Enc A1} (W:A1) (Q:unit->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
+  H ==> p ~> Record L \* ((
+    match record_set_compute_dyn f (Dyn W) L with
+    | None => \[False]
+    | Some L' =>  
+        (p ~> Record L' \-* Q tt) end)  ) ->
+  H ==> ^(Wp_app (trm_apps (trm_val (val_set_field f)) (trms_vals ((p:val)::(``W)::nil)))) Q.
+Proof using.
+  introv M1. hchanges (rm M1).
+  lets R: record_set_compute_spec_correct f W L.
+  unfolds record_set_compute_spec.
+  destruct (record_set_compute_dyn f (Dyn W) L) as [L'|]; try solve [hpull].
+  forwards R': R; eauto. clear R. specializes R' p. 
+  applys himpl_wp_app_of_Triple.
+  xapplys R'. hsimpl. hchanges (hwand_cancel (p ~> Record L')). 
+Qed. (* TODO: simplify proof *)
 
 
 
+(* TODO move *)
+(** [Cast Q X] applies a postcondition [Q] of type [A1->hprop] to a value
+    [X] of type [A2], with [X] converted on-the-fly to a value of type [A1]. *)
+
+Definition Cast `{Enc A1} (Q:A1->hprop) `{Enc A2} (X:A2) : hprop :=
+  \exists (Y:A1), \[enc X = enc Y] \* Q Y.
+
+
+Lemma xapp_record_get : forall A `{EA:Enc A} (Q:A->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
+  H ==> p ~> Record L \* (match record_get_compute_dyn f L with
+    | None => \[False]
+    | Some (Dyn V) => (p ~> Record L) \-* (Cast Q V) end) ->
+  H ==> ^(Wp_app (trm_apps (trm_val (val_get_field f)) (trms_vals ((p:val)::nil)))) Q.
+Proof using.
+  introv M1. hchanges (rm M1).
+  lets R: record_get_compute_spec_correct f L.
+  unfolds record_get_compute_spec.
+  destruct (record_get_compute_dyn f L) as [[T ET V]|]; try solve [hpull].
+  forwards R': R; eauto. clear R. specializes R' p.
+  applys himpl_wp_app_of_Triple.
+  applys Triple_enc_change. xapplys (rm R'). simpl.
+  unfold PostChange, Cast. hpull ;=> ? ->.
+  hchanges~ (hwand_cancel (p ~> Record L)).
+Qed. (* TODO: simplify proof *)
+
+
+
+(* DEPRECATED
 Lemma xapp_record_get : forall A `{EA:Enc A} (Q:A->hprop) H H1 (p:loc) (f:field) (L:Record_fields),
   H ==> p ~> Record L \* H1 ->
   match record_get_compute_dyn f L with
@@ -413,32 +460,23 @@ Lemma xapp_record_get : forall A `{EA:Enc A} (Q:A->hprop) H H1 (p:loc) (f:field)
       PostChange (fun x => \[x = V] \* p ~> Record L \* H1) Q
   end ->
   H ==> ^(Wp_app (trm_apps (trm_val (val_get_field f)) (trms_vals ((p:val)::nil)))) Q.
-Proof using.
-  introv M1 M2.
-  hchanges (rm M1).
-  lets R: record_get_compute_spec_correct f L.
-  unfolds record_get_compute_spec.
-  destruct (record_get_compute_dyn f L); tryfalse. destruct d as [T V].
-  forwards R': R; eauto. clear R. specializes R' p. 
-  applys himpl_wp_app_of_Triple. Search PostChange.
-  applys Triple_enc_change M2.
-  xapplys R'. auto.
-Qed. (* TODO: simplify proof *)
+*)
+
+
 
 Lemma PostChange_same : forall `{EA:Enc A} (Q1 Q2:A->hprop),
   Q1 ===> Q2 ->
   PostChange Q1 Q2.
 Proof using. introv M. unfolds. intros X. hchanges* M. Qed.
 
-
-
+(* NEEDED ?*)
 Lemma PostChange_same_subst : forall H `{EA:Enc A} (V:A) (Q:A->hprop),
   H ==> Q V ->
   PostChange (fun x => \[x = V] \* H) Q.
 Proof using. introv M. applys PostChange_same. hpull ;=> ? ->. auto. Qed.
 
 
-
+(* DEPRECATED
 Definition record_get_compute_spec' (f:field) (L:Record_fields) : option Prop :=
   match record_get_compute_dyn f L with
   | None => None
@@ -461,6 +499,7 @@ Proof using.
   hchange M1. apply himpl_wp_app_of_Triple. xapplys R'.
   intros. subst. hchanges M2.
 Qed.
+*)
 
 
 
@@ -490,6 +529,17 @@ Definition val_move_X : val :=
 *)
 Arguments val_set_field k /.
 Arguments val_get_field k /.
+
+
+
+Lemma xcast_lemma : forall (H:hprop) `{Enc A} (Q:A->hprop) (X:A),
+  H ==> Q X ->
+  H ==> Cast Q X.
+Proof using. introv M. unfold Cast. hchanges~ M. Qed.
+
+Ltac xcase_core tt :=
+  applys @xcast_lemma.
+
 
 
 Opaque val_set_field val_get_field.
@@ -523,7 +573,10 @@ Proof using.
 
   (* xapps record, strategy 1 *)
 
-  applys xapp_record_get. hsimpl. simpl. applys @PostChange_same_subst. rew_heap.
+  applys xapp_record_get. hsimpl. simpl. hsimpl.
+  
+  (* xcast *)
+  applys xcast_lemma.
 
     (* variante 
     applys @himpl_wp_app_of_Triple.
@@ -535,7 +588,8 @@ Proof using.
   applys @xapps_lemma_pure. { applys @Triple_add. } hsimpl.
 
   (* xapps record *)
-  applys xapp_record_set. hsimpl. simpl.
+  applys xapp_record_set. hsimpl. simpl. hsimpl.
+  (* variante DEPRECATED: applys xapp_record_set. hsimpl. simpl. *)
     (* variante
     applys himpl_wp_app_of_Triple.
     xspec_record tt ;=> M2. (* xspec_record_get_compute tt *)
@@ -547,7 +601,10 @@ Proof using.
   (* xlet *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xapps record *)
-  applys xapp_record_get. hsimpl. simpl. applys @PostChange_same_subst. rew_heap.
+  applys xapp_record_get. hsimpl. simpl. hsimpl. 
+  (* xcast *)
+  applys xcast_lemma.
+
     (* variante:
     applys @himpl_wp_app_of_Triple.
     xspec_record tt ;=> M1'. (* xspec_record_get_compute tt *)
@@ -558,7 +615,7 @@ Proof using.
 
 
   (* xapps record *)
-    applys xapp_record_set. hsimpl. simpl.
+    applys xapp_record_set. hsimpl. simpl. hsimpl.
     (* variante:
     applys himpl_wp_app_of_Triple.
     xspec_record tt ;=> M2'. (* xspec_record_get_compute tt *)
