@@ -138,6 +138,7 @@ Lemma xval_lemma : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
   H ==> ^(Wp_val v) Q.
 Proof using. introv E N. subst. applys Local_erase. hsimpl~ V. Qed.
 
+(* NEEDED? *)
 Lemma xval_lemma_val : forall `{EA:Enc A} (V:A) v H (Q:val->hprop),
   v = ``V ->
   H ==> Q (``V) ->

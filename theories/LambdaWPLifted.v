@@ -194,7 +194,7 @@ Definition Wp_getval Wp (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
                         | Some v => F2of v
                         | None => Wp_fail
                         end
-  | _ => Wp_let (Wp E t1) (fun `{EA1:Enc A1} (V1:A1) => F2of (``V1))
+  | _ => is_Wp (Wp_let (Wp E t1) (fun `{EA1:Enc A1} (V1:A1) => F2of (``V1)))
   end.
 
 Definition Wp_getval_val := Wp_getval.

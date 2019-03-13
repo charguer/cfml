@@ -447,7 +447,7 @@ Proof using.
   (* xlet-poly *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xval *)
-  applys~ (xval_lemma_val (@nil A)).
+  applys~ (xval_lemma (@nil A)).
   (* xapp *)
   applys @xapp_lemma. { eapply @Triple_ref. } hsimpl.
   (* done *)
@@ -470,7 +470,7 @@ Proof using.
   (* xapps *)
   applys @xapps_lemma. { eapply @Triple_get. } hsimpl.
   (* xval *)
-  applys~ (xval_lemma_val (x::L)).
+  applys~ (xval_lemma (x::L)).
   (* xapps *)
   applys @xapp_lemma. { eapply @Triple_set. } hsimpl. 
   (* done *)

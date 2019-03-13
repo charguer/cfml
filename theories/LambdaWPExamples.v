@@ -223,17 +223,17 @@ Tactic Notation "xapp_debug" constr(E) :=
 (* ** Tactic [xval] *)
 
 Ltac xval_arg E :=
-  applys (xval_lemma_val E).
+  applys (xval_lemma E).
 
-Tactic Notation "xval" constr(E) :=
+Tactic Notation "xval" uconstr(E) :=
   xval_arg E.
-Tactic Notation "xval" "~" constr(E) :=
+Tactic Notation "xval" "~" uconstr(E) :=
   xval E; auto_tilde.
-Tactic Notation "xval" "*" constr(E) :=
+Tactic Notation "xval" "*" uconstr(E) :=
   xval E; auto_star.
 
 Ltac xval_core tt :=
-  applys xval_lemma_val.
+  applys xval_lemma.
 
 Tactic Notation "xval" :=
   xval_core tt.
@@ -251,6 +251,17 @@ Ltac xseq_core tt :=
 
 Tactic Notation "xseq" :=
   xseq_core tt.
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xfail] *)
+
+Ltac xfail_core tt :=
+  hpull; false.
+
+Tactic Notation "xfail" :=
+  xfail_core tt.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -707,21 +718,10 @@ Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),
     PRE (p ~> Stack L)
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stack L).
 Proof using.
-  xwp. xunfold Stack. xlet. xapp.
-  (* NOTE: missing Is_Wp here *)
-  notypeclasses refine (xlet_lemma _ _ _ _ _). 
-
-  hsimpl. xlet. xapp. 
-
-  (* xlet-poly *)
-  notypeclasses refine (xlet_lemma _ _ _ _ _).
-  (* xval *)
-  applys~ (xval_lemma nil).
-  (* xapps *)
-  applys @xapps_lemma_pure. { applys @Triple_eq_val. } hsimpl.
-  (* done *)
-  rewrite* @Enc_injective_value_eq_r.
+  xwp. xunfold Stack. xlet. xapp. xlet. xval~ nil.
+  xapp @Triple_eq_val. rewrite* @Enc_injective_value_eq_r.
 Qed.
+
 
 Lemma Triple_pop : forall `{Enc A} (p:loc) (L:list A),
   L <> nil ->
@@ -729,46 +729,10 @@ Lemma Triple_pop : forall `{Enc A} (p:loc) (L:list A),
     PRE (p ~> Stack L)
     POST (fun (x:A) => \exists L', \[L = x::L'] \* (p ~> Stack L')).
 Proof using.
-  introv N.
-  (* xtriple *)
-  applys xtriple_lemma_funs; try reflexivity; xwp_simpl.
-  (* xunfold *)
-  xunfold Stack.
-  (* xlet-poly *)
-  notypeclasses refine (xlet_lemma _ _ _ _ _).
-  (* xapps *)
-  applys @xapps_lemma. { eapply @Triple_get. } hsimpl.
-  (* Two ways of completing the proof *)
-  dup.
-  (* xcase with lemma for match list *)
-  { applys xmatch_lemma_list.
-    { intros HL. 
-      (* xfail *)
-      false. }
-    { intros X L' HL. 
-      (* xseq *)
-      applys xseq_lemma.
-      (* xapp *)
-      applys @xapp_lemma. { applys @Triple_set. } hsimpl.
-      (* xval *)
-      applys~ xval_lemma.
-      (* done *)
-      hsimpl~. } }
-  (* inlining the proof of xmatch_list *)
-  { applys xcase_lemma0 ;=> E1.
-    { destruct L; tryfalse. }
-    { applys xcase_lemma2.
-      2: { intros E. destruct L; rew_enc in *; tryfalse. }
-      { intros x1 x2 E2. destruct L as [|x L']; rew_enc in *; tryfalse.
-        inverts E2.
-        (* xseq *)
-        applys xseq_lemma.
-        (* xapp *)
-        applys @xapp_lemma. { applys @Triple_set. } hsimpl.
-        (* xval *)
-        applys~ xval_lemma.
-        (* post *)
-        hsimpl~. } } }
+  introv N. xwp. xunfold Stack. xlet. xapp.
+  applys xmatch_lemma_list.
+  { intros HL. xfail. }
+  { intros X L' HL. xseq. xapp. xval~. hsimpl~. }
 Qed.
 
 Lemma Triple_empty : forall `{Enc A} (u:unit),
