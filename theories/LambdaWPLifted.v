@@ -63,6 +63,12 @@ Definition Formula_typed `{Enc A1} (F:(A1->hprop)->hprop) : Formula :=
   fun A2 (EA2:Enc A2) (Q:A2->hprop) =>
     \exists (Q':A1->hprop), F Q' \* \[PostChange Q' Q].
 
+(** [Cast Q X] applies a postcondition [Q] of type [A1->hprop] to a value
+    [X] of type [A2], with [X] converted on-the-fly to a value of type [A1]. *)
+
+Definition Cast `{Enc A1} (Q:A1->hprop) `{Enc A2} (X:A2) : hprop :=
+  \exists (Y:A1), \[enc X = enc Y] \* Q Y.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of [Local] for WP *)
@@ -685,6 +691,11 @@ Lemma Wp_Triple_of_Wp : forall t H `{EA:Enc A} (Q:A->hprop),
   H ==> ^(Wp Ctx.empty t) Q ->
   H ==> ^(Wp_Triple t) Q.
 Proof using. introv M. applys himpl_weakestpre. applys* Triple_of_Wp. Qed.
+
+Lemma himpl_wp_app_of_Triple : forall A `{EA:Enc A} (Q:A->hprop) t H,
+  Triple t H Q ->
+  H ==> ^(Wp_app t) Q.
+Proof using. intros. applys Local_erase. rewrite~ <- Triple_eq_himpl_Wp_Triple. Qed.
 
 
 (* ********************************************************************** *)

@@ -703,3 +703,112 @@ Notation "'PRE' H 'CODE' F 'POST' Q" := (tag_himpl_wp (H ==> F _ _ Q))
 Ltac tag := applys tag_himpl_wp_intro.
 
 *)
+
+
+
+
+(* DEPRECATED
+Definition record_get_compute_spec' (f:field) (L:Record_fields) : option Prop :=
+  match record_get_compute_dyn f L with
+  | None => None
+  | Some (Dyn V) => Some (forall p H H1 Q,
+     H ==> p ~> Record L \* H1 ->
+     p ~> Record L \* H1 ==> Q V -> (* nosubst: (fun x => \[x = v] \* H) ===> Q *)
+     H ==> ^(Wp_app (trm_apps (trm_val (val_get_field f)) (trms_vals ((p:val)::nil)))) Q)
+  end.
+
+Lemma record_get_compute_spec_correct' : forall (f:field) L (P:Prop),
+  record_get_compute_spec' f L = Some P ->
+  P.
+Proof using.
+  introv M. unfolds record_get_compute_spec'.
+  lets R: record_get_compute_spec_correct f L.
+  unfolds record_get_compute_spec. 
+  destruct (record_get_compute_dyn f L) as [[T ET V]|]; tryfalse.
+  inverts M. introv M1 M2.
+  forwards R': R. eauto. 
+  hchange M1. apply himpl_wp_app_of_Triple. xapplys R'.
+  intros. subst. hchanges M2.
+Qed.
+*)
+
+
+
+(* DEPRECATED
+Lemma xapp_record_set : forall A1 `{EA1:Enc A1} (W:A1) (Q:unit->hprop) H H1 (p:loc) (f:field) (L:Record_fields),
+  H ==> p ~> Record L \* H1 ->
+  match record_set_compute_dyn f (Dyn W) L with
+  | None => False
+  | Some L' =>  
+      p ~> Record L' \* H1 ==> Q tt
+  end ->
+  H ==> ^(Wp_app (trm_apps (trm_val (val_set_field f)) (trms_vals ((p:val)::(``W)::nil)))) Q.
+Proof using.
+  introv M1 M2.
+  hchanges (rm M1).
+  lets R: record_set_compute_spec_correct f W L.
+  unfolds record_set_compute_spec.
+  destruct (record_set_compute_dyn f (Dyn W) L); tryfalse.
+  forwards R': R; eauto. clear R. specializes R' p. 
+  applys himpl_wp_app_of_Triple.
+  xapplys R'. hsimpl. hchanges M2. 
+Qed. (* TODO: simplify proof *)
+*)
+
+
+
+(* DEPRECATED
+Lemma xapp_record_get : forall A `{EA:Enc A} (Q:A->hprop) H H1 (p:loc) (f:field) (L:Record_fields),
+  H ==> p ~> Record L \* H1 ->
+  match record_get_compute_dyn f L with
+  | None => False
+  | Some (Dyn V) =>  
+      PostChange (fun x => \[x = V] \* p ~> Record L \* H1) Q
+  end ->
+  H ==> ^(Wp_app (trm_apps (trm_val (val_get_field f)) (trms_vals ((p:val)::nil)))) Q.
+*)
+
+
+
+(*
+
+Arguments trm_to_pat t /.
+
+Arguments hprop_forall_vars Hof G xs /.
+Arguments prop_forall_vars Hof G xs /.
+Arguments patvars p /.
+
+
+Ltac xwp_simpl ::=
+   cbn beta delta [ combine
+  List.rev Datatypes.app List.fold_right List.map
+   Wp_app Wp_getval_typed Wp_constr 
+   Wp_getval Wp Wp_case_val  Wp_getval_val Wp_apps Wp_app Wp_getval_int
+  hprop_forall_vars prop_forall_vars
+   patvars  patsubst  trm_to_pat
+     Ctx.app Ctx.empty  Ctx.lookup Ctx.add 
+      combiner_to_trm Wp_apps_or_prim
+      var_eq eq_var_dec string_dec 
+     string_rec string_rect sumbool_rec sumbool_rect
+     Ascii.ascii_dec Ascii.ascii_rec Ascii.ascii_rect 
+    Bool.bool_dec bool_rec  bool_rect] iota zeta.
+Definition Nil : val := val_constr "nil" nil.
+Definition Cons `{Enc A} (V:A) (p:loc) : val := val_constr "cons" (``V::``p::nil).
+
+Definition trm_Nil : trm := trm_constr "nil" nil.
+Definition trm_Cons (t1 t2:trm) : trm := trm_constr "cons" (t1::t2::nil).
+
+Definition pat_Nil : pat := pat_constr "nil" nil.
+Definition pat_Cons (p1 p2:pat) : pat := pat_constr "cons" (p1::p2::nil).
+
+
+
+
+*)
+(*
+Definition trm_Nil : trm := trm_constr "nil" nil.
+Definition trm_Cons (t1 t2:trm) : trm := trm_constr "cons" (t1::t2::nil).
+
+Definition pat_Nil : pat := pat_constr "nil" nil.
+Definition pat_Cons (p1 p2:pat) : pat := pat_constr "cons" (p1::p2::nil).
+*)

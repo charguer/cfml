@@ -589,6 +589,19 @@ Lemma PostChange_refl : forall `{EA:Enc A} (Q:A->hprop),
   PostChange Q Q.
 Proof using. intros. unfolds. intros X. hsimpl*. Qed.
 
+(* NEEDED TODO RENAME ?*)
+Lemma PostChange_same : forall `{EA:Enc A} (Q1 Q2:A->hprop),
+  Q1 ===> Q2 ->
+  PostChange Q1 Q2.
+Proof using. introv M. unfolds. intros X. hchanges* M. Qed.
+
+(* NEEDED ?*)
+Lemma PostChange_same_subst : forall H `{EA:Enc A} (V:A) (Q:A->hprop),
+  H ==> Q V ->
+  PostChange (fun x => \[x = V] \* H) Q.
+Proof using. introv M. applys PostChange_same. hpull ;=> ? ->. auto. Qed.
+
+
 Lemma Triple_enc_change :
   forall A1 A2 (t:trm) (H:hprop) `{EA1:Enc A1} (Q1:A1->hprop) `{EA2:Enc A2} (Q2:A2->hprop),
   Triple t H Q1 ->

@@ -1309,7 +1309,7 @@ Notation "'Fix' f x1 x2 .. xn ':=' t" :=
 (at level 69, f, x1, x2, xn at level 0) : trm_scope.
 
 Notation "'ValFix' f x1 ':=' t" :=
-  (val_fixs f x1 t)
+  (val_fixs f (x1::nil) t)
   (at level 69, f, x1 at level 0) : trm_scope.
 
 Notation "'ValFix' f x1 x2 .. xn ':=' t" :=
@@ -1428,6 +1428,38 @@ Notation "t1 '> t2" :=
   (val_gt t1 t2)
   (at level 70) : trm_scope.
 
+Notation "''#' C" :=
+  (val_constr C nil)
+  (at level 69, C at level 0, format "''#' C") : val_scope.
+
+Notation "''#' C x1" :=
+  (val_constr C (x1::nil))
+  (at level 69, C, x1 at level 0, format "''#' C  x1") : val_scope.
+
+Notation "''#' C x1 x2" :=
+  (val_constr C (x1::x2::nil))
+  (at level 69, C, x1, x2 at level 0, format "''#' C  x1  x2") : val_scope.
+
+Notation "''#' C" :=
+  (trm_constr C (@nil trm))
+  (at level 69, C at level 0, format "''#' C") : trm_scope.
+
+Notation "''#' C x1" :=
+  (trm_constr C (@cons trm x1 (@nil trm)))
+  (at level 69, C, x1 at level 0, format "''#' C  x1") : trm_scope.
+
+Notation "''#' C x1 x2" :=
+  (trm_constr C (@cons trm x1 (cons trm x2 (@nil trm))))
+  (at level 69, C, x1, x2 at level 0, format "''#' C  x1  x2") : trm_scope.
+
+Notation "''#' C x1" :=
+  (trm_constr C ((x1:trm)::(@nil trm)))
+  (at level 69, C, x1 at level 0, only parsing) : trm_scope.
+
+Notation "''#' C x1 x2" :=
+  (trm_constr C ((x1:trm)::(x2:trm)::(@nil trm)))
+  (at level 69, C, x1, x2 at level 0, only parsing) : trm_scope.
+
 Notation "''none'" :=
   (trm_constr "none" nil)
   (at level 0) : trm_scope.
@@ -1477,10 +1509,9 @@ Notation "p1 ':: p2" :=
   (at level 67, only printing) : pat_scope.
 
 
-Open Scope trm_scope.
 Open Scope pat_scope.
 Open Scope val_scope.
-
+Open Scope trm_scope.
 
 (* Demo for the above notation:
 

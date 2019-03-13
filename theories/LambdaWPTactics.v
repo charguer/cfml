@@ -33,6 +33,40 @@ Implicit Types H : hprop.
 (* ********************************************************************** *)
 (* * Reasoning rules for manipulating goals of the form [H ==> ^(Wp t) Q]. *)
 
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xwp_simpl] for computing characteristic formulae *)
+
+Arguments var_eq s1 s2 /.
+Arguments eq_var_dec s1 s2 /. 
+Arguments string_dec s1 s2 /. 
+Arguments string_rec P /.
+Arguments string_rect P /.
+Arguments sumbool_rec A B P /.
+Arguments sumbool_rect A B P /.
+Arguments Ascii.ascii_dec a b /.
+Arguments Ascii.ascii_rec P /.
+Arguments Ascii.ascii_rect P /.
+Arguments Bool.bool_dec b1 b2 /.
+Arguments bool_rec P /.
+Arguments bool_rect P /.
+
+Ltac xwp_simpl :=
+  cbn beta delta [ 
+  LibList.combine 
+  List.rev Datatypes.app List.fold_right List.map
+  Wp_app Wp_getval_typed Wp_constr Wp_getval Wp Wp_case_val
+  Wp_getval_val Wp_apps Wp_app Wp_getval_int Wp_apps_or_prim
+  hprop_forall_vars prop_forall_vars
+  trm_to_pat patvars patsubst combiner_to_trm
+  Ctx.app Ctx.empty Ctx.lookup Ctx.add 
+  var_eq eq_var_dec 
+  string_dec string_rec string_rect
+  sumbool_rec sumbool_rect
+  Ascii.ascii_dec Ascii.ascii_rec Ascii.ascii_rect 
+  Bool.bool_dec bool_rec bool_rect ] iota zeta.
+ 
+
 (* ---------------------------------------------------------------------- *)
 (* ** Lemmas for [xtriple], proving goals of the form [Triples (trm_apps F ts)] *)
 
@@ -109,6 +143,18 @@ Lemma xval_lemma_val : forall `{EA:Enc A} (V:A) v H (Q:val->hprop),
   H ==> Q (``V) ->
   H ==> ^(Wp_val v) Q.
 Proof using. introv E N. subst. applys Local_erase. hsimpl~ (``V). Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Lemmas for [xcast] *)
+
+Lemma xcast_lemma : forall (H:hprop) `{Enc A} (Q:A->hprop) (X:A),
+  H ==> Q X ->
+  H ==> Cast Q X.
+Proof using. introv M. unfold Cast. hchanges~ M. Qed.
+
+Ltac xcase_core tt :=
+  applys @xcast_lemma.
 
 
 (* ---------------------------------------------------------------------- *)
