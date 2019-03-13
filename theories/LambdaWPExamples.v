@@ -172,6 +172,19 @@ Ltac xapp_record tt :=
   end.
 
 
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xif] *)
+
+Ltac xif_core tt :=
+  first [ applys @xifval_lemma_isTrue
+        | applys @xifval_lemma ].
+
+Tactic Notation "xif" :=
+  xif_core tt.
+
+
+
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xapp] *)
 
@@ -760,9 +773,7 @@ Lemma Triple_rev_append : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
     POST (fun (u:unit) => p1 ~> Stack nil \* p2 ~> Stack (rev L1 ++ L2)).
 Proof using.
   intros. gen p1 p2 L2. induction_wf IH: (@list_sub A) L1. intros.
-  xwp. xlet. xapp @Triple_is_empty.
-  (* xif *)
-  applys @xifval_lemma_isTrue ;=> C.
+  xwp. xlet. xapp @Triple_is_empty. xif ;=> C.
   { (* case nil *)
     xval tt. hsimpl. subst. rew_list~. }
   { (* case cons *)
