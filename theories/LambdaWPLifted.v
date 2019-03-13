@@ -173,7 +173,7 @@ Definition Wp_getval_typed Wp (E:ctx) `{EA1:Enc A1} (t1:trm) (F2of:A1->Formula) 
                         | Some v => Wp_letval_typed v F2of
                         | None => Wp_fail
                         end
-  | _ => Wp_let_typed (Wp E t1) F2of
+  | _ => Is_Wp (Wp_let_typed (Wp E t1) F2of)
   end.
 
 (* NEEDED?
