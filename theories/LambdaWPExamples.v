@@ -20,6 +20,250 @@ Open Scope pat_scope.
 Open Scope trm_scope.
 
 
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xwp] *)
+
+Ltac xwp_fun tt :=
+  applys xtriple_lemma_funs; [ reflexivity | reflexivity | reflexivity | xwp_simpl ].
+
+Ltac xwp_fix tt :=
+  applys xtriple_lemma_fixs; [ reflexivity | reflexivity | reflexivity | xwp_simpl ].
+
+Ltac xwp_trm tt :=
+  fail "not yet implemented".
+
+Ltac xwp_core tt :=
+  intros; first [ xwp_fun tt | xwp_fix tt | xwp_trm tt ].
+
+Tactic Notation "xwp" :=
+  xwp_core tt.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xspec] *)
+
+(* ** Database of specifications used by [xapp], through tactic [xspec] *)
+
+(** A name for the database *)
+
+Definition database_spec := True.
+
+Notation "'Register_goal' G" := (Register database_spec G)
+  (at level 69) : xspec_scope.
+
+Open Scope xspec_scope.
+
+(** [xspec G] retreives from the database [database_spec]
+    the specification that could apply to a goal [G].
+    It places the specification as hypothesis at the head of the goal. *)
+
+Ltac xapp_basic_prepare tt := 
+  idtac.
+
+Ltac xspec_context G :=
+  fail "not implemented".
+
+Ltac xspec_registered G :=
+  ltac_database_get database_spec G.
+
+Ltac xspec_database G :=
+   first [ xspec_registered G | xspec_context G ].
+
+Ltac xspec_base tt :=
+  match goal with
+  | |- ?G => xspec_database G
+  end.
+
+Ltac xspec_core tt :=
+  xapp_basic_prepare tt;
+  xspec_base tt.
+
+Tactic Notation "xspec" :=
+  xspec_core tt.
+
+Ltac xspec_prove_triple tt :=
+  let H := fresh "Spec" in
+  xspec; intro H; apply H.
+
+Ltac xspec_lemma_of_args E :=
+  match list_boxer_of E with
+  | cons (boxer ltac_wild) ?E' => (* only args provided *)
+     let H := fresh "Spec" in
+     xspec; intro H; constr:((boxer H)::E')
+  | _ => (* spec and args provided *)
+     constr:(E)
+  end.
+
+Ltac xspec_prove_triple_with_args E :=
+  let L := xspec_lemma_of_args E in
+  applys L.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Registering specifications for lifted triple *)
+
+Notation "'Register_Spec' f" := (Register_goal (Triple (trm_apps (trm_val f) _) _ _))
+  (at level 69) : xspec_scope.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Specification of primitives *)
+
+Hint Extern 1 (Register_Spec (val_prim val_ref)) => Provide Triple_ref.
+Hint Extern 1 (Register_Spec (val_prim val_get)) => Provide Triple_get.
+Hint Extern 1 (Register_Spec (val_prim val_set)) => Provide @Triple_set.
+Hint Extern 1 (Register_Spec (val_prim val_alloc)) => Provide Triple_alloc.
+Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide Triple_eq.
+Hint Extern 1 (Register_Spec (val_prim val_add)) => Provide Triple_add.
+Hint Extern 1 (Register_Spec (val_prim val_sub)) => Provide Triple_sub.
+Hint Extern 1 (Register_Spec (val_prim val_ptr_add)) => Provide Triple_ptr_add.
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xcast] *)
+
+Ltac xcast_core tt :=
+  applys xcast_lemma.
+
+Tactic Notation "xcast" :=
+  xcast_core tt.
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xgoal_*] *)
+
+Ltac xgoal_code tt :=
+  match goal with |- PRE _ CODE ?C POST _ => constr:(C) end.
+
+Ltac xgoal_fun tt :=
+  match xgoal_code tt with 
+  | is_Wp (Wp_app (trm_apps (trm_val ?f) _)) => constr:(f)
+  | (Wp_app (trm_apps (trm_val ?f) _)) => constr:(f)
+  end.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xapp_record] *)
+
+Ltac xapp_record_post tt :=
+  hsimpl; simpl; hsimpl; try xcast.
+
+Ltac xapp_record_get tt :=
+  applys xapp_record_get; xapp_record_post tt.
+
+Ltac xapp_record_set tt :=
+  applys xapp_record_set; xapp_record_post tt.
+
+Ltac xapp_record tt :=
+  match xgoal_fun tt with
+  | (val_get_field _) => xapp_record_get tt
+  | (val_set_field _) => xapp_record_set tt
+  end.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xapp] *)
+
+Ltac xapp_post tt :=
+  hsimpl.
+  
+Ltac xapp_apply_lemma cont :=
+  first 
+    [ applys @xapps_lemma; [ cont tt | xapp_post tt ]
+    | applys @xapps_lemma_pure; [ cont tt | xapp_post tt ]
+    | applys @xapp_lemma; [ cont tt | xapp_post tt ] ].
+
+Ltac xapp_general tt :=
+  xapp_apply_lemma ltac:(xspec_prove_triple).
+
+Ltac xapp_core tt :=
+  first [ xapp_record tt
+        | xapp_general tt ].
+
+Tactic Notation "xapp" :=
+  xapp_core tt.
+Tactic Notation "xapp" "~" :=
+  xapp; auto_tilde.
+Tactic Notation "xapp" "*"  :=
+  xapp; auto_star.
+
+Ltac xapp_arg_core E :=
+  xapp_apply_lemma ltac:(fun tt => xspec_prove_triple_with_args E).
+
+Tactic Notation "xapp" constr(E) :=
+  xapp_arg_core E.
+Tactic Notation "xapp" "~" constr(E) :=
+  xapp E; auto_tilde.
+Tactic Notation "xapp" "*" constr(E) :=
+  xapp E; auto_star.
+
+Tactic Notation "xapp_debug" :=
+  xapp_apply_lemma tt.
+
+Tactic Notation "xapp_debug" constr(E) :=
+  xapp_apply_lemma tt; 
+  [ let L := xspec_lemma_of_args E in 
+    let H := fresh "Spec" in
+    generalize L; intros H
+  | ].
+ 
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xval] *)
+
+Ltac xval_arg E :=
+  applys (xval_lemma_val E).
+
+Tactic Notation "xval" constr(E) :=
+  xval_arg E.
+Tactic Notation "xval" "~" constr(E) :=
+  xval E; auto_tilde.
+Tactic Notation "xval" "*" constr(E) :=
+  xval E; auto_star.
+
+Ltac xval_core tt :=
+  applys xval_lemma_val.
+
+Tactic Notation "xval" :=
+  xval_core tt.
+Tactic Notation "xval" "~" :=
+  xval; auto_tilde.
+Tactic Notation "xval" "*"  :=
+  xval; auto_star.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xseq] *)
+
+Ltac xseq_core tt :=
+  applys xseq_lemma.
+
+Tactic Notation "xseq" :=
+  xseq_core tt.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xlet] *)
+
+Ltac xlet_poly tt :=
+  notypeclasses refine (xlet_lemma _ _ _ _ _).
+
+Ltac xlet_typed tt :=
+  applys xlet_typed_lemma.
+
+Ltac xlet_core tt :=
+  match goal with
+  | |- PRE _ CODE (Wp_let_typed _ _) POST _ => xlet_typed tt
+  | |- PRE _ CODE (Wp_let _ _) POST _ => xlet_poly tt
+  end.
+
+Tactic Notation "xlet" :=
+  xlet_core tt.
+
+
+
 (* ********************************************************************** *)
 (* * Point *)
 
@@ -46,27 +290,46 @@ Lemma Triple_move_X : forall p x y,
     PRE (Point x y p)
     POST (fun (_:unit) => (Point (x+1) y p)).
 Proof using.
-  intros.
-  (* xtriple *)
-  applys xtriple_lemma_funs; try reflexivity. xwp_simpl.
-  (* xunfold *)
-  unfold Point. hpull ;=> k Hk.
-  (* xseq *)
-  applys xseq_lemma.
-  (* xlet-poly *) 
-  notypeclasses refine (xlet_lemma _ _ _ _ _).
-  (* xlet-poly *)
-  notypeclasses refine (xlet_lemma _ _ _ _ _).
-  (* xapps record, strategy 2 
+  xwp.
+  xunfolds Point ;=> k Hk.
+  xseq.
+  xlet.
+  xlet.
+  xapp.
+  dup. { xapp (@Triple_add). skip. (* demo *) }
+  xapp.
+  xapp.
+  xlet.
+  xlet.
+  xapp.
+  xapp.
+  xapp.
+  hsimpl. math.
+Qed.
 
-  match goal with |- PRE ?H CODE (`App (trm_val (val_get_field ?f)) ?v) POST _ => 
-    let r := xspec_record_get_loc v in
-    let L := xspec_record_repr_compute r H in 
-  let G := fresh in 
-  forwards G: (record_get_compute_spec_correct' f L);
-  [ reflexivity | applys G ]; try clear G end. 
-   hsimpl. 
-*)
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xapp] *)
+
+Ltac xapp_apply_lemma tt :=
+  first 
+    [ applys @xapps_lemma
+    | applys @xapps_lemma_pure
+    | applys @xapp_lemma ].
+
+Ltac xapp_general prove_triple :=
+  xapp_apply_lemma tt; [ prove_triple tt | hsimpl ].
+
+Ltac xapp_core tt :=
+  first [ xapp_record tt
+        | xapp_general ltac:(xspec_prove_triple) ].
+
+Tactic Notation "xapp" :=
+  xapp_core tt.
+
+
+
 
   (* xapps record, strategy 1 *)
 
