@@ -185,6 +185,22 @@ Hint Rewrite LibListZ.length_map LibListZ.index_map_eq : rew_arr.
 Global Opaque Z.mul.
 Global Opaque Z.add.
 
+(*----------------------*)
+(* LibEqual *)
+
+Section FuncExtDep.
+Variables (A1 : Type).
+Variables (A2 : forall (x1 : A1), Type).
+Variables (A3 : forall (x1 : A1) (x2 : A2 x1), Type).
+Variables (A4 : forall (x1 : A1) (x2 : A2 x1) (x3 : A3 x2), Type).
+
+Lemma fun_eta_dep_3 : forall (f : forall (x1:A1) (x2:A2 x1) (x3:A3 x2), A4 x3),
+  (fun x1 x2 x3 => f x1 x2 x3) = f.
+Proof using. intros. apply~ fun_ext_3. Qed.
+
+End FuncExtDep.
+
+
 
 (* ---------------------------------------------------------------------- *)
 (* LibTactics *)

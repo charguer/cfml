@@ -34,9 +34,11 @@ Implicit Types H : hprop.
 
 (** Display [H ==> ^F Q] as [PRE H CODE F POST Q] *)
 
+(* DEPRECATED
 Notation "'CODE' F 'POST' Q" := ((is_Wp F) _ _ Q)
   (at level 8, F, Q at level 0,
-   format "'[v' 'CODE'  F '/' 'POST'  Q ']'") : wp_scope. (** NEEDED? *)
+   format "'[v' 'CODE'  F '/' 'POST'  Q ']'") : wp_scope.
+   *)
 
 Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (is_Wp F) _ _ Q)
   (at level 8, H, F, Q at level 0,
@@ -660,3 +662,16 @@ Proof using.
 Qed.
 
 
+
+(* ********************************************************************** *)
+(* Others *)
+
+Lemma eliminate_eta_in_code : forall `{EA:Enc A} H1 (Q1:A->hprop) (F1:Formula),
+    (PRE H1
+    CODE F1
+    POST Q1)
+  ->
+    (PRE H1
+    CODE (fun (A0 : Type) (EA0 : Enc A0) (Q : A0 -> hprop) => F1 A0 EA0 Q)
+    POST Q1).
+Proof using. introv M. hchanges M. Qed.

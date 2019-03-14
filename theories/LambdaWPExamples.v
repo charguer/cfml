@@ -98,11 +98,11 @@ Lemma MList_unfold : forall A `{EA:Enc A} (L:list A) (p:loc),
     end).
 Proof using. intros. rewrite~ MList_eq. Qed.
 
-Lemma MList_fold : forall (p:loc) A `{EA:Enc A} x p' (L':list A),
+Lemma MList_cons_fold : forall (p:loc) A `{EA:Enc A} x p' (L':list A),
   p ~~> (Cons x p') \* (p' ~> MList L') ==> p ~> MList (x::L').
 Proof using. intros. rewrite (MList_eq (x::L')). hsimpl~. Qed.
 
-Arguments MList_fold : clear implicits.
+Arguments MList_cons_fold : clear implicits.
 
 Lemma MList_nil_eq : forall A `{EA:Enc A} (p:loc),
   (p ~> MList nil) = (p ~~> Nil).
@@ -112,6 +112,50 @@ Proof using.
   { hsimpl~. }
 Qed.
 
+Lemma MList_nil_unfold : forall A `{EA:Enc A} (p:loc),
+  (p ~> MList nil) ==> (p ~~> Nil).
+Proof using. intros. rewrite~ MList_nil_eq. Qed.
+
+Lemma MList_nilxappn : forall A `{EA:Enc A} (p:loc),
+  (p ~~> Nil) ==> (p ~> MList nil).
+Proof using. intros. rewrite~ MList_nil_eq. Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Match on a list *)
+
+Lemma Mlist_unfold_match : forall `{EA:Enc A} (L:list A) (p:loc) `{EB:Enc B} 
+  (F1:Formula) (F2:val->val->Formula) (Q:B->hprop),
+  (L = nil ->
+    PRE (p ~> MList L)
+    CODE F1
+    POST Q)
+  ->
+  (forall q' x' L', L = x'::L' ->
+    PRE (p ~~> (Cons x' q') \* q' ~> MList L')
+    CODE ((F2 ``x' ``q' : Formula))
+    POST Q)
+  ->
+  PRE (p ~> MList L)
+  CODE (Let [A0 EA0] X := `App (trm_val (val_prim val_get)) (val_loc p) in
+        `Match_ (``X) With '| 'nil '=> F1 '| ('#"cons" X0 X1) [X0 X1] '=> F2 X0 X1)
+  POST Q.
+Proof using.
+  introv M1 M2.
+  xlet. hchanges (MList_unfold L) ;=> v. xapp.
+  applys xcase_lemma0 ;=> E1.
+  { destruct L as [|x L']; hpull.
+    { intros ->. hchange (>> MList_nilxappn EA). hchanges~ M1. }
+    { intros q ->. tryfalse. } }
+  { applys xcase_lemma2.
+    { intros x q E.
+      destruct L as [|x' L']; hpull.
+      { intros ->. tryfalse. }
+      { intros q' E'. subst v. rewrite enc_val_eq in *. inverts E. hchanges~ M2. } }
+    { intros N. destruct L as [|x L']; hpull.
+      { intros ->. rewrite enc_val_eq in *. unfolds Nil. false. }
+      { intros q ->. rewrite enc_val_eq in *. unfolds @Cons. false. } } }
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -125,8 +169,39 @@ Definition val_mlist_length : val :=
     '| '#"cons" 'x 'q '=> 1 '+ 'f 'q
     End.
 
-
 Lemma Triple_mlist_length_1 : forall `{EA:Enc A} (L:list A) (p:loc),
+  TRIPLE (val_mlist_length p)
+    PRE (p ~> MList L)
+    POST (fun (r:int) => \[r = length L] \* p ~> MList L).
+Proof using.
+  intros. gen p. induction_wf IH: (@list_sub A) L. intros.
+  xwp. applys Mlist_unfold_match. 
+  { (* nil *)
+     intros EL. xval 0. hsimpl. subst. rew_list~. } 
+  { (* cons *)
+    intros q' x L' E. subst L. applys @eliminate_eta_in_code.
+    xlet. xapp* IH. xapp. 
+    hchanges (MList_cons_fold p). rew_list; math. }
+Qed.
+
+
+(*
+
+   length : using recursion + using loop
+   copy : using recursion + using loop
+   append (destructive, or non-destructive)
+   mem
+   count
+   in-place reversal
+   cps-append (bonus example)
+   split 
+   combine  
+   basic sorting on list of integers, e.g. merge sort, insertion sort
+
+*)
+
+
+Lemma Triple_mlist_length_1_detailed : forall `{EA:Enc A} (L:list A) (p:loc),
   TRIPLE (val_mlist_length p)
     PRE (p ~> MList L)
     POST (fun (r:int) => \[r = length L] \* p ~> MList L).
@@ -145,27 +220,11 @@ Proof using.
       { intros ->. tryfalse. }
       { intros q' E'. subst v. rewrite enc_val_eq in *. inverts E.
         xlet. xapp* IH. xapp. 
-        hchanges (MList_fold p). rew_list; math. } }
+        hchanges (MList_cons_fold p). rew_list; math. } }
     { intros N. destruct L as [|x L']; hpull.
       { intros ->. rewrite enc_val_eq in *. unfolds Nil. false. }
       { intros q ->. rewrite enc_val_eq in *. unfolds @Cons. false. } } }
 Qed.
-
-
-(*
-
-   length : using recursion + using loop
-   copy : using recursion + using loop
-   append (destructive, or non-destructive)
-   mem
-   count
-   in-place reversal
-   cps-append (bonus example)
-   split 
-   combine  
-   basic sorting on list of integers, e.g. merge sort, insertion sort
-
-*)
 
 
 
