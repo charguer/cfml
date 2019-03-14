@@ -66,7 +66,7 @@ Definition Formula_typed `{Enc A1} (F:(A1->hprop)->hprop) : Formula :=
 (** [Wp_cast X Q] applies a postcondition [Q] of type [A2->hprop] to a value
     [X] of type [A1], with [X] converted on-the-fly to a value of type [A2]. *)
 
-Definition Wp_cast `{Enc A1} (X:A1) `{Enc A2} (Q:A2->hprop) : hprop :=
+Definition Wp_cast `{Enc A1} (X:A1) A2 (EA2:Enc A2) (Q:A2->hprop) : hprop :=
   \exists (Y:A2), \[enc X = enc Y] \* Q Y.
 
 

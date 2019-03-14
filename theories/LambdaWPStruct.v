@@ -365,7 +365,7 @@ Proof using.
   forwards R': R; eauto. clear R. specializes R' p.
   applys himpl_wp_app_of_Triple.
   applys Triple_enc_change. xapplys (rm R'). simpl.
-  unfold PostChange, is_Wp, Cast. hpull ;=> ? ->.
+  unfold PostChange, is_Wp, Wp_cast. hpull ;=> ? ->.
   hchanges~ (hwand_cancel (p ~> Record L)).
 Qed. (* TODO: simplify proof *)
 

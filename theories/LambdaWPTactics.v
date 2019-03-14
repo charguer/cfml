@@ -290,7 +290,7 @@ Tactic Notation "xlet" :=
 Lemma xcast_lemma : forall (H:hprop) `{Enc A} (Q:A->hprop) (X:A),
   H ==> Q X ->
   H ==> ^(Wp_cast X) Q.
-Proof using. introv M. unfold Cast. hchanges~ M. Qed.
+Proof using. introv M. unfold is_Wp, Wp_cast. hchanges~ M. Qed.
 
 Ltac xcase_core tt :=
   applys @xcast_lemma.
@@ -310,7 +310,7 @@ Ltac xlet_xseq_xcast tt :=
   | (Wp_let_typed _ _) => xlet
   | (Wp_let _ _) => xlet
   | (Wp_seq _ _) => xseq
-  | (Cast _ _) => xseq
+  | (Wp_cast _) => xseq
   end.
 
 Ltac xlet_xseq_xcast_repeat tt :=
@@ -409,7 +409,7 @@ Tactic Notation "xapp_debug" constr(E) :=
     generalize L; intros H
   | ].
 
-Ltac xapp_nosubst tt :=
+Ltac xapp_nosubst_core tt :=
   xapp_pre tt;
   applys @xapp_lemma; [ xspec_prove_triple tt | xapp_post tt ].
 
