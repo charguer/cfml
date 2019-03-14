@@ -72,6 +72,118 @@ Definition Cons `{Enc A} (V:A) (p:loc) : val := val_constr "cons" (``V::``p::nil
   `Fixpoint` and `Inductive` for defining predicates, taking the example of `In` and `Forall` on lists.
 *)
 
+
+Fixpoint MList A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
+  \exists v, p ~~> v \*
+  match L with
+  | nil => \[v = Nil]
+  | x::L' => \exists p', \[v = Cons x p'] \* (p' ~> MList L')
+  end.
+
+Lemma MList_eq : forall A `{EA:Enc A} (L:list A) (p:loc),
+  p ~> MList L =
+    (\exists v, p ~~> v \*
+    match L with
+    | nil => \[v = Nil]
+    | x::L' => \exists p', \[v = Cons x p'] \* (p' ~> MList L')
+    end).
+Proof using. intros. destruct L; auto. Qed.
+
+Lemma MList_unfold : forall A `{EA:Enc A} (L:list A) (p:loc),
+  p ~> MList L ==>
+    (\exists v, p ~~> v \*
+    match L with
+    | nil => \[v = Nil]
+    | x::L' => \exists p', \[v = Cons x p'] \* (p' ~> MList L')
+    end).
+Proof using. intros. rewrite~ MList_eq. Qed.
+
+Lemma MList_fold : forall (p:loc) A `{EA:Enc A} x p' (L':list A),
+  p ~~> (Cons x p') \* (p' ~> MList L') ==> p ~> MList (x::L').
+Proof using. intros. rewrite (MList_eq (x::L')). hsimpl~. Qed.
+
+Arguments MList_fold : clear implicits.
+
+Lemma MList_nil_eq : forall A `{EA:Enc A} (p:loc),
+  (p ~> MList nil) = (p ~~> Nil).
+Proof using.
+  intros. xunfold MList. applys himpl_antisym.
+  { hpull ;=> ? ->. auto. }
+  { hsimpl~. }
+Qed.
+
+
+
+(* ---------------------------------------------------------------------- *)
+(** Length *)
+
+Definition val_mlist_length : val :=
+  ValFix 'f 'p :=
+    Let 'v := val_get 'p in
+    Match 'v With
+    '| '#"nil" '=> 0
+    '| '#"cons" 'x 'q '=> 1 '+ 'f 'q
+    End.
+
+
+Lemma Triple_mlist_length_1 : forall `{EA:Enc A} (L:list A) (p:loc),
+  TRIPLE (val_mlist_length p)
+    PRE (p ~> MList L)
+    POST (fun (r:int) => \[r = length L] \* p ~> MList L).
+Proof using.
+  intros. gen p. induction_wf IH: (@list_sub A) L. intros.
+  xwp.
+  xlet. hchanges (MList_unfold L) ;=> v. xapp.
+  (* xcase *)
+  applys xcase_lemma0 ;=> E1.
+  { destruct L as [|x L']; hpull.
+    { intros ->. applys~ @xval_lemma 0. hsimpl. rewrite~ MList_nil_eq. rew_list~. }
+    { intros q ->. tryfalse. } }
+  { applys xcase_lemma2.
+    { intros x q E.
+      destruct L as [|x' L']; hpull.
+      { intros ->. tryfalse. }
+      { intros q' E'. subst v. rewrite enc_val_eq in *. inverts E.
+        xlet. xapp* IH. xapp. 
+        hchanges (MList_fold p). rew_list; math. } }
+    { intros N. destruct L as [|x L']; hpull.
+      { intros ->. rewrite enc_val_eq in *. unfolds Nil. false. }
+      { intros q ->. rewrite enc_val_eq in *. unfolds @Cons. false. } } }
+Qed.
+
+
+(*
+
+   length : using recursion + using loop
+   copy : using recursion + using loop
+   append (destructive, or non-destructive)
+   mem
+   count
+   in-place reversal
+   cps-append (bonus example)
+   split 
+   combine  
+   basic sorting on list of integers, e.g. merge sort, insertion sort
+
+*)
+
+
+
+
+End MList.
+
+
+(* ********************************************************************** *)
+(* * Mutable lists, without points-to notation *)
+
+
+Module MListNopoints.
+
+
+Definition Nil : val := val_constr "nil" nil.
+Definition Cons `{Enc A} (V:A) (p:loc) : val := val_constr "cons" (``V::``p::nil).
+
+
 Fixpoint MList A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
   \exists v, p ~~> v \*
   match L with
@@ -87,7 +199,15 @@ Lemma MList_unfold :
     | x::L' => \exists p', \[v = Cons x p'] \* (MList L' p')
     end.
 Proof using. applys fun_ext_4; intros A EA L p. destruct L; auto. Qed.
- 
+
+Lemma MList_nil_eq : forall A `{EA:Enc A} (p:loc),
+  (MList nil p) = (p ~~> Nil).
+Proof using.
+  intros. xunfold MList. applys himpl_antisym.
+  { hpull ;=> ? ->. auto. }
+  { hsimpl~. }
+Qed.
+
 
 
 (* ---------------------------------------------------------------------- *)
@@ -114,16 +234,14 @@ Proof using.
   (* xcase *)
   applys xcase_lemma0 ;=> E1.
   { destruct L as [|x L']; hpull.
-    { intros ->. applys~ @xval_lemma 0. hsimpl. skip. (* TODO *) rew_list~. }
+    { intros ->. applys~ @xval_lemma 0. hsimpl. rewrite~ MList_nil_eq. rew_list~. }
     { intros q ->. tryfalse. } }
   { applys xcase_lemma2.
     { intros x q E.
       destruct L as [|x' L']; hpull.
       { intros ->. tryfalse. }
       { intros q' E'. subst v. rewrite enc_val_eq in *. inverts E.
-        xlet. 
-        xapp* IH. hsimpl. (* TODO: integrate hsimpl? *)
-        xapp.
+        xapp* IH. hsimpl. xapp.
         (* done *)
         pattern MList at 2. rewrite MList_unfold. hsimpl*. rew_list; math. } }
     { intros N. destruct L as [|x L']; hpull.
@@ -131,25 +249,7 @@ Proof using.
       { intros q ->. rewrite enc_val_eq in *. unfolds @Cons. false. } } }
 Qed.
 
-
-
-
-(*
-
-   length : using recursion + using loop
-   copy : using recursion + using loop
-   append (destructive, or non-destructive)
-   mem
-   count
-   in-place reversal
-   cps-append (bonus example)
-   split 
-   combine  
-   basic sorting on list of integers, e.g. merge sort, insertion sort
-
-*)
-
-End MList.
+End MListNopoints.
 
 
 (* ********************************************************************** *)
@@ -387,7 +487,8 @@ Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stack L).
 Proof using.
   xwp. xunfold Stack. xapp. xval nil.
-  xapp @Triple_eq_val. rewrite* @Enc_injective_value_eq_r.
+  xapp @Triple_eq_val.
+  hsimpl. rewrite* @Enc_injective_value_eq_r.
 Qed.
 
 

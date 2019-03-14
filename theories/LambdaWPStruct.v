@@ -150,19 +150,24 @@ Lemma Triple_get_field : forall (l:loc) f `{EA:Enc A} (V:A),
     PRE (l `.` f ~~> V)
     POST (fun r => \[r = V] \* (l `.` f ~~> V)).
 Proof using.
-  intros.
-  (* unfold field *)
-  rewrite Hfield_eq_fun_Hsingle, repr_eq. xpull ;=> N.
-  (* xwp *)
-  applys xwp_lemma_funs; try reflexivity; simpl.
-  (* xlet-poly *)
-  notypeclasses refine (xlet_lemma _ _ _ _ _).
-  (* xapp *)
-  applys @xapp_lemma. { applys @Triple_ptr_add_nat. } hsimpl ;=> r ->.
-  (* xapp *)
-  applys @xapps_lemma. { applys @Triple_get. } hsimpl.
-  (* done *)
-  hsimpl~.
+  dup. 
+  { intros. 
+    rewrite Hfield_eq_fun_Hsingle, repr_eq. xpull ;=> N.
+    xwp. xapp @Triple_ptr_add_nat. xapp. hsimpl~. }
+  { (* details TEMPORARY *)
+    intros.
+    (* unfold field *)
+    rewrite Hfield_eq_fun_Hsingle, repr_eq. xpull ;=> N.
+    (* xwp *)
+    applys xwp_lemma_funs; try reflexivity; simpl.
+    (* xlet-poly *)
+    notypeclasses refine (xlet_lemma _ _ _ _ _).
+    (* xapp *)
+    applys @xapp_lemma. { applys @Triple_ptr_add_nat. } hsimpl ;=> r ->.
+    (* xapp *)
+    applys @xapps_lemma. { applys @Triple_get. } hsimpl. unfold hsimpl_protect_for_xapp.
+    (* done *)
+    hsimpl~. }
 Qed.
 
 Lemma Triple_set_field_strong : forall `{EA1:Enc A1} (V1:A1) (l:loc) f `{EA2:Enc A2} (V2:A2),
@@ -170,20 +175,25 @@ Lemma Triple_set_field_strong : forall `{EA1:Enc A1} (V1:A1) (l:loc) f `{EA2:Enc
     PRE (l `.` f ~~> V1)
     POST (fun (r:unit) => l `.` f ~~> V2).
 Proof using.
-  intros.
-  (* unfold field *)
-  rewrite Hfield_eq_fun_Hsingle. rewrite repr_eq. rewrites (>> repr_eq (l,f)).
-  xpull ;=> N.
-  (* xwp *)
-  applys xwp_lemma_funs; try reflexivity; simpl.
-  (* xlet-poly *)
-  notypeclasses refine (xlet_lemma _ _ _ _ _).
-  (* xapp *)
-  applys @xapp_lemma. { applys @Triple_ptr_add_nat. } hsimpl ;=> r ->.
-  (* xapp *)
-  applys @xapp_lemma. { applys @Triple_set_strong A1 A2. } hsimpl.
-  (* done *)
-  hsimpl~.
+  dup. 
+  { intros. 
+    rewrite Hfield_eq_fun_Hsingle. rewrite repr_eq. rewrites (>> repr_eq (l,f)).
+    xpull ;=> N. xwp. xapp @Triple_ptr_add_nat. xapp (>> (@Triple_set_strong) A1 A2). 
+    hsimpl~. }
+  { intros.
+    (* unfold field *)
+    rewrite Hfield_eq_fun_Hsingle. rewrite repr_eq. rewrites (>> repr_eq (l,f)).
+    xpull ;=> N.
+    (* xwp *)
+    applys xwp_lemma_funs; try reflexivity; simpl.
+    (* xlet-poly *)
+    notypeclasses refine (xlet_lemma _ _ _ _ _).
+    (* xapp *)
+    applys @xapp_lemma. { applys @Triple_ptr_add_nat. } hsimpl ;=> r ->.
+    (* xapp *)
+    applys @xapp_lemma. { applys @Triple_set_strong A1 A2. } hsimpl.
+    (* done *)
+    hsimpl~. }
 Qed.
 
 Lemma Triple_set_field : forall `{EA:Enc A} (V1:A) (l:loc) f (V2:A),

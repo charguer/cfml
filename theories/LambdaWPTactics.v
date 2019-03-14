@@ -344,6 +344,14 @@ Ltac xlet_xseq_xcast_repeat tt :=
     [xapp_debug E] 
 *)
 
+(* DEBUG XAPP
+  xapp_pre tt.
+  applys xapp_find_spec_lemma.
+  xspec_prove_triple tt .
+  xapp_select_lemma tt. hsimpl. xapp_post tt.
+*)
+
+
 Ltac xapp_record tt :=
   fail "implemented later in LambdaWPStruct".
 
@@ -358,9 +366,11 @@ Proof using.
   applys* Triple_ramified_frame. hsimpl.
 Qed.
 
+Definition hsimpl_protect_for_xapp (H:hprop) := H.
+
 Lemma xapps_lemma : forall A `{EA:Enc A} (V:A) H2 t H1 H Q,
   Triple t H1 (fun r => \[r = V] \* H2) ->
-  H ==> H1 \* (H2 \-* Q V) ->
+  H ==> H1 \* (H2 \-* hsimpl_protect_for_xapp (Q V)) ->
   H ==> ^(Wp_app t) Q.
 Proof using.
   introv M1 M2. applys xapp_lemma M1. hchanges M2.
@@ -369,7 +379,7 @@ Qed.
 
 Lemma xapps_lemma_pure : forall A `{EA:Enc A} (V:A) t H1 H Q,
   Triple t H1 (fun r => \[r = V]) ->
-  H ==> H1 \* (Q V) ->
+  H ==> H1 \* hsimpl_protect_for_xapp (Q V) ->
   H ==> ^(Wp_app t) Q.
 Proof using.
   introv M1 M2. applys xapps_lemma \[]; rew_heap; eauto.
@@ -386,7 +396,7 @@ Ltac xapp_pre tt :=
   end.
 
 Ltac xapp_post tt :=
-  hsimpl.
+  hsimpl; unfold hsimpl_protect_for_xapp.
   
 Lemma xapp_find_spec_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
   Triple t H1 Q1 ->

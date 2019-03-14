@@ -207,7 +207,14 @@ Lemma MList_unfold :
     | x::L' => \exists p', \[v = Cons x p'] \* (MList L' p')
     end.
 Proof using. applys fun_ext_4; intros A EA L p. destruct L; auto. Qed.
- 
+
+Lemma MList_nil_eq : forall A `{EA:Enc A} (p:loc),
+  (MList nil p) = (p ~~> Nil).
+Proof using.
+  intros. xunfold MList. applys himpl_antisym.
+  { hpull ;=> ? ->. auto. }
+  { hsimpl~. }
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -238,7 +245,7 @@ Proof using.
   (* xcase *)
   applys xcase_lemma0 ;=> E1.
   { destruct L as [|x L']; hpull.
-    { intros ->. applys~ @xval_lemma 0. hsimpl. skip. (* TODO *) rew_list~. }
+    { intros ->. applys~ @xval_lemma 0. hsimpl. rewrite~ MList_nil_eq. rew_list~. }
     { intros q ->. tryfalse. } }
   { applys xcase_lemma2.
     { intros x q E.
@@ -250,7 +257,7 @@ Proof using.
         (* xapp *)
         applys @xapp_lemma. { applys* IH. } hsimpl ;=> r ->.
         (* xapps *)
-        applys @xapps_lemma_pure. { applys Triple_add. } hsimpl.
+        applys @xapps_lemma_pure. { applys Triple_add. } hsimpl. unfold hsimpl_protect_for_xapp.
         (* done *)
         pattern MList at 2. rewrite MList_unfold. hsimpl*. rew_list; math. } }
     { intros N. destruct L as [|x L']; hpull.
@@ -272,7 +279,7 @@ Proof using.
   (* xcase *)
   applys xcase_lemma0 ;=> E1.
   { destruct L as [|x L']; hpull.
-    { intros ->. applys~ @xval_lemma 0. hsimpl. skip. (* TODO *) rew_list~. }
+    { intros ->. applys~ @xval_lemma 0. hsimpl. rewrite~ MList_nil_eq. rew_list~. }
     { intros q ->. tryfalse. } }
   { applys xcase_lemma2.
     { intros x q E.
@@ -280,7 +287,7 @@ Proof using.
       { intros ->. tryfalse. }
       { intros q' E'. subst v. rewrite enc_val_eq in *. inverts E.
         xlet. 
-        xapp* IH. hsimpl. (* TODO: integrate hsimpl? *)
+        xapp* IH. hsimpl.
         xapp.
         (* done *)
         pattern MList at 2. rewrite MList_unfold. hsimpl*. rew_list; math. } }
@@ -410,8 +417,9 @@ Proof using.
   applys~ (xval_lemma nil).
   (* xapps *)
   applys @xapps_lemma_pure. { applys @Triple_eq_val. } hsimpl.
+  unfold hsimpl_protect_for_xapp.
   (* done *)
-  rewrite* @Enc_injective_value_eq_r.
+  hsimpl. rewrite* @Enc_injective_value_eq_r.
 Qed.
 
 Lemma Triple_is_empty' : forall `{Enc A} (p:loc) (L:list A),
@@ -420,7 +428,7 @@ Lemma Triple_is_empty' : forall `{Enc A} (p:loc) (L:list A),
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stack L).
 Proof using.
   xwp. xunfold Stack. xlet. xapp. xlet. xval nil.
-  xapp @Triple_eq_val. rewrite* @Enc_injective_value_eq_r.
+  xapp @Triple_eq_val. hsimpl. rewrite* @Enc_injective_value_eq_r.
 Qed.
 
 
