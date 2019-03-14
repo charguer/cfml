@@ -55,7 +55,6 @@ Proof using.
   xlet.
   xlet.
   xapp.
-  dup. { xapp (@Triple_add). skip. (* demo *) }
   xapp.
   xapp.
   xlet.

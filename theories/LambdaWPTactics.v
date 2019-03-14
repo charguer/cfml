@@ -246,13 +246,50 @@ Tactic Notation "xwp" :=
   xwp_core tt.
 
  
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xseq] *)
+
+Definition xseq_lemma := @Local_erase.
+
+Ltac xseq_core tt :=
+  applys xseq_lemma.
+
+Tactic Notation "xseq" :=
+  xseq_core tt.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xlet] *)
+
+Lemma xlet_lemma : forall A1 (EA1:Enc A1) H `{EA:Enc A} (Q:A->hprop) (F1:Formula) (F2of:forall `{EA1:Enc A2},A2->Formula),
+  H ==> ^F1 (fun (X:A1) => ^(F2of X) Q) -> 
+  H ==> ^(Wp_let F1 (@F2of)) Q.
+Proof using. introv M. applys Local_erase. hsimpl* A1 EA1. Qed.
+
+Definition xlet_typed_lemma := @Local_erase.
+
+Ltac xlet_poly tt :=
+  notypeclasses refine (xlet_lemma _ _ _ _ _).
+
+Ltac xlet_typed tt :=
+  applys xlet_typed_lemma.
+
+Ltac xlet_core tt :=
+  match xgoal_code_without_iswp tt with
+  | (Wp_let_typed _ _) => xlet_typed tt
+  | (Wp_let _ _) => xlet_poly tt
+  end.
+
+Tactic Notation "xlet" :=
+  xlet_core tt.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xcast] *)
 
 Lemma xcast_lemma : forall (H:hprop) `{Enc A} (Q:A->hprop) (X:A),
   H ==> Q X ->
-  H ==> Cast Q X.
+  H ==> ^(Wp_cast X) Q.
 Proof using. introv M. unfold Cast. hchanges~ M. Qed.
 
 Ltac xcase_core tt :=
@@ -265,16 +302,36 @@ Tactic Notation "xcast" :=
   xcast_core tt.
 
 
-
 (* ---------------------------------------------------------------------- *)
-(* ** Tactic [xapp_record] *)
+(* ** Tactic [xlet_xseq_xcast_repeat] *)
 
-Ltac xapp_record tt :=
-  fail "implemented later in LambdaWPStruct".
+Ltac xlet_xseq_xcast tt :=
+  match xgoal_code_without_iswp tt with
+  | (Wp_let_typed _ _) => xlet
+  | (Wp_let _ _) => xlet
+  | (Wp_seq _ _) => xseq
+  | (Cast _ _) => xseq
+  end.
+
+Ltac xlet_xseq_xcast_repeat tt :=
+  repeat (xlet_xseq_xcast tt).
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xapp] *)
+
+(** [xapp]
+    [xapp E]
+
+    [xapp_nosubst]
+    [xapp_nosubst E]
+    
+    [xapp_debug] 
+    [xapp_debug E] 
+*)
+
+Ltac xapp_record tt :=
+  fail "implemented later in LambdaWPStruct".
 
 Lemma xapp_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
   Triple t H1 Q1 ->
@@ -304,6 +361,9 @@ Proof using.
   introv M1 M2. applys xapps_lemma \[]; rew_heap; eauto.
 Qed.
 
+Ltac xapp_pre tt :=
+  xlet_xseq_xcast_repeat tt.
+
 Ltac xapp_post tt :=
   hsimpl.
   
@@ -317,6 +377,7 @@ Ltac xapp_general tt :=
   xapp_apply_lemma ltac:(xspec_prove_triple).
 
 Ltac xapp_core tt :=
+  xapp_pre tt;
   first [ xapp_record tt
         | xapp_general tt ].
 
@@ -328,6 +389,7 @@ Tactic Notation "xapp" "*"  :=
   xapp; auto_star.
 
 Ltac xapp_arg_core E :=
+  xapp_pre tt;
   xapp_apply_lemma ltac:(fun tt => xspec_prove_triple_with_args E).
 
 Tactic Notation "xapp" constr(E) :=
@@ -346,6 +408,28 @@ Tactic Notation "xapp_debug" constr(E) :=
     let H := fresh "Spec" in
     generalize L; intros H
   | ].
+
+Ltac xapp_nosubst tt :=
+  xapp_pre tt;
+  applys @xapp_lemma; [ xspec_prove_triple tt | xapp_post tt ].
+
+Tactic Notation "xapp_nosubst" :=
+  xapp_nosubst_core tt.
+Tactic Notation "xapp_nosubst" "~" :=
+  xapp_nosubst; auto_tilde.
+Tactic Notation "xapp_nosubst" "*"  :=
+  xapp_nosubst; auto_star.
+
+Ltac xapp_arg_nosubst_core E :=
+  xapp_pre tt;
+  applys @xapp_lemma; [ xspec_prove_triple_with_args E | xapp_post tt ].
+
+Tactic Notation "xapp_nosubst" constr(E) :=
+  xapp_arg_nosubst_core tt.
+Tactic Notation "xapp_nosubst" "~" constr(E) :=
+  xapp_nosubst E; auto_tilde.
+Tactic Notation "xapp_nosubst" "*" constr(E)  :=
+  xapp_nosubst E; auto_star.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -407,44 +491,6 @@ Ltac xif_core tt :=
 
 Tactic Notation "xif" :=
   xif_core tt.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Tactic [xseq] *)
-
-Definition xseq_lemma := @Local_erase.
-
-Ltac xseq_core tt :=
-  applys xseq_lemma.
-
-Tactic Notation "xseq" :=
-  xseq_core tt.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Tactic [xlet] *)
-
-Lemma xlet_lemma : forall A1 (EA1:Enc A1) H `{EA:Enc A} (Q:A->hprop) (F1:Formula) (F2of:forall `{EA1:Enc A2},A2->Formula),
-  H ==> ^F1 (fun (X:A1) => ^(F2of X) Q) -> 
-  H ==> ^(Wp_let F1 (@F2of)) Q.
-Proof using. introv M. applys Local_erase. hsimpl* A1 EA1. Qed.
-
-Definition xlet_typed_lemma := @Local_erase.
-
-Ltac xlet_poly tt :=
-  notypeclasses refine (xlet_lemma _ _ _ _ _).
-
-Ltac xlet_typed tt :=
-  applys xlet_typed_lemma.
-
-Ltac xlet_core tt :=
-  match xgoal_code_without_iswp tt with
-  | (Wp_let_typed _ _) => xlet_typed tt
-  | (Wp_let _ _) => xlet_poly tt
-  end.
-
-Tactic Notation "xlet" :=
-  xlet_core tt.
 
 
 (* ---------------------------------------------------------------------- *)

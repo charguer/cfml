@@ -355,7 +355,7 @@ Qed. (* TODO: simplify proof *)
 Lemma xapp_record_get : forall A `{EA:Enc A} (Q:A->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
   H ==> p ~> Record L \* (match record_get_compute_dyn f L with
     | None => \[False]
-    | Some (Dyn V) => (p ~> Record L) \-* (Cast Q V) end) ->
+    | Some (Dyn V) => (p ~> Record L) \-* ^(is_Wp (Wp_cast V)) Q end) ->
   H ==> ^(Wp_app (trm_apps (trm_val (val_get_field f)) (trms_vals ((p:val)::nil)))) Q.
 Proof using.
   introv M1. hchanges (rm M1).
@@ -365,7 +365,7 @@ Proof using.
   forwards R': R; eauto. clear R. specializes R' p.
   applys himpl_wp_app_of_Triple.
   applys Triple_enc_change. xapplys (rm R'). simpl.
-  unfold PostChange, Cast. hpull ;=> ? ->.
+  unfold PostChange, is_Wp, Cast. hpull ;=> ? ->.
   hchanges~ (hwand_cancel (p ~> Record L)).
 Qed. (* TODO: simplify proof *)
 
@@ -373,6 +373,7 @@ Qed. (* TODO: simplify proof *)
 Global Opaque val_set_field val_get_field.
 
 (* ---------------------------------------------------------------------- *)
+(* ** Tactic [xapp_record] *)
 
 Ltac xapp_record_post tt :=
   hsimpl; simpl; hsimpl; try xcast.
