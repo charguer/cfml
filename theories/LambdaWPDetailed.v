@@ -592,12 +592,31 @@ Proof using.
     xval tt. hsimpl. subst. rew_list~. }
   { (* case cons *)
     xlet. xapp~ @Triple_pop ;=> x L1' E. 
-    xseq. xapp @Triple_push.
-    xapp (>> IH L1'). (* [xapp.] also works *)
+    xseq. xapp @Triple_push. 
+    xapp (>> IH L1'). (* [xapp.] also works *) 
     { subst*. }
     hsimpl. subst. rew_list~. }
 Qed.
 
+Lemma Triple_rev_append'' : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
+  TRIPLE (val_rev_append p1 p2)
+    PRE (p1 ~> Stack L1 \* p2 ~> Stack L2)
+    POST (fun (u:unit) => p1 ~> Stack nil \* p2 ~> Stack (rev L1 ++ L2)).
+Proof using.
+  intros. gen p1 p2 L2. induction_wf IH: (@list_sub A) L1. intros.
+  xwp. xlet. xapp @Triple_is_empty. xif ;=> C.
+  { (* case nil *)
+    xval tt. hsimpl. subst. rew_list~. }
+  { (* case cons *)
+    xlet. xapp~ @Triple_pop ;=> x L1' E. 
+    xseq.
+    (* xapp: *) xapp_debug @Triple_push. applys Spec. hsimpl.
+    dup. 
+    { (* xapp (>> IH L1'): *) xapp_debug (>> IH L1'). applys Spec. { subst*. } hsimpl. 
+      hsimpl. subst. rew_list~. }
+     { (* xapp (>> __ L1'): *) xapp_debug (>> __ L1'). applys Spec. { subst*. } hsimpl. 
+      hsimpl. subst. rew_list~. } }
+Qed.
 
 End Stack.
 

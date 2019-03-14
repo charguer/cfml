@@ -132,23 +132,28 @@ Ltac xspec_core tt :=
 Tactic Notation "xspec" :=
   xspec_core tt.
 
-Ltac xspec_prove_triple tt :=
-  xspec;
+Ltac xspec_prove_cont tt :=
   let H := fresh "Spec" in
   intro H; apply H; clear H.
 
+Ltac xspec_prove_triple tt :=
+  xspec; xspec_prove_cont tt.
+
 Ltac xspec_lemma_of_args E :=
+  let H := fresh "Spec2" in
   match list_boxer_of E with
   | cons (boxer ltac_wild) ?E' => (* only args provided *)
      let K := fresh "BaseSpec" in (* TODO: need to clear K at some point... *)
-     xspec; intro K; constr:((boxer K)::E') 
+     xspec; intro K;  
+     lets H: ((boxer K)::E'); 
+     revert H; 
+     try clear K
   | _ => (* spec and args provided *)
-     constr:(E)
+     lets H: E; revert H
   end.
 
 Ltac xspec_prove_triple_with_args E :=
-  let L := xspec_lemma_of_args E in
-  applys L.
+  xspec_lemma_of_args E; xspec_prove_cont tt.
 
 Notation "'Register_Spec' f" := (Register_goal (Triple (trm_apps (trm_val f) _) _ _))
   (at level 69) : xspec_scope.
@@ -415,17 +420,16 @@ Tactic Notation "xapp" "~" constr(E) :=
 Tactic Notation "xapp" "*" constr(E) :=
   xapp E; auto_star.
 
+
+Ltac xapp_debug_intro tt :=
+  let H := fresh "Spec" in
+  intro H. 
+
 Tactic Notation "xapp_debug" :=
-  applys @xapp_lemma; [ 
-    xspec; 
-    let H := fresh "Spec" in
-    intro H | ].
+  applys @xapp_lemma; [ xspec; xapp_debug_intro tt | ].
 
 Tactic Notation "xapp_debug" constr(E) :=
-  applys @xapp_lemma; [ 
-    let L := xspec_lemma_of_args E in
-    let H := fresh "Spec" in
-    lets H: L | ].
+  applys @xapp_lemma; [ xspec_lemma_of_args E; xapp_debug_intro tt | ].
 
 Ltac xapp_nosubst_core tt :=
   xapp_pre tt;
