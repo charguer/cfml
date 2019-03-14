@@ -592,8 +592,9 @@ Proof using.
     xval tt. hsimpl. subst. rew_list~. }
   { (* case cons *)
     xlet. xapp~ @Triple_pop ;=> x L1' E. 
-    xseq. xapp @Triple_push. 
-    xapp (>> IH L1'). { subst*. }
+    xseq. xapp @Triple_push.
+    xapp (>> IH L1'). (* [xapp.] also works *)
+    { subst*. }
     hsimpl. subst. rew_list~. }
 Qed.
 
