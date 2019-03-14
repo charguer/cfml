@@ -388,11 +388,34 @@ Ltac xapp_pre tt :=
 Ltac xapp_post tt :=
   hsimpl.
   
-Ltac xapp_apply_lemma cont :=
+Lemma xapp_find_spec_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
+  Triple t H1 Q1 ->
+  (Triple t H1 Q1 -> H ==> ^(Wp_app t) Q) ->
+  H ==> ^(Wp_app t) Q.
+Proof using. auto. Qed.
+
+Ltac xapp_select_lemma tt :=
+  let S := fresh "Spec" in 
+  intro S;
+  match type of S with 
+  | Triple _ _ (fun _ => \[_ = _] \* _) => applys @xapps_lemma
+  | Triple _ _ (fun _ => \[_ = _]) => applys @xapps_lemma_pure
+  | _ => applys @xapp_lemma
+  end; [ applys S | clear S ].
+
+Ltac xapp_apply_lemma cont_prove_triple :=
+  xapp_pre tt;
+  applys xapp_find_spec_lemma; 
+    [ cont_prove_triple tt 
+    | xapp_select_lemma tt; xapp_post tt ].
+
+(* DEPRECATED (too slow)
+Ltac xapp_apply_lemma cont_prove_triple :=
   first 
-    [ applys @xapps_lemma; [ cont tt | xapp_post tt ]
-    | applys @xapps_lemma_pure; [ cont tt | xapp_post tt ]
-    | applys @xapp_lemma; [ cont tt | xapp_post tt ] ].
+    [ applys @xapps_lemma; [ cont_prove_triple tt | xapp_post tt ]
+    | applys @xapps_lemma_pure; [ cont_prove_triple tt | xapp_post tt ]
+    | applys @xapp_lemma; [ cont_prove_triple tt | xapp_post tt ] ].
+*)
 
 Ltac xapp_general tt :=
   xapp_apply_lemma ltac:(xspec_prove_triple).

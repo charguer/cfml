@@ -110,8 +110,7 @@ Proof using.
   xwp.
   xlet.
   (* xunfold *)
-  pattern MList at 1. rewrite MList_unfold. hpull ;=> v.
-  xapp.
+  pattern MList at 1. rewrite MList_unfold. hpull ;=> v. xapp.
   (* xcase *)
   applys xcase_lemma0 ;=> E1.
   { destruct L as [|x L']; hpull.
@@ -176,7 +175,7 @@ Lemma Triple_incr : forall (p:loc) (n:int),
     PRE (p ~~> n)
     POST (fun (r:unit) => (p ~~> (n+1))).
 Proof using.
-  xwp. xapps~.
+  xwp. xappn~.
 Qed.
 
 Lemma Triple_incr_frame : forall (p1 p2:loc) (n1 n2:int),
@@ -439,7 +438,9 @@ Proof using.
   { (* case nil *)
     xval tt. hsimpl. subst. rew_list~. }
   { (* case cons *)
-    xapp~ ;=> x L1' E. xapp. xapp. { subst*. } hsimpl. subst. rew_list~. }
+    xapp~ ;=> x L1' E.
+    xapp.
+    xapp. { subst*. } hsimpl. subst. rew_list~. }
 Qed.
 
 End Stack.
