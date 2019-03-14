@@ -38,6 +38,7 @@ Notation "^ F Q" := ((F:Formula) _ _ Q)
    format "^ F  Q") : wp_scope.
 
 Open Scope wp_scope.
+Delimit Scope wp_scope with wp.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -97,6 +98,9 @@ Hint Resolve is_flocal_Local.
 
 Definition is_Wp (F:Formula) : Formula := F.
 
+Notation "'`' F" :=
+  ((is_Wp F%wp))
+  (at level 69, F at level 100, format "'`' F") : wp_scope.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -113,25 +117,27 @@ Definition Wp_val (v:val) : Formula :=
   Local (fun A (EA:Enc A) Q =>
     \exists (V:A), \[v = enc V] \* Q V).
 
-(*
+(* DEPRECATED
 Definition Wp_val_typed `{EA1:Enc A1} (V:A1) : Formula :=
   Local (fun A (EA:Enc A) Q => Q V1).
 *)
 
-Definition Wp_var (E:ctx) (x:var) : Formula :=
+Definition WP_var (E:ctx) (x:var) : Formula :=
   match Ctx.lookup x E with
-  | None => Wp_fail
-  | Some v => Wp_val v
+  | None => `Wp_fail
+  | Some v => `Wp_val v
   end.
 
-(** [Wp_var] prevents [simpl] from simplifying context lookups, hence we
-    inline its definition at the place of use, using a notation. *)
+(** DEPRECATED
+    [Wp_var] prevents [simpl] from simplifying context lookups, hence we
+    inline its definition at the place of use, using a notation. 
 
-Notation "'`Wp_var' E x" :=
+Notation "'Wp_var'' E x" :=
   (match Ctx.lookup x E with
   | None => Wp_fail
   | Some v => Wp_val v
   end) (at level 37, E at level 0, x at level 0).
+*)
 
 Definition Wp_let (F1:Formula) (F2of:forall `{EA1:Enc A1},A1->Formula) : Formula :=
   Local (fun A (EA:Enc A) Q =>
@@ -166,14 +172,14 @@ Definition Wp_getval' Wp (E:ctx) (t1:trm) (F2of:forall A1 {EA1:Enc A1},A1->Formu
   end.
 *)
 
-Definition Wp_getval_typed Wp (E:ctx) `{EA1:Enc A1} (t1:trm) (F2of:A1->Formula) : Formula :=
+Definition WP_getval_typed Wp (E:ctx) `{EA1:Enc A1} (t1:trm) (F2of:A1->Formula) : Formula :=
   match t1 with
-  | trm_val v => Wp_letval_typed v F2of
+  | trm_val v => `Wp_letval_typed v F2of
   | trm_var x => match Ctx.lookup x E with
-                        | Some v => Wp_letval_typed v F2of
-                        | None => Wp_fail
+                        | Some v => `Wp_letval_typed v F2of
+                        | None => `Wp_fail
                         end
-  | _ => is_Wp (Wp_let_typed (Wp E t1) F2of)
+  | _ => `Wp_let_typed (Wp E t1) F2of
   end.
 
 (* NEEDED?
@@ -187,29 +193,29 @@ Definition Wp_getval_val Wp (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
   | _ => Wp_let_typed (Wp E t1) F2of
   end.
 *)
-Definition Wp_getval Wp (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
+Definition WP_getval Wp (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
   match t1 with
   | trm_val v => F2of v
   | trm_var x => match Ctx.lookup x E with
                         | Some v => F2of v
-                        | None => Wp_fail
+                        | None => `Wp_fail
                         end
-  | _ => is_Wp (Wp_let (Wp E t1) (fun `{EA1:Enc A1} (V1:A1) => F2of (``V1)))
+  | _ => `Wp_let (Wp E t1) (fun `{EA1:Enc A1} (V1:A1) => F2of (``V1))
   end.
 
-Definition Wp_getval_val := Wp_getval.
+Definition WP_getval_val := WP_getval.
 
-Definition Wp_getval_int Wp (E:ctx) (t1:trm) (F2of:int->Formula) : Formula :=
+Definition WP_getval_int Wp (E:ctx) (t1:trm) (F2of:int->Formula) : Formula :=
   match t1 with
   | trm_val (val_int n) => F2of n
-  | _ => Wp_getval_typed Wp E t1 F2of
+  | _ => WP_getval_typed Wp E t1 F2of
   end.
 
-Definition Wp_constr Wp (E:ctx) (id:idconstr) : list val -> list trm -> Formula := 
+Definition WP_constr Wp (E:ctx) (id:idconstr) : list val -> list trm -> Formula := 
   fix mk (rvs : list val) (ts : list trm) : Formula :=
     match ts with
-    | nil => Wp_val (val_constr id (List.rev rvs))
-    | t1::ts' => Wp_getval Wp E t1 (fun v1 => mk (v1::rvs) ts')
+    | nil => `Wp_val (val_constr id (List.rev rvs))
+    | t1::ts' => WP_getval Wp E t1 (fun v1 => mk (v1::rvs) ts')
     (* DEPRECATED Wp_getval_val wp E t1 (fun v1 => mk (v1::rvs) ts') *)
     end.
 
@@ -241,40 +247,40 @@ Definition Wp_app (t:trm) : Formula :=
 *)
 (* not included: arithmetic comparisons *)
 
-Definition Wp_apps Wp (E:ctx) (v0:func) : list val -> list trm -> Formula := 
+Definition WP_apps Wp (E:ctx) (v0:func) : list val -> list trm -> Formula := 
   (fix mk (rvs : list val) (ts : list trm) : Formula :=
     match ts with
-    | nil => is_Wp (Wp_app (trm_apps v0 (trms_vals (List.rev rvs))))
-    | t1::ts' => Wp_getval Wp E t1 (fun v1 => mk (v1::rvs) ts')
+    | nil => `Wp_app (trm_apps v0 (trms_vals (List.rev rvs)))
+    | t1::ts' => WP_getval Wp E t1 (fun v1 => mk (v1::rvs) ts')
     end).
 
-Definition Wp_apps_or_prim Wp (E:ctx) (t0:trm) (ts:list trm) : Formula :=
+Definition WP_apps_or_prim Wp (E:ctx) (t0:trm) (ts:list trm) : Formula :=
   match t0, ts with
   | trm_val (val_prim val_add), (t1::t2::nil) => 
-     Wp_getval_int Wp E t1 (fun n1 => 
-       Wp_getval_int Wp E t2 (fun n2 => 
-         Formula_typed (fun (Q:int->hprop) => Q (n1 + n2))))
-  | _,_ => Wp_getval_val Wp E t0 (fun v0 => Wp_apps Wp E v0 nil ts)
+     WP_getval_int Wp E t1 (fun n1 => 
+       WP_getval_int Wp E t2 (fun n2 => 
+         `Formula_typed (fun (Q:int->hprop) => Q (n1 + n2))))
+  | _,_ => WP_getval_val Wp E t0 (fun v0 => WP_apps Wp E v0 nil ts)
   end.
 
 Definition Wp_if_val (b:bool) (F1 F2:Formula) : Formula :=
   Local (fun `{Enc A} Q =>
     if b then ^F1 Q else ^F2 Q).
 
-Definition Wp_if (F0 F1 F2:Formula) : Formula :=
-  Wp_let_typed F0 (fun (b:bool) => Wp_if_val b F1 F2).
+Definition WP_if (F0 F1 F2:Formula) : Formula :=
+  `Wp_let_typed F0 (fun (b:bool) => `Wp_if_val b F1 F2).
 
 Definition Wp_while (F1 F2:Formula) : Formula :=
-  Local (Formula_typed (fun (Q:unit->hprop) =>
+  Local (`Formula_typed (fun (Q:unit->hprop) =>
     \forall (R:Formula),
-    let F := Wp_if F1 (Wp_seq F2 R) (Wp_val val_unit) in
+    let F := WP_if F1 (Wp_seq F2 R) (Wp_val val_unit) in
     \[ is_flocal (@R unit _) /\ (forall Q', ^F Q' ==> ^R Q')] \-* (^R Q))).
 
 Definition Wp_for_int (n1 n2:int) (F1:int->Formula) : Formula := 
   Local (Formula_typed (fun (Q:unit->hprop) =>
     \forall (S:int->Formula),
-    let F i := If (i <= n2) then (Wp_seq (F1 i) (S (i+1)))
-                            else (Wp_val val_unit) in
+    let F i := If (i <= n2) then (`Wp_seq (F1 i) (S (i+1)))
+                            else (`Wp_val val_unit) in
     \[ (forall i, is_flocal (S i unit _)) /\ (forall i Q', ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
 
 
@@ -376,39 +382,39 @@ Definition Wp_case_val (v1:val) (p:pat) (F1of:ctx->Formula) (F2:Formula) : Formu
 
 Fixpoint Wp (E:ctx) (t:trm) : Formula :=
   let aux := Wp E in
-  is_Wp match t with
-  | trm_val v => Wp_val v
-  | trm_var x => `Wp_var E x
+  match t with
+  | trm_val v => `Wp_val v
+  | trm_var x => WP_var E x
   | trm_fixs f xs t1 =>
       match xs with 
-      | nil => Wp_fail
-      | _ => Wp_val (val_fixs f xs (isubst (Ctx.rem_vars xs (Ctx.rem f E)) t1))
+      | nil => `Wp_fail
+      | _ => `Wp_val (val_fixs f xs (isubst (Ctx.rem_vars xs (Ctx.rem f E)) t1))
       end
-  | trm_constr id ts => Wp_constr Wp E id nil ts
+  | trm_constr id ts => WP_constr Wp E id nil ts
   | trm_if t0 t1 t2 =>
-     Wp_getval_typed Wp E t0 (fun b0 => 
-       is_Wp (Wp_if_val b0 (aux t1) (aux t2)))
+     WP_getval_typed Wp E t0 (fun b0 => 
+       `Wp_if_val b0 (aux t1) (aux t2))
   | trm_let z t1 t2 =>
      match z with
-     | bind_anon => Wp_seq (aux t1) (aux t2)
-     | bind_var x => Wp_let (aux t1) (fun `{EA:Enc A} (X:A) => Wp (Ctx.add x (enc X) E) t2)
+     | bind_anon => `Wp_seq (aux t1) (aux t2)
+     | bind_var x => `Wp_let (aux t1) (fun `{EA:Enc A} (X:A) => Wp (Ctx.add x (enc X) E) t2)
      end
-  | trm_apps t0 ts => Wp_getval_val Wp E t0 (fun v0 => Wp_apps Wp E v0 nil ts)
+  | trm_apps t0 ts => WP_getval_val Wp E t0 (fun v0 => WP_apps Wp E v0 nil ts)
       (* Wp_apps_or_prim Wp E t0 ts *)
-  | trm_while t1 t2 => Wp_while (aux t1) (aux t2)
+  | trm_while t1 t2 => `Wp_while (aux t1) (aux t2)
   | trm_for x t1 t2 t3 => 
-     Wp_getval_typed Wp E t1 (fun n1 =>
-       Wp_getval_typed Wp E t2 (fun n2 =>
-         is_Wp (Wp_for_int n1 n2 (fun n => Wp (Ctx.add x (enc n) E) t3))))
+     WP_getval_typed Wp E t1 (fun n1 =>
+       WP_getval_typed Wp E t2 (fun n2 =>
+         `Wp_for_int n1 n2 (fun n => Wp (Ctx.add x (enc n) E) t3)))
   | trm_case t1 p t2 t3 =>
-      Wp_getval Wp E t1 (fun v1 =>
+      WP_getval Wp E t1 (fun v1 =>
         let xs := patvars p in
         let F1 A (EA:Enc A) (Q:A->hprop) := 
            hprop_forall_vars (fun G => let E' := (Ctx.app G E) in
               \[v1 = patsubst G p] \-* ^(Wp E' t2) Q) Ctx.empty xs in
         let P := prop_forall_vars (fun G => v1 <> patsubst G p) Ctx.empty xs in
-        Wp_case_val F1 P (aux t3))
-  | trm_fail => Wp_fail
+        `Wp_case_val F1 P (aux t3))
+  | trm_fail => `Wp_fail
   end.
 
 (* LATER: uniformiser t0 vs t1 for trm_if *)
@@ -704,17 +710,6 @@ Proof using. intros. applys Local_erase. rewrite~ <- Triple_eq_himpl_Wp_Triple. 
 (* ---------------------------------------------------------------------- *)
 (* ** Notation for computed WP *)
 
-(* FUTURE VERSION OF COQ
-   Declare Scope wp_scope. *)
-
-Notation "'dummy_wp'" := True (only parsing) : wp_scope.
-Delimit Scope wp_scope with wp.
-Open Scope wp_scope.
-
-Notation "'`' F" :=
-  ((is_Wp F%wp))
-  (at level 69, F at level 100, format "'`' F") : wp_scope.
-
 Notation "'Fail'" :=
   ((Wp_fail))
   (at level 69) : wp_scope.
@@ -784,9 +779,11 @@ Notation "'Ifval' b 'Then' F1 'Else' F2" :=
   ((Wp_if_val b F1 F2))
   (at level 69) : wp_scope.
 
+(* DEPRECATED
 Notation "'If' F0 'Then' F1 'Else' F2" :=
   ((Wp_if F0 F1 F2))
   (at level 69, F0 at level 0) : wp_scope.
+*)
 
 Notation "'While' F1 'Do' F2 'Done'" :=
   ((Wp_while F1 F2))

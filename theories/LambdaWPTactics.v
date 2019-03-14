@@ -112,46 +112,44 @@ Open Scope xspec_scope.
     the specification that could apply to a goal [G].
     It places the specification as hypothesis at the head of the goal. *)
 
-Ltac xapp_basic_prepare tt := 
-  idtac.
+Ltac xspec_remove_combiner tt :=
+  cbn beta delta [ combiner_to_trm ] iota zeta in *.
 
-Ltac xspec_context G :=
-  fail "not implemented".
-
-Ltac xspec_registered G :=
-  ltac_database_get database_spec G.
-
-Ltac xspec_database G :=
-   first [ xspec_registered G | xspec_context G ].
-
-Ltac xspec_base tt :=
-  match goal with
-  | |- ?G => xspec_database G
+Ltac xspec_context tt :=
+  xspec_remove_combiner tt;
+  match goal with 
+   H: context [ Triple (trm_apps (trm_val ?f) _) _ _ ] 
+   |- Triple (trm_apps (trm_val ?f) _) _ _ => generalize H
   end.
 
+Ltac xspec_registered tt :=
+  match goal with |- ?G => ltac_database_get database_spec G end.
+
 Ltac xspec_core tt :=
-  xapp_basic_prepare tt;
-  xspec_base tt.
+  first [ xspec_registered tt 
+        | xspec_context tt ].
 
 Tactic Notation "xspec" :=
   xspec_core tt.
 
-Ltac xspec_prove_triple tt :=
+Ltac xspec_prove_cont tt :=
   let H := fresh "Spec" in
-  xspec; intro H; apply H.
+  intro H; apply H; clear H.
+
+Ltac xspec_prove_triple tt :=
+  xspec; xspec_prove_cont tt.
 
 Ltac xspec_lemma_of_args E :=
   match list_boxer_of E with
   | cons (boxer ltac_wild) ?E' => (* only args provided *)
-     let H := fresh "Spec" in
-     xspec; intro H; constr:((boxer H)::E')
+     let K := fresh "BaseSpec" in (* TODO: need to clear K at some point... *)
+     xspec; intro K; generalize ((boxer K)::E')
   | _ => (* spec and args provided *)
-     constr:(E)
+     generalize E
   end.
 
 Ltac xspec_prove_triple_with_args E :=
-  let L := xspec_lemma_of_args E in
-  applys L.
+  xspec_lemma_of_args E; xspec_prove_cont tt.
 
 Notation "'Register_Spec' f" := (Register_goal (Triple (trm_apps (trm_val f) _) _ _))
   (at level 69) : xspec_scope.
@@ -189,8 +187,8 @@ Ltac xwp_simpl :=
   cbn beta delta [ 
   LibList.combine 
   List.rev Datatypes.app List.fold_right List.map
-  Wp_app Wp_getval_typed Wp_constr Wp_getval Wp Wp_case_val
-  Wp_getval_val Wp_apps Wp_app Wp_getval_int Wp_apps_or_prim
+  Wp WP_getval WP_getval_typed WP_getval_val WP_getval_int
+  WP_apps WP_apps_or_prim WP_constr WP_var
   hprop_forall_vars prop_forall_vars
   trm_to_pat patvars patsubst combiner_to_trm
   Ctx.app Ctx.empty Ctx.lookup Ctx.add 
@@ -204,7 +202,7 @@ Ltac xwp_simpl :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xwp] *)
 
-Lemma xtriple_lemma_funs : forall F vs ts xs t `{EA:Enc A} H (Q:A->hprop),
+Lemma xwp_lemma_funs : forall F vs ts xs t `{EA:Enc A} H (Q:A->hprop),
   F = val_funs xs t ->
   trms_to_vals ts = Some vs ->
   var_funs_exec (length vs) xs ->
@@ -217,7 +215,7 @@ Proof using.
   applys* Triple_isubst_of_Wp.
 Qed.
 
-Lemma xtriple_lemma_fixs : forall F (f:var) vs ts xs t `{EA:Enc A} H (Q:A->hprop),
+Lemma xwp_lemma_fixs : forall F (f:var) vs ts xs t `{EA:Enc A} H (Q:A->hprop),
   F = val_fixs f xs t ->
   trms_to_vals ts = Some vs ->
   var_fixs_exec f (length vs) xs ->
@@ -231,10 +229,10 @@ Proof using.
 Qed.
 
 Ltac xwp_fun tt :=
-  applys xtriple_lemma_funs; [ reflexivity | reflexivity | reflexivity | xwp_simpl ].
+  applys xwp_lemma_funs; [ reflexivity | reflexivity | reflexivity | xwp_simpl ].
 
 Ltac xwp_fix tt :=
-  applys xtriple_lemma_fixs; [ reflexivity | reflexivity | reflexivity | xwp_simpl ].
+  applys xwp_lemma_fixs; [ reflexivity | reflexivity | reflexivity | xwp_simpl ].
 
 Ltac xwp_trm tt :=
   fail "not yet implemented".
@@ -249,9 +247,15 @@ Tactic Notation "xwp" :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xseq] *)
 
+Ltac xseq_pre tt :=
+  match xgoal_code_without_iswp tt with
+  | (Wp_seq _ _) => idtac 
+  end.
+
 Definition xseq_lemma := @Local_erase.
 
 Ltac xseq_core tt :=
+  xseq_pre tt;
   applys xseq_lemma.
 
 Tactic Notation "xseq" :=
@@ -287,15 +291,18 @@ Tactic Notation "xlet" :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xcast] *)
 
+Ltac xcast_pre tt :=
+  match xgoal_code_without_iswp tt with
+  | (Wp_cast _) => idtac 
+  end.
+
 Lemma xcast_lemma : forall (H:hprop) `{Enc A} (Q:A->hprop) (X:A),
   H ==> Q X ->
   H ==> ^(Wp_cast X) Q.
 Proof using. introv M. unfold is_Wp, Wp_cast. hchanges~ M. Qed.
 
-Ltac xcase_core tt :=
-  applys @xcast_lemma.
-
 Ltac xcast_core tt :=
+  xcast_pre tt;
   applys xcast_lemma.
 
 Tactic Notation "xcast" :=
@@ -322,6 +329,9 @@ Ltac xlet_xseq_xcast_repeat tt :=
 
 (** [xapp]
     [xapp E]
+
+    [xapps]
+    [xapps n]
 
     [xapp_nosubst]
     [xapp_nosubst E]
@@ -361,8 +371,15 @@ Proof using.
   introv M1 M2. applys xapps_lemma \[]; rew_heap; eauto.
 Qed.
 
+(* [xapp_pre tt] automatically performs the necessary 
+   [xlet], [xseq] and [xcast], then checks that the goal 
+   is a [Wp_app] goal. *)
+
 Ltac xapp_pre tt :=
-  xlet_xseq_xcast_repeat tt.
+  xlet_xseq_xcast_repeat tt; 
+  match xgoal_code_without_iswp tt with
+  | (Wp_app _) => idtac 
+  end.
 
 Ltac xapp_post tt :=
   hsimpl.
@@ -399,15 +416,15 @@ Tactic Notation "xapp" "~" constr(E) :=
 Tactic Notation "xapp" "*" constr(E) :=
   xapp E; auto_star.
 
+Ltac xapp_debug_intro tt :=
+  let H := fresh "Spec" in
+  intro H. 
+
 Tactic Notation "xapp_debug" :=
-  xapp_apply_lemma tt.
+  applys @xapp_lemma; [ xspec; xapp_debug_intro tt | ].
 
 Tactic Notation "xapp_debug" constr(E) :=
-  xapp_apply_lemma tt; 
-  [ let L := xspec_lemma_of_args E in 
-    let H := fresh "Spec" in
-    generalize L; intros H
-  | ].
+  applys @xapp_lemma; [ xspec_lemma_of_args E; xapp_debug_intro tt | ].
 
 Ltac xapp_nosubst_core tt :=
   xapp_pre tt;
@@ -431,6 +448,20 @@ Tactic Notation "xapp_nosubst" "~" constr(E) :=
 Tactic Notation "xapp_nosubst" "*" constr(E)  :=
   xapp_nosubst E; auto_star.
 
+Tactic Notation "xapps" :=
+  repeat (xapp).
+Tactic Notation "xapps" "~" :=
+  repeat (xapp; auto_tilde).
+Tactic Notation "xapps" "*" :=
+  repeat (xapp; auto_star).
+
+Tactic Notation "xapps" constr(n) :=
+  do n (try (xapp)).
+Tactic Notation "xapps" "~" constr(n) :=
+  do n (try (xapp; auto_tilde)).
+Tactic Notation "xapps" "*" constr(n) :=
+  do n (try (xapp; auto_star)).
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xval] *)
@@ -448,8 +479,18 @@ Lemma xval_lemma_val : forall `{EA:Enc A} (V:A) v H (Q:val->hprop),
   H ==> ^(Wp_val v) Q.
 Proof using. introv E N. subst. applys Local_erase. hsimpl~ (``V). Qed.
 
+(* [xval_pre tt] automatically performs the necessary 
+   [xlet], [xseq] and [xcast], then checks that the goal 
+   is a [Wp_val] goal. *)
+
+Ltac xval_pre tt :=
+  xlet_xseq_xcast_repeat tt; 
+  match xgoal_code_without_iswp tt with
+  | (Wp_val _) => idtac 
+  end.
 
 Ltac xval_arg E :=
+  xval_pre tt;
   applys (xval_lemma E); [ try reflexivity | ].
 
 Tactic Notation "xval" uconstr(E) :=
@@ -460,6 +501,7 @@ Tactic Notation "xval" "*" uconstr(E) :=
   xval E; auto_star.
 
 Ltac xval_core tt :=
+  xval_pre tt;
   applys xval_lemma; [ try reflexivity | ].
 
 Tactic Notation "xval" :=
@@ -472,6 +514,12 @@ Tactic Notation "xval" "*"  :=
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xif] *)
+
+Ltac xif_pre tt :=
+  xlet_xseq_xcast_repeat tt; 
+  match xgoal_code_without_iswp tt with
+  | (Wp_if_val _ _ _) => idtac 
+  end.
 
 Lemma xifval_lemma : forall `{EA:Enc A} b H (Q:A->hprop) (F1 F2:Formula),
   (b = true -> H ==> ^F1 Q) ->
@@ -495,6 +543,12 @@ Tactic Notation "xif" :=
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xcase] *)
+
+Ltac xcase_pre tt :=
+  xlet_xseq_xcast_repeat tt; 
+  match xgoal_code_without_iswp tt with
+  | (Wp_case_val _ _ _) => idtac 
+  end.
 
 Lemma xcase_lemma : forall F1 (P:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
   (H ==> ^F1 Q) ->

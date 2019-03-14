@@ -153,8 +153,8 @@ Proof using.
   intros.
   (* unfold field *)
   rewrite Hfield_eq_fun_Hsingle, repr_eq. xpull ;=> N.
-  (* xtriple *)
-  applys xtriple_lemma_funs; try reflexivity; simpl.
+  (* xwp *)
+  applys xwp_lemma_funs; try reflexivity; simpl.
   (* xlet-poly *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xapp *)
@@ -174,8 +174,8 @@ Proof using.
   (* unfold field *)
   rewrite Hfield_eq_fun_Hsingle. rewrite repr_eq. rewrites (>> repr_eq (l,f)).
   xpull ;=> N.
-  (* xtriple *)
-  applys xtriple_lemma_funs; try reflexivity; simpl.
+  (* xwp *)
+  applys xwp_lemma_funs; try reflexivity; simpl.
   (* xlet-poly *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xapp *)

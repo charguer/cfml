@@ -20,6 +20,72 @@ Open Scope pat_scope.
 Open Scope trm_scope.
 
 
+
+(* ********************************************************************** *)
+(* * Basic *)
+
+Module Basic.
+
+(* ---------------------------------------------------------------------- *)
+(** Incr *)
+
+Definition val_incr : val :=
+  ValFun 'p :=
+   'p ':= ((val_get 'p) '+ 1).
+
+(* VARIANT:
+  ValFun 'p :=
+    Let 'n := val_get 'p in
+   'p ':= ('n '+ 1).
+*)
+
+Lemma Triple_incr : forall (p:loc) (n:int),
+  TRIPLE (val_incr p)
+    PRE (p ~~> n)
+    POST (fun (r:unit) => (p ~~> (n+1))).
+Proof using.
+  intros.
+  (* optional simplification step to reveal [trm_apps] *)
+  simpl combiner_to_trm.
+  (* xwp *)
+  applys xwp_lemma_funs.
+  { reflexivity. }
+  { reflexivity. }
+  { reflexivity. }
+  simpl.
+  (* xlet-poly *)
+  notypeclasses refine (xlet_lemma _ _ _ _ _).
+  (* xlet *)
+  notypeclasses refine (xlet_lemma _ _ _ _ _).
+  (* xapps *)
+  applys @xapps_lemma. { applys Triple_get. } hsimpl.
+  (* xapps *)
+  applys @xapps_lemma_pure. { applys Triple_add. } hsimpl.
+  (* xapp *)
+  applys @xapp_lemma. { eapply @Triple_set. } hsimpl.
+  (* done *) 
+  auto.
+Qed.
+
+Lemma Triple_incr' : forall (p:loc) (n:int),
+  TRIPLE (val_incr p)
+    PRE (p ~~> n)
+    POST (fun (r:unit) => (p ~~> (n+1))).
+Proof using.
+  xwp. xlet. xlet. xapp. xapp. xapp. auto.
+Qed.
+
+Lemma Triple_incr'' : forall (p:loc) (n:int),
+  TRIPLE (val_incr p)
+    PRE (p ~~> n)
+    POST (fun (r:unit) => (p ~~> (n+1))).
+Proof using.
+  xwp. xapp. xapp. xapp. auto.
+Qed.
+
+End Basic.
+
+
 (* ********************************************************************** *)
 (* * Point *)
 
@@ -47,8 +113,8 @@ Lemma Triple_move_X : forall p x y,
     POST (fun (_:unit) => (Point (x+1) y p)).
 Proof using.
   intros.
-  (* xtriple *)
-  applys xtriple_lemma_funs; try reflexivity. xwp_simpl.
+  (* xwp *)
+  applys xwp_lemma_funs; try reflexivity. xwp_simpl.
   (* xunfold *)
   unfold Point. hpull ;=> k Hk.
   (* xseq *)
@@ -103,6 +169,15 @@ Proof using.
   hsimpl. math.
 Qed.
 
+Lemma Triple_move_X'' : forall p x y,
+  TRIPLE (val_move_X p)
+    PRE (Point x y p)
+    POST (fun (_:unit) => (Point (x+1) y p)).
+Proof using.
+  xwp. xunfolds Point ;=> k Hk.
+  xapp. xapp. xapp. xapp. xapp. xapp.
+  hsimpl. math.
+Qed.
 
 End Point.
 
@@ -152,8 +227,8 @@ Lemma Triple_mlist_length_1 : forall `{EA:Enc A} (L:list A) (p:loc),
     POST (fun (r:int) => \[r = length L] \* MList L p).
 Proof using.
   intros. gen p. induction_wf IH: (@list_sub A) L. intros.
-  (* xtriple *)
-  intros. applys xtriple_lemma_fixs; try reflexivity. xwp_simpl.
+  (* xwp *)
+  intros. applys xwp_lemma_fixs; try reflexivity. xwp_simpl.
   (* xlet-poly *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xunfold *)
@@ -217,62 +292,6 @@ Qed.
 
 End MList.
 
-
-(* ********************************************************************** *)
-(* * Basic *)
-
-Module Basic.
-
-(* ---------------------------------------------------------------------- *)
-(** Incr *)
-
-Definition val_incr : val :=
-  ValFun 'p :=
-   'p ':= ((val_get 'p) '+ 1).
-
-(* VARIANT:
-  ValFun 'p :=
-    Let 'n := val_get 'p in
-   'p ':= ('n '+ 1).
-*)
-
-Lemma Triple_incr : forall (p:loc) (n:int),
-  TRIPLE (val_incr p)
-    PRE (p ~~> n)
-    POST (fun (r:unit) => (p ~~> (n+1))).
-Proof using.
-  intros.
-  (* optional simplification step to reveal [trm_apps] *)
-  simpl combiner_to_trm.
-  (* xtriple *)
-  applys xtriple_lemma_funs.
-  { reflexivity. }
-  { reflexivity. }
-  { reflexivity. }
-  simpl.
-  (* xlet-poly *)
-  notypeclasses refine (xlet_lemma _ _ _ _ _).
-  (* xlet *)
-  notypeclasses refine (xlet_lemma _ _ _ _ _).
-  (* xapps *)
-  applys @xapps_lemma. { applys Triple_get. } hsimpl.
-  (* xapps *)
-  applys @xapps_lemma_pure. { applys Triple_add. } hsimpl.
-  (* xapp *)
-  applys @xapp_lemma. { eapply @Triple_set. } hsimpl.
-  (* done *) 
-  auto.
-Qed.
-
-Lemma Triple_incr' : forall (p:loc) (n:int),
-  TRIPLE (val_incr p)
-    PRE (p ~~> n)
-    POST (fun (r:unit) => (p ~~> (n+1))).
-Proof using.
-  xwp. xlet. xlet. xapp. xapp. xapp. auto.
-Qed.
-
-End Basic.
 
 
 (* ********************************************************************** *)
@@ -377,8 +396,8 @@ Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),
     PRE (p ~> Stack L)
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stack L).
 Proof using.
-  (* xtriple *)
-  intros. applys xtriple_lemma_funs; try reflexivity; xwp_simpl.
+  (* xwp *)
+  intros. applys xwp_lemma_funs; try reflexivity; xwp_simpl.
   (* xunfold *)
   xunfold Stack.
   (* xlet-poly *)
@@ -412,8 +431,8 @@ Lemma Triple_pop : forall `{Enc A} (p:loc) (L:list A),
     POST (fun (x:A) => \exists L', \[L = x::L'] \* (p ~> Stack L')).
 Proof using.
   introv N.
-  (* xtriple *)
-  applys xtriple_lemma_funs; try reflexivity; xwp_simpl.
+  (* xwp *)
+  applys xwp_lemma_funs; try reflexivity; xwp_simpl.
   (* xunfold *)
   xunfold Stack.
   (* xlet-poly *)
@@ -471,8 +490,8 @@ Lemma Triple_empty : forall `{Enc A} (u:unit),
     PRE \[]
     POST (fun p => (p ~> Stack (@nil A))).
 Proof using.
-  (* xtriple *)
-  intros. applys xtriple_lemma_funs; try reflexivity; xwp_simpl.
+  (* xwp *)
+  intros. applys xwp_lemma_funs; try reflexivity; xwp_simpl.
   (* xlet-poly *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xval *)
@@ -497,8 +516,8 @@ Lemma Triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
     PRE (p ~> Stack L)
     POST (fun (u:unit) => (p ~> Stack (x::L))).
 Proof using.
-  (* xtriple *)
-  intros. applys xtriple_lemma_funs; try reflexivity; xwp_simpl.
+  (* xwp *)
+  intros. applys xwp_lemma_funs; try reflexivity; xwp_simpl.
   (* xunfold *)
   xunfold Stack.
   (* xlet-poly *)
@@ -533,8 +552,8 @@ Lemma Triple_rev_append : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
     POST (fun (u:unit) => p1 ~> Stack nil \* p2 ~> Stack (rev L1 ++ L2)).
 Proof using.
   intros. gen p1 p2 L2. induction_wf IH: (@list_sub A) L1. intros.
-  (* xtriple *)
-  intros. applys xtriple_lemma_fixs; try reflexivity; xwp_simpl.
+  (* xwp *)
+  intros. applys xwp_lemma_fixs; try reflexivity; xwp_simpl.
 simpl. (* TODO ! *)
   (* xlet *)
   applys xlet_typed_lemma.

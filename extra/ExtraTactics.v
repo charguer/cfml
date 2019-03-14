@@ -435,3 +435,22 @@ Ltac xapp_core tt ::=
 
 
 *)
+
+
+(* [xapp_lemma'] is only used for calling [xspec] directly on a goal
+   that is not well_suited TODO: use [xapp_spec] instead. *)
+Lemma xapp_lemma' : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
+  Triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* Q) ->
+  H ==> ^(Wp_app t) Q.
+Proof using.
+  introv M1 M2. applys Local_erase.
+  hchanges (rm M2).
+  rewrite <- Triple_eq_himpl_Wp_Triple.
+  applys* Triple_ramified_frame. hsimpl.
+Qed.
+
+Ltac xspec_pre tt := 
+  first
+    [ match goal with |- Triple _ _ _ => idtac end
+    | match xgoal_code_without_iswp tt with (Wp_app _) => eapply xapp_lemma' end ].
