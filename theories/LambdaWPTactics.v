@@ -334,8 +334,8 @@ Ltac xlet_xseq_xcast_repeat tt :=
 (** [xapp]
     [xapp E]
 
-    [xapps]
-    [xapps n]
+    [xappn]
+    [xappn n]
 
     [xapp_nosubst]
     [xapp_nosubst E]
@@ -453,18 +453,18 @@ Tactic Notation "xapp_nosubst" "~" constr(E) :=
 Tactic Notation "xapp_nosubst" "*" constr(E)  :=
   xapp_nosubst E; auto_star.
 
-Tactic Notation "xapps" :=
+Tactic Notation "xappn" :=
   repeat (xapp).
-Tactic Notation "xapps" "~" :=
+Tactic Notation "xappn" "~" :=
   repeat (xapp; auto_tilde).
-Tactic Notation "xapps" "*" :=
+Tactic Notation "xappn" "*" :=
   repeat (xapp; auto_star).
 
-Tactic Notation "xapps" constr(n) :=
+Tactic Notation "xappn" constr(n) :=
   do n (try (xapp)).
-Tactic Notation "xapps" "~" constr(n) :=
+Tactic Notation "xappn" "~" constr(n) :=
   do n (try (xapp; auto_tilde)).
-Tactic Notation "xapps" "*" constr(n) :=
+Tactic Notation "xappn" "*" constr(n) :=
   do n (try (xapp; auto_star)).
 
 

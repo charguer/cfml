@@ -50,7 +50,7 @@ Lemma Triple_move_X : forall p x y,
     POST (fun (_:unit) => (Point (x+1) y p)).
 Proof using.
   xwp.
-  xunfolds Point ;=> k Hk. xapps. hsimpl. math.
+  xunfolds Point ;=> k Hk. xappn. hsimpl. math.
 Qed.
 
 
