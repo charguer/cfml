@@ -715,15 +715,6 @@ Notation "'`' F" :=
   ((is_Wp F%wp))
   (at level 69, F at level 100, format "'`' F") : wp_scope.
 
-Notation "'CODE' F 'POST' Q" := ((is_Wp F) _ _ Q)
-  (at level 8, F, Q at level 0,
-   format "'[v' 'CODE'  F '/' 'POST'  Q ']'") : wp_scope.
-
-Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (is_Wp F) _ _ Q)
-  (at level 8, H, F, Q at level 0,
-   format "'[v' 'PRE'  H  '/' 'CODE'  F '/' 'POST'  Q ']'") : wp_scope.
-
-
 Notation "'Fail'" :=
   ((Wp_fail))
   (at level 69) : wp_scope.
@@ -788,12 +779,6 @@ Notation "'App' f v1 v2 v3 " :=
   (at level 68, f, v1, v2, v3 at level 0) : wp_scope.
 
 (* TODO: recursive notation for App *)
-
-(*
-Notation "'Apptrm' t " :=
-  ((Wp_app t))
-  (at level 68, t at level 0) : wp_scope.
-*)
 
 Notation "'Ifval' b 'Then' F1 'Else' F2" :=
   ((Wp_if_val b F1 F2))
@@ -876,3 +861,9 @@ Notation "'Match_' v 'With' ''|' vp1 [ x11 ] ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>'
    format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  [ x11 ] ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
   : wp_scope.
 
+
+(* NEEDED?
+Notation "'Apptrm' t " :=
+  ((Wp_app t))
+  (at level 68, t at level 0) : wp_scope.
+*)

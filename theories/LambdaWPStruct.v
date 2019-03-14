@@ -332,7 +332,6 @@ Ltac xspec_record tt :=
   end.
 
 
-
 (* ---------------------------------------------------------------------- *)
 
 
@@ -353,8 +352,6 @@ Proof using.
   xapplys R'. hsimpl. hchanges (hwand_cancel (p ~> Record L')). 
 Qed. (* TODO: simplify proof *)
 
-
-
 Lemma xapp_record_get : forall A `{EA:Enc A} (Q:A->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
   H ==> p ~> Record L \* (match record_get_compute_dyn f L with
     | None => \[False]
@@ -373,8 +370,24 @@ Proof using.
 Qed. (* TODO: simplify proof *)
 
 
-
 Global Opaque val_set_field val_get_field.
+
+(* ---------------------------------------------------------------------- *)
+
+Ltac xapp_record_post tt :=
+  hsimpl; simpl; hsimpl; try xcast.
+
+Ltac xapp_record_get tt :=
+  applys xapp_record_get; xapp_record_post tt.
+
+Ltac xapp_record_set tt :=
+  applys xapp_record_set; xapp_record_post tt.
+
+Ltac xapp_record tt ::= (* dummy binding in LambdaWPTactics *)
+  match xgoal_fun tt with
+  | (val_get_field _) => xapp_record_get tt
+  | (val_set_field _) => xapp_record_set tt
+  end.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -384,5 +397,6 @@ Global Opaque val_set_field val_get_field.
    Set 'p '. X ':= ('p '.X '+ 1).
    won't parse 
 *)
+
 
 
