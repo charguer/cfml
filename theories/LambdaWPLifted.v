@@ -827,43 +827,37 @@ Notation "'For' x '=' n1 'To' n2 'Do' F3 'Done'" :=
    format "'[v' 'For'  x  '='  n1  'To'  n2  'Do'  '/' '[' F3 ']' '/'  'Done' ']'")
   : wp_scope.
 
-Notation "'Case' v '=' vp 'Then' F1 'Else' F2" :=
+Notation "'Case' v '=' vp ''=>' F1 ''|' F2" :=
   ((Wp_case_val (fun A EA Q => \[v = vp%val] \-* F1 A EA Q) (v <> vp%val) F2))
-  (at level 69, v, vp at level 0,
-   format "'[v' 'Case'  v  '='  vp  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
+  (at level 69, v, vp at level 69,
+   format "'[v' 'Case'  v  '='  vp  ''=>'  '[' '/' F1 ']' '[' '/'  ''|'  F2 ']' ']'")
    : wp_scope.
 
-Notation "'Case' v '=' vp [ x1 ] 'Then' F1 'Else' F2" :=
+Notation "'Case' v '=' vp [ x1 ] ''=>' F1 ''|' F2" :=
   ((Wp_case_val (fun A EA Q => \forall x1, \[v = vp%val] \-* F1 A EA Q) (forall x1, v <> vp%val) F2))
-  (at level 69, v, vp at level 0, x1 ident,
-   format "'[v' 'Case'  v  '='  vp  [ x1 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
+  (at level 69, v, vp at level 69, x1 ident,
+   format "'[v' 'Case'  v  '='  vp  [ x1 ]  ''=>'  '[' '/' F1 ']' '[' '/'  ''|'  F2 ']' ']'")
    : wp_scope.
 
-Notation "'Case' v '=' vp [ x1 x2 ] 'Then' F1 'Else' F2" :=
+Notation "'Case' v '=' vp [ x1 x2 ] ''=>' F1 ''|' F2" :=
   ((Wp_case_val (fun A EA Q => \forall x1 x2, \[v = vp%val] \-* F1 A EA Q) (forall x1 x2, v <> vp%val) F2))
-  (at level 69, v, vp at level 0, x1 ident, x2 ident,
-   format "'[v' 'Case'  v  '='  vp  [ x1  x2 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
+  (at level 69, v, vp at level 69, x1 ident, x2 ident,
+   format "'[v' 'Case'  v  '='  vp  [ x1  x2 ]  ''=>'  '[' '/' F1 ']' '[' '/'  ''|'  F2 ']' ']'")
    : wp_scope.
 
-Notation "'Case' v '=' vp [ x1 x2 ] 'Then' F1 'Else' F2" :=
-  ((Wp_case_val (fun A EA Q => \forall x1 x2, \[v = vp%val] \-* F1 A EA Q) (forall x1 x2, v <> vp%val) F2))
-  (at level 69, v, vp at level 0, x1 ident, x2 ident,
-   format "'[v' 'Case'  v  '='  vp  [ x1  x2 ]  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
-   : wp_scope.
 
-(** Needs to use [Match_] as keyword otherwise there is a parsing conflict *)
-
+(* DEPRECATED
 Notation "'Match_' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 ''=>' F2" :=
   (Case v = vp1%val Then F1 Else 
    is_Wp (Case v = vp2%val Then F2 Else 
-   is_Wp (Fail))) (at level 69, v, vp1, vp2 at level 0,
+   is_Wp (Fail))) (at level 69, v, vp1, vp2 at level 69,
    format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  ''=>'  '/' F2 ']' ']'")
   : wp_scope.
 
 Notation "'Match_' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 ] ''=>' F2" :=
   (Case v = vp1%val Then F1 Else 
    is_Wp (Case v = vp2%val [ x21 ] Then F2 Else 
-   is_Wp (Fail))) (at level 69, v, vp1, vp2 at level 0, x21 ident,
+   is_Wp (Fail))) (at level 69, v, vp1, vp2 at level 69, x21 ident,
    format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21 ]  ''=>'  '/' F2 ']' ']'")
   : wp_scope.
 
@@ -887,6 +881,8 @@ Notation "'Match_' v 'With' ''|' vp1 [ x11 ] ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>'
    is_Wp (Fail))) (at level 69, v, vp1, vp2 at level 0, x11 ident, x21 ident, x22 ident,
    format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  [ x11 ] ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
   : wp_scope.
+
+*)
 
 
 (* NEEDED?
