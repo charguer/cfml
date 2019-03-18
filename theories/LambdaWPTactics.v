@@ -531,7 +531,7 @@ Ltac xval_pre tt :=
 
 Ltac xval_arg E :=
   xval_pre tt;
-  applys (xval_lemma E); [ try reflexivity | ].
+  applys (@xval_lemma _ _ E); [ try reflexivity | ].
 
 Tactic Notation "xval" uconstr(E) :=
   xval_arg E.
@@ -542,7 +542,7 @@ Tactic Notation "xval" "*" uconstr(E) :=
 
 Ltac xval_core tt :=
   xval_pre tt;
-  applys xval_lemma; [ try reflexivity | ].
+  applys @xval_lemma; [ try reflexivity | ].
 
 Tactic Notation "xval" :=
   xval_core tt.
