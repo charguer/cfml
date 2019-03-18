@@ -305,6 +305,9 @@ Definition Wp_case_val (F1:Formula) (P:Prop) (F2:Formula) : Formula :=
     hand (^F1 Q) (\[P] \-* ^F2 Q)).
 
 
+(* Note: the use of WP_case as an intermediate definition seems to block
+   simplifications by [xwp_simpl]...
+
 Definition WP_case Wp (E:ctx) (v:val) (p:pat) (t:trm) (F2:Formula) : Formula :=
   let xs := patvars p in
   let F1 A (EA:Enc A) (Q:A->hprop) := 
@@ -313,7 +316,6 @@ Definition WP_case Wp (E:ctx) (v:val) (p:pat) (t:trm) (F2:Formula) : Formula :=
   let P := prop_forall_vars (fun G => v <> patsubst G p) Ctx.empty xs in
   `Wp_case_val F1 P F2.
 
-(* TODO
 Definition WP_match' Wp (E:ctx) (v:val) : list (pat*trm) -> Formula :=
   fix mk (pts:list(pat*trm)) : Formula :=
     match pts with

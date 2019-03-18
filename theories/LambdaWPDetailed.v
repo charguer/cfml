@@ -199,7 +199,7 @@ Lemma Triple_test1 : forall (p:loc),
     PRE \[]
     POST (fun (u:unit) => \[]).
 Proof using.
-  xwp. 
+  xwp.
 Abort.
 
 
