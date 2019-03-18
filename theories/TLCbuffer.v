@@ -164,6 +164,18 @@ Qed.
 Hint Rewrite LibList.length_map : rew_listx.
 
 
+(*----------------------*)
+(* Hint for LibListZ *)
+
+Hint Rewrite LibListZ.length_map LibListZ.index_map_eq : rew_arr.
+
+
+
+
+(*----------------------*)
+(* LibList *)
+
+
 (** The congruence rule for [map] on lists *)
 
 Lemma map_congr : forall A B (f1 f2 : A->B) l,
@@ -173,11 +185,19 @@ Proof using.
   introv H. induction l. { auto. } { rew_listx. fequals~. }
 Qed.
 
-(*----------------------*)
-(* Hint for LibListZ *)
+Lemma map_map : forall A B C (l:list A) (f:A->B) (g:B->C), 
+  map g (map f l) = map (fun x => g (f x)) l.
+Proof using.
+  intros. induction l as [|x l'].
+  { auto. }
+  { repeat rewrite map_cons. fequals. }
+Qed.
 
-Hint Rewrite LibListZ.length_map LibListZ.index_map_eq : rew_arr.
-
+Lemma mem_map' : forall A B (l : list A) (f:A->B) (x:A) (y:B),
+  mem x l ->
+  y = f x ->
+  mem y (LibList.map f l).
+Proof using. intros. subst. applys* mem_map. Qed.
 
 (*----------------------*)
 (* LibInt *)

@@ -828,21 +828,22 @@ Lemma Triple_for_raw : forall (x:var) (n1 n2:int) t3 H A `{EA: Enc A} (Q:A->hpro
   Triple (trm_for x n1 n2 t3) H Q.
 Proof using. introv M. applys triple_for_raw. applys M. Qed.
 
-Lemma Triple_case_trm : forall t1 p t2 t3 H,
+Lemma Triple_match_trm : forall t1 pts H,
   forall A `{EA:Enc A} (Q:A->hprop) A1 `{EA1:Enc A1} (Q1:A1->hprop),
   Triple t1 H Q1 -> 
-  (forall (X:A1), Triple (trm_case (``X) p t2 t3) (Q1 X) Q) ->
-  Triple (trm_case t1 p t2 t3) H Q.
+  (forall (X:A1), Triple (trm_match (``X) pts) (Q1 X) Q) ->
+  Triple (trm_match t1 pts) H Q.
 Proof using.
-  introv M1 M2. applys* triple_case_trm.
+  introv M1 M2. applys* triple_match_trm.
   intros v. unfold Post at 1. xpull ;=> V ->. applys M2.
 Qed.
 
-Lemma Triple_case : forall v p t2 t3 H `{EA:Enc A} (Q:A->hprop),
-  (forall (G:ctx), Ctx.dom G = patvars p -> v = patsubst G p -> Triple (isubst G t2) H Q) ->
-  ((forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p) -> Triple t3 H Q) ->
-  Triple (trm_case v p t2 t3) H Q.
-Proof using. introv M1 M2. applys* triple_case.
+Lemma Triple_match : forall v p t1 pts H `{EA:Enc A} (Q:A->hprop),
+  (forall (G:ctx), Ctx.dom G = patvars p -> v = patsubst G p -> Triple (isubst G t1) H Q) ->
+  ((forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p) -> Triple (trm_match v pts) H Q) ->
+  Triple (trm_match v ((p,t1)::pts)) H Q.
+Proof using. 
+  introv M1 M2. applys* triple_match.
   { introv HG Hv. applys* M1. }
   { introv HG Hv. applys* M2. }
 Qed.

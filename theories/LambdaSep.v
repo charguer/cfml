@@ -577,28 +577,28 @@ Proof using.
   exists h1' v1. splits~. { applys* red_for. }
 Qed.
 
-Lemma hoare_case : forall v p t2 t3 H Q,
-  (forall (G:ctx), Ctx.dom G = patvars p -> v = patsubst G p -> hoare (isubst G t2) H Q) ->
-  ((forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p) -> hoare t3 H Q) ->
-  hoare (trm_case v p t2 t3) H Q.
+Lemma hoare_match : forall v p t1 pts H Q,
+  (forall (G:ctx), Ctx.dom G = patvars p -> v = patsubst G p -> hoare (isubst G t1) H Q) ->
+  ((forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p) -> hoare (trm_match v pts) H Q) ->
+  hoare (trm_match v ((p,t1)::pts)) H Q.
 Proof using.
   introv M1 M2 Hh. tests C: (exists (G:ctx), Ctx.dom G = patvars p /\ v = patsubst G p).
   { destruct C as (G&DG&Ev). forwards* (h1'&v1&R1&K1): (rm M1).
-    exists h1' v1. splits~. { applys~ red_case_match R1. } }
+    exists h1' v1. splits~. { applys~ red_match_yes R1. } }
   { forwards* (h1'&v1&R1&K1): (rm M2).
-    exists h1' v1. splits~. { applys~ red_case_mismatch R1.
+    exists h1' v1. splits~. { applys~ red_match_no R1.
       intros G HG. specializes C G. rew_logic in C. destruct* C. } }
 Qed.
 
-Lemma hoare_case_trm : forall t1 p t2 t3 H Q Q1,
+Lemma hoare_case_trm : forall t1 pts H Q Q1,
   hoare t1 H Q1 -> 
-  (forall v, hoare (trm_case v p t2 t3) (Q1 v) Q) ->
-  hoare (trm_case t1 p t2 t3) H Q.
+  (forall v, hoare (trm_match v pts) (Q1 v) Q) ->
+  hoare (trm_match t1 pts) H Q.
 Proof using.
   introv M1 M2. intros h Hh.
   forwards* (h1'&v1&R1&K1): (rm M1).
   forwards* (h2'&v2&R2&K2): (rm M2).
-  exists h2' v2. splits~. { applys~ red_case_trm R2. }
+  exists h2' v2. splits~. { applys~ red_match_trm R2. }
 Qed.
 
 
@@ -844,7 +844,7 @@ Proof using.
     intros v. specializes M2 v. rewrite isubst_trm_apps_args in M2. applys M2. }
   { applys triple_evalctx (fun t1 => trm_for x t1 (isubst E t2) (isubst (Ctx.rem x E) t3)); eauto. }
   { applys triple_evalctx (fun t2 => trm_for x v1 t2 (isubst (Ctx.rem x E) t3)); eauto. }
-  { applys triple_evalctx (fun t1 => trm_case t1 p (isubst (Ctx.rem_vars (patvars p) E) t2) (isubst E t3)); eauto. }
+  { applys triple_evalctx (fun t0 => trm_match t0 (List.map (fun '(pi,ti) => (pi, isubst (Ctx.rem_vars (patvars pi) E) ti)) pts)); eauto. }
 Qed.
 
 Lemma triple_val : forall v H Q,
@@ -1079,21 +1079,21 @@ End RuleForInv.
 (* ---------------------------------------------------------------------- *)
 (* ** SL rules for pattern matching *)
 
-Lemma triple_case_trm : forall t1 p t2 t3 H Q Q1,
+Lemma triple_match_trm : forall t1 pts H Q Q1,
   triple t1 H Q1 -> 
-  (forall v, triple (trm_case v p t2 t3) (Q1 v) Q) ->
-  triple (trm_case t1 p t2 t3) H Q.
+  (forall v, triple (trm_match v pts) (Q1 v) Q) ->
+  triple (trm_match t1 pts) H Q.
 Proof using.
   introv M1 M2. intros HF. applys~ hoare_case_trm.
   { intros b. applys* hoare_of_triple. }
 Qed.
 
-Lemma triple_case : forall v p t2 t3 H Q,
-  (forall (G:ctx), Ctx.dom G = patvars p -> v = patsubst G p -> triple (isubst G t2) H Q) ->
-  ((forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p) -> triple t3 H Q) ->
-  triple (trm_case v p t2 t3) H Q.
+Lemma triple_match : forall v p t1 pts H Q,
+  (forall (G:ctx), Ctx.dom G = patvars p -> v = patsubst G p -> triple (isubst G t1) H Q) ->
+  ((forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p) -> triple (trm_match v pts) H Q) ->
+  triple (trm_match v ((p,t1)::pts)) H Q.
 Proof using.
-  introv M1 M2. intros HF. applys hoare_case.
+  introv M1 M2. intros HF. applys hoare_match.
   { introv HG Hv. applys* M1. }
   { introv HG Hv. applys* M2. }
 Qed.

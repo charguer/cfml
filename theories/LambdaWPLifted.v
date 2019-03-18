@@ -300,9 +300,42 @@ Fixpoint prop_forall_vars (Hof:ctx->Prop) (G:ctx) (xs:vars) : Prop :=
 
 
 
-Definition Wp_case_val (F2:Formula) (P:Prop) (F3:Formula) : Formula :=
+Definition Wp_case_val (F1:Formula) (P:Prop) (F2:Formula) : Formula :=
   Local (fun `{Enc A} Q =>
-    hand (^F2 Q) (\[P] \-* ^F3 Q)).
+    hand (^F1 Q) (\[P] \-* ^F2 Q)).
+
+
+Definition WP_case Wp (E:ctx) (v:val) (p:pat) (t:trm) (F2:Formula) : Formula :=
+  let xs := patvars p in
+  let F1 A (EA:Enc A) (Q:A->hprop) := 
+     hprop_forall_vars (fun G => let E' := (Ctx.app G E) in
+        \[v = patsubst G p] \-* ^(Wp E' t) Q) Ctx.empty xs in
+  let P := prop_forall_vars (fun G => v <> patsubst G p) Ctx.empty xs in
+  `Wp_case_val F1 P F2.
+
+(* TODO
+Definition WP_match' Wp (E:ctx) (v:val) : list (pat*trm) -> Formula :=
+  fix mk (pts:list(pat*trm)) : Formula :=
+    match pts with
+    | nil => `Wp_fail
+    | (p,t)::pts' => WP_case Wp E v p t (mk pts')
+    end.
+*)
+
+Definition WP_match Wp (E:ctx) (v:val) : list (pat*trm) -> Formula :=
+  fix mk (pts:list(pat*trm)) : Formula :=
+    match pts with
+    | nil => `Wp_fail
+    | (p,t)::pts' =>
+        let xs := patvars p in
+        let F1 A (EA:Enc A) (Q:A->hprop) := 
+           hprop_forall_vars (fun G => let E' := (Ctx.app G E) in
+              \[v = patsubst G p] \-* ^(Wp E' t) Q) Ctx.empty xs in
+        let P := prop_forall_vars (fun G => v <> patsubst G p) Ctx.empty xs in
+        `Wp_case_val F1 P (mk pts')
+    end.
+
+
 
 (*
 Definition fand (F1 F2:Formula) : Formula :=
@@ -406,19 +439,14 @@ Fixpoint Wp (E:ctx) (t:trm) : Formula :=
      WP_getval_typed Wp E t1 (fun n1 =>
        WP_getval_typed Wp E t2 (fun n2 =>
          `Wp_for_int n1 n2 (fun n => Wp (Ctx.add x (enc n) E) t3)))
-  | trm_case t1 p t2 t3 =>
-      WP_getval Wp E t1 (fun v1 =>
-        let xs := patvars p in
-        let F1 A (EA:Enc A) (Q:A->hprop) := 
-           hprop_forall_vars (fun G => let E' := (Ctx.app G E) in
-              \[v1 = patsubst G p] \-* ^(Wp E' t2) Q) Ctx.empty xs in
-        let P := prop_forall_vars (fun G => v1 <> patsubst G p) Ctx.empty xs in
-        `Wp_case_val F1 P (aux t3))
+  | trm_match t0 pts =>
+      WP_getval Wp E t0 (fun v0 =>
+        WP_match Wp E v0 pts)
   | trm_fail => `Wp_fail
   end.
 
 (* LATER: uniformiser t0 vs t1 for trm_if *)
- 
+
 
 (* ********************************************************************** *)
 (* * Soundness proof *)
@@ -800,7 +828,7 @@ Notation "'For' x '=' n1 'To' n2 'Do' F3 'Done'" :=
 Notation "'Case' v '=' vp 'Then' F1 'Else' F2" :=
   ((Wp_case_val (fun A EA Q => \[v = vp%val] \-* F1 A EA Q) (v <> vp%val) F2))
   (at level 69, v, vp at level 0,
-   format "'[v' 'Case'  v  '=' vp  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
+   format "'[v' 'Case'  v  '='  vp  'Then'  '[' '/' F1 ']' '[' '/'  'Else'  F2 ']' ']'")
    : wp_scope.
 
 Notation "'Case' v '=' vp [ x1 ] 'Then' F1 'Else' F2" :=

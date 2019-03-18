@@ -30,11 +30,11 @@ Module Basic.
 (** Incr *)
 
 Definition val_incr : val :=
-  ValFun 'p :=
+  VFun 'p :=
    'p ':= ((val_get 'p) '+ 1).
 
 (* VARIANT:
-  ValFun 'p :=
+  VFun 'p :=
     Let 'n := val_get 'p in
    'p ':= ('n '+ 1).
 *)
@@ -102,7 +102,7 @@ Definition Point (x y:int) (p:loc) : hprop :=
 
 
 Definition val_move_X : val :=
-  ValFun 'p :=
+  VFun 'p :=
    Set 'p'.X ':= ('p'.X '+ 1) ';
    Set 'p'.K ':= ('p'.K '+ 1).
 
@@ -183,6 +183,67 @@ End Point.
 
 
 (* ********************************************************************** *)
+(* * Test match *)
+
+Module TestMatch.
+
+(* ---------------------------------------------------------------------- *)
+(* ** Case without variables *)
+
+Definition val_test1 : val :=
+  VFun 'p :=
+    Match 'p With pat_unit '=> 'Fail End.
+
+Lemma Triple_test1 : forall (p:loc),
+  TRIPLE (val_test1 ``p)
+    PRE \[]
+    POST (fun (u:unit) => \[]).
+Proof using.
+  xwp. 
+Abort.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Case with 1 variable *)
+
+Definition val_test2 : val :=
+  VFun 'p :=
+    Match 'p With 'x '=> 'x End.
+
+Lemma Triple_test2 : forall (p:loc),
+  TRIPLE (val_test2 p)
+    PRE \[]
+    POST (fun (u:unit) => \[]).
+Proof using.
+  xwp.
+Abort.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Match without variables *)
+
+
+Definition val_test0 : val :=
+  VFun 'p :=
+    Match 'p With
+    '| pat_unit '=> 'Fail 
+    '| pat_unit '=> 'p 
+    End.
+
+Lemma triple_test0 : forall (p:loc),
+  TRIPLE (val_test0 p)
+    PRE \[]
+    POST (fun (u:unit) => \[]).
+Proof using.
+  xwp.
+Abort.
+
+
+End TestMatch.
+
+
+
+(* ********************************************************************** *)
 (* * Mutable lists *)
 
 
@@ -221,11 +282,11 @@ Qed.
 (** Length *)
 
 Definition val_mlist_length : val :=
-  ValFix 'f 'p :=
+  VFix 'f 'p :=
     Let 'v := val_get 'p in
     Match 'v With
-    '| '#"nil" '=> 0
-    '| '#"cons" 'x 'q '=> 1 '+ 'f 'q
+    '| 'Cstr "nil" '=> 0
+    '| 'Cstr "cons" 'x 'q '=> 1 '+ 'f 'q
     End.
 
 Lemma Triple_mlist_length_1 : forall `{EA:Enc A} (L:list A) (p:loc),
@@ -301,64 +362,6 @@ End MList.
 
 
 
-(* ********************************************************************** *)
-(* * Test *)
-
-Module TestMatch.
-
-(* ---------------------------------------------------------------------- *)
-(* ** Case without variables *)
-
-Definition val_test1 : val :=
-  ValFun 'p :=
-    Case' 'p = pat_unit Then 'Fail Else 'Fail.
-
-Lemma Triple_test1 : forall (p:loc),
-  TRIPLE (val_test1 ``p)
-    PRE \[]
-    POST (fun (u:unit) => \[]).
-Proof using.
-  xwp.
-Abort.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Case with 1 variable *)
-
-Definition val_test2 : val :=
-  ValFun 'p :=
-    Case' 'p = 'x Then 'x Else 'Fail.
-
-Lemma Triple_test2 : forall (p:loc),
-  TRIPLE (val_test2 p)
-    PRE \[]
-    POST (fun (u:unit) => \[]).
-Proof using.
-  xwp.
-Abort.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Match without variables *)
-
-
-Definition val_test0 : val :=
-  ValFun 'p :=
-    Case' 'p = pat_unit Then 'Fail Else
-    Case' 'p = pat_unit Then 'p Else 
-    'Fail.
-
-Lemma triple_test0 : forall (p:loc),
-  TRIPLE (val_test0 p)
-    PRE \[]
-    POST (fun (u:unit) => \[]).
-Proof using.
-  xwp.
-Abort.
-
-
-End TestMatch.
-
 
 (* ********************************************************************** *)
 (* * Stack *)
@@ -367,19 +370,19 @@ End TestMatch.
 Module Stack.
 
 Definition val_is_empty : val :=
-  ValFun 'p :=
+  VFun 'p :=
     val_get 'p '= 'nil.
 
 Definition val_empty : val :=
-  ValFun 'u :=
+  VFun 'u :=
    val_ref 'nil.
 
 Definition val_push : val :=
-  ValFun 'p 'x :=
+  VFun 'p 'x :=
    'p ':= ('x ':: (val_get 'p)).
 
 Definition val_pop : val :=
-  ValFun 'p :=
+  VFun 'p :=
    (Let 'q := val_get 'p in
    Match 'q With
    '| 'nil '=> 'Fail
@@ -387,7 +390,7 @@ Definition val_pop : val :=
    End).
 
 Definition val_rev_append : val :=
-  ValFix 'f 'p1 'p2 :=
+  VFix 'f 'p1 'p2 :=
     If_ val_is_empty 'p1 Then '() Else 
        Let 'x := val_pop 'p1 in
        val_push 'p2 'x ';
