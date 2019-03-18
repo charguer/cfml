@@ -370,7 +370,7 @@ Definition hwand (H1 H2 : hprop) : hprop :=
   hexists (fun (H:hprop) => H \* (hpure (H \* H1 ==> H2))).
 
 Notation "H1 \-* H2" := (hwand H1 H2)
-  (at level 43) : heap_scope.
+  (at level 43, right associativity) : heap_scope.
 
 (** Magic wand for postconditions, written [Q1 \--* Q2] *)
 
