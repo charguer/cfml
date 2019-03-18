@@ -431,9 +431,46 @@ Proof using.
     hchange (MList_cons_fold q). hchange (MList_cons_fold p). hsimpl. }
 Qed.
 
+(* LATER: copy using loop *)
+
+
 
 (* ---------------------------------------------------------------------- *)
-(** Append *)
+(** Append nondestructive *)
+
+Definition val_mlist_nondestructive_append : val :=
+  VFix 'f 'p1 'p2 :=
+    Match '! 'p1 With
+    '| 'Cstr "nil" '=> val_mlist_copy 'p2
+    '| 'Cstr "cons" 'x 'q1 '=> val_ref ('Cstr "cons" 'x ('f 'q1 'p2))  
+    End.
+
+Lemma Triple_mlist_nondestructive_append : forall `{EA:Enc A} (L1 L2:list A) (p1 p2:loc),
+  TRIPLE (val_mlist_nondestructive_append p1 p2)
+    PRE (p1 ~> MList L1 \* p2 ~> MList L2)
+    POST (fun (p3:loc) => p1 ~> MList L1 \* p2 ~> MList L2 \* p3 ~> MList (L1++L2)).
+Proof using.
+  intros. gen p1. induction_wf IH: (@list_sub A) L1. intros.
+  xwp. applys himpl_trans'. applys Mlist_unfold_match'. hsimpl. 
+  applys himpl_hand_r. hsimpl. hsimpl.
+  (* applys applys Mlist_unfold_match. *)
+  { (* nil *)
+     intros ->. xapp Triple_mlist_copy ;=> p3. hsimpl. }
+  { (* cons *) 
+    hcancel_setup tt. eapply hcancel_hforall'; intros q'. 
+     eapply hcancel_hforall'; intros x.
+     eapply hcancel_hforall'; intros L'. (* TODO tactic *)
+    hcancel_cleanup tt. hsimpl. intros ->. hsimpl. hsimpl.
+    (* intros p' x L' ->. *) 
+    xapp* IH ;=> p3'. hchanges (MList_cons_fold p1). 
+    xval (Cons x p3'). xapp ;=> p3.
+    hchanges (MList_cons_fold p3).  }
+Qed.
+
+
+
+(* ---------------------------------------------------------------------- *)
+(** Append inplace *)
 
 Definition val_mlist_inplace_append : val :=
   VFix 'f 'p1 'p2 :=
@@ -463,35 +500,12 @@ Proof using.
      hsimpl. } 
   { (* cons *) 
     hcancel_setup tt. eapply hcancel_hforall'; intros q'. 
-     eapply hcancel_hforall'; intros x'.
+     eapply hcancel_hforall'; intros x.
      eapply hcancel_hforall'; intros L'. (* TODO tactic *)
     hcancel_cleanup tt. hsimpl. intros ->. hsimpl. hsimpl.
     (* intros p' x L' ->. *) 
     xapp* IH. hchanges (MList_cons_fold p1). }
 Qed.
-
-
-
-
-
-(*
-
-
-   copy : using recursion + using loop
-   append (destructive, or non-destructive)
-   mem
-   count
-   in-place reversal
-   cps-append (bonus example)
-   split 
-   combine  
-   basic sorting on list of integers, e.g. merge sort, insertion sort
-
-*)
-
-
-(* TODO: find a way using uconstr to support the syntax:
-    [induction_wf IH: list_sub L1] *)
 
 End MList.
 
@@ -950,6 +964,23 @@ Parameter facto_succ : forall n, n >= 1 -> facto n = n * facto(n-1).
 *)
 
 End Factorial.
+
+
+(* EXO:
+
+   mem
+   count
+   in-place reversal
+   cps-append (bonus example)
+   split 
+   combine  
+   basic sorting on list of integers, e.g. merge sort, insertion sort
+
+*)
+
+
+(* TODO: find a way using uconstr to support the syntax:
+    [induction_wf IH: list_sub L1] *)
 
 
 
