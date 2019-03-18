@@ -138,7 +138,10 @@ Lemma Mlist_unfold_match : forall `{EA:Enc A} (L:list A) (p:loc) `{EB:Enc B}
   ->
   PRE (p ~> MList L)
   CODE (Let [A0 EA0] X := `App (trm_val (val_prim val_get)) (val_loc p) in
-        `Match_ (``X) With '| 'VCstr "nil" '=> F1 '| 'VCstr "cons" X0 X1 [X0 X1] '=> F2 X0 X1)
+         Case ``X = 'VCstr "nil" '=> F1 
+      '| Case ``X = 'VCstr "cons" X0 X1 [X0 X1] '=> F2 X0 X1
+      '| Fail)      
+      (*`Match_ (``X) With '| ('VCstr "nil") '=> F1 '| 'VCstr "cons" X0 X1 [X0 X1] '=> F2 X0 X1) *)
   POST Q.
 Proof using.
   introv M1 M2.

@@ -300,33 +300,21 @@ Fixpoint prop_forall_vars (Hof:ctx->Prop) (G:ctx) (xs:vars) : Prop :=
 
 
 
-Definition Wp_case_val (F1of:val->Formula) (Pof:val->Prop) (F2of:val->Formula) (v:val) : Formula :=
+Definition Wp_case_val (F1:Formula) (P:Prop) (F2:Formula) : Formula :=
   Local (fun `{Enc A} Q =>
-    hand (^(F1of v) Q) (\[Pof v] \-* ^(F2of v) Q)).
+    hand (^F1 Q) (\[P] \-* ^F2 Q)).
 
-
-
-
-
-Definition Wp_match_val (v:val) (Fof:val->Formula) : Formula := 
-  Fof v.
-
-Definition Wp_match_fail : val->Formula :=
-  fun (v:val) => `Wp_fail.
-
-Notation "'Fail''" := (fun v => `Wp_fail) : wp_scope.
-
-Definition WP_match_clauses Wp (E:ctx) : list (pat*trm) -> val -> Formula :=
-  fix mk (pts:list(pat*trm)) : val->Formula :=
+Definition WP_match Wp (E:ctx) (v:val) : list (pat*trm) ->  Formula :=
+  fix mk (pts:list(pat*trm)) : Formula :=
     match pts with
-    | nil => (fun v => `Wp_fail)
+    | nil => `Wp_fail
     | (p,t)::pts' =>
         let xs := patvars p in
-        let F1of (v:val) A (EA:Enc A) (Q:A->hprop) := 
+        let F1 A (EA:Enc A) (Q:A->hprop) := 
            hprop_forall_vars (fun G => let E' := (Ctx.app G E) in
               \[v = patsubst G p] \-* ^(Wp E' t) Q) Ctx.empty xs in
-        let Pof := (fun v => prop_forall_vars (fun G => v <> patsubst G p) Ctx.empty xs) in
-        (fun v => Wp_case_val F1of Pof (mk pts') v)
+        let P := prop_forall_vars (fun G => v <> patsubst G p) Ctx.empty xs in
+        Wp_case_val F1 P (mk pts')
     end.
   (* Warning: the body of the cons case above, if put in an auxiliary definition,
      no longer simplifies well using [xwp_simpl] *)
@@ -436,7 +424,7 @@ Fixpoint Wp (E:ctx) (t:trm) : Formula :=
          `Wp_for_int n1 n2 (fun n => Wp (Ctx.add x (enc n) E) t3)))
   | trm_match t0 pts =>
       WP_getval Wp E t0 (fun v0 =>
-        `Wp_match_val v0 (WP_match_clauses Wp E pts))
+        WP_match Wp E v0 pts)
   | trm_fail => `Wp_fail
   end.
 
@@ -820,26 +808,47 @@ Notation "'For' x '=' n1 'To' n2 'Do' F3 'Done'" :=
    format "'[v' 'For'  x  '='  n1  'To'  n2  'Do'  '/' '[' F3 ']' '/'  'Done' ']'")
   : wp_scope.
 
-Notation "'Case' vp ''=>' F1 ''|' F2of" :=
-  ((Wp_case_val (fun v A EA Q => \[v = vp%val] \-* F1 A EA Q) (fun v => v <> vp%val) F2of))
-  (at level 69, vp at level 69,
-   format "'[v' 'Case'  vp  ''=>'  '[' '/' F1 ']' '[' '/'  ''|'  F2of ']' ']'")
+
+Notation "'Case' v '=' vp ''=>' F1 ''|' F2" :=
+  ((Wp_case_val (fun A EA Q => \[v = vp%val] \-* F1 A EA Q) (v <> vp%val) F2))
+  (at level 69, v, vp at level 69,
+   format "'[v' 'Case'  v  '='  vp  ''=>'  '[' '/' F1 ']' '[' '/'  ''|'  F2 ']' ']'")
    : wp_scope.
 
-Notation "'Case' vp [ x1 ] ''=>' F1 ''|' F2of" :=
-  ((Wp_case_val (fun v A EA Q => \forall x1, \[v = vp%val] \-* F1 A EA Q) (fun v => forall x1, v <> vp%val) F2of))
-  (at level 69, vp at level 69, x1 ident,
-   format "'[v' 'Case'  vp  [ x1 ]  ''=>'  '[' '/' F1 ']' '[' '/'  ''|'  F2of ']' ']'")
+Notation "'Case' v '=' vp [ x1 ] ''=>' F1 ''|' F2" :=
+  ((Wp_case_val (fun A EA Q => \forall x1, \[v = vp%val] \-* F1 A EA Q) (forall x1, v <> vp%val) F2))
+  (at level 69, v, vp at level 69, x1 ident,
+   format "'[v' 'Case'  v  '='  vp  [ x1 ]  ''=>'  '[' '/' F1 ']' '[' '/'  ''|'  F2 ']' ']'")
    : wp_scope.
 
-Notation "'Case'  vp [ x1 x2 ] ''=>' F1 ''|' F2of" :=
-  ((Wp_case_val (fun v => fun A EA Q => \forall x1 x2, \[v = vp%val] \-* F1 A EA Q) (fun v => forall x1 x2, v <> vp%val) F2of))
-  (at level 69, vp at level 69, x1 ident, x2 ident,
-   format "'[v' 'Case'  vp  [ x1  x2 ]  ''=>'  '[' '/' F1 ']' '[' '/'  ''|'  F2of ']' ']'")
+Notation "'Case' v '=' vp [ x1 x2 ] ''=>' F1 ''|' F2" :=
+  ((Wp_case_val (fun A EA Q => \forall x1 x2, \[v = vp%val] \-* F1 A EA Q) (forall x1 x2, v <> vp%val) F2))
+  (at level 69, v, vp at level 69, x1 ident, x2 ident,
+   format "'[v' 'Case'  v  '='  vp  [ x1  x2 ]  ''=>'  '[' '/' F1 ']' '[' '/'  ''|'  F2 ']' ']'")
    : wp_scope.
 
 
-(** Needs to use [Match_] as keyword otherwise there seems to be a parsing conflict *)
+(* DEPRECATED
+Notation "'Match_' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 ''=>' F2" :=
+  (Case v = vp1%val Then F1 Else 
+   is_Wp (Case v = vp2%val Then F2 Else 
+   is_Wp (Fail))) (at level 69, v, vp1, vp2 at level 69,
+   format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  ''=>'  '/' F2 ']' ']'")
+  : wp_scope.
+
+Notation "'Match_' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 ] ''=>' F2" :=
+  (Case v = vp1%val Then F1 Else 
+   is_Wp (Case v = vp2%val [ x21 ] Then F2 Else 
+   is_Wp (Fail))) (at level 69, v, vp1, vp2 at level 69, x21 ident,
+   format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21 ]  ''=>'  '/' F2 ']' ']'")
+  : wp_scope.
+
+Notation "'Match_' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>' F2" :=
+  (Case v = vp1%val Then F1 Else 
+   is_Wp (Case v = vp2%val [ x21 x22 ] Then F2 Else 
+   is_Wp (Fail))) (at level 69, v, vp1, vp2 at level 0, x21 ident, x22 ident,
+   format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
+  : wp_scope.
 
 Notation "'Match_' v 'With' Fof 'End'" :=
   ((Wp_match_val v Fof))
@@ -847,6 +856,8 @@ Notation "'Match_' v 'With' Fof 'End'" :=
    format "'[v' 'Match_'  v  'With'  '/' '[' Fof ']' '/'  'End' ']'")
    : wp_scope.
 
+
+*)
 
 
 (* NEEDED?

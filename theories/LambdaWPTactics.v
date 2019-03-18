@@ -194,7 +194,7 @@ Ltac xwp_simpl :=
   LibList.combine 
   List.rev Datatypes.app List.fold_right List.map
   Wp WP_getval WP_getval_typed WP_getval_val WP_getval_int
-  WP_apps WP_apps_or_prim WP_constr WP_var WP_match WP_case 
+  WP_apps WP_apps_or_prim WP_constr WP_var WP_match  
   hprop_forall_vars prop_forall_vars
   trm_case trm_to_pat patvars patsubst combiner_to_trm
   Ctx.app Ctx.empty Ctx.lookup Ctx.add 
@@ -617,12 +617,13 @@ Proof using.
   { repeat (applys himpl_hforall_r ;=> ?). applys* hwand_move_l_pure. }
 Qed.
 
+
 Lemma xmatch_lemma_list : forall `{EA:Enc A} (L:list A) (F1:Formula) (F2:val->val->Formula) H `{HB:Enc B} (Q:B->hprop),
   (L = nil -> H ==> ^F1 Q) ->
   (forall X L', L = X::L' -> H ==> ^(F2 ``X ``L') Q) ->
-  H ==> ^(Match_ ``L With
-         '| 'nil '=> F1
-         '| vX ':: vL' [vX vL'] '=> F2 vX vL') Q.
+  H ==> ^(  Case ``L = 'nil '=> F1 
+         '| Case ``L = (vX ':: vL') [vX vL'] '=> F2 vX vL' 
+         '| Fail) Q.
 Proof using.
   introv M1 M2. applys xcase_lemma0 ;=> E1.
   { destruct L; rew_enc in *; tryfalse. applys* M1. }
@@ -631,6 +632,11 @@ Proof using.
     { intros N. false* N. } }
 Qed.
 
+(* conclusion above:
+  H ==> ^(Match_ ``L With
+         '| 'nil '=> F1
+         '| vX ':: vL' [vX vL'] '=> F2 vX vL') Q.
+*)
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xfail] *)
