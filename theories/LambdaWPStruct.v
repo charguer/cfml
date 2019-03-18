@@ -29,12 +29,12 @@ Implicit Types l : loc.
 (* ** Record get/set functions *)
 
 Definition val_get_field (k:field) : val :=
-  ValFun 'p :=
+  VFun 'p :=
     Let 'q := val_ptr_add 'p (nat_to_Z k) in
     val_get 'q.
 
 Definition val_set_field (k:field) : val :=
-  ValFun 'p 'v :=
+  VFun 'p 'v :=
     Let 'q := val_ptr_add 'p (nat_to_Z k) in
     val_set 'q 'v.
 

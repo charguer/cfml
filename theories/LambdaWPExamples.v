@@ -39,7 +39,7 @@ Definition Point (x y:int) (p:loc) : hprop :=
 
 
 Definition val_move_X : val :=
-  ValFun 'p :=
+  VFun 'p :=
    Set 'p'.X ':= ('p'.X '+ 1) ';
    Set 'p'.K ':= ('p'.K '+ 1).
 
@@ -138,7 +138,7 @@ Lemma Mlist_unfold_match : forall `{EA:Enc A} (L:list A) (p:loc) `{EB:Enc B}
   ->
   PRE (p ~> MList L)
   CODE (Let [A0 EA0] X := `App (trm_val (val_prim val_get)) (val_loc p) in
-        `Match_ (``X) With '| 'nil '=> F1 '| ('#"cons" X0 X1) [X0 X1] '=> F2 X0 X1)
+        `Match_ (``X) With '| 'VCstr "nil" '=> F1 '| 'VCstr "cons" X0 X1 [X0 X1] '=> F2 X0 X1)
   POST Q.
 Proof using.
   introv M1 M2.
@@ -158,15 +158,16 @@ Proof using.
 Qed.
 
 
+
 (* ---------------------------------------------------------------------- *)
 (** Length *)
 
 Definition val_mlist_length : val :=
-  ValFix 'f 'p :=
+  VFix 'f 'p :=
     Let 'v := val_get 'p in
     Match 'v With
-    '| '#"nil" '=> 0
-    '| '#"cons" 'x 'q '=> 1 '+ 'f 'q
+    '| 'Cstr "nil" '=> 0
+    '| 'Cstr "cons" 'x 'q '=> 1 '+ 'f 'q
     End.
 
 Lemma Triple_mlist_length_1 : forall `{EA:Enc A} (L:list A) (p:loc),
@@ -273,11 +274,11 @@ Qed.
 (** Length *)
 
 Definition val_mlist_length : val :=
-  ValFix 'f 'p :=
+  VFix 'f 'p :=
     Let 'v := val_get 'p in
     Match 'v With
-    '| '#"nil" '=> 0
-    '| '#"cons" 'x 'q '=> 1 '+ 'f 'q
+    '| 'Cstr "nil" '=> 0
+    '| 'Cstr "cons" 'x 'q '=> 1 '+ 'f 'q
     End.
 
 Lemma Triple_mlist_length_1 : forall `{EA:Enc A} (L:list A) (p:loc),
@@ -320,11 +321,11 @@ Module Basic.
 (** Incr *)
 
 Definition val_incr : val :=
-  ValFun 'p :=
+  VFun 'p :=
    'p ':= ((val_get 'p) '+ 1).
 
 (* VARIANT:
-  ValFun 'p :=
+  VFun 'p :=
     Let 'n := val_get 'p in
    'p ':= ('n '+ 1).
 *)
@@ -369,7 +370,7 @@ then just:
 (** Swap *)
 
 Definition val_swap :=
-  ValFun 'p 'q :=
+  VFun 'p 'q :=
     Let 'x := val_get 'p in
     Let 'y := val_get 'q in
     val_set 'p 'y ;;;
@@ -396,7 +397,7 @@ Qed.
 (** Succ using incr *)
 
 Definition val_succ_using_incr :=
-  ValFun 'n :=
+  VFun 'n :=
     Let 'p := val_ref 'n in
     val_incr 'p ;;;
     Let 'x := val_get 'p in
@@ -418,7 +419,7 @@ Qed.
 (** Basic let-binding example *)
 
 Definition val_example_let :=
-  ValFun 'n :=
+  VFun 'n :=
     Let 'a := 'n '+ 1 in
     Let 'b := 'n '- 1 in
     'a '+ 'b.
@@ -443,7 +444,7 @@ Qed.
 *)
 
 Definition val_example_one_ref :=
-  ValFun 'n :=
+  VFun 'n :=
     Let 'k := 'n '+ 1 in
     Let 'i := 'ref 'k in
     val_incr 'i ;;;
@@ -472,7 +473,7 @@ Qed.
 *)
 
 Definition val_example_two_ref :=
-  ValFun 'n :=
+  VFun 'n :=
     Let 'i := 'ref 0 in
     Let 'r := 'ref 'n in
     val_decr 'r ;;;
@@ -509,19 +510,19 @@ End Basic.
 Module Stack.
 
 Definition val_is_empty : val :=
-  ValFun 'p :=
+  VFun 'p :=
     val_get 'p '= 'nil.
 
 Definition val_empty : val :=
-  ValFun 'u :=
+  VFun 'u :=
    val_ref 'nil.
 
 Definition val_push : val :=
-  ValFun 'p 'x :=
+  VFun 'p 'x :=
    'p ':= ('x ':: (val_get 'p)).
 
 Definition val_pop : val :=
-  ValFun 'p :=
+  VFun 'p :=
    (Let 'q := val_get 'p in
    Match 'q With
    '| 'nil '=> 'Fail
@@ -529,7 +530,7 @@ Definition val_pop : val :=
    End).
 
 Definition val_rev_append : val :=
-  ValFix 'f 'p1 'p2 :=
+  VFix 'f 'p1 'p2 :=
     If_ val_is_empty 'p1 Then '() Else 
        Let 'x := val_pop 'p1 in
        val_push 'p2 'x ';

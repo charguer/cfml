@@ -1252,7 +1252,28 @@ Module NotationForTerms.
 
 (** Note: below, many occurences of [x] have type [bind], and not [var] *)
 
-Notation "'()" := val_unit : trm_scope.
+Notation "''App' f x1 .. xn" :=
+  (trm_apps f (@cons trm x1 .. (@cons trm xn (@nil trm)) ..))
+  (at level 69, f, x1, xn at level 0, format "''App'  f  x1  ..  xn") : trm_scope.
+
+Notation "''VCstr' C" :=
+  (val_constr C nil)
+  (at level 69, C at level 0, format "''VCstr'  C") : val_scope.
+
+(* Note: due to a bug affecting Coq 8.8, we use the notation 'VCstr' and not 'Cstr' 
+   to avoid a conflict. (https://github.com/coq/coq/issues/8106) *)
+
+Notation "''VCstr' C x1 .. xn" :=
+  (val_constr C (@cons val xw1 .. (@cons val xn (@nil val)) ..))
+  (at level 69, C, x1, xn at level 0, format "''VCstr'  C  x1  ..  xn") : val_scope.
+
+Notation "''Cstr' C" :=
+  (trm_constr C nil)
+  (at level 69, C at level 0, format "''Cstr'  C") : trm_scope.
+
+Notation "''Cstr' C x1 .. xn" :=
+  (trm_constr C (@cons trm x1 .. (@cons trm xn (@nil trm)) ..))
+  (at level 69, C, x1, xn at level 0, format "''Cstr'  C  x1  ..  xn") : trm_scope.
 
 (** Note: using [If_] instead of [If] to avoid parsing conflict *)
 
@@ -1287,66 +1308,30 @@ Notation "t1 '';' t2" :=
   (trm_seq t1 t2)
   (at level 68, right associativity,
    format "'[v' '[' t1 ']'  '';'  '/'  '[' t2 ']' ']'") : trm_scope.
-(* 
-Notation "t1 ;;; t2" := DEPRECATED
-  (trm_seq t1 t2)
-  (at level 68, right associativity, only parsing,
-   format "'[v' '[' t1 ']'  ;;;  '/'  '[' t2 ']' ']'") : trm_scope.
- *)
 
-Notation "'Fix' f x1 ':=' t" :=
-  (trm_fix f (x1::nil) t)
-  (at level 69, f, x1 at level 0) : trm_scope.
+Notation "'VFix' f x1 .. xn ':=' t" :=
+  (val_fixs f (cons x1 .. (cons xn nil) ..) t)
+  (at level 69, f, x1, xn at level 0, format "'VFix'  f  x1  ..  xn  ':='  t") : val_scope.
 
-(* DEPRECATED
-Notation "'Fix' f x1 x2 ':=' t" :=
-  (trm_fix f (x1::x2::nil) t)
-  (at level 69, f, x1, x2 at level 0) : trm_scope.
-*)
+Notation "'Fix' f x1 .. xn ':=' t" :=
+  (trm_fixs f (cons x1 .. (cons xn nil) ..) t)
+  (at level 69, f, x1, xn at level 0) : trm_scope.
 
-Notation "'Fix' f x1 x2 .. xn ':=' t" :=
-  (trm_fixs f (cons x1 (cons x2 .. (cons xn nil) ..)) t)
-(at level 69, f, x1, x2, xn at level 0) : trm_scope.
+Notation "'VFun' x1 .. xn ':=' t" :=
+  (val_funs (cons x1 .. (cons xn nil) ..) t)
+  (at level 69, x1, xn at level 0, format "'VFun'  x1  ..  xn  ':='  t") : val_scope.
 
-Notation "'ValFix' f x1 ':=' t" :=
-  (val_fixs f (x1::nil) t)
-  (at level 69, f, x1 at level 0) : trm_scope.
+Notation "'Fun' x1 .. xn ':=' t" :=
+  (trm_funs (cons x1 .. (cons xn nil) ..) t)
+  (at level 69, x1, xn at level 0) : trm_scope.
 
-Notation "'ValFix' f x1 x2 .. xn ':=' t" :=
-  (val_fixs f (cons x1 (cons x2 .. (cons xn nil) ..)) t)
-(at level 69, f, x1, x2, xn at level 0) : trm_scope.
+Notation "'LetFun' f x1 .. xn ':=' t1 'in' t2" :=
+  (trm_let f (trm_funs (cons x1 .. (cons xn nil) ..) t1) t2)
+  (at level 69, f, x1, xn at level 0, format "'LetFun'  f  x1  ..  xn  ':='  t1  'in'  t2") : trm_scope.
 
-Notation "'Fun' x1 ':=' t" :=
-  (trm_funs (x1::nil t))
-  (at level 69, x1 at level 0) : trm_scope.
-
-Notation "'Fun' x1 x2 .. xn ':=' t" :=
-  (trm_funs (cons x1 (cons x2 .. (cons xn nil) ..)) t)
-  (at level 69, x1, x2, xn at level 0) : trm_scope.
-
-Notation "'ValFun' x1 ':=' t" :=
-  (val_funs (x1::nil) t)
-  (at level 69, x1 at level 0) : trm_scope.
-
-Notation "'ValFun' x1 x2 .. xn ':=' t" :=
-  (val_funs (cons x1 (cons x2 .. (cons xn nil) ..)) t)
-  (at level 69, x1, x2, xn at level 0) : trm_scope.
-
-Notation "'LetFun' f x1 ':=' t1 'in' t2" :=
-  (trm_let f (trm_funs (x1::nil) t1) t2)
-  (at level 69, f, x1 at level 0) : trm_scope.
-
-Notation "'LetFun' f x1 x2 .. xn ':=' t1 'in' t2" :=
-  (trm_let f (trm_funs (cons x1 (cons x2 .. (cons xn nil) ..)) t1) t2)
-  (at level 69, f, x1, x2, xn at level 0) : trm_scope.
-
-Notation "'LetFix' f x1 ':=' t1 'in' t2" :=
-  (trm_let f (trm_fixs f (x1::nil) t1) t2)
-  (at level 69, f, x1 at level 0) : trm_scope.
-
-Notation "'LetFix' f x1 x2 .. xn ':=' t1 'in' t2" :=
-  (trm_let f (trm_fixs f (cons x1 (cons x2 .. (cons xn nil) ..)) t1) t2)
-  (at level 69, f, x1, x2, xn at level 0) : trm_scope.
+Notation "'LetFix' f x1 .. xn ':=' t1 'in' t2" :=
+  (trm_let f (trm_fixs f (cons x1 .. (cons xn nil) ..) t1) t2)
+  (at level 69, f, x1, xn at level 0, format "'LetFix'  f  x1  ..  xn  ':='  t1  'in'  t2") : trm_scope.
 
 Notation "'While' t1 'Do' t2 'Done'" :=
   (trm_while t1 t2)
@@ -1428,61 +1413,33 @@ Notation "t1 '> t2" :=
   (val_gt t1 t2)
   (at level 70) : trm_scope.
 
-Notation "''#' C" :=
-  (val_constr C nil)
-  (at level 69, C at level 0, format "''#' C") : val_scope.
+Notation "'()" := val_unit : val_scope.
 
-Notation "''#' C x1" :=
-  (val_constr C (x1::nil))
-  (at level 69, C, x1 at level 0, format "''#' C  x1") : val_scope.
-
-Notation "''#' C x1 x2" :=
-  (val_constr C (x1::x2::nil))
-  (at level 69, C, x1, x2 at level 0, format "''#' C  x1  x2") : val_scope.
-
-Notation "''#' C" :=
-  (trm_constr C (@nil trm))
-  (at level 69, C at level 0, format "''#' C") : trm_scope.
-
-Notation "''#' C x1" :=
-  (trm_constr C (@cons trm x1 (@nil trm)))
-  (at level 69, C, x1 at level 0, format "''#' C  x1") : trm_scope.
-
-Notation "''#' C x1 x2" :=
-  (trm_constr C (@cons trm x1 (cons trm x2 (@nil trm))))
-  (at level 69, C, x1, x2 at level 0, format "''#' C  x1  x2") : trm_scope.
-
-Notation "''#' C x1" :=
-  (trm_constr C ((x1:trm)::(@nil trm)))
-  (at level 69, C, x1 at level 0, only parsing) : trm_scope.
-
-Notation "''#' C x1 x2" :=
-  (trm_constr C ((x1:trm)::(x2:trm)::(@nil trm)))
-  (at level 69, C, x1, x2 at level 0, only parsing) : trm_scope.
-
-Notation "''none'" :=
-  (trm_constr "none" nil)
+Notation "''None'" :=
+  (trm_constr "None" nil)
   (at level 0) : trm_scope.
 
-Notation "''some' t1" :=
+Notation "''Some' t1" :=
   (trm_constr "some" (t1:trm)::nil)
   (at level 67) : trm_scope.
 
-Notation "''none'" :=
+Notation "''None'" :=
   (val_constr "none" nil)
   (at level 0, only printing) : val_scope.
 
-Notation "''some' t1" :=
+Notation "''Some' t1" :=
   (val_constr "some" (t1::nil))
   (at level 67, only printing) : val_scope.
 
-Notation "''none'" :=
+(*
+Notation "''None'" :=
   (pat_constr "none" nil)
   (at level 0, only printing) : pat_scope.
 
-Notation "''some' p1" :=
+Notation "''Some' p1" :=
   (pat_constr "some" (p1::nil))
   (at level 67, only printing) : pat_scope.
+*)
 
 Notation "''nil'" :=
   (trm_constr "nil" nil)
@@ -1500,6 +1457,7 @@ Notation "v1 ':: v2" :=
   (val_constr "cons" ((v1:val)::(v2:val)::nil))
   (at level 67) : val_scope.
 
+(*
 Notation "''nil'" :=
   (pat_constr "nil" nil)
   (at level 0, only printing) : pat_scope.
@@ -1507,24 +1465,64 @@ Notation "''nil'" :=
 Notation "p1 ':: p2" :=
   (pat_constr "cons" (p1::p2::nil))
   (at level 67, only printing) : pat_scope.
-
+*)
 
 Open Scope pat_scope.
 Open Scope val_scope.
 Open Scope trm_scope.
 
-(* Demo for the above notation:
 
+
+
+(* ---------------------------------------------------------------------- *)
+(* Demo for the above notation: *)
+
+(*
   Open Scope trm_scope.
   Import NotationForVariables.
-  Definition test := Fun 'x := val_unit.
-  Definition test2 := Fun 'x 'y 'z := val_unit.
-  Definition test1 := Fix 'f 'x1 := val_unit.
-  Definition test2 := Fix 'f 'x1 'x2 := val_unit.
-  Print test2.
-  Definition test1 := LetFix 'f 'x1 := val_unit in val_unit.
-  Definition test2 := LetFix 'f 'x1 'x2 := val_unit in val_unit.
+  Definition test_vf1 : val := (val_funs ('x::nil) val_unit).
+  Print test_vf1.
+  Definition test_vf3 : val := (val_funs ('x::'y::'z::nil) val_unit).
+  Print test_vf3.
+  Definition test_f3 : trm := Fun 'x 'y 'z := val_unit.
+  Print test_f3.
+  Definition test_lf1 := LetFix 'f 'x1 := val_unit in val_unit.
+  Print test_lf1.
+  Definition test_lf2 := LetFix 'f 'x1 'x2 := val_unit in val_unit.
+  Print test_lf2.
+
+
+  Definition val_mlist_length : val :=
+  VFix 'f 'p :=
+    Let 'v := val_get 'p in
+    Match 'v With
+    '| 'Cstr "nil" '=> 0
+    '| 'Cstr "cons" 'x 'q '=> 1 '+ 'f 'q
+    End.
+  Print val_mlist_length.
+
+  Parameter val_is_empty val_push val_pop : val.
+
+  Definition val_rev_append : val :=
+  VFix 'f 'p1 'p2 :=
+    If_ val_is_empty 'p1 Then '() Else 
+       Let 'x := val_pop 'p1 in
+       val_push 'p2 'x ';
+       'f 'p1 'p2.
+  Print val_rev_append.
+
+  Definition val_rev_append2 : val :=
+  VFix 'f 'p1 'p2 :=
+    If_ 'App val_is_empty 'p1 Then '() Else 
+       Let 'x := 'App val_pop 'p1 in
+       'App val_push 'p2 'x ';
+       'App 'f 'p1 'p2.
+  Print val_rev_append2.
+
 *)
+
+
+(* ---------------------------------------------------------------------- *)
 
 End NotationForTerms.
 
