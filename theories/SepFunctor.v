@@ -985,6 +985,9 @@ Tactic Notation "haffine" :=
   haffine_core tt.
 
 
+(* ********************************************************************** *)
+(* * Tactic [hsimpl] for heap entailments *)
+
 (* ---------------------------------------------------------------------- *)
 (* Hints for tactics such as [hsimpl] *)
 
@@ -1002,6 +1005,14 @@ Ltac Hsimpl_hint_next cont :=
 Ltac Hsimpl_hint_remove tt :=
   match goal with H: Hsimpl_hint _ |- _ => clear H end.
 
+(* Demo *)
+
+Lemma hsimpl_demo_hints : exists n, n = 3.
+Proof using.
+  Hsimpl_hint_put (>> 3 true).
+  Hsimpl_hint_next ltac:(fun x => exists x).
+  Hsimpl_hint_remove tt.
+Abort.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1064,6 +1075,10 @@ Definition Hsimpl (HL HR:hprop*hprop*hprop) :=
 
 Definition hsimpl_protect (A:Type) (X:A) : A := X.
 
+
+(* ---------------------------------------------------------------------- *)
+(** ** Transition lemmas *)
+
 (** Transition lemmas to start the process *)
 
 Lemma hpull_protect : forall H1 H2,
@@ -1077,35 +1092,6 @@ Lemma hsimpl_start : forall H1 H2,
 Proof using. introv M. unfolds Hsimpl. rew_heap~. Qed.
 (* Note: [repeat rewrite hstar_assoc] after applying this lemma *)
 
-(** Transition lemmas to stop the process *)
-
-Lemma hsimpl_stop_general : forall Hla Hlw Hlt Hra Hrg Hrt,
-  Hla \* Hlw \* Hlt ==> Hra \* Hrg \* Hrt ->
-  Hsimpl (Hla, Hlw, Hlt) (Hra, Hrg, Hrt).
-Proof using. auto. Qed.
-
-Lemma hsimpl_stop_usual_without_hgc : forall Hla Hra,
-  Hla ==> Hra ->
-  Hsimpl (Hla, \[], \[]) (Hra, \[], \[]).
-Proof using. introv M. rew_heap~. Qed.
-
-Lemma hsimpl_stop_refl : forall Hla,
-  Hsimpl (Hla, \[], \[]) (Hla, \[], \[]).
-Proof using. intros. unfolds Hsimpl. rew_heap~. Qed.
-
-Lemma hsimpl_stop_qwand : forall A (Q:A->hprop) Hla,
-  Hsimpl (Hla, \[], \[]) (Q \--* (Q \*+ Hla), \[], \[]).
-Proof using. intros. unfolds Hsimpl. rew_heap~. Qed.
-
-Lemma hsimpl_stop_htop : forall Hla Hrg',
-  Hsimpl (Hla, \[], \[]) (\[], (\Top \* Hrg'), \[]).
-Proof using. . Qed.
-
-Lemma hsimpl_stop_hgc : forall Hla Hrg',
-  haffine Hla ->
-  Hsimpl (Hla, \[], \[]) (\[], (\GC \* Hrg'), \[]).
-Proof using. . Qed.
-
 (** Transition lemmas for LHS extraction operations *)
 
 Lemma hsimpl_l_hempty : forall Hla Hlw Hlt HR,
@@ -1118,7 +1104,7 @@ Lemma hsimpl_l_hpure : forall P Hla Hlw Hlt HR,
   Hsimpl (Hla, Hlw, (\[P] \* Hlt)) HR.
 Proof using. introv M. rew_heap~. Qed.
 
-Lemma hsimpl_l_hpure : forall A (J:A->hprop) Hla Hlw Hlt HR,
+Lemma hsimpl_l_hexists : forall A (J:A->hprop) Hla Hlw Hlt HR,
   (forall x, Hsimpl (Hla, Hlw, (J x \* Hlt)) HR) ->
   Hsimpl (Hla, Hlw, (hexists J \* Hlt)) HR.
 Proof using. introv M. rew_heap~. Qed.
@@ -1133,20 +1119,21 @@ Lemma hsimpl_l_acc_other : forall H Hla Hlw Hlt HR,
   Hsimpl (Hla, Hlw, (H \* Hlt)) HR.
 Proof using. introv M. rew_heap~. Qed.
 
-(** Transition lemmas for LHS cancellation operations *)
+(** Transition lemmas for LHS cancellation operations
+    ---Hlt is meant to be empty there *)
 
 Lemma hsimpl_l_cancel_hwand : forall H1 H2 Hla Hlw Hlt HR,
   Hsimpl (Hla, Hlw, (H2 \* Hlt)) HR ->
   Hsimpl ((H1 \* Hla), ((H1 \-* H2) \* Hlw), Hlt) HR.
 Proof using. introv M. rew_heap~. Qed.
 
-Lemma hsimpl_l_cancel_qwand : forall A (Q1 Q2:A->hprop) (x:A) Hla Hlw Hlt HR,
+Lemma hsimpl_l_cancel_qwand : forall A (x:A) (Q1 Q2:A->hprop) Hla Hlw Hlt HR,
   Hsimpl (Hla, Hlw, (Q2 x \* Hlt)) HR ->
   Hsimpl ((Q1 x \* Hla), ((Q1 \-* Q2) \* Hlw), Hlt) HR.
 Proof using. introv M. rew_heap~. Qed.
 
 Lemma hsimpl_l_skip_wand : forall H Hla Hlw Hlt HR,
-  Hsimpl ((Hla \* H), Hlw, Hlt) HR ->
+  Hsimpl ((H \* Hla), Hlw, Hlt) HR ->
   Hsimpl (Hla, (H \* Hlw), Hlt) HR.
 Proof using. introv M. rew_heap~. Qed.
 
@@ -1157,34 +1144,56 @@ Lemma hsimpl_r_hempty : forall Hra Hrg Hrt HL,
   Hsimpl HL (Hra, Hrg, (\[] \* Hrt)).
 Proof using. introv M. rew_heap~. Qed.
 
-Lemma hsimpl_l_hpure : forall P Hra Hrg Hrt HL,
+Lemma hsimpl_r_hpure : forall P Hra Hrg Hrt HL,
   hsimpl_protect P ->
   Hsimpl HL (Hra, Hrg, Hrt) ->
   Hsimpl HL (Hra, Hrg, (\[P] \* Hrt)).
 Proof using. introv M. ... Qed.
 
-Lemma hsimpl_l_hexists : forall A (x:A) (J:A->hprop) Hra Hrg Hrt HL,
+Lemma hsimpl_r_hexists : forall A (x:A) (J:A->hprop) Hra Hrg Hrt HL,
   Hsimpl HL (Hra, Hrg, (J x \* Hrt)) ->
   Hsimpl HL (Hra, Hrg, (hexists J \* Hrt)).
 Proof using. ... Qed.
 
-Lemma hsimpl_l_hgc : forall Hra Hrg Hrt HL,
+Lemma hsimpl_r_hgc : forall Hra Hrg Hrt HL,
   Hsimpl HL (Hra, (\GC \* Hrg), Hrt) ->
   Hsimpl HL (Hra, Hrg, (\GC \* Hrt)).
 Proof using. introv M. unfolds Hsimpl. rew_heap~. Qed.
 
-Lemma hsimpl_l_htop : forall Hra Hrg Hrt HL,
+Lemma hsimpl_r_htop : forall Hra Hrg Hrt HL,
   Hsimpl HL (Hra, (\Top \* Hrg), Hrt) ->
   Hsimpl HL (Hra, Hrg, (\Top \* Hrt)).
+Proof using. introv M. unfolds Hsimpl. rew_heap~. Qed.
+
+Lemma hsimpl_r_id : forall A (x X:A) Hra Hrg Hrt HL,
+  hsimpl_protect (x = X) ->
+  Hsimpl HL (Hra, Hrg, Hrt) ->
+  Hsimpl HL (Hra, Hrg, (x ~> Id X \* Hrt)).
+Proof using. introv M. ... Qed.
+
+Lemma hsimpl_r_id_unify : forall A (x:A) Hra Hrg Hrt HL,
+  Hsimpl HL (Hra, Hrg, Hrt) ->
+  Hsimpl HL (Hra, Hrg, (x ~> Id x \* Hrt)).
+Proof using. introv M. applys~ hsimpl_l_id. Qed.
+
+Lemma hsimpl_r_skip : forall H Hra Hrg Hrt HL,
+  Hsimpl HL ((H \* Hra), Hrg, Hrt) ->
+  Hsimpl HL (Hra, Hrg, (H \* Hrt)).
 Proof using. introv M. unfolds Hsimpl. rew_heap~. Qed.
 
 (** Transition lemmas for LHS/RHS cancellation 
     --- meant to be applied when Hlw and Hlt are empty *)
 
-Lemma hsimpl_lr_cancel : forall H Hla Hlw Hlt Hra Hrg Hrt,
+Lemma hsimpl_lr_cancel_same : forall H Hla Hlw Hlt Hra Hrg Hrt,
   Hsimpl (Hla, Hlw, Hlt) (Hra, Hrg, Hrt) ->
   Hsimpl ((H \* Hla), Hlw, Hlt) (Hra, Hrg, (H \* Hrt)).
 Proof using. introv M. rew_heap~. Qed.
+
+Lemma hsimpl_lr_cancel_eq : forall H1 H2 Hla Hlw Hlt Hra Hrg Hrt,
+  H1 = H2 -> (* not protected because handled by the tactic [hsimpl_lr_cancel_eq_post] *)
+  Hsimpl (Hla, Hlw, Hlt) (Hra, Hrg, Hrt) ->
+  Hsimpl ((H1 \* Hla), Hlw, Hlt) (Hra, Hrg, (H2 \* Hrt)).
+Proof using. introv M. subst. apply~ hsimpl_lr_cancel. Qed.
 
 Lemma hsimpl_lr_hwand : forall H1 H2 Hla Hlw Hlt,
   Hsimpl (Hla, Hlw, (H1 \* Hlt)) (H2, \[], \[]) ->
@@ -1202,87 +1211,206 @@ Proof using.
   applys qwand_move_l \[]. { rewrite* hstar_hempty_l. }
 Qed.
 
+Lemma himpl_lr_refl : forall Hla,
+  Hsimpl (Hla, \[], \[]) (Hla, \[], \[]).
+Proof using. intros. unfolds Hsimpl. rew_heap~. Qed.
+
+Lemma himpl_lr_qwand_unify : forall A (Q:A->hprop) Hla,
+  Hsimpl (Hla, \[], \[]) (Q \--* (Q \*+ Hla), \[], \[]).
+Proof using. intros. unfolds Hsimpl. rew_heap~. Qed.
+
+Lemma himpl_lr_htop : forall Hla Hrg,
+  Hsimpl (\[], \[], \[]) (\[], Hrg), \[]) ->
+  Hsimpl (Hla, \[], \[]) (\[], (\Top \* Hrg), \[]).
+Proof using. . Qed.
+
+(* optional
+Lemma himpl_lr_hgc_hempty : forall Hla Hrg,
+  Hsimpl (\[], \[], \[]) (\[], Hrg), \[]) ->
+  Hsimpl (\[], \[], \[]) (\[], (\GC \* Hrg), \[]).
+Proof using. apply haffine_hempty. Qed.
+*)
+
+Lemma himpl_lr_hgc : forall Hla Hrg,
+  haffine Hla ->
+  Hsimpl (\[], \[], \[]) (\[], Hrg), \[]) ->
+  Hsimpl (Hla, \[], \[]) (\[], (\GC \* Hrg), \[]).
+Proof using. . Qed.
+
+Lemma hsimpl_lr_exit_nogc : forall Hla Hra,
+  Hla ==> Hra ->
+  Hsimpl (Hla, \[], \[]) (Hra, \[], \[]).
+Proof using. introv M. rew_heap~. Qed.
+
+Lemma hsimpl_lr_exit : forall Hla Hlw Hlt Hra Hrg Hrt,
+  Hla ==> Hra \* Hrg ->
+  Hsimpl (Hla, \[], \[]) (Hra, Hrg, \[]).
+Proof using. auto. Qed.
 
 
-------
+(* NOT NEEDED
+Lemma hsimpl_lr_exit : forall Hla Hlw Hlt Hra Hrg Hrt,
+  Hla \* Hlw \* Hlt ==> Hra \* Hrg \* Hrt ->
+  Hsimpl (Hla, Hlw, Hlt) (Hra, Hrg, Hrt).
+Proof using. auto. Qed.
+*)
 
+(* ---------------------------------------------------------------------- *)
+(** ** Lemmas to pick the hypothesis to cancel *)
 
+(** [hstars_search Hs test] applies to an expression [Hs]
+    of the form [H1 \* ... \* Hn \* \[]], and invokes the
+    function [test i] on each of the [Hi] in turn until the
+    tactic succeeds. *)
 
-Lemma hcancel_hexists : forall A (x:A) H' H1 H2 (J:A->hprop),
-  H' ==> H1 \* J x \* H2 ->
-  H' ==> H1 \* (hexists J \* H2).
-Proof using.
-  intros. rewrite hstar_comm_assoc.
-  rewrite hstar_hexists.
-  applys himpl_hexists_r x.
-  rewrite~ hstar_comm_assoc.
-Qed.
+Ltac hstars_search Hs test :=
+  let rec aux i Hs :=
+    first [ match Hs with ?H \* _ => test i H end
+          | match Hs with _ \* ?Hs' => aux (S i) Hs' end ] in
+  aux 1%nat Hs.
 
-Lemma hcancel_id : forall A (x X : A) H' H1 H2,
-  H' ==> H1 \* H2 ->
-  x = X ->
-  H' ==> H1 \* (x ~> Id X \* H2).
-Proof using. intros. unfold Id. apply~ hcancel_hprop. Qed.
+(** [hstars_pick_lemma i] returns one of the lemma below,
+    which enables reordering in iterated stars, by extracting
+    the i-th item to bring it to the front. *)
 
-Lemma hcancel_id_unify : forall A (x : A) H' H1 H2,
-  H' ==> H1 \* H2 ->
-  H' ==> H1 \* (x ~> Id x \* H2).
-Proof using. intros. apply~ hcancel_id. Qed.
+Lemma hstars_pick_1 : forall H1 H,
+  H1 \* H = H1 \* H.
+Proof using. introv M. rewrite~ (hstar_comm_assoc H1). Qed.
 
-Lemma hcancel_cancel_1 : forall H HA HR HT,
-  HT ==> HA \* HR ->
-  H \* HT ==> HA \* (H \* HR).
-Proof using. intros. rewrite hstar_comm_assoc. applys~ himpl_frame_r. Qed.
+Lemma hstars_pick_2 : forall H1 H2 H,
+  H1 \* H2 \* H = H2 \* H1 \* H.
+Proof using. introv M. rewrite~ (hstar_comm_assoc H1). Qed.
 
-Lemma hcancel_cancel_eq_1 : forall H H' HA HR HT,
-  H = H' -> HT ==> HA \* HR -> H \* HT ==> HA \* (H' \* HR).
-Proof using. intros. subst. apply~ hcancel_cancel_1. Qed.
+Lemma hstars_pick_3 : forall H1 H2 H3 H,
+  H1 \* H2 \* H3 \* H = H3 \* H1 \* H2 \* H.
+Proof using. introv M. rewrite~ (hstar_comm_assoc H1). applys hstars_pick_2. Qed.
 
+Lemma hstars_pick_4 : forall H1 H2 H3 H4 H,
+  H1 \* H2 \* H3 \* H4 \* H = H4 \* H1 \* H2 \* H3 \* H.
+Proof using. introv M. rewrite~ (hstar_comm_assoc H1). applys hstars_pick_2 Qed.
 
-------
+Lemma hstars_pick_5 : forall H1 H2 H3 H4 H5 H,
+  H1 \* H2 \* H3 \* H4 \* H5 \* H = H5 \* H1 \* H2 \* H3 \* H4 \* H.
+Proof using. introv M. rewrite~ (hstar_comm_assoc H1). applys hstars_pick_2 Qed.
 
-Ltac hcancel_setup tt :=
-  hcancel_prepare tt;
-  rew_heap;
-  hcancel_left_empty tt;
-  apply hcancel_start.
+Lemma hstars_pick_6 : forall H1 H2 H3 H4 H5 H6 H,
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H 
+  = H6 \* H1 \* H2 \* H3 \* H4 \* H5 \* H.
+Proof using. introv M. rewrite~ (hstar_comm_assoc H1). applys hstars_pick_2 Qed.
 
-Ltac hsimpl_cleanup tt :=
-  try Hsimpl_hint_remove tt;
-  try remove_empty_heaps_right tt;
-  try remove_empty_heaps_left tt;
+Lemma hstars_pick_7 : forall H1 H2 H3 H4 H5 H6 H7 H,
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H 
+  = H7 \* H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H.
+Proof using. introv M. rewrite~ (hstar_comm_assoc H1). applys hstars_pick_2 Qed.
 
+Lemma hstars_pick_8 : forall H1 H2 H3 H4 H5 H6 H7 H8 H,
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H
+  = H8 \* H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H.
+Proof using. introv M. rewrite~ (hstar_comm_assoc H1). applys hstars_pick_2 Qed.
 
-  try apply himpl_refl;
-  try (apply hcancel_hgc; );
+Lemma hstars_pick_9 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9 H,
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* H 
+  = H9 \* H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H.
+Proof using. introv M. rewrite~ (hstar_comm_assoc H1). applys hstars_pick_2 Qed.
 
-
----
-
-Ltac hcancel_prepare tt :=
-  match goal with
-  | |- @qimpl _ _ _ ?Q' => is_evar Q'; apply qimpl_refl
-  | |- @qimpl unit _ ?Q ?Q' => let t := fresh "_tt" in intros t; destruct t
-  | |- eq _ _ => applys himpl_antisym
-  | |- @qimpl _ _ _ _ => let r := fresh "r" in intros r
-  | |- himpl _ ?H' => is_evar H'; apply himpl_refl
-  | |- himpl _ _ => idtac
+Ltac hstars_pick_lemma i :=
+  match number_to_nat i with
+  | 1%nat => constr:(hstars_pick_1)
+  | 2%nat => constr:(hstars_pick_2)
+  | 3%nat => constr:(hstars_pick_3)
+  | 4%nat => constr:(hstars_pick_4)
+  | 5%nat => constr:(hstars_pick_5)
+  | 6%nat => constr:(hstars_pick_6)
+  | 7%nat => constr:(hstars_pick_7)
+  | 8%nat => constr:(hstars_pick_8)
+  | 9%nat => constr:(hstars_pick_9)
+  | _ => fails 100 "hstars_pick supports only arity up to 9" 
   end.
-------------
 
-(** Tactics *)
+(** [hsimpl_pick i] applies to a goal of the form
+    [Hsimpl ((H1 \* .. \* Hi \* .. \* Hn), Hlw, Hlt) HR] and turns it into
+    [Hsimpl ((Hi \* H1 .. \* H{i-1} \* H{i+1} \* .. \* Hn), Hlw, Hlt) HR]. *)
+
+Lemma hsimpl_pick_lemma : forall HL1 HL2 HR,
+  HL1 = HL2 ->
+  Hsimpl HL2 HR ->
+  Hsimpl HL1 HR.
+Proof using. introv M. subst~. Qed.
+ 
+Ltac hsimpl_pick i :=
+  let L := hstars_pick_lemma i in
+  apply hsimpl_pick_lemma; [ apply L | ].
+
+(** [hsimpl_pick_st f] applies to a goal of the form
+    [Hsimpl ((H1 \* .. \* Hi \* .. \* Hn), Hlw, Hlt) HR] and turns it into
+    [Hsimpl ((Hi \* H1 .. \* H{i-1} \* H{i+1} \* .. \* Hn), Hlw, Hlt) HR]
+    for the first [i] such that [f Hi] returns [true]. *)
+
+Ltac hsimpl_pick_st f :=
+  match goal with |- Hsimpl (?Hla, ?Hlw, ?Hlt) ?HR => 
+    hstars_search Hla ltac:(fun i H => 
+      match f H with true => hsimpl_pick i end)
+  end.
+
+(** [hsimpl_pick_same H] applies to a goal of the form 
+    [Hsimpl (Hla, Hlw, Hlt) HR], where [Hla] is of the form
+    [H1 \* .. \* Hn \* \[]]. It searches for [H] among the [Hi]. 
+    If it finds it, it moves this [Hi] to the front, just before [H1]. 
+    Else, it fails. *)
+
+Ltac hsimpl_pick_same H :=
+  hsimpl_pick_st ltac:(fun H' =>
+    match H' with H => constr:(true) end).
+
+(** [hsimpl_pick_applied Q] applies to a goal of the form 
+    [Hsimpl (Hla, Hlw, Hlt) HR], where [Hla] is of the form
+    [H1 \* .. \* Hn \* \[]]. It searches for [Q ?x] among the [Hi]. 
+    If it finds it, it moves this [Hi] to the front, just before [H1]. 
+    Else, it fails. *)
+
+Ltac hsimpl_pick_applied Q :=
+  hsimpl_pick_st ltac:(fun H' =>
+    match H' with Q _ => constr:(true) end).
+
+(** [hsimpl_pick_repr p] applies to a goal of the form 
+    [Hsimpl (Hla, Hlw, Hlt) HR], where [Hla] is of the form
+    [H1 \* .. \* Hn \* \[]]. It searches for [p ~> _] (same as [repr _ p])
+    among the [Hi]. If it finds it, it moves this [Hi] to the front, 
+    just before [H1]. Else, it fails. *)
+
+Ltac hsimpl_pick_repr p :=
+  hsimpl_pick_st ltac:(fun H' =>
+    match H' with (p ~> _) => constr:(true) end).
+
+(* Demo *)
+
+Lemma hsimpl_pick_demo : forall (Q:bool->hprop) H1 H2 H3 Hlw Hlt Hra Hrg Hrt,
+  Hsimpl ((H1 \* H2 \* H3 \* Q true \* \[]), Hlw, Hlt) (Hra, Hrg, Hrt).
+Proof using.
+  intros. 
+  hsimpl_pick_same H2.
+  hsimpl_pick_applied Q.
+  hsimpl_pick_same H3.
+Abort.
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** Tactic start and stop *)
 
 Opaque Hsimpl.
 
 Ltac hsimpl_handle_qimpl tt :=
   match goal with
-  | |- @qimpl unit _ _ _ => let t := fresh "_tt" in intros t; destruct t
+  | |- @qimpl _ _ _ ?Q2 => is_evar Q2; apply qimpl_refl
+  | |- @qimpl unit _ ?Q1 ?Q2 => let t := fresh "_tt" in intros t; destruct t
   | |- @qimpl _ _ _ _ => let r := fresh "r" in intros r
+  | |- himpl _ ?H2 => is_evar H2; apply himpl_refl
   | |- himpl _ _ => idtac
+  | |- eq _ _ => applys himpl_antisym
   | _ => fail 1 "not a goal for hsimpl/hpull"
   end.
 
-Ltac Hsimpl_intro tt :=
+Ltac hsimpl_intro tt :=
   applys hsimpl_start;
   repeat (rewrite hstar_assoc).
 
@@ -1291,7 +1419,7 @@ Ltac hpull_start tt :=
   intros;
   hsimpl_handle_qimpl tt;
   applys hpull_protect;
-  Hsimpl_intro tt.
+  hsimpl_intro tt.
 
 Ltac hsimpl_start tt :=
   pose ltac_mark;
@@ -1311,43 +1439,146 @@ Ltac himpl_post_processing_for_hyp H :=
 Ltac hsimpl_handle_false_subgoals tt :=
   tryfalse.
 
+(* DEPRECATED
 Ltac hsimpl_handle_haffine_subgoals tt :=
   match goal with |- haffine _ =>   
     try solve [ haffine ] end.
+*)
 
 Ltac hsimpl_post tt :=
   hsimpl_post_before_generalize tt;
   hsimpl_handle_false_subgoals tt;
   gen_until_mark_with_processing ltac:(himpl_post_processing_for_hyp);
   hsimpl_post_after_generalize tt;
-  unfold hsimpl_protect;
-  hsimpl_handle_haffine_subgoals tt.
+  try Hsimpl_hint_remove tt;
+  unfold hsimpl_protect.
 
-Ltac hsimpl_apply_stop_lemma tt :=
-  match goal with 
-  | |- Hsimpl (?Hla, \[], \[]) (?Q1 \--* ?Q2, \[], \[]) => 
-      is_evar Q1; eapply hsimpl_stop_qwand
-  | |- Hsimpl (?Hla, \[], \[]) (?Hra, \[], \[]) => 
-      first [ is_evar Hra; apply hsimpl_stop_refl
-            | apply hsimpl_stop_usual_without_hgc ]
-  | |- Hsimpl (?Hla, \[], \[]) (?Hra, (?Hrg1 \* _), \[]) =>
-      (* could be smarter to take in priority \Top instead of \GC *)
-      match Hrg1 with
-      | \Top => apply hsimpl_stop_htop
-      | \GC => apply hsimpl_stop_hgc
-      end
-  | |- _ => apply hsimpl_stop_general
-  end.
+(*
+  try remove_empty_heaps_right tt;
+  try remove_empty_heaps_left tt;
+*)
 
-Ltac hsimpl_stop tt :=
-  hsimpl_apply_stop_lemma tt;
+
+(* ---------------------------------------------------------------------- *)
+(** ** Auxiliary functions step *)
+
+(* LATER: improve this implementation, and give a good spec *)
+Ltac hsimpl_lr_cancel_eq_post_post tt :=
+  try solve
+   [ reflexivity
+   | fequal; fequal; first [ eassumption | symmetry; eassumption ] ];
+  try match goal with |- repr ?X ?l = repr ?Y ?l => match constr:((X,Y)) with
+  | (?F1 _, ?F1 _) => fequal; fequal
+  | (?F1 ?F2 _, ?F1 ?F2 _) => fequal; fequal
+  | (?F1 ?F2 ?F3 _, ?F1 ?F2 ?F3 _) => fequal; fequal
+  | (?F1 ?F2 ?F3 ?F4 _, ?F1 ?F2 ?F3 ?F4 _) => fequal; fequal
+  | (?F1 ?F2 ?F3 ?F4 ?F5 _, ?F1 ?F2 ?F3 ?F4 ?F5 _) => fequal; fequal
+  | (?F1 ?F2 ?F3 ?F4 ?F5 ?F6 _, ?F1 ?F2 ?F3 ?F4 ?F5 ?F6 _) => fequal; fequal
+  | (?F1 ?F2 ?F3 ?F4 ?F5 ?F6 ?F7 _, ?F1 ?F2 ?F3 ?F4 ?F5 ?F6 ?F7 _) => fequal; fequal
+  | (?F1 ?F2 ?F3 ?F4 ?F5 ?F6 ?F7 ?F8 _, ?F1 ?F2 ?F3 ?F4 ?F5 ?F6 ?F7 ?F8 _) => fequal; fequal
+  | (?F1 ?F2 ?F3 ?F4 ?F5 ?F6 ?F7 ?F8 ?F9 _, ?F1 ?F2 ?F3 ?F4 ?F5 ?F6 ?F7 ?F8 ?F9 _) => fequal; fequal
+  end end.
+
+Ltac hsimpl_r_hexists_apply tt :=
+  first [
+    Hsimpl_hint_next ltac:(fun x =>
+      match x with
+      | __ => eapply hsimpl_r_hexists
+      | _ => apply (@hsimpl_r_hexists _ x)
+      end)
+  | eapply hsimpl_r_hexists ].
+
+Ltac hsimpl_hook H := fail.
+
+Ltac check_noevar2 M := (* LATER: merge *)
+  first [ has_evar M; fail 1 | idtac ].
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** Tactic step *)
+
+Ltac hsimpl_step_l tt :=
+  match goal with |- Hsimpl ?HL ?HR => 
+  match HL with
+  | (?Hla, ?Hlw, (?H \* ?Hlt)) =>
+    match H with 
+    | \[] => apply hsimpl_l_hempty
+    | \[?P] => apply hsimpl_l_hpure; intro
+    | \[hexists ?J] => apply hsimpl_l_hexists; intro
+    | \[?H1 \-* ?H2] => apply hsimpl_l_acc_wand
+    | \[?Q1 \--* ?Q2] => apply hsimpl_l_acc_wand
+    | _ => apply hsimpl_l_acc_other
+    end
+  | (?Hla, ((?H1 \-* ?H2) \* ?Hlw), \[]) => 
+      first [ hsimpl_pick_same H1; apply hsimpl_l_cancel_hwand
+            | apply hsimpl_l_skip_wand ]
+  | (?Hla, ((?Q1 \--* ?Q2) \* ?Hlw), \[]) => 
+      first [ hsimpl_pick_applied Q1; eapply hsimpl_l_cancel_qwand
+            | apply hsimpl_l_skip_wand ]
+  end end.
+
+Ltac hsimpl_step_r tt :=
+  match goal with |- Hsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) => 
+  match H with
+  | ?H' => hsimpl_hook H (* else continue *)
+  | \[] => apply hsimpl_r_hempty
+  | \[?P] => apply hsimpl_r_hpure
+  | \[hexists ?J] => hsimpl_r_hexists_apply tt
+  | \GC => apply hsimpl_r_hgc
+  | \Top => apply hsimpl_r_htop
+  | ?H' => first [ is_evar H; fail 1 | idtac ];
+           hsimpl_pick_same H; apply hsimpl_l_cancel_hwand (* else continue *)
+  | ?p ~> _ => hsimpl_pick_repr p; apply hsimpl_lr_cancel_eq; 
+               [ hsimpl_lr_cancel_eq_post tt | ]  (* else continue *)
+  | ?x ~> Id ?X => check_noevar2 x; apply hsimpl_r_id
+  | ?x ~> ?T _ => check_noevar2 x;
+                  let M := fresh in assert (M: T = Id); [ reflexivity | clear M ];
+                  apply hcancel_id; [ | reflexivity ]
+                  (* may fail *)
+  | ?x ~> ?T_evar ?X_evar => check_noevar2 x; is_evar T_evar; is_evar X_evar; 
+                           apply hsimpl_r_id_unify
+  | _ => apply hsimpl_r_skip
+  end end.
+
+Ltac hsimpl_step_lr tt :=
+  match goal with |- Hsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, \[]) => 
+    match Hrg with
+    | \[] =>
+       match Hra with
+       | ?Hra_evar => is_evar Hra_evar; apply himpl_lr_refl
+       | ?Q1 \--* ?Q2 => is_evar Q2; eapply himpl_lr_qwand_unify
+       | ?H1 \-* ?H2 => apply hsimpl_lr_hwand
+       | ?Q1 \--* ?Q2 => apply hsimpl_lr_qwand; intro
+       | _ => apply hsimpl_lr_exit_nogc
+       end
+    | (\Top \* _) => apply himpl_lr_htop
+    | (\GC \* _) => apply himpl_lr_hgc; try solve [ haffine ]
+    | ?Hrg' => apply hsimpl_lr_exit
+  end end.
+  (* TODO: handle [?HL (?Hra_evar, (\GC \* ..), \[])] *)
+
+Ltac hsimpl_step tt :=
+  first [ hsimpl_step_l tt
+        | hsimpl_step_r tt
+        | hsimpl_step_lr tt ].
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** Tactic notation *)
+
+Ltac hpull_core tt :=
+  hpull_start tt;
+  repeat (hsimpl_step tt);
   hsimpl_post tt.
-
-(** Tactic notation *)
 
 Tactic Notation "hpull" := hpull_core tt.
 Tactic Notation "hpull" "~" := hpull; auto_tilde.
 Tactic Notation "hpull" "*" := hpull; auto_star.
+
+Ltac hsimpl_core tt :=
+  hsimpl_start tt;
+  repeat (hsimpl_step tt);
+  hsimpl_post tt.
 
 Tactic Notation "hsimpl" := hsimpl_core tt.
 Tactic Notation "hsimpl" "~" := hsimpl; auto_tilde.
@@ -1377,240 +1608,150 @@ Tactic Notation "hsimpl" "*" constr(X1) constr(X2) :=
 Tactic Notation "hsimpl" "*" constr(X1) constr(X2) constr(X3) :=
   hsimpl X1 X2 X3; auto_star.
 
-
-
-
-
-
-
-----
-
-
-Lemma hcancel_cancel_2 : forall H HA HR H1 HT,
-  H1 \* HT ==> HA \* HR ->
-  H1 \* H \* HT ==> HA \* (H \* HR).
-Proof using. intros. rewrite (hstar_comm_assoc H1). apply~ hcancel_cancel_1. Qed.
-
-Lemma hcancel_cancel_3 : forall H HA HR H1 H2 HT,
-  H1 \* H2 \* HT ==> HA \* HR -> H1 \* H2 \* H \* HT ==> HA \* (H \* HR).
-Proof using. intros. rewrite (hstar_comm_assoc H2). apply~ hcancel_cancel_2. Qed.
-
-Lemma hcancel_cancel_4 : forall H HA HR H1 H2 H3 HT,
-  H1 \* H2 \* H3 \* HT ==> HA \* HR ->
-  H1 \* H2 \* H3 \* H \* HT ==> HA \* (H \* HR).
-(*Proof using. intros. rewrite (hstar_comm_assoc H3). apply~ hcancel_cancel_3. Qed.*)
-Admitted. (* commented out for faster compilation *)
-
-Lemma hcancel_cancel_5 : forall H HA HR H1 H2 H3 H4 HT,
-  H1 \* H2 \* H3 \* H4 \* HT ==> HA \* HR ->
-  H1 \* H2 \* H3 \* H4 \* H \* HT ==> HA \* (H \* HR).
-(*Proof using. intros. rewrite (hstar_comm_assoc H4). apply~ hcancel_cancel_4. Qed.*)
-Admitted. (* commented out for faster compilation *)
-
-Lemma hcancel_cancel_6 : forall H HA HR H1 H2 H3 H4 H5 HT,
-  H1 \* H2 \* H3 \* H4 \* H5 \* HT ==> HA \* HR ->
-  H1 \* H2 \* H3 \* H4 \* H5 \* H \* HT ==> HA \* (H \* HR).
-(*Proof using. intros. rewrite (hstar_comm_assoc H5). apply~ hcancel_cancel_5. Qed.*)
-Admitted. (* commented out for faster compilation *)
-
-Lemma hcancel_cancel_7 : forall H HA HR H1 H2 H3 H4 H5 H6 HT,
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* HT ==> HA \* HR ->
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H \* HT ==> HA \* (H \* HR).
-(*Proof using. intros. rewrite (hstar_comm_assoc H6). apply~ hcancel_cancel_6. Qed.*)
-Admitted. (* commented out for faster compilation *)
-
-Lemma hcancel_cancel_8 : forall H HA HR H1 H2 H3 H4 H5 H6 H7 HT,
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* HT ==> HA \* HR ->
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H \* HT ==> HA \* (H \* HR).
-(*Proof using. intros. rewrite (star_comm_assoc H7). apply~ hcancel_cancel_7. Qed.*)
-Admitted. (* commented out for faster compilation *)
-
-Lemma hcancel_cancel_9 : forall H HA HR H1 H2 H3 H4 H5 H6 H7 H8 HT,
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* HT ==> HA \* HR ->
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H \* HT ==> HA \* (H \* HR).
-(*Proof using. intros. rewrite (hstar_comm_assoc H8). apply~ hcancel_cancel_8. Qed.*)
-Admitted. (* commented out for faster compilation *)
-
-Lemma hcancel_cancel_10 : forall H HA HR H1 H2 H3 H4 H5 H6 H7 H8 H9 HT,
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* HT ==> HA \* HR ->
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* H \* HT ==> HA \* (H \* HR).
-(*Proof using. intros. rewrite (hstar_comm_assoc H9). apply~ hcancel_cancel_9. Qed.*)
-Admitted. (* commented out for faster compilation *)
-
-Ltac hcancel_try_same tt :=
-  first
-  [ apply hcancel_cancel_1
-  | apply hcancel_cancel_2
-  | apply hcancel_cancel_3
-  | apply hcancel_cancel_4
-  | apply hcancel_cancel_5
-  | apply hcancel_cancel_6
-  | apply hcancel_cancel_7
-  | apply hcancel_cancel_8
-  | apply hcancel_cancel_9
-  | apply hcancel_cancel_10
-  ].
-
-Ltac hcancel_find_same H HL :=
-  match HL with
-  | H \* _ => apply hcancel_cancel_1
-  | _ \* H \* _ => apply hcancel_cancel_2
-  | _ \* _ \* H \* _ => apply hcancel_cancel_3
-  | _ \* _ \* _ \* H \* _ => apply hcancel_cancel_4
-  | _ \* _ \* _ \* _ \* H \* _ => apply hcancel_cancel_5
-  | _ \* _ \* _ \* _ \* _ \* H \* _ => apply hcancel_cancel_6
-  | _ \* _ \* _ \* _ \* _ \* _ \* H \* _ => apply hcancel_cancel_7
-  | _ \* _ \* _ \* _ \* _ \* _ \* _ \* H \* _ => apply hcancel_cancel_8
-  | _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* H \* _ => apply hcancel_cancel_9
-  | _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* H \* _ => apply hcancel_cancel_10
-  end.
-
-Ltac hcancel_find_repr l HL cont :=
-  match HL with
-  | repr _ l \* _ => apply hcancel_cancel_eq_1
-  | _ \* repr _ l \* _ => apply hcancel_cancel_eq_2
-  | _ \* _ \* repr _ l \* _ => apply hcancel_cancel_eq_3
-  | _ \* _ \* _ \* repr _ l \* _ => apply hcancel_cancel_eq_4
-  | _ \* _ \* _ \* _ \* repr _ l \* _ => apply hcancel_cancel_eq_5
-  | _ \* _ \* _ \* _ \* _ \* repr _ l \* _ => apply hcancel_cancel_eq_6
-  | _ \* _ \* _ \* _ \* _ \* _ \* repr _ l \* _ => apply hcancel_cancel_eq_7
-  | _ \* _ \* _ \* _ \* _ \* _ \* _ \* repr _ l \* _ => apply hcancel_cancel_eq_8
-  | _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* repr _ l \* _ => apply hcancel_cancel_eq_9
-  | _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* repr _ l \* _ => apply hcancel_cancel_eq_10
-  end; [ cont tt | ].
-
-Ltac hcancel_hexists tt :=
-  first [
-    Hsimpl_hint_next ltac:(fun x =>
-      match x with
-      | __ => eapply hcancel_hexists
-      | _ => apply (@hcancel_hexists _ x)
-      end)
-  | eapply hcancel_hexists ].
-
-(* LATER: improve this implementation, and give a good spec *)
-Ltac hcancel_find_repr_post tt :=
-  try solve
-   [ reflexivity
-   | fequal; fequal; first [ eassumption | symmetry; eassumption ] ];
-  try match goal with |- repr ?X ?l = repr ?Y ?l => match constr:((X,Y)) with
-  | (?F1 _, ?F1 _) => fequal; fequal
-  | (?F1 ?F2 _, ?F1 ?F2 _) => fequal; fequal
-  | (?F1 ?F2 ?F3 _, ?F1 ?F2 ?F3 _) => fequal; fequal
-  | (?F1 ?F2 ?F3 ?F4 _, ?F1 ?F2 ?F3 ?F4 _) => fequal; fequal
-  | (?F1 ?F2 ?F3 ?F4 ?F5 _, ?F1 ?F2 ?F3 ?F4 ?F5 _) => fequal; fequal
-  | (?F1 ?F2 ?F3 ?F4 ?F5 ?F6 _, ?F1 ?F2 ?F3 ?F4 ?F5 ?F6 _) => fequal; fequal
-  | (?F1 ?F2 ?F3 ?F4 ?F5 ?F6 ?F7 _, ?F1 ?F2 ?F3 ?F4 ?F5 ?F6 ?F7 _) => fequal; fequal
-  | (?F1 ?F2 ?F3 ?F4 ?F5 ?F6 ?F7 ?F8 _, ?F1 ?F2 ?F3 ?F4 ?F5 ?F6 ?F7 ?F8 _) => fequal; fequal
-  | (?F1 ?F2 ?F3 ?F4 ?F5 ?F6 ?F7 ?F8 ?F9 _, ?F1 ?F2 ?F3 ?F4 ?F5 ?F6 ?F7 ?F8 ?F9 _) => fequal; fequal
-  end end.
-
-(** Maintain the goal in the form
-     H1 \* ... \* HN \* [] ==> HA \* HR
-   where HA is initially empty and accumulates elements not simplifiable
-   and HR contains the values that are to be cancelled out;
-   the last item of HR is always a [].
-   As long as HR is of the form H \* H', we try to match H with one of the Hi.
-  *)
-
-Ltac hcancel_hook H := fail.
-
-Ltac check_noevar2 M := (* LATER: merge *)
-  first [ has_evar M; fail 1 | idtac ].
-
-Ltac hcancel_step tt :=
-  match goal with |- ?HL ==> ?HA \* ?HN =>
-  match HN with
-  | ?H \* _ =>
-    match H with
-    | \Top => apply hcancel_keep
-    | \GC => apply hcancel_keep
-    | ?H => hcancel_hook H
-    | \[] => apply hcancel_empty
-    | \[_] => apply hcancel_hprop
-    | hexists _ => hcancel_hexists tt
-    | _ \* _ => apply hcancel_assoc
-    | ?H =>
-       first [ is_evar H; fail 1 | idtac ];
-       hcancel_find_same H HL (* may fail *)
-    | ?x ~> _ => hcancel_find_repr x HL ltac:(hcancel_find_repr_post) (* may fail *)
-    | ?x ~> Id _ => check_noevar2 x; apply hcancel_id (* may fail *)
-    | ?x ~> ?T _ => check_noevar2 x;
-                    let M := fresh in assert (M: T = Id); [ reflexivity | clear M ];
-                    apply hcancel_id; [ | reflexivity ]
-                    (* may fail *)
-    | ?x ~> ?T ?X => check_noevar2 x; is_evar T; is_evar X; apply hcancel_id_unify
-    | _ => apply hcancel_keep
-    end
-  | \[] => fail 1
-  | _ => apply hcancel_starify
-  end end.
-
-
-
-
-
+(* for demos and debugging *)
+Tactic Notation "hsimpl0" := hsimpl_start tt.
+Tactic Notation "hsimpl1" := hsimpl_step tt.
+Tactic Notation "hsimpl2" := hsimpl_stop tt.
+Tactic Notation "hsimpll" := hsimpl_step_l tt
+Tactic Notation "hsimplr" := hsimpl_step_r tt.
+Tactic Notation "hsimpllr" := hsimpl_step_lr tt.
 
 
 (* ---------------------------------------------------------------------- *)
 (* Demo for tactic [hsimpl] *)
 
-
-Lemma hpull_demo : forall H1 H2 H3 H,
+Lemma hsimpl_demo_left : forall H1 H2 H3 H,
    (H1 \* \[] \* (H2 \* \exists (y:int), \[y = y]) \* H3) ==> H.
 
-Lemma hsimpl_demo_1 : forall H1 H2 H3 H4 H5,
+Lemma hsimpl_demo_stars : forall H1 H2 H3 H4 H5,
   H1 \* H2 \* H3 \* H4 ==> H4 \* H3 \* H5 \* H2.
 Proof using.
   intros. dup.
   { hsimpl. admit. (* demo *) }
-  { hcancel_setup tt.
-    hcancel_step tt.
-    hcancel_step tt.
-    hcancel_step tt.
-    hcancel_step tt.
-    hcancel_step tt.
-    try hcancel_step tt.
-    hcancel_cleanup tt.
+  { hsimpl0. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1.
     admit. (* demo *) }
 Abort.
 
-Lemma hsimpl_demo_2 : forall H1 H2 H3 H4 H5,
+Lemma hsimpl_demo_stars_top : forall H1 H2 H3 H4 H5,
   H1 \* H2 \* H3 \* H4 \* H5 ==> H3 \* H1 \* H2 \* \Top.
 Proof using. intros. hsimpl. Abort.
 
-Lemma hsimpl_demo_3 : forall H1 H2,
+Lemma hsimpl_demo_stars_gc : forall H1 H2,
+  haffine H2 ->
+  H1 \* H2 ==> H1 \* \GC.
+Proof using. intros. hsimpl. auto. Qed.
+
+Lemma hsimpl_demo_evar : forall H1 H2,
   (forall H, H1 \* H2 ==> H -> True) -> True.
 Proof using. intros. eapply H. hsimpl. Abort.
 
-Lemma hsimpl_demo_4 : forall H1 H2,
+Lemma hsimpl_demo_htop_both_sides : forall H1 H2,
   H1 \* H2 \* \Top ==> H1 \* \Top.
 Proof using. intros. hsimpl. Abort.
 
-Lemma hsimpl_demo_5 : forall H1 H2,
+Lemma hsimpl_demo_htop_multiple : forall H1 H2,
   H1 \* H2 \* \Top ==> H1 \* \Top \* \Top.
 Proof using.
   intros. set (H:=\Top) at 2. rewrite htop_eq.
   unfold H. hsimpl.
 Abort.
 
-Lemma hsimpl_demo_6 : forall H1 H2,
-  haffine H2 ->
-  H1 \* H2 ==> H1 \* \GC.
-Proof using. intros. hsimpl. auto. Qed.
-
-Lemma hsimpl_demo_7 : forall H1 H2,
+Lemma hsimpl_demo_hgc_multiple : forall H1 H2,
   haffine H2 ->
   H1 \* H2 \* \GC ==> H1 \* H2 \* \GC \* \GC.
 Proof using. intros. hsimpl. Qed.
 
-Lemma demo_hsimpl_hints : exists n, n = 3.
-Proof using.
-  Hsimpl_hint_put (>> 3 true).
-  Hsimpl_hint_next ltac:(fun x => exists x).
-  Hsimpl_hint_remove tt.
-Abort.
+Lemma hsimpl_demo_hwand : forall H1 H2 H3,
+  (H1 \-* (H2 \-* H3)) \* H1 ==> (H2 \-* H3).
+Proof using. intros. eapply H. hsimpl. Abort.
 
+Lemma hsimpl_demo_qwand : forall A (x:A) (Q1 Q2:A->hprop) H1,
+  H1 \* (H1 \-* (Q1 \--* Q2)) \* (Q1 x) ==> (Q2 x).
+Proof using. intros. eapply H. hsimpl. Abort.
+
+Lemma hsimpl_demo_hwand_r : forall H1 H2 H3,
+  H1 \* H2 ==> H1 \* (H3 \-* (H2 \* H3)).
+Proof using. intros. eapply H. hsimpl. Abort.
+
+Lemma hsimpl_demo_qwand_r : forall A (x:A) (Q1 Q2:A->hprop) H1,
+  H1 \* H2 ==> H1 \* (Q1 \-* (Q1 \*+ H2)).
+Proof using. intros. eapply H. hsimpl. Abort.
+
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* Generalization for cancel upto unification *)
+
+(* LATER
+
+
+  Lemma hcancel_cancel_2 : forall H HA HR H1 HT,
+    H1 \* HT ==> HA \* HR ->
+    H1 \* H \* HT ==> HA \* (H \* HR).
+  Proof using. intros. rewrite (hstar_comm_assoc H1). apply~ hcancel_cancel_1. Qed.
+
+  Lemma hcancel_cancel_3 : forall H HA HR H1 H2 HT,
+    H1 \* H2 \* HT ==> HA \* HR -> H1 \* H2 \* H \* HT ==> HA \* (H \* HR).
+  Proof using. intros. rewrite (hstar_comm_assoc H2). apply~ hcancel_cancel_2. Qed.
+
+  Lemma hcancel_cancel_4 : forall H HA HR H1 H2 H3 HT,
+    H1 \* H2 \* H3 \* HT ==> HA \* HR ->
+    H1 \* H2 \* H3 \* H \* HT ==> HA \* (H \* HR).
+  (*Proof using. intros. rewrite (hstar_comm_assoc H3). apply~ hcancel_cancel_3. Qed.*)
+  Admitted. (* commented out for faster compilation *)
+
+  Lemma hcancel_cancel_5 : forall H HA HR H1 H2 H3 H4 HT,
+    H1 \* H2 \* H3 \* H4 \* HT ==> HA \* HR ->
+    H1 \* H2 \* H3 \* H4 \* H \* HT ==> HA \* (H \* HR).
+  (*Proof using. intros. rewrite (hstar_comm_assoc H4). apply~ hcancel_cancel_4. Qed.*)
+  Admitted. (* commented out for faster compilation *)
+
+  Lemma hcancel_cancel_6 : forall H HA HR H1 H2 H3 H4 H5 HT,
+    H1 \* H2 \* H3 \* H4 \* H5 \* HT ==> HA \* HR ->
+    H1 \* H2 \* H3 \* H4 \* H5 \* H \* HT ==> HA \* (H \* HR).
+  (*Proof using. intros. rewrite (hstar_comm_assoc H5). apply~ hcancel_cancel_5. Qed.*)
+  Admitted. (* commented out for faster compilation *)
+
+  Lemma hcancel_cancel_7 : forall H HA HR H1 H2 H3 H4 H5 H6 HT,
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* HT ==> HA \* HR ->
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H \* HT ==> HA \* (H \* HR).
+  (*Proof using. intros. rewrite (hstar_comm_assoc H6). apply~ hcancel_cancel_6. Qed.*)
+  Admitted. (* commented out for faster compilation *)
+
+  Lemma hcancel_cancel_8 : forall H HA HR H1 H2 H3 H4 H5 H6 H7 HT,
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* HT ==> HA \* HR ->
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H \* HT ==> HA \* (H \* HR).
+  (*Proof using. intros. rewrite (star_comm_assoc H7). apply~ hcancel_cancel_7. Qed.*)
+  Admitted. (* commented out for faster compilation *)
+
+  Lemma hcancel_cancel_9 : forall H HA HR H1 H2 H3 H4 H5 H6 H7 H8 HT,
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* HT ==> HA \* HR ->
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H \* HT ==> HA \* (H \* HR).
+  (*Proof using. intros. rewrite (hstar_comm_assoc H8). apply~ hcancel_cancel_8. Qed.*)
+  Admitted. (* commented out for faster compilation *)
+
+  Lemma hcancel_cancel_10 : forall H HA HR H1 H2 H3 H4 H5 H6 H7 H8 H9 HT,
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* HT ==> HA \* HR ->
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* H \* HT ==> HA \* (H \* HR).
+  (*Proof using. intros. rewrite (hstar_comm_assoc H9). apply~ hcancel_cancel_9. Qed.*)
+  Admitted. (* commented out for faster compilation *)
+
+  Ltac hcancel_try_same tt :=
+    first
+    [ apply hcancel_cancel_1
+    | apply hcancel_cancel_2
+    | apply hcancel_cancel_3
+    | apply hcancel_cancel_4
+    | apply hcancel_cancel_5
+    | apply hcancel_cancel_6
+    | apply hcancel_cancel_7
+    | apply hcancel_cancel_8
+    | apply hcancel_cancel_9
+    | apply hcancel_cancel_10
+    ].
+
+*)
 
 
 
