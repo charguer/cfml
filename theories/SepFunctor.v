@@ -963,245 +963,51 @@ Ltac haffine_custom tt :=
 
 *)
 
-Ltac haffine_core tt :=
-  repeat match goal with
-  | |- haffine (hempty) => apply haffine_hempty
-  | |- haffine (hpure _) => apply haffine_hpure
-  | |- haffine (hstar _ _) => apply haffine_hstar
-  | |- haffine (hgc) => apply haffine_hgc
-  | |- haffine (hexists _) => apply haffine_hexists
-  | |- haffine (hforall _) => apply haffine_hforall
+Ltac haffine_step tt :=
+  match goal with 
   | |- haffine_post (_) => intros ? (* todo: interesting to have? *)
-  | _ => haffine_custom tt
+  | |- haffine ?H =>
+    match H with
+    | (hempty) => apply haffine_hempty
+    | (hpure _) => apply haffine_hpure
+    | (hstar _ _) => apply haffine_hstar
+    | (hgc) => apply haffine_hgc
+    | (hexists _) => apply haffine_hexists
+    | (hforall _) => apply haffine_hforall
+    | _ => haffine_custom tt
+    end
   end.
+
+Ltac haffine_core tt :=
+  repeat (haffine_step tt).
 
 Tactic Notation "haffine" :=
   haffine_core tt.
 
 
 (* ---------------------------------------------------------------------- *)
-(** [hpull] tactic for extraction from [H1] on a goal [H1 ==> H2] *)
+(* Hints for tactics such as [hsimpl] *)
 
-(** [hpull] performs the following work on the LHS of an entailment:
-  - it removes all empty heap predicates
-  - it pulls pure facts out as hypotheses in the context
-  - it pulls existentials as new variables in the context.
+Inductive Hsimpl_hint : list Boxer -> Type :=
+  | Hsimpl_hint : forall (L:list Boxer), Hsimpl_hint L.
 
-  At the end of its work, [hpull] regeneralizes into the goal the
-  elements that were introduced into the context, so as to allow
-  the user to perform the introductions by himself, and provide
-  relevant names. *)
+Ltac Hsimpl_hint_put L :=
+  let H := fresh "Hint" in
+  generalize (Hsimpl_hint L); intros H.
 
-(** Lemmas *)
+Ltac Hsimpl_hint_next cont :=
+  match goal with H: Hsimpl_hint ((boxer ?x)::?L) |- _ =>
+    clear H; Hsimpl_hint_put L; cont x end.
 
-Lemma hpull_start : forall H H',
-  \[] \* H ==> H' ->
-  H ==> H'.
-Proof using. intros. rew_heap in *. auto. Qed.
+Ltac Hsimpl_hint_remove tt :=
+  match goal with H: Hsimpl_hint _ |- _ => clear H end.
 
-Lemma hpull_stop : forall H H',
-  H ==> H' ->
-  H \* \[] ==> H'.
-Proof using. intros. rew_heap in *. auto. Qed.
-
-Lemma hpull_keep : forall H1 H2 H3 H',
-  (H2 \* H1) \* H3 ==> H' ->
-  H1 \* (H2 \* H3) ==> H'.
-Proof using.
-  intros. rewrite (hstar_comm H2) in H. rew_heap~ in *.
-Qed.
-
-Lemma hpull_starify : forall H1 H2 H',
-  H1 \* (H2 \* \[]) ==> H' ->
-  H1 \* H2 ==> H'.
-Proof using. intros. rew_heap in *. auto. Qed.
-
-Lemma hpull_assoc : forall H1 H2 H3 H4 H',
-  H1 \* (H2 \* (H3 \* H4)) ==> H' ->
-  H1 \* ((H2 \* H3) \* H4) ==> H'.
-Proof using. intros. rew_heap in *. auto. Qed.
-
-Lemma hpull_hprop : forall H1 H2 H' P,
-  (P -> H1 \* H2 ==> H') ->
-  H1 \* (\[P] \* H2) ==> H'.
-Proof using.
-  intros. rewrite hstar_comm_assoc. applys~ himpl_hpure_l.
-Qed.
-
-Lemma hpull_empty : forall H1 H2 H',
-  (H1 \* H2 ==> H') ->
-  H1 \* (\[] \* H2) ==> H'.
-Proof using. intros. rew_heap~. Qed.
-
-Lemma hpull_hexists : forall A H1 H2 H' (J:A->hprop),
-  (forall x, H1 \* J x \* H2 ==> H') ->
-  H1 \* (hexists J \* H2) ==> H'.
-Proof using.
-  intros. rewrite hstar_comm_assoc.
-  rewrite hstar_hexists.
-  applys himpl_hexists_l. intros.
-  rewrite~ <- hstar_comm_assoc.
-Qed.
-
-(** Tactics *)
-
-Ltac hpull_prepare tt :=
-  match goal with
-  | |- @qimpl unit _ _ _ => let t := fresh "_tt" in intros t; destruct t
-  | |- @qimpl _ _ _ _ => let r := fresh "r" in intros r
-  | |- himpl _ _ => idtac
-  | _ => fail 1 "not a goal for hpull"
-  end.
-
-Ltac hpull_xpull_iris_hook tt := idtac.
-
-Ltac hpull_setup tt :=
-  pose ltac_mark;
-  intros;
-  hpull_prepare tt;
-  hpull_xpull_iris_hook tt;
-  apply hpull_start.
-
-Ltac hpull_cleanup tt :=
-  apply hpull_stop;
-  remove_empty_heaps_left tt;
-  tryfalse;
-  gen_until_mark.
-
-Ltac hpull_step tt :=
-  match goal with |- _ \* ?HN ==> _ =>
-  match HN with
-  | ?H \* _ =>
-     match H with
-     | \[] => apply hpull_empty
-     | \[_] => apply hpull_hprop; intros
-     | hexists _ => apply hpull_hexists; intros
-     | _ \* _ => apply hpull_assoc
-     | _ => apply hpull_keep
-     end
-  | \[] => fail 1
-  | ?H => apply hpull_starify
-  end end.
-
-Ltac hpull_main tt :=
-  hpull_setup tt;
-  (repeat (hpull_step tt));
-  hpull_cleanup tt.
-
-Ltac hpull_post tt :=
-  idtac. (* reflect_clean tt. *)
-
-Ltac hpull_core tt :=
-  hpull_main tt; hpull_post tt.
-
-Tactic Notation "hpull" := hpull_core tt.
-Tactic Notation "hpull" "~" := hpull; auto_tilde.
-Tactic Notation "hpull" "*" := hpull; auto_star.
-
-Ltac intros_var_eq_subst tt :=
-  match goal with |- forall _, _ = _ -> _ =>
-    let X := fresh "TEMP" in
-    let HX := fresh "TEMP" in
-    intros X EX; subst X
-  end.
-
-Ltac hpulls_core tt :=
-  hpull_core tt; intros_var_eq_subst tt.
-
-Tactic Notation "hpulls" := hpulls_core tt.
-Tactic Notation "hpulls" "~" := hpulls; auto_tilde.
-Tactic Notation "hpulls" "*" := hpulls; auto_star.
-
-(*-- Demo --*)
-
-Lemma hpull_demo : forall H1 H2 H3 H,
-   (H1 \* \[] \* (H2 \* \exists (y:int), \[y = y]) \* H3) ==> H.
-Proof using.
-  intros. dup.
-  { hpull. admit. (* demo *) }
-  { hpull_setup tt.
-    hpull_step tt.
-    hpull_step tt.
-    hpull_step tt.
-    hpull_step tt.
-    hpull_step tt.
-    hpull_step tt.
-    hpull_step tt.
-    hpull_step tt.
-    try hpull_step tt.
-    hpull_cleanup tt.
-    admit. (* demo *)
-Abort.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Tactic [hpull_check] tests whether it would be useful
-      to call [hpull] to extract things from the precondition.
-      Applies to a goal of the form [H ==> H']. *)
+(* Tactic [hsimpl] *)
 
-(** Raises an error indicating the need to extract information *)
-
-Ltac hpull_check_error tt :=
-  fail 100 "need to first call hpull or xpull.".
-
-(** [hpull_check_rec H] raises an error if the heap predicate [H]
-    contains existentials or non-empty pure facts. *)
-
-Ltac hpull_check_rec H :=
-  let rec_after_simpl tt :=
-    let H' := eval simpl in H in
-     match H' with
-     | H => hpull_check_error tt
-     | _ => hpull_check_rec H'
-     end
-  in
-  match H with
-  | \[] => idtac
-  | \[_ = _ :> unit] => idtac
-  | \[_] => hpull_check_error tt
-  | hexists _ => hpull_check_error tt
-  | ?H1 \* ?H2 =>
-     hpull_check_rec H1;
-     hpull_check_rec H2
-  | (fun _ => _) _ => rec_after_simpl tt
-  | (let _ := _ in _) => rec_after_simpl tt
-  | (let '(_,_) := _ in _) => rec_after_simpl tt
-  | _ => idtac
-  end.
-
-(** [hpull_check tt] applies to a goal of the form (H ==> H')
-    and raises an error if [H] contains extractible quantifiers
-    or facts *)
-
-Ltac hpull_check tt :=
-  match goal with |- ?H ==> ?H' => hpull_check_rec H end.
-
-(*-- Demo --*)
-
-Lemma hpull_check_demo_1 : forall H1 H3 H,
-  let H2 := \exists (y:int), \[y = y] in
-  (H1 \* H2 \* H3) ==> H.
-Proof using. intros. hpull_check tt. (* --> accepts *) Abort.
-
-Lemma hpull_check_demo_2 : forall H1 H2 H3 H,
-  (H1 \* \[] \* (H2 \* \exists (y:int), \[y = y]) \* H3) ==> H.
-Proof using. intros. (* hpull_check tt. --> blocks *) Abort.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Tactic [hsimpl] to simplify a goal [H1 ==> H2] by cancelling
-      equal items, and instantiating existentials from [H2]. *)
-
-(** [hsimpl] first calls [hpull] to put the LHS into a normal form,
-   that consists of right-associative iterated star of heap predicates,
-   without empty heaps or existentials or pure facts on the way.
-
-   Then [hsimpl] works on the RHS:
-   - for each empty heap predicates, it gets rid of it
-   - for each pure fact, it generates a subgoal to realize it
-   - for each existential, it introduces an evar to realize it
-   - for each other heap predicate, it attempts to cancel it out
-     with a corresponding heap predicate from the LHS.
+(** ... doc for [hsimpl] to update
 
    At the end, there remains a heap entailment with a simplified
    LHS and a simplified RHS, with items not cancelled out.
@@ -1235,63 +1041,172 @@ Proof using. intros. (* hpull_check tt. --> blocks *) Abort.
    type matches the type expected by the existential, else an evar
    is introduced for that existential. *)
 
-(* LATER: reimplement this tactic using arity-generic lemmas, if possible *)
 
-(** Hints *)
+(** [Hsimpl (Hla, Hlw, Hlt) (Hra, Hrg, Hrt)] is interepreted as
+    the entailement [Hla \* Hlw \* Hlt ==> Hra \* Hrg \* Hrt] where
+    - [Hla] denotes "cleaned up" items from the left hand side
+    - [Hlw] denotes the [H1 \-* H2] and [Q1 \--* Q2] items from the left hand side
+    - [Hlt] denotes the remaining items to process  items from the left hand side
+    - [Hra] denotes "cleaned up" items from the right hand side
+    - [Hrg] denotes the [\GC] and [\Top] items from the right hand side
+    - [Hrt] denotes the remaining items to process from the right hand side 
 
-Inductive Hcancel_hint : list Boxer -> Type :=
-  | hcancel_hint : forall (L:list Boxer), Hcancel_hint L.
+    Note: we assume that all items consist of iterated hstars, and are 
+    always terminated by an empty heap.
+*)
 
-Ltac hcancel_hint_put L :=
-  let H := fresh "Hint" in
-  generalize (hcancel_hint L); intros H.
+Definition Hsimpl (HL HR:hprop*hprop*hprop) :=
+  let '(Hla,Hlw,Hlt) := HL in
+  let '(Hra,Hrg,Hrt) := HR in
+  Hla \* Hlw \* Hlt ==> Hra \* Hrg \* Hrt.
 
-Ltac hcancel_hint_next cont :=
-  match goal with H: Hcancel_hint ((boxer ?x)::?L) |- _ =>
-    clear H; hcancel_hint_put L; cont x end.
+(** [hsimpl_protect H] is use to prevent [hsimpl] from investigating inside [H] *)
 
-Ltac hcancel_hint_remove tt :=
-  match goal with H: Hcancel_hint _ |- _ => clear H end.
+Definition hsimpl_protect (A:Type) (X:A) : A := X.
 
-(** Lemmas *)
+(** Transition lemmas to start the process *)
 
-Lemma hcancel_start : forall H' H1,
-  H' ==> \[] \* H1 ->
-  H' ==> H1.
-Proof using. intros. rew_heap~ in *. Qed.
+Lemma hpull_protect : forall H1 H2,
+  H1 ==> hsimpl_protect H2 ->
+  H1 ==> H2.
+Proof using. auto. Qed.
 
-Lemma hcancel_stop : forall H' H1,
-  H' ==> H1 ->
-  H' ==> H1 \* \[].
-Proof using. intros. rew_heap~ in *. Qed.
+Lemma hsimpl_start : forall H1 H2,
+  Hsimpl (\[], \[], (H1 \* \[])) (\[], \[], (H2 \* \[])) ->
+  H1 ==> H2.
+Proof using. introv M. unfolds Hsimpl. rew_heap~. Qed.
+(* Note: [repeat rewrite hstar_assoc] after applying this lemma *)
 
-Lemma hcancel_keep : forall H' H1 H2 H3,
-  H' ==> (H2 \* H1) \* H3 ->
-  H' ==> H1 \* (H2 \* H3).
-Proof using. intros. rewrite (hstar_comm H2) in H. rew_heap~ in *. Qed.
+(** Transition lemmas to stop the process *)
 
-Lemma hcancel_assoc : forall H' H1 H2 H3 H4,
-  H' ==> H1 \* (H2 \* (H3 \* H4)) ->
-  H' ==> H1 \* ((H2 \* H3) \* H4).
-Proof using. intros. rew_heap~ in *. Qed.
+Lemma hsimpl_stop_general : forall Hla Hlw Hlt Hra Hrg Hrt,
+  Hla \* Hlw \* Hlt ==> Hra \* Hrg \* Hrt ->
+  Hsimpl (Hla, Hlw, Hlt) (Hra, Hrg, Hrt).
+Proof using. auto. Qed.
 
-Lemma hcancel_starify : forall H' H1 H2,
-  H' ==> H1 \* (H2 \* \[]) ->
-  H' ==> H1 \* H2.
-Proof using. intros. rew_heap~ in *. Qed.
+Lemma hsimpl_stop_usual_without_hgc : forall Hla Hra,
+  Hla ==> Hra ->
+  Hsimpl (Hla, \[], \[]) (Hra, \[], \[]).
+Proof using. introv M. rew_heap~. Qed.
 
-Lemma hcancel_empty : forall H' H1 H2,
-  H' ==> H1 \* H2 ->
-  H' ==> H1 \* (\[] \* H2).
-Proof using. intros. rew_heap~. Qed.
+Lemma hsimpl_stop_refl : forall Hla,
+  Hsimpl (Hla, \[], \[]) (Hla, \[], \[]).
+Proof using. intros. unfolds Hsimpl. rew_heap~. Qed.
 
-Lemma hcancel_hprop : forall H' H1 H2 P,
-  H' ==> H1 \* H2 ->
-  P ->
-  H' ==> H1 \* (\[P] \* H2).
-Proof using.
-  intros. rewrite hstar_comm_assoc. applys~ himpl_hpure_r.
+Lemma hsimpl_stop_qwand : forall A (Q:A->hprop) Hla,
+  Hsimpl (Hla, \[], \[]) (Q \--* (Q \*+ Hla), \[], \[]).
+Proof using. intros. unfolds Hsimpl. rew_heap~. Qed.
+
+Lemma hsimpl_stop_htop : forall Hla Hrg',
+  Hsimpl (Hla, \[], \[]) (\[], (\Top \* Hrg'), \[]).
+Proof using. . Qed.
+
+Lemma hsimpl_stop_hgc : forall Hla Hrg',
+  haffine Hla ->
+  Hsimpl (Hla, \[], \[]) (\[], (\GC \* Hrg'), \[]).
+Proof using. . Qed.
+
+(** Transition lemmas for LHS extraction operations *)
+
+Lemma hsimpl_l_hempty : forall Hla Hlw Hlt HR,
+  Hsimpl (Hla, Hlw, Hlt) HR ->
+  Hsimpl (Hla, Hlw, (\[] \* Hlt)) HR.
+Proof using. introv M. rew_heap~. Qed.
+
+Lemma hsimpl_l_hpure : forall P Hla Hlw Hlt HR,
+  (P -> Hsimpl (Hla, Hlw, Hlt) HR) ->
+  Hsimpl (Hla, Hlw, (\[P] \* Hlt)) HR.
+Proof using. introv M. rew_heap~. Qed.
+
+Lemma hsimpl_l_hpure : forall A (J:A->hprop) Hla Hlw Hlt HR,
+  (forall x, Hsimpl (Hla, Hlw, (J x \* Hlt)) HR) ->
+  Hsimpl (Hla, Hlw, (hexists J \* Hlt)) HR.
+Proof using. introv M. rew_heap~. Qed.
+
+Lemma hsimpl_l_acc_wand : forall H Hla Hlw Hlt HR,
+  Hsimpl (Hla, (H \* Hlw), Hlt) HR ->
+  Hsimpl (Hla, Hlw, (H \* Hlt)) HR.
+Proof using. introv M. rew_heap~. Qed.
+
+Lemma hsimpl_l_acc_other : forall H Hla Hlw Hlt HR,
+  Hsimpl ((H \* Hla), Hlw, Hlt) HR ->
+  Hsimpl (Hla, Hlw, (H \* Hlt)) HR.
+Proof using. introv M. rew_heap~. Qed.
+
+(** Transition lemmas for LHS cancellation operations *)
+
+Lemma hsimpl_l_cancel_hwand : forall H1 H2 Hla Hlw Hlt HR,
+  Hsimpl (Hla, Hlw, (H2 \* Hlt)) HR ->
+  Hsimpl ((H1 \* Hla), ((H1 \-* H2) \* Hlw), Hlt) HR.
+Proof using. introv M. rew_heap~. Qed.
+
+Lemma hsimpl_l_cancel_qwand : forall A (Q1 Q2:A->hprop) (x:A) Hla Hlw Hlt HR,
+  Hsimpl (Hla, Hlw, (Q2 x \* Hlt)) HR ->
+  Hsimpl ((Q1 x \* Hla), ((Q1 \-* Q2) \* Hlw), Hlt) HR.
+Proof using. introv M. rew_heap~. Qed.
+
+Lemma hsimpl_l_skip_wand : forall H Hla Hlw Hlt HR,
+  Hsimpl ((Hla \* H), Hlw, Hlt) HR ->
+  Hsimpl (Hla, (H \* Hlw), Hlt) HR.
+Proof using. introv M. rew_heap~. Qed.
+
+(** Transition lemmas for RHS extraction operations *)
+
+Lemma hsimpl_r_hempty : forall Hra Hrg Hrt HL,
+  Hsimpl HL (Hra, Hrg, Hrt) ->
+  Hsimpl HL (Hra, Hrg, (\[] \* Hrt)).
+Proof using. introv M. rew_heap~. Qed.
+
+Lemma hsimpl_l_hpure : forall P Hra Hrg Hrt HL,
+  hsimpl_protect P ->
+  Hsimpl HL (Hra, Hrg, Hrt) ->
+  Hsimpl HL (Hra, Hrg, (\[P] \* Hrt)).
+Proof using. introv M. ... Qed.
+
+Lemma hsimpl_l_hexists : forall A (x:A) (J:A->hprop) Hra Hrg Hrt HL,
+  Hsimpl HL (Hra, Hrg, (J x \* Hrt)) ->
+  Hsimpl HL (Hra, Hrg, (hexists J \* Hrt)).
+Proof using. ... Qed.
+
+Lemma hsimpl_l_hgc : forall Hra Hrg Hrt HL,
+  Hsimpl HL (Hra, (\GC \* Hrg), Hrt) ->
+  Hsimpl HL (Hra, Hrg, (\GC \* Hrt)).
+Proof using. introv M. unfolds Hsimpl. rew_heap~. Qed.
+
+Lemma hsimpl_l_htop : forall Hra Hrg Hrt HL,
+  Hsimpl HL (Hra, (\Top \* Hrg), Hrt) ->
+  Hsimpl HL (Hra, Hrg, (\Top \* Hrt)).
+Proof using. introv M. unfolds Hsimpl. rew_heap~. Qed.
+
+(** Transition lemmas for LHS/RHS cancellation 
+    --- meant to be applied when Hlw and Hlt are empty *)
+
+Lemma hsimpl_lr_cancel : forall H Hla Hlw Hlt Hra Hrg Hrt,
+  Hsimpl (Hla, Hlw, Hlt) (Hra, Hrg, Hrt) ->
+  Hsimpl ((H \* Hla), Hlw, Hlt) (Hra, Hrg, (H \* Hrt)).
+Proof using. introv M. rew_heap~. Qed.
+
+Lemma hsimpl_lr_hwand : forall H1 H2 Hla Hlw Hlt,
+  Hsimpl (Hla, Hlw, (H1 \* Hlt)) (H2, \[], \[]) ->
+  Hsimpl (Hla, Hlw, Hlt) ((H1 \-* H2), \[], \[]).
+Proof using. 
+  introv M. unfolds Hsimpl. rew_heap~. 
+  applys hwand_move_l \[]. { rewrite* hstar_hempty_l. }
 Qed.
+
+Lemma hsimpl_lr_qwand : forall A (Q1 Q2:A->hprop) Hla Hlw Hlt,
+  (forall x, Hsimpl (Hla, Hlw, (Q1 x \* Hlt)) (Q2 x, \[], \[]) ->
+  Hsimpl (Hla, Hlw, Hlt) ((Q1 \-* Q2), \[], \[]).
+Proof using. 
+  introv M. unfolds Hsimpl. rew_heap~. 
+  applys qwand_move_l \[]. { rewrite* hstar_hempty_l. }
+Qed.
+
+
+
+------
+
+
 
 Lemma hcancel_hexists : forall A (x:A) H' H1 H2 (J:A->hprop),
   H' ==> H1 \* J x \* H2 ->
@@ -1314,45 +1229,162 @@ Lemma hcancel_id_unify : forall A (x : A) H' H1 H2,
   H' ==> H1 \* (x ~> Id x \* H2).
 Proof using. intros. apply~ hcancel_id. Qed.
 
-Lemma hcancel_htop : forall H,
-  H ==> \Top.
-Proof using.
-  Transparent htop. intros. unfold htop. introv M. exists~ H.
-Qed.
-
-Definition hcancel_hgc := himpl_hgc_r. 
-  (* haffine H -> H ==> \GC *)
-
-Lemma hcancel_hgc_hempty :
-  \[] ==> \GC.
-Proof using. applys hcancel_hgc. applys haffine_hempty. Qed.
-
-Lemma hcancel_hempty_hstar_evar : forall H,
-  H ==> \[] \* H.
-Proof using. intros. rew_heap~. Qed.
-
-Lemma hcancel_evar_hstar_hempty : forall H,
-  H ==> H \* \[].
-Proof using. intros. rew_heap~. Qed.
-
-Definition hcancel_evar_hstar_htop := himpl_same_hstar_htop_r.
-  (* H ==> H \* \Top. *)
-
-Lemma hcancel_htop_hstar_evar : forall H,
-  H ==> \Top \* H.
-Proof using. intros. rewrite hstar_comm. applys hcancel_evar_hstar_htop. Qed.
-
-Definition hcancel_evar_hstar_hgc := himpl_same_hstar_hgc_r.
-  (* H ==> H \* \GC *)
-
-Lemma hcancel_hgc_hstar_evar : forall H,
-  H ==> \GC \* H.
-Proof using. intros. rewrite hstar_comm. applys hcancel_evar_hstar_hgc. Qed.
-
 Lemma hcancel_cancel_1 : forall H HA HR HT,
   HT ==> HA \* HR ->
   H \* HT ==> HA \* (H \* HR).
 Proof using. intros. rewrite hstar_comm_assoc. applys~ himpl_frame_r. Qed.
+
+Lemma hcancel_cancel_eq_1 : forall H H' HA HR HT,
+  H = H' -> HT ==> HA \* HR -> H \* HT ==> HA \* (H' \* HR).
+Proof using. intros. subst. apply~ hcancel_cancel_1. Qed.
+
+
+------
+
+Ltac hcancel_setup tt :=
+  hcancel_prepare tt;
+  rew_heap;
+  hcancel_left_empty tt;
+  apply hcancel_start.
+
+Ltac hsimpl_cleanup tt :=
+  try Hsimpl_hint_remove tt;
+  try remove_empty_heaps_right tt;
+  try remove_empty_heaps_left tt;
+
+
+  try apply himpl_refl;
+  try (apply hcancel_hgc; );
+
+
+---
+
+Ltac hcancel_prepare tt :=
+  match goal with
+  | |- @qimpl _ _ _ ?Q' => is_evar Q'; apply qimpl_refl
+  | |- @qimpl unit _ ?Q ?Q' => let t := fresh "_tt" in intros t; destruct t
+  | |- eq _ _ => applys himpl_antisym
+  | |- @qimpl _ _ _ _ => let r := fresh "r" in intros r
+  | |- himpl _ ?H' => is_evar H'; apply himpl_refl
+  | |- himpl _ _ => idtac
+  end.
+------------
+
+(** Tactics *)
+
+Opaque Hsimpl.
+
+Ltac hsimpl_handle_qimpl tt :=
+  match goal with
+  | |- @qimpl unit _ _ _ => let t := fresh "_tt" in intros t; destruct t
+  | |- @qimpl _ _ _ _ => let r := fresh "r" in intros r
+  | |- himpl _ _ => idtac
+  | _ => fail 1 "not a goal for hsimpl/hpull"
+  end.
+
+Ltac Hsimpl_intro tt :=
+  applys hsimpl_start;
+  repeat (rewrite hstar_assoc).
+
+Ltac hpull_start tt :=
+  pose ltac_mark;
+  intros;
+  hsimpl_handle_qimpl tt;
+  applys hpull_protect;
+  Hsimpl_intro tt.
+
+Ltac hsimpl_start tt :=
+  pose ltac_mark;
+  intros;
+  hsimpl_handle_qimpl tt;
+  Hsimpl_intro tt.
+
+Ltac hsimpl_post_before_generalize tt :=
+  idtac.
+
+Ltac hsimpl_post_after_generalize tt :=
+  idtac.
+
+Ltac himpl_post_processing_for_hyp H :=
+  idtac.
+
+Ltac hsimpl_handle_false_subgoals tt :=
+  tryfalse.
+
+Ltac hsimpl_handle_haffine_subgoals tt :=
+  match goal with |- haffine _ =>   
+    try solve [ haffine ] end.
+
+Ltac hsimpl_post tt :=
+  hsimpl_post_before_generalize tt;
+  hsimpl_handle_false_subgoals tt;
+  gen_until_mark_with_processing ltac:(himpl_post_processing_for_hyp);
+  hsimpl_post_after_generalize tt;
+  unfold hsimpl_protect;
+  hsimpl_handle_haffine_subgoals tt.
+
+Ltac hsimpl_apply_stop_lemma tt :=
+  match goal with 
+  | |- Hsimpl (?Hla, \[], \[]) (?Q1 \--* ?Q2, \[], \[]) => 
+      is_evar Q1; eapply hsimpl_stop_qwand
+  | |- Hsimpl (?Hla, \[], \[]) (?Hra, \[], \[]) => 
+      first [ is_evar Hra; apply hsimpl_stop_refl
+            | apply hsimpl_stop_usual_without_hgc ]
+  | |- Hsimpl (?Hla, \[], \[]) (?Hra, (?Hrg1 \* _), \[]) =>
+      (* could be smarter to take in priority \Top instead of \GC *)
+      match Hrg1 with
+      | \Top => apply hsimpl_stop_htop
+      | \GC => apply hsimpl_stop_hgc
+      end
+  | |- _ => apply hsimpl_stop_general
+  end.
+
+Ltac hsimpl_stop tt :=
+  hsimpl_apply_stop_lemma tt;
+  hsimpl_post tt.
+
+(** Tactic notation *)
+
+Tactic Notation "hpull" := hpull_core tt.
+Tactic Notation "hpull" "~" := hpull; auto_tilde.
+Tactic Notation "hpull" "*" := hpull; auto_star.
+
+Tactic Notation "hsimpl" := hsimpl_core tt.
+Tactic Notation "hsimpl" "~" := hsimpl; auto_tilde.
+Tactic Notation "hsimpl" "*" := hsimpl; auto_star.
+
+Tactic Notation "hsimpl" constr(L) :=
+  match type of L with
+  | list Boxer => Hsimpl_hint_put L
+  | _ => Hsimpl_hint_put (boxer L :: nil)
+  end; hsimpl.
+Tactic Notation "hsimpl" constr(X1) constr(X2) :=
+  hsimpl (>> X1 X2).
+Tactic Notation "hsimpl" constr(X1) constr(X2) constr(X3) :=
+  hsimpl (>> X1 X2 X3).
+
+Tactic Notation "hsimpl" "~" constr(L) :=
+  hsimpl L; auto_tilde.
+Tactic Notation "hsimpl" "~" constr(X1) constr(X2) :=
+  hsimpl X1 X2; auto_tilde.
+Tactic Notation "hsimpl" "~" constr(X1) constr(X2) constr(X3) :=
+  hsimpl X1 X2 X3; auto_tilde.
+
+Tactic Notation "hsimpl" "*" constr(L) :=
+  hsimpl L; auto_star.
+Tactic Notation "hsimpl" "*" constr(X1) constr(X2) :=
+  hsimpl X1 X2; auto_star.
+Tactic Notation "hsimpl" "*" constr(X1) constr(X2) constr(X3) :=
+  hsimpl X1 X2 X3; auto_star.
+
+
+
+
+
+
+
+----
+
 
 Lemma hcancel_cancel_2 : forall H HA HR H1 HT,
   H1 \* HT ==> HA \* HR ->
@@ -1405,199 +1437,6 @@ Lemma hcancel_cancel_10 : forall H HA HR H1 H2 H3 H4 H5 H6 H7 H8 H9 HT,
 (*Proof using. intros. rewrite (hstar_comm_assoc H9). apply~ hcancel_cancel_9. Qed.*)
 Admitted. (* commented out for faster compilation *)
 
-Lemma hcancel_cancel_eq_1 : forall H H' HA HR HT,
-  H = H' -> HT ==> HA \* HR -> H \* HT ==> HA \* (H' \* HR).
-Proof using. intros. subst. apply~ hcancel_cancel_1. Qed.
-
-Lemma hcancel_cancel_eq_2 : forall H H' HA HR H1 HT,
-  H = H' -> H1 \* HT ==> HA \* HR ->
-  H1 \* H \* HT ==> HA \* (H' \* HR).
-Proof using. intros. subst. apply~ hcancel_cancel_2. Qed.
-
-Lemma hcancel_cancel_eq_3 : forall H H' HA HR H1 H2 HT,
-  H = H' -> H1 \* H2 \* HT ==> HA \* HR ->
-  H1 \* H2 \* H \* HT ==> HA \* (H' \* HR).
-Proof using. intros. subst. apply~ hcancel_cancel_3. Qed.
-
-Lemma hcancel_cancel_eq_4 : forall H H' HA HR H1 H2 H3 HT,
-  H = H' -> H1 \* H2 \* H3 \* HT ==> HA \* HR ->
-  H1 \* H2 \* H3 \* H \* HT ==> HA \* (H' \* HR).
-Proof using. intros. subst. apply~ hcancel_cancel_4. Qed.
-
-Lemma hcancel_cancel_eq_5 : forall H H' HA HR H1 H2 H3 H4 HT,
-  H = H' -> H1 \* H2 \* H3 \* H4 \* HT ==> HA \* HR ->
-  H1 \* H2 \* H3 \* H4 \* H \* HT ==> HA \* (H' \* HR).
-Proof using. intros. subst. apply~ hcancel_cancel_5. Qed.
-
-Lemma hcancel_cancel_eq_6 : forall H H' HA HR H1 H2 H3 H4 H5 HT,
-  H = H' -> H1 \* H2 \* H3 \* H4 \* H5 \* HT ==> HA \* HR ->
-  H1 \* H2 \* H3 \* H4 \* H5 \* H \* HT ==> HA \* (H' \* HR).
-Proof using. intros. subst. apply~ hcancel_cancel_6. Qed.
-
-Lemma hcancel_cancel_eq_7 : forall H H' HA HR H1 H2 H3 H4 H5 H6 HT,
-  H = H' -> H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* HT ==> HA \* HR ->
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H \* HT ==> HA \* (H' \* HR).
-Proof using. intros. subst. apply~ hcancel_cancel_7. Qed.
-
-Lemma hcancel_cancel_eq_8 : forall H H' HA HR H1 H2 H3 H4 H5 H6 H7 HT,
-  H = H' -> H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* HT ==> HA \* HR ->
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H \* HT ==> HA \* (H' \* HR).
-Proof using. intros. subst. apply~ hcancel_cancel_8. Qed.
-
-Lemma hcancel_cancel_eq_9 : forall H H' HA HR H1 H2 H3 H4 H5 H6 H7 H8 HT,
-  H = H' -> H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* HT ==> HA \* HR ->
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H \* HT ==> HA \* (H' \* HR).
-Proof using. intros. subst. apply~ hcancel_cancel_9. Qed.
-
-Lemma hcancel_cancel_eq_10 : forall H H' HA HR H1 H2 H3 H4 H5 H6 H7 H8 H9 HT,
-  H = H' -> H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* HT ==> HA \* HR ->
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* H \* HT ==> HA \* (H' \* HR).
-Proof using. intros. subst. apply~ hcancel_cancel_10. Qed.
-
-Lemma hcancel_start_1 : forall H1 H',
-  H1 \* \[] ==> H' -> H1 ==> H'.
-Proof using. intros. rew_heap in H. auto. Qed.
-
-Lemma hcancel_start_2 : forall H1 H2 H',
-  H1 \* H2 \* \[] ==> H' ->
-  H1 \* H2 ==> H'.
-Proof using. intros. rew_heap in H. auto. Qed.
-
-Lemma hcancel_start_3 : forall H1 H2 H3 H',
-  H1 \* H2 \* H3 \* \[] ==> H' ->
-  H1 \* H2 \* H3 ==> H'.
-(* Proof using. intros. rew_heap in H. auto. Qed.*)
-Admitted. (* commented out for faster compilation *)
-
-Lemma hcancel_start_4 : forall H1 H2 H3 H4 H',
-  H1 \* H2 \* H3 \* H4 \* \[] ==> H' ->
-  H1 \* H2 \* H3 \* H4 ==> H'.
-(* Proof using. intros. rew_heap in H. auto. Qed. *)
-Admitted. (* commented out for faster compilation *)
-
-Lemma hcancel_start_5 : forall H1 H2 H3 H4 H5 H',
-  H1 \* H2 \* H3 \* H4 \* H5 \* \[] ==> H' ->
-  H1 \* H2 \* H3 \* H4 \* H5 ==> H'.
-(* Proof using. intros. rew_heap in H. auto. Qed. *)
-Admitted. (* commented out for faster compilation *)
-
-Lemma hcancel_start_6 : forall H1 H2 H3 H4 H5 H6 H',
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* \[] ==> H' ->
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 ==> H'.
-(* Proof using. intros. rew_heap in H. auto. Qed. *)
-Admitted. (* commented out for faster compilation *)
-
-Lemma hcancel_start_7 : forall H1 H2 H3 H4 H5 H6 H7 H',
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* \[] ==> H' ->
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 ==> H'.
-(* Proof using. intros. rew_heap in H. auto. Qed. *)
-Admitted. (* commented out for faster compilation *)
-
-Lemma hcancel_start_8 : forall H1 H2 H3 H4 H5 H6 H7 H8 H',
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* \[] ==> H' ->
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 ==> H'.
-(* Proof using. intros. rew_heap in H. auto. Qed. *)
-Admitted. (* commented out for faster compilation *)
-
-Lemma hcancel_start_9 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9 H',
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* \[] ==> H' ->
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 ==> H'.
-(* Proof using. intros. rew_heap in H. auto. Qed. *)
-Admitted. (* commented out for faster compilation *)
-
-Lemma hcancel_start_10 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9 H10 H',
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* H10 \* \[] ==> H' ->
-  H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* H10 ==> H'.
-(* Proof using. intros. rew_heap in H. auto. Qed. *)
-Admitted. (* commented out for faster compilation *)
-
-Lemma hwand_move_l_hempty_when_hempty_l : forall H1 H2,
-  H1 ==> H2 ->
-  \[] ==> (H1 \-* H2).
-Proof using.
-  introv M. applys hwand_move_l \[]. { rewrite* hstar_hempty_l. }
-Qed.
-
-Lemma qwand_move_l_hempty_when_hempty_l : forall A (Q1 Q2:A->hprop),
-  Q1 ===> Q2 ->
-  \[] ==> Q1 \--* Q2.
-Proof using.
-  introv M. applys qwand_move_l \[]. { intros x. rewrite* hstar_hempty_r. }
-Qed.
-
-Arguments qwand_move_l_hempty_when_hempty_l [A].
-
-Lemma himpl_hwand_r_instantiate : forall A (Q:A->hprop) H,
-  H ==> (Q \--* (Q \*+ H)).
-Proof using. intros. applys qwand_move_l. applys qimpl_refl. Qed.
-
-(** Tactics *)
-
-Ltac hcancel_left_empty tt :=
-  match goal with |- ?HL ==> _ =>
-  match HL with
-  | \[] => idtac
-  | _ \* \[] => idtac
-  | _ \* _ \* \[] => idtac
-  | _ \* _ \* _ \* \[] => idtac
-  | _ \* _ \* _ \* _ \* \[] => idtac
-  | _ \* _ \* _ \* _ \* _ \* \[] => idtac
-  | _ \* _ \* _ \* _ \* _ \* _ \* \[] => idtac
-  | _ \* _ \* _ \* _ \* _ \* _ \* _ \* \[] => idtac
-  | _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* \[] => idtac
-  | _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* \[] => idtac
-  | _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* \[] => idtac
-  | _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* ?H => apply hcancel_start_10
-  | _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* ?H => apply hcancel_start_9
-  | _ \* _ \* _ \* _ \* _ \* _ \* _ \* ?H => apply hcancel_start_8
-  | _ \* _ \* _ \* _ \* _ \* _ \* ?H => apply hcancel_start_7
-  | _ \* _ \* _ \* _ \* _ \* ?H => apply hcancel_start_6
-  | _ \* _ \* _ \* _ \* ?H => apply hcancel_start_5
-  | _ \* _ \* _ \* ?H => apply hcancel_start_4
-  | _ \* _ \* ?H => apply hcancel_start_3
-  | _ \* ?H => apply hcancel_start_2
-  | ?H => apply hcancel_start_1
-  end end.
-
-Ltac check_arg_true v :=
-  match v with
-  | true => idtac
-  | false => fail 1
-  end.
-
-Ltac hcancel_prepare tt :=
-  match goal with
-  | |- @qimpl _ _ _ ?Q' => is_evar Q'; apply qimpl_refl
-  | |- @qimpl unit _ ?Q ?Q' => let t := fresh "_tt" in intros t; destruct t
-  | |- eq _ _ => applys himpl_antisym
-  | |- @qimpl _ _ _ _ => let r := fresh "r" in intros r
-  | |- himpl _ ?H' => is_evar H'; apply himpl_refl
-  | |- himpl _ _ => idtac
-  end.
-
-Ltac hcancel_setup tt :=
-  hcancel_prepare tt;
-  rew_heap;
-  hcancel_left_empty tt;
-  apply hcancel_start.
-
-Ltac hcancel_cleanup tt :=
-  try apply hcancel_stop;
-  try apply hcancel_stop;
-  try apply himpl_refl;
-  try hcancel_hint_remove tt;
-  try remove_empty_heaps_right tt;
-  try remove_empty_heaps_left tt;
-  try apply himpl_refl;
-  try (apply hcancel_hgc; try solve [ haffine ]);
-  try apply hcancel_htop;
-  try apply hcancel_hempty_hstar_evar;
-  try apply hcancel_evar_hstar_hempty;
-  try apply hcancel_hgc_hstar_evar;
-  try apply hcancel_evar_hstar_hgc;
-  try apply hcancel_htop_hstar_evar;
-  try apply hcancel_evar_hstar_htop.
-
 Ltac hcancel_try_same tt :=
   first
   [ apply hcancel_cancel_1
@@ -1642,7 +1481,7 @@ Ltac hcancel_find_repr l HL cont :=
 
 Ltac hcancel_hexists tt :=
   first [
-    hcancel_hint_next ltac:(fun x =>
+    Hsimpl_hint_next ltac:(fun x =>
       match x with
       | __ => eapply hcancel_hexists
       | _ => apply (@hcancel_hexists _ x)
@@ -1707,133 +1546,18 @@ Ltac hcancel_step tt :=
   | _ => apply hcancel_starify
   end end.
 
-(* DEPRECATED: factorize the logging version of the code with the normal code
-Ltac hcancel_step_debug tt :=
-  match goal with |- ?HL ==> ?HA \* ?HN =>
-  idtac HN;
-  match HN with
-  | ?H \* _ =>
-    match H with
-    | ?H => hcancel_hook H; idtac "hook"
-    | \[] => apply hcancel_empty
-    | \[_] => apply hcancel_hprop
-    | hexists _ => hcancel_hexists tt
-    | _ \* _ => idtac "sep"; apply hcancel_assoc
-    | ?H => idtac "find";
-        first [ has_evar H; idtac "has evar"; fail 1 | idtac "has no evar" ];
-         hcancel_find_same H HL (* may fail *)
-    | ?x ~> _ => idtac "repr"; hcancel_find_repr x HL ltac:(hcancel_find_repr_post) (* may fail *)
-    | ?x ~> Id _ => idtac "id";  check_noevar x; apply hcancel_id (* LATER: why is this requiring a fail 2 ? *)
-    | ?x ~> _ _ => idtac "some";  check_noevar2 x; apply hcancel_id_unify
-    | ?X => idtac "keep"; apply hcancel_keep
-    end
-  | \[] => fail 1
-  | _ => idtac "starify"; apply hcancel_starify
-  end end.
-*)
-
-Ltac hcancel_main tt :=
-  hcancel_setup tt;
-  (repeat (hcancel_step tt));
-  hcancel_cleanup tt.
-
-Tactic Notation "hcancel" :=
-  hcancel_main false.
-
-Tactic Notation "hcancel_core" constr(L) :=
-  match type of L with
-  | list Boxer => hcancel_hint_put L
-  | _ => hcancel_hint_put (boxer L :: nil)
-  end;
-  hcancel.
-
-Ltac hsimpl_post_before_generalize tt :=
-  idtac.
-
-Ltac hsimpl_post_after_generalize tt :=
-  idtac.
-
-Ltac himpl_post_processing_for_hyp H :=
-  idtac.
-
-Ltac hsimpl_pre tt :=
-  pose ltac_mark;
-  intros.
-
-Ltac hsimpl_post tt :=
-  hsimpl_post_before_generalize tt;
-  gen_until_mark_with_processing ltac:(himpl_post_processing_for_hyp);
-  hsimpl_post_after_generalize tt.
-
-(** The tactic [hsimpl_remove_wand] eliminates the outermost magic wand on the
-    right-hand side of an entailment. It essentially applies one of these two
-    lemmas, or a specialized version of them.
-[[
-      hwand_move_l:
-        H1 \* H2 ==> H3 ->
-        H1 ==> (H2 \-* H3).
-
-      qwand_move_l:
-        Q1 \*+ H ===> Q2 ->
-        H ==> (Q1 \--* Q2).
-]]
-*)
-
-Ltac hsimpl_remove_wand tt :=
-  try match goal with
-  | |- \[] ==> (?Q1 \--* ?Q2) => applys qwand_move_l_hempty_when_hempty_l; hpull
-  | |- \[] ==> (?H1 \-* ?H2) => applys hwand_move_l_hempty_when_hempty_l; hpull
-  | |- ?H ==> (?Q1 \--* ?Q2) => 
-      first [ is_evar Q2; solve [ applys himpl_hwand_r_instantiate ]
-            | applys qwand_move_l; hpull ]
-  | |- ?H ==> (?H1 \-* ?H2) => applys hwand_move_l; hpull
-  end.
-
-Ltac hsimpl_core tt :=
-  hsimpl_pre tt;
-  hcancel_prepare tt;
-  hpull;
-  intros;
-  hcancel;
-  hsimpl_remove_wand tt;
-  hsimpl_post tt.
-
-Tactic Notation "hsimpl" := hsimpl_core tt.
-Tactic Notation "hsimpl" "~" := hsimpl; auto_tilde.
-Tactic Notation "hsimpl" "*" := hsimpl; auto_star.
-
-Tactic Notation "hsimpl" constr(L) :=
-  match type of L with
-  | list Boxer => hcancel_hint_put L
-  | _ => hcancel_hint_put (boxer L :: nil)
-  end; hsimpl.
-Tactic Notation "hsimpl" constr(X1) constr(X2) :=
-  hsimpl (>> X1 X2).
-Tactic Notation "hsimpl" constr(X1) constr(X2) constr(X3) :=
-  hsimpl (>> X1 X2 X3).
-
-Tactic Notation "hsimpl" "~" constr(L) :=
-  hsimpl L; auto_tilde.
-Tactic Notation "hsimpl" "~" constr(X1) constr(X2) :=
-  hsimpl X1 X2; auto_tilde.
-Tactic Notation "hsimpl" "~" constr(X1) constr(X2) constr(X3) :=
-  hsimpl X1 X2 X3; auto_tilde.
-
-Tactic Notation "hsimpl" "*" constr(L) :=
-  hsimpl L; auto_star.
-Tactic Notation "hsimpl" "*" constr(X1) constr(X2) :=
-  hsimpl X1 X2; auto_star.
-Tactic Notation "hsimpl" "*" constr(X1) constr(X2) constr(X3) :=
-  hsimpl X1 X2 X3; auto_star.
 
 
-(*-- Demo --*)
 
-Lemma haffine_demo_1 : forall H1 H2 H3,
-  haffine (H1 \* H2 \* \exists (x:int), \[x=x] \* H3).
-Proof using.
-  intros. haffine.
-Abort.
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* Demo for tactic [hsimpl] *)
+
+
+Lemma hpull_demo : forall H1 H2 H3 H,
+   (H1 \* \[] \* (H2 \* \exists (y:int), \[y = y]) \* H3) ==> H.
 
 Lemma hsimpl_demo_1 : forall H1 H2 H3 H4 H5,
   H1 \* H2 \* H3 \* H4 ==> H4 \* H3 \* H5 \* H2.
@@ -1882,40 +1606,105 @@ Proof using. intros. hsimpl. Qed.
 
 Lemma demo_hsimpl_hints : exists n, n = 3.
 Proof using.
-  hcancel_hint_put (>> 3 true).
-  hcancel_hint_next ltac:(fun x => exists x).
-  hcancel_hint_remove tt.
+  Hsimpl_hint_put (>> 3 true).
+  Hsimpl_hint_next ltac:(fun x => exists x).
+  Hsimpl_hint_remove tt.
 Abort.
 
-(* LATER
-    Fixpoint even_nat (n:nat) :=
-      match n with
-      | O => true
-      | S n => neg (even_nat n)
-      end.
 
-    Definition even (n:Z) := even_nat (Z.to_nat n).
 
-    Lemma even_minus_two : forall n, even n -> even (n - 2).
 
-    Lemma hsimpl_demo_1 : forall r,
-      (r ~~~> 6) ==>
-      (\exists (n:int), (r ~~~> n) \* \[even n]).
-    Proof using.
-      intros. hsimpl. auto.
-    Qed.
+(* ---------------------------------------------------------------------- *)
+(* Premature optimization for [hsimpl_start] tactic *)
 
-    Lemma hpull_demo_1 : forall r,
-      (\exists (n:int), (r ~~~> n) \* \[even n]) ==>
-      (\exists (m:int), \[even m] \* (r ~~~> (m + 2))).
-    Proof using.
-      intros. hpull. intros n Hn.
-      hsimpl (n-2).
-      math_rewrite ((n-2) + 2 = n). auto.
-      applys even_minus_two. auto.
-    Qed.
+(*
+  Ltac hcancel_left_empty tt :=
+    match goal with |- ?HL ==> _ =>
+    match HL with
+    | \[] => idtac
+    | _ \* \[] => idtac
+    | _ \* _ \* \[] => idtac
+    | _ \* _ \* _ \* \[] => idtac
+    | _ \* _ \* _ \* _ \* \[] => idtac
+    | _ \* _ \* _ \* _ \* _ \* \[] => idtac
+    | _ \* _ \* _ \* _ \* _ \* _ \* \[] => idtac
+    | _ \* _ \* _ \* _ \* _ \* _ \* _ \* \[] => idtac
+    | _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* \[] => idtac
+    | _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* \[] => idtac
+    | _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* \[] => idtac
+    | _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* ?H => apply hcancel_start_10
+    | _ \* _ \* _ \* _ \* _ \* _ \* _ \* _ \* ?H => apply hcancel_start_9
+    | _ \* _ \* _ \* _ \* _ \* _ \* _ \* ?H => apply hcancel_start_8
+    | _ \* _ \* _ \* _ \* _ \* _ \* ?H => apply hcancel_start_7
+    | _ \* _ \* _ \* _ \* _ \* ?H => apply hcancel_start_6
+    | _ \* _ \* _ \* _ \* ?H => apply hcancel_start_5
+    | _ \* _ \* _ \* ?H => apply hcancel_start_4
+    | _ \* _ \* ?H => apply hcancel_start_3
+    | _ \* ?H => apply hcancel_start_2
+    | ?H => apply hcancel_start_1
+    end end.
+
+
+  Lemma hcancel_start_1 : forall H1 H',
+    H1 \* \[] ==> H' -> H1 ==> H'.
+  Proof using. intros. rew_heap in H. auto. Qed.
+
+  Lemma hcancel_start_2 : forall H1 H2 H',
+    H1 \* H2 \* \[] ==> H' ->
+    H1 \* H2 ==> H'.
+  Proof using. intros. rew_heap in H. auto. Qed.
+
+  Lemma hcancel_start_3 : forall H1 H2 H3 H',
+    H1 \* H2 \* H3 \* \[] ==> H' ->
+    H1 \* H2 \* H3 ==> H'.
+  (* Proof using. intros. rew_heap in H. auto. Qed.*)
+  Admitted. (* commented out for faster compilation *)
+
+  Lemma hcancel_start_4 : forall H1 H2 H3 H4 H',
+    H1 \* H2 \* H3 \* H4 \* \[] ==> H' ->
+    H1 \* H2 \* H3 \* H4 ==> H'.
+  (* Proof using. intros. rew_heap in H. auto. Qed. *)
+  Admitted. (* commented out for faster compilation *)
+
+  Lemma hcancel_start_5 : forall H1 H2 H3 H4 H5 H',
+    H1 \* H2 \* H3 \* H4 \* H5 \* \[] ==> H' ->
+    H1 \* H2 \* H3 \* H4 \* H5 ==> H'.
+  (* Proof using. intros. rew_heap in H. auto. Qed. *)
+  Admitted. (* commented out for faster compilation *)
+
+  Lemma hcancel_start_6 : forall H1 H2 H3 H4 H5 H6 H',
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* \[] ==> H' ->
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 ==> H'.
+  (* Proof using. intros. rew_heap in H. auto. Qed. *)
+  Admitted. (* commented out for faster compilation *)
+
+  Lemma hcancel_start_7 : forall H1 H2 H3 H4 H5 H6 H7 H',
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* \[] ==> H' ->
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 ==> H'.
+  (* Proof using. intros. rew_heap in H. auto. Qed. *)
+  Admitted. (* commented out for faster compilation *)
+
+  Lemma hcancel_start_8 : forall H1 H2 H3 H4 H5 H6 H7 H8 H',
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* \[] ==> H' ->
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 ==> H'.
+  (* Proof using. intros. rew_heap in H. auto. Qed. *)
+  Admitted. (* commented out for faster compilation *)
+
+  Lemma hcancel_start_9 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9 H',
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* \[] ==> H' ->
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 ==> H'.
+  (* Proof using. intros. rew_heap in H. auto. Qed. *)
+  Admitted. (* commented out for faster compilation *)
+
+  Lemma hcancel_start_10 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9 H10 H',
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* H10 \* \[] ==> H' ->
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* H10 ==> H'.
+  (* Proof using. intros. rew_heap in H. auto. Qed. *)
+  Admitted. (* commented out for faster compilation *)
 
 *)
+
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [hhsimpl] to prove [H h] from [H' h] *)
