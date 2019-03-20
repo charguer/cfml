@@ -1452,6 +1452,8 @@ Lemma hsimpl_r_hgc : forall Hra Hrg Hrt HL,
   Hsimpl HL (Hra, Hrg, (\GC \* Hrt)).
 Proof using. hsimpl_r_start' M. Qed.
 
+(* TODO: cancel \HGC on the left if possible *)
+
 Lemma hsimpl_r_htop : forall Hra Hrg Hrt HL,
   Hsimpl HL (Hra, (\Top \* Hrg), Hrt) ->
   Hsimpl HL (Hra, Hrg, (\Top \* Hrt)).
