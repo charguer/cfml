@@ -433,7 +433,7 @@ Proof using.
   exists (h1' \u h) (val_loc l). splits~.
   { applys~ red_ref. }
   { exists h1' h. split.
-    { exists l. applys~ himpl_hpure_r. unfold h1'. hnfs~. }
+    { exists l. applys~ himpl_hstar_hpure_r. unfold h1'. hnfs~. }
     { splits~. hhsimpl~. } }
 Qed.
 
@@ -486,7 +486,7 @@ Proof using. (* Note: [abs n] currently does not compute in Coq. *)
   { applys (red_alloc (abs n)); eauto.
     rewrite~ abs_nonneg. }
   { exists h1' h. split.
-    { exists l. applys~ himpl_hpure_r. applys~ Alloc_fmap_conseq. }
+    { exists l. applys~ himpl_hstar_hpure_r. applys~ Alloc_fmap_conseq. }
     { splits~. hhsimpl~. } }
 Qed.
 

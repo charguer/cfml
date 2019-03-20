@@ -521,7 +521,7 @@ Proof using.
          (fun (_:unit) => p ~> MList L \* n ~~> (nacc + length L))).
     { xapplys* K. }
     gen p. induction_wf: list_sub_wf L; intros. applys (rm HR).
-    xlet. { xapps. xapps~. } xpulls. xif ;=> C.
+    xlet. { xapps. xapps~. } xpull ;=> ? ->. xif ;=> C.
     { xchanges~ (MList_not_null_inv_cons p) ;=> p' x L' EL. xseq.
       { xseq. xapp~. xapps. xapps. xapps~. }
       { xapply~ (>> IH L'). { hsimpl. } { hpull. hchanges~ (MList_cons p). } } }

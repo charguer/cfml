@@ -117,7 +117,7 @@ Lemma is_flocal_elim_nohgc : forall F H Q,
 Proof using. 
   introv L M. applys~ is_flocal_elim. hchange M.
   hpull ;=> Q'. hsimpl Q'. intros r. 
-  hchange (qwand_himpl_hwand r).
+  hchange (qwand_specialize r).
   hchanges (hwand_cancel (Q' r)).
 Qed.
 
@@ -205,8 +205,8 @@ Lemma flocal_flocal : forall F,
 Proof using.
   intros F. applys fun_ext_1. intros Q. applys himpl_antisym.
   { unfold flocal. hpull ;=> Q' Q''. hsimpl Q''. intros x.
-    hchanges (qwand_himpl_hwand x Q' (Q \*+ \GC)).
-    hchanges (qwand_himpl_hwand x Q'' (Q' \*+ \GC)).
+    hchanges (qwand_specialize x Q' (Q \*+ \GC)).
+    hchanges (qwand_specialize x Q'' (Q' \*+ \GC)).
     hchanges (hwand_cancel (Q'' x) (Q' x \* \GC)).
     hchanges (hwand_cancel (Q' x) (Q x \* \GC)). }
     (* LATER: tactic to automate hchanges of hwand_cancel *)

@@ -1734,7 +1734,7 @@ Proof.
   - intros X. eapply triple_conseq; [|apply Ht2L|auto].
     hchange (hwand_cancel H2 (Q1 \--* Q')).
     { rewrite hstar_comm. apply himpl_frame_r, normally_erase. }
-    hchange (qwand_himpl_hwand X). hchange (hwand_cancel (Q1 X) (Q' X)). hsimpl.
+    hchange (qwand_specialize X). hchange (hwand_cancel (Q1 X) (Q' X)). hsimpl.
 Qed.
 
 
