@@ -249,6 +249,19 @@ Ltac isbust_core tt :=
 Tactic Notation "isubst" :=
   isbust_core tt.
 
+(** [get_head E] implemented recursively *)
+
+Ltac get_head E :=
+  match E with 
+  | ?E' ?x => get_head E'
+  | _ => constr:(E)
+  end.
+
+(** [has_no_evar E] succeeds if [M] contains no evars. *)
+
+Ltac has_no_evar E :=
+  first [ has_evar E; fail 1 | idtac ].
+
 
 (* ---------------------------------------------------------------------- *)
 (* Cases *)

@@ -660,7 +660,7 @@ Proof using. (* Note: [abs n] currently does not compute in Coq. *)
   exists (h1' \u h) (val_loc l). splits~.
   { applys~ (red_alloc (abs n)). rewrite~ abs_nonneg. }
   { apply~ hstar_intro.
-    { exists l. applys~ himpl_hpure_r. applys~ Alloc_fmap_conseq. } }
+    { exists l. applys~ himpl_hstar_hpure_r. applys~ Alloc_fmap_conseq. } }
 Qed.
 
 Lemma hoare_unop : forall v H op v1,

@@ -895,7 +895,7 @@ Proof using.
   exists 0%nat ((m1' \+ h^s),h^c) (val_loc l). splits~.
   { applys~ red_ref. }
   { exists (m1',0) h. split.
-    { exists l. applys~ himpl_hpure_r. unfold m1'. hnfs~. }
+    { exists l. applys~ himpl_hstar_hpure_r. unfold m1'. hnfs~. }
     { splits~. hhsimpl~. } }
 Qed.
 

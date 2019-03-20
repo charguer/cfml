@@ -1262,7 +1262,7 @@ Proof using.
   introv M. forwards~ M': M.
   applys_eq (>> triple_let \[] (fun x => \[x = v1])) 2.
   { applys triple_val. rewrite <- (@hstar_hempty_r \[v1=v1]).
-    applys~ himpl_hpure_r. applys Normal_hempty. }
+    applys~ himpl_hstar_hpure_r. applys Normal_hempty. }
   { intros X. applys triple_hprop. applys M. }
   { rewrite~ hstar_hempty_l. }
 Qed.
@@ -1315,7 +1315,7 @@ Proof using.
   splits~.
   { rew_heap. rew_fmap~. applys~ red_ref. }
   { applys~ on_rw_sub_base. exists l.
-    applys~ himpl_hpure_r (l ~~~> v). split~. }
+    applys~ himpl_hstar_hpure_r (l ~~~> v). split~. }
 Qed.
 
 Lemma triple_get_ro : forall v l,
@@ -1353,7 +1353,7 @@ Proof using.
     rewrite (@heap_fmap_def h1'). rewrite (@heap_fmap_def h1).
     rewrite E1,E2,E1',E2'. rew_fmap. applys~ fmap_union_single_to_update v w. }
   { rewrite E2,E2'. auto. }
-  { applys~ on_rw_sub_base. applys~ himpl_hpure_r (l ~~~> w). split~. }
+  { applys~ on_rw_sub_base. applys~ himpl_hstar_hpure_r (l ~~~> w). split~. }
 Qed.
 
 Lemma triple_add : forall (n1 n2:int),
