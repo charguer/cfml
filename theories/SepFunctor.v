@@ -678,6 +678,10 @@ Qed.
 
 Arguments qwand_move_l [A].
 
+Lemma himpl_qwand_hstar_same_r : forall A (Q:A->hprop) H,
+  H ==> Q \--* (Q \*+ H).
+Proof using. intros. applys* qwand_move_l. Qed.
+
 Lemma qwand_specialize : forall A (x:A) (Q1 Q2:A->hprop),
   (Q1 \--* Q2) ==> (Q1 x \-* Q2 x).
 Proof using.
@@ -685,7 +689,6 @@ Proof using.
 Qed.
 
 Arguments qwand_specialize [ A ].
-
 
 
 (* ---------------------------------------------------------------------- *)
@@ -699,11 +702,15 @@ Lemma htop_eq :
   \Top = (\exists H, H).
 Proof using. auto. Qed.
 
+Lemma himpl_htop_r : forall H,
+  H ==> \Top.
+Proof using. intros. intros h Hh. applys* htop_intro. Qed.
+
 Lemma himpl_same_hstar_htop_r : forall H,
   H ==> H \* \Top.
 Proof using.
-  intros. rewrite htop_eq. rewrite hstar_comm. rewrite hstar_hexists.
-  applys himpl_hexists_r \[]. rewrite~ hstar_hempty_l.
+  intros. lets M: himpl_htop_r \[]. rewrite <- (hstar_hempty_r H) at 1.
+  applys* himpl_frame_r.
 Qed.
 
 Lemma himpl_hstar_htop_r : forall H H',
@@ -717,12 +724,7 @@ Lemma htop_hstar_htop :
   \Top \* \Top = \Top.
 Proof using.
   applys himpl_antisym.
-  { unfold htop. rewrite hstar_hexists.
-    applys himpl_hexists_l. intros H.
-    rewrite hstar_comm.
-    rewrite hstar_hexists.
-    applys himpl_hexists_l. intros H'.
-    applys~ himpl_hexists_r (H' \* H). }
+  { applys himpl_htop_r. }
   { applys~ himpl_hstar_htop_r. }
 Qed.
 
@@ -1447,18 +1449,6 @@ Lemma hsimpl_r_hexists : forall A (x:A) (J:A->hprop) Hra Hrg Hrt HL,
   Hsimpl HL (Hra, Hrg, (hexists J \* Hrt)).
 Proof using. hsimpl_r_start' M. applys* himpl_hexists_r. Qed.
 
-Lemma hsimpl_r_hgc : forall Hra Hrg Hrt HL,
-  Hsimpl HL (Hra, (\GC \* Hrg), Hrt) ->
-  Hsimpl HL (Hra, Hrg, (\GC \* Hrt)).
-Proof using. hsimpl_r_start' M. Qed.
-
-(* TODO: cancel \HGC on the left if possible *)
-
-Lemma hsimpl_r_htop : forall Hra Hrg Hrt HL,
-  Hsimpl HL (Hra, (\Top \* Hrg), Hrt) ->
-  Hsimpl HL (Hra, Hrg, (\Top \* Hrt)).
-Proof using. hsimpl_r_start' M. Qed.
-
 Lemma hsimpl_r_id : forall A (x X:A) Hra Hrg Hrt HL,
   protect (x = X) ->
   Hsimpl HL (Hra, Hrg, Hrt) ->
@@ -1478,6 +1468,29 @@ Lemma hsimpl_r_skip : forall H Hra Hrg Hrt HL,
   Hsimpl HL (Hra, Hrg, (H \* Hrt)).
 Proof using. hsimpl_r_start' M. Qed.
 
+(** Transition lemmas for [\Top] and [\GC] cancellation *)
+
+  (* [H] meant to be [\GC] or [\Top] *)
+Lemma hsimpl_r_hgc_or_htop : forall H Hra Hrg Hrt HL, 
+  Hsimpl HL (Hra, (H \* Hrg), Hrt) ->
+  Hsimpl HL (Hra, Hrg, (H \* Hrt)).
+Proof using. hsimpl_r_start' M. Qed.
+
+Lemma hsimpl_r_htop_replace_hgc : forall Hra Hrg Hrt HL,
+  Hsimpl HL (Hra, (\Top \* Hrg), Hrt) ->
+  Hsimpl HL (Hra, (\GC \* Hrg), (\Top \* Hrt)).
+Proof using. hsimpl_r_start' M. applys himpl_hgc_r. haffine. Qed.
+
+Lemma hsimpl_r_hgc_drop : forall Hra Hrg Hrt HL,
+  Hsimpl HL (Hra, Hrg, Hrt) ->
+  Hsimpl HL (Hra, Hrg, (\GC \* Hrt)).
+Proof using. hsimpl_r_start' M. applys himpl_hgc_r. haffine. Qed.
+
+Lemma hsimpl_r_htop_drop : forall Hra Hrg Hrt HL,
+  Hsimpl HL (Hra, Hrg, Hrt) ->
+  Hsimpl HL (Hra, Hrg, (\Top \* Hrt)).
+Proof using. hsimpl_r_start' M. applys himpl_htop_r. Qed.
+
 (** Transition lemmas for LHS/RHS cancellation 
     --- meant to be applied when Hlw and Hlt are empty *)
 
@@ -1492,6 +1505,14 @@ Lemma hsimpl_lr_cancel_same : forall H Hla Hlw Hlt Hra Hrg Hrt,
   Hsimpl (Hla, Hlw, Hlt) (Hra, Hrg, Hrt) ->
   Hsimpl ((H \* Hla), Hlw, Hlt) (Hra, Hrg, (H \* Hrt)).
 Proof using. hsimpl_lr_start' M. Qed.
+
+Lemma hsimpl_lr_cancel_top : forall H Hla Hlw Hlt Hra Hrg Hrt,
+  Hsimpl (Hla, Hlw, Hlt) (Hra, Hrg, Hrt) ->
+  Hsimpl ((H \* Hla), Hlw, Hlt) (Hra, (\Top \* Hrg), Hrt).
+Proof using.
+  hsimpl_lr_start' M. applys himpl_trans. applys himpl_frame_r M.
+  hstars_simpl. applys himpl_htop_r.
+Qed.
 
 (* NOTE NEEDED? *)
 Lemma hsimpl_lr_cancel_eq : forall H1 H2 Hla Hlw Hlt Hra Hrg Hrt,
@@ -1526,16 +1547,9 @@ Lemma himpl_lr_refl : forall Hla,
   Hsimpl (Hla, \[], \[]) (Hla, \[], \[]).
 Proof using. intros. unfolds Hsimpl. hstars_simpl. Qed.
 
- (* todo: rename qwand_cancel to qwand_cancel_l *)
-Axiom qwand_cancel_r : forall A (Q:A->hprop) H,
-  H ==> Q \--* (Q \*+ H).
-
 Lemma himpl_lr_qwand_unify : forall A (Q:A->hprop) Hla,
   Hsimpl (Hla, \[], \[]) ((Q \--* (Q \*+ Hla)) \* \[], \[], \[]).
-Proof using. intros. unfolds Hsimpl. hstars_simpl. applys qwand_cancel_r. Qed.
-
-Axiom himpl_htop_r : forall H,
-  H ==> \Top.
+Proof using. intros. unfolds Hsimpl. hstars_simpl. applys himpl_qwand_hstar_same_r. Qed.
 
 Lemma himpl_lr_htop : forall Hla Hrg,
   Hsimpl (\[], \[], \[]) (\[], Hrg, \[]) ->
@@ -1821,6 +1835,25 @@ Ltac hsimpl_step_l tt :=
             | apply hsimpl_l_skip_wand ]
   end end.
 
+Ltac hsimpl_hgc_or_htop_cancel cancel_item cancel_lemma :=
+  (* match goal with |- Hsimpl (?Hla, \[], \[]) (?Hra, (?H \* ?Hrg), ?Hrt) => *)
+  repeat (hsimpl_pick_same cancel_item; apply cancel_lemma).
+
+Ltac hsimpl_hgc_or_htop_step tt :=
+  match goal with |- Hsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) => 
+    match constr:((Hrg,H)) with
+    | (\[], \GC) => applys hsimpl_r_hgc_or_htop;
+                    hsimpl_hgc_or_htop_cancel (\GC) hsimpl_lr_cancel_same
+    | (\[], \Top) => applys hsimpl_r_hgc_or_htop;
+                    hsimpl_hgc_or_htop_cancel (\GC) hsimpl_lr_cancel_top;
+                    hsimpl_hgc_or_htop_cancel (\Top) hsimpl_lr_cancel_top
+    | (\GC \* \[], \Top) => applys hsimpl_r_htop_replace_hgc; 
+                            hsimpl_hgc_or_htop_cancel (\Top) hsimpl_lr_cancel_top
+    | (\GC \* \[], \GC) => applys hsimpl_r_hgc_drop
+    | (\Top \* \[], \GC) => applys hsimpl_r_hgc_drop
+    | (\Top \* \[], \Top) => applys hsimpl_r_htop_drop
+    end end.
+
 Ltac hsimpl_step_r tt :=
   match goal with |- Hsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) => 
   match H with
@@ -1834,8 +1867,8 @@ Ltac hsimpl_step_r tt :=
       | protect H => apply hsimpl_r_hwand_same 
       end
   | hexists ?J => hsimpl_r_hexists_apply tt
-  | \GC => apply hsimpl_r_hgc
-  | \Top => apply hsimpl_r_htop
+  | \GC => hsimpl_hgc_or_htop_step tt
+  | \Top => hsimpl_hgc_or_htop_step tt
   | ?H' => is_not_evar H; (* DEPRECATED first [ is_not_evar H; fail 1 | idtac ]; *)
            hsimpl_pick_same H; apply hsimpl_lr_cancel_same (* else continue *)
   | ?p ~> _ => hsimpl_pick_repr H; apply hsimpl_lr_cancel_eq_repr; 
@@ -2049,14 +2082,39 @@ Lemma hsimpl_demo_repr_4 : forall p n m (R:int->int->hprop),
   n = m + 0 ->
   p ~> R n ==> p ~> R m.
 Proof using. intros. hsimpl. math. Qed.
-
-
  
 (* NOTE: in the presence of [let R' := R], it is possible that R'
    is renamed into R during a call to [hsimpl], because
    [remove_empty_heaps_right tt] called from [hsimpl_clean tt]
    invokes [rewrite] which performs a matching upto unification,
    and not syntactically. *) 
+
+Lemma hsimpl_demo_gc_0 : forall H1 H2,
+  H1 ==> H2 \* \GC \* \GC.
+Proof using. intros. hsimpl. Abort.
+
+Lemma hsimpl_demo_gc_1 : forall H1 H2,
+  H1 ==> H2 \* \GC \* \Top \* \Top \* \GC.
+Proof using.
+  intros. dup.
+  { hsimpl0. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1.
+    hsimpl1. hsimpl1. hsimpl1. hsimpl2. demo. }
+  { hsimpl~. demo. }
+Abort.
+
+Lemma hsimpl_demo_gc_2 : forall H1 H2 H3,
+  H1 \* H2 \* \Top \* \GC \* \Top ==> H3 \* \GC \* \GC.
+Proof using. intros. hsimpl. Abort.
+  (* Remark: no attempt to collapse [\Top] or [\GC] on the RHS is performed,
+     they are dealt with only by cancellation from the LHS *)
+
+Lemma hsimpl_demo_gc_3 : forall H1 H2,
+  H1 \* H2 \* \GC \* \GC ==> H2 \* \GC \* \GC \* \GC.
+Proof using. intros. hsimpl. haffine. Abort.
+
+Lemma hsimpl_demo_gc_4 : forall H1 H2,
+  H1 \* H2 \* \GC  ==> H2 \* \GC \* \Top \* \Top \* \GC.
+Proof using. intros. hsimpl. Abort.
 
 
 (* ---------------------------------------------------------------------- *)
