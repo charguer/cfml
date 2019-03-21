@@ -650,6 +650,30 @@ Qed.
 
 Arguments hwand_cancel : clear implicits.
 
+Lemma hwand_curry : forall H1 H2 H3,
+  (H1 \* H2) \-* H3 ==> H1 \-* (H2 \-* H3).
+Proof using.
+  intros. applys hwand_move_l. applys hwand_move_l.
+  rewrite hstar_assoc. rewrite hstar_comm. applys hwand_cancel.
+Qed.
+
+Lemma hwand_uncurry : forall H1 H2 H3,
+  H1 \-* (H2 \-* H3) ==> (H1 \* H2) \-* H3.
+Proof using.
+  intros. applys hwand_move_l. rewrite <- (hstar_comm (H1 \* H2)). 
+  rewrite (@hstar_comm H1). rewrite hstar_assoc.
+  applys himpl_trans. applys himpl_frame_r. applys hwand_cancel.
+  applys hwand_cancel.
+Qed.
+
+Lemma hwand_curry_eq : forall H1 H2 H3,
+  (H1 \* H2) \-* H3 = H1 \-* (H2 \-* H3).
+Proof using.
+  intros. applys himpl_antisym.
+  { applys hwand_curry. }
+  { applys hwand_uncurry. }
+Qed.
+
 Lemma hwand_hpure_prove : forall (P:Prop) H,
   P ->
   \[P] \-* H ==> H.
@@ -1415,6 +1439,33 @@ Lemma hsimpl_l_skip_wand : forall H Hla Hlw Hlt HR,
   Hsimpl ((H \* Hla), Hlw, Hlt) HR ->
   Hsimpl (Hla, (H \* Hlw), Hlt) HR.
 Proof using. hsimpl_l_start' M. Qed.
+
+Lemma hsimpl_l_cancel_hwand_reorder : forall H1 H1' H1'' H2 Hla Hlw Hlt HR,
+  H1 = H1' ->
+  Hsimpl (Hla, ((H1'' \-* H2) \* Hlw), Hlt) HR ->
+  Hsimpl (Hla, ((H1 \-* H2) \* Hlw), Hlt) HR.
+Proof using. intros. subst*. Qed.
+
+Lemma hsimpl_l_cancel_hwand_hstar : forall H1 H2 H3 Hla Hlw Hlt HR,
+  Hsimpl (Hla, Hlw, ((H2 \-* H3) \* Hlt)) HR ->
+  Hsimpl ((H1 \* Hla), (((H1 \* H2) \-* H3) \* Hlw), Hlt) HR.
+Proof using.
+  hsimpl_l_start' M. rewrite hwand_curry_eq. applys hwand_cancel.
+Qed.
+
+(* TODO: 
+  on [H1 \-* H2], iterate on H1 items, for each, try to find a matching one
+  in Hla, if found, then bring both to front, using pick tactics, then
+  cancel them out.
+
+  pb: the pick lemma cannot assume the trailing \[].
+  one trick: if it is the last element, then first swap it with the one before
+
+   demo:
+   H2 \* ((H1 \* H2 \* H3) \-* H4) \* H3 ==> H5.
+*)
+
+(* TODO: reorder Hra and Hla before the end or the restart *)
 
 (** Transition lemmas for RHS extraction operations *)
 
