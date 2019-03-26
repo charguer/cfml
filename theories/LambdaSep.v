@@ -644,7 +644,7 @@ Proof using.
   sets h1': (fmap_single l w).
   exists (h1' \u h2) val_unit. splits~.
   { applys red_set. subst h h1. applys~ fmap_union_single_to_update. }
-  { rewrite hstar_pure. split~. apply~ hstar_intro.
+  { rewrite hstar_hpure. split~. apply~ hstar_intro.
     { applys~ fmap_disjoint_single_set v. } }
 Qed.
 
@@ -705,7 +705,7 @@ Proof using.
   intros. applys is_local_intro. intros H Q M H'. 
   applys hoare_named_heap. intros h (h1&h2&N1&N2&N3&N4).
   lets (H1&H2&Q1&M0): (rm M) (rm N1).
-  rewrite <- hstar_assoc, hstar_comm, hstar_pure in M0.
+  rewrite <- hstar_assoc, hstar_comm, hstar_hpure in M0.
   destruct M0 as ((M1&M2)&M3).
   applys hoare_conseq (M1 (H2 \* H')).
   { subst. rewrite <- hstar_assoc. intros h ->. apply~ hstar_intro. }

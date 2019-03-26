@@ -117,7 +117,7 @@ Parameter himpl_frame_r : forall H1 H2 H2',
   H2 ==> H2' ->
   (H1 \* H2) ==> (H1 \* H2').
 
-Parameter hstar_pure : forall P H h,
+Parameter hstar_hpure : forall P H h,
   (\[P] \* H) h = (P /\ H h).
 
 Parameter hpure_intro : forall P h,
@@ -203,14 +203,14 @@ Next Obligation.
   - solve_proper.
   - solve_proper.
   - solve_proper.
-  - intros ?????. rewrite /hpure_abs hstar_pure.
+  - intros ?????. rewrite /hpure_abs hstar_hpure.
     split; [done|apply htop_intro].
   - intros ??. rewrite /hpure_abs=>Hφ h Hh. apply Hφ.
-    + rewrite /hpure_abs hstar_pure in Hh. apply Hh.
-    + rewrite hstar_pure. split; [done|]. apply htop_intro.
-  - rewrite /hpure_abs=>??? H. rewrite hstar_pure.
+    + rewrite /hpure_abs hstar_hpure in Hh. apply Hh.
+    + rewrite hstar_hpure. split; [done|]. apply htop_intro.
+  - rewrite /hpure_abs=>??? H. rewrite hstar_hpure.
     split; [|by apply htop_intro]. intros x. specialize (H x).
-    rewrite hstar_pure in H. apply H.
+    rewrite hstar_hpure in H. apply H.
   - by intros ??? [? _].
   - by intros ??? [_ ?].
   - intros P Q R HQ HR ?. by split; [apply HQ|apply HR].
@@ -229,11 +229,11 @@ Next Obligation.
   - intros. by rewrite hstar_hempty_l.
   - intros. by rewrite hstar_comm.
   - intros. by rewrite hstar_assoc.
-  - intros P Q R H ??. exists P. rewrite hstar_comm hstar_pure. auto.
+  - intros P Q R H ??. exists P. rewrite hstar_comm hstar_hpure. auto.
   - intros P Q R H. eapply himpl_trans.
     { rewrite hstar_comm. by apply himpl_frame_r. }
     unfold hwand. rewrite hstar_comm hstar_hexists=>h [F HF].
-    rewrite (hstar_comm F) hstar_assoc hstar_pure in HF. destruct HF as [HR HF].
+    rewrite (hstar_comm F) hstar_assoc hstar_hpure in HF. destruct HF as [HR HF].
     by apply HR.
   - intros P Q H h. apply H.
   - auto.
@@ -241,8 +241,8 @@ Next Obligation.
   - auto.
   - auto.
   - intros P Q h. replace (hpersistently P) with (\[P heap_empty] \* \Top).
-    { rewrite hstar_assoc !hstar_pure=>-[? _]. auto using htop_intro. }
-    extens=>h'. rewrite hstar_pure /hpersistently. naive_solver auto using htop_intro.
+    { rewrite hstar_assoc !hstar_hpure=>-[? _]. auto using htop_intro. }
+    extens=>h'. rewrite hstar_hpure /hpersistently. naive_solver auto using htop_intro.
   - intros P Q h [HP HQ]. rewrite -(hstar_hempty_l Q) in HQ.
     eapply himpl_frame_l, HQ. rewrite hempty_eq. intros ? ->. apply HP.
 Qed.
@@ -252,12 +252,12 @@ Proof.
   extens=>h. split.
   - split; [by eapply hpure_inv|by apply (himpl_htop_r (H:=\[φ]))].
   - intros [? Hφ]. apply hpure_intro; [done|].
-    change ((\[φ] \* \Top%I) h) in Hφ. rewrite hstar_pure in Hφ. naive_solver.
+    change ((\[φ] \* \Top%I) h) in Hφ. rewrite hstar_hpure in Hφ. naive_solver.
 Qed.
 Lemma htop_True : \Top = True%I.
 Proof.
   extens=>h. split=>?.
-  - rewrite /bi_pure /= /hpure_abs hstar_pure. auto.
+  - rewrite /bi_pure /= /hpure_abs hstar_hpure. auto.
   - apply htop_intro.
 Qed.
 Opaque hpure_abs.

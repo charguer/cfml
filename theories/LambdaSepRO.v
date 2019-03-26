@@ -1505,8 +1505,8 @@ Lemma normally_hwand_hstar : forall H1 H2,
 Proof.
   intros H1 H2 h (h1 & h2 & Hh1 & Hh2 & ? & ->). eexists _, _.
   split; [eauto|split; [|eauto]]; []. destruct Hh2 as [H0 IMPL].
-  rewrite hstar_comm, hstar_pure in IMPL. destruct IMPL as [IMPL ?]. split.
-  { exists H0. rewrite hstar_comm, hstar_pure.
+  rewrite hstar_comm, hstar_hpure in IMPL. destruct IMPL as [IMPL ?]. split.
+  { exists H0. rewrite hstar_comm, hstar_hpure.
     eauto using himpl_trans, normally_erase. }
   destruct (IMPL (h1 \u h2)). { eexists _, _; eauto. }
   eapply fmap_union_eq_empty_inv_r. rewrite <- heap_union_r; eauto.

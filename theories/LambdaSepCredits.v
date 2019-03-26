@@ -688,7 +688,7 @@ Proof using.
   intros. applys is_local_intro. intros H Q M H'. 
   intros h (h1&h2&N1&N2&N3&N4). hnf in M.
   lets (H1&H2&Q1&R): M N1.
-  rewrite <- hstar_assoc, hstar_comm, hstar_pure in R.
+  rewrite <- hstar_assoc, hstar_comm, hstar_hpure in R.
   lets ((R1&R2)&R3): R.
   forwards (n&h'&v&S1&S2&S3): R1 (H2\*H') h.
   { subst h. rewrite <- hstar_assoc. exists~ h1 h2. }
@@ -909,7 +909,7 @@ Proof using.
   forwards (E1&E2): heap_eq_forward (rm N4). simpls.
   exists 0%nat h v. splits~.
   { applys red_get. rewrite E1. applys~ fmap_union_single_l_read. }
-  { rew_heap. rewrite hstar_pure. split~. hhsimpl~. }
+  { rew_heap. rewrite hstar_hpure. split~. hhsimpl~. }
 Qed.
 
 Lemma triple_set : forall w l v,
@@ -923,7 +923,7 @@ Proof using.
   exists 0%nat ((m1' \+ h2^s), h2^c) val_unit. splits~.
   { applys red_set. rewrite E1. unfold m1'. rewrite N1a.
     applys~ fmap_union_single_to_update. }
-  { rew_heap. rewrite hstar_pure. split~.
+  { rew_heap. rewrite hstar_hpure. split~.
     { exists (m1',0) h2. splits~.
       { hnfs~. }
       { hhsimpl~. }

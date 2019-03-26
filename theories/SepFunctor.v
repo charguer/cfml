@@ -284,53 +284,17 @@ Implicit Types P : Prop.
 
 (** Notation for [hexists] *)
 
-Notation "'\exists' x1 , H" := (hexists (fun x1 => H))
-  (at level 39, x1 ident, H at level 50) : heap_scope.
-Notation "'\exists' x1 x2 , H" := (\exists x1, \exists x2, H)
-  (at level 39, x1 ident, x2 ident, H at level 50) : heap_scope.
-Notation "'\exists' x1 x2 x3 , H" := (\exists x1, \exists x2, \exists x3, H)
-  (at level 39, x1 ident, x2 ident, x3 ident, H at level 50) : heap_scope.
-Notation "'\exists' x1 x2 x3 x4 , H" :=
-  (\exists x1, \exists x2, \exists x3, \exists x4, H)
-  (at level 39, x1 ident, x2 ident, x3 ident, x4 ident, H at level 50) : heap_scope.
-Notation "'\exists' x1 x2 x3 x4 x5 , H" :=
-  (\exists x1, \exists x2, \exists x3, \exists x4, \exists x5, H)
-  (at level 39, x1 ident, x2 ident, x3 ident, x4 ident, x5 ident, H at level 50) : heap_scope.
-
-(* TODO: get this definition to work:
 Notation "'\exists' x1 .. xn , H" :=
   (hexists (fun x1 => .. (hexists (fun xn => H)) ..))
-  (at level 39, x1, xn ident, H at level 50) : heap_scope.
-*)
-
-Notation "'\exists' ( x1 : T1 ) , H" := (hexists (fun x1:T1 => H))
-  (at level 39, x1 ident, H at level 50, only parsing) : heap_scope.
-Notation "'\exists' ( x1 : T1 ) ( x2 : T2 ) , H" := (\exists (x1:T1), \exists (x2:T2), H)
-  (at level 39, x1 ident, x2 ident, H at level 50, only parsing) : heap_scope.
-Notation "'\exists' ( x1 : T1 ) ( x2 : T2 ) ( x3 : T3 ) , H" := (\exists (x1:T1), \exists (x2:T2), \exists (x3:T3), H)
-  (at level 39, x1 ident, x2 ident, x3 ident, H at level 50, only parsing) : heap_scope.
+  (at level 39, x1 binder, H at level 50, right associativity,
+   format "'[' '\exists' '/ '  x1  ..  xn , '/ '  H ']'") : heap_scope.
 
 (** Notation for [hforall] *)
 
-Notation "'\forall' x1 , H" := (hforall (fun x1 => H))
-  (at level 39, x1 ident, H at level 50) : heap_scope.
-Notation "'\forall' x1 x2 , H" := (\forall x1, \forall x2, H)
-  (at level 39, x1 ident, x2 ident, H at level 50) : heap_scope.
-Notation "'\forall' x1 x2 x3 , H" := (\forall x1, \forall x2, \forall x3, H)
-  (at level 39, x1 ident, x2 ident, x3 ident, H at level 50) : heap_scope.
-Notation "'\forall' x1 x2 x3 x4 , H" :=
-  (\forall x1, \forall x2, \forall x3, \forall x4, H)
-  (at level 39, x1 ident, x2 ident, x3 ident, x4 ident, H at level 50) : heap_scope.
-Notation "'\forall' x1 x2 x3 x4 x5 , H" :=
-  (\forall x1, \forall x2, \forall x3, \forall x4, \forall x5, H)
-  (at level 39, x1 ident, x2 ident, x3 ident, x4 ident, x5 ident, H at level 50) : heap_scope.
-
-Notation "'\forall' ( x1 : T1 ) , H" := (hforall (fun x1:T1 => H))
-  (at level 39, x1 ident, H at level 50, only parsing) : heap_scope.
-Notation "'\forall' ( x1 : T1 ) ( x2 : T2 ) , H" := (\forall (x1:T1), \forall (x2:T2), H)
-  (at level 39, x1 ident, x2 ident, H at level 50, only parsing) : heap_scope.
-Notation "'\forall' ( x1 : T1 ) ( x2 : T2 ) ( x3 : T3 ) , H" := (\forall (x1:T1), \forall (x2:T2), \forall (x3:T3), H)
-  (at level 39, x1 ident, x2 ident, x3 ident, H at level 50, only parsing) : heap_scope.
+Notation "'\forall' x1 .. xn , H" :=
+  (hforall (fun x1 => .. (hforall (fun xn => H)) ..))
+  (at level 39, x1 binder, H at level 50, right associativity,
+   format "'[' '\forall' '/ '  x1  ..  xn , '/ '  H ']'") : heap_scope.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -474,7 +438,7 @@ Qed.
 
 (** Properties of [hpure] *)
 
-Lemma hstar_pure : forall P H h, (* TODO: rename to hstar_hpure *)
+Lemma hstar_hpure : forall P H h, 
   (\[P] \* H) h = (P /\ H h).
 Proof using.
   intros. extens. unfold hpure.
@@ -489,14 +453,14 @@ Lemma hpure_intro : forall P h,
   \[P] h.
 Proof using.
   introv M N. rewrite <- (hstar_hempty_l \[P]).
-  rewrite hstar_comm. rewrite~ hstar_pure.
+  rewrite hstar_comm. rewrite~ hstar_hpure.
 Qed.
 
 Lemma hpure_inv : forall P h,
   \[P] h ->
   P /\ \[] h.
 Proof using.
-  introv M. rewrite <- hstar_pure.
+  introv M. rewrite <- hstar_hpure.
   rewrite~ hstar_hempty_r.
 Qed.
 
@@ -511,7 +475,7 @@ Lemma himpl_hstar_hpure_l : forall P H H',
   (P -> H ==> H') ->
   (\[P] \* H) ==> H'.
 Proof using.
-  introv W Hh. rewrite hstar_pure in Hh. applys* W.
+  introv W Hh. rewrite hstar_hpure in Hh. applys* W.
 Qed.
 
 Lemma himpl_hstar_hpure_r : forall P H H',
@@ -519,7 +483,7 @@ Lemma himpl_hstar_hpure_r : forall P H H',
   (H ==> H') ->
   H ==> (\[P] \* H').
 Proof using.
-  introv HP W. intros h Hh. rewrite~ hstar_pure.
+  introv HP W. intros h Hh. rewrite~ hstar_hpure.
 Qed.
 
 Lemma hempty_eq_hpure_true :
@@ -533,7 +497,7 @@ Qed.
 Lemma hfalse_hstar_any : forall H,
   \[False] \* H = \[False].
 Proof using.
-  intros. applys pred_ext_1. intros h. rewrite hstar_pure. iff M.
+  intros. applys pred_ext_1. intros h. rewrite hstar_hpure. iff M.
   { false*. } { lets: hpure_inv M. false*. }
 Qed.
 
@@ -787,7 +751,7 @@ Qed.
 Lemma haffine_hgc :
   haffine \GC.
 Proof using.
-  applys haffine_hexists. intros H h Hh. rewrite hstar_pure in Hh.
+  applys haffine_hexists. intros H h Hh. rewrite hstar_hpure in Hh.
   destruct Hh as [M N]. applys* M.
 Qed.
 
@@ -804,7 +768,7 @@ Lemma hgc_of_heap_affine : forall h,
   \GC h.
 Proof using.
   intros. rewrite hgc_eq. exists (=h).
-  rewrite hstar_pure. split~. { introv ->. auto. }
+  rewrite hstar_hpure. split~. { introv ->. auto. }
 Qed.
 
 Lemma himpl_hgc_r : forall H,
@@ -1375,8 +1339,6 @@ Ltac hstars_pick_lemma i :=
 
 (* Demo *)
 
-Ltac demo := admit.
-
 Lemma demo_hstars_pick_1 : forall H1 H2 H3 H4 Hresult,
   (forall H, H1 \* H2 \* H3 \* H4 = H -> H = Hresult -> True) -> True.
 Proof using. 
@@ -1656,8 +1618,6 @@ Proof using.
   hsimpl_l_start' M. rewrite hwand_curry_eq. applys hwand_cancel.
 Qed.
 
-(* TODO: reorder Hra and Hla before the end or the restart *)
-
 (** Transition lemmas for RHS extraction operations *)
 
 Ltac hsimpl_r_start M :=
@@ -1798,6 +1758,12 @@ Qed.
 Lemma himpl_lr_refl : forall Hla,
   Hsimpl (Hla, \[], \[]) (Hla, \[], \[]).
 Proof using. intros. unfolds Hsimpl. hstars_simpl. Qed.
+
+(* NEEDED?
+Lemma himpl_lr_refl_hempty_r : forall Hla,
+  Hsimpl (Hla, \[], \[]) (Hla \* \[], \[], \[]).
+Proof using. intros. unfolds Hsimpl. hstars_simpl. Qed.
+*)
 
 Lemma himpl_lr_qwand_unify : forall A (Q:A->hprop) Hla,
   Hsimpl (Hla, \[], \[]) ((Q \--* (Q \*+ Hla)) \* \[], \[], \[]).
@@ -2163,10 +2129,9 @@ Ltac hsimpl_step_r tt :=
   | ?p ~> _ => hsimpl_pick_repr H; apply hsimpl_lr_cancel_eq_repr; 
                [ hsimpl_lr_cancel_eq_repr_post tt | ]  (* else continue *)
   | ?x ~> Id ?X => has_no_evar x; apply hsimpl_r_id
-  | ?x ~> ?T _ => has_no_evar x;
+  (* TODO DEPRECATED? | ?x ~> ?T _ => has_no_evar x;
                   let M := fresh in assert (M: T = Id); [ reflexivity | clear M ];
-                  apply hsimpl_r_id (* TODO ; [ | reflexivity ]*)
-                  (* may fail *)
+                  apply hsimpl_r_id; [ try reflexivity |  ] *)
   | ?x ~> ?T_evar ?X_evar => has_no_evar x; is_evar T_evar; is_evar X_evar; 
                            apply hsimpl_r_id_unify
   | _ => apply hsimpl_r_skip
@@ -2179,13 +2144,14 @@ Ltac hsimpl_step_lr tt :=
        match Hra with 
        | ?H1 \* \[] => 
          match H1 with
-         | ?Hra_evar => is_evar Hra_evar; apply himpl_lr_refl (* else continue *)
+         | ?Hra_evar => is_evar Hra_evar; rew_heap; apply himpl_lr_refl (* else continue *)
          | ?Hla' => (* unify Hla Hla'; *) apply himpl_lr_refl (* else continue *)
          | ?Q1 \--* ?Q2 => is_evar Q2; eapply himpl_lr_qwand_unify
          | ?H1 \-* ?H2 => hsimpl_flip_acc_l tt; apply hsimpl_lr_hwand
          | ?Q1 \--* ?Q2 => hsimpl_flip_acc_l tt; apply hsimpl_lr_qwand; intro
          end
-       | ?Hla' => (* unify Hla Hla'; *) apply himpl_lr_refl (* else continue *)
+       | \[] => apply himpl_lr_refl
+       (* | ?Hla' => (* unify Hla Hla'; *) rew_heap; apply himpl_lr_refl (* else continue *) (* TODO should never happen? *) *)
        | _ => hsimpl_flip_acc_lr tt; apply hsimpl_lr_exit_nogc
        end 
     | (\Top \* _) => apply himpl_lr_htop
@@ -2265,7 +2231,7 @@ Notation "'HSIMPL' Hla Hlw Hlt =====> Hra Hrg Hrt" := (Hsimpl (Hla, Hlw, Hlt) (H
 (* Demo for tactic [hsimpl] *)
 
 Lemma hpull_demo : forall H1 H2 H3 H,
-  (H1 \* \[] \* (H2 \* \exists (y:int), \[y = y]) \* H3) ==> H.
+  (H1 \* \[] \* (H2 \* \exists (y:int) z (n:nat), \[y = y + z + n]) \* H3) ==> H.
 Proof using.
   dup.
   { intros. hpull0. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1.
@@ -2297,6 +2263,17 @@ Proof using.
   { intros. hsimpl. }
 Abort.
 
+Lemma hsimpl_demo_hint : forall H1 (Q:int->hprop),
+  Q 4 ==> Q 3 ->
+  H1 \* Q 4 ==> \exists x, Q x \* H1.
+Proof using.
+  introv W. dup.
+  { intros. hsimpl_hint_put (>> 3).
+    hsimpl0. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1.
+    hsimpl1. hsimpl1. hsimpl2. auto. }
+  { hsimpl 3. auto. }
+Qed.
+
 Lemma hsimpl_demo_stars_gc : forall H1 H2,
   haffine H2 ->
   H1 \* H2 ==> H1 \* \GC.
@@ -2307,9 +2284,17 @@ Proof using.
   { intros. hsimpl~. }
 Abort.
 
-Lemma hsimpl_demo_evar : forall H1 H2,
+Lemma hsimpl_demo_evar_1 : forall H1 H2,
   (forall H, H1 \* H2 ==> H -> True) -> True.
 Proof using. intros. eapply H. hsimpl. Abort.
+
+Lemma hsimpl_demo_evar_2 : forall H1,
+  (forall H, H1 ==> H1 \* H -> True) -> True.
+Proof using.
+  introv M. dup.
+  { eapply M. hsimpl0. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. }
+  { eapply M. hsimpl~. }
+Abort.
 
 Lemma hsimpl_demo_htop_both_sides : forall H1 H2,
   H1 \* H2 \* \Top ==> H1 \* \Top.
@@ -2615,9 +2600,8 @@ Proof using. auto. Qed.
 Lemma hwand_hempty_l : forall H,
   (\[] \-* H) = H.
 Proof using.
-  intros. unfold hwand. applys himpl_antisym.
-  { hpull ;=> H' M. hchanges M. }
-  { hsimpl. hsimpl. }
+  intros. hsimpl.
+  { unfold hwand. hpull ;=> H' M. hchanges M. }
 Qed.
 
 Hint Rewrite hwand_hempty_l : rew_heap.
@@ -2625,16 +2609,15 @@ Hint Rewrite hwand_hempty_l : rew_heap.
 Lemma hwand_himpl_r : forall H1 H2 H2',
   H2 ==> H2' ->
   (H1 \-* H2) ==> (H1 \-* H2').
-Proof using.
-  intros. unfold hwand. hchanges~ M.
-Qed.
+Proof using. introv M. hsimpl~. Qed.
 
 Lemma hwand_himpl_l : forall H1' H1 H2,
   H1' ==> H1 ->
   (H1 \-* H2) ==> (H1' \-* H2).
-Proof using.
+Proof using. introv M. hsimpl. hchanges M. Qed.
+(*
   intros. unfold hwand. hsimpl ;=> H3 M. hchanges M. hchanges H.
-Qed.
+*)
 
 Lemma hwand_move_r : forall H1 H2 H3,
   H1 ==> (H2 \-* H3) ->
@@ -2790,7 +2773,8 @@ Lemma is_local_conseq_frame_hgc : forall F H H1 H2 Q1 Q,
   Q1 \*+ H2 ===> Q \*+ \GC ->
   F H Q.
 Proof using.
-  introv L M WH WQ. applys~ is_local_elim. hchanges* WH.
+  introv L M WH WQ. applys~ is_local_elim. hchange WH.
+  hsimpl~ H1 H2 Q1.
 Qed.
 
 (** Weaken and frame properties from [local] *)
@@ -3057,8 +3041,7 @@ Lemma is_local_hwand_hpure_l : forall F (P:Prop) H Q,
   F H Q ->
   F (\[P] \-* H) Q.
 Proof using.
-  introv L HP M. applys~ is_local_elim_conseq_pre.
-  hchanges~ hwand_hpure_prove.
+  introv L HP M. applys~ is_local_elim_conseq_pre. hchanges~ hwand_hpure_prove.
 Qed.
 
 End IsLocal.
@@ -3131,8 +3114,8 @@ Lemma local_weaken : forall F F',
   F ===> F' ->
   local F ===> local F'.
 Proof using.
-  unfold local. introv M. intros H Q N. eapply himpl_trans. apply N.
-  hsimpl;=> H1 H2 Q' [P1 P2]. split; [apply M, P1|auto].
+  unfold local. introv M. intros H Q N. hchange (rm N) ;=> H1 H2 Q' [P1 P2]. 
+  hsimpl H1 H2 Q'. split~. applys~ M.
 Qed.
 
 (** Extraction of contradictions from the precondition under local *)
@@ -3206,34 +3189,43 @@ Ltac xpull_check tt := (* DEPRECATED *)
 (** Lemmas *)
 
 Lemma xpull_start : forall B (F:~~B) H Q,
-  F (\[] \* H) Q -> F H Q.
+  F (\[] \* H) Q -> 
+  F H Q.
 Proof using. intros. rew_heap in *. auto. Qed.
 
 Lemma xpull_keep : forall B (F:~~B) H1 H2 H3 Q,
-  F ((H2 \* H1) \* H3) Q -> F (H1 \* (H2 \* H3)) Q.
+  F ((H2 \* H1) \* H3) Q -> 
+  F (H1 \* (H2 \* H3)) Q.
 Proof using. intros. rewrite (hstar_comm H2) in H. rew_heap in *. auto. Qed.
 
 Lemma xpull_assoc : forall B (F:~~B) H1 H2 H3 H4 Q,
-  F (H1 \* (H2 \* (H3 \* H4))) Q -> F (H1 \* ((H2 \* H3) \* H4)) Q.
+  F (H1 \* (H2 \* (H3 \* H4))) Q ->
+  F (H1 \* ((H2 \* H3) \* H4)) Q.
 Proof using. intros. rew_heap in *. auto. Qed.
 
 Lemma xpull_starify : forall B (F:~~B) H1 H2 Q,
-  F (H1 \* (H2 \* \[])) Q -> F (H1 \* H2) Q.
+  F (H1 \* (H2 \* \[])) Q -> 
+  F (H1 \* H2) Q.
 Proof using. intros. rew_heap in *. auto. Qed.
 
 Lemma xpull_empty : forall B (F:~~B) H1 H2 Q,
-  (F (H1 \* H2) Q) -> F (H1 \* (\[] \* H2)) Q.
+  (F (H1 \* H2) Q) -> 
+  F (H1 \* (\[] \* H2)) Q.
 Proof using. intros. rew_heap. auto. Qed.
 
-Lemma xpull_hprop : forall B (F:~~B) H1 H2 P Q,
-  is_local F -> (P -> F (H1 \* H2) Q) -> F (H1 \* (\[P] \* H2)) Q.
+Lemma xpull_hpure : forall B (F:~~B) H1 H2 P Q,
+  is_local F -> 
+  (P -> F (H1 \* H2) Q) ->
+  F (H1 \* (\[P] \* H2)) Q.
 Proof using.
   intros. rewrite hstar_comm_assoc. apply~ is_local_hprop.
 Qed.
 
 Lemma xpull_id : forall A (x X : A) B (F:~~B) H1 H2 Q,
-  is_local F -> (x = X -> F (H1 \* H2) Q) -> F (H1 \* (x ~> Id X \* H2)) Q.
-Proof using. intros. unfold Id. apply~ xpull_hprop. Qed.
+  is_local F -> 
+  (x = X -> F (H1 \* H2) Q) -> 
+  F (H1 \* (x ~> Id X \* H2)) Q.
+Proof using. intros. unfold Id. apply~ xpull_hpure. Qed.
 
 Lemma xpull_hexists : forall B (F:~~B) H1 H2 A (J:A->hprop) Q,
   is_local F ->
@@ -3244,7 +3236,14 @@ Proof using.
   intros. rewrite~ hstar_comm_assoc.
 Qed.
 
-Ltac hpull_xpull_iris_hook tt := tt.
+(*
+Lemma xpull_hwand_hpure_l : forall B (F:~~B) H1 H2 (P:Prop) Q,
+  is_local F ->
+  (P -> F (H1 \* H2) Q) ->
+   F (H1 \* (\[P] \-* H2)) Q.
+*)
+
+Ltac hpull_xpull_iris_hook tt := idtac.
 
 Ltac xpull_setup tt :=
   pose ltac_mark;
@@ -3261,8 +3260,8 @@ Ltac xpull_cleanup tt :=
   remove_empty_heaps_formula tt;
   gen_until_mark_with_processing ltac:(xpull_post_processing_for_hyp).
 
-Ltac xpull_hprop tt :=
-  apply xpull_hprop; [ try xlocal | intro ].
+Ltac xpull_hpure tt :=
+  apply xpull_hpure; [ try xlocal | intro ].
 Ltac xpull_hexists tt :=
   apply xpull_hexists; [ try xlocal | intro ].
 Ltac xpull_id tt :=
@@ -3275,7 +3274,7 @@ Ltac xpull_step tt :=
     | ?H \* _ =>
       match H with
       | \[] => apply xpull_empty
-      | \[_] => xpull_hprop tt
+      | \[_] => xpull_hpure tt
       | hexists _ => xpull_hexists tt
       | _ ~> Id _ => xpull_id tt
       | _ \* _ => apply xpull_assoc
@@ -3294,6 +3293,26 @@ Ltac xpull_main tt :=
 Tactic Notation "xpull" := xpull_main tt.
 Tactic Notation "xpull" "~" := xpull; auto_tilde.
 Tactic Notation "xpull" "*" := xpull; auto_star.
+
+(* Demo *)
+
+Lemma xpull_demo_1 : forall H1 H2 A (P:A->Prop) (J:A->hprop) B (F:~~B) (Q:B->hprop),
+  is_local F ->
+  F (H1 \* \exists x, (J x \* H2 \* \[P x])) Q.
+Proof using.
+  introv L. dup.
+  { xpull_setup tt.
+    xpull_step tt.
+    xpull_step tt.
+    xpull_step tt.
+    xpull_step tt.
+    xpull_step tt.
+    xpull_step tt.
+    xpull_step tt.
+    xpull_step tt.
+    xpull_cleanup tt. demo. }
+  { xpull. demo. }
+Abort.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -3340,6 +3359,20 @@ Tactic Notation "xapplys" "*" constr(H) :=
   xapplys H; auto_star.
 
 
+(* Demo *)
+
+Lemma xapply_demo_1 : forall H1 H2 H3 B (F:~~B) (Q1:B->hprop),
+  is_local F ->
+  F H1 Q1 ->
+  H2 ==> H3 ->
+  F (H2 \* H1) (Q1 \*+ H3).
+Proof using.
+  introv L M HW. dup.
+  { xapply M. hsimpl. hchanges HW. }
+  { xapplys M. hchanges HW. }
+Abort.
+
+
 (*--------------------------------------------------------*)
 (* ** [xchange] *)
 
@@ -3360,8 +3393,6 @@ Tactic Notation "xapplys" "*" constr(H) :=
     *)
 
 (* Lemma used by [xchange] *)
-
-(* TODO: change *)
 
 Lemma xchange_lemma : forall H1 H1' H2 B H Q (F:~~B),
   is_local F ->
@@ -3449,6 +3480,16 @@ Tactic Notation "xchange_show" "<-" constr(E) :=
   xchange_forwards himpl_of_eq_sym ltac:(idcont) ltac:(idcont).
 
 
+(* Demo *)
+
+Lemma xchange_demo_1 : forall H1 H1' H2 B (F:~~B) (Q:B->hprop),
+  is_local F ->
+  H1 ==> H1' ->
+  F (H2 \* H1) Q.
+Proof using.
+  introv L M. xchange M.
+Abort.
+
 
 (* ********************************************************************** *)
 (* * Weakest-preconditions *)
@@ -3471,9 +3512,10 @@ Qed.
 Lemma weakestpre_conseq : forall B (F:~~B) Q1 Q2,
   is_local F ->
   Q1 ===> Q2 ->
-  weakestpre F Q1 ==> weakestpre F Q1.
+  weakestpre F Q1 ==> weakestpre F Q2.
 Proof using.
-  introv L W. unfold weakestpre. hpull ;=> H1 M. hsimpl. xapplys M.
+  introv L W. unfold weakestpre. hpull ;=> H1 M. hsimpl~.
+  xapply M. hsimpl. hsimpl. hchanges W.
 Qed.
 
 Lemma weakestpre_conseq_wand : forall B (F:~~B) Q1 Q2, 
@@ -3481,23 +3523,23 @@ Lemma weakestpre_conseq_wand : forall B (F:~~B) Q1 Q2,
   (Q1 \--* Q2) \* weakestpre F Q1 ==> weakestpre F Q2.
 Proof using.
   introv L. unfold weakestpre. hpull ;=> H1 M.
-  hsimpl. rew_heap. xapplys M. intros r.
-  hchange (qwand_specialize r).
-  hchanges (hwand_cancel (Q1 r)).
+  hsimpl (H1 \* (Q1 \--* Q2)). xapplys M.
 Qed.
 
 Lemma weakestpre_frame : forall B (F:~~B) H Q,
   is_local F ->
   (weakestpre F Q) \* H ==> weakestpre F (Q \*+ H).
 Proof using.
-  introv L. unfold weakestpre. hpull ;=> H1 M. hsimpl. xapplys M.
+  introv L. unfold weakestpre. hpull ;=> H1 M.
+  hsimpl (H1 \* H). xapplys M.
 Qed.
 
 Lemma weakestpre_absorb : forall B (F:~~B) Q,
   is_local F ->
   weakestpre F Q \* \GC ==> weakestpre F Q.
 Proof using.
-  introv L. unfold weakestpre. hpull ;=> H1 M. hsimpl. xapplys M.
+  introv L. unfold weakestpre. hpull ;=> H1 M.
+  hsimpl~ (H1 \* \GC). xapplys M.
 Qed.
 
 Lemma weakestpre_pre : forall B (F:~~B) Q,
@@ -3509,7 +3551,6 @@ Lemma himpl_weakestpre : forall B (F:~~B) H Q,
   F H Q ->
   H ==> weakestpre F Q.
 Proof using. introv M. unfold weakestpre. hsimpl~ H. Qed.
-
 
 
 (* ********************************************************************** *)

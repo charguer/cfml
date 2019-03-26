@@ -44,7 +44,7 @@ Proof using.
   { intros h Hh. forwards (h'&v&N1&N2): M \[] h. { hhsimpl. }
     exists H \[] Q. hhsimpl. splits~. hsimpl. }
   { intros H' h Hh. lets (h1&h2&N1&N2&N3&N4): Hh. hnf in M.
-    lets (H1&H2&Q1&R): M N1. rewrite <-hstar_assoc, hstar_comm, hstar_pure in R.
+    lets (H1&H2&Q1&R): M N1. rewrite <-hstar_assoc, hstar_comm, hstar_hpure in R.
     lets ((R1&R2)&R3): R.
     forwards (h'&v&S1&S2): R1 (H2\*H') h.
     { subst h. rewrite <- hstar_assoc. exists~ h1 h2. }
@@ -98,7 +98,7 @@ Lemma triple_hwand_hpure_l : forall t (P:Prop) H Q,
 Proof using.
   introv HP M. intros HF h N.
   lets N': hstar_hwand (rm N).
-  lets U: (conj (rm HP) (rm N')). rewrite <- hstar_pure in U.
+  lets U: (conj (rm HP) (rm N')). rewrite <- hstar_hpure in U.
   lets U': hwand_cancel (rm U).
   applys* M.
 Qed.
@@ -445,7 +445,7 @@ Proof using.
   intros. intros HF h N. exists h v. splits~.
   { applys red_get. destruct N as (?&?&(?&?)&?&?&?).
     subst h. applys~ fmap_union_single_l_read. }
-  { rew_heap. rewrite hstar_pure. split~. hhsimpl~. }
+  { rew_heap. rewrite hstar_hpure. split~. hhsimpl~. }
 Qed.
 
 Lemma triple_set : forall w l v,
@@ -457,7 +457,7 @@ Proof using.
   hnf in N1. sets h1': (fmap_single l w).
   exists (h1' \u h2) val_unit. splits~.
   { applys red_set. subst h h1. applys~ fmap_union_single_to_update. }
-  { rew_heap. rewrite hstar_pure. split~. exists h1' h2. splits~.
+  { rew_heap. rewrite hstar_hpure. split~. exists h1' h2. splits~.
     { hnfs~. }
     { hhsimpl~. }
     { subst h1. applys~ fmap_disjoint_single_set v. } }
