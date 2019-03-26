@@ -490,7 +490,7 @@ Proof using.
   introv M. applys~ is_local_elim.
   unfold Local, flocal. hpull ;=> Q'.
   hsimpl (^F Q') ((Q' \--* Q \*+ \GC)) Q'. split~.
-  { hchanges qwand_cancel. }
+  { hsimpl. }
 Qed.
 
 (** The tactic [remove_Local] applies to goal of the form [triple t (local F Q) Q]

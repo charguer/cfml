@@ -1639,7 +1639,7 @@ Lemma hsimpl_r_hwand_same : forall H Hra Hrg Hrt HL,
 Proof using. hsimpl_r_start' M. applys himpl_hempty_hwand_same. Qed.
 
 Lemma hsimpl_r_hpure : forall P Hra Hrg Hrt HL,
-  protect P ->
+  P ->
   Hsimpl HL (Hra, Hrg, Hrt) ->
   Hsimpl HL (Hra, Hrg, (\[P] \* Hrt)).
 Proof using.
@@ -1652,7 +1652,7 @@ Lemma hsimpl_r_hexists : forall A (x:A) (J:A->hprop) Hra Hrg Hrt HL,
 Proof using. hsimpl_r_start' M. applys* himpl_hexists_r. Qed.
 
 Lemma hsimpl_r_id : forall A (x X:A) Hra Hrg Hrt HL,
-  protect (x = X) ->
+  (x = X) ->
   Hsimpl HL (Hra, Hrg, Hrt) ->
   Hsimpl HL (Hra, Hrg, (x ~> Id X \* Hrt)).
 Proof using.
@@ -1663,7 +1663,7 @@ Qed.
 Lemma hsimpl_r_id_unify : forall A (x:A) Hra Hrg Hrt HL,
   Hsimpl HL (Hra, Hrg, Hrt) ->
   Hsimpl HL (Hra, Hrg, (x ~> Id x \* Hrt)).
-Proof using. introv M. applys~ hsimpl_r_id. hnfs*. Qed.
+Proof using. introv M. applys~ hsimpl_r_id. Qed.
 
 Lemma hsimpl_r_skip : forall H Hra Hrg Hrt HL,
   Hsimpl HL ((H \* Hra), Hrg, Hrt) ->
@@ -1728,7 +1728,7 @@ Qed.
 
 (* NOTE NEEDED? *)
 Lemma hsimpl_lr_cancel_eq : forall H1 H2 Hla Hlw Hlt Hra Hrg Hrt,
-  protect (H1 = H2) ->
+  (H1 = H2) ->
   Hsimpl (Hla, Hlw, Hlt) (Hra, Hrg, Hrt) ->
   Hsimpl ((H1 \* Hla), Hlw, Hlt) (Hra, Hrg, (H2 \* Hrt)).
 Proof using. introv ->. apply~ hsimpl_lr_cancel_same. Qed.
@@ -1761,6 +1761,11 @@ Proof using.
   hsimpl_lr_start M. applys qwand_move_l. intros x.
   specializes M x. rew_heap~ in M.
 Qed.
+
+Lemma hsimpl_lr_qwand_unit : forall (Q1 Q2:unit->hprop) Hla,
+  Hsimpl (\[], \[], (Q1 tt \* Hla)) (\[], \[], (Q2 tt \* \[])) ->
+  Hsimpl (Hla, \[], \[]) ((Q1 \--* Q2) \* \[], \[], \[]).
+Proof using. introv M. applys hsimpl_lr_qwand. intros []. applys M. Qed.
 
 Lemma himpl_lr_refl : forall Hla,
   Hsimpl (Hla, \[], \[]) (Hla, \[], \[]).
@@ -2000,15 +2005,22 @@ Ltac hsimpl_handle_haffine_subgoals tt :=
 Ltac hsimpl_clean tt :=
   try remove_empty_heaps_right tt;
   try remove_empty_heaps_left tt;
-  try hsimpl_hint_remove tt;
-  unfold protect.
+  try hsimpl_hint_remove tt.
 
-Ltac hsimpl_post tt :=
-  hsimpl_clean tt;
+Ltac hsimpl_generalize tt :=
   hsimpl_post_before_generalize tt;
   hsimpl_handle_false_subgoals tt;
   gen_until_mark_with_processing ltac:(himpl_post_processing_for_hyp);
   hsimpl_post_after_generalize tt.
+
+Ltac hsimpl_post tt :=
+  hsimpl_clean tt;
+  hsimpl_generalize tt.
+
+Ltac hpull_post tt :=
+  hsimpl_clean tt;
+  unfold protect;
+  hsimpl_generalize tt.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -2132,12 +2144,14 @@ Ltac hsimpl_step_r tt :=
       | _ => 
         match H'eqH with 
         | H => apply hsimpl_r_hwand_same 
-        | protect H => apply hsimpl_r_hwand_same
+        (* | protect H => apply hsimpl_r_hwand_same  --NOTE: purposely refuse to unify this*)
         end
       end
   | hexists ?J => hsimpl_r_hexists_apply tt
   | \GC => hsimpl_hgc_or_htop_step tt
   | \Top => hsimpl_hgc_or_htop_step tt
+  | protect ?H' => apply hsimpl_r_skip
+  | protect ?Q' _ => apply hsimpl_r_skip
   | ?H' => is_not_evar H;  hsimpl_cancel_same H (* else continue *)
   | ?p ~> _ => hsimpl_pick_repr H; apply hsimpl_lr_cancel_eq_repr; 
                [ hsimpl_lr_cancel_eq_repr_post tt | ]  (* else continue *)
@@ -2158,14 +2172,18 @@ Ltac hsimpl_step_lr tt :=
        | ?H1 \* \[] => 
          match H1 with
          | ?Hra_evar => is_evar Hra_evar; rew_heap; apply himpl_lr_refl (* else continue *)
-         | ?Hla' => (* unify Hla Hla'; *) apply himpl_lr_refl (* else continue *)
+       (*   | ?Hla' => (* unify Hla Hla'; *) apply himpl_lr_refl (* else continue *) TODO: needed? *)
          | ?Q1 \--* ?Q2 => is_evar Q2; eapply himpl_lr_qwand_unify
          | \[False] \-* ?H2 => apply hsimpl_lr_hwand_hfalse
          | ?H1 \-* ?H2 => hsimpl_flip_acc_l tt; apply hsimpl_lr_hwand
-         | ?Q1 \--* ?Q2 => hsimpl_flip_acc_l tt; apply hsimpl_lr_qwand; intro
+         | ?Q1 \--* ?Q2 => 
+             hsimpl_flip_acc_l tt; 
+             match H1 with
+             | @qwand unit ?Q1' ?Q2' => apply hsimpl_lr_qwand_unit
+             | _ => apply hsimpl_lr_qwand; intro
+             end
          end
        | \[] => apply himpl_lr_refl
-       (* | ?Hla' => (* unify Hla Hla'; *) rew_heap; apply himpl_lr_refl (* else continue *) (* TODO should never happen? *) *)
        | _ => hsimpl_flip_acc_lr tt; apply hsimpl_lr_exit_nogc
        end 
     | (\Top \* _) => apply himpl_lr_htop
@@ -2189,7 +2207,7 @@ Ltac hsimpl_step tt :=
 Ltac hpull_core tt :=
   hpull_start tt;
   repeat (hsimpl_step tt);
-  hsimpl_post tt.
+  hpull_post tt.
 
 Tactic Notation "hpull" := hpull_core tt.
 Tactic Notation "hpull" "~" := hpull; auto_tilde.
@@ -2509,10 +2527,10 @@ Ltac hchange_core L modifier cont :=
   gen_until_mark.
 
 Ltac hchange_hpull_cont tt :=
-  hsimpl.
+  hsimpl; unfold protect; try apply himpl_refl.
 
 Ltac hchange_hsimpl_cont tt :=
-  unfold protect; hsimpl.
+  unfold protect; hsimpl; try apply himpl_refl.
 
   (* TODO DEPRECATED: [instantiate] useful? no longer...*)
 
@@ -2580,7 +2598,7 @@ Lemma hchange_demo_2 : forall A (Q:A->hprop) H1 H2 H3,
   H1 \* H2 ==> \exists x, Q x \* H3.
 Proof using.
   introv M. dup 3.
-  { hchange_nosimpl M. hsimpl. hsimpl. }
+  { hchange_nosimpl M. hsimpl. unfold protect. hsimpl. }
   { hchange M. hsimpl. }
   { hchanges M. }
 Qed.

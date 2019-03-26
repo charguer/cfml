@@ -359,29 +359,27 @@ Ltac xapp_record tt :=
 
 Lemma xapp_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
   Triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* Q) ->
+  H ==> H1 \* (Q1 \--* protect Q) ->
   H ==> ^(Wp_app t) Q.
 Proof using.
   introv M1 M2. applys Local_erase.
   hchanges (rm M2).
   rewrite <- Triple_eq_himpl_Wp_Triple.
-  applys* Triple_ramified_frame. hsimpl.
+  applys* Triple_ramified_frame.
 Qed.
-
-Definition hsimpl_protect_for_xapp (H:hprop) := H.
 
 Lemma xapps_lemma : forall A `{EA:Enc A} (V:A) H2 t H1 H Q,
   Triple t H1 (fun r => \[r = V] \* H2) ->
-  H ==> H1 \* (H2 \-* hsimpl_protect_for_xapp (Q V)) ->
+  H ==> H1 \* (H2 \-* protect (Q V)) ->
   H ==> ^(Wp_app t) Q.
 Proof using.
   introv M1 M2. applys xapp_lemma M1. hchanges M2.
-  intros ? ->. hchanges (hwand_cancel H2).
+  intros ? ->. auto.
 Qed.
 
 Lemma xapps_lemma_pure : forall A `{EA:Enc A} (V:A) t H1 H Q,
   Triple t H1 (fun r => \[r = V]) ->
-  H ==> H1 \* hsimpl_protect_for_xapp (Q V) ->
+  H ==> H1 \* protect (Q V) ->
   H ==> ^(Wp_app t) Q.
 Proof using.
   introv M1 M2. applys xapps_lemma \[]; rew_heap; eauto.
@@ -398,7 +396,7 @@ Ltac xapp_pre tt :=
   end.
 
 Ltac xapp_post tt :=
-  hsimpl; unfold hsimpl_protect_for_xapp.
+  hsimpl; unfold protect.
   
 Lemma xapp_find_spec_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
   Triple t H1 Q1 ->

@@ -39,6 +39,7 @@ Definition val_incr : val :=
    'p ':= ('n '+ 1).
 *)
 
+
 Lemma Triple_incr : forall (p:loc) (n:int),
   TRIPLE (val_incr p)
     PRE (p ~~> n)
@@ -58,13 +59,13 @@ Proof using.
   (* xlet *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xapps *)
-  applys @xapps_lemma. { applys Triple_get. } hsimpl.
+  applys @xapps_lemma. { applys Triple_get. } xapp_post tt.
   (* xapps *)
-  applys @xapps_lemma_pure. { applys Triple_add. } hsimpl.
+  applys @xapps_lemma_pure. { applys Triple_add. } xapp_post tt.
   (* xapp *)
-  applys @xapp_lemma. { eapply @Triple_set. } hsimpl.
+  applys @xapp_lemma. { eapply @Triple_set. } xapp_post tt.
   (* done *) 
-  auto.
+  auto. 
 Qed.
 
 Lemma Triple_incr' : forall (p:loc) (n:int),
@@ -106,7 +107,6 @@ Definition val_move_X : val :=
    Set 'p'.X ':= ('p'.X '+ 1) ';
    Set 'p'.K ':= ('p'.K '+ 1).
 
-
 Lemma Triple_move_X : forall p x y,
   TRIPLE (val_move_X p)
     PRE (Point x y p)
@@ -124,25 +124,24 @@ Proof using.
   (* xlet-poly *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xapp_record *)
-  applys xapp_record_get. hsimpl. simpl. hsimpl.
-  (* xcast *)
-  applys xcast_lemma.
+  applys xapp_record_get. xapp_record_post tt.
+   (* applys xcast_lemma. *)
   (* xapps *)
-  applys @xapps_lemma_pure. { applys @Triple_add. } hsimpl.
+  applys @xapps_lemma_pure. { applys @Triple_add. } xapp_post tt.
   (* xapp_record *)
-  applys xapp_record_set. hsimpl. simpl. hsimpl.
+  applys xapp_record_set. xapp_record_post tt.
   (* xlet-poly *) 
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xlet *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xapp_record *)
-  applys xapp_record_get. hsimpl. simpl. hsimpl. 
-  (* xcast *)
-  applys xcast_lemma.
+  applys xapp_record_get. xapp_record_post tt.
+   (* applys xcast_lemma. *)
   (* xapps *)
-  applys @xapps_lemma_pure. { applys @Triple_add. } hsimpl.
+  applys @xapps_lemma_pure. { applys @Triple_add. } xapp_post tt.
   (* xapp_record *)
-  applys xapp_record_set. hsimpl. simpl. hsimpl.
+  applys xapp_record_set. xapp_record_post tt.
+    (* hsimpl. simpl. hsimpl. unfold protect. *)
   (* done *)
   hsimpl. math.
 Qed.
@@ -306,7 +305,7 @@ Proof using.
   (* xcase *)
   applys xcase_lemma0 ;=> E1.
   { destruct L as [|x L']; hpull.
-    { intros ->. applys~ @xval_lemma 0. hsimpl. rewrite~ MList_nil_eq. rew_list~. }
+    { intros ->. applys~ @xval_lemma 0. hsimpl. rew_list~. rewrite~ MList_nil_eq. }
     { intros q ->. tryfalse. } }
   { applys xcase_lemma2.
     { intros x q E.
@@ -315,10 +314,10 @@ Proof using.
       { intros q' E'. subst v. rewrite enc_val_eq in *. inverts E.
         (* xlet-poly *)
         notypeclasses refine (xlet_lemma _ _ _ _ _).
-        (* xapp *)
-        applys @xapp_lemma. { applys* IH. } hsimpl ;=> r ->.
         (* xapps *)
-        applys @xapps_lemma_pure. { applys Triple_add. } hsimpl. unfold hsimpl_protect_for_xapp.
+        applys @xapps_lemma. { applys* IH. } xapp_post tt.
+        (* xapps *)
+        applys @xapps_lemma_pure. { applys Triple_add. } xapp_post tt.
         (* done *)
         pattern MList at 2. rewrite MList_unfold. hsimpl*. rew_list; math. } }
     { intros N. destruct L as [|x L']; hpull.
@@ -340,7 +339,7 @@ Proof using.
   (* xcase *)
   applys xcase_lemma0 ;=> E1.
   { destruct L as [|x L']; hpull.
-    { intros ->. applys~ @xval_lemma 0. hsimpl. rewrite~ MList_nil_eq. rew_list~. }
+    { intros ->. applys~ @xval_lemma 0. hsimpl. rew_list~. rewrite~ MList_nil_eq. }
     { intros q ->. tryfalse. } }
   { applys xcase_lemma2.
     { intros x q E.
@@ -348,7 +347,7 @@ Proof using.
       { intros ->. tryfalse. }
       { intros q' E'. subst v. rewrite enc_val_eq in *. inverts E.
         xlet. 
-        xapp* IH. hsimpl.
+        xapp* IH.
         xapp.
         (* done *)
         pattern MList at 2. rewrite MList_unfold. hsimpl*. rew_list; math. } }
@@ -413,14 +412,13 @@ Proof using.
   (* xlet-poly *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xapps *)
-  applys @xapps_lemma. { eapply @Triple_get. } hsimpl.
+  applys @xapps_lemma. { eapply @Triple_get. } xapp_post tt.
   (* xlet-poly *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xval *)
   applys~ (xval_lemma nil).
   (* xapps *)
-  applys @xapps_lemma_pure. { applys @Triple_eq_val. } hsimpl.
-  unfold hsimpl_protect_for_xapp.
+  applys @xapps_lemma_pure. { applys @Triple_eq_val. } xapp_post tt.
   (* done *)
   hsimpl. rewrite* @Enc_injective_value_eq_r.
 Qed.
@@ -449,7 +447,7 @@ Proof using.
   (* xlet-poly *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xapps *)
-  applys @xapps_lemma. { eapply @Triple_get. } hsimpl.
+  applys @xapps_lemma. { eapply @Triple_get. } xapp_post tt.
   (* Two ways of completing the proof *)
   dup.
   (* xcase with lemma for match list *)
@@ -461,7 +459,7 @@ Proof using.
       (* xseq *)
       applys xseq_lemma.
       (* xapp *)
-      applys @xapp_lemma. { applys @Triple_set. } hsimpl.
+      applys @xapp_lemma. { applys @Triple_set. } xapp_post tt.
       (* xval *)
       applys~ xval_lemma.
       (* done *)
@@ -476,7 +474,7 @@ Proof using.
         (* xseq *)
         applys xseq_lemma.
         (* xapp *)
-        applys @xapp_lemma. { applys @Triple_set. } hsimpl.
+        applys @xapp_lemma. { applys @Triple_set. } xapp_post tt.
         (* xval *)
         applys~ xval_lemma.
         (* post *)
@@ -536,11 +534,11 @@ Proof using.
   (* xlet-poly *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xapps *)
-  applys @xapps_lemma. { eapply @Triple_get. } hsimpl.
+  applys @xapps_lemma. { eapply @Triple_get. } xapp_post tt.
   (* xval *)
   applys~ (xval_lemma (x::L)).
   (* xapps *)
-  applys @xapp_lemma. { eapply @Triple_set. } hsimpl. 
+  applys @xapp_lemma. { eapply @Triple_set. } xapp_post tt. 
   (* done *)
   auto.
 Qed.
@@ -569,25 +567,25 @@ simpl. (* TODO ! *)
   (* xlet *)
   applys xlet_typed_lemma.
   (* xapps *)
-  applys @xapps_lemma. { eapply @Triple_is_empty. } hsimpl.
+  applys @xapps_lemma. { eapply @Triple_is_empty. } xapp_post tt.
   (* xif *)
   applys @xifval_lemma_isTrue ;=> C.
   (* case nil *)
   { (* xval *)
     applys~ (xval_lemma tt).
     (* done *)
-    hsimpl. subst. rew_list~. }
+    hsimpl~. subst. rew_list~. }
   (* case cons *)
   { (* xlet-poly *)
     notypeclasses refine (xlet_lemma _ _ _ _ _).
     (* xapp *)
-    applys @xapp_lemma. { applys @Triple_pop. eauto. } hsimpl ;=> x L1' E.
+    applys @xapp_lemma. { applys @Triple_pop. eauto. } xapp_post tt ;=> x L1' E.
     (* xseq *)
     applys xseq_lemma.
     (* xapp *)
-    applys @xapp_lemma. { applys @Triple_push. } hsimpl.
+    applys @xapp_lemma. { applys @Triple_push. } xapp_post tt.
     (* xapp *)
-    applys @xapp_lemma. { applys IH L1'. subst*. } hsimpl.
+    applys @xapp_lemma. { applys IH L1'. subst*. } xapp_post tt.
     (* done *)
     hsimpl. subst. rew_list~. }
 Qed.
@@ -600,7 +598,7 @@ Proof using.
   intros. gen p1 p2 L2. induction_wf IH: (@list_sub A) L1. intros.
   xwp. xlet. xapp @Triple_is_empty. xif ;=> C.
   { (* case nil *)
-    xval tt. hsimpl. subst. rew_list~. }
+    xval tt. hsimpl~. subst. rew_list~. }
   { (* case cons *)
     xlet. xapp~ @Triple_pop ;=> x L1' E. 
     xseq. xapp @Triple_push. 
@@ -617,19 +615,20 @@ Proof using.
   intros. gen p1 p2 L2. induction_wf IH: (@list_sub A) L1. intros.
   xwp. xlet. xapp @Triple_is_empty. xif ;=> C.
   { (* case nil *)
-    xval tt. hsimpl. subst. rew_list~. }
+    xval tt. hsimpl~. subst. rew_list~. }
   { (* case cons *)
     xlet. xapp~ @Triple_pop ;=> x L1' E. 
     xseq.
     (* xapp: *) xapp_debug @Triple_push. applys Spec. hsimpl.
     dup. 
-    { (* xapp (>> IH L1'): *) xapp_debug (>> IH L1'). applys Spec. { subst*. } hsimpl. 
+    { (* xapp (>> IH L1'): *) xapp_debug (>> IH L1'). applys Spec. { subst*. } xapp_post tt. 
       hsimpl. subst. rew_list~. }
-     { (* xapp (>> __ L1'): *) xapp_debug (>> __ L1'). applys Spec. { subst*. } hsimpl. 
+     { (* xapp (>> __ L1'): *) xapp_debug (>> __ L1'). applys Spec. { subst*. } xapp_post tt. 
       hsimpl. subst. rew_list~. } }
 Qed.
 
 End Stack.
+
 
 
 

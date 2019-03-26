@@ -163,9 +163,9 @@ Proof using.
     (* xlet-poly *)
     notypeclasses refine (xlet_lemma _ _ _ _ _).
     (* xapp *)
-    applys @xapp_lemma. { applys @Triple_ptr_add_nat. } hsimpl ;=> r ->.
+    applys @xapp_lemma. { applys @Triple_ptr_add_nat. } xapp_post tt ;=> r ->.
     (* xapp *)
-    applys @xapps_lemma. { applys @Triple_get. } hsimpl. unfold hsimpl_protect_for_xapp.
+    applys @xapps_lemma. { applys @Triple_get. } xapp_post tt.
     (* done *)
     hsimpl~. }
 Qed.
@@ -191,7 +191,7 @@ Proof using.
     (* xapp *)
     applys @xapp_lemma. { applys @Triple_ptr_add_nat. } hsimpl ;=> r ->.
     (* xapp *)
-    applys @xapp_lemma. { applys @Triple_set_strong A1 A2. } hsimpl.
+    applys @xapp_lemma. { applys @Triple_set_strong A1 A2. } hsimpl. xapp_post tt.
     (* done *)
     hsimpl~. }
 Qed.
@@ -345,12 +345,30 @@ Ltac xspec_record tt :=
 (* ---------------------------------------------------------------------- *)
 
 
+Lemma xapp_record_get : forall A `{EA:Enc A} (Q:A->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
+  H ==> p ~> Record L \* (match record_get_compute_dyn f L with
+    | None => \[False]
+    | Some (Dyn V) => (p ~> Record L) \-* ^(is_Wp (Wp_cast V)) (protect Q) end) ->
+  H ==> ^(Wp_app (trm_apps (trm_val (val_get_field f)) (trms_vals ((p:val)::nil)))) Q.
+Proof using.
+  introv M1. hchanges (rm M1).
+  lets R: record_get_compute_spec_correct f L.
+  unfolds record_get_compute_spec.
+  destruct (record_get_compute_dyn f L) as [[T ET V]|]; try solve [hpull].  
+  set (H' := (p ~> Record L \-* ^(`Wp_cast V) Q)).
+  forwards R': R; eauto. clear R. specializes R' p.
+  applys himpl_wp_app_of_Triple.
+  applys Triple_enc_change. xapplys (rm R'). simpl.
+  unfold PostChange, is_Wp. hpull ;=> ? ->. unfold H'. hpull.
+  unfold Wp_cast, is_Wp. applys himpl_refl.
+Qed. (* TODO: simplify proof *)
+
 Lemma xapp_record_set : forall A1 `{EA1:Enc A1} (W:A1) (Q:unit->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
   H ==> p ~> Record L \* ((
     match record_set_compute_dyn f (Dyn W) L with
     | None => \[False]
     | Some L' =>  
-        (p ~> Record L' \-* Q tt) end)  ) ->
+        (p ~> Record L' \-* protect (Q tt)) end)  ) ->
   H ==> ^(Wp_app (trm_apps (trm_val (val_set_field f)) (trms_vals ((p:val)::(``W)::nil)))) Q.
 Proof using.
   introv M1. hchanges (rm M1).
@@ -359,24 +377,7 @@ Proof using.
   destruct (record_set_compute_dyn f (Dyn W) L) as [L'|]; try solve [hpull].
   forwards R': R; eauto. clear R. specializes R' p. 
   applys himpl_wp_app_of_Triple.
-  xapplys R'. hsimpl. hchanges (hwand_cancel (p ~> Record L')). 
-Qed. (* TODO: simplify proof *)
-
-Lemma xapp_record_get : forall A `{EA:Enc A} (Q:A->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
-  H ==> p ~> Record L \* (match record_get_compute_dyn f L with
-    | None => \[False]
-    | Some (Dyn V) => (p ~> Record L) \-* ^(is_Wp (Wp_cast V)) Q end) ->
-  H ==> ^(Wp_app (trm_apps (trm_val (val_get_field f)) (trms_vals ((p:val)::nil)))) Q.
-Proof using.
-  introv M1. hchanges (rm M1).
-  lets R: record_get_compute_spec_correct f L.
-  unfolds record_get_compute_spec.
-  destruct (record_get_compute_dyn f L) as [[T ET V]|]; try solve [hpull].
-  forwards R': R; eauto. clear R. specializes R' p.
-  applys himpl_wp_app_of_Triple.
-  applys Triple_enc_change. xapplys (rm R'). simpl.
-  unfold PostChange, is_Wp, Wp_cast. hpull ;=> ? ->.
-  hchanges~ (hwand_cancel (p ~> Record L)).
+  xapplys R'.
 Qed. (* TODO: simplify proof *)
 
 
@@ -386,7 +387,7 @@ Global Opaque val_set_field val_get_field.
 (* ** Tactic [xapp_record] *)
 
 Ltac xapp_record_post tt :=
-  hsimpl; simpl; hsimpl; try xcast.
+  hsimpl; simpl; hsimpl; unfold protect; try xcast.
 
 Ltac xapp_record_get tt :=
   applys xapp_record_get; xapp_record_post tt.
