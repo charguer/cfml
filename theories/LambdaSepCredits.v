@@ -692,7 +692,7 @@ Proof using.
   lets ((R1&R2)&R3): R.
   forwards (n&h'&v&S1&S2&S3): R1 (H2\*H') h.
   { subst h. rewrite <- hstar_assoc. exists~ h1 h2. }
-  exists n h' v. splits~. rewrite <- hgc_hstar_hgc.
+  exists n h' v. splits~. rewrite <- hstar_hgc_hgc.
   applys himpl_inv S2.
   hchange (R2 v). hsimpl.
 Qed.
@@ -819,7 +819,7 @@ Proof using.
   { destruct C as (b&E). subst. forwards* (n'&h'&v'&R&K&C2): (rm M2) h1'.
     exists (n+n')%nat h' v'. splits~.
     { applys* red_if. }
-    { rewrite <- hgc_hstar_hgc. rew_heap~. }
+    { rewrite <- hstar_hgc_hgc. rew_heap~. }
     { math. } }
   { specializes M3 C.
     asserts Z: ((\[False] \* \Top \* HF) h1').
@@ -849,7 +849,7 @@ Proof using.
   forwards* (n2&h2'&v2&R2&K2&C2): (rm M2) (\GC \* HF) h1'.
   exists (n1+n2)%nat h2' v2. splits~.
   { applys~ red_let R2. }
-  { rewrite <- hgc_hstar_hgc. hhsimpl. }
+  { rewrite <- hstar_hgc_hgc. hhsimpl. }
   { math. }
 Qed.
 
@@ -1078,7 +1078,7 @@ Lemma triple_hgc_post : forall t H Q,
   triple t H Q.
 Proof using.
   introv M. intros HF h N. forwards* (n&h'&v&R&K&C): (rm M) HF h.
-  exists n h' v. splits~. { rewrite <- hgc_hstar_hgc. hhsimpl. }
+  exists n h' v. splits~. { rewrite <- hstar_hgc_hgc. hhsimpl. }
 Qed.
 
 Lemma triple_hgc_pre : forall t H Q,
