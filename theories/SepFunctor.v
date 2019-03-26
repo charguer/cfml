@@ -1458,7 +1458,7 @@ Lemma hstars_simpl_start : forall H1 H2,
   H1 ==> H2.
 Proof using. introv M. rew_heap~ in *. Qed.
 
-Lemma hstars_simpl_skip : forall H1 Ha H Ht,
+Lemma hstars_simpl_keep : forall H1 Ha H Ht,
   H1 ==> (H \* Ha) \* Ht ->
   H1 ==> Ha \* H \* Ht.
 Proof using. introv M. rew_heap in *. rewrite~ hstar_comm_assoc. Qed.
@@ -1490,7 +1490,7 @@ Ltac hstars_simpl_step tt :=
       hstars_search Hl ltac:(fun i H' => 
         match H' with H => hstars_simpl_pick i end);
       apply hstars_simpl_cancel
-    | apply hstars_simpl_skip ]
+    | apply hstars_simpl_keep ]
   end.
 
 Ltac hstars_simpl_post tt :=
@@ -1600,7 +1600,7 @@ Proof using.
   applys hwand_cancel. 
 Qed.
 
-Lemma hsimpl_l_skip_wand : forall H Hla Hlw Hlt HR,
+Lemma hsimpl_l_keep_wand : forall H Hla Hlw Hlt HR,
   Hsimpl ((H \* Hla), Hlw, Hlt) HR ->
   Hsimpl (Hla, (H \* Hlw), Hlt) HR.
 Proof using. hsimpl_l_start' M. Qed.
@@ -1665,7 +1665,7 @@ Lemma hsimpl_r_id_unify : forall A (x:A) Hra Hrg Hrt HL,
   Hsimpl HL (Hra, Hrg, (x ~> Id x \* Hrt)).
 Proof using. introv M. applys~ hsimpl_r_id. Qed.
 
-Lemma hsimpl_r_skip : forall H Hra Hrg Hrt HL,
+Lemma hsimpl_r_keep : forall H Hra Hrg Hrt HL,
   Hsimpl HL ((H \* Hra), Hrg, Hrt) ->
   Hsimpl HL (Hra, Hrg, (H \* Hrt)).
 Proof using. hsimpl_r_start' M. Qed.
@@ -2099,11 +2099,11 @@ Ltac hsimpl_step_l tt :=
       match H1 with
       | (_ \* _) => hsimpl_hwand_hstars_l tt
       | _ => first [ hsimpl_pick_same H1; apply hsimpl_l_cancel_hwand
-                   | apply hsimpl_l_skip_wand ] 
+                   | apply hsimpl_l_keep_wand ] 
       end
   | (?Hla, ((?Q1 \--* ?Q2) \* ?Hlw), \[]) => 
       first [ hsimpl_pick_applied Q1; eapply hsimpl_l_cancel_qwand
-            | apply hsimpl_l_skip_wand ]
+            | apply hsimpl_l_keep_wand ]
   end end.
 
 (* Limitation: [((Q1 \*+ H) \--* Q2) \* H] is not automatically 
@@ -2150,8 +2150,8 @@ Ltac hsimpl_step_r tt :=
   | hexists ?J => hsimpl_r_hexists_apply tt
   | \GC => hsimpl_hgc_or_htop_step tt
   | \Top => hsimpl_hgc_or_htop_step tt
-  | protect ?H' => apply hsimpl_r_skip
-  | protect ?Q' _ => apply hsimpl_r_skip
+  | protect ?H' => apply hsimpl_r_keep
+  | protect ?Q' _ => apply hsimpl_r_keep
   | ?H' => is_not_evar H;  hsimpl_cancel_same H (* else continue *)
   | ?p ~> _ => hsimpl_pick_repr H; apply hsimpl_lr_cancel_eq_repr; 
                [ hsimpl_lr_cancel_eq_repr_post tt | ]  (* else continue *)
@@ -2161,7 +2161,7 @@ Ltac hsimpl_step_r tt :=
                   apply hsimpl_r_id; [ try reflexivity |  ] *)
   | ?x ~> ?T_evar ?X_evar => has_no_evar x; is_evar T_evar; is_evar X_evar; 
                            apply hsimpl_r_id_unify
-  | _ => apply hsimpl_r_skip
+  | _ => apply hsimpl_r_keep
   end end.
 
 Ltac hsimpl_step_lr tt :=
@@ -3128,7 +3128,7 @@ Proof using.
   { unfold local. eapply himpl_trans; [apply M|]. hpull ;=> H1 H2 Q1 [P1 P2].
     unfold local in P1. hchange P1. hpull ;=> H1' H2' Q1' [P1' P2'].
     hsimpl H1' (H2 \* H2') Q1'. splits*.
-    intros x. hchange P2'. skip.  (*.. hchange P2. hsimpl. TODO *) }
+    intros x. hchanges P2'. hchange P2. }
   { apply~ local_erase. }
 Qed.
 

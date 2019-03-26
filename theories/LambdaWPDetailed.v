@@ -157,7 +157,7 @@ Proof using.
   xlet.
   xlet.
   xapp.
-  dup. { xapp (@Triple_add). skip. (* demo *) }
+  dup. { xapp (@Triple_add). demo. }
   xapp.
   xapp.
   xlet.

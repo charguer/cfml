@@ -3617,3 +3617,59 @@ Lemma hstars_flip_demo : forall H1 H2 H3 H4,
 Proof using.
   introv M. eapply M. hstars_flip tt.
 Abort.
+
+
+
+
+(* DEPRECATED
+
+
+Lemma hpull_hforall : forall A (x:A) H1 H2 H' (J:A->hprop),
+  (H1 \* J x \* H2 ==> H') ->
+  H1 \* (hforall J \* H2) ==> H'.
+Proof using.
+  intros. rewrite hstar_comm_assoc. applys himpl_trans.
+  applys hstar_hforall. applys himpl_hforall_l. esplit.
+  rewrite* <- hstar_comm_assoc.
+Qed.
+
+Lemma hpull_hwand_hpure' : forall H1 H2 H' (P:Prop),
+  P -> 
+  H1 \* H2 ==> H' ->
+  H1 \* (\[P] \-* H2) ==> H'.
+Proof using.
+  introv HP M. rewrite hstar_comm. applys himpl_trans.
+  { applys hstar_hwand. } 
+  { hchange~ (hwand_hpure_prove). hchanges M. }
+Qed.
+
+Lemma hpull_hwand_hpure : forall H1 H2 H3 H' (P:Prop),
+  P -> 
+  H1 \* H2 \* H3 ==> H' ->
+  H1 \* (\[P] \-* H2) \* H3 ==> H'.
+Proof using.
+  introv HP M. hchanges~ hpull_hwand_hpure'. hchanges M. 
+Qed.
+
+Ltac hpull_step tt ::=
+  match goal with |- _ \* ?HN ==> _ =>
+  match HN with
+  | ?H \* _ =>
+     match H with
+     | \[] => apply hpull_empty
+     | \[_] => apply hpull_hprop; intros
+     | hexists _ => apply hpull_hexists; intros
+     | hforall _ => eapply hpull_hforall
+     | \[_] \-* _ => eapply hpull_hwand_hpure
+     | _ \* _ => apply hpull_assoc
+     | _ => apply hpull_keep
+     end
+  | \[] => fail 1
+  | ?H => apply hpull_starify
+  end end.
+
+Ltac hpull_main tt ::=
+  hpull_setup tt;
+  (repeat (hpull_step tt));
+  try hpull_cleanup tt.
+*)
