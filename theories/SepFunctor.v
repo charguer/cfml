@@ -554,6 +554,10 @@ Lemma himpl_hforall : forall A (J1 J2:A->hprop),
   hforall J1 ==> hforall J2.
 Proof using. introv W. intros h M x. applys W. applys M. Qed.
 
+Lemma hforall_specialize : forall A (x:A) (J:A->hprop),
+  (hforall J) ==> (J x).
+Proof using. intros. applys* himpl_hforall_l_for x. Qed.
+
 (** Properties of [hor] *)
 
 Lemma hor_sym : forall H1 H2,
@@ -680,9 +684,7 @@ Proof using. intros. applys* qwand_move_l. Qed.
 
 Lemma qwand_specialize : forall A (x:A) (Q1 Q2:A->hprop),
   (Q1 \--* Q2) ==> (Q1 x \-* Q2 x).
-Proof using.
-  intros. unfold qwand, hforall. intros h. auto.
-Qed.
+Proof using. intros. unfold qwand. applys* hforall_specialize x. Qed.
 
 Arguments qwand_specialize [ A ].
 
@@ -1767,6 +1769,14 @@ Lemma hsimpl_lr_qwand_unit : forall (Q1 Q2:unit->hprop) Hla,
   Hsimpl (Hla, \[], \[]) ((Q1 \--* Q2) \* \[], \[], \[]).
 Proof using. introv M. applys hsimpl_lr_qwand. intros []. applys M. Qed.
 
+Lemma hsimpl_lr_hforall : forall A (J:A->hprop) Hla,
+  (forall x, Hsimpl (\[], \[], Hla) (\[], \[], J x \* \[])) ->
+  Hsimpl (Hla, \[], \[]) ((hforall J) \* \[], \[], \[]).
+Proof using. 
+  hsimpl_lr_start M. applys himpl_hforall_r. intros x.
+  specializes M x. rew_heap~ in M.
+Qed.
+
 Lemma himpl_lr_refl : forall Hla,
   Hsimpl (Hla, \[], \[]) (Hla, \[], \[]).
 Proof using. intros. unfolds Hsimpl. hstars_simpl. Qed.
@@ -2182,6 +2192,8 @@ Ltac hsimpl_step_lr tt :=
              | @qwand unit ?Q1' ?Q2' => apply hsimpl_lr_qwand_unit
              | _ => apply hsimpl_lr_qwand; intro
              end
+         | hforall _ => hsimpl_flip_acc_l tt; apply hsimpl_lr_hforall; intro
+                        (* TODO: optimize for iterated \forall bindings *)
          end
        | \[] => apply himpl_lr_refl
        | _ => hsimpl_flip_acc_lr tt; apply hsimpl_lr_exit_nogc
@@ -2627,6 +2639,13 @@ Proof using.
   { hchange_nosimpl M. hsimpl0. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. }
   { hchange M. }
 Qed.
+
+Lemma hchange_demo_hforall_l : forall (Q:int->hprop) H1,
+  (\forall x, Q x) \* H1 ==> Q 2 \* \Top.
+Proof using.
+  intros. hchange (hforall_specialize 2). hsimpl.
+Qed.
+
 
 (* ********************************************************************** *)
 (* * Properties of the magic wand *)

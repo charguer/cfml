@@ -3673,3 +3673,60 @@ Ltac hpull_main tt ::=
   (repeat (hpull_step tt));
   try hpull_cleanup tt.
 *)
+
+
+(* DEPRECATED
+Lemma Mlist_unfold_match : forall `{EA:Enc A} (L:list A) (p:loc) `{EB:Enc B} 
+  (F1:Formula) (F2:val->val->Formula) (Q:B->hprop),
+  (L = nil ->
+    PRE (p ~> MList L)
+    CODE F1
+    POST Q)
+  ->
+  (forall q' x' L', L = x'::L' ->
+    PRE (p ~~> (Cons x' q') \* q' ~> MList L')
+    CODE ((F2 ``x' ``q' : Formula))
+    POST Q)
+  ->
+  PRE (p ~> MList L)
+  CODE (Let [A0 EA0] X := `App (trm_val (val_prim val_get)) (val_loc p) in
+         Case ``X = 'VCstr "nil" '=> F1 
+      '| Case ``X = 'VCstr "cons" X0 X1 [X0 X1] '=> F2 X0 X1
+      '| Fail)      
+      (*`Match_ (``X) With '| ('VCstr "nil") '=> F1 '| 'VCstr "cons" X0 X1 [X0 X1] '=> F2 X0 X1) *)
+  POST Q.
+Proof using.
+  introv M1 M2.
+  xlet. hchanges (MList_unfold L) ;=> v. xapp.
+  applys xcase_lemma0 ;=> E1.
+  { destruct L as [|x L']; hpull.
+    { intros ->. hchange (>> MList_nil_fold EA). hchanges~ M1. }
+    { intros q ->. tryfalse. } }
+  { applys xcase_lemma2.
+    { intros x q E.
+      destruct L as [|x' L']; hpull.
+      { intros ->. tryfalse. }
+      { intros q' E'. subst v. rewrite enc_val_eq in *. inverts E. hchanges~ M2. } }
+    { intros N. destruct L as [|x L']; hpull.
+      { intros ->. rewrite enc_val_eq in *. unfolds Nil. false. }
+      { intros q ->. rewrite enc_val_eq in *. unfolds @Cons. false. } } }
+Qed.
+*)
+
+(* DEPRECATED
+Lemma Triple_mlist_length' : forall `{EA:Enc A} (L:list A) (p:loc),
+  TRIPLE (val_mlist_length p)
+    PRE (p ~> MList L)
+    POST (fun (r:int) => \[r = length L] \* p ~> MList L).
+Proof using.
+  intros. gen p. induction_wf IH: (@list_sub A) L. intros.
+  xwp. applys Mlist_unfold_match. 
+  { (* nil *)
+     intros EL. xval 0. hsimpl. subst. rew_list~. } 
+  { (* cons *)
+    intros p' x L' E. subst L. applys @eliminate_eta_in_code. 
+    xlet. xapp* IH. xapp. 
+    hchanges (MList_cons_fold p). rew_list; math. }
+Qed.
+*)
+

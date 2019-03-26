@@ -20,6 +20,13 @@ Open Scope pat_scope.
 Open Scope trm_scope.
 
 
+(* TODO *)
+Lemma himpl_trans' : forall (H1 H2 H3:hprop),
+  H2 ==> H3 ->
+  H1 ==> H2 ->
+  H1 ==> H3.
+Proof using. introv M1 M2. applys* himpl_trans. Qed.
+
 
 
 
@@ -142,61 +149,6 @@ Arguments MList_nil_fold : clear implicits.
 (* ---------------------------------------------------------------------- *)
 (** Match on a list *)
 
-(* DEPRECATED
-Lemma Mlist_unfold_match : forall `{EA:Enc A} (L:list A) (p:loc) `{EB:Enc B} 
-  (F1:Formula) (F2:val->val->Formula) (Q:B->hprop),
-  (L = nil ->
-    PRE (p ~> MList L)
-    CODE F1
-    POST Q)
-  ->
-  (forall q' x' L', L = x'::L' ->
-    PRE (p ~~> (Cons x' q') \* q' ~> MList L')
-    CODE ((F2 ``x' ``q' : Formula))
-    POST Q)
-  ->
-  PRE (p ~> MList L)
-  CODE (Let [A0 EA0] X := `App (trm_val (val_prim val_get)) (val_loc p) in
-         Case ``X = 'VCstr "nil" '=> F1 
-      '| Case ``X = 'VCstr "cons" X0 X1 [X0 X1] '=> F2 X0 X1
-      '| Fail)      
-      (*`Match_ (``X) With '| ('VCstr "nil") '=> F1 '| 'VCstr "cons" X0 X1 [X0 X1] '=> F2 X0 X1) *)
-  POST Q.
-Proof using.
-  introv M1 M2.
-  xlet. hchanges (MList_unfold L) ;=> v. xapp.
-  applys xcase_lemma0 ;=> E1.
-  { destruct L as [|x L']; hpull.
-    { intros ->. hchange (>> MList_nil_fold EA). hchanges~ M1. }
-    { intros q ->. tryfalse. } }
-  { applys xcase_lemma2.
-    { intros x q E.
-      destruct L as [|x' L']; hpull.
-      { intros ->. tryfalse. }
-      { intros q' E'. subst v. rewrite enc_val_eq in *. inverts E. hchanges~ M2. } }
-    { intros N. destruct L as [|x L']; hpull.
-      { intros ->. rewrite enc_val_eq in *. unfolds Nil. false. }
-      { intros q ->. rewrite enc_val_eq in *. unfolds @Cons. false. } } }
-Qed.
-*)
-
-Lemma hforall_specialize : forall A (x:A) (J:A->hprop),
-  (hforall J) ==> (J x).
-Proof using. intros. applys* himpl_hforall_l_for x. Qed.
-
-Lemma qwand_specialize : forall A (x:A) (Q1 Q2:A->hprop),
-  (Q1 \--* Q2) ==> (Q1 x \-* Q2 x).
-Proof using. intros. unfold qwand. applys* hforall_specialize x. Qed.
-
-
-Lemma hchange_demo_hforall_l : forall (Q:int->hprop) H1,
-  (\forall x, Q x) \* H1 ==> Q 2 \* \Top.
-Proof using.
-  intros. hchange (hforall_specialize 2). hsimpl.
-Qed.
-(* TODO *)
-
-
 Lemma Mlist_unfold_match' : forall `{EA:Enc A} (L:list A) (p:loc) `{EB:Enc B} 
   (F1:Formula) (F2:val->val->Formula) (Q:B->hprop),
   PRE
@@ -242,54 +194,6 @@ Definition val_mlist_length : val :=
     '| 'Cstr "cons" 'x 'q '=> 1 '+ 'f 'q
     End.
 
-(* TODO *)
-Lemma himpl_trans' : forall (H1 H2 H3:hprop),
-  H2 ==> H3 ->
-  H1 ==> H2 ->
-  H1 ==> H3.
-Proof using. introv M1 M2. applys* himpl_trans. Qed.
-
-
-Lemma hsimpl_lr_hforall : forall A (J:A->hprop) Hla,
-  (forall x, Hsimpl (\[], \[], Hla) (\[], \[], J x \* \[])) ->
-  Hsimpl (Hla, \[], \[]) ((hforall J) \* \[], \[], \[]).
-Proof using. 
-  hsimpl_lr_start M. applys himpl_hforall_r. intros x.
-  specializes M x. rew_heap~ in M.
-Qed.
-
-Ltac hsimpl_step_lr tt ::=
-  match goal with |- Hsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, \[]) => 
-    match Hrg with
-    | \[] =>
-       match Hra with 
-       | ?H1 \* \[] => 
-         match H1 with
-         | ?Hra_evar => is_evar Hra_evar; rew_heap; apply himpl_lr_refl (* else continue *)
-       (*   | ?Hla' => (* unify Hla Hla'; *) apply himpl_lr_refl (* else continue *) TODO: needed? *)
-         | ?Q1 \--* ?Q2 => is_evar Q2; eapply himpl_lr_qwand_unify
-         | \[False] \-* ?H2 => apply hsimpl_lr_hwand_hfalse
-         | ?H1 \-* ?H2 => hsimpl_flip_acc_l tt; apply hsimpl_lr_hwand
-         | ?Q1 \--* ?Q2 => 
-             hsimpl_flip_acc_l tt; 
-             match H1 with
-             | @qwand unit ?Q1' ?Q2' => apply hsimpl_lr_qwand_unit
-             | _ => apply hsimpl_lr_qwand; intro
-             end
-         | hforall _ => hsimpl_flip_acc_l tt; apply hsimpl_lr_hforall; intro
-                        (* TODO: optimize for iterated \forall bindings *)
-         end
-       | \[] => apply himpl_lr_refl
-       | _ => hsimpl_flip_acc_lr tt; apply hsimpl_lr_exit_nogc
-       end 
-    | (\Top \* _) => apply himpl_lr_htop
-    | (\GC \* _) => apply himpl_lr_hgc; 
-                    [ try remove_empty_heaps_haffine tt; try solve [ haffine ] | ]
-    | ?Hrg' => hsimpl_flip_acc_lr tt; apply hsimpl_lr_exit
-  end end.
-
-
-
 Lemma Triple_mlist_length : forall `{EA:Enc A} (L:list A) (p:loc),
   TRIPLE (val_mlist_length p)
     PRE (p ~> MList L)
@@ -307,23 +211,9 @@ Proof using.
     hchanges (MList_cons_fold p). rew_list; math. }
 Qed.
 
-(* DEPRECATED
-Lemma Triple_mlist_length' : forall `{EA:Enc A} (L:list A) (p:loc),
-  TRIPLE (val_mlist_length p)
-    PRE (p ~> MList L)
-    POST (fun (r:int) => \[r = length L] \* p ~> MList L).
-Proof using.
-  intros. gen p. induction_wf IH: (@list_sub A) L. intros.
-  xwp. applys Mlist_unfold_match. 
-  { (* nil *)
-     intros EL. xval 0. hsimpl. subst. rew_list~. } 
-  { (* cons *)
-    intros p' x L' E. subst L. applys @eliminate_eta_in_code. 
-    xlet. xapp* IH. xapp. 
-    hchanges (MList_cons_fold p). rew_list; math. }
-Qed.
-*)
 
+(* ---------------------------------------------------------------------- *)
+(** Length detailed *)
 
 Lemma Triple_mlist_length_detailed : forall `{EA:Enc A} (L:list A) (p:loc),
   TRIPLE (val_mlist_length p)
@@ -349,8 +239,6 @@ Proof using.
       { intros ->. rewrite enc_val_eq in *. unfolds Nil. false. }
       { intros q ->. rewrite enc_val_eq in *. unfolds @Cons. false. } } }
 Qed.
-
-(* LATER:    length : using loop *)
 
 
 (* ---------------------------------------------------------------------- *)
@@ -443,6 +331,10 @@ Proof using.
     intros p' x L' ->.
     xapp* IH. hchanges (MList_cons_fold p1). }
 Qed.
+
+
+
+(* LATER:    length : using loop *)
 
 End MList.
 
