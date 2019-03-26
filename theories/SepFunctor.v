@@ -1747,6 +1747,13 @@ Proof using.
   applys himpl_trans (rm M). hstars_simpl.
 Qed.
 
+Lemma hsimpl_lr_hwand_hfalse : forall Hla H1,
+  Hsimpl (Hla, \[], \[]) ((\[False] \-* H1) \* \[], \[], \[]).
+Proof using.
+  intros. generalize True. hsimpl_lr_start M. apply hwand_move_l. 
+  rewrite hstar_comm. applys himpl_hstar_hpure_l. auto_false.
+Qed.
+
 Lemma hsimpl_lr_qwand : forall A (Q1 Q2:A->hprop) Hla,
   (forall x, Hsimpl (\[], \[], (Q1 x \* Hla)) (\[], \[], Q2 x \* \[])) ->
   Hsimpl (Hla, \[], \[]) ((Q1 \--* Q2) \* \[], \[], \[]).
@@ -2109,6 +2116,9 @@ Ltac hsimpl_hgc_or_htop_step tt :=
     | (\Top \* \[], \Top) => applys hsimpl_r_htop_drop
     end end.
 
+Ltac hsimpl_cancel_same H :=
+  hsimpl_pick_same H; apply hsimpl_lr_cancel_same.
+
 Ltac hsimpl_step_r tt :=
   match goal with |- Hsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) => 
   match H with
@@ -2116,16 +2126,19 @@ Ltac hsimpl_step_r tt :=
   | \[] => apply hsimpl_r_hempty
   | \[?P] => apply hsimpl_r_hpure
   | ?H1 \* ?H2 => rewrite (@hstar_assoc H1 H2)
-  | ?H \-* ?H' => 
-      match H' with 
-      | H => apply hsimpl_r_hwand_same 
-      | protect H => apply hsimpl_r_hwand_same
+  | ?H \-* ?H'eqH =>
+      match H with
+      | \[?P] => fail 1 (* don't cancel out cause [P] might contain a contradiction *)
+      | _ => 
+        match H'eqH with 
+        | H => apply hsimpl_r_hwand_same 
+        | protect H => apply hsimpl_r_hwand_same
+        end
       end
   | hexists ?J => hsimpl_r_hexists_apply tt
   | \GC => hsimpl_hgc_or_htop_step tt
   | \Top => hsimpl_hgc_or_htop_step tt
-  | ?H' => is_not_evar H; (* DEPRECATED first [ is_not_evar H; fail 1 | idtac ]; *)
-           hsimpl_pick_same H; apply hsimpl_lr_cancel_same (* else continue *)
+  | ?H' => is_not_evar H;  hsimpl_cancel_same H (* else continue *)
   | ?p ~> _ => hsimpl_pick_repr H; apply hsimpl_lr_cancel_eq_repr; 
                [ hsimpl_lr_cancel_eq_repr_post tt | ]  (* else continue *)
   | ?x ~> Id ?X => has_no_evar x; apply hsimpl_r_id
@@ -2147,6 +2160,7 @@ Ltac hsimpl_step_lr tt :=
          | ?Hra_evar => is_evar Hra_evar; rew_heap; apply himpl_lr_refl (* else continue *)
          | ?Hla' => (* unify Hla Hla'; *) apply himpl_lr_refl (* else continue *)
          | ?Q1 \--* ?Q2 => is_evar Q2; eapply himpl_lr_qwand_unify
+         | \[False] \-* ?H2 => apply hsimpl_lr_hwand_hfalse
          | ?H1 \-* ?H2 => hsimpl_flip_acc_l tt; apply hsimpl_lr_hwand
          | ?Q1 \--* ?Q2 => hsimpl_flip_acc_l tt; apply hsimpl_lr_qwand; intro
          end
@@ -2159,6 +2173,7 @@ Ltac hsimpl_step_lr tt :=
                     [ try remove_empty_heaps_haffine tt; try solve [ haffine ] | ]
     | ?Hrg' => hsimpl_flip_acc_lr tt; apply hsimpl_lr_exit
   end end.
+
   (* TODO: handle [?HL (?Hra_evar, (\GC \* ..), \[])] *)
 
 
@@ -2586,6 +2601,14 @@ Lemma hchange_demo_4 : forall A (Q1 Q2:A->hprop) H,
   Q1 \*+ H ===> Q2 \*+ H.
 Proof using. introv M. hchanges M. Qed.
 
+Lemma hsimpl_demo_hfalse : forall H1 H2,
+  H1 ==> \[False] ->
+  H1 \* H2 ==> \[False].
+Proof using.
+  introv M. dup.
+  { hchange_nosimpl M. hsimpl0. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. }
+  { hchange M. }
+Qed.
 
 (* ********************************************************************** *)
 (* * Properties of the magic wand *)

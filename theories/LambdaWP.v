@@ -115,10 +115,7 @@ Lemma is_flocal_elim_nohgc : forall F H Q,
   (H ==> \exists Q', F Q' \* (Q' \--* Q)) ->
   H ==> F Q.
 Proof using. 
-  introv L M. applys~ is_flocal_elim. hchange M.
-  hpull ;=> Q'. hsimpl Q'. intros r. 
-  hchange (qwand_specialize r).
-  hchanges (hwand_cancel (Q' r)).
+  introv L M. applys~ is_flocal_elim. hchanges M.
 Qed.
 
 (** Other specialized elimination rules *)
@@ -139,7 +136,7 @@ Lemma is_flocal_hgc : forall F H Q,
   H ==> F Q.
 Proof using.
   introv L M. applys~ is_flocal_elim.
-  hchange (rm M). hsimpl (Q \*+ \GC). hsimpl.
+  hchange (rm M). hsimpl (Q \*+ \GC).
 Qed.
 
 Lemma is_flocal_frame : forall H1 H2 F H Q,
@@ -148,9 +145,7 @@ Lemma is_flocal_frame : forall H1 H2 F H Q,
   H1 ==> F (fun x => H2 \-* Q x) ->
   H ==> F Q.
 Proof using.
-  introv L W M. applys~ is_flocal_elim. hchange W. hchange M.
-  hsimpl (fun x => H2 \-* Q x). intros r.
-  hchanges (hwand_cancel H2).
+  introv L W M. applys~ is_flocal_elim. hchange W. hchanges M.
 Qed.
 
 Lemma is_flocal_frame_hgc : forall H1 H2 F H Q,
@@ -204,12 +199,7 @@ Lemma flocal_flocal : forall F,
   flocal (flocal F) = flocal F.
 Proof using.
   intros F. applys fun_ext_1. intros Q. applys himpl_antisym.
-  { unfold flocal. hpull ;=> Q' Q''. hsimpl Q''. intros x.
-    hchanges (qwand_specialize x Q' (Q \*+ \GC)).
-    hchanges (qwand_specialize x Q'' (Q' \*+ \GC)).
-    hchanges (hwand_cancel (Q'' x) (Q' x \* \GC)).
-    hchanges (hwand_cancel (Q' x) (Q x \* \GC)). }
-    (* LATER: tactic to automate hchanges of hwand_cancel *)
+  { unfold flocal. hpull ;=> Q' Q''. hsimpl Q''. intros x. hsimpl. }
   { hchanges flocal_erase. }
 Qed.
 
@@ -240,7 +230,7 @@ Lemma flocal_false : forall F Q,
   (forall Q', F Q' ==> \[False]) ->
   (flocal F Q ==> \[False]).
 Proof using.
-  introv M. unfold flocal. hpull ;=> Q'. hchanges (M Q').
+  introv M. unfold flocal. hpull ;=> Q'. hchange (M Q').
 Qed.
 
 (** [flocal] is a covariant transformer w.r.t. predicate inclusion *)
@@ -443,7 +433,7 @@ Proof using.
   introv M. applys~ is_local_elim.
   unfold flocal. hpull ;=> Q'.
   hsimpl (F Q') ((Q' \--* Q \*+ \GC)) Q'. split~.
-  { hchanges qwand_cancel. }
+  { hsimpl. }
 Qed.
 
 (** The tactic [remove_flocal] applies to goal of the form [triple t (flocal F Q) Q]

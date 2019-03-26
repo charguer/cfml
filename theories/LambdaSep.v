@@ -338,10 +338,10 @@ Global Opaque hsingle hfield.
 
 (* ** Configure [hsimpl] to make it aware of [hsingle] *)
 
-Ltac hcancel_hook H ::=
+Ltac hsimpl_hook H ::=
   match H with
-  | hsingle _ _ => hcancel_try_same tt
-  | hfield _ _ _ => hcancel_try_same tt
+  | hsingle _ _ => hsimpl_cancel_same H
+  | hfield _ _ _ => hsimpl_cancel_same H
   end.
 
 (* ** Configure [haffine] to make it aware of [haffine_any] *)
