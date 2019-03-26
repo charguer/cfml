@@ -934,7 +934,10 @@ Global Opaque hempty hpure hstar hexists htop hgc haffine.
 (* ** [rew_heap] tactic to normalize expressions with [hstar] *)
 
 (** [rew_heap] removes empty heap predicates, and normalizes w.r.t.
-  associativity of star. *)
+    associativity of star. 
+
+    [rew_heap_assoc] only normalizes w.r.t. associativity. 
+    (It should only be used internally for tactic implementation. *)
 
 Lemma star_post_empty : forall B (Q:B->hprop),
   Q \*+ \[] = Q.
@@ -964,6 +967,22 @@ Tactic Notation "rew_heap" "*" "in" "*" :=
 Tactic Notation "rew_heap" "*" "in" hyp(H) :=
   rew_heap in H; auto_star.
 
+Hint Rewrite hstar_assoc : rew_heap_assoc.
+
+Tactic Notation "rew_heap_assoc" :=
+  autorewrite with rew_heap_assoc.
+
+(* Demo *)
+
+Lemma rew_heap_demo_with_evar : forall H1 H2 H3,
+  (forall H, H1 \* (H \* H2) \* \[] = H3 -> True) -> True.
+Proof using.
+  introv M. dup 3.
+  { eapply M. rewrite hstar_assoc. rewrite hstar_assoc. demo. }
+  { eapply M. rew_heap_assoc. demo. }
+  { eapply M. rew_heap. demo. }
+Abort.
+ 
 
 (* ---------------------------------------------------------------------- *)
 (** Auxiliary tactics used by many tactics *)
@@ -1121,14 +1140,20 @@ Abort.
 (* Lemmas [hstars_...] to extract hyps in depth. *)
 
 (** [hstars_search Hs test] applies to an expression [Hs]
-    of the form [H1 \* ... \* Hn \* \[]], and invokes the
-    function [test i] on each of the [Hi] in turn until the
-    tactic succeeds. *)
+    of the form either [H1 \* ... \* Hn \* \[]] 
+    or [H1 \* ... \* Hn]. It invokes the function [test i Hi]
+    for each of the [Hi] in turn until the tactic succeeds. 
+    In the particular case of invoking [test n Hn] when there
+    is no trailing [\[]], the call is of the form [test (hstars_last n) Hn]
+    where [hstars_last] is an identity tag. *)
+
+Definition hstars_last (A:Type) (X:A) := X.
 
 Ltac hstars_search Hs test :=
   let rec aux i Hs :=
     first [ match Hs with ?H \* _ => test i H end
-          | match Hs with _ \* ?Hs' => aux (S i) Hs' end ] in
+          | match Hs with _ \* ?Hs' => aux (S i) Hs' end
+          | match Hs with ?H => test (hstars_last i) H end ] in
   aux 1%nat Hs.
 
 (** [hstars_pick_lemma i] returns one of the lemma below,
@@ -1175,19 +1200,86 @@ Lemma hstars_pick_9 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9 H,
   = H9 \* H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H.
 Proof using. intros. rewrite~ (hstar_comm_assoc H8). applys hstars_pick_8. Qed.
 
+Lemma hstars_pick_last_1 : forall H1,
+  H1 = H1.
+Proof using. auto. Qed.
+
+Lemma hstars_pick_last_2 : forall H1 H2,
+  H1 \* H2 = H2 \* H1.
+Proof using. intros. rewrite~ (hstar_comm). Qed.
+
+Lemma hstars_pick_last_3 : forall H1 H2 H3,
+  H1 \* H2 \* H3 = H3 \* H1 \* H2.
+Proof using. intros. rewrite~ (hstar_comm H2). applys hstars_pick_2. Qed.
+
+Lemma hstars_pick_last_4 : forall H1 H2 H3 H4,
+  H1 \* H2 \* H3 \* H4 = H4 \* H1 \* H2 \* H3.
+Proof using. intros. rewrite~ (hstar_comm H3). applys hstars_pick_3. Qed.
+
+Lemma hstars_pick_last_5 : forall H1 H2 H3 H4 H5,
+  H1 \* H2 \* H3 \* H4 \* H5 = H5 \* H1 \* H2 \* H3 \* H4.
+Proof using. intros. rewrite~ (hstar_comm H4). applys hstars_pick_4. Qed.
+
+Lemma hstars_pick_last_6 : forall H1 H2 H3 H4 H5 H6,
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6
+  = H6 \* H1 \* H2 \* H3 \* H4 \* H5.
+Proof using. intros. rewrite~ (hstar_comm H5). applys hstars_pick_5. Qed.
+
+Lemma hstars_pick_last_7 : forall H1 H2 H3 H4 H5 H6 H7,
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7
+  = H7 \* H1 \* H2 \* H3 \* H4 \* H5 \* H6.
+Proof using. intros. rewrite~ (hstar_comm H6). applys hstars_pick_6. Qed.
+
+Lemma hstars_pick_last_8 : forall H1 H2 H3 H4 H5 H6 H7 H8,
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8
+  = H8 \* H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7.
+Proof using. intros. rewrite~ (hstar_comm H7). applys hstars_pick_7. Qed.
+
+Lemma hstars_pick_last_9 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9,
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 
+  = H9 \* H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8.
+Proof using. intros. rewrite~ (hstar_comm H8). applys hstars_pick_8. Qed.
+
 Ltac hstars_pick_lemma i :=
-  match number_to_nat i with
-  | 1%nat => constr:(hstars_pick_1)
-  | 2%nat => constr:(hstars_pick_2)
-  | 3%nat => constr:(hstars_pick_3)
-  | 4%nat => constr:(hstars_pick_4)
-  | 5%nat => constr:(hstars_pick_5)
-  | 6%nat => constr:(hstars_pick_6)
-  | 7%nat => constr:(hstars_pick_7)
-  | 8%nat => constr:(hstars_pick_8)
-  | 9%nat => constr:(hstars_pick_9)
-  | _ => fail 100 "hstars_pick supports only arity up to 9" 
+  let unsupported tt := fail 100 "hstars_pick supports only arity up to 9" in
+  match i with
+  | hstars_last ?j => match number_to_nat j with
+    | 1%nat => constr:(hstars_pick_last_1)
+    | 2%nat => constr:(hstars_pick_last_2)
+    | 3%nat => constr:(hstars_pick_last_3)
+    | 4%nat => constr:(hstars_pick_last_4)
+    | 5%nat => constr:(hstars_pick_last_5)
+    | 6%nat => constr:(hstars_pick_last_6)
+    | 7%nat => constr:(hstars_pick_last_7)
+    | 8%nat => constr:(hstars_pick_last_8)
+    | 9%nat => constr:(hstars_pick_last_9)
+    | _ => unsupported tt
+    end
+  | ?j => match number_to_nat j with
+    | 1%nat => constr:(hstars_pick_1)
+    | 2%nat => constr:(hstars_pick_2)
+    | 3%nat => constr:(hstars_pick_3)
+    | 4%nat => constr:(hstars_pick_4)
+    | 5%nat => constr:(hstars_pick_5)
+    | 6%nat => constr:(hstars_pick_6)
+    | 7%nat => constr:(hstars_pick_7)
+    | 8%nat => constr:(hstars_pick_8)
+    | 9%nat => constr:(hstars_pick_9)
+    | _ => unsupported tt
+    end
   end.
+
+(* Demo *)
+
+Ltac demo := admit.
+
+Lemma demo_hstars_pick_1 : forall H1 H2 H3 H4 Hresult,
+  (forall H, H1 \* H2 \* H3 \* H4 = H -> H = Hresult -> True) -> True.
+Proof using. 
+  introv M. dup 2.
+  { eapply M. let L := hstars_pick_lemma 3 in eapply L. demo. }
+  { eapply M. let L := hstars_pick_lemma (hstars_last 4) in eapply L. demo. }
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1317,18 +1409,19 @@ Lemma hstars_simpl_pick_lemma : forall H1 H1' H2,
 Proof using. introv M. subst~. Qed.
 
 Ltac hstars_simpl_pick i :=
+  (* Remark: the [hstars_pick_last] lemmas should never be needed here *)
   let L := hstars_pick_lemma i in
   eapply hstars_simpl_pick_lemma; [ apply L | ].
 
 Ltac hstars_simpl_start tt :=
   match goal with |- ?H1 ==> ?H2 => idtac end;
   applys hstars_simpl_start;
-  repeat rewrite hstar_assoc.
+  rew_heap_assoc.
 
 Ltac hstars_simpl_step tt :=
-  match goal with |- ?H1 ==> ?Ha \* ?H \* ?H2 =>
+  match goal with |- ?Hl ==> ?Ha \* ?H \* ?H2 =>
     first [
-      hstars_search H1 ltac:(fun i H' => 
+      hstars_search Hl ltac:(fun i H' => 
         match H' with H => hstars_simpl_pick i end);
       apply hstars_simpl_cancel
     | apply hstars_simpl_skip ]
@@ -1347,7 +1440,7 @@ Tactic Notation "hstars_simpl" :=
 
 (** Demo *)
 
-Lemma demo_hstars_simpl : forall H1 H2 H3 H4 H5,
+Lemma demo_hstars_simpl_1 : forall H1 H2 H3 H4 H5,
   H2 ==> H5 ->
   H1 \* H2 \* H3 \* H4 ==> H4 \* H5 \* H3 \* H1.
 Proof using. 
@@ -1360,6 +1453,12 @@ Proof using.
     hstars_simpl_post tt. auto. }
   { hstars_simpl. auto. }
 Qed.
+
+Lemma demo_hstars_simpl_2 : forall H1 H2 H3 H4 H5,
+  (forall H, H \* H2 \* H3 \* H4 ==> H4 \* H5 \* H3 \* H1 -> True) -> True.
+Proof using. 
+  introv M. eapply M. hstars_simpl.
+Abort.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1440,9 +1539,9 @@ Lemma hsimpl_l_skip_wand : forall H Hla Hlw Hlt HR,
   Hsimpl (Hla, (H \* Hlw), Hlt) HR.
 Proof using. hsimpl_l_start' M. Qed.
 
-Lemma hsimpl_l_cancel_hwand_reorder : forall H1 H1' H1'' H2 Hla Hlw Hlt HR,
+Lemma hsimpl_l_cancel_hwand_reorder : forall H1 H1' H2 Hla Hlw Hlt HR,
   H1 = H1' ->
-  Hsimpl (Hla, ((H1'' \-* H2) \* Hlw), Hlt) HR ->
+  Hsimpl (Hla, ((H1' \-* H2) \* Hlw), Hlt) HR ->
   Hsimpl (Hla, ((H1 \-* H2) \* Hlw), Hlt) HR.
 Proof using. intros. subst*. Qed.
 
@@ -1452,18 +1551,6 @@ Lemma hsimpl_l_cancel_hwand_hstar : forall H1 H2 H3 Hla Hlw Hlt HR,
 Proof using.
   hsimpl_l_start' M. rewrite hwand_curry_eq. applys hwand_cancel.
 Qed.
-
-(* TODO: 
-  on [H1 \-* H2], iterate on H1 items, for each, try to find a matching one
-  in Hla, if found, then bring both to front, using pick tactics, then
-  cancel them out.
-
-  pb: the pick lemma cannot assume the trailing \[].
-  one trick: if it is the last element, then first swap it with the one before
-
-   demo:
-   H2 \* ((H1 \* H2 \* H3) \-* H4) \* H3 ==> H5.
-*)
 
 (* TODO: reorder Hra and Hla before the end or the restart *)
 
@@ -1865,6 +1952,16 @@ Ltac hsimpl_hook H := fail.
 (* ---------------------------------------------------------------------- *)
 (** ** Tactic step *)
 
+Ltac hsimpl_hwand_hstars_l tt :=
+  match goal with |- Hsimpl (?Hla, ((?H1s \-* ?H2) \* ?Hlw), \[]) ?HR => 
+    hstars_search H1s ltac:(fun i H =>
+      hsimpl_pick_same H; 
+      let L := hstars_pick_lemma i in
+      eapply hsimpl_l_cancel_hwand_reorder; 
+      [ apply L 
+      | apply hsimpl_l_cancel_hwand_hstar ])
+  end.
+
 Ltac hsimpl_step_l tt :=
   match goal with |- Hsimpl ?HL ?HR => 
   match HL with
@@ -1879,12 +1976,18 @@ Ltac hsimpl_step_l tt :=
     | _ => apply hsimpl_l_acc_other
     end
   | (?Hla, ((?H1 \-* ?H2) \* ?Hlw), \[]) => 
-      first [ hsimpl_pick_same H1; apply hsimpl_l_cancel_hwand
-            | apply hsimpl_l_skip_wand ]
+      match H1 with
+      | (_ \* _) => hsimpl_hwand_hstars_l tt
+      | _ => first [ hsimpl_pick_same H1; apply hsimpl_l_cancel_hwand
+                   | apply hsimpl_l_skip_wand ] 
+      end
   | (?Hla, ((?Q1 \--* ?Q2) \* ?Hlw), \[]) => 
       first [ hsimpl_pick_applied Q1; eapply hsimpl_l_cancel_qwand
             | apply hsimpl_l_skip_wand ]
   end end.
+
+(* Limitation: [((Q1 \*+ H) \--* Q2) \* H] is not automatically 
+   simplified to [Q1 \--* Q2]. *)
 
 Ltac hsimpl_hgc_or_htop_cancel cancel_item cancel_lemma :=
   (* match goal with |- Hsimpl (?Hla, \[], \[]) (?Hra, (?H \* ?Hrg), ?Hrt) => *)
@@ -1915,7 +2018,7 @@ Ltac hsimpl_step_r tt :=
   | ?H \-* ?H' => 
       match H' with 
       | H => apply hsimpl_r_hwand_same 
-      | protect H => apply hsimpl_r_hwand_same 
+      | protect H => apply hsimpl_r_hwand_same
       end
   | hexists ?J => hsimpl_r_hexists_apply tt
   | \GC => hsimpl_hgc_or_htop_step tt
@@ -2025,8 +2128,6 @@ Notation "'HSIMPL' Hla Hlw Hlt =====> Hra Hrg Hrt" := (Hsimpl (Hla, Hlw, Hlt) (H
 (* ---------------------------------------------------------------------- *)
 (* Demo for tactic [hsimpl] *)
 
-Ltac demo := admit.
-
 Lemma hpull_demo : forall H1 H2 H3 H,
   (H1 \* \[] \* (H2 \* \exists (y:int), \[y = y]) \* H3) ==> H.
 Proof using.
@@ -2104,6 +2205,15 @@ Proof using. intros. hsimpl~. Qed.
 
 Lemma hsimpl_demo_qwand_r : forall A (x:A) (Q1 Q2:A->hprop) H1 H2,
   H1 \* H2 ==> H1 \* (Q1 \--* (Q1 \*+ H2)).
+Proof using. intros. hsimpl. Qed.
+
+Lemma hsimpl_demo_hwand_multiple_1 : forall H1 H2 H3 H4 H5,
+  H1 \-* H4 ==> H5 ->
+  (H2 \* ((H1 \* H2 \* H3) \-* H4)) \* H3 ==> H5.
+Proof using. introv M. hsimpl. auto. Qed.
+
+Lemma hsimpl_demo_hwand_multiple_2 : forall H1 H2 H3 H4 H5,
+  (H1 \* H2 \* ((H1 \* H3) \-* (H4 \-* H5))) \* (H2 \-* H3) \* H4 ==> H5.
 Proof using. intros. hsimpl. Qed.
 
 Lemma hsimpl_demo_repr_1 : forall p q (R:int->int->hprop),
@@ -2399,8 +2509,7 @@ Proof using. introv M. applys hwand_move_l. hsimpl*. Qed.
 Lemma hwand_cancel_part : forall H1 H2 H3,
   H1 \* ((H1 \* H2) \-* H3) ==> (H2 \-* H3).
 Proof using.
-  (* TODO: show as demo that does not work *)
-  intros. hsimpl. set (H := H1 \* H2). hsimpl.
+  intros. hsimpl.
   (* intros. unfold hwand. hsimpl. hsimpl ;=> H4 M. hchanges M. *)
 Qed.
 
@@ -2410,7 +2519,7 @@ Lemma hwand_move_part_r : forall H1 H2 H3 H4,
   H2 ==> ((H1 \* H3) \-* H4) ->
   H1 \* H2 ==> (H3 \-* H4).
 Proof using.
-  introv M. hchanges M. set (H := H1 \* H3). hsimpl.
+  introv M. hchanges M.
   (* hchange (>> himpl_frame_r H1 M).
   rew_heap. apply hwand_cancel_part.*)
 Qed.
@@ -2462,13 +2571,7 @@ Lemma qwand_cancel_part : forall H A (Q1 Q2:A->hprop),
   H \* ((Q1 \*+ H) \--* Q2) ==> (Q1 \--* Q2).
 Proof using.
   intros. applys qwand_move_l. intros x.
-  hchange (qwand_specialize x).
-  hchange_nosimpl hwand_cancel. 
-  (* hsimpl0. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1.
-     hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1.
-    --observe that the instantiation prevents hsimpl work going
-      all the way to the end *)
-  hsimpl. hsimpl.
+  hchange (qwand_specialize x). 
 Qed.
 
 Lemma qwand_himpl_r : forall A (Q1 Q2 Q2':A->hprop),
