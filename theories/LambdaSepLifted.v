@@ -745,13 +745,13 @@ Lemma Triple_fixs : forall f xs t1 H (Q:func->hprop),
   H ==> Q (val_fixs f xs t1) ->
   Triple (trm_fixs f xs t1) H Q.
 Proof using.
-  introv N M. applys* triple_fixs. unfold Post. hsimpl*.
+  introv N M. applys* triple_fixs. unfold Post. hchanges* M.
 Qed.
 
 Lemma Triple_constr : forall id vs H (Q:tyconstr->hprop),
   H ==> Q (constr id vs) ->
   Triple (trm_constr id (LibList.map trm_val vs)) H Q.
-Proof using. introv M. applys triple_constr. unfold Post. hsimpl*. Qed.
+Proof using. introv M. applys triple_constr. unfold Post. hchanges* M. Qed.
 
 Lemma Triple_constr_trm : forall id ts t1 vs H,
   forall A `{EA:Enc A} (Q:A->hprop) A1 `{EA1:Enc A1} (Q1:A1->hprop),
@@ -923,31 +923,31 @@ Lemma Triple_ptr_add : forall (l:loc) (n:int),
   Triple (val_ptr_add l n)
     \[]
     (fun l' => \[(l':nat) = abs ((l:nat) + n)]).
-Proof using. intros. unfold Triple, Post. xapplys~ triple_ptr_add. Qed.
+Proof using. intros. unfold Triple, Post. xapplys* triple_ptr_add. Qed.
 
 Lemma Triple_ptr_add_nat : forall (l:loc) (f:nat),
   Triple (val_ptr_add l f)
     \[]
     (fun l' => \[(l':nat) = (l+f)%nat]).
-Proof using. intros. unfold Triple, Post. xapplys~ triple_ptr_add_nat. Qed.
+Proof using. intros. unfold Triple, Post. xapplys* triple_ptr_add_nat. Qed.
 
 Lemma Triple_neg : forall b1,
   Triple (val_neg b1)
     \[]
     (fun b => \[b = neg b1]).
-Proof using. intros. unfold Triple, Post. xapplys~ triple_neg. Qed.
+Proof using. intros. unfold Triple, Post. xapplys* triple_neg. Qed.
 
 Lemma Triple_opp : forall n1,
   Triple (val_opp n1)
     \[]
     (fun n => \[n = - n1]).
-Proof using. intros. unfold Triple, Post. xapplys~ triple_opp. Qed.
+Proof using. intros. unfold Triple, Post. xapplys* triple_opp. Qed.
 
 Lemma Triple_eq_val : forall v1 v2,
   Triple (val_eq v1 v2)
     \[]
     (fun b => \[ b = isTrue (v1 = v2) ]).
-Proof using. intros. unfold Triple, Post. xapplys~ triple_eq. Qed.
+Proof using. intros. unfold Triple, Post. xapplys* triple_eq. Qed.
 
 Lemma Triple_eq : forall `{EA:Enc A},
   Enc_injective EA ->
@@ -958,14 +958,14 @@ Lemma Triple_eq : forall `{EA:Enc A},
 Proof using.
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_eq_val. } (* todo: why sapply ? *)
-  unfolds. hpulls. hsimpl*. rewrite~ Enc_injective_eq.
+  unfolds. hpull ;=> ? ->. hsimpl*. rewrite~ Enc_injective_eq.
 Qed.
 
 Lemma Triple_neq_val : forall v1 v2,
   Triple (val_neq v1 v2)
     \[]
     (fun b => \[ b = isTrue (v1 <> v2) ]).
-Proof using. intros. unfold Triple, Post. xapplys~ triple_neq. Qed.
+Proof using. intros. unfold Triple, Post. xapplys* triple_neq. Qed.
 
 Lemma Triple_neq : forall `{EA:Enc A},
   Enc_injective EA ->
@@ -976,64 +976,64 @@ Lemma Triple_neq : forall `{EA:Enc A},
 Proof using.
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_neq_val. } 
-  unfolds. hpulls. hsimpl*. rewrite* Enc_injective_eq.
+  unfolds. hpull ;=> ? ->. hsimpl*. rewrite* Enc_injective_eq.
 Qed.
 
 Lemma Triple_add : forall n1 n2,
   Triple (val_add n1 n2)
     \[]
     (fun n => \[n = n1 + n2]).
-Proof using. intros. unfold Triple, Post. xapplys~ triple_add. Qed.
+Proof using. intros. unfold Triple, Post. xapplys* triple_add. Qed.
 
 Lemma Triple_sub : forall n1 n2,
   Triple (val_sub n1 n2)
     \[]
     (fun n => \[n = n1 - n2]).
-Proof using. intros. unfold Triple, Post. xapplys~ triple_sub. Qed.
+Proof using. intros. unfold Triple, Post. xapplys* triple_sub. Qed.
 
 Lemma Triple_mul : forall n1 n2,
   Triple (val_mul n1 n2)
     \[]
     (fun n => \[n = n1 * n2]).
-Proof using. intros. unfold Triple, Post. xapplys~ triple_mul. Qed.
+Proof using. intros. unfold Triple, Post. xapplys* triple_mul. Qed.
 
 Lemma Triple_div : forall n1 n2,
   n2 <> 0 ->
   Triple (val_div n1 n2)
     \[]
     (fun n => \[n = Z.quot n1 n2]).
-Proof using. intros. unfold Triple, Post. xapplys~ triple_div. Qed.
+Proof using. intros. unfold Triple, Post. xapplys* triple_div. Qed.
 
 Lemma Triple_mod : forall n1 n2,
   n2 <> 0 ->
   Triple (val_mod n1 n2)
     \[]
     (fun n => \[n = Z.rem n1 n2]).
-Proof using. intros. unfold Triple, Post. xapplys~ triple_mod. Qed.
+Proof using. intros. unfold Triple, Post. xapplys* triple_mod. Qed.
 
 Lemma Triple_le : forall n1 n2,
   Triple (val_le n1 n2)
     \[]
     (fun b => \[b = isTrue (n1 <= n2)]).
-Proof using. intros. unfold Triple, Post. xapplys~ triple_le. Qed.
+Proof using. intros. unfold Triple, Post. xapplys* triple_le. Qed.
 
 Lemma Triple_lt : forall n1 n2,
   Triple (val_lt n1 n2)
     \[]
     (fun b => \[b = isTrue (n1 < n2)]).
-Proof using. intros. unfold Triple, Post. xapplys~ triple_lt. Qed.
+Proof using. intros. unfold Triple, Post. xapplys* triple_lt. Qed.
 
 Lemma Triple_ge : forall n1 n2,
   Triple (val_ge n1 n2)
     \[]
     (fun b => \[b = isTrue (n1 >= n2)]).
-Proof using. intros. unfold Triple, Post. xapplys~ triple_ge. Qed.
+Proof using. intros. unfold Triple, Post. xapplys* triple_ge. Qed.
 
 Lemma Triple_gt : forall n1 n2,
   Triple (val_gt n1 n2)
     \[]
     (fun b => \[b = isTrue (n1 > n2)]).
-Proof using. intros. unfold Triple, Post. xapplys~ triple_gt. Qed.
+Proof using. intros. unfold Triple, Post. xapplys* triple_gt. Qed.
 
 
 
