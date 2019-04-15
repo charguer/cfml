@@ -1,7 +1,7 @@
 (**
 
 This file extends [LambdaCF.v] by "lifting" heap predicates like in
-[LambdaSepLifted.v], so as to express specifications using logical values,
+[SepLifted.v], so as to express specifications using logical values,
 as opposed to deeply-embedded values. CF are lifted like triples.
 
 Author: Arthur Charguéraud.
@@ -12,7 +12,7 @@ License: MIT.
 
 Set Implicit Arguments.
 From TLC Require Export LibCore.
-From Sep Require Export LambdaCF LambdaSepLifted.
+From Sep Require Export LambdaCF SepLifted.
 From TLC Require Import LibList.
 Generalizable Variables A B.
 

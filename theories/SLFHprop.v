@@ -1,6 +1,6 @@
 Set Implicit Arguments.
 Require Import LibCore TLCbuffer Fmap.
-From Sep Require Import LambdaSemantics.
+From Sep Require Import Semantics.
 Close Scope fmap_scope.
 
 

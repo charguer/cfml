@@ -15,7 +15,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require Export LambdaSemantics SepFunctor.
+From Sep Require Export Semantics SepFunctor.
 Open Scope fmap_scope.
 
 Ltac auto_star ::= jauto.
@@ -39,7 +39,7 @@ Module Export SepBasicCore <: SepCore.
 (** Heaps *)
 
 (** A heap is a state (a finite map from location to values)
-   as defined in [LambdaSemantics.v]. *)
+   as defined in [Semantics.v]. *)
 
 Definition heap : Type := (state)%type.
 

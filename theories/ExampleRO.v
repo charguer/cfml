@@ -8,7 +8,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require Import LambdaSepRO.
+From Sep Require Import SepRO.
 Generalizable Variables A B.
 Export NotationForVariables NotationForTerms.
 Open Scope trm_scope.

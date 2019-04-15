@@ -8,7 +8,7 @@ License: MIT.
 
 *)
 
-From Sep Require Export LambdaSepLifted LambdaCFLifted.
+From Sep Require Export SepLifted LambdaCFLifted.
 From Sep Require Export LambdaStructLifted.
 From TLC Require Export LibList LibListZ.
 Open Scope liblist_scope.

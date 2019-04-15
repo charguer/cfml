@@ -2,7 +2,7 @@
 
 Set Implicit Arguments.
 Require Import LibCore TLCbuffer Fmap.
-Require Import LambdaSemantics LambdaSep.
+Require Import Semantics SepBase.
 
 
 (** * Structural rules *)

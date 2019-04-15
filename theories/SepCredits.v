@@ -28,7 +28,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require Export LambdaSemantics SepFunctor.
+From Sep Require Export Semantics SepFunctor.
 Open Scope fmap_scope.
 
 
@@ -818,7 +818,7 @@ Qed.
 Definition is_val_bool (v:val) : Prop :=
   exists b, v = val_bool b.
 
-(* TODO: follow proof pattern from LambdaSep? *)
+(* TODO: follow proof pattern from SepBase? *)
 
 Lemma triple_if : forall Q1 t0 t1 t2 H Q,
   triple t0 H Q1 ->

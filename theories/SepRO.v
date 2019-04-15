@@ -16,7 +16,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require Export LambdaSemantics SepFunctor.
+From Sep Require Export Semantics SepFunctor.
 Open Scope fmap_scope.
 Arguments exist [A] [P].
 
@@ -595,7 +595,7 @@ Implicit Types Q : val->hprop.
 
 Section Aux.
 
-(* LATER: add hpure_inv' and hstar_intro like in LambdaSep *)
+(* LATER: add hpure_inv' and hstar_intro like in SepBase *)
 
 Lemma hgc_intro : forall h,
   \GC h.

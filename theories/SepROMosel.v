@@ -1,5 +1,5 @@
 Set Implicit Arguments.
-From Sep Require Import LambdaSepRO SepMosel.
+From Sep Require Import SepRO SepMosel.
 
 
 Module ProofMode.
@@ -25,7 +25,7 @@ Module SepROMosel := SepLogicMosel SepROCore SepROCoreHempty SepROSetup.
 Export SepROMosel.ProofMode.
 
 (* ---------------------------------------------------------------------- *)
-(** Proof mode definitions for LambdaSepRO *)
+(** Proof mode definitions for SepRO *)
 
 Import iris.proofmode.coq_tactics.
 

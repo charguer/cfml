@@ -1,6 +1,6 @@
 
 Set Implicit Arguments.
-From Sep Require Import LambdaSep SepMosel.
+From Sep Require Import SepBase SepMosel.
 
 
 Module ProofMode.

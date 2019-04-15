@@ -1,13 +1,13 @@
 
 Set Implicit Arguments.
-From Sep Require LambdaSep LambdaSepLifted.
+From Sep Require SepBase SepLifted.
 Generalizable Variables A.
 
 (* ********************************************************************** *)
-(* * Alternative proofs for LambdaSep *)
+(* * Alternative proofs for SepBase *)
 
-Module LambdaSepAlt.
-Import LambdaSep.
+Module SepBaseAlt.
+Import SepBase.
 Implicit Types P : Prop.
 
 (* ---------------------------------------------------------------------- *)
@@ -50,7 +50,7 @@ Proof using.
 Qed.
 
 (* ---------------------------------------------------------------------- *)
-(* ** Additional proofs for structural rules of LambdaSep's [hoare] triples *)
+(* ** Additional proofs for structural rules of SepBase's [hoare] triples *)
 
 Lemma hoare_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, hoare t (J x) Q) ->
@@ -93,7 +93,7 @@ Qed.
 *)
 
 (* ---------------------------------------------------------------------- *)
-(* ** Alternative proofs for structural rules of LambdaSep's SL [triple] *)
+(* ** Alternative proofs for structural rules of SepBase's SL [triple] *)
 
 Implicit Types H : hprop.
 Implicit Types Q : val -> hprop.
@@ -206,14 +206,14 @@ Proof using.
   { applys* triple_frame. } { eauto. } { eauto. }
 Qed.
 
-End LambdaSepAlt.
+End SepBaseAlt.
 
 
 (* ********************************************************************** *)
-(* * Alternative proofs for structural rules of LambdaSep's SL [triple] *)
+(* * Alternative proofs for structural rules of SepBase's SL [triple] *)
 
-Module LambdaSepLiftedAlt.
-Import LambdaSep LambdaSepLifted.
+Module SepLiftedAlt.
+Import SepBase SepLifted.
 
 Implicit Types H : hprop.
 
@@ -312,4 +312,4 @@ Proof using.
   do 2 rewrite <- Post_star. apply* Post_himpl.
 Qed.
 
-End LambdaSepLiftedAlt.
+End SepLiftedAlt.

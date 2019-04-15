@@ -34,21 +34,20 @@ export TLC
 ##############################################################################
 # List of files
 
-SRC_CORE := TLCbuffer Fmap Bind LambdaSemantics SepFunctor LambdaSep LambdaWP LambdaSepLifted LambdaWPLifted LambdaWPTactics LambdaWPStruct LambdaWPExamples LambdaWPDetailed
+SRC_CORE := TLCbuffer Fmap Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics WPRecord WPExamples WPExamplesDetails
 
-SRC_MORE := LambdaSepAltProofs LambdaSepCredits LambdaSepRO
+SRC_MORE := SepBaseAltProofs SepCredits SepRO
 
-SRC_CF := LambdaCF LambdaCFLifted LambdaStruct LambdaStructLifted
+# WPArray
 
-SRC_EXAMPLES := Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleList LambdaCFCredits ExampleRO 
+SRC_EXAMPLES := Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleList ExampleRO 
 
 SRC_SF := SLFSemantics SLFHprop SLFHimpl SLFRules SLWP 
 
-SRC_MOSEL := SepMosel LambdaSepMosel LambdaSepROMosel ExampleROMosel ExampleListMosel
+SRC_MOSEL := SepMoselFunctor SepBaseMosel SepROMosel ExampleROMosel ExampleListMosel
 
 SRC := $(SRC_CORE) $(SRC_MORE)
 # $(SRC_EXAMPLES) $(SRC_SF) $(SRC_MOSEL)
-
 
 # using the variable SRC_FORCE, one can modify the compilation targets and/or their order.
 

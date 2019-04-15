@@ -8,7 +8,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require Import LambdaSepRO LambdaSepROMosel.
+From Sep Require Import SepRO SepROMosel.
 Import NotationForTerms NotationForVariables.
 Import ProofMode.
 Generalizable Variables A B.

@@ -2,7 +2,7 @@
 
 This file provides examples of proofs manipulating characteristic formula 
 in weakest-precondition form, in lifted Separation Logic,
-as defined in [LambdaWPLifted.v].
+as defined in [WPLifted.v].
 
 Author: Arthur Charguéraud.
 License: MIT.
@@ -11,7 +11,7 @@ License: MIT.
 
 
 Set Implicit Arguments.
-From Sep Require Export LambdaWPStruct.
+From Sep Require Export WPStruct.
 Generalizable Variables A B.
 
 Import NotationForVariables NotationForTerms.

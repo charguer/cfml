@@ -1,6 +1,6 @@
 (**
 
-This file extends [LambdaSep.v] by "lifting" heap predicates
+This file extends [SepBase.v] by "lifting" heap predicates
 and triples so as to express specifications using logical values,
 as opposed to deeply-embedded values.
 
@@ -15,7 +15,7 @@ License: MIT.
 
 Set Implicit Arguments.
 From TLC Require Import LibCore.
-From Sep Require Import LambdaSep.
+From Sep Require Import SepBase.
 Import LibList.
 Generalizable Variables A B.
 

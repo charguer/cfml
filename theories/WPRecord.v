@@ -2,7 +2,7 @@
 
 This file defines tactics for manipulating characteristic formula 
 in weakest-precondition form, in lifted Separation Logic,
-as defined in [LambdaWPLifted.v].
+as defined in [WPLifted.v].
 
 Author: Arthur Charguéraud.
 License: MIT.
@@ -11,7 +11,7 @@ License: MIT.
 
 
 Set Implicit Arguments.
-From Sep Require Export LambdaWPTactics.
+From Sep Require Export WPTactics.
 Generalizable Variables A B.
 
 Import NotationForVariables NotationForTerms.
@@ -395,7 +395,7 @@ Ltac xapp_record_get tt :=
 Ltac xapp_record_set tt :=
   applys xapp_record_set; xapp_record_post tt.
 
-Ltac xapp_record tt ::= (* dummy binding in LambdaWPTactics *)
+Ltac xapp_record tt ::= (* dummy binding in WPTactics *)
   match xgoal_fun tt with
   | (val_get_field _) => xapp_record_get tt
   | (val_set_field _) => xapp_record_set tt

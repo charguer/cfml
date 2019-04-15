@@ -10,7 +10,7 @@ License: MIT.
 
 Set Implicit Arguments.
 From TLC Require Export LibFix.
-From Sep Require Export LambdaSep.
+From Sep Require Export SepBase.
 Open Scope heap_scope.
 
 Implicit Types v w : val.

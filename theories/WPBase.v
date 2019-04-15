@@ -10,7 +10,7 @@ License: MIT.
 
 
 Set Implicit Arguments.
-From Sep Require Export LambdaSep.
+From Sep Require Export SepBase.
 Open Scope heap_scope.
 
 Implicit Types v : val.
@@ -57,7 +57,7 @@ Definition wp_triple_ E t :=
 (* ** Definition of [is_flocal] for WP *)
 
 (** Type of formulae (more general than what is needed in the current file,  
-    anticipating for needs in [LambdaWPLifted] *)
+    anticipating for needs in [WPLifted] *)
 
 Definition formula_ (B:Type) := (B -> hprop) -> hprop.
 
@@ -377,7 +377,7 @@ Fixpoint wp (E:ctx) (t:trm) : formula :=
   | trm_fail => wp_fail
   end.
 
-  (* Note: no special handling of trm_seq, unlike in LambdaWPLifted. *)
+  (* Note: no special handling of trm_seq, unlike in WPLifted. *)
 
 
 (* ********************************************************************** *)

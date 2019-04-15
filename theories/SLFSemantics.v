@@ -170,7 +170,7 @@ Parameter red : state -> trm -> state -> val -> Prop.
 
 (** Rather than reproducing here pages of standard definitions, we will
     present the evaluation rules as we need them. Details may be found in
-    the file [LambdaSemantics.v], which contains the recursive definition of
+    the file [Semantics.v], which contains the recursive definition of
     capture-avoiding substitution and the inductive definition of the
     evaluation rules. *)
 

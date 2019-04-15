@@ -27,7 +27,7 @@ License: MIT.
 
 
 Set Implicit Arguments.
-From Sep Require Export LambdaSemantics.
+From Sep Require Export Semantics.
 
 
 (* ---------------------------------------------------------------------- *)

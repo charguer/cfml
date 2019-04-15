@@ -10,7 +10,7 @@ License: MIT.
 
 
 Set Implicit Arguments.
-From Sep Require Export LambdaWP LambdaSepLifted.
+From Sep Require Export WPBase SepLifted.
 Open Scope heap_scope.
 Generalizable Variables A.
 

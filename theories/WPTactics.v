@@ -2,7 +2,7 @@
 
 This file defines tactics for manipulating characteristic formula 
 in weakest-precondition form, in lifted Separation Logic,
-as defined in [LambdaWPLifted.v].
+as defined in [WPLifted.v].
 
 Author: Arthur Charguéraud.
 License: MIT.
@@ -12,7 +12,7 @@ License: MIT.
 
 
 Set Implicit Arguments.
-From Sep Require Export LambdaWPLifted.
+From Sep Require Export WPLifted.
 Open Scope heap_scope.
 Generalizable Variables A B.
 
@@ -355,7 +355,7 @@ Ltac xlet_xseq_xcast_repeat tt :=
 
 
 Ltac xapp_record tt :=
-  fail "implemented later in LambdaWPStruct".
+  fail "implemented later in WPStruct".
 
 Lemma xapp_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
   Triple t H1 Q1 ->
