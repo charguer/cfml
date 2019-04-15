@@ -521,9 +521,10 @@ Global Opaque hsingle.
 
 (* ** Configure [hcancel] to make it aware of [hsingle] *)
 
-Ltac hcancel_hook H :=
+(* not needed? *)
+Ltac hsimpl_hook H ::=
   match H with
-  | hsingle _ _ => hcancel_try_same tt
+  | hsingle _ _ => hsimpl_cancel_same H
   end.
 
 Global Opaque hsingle.
@@ -781,6 +782,16 @@ Lemma triple_conseq_frame_hgc : forall H2 H1 Q1 t H Q,
   triple t H Q.
 Proof using. intros. applys* is_local_conseq_frame_hgc. Qed.
 
+(* TODO: move to SepFunctor? *)
+
+Lemma hprop_extract_hfalse : forall H1 H2 h,
+  (H1 \* H2) h -> 
+  H1 ==> \[False] ->
+  False.
+Proof using.
+  introv M1 M2. lets: himpl_frame_l M2 M1. rewrite* hstar_hpure in H.
+Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Term rules *)
@@ -807,6 +818,8 @@ Qed.
 Definition is_val_bool (v:val) : Prop :=
   exists b, v = val_bool b.
 
+(* TODO: follow proof pattern from LambdaSep? *)
+
 Lemma triple_if : forall Q1 t0 t1 t2 H Q,
   triple t0 H Q1 ->
   (forall (b:bool), triple (if b then t1 else t2) (Q1 b) Q) ->
@@ -821,11 +834,7 @@ Proof using.
     { applys* red_if. }
     { rewrite <- hstar_hgc_hgc. rew_heap~. }
     { math. } }
-  { specializes M3 C.
-    asserts Z: ((\[False] \* \Top \* HF) h1').
-    { applys himpl_trans K1. hchange M3. hsimpl. hsimpl. }
-    repeat rewrite hfalse_hstar_any in Z.
-    lets: hpure_inv Z. false*. } (* TODO: shorten this *)
+  { false hprop_extract_hfalse K1. applys~ M3. }
 Qed.
 
 Lemma triple_if_bool : forall (b:bool) t1 t2 H Q,

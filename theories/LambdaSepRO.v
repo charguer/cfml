@@ -629,9 +629,10 @@ Global Opaque hsingle.
 
 (* ** Configure [hcancel] to make it aware of [hsingle] *)
 
-Ltac hcancel_hook H :=
+(* not needed? *)
+Ltac hsimpl_hook H ::=
   match H with
-  | hsingle _ _ => hcancel_try_same tt
+  | hsingle _ _ => hsimpl_cancel_same H
   end.
 
 Global Opaque hsingle.
@@ -1140,7 +1141,7 @@ Lemma xpull_id A (x X : A) (H1 H2 : hprop) (Q : val -> hprop) (t : trm) :
   (x = X -> triple t (H1 \* H2) Q) -> triple t (H1 \* (x ~> Id X \* H2)) Q.
 Proof using. intros. rewrite repr_eq. apply xpull_hprop. auto. Qed.
 
-Ltac xpull_hprop tt ::= apply xpull_hprop; intro.
+Ltac xpull_hpure tt ::= apply xpull_hprop; intro.
 Ltac xpull_hexists tt ::= apply xpull_hexists; intro.
 Ltac xpull_id tt ::= apply xpull_id; intro.
 
@@ -1389,6 +1390,15 @@ Lemma normally_erase : forall H,
   normally H ==> H.
 Proof using. intros H h (N&E). auto. Qed.
 
+Arguments normally_erase : clear implicits.
+
+(* check if really needed *)
+Lemma hwand_normally_l_erase : forall H1 H2,
+  H1 \-* H2 ==> normally H1 \-* H2.
+Proof using. intros. applys hwand_himpl_l. applys normally_erase. Qed.
+
+Arguments hwand_normally_l_erase : clear implicits.
+
 Lemma normally_intro : forall H,
   Normal H ->
   H ==> normally H.
@@ -1497,7 +1507,7 @@ Lemma normally_hwand_normal : forall H1 H2,
   normally (H1 \-* H2) ==> H1 \-* normally H2.
 Proof.
   intros. hchanges normally_hwand. rewrite normally_Normal_eq; auto.
-  hchanges (hwand_cancel H1).
+  hsimpl.
 Qed.
 
 Lemma normally_hwand_hstar : forall H1 H2,
@@ -1632,12 +1642,13 @@ Definition ROFrame (H1 H2 : hprop) :=
   \exists H3, normally H3 \* (RO(H3) \-* H1) \* (H3 \-* H2).
 
 Lemma ROFrame_himpl : forall H1 H2 H1' H2',
-  H1 ==> H1' -> H2 ==> H2' -> ROFrame H1 H2 ==> ROFrame H1' H2'.
+  H1 ==> H1' -> 
+  H2 ==> H2' -> 
+  ROFrame H1 H2 ==> ROFrame H1' H2'.
 Proof.
   unfold ROFrame. intros H1 H2 H1' H2' MONO1 MONO2.
   apply himpl_hexists_l ;=>H3. apply himpl_hexists_r with H3. hsimpl.
-  eapply himpl_trans; [apply himpl_frame_r|apply himpl_frame_l].
-  { auto using  hwand_himpl_r. } { auto using hwand_himpl_r. }
+  rewrite hstar_comm. applys himpl_frame_lr; hsimpl~.
 Qed.
 
 Lemma ROFrame_intro : forall H1 H2,
@@ -1653,7 +1664,6 @@ Lemma ROFrame_frame_l : forall H1 H2 H3,
   H1 \* ROFrame H2 H3 ==> ROFrame (H1 \* H2) H3.
 Proof.
   intros. unfold ROFrame. hpull ;=> HF. apply himpl_hexists_r with HF. hsimpl.
-  hchanges (hwand_cancel (RO HF)).
 Qed.
 
 Lemma ROFrame_frame_lr : forall H1 H2 H3,
@@ -1663,10 +1673,9 @@ Proof.
   intros H1 H2 H3 NORM.
   unfold ROFrame. hpull ;=> HF. apply himpl_hexists_r with (H1 \* HF).
   hchange (normally_intro NORM). rewrite normally_hstar. hsimpl.
-  eapply himpl_trans; [apply himpl_frame_r|apply himpl_frame_l].
-  - apply hwand_move_l. hchange (RO_star H1 HF). hsimpl.
-    rewrite hstar_comm. apply hwand_cancel.
-  - apply hwand_move_l. hsimpl. apply hwand_cancel.
+  applys himpl_frame_lr. 
+  { hsimpl. hchange (>> RO_star H1 HF). }
+  { hsimpl. }
 Qed.
 
 Lemma ROFrame_frame_lr' : forall H1 H2 H3,
@@ -1681,7 +1690,7 @@ Lemma ROFrame_frame_r : forall H1 H2 H3,
   H1 \* ROFrame H2 H3 ==> ROFrame H2 (H1 \* H3).
 Proof.
   intros H1 H2 H3. unfold ROFrame. hpull ;=> HF. apply himpl_hexists_r with HF.
-  hsimpl. hchanges (hwand_cancel HF).
+  hsimpl.
 Qed.
 
 (* ---------------------------------------------------------------------- *)
@@ -1692,17 +1701,20 @@ Lemma triple_ramified_frame_read_only_core : forall H2 t H Q H' Q',
   H = normally H2 \* (RO H2 \-* H') \* (H2 \-* normally (Q' \--* Q)) ->
   triple t H Q.
 Proof using.
-  introv M W. subst H. applys triple_conseq; [| |auto].
-  { hchange (>> normally_hwand_hstar (normally H2) (Q' \--* Q)); [|auto]; [].
-    rewrite hstar_comm. apply himpl_frame_r, hwand_himpl_l, normally_erase. }
-  forwards K: triple_frame_read_only_with_frame t
-          (RO H2 \-* H') H2 (normally H2 \-* (Q' \--* Q)) Q'.
-  { applys~ triple_conseq M. hchanges (hwand_cancel (RO H2)). }
-  { clear M. applys triple_conseq (rm K).
-    { hsimpl. }
-    { intros x. hchange (>> normally_erase (normally H2 \-* (Q' \--* Q))).
-      hchange (>> hwand_cancel (normally H2) (Q' \--* Q)).
-      hsimpl. apply qwand_cancel. } }
+  introv M W. subst H. 
+  applys~ triple_conseq ((normally H2 \* normally (normally H2 \-* Q' \--* Q)) \* (RO H2 \-* H')).
+  { (* TODO: proof not supported by hsimpl, which cancels out too aggressively *)
+    applys himpl_trans (normally H2 \* (RO H2 \-* H') \* (normally H2 \-* normally (Q' \--* Q))).
+    { hsimpl. hchange (hwand_normally_l_erase H2 (normally (Q' \--* Q))). }
+    { rewrite <- hstar_comm. rewrite <- (hstar_comm (RO H2 \-* H')). rewrite hstar_assoc.
+      apply himpl_frame_r. rewrite hstar_comm. 
+      applys (>> normally_hwand_hstar (normally H2) (Q' \--* Q)). } }
+  { forwards K: triple_frame_read_only_with_frame t
+                 (RO H2 \-* H') H2 (normally H2 \-* (Q' \--* Q)) Q'.
+    { applys~ triple_conseq M. hsimpl. }
+    { clear M. applys triple_conseq (rm K).
+      { hsimpl. }
+      { intros x. hchange (>> normally_erase (normally H2 \-* (Q' \--* Q))). } } }
 Qed.
 
 Lemma triple_ramified_frame_read_only : forall t H Q H' Q',
@@ -1729,12 +1741,10 @@ Proof.
   eapply triple_let.
   - rewrite hstar_comm. apply triple_frame_read_only, _.
     eapply triple_conseq; [|apply Ht1|auto].
-    hchange (hwand_cancel (RO H2) H1); [|hsimpl]. hsimpl.
+    hchange (hwand_cancel (RO H2) H1). hsimpl.
     apply RO_covariant, normally_erase.
   - intros X. eapply triple_conseq; [|apply Ht2L|auto].
-    hchange (hwand_cancel H2 (Q1 \--* Q')).
-    { rewrite hstar_comm. apply himpl_frame_r, normally_erase. }
-    hchange (qwand_specialize X). hchange (hwand_cancel (Q1 X) (Q' X)). hsimpl.
+    hchange (>> normally_erase H2).
 Qed.
 
 
