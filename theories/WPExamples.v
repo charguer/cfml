@@ -470,6 +470,50 @@ then just:
 
 *)
 
+
+(* ---------------------------------------------------------------------- *)
+(** Negation *)
+
+Definition val_myneg :=
+  VFun 'b := 
+    If_ 'b '= true Then false Else true.
+
+Lemma Triple_decr : forall (b:bool),
+  TRIPLE (val_myneg b)
+    PRE \[]
+    POST (fun (r:bool) => \[r = !b]).
+Proof using.
+  xwp. 
+  (* TODO fix xapp *)
+  xlet. xapp_debug. lets K: (>> Spec b true). typeclass. apply K.
+   unfold protect. hsimpl.
+  intros ? ->. 
+  xif ;=> C.
+  { subst. xval. hsimpl*. } (* TODO: xvals *) 
+  { xval. hsimpl. destruct b; auto_false. }
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Disequality test  -- DEPRECATED
+
+Definition val_myneq :=
+  VFun 'm 'n :=
+    val_myneg ('m '= 'n).
+
+Lemma Triple_myneq : forall (v1 v2:val),
+  TRIPLE (val_myneq v1 v2)
+    PRE \[]
+    POST (fun (r:bool) => \[r = isTrue (v1 <> v2)]).
+Proof using.
+  xwp. 
+  (* TODO fix xapp *)
+  xlet. xapp_debug. lets K: (>> Spec v1 v2). typeclass. apply K.
+   unfold protect. hsimpl.
+ xapp Triple_eq. xapps. hsimpl ;=> ? ->. rew_isTrue~.
+Qed.
+*)
+
 (*
 
 (* ---------------------------------------------------------------------- *)
@@ -518,7 +562,6 @@ Proof using.
   (* not possible: applys local_erase. unfold cf_val. hsimpl. *)
   xvals~.
 Qed.
-
 
 
 (* ---------------------------------------------------------------------- *)
