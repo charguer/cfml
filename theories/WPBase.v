@@ -810,6 +810,32 @@ Proof using.
       rewrite Ctx_dom_add. fequals. } }
 Qed.
 
+Lemma triple_hprop_forall_vars_intro : forall t G E Q xs p,
+  wp_sound t ->
+  Ctx.dom G = xs ->
+  triple (isubst (Ctx.app G E) t)
+    (hprop_forall_vars (fun G0 => \[patsubst G p = patsubst G0 p] 
+                                  \-* wp (Ctx.app G0 E) t Q) Ctx.empty xs) Q.
+Proof using.
+  introv IHt DG.
+  cuts N: (forall G1 G2,
+    Ctx.dom G2 = xs ->
+    triple (isubst (Ctx.app (Ctx.app (LibList.rev G1) G2) E) t)
+      (hprop_forall_vars (fun G0 =>  
+        \[patsubst (Ctx.app (LibList.rev G1) G2) p = patsubst G0 p] 
+        \-* wp (Ctx.app G0 E) t Q) G1 xs) Q).
+  { forwards K: N (Ctx.empty:ctx) G. auto. 
+    rewrite Ctx_app_empty_l in K. applys K. }
+  clears G. induction xs as [|x xs']; intros G1 G2 EQ.
+  { simpl. rewrite List_rev_eq. forwards~ G2E: (Ctx_dom_eq_nil_inv G2).
+     subst. repeat rewrite Ctx_app_empty_r.
+    applys~ triple_hwand_hpure_l. 
+    apply triple_of_wp. applys IHt. }
+  { simpl. destruct G2 as [| (x',X) G']; tryfalse.
+    simpl in EQ. invert EQ ;=> Ex EG2. subst x'.
+    applys triple_hforall X. rew_ctx.
+    rewrite Ctx_app_rev_add. rewrite EG2. applys~ IHxs'. }
+Qed.
 
 Lemma wp_sound_match : forall t0 pts,
   wp_sound t0 ->
@@ -819,37 +845,18 @@ Proof using.
   introv M1 M2. intros E Q. simpl.
   applys~ wp_sound_getval (fun t1 => trm_match t1 pts). 
   intros v. clears t0 Q.
-  (* DEPRECATED  applys qimpl_wp_triple. intros Q. simpl. *)
   induction pts as [|(p,t) pts'].
-  { simpl. intros Q. applys himpl_wp_fail_l. } (* applys qimpl_wp_triple. intros. applys~ triple_wp_fail. *)
+  { simpl. intros Q. applys himpl_wp_fail_l. }
   { simpl. applys qimpl_wp_triple. intros Q. remove_flocal.
     simpl. applys triple_match.
     { intros G EG Hp. applys triple_hand_l.
       forwards~ IH: M2 p t. clears IHpts' M2. subst v.
       rewrite <- EG. rewrite <- isubst_app_eq_isubst_isubst_rem_vars.
-      sets_eq xs: (Ctx.dom G).
-      cuts M: (forall G1 G2,
-        xs = Ctx.dom G2 ->
-        triple (isubst (Ctx.app (Ctx.app (LibList.rev G1) G2) E) t)
-               (hprop_forall_vars (fun G0 =>  
-                  \[patsubst (Ctx.app (LibList.rev G1) G2) p = patsubst G0 p] \-* wp (Ctx.app G0 E) t Q) G1 xs) Q).
-      { forwards N: M (Ctx.empty:ctx) G. auto. 
-        rewrite Ctx_app_empty_l in N. applys N. }
-      clears G p. induction xs as [|x xs']; intros G1 G2 EQ.
-      { simpl. rewrite List_rev_eq. forwards~ G2E: (Ctx_dom_eq_nil_inv G2).
-         subst. repeat rewrite Ctx_app_empty_r.
-        applys~ triple_hwand_hpure_l. 
-        apply triple_of_wp. applys IH. }
-      { simpl. destruct G2 as [| (x',X) G']; tryfalse.
-        simpl in EQ. invert EQ ;=> Ex EG2. subst x'.
-        applys triple_hforall X. rew_ctx.
-        rewrite Ctx_app_rev_add. rewrite <- EG2. applys~ IHxs'. } }
+      sets_eq xs: (Ctx.dom G). applys~ triple_hprop_forall_vars_intro. }
     { intros Hp. applys triple_hand_r. applys triple_hwand_hpure_l.
-       { applys~ prop_forall_vars_intro. }
-      skip.
-   } }
+      { applys~ prop_forall_vars_intro. }
+      applys triple_of_wp. applys IHpts'. { introv M. applys* M2. } } }
 Qed.
-
 
 Lemma wp_sound_constr : forall E id ts,
   (forall t, mem t ts -> wp_sound t) ->
