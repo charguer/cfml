@@ -284,13 +284,14 @@ Definition Wp_for_int (n1 n2:int) (F1:int->Formula) : Formula :=
     \[ (forall i, is_flocal (S i unit _)) /\ (forall i Q', ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
 
 
-
+(* TODO: factorize with WPBase *)
 Fixpoint hprop_forall_vars (Hof:ctx->hprop) (G:ctx) (xs:vars) : hprop :=
   match xs with
   | nil => Hof G
   | x::xs' => \forall (X:val), hprop_forall_vars Hof (Ctx.add x X G) xs'
   end.
 
+(* TODO: factorize with WPBase *)
 Fixpoint prop_forall_vars (Hof:ctx->Prop) (G:ctx) (xs:vars) : Prop :=
   match xs with
   | nil => Hof G
