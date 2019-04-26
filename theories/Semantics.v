@@ -370,7 +370,7 @@ Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
   | trm_val v => trm_val v
   | trm_var x => If x = y then trm_val w else t
   | trm_fixs f xs t1 => trm_fixs f xs (If f = y then t1 else
-                                   aux_no_captures xs t1)
+                                        aux_no_captures xs t1)
   | trm_constr id ts => trm_constr id (List.map aux ts)
   | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
   | trm_let z t1 t2 => trm_let z (aux t1) (aux_no_capture z t2)
@@ -521,25 +521,25 @@ Proof using.
   intros. rew_ctx. gen E.
   induction t using trm_induct; intros; simpl; try solve [ fequals* ].
   { rewrite var_eq_spec. do 2 case_if*. }
-  { rew_ctx. fequals. skip. (* TODO rewrite IHt. case_if.
-    { subst. rewrite* Ctx.rem_add_same. }
-    { rewrites* (>> Ctx.rem_add_neq b). case_if.
-      { skip. (*  subst. rewrite* Ctx.rem_add_same.  *) }
-      { rewrite* Ctx.rem_add_neq. } } } *) }
+  { rename b into f. rew_ctx. fequals. simpl. rew_ctx. case_if.
+    { subst. rewrite~ Ctx.rem_add_same. }
+    { rewrite~ Ctx.rem_add_neq. case_if.
+      { rewrite~ Ctx.rem_vars_add_mem. }
+      { rewrite~ Ctx.rem_vars_add_not_mem. } } }
   { rename H into IH. repeat rewrite List_map_eq. rew_ctx. fequals.
     induction l as [|t' l'].
     { auto. }
     { rew_listx. rewrite* IHl'. fequals*. } }
   { rew_ctx. fequals. case_if.
     { subst. rewrite* Ctx.rem_add_same. }
-    { rewrite~ Ctx.rem_add_neq. } }
+    { rewrite* Ctx.rem_add_neq. } }
   { rename H into IH. repeat rewrite List_map_eq. rew_ctx. fequals.
     induction l as [|t' l'].
     { auto. }
     { rew_listx. rewrite* IHl'. fequals*. } } 
   { rew_ctx. fequals. rewrite var_eq_spec. do 2 case_if*. }
   { rew_ctx. fequals. rewrite List_map_eq. rewrite map_map. applys map_congr.
-    intros [pi ti] Mi. fequals. case_if.  
+    intros [pi ti] Mi. fequals. case_if.
     { rewrite~ Ctx.rem_vars_add_mem. }
     { rewrite* Ctx.rem_vars_add_not_mem. } }
 Qed.
