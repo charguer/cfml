@@ -771,9 +771,12 @@ Proof using.
 Qed.
 *)
 
-Axiom Ctx_dom_nil_empty : forall A (G:Ctx.ctx A),
+Axiom Ctx_dom_eq_nil_inv : forall A (G:Ctx.ctx A),
   Ctx.dom G = nil ->
   G = Ctx.empty.
+
+Axiom Ctx_dom_add : forall A (G:Ctx.ctx A) (x:var) X,
+  Ctx.dom (Ctx.add x X G) = x :: Ctx.dom G.
 
 Axiom Ctx_app_empty_l : forall A (G:Ctx.ctx A),
   Ctx.app Ctx.empty G = G.
@@ -791,6 +794,23 @@ Proof using.
   rewrite List_app_eq. rew_list~.
 Qed.
 
+Lemma prop_forall_vars_intro : forall xs (Pof:ctx->Prop),
+  (forall G, Ctx.dom G = xs -> Pof G) ->
+  prop_forall_vars Pof Ctx.empty xs.
+Proof using.
+  introv M1. cuts N: (forall G1,
+    (forall G2, Ctx.dom G2 = xs -> Pof (Ctx.app (LibList.rev G1) G2)) ->
+    prop_forall_vars Pof G1 xs).
+  { forwards~ K: N (Ctx.empty:ctx). }
+  { clears M1. induction xs as [|x xs']; intros G1 HG1.
+    { simpl. forwards~ K: HG1 (Ctx.empty:ctx). rewrite Ctx_app_empty_r in K.
+      rewrite~ List_rev_eq. }
+    { simpl. intros X. rew_ctx. applys IHxs'.
+      intros G2 HG2. rewrite <- Ctx_app_rev_add. applys HG1.
+      rewrite Ctx_dom_add. fequals. } }
+Qed.
+
+
 Lemma wp_sound_match : forall t0 pts,
   wp_sound t0 ->
   (forall p t, mem (p,t) pts -> wp_sound t) ->
@@ -799,6 +819,7 @@ Proof using.
   introv M1 M2. intros E Q. simpl.
   applys~ wp_sound_getval (fun t1 => trm_match t1 pts). 
   intros v. clears t0 Q.
+  (* DEPRECATED  applys qimpl_wp_triple. intros Q. simpl. *)
   induction pts as [|(p,t) pts'].
   { simpl. intros Q. applys himpl_wp_fail_l. } (* applys qimpl_wp_triple. intros. applys~ triple_wp_fail. *)
   { simpl. applys qimpl_wp_triple. intros Q. remove_flocal.
@@ -815,7 +836,7 @@ Proof using.
       { forwards N: M (Ctx.empty:ctx) G. auto. 
         rewrite Ctx_app_empty_l in N. applys N. }
       clears G p. induction xs as [|x xs']; intros G1 G2 EQ.
-      { simpl. rewrite List_rev_eq. forwards~ G2E: (Ctx_dom_nil_empty G2).
+      { simpl. rewrite List_rev_eq. forwards~ G2E: (Ctx_dom_eq_nil_inv G2).
          subst. repeat rewrite Ctx_app_empty_r.
         applys~ triple_hwand_hpure_l. 
         apply triple_of_wp. applys IH. }
@@ -823,9 +844,9 @@ Proof using.
         simpl in EQ. invert EQ ;=> Ex EG2. subst x'.
         applys triple_hforall X. rew_ctx.
         rewrite Ctx_app_rev_add. rewrite <- EG2. applys~ IHxs'. } }
-    { intros Hp. applys triple_hand_l.
-
-skip.
+    { intros Hp. applys triple_hand_r. applys triple_hwand_hpure_l.
+       { applys~ prop_forall_vars_intro. }
+      skip.
    } }
 Qed.
 
