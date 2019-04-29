@@ -77,20 +77,20 @@ Definition Wp_cast `{Enc A1} (X:A1) A2 (EA2:Enc A2) (Q:A2->hprop) : hprop :=
 (** The [Local] predicate lifts [local]. *)
 
 Definition Local (F:Formula) : Formula :=
-  fun A `{EA:Enc A} Q => flocal (@F A EA) Q.
+  fun A `{EA:Enc A} Q => mkflocal (@F A EA) Q.
 
-Lemma flocal_Local_eq : forall A `{EA:Enc A} (F:Formula),
-  flocal (@Local F A EA) = (@Local F A EA).
+Lemma mkflocal_Local_eq : forall A `{EA:Enc A} (F:Formula),
+  mkflocal (@Local F A EA) = (@Local F A EA).
 Proof using.
   intros. apply fun_ext_1. intros Q.
-  unfold Local. rewrite flocal_flocal. split~.
+  unfold Local. rewrite mkflocal_mkflocal. split~.
 Qed.
 
-Lemma is_flocal_Local : forall A `{EA:Enc A} (F:Formula),
-  is_flocal (@Local F A EA).
-Admitted. (* Proof using. intros. applys is_flocal_intro. rewrite~ @flocal_Local_eq. Qed. *)
+Lemma flocal_Local : forall A `{EA:Enc A} (F:Formula),
+  flocal (@Local F A EA).
+Proof using. intros. rewrite <- mkflocal_Local_eq. apply flocal_mkflocal. Qed.
 
-Hint Resolve is_flocal_Local.
+Hint Resolve flocal_Local.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -274,14 +274,14 @@ Definition Wp_while (F1 F2:Formula) : Formula :=
   Local (`Formula_typed (fun (Q:unit->hprop) =>
     \forall (R:Formula),
     let F := WP_if F1 (Wp_seq F2 R) (Wp_val val_unit) in
-    \[ is_flocal (@R unit _) /\ (forall Q', ^F Q' ==> ^R Q')] \-* (^R Q))).
+    \[ flocal (@R unit _) /\ (forall Q', ^F Q' ==> ^R Q')] \-* (^R Q))).
 
 Definition Wp_for_int (n1 n2:int) (F1:int->Formula) : Formula := 
   Local (Formula_typed (fun (Q:unit->hprop) =>
     \forall (S:int->Formula),
     let F i := If (i <= n2) then (`Wp_seq (F1 i) (S (i+1)))
                             else (`Wp_val val_unit) in
-    \[ (forall i, is_flocal (S i unit _)) /\ (forall i Q', ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
+    \[ (forall i, flocal (S i unit _)) /\ (forall i Q', ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
 
 Definition Wp_case_val (F1:Formula) (P:Prop) (F2:Formula) : Formula :=
   Local (fun `{Enc A} Q =>
@@ -423,11 +423,11 @@ Fixpoint Wp (E:ctx) (t:trm) : Formula :=
 
 (** [Wp_Triple t] is a local formula *)
 
-Lemma is_flocal_Wp_Triple : forall `{EA:Enc A} t,
-  is_flocal ((Wp_Triple t) A EA).
+Lemma flocal_Wp_Triple : forall `{EA:Enc A} t,
+  flocal ((Wp_Triple t) A EA).
 Proof using.
   intros. unfolds Wp_Triple. unfolds Weakestpre.
-  applys is_flocal_weakestpre. applys is_local_Triple.
+  applys flocal_weakestpre. applys is_local_Triple.
 Qed.
 
 (** Equivalence between a [triple] and its weakest-precondition presentation. *)
@@ -460,7 +460,7 @@ Lemma Local_erase : forall H F `{EA:Enc A} (Q:A->hprop),
   H ==> ^F Q ->
   H ==> ^(Local F) Q.
 Proof using.
-  introv M. hchanges M. applys flocal_erase.
+  introv M. hchanges M. applys mkflocal_erase.
 Qed.
 
 (** The [Local] transformer is sound w.r.t. [Triple], in other words, it
@@ -471,7 +471,7 @@ Lemma Triple_Local_pre : forall t (F:Formula) `{EA:Enc A} (Q:A->hprop),
   Triple t (^(Local F) Q) Q.
 Proof using.
   introv M. applys~ is_local_elim.
-  unfold Local, flocal. hpull ;=> Q'.
+  unfold Local, mkflocal. hpull ;=> Q'.
   hsimpl (^F Q') ((Q' \--* Q \*+ \GC)) Q'. split~.
   { hsimpl. }
 Qed.

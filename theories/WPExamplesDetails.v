@@ -11,7 +11,7 @@ License: MIT.
 
 
 Set Implicit Arguments.
-From Sep Require Export WPStruct.
+From Sep Require Export WPRecord.
 Generalizable Variables A B.
 
 Import NotationForVariables NotationForTerms.

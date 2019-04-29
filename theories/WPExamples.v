@@ -11,7 +11,7 @@ License: MIT.
 
 
 Set Implicit Arguments.
-From Sep Require Export WPStruct.
+From Sep Require Export WPRecord.
 Generalizable Variables A B.
 
 Import NotationForVariables NotationForTerms.
@@ -325,7 +325,7 @@ Proof using.
      hchanges (MList_eq' p2) ;=> v2.
      hchanges (MList_eq' p1) ;=> v1.
      xapp.
-     applys is_flocal_hgc. applys is_flocal_Local. (* TODO: xgc *)
+     applys flocal_hgc. applys flocal_Local. (* TODO: xgc *)
      xapp. (* todo : gc by default in xapp ? *) hchange <- (MList_eq' p1). } 
   { (* cons *) 
     intros p' x L' ->.
