@@ -259,30 +259,6 @@ End Flocal.
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of CF blocks *)
 
-
-Axiom Ctx_dom_eq_nil_inv : forall A (G:Ctx.ctx A),
-  Ctx.dom G = nil ->
-  G = Ctx.empty.
-
-Axiom Ctx_dom_add : forall A (G:Ctx.ctx A) (x:var) X,
-  Ctx.dom (Ctx.add x X G) = x :: Ctx.dom G.
-
-Axiom Ctx_app_empty_l : forall A (G:Ctx.ctx A),
-  Ctx.app Ctx.empty G = G.
-
-Axiom Ctx_app_empty_r : forall A (G:Ctx.ctx A),
-  Ctx.app G Ctx.empty = G.
-
-Lemma Ctx_app_rev_add : forall A (G1 G2:Ctx.ctx A) x X,
-   Ctx.app (LibList.rev G1) (Ctx.add x X G2) 
- = Ctx.app (LibList.rev (Ctx.add x X G1)) G2.
-Proof using.
-  Transparent Ctx.app Ctx.add.
-  intros. unfolds Ctx.app. unfolds Ctx.add.
-  destruct x as [|x]. auto.
-  rewrite List_app_eq. rew_list~.
-Qed.
-
 (** [forall_vars Hof G (x1::x2::x3::nil)] produces the proposition
     [forall X1 X2 X3, Hof ((x3,X3)::(x2,X2)::(x1,X1)::(List.rev G))) *)
 
@@ -301,11 +277,11 @@ Proof using.
     forall_vars Pof G1 xs).
   { forwards~ K: N (Ctx.empty:ctx). }
   { clears M1. induction xs as [|x xs']; intros G1 HG1.
-    { simpl. forwards~ K: HG1 (Ctx.empty:ctx). rewrite Ctx_app_empty_r in K.
+    { simpl. forwards~ K: HG1 (Ctx.empty:ctx). rewrite Ctx.app_empty_r in K.
       rewrite~ List_rev_eq. }
     { simpl. intros X. rew_ctx. applys IHxs'.
-      intros G2 HG2. rewrite <- Ctx_app_rev_add. applys HG1.
-      rewrite Ctx_dom_add. fequals. } }
+      intros G2 HG2. rewrite <- Ctx.app_rev_add. applys HG1.
+      rewrite Ctx.dom_add. fequals. } }
 Qed.
 
 (** [hforall_vars Hof G (x1::x2::x3::nil)] produces the heap predicate
@@ -326,14 +302,14 @@ Proof using.
         (hforall_vars Hof G1 xs) 
     ==> Hof (Ctx.app (LibList.rev G1) G2)).
   { forwards K: N (Ctx.empty:ctx) G. { auto. }
-    rewrite Ctx_app_empty_l in K. applys K. }
+    rewrite Ctx.app_empty_l in K. applys K. }
   clears G. induction xs as [|x xs']; intros G1 G2 EQ.
-  { simpl. rewrite List_rev_eq. forwards~ G2E: (Ctx_dom_eq_nil_inv G2).
-     subst. rewrite~ Ctx_app_empty_r. }
+  { simpl. rewrite List_rev_eq. forwards~ G2E: (Ctx.dom_eq_nil_inv G2).
+     subst. rewrite~ Ctx.app_empty_r. }
   { simpl. destruct G2 as [| (x',X) G']; tryfalse.
     simpl in EQ. invert EQ ;=> Ex EG2. subst x'.
     applys himpl_hforall_l_for X. rew_ctx.
-    rewrite Ctx_app_rev_add. rewrite EG2. applys~ IHxs'. }
+    rewrite Ctx.app_rev_add. rewrite EG2. applys~ IHxs'. }
 Qed.
 
 

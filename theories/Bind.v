@@ -415,9 +415,37 @@ Proof using. auto. Qed.
 (* ---------------------------------------------------------------------- *)
 (** Properties of operations on contexts  *)
 
-Lemma rem_var_eq_rem : forall x E,
-  rem_var x E = rem x E.
+(** [dom] *)
+
+Lemma dom_eq_nil_inv : forall E,
+  dom E = nil ->
+  E = empty.
+Proof using. introv M. destruct E as [|(x,v) E']; auto_false. Qed.
+
+Lemma dom_add : forall E (x:var) X,
+  dom (add x X E) = x :: dom E.
 Proof using. auto. Qed.
+
+(** [app] *)
+
+Lemma app_empty_l : forall E,
+  app empty E = E.
+Proof using. intros. unfold app, empty. rewrite List_app_eq. rew_list~. Qed.
+
+Lemma app_empty_r : forall E,
+  app E empty = E.
+Proof using. intros. unfold app, empty. rewrite List_app_eq. rew_list~. Qed.
+
+Lemma app_rev_add : forall E1 E2 x X,
+   app (LibList.rev E1) (add x X E2) 
+ = app (LibList.rev (add x X E1)) E2.
+Proof using.
+  intros. unfolds app. unfolds add.
+  destruct x as [|x]. auto.
+  rewrite List_app_eq. rew_list~.
+Qed.
+
+(** [fresh] *)
 
 Lemma fresh_inv : forall (x1 x2:var) v E,
   fresh x1 (add x2 v E) ->
@@ -427,18 +455,21 @@ Proof using.
   rewrite var_eq_spec in *. case_if~.
 Qed.
 
+(** [rem_var] and [rem] *)
+
+Lemma rem_var_eq_rem : forall x E,
+  rem_var x E = rem x E.
+Proof using. auto. Qed.
+
 Lemma rem_anon : forall E,
   Ctx.rem bind_anon E = E.
 Proof using. auto. Qed.
-
-(** [rem x empty] *)
 
 Lemma rem_empty : forall z,
   rem z (@empty A) = empty.
 Proof using. intros. destruct z as [|x]; auto. Qed.
 
-(** Result of removing a variable from a context. *)
-(* -- TODO: rename and check useful *)
+(** [rem] interacts with [add] *)
 
 Lemma rem_add_same : forall z v E,
   rem z (add z v E) = rem z E.
@@ -459,7 +490,7 @@ Proof using.
     { simpl. rewrite var_eq_spec. case_if~. } }
 Qed.
 
-(** Removing a variable that does not occur in a context changes nothing. *)
+(** [rem] interacts with [fresh] *)
 
 Lemma rem_fresh : forall x E,
   fresh x E ->
@@ -470,6 +501,8 @@ Proof using.
   { simpls. lets (N1&N2): fresh_inv (rm M).
     rewrite var_eq_spec in *. case_if. rewrite~ IHE'. }
 Qed.
+
+(** [rem] interact with [rem] and [rem_vars] *)
 
 Lemma rem_var_rem_var : forall x y E,
   rem_var x (rem_var y E) = rem_var y (rem_var x E).
@@ -491,6 +524,8 @@ Proof using.
   { rewrite rem_var_rem_var. rewrite~ IHxs'. }
 Qed.
 
+(** [rem_vars] *)
+
 Lemma rem_vars_eq_rem_vars' :
   @rem_vars A = @rem_vars' A.
 Proof using.
@@ -502,6 +537,8 @@ Qed.
 Lemma rem_vars_nil : forall xs,
   rem_vars xs (nil:ctx A) = nil.
 Proof using. intros. induction xs; simpl. { auto. } { rewrite~ IHxs. } Qed.
+
+(** [rem_vars] interacts with [add] *)
 
 Lemma rem_vars_add_mem : forall x v xs E,
   mem x xs ->
@@ -525,6 +562,8 @@ Proof using.
 Qed.
 
 (* TODO: would it be easier to do everything using [rem_vars']? *)
+
+(** [lookup_or_arbitrary] *)
 
 Lemma lookup_or_arbitrary_cons : forall `{Inhab A} x y v (E:ctx A),
   lookup_or_arbitrary x ((y,v)::E) = If x = y then v else lookup_or_arbitrary x E.
@@ -557,7 +596,6 @@ Tactic Notation "rew_ctx" "in" hyp(H) :=
   autorewrite with rew_ctx in H.
 Tactic Notation "rew_ctx" "in" "*" :=
   autorewrite with rew_ctx in *.
-
 
 
 (* ********************************************************************** *)

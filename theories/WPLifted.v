@@ -283,24 +283,6 @@ Definition Wp_for_int (n1 n2:int) (F1:int->Formula) : Formula :=
                             else (`Wp_val val_unit) in
     \[ (forall i, is_flocal (S i unit _)) /\ (forall i Q', ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
 
-
-(* TODO: factorize with WPBase *)
-Fixpoint hprop_forall_vars (Hof:ctx->hprop) (G:ctx) (xs:vars) : hprop :=
-  match xs with
-  | nil => Hof G
-  | x::xs' => \forall (X:val), hprop_forall_vars Hof (Ctx.add x X G) xs'
-  end.
-
-(* TODO: factorize with WPBase *)
-Fixpoint prop_forall_vars (Hof:ctx->Prop) (G:ctx) (xs:vars) : Prop :=
-  match xs with
-  | nil => Hof G
-  | x::xs' => forall (X:val), prop_forall_vars Hof (Ctx.add x X G) xs'
-  end.
-
-
-
-
 Definition Wp_case_val (F1:Formula) (P:Prop) (F2:Formula) : Formula :=
   Local (fun `{Enc A} Q =>
     hand (^F1 Q) (\[P] \-* ^F2 Q)).
@@ -312,9 +294,9 @@ Definition WP_match Wp (E:ctx) (v:val) : list (pat*trm) ->  Formula :=
     | (p,t)::pts' =>
         let xs := patvars p in
         let F1 A (EA:Enc A) (Q:A->hprop) := 
-           hprop_forall_vars (fun G => let E' := (Ctx.app G E) in
+           hforall_vars (fun G => let E' := (Ctx.app G E) in
               \[v = patsubst G p] \-* ^(Wp E' t) Q) Ctx.empty xs in
-        let P := prop_forall_vars (fun G => v <> patsubst G p) Ctx.empty xs in
+        let P := forall_vars (fun G => v <> patsubst G p) Ctx.empty xs in
         Wp_case_val F1 P (mk pts')
     end.
   (* Warning: the body of the cons case above, if put in an auxiliary definition,

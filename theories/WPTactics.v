@@ -195,7 +195,7 @@ Ltac xwp_simpl :=
   List.rev Datatypes.app List.fold_right List.map
   Wp WP_getval WP_getval_typed WP_getval_val WP_getval_int
   WP_apps WP_apps_or_prim WP_constr WP_var WP_match  
-  hprop_forall_vars prop_forall_vars
+  hforall_vars forall_vars
   trm_case trm_to_pat patvars patsubst combiner_to_trm
   Ctx.app Ctx.empty Ctx.lookup Ctx.add 
   var_eq eq_var_dec 
