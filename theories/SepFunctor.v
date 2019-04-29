@@ -544,6 +544,7 @@ Lemma himpl_hforall_l : forall A (J:A->hprop) H,
   (hforall J) ==> H.
 Proof using. introv (x&M). intros h Hh. apply~ M. Qed.
 
+(* TODO: rename himpl_hforall_l, and use _exists for previous one *)
 Lemma himpl_hforall_l_for : forall A x (J:A->hprop) H,
   (J x ==> H) ->
   (hforall J) ==> H.

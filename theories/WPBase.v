@@ -259,6 +259,87 @@ End Flocal.
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of CF blocks *)
 
+
+Axiom Ctx_dom_eq_nil_inv : forall A (G:Ctx.ctx A),
+  Ctx.dom G = nil ->
+  G = Ctx.empty.
+
+Axiom Ctx_dom_add : forall A (G:Ctx.ctx A) (x:var) X,
+  Ctx.dom (Ctx.add x X G) = x :: Ctx.dom G.
+
+Axiom Ctx_app_empty_l : forall A (G:Ctx.ctx A),
+  Ctx.app Ctx.empty G = G.
+
+Axiom Ctx_app_empty_r : forall A (G:Ctx.ctx A),
+  Ctx.app G Ctx.empty = G.
+
+Lemma Ctx_app_rev_add : forall A (G1 G2:Ctx.ctx A) x X,
+   Ctx.app (LibList.rev G1) (Ctx.add x X G2) 
+ = Ctx.app (LibList.rev (Ctx.add x X G1)) G2.
+Proof using.
+  Transparent Ctx.app Ctx.add.
+  intros. unfolds Ctx.app. unfolds Ctx.add.
+  destruct x as [|x]. auto.
+  rewrite List_app_eq. rew_list~.
+Qed.
+
+(** [forall_vars Hof G (x1::x2::x3::nil)] produces the proposition
+    [forall X1 X2 X3, Hof ((x3,X3)::(x2,X2)::(x1,X1)::(List.rev G))) *)
+
+Fixpoint forall_vars (Hof:ctx->Prop) (G:ctx) (xs:vars) : Prop :=
+  match xs with
+  | nil => Hof (List.rev G) (* TODO: Ctx.rev *)
+  | x::xs' => forall (X:val), forall_vars Hof (Ctx.add x X G) xs'
+  end.
+
+Lemma forall_vars_intro : forall xs (Pof:ctx->Prop),
+  (forall G, Ctx.dom G = xs -> Pof G) ->
+  forall_vars Pof Ctx.empty xs.
+Proof using.
+  introv M1. cuts N: (forall G1,
+    (forall G2, Ctx.dom G2 = xs -> Pof (Ctx.app (LibList.rev G1) G2)) ->
+    forall_vars Pof G1 xs).
+  { forwards~ K: N (Ctx.empty:ctx). }
+  { clears M1. induction xs as [|x xs']; intros G1 HG1.
+    { simpl. forwards~ K: HG1 (Ctx.empty:ctx). rewrite Ctx_app_empty_r in K.
+      rewrite~ List_rev_eq. }
+    { simpl. intros X. rew_ctx. applys IHxs'.
+      intros G2 HG2. rewrite <- Ctx_app_rev_add. applys HG1.
+      rewrite Ctx_dom_add. fequals. } }
+Qed.
+
+(** [hforall_vars Hof G (x1::x2::x3::nil)] produces the heap predicate
+    [\forall X1 X2 X3, Hof ((x3,X3)::(x2,X2)::(x1,X1)::(List.rev G))) *)
+
+Fixpoint hforall_vars (Hof:ctx->hprop) (G:ctx) (xs:vars) : hprop :=
+  match xs with
+  | nil => Hof (List.rev G) (* TODO: Ctx.rev *)
+  | x::xs' => \forall (X:val), hforall_vars Hof (Ctx.add x X G) xs'
+  end.
+
+Lemma hforall_vars_intro : forall G xs Hof,
+  Ctx.dom G = xs ->
+  (hforall_vars Hof Ctx.empty xs) ==> Hof G.
+Proof using.
+  introv DG. cuts N: (forall (G1 G2:ctx),
+    Ctx.dom G2 = xs ->
+        (hforall_vars Hof G1 xs) 
+    ==> Hof (Ctx.app (LibList.rev G1) G2)).
+  { forwards K: N (Ctx.empty:ctx) G. { auto. }
+    rewrite Ctx_app_empty_l in K. applys K. }
+  clears G. induction xs as [|x xs']; intros G1 G2 EQ.
+  { simpl. rewrite List_rev_eq. forwards~ G2E: (Ctx_dom_eq_nil_inv G2).
+     subst. rewrite~ Ctx_app_empty_r. }
+  { simpl. destruct G2 as [| (x',X) G']; tryfalse.
+    simpl in EQ. invert EQ ;=> Ex EG2. subst x'.
+    applys himpl_hforall_l_for X. rew_ctx.
+    rewrite Ctx_app_rev_add. rewrite EG2. applys~ IHxs'. }
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Definition of CF blocks *)
+
 (** These auxiliary definitions give the characteristic formula
     associated with each term construct. *)
 
@@ -343,25 +424,6 @@ Definition wp_for_val (v1 v2:val) (F1:val->formula) : formula := flocal (fun Q =
                           else (wp_val val_unit) in
   \[ is_flocal_pred S /\ (forall i, F i ===> S i)] \-* (S n1 Q)).
 
-(* DEPRECATED
-Definition wp_case_val (v:val) (p:pat) (F1of:ctx->formula) (F2:formula) : formula :=
-  flocal (fun Q => 
-    hand (\forall (G:ctx), \[Ctx.dom G = patvars p /\ v = patsubst G p] \-* F1of G Q)
-         (\[forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p] \-* F2 Q) ).
-*)
-
-Fixpoint hprop_forall_vars (Hof:ctx->hprop) (G:ctx) (xs:vars) : hprop :=
-  match xs with
-  | nil => Hof (List.rev G) (* TODO: Ctx.rev *)
-  | x::xs' => \forall (X:val), hprop_forall_vars Hof (Ctx.add x X G) xs'
-  end.
-
-Fixpoint prop_forall_vars (Hof:ctx->Prop) (G:ctx) (xs:vars) : Prop :=
-  match xs with
-  | nil => Hof (List.rev G) (* TODO: Ctx.rev *)
-  | x::xs' => forall (X:val), prop_forall_vars Hof (Ctx.add x X G) xs'
-  end.
-
 Definition wp_case_val (F1:formula) (P:Prop) (F2:formula) : formula :=
   flocal (fun Q =>
     hand (F1 Q) (\[P] \-* F2 Q)).
@@ -373,9 +435,9 @@ Definition wp_match wp (E:ctx) (v:val) : list (pat*trm) -> formula :=
     | (p,t)::pts' =>
         let xs := patvars p in
         let F1 (Q:val->hprop) := 
-           hprop_forall_vars (fun G => let E' := (Ctx.app G E) in
+           hforall_vars (fun G => let E' := (Ctx.app G E) in
               \[v = patsubst G p] \-* (wp E' t) Q) Ctx.empty xs in
-        let P := prop_forall_vars (fun G => v <> patsubst G p) Ctx.empty xs in
+        let P := forall_vars (fun G => v <> patsubst G p) Ctx.empty xs in
         wp_case_val F1 P (mk pts')
     end.
 
@@ -504,8 +566,6 @@ Proof using.
 Qed.
 
 (** Soundness of the [wp] for the various constructs *)
-
-(* TODO: replace all List_foo_eq with a rew_list_exec tactic *)
 
 Lemma wp_sound_getval : forall E C t1 F2of,
   evalctx C ->
@@ -743,100 +803,6 @@ Proof using.
   intros v2. applys~ wp_sound_for_val.
 Qed.
 
-(*
-Lemma wp_sound_case_val : forall v1 p F2 F3 t2 t3 E,
-  (forall (G:ctx), F2 G ===> wp_triple_ (Ctx.app G E) t2) ->
-  F3 ===> wp_triple_ E t3 ->
-  wp_case_val v1 p F2 F3 ===> wp_triple_ E (trm_case v1 p t2 t3).
-Proof using.
-  introv M1 M2. applys qimpl_wp_triple. simpl. intros Q.
-  remove_flocal. applys triple_case.
-  { intros G HG Hv1. rewrites <- (rm HG).
-    applys triple_hand_l. applys triple_hforall G.
-    applys~ triple_hwand_hpure_l. apply triple_of_wp.
-    rewrite <- isubst_app_eq_isubst_isubst_rem_vars. applys M1. }
-  { introv Hv1. applys triple_hand_r. applys* triple_hwand_hpure_l. 
-    apply triple_of_wp. applys M2. }
-Qed.
-
-Lemma wp_sound_case_trm : forall t1 p t2 t3,
-  wp_sound t1 ->
-  wp_sound t2 ->
-  wp_sound t3 ->
-  wp_sound (trm_case t1 p t2 t3).
-Proof using.
-  introv M1 M2 M3. intros E Q. simpl.
-  applys~ wp_sound_getval (fun t1 => trm_case t1 p t2 t3).
-  intros v. applys~ wp_sound_case_val.
-Qed.
-*)
-
-Axiom Ctx_dom_eq_nil_inv : forall A (G:Ctx.ctx A),
-  Ctx.dom G = nil ->
-  G = Ctx.empty.
-
-Axiom Ctx_dom_add : forall A (G:Ctx.ctx A) (x:var) X,
-  Ctx.dom (Ctx.add x X G) = x :: Ctx.dom G.
-
-Axiom Ctx_app_empty_l : forall A (G:Ctx.ctx A),
-  Ctx.app Ctx.empty G = G.
-
-Axiom Ctx_app_empty_r : forall A (G:Ctx.ctx A),
-  Ctx.app G Ctx.empty = G.
-
-Lemma Ctx_app_rev_add : forall A (G1 G2:Ctx.ctx A) x X,
-   Ctx.app (LibList.rev G1) (Ctx.add x X G2) 
- = Ctx.app (LibList.rev (Ctx.add x X G1)) G2.
-Proof using.
-  Transparent Ctx.app Ctx.add.
-  intros. unfolds Ctx.app. unfolds Ctx.add.
-  destruct x as [|x]. auto.
-  rewrite List_app_eq. rew_list~.
-Qed.
-
-Lemma prop_forall_vars_intro : forall xs (Pof:ctx->Prop),
-  (forall G, Ctx.dom G = xs -> Pof G) ->
-  prop_forall_vars Pof Ctx.empty xs.
-Proof using.
-  introv M1. cuts N: (forall G1,
-    (forall G2, Ctx.dom G2 = xs -> Pof (Ctx.app (LibList.rev G1) G2)) ->
-    prop_forall_vars Pof G1 xs).
-  { forwards~ K: N (Ctx.empty:ctx). }
-  { clears M1. induction xs as [|x xs']; intros G1 HG1.
-    { simpl. forwards~ K: HG1 (Ctx.empty:ctx). rewrite Ctx_app_empty_r in K.
-      rewrite~ List_rev_eq. }
-    { simpl. intros X. rew_ctx. applys IHxs'.
-      intros G2 HG2. rewrite <- Ctx_app_rev_add. applys HG1.
-      rewrite Ctx_dom_add. fequals. } }
-Qed.
-
-Lemma triple_hprop_forall_vars_intro : forall t G E Q xs p,
-  wp_sound t ->
-  Ctx.dom G = xs ->
-  triple (isubst (Ctx.app G E) t)
-    (hprop_forall_vars (fun G0 => \[patsubst G p = patsubst G0 p] 
-                                  \-* wp (Ctx.app G0 E) t Q) Ctx.empty xs) Q.
-Proof using.
-  introv IHt DG.
-  cuts N: (forall G1 G2,
-    Ctx.dom G2 = xs ->
-    triple (isubst (Ctx.app (Ctx.app (LibList.rev G1) G2) E) t)
-      (hprop_forall_vars (fun G0 =>  
-        \[patsubst (Ctx.app (LibList.rev G1) G2) p = patsubst G0 p] 
-        \-* wp (Ctx.app G0 E) t Q) G1 xs) Q).
-  { forwards K: N (Ctx.empty:ctx) G. auto. 
-    rewrite Ctx_app_empty_l in K. applys K. }
-  clears G. induction xs as [|x xs']; intros G1 G2 EQ.
-  { simpl. rewrite List_rev_eq. forwards~ G2E: (Ctx_dom_eq_nil_inv G2).
-     subst. repeat rewrite Ctx_app_empty_r.
-    applys~ triple_hwand_hpure_l. 
-    apply triple_of_wp. applys IHt. }
-  { simpl. destruct G2 as [| (x',X) G']; tryfalse.
-    simpl in EQ. invert EQ ;=> Ex EG2. subst x'.
-    applys triple_hforall X. rew_ctx.
-    rewrite Ctx_app_rev_add. rewrite EG2. applys~ IHxs'. }
-Qed.
-
 Lemma wp_sound_match : forall t0 pts,
   wp_sound t0 ->
   (forall p t, mem (p,t) pts -> wp_sound t) ->
@@ -852,9 +818,12 @@ Proof using.
     { intros G EG Hp. applys triple_hand_l.
       forwards~ IH: M2 p t. clears IHpts' M2. subst v.
       rewrite <- EG. rewrite <- isubst_app_eq_isubst_isubst_rem_vars.
-      sets_eq xs: (Ctx.dom G). applys~ triple_hprop_forall_vars_intro. }
+      sets_eq xs: (Ctx.dom G). forwards~ W: hforall_vars_intro G xs.
+      applys~ triple_conseq Q W. simpl. 
+      applys~ triple_hwand_hpure_l.
+      applys triple_of_wp. applys IH. }
     { intros Hp. applys triple_hand_r. applys triple_hwand_hpure_l.
-      { applys~ prop_forall_vars_intro. }
+      { applys~ forall_vars_intro. }
       applys triple_of_wp. applys IHpts'. { introv M. applys* M2. } } }
 Qed.
 
@@ -892,7 +861,7 @@ Proof using.
   { applys* wp_sound_apps. }
   { applys* wp_sound_while. }
   { applys* wp_sound_for_trm. }
-  { skip. (* applys* wp_sound_case_trm. *) }
+  { applys* wp_sound_match. }
   { applys wp_sound_fail. }
 Qed.
 
@@ -958,6 +927,8 @@ Proof.
       unfolds wp_apps. destruct~ v0.
       destruct~ p; destruct vs as [|v1 [|v2 [ | ]]]; auto. }
     { applys* is_flocal_wp_getval. } }
+  { simpl. applys* is_flocal_wp_getval. intros v0.
+    induction pts as [|(p,t') pts']; intros; auto. }
 Qed.
 
 End IsLocalWp.

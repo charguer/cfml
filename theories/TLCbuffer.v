@@ -163,6 +163,7 @@ Qed.
 
 Hint Rewrite LibList.length_map : rew_listx.
 
+(* TODO: replace all List_foo_eq with a rew_list_exec tactic *)
 
 (*----------------------*)
 (* Hint for LibListZ *)
