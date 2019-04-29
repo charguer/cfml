@@ -34,22 +34,23 @@ Proof using. apply (Inhab_of_val (fun _ => \[])). Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Semantic interpretation of a WP *)
 
-(** [wp t Q] defines the weakest-precondition for term [t] 
+(** [wpfinal t Q] defines the weakest-precondition for term [t] 
     and postcondition [Q]. 
 
-    [H ==> wp t Q] is equivalent to [triple t H Q].
+    [H ==> wpfinal t Q] is equivalent to [triple t H Q].
 
-    [wp] is defined in terms of the generic definition of [weakestpre]:
-    [Definition weakestpre F Q := \exists H, H \* \[F H Q].]
-    which comes from [SepFunctor]. *)
+    [wpfinal] is defined in terms of the generic definition 
+    of [weakestpre], which comes from [SepFunctor], and is defined as:
+    [ Definition weakestpre F Q := \exists H, H \* \[F H Q]. ]
+*)
 
-Definition wp (t:trm) : formula :=
+Definition wpfinal (t:trm) : formula :=
   weakestpre (triple t).
 
-(** [wpsubst E t] is a shorthand for [wp (isubst E t)] *)
+(** [wpsubst E t] is a shorthand for [wpfinal (substs E t)] *)
 
 Definition wpsubst E t :=
-  wp (isubst E t).
+  wpfinal (isubst E t).
 
 
 (* ---------------------------------------------------------------------- *)
@@ -183,9 +184,8 @@ Proof using.
 Qed.
 
 (** [mkflocal] can be erased, with transitivity *)
-(* TODO DEPRECATED *)
 
-Lemma mkflocal_erase' : forall H F Q, 
+Lemma mkflocal_erase' : forall H F Q, (* TODO: rename *)
   H ==> F Q ->
   H ==> mkflocal F Q.
 Proof using.
@@ -364,10 +364,24 @@ Definition wpmk_unop_bool (v1:val) (F:bool->val) : formula := mkflocal (fun Q =>
 Definition wpmk_binop_int (v1 v2:val) (F:int->int->val) : formula := mkflocal (fun Q =>
   \exists n1 n2, \[v1 = val_int n1 /\ v2 = val_int n2] \* Q (F n1 n2)).
 
+(* TODO: might not be needed to treat special builtins *)
+
+Definition wpaux_apps_val (v0:val) (vs:vals) : formula := 
+  match v0, vs with
+  | val_prim val_opp, (v1::nil) => wpmk_unop_int v1 (fun n1 => - n1)
+  | val_prim val_neg, (v1::nil) => wpmk_unop_bool v1 (fun b1 => neg b1)
+  | val_prim val_eq, (v1::v2::nil) => wpmk_val (isTrue (v1 = v2))
+  | val_prim val_neq, (v1::v2::nil) => wpmk_val (isTrue (v1 <> v2))
+  | val_prim val_add, (v1::v2::nil) => wpmk_binop_int v1 v2 (fun n1 n2 => n1 + n2)
+  | val_prim val_sub, (v1::v2::nil) => wpmk_binop_int v1 v2 (fun n1 n2 => n1 - n2)
+  | val_prim val_mul, (v1::v2::nil) => wpmk_binop_int v1 v2 (fun n1 n2 => n1 * n2)
+  | _, _ => mkflocal (wpfinal (trm_apps v0 vs))
+  end.  (* not included: arithmetic comparisons *)
+
 Definition wpaux_apps wpmk (E:ctx) (v0:val) : list val -> list trm -> formula := 
   fix mk (rvs : list val) (ts : list trm) : formula :=
     match ts with
-    | nil => mkflocal (wp (trm_apps v0 (trms_vals (List.rev rvs))))
+    | nil => wpaux_apps_val v0 (List.rev rvs)
     | t1::ts' => wpaux_getval wpmk E t1 (fun v1 => mk (v1::rvs) ts')
     end.
 
@@ -444,38 +458,38 @@ Fixpoint wpmk (E:ctx) (t:trm) : formula :=
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of semantical wp *)
 
-(** [wp t] is a mkflocal formula *)
+(** [wpfinal t] is a mkflocal formula *)
 
-Lemma flocal_wp : forall t,
-  flocal (wp t).
+Lemma flocal_wpfinal : forall t,
+  flocal (wpfinal t).
 Proof using. intros. applys~ flocal_weakestpre. Qed.
 
 (** Equivalence between a [triple] and its weakest-precondition presentation. *)
 
-Lemma triple_eq_himpl_wp : forall H Q t,
-  triple t H Q = (H ==> wp t Q).
+Lemma triple_eq_himpl_wpfinal : forall H Q t,
+  triple t H Q = (H ==> wpfinal t Q).
 Proof using. intros. applys~ weakestpre_eq. Qed.
 
 (** Reformulation of the right-to-left implication above as an implication. *)
 
 Lemma triple_of_wp : forall H Q t,
-  H ==> wp t Q ->
+  H ==> wpfinal t Q ->
   triple t H Q.
-Proof using. intros. rewrite* triple_eq_himpl_wp. Qed.
+Proof using. intros. rewrite* triple_eq_himpl_wpfinal. Qed.
 
 (** Reformulation of the left-to-right implication above in the form
     of an entailment. *)
 
-Lemma qimpl_wp : forall t F,
+Lemma qimpl_wpfinal : forall t F,
   (forall Q, triple t (F Q) Q) ->
-  F ===> wp t.
-Proof using. introv M. intros Q. rewrite~ <- triple_eq_himpl_wp. Qed.
+  F ===> wpfinal t.
+Proof using. introv M. intros Q. rewrite~ <- triple_eq_himpl_wpfinal. Qed.
 
-(** Another corrolary of [triple_eq_himpl_wp],
-    Remark: it is not used in the proofs below, [triple_of_wp] is more useful. *)
+(** Another corrolary of [triple_eq_himpl_wpfinal],
+    (not used in the proofs below). *)
 
-Lemma triple_wp : forall t Q,
-  triple t (wp t Q) Q.
+Lemma triple_wpfinal : forall t Q,
+  triple t (wpfinal t Q) Q.
 Proof using. intros. applys~ weakestpre_pre. Qed.
 
 
@@ -538,7 +552,7 @@ Lemma wpmk_sound_getval : forall E C t1 F2of,
   (forall v, F2of v ===> wpsubst E (C (trm_val v))) ->
   wpaux_getval wpmk E t1 F2of ===> wpsubst E (C t1).
 Proof using.
-  introv HC M1 M2. applys qimpl_wp. simpl. intros Q.
+  introv HC M1 M2. applys qimpl_wpfinal. simpl. intros Q.
   tests C1: (trm_is_val t1).
   { destruct C1 as (v&Et). subst. simpl. 
     apply triple_of_wp. applys M2. }
@@ -561,7 +575,7 @@ Proof using. intros. intros E Q. applys himpl_wpmk_fail_l. Qed.
 Lemma wpmk_sound_var : forall x,
   wpmk_sound (trm_var x).
 Proof using.
-  intros. intros E. applys qimpl_wp. simpl.
+  intros. intros E. applys qimpl_wpfinal. simpl.
   intros Q. unfold wpaux_var. destruct (Ctx.lookup x E).
   { remove_mkflocal. apply~ triple_val. }
   { applys~ triple_wpmk_fail. }
@@ -570,14 +584,14 @@ Qed.
 Lemma wpmk_sound_val : forall v,
   wpmk_sound (trm_val v).
 Proof using.
-  intros. intros E. applys qimpl_wp. simpl.
+  intros. intros E. applys qimpl_wpfinal. simpl.
   intros Q. remove_mkflocal. applys~ triple_val.
 Qed.
 
 Lemma wpmk_sound_fixs : forall f xs t,
   wpmk_sound (trm_fixs f xs t).
 Proof using.
-  intros. intros E. applys qimpl_wp. simpl. intros Q.
+  intros. intros E. applys qimpl_wpfinal. simpl. intros Q.
   destruct xs as [|x xs'].
   { applys~ triple_wpmk_fail. }
   { remove_mkflocal. applys~ triple_fixs. auto_false. }
@@ -588,7 +602,7 @@ Lemma wpmk_sound_if_val : forall v0 F1 F2 E t1 t2,
   F2 ===> wpsubst E t2 ->
   wpmk_if_val v0 F1 F2 ===> wpsubst E (trm_if v0 t1 t2).
 Proof using.
-  introv M1 M2. applys qimpl_wp. simpl. intros Q.
+  introv M1 M2. applys qimpl_wpfinal. simpl. intros Q.
   remove_mkflocal. intros b ->. applys triple_if_bool.
   apply triple_of_wp. case_if*.
 Qed.
@@ -599,7 +613,7 @@ Lemma wpmk_sound_if_trm : forall F1 F2 F3 E t1 t2 t3,
   F3 ===> wpsubst E t3 ->
   wpmk_if F1 F2 F3 ===> wpsubst E (trm_if t1 t2 t3).
 Proof using.
-  introv M1 M2 M3. applys qimpl_wp. intros Q.
+  introv M1 M2 M3. applys qimpl_wpfinal. intros Q.
   simpl. unfold wpmk_if. remove_mkflocal. applys triple_if_trm.
   { apply triple_of_wp. applys M1. }
   { intros v. apply triple_of_wp. applys* wpmk_sound_if_val. }
@@ -621,7 +635,7 @@ Lemma wpmk_sound_let : forall F1 F2 E x t1 t2,
   (forall X, F2 X ===> wpsubst (Ctx.add x X E) t2) ->
   wpmk_let F1 F2 ===> wpsubst E (trm_let x t1 t2).
 Proof using.
-  introv M1 M2. applys qimpl_wp. simpl. intros Q.
+  introv M1 M2. applys qimpl_wpfinal. simpl. intros Q.
   remove_mkflocal. applys triple_let.
   { apply triple_of_wp. applys* M1. }
   { intros X. simpl. apply triple_of_wp.
@@ -633,10 +647,65 @@ Lemma wpmk_sound_seq : forall F1 F2 E t1 t2,
   F2 ===> wpsubst E t2 ->
   wpmk_seq F1 F2 ===> wpsubst E (trm_seq t1 t2).
 Proof using.
-  introv M1 M2. applys qimpl_wp. simpl. intros Q.
+  introv M1 M2. applys qimpl_wpfinal. simpl. intros Q.
   remove_mkflocal. applys triple_seq.
   { apply triple_of_wp. applys* M1. }
   { intros X. simpl. apply triple_of_wp. applys* M2. }
+Qed.
+
+Lemma wpmk_sound_redbinop : forall v op v1 v2,
+  redbinop op v1 v2 v ->
+  wpmk_val v ===> wpfinal (trm_apps op (trms_vals (v1::v2::nil))).
+Proof using.
+  introv M. applys qimpl_wpfinal; intros Q; simpl.
+  remove_mkflocal. applys~ is_local_conseq_frame.
+  { applys triple_binop M. } { hsimpl. } { hpull ;=> ? ->. hsimpl. }
+Qed.
+
+Lemma wpmk_sound_redunop_int : forall (F:int->val) op v1,
+  (forall (n1:int), redunop op n1 (F n1)) ->
+  wpmk_unop_int v1 F ===> wpfinal (trm_apps op (trms_vals (v1::nil))).
+Proof using.
+  introv M. applys qimpl_wpfinal; intros Q; simpl.
+  remove_mkflocal. intros n1 ->. applys~ is_local_conseq_frame.
+  { applys triple_unop M. } { hsimpl. } { hpull ;=> ? ->. hsimpl. }
+Qed.
+
+Lemma wpmk_sound_redunop_bool : forall (F:bool->val) op v1,
+  (forall (b1:bool), redunop op b1 (F b1)) ->
+  wpmk_unop_bool v1 F ===> wpfinal (trm_apps op (trms_vals (v1::nil))).
+Proof using.
+  introv M. applys qimpl_wpfinal; intros Q; simpl.
+  remove_mkflocal. intros n1 ->. applys~ is_local_conseq_frame.
+  { applys triple_unop M. } { hsimpl. } { hpull ;=> ? ->. hsimpl. }
+Qed.
+
+Lemma wpmk_sound_redbinop_int : forall (F:int->int->val) op v1 v2,
+  (forall (n1 n2:int), redbinop op n1 n2 (F n1 n2)) ->
+  wpmk_binop_int v1 v2 F ===> wpfinal (trm_apps op (trms_vals (v1::v2::nil))).
+Proof using.
+  introv M. applys qimpl_wpfinal; intros Q; simpl.
+  remove_mkflocal. intros n1 n2 (->&->). applys~ is_local_conseq_frame.
+  { applys triple_binop M. } { hsimpl. } { hpull ;=> ? ->. hsimpl. }
+Qed.
+
+Lemma wpmk_sound_apps_val : forall v0 vs,
+  wpaux_apps_val v0 vs ===> wpfinal (trm_apps v0 vs).
+Proof using.
+  Hint Constructors redunop redbinop.
+  intros.
+  asserts Common: (mkflocal (wpfinal (trm_apps v0 vs)) ===> wpfinal (trm_apps v0 vs)).
+  { apply~ mkflocal_erase_l. { applys flocal_wpfinal. } }
+  intros Q. destruct v0; try solve [ apply Common ].
+  rename p into p. destruct p; try solve [ apply Common ];
+   destruct vs as [|v1 [|v2 [|]]]; try solve [ apply Common ].
+  { applys* wpmk_sound_redunop_bool. }
+  { applys* wpmk_sound_redunop_int. }
+  { applys* wpmk_sound_redbinop. }
+  { applys* wpmk_sound_redbinop. eauto. }
+  { applys* wpmk_sound_redbinop_int. }
+  { applys* wpmk_sound_redbinop_int. }
+  { applys* wpmk_sound_redbinop_int. }
 Qed.
 
 Lemma wpmk_sound_apps : forall t0 ts,
@@ -648,16 +717,15 @@ Proof using.
   fold wpmk. intros v0. clear Q.
   cuts M: (forall rvs,  
     wpaux_apps wpmk E v0 rvs ts ===> 
-    wp (trm_apps v0 ((trms_vals (LibList.rev rvs))++(LibList.map (isubst E) ts)))).
+    wpfinal (trm_apps v0 ((trms_vals (LibList.rev rvs))++(LibList.map (isubst E) ts)))).
   { unfold wpsubst. simpl. rewrite List_map_eq. applys M. }
   induction ts as [|t ts']; intros.
-  { simpl. rewrite List_rev_eq. rew_list.
-    apply~ mkflocal_erase_l. applys flocal_wp. }
+  { simpl. rewrite List_rev_eq. rew_list. applys wpmk_sound_apps_val. }
   { specializes IHts' __. { intros t' Ht'. applys* IHts. }
     unfold wpaux_apps. fold (wpaux_apps wpmk E v0). rew_listx.
     forwards~ M: wpmk_sound_getval E (fun t1 => trm_apps v0 (trms_vals (rev rvs) ++ t1 :: ts')).
     2:{ unfold wpsubst in M. rewrite isubst_trm_apps_app in M. applys M. }
-    intros v1. applys qimpl_wp. intros Q.
+    intros v1. applys qimpl_wpfinal. intros Q.
     rewrite isubst_trm_apps_args. simpl. apply triple_of_wp.
     forwards M: IHts' (v1::rvs). rewrite app_trms_vals_rev_cons in M. applys M. }
 Qed.
@@ -667,13 +735,13 @@ Lemma wpmk_sound_while : forall F1 F2 E t1 t2,
   F2 ===> wpsubst E t2 ->
   wpmk_while F1 F2 ===> wpsubst E (trm_while t1 t2).
 Proof using.
-  introv M1 M2. applys qimpl_wp. simpl. intros Q.
+  introv M1 M2. applys qimpl_wpfinal. simpl. intros Q.
   remove_mkflocal. 
-  set (R := wp (trm_while (isubst E t1) (isubst E t2))).
+  set (R := wpfinal (trm_while (isubst E t1) (isubst E t2))).
   applys triple_hforall R. simpl. applys triple_hwand_hpure_l.
   { split.
-    { applys flocal_wp. }
-    { clears Q. applys qimpl_wp. intros Q.
+    { applys flocal_wpfinal. }
+    { clears Q. applys qimpl_wpfinal. intros Q.
       applys triple_while_raw. apply~ triple_of_wp.
       applys* wpmk_sound_if_trm t1 (trm_seq t2 (trm_while t1 t2)) val_unit.
       { applys* wpmk_sound_seq. eauto. }
@@ -684,14 +752,14 @@ Qed.
 Lemma wpmk_sound_for_val : forall (x:var) v1 v2 F1 E t1,
   (forall X, F1 X ===> wpsubst (Ctx.add x X E) t1) ->
   wpmk_for_val v1 v2 F1 ===> wpsubst E (trm_for x v1 v2 t1).
-Proof using. Opaque Ctx.add Ctx.rem. (* TODO: opaque elsewhere *)
-  introv M. applys qimpl_wp. simpl. intros Q.
+Proof using. Opaque Ctx.add Ctx.rem.
+  introv M. applys qimpl_wpfinal. simpl. intros Q.
   remove_mkflocal. intros n1 n2 (->&->). 
-  set (S := fun (i:int) => wp (isubst E (trm_for x i n2 t1))).
+  set (S := fun (i:int) => wpfinal (isubst E (trm_for x i n2 t1))).
   applys triple_hforall S. simpl. applys triple_hwand_hpure_l.
   { split.
-    { intros r. applys flocal_wp. }
-    { clears Q. intros i. applys qimpl_wp. intros Q.
+    { intros r. applys flocal_wpfinal. }
+    { clears Q. intros i. applys qimpl_wpfinal. intros Q.
       applys triple_for_raw. fold isubst.
       apply~ triple_of_wp. case_if.
       { rewrite <- isubst_add_eq_subst1_isubst.
@@ -724,7 +792,7 @@ Proof using.
   intros v. clears t0 Q.
   induction pts as [|(p,t) pts'].
   { simpl. intros Q. applys himpl_wpmk_fail_l. }
-  { simpl. applys qimpl_wp. intros Q. remove_mkflocal.
+  { simpl. applys qimpl_wpfinal. intros Q. remove_mkflocal.
     simpl. applys triple_match.
     { intros G EG Hp. applys triple_hand_l.
       forwards~ IH: M2 p t. clears IHpts' M2. subst v.
@@ -747,13 +815,13 @@ Proof using.
     ===> wpsubst E (trm_constr id ((trms_vals (LibList.rev rvs))++ts))).
   { applys M. }
   induction ts as [|t ts']; intros.
-  { simpl. rewrite List_rev_eq. rew_list. applys qimpl_wp.
+  { simpl. rewrite List_rev_eq. rew_list. applys qimpl_wpfinal.
     simpl. rewrite List_map_eq.
     intros Q. remove_mkflocal. rewrite map_isubst_trms_vals. applys~ triple_constr. }
   { specializes IHts' __. { intros t' Ht'. applys* IHwp. }
     applys~ wpmk_sound_getval (fun t1 => trm_constr id (trms_vals (rev rvs) ++ t1 :: ts')).
     intros v1. fold (wpmk_constr wpmk E id).
-    applys qimpl_wp. intros Q. rewrite isubst_trm_constr_args.
+    applys qimpl_wpfinal. intros Q. rewrite isubst_trm_constr_args.
     apply triple_of_wp.
     forwards M: IHts' (v1::rvs). unfold trms_vals in *. rew_listx~ in M.
     unfold wpsubst in M. rewrite isubst_trm_constr_args in M. apply M. }
@@ -780,29 +848,29 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Corrolaries of the soundness of [wpmk] *)
 
-Lemma triple_isubst_wpmk : forall t E Q,
+Lemma triple_isubst_wp : forall t E Q,
   triple (isubst E t) (wpmk E t Q) Q.
 Proof using.
   intros. apply triple_of_wp. applys wpmk_sound_trm.
 Qed.
 
-Lemma triple_isubst_of_wpmk : forall t E H Q,
+Lemma triple_isubst_of_wp : forall t E H Q,
   H ==> wpmk E t Q ->
   triple (isubst E t) H Q.
-Proof using. introv M. xchanges M. applys triple_isubst_wpmk. Qed.
+Proof using. introv M. xchanges M. applys triple_isubst_wp. Qed.
 
 Lemma triple_of_wpmk_empty : forall (t:trm) H Q,
   H ==> wpmk Ctx.empty t Q ->
   triple t H Q.
 Proof using.
-  introv M. rewrite <- (isubst_empty t). applys~ triple_isubst_of_wpmk.
+  introv M. rewrite <- (isubst_empty t). applys~ triple_isubst_of_wp.
 Qed.
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** All [wpmk] are trivially [flocal] by construction *)
 
-Section FlocalWpmk.
+Section IsLocalWp.
 
 Hint Extern 1 (flocal _) => (apply flocal_mkflocal).
 
@@ -822,7 +890,7 @@ Qed.
 
 Hint Resolve flocal_wpaux_getval.
 
-Lemma flocal_wpmk : forall E t,
+Lemma flocal_wp : forall E t,
   flocal (wpmk E t).
 Proof.
   intros. induction t using trm_induct; try solve [ simpl; eauto ]. 
@@ -835,11 +903,13 @@ Proof.
     rename l into ts. simpl. generalize (@nil val) as rvs.
     induction ts as [|t' ts']; intros; auto.
     { simpl. generalize (List.rev rvs) as vs. intros.
-      unfolds wpaux_apps. destruct~ v0. } }
+      unfolds wpaux_apps. destruct~ v0.
+      destruct~ p; destruct vs as [|v1 [|v2 [ | ]]]; auto. }
+    { applys* flocal_wpaux_getval. } }
   { simpl. applys* flocal_wpaux_getval. intros v0.
     induction pts as [|(p,t') pts']; intros; auto. }
 Qed.
 
-End FlocalWpmk.
+End IsLocalWp.
 
 
