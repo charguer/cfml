@@ -446,44 +446,44 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Lifting of postconditions *)
 
-(** [Post Q] converts a postcondition of type [A->hprop] into a
+(** [LiftPost Q] converts a postcondition of type [A->hprop] into a
     postcondition of type [val->hprop], where [A] is encodable. *)
 
-Definition Post A `{Enc A} (Q:A->hprop) : val->hprop :=
+Definition LiftPost A `{Enc A} (Q:A->hprop) : val->hprop :=
   fun v => \exists V, \[v = enc V] \* Q V.
 
-(** [Post] is covariant *)
+(** [LiftPost] is covariant *)
 
-Lemma Post_himpl : forall `{Enc A} Q Q',
+Lemma LiftPost_himpl : forall `{Enc A} Q Q',
   Q ===> Q' ->
-  Post Q ===> Post Q'.
+  LiftPost Q ===> LiftPost Q'.
 Proof using.
-  introv M. unfold Post. intros v.
+  introv M. unfold LiftPost. intros v.
   hpull. intros x E. subst v. hsimpl*.
 Qed.
 
-Local Hint Resolve Post_himpl.
+Local Hint Resolve LiftPost_himpl.
 
-(** [Post] distributes over the star *)
+(** [LiftPost] distributes over the star *)
 
-Lemma Post_star : forall `{Enc A} Q H,
-  Post (Q \*+ H) = (Post Q) \*+ H.
+Lemma LiftPost_star : forall `{Enc A} Q H,
+  LiftPost (Q \*+ H) = (LiftPost Q) \*+ H.
 Proof using.
-  intros. unfold Post. applys fun_ext_1.
+  intros. unfold LiftPost. applys fun_ext_1.
   intros v. applys himpl_antisym; hsimpl~.
 Qed.
 
-(** [Post] preserves [is_local] *)
+(** [LiftPost] preserves [is_local] *)
 
-Lemma is_local_Post : forall A `{Enc A} (F:~~val),
+Lemma is_local_LiftPost : forall A `{Enc A} (F:~~val),
   is_local F ->
-  is_local (fun H (Q:A->hprop) => F H (Post Q)).
+  is_local (fun H (Q:A->hprop) => F H (LiftPost Q)).
 Proof using.
   introv L. rename H into EQ. applys is_local_intro.
   intros H Q M. applys~ is_local_elim.
   hchange M. hpull ;=> H1 H2 Q1 (N1&N2).
-  hsimpl H1 H2 (Post Q1). splits~. 
-  do 2 rewrite <- Post_star. applys~ Post_himpl.
+  hsimpl H1 H2 (LiftPost Q1). splits~. 
+  do 2 rewrite <- LiftPost_star. applys~ LiftPost_himpl.
 Qed.
 
 
@@ -564,13 +564,13 @@ Definition Substn (ys:vars) (ds:dyns) (t:trm) : trm :=
     type [A->hprop] for some encodable type [A] *)
 
 Definition Triple (t:trm) `{EA:Enc A} (H:hprop) (Q:A->hprop) : Prop :=
-  triple t H (Post Q).
+  triple t H (LiftPost Q).
 
 (** [Triple] satisfies [is_local], like [triple] does. *)
 
 Lemma is_local_Triple : forall t A `{EA:Enc A},
   is_local (@Triple t A EA).
-Proof using. intros. applys is_local_Post. applys is_local_triple. Qed.
+Proof using. intros. applys is_local_LiftPost. applys is_local_triple. Qed.
 
 Hint Resolve @is_local_Triple.
 
@@ -578,38 +578,38 @@ Hint Resolve @is_local_Triple.
 (* ---------------------------------------------------------------------- *)
 (* ** Lemma for changing the encoder in a triple *)
 
-(** [PostChange Q1 Q2] asserts that [Q1] of type [A1->hprop] entails
+(** [RetypePost Q1 Q2] asserts that [Q1] of type [A1->hprop] entails
     [Q2] of type [A2->hprop]. This predicate is used in the lemmas
     that enable changing the type of the postcondition in a triple. *)
 
-Definition PostChange `{Enc A1} (Q1:A1->hprop) `{Enc A2} (Q2:A2->hprop) :=
+Definition RetypePost `{Enc A1} (Q1:A1->hprop) `{Enc A2} (Q2:A2->hprop) :=
   forall (X:A1), Q1 X ==> \exists (Y:A2), \[enc X = enc Y] \* Q2 Y.
 
-Lemma PostChange_refl : forall `{EA:Enc A} (Q:A->hprop),
-  PostChange Q Q.
+Lemma RetypePost_refl : forall `{EA:Enc A} (Q:A->hprop),
+  RetypePost Q Q.
 Proof using. intros. unfolds. intros X. hsimpl*. Qed.
 
 (* NEEDED TODO RENAME ?*)
-Lemma PostChange_same : forall `{EA:Enc A} (Q1 Q2:A->hprop),
+Lemma RetypePost_same : forall `{EA:Enc A} (Q1 Q2:A->hprop),
   Q1 ===> Q2 ->
-  PostChange Q1 Q2.
+  RetypePost Q1 Q2.
 Proof using. introv M. unfolds. intros X. hchanges* M. Qed.
 
 (* NEEDED ?*)
-Lemma PostChange_same_subst : forall H `{EA:Enc A} (V:A) (Q:A->hprop),
+Lemma RetypePost_same_subst : forall H `{EA:Enc A} (V:A) (Q:A->hprop),
   H ==> Q V ->
-  PostChange (fun x => \[x = V] \* H) Q.
-Proof using. introv M. applys PostChange_same. hpull ;=> ? ->. auto. Qed.
+  RetypePost (fun x => \[x = V] \* H) Q.
+Proof using. introv M. applys RetypePost_same. hpull ;=> ? ->. auto. Qed.
 
 
 Lemma Triple_enc_change :
   forall A1 A2 (t:trm) (H:hprop) `{EA1:Enc A1} (Q1:A1->hprop) `{EA2:Enc A2} (Q2:A2->hprop),
   Triple t H Q1 ->
-  PostChange Q1 Q2 ->
+  RetypePost Q1 Q2 ->
   Triple t H Q2.
 Proof using.
   introv M N. unfolds Triple. applys~ triple_conseq (rm M).
-  unfold Post. intros v. hpull ;=> V EV. subst. applys N.
+  unfold LiftPost. intros v. hpull ;=> V EV. subst. applys N.
 Qed.
 
 (** Specialization of [Triple_enc_change] for converting from a postcondition
@@ -737,7 +737,7 @@ Lemma Triple_val : forall A `{EA:Enc A} (V:A) v H (Q:A->hprop),
   Triple (trm_val v) H Q.
 Proof using.
   introv E M. applys triple_val. subst.
-  unfold Post. hsimpl*.
+  unfold LiftPost. hsimpl*.
 Qed.
 
 Lemma Triple_fixs : forall f xs t1 H (Q:func->hprop),
@@ -745,13 +745,13 @@ Lemma Triple_fixs : forall f xs t1 H (Q:func->hprop),
   H ==> Q (val_fixs f xs t1) ->
   Triple (trm_fixs f xs t1) H Q.
 Proof using.
-  introv N M. applys* triple_fixs. unfold Post. hchanges* M.
+  introv N M. applys* triple_fixs. unfold LiftPost. hchanges* M.
 Qed.
 
 Lemma Triple_constr : forall id vs H (Q:tyconstr->hprop),
   H ==> Q (constr id vs) ->
   Triple (trm_constr id (LibList.map trm_val vs)) H Q.
-Proof using. introv M. applys triple_constr. unfold Post. hchanges* M. Qed.
+Proof using. introv M. applys triple_constr. unfold LiftPost. hchanges* M. Qed.
 
 Lemma Triple_constr_trm : forall id ts t1 vs H,
   forall A `{EA:Enc A} (Q:A->hprop) A1 `{EA1:Enc A1} (Q1:A1->hprop),
@@ -760,7 +760,7 @@ Lemma Triple_constr_trm : forall id ts t1 vs H,
   Triple (trm_constr id ((trms_vals vs)++t1::ts)) H Q.
 Proof using.
   introv M1 M2. applys* triple_constr_trm M1.
-  intros v. unfold Post at 1. xpull ;=> V ->. subst. applys M2.
+  intros v. unfold LiftPost at 1. xpull ;=> V ->. subst. applys M2.
 Qed.
 
 Lemma Triple_let : forall z t1 t2 H,
@@ -770,7 +770,7 @@ Lemma Triple_let : forall z t1 t2 H,
   Triple (trm_let z t1 t2) H Q.
 Proof using.
   introv M1 M2. applys triple_let M1. 
-  intros v. unfold Post at 1. xpull ;=> V ->. subst. applys M2.
+  intros v. unfold LiftPost at 1. xpull ;=> V ->. subst. applys M2.
 Qed.
 
 Lemma Triple_seq : forall t1 t2 H,
@@ -781,7 +781,7 @@ Lemma Triple_seq : forall t1 t2 H,
 Proof using.
   introv M1 M2. applys triple_seq.
   { applys M1. }
-  { intros X. unfold Post. xpull ;=> V E.
+  { intros X. unfold LiftPost. xpull ;=> V E.
     destruct V. applys M2. }
 Qed.
 
@@ -791,9 +791,9 @@ Lemma Triple_if : forall t0 t1 t2 H (Q1:bool->hprop) A `{EA:Enc A} (Q:A->hprop),
   Triple (trm_if t0 t1 t2) H Q.
 Proof using.
   introv M1 M2. applys* triple_if.
-  { intros b. unfold Post. xpull ;=> V E.
+  { intros b. unfold LiftPost. xpull ;=> V E.
     asserts E': (V = b). { destruct* V. } clears E. subst V. applys M2. }
-  { intros v N. unfold Post. hpull ;=> V ->. false N.
+  { intros v N. unfold LiftPost. hpull ;=> V ->. false N.
     rewrite enc_bool_eq. hnfs*. } (* LATER : simplify? *)
 Qed.
 
@@ -835,7 +835,7 @@ Lemma Triple_match_trm : forall t1 pts H,
   Triple (trm_match t1 pts) H Q.
 Proof using.
   introv M1 M2. applys* triple_match_trm.
-  intros v. unfold Post at 1. xpull ;=> V ->. applys M2.
+  intros v. unfold LiftPost at 1. xpull ;=> V ->. applys M2.
 Qed.
 
 Lemma Triple_match : forall v p t1 pts H `{EA:Enc A} (Q:A->hprop),
@@ -866,7 +866,7 @@ Lemma Triple_get : forall A `{EA:Enc A} (V:A) l,
     (l ~~> V)
     (fun x => \[x = V] \* (l ~~> V)).
 Proof using.
-  introv. unfold Triple, Post. rewrite Hsingle_to_hsingle. xapplys* triple_get.
+  introv. unfold Triple, LiftPost. rewrite Hsingle_to_hsingle. xapplys* triple_get.
 Qed.
 
 (** Specification of [set] allowing for change in type (i.e. strong update). *)
@@ -877,7 +877,7 @@ Lemma Triple_set_strong : forall A1 A2 `{EA1:Enc A1} (V1:A1) `{EA2:Enc A2} (V2:A
     (fun u => l ~~> V2).
 Proof using.
   intros. unfold Triple. rewrite Hsingle_to_hsingle. xapplys triple_set.
-  intros. subst. unfold Post. hsimpl~ tt.
+  intros. subst. unfold LiftPost. hsimpl~ tt.
 Qed.
 
 Lemma Triple_set_strong_val : forall v1 A2 `{EA2:Enc A2} (V2:A2) l,
@@ -904,7 +904,7 @@ Lemma Triple_alloc : forall n,
     \[]
     (fun l => \[l <> null] \* Alloc (abs n) l).
 Proof using.
-  introv N. unfold Triple, Post. xapplys* triple_alloc.
+  introv N. unfold Triple, LiftPost. xapplys* triple_alloc.
 Qed.
 
 Lemma Triple_alloc_nat : forall (k:nat),
@@ -923,31 +923,31 @@ Lemma Triple_ptr_add : forall (l:loc) (n:int),
   Triple (val_ptr_add l n)
     \[]
     (fun l' => \[(l':nat) = abs ((l:nat) + n)]).
-Proof using. intros. unfold Triple, Post. xapplys* triple_ptr_add. Qed.
+Proof using. intros. unfold Triple, LiftPost. xapplys* triple_ptr_add. Qed.
 
 Lemma Triple_ptr_add_nat : forall (l:loc) (f:nat),
   Triple (val_ptr_add l f)
     \[]
     (fun l' => \[(l':nat) = (l+f)%nat]).
-Proof using. intros. unfold Triple, Post. xapplys* triple_ptr_add_nat. Qed.
+Proof using. intros. unfold Triple, LiftPost. xapplys* triple_ptr_add_nat. Qed.
 
 Lemma Triple_neg : forall b1,
   Triple (val_neg b1)
     \[]
     (fun b => \[b = neg b1]).
-Proof using. intros. unfold Triple, Post. xapplys* triple_neg. Qed.
+Proof using. intros. unfold Triple, LiftPost. xapplys* triple_neg. Qed.
 
 Lemma Triple_opp : forall n1,
   Triple (val_opp n1)
     \[]
     (fun n => \[n = - n1]).
-Proof using. intros. unfold Triple, Post. xapplys* triple_opp. Qed.
+Proof using. intros. unfold Triple, LiftPost. xapplys* triple_opp. Qed.
 
 Lemma Triple_eq_val : forall v1 v2,
   Triple (val_eq v1 v2)
     \[]
     (fun b => \[ b = isTrue (v1 = v2) ]).
-Proof using. intros. unfold Triple, Post. xapplys* triple_eq. Qed.
+Proof using. intros. unfold Triple, LiftPost. xapplys* triple_eq. Qed.
 
 Lemma Triple_eq : forall `{EA:Enc A},
   Enc_injective EA ->
@@ -965,7 +965,7 @@ Lemma Triple_neq_val : forall v1 v2,
   Triple (val_neq v1 v2)
     \[]
     (fun b => \[ b = isTrue (v1 <> v2) ]).
-Proof using. intros. unfold Triple, Post. xapplys* triple_neq. Qed.
+Proof using. intros. unfold Triple, LiftPost. xapplys* triple_neq. Qed.
 
 Lemma Triple_neq : forall `{EA:Enc A},
   Enc_injective EA ->
@@ -983,57 +983,57 @@ Lemma Triple_add : forall n1 n2,
   Triple (val_add n1 n2)
     \[]
     (fun n => \[n = n1 + n2]).
-Proof using. intros. unfold Triple, Post. xapplys* triple_add. Qed.
+Proof using. intros. unfold Triple, LiftPost. xapplys* triple_add. Qed.
 
 Lemma Triple_sub : forall n1 n2,
   Triple (val_sub n1 n2)
     \[]
     (fun n => \[n = n1 - n2]).
-Proof using. intros. unfold Triple, Post. xapplys* triple_sub. Qed.
+Proof using. intros. unfold Triple, LiftPost. xapplys* triple_sub. Qed.
 
 Lemma Triple_mul : forall n1 n2,
   Triple (val_mul n1 n2)
     \[]
     (fun n => \[n = n1 * n2]).
-Proof using. intros. unfold Triple, Post. xapplys* triple_mul. Qed.
+Proof using. intros. unfold Triple, LiftPost. xapplys* triple_mul. Qed.
 
 Lemma Triple_div : forall n1 n2,
   n2 <> 0 ->
   Triple (val_div n1 n2)
     \[]
     (fun n => \[n = Z.quot n1 n2]).
-Proof using. intros. unfold Triple, Post. xapplys* triple_div. Qed.
+Proof using. intros. unfold Triple, LiftPost. xapplys* triple_div. Qed.
 
 Lemma Triple_mod : forall n1 n2,
   n2 <> 0 ->
   Triple (val_mod n1 n2)
     \[]
     (fun n => \[n = Z.rem n1 n2]).
-Proof using. intros. unfold Triple, Post. xapplys* triple_mod. Qed.
+Proof using. intros. unfold Triple, LiftPost. xapplys* triple_mod. Qed.
 
 Lemma Triple_le : forall n1 n2,
   Triple (val_le n1 n2)
     \[]
     (fun b => \[b = isTrue (n1 <= n2)]).
-Proof using. intros. unfold Triple, Post. xapplys* triple_le. Qed.
+Proof using. intros. unfold Triple, LiftPost. xapplys* triple_le. Qed.
 
 Lemma Triple_lt : forall n1 n2,
   Triple (val_lt n1 n2)
     \[]
     (fun b => \[b = isTrue (n1 < n2)]).
-Proof using. intros. unfold Triple, Post. xapplys* triple_lt. Qed.
+Proof using. intros. unfold Triple, LiftPost. xapplys* triple_lt. Qed.
 
 Lemma Triple_ge : forall n1 n2,
   Triple (val_ge n1 n2)
     \[]
     (fun b => \[b = isTrue (n1 >= n2)]).
-Proof using. intros. unfold Triple, Post. xapplys* triple_ge. Qed.
+Proof using. intros. unfold Triple, LiftPost. xapplys* triple_ge. Qed.
 
 Lemma Triple_gt : forall n1 n2,
   Triple (val_gt n1 n2)
     \[]
     (fun b => \[b = isTrue (n1 > n2)]).
-Proof using. intros. unfold Triple, Post. xapplys* triple_gt. Qed.
+Proof using. intros. unfold Triple, LiftPost. xapplys* triple_gt. Qed.
 
 
 

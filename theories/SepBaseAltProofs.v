@@ -217,7 +217,7 @@ Import SepBase SepLifted.
 
 Implicit Types H : hprop.
 
-Hint Resolve Post_himpl.
+Hint Resolve LiftPost_himpl.
 
 Lemma Triple_conseq : forall t H' `{Enc A} (Q':A->hprop) H (Q:A->hprop),
   H ==> H' ->
@@ -257,7 +257,7 @@ Lemma Triple_frame : forall t `{Enc A} H (Q:A->hprop) H',
   Triple t H Q ->
   Triple t (H \* H') (Q \*+ H').
 Proof using.
-  introv M. unfold Triple. rewrite Post_star. applys* triple_frame.
+  introv M. unfold Triple. rewrite LiftPost_star. applys* triple_frame.
 Qed.
 
 (*
@@ -294,7 +294,7 @@ Lemma Triple_hgc_post : forall t `{Enc A} H (Q:A->hprop),
   Triple t H (Q \*+ \GC) ->
   Triple t H Q.
 Proof using.
-  introv M. unfolds Triple. rewrite Post_star in M. applys* triple_hgc_post.
+  introv M. unfolds Triple. rewrite LiftPost_star in M. applys* triple_hgc_post.
 Qed.
 
 Lemma Triple_hgc_pre : forall t `{Enc A} H (Q:A->hprop),
@@ -309,7 +309,7 @@ Lemma Triple_combined : forall t H1 H2 `{Enc A} (Q1 Q:A->hprop) H,
   Triple t H Q.
 Proof using.
   introv M WH WQ. applys* triple_conseq_frame_hgc.
-  do 2 rewrite <- Post_star. apply* Post_himpl.
+  do 2 rewrite <- LiftPost_star. apply* LiftPost_himpl.
 Qed.
 
 End SepLiftedAltStruct.

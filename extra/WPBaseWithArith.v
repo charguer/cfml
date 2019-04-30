@@ -913,3 +913,72 @@ Qed.
 End IsLocalWp.
 
 
+
+
+
+
+
+
+
+
+==========
+(* DEPRECATED
+Definition Wpgen_unop_int (v1:val) (F:int->int) : Formula := 
+  Local (Formula_typed (fun (Q:int->hprop) =>
+    \exists n1, \[v1 = val_int n1] \* Q (F n1))).
+
+Definition Wpgen_unop_bool (v1:val) (F:bool->bool) : Formula := 
+  Local (Formula_typed (fun (Q:bool->hprop) =>
+    \exists b1, \[v1 = val_bool b1] \* Q (F b1))).
+
+Definition Wpgen_binop_int (v1 v2:val) (F:int->int->int) : Formula :=
+  Local (Formula_typed (fun (Q:int->hprop) =>
+    \exists n1 n2, \[v1 = val_int n1 /\ v2 = val_int n2] \* Q (F n1 n2))).
+*)
+
+(* TODO
+  | val_prim val_opp, (v1::nil) => Wpgen_unop_int v1 (fun n1 => - n1)
+  | val_prim val_neg, (v1::nil) => Wpgen_unop_bool v1 (fun b1 => neg b1)
+  | val_prim val_eq, (v1::v2::nil) => Wpgen_val (isTrue (v1 = v2))
+  | val_prim val_neq, (v1::v2::nil) => Wpgen_val (isTrue (v1 <> v2))
+  | val_prim val_add, (v1::v2::nil) => Wpgen_binop_int v1 v2 (fun n1 n2 => n1 + n2)
+  | val_prim val_sub, (v1::v2::nil) => Wpgen_binop_int v1 v2 (fun n1 n2 => n1 - n2)
+  | val_prim val_mul, (v1::v2::nil) => Wpgen_binop_int v1 v2 (fun n1 n2 => n1 * n2)
+*)
+(* not included: arithmetic comparisons *)
+
+
+(* DEPRECATED
+Definition Wpgen_getval' Wpgen (E:ctx) (t1:trm) (F2of:forall A1 {EA1:Enc A1},A1->Formula) : Formula :=
+  match t1 with
+  | trm_val v => Wpgen_letval v F2of
+  | trm_var x => match Ctx.lookup x E with
+                        | Some v => Wpgen_letval v F2of
+                        | None => Wpgen_fail
+                        end
+  | _ => Wpgen_let (Wpgen E t1) F2of
+  end.
+*)
+
+(* NEEDED?
+Definition Wpgen_getval_val Wpgen (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
+  match t1 with
+  | trm_val v => F2of v
+  | trm_var x => match Ctx.lookup x E with
+                        | Some v => F2of v
+                        | None => Wpgen_fail
+                        end
+  | _ => Wpgen_let_typed (Wpgen E t1) F2of
+  end.
+*)
+
+(** DEPRECATED
+    [Wpgen_var] prevents [simpl] from simplifying context lookups, hence we
+    inline its definition at the place of use, using a notation. 
+
+Notation "'Wpgen_var'' E x" :=
+  (match Ctx.lookup x E with
+  | None => Wpgen_fail
+  | Some v => Wpgen_val v
+  end) (at level 37, E at level 0, x at level 0).
+*)

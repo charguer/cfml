@@ -320,119 +320,119 @@ Qed.
 (** These auxiliary definitions give the characteristic formula
     associated with each term construct. *)
 
-Definition wpmk_fail : formula := mkflocal (fun Q =>
+Definition wpgen_fail : formula := mkflocal (fun Q =>
   \[False]).
 
-Definition wpmk_val (v:val) : formula := mkflocal (fun Q =>
+Definition wpgen_val (v:val) : formula := mkflocal (fun Q =>
   Q v).
 
 Definition wpaux_var (E:ctx) (x:var) : formula :=
   match Ctx.lookup x E with
-  | None => wpmk_fail
-  | Some v => wpmk_val v
+  | None => wpgen_fail
+  | Some v => wpgen_val v
   end.
 
-Definition wpmk_let (F1:formula) (F2of:val->formula) : formula := mkflocal (fun Q =>
+Definition wpgen_let (F1:formula) (F2of:val->formula) : formula := mkflocal (fun Q =>
   F1 (fun X => F2of X Q)).
 
-Definition wpmk_seq (F1 F2:formula) : formula := mkflocal (fun Q =>
+Definition wpgen_seq (F1 F2:formula) : formula := mkflocal (fun Q =>
   F1 (fun X => F2 Q)).
 
-Definition wpaux_getval wpmk (E:ctx) (t1:trm) (F2of:val->formula) : formula :=
+Definition wpaux_getval wpgen (E:ctx) (t1:trm) (F2of:val->formula) : formula :=
   match t1 with
   | trm_val v => F2of v
   | trm_var x => match Ctx.lookup x E with
                         | Some v => F2of v
-                        | None => wpmk_fail
+                        | None => wpgen_fail
                         end
-  | _ => wpmk_let (wpmk E t1) F2of
+  | _ => wpgen_let (wpgen E t1) F2of
   end.
 
-Definition wpmk_constr wpmk (E:ctx) (id:idconstr) : list val -> list trm -> formula := 
+Definition wpgen_constr wpgen (E:ctx) (id:idconstr) : list val -> list trm -> formula := 
   fix mk (rvs : list val) (ts : list trm) : formula :=
     match ts with
-    | nil => wpmk_val (val_constr id (List.rev rvs))
-    | t1::ts' => wpaux_getval wpmk E t1 (fun v1 => mk (v1::rvs) ts')
+    | nil => wpgen_val (val_constr id (List.rev rvs))
+    | t1::ts' => wpaux_getval wpgen E t1 (fun v1 => mk (v1::rvs) ts')
     end.
 
-Definition wpmk_unop_int (v1:val) (F:int->val) : formula := mkflocal (fun Q =>
+Definition wpgen_unop_int (v1:val) (F:int->val) : formula := mkflocal (fun Q =>
   \exists n1, \[v1 = val_int n1] \* Q (F n1)).
 
-Definition wpmk_unop_bool (v1:val) (F:bool->val) : formula := mkflocal (fun Q =>
+Definition wpgen_unop_bool (v1:val) (F:bool->val) : formula := mkflocal (fun Q =>
   \exists b1, \[v1 = val_bool b1] \* Q (F b1)).
 
-Definition wpmk_binop_int (v1 v2:val) (F:int->int->val) : formula := mkflocal (fun Q =>
+Definition wpgen_binop_int (v1 v2:val) (F:int->int->val) : formula := mkflocal (fun Q =>
   \exists n1 n2, \[v1 = val_int n1 /\ v2 = val_int n2] \* Q (F n1 n2)).
 
-Definition wpaux_apps wpmk (E:ctx) (v0:val) : list val -> list trm -> formula := 
+Definition wpaux_apps wpgen (E:ctx) (v0:val) : list val -> list trm -> formula := 
   fix mk (rvs : list val) (ts : list trm) : formula :=
     match ts with
     | nil => mkflocal (wp (trm_apps v0 (trms_vals (List.rev rvs))))
-    | t1::ts' => wpaux_getval wpmk E t1 (fun v1 => mk (v1::rvs) ts')
+    | t1::ts' => wpaux_getval wpgen E t1 (fun v1 => mk (v1::rvs) ts')
     end.
 
-Definition wpmk_if_val (v:val) (F1 F2:formula) : formula := mkflocal (fun Q =>
+Definition wpgen_if_val (v:val) (F1 F2:formula) : formula := mkflocal (fun Q =>
   \exists (b:bool), \[v = val_bool b] \* (if b then F1 Q else F2 Q)).
 
-Definition wpmk_if (F0 F1 F2:formula) : formula :=
-  wpmk_let F0 (fun v => wpmk_if_val v F1 F2).
+Definition wpgen_if (F0 F1 F2:formula) : formula :=
+  wpgen_let F0 (fun v => wpgen_if_val v F1 F2).
 
-Definition wpmk_while (F1 F2:formula) : formula := mkflocal (fun Q =>
+Definition wpgen_while (F1 F2:formula) : formula := mkflocal (fun Q =>
   \forall (R:formula),
-  let F := wpmk_if F1 (wpmk_seq F2 R) (wpmk_val val_unit) in
+  let F := wpgen_if F1 (wpgen_seq F2 R) (wpgen_val val_unit) in
   \[ flocal R /\ F ===> R] \-* (R Q)).
 
-Definition wpmk_for_val (v1 v2:val) (F1:val->formula) : formula := mkflocal (fun Q =>
+Definition wpgen_for_val (v1 v2:val) (F1:val->formula) : formula := mkflocal (fun Q =>
   \exists (n1:int) (n2:int), \[v1 = val_int n1 /\ v2 = val_int n2] \*
   \forall (S:int->formula),
-  let F i := If (i <= n2) then (wpmk_seq (F1 i) (S (i+1)))
-                          else (wpmk_val val_unit) in
+  let F i := If (i <= n2) then (wpgen_seq (F1 i) (S (i+1)))
+                          else (wpgen_val val_unit) in
   \[ flocal_pred S /\ (forall i, F i ===> S i)] \-* (S n1 Q)).
 
-Definition wpmk_case_val (F1:formula) (P:Prop) (F2:formula) : formula :=
+Definition wpgen_case_val (F1:formula) (P:Prop) (F2:formula) : formula :=
   mkflocal (fun Q =>
     hand (F1 Q) (\[P] \-* F2 Q)).
 
-Definition wpaux_match wpmk (E:ctx) (v:val) : list (pat*trm) -> formula := 
+Definition wpaux_match wpgen (E:ctx) (v:val) : list (pat*trm) -> formula := 
   fix mk (pts:list(pat*trm)) : formula :=
     match pts with
-    | nil => wpmk_fail
+    | nil => wpgen_fail
     | (p,t)::pts' =>
         let xs := patvars p in
         let F1 (Q:val->hprop) := 
            hforall_vars (fun G => let E' := (Ctx.app G E) in
-              \[v = patsubst G p] \-* (wpmk E' t) Q) Ctx.empty xs in
+              \[v = patsubst G p] \-* (wpgen E' t) Q) Ctx.empty xs in
         let P := forall_vars (fun G => v <> patsubst G p) Ctx.empty xs in
-        wpmk_case_val F1 P (mk pts')
+        wpgen_case_val F1 P (mk pts')
     end.
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of the CF generator *)
 
-Fixpoint wpmk (E:ctx) (t:trm) : formula :=
-  let aux := wpmk E in
+Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+  let aux := wpgen E in
   match t with
-  | trm_val v => wpmk_val v
+  | trm_val v => wpgen_val v
   | trm_var x => wpaux_var E x
   | trm_fixs f xs t1 => 
       match xs with 
-      | nil => wpmk_fail
-      | _ => wpmk_val (val_fixs f xs (isubst (Ctx.rem_vars xs (Ctx.rem f E)) t1))
+      | nil => wpgen_fail
+      | _ => wpgen_val (val_fixs f xs (isubst (Ctx.rem_vars xs (Ctx.rem f E)) t1))
       end
-  | trm_constr id ts => wpmk_constr wpmk E id nil ts
-  | trm_if t0 t1 t2 => wpaux_getval wpmk E t0 (fun v0 => wpmk_if_val v0 (aux t1) (aux t2))
-  | trm_let x t1 t2 => wpmk_let (aux t1) (fun X => wpmk (Ctx.add x X E) t2)
-  | trm_apps t0 ts => wpaux_getval wpmk E t0 (fun v0 => wpaux_apps wpmk E v0 nil ts)
-  | trm_while t1 t2 => wpmk_while (aux t1) (aux t2)
+  | trm_constr id ts => wpgen_constr wpgen E id nil ts
+  | trm_if t0 t1 t2 => wpaux_getval wpgen E t0 (fun v0 => wpgen_if_val v0 (aux t1) (aux t2))
+  | trm_let x t1 t2 => wpgen_let (aux t1) (fun X => wpgen (Ctx.add x X E) t2)
+  | trm_apps t0 ts => wpaux_getval wpgen E t0 (fun v0 => wpaux_apps wpgen E v0 nil ts)
+  | trm_while t1 t2 => wpgen_while (aux t1) (aux t2)
   | trm_for x t1 t2 t3 => 
-      wpaux_getval wpmk E t1 (fun v1 =>
-        wpaux_getval wpmk E t2 (fun v2 =>
-          wpmk_for_val v1 v2 (fun X => wpmk (Ctx.add x X E) t3)))
+      wpaux_getval wpgen E t1 (fun v1 =>
+        wpaux_getval wpgen E t2 (fun v2 =>
+          wpgen_for_val v1 v2 (fun X => wpgen (Ctx.add x X E) t3)))
   | trm_match t0 pts =>
-      wpaux_getval wpmk E t0 (fun v0 =>
-        wpaux_match wpmk E v0 pts)
-  | trm_fail => wpmk_fail
+      wpaux_getval wpgen E t0 (fun v0 =>
+        wpaux_match wpgen E v0 pts)
+  | trm_fail => wpgen_fail
   end.
 
 (* Note: for simplicity, no special handling here of trm_seq, unlike in WPLifted. *)
@@ -499,44 +499,40 @@ Qed.
 
 Ltac remove_mkflocal :=
   match goal with |- triple _ _ ?Q =>
-    applys triple_mkflocal_pre; try (clear Q; intros Q); xpull; fold wpmk end.
+    applys triple_mkflocal_pre; try (clear Q; intros Q); xpull; fold wpgen end.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Soundness of [wpmk] *)
+(* ** Soundness of [wpgen] *)
 
-(** [wpmk_sound t] asserts that [wpmk] is sound for all contexts [E],
-    in the sense that the syntactic wpmk entails the semantics wp:
+(** [wpgen_sound t] asserts that [wpgen] is sound for all contexts [E],
+    in the sense that the syntactic wpgen entails the semantics wp:
 [[
-    forall Q,  wpmk E t Q ==> wpsubst E t Q
+    forall Q,  wpgen E t Q ==> wpsubst E t Q
 ]] *)
 
-Definition wpmk_sound t := forall E,
-  wpmk E t ===> wpsubst E t.
+Definition wpgen_sound t := forall E,
+  wpgen E t ===> wpsubst E t.
 
-(** Lemma for [wpmk_fail] *)
+(** Lemma for [wpgen_fail] *)
 
-Lemma himpl_wpmk_fail_l : forall Q H,
-  wpmk_fail Q ==> H.
-Proof using. intros. unfold wpmk_fail, mkflocal. hpull. Qed.
+Lemma himpl_wpgen_fail_l : forall Q H,
+  wpgen_fail Q ==> H.
+Proof using. intros. unfold wpgen_fail, mkflocal. hpull. Qed.
 
-Lemma qimpl_wpmk_fail_l : forall F,
-  wpmk_fail ===> F.
-Proof using. intros. intros Q. applys himpl_wpmk_fail_l. Qed.
-
-Lemma triple_wpmk_fail : forall t Q Q',
-  triple t (wpmk_fail Q) Q'.
+Lemma triple_wpgen_fail : forall t Q Q',
+  triple t (wpgen_fail Q) Q'.
 Proof using. 
-  intros. apply triple_of_wp. applys himpl_wpmk_fail_l.
+  intros. apply triple_of_wp. applys himpl_wpgen_fail_l.
 Qed.
 
-(** Soundness of the [wpmk] for the various constructs *)
+(** Soundness of the [wpgen] for the various constructs *)
 
-Lemma wpmk_sound_getval : forall E C t1 F2of,
+Lemma wpgen_sound_getval : forall E C t1 F2of,
   evalctx C ->
-  wpmk_sound t1 ->
+  wpgen_sound t1 ->
   (forall v, F2of v ===> wpsubst E (C (trm_val v))) ->
-  wpaux_getval wpmk E t1 F2of ===> wpsubst E (C t1).
+  wpaux_getval wpgen E t1 F2of ===> wpsubst E (C t1).
 Proof using.
   introv HC M1 M2. applys qimpl_wp. simpl. intros Q.
   tests C1: (trm_is_val t1).
@@ -547,79 +543,79 @@ Proof using.
     { intros v Ev. rewrites~ (>> isubst_evalctx_trm_var Ev).
       apply triple_of_wp. applys M2. }
     { introv N. remove_mkflocal. intros; false. } }
-  asserts_rewrite (wpaux_getval wpmk E t1 F2of = wpmk_let (wpmk E t1) F2of).
+  asserts_rewrite (wpaux_getval wpgen E t1 F2of = wpgen_let (wpgen E t1) F2of).
   { destruct t1; auto. { false C1. hnfs*. } { false C2. hnfs*. } }
   remove_mkflocal. applys~ triple_isubst_evalctx.
   { apply triple_of_wp. applys M1. }
   { intros v. apply triple_of_wp. applys M2. }
 Qed.
 
-Lemma wpmk_sound_fail :
-  wpmk_sound trm_fail.
-Proof using. intros. intros E Q. applys himpl_wpmk_fail_l. Qed.
+Lemma wpgen_sound_fail :
+  wpgen_sound trm_fail.
+Proof using. intros. intros E Q. applys himpl_wpgen_fail_l. Qed.
 
-Lemma wpmk_sound_var : forall x,
-  wpmk_sound (trm_var x).
+Lemma wpgen_sound_var : forall x,
+  wpgen_sound (trm_var x).
 Proof using.
   intros. intros E. applys qimpl_wp. simpl.
   intros Q. unfold wpaux_var. destruct (Ctx.lookup x E).
   { remove_mkflocal. apply~ triple_val. }
-  { applys~ triple_wpmk_fail. }
+  { applys~ triple_wpgen_fail. }
 Qed.
 
-Lemma wpmk_sound_val : forall v,
-  wpmk_sound (trm_val v).
+Lemma wpgen_sound_val : forall v,
+  wpgen_sound (trm_val v).
 Proof using.
   intros. intros E. applys qimpl_wp. simpl.
   intros Q. remove_mkflocal. applys~ triple_val.
 Qed.
 
-Lemma wpmk_sound_fixs : forall f xs t,
-  wpmk_sound (trm_fixs f xs t).
+Lemma wpgen_sound_fixs : forall f xs t,
+  wpgen_sound (trm_fixs f xs t).
 Proof using.
   intros. intros E. applys qimpl_wp. simpl. intros Q.
   destruct xs as [|x xs'].
-  { applys~ triple_wpmk_fail. }
+  { applys~ triple_wpgen_fail. }
   { remove_mkflocal. applys~ triple_fixs. auto_false. }
 Qed.
 
-Lemma wpmk_sound_if_val : forall v0 F1 F2 E t1 t2,
+Lemma wpgen_sound_if_val : forall v0 F1 F2 E t1 t2,
   F1 ===> wpsubst E t1 ->
   F2 ===> wpsubst E t2 ->
-  wpmk_if_val v0 F1 F2 ===> wpsubst E (trm_if v0 t1 t2).
+  wpgen_if_val v0 F1 F2 ===> wpsubst E (trm_if v0 t1 t2).
 Proof using.
   introv M1 M2. applys qimpl_wp. simpl. intros Q.
   remove_mkflocal. intros b ->. applys triple_if_bool.
   apply triple_of_wp. case_if*.
 Qed.
 
-Lemma wpmk_sound_if_trm : forall F1 F2 F3 E t1 t2 t3,
+Lemma wpgen_sound_if_trm : forall F1 F2 F3 E t1 t2 t3,
   F1 ===> wpsubst E t1 ->
   F2 ===> wpsubst E t2 ->
   F3 ===> wpsubst E t3 ->
-  wpmk_if F1 F2 F3 ===> wpsubst E (trm_if t1 t2 t3).
+  wpgen_if F1 F2 F3 ===> wpsubst E (trm_if t1 t2 t3).
 Proof using.
   introv M1 M2 M3. applys qimpl_wp. intros Q.
-  simpl. unfold wpmk_if. remove_mkflocal. applys triple_if_trm.
+  simpl. unfold wpgen_if. remove_mkflocal. applys triple_if_trm.
   { apply triple_of_wp. applys M1. }
-  { intros v. apply triple_of_wp. applys* wpmk_sound_if_val. }
+  { intros v. apply triple_of_wp. applys* wpgen_sound_if_val. }
 Qed.
 
-Lemma wpmk_sound_if : forall t1 t2 t3,
-  wpmk_sound t1 ->
-  wpmk_sound t2 ->
-  wpmk_sound t3 ->
-  wpmk_sound (trm_if t1 t2 t3).
+Lemma wpgen_sound_if : forall t1 t2 t3,
+  wpgen_sound t1 ->
+  wpgen_sound t2 ->
+  wpgen_sound t3 ->
+  wpgen_sound (trm_if t1 t2 t3).
 Proof using.
   intros. intros E. simpl.
-  applys~ wpmk_sound_getval (fun t1 => trm_if t1 t2 t3).
-  intros v1. applys~ wpmk_sound_if_val.
+  applys~ wpgen_sound_getval (fun t1 => trm_if t1 t2 t3).
+  intros v1. applys~ wpgen_sound_if_val.
 Qed.
 
-Lemma wpmk_sound_let : forall F1 F2 E x t1 t2,
+Lemma wpgen_sound_let : forall F1 F2 E x t1 t2,
   F1 ===> wpsubst E t1 ->
   (forall X, F2 X ===> wpsubst (Ctx.add x X E) t2) ->
-  wpmk_let F1 F2 ===> wpsubst E (trm_let x t1 t2).
+  wpgen_let F1 F2 ===> wpsubst E (trm_let x t1 t2).
 Proof using.
   introv M1 M2. applys qimpl_wp. simpl. intros Q.
   remove_mkflocal. applys triple_let.
@@ -628,10 +624,10 @@ Proof using.
     rewrite <- isubst_add_eq_subst1_isubst. applys* M2. }
 Qed.
 
-Lemma wpmk_sound_seq : forall F1 F2 E t1 t2,
+Lemma wpgen_sound_seq : forall F1 F2 E t1 t2,
   F1 ===> wpsubst E t1 ->
   F2 ===> wpsubst E t2 ->
-  wpmk_seq F1 F2 ===> wpsubst E (trm_seq t1 t2).
+  wpgen_seq F1 F2 ===> wpsubst E (trm_seq t1 t2).
 Proof using.
   introv M1 M2. applys qimpl_wp. simpl. intros Q.
   remove_mkflocal. applys triple_seq.
@@ -639,33 +635,33 @@ Proof using.
   { intros X. simpl. apply triple_of_wp. applys* M2. }
 Qed.
 
-Lemma wpmk_sound_apps : forall t0 ts,
-  wpmk_sound t0 ->
-  (forall t, mem t ts -> wpmk_sound t) ->
-  wpmk_sound (trm_apps t0 ts).
+Lemma wpgen_sound_apps : forall t0 ts,
+  wpgen_sound t0 ->
+  (forall t, mem t ts -> wpgen_sound t) ->
+  wpgen_sound (trm_apps t0 ts).
 Proof using.
-  introv IH0 IHts. intros E Q. applys~ wpmk_sound_getval (fun t1 => trm_apps t1 ts).
-  fold wpmk. intros v0. clear Q.
+  introv IH0 IHts. intros E Q. applys~ wpgen_sound_getval (fun t1 => trm_apps t1 ts).
+  fold wpgen. intros v0. clear Q.
   cuts M: (forall rvs,  
-    wpaux_apps wpmk E v0 rvs ts ===> 
+    wpaux_apps wpgen E v0 rvs ts ===> 
     wp (trm_apps v0 ((trms_vals (LibList.rev rvs))++(LibList.map (isubst E) ts)))).
   { unfold wpsubst. simpl. rewrite List_map_eq. applys M. }
   induction ts as [|t ts']; intros.
   { simpl. rewrite List_rev_eq. rew_list.
     apply~ mkflocal_erase_l. applys flocal_wp. }
   { specializes IHts' __. { intros t' Ht'. applys* IHts. }
-    unfold wpaux_apps. fold (wpaux_apps wpmk E v0). rew_listx.
-    forwards~ M: wpmk_sound_getval E (fun t1 => trm_apps v0 (trms_vals (rev rvs) ++ t1 :: ts')).
+    unfold wpaux_apps. fold (wpaux_apps wpgen E v0). rew_listx.
+    forwards~ M: wpgen_sound_getval E (fun t1 => trm_apps v0 (trms_vals (rev rvs) ++ t1 :: ts')).
     2:{ unfold wpsubst in M. rewrite isubst_trm_apps_app in M. applys M. }
     intros v1. applys qimpl_wp. intros Q.
     rewrite isubst_trm_apps_args. simpl. apply triple_of_wp.
     forwards M: IHts' (v1::rvs). rewrite app_trms_vals_rev_cons in M. applys M. }
 Qed.
 
-Lemma wpmk_sound_while : forall F1 F2 E t1 t2,
+Lemma wpgen_sound_while : forall F1 F2 E t1 t2,
   F1 ===> wpsubst E t1 ->
   F2 ===> wpsubst E t2 ->
-  wpmk_while F1 F2 ===> wpsubst E (trm_while t1 t2).
+  wpgen_while F1 F2 ===> wpsubst E (trm_while t1 t2).
 Proof using.
   introv M1 M2. applys qimpl_wp. simpl. intros Q.
   remove_mkflocal. 
@@ -675,15 +671,15 @@ Proof using.
     { applys flocal_wp. }
     { clears Q. applys qimpl_wp. intros Q.
       applys triple_while_raw. apply~ triple_of_wp.
-      applys* wpmk_sound_if_trm t1 (trm_seq t2 (trm_while t1 t2)) val_unit.
-      { applys* wpmk_sound_seq. eauto. }
-      { intros Q'. applys wpmk_sound_val. } } }
+      applys* wpgen_sound_if_trm t1 (trm_seq t2 (trm_while t1 t2)) val_unit.
+      { applys* wpgen_sound_seq. eauto. }
+      { intros Q'. applys wpgen_sound_val. } } }
   { apply~ triple_of_wp. }
 Qed.
 
-Lemma wpmk_sound_for_val : forall (x:var) v1 v2 F1 E t1,
+Lemma wpgen_sound_for_val : forall (x:var) v1 v2 F1 E t1,
   (forall X, F1 X ===> wpsubst (Ctx.add x X E) t1) ->
-  wpmk_for_val v1 v2 F1 ===> wpsubst E (trm_for x v1 v2 t1).
+  wpgen_for_val v1 v2 F1 ===> wpsubst E (trm_for x v1 v2 t1).
 Proof using. Opaque Ctx.add Ctx.rem. (* TODO: opaque elsewhere *)
   introv M. applys qimpl_wp. simpl. intros Q.
   remove_mkflocal. intros n1 n2 (->&->). 
@@ -695,35 +691,35 @@ Proof using. Opaque Ctx.add Ctx.rem. (* TODO: opaque elsewhere *)
       applys triple_for_raw. fold isubst.
       apply~ triple_of_wp. case_if.
       { rewrite <- isubst_add_eq_subst1_isubst.
-        lets G: wpmk_sound_seq (Ctx.add x (val_int i) E) t1 (trm_for x (i + 1)%I n2 t1) .
+        lets G: wpgen_sound_seq (Ctx.add x (val_int i) E) t1 (trm_for x (i + 1)%I n2 t1) .
         unfold wpsubst in G. simpl in G. rewrite Ctx.rem_anon, Ctx.rem_add_same in G.
         applys (rm G). { applys* M. } { unfolds* S. } }
-      { applys wpmk_sound_val E. } } }
+      { applys wpgen_sound_val E. } } }
   { apply~ triple_of_wp. }
 Qed.
 
-Lemma wpmk_sound_for_trm : forall x t1 t2 t3,
-  wpmk_sound t1 ->
-  wpmk_sound t2 ->
-  wpmk_sound t3 ->
-  wpmk_sound (trm_for x t1 t2 t3).
+Lemma wpgen_sound_for_trm : forall x t1 t2 t3,
+  wpgen_sound t1 ->
+  wpgen_sound t2 ->
+  wpgen_sound t3 ->
+  wpgen_sound (trm_for x t1 t2 t3).
 Proof using.
   introv M1 M2 M3. intros E Q. simpl.
-  applys~ wpmk_sound_getval (fun t1 => trm_for x t1 t2 t3).
-  intros v1. applys~ wpmk_sound_getval (fun t2 => trm_for x v1 t2 t3).
-  intros v2. applys~ wpmk_sound_for_val.
+  applys~ wpgen_sound_getval (fun t1 => trm_for x t1 t2 t3).
+  intros v1. applys~ wpgen_sound_getval (fun t2 => trm_for x v1 t2 t3).
+  intros v2. applys~ wpgen_sound_for_val.
 Qed.
 
-Lemma wpmk_sound_match : forall t0 pts,
-  wpmk_sound t0 ->
-  (forall p t, mem (p,t) pts -> wpmk_sound t) ->
-  wpmk_sound (trm_match t0 pts).
+Lemma wpgen_sound_match : forall t0 pts,
+  wpgen_sound t0 ->
+  (forall p t, mem (p,t) pts -> wpgen_sound t) ->
+  wpgen_sound (trm_match t0 pts).
 Proof using.
   introv M1 M2. intros E Q. simpl.
-  applys~ wpmk_sound_getval (fun t1 => trm_match t1 pts). 
+  applys~ wpgen_sound_getval (fun t1 => trm_match t1 pts). 
   intros v. clears t0 Q.
   induction pts as [|(p,t) pts'].
-  { simpl. intros Q. applys himpl_wpmk_fail_l. }
+  { simpl. intros Q. applys himpl_wpgen_fail_l. }
   { simpl. applys qimpl_wp. intros Q. remove_mkflocal.
     simpl. applys triple_match.
     { intros G EG Hp. applys triple_hand_l.
@@ -738,12 +734,12 @@ Proof using.
       applys triple_of_wp. applys IHpts'. { introv M. applys* M2. } } }
 Qed.
 
-Lemma wpmk_sound_constr : forall E id ts,
-  (forall t, mem t ts -> wpmk_sound t) ->
-  wpmk_constr wpmk E id nil ts ===> wpsubst E (trm_constr id ts).
+Lemma wpgen_sound_constr : forall E id ts,
+  (forall t, mem t ts -> wpgen_sound t) ->
+  wpgen_constr wpgen E id nil ts ===> wpsubst E (trm_constr id ts).
 Proof using.
   introv IHwp. cuts M: (forall rvs,  
-         wpmk_constr wpmk E id rvs ts 
+         wpgen_constr wpgen E id rvs ts 
     ===> wpsubst E (trm_constr id ((trms_vals (LibList.rev rvs))++ts))).
   { applys M. }
   induction ts as [|t ts']; intros.
@@ -751,58 +747,58 @@ Proof using.
     simpl. rewrite List_map_eq.
     intros Q. remove_mkflocal. rewrite map_isubst_trms_vals. applys~ triple_constr. }
   { specializes IHts' __. { intros t' Ht'. applys* IHwp. }
-    applys~ wpmk_sound_getval (fun t1 => trm_constr id (trms_vals (rev rvs) ++ t1 :: ts')).
-    intros v1. fold (wpmk_constr wpmk E id).
+    applys~ wpgen_sound_getval (fun t1 => trm_constr id (trms_vals (rev rvs) ++ t1 :: ts')).
+    intros v1. fold (wpgen_constr wpgen E id).
     applys qimpl_wp. intros Q. rewrite isubst_trm_constr_args.
     apply triple_of_wp.
     forwards M: IHts' (v1::rvs). unfold trms_vals in *. rew_listx~ in M.
     unfold wpsubst in M. rewrite isubst_trm_constr_args in M. apply M. }
 Qed.
 
-Lemma wpmk_sound_trm : forall t,
-  wpmk_sound t.
+Lemma wpgen_sound_trm : forall t,
+  wpgen_sound t.
 Proof using.
   intros t. induction t using trm_induct; intros E Q.
-  { applys wpmk_sound_val. }
-  { applys wpmk_sound_var. }
-  { applys wpmk_sound_fixs. }
-  { applys* wpmk_sound_constr. }
-  { applys* wpmk_sound_if. }
-  { applys* wpmk_sound_let. }
-  { applys* wpmk_sound_apps. }
-  { applys* wpmk_sound_while. }
-  { applys* wpmk_sound_for_trm. }
-  { applys* wpmk_sound_match. }
-  { applys wpmk_sound_fail. }
+  { applys wpgen_sound_val. }
+  { applys wpgen_sound_var. }
+  { applys wpgen_sound_fixs. }
+  { applys* wpgen_sound_constr. }
+  { applys* wpgen_sound_if. }
+  { applys* wpgen_sound_let. }
+  { applys* wpgen_sound_apps. }
+  { applys* wpgen_sound_while. }
+  { applys* wpgen_sound_for_trm. }
+  { applys* wpgen_sound_match. }
+  { applys wpgen_sound_fail. }
 Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Corrolaries of the soundness of [wpmk] *)
+(* ** Corrolaries of the soundness of [wpgen] *)
 
-Lemma triple_isubst_wpmk : forall t E Q,
-  triple (isubst E t) (wpmk E t Q) Q.
+Lemma triple_isubst_wpgen : forall t E Q,
+  triple (isubst E t) (wpgen E t Q) Q.
 Proof using.
-  intros. apply triple_of_wp. applys wpmk_sound_trm.
+  intros. apply triple_of_wp. applys wpgen_sound_trm.
 Qed.
 
-Lemma triple_isubst_of_wpmk : forall t E H Q,
-  H ==> wpmk E t Q ->
+Lemma triple_isubst_of_wpgen : forall t E H Q,
+  H ==> wpgen E t Q ->
   triple (isubst E t) H Q.
-Proof using. introv M. xchanges M. applys triple_isubst_wpmk. Qed.
+Proof using. introv M. xchanges M. applys triple_isubst_wpgen. Qed.
 
-Lemma triple_of_wpmk_empty : forall (t:trm) H Q,
-  H ==> wpmk Ctx.empty t Q ->
+Lemma triple_of_wpgen_empty : forall (t:trm) H Q,
+  H ==> wpgen Ctx.empty t Q ->
   triple t H Q.
 Proof using.
-  introv M. rewrite <- (isubst_empty t). applys~ triple_isubst_of_wpmk.
+  introv M. rewrite <- (isubst_empty t). applys~ triple_isubst_of_wpgen.
 Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** All [wpmk] are trivially [flocal] by construction *)
+(* ** All [wpgen] are trivially [flocal] by construction *)
 
-Section FlocalWpmk.
+Section FlocalWpgen.
 
 Hint Extern 1 (flocal _) => (apply flocal_mkflocal).
 
@@ -812,18 +808,18 @@ Ltac destruct_lookup :=
 Tactic Notation "destruct_lookup" "~" :=
   destruct_lookup; auto_tilde.
 
-Lemma flocal_wpaux_getval : forall wpmk E t1 F2of,
-  flocal (wpmk E t1) ->
+Lemma flocal_wpaux_getval : forall wpgen E t1 F2of,
+  flocal (wpgen E t1) ->
   (forall v, flocal (F2of v)) ->
-  flocal (wpaux_getval wpmk E t1 F2of).
+  flocal (wpaux_getval wpgen E t1 F2of).
 Proof using.
   introv M1 M2. destruct* t1. { simpl. destruct_lookup~. }
 Qed.
 
 Hint Resolve flocal_wpaux_getval.
 
-Lemma flocal_wpmk : forall E t,
-  flocal (wpmk E t).
+Lemma flocal_wpgen : forall E t,
+  flocal (wpgen E t).
 Proof.
   intros. induction t using trm_induct; try solve [ simpl; eauto ]. 
   { simpl. rename v into x. simpl. unfold wpaux_var. destruct_lookup~. }
@@ -840,6 +836,6 @@ Proof.
     induction pts as [|(p,t') pts']; intros; auto. }
 Qed.
 
-End FlocalWpmk.
+End FlocalWpgen.
 
 

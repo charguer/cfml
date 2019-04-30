@@ -325,7 +325,7 @@ Lemma Triple_alloc_array : forall n,
     POST (fun p => \exists (L:list val), \[length L = n :> int] \* p ~> Array L).
 Proof using.
   intros. unfold Triple. xapplys~ triple_alloc_array.
-  intros r x L. intros E N. subst. unfold Post. hsimpl~ L.
+  intros r x L. intros E N. subst. unfold LiftPost. hsimpl~ L.
   rewrite Array_unlift. rewrite map_id_ext. hsimpl.
   { intros v. rewrite~ enc_val_eq. }
 Qed.
@@ -348,7 +348,7 @@ Proof using.
   intros. unfold Triple. rewrite Array_unlift.
   xapplys~ triple_array_get. intros r E.
  lets M: (@read_map A _ val) L. rewrites~ (rm M) in E. (* todo: polish *)
-  unfold Post. subst. hsimpl*.
+  unfold LiftPost. subst. hsimpl*.
 Qed.
 
 Hint Extern 1 (Register_Spec val_array_get) => Provide Triple_array_get.
@@ -362,7 +362,7 @@ Proof using.
   intros. unfold Triple. rewrite Array_unlift.
   xapplys~ triple_array_set. intros r E.
   rewrite~ <- map_update.
-  unfold Post. subst. rewrite Array_unlift. hsimpl~ tt.
+  unfold LiftPost. subst. rewrite Array_unlift. hsimpl~ tt.
 Qed.
 
 Hint Extern 1 (Register_Spec val_array_set) => Provide Triple_array_set.
@@ -374,7 +374,7 @@ Lemma Triple_array_make : forall n v,
     POST (fun p => \exists L, \[L = make n v] \* p ~> Array L).
 Proof using.
   intros. unfold Triple. xapplys~ triple_array_make.
-  intros r p L E N. unfold Post. hsimpl~ p (make n v).
+  intros r p L E N. unfold LiftPost. hsimpl~ p (make n v).
   rewrite Array_unlift. subst L. rewrite map_make; [|math]. hsimpl.
 Qed.
 
