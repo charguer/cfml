@@ -257,7 +257,7 @@ Lemma Triple_mlist_copy : forall `{EA:Enc A} (L:list A) (p:loc),
     POST (fun (q:loc) => p ~> MList L \* q ~> MList L).
 Proof using.
   intros. gen p. induction_wf IH: (@list_sub A) L. intros.
-  xwp. applys himpl_trans'. applys Mlist_unfold_match'. hsimpl. 
+  xwp. (* TODO: tactic *) applys himpl_trans'. applys Mlist_unfold_match'. hsimpl. 
   applys himpl_hand_r; hsimpl.
   { (* nil *)
      intros ->. xval Nil. xapp ;=> q. hchanges (MList_nil_fold q). }
@@ -287,7 +287,7 @@ Lemma Triple_mlist_nondestructive_append : forall `{EA:Enc A} (L1 L2:list A) (p1
     POST (fun (p3:loc) => p1 ~> MList L1 \* p2 ~> MList L2 \* p3 ~> MList (L1++L2)).
 Proof using.
   intros. gen p1. induction_wf IH: (@list_sub A) L1. intros.
-  xwp. applys himpl_trans'. applys Mlist_unfold_match'. hsimpl. 
+  xwp. (* TODO: tactic *)  applys himpl_trans'. applys Mlist_unfold_match'. hsimpl. 
   applys himpl_hand_r; hsimpl.
   { (* nil *)
      intros ->. xapp Triple_mlist_copy ;=> p3. hsimpl. }
@@ -672,11 +672,11 @@ Definition val_push : val :=
 
 Definition val_pop : val :=
   VFun 'p :=
-   (Let 'q := val_get 'p in
+   Let 'q := val_get 'p in
    Match 'q With
    '| 'nil '=> 'Fail
    '| 'x ':: 'r '=> ('p ':= 'r) '; 'x
-   End).
+   End.
 
 Definition val_rev_append : val :=
   VFix 'f 'p1 'p2 :=
@@ -700,19 +700,6 @@ Proof using.
   hsimpl. rewrite* @Enc_injective_value_eq_r.
 Qed.
 
-
-Lemma Triple_pop : forall `{Enc A} (p:loc) (L:list A),
-  L <> nil ->
-  TRIPLE (val_pop p)
-    PRE (p ~> Stack L)
-    POST (fun (x:A) => \exists L', \[L = x::L'] \* (p ~> Stack L')).
-Proof using.
-  introv N. xwp. xunfold Stack. xapp.
-  applys xmatch_lemma_list.
-  { intros HL. xfail. }
-  { intros X L' HL. xapp. xval. hsimpl~. }
-Qed.
-
 Lemma Triple_empty : forall `{Enc A} (u:unit),
   TRIPLE (val_empty u)
     PRE \[]
@@ -729,9 +716,19 @@ Proof using.
   xwp. xunfold Stack. xapp. xval (x::L). xapp~.
 Qed.
 
+Lemma Triple_pop : forall `{Enc A} (p:loc) (L:list A),
+  L <> nil ->
+  TRIPLE (val_pop p)
+    PRE (p ~> Stack L)
+    POST (fun (x:A) => \exists L', \[L = x::L'] \* (p ~> Stack L')).
+Proof using.
+  introv N. xwp. xunfold Stack. xapp.
+  applys xmatch_lemma_list.
+  { intros HL. xfail. }
+  { intros X L' HL. xapp. xval. hsimpl~. }
+Qed.
+
 Opaque Stack.
-
-
 
 Hint Extern 1 (Register_Spec (val_is_empty)) => Provide @Triple_is_empty.
 Hint Extern 1 (Register_Spec (val_push)) => Provide @Triple_push.
@@ -755,6 +752,103 @@ Qed.
 
 End Stack.
 
+
+
+(* ********************************************************************** *)
+(* * Stack with length *)
+
+Module StackLength.
+
+Definition data : field := 0%nat.
+Definition size : field := 1%nat.
+
+(*
+Definition val_is_empty : val :=
+  VFun 'p :=
+    val_get 'p '= 'nil.
+
+Definition val_empty : val :=
+  VFun 'u :=
+   val_ref 'nil.
+*)
+
+Definition val_push : val :=
+  VFun 'p 'x :=
+   Set 'p'.data ':= ('x ':: 'p'.data) ';
+   Set 'p'.size ':= ('p'.size '+ 1).
+
+Definition val_pop : val :=
+  VFun 'p :=
+   Let 'q := 'p'.data in 
+   Match 'q With (* TODO: allow inline *)
+   '| 'nil '=> 'Fail
+   '| 'x ':: 'r '=> 
+       Set 'p'.data ':= 'r ';
+       Set 'p'.size ':= ('p'.size '- 1) ';
+       'x
+   End.
+
+(* TODO: concat function with the sum of the lengths *)
+
+(*
+Definition val_rev_append : val :=
+  VFix 'f 'p1 'p2 :=
+    If_ val_is_empty 'p1 Then '() Else 
+       Let 'x := val_pop 'p1 in
+       val_push 'p2 'x ';
+       'f 'p1 'p2.
+*)
+
+Definition Stackn `{Enc A} (L:list A) (p:loc) : hprop :=
+  p ~> Record`{ data := L; size := (length L : int) }.
+
+(*
+Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),
+  TRIPLE (val_is_empty p)
+    PRE (p ~> Stack L)
+    POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stack L).
+Proof using.
+  xwp. xunfold Stack. xapp. xval nil.
+  xapp @Triple_eq_val.
+  hsimpl. rewrite* @Enc_injective_value_eq_r.
+Qed.
+
+Lemma Triple_empty : forall `{Enc A} (u:unit),
+  TRIPLE (val_empty u)
+    PRE \[]
+    POST (fun p => (p ~> Stack (@nil A))).
+Proof using.
+  xwp. xval nil. xapp~.
+Qed.
+*)
+
+
+Lemma Triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
+  TRIPLE (val_push p (``x))
+    PRE (p ~> Stackn L)
+    POST (fun (u:unit) => (p ~> Stackn (x::L))).
+Proof using.
+  xwp. xunfold Stackn. xapp. xval (x::L). xappn.
+  hsimpl. (* hsimpl could do xrecord_eq *) 
+  xrecord_eq. rew_list; math.
+Qed.
+
+Lemma Triple_pop : forall `{Enc A} (p:loc) (L:list A),
+  L <> nil ->
+  TRIPLE (val_pop p)
+    PRE (p ~> Stackn L)
+    POST (fun (x:A) => \exists L', \[L = x::L'] \* (p ~> Stackn L')).
+Proof using.
+  introv N. xwp. xunfold Stackn. xapp.
+  applys xmatch_lemma_list.
+  { intros HL. xfail. }
+  { intros X L' HL. xappn. xval. hsimpl*. (* hsimpl could do xrecord_eq *) 
+    xrecord_eq. subst; rew_list; math. }
+Qed.
+
+Opaque Stackn.
+
+End StackLength.
 
 
 (* ********************************************************************** *)

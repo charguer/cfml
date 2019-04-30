@@ -63,6 +63,7 @@ Fixpoint Record (L:Record_fields) (r:loc) : hprop :=
   end.
 
 (* TODO: currently restricted due to [r `.` f ~> V] not ensuring [r<>null] *)
+(* TODO: rename *)
 Lemma hRecord_not_null : forall (r:loc) (L:Record_fields),
   (* L <> nil -> *)
   mem (0%nat:field) (List.map fst L) ->
@@ -121,6 +122,24 @@ Notation "`{ f1 := x1 ; f2 := x2 ; f3 := x3 ; f4 := x4 ; f5 := x5 }" :=
 Open Scope fields_scope.
 Bind Scope fields_scope with Record_fields.
 Delimit Scope fields_scope with fields.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic to prove record equality *)
+
+Lemma eq_Record_fields : forall (L1 L2:Record_fields) (f:field) `{Enc A} (V1 V2:A),
+  V1 = V2 ->
+  L1 = L2 ->
+  (f, Dyn V1)::L1 = (f,Dyn V2)::L2.
+Proof using. intros. subst~. Qed.
+
+Ltac xrecord_eq_core tt :=
+  repeat (apply eq_Record_fields); try reflexivity.
+
+Tactic Notation "xrecord_eq" :=
+  xrecord_eq_core tt.
+
+(* todo: xrecord_eq might need to take care of reordering *)
 
 
 (* ---------------------------------------------------------------------- *)

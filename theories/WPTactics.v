@@ -652,16 +652,16 @@ Tactic Notation "xfail" :=
 
 Lemma xreturn_lemma_typed : forall `{Enc A1} (F:(A1->hprop)->hprop) (Q:A1->hprop) H,
   H ==> F Q ->
-  H ==> ^(Formula_typed F) Q.
+  H ==> ^(Formula_cast F) Q.
 Proof using.
-  introv M. unfold Formula_typed. hsimpl* Q. applys RetypePost_refl.
+  introv M. unfold Formula_cast. hsimpl* Q. applys RetypePost_refl.
 Qed.
 
 Lemma xreturn_lemma_val : forall `{Enc A1} (F:(A1->hprop)->hprop) (Q:val->hprop) H,
   H ==> F (fun (X:A1) => Q (enc X)) ->
-  H ==> ^(Formula_typed F) Q.
+  H ==> ^(Formula_cast F) Q.
 Proof using.
-  introv M. unfold Formula_typed. hsimpl* Q.
+  introv M. unfold Formula_cast. hsimpl* Q.
   unfold RetypePost. intros X. hsimpl* X.
 Qed.
 
