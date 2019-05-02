@@ -461,7 +461,7 @@ Proof using.
   { remove_Local. applys~ triple_fixs. auto_false. }
 Qed.
 
-Lemma Wpgen_sound_if_bool : forall b F1 F2 E t1 t2,
+Lemma Wpgen_sound_if_bool : forall b (F1 F2:Formula) E t1 t2,
   F1 ====> (Wpsubst E t1) ->
   F2 ====> (Wpsubst E t2) ->
   Wpgen_if_bool b F1 F2 ====> Wpsubst E (trm_if b t1 t2).
@@ -472,7 +472,7 @@ Proof using.
 Qed.
 (* TODO choose version *)
 
-Lemma Wpgen_sound_if_bool' : forall b F1 F2 E t1 t2,
+Lemma Wpgen_sound_if_bool' : forall b (F1 F2:Formula) E t1 t2,
   F1 ====> (Wpsubst E t1) ->
   F2 ====> (Wpsubst E t2) ->
   Wpgen_if_bool b F1 F2 ====> Wp (if b then isubst E t1 else isubst E t2).
@@ -481,7 +481,7 @@ Proof using.
   remove_Local. apply Triple_of_Wp. case_if. { applys M1. } { applys M2. }
 Qed.
 
-Lemma Wpgen_sound_if_trm : forall F0 F1 F2 E t0 t1 t2,
+Lemma Wpgen_sound_if_trm : forall (F0 F1 F2:Formula) E t0 t1 t2,
   F0 ====> (Wpsubst E t0) ->
   F1 ====> (Wpsubst E t1) ->
   F2 ====> (Wpsubst E t2) ->
@@ -540,7 +540,7 @@ Proof using.
     unfold Subst1. rewrite <- isubst_add_eq_subst1_isubst. applys* M2. }
 Qed.
 
-Lemma Wpgen_sound_seq : forall F1 F2 E t1 t2,
+Lemma Wpgen_sound_seq : forall (F1 F2:Formula) E t1 t2,
   F1 ====> Wpsubst E t1 ->
   F2 ====> Wpsubst E t2 ->
   Wpgen_seq F1 F2 ====> Wpsubst E (trm_seq t1 t2).
@@ -574,7 +574,7 @@ Proof using.
     forwards M: IHts' (v1::rvs). rewrite app_trms_vals_rev_cons in M. applys M. }
 Qed.
 
-Lemma Wpgen_sound_while : forall F1 F2 E t1 t2,
+Lemma Wpgen_sound_while : forall (F1 F2:Formula) E t1 t2,
   F1 ====> Wpsubst E t1 ->
   F2 ====> Wpsubst E t2 ->
   Wpgen_while F1 F2 ====> Wpsubst E (trm_while t1 t2).
@@ -597,8 +597,8 @@ Proof using.
   { rewrite~ @Triple_eq_himpl_Wp. }
 Qed.
 
-Lemma Wpgen_sound_for_int : forall (x:var) n1 n2 F1 E t1,
-  (forall X, F1 X ====> Wpsubst (Ctx.add x X E) t1) ->
+Lemma Wpgen_sound_for_int : forall (x:var) n1 n2 (F1:int->Formula) E t1,
+  (forall (n:int), F1 n ====> Wpsubst (Ctx.add x (``n) E) t1) ->
   Wpgen_for_int n1 n2 F1 ====> Wpsubst E (trm_for x n1 n2 t1).
 Proof using. Opaque Ctx.add Ctx.rem.
   introv M. intros A EA. applys qimpl_Wp_of_Triple. intros Q.
@@ -629,10 +629,10 @@ Lemma wpgen_sound_for_trm : forall x t1 t2 t3,
   Wpgen_sound t3 ->
   Wpgen_sound (trm_for x t1 t2 t3).
 Proof using.
-  introv M1 M2 M3. intros E Q. simpl.
-  applys~ Wpgen_sound_getval (fun t1 => trm_for x t1 t2 t3).
-  intros v1. applys~ Wpgen_sound_getval (fun t2 => trm_for x v1 t2 t3).
-  intros v2. applys~ Wpgen_sound_for_val.
+  introv M1 M2 M3. intros E A EA Q. simpl.
+  applys~ Wpgen_sound_getval_typed (fun t1 => trm_for x t1 t2 t3).
+  intros n1. applys~ Wpgen_sound_getval_typed (fun t2 => trm_for x n1 t2 t3).
+  intros n2. unfold Wptag. rewrite (enc_int_eq n2). applys~ Wpgen_sound_for_int.
 Qed.
 
 Lemma Wpgen_sound_match : forall t0 pts,
@@ -644,8 +644,8 @@ Proof using.
   applys~ Wpgen_sound_getval (fun t1 => trm_match t1 pts). 
   intros v. clears t0 Q.
   induction pts as [|(p,t) pts'].
-  { simpl. intros Q. applys himpl_wpgen_fail_l. }
-  { simpl. applys qimpl_wp. intros Q. remove_mkflocal.
+  { simpl. intros A EA Q. applys himpl_Wpgen_fail_l. }
+  { simpl. intros A EA. applys qimpl_Wp_of_Triple. intros Q. remove_Local.
     simpl. applys Triple_match.
     { intros G EG Hp. applys Triple_hand_l.
       forwards~ IH: M2 p t. clears IHpts' M2. subst v.

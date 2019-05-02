@@ -710,7 +710,7 @@ Lemma Triple_hor : forall t H1 H2 `{Enc A} (Q:A->hprop),
   Triple t (hor H1 H2) Q.
 Proof using. intros. applys~ is_local_hor. Qed.
 
-Lemma triple_hand_l : forall t H1 H2 `{Enc A} (Q:A->hprop),
+Lemma Triple_hand_l : forall t H1 H2 `{Enc A} (Q:A->hprop),
   Triple t H1 Q ->
   Triple t (hand H1 H2) Q.
 Proof using. intros. applys~ is_local_hand_l. Qed.
