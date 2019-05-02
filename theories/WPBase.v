@@ -486,11 +486,11 @@ Proof using.
 Qed.
 
 (** The tactic [remove_mkflocal] applies to goal of the form [triple t (mkflocal F Q) Q]
-    and turns it into [triple t (F Q) Q] for a fresh [Q],  then calls [xpull] *)
+    and turns it into [triple t (F Q) Q] for a fresh [Q]. *)
 
 Ltac remove_mkflocal :=
   match goal with |- triple _ _ ?Q =>
-    applys triple_mkflocal_pre; try (clear Q; intros Q); xpull; fold wpgen end.
+    applys triple_mkflocal_pre; try (clear Q; intros Q) end.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -537,7 +537,7 @@ Proof using.
   { destruct C2 as (x&Et). subst. simpl. case_eq (Ctx.lookup x E).
     { intros v Ev. rewrites~ (>> isubst_evalctx_trm_var Ev).
       apply triple_of_wp. applys M2. }
-    { introv N. remove_mkflocal. intros; false. } }
+    { introv N. remove_mkflocal. xpull. intros; false. } }
   asserts_rewrite (wpaux_getval wpgen E t1 F2of = wpgen_let (wpgen E t1) F2of).
   { destruct t1; auto. { false C1. hnfs*. } { false C2. hnfs*. } }
   remove_mkflocal. applys~ triple_isubst_evalctx.
@@ -576,7 +576,7 @@ Lemma wpgen_sound_if_val : forall v0 F1 F2 E t1 t2,
   wpgen_if_val v0 F1 F2 ===> wpsubst E (trm_if v0 t1 t2).
 Proof using.
   introv M1 M2. applys qimpl_wp_of_triple. simpl. intros Q.
-  remove_mkflocal. intros b ->. applys triple_if_bool.
+  remove_mkflocal. xpull ;=> b ->. applys triple_if_bool.
   apply triple_of_wp. case_if*.
 Qed.
 
@@ -673,7 +673,7 @@ Lemma wpgen_sound_for_val : forall (x:var) v1 v2 F1 E t1,
   wpgen_for_val v1 v2 F1 ===> wpsubst E (trm_for x v1 v2 t1).
 Proof using. Opaque Ctx.add Ctx.rem. (* TODO: opaque elsewhere *)
   introv M. applys qimpl_wp_of_triple. simpl. intros Q.
-  remove_mkflocal. intros n1 n2 (->&->). 
+  remove_mkflocal. xpull ;=> n1 n2 (->&->). 
   set (S := fun (i:int) => wp (isubst E (trm_for x i n2 t1))).
   applys triple_hforall S. simpl. applys triple_hwand_hpure_l.
   { split.

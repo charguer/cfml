@@ -395,45 +395,51 @@ Lemma Wpgen_sound_getval : forall E C t1 (F2of:val->Formula),
   (forall v, F2of v ====> Wpsubst E (C (trm_val v))) ->
   Wpaux_getval Wpgen E t1 F2of ====> Wpsubst E (C t1).
 Proof using. 
-skip.
-(* TODO
-  introv HC M1 M2. applys qimpl_wp. simpl. intros Q.
+  introv HC M1 M2. intros A EA. applys qimpl_Wp_of_Triple. simpl. intros Q.
   tests C1: (trm_is_val t1).
   { destruct C1 as (v&Et). subst. simpl. 
-    apply triple_of_wp. applys M2. }
+    apply Triple_of_Wp. applys M2. }
   tests C2: (trm_is_var t1).
   { destruct C2 as (x&Et). subst. simpl. case_eq (Ctx.lookup x E).
     { intros v Ev. rewrites~ (>> isubst_evalctx_trm_var Ev).
-      apply triple_of_wp. applys M2. }
-    { introv N. remove_mkflocal. intros; false. } }
-  asserts_rewrite (wpaux_getval wpgen E t1 F2of = wpgen_let (wpgen E t1) F2of).
+      apply Triple_of_Wp. applys M2. }
+    { introv N. remove_Local. xpull. intros; false. } }
+  asserts_rewrite (Wpaux_getval Wpgen E t1 (@F2of) = Wpgen_let (Wpgen E t1) (fun `{EA1:Enc A1} (V1:A1) => F2of (``V1))).
   { destruct t1; auto. { false C1. hnfs*. } { false C2. hnfs*. } }
-  remove_mkflocal. applys~ Triple_isubst_evalctx.
-  { apply triple_of_wp. applys M1. }
-  { intros v. apply triple_of_wp. applys M2. }
-*)
+  remove_Local. xpull ;=> A1 EA1. applys~ Triple_isubst_evalctx EA1.
+  { apply Triple_of_Wp. applys M1. }
+  { intros v. apply Triple_of_Wp. applys M2. }
 Qed.
 
-(* TODO?
-Definition Wpgen_letval_typed  `{EA1:Enc A1} (F2of:A1->Formula) : Formula :
-  Local (fun A (EA:Enc A) Q =>
-    \exists (V:A1), \[v = enc V] \* ^(F2of V) Q).
-
-Lemma Wpgen_sound_letval_typed : forall (v:val) `{EA1:Enc A1} (F2of:A1->Formula) E (x:var) t1 t2,
-  F1 ====> Wpsubst E t1 ->
-  (forall (X:A), F2of X ====> Wpsubst (Ctx.add x (enc X) E) t2) ->
-  Wpgen_let F1 (@F2of) ====> Wpsubst E (trm_let x t1 t2).
-  Wpgen_letval_typed v F2of ====> 
+Lemma Wpgen_sound_letval_typed : forall v E C `{EA:Enc A} (F2of:A->Formula),
+  (forall V, F2of V ====> Wpsubst E (C ``V)) ->
+  Wpgen_letval_typed v F2of ====> Wp (isubst E (C v)).
 Proof using.
-  Opaque Ctx.rem.
-  introv M1 M2. intros A EA. applys qimpl_Wp_of_Triple. intros Q.
-  remove_Local. xpull. simpl. applys Triple_let.
-  { rewrite Triple_eq_himpl_Wp. applys* M1. }
-  { intros X. rewrite Triple_eq_himpl_Wp.
-    unfold Subst1. rewrite <- isubst_add_eq_subst1_isubst. applys* M2. }
+  introv M. intros A1 EA1. applys qimpl_Wp_of_Triple. intros Q.
+  remove_Local. xpull ;=> V ->. applys Triple_of_Wp. applys M.
 Qed.
 
-*)
+Lemma Wpgen_sound_getval_typed : forall E C t1 `{EA:Enc A} (F2of:A->Formula),
+  evalctx C ->
+  Wpgen_sound t1 ->
+  (forall (V:A), F2of V ====> Wpsubst E (C ``V)) ->
+  Wpaux_getval_typed Wpgen E t1 F2of ====> Wpsubst E (C t1).
+Proof using. 
+  introv HC M1 M2. intros A1 EA1. applys qimpl_Wp_of_Triple. simpl. intros Q.
+  tests C1: (trm_is_val t1).
+  { destruct C1 as (v&Et). subst. simpl. 
+    apply Triple_of_Wp. applys~ Wpgen_sound_letval_typed C. }
+  tests C2: (trm_is_var t1).
+  { destruct C2 as (x&Et). subst. simpl. case_eq (Ctx.lookup x E).
+    { intros v Ev. rewrites~ (>> isubst_evalctx_trm_var Ev).
+      apply Triple_of_Wp. applys~ Wpgen_sound_letval_typed C. }
+    { introv N. remove_Local. xpull. intros; false. } }
+  asserts_rewrite (Wpaux_getval_typed Wpgen E t1 (@F2of) = Wpgen_let_typed (Wpgen E t1) F2of).
+  { destruct t1; auto. { false C1. hnfs*. } { false C2. hnfs*. } }
+  remove_Local. applys~ Triple_isubst_evalctx EA.
+  { apply Triple_of_Wp. applys M1. }
+  { intros v. apply Triple_of_Wp. applys M2. }
+Qed.
 
 Lemma Wpgen_sound_var : forall x,
   Wpgen_sound (trm_var x).
@@ -491,15 +497,6 @@ Proof using.
   remove_Local. xpull. simpl. applys Triple_if.
   { rewrite Triple_eq_himpl_Wp. applys* M0. }
   { intros b. apply Triple_of_Wp. applys* Wpgen_sound_if_bool'. }
-Qed.
-
-Lemma Wpgen_sound_getval_typed : forall E C t1 `{EA:Enc A} (F2of:A->Formula),
-  evalctx C ->
-  Wpgen_sound t1 ->
-  (forall (V:A), F2of V ====> Wpsubst E (C ``V)) ->
-  Wpaux_getval_typed Wpgen E t1 F2of ====> Wpsubst E (C t1).
-Proof using. 
-skip. (* TODO *)
 Qed.
 
 Lemma Wpgen_sound_if : forall t1 t2 t3,
