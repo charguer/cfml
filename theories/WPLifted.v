@@ -291,6 +291,13 @@ Lemma Triple_eq_himpl_Wp : forall `{EA:Enc A} H (Q:A->hprop) t,
   Triple t H Q = (H ==> ^(Wp t) Q).
 Proof using. intros. applys weakestpre_eq. applys is_local_Triple. Qed.
 
+(** Reformulation of the right-to-left implication above as an implication. *)
+
+Lemma Triple_of_Wp : forall `{EA:Enc A} H (Q:A->hprop) t,
+  H ==> ^(Wp t) Q ->
+  Triple t H Q.
+Proof using. intros. rewrite* Triple_eq_himpl_Wp. Qed.
+
 (** Reformulation of the left-to-right implication above in the form
     of an entailment. *)
 
@@ -358,6 +365,8 @@ Notation "F1 ====> F2" := (forall `{EA:Enc A}, F1 A EA ===> F2 A EA)
 ]]
 *)
 
+(* TODO: rename Local to mkLocal *)
+
 Definition Wpgen_sound t := forall E,
   (Wpgen E t) ====> (Wpsubst E t).
 
@@ -365,27 +374,29 @@ Definition Wpgen_sound t := forall E,
 
 Lemma himpl_Wpgen_fail_l : forall `{EA:Enc A} (Q:A->hprop) H,
   ^Wpgen_fail Q ==> H.
-Proof using. intros. unfold Wpgen_fail, Local, local. hpull. Qed.
+Proof using. intros. unfold Wpgen_fail, Local, mkflocal. hpull. Qed.
 
 (* TODO: use lemma below for all occurences of wpgen_fail *)
-Lemma Triple_Wpgen_fail : forall t Q Q',
+Lemma Triple_Wpgen_fail : forall t `{EA:Enc A} (Q Q':A->hprop),
   Triple t (^Wpgen_fail Q) Q'.
 Proof using. 
-  intros. apply triple_of_wp. applys himpl_wpgen_fail_l.
+  intros. apply Triple_of_Wp. applys himpl_Wpgen_fail_l.
 Qed.
 
 (** Soundness of the [wp] for the various constructs *)
 
 Lemma Wpgen_sound_fail :
   Wpgen_sound trm_fail.
-Proof using. intros. intros E Q. applys himpl_Wpgen_fail_l. Qed.
+Proof using. intros. intros E A EA Q. applys himpl_Wpgen_fail_l. Qed.
 
 Lemma Wpgen_sound_getval : forall E C t1 F2of,
   evalctx C ->
   Wpgen_sound t1 ->
   (forall v, F2of v ====> Wpsubst E (C (trm_val v))) ->
   Wpaux_getval Wpgen E t1 F2of ====> Wpsubst E (C t1).
-Proof using. ..
+Proof using. 
+skip.
+(* TODO
   introv HC M1 M2. applys qimpl_wp. simpl. intros Q.
   tests C1: (trm_is_val t1).
   { destruct C1 as (v&Et). subst. simpl. 
@@ -400,6 +411,7 @@ Proof using. ..
   remove_mkflocal. applys~ Triple_isubst_evalctx.
   { apply triple_of_wp. applys M1. }
   { intros v. apply triple_of_wp. applys M2. }
+*)
 Qed.
 
 (* TODO?
@@ -427,11 +439,9 @@ Lemma Wpgen_sound_var : forall x,
   Wpgen_sound (trm_var x).
 Proof using.
   intros. intros E A EA. simpl. applys qimpl_Wp_of_Triple.
-  intros Q. unfold Wpgen_var. simpl. destruct (Ctx.lookup x E).
+  intros Q. unfold Wpaux_var. simpl. destruct (Ctx.lookup x E).
   { remove_Local. xpull ;=> V EQ. applys* Triple_val. }
-  { remove_Local. xpull*. intros; false. 
-    (* TODO: decide whether xpull should automatically discard goal
-       when extracting false *) }
+  {  applys~ Triple_Wpgen_fail. }
 Qed.
 
 Lemma Wpgen_sound_val : forall v,
@@ -442,24 +452,23 @@ Proof using.
   simpl. intros. applys* Triple_val.
 Qed.
 
-Lemma Wpgen_sound_fix : forall f x t,
-  Wpgen_sound (trm_fix f x t).
+Lemma Wpgen_sound_fixs : forall f xs t,
+  Wpgen_sound (trm_fixs f xs t).
 Proof using.
   intros. intros E A EA. simpl. applys qimpl_Wp_of_Triple.
-  intros Q. remove_Local. xpull ;=> V EQ. simpl.
-  applys Triple_enc_val_inv (fun r => \[r = enc V] \* (Q V)).
-  { applys Triple_fix. rewrite EQ. hsimpl~. }
-  { hpull ;=> X EX. subst X. hsimpl~. }
+  intros Q. destruct xs as [|x xs'].
+  { applys~ Triple_Wpgen_fail. }
+  { remove_Local. applys~ triple_fixs. auto_false. }
 Qed.
 
 Lemma Wpgen_sound_if_bool : forall b F1 F2 E t1 t2,
   F1 ====> (Wpsubst E t1) ->
   F2 ====> (Wpsubst E t2) ->
   Wpgen_if_bool b F1 F2 ====> Wpsubst E (trm_if b t1 t2).
-Proof using. ..
-  introv M1 M2. applys qimpl_wp. simpl. intros Q.
-  remove_mkflocal. intros b ->. applys Triple_if.
-  apply triple_of_wp. case_if*.
+Proof using.
+  introv M1 M2. intros A EA. applys qimpl_Wp_of_Triple. simpl. intros Q.
+  remove_Local. applys Triple_if_bool.
+  apply Triple_of_Wp. case_if. { applys M1. } { applys M2. }
 Qed.
 
 Lemma Wpgen_sound_if_trm : forall F0 F1 F2 E t0 t1 t2,

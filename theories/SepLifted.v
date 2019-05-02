@@ -736,11 +736,11 @@ Lemma Triple_evalctx : forall C t1 H,
  forall A `{EA:Enc A} (Q:A->hprop) A1 `{EA1:Enc A1} (Q1:A1->hprop),
   evalctx C ->
   Triple t1 H Q1 ->
-  (forall V, Triple (C v) (Q1 V) Q) ->
+  (forall (V:A1), Triple (C ``V) (Q1 V) Q) ->
   Triple (C t1) H Q.
 Proof using.
-  introv E M1 M2. applys triple_evalctx. subst.
-  unfold LiftPost. hsimpl*.
+  introv EC M1 M2. applys* triple_evalctx. 
+  { intros v. unfold LiftPost. xpull ;=> V ->. applys M2. }
 Qed.
 
 (** Substitution commutes with evaluation contexts, for triples *)
@@ -749,13 +749,13 @@ Lemma Triple_isubst_evalctx : forall E C t1 H,
  forall A `{EA:Enc A} (Q:A->hprop) A1 `{EA1:Enc A1} (Q1:A1->hprop),
   evalctx C ->
   Triple (isubst E t1) H Q1 ->
-  (forall V, Triple (isubst E (C v)) (Q1 V) Q) ->
+  (forall V, Triple (isubst E (C ``V)) (Q1 V) Q) ->
   Triple (isubst E (C t1)) H Q.
 Proof using.
-  introv E M1 M2. applys triple_isubst_evalctx. subst.
-  unfold LiftPost. hsimpl*.
+  introv EC M1 M2. applys* triple_isubst_evalctx. 
+  { intros v. unfold LiftPost. xpull ;=> V ->. applys M2. }
 Qed.
-..
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Lifting of term rules *)
@@ -824,6 +824,13 @@ Proof using.
     asserts E': (V = b). { destruct* V. } clears E. subst V. applys M2. }
   { intros v N. unfold LiftPost. hpull ;=> V ->. false N.
     rewrite enc_bool_eq. hnfs*. } (* LATER : simplify? *)
+Qed.
+
+Lemma Triple_if_bool : forall (b:bool) t1 t2 H A `{EA:Enc A} (Q:A->hprop),
+  Triple (if b then t1 else t2) H Q ->
+  Triple (trm_if b t1 t2) H Q.
+Proof using.
+  introv M1. applys triple_if_bool. { applys M1. }
 Qed.
 
 Lemma Triple_apps_funs : forall xs F vs t1 H A `{EA: Enc A} (Q:A->hprop),

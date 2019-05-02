@@ -457,7 +457,7 @@ Proof using. intros. rewrite* triple_eq_himpl_wp. Qed.
 (** Reformulation of the left-to-right implication above in the form
     of an entailment. *)
 
-Lemma qimpl_wp : forall t F,
+Lemma qimpl_wp_of_triple : forall t F,
   (forall Q, triple t (F Q) Q) ->
   F ===> wp t.
 Proof using. introv M. intros Q. rewrite~ <- triple_eq_himpl_wp. Qed.
@@ -529,7 +529,7 @@ Lemma wpgen_sound_getval : forall E C t1 F2of,
   (forall v, F2of v ===> wpsubst E (C (trm_val v))) ->
   wpaux_getval wpgen E t1 F2of ===> wpsubst E (C t1).
 Proof using.
-  introv HC M1 M2. applys qimpl_wp. simpl. intros Q.
+  introv HC M1 M2. applys qimpl_wp_of_triple. simpl. intros Q.
   tests C1: (trm_is_val t1).
   { destruct C1 as (v&Et). subst. simpl. 
     apply triple_of_wp. applys M2. }
@@ -548,7 +548,7 @@ Qed.
 Lemma wpgen_sound_var : forall x,
   wpgen_sound (trm_var x).
 Proof using.
-  intros. intros E. applys qimpl_wp. simpl.
+  intros. intros E. applys qimpl_wp_of_triple. simpl.
   intros Q. unfold wpaux_var. destruct (Ctx.lookup x E).
   { remove_mkflocal. apply~ triple_val. }
   { applys~ triple_wpgen_fail. }
@@ -557,14 +557,14 @@ Qed.
 Lemma wpgen_sound_val : forall v,
   wpgen_sound (trm_val v).
 Proof using.
-  intros. intros E. applys qimpl_wp. simpl.
+  intros. intros E. applys qimpl_wp_of_triple. simpl.
   intros Q. remove_mkflocal. applys~ triple_val.
 Qed.
 
 Lemma wpgen_sound_fixs : forall f xs t,
   wpgen_sound (trm_fixs f xs t).
 Proof using.
-  intros. intros E. applys qimpl_wp. simpl. intros Q.
+  intros. intros E. applys qimpl_wp_of_triple. simpl. intros Q.
   destruct xs as [|x xs'].
   { applys~ triple_wpgen_fail. }
   { remove_mkflocal. applys~ triple_fixs. auto_false. }
@@ -575,7 +575,7 @@ Lemma wpgen_sound_if_val : forall v0 F1 F2 E t1 t2,
   F2 ===> wpsubst E t2 ->
   wpgen_if_val v0 F1 F2 ===> wpsubst E (trm_if v0 t1 t2).
 Proof using.
-  introv M1 M2. applys qimpl_wp. simpl. intros Q.
+  introv M1 M2. applys qimpl_wp_of_triple. simpl. intros Q.
   remove_mkflocal. intros b ->. applys triple_if_bool.
   apply triple_of_wp. case_if*.
 Qed.
@@ -586,7 +586,7 @@ Lemma wpgen_sound_if_trm : forall F1 F2 F3 E t1 t2 t3,
   F3 ===> wpsubst E t3 ->
   wpgen_if F1 F2 F3 ===> wpsubst E (trm_if t1 t2 t3).
 Proof using.
-  introv M1 M2 M3. applys qimpl_wp. intros Q.
+  introv M1 M2 M3. applys qimpl_wp_of_triple. intros Q.
   simpl. unfold wpgen_if. remove_mkflocal. applys triple_if_trm.
   { apply triple_of_wp. applys M1. }
   { intros v. apply triple_of_wp. applys* wpgen_sound_if_val. }
@@ -608,7 +608,7 @@ Lemma wpgen_sound_let : forall F1 F2 E x t1 t2,
   (forall X, F2 X ===> wpsubst (Ctx.add x X E) t2) ->
   wpgen_let F1 F2 ===> wpsubst E (trm_let x t1 t2).
 Proof using.
-  introv M1 M2. applys qimpl_wp. simpl. intros Q.
+  introv M1 M2. applys qimpl_wp_of_triple. simpl. intros Q.
   remove_mkflocal. applys triple_let.
   { apply triple_of_wp. applys* M1. }
   { intros X. simpl. apply triple_of_wp.
@@ -620,7 +620,7 @@ Lemma wpgen_sound_seq : forall F1 F2 E t1 t2,
   F2 ===> wpsubst E t2 ->
   wpgen_seq F1 F2 ===> wpsubst E (trm_seq t1 t2).
 Proof using.
-  introv M1 M2. applys qimpl_wp. simpl. intros Q.
+  introv M1 M2. applys qimpl_wp_of_triple. simpl. intros Q.
   remove_mkflocal. applys triple_seq.
   { apply triple_of_wp. applys* M1. }
   { intros X. simpl. apply triple_of_wp. applys* M2. }
@@ -644,7 +644,7 @@ Proof using.
     unfold wpaux_apps. fold (wpaux_apps wpgen E v0). rew_listx.
     forwards~ M: wpgen_sound_getval E (fun t1 => trm_apps v0 (trms_vals (rev rvs) ++ t1 :: ts')).
     2:{ unfold wpsubst in M. rewrite isubst_trm_apps_app in M. applys M. }
-    intros v1. applys qimpl_wp. intros Q.
+    intros v1. applys qimpl_wp_of_triple. intros Q.
     rewrite isubst_trm_apps_args. simpl. apply triple_of_wp.
     forwards M: IHts' (v1::rvs). rewrite app_trms_vals_rev_cons in M. applys M. }
 Qed.
@@ -654,13 +654,13 @@ Lemma wpgen_sound_while : forall F1 F2 E t1 t2,
   F2 ===> wpsubst E t2 ->
   wpgen_while F1 F2 ===> wpsubst E (trm_while t1 t2).
 Proof using.
-  introv M1 M2. applys qimpl_wp. simpl. intros Q.
+  introv M1 M2. applys qimpl_wp_of_triple. simpl. intros Q.
   remove_mkflocal. 
   set (R := wp (trm_while (isubst E t1) (isubst E t2))).
   applys triple_hforall R. simpl. applys triple_hwand_hpure_l.
   { split.
     { applys flocal_wp. }
-    { clears Q. applys qimpl_wp. intros Q.
+    { clears Q. applys qimpl_wp_of_triple. intros Q.
       applys triple_while_raw. apply~ triple_of_wp.
       applys* wpgen_sound_if_trm t1 (trm_seq t2 (trm_while t1 t2)) val_unit.
       { applys* wpgen_sound_seq. eauto. }
@@ -672,13 +672,13 @@ Lemma wpgen_sound_for_val : forall (x:var) v1 v2 F1 E t1,
   (forall X, F1 X ===> wpsubst (Ctx.add x X E) t1) ->
   wpgen_for_val v1 v2 F1 ===> wpsubst E (trm_for x v1 v2 t1).
 Proof using. Opaque Ctx.add Ctx.rem. (* TODO: opaque elsewhere *)
-  introv M. applys qimpl_wp. simpl. intros Q.
+  introv M. applys qimpl_wp_of_triple. simpl. intros Q.
   remove_mkflocal. intros n1 n2 (->&->). 
   set (S := fun (i:int) => wp (isubst E (trm_for x i n2 t1))).
   applys triple_hforall S. simpl. applys triple_hwand_hpure_l.
   { split.
     { intros r. applys flocal_wp. }
-    { clears Q. intros i. applys qimpl_wp. intros Q.
+    { clears Q. intros i. applys qimpl_wp_of_triple. intros Q.
       applys triple_for_raw. fold isubst.
       apply~ triple_of_wp. case_if.
       { rewrite <- isubst_add_eq_subst1_isubst.
@@ -711,7 +711,7 @@ Proof using.
   intros v. clears t0 Q.
   induction pts as [|(p,t) pts'].
   { simpl. intros Q. applys himpl_wpgen_fail_l. }
-  { simpl. applys qimpl_wp. intros Q. remove_mkflocal.
+  { simpl. applys qimpl_wp_of_triple. intros Q. remove_mkflocal.
     simpl. applys triple_match.
     { intros G EG Hp. applys triple_hand_l.
       forwards~ IH: M2 p t. clears IHpts' M2. subst v.
@@ -734,13 +734,13 @@ Proof using.
     ===> wpsubst E (trm_constr id ((trms_vals (LibList.rev rvs))++ts))).
   { applys M. }
   induction ts as [|t ts']; intros.
-  { simpl. rewrite List_rev_eq. rew_list. applys qimpl_wp.
+  { simpl. rewrite List_rev_eq. rew_list. applys qimpl_wp_of_triple.
     simpl. rewrite List_map_eq.
     intros Q. remove_mkflocal. rewrite map_isubst_trms_vals. applys~ triple_constr. }
   { specializes IHts' __. { intros t' Ht'. applys* IHwp. }
     applys~ wpgen_sound_getval (fun t1 => trm_constr id (trms_vals (rev rvs) ++ t1 :: ts')).
     intros v1. fold (wpgen_constr wpgen E id).
-    applys qimpl_wp. intros Q. rewrite isubst_trm_constr_args.
+    applys qimpl_wp_of_triple. intros Q. rewrite isubst_trm_constr_args.
     apply triple_of_wp.
     forwards M: IHts' (v1::rvs). unfold trms_vals in *. rew_listx~ in M.
     unfold wpsubst in M. rewrite isubst_trm_constr_args in M. apply M. }
