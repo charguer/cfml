@@ -551,7 +551,7 @@ Proof using.
   { rewrite Triple_eq_himpl_Wp. applys* M2. }
 Qed.
 
-Lemma wpgen_sound_apps : forall t0 ts,
+Lemma Wpgen_sound_apps : forall t0 ts,
   Wpgen_sound t0 ->
   (forall t, mem t ts -> Wpgen_sound t) ->
   Wpgen_sound (trm_apps t0 ts).
@@ -623,7 +623,7 @@ Proof using. Opaque Ctx.add Ctx.rem.
   { rewrite~ @Triple_eq_himpl_Wp. }
 Qed.
 
-Lemma wpgen_sound_for_trm : forall x t1 t2 t3,
+Lemma Wpgen_sound_for_trm : forall x t1 t2 t3,
   Wpgen_sound t1 ->
   Wpgen_sound t2 ->
   Wpgen_sound t3 ->
@@ -653,28 +653,29 @@ Proof using.
       sets_eq xs: (Ctx.dom G). forwards~ W: hforall_vars_intro G xs.
       applys~ Triple_conseq Q W. simpl. 
       applys~ Triple_hwand_hpure_l.
-      applys Triple_of_wp. applys IH. }
-    { intros Hp. applys triple_hand_r. applys triple_hwand_hpure_l.
+      applys Triple_of_Wp. applys IH. }
+    { intros Hp. applys Triple_hand_r. applys Triple_hwand_hpure_l.
       { applys~ forall_vars_intro. }
       applys Triple_of_Wp. applys IHpts'. { introv M. applys* M2. } } }
 Qed.
 
 Lemma Wpgen_sound_constr : forall E id ts,
   (forall t, mem t ts -> Wpgen_sound t) ->
-  Wpgen_constr Wpgen E id nil ts ===> Wpsubst E (trm_constr id ts).
+  Wpaux_constr Wpgen E id nil ts ====> Wpsubst E (trm_constr id ts).
 Proof using.
   introv IHwp. cuts M: (forall rvs,  
-         Wpgen_constr >pgen E id rvs ts 
-    ===> Wpsubst E (trm_constr id ((trms_vals (LibList.rev rvs))++ts))).
+         Wpaux_constr Wpgen E id rvs ts 
+    ====> Wpsubst E (trm_constr id ((trms_vals (LibList.rev rvs))++ts))).
   { applys M. }
   induction ts as [|t ts']; intros.
-  { simpl. rewrite List_rev_eq. rew_list. applys qimpl_Wp.
+  { simpl. rewrite List_rev_eq. rew_list. applys qimpl_Wp_of_Triple.
     simpl. rewrite List_map_eq.
-    intros Q. remove_mkflocal. rewrite map_isubst_trms_vals. applys~ triple_constr. }
+    intros Q. remove_Local. rewrite map_isubst_trms_vals. applys~ @triple_constr. 
+    (* LATER: Triple_constr is not suitable here *) }
   { specializes IHts' __. { intros t' Ht'. applys* IHwp. }
     applys~ Wpgen_sound_getval (fun t1 => trm_constr id (trms_vals (rev rvs) ++ t1 :: ts')).
-    intros v1. fold (Wpgen_constr wpgen E id).
-    applys qimpl_Wp. intros Q. rewrite isubst_trm_constr_args.
+    intros v1. fold (Wpaux_constr Wpgen E id). intros A1 EA1.
+    applys qimpl_Wp_of_Triple. intros Q. rewrite isubst_trm_constr_args.
     apply Triple_of_Wp.
     forwards M: IHts' (v1::rvs). unfold trms_vals in *. rew_listx~ in M.
     unfold Wpsubst in M. rewrite isubst_trm_constr_args in M. apply M. }
@@ -685,19 +686,18 @@ Qed.
 Lemma Wpgen_sound_trm : forall t,
   Wpgen_sound t.
 Proof using.
-  intros t. induction t; intros E A EA Q.
+  intros t. induction t using trm_induct; intros E A EA Q.
   { applys Wpgen_sound_val. }
   { applys Wpgen_sound_var. }
-  { applys Wpgen_sound_fix. }
+  { applys Wpgen_sound_fixs. }
+  { applys~ Wpgen_sound_constr. }
   { applys* Wpgen_sound_if. }
   { destruct b as [|x].
     { applys* Wpgen_sound_seq. }
     { applys* Wpgen_sound_let. } }
-  { applys* Wpgen_sound_app. }
+  { applys* Wpgen_sound_apps. }
   { applys* Wpgen_sound_while. }
-  { destruct t1; try solve [ applys @himpl_Wpgen_fail_l ].
-    destruct t2; try solve [ applys @himpl_Wpgen_fail_l ].
-    applys* Wpgen_sound_for_val. }
+  { applys* Wpgen_sound_for_trm. }
   { applys* Wpgen_sound_match. }
   { applys Wpgen_sound_fail. }
 Qed.
@@ -708,9 +708,9 @@ Qed.
 
 Lemma Triple_isubst_Wpgen : forall t E `{EA:Enc A} (Q:A->hprop),
   Triple (isubst E t) (^(Wpgen E t) Q) Q.
-Proof using. Admitted. (* TODO
+Proof using. 
   intros. rewrite Triple_eq_himpl_Wp. applys Wpgen_sound_trm.
-Qed.*)
+Qed.
 
 Lemma Triple_isubst_of_Wpgen : forall t E H `{EA:Enc A} (Q:A->hprop),
   H ==> ^(Wpgen E t) Q ->
