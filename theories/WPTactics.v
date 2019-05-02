@@ -193,8 +193,8 @@ Ltac xwp_simpl :=
   cbn beta delta [ 
   LibList.combine 
   List.rev Datatypes.app List.fold_right List.map
-  Wpgen Wpaux_getval Wpaux_getval_typed Wpaux_getval_int
-  Wpaux_apps Wpaux_apps_or_prim Wpaux_constr Wpaux_var Wpaux_match  
+  Wpgen Wpaux_getval Wpaux_getval_typed
+  Wpaux_apps Wpaux_constr Wpaux_var Wpaux_match  
   hforall_vars forall_vars
   trm_case trm_to_pat patvars patsubst combiner_to_trm
   Ctx.app Ctx.empty Ctx.lookup Ctx.add 
@@ -258,7 +258,7 @@ Ltac xseq_pre tt :=
   | (Wpgen_seq _ _) => idtac 
   end.
 
-Definition xseq_lemma := @Local_erase.
+Definition xseq_lemma := @mkLocal_erase.
 
 Ltac xseq_core tt :=
   xseq_pre tt;
@@ -274,9 +274,9 @@ Tactic Notation "xseq" :=
 Lemma xlet_lemma : forall A1 (EA1:Enc A1) H `{EA:Enc A} (Q:A->hprop) (F1:Formula) (F2of:forall `{EA1:Enc A2},A2->Formula),
   H ==> ^F1 (fun (X:A1) => ^(F2of X) Q) -> 
   H ==> ^(Wpgen_let F1 (@F2of)) Q.
-Proof using. introv M. applys Local_erase. hsimpl* A1 EA1. Qed.
+Proof using. introv M. applys mkLocal_erase. hsimpl* A1 EA1. Qed.
 
-Definition xlet_typed_lemma := @Local_erase.
+Definition xlet_typed_lemma := @mkLocal_erase.
 
 Ltac xlet_poly tt :=
   notypeclasses refine (xlet_lemma _ _ _ _ _).
@@ -362,7 +362,7 @@ Lemma xapp_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
   H ==> H1 \* (Q1 \--* protect Q) ->
   H ==> ^(Wpgen_app t) Q.
 Proof using.
-  introv M1 M2. applys Local_erase.
+  introv M1 M2. applys mkLocal_erase.
   hchanges (rm M2).
   rewrite <- Triple_eq_himpl_Wp.
   applys* Triple_ramified_frame.
@@ -508,14 +508,14 @@ Lemma xval_lemma : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
   v = ``V ->
   H ==> Q V ->
   H ==> ^(Wpgen_val v) Q.
-Proof using. introv E N. subst. applys Local_erase. hsimpl~ V. Qed.
+Proof using. introv E N. subst. applys mkLocal_erase. hsimpl~ V. Qed.
 
 (* NEEDED? *)
 Lemma xval_lemma_val : forall `{EA:Enc A} (V:A) v H (Q:val->hprop),
   v = ``V ->
   H ==> Q (``V) ->
   H ==> ^(Wpgen_val v) Q.
-Proof using. introv E N. subst. applys Local_erase. hsimpl~ (``V). Qed.
+Proof using. introv E N. subst. applys mkLocal_erase. hsimpl~ (``V). Qed.
 
 (* [xval_pre tt] automatically performs the necessary 
    [xlet], [xseq] and [xcast], then checks that the goal 
@@ -556,20 +556,20 @@ Tactic Notation "xval" "*"  :=
 Ltac xif_pre tt :=
   xlet_xseq_xcast_repeat tt; 
   match xgoal_code_without_wptag tt with
-  | (Wpgen_if_val _ _ _) => idtac 
+  | (Wpgen_if_bool _ _ _) => idtac 
   end.
 
 Lemma xifval_lemma : forall `{EA:Enc A} b H (Q:A->hprop) (F1 F2:Formula),
   (b = true -> H ==> ^F1 Q) ->
   (b = false -> H ==> ^F2 Q) ->
-  H ==> ^(Wpgen_if_val b F1 F2) Q.
-Proof using. introv E N. applys Local_erase. case_if*. Qed.
+  H ==> ^(Wpgen_if_bool b F1 F2) Q.
+Proof using. introv E N. applys mkLocal_erase. case_if*. Qed.
 
 Lemma xifval_lemma_isTrue : forall `{EA:Enc A} (P:Prop) H (Q:A->hprop) (F1 F2:Formula),
   (P -> H ==> ^F1 Q) ->
   (~ P -> H ==> ^F2 Q) ->
-  H ==> ^(Wpgen_if_val (isTrue P) F1 F2) Q.
-Proof using. introv E N. applys Local_erase. case_if*. Qed.
+  H ==> ^(Wpgen_if_bool (isTrue P) F1 F2) Q.
+Proof using. introv E N. applys mkLocal_erase. case_if*. Qed.
 
 Ltac xif_core tt :=
   first [ applys @xifval_lemma_isTrue
@@ -585,15 +585,15 @@ Tactic Notation "xif" :=
 Ltac xcase_pre tt :=
   xlet_xseq_xcast_repeat tt; 
   match xgoal_code_without_wptag tt with
-  | (Wpgen_case_val _ _ _) => idtac 
+  | (Wpgen_case _ _ _) => idtac 
   end.
 
 Lemma xcase_lemma : forall F1 (P:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
   (H ==> ^F1 Q) ->
   (P -> H ==> ^F2 Q) ->
-  H ==> ^(Wpgen_case_val F1 P F2) Q.
+  H ==> ^(Wpgen_case F1 P F2) Q.
 Proof using. 
-  introv M1 M2. apply Local_erase. applys himpl_hand_r. 
+  introv M1 M2. apply mkLocal_erase. applys himpl_hand_r. 
   { auto. }
   { applys* hwand_move_l_pure. }
 Qed.
@@ -601,7 +601,7 @@ Qed.
 Lemma xcase_lemma0 : forall F1 (P1 P2:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
   (P1 -> H ==> ^F1 Q) ->
   (P2 -> H ==> ^F2 Q) ->
-  H ==> ^(Wpgen_case_val (fun `{EA1:Enc A1} (Q:A1->hprop) => \[P1] \-* ^F1 Q) P2 F2) Q.
+  H ==> ^(Wpgen_case (fun `{EA1:Enc A1} (Q:A1->hprop) => \[P1] \-* ^F1 Q) P2 F2) Q.
 Proof using. 
   introv M1 M2. applys* xcase_lemma. { applys* hwand_move_l_pure. }
 Qed.
@@ -609,7 +609,7 @@ Qed.
 Lemma xcase_lemma2 : forall (F1:val->val->Formula) (P1:val->val->Prop) (P2:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
   (forall x1 x2, P1 x1 x2 -> H ==> ^(F1 x1 x2) Q) ->
   (P2 -> H ==> ^F2 Q) ->
-  H ==> ^(Wpgen_case_val (fun `{EA1:Enc A1} (Q:A1->hprop) => \forall x1 x2, \[P1 x1 x2] \-* ^(F1 x1 x2) Q) P2 F2) Q.
+  H ==> ^(Wpgen_case (fun `{EA1:Enc A1} (Q:A1->hprop) => \forall x1 x2, \[P1 x1 x2] \-* ^(F1 x1 x2) Q) P2 F2) Q.
 Proof using. 
   introv M1 M2. applys* xcase_lemma.
   { repeat (applys himpl_hforall_r ;=> ?). applys* hwand_move_l_pure. }
