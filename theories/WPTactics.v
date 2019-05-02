@@ -193,7 +193,7 @@ Ltac xwp_simpl :=
   cbn beta delta [ 
   LibList.combine 
   List.rev Datatypes.app List.fold_right List.map
-  Wpgen Wpaux_getval Wpaux_getval_typed Wpaux_getval_val Wpaux_getval_int
+  Wpgen Wpaux_getval Wpaux_getval_typed Wpaux_getval_int
   Wpaux_apps Wpaux_apps_or_prim Wpaux_constr Wpaux_var Wpaux_match  
   hforall_vars forall_vars
   trm_case trm_to_pat patvars patsubst combiner_to_trm

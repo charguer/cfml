@@ -810,7 +810,9 @@ Proof using. intros. applys* is_local_conseq_frame_hgc. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** SL rules for terms *)
+(* ** SL rules for evalation contexts *)
+
+(** Auxiliary result involved in the proof of the next lemma *)
 
 Lemma triple_evalctx : forall C t1 H Q Q1,
   evalctx C ->
@@ -846,6 +848,10 @@ Proof using.
   { applys triple_evalctx (fun t2 => trm_for x v1 t2 (isubst (Ctx.rem x E) t3)); eauto. }
   { applys triple_evalctx (fun t0 => trm_match t0 (List.map (fun '(pi,ti) => (pi, isubst (Ctx.rem_vars (patvars pi) E) ti)) pts)); eauto. }
 Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** SL rules for terms *)
 
 Lemma triple_val : forall v H Q,
   H ==> Q v ->

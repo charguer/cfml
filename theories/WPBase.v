@@ -342,9 +342,9 @@ Definition wpaux_getval wpgen (E:ctx) (t1:trm) (F2of:val->formula) : formula :=
   match t1 with
   | trm_val v => F2of v
   | trm_var x => match Ctx.lookup x E with
-                        | Some v => F2of v
-                        | None => wpgen_fail
-                        end
+                 | Some v => F2of v
+                 | None => wpgen_fail
+                 end
   | _ => wpgen_let (wpgen E t1) F2of
   end.
 
@@ -354,15 +354,6 @@ Definition wpgen_constr wpgen (E:ctx) (id:idconstr) : list val -> list trm -> fo
     | nil => wpgen_val (val_constr id (List.rev rvs))
     | t1::ts' => wpaux_getval wpgen E t1 (fun v1 => mk (v1::rvs) ts')
     end.
-
-Definition wpgen_unop_int (v1:val) (F:int->val) : formula := mkflocal (fun Q =>
-  \exists n1, \[v1 = val_int n1] \* Q (F n1)).
-
-Definition wpgen_unop_bool (v1:val) (F:bool->val) : formula := mkflocal (fun Q =>
-  \exists b1, \[v1 = val_bool b1] \* Q (F b1)).
-
-Definition wpgen_binop_int (v1 v2:val) (F:int->int->val) : formula := mkflocal (fun Q =>
-  \exists n1 n2, \[v1 = val_int n1 /\ v2 = val_int n2] \* Q (F n1 n2)).
 
 Definition wpaux_apps wpgen (E:ctx) (v0:val) : list val -> list trm -> formula := 
   fix mk (rvs : list val) (ts : list trm) : formula :=
@@ -528,6 +519,10 @@ Qed.
 
 (** Soundness of the [wpgen] for the various constructs *)
 
+Lemma wpgen_sound_fail :
+  wpgen_sound trm_fail.
+Proof using. intros. intros E Q. applys himpl_wpgen_fail_l. Qed.
+
 Lemma wpgen_sound_getval : forall E C t1 F2of,
   evalctx C ->
   wpgen_sound t1 ->
@@ -549,10 +544,6 @@ Proof using.
   { apply triple_of_wp. applys M1. }
   { intros v. apply triple_of_wp. applys M2. }
 Qed.
-
-Lemma wpgen_sound_fail :
-  wpgen_sound trm_fail.
-Proof using. intros. intros E Q. applys himpl_wpgen_fail_l. Qed.
 
 Lemma wpgen_sound_var : forall x,
   wpgen_sound (trm_var x).
@@ -754,6 +745,8 @@ Proof using.
     forwards M: IHts' (v1::rvs). unfold trms_vals in *. rew_listx~ in M.
     unfold wpsubst in M. rewrite isubst_trm_constr_args in M. apply M. }
 Qed.
+
+(** Putting it all together *)
 
 Lemma wpgen_sound_trm : forall t,
   wpgen_sound t.

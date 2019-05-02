@@ -729,6 +729,35 @@ Proof using. intros. applys* is_local_conseq_frame_hgc. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
+(* ** Lifting of evaluation context rules *)
+
+(** Not needed? *)
+Lemma Triple_evalctx : forall C t1 H,
+ forall A `{EA:Enc A} (Q:A->hprop) A1 `{EA1:Enc A1} (Q1:A1->hprop),
+  evalctx C ->
+  Triple t1 H Q1 ->
+  (forall V, Triple (C v) (Q1 V) Q) ->
+  Triple (C t1) H Q.
+Proof using.
+  introv E M1 M2. applys triple_evalctx. subst.
+  unfold LiftPost. hsimpl*.
+Qed.
+
+(** Substitution commutes with evaluation contexts, for triples *)
+
+Lemma Triple_isubst_evalctx : forall E C t1 H,
+ forall A `{EA:Enc A} (Q:A->hprop) A1 `{EA1:Enc A1} (Q1:A1->hprop),
+  evalctx C ->
+  Triple (isubst E t1) H Q1 ->
+  (forall V, Triple (isubst E (C v)) (Q1 V) Q) ->
+  Triple (isubst E (C t1)) H Q.
+Proof using.
+  introv E M1 M2. applys triple_isubst_evalctx. subst.
+  unfold LiftPost. hsimpl*.
+Qed.
+..
+
+(* ---------------------------------------------------------------------- *)
 (* ** Lifting of term rules *)
 
 Lemma Triple_val : forall A `{EA:Enc A} (V:A) v H (Q:A->hprop),

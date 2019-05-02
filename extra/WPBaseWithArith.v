@@ -982,3 +982,30 @@ Notation "'Wpgen_var'' E x" :=
   | Some v => Wpgen_val v
   end) (at level 37, E at level 0, x at level 0).
 *)
+
+
+
+Definition Wpaux_apps_or_prim Wpgen (E:ctx) (t0:trm) (ts:list trm) : Formula :=
+  match t0, ts with
+  | trm_val (val_prim val_add), (t1::t2::nil) => 
+     Wpaux_getval_int Wpgen E t1 (fun n1 => 
+       Wpaux_getval_int Wpgen E t2 (fun n2 => 
+         `Formula_cast (fun (Q:int->hprop) => Q (n1 + n2))))
+  | _,_ => Wpaux_getval_val Wpgen E t0 (fun v0 => Wpaux_apps Wpgen E v0 nil ts)
+  end.
+
+
+Definition Wpaux_getval_int Wpgen (E:ctx) (t1:trm) (F2of:int->Formula) : Formula :=
+  match t1 with
+  | trm_val (val_int n) => F2of n
+  | _ => Wpaux_getval_typed Wpgen E t1 F2of
+  end.
+
+Definition wpgen_unop_int (v1:val) (F:int->val) : formula := mkflocal (fun Q =>
+  \exists n1, \[v1 = val_int n1] \* Q (F n1)).
+
+Definition wpgen_unop_bool (v1:val) (F:bool->val) : formula := mkflocal (fun Q =>
+  \exists b1, \[v1 = val_bool b1] \* Q (F b1)).
+
+Definition wpgen_binop_int (v1 v2:val) (F:int->int->val) : formula := mkflocal (fun Q =>
+  \exists n1 n2, \[v1 = val_int n1 /\ v2 = val_int n2] \* Q (F n1 n2)).
