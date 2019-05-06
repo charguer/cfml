@@ -952,7 +952,7 @@ Inductive red : state -> trm -> state -> val -> Prop :=
       red m1 (trm_let z v1 t2) m2 r
   (* LATER: factorize using [subst1 f v0 (substn xs vs) t]   
       and a relatex version of var_fixs that accept a [f:bind] *)
-  | red_apps_funs : forall m1 m2  xs t3 v0 vs r,
+  | red_apps_funs : forall m1 m2 xs t3 v0 vs r,
       v0 = val_funs xs t3 ->
       var_funs (length vs) xs ->
       red m1 (substn xs vs t3) m2 r ->
