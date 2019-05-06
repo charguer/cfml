@@ -149,7 +149,10 @@ Notation "H1 '\*' H2" := (hstar H1 H2) (at level 41, right associativity).
     The variable [x] has type [A], for some arbitrary type [A].
 
     The notation [\exists x, H] stands for [hexists (fun x => H)].
-    (The definition is a bit technical; additional explanations appear further on.) *)
+    The generalized notation [\exists x1 ... xn, H] is also available.
+
+    The definition of [hexists] is a bit technical. It may be skipped 
+    in first reading. additional explanations are given further on. *)
 
 Definition hexists A (J:A->hprop) : hprop :=
   fun (s:state) => exists x, J x s.
@@ -157,7 +160,7 @@ Definition hexists A (J:A->hprop) : hprop :=
 Notation "'\exists' x1 .. xn , H" :=
   (hexists (fun x1 => .. (hexists (fun xn => H)) ..))
   (at level 39, x1 binder, H at level 50, right associativity,
-   format "'\exists'  x1  ..  xn ,   H").
+   format "'[' '\exists' '/ ' x1  ..  xn , '/ ' H ']'").
 
 (** The "top" heap predicate, written [\Top], holds of any heap predicate.
     It plays a useful role for denoting pieces of state that needs to be discarded,
@@ -165,6 +168,8 @@ Notation "'\exists' x1 .. xn , H" :=
 
 Definition htop : hprop :=
   fun (s:state) => True.
+
+Notation "\Top" := (htop).
 
 
 (* ******************************************************* *)
@@ -185,30 +190,99 @@ Implicit Type Q : val -> hprop.
 Notation "Q \*+ H" := (fun x => hstar (Q x) H) (at level 40).
 
 
-
-
-
-(*
-
-
 (* ******************************************************* *)
-(** ** Syntax and semantics *)
+(** ** Separation Logic triples and the frame rule *)
 
 
 
-Inductive ex (A:Type) (P:A -> Prop) : Prop :=
-  ex_intro : forall x:A, P x -> ex (A:=A) P.
 
-Inductive ex2 (A:Type) (P Q:A -> Prop) : Prop :=
-  ex_intro2 : forall x:A, P x -> Q x -> ex2 (A:=A) P Q.
 
-Definition all (A:Type) (P:A -> Prop) := forall x:A, P x.
 
+
+(* ####################################################### *)
+(** * Additional explanations for the definition of [\exists] *)
+
+(** The heap predicate [\exists (n:int), l ~~~> (val_int n)] characterizes
+    a state that contains a single memory cell, at address [l], storing
+    the integer value [n], for "some" (unspecified) integer [n]. *)
+
+Module HexistsExample.
+  Parameter (l:loc).
+  Check (\exists (n:int), l ~~~> (val_int n)) : hprop.
+End HexistsExample.
+
+(** The type of [\exists], which operates on [hprop], is very similar 
+    to that of [exists], which operates on [Prop]. 
+
+    The notation [exists x, P] stands for [ex (fun x => P)],
+    where [ex] admits the following type: *)
+
+Check ex : forall A : Type, (A -> Prop) -> Prop.
+
+(** Likewise, [\exists x, H] stands for [hexists (fun x => H)],
+    where [hexists] admits the following type: *)
+
+Check hexists : forall A : Type, (A -> hprop) -> hprop.
+
+(** Remark: the notation for [\exists] is directly adapted from that 
+    of [exists], which supports the quantification an arbitrary number
+    of variables, and is defined in [Coq.Init.Logic] as follows. *)
 
 Notation "'exists' x .. y , p" := (ex (fun x => .. (ex (fun y => p)) ..))
   (at level 200, x binder, right associativity,
-   format "'[' 'exists' '/ ' x .. y , '/ ' p ']'")
-  : type_scope.
+   format "'[' 'exists' '/ ' x .. y , '/ ' p ']'").
+
+
+
+(* ####################################################### *)
+(** * Alterative definitions for heap predicates *)
+
+(** In what follows, we discuss alternative, equivalent defininitions for
+    the fundamental heap predicates. We write these equivalence using 
+    equalities of the form [H1 = H2]. We will justify later the use of 
+    the equal sign for relating predicates. *)
+
+(** The empty heap predicate [\[]] is equivalent to the pure fact predicate
+    [\[True]]. Thus, [hempty] could be defined in terms of [hpure]. *)
+
+Parameter hempty_eq_hpure_true :
+  \[] = \[True].
+
+Definition hempty' : hprop :=
+  \[True].
+
+(** The pure fact predicate [[\P]] is equivalent to the existential
+    quantification over a proof of [P] in the empty heap, that is,
+    to the heap predicate [\exists (p:P), \[]]. Thus, [hpure] could
+    be defined in terms of [hexists] and [hempty]. *)
+
+Parameter hpure_eq_hexists_proof : forall P,
+  \[P] = \[True].
+
+Definition hpure' (P:Prop) : hprop :=
+  \exists (p:P), \[].
+
+(** We like to reduce the number of combinators to the minimum number,
+    both for elegance and to reduce the subsesquent proof effort.
+    Since we cannot do without [hexists], we have a choice between
+    considering either [hpure] or [hempty] as primitive, and the other
+    one as derived. The predicate [hempty] is simpler and appears as
+    more fundamental. Hence, in practice we define [hpure] in terms of
+    [hexists] and [hempty], as done in the definition [hpure'] above. *)
+
+(** The top heap predicate [\Top] is equivalent to [\exists H, H], 
+    which is a heap predicate that also characterizes any state.
+    Again, because we need [hexists] anyway, we prefer in practice
+    to define [\Top] in terms of [hexists], as done in the definition
+    of [htop'] shown below. *)
+
+Parameter htop_eq_hexists_hprop :
+  \Top = (\exists (H:hprop), H).
+
+Definition htop' : hprop :=
+  \exists (H:hprop), H.
+
+
 
 
 
