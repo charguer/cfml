@@ -193,10 +193,68 @@ Notation "Q \*+ H" := (fun x => hstar (Q x) H) (at level 40).
 (* ******************************************************* *)
 (** ** Separation Logic triples and the frame rule *)
 
+(** A Separation Logic triple is a generalization of a Hoare triple
+    that integrate builtin support for the "frame rule". Before we give
+    the definition of a Separation Logic triple, let us first give
+    the definition of a Hoare triple and state the much-desired frame rule. *)
 
+(** A Hoare triple, written [{H}t{Q}] on paper, and here written
+    [Hoare_triple H t Q], asserts that starting from a state [s] satisfying
+    the precondition [H], the term [t] evaluates to a value [v] and to
+    a state [s'] that, together, satisfy the postcondition [Q]. Formally: *)
 
+Definition Hoare_triple (H:hprop) (t:trm) (Q:val->hprop) : Prop :=
+  forall s, H s ->
+  exists v s', red s t s' v /\ Q v s'.
 
+(** The frame rule asserts that if one can derive a specification of
+    the form [triple H t Q] for a term [t], then one should be able
+    to automatically derive [triple (H \* H') t (Q \*+ H')] for any [H'].
+    Intuitively, if [t] executes safely in a heap [H], it should behave
+    similarly in any extension of [H] with a disjoint part [H'], moreover
+    its evaluation should leave this piece of state [H'] unmodified until
+    the end. 
 
+    The following definition of a Separation Logic triple builds upon
+    that of a Hoare triple by "baking in" the frame rule. *)
+
+Definition triple (H:hprop) (t:trm) (Q:val->hprop) : Prop :=
+  forall (H':hprop), Hoare_triple (H \* H') t (Q \*+ H').
+
+(** This definition inherently satisfies the frame rule.
+    To carry out the proof, the only fact that we need to exploit
+    is the associativity of the star operator, which we will 
+    establish in the next chapter. *)
+
+Parameter hstar_assoc : forall H1 H2 H3,
+  (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
+
+Lemma frame_rule : forall H t Q H', 
+  triple H t Q ->
+  triple (H \* H') t (Q \*+ H').
+Proof using.
+  introv M. unfold triple in *. rename H' into H1. intros H2.
+  specializes M (H1 \* H2).
+  (* [M] matches the goal up to rewriting for associativity. *)
+  applys_eq M 1 3.
+  { rewrite hstar_assoc. auto. }
+  { applys fun_ext_1. intros v. rewrite hstar_assoc. auto. }
+Qed.
+
+(** The actual definition of a Separation Logic triple accounts
+    for the fact that pieces of heap may need to get discarded.
+    To that end, we augment the postcondition with a [\Top], 
+    which can capture any piece of state that we do not wish to
+    mention explicitly in the postcondition. *)
+
+Definition triple' (H:hprop) (t:trm) (Q:val->hprop) : Prop :=
+  forall (H':hprop), Hoare_triple (H \* H') t (Q \*+ H' \*+ \Top).
+
+(** Depending on the exact set up of the Separation Logic,
+    this [\Top] predicate may be replaced by a finer-grained
+    definition (so as to obtain a linear or partially-linear,
+    logic, instead of a fully affine logic). This distinction 
+    is the matter of a more advanced chapter. *)
 
 
 (* ####################################################### *)
@@ -283,28 +341,3 @@ Definition htop' : hprop :=
   \exists (H:hprop), H.
 
 
-
-
-
-(* ******************************************************* *)
-
-(** * Triples adapted for languages with garbage collection *)
-
-(** ** Motivating example *)
-
-(** Consider the program [Let x := val_ref 3 in 5], abbreviated below
-    as [t]. This program allocates a memory cell with contents [3], at some
-    location [x], and then returns [5]. In this program, the address
-    of the allocated memory cell is not returned, so it cannot be
-    subsequently accessed. Thus, one may argue that a natural specification
-    for this program is the same as that of a program that simply returns
-    the value [5], that is: *)
-
-Parameter t : trm. (* := [Let x := val_ref 3 in 5]. *)
-
-Parameter htop_example_1 :
-  triple t
-    \[]
-    (fun (r:val) => \[r = 5]).
-
-*)
