@@ -42,12 +42,13 @@ SRC_MORE := SepBaseAltProofs SepCredits SepRO
 
 SRC_EXAMPLES := Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleList ExampleRO 
 
-SRC_SF := SLFSemantics SLFHprop SLFHimpl SLFRules SLWP 
+SRC_SF := SLFHprop 
+ # SLFHimpl SLFRules SLWP 
 
 SRC_MOSEL := SepMoselFunctor SepBaseMosel SepROMosel ExampleROMosel ExampleListMosel
 
-SRC := $(SRC_CORE) $(SRC_MORE)
-# $(SRC_EXAMPLES) $(SRC_SF) $(SRC_MOSEL)
+SRC := $(SRC_SF) $(SRC_CORE) $(SRC_MORE)
+# $(SRC_EXAMPLES)  $(SRC_MOSEL)
 
 # using the variable SRC_FORCE, one can modify the compilation targets and/or their order.
 

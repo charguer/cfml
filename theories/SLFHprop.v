@@ -11,7 +11,7 @@ License: MIT.
 
 Set Implicit Arguments.
 From TLC Require Import LibCore.
-From Sep Require Import Semantics. 
+From Sep Require Import Semantics.
 (* TODO move *)
   Module CoercionsFromStrings.
   Coercion string_to_var (x:string) : var := x.
@@ -600,13 +600,18 @@ Definition triple_lowlevel t H Q :=
   forall h1 h2,
   fmap_disjoint h1 h2 ->
   H h1 ->
-  exists h1' h3' v,
+  exists v h1' h3',
        fmap_disjoint_3 h1' h2 h3'
     /\ red (h1 \u h2) t (h1' \u h2 \u h3') v
     /\ (Q v) h1'.
 
 (** One can proove the equivalence of [triple] and [triple_lowlevel]
-    following a similar proof pattern as previously. *)
+    following a similar proof pattern as previously. The proof is a bit 
+    more technical and requires additional tactic support to deal with
+    the tedious disjointness conditions, so we omit the details. *)
+
+Parameter triple_iff_triple_lowlevel : forall t H Q,
+  triple t H Q <->triple_lowlevel t H Q.
 
 
 
