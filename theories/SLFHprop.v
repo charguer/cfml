@@ -204,11 +204,11 @@ Notation "Q \*+ H" := (fun x => hstar (Q x) H) (at level 40).
     the definition of a Hoare triple and state the much-desired frame rule. *)
 
 (** A Hoare triple, written [{H}t{Q}] on paper, and here written
-    [Hoare_triple H t Q], asserts that starting from a state [s] satisfying
+    [Hoare_triple t H Q], asserts that starting from a state [s] satisfying
     the precondition [H], the term [t] evaluates to a value [v] and to
     a state [s'] that, together, satisfy the postcondition [Q]. Formally: *)
 
-Definition Hoare_triple (H:hprop) (t:trm) (Q:val->hprop) : Prop :=
+Definition Hoare_triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (s:state), H s ->
   exists v s', red s t s' v /\ Q v s'.
 
@@ -226,8 +226,8 @@ Definition Hoare_triple (H:hprop) (t:trm) (Q:val->hprop) : Prop :=
     The following definition of a Separation Logic triple builds upon
     that of a Hoare triple by "baking in" the frame rule. *)
 
-Definition SL_triple (H:hprop) (t:trm) (Q:val->hprop) : Prop :=
-  forall (H':hprop), Hoare_triple (H \* H') t (Q \*+ H').
+Definition SL_triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall (H':hprop), Hoare_triple t (H \* H') (Q \*+ H').
 
 (** This definition inherently satisfies the frame rule.
     To carry out the proof, the only fact that we need to exploit
@@ -237,14 +237,14 @@ Definition SL_triple (H:hprop) (t:trm) (Q:val->hprop) : Prop :=
 Parameter hstar_assoc : forall H1 H2 H3,
   (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
 
-Lemma frame_rule : forall H t Q H', 
-  SL_triple H t Q ->
-  SL_triple (H \* H') t (Q \*+ H').
+Lemma SL_frame_rule : forall t H Q H', 
+  SL_triple t H Q ->
+  SL_triple t (H \* H') (Q \*+ H').
 Proof using.
   introv M. unfold SL_triple in *. rename H' into H1. intros H2.
   specializes M (H1 \* H2).
   (* [M] matches the goal up to rewriting for associativity. *)
-  applys_eq M 1 3.
+  applys_eq M 1 2.
   { rewrite hstar_assoc. auto. }
   { applys fun_ext_1. intros v. rewrite hstar_assoc. auto. }
 Qed.
@@ -255,14 +255,29 @@ Qed.
     which can capture any piece of state that we do not wish to
     mention explicitly in the postcondition. *)
 
-Definition triple (H:hprop) (t:trm) (Q:val->hprop) : Prop :=
-  forall (H':hprop), Hoare_triple (H \* H') t (Q \*+ H' \*+ \Top).
+Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall (H':hprop), Hoare_triple t (H \* H') (Q \*+ H' \*+ \Top).
 
 (** Depending on the exact set up of the Separation Logic,
     this [\Top] predicate may be replaced by a finer-grained
     definition (so as to obtain a linear or partially-linear,
     logic, instead of a fully affine logic). This distinction 
     is the matter of a more advanced chapter. *)
+
+(* EX1! (rule_frame) *)
+(** Prove the frame rule for the actual definition of [triple]. *)
+
+Lemma rule_frame : forall t H Q H', 
+  triple t H Q ->
+  triple t (H \* H') (Q \*+ H').
+Proof using.
+(* SOLUTION *)
+  introv M. unfold SL_triple in *. rename H' into H1. intros H2.
+  specializes M (H1 \* H2). applys_eq M 1 2.
+  { rewrite hstar_assoc. auto. }
+  { applys fun_ext_1. intros v. repeat rewrite hstar_assoc. auto. }
+(* /SOLUTION *)
+Qed.
 
 
 (* ####################################################### *)
@@ -277,9 +292,12 @@ Notation "h1 \u h2" := (fmap_union h1 h2) (at level 37, right associativity).
 (* ******************************************************* *)
 (** ** Introduction and inversion lemmas for basic operators *)
 
+(** The following lemmas help getting a better understanding
+    of the meaning of the Separation Logic combinators. *)
+
 Implicit Types P : Prop.
 
-(** Introduction lemmas *)
+(** Introduction lemmas: how to prove goals of the form [H h]. *)
 
 Lemma hempty_intro :
   \[] fmap_empty.
@@ -310,7 +328,8 @@ Lemma htop_intro : forall h,
   \Top h.
 Proof using. intros. hnf. auto. Qed.
 
-(** Inversion lemmas *)
+(** Inversion lemmas: how to extract information from hypotheses
+    of the form [H h].*)
 
 Lemma hempty_inv : forall h,
   \[] h ->
@@ -377,12 +396,93 @@ Notation "'exists' x .. y , p" := (ex (fun x => .. (ex (fun y => p)) ..))
    format "'[' 'exists' '/ ' x .. y , '/ ' p ']'").
 
 
+(* ******************************************************* *)
+(** ** Example of triples *)
+
+(** Assume a function called [incr] that increments the contents
+    of a memory cell. *)
+
+Parameter incr : val.
+
+(** An application of [incr] is a term of the form 
+    [trm_app (trm_val incr) (trm_val (val_loc p))].
+    Because [trm_app], [trm_val], and [val_loc] are registered as
+    coercions, it may be abbreviated as just [incr p].  *)
+
+Lemma incr_applied : forall (p:loc) (n:int),
+    trm_app (trm_val incr) (trm_val (val_loc p))
+  = incr p.
+Proof using. reflexivity. Qed.
+
+(** A specification lemma for [incr] takes the form [triple (incr p) H Q].
+    The precondition [H] is of the form [p ~~~> n], describing the 
+    existence of a single memory cell at location [p] with contents [n].
+    The postcondition is of the form [fun v => H'], where [v] denotes
+    the result and [H'] the output state.
+
+    Here, the result value is unit, written [val_unit]. We employ the pure
+    fact predicate [\[v = val_unit]] to assert this equality. 
+  
+    The output state is described by [p ~~~> (n+1)], describing the
+    updated contents of the memory cell at location [p]. *)
+
+Parameter triple_incr : forall (p:loc) (n:int),
+  triple (trm_app incr p)
+    (p ~~~> n)
+    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+
+
+(* ******************************************************* *)
+(** ** Example of application of the frame rule *)
+
+(** The frame rule asserts that a triple that is true remains
+    true in any extended heap.
+
+    Calling [incr p] in a state where the memory consists of
+    two memory cells, one at location [p] storing an integer [n]
+    and one at location [q] storing an integer [m] has the effect
+    of updating the contents of the cell [p] to [n+1], while
+    leaving the contents of [q] unmodified. *)
+
+Lemma triple_incr_2 : forall (p q:loc) (n m:int),
+  triple (incr p)
+    ((p ~~~> n) \* (q ~~~> m))
+    (fun v => \[v = val_unit] \* (p ~~~> (n+1)) \* (q ~~~> m)).
+
+(** The above specification lemma is derivable from the specification 
+    lemma [triple_incr] by applying the frame rule to augment
+    both the precondition and the postcondition with [q ~~~> m]. *)
+
+Proof using.
+  intros. lets M: triple_incr p n.
+  lets N: rule_frame (q ~~~> m) M.
+  applys_eq N 1 2.
+  { auto. }
+  { apply fun_ext_1. intros v. rewrite hstar_assoc. auto. }
+Qed.
+
+(* Here, we have framed on [q ~~~> m], but we could similarly
+   frame on any heap predicate [H], as captured by the following
+   specification lemma. *)
+
+Parameter rule_incr_3 : forall (p:loc) (n:int) (H:hprop),
+  triple (incr p)
+    ((p ~~~> n) \* H)
+    (fun v => \[v = val_unit] \* (p ~~~> (n+1)) \* H).
+
+(** Remark: in practice, we always prefer writing
+    "small-footprint specifications" (such as [triple_incr])
+    that describe the minimal piece of state necessary for
+    the function to execute. Indeed, other specifications that 
+    describe a larger piece of state can be derived by simple
+    application of the frame. *)
+
 
 (* ####################################################### *)
 (** * Alternative definitions *)
 
 (* ******************************************************* *)
-(** ** Alterative definitions for heap predicates *)
+(** ** Alternative definitions for heap predicates *)
 
 (** In what follows, we discuss alternative, equivalent defininitions for
     the fundamental heap predicates. We write these equivalence using 
@@ -446,7 +546,7 @@ Definition htop' : hprop :=
     in such a way that [v] and [h1'] together satisfy the 
     poscondition [Q]. *)
 
-Definition SL_triple_lowlevel (H:hprop) (t:trm) (Q:val->hprop) : Prop :=
+Definition SL_triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall h1 h2,
   fmap_disjoint h1 h2 ->
   H h1 ->
@@ -459,8 +559,8 @@ Definition SL_triple_lowlevel (H:hprop) (t:trm) (Q:val->hprop) : Prop :=
     of [SL_triple] and the original one. *)
 
 (* EX3! (SL_triple_iff_SL_triple_lowlevel) *)
-Lemma SL_triple_iff_SL_triple_lowlevel : forall H t Q,
-  SL_triple H t Q <-> SL_triple_lowlevel H t Q.
+Lemma SL_triple_iff_SL_triple_lowlevel : forall t H Q,
+  SL_triple t H Q <-> SL_triple_lowlevel t H Q.
 Proof using.
 (* SOLUTION *)
   unfold SL_triple, SL_triple_lowlevel, Hoare_triple. iff M.
