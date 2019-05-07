@@ -165,7 +165,7 @@ Definition hexists A (J:A->hprop) : hprop :=
 Notation "'\exists' x1 .. xn , H" :=
   (hexists (fun x1 => .. (hexists (fun xn => H)) ..))
   (at level 39, x1 binder, H at level 50, right associativity,
-   format "'[' '\exists' '/ ' x1  ..  xn , '/ ' H ']'").
+   format "'[' '\exists' '/ '  x1  ..  xn , '/ '  H ']'").
 
 (** The "top" heap predicate, written [\Top], holds of any heap predicate.
     It plays a useful role for denoting pieces of state that needs to be discarded,
@@ -478,6 +478,12 @@ Parameter rule_incr_3 : forall (p:loc) (n:int) (H:hprop),
     application of the frame. *)
 
 
+(* ******************************************************* *)
+(** ** Power of the frame rule w.r.t. allocation *)
+
+(* TODO *)
+
+
 (* ####################################################### *)
 (** * Alternative definitions *)
 
@@ -565,11 +571,11 @@ Proof using.
 (* SOLUTION *)
   unfold SL_triple, SL_triple_lowlevel, Hoare_triple. iff M.
   { introv D P1.
-    forwards~ (v&h'&HR&HQ): M (=h2) (h1 \u h2). { hnf. eauto 8. }
+    forwards (v&h'&HR&HQ): M (=h2) (h1 \u h2). { hnf. eauto 8. }
     destruct HQ as (h1'&h2'&N0&N1&N2&N3). subst.
     exists v h1'. eauto. }
   { intros H' h. introv (h1&h2&N1&N2&D&U).
-    forwards~ (v&h1'&D'&HR&HQ): M h1 h2. subst.
+    forwards (v&h1'&D'&HR&HQ): M h1 h2; auto. subst.
     exists v (h1' \u h2). split. { eauto. } { hnf. eauto 8. } }
 (* /SOLUTION *)
 Qed.
@@ -611,7 +617,7 @@ Definition triple_lowlevel t H Q :=
     the tedious disjointness conditions, so we omit the details. *)
 
 Parameter triple_iff_triple_lowlevel : forall t H Q,
-  triple t H Q <->triple_lowlevel t H Q.
+  triple t H Q <-> triple_lowlevel t H Q.
 
 
 
