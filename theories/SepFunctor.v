@@ -82,7 +82,7 @@ Definition himpl A (H1 H2:A->Prop) :=
   forall x, H1 x -> H2 x.
 
 Notation "H1 ==> H2" := (himpl H1 H2)
-  (at level 55, right associativity) : heap_scope.
+  (at level 55) : heap_scope.
 
 (** [Q1 ===> Q2] is defined as [forall x h, Q1 x h -> Q2 x h].
     It is thus equivalent to [forall x, Q1 x ==> Q2 x].
@@ -92,7 +92,7 @@ Definition qimpl A B (Q1 Q2:A->B->Prop) :=
   forall r, himpl (Q1 r) (Q2 r).
 
 Notation "Q1 ===> Q2" := (qimpl Q1 Q2)
-  (at level 55, right associativity) : heap_scope.
+  (at level 55) : heap_scope.
 
 Open Scope heap_scope.
 
@@ -310,7 +310,7 @@ Definition hpure (P:Prop) : hprop :=
   hexists (fun (p:P) => hempty).
 
 Notation "\[ P ]" := (hpure P)
-  (at level 0, P at level 99, format "\[ P ]") : heap_scope.
+  (at level 0, format "\[ P ]") : heap_scope.
 
 (** The "Top" predicate, written [\Top], which holds of any heap,
   implemented as [\exists H, H]. *)

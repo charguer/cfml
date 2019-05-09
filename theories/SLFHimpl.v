@@ -33,6 +33,8 @@ Close Scope fmap_scope.
 
 From Sep Require Import SLFHprop.
 
+From Sep Require SepBase.
+
 Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
 
@@ -94,29 +96,18 @@ Lemma qimpl_trans : forall Q2 Q1 Q3,
 Proof using. introv M1 M2. intros v. applys himpl_trans; eauto. Qed.
 
 
-
-
 (* ******************************************************* *)
 (** ** Rule of consequence *)
 
 (** A first use of the entailement relation is to state the
-    consequence rule. We can prove the rule of consequence 
-    directly with respect to the low level interpretation of
-    Separation Logic triples. *)
+    consequence rule, which takes the same form in Separation Logic
+    as in Hoare Logic. (Proofs appear further on in this file.) *)
 
-Lemma triple_conseq : forall t H Q H' Q',
+Parameter triple_conseq : forall t H Q H' Q',
   triple t H' Q' ->
   H ==> H' ->
   Q' ===> Q ->
   triple t H Q.
-Proof using.
-  introv M WH WQ. rewrite triple_iff_triple_lowlevel in *.
-  unfold triple_lowlevel in *. 
-  intros h1 h2 D P1. lets P1': WH P1.
-  lets M': M D P1'.
-  destruct M' as (v&h1'&h3'&D'&R&HQ).
-  exists v h1' h3'. splits~. applys WQ. auto.
-Qed.
 
 
 (* ******************************************************* *)
@@ -211,18 +202,282 @@ Parameter himpl_frame_l : forall H2 H1 H1',
     with respect to entailment and existentials. *)
 
 
+(* ******************************************************* *)
+(** ** The [hsimpl] tactic *)
+
+(** The Separation Logic setup that we will rely on in subsequent
+    chapters includes a tactic called [hsimpl], to assist in the
+    simplifications of entailment relations. 
+
+    The working of [hsimpl] can be summarized as a 3-step process:
+
+    1. extract pure facts and existential quantifiers from the LHS
+    2. cancel out equal predicates occuring both in the LHS and RHS
+    3. instantiate existential quantifiers (using either evars or
+       user-provided hints) and generate subgoals for the pure facts
+       occuring in the RHS. Moreover, eliminate any redundant [\Top].
+
+    These three steps are detailed and illustrated next.
+
+    The tactic [hpull] is a degraded version of [hsimpl] that only
+    perform the first step. We will show examples where it is useful.
+*)
+
+Module Hsimpl.
+Import SepBase.
+Notation "'hprop''" := (SLFHprop.hprop).
+
+
+(* ******************************************************* *)
+(** *** [hsimpl] to extract pure facts and quantifiers in LHS *)
+
+(** The first feature of [hsimpl] is its ability to extract the
+    pure facts and the existential quantifiers from the left-hand
+    side out into the Coq context. 
+
+    For example, the proposition [P] appears in the LHS.
+    After calling [hsimpl], it is turned into an hypothesis
+    at the head of the goal, hypothesis that may subsequently
+    be introduced. *)
+
+Lemma hsimpl_demo_lhs_hpure : forall H1 H2 H3 H4 (n:int),
+  H1 \* H2 \* \[n > 0] \* H3 ==> H4.
+Proof using.
+  intros. hsimpl. intros Hn.
+  (* variant syntax: 
+     intros. hsimpl ;=> HP
+  *)
+Abort.
+
+(** In case the LHS includes a contradiction, the goal is discharged. *)
+
+Lemma hsimpl_demo_lhs_hpure : forall H1 H2 H3 H4,
+  H1 \* H2 \* \[False] \* H3 ==> H4.
+Proof using.
+  intros. hsimpl.
+Qed.
+
+(** Similarly, any existential quantifier from the LHS is turned
+    into a universally-quantified variable outside of the entailment. *)
+
+Lemma hsimpl_demo_lhs_hexists : forall H1 H2 H3 H4 (p:loc),
+  H1 \* \exists (n:int), (p ~~~> n \* H2) \* H3 ==> H4.
+Proof using.
+  intros. hsimpl. intros n.
+Abort.
+
+(** The [hsimpl] or [hpull] tactic extracts at once everything it can, 
+    as illustrated next. *)
+
+Lemma hsimpl_demo_lhs_several : forall H1 H2 H3 H4 (p q:loc),
+  H1 \* \exists (n:int), (p ~~~> n \* \[n > 0] \* H2) \* \[p <> q] \* H3 ==> H4.
+Proof using.
+  intros. hsimpl. intros n Hn Hp.
+Abort.
+
+(** This task is also performed by the simpler tactic [hpull]. *)
+
+Lemma hpull_demo_lhs_several : forall H1 H2 H3 H4 (p q:loc),
+  H1 \* \exists (n:int), (p ~~~> n \* \[n > 0] \* H2) \* \[p <> q] \* H3 ==> H4.
+Proof using.
+  intros. hpull. intros n Hn Hp.
+Abort.
+
+
+(* ******************************************************* *)
+(** *** [hsimpl] to cancel out heap predicates from LHS and RHS *)
+
+(** The second feature of [hsimpl] is its ability to cancel out
+    similar heap predicates that occur on both sides of an entailment. 
+
+    For example, [H2] occurs on both sides, so it can be cancelled out. *)
+
+Lemma hsimpl_demo_cancel_one : forall H1 H2 H3 H4 H5 H6 H7,
+  H1 \* H2 \* H3 \* H4 ==> H5 \* H6 \* H2 \* H7.
+Proof using.
+  intros. hsimpl.
+Abort.
+
+(** [hsimpl] actually cancels out all the heap predicates that it
+    can spot to appear on both sides. Here, [H2], [H3], and [H4]. *)
+
+Lemma hsimpl_demo_cancel_many : forall H1 H2 H3 H4 H5,
+  H1 \* H2 \* H3 \* H4 ==> H4 \* H3 \* H5 \* H2.
+Proof using.
+  intros. hsimpl.
+Abort.
+
+(** If all the pieces are cancelled out, then the goal is discharged. *)
+
+Lemma hsimpl_demo_cancel_all : forall H1 H2 H3 H4,
+  H1 \* H2 \* H3 \* H4 ==> H4 \* H3 \* H1 \* H2.
+Proof using.
+  intros. hsimpl.
+Qed.
+
+
+(* ******************************************************* *)
+(** *** [hsimpl] to instantiate pure facts and quantifiers in RHS *)
+
+(** The third feature of [hsimpl] is its ability to instantiate
+    existential quantifiers, pure facts, and [\Top] in the RHS.
+
+    Let us first illustrate how it deals with pure facts. *)
+
+Lemma hsimpl_demo_rhs_hpure : forall H1 H2 H3 (n:int),
+  H1 ==> H2 \* \[n > 0] \* H3.
+Proof using.
+  intros. hsimpl.
+Abort.
+
+(** In the face of a quantifier in the RHS, it introduces an evar. *)
+
+Lemma hsimpl_demo_rhs_hexists : forall H1 H2 H3 H4 (p:loc),
+  H1 ==> H2 \* \exists (n:int), (p ~~~> n \* H3) \* H4.
+Proof using.
+  intros. hsimpl. (* here, [p ~~~> n] becomes [p ~~~> ?x] *)
+Abort.
+
+(** The evar may often be subsequently instantiated as a result of
+    a cancellation with a matching item from the LHS. For example: *)
+
+Lemma hsimpl_demo_rhs_hexists_unify : forall H1 H2 H3 H4 (p:loc),
+  H1 \* (p ~~~> 3) ==> H2 \* \exists (n:int), (p ~~~> n \* H3) \* H4.
+Proof using.
+  intros. hsimpl. (* [p ~~~> n] becomes [p ~~~> ?x], 
+                     which then cancels out with [p ~~~> 3] *)
+Abort.
+
+(** The instantiation of [n] can be observed if there is another
+    occurence of [n] in the entailment. For example: *)
+
+Lemma hsimpl_demo_rhs_hexists_unify_view : forall H1 H2 H3 (p:loc),
+  H1 \* (p ~~~> 3) ==> H2 \* \exists (n:int), (p ~~~> n \* \[n > 0]) \* H3.
+Proof using.
+  intros. hsimpl. (* [p ~~~> n] unifies with [p ~~~> 3], then [3 > 0] remains. *)
+Abort.
+
+(** In some cases, it may desirable to provide an explicit value
+    to instantiate the existential quantifiers from the RHS.
+    Such values may be passed as arguments to [hsimpl],
+    using the syntax [hsimpl v1 .. vn] or [hsimpl (>> v1 .. vn)]. *)
+
+Lemma hsimpl_demo_rhs_hints : forall H1 (p q:loc),
+  H1 ==> \exists (n m:int), (p ~~~> n \* q ~~~> m).
+Proof using.
+  intros. hsimpl 3 4.
+Abort.
+
+(** It is possible to provide hint for only a subset of the quantifier,
+    using the placeholder value [__] for arguments that should be instantiated
+    using evars. *)
+
+Lemma hsimpl_demo_rhs_hints_skip : forall H1 (p q:loc),
+  H1 ==> \exists (n m:int), (p ~~~> n \* q ~~~> m).
+Proof using.
+  intros. hsimpl __ 4.
+Abort.
+
+(** Finally, [hsimpl] provides support for eliminating [\Top] on the RHS.
+    First, if the RHS includes several occurences of [\Top], then they 
+    are replaced with a single one. *)
+
+Lemma hsimpl_demo_rhs_htop_compact : forall H1 H2 H3 H4,
+  H1 \* H2 ==> H3 \* \Top \* H4 \* \Top.
+Proof using.
+  intros. hsimpl.
+Abort.
+
+(** Second, if after cancellations the RHS consists of exactly
+   [\Top] and nothing else, then the goal is discharged. *)
+
+Lemma hsimpl_demo_rhs_htop : forall H1 H2 H3,
+  H1 \* H2 \* H3 ==> H3 \* \Top \* H2 \* \Top.
+Proof using.
+  intros. hsimpl.
+Abort.
+
+
+(* ******************************************************* *)
+(** ** Example of entailment proofs using [hsimpl] *)
+
+Lemma himpl_example_1 : forall (p:loc),
+  p ~~~> 3 ==> \exists (n:int), p ~~~> n.
+Proof using. hsimpl. Qed.
+
+Lemma himpl_example_2 : forall (p q:loc),
+  p ~~~> 3 \* q ~~~> 3 ==> \exists (n:int), p ~~~> n \* q ~~~> n.
+Proof using. hsimpl. Qed.
+
+Lemma himpl_example_3 : forall (p q:loc),
+  p ~~~> 3 \* q ~~~> 3 ==> p ~~~> 3 \* \Top.
+Proof using. hsimpl. Qed.
+
+Lemma himpl_example_4 : forall (p:loc),
+  \exists (n:int), p ~~~> n ==> \exists (m:int), p ~~~> (m + 1).
+Proof using. 
+  intros. (* observe that [hsimpl] here does not work well. *)
+  hpull. intros n. hsimpl (n-1).
+  replace (n-1+1) with n. { auto. } { math. }
+  (* variant for the last line: 
+  applys_eq himpl_refl 2. fequal. math. *)
+Qed.
+
+Lemma himpl_example_5 : forall (H:hprop),
+  \[False] ==> H.
+Proof using. hsimpl. Qed.
+
+
+
+
+
+(** For each entailment relation, indicate whether it is true or fase.
+
+    Solutions appear further on in this file. *)
+
+
+(* WORKINCLASS *)
+
+
+(* /WORKINCLASS *)
+
+
+
+
+End Hsimpl.
+
+
+
+(* ******************************************************* *)
+(** ** Identifying true and false entailments *)
+
 
 (* ####################################################### *)
 (** * Additional contents *)
 
 
 (* ******************************************************* *)
-(** ** Alternative proofs for the consequence rules. *)
+(** ** Proofs for the consequence rules. *)
 
-(** It is simpler and more elegant to first establish
+(** The shortest proof of [triple_conseq] goes through the low-level 
+    interpretation of Separation Logic triples in terms of heaps.
+    A more elegant proof is presented further. *)
+
+Lemma triple_conseq' : forall t H Q H' Q',
+  triple t H' Q' ->
+  H ==> H' ->
+  Q' ===> Q ->
+  triple t H Q.
+Proof using.
+  (* No need to follow through this low-level proof. *)
+  introv M WH WQ. rewrite triple_iff_triple_lowlevel in *.
+  intros h1 h2 D HH. forwards (v&h1'&h3'&D'&R&HQ): M D. applys WH HH.
+  exists v h1' h3'. splits~. applys WQ HQ.
+Qed.
+
+(** However, it is simpler and more elegant to first establish
     the consequence rule for [Hoare_triple], then derive its
     generalization to the case of Separation Logic [triple]. *)
-
 
 (* EX2! (Hoare_conseq) *)
 (** Prove the consequence rule for Hoare triples. *)
@@ -251,7 +506,7 @@ Qed.
     Hint: apply lemma [Hoare_conseq] with the appropriate arguments,
     and use lemma [applys himpl_frame_l] to prove the entailments. *)
 
-Lemma rule_conseq' : forall t H Q H' Q',
+Lemma rule_conseq'' : forall t H Q H' Q',
   triple t H' Q' ->
   H ==> H' ->
   Q' ===> Q ->
@@ -381,15 +636,17 @@ Proof using.
   intros. applys himpl_antisym.
   { intros h (h'&h3&M1&M2&D&U). destruct M1 as (h1&h2&M3&M4&D'&U').
     subst h'. rewrite fmap_disjoint_union_eq_l in D.
-    exists h1 (h2 \u h3). splits*.
+    exists h1 (h2 \u h3). splits.
+    { applys M3. }
     { exists* h2 h3. }
     { rewrite* @fmap_disjoint_union_eq_r. } 
     { rewrite* @fmap_union_assoc in U. } }
 (* SOLUTION *)
   { intros h (h1&h'&M1&M2&D&U). destruct M2 as (h2&h3&M3&M4&D'&U').
     subst h'. rewrite fmap_disjoint_union_eq_r in D.
-    exists (h1 \u h2) h3. splits*.
+    exists (h1 \u h2) h3. splits.
     { exists* h1 h2. }
+    { applys M4. }
     { rewrite* @fmap_disjoint_union_eq_l. } 
     { rewrite* @fmap_union_assoc. } }
 (* /SOLUTION *)
@@ -583,11 +840,6 @@ Qed.
 
 (* ####################################################### *)
 (** * Tactic support *)
-
-(*
-From Sep Require Import SepBase.
-*)
-
 
 
 
