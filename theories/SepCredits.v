@@ -509,6 +509,8 @@ Proof using.
   unfolds in D. rewrite <- E1. rewrite <- E2. auto.
 Qed.
 
+Arguments hstar_hsingle_same_loc : clear implicits.
+
 Lemma haffine_hsingle : forall l v,
   haffine (hsingle l v).
 Proof using.

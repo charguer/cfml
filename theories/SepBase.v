@@ -269,7 +269,7 @@ Lemma hsingle_fmap_single : forall l v,
   (l ~~~> v) (fmap_single l v).
 Proof using. intros. split~. Qed.
 
-Lemma hstar_hsingle_same_loct : forall l v1 v2,
+Lemma hstar_hsingle_same_loc : forall l v1 v2,
   (l ~~~> v1) \* (l ~~~> v2) ==> \[False].
 Proof using.
   intros. unfold hsingle. intros h (h1&h2&E1&E2&D&E). false.
@@ -306,6 +306,8 @@ Proof using.
   intros. unfold hfield. hpull ;=> N1 N2.
   applys hstar_hsingle_same_loc.
 Qed.
+
+Arguments hstar_hsingle_same_loc : clear implicits.
 
 Lemma hfield_not_null : forall l k v,
   (l`.`k ~~~> v) ==> (l`.`k ~~~> v) \* \[l <> null].

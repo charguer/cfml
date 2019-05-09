@@ -625,6 +625,8 @@ Proof using.
   subst. simpls. subst. applys* fmap_disjoint_single_single_same_inv l v1 v2.
 Qed.
 
+Arguments hstar_hsingle_same_loc : clear implicits.
+
 Global Opaque hsingle.
 
 (* ** Configure [hcancel] to make it aware of [hsingle] *)

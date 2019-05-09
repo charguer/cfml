@@ -203,6 +203,43 @@ Parameter himpl_frame_l : forall H2 H1 H1',
 
 
 (* ******************************************************* *)
+(** ** Contradictions from absurd separating conjunctions *)
+
+(** A heap predicate of the form [(l ~~~> v1) \* (l ~~~> v2)] 
+    describes two "disjoint" cells that are both "at location [l]".
+    This is absurd. The contraction is formally captured by
+    the following entailment: *)
+
+Lemma hstar_hsingle_same_loc : forall (l:loc) (v1 v2:val),
+  (l ~~~> v1) \* (l ~~~> v2) ==> \[False].
+
+(** The proof of this result exploits a result on finite maps.
+    Essentially, the domain of a single singleton map that binds
+    a location [l] to some value is the singleton set [\{l}], thus 
+    such a singleton map cannot be disjoint from another singleton 
+    map that binds the same location [l]. *)
+
+Parameter fmap_disjoint_single_single_same_inv : forall (l:loc) (v1 v2:val),
+  fmap_disjoint (fmap_single l v1) (fmap_single l v2) ->
+  False.
+
+(** Using this lemma, we can prove [hstar_hsingle_same_loc]
+    by unfolding the definition of [hstar] to reveal the
+    contradiction on the disjointness assumption. *)
+
+Proof using.
+  intros. unfold hsingle. intros h (h1&h2&E1&E2&D&E). false.
+  subst. applys fmap_disjoint_single_single_same_inv D.
+Qed.
+
+(** More generally, a heap predicate of the form [H1 \* H1] 
+    is generally suspicious in Separation Logic. 
+    Such a predicate can only be satisfied if [H1] covers no
+    memory cell, that is, if [H1] is a pure predicate of the
+    form [\[P]] for some proposition [P]. *)
+
+
+(* ******************************************************* *)
 (** ** The [hsimpl] tactic *)
 
 (** The Separation Logic setup that we will rely on in subsequent
@@ -427,15 +464,12 @@ Lemma himpl_example_5 : forall (H:hprop),
   \[False] ==> H.
 Proof using. hsimpl. Qed.
 
+(** The tactic [hsimpl] also work on [===>]. In this case, it
+    introduces a name for the result, and resolves the [==>] goal. *)
 
-
-
-(* ******************************************************* *)
-(** ** The [hchange] tactic *)
-
-
-
-
+Lemma qimpl_example_1 : forall (Q1 Q2:val->hprop) (H2 H3:hprop),
+  Q1 \*+ H2 ===> Q2 \*+ H2 \*+ H3.
+Proof using. intros. hsimpl. intros r. Abort.
 
 
 
@@ -530,15 +564,6 @@ Parameter case_study_13 : forall p n,
 *)
 (* /SOLUTION *)
 
-Axiom hstar_hsingle_same_loc : forall l v1 v2,
-  (l ~~~> v1) \* (l ~~~> v2) ==> \[False].
-(*Proof using.
-  intros. unfold hsingle. intros h (h1&h2&E1&E2&D&E). false.
-  subst. applys* fmap_disjoint_single_single_same_inv.
-Qed. *)
-
-Arguments hstar_hsingle_same_loc_disjoint : clear implicits.
-
 Lemma case_study_1' : forall p q,
       p ~~~> 3 \* q ~~~> 4
   ==> q ~~~> 4 \* p ~~~> 3.
@@ -552,12 +577,12 @@ Proof using. hsimpl. Qed.
 Lemma case_study_7' : forall p,
       p ~~~> 3 \* p ~~~> 4
   ==> \[False].
-Proof using. intros. hchange (hstar_hsingle_same_loc_disjoint p). Qed.
+Proof using. intros. hchange (hstar_hsingle_same_loc p). Qed.
 
 Lemma case_study_8' : forall p,
       p ~~~> 3 \* p ~~~> 3
   ==> \[False].
-Proof using. intros. hchange (hstar_hsingle_same_loc_disjoint p). Qed.
+Proof using. intros. hchange (hstar_hsingle_same_loc p). Qed.
 
 Lemma case_study_9' : forall p,
       p ~~~> 3
@@ -583,12 +608,64 @@ Proof using. intros. hsimpl ;=> Hn1 Hn2. false. math. Qed.
 
 End CaseStudies.
 
+
+(* ******************************************************* *)
+(** ** The [hchange] tactic *)
+
+(** Assume an entailment goal of the form [H1 \* H2 \* H3 ==> H4].
+    Assume an entailment assumption [M], say [H2 ==> H2'].
+    Then [hchange M] turns the goal into [H1 \* H2' \* H3 ==> H4],
+    effectively replacing [H2] with [H2'].
+
+    In a sense, [hchange] is to entailment what [rewrite] is to equality. *)
+
+Lemma hchange_demo_base : forall H1 H2 H2' H3 H4,
+  H2 ==> H2' ->
+  H1 \* H2 \* H3 ==> H4.
+Proof using.
+  introv M. hchange M. (* Note that freshly produced items appear to the front *)
+Abort.
+
+(** The tactic [hchange] can also take as argument equalities.
+    Use [hchange M] to exploit the left-to-right direction
+    and [hchange <- M] to exploit the right-to-left direction . *)
+
+Lemma hchange_demo_eq : forall H1 H2 H3 H4 H5,
+  H1 \* H3 = H5 ->
+  H1 \* H2 \* H3 ==> H4.
+Proof using.
+  introv M. hchange M.
+  hchange <- M.
+Abort.
+
+(** The tactic [hchange] is also able to instantiate lemmas if needed. *)
+
+Lemma hchange_demo_inst : forall H1 (J J':int->hprop) H3 H4,
+  (forall n, J n = J' (n+1)) ->
+  H1 \* J 3 \* H3 ==> H4.
+Proof using.
+  introv M. hchange M.
+  (* Note that freshly produced items appear to the front *)
+Abort.
+
+(** The tactic [hchanges M] is a shorthand for [hchange M; hsimpl]. *)
+
+Lemma hchanges_demo_base : forall p H1 H2 H3,
+  H1 \* H3 ==> p ~~~> 3 ->
+  H1 \* H2 \* H3 ==> H2 \* \exists (n:int), p ~~~> n.
+Proof using.
+  introv M. dup.
+  (* details: *)
+  { hchange M. hsimpl. }
+  (* shorthand: *)
+  { hchanges M. }
+Abort.
+
 End Htactics.
 
 
 (* ####################################################### *)
 (** * Additional contents *)
-
 
 (* ******************************************************* *)
 (** ** Proofs for the consequence rules. *)
