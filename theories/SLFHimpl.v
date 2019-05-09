@@ -56,8 +56,12 @@ Notation "H1 ==> H2" := (himpl H1 H2) (at level 55).
 (** [H1 ==> H2] captures the fact that [H1] is a stronger precondition
     than [H2], in the sense that it is more restrictive. *)
 
-(** The entailment relation is trivially reflexive and transitive,
-    (like implication is). *)
+(** As we show next, the entailment relation is reflexive, transitive,
+    and antisymmetric. It thus forms an order relation.
+
+    Remark: entailment on [hprop] satisfies these properties as a direct  
+    consequence of the fact that implication on [Prop] satisfies all 
+    these same properties. *)
 
 Lemma himpl_refl : forall H,
   H ==> H.
@@ -68,6 +72,33 @@ Lemma himpl_trans : forall H2 H1 H3,
   (H2 ==> H3) ->
   (H1 ==> H3).
 Proof using. introv M1 M2. intros h H1h. eauto. Qed.
+
+(* EX1! (himpl_antisym) *)
+(** Prove the antisymmetry of entailement result shown below
+    using extensionatity for heap predicates, as captured by
+    lemma [predicate_extensionality] or lemma [hprop_eq]. *)
+
+Lemma himpl_antisym : forall H1 H2,
+  (H1 ==> H2) ->
+  (H2 ==> H1) ->
+  H1 = H2.
+Proof using.
+(* SOLUTION *)
+  introv M1 M2. applys hprop_eq.
+  intros h. iff N.
+  { applys M1. auto. }
+  { applys M2. auto. }
+(* /SOLUTION *)
+Qed.
+
+(** For example, [himpl_antisym] can be used to establish
+    commutativity of separating conjunction: [(H1 \* H2) = (H2 \* H1)]
+    by proving that each side entails the other:
+    [(H1 \* H2) ==> (H2 \* H1)] and [(H2 \* H1) ==> (H1 \* H2)]. *)
+
+
+(* ******************************************************* *)
+(** ** Entailment for postconditions *)
 
 (** Entailment applies to heap predicates, so they can be used to capture
     that a precondition is stronger than another one (i.e., that a 
@@ -95,65 +126,14 @@ Lemma qimpl_trans : forall Q2 Q1 Q3,
   (Q1 ===> Q3).
 Proof using. introv M1 M2. intros v. applys himpl_trans; eauto. Qed.
 
-
-(* ******************************************************* *)
-(** ** Rule of consequence *)
-
-(** A first use of the entailement relation is to state the
-    consequence rule, which takes the same form in Separation Logic
-    as in Hoare Logic. (Proofs appear further on in this file.) *)
-
-Parameter triple_conseq : forall t H Q H' Q',
-  triple t H' Q' ->
-  H ==> H' ->
-  Q' ===> Q ->
-  triple t H Q.
-
-
-(* ******************************************************* *)
-(** ** Extensionality for entailments *)
-
-(** A second use of the entailment relation is to establish
-    equalities between heap predicates. For example, we'd
-    like to prove commutativity of separating conjunction:
-    [(H1 \* H2) = (H2 \* H1)].
-
-    As we are going to show next, to prove such an equality, 
-    it suffices to prove that each side entails the other:
-    [(H1 \* H2) ==> (H2 \* H1)] and [(H2 \* H1) ==> (H1 \* H2)].
-    Note that this corresponds to the antisymmetry property 
-    of entailment. *)
-
-(** But wait a second, what does it mean to prove [H = H']
-    where [H] and [H'] have type [hprop], that is, [heap->Prop]?
-    We here wish to establish an equality between two predicates,
-    by showing that each one implies the other. To that end, we
-    need a reasoning principle that is not available by default
-    in Coq, but can be safely added in the form of an axiom called
-    "predicate extensionality". *)
-
-Axiom predicate_extensionality : forall A (P Q:A->Prop),
-  (forall x, P x <-> Q x) ->
-  P = Q.
-
-(* EX1! (himpl_antisym) *)
-(** With this axiom, we can derive the antisymmetry of entailement. *)
-
-Lemma himpl_antisym : forall H1 H2,
-  (H1 ==> H2) ->
-  (H2 ==> H1) ->
-  H1 = H2.
+Lemma qimpl_antisym : forall Q1 Q2,
+  (Q1 ===> Q2) ->
+  (Q2 ===> Q1) ->
+  (Q1 = Q2).
 Proof using.
-(* SOLUTION *)
-  introv M1 M2. applys predicate_extensionality.
-  intros h. iff N. (* split *)
-  { applys M1. auto. }
-  { applys M2. auto. }
-(* /SOLUTION *)
+  introv M1 M2. apply functional_extensionality.
+  intros v. applys himpl_antisym; eauto.
 Qed.
-
-(** Remark: heap entailment is reflexive, transitive, and
-    antisymmetric. Thus, [==>] qualifies as an order relation. *)
 
 
 (* ******************************************************* *)
@@ -668,71 +648,6 @@ End Htactics.
 (** * Additional contents *)
 
 (* ******************************************************* *)
-(** ** Proofs for the consequence rules. *)
-
-(** The shortest proof of [triple_conseq] goes through the low-level 
-    interpretation of Separation Logic triples in terms of heaps.
-    A more elegant proof is presented further. *)
-
-Lemma triple_conseq' : forall t H Q H' Q',
-  triple t H' Q' ->
-  H ==> H' ->
-  Q' ===> Q ->
-  triple t H Q.
-Proof using.
-  (* No need to follow through this low-level proof. *)
-  introv M WH WQ. rewrite triple_iff_triple_lowlevel in *.
-  intros h1 h2 D HH. forwards (v&h1'&h3'&D'&R&HQ): M D. applys WH HH.
-  exists v h1' h3'. splits~. applys WQ HQ.
-Qed.
-
-(** However, it is simpler and more elegant to first establish
-    the consequence rule for [Hoare_triple], then derive its
-    generalization to the case of Separation Logic [triple]. *)
-
-(* EX2! (Hoare_conseq) *)
-(** Prove the consequence rule for Hoare triples. *)
-
-Lemma Hoare_conseq : forall t H Q H' Q',
-  Hoare_triple t H' Q' ->
-  H ==> H' ->
-  Q' ===> Q ->
-  Hoare_triple t H Q.
-Proof using.
-(* SOLUTION *)
-  introv M WH WQ. unfold Hoare_triple.
-  intros s Hs. forwards (v&s'&R&HQ): M s.
-  { applys WH. auto. }
-  { exists v s'. split. { apply R. } { applys WQ. auto. } }
-  (* variant proof script:
-      intros s Ps. lets Ps': WH Ps.
-      lets M': M Ps'. destruct M' as (v&s'&R&HQ).
-      exists v s'. splits~. applys WQ. auto. *)
-(* /SOLUTION *)
-Qed.
-
-(* EX2! (rule_conseq) *)
-(** Prove the consequence rule by leveraging the lemma [Hoare_conseq],
-    rather than going through the definition of [triple_lowlevel]. 
-    Hint: apply lemma [Hoare_conseq] with the appropriate arguments,
-    and use lemma [applys himpl_frame_l] to prove the entailments. *)
-
-Lemma rule_conseq'' : forall t H Q H' Q',
-  triple t H' Q' ->
-  H ==> H' ->
-  Q' ===> Q ->
-  triple t H Q.
-Proof using.
-(* SOLUTION *)
-  introv M WH WQ. unfold triple. intros H''.
-  applys Hoare_conseq M. 
-  { applys himpl_frame_l. applys WH. }
-  { intros x. applys himpl_frame_l. applys himpl_frame_l. applys WQ. }
-(* /SOLUTION *)
-Qed.
-
-
-(* ******************************************************* *)
 (** ** Proofs for the Separation Algebra *)
 
 (** We next show the details of the proofs establishing the
@@ -869,40 +784,148 @@ Qed.
 
 
 (* ******************************************************* *)
-(** ** More on extensionality *)
+(** ** Proof of the consequence rule. *)
 
-(** To establish the antisymmetry of entailment, we have used
-    the predicate extensionality axiom. In fact, this axiom is
-    derivable from two more fundamental axioms. 
+(** The rule of consequence in Separation Logic is similar
+    to that in Hoared logic. *)
 
-    The first axiom is "functional extensionality", which asserts
-    that two functions are equal if they provide equal result
-    for every argument. *)
+Lemma triple_conseq : forall t H Q H' Q',
+  triple t H' Q' ->
+  H ==> H' ->
+  Q' ===> Q ->
+  triple t H Q.
 
-Axiom functional_extensionality : forall A B (f g:A->B),
-  (forall x, f x = g x) ->
-  f = g.
+(** The shortest proof of [triple_conseq] goes through the low-level 
+    interpretation of Separation Logic triples in terms of heaps.
+    A more elegant proof is presented further. *)
 
-(** The second axiom is "propositional extensionality", which asserts
-    that two propositions that are logically equivalent (in the sense 
-    that they imply each other) can be considered equal. *)
+Proof using.
+  (* No need to follow through this low-level proof. *)
+  introv M WH WQ. rewrite triple_iff_triple_lowlevel in *.
+  intros h1 h2 D HH. forwards (v&h1'&h3'&D'&R&HQ): M D. applys WH HH.
+  exists v h1' h3'. splits~. applys WQ HQ.
+Qed.
 
-Axiom propositional_extensionality : forall (P Q:Prop),
-  (P <-> Q) ->
-  P = Q.
+(** However, it is simpler and more elegant to first establish
+    the consequence rule for [Hoare_triple], then derive its
+    generalization to the case of Separation Logic [triple]. *)
 
-(* EX1! (predicate_extensionality_derived) *)
-(** Using the above two axioms, show how to derive [predicate_extensionality]. *)
+(* EX2! (Hoare_conseq) *)
+(** Prove the consequence rule for Hoare triples. *)
 
-Lemma predicate_extensionality_derived : forall A (P Q:A->Prop),
-  (forall x, P x <-> Q x) ->
-  P = Q.
+Lemma Hoare_conseq : forall t H Q H' Q',
+  Hoare_triple t H' Q' ->
+  H ==> H' ->
+  Q' ===> Q ->
+  Hoare_triple t H Q.
 Proof using.
 (* SOLUTION *)
-  introv M. applys functional_extensionality.
-  intros x. applys propositional_extensionality.
-  applys M.
+  introv M WH WQ. unfold Hoare_triple.
+  intros s Hs. forwards (v&s'&R&HQ): M s.
+  { applys WH. auto. }
+  { exists v s'. split. { apply R. } { applys WQ. auto. } }
+  (* variant proof script:
+      intros s Ps. lets Ps': WH Ps.
+      lets M': M Ps'. destruct M' as (v&s'&R&HQ).
+      exists v s'. splits~. applys WQ. auto. *)
 (* /SOLUTION *)
+Qed.
+
+(* EX2! (rule_conseq) *)
+(** Prove the consequence rule by leveraging the lemma [Hoare_conseq],
+    rather than going through the definition of [triple_lowlevel]. 
+    Hint: apply lemma [Hoare_conseq] with the appropriate arguments,
+    and use lemma [applys himpl_frame_l] to prove the entailments. *)
+
+Lemma rule_conseq'' : forall t H Q H' Q',
+  triple t H' Q' ->
+  H ==> H' ->
+  Q' ===> Q ->
+  triple t H Q.
+Proof using.
+(* SOLUTION *)
+  introv M WH WQ. unfold triple. intros H''.
+  applys Hoare_conseq M. 
+  { applys himpl_frame_l. applys WH. }
+  { intros x. applys himpl_frame_l. applys himpl_frame_l. applys WQ. }
+(* /SOLUTION *)
+Qed.
+
+
+(* ******************************************************* *)
+(** ** Structural rules for extracting existentials and pure facts *)
+
+(** From an entailment [(\exists x, (J x) ==> H], it is useful
+    to extract [x] into the context, and turn the goal into:
+    [forall x, (J x ==> H)].
+
+    Likewise, for a goal [triple t (\exists x, (J x)) Q], it is
+    useful to extract [x] into the context, and turn the goal into:
+    [forall x, triple t (J x) Q].
+
+    The structural rule called [triple_hexists] captures this
+    extraction of the existential quantifier. *)
+
+Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
+  (forall x, triple t (J x) Q) ->
+  triple t (hexists J) Q.
+
+(** Similarly, for a goal [triple t (\[P] \* H) Q], it is
+    useful to extract [P] into the context, and turn the goal into:
+    [P -> triple t H Q].
+
+    The structural rule called [triple_hpure] captures this
+    extraction of the existential quantifier. *)
+
+Parameter triple_hpure : forall t (P:Prop) H Q,
+  (P -> triple t H Q) ->
+  triple t (\[P] \* H) Q.
+
+(** To prove these two lemmas, we first establish corresponding
+    results on [Hoare_triple], then derive them for [triple]. *)
+
+Lemma Hoare_triple_hexists : forall t (A:Type) (J:A->hprop) Q,
+  (forall x, Hoare_triple t (J x) Q) ->
+  Hoare_triple t (hexists J) Q.
+Proof using. introv M. intros h (x&Hh). applys M Hh. Qed.
+
+Lemma triple_hexists' : forall t (A:Type) (J:A->hprop) Q,
+  (forall x, triple t (J x) Q) ->
+  triple t (hexists J) Q.
+Proof using.
+  introv M. unfold triple. intros H'.
+  rewrite hstar_hexists. applys Hoare_triple_hexists.
+  intros v. applys M.
+Qed.
+
+Lemma Hoare_triple_hpure : forall t (P:Prop) H Q,
+  (P -> Hoare_triple t H Q) ->
+  Hoare_triple t (\[P] \* H) Q.
+Proof using.
+  introv M. intros h (h1&h2&M1&M2&D&U). destruct M1 as (M1&HP).
+  subst. rewrite fmap_union_empty_l. applys M HP M2.
+Qed.
+
+Lemma triple_hpure' : forall t (P:Prop) H Q,
+  (P -> triple t H Q) ->
+  triple t (\[P] \* H) Q.
+Proof using.
+  introv M. unfold triple. intros H'.
+  rewrite hstar_assoc. applys Hoare_triple_hpure.
+  intros HP. applys M HP.
+Qed.
+
+(** Remark: recall that [\[P]] can be encoded as [\exists (p:P), \[]].
+    One may exploit this equivalence to show that [Hoare_triple_hpure]
+    is derivable from [Hoare_triple_hexists], as illustrated next. *)
+
+Lemma triple_hpure_derived_from_triple_exists : forall t (P:Prop) H Q,
+  (P -> triple t H Q) ->
+  triple t (\[P] \* H) Q.
+Proof using.
+  introv M. rewrite hpure_eq_hexists_proof. (* TODO: fix display *)
+  rewrite hstar_hexists. applys triple_hexists.
+  rewrite hstar_hempty_l. apply M.
 Qed.
 
 
@@ -964,7 +987,7 @@ Qed.
 (** Reciprocally, [triple_htop_post] is trivially derivable from
     [triple_hany_post], simply by instantiating [H'] as [\Top]. *)
 
-Lemma triple_htop_post_not_derived_from_triple_hany_post : forall t H Q,
+Lemma triple_htop_post_derived_from_triple_hany_post : forall t H Q,
   triple t H (Q \*+ \Top) ->
   triple t H Q.
 Proof using. intros. applys triple_hany_post \Top. auto. Qed.

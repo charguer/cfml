@@ -693,10 +693,10 @@ Lemma Triple_hforall_exists : forall t B (J:B->hprop) `{EA:Enc A} (Q:A->hprop), 
   Triple t (hforall J) Q.
 Proof using. intros. applys~ is_local_hforall_exists. Qed.
 
-Lemma Triple_hprop : forall t (P:Prop) `{Enc A} H (Q:A->hprop),
+Lemma Triple_hpure : forall t (P:Prop) `{Enc A} H (Q:A->hprop),
   (P -> Triple t H Q) ->
   Triple t (\[P] \* H) Q.
-Proof using. intros. applys~ is_local_hprop. Qed.
+Proof using. intros. applys~ is_local_hpure. Qed.
 
 Lemma Triple_hwand_hpure_l : forall t (P:Prop) H `{EA:Enc A} (Q:A->hprop),
   P ->

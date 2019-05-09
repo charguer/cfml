@@ -739,7 +739,7 @@ Proof using. introv HS HI M. lets: HI M. applys* HS. Qed.
 
 (* Note: Normal_hwand is not true *)
 
-Lemma Normal_hpure_star_hprop : forall (P:Prop) H,
+Lemma Normal_hpure_star_hpure : forall (P:Prop) H,
   (P -> Normal H) ->
   Normal (\[P] \* H).
 Proof using.
@@ -962,7 +962,7 @@ Lemma triple_hexists : forall t A (J:A->hprop) Q,
   triple t (hexists J) Q.
 Proof using. introv M D (x&Jx). applys* M. Qed.
 
-Lemma triple_hprop : forall t (P:Prop) H Q,
+Lemma triple_hpure : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
 Proof using.
@@ -1126,9 +1126,9 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Customizing xpull for RO triples, which are not local *)
 
-Lemma xpull_hprop (H1 H2 : hprop) (P : Prop) (Q : val -> hprop) (t : trm) :
+Lemma xpull_hpure (H1 H2 : hprop) (P : Prop) (Q : val -> hprop) (t : trm) :
   (P -> triple t (H1 \* H2) Q) -> triple t (H1 \* \[P] \* H2) Q.
-Proof. intros. rewrite hstar_comm_assoc. auto using triple_hprop. Qed.
+Proof. intros. rewrite hstar_comm_assoc. auto using triple_hpure. Qed.
 
 Lemma xpull_hexists (H1 H2 : hprop) (A : Type) (J:A->hprop)
       (Q : val -> hprop) (t : trm) :
@@ -1141,9 +1141,9 @@ Qed.
 
 Lemma xpull_id A (x X : A) (H1 H2 : hprop) (Q : val -> hprop) (t : trm) :
   (x = X -> triple t (H1 \* H2) Q) -> triple t (H1 \* (x ~> Id X \* H2)) Q.
-Proof using. intros. rewrite repr_eq. apply xpull_hprop. auto. Qed.
+Proof using. intros. rewrite repr_eq. apply xpull_hpure. auto. Qed.
 
-Ltac xpull_hpure tt ::= apply xpull_hprop; intro.
+Ltac xpull_hpure tt ::= apply xpull_hpure; intro.
 Ltac xpull_hexists tt ::= apply xpull_hexists; intro.
 Ltac xpull_id tt ::= apply xpull_id; intro.
 
@@ -1266,7 +1266,7 @@ Proof using.
   applys_eq (>> triple_let \[] (fun x => \[x = v1])) 2.
   { applys triple_val. rewrite <- (@hstar_hempty_r \[v1=v1]).
     applys~ himpl_hstar_hpure_r. applys Normal_hempty. }
-  { intros X. applys triple_hprop. applys M. }
+  { intros X. applys triple_hpure. applys M. }
   { rewrite~ hstar_hempty_l. }
 Qed.
 
@@ -1291,7 +1291,7 @@ Lemma triple_let_fix : forall f x t1 t2 H Q,
 Proof using.
   introv M HS. applys triple_let_simple (fun F => \[spec_fix f x t1 F] \* H).
   { applys~ triple_fix. hsimpl~. introv R. applys* triple_app_fix. }
-  { intros F. applys triple_hprop. applys M. }
+  { intros F. applys triple_hpure. applys M. }
 Qed.
 *)
 

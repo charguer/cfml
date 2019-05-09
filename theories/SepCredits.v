@@ -750,10 +750,10 @@ Lemma triple_hforall_exists : forall t A (J:A->hprop) Q, (* TODO: needed?*)
   triple t (hforall J) Q.
 Proof using. intros. applys* is_local_hforall_exists. Qed.
 
-Lemma triple_hprop : forall t (P:Prop) H Q,
+Lemma triple_hpure : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
-Proof using. intros. applys* is_local_hprop. Qed.
+Proof using. intros. applys* is_local_hpure. Qed.
 
 Lemma triple_hwand_hpure_l : forall t (P:Prop) H Q,
   P ->
@@ -846,7 +846,7 @@ Lemma triple_if_bool : forall (b:bool) t1 t2 H Q,
 Proof using.
   introv M1 M2. applys triple_if (fun r => \[r = val_bool b] \* H).
   { applys triple_val. hsimpl~. }
-  { intros b'. applys~ triple_hprop. intros E. inverts E. case_if*. }
+  { intros b'. applys~ triple_hpure. intros E. inverts E. case_if*. }
   { intros v' N. hpull. intros E. inverts~ E. false N. hnfs*. }
 Qed.
 
@@ -871,7 +871,7 @@ Proof using.
   introv M. forwards~ M': (rm M).
   applys_eq~ (>> triple_let H (fun x => \[x = v1] \* H)) 2.
   { applys triple_val. hsimpl~. }
-  { intros X. applys triple_hprop. intro_subst. applys M'. }
+  { intros X. applys triple_hpure. intro_subst. applys M'. }
 Qed.
 
 Lemma triple_app_fix : forall f x F V t1 H H' Q,
@@ -1039,7 +1039,7 @@ Proof using.
   introv M. applys triple_let (fun F => \[spec_fix f x t1 F] \* H).
   { applys triple_fix. hsimpl~.
     intros F H' H'' Q' M1 M2. applys* triple_app_fix. }
-  { intros F. applys triple_hprop. applys M. }
+  { intros F. applys triple_hpure. applys M. }
 Qed.
 
 
@@ -1056,7 +1056,7 @@ Proof using.
   destruct N as (x&N). applys* M.
 Qed.
 
-Lemma triple_hprop : forall t (P:Prop) H Q,
+Lemma triple_hpure : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
 Proof using.

@@ -43,13 +43,13 @@ Lemma triple_incr_1 : forall p n,
 Proof using.
   intros. applys triple_app. reflexivity. simpl.
   applys triple_let. { applys triple_get. } simpl.
-  intros x. apply triple_hprop. intros E. subst.
+  intros x. apply triple_hpure. intros E. subst.
   applys triple_let.
   { applys triple_frame_consequence (p ~~~> n).
     { hsimpl. }
     { applys triple_add. }
     { hsimpl. } }
-  simpl. intros y. apply triple_hprop. intros E. subst.
+  simpl. intros y. apply triple_hpure. intros E. subst.
   applys triple_conseq.
   { hsimpl. }
   { applys triple_set. }

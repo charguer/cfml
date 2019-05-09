@@ -2985,7 +2985,7 @@ Proof using. introv L M WQ. applys* is_local_conseq M. Qed.
 
 (** Extraction of pure facts from [local] *)
 
-Lemma is_local_hprop : forall F H P Q,
+Lemma is_local_hpure : forall F H P Q,
   is_local F ->
   (P -> F H Q) ->
   F (\[P] \* H) Q.
@@ -3279,7 +3279,7 @@ Lemma xpull_hpure : forall B (F:~~B) H1 H2 P Q,
   (P -> F (H1 \* H2) Q) ->
   F (H1 \* (\[P] \* H2)) Q.
 Proof using.
-  intros. rewrite hstar_comm_assoc. apply~ is_local_hprop.
+  intros. rewrite hstar_comm_assoc. apply~ is_local_hpure.
 Qed.
 
 Lemma xpull_id : forall A (x X : A) B (F:~~B) H1 H2 Q,

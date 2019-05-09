@@ -178,6 +178,37 @@ Notation "\Top" := (htop).
 
 
 (* ******************************************************* *)
+(** ** Extensionality for heap predicates *)
+
+(** To work in Separation Logic, it is extremely convenient
+    (if not absolutely necessary) to be able to state equalities
+    between heap predicates, e.g. [H1 \* H2 = H2 \* H1].
+
+    How can we prove a goal of the form [H1 = H2] when [H1] and [H2] 
+    have type [hprop], that is, [heap->Prop]?
+
+    Intuitively, [H] and [H'] are equal if and only if they 
+    characterize exactly the same set of heaps, that is, if 
+    [forall h, H1 h <-> H2 h].
+
+    This reasoning principle is not available by default in Coq,
+    however we can have it if we extend Coq with a standard axiom
+    called "predicate extensionality". *)
+
+Axiom predicate_extensionality : forall A (P Q:A->Prop),
+  (forall x, P x <-> Q x) ->
+  P = Q.
+
+(** By specializing [P] and [Q] above to the type [hprop], we obtain
+    exactly the desired extensionality principle. *)
+
+Lemma hprop_eq : forall H1 H2,
+  (forall h, H1 h <-> H2 h) ->
+  H1 = H2.
+Proof using. applys predicate_extensionality. Qed.
+
+
+(* ******************************************************* *)
 (** ** Type and syntax for postconditions *)
 
 (** A postcondition characterizes both an output value and an output state.
@@ -193,6 +224,21 @@ Implicit Type Q : val -> hprop.
     convenient notation for [fun x => (Q x \* H)]. *)
 
 Notation "Q \*+ H" := (fun x => hstar (Q x) H) (at level 40).
+
+(** In order to prove that two postconditions [Q1] and [Q2] are equal,
+    it suffices to show that [Q1 v = Q2 v] for any value [v].
+
+    This reasoning principle follows from another axiom, called
+    [functional_extensionality], and stated next. *)
+
+Axiom functional_extensionality : forall A B (f g:A->B),
+  (forall x, f x = g x) ->
+  f = g.
+
+Lemma qprop_eq : forall (Q1 Q2:val->hprop),
+  (forall v, Q1 v = Q2 v) ->
+  Q1 = Q2.
+Proof using. applys functional_extensionality. Qed.
 
 
 (* ******************************************************* *)
@@ -246,7 +292,7 @@ Proof using.
   (* [M] matches the goal up to rewriting for associativity. *)
   applys_eq M 1 2.
   { rewrite hstar_assoc. auto. }
-  { applys fun_ext_1. intros v. rewrite hstar_assoc. auto. }
+  { applys qprop_eq. intros v. rewrite hstar_assoc. auto. }
 Qed.
 
 (** The definition of [SL_triple] presented above can be used as such for
@@ -480,7 +526,7 @@ Proof using.
   lets N: triple_frame (q ~~~> m) M.
   applys_eq N 1 2.
   { auto. }
-  { apply fun_ext_1. intros v. rewrite hstar_assoc. auto. }
+  { apply qprop_eq. intros v. rewrite hstar_assoc. auto. }
 Qed.
 
 (* Here, we have framed on [q ~~~> m], but we could similarly
@@ -548,7 +594,8 @@ Proof using.
   introv M. unfold triple in *. rename H' into H1. intros H2.
   specializes M (H1 \* H2). applys_eq M 1 2.
   { rewrite hstar_assoc. auto. }
-  { applys fun_ext_1. intros v. repeat rewrite hstar_assoc. auto. }
+  { applys qprop_eq. intros v. 
+    repeat rewrite hstar_assoc. auto. }
 (* /SOLUTION *)
 Qed.
 
@@ -580,7 +627,7 @@ Proof using.
 (* SOLUTION *)
   introv M. unfold triple in *. intros H2.
   specializes M H2. applys_eq M 1.
-  { applys fun_ext_1. intros v. repeat rewrite hstar_assoc.
+  { applys qprop_eq. intros v. repeat rewrite hstar_assoc.
     rewrite (hstar_comm H2).
     rewrite <- (hstar_assoc \Top \Top).
     rewrite hstar_htop_htop. auto. }
@@ -600,10 +647,17 @@ Qed.
     the equal sign for relating predicates. *)
 
 (** The empty heap predicate [\[]] is equivalent to the pure fact predicate
-    [\[True]]. Thus, [hempty] could be defined in terms of [hpure]. *)
+    [\[True]]. (The proof details are presented shortly afterwards. *)
 
-Parameter hempty_eq_hpure_true :
+Lemma hempty_eq_hpure_true :
   \[] = \[True].
+Proof using.
+  unfold hempty, hpure. apply hprop_eq. intros h. iff Hh.
+  { auto. }
+  { jauto. }
+Qed.
+
+(** Thus, [hempty] could be defined in terms of [hpure]. *)
 
 Definition hempty' : hprop :=
   \[True].
@@ -613,8 +667,13 @@ Definition hempty' : hprop :=
     to the heap predicate [\exists (p:P), \[]]. Thus, [hpure] could
     be defined in terms of [hexists] and [hempty]. *)
 
-Parameter hpure_eq_hexists_proof : forall P,
-  \[P] = \[True].
+Lemma hpure_eq_hexists_proof : forall P,
+  \[P] = \exists (p:P), \[].
+Proof using.
+  unfold hempty, hpure, hexists. intros P. apply hprop_eq. intros h. iff Hh.
+  { destruct Hh as (E&p). exists p. auto. }
+  { destruct Hh as (p&E). auto. }
+Qed.
 
 Definition hpure' (P:Prop) : hprop :=
   \exists (p:P), \[].
@@ -633,11 +692,18 @@ Definition hpure' (P:Prop) : hprop :=
     to define [\Top] in terms of [hexists], as done in the definition
     of [htop'] shown below. *)
 
-Parameter htop_eq_hexists_hprop :
+Lemma htop_eq_hexists_hprop :
   \Top = (\exists (H:hprop), H).
+Proof using.
+  unfold htop, hexists. apply hprop_eq. intros h. iff Hh.
+  { exists (=h). auto. }
+  { auto. }
+Qed.
 
 Definition htop' : hprop :=
   \exists (H:hprop), H.
+
+(* TODO: one of these proofs could be an exercise *)
 
 
 (* ******************************************************* *)
@@ -724,7 +790,46 @@ Parameter triple_iff_triple_lowlevel : forall t H Q,
   triple t H Q <-> triple_lowlevel t H Q.
 
 
+(* ####################################################### *)
+(** * Bonus information *)
 
+(* ******************************************************* *)
+(** ** More on extensionality *)
+
+(** To establish extensionality of entailment, we have used
+    the predicate extensionality axiom. In fact, this axiom 
+    is more the axiom of extensionality combined with a more
+    fundamental axioms called "propositional extensionality". *)
+
+(** The axiom of "propositional extensionality" asserts that
+    two propositions that are logically equivalent (in the sense 
+    that they imply each other) can be considered equal. *)
+
+Axiom propositional_extensionality : forall (P Q:Prop),
+  (P <-> Q) ->
+  P = Q.
+
+(** The axiom of "functional extensionality" asserts that
+    two functions are equal if they provide equal result
+    for every argument. *)
+
+Axiom functional_extensionality' : forall A B (f g:A->B),
+  (forall x, f x = g x) ->
+  f = g.
+
+(* EX1! (predicate_extensionality_derived) *)
+(** Using the above two axioms, show how to derive [predicate_extensionality]. *)
+
+Lemma predicate_extensionality_derived : forall A (P Q:A->Prop),
+  (forall x, P x <-> Q x) ->
+  P = Q.
+Proof using.
+(* SOLUTION *)
+  introv M. applys functional_extensionality.
+  intros x. applys propositional_extensionality.
+  applys M.
+(* /SOLUTION *)
+Qed.
 
 
 

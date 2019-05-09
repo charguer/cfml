@@ -15,7 +15,7 @@ Implicit Types P : Prop.
    pure propositions from preconditions is just a special case
    of the reasoning rule for extracting existentials from preconditions. *)
 
-Lemma triple_hprop_from_hexists :
+Lemma triple_hpure_from_hexists :
   forall (T:Type) (F:hprop->(T->hprop)->Prop),
   (forall (A:Type) (J:A->hprop) (Q:T->hprop),
     (forall x, F (J x) Q) ->
@@ -29,7 +29,7 @@ Proof using.
   applys M. rewrite~ hstar_hempty_l.
 Qed.
 
-Arguments triple_hprop_from_hexists [T].
+Arguments triple_hpure_from_hexists [T].
 
 Lemma triple_hwand_hpure_l_from_hexists_and_consequence :
   forall (T:Type) (F:hprop->(T->hprop)->Prop),
@@ -62,11 +62,11 @@ Lemma hoare_hforall : forall t (A:Type) (J:A->hprop) Q,
   hoare t (hforall J) Q.
 Proof using. introv (x&M) Hh. applys* M. Qed.
 
-Lemma hoare_hprop : forall t (P:Prop) H Q,
+Lemma hoare_hpure : forall t (P:Prop) H Q,
   (P -> hoare t H Q) ->
   hoare t (\[P] \* H) Q.
 Proof using.
-  introv M. applys~ triple_hprop_from_hexists.
+  introv M. applys~ triple_hpure_from_hexists.
   { applys* hoare_hexists. }
 Qed.
 (* Details:
@@ -132,12 +132,12 @@ Lemma triple_hforall_for : forall A (x:A) t (J:A->hprop) Q,
   triple t (hforall J) Q.
 Proof using. intros. applys* triple_hforall. Qed.
 
-Lemma triple_hprop : forall t (P:Prop) H Q,
+Lemma triple_hpure : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
 Proof using.
   introv M. intros HF. rewrite hstar_assoc.
-  applys hoare_hprop. intros. applys* M.
+  applys hoare_hpure. intros. applys* M.
 Qed.
 
 Lemma triple_hwand_hpure_l : forall t (P:Prop) H Q,
@@ -242,10 +242,10 @@ Lemma Triple_hforall_for : forall B (x:B) t (J:B->hprop) `{EA:Enc A} (Q:A->hprop
   Triple t (hforall J) Q.
 Proof using. intros. applys* Triple_hforall. Qed.
 
-Lemma Triple_hprop : forall t (P:Prop) `{Enc A} H (Q:A->hprop),
+Lemma Triple_hpure : forall t (P:Prop) `{Enc A} H (Q:A->hprop),
   (P -> Triple t H Q) ->
   Triple t (\[P] \* H) Q.
-Proof using. intros. applys~ triple_hprop. Qed.
+Proof using. intros. applys~ triple_hpure. Qed.
 
 Lemma Triple_hwand_hpure_l : forall t (P:Prop) H `{EA:Enc A} (Q:A->hprop),
   P ->
@@ -407,7 +407,7 @@ Proof using.
   applys* M.
 Qed.
 
-Lemma triple_hprop : forall t (P:Prop) H Q,
+Lemma triple_hpure : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
 Proof using.
@@ -528,7 +528,7 @@ Lemma triple_if_bool : forall (b:bool) t1 t2 H Q,
 Proof using.
   introv M1 M2. applys triple_if (fun r => \[r = val_bool b] \* H).
   { applys triple_val. hsimpl~. }
-  { intros b'. applys~ triple_hprop. intros E. inverts E. case_if*. }
+  { intros b'. applys~ triple_hpure. intros E. inverts E. case_if*. }
   { intros v' N. hpull. intros E. inverts~ E. false N. hnfs*. }
 Qed.
 
@@ -909,7 +909,7 @@ Proof using.
   introv M. forwards~ M': (rm M).
   applys_eq~ (>> triple_let H (fun x => \[x = v1] \* H)) 2.
   { applys triple_val. hsimpl~. }
-  { intros X. applys triple_hprop. intro_subst. applys M'. }
+  { intros X. applys triple_hpure. intro_subst. applys M'. }
 Qed.
 
 (** A rule of conditionals with case analysis already done *)
