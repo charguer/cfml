@@ -434,8 +434,6 @@ Proof using.
 Qed.
 
 
-
-
 (* ******************************************************* *)
 (** ** Entailment lemmas for [\Top] *)
 
@@ -467,7 +465,7 @@ Qed.
 
 
 (* ******************************************************* *)
-(** ** An application of the rule of consequence *)
+(** ** Variants for the garbage collection rule *)
 
 (** Recall the lemma [triple_htop_post]. *)
 
@@ -491,19 +489,13 @@ Proof using.
 (* /SOLUTION *)
 Qed. 
 
-(* EX2! (triple_htop_post_not_derived_from_triple_hany_post) *)
-(** Reciprocally, prove that [triple_htop_post] is derivable from
-    [triple_hany_post] and [triple_conseq]. *)
+(** Reciprocally, [triple_htop_post] is trivially derivable from
+    [triple_hany_post], simply by instantiating [H'] as [\Top]. *)
 
 Lemma triple_htop_post_not_derived_from_triple_hany_post : forall t H Q,
   triple t H (Q \*+ \Top) ->
   triple t H Q.
-Proof using.
-  introv M. applys triple_conseq.
-  applys triple_hany_post M. (* instantiate H' as [\Top] *)
-  { applys himpl_refl. }
-  { applys qimpl_refl. }
-Qed.
+Proof using. intros. applys triple_hany_post \Top. auto. Qed.
 
 (** The reason we prefer [triple_htop_post] to [triple_hany_post]
     is that it does not require providing [H'] at the time of applying
@@ -512,6 +504,81 @@ Qed.
     instantiation of [H'] using [\Top] rather than throught the
     introduction of an evar enables more robust proof scripts and
     tactic support. *)
+
+(* EX2! (triple_htop_pre) *)
+(** The rule [triple_htop_post] enables discarding pieces of
+    heap from the postcondition. The symmetric rule [triple_htop_pre] 
+    enables discarding pieces of heap from the precondition.
+
+    Prove that it is derivable from [triple_htop_post] and
+    [triple_frame] (and, optionally, [triple_conseq]). *)
+
+Lemma triple_htop_pre : forall t H Q,
+  triple t H Q ->
+  triple t (H \* \Top) Q.
+Proof using.
+(* SOLUTION *)
+  introv M. applys triple_htop_post. applys triple_frame. auto.
+(* /SOLUTION *)
+Qed.
+
+(* EX2! (triple_htop_pre) *)
+(** The rule [triple_hany_pre] is a variant of [triple_htop_pre].
+    Prove that it is derivable. 
+    You may exploit [triple_htop_pre], or [triple_hany_post],
+    or [triple_htop_post], whichever you find simpler. *)
+
+Lemma triple_hany_pre : forall t H H' Q,
+  triple t H Q ->
+  triple t (H \* H') Q.
+Proof using. 
+  dup 3.
+  (* first proof, based on [triple_hany_post]: *)
+  introv M. applys triple_hany_post. applys triple_frame. auto.
+  (* second proof, based on [triple_htop_pre]: *)
+  introv M. lets N: triple_htop_pre M. applys triple_conseq N.
+  { applys himpl_frame_r. applys himpl_htop_r. }
+  { applys qimpl_refl. }
+  (* third proof, based on [triple_htop_post]: *)
+  introv M. applys triple_htop_post.
+  lets N: triple_frame H' M.
+  applys triple_conseq N.
+  { applys himpl_refl. }
+  { intros v. applys himpl_frame_r. applys himpl_htop_r. }
+Qed.
+
+(** Here again, the reciprocal holds: [triple_hany_pre] is trivially
+    derivable from [triple_htop_pre]. The variant of the rule that is
+    most useful in practice is actually yet another presentation,
+    which applies to any goal and enables specifying explicitly the
+    piece of the precondition that one wishes to discard. *)
+
+Lemma triple_hany_pre_trans : forall H1 H2 t H Q,
+  triple t H1 Q ->
+  H ==> H1 \* H2 ->
+  triple t H Q.
+Proof using.
+  introv M WH. applys triple_conseq (H1 \* H2) Q.
+  { applys triple_hany_pre. auto. }
+  { applys WH. }
+  { applys qimpl_refl. }
+Qed.
+
+(** Remark: the lemmas that enable discarding pieces of precondition
+    (e.g., [triple_htop_pre]) are derivable from those that enable
+    discarding pices of postconditions (e.g., [triple_htop_post]), 
+    but not the other way around.
+
+    Technical remark: the previous remark can be mitigated. If we expose 
+    that [triple t H Q <-> triple t' H Q] holds whenever [t] and [t']
+    are observationally equivalent (with respect to the semantics 
+    defined by [red]), and if we are able to prove that [let x = t in x]
+    is observationally equivalent to [t] for some fresh variable x,
+    then it is possible to prove that [triple_htop_post] is derivable
+    from [triple_htop_pre]. (At a high-level, the postcondition of [t]
+    can be viewed as the precondition of the [x] occuring in the 
+    right-hand side of the term [let x = t in x].)  *)
+
 
 
 (* ####################################################### *)

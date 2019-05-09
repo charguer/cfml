@@ -253,117 +253,50 @@ Qed.
     dealing with languages that feature explicit deallocation. However,
     for a programming language equipped with a garbage collector, we need
     one additional tweak, to account for the fact that a postcondition may
-    freely forget about pieces of heaps that become no longer relevant. 
+    freely forget about pieces of heaps that become no longer relevant.
     The required modification is motivated and explained next. *)
 
 
 (* ******************************************************* *)
 (** ** Separation Logic triples and the garbage collection rule *)
 
-
-(** desirable *)
-
+(** To conduct verification proofs in a language equipped with a garbage
+    collector, we need to be able to discard pieces of states when they
+    become useless. Concretely, we need the rule shown below to hold.
+    The [\Top] predicate captures any (un)desired piece of state. *)
 
 Parameter SL_triple_htop_post : forall t H Q,
   SL_triple t H (Q \*+ \Top) ->
   SL_triple t H Q.
 
-(** The actual definition of a Separation Logic triple accounts
-    for the fact that pieces of heap may need to get discarded.
-    To that end, we augment the postcondition with a [\Top], 
-    which can capture any piece of state that we do not wish to
-    mention explicitly in the postcondition. *)
+(** The rule above is not satisfied by the definition of [SL_triple].
+    However, it can be satisfied by applying just a minor tweak
+    to the definition. Concretely, we augment the postcondition of
+    the underlying Hoare triple with an extra [\Top], which is able
+    to capture any piece of state that we do not wish to mention
+    explicitly in the postcondition. 
+
+    The updated definition, called [triple], is as follows. *)
 
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (H':hprop), Hoare_triple t (H \* H') (Q \*+ H' \*+ \Top).
 
-(** can be proved *)
+(** From there, we can prove that the desired rule for discarding
+    pieces of postconditions holds, and that the frame rule still
+    holds. The proof of these two results is studied further. *)
 
 Parameter triple_htop_post : forall t H Q,
   triple t H (Q \*+ \Top) ->
   triple t H Q.
 
-
-(* EX1! (triple_frame) *)
-(** Prove the frame rule for the actual definition of [triple]. 
-    Take inspiration from the proof of [SL_frame_rule]. *)
-
-Lemma triple_frame : forall t H Q H', 
+Parameter triple_frame : forall t H Q H', 
   triple t H Q ->
   triple t (H \* H') (Q \*+ H').
-Proof using.
-(* SOLUTION *)
-  introv M. unfold triple in *. rename H' into H1. intros H2.
-  specializes M (H1 \* H2). applys_eq M 1 2.
-  { rewrite hstar_assoc. auto. }
-  { applys fun_ext_1. intros v. repeat rewrite hstar_assoc. auto. }
-(* /SOLUTION *)
-Qed.
 
-
-
-
-(** Depending on the exact set up of the Separation Logic,
-    this [\Top] predicate may be replaced by a finer-grained
-    definition (so as to obtain a linear or partially-linear,
-    logic, instead of a fully affine logic). This distinction 
-    is the matter of a more advanced chapter. *)
-
-
-
-
-(* ******************************************************* *)
-(** ** Garbage collection in the postcondition *)
-
-(** Let us prove the [triple_htop_post]. The proof expoits
-    associativity and commutativity of the star operator,
-    as well as a property asserting that [\Top \* \Top]
-    simplifies to [\Top]: both heap predicate can be used
-    to describe arbitrary heaps. *)
-
-Parameter hstar_assoc' : forall H1 H2 H3,
-  (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
-
-Parameter hstar_comm : forall H1 H2,
-  H1 \* H2 = H2 \* H1.
-
-Parameter hstar_htop_htop :
-  \Top \* \Top = \Top.
-
-Lemma triple_htop_post' : forall t H Q,
-  triple t H (Q \*+ \Top) ->
-  triple t H Q.
-Proof using.
-(* SOLUTION *)
-  introv M. unfold triple in *. intros H2.
-  specializes M H2. applys_eq M 1.
-  { applys fun_ext_1. intros v. repeat rewrite hstar_assoc.
-    rewrite (hstar_comm H2).
-    rewrite <- (hstar_assoc \Top \Top).
-    rewrite hstar_htop_htop. auto. }
-(* /SOLUTION *)
-Qed.
-
-
-
-
-(* ******************************************************* *)
-(** ** Garbage collection in the precondition *)
-
-(** The rule [triple_htop_post] enables discarding pieces of
-    heap from the precondition. *)
-
-Lemma triple_hgc_htop : forall t H Q,
-  triple t H Q ->
-  triple t (H \* \Top) Q.
-Proof using.  Qed.
-
-Lemma triple_hgc_any : forall t H Q,
-  triple t H Q ->
-  triple t (H \* H') Q.
-Proof using.  Qed.
-
-
+(** Remark: it may also be useful to set up finer-grained versions
+    of Separation Logic, where only certain types of heap predicates
+    can be discarded, but not all. Technically, only "affine" predicates
+    may be discarded. Such a set up is discussed in an advanced chapter. *)
 
 
 (* ####################################################### *)
@@ -371,6 +304,9 @@ Proof using.  Qed.
 
 (* ******************************************************* *)
 (** ** Notation for heap union *)
+
+(** To improve readability of statements in proofs, we introduce
+    the following notation for heap union. *)
 
 Notation "h1 \u h2" := (fmap_union h1 h2) (at level 37, right associativity).
 
@@ -567,7 +503,89 @@ Parameter triple_incr_3 : forall (p:loc) (n:int) (H:hprop),
 (* ******************************************************* *)
 (** ** Power of the frame rule w.r.t. allocation *)
 
-(* TODO *)
+(** Consider the specification lemma for an allocation operation.
+    This rule states that, starting from the empty heap, one
+    obtains a single memory cell at some location [l] with
+    contents [v].*)
+
+Parameter triple_ref : forall (v:val),
+  triple (val_ref v)
+    \[]
+    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v).
+
+(** Applying the frame rule to the above specification, and to
+    another memory cell, say [l' ~~~> v'], we obtain: *)
+
+Parameter triple_ref_with_frame : forall (l':loc) (v':val) (v:val),
+  triple (val_ref v)
+    (l' ~~~> v')
+    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v \* l' ~~~> v').
+
+(** This derived specification captures the fact that the newly 
+    allocated cell at address [l] is distinct from the previously
+    allocated cell at address [l']. 
+
+    More generally, through the frame rule, we can derive that
+    any piece of freshly allocated data is distinct from any 
+    piece of previously existing data. 
+
+    This principle is extremely powerful. It is at the heart of
+    Separation Logic. *)
+
+
+(* ******************************************************* *)
+(** ** Establishing properties of [triple] *)
+
+(* EX1! (triple_frame) *)
+(** Prove the frame rule for the actual definition of [triple].
+    Take inspiration from the proof of [SL_frame_rule]. *)
+
+Lemma triple_frame' : forall t H Q H', 
+  triple t H Q ->
+  triple t (H \* H') (Q \*+ H').
+Proof using.
+(* SOLUTION *)
+  introv M. unfold triple in *. rename H' into H1. intros H2.
+  specializes M (H1 \* H2). applys_eq M 1 2.
+  { rewrite hstar_assoc. auto. }
+  { applys fun_ext_1. intros v. repeat rewrite hstar_assoc. auto. }
+(* /SOLUTION *)
+Qed.
+
+(** The other main property to establish is [triple_htop_post]. 
+
+    The proof expoits associativity and commutativity of the star 
+    operator, as well as a property asserting that [\Top \* \Top]
+    simplifies to [\Top]: both heap predicate can be used
+    to describe arbitrary heaps. These properties are assumed here;
+    they are proved in the next chapter ([SLFHimpl]). *)
+
+Parameter hstar_assoc' : forall H1 H2 H3,
+  (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
+
+Parameter hstar_comm : forall H1 H2,
+  H1 \* H2 = H2 \* H1.
+
+Parameter hstar_htop_htop :
+  \Top \* \Top = \Top.
+
+(* EX3! (triple_htop_post') *)
+(** Prove [triple_htop_post'], by unfolding the definition of [triple]
+    to reveal [Hoare_triple]. (However, do not unfold [Hoare_triple].) *)
+
+Lemma triple_htop_post' : forall t H Q,
+  triple t H (Q \*+ \Top) ->
+  triple t H Q.
+Proof using.
+(* SOLUTION *)
+  introv M. unfold triple in *. intros H2.
+  specializes M H2. applys_eq M 1.
+  { applys fun_ext_1. intros v. repeat rewrite hstar_assoc.
+    rewrite (hstar_comm H2).
+    rewrite <- (hstar_assoc \Top \Top).
+    rewrite hstar_htop_htop. auto. }
+(* /SOLUTION *)
+Qed.
 
 
 (* ####################################################### *)
