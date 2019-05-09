@@ -182,9 +182,13 @@ Notation "\Top" := (htop).
 
 (** To work in Separation Logic, it is extremely convenient
     (if not absolutely necessary) to be able to state equalities
-    between heap predicates, e.g. [H1 \* H2 = H2 \* H1].
+    between heap predicates. For example, in the next chapter
+    we will establish associativity for the star operator: *)
 
-    How can we prove a goal of the form [H1 = H2] when [H1] and [H2] 
+Parameter hstar_assoc : forall H1 H2 H3,
+  (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
+
+(** How can we prove a goal of the form [H1 = H2] when [H1] and [H2] 
     have type [hprop], that is, [heap->Prop]?
 
     Intuitively, [H] and [H'] are equal if and only if they 
@@ -206,6 +210,7 @@ Lemma hprop_eq : forall H1 H2,
   (forall h, H1 h <-> H2 h) ->
   H1 = H2.
 Proof using. applys predicate_extensionality. Qed.
+
 
 
 (* ******************************************************* *)
@@ -275,13 +280,8 @@ Definition Hoare_triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
 Definition SL_triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (H':hprop), Hoare_triple t (H \* H') (Q \*+ H').
 
-(** This definition inherently satisfies the frame rule.
-    To carry out the proof, the only fact that we need to exploit
-    is the associativity of the star operator, which we will 
-    establish in the next chapter. *)
-
-Parameter hstar_assoc : forall H1 H2 H3,
-  (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
+(** This definition inherently satisfies the frame rule, as we show
+    below, by exploiting the associativity of the star operator. *)
 
 Lemma SL_triple_frame : forall t H Q H', 
   SL_triple t H Q ->
@@ -675,6 +675,8 @@ Proof using.
   { destruct Hh as (p&E). auto. }
 Qed.
 
+(* TODO: one of these proofs could be an exercise *)
+
 Definition hpure' (P:Prop) : hprop :=
   \exists (p:P), \[].
 
@@ -703,7 +705,9 @@ Qed.
 Definition htop' : hprop :=
   \exists (H:hprop), H.
 
-(* TODO: one of these proofs could be an exercise *)
+(** The Separation Logic framework uses the alternative definitions
+    [hpure'] and [htop'] because they enable better factorization
+    of proofs. *)
 
 
 (* ******************************************************* *)
