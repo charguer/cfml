@@ -738,6 +738,10 @@ Qed.
 (** We next show the details of the proofs establishing the
     commutative monoid structure with the frame property.
 
+    Note that these results must be proved without help of
+    the tactic [hsimpl], because the implementation of the
+    tactic itself depends on these key lemmas. 
+
     To establish the properties, we need to exploit a few
     basic facts about finite maps; we will introduce them as
     we go along. *)
@@ -1046,31 +1050,5 @@ Qed.
     from [triple_htop_pre]. (At a high-level, the postcondition of [t]
     can be viewed as the precondition of the [x] occuring in the 
     right-hand side of the term [let x = t in x].)  *)
-
-
-
-(* ####################################################### *)
-(** * Tactic support *)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
