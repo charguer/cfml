@@ -1130,3 +1130,35 @@ Qed.
 
 
 *)
+
+
+
+
+(** The lemma below provides an alternative presentation of the
+    same result. Prove that it is derivable from [triple_htop_post]. *)
+
+(* EX2! (triple_any_post) *)
+
+Lemma triple_any_post : forall t H Q Q',
+  triple t H (fun v => Q v \* Q' v) ->
+  triple t H Q. (* i.e., [triple t H (fun v => Q v)] *)
+Proof using.
+(* SOLUTION *)
+  introv M. applys triple_htop_post. applys triple_conseq M.
+  { applys himpl_refl. }
+  { intros v. applys himpl_frame_r. apply himpl_htop_r. }
+(* /SOLUTION *)
+Qed.
+
+(** Reciprocally, [triple_htop_post] is derivable from [triple_any_post].
+    Thus, the two lemmas are really equivalent. *)
+
+Lemma triple_htop_post_derived_from_triple_any_post : forall t H Q,
+  triple t H (Q \*+ \Top) ->
+  triple t H Q.
+Proof using.
+  introv M. applys triple_conseq.
+  applys triple_any_post M. (* instantiate Q' as [(fun (v:val) => \Top)] *)
+  { applys himpl_refl. }
+  { applys qimpl_refl. } 
+Qed.

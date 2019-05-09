@@ -33,6 +33,9 @@ Close Scope fmap_scope.
 
 From Sep Require Import SLFHprop.
 
+Implicit Types H : hprop.
+Implicit Types Q : val->hprop.
+
 
 (* ####################################################### *)
 (** * The chapter in a rush *)
@@ -80,10 +83,28 @@ Definition qimpl (Q1 Q2:val->hprop) : Prop :=
 
 Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55).
 
-(** A first use of the entailement relation is to state the
-    consequence rule. *)
+Lemma qimpl_refl : forall Q,
+  Q ===> Q.
+Proof using. intros Q v. applys himpl_refl. Qed.
 
-Lemma rule_conseq : forall t H Q H' Q',
+Lemma qimpl_trans : forall Q2 Q1 Q3,
+  (Q1 ===> Q2) ->
+  (Q2 ===> Q3) ->
+  (Q1 ===> Q3).
+Proof using. introv M1 M2. intros v. applys himpl_trans; eauto. Qed.
+
+
+
+
+(* ******************************************************* *)
+(** ** Rule of consequence *)
+
+(** A first use of the entailement relation is to state the
+    consequence rule. We can prove the rule of consequence 
+    directly with respect to the low level interpretation of
+    Separation Logic triples. *)
+
+Lemma triple_conseq : forall t H Q H' Q',
   triple t H' Q' ->
   H ==> H' ->
   Q' ===> Q ->
@@ -190,12 +211,18 @@ Parameter himpl_frame_l : forall H2 H1 H1',
     with respect to entailment and existentials. *)
 
 
+
 (* ####################################################### *)
 (** * Additional contents *)
 
 
 (* ******************************************************* *)
 (** ** Alternative proofs for the consequence rules. *)
+
+(** It is simpler and more elegant to first establish
+    the consequence rule for [Hoare_triple], then derive its
+    generalization to the case of Separation Logic [triple]. *)
+
 
 (* EX2! (Hoare_conseq) *)
 (** Prove the consequence rule for Hoare triples. *)
@@ -208,10 +235,13 @@ Lemma Hoare_conseq : forall t H Q H' Q',
 Proof using.
 (* SOLUTION *)
   introv M WH WQ. unfold Hoare_triple.
-  intros s Ps. lets Ps': WH Ps.
-  lets M': M Ps'.
-  destruct M' as (v&s'&R&HQ).
-  exists v s'. splits~. applys WQ. auto.
+  intros s Hs. forwards (v&s'&R&HQ): M s.
+  { applys WH. auto. }
+  { exists v s'. split. { apply R. } { applys WQ. auto. } }
+  (* variant proof script:
+      intros s Ps. lets Ps': WH Ps.
+      lets M': M Ps'. destruct M' as (v&s'&R&HQ).
+      exists v s'. splits~. applys WQ. auto. *)
 (* /SOLUTION *)
 Qed.
 
@@ -257,6 +287,20 @@ Proof using.
   introv W (h1&h2&M1&M2&D&U). exists* h1 h2. 
 (* /SOLUTION *)
 Qed.
+
+(* EX1! (himpl_frame_r) *)
+(** State and prove a symmetric lemma to [himpl_frame_l] called [himpl_frame_r]
+    to exploit an entailment on the right-hand-side of a star. *)
+
+(* SOLUTION *)
+Lemma himpl_frame_r : forall H1 H2 H2',
+  H2 ==> H2' ->
+  (H1 \* H2) ==> (H1 \* H2').
+Proof using. 
+  introv W. rewrite (hstar_comm H1 H2). rewrite (hstar_comm H1 H2').
+  applys himpl_frame_l. auto.
+Qed.
+(* /SOLUTION *)
 
 (** The second simplest result is the extrusion property for existentials. *)
 
@@ -306,7 +350,7 @@ Qed.
 (** The lemma showing that [\[]] is a left neutral can be derived
     from the previous result and commutativity. *)
 
-Lemma hstar_hempty_r' : forall H,
+Lemma hstar_hempty_r : forall H,
   H \* \[] = H.
 Proof using.
   intros. rewrite hstar_comm'. rewrite hstar_hempty_l'. auto.
@@ -390,4 +434,113 @@ Proof using.
 Qed.
 
 
+
+
+(* ******************************************************* *)
+(** ** Entailment lemmas for [\Top] *)
+
+(* EX1! (himpl_htop_r) *)
+(** Prove that any heap predicate entails [\Top] *)
+
+Lemma himpl_htop_r : forall H,
+  H ==> \Top.
+Proof using. 
+(* SOLUTION *)
+  intros. intros h Hh.
+  applys htop_intro. (* hnf; auto. *)
+(* /SOLUTION *)
+Qed.
+
+(* EX2! (hstar_htop_htop) *)
+(** Prove that [\Top \* \Top] is equivalent to [\Top] *)
+
+Lemma hstar_htop_htop :
+  \Top \* \Top = \Top.
+Proof using.
+(* SOLUTION *)
+  applys himpl_antisym.
+  { applys himpl_htop_r. }
+  { rewrite <- hstar_hempty_l at 1. applys himpl_frame_l.
+    applys himpl_htop_r. }
+(* /SOLUTION *)
+Qed.
+
+
+(* ******************************************************* *)
+(** ** An application of the rule of consequence *)
+
+(** Recall the lemma [triple_htop_post]. *)
+
+Parameter triple_htop_post : forall t H Q,
+  triple t H (Q \*+ \Top) ->
+  triple t H Q.
+
+(* EX2! (triple_hany_post) *)
+(** The following lemma provides an alternative presentation of the
+    same result as [triple_htop_post]. Prove that it is derivable
+    from [triple_htop_post] and [triple_conseq]. *)
+
+Lemma triple_hany_post : forall t H H' Q,
+  triple t H (Q \*+ H') ->
+  triple t H Q.
+Proof using.
+(* SOLUTION *)
+  introv M. applys* triple_htop_post. applys triple_conseq M.
+  { applys himpl_refl. }
+  { intros v. applys himpl_frame_r. applys himpl_htop_r. }
+(* /SOLUTION *)
+Qed. 
+
+(* EX2! (triple_htop_post_not_derived_from_triple_hany_post) *)
+(** Reciprocally, prove that [triple_htop_post] is derivable from
+    [triple_hany_post] and [triple_conseq]. *)
+
+Lemma triple_htop_post_not_derived_from_triple_hany_post : forall t H Q,
+  triple t H (Q \*+ \Top) ->
+  triple t H Q.
+Proof using.
+  introv M. applys triple_conseq.
+  applys triple_hany_post M. (* instantiate H' as [\Top] *)
+  { applys himpl_refl. }
+  { applys qimpl_refl. }
+Qed.
+
+(** The reason we prefer [triple_htop_post] to [triple_hany_post]
+    is that it does not require providing [H'] at the time of applying
+    the rule. The instantiation is postponed through the introduction
+    of [\Top], which is equivalent to [\exists H', H']. Delaying the 
+    instantiation of [H'] using [\Top] rather than throught the
+    introduction of an evar enables more robust proof scripts and
+    tactic support. *)
+
+
+(* ####################################################### *)
+(** * Tactic support *)
+
+(*
 From Sep Require Import SepBase.
+*)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

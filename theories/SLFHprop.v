@@ -237,7 +237,7 @@ Definition SL_triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
 Parameter hstar_assoc : forall H1 H2 H3,
   (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
 
-Lemma SL_frame_rule : forall t H Q H', 
+Lemma SL_triple_frame : forall t H Q H', 
   SL_triple t H Q ->
   SL_triple t (H \* H') (Q \*+ H').
 Proof using.
@@ -249,6 +249,25 @@ Proof using.
   { applys fun_ext_1. intros v. rewrite hstar_assoc. auto. }
 Qed.
 
+(** The definition of [SL_triple] presented above can be used as such for
+    dealing with languages that feature explicit deallocation. However,
+    for a programming language equipped with a garbage collector, we need
+    one additional tweak, to account for the fact that a postcondition may
+    freely forget about pieces of heaps that become no longer relevant. 
+    The required modification is motivated and explained next. *)
+
+
+(* ******************************************************* *)
+(** ** Separation Logic triples and the garbage collection rule *)
+
+
+(** desirable *)
+
+
+Parameter SL_triple_htop_post : forall t H Q,
+  SL_triple t H (Q \*+ \Top) ->
+  SL_triple t H Q.
+
 (** The actual definition of a Separation Logic triple accounts
     for the fact that pieces of heap may need to get discarded.
     To that end, we augment the postcondition with a [\Top], 
@@ -258,26 +277,93 @@ Qed.
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (H':hprop), Hoare_triple t (H \* H') (Q \*+ H' \*+ \Top).
 
+(** can be proved *)
+
+Parameter triple_htop_post : forall t H Q,
+  triple t H (Q \*+ \Top) ->
+  triple t H Q.
+
+
+(* EX1! (triple_frame) *)
+(** Prove the frame rule for the actual definition of [triple]. 
+    Take inspiration from the proof of [SL_frame_rule]. *)
+
+Lemma triple_frame : forall t H Q H', 
+  triple t H Q ->
+  triple t (H \* H') (Q \*+ H').
+Proof using.
+(* SOLUTION *)
+  introv M. unfold triple in *. rename H' into H1. intros H2.
+  specializes M (H1 \* H2). applys_eq M 1 2.
+  { rewrite hstar_assoc. auto. }
+  { applys fun_ext_1. intros v. repeat rewrite hstar_assoc. auto. }
+(* /SOLUTION *)
+Qed.
+
+
+
+
 (** Depending on the exact set up of the Separation Logic,
     this [\Top] predicate may be replaced by a finer-grained
     definition (so as to obtain a linear or partially-linear,
     logic, instead of a fully affine logic). This distinction 
     is the matter of a more advanced chapter. *)
 
-(* EX1! (rule_frame) *)
-(** Prove the frame rule for the actual definition of [triple]. *)
 
-Lemma rule_frame : forall t H Q H', 
-  triple t H Q ->
-  triple t (H \* H') (Q \*+ H').
+
+
+(* ******************************************************* *)
+(** ** Garbage collection in the postcondition *)
+
+(** Let us prove the [triple_htop_post]. The proof expoits
+    associativity and commutativity of the star operator,
+    as well as a property asserting that [\Top \* \Top]
+    simplifies to [\Top]: both heap predicate can be used
+    to describe arbitrary heaps. *)
+
+Parameter hstar_assoc' : forall H1 H2 H3,
+  (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
+
+Parameter hstar_comm : forall H1 H2,
+  H1 \* H2 = H2 \* H1.
+
+Parameter hstar_htop_htop :
+  \Top \* \Top = \Top.
+
+Lemma triple_htop_post' : forall t H Q,
+  triple t H (Q \*+ \Top) ->
+  triple t H Q.
 Proof using.
 (* SOLUTION *)
-  introv M. unfold SL_triple in *. rename H' into H1. intros H2.
-  specializes M (H1 \* H2). applys_eq M 1 2.
-  { rewrite hstar_assoc. auto. }
-  { applys fun_ext_1. intros v. repeat rewrite hstar_assoc. auto. }
+  introv M. unfold triple in *. intros H2.
+  specializes M H2. applys_eq M 1.
+  { applys fun_ext_1. intros v. repeat rewrite hstar_assoc.
+    rewrite (hstar_comm H2).
+    rewrite <- (hstar_assoc \Top \Top).
+    rewrite hstar_htop_htop. auto. }
 (* /SOLUTION *)
 Qed.
+
+
+
+
+(* ******************************************************* *)
+(** ** Garbage collection in the precondition *)
+
+(** The rule [triple_htop_post] enables discarding pieces of
+    heap from the precondition. *)
+
+Lemma triple_hgc_htop : forall t H Q,
+  triple t H Q ->
+  triple t (H \* \Top) Q.
+Proof using.  Qed.
+
+Lemma triple_hgc_any : forall t H Q,
+  triple t H Q ->
+  triple t (H \* H') Q.
+Proof using.  Qed.
+
+
 
 
 (* ####################################################### *)
@@ -455,7 +541,7 @@ Lemma triple_incr_2 : forall (p q:loc) (n m:int),
 
 Proof using.
   intros. lets M: triple_incr p n.
-  lets N: rule_frame (q ~~~> m) M.
+  lets N: triple_frame (q ~~~> m) M.
   applys_eq N 1 2.
   { auto. }
   { apply fun_ext_1. intros v. rewrite hstar_assoc. auto. }
@@ -465,7 +551,7 @@ Qed.
    frame on any heap predicate [H], as captured by the following
    specification lemma. *)
 
-Parameter rule_incr_3 : forall (p:loc) (n:int) (H:hprop),
+Parameter triple_incr_3 : forall (p:loc) (n:int) (H:hprop),
   triple (incr p)
     ((p ~~~> n) \* H)
     (fun v => \[v = val_unit] \* (p ~~~> (n+1)) \* H).
