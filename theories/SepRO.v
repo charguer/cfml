@@ -617,7 +617,7 @@ Definition hsingle (l:loc) (v:val) : hprop :=
 Notation "l '~~~>' v" := (hsingle l v)
   (at level 32, no associativity) : heap_scope.
 
-Lemma hstar_hsingle_same_loc_disjoint : forall (l:loc) (v1 v2:val),
+Lemma hstar_hsingle_same_loc : forall (l:loc) (v1 v2:val),
   (l ~~~> v1) \* (l ~~~> v2) ==> \[False].
 Proof using.
   intros. unfold hsingle.

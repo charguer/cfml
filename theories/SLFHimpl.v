@@ -223,7 +223,7 @@ Parameter himpl_frame_l : forall H2 H1 H1',
     perform the first step. We will show examples where it is useful.
 *)
 
-Module Hsimpl.
+Module Htactics.
 Import SepBase.
 Notation "'hprop''" := (SLFHprop.hprop).
 
@@ -430,26 +430,160 @@ Proof using. hsimpl. Qed.
 
 
 
-
-(** For each entailment relation, indicate whether it is true or fase.
-
-    Solutions appear further on in this file. *)
-
-
-(* WORKINCLASS *)
-
-
-(* /WORKINCLASS *)
+(* ******************************************************* *)
+(** ** The [hchange] tactic *)
 
 
 
 
-End Hsimpl.
 
 
 
 (* ******************************************************* *)
 (** ** Identifying true and false entailments *)
+
+(** For each entailment relation, indicate (without proof)
+    whether it is true or false. Solutions appear further on. *)
+
+(* WORKINCLASS *)
+
+Section CaseStudies.
+Implicit Types p q : loc.
+Implicit Types n m : int.
+
+Parameter case_study_1 : forall p q,
+      p ~~~> 3 \* q ~~~> 4
+  ==> q ~~~> 4 \* p ~~~> 3.
+
+Parameter case_study_2 : forall p q,
+      p ~~~> 3
+  ==> q ~~~> 4 \* p ~~~> 3.
+
+Parameter case_study_3 : forall p q,
+      q ~~~> 4 \* p ~~~> 3
+  ==> p ~~~> 4.
+
+Parameter case_study_4 : forall p q,
+      q ~~~> 4 \* p ~~~> 3
+  ==> p ~~~> 3.
+
+Parameter case_study_5 : forall p q,
+      \[False] \* p ~~~> 3
+  ==> p ~~~> 4 \* q ~~~> 4.
+
+Parameter case_study_6 : forall p q,
+      p ~~~> 3 \* q ~~~> 4
+  ==> \[False].
+
+Parameter case_study_7 : forall p,
+      p ~~~> 3 \* p ~~~> 4
+  ==> \[False].
+
+Parameter case_study_8 : forall p,
+      p ~~~> 3 \* p ~~~> 3
+  ==> \[False].
+
+Parameter case_study_9 : forall p,
+      p ~~~> 3
+  ==> \exists n, p ~~~> n.
+
+Parameter case_study_10 : forall p,
+      exists n, p ~~~> n
+  ==> p ~~~> 3.
+
+Parameter case_study_11 : forall p,
+      \exists n, p ~~~> n \* \[n > 0] 
+  ==> \exists n, \[n > 1] \* p ~~~> (n-1).
+
+Parameter case_study_12 : forall p q,
+      p ~~~> 3 \* q ~~~> 3
+  ==> \exists n, p ~~~> n \* q ~~~> n.
+
+Parameter case_study_13 : forall p n,
+  p ~~~> n \* \[n > 0] \* \[n < 0] ==> p ~~~> n \* p ~~~> n.
+
+
+(* /WORKINCLASS *)
+
+(* SOLUTION *)
+(**
+
+1. true (commutativity)
+2. false (one cell does not entail two cell)
+3. false (one cell does not entail two cell)
+4. false (one cell does not entail two cell)
+   Note: [q ~~~> 4 \* p ~~~> 3 ==> p ~~~> 3 \* \Top] would be true.
+
+5. true (\[False] entails anything)
+6. false (a satisfiable heap predicate does not entail \[False])
+7. true (a cell cannot be starred with itself)
+8. true (a cell cannot be starred with itself)
+
+9. true (instantiate [n] with [3])
+10. false ([n] could be something else than [3])
+   Note [\exists (u:unit), p ~~~> u ==> p ~~~> tt] would be true.
+
+11. true (instantiate [n] in RHS with [n+1] for the [n] of the LHS)
+12. true (instantiate [n] with [3])
+13. true (equivalent to \[False] ==> \[False])
+
+*)
+(* /SOLUTION *)
+
+Axiom hstar_hsingle_same_loc : forall l v1 v2,
+  (l ~~~> v1) \* (l ~~~> v2) ==> \[False].
+(*Proof using.
+  intros. unfold hsingle. intros h (h1&h2&E1&E2&D&E). false.
+  subst. applys* fmap_disjoint_single_single_same_inv.
+Qed. *)
+
+Arguments hstar_hsingle_same_loc_disjoint : clear implicits.
+
+Lemma case_study_1' : forall p q,
+      p ~~~> 3 \* q ~~~> 4
+  ==> q ~~~> 4 \* p ~~~> 3.
+Proof using. hsimpl. Qed.
+
+Lemma case_study_5' : forall p q,
+      \[False] \* p ~~~> 3
+  ==> p ~~~> 4 \* q ~~~> 4.
+Proof using. hsimpl. Qed.
+
+Lemma case_study_7' : forall p,
+      p ~~~> 3 \* p ~~~> 4
+  ==> \[False].
+Proof using. intros. hchange (hstar_hsingle_same_loc_disjoint p). Qed.
+
+Lemma case_study_8' : forall p,
+      p ~~~> 3 \* p ~~~> 3
+  ==> \[False].
+Proof using. intros. hchange (hstar_hsingle_same_loc_disjoint p). Qed.
+
+Lemma case_study_9' : forall p,
+      p ~~~> 3
+  ==> \exists n, p ~~~> n.
+Proof using. hsimpl. Qed.
+
+Lemma case_study_11' : forall p,
+      \exists n, p ~~~> n \* \[n > 0] 
+  ==> \exists n, \[n > 1] \* p ~~~> (n-1).
+Proof using.
+  intros. hpull ;=> n Hn. hsimpl (n+1).
+  math. math_rewrite (n+1-1 = n). hsimpl.
+Qed.
+
+Lemma case_study_12' : forall p q,
+      p ~~~> 3 \* q ~~~> 3
+  ==> \exists n, p ~~~> n \* q ~~~> n.
+Proof using. hsimpl. Qed.
+
+Lemma case_study_13' : forall p n,
+  p ~~~> n \* \[n > 0] \* \[n < 0] ==> p ~~~> n \* p ~~~> n.
+Proof using. intros. hsimpl ;=> Hn1 Hn2. false. math. Qed.
+
+End CaseStudies.
+
+End Htactics.
 
 
 (* ####################################################### *)

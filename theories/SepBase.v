@@ -269,7 +269,7 @@ Lemma hsingle_fmap_single : forall l v,
   (l ~~~> v) (fmap_single l v).
 Proof using. intros. split~. Qed.
 
-Lemma hstar_hsingle_same_loc_disjoint : forall l v1 v2,
+Lemma hstar_hsingle_same_loct : forall l v1 v2,
   (l ~~~> v1) \* (l ~~~> v2) ==> \[False].
 Proof using.
   intros. unfold hsingle. intros h (h1&h2&E1&E2&D&E). false.
@@ -300,11 +300,11 @@ Notation "l `.` k '~~~>' v" := (hfield l k v)
   (at level 32, k at level 0, no associativity,
    format "l `.` k  '~~~>'  v") : heap_scope.
 
-Lemma hstar_hfield_same_loc_disjoint : forall l k v1 v2,
+Lemma hstar_hfield_same_loc : forall l k v1 v2,
   (l`.`k ~~~> v1) \* (l`.`k ~~~> v2) ==> \[False].
 Proof using.
   intros. unfold hfield. hpull ;=> N1 N2.
-  applys hstar_hsingle_same_loc_disjoint.
+  applys hstar_hsingle_same_loc.
 Qed.
 
 Lemma hfield_not_null : forall l k v,
