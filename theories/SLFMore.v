@@ -1398,3 +1398,34 @@ Definition Hoare_triple (H:assertion) (t:trm) (Q:val->assertion) : Prop :=
   forall h, H h ->
   exists v h', red h t h' v /\ Q v h'.
 
+
+
+
+(** The proof will also requires evaluating variable comparisons.
+    Indeed, the rules for let bindings and the rule for function
+    application ([triple_let] and [triple_app_fun]) involves 
+    substitutions (function [subst]), which is defined in terms
+    of variable comparisons. For technical reasons, these 
+    comparisons are not computable by default, so we need an
+    explicit rewriting step in order to make them compute in Coq.
+    The tactic [simpl_subst] defined next is a generalization
+    of [simpl] that takes care of these details. *)
+
+Lemma If_eq_bind_var : forall x y t1 t2,
+    (If bind_var x = bind_var y then t1 else t2) 
+  = (if var_eq x y then t1 else t2).
+Proof using.
+  intros. rewrite var_eq_spec. do 2 case_if; auto.
+Qed.
+
+Lemma If_eq_var : forall x y t1 t2,
+    (If x = y then t1 else t2) 
+  = (if var_eq x y then t1 else t2).
+Proof using.
+  intros. rewrite var_eq_spec. do 2 case_if; auto.
+Qed.
+
+Ltac simpl_subst :=
+  simpl; unfold string_to_var;
+   repeat rewrite If_eq_bind_var;
+   repeat rewrite If_eq_var; simpl.

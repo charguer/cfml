@@ -18,8 +18,45 @@ Implicit Types x f : var.
 Implicit Types b : bool.
 Implicit Types n : int.
 Implicit Types v w r : val.
+Implicit Types t : trm.
 Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
+
+(** TODO work-in-progress: 
+    [subst_exec] is an executable version of [subst] on terms,
+    but not yet fully executable... *)
+
+Fixpoint subst_exec (y:var) (w:val) (t:trm) : trm :=
+  let aux t := 
+    subst_exec y w t in
+  let aux_no_capture z t := 
+    match z with
+    | bind_anon => aux t
+    | bind_var x => if var_eq x y then t else aux t 
+    end in
+  let aux_no_captures xs t := 
+    If LibList.mem y xs then t else aux t in
+  match t with
+  | trm_val v => trm_val v
+  | trm_var x => if var_eq x y then trm_val w else t
+  | trm_fixs f xs t1 => 
+      trm_fixs f xs (
+        match xs with
+        | x::nil => if var_eq x y then t1 else aux t1
+        | _ => If f = y then t1 else aux_no_captures xs t1
+        end)
+  | trm_constr id ts => trm_constr id (List.map aux ts)
+  | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
+  | trm_let z t1 t2 => trm_let z (aux t1) (aux_no_capture z t2)
+  | trm_apps t0 ts => trm_apps (aux t0) (List.map aux ts)
+  | trm_while t1 t2 => trm_while (aux t1) (aux t2)
+  | trm_for x t1 t2 t3 => trm_for x (aux t1) (aux t2) (aux_no_capture x t3)
+  | trm_match t0 pts => trm_match (aux t0) (List.map (fun '(pi,ti) =>
+       (pi, aux_no_captures (patvars pi) ti)) pts)
+  | trm_fail => trm_fail
+  end.
+
+Definition subst := subst_exec.
 
 
 (* ####################################################### *)
@@ -144,7 +181,7 @@ Parameter triple_if_bool_case : forall b t1 t2 H Q,
     result value [x] is equal to [v], in the empty heap.
 [[
      ----------------------------
-      {\[]} v {fun v' => \[v' = v]}
+      {\[]} v {fun r => \[r = v]}
 ]]
     Yet, it is more convenient in practice to work with a judgment
     whose conclusion is of the form [{H}v{Q}], for an arbitrary
@@ -169,7 +206,7 @@ Parameter triple_val : forall v H Q,
 
 [[
      ------------------------------------------------------
-      {\[]} (trm_fun x t1) {fun v' => \[v' = val_fun x t1]}
+      {\[]} (trm_fun x t1) {fun r => \[r = val_fun x t1]}
 ]]
    However, we prefer a conclusion of the form [{H}(trm_fun x t1){Q}].
    We thus consider the following rule, very similar to [triple_val]:
@@ -280,15 +317,21 @@ Parameter triple_div : forall n1 n2,
 (* ******************************************************* *)
 (** ** Verification proof in Separation Logic *)
 
-Lemma triple_conseq_frame : forall H2 H1 Q1 t H Q,
+(** We have at hand all the necessary rules for carrying out
+    actual verification proofs in Separation Logic.
+    
+    To illustrate this possibility, we next present a verification
+    proof for the increment function. *)
+
+(** The proof will use the rule that combines the frame rule
+    and the consequence rule (introduced in the previous chapter). *)
+
+Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
   triple t H1 Q1 ->
   H ==> H1 \* H2 ->
   Q1 \*+ H2 ===> Q ->
   triple t H Q.
-Proof using.
-  introv M WH WQ. applys triple_conseq WH WQ.
-  applys triple_frame M.
-Qed.
+
 
 
 
@@ -296,11 +339,8 @@ Module ExampleProof.
 
 Import NotationForVariables NotationForTerms CoercionsFromStrings.
 
-(** We have at hand all the necessary rules for carrying out
-    actual verification proofs in Separation Logic. 
-    For example, consider the increment function.
 
-    The definition in OCaml syntax is: [fun p => p := (!p + 1)].
+(** The definition in OCaml syntax is: [fun p => p := (!p + 1)].
     In A-normal form syntax, this definition becomes: 
 [[
    fun p => 
@@ -328,61 +368,23 @@ Definition incr' :=
 (** Recall from the first chapter the specification of the
     increment function. *)
 
-
-Implicit Types t : trm.
-
-Lemma bind_var_eq : forall x t1 t2,
-  (If bind_var x = bind_var x then t1 else t2) = t1.
-Proof using. intros. case_if*. Qed.
-
-Lemma bind_var_neq : forall x y t1 t2,
-  var_eq x y = false ->
-  (If bind_var x = bind_var y then t1 else t2) = t2.
-Proof using.
-  introv M. rewrite var_eq_spec in M.
-  rew_bool_eq in M. case_if*. 
-Qed.
-
-Lemma If_eq_bind_var : forall x y t1 t2,
-    (If bind_var x = bind_var y then t1 else t2) 
-  = (if var_eq x y then t1 else t2).
-Proof using.
-  intros. rewrite var_eq_spec. do 2 case_if; auto.
-Qed.
-
-Lemma If_eq_var : forall x y t1 t2,
-    (If x = y then t1 else t2) 
-  = (if var_eq x y then t1 else t2).
-Proof using.
-  intros. rewrite var_eq_spec. do 2 case_if; auto.
-Qed.
-
-Ltac simpl_subst :=
-  simpl; unfold string_to_var;
-   repeat rewrite If_eq_bind_var;
-   repeat rewrite If_eq_var; simpl.
-
-
-
-
-
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
     (p ~~~> n)
     (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
 Proof using.
   intros. applys triple_app_fun. { reflexivity. }
-  simpl_subst.
+  simpl.
   applys triple_let.
   { apply triple_get. }
-  intros n'. simpl_subst.
+  intros n'. simpl.
   apply triple_hpure. intros ->.
   applys triple_let. 
-  { applys triple_conseq_frame. 
+  { applys triple_conseq_frame.
     { applys triple_add. }
     { hsimpl. }
     { hsimpl. } }
-  intros m'. simpl_subst.
+  intros m'. simpl.
   apply triple_hpure. intros ->.
   applys triple_conseq_frame.
   { applys triple_set. }
@@ -392,15 +394,39 @@ Qed.
 
 End ExampleProof.
 
+(** The matter of the next chapter is to streamline is to
+    introduce additional technology to streamline the proof
+    process, notably by
+    - automating the application of the frame rule
+    - eliminating the need to manipulate program variables
+      and substitutions during the verification proof. *)
+
 
 (* ####################################################### *)
-(** * The chapter in a rush *)
+(** * Additional contents *)
 
 (* ******************************************************* *)
 (** ** The combined let-frame rule rule *)
 
-(** The "let-frame" rule combines the rule for let-bindings
-    with the frame rule. *)
+(** Recall the Separation Logic let rule. *)
+
+Parameter triple_let' : forall x t1 t2 H Q Q1,
+  triple t1 H Q1 ->
+  (forall v, triple (subst x v t2) (Q1 v) Q) ->
+  triple (trm_let x t1 t2) H Q.
+
+(** At first sight, it seems that, to reason about [let x = t1 in t2] 
+    in a state described by precondition [H], we need to first reason 
+    about [t1] in that same state. Yet, [t1] may well require only a
+    subset of that state to evaluate. 
+
+    The "let-frame" rule combines the rule for let-bindings with the
+    frame rule to make it more explicit that the precondition [H]
+    may be decomposed in the form [H1 \* H2], where [H1] is the part
+    needed by [t1], and [H2] denotes the rest of the state. The part
+    of the state covered by [H2] remains unmodified during the evaluation
+    of [t1], and appears as part of the precondition of [t2].
+    The formal statement follows. *)
 
 Lemma triple_let_frame : forall x t1 t2 H H1 H2 Q Q1,
   triple t1 H1 Q1 ->
@@ -421,33 +447,6 @@ Proof using.
   { applys qimpl_refl. }
 (* /SOLUTION *)
 Qed.
-
-
-(* ******************************************************* *)
-(** ** Reasoning rules for recursive functions *)
-
-(** This reasoning rules for functions immediately generalizes 
-    to recursive functions. *)
-
-Parameter triple_fix : forall f x t1 H Q,
-  H ==> Q (val_fix f x t1) ->
-  triple (trm_fix f x t1) H Q.
-
-Lemma triple_app_fix : forall (f:bind) x F V t1 H Q,
-  F = (val_fix f x t1) ->
-  triple (subst2 f F x V t1) H Q ->
-  triple (trm_app F V) H Q.
-
-(** In fact, our language is set up in such a way that a non-recursive
-    function is just a special case of a (potentially-recursive) function.
-    The term [trm_fix z x t1] denotes a potentially-recursive function, 
-    where [z] is a binder. This binder may be either a variable [f],
-    in the case of a recursive function, or the special anonymous binder
-    written [bind_anon] to denote a non-recursive function. *)
-    
-Check trm_fix : bind -> var -> trm -> trm.
-
-Definition trm_fun' x t1 := trm_fix bind_anon x t1.
 
 
 (* ******************************************************* *)
@@ -497,9 +496,74 @@ Parameter triple_ref'' : forall v,
 
 
 (* ******************************************************* *)
+(** ** Reasoning rules for recursive functions *)
+
+(** This reasoning rules for functions immediately generalizes 
+    to recursive functions. A term describing a recursive 
+    function is written [trm_fix f x t1], and the corresponding
+    value is written [val_fix f x t1]. *)
+
+Parameter triple_fix : forall f x t1 H Q,
+  H ==> Q (val_fix f x t1) ->
+  triple (trm_fix f x t1) H Q.
+
+(** The reasoning rule that corresponds to beta-reduction for
+    a recursive function involves two substitutions: a first
+    substitution for recursive occurences of the function,
+    followed with a second substitution for the argument 
+    provided to the call. *)
+
+Parameter triple_app_fix : forall v1 v2 f x t1 H Q,
+  v1 = val_fix f x t1 ->
+  triple (subst x v2 (subst f v1 t1)) H Q ->
+  triple (trm_app v1 v2) H Q.
+
+
+(* ******************************************************* *)
+(** ** Alternative rule for values *)
+
+(** When discussing the reasoning rule for values, we mention
+    that the rule could be expressed with an empty precondition,
+    as shown next:
+[[
+     ----------------------------
+      {\[]} v {fun r => \[r = v]}
+]]
+    Let us prove that this rule is equivalent to [triple_val]. *)
+
+(* EX1! (triple_val_minimal) *)
+(** Prove the alternative rule for values derivable from [triple_val]. *)
+
+Lemma triple_val_minimal : forall v,
+  triple (trm_val v) \[] (fun r => \[r = v]).
+Proof using.
+(* SOLUTION *)
+  intros. applys triple_val. hsimpl. auto.
+(* /SOLUTION *)
+Qed.
+
+(* EX2! (triple_val_minimal) *)
+(** More interestingly, prove that [triple_val] is derivable
+    from [triple_val_minimal]. *)
+
+Lemma triple_val' : forall v H Q,
+  H ==> Q v ->
+  triple (trm_val v) H Q.
+Proof using.
+(* SOLUTION *)
+  introv M. applys triple_conseq_frame.
+  { applys triple_val_minimal. }
+  { hsimpl. }
+  { intros r. hsimpl. intros ->. applys M. }
+(* /SOLUTION *)
+Qed.
+
+
+(* ******************************************************* *)
 (** ** Proofs for the rules for terms *)
 
-
+Parameter red_val : forall s v,
+  red s v s v.
 
 Lemma hoare_val : forall v H Q,
   H ==> Q v ->
@@ -510,10 +574,14 @@ Proof using.
   { hhsimpl~. }
 Qed.
 
-Lemma hoare_fixs : forall (f:bind) xs t1 H Q,
-  xs <> nil ->
-  H ==> Q (val_fixs f xs t1) ->
-  hoare (trm_fixs f xs t1) H Q.
+
+Lemma red_fun : forall m x t1,
+  red m (trm_fun x t1) m (val_fun x t1).
+Proof using. intros. apply red_fix. Qed.
+
+Lemma hoare_fun : forall x t1 H Q,
+  H ==> Q (val_fun x t1) ->
+  hoare (trm_fun x t1) H Q.
 Proof using.
   introv N M. intros h Hh. exists___. splits.
   { applys~ red_fixs. }
