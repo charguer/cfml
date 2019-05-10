@@ -740,52 +740,147 @@ Qed.
 (* ******************************************************* *)
 (** ** Proofs for the specification of primitive operations *)
 
+(* ------------------------------------------------------- *)
+(** *** Allocation of a reference *)
+
+(* TODO: pb moving from Hoare_triple to hoare *)
+
+Parameter red_ref : forall s1 s2 v l,
+  s2 = fmap_single l v ->
+  fmap_disjoint s2 s1 -> (* i.e. [l] not in dom [s1] *)
+  red s1 (val_ref v) (s2 \u s1) (val_loc l).
+
+Implicit Types h : heap.
+
+Parameter fmap_single_fresh : forall h v,
+  exists l, fmap_disjoint (fmap_single l v) h.
+
+Parameter hsingle_intro : forall l v,
+  (l ~~~> v) (fmap_single l v).
+
+Parameter hstar_hpure : forall P H h, 
+  (\[P] \* H) h = (P /\ H h). (* todo; exo *)
+
+
 Lemma hoare_ref : forall H v,
   hoare (val_ref v)
     H
     (fun r => (\exists l, \[r = val_loc l] \* l ~~~> v) \* H).
+Proof using.
+  intros. intros s1 K0.
+  forwards~ (l&D): (fmap_single_fresh s1 v).
+  (* forwards~ Hh1': hsingle_fmap_single l v. *)
+  sets s2: (fmap_single l v).
+  exists (s2 \u s1) (val_loc l). split.
+  { applys~ red_ref D. }
+  { applys hstar_intro. 
+    { exists l. unfold s2. rewrite hstar_hpure.
+      split~. { applys hsingle_intro. } }
+    { applys K0. }
+    { applys D. } }
+Qed.
+
+Lemma triple_ref''' : forall v, (* todo : rename *)
+  triple (val_ref v)
+    \[]
+    (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
+Proof using.
+  intros. intros H'. applys hoare_conseq.
+  { applys hoare_ref. } 
+  { hsimpl. }
+  { hsimpl. auto. }
+Qed.
+
+(* ------------------------------------------------------- *)
+(** *** Read in a reference *)
+
+(* pb of null in hsingle to change *)
+
+(* pb of direct semantics
+Parameter red_get_direct : forall s l v,
+  fmap_data s l = Some v ->
+  red s (val_get (val_loc l)) s v.
+*)
+
+
+Parameter red_get : forall s s1 s2 l v, 
+  s = fmap_union s1 s2 ->
+  fmap_disjoint s1 s2 ->
+  s1 = fmap_single l v ->
+  red s (val_get (val_loc l)) s v.
+
+
+Parameter hsingle_inv: forall l v h,
+  (l ~~~> v) h ->
+  h = fmap_single l v.
+
 Lemma hoare_get : forall H v l,
   hoare (val_get (val_loc l))
     ((l ~~~> v) \* H)
-    (fun x => \[x = v] \* (l ~~~> v) \* H).
+    (fun r => \[r = v] \* (l ~~~> v) \* H).
 Proof using.
-  intros. intros h Hh. exists h v. splits~.
-  { applys red_get. destruct Hh as (h1&h2&(N1a&N1b)&N2&N3&N4).
-    subst h. applys~ fmap_union_single_l_read. }
-  { hhsimpl~. }
+  intros. intros h K0. exists h v. split.
+  { destruct K0 as (h1&h2&P1&P2&D&U).
+    lets E1: hsingle_inv P1.
+    applys red_get U D E1. }
+  { rewrite hstar_hpure. auto. }
 Qed.
+
+Lemma triple_get' : forall v l,
+  triple (val_get (val_loc l))
+    (l ~~~> v)
+    (fun r => \[r = v] \* (l ~~~> v)).
+Proof using.
+  intros. intros H'. applys hoare_conseq.
+  { applys hoare_get. } 
+  { hsimpl. }
+  { hsimpl. auto. }
+Qed.
+
+(* ------------------------------------------------------- *)
+(** *** Write in a reference *)
+
+Parameter red_set : forall s s' h1 h1' h2 l v v',
+  s = fmap_union h1 h2 ->
+  s' = fmap_union h1' h2 ->
+  fmap_disjoint h1 h2 ->
+  h1 = fmap_single l v ->
+  h1' = fmap_single l v' ->
+  red s (val_set (val_loc l) v') s' val_unit.
+
+
+
+Parameter fmap_disjoint_update : forall l v w h2,
+  fmap_disjoint (fmap_single l v) h2 ->
+  fmap_disjoint (fmap_single l w) h2.
 
 Lemma hoare_set : forall H w l v,
   hoare (val_set (val_loc l) w)
     ((l ~~~> v) \* H)
     (fun r => \[r = val_unit] \* (l ~~~> w) \* H).
-
-Lemma triple_ref : forall v,
-  triple (val_ref v)
-    \[]
-    (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
-Proof using.
-  intros. applys triple_of_hoare. intros HF. rew_heap.
-  esplit; split. { applys hoare_ref. } { hsimpl*. }
+Proof using. 
+  intros. intros h K0. destruct K0 as (h1&h2&P1&P2&D&U). 
+  lets E1: hsingle_inv P1.
+  sets h1': (fmap_single l w).
+  exists (h1' \u h2) val_unit. split.
+  { applys red_set h1 h1' h2 v; auto. }
+  { rewrite hstar_hpure. split~. applys hstar_intro.
+    { applys hsingle_intro. }
+    { auto. }
+    { subst h1. applys fmap_disjoint_update D. } }
 Qed.
 
-Lemma triple_get : forall v l,
-  triple (val_get (val_loc l))
-    (l ~~~> v)
-    (fun x => \[x = v] \* (l ~~~> v)).
-Proof using.
-  intros. applys triple_of_hoare. intros HF.
-  esplit; split. { applys hoare_get. } { hsimpl*. }
-Qed.
-
-Lemma triple_set : forall w l v,
+Lemma triple_set' : forall w l v,
   triple (val_set (val_loc l) w)
     (l ~~~> v)
     (fun r => \[r = val_unit] \* l ~~~> w).
 Proof using.
-  intros. applys triple_of_hoare. intros HF.
-  esplit; split. { applys hoare_set. } { hsimpl*. }
+  intros. intros H'. applys hoare_conseq.
+  { applys hoare_set. } 
+  { hsimpl. }
+  { hsimpl. auto. }
 Qed.
+
 
 
 
