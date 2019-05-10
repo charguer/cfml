@@ -16,7 +16,7 @@ From Sep Require Import SepBase.
 
 Implicit Types x f : var.
 Implicit Types b : bool.
-Implicit Types v : val.
+Implicit Types v w : val.
 Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
 
@@ -188,7 +188,7 @@ Parameter triple_fun : forall x t1 H Q,
     [{H}(subst x v2 t1){Q}] holds. This logic is captured by the
     following rule. *)
 
-Lemma triple_app_fun : forall x v1 v2 t1 H Q,
+Parameter triple_app_fun : forall x v1 v2 t1 H Q,
   v1 = val_fun x t1 ->
   triple (subst x v2 t1) H Q ->
   triple (trm_app v1 v2) H Q.
@@ -206,20 +206,75 @@ Lemma triple_app_fun : forall x v1 v2 t1 H Q,
 (* ******************************************************* *)
 (** ** Specification of primitive operations *)
 
-Lemma triple_ref : forall v,
-  triple (val_ref v)
-    \[]
-    (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
+(** For a complete set of reasoning rules, there remains to present
+    the specification for builtin functions. The most interesting
+    functions are those that manipulate the state. *)
 
-Lemma triple_get : forall v l,
+(** Assume [val_get] to denote the operation for reading a memory cell.
+    A call of the form [val_get v'] executes safely if [v'] is of the 
+    form [val_loc l] for some location [l], in a state that features
+    a memory cell at location [l] with some contents [v]. Such a state
+    is described as [l ~~~> v]. The read operation returns a value [x]
+    such that [x = v], and the memory state of the operation remains
+    unchanged. The specification of a read may is be expressed as: *)
+
+Parameter triple_get : forall v l,
   triple (val_get (val_loc l))
     (l ~~~> v)
     (fun x => \[x = v] \* (l ~~~> v)).
 
-Lemma triple_set : forall w l v,
+(** Assume [val_set] to denote the operation for writing a memory cell.
+    A call of the form [val_set v' w] executes safely if [v'] is of the 
+    form [val_loc l] for some location [l], in a state [l ~~~> v].
+    The write operation updates this state to [l ~~~> w], and returns
+    the unit value. In other words, it returns a value [x] such that
+    [x = val_unit]. Hence the following specification. *)
+
+Parameter triple_set : forall w l v,
   triple (val_set (val_loc l) w)
     (l ~~~> v)
-    (fun r => \[r = val_unit] \* l ~~~> w).
+    (fun x => \[x = val_unit] \* l ~~~> w).
+
+(** Assume [val_ref] to denote the value that corresponds to the
+    builtin operation for allocating a cell with a given contents. 
+    A call to [val_ref v] may execute in the empty state and 
+    augment the state with a singleton cell, allocated at some 
+    location [l], with contents [v]. This new cell is described 
+    by the heap predicate [l ~~~> v]. 
+    
+    The value returned by the operation is the location [val_loc l], 
+    that is, the location [l] viewed as a value. Thus, if [x] denotes
+    the result value, we have [x = val_loc l] for some [l]. The 
+    location [l] needs to be existentially quantified. *)
+ 
+Parameter triple_ref : forall v,
+  triple (val_ref v)
+    \[]
+    (fun x => \exists l, \[x = val_loc l] \* l ~~~> v).
+
+(** The programming language targeted may include other builtin 
+    functions, for example arithmetic operations. We here present
+    just two examples: addition and division. Others follow a
+    similar pattern. 
+    
+    Assume [val_add] to denote the value that corresponds to the
+    builtin operation [+]. A call to an addition [val_add n1 n2] 
+    executes in a empty state, and produces an empty state. It
+    returns the value [n1+n2]. Formally: *)
+
+Parameter triple_add : forall n1 n2,
+  triple (val_add n1 n2)
+    \[]
+    (fun r => \[r = val_int (n1 + n2)]).
+
+(** A division [val_div n1 n2] is similar, with the only extra
+    requirement that the divisor [n2] must be nonzero. *)
+
+Lemma triple_div : forall n1 n2,
+  n2 <> 0 ->
+  triple (val_div n1 n2)
+    \[]
+    (fun r => \[r = val_int (Z.quot n1 n2)]).
 
 
 (* ####################################################### *)
@@ -275,6 +330,49 @@ Check trm_fix : bind -> var -> trm -> trm.
 Definition trm_fun x t1 := trm_fix bind_anon x t1.
 
 
+(* ******************************************************* *)
+(** ** Alternative presentation for the specifications of builtin functions *)
+
+(** 1. Recall the specification for division. *)
+
+Parameter triple_div' : forall n1 n2,
+  n2 <> 0 ->
+  triple (val_div n1 n2)
+    \[]
+    (fun r => \[r = val_int (Z.quot n1 n2)]).
+
+(** Equivalently, we could place the requirement [n2 <> 0] in the 
+    precondition: *)
+
+Parameter triple_div'' : forall n1 n2,
+  triple (val_div n1 n2)
+    \[n2 <> 0]
+    (fun r => \[r = val_int (Z.quot n1 n2)]).
+
+(** Yet, placing pure preconditions outside of the triples makes
+    it slightly more convient to exploit specifications, so we
+    adopt the style that precondition only contain the description
+    of heap-allocated data structures. *)
+
+(** 2. Recall the specification for allocation. *)
+
+Parameter triple_ref' : forall v,
+  triple (val_ref v)
+    \[]
+    (fun x => \exists l, \[x = val_loc l] \* l ~~~> v).
+
+(** Remark: the postcondition could be equivalently stated using
+    a pattern matching instead of an existential. *)
+
+Parameter triple_ref'' : forall v,
+  triple (val_ref v)
+    \[]
+    (fun x => match x with 
+              | val_loc l => (l ~~~> v)
+              | _ => \[False])
+
+(** However, this presentation is less readable and would be 
+    fairly cumbersome to work with in practice. *)
 
 
 (* ******************************************************* *)
