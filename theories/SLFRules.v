@@ -120,23 +120,19 @@ Parameter triple_htop_post : forall t H Q,
     For example, [if t0 then t1 else t2] can be encoded as 
     [let x = t0 in if x then t1 else t2]. *)
 
-(** The reasoning rule for a sequence [t1;t2] resembles that of 
-    Hoare logic. The rule is:
+(** The reasoning rule for a sequence [t1;t2] is similar to that
+    from Hoare logic. The rule is:
 [[
-      {H} t1 {Q1}     {Q1 val_unit} t2 {Q}
-      -----------------------------------
+      {H} t1 {fun r => H1}     {H1} t2 {Q}
+      ------------------------------------
               {H} (t1;t2) {Q}
 ]]
-    The application of [Q1] to [val_unit] is necessary because
-    [Q1] is the postcondition of [t1] so it has type [val->hprop], 
-    whereas the precondition of [t2] must have type [hprop].
-    By applying [Q1] to the expected result of [t1], which is
-    [val_unit] when [t1] has type [unit], we obtain the
-    expression [Q1 val_unit] which indeed has type [hprop]. *)
+    Remark: the variable [r] denotes the result of the evaluation
+    of [t1]. For well-typed programs, this result is always [val_unit]. *)
 
-Parameter triple_seq : forall t1 t2 H Q Q1,
-  triple t1 H Q1 ->
-  triple t2 (Q1 val_unit) Q ->
+Parameter triple_seq : forall t1 t2 H Q H1,
+  triple t1 H (fun r => H1) ->
+  triple t2 H1 Q ->
   triple (trm_seq t1 t2) H Q.
 
 (** The reasoning rule for a let binding [let x = t1 in t2] could
@@ -171,7 +167,7 @@ Parameter triple_let : forall x t1 t2 H Q Q1,
 ]]
 *)
 
-Parameter triple_if_bool_case : forall b t1 t2 H Q,
+Parameter triple_if : forall b t1 t2 H Q,
   (b = true -> triple t1 H Q) ->
   (b = false -> triple t2 H Q) ->
   triple (trm_if (val_bool b) t1 t2) H Q.
@@ -562,6 +558,9 @@ Qed.
 (* ******************************************************* *)
 (** ** Proofs for the rules for terms *)
 
+(* ------------------------------------------------------- *)
+(** *** Proof of [triple_val] *)
+
 Parameter red_val : forall s v,
   red s v s v.
 
@@ -571,47 +570,148 @@ Lemma hoare_val : forall v H Q,
 Proof using.
   introv M. intros h Hh. exists h v. splits.
   { applys red_val. }
-  { hhsimpl~. }
+  { applys M. auto. (* hhsimpl~. *) }
 Qed.
 
+Notation "'\Top''" := hgc. (* TODO: explain *)
 
-Lemma red_fun : forall m x t1,
-  red m (trm_fun x t1) m (val_fun x t1).
-Proof using. intros. apply red_fix. Qed.
-
-Lemma hoare_fun : forall x t1 H Q,
-  H ==> Q (val_fun x t1) ->
-  hoare (trm_fun x t1) H Q.
+Lemma triple_val'' : forall v H Q,
+  H ==> Q v ->
+  triple (trm_val v) H Q.
 Proof using.
-  introv N M. intros h Hh. exists___. splits.
-  { applys~ red_fixs. }
-  { hhsimpl~. }
+  introv M. intros H'. applys hoare_val.
+  hchange M. hsimpl. (* hchanges M *)
 Qed.
-Lemma hoare_let : forall z t1 t2 H Q Q1,
+
+(** The proof of [triple_fun] is essentially identical to that
+    of [triple_val], so we do not include it. *)
+
+
+(* ------------------------------------------------------- *)
+(** *** Proof of [triple_seq] *)
+
+Parameter red_seq : forall s1 s2 s3 t1 t2 r1 r,
+  red s1 t1 s2 r1 ->
+  red s2 t2 s3 r ->
+  red s1 (trm_seq t1 t2) s3 r.
+
+Lemma hoare_seq : forall t1 t2 H Q H1,
+  hoare t1 H (fun r => H1) ->
+  hoare t2 H1 Q ->
+  hoare (trm_seq t1 t2) H Q.
+Proof using.
+  introv M1 M2 K0.
+  forwards (h1'&v1&R1&K1): (rm M1) K0.
+  forwards (h2'&v2&R2&K2): (rm M2) K1.
+  exists h2' v2. split. { applys red_seq R1 R2. } { apply K2. }
+Qed.
+
+Lemma triple_seq' : forall t1 t2 H Q H1,
+  triple t1 H (fun r => H1) ->
+  triple t2 H1 Q ->
+  triple (trm_seq t1 t2) H Q.
+Proof using.
+  unfold triple. introv M1 M2. intros H'. applys hoare_seq.
+  { applys M1. }
+  { applys hoare_conseq. { applys M2. } { hsimpl. } { hsimpl. } }
+Qed.
+
+
+(* ------------------------------------------------------- *)
+(** *** Proof of [triple_let] *)
+
+Parameter red_let : forall s1 s2 s3 x t1 t2 v1 r,
+  red s1 t1 s2 v1 ->
+  red s2 (subst x v1 t2) s3 r ->
+  red s1 (trm_let x t1 t2) s3 r.
+
+Lemma hoare_let : forall x t1 t2 H Q Q1,
   hoare t1 H Q1 ->
-  (forall v, hoare (subst1 z v t2) (Q1 v) Q) ->
-  hoare (trm_let z t1 t2) H Q.
+  (forall v, hoare (subst x v t2) (Q1 v) Q) ->
+  hoare (trm_let x t1 t2) H Q.
 Proof using.
-  introv M1 M2 Hh.
-  forwards* (h1'&v1&R1&K1): (rm M1).
-  forwards* (h2'&v2&R2&K2): (rm M2).
-  exists h2' v2. splits~. { applys~ red_let_trm R2. }
-Qed.Lemma hoare_if_bool : forall (b:bool) t1 t2 H Q,
+  introv M1 M2 K0.
+  forwards (h1'&v1&R1&K1): (rm M1) K0.
+  forwards (h2'&v2&R2&K2): (rm M2) K1.
+  exists h2' v2. split. { applys red_let R1 R2. } { apply K2. }
+Qed.
+
+Lemma triple_let'' : forall x t1 t2 H Q Q1,
+  triple t1 H Q1 ->
+  (forall v, triple (subst x v t2) (Q1 v) Q) ->
+  triple (trm_let x t1 t2) H Q.
+Proof using.
+  unfold triple. introv M1 M2. intros H'. applys hoare_let.
+  { applys M1. }
+  { intros v. applys hoare_conseq.
+    { applys M2. } { hsimpl. } { hsimpl. } }
+Qed.
+
+
+(* ------------------------------------------------------- *)
+(** *** Proof of [triple_if] *)
+
+Parameter red_if_bool : forall s1 s2 b r t1 t2,
+  (b = true -> red s1 t1 s2 r) ->
+  (b = false -> red s1 t2 s2 r) ->
+  red s1 (trm_if b t1 t2) s2 r.
+
+Lemma hoare_if : forall b t1 t2 H Q,
+  (b = true -> hoare t1 H Q) ->
+  (b = false -> hoare t2 H Q) ->
+  hoare (trm_if b t1 t2) H Q.
+Proof using.
+  introv M1 M2. intros h K0. destruct b.
+  { forwards* (h1'&v1&R1&K1): (rm M1) K0.
+    exists h1' v1. split*. { applys* red_if. } }
+  { forwards* (h1'&v1&R1&K1): (rm M2) K0.
+    exists h1' v1. split*. { applys* red_if. } }
+Qed.
+
+Lemma triple_if' : forall b t1 t2 H Q,
+  (b = true -> triple t1 H Q) ->
+  (b = false -> triple t2 H Q) ->
+  triple (trm_if (val_bool b) t1 t2) H Q.
+Proof using.
+  unfold triple. introv M1 M2. intros H'. 
+  applys hoare_if; intros Eb.
+  { applys* M1. }
+  { applys* M2. }
+Qed.
+
+(** Variant *)
+
+Lemma red_if_bool_case : forall m1 m2 b r t1 t2,
+  red m1 (if b then t1 else t2) m2 r ->
+  red m1 (trm_if b t1 t2) m2 r.
+Proof using.
+  intros. case_if; applys red_if_bool; auto_false.
+Qed.
+
+Lemma hoare_if_case : forall (b:bool) t1 t2 H Q,
   hoare (if b then t1 else t2) H Q ->
   hoare (trm_if b t1 t2) H Q.
 Proof using.
-  introv M1. intros h Hh. forwards* (h1'&v1&R1&K1): (rm M1).
-  exists h1' v1. splits~. { applys* red_if. }
+  introv M1. intros h K0. 
+  forwards (h1'&v1&R1&K1): (rm M1) K0.
+  exists h1' v1. split. { applys red_if R1. } { applys K1. }
 Qed.
 
-Lemma hoare_if_trm : forall Q1 t0 t1 t2 H Q, (* TODO needed? *)
-  hoare t0 H Q1 ->
-  (forall v, hoare (trm_if v t1 t2) (Q1 v) Q) ->
-  hoare (trm_if t0 t1 t2) H Q.
+Lemma triple_if_case : forall b t1 t2 H Q,
+  triple (if b then t1 else t2) H Q ->
+  triple (trm_if (val_bool b) t1 t2) H Q.
 Proof using.
-  introv M1 M2. applys* hoare_evalctx (fun t0 => trm_if t0 t1 t2).
-  { constructor. }
+  unfold triple. introv M1. intros H'.
+  applys hoare_if_case. applys M1.
 Qed.
+
+
+(* ------------------------------------------------------- *)
+(** *** Proof of [triple_app_fun] *)
+
+
+
+
 Lemma hoare_apps_funs : forall xs F (Vs:vals) t1 H Q,
   F = (val_funs xs t1) ->
   var_funs (length Vs) xs ->
@@ -622,101 +722,6 @@ Proof using.
   exists h' v. splits~. { subst. applys* red_apps_funs. }
 Qed.
 
-Lemma triple_fun : forall x t1 H Q,
-  H ==> Q (val_fun x t1) ->
-  triple (trm_fun x t1) H Q.
-Proof using.
-  introv M. intros HF h N. exists___. splits.
-  { applys red_fun. }
-  { hhsimpl. hchanges M. }
-Qed.
-
-
-Lemma triple_val : forall v H Q,
-  H ==> Q v ->
-  triple (trm_val v) H Q.
-Proof using.
-  introv M. intros HF. applys hoare_val. { hchanges M. }
-Qed.
-
-Lemma triple_fixs : forall f xs t1 H Q,
-  xs <> nil ->
-  H ==> Q (val_fixs f xs t1) ->
-  triple (trm_fixs f xs t1) H Q.
-Proof using.
-  introv N M. intros HF. applys~ hoare_fixs. { hchanges M. }
-Qed.
-
-Lemma triple_constr : forall id vs H Q,
-  H ==> Q (val_constr id vs) ->
-  triple (trm_constr id vs) H Q.
-Proof using.
-  introv M. intros HF. applys hoare_constr. { hchanges M. }
-Qed.
-
-Lemma triple_constr_trm : forall id ts t1 vs H Q Q1,
-  triple t1 H Q1 -> 
-  (forall (X:val), triple (trm_constr id ((trms_vals vs)++(trm_val X)::ts)) (Q1 X) Q) ->
-  triple (trm_constr id ((trms_vals vs)++t1::ts)) H Q.
-Proof using.
-  introv M1 M2. intros HF. applys~ hoare_constr_trm.
-  { intros v. applys* hoare_of_triple. }
-Qed.
-
-Lemma triple_let : forall z t1 t2 H Q Q1,
-  triple t1 H Q1 ->
-  (forall (X:val), triple (subst1 z X t2) (Q1 X) Q) ->
-  triple (trm_let z t1 t2) H Q.
-Proof using.
-  introv M1 M2. intros HF. applys hoare_let.
-  { applys M1. }
-  { intros v. applys* hoare_of_triple. }
-Qed.
-
-Lemma triple_seq : forall t1 t2 H Q Q1,
-  triple t1 H Q1 ->
-  (forall (X:val), triple t2 (Q1 X) Q) ->
-  triple (trm_seq t1 t2) H Q.
-Proof using.
-  introv M1 M2. applys* triple_let. (* BIND intros. rewrite* subst1_anon. *)
-Qed.
-
-Lemma triple_if_bool : forall (b:bool) t1 t2 H Q,
-  triple (if b then t1 else t2) H Q ->
-  triple (trm_if b t1 t2) H Q.
-Proof using.
-  introv M1. intros HF. applys hoare_if_bool. applys M1.
-Qed.
-
-Lemma triple_if_bool_case : forall (b:bool) t1 t2 H Q,
-  (b = true -> triple t1 H Q) ->
-  (b = false -> triple t2 H Q) ->
-  triple (trm_if b t1 t2) H Q.
-Proof using.
-  introv M1 M2. applys triple_if_bool. case_if*.
-Qed.
-
-Lemma triple_if_trm : forall Q1 t0 t1 t2 H Q,
-  triple t0 H Q1 ->
-  (forall v, triple (trm_if v t1 t2) (Q1 v) Q) ->
-  triple (trm_if t0 t1 t2) H Q.
-Proof using.
-  introv M1 M2. intros HF. applys* hoare_if_trm.
-  { intros v. applys* hoare_of_triple. }
-Qed.
-
-Lemma triple_if : forall Q1 t0 t1 t2 H Q, (* not very useful *)
-  triple t0 H Q1 ->
-  (forall (b:bool), triple (if b then t1 else t2) (Q1 b) Q) ->
-  (forall v, ~ is_val_bool v -> (Q1 v) ==> \[False]) ->
-  triple (trm_if t0 t1 t2) H Q.
-Proof using.
-  introv M1 M2 M3. applys* triple_if_trm.
-  { intros v. tests C: (is_val_bool v).
-    { destruct C as (b&E). subst. applys* triple_if_bool. }
-    { xchange* M3. xpull ;=>. false. } }
-Qed.
-
 Lemma triple_apps_funs : forall xs F (Vs:vals) t1 H Q,
   F = (val_funs xs t1) ->
   var_funs (length Vs) xs ->
@@ -725,16 +730,6 @@ Lemma triple_apps_funs : forall xs F (Vs:vals) t1 H Q,
 Proof using.
   introv E N M. intros H' h Hf. forwards (h'&v&R&K): (rm M) Hf.
   exists h' v. splits~. { subst. applys* red_apps_funs. }
-Qed.
-
-Lemma triple_apps_fixs : forall xs (f:var) F (Vs:vals) t1 H Q,
-  F = (val_fixs f xs t1) ->
-  var_fixs f (length Vs) xs ->
-  triple (substn (f::xs) (F::Vs) t1) H Q ->
-  triple (trm_apps F Vs) H Q.
-Proof using.
-  introv E N M. intros H' h Hf. forwards (h'&v&R&K): (rm M) Hf.
-  exists h' v. splits~. { subst. applys* red_apps_fixs. }
 Qed.
 
 
@@ -760,7 +755,6 @@ Lemma hoare_set : forall H w l v,
   hoare (val_set (val_loc l) w)
     ((l ~~~> v) \* H)
     (fun r => \[r = val_unit] \* (l ~~~> w) \* H).
-
 
 Lemma triple_ref : forall v,
   triple (val_ref v)

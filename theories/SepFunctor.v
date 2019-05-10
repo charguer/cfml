@@ -2478,13 +2478,13 @@ Proof using. intros. hsimpl. Abort.
    never appear explicitly in such a proof, all the reasoning being
    conducted at the level of heap predicates. *)
 
-Ltac hhsimpl_core :=
+Ltac hhsimpl_core tt :=
   match goal with N: ?H ?h |- _ ?h =>
     match type of H with hprop =>
     applys himpl_inv N; clear N; hsimpl
   end end.
 
-Tactic Notation "hhsimpl" := hhsimpl_core.
+Tactic Notation "hhsimpl" := hhsimpl_core tt.
 Tactic Notation "hhsimpl" "~" := hhsimpl; auto_tilde.
 Tactic Notation "hhsimpl" "*" := hhsimpl; auto_star.
 
