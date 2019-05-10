@@ -647,6 +647,8 @@ Proof using.
     { applys M2. } { hsimpl. } { hsimpl. } }
 Qed.
 
+(* TODO: as exercise *)
+
 
 (* ------------------------------------------------------- *)
 (** *** Proof of [triple_if] *)
@@ -731,6 +733,8 @@ Proof using.
   unfold triple. introv E M1. intros H'.
   applys hoare_app_fun E. applys M1.
 Qed.
+
+(* TODO: as exercise *)
 
 
 (* ******************************************************* *)
