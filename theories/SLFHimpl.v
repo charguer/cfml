@@ -833,6 +833,52 @@ Qed.
 
 
 (* ******************************************************* *)
+(** ** Combined structural rules *)
+
+(** The frame rule almost never applies to a goal in practice,
+    because it requires the goal to be exactly in the form
+    [triple t (H1 \* H2) (Q1 \*+ H2)].
+
+    This limitation can be addressed by combining the frame rule
+    with the rule of consequence, as follows. *)
+
+Lemma triple_conseq_frame : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q ->
+  triple t H Q.
+
+(* EX1! (triple_conseq_frame) *)
+(** Prove the combined consequence-frame rule. *)
+
+Proof using.
+(* SOLUTION *)
+  introv M WH WQ. applys triple_conseq WH WQ.
+  applys triple_frame M.
+(* /SOLUTION *)
+Qed.
+
+(** The "combined structural rule" generalizes the rule above
+    by also integrating the garbage collection rule. *)
+
+Lemma triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q \*+ \Top ->
+  triple t H Q.
+
+(* EX1! (himpl_frame_l) *)
+(** Prove the combined structural rule. *)
+
+Proof using.
+(* SOLUTION *)
+  introv M WH WQ. applys triple_htop_post.
+  applys triple_conseq_frame M WH WQ.
+(* /SOLUTION *)
+Qed.
+
+
+(* ******************************************************* *)
 (** ** Structural rules for extracting existentials and pure facts *)
 
 (** From an entailment [(\exists x, (J x) ==> H], it is useful

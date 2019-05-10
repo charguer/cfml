@@ -16,7 +16,8 @@ From Sep Require Import SepBase.
 
 Implicit Types x f : var.
 Implicit Types b : bool.
-Implicit Types v w : val.
+Implicit Types n : int.
+Implicit Types v w r : val.
 Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
 
@@ -53,10 +54,9 @@ Parameter triple_conseq : forall t H' Q' H Q,
 Parameter triple_hpure : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
-Proof using. intros. applys* is_local_hpure. Qed.
 
 Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
-  (forall x, triple t (J x) Q) ->
+  (forall (x:A), triple t (J x) Q) ->
   triple t (hexists J) Q.
 
 (** The garbage collection rules enable to discard any desired
@@ -214,26 +214,26 @@ Parameter triple_app_fun : forall x v1 v2 t1 H Q,
     A call of the form [val_get v'] executes safely if [v'] is of the 
     form [val_loc l] for some location [l], in a state that features
     a memory cell at location [l] with some contents [v]. Such a state
-    is described as [l ~~~> v]. The read operation returns a value [x]
-    such that [x = v], and the memory state of the operation remains
+    is described as [l ~~~> v]. The read operation returns a value [r]
+    such that [r = v], and the memory state of the operation remains
     unchanged. The specification of a read may is be expressed as: *)
 
 Parameter triple_get : forall v l,
   triple (val_get (val_loc l))
     (l ~~~> v)
-    (fun x => \[x = v] \* (l ~~~> v)).
+    (fun r => \[r = v] \* (l ~~~> v)).
 
 (** Assume [val_set] to denote the operation for writing a memory cell.
     A call of the form [val_set v' w] executes safely if [v'] is of the 
     form [val_loc l] for some location [l], in a state [l ~~~> v].
     The write operation updates this state to [l ~~~> w], and returns
-    the unit value. In other words, it returns a value [x] such that
-    [x = val_unit]. Hence the following specification. *)
+    the unit value. In other words, it returns a value [r] such that
+    [r = val_unit]. Hence the following specification. *)
 
 Parameter triple_set : forall w l v,
   triple (val_set (val_loc l) w)
     (l ~~~> v)
-    (fun x => \[x = val_unit] \* l ~~~> w).
+    (fun r => \[r = val_unit] \* l ~~~> w).
 
 (** Assume [val_ref] to denote the value that corresponds to the
     builtin operation for allocating a cell with a given contents. 
@@ -243,14 +243,14 @@ Parameter triple_set : forall w l v,
     by the heap predicate [l ~~~> v]. 
     
     The value returned by the operation is the location [val_loc l], 
-    that is, the location [l] viewed as a value. Thus, if [x] denotes
-    the result value, we have [x = val_loc l] for some [l]. The 
+    that is, the location [l] viewed as a value. Thus, if [r] denotes
+    the result value, we have [r = val_loc l] for some [l]. The 
     location [l] needs to be existentially quantified. *)
  
 Parameter triple_ref : forall v,
   triple (val_ref v)
     \[]
-    (fun x => \exists l, \[x = val_loc l] \* l ~~~> v).
+    (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
 
 (** The programming language targeted may include other builtin 
     functions, for example arithmetic operations. We here present
@@ -270,37 +270,157 @@ Parameter triple_add : forall n1 n2,
 (** A division [val_div n1 n2] is similar, with the only extra
     requirement that the divisor [n2] must be nonzero. *)
 
-Lemma triple_div : forall n1 n2,
+Parameter triple_div : forall n1 n2,
   n2 <> 0 ->
   triple (val_div n1 n2)
     \[]
     (fun r => \[r = val_int (Z.quot n1 n2)]).
 
 
+(* ******************************************************* *)
+(** ** Verification proof in Separation Logic *)
+
+Lemma triple_conseq_frame : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q ->
+  triple t H Q.
+Proof using.
+  introv M WH WQ. applys triple_conseq WH WQ.
+  applys triple_frame M.
+Qed.
+
+
+
+Module ExampleProof.
+
+Import NotationForVariables NotationForTerms CoercionsFromStrings.
+
+(** We have at hand all the necessary rules for carrying out
+    actual verification proofs in Separation Logic. 
+    For example, consider the increment function.
+
+    The definition in OCaml syntax is: [fun p => p := (!p + 1)].
+    In A-normal form syntax, this definition becomes: 
+[[
+   fun p => 
+        let n = !p in
+        let m = n+1 in
+        p := m
+]]
+    Using the construct from our embedded language, this 
+    definition reformulates as: *)
+
+Definition incr :=
+  val_fun "p" (
+    trm_let "n" (val_get "p") (
+    trm_let "m" (val_add "n" 1) (
+    val_set "p" "m"))).
+
+(** Alternatively, using notation, the same program can be written: *)
+
+Definition incr' :=
+  VFun 'p :=
+    Let 'n := '! 'p in
+    Let 'm := 'n '+ 1 in
+   'p ':= 'm.
+
+(** Recall from the first chapter the specification of the
+    increment function. *)
+
+
+Implicit Types t : trm.
+
+Lemma bind_var_eq : forall x t1 t2,
+  (If bind_var x = bind_var x then t1 else t2) = t1.
+Proof using. intros. case_if*. Qed.
+
+Lemma bind_var_neq : forall x y t1 t2,
+  var_eq x y = false ->
+  (If bind_var x = bind_var y then t1 else t2) = t2.
+Proof using.
+  introv M. rewrite var_eq_spec in M.
+  rew_bool_eq in M. case_if*. 
+Qed.
+
+Lemma If_eq_bind_var : forall x y t1 t2,
+    (If bind_var x = bind_var y then t1 else t2) 
+  = (if var_eq x y then t1 else t2).
+Proof using.
+  intros. rewrite var_eq_spec. do 2 case_if; auto.
+Qed.
+
+Lemma If_eq_var : forall x y t1 t2,
+    (If x = y then t1 else t2) 
+  = (if var_eq x y then t1 else t2).
+Proof using.
+  intros. rewrite var_eq_spec. do 2 case_if; auto.
+Qed.
+
+Ltac simpl_subst :=
+  simpl; unfold string_to_var;
+   repeat rewrite If_eq_bind_var;
+   repeat rewrite If_eq_var; simpl.
+
+
+
+
+
+Lemma triple_incr : forall (p:loc) (n:int),
+  triple (trm_app incr p)
+    (p ~~~> n)
+    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+Proof using.
+  intros. applys triple_app_fun. { reflexivity. }
+  simpl_subst.
+  applys triple_let.
+  { apply triple_get. }
+  intros n'. simpl_subst.
+  apply triple_hpure. intros ->.
+  applys triple_let. 
+  { applys triple_conseq_frame. 
+    { applys triple_add. }
+    { hsimpl. }
+    { hsimpl. } }
+  intros m'. simpl_subst.
+  apply triple_hpure. intros ->.
+  applys triple_conseq_frame.
+  { applys triple_set. }
+  { hsimpl. }
+  hsimpl. auto.
+Qed.
+
+End ExampleProof.
+
+
 (* ####################################################### *)
 (** * The chapter in a rush *)
 
 (* ******************************************************* *)
-(** ** The combined structural rules *)
+(** ** The combined let-frame rule rule *)
 
-(** The combined structural rule combines the consequence rule,
-    the frame rule, and the garbage collection rule into a 
-    single rule. The formulation eases the application of 
-    structural rules in many situations. *)
+(** The "let-frame" rule combines the rule for let-bindings
+    with the frame rule. *)
 
-(* EX1! (himpl_frame_l) *)
-(** Prove the combined structural rule. *)
-
-Lemma triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
-  triple t H1 Q1 ->
+Lemma triple_let_frame : forall x t1 t2 H H1 H2 Q Q1,
+  triple t1 H1 Q1 ->
   H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \Top ->
-  triple t H Q.
-(* SOLUTION *)
-Proof using.
+  (forall v, triple (subst x v t2) (Q1 v \* H2) Q) ->
+  triple (trm_let x t1 t2) H Q.
 
-Qed.
+(* EX2! (rule_conseq) *)
+(** Prove the let-frame rule. *)
+
+Proof using.
+(* SOLUTION *)
+  introv M1 WH M2.
+  applys triple_conseq WH.
+  { applys triple_let.
+    { applys triple_frame. applys M1. }
+    { applys M2. } }
+  { applys qimpl_refl. }
 (* /SOLUTION *)
+Qed.
 
 
 (* ******************************************************* *)
@@ -327,7 +447,7 @@ Lemma triple_app_fix : forall (f:bind) x F V t1 H Q,
     
 Check trm_fix : bind -> var -> trm -> trm.
 
-Definition trm_fun x t1 := trm_fix bind_anon x t1.
+Definition trm_fun' x t1 := trm_fix bind_anon x t1.
 
 
 (* ******************************************************* *)
@@ -359,7 +479,7 @@ Parameter triple_div'' : forall n1 n2,
 Parameter triple_ref' : forall v,
   triple (val_ref v)
     \[]
-    (fun x => \exists l, \[x = val_loc l] \* l ~~~> v).
+    (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
 
 (** Remark: the postcondition could be equivalently stated using
     a pattern matching instead of an existential. *)
@@ -367,9 +487,10 @@ Parameter triple_ref' : forall v,
 Parameter triple_ref'' : forall v,
   triple (val_ref v)
     \[]
-    (fun x => match x with 
+    (fun r => match r with 
               | val_loc l => (l ~~~> v)
-              | _ => \[False])
+              | _ => \[False] 
+              end).
 
 (** However, this presentation is less readable and would be 
     fairly cumbersome to work with in practice. *)
@@ -603,62 +724,3 @@ Qed.
 
 
 
-
-(** * Rules for terms *)
-
-(** ** Rule for values *)
-
-(** ** Rule for let bindings *)
-
-(** ** Rule for sequence *)
-
-(** ** Rule for conditional *)
-
-
-
-(** * Rules for functions *)
-
-(** ** Rule for simple functions *)
-
-(** ** Rule for let-binding of a function *)
-
-(** ** Generalization to recursive functions *)
-
-(** ** Generalization to nary functions *)
-
-
-
-(** * Specification of primitive operations *)
-
-(** ** Pure functions *)
-
-(** ** Functions operating on the state *)
-
-
-
-
-
-
-(* Note: specialized version of consequence *)
-Lemma triple_htop_post_remove : forall t H Q,
-  triple t H Q ->
-  triple t H (Q \*+ \Top).
-Proof using.
-  introv M. intros HF.
-  applys hoare_conseq (M HF); hsimpl.
-Qed.
-
-
-
-
-
-
-Lemma Triple_seq : forall t1 t2 H,
-  forall A `{EA:Enc A} (Q:A->hprop) (Q1:unit->hprop),
-  Triple t1 H Q1 ->
-  Triple t2 (Q1 tt) Q ->
-  Triple (trm_seq t1 t2) H Q.
-Proof using.
-
-  introv M1 M2. applys* Triple_let M1. intros X.
-  unfold Subst1. rewrite subst1_anon. destruct X. applys M2.
