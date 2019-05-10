@@ -1248,6 +1248,16 @@ Hint Extern 1 (measure trm_size _ _) => solve_measure_trm_size tt.
 (* * Notation for terms *)
 
 (* ---------------------------------------------------------------------- *)
+(** Optional coercion from string to variables *)
+
+Module CoercionsFromStrings.
+
+Coercion string_to_var (x:string) : var := x.
+
+End CoercionsFromStrings.
+
+
+(* ---------------------------------------------------------------------- *)
 (** Notation for concrete programs *)
 
 (* LATER VERSION OF COQ

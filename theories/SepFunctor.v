@@ -825,6 +825,16 @@ Proof using.
   applys~ himpl_hstar_hpure_r. applys haffine_hempty.
 Qed.
 
+Lemma hgc_eq_htop_of_haffine_any :
+  (forall H, haffine H) ->
+  \GC = \Top.
+Proof using.
+  introv M. rewrite htop_eq, hgc_eq.
+  applys himpl_antisym; applys himpl_hexists; intros H.
+  { applys* himpl_hstar_hpure_l. }
+  { applys* himpl_hstar_hpure_r. }
+Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of [is_local] *)

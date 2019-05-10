@@ -10,17 +10,24 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From TLC Require Import LibCore.
-From Sep Require Import Semantics.
-(* TODO move *)
-  Module CoercionsFromStrings.
-  Coercion string_to_var (x:string) : var := x.
-  End CoercionsFromStrings.
-  Arguments fmap_single {A} {B}.
-  Arguments fmap_union {A} {B}.
-  Arguments fmap_disjoint {A} {B}.
+From TLC Require Export LibCore.
+From Sep Require Export Semantics.
 
-  Import NotationForVariables NotationForTerms CoercionsFromStrings.
+(** Configuration of Semantics.v *)
+
+Import NotationForVariables NotationForTerms CoercionsFromStrings.
+
+(** Configuration of Fmap.v *)
+
+Arguments fmap_single {A} {B}.
+Arguments fmap_union {A} {B}.
+Arguments fmap_disjoint {A} {B}. 
+Arguments fmap_union_comm_of_disjoint {A} {B}.
+Arguments fmap_union_empty_l {A} {B}.
+Arguments fmap_union_empty_r {A} {B}.
+Arguments fmap_union_assoc {A} {B}.
+Arguments fmap_disjoint_union_eq_l {A} {B}.
+Arguments fmap_disjoint_union_eq_r {A} {B}.
 
 Close Scope fmap_scope.
 

@@ -10,30 +10,10 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From TLC Require Import LibCore.
-From Sep Require Import Semantics.
-
-(* TODO move *)
-  Module CoercionsFromStrings.
-  Coercion string_to_var (x:string) : var := x.
-  End CoercionsFromStrings.
-  Arguments fmap_single {A} {B}.
-  Arguments fmap_union {A} {B}.
-  Arguments fmap_disjoint {A} {B}.
-  
-  Arguments fmap_union_empty_l {A} {B}.
-  Arguments fmap_union_comm_of_disjoint {A} {B}.
-  Arguments fmap_union_assoc {A} {B}.
-  Arguments fmap_disjoint_union_eq_l {A} {B}.
-  Arguments fmap_disjoint_union_eq_r {A} {B}.
-
-  Import NotationForVariables NotationForTerms CoercionsFromStrings.
-
-Close Scope fmap_scope.
-
-From Sep Require Import SLFHprop.
-
+From Sep Require Export SLFHprop.
 From Sep Require SepBase.
+
+(** Implicit Types *)
 
 Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
@@ -1073,5 +1053,4 @@ Qed.
     from [triple_htop_pre]. (At a high-level, the postcondition of [t]
     can be viewed as the precondition of the [x] occuring in the 
     right-hand side of the term [let x = t in x].)  *)
-
 
