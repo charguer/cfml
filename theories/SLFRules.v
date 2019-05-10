@@ -693,8 +693,8 @@ Lemma hoare_if_case : forall (b:bool) t1 t2 H Q,
   hoare (trm_if b t1 t2) H Q.
 Proof using.
   introv M1. intros h K0. 
-  forwards (h1'&v1&R1&K1): (rm M1) K0.
-  exists h1' v1. split. { applys red_if R1. } { applys K1. }
+  forwards (h'&v&R1&K1): (rm M1) K0.
+  exists h' v. split. { applys red_if R1. } { applys K1. }
 Qed.
 
 Lemma triple_if_case : forall b t1 t2 H Q,
@@ -709,27 +709,27 @@ Qed.
 (* ------------------------------------------------------- *)
 (** *** Proof of [triple_app_fun] *)
 
+Parameter red_app_fun : forall s1 s2 v1 v2 x t1 r,
+  v1 = val_fun x t1 ->
+  red s1 (subst x v2 t1) s2 r ->
+  red s1 (trm_app v1 v2) s2 r.
 
-
-
-Lemma hoare_apps_funs : forall xs F (Vs:vals) t1 H Q,
-  F = (val_funs xs t1) ->
-  var_funs (length Vs) xs ->
-  hoare (substn xs Vs t1) H Q ->
-  hoare (trm_apps F Vs) H Q.
+Lemma hoare_app_fun : forall v1 v2 x t1 H Q,
+  v1 = val_fun x t1 ->
+  hoare (subst x v2 t1) H Q ->
+  hoare (trm_app v1 v2) H Q.
 Proof using.
-  introv E N M. intros h Hh. forwards* (h'&v&R&K): (rm M).
-  exists h' v. splits~. { subst. applys* red_apps_funs. }
+  introv E M. intros h K0. forwards (h'&v&R1&K1): (rm M) K0.
+  exists h' v. splits. { applys red_app_fun E R1. } { applys K1. }
 Qed.
 
-Lemma triple_apps_funs : forall xs F (Vs:vals) t1 H Q,
-  F = (val_funs xs t1) ->
-  var_funs (length Vs) xs ->
-  triple (substn xs Vs t1) H Q ->
-  triple (trm_apps F Vs) H Q.
+Lemma triple_app_fun' : forall x v1 v2 t1 H Q,
+  v1 = val_fun x t1 ->
+  triple (subst x v2 t1) H Q ->
+  triple (trm_app v1 v2) H Q.
 Proof using.
-  introv E N M. intros H' h Hf. forwards (h'&v&R&K): (rm M) Hf.
-  exists h' v. splits~. { subst. applys* red_apps_funs. }
+  unfold triple. introv E M1. intros H'.
+  applys hoare_app_fun E. applys M1.
 Qed.
 
 
