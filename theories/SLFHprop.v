@@ -268,7 +268,7 @@ Proof using. applys functional_extensionality. Qed.
 
 Definition Hoare_triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (s:state), H s ->
-  exists v s', red s t s' v /\ Q v s'.
+  exists (v:val) (s':state), red s t s' v /\ Q v s'.
 
 (** Remark: [Q] has type [val->hprop], thus [Q v] has type [hprop].
     Recall that [hprop = heap->Prop], thus [Q v s'] has type [Prop]. *)

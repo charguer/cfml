@@ -542,64 +542,158 @@ Qed.
 
 Module Proofs.
 
+(** The proofs for the Separation Logic reasoning rules all follow
+    a similar pattern: first establish a corresponding rule for
+    Hoare triples, then generalize it to a Separation Logic triple,
+    following the definition:
+[[  
+      Definition triple t H Q :=
+       forall H', hoare t (H \* H') ((Q \*+ H') \*+ \Top')
+]]
+    To establish a reasoning rule w.r.t. a Hoare triple, we reveal
+    the definition expressed in terms of the big-step semantics.
+[[
+      Definition Hoare_triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+        forall s, H s ->
+        exists v s', red s t s' v /\ Q v s'.
+]]
+    Concretely, we consider a given initial state [s] satisfying the
+    precondition, and we have to provide witnesses for the output
+    value [v] and output state [s'] such that the reduction holds and
+    the postcondition holds.
+
+    Recall that we already employed this two-step scheme in the
+    previous chapter, e.g. to establish [rule_conseq]. *)
+
+
 (* ------------------------------------------------------- *)
 (** *** Proof of [triple_val] *)
 
-(** The r*)
+(** The big-step evaluation rule for values asserts that a value [v]
+    evaluates to itself, without modification to the current state [s]. *)
 
 Parameter red_val : forall s v,
   red s v s v.
+
+(** The Hoare version of the reasoning rule for values is as follows. *)
 
 Lemma hoare_val : forall v H Q,
   H ==> Q v ->
   hoare (trm_val v) H Q.
 Proof using.
-  introv M. intros h Hh. exists h v. splits.
-  { applys red_val. }
-  { applys M. auto. (* hhsimpl~. *) }
+  (* 1. We unfold the definition of [hoare]. *)
+  introv M. intros h Hh. 
+  (* 2. We provide the witnesses for the output value and heap.
+        These witnesses are dictated by the statement of [red_val]. *)
+  exists h v. splits.
+  { (* 3. We invoke the big-step rule [red_val] *)
+    applys red_val. }
+  { (* 4. We establish the postcondition, exploiting the entailment hypothesis. *)
+    applys M. auto. }
 Qed.
 
+(** The Separation Logic version of the rule then follows. *)
 
-
-Lemma triple_val'' : forall v H Q,
+Lemma triple_val : forall v H Q,
   H ==> Q v ->
   triple (trm_val v) H Q.
 Proof using.
-  introv M. intros H'. applys hoare_val.
-  hchange M. hsimpl. (* hchanges M *)
+  (* 1. We unfold the definition of [triple] to reveal a [hoare] judgment. *) 
+  introv M. intros H'.
+  (* 2. We invoke the reasoning rule [hoare_val] that we have just established. *)
+  applys hoare_val.
+  (* 3. We exploit the assumption and conclude using [hsimpl]. *)
+  hchange M. hsimpl.
 Qed.
 
+(** Remark: in the proof of [hoare_val], the witnesses [h] and [v] are 
+    contrained by the rule [red_val]. It is thus not needed to provide
+    them explicitly: we can let Coq inference figure them out. *)
+
+Lemma hoare_val' : forall v H Q,
+  H ==> Q v ->
+  hoare (trm_val v) H Q.
+Proof using.
+  introv M. intros h Hh. exists __ __. split.
+  { applys red_val. }
+  { applys* M. }
+Qed.
+
+(** Nevertheless, considering that these witnesses are just single-letter
+    variables, to improve readability of proofs in this chapter, we will
+    thereafter provide the witnesses explicitly. *)
+
+
+(* ------------------------------------------------------- *)
+(** *** Proof of [triple_fun] *)
+
 (** The proof of [triple_fun] is essentially identical to that
-    of [triple_val], so we do not include it. *)
+    of [triple_val], so we do not include it here. *)
 
 
 (* ------------------------------------------------------- *)
 (** *** Proof of [triple_seq] *)
+
+(** The big-step evaluation rule for a sequence is given next. *)
 
 Parameter red_seq : forall s1 s2 s3 t1 t2 r1 r,
   red s1 t1 s2 r1 ->
   red s2 t2 s3 r ->
   red s1 (trm_seq t1 t2) s3 r.
 
+(** The Hoare triple version of the reasoning rule is proved as follows. *)
+
 Lemma hoare_seq : forall t1 t2 H Q H1,
   hoare t1 H (fun r => H1) ->
   hoare t2 H1 Q ->
   hoare (trm_seq t1 t2) H Q.
 Proof using.
-  introv M1 M2 K0.
+  (* 1. We unfold the definition of [hoare]. Let [K0] describe the initial state. *)
+  introv M1 M2 K0. (* optional: *) unfolds hoare.
+  (* 2. We exploit the first hypothesis to obtain information about
+        the evaluation of the first subterm [t1].
+        The state before [t1] executes is described by [K0].
+        The state after [t1] executes is described by [K1]. *)
   forwards (h1'&v1&R1&K1): (rm M1) K0.
+  (* 3. We exploit the second hypothesis to obtain information about
+        the evaluation of the first subterm [t2].
+        The state before [t2] executes is described by [K1].
+        The state after [t2] executes is described by [K2]. *)
   forwards (h2'&v2&R2&K2): (rm M2) K1.
-  exists h2' v2. split. { applys red_seq R1 R2. } { apply K2. }
+  (* 4. We provide witness for the output value and heap.
+        They correspond to those produced by the evaluation of [t2]. *)
+  exists h2' v2. split.
+  { (* 5. We invoke the big-step rule. *) 
+    applys red_seq R1 R2. } 
+  { (* 6. We establish the final postcondition, which is directly 
+       inherited from the reasoning on [t2]. *) 
+    apply K2. }
 Qed.
+
+(** The Separation Logic reasoning rule is proved as follows. *)
 
 Lemma triple_seq' : forall t1 t2 H Q H1,
   triple t1 H (fun r => H1) ->
   triple t2 H1 Q ->
   triple (trm_seq t1 t2) H Q.
 Proof using.
-  unfold triple. introv M1 M2. intros H'. applys hoare_seq.
-  { applys M1. }
-  { applys hoare_conseq. { applys M2. } { hsimpl. } { hsimpl. } }
+  (* 1. We unfold the definition of [triple] to reveal a [hoare] judgment. *)
+  introv M1 M2. intros H'. (* optional: *) unfolds triple.
+  (* 2. We invoke the reasoning rule [hoare_seq] that we have just established. *)
+  applys hoare_seq.
+  { (* 3. For the hypothesis on the first subterm [t1], 
+       we can invoke directly our first hypothesis. *)
+    applys M1. }
+  { (* 4. For the hypothesis on the first subterm [t2], 
+       we need a little more work to exploit our second hypothesis.
+       Indeed, the precondition features an extra [\Top'].
+       To handle it, we need to instantiate [M2] with [H' \* \Top'],
+       then merge the two [\Top'] that appear into a single one.
+       We could begin the proof script with:
+         [specializes M2 (H' \* \Top'). rewrite <- hstar_assoc in M2.]
+       However, it is simpler to directly invoke the consequence rule,
+       and let [hsimpl] do all the tedious work for us. *)
+    applys hoare_conseq. { applys M2. } { hsimpl. } { hsimpl. } }
 Qed.
 
 
