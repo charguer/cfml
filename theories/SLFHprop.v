@@ -437,6 +437,37 @@ Lemma htop_inv : forall h, (* lemma with no interest *)
 Proof using. intros. auto. Qed.
 
 
+(* EX3! (hstar_hpure_iff) *)
+
+(** Prove that a heap [h] satisfies [\[P] \* H] if and only if
+    [P] is true and [h] it satisfies [H]. The proof requires
+    two lemmas on finite maps from [Fmap.v]:
+
+  Lemma fmap_union_empty_l : forall h,
+    fmap_empty \u h = h.
+
+  Lemma fmap_disjoint_empty_l : forall h,
+    fmap_disjoint fmap_empty h. 
+*)
+
+Lemma hstar_hpure_iff : forall P H h, 
+  (\[P] \* H) h <-> (P /\ H h). 
+Proof using.
+(* SOLUTION *)
+  iff M. 
+  { hnf in M. destruct M as (h1&h2&M1&M2&D&U).
+    hnf in M1. destruct M1 as (M1&HP). subst.
+    rewrite fmap_union_empty_l. auto. }
+  { destruct M as (HP&Hh). hnf.
+    exists (fmap_empty:heap) h. splits.
+    { hnf. auto. }
+    { auto. }
+    { apply fmap_disjoint_empty_l. }
+    { rewrite fmap_union_empty_l. auto. } }
+(* /SOLUTION *)
+Qed.
+
+
 (* ******************************************************* *)
 (** ** Additional explanations for the definition of [\exists] *)
 
