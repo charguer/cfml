@@ -555,7 +555,7 @@ Module Proofs.
 [[
       Definition Hoare_triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
         forall s, H s ->
-        exists v s', red s t s' v /\ Q v s'.
+        exists s' v, red s t s' v /\ Q v s'.
 ]]
     Concretely, we consider a given initial state [s] satisfying the
     precondition, and we have to provide witnesses for the output
@@ -700,38 +700,49 @@ Qed.
 (* ------------------------------------------------------- *)
 (** *** Proof of [triple_let] *)
 
+(** Following the same proof scheme as for [triple_seq], establish
+    the reasoning rule for [triple_let]. Make sure to first state
+    and prove [hoare_let]. *)
+
+(** The starting point is the big-step evaluation rule for a let-binding. *)
+
 Parameter red_let : forall s1 s2 s3 x t1 t2 v1 r,
   red s1 t1 s2 v1 ->
   red s2 (subst x v1 t2) s3 r ->
   red s1 (trm_let x t1 t2) s3 r.
 
-Lemma hoare_let : forall x t1 t2 H Q Q1,
-  hoare t1 H Q1 ->
-  (forall v, hoare (subst x v t2) (Q1 v) Q) ->
-  hoare (trm_let x t1 t2) H Q.
-Proof using.
-  introv M1 M2 K0.
-  forwards (h1'&v1&R1&K1): (rm M1) K0.
-  forwards (h2'&v2&R2&K2): (rm M2) K1.
-  exists h2' v2. split. { applys red_let R1 R2. } { apply K2. }
-Qed.
+(* EX1! (triple_let) *)
 
-Lemma triple_let'' : forall x t1 t2 H Q Q1,
+Lemma triple_let : forall x t1 t2 H Q Q1,
   triple t1 H Q1 ->
   (forall v, triple (subst x v t2) (Q1 v) Q) ->
   triple (trm_let x t1 t2) H Q.
 Proof using.
+(* SOLUTION *)
+
+  Lemma hoare_let : forall x t1 t2 H Q Q1,
+    hoare t1 H Q1 ->
+    (forall v, hoare (subst x v t2) (Q1 v) Q) ->
+    hoare (trm_let x t1 t2) H Q.
+  Proof using.
+    introv M1 M2 K0.
+    forwards (h1'&v1&R1&K1): (rm M1) K0.
+    forwards (h2'&v2&R2&K2): (rm M2) K1.
+    exists h2' v2. split. { applys red_let R1 R2. } { apply K2. }
+  Qed.
+
   unfold triple. introv M1 M2. intros H'. applys hoare_let.
   { applys M1. }
   { intros v. applys hoare_conseq.
     { applys M2. } { hsimpl. } { hsimpl. } }
+(* /SOLUTION *)
 Qed.
-
-(* TODO: as exercise *)
 
 
 (* ------------------------------------------------------- *)
 (** *** Proof of [triple_if] *)
+
+(** The treatment of conditional can be handled in a similar way. *)
 
 Parameter red_if_bool : forall s1 s2 b r t1 t2,
   (b = true -> red s1 t1 s2 r) ->
@@ -761,7 +772,13 @@ Proof using.
   { applys* M2. }
 Qed.
 
-(** Variant *)
+(** Observe that the above proofs contain a fair amount of duplication,
+    due to the symmetry between the [b=true] and [b=false] branches.
+    One way to conveniently factorize the proof arguments is to employ
+    Coq's conditional to express the semantics of a term conditional. 
+    
+    First, we establish a corrolary to [red_if], expressed using a 
+    single premise. *)
 
 Lemma red_if_bool_case : forall m1 m2 b r t1 t2,
   red m1 (if b then t1 else t2) m2 r ->
@@ -769,6 +786,9 @@ Lemma red_if_bool_case : forall m1 m2 b r t1 t2,
 Proof using.
   intros. case_if; applys red_if_bool; auto_false.
 Qed.
+
+(** Then, we are able to establish the Hoare triple and the Separation
+    Logic triple with much less effort. *)
 
 Lemma hoare_if_case : forall (b:bool) t1 t2 H Q,
   hoare (if b then t1 else t2) H Q ->
@@ -791,30 +811,81 @@ Qed.
 (* ------------------------------------------------------- *)
 (** *** Proof of [triple_app_fun] *)
 
+(** The reasoning rule for an application asserts that the
+    a pre- and poscondition hold for a beta-redex [(val_fun x t1) v2] 
+    provided that they hold for the term [subst x v2 t1].
+
+    This result follows directly from the big-step evaluation rule
+    for applications. *)
+
 Parameter red_app_fun : forall s1 s2 v1 v2 x t1 r,
   v1 = val_fun x t1 ->
   red s1 (subst x v2 t1) s2 r ->
   red s1 (trm_app v1 v2) s2 r.
+
+(* EX2! (hoare_app_fun) *)
 
 Lemma hoare_app_fun : forall v1 v2 x t1 H Q,
   v1 = val_fun x t1 ->
   hoare (subst x v2 t1) H Q ->
   hoare (trm_app v1 v2) H Q.
 Proof using.
+(* SOLUTION *)
   introv E M. intros h K0. forwards (h'&v&R1&K1): (rm M) K0.
   exists h' v. splits. { applys red_app_fun E R1. } { applys K1. }
+(* /SOLUTION *)
 Qed.
+
+(* EX2! (triple_app_fun) *)
+
+Lemma triple_app_fun : forall x v1 v2 t1 H Q,
+  v1 = val_fun x t1 ->
+  triple (subst x v2 t1) H Q ->
+  triple (trm_app v1 v2) H Q.
+Proof using.
+(* SOLUTION *)
+  unfold triple. introv E M1. intros H'.
+  applys hoare_app_fun E. applys M1.
+(* /SOLUTION *)
+Qed.
+
+
+(* ------------------------------------------------------- *)
+(** *** Triple for terms with same semantics *)
+
+(** The proofs above can in fact be obtained by invoking a general
+    result: if [t2] has the same semantics as [t1], then any triple
+    valid for [t1] is also valid for [t2]. *)
+
+Lemma hoare_same_semantics : forall t1 t2 H Q,
+  (forall s s' r, red s t1 s' r -> red s t2 s' r) ->
+  hoare t1 H Q ->
+  hoare t2 H Q.
+Proof using.
+  introv E M1 K0. forwards (s'&v&R1&K1): M1 K0.
+  exists s' v. split. { applys E R1. } { applys K1. }
+Qed.
+
+Lemma triple_same_semantics : forall t1 t2 H Q,
+  (forall s s' r, red s t1 s' r -> red s t2 s' r) ->
+  triple t1 H Q ->
+  triple t2 H Q.
+Proof using.
+  introv E M1. intros H'. applys hoare_same_semantics E. applys M1.
+Qed.
+
+(** Using this general result, we can revisit the proof of 
+    [triple_app_fun] in a much more succint way. *)
 
 Lemma triple_app_fun' : forall x v1 v2 t1 H Q,
   v1 = val_fun x t1 ->
   triple (subst x v2 t1) H Q ->
   triple (trm_app v1 v2) H Q.
 Proof using.
-  unfold triple. introv E M1. intros H'.
-  applys hoare_app_fun E. applys M1.
+  introv E M1. applys triple_same_semantics M1.
+  introv R. applys red_app_fun E R.
 Qed.
 
-(* TODO: as exercise *)
 
 
 (* ******************************************************* *)

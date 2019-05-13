@@ -268,7 +268,7 @@ Proof using. applys functional_extensionality. Qed.
 
 Definition Hoare_triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (s:state), H s ->
-  exists (v:val) (s':state), red s t s' v /\ Q v s'.
+  exists (s':state) (v:val), red s t s' v /\ Q v s'.
 
 (** Remark: [Q] has type [val->hprop], thus [Q v] has type [hprop].
     Recall that [hprop = heap->Prop], thus [Q v s'] has type [Prop]. *)
@@ -737,7 +737,7 @@ Definition SL_triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall h1 h2,
   fmap_disjoint h1 h2 ->
   H h1 ->
-  exists v h1',
+  exists h1' v,
        fmap_disjoint h1' h2
     /\ red (h1 \u h2) t (h1' \u h2) v
     /\ Q v h1'.
@@ -752,12 +752,12 @@ Proof using.
 (* SOLUTION *)
   unfold SL_triple, SL_triple_lowlevel, Hoare_triple. iff M.
   { introv D P1.
-    forwards (v&h'&HR&HQ): M (=h2) (h1 \u h2). { hnf. eauto 8. }
+    forwards (h'&v&HR&HQ): M (=h2) (h1 \u h2). { hnf. eauto 8. }
     destruct HQ as (h1'&h2'&N0&N1&N2&N3). subst.
-    exists v h1'. eauto. }
+    exists h1' v. eauto. }
   { intros H' h. introv (h1&h2&N1&N2&D&U).
-    forwards (v&h1'&D'&HR&HQ): M h1 h2; auto. subst.
-    exists v (h1' \u h2). split. { eauto. } { hnf. eauto 8. } }
+    forwards (h1'&v&D'&HR&HQ): M h1 h2; auto. subst.
+    exists (h1' \u h2) v. split. { eauto. } { hnf. eauto 8. } }
 (* /SOLUTION *)
 Qed.
 

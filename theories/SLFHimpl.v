@@ -801,9 +801,9 @@ Lemma Hoare_conseq : forall t H Q H' Q',
 Proof using.
 (* SOLUTION *)
   introv M WH WQ. unfold Hoare_triple.
-  intros s Hs. forwards (v&s'&R&HQ): M s.
+  intros s Hs. forwards (s'&v&R&HQ): M s.
   { applys WH. auto. }
-  { exists v s'. split. { apply R. } { applys WQ. auto. } }
+  { exists s' v. split. { apply R. } { applys WQ. auto. } }
   (* variant proof script:
       intros s Ps. lets Ps': WH Ps.
       lets M': M Ps'. destruct M' as (v&s'&R&HQ).
