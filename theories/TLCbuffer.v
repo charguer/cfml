@@ -97,6 +97,22 @@ Proof using.
   rewrite IHn1. extens. rew_istrue. math.
 Qed.
 
+
+(*----------------------*)
+(* LibLogic *)
+
+Lemma if_classicT_eq_if_isTrue : forall A (X Y:A) (P:Prop),
+  (If P then X else Y) = (if isTrue P then X else Y).
+Proof using. intros. do 2 case_if~. Qed.
+
+
+(*----------------------*)
+(* TLCExec *)
+
+Definition eq_exec A (cmp:A->A->bool) : Prop :=
+  forall x y, cmp x y = isTrue (x = y).
+
+
 (*----------------------*)
 (* ListExec *)
 
@@ -164,6 +180,20 @@ Qed.
 Hint Rewrite LibList.length_map : rew_listx.
 
 (* TODO: replace all List_foo_eq with a rew_list_exec tactic *)
+
+Fixpoint mem_exec A (cmp:A->A->bool) (x:A) (l:list A) : bool :=
+  match l with
+  | nil => false
+  | y::l' => cmp x y || mem_exec cmp x l'
+  end.
+
+Lemma mem_exec_eq : forall A (cmp:A->A->bool) x l,
+  eq_exec cmp ->
+  mem_exec cmp x l = isTrue (mem x l).
+Proof using.
+  introv Xcmp. induction l as [|y l']; simpl; rew_listx; rew_isTrue; fequals.
+Qed.
+
 
 (*----------------------*)
 (* Hint for LibListZ *)

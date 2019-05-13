@@ -10,7 +10,25 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require Import SepBase.
+
+(** The file [SepBase] contains definitions that are essentially similar
+    to those from [SLFHprop] and [SLFHimpl], with just a few differences:
+
+    - The predicate [Hoare_triple] is abbreviated as [hoare],
+    - The predicate [triple] is defined not using [\Top] to handle discarded
+      pieces of heap, but using a specific instance of a general predicate 
+      called [\GC]. For the instance considered in [SepBase], it turns out 
+      that [\GC = \Top]. To help forgeting about this difference, we define
+      the notation [\Top'] to pretty-print [\GC].
+
+    In addition, we consider as definition of substitution on term the
+    version that computes in Coq (with just a call to [simpl]). To that
+    end, we define [subst] as a shorthand for [subst_exec].
+*)
+
+From Sep Require Import SepBase SubstExec.
+Notation "'\Top''" := hgc.
+Definition subst := subst_exec.
 
 (** Implicit Types *)
 
@@ -21,42 +39,6 @@ Implicit Types v w r : val.
 Implicit Types t : trm.
 Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
-
-(** TODO work-in-progress: 
-    [subst_exec] is an executable version of [subst] on terms,
-    but not yet fully executable... *)
-
-Fixpoint subst_exec (y:var) (w:val) (t:trm) : trm :=
-  let aux t := 
-    subst_exec y w t in
-  let aux_no_capture z t := 
-    match z with
-    | bind_anon => aux t
-    | bind_var x => if var_eq x y then t else aux t 
-    end in
-  let aux_no_captures xs t := 
-    If LibList.mem y xs then t else aux t in
-  match t with
-  | trm_val v => trm_val v
-  | trm_var x => if var_eq x y then trm_val w else t
-  | trm_fixs f xs t1 => 
-      trm_fixs f xs (
-        match xs with
-        | x::nil => if var_eq x y then t1 else aux t1
-        | _ => If f = y then t1 else aux_no_captures xs t1
-        end)
-  | trm_constr id ts => trm_constr id (List.map aux ts)
-  | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
-  | trm_let z t1 t2 => trm_let z (aux t1) (aux_no_capture z t2)
-  | trm_apps t0 ts => trm_apps (aux t0) (List.map aux ts)
-  | trm_while t1 t2 => trm_while (aux t1) (aux t2)
-  | trm_for x t1 t2 t3 => trm_for x (aux t1) (aux t2) (aux_no_capture x t3)
-  | trm_match t0 pts => trm_match (aux t0) (List.map (fun '(pi,ti) =>
-       (pi, aux_no_captures (patvars pi) ti)) pts)
-  | trm_fail => trm_fail
-  end.
-
-Definition subst := subst_exec.
 
 
 (* ####################################################### *)
@@ -558,8 +540,12 @@ Qed.
 (* ******************************************************* *)
 (** ** Proofs for the rules for terms *)
 
+Module Proofs.
+
 (* ------------------------------------------------------- *)
 (** *** Proof of [triple_val] *)
+
+(** The r*)
 
 Parameter red_val : forall s v,
   red s v s v.
@@ -573,7 +559,7 @@ Proof using.
   { applys M. auto. (* hhsimpl~. *) }
 Qed.
 
-Notation "'\Top''" := hgc. (* TODO: explain *)
+
 
 Lemma triple_val'' : forall v H Q,
   H ==> Q v ->
@@ -740,7 +726,6 @@ Qed.
 (* ******************************************************* *)
 (** ** Proofs for the specification of primitive operations *)
 
-(* TODO: pb moving from Hoare_triple name to hoare *)
 
 (* ------------------------------------------------------- *)
 (** *** Allocation of a reference *)
@@ -931,6 +916,6 @@ Proof using.
   { hsimpl. auto. }
 Qed.
 
-
+End Proofs.
 
 
