@@ -1316,7 +1316,7 @@ Proof using.
     { rewrite E1,E2. lets: heap_disjoint_components h2.
       fmap_disjoint. } }
   splits~.
-  { rew_heap. rew_fmap~. applys~ red_ref. }
+  { rew_heap. rew_fmap~. applys~ red_ref_sep. }
   { applys~ on_rw_sub_base. exists l.
     applys~ himpl_hstar_hpure_r (l ~~~> v). split~. }
 Qed.
@@ -1329,8 +1329,8 @@ Proof using.
   intros. intros h1 h2 D (h1'&(E1'&E2'&NL)&E1&E2).
   rewrites E2' in E2. rewrite fmap_union_empty_r in E2.
   exists h1 v. splits~.
-  { rew_fmap~. applys red_get. rewrite heap_fmap_def.
-    rewrite E1,E2,E1'. rew_fmap. applys~ fmap_union_single_l_read. }
+  { rew_fmap~. unfold heap_state. rewrite E1,E2,E1'. rew_fmap. 
+    applys~ red_get_sep. }
   { exists heap_empty h1. splits~.
     { applys~ heap_compat_empty_l. }
     { heap_eq. }
@@ -1352,9 +1352,10 @@ Proof using.
   { destruct D as (D1&D2). unfolds. rewrite E1',E2'.
     unfold heap_state in Dl. split~. }
   splits~.
-  { rew_fmap~. applys red_set.
-    rewrite (@heap_fmap_def h1'). rewrite (@heap_fmap_def h1).
-    rewrite E1,E2,E1',E2'. rew_fmap. applys~ fmap_union_single_to_update v w. }
+  { rew_fmap~. rewrite (@heap_fmap_def h1'). rewrite (@heap_fmap_def h1).
+    rewrite E1,E1',E2,E2'. rew_fmap.
+    applys red_set_sep; try reflexivity. 
+    { eapply fmap_disjoint_single_set; eauto. } }
   { rewrite E2,E2'. auto. }
   { applys~ on_rw_sub_base. applys~ himpl_hstar_hpure_r (l ~~~> w). split~. }
 Qed.

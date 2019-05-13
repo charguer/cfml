@@ -621,7 +621,7 @@ Proof using.
   forwards~ Hh1': hsingle_fmap_single l v.
   sets h1': (fmap_single l v).
   exists (h1' \u h) (val_loc l). splits~.
-  { applys~ red_ref. }
+  { applys~ red_ref_sep. }
   { apply~ hstar_intro. { exists l. hhsimpl~. } }
 Qed.
 
@@ -631,8 +631,8 @@ Lemma hoare_get : forall H v l,
     (fun x => \[x = v] \* (l ~~~> v) \* H).
 Proof using.
   intros. intros h Hh. exists h v. splits~.
-  { applys red_get. destruct Hh as (h1&h2&(N1a&N1b)&N2&N3&N4).
-    subst h. applys~ fmap_union_single_l_read. }
+  { destruct Hh as (h1&h2&(N1a&N1b)&N2&N3&N4).
+    subst h. applys* red_get_sep. }
   { hhsimpl~. }
 Qed.
 
@@ -645,7 +645,7 @@ Proof using.
   forwards~ Hh1': hsingle_fmap_single l w.
   sets h1': (fmap_single l w).
   exists (h1' \u h2) val_unit. splits~.
-  { applys red_set. subst h h1. applys~ fmap_union_single_to_update. }
+  { subst h h1. applys red_set_sep; eauto. }
   { rewrite hstar_hpure. split~. apply~ hstar_intro.
     { applys~ fmap_disjoint_single_set v. } }
 Qed.

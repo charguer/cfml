@@ -740,6 +740,8 @@ Qed.
 (* ******************************************************* *)
 (** ** Proofs for the specification of primitive operations *)
 
+(*
+
 (* ------------------------------------------------------- *)
 (** *** Allocation of a reference *)
 
@@ -885,3 +887,48 @@ Qed.
 
 
 
+
+
+
+Parameter red_ref : forall s1 s2 v l,
+  ~ fmap_indom s1 l ->
+  s2 = fmap_update s1 l v ->
+  red s1 (val_ref v) s2 (val_loc l).
+
+Parameter red_get : forall s l v,
+   fmap_indom s l ->
+   fmap_read s l = v ->
+   red s (val_get (val_loc l)) s v.
+
+Parameter red_set : forall s1 s2 l v,
+  fmap_indom s l ->
+  s2 = fmap_update s1 l v ->
+  red s1 (val_set (val_loc l) v) s2 val_unit.
+
+
+
+Parameter red_ref : forall s1 s2 v l,
+  s2 = fmap_single l v ->
+  fmap_disjoint s2 s1 -> (* i.e. [l] not in dom [s1] *)
+  red s1 (val_ref v) (s2 \u s1) (val_loc l).
+
+Parameter red_get : forall s s1 s2 l v, 
+  s = fmap_union s1 s2 ->
+  fmap_disjoint s1 s2 ->
+  s1 = fmap_single l v ->
+  red s (val_get (val_loc l)) s v.
+
+Parameter red_set : forall s s' h1 h1' h2 l v v',
+  s = fmap_union h1 h2 ->
+  s' = fmap_union h1' h2 ->
+  fmap_disjoint h1 h2 ->
+  h1 = fmap_single l v ->
+  h1' = fmap_single l v' ->
+  red s (val_set (val_loc l) v') s' val_unit.
+
+
+
+
+
+
+*)

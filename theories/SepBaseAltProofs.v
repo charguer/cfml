@@ -744,7 +744,7 @@ Proof using.
   forwards~ (l&Dl&Nl): (fmap_single_fresh null h v).
   sets h1': (fmap_single l v).
   exists (h1' \u h) (val_loc l). splits~.
-  { applys~ red_ref. }
+  { applys~ red_ref_sep. }
   { exists h1' h. split.
     { exists l. applys~ himpl_hstar_hpure_r. unfold h1'. hnfs~. }
     { splits~. hhsimpl~. } }
@@ -756,8 +756,7 @@ Lemma triple_get : forall v l,
     (fun x => \[x = v] \* (l ~~~> v)).
 Proof using.
   intros. intros HF h N. exists h v. splits~.
-  { applys red_get. destruct N as (?&?&(?&?)&?&?&?).
-    subst h. applys~ fmap_union_single_l_read. }
+  { destruct N as (?&?&(?&?)&?&?&?). subst. applys~ red_get_sep. }
   { rew_heap. rewrite hstar_hpure. split~. hhsimpl~. }
 Qed.
 
@@ -769,7 +768,7 @@ Proof using.
   intros. intros HF h N. destruct N as (h1&h2&(N0&N1)&N2&N3&N4).
   hnf in N1. sets h1': (fmap_single l w).
   exists (h1' \u h2) val_unit. splits~.
-  { applys red_set. subst h h1. applys~ fmap_union_single_to_update. }
+  { applys red_set_sep; eauto. }
   { rew_heap. rewrite hstar_hpure. split~. exists h1' h2. splits~.
     { hnfs~. }
     { hhsimpl~. }

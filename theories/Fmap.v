@@ -56,6 +56,11 @@ Definition map_agree (A B : Type) (f1 f2 : map A B) :=
   f2 x = Some v2 ->
   v1 = v2.
 
+(** Domain of a map (as a predicate) *)
+
+Definition map_indom (A B : Type) (f1 : map A B) : (A->Prop) :=
+  fun (x:A) => f1 x <> None.
+
 
 (* ---------------------------------------------------------------------- *)
 (** Properties *)
@@ -143,9 +148,22 @@ Open Scope fmap_scope.
 
 (** Update of a fmap *)
 
-Definition fmap_update A B (h:fmap A B) (x:A) (v:B) :=
+Definition fmap_update A B (h:fmap A B) (x:A) (v:B) : fmap A B :=
   fmap_union (fmap_single x v) h.
   (* Note: the union operation first reads in the first argument. *)
+
+(** Read in a map *)
+
+Definition fmap_read (A B : Type) {IB:Inhab B} (h:fmap A B) (x:A) : B :=
+  match fmap_data h x with
+  | Some y => y
+  | None => arbitrary
+  end.
+
+(** Domain of a fmap (as a predicate) *)
+
+Definition fmap_indom (A B: Type) (h:fmap A B) : (A->Prop) :=
+  map_indom h.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -512,27 +530,111 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Read and write *)
+(* ** Domain *)
 
-Lemma fmap_union_single_l_read : forall f1 f2 l v,
-  f1 = fmap_single l v ->
-  fmap_data (f1 \+ f2) l = Some v.
+Implicit Types s : fmap A B.
+Implicit Types l : A.
+Implicit Types v : B.
+
+Lemma fmap_disjoint_inv_not_indom_both : forall s1 s2 l,
+  fmap_disjoint s1 s2 ->
+  fmap_indom s1 l ->
+  fmap_indom s2 l ->
+  False.
+Proof using. introv D M1 M2. destruct (D l); false*. Qed.
+
+Lemma fmap_indom_single : forall l v,
+  fmap_indom (fmap_single l v) l.
 Proof using.
-  intros. subst. simpl. unfold map_union. case_if~.
+  intros. hnf. simpl. case_if. auto_false.
 Qed.
 
-Lemma fmap_union_single_to_update : forall f1 f1' f2 l v v',
-  f1 = fmap_single l v ->
-  f1' = fmap_single l v' ->
-  (f1' \+ f2) = fmap_update (f1 \+ f2) l v'.
+Lemma fmap_indom_union_l : forall s1 s2 l,
+  fmap_indom s1 l ->
+  fmap_indom (fmap_union s1 s2) l.
 Proof using.
-  intros. subst. unfold fmap_update.
-  rewrite <- fmap_union_assoc. fequals.
-  applys fmap_make_eq. intros l'.
-  unfolds map_union, fmap_single; simpl. case_if~.
+  intros. hnf. unfold fmap_union, map_union. simpl.
+  case_eq (fmap_data s1 l); auto_false.
+Qed.
+
+Lemma fmap_indom_union_r : forall s1 s2 l,
+  fmap_indom s2 l ->
+  fmap_indom (fmap_union s1 s2) l.
+Proof using.
+  intros. hnf. unfold fmap_union, map_union. simpl.
+  case_eq (fmap_data s1 l); auto_false.
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Read *)
+
+Lemma fmap_read_single : forall {IB:Inhab B} l v,
+  fmap_read (fmap_single l v) l = v.
+Proof using.
+  intros. unfold fmap_read, fmap_single. simpl. case_if~.
+Qed.
+
+Lemma fmap_read_union_l : forall {IB:Inhab B} s1 s2 l,
+  fmap_indom s1 l ->
+  fmap_read (fmap_union s1 s2) l = fmap_read s1 l.
+Proof using.
+  intros. unfold fmap_read, fmap_union, map_union. simpl.
+  case_eq (fmap_data s1 l); auto_false.
+Qed.
+
+Lemma fmap_read_union_r : forall {IB:Inhab B} s1 s2 l,
+  ~ fmap_indom s1 l ->
+  fmap_read (fmap_union s1 s2) l = fmap_read s2 l.
+Proof using.
+  intros. unfold fmap_read, fmap_union, map_union. simpl.
+  case_eq (fmap_data s1 l).
+  { intros v Hv. false H. auto_false. }
+  { auto_false. }
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Update *)
+
+Lemma fmap_update_eq_union_single : forall s l v,
+  fmap_update s l v = fmap_union (fmap_single l v) s.
+Proof using. auto. Qed.
+
+Lemma fmap_update_single : forall s l v w,
+  fmap_update (fmap_single l v) l w = fmap_single l w.
+Proof using.
+  intros. rewrite fmap_update_eq_union_single.
+  applys fmap_make_eq. intros x.
+  unfold map_union, fmap_single. simpl. case_if~.
+Qed.
+
+Lemma fmap_update_union_l : forall s1 s2 l v,
+  fmap_indom s1 l ->
+  fmap_update (fmap_union s1 s2) l v = fmap_union (fmap_update s1 l v) s2.
+Proof using.
+  intros. do 2 rewrite fmap_update_eq_union_single.
+  applys fmap_make_eq. intros x.
+  unfold map_union, fmap_union, map_union. simpl. case_if~.
+Qed.
+
+Lemma fmap_update_union_r : forall s1 s2 l v,
+  ~ fmap_indom s1 l ->
+  fmap_update (fmap_union s1 s2) l v = fmap_union s1 (fmap_update s2 l v).
+Proof using.
+  introv M. asserts IB: (Inhab B). { applys Inhab_of_val v. }
+  do 2 rewrite fmap_update_eq_union_single.
+  applys fmap_make_eq. intros x.
+  unfold map_union, fmap_union, map_union. simpl. case_if~.
+  { subst. case_eq (fmap_data s1 x); auto_false. 
+    { intros w Hw. false M. auto_false. } }
 Qed.
 
 End FmapProp.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Arguments *)
 
 Arguments fmap_union_assoc [A] [B].
 Arguments fmap_union_comm_of_disjoint [A] [B].

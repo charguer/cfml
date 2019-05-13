@@ -66,16 +66,16 @@ Inductive red : nat -> state -> trm -> state -> val -> Prop :=
       v1 = val_fix f x t ->
       red n3 m3 (subst2 f v1 x v2 t) m4 r ->
       red (n1+n2+n3+1) m1 (trm_app t1 t2) m4 r
-  | red_ref : forall ma mb v l,
-      mb = (fmap_single l v) ->
-      \# ma mb ->
-      red 0 ma (val_ref v) (mb \+ ma) (val_loc l)
-  | red_get : forall m l v,
-      fmap_data m l = Some v ->
-      red 0 m (val_get (val_loc l)) m v
-  | red_set : forall m m' l v,
-      m' = fmap_update m l v ->
-      red 0 m (val_set (val_loc l) v) m' val_unit.
+  | red_ref : forall m v l,
+      ~ fmap_indom m l ->
+      l <> null ->
+      red 0 m (val_ref v) (fmap_update m l v) (val_loc l)
+  | red_get : forall m l,
+      fmap_indom m l ->
+      red 0 m (val_get (val_loc l)) m (fmap_read m l)
+  | red_set : forall m l v,
+      fmap_indom m l ->
+      red 0 m (val_set (val_loc l) v) (fmap_update m l v) val_unit.
 
 Hint Resolve red_val.
 
@@ -87,6 +87,45 @@ Proof using.
   introv E M. subst. applys equates_5.
   applys* red_app_arg. math.
   (* TODO here and above applys_eq 5 red_app. *)
+Qed.
+
+
+Lemma red_ref_sep : forall s1 s2 v l,
+  l <> null ->
+  s2 = fmap_single l v ->
+  fmap_disjoint s2 s1 ->
+  red 0 s1 (val_ref v) (fmap_union s2 s1) (val_loc l).
+Proof using.
+  introv Nl -> D. forwards Dv: fmap_indom_single l v.
+  rewrite <- fmap_update_eq_union_single. applys~ red_ref.
+  { intros N. applys~ fmap_disjoint_inv_not_indom_both D N. }
+Qed.
+
+Lemma red_get_sep : forall s s1 s2 l v, 
+  s = fmap_union s1 s2 ->
+  fmap_disjoint s1 s2 ->
+  s1 = fmap_single l v ->
+  red 0 s (val_get (val_loc l)) s v.
+Proof using.
+  introv -> D ->. forwards Dv: fmap_indom_single l v.
+  applys_eq red_get 1.
+  { applys~ fmap_indom_union_l. }
+  { rewrite~ fmap_read_union_l. rewrite~ fmap_read_single. }
+Qed.
+
+Lemma red_set_sep : forall s s' h1 h1' h2 l v v',
+  s = fmap_union h1 h2 ->
+  s' = fmap_union h1' h2 ->
+  fmap_disjoint h1 h2 ->
+  h1 = fmap_single l v ->
+  h1' = fmap_single l v' ->
+  red 0 s (val_set (val_loc l) v') s' val_unit.
+Proof using.
+  introv -> -> D -> ->. forwards Dv: fmap_indom_single l v.
+  applys_eq red_set 2.
+  { applys~ fmap_indom_union_l. }
+  { rewrite~ fmap_update_union_l. fequals.
+    rewrite~ fmap_update_single. }
 Qed.
 
 End Redn.
@@ -904,7 +943,7 @@ Proof using.
   forwards~ (l&Dl&Nl): (fmap_single_fresh null (h^s) v).
   sets m1': (fmap_single l v).
   exists 0%nat ((m1' \+ h^s),h^c) (val_loc l). splits~.
-  { applys~ red_ref. }
+  { applys~ red_ref_sep. }
   { exists (m1',0) h. split.
     { exists l. applys~ himpl_hstar_hpure_r. unfold m1'. hnfs~. }
     { splits~. hhsimpl~. } }
@@ -919,7 +958,7 @@ Proof using.
   destruct N as (h1&h2&(N1a&N1b)&N2&N3&N4).
   forwards (E1&E2): heap_eq_forward (rm N4). simpls.
   exists 0%nat h v. splits~.
-  { applys red_get. rewrite E1. applys~ fmap_union_single_l_read. }
+  { applys* red_get_sep. }
   { rew_heap. rewrite hstar_hpure. split~. hhsimpl~. }
 Qed.
 
@@ -932,8 +971,7 @@ Proof using.
   forwards (E1&E2): heap_eq_forward (rm N4). simpls.
   sets m1': (fmap_single l w).
   exists 0%nat ((m1' \+ h2^s), h2^c) val_unit. splits~.
-  { applys red_set. rewrite E1. unfold m1'. rewrite N1a.
-    applys~ fmap_union_single_to_update. }
+  { applys* red_set_sep. }
   { rew_heap. rewrite hstar_hpure. split~.
     { exists (m1',0) h2. splits~.
       { hnfs~. }

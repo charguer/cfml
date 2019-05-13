@@ -987,17 +987,16 @@ Inductive red : state -> trm -> state -> val -> Prop :=
   | red_binop : forall op m v1 v2 v,
       redbinop op v1 v2 v ->
       red m (op v1 v2) m v
-  | red_ref : forall ma mb v l,
-      mb = (fmap_single l v) ->
+  | red_ref : forall m v l,
+      ~ fmap_indom m l ->
       l <> null ->
-      \# ma mb ->
-      red ma (val_ref v) (mb \+ ma) (val_loc l)
-  | red_get : forall m l v,
-      fmap_data m l = Some v ->
-      red m (val_get (val_loc l)) m v
-  | red_set : forall m m' l v,
-      m' = fmap_update m l v ->
-      red m (val_set (val_loc l) v) m' val_unit
+      red m (val_ref v) (fmap_update m l v) (val_loc l)
+  | red_get : forall m l,
+      fmap_indom m l ->
+      red m (val_get (val_loc l)) m (fmap_read m l)
+  | red_set : forall m l v,
+      fmap_indom m l ->
+      red m (val_set (val_loc l) v) (fmap_update m l v) val_unit
   | red_alloc : forall k n ma mb l,
       mb = fmap_conseq l k val_unit ->
       n = nat_to_Z k ->
@@ -1008,7 +1007,6 @@ Inductive red : state -> trm -> state -> val -> Prop :=
 End Red.
 
   (* Note: there is no reduction rule for [trm_fail]. *)
-
 
   (*  --- TODO
 
@@ -1041,6 +1039,66 @@ End Red.
 Section Derived.
 Hint Constructors evalctx. 
 Hint Resolve evalctx_app_arg.
+
+(** Rules for state *)
+
+(*
+Lemma fmap_update_eq_union
+  m1 = fmap_single l v ->
+     fmap_indom m1 l
+  /\ fmap_update m2 l v = fmap_union m1 m2.
+*)
+
+Lemma red_ref_sep : forall s1 s2 v l,
+  l <> null ->
+  s2 = fmap_single l v ->
+  fmap_disjoint s2 s1 ->
+  red s1 (val_ref v) (fmap_union s2 s1) (val_loc l).
+Proof using.
+  introv Nl -> D. forwards Dv: fmap_indom_single l v.
+  rewrite <- fmap_update_eq_union_single. applys~ red_ref.
+  { intros N. applys~ fmap_disjoint_inv_not_indom_both D N. }
+Qed.
+
+(* m1 = fmap_single l v ->
+   m = fmap_union m1 m2 ->
+       fmap_indom m1 l
+    /\ fmap_read m1 l = v *)
+
+(* Note: [fmap_disjoint s1 s2] is not needed, and in fact too 
+   restrictive, because [fmap_agree s1 s2] would be sufficient. *)
+
+Lemma red_get_sep : forall s s1 s2 l v, 
+  s = fmap_union s1 s2 ->
+  s1 = fmap_single l v ->
+  red s (val_get (val_loc l)) s v.
+Proof using.
+  introv -> ->. forwards Dv: fmap_indom_single l v.
+  applys_eq red_get 1.
+  { applys~ fmap_indom_union_l. }
+  { rewrite~ fmap_read_union_l. rewrite~ fmap_read_single. }
+Qed.
+
+(* m1 = fmap_single l v ->
+   m = fmap_union m1 m2 ->
+       fmap_indom m1 l
+    /\ fmap_update m l w = fmap_union (fmap_single l v) m2 *)
+
+Lemma red_set_sep : forall s s' h1 h1' h2 l v v',
+  s = fmap_union h1 h2 ->
+  h1 = fmap_single l v ->
+  fmap_disjoint h1 h2 ->
+  s' = fmap_union h1' h2 ->
+  h1' = fmap_single l v' ->
+  red s (val_set (val_loc l) v') s' val_unit.
+Proof using.
+  introv -> -> D -> ->. forwards Dv: fmap_indom_single l v.
+  applys_eq red_set 2.
+  { applys~ fmap_indom_union_l. }
+  { rewrite~ fmap_update_union_l. fequals.
+    rewrite~ fmap_update_single. }
+Qed.
+
 
 (** Generalization of the evaluation context rule for terms
     that might already be values *)
