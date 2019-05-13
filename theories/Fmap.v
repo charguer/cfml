@@ -529,19 +529,14 @@ Proof using.
 Qed.
 
 
+
 (* ---------------------------------------------------------------------- *)
 (* ** Domain *)
 
+(* TODO: consistent renaming *)
 Implicit Types s : fmap A B.
 Implicit Types l : A.
 Implicit Types v : B.
-
-Lemma fmap_disjoint_inv_not_indom_both : forall s1 s2 l,
-  fmap_disjoint s1 s2 ->
-  fmap_indom s1 l ->
-  fmap_indom s2 l ->
-  False.
-Proof using. introv D M1 M2. destruct (D l); false*. Qed.
 
 Lemma fmap_indom_single : forall l v,
   fmap_indom (fmap_single l v) l.
@@ -564,6 +559,42 @@ Proof using.
   intros. hnf. unfold fmap_union, map_union. simpl.
   case_eq (fmap_data s1 l); auto_false.
 Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Disjoint and domain *)
+
+Lemma fmap_disjoint_eq_not_indom_both : forall s1 s2,
+  fmap_disjoint s1 s2 = (forall l, fmap_indom s1 l -> fmap_indom s2 l -> False).
+Proof using.
+  extens. iff D E.
+  { introv M1 M2. destruct (D l); false*. }
+  { intros l. specializes E l. unfolds fmap_indom, map_indom.
+    applys not_not_inv. intros N. rew_logic in N. false*. }
+Qed.
+
+Lemma fmap_disjoint_of_not_indom_both : forall s1 s2,
+  (forall l, fmap_indom s1 l -> fmap_indom s2 l -> False) ->
+  fmap_disjoint s1 s2.
+Proof using. introv M. rewrite~ fmap_disjoint_eq_not_indom_both. Qed.
+
+Lemma fmap_disjoint_inv_not_indom_both : forall s1 s2 l,
+  fmap_disjoint s1 s2 ->
+  fmap_indom s1 l ->
+  fmap_indom s2 l ->
+  False.
+Proof using. introv. rewrite* fmap_disjoint_eq_not_indom_both. Qed.
+
+Lemma fmap_disjoint_single_of_not_indom : forall h l v,
+  ~ fmap_indom h l ->
+  fmap_disjoint (fmap_single l v) h.
+Proof using.
+  introv N. unfolds fmap_disjoint, map_disjoint. unfolds fmap_single, fmap_indom, map_indom.
+  simpl. rew_logic in N. intros l'. case_if; subst; autos*.
+Qed.
+
+(* Remark: the reciprocal of the above lemma is a special instance of 
+   [fmap_disjoint_inv_not_indom_both] *)
 
 
 (* ---------------------------------------------------------------------- *)
@@ -917,17 +948,21 @@ Section FmapFresh.
 Variables (B : Type).
 Implicit Types h : fmap nat B.
 
+Lemma fmap_exists_not_indom : forall null h,
+  exists l, ~ fmap_indom h l /\ l <> null.
+Proof using.
+  intros null (m&(L&M)). unfold fmap_indom, map_indom. simpl.
+  lets (l&F): (loc_fresh_nat (null::L)).
+  exists l. split.
+  { simpl. intros l'. forwards~ E: M l. }
+  { intro_subst. applys~ F. }
+Qed.
+
 Lemma fmap_single_fresh : forall null h v,
   exists l, \# (fmap_single l v) h /\ l <> null.
 Proof using.
-  intros null (m&(L&M)) v.
-  unfold fmap_disjoint, map_disjoint. simpl.
-  lets (l&F): (loc_fresh_nat (null::L)).
-  exists l. split.
-  { intros l'. case_if~. (* --LATER: fix TLC substitution in case_if *)
-    { subst. right. applys not_not_inv. intros H. applys F.
-      constructor. applys~ M. } }
-  { intro_subst. applys~ F. }
+  intros. forwards (l&F&N): fmap_exists_not_indom null h.
+  exists l. split~. applys* fmap_disjoint_single_of_not_indom.
 Qed.
 
 Lemma fmap_conseq_fresh : forall null h k v,

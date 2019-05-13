@@ -740,22 +740,45 @@ Qed.
 (* ******************************************************* *)
 (** ** Proofs for the specification of primitive operations *)
 
-(*
+(* TODO: pb moving from Hoare_triple name to hoare *)
 
 (* ------------------------------------------------------- *)
 (** *** Allocation of a reference *)
 
-(* TODO: pb moving from Hoare_triple to hoare *)
+(** Reduction rule for reference *)
 
 Parameter red_ref : forall s1 s2 v l,
+  ~ fmap_indom s1 l ->
+  s2 = fmap_update s1 l v ->
+  red s1 (val_ref v) s2 (val_loc l).
+
+(** Derived reduction rule, reformulated without the "fmap update"
+    operation, using only singleton union of disjoint heaps. *)
+
+Lemma red_ref_sep : forall s1 s2 v l,
   s2 = fmap_single l v ->
-  fmap_disjoint s2 s1 -> (* i.e. [l] not in dom [s1] *)
-  red s1 (val_ref v) (s2 \u s1) (val_loc l).
+  fmap_disjoint s2 s1 ->
+  red s1 (val_ref v) (fmap_union s2 s1) (val_loc l).
+
+(** It is not needed to follow through the proof. *)
+
+Proof using.
+  introv -> D. forwards Dv: fmap_indom_single l v.
+  rewrite <- fmap_update_eq_union_single. applys~ red_ref.
+  { intros N. applys~ fmap_disjoint_inv_not_indom_both D N. }
+Qed.
+
+(** We need the existence of fresh locations *)
 
 Implicit Types h : heap.
 
+Parameter fmap_exists_not_indom : forall h,
+  exists l, ~ fmap_indom h l.
+
 Parameter fmap_single_fresh : forall h v,
-  exists l, fmap_disjoint (fmap_single l v) h.
+  exists l, \# (fmap_single l v) h.
+
+(** Recall also *)
 
 Parameter hsingle_intro : forall l v,
   (l ~~~> v) (fmap_single l v).
@@ -763,6 +786,8 @@ Parameter hsingle_intro : forall l v,
 Parameter hstar_hpure : forall P H h, 
   (\[P] \* H) h = (P /\ H h). (* todo; exo *)
 
+(** Using this rule, we can state a Hoare triple for the [ref]
+    operation. *)
 
 Lemma hoare_ref : forall H v,
   hoare (val_ref v)
@@ -774,7 +799,7 @@ Proof using.
   (* forwards~ Hh1': hsingle_fmap_single l v. *)
   sets s2: (fmap_single l v).
   exists (s2 \u s1) (val_loc l). split.
-  { applys~ red_ref D. }
+  { applys~ red_ref_sep. }
   { applys hstar_intro. 
     { exists l. unfold s2. rewrite hstar_hpure.
       split~. { applys hsingle_intro. } }
@@ -793,6 +818,7 @@ Proof using.
   { hsimpl. auto. }
 Qed.
 
+
 (* ------------------------------------------------------- *)
 (** *** Read in a reference *)
 
@@ -804,14 +830,27 @@ Parameter red_get_direct : forall s l v,
   red s (val_get (val_loc l)) s v.
 *)
 
+Parameter red_get : forall m l,
+  fmap_indom m l ->
+  red m (val_get (val_loc l)) m (fmap_read m l).
 
-Parameter red_get : forall s s1 s2 l v, 
-  s = fmap_union s1 s2 ->
-  fmap_disjoint s1 s2 ->
-  s1 = fmap_single l v ->
+Lemma red_get_sep : forall s s2 l v, 
+  s = (fmap_single l v) \u s2 ->
   red s (val_get (val_loc l)) s v.
+(* easy consequence *)
+(* note that [fmap_disjoint s1 s2] is not technically required,
+  because read in [fmap_union s1 s2] is same as read in [s1]
+  when the key occurs in [s1], regardless of whether [s2] rebinds
+  the same key or not *)
+Proof using.
+  introv ->. forwards Dv: fmap_indom_single l v.
+  applys_eq red_get 1.
+  { applys~ fmap_indom_union_l. }
+  { rewrite~ fmap_read_union_l. rewrite~ fmap_read_single. }
+Qed.
 
 
+(** recall *)
 Parameter hsingle_inv: forall l v h,
   (l ~~~> v) h ->
   h = fmap_single l v.
@@ -823,8 +862,8 @@ Lemma hoare_get : forall H v l,
 Proof using.
   intros. intros h K0. exists h v. split.
   { destruct K0 as (h1&h2&P1&P2&D&U).
-    lets E1: hsingle_inv P1.
-    applys red_get U D E1. }
+    lets E1: hsingle_inv P1. subst h1.
+    applys red_get_sep U. }
   { rewrite hstar_hpure. auto. }
 Qed.
 
@@ -839,22 +878,31 @@ Proof using.
   { hsimpl. auto. }
 Qed.
 
+
 (* ------------------------------------------------------- *)
 (** *** Write in a reference *)
 
-Parameter red_set : forall s s' h1 h1' h2 l v v',
-  s = fmap_union h1 h2 ->
-  s' = fmap_union h1' h2 ->
-  fmap_disjoint h1 h2 ->
-  h1 = fmap_single l v ->
-  h1' = fmap_single l v' ->
-  red s (val_set (val_loc l) v') s' val_unit.
+Parameter red_set : forall m l v,
+   fmap_indom m l ->
+   red m (val_set (val_loc l) v) (fmap_update m l v) val_unit.
+
+Lemma red_set_sep : forall s1 s2 h2 l v1 v2,
+  s1 = fmap_union (fmap_single l v1) h2 ->
+  s2 = fmap_union (fmap_single l v2) h2 ->
+  fmap_disjoint (fmap_single l v1) h2 ->
+  red s1 (val_set (val_loc l) v2) s2 val_unit.
+Proof using.
+  introv -> -> D. forwards Dv: fmap_indom_single l v1.
+  applys_eq red_set 2.
+  { applys~ fmap_indom_union_l. }
+  { rewrite~ fmap_update_union_l. fequals.
+    rewrite~ fmap_update_single. }
+Qed.
 
 
-
-Parameter fmap_disjoint_update : forall l v w h2,
-  fmap_disjoint (fmap_single l v) h2 ->
-  fmap_disjoint (fmap_single l w) h2.
+Parameter fmap_disjoint_single_set : forall l v1 v2 h2,
+  fmap_disjoint (fmap_single l v1) h2 ->
+  fmap_disjoint (fmap_single l v2) h2.
 
 Lemma hoare_set : forall H w l v,
   hoare (val_set (val_loc l) w)
@@ -865,11 +913,11 @@ Proof using.
   lets E1: hsingle_inv P1.
   sets h1': (fmap_single l w).
   exists (h1' \u h2) val_unit. split.
-  { applys red_set h1 h1' h2 v; auto. }
+  { subst h1 h1'. applys red_set_sep U D. auto. }
   { rewrite hstar_hpure. split~. applys hstar_intro.
     { applys hsingle_intro. }
     { auto. }
-    { subst h1. applys fmap_disjoint_update D. } }
+    { subst h1. applys fmap_disjoint_single_set D. } }
 Qed.
 
 Lemma triple_set' : forall w l v,
@@ -886,49 +934,3 @@ Qed.
 
 
 
-
-
-
-
-Parameter red_ref : forall s1 s2 v l,
-  ~ fmap_indom s1 l ->
-  s2 = fmap_update s1 l v ->
-  red s1 (val_ref v) s2 (val_loc l).
-
-Parameter red_get : forall s l v,
-   fmap_indom s l ->
-   fmap_read s l = v ->
-   red s (val_get (val_loc l)) s v.
-
-Parameter red_set : forall s1 s2 l v,
-  fmap_indom s l ->
-  s2 = fmap_update s1 l v ->
-  red s1 (val_set (val_loc l) v) s2 val_unit.
-
-
-
-Parameter red_ref : forall s1 s2 v l,
-  s2 = fmap_single l v ->
-  fmap_disjoint s2 s1 -> (* i.e. [l] not in dom [s1] *)
-  red s1 (val_ref v) (s2 \u s1) (val_loc l).
-
-Parameter red_get : forall s s1 s2 l v, 
-  s = fmap_union s1 s2 ->
-  fmap_disjoint s1 s2 ->
-  s1 = fmap_single l v ->
-  red s (val_get (val_loc l)) s v.
-
-Parameter red_set : forall s s' h1 h1' h2 l v v',
-  s = fmap_union h1 h2 ->
-  s' = fmap_union h1' h2 ->
-  fmap_disjoint h1 h2 ->
-  h1 = fmap_single l v ->
-  h1' = fmap_single l v' ->
-  red s (val_set (val_loc l) v') s' val_unit.
-
-
-
-
-
-
-*)
