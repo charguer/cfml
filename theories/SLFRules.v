@@ -905,30 +905,29 @@ Parameter red_let : forall s1 s2 s3 x t1 t2 v1 r,
     the reasoning rule for [triple_let]. Make sure to first state
     and prove [hoare_let]. *)
 
+(* SOLUTION *)
+Lemma hoare_let : forall x t1 t2 H Q Q1,
+  hoare t1 H Q1 ->
+  (forall v, hoare (subst x v t2) (Q1 v) Q) ->
+  hoare (trm_let x t1 t2) H Q.
+Proof using.
+  introv M1 M2 K0.
+  forwards (s1'&v1&R1&K1): (rm M1) K0.
+  forwards (s2'&v2&R2&K2): (rm M2) K1.
+  exists s2' v2. split. { applys red_let R1 R2. } { apply K2. }
+Qed.
+
 Lemma triple_let : forall x t1 t2 H Q Q1,
   triple t1 H Q1 ->
   (forall v, triple (subst x v t2) (Q1 v) Q) ->
   triple (trm_let x t1 t2) H Q.
 Proof using.
-(* SOLUTION *)
-
-  Lemma hoare_let : forall x t1 t2 H Q Q1,
-    hoare t1 H Q1 ->
-    (forall v, hoare (subst x v t2) (Q1 v) Q) ->
-    hoare (trm_let x t1 t2) H Q.
-  Proof using.
-    introv M1 M2 K0.
-    forwards (s1'&v1&R1&K1): (rm M1) K0.
-    forwards (s2'&v2&R2&K2): (rm M2) K1.
-    exists s2' v2. split. { applys red_let R1 R2. } { apply K2. }
-  Qed.
-
   unfold triple. introv M1 M2. intros H'. applys hoare_let.
   { applys M1. }
   { intros v. applys hoare_conseq.
     { applys M2. } { hsimpl. } { hsimpl. } }
-(* /SOLUTION *)
 Qed.
+(* /SOLUTION *)
 
 
 (* ------------------------------------------------------- *)
@@ -1136,31 +1135,30 @@ Parameter red_div : forall s n1 n2,
     the reasoning rule for [triple_div]. Make sure to first state
     and prove [hoare_div]. *)
 
+(* SOLUTION *)
+Lemma hoare_div : forall H n1 n2,
+  n2 <> 0 ->
+  hoare (val_div n1 n2)
+    H
+    (fun r => \[r = val_int (Z.quot n1 n2)] \* H).
+Proof using.
+  introv N. intros s K0. exists s (val_int (Z.quot n1 n2)). split.
+  { applys red_div N. }
+  { rewrite hstar_hpure_iff. split.
+    { auto. }
+    { applys K0. } }
+Qed.
+
 Lemma triple_div : forall n1 n2,
   n2 <> 0 ->
   triple (val_div n1 n2)
     \[]
     (fun r => \[r = val_int (Z.quot n1 n2)]).
 Proof using.
-(* SOLUTION *)
-
-  Lemma hoare_div : forall H n1 n2,
-    n2 <> 0 ->
-    hoare (val_div n1 n2)
-      H
-      (fun r => \[r = val_int (Z.quot n1 n2)] \* H).
-  Proof using.
-    introv N. intros s K0. exists s (val_int (Z.quot n1 n2)). split.
-    { applys red_div N. }
-    { rewrite hstar_hpure_iff. split.
-      { auto. }
-      { applys K0. } }
-  Qed.
-
   introv N. intros H'. applys hoare_conseq. 
   { applys hoare_div N. } { hsimpl. } { hsimpl. auto. }
-(* /SOLUTION *)
 Qed.
+(* /SOLUTION *)
 
 
 (* ******************************************************* *)
