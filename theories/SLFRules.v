@@ -489,7 +489,7 @@ Parameter triple_div : forall n1 n2,
 
 (** We have at hand all the necessary rules for carrying out
     actual verification proofs in Separation Logic.
-    
+
     To illustrate this possibility, we next present a verification
     proof for the increment function. *)
 
@@ -503,12 +503,13 @@ Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
   triple t H Q.
 
 
-
-
-Module ExampleProof.
+Module ExampleProofs.
 
 Import NotationForVariables NotationForTerms CoercionsFromStrings.
 
+
+(* ------------------------------------------------------- *)
+(** *** Proof of [incr] *)
 
 (** The definition in OCaml syntax is: [fun p => p := (!p + 1)].
     In A-normal form syntax, this definition becomes: 
@@ -543,13 +544,12 @@ Lemma triple_incr : forall (p:loc) (n:int),
     (p ~~~> n)
     (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
 Proof using.
-  intros. applys triple_app_fun. { reflexivity. }
-  simpl.
+  intros. applys triple_app_fun. { reflexivity. } simpl.
   applys triple_let.
   { apply triple_get. }
   intros n'. simpl.
   apply triple_hpure. intros ->.
-  applys triple_let. 
+  applys triple_let.
   { applys triple_conseq_frame.
     { applys triple_add. }
     { hsimpl. }
@@ -562,14 +562,75 @@ Proof using.
   hsimpl. auto.
 Qed.
 
-End ExampleProof.
 
-(** The matter of the next chapter is to streamline is to
-    introduce additional technology to streamline the proof
-    process, notably by
+(* ------------------------------------------------------- *)
+(** *** Proof of [mysucc] *)
+
+(** Recall from the previous chapter the combined structural
+    rule [triple_conseq_frame_htop], which generalizes the rule
+    [triple_conseq_frame] with the possibility to discard
+    undesired heap predicate. This rule will be handy at
+    some point in the exercise that follows. *)
+
+Parameter triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q \*+ \Top ->
+  triple t H Q.
+
+(** Consider the following function, written in OCaml syntax:
+[[
+     fun n => 
+        let r = ref n in
+        incr r;
+        !r
+]]
+    Using the notation for our embedded language, we write: *)
+
+Definition mysucc :=
+  VFun 'n :=
+    Let 'r := val_ref 'n in
+    incr 'r ';
+    '! 'r.
+
+(* EX3! (triple_incr) *)
+(** Specify and verify the function [mysucc]. *)
+
+(* SOLUTION *)
+Lemma triple_mysucc : forall (n:int),
+  triple (trm_app mysucc n)
+    \[]
+    (fun v => \[v = n+1]).
+Proof using.
+  intros. applys triple_app_fun. { reflexivity. } simpl.
+  applys triple_let.
+  { apply triple_ref. }
+  intros r. simpl.
+  apply triple_hexists. intros l.
+  apply triple_hpure. intros ->.
+  applys triple_seq.
+  { applys triple_conseq_frame.
+    { applys triple_incr. }
+    { hsimpl. }
+    { hsimpl. } }
+  applys triple_conseq_frame_htop.
+  { applys triple_get. }
+  { hsimpl. }
+  { hsimpl. auto. }
+Qed.
+(* /SOLUTION *)
+
+End ExampleProofs.
+
+(** The matter of the next chapter is to introduce additional
+    technology to streamline the proof process, notably by
     - automating the application of the frame rule
     - eliminating the need to manipulate program variables
       and substitutions during the verification proof. *)
+
+(** The rest of this chapter is concerned with alternative
+    statements of the reasoning rules, and the proofs of the
+    reasoning rules. *)
 
 
 (* ####################################################### *)

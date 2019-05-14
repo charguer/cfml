@@ -833,10 +833,10 @@ Parameter triple_iff_triple_lowlevel : forall t H Q,
 
 
 (* ####################################################### *)
-(** * Bonus information *)
+(** * Appendix: extensionality *)
 
 (* ******************************************************* *)
-(** ** More on extensionality *)
+(** ** Formulation of the extensionality axioms *)
 
 (** To establish extensionality of entailment, we have used
     the predicate extensionality axiom. In fact, this axiom 
