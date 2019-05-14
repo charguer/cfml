@@ -89,7 +89,7 @@ Definition hempty : hprop :=
 Definition hstar (H1 H2 : hprop) : hprop :=
   fun h => exists h1 h2, H1 h1
                       /\ H2 h2
-                      /\ (\# h1 h2)
+                      /\ (fmap_disjoint h1 h2)
                       /\ h = h1 \+ h2.
 
 (** Quantifiers *)
@@ -127,7 +127,7 @@ Hint Extern 1 (_ = _ :> heap) => fmap_eq.
 Tactic Notation "fmap_disjoint_pre" :=
   subst; rew_disjoint; jauto_set.
 
-Hint Extern 1 (\# _ _) => fmap_disjoint_pre.
+Hint Extern 1 (fmap_disjoint _ _) => fmap_disjoint_pre.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -240,7 +240,7 @@ Proof using. introv M. lets (HP&HE): hpure_inv M. lets*: hempty_inv HE. Qed.
 Lemma hstar_intro : forall H1 H2 h1 h2,
   H1 h1 ->
   H2 h2 ->
-  \# h1 h2 ->
+  fmap_disjoint h1 h2 ->
   (H1 \* H2) (h1 \u h2).
 Proof using. intros. exists~ h1 h2. Qed.
 
@@ -1284,17 +1284,17 @@ Qed.
 
 Definition triple' t H Q :=
   forall h1 h2,
-  \# h1 h2 ->
+  fmap_disjoint h1 h2 ->
   H h1 ->
   exists h1' h3' v,
-       \# h1' h2 h3'
+       fmap_disjoint_3 h1' h2 h3'
     /\ red (h1 \u h2) t (h1' \u h2 \u h3') v
     /\ (Q v) h1'.
 
 
 Section TripleLowLevel.
 
-Hint Extern 1 (\# _ _ _) => fmap_disjoint_pre.
+Hint Extern 1 (fmap_disjoint_3 _ _ _) => fmap_disjoint_pre.
 
 Lemma triple_eq_triple' : triple = triple'.
 Proof using.

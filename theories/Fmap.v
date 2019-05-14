@@ -184,9 +184,6 @@ Definition fmap_agree A B (h1 h2:fmap A B) :=
 Definition fmap_disjoint A B (h1 h2 : fmap A B) : Prop :=
   map_disjoint h1 h2.
 
-Notation "\# h1 h2" := (fmap_disjoint h1 h2)
-  (at level 40, h1 at level 0, h2 at level 0, no associativity) : fmap_scope.
-
 (** Three disjoint fmaps *)
 
 Definition fmap_disjoint_3 A B (h1 h2 h3 : fmap A B) :=
@@ -194,9 +191,20 @@ Definition fmap_disjoint_3 A B (h1 h2 h3 : fmap A B) :=
   /\ fmap_disjoint h2 h3
   /\ fmap_disjoint h1 h3.
 
+(** Notation for disjointness *)
+
+Module NotationForFmapDisjoint.
+
+Notation "\# h1 h2" := (fmap_disjoint h1 h2)
+  (at level 40, h1 at level 0, h2 at level 0, no associativity) : fmap_scope.
+
 Notation "\# h1 h2 h3" := (fmap_disjoint_3 h1 h2 h3)
   (at level 40, h1 at level 0, h2 at level 0, h3 at level 0, no associativity)
   : fmap_scope.
+
+End NotationForFmapDisjoint.
+
+Import NotationForFmapDisjoint.
 
 
 (* ********************************************************************** *)

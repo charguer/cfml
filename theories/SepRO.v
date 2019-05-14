@@ -17,6 +17,7 @@ License: MIT.
 
 Set Implicit Arguments.
 From Sep Require Export Semantics SepFunctor.
+Import NotationForFmapDisjoint.
 Open Scope fmap_scope.
 Arguments exist [A] [P].
 

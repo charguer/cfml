@@ -187,7 +187,7 @@ Open Scope heap_scope.
 (** Disjoint heaps *)
 
 Definition heap_disjoint (h1 h2 : heap) : Prop :=
-  \# (h1^s) (h2^s).
+  fmap_disjoint (h1^s) (h2^s).
 
 Notation "\# h1 h2" := (heap_disjoint h1 h2)
   (at level 40, h1 at level 0, h2 at level 0, no associativity) : heap_scope.

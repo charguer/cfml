@@ -1001,7 +1001,7 @@ Inductive red : state -> trm -> state -> val -> Prop :=
       mb = fmap_conseq l k val_unit ->
       n = nat_to_Z k ->
       l <> null ->
-      \# ma mb ->
+      fmap_disjoint ma mb -> (* TODO: reformulate using not_indom *)
       red ma (val_alloc (val_int n)) (mb \+ ma) (val_loc l).
 
 End Red.
