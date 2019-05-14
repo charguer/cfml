@@ -33,21 +33,16 @@ From Sep Require Import SepBase SubstExec.
 Notation "'\Top''" := hgc.
 Definition subst := subst_exec.
 
-(** Implicit Types *)
-
-Implicit Types x f : var.
-Implicit Types b : bool.
-Implicit Types l : loc.
-Implicit Types n : int.
-Implicit Types v w r : val.
-Implicit Types t : trm.
-Implicit Types h : heap.
-Implicit Types H : hprop.
-Implicit Types Q : val->hprop.
-
 
 (* ####################################################### *)
 (** * The chapter in a rush *)
+
+(** This chapter first summarizes the structural rules from
+    Separation Logic. It then recall the syntax and semantics
+    of the programming language considered, and presents the 
+    statement and proofs for the reasoning rules for terms
+    and primitive operations. *)
+
 
 (* ******************************************************* *)
 (** ** Structural rules *)
@@ -98,14 +93,202 @@ Parameter triple_htop_post : forall t H Q,
 
 
 (* ******************************************************* *)
-(** ** Rules for terms *)
+(** ** Semantic of terms *)
 
-(** In this chapter, for simplicity, we assume that all terms
-    are written in "A-normal form": the arguments of applications
-    and of conditionals are restricted to variables and value.
-    Such a requirement does not limit expressiveness.
-    For example, [if t0 then t1 else t2] can be encoded as 
+(** In order to establish reasoning rule for terms (e.g., a
+    rule for a let-binding), it is useful to briefly review
+    the grammar of terms and the formal (big-step) semantics
+    associated with the language that we consider. 
+
+    Remark: the language presented here is a simplified language
+    compared with that defined in [Semantics.v]. *)
+
+Module SyntaxAndSemantics.
+
+(** The grammar for values includes unit, boolean, integers,
+    locations, functions, recursive functions, and primitive 
+    operations. For the latter, we here only include a few: 
+    [ref], [get], and [set], [add] and [div]. *)
+
+Inductive val : Type :=
+  | val_unit : val
+  | val_bool : bool -> val
+  | val_int : int -> val
+  | val_loc : loc -> val
+  | val_fun : var -> trm -> val
+  | val_fix : var -> var -> trm -> val
+  | val_ref : val
+  | val_get : val
+  | val_set : val
+  | val_add : val
+  | val_div : val
+
+(** The grammar for terms includes values, variables, 
+    function definitions, recursive function definitions,
+    function applications, sequences, let-bindings, and
+    conditionals. *)
+
+with trm : Type :=
+  | trm_val : val -> trm
+  | trm_var : var -> trm
+  | trm_fun : var -> trm -> trm
+  | trm_fix : var -> var -> trm -> trm
+  | trm_app : trm -> trm -> trm
+  | trm_seq : trm -> trm -> trm
+  | trm_let : var -> trm -> trm -> trm
+  | trm_if : trm -> trm -> trm -> trm.
+
+(** Note that the grammar of values is mutually inductive with that
+    of terms. The type [val] is intented to denote only closed 
+    values. In particular, a [val_fun x t] or a [val_fix f x t]
+    should not contain any free variable. *)
+
+(** The beta-reduction rule involves a substitution function.
+
+    The substitution function, written [subst y w t], replaces all
+    occurences of a variable [y] with a value [w] inside a term [t].
+    This definition exploits the comparison function [var_eq x y], 
+    which produces a boolean indicating whether [x] and [y] denote
+    the same variable. 
+
+    Because [trm_val v] denotes a closed value, any substitution on
+    it should behave like the identity. For the remaining constructs,
+    substitution is essentially structural: it traverses through all 
+    subterms until reaching a variable. The only specific care is to
+    ensure that substitution is capture-avoiding: an operation 
+    [subst y w t] does not recurse below the scope of binders whose
+    name is also [y]. *)
+
+Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
+  let aux t := subst y w t in
+  let if_y_eq x t1 t2 := if var_eq x y then t1 else t2 in
+  let aux_no_capt x t := if_y_eq x t (aux t) in
+  match t with
+  | trm_val v => trm_val v
+  | trm_var x => if_y_eq x (trm_val w) t
+  | trm_fun x t1 => trm_fun x (aux_no_capt x t1)
+  | trm_fix f x t1 => trm_fix f x (if_y_eq f t1 (aux_no_capt x t1))
+  | trm_app t1 t2 => trm_app (aux t1) (aux t2)
+  | trm_seq t1 t2 => trm_seq  (aux t1) (aux t2)
+  | trm_let x t1 t2 => trm_let x (aux t1) (aux_no_capt x t2)
+  | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
+  end.
+
+(** The evaluation rules involves the state. Recall that a state is
+    a finite map from location to values. *)
+
+Definition state := fmap loc val.
+
+(** For technical reasons, to enable reading in a state, we need
+    to justify that the grammar of values is inhabited. *)
+
+Instance Inhab_val : Inhab val.
+Proof using. apply (Inhab_of_val val_unit). Qed.
+
+(** To improve the readability of the evaluation rules, we take 
+    advantage of both implicit types and coercions. *)
+
+Implicit Types v r : val.
+Implicit Types t : trm.
+Implicit Types s : state.
+
+(** We declare [trm_val] as a coercion, so that we may freely write
+    [v] wherever a term is expected, to mean [trm_val v]. *)
+
+Coercion trm_val : val >-> trm.
+
+(** We declare [trm_app] as a coercion, so that we may write 
+    [t1 t2] as a shorthand for [trm_app t1 t2]. *)
+
+Coercion trm_app : trm >-> Funclass.
+
+(** The big-step evaluation judgment takes the form [red s t s' v],
+    describing that, starting from state [s], the evaluation of the 
+    term [t] terminates in a state [s'], producing an output value [v].
+    
+    For simplicity, in this chapter, we assume terms in "A-normal form":
+    the arguments of applications and of conditionals are restricted to 
+    variables and value. Such a requirement does not limit expressiveness.
+
+    For example, a source program may not use the general form
+    [trm_if t0 t1 t2], but only the form [trm_if v0 t1 t2], 
+    where [v0] denotes a variable or a value. This is not a 
+    restriction, because [trm_if t0 t1 t2] can be encoded as 
     [let x = t0 in if x then t1 else t2]. *)
+    
+Inductive red : state -> trm -> state -> val -> Prop :=
+
+  (* [red] for values and function definitions *)
+
+  | red_val : forall s v,
+      red s (trm_val v) s v
+  | red_fun : forall s x t1,
+      red s (trm_fun x t1) s (val_fun x t1)
+  | red_fix : forall s f x t1,
+      red s (trm_fix f x t1) s (val_fix f x t1)
+
+  (* [red] for function applications *)
+
+  | red_app_fun : forall s1 s2 v1 v2 x t1 v,
+      v1 = val_fun x t1 ->
+      red s1 (subst x v2 t1) s2 v ->
+      red s1 (trm_app v1 v2) s2 v
+  | red_app_fix : forall s1 s2 v1 v2 f x t1 v,
+      v1 = val_fix f x t1 ->
+      red s1 (subst x v2 (subst f v1 t1)) s2 v ->
+      red s1 (trm_app v1 v2) s2 v
+
+  (* [red] for structural constructs *)
+
+  | red_seq : forall s1 s2 s3 t1 t2 v1 v,
+      red s1 t1 s2 v1 ->
+      red s2 t2 s3 v ->
+      red s1 (trm_seq t1 t2) s3 v
+  | red_let : forall s1 s2 s3 x t1 t2 v1 r, 
+      red s1 t1 s2 v1 ->
+      red s2 (subst x v1 t2) s3 r ->
+      red s1 (trm_let x t1 t2) s3 r
+  | red_if : forall s1 s2 b v t1 t2,
+      (b = true -> red s1 t1 s2 v) ->
+      (b = false -> red s1 t2 s2 v) ->
+      red s1 (trm_if (val_bool b) t1 t2) s2 v
+
+  (* [red] for primitive operations *)
+
+  | red_add : forall s n1 n2,
+      red s (val_add (val_int n1) (val_int n2)) s (val_int (n1 + n2))
+  | red_div : forall s n1 n2,
+      n2 <> 0 ->
+      red s (val_div (val_int n1) (val_int n2)) s (val_int (Z.quot n1 n2))
+  | red_ref : forall s v l,
+      ~ fmap_indom s l ->
+      red s (val_ref v) (fmap_update s l v) (val_loc l)
+  | red_get : forall s l,
+      fmap_indom s l ->
+      red s (val_get (val_loc l)) s (fmap_read s l)
+  | red_set : forall s l v,
+      fmap_indom s l ->
+      red s (val_set (val_loc l) v) (fmap_update s l v) val_unit.
+
+End SyntaxAndSemantics.
+
+(** In the rest of this file, we technically depend on the definitions 
+    from [Semantics.v] and [SepBase.v]. For our purposes, these
+    definitions are equivalent to the ones given above. *)
+
+Implicit Types x f : var.
+Implicit Types b : bool.
+Implicit Types l : loc.
+Implicit Types n : int.
+Implicit Types v w r : val.
+Implicit Types t : trm.
+Implicit Types h : heap.
+Implicit Types H : hprop.
+Implicit Types Q : val->hprop.
+
+
+(* ******************************************************* *)
+(** ** Rules for terms *)
 
 (** The reasoning rule for a sequence [t1;t2] is similar to that
     from Hoare logic. The rule is:
@@ -590,10 +773,10 @@ Lemma hoare_val : forall v H Q,
   hoare (trm_val v) H Q.
 Proof using.
   (* 1. We unfold the definition of [hoare]. *)
-  introv M. intros h Hh. 
+  introv M. intros s K0. 
   (* 2. We provide the witnesses for the output value and heap.
         These witnesses are dictated by the statement of [red_val]. *)
-  exists h v. splits.
+  exists s v. splits.
   { (* 3. We invoke the big-step rule [red_val] *)
     applys red_val. }
   { (* 4. We establish the postcondition, exploiting the entailment hypothesis. *)
@@ -633,10 +816,11 @@ Qed.
 
 
 (* ------------------------------------------------------- *)
-(** *** Proof of [triple_fun] *)
+(** *** Proof of [triple_fun] and [triple_fix] *)
 
-(** The proof of [triple_fun] is essentially identical to that
-    of [triple_val], so we do not include it here. *)
+(** The proofs for [triple_fun] and [triple_fix] are essentially 
+    identical to that of [triple_val], so we do not include them
+    here. *)
 
 
 (* ------------------------------------------------------- *)
@@ -657,20 +841,20 @@ Lemma hoare_seq : forall t1 t2 H Q H1,
   hoare (trm_seq t1 t2) H Q.
 Proof using.
   (* 1. We unfold the definition of [hoare]. Let [K0] describe the initial state. *)
-  introv M1 M2 K0. (* optional: *) unfolds hoare.
+  introv M1 M2. intros s K0. (* optional: *) unfolds hoare.
   (* 2. We exploit the first hypothesis to obtain information about
         the evaluation of the first subterm [t1].
         The state before [t1] executes is described by [K0].
         The state after [t1] executes is described by [K1]. *)
-  forwards (h1'&v1&R1&K1): (rm M1) K0.
+  forwards (s1'&v1&R1&K1): (rm M1) K0.
   (* 3. We exploit the second hypothesis to obtain information about
         the evaluation of the first subterm [t2].
         The state before [t2] executes is described by [K1].
         The state after [t2] executes is described by [K2]. *)
-  forwards (h2'&v2&R2&K2): (rm M2) K1.
+  forwards (s2'&v2&R2&K2): (rm M2) K1.
   (* 4. We provide witness for the output value and heap.
         They correspond to those produced by the evaluation of [t2]. *)
-  exists h2' v2. split.
+  exists s2' v2. split.
   { (* 5. We invoke the big-step rule. *) 
     applys red_seq R1 R2. } 
   { (* 6. We establish the final postcondition, which is directly 
@@ -708,11 +892,7 @@ Qed.
 (* ------------------------------------------------------- *)
 (** *** Proof of [triple_let] *)
 
-(** Following the same proof scheme as for [triple_seq], establish
-    the reasoning rule for [triple_let]. Make sure to first state
-    and prove [hoare_let]. *)
-
-(** The starting point is the big-step evaluation rule for a let-binding. *)
+(** Recall the big-step evaluation rule for a let-binding. *)
 
 Parameter red_let : forall s1 s2 s3 x t1 t2 v1 r,
   red s1 t1 s2 v1 ->
@@ -720,6 +900,9 @@ Parameter red_let : forall s1 s2 s3 x t1 t2 v1 r,
   red s1 (trm_let x t1 t2) s3 r.
 
 (* EX1! (triple_let) *)
+(** Following the same proof scheme as for [triple_seq], establish
+    the reasoning rule for [triple_let]. Make sure to first state
+    and prove [hoare_let]. *)
 
 Lemma triple_let : forall x t1 t2 H Q Q1,
   triple t1 H Q1 ->
@@ -734,9 +917,9 @@ Proof using.
     hoare (trm_let x t1 t2) H Q.
   Proof using.
     introv M1 M2 K0.
-    forwards (h1'&v1&R1&K1): (rm M1) K0.
-    forwards (h2'&v2&R2&K2): (rm M2) K1.
-    exists h2' v2. split. { applys red_let R1 R2. } { apply K2. }
+    forwards (s1'&v1&R1&K1): (rm M1) K0.
+    forwards (s2'&v2&R2&K2): (rm M2) K1.
+    exists s2' v2. split. { applys red_let R1 R2. } { apply K2. }
   Qed.
 
   unfold triple. introv M1 M2. intros H'. applys hoare_let.
@@ -762,11 +945,11 @@ Lemma hoare_if : forall b t1 t2 H Q,
   (b = false -> hoare t2 H Q) ->
   hoare (trm_if b t1 t2) H Q.
 Proof using.
-  introv M1 M2. intros h K0. destruct b.
-  { forwards* (h1'&v1&R1&K1): (rm M1) K0.
-    exists h1' v1. split*. { applys* red_if. } }
-  { forwards* (h1'&v1&R1&K1): (rm M2) K0.
-    exists h1' v1. split*. { applys* red_if. } }
+  introv M1 M2. intros s K0. destruct b.
+  { forwards* (s1'&v1&R1&K1): (rm M1) K0.
+    exists s1' v1. split*. { applys* red_if. } }
+  { forwards* (s1'&v1&R1&K1): (rm M2) K0.
+    exists s1' v1. split*. { applys* red_if. } }
 Qed.
 
 Lemma triple_if' : forall b t1 t2 H Q,
@@ -788,9 +971,9 @@ Qed.
     First, we establish a corrolary to [red_if], expressed using a 
     single premise. *)
 
-Lemma red_if_bool_case : forall m1 m2 b r t1 t2,
-  red m1 (if b then t1 else t2) m2 r ->
-  red m1 (trm_if b t1 t2) m2 r.
+Lemma red_if_bool_case : forall s1 s2 b r t1 t2,
+  red s1 (if b then t1 else t2) s2 r ->
+  red s1 (trm_if b t1 t2) s2 r.
 Proof using.
   intros. case_if; applys red_if_bool; auto_false.
 Qed.
@@ -802,9 +985,9 @@ Lemma hoare_if_case : forall (b:bool) t1 t2 H Q,
   hoare (if b then t1 else t2) H Q ->
   hoare (trm_if b t1 t2) H Q.
 Proof using.
-  introv M1. intros h K0. 
-  forwards (h'&v&R1&K1): (rm M1) K0.
-  exists h' v. split. { applys red_if R1. } { applys K1. }
+  introv M1. intros s K0. 
+  forwards (s'&v&R1&K1): (rm M1) K0.
+  exists s' v. split. { applys red_if R1. } { applys K1. }
 Qed.
 
 Lemma triple_if_case : forall b t1 t2 H Q,
@@ -839,8 +1022,8 @@ Lemma hoare_app_fun : forall v1 v2 x t1 H Q,
   hoare (trm_app v1 v2) H Q.
 Proof using.
 (* SOLUTION *)
-  introv E M. intros h K0. forwards (h'&v&R1&K1): (rm M) K0.
-  exists h' v. splits. { applys red_app_fun E R1. } { applys K1. }
+  introv E M. intros s K0. forwards (s'&v&R1&K1): (rm M) K0.
+  exists s' v. splits. { applys red_app_fun E R1. } { applys K1. }
 (* /SOLUTION *)
 Qed.
 
@@ -896,7 +1079,91 @@ Qed.
 
 
 (* ******************************************************* *)
-(** ** Proofs for the specification of primitive operations *)
+(** ** Proofs for the arithmetic primitive operations *)
+
+(* ------------------------------------------------------- *)
+(** *** Addition *)
+
+(** Recall the evaluation rule for addition. *)
+
+Parameter red_add : forall s n1 n2,
+  red s (val_add (val_int n1) (val_int n2)) s (val_int (n1 + n2)).
+
+(** In the proof, we will need to use the following result,
+    established in the first chapter. *)
+
+Parameter hstar_hpure_iff : forall P H h, 
+  (\[P] \* H) h <-> (P /\ H h).
+
+(** As usual, we first establish a Hoare triple. *)
+
+Lemma hoare_add : forall H n1 n2,
+  hoare (val_add n1 n2)
+    H
+    (fun r => \[r = val_int (n1 + n2)] \* H).
+Proof using.
+  intros. intros s K0. exists s (val_int (n1 + n2)). split.
+  { applys red_add. }
+  { rewrite hstar_hpure_iff. split.
+    { auto. }
+    { applys K0. } }
+Qed.
+
+(** Deriving [triple_add] is straightforward. *)
+
+Lemma triple_add : forall n1 n2,
+  triple (val_add n1 n2)
+    \[]
+    (fun r => \[r = val_int (n1 + n2)]).
+Proof using.
+  intros. intros H'. applys hoare_conseq. 
+  { applys hoare_add. } { hsimpl. } { hsimpl. auto. }
+Qed.
+
+
+(* ------------------------------------------------------- *)
+(** *** Division *)
+
+(** Recall the evaluation rule for division. *)
+
+Parameter red_div : forall s n1 n2,
+  n2 <> 0 ->
+  red s (val_div (val_int n1) (val_int n2)) s (val_int (Z.quot n1 n2)).
+
+(* EX1! (triple_div) *)
+(** Following the same proof scheme as for [triple_add], establish
+    the reasoning rule for [triple_div]. Make sure to first state
+    and prove [hoare_div]. *)
+
+Lemma triple_div : forall n1 n2,
+  n2 <> 0 ->
+  triple (val_div n1 n2)
+    \[]
+    (fun r => \[r = val_int (Z.quot n1 n2)]).
+Proof using.
+(* SOLUTION *)
+
+  Lemma hoare_div : forall H n1 n2,
+    n2 <> 0 ->
+    hoare (val_div n1 n2)
+      H
+      (fun r => \[r = val_int (Z.quot n1 n2)] \* H).
+  Proof using.
+    introv N. intros s K0. exists s (val_int (Z.quot n1 n2)). split.
+    { applys red_div N. }
+    { rewrite hstar_hpure_iff. split.
+      { auto. }
+      { applys K0. } }
+  Qed.
+
+  introv N. intros H'. applys hoare_conseq. 
+  { applys hoare_div N. } { hsimpl. } { hsimpl. auto. }
+(* /SOLUTION *)
+Qed.
+
+
+(* ******************************************************* *)
+(** ** Proofs for primitive operations operating on the state *)
 
 (** The proofs for establishing the Separation Logic reasoning rules
     for [ref], [get] and [set] follow a similar proof pattern,
@@ -969,7 +1236,7 @@ Parameter hsingle_inv: forall l v h,
   (l ~~~> v) h ->
   h = fmap_single l v.
 
-Parameter hstar_hpure_iff : forall P H h, 
+Parameter hstar_hpure_iff' : forall P H h, 
   (\[P] \* H) h <-> (P /\ H h).
 
 (** First, we establish the desired result on the [hoare] judgment. *)
