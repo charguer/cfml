@@ -202,7 +202,7 @@ Coercion trm_val : val >-> trm.
 
 Coercion trm_app : trm >-> Funclass.
 
-(** The big-step evaluation judgment takes the form [red s t s' v],
+(** The big-step evaluation judgment takes the form [eval s t s' v],
     describing that, starting from state [s], the evaluation of the 
     term [t] terminates in a state [s'], producing an output value [v].
     
@@ -216,59 +216,59 @@ Coercion trm_app : trm >-> Funclass.
     restriction, because [trm_if t0 t1 t2] can be encoded as 
     [let x = t0 in if x then t1 else t2]. *)
     
-Inductive red : state -> trm -> state -> val -> Prop :=
+Inductive eval : state -> trm -> state -> val -> Prop :=
 
-  (* [red] for values and function definitions *)
+  (* [eval] for values and function definitions *)
 
-  | red_val : forall s v,
-      red s (trm_val v) s v
-  | red_fun : forall s x t1,
-      red s (trm_fun x t1) s (val_fun x t1)
-  | red_fix : forall s f x t1,
-      red s (trm_fix f x t1) s (val_fix f x t1)
+  | eval_val : forall s v,
+      eval s (trm_val v) s v
+  | eval_fun : forall s x t1,
+      eval s (trm_fun x t1) s (val_fun x t1)
+  | eval_fix : forall s f x t1,
+      eval s (trm_fix f x t1) s (val_fix f x t1)
 
-  (* [red] for function applications *)
+  (* [eval] for function applications *)
 
-  | red_app_fun : forall s1 s2 v1 v2 x t1 v,
+  | eval_app_fun : forall s1 s2 v1 v2 x t1 v,
       v1 = val_fun x t1 ->
-      red s1 (subst x v2 t1) s2 v ->
-      red s1 (trm_app v1 v2) s2 v
-  | red_app_fix : forall s1 s2 v1 v2 f x t1 v,
+      eval s1 (subst x v2 t1) s2 v ->
+      eval s1 (trm_app v1 v2) s2 v
+  | eval_app_fix : forall s1 s2 v1 v2 f x t1 v,
       v1 = val_fix f x t1 ->
-      red s1 (subst x v2 (subst f v1 t1)) s2 v ->
-      red s1 (trm_app v1 v2) s2 v
+      eval s1 (subst x v2 (subst f v1 t1)) s2 v ->
+      eval s1 (trm_app v1 v2) s2 v
 
-  (* [red] for structural constructs *)
+  (* [eval] for structural constructs *)
 
-  | red_seq : forall s1 s2 s3 t1 t2 v1 v,
-      red s1 t1 s2 v1 ->
-      red s2 t2 s3 v ->
-      red s1 (trm_seq t1 t2) s3 v
-  | red_let : forall s1 s2 s3 x t1 t2 v1 r, 
-      red s1 t1 s2 v1 ->
-      red s2 (subst x v1 t2) s3 r ->
-      red s1 (trm_let x t1 t2) s3 r
-  | red_if : forall s1 s2 b v t1 t2,
-      (b = true -> red s1 t1 s2 v) ->
-      (b = false -> red s1 t2 s2 v) ->
-      red s1 (trm_if (val_bool b) t1 t2) s2 v
+  | eval_seq : forall s1 s2 s3 t1 t2 v1 v,
+      eval s1 t1 s2 v1 ->
+      eval s2 t2 s3 v ->
+      eval s1 (trm_seq t1 t2) s3 v
+  | eval_let : forall s1 s2 s3 x t1 t2 v1 r, 
+      eval s1 t1 s2 v1 ->
+      eval s2 (subst x v1 t2) s3 r ->
+      eval s1 (trm_let x t1 t2) s3 r
+  | eval_if : forall s1 s2 b v t1 t2,
+      (b = true -> eval s1 t1 s2 v) ->
+      (b = false -> eval s1 t2 s2 v) ->
+      eval s1 (trm_if (val_bool b) t1 t2) s2 v
 
-  (* [red] for primitive operations *)
+  (* [eval] for primitive operations *)
 
-  | red_add : forall s n1 n2,
-      red s (val_add (val_int n1) (val_int n2)) s (val_int (n1 + n2))
-  | red_div : forall s n1 n2,
+  | eval_add : forall s n1 n2,
+      eval s (val_add (val_int n1) (val_int n2)) s (val_int (n1 + n2))
+  | eval_div : forall s n1 n2,
       n2 <> 0 ->
-      red s (val_div (val_int n1) (val_int n2)) s (val_int (Z.quot n1 n2))
-  | red_ref : forall s v l,
+      eval s (val_div (val_int n1) (val_int n2)) s (val_int (Z.quot n1 n2))
+  | eval_ref : forall s v l,
       ~ fmap_indom s l ->
-      red s (val_ref v) (fmap_update s l v) (val_loc l)
-  | red_get : forall s l,
+      eval s (val_ref v) (fmap_update s l v) (val_loc l)
+  | eval_get : forall s l,
       fmap_indom s l ->
-      red s (val_get (val_loc l)) s (fmap_read s l)
-  | red_set : forall s l v,
+      eval s (val_get (val_loc l)) s (fmap_read s l)
+  | eval_set : forall s l v,
       fmap_indom s l ->
-      red s (val_set (val_loc l) v) (fmap_update s l v) val_unit.
+      eval s (val_set (val_loc l) v) (fmap_update s l v) val_unit.
 
 End SyntaxAndSemantics.
 
@@ -747,7 +747,7 @@ Module Proofs.
 [[
       Definition Hoare_triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
         forall s, H s ->
-        exists s' v, red s t s' v /\ Q v s'.
+        exists s' v, eval s t s' v /\ Q v s'.
 ]]
     Concretely, we consider a given initial state [s] satisfying the
     precondition, and we have to provide witnesses for the output
@@ -764,8 +764,8 @@ Module Proofs.
 (** The big-step evaluation rule for values asserts that a value [v]
     evaluates to itself, without modification to the current state [s]. *)
 
-Parameter red_val : forall s v,
-  red s v s v.
+Parameter eval_val : forall s v,
+  eval s v s v.
 
 (** The Hoare version of the reasoning rule for values is as follows. *)
 
@@ -779,7 +779,7 @@ Proof using.
         These witnesses are dictated by the statement of [red_val]. *)
   exists s v. splits.
   { (* 3. We invoke the big-step rule [red_val] *)
-    applys red_val. }
+    applys eval_val. }
   { (* 4. We establish the postcondition, exploiting the entailment hypothesis. *)
     applys M. auto. }
 Qed.
@@ -807,7 +807,7 @@ Lemma hoare_val' : forall v H Q,
   hoare (trm_val v) H Q.
 Proof using.
   introv M. intros h Hh. exists __ __. split.
-  { applys red_val. }
+  { applys eval_val. }
   { applys* M. }
 Qed.
 
@@ -829,10 +829,10 @@ Qed.
 
 (** The big-step evaluation rule for a sequence is given next. *)
 
-Parameter red_seq : forall s1 s2 s3 t1 t2 r1 r,
-  red s1 t1 s2 r1 ->
-  red s2 t2 s3 r ->
-  red s1 (trm_seq t1 t2) s3 r.
+Parameter eval_seq : forall s1 s2 s3 t1 t2 r1 r,
+  eval s1 t1 s2 r1 ->
+  eval s2 t2 s3 r ->
+  eval s1 (trm_seq t1 t2) s3 r.
 
 (** The Hoare triple version of the reasoning rule is proved as follows. *)
 
@@ -857,7 +857,7 @@ Proof using.
         They correspond to those produced by the evaluation of [t2]. *)
   exists s2' v2. split.
   { (* 5. We invoke the big-step rule. *) 
-    applys red_seq R1 R2. } 
+    applys eval_seq R1 R2. } 
   { (* 6. We establish the final postcondition, which is directly 
        inherited from the reasoning on [t2]. *) 
     apply K2. }
@@ -895,10 +895,10 @@ Qed.
 
 (** Recall the big-step evaluation rule for a let-binding. *)
 
-Parameter red_let : forall s1 s2 s3 x t1 t2 v1 r,
-  red s1 t1 s2 v1 ->
-  red s2 (subst x v1 t2) s3 r ->
-  red s1 (trm_let x t1 t2) s3 r.
+Parameter eval_let : forall s1 s2 s3 x t1 t2 v1 r,
+  eval s1 t1 s2 v1 ->
+  eval s2 (subst x v1 t2) s3 r ->
+  eval s1 (trm_let x t1 t2) s3 r.
 
 (* EX1! (triple_let) *)
 (** Following the same proof scheme as for [triple_seq], establish
@@ -914,7 +914,7 @@ Proof using.
   introv M1 M2 K0.
   forwards (s1'&v1&R1&K1): (rm M1) K0.
   forwards (s2'&v2&R2&K2): (rm M2) K1.
-  exists s2' v2. split. { applys red_let R1 R2. } { apply K2. }
+  exists s2' v2. split. { applys eval_let R1 R2. } { apply K2. }
 Qed.
 
 Lemma triple_let : forall x t1 t2 H Q Q1,
@@ -935,10 +935,10 @@ Qed.
 
 (** The treatment of conditional can be handled in a similar way. *)
 
-Parameter red_if_bool : forall s1 s2 b r t1 t2,
-  (b = true -> red s1 t1 s2 r) ->
-  (b = false -> red s1 t2 s2 r) ->
-  red s1 (trm_if b t1 t2) s2 r.
+Parameter eval_if_bool : forall s1 s2 b r t1 t2,
+  (b = true -> eval s1 t1 s2 r) ->
+  (b = false -> eval s1 t2 s2 r) ->
+  eval s1 (trm_if b t1 t2) s2 r.
 
 Lemma hoare_if : forall b t1 t2 H Q,
   (b = true -> hoare t1 H Q) ->
@@ -947,9 +947,9 @@ Lemma hoare_if : forall b t1 t2 H Q,
 Proof using.
   introv M1 M2. intros s K0. destruct b.
   { forwards* (s1'&v1&R1&K1): (rm M1) K0.
-    exists s1' v1. split*. { applys* red_if. } }
+    exists s1' v1. split*. { applys* eval_if. } }
   { forwards* (s1'&v1&R1&K1): (rm M2) K0.
-    exists s1' v1. split*. { applys* red_if. } }
+    exists s1' v1. split*. { applys* eval_if. } }
 Qed.
 
 Lemma triple_if' : forall b t1 t2 H Q,
@@ -971,11 +971,11 @@ Qed.
     First, we establish a corrolary to [red_if], expressed using a 
     single premise. *)
 
-Lemma red_if_bool_case : forall s1 s2 b r t1 t2,
-  red s1 (if b then t1 else t2) s2 r ->
-  red s1 (trm_if b t1 t2) s2 r.
+Lemma eval_if_bool_case : forall s1 s2 b r t1 t2,
+  eval s1 (if b then t1 else t2) s2 r ->
+  eval s1 (trm_if b t1 t2) s2 r.
 Proof using.
-  intros. case_if; applys red_if_bool; auto_false.
+  intros. case_if; applys eval_if_bool; auto_false.
 Qed.
 
 (** Then, we are able to establish the Hoare triple and the Separation
@@ -987,7 +987,7 @@ Lemma hoare_if_case : forall (b:bool) t1 t2 H Q,
 Proof using.
   introv M1. intros s K0. 
   forwards (s'&v&R1&K1): (rm M1) K0.
-  exists s' v. split. { applys red_if R1. } { applys K1. }
+  exists s' v. split. { applys eval_if R1. } { applys K1. }
 Qed.
 
 Lemma triple_if_case : forall b t1 t2 H Q,
@@ -1009,10 +1009,10 @@ Qed.
     This result follows directly from the big-step evaluation rule
     for applications. *)
 
-Parameter red_app_fun : forall s1 s2 v1 v2 x t1 r,
+Parameter eval_app_fun : forall s1 s2 v1 v2 x t1 r,
   v1 = val_fun x t1 ->
-  red s1 (subst x v2 t1) s2 r ->
-  red s1 (trm_app v1 v2) s2 r.
+  eval s1 (subst x v2 t1) s2 r ->
+  eval s1 (trm_app v1 v2) s2 r.
 
 (* EX2! (hoare_app_fun) *)
 
@@ -1023,7 +1023,7 @@ Lemma hoare_app_fun : forall v1 v2 x t1 H Q,
 Proof using.
 (* SOLUTION *)
   introv E M. intros s K0. forwards (s'&v&R1&K1): (rm M) K0.
-  exists s' v. splits. { applys red_app_fun E R1. } { applys K1. }
+  exists s' v. splits. { applys eval_app_fun E R1. } { applys K1. }
 (* /SOLUTION *)
 Qed.
 
@@ -1049,7 +1049,7 @@ Qed.
     valid for [t1] is also valid for [t2]. *)
 
 Lemma hoare_same_semantics : forall t1 t2 H Q,
-  (forall s s' r, red s t1 s' r -> red s t2 s' r) ->
+  (forall s s' r, eval s t1 s' r -> eval s t2 s' r) ->
   hoare t1 H Q ->
   hoare t2 H Q.
 Proof using.
@@ -1058,7 +1058,7 @@ Proof using.
 Qed.
 
 Lemma triple_same_semantics : forall t1 t2 H Q,
-  (forall s s' r, red s t1 s' r -> red s t2 s' r) ->
+  (forall s s' r, eval s t1 s' r -> eval s t2 s' r) ->
   triple t1 H Q ->
   triple t2 H Q.
 Proof using.
@@ -1074,7 +1074,7 @@ Lemma triple_app_fun' : forall x v1 v2 t1 H Q,
   triple (trm_app v1 v2) H Q.
 Proof using.
   introv E M1. applys triple_same_semantics M1.
-  introv R. applys red_app_fun E R.
+  introv R. applys eval_app_fun E R.
 Qed.
 
 
@@ -1086,8 +1086,8 @@ Qed.
 
 (** Recall the evaluation rule for addition. *)
 
-Parameter red_add : forall s n1 n2,
-  red s (val_add (val_int n1) (val_int n2)) s (val_int (n1 + n2)).
+Parameter eval_add : forall s n1 n2,
+  eval s (val_add (val_int n1) (val_int n2)) s (val_int (n1 + n2)).
 
 (** In the proof, we will need to use the following result,
     established in the first chapter. *)
@@ -1103,7 +1103,7 @@ Lemma hoare_add : forall H n1 n2,
     (fun r => \[r = val_int (n1 + n2)] \* H).
 Proof using.
   intros. intros s K0. exists s (val_int (n1 + n2)). split.
-  { applys red_add. }
+  { applys eval_add. }
   { rewrite hstar_hpure_iff. split.
     { auto. }
     { applys K0. } }
@@ -1126,9 +1126,9 @@ Qed.
 
 (** Recall the evaluation rule for division. *)
 
-Parameter red_div : forall s n1 n2,
+Parameter eval_div : forall s n1 n2,
   n2 <> 0 ->
-  red s (val_div (val_int n1) (val_int n2)) s (val_int (Z.quot n1 n2)).
+  eval s (val_div (val_int n1) (val_int n2)) s (val_int (Z.quot n1 n2)).
 
 (* EX1! (triple_div) *)
 (** Following the same proof scheme as for [triple_add], establish
@@ -1143,7 +1143,7 @@ Lemma hoare_div : forall H n1 n2,
     (fun r => \[r = val_int (Z.quot n1 n2)] \* H).
 Proof using.
   introv N. intros s K0. exists s (val_int (Z.quot n1 n2)). split.
-  { applys red_div N. }
+  { applys eval_div N. }
   { rewrite hstar_hpure_iff. split.
     { auto. }
     { applys K0. } }
@@ -1188,9 +1188,9 @@ Qed.
     domain of the current state [s], and returns the result of
     reading in [s] at location [l]. *)
 
-Parameter red_get : forall s l,
+Parameter eval_get : forall s l,
   fmap_indom s l ->
-  red s (val_get (val_loc l)) s (fmap_read s l).
+  eval s (val_get (val_loc l)) s (fmap_read s l).
 
 (** We reformulate this rule by isolating from the current state [s]
     the singleon heap made of the cell at location [l], and let [s2]
@@ -1198,16 +1198,16 @@ Parameter red_get : forall s l,
     as [fmap_single l v], then [v] is the result value returned by
     [get l]. *)
 
-Lemma red_get_sep : forall s s2 l v, 
+Lemma eval_get_sep : forall s s2 l v, 
   s = (fmap_single l v) \u s2 ->
-  red s (val_get (val_loc l)) s v.
+  eval s (val_get (val_loc l)) s v.
 
 (** The proof of this lemma is of little interest. We show it only to
    demonstrate that it relies only a basic facts related to finite maps. *)
 
 Proof using.
   introv ->. forwards Dv: fmap_indom_single l v.
-  applys_eq red_get 1.
+  applys_eq eval_get 1.
   { applys~ fmap_indom_union_l. }
   { rewrite~ fmap_read_union_l. rewrite~ fmap_read_single. }
 Qed.
@@ -1258,7 +1258,7 @@ Proof using.
     (*    and subsequently inverting [(l ~~~> v) h1]. *)
     lets E1: hsingle_inv P1. subst s1.
     (* 4. At this point, the goal matches exactly [red_get_sep]. *)
-    applys red_get_sep U. }
+    applys eval_get_sep U. }
   { (* 5. To establish the postcondition, we reuse justify the
           pure fact \[v = v], and check that the state, which
           has not changed, satisfy the same heap predicate as
@@ -1287,24 +1287,24 @@ Qed.
     state [s] by re-binding the location [l] to the value [v].
     The location [l] must already belong to the domain of [s]. *)
 
-Parameter red_set : forall m l v,
+Parameter eval_set : forall m l v,
    fmap_indom m l ->
-   red m (val_set (val_loc l) v) (fmap_update m l v) val_unit.
+   eval m (val_set (val_loc l) v) (fmap_update m l v) val_unit.
 
 (** As for [get], we first reformulate this lemma, to replace 
    references to [fmap_indom] and [fmap_update] with references
    to [fmap_union], [fmap_single], and [fmap_disjoint], to
    prepare for the introduction of separating conjuntions. *)
 
-Lemma red_set_sep : forall s1 s2 h2 l v1 v2,
+Lemma eval_set_sep : forall s1 s2 h2 l v1 v2,
   s1 = fmap_union (fmap_single l v1) h2 ->
   s2 = fmap_union (fmap_single l v2) h2 ->
   fmap_disjoint (fmap_single l v1) h2 ->
-  red s1 (val_set (val_loc l) v2) s2 val_unit.
+  eval s1 (val_set (val_loc l) v2) s2 val_unit.
 Proof using.
   (** It is not needed to follow through this proof. *)
   introv -> -> D. forwards Dv: fmap_indom_single l v1.
-  applys_eq red_set 2.
+  applys_eq eval_set 2.
   { applys~ fmap_indom_union_l. }
   { rewrite~ fmap_update_union_l. fequals.
     rewrite~ fmap_update_single. }
@@ -1348,7 +1348,7 @@ Proof using.
   (* 4. We provide the witnesses as guided by [red_set_sep]. *)
   exists ((fmap_single l w) \u h2) val_unit. split.
   { (* 5. The evaluation subgoal matches the statement of [red_set_sep]. *)
-    subst h1. applys red_set_sep U D. auto. }
+    subst h1. applys eval_set_sep U D. auto. }
   { (* 6. To establish the postcondition, we first isolate the pure fact. *)
     rewrite hstar_hpure. split.
     { auto. }
@@ -1387,9 +1387,9 @@ Qed.
     state [s] with an extra binding from [l] to [v], for some
     fresh location [l]. *)
 
-Parameter red_ref : forall s v l,
+Parameter eval_ref : forall s v l,
   ~ fmap_indom s l ->
-  red s (val_ref v) (fmap_update s l v) (val_loc l).
+  eval s (val_ref v) (fmap_update s l v) (val_loc l).
 
 (** Let us reformulate [red_ref] to replace references to [fmap_indom]
     and [fmap_update] with references to [fmap_single] and [fmap_disjoint].
@@ -1397,14 +1397,14 @@ Parameter red_ref : forall s v l,
     where [s2] denotes the singleton heap [fmap_single l v], and with
     the requirement that [fmap_disjoint s2 s1], to capture freshness. *)
 
-Lemma red_ref_sep : forall s1 s2 v l,
+Lemma eval_ref_sep : forall s1 s2 v l,
   s2 = fmap_single l v ->
   fmap_disjoint s2 s1 ->
-  red s1 (val_ref v) (fmap_union s2 s1) (val_loc l).
+  eval s1 (val_ref v) (fmap_union s2 s1) (val_loc l).
 Proof using.
   (** It is not needed to follow through this proof. *)
   introv -> D. forwards Dv: fmap_indom_single l v.
-  rewrite <- fmap_update_eq_union_single. applys~ red_ref.
+  rewrite <- fmap_update_eq_union_single. applys~ eval_ref.
   { intros N. applys~ fmap_disjoint_inv_not_indom_both D N. }
 Qed.
 
@@ -1445,7 +1445,7 @@ Proof using.
         as dictated by [red_ref_sep]. *)
   exists ((fmap_single l v) \u s1) (val_loc l). split.
   { (* 4. We exploit [red_ref_sep], which has exactly the desired shape! *)
-    applys red_ref_sep D. auto. }
+    applys eval_ref_sep D. auto. }
   { (* 5. We establish the postcondition 
        [(\exists l, \[r = val_loc l] \* l ~~~> v) \* H]
        by providing [p] and the relevant pieces of heap. *)

@@ -1093,7 +1093,7 @@ Qed.
     Technical remark: the previous remark can be mitigated. If we expose 
     that [triple t H Q <-> triple t' H Q] holds whenever [t] and [t']
     are observationally equivalent (with respect to the semantics 
-    defined by [red]), and if we are able to prove that [let x = t in x]
+    defined by [eval]), and if we are able to prove that [let x = t in x]
     is observationally equivalent to [t] for some fresh variable x,
     then it is possible to prove that [triple_htop_post] is derivable
     from [triple_htop_pre]. (At a high-level, the postcondition of [t]

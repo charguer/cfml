@@ -47,82 +47,82 @@ Local Open Scope fmap_scope.
 Implicit Types t : trm.
 Implicit Types v : val.
 
-Inductive red : nat -> state -> trm -> state -> val -> Prop :=
-  | red_val : forall m v,
-      red 0 m (trm_val v) m v
-  | red_fix : forall m f x t1,
-      red 0 m (trm_fix f x t1) m (val_fix f x t1)
-  | red_if : forall n1 n2 m1 m2 m3 b r t0 t1 t2,
-      red n1 m1 t0 m2 (val_bool b) ->
-      red n2 m2 (if b then t1 else t2) m3 r ->
-      red (n1+n2) m1 (trm_if t0 t1 t2) m3 r
-  | red_let : forall n1 n2 m1 m2 m3 z t1 t2 v1 r,
-      red n1 m1 t1 m2 v1 ->
-      red n2 m2 (subst1 z v1 t2) m3 r ->
-      red (n1+n2) m1 (trm_let z t1 t2) m3 r
-  | red_app_arg : forall n1 n2 n3 m1 m2 m3 m4 t1 t2 v1 v2 f x t r,
-      red n1 m1 t1 m2 v1 ->
-      red n2 m2 t2 m3 v2 ->
+Inductive eval : nat -> state -> trm -> state -> val -> Prop :=
+  | eval_val : forall m v,
+      eval 0 m (trm_val v) m v
+  | eval_fix : forall m f x t1,
+      eval 0 m (trm_fix f x t1) m (val_fix f x t1)
+  | eval_if : forall n1 n2 m1 m2 m3 b r t0 t1 t2,
+      eval n1 m1 t0 m2 (val_bool b) ->
+      eval n2 m2 (if b then t1 else t2) m3 r ->
+      eval (n1+n2) m1 (trm_if t0 t1 t2) m3 r
+  | eval_let : forall n1 n2 m1 m2 m3 z t1 t2 v1 r,
+      eval n1 m1 t1 m2 v1 ->
+      eval n2 m2 (subst1 z v1 t2) m3 r ->
+      eval (n1+n2) m1 (trm_let z t1 t2) m3 r
+  | eval_app_arg : forall n1 n2 n3 m1 m2 m3 m4 t1 t2 v1 v2 f x t r,
+      eval n1 m1 t1 m2 v1 ->
+      eval n2 m2 t2 m3 v2 ->
       v1 = val_fix f x t ->
-      red n3 m3 (subst2 f v1 x v2 t) m4 r ->
-      red (n1+n2+n3+1) m1 (trm_app t1 t2) m4 r
-  | red_ref : forall m v l,
+      eval n3 m3 (subst2 f v1 x v2 t) m4 r ->
+      eval (n1+n2+n3+1) m1 (trm_app t1 t2) m4 r
+  | eval_ref : forall m v l,
       ~ fmap_indom m l ->
       l <> null ->
-      red 0 m (val_ref v) (fmap_update m l v) (val_loc l)
-  | red_get : forall m l,
+      eval 0 m (val_ref v) (fmap_update m l v) (val_loc l)
+  | eval_get : forall m l,
       fmap_indom m l ->
-      red 0 m (val_get (val_loc l)) m (fmap_read m l)
-  | red_set : forall m l v,
+      eval 0 m (val_get (val_loc l)) m (fmap_read m l)
+  | eval_set : forall m l v,
       fmap_indom m l ->
-      red 0 m (val_set (val_loc l) v) (fmap_update m l v) val_unit.
+      eval 0 m (val_set (val_loc l) v) (fmap_update m l v) val_unit.
 
-Hint Resolve red_val.
+Hint Resolve eval_val.
 
-Lemma red_app_fix_val : forall n m1 m2 v1 v2 f x t r,
+Lemma eval_app_fix_val : forall n m1 m2 v1 v2 f x t r,
   v1 = val_fix f x t ->
-  red n m1 (subst2 f v1 x v2 t) m2 r ->
-  red (n+1) m1 (trm_app v1 v2) m2 r.
+  eval n m1 (subst2 f v1 x v2 t) m2 r ->
+  eval (n+1) m1 (trm_app v1 v2) m2 r.
 Proof using.
   introv E M. subst. applys equates_5.
-  applys* red_app_arg. math.
-  (* TODO here and above applys_eq 5 red_app. *)
+  applys* eval_app_arg. math.
+  (* TODO here and above applys_eq 5 eval_app. *)
 Qed.
 
 
-Lemma red_ref_sep : forall s1 s2 v l,
+Lemma eval_ref_sep : forall s1 s2 v l,
   l <> null ->
   s2 = fmap_single l v ->
   fmap_disjoint s2 s1 ->
-  red 0 s1 (val_ref v) (fmap_union s2 s1) (val_loc l).
+  eval 0 s1 (val_ref v) (fmap_union s2 s1) (val_loc l).
 Proof using.
   introv Nl -> D. forwards Dv: fmap_indom_single l v.
-  rewrite <- fmap_update_eq_union_single. applys~ red_ref.
+  rewrite <- fmap_update_eq_union_single. applys~ eval_ref.
   { intros N. applys~ fmap_disjoint_inv_not_indom_both D N. }
 Qed.
 
-Lemma red_get_sep : forall s s1 s2 l v, 
+Lemma eval_get_sep : forall s s1 s2 l v, 
   s = fmap_union s1 s2 ->
   fmap_disjoint s1 s2 ->
   s1 = fmap_single l v ->
-  red 0 s (val_get (val_loc l)) s v.
+  eval 0 s (val_get (val_loc l)) s v.
 Proof using.
   introv -> D ->. forwards Dv: fmap_indom_single l v.
-  applys_eq red_get 1.
+  applys_eq eval_get 1.
   { applys~ fmap_indom_union_l. }
   { rewrite~ fmap_read_union_l. rewrite~ fmap_read_single. }
 Qed.
 
-Lemma red_set_sep : forall s s' h1 h1' h2 l v v',
+Lemma eval_set_sep : forall s s' h1 h1' h2 l v v',
   s = fmap_union h1 h2 ->
   s' = fmap_union h1' h2 ->
   fmap_disjoint h1 h2 ->
   h1 = fmap_single l v ->
   h1' = fmap_single l v' ->
-  red 0 s (val_set (val_loc l) v') s' val_unit.
+  eval 0 s (val_set (val_loc l) v') s' val_unit.
 Proof using.
   introv -> -> D -> ->. forwards Dv: fmap_indom_single l v.
-  applys_eq red_set 2.
+  applys_eq eval_set 2.
   { applys~ fmap_indom_union_l. }
   { rewrite~ fmap_update_union_l. fequals.
     rewrite~ fmap_update_single. }
@@ -678,7 +678,7 @@ End Credits.
 (* ** Tactics for reductions *)
 
 Ltac fmap_red_base tt ::=
-  match goal with H: red _ _ ?t _ _ |- red _ _ ?t _ _ =>
+  match goal with H: eval _ _ ?t _ _ |- eval _ _ ?t _ _ =>
     applys_eq H 2 4; try fmap_eq end.
 
 
@@ -698,7 +698,7 @@ Definition triple t H Q :=
   forall H' h,
   (H \* H') h ->
   exists n h' v,
-       red n (h^s) t (h'^s) v
+       eval n (h^s) t (h'^s) v
     /\ (Q v \* \GC \* H') h'
     /\ (h^c = n + h'^c).
 
@@ -710,7 +710,7 @@ Lemma triple_hcredits_haffine_post : forall t n Q,
   triple t (\$ n) Q ->
   haffine_post Q ->
   exists n' h v,
-     red n' fmap_empty t (h^s) v
+     eval n' fmap_empty t (h^s) v
   /\ (Q v \* \GC) h
   /\ ((n':int) <= n).
 Proof using.
@@ -842,7 +842,7 @@ Lemma triple_val : forall v H Q,
   triple (trm_val v) H Q.
 Proof using.
   introv M. intros HF h N. exists 0%nat h v. splits~.
-  { applys red_val. }
+  { applys eval_val. }
   { hhsimpl. hchanges M. }
 Qed.
 
@@ -851,7 +851,7 @@ Lemma triple_fix : forall f x t1 H Q,
   triple (trm_fix f x t1) H Q.
 Proof using.
   introv M. intros HF h N. exists___. splits.
-  { applys red_fix. }
+  { applys eval_fix. }
   { hhsimpl. hchanges M. }
   { math. }
 Qed.
@@ -872,7 +872,7 @@ Proof using.
   tests C: (is_val_bool v).
   { destruct C as (b&E). subst. forwards* (n'&h'&v'&R&K&C2): (rm M2) h1'.
     exists (n+n')%nat h' v'. splits~.
-    { applys* red_if. }
+    { applys* eval_if. }
     { rewrite <- hstar_hgc_hgc. rew_heap~. }
     { math. } }
   { false hprop_extract_hfalse K1. applys~ M3. }
@@ -898,7 +898,7 @@ Proof using.
   lets~ (n1&h1'&v1&R1&K1&C1): (rm M1) HF h.
   forwards* (n2&h2'&v2&R2&K2&C2): (rm M2) (\GC \* HF) h1'.
   exists (n1+n2)%nat h2' v2. splits~.
-  { applys~ red_let R2. }
+  { applys~ eval_let R2. }
   { rewrite <- hstar_hgc_hgc. hhsimpl. }
   { math. }
 Qed.
@@ -927,7 +927,7 @@ Proof using.
   destruct h1 as [n1 c1]. simpls. subst. simpls.
   lets~ (n&h'&v&R&K&C): (rm M) HF h2.
   exists (n+1)%nat h' v. splits~.
-  { applys* red_app_fix_val. fmap_red~. }
+  { applys* eval_app_fix_val. fmap_red~. }
   { math. }
 Qed.
 
@@ -943,7 +943,7 @@ Proof using.
   forwards~ (l&Dl&Nl): (fmap_single_fresh null (h^s) v).
   sets m1': (fmap_single l v).
   exists 0%nat ((m1' \+ h^s),h^c) (val_loc l). splits~.
-  { applys~ red_ref_sep. }
+  { applys~ eval_ref_sep. }
   { exists (m1',0) h. split.
     { exists l. applys~ himpl_hstar_hpure_r. unfold m1'. hnfs~. }
     { splits~. hhsimpl~. } }
@@ -958,7 +958,7 @@ Proof using.
   destruct N as (h1&h2&(N1a&N1b)&N2&N3&N4).
   forwards (E1&E2): heap_eq_forward (rm N4). simpls.
   exists 0%nat h v. splits~.
-  { applys* red_get_sep. }
+  { applys* eval_get_sep. }
   { rew_heap. rewrite hstar_hpure. split~. hhsimpl~. }
 Qed.
 
@@ -971,7 +971,7 @@ Proof using.
   forwards (E1&E2): heap_eq_forward (rm N4). simpls.
   sets m1': (fmap_single l w).
   exists 0%nat ((m1' \+ h2^s), h2^c) val_unit. splits~.
-  { applys* red_set_sep. }
+  { applys* eval_set_sep. }
   { rew_heap. rewrite hstar_hpure. split~.
     { exists (m1',0) h2. splits~.
       { hnfs~. }
@@ -994,7 +994,7 @@ Definition triple' (t:trm) (H:hprop) (Q:val->hprop) :=
   forall H' m c,
   (H \* H') (m, c) ->
   exists n m' c' v,
-       red n m t m' v
+       eval n m t m' v
     /\ (Q v \* \GC \* H') (m', c')
     /\ (c = n + c').
 
@@ -1020,7 +1020,7 @@ Definition triple'' t H Q :=
   H (m1,c1) ->
   exists n m1' m3' c1' v,
        fmap_disjoint_3 m1' m3' m2
-    /\ red n (m1 \+ m2) t (m1' \+ m3' \+ m2) v
+    /\ eval n (m1 \+ m2) t (m1' \+ m3' \+ m2) v
     /\ (Q v) (m1',c1')
     /\ (c1 >= n + c1').
 

@@ -862,19 +862,19 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Tactic [fmap_red] for proving [red] goals
+(* ** Tactic [fmap_red] for proving [eval] goals
       (reduction according to a big-step semantics)
       modulo equalities between fmaps *)
 
-(** [fmap_red] proves a goal of the form [red h1 t h2 v]
-    using an hypothesis of the shape [red h1' t h2' v],
+(** [fmap_red] proves a goal of the form [eval h1 t h2 v]
+    using an hypothesis of the shape [eval h1' t h2' v],
     generating [h1 = h1'] and [h2 = h2'] as subgoals, and
     attempting to solve them using the tactic [fmap_eq].
-    The tactic should be configured depending on [red].
+    The tactic should be configured depending on [eval].
     For example:
 
        Ltac fmap_red_base tt :=
-        match goal with H: red _ ?t _ _ |- red _ ?t _ _ =>
+        match goal with H: eval _ ?t _ _ |- eval _ ?t _ _ =>
           applys_eq H 2 4; try fmap_eq end.
 
     The default implementation is a dummy one.

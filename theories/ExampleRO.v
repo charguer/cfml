@@ -30,7 +30,7 @@ Lemma triple_apps_funs : forall xs F (Vs:vals) t1 H Q,
 Proof using.
   introv E N M. intros h1 h2 D H1.
   forwards~ (h1'&v&N1&N2&N3&N4): (rm M) h2 H1.
-  exists h1' v. splits~. { subst. applys* red_app_funs_val. }
+  exists h1' v. splits~. { subst. applys* eval_app_funs_val. }
 Qed.
 
 Lemma var_funs_exec_elim : forall (n:nat) xs,

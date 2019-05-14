@@ -347,7 +347,7 @@ Definition triple (t:trm) (H:hprop) (Q:val->hprop) :=
   forall H' h,
   (H \* H') h ->
   exists h' v,
-       red h t h' v
+       eval h t h' v
     /\ (Q v \* \Top \* H') h'.
 
 
@@ -471,7 +471,7 @@ Lemma triple_val : forall v H Q,
   triple (trm_val v) H Q.
 Proof using.
   introv M. intros HF h N. exists h v. splits.
-  { applys red_val. }
+  { applys eval_val. }
   { hhsimpl. hchanges M. }
 Qed.
 
@@ -481,7 +481,7 @@ Lemma triple_fun : forall x t1 H Q,
   triple (trm_fun x t1) H Q.
 Proof using.
   introv M. intros HF h N. exists___. splits.
-  { applys red_fun. }
+  { applys eval_fun. }
   { hhsimpl. hchanges M. }
 Qed.
 *)
@@ -491,7 +491,7 @@ Lemma triple_fix : forall f x t1 H Q,
   triple (trm_fix f x t1) H Q.
 Proof using.
   introv M. intros HF h N. exists___. splits.
-  { applys red_fix. }
+  { applys eval_fix. }
   { hhsimpl. hchanges M. }
 Qed.
 
@@ -516,7 +516,7 @@ Proof using.
   tests C: (is_val_bool v).
   { destruct C as (b&E). subst. forwards* (h'&v'&R&K): (rm M2) h1'.
     exists h' v'. splits~.
-    { applys* red_if_trm. }
+    { applys* eval_if_trm. }
     { rewrite <- hstar_htop_htop. rew_heap~. } }
   { false hprop_extract_hfalse K1. applys~ M3. }
 Qed.
@@ -541,7 +541,7 @@ Proof using.
   lets~ (h1'&v1&R1&K1): (rm M1) HF h.
   subst. forwards* (h2'&v2&R2&K2): (rm M2) (\Top \* HF) h1'.
   exists h2' v2. splits~.
-  { applys~ red_seq R1 R2. }
+  { applys~ eval_seq R1 R2. }
   { rewrite <- hstar_htop_htop. hhsimpl. }
 Qed.
 
@@ -554,7 +554,7 @@ Proof using.
   lets~ (h1'&v1&R1&K1): (rm M1) HF h.
   forwards* (h2'&v2&R2&K2): (rm M2) (\Top \* HF) h1'.
   exists h2' v2. splits~.
-  { applys~ red_let_trm R2. }
+  { applys~ eval_let_trm R2. }
   { rewrite <- hstar_htop_htop. hhsimpl. }
 Qed.
 
@@ -567,7 +567,7 @@ Lemma triple_while_raw : forall t1 t2 H Q,
   triple (trm_while t1 t2) H Q.
 Proof using.
   introv M. intros H' h Hf. forwards (h'&v&R&K): (rm M) Hf.
-  exists h' v. splits~. { applys* red_while. }
+  exists h' v. splits~. { applys* eval_while. }
 Qed.
 
 Lemma triple_while : forall t1 t2 H Q,
@@ -603,7 +603,7 @@ Lemma triple_for_raw : forall (x:var) (n1 n2:int) t3 H (Q:val->hprop),
   triple (trm_for x n1 n2 t3) H Q.
 Proof using.
   introv M. intros H' h Hf. forwards (h'&v&R&K): (rm M) Hf.
-  exists h' v. splits~. { applys~ red_for. }
+  exists h' v. splits~. { applys~ eval_for. }
 Qed.
 
 (* LATER: simplify proof using triple_for_raw *)
@@ -613,7 +613,7 @@ Lemma triple_for_gt : forall x n1 n2 t3 H Q,
   triple (trm_for x n1 n2 t3) H Q.
 Proof using.
   introv N M. intros H' h Hf. exists h val_unit. splits~.
-  { applys* red_for_gt. }
+  { applys* eval_for_gt. }
   { hhsimpl. hchanges~ M. }
 Qed.
 
@@ -627,7 +627,7 @@ Proof using.
   introv N M1 M2. intros HF h Hf. forwards (h1'&v1&R1&K1): (rm M1) Hf.
   forwards* (h2'&v2&R2&K2): (rm M2) (\Top \* HF) h1'.
   exists h2' v2. splits~.
-  { applys* red_for_le. }
+  { applys* eval_for_le. }
   { rewrite <- hstar_htop_htop. hhsimpl. }
 Qed.
 
@@ -685,7 +685,7 @@ Proof using.
   rewrite <- (hstar_assoc \Top \Top) in K2. rewrite hstar_htop_htop in K2.
   forwards* (h'&v'&R'&K'): ((rm M3) v2) h2'.
   exists h' v'. splits~.
-  { applys* red_for_arg. }
+  { applys* eval_for_arg. }
   { rewrite <- hstar_htop_htop. rew_heap~. }
 Qed.
 *)
@@ -714,7 +714,7 @@ Proof using. (* might be simplified using triple_for_trm *)
     { destruct C2 as (n2&E). subst.
       forwards* (h'&v'&R'&K'): ((rm M3) n2) h2'.
       exists h' v'. splits~.
-      { applys* red_for_arg. }
+      { applys* eval_for_arg. }
       { rewrite <- hstar_htop_htop. rew_heap~. } }
     { specializes nQ2 C2.
       asserts Z: ((\[False] \* \Top \* HF) h2').
@@ -744,7 +744,7 @@ Proof using.
   forwards~ (l&Dl&Nl): (fmap_single_fresh null h v).
   sets h1': (fmap_single l v).
   exists (h1' \u h) (val_loc l). splits~.
-  { applys~ red_ref_sep. }
+  { applys~ eval_ref_sep. }
   { exists h1' h. split.
     { exists l. applys~ himpl_hstar_hpure_r. unfold h1'. hnfs~. }
     { splits~. hhsimpl~. } }
@@ -756,7 +756,7 @@ Lemma triple_get : forall v l,
     (fun x => \[x = v] \* (l ~~~> v)).
 Proof using.
   intros. intros HF h N. exists h v. splits~.
-  { destruct N as (?&?&(?&?)&?&?&?). subst. applys~ red_get_sep. }
+  { destruct N as (?&?&(?&?)&?&?&?). subst. applys~ eval_get_sep. }
   { rew_heap. rewrite hstar_hpure. split~. hhsimpl~. }
 Qed.
 
@@ -768,7 +768,7 @@ Proof using.
   intros. intros HF h N. destruct N as (h1&h2&(N0&N1)&N2&N3&N4).
   hnf in N1. sets h1': (fmap_single l w).
   exists (h1' \u h2) val_unit. splits~.
-  { applys red_set_sep; eauto. }
+  { applys eval_set_sep; eauto. }
   { rew_heap. rewrite hstar_hpure. split~. exists h1' h2. splits~.
     { hnfs~. }
     { hhsimpl~. }
@@ -795,7 +795,7 @@ Proof using. (* Note: [abs n] currently does not compute in Coq. *)
   forwards~ (l&Dl&Nl): (fmap_conseq_fresh null h (abs n) val_unit).
   sets h1': (fmap_conseq l (abs n) val_unit).
   exists (h1' \u h) (val_loc l). splits~.
-  { applys (red_alloc (abs n)); eauto.
+  { applys (eval_alloc (abs n)); eauto.
     rewrite~ abs_nonneg. }
   { exists h1' h. split.
     { exists l. applys~ himpl_hstar_hpure_r. applys~ Alloc_fmap_conseq. }
@@ -814,7 +814,7 @@ Lemma triple_eq : forall v1 v2,
     (fun r => \[r = isTrue (v1 = v2)]).
 Proof using.
   introv Hh. exists___. splits.
-  { applys* red_binop. applys* redbinop_eq. }
+  { applys* eval_binop. applys* redbinop_eq. }
   { hhsimpl~. }
 Qed.
 
@@ -824,7 +824,7 @@ Lemma triple_add : forall n1 n2,
     (fun r => \[r = val_int (n1 + n2)]).
 Proof using.
   introv Hh. exists___. splits.
-  { applys* red_binop. applys* redbinop_add. }
+  { applys* eval_binop. applys* redbinop_add. }
   { hhsimpl*. }
 Qed.
 
@@ -834,7 +834,7 @@ Lemma triple_sub : forall n1 n2,
     (fun r => \[r = val_int (n1 - n2)]).
 Proof using.
   introv Hh. exists___. splits.
-  { applys* red_binop. applys* redbinop_sub. }
+  { applys* eval_binop. applys* redbinop_sub. }
   { hhsimpl*. }
 Qed.
 
@@ -847,7 +847,7 @@ Lemma triple_ptr_add : forall l n,
     (fun r => \[r = val_loc (abs (l + n))]).
 Proof using.
   introv N Hh. exists___. splits.
-  { applys* red_binop. applys* redbinop_ptr_add (abs (l + n)). rewrite~ abs_nonneg. }
+  { applys* eval_binop. applys* redbinop_ptr_add (abs (l + n)). rewrite~ abs_nonneg. }
   { hhsimpl*. }
 Qed.
 
@@ -857,7 +857,7 @@ Lemma triple_ptr_add_nat : forall l (f:nat),
     (fun r => \[r = val_loc (l+f)%nat]).
 Proof using.
   intros. xapplys~ triple_ptr_add. { math. }
-  { applys* red_binop. intros. subst. fequals.
+  { applys* eval_binop. intros. subst. fequals.
     applys eq_nat_of_eq_int. rewrite abs_nonneg; math. }
 Qed.
 
@@ -869,7 +869,7 @@ Lemma triple_ptr_add_nat' : forall l (f:nat),
     (fun r => \[r = val_loc (l+f)%nat]).
 Proof using.
   introv Hh. exists___. splits.
-  { applys* red_binop. applys* redbinop_ptr_add_nat. }
+  { applys* eval_binop. applys* redbinop_ptr_add_nat. }
   { hhsimpl*. }
 Qed.
 
@@ -936,10 +936,10 @@ Proof using.
   destruct b.
   { forwards* (h'&v'&R&K): (rm M1) h.
     exists h' v'. splits~.
-    { applys* red_if_bool. } }
+    { applys* eval_if_bool. } }
   { forwards* (h'&v'&R&K): (rm M2) h.
     exists h' v'. splits~.
-    { applys* red_if_bool. } }
+    { applys* eval_if_bool. } }
 Qed.
 
 (** A rule for unary function application -- DEPRECATED
@@ -951,7 +951,7 @@ Lemma triple_app : forall (f:bind) x F V t1 H Q,
 Proof using.
   introv EF M. subst F. intros HF h N.
   lets~ (h'&v&R&K): (rm M) HF h.
-  exists h' v. splits~. { hint red_val. applys~ red_app. }
+  exists h' v. splits~. { hint eval_val. applys~ eval_app. }
 Qed.
 
 *)

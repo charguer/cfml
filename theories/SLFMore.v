@@ -1,13 +1,13 @@
 
 Parameter example_trm_red : forall m,
-  red m (trm_app example_trm' (val_bool false)) m (val_int 1).
+  eval m (trm_app example_trm' (val_bool false)) m (val_int 1).
 
 
 
 Definition assertion := state -> Prop.
 Definition Hoare_triple (H:assertion) (t:trm) (Q:val->assertion) : Prop :=
   forall h, H h ->
-  exists v h', red h t h' v /\ Q v h'.
+  exists v h', eval h t h' v /\ Q v h'.
 Parameter val_div : prim.
 
 
@@ -58,7 +58,7 @@ Definition triple_1 (H:assertion) (t:trm) (Q:val->assertion) :=
 
 Definition triple_2 (H:assertion) (t:trm) (Q:val->assertion) : Prop :=
   forall H' h, (H \* H') h ->
-  exists v h', red h t h' v /\ (Q v \* H') h'.
+  exists v h', eval h t h' v /\ (Q v \* H') h'.
 
 (** This definition reads as follows: for any input heap [h], and any
     heap predicate [H'] describing the part of the heap not covered
@@ -102,7 +102,7 @@ Definition hprop := heap -> Prop.
 
 Definition triple_3 (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall H' h, (H \* H') h ->
-  exists v h', red h t h' v /\ (Q v \* H') h'.
+  exists v h', eval h t h' v /\ (Q v \* H') h'.
 
 Notation "'triple'" := triple_3.
 
@@ -279,7 +279,7 @@ Qed.
 
 Definition triple_4 (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall H' h, (H \* H') h ->
-  exists v h', red h t h' v /\ (Q v \* H') h'.
+  exists v h', eval h t h' v /\ (Q v \* H') h'.
 
 (** Thereafter, [triple] is a shorthand for [triple_4]. *)
 
@@ -744,7 +744,7 @@ Notation "\Top" := (htop).
 
 Definition triple_5 (H:hprop) (t:trm) (Q:val->hprop) : Prop :=
   forall H' h, (H \* H') h ->
-  exists v h', red h t h' v /\ (Q v \* \Top \* H') h'.
+  exists v h', eval h t h' v /\ (Q v \* \Top \* H') h'.
 
 (** Throughout the remaining of this course, the definition of
     the predicate [triple] corresponds to the above definition.
@@ -1327,13 +1327,13 @@ Definition state := fmap loc val.
 (** ** Evaluation predicate *)
 
 (** The evaluation rules are standard. They define an evaluation
-    judgment, written [red h t h' v], which asserts that the
+    judgment, written [eval h t h' v], which asserts that the
     evaluation of the term [t] starting in memory state [h] does
     terminate and produces the value [v] in the final state [h'].
-    Note that the arguments [h] and [h'] of [red] describe the full
+    Note that the arguments [h] and [h'] of [eval] describe the full
     memory state. *)
 
-Parameter red : state -> trm -> state -> val -> Prop.
+Parameter eval : state -> trm -> state -> val -> Prop.
 
 (** Rather than reproducing here pages of standard definitions, we will
     present the evaluation rules as we need them. Details may be found in
@@ -1383,7 +1383,7 @@ Definition assertion := state -> Prop.
    to handle terms that produce an output value?
 
    The output value, call it [v], needs to be quantified existentially
-   like the output heap. The evaluation predicate becomes [red h t h' v].
+   like the output heap. The evaluation predicate becomes [eval h t h' v].
    The postcondition [Q h'] also needs to be extended, so that Hoare triple
    may be used to specify the output value of the term [t]. We achieve this
    by passing [v] as first argument to the postcondition [Q]. In other words,
@@ -1396,7 +1396,7 @@ Definition assertion := state -> Prop.
 
 Definition Hoare_triple (H:assertion) (t:trm) (Q:val->assertion) : Prop :=
   forall h, H h ->
-  exists v h', red h t h' v /\ Q v h'.
+  exists v h', eval h t h' v /\ Q v h'.
 
 
 

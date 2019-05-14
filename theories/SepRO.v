@@ -950,7 +950,7 @@ Definition triple (t:trm) (H:hprop) (Q:val->hprop) :=
   forall h1 h2, heap_compat h1 h2 -> H h1 ->
   exists h1' v,
        heap_compat h1' h2
-    /\ red (h1 \u h2) t (h1' \u h2) v
+    /\ eval (h1 \u h2) t (h1' \u h2) v
     /\ h1'^r = h1^r
     /\ on_rw_sub (Q v) h1'.
 
@@ -1115,7 +1115,7 @@ Proof using.
 Qed.
 
 Lemma triple_red : forall t1 t2 H Q,
-  (forall m m' r, red m t1 m' r -> red m t2 m' r) ->
+  (forall m m' r, eval m t1 m' r -> eval m t2 m' r) ->
   triple t1 H Q ->
   triple t2 H Q.
 Proof using.
@@ -1181,7 +1181,7 @@ Lemma triple_val : forall v H Q,
 Proof using.
   introv M HS. intros h1 h2 D P1. specializes HS P1.
   exists h1 v. splits~.
-  { applys red_val. }
+  { applys eval_val. }
   { specializes M P1. applys~ on_rw_sub_base. }
 Qed.
 
@@ -1192,7 +1192,7 @@ Lemma triple_fun : forall x t1 H Q,
   triple (trm_fun x t1) H Q.
 Proof using.
   introv M HS. intros h1 h2 D P1. exists___. splits*.
-  { applys red_fun. }
+  { applys eval_fun. }
   { specializes M P1. applys~ on_rw_sub_base. }
 Qed.
 *)
@@ -1203,7 +1203,7 @@ Lemma triple_fix : forall f x t1 H Q,
   triple (trm_fix f x t1) H Q.
 Proof using.
   introv M HS. intros h1 h2 D P1. exists___. splits*.
-  { applys red_fix. }
+  { applys eval_fix. }
   { specializes M P1. applys~ on_rw_sub_base. }
 Qed.
 
@@ -1212,7 +1212,7 @@ Lemma triple_if_bool : forall (b:bool) t1 t2 H Q,
   triple (trm_if b t1 t2) H Q.
 Proof using.
   introv M. intros h1 h2 D N. forwards* (h'&v'&(N1&N2&N3&N4)): (rm M) h1.
-  exists h' v'. splits~. { applys~ red_if_bool. }
+  exists h' v'. splits~. { applys~ eval_if_bool. }
 Qed.
 
 Lemma triple_let : forall z t1 t2 H1 H2 Q Q1,
@@ -1231,7 +1231,7 @@ Proof using.
   { exists~ hx h12. }
   forwards~ (T1a&T1b): heap_compat_union_r_inv T1.
   exists (h1'' \u hy) v2. splits~.
-  { applys red_let_trm.
+  { applys eval_let_trm.
     { applys_eq~ N2 2 4. rewrite~ heap_union_assoc. }
     { applys_eq~ T2 2 4.
       { fequals.
@@ -1278,7 +1278,7 @@ Lemma triple_app_fix : forall (f:bind) F x X t1 H Q,
   triple (trm_app F X) H Q.
 Proof using.
   introv EF N M. subst. applys triple_red (rm M).
-  introv R. hint red_val. applys* red_app_trm.
+  introv R. hint eval_val. applys* eval_app_trm.
 Qed.
 
 (* TEMPORARY
@@ -1317,7 +1317,7 @@ Proof using.
     { rewrite E1,E2. lets: heap_disjoint_components h2.
       fmap_disjoint. } }
   splits~.
-  { rew_heap. rew_fmap~. applys~ red_ref_sep. }
+  { rew_heap. rew_fmap~. applys~ eval_ref_sep. }
   { applys~ on_rw_sub_base. exists l.
     applys~ himpl_hstar_hpure_r (l ~~~> v). split~. }
 Qed.
@@ -1331,7 +1331,7 @@ Proof using.
   rewrites E2' in E2. rewrite fmap_union_empty_r in E2.
   exists h1 v. splits~.
   { rew_fmap~. unfold heap_state. rewrite E1,E2,E1'. rew_fmap. 
-    applys~ red_get_sep. }
+    applys~ eval_get_sep. }
   { exists heap_empty h1. splits~.
     { applys~ heap_compat_empty_l. }
     { heap_eq. }
@@ -1355,7 +1355,7 @@ Proof using.
   splits~.
   { rew_fmap~. rewrite (@heap_fmap_def h1'). rewrite (@heap_fmap_def h1).
     rewrite E1,E1',E2,E2'. rew_fmap.
-    applys red_set_sep; try reflexivity. 
+    applys eval_set_sep; try reflexivity. 
     { eapply fmap_disjoint_single_set; eauto. } }
   { rewrite E2,E2'. auto. }
   { applys~ on_rw_sub_base. applys~ himpl_hstar_hpure_r (l ~~~> w). split~. }
@@ -1368,7 +1368,7 @@ Lemma triple_add : forall (n1 n2:int),
 Proof using.
   intros. intros h1 h2 D E.
   exists h1 (n1+n2). splits~.
-  { applys* red_binop. applys* redbinop_add. }
+  { applys* eval_binop. applys* redbinop_add. }
   { exists heap_empty h1. splits~.
     { applys~ heap_compat_empty_l. }
     { heap_eq. }
@@ -1763,7 +1763,7 @@ Lemma triple_apps_funs : forall xs F (Vs:vals) t1 H Q,
 Proof using.
   introv E N M. intros h1 h2 D H1.
   forwards~ (h1'&v&N1&N2&N3&N4): (rm M) h2 H1.
-  exists h1' v. splits~. { subst. applys~ red_apps_funs. }
+  exists h1' v. splits~. { subst. applys~ eval_apps_funs. }
 Qed.
 
 Lemma var_funs_exec_elim : forall (n:nat) xs,

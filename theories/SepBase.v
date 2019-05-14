@@ -435,7 +435,7 @@ Ltac simpl_abs := (* LATER: will be removed once [abs] computes *)
 (* ** Definition of Hoare triples *)
 
 Definition hoare (t:trm) (H:hprop) (Q:val->hprop) :=
-  forall h, H h -> exists h' v, red h t h' v /\ Q v h'.
+  forall h, H h -> exists h' v, eval h t h' v /\ Q v h'.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -470,7 +470,7 @@ Proof using.
   introv HC M1 M2 Hh.
   forwards* (h1'&v1&R1&K1): (rm M1).
   forwards* (h2'&v2&R2&K2): (rm M2).
-  exists h2' v2. splits~. { applys~ red_evalctx R2. }
+  exists h2' v2. splits~. { applys~ eval_evalctx R2. }
 Qed.
 
 Lemma hoare_val : forall v H Q,
@@ -478,7 +478,7 @@ Lemma hoare_val : forall v H Q,
   hoare (trm_val v) H Q.
 Proof using.
   introv M. intros h Hh. exists h v. splits.
-  { applys red_val. }
+  { applys eval_val. }
   { hhsimpl~. }
 Qed.
 
@@ -488,7 +488,7 @@ Lemma hoare_fixs : forall (f:bind) xs t1 H Q,
   hoare (trm_fixs f xs t1) H Q.
 Proof using.
   introv N M. intros h Hh. exists___. splits.
-  { applys~ red_fixs. }
+  { applys~ eval_fixs. }
   { hhsimpl~. }
 Qed.
 
@@ -497,7 +497,7 @@ Lemma hoare_constr : forall id vs H Q,
   hoare (trm_constr id (trms_vals vs)) H Q.
 Proof using.
   introv M. intros h Hh. exists h (val_constr id vs). splits.
-  { applys red_constr. }
+  { applys eval_constr. }
   { hhsimpl~. }
 Qed.
 
@@ -509,7 +509,7 @@ Proof using.
   introv M1 M2. intros h Hh.
   forwards* (h1'&v1&R1&K1): (rm M1).
   forwards* (h2'&v2&R2&K2): (rm M2).
-  exists h2' v2. splits~. { applys~ red_constr_trm R2. }
+  exists h2' v2. splits~. { applys~ eval_constr_trm R2. }
 Qed.
 
 Lemma hoare_let : forall z t1 t2 H Q Q1,
@@ -520,7 +520,7 @@ Proof using.
   introv M1 M2 Hh.
   forwards* (h1'&v1&R1&K1): (rm M1).
   forwards* (h2'&v2&R2&K2): (rm M2).
-  exists h2' v2. splits~. { applys~ red_let_trm R2. }
+  exists h2' v2. splits~. { applys~ eval_let_trm R2. }
 Qed.
 
 Lemma hoare_if_bool : forall (b:bool) t1 t2 H Q,
@@ -528,7 +528,7 @@ Lemma hoare_if_bool : forall (b:bool) t1 t2 H Q,
   hoare (trm_if b t1 t2) H Q.
 Proof using.
   introv M1. intros h Hh. forwards* (h1'&v1&R1&K1): (rm M1).
-  exists h1' v1. splits~. { applys* red_if. }
+  exists h1' v1. splits~. { applys* eval_if. }
 Qed.
 
 Lemma hoare_if_trm : forall Q1 t0 t1 t2 H Q, (* TODO needed? *)
@@ -547,7 +547,7 @@ Lemma hoare_apps_funs : forall xs F (Vs:vals) t1 H Q,
   hoare (trm_apps F Vs) H Q.
 Proof using.
   introv E N M. intros h Hh. forwards* (h'&v&R&K): (rm M).
-  exists h' v. splits~. { subst. applys* red_apps_funs. }
+  exists h' v. splits~. { subst. applys* eval_apps_funs. }
 Qed.
 
 Lemma hoare_apps_fixs : forall xs (f:var) F (Vs:vals) t1 H Q,
@@ -557,7 +557,7 @@ Lemma hoare_apps_fixs : forall xs (f:var) F (Vs:vals) t1 H Q,
   hoare (trm_apps F Vs) H Q.
 Proof using.
   introv E N M. intros h Hh. forwards* (h'&v&R&K): (rm M).
-  exists h' v. splits~. { subst. applys* red_apps_fixs. }
+  exists h' v. splits~. { subst. applys* eval_apps_fixs. }
 Qed.
 
 Lemma hoare_while_raw : forall t1 t2 H Q,
@@ -565,7 +565,7 @@ Lemma hoare_while_raw : forall t1 t2 H Q,
   hoare (trm_while t1 t2) H Q.
 Proof using.
   introv M Hh. forwards* (h1'&v1&R1&K1): (rm M).
-  exists h1' v1. splits~. { applys* red_while. }
+  exists h1' v1. splits~. { applys* eval_while. }
 Qed.
 
 Lemma hoare_for_raw : forall (x:var) (n1 n2:int) t3 H (Q:val->hprop),
@@ -576,7 +576,7 @@ Lemma hoare_for_raw : forall (x:var) (n1 n2:int) t3 H (Q:val->hprop),
   hoare (trm_for x n1 n2 t3) H Q.
 Proof using.
   introv M Hh. forwards* (h1'&v1&R1&K1): (rm M).
-  exists h1' v1. splits~. { applys* red_for. }
+  exists h1' v1. splits~. { applys* eval_for. }
 Qed.
 
 Lemma hoare_match : forall v p t1 pts H Q,
@@ -586,9 +586,9 @@ Lemma hoare_match : forall v p t1 pts H Q,
 Proof using.
   introv M1 M2 Hh. tests C: (exists (G:ctx), Ctx.dom G = patvars p /\ v = patsubst G p).
   { destruct C as (G&DG&Ev). forwards* (h1'&v1&R1&K1): (rm M1).
-    exists h1' v1. splits~. { applys~ red_match_yes R1. } }
+    exists h1' v1. splits~. { applys~ eval_match_yes R1. } }
   { forwards* (h1'&v1&R1&K1): (rm M2).
-    exists h1' v1. splits~. { applys~ red_match_no R1.
+    exists h1' v1. splits~. { applys~ eval_match_no R1.
       intros G HG. specializes C G. rew_logic in C. destruct* C. } }
 Qed.
 
@@ -600,7 +600,7 @@ Proof using.
   introv M1 M2. intros h Hh.
   forwards* (h1'&v1&R1&K1): (rm M1).
   forwards* (h2'&v2&R2&K2): (rm M2).
-  exists h2' v2. splits~. { applys~ red_match_trm R2. }
+  exists h2' v2. splits~. { applys~ eval_match_trm R2. }
 Qed.
 
 
@@ -621,7 +621,7 @@ Proof using.
   forwards~ Hh1': hsingle_fmap_single l v.
   sets h1': (fmap_single l v).
   exists (h1' \u h) (val_loc l). splits~.
-  { applys~ red_ref_sep. }
+  { applys~ eval_ref_sep. }
   { apply~ hstar_intro. { exists l. hhsimpl~. } }
 Qed.
 
@@ -632,7 +632,7 @@ Lemma hoare_get : forall H v l,
 Proof using.
   intros. intros h Hh. exists h v. splits~.
   { destruct Hh as (h1&h2&(N1a&N1b)&N2&N3&N4).
-    subst h. applys* red_get_sep. }
+    subst h. applys* eval_get_sep. }
   { hhsimpl~. }
 Qed.
 
@@ -645,7 +645,7 @@ Proof using.
   forwards~ Hh1': hsingle_fmap_single l w.
   sets h1': (fmap_single l w).
   exists (h1' \u h2) val_unit. splits~.
-  { subst h h1. applys red_set_sep; eauto. }
+  { subst h h1. applys eval_set_sep; eauto. }
   { rewrite hstar_hpure. split~. apply~ hstar_intro.
     { applys~ fmap_disjoint_single_set v. } }
 Qed.
@@ -660,7 +660,7 @@ Proof using. (* Note: [abs n] currently does not compute in Coq. *)
   forwards~ (l&Dl&Nl): (fmap_conseq_fresh null h (abs n) val_unit).
   sets h1': (fmap_conseq l (abs n) val_unit).
   exists (h1' \u h) (val_loc l). splits~.
-  { applys~ (red_alloc (abs n)). rewrite~ abs_nonneg. }
+  { applys~ (eval_alloc (abs n)). rewrite~ abs_nonneg. }
   { apply~ hstar_intro.
     { exists l. applys~ himpl_hstar_hpure_r. applys~ Alloc_fmap_conseq. } }
 Qed.
@@ -672,7 +672,7 @@ Lemma hoare_unop : forall v H op v1,
     (fun r => \[r = v] \* H).
 Proof using.
   introv R. intros h Hh. exists h v. splits.
-  { applys* red_unop. }
+  { applys* eval_unop. }
   { hhsimpl~. }
 Qed.
 
@@ -683,7 +683,7 @@ Lemma hoare_binop : forall v H op v1 v2,
     (fun r => \[r = v] \* H).
 Proof using.
   introv R. intros h Hh. exists h v. splits.
-  { applys* red_binop. }
+  { applys* eval_binop. }
   { hhsimpl~. }
 Qed.
 
@@ -947,7 +947,7 @@ Lemma triple_apps_funs : forall xs F (Vs:vals) t1 H Q,
   triple (trm_apps F Vs) H Q.
 Proof using.
   introv E N M. intros H' h Hf. forwards (h'&v&R&K): (rm M) Hf.
-  exists h' v. splits~. { subst. applys* red_apps_funs. }
+  exists h' v. splits~. { subst. applys* eval_apps_funs. }
 Qed.
 
 Lemma triple_apps_fixs : forall xs (f:var) F (Vs:vals) t1 H Q,
@@ -957,7 +957,7 @@ Lemma triple_apps_fixs : forall xs (f:var) F (Vs:vals) t1 H Q,
   triple (trm_apps F Vs) H Q.
 Proof using.
   introv E N M. intros H' h Hf. forwards (h'&v&R&K): (rm M) Hf.
-  exists h' v. splits~. { subst. applys* red_apps_fixs. }
+  exists h' v. splits~. { subst. applys* eval_apps_fixs. }
 Qed.
 
 
@@ -1288,7 +1288,7 @@ Definition triple' t H Q :=
   H h1 ->
   exists h1' h3' v,
        fmap_disjoint_3 h1' h2 h3'
-    /\ red (h1 \u h2) t (h1' \u h2 \u h3') v
+    /\ eval (h1 \u h2) t (h1' \u h2 \u h3') v
     /\ (Q v) h1'.
 
 

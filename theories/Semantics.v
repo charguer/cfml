@@ -809,7 +809,7 @@ Definition state := fmap loc val.
 
 (** Evaluation contexts *)
 
-(* TODO: use first-order red contexts instead *)
+(* TODO: use first-order eval contexts instead *)
 
 Inductive evalctx : (trm -> trm) -> Prop :=
   (* LATER
@@ -928,81 +928,81 @@ Inductive redbinop : prim -> val -> val -> val -> Prop :=
   | redbinop_gt : forall n1 n2,
       redbinop val_gt (val_int n1) (val_int n2) (val_bool (isTrue (n1 > n2))).
 
-Inductive red : state -> trm -> state -> val -> Prop :=
-  (* [red] for evaluation contexts *)
-  | red_evalctx_not_val : forall t1 m1 m2 m3 C v1 r, 
+Inductive eval : state -> trm -> state -> val -> Prop :=
+  (* [eval] for evaluation contexts *)
+  | eval_evalctx_not_val : forall t1 m1 m2 m3 C v1 r, 
       evalctx C ->
       ~ trm_is_val t1 -> (* this premise later proved to be optional *)
-      red m1 t1 m2 v1 ->
-      red m2 (C v1) m3 r ->
-      red m1 (C t1) m3 r
-  (* [red] for language constructs *)
-  | red_val : forall m v,
-      red m v m v
-  | red_fixs : forall m f xs t1,
+      eval m1 t1 m2 v1 ->
+      eval m2 (C v1) m3 r ->
+      eval m1 (C t1) m3 r
+  (* [eval] for language constructs *)
+  | eval_val : forall m v,
+      eval m v m v
+  | eval_fixs : forall m f xs t1,
       xs <> nil ->
-      red m (trm_fixs f xs t1) m (val_fixs f xs t1)
-  | red_constr : forall m id vs,
-      red m (trm_constr id (trms_vals vs)) m (val_constr id vs)
-  | red_if : forall m1 m2 b r t1 t2,
-      red m1 (if b then t1 else t2) m2 r ->
-      red m1 (trm_if (val_bool b) t1 t2) m2 r
-  | red_let : forall m1 m2 z v1 t2 r,
-      red m1 (subst1 z v1 t2) m2 r ->
-      red m1 (trm_let z v1 t2) m2 r
+      eval m (trm_fixs f xs t1) m (val_fixs f xs t1)
+  | eval_constr : forall m id vs,
+      eval m (trm_constr id (trms_vals vs)) m (val_constr id vs)
+  | eval_if : forall m1 m2 b r t1 t2,
+      eval m1 (if b then t1 else t2) m2 r ->
+      eval m1 (trm_if (val_bool b) t1 t2) m2 r
+  | eval_let : forall m1 m2 z v1 t2 r,
+      eval m1 (subst1 z v1 t2) m2 r ->
+      eval m1 (trm_let z v1 t2) m2 r
   (* LATER: factorize using [subst1 f v0 (substn xs vs) t]   
       and a relatex version of var_fixs that accept a [f:bind] *)
-  | red_apps_funs : forall m1 m2 xs t3 v0 vs r,
+  | eval_apps_funs : forall m1 m2 xs t3 v0 vs r,
       v0 = val_funs xs t3 ->
       var_funs (length vs) xs ->
-      red m1 (substn xs vs t3) m2 r ->
-      red m1 (trm_apps v0 vs) m2 r
-  | red_apps_fixs : forall m1 m2 (f:var) xs t3 v0 vs r,
+      eval m1 (substn xs vs t3) m2 r ->
+      eval m1 (trm_apps v0 vs) m2 r
+  | eval_apps_fixs : forall m1 m2 (f:var) xs t3 v0 vs r,
       v0 = val_fixs f xs t3 ->
       var_fixs f (length vs) xs ->
-      red m1 (substn (f::xs) (v0::vs) t3) m2 r ->
-      red m1 (trm_apps v0 vs) m2 r
-  | red_while : forall m1 m2 t1 t2 r,
-      red m1 (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) m2 r ->
-      red m1 (trm_while t1 t2) m2 r
-  | red_for : forall m1 m2 (x:var) n1 n2 t3 r, (* restricted to value arguments *)
-      red m1 (
+      eval m1 (substn (f::xs) (v0::vs) t3) m2 r ->
+      eval m1 (trm_apps v0 vs) m2 r
+  | eval_while : forall m1 m2 t1 t2 r,
+      eval m1 (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) m2 r ->
+      eval m1 (trm_while t1 t2) m2 r
+  | eval_for : forall m1 m2 (x:var) n1 n2 t3 r, (* restricted to value arguments *)
+      eval m1 (
         If (n1 <= n2)
           then (trm_seq (subst1 x n1 t3) (trm_for x (n1+1) n2 t3))
           else val_unit) m2 r ->
-      red m1 (trm_for x n1 n2 t3) m2 r
-  | red_match_yes : forall m1 m2 v G p t1 pts r,
+      eval m1 (trm_for x n1 n2 t3) m2 r
+  | eval_match_yes : forall m1 m2 v G p t1 pts r,
       Ctx.dom G = patvars p ->
       v = patsubst G p ->
-      red m1 (isubst G t1) m2 r ->
-      red m1 (trm_match v ((p,t1)::pts)) m2 r
-  | red_match_no : forall m1 m2 v p t1 pts r,
+      eval m1 (isubst G t1) m2 r ->
+      eval m1 (trm_match v ((p,t1)::pts)) m2 r
+  | eval_match_no : forall m1 m2 v p t1 pts r,
       (forall G, Ctx.dom G = patvars p -> v <> patsubst G p) ->
-      red m1 (trm_match v pts) m2 r ->
-      red m1 (trm_match v ((p,t1)::pts)) m2 r
-  (* [red] for applied primitives *)
-  | red_unop : forall op m v1 v,
+      eval m1 (trm_match v pts) m2 r ->
+      eval m1 (trm_match v ((p,t1)::pts)) m2 r
+  (* [eval] for applied primitives *)
+  | eval_unop : forall op m v1 v,
       redunop op v1 v ->
-      red m (op v1) m v
-  | red_binop : forall op m v1 v2 v,
+      eval m (op v1) m v
+  | eval_binop : forall op m v1 v2 v,
       redbinop op v1 v2 v ->
-      red m (op v1 v2) m v
-  | red_ref : forall m v l,
+      eval m (op v1 v2) m v
+  | eval_ref : forall m v l,
       ~ fmap_indom m l ->
       l <> null ->
-      red m (val_ref v) (fmap_update m l v) (val_loc l)
-  | red_get : forall m l,
+      eval m (val_ref v) (fmap_update m l v) (val_loc l)
+  | eval_get : forall m l,
       fmap_indom m l ->
-      red m (val_get (val_loc l)) m (fmap_read m l)
-  | red_set : forall m l v,
+      eval m (val_get (val_loc l)) m (fmap_read m l)
+  | eval_set : forall m l v,
       fmap_indom m l ->
-      red m (val_set (val_loc l) v) (fmap_update m l v) val_unit
-  | red_alloc : forall k n ma mb l,
+      eval m (val_set (val_loc l) v) (fmap_update m l v) val_unit
+  | eval_alloc : forall k n ma mb l,
       mb = fmap_conseq l k val_unit ->
       n = nat_to_Z k ->
       l <> null ->
       fmap_disjoint ma mb -> (* TODO: reformulate using not_indom *)
-      red ma (val_alloc (val_int n)) (mb \+ ma) (val_loc l).
+      eval ma (val_alloc (val_int n)) (mb \+ ma) (val_loc l).
 
 End Red.
 
@@ -1010,19 +1010,19 @@ End Red.
 
   (*  --- TODO
 
-  Remark: alternative for red_for rules.
-    | red_for : forall m1 m2 m3 m4 v1 v2 x t1 t2 t3 r,
-        red m1 (
+  Remark: alternative for eval_for rules.
+    | eval_for : forall m1 m2 m3 m4 v1 v2 x t1 t2 t3 r,
+        eval m1 (
           (trm_seq (trm_let x n1 t3) (trm_for x (n1+1) n2 t3))
           val_unit) m2 r ->
-        red m1 (trm_for x n1 n2 t3) m2 r
+        eval m1 (trm_for x n1 n2 t3) m2 r
 
-  | red_for_arg : forall m1 m2 m3 m4 v1 v2 x t1 t2 t3 r,
+  | eval_for_arg : forall m1 m2 m3 m4 v1 v2 x t1 t2 t3 r,
       (not_is_val t1 \/ not_is_val t2) ->
-      red m1 t1 m2 v1 ->
-      red m2 t2 m3 v2 ->
-      red m3 (trm_for x v1 v2 t3) m4 r ->
-      red m1 (trm_for x t1 t2 t3) m4 r
+      eval m1 t1 m2 v1 ->
+      eval m2 t2 m3 v2 ->
+      eval m3 (trm_for x v1 v2 t3) m4 r ->
+      eval m1 (trm_for x t1 t2 t3) m4 r
 
   Definition trm_is_val (t:trm) : Prop :=
   match t with
@@ -1049,14 +1049,14 @@ Lemma fmap_update_eq_union
   /\ fmap_update m2 l v = fmap_union m1 m2.
 *)
 
-Lemma red_ref_sep : forall s1 s2 v l,
+Lemma eval_ref_sep : forall s1 s2 v l,
   l <> null ->
   s2 = fmap_single l v ->
   fmap_disjoint s2 s1 ->
-  red s1 (val_ref v) (fmap_union s2 s1) (val_loc l).
+  eval s1 (val_ref v) (fmap_union s2 s1) (val_loc l).
 Proof using.
   introv Nl -> D. forwards Dv: fmap_indom_single l v.
-  rewrite <- fmap_update_eq_union_single. applys~ red_ref.
+  rewrite <- fmap_update_eq_union_single. applys~ eval_ref.
   { intros N. applys~ fmap_disjoint_inv_not_indom_both D N. }
 Qed.
 
@@ -1068,13 +1068,13 @@ Qed.
 (* Note: [fmap_disjoint s1 s2] is not needed, and in fact too 
    restrictive, because [fmap_agree s1 s2] would be sufficient. *)
 
-Lemma red_get_sep : forall s s1 s2 l v, 
+Lemma eval_get_sep : forall s s1 s2 l v, 
   s = fmap_union s1 s2 ->
   s1 = fmap_single l v ->
-  red s (val_get (val_loc l)) s v.
+  eval s (val_get (val_loc l)) s v.
 Proof using.
   introv -> ->. forwards Dv: fmap_indom_single l v.
-  applys_eq red_get 1.
+  applys_eq eval_get 1.
   { applys~ fmap_indom_union_l. }
   { rewrite~ fmap_read_union_l. rewrite~ fmap_read_single. }
 Qed.
@@ -1084,16 +1084,16 @@ Qed.
        fmap_indom m1 l
     /\ fmap_update m l w = fmap_union (fmap_single l v) m2 *)
 
-Lemma red_set_sep : forall s s' h1 h1' h2 l v v',
+Lemma eval_set_sep : forall s s' h1 h1' h2 l v v',
   s = fmap_union h1 h2 ->
   h1 = fmap_single l v ->
   fmap_disjoint h1 h2 ->
   s' = fmap_union h1' h2 ->
   h1' = fmap_single l v' ->
-  red s (val_set (val_loc l) v') s' val_unit.
+  eval s (val_set (val_loc l) v') s' val_unit.
 Proof using.
   introv -> -> D -> ->. forwards Dv: fmap_indom_single l v.
-  applys_eq red_set 2.
+  applys_eq eval_set 2.
   { applys~ fmap_indom_union_l. }
   { rewrite~ fmap_update_union_l. fequals.
     rewrite~ fmap_update_single. }
@@ -1103,145 +1103,145 @@ Qed.
 (** Generalization of the evaluation context rule for terms
     that might already be values *)
 
-Lemma red_evalctx : forall m1 m2 m3 t1 v1 C r,
+Lemma eval_evalctx : forall m1 m2 m3 t1 v1 C r,
   evalctx C ->
-  red m1 t1 m2 v1 ->
-  red m2 (C v1) m3 r ->
-  red m1 (C t1) m3 r.
+  eval m1 t1 m2 v1 ->
+  eval m2 (C v1) m3 r ->
+  eval m1 (C t1) m3 r.
 Proof using.
   introv HC M1 M2. tests CV: (trm_is_val t1).
   { destruct CV as (v'&Ev'). subst. inverts M1.
     { false evalctx_not_val; eauto. } 
     { auto. } }
-  { applys* red_evalctx_not_val C. }
+  { applys* eval_evalctx_not_val C. }
 Qed.
 
 (** Other derived rules *)
 
-Lemma red_funs : forall m xs t,
+Lemma eval_funs : forall m xs t,
   xs <> nil ->
-  red m (trm_funs xs t) m (val_funs xs t).
-Proof using. introv N. applys* red_fixs. Qed.
+  eval m (trm_funs xs t) m (val_funs xs t).
+Proof using. introv N. applys* eval_fixs. Qed.
 
-Lemma red_fix : forall m f x t1,
-  red m (trm_fix f x t1) m (val_fix f x t1).
-Proof using. intros. applys* red_fixs. auto_false. Qed.
+Lemma eval_fix : forall m f x t1,
+  eval m (trm_fix f x t1) m (val_fix f x t1).
+Proof using. intros. applys* eval_fixs. auto_false. Qed.
 
-Lemma red_fun : forall m x t1,
-  red m (trm_fun x t1) m (val_fun x t1).
-Proof using. intros. apply red_fix. Qed.
+Lemma eval_fun : forall m x t1,
+  eval m (trm_fun x t1) m (val_fun x t1).
+Proof using. intros. apply eval_fix. Qed.
 
-Lemma red_let_trm : forall m1 m2 m3 z t1 t2 v1 r,
-  red m1 t1 m2 v1 ->
-  red m2 (subst1 z v1 t2) m3 r ->
-  red m1 (trm_let z t1 t2) m3 r.
+Lemma eval_let_trm : forall m1 m2 m3 z t1 t2 v1 r,
+  eval m1 t1 m2 v1 ->
+  eval m2 (subst1 z v1 t2) m3 r ->
+  eval m1 (trm_let z t1 t2) m3 r.
 Proof using.
-  introv M1 M2. applys* red_evalctx (fun t1 => trm_let z t1 t2).
-  applys* red_let. 
+  introv M1 M2. applys* eval_evalctx (fun t1 => trm_let z t1 t2).
+  applys* eval_let. 
 Qed.
 
-Lemma red_if_trm : forall m1 m2 m3 b r t0 t1 t2,
-  red m1 t0 m2 (val_bool b) ->
-  red m2 (if b then t1 else t2) m3 r ->
-  red m1 (trm_if t0 t1 t2) m3 r.
+Lemma eval_if_trm : forall m1 m2 m3 b r t0 t1 t2,
+  eval m1 t0 m2 (val_bool b) ->
+  eval m2 (if b then t1 else t2) m3 r ->
+  eval m1 (trm_if t0 t1 t2) m3 r.
 Proof using.
-  introv M1 M2. applys* red_evalctx (fun t0 => trm_if t0 t1 t2).
-  applys* red_if. 
+  introv M1 M2. applys* eval_evalctx (fun t0 => trm_if t0 t1 t2).
+  applys* eval_if. 
 Qed.
 
-Lemma red_constr_trm : forall m1 m2 m3 id ts vs t1 v1 r,
-  red m1 t1 m2 v1 ->
-  red m2 (trm_constr id ((trms_vals vs)++(trm_val v1)::ts)) m3 r ->
-  red m1 (trm_constr id ((trms_vals vs)++t1::ts)) m3 r.
+Lemma eval_constr_trm : forall m1 m2 m3 id ts vs t1 v1 r,
+  eval m1 t1 m2 v1 ->
+  eval m2 (trm_constr id ((trms_vals vs)++(trm_val v1)::ts)) m3 r ->
+  eval m1 (trm_constr id ((trms_vals vs)++t1::ts)) m3 r.
 Proof using.
   introv M1 M2. 
-  applys* red_evalctx (fun t1 => trm_constr id ((trms_vals vs)++t1::ts)).
+  applys* eval_evalctx (fun t1 => trm_constr id ((trms_vals vs)++t1::ts)).
 Qed.
 
-Lemma red_app : forall m1 m2 f x t3 v1 v2 r,
+Lemma eval_app : forall m1 m2 f x t3 v1 v2 r,
   v1 = val_fix f x t3 ->
   f <> x ->
-  red m1 (subst2 f v1 x v2 t3) m2 r ->
-  red m1 (trm_app v1 v2) m2 r.
+  eval m1 (subst2 f v1 x v2 t3) m2 r ->
+  eval m1 (trm_app v1 v2) m2 r.
 Proof using.
   introv EQ N M. destruct f as [|f].
-  { applys* red_apps_funs (v2::nil). 
+  { applys* eval_apps_funs (v2::nil). 
     { simpls. splits; auto_false. splits*. } }
-  { applys* red_apps_fixs (v2::nil). 
+  { applys* eval_apps_fixs (v2::nil). 
     { simpls. splits; auto_false. splits*. simpls. rewrite var_eq_spec. case_if*. } }
 Qed. (* LATER: clean up *)
 
-Lemma red_app_trm : forall m1 m2 m3 m4 t1 t2 f x t3 v1 v2 r,
-  red m1 t1 m2 v1 ->
-  red m2 t2 m3 v2 ->
+Lemma eval_app_trm : forall m1 m2 m3 m4 t1 t2 f x t3 v1 v2 r,
+  eval m1 t1 m2 v1 ->
+  eval m2 t2 m3 v2 ->
   v1 = val_fix f x t3 ->
   f <> x ->
-  red m3 (subst2 f v1 x v2 t3) m4 r ->
-  red m1 (trm_app t1 t2) m4 r.
+  eval m3 (subst2 f v1 x v2 t3) m4 r ->
+  eval m1 (trm_app t1 t2) m4 r.
 Proof using. 
-  introv M1 M2 EQ N M3. applys* red_evalctx (fun t1 => trm_apps t1 (t2::nil)).
-  applys* red_evalctx (fun t2 => trm_apps v1 (t2::nil)). applys* red_app.
+  introv M1 M2 EQ N M3. applys* eval_evalctx (fun t1 => trm_apps t1 (t2::nil)).
+  applys* eval_evalctx (fun t2 => trm_apps v1 (t2::nil)). applys* eval_app.
 Qed.
 
-Lemma red_match_trm : forall m1 m2 m3 v1 t1 pts r,
-  red m1 t1 m2 v1 ->
-  red m2 (trm_match v1 pts) m3 r ->
-  red m1 (trm_match t1 pts) m3 r.
+Lemma eval_match_trm : forall m1 m2 m3 v1 t1 pts r,
+  eval m1 t1 m2 v1 ->
+  eval m2 (trm_match v1 pts) m3 r ->
+  eval m1 (trm_match t1 pts) m3 r.
 Proof using.
-  introv M1 M2. applys* red_evalctx (fun t0 => trm_match t0 pts).
+  introv M1 M2. applys* eval_evalctx (fun t0 => trm_match t0 pts).
 Qed.
 
-Lemma red_app_fun : forall m1 m2 m3 m4 t1 t2 x t3 v1 v2 r,
-  red m1 t1 m2 v1 ->
-  red m2 t2 m3 v2 ->
+Lemma eval_app_fun : forall m1 m2 m3 m4 t1 t2 x t3 v1 v2 r,
+  eval m1 t1 m2 v1 ->
+  eval m2 t2 m3 v2 ->
   v1 = val_fun x t3 ->
-  red m3 (subst1 x v2 t3) m4 r ->
-  red m1 (trm_app t1 t2) m4 r.
-Proof using. intros. applys* red_app_trm. auto_false. Qed.
+  eval m3 (subst1 x v2 t3) m4 r ->
+  eval m1 (trm_app t1 t2) m4 r.
+Proof using. intros. applys* eval_app_trm. auto_false. Qed.
 
-Lemma red_seq : forall m1 m2 m3 t1 t2 r1 r,
-  red m1 t1 m2 r1 ->
-  red m2 t2 m3 r ->
-  red m1 (trm_seq t1 t2) m3 r.
-Proof using. introv M1 M2. applys* red_let_trm. Qed.
+Lemma eval_seq : forall m1 m2 m3 t1 t2 r1 r,
+  eval m1 t1 m2 r1 ->
+  eval m2 t2 m3 r ->
+  eval m1 (trm_seq t1 t2) m3 r.
+Proof using. introv M1 M2. applys* eval_let_trm. Qed.
 
-Lemma red_ptr_add_nat : forall m l (f : nat),
-  red m (val_ptr_add (val_loc l) (val_int f)) m (val_loc (l+f)%nat).
-Proof using. intros. applys* red_binop. applys* redbinop_ptr_add. math. Qed.
+Lemma eval_ptr_add_nat : forall m l (f : nat),
+  eval m (val_ptr_add (val_loc l) (val_int f)) m (val_loc (l+f)%nat).
+Proof using. intros. applys* eval_binop. applys* redbinop_ptr_add. math. Qed.
 
-Lemma red_if_bool : forall m1 m2 b r t1 t2,
-  red m1 (if b then t1 else t2) m2 r ->
-  red m1 (trm_if b t1 t2) m2 r.
-Proof using. introv M1. applys* red_if. Qed.
+Lemma eval_if_bool : forall m1 m2 b r t1 t2,
+  eval m1 (if b then t1 else t2) m2 r ->
+  eval m1 (trm_if b t1 t2) m2 r.
+Proof using. introv M1. applys* eval_if. Qed.
 
-Lemma red_for_le : forall m1 m2 m3 x n1 n2 t3 v1 r,
+Lemma eval_for_le : forall m1 m2 m3 x n1 n2 t3 v1 r,
   n1 <= n2 ->
-  red m1 (subst1 x n1 t3) m2 v1 ->
-  red m2 (trm_for x (n1+1) n2 t3) m3 r ->
-  red m1 (trm_for x n1 n2 t3) m3 r.
+  eval m1 (subst1 x n1 t3) m2 v1 ->
+  eval m2 (trm_for x (n1+1) n2 t3) m3 r ->
+  eval m1 (trm_for x n1 n2 t3) m3 r.
 Proof using.
-  introv N M1 M2. applys red_for. case_if.
-  { applys red_seq. applys M1. applys M2. }
+  introv N M1 M2. applys eval_for. case_if.
+  { applys eval_seq. applys M1. applys M2. }
   { false; math. }
 Qed.
 
-Lemma red_for_gt : forall m x n1 n2 t3,
+Lemma eval_for_gt : forall m x n1 n2 t3,
   n1 > n2 ->
-  red m (trm_for x n1 n2 t3) m val_unit.
+  eval m (trm_for x n1 n2 t3) m val_unit.
 Proof using.
-  introv N. applys red_for. case_if.
+  introv N. applys eval_for. case_if.
   { false; math. }
-  { applys red_val. }
+  { applys eval_val. }
 Qed.
 
 End Derived.
 
 (* ---------------------------------------------------------------------- *)
-(* ** Tactic [fmap_red], defined in file [Fmap] for proving [red] goals
+(* ** Tactic [fmap_red], defined in file [Fmap] for proving [eval] goals
       modulo equalities between states, gets instantiated here. *)
 
 Ltac fmap_red_base tt ::=
-  match goal with H: red _ ?t _ _ |- red _ ?t _ _ =>
+  match goal with H: eval _ ?t _ _ |- eval _ ?t _ _ =>
     applys_eq H 2 4; try fmap_eq end.
 
 

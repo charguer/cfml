@@ -45,11 +45,11 @@ Close Scope fmap_scope.
     - a type of terms, written [trm],
     - a type of values, written [val],
     - a type of states, written [heap],
-    - a big-step evaluation judgment, written [red h1 t h2 v], asserting that,
+    - a big-step evaluation judgment, written [eval h1 t h2 v], asserting that,
       starting from state [s1], the evaluation of the term [t] terminates in
       the state [s2] and produces the value [v]. *)
 
-Check red : state -> trm -> state -> val -> Prop.
+Check eval : state -> trm -> state -> val -> Prop.
 
 (** At this point, we don't need to know the exact grammar of terms and values.
     Let's just give one example to make things concrete. Consider the function:
@@ -268,7 +268,7 @@ Proof using. applys functional_extensionality. Qed.
 
 Definition Hoare_triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (s:state), H s ->
-  exists (s':state) (v:val), red s t s' v /\ Q v s'.
+  exists (s':state) (v:val), eval s t s' v /\ Q v s'.
 
 (** Remark: [Q] has type [val->hprop], thus [Q v] has type [hprop].
     Recall that [hprop = heap->Prop], thus [Q v s'] has type [Prop]. *)
@@ -770,7 +770,7 @@ Definition SL_triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   H h1 ->
   exists h1' v,
        fmap_disjoint h1' h2
-    /\ red (h1 \u h2) t (h1' \u h2) v
+    /\ eval (h1 \u h2) t (h1' \u h2) v
     /\ Q v h1'.
 
 (** Let us establish the equivalence between this alternative definition
@@ -820,7 +820,7 @@ Definition triple_lowlevel t H Q :=
   H h1 ->
   exists v h1' h3',
        fmap_disjoint_3 h1' h2 h3'
-    /\ red (h1 \u h2) t (h1' \u h2 \u h3') v
+    /\ eval (h1 \u h2) t (h1' \u h2 \u h3') v
     /\ (Q v) h1'.
 
 (** One can proove the equivalence of [triple] and [triple_lowlevel]
