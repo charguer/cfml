@@ -168,7 +168,7 @@ Proof using.
   xlet. hchanges (MList_unfold L) ;=> v. xapp.
   applys xcase_lemma0 ;=> E1.
   { destruct L as [|x L']; hpull.
-    { intros ->. hchange himpl_hand_l_r. hchange~ (hwand_hpure_prove).
+    { intros ->. hchange himpl_hand_l_r. hchange~ (hwand_hpure_l_intro).
      hchange (MList_nil_fold p). }
     { intros q ->. tryfalse. } }
   { applys xcase_lemma2.
@@ -177,7 +177,7 @@ Proof using.
       { intros ->. tryfalse. }
       { intros q' E'. subst v. rewrite enc_val_eq in *. inverts E.
         hchange himpl_hand_l_l. do 3 hchange hforall_specialize.
-        hchange~ hwand_hpure_prove. } }
+        hchange~ hwand_hpure_l_intro. } }
     { intros N. destruct L as [|x L']; hpull.
       { intros ->. rewrite enc_val_eq in *. unfolds Nil. false. }
       { intros q ->. rewrite enc_val_eq in *. unfolds @Cons. false. } } }

@@ -1674,7 +1674,7 @@ Proof.
   intros. unfold ROFrame. apply himpl_hexists_r with \[].
   rewrite normally_hempty, RO_empty, hstar_hempty_l.
   eapply himpl_trans; [apply himpl_frame_r|apply himpl_frame_l];
-    apply hwand_move_l; hsimpl.
+    apply hwand_intro; hsimpl.
 Qed.
 
 Lemma ROFrame_frame_l : forall H1 H2 H3,

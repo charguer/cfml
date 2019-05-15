@@ -612,7 +612,7 @@ Proof using. introv M1 M2 Hh. intros b. case_if*. Qed.
 (** Properties of [hwand] and [qwand] necessary for [hsimpl];
     the remaining properties are proved later using [hsimpl]. *)
 
-Lemma hwand_move_l : forall H1 H2 H3,
+Lemma hwand_intro : forall H1 H2 H3,
   H1 \* H2 ==> H3 ->
   H1 ==> (H2 \-* H3).
 Proof using. 
@@ -634,14 +634,14 @@ Arguments hwand_cancel : clear implicits.
 Lemma hwand_curry : forall H1 H2 H3,
   (H1 \* H2) \-* H3 ==> H1 \-* (H2 \-* H3).
 Proof using.
-  intros. applys hwand_move_l. applys hwand_move_l.
+  intros. applys hwand_intro. applys hwand_intro.
   rewrite hstar_assoc. rewrite hstar_comm. applys hwand_cancel.
 Qed.
 
 Lemma hwand_uncurry : forall H1 H2 H3,
   H1 \-* (H2 \-* H3) ==> (H1 \* H2) \-* H3.
 Proof using.
-  intros. applys hwand_move_l. rewrite <- (hstar_comm (H1 \* H2)). 
+  intros. applys hwand_intro. rewrite <- (hstar_comm (H1 \* H2)). 
   rewrite (@hstar_comm H1). rewrite hstar_assoc.
   applys himpl_trans. applys himpl_frame_r. applys hwand_cancel.
   applys hwand_cancel.
@@ -655,7 +655,7 @@ Proof using.
   { applys hwand_uncurry. }
 Qed.
 
-Lemma hwand_hpure_prove : forall (P:Prop) H,
+Lemma hwand_hpure_l_intro : forall (P:Prop) H,
   P ->
   \[P] \-* H ==> H.
 Proof using. 
@@ -664,7 +664,7 @@ Proof using.
   applys* himpl_hstar_trans K. applys hwand_cancel.
 Qed.
 
-Arguments hwand_hpure_prove : clear implicits.
+Arguments hwand_hpure_l_intro : clear implicits.
 
 Lemma himpl_hempty_hwand_same : forall H,
   \[] ==> (H \-* H).
@@ -673,19 +673,19 @@ Proof using.
   repeat rewrite hstar_hempty_l. applys~ himpl_hempty_hpure.
 Qed.
 
-Lemma qwand_move_l : forall A (Q1 Q2:A->hprop) H,
+Lemma qwand_intro : forall A (Q1 Q2:A->hprop) H,
   Q1 \*+ H ===> Q2 ->
   H ==> (Q1 \--* Q2).
 Proof using.
   introv M. unfold qwand. applys himpl_hforall_r. intros x.
-  applys* hwand_move_l. rewrite* hstar_comm.
+  applys* hwand_intro. rewrite* hstar_comm.
 Qed.
 
-Arguments qwand_move_l [A].
+Arguments qwand_intro [A].
 
 Lemma himpl_qwand_hstar_same_r : forall A (Q:A->hprop) H,
   H ==> Q \--* (Q \*+ H).
-Proof using. intros. applys* qwand_move_l. Qed.
+Proof using. intros. applys* qwand_intro. Qed.
 
 Lemma qwand_specialize : forall A (x:A) (Q1 Q2:A->hprop),
   (Q1 \--* Q2) ==> (Q1 x \-* Q2 x).
@@ -1760,14 +1760,14 @@ Lemma hsimpl_lr_hwand : forall H1 H2 Hla,
   Hsimpl (\[], \[], (H1 \* Hla)) (\[], \[], H2 \* \[]) ->
   Hsimpl (Hla, \[], \[]) ((H1 \-* H2) \* \[], \[], \[]).
 Proof using.
-  hsimpl_lr_start' M. apply hwand_move_l.
+  hsimpl_lr_start' M. apply hwand_intro.
   applys himpl_trans (rm M). hstars_simpl.
 Qed.
 
 Lemma hsimpl_lr_hwand_hfalse : forall Hla H1,
   Hsimpl (Hla, \[], \[]) ((\[False] \-* H1) \* \[], \[], \[]).
 Proof using.
-  intros. generalize True. hsimpl_lr_start M. apply hwand_move_l. 
+  intros. generalize True. hsimpl_lr_start M. apply hwand_intro. 
   rewrite hstar_comm. applys himpl_hstar_hpure_l. auto_false.
 Qed.
 
@@ -1775,7 +1775,7 @@ Lemma hsimpl_lr_qwand : forall A (Q1 Q2:A->hprop) Hla,
   (forall x, Hsimpl (\[], \[], (Q1 x \* Hla)) (\[], \[], Q2 x \* \[])) ->
   Hsimpl (Hla, \[], \[]) ((Q1 \--* Q2) \* \[], \[], \[]).
 Proof using. 
-  hsimpl_lr_start M. applys qwand_move_l. intros x.
+  hsimpl_lr_start M. applys qwand_intro. intros x.
   specializes M x. rew_heap~ in M.
 Qed.
 
@@ -2636,9 +2636,9 @@ Lemma hchange_demo_hwand_hpure : forall (P:Prop) H1 H2 H3,
   (\[P] \-* H1) \* H3 ==> H2.
 Proof using.
   introv HP M1. dup 3.
-  { hchange (hwand_hpure_prove P H1). auto. hchange M1. }
-  { hchange hwand_hpure_prove. auto. hchange M1. }
-  { hchange hwand_hpure_prove, M1. auto. }
+  { hchange (hwand_hpure_l_intro P H1). auto. hchange M1. }
+  { hchange hwand_hpure_l_intro. auto. hchange M1. }
+  { hchange hwand_hpure_l_intro, M1. auto. }
 Qed.
 
 Lemma hchange_demo_4 : forall A (Q1 Q2:A->hprop) H,
@@ -2681,20 +2681,24 @@ Qed.
 
 Hint Rewrite hwand_hempty_l : rew_heap.
 
+Lemma hwand_himpl : forall H1 H1' H2 H2',
+  H1' ==> H1 ->
+  H2 ==> H2' ->
+  (H1 \-* H2) ==> (H1' \-* H2').
+Proof using. introv M1 M2. hsimpl. hchange~ M1. Qed.
+
 Lemma hwand_himpl_r : forall H1 H2 H2',
   H2 ==> H2' ->
   (H1 \-* H2) ==> (H1 \-* H2').
-Proof using. introv M. hsimpl~. Qed.
+Proof using. introv M. applys~ hwand_himpl. Qed.
 
 Lemma hwand_himpl_l : forall H1' H1 H2,
   H1' ==> H1 ->
   (H1 \-* H2) ==> (H1' \-* H2).
-Proof using. introv M. hsimpl. hchanges M. Qed.
-(*
-  intros. unfold hwand. hsimpl ;=> H3 M. hchanges M. hchanges H.
-*)
+Proof using. introv M. applys* hwand_himpl. Qed.
 
-Lemma hwand_move_r : forall H1 H2 H3,
+(* not needed *)
+Lemma hwand_elim : forall H1 H2 H3,
   H1 ==> (H2 \-* H3) ->
   H1 \* H2 ==> H3.
 Proof using. introv M. hchange (>> himpl_frame_r H2 M). Qed.
@@ -2703,12 +2707,12 @@ Proof using. introv M. hchange (>> himpl_frame_r H2 M). Qed.
   rew_heap. apply hwand_cancel.
 *)
 
-
-Lemma hwand_move_l_pure : forall H1 H2 (P:Prop),
+Lemma hwand_hpure_r_intro : forall H1 H2 (P:Prop),
   (P -> H1 ==> H2) ->
   H1 ==> (\[P] \-* H2).
-Proof using. introv M. applys hwand_move_l. hsimpl*. Qed.
+Proof using. introv M. applys hwand_intro. hsimpl*. Qed.
 
+(* not needed *)
 Lemma hwand_cancel_part : forall H1 H2 H3,
   H1 \* ((H1 \* H2) \-* H3) ==> (H2 \-* H3).
 Proof using.
@@ -2718,7 +2722,8 @@ Qed.
 
 Arguments hwand_cancel_part : clear implicits.
 
-Lemma hwand_move_part_r : forall H1 H2 H3 H4,
+(* not needed *)
+Lemma hwand_elim_part_r : forall H1 H2 H3 H4,
   H2 ==> ((H1 \* H3) \-* H4) ->
   H1 \* H2 ==> (H3 \-* H4).
 Proof using.
@@ -2727,12 +2732,13 @@ Proof using.
   rew_heap. apply hwand_cancel_part.*)
 Qed.
 
-Lemma hwand_move_part_l : forall H1 H2 H3 H4,
+(* not needed *)
+Lemma hwand_intro_part_l : forall H1 H2 H3 H4,
   H1 \* H2 ==> (H3 \-* H4) ->
   H2 ==> ((H1 \* H3) \-* H4).
 Proof using.
   introv M. hsimpl. hchanges M.
-  (* unfold hwand. hsimpl. hchanges (hwand_move_r M). *)
+  (* unfold hwand. hsimpl. hchanges (hwand_elim M). *)
 Qed.
 
 Lemma hstar_hwand : forall H1 H2 H3,
@@ -2745,6 +2751,10 @@ Qed.
 
 Arguments hstar_hwand : clear implicits.
 
+
+(* ---------------------------------------------------------------------- *)
+(* ** Properties of [qwand] *)
+
 Lemma hstar_qwand : forall H A (Q1 Q2:A->hprop),
   (Q1 \--* Q2) \* H ==> Q1 \--* (Q2 \*+ H).
 Proof using. hsimpl.
@@ -2754,10 +2764,6 @@ Proof using. hsimpl.
   hchanges hstar_hwand.
 *)
 Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Properties of [qwand] *)
 
 Lemma qwand_cancel : forall A (Q1 Q2:A->hprop),
   Q1 \*+ (Q1 \--* Q2) ===> Q2.
@@ -2773,18 +2779,28 @@ Qed.
 Lemma qwand_cancel_part : forall H A (Q1 Q2:A->hprop),
   H \* ((Q1 \*+ H) \--* Q2) ==> (Q1 \--* Q2).
 Proof using.
-  intros. applys qwand_move_l. intros x.
+  intros. applys qwand_intro. intros x.
   hchange (qwand_specialize x). 
 Qed.
+
+Lemma qwand_himpl : forall A (Q1 Q1' Q2 Q2':A->hprop),
+  Q1' ===> Q1 ->
+  Q2 ===> Q2' ->
+  (Q1 \--* Q2) ==> (Q1' \--* Q2').
+Proof using.
+  introv M1 M2. applys himpl_hforall_r. intros x.
+  applys himpl_hforall_l x. applys* hwand_himpl.
+Qed.
+
+Lemma qwand_himpl_l : forall A (Q1 Q1' Q2:A->hprop),
+  Q1' ===> Q1 ->
+  (Q1 \--* Q2) ==> (Q1' \--* Q2).
+Proof using. introv M. applys* qwand_himpl. Qed.
 
 Lemma qwand_himpl_r : forall A (Q1 Q2 Q2':A->hprop),
   Q2 ===> Q2' ->
   (Q1 \--* Q2) ==> (Q1 \--* Q2').
-Proof using.
-  introv M. hsimpl ;=> x. hchanges M.
-  (* introv M. unfold qwand. applys himpl_hforall.
-  intros x. applys* hwand_himpl_r. *)
-Qed.
+Proof using. introv M. applys* qwand_himpl. Qed.
 
 
 (* ********************************************************************** *)
@@ -3116,7 +3132,7 @@ Lemma is_local_hwand_hpure_l : forall F (P:Prop) H Q,
   F H Q ->
   F (\[P] \-* H) Q.
 Proof using.
-  introv L HP M. applys~ is_local_elim_conseq_pre. hchanges~ hwand_hpure_prove.
+  introv L HP M. applys~ is_local_elim_conseq_pre. hchanges~ hwand_hpure_l_intro.
 Qed.
 
 End IsLocal.

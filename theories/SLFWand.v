@@ -256,7 +256,7 @@ reciprocally frame derivable
 (** [H1 \-* H2] is covariant in [H2], and contravariant in [H1]
     (like an implication). *)
 
-Lemma himpl_hwand : forall H1 H1' H2 H2',
+Lemma hwand_himpl : forall H1 H1' H2 H2',
   H1' ==> H1 ->
   H2 ==> H2' ->
   (H1 \-* H2) ==> (H1' \-* H2').
@@ -349,9 +349,9 @@ Qed.
     To show that [H] holds of this same heap, it suffices
     ot justify that the proposition [P] is true. Formally: *)
 
-Lemma hwand_hpure_prove : forall P H,
+Lemma hwand_hpure_l_intro : forall P H,
   P ->
-  \[P] \-* H ==> H.
+  (\[P] \-* H) ==> H.
 Proof using.
   introv HP. rewrite hwand_eq_hwand'. unfold hwand'. hsimpl.
   intros H0 M. hchange M. applys HP.
@@ -366,7 +366,7 @@ Qed.
 (** [\[P] \-* H] can be proved of a heap if [H] can be proved
    of this heap under the assumption [P]. Formally: *)
 
-Lemma hwand_move_l_pure : forall H1 H2 P,
+Lemma hwand_hpure_r_intro : forall H1 H2 P,
   (P -> H1 ==> H2) ->
   H1 ==> (\[P] \-* H2).
 Proof using. introv M. applys hwand_intro. hsimpl. applys M. Qed.
@@ -461,9 +461,6 @@ Proof using. introv M. applys himpl_trans M. applys hforall_specialize. Qed.
 (* ******************************************************* *)
 (** ** Properties of [qwand] *)
 
-(* TODO: renamings in SepFunctor *)
-
-
 (* ------------------------------------------------------- *)
 (** *** Structural properties of [qwand] *)
 
@@ -493,13 +490,13 @@ Proof using. intros. applys qwand_elim. applys himpl_refl. Qed.
 (** Like [hwand], [qwand] is covariant in its second argument,
     and contravariant in its first argument. *)
 
-Lemma himpl_qwand : forall Q1 Q1' Q2 Q2',
+Lemma qwand_himpl : forall Q1 Q1' Q2 Q2',
   Q1' ===> Q1 ->
   Q2 ===> Q2' ->
   (Q1 \--* Q2) ==> (Q1' \--* Q2').
 Proof using.
   introv M1 M2. applys himpl_hforall_r. intros x.
-  applys himpl_hforall_l x. applys himpl_hwand.
+  applys himpl_hforall_l x. applys hwand_himpl.
   { applys M1. } { applys M2. }
 Qed.
 

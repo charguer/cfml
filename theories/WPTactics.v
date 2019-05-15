@@ -595,7 +595,7 @@ Lemma xcase_lemma : forall F1 (P:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
 Proof using. 
   introv M1 M2. apply mkLocal_erase. applys himpl_hand_r. 
   { auto. }
-  { applys* hwand_move_l_pure. }
+  { applys* hwand_hpure_r_intro. }
 Qed.
 
 Lemma xcase_lemma0 : forall F1 (P1 P2:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
@@ -603,7 +603,7 @@ Lemma xcase_lemma0 : forall F1 (P1 P2:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
   (P2 -> H ==> ^F2 Q) ->
   H ==> ^(Wpgen_case (fun `{EA1:Enc A1} (Q:A1->hprop) => \[P1] \-* ^F1 Q) P2 F2) Q.
 Proof using. 
-  introv M1 M2. applys* xcase_lemma. { applys* hwand_move_l_pure. }
+  introv M1 M2. applys* xcase_lemma. { applys* hwand_hpure_r_intro. }
 Qed.
 
 Lemma xcase_lemma2 : forall (F1:val->val->Formula) (P1:val->val->Prop) (P2:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
@@ -612,7 +612,7 @@ Lemma xcase_lemma2 : forall (F1:val->val->Formula) (P1:val->val->Prop) (P2:Prop)
   H ==> ^(Wpgen_case (fun `{EA1:Enc A1} (Q:A1->hprop) => \forall x1 x2, \[P1 x1 x2] \-* ^(F1 x1 x2) Q) P2 F2) Q.
 Proof using. 
   introv M1 M2. applys* xcase_lemma.
-  { repeat (applys himpl_hforall_r ;=> ?). applys* hwand_move_l_pure. }
+  { repeat (applys himpl_hforall_r ;=> ?). applys* hwand_hpure_r_intro. }
 Qed.
 
 
