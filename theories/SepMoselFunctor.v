@@ -89,7 +89,7 @@ Notation "\[ P ]" := (hpure P)
 Notation "\Top" := (htop) : heap_scope.
 
 Notation "H1 \-* H2" := (hwand H1 H2)
-  (at level 43) : heap_scope.
+  (at level 43, right associativity) : heap_scope.
 
 Notation "Q1 \--* Q2" := (qwand Q1 Q2)
   (at level 43) : heap_scope.

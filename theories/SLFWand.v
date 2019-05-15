@@ -13,6 +13,9 @@ Set Implicit Arguments.
 From Sep Require Import SepBase.
 Notation "'\Top''" := hgc.
 
+Implicit Types h : heap.
+Implicit Types H : hprop.
+Implicit Types Q : val->hprop.
 
 
 (* ####################################################### *)
@@ -54,7 +57,7 @@ Notation "'\Top''" := hgc.
 Definition hwand (H1 H2:hprop) : hprop :=
   fun h => forall h', fmap_disjoint h h' -> H1 h' -> H2 (h \u h').
 
-Notation "H1 \-* H2" := (hwand H1 H2) (at level 43).
+Notation "H1 \-* H2" := (hwand H1 H2) (at level 43, right associativity).
 
 (** The definition of [hwand] is not easy to make sense of at first.
     To better grasp its meaning, we next present two alternative
@@ -66,7 +69,7 @@ Notation "H1 \-* H2" := (hwand H1 H2) (at level 43).
     equivalence for all arguments is provably equal to the definition 
     of [hwand] given above. (We proof this fact further in the chapter.) *)
 
-Parameter hwand_characterization : forall H0 H1 H2,
+Parameter hwand_equiv : forall H0 H1 H2,
   (H0 ==> H1 \-* H2) <-> (H0 \* H1 ==> H2).
 
 (** The right-to-left direction is an introduction rule: it tells
@@ -77,17 +80,17 @@ Parameter hwand_characterization : forall H0 H1 H2,
 Lemma hwand_intro : forall H0 H1 H2,
   (H0 \* H1) ==> H2 ->
   H0 ==> (H1 \-* H2).
-Proof using. intros. applys hwand_characterization. Qed.
+Proof using. introv M. applys hwand_equiv. applys M. Qed.
 
 (** The left-to-right direction is an elimination rule: it tells
     what can be deduced from [H0 ==> (H1 \-* H2)]. What can be
     deduced is that if [H0] is augmented with [H1], then [H2]
     can be recovered. *)
 
-Lemma hwand_elim : forall H1 H2 H3,
+Lemma hwand_elim : forall H0 H1 H2,
   H0 ==> (H1 \-* H2) ->
   (H0 \* H1) ==> H2.
-Proof using. intros. applys hwand_characterization. Qed.
+Proof using. introv M. applys hwand_equiv. applys M. Qed.
 
 (** This elimination rule can be equivalently reformulated in the
     following form, which makes it perhaps even clearer that 
@@ -96,16 +99,19 @@ Proof using. intros. applys hwand_characterization. Qed.
 
 Lemma hwand_elim' : forall H1 H2,
   H1 \* (H1 \-* H2) ==> H2.
-Proof using. intros. applys hwand_elim. Qed.
+Proof using.
+  intros. rewrite hstar_comm.
+  applys hwand_elim. applys himpl_refl.
+Qed.
 
 (** Another possible definition of [H1 \-* H2] can be stated
     without refering to heaps at all, by reusing the basic
-    Separation Logic operators that we have already introduced. 
+    Separation Logic operators that we have already introduced.
     [H1 \-* H2] denotes some heap, described as [H0], such 
-    that [H0] augmented with [H1] yields [H2]. 
-    
+    that [H0] augmented with [H1] yields [H2].
+
     In the alternative definition of [hwand] shown below,
-    the heap [H0] is existentially quantified using [\exists], 
+    the heap [H0] is existentially quantified using [\exists],
     and the entailment assertion is described as the pure heap
     predicate [\[ H0 \* H1 ==> H2 ]]. *)
 
@@ -136,37 +142,75 @@ Definition hwand' (H1 H2:hprop) : hprop :=
     between (1) and (2), then prove the equivalence between (2) and (3).
 *)
 
-(** Prove that [hwand] is equivalent to [hwand']. *)
+(** Let us first prove that [hwand] is equivalent to [hwand'], 
+    i.e., that (1) and (2) are equivalent definitions. *)
 
 Lemma hwand_eq_hwand' :
   hwand = hwand'.
-Proof using. Qed.
+Proof using.
+  apply pred_ext_3. intros H1 H2 h. unfold hwand, hwand'. iff M.
+  { exists (=h). rewrite hstar_comm. rewrite hstar_hpure. split.
+    { intros h3 K3. destruct K3 as (h1&h2&K1&K2&D&U).
+      subst h1 h3. applys M D K2. }
+    { auto. } }
+  { intros h1 D K1. destruct M as (H0&M).
+    destruct M as (h0&h2&K0&K2&D'&U).
+    lets (N&E): hpure_inv' (rm K2). subst h h2.
+    rewrite fmap_union_empty_r in *.
+    applys N. applys hstar_intro K0 K1 D. }
+Qed.
 
+(** According to definition (3), an operator [op] is a magic wand
+   if and only if, for any [H0], [H1], [H2], it satisfies the
+   equivalence [(H0 ==> op H1 H2) <-> (H0 \* H1 ==> H2)]. Formally: *)
 
-(** Prove that [hwand'] satisfies the lemma 
+Definition hwand_characterization (op:hprop->hprop->hprop) :=
+  forall H0 H1 H2, (H0 ==> op H1 H2) <-> (H0 \* H1 ==> H2).
+
+(** Let us now prove that [hwand'] satisfies the lemma
     [hwand_characterization]. *)
 
-Lemma hwand'_satisfies_hwand_characterization : forall H0 H1 H2,
-  (H0 ==> hwand' H1 H2) <-> (H0 \* H1 ==> H2).
-Proof using. Qed.
+Lemma hwand_characterization_hwand' : 
+  hwand_characterization hwand'.
+Proof using. 
+  intros H0 H1 H2. unfold hwand'. iff M. { hchange M. } { hsimpl~ H0. }
+Qed.
 
-Lemma hwand'_satisfies_hwand_characterization' : forall op,
-  op = hwand ->
-  (forall H0 H1 H2, (H0 ==> op H1 H2) <-> (H0 \* H1 ==> H2)).
-Proof using. intros. subst. applys hwand'_satisfies_hwand_characterization. Qed.
+(** The above proof seems too easy. It's because [hsimpl] is doing
+    all the work for us. Here is a detailed proof not using [hsimpl]. *)
+
+Lemma hwand_characterization_hwand'_details : forall H0 H1 H2,
+  (H0 ==> hwand' H1 H2) <-> (H0 \* H1 ==> H2).
+Proof using. 
+  intros. unfold hwand'. iff M.
+  { applys himpl_trans. applys himpl_frame_l M.
+    rewrite hstar_hexists. applys himpl_hexists_l. intros H3.
+    rewrite (hstar_comm H3). rewrite hstar_assoc.
+    applys himpl_hstar_hpure_l. intros N. applys N. }
+  { applys himpl_hexists_r H0. rewrite hstar_comm.
+    applys himpl_hstar_hpure_r. applys M. applys himpl_refl. }
+Qed.
 
 (** Reciprocally, show that any operator satisfying
     [hwand] characterization is equal to [hwand']. *)
 
 Lemma hwand_characterization_eq_hwand' : forall op,
-  (forall H0 H1 H2, (H0 ==> op H1 H2) <-> (H0 \* H1 ==> H2)) ->
+  hwand_characterization op -> 
   op = hwand'.
-Proof using. Qed.
+Proof using.
+  introv Ch. unfolds in Ch. apply fun_ext_2. intros H1 H2.
+  unfold hwand'. apply himpl_antisym.
+  { lets (M&_): (Ch (op H1 H2) H1 H2). hsimpl (op H1 H2).
+    applys M. applys himpl_refl. }
+  { hsimpl. intros H0 M. rewrite Ch. applys M. }
+Qed.
 
 
 
 
 
+
+(* TODO: switch hpure_inv and hpure_inv' *)
 
 
 
