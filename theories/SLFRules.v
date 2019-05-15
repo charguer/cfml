@@ -46,6 +46,8 @@ From Sep Require Export SepBase SubstExec.
 
 Notation "\Top" := hgc.
 
+Definition triple_conseq_frame_htop := triple_conseq_frame_hgc.
+
 Definition subst := subst_exec.
 
 Parameter htop_intro : forall h,

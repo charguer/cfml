@@ -262,6 +262,10 @@ Lemma hgc_intro : forall h,
   \GC h.
 Proof using. intros. applys hgc_of_heap_affine. hnfs*. Qed.
 
+Lemma hgc_eq_htop :
+  \GC = \Top.
+Proof using. applys hgc_eq_htop_of_haffine_any. applys haffine_any. Qed.
+
 End Aux.
 
 Global Opaque heap_affine.

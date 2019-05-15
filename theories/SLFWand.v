@@ -101,6 +101,8 @@ Proof using.
   applys hwand_elim. applys himpl_refl.
 Qed.
 
+Arguments hwand_cancel : clear implicits.
+
 (** Another possible definition of [H1 \-* H2] can be stated
     without refering to heaps at all, by reusing the basic
     Separation Logic operators that we have already introduced.
@@ -177,65 +179,106 @@ Lemma qwand_specialize : forall A (x:A) (Q1 Q2:A->hprop),
   (Q1 \--* Q2) ==> (Q1 x \-* Q2 x).
 Proof using. intros. unfold qwand. intros h K. applys K. Qed.
 
+(** The operator [qwand] satisfies many properties similar to those
+    of [hwand]. We state these properties further in the chapter.
+    Here, we just state the two most important rules: the characterization
+    rule, and the cancellation rule. *)
 
+Lemma qwand_equiv : forall H Q1 Q2,
+  H ==> (Q1 \--* Q2)  <->  (Q1 \*+ H) ===> Q2.
+Proof using.
+  intros. iff M. 
+  { intros x. hchange M. hchange (qwand_specialize x).  
+    hchange (hwand_cancel (Q1 x)). }
+  { applys himpl_hforall_r. intros x. applys hwand_intro.
+    hchange (M x). }
+Qed.
 
+Lemma qwand_cancel : forall Q1 Q2,
+  Q1 \*+ (Q1 \--* Q2) ===> Q2.
+Proof using. intros. rewrite <- qwand_equiv. applys qimpl_refl. Qed.
 
 
 (* ******************************************************* *)
 (** ** Frame expressed with [hwand]: the ramified frame rule *)
 
+(** Recall the consequence-frame rule *)
 
-
-(*
-
+Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
   H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q ->
+  triple t H Q.
+
+(** One practical caveat with this rule is that we must resolve [H2],
+    which corresponds to the difference between [H] and [H1].
+    In practice, providing [H2] explicitly is extremely tedious.
+    The alternative is to leave [H2] as an evar, and count on the
+    fact that the tactic [hsimpl], when applied to [H ==> H1 \* H2],
+    will correctly instantiate [H2].
+
+    This approach works, but is relatively fragile, as evars may get
+    instantiated in undesired ways. Moreover, evars depend on the context
+    at the time of their creation, and they must be instantiated with 
+    values from that context. Yet, for example, if [H] contains existential
+    quantifiers at the moment of applying the consequence-frame rule,
+    then extracting those quantifiers after the rule is applied makes
+    it almost impossible to instantiate [H2] correctly. 
+
+    All these problems disappear if we make use of the magic wand to
+    eliminate the need to quantify [H2] altogether. Concretely,
+    [Q1 \*+ H2 ===> Q] is equivalent to [H2 ==> (Q1 \--* Q)].
+    By substituting away, we can merge the two entailments
+    [H ==> H1 \* H2] and [H2 ==> (Q1 \--* Q)] into a single one:
+    [H ==> H1 \* (Q1 \--* Q)]. 
+
+    The resulting rule is called the "ramified frame rule". *)
+
+Lemma triple_ramified_frame : forall H1 Q1 t H Q,
   triple t H1 Q1 ->
-  Q1 \* H2 ==> Q \*+ \GC ->
-  triple t H Q
+  H ==> H1 \* (Q1 \--* Q) ->
+  triple t H Q.
 
+(** As we prove next, the ramified frame rule has exactly the same
+    expressive power as the consequence-frame rule. 
 
+    First, let us prove that it is derivable. 
+    To that end, we instantiate [H2] as [Q1 \--* Q]. *)
+
+Proof using.
+  introv M W. applys triple_conseq_frame (Q1 \--* Q) M.
+  { applys W. } { applys qwand_cancel. }
+Qed.
+
+(** Reciprocally, we prove that consequence-frame is derivable from
+    the ramified frame rule. *)
+
+Lemma triple_conseq_frame' : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
   H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q ->
+  triple t H Q.
+Proof using.
+  introv M WH WQ. applys triple_ramified_frame M.
+  hchange WH. hsimpl. rewrite qwand_equiv. applys WQ.
+Qed.
+
+(** The principle of the ramified-frame rule immediately generalizes
+    to handle the consequence-frame-top rule, which is like the 
+    consequence-frame rule but with premise [Q1 \*+ H2 ===> Q \*+ \Top]. *)
+
+Lemma triple_ramified_frame_top : forall H1 Q1 t H Q,
   triple t H1 Q1 ->
-  Q1 \* H2 ==> Q \*+ \GC ->
-  triple t H Q
-
-
-
-  H ==> H1 \* H2 ->
-  triple t H1 Q1 ->
-  H2 ==> Q1 \*- (Q \*+ \GC) ->
-  triple t H Q
-
-
-  H ==> H1 \* (Q1 \*- (Q \*+ \GC)) ->
-  triple t H1 Q1 ->
-  triple t H Q
-
-reciprocally frame derivable
-
-  H ==> H1 \* H2 ->
-  triple t H1 Q1 ->
-  H2 ==> Q1 \*- (Q \*+ \GC) ->
-  triple t H Q
-
-
-  MQ. H ==> H1 \* (Q1 \*- (Q \*+ \GC))
-  MQ. H1 \* H2  ==> H1 \* (Q1 \*- (Q \*+ \GC))
-  MQ. H2  ==> (Q1 \*- (Q \*+ \GC))
-  MQ. Q1 \* H2  ==> (Q \*+ \GC)
-  done.
-
-
-
-*)
-
-
-
+  H ==> H1 \* (Q1 \--* (Q \*+ \Top)) ->
+  triple t H Q.
+Proof using.
+  introv M W. applys triple_conseq_frame_htop (Q1 \--* (Q \*+ \Top)) M.
+  { applys W. } { applys qwand_cancel. }
+Qed.
 
 
 (* ####################################################### *)
 (** * Additional contents *)
-
 
 (* ******************************************************* *)
 (** ** Properties of [hwand] *)
@@ -262,7 +305,7 @@ Lemma hwand_himpl : forall H1 H1' H2 H2',
   (H1 \-* H2) ==> (H1' \-* H2').
 Proof using.
   introv M1 M2. applys hwand_intro. hchange M1.
-  hchange (@hwand_cancel H1 H2). applys M2.
+  hchange (hwand_cancel H1 H2). applys M2.
 Qed.
 
 (** Two predicates [H1 \-* H2] ans [H2 \-* H3] may simplify
@@ -272,8 +315,8 @@ Qed.
 Lemma hwand_trans_elim : forall H1 H2 H3,
   (H1 \-* H2) \* (H2 \-* H3) ==> (H1 \-* H3).
 Proof using.
-  intros. applys hwand_intro. hchange (@hwand_cancel H1 H2).
-  hchange (@hwand_cancel H2 H3).
+  intros. applys hwand_intro. hchange (hwand_cancel H1 H2).
+  hchange (hwand_cancel H2 H3).
 Qed.
 
 (** The predicate [H \-* H] holds of the empty heap.
@@ -389,9 +432,9 @@ Lemma hwand_curry_eq : forall H1 H2 H3,
 Proof using.
   intros. applys himpl_antisym.
   { apply hwand_intro. apply hwand_intro.
-    hchange (@hwand_cancel (H1 \* H2) H3). }
-  { apply hwand_intro. hchange (@hwand_cancel H1 (H2 \-* H3)).
-    hchange (@hwand_cancel H2 H3). }
+    hchange (hwand_cancel (H1 \* H2) H3). }
+  { apply hwand_intro. hchange (hwand_cancel H1 (H2 \-* H3)).
+    hchange (hwand_cancel H2 H3). }
 Qed.
 
 (** If a heap satisfies [H1 \-* H2] and another heap
@@ -402,7 +445,7 @@ Qed.
 Lemma hstar_hwand : forall H1 H2 H3,
   (H1 \-* H2) \* H3 ==> H1 \-* (H2 \* H3).
 Proof using.
-  intros. applys hwand_intro. hsimpl. hchange (@hwand_cancel H1 H2).
+  intros. applys hwand_intro. hsimpl. hchange (hwand_cancel H1 H2).
 Qed.
 
 
@@ -427,7 +470,7 @@ Lemma hwand_cancel_part : forall H1 H2 H3,
   H1 \* ((H1 \* H2) \-* H3) ==> (H2 \-* H3).
 Proof using.
 (* SOLUTION *)
-  intros. applys hwand_intro. hchange (@hwand_cancel (H1 \* H2)).
+  intros. applys hwand_intro. hchange (hwand_cancel (H1 \* H2)).
 (* /SOLUTION *)
 Qed.
 
@@ -462,7 +505,7 @@ Proof using. introv M. applys himpl_trans M. applys hforall_specialize. Qed.
 (** ** Properties of [qwand] *)
 
 (* ------------------------------------------------------- *)
-(** *** Structural properties of [qwand] *)
+(** *** Main properties of [qwand] *)
 
 (** We first state the introduction and elimination lemmas
     analogous to [hwand_intro], [hwand_elim], and [hwand_cancel]. *)
@@ -470,22 +513,12 @@ Proof using. introv M. applys himpl_trans M. applys hforall_specialize. Qed.
 Lemma qwand_intro : forall H Q1 Q2,
   (Q1 \*+ H) ===> Q2 ->
   H ==> (Q1 \--* Q2).
-Proof using. 
-  introv M. applys himpl_hforall_r. intros x.
-  applys hwand_intro. rewrite hstar_comm. applys M.
-Qed.
+Proof using. introv M. rewrite* qwand_equiv. Qed.
 
 Lemma qwand_elim : forall H Q1 Q2,
   H ==> (Q1 \--* Q2) ->
   (Q1 \*+ H) ===> Q2.
-Proof using. 
-  introv M. intros x. rewrite hstar_comm. apply hwand_elim.
-  hchange M. applys hforall_specialize x.
-Qed.
-
-Lemma qwand_cancel : forall Q1 Q2,
-  Q1 \*+ (Q1 \--* Q2) ===> Q2.
-Proof using. intros. applys qwand_elim. applys himpl_refl. Qed.
+Proof using. introv M. rewrite* <- qwand_equiv. Qed.
 
 (** Like [hwand], [qwand] is covariant in its second argument,
     and contravariant in its first argument. *)
@@ -495,9 +528,9 @@ Lemma qwand_himpl : forall Q1 Q1' Q2 Q2',
   Q2 ===> Q2' ->
   (Q1 \--* Q2) ==> (Q1' \--* Q2').
 Proof using.
-  introv M1 M2. applys himpl_hforall_r. intros x.
-  applys himpl_hforall_l x. applys hwand_himpl.
-  { applys M1. } { applys M2. }
+  introv M1 M2. applys qwand_intro. intros x.
+  hchange (qwand_specialize x). applys hwand_elim.
+  applys hwand_himpl. { applys M1. } { applys M2. }
 Qed.
 
 (** If a heap satisfies [Q1 \--* Q2] and another heap
@@ -535,7 +568,7 @@ Proof using.
 (* SOLUTION *)
   intros. applys qwand_intro. intros x.
   hchange (qwand_specialize x).
-  hchange (@hwand_cancel (Q1 x \* H)).
+  hchange (hwand_cancel (Q1 x \* H)).
 (* /SOLUTION *)
 Qed.
 
@@ -620,9 +653,11 @@ Proof using.
 Qed.
 
 
-
 (* ******************************************************* *)
 (** ** Conjuction and disjunction operators on [hprop] *)
+
+(* ------------------------------------------------------- *)
+(** *** Definition of [hor] *)
 
 (** For some advanced applications, it is useful to lift the
     disjunction operation [P1 \/ P2] from [Prop] to [hprop].
@@ -654,6 +689,9 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+
+(* ------------------------------------------------------- *)
+(** *** Definition of [hand] *)
 
 (** Likewise, we lift the conjunction operation [P1 /\ P2] from
     [Prop] to [hprop].
