@@ -210,23 +210,11 @@ Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
   Q1 \*+ H2 ===> Q ->
   triple t H Q.
 
-(** One practical caveat with this rule is that we must resolve [H2],
-    which corresponds to the difference between [H] and [H1].
-    In practice, providing [H2] explicitly is extremely tedious.
-    The alternative is to leave [H2] as an evar, and count on the
-    fact that the tactic [hsimpl], when applied to [H ==> H1 \* H2],
-    will correctly instantiate [H2].
+(** This rule suffers from practical issues, which we discuss in
+    details further in this chapter.
 
-    This approach works, but is relatively fragile, as evars may get
-    instantiated in undesired ways. Moreover, evars depend on the context
-    at the time of their creation, and they must be instantiated with 
-    values from that context. Yet, for example, if [H] contains existential
-    quantifiers at the moment of applying the consequence-frame rule,
-    then extracting those quantifiers after the rule is applied makes
-    it almost impossible to instantiate [H2] correctly. 
-
-    All these problems disappear if we make use of the magic wand to
-    eliminate the need to quantify [H2] altogether. Concretely,
+    All these problems disappear if we make use of the magic wand
+    to eliminate the need to quantify [H2] altogether. Concretely,
     [Q1 \*+ H2 ===> Q] is equivalent to [H2 ==> (Q1 \--* Q)].
     By substituting away, we can merge the two entailments
     [H ==> H1 \* H2] and [H2 ==> (Q1 \--* Q)] into a single one:
@@ -277,8 +265,115 @@ Proof using.
 Qed.
 
 
+
 (* ####################################################### *)
 (** * Additional contents *)
+
+(* ******************************************************* *)
+(** ** Limitation of [consequence-frame] *)
+
+(** Recall the consequence-frame rule *)
+
+Parameter triple_conseq_frame'' : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q ->
+  triple t H Q.
+
+(** One practical caveat with this rule is that we must resolve [H2],
+    which corresponds to the difference between [H] and [H1].
+    In practice, providing [H2] explicitly is extremely tedious.
+    The alternative is to leave [H2] as an evar, and count on the
+    fact that the tactic [hsimpl], when applied to [H ==> H1 \* H2],
+    will correctly instantiate [H2].
+
+    This approach works, but is relatively fragile, as evars may get
+    instantiated in undesired ways. Moreover, evars depend on the context
+    at the time of their creation, and they must be instantiated with 
+    values from that context. Yet, for example, if [H] contains existential
+    quantifiers at the moment of applying the consequence-frame rule,
+    then extracting those quantifiers after the rule is applied makes
+    it almost impossible to instantiate [H2] correctly.
+
+    To illustrate the problem on a concrete example, recall the
+    specification of [ref]. *)
+
+Parameter triple_ref : forall (v:val),
+  triple (val_ref v)
+    \[]
+    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v).
+
+(** Assume that wish to derive the following triple, which
+    extends both the precondition and the postcondition with
+    [\exists l' v', l' ~~~> v']. *)
+
+Lemma triple_ref_with_nonempty_pre : forall (v:val),
+  triple (val_ref v)
+    (\exists l' v', l' ~~~> v')
+    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v \*
+              \exists l' v', l' ~~~> v').
+Proof using.
+  intros. applys triple_conseq_frame. 
+  (* observe the evar [?H2] in second and third goals *)
+  { applys triple_ref. }
+  { (* here, [?H2] should be in theory instantiated with the RHS.
+       but [hsimpl] strategy is to first extract the quantifiers 
+       from the LHS. After that, the instantiation of [H2] fails. *)
+    hsimpl. 
+Abort.
+
+(** Now, let us apply the ramified frame rule for the same goal. *)
+
+Lemma triple_ref_with_nonempty_pre' : forall (v:val),
+  triple (val_ref v)
+    (\exists l' v', l' ~~~> v')
+    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v \*
+              \exists l' v', l' ~~~> v').
+Proof using.
+  intros. applys triple_ramified_frame.
+  { applys triple_ref. }
+  { hsimpl. intros l' v'. rewrite qwand_equiv. hsimpl. auto. }
+Qed.
+
+(** For a further comparison between the consequence-frame rule
+    and the ramified frame rule, consider the following example. 
+
+    Assume we want to frame the specification [triple_ref] with [l' ~~~> v'],
+    that is, add this predicate to both the precondition and the postcondition.
+    First, let's do it with the consequence-frame rule. *)
+
+Lemma triple_ref_with_consequence_frame : forall (l':loc) (v':val) (v:val),
+  triple (val_ref v)
+    (l' ~~~> v')
+    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v \* l' ~~~> v').
+Proof using.
+  intros. applys triple_conseq_frame. 
+  (* observe the evar [?H2] in second and third goals *)
+  { applys triple_ref. }
+  { hsimpl. (* instantiates the evar [H2] *) }
+  { hsimpl. auto. }
+Qed.
+
+(** Now, let's do the same proof using the ramified frame rule. *)
+
+Lemma triple_ref_with_ramified_frame : forall (l':loc) (v':val) (v:val),
+  triple (val_ref v)
+    (l' ~~~> v')
+    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v \* l' ~~~> v').
+Proof using.
+  intros. applys triple_ramified_frame.
+  { applys triple_ref. }
+  { rewrite hstar_hempty_l. rewrite qwand_equiv.
+    (* Remark: the first two steps above will be automatically
+       carried out by [hsimpl], in subsequent chapters. *)
+    (* Here, we read the same state as in the previous proof. *)
+    hsimpl. auto. }
+Qed.
+
+(** Again, observe how we have been able to complete the same proof
+    without involving any evar. *)
+
+
 
 (* ******************************************************* *)
 (** ** Properties of [hwand] *)
