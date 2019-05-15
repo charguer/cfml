@@ -1429,3 +1429,28 @@ Ltac simpl_subst :=
   simpl; unfold string_to_var;
    repeat rewrite If_eq_bind_var;
    repeat rewrite If_eq_var; simpl.
+
+
+
+
+
+
+(** Because we are working with heap predicates, and that "negative"
+    heap predicates don't quite make sense, we have to be careful.
+    Essentially, our arithmetic interpretation [ -H1 + H2] should be
+    intrepreted on natural numbers (N) and not on integers (Z).
+    We are only allowed to reason about a subtraction [ -H1 + H2]
+    if we can somehow justify that H1 is "not smaller than" H2.
+
+    When working on natural numbers, it is not correct to replace
+    a number [n] with [(n-m)+m] for some arbitrary [m]. As counter-
+    example, take any value [m] greater than [n]. *)
+
+Section TestSubtractionNat.
+Open Scope nat_scope.
+
+Lemma counterexample : exists n m, 
+  n <> (n-m)+m.
+Proof using. exists 0 1. intros N. simpl in N. false. Qed.
+
+End TestSubtractionNat.

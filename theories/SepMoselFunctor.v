@@ -120,12 +120,12 @@ Parameter himpl_frame_r : forall H1 H2 H2',
 Parameter hstar_hpure : forall P H h,
   (\[P] \* H) h = (P /\ H h).
 
-Parameter hpure_intro : forall P h,
+Parameter hpure_intro_hempty : forall P h,
   \[] h ->
   P ->
   \[P] h.
 
-Parameter hpure_inv : forall P h,
+Parameter hpure_inv_hempty : forall P h,
   \[P] h ->
   P /\ \[] h.
 
@@ -250,8 +250,8 @@ Qed.
 Lemma hpure_pure φ : \[φ] = bi_affinely ⌜φ⌝.
 Proof.
   extens=>h. split.
-  - split; [by eapply hpure_inv|by apply (himpl_htop_r (H:=\[φ]))].
-  - intros [? Hφ]. apply hpure_intro; [done|].
+  - split; [by eapply hpure_inv_hempty|by apply (himpl_htop_r (H:=\[φ]))].
+  - intros [? Hφ]. apply hpure_intro_hempty; [done|].
     change ((\[φ] \* \Top%I) h) in Hφ. rewrite hstar_hpure in Hφ. naive_solver.
 Qed.
 Lemma htop_True : \Top = True%I.

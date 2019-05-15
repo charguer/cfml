@@ -1,4 +1,91 @@
 
+Lemma flocal_elim : forall F H Q,
+  H ==> wp t Q' \* (Q' \--* (Q \*+ \GC)) ->
+  H ==> wp t Q.
+Proof using. introv L M. lets N: (L Q). applys* himpl_trans N. Qed.
+
+
+
+
+
+  prove1: 
+    F Q ==> mklocal F Q
+    (take Q1 = Q)
+
+  prove 2:
+    (mkflocal (mkflocal F)) Q := mkflocal F
+    right-to-left : instance of (1)
+    left-to-right: ...
+
+    (mkflocal (mkflocal F)) Q
+  = \exists Q1, mkflocal F Q1 \* (Q1 \--* (Q \*+ \GC))
+  = \exists Q1, (\exists Q2, F Q2 \* (Q2 \--* (Q1 \*+ \GC))) \* (Q1 \--* (Q \*+ \GC))
+  = \exists Q1 Q2, F Q2 \* (Q2 \--* (Q1 \*+ \GC) \* (Q1 \--* (Q \*+ \GC))
+  = \exists Q1 Q2, F Q2 \* (Q2 \--* (Q1 \*+ \GC) \* ((Q1 \*+ \GC) \--* ((Q \*+ \GC) \*+ \GC))
+  ==> \exists Q1 Q2, F Q2 \* (Q2 \--* (Q1 \*+ \GC) \* ((Q1 \*+ \GC) \--* (Q \*+ \GC \*+ \GC))
+  = \exists Q1 Q2, F Q2 \* (Q2 \--* (Q \*+ \GC \*+ \GC))
+  = \exists Q2, F Q2 \* (Q2 \--* (Q \*+ \GC))
+  = mkflocal F
+
+
+  mkflocal F Q := \exists Q1, F Q1 \* (Q1 \--* (Q \*+ \GC)).
+
+  \exists Q1, F Q1 \* (Q1 \--* (Q \*+ \GC)) ==> F Q
+
+
+  F Q1 \* (Q1 \--* (Q \*+ \GC)) ==> F Q
+
+
+
+  wp t Q1 \* (Q1 \--* (Q \*+ \GC)) ==> wp t Q
+
+
+  H ==> wp t Q1 \* (Q1 \--* (Q \*+ \GC)) ->
+  H ==> wp t Q.
+
+
+let H1 := wp t Q1
+let H2 := (Q1 \--* (Q \*+ \GC)) 
+
+
+  H ==> H1 \* H2 ->
+  H1 ==> wp t Q1 ->
+  Q1 \* H2 ==> Q \*+ \GC ->
+  H ==> wp t Q.
+
+
+  H ==> H1 \* H2 ->
+  triple t H1 Q1 ->
+  Q1 \* H2 ==> Q \*+ \GC ->
+  triple t H Q
+
+
+reciprocally, with 
+   forall Q1,   wp t Q1 \* (Q1 \--* (Q \*+ \GC)) ==> wp t Q
+we can simulate frame
+
+
+  H ==> H1 \* H2 ->
+  H1 ==> wp t Q1 ->
+  Q1 \* H2 ==> Q \*+ \GC ->
+  H ==> wp t Q.
+
+exploit fact
+
+  H ==> H1 \* H2 ->
+  H1 ==> wp t Q1 ->
+  Q1 \* H2 ==> Q \*+ \GC ->
+  H ==> wp t Q1 \* (Q1 \--* (Q \*+ \GC))
+
+suffices (hchange 1 and 2)
+
+  H1 \* H2 ==> wp t Q1 \* (Q1 \--* (Q \*+ \GC))
+  wp t Q1 \* H2 ==> wp t Q1 \* (Q1 \--* (Q \*+ \GC))
+  H2 ==> (Q1 \--* (Q \*+ \GC))
+
+done.
+
+
 
 
 -------

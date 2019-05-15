@@ -447,7 +447,7 @@ Proof using.
   iff (p&M) (p&M). { split~. } { exists~ p. }
 Qed.
 
-Lemma hpure_intro : forall P h,
+Lemma hpure_intro_hempty : forall P h,
   \[] h ->
   P ->
   \[P] h.
@@ -456,7 +456,7 @@ Proof using.
   rewrite hstar_comm. rewrite~ hstar_hpure.
 Qed.
 
-Lemma hpure_inv : forall P h,
+Lemma hpure_inv_hempty : forall P h,
   \[P] h ->
   P /\ \[] h.
 Proof using.
@@ -468,7 +468,7 @@ Lemma himpl_hempty_hpure : forall P,
   P ->
   \[] ==> \[P].
 Proof using.
-  introv HP. intros h Hh. applys* hpure_intro. 
+  introv HP. intros h Hh. applys* hpure_intro_hempty. 
 Qed.
 
 Lemma himpl_hstar_hpure_l : forall P H H',
@@ -490,15 +490,15 @@ Lemma hempty_eq_hpure_true :
   \[] = \[True].
 Proof using.
   applys pred_ext_1. intros h. iff M.
-  { applys* hpure_intro. }
-  { forwards*: hpure_inv M. }
+  { applys* hpure_intro_hempty. }
+  { forwards*: hpure_inv_hempty M. }
 Qed.
 
 Lemma hfalse_hstar_any : forall H,
   \[False] \* H = \[False].
 Proof using.
   intros. applys pred_ext_1. intros h. rewrite hstar_hpure. iff M.
-  { false*. } { lets: hpure_inv M. false*. }
+  { false*. } { lets: hpure_inv_hempty M. false*. }
 Qed.
 
 Lemma hpure_eq_hexists_empty : forall P,

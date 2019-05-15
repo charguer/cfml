@@ -71,7 +71,7 @@ Proof using.
 Qed.
 (* Details:
   introv M (h1&h2&N1&N2&N3&N4).
-  destruct (hpure_inv' N1). subst.
+  destruct (hpure_inv N1). subst.
   rewrite heap_union_empty_l.
   applys* M.
 *)
@@ -87,7 +87,7 @@ Proof using.
 Qed.
 (* Details:
   introv HP M. intros h (H1&(h1&h2&N1&N2&N3&N4)).
-  lets (N2'&E): (hpure_inv' (rm N2)). subst.
+  lets (N2'&E): (hpure_inv (rm N2)). subst.
   rewrite heap_union_empty_r.
   applys* M. applys N2'. hhsimpl~.
 *)
@@ -720,12 +720,12 @@ Proof using. (* might be simplified using triple_for_trm *)
       asserts Z: ((\[False] \* \Top \* HF) h2').
       { applys himpl_trans K2. hchange nQ2. hsimpl. hsimpl. }
       repeat rewrite hfalse_hstar_any in Z.
-      lets: hpure_inv Z. false*. } } (* LATER: shorten *)
+      lets: hpure_inv_hempty Z. false*. } } (* LATER: shorten *)
   { specializes nQ1 C1.
     asserts Z: ((\[False] \* \Top \* HF) h1').
     { applys himpl_trans K1. hchange nQ1. hsimpl. hsimpl. }
     repeat rewrite hfalse_hstar_any in Z.
-    lets: hpure_inv Z. false*. } (* LATER: shorten *)
+    lets: hpure_inv_hempty Z. false*. } (* LATER: shorten *)
 Qed.
  *)
 

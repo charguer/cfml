@@ -596,7 +596,7 @@ Implicit Types Q : val->hprop.
 
 Section Aux.
 
-(* LATER: add hpure_inv' and hstar_intro like in SepBase *)
+(* LATER: add hpure_inv and hstar_intro like in SepBase *)
 
 Lemma hgc_intro : forall h,
   \GC h.
@@ -747,7 +747,7 @@ Proof using.
   introv N (h1&h2&P1&P2&M1&EQ).
   lets (_&E): heap_eq_forward EQ. simpls. rewrite E.
   rewrite~ heap_union_r.
-  lets (MP&ME): hpure_inv P1. rewrites (>> hempty_inv (rm ME)).
+  lets (MP&ME): hpure_inv P1. rewrites (rm ME).
   rewrites~ (>> N P2). rew_fmap~.
 Qed.
 
@@ -1335,7 +1335,7 @@ Proof using.
   { exists heap_empty h1. splits~.
     { applys~ heap_compat_empty_l. }
     { heap_eq. }
-    { applys~ hpure_intro. applys hempty_intro. } }
+    { applys~ hpure_intro. } }
 Qed.
 
 Lemma triple_set : forall w l v,
@@ -1372,7 +1372,7 @@ Proof using.
   { exists heap_empty h1. splits~.
     { applys~ heap_compat_empty_l. }
     { heap_eq. }
-    { applys~ hpure_intro. applys hempty_intro. } }
+    { applys~ hpure_intro. } }
 Qed.
 
 

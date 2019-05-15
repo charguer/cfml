@@ -1003,4 +1003,27 @@ Proof using.
     { applys IHk. destruct N. { left; math. } { right; math. } } }
 Qed.
 
+
+(* ---------------------------------------------------------------------- *)
+(* ** Existence of nonempty heaps *)
+
+(** This lemma is useful for constructing counterexamples. *)
+
+Lemma fmap_exists_not_empty : forall `{IB:Inhab B},
+  exists (h:fmap nat B), h <> fmap_empty.
+Proof using.
+  intros. sets l: 0%nat. sets h: (fmap_single l arbitrary).
+  exists h. intros N.
+  sets h': (fmap_empty:fmap nat B).
+  asserts M1: (fmap_indom h l). 
+  { applys fmap_indom_single. }
+  asserts M2: (~ fmap_indom h' l).
+  { unfolds @fmap_indom, map_indom, @fmap_empty. simpls. auto_false. }
+  rewrite N in M1. false*.
+Qed.
+
 End FmapFresh.
+
+
+
+

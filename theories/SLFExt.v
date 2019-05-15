@@ -34,3 +34,6 @@ Check trm_fix : bind -> var -> trm -> trm.
 Definition trm_fun' x t1 := trm_fix bind_anon x t1.
 
 (* null pointers *)
+
+
+

@@ -220,6 +220,7 @@ End SepBasicCore.
 Module Export SepBasicSetup := SepSetup SepBasicCore.
 Export SepBasicCore.
 
+Implicit Types P : Prop.
 Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
 
@@ -232,10 +233,18 @@ Implicit Types Q : val->hprop.
 
 Section Aux.
 
-Lemma hpure_inv' : forall P h,
+Lemma hpure_inv : forall P h,
   \[P] h ->
   P /\ h = heap_empty.
-Proof using. introv M. lets (HP&HE): hpure_inv M. lets*: hempty_inv HE. Qed.
+Proof using. 
+  introv M. lets (HP&HE): hpure_inv_hempty M. 
+  lets*: hempty_inv HE. 
+Qed.
+
+Lemma hpure_intro : forall P,
+  P ->
+  \[P] fmap_empty.
+Proof using. introv M. applys~ hpure_intro_hempty. applys hempty_intro. Qed.
 
 Lemma hstar_intro : forall H1 H2 h1 h2,
   H1 h1 ->
@@ -282,7 +291,7 @@ Proof using.
   introv. intros h (Hh&Nl).
   exists h heap_empty. splits~.
   { unfold hsingle. splits~. }
-  { applys~ hpure_intro. applys~ hempty_intro. }
+  { applys~ hpure_intro. }
   { unfold heap_empty. auto. }
 Qed.
 

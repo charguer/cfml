@@ -42,7 +42,7 @@ SRC_MORE := SepBaseAltProofs SepCredits SepRO
 
 SRC_EXAMPLES := Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleList ExampleRO 
 
-SRC_SF := SLFHprop SLFHimpl SubstExec SLFRules 
+SRC_SF := SLFHprop SLFHimpl SubstExec SLFRules SLFWand
  #  SLFWand SLFWP SLFLift SLFExt
 
 SRC_MOSEL := SepMoselFunctor SepBaseMosel SepROMosel ExampleROMosel ExampleListMosel
