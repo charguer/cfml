@@ -621,11 +621,70 @@ Qed.
 
 
 
+(* ******************************************************* *)
+(** ** Conjuction and disjunction operators on [hprop] *)
+
+(** For some advanced applications, it is useful to lift the
+    disjunction operation [P1 \/ P2] from [Prop] to [hprop].
+
+    The heap predicate [hor H1 H2] describes a heap that 
+    satisfies [H1] or [H2] (possibly both). 
+
+    An obvious definition for it is: *)
+
+Definition hor (H1 H2 : hprop) : hprop :=
+  fun h => H1 h \/ H2 h.
+
+(** An alternative definition leverages [\exists] to quantify
+    over a boolean indicating whether [H1] or [H2] should hold. *)
+
+Definition hor' (H1 H2 : hprop) : hprop :=
+  \exists (b:bool), if b then H1 else H2.
+
+(* EX2! (hor_eq_hor') *)
+(** Prove the equivalence of the definitions [hor] and [hor']. *)
+
+Lemma hor_eq_hor' : 
+  hor = hor'.
+Proof using.
+(* SOLUTION *)
+  applys fun_ext_2. intros H1 H2. unfold hor, hor'. applys himpl_antisym.
+  { intros h K. destruct K. { exists* true. } { exists* false. } }
+  { hsimpl. intros b h K. destruct b. { left*. } { right*. } }
+(* /SOLUTION *)
+Qed.
 
 
+(** Likewise, we lift the conjunction operation [P1 /\ P2] from
+    [Prop] to [hprop].
 
+    The heap predicate [hand H1 H2], called the "non-separating
+    conjunction", describes a heap that satisfies both [H1] and [H2]
+    at the same time.
 
+    An obvious definition for it is: *)
 
+Definition hand (H1 H2 : hprop) : hprop :=
+  fun h => H1 h /\ H2 h.
 
+(** An alternative definition leverages [\forall] to 
+    non-deterministically quantify over a boolean indicating
+    whether [H1] or [H2] should hold. This the quantification
+    is over all booleans, both must hold. *)
 
+Definition hand' (H1 H2 : hprop) : hprop :=
+  \forall (b:bool), if b then H1 else H2.
+
+(* EX3! (hand_eq_hand') *)
+(** Prove the equivalence of the definitions [hand] and [hand']. *)
+
+Lemma hand_eq_hand' : 
+  hand = hand'.
+Proof using.
+(* SOLUTION *)
+  applys fun_ext_2. intros H1 H2. unfold hand, hand'. applys himpl_antisym.
+  { intros h K b. destruct b. { autos*. } { autos*. } }
+  { intros h N. split. { applys N true. } { applys N false. } }
+(* /SOLUTION *)
+Qed.
 
