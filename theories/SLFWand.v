@@ -11,7 +11,7 @@ License: MIT.
 
 Set Implicit Arguments.
 From Sep Require Import SepBase.
-Notation "'\Top''" := hgc.
+Notation "'\Top'" := hgc.
 
 Implicit Types h : heap.
 Implicit Types P : Prop.

@@ -11,27 +11,49 @@ License: MIT.
 
 Set Implicit Arguments.
 
-(** The file [SepBase] contains definitions that are essentially similar
-    to those from [SLFHprop] and [SLFHimpl], with just a few differences:
+(** The file [SepBase.v] contains definitions that are essentially similar
+    to those from [SLFHprop.v] and [SLFHimpl.v], with just a few differences:
+
+    - [SepBase] makes the definition of Separation Logic operators opaque.
+      Thus, one cannot unfold the definition of [hstar], [hpure], [htop], etc...
+      To carry out reasoning, one must use the introduction and elimination
+      lemmas (e.g. [hstar_intro], [hstar_elim]). These lemmas enforce abstraction:
+      they ensure that the proofs do not depend on which of the several possible 
+      set of definitions is chosen to construct the Separation Logic.
 
     - The predicate [Hoare_triple] is abbreviated as [hoare],
+
     - The predicate [triple] is defined not using [\Top] to handle discarded
-      pieces of heap, but using a specific instance of a general predicate 
-      called [\GC]. For the instance considered in [SepBase], it turns out 
-      that [\GC = \Top]. To help forgeting about this difference, we define
-      the notation [\Top'] to pretty-print [\GC]. 
-    - [SepBase] uses a definition of [l ~~~> v] which enforces [l] to not
-      be the [null] location. In this file, we will completely ignore this
+      pieces of heap, but using a specific instance of a general predicate
+      called [\GC]. For the instance considered in [SepBase.v], it turns out
+      that [\GC = \Top]. Thus, the difference is irrelevant. To help forget
+      about this irrelevant difference, we overload the notation [\Top] for [\GC],
+      so that everything looks the same as in [SLFHprop.v].
+
+    - [SepBase.v] uses a definition of [l ~~~> v] which moreover enforces [l] to 
+      not be the [null] location. In this file, we will completely ignore this
       extra requirement.
 
-    In addition, we consider as definition of substitution on term the
-    version that computes in Coq (with just a call to [simpl]). To that
-    end, we define [subst] as a shorthand for [subst_exec].
-*)
+    - [Semantics.v] exports a definition of substitution on terms that does
+      not compute in Coq. Yet, to present examples in this file, we need a
+      version that computes. Thus, we import the one defined in the file
+      [SubstExec.v], under the name [subst_exec]. We then overload [subst] 
+      to mean [subst_exec].
+
+All the necessary tweaks are set up in the few lines that follow. *)
 
 From Sep Require Import SepBase SubstExec.
-Notation "'\Top''" := hgc.
+
+Notation "\Top" := hgc.
+
 Definition subst := subst_exec.
+
+Parameter hsingle_intro : forall l v,
+  (l ~~~> v) (fmap_single l v).
+
+Parameter hsingle_inv: forall l v h,
+  (l ~~~> v) h ->
+  h = fmap_single l v.
 
 
 (* ####################################################### *)
@@ -801,7 +823,7 @@ Module Proofs.
     following the definition:
 [[  
       Definition triple t H Q :=
-       forall H', hoare t (H \* H') ((Q \*+ H') \*+ \Top')
+       forall H', hoare t (H \* H') ((Q \*+ H') \*+ \Top)
 ]]
     To establish a reasoning rule w.r.t. a Hoare triple, we reveal
     the definition expressed in terms of the big-step semantics.
@@ -940,11 +962,11 @@ Proof using.
     applys M1. }
   { (* 4. For the hypothesis on the first subterm [t2], 
        we need a little more work to exploit our second hypothesis.
-       Indeed, the precondition features an extra [\Top'].
-       To handle it, we need to instantiate [M2] with [H' \* \Top'],
-       then merge the two [\Top'] that appear into a single one.
+       Indeed, the precondition features an extra [\Top].
+       To handle it, we need to instantiate [M2] with [H' \* \Top],
+       then merge the two [\Top] that appear into a single one.
        We could begin the proof script with:
-         [specializes M2 (H' \* \Top'). rewrite <- hstar_assoc in M2.]
+         [specializes M2 (H' \* \Top). rewrite <- hstar_assoc in M2.]
        However, it is simpler to directly invoke the consequence rule,
        and let [hsimpl] do all the tedious work for us. *)
     applys hoare_conseq. { applys M2. } { hsimpl. } { hsimpl. } }
@@ -1379,19 +1401,12 @@ Parameter fmap_disjoint_single_set : forall l v1 v2 h2,
   fmap_disjoint (fmap_single l v1) h2 ->
   fmap_disjoint (fmap_single l v2) h2.
 
-(** We will also make use of the lemma [hstar_hpure_iff], already used
-    earlier in this chapter to reformulate [(\[P] \* H) h], and make use
-    of the two introduction lemmas shown below.
-    (All these lemmas were introduced in the first chapter.) *)
+(** We willmake use of three lemmas, all introduced in the first chapter:
 
-Parameter hstar_intro : forall H1 H2 h1 h2,
-  H1 h1 ->
-  H2 h2 ->
-  fmap_disjoint h1 h2 ->
-  (H1 \* H2) (h1 \u h2).
-
-Parameter hsingle_intro : forall l v,
-  (l ~~~> v) (fmap_single l v).
+    - the lemma [hstar_hpure_iff], already used earlier in this chapter 
+      to reformulate [(\[P] \* H) h] as [P /\ H h],
+    - the lemma [hsingle_intro], to prove [(l ~~~> v) (fmap_single l v)], 
+    - and the lemma [hstar_intro], to prove [(H1 \* H2) (h1 \u h2)]. *)
 
 (** Let's now dive in the proof of the Hoare triple for [set]. *)
 
@@ -1545,7 +1560,7 @@ Qed.
 
 Lemma triple_of_hoare : forall t H Q,
   (forall H', exists Q', hoare t (H \* H') Q' 
-                     /\  Q' ===> Q \*+ H' \*+ \Top') ->
+                     /\  Q' ===> Q \*+ H' \*+ \Top) ->
   triple t H Q.
 Proof using.
 (* SOLUTION *)
@@ -1571,5 +1586,4 @@ Qed.
 
 
 End Proofs.
-
 

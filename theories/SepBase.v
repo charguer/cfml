@@ -253,6 +253,11 @@ Lemma hstar_intro : forall H1 H2 h1 h2,
   (H1 \* H2) (h1 \u h2).
 Proof using. intros. exists~ h1 h2. Qed.
 
+Lemma hstar_inv : forall H1 H2 h,
+  (H1 \* H2) h ->
+  exists h1 h2, H1 h1 /\ H2 h2 /\ fmap_disjoint h1 h2 /\ h = h1 \u h2.
+Proof using. introv M. hnf in M. eauto. Qed.
+
 Lemma hgc_intro : forall h,
   \GC h.
 Proof using. intros. applys hgc_of_heap_affine. hnfs*. Qed.
@@ -273,7 +278,7 @@ Definition hsingle (l:loc) (v:val) : hprop :=
 Notation "l '~~~>' v" := (hsingle l v)
   (at level 32, no associativity) : heap_scope.
 
-Lemma hsingle_fmap_single : forall l v,
+Lemma hsingle_intro : forall l v,
   l <> null ->
   (l ~~~> v) (fmap_single l v).
 Proof using. intros. split~. Qed.
@@ -627,7 +632,7 @@ Lemma hoare_ref : forall H v,
 Proof using.
   intros. intros h Hh.
   forwards~ (l&Dl&Nl): (fmap_single_fresh null h v).
-  forwards~ Hh1': hsingle_fmap_single l v.
+  forwards~ Hh1': hsingle_intro l v.
   sets h1': (fmap_single l v).
   exists (h1' \u h) (val_loc l). splits~.
   { applys~ eval_ref_sep. }
@@ -651,7 +656,7 @@ Lemma hoare_set : forall H w l v,
     (fun r => \[r = val_unit] \* (l ~~~> w) \* H).
 Proof using.
   intros. intros h Hh. destruct Hh as (h1&h2&(N1a&N1b)&N2&N3&N4).
-  forwards~ Hh1': hsingle_fmap_single l w.
+  forwards~ Hh1': hsingle_intro l w.
   sets h1': (fmap_single l w).
   exists (h1' \u h2) val_unit. splits~.
   { subst h h1. applys eval_set_sep; eauto. }

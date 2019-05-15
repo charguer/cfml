@@ -431,7 +431,7 @@ Lemma hexists_inv : forall A (J:A->hprop) h,
   exists x, J x h.
 Proof using. introv M. hnf in M. eauto. Qed.
 
-Lemma htop_inv : forall h, (* lemma with no interest *)
+Lemma htop_inv : forall h, (* this lemma has no interest *)
   \Top h ->
   True.
 Proof using. intros. auto. Qed.
