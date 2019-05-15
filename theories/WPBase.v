@@ -309,7 +309,7 @@ Proof using.
      subst. rewrite~ Ctx.app_empty_r. }
   { simpl. destruct G2 as [| (x',X) G']; tryfalse.
     simpl in EQ. invert EQ ;=> Ex EG2. subst x'.
-    applys himpl_hforall_l_for X. rew_ctx.
+    applys himpl_hforall_l X. rew_ctx.
     rewrite Ctx.app_rev_add. rewrite EG2. applys~ IHxs'. }
 Qed.
 

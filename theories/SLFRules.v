@@ -42,11 +42,14 @@ Set Implicit Arguments.
 
 All the necessary tweaks are set up in the few lines that follow. *)
 
-From Sep Require Import SepBase SubstExec.
+From Sep Require Export SepBase SubstExec.
 
 Notation "\Top" := hgc.
 
 Definition subst := subst_exec.
+
+Parameter htop_intro : forall h,
+  \Top h.
 
 Parameter hsingle_intro : forall l v,
   (l ~~~> v) (fmap_single l v).

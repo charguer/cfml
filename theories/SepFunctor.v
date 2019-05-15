@@ -544,16 +544,15 @@ Lemma himpl_hforall_r : forall A (J:A->hprop) H,
   H ==> (hforall J).
 Proof using. introv M. intros h Hh x. apply~ M. Qed.
 
-Lemma himpl_hforall_l : forall A (J:A->hprop) H,
-  (exists x, J x ==> H) ->
-  (hforall J) ==> H.
-Proof using. introv (x&M). intros h Hh. apply~ M. Qed.
-
-(* TODO: rename himpl_hforall_l, and use _exists for previous one *)
-Lemma himpl_hforall_l_for : forall A x (J:A->hprop) H,
+Lemma himpl_hforall_l : forall A x (J:A->hprop) H,
   (J x ==> H) ->
   (hforall J) ==> H.
-Proof using. introv M. applys* himpl_hforall_l. Qed.
+Proof using. introv M. intros h Hh. apply~ M. Qed.
+
+Lemma himpl_hforall_l_exists : forall A (J:A->hprop) H,
+  (exists x, J x ==> H) ->
+  (hforall J) ==> H.
+Proof using. introv (x&M). applys* himpl_hforall_l. Qed.
 
 Lemma himpl_hforall : forall A (J1 J2:A->hprop),
   J1 ===> J2 ->
@@ -562,7 +561,7 @@ Proof using. introv W. intros h M x. applys W. applys M. Qed.
 
 Lemma hforall_specialize : forall A (x:A) (J:A->hprop),
   (hforall J) ==> (J x).
-Proof using. intros. applys* himpl_hforall_l_for x. Qed.
+Proof using. intros. applys* himpl_hforall_l x. Qed.
 
 (** Properties of [hor] *)
 
@@ -591,18 +590,18 @@ Lemma hand_sym : forall H1 H2,
 Proof using.
   intros. unfold hand. applys himpl_antisym.
   { applys himpl_hforall_r. intros b.
-    applys himpl_hforall_l_for (neg b). destruct* b. }
+    applys himpl_hforall_l (neg b). destruct* b. }
   { applys himpl_hforall_r. intros b.
-    applys himpl_hforall_l_for (neg b). destruct* b. }
+    applys himpl_hforall_l (neg b). destruct* b. }
 Qed.
 
 Lemma himpl_hand_l_r : forall H1 H2,
   hand H1 H2 ==> H1.
-Proof using. intros. unfolds hand. applys* himpl_hforall_l_for true. Qed.
+Proof using. intros. unfolds hand. applys* himpl_hforall_l true. Qed.
 
 Lemma himpl_hand_l_l : forall H1 H2,
   hand H1 H2 ==> H2.
-Proof using. intros. unfolds hand. applys* himpl_hforall_l_for false. Qed.
+Proof using. intros. unfolds hand. applys* himpl_hforall_l false. Qed.
 
 Lemma himpl_hand_r : forall H1 H2 H3,
   H1 ==> H2 ->
@@ -3036,7 +3035,7 @@ Lemma is_local_hforall : forall A (x:A) F (J:A->hprop) Q,
   F (hforall J) Q.
 Proof using.
   introv L M. applys~ is_local_elim_conseq_pre.
-  applys himpl_hforall_l. exists x. hsimpl~ (J x).
+  applys himpl_hforall_l x. hsimpl~ (J x).
 Qed.
 
 Lemma is_local_hforall_exists : forall F A (J:A->hprop) Q,

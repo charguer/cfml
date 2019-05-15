@@ -10,8 +10,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require Import SepBase.
-Notation "'\Top'" := hgc.
+From Sep Require Import SLFRules.
 
 Implicit Types h : heap.
 Implicit Types P : Prop.
@@ -131,7 +130,115 @@ Parameter hwand_eq_hwand' :
 
 
 (* ******************************************************* *)
-(** ** Properties of the magic wand *)
+(** ** Magic wand for postconditions *)
+
+(** For entailment, written [H1 ==> H2], we introduced its extension
+    to postconditions, written [Q1 ===> Q2], and defined as
+    [forall x, (Q1 x) ==> (Q2 x)].
+
+    Likewise, for magic wand, written [H1 \-* H2], we introduce
+    its extension to postconditions, written [Q1 \--* Q2], and 
+    defined (in first approximation) as [forall x, (Q1 x) \-* (Q2 x)].
+
+    Like [H1 \-* H2], the expression [Q1 \--* Q2] should denote a heap
+    predicate, of type [hprop]. Thus, writing [forall x, (Q1 x) \-* (Q2 x)]
+    makes no sense, because [forall] applies to propositions of type [Prop],
+    and not to heap predicates of type [hprop].
+
+    In order to define [Q1 \--* Q2], we thus need to introduce the
+    operation [\forall], which lifts the universal quantifier from
+    [Prop] to [hprop]. In other words, [\forall] is to [forall]
+    what [\exists] is to [exists]. 
+
+    The definition of [\forall x, H], a notation for [hforall (fun x => H)],
+    follows exactly the same pattern as that of [\exists x, H], with only
+    the [exists] quantifier being replaced with a [forall] in the definition. *)
+
+Definition hforall (A : Type) (J : A -> hprop) : hprop :=
+  fun h => forall x, J x h.
+
+Notation "'\forall' x1 .. xn , H" :=
+  (hforall (fun x1 => .. (hforall (fun xn => H)) ..))
+  (at level 39, x1 binder, H at level 50, right associativity,
+   format "'[' '\forall' '/ '  x1  ..  xn , '/ '  H ']'") : heap_scope.
+
+(** We are now read to formally define [Q1 \--* Q2], a notation that stands
+    for [qwand Q1 Q2], and which is defined as [\forall x, (Q1 x) \-* (Q2 x)]. *)
+
+Definition qwand A (Q1 Q2:A->hprop) :=
+  \forall x, (Q1 x) \-* (Q2 x).
+
+Notation "Q1 \--* Q2" := (qwand Q1 Q2) (at level 43).
+
+(** As a sanity check of our definition, let us prove that [Q1 \--* Q2]
+    indeed entails [(Q1 x) \-* (Q2 x)] for any [x]. *)
+
+Lemma qwand_specialize : forall A (x:A) (Q1 Q2:A->hprop),
+  (Q1 \--* Q2) ==> (Q1 x \-* Q2 x).
+Proof using. intros. unfold qwand. intros h K. applys K. Qed.
+
+
+
+
+
+(* ******************************************************* *)
+(** ** Frame expressed with [hwand]: the ramified frame rule *)
+
+
+
+(*
+
+  H ==> H1 \* H2 ->
+  triple t H1 Q1 ->
+  Q1 \* H2 ==> Q \*+ \GC ->
+  triple t H Q
+
+
+  H ==> H1 \* H2 ->
+  triple t H1 Q1 ->
+  Q1 \* H2 ==> Q \*+ \GC ->
+  triple t H Q
+
+
+
+  H ==> H1 \* H2 ->
+  triple t H1 Q1 ->
+  H2 ==> Q1 \*- (Q \*+ \GC) ->
+  triple t H Q
+
+
+  H ==> H1 \* (Q1 \*- (Q \*+ \GC)) ->
+  triple t H1 Q1 ->
+  triple t H Q
+
+reciprocally frame derivable
+
+  H ==> H1 \* H2 ->
+  triple t H1 Q1 ->
+  H2 ==> Q1 \*- (Q \*+ \GC) ->
+  triple t H Q
+
+
+  MQ. H ==> H1 \* (Q1 \*- (Q \*+ \GC))
+  MQ. H1 \* H2  ==> H1 \* (Q1 \*- (Q \*+ \GC))
+  MQ. H2  ==> (Q1 \*- (Q \*+ \GC))
+  MQ. Q1 \* H2  ==> (Q \*+ \GC)
+  done.
+
+
+
+*)
+
+
+
+
+
+(* ####################################################### *)
+(** * Additional contents *)
+
+
+(* ******************************************************* *)
+(** ** Properties of [hwand] *)
 
 (** We next present the most important properties of [H1 \-* H2].
     The tactic [hsimpl] provides dedicated support for
@@ -142,7 +249,6 @@ Parameter hwand_eq_hwand' :
     won't automatically perform the desired manipulation.
     Morover, reading the properties of [hwand] may help providing
     a better understanding of this operator. *)
-
 
 (* ------------------------------------------------------- *)
 (** *** Structural properties of [hwand] *)
@@ -288,13 +394,10 @@ Proof using.
     hchange (@hwand_cancel H2 H3). }
 Qed.
 
-(** Consider a heap that satisfies [(H1 \-* H2) \* H3].
-    This heap consists of a part satisfying [H3], and a part that,
-    if completed with a part satisfying [H1], would satisfy [H2].
-    This same heap also satisfies [H1 \-* (H2 \* H3)], which
-    describes a heap such, if completed with a part satisfying [H1],
-    would decompose as a part satisfying [H2] and a part satisfying [H3].
-    Formally: *)
+(** If a heap satisfies [H1 \-* H2] and another heap
+    satisfies [H3], then their disjoint union satisfies
+    [H1 \-* (H2 \* H3)]. In both views, if [H1] is provided,
+    then both [H2] and [H3] can be obtained. *)
 
 Lemma hstar_hwand : forall H1 H2 H3,
   (H1 \-* H2) \* H3 ==> H1 \-* (H2 \* H3).
@@ -302,87 +405,146 @@ Proof using.
   intros. applys hwand_intro. hsimpl. hchange (@hwand_cancel H1 H2).
 Qed.
 
-(* EX1! (hwand_cancel_part) *)
+
+(* ------------------------------------------------------- *)
+(** *** Exercises on [hwand] *)
+
+(* EX1! (himpl_hwand_hstar_same_r) *)
+(** Prove that [H1] entails [H2 \-* (H2 \* H1)]. *)
+
+Lemma himpl_hwand_hstar_same_r : forall H1 H2,
+  H1 ==> (H2 \-* (H2 \* H1)).
+Proof using.
+(* SOLUTION *)
+  intros. applys hwand_intro. hsimpl.
+(* /SOLUTION *)
+Qed.
+
+(* EX2! (hwand_cancel_part) *)
 (** Prove that [H1 \* ((H1 \* H2) \-* H3)] simplifies to [H2 \-* H3]. *)
 
 Lemma hwand_cancel_part : forall H1 H2 H3,
   H1 \* ((H1 \* H2) \-* H3) ==> (H2 \-* H3).
 Proof using.
 (* SOLUTION *)
-  intros. applys hwand_intro. hchange (@hwand_cancel (H1 \* H2) H3).
+  intros. applys hwand_intro. hchange (@hwand_cancel (H1 \* H2)).
 (* /SOLUTION *)
 Qed.
 
 
 (* ******************************************************* *)
-(** ** Magic wand for postconditions *)
+(** ** Properties of [hforall] *)
+
+(** To prove that a heap satisfies [\forall x, J x], one must
+    show that, for any [x], this heap satisfies [J x]. *)
+
+Lemma himpl_hforall_r : forall A (J:A->hprop) H,
+  (forall x, H ==> J x) ->
+  H ==> (\forall x, J x).
+Proof using. introv M. intros h K x. apply~ M. Qed.
+
+(** Assuming a heap satisfies [\forall x, J x], one can derive
+    that the same heap satisfies [J v] for any desired value [v]. *)
+
+Lemma hforall_specialize : forall A (v:A) (J:A->hprop),
+  (\forall x, J x) ==> (J v).
+Proof using. intros. intros h K. apply~ K. Qed.
+
+(** The lemma above can equivalently be formulated in the following way. *)
+
+Lemma himpl_hforall_l : forall A (v:A) (J:A->hprop) H,
+  J v ==> H ->
+  (\forall x, J x) ==> H.
+Proof using. introv M. applys himpl_trans M. applys hforall_specialize. Qed.
 
 
-qwand
+(* ******************************************************* *)
+(** ** Properties of [qwand] *)
 
-hforall
+(* TODO: renamings in SepFunctor *)
 
-
-Lemma hstar_qwand : forall H A (Q1 Q2:A->hprop),
-  (Q1 \--* Q2) \* H ==> Q1 \--* (Q2 \*+ H).
-Proof using. hsimpl.
-(*
-  intros. unfold qwand. hchanges hstar_hforall.
-  applys himpl_hforall. intros x.
-  hchanges hstar_hwand.
-*)
-Qed.
-Lemma qwand_move_l : forall A (Q1 Q2:A->hprop) H,
-  Q1 \*+ H ===> Q2 ->
-  H ==> (Q1 \--* Q2).
-Proof using.
-  introv M. unfold qwand. applys himpl_hforall_r. intros x.
-  applys* hwand_move_l. rewrite* hstar_comm.
-Qed.
-
-Lemma himpl_qwand_hstar_same_r : forall A (Q:A->hprop) H,
-  H ==> Q \--* (Q \*+ H).
-Proof using. intros. applys* qwand_move_l. Qed.
-
-Lemma qwand_specialize : forall A (x:A) (Q1 Q2:A->hprop),
-  (Q1 \--* Q2) ==> (Q1 x \-* Q2 x).
-Proof using. intros. unfold qwand. applys* hforall_specialize x. Qed.
-
-Lemma qwand_cancel : forall A (Q1 Q2:A->hprop),
-  Q1 \*+ (Q1 \--* Q2) ===> Q2.
-Proof using.
-  hsimpl.
-(*
-  intros. intros x.
-  hchange (qwand_specialize x Q1 Q2).
-  hchanges (hwand_cancel (Q1 x)).
-*)
-Qed.
-
-Lemma qwand_cancel_part : forall H A (Q1 Q2:A->hprop),
-  H \* ((Q1 \*+ H) \--* Q2) ==> (Q1 \--* Q2).
-Proof using.
-  intros. applys qwand_move_l. intros x.
-  hchange (qwand_specialize x). 
-Qed.
-
-Lemma qwand_himpl_r : forall A (Q1 Q2 Q2':A->hprop),
-  Q2 ===> Q2' ->
-  (Q1 \--* Q2) ==> (Q1 \--* Q2').
-Proof using.
-  introv M. hsimpl ;=> x. hchanges M.
-  (* introv M. unfold qwand. applys himpl_hforall.
-  intros x. applys* hwand_himpl_r. *)
-Qed.
-
-
-
-
-(* ####################################################### *)
-(** * Additional contents *)
 
 (* ------------------------------------------------------- *)
-(** *** Equivalence between the definitions of magic wand *)
+(** *** Structural properties of [qwand] *)
+
+(** We first state the introduction and elimination lemmas
+    analogous to [hwand_intro], [hwand_elim], and [hwand_cancel]. *)
+
+Lemma qwand_intro : forall H Q1 Q2,
+  (Q1 \*+ H) ===> Q2 ->
+  H ==> (Q1 \--* Q2).
+Proof using. 
+  introv M. applys himpl_hforall_r. intros x.
+  applys hwand_intro. rewrite hstar_comm. applys M.
+Qed.
+
+Lemma qwand_elim : forall H Q1 Q2,
+  H ==> (Q1 \--* Q2) ->
+  (Q1 \*+ H) ===> Q2.
+Proof using. 
+  introv M. intros x. rewrite hstar_comm. apply hwand_elim.
+  hchange M. applys hforall_specialize x.
+Qed.
+
+Lemma qwand_cancel : forall Q1 Q2,
+  Q1 \*+ (Q1 \--* Q2) ===> Q2.
+Proof using. intros. applys qwand_elim. applys himpl_refl. Qed.
+
+(** Like [hwand], [qwand] is covariant in its second argument,
+    and contravariant in its first argument. *)
+
+Lemma himpl_qwand : forall Q1 Q1' Q2 Q2',
+  Q1' ===> Q1 ->
+  Q2 ===> Q2' ->
+  (Q1 \--* Q2) ==> (Q1' \--* Q2').
+Proof using.
+  introv M1 M2. applys himpl_hforall_r. intros x.
+  applys himpl_hforall_l x. applys himpl_hwand.
+  { applys M1. } { applys M2. }
+Qed.
+
+(** If a heap satisfies [Q1 \--* Q2] and another heap
+    satisfies [H], then their disjoint union satisfies
+    [Q1 \--* (Q2 \*+ H)]. In both views, if [Q1] is provided,
+    then both [Q2] and [H] can be obtained. *)
+
+Lemma hstar_qwand : forall Q1 Q2 H,
+  (Q1 \--* Q2) \* H ==> Q1 \--* (Q2 \*+ H).
+Proof using.
+  intros. applys qwand_intro. hchange (@qwand_cancel Q1).
+Qed.
+
+
+(* ------------------------------------------------------- *)
+(** *** Exercices on [qwand] *)
+
+(* EX1! (himpl_qwand_hstar_same_r) *)
+(** Prove that [H] entails [Q \--* (Q \*+ H)]. *)
+
+Lemma himpl_qwand_hstar_same_r : forall H Q,
+  H ==> Q \--* (Q \*+ H).
+Proof using.
+(* SOLUTION *)
+  intros. applys qwand_intro. hsimpl.
+(* /SOLUTION *)
+Qed.
+
+(* EX2! (qwand_cancel_part) *)
+(** Prove that [H \* ((Q1 \*+ H) \--* Q2)] simplifies to [Q1 \--* Q2]. *)
+
+Lemma qwand_cancel_part : forall H Q1 Q2,
+  H \* ((Q1 \*+ H) \--* Q2) ==> (Q1 \--* Q2).
+Proof using.
+(* SOLUTION *)
+  intros. applys qwand_intro. intros x.
+  hchange (qwand_specialize x).
+  hchange (@hwand_cancel (Q1 x \* H)).
+(* /SOLUTION *)
+Qed.
+
+
+(* ******************************************************* *)
+(** ** Equivalence between the definitions of magic wand *)
 
 (** In what follows we prove the equivalence between the three
     characterizations of [hwand H1 H2] that we have presented:
@@ -461,79 +623,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
-(** *** Equivalence proof for the ramified frame rule *)
 
-
-  H ==> H1 \* H2 ->
-  triple t H1 Q1 ->
-  Q1 \* H2 ==> Q \*+ \GC ->
-  triple t H Q
-
-
-  H ==> H1 \* H2 ->
-  triple t H1 Q1 ->
-  Q1 \* H2 ==> Q \*+ \GC ->
-  triple t H Q
-
-
-
-  H ==> H1 \* H2 ->
-  triple t H1 Q1 ->
-  H2 ==> Q1 \*- (Q \*+ \GC) ->
-  triple t H Q
-
-
-  H ==> H1 \* (Q1 \*- (Q \*+ \GC)) ->
-  triple t H1 Q1 ->
-  triple t H Q
-
-reciprocally frame derivable
-
-  H ==> H1 \* H2 ->
-  triple t H1 Q1 ->
-  H2 ==> Q1 \*- (Q \*+ \GC) ->
-  triple t H Q
-
-
-  MQ. H ==> H1 \* (Q1 \*- (Q \*+ \GC))
-  MQ. H1 \* H2  ==> H1 \* (Q1 \*- (Q \*+ \GC))
-  MQ. H2  ==> (Q1 \*- (Q \*+ \GC))
-  MQ. Q1 \* H2  ==> (Q \*+ \GC)
-  done.
-
-
-
-
-
-
-
-
-
-
-(* ------------------------------------------------------- *)
-(** *** Frame expressed with [hwand]: the ramified frame rule *)
-
-
-
-
-
-
-
-
-
-
-
-(* ------------------------------------------------------- *)
-(** *** Formal definitions for [hwand] *)
-
-
-
-(*
-    [H1 \-* H2] is a heap predicate that holds of a heap [h] if,
-    when augmenting [h] with a heap [h'] that satisfies [H1],
-
-*)
 
 
 

@@ -596,7 +596,20 @@ Implicit Types Q : val->hprop.
 
 Section Aux.
 
-(* LATER: add hpure_inv and hstar_intro like in SepBase *)
+Lemma hpure_inv : forall P h,
+  \[P] h ->
+  P /\ h = heap_empty.
+Proof using. 
+  introv M. lets (HP&N): hpure_inv_hempty M. lets E: hempty_inv N. auto.
+Qed.
+
+Lemma hstar_intro : forall H1 H2 h1 h2,
+  H1 h1 ->
+  H2 h2 ->
+  heap_compat h1 h2 ->
+  (H1 \* H2) (h1 \u h2).
+Proof using. intros. exists~ h1 h2. Qed.
+(* LATER: use in proofs *)
 
 Lemma hgc_intro : forall h,
   \GC h.
@@ -1469,8 +1482,8 @@ Proof using.
   intros H1 H2. unfolds hand. applys himpl_antisym.
   { rewrite normally_hforall; [|typeclass].
     applys himpl_hforall_r. intros b. destruct b.
-    { applys* himpl_hforall_l_for true. }
-    { applys* himpl_hforall_l_for false. applys* normally_erase. } }
+    { applys* himpl_hforall_l true. }
+    { applys* himpl_hforall_l false. applys* normally_erase. } }
   { (* TODO: is it possible to complete this proof without revealing [h]? *)
     intros h M. lets M1: M true. lets M2: M false.
     rewrite normally_hforall; [|typeclass]. intros b. destruct b.
