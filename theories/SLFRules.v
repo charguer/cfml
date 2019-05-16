@@ -1592,3 +1592,51 @@ Qed.
 
 End Proofs.
 
+
+(* ******************************************************* *)
+(** *** Rules for naming heaps *)
+
+(* EX2! (hoare_named_heap) *)
+(** Prove that to establish a [hoare t H Q], it is sufficient
+    to establish [hoare t (=h) Q] for any heap [h] satisfying [H].
+    (This reformulation can be useful when one needs to gets his
+    hand on a concrete heap [h].) *)
+
+Lemma hoare_named_heap : forall t H Q,
+  (forall h, H h -> hoare t (= h) Q) ->
+  hoare t H Q.
+Proof using. 
+(* SOLUTION *)
+  introv M. intros h K. applys M K. auto.
+(* /SOLUTION *)
+Qed.
+
+(* EX3! (triple_named_heap) *)
+(** Prove the counterpart of [hoare_named_heap] for Separation
+    Logic triples.
+
+    Hint: unfold the definition of [triple], exploit [hstar_inv]
+    and [hstar_intro] to reason about the separating conjunction
+    that appears, and use [hoare_named_heap] and [hoare_conseq]
+    to structure the proof. It is not needed to unfold the 
+    definition of [hoare]. *)
+
+Lemma triple_named_heap : forall t H Q,
+  (forall h, H h -> triple t (= h) Q) ->
+  triple t H Q.
+Proof using.
+(* SOLUTION *)
+  introv M. unfolds triple. intros H'.
+  applys hoare_named_heap. intros h K.
+  lets (h1&h2&K1&K2&D&U): hstar_inv K. subst h.
+  lets N: M h1 (=h2). applys K1.
+  applys hoare_conseq N.
+  { intros ? ->. applys~ hstar_intro. }
+  { intros x. applys himpl_frame_l. applys himpl_frame_r.
+    intros ? ->. applys K2. }
+(* /SOLUTION *)
+Qed.
+
+
+
+

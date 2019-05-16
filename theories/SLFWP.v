@@ -20,27 +20,6 @@ Implicit Types Q : val->hprop.
 
 
 
-
-Lemma hoare_named_heap : forall t H Q,
-  (forall h, H h -> hoare t (= h) Q) ->
-  hoare t H Q.
-Proof using. introv M. intros h Hh. applys* M. Qed.
-
-Lemma triple_named_heap : forall t H Q,
-  (forall h, H h -> triple t (= h) Q) ->
-  triple t H Q.
-Proof using.
-  introv M. intros H'. applys hoare_named_heap.
-  intros h K. lets (h1&h2&K1&K2&D&U): hstar_inv K.
-  lets N: M K1. specializes N (=h2).
-  applys hoare_conseq N.
-  { subst h. intros ? ->. applys~ hstar_intro. }
-  { intros x. applys himpl_frame_l. applys himpl_frame_r.
-    intros ? ->. applys K2. }
-Qed.
-
-
-
 (* ####################################################### *)
 (** * The chapter in a rush *)
 

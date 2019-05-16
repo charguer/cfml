@@ -1099,4 +1099,3 @@ Qed.
     from [triple_htop_pre]. (At a high-level, the postcondition of [t]
     can be viewed as the precondition of the [x] occuring in the 
     right-hand side of the term [let x = t in x].)  *)
-
