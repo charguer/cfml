@@ -213,6 +213,9 @@ Lemma wpgen_val_sound : forall v,
   formula_sound_for (trm_val v) (wpgen_val v).
 Proof using. introv M. applys triple_of_wpgen_val M. Qed.
 
+(** Remark: ultimately, what we'd like to show for [wpgen] is:
+    [forall t, formula_sound_for t (wpgen t)]. *)
+
 
 (* ------------------------------------------------------- *)
 (** *** Case of sequences *)
@@ -324,11 +327,22 @@ Definition wpgen_if_val (v:val) (F1 F2:formula) : formula := fun Q =>
 Definition wpgen_if (F0 F1 F2:formula) : formula :=
   wpgen_let F0 (fun v => wpgen_if_val v F1 F2).
 
+Lemma wpgen_if_sound : forall F0 F1 F2 t0 t1 t2,
+  formula_sound_for t0 F0 ->
+  formula_sound_for t1 F1 ->
+  formula_sound_for t2 F2 ->
+  formula_sound_for (trm_if t0 t1 t2) (wpgen_if F0 F1 F2).
+Proof using.
+  introv S1 S2 M. unfolds wpgen_seq. applys triple_seq.
+  { applys S1. applys M. }
+  { applys S2. applys himpl_refl. }
+Qed.
+
 
 (* ------------------------------------------------------- *)
-(** *** Taking the fixpoint *)
+(** *** Turning the fixpoint into a structural function *)
 
-Fixpoint wpgen (t:trm) : formula :=
+Definition wpgen wpgen (t:trm) : formula :=
   match t with
   | trm_val v => wpgen_val v
   | trm_var x => wpgen_fail
@@ -336,45 +350,51 @@ Fixpoint wpgen (t:trm) : formula :=
   | trm_fix f x t1 => wpgen_val (val_fix f x t1)
   | trm_if t0 t1 t2 => wpgen_if (wpgen t0) (wpgen t1) (wpgen t2)
   | trm_let x t1 t2 => wpgen_let (wpgen t1) (fun X => wpgen (subst x X t2))
-  | trm_app t1 t2 => wgpen_app t1 t2
+  | trm_app t1 t2 => wp t
   end.
 
 
+(** context *)
+
+Definition ctx : Type := list (var * val).
+
+Check Ctx.empty : ctx.
+Check Ctx.add : var -> val -> ctx -> ctx
+Check Ctx.rem_var : var -> ctx -> ctx
+Check Ctx.lookup : var -> ctx -> val
+
+Check isubst : ctx -> trm -> trm.
+
+Lemma isubst_empty : forall t,
+  isubst Ctx.empty t = t.
+
+Lemma isubst_add : forall x v E t,
+  isubst (Ctx.add x v E) t = isubst E (subst x v t).
+
+Definition wpaux_var (E:ctx) (x:var) : formula :=
+  match Ctx.lookup x E with
+  | None => wpgen_fail
+  | Some v => wpgen_val v
+  end.
 
 Fixpoint wpgen (E:ctx) (t:trm) : formula :=
-  let aux := wpgen E in
   match t with
   | trm_val v => wpgen_val v
   | trm_var x => wpaux_var E x
-  | trm_fun x t1 => trm_fun (isubst (Ctx.rem x E) t1)
-  | trm_fix f x t1 => trm_fix (isubst (Ctx.rem x (Ctx.rem f E)) t1))
-  | trm_if t0 t1 t2 => wpgen_if (aux t0) (aux t1) (aux t2)
-  | trm_let x t1 t2 => wpgen_let (aux t1) (fun X => wpgen (Ctx.add x X E) t2)
-  | trm_app t1 t2 => wgpen_app (isubst E t1) (isubst E t2)
+  | trm_fun x t1 => trm_fun (isubst (Ctx.rem_var x E) t1)
+  | trm_fix f x t1 => trm_fix (isubst (Ctx.rem_var x (Ctx.rem_var f E)) t1))
+  | trm_if t0 t1 t2 => wpgen_if (wpgen t0) (wpgen t1) (wpgen t2)
+  | trm_let x t1 t2 => wpgen_let (wpgen t1) (fun X => wpgen (Ctx.add x X E) t2)
+  | trm_app t1 t2 => wp (isubst E t)
   end.
 
 
+Lemma wpgen_sound_trm : forall t,
+  formula_sound_for (isubst E t) (wpgen E t).
 
-
-Lemma wpgen_himpl_wp : forall t Q,
-  H ==> wpgen t Q ->
+Lemma triple_of_wpgen : forall t Q,
+  H ==> wpgen Ctx.empty t Q ->
   triple t H Q.
-
-  H ==> wp t Q ->
-  triple t H Q.
-
-  H ==> wpgen t Q ->
-  H ==> wp t Q ->
-
-  wpgen t Q ==> wp t Q.
-
-(in details)
-
-then derive
-
-  Lemma triple_of_wpgen : forall t Q,
-    H ==> wpgen t Q ->
-    triple t H Q.
 
 
 
