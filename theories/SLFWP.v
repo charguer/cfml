@@ -463,7 +463,7 @@ Parameter triple_seq : forall t1 t2 H Q H1,
 
 (** By induction hypothesis on the subterms, a [triple] for 
     [t1] or [t2] is equivalent to a [wpgen] entailment. 
-    Replacing [triple t H Q] with [H ==> wp t Q] throughout
+    Replacing [triple t H Q] with [H ==> wpgen t Q] throughout
     the rule [triple_seq] gives us: 
 
 [[
@@ -479,9 +479,10 @@ Parameter triple_seq : forall t1 t2 H Q H1,
 
 [[
       H => F1 (fun r => F2 Q) ->
-      wpgen_seq F1 F2
+      H => wpgen_seq F1 F2
 ]]
 
+    which simplifies to [F1 (fun r => F2 Q) ==> wpgen_seq F1 F2].
     This leads us to the following definition of [wpgen_seq]. *)
 
 Definition wpgen_seq (F1 F2:formula) : formula := fun Q =>
@@ -504,62 +505,165 @@ Qed.
 
 (* ------------------------------------------------------- *)
 (** *** Case of let-bindings *)
-(*
-Fixpoint wpgen (t:trm) : formula :=
-  match t with
-  | trm_let x t1 t2 => wpgen_let (wpgen t1) (fun v => wpgen (subst x v t2))
-  end.
+
+(** Consider now the case of a let-binding [trm_let x t1 t2].
+    Handling this construct is a bit more involved due to the
+    binding of the variable [x] in [t2].
+
+    The formula [wpgen (trm_let x t1 t2)] should be such that
+    [H ==> [wpgen (trm_let x t1 t2)] Q] entails
+    [triple (trm_let x t1 t2) H Q]. 
+
+    Recall the rule [triple_let]. *)
 
 Parameter triple_let : forall x t1 t2 H Q Q1,
   triple t1 H Q1 ->
   (forall v, triple (subst x v t2) (Q1 v) Q) ->
   triple (trm_let x t1 t2) H Q.
 
+(** Replacing triples using [wpgen] entailements yields:
+
 [[
       H ==> wpgen t1 Q1 ->
       (forall v, (Q1 v) ==> wpgen (subst x v t2) Q) ->
-      H ==> wpgen_seq (wpgen t1) (wpgen t2) Q.
+      H ==> wpgen (trm_let x t1 t2) Q.
 ]]
 
+   The second premise can be reformuled as an entailment
+   between [Q1] and another postcondition, as follows:
+   [Q1 ===> (fun v => wpgen (subst x v t2) Q)].
 
-      (Q1 ===> (fun v => wpgen (subst x v t2) Q)) ->
+   From there, by covariante of [wpgen], we can replace [Q1]
+   with [fun v => wpgen (subst x v t2) Q] into the first premise
+   [H ==> wpgen t1 Q1]. We obtain the implication:
 
 [[
-      H ==> wpgen t1 (fun v => wpgen (subst x v t2) Q) ->
-      H ==> wpgen_seq (wpgen t1) (wpgen t2) Q.
+      H ==> (wpgen t1) (fun v => wpgen (subst x v t2) Q) ->
+      H ==> wpgen (trm_let x t1 t2) Q.
 ]]
 
+  Let [F1] denote [wpgen t1] and let [F2of] denote
+  [fun v => wpgen (subst x v t2)). In other words,
+  [F2of v Q] denotes [wpgen (subst x v t2) Q].
+  After eliminating [H], the implication above thus simplifies to:
+    [F1 (fun v => F2of v Q) ==> wpgen (trm_let x t1 t2) Q].
+  This discussion suggests the following definitions:
+
+[[
+    Fixpoint wpgen (t:trm) : formula :=
+      match t with
+      | trm_let x t1 t2 => wpgen_let (wpgen t1) (fun v => wpgen (subst x v t2))
+      ...
+      end.
+]]
+    where [wgen_let] is defined as:
+*)
 
 Definition wpgen_let (F1:formula) (F2of:val->formula) : formula := fun Q =>
-  F1 (fun X => F2of X Q).
+  F1 (fun v => F2of v Q).
+
+(** The soundness result takes the following form.
+    It assumes that [F1] is a sound formula for [t1] and that
+    [F2of v] is a sound formula for [subst x v t2], for any [v]. *)
+
+Lemma wpgen_let_sound : forall F1 F2of x t1 t2,
+  formula_sound_for t1 F1 ->
+  (forall v, formula_sound_for (subst x v t2) (F2of v)) ->
+  formula_sound_for (trm_let x t1 t2) (wpgen_let F1 F2of).
+Proof using.
+  introv S1 S2 M. unfolds wpgen_let. applys triple_let.
+  { applys S1. applys M. }
+  { intros v. applys S2. applys himpl_refl. }
+Qed.
 
 
 (* ------------------------------------------------------- *)
 (** *** Case of variables *)
 
-Fixpoint wpgen (t:trm) : formula :=
-  match t with
-  | trm_var x => wpgen_fail
-  end.
+(** What should be the weakest precondition of a free variable [x]?
+    There is no reasoning rule of the form [triple (trm_var x) H Q].
+    Indeed, if a program execution reaches a dandling free variable,
+    then the program is stuck.
+ 
+    Yet, the weakest precondition for a variable needs to be defined,
+    somehow. If we really need to introduce a reasoning rule for free
+    variables, it could be one with the premise [False]:
+[[
+              False
+      ----------------------
+      triple (trm_var x) H Q
+]]
+
+    To mimic [False -> triple x H Q] using [wpgen], we would like:
+    [False -> H ==> wp x Q]. This implication is equivalent to
+    [\[False] \* H ==> wp x Q], or just [\[False] ==> wp x Q].
+    This discussion suggests to define [wp x] as the formula
+    [fun Q => \False].  Let us name [wpgen_fail] this formula. *)
 
 Definition wpgen_fail : formula := fun Q =>
   \[False].
 
+(** The function [wpgen] will thus treat variables as follows:
+[[
+      Fixpoint wpgen (t:trm) : formula :=
+        match t with
+        | trm_var x => wpgen_fail
+        ...
+        end.
+]]
+
+    The formula [wpgen_fail] is a sound formula not just for
+    a variable [x], but in fact for any term [t].
+    Indeed, if [H ==> \[False]], then [triple t H Q] is always true. *)
+
 Lemma wpgen_fail_sound : forall t,
   formula_sound_for t wpgen_fail.
+Proof using.
+  intros. introv M. unfolds wpgen_fail.
+  applys triple_conseq Q M.
+  { rewrite <- (hstar_hempty_r \[False]). applys triple_hpure.
+    intros N. false. }
+  { applys qimpl_refl. }
+Qed.
 
 
 (* ------------------------------------------------------- *)
 (** *** Case of applications *)
 
-Fixpoint wpgen (t:trm) : formula :=
-  match t with
-  | trm_app t1 t2 => wp t
-  ...
-  end.
+(** What should be the weakest precondition for an application?
+    Well, it depends on the function, and how this function was
+    specified. Yet, when constructing the weakest precondition
+    by induction on [t], we have no specification at hand.
+
+    We would like to just postpone the reasoning on an application
+    until we have established specifications for the function being
+    applied. The way we implement the postponing is by defining
+    [wpgen (trm_app t1 t2)] as [wp (trm_app t1 t2)]. In other words,
+    we fall back to the semantic definition of [wp].
+
+    We define:
+
+[[
+  Fixpoint wpgen (t:trm) : formula :=
+    match t with
+    | trm_app t1 t2 => wp t
+    ...
+    end.
+]]
+
+    "Obviously", [wp t] is always a sound formula for a term [t].
+    Indeed, by definition of [wp], [H ==> wp t] implies [triple t H Q].
+*)
 
 Lemma wp_sound : forall t,
   formula_sound_for t (wp t).
+Proof using. intros. introv M. rewrite wp_equiv. applys M. Qed.
+
+(** Remark: recall that we consider terms in A-normal form, thus [t1]
+    and [t2] are assumed to be variables at the point where [wgpen]
+    reaches the application [trm_app t1 t2]. If [t1] and [t2] could
+    be general terms, we would need to call [wpgen] recursively,
+    essentially encoding [let x1 = t1 in let x2 = t2 in trm_app x1 x2]. *)
 
 
 (* ------------------------------------------------------- *)
