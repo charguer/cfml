@@ -1454,3 +1454,27 @@ Lemma counterexample : exists n m,
 Proof using. exists 0 1. intros N. simpl in N. false. Qed.
 
 End TestSubtractionNat.
+
+
+
+
+
+
+(** The pattern of the above lemma will be repeated for all terms.
+    To capture this pattern, let us say that a formula [F] is sound
+    for a term [t] iff [H ==> F Q] entails [triple t H Q]. *)
+
+Definition formula_complete_for (t:trm) (F:formula) : Prop :=
+  forall H Q, triple t H Q -> H ==> F Q .
+
+Definition formula_complete_for' (t:trm) (F:formula) : Prop :=
+  forall Q, wp t Q ==> F Q .
+
+(** We can reformulate the lemma above as: *)
+
+Lemma wpgen_val_complete : forall v,
+  formula_complete_for (trm_val v) (wpgen_val v).
+Proof using.
+  introv M. unfold wpgen_val. unfolds triple, hoare.
+Qed.
+

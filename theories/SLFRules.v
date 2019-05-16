@@ -917,15 +917,15 @@ Qed.
 
 (** The big-step evaluation rule for a sequence is given next. *)
 
-Parameter eval_seq : forall s1 s2 s3 t1 t2 r1 r,
-  eval s1 t1 s2 r1 ->
-  eval s2 t2 s3 r ->
-  eval s1 (trm_seq t1 t2) s3 r.
+Parameter eval_seq : forall s1 s2 s3 t1 t2 v1 v,
+  eval s1 t1 s2 v1 ->
+  eval s2 t2 s3 v ->
+  eval s1 (trm_seq t1 t2) s3 v.
 
 (** The Hoare triple version of the reasoning rule is proved as follows. *)
 
 Lemma hoare_seq : forall t1 t2 H Q H1,
-  hoare t1 H (fun r => H1) ->
+  hoare t1 H (fun v => H1) ->
   hoare t2 H1 Q ->
   hoare (trm_seq t1 t2) H Q.
 Proof using.
@@ -953,8 +953,8 @@ Qed.
 
 (** The Separation Logic reasoning rule is proved as follows. *)
 
-Lemma triple_seq' : forall t1 t2 H Q H1,
-  triple t1 H (fun r => H1) ->
+Lemma triple_seq : forall t1 t2 H Q H1,
+  triple t1 H (fun v => H1) ->
   triple t2 H1 Q ->
   triple (trm_seq t1 t2) H Q.
 Proof using.
@@ -983,10 +983,10 @@ Qed.
 
 (** Recall the big-step evaluation rule for a let-binding. *)
 
-Parameter eval_let : forall s1 s2 s3 x t1 t2 v1 r,
+Parameter eval_let : forall s1 s2 s3 x t1 t2 v1 v,
   eval s1 t1 s2 v1 ->
-  eval s2 (subst x v1 t2) s3 r ->
-  eval s1 (trm_let x t1 t2) s3 r.
+  eval s2 (subst x v1 t2) s3 v ->
+  eval s1 (trm_let x t1 t2) s3 v.
 
 (* EX1! (triple_let) *)
 (** Following the same proof scheme as for [triple_seq], establish
@@ -1023,10 +1023,10 @@ Qed.
 
 (** The treatment of conditional can be handled in a similar way. *)
 
-Parameter eval_if_bool : forall s1 s2 b r t1 t2,
-  (b = true -> eval s1 t1 s2 r) ->
-  (b = false -> eval s1 t2 s2 r) ->
-  eval s1 (trm_if b t1 t2) s2 r.
+Parameter eval_if_bool : forall s1 s2 b v t1 t2,
+  (b = true -> eval s1 t1 s2 v) ->
+  (b = false -> eval s1 t2 s2 v) ->
+  eval s1 (trm_if b t1 t2) s2 v.
 
 Lemma hoare_if : forall b t1 t2 H Q,
   (b = true -> hoare t1 H Q) ->
@@ -1059,9 +1059,9 @@ Qed.
     First, we establish a corrolary to [red_if], expressed using a 
     single premise. *)
 
-Lemma eval_if_bool_case : forall s1 s2 b r t1 t2,
-  eval s1 (if b then t1 else t2) s2 r ->
-  eval s1 (trm_if b t1 t2) s2 r.
+Lemma eval_if_bool_case : forall s1 s2 b v t1 t2,
+  eval s1 (if b then t1 else t2) s2 v ->
+  eval s1 (trm_if b t1 t2) s2 v.
 Proof using.
   intros. case_if; applys eval_if_bool; auto_false.
 Qed.
@@ -1097,10 +1097,10 @@ Qed.
     This result follows directly from the big-step evaluation rule
     for applications. *)
 
-Parameter eval_app_fun : forall s1 s2 v1 v2 x t1 r,
+Parameter eval_app_fun : forall s1 s2 v1 v2 x t1 v,
   v1 = val_fun x t1 ->
-  eval s1 (subst x v2 t1) s2 r ->
-  eval s1 (trm_app v1 v2) s2 r.
+  eval s1 (subst x v2 t1) s2 v ->
+  eval s1 (trm_app v1 v2) s2 v.
 
 (* EX2! (hoare_app_fun) *)
 
@@ -1137,7 +1137,7 @@ Qed.
     valid for [t1] is also valid for [t2]. *)
 
 Lemma hoare_same_semantics : forall t1 t2 H Q,
-  (forall s s' r, eval s t1 s' r -> eval s t2 s' r) ->
+  (forall s s' v, eval s t1 s' v -> eval s t2 s' v) ->
   hoare t1 H Q ->
   hoare t2 H Q.
 Proof using.
@@ -1146,7 +1146,7 @@ Proof using.
 Qed.
 
 Lemma triple_same_semantics : forall t1 t2 H Q,
-  (forall s s' r, eval s t1 s' r -> eval s t2 s' r) ->
+  (forall s s' v, eval s t1 s' v -> eval s t2 s' v) ->
   triple t1 H Q ->
   triple t2 H Q.
 Proof using.
