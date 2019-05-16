@@ -1478,3 +1478,18 @@ Proof using.
   introv M. unfold wpgen_val. unfolds triple, hoare.
 Qed.
 
+
+Lemma wp_htop_pre : forall t Q,
+  (wp t Q) \* \Top ==> wp t Q.
+Proof using.
+  intros. rewrite <- wp_equiv.
+  applys triple_htop_pre. rewrite~ wp_equiv.
+Qed.
+
+
+Lemma wp_htop_post : forall t Q ,
+  wp t (Q \*+ \Top) ==> wp t Q.
+Proof using.
+  intros. rewrite <- wp_equiv.
+  applys triple_htop_post. rewrite~ wp_equiv.
+Qed.

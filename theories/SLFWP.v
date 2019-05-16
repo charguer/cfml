@@ -97,6 +97,232 @@ Qed.
 
 
 (* ******************************************************* *)
+(** ** Structural properties of weakest preconditions *)
+
+(** It is interesting to observe how the structural rules
+    can be applied on a judgment of the form [H ==> wp t Q].
+
+    At this stage, we'll make four important observations.
+
+    1. The extraction rules [triple_hexists] and [triple_hpure]
+       are not needed in a wp-style presentation, because they
+       are directly subsumed by basic lemmas on entailment.
+
+    2. The predicate [wp t Q] is covariant in [Q], just the same
+       way [triple t H Q] is covariant in [Q] (and contravariant 
+       in [H]).
+
+    3. The combined consequence-frame-htop rule for [triple]
+       has a counterpart for [wp]. This rule is, in effect,
+       the unique structural rule that is needed for [wp].
+       (All other structural rules are derivable from it.)
+
+    4. The ramified-frame rule for [triple] also has a
+       counterpart for [wp]. This ramified rule for [wp]
+       will play a crucial rule in the construction of
+       our function that computes weakest precondition. *)
+
+(* ------------------------------------------------------- *)
+(** *** 1. Extraction rules are no longer needed *)
+
+(** Recall the extraction rule for existentials: *)
+
+Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
+  (forall x, triple t (J x) Q) ->
+  triple t (\exists x, J x) Q.
+
+(** Replacing [triple t H Q] with [H ==> wp t Q] yields: *)
+
+Lemma triple_hexists_in_wp : forall t Q A (J:A->hprop),
+  (forall x, (J x ==> wp t Q)) ->
+  (\exists x, J x) ==> wp t Q.
+
+(** This implication is just a special case of the lemma
+    [himpl_hexists_l], which proves [(\exists x, J x) ==> H]
+    from [forall x, (J x ==> H)]. *)
+
+Proof using. introv M. applys himpl_hexists_l M. Qed.
+
+(** In other words, in the [wp] presentation, we don't need
+    a specific extraction rule for existentials, because the
+    extraction rule for entailment already does the job. *)
+
+(** Likewise for [triple_hpure], which enables extracting pure
+    facts from precondition: the rule [himpl_hstar_hpure_l] may be
+    used to prove [\[P] \* H1 ==> H2] from [\[P] -> H1 ==> H2]. *)
+
+
+(* ------------------------------------------------------- *)
+(** *** 2. Covariance of [wp] *)
+
+(** If we have [triple t H Q1] and [Q1 ===> Q2], then, by the
+    rule of consequence, we can derive [triple t H Q2]. 
+    In other words, [triple t H Q] is covariant in [Q].
+
+    In a similiar way [wp t Q] is covariant in [Q], as we state
+    and prove next. *)
+
+Lemma wp_conseq : forall t Q1 Q2,
+  Q1 ===> Q2 ->
+  wp t Q1 ==> wp t Q2.
+Proof using.
+  introv WQ.
+  rewrite <- wp_equiv. (* same as [applys wp_weakest]. *)
+  applys triple_conseq (wp t Q1) WQ.
+  { rewrite wp_equiv. auto. (* same as [applys wp_pre]. *) }
+  { applys himpl_refl. }
+Qed.
+
+
+(* ------------------------------------------------------- *)
+(** *** 3. Combined structural rule for [wp] *)
+
+(** Recall the combined consequence-frame-htop rule for [triple]. *)
+
+Parameter triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q \*+ \Top ->
+  triple t H Q.
+
+(** Let us reformulate this rule using [wp]:
+
+[[
+    H1 ==> wp t Q1 ->
+    H ==> H1 \* H2 ->
+    Q1 \*+ H2 ===> Q \*+ \Top ->
+    H ==> wp t Q.
+]]
+
+   The beove statement can be simplified by substituting [H]
+   with [H1 \* H2], then substituting [H1] with [wp t Q1].
+   We obtain:
+
+[[
+    Q1 \*+ H2 ===> Q \*+ \Top ->
+    (wp t Q1) \* H2 ==> wp t Q.
+]]
+   After renaming [H2] into [H] and [Q] into [Q2], we arrive at
+   the combined rule for [wp]:
+*)
+
+Lemma wp_conseq_frame_htop : forall t H Q1 Q2,
+  Q1 \*+ H ===> Q2 \*+ \Top ->
+  (wp t Q1) \* H ==> (wp t Q2).
+Proof using.
+  introv M. rewrite <- wp_equiv.
+  applys triple_conseq_frame_htop (wp t Q1) M.
+  { rewrite wp_equiv. hsimpl. } { hsimpl. }
+Qed.
+
+(** Further in this chapter, we present specializations of
+    this rule to invoke only the [frame] rule, or only the
+    garbage collection rule. *)
+
+
+(* ------------------------------------------------------- *)
+(** *** 4. The ramified structural rule for [wp] *)
+
+(** Consider the entailment  [Q1 \*+ H ===> Q2 \*+ \Top]
+    that appears in the combined rule [wp_conseq_frame_htop].
+
+    This entailement can be rewritten using the magic wand as:
+    [H ==> (Q1 \--* (Q2 \*+ \Top))].
+
+    Thus, the conclusion [(wp t Q1) \* H ==> (wp t Q2)]
+    can be reformulated as 
+    [(wp t Q1) \* (Q1 \--* (Q2 \*+ \Top)) ==> (wp t Q2)].
+
+    The "ramified combined structural rule" for [wp], shown below,
+    captures in a single line all the structural properties of [wp]. *)
+
+Lemma wp_ramified : forall t Q1 Q2,
+  (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
+Proof using.
+  intros. applys wp_conseq_frame_htop.
+  hsimpl. (* exploiting [qwand_cancel] *)
+Qed.
+
+(** The following reformulation is handy to apply on any goal
+    of the form [H ==> wp t Q]. *)
+
+Lemma wp_ramified_trans : forall t H Q1 Q2,
+  H ==> (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ->
+  H ==> (wp t Q2).
+Proof using. introv M. hchange M. applys wp_ramified. Qed.
+
+
+
+
+
+(* ******************************************************* *)
+(** ** Simulating structural rules on a weakest precondition *)
+
+
+(*
+Lemma triple_hexists' : forall t (A:Type) (J:A->hprop) Q,
+  (forall x, triple t (J x) Q) ->
+  triple t (\exists x, J x) Q.
+introv M. rewrite wp_equiv. hpull. intros x. specializes M x.
+rewrite wp_equiv in M. auto.
+Qed.
+*)
+
+
+
+
+(** Let's now look at the rule of consequence. *)
+
+Parameter triple_conseq : forall t H' Q' H Q,
+  triple t H' Q' ->
+  H ==> H' ->
+  Q' ===> Q ->
+  triple t H Q.
+
+(** Replacing [triple] with [wp] yields: *)
+
+Parameter triple_conseq_in_wp : forall t H H' Q Q',
+  H' ==> wp t Q' ->
+  H ==> H' ->
+  Q' ===> Q ->
+  H ==> wp t Q.
+
+(** This rule simplifies to *)
+
+
+
+Parameter triple_frame : forall t H Q H',
+  triple t H Q ->
+  triple t (H \* H') (Q \*+ H').
+
+(** The consequence rule enables to strengthen the precondition
+    and weaken the postcondition. *)
+
+
+
+(** The two extraction rules enable to extract pure facts and
+    existentially quantified variables from the precondition
+    into the Coq context. *)
+
+
+
+(** The garbage collection rules enable to discard any desired
+    piece of heap from the precondition or the postcondition. 
+    (As we have seen, it is equivalent to state these two rules
+    by writing [H'] instead of [\Top].) *)
+
+Parameter triple_htop_pre : forall t H Q,
+  triple t H Q ->
+  triple t (H \* \Top) Q.
+
+Parameter triple_htop_post : forall t H Q,
+  triple t H (Q \*+ \Top) ->
+  triple t H Q.
+
+
+
+
+(* ******************************************************* *)
 (** ** Syntactic construction of a weakest precondition *)
 
 (** To carry out practical verification proofs, we introduce
@@ -241,18 +467,19 @@ Parameter triple_seq : forall t1 t2 H Q H1,
     the rule [triple_seq] gives us: 
 
 [[
-    Parameter wgpen_seq1 : forall t1 t2 H Q H1,
       H ==> wpgen t1 (fun r => H1) ->
       H1 ==> wpgen t2 Q ->
       H ==> wpgen_seq (wpgen t1) (wpgen t2) Q.
 ]]
 
     From there, let [F1] denote [wpgen t1] and [F2] denote [wpgen t2].
-    Moreover, let us substitute away [H1]. We obtain:
+    Moreover, let us substitute away [H1], by presuming that [wpgen]
+    is covariant in its second argument (just like [wp] is).
+    We obtain:
 
 [[
-  H => F1 (fun r => F2 Q) ->
-  wpgen_seq F1 F2
+      H => F1 (fun r => F2 Q) ->
+      wpgen_seq F1 F2
 ]]
 
     This leads us to the following definition of [wpgen_seq]. *)
@@ -277,11 +504,30 @@ Qed.
 
 (* ------------------------------------------------------- *)
 (** *** Case of let-bindings *)
-
+(*
 Fixpoint wpgen (t:trm) : formula :=
   match t with
-  | trm_let x t1 t2 => wpgen_let (wpgen t1) (fun X => wpgen (subst x X t2))
+  | trm_let x t1 t2 => wpgen_let (wpgen t1) (fun v => wpgen (subst x v t2))
   end.
+
+Parameter triple_let : forall x t1 t2 H Q Q1,
+  triple t1 H Q1 ->
+  (forall v, triple (subst x v t2) (Q1 v) Q) ->
+  triple (trm_let x t1 t2) H Q.
+
+[[
+      H ==> wpgen t1 Q1 ->
+      (forall v, (Q1 v) ==> wpgen (subst x v t2) Q) ->
+      H ==> wpgen_seq (wpgen t1) (wpgen t2) Q.
+]]
+
+
+      (Q1 ===> (fun v => wpgen (subst x v t2) Q)) ->
+
+[[
+      H ==> wpgen t1 (fun v => wpgen (subst x v t2) Q) ->
+      H ==> wpgen_seq (wpgen t1) (wpgen t2) Q.
+]]
 
 
 Definition wpgen_let (F1:formula) (F2of:val->formula) : formula := fun Q =>
@@ -398,6 +644,7 @@ Lemma triple_of_wpgen : forall t Q,
 
 
 
+*)
 
 (* ####################################################### *)
 (** * Additional contents *)
@@ -462,12 +709,63 @@ Proof using.
 Qed.
 
 
+(* ******************************************************* *)
+(** ** Frame rule and garbage rules for [wp] *)
+
+Parameter triple_hany_pre : forall t H H' Q,
+  triple t H Q ->
+  triple t (H \* H') Q.
+
+Parameter triple_hany_post : forall t H H' Q,
+  triple t H (Q \*+ H') ->
+  triple t H Q.
+
+(** The combined structural rule for [wp] captures all the
+    structural rules. We here discuss the formulation of
+    specializations of this rule. The corresponding lemmas
+    highlight interesting properties of the [wp] operator. *)
+
+(** The frame rule for [wp] asserts that, given [(wp t Q) \* H],
+    the [wp] may absorb [H] and yield [(wp t (Q \*+ H)]. *)
+
+Lemma wp_frame : forall t H Q,
+  (wp t Q) \* H ==> wp t (Q \*+ H).
+Proof using.
+  intros. rewrite <- wp_equiv.
+  applys triple_frame. rewrite~ wp_equiv.
+Qed.
+
+(** The garbage collection in precondition for [wp] asserts that
+    [wp] can absorb and discard any desired heap predicate [H]
+    that sits next to it (i.e., that it is starred with). *)
+
+Lemma wp_hany_pre : forall t H Q,
+  (wp t Q) \* H ==> wp t Q.
+Proof using.
+  intros. rewrite <- wp_equiv.
+  applys triple_hany_pre. rewrite~ wp_equiv.
+Qed.
+
+(** The garbage collection in postconditions for [wp] asserts 
+    that [wp] can absorb and discard any desired heap predicate
+    [H] that appears in its postcondition. *)
+
+Lemma wp_hany_post : forall t H Q ,
+  wp t (Q \*+ H) ==> wp t Q.
+Proof using.
+  intros. rewrite <- wp_equiv.
+  applys triple_hany_post. rewrite~ wp_equiv.
+Qed.
+
+(** Or, equivalently, the [H] from rules [wp_hany_pre] and 
+   [wp_hand_post] may be replaced with [\Top]. *)
+
 
 (* ******************************************************* *)
 (** ** Semantic definition of weakest precondition *)
 
 
-
+(*
 
 Lemma flocal_elim : forall F H Q,
   H ==> wp t Q' \* (Q' \--* (Q \*+ \GC)) ->
@@ -640,3 +938,6 @@ reasoning on calls
 
 recursion
 - call that does not fit coq
+
+
+*)

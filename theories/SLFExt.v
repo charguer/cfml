@@ -1,4 +1,4 @@
-
+Arguments qwand_cancel [A].
 
 
 (* loops *)
