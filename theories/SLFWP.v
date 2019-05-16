@@ -1,4 +1,179 @@
 
+(**
+
+Separation Logic Foundations
+
+Chapter: "WP".
+
+Author: Arthur Charguéraud.
+License: MIT.
+
+*)
+
+Set Implicit Arguments.
+From Sep Require Import SLFRules.
+
+Implicit Types h : heap.
+Implicit Types P : Prop.
+Implicit Types H : hprop.
+Implicit Types Q : val->hprop.
+
+
+
+
+Lemma hoare_named_heap : forall t H Q,
+  (forall h, H h -> hoare t (= h) Q) ->
+  hoare t H Q.
+Proof using. introv M. intros h Hh. applys* M. Qed.
+
+Lemma triple_named_heap : forall t H Q,
+  (forall h, H h -> triple t (= h) Q) ->
+  triple t H Q.
+Proof using.
+  introv M. intros H'. applys hoare_named_heap.
+  intros h K. lets (h1&h2&K1&K2&D&U): hstar_inv K.
+  lets N: M K1. specializes N (=h2).
+  applys hoare_conseq N.
+  { subst h. intros ? ->. applys~ hstar_intro. }
+  { intros x. applys himpl_frame_l. applys himpl_frame_r.
+    intros ? ->. applys K2. }
+Qed.
+
+
+
+(* ####################################################### *)
+(** * The chapter in a rush *)
+
+(** This chapter introduces the notion of weakest precondition
+    for Separation Logic triples, and describes the construction
+    of a function that effectively computes in Coq weakest
+    preconditions. Using this function, we'll be able to carry
+    out verification proofs using Separation Logic reasoning rules
+    but without never needing to reason about program variables
+    and substitutions. *)
+
+
+(* ******************************************************* *)
+(** ** Notion of weakest precondition *)
+
+(** We next introduce a function [wp], called "weakest precondition".
+    Given a term [t] and a postcondition [Q], this function computes 
+    a heap predicate [wp t Q] such that [triple t H Q] holds if and
+    only if [wp t Q] is weaker than the precondition [H]. Formally: *)
+
+Parameter wp : trm -> (val->hprop) -> hprop.
+
+Parameter wp_equiv : forall t H Q,
+  (triple t H Q) <-> (H ==> wp t Q).
+
+(** The [wp t Q] is called "weakest precondition" for two reasons.
+    First, because it is a "valid precondition" for the term [t] 
+    and the postcondition [Q]: *)
+
+Lemma wp_pre : forall t Q,
+  triple t (wp t Q) Q.
+Proof using. intros. rewrite wp_equiv. applys himpl_refl. Qed.
+
+(** Second, because it is the "weakest" of all valid preconditions
+    for the term [t] and the postcondition [Q], in the sense that
+    any other valid precondition [H] entails [wp t Q]. *)
+
+Lemma wp_weakest : forall t H Q,
+  triple t H Q ->
+  H ==> wp t Q.
+Proof using. introv M. rewrite <- wp_equiv. applys M. Qed.
+
+(** Note that the equivalence rule [wp_equiv] defines a unique
+    function [wp]: any two functions satisfying it are equal. *)
+
+Definition wp_characterization (wp:trm->(val->hprop)->hprop) :=
+  forall t H Q, (triple t H Q) <-> (H ==> wp t Q).
+
+Lemma wp_characterization_unique : forall wp1 wp2,
+  wp_characterization wp1 ->
+  wp_characterization wp2 ->
+  wp1 = wp2.
+Proof using. 
+  asserts L: (forall t Q wp1 wp2,
+    wp_characterization wp1 ->
+    wp_characterization wp2 ->
+    wp1 t Q ==> wp2 t Q).
+  { introv M1 M2. unfolds wp_characterization.
+    rewrite <- M2. rewrite M1. applys himpl_refl. }
+  introv M1 M2. applys fun_ext_2. intros t Q.
+  applys himpl_antisym; applys L; auto.
+Qed.
+
+
+(* ******************************************************* *)
+(** ** Semantic definition of weakest precondition *)
+
+(** We have seen that [wp_equiv] defines a unique function [wp].
+    There remains to show that there actually exists at least
+    one such function.
+
+    In what follows, we'll give two possible definitions, a
+    low-level one expressed as a function on heaps, and a high-level
+    one expressed using only Separation Logic combinators.
+
+    For both, we'll show that they satisfy [wp_equiv]. Thus, the
+    two definitions must be equivalent ([wp_characterization_unique]). *)
+
+(** We now present the low-level definition. *)
+
+Definition wp_low (t:trm) (Q:val->hprop) : hprop :=
+  fun (h:heap) => triple t (=h) Q.
+
+Lemma wp_equiv_wp_low : wp_characterization wp_low.
+  (** [forall t H Q, (triple t H Q) <-> (H ==> wp_low t Q)]. *)
+Proof using.
+  (** This proof is a bit technical, it is not required to follow it.
+      It requires the lemma [triple_named_heap] established 
+      as exercise in an earlier chapter. *)
+  unfold wp_low. iff M.
+  { intros h K. applys triple_conseq M.
+    { intros h' ->. applys K. }
+    { applys qimpl_refl. } }
+  { applys triple_named_heap. intros h K.
+    applys triple_conseq (=h) Q. 
+    { specializes M K. applys M. }
+    { intros ? ->. auto. }
+    { applys qimpl_refl. } }
+Qed.
+
+(** We now present the high-level definition. *)
+
+Definition wp_high (t:trm) (Q:val->hprop) : hprop :=
+  \exists (H:hprop), H \* \[triple t H Q].
+
+(* EX3! (wp_equiv_wp_high) *)
+(** Prove that this second definition of [wp] statisfies
+    the characteristic property [wp_equiv]. *)
+
+Lemma wp_equiv_wp_high : wp_characterization wp_high.
+  (** [forall t H Q, (triple t H Q) <-> (H ==> wp_high t Q)]. *)
+Proof using.
+(* SOLUTION *)
+  unfold wp_characterization, wp_high. iff M.
+  { hsimpl H. apply M. }
+  { applys triple_conseq Q M.
+    { applys triple_hexists. intros H'.
+      rewrite hstar_comm. applys triple_hpure. 
+      intros N. applys N. }
+    { applys qimpl_refl. } }
+(* /SOLUTION *)
+Qed.
+
+(** Thereafter, we will only exploit the characterization lemma
+    [wp_equiv], and never rely on the internal definition of [wp]. *)
+
+
+(* ******************************************************* *)
+(** ** Semantic definition of weakest precondition *)
+
+
+
+
 Lemma flocal_elim : forall F H Q,
   H ==> wp t Q' \* (Q' \--* (Q \*+ \GC)) ->
   H ==> wp t Q.
