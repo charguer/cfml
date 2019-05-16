@@ -307,8 +307,7 @@ Proof using. intros. hsimpl. Abort.
 
 Lemma hsimpl_demo_hwand_iter : forall H1 H2 H3 H4 H5,
   H1 \* H2 \* ((H1 \* H3) \-* (H4 \-* H5)) \* H4 ==> ((H2 \-* H3) \-* H5).
-Proof using. intros. hsimpl. hsimpl. Qed.
-(* TODO: fix hsimpl, which should simplify all at once. *)
+Proof using. intros. hsimpl. Qed.
 
 (** [hsimpl] is also able to deal with [qwand]. In particular,
     it can cancel out [Q1 \--* Q2] against [Q1 v], leaving [Q2 v]. *)
@@ -316,11 +315,6 @@ Proof using. intros. hsimpl. hsimpl. Qed.
 Lemma hsimpl_demo_qwand_cancel : forall A (v:A) (Q1 Q2:A->hprop) H1 H2,
   (Q1 \--* Q2) \* H1 \* (Q1 v) ==> H2.
 Proof using. intros. hsimpl. Abort.
-
-Lemma hsimpl_demo_qwand_cancel' : forall A (v:A) (Q:A->hprop) H H1 H2,
-  (\[] \-* H) \* H1 ==> H2.
-Proof using. intros. hsimpl. Abort.
-(* TODO: fix incomplete hsimpl proof *)
 
 End HsimplDemo.
 

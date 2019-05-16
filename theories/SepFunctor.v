@@ -409,12 +409,20 @@ Proof using.
   introv M1 M2. applys himpl_trans. applys~ himpl_frame_l M1. applys~ himpl_frame_r.
 Qed.
 
-Lemma himpl_hstar_trans : forall H1 H2 H3 H4,
+Lemma himpl_hstar_trans_l : forall H1 H2 H3 H4,
   H1 ==> H2 ->
   H2 \* H3 ==> H4 ->
   H1 \* H3 ==> H4.
 Proof using.
   introv M1 M2. applys himpl_trans M2. applys himpl_frame_l M1. 
+Qed.
+
+Lemma himpl_hstar_trans_r : forall H1 H2 H3 H4,
+  H1 ==> H2 ->
+  H3 \* H2 ==> H4 ->
+  H3 \* H1 ==> H4.
+Proof using.
+  introv M1 M2. applys himpl_trans M2. applys himpl_frame_r M1. 
 Qed.
 
 (** Properties of [hempty] *)
@@ -620,16 +628,33 @@ Proof using.
   rewrite hstar_comm. applys~ himpl_hstar_hpure_r.
 Qed.
 
-Lemma hwand_cancel : forall H1 H2,
-  H1 \* (H1 \-* H2) ==> H2.
+Lemma hwand_elim : forall H1 H2 H3,
+  H1 ==> (H2 \-* H3) ->
+  H1 \* H2 ==> H3.
 Proof using.
-  intros. unfold hwand. rewrite hstar_comm.
-  rewrite hstar_hexists. applys himpl_hexists_l ;=> H.
-  rewrite hstar_assoc. rewrite hstar_comm_assoc.
+  introv M. unfolds hwand. applys himpl_hstar_trans_l (rm M).
+  rewrite hstar_hexists. applys himpl_hexists_l. intros H0.
+  rewrite (hstar_comm H0). rewrite hstar_assoc.
   applys~ himpl_hstar_hpure_l.
 Qed.
 
+Lemma hwand_cancel : forall H1 H2,
+  H1 \* (H1 \-* H2) ==> H2.
+Proof using. intros. rewrite hstar_comm. applys~ hwand_elim. Qed.
+
 Arguments hwand_cancel : clear implicits.
+
+Lemma hwand_hempty_l : forall H,
+  (\[] \-* H) = H.
+Proof using.
+  intros. applys himpl_antisym.
+  { unfold hwand. applys himpl_hexists_l. intros H0.
+    rewrite hstar_hempty_r. rewrite hstar_comm.
+    applys~ himpl_hstar_hpure_l. }
+  { apply hwand_intro. rewrite~ hstar_hempty_r. }
+Qed.
+
+Hint Rewrite hwand_hempty_l : rew_heap.
 
 Lemma hwand_curry : forall H1 H2 H3,
   (H1 \* H2) \-* H3 ==> H1 \-* (H2 \-* H3).
@@ -661,7 +686,7 @@ Lemma hwand_hpure_l_intro : forall (P:Prop) H,
 Proof using. 
   introv HP. rewrite <- (hstar_hempty_l (\[P] \-* H)).
   forwards~ K: himpl_hempty_hpure P.
-  applys* himpl_hstar_trans K. applys hwand_cancel.
+  applys* himpl_hstar_trans_l K. applys hwand_cancel.
 Qed.
 
 Arguments hwand_hpure_l_intro : clear implicits.
@@ -1603,6 +1628,12 @@ Proof using. hsimpl_l_start' M. Qed.
 (** Transition lemmas for LHS cancellation operations
     ---Hlt is meant to be empty there *)
 
+Lemma hsimpl_l_cancel_hwand_hempty : forall H2 Hla Hlw Hlt HR,
+  Hsimpl (Hla, Hlw, (H2 \* Hlt)) HR ->
+  Hsimpl (Hla, ((\[] \-* H2) \* Hlw), Hlt) HR.
+Proof using. hsimpl_l_start' M. Qed.
+
+(* DEPRECATED
 Lemma hsimpl_l_cancel_hwand : forall H1 H2 Hla Hlw Hlt HR,
   Hsimpl (Hla, Hlw, (H2 \* Hlt)) HR ->
   Hsimpl ((H1 \* Hla), ((H1 \-* H2) \* Hlw), Hlt) HR.
@@ -1616,13 +1647,27 @@ Proof using.
   applys himpl_frame_r. applys qwand_specialize x.
   applys hwand_cancel. 
 Qed.
+*)
+
+Lemma hsimpl_l_cancel_hwand : forall H1 H2 Hla Hlw Hlt HR,
+  Hsimpl (\[], Hlw, (Hla \* H2 \* Hlt)) HR ->
+  Hsimpl ((H1 \* Hla), ((H1 \-* H2) \* Hlw), Hlt) HR.
+Proof using. hsimpl_l_start' M. applys hwand_cancel. Qed.
+
+Lemma hsimpl_l_cancel_qwand : forall A (x:A) (Q1 Q2:A->hprop) Hla Hlw Hlt HR,
+  Hsimpl (\[], Hlw, (Hla \* Q2 x \* Hlt)) HR ->
+  Hsimpl ((Q1 x \* Hla), ((Q1 \--* Q2) \* Hlw), Hlt) HR.
+Proof using.
+  hsimpl_l_start' M. applys himpl_hstar_trans_r.
+  applys qwand_specialize x. applys hwand_cancel.
+Qed.
 
 Lemma hsimpl_l_keep_wand : forall H Hla Hlw Hlt HR,
   Hsimpl ((H \* Hla), Hlw, Hlt) HR ->
   Hsimpl (Hla, (H \* Hlw), Hlt) HR.
 Proof using. hsimpl_l_start' M. Qed.
 
-Lemma hsimpl_l_cancel_hwand_reorder : forall H1 H1' H2 Hla Hlw Hlt HR,
+Lemma hsimpl_l_hwand_reorder : forall H1 H1' H2 Hla Hlw Hlt HR,
   H1 = H1' ->
   Hsimpl (Hla, ((H1' \-* H2) \* Hlw), Hlt) HR ->
   Hsimpl (Hla, ((H1 \-* H2) \* Hlw), Hlt) HR.
@@ -1634,6 +1679,11 @@ Lemma hsimpl_l_cancel_hwand_hstar : forall H1 H2 H3 Hla Hlw Hlt HR,
 Proof using.
   hsimpl_l_start' M. rewrite hwand_curry_eq. applys hwand_cancel.
 Qed.
+
+Lemma hsimpl_l_cancel_hwand_hstar_hempty : forall H2 H3 Hla Hlw Hlt HR,
+  Hsimpl (Hla, Hlw, ((H2 \-* H3) \* Hlt)) HR ->
+  Hsimpl (Hla, (((\[] \* H2) \-* H3) \* Hlw), Hlt) HR.
+Proof using. hsimpl_l_start' M. Qed.
 
 (** Transition lemmas for RHS extraction operations *)
 
@@ -1811,7 +1861,7 @@ Lemma himpl_lr_htop : forall Hla Hrg,
   Hsimpl (Hla, \[], \[]) (\[], (\Top \* Hrg), \[]).
 Proof using.
   hsimpl_lr_start M. rewrite <- (hstar_hempty_l Hla).
-  applys himpl_hstar_trans M. hstars_simpl. apply himpl_htop_r.
+  applys himpl_hstar_trans_l M. hstars_simpl. apply himpl_htop_r.
 Qed.
 
 (* optional
@@ -1827,7 +1877,7 @@ Lemma himpl_lr_hgc : forall Hla Hrg,
   Hsimpl (Hla, \[], \[]) (\[], (\GC \* Hrg), \[]).
 Proof using.
   introv N. hsimpl_lr_start M. rewrite <- (hstar_hempty_l Hla).
-  applys himpl_hstar_trans M. hstars_simpl. apply* himpl_hgc_r.
+  applys himpl_hstar_trans_l M. hstars_simpl. apply* himpl_hgc_r.
 Qed.
 
 Lemma hsimpl_lr_exit_nogc : forall Hla Hra,
@@ -2100,11 +2150,14 @@ Ltac hsimpl_hook H := fail.
 Ltac hsimpl_hwand_hstars_l tt :=
   match goal with |- Hsimpl (?Hla, ((?H1s \-* ?H2) \* ?Hlw), \[]) ?HR => 
     hstars_search H1s ltac:(fun i H =>
-      hsimpl_pick_same H; 
       let L := hstars_pick_lemma i in
-      eapply hsimpl_l_cancel_hwand_reorder; 
+      eapply hsimpl_l_hwand_reorder;
       [ apply L 
-      | apply hsimpl_l_cancel_hwand_hstar ])
+      | match H with
+        | \[] => apply hsimpl_l_cancel_hwand_hstar_hempty
+        | _ => hsimpl_pick_same H; apply hsimpl_l_cancel_hwand_hstar
+        end
+      ])
   end.
 
 Ltac hsimpl_step_l tt :=
@@ -2122,6 +2175,7 @@ Ltac hsimpl_step_l tt :=
     end
   | (?Hla, ((?H1 \-* ?H2) \* ?Hlw), \[]) => 
       match H1 with
+      | \[] => apply hsimpl_l_cancel_hwand_hempty
       | (_ \* _) => hsimpl_hwand_hstars_l tt
       | _ => first [ hsimpl_pick_same H1; apply hsimpl_l_cancel_hwand
                    | apply hsimpl_l_keep_wand ] 
@@ -2381,6 +2435,7 @@ Proof using.
   { intros. hsimpl0. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1.
     hsimpl1. hsimpl1. hsimpl1.
     hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1.
+    hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1.
     hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. }
   { intros. hsimpl~. }
 Qed.
@@ -2405,6 +2460,27 @@ Proof using. introv M. hsimpl. auto. Qed.
 Lemma hsimpl_demo_hwand_multiple_2 : forall H1 H2 H3 H4 H5,
   (H1 \* H2 \* ((H1 \* H3) \-* (H4 \-* H5))) \* (H2 \-* H3) \* H4 ==> H5.
 Proof using. intros. hsimpl. Qed.
+
+Lemma hsimpl_demo_hwand_hempty : forall H1 H2 H3,
+  (\[] \-* H1) \* H2 ==> H3.
+Proof using. intros. hsimpl. Abort.
+
+Lemma hsimpl_demo_hwand_hstar_hempty : forall H0 H1 H2 H3,
+  ((H0 \* \[]) \-* \[] \-* H1) \* H2 ==> H3.
+Proof using. intros. hsimpl. rew_heap. Abort.
+(* [hsimpl] does not simplify inner [\[] \-* H1], known limitation. *)
+
+Lemma hsimpl_demo_hwand_iter : forall H1 H2 H3 H4 H5,
+  H1 \* H2 \* ((H1 \* H3) \-* (H4 \-* H5)) \* H4 ==> ((H2 \-* H3) \-* H5).
+Proof using.
+  intros. dup.
+  { hsimpl0. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1.
+    hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1.
+    hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1.
+    hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1.
+    hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. hsimpl1. }
+  { hsimpl. }
+Qed.
 
 Lemma hsimpl_demo_repr_1 : forall p q (R:int->int->hprop),
   p ~> R 3 \* q ~> R 4 ==> \exists n m, p ~> R n \* q ~> R m.
@@ -2518,7 +2594,7 @@ Lemma hchange_lemma : forall H1 H2 H3 H4,
   H3 ==> H4.
 Proof using.
   introv M1 M2. applys himpl_trans (rm M2).
-  applys himpl_hstar_trans (rm M1). applys hwand_cancel.
+  applys himpl_hstar_trans_l (rm M1). applys hwand_cancel.
 Qed.
 
 Ltac hchange_apply L :=
@@ -2672,15 +2748,6 @@ Lemma hwand_eq_hexists_hstar_hpure : forall H1 H2,
   (H1 \-* H2) = (\exists H, H \* \[H \* H1 ==> H2]).
 Proof using. auto. Qed.
 
-Lemma hwand_hempty_l : forall H,
-  (\[] \-* H) = H.
-Proof using.
-  intros. hsimpl.
-  { unfold hwand. hpull ;=> H' M. hchanges M. }
-Qed.
-
-Hint Rewrite hwand_hempty_l : rew_heap.
-
 Lemma hwand_himpl : forall H1 H1' H2 H2',
   H1' ==> H1 ->
   H2 ==> H2' ->
@@ -2696,16 +2763,6 @@ Lemma hwand_himpl_l : forall H1' H1 H2,
   H1' ==> H1 ->
   (H1 \-* H2) ==> (H1' \-* H2).
 Proof using. introv M. applys* hwand_himpl. Qed.
-
-(* not needed *)
-Lemma hwand_elim : forall H1 H2 H3,
-  H1 ==> (H2 \-* H3) ->
-  H1 \* H2 ==> H3.
-Proof using. introv M. hchange (>> himpl_frame_r H2 M). Qed.
-(*
-  introv M. hchange (>> himpl_frame_r H2 M).
-  rew_heap. apply hwand_cancel.
-*)
 
 Lemma hwand_hpure_r_intro : forall H1 H2 (P:Prop),
   (P -> H1 ==> H2) ->
