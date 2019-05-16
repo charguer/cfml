@@ -365,6 +365,7 @@ End WpgenAmbition.
 (* ******************************************************* *)
 (** ** Definition of formulae for terms *)
 
+
 (* ------------------------------------------------------- *)
 (** *** General structure *)
 
@@ -669,7 +670,7 @@ Proof using. intros. introv M. rewrite wp_equiv. applys M. Qed.
 (* ------------------------------------------------------- *)
 (** *** Case of conditionals *)
 
-
+(*
 
 Definition wpgen_if_val (v:val) (F1 F2:formula) : formula := fun Q =>
   \exists (b:bool), \[v = val_bool b] \* (if b then F1 Q else F2 Q).
@@ -687,11 +688,12 @@ Proof using.
   { applys S1. applys M. }
   { applys S2. applys himpl_refl. }
 Qed.
-
+*)
 
 (* ------------------------------------------------------- *)
 (** *** Turning the fixpoint into a structural function *)
 
+(*
 Definition wpgen wpgen (t:trm) : formula :=
   match t with
   | trm_val v => wpgen_val v
@@ -702,9 +704,9 @@ Definition wpgen wpgen (t:trm) : formula :=
   | trm_let x t1 t2 => wpgen_let (wpgen t1) (fun X => wpgen (subst x X t2))
   | trm_app t1 t2 => wp t
   end.
+*)
 
-
-(** context *)
+(** context 
 
 Definition ctx : Type := list (var * val).
 
@@ -721,34 +723,49 @@ Lemma isubst_empty : forall t,
 Lemma isubst_add : forall x v E t,
   isubst (Ctx.add x v E) t = isubst E (subst x v t).
 
+*)
+
 Definition wpaux_var (E:ctx) (x:var) : formula :=
   match Ctx.lookup x E with
   | None => wpgen_fail
   | Some v => wpgen_val v
   end.
 
+
+(* 
+Import SyntaxAndSemantics. 
+*)
+
+
 Fixpoint wpgen (E:ctx) (t:trm) : formula :=
   match t with
   | trm_val v => wpgen_val v
   | trm_var x => wpaux_var E x
-  | trm_fun x t1 => trm_fun (isubst (Ctx.rem_var x E) t1)
-  | trm_fix f x t1 => trm_fix (isubst (Ctx.rem_var x (Ctx.rem_var f E)) t1))
-  | trm_if t0 t1 t2 => wpgen_if (wpgen t0) (wpgen t1) (wpgen t2)
-  | trm_let x t1 t2 => wpgen_let (wpgen t1) (fun X => wpgen (Ctx.add x X E) t2)
-  | trm_app t1 t2 => wp (isubst E t)
+  (* | trm_fun x t1 => trm_fun (isubst (Ctx.rem_var x E) t1)
+  | trm_fix f x t1 => trm_fix (isubst (Ctx.rem_var x (Ctx.rem_var f E)) t1)  *)
+  | trm_fixs f (x::nil) t1 => wpgen_val (val_fun x (isubst (Ctx.rem_var x E) t1))
+  | trm_if t0 t1 t2 => wpgen_fail (* wpgen_if (wpgen t0) (wpgen t1) (wpgen t2) *)
+  | trm_let x t1 t2 => wpgen_let (wpgen E t1) (fun X => wpgen (Ctx.add x X E) t2)
+  (* | trm_app t1 t2 => wp (isubst E t) *)
+  | trm_apps t1 (t2::nil) => wp (isubst E t)
+  | _ => wpgen_fail
   end.
 
 
-Lemma wpgen_sound_trm : forall t,
+Lemma wpgen_sound_trm : forall E t,
   formula_sound_for (isubst E t) (wpgen E t).
+Proof using.
+  intros. gen E. induction t. introv M.
+Abort.
 
-Lemma triple_of_wpgen : forall t Q,
+Lemma triple_of_wpgen : forall t H Q,
   H ==> wpgen Ctx.empty t Q ->
   triple t H Q.
+Abort.
 
 
 
-*)
+
 
 (* ####################################################### *)
 (** * Additional contents *)
