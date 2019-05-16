@@ -22,7 +22,7 @@ Implicit Types Q : val->hprop.
 (** * The chapter in a rush *)
 
 (** This chapter introduces additional Separation Logic operators,
-    most notably the "magic wand", written [H1  \-* H2].
+    most notably the "magic wand", written [H1 \-* H2].
 
     Magic wand does not only have a cool name, and it is not only
     a fascinating operator for logicians: it turns out that the 
@@ -265,6 +265,65 @@ Proof using.
 Qed.
 
 
+(* ******************************************************* *)
+(** ** Automation with [hsimpl] for [hwand] expressions *)
+
+Module HsimplDemo.
+Import SepBase.
+
+(** For this demo, we use the definition of [hwand] exported
+    by [SepBase.v], and defined in [SepFunctor.v]. This
+    definition of [hwand], equivalent to the one defined
+    in this chapter, is recognized by the tactic [hsimpl]. *)
+
+(** [hsimpl] is able to spot magic wand that cancel out.
+    For example, [H2 \-* H3] can be simplified with [H2]
+    to leave only [H3]. *)
+
+Lemma hsimpl_demo_hwand_cancel : forall H1 H2 H3 H4 H5,
+  H1 \* (H2 \-* H3) \* H4 \* H2 ==> H5.
+Proof using. intros. hsimpl. Abort.
+
+(** [hsimpl] is able to simplified uncurried magic wands
+    of the form [(H1 \* H2 \* H3) \-* H4] against a fragment,
+    e.g., [H2], leaving in this case [(H1 \* H3) \-* H4]. *)
+
+Lemma hsimpl_demo_hwand_cancel_partial : forall H1 H2 H3 H4 H5 H6,
+  ((H1 \* H2 \* H3) \-* H4) \* H5 \* H2 ==> H6.
+Proof using. intros. hsimpl. Abort.
+
+(** [hsimpl] automatically applies the [hwand_intro] when
+    the right-hand-side, after prior simplification, reduces 
+    to just a magic wand. In the example below, [H1] is first
+    cancelled out from both sides, then [H3] is moved from 
+    the RHS to the LHS. *)
+
+Lemma hsimpl_demo_hwand_intro : forall H1 H2 H3 H4 H5,
+  H1 \* H2 ==> H1 \* (H3 \-* (H4 \* H5)).
+Proof using. intros. hsimpl. Abort.
+
+(** [hsimpl] iterates the simplifications it is able to perform
+    until it no obvious simplification remain. *)
+
+Lemma hsimpl_demo_hwand_iter : forall H1 H2 H3 H4 H5,
+  H1 \* H2 \* ((H1 \* H3) \-* (H4 \-* H5)) \* H4 ==> ((H2 \-* H3) \-* H5).
+Proof using. intros. hsimpl. hsimpl. Qed.
+(* TODO: fix hsimpl, which should simplify all at once. *)
+
+(** [hsimpl] is also able to deal with [qwand]. In particular,
+    it can cancel out [Q1 \--* Q2] against [Q1 v], leaving [Q2 v]. *)
+
+Lemma hsimpl_demo_qwand_cancel : forall A (v:A) (Q1 Q2:A->hprop) H1 H2,
+  (Q1 \--* Q2) \* H1 \* (Q1 v) ==> H2.
+Proof using. intros. hsimpl. Abort.
+
+Lemma hsimpl_demo_qwand_cancel' : forall A (v:A) (Q:A->hprop) H H1 H2,
+  (\[] \-* H) \* H1 ==> H2.
+Proof using. intros. hsimpl. Abort.
+(* TODO: fix incomplete hsimpl proof *)
+
+End HsimplDemo.
+
 
 (* ####################################################### *)
 (** * Additional contents *)
@@ -372,7 +431,6 @@ Qed.
 
 (** Again, observe how we have been able to complete the same proof
     without involving any evar. *)
-
 
 
 (* ******************************************************* *)
@@ -709,17 +767,25 @@ Qed.
 Definition hwand_characterization (op:hprop->hprop->hprop) :=
   forall H0 H1 H2, (H0 ==> op H1 H2) <-> (H0 \* H1 ==> H2).
 
-(** Let us now prove that [hwand'] satisfies the lemma
-    [hwand_characterization]. *)
+(** We prove that an operator [op] satisfies [hwand_characterization]
+    if and only if it is equal to [hwand']. *)
 
-Lemma hwand_characterization_hwand' : 
-  hwand_characterization hwand'.
-Proof using. 
-  intros H0 H1 H2. unfold hwand'. iff M. { hchange M. } { hsimpl~ H0. }
+Lemma hwand_characterization_iff_eq_hwand' : forall op,
+  hwand_characterization op <-> op = hwand'.
+Proof using.
+  iff Hop.
+  { apply fun_ext_2. intros H1 H2.
+    unfolds hwand_characterization, hwand'. apply himpl_antisym.
+    { lets (M&_): (Hop (op H1 H2) H1 H2). hsimpl (op H1 H2).
+      applys M. applys himpl_refl. }
+    { hsimpl. intros H0 M. rewrite Hop. applys M. } }
+  { subst. unfolds hwand_characterization, hwand'.
+    intros H0 H1 H2. iff M. { hchange M. } { hsimpl~ H0. } }
 Qed.
 
-(** The above proof seems too easy. It's because [hsimpl] is doing
-    all the work for us. Here is a detailed proof not using [hsimpl]. *)
+(** Remark: the right-to-left direction was "too easy" to prove.
+    It's because [hsimpl] is doing all the work for us.
+    Here is a detailed proof not using [hsimpl]. *)
 
 Lemma hwand_characterization_hwand'_details : forall H0 H1 H2,
   (H0 ==> hwand' H1 H2) <-> (H0 \* H1 ==> H2).
@@ -731,20 +797,6 @@ Proof using.
     applys himpl_hstar_hpure_l. intros N. applys N. }
   { applys himpl_hexists_r H0. rewrite hstar_comm.
     applys himpl_hstar_hpure_r. applys M. applys himpl_refl. }
-Qed.
-
-(** Reciprocally, show that any operator satisfying
-    [hwand] characterization is equal to [hwand']. *)
-
-Lemma hwand_characterization_eq_hwand' : forall op,
-  hwand_characterization op -> 
-  op = hwand'.
-Proof using.
-  introv Ch. unfolds in Ch. apply fun_ext_2. intros H1 H2.
-  unfold hwand'. apply himpl_antisym.
-  { lets (M&_): (Ch (op H1 H2) H1 H2). hsimpl (op H1 H2).
-    applys M. applys himpl_refl. }
-  { hsimpl. intros H0 M. rewrite Ch. applys M. }
 Qed.
 
 
