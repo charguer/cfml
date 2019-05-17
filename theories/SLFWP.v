@@ -13,6 +13,8 @@ License: MIT.
 Set Implicit Arguments.
 From Sep Require Import SLFRules.
 
+Implicit Types b : bool.
+Implicit Types v : val.
 Implicit Types h : heap.
 Implicit Types P : Prop.
 Implicit Types H : hprop.
@@ -316,7 +318,7 @@ Definition formula := (val->hprop) -> hprop.
     match t with
     | trm_val v => wpgen_val v
     | trm_seq t1 t2 => wpgen_seq (wpgen t1) (wpgen t2)
-    | trm_if t0 t1 t2 => wpgen_if (wpgen t0) (wpgen t1) (wpgen t2)
+    | trm_if v0 t1 t2 => wpgen_if v0 (wpgen t1) (wpgen t2)
     | ...
     end.
 ]]
@@ -515,7 +517,7 @@ Qed.
     There is no reasoning rule of the form [triple (trm_var x) H Q].
     Indeed, if a program execution reaches a dandling free variable,
     then the program is stuck.
- 
+
     Yet, the weakest precondition for a variable needs to be defined,
     somehow. If we really need to introduce a reasoning rule for free
     variables, it could be one with the premise [False]:
@@ -600,25 +602,83 @@ Proof using. intros. introv M. rewrite wp_equiv. applys M. Qed.
 (* ------------------------------------------------------- *)
 (** *** Case of conditionals *)
 
-(*
+(** Consider a conditional in A-normal form: [trm_if v0 then t1 else t2],
+    where [v0] denotes either a variable of a value. If [v0] is a variable,
+    by the time the [wpgen] function reaches it, it should already have
+    been substituted in by a value (recall the [subst] in the treatment
+    of let-bindings). Thus, we may assume here [v0] to be a value.
 
-Definition wpgen_if_val (v:val) (F1 F2:formula) : formula := fun Q =>
+    Moreover, in the expression [trm_if v0 then t1 else t2], if [v0] denotes
+    anything else than a boolean value, then the term would be stuck.
+    Thus, we may in fact assume that [exists b, v0 = val_bool b].
+
+    Note, however, that the [wpgen] function could see a term of the form
+    [trm_if v0 then t1 else t2] where [v0] denotes a Coq variable of type
+    [val], for which there is not yet any fact available to assert that it
+    is a boolean value. Thus, the [wpgen] function must not be restricted
+    to handling only terms of the form [trm_if (val_bool b) then t1 else t2].
+
+    Recall the reasoning rule for conditionals, more precisely the version
+    expressed using a Coq if-then-else. *)
+
+Parameter triple_if_case : forall b t1 t2 H Q,
+  triple (if b then t1 else t2) H Q ->
+  triple (trm_if (val_bool b) t1 t2) H Q.
+
+(** Replacing triples using [wpgen] entailements yields:
+
+[[
+    H ==> wpgen (if b then t1 else t2) Q ->
+    H ==> wpgen (trm_if (val_bool b) t1 t2) Q.
+]]
+
+    which simplifies to 
+
+[[
+    wpgen (if b then t1 else t2) Q ==> wpgen (trm_if (val_bool b) t1 t2) Q
+]]
+
+    We need to make appear [wpgen t1] and [wpgen t2] in the formula, so as
+    to compute recursively the weakest preconditions for the subterm.
+    To that end, we expand the Coq conditional as follows:
+
+[[
+    (if b then wpgen t1 Q else wpgen t2 Q) ==> wpgen (trm_if (val_bool b) t1 t2) Q
+]]
+
+    As explained earlier, we are actually seeking for a definition of
+    [wpgen (trm_if v0 t1 t2) Q] and not just for [trm_if (val_bool b) t1 t2].
+    We thus reformulate the above entailment as follows:
+
+[[
+        (\exists b, \[v0 = val_bool b]  (if b then wpgen t1 Q else wpgen t2 Q)
+    ==> wpgen (trm_if v0 t1 t2) Q
+]]
+
+    This lattest entailment leads us the definition of [wpgen] for conditionals.
+*)
+
+Definition wpgen_if (v:val) (F1 F2:formula) : formula := fun Q =>
   \exists (b:bool), \[v = val_bool b] \* (if b then F1 Q else F2 Q).
 
-Definition wpgen_if (F0 F1 F2:formula) : formula :=
-  wpgen_let F0 (fun v => wpgen_if_val v F1 F2).
+(** With just a little work to extract the information captured in the
+    [\exists (b:bool), \[v = val_bool b] ], we can prove [wpgen_if] 
+    to be a sound formula for a conditional. *)
 
-Lemma wpgen_if_sound : forall F0 F1 F2 t0 t1 t2,
-  formula_sound_for t0 F0 ->
+Lemma wpgen_if_sound : forall F1 F2 v0 t1 t2,
   formula_sound_for t1 F1 ->
   formula_sound_for t2 F2 ->
-  formula_sound_for (trm_if t0 t1 t2) (wpgen_if F0 F1 F2).
+  formula_sound_for (trm_if v0 t1 t2) (wpgen_if v0 F1 F2).
 Proof using.
-  introv S1 S2 M. unfolds wpgen_seq. applys triple_seq.
-  { applys S1. applys M. }
+  introv S1 S2 M. unfolds wpgen_if. 
+  applys triple_conseq Q M; [|applys qimpl_refl].
+  applys triple_hexists. intros b.
+  applys triple_hpure. intros ->.
+  applys triple_if_case. case_if.
+  { applys S1. applys himpl_refl. }
   { applys S2. applys himpl_refl. }
 Qed.
-*)
+
 
 (* ------------------------------------------------------- *)
 (** *** Turning the fixpoint into a structural function *)
