@@ -12,7 +12,9 @@ License: MIT.
 
 Set Implicit Arguments.
 From Sep Require Import SLFRules.
+From TLC Require Import LibFix.
 
+Implicit Types f : var.
 Implicit Types b : bool.
 Implicit Types v : val.
 Implicit Types h : heap.
@@ -377,6 +379,36 @@ Proof using. introv M. applys triple_of_wpgen_val M. Qed.
 
 
 (* ------------------------------------------------------- *)
+(** *** Case of functions *)
+
+(** Recall the rule for functions. It is almost exactly like
+    that for values, the only difference beeing that the
+    conclusion in on [trm_fun x t1] and the premise on [val_fun x t1]. *)
+
+Parameter triple_fun : forall x t1 H Q,
+  H ==> Q (val_fun x t1) ->
+  triple (trm_fun x t1) H Q.
+
+(** To handle functions in [wpgen], we can reuse the definition
+    of [wpgen_val], and simply adapt the statement of soundness
+    as follows. *)
+
+Lemma wpgen_fun_sound : forall x t,
+  formula_sound_for (trm_fun x t) (wpgen_val (val_fun x t)).
+Proof using. introv M. unfolds wpgen_val. applys triple_fun M. Qed.
+
+(** Likewise for recursive functions. *)
+
+Parameter triple_fix : forall f x t1 H Q,
+  H ==> Q (val_fix f x t1) ->
+  triple (trm_fix f x t1) H Q.
+
+Lemma wpgen_fix_sound : forall f x t,
+  formula_sound_for (trm_fix f x t) (wpgen_val (val_fix f x t)).
+Proof using. introv M. unfolds wpgen_val. applys triple_fix M. Qed.
+
+
+(* ------------------------------------------------------- *)
 (** *** Case of sequences *)
 
 (** Second, consider a sequence [trm_seq t1 t2].
@@ -683,18 +715,106 @@ Qed.
 (* ------------------------------------------------------- *)
 (** *** Turning the fixpoint into a structural function *)
 
-(*
-Definition wpgen wpgen (t:trm) : formula :=
+(** We are almost ready to formally define our function [wpgen].
+    There are two Coq-specific caveat on our way, however. 
+
+    First, the definition of [wpgen] is not structurally recursive.
+    Thus, we'll have to play some tricks to first define it as a functional,
+    and then take the fixed point of this functional. The details of this
+    fixed point construction are not essential for the moment; they are
+    explained further in this chapter. In any case, we will shortly
+    afterwards present an alternative definition to [wpgen] which is
+    slightly more complex yet structurally recursive.
+
+    Second, the definition of [wpgen] as a pattern matching on terms
+    forces us to reveal our general grammar of terms. Indeed, Coq does
+    not support notations in the grammar of patterns. We will put as
+    comment the intended pattern, and write down the underlying pattern.
+    (These patterns reveals the support for n-ary functions and applications,
+    and the factorization between functions and recursive functions,
+    and between [trm_seq] and [trm_let].) *)
+
+Definition Wpgen wpgen (t:trm) : formula :=
   match t with
   | trm_val v => wpgen_val v
   | trm_var x => wpgen_fail
-  | trm_fun x t1 => wpgen_val (val_fun x t1)
-  | trm_fix f x t1 => wpgen_val (val_fix f x t1)
-  | trm_if t0 t1 t2 => wpgen_if (wpgen t0) (wpgen t1) (wpgen t2)
-  | trm_let x t1 t2 => wpgen_let (wpgen t1) (fun X => wpgen (subst x X t2))
-  | trm_app t1 t2 => wp t
+  | (* [trm_fun x t1] *) 
+    trm_fixs bind_anon (x::nil) t1 => wpgen_val (val_fun x t1)
+  | (* [trm_fix f x t1] *)
+    trm_fixs (bind_var f) (x::nil) t1 => wpgen_val (val_fix f x t1)
+  | trm_if (trm_val v0) t1 t2 => wpgen_if v0 (wpgen t1) (wpgen t2)
+  | (* [trm_seq t1 t2] *)
+    trm_let bind_anon t1 t2 => wpgen_seq (wpgen t1) (wpgen t2)
+  | trm_let (bind_var x) t1 t2 => wpgen_let (wpgen t1) (fun X => wpgen (subst x X t2))
+  | (* [trm_app t1 t2] *)
+    trm_apps t1 (t2::nil) => wp t
+  | (* other terms are outside of the sub-language that we consider,
+       so let us here pretend that they are no such terms. *)
+    _ => wpgen_fail
   end.
-*)
+
+Definition wpgen := FixFun Wpgen.
+
+(** The fixed point equation, which enables unfolding the definition
+    of [wpgen], is proved further in this file. *)
+
+Parameter wpgen_fix : forall t, 
+  wpgen t = Wpgen wpgen t.
+
+(** We establish the soundness of [wpgen] by induction on [t].
+    The induction principle that we wish to use is that associated
+    with the sublanguage presented in [SLFRules], whose inductive
+    definition comes with the following induction principle.
+
+    Moreover, we tweak the induction hypothesis so that, in the case
+    of a [trm_let x t1 t2], the induction principle applies not just
+    to [t2], but to any subterm of the form [subst x v t2]. This
+    generalized induction principle is justified by the fact that
+    a substitution does not increase the size of a term (when the
+    size of all values is considered to be one unit). Again, we
+    prove this derived induction principle further in this file,
+    but the details are orthogonal to the matter of the present chapter. *)
+
+Parameter trm_induct : forall (P : trm -> Prop),
+  (forall v, P (trm_val v)) ->
+  (forall x, P (trm_var x)) ->
+  (forall x t1 , P t1 -> P (trm_fun x t1)) ->
+  (forall (f:var) x t1, P t1 -> P (trm_fix f x t1)) ->
+  (forall t1, P t1 -> forall t2, P t2 -> P (trm_app t1 t2)) ->
+  (forall t1, P t1 -> forall t2, P t2 -> P (trm_seq t1 t2)) ->
+  (forall (x:var) t1, P t1 -> forall t2, (forall v, P (subst x v t2)) -> P (trm_let x t1 t2)) ->
+  (forall v t1, P t1 -> forall t2, P t2 -> P (trm_if v t1 t2)) ->  
+  (forall t, P t).
+
+(** The soundness lemma asserts that [H ==> wpgen t Q] implies
+    [triple t H Q]. Equivalently, it can be formulated as:
+    [forall t, formula_sound_for t (wpgen t)]. The proof consists
+    of invoking all the soundness lemmas which we have proved
+    previously. *)
+
+Theorem wpgen_sound : forall t,
+  formula_sound_for t (wpgen t).
+Proof using.
+  intros. induction t using trm_induct; 
+   rewrite wpgen_fix; simpl.
+  { applys wpgen_val_sound. }
+  { applys wpgen_fail_sound. }
+  { applys wpgen_fun_sound. }
+  { applys wpgen_fix_sound. }
+  { applys wp_sound. }
+  { applys wpgen_seq_sound. { applys IHt1. } { applys IHt2. } }
+  { applys wpgen_let_sound. { applys IHt1. } { intros v. applys H. } }
+  { applys wpgen_if_sound. { applys IHt1. } { applys IHt2. } }
+Qed.
+
+Corollary triple_of_wpgen : forall t H Q,
+  H ==> wpgen t Q ->
+  triple t H Q.
+Proof using. introv M. applys wpgen_sound M. Qed.
+
+
+(* ------------------------------------------------------- *)
+(** *** Turning the fixpoint into a structural function *)
 
 (** context 
 
@@ -1077,3 +1197,4 @@ recursion
 
 
 *)
+
