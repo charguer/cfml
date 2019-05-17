@@ -19,7 +19,6 @@ Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
 
 
-
 (* ####################################################### *)
 (** * The chapter in a rush *)
 
@@ -250,75 +249,6 @@ Lemma wp_ramified_trans : forall t H Q1 Q2,
   H ==> (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ->
   H ==> (wp t Q2).
 Proof using. introv M. hchange M. applys wp_ramified. Qed.
-
-
-
-
-
-(* ******************************************************* *)
-(** ** Simulating structural rules on a weakest precondition *)
-
-
-(*
-Lemma triple_hexists' : forall t (A:Type) (J:A->hprop) Q,
-  (forall x, triple t (J x) Q) ->
-  triple t (\exists x, J x) Q.
-introv M. rewrite wp_equiv. hpull. intros x. specializes M x.
-rewrite wp_equiv in M. auto.
-Qed.
-*)
-
-
-
-
-(** Let's now look at the rule of consequence. *)
-
-Parameter triple_conseq : forall t H' Q' H Q,
-  triple t H' Q' ->
-  H ==> H' ->
-  Q' ===> Q ->
-  triple t H Q.
-
-(** Replacing [triple] with [wp] yields: *)
-
-Parameter triple_conseq_in_wp : forall t H H' Q Q',
-  H' ==> wp t Q' ->
-  H ==> H' ->
-  Q' ===> Q ->
-  H ==> wp t Q.
-
-(** This rule simplifies to *)
-
-
-
-Parameter triple_frame : forall t H Q H',
-  triple t H Q ->
-  triple t (H \* H') (Q \*+ H').
-
-(** The consequence rule enables to strengthen the precondition
-    and weaken the postcondition. *)
-
-
-
-(** The two extraction rules enable to extract pure facts and
-    existentially quantified variables from the precondition
-    into the Coq context. *)
-
-
-
-(** The garbage collection rules enable to discard any desired
-    piece of heap from the precondition or the postcondition. 
-    (As we have seen, it is equivalent to state these two rules
-    by writing [H'] instead of [\Top].) *)
-
-Parameter triple_htop_pre : forall t H Q,
-  triple t H Q ->
-  triple t (H \* \Top) Q.
-
-Parameter triple_htop_post : forall t H Q,
-  triple t H (Q \*+ \Top) ->
-  triple t H Q.
-
 
 
 
@@ -833,18 +763,41 @@ Qed.
 (* ******************************************************* *)
 (** ** Frame rule and garbage rules for [wp] *)
 
-Parameter triple_hany_pre : forall t H H' Q,
-  triple t H Q ->
-  triple t (H \* H') Q.
-
-Parameter triple_hany_post : forall t H H' Q,
-  triple t H (Q \*+ H') ->
-  triple t H Q.
-
 (** The combined structural rule for [wp] captures all the
     structural rules. We here discuss the formulation of
     specializations of this rule. The corresponding lemmas
     highlight interesting properties of the [wp] operator. *)
+
+(** Recall the [wp_conseq] rule. *)
+
+Parameter wp_conseq' : forall t Q1 Q2,
+  Q1 ===> Q2 ->
+  wp t Q1 ==> wp t Q2.
+
+(** How can this rule simulate the rule of consequence, which also
+    enables strenthening the precondition? The following lemma
+    provides the answer: strenghtening of the precondition simply
+    consists of invoking the transitivy property of entailment. *)
+
+Lemma wp_conseq_pre : forall t H' H Q,
+  H' ==> wp t Q ->
+  H ==> H' ->
+  H ==> wp t Q.
+Proof using. introv M WH. applys himpl_trans WH. applys M. Qed.
+
+(** More generally, the consequence rule for goals in [wp] form
+    takes the form: *)
+
+Lemma wp_conseq_trans : forall t H' Q' H Q,
+  H' ==> wp t Q' ->
+  H ==> H' ->
+  Q' ===> Q ->
+  H ==> wp t Q.
+Proof using. introv M WH WQ. hchange WH. hchange M. applys wp_conseq WQ. Qed.
+
+(** Thereafter, we present rules in the form of entailments between [wp],
+    that is, [wp ... ==> wp ...], but keep in mind that this presentation
+    is equivalent to the form: [forall H, H ==> wp ... -> H ==> wp ...]. *)
 
 (** The frame rule for [wp] asserts that, given [(wp t Q) \* H],
     the [wp] may absorb [H] and yield [(wp t (Q \*+ H)]. *)
@@ -880,6 +833,8 @@ Qed.
 
 (** Or, equivalently, the [H] from rules [wp_hany_pre] and 
    [wp_hand_post] may be replaced with [\Top]. *)
+
+
 
 
 (* ******************************************************* *)

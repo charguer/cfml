@@ -678,11 +678,13 @@ Proof using.
 Qed.
 
 (** To prove commutativity of star, we need to exploit the fact that 
-    the union of two finite maps with disjoint domains commutes. *)
-
-Check fmap_union_comm_of_disjoint : forall h1 h2,
-  fmap_disjoint h1 h2 ->
-  h1 \u h2 = h2 \u h1.
+    the union of two finite maps with disjoint domains commutes. 
+[[
+  Check fmap_union_comm_of_disjoint : forall h1 h2,
+    fmap_disjoint h1 h2 ->
+    h1 \u h2 = h2 \u h1.
+]]
+*)
 
 Lemma hstar_comm' : forall H1 H2,
    H1 \* H2 = H2 \* H1.
@@ -696,10 +698,12 @@ Qed.
 
 (** To prove that the empty heap predicate is a neutral for star,
     we need to exploit the fact that the union with an empty map
-    is the identity. *)
-
-Check fmap_union_empty_l : forall h, 
-  fmap_empty \u h = h.
+    is the identity.
+[[
+  Check fmap_union_empty_l : forall h, 
+    fmap_empty \u h = h.
+]] 
+*)
 
 Lemma hstar_hempty_l' : forall H,
   \[] \* H = H.
@@ -724,18 +728,20 @@ Qed.
 (** Associativity of star is the most tedious result to derive.
     We need to exploit the associativity of union on finite maps,
     as well as lemmas about the disjointness of a map with the
-    result of the union of two maps. *)
+    result of the union of two maps.
+[[
+  Check fmap_union_assoc : forall h1 h2 h3,
+    (h1 \u h2) \u h3 = h1 \u (h2 \u h3).
 
-Check fmap_union_assoc : forall h1 h2 h3,
-  (h1 \u h2) \u h3 = h1 \u (h2 \u h3).
+  Check fmap_disjoint_union_eq_l : forall h1 h2 h3,
+      fmap_disjoint (h2 \u h3) h1 
+    = (fmap_disjoint h1 h2 /\ fmap_disjoint h1 h3).
 
-Check fmap_disjoint_union_eq_l : forall h1 h2 h3,
-    fmap_disjoint (h2 \u h3) h1 
-  = (fmap_disjoint h1 h2 /\ fmap_disjoint h1 h3).
-
-Check fmap_disjoint_union_eq_r : forall h1 h2 h3,
-   fmap_disjoint h1 (h2 \u h3) 
- = (fmap_disjoint h1 h2 /\ fmap_disjoint h1 h3).
+  Check fmap_disjoint_union_eq_r : forall h1 h2 h3,
+     fmap_disjoint h1 (h2 \u h3) 
+   = (fmap_disjoint h1 h2 /\ fmap_disjoint h1 h3).
+]] 
+*)
 
 (* EX2! (hstar_assoc) *)
 (** Complete the right-to-left part of the proof below. *)

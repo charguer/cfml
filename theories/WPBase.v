@@ -199,7 +199,7 @@ Lemma mkflocal_mkflocal : forall F,
   mkflocal (mkflocal F) = mkflocal F.
 Proof using.
   intros F. applys fun_ext_1. intros Q. applys himpl_antisym.
-  { unfold mkflocal. hpull ;=> Q' Q''. hsimpl Q''. intros x. hsimpl. }
+  { unfold mkflocal. hpull ;=> Q' Q''. hsimpl Q''. }
   { hchanges mkflocal_erase. }
 Qed.
 

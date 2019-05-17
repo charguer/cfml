@@ -779,6 +779,33 @@ Lemma triple_hgc_post : forall t H Q,
   triple t H Q.
 Proof using. intros. applys* is_local_hgc_post. Qed.
 
+Lemma triple_htop_pre : forall t H Q,
+  triple t H Q ->
+  triple t (H \* \Top) Q.
+Proof using. introv M. rewrite <- hgc_eq_htop. applys* triple_hgc_pre. Qed.
+
+Lemma triple_htop_post : forall t H Q,
+  triple t H (Q \*+ \Top) ->
+  triple t H Q.
+Proof using. introv M. rewrite <- hgc_eq_htop in M. applys* triple_hgc_post. Qed.
+
+Lemma triple_hany_pre : forall t H H' Q,
+  triple t H Q ->
+  triple t (H \* H') Q.
+Proof using.
+  introv M. applys triple_conseq.
+  { applys* triple_htop_pre. }
+  { hsimpl. } { hsimpl. }
+Qed.
+
+Lemma triple_hany_post : forall t H H' Q,
+  triple t H (Q \*+ H') ->
+  triple t H Q.
+Proof using.
+  introv M. applys triple_htop_post.
+  applys triple_conseq M; hsimpl.
+Qed.
+
 Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, triple t (J x) Q) ->
   triple t (hexists J) Q.

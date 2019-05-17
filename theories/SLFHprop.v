@@ -41,15 +41,18 @@ Close Scope fmap_scope.
 (** We here assume an imperative programming language with a formal semantics.
     Such a language is described in file [Semantics.v], but we do not need to
     know about the details for now. All we need to know is that there exists:
-  
+
     - a type of terms, written [trm],
     - a type of values, written [val],
     - a type of states, written [heap],
     - a big-step evaluation judgment, written [eval h1 t h2 v], asserting that,
       starting from state [s1], the evaluation of the term [t] terminates in
-      the state [s2] and produces the value [v]. *)
+      the state [s2] and produces the value [v]. 
 
-Check eval : state -> trm -> state -> val -> Prop.
+[[
+    Check eval : state -> trm -> state -> val -> Prop.
+]]
+*)
 
 (** At this point, we don't need to know the exact grammar of terms and values.
     Let's just give one example to make things concrete. Consider the function:
@@ -86,15 +89,17 @@ Definition heap := state.
     A state is a finite map from locations to values.
       [Definition state := fmap loc val.] *)
 
-(** The main operations and predicates on the state are as follows. *)
+(** The main operations and predicates on the state are as follows.
+[[
+    Check fmap_empty : heap.
 
-Check fmap_empty : heap.
+    Check fmap_single : loc -> val -> heap.
 
-Check fmap_single : loc -> val -> heap.
+    Check fmap_union : heap -> heap -> heap.
 
-Check fmap_union : heap -> heap -> heap.
-
-Check fmap_disjoint : heap -> heap -> Prop.
+    Check fmap_disjoint : heap -> heap -> Prop.
+]]
+*)
 
 
 (* ******************************************************* *)
@@ -473,25 +478,29 @@ Qed.
 
 (** The heap predicate [\exists (n:int), l ~~~> (val_int n)] characterizes
     a state that contains a single memory cell, at address [l], storing
-    the integer value [n], for "some" (unspecified) integer [n]. *)
+    the integer value [n], for "some" (unspecified) integer [n].
 
-Module HexistsExample.
+[[
   Parameter (l:loc).
   Check (\exists (n:int), l ~~~> (val_int n)) : hprop.
-End HexistsExample.
+]]
 
-(** The type of [\exists], which operates on [hprop], is very similar 
+    The type of [\exists], which operates on [hprop], is very similar 
     to that of [exists], which operates on [Prop]. 
 
     The notation [exists x, P] stands for [ex (fun x => P)],
-    where [ex] admits the following type: *)
+    where [ex] admits the following type:
+[[
+    Check ex : forall A : Type, (A -> Prop) -> Prop.
+]] 
 
-Check ex : forall A : Type, (A -> Prop) -> Prop.
+    Likewise, [\exists x, H] stands for [hexists (fun x => H)],
+    where [hexists] admits the following type:
+[[
+    Check hexists : forall A : Type, (A -> hprop) -> hprop.
+]]
 
-(** Likewise, [\exists x, H] stands for [hexists (fun x => H)],
-    where [hexists] admits the following type: *)
-
-Check hexists : forall A : Type, (A -> hprop) -> hprop.
+*)
 
 (** Remark: the notation for [\exists] is directly adapted from that 
     of [exists], which supports the quantification an arbitrary number
