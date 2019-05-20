@@ -262,16 +262,23 @@ Proof using. introv M. hchange M. applys wp_ramified. Qed.
 (* ******************************************************* *)
 (** ** Semantic definition of weakest precondition *)
 
-(** We have seen that [wp_equiv] defines a unique function [wp].
-    There remains to show that there actually exists at least
-    one such function.
+(** The lemma [wp_equiv] asserts [(triple t H Q) <-> (H ==> wp t Q)].
+    We have seen in the introduction of this chapter that [wp_equiv] 
+    defines a unique function [wp]. There remains to show that there 
+    actually exists at least one such function. 
 
-    In what follows, we'll give two possible definitions, a
+    Recall the definition of [wp_characterization]. *)
+
+Definition wp_characterization (wp:trm->(val->hprop)->hprop) :=
+  forall t H Q, (triple t H Q) <-> (H ==> wp t Q).
+
+(** In what follows, we'll give two possible definitions, a
     low-level one expressed as a function on heaps, and a high-level
     one expressed using only Separation Logic combinators.
+    For both, we'll show that they satisfy [wp_characterization].
 
-    For both, we'll show that they satisfy [wp_equiv]. Thus, the
-    two definitions must be equivalent ([wp_characterization_unique]). *)
+    Note that, by lemma [wp_characterization_unique], the two
+    definitions that we consider are necessarily equivalent. *)
 
 (** We now present the low-level definition. *)
 

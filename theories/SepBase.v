@@ -866,6 +866,13 @@ Lemma triple_hand_r : forall t H1 H2 Q,
   triple t (hand H1 H2) Q.
 Proof using. intros. applys* is_local_hand_r. Qed.
 
+Lemma triple_conseq_frame : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q ->
+  triple t H Q.
+Proof using. intros. applys* is_local_conseq_frame. Qed.
+
 Lemma triple_conseq_frame_hgc : forall H2 H1 Q1 t H Q,
   triple t H1 Q1 ->
   H ==> H1 \* H2 ->

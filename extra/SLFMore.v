@@ -1829,7 +1829,7 @@ Fixpoint wpgen (t:trm) : formula :=
   match t with
   | trm_val v => mkflocal (fun Q => Q v)
   | trm_var x => mkflocal (fun Q => \[False])
-  | trm_fun x t1 => mkflocal (fun Q => Q (val_fun x t1))
+  | trm_fun x t1 => mkflocal (fun Q => Q (val_fun x ))
   | trm_fix f x t1 => mkflocal (fun Q => Q (val_fix f x t1))
   | trm_if v0 t1 t2 => mkflocal (fun Q =>
        \exists (b:bool), \[v0 = val_bool b]
@@ -1864,3 +1864,81 @@ Fixpoint wpgen (t:trm) : formula :=
 
     To capture this pattern, let us say that a formula [F] is sound
     for a term [t] iff [H ==> F Q] entails [triple t H Q]. *)
+
+
+
+    
+Lemma mkflocal_erase' : forall F Q,
+  F Q ==> mkflocal F Q.
+Proof using. 
+  intros. unfolds mkflocal.
+  (* [hsimpl] solves the goal, but let's give more details.
+     To prove [F Q ==> \exists Q', F Q' \* (Q' \--* Q \*+ \Top)],
+     first instantiate [Q'] as [Q]. *)
+  applys himpl_hexists_r Q.
+  (* Then cancel out [F Q]. *)
+  rewrite <- (hstar_hempty_r (F Q)) at 1.
+  applys himpl_frame_r.
+  (* Then the goal becomes equivalent to [Q \*+ \[] ===> Q \*+ \Top] *)
+  apply qwand_intro. 
+  (* Cancelling out [Q] on both sides *)
+  intros x. applys himpl_frame_r.
+  (* Remains [\[] ==> \Top] *)
+  rewrite hgc_eq_htop. applys himpl_htop_r. (* TODO: [hgc] should not be exposed *)
+Qed.
+
+Lemma mkflocal_ramified' : forall F Q1 Q2,
+  (mkflocal F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkflocal F Q2).
+Proof using.
+  intros. unfold mkflocal. 
+  (* [hsimpl] solves the goal, but let's give more details. The goal is:
+     [\exists Q', F Q' \* (Q' \--* Q1 \*+ \Top) \* (Q1 \--* Q2 \*+ \Top) ==>
+      \exists Q', F Q' \* (Q' \--* Q2 \*+ \Top)].
+  The [mkflocal] on the LHS existentially quantifies some [Q']. *)
+  rewrite hstar_hexists. applys himpl_hexists_l. intros Q'.
+  (* Let us use that same [Q'] to instantiate the existential quantifier
+     from the [mkflocal] on the RHS. *)
+  applys himpl_hexists_r Q'.
+  (* There remains:
+     [F Q' \* (Q' \--* Q1 \*+ \Top) \* (Q1 \--* Q2 \*+ \Top) ==>
+      F Q' \* (Q' \--* Q2 \*+ \Top)]. We cancel out [F Q']. *)
+  rewrite hstar_assoc. applys himpl_frame_r.
+  (* From [Q' \--* (Q1 \*+ \Top)) \* (Q1 \--* (Q2 \*+ \Top)) ==> Q' \--* (Q2 \*+ \Top)]
+     we could rewrite [(Q1 \--* Q2 \*+ \Top)] to [(Q1 \*+ \Top) \--* (Q2 \*+ \Top))]
+     and conclude by cancelling out [Q1 \*+ \Top] *)
+  apply qwand_intro. intros x.
+  hchange (qwand_specialize x Q1 (Q2 \*+ \Top)).
+  
+
+  
+(** Let us now explain how, to a goal of the form [H ==> mkflocal F Q],
+    one can apply the structural rules of Separation Logic.
+    Consider for example consequence-frame. *)
+
+Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q ->
+  triple t H Q.
+
+(** Reformulating this lemma in weakest precondition form gives us: *)
+
+Lemma himpl_mkflocal_conseq_frame : forall H Q H1 H2 Q1 F,
+  H1 ==> mkflocal F Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q ->
+  H ==> mkflocal F Q.
+
+(** Let us prove this lemma. *)
+
+Arguments mkflocal_ramified : clear implicits.
+
+Proof using.
+  introv M WH WQ. hchange WH. hchange M. 
+  applys himpl_trans. 2:{ applys mkflocal_ramified Q1. }
+  applys himpl_frame_r. applys qwand_intro. hchanges WQ.
+Qed.
+
+Lemma mkflocal_ramified : forall F Q1 Q2,
+  
+Proof using. unfold mkflocal. hsimpl. Qed.

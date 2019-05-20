@@ -151,14 +151,16 @@ End WpgenOverview.
 Definition mkflocal (F:formula) : formula := fun (Q:val->hprop) =>
   \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
 
-Lemma mkflocal_ramified : forall F Q1 Q2,
+Lemma mkflocal_ramified : forall Q1 Q2 F,
   (mkflocal F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkflocal F Q2).
 Proof using. unfold mkflocal. hsimpl. Qed.
 
-Lemma mkflocal_erase : forall F Q,
+Lemma mkflocal_erase : forall Q F,
   F Q ==> mkflocal F Q.
 Proof using. unfolds mkflocal. hsimpl. Qed.
 
+Arguments mkflocal_erase : clear implicits.
+Arguments mkflocal_ramified : clear implicits.
 
 
 (* ####################################################### *)
@@ -591,6 +593,85 @@ Qed.
 
 
 (* ******************************************************* *)
+(** ** Definition of the [mkflocal] predicate transformer *)
+
+(** Recall the definition of [mkflocal].
+[[
+    Definition mkflocal (F:formula) : formula := fun (Q:val->hprop) =>
+      \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
+]]
+
+    Let us first explain in more details why this definition satisfies
+    the required properties, whose proofs were trivialized by [hsimpl].
+
+    For the lemma [mkflocal_erase], we want to prove [F Q ==> mkflocal F Q].
+    This is equivalent to [F Q ==> \exists Q', F Q' \* (Q' \--* Q \*+ \Top)].
+    Taking [Q'] to be [Q] and cancelling [F Q] from both sides leaves
+    [\[] ==> Q \--* (Q \*+ \Top)], which is equivalent to [Q ==> Q \*+ \Top].
+
+    For the lemma [mkflocal_ramified], we want to prove
+    [(mkflocal F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkflocal F Q2)],
+    which is equivalent to
+    [\exists Q', F Q' \* (Q' \--* Q1 \*+ \Top) \* (Q1 \--* Q2 \*+ \Top) ==>
+     \exists Q', F Q' \* (Q' \--* Q2 \*+ \Top)].
+    By instantiatiating the LHS [Q'] with the value of the RHS [Q'], and
+    cancelling [F Q'] form both sides, the entailment simplifies to:
+    [(Q' \--* Q1 \*+ \Top) \* (Q1 \--* Q2 \*+ \Top) ==> (Q' \--* Q2 \*+ \Top)].
+    The wand [Q1 \--* (Q2 \*+ \Top)] is equal to [(Q1 \*+ \Top) \--* (Q2 \*+ \Top)]
+    (because both are equal to [(Q1 \*+ \Top) \--* (Q2 \*+ \Top \*+ \Top))]).
+    Thus, the goal reformulates as
+    [Q' \--* (Q1 \*+ \Top)) \* ((Q1 \*+ \Top) \--* (Q2 \*+ \Top)) ==>
+     Q' \--* (Q2 \*+ \Top)].
+    We conclude by cancelling out [Q1 \*+ \Top] accross the two magic wands
+    from the LHS---recall the lemma [hwand_trans_elim] from [SLFHwand]. *)
+
+(** Let us now explain how, to a goal of the form [H ==> mkflocal F Q],
+    one can apply the structural rules of Separation Logic.
+    Consider for example the ramified frame rule. *)
+
+Parameter triple_ramified_frame : forall H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* Q) ->
+  triple t H Q.
+
+(** Let us reformulate this lemma in weakest precondition style, 
+    then prove it. *)
+
+Lemma himpl_mkflocal_conseq_frame : forall H Q H1 Q1 F,
+  H1 ==> mkflocal F Q1 ->
+  H ==> H1 \* (Q1 \--* Q) ->
+  H ==> mkflocal F Q.
+Proof using.
+  introv M W. hchange W. hchange M. 
+  lets N: mkflocal_ramified Q1 Q F. hchanges N.
+Qed.
+
+(** An interesting property of [mkflocal] is its idempotence:
+    [mkflocal (mkflocal F) = mkflocal F].
+    Concretely, applying this predicate transformer more than
+    once does not increase expressiveness. *)
+
+(* EX3! (mkflocal_idempotent) *)
+(** Prove the idempotence of [mkflocal]. Hint: use [hsimpl]. *)
+
+Lemma mkflocal_idempotent : forall F,
+  mkflocal (mkflocal F) = mkflocal F.
+Proof using.
+  (* SOLUTION *)
+  intros. apply fun_ext_1. intros Q.
+  unfold mkflocal. hsimpl.
+  (* [hsimpl] first invokes [applys himpl_antisym].
+     The right-to-left entailment is exactly [mkflocal_erase].
+     The left-to-right entailment amounts to proving: 
+     [F Q2 \* (Q2 \--* (Q1 \*+ \Top) \* (Q1 \--* (Q \*+ \Top))
+      ==> \exists Q', F Q' \* (Q' \--* (Q \*+ \Top))]
+     To conclude the proof, instantiate [Q'] as [Q2] and cancel
+     out [Q1 \*+ \Top] (like done earlier in this section). *)
+(* /SOLUTION *)
+Qed.
+
+
+(* ******************************************************* *)
 (** ** Soundness of the [mkflocal] predicate transformer *)
 
 (** We need to justify that the addition of [mkflocal] to the head
@@ -767,115 +848,6 @@ Corollary triple_of_wpgen : forall t H Q,
 Proof using. introv M. applys wpgen_sound M. Qed.
 
 End WPgenSubst.
-
-
-
-(* ******************************************************* *)
-(** ** Definition of the [mkflocal] function *)
-
-
-(* eg. conseq frame htop trans  
-Lemma wp_ramified_trans : forall t H Q1 Q2,
-  H1 ==> (mklocal F Q1) ->
-  H ==> H1 \* H2 ->
-  Q1 \* H2 ===> Q \* Top ->
-  H ==> (mklocal F Q).
-Proof using. introv M. hchange M. applys wp_ramified. Qed.
-*)
-
-
-
-
-
-(*
-
-Lemma flocal_elim : forall F H Q,
-  H ==> wp t Q' \* (Q' \--* (Q \*+ \GC)) ->
-  H ==> wp t Q.
-Proof using. introv L M. lets N: (L Q). applys* himpl_trans N. Qed.
-
-*)
-
-
-
-
-(*
-
-
-Lemma qwand_insert_htop : forall Q1 Q2,
-      (Q1         ) \--* (Q2 \*+ \Top) 
-  ==> (Q1 \*+ \Top) \--* (Q2 \*+ \Top).
-Proof using. intros. hsimpl. Qed.
-
-Arguments qwand_insert_htop : clear implicits.
-
-
-a formula satisfies the structural rules iff
-  (F Q) \* (Q1 \--* Q2 \*+ \Top) ==> (F Q2).
-
-define [wpgen t] so that it syntactically has the form [mkflocal F]
- satisfies the structural rule
-
-[mklocal F] is a construct such that, for any [F]
-  (mkflocal F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkflocal F Q2)
-
-definition that works:
-
-
-
-(\exists Q', F Q' \* (Q' \--* (Q1 \*+ \Top))) \* (Q1 \--* (Q2 \*+ \Top)) ==>
- (\exists Q', F Q' \* (Q' \--* (Q2 \*+ \Top)))
-
-(Q1 \--* (Q2 \*+ \Top))
-rewrite as 
-((Q1 \*+ \Top) \--* (Q2 \*+ \Top \*+ \Top))
-same as
-((Q1 \*+ \Top) \--* (Q2 \*+ \Top))
-
-forall Q',
-(F Q' \* (Q' \--* (Q1 \*+ \Top))) \* ((Q1 \*+ \Top) \--* (Q2 \*+ \Top)) ==>
- (\exists Q', F Q' \* (Q' \--* (Q2 \*+ \Top)))
-
-cancel out:
-(F Q' \* (Q' \--* (Q2 \*+ \Top)) ==>
- (\exists Q', F Q' \* (Q' \--* (Q2 \*+ \Top)))
-
-trivial instantiation of Q' concludes.
-
-*)
-
-(** mkflocal can be easily removed.
-    [F Q ==> mkflocal F Q] *)
-
- (* TODO: find a better name for [mkflocal] *)
-
-
-(*
-
-  exercise:
-
-    (mkflocal (mkflocal F)) Q := mkflocal F
-    right-to-left : instance of (1)
-    left-to-right: ...
-
-    (mkflocal (mkflocal F)) Q
-  = \exists Q1, mkflocal F Q1 \* (Q1 \--* (Q \*+ \GC))
-  = \exists Q1, (\exists Q2, F Q2 \* (Q2 \--* (Q1 \*+ \GC))) \* (Q1 \--* (Q \*+ \GC))
-  = \exists Q1 Q2, F Q2 \* (Q2 \--* (Q1 \*+ \GC) \* (Q1 \--* (Q \*+ \GC))
-  = \exists Q1 Q2, F Q2 \* (Q2 \--* (Q1 \*+ \GC) \* ((Q1 \*+ \GC) \--* ((Q \*+ \GC) \*+ \GC))
-  ==> \exists Q1 Q2, F Q2 \* (Q2 \--* (Q1 \*+ \GC) \* ((Q1 \*+ \GC) \--* (Q \*+ \GC \*+ \GC))
-  = \exists Q1 Q2, F Q2 \* (Q2 \--* (Q \*+ \GC \*+ \GC))
-  = \exists Q2, F Q2 \* (Q2 \--* (Q \*+ \GC))
-  = mkflocal F
-
-  mkflocal F Q := \exists Q1, F Q1 \* (Q1 \--* (Q \*+ \GC)).
-
-  \exists Q1, F Q1 \* (Q1 \--* (Q \*+ \GC)) ==> F Q
-
-  F Q1 \* (Q1 \--* (Q \*+ \GC)) ==> F Q
-
-*)
-
 
 
 (* ******************************************************* *)
@@ -1082,7 +1054,6 @@ Proof using.
 Qed.
 
 
-
 (* ####################################################### *)
 (** * Appendix: proofs for iterated substitution lemmas *)
 
@@ -1096,7 +1067,7 @@ Qed.
     isubst nil t = t
 
     subst x v (isubst (rem x E) t) = isubst ((x,v)::E) t
-]] 
+]]
 *)
 
 (** The first lemma is straightforward by induction. *)
@@ -1402,7 +1373,7 @@ Lemma wpgen_fix : forall t,
 Proof using.
   applys~ (FixFun_fix (measure size)). { applys wf_measure. } 
   unfolds measure. intros f1 f2 t IH. (* The goal here is the contraction condition. *)
-  unfold Wpgen. destruct t using trm_case; simpls; try solve [ fequals; auto ].
+  unfold Wpgen. fequal. destruct t using trm_case; simpls; try solve [ fequals; auto ].
   (* Only the case of the let-binding is not automatically proved. We give details.  *)
   { fequal.
     { applys IH. math. }
@@ -1425,7 +1396,8 @@ Lemma wpgen_fix' : forall t,
   wpgen t = Wpgen wpgen t.
 Proof using.
   applys~ (FixFun_fix (measure size)). { applys wf_measure. } 
-  intros f1 f2 t IH. destruct t using trm_case; simpls; fequals; auto.
+  intros f1 f2 t IH. unfold Wpgen. fequal.
+  destruct t using trm_case; simpls; fequals; auto.
 Qed.
 
 End WPgenfix2.
