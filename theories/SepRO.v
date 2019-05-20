@@ -587,6 +587,7 @@ Module Export SepROSetup := SepSetup SepROCore.
 Export SepROCore.
 
 Implicit Types h : heap.
+Implicit Types P : Prop.
 Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
 
@@ -602,6 +603,11 @@ Lemma hpure_inv : forall P h,
 Proof using. 
   introv M. lets (HP&N): hpure_inv_hempty M. lets E: hempty_inv N. auto.
 Qed.
+
+Lemma hpure_intro : forall P,
+  P ->
+  \[P] heap_empty.
+Proof using. introv M. applys~ hpure_intro_hempty. applys hempty_intro. Qed.
 
 Lemma hstar_intro : forall H1 H2 h1 h2,
   H1 h1 ->

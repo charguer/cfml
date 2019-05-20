@@ -243,7 +243,7 @@ Qed.
 
 Lemma hpure_intro : forall P,
   P ->
-  \[P] fmap_empty.
+  \[P] heap_empty.
 Proof using. introv M. applys~ hpure_intro_hempty. applys hempty_intro. Qed.
 
 Lemma hstar_intro : forall H1 H2 h1 h2,
