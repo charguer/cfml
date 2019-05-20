@@ -490,7 +490,7 @@ Parameter triple_ref : forall v,
     functions, for example arithmetic operations. We here present
     just two examples: addition and division. Others follow a
     similar pattern. 
-    
+
     Assume [val_add] to denote the value that corresponds to the
     builtin operation [+]. A call to an addition [val_add n1 n2] 
     executes in a empty state, and produces an empty state. It
@@ -1056,7 +1056,7 @@ Qed.
     One way to conveniently factorize the proof arguments is to employ
     Coq's conditional to express the semantics of a term conditional. 
     
-    First, we establish a corrolary to [red_if], expressed using a 
+    First, we establish a corollary to [red_if], expressed using a 
     single premise. *)
 
 Lemma eval_if_bool_case : forall s1 s2 b v t1 t2,
@@ -1258,7 +1258,7 @@ Qed.
 
     Unlike before, however, the Hoare triples are not directly
     established with respect to the big-step evaluation rules.
-    Instead, we start by proving corrolaries to the big-step rules
+    Instead, we start by proving corollaries to the big-step rules
     to reformulate them in a way that give already them a flavor
     of "Separation Logic". Concretely, we reformulate the evaluation
     rules, which are expressed in terms of read and updates in finite 
@@ -1498,7 +1498,7 @@ Parameter fmap_exists_not_indom : forall s,
   exists l, ~ fmap_indom s l.
 
 (** For invokation in relation to rule [red_ref_sep], we actually
-    will exploit the following corrolary, which asserts, for any [h],
+    will exploit the following corollary, which asserts, for any [h],
     the existence of a location [l] such that the singleton heap
     [fmap_single l v] is disjoint from [h]. *)
 

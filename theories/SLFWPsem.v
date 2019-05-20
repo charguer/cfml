@@ -25,7 +25,10 @@ Implicit Types Q : val->hprop.
 (** * The chapter in a rush *)
 
 (** This chapter introduces the notion of weakest precondition
-    for Separation Logic triples. *)
+    for Separation Logic triples. 
+
+    Note: this chapter is relatively short. It goes in pair
+    with the next chapter, which is relatively long. *)
 
 
 (* ******************************************************* *)
@@ -265,12 +268,14 @@ Proof using. introv M. hchange M. applys wp_ramified. Qed.
 (** The lemma [wp_equiv] asserts [(triple t H Q) <-> (H ==> wp t Q)].
     We have seen in the introduction of this chapter that [wp_equiv] 
     defines a unique function [wp]. There remains to show that there 
-    actually exists at least one such function. 
+    actually exists at least one such function.
 
-    Recall the definition of [wp_characterization]. *)
-
-Definition wp_characterization (wp:trm->(val->hprop)->hprop) :=
-  forall t H Q, (triple t H Q) <-> (H ==> wp t Q).
+    Recall the definition of [wp_characterization].
+[[
+    Definition wp_characterization (wp:trm->(val->hprop)->hprop) :=
+      forall t H Q, (triple t H Q) <-> (H ==> wp t Q).
+]]
+ *)
 
 (** In what follows, we'll give two possible definitions, a
     low-level one expressed as a function on heaps, and a high-level

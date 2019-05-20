@@ -306,7 +306,7 @@ Lemma qimpl_Wp_of_Triple : forall t `{EA:Enc A} F,
   F ===> ((Wp t) A EA).
 Proof using. introv M. intros Q. rewrite~ <- Triple_eq_himpl_Wp. Qed.
 
-(** Another formulation of the same corrolary --- currently not used *)
+(** Another formulation of the same corollary --- currently not used *)
 Lemma himpl_Wp_of_Triple : forall A `{EA:Enc A} (Q1:A->hprop) t H1,
   Triple t H1 Q1 ->
   H1 ==> ^(Wp t) Q1.
@@ -699,7 +699,7 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Corrolaries of the soundness of [wp] *)
+(* ** Corollaries of the soundness of [wp] *)
 
 Lemma Triple_isubst_Wpgen : forall t E `{EA:Enc A} (Q:A->hprop),
   Triple (isubst E t) (^(Wpgen E t) Q) Q.

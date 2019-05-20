@@ -163,6 +163,17 @@ Arguments mkflocal_erase : clear implicits.
 Arguments mkflocal_ramified : clear implicits.
 
 
+(* ******************************************************* *)
+(** ** Demo of practical proofs using [wpgen]. *)
+
+(** At this point, it may be a good time to illustrate how to
+    carry out the proof of the function [mysucc] from [SLFRules],
+    this time with help of our [wpgen] function. The proof with
+    x-tactics appears further down in the file. However, this demo
+    may not be necessary for anyone who has already experienced
+    verification using CFML's x-tactics. *)
+
+
 (* ####################################################### *)
 (** * Additional contents *)
 
@@ -634,7 +645,7 @@ Parameter triple_ramified_frame : forall H1 Q1 t H Q,
   H ==> H1 \* (Q1 \--* Q) ->
   triple t H Q.
 
-(** Let us reformulate this lemma in weakest precondition style, 
+(** Let us reformulate this lemma in weakest-precondition style, 
     then prove it. *)
 
 Lemma himpl_mkflocal_conseq_frame : forall H Q H1 Q1 F,
@@ -644,6 +655,20 @@ Lemma himpl_mkflocal_conseq_frame : forall H Q H1 Q1 F,
 Proof using.
   introv M W. hchange W. hchange M. 
   lets N: mkflocal_ramified Q1 Q F. hchanges N.
+Qed.
+
+(* EX2! (himpl_mkflocal_htop) *)
+(** Prove the following reformulation of the garbage collection
+    rule for postcondition in weakest-precondition style. *)
+
+Lemma himpl_mkflocal_htop : forall H Q F,
+  H ==> mkflocal F (Q \*+ \Top) ->
+  H ==> mkflocal F Q.
+Proof using.
+(* SOLUTION *)
+  introv M. hchange M. 
+  lets N: mkflocal_ramified (Q \*+ \Top) Q F. hchanges N.
+(* /SOLUTION *)
 Qed.
 
 (** An interesting property of [mkflocal] is its idempotence:
@@ -1168,8 +1193,7 @@ Proof using.
   repeat rewrite lookup_rem; case_var~.
 Qed.
 
-(** The key induction is set up as follows. The desired property of
-    substitution then comes as a corrolory. *)
+(** The key induction is set up as follows. *)
 
 Section IsubstRemInd.
 
@@ -1197,6 +1221,8 @@ Qed.
 
 End IsubstRemInd.
 
+(** As a corollary, we get the desired property of [isubst]. *)
+
 Lemma isubst_rem' : forall x v E t,
   isubst ((x, v)::E) t = subst x v (isubst (rem x E) t).
 Proof using.
@@ -1205,6 +1231,12 @@ Proof using.
   { simpl. case_var~. }
   { rewrite lookup_rem. case_var~. }
 Qed.
+
+(** Another useful corollary reformulates [subst] in terms of [isubst] *)
+
+Lemma subst_eq_isubst : forall x v t,
+  subst x v t = isubst ((x,v)::nil) t.
+Proof using. intros. rewrite isubst_rem. simpl. rewrite~ isubst_nil. Qed.
 
 
 (* ####################################################### *)
@@ -1402,12 +1434,255 @@ Qed.
 
 End WPgenfix2.
 
+End WPgenFix.
+
+
+(* ####################################################### *)
+(** * Practical proofs using [wpgen] *)
+
+(* ******************************************************* *)
+(** ** Lemmas for handling [wpgen] goals *)
+
+(** [xflocal_lemma] is a reformulation of [mkflocal_erase]. *)
+
+Lemma xflocal_lemma : forall F H Q,
+  H ==> F Q ->
+  H ==> mkflocal F Q.
+Proof using. introv M. hchange M. applys mkflocal_erase. Qed.
+
+(** [xlet_lemma] reformulates the definition of [wpgen_let].
+    It just unfolds the definition. *)
+
+Lemma xlet_lemma : forall H F1 F2of Q,
+  H ==> F1 (fun v => F2of v Q) ->
+  H ==> wpgen_let F1 F2of Q.
+Proof using. introv M. hchange M. Qed.
+
+(** Likewise, [xseq_lemma] reformulates [wpgen_seq]. *)
+
+Lemma xseq_lemma : forall H F1 F2 Q,
+  H ==> F1 (fun v => F2 Q) ->
+  H ==> wpgen_seq F1 F2 Q.
+Proof using. introv M. hchange M. Qed.
+
+(** [xapp_lemma] reformulates the ramified frame rule, with a goal
+    as a [wp] (which is produced by [wpgen] on an application),
+    and a premise as a triple (because triples are used to state 
+    specification lemmas. Observe that the rule includes an identity
+    function called [protect], which is used to prevent [hsimpl]
+    from performing too aggressive simplifications. *)
+
+Lemma xapp_lemma : forall t Q1 H1 H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* protect Q) ->
+  H ==> wp t Q.
+Proof using. introv M W. rewrite <- wp_equiv. applys~ triple_ramified_frame M. Qed.
+
+(** The [hsimpl'] tactic is a variant of [hsimpl] that clears the
+    identity tag [protect] upon completion. *)
+
+Ltac hsimpl' := hsimpl; unfold protect.
+
+(** [xcf_lemma] is a variant of [wpgen_of_triple] specialized for
+    establishing a triple for a function application. The rule reformulates
+    [triple_app_fun] with a premise of the form [wpgen E t]. *)
+
+Lemma xcf_lemma : forall v1 v2 x t H Q,
+  v1 = val_fun x t ->
+  H ==> wpgen ((x,v2)::nil) t Q ->
+  triple (trm_app v1 v2) H Q.
+Proof using.
+  introv M1 M2. applys triple_app_fun M1.
+  asserts_rewrite (subst x v2 t = isubst ((x,v2)::nil) t).
+  { rewrite isubst_rem. rewrite~ isubst_nil. }
+  applys wpgen_sound M2.
+Qed.
+
+(** [xtop_lemma] helps exploiting [mkflocal] to augment the postcondition
+    with [\Top]. It proves the entailement:
+[[
+    H ==> mkflocal F (Q \*+ \Top) -> 
+    H ==> mkflocal F Q.
+]]
+*)
+
+Definition xtop_lemma := himpl_mkflocal_htop.
+
+(** Other lemmas for structural rules, not shown here, can be similarly
+    devised. *)
 
 
 
 
 
 
+
+
+
+
+Module ExampleProofs.
+
+Import NotationForVariables NotationForTerms CoercionsFromStrings.
+Implicit Types n : int.
+
+(** Recall the definition of the [incr] function, and its specification. *)
+
+Parameter incr : val.
+
+Parameter triple_incr : forall (p:loc) (n:int),
+  triple (trm_app incr p)
+    (p ~~~> n)
+    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+
+(** Recall the definition of [mysucc]. *)
+
+Definition mysucc :=
+  VFun 'n :=
+    Let 'r := val_ref 'n in
+    incr 'r ';
+    '! 'r.
+
+(** Recall the specification for this function. *)
+
+
+
+
+
+Lemma triple_mysucc_with_xlemmas : forall n,
+  triple (trm_app mysucc n)
+    \[]
+    (fun v => \[v = n+1]).
+Proof using.
+  intros.
+  applys xcf_lemma. { reflexivity. } simpl.
+  applys xflocal_lemma.
+  applys xlet_lemma.
+  applys xflocal_lemma.
+  applys xapp_lemma. { apply triple_ref. }
+  hsimpl'. intros ? l ->.
+  applys xflocal_lemma.
+  applys xseq_lemma.
+  applys xflocal_lemma.
+  applys xapp_lemma. { apply triple_incr. }
+  hsimpl'. intros ? ->.
+  applys xtop_lemma. (* use of a structural rule here *)
+  applys xflocal_lemma.
+  applys xapp_lemma. { apply triple_get. }
+  hsimpl'. intros ? ->.
+  hsimpl'. auto.
+Qed.
+
+
+Notation "'Fail'" :=
+  ((wpgen_fail))
+  (at level 69) : wp_scope.
+
+Notation "'Val' v" :=
+  ((wpgen_val v))
+  (at level 69) : wp_scope.
+
+Notation "'`Let' x ':=' F1 'in' F2" :=
+  ((wpgen_let F1 (fun x => F2)))
+  (at level 69, x ident, right associativity,
+  format "'[v' '[' '`Let'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
+
+Notation "'Seq' F1 ;;; F2" :=
+  ((wpgen_seq F1 F2))
+  (at level 68, right associativity,
+   format "'[v' 'Seq'  '[' F1 ']'  ;;;  '/'  '[' F2 ']' ']'") : wp_scope.
+
+Notation "'App' f v1 " :=
+  ((wp (trm_app f v1)))
+  (at level 68, f, v1 at level 0) : wp_scope.
+
+(* TODO: recursive notation for App *)
+
+Notation "'If'' b 'Then' F1 'Else' F2" :=
+  ((wpgen_if b F1 F2))
+  (at level 69) : wp_scope.
+
+Notation "` F" := (mkflocal F) (at level 10, format "` F") : wp_scope.
+
+Open Scope wp_scope.
+
+Ltac xflocal :=
+  applys xflocal_lemma.
+
+Ltac xflocal_if_needed :=
+  try match goal with |- ?H ==> mkflocal ?F ?Q => xflocal end.
+
+Ltac xcf :=
+  intros; applys xcf_lemma; [ reflexivity | simpl ].
+
+Ltac xlet :=
+  xflocal_if_needed; applys xlet_lemma.
+
+Ltac xseq :=
+  xflocal_if_needed; applys xseq_lemma.
+
+Ltac xtop :=
+  applys xtop_lemma.
+
+Ltac xseq_xlet_if_needed :=
+  try match goal with |- ?H ==> mkflocal ?F ?Q => 
+  match F with 
+  | wpgen_seq ?F1 ?F2 => xseq
+  | wpgen_let ?F1 ?F2of => xlet
+  end end.
+
+Ltac xapp :=
+  xseq_xlet_if_needed; xflocal_if_needed; applys xapp_lemma.
+
+Lemma triple_mysucc_with_xtactics : forall (n:int),
+  triple (trm_app mysucc n)
+    \[]
+    (fun v => \[v = n+1]).
+Proof using.
+  xcf.
+  xapp. { apply triple_ref. } hsimpl' ;=> ? l ->.
+  xapp. { apply triple_incr. } hsimpl' ;=> ? ->.
+  xtop.
+  xapp. { apply triple_get. } hsimpl' ;=> ? ->.
+  hsimpl. auto.
+Qed.
+
+Lemma xapps_lemma : forall t v H1 H2 H Q,
+  triple t H1 (fun r => \[r = v] \* H2) ->
+  H ==> H1 \* (H2 \-* protect (Q v)) ->
+  H ==> wp t Q.
+Proof using. introv M W. applys xapp_lemma M. hchanges W. intros ? ->. auto. Qed.
+
+
+Ltac xapp_pre :=
+  xseq_xlet_if_needed; xflocal_if_needed.
+
+Ltac xapps :=
+  xapp_pre; applys xapps_lemma.
+
+Ltac xapp' E :=
+  xapp_pre; applys xapp_lemma E; hsimpl'.
+
+Ltac xapps' E :=
+  xapp_pre; applys xapps_lemma E; hsimpl'.
+
+
+Lemma triple_mysucc_with_more_xapp_args : forall n,
+  triple (trm_app mysucc n)
+    \[]
+    (fun v => \[v = n+1]).
+Proof using.
+  xcf.
+  xapp' triple_ref ;=> ? l ->.
+  xapps' triple_incr.
+  xtop.
+  xapps' triple_get.
+  hsimpl~.
+Qed.
+
+
+
+
+End ExampleProofs.
 
 
 

@@ -462,7 +462,7 @@ Lemma qimpl_wp_of_triple : forall t F,
   F ===> wp t.
 Proof using. introv M. intros Q. rewrite~ <- triple_eq_himpl_wp. Qed.
 
-(** Another corrolary of [triple_eq_himpl_wp],
+(** Another corollary of [triple_eq_himpl_wp],
     Remark: it is not used in the proofs below, [triple_of_wp] is more useful. *)
 
 Lemma triple_wp : forall t Q,
@@ -767,7 +767,7 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Corrolaries of the soundness of [wpgen] *)
+(* ** corollaries of the soundness of [wpgen] *)
 
 Lemma triple_isubst_wpgen : forall t E Q,
   triple (isubst E t) (wpgen E t Q) Q.

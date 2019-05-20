@@ -455,7 +455,7 @@ Proof using.
   iff (p&M) (p&M). { split~. } { exists~ p. }
 Qed.
   
-(* corrolary only used for the SL course *)
+(* corollary only used for the SL course *)
 Lemma hstar_hpure_iff : forall P H h, 
   (\[P] \* H) h <-> (P /\ H h). 
 Proof using. intros. rewrite* hstar_hpure. Qed.

@@ -126,7 +126,7 @@ Proof using.
   applys* hoare_conseq. applys hstar_hforall.
 Qed.
 
-(** corrolary *)
+(** corollary *)
 Lemma triple_hforall_for : forall A (x:A) t (J:A->hprop) Q,
   triple t (J x) Q ->
   triple t (hforall J) Q.
@@ -236,7 +236,7 @@ Lemma Triple_hforall : forall t B (J:B->hprop) `{EA:Enc A} (Q:A->hprop),
   Triple t (hforall J) Q.
 Proof using. unfold Triple. introv (x&M). applys* triple_hforall. Qed.
 
-(** corrolary *)
+(** corollary *)
 Lemma Triple_hforall_for : forall B (x:B) t (J:B->hprop) `{EA:Enc A} (Q:A->hprop),
   Triple t (J x) Q ->
   Triple t (hforall J) Q.
