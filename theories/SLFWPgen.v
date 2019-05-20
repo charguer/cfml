@@ -1,9 +1,8 @@
-
 (**
 
 Separation Logic Foundations
 
-Chapter: "WP".
+Chapter: "WPgen".
 
 Author: Arthur Charguéraud.
 License: MIT.
@@ -11,7 +10,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require Import SLFRules.
+From Sep Require Import SLFWPsem.
 From TLC Require Import LibFix.
 
 Implicit Types f : var.
@@ -26,238 +25,18 @@ Implicit Types Q : val->hprop.
 (* ####################################################### *)
 (** * The chapter in a rush *)
 
-(** This chapter introduces the notion of weakest precondition
-    for Separation Logic triples, and describes the construction
-    of a function that effectively computes in Coq weakest
-    preconditions. Using this function, we'll be able to carry
-    out verification proofs using Separation Logic reasoning rules
-    but without never needing to reason about program variables
-    and substitutions. *)
+(** This chapter describes the construction of a function that
+    effectively computes in Coq weakest preconditions, as a logical
+    formula that no longer refers to the source code of the term
+    whose semantics it describes.
+
+    Using this function, we'll be able to carry out verification proofs
+    using Separation Logic reasoning rules but without never needing
+    to reason about program variables and substitutions. *)
 
 
 (* ******************************************************* *)
-(** ** Notion of weakest precondition *)
-
-(** We next introduce a function [wp], called "weakest precondition".
-    Given a term [t] and a postcondition [Q], this function computes 
-    a heap predicate [wp t Q] such that [triple t H Q] holds if and
-    only if [wp t Q] is weaker than the precondition [H]. Formally: *)
-
-Parameter wp : trm -> (val->hprop) -> hprop.
-
-Parameter wp_equiv : forall t H Q,
-  (triple t H Q) <-> (H ==> wp t Q).
-
-(** The [wp t Q] is called "weakest precondition" for two reasons.
-    First, because it is a "valid precondition" for the term [t] 
-    and the postcondition [Q]: *)
-
-Lemma wp_pre : forall t Q,
-  triple t (wp t Q) Q.
-Proof using. intros. rewrite wp_equiv. applys himpl_refl. Qed.
-
-(** Second, because it is the "weakest" of all valid preconditions
-    for the term [t] and the postcondition [Q], in the sense that
-    any other valid precondition [H] entails [wp t Q]. *)
-
-Lemma wp_weakest : forall t H Q,
-  triple t H Q ->
-  H ==> wp t Q.
-Proof using. introv M. rewrite <- wp_equiv. applys M. Qed.
-
-(** As prove further in this chapter, it is possible to 
-    define a function [wp] satisfying [wp_equiv]. Formally: *)
-
-Definition wp_characterization (wp:trm->(val->hprop)->hprop) :=
-  forall t H Q, (triple t H Q) <-> (H ==> wp t Q).
-
-Parameter wp_characterization_exists : exists wp0,
-  wp_characterization wp0.
-
-(** In fact, there are several ways in which [wp] can be defined.
-    It turns out that all possible definitions are equivalent.
-    In other words, [wp_equiv] defines a unique function.
-    We next formally justify this fact. *)
-
-Lemma wp_characterization_unique : forall wp1 wp2,
-  wp_characterization wp1 ->
-  wp_characterization wp2 ->
-  wp1 = wp2.
-Proof using. 
-  asserts L: (forall t Q wp1 wp2,
-    wp_characterization wp1 ->
-    wp_characterization wp2 ->
-    wp1 t Q ==> wp2 t Q).
-  { introv M1 M2. unfolds wp_characterization.
-    rewrite <- M2. rewrite M1. applys himpl_refl. }
-  introv M1 M2. applys fun_ext_2. intros t Q.
-  applys himpl_antisym; applys L; auto.
-Qed.
-
-(** Thus, it really does not matter which definition of [wp] is
-    considered. Thereafter, we only exploit the characterization lemma
-    [wp_equiv], and never rely on the internal definition of [wp]. *)
-
-
-(* ******************************************************* *)
-(** ** Structural properties of weakest preconditions *)
-
-(** It is interesting to observe how the structural rules
-    can be applied on a judgment of the form [H ==> wp t Q].
-
-    At this stage, we'll make four important observations.
-
-    1. The extraction rules [triple_hexists] and [triple_hpure]
-       are not needed in a wp-style presentation, because they
-       are directly subsumed by basic lemmas on entailment.
-
-    2. The predicate [wp t Q] is covariant in [Q], just the same
-       way [triple t H Q] is covariant in [Q] (and contravariant 
-       in [H]).
-
-    3. The combined consequence-frame-htop rule for [triple]
-       has a counterpart for [wp]. This rule is, in effect,
-       the unique structural rule that is needed for [wp].
-       (All other structural rules are derivable from it.)
-
-    4. The ramified-frame rule for [triple] also has a
-       counterpart for [wp]. This ramified rule for [wp]
-       will play a crucial rule in the construction of
-       our function that computes weakest precondition. *)
-
-(* ------------------------------------------------------- *)
-(** *** 1. Extraction rules are no longer needed *)
-
-(** Recall the extraction rule for existentials: *)
-
-Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
-  (forall x, triple t (J x) Q) ->
-  triple t (\exists x, J x) Q.
-
-(** Replacing [triple t H Q] with [H ==> wp t Q] yields: *)
-
-Lemma triple_hexists_in_wp : forall t Q A (J:A->hprop),
-  (forall x, (J x ==> wp t Q)) ->
-  (\exists x, J x) ==> wp t Q.
-
-(** This implication is just a special case of the lemma
-    [himpl_hexists_l], which proves [(\exists x, J x) ==> H]
-    from [forall x, (J x ==> H)]. *)
-
-Proof using. introv M. applys himpl_hexists_l M. Qed.
-
-(** In other words, in the [wp] presentation, we don't need
-    a specific extraction rule for existentials, because the
-    extraction rule for entailment already does the job. *)
-
-(** Likewise for [triple_hpure], which enables extracting pure
-    facts from precondition: the rule [himpl_hstar_hpure_l] may be
-    used to prove [\[P] \* H1 ==> H2] from [\[P] -> H1 ==> H2]. *)
-
-
-(* ------------------------------------------------------- *)
-(** *** 2. Covariance of [wp] *)
-
-(** If we have [triple t H Q1] and [Q1 ===> Q2], then, by the
-    rule of consequence, we can derive [triple t H Q2]. 
-    In other words, [triple t H Q] is covariant in [Q].
-
-    In a similiar way [wp t Q] is covariant in [Q], as we state
-    and prove next. *)
-
-Lemma wp_conseq : forall t Q1 Q2,
-  Q1 ===> Q2 ->
-  wp t Q1 ==> wp t Q2.
-Proof using.
-  introv WQ.
-  rewrite <- wp_equiv. (* same as [applys wp_weakest]. *)
-  applys triple_conseq (wp t Q1) WQ.
-  { rewrite wp_equiv. auto. (* same as [applys wp_pre]. *) }
-  { applys himpl_refl. }
-Qed.
-
-
-(* ------------------------------------------------------- *)
-(** *** 3. Combined structural rule for [wp] *)
-
-(** Recall the combined consequence-frame-htop rule for [triple]. *)
-
-Parameter triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \Top ->
-  triple t H Q.
-
-(** Let us reformulate this rule using [wp]:
-
-[[
-    H1 ==> wp t Q1 ->
-    H ==> H1 \* H2 ->
-    Q1 \*+ H2 ===> Q \*+ \Top ->
-    H ==> wp t Q.
-]]
-
-   The beove statement can be simplified by substituting [H]
-   with [H1 \* H2], then substituting [H1] with [wp t Q1].
-   We obtain:
-
-[[
-    Q1 \*+ H2 ===> Q \*+ \Top ->
-    (wp t Q1) \* H2 ==> wp t Q.
-]]
-   After renaming [H2] into [H] and [Q] into [Q2], we arrive at
-   the combined rule for [wp]:
-*)
-
-Lemma wp_conseq_frame_htop : forall t H Q1 Q2,
-  Q1 \*+ H ===> Q2 \*+ \Top ->
-  (wp t Q1) \* H ==> (wp t Q2).
-Proof using.
-  introv M. rewrite <- wp_equiv.
-  applys triple_conseq_frame_htop (wp t Q1) M.
-  { rewrite wp_equiv. hsimpl. } { hsimpl. }
-Qed.
-
-(** Further in this chapter, we present specializations of
-    this rule to invoke only the [frame] rule, or only the
-    garbage collection rule. *)
-
-
-(* ------------------------------------------------------- *)
-(** *** 4. The ramified structural rule for [wp] *)
-
-(** Consider the entailment  [Q1 \*+ H ===> Q2 \*+ \Top]
-    that appears in the combined rule [wp_conseq_frame_htop].
-
-    This entailement can be rewritten using the magic wand as:
-    [H ==> (Q1 \--* (Q2 \*+ \Top))].
-
-    Thus, the conclusion [(wp t Q1) \* H ==> (wp t Q2)]
-    can be reformulated as 
-    [(wp t Q1) \* (Q1 \--* (Q2 \*+ \Top)) ==> (wp t Q2)].
-
-    The "ramified combined structural rule" for [wp], shown below,
-    captures in a single line all the structural properties of [wp]. *)
-
-Lemma wp_ramified : forall t Q1 Q2,
-  (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
-Proof using.
-  intros. applys wp_conseq_frame_htop.
-  hsimpl. (* exploiting [qwand_cancel] *)
-Qed.
-
-(** The following reformulation is handy to apply on any goal
-    of the form [H ==> wp t Q]. *)
-
-Lemma wp_ramified_trans : forall t H Q1 Q2,
-  H ==> (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ->
-  H ==> (wp t Q2).
-Proof using. introv M. hchange M. applys wp_ramified. Qed.
-
-
-
-(* ******************************************************* *)
-(** ** Syntactic construction of a weakest precondition *)
+(** ** Overview of the strategy *)
 
 (** To carry out practical verification proofs, we introduce
     a function [wpgen] that construct a weakest precondition
@@ -297,17 +76,45 @@ End WpgenAmbition.
 
 
 (* ******************************************************* *)
-(** ** Definition of formulae for terms *)
-
-
-(* ------------------------------------------------------- *)
-(** *** General structure *)
+(** ** Overview of the recursive definition *)
 
 (** [wpgen t] is defined by recursion on [t], as a function
     that expects a postcondition [Q] and returns a [hprop].
     We call "formula" the result type of [wgpen t]: *)
 
 Definition formula := (val->hprop) -> hprop.
+
+(*
+[[
+Fixpoint wpgen (t:trm) : formula :=
+  match t with
+  | trm_val v =>
+       wpgen_val v
+  | trm_var x =>
+       wpgen_fail
+  | trm_fun x t1
+       wpgen_val (val_fun x t1)
+  | trm_fix f x t1  =>
+       wpgen_val (val_fix f x t1)
+  | trm_if v0 t1 t2 =>
+       wpgen_if v0 (wpgen t1) (wpgen t2)
+  | trm_seq t1 t2 =>
+       wpgen_seq (wpgen t1) (wpgen t2)
+  | trm_let x t1 t2 =>
+       wpgen_let (wpgen t1) (fun X => wpgen (subst x X t2))
+  | trm_app t1 t2 =>
+       wp t
+  end.
+]]
+*)
+
+
+
+(* ####################################################### *)
+(** * Additional contents *)
+
+(* ******************************************************* *)
+(** ** General structure *)
 
 (** The general shape of the definition of [wpgen] is a
     recursive function on [t], with recursive calls for
@@ -329,8 +136,9 @@ Definition formula := (val->hprop) -> hprop.
     these auxiliary functions.
 *)
 
-(* ------------------------------------------------------- *)
-(** *** Case of values *)
+
+(* ******************************************************* *)
+(** ** Case of values *)
 
 (** First, consider a value [v]. The formula [wpgen (trm_val v)]
     should be such that [H ==> wpgen (trm_val v) Q] entails
@@ -378,8 +186,8 @@ Proof using. introv M. applys triple_of_wpgen_val M. Qed.
     [forall t, formula_sound_for t (wpgen t)]. *)
 
 
-(* ------------------------------------------------------- *)
-(** *** Case of functions *)
+(* ******************************************************* *)
+(** ** Case of functions *)
 
 (** Recall the rule for functions. It is almost exactly like
     that for values, the only difference beeing that the
@@ -408,8 +216,8 @@ Lemma wpgen_fix_sound : forall f x t,
 Proof using. introv M. unfolds wpgen_val. applys triple_fix M. Qed.
 
 
-(* ------------------------------------------------------- *)
-(** *** Case of sequences *)
+(* ******************************************************* *)
+(** ** Case of sequences *)
 
 (** Second, consider a sequence [trm_seq t1 t2].
     The formula [wpgen (trm_seq t1 t2)] should be such that
@@ -468,8 +276,8 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
-(** *** Case of let-bindings *)
+(* ******************************************************* *)
+(** ** Case of let-bindings *)
 
 (** Consider now the case of a let-binding [trm_let x t1 t2].
     Handling this construct is a bit more involved due to the
@@ -542,8 +350,8 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
-(** *** Case of variables *)
+(* ******************************************************* *)
+(** ** Case of variables *)
 
 (** What should be the weakest precondition of a free variable [x]?
     There is no reasoning rule of the form [triple (trm_var x) H Q].
@@ -592,8 +400,8 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
-(** *** Case of applications *)
+(* ******************************************************* *)
+(** ** Case of applications *)
 
 (** What should be the weakest precondition for an application?
     Well, it depends on the function, and how this function was
@@ -631,8 +439,8 @@ Proof using. intros. introv M. rewrite wp_equiv. applys M. Qed.
     essentially encoding [let x1 = t1 in let x2 = t2 in trm_app x1 x2]. *)
 
 
-(* ------------------------------------------------------- *)
-(** *** Case of conditionals *)
+(* ******************************************************* *)
+(** ** Case of conditionals *)
 
 (** Consider a conditional in A-normal form: [trm_if v0 then t1 else t2],
     where [v0] denotes either a variable of a value. If [v0] is a variable,
@@ -712,8 +520,9 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
-(** *** A simple yet non-structurally recursive definition of [wpgen] *)
+
+(* ******************************************************* *)
+(** ** A simple yet non-structurally recursive definition of [wpgen] *)
 
 Module WPgenSubst.
 
@@ -834,8 +643,8 @@ Proof using. introv M. applys wpgen_sound M. Qed.
 End WPgenSubst.
 
 
-(* ------------------------------------------------------- *)
-(** *** Turning the fixpoint into a structural function *)
+(* ******************************************************* *)
+(** ** Definition of [wpgen] as a structurally-recursive function *)
 
 Definition ctx : Type := list (var*val).
 
@@ -855,7 +664,7 @@ Fixpoint lookup (x:var) (E:ctx) : option val :=
                    else lookup x E1
   end.
 
-Fixpoint isubst (E:ctx) (t:trm) {struct t} : trm :=
+Fixpoint isubst (E:ctx) (t:trm) : trm :=
   match t with
   | (* [trm_val v] => *)  trm_val v =>
        v
@@ -882,7 +691,7 @@ Fixpoint isubst (E:ctx) (t:trm) {struct t} : trm :=
   end.
 
 Parameter isubst_rem : forall x v E t,
-  subst x v (isubst (rem x E) t) = isubst ((x, v) :: E) t.
+  subst x v (isubst (rem x E) t) = isubst ((x,v)::E) t.
 
 Parameter isubst_nil : forall t,
   isubst nil t = t.
@@ -969,268 +778,8 @@ Qed.
 
 
 
-
-(* details *)
-
-
-Lemma trm_funs_fold : forall x t,
-  trm_funs (x::nil) t = trm_fun x t.
-Proof using. auto. Qed.
-
-Lemma trm_fix_fold : forall f x t,
-  trm_fixs f (x::nil) t = trm_fix f x t.
-Proof using. auto. Qed.
-
-Lemma trm_seq_fold : forall t1 t2,
-  trm_let bind_anon t1 t2 = trm_seq t1 t2.
-Proof using. auto. Qed.
-
-Lemma trm_app_fold : forall t1 t2,
-  trm_apps t1 (t2::nil) = trm_app t1 t2.
-Proof using. auto. Qed.
-
-Hint Rewrite trm_funs_fold trm_fix_fold trm_seq_fold trm_app_fold : rew_trm.
-Tactic Notation "rew_trm" := autorewrite with rew_trm.
-
-
-Tactic Notation "case_var" := 
-  repeat rewrite var_eq_spec in *; repeat case_if.
-  (* LATER: use a case_if that performs substitution *)
-
-Tactic Notation "case_var" "~" := 
-  case_var; auto.
-
-(* lemma 1 *)
-
-Lemma isubst_nil' : forall t,
-  isubst nil t = t.
-Proof using.
-  intros t. induction t using trm_induct; simpl; fequals.
-Qed.
-
-(* lemma 2 *)
-
-Definition ctx_equiv E1 E2 :=
-  forall x, lookup x E1 = lookup x E2.
-
-Lemma lookup_rem : forall x y E,
-  lookup x (rem y E) = if var_eq x y then None else lookup x E.
-Proof using.
-  intros. induction E as [|(z,v) E'].
-  { simpl. case_var~. }
-  { simpl. case_var~; simpl; case_var~. }
-Qed.
-
-Lemma ctx_equiv_rem : forall x E1 E2,
-  ctx_equiv E1 E2 ->
-  ctx_equiv (rem x E1) (rem x E2).
-Proof using.
-  introv M. unfolds ctx_equiv. intros y.
-  do 2 rewrite lookup_rem. case_var~.
-Qed.
-
-Hint Resolve ctx_equiv_rem.
-
-Lemma isubst_ctx_equiv : forall t E1 E2,
-  ctx_equiv E1 E2 ->
-  isubst E1 t = isubst E2 t.
-Proof using.
-  intros t. induction t using trm_induct; introv EQ; simpl; fequals~.
-  { rewrite EQ. auto. }
-Qed.
-
-Definition ctx_differ_one x v E1 E2 :=
-     (forall y, y <> x -> lookup y E1 = lookup y E2)
-  /\ (lookup x E1 = None)
-  /\ (lookup x E2 = Some v).
-
-Lemma ctx_differ_one_rem_same : forall x v E1 E2,
-  ctx_differ_one x v E1 E2 ->
-  ctx_equiv (rem x E1) (rem x E2).
-Proof using.
-  introv (M0&_&_). intros y. do 2 rewrite lookup_rem. case_var~.
-Qed.
-
-Lemma ctx_differ_one_rem_neq : forall y x v E1 E2,
-  ctx_differ_one x v E1 E2 ->
-  x <> y ->
-  ctx_differ_one x v (rem y E1) (rem y E2).
-Proof using.
-  introv (M1&M2&M3) N. splits; try intros z Hz;
-  repeat rewrite lookup_rem; case_var~.
-Qed.
-
-Hint Resolve isubst_ctx_equiv ctx_differ_one_rem_same ctx_differ_one_rem_neq.
-
-Lemma isubst_rem_ind : forall y v E1 E2 t,
-  ctx_differ_one y v E1 E2 ->
-  subst y v (isubst E1 t) = isubst E2 t.
-Proof using.
-  intros. gen E1 E2. induction t using trm_induct; introv M; simpl; rew_trm.
-  { fequals. }
-  { destruct M as (M0&M1&M2). tests C: (x = y).
-    { rewrite M1,M2. simpl. case_var~. }
-    { rewrite~ M0. case_eq (lookup x E2).
-      { intros v' R'. auto. }
-      { simpl. case_var~. } } }
-  { fequals. case_var; rew_logic in *; subst*. }
-  { fequals. case_var; rew_logic in *; subst*. }
-  { fequals*. }
-  { fequals*. }
-  { fequals*. case_var~. subst*. }
-  { fequals*. }
-Qed.
-
-Lemma isubst_rem' : forall x v E t,
-  subst x v (isubst (rem x E) t) = isubst ((x, v) :: E) t.
-Proof using.
-  intros. applys isubst_rem_ind. splits.
-  { intros y K. simpl. rewrite lookup_rem. case_var~. }
-  { rewrite lookup_rem. case_var~. }
-  { simpl. case_var~. }
-Qed.
-
-
-
 (* ####################################################### *)
 (** * Additional contents *)
-
-(* ******************************************************* *)
-(** ** Semantic definition of weakest precondition *)
-
-(** We have seen that [wp_equiv] defines a unique function [wp].
-    There remains to show that there actually exists at least
-    one such function.
-
-    In what follows, we'll give two possible definitions, a
-    low-level one expressed as a function on heaps, and a high-level
-    one expressed using only Separation Logic combinators.
-
-    For both, we'll show that they satisfy [wp_equiv]. Thus, the
-    two definitions must be equivalent ([wp_characterization_unique]). *)
-
-(** We now present the low-level definition. *)
-
-Definition wp_low (t:trm) (Q:val->hprop) : hprop :=
-  fun (h:heap) => triple t (=h) Q.
-
-Lemma wp_equiv_wp_low : wp_characterization wp_low.
-  (** [forall t H Q, (triple t H Q) <-> (H ==> wp_low t Q)]. *)
-Proof using.
-  (** This proof is a bit technical, it is not required to follow it.
-      It requires the lemma [triple_named_heap] established 
-      as exercise in an earlier chapter. *)
-  unfold wp_low. iff M.
-  { intros h K. applys triple_conseq M.
-    { intros h' ->. applys K. }
-    { applys qimpl_refl. } }
-  { applys triple_named_heap. intros h K.
-    applys triple_conseq (=h) Q. 
-    { specializes M K. applys M. }
-    { intros ? ->. auto. }
-    { applys qimpl_refl. } }
-Qed.
-
-(** We now present the high-level definition. *)
-
-Definition wp_high (t:trm) (Q:val->hprop) : hprop :=
-  \exists (H:hprop), H \* \[triple t H Q].
-
-(* EX3! (wp_equiv_wp_high) *)
-(** Prove that this second definition of [wp] statisfies
-    the characteristic property [wp_equiv]. *)
-
-Lemma wp_equiv_wp_high : wp_characterization wp_high.
-  (** [forall t H Q, (triple t H Q) <-> (H ==> wp_high t Q)]. *)
-Proof using.
-(* SOLUTION *)
-  unfold wp_characterization, wp_high. iff M.
-  { hsimpl H. apply M. }
-  { applys triple_conseq Q M.
-    { applys triple_hexists. intros H'.
-      rewrite hstar_comm. applys triple_hpure. 
-      intros N. applys N. }
-    { applys qimpl_refl. } }
-(* /SOLUTION *)
-Qed.
-
-
-(* ******************************************************* *)
-(** ** Frame rule and garbage rules for [wp] *)
-
-(** The combined structural rule for [wp] captures all the
-    structural rules. We here discuss the formulation of
-    specializations of this rule. The corresponding lemmas
-    highlight interesting properties of the [wp] operator. *)
-
-(** Recall the [wp_conseq] rule. *)
-
-Parameter wp_conseq' : forall t Q1 Q2,
-  Q1 ===> Q2 ->
-  wp t Q1 ==> wp t Q2.
-
-(** How can this rule simulate the rule of consequence, which also
-    enables strenthening the precondition? The following lemma
-    provides the answer: strenghtening of the precondition simply
-    consists of invoking the transitivy property of entailment. *)
-
-Lemma wp_conseq_pre : forall t H' H Q,
-  H' ==> wp t Q ->
-  H ==> H' ->
-  H ==> wp t Q.
-Proof using. introv M WH. applys himpl_trans WH. applys M. Qed.
-
-(** More generally, the consequence rule for goals in [wp] form
-    takes the form: *)
-
-Lemma wp_conseq_trans : forall t H' Q' H Q,
-  H' ==> wp t Q' ->
-  H ==> H' ->
-  Q' ===> Q ->
-  H ==> wp t Q.
-Proof using. introv M WH WQ. hchange WH. hchange M. applys wp_conseq WQ. Qed.
-
-(** Thereafter, we present rules in the form of entailments between [wp],
-    that is, [wp ... ==> wp ...], but keep in mind that this presentation
-    is equivalent to the form: [forall H, H ==> wp ... -> H ==> wp ...]. *)
-
-(** The frame rule for [wp] asserts that, given [(wp t Q) \* H],
-    the [wp] may absorb [H] and yield [(wp t (Q \*+ H)]. *)
-
-Lemma wp_frame : forall t H Q,
-  (wp t Q) \* H ==> wp t (Q \*+ H).
-Proof using.
-  intros. rewrite <- wp_equiv.
-  applys triple_frame. rewrite~ wp_equiv.
-Qed.
-
-(** The garbage collection in precondition for [wp] asserts that
-    [wp] can absorb and discard any desired heap predicate [H]
-    that sits next to it (i.e., that it is starred with). *)
-
-Lemma wp_hany_pre : forall t H Q,
-  (wp t Q) \* H ==> wp t Q.
-Proof using.
-  intros. rewrite <- wp_equiv.
-  applys triple_hany_pre. rewrite~ wp_equiv.
-Qed.
-
-(** The garbage collection in postconditions for [wp] asserts 
-    that [wp] can absorb and discard any desired heap predicate
-    [H] that appears in its postcondition. *)
-
-Lemma wp_hany_post : forall t H Q ,
-  wp t (Q \*+ H) ==> wp t Q.
-Proof using.
-  intros. rewrite <- wp_equiv.
-  applys triple_hany_post. rewrite~ wp_equiv.
-Qed.
-
-(** Or, equivalently, the [H] from rules [wp_hany_pre] and 
-   [wp_hand_post] may be replaced with [\Top]. *)
-
-
-
 
 (* ******************************************************* *)
 (** ** Semantic definition of weakest precondition *)
@@ -1325,99 +874,160 @@ suffices (hchange 1 and 2)
 done.
 
 
-
-
--------
-
-
-
-
-
-Lemma wpgen_himpl_wp : forall t Q,
-  wpgen t Q ==> wp t Q.
-
-Definition wpgen_sound_for t := forall Q,
-  wpgen t Q ==> wp t Q.
-
-wpgen_sound_for (trm_val v)
-wpgen_sound_for (trm_fun x t).
-wpgen_sound_for (trm_fix f x t).
-..
-
-
-
---------
-
-
-
-
-
-
-Definition wpgen_fail : formula := mkflocal (fun Q =>
-  \[False]).
-
-Definition wpgen_val (v:val) : formula := mkflocal (fun Q =>
-  Q v).
-
-Definition wpaux_var (E:ctx) (x:var) : formula :=
-  match Ctx.lookup x E with
-  | None => wpgen_fail
-  | Some v => wpgen_val v
-  end.
-
-Definition wpgen_let (F1:formula) (F2of:val->formula) : formula := mkflocal (fun Q =>
-  F1 (fun X => F2of X Q)).
-
-Definition wpgen_seq (F1 F2:formula) : formula := mkflocal (fun Q =>
-  F1 (fun X => F2 Q)).
-
-Definition wpgen_app (t1:trm) (t2:trm) : formula := mkflocal (fun Q =>  
-  wp (trm_app t1 t2) Q)
-
-Definition wpgen_if_val (v:val) (F1 F2:formula) : formula := mkflocal (fun Q =>
-  \exists (b:bool), \[v = val_bool b] \* (if b then F1 Q else F2 Q)).
-
-Definition wpgen_if (F0 F1 F2:formula) : formula :=
-  wpgen_let F0 (fun v => wpgen_if_val v F1 F2).
-
-Fixpoint wpgen (E:ctx) (t:trm) : formula :=
-  let aux := wpgen E in
-  match t with
-  | trm_val v => wpgen_val v
-  | trm_var x => wpaux_var E x
-  | trm_fun x t1 => trm_fun (isubst (Ctx.rem x E) t1)
-  | trm_fix f x t1 => trm_fix (isubst (Ctx.rem x (Ctx.rem f E)) t1))
-  | trm_if t0 t1 t2 => wpgen_if (aux t0) (aux t1) (aux t2)
-  | trm_let x t1 t2 => wpgen_let (aux t1) (fun X => wpgen (Ctx.add x X E) t2)
-  | trm_app t1 t2 => wgpen_app (isubst E t1) (isubst E t2)
-  end.
-
-
-
-
-
-
-
-forward proof 
-- with let
-- lets
-- subst all pb
-
-reasoning on calls
-- with = 2*x (app vs apps)
-- with y st P x y
-
-recursion
-- call that does not fit coq
-
-
 *)
 
 
 
 (* ####################################################### *)
-(** * Appendix: non-structural induction and recursion *)
+(** * Appendix: proofs for iterated substitution lemmas *)
 
+(** Recall that [isubst E t] denotes the multi-substitution
+    in the term [t] of all bindings form the association list [E].
+
+    The soundness proof for [wpgen] relies on two properties
+    of substitutions, [isubst_nil] and [isubst_rem], which we
+    state and prove next: 
+[[
+    isubst nil t = t
+
+    subst x v (isubst (rem x E) t) = isubst ((x,v)::E) t
+]] 
+*)
+
+(** The first lemma is straightforward by induction. *)
+
+Lemma isubst_nil' : forall t,
+  isubst nil t = t.
+Proof using.
+  intros t. induction t using trm_induct; simpl; fequals.
+Qed.
+
+(** The second lemma is much more involved to prove.
+
+    We introduce the notion of "two equivalent contexts" 
+    [E1] and [E2], and argue that substitution for two
+    equivalent contexts yields the same result.
+
+    We then introduce the notion of "equivalent contexts
+    up to one binding", and reformulate the desired lemma
+    in the form [subst x v (isubst E1 t) = isubst E2 t]
+    when [E1] and [E2] differ only in the binding on [x],
+    with [E1] not binding it while [E2] binding it to [v]. *)
+
+(** Before we start, we introduce the tactic [case_var] to
+    help with the case_analyses on variable equalities,
+    and we prove an auxiliary lemma that describes the
+    result of a lookup on a context from which a binding
+    has been removed. *)
+
+Tactic Notation "case_var" := 
+  repeat rewrite var_eq_spec in *; repeat case_if.
+  (* LATER: use a case_if that performs substitution *)
+
+Tactic Notation "case_var" "~" := 
+  case_var; auto.
+
+Lemma lookup_rem : forall x y E,
+  lookup x (rem y E) = if var_eq x y then None else lookup x E.
+Proof using.
+  intros. induction E as [|(z,v) E'].
+  { simpl. case_var~. }
+  { simpl. case_var~; simpl; case_var~. }
+Qed.
+
+(** The definition of equivalent contexts, the fact that
+    equivalent contexts yield equivalent contexts after
+    removing a binding, and the fact that equivalent contexts
+    yield equivalent substitutions appear next. *)
+
+Definition ctx_equiv E1 E2 :=
+  forall x, lookup x E1 = lookup x E2.
+
+Lemma ctx_equiv_rem : forall x E1 E2,
+  ctx_equiv E1 E2 ->
+  ctx_equiv (rem x E1) (rem x E2).
+Proof using.
+  introv M. unfolds ctx_equiv. intros y.
+  do 2 rewrite lookup_rem. case_var~.
+Qed.
+
+Lemma isubst_ctx_equiv : forall t E1 E2,
+  ctx_equiv E1 E2 ->
+  isubst E1 t = isubst E2 t.
+Proof using.
+  hint ctx_equiv_rem.
+  intros t. induction t using trm_induct; introv EQ; simpl; fequals~.
+  { rewrite EQ. auto. }
+Qed.
+
+(** The definition of equivalent contexts up to one binding on [x]
+    appears next. If the binding [x] is removed from the two
+    contexts, then they become equivalent. If a binding other than
+    [x] is removed from the two contexts, then they remain
+    equivalent up to the binding on [x]. *)
+
+Definition ctx_differ_one x v E1 E2 :=
+     (forall y, y <> x -> lookup y E1 = lookup y E2)
+  /\ (lookup x E1 = None)
+  /\ (lookup x E2 = Some v).
+
+Lemma ctx_differ_one_rem_same : forall x v E1 E2,
+  ctx_differ_one x v E1 E2 ->
+  ctx_equiv (rem x E1) (rem x E2).
+Proof using.
+  introv (M0&_&_). intros y. do 2 rewrite lookup_rem. case_var~.
+Qed.
+
+Lemma ctx_differ_one_rem_neq : forall y x v E1 E2,
+  ctx_differ_one x v E1 E2 ->
+  x <> y ->
+  ctx_differ_one x v (rem y E1) (rem y E2).
+Proof using.
+  introv (M1&M2&M3) N. splits; try intros z Hz;
+  repeat rewrite lookup_rem; case_var~.
+Qed.
+
+(** The key induction is set up as follows. The desired property of
+    substitution then comes as a corrolory. *)
+
+Section IsubstRemInd.
+
+Hint Resolve isubst_ctx_equiv 
+  ctx_equiv_rem ctx_differ_one_rem_same ctx_differ_one_rem_neq.
+
+Lemma isubst_rem_ind : forall y v E1 E2 t,
+  ctx_differ_one y v E1 E2 ->
+  subst y v (isubst E1 t) = isubst E2 t.
+Proof using.
+  intros. gen E1 E2. induction t using trm_induct; introv M; simpl; rew_trm.
+  { fequals. }
+  { destruct M as (M0&M1&M2). tests C: (x = y).
+    { rewrite M1,M2. simpl. case_var~. }
+    { rewrite~ M0. case_eq (lookup x E2).
+      { intros v' R'. auto. }
+      { simpl. case_var~. } } }
+  { fequals. case_var; rew_logic in *; subst*. }
+  { fequals. case_var; rew_logic in *; subst*. }
+  { fequals*. }
+  { fequals*. }
+  { fequals*. case_var~. subst*. }
+  { fequals*. }
+Qed.
+
+End IsubstRemInd.
+
+Lemma isubst_rem' : forall x v E t,
+  subst x v (isubst (rem x E) t) = isubst ((x, v) :: E) t.
+Proof using.
+  intros. applys isubst_rem_ind. splits.
+  { intros y K. simpl. rewrite lookup_rem. case_var~. }
+  { rewrite lookup_rem. case_var~. }
+  { simpl. case_var~. }
+Qed.
+
+
+(* ####################################################### *)
+(** * Appendix: non-structural induction and recursion *)
 
 (* ******************************************************* *)
 (** ** Size of a term *)
@@ -1609,15 +1219,6 @@ Proof using.
 Qed.
 
 End WPgenfix2.
-
-
-
-
-
-
-
-
-
 
 
 

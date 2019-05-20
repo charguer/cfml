@@ -150,6 +150,40 @@ Notation val_fun := (val_fix bind_anon).
 Notation trm_fun := (trm_fix bind_anon).
 
 
+(** Rewriting for encoded constructs *)
+
+Lemma val_fun_fold : forall x t,
+  val_funs (x::nil) t = val_fun x t.
+Proof using. auto. Qed.
+
+Lemma val_fix_fold : forall f x t,
+  val_fixs f (x::nil) t = val_fix f x t.
+Proof using. auto. Qed.
+
+Lemma trm_fun_fold : forall x t,
+  trm_funs (x::nil) t = trm_fun x t.
+Proof using. auto. Qed.
+
+Lemma trm_fix_fold : forall f x t,
+  trm_fixs f (x::nil) t = trm_fix f x t.
+Proof using. auto. Qed.
+
+Lemma trm_seq_fold : forall t1 t2,
+  trm_let bind_anon t1 t2 = trm_seq t1 t2.
+Proof using. auto. Qed.
+
+Lemma trm_app_fold : forall t1 t2,
+  trm_apps t1 (t2::nil) = trm_app t1 t2.
+Proof using. auto. Qed.
+
+Hint Rewrite val_fun_fold val_fix_fold trm_fun_fold trm_fix_fold
+             trm_seq_fold trm_app_fold : rew_trm.
+
+Tactic Notation "rew_trm" := autorewrite with rew_trm.
+Tactic Notation "rew_trm" "in" hyp(H) := autorewrite with rew_trm in H.
+Tactic Notation "rew_trm" "in" "*" := autorewrite with rew_trm in *.
+
+
 (* ---------------------------------------------------------------------- *)
 (** Coercions *)
 
@@ -1279,7 +1313,7 @@ Proof using.
     { auto. }
     { rew_listx. fequals*. } }
   { repeat rewrite List_fold_right_eq. repeat rewrite List_map_eq.
-    fequals. induction l as [|t' l'].
+    fequals. fequals. induction l as [|t' l'].
     { auto. }
     { rew_listx. fequals*. } }
   { repeat rewrite List_fold_right_eq. repeat rewrite List_map_eq.
