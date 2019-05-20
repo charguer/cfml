@@ -769,6 +769,24 @@ Lemma triple_frame : forall t H Q H',
   triple t (H \* H') (Q \*+ H').
 Proof using. intros. applys* is_local_frame. Qed.
 
+Lemma triple_ramified_frame : forall H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* Q) ->
+  triple t H Q.
+Proof using. intros. applys* is_local_ramified_frame. Qed.
+
+Lemma triple_ramified_frame_hgc : forall H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* (Q \*+ \GC)) ->
+  triple t H Q.
+Proof using. intros. applys* is_local_ramified_frame_hgc. Qed.
+
+Lemma triple_ramified_frame_htop : forall H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* (Q \*+ \Top)) ->
+  triple t H Q.
+Proof using. introv M1 W. rewrite <- hgc_eq_htop in W. applys* triple_ramified_frame_hgc. Qed.
+
 Lemma triple_hgc_pre : forall t H Q,
   triple t H Q ->
   triple t (H \* \GC) Q.

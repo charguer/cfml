@@ -25,58 +25,18 @@ Implicit Types Q : val->hprop.
 (* ####################################################### *)
 (** * The chapter in a rush *)
 
-(** This chapter describes the construction of a function that
-    effectively computes in Coq weakest preconditions, as a logical
-    formula that no longer refers to the source code of the term
-    whose semantics it describes.
+(** This chapter describes the construction of a function called
+    [wpgen] that effectively computes in Coq weakest preconditions.
+    The formula computed by [wpgen t] is equivalent to [wp t], but
+    is expressed in a way that longer refers to the source code of [t].
 
-    Using this function, we'll be able to carry out verification proofs
-    using Separation Logic reasoning rules but without never needing
-    to reason about program variables and substitutions. *)
-
-
-(* ******************************************************* *)
-(** ** Overview of the strategy *)
-
-(** To carry out practical verification proofs, we introduce
-    a function [wpgen] that construct a weakest precondition
-    heap predicate expressed in terms of the Separation Logic
-    combinators, by induction on the structure of the program. *)
-
-Module WpgenAmbition.
-
-Parameter wpgen : trm -> (val->hprop) -> hprop.
-
-(** Intuitively, we'd like the "syntactic" function [wpgen]
-    to be provably equal to "semantic" function [wp].
-
-    In practice, to establish correctness of a program,
-    we only care for one direction of the implication: *)
-
-Parameter wpgen_sound : forall t Q,
-  wpgen t Q ==> wp t Q.
-
-(** If we manage to define such a function [wpgen], then we could
-    use [wpgen] to establish triples. *)
-
-Lemma triple_of_wpgen : forall H t Q,
-  H ==> wpgen t Q ->
-  triple t H Q.
-Proof using.
-  introv M. rewrite wp_equiv. hchange M. applys wpgen_sound.
-Qed.
-
-(** The reciprocal implication from [wp] to [wpgen] would be
-    interesting to have, as it would justify the completeness of [wpgen].
-    Completeness would show that any Separation Logic proof can be carried 
-    out using [wpgen]. Yet, it is not a priority to try to formalize this 
-    result in Coq for now. *)
-
-End WpgenAmbition.
+    Using the function [wpgen], we'll be able to carry out verification
+    proofs using Separation Logic reasoning rules but without never
+    needing to reason about program variables and substitutions. *)
 
 
 (* ******************************************************* *)
-(** ** Overview of the recursive definition *)
+(** ** Overview of the weakest precondition generator *)
 
 (** [wpgen t] is defined by recursion on [t], as a function
     that expects a postcondition [Q] and returns a [hprop].
@@ -84,29 +44,120 @@ End WpgenAmbition.
 
 Definition formula := (val->hprop) -> hprop.
 
-(*
+(** The function [wpgen] is defined as shown below.
+
+    The definition makes use of a predicate [mkflocal] to support
+    structural rules of Separation Logic. For the moment, just ignore it.
+
+    The details of the definition will be explained in detail
+    throughout the chapter. What matters for the moment is to
+    get a high-level picture of the shape of the definition.
+
 [[
-Fixpoint wpgen (t:trm) : formula :=
-  match t with
-  | trm_val v =>
-       wpgen_val v
-  | trm_var x =>
-       wpgen_fail
-  | trm_fun x t1
-       wpgen_val (val_fun x t1)
-  | trm_fix f x t1  =>
-       wpgen_val (val_fix f x t1)
-  | trm_if v0 t1 t2 =>
-       wpgen_if v0 (wpgen t1) (wpgen t2)
-  | trm_seq t1 t2 =>
-       wpgen_seq (wpgen t1) (wpgen t2)
-  | trm_let x t1 t2 =>
-       wpgen_let (wpgen t1) (fun X => wpgen (subst x X t2))
-  | trm_app t1 t2 =>
-       wp t
-  end.
+    Fixpoint wpgen (t:trm) : formula :=
+      mkflocal (fun Q => 
+        match t with
+        | trm_val v => Q v
+        | trm_var x => \[False]
+        | trm_fun x t1 => Q (val_fun x t1)
+        | trm_fix f x t1 => Q (val_fix f x t1)
+        | trm_if v0 t1 t2 =>
+             \exists (b:bool), \[v0 = val_bool b]
+               \* (if b then (wpgen t1) Q else (wpgen t2) Q)
+        | trm_seq t1 t2 =>
+             (wpgen t1) (fun X => (wpgen t2) Q)
+        | trm_let x t1 t2 =>
+             (wpgen t1) (fun X => (wpgen (subst x X t2)) Q)
+        | trm_app t1 t2 => wp t Q
+        end).
 ]]
-*)
+
+    The reason we present this definition as comment is that the above
+    definition is not structurally recursive (the let-binding case
+    involves a substitution), hence not accepted as such by Coq.
+
+    In the course of this chapter, we'll present two approaches to remedy the
+    situation. The first approach relies on a general fixed point combinator.
+    The second approach tweaks the definition to pass as extra argument a list
+    of bindings and avoid the need for substitutions during the recursion
+    process. For now, let us assume the [wpgen] defined and see what we aim for. *)
+
+Module WpgenOverview.
+
+Parameter wpgen : trm -> formula.
+
+(** The soundness theorem that we aim for establishes that [wpgen] can be used
+    to establish triples. *)
+
+Parameter triple_of_wpgen : forall H t Q,
+  H ==> wpgen t Q ->
+  triple t H Q.
+
+
+(* ******************************************************* *)
+(** ** Overview of the [mkflocal] predicate *)
+
+(** The definition of [wpgen] provides, for each term construct,
+    a piece of formula that mimics the term reasoning rules from
+    Separation Logic. Yet, for [wpgen] to be useful for carrying
+    out practical verification proofs, it also needs to also support,
+    somehow, the structural rules of Separation Logic.
+    The predicate [mkflocal] serves exactly that purpose.
+    It is inserted at every "node" in the construction of the 
+    formual [wpgen t]. In other words, [wpgen t] always takes the
+    form [mkflocal F] for some formula [F], and for any subterm [t1]
+    of [t], the recursive call [wpgen t1] yields a formula of the
+    form [mkflocal F1]. 
+
+    In what follows, we present the properties expected of [mkflocal],
+    and present a simple definition that satisfies the targeted property. *)
+
+(** Recall from the previous chapter that the ramified rule for [wp],
+    stated below, captures in a single line all the structural properties
+    of Separation Logic. *)
+
+Parameter wp_ramified : forall t Q1 Q2,
+  (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
+
+(** If [wpgen] were to satisfy this same property like [wp], then it would
+    also capture the expressive power of all the structural rules of 
+    Separation Logic. In other words, we would like to have: *)
+
+Parameter wpgen_ramified : forall t Q1 Q2,
+  (wpgen t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wpgen t Q2).
+
+End WpgenOverview.
+
+(** We have set up [wpgen] so that [wpgen t] is always of the form [mkflocal F]
+    for some formula [F]. Thus, to ensure the above entailment, it suffices
+    for the definition of [mkflocal] to be a "formula transformer" (more generally
+    known as a "predicate transformer") of type [formula->formula] such that:
+[[
+    Parameter mkflocal_ramified : forall F Q1 Q2,
+      (mkflocal F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkflocal F Q2).
+]]
+    At the same time, in a situation where we do not need to apply any structural
+    rule, we'd like to be able to get rid of the leading [mkflocal] in the formula
+    produced by [wpgen]. Concretely, we need:
+
+[[
+    Lemma mkflocal_erase : forall F Q,
+      F Q ==> mkflocal F Q.
+]] *)
+
+(** The following definition of [mklocal] satisfy the above two properties.
+    The tactic [hsimpl] trivializes the proofs. Details are discussed further on. *)
+
+Definition mkflocal (F:formula) : formula := fun (Q:val->hprop) =>
+  \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
+
+Lemma mkflocal_ramified : forall F Q1 Q2,
+  (mkflocal F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkflocal F Q2).
+Proof using. unfold mkflocal. hsimpl. Qed.
+
+Lemma mkflocal_erase : forall F Q,
+  F Q ==> mkflocal F Q.
+Proof using. unfolds mkflocal. hsimpl. Qed.
 
 
 
@@ -121,20 +172,45 @@ Fixpoint wpgen (t:trm) : formula :=
     the subterms. The auxiliary functions named [wpgen_val],
     [wpgen_if], etc... describe the body of [wpgen t] for
     each term construct that [t] could be.
+    (For the time being, you may forget about [mkflocal].)
 
 [[
   Fixpoint wpgen (t:trm) : formula :=
-    match t with
+    mkflocal (match t with
     | trm_val v => wpgen_val v
     | trm_seq t1 t2 => wpgen_seq (wpgen t1) (wpgen t2)
     | trm_if v0 t1 t2 => wpgen_if v0 (wpgen t1) (wpgen t2)
     | ...
-    end.
+    end).
+]]
+*)
+
+(** Recall the soundness theorem that we aim for:
+[[
+    Parameter triple_of_wpgen : forall H t Q,
+      H ==> wpgen t Q ->
+      triple t H Q.
 ]]
 
-    In what follows, we present the definition of each of
-    these auxiliary functions.
+    To factorize statements and improve readibility during the
+    inductive proof, let us introduce the following definition.
 *)
+
+Definition formula_sound_for (t:trm) (F:formula) : Prop :=
+  forall H Q, H ==> F Q -> triple t H Q.
+
+(** The soundness theorem then reformulates as 
+    [forall t, formula_sound_for t (wpgen t)].
+
+    For each auxiliary function, we'll have a soundness lemma.
+    For example, for [trm_val], we'll prove:
+    [forall v, formula_sound_for [trm_val v] (wpgen_val v)].
+
+    Likewise, we'll have a soundness lemma for [mkflocal]:
+    [formula_sound_for t F -> formula_sound_for t (mkflocal F)]. *)
+
+(** In what follows, we present the definition of each of the
+    auxiliary functions involved, one per term construct. *)
 
 
 (* ******************************************************* *)
@@ -169,14 +245,7 @@ Proof using.
   introv M. applys triple_val. unfolds wpgen_val. applys M.
 Qed.
 
-(** The pattern of the above lemma will be repeated for all terms.
-    To capture this pattern, let us say that a formula [F] is sound
-    for a term [t] iff [H ==> F Q] entails [triple t H Q]. *)
-
-Definition formula_sound_for (t:trm) (F:formula) : Prop :=
-  forall H Q, H ==> F Q -> triple t H Q.
-
-(** We can reformulate the lemma above as: *)
+(** We can reformulate the lemma above using [formula_sound_for] as: *)
 
 Lemma wpgen_val_sound : forall v,
   formula_sound_for (trm_val v) (wpgen_val v).
@@ -324,6 +393,7 @@ Parameter triple_let : forall x t1 t2 H Q Q1,
 
 [[
     Fixpoint wpgen (t:trm) : formula :=
+      mkflocal 
       match t with
       | trm_let x t1 t2 => wpgen_let (wpgen t1) (fun v => wpgen (subst x v t2))
       ...
@@ -520,6 +590,58 @@ Proof using.
 Qed.
 
 
+(* ******************************************************* *)
+(** ** Soundness of the [mkflocal] predicate transformer *)
+
+(** We need to justify that the addition of [mkflocal] to the head
+    of every call to [wpgen] preserves the fact that [H ==> wpgen t Q]
+    implies [triple t H Q]. In other words, we need to prove that,
+    if [forall H' Q', H' ==> F Q' -> triple t H' Q'], then it is also 
+    the case that [H ==> mkflocal F Q -> triple t H Q].
+
+    Equivalently, this soundness property can be formulated in the form:
+    [formula_sound_for t F -> formula_sound_for t (mkflocal F)]. *)
+
+(** The proof of this implication stems from the fact that [mkflocal]
+    involves an entailment somewhat reminiscent of the (generalized)
+    ramified rule for [triple]: *)
+
+Parameter triple_ramified_frame_htop : forall H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* (Q \*+ \Top)) ->
+  triple t H Q.
+
+(** The proof sketch is as follows. 
+
+    One the one hand, from [H' ==> F Q' -> triple t H' Q'],
+    we can derive the hypothesis: [triple t (F Q') Q'] for any [Q'].
+
+    On the other hand, the goal [H ==> mkflocal F Q -> triple t H Q]
+    simplifies to [triple t (mkflocal F Q) Q], which is equivalent to
+    [forall Q', triple t [F Q' \* (Q' \--* Q \*+ \Top)] Q'].
+
+    Establishing this conclusion from our reformulated hypothesis
+    is a direct application of [triple_ramified_frame_htop], with
+    [H] instantiated as [F Q'].
+
+    The Coq proof is there: *)
+
+Lemma mkflocal_sound : forall t F,
+  formula_sound_for t F ->
+  formula_sound_for t (mkflocal F).
+Proof using.
+  introv HF. introv M.
+  (* Move [mkflocal F Q] into the precondition. *)
+  applys triple_conseq Q M; [| applys qimpl_refl ]. clear M.
+  (* Unfold [mkflocal] in the conclusion. *)
+  unfolds mkflocal. applys triple_hexists. intros Q'.
+  (** Invokve the ramified rule for [triple]. *)
+  applys triple_ramified_frame_htop (F Q') Q'.
+  (** Exploit the hypothesis and conclude. *)
+  { unfolds in HF. applys HF. applys qimpl_refl. }
+  { applys himpl_refl. }
+Qed.
+
 
 (* ******************************************************* *)
 (** ** A simple yet non-structurally recursive definition of [wpgen] *)
@@ -546,6 +668,7 @@ Module WPgenSubst.
     and between [trm_seq] and [trm_let].) *)
 
 Definition Wpgen wpgen (t:trm) : formula :=
+  mkflocal
   match t with
   | (* [trm_val v] => *)  trm_val v =>
        wpgen_val v
@@ -615,16 +738,19 @@ Parameter trm_induct_subst : forall (P : trm -> Prop),
   (forall t, P t).
 
 (** The soundness lemma asserts that [H ==> wpgen t Q] implies
-    [triple t H Q]. Equivalently, it can be formulated as:
-    [forall t, formula_sound_for t (wpgen t)]. The proof consists
-    of invoking all the soundness lemmas which we have proved
-    previously. *)
+    [triple t H Q]. Recall that, equivalently, it can be formulated as:
+    [forall t, formula_sound_for t (wpgen t)].
+
+    The proof is carried out by induction on [t]. For each term
+    construct, the proof consists of invoking the lemma [mkflocal_sound]
+    to justify soundness of the leading [mkflocal], then invoking
+    the soundness lemma specific to that term construct. *)
 
 Theorem wpgen_sound : forall t,
   formula_sound_for t (wpgen t).
 Proof using.
   intros. induction t using trm_induct_subst;
-   rewrite wpgen_fix; simpl.
+   rewrite wpgen_fix; applys mkflocal_sound; simpl.
   { applys wpgen_val_sound. }
   { applys wpgen_fail_sound. }
   { applys wpgen_fun_sound. }
@@ -641,6 +767,115 @@ Corollary triple_of_wpgen : forall t H Q,
 Proof using. introv M. applys wpgen_sound M. Qed.
 
 End WPgenSubst.
+
+
+
+(* ******************************************************* *)
+(** ** Definition of the [mkflocal] function *)
+
+
+(* eg. conseq frame htop trans  
+Lemma wp_ramified_trans : forall t H Q1 Q2,
+  H1 ==> (mklocal F Q1) ->
+  H ==> H1 \* H2 ->
+  Q1 \* H2 ===> Q \* Top ->
+  H ==> (mklocal F Q).
+Proof using. introv M. hchange M. applys wp_ramified. Qed.
+*)
+
+
+
+
+
+(*
+
+Lemma flocal_elim : forall F H Q,
+  H ==> wp t Q' \* (Q' \--* (Q \*+ \GC)) ->
+  H ==> wp t Q.
+Proof using. introv L M. lets N: (L Q). applys* himpl_trans N. Qed.
+
+*)
+
+
+
+
+(*
+
+
+Lemma qwand_insert_htop : forall Q1 Q2,
+      (Q1         ) \--* (Q2 \*+ \Top) 
+  ==> (Q1 \*+ \Top) \--* (Q2 \*+ \Top).
+Proof using. intros. hsimpl. Qed.
+
+Arguments qwand_insert_htop : clear implicits.
+
+
+a formula satisfies the structural rules iff
+  (F Q) \* (Q1 \--* Q2 \*+ \Top) ==> (F Q2).
+
+define [wpgen t] so that it syntactically has the form [mkflocal F]
+ satisfies the structural rule
+
+[mklocal F] is a construct such that, for any [F]
+  (mkflocal F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkflocal F Q2)
+
+definition that works:
+
+
+
+(\exists Q', F Q' \* (Q' \--* (Q1 \*+ \Top))) \* (Q1 \--* (Q2 \*+ \Top)) ==>
+ (\exists Q', F Q' \* (Q' \--* (Q2 \*+ \Top)))
+
+(Q1 \--* (Q2 \*+ \Top))
+rewrite as 
+((Q1 \*+ \Top) \--* (Q2 \*+ \Top \*+ \Top))
+same as
+((Q1 \*+ \Top) \--* (Q2 \*+ \Top))
+
+forall Q',
+(F Q' \* (Q' \--* (Q1 \*+ \Top))) \* ((Q1 \*+ \Top) \--* (Q2 \*+ \Top)) ==>
+ (\exists Q', F Q' \* (Q' \--* (Q2 \*+ \Top)))
+
+cancel out:
+(F Q' \* (Q' \--* (Q2 \*+ \Top)) ==>
+ (\exists Q', F Q' \* (Q' \--* (Q2 \*+ \Top)))
+
+trivial instantiation of Q' concludes.
+
+*)
+
+(** mkflocal can be easily removed.
+    [F Q ==> mkflocal F Q] *)
+
+ (* TODO: find a better name for [mkflocal] *)
+
+
+(*
+
+  exercise:
+
+    (mkflocal (mkflocal F)) Q := mkflocal F
+    right-to-left : instance of (1)
+    left-to-right: ...
+
+    (mkflocal (mkflocal F)) Q
+  = \exists Q1, mkflocal F Q1 \* (Q1 \--* (Q \*+ \GC))
+  = \exists Q1, (\exists Q2, F Q2 \* (Q2 \--* (Q1 \*+ \GC))) \* (Q1 \--* (Q \*+ \GC))
+  = \exists Q1 Q2, F Q2 \* (Q2 \--* (Q1 \*+ \GC) \* (Q1 \--* (Q \*+ \GC))
+  = \exists Q1 Q2, F Q2 \* (Q2 \--* (Q1 \*+ \GC) \* ((Q1 \*+ \GC) \--* ((Q \*+ \GC) \*+ \GC))
+  ==> \exists Q1 Q2, F Q2 \* (Q2 \--* (Q1 \*+ \GC) \* ((Q1 \*+ \GC) \--* (Q \*+ \GC \*+ \GC))
+  = \exists Q1 Q2, F Q2 \* (Q2 \--* (Q \*+ \GC \*+ \GC))
+  = \exists Q2, F Q2 \* (Q2 \--* (Q \*+ \GC))
+  = mkflocal F
+
+  mkflocal F Q := \exists Q1, F Q1 \* (Q1 \--* (Q \*+ \GC)).
+
+  \exists Q1, F Q1 \* (Q1 \--* (Q \*+ \GC)) ==> F Q
+
+  F Q1 \* (Q1 \--* (Q \*+ \GC)) ==> F Q
+
+*)
+
 
 
 (* ******************************************************* *)
@@ -704,7 +939,7 @@ Definition wpgen_var (E:ctx) (x:var) : formula :=
   end.
 
 Fixpoint wpgen (E:ctx) (t:trm) : formula :=
- match t with
+  mkflocal match t with
   | (* [trm_val v] => *)  trm_val v =>
        wpgen_val v
   | (* [trm_var x] => *)  trm_var x =>
@@ -751,7 +986,8 @@ Parameter trm_induct : forall (P : trm -> Prop),
 Lemma wpgen_sound : forall E t,
   formula_sound_for (isubst E t) (wpgen E t).
 Proof using.
-  intros. gen E. induction t using trm_induct; intros; simpl.
+  intros. gen E. induction t using trm_induct; intros; simpl; 
+   applys mkflocal_sound.
   { applys wpgen_val_sound. } 
   { unfold wpgen_var. case_eq (lookup x E).
     { intros v EQ. applys wpgen_val_sound. }
@@ -759,9 +995,7 @@ Proof using.
   { applys wpgen_fun_sound. } 
   { applys wpgen_fix_sound. }
   { applys wp_sound. }
-  { applys wpgen_seq_sound.
-    { applys IHt1. }
-    { applys IHt2. } }
+  { applys wpgen_seq_sound. { applys IHt1. } { applys IHt2. } }
   { applys wpgen_let_sound.
     { applys IHt1. }
     { intros v. rewrite isubst_rem. applys IHt2. } }
@@ -775,106 +1009,6 @@ Proof using.
   introv M. lets N: wpgen_sound M.
   rewrite isubst_nil in N. applys N.
 Qed.
-
-
-
-(* ####################################################### *)
-(** * Additional contents *)
-
-(* ******************************************************* *)
-(** ** Semantic definition of weakest precondition *)
-
-
-(*
-
-Lemma flocal_elim : forall F H Q,
-  H ==> wp t Q' \* (Q' \--* (Q \*+ \GC)) ->
-  H ==> wp t Q.
-Proof using. introv L M. lets N: (L Q). applys* himpl_trans N. Qed.
-
-
-
-
-
-  prove1: 
-    F Q ==> mklocal F Q
-    (take Q1 = Q)
-
-  prove 2:
-    (mkflocal (mkflocal F)) Q := mkflocal F
-    right-to-left : instance of (1)
-    left-to-right: ...
-
-    (mkflocal (mkflocal F)) Q
-  = \exists Q1, mkflocal F Q1 \* (Q1 \--* (Q \*+ \GC))
-  = \exists Q1, (\exists Q2, F Q2 \* (Q2 \--* (Q1 \*+ \GC))) \* (Q1 \--* (Q \*+ \GC))
-  = \exists Q1 Q2, F Q2 \* (Q2 \--* (Q1 \*+ \GC) \* (Q1 \--* (Q \*+ \GC))
-  = \exists Q1 Q2, F Q2 \* (Q2 \--* (Q1 \*+ \GC) \* ((Q1 \*+ \GC) \--* ((Q \*+ \GC) \*+ \GC))
-  ==> \exists Q1 Q2, F Q2 \* (Q2 \--* (Q1 \*+ \GC) \* ((Q1 \*+ \GC) \--* (Q \*+ \GC \*+ \GC))
-  = \exists Q1 Q2, F Q2 \* (Q2 \--* (Q \*+ \GC \*+ \GC))
-  = \exists Q2, F Q2 \* (Q2 \--* (Q \*+ \GC))
-  = mkflocal F
-
-
-  mkflocal F Q := \exists Q1, F Q1 \* (Q1 \--* (Q \*+ \GC)).
-
-  \exists Q1, F Q1 \* (Q1 \--* (Q \*+ \GC)) ==> F Q
-
-
-  F Q1 \* (Q1 \--* (Q \*+ \GC)) ==> F Q
-
-
-
-  wp t Q1 \* (Q1 \--* (Q \*+ \GC)) ==> wp t Q
-
-
-  H ==> wp t Q1 \* (Q1 \--* (Q \*+ \GC)) ->
-  H ==> wp t Q.
-
-
-let H1 := wp t Q1
-let H2 := (Q1 \--* (Q \*+ \GC)) 
-
-
-  H ==> H1 \* H2 ->
-  H1 ==> wp t Q1 ->
-  Q1 \* H2 ==> Q \*+ \GC ->
-  H ==> wp t Q.
-
-
-  H ==> H1 \* H2 ->
-  triple t H1 Q1 ->
-  Q1 \* H2 ==> Q \*+ \GC ->
-  triple t H Q
-
-
-reciprocally, with 
-   forall Q1,   wp t Q1 \* (Q1 \--* (Q \*+ \GC)) ==> wp t Q
-we can simulate frame
-
-
-  H ==> H1 \* H2 ->
-  H1 ==> wp t Q1 ->
-  Q1 \* H2 ==> Q \*+ \GC ->
-  H ==> wp t Q.
-
-exploit fact
-
-  H ==> H1 \* H2 ->
-  H1 ==> wp t Q1 ->
-  Q1 \* H2 ==> Q \*+ \GC ->
-  H ==> wp t Q1 \* (Q1 \--* (Q \*+ \GC))
-
-suffices (hchange 1 and 2)
-
-  H1 \* H2 ==> wp t Q1 \* (Q1 \--* (Q \*+ \GC))
-  wp t Q1 \* H2 ==> wp t Q1 \* (Q1 \--* (Q \*+ \GC))
-  H2 ==> (Q1 \--* (Q \*+ \GC))
-
-done.
-
-
-*)
 
 
 

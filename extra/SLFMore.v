@@ -1820,3 +1820,47 @@ Proof using. introv M. lets: wpgen_sound M. Admitted.
 
 
 
+
+
+
+details...
+[[
+Fixpoint wpgen (t:trm) : formula :=
+  match t with
+  | trm_val v => mkflocal (fun Q => Q v)
+  | trm_var x => mkflocal (fun Q => \[False])
+  | trm_fun x t1 => mkflocal (fun Q => Q (val_fun x t1))
+  | trm_fix f x t1 => mkflocal (fun Q => Q (val_fix f x t1))
+  | trm_if v0 t1 t2 => mkflocal (fun Q =>
+       \exists (b:bool), \[v0 = val_bool b]
+         \* (if b then (wpgen t1) Q else (wpgen t2) Q))
+  | trm_seq t1 t2 => mkflocal (fun Q =>
+       (wpgen t1) (fun X => (wpgen t2) Q))
+  | trm_let x t1 t2 => mkflocal (fun Q =>
+       (wpgen t1) (fun X => (wpgen (subst x X t2)) Q))
+  | trm_app t1 t2 => mkflocal (fun Q => wp t)
+  end.
+]]
+
+
+
+(** The reciprocal implication from [wp] to [wpgen] would be
+    interesting to have, as it would justify the completeness of [wpgen].
+    Completeness would show that any Separation Logic proof can be carried 
+    out using [wpgen]. Yet, it is not a priority to try to formalize this 
+    result in Coq for now. *)
+
+
+    which is equivalent to:
+[[
+    forall v H Q,
+    H ==> wpgen_val v Q ->
+    triple (trm_val v) H Q.
+]]
+
+    The pattern is similar for all term constructs.
+
+
+
+    To capture this pattern, let us say that a formula [F] is sound
+    for a term [t] iff [H ==> F Q] entails [triple t H Q]. *)

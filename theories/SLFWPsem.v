@@ -211,6 +211,13 @@ Proof using.
   { rewrite wp_equiv. hsimpl. } { hsimpl. }
 Qed.
 
+(** The above statement asserts that
+    - [wp t Q1] can absorb any heap predicate [H] with which it
+      is starred, changing it to [wp t (Q1 \*+ H)]
+    - [wp t Q1] can be weakened to [wp t Q2] when [Q1 ===> Q2]
+    - [wp t (Q1 \*+ H)] can be simplified to [wp t Q1] if one
+      wants to discard [H] from the postcondition. *)
+
 (** Further in this chapter, we present specializations of
     this rule to invoke only the [frame] rule, or only the
     garbage collection rule. *)
