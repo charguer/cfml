@@ -1440,8 +1440,18 @@ End WPgenFix.
 (* ####################################################### *)
 (** * Practical proofs using [wpgen] *)
 
+Module ExampleProofs.
+
+Import NotationForVariables NotationForTerms CoercionsFromStrings.
+Implicit Types n : int.
+
+
 (* ******************************************************* *)
 (** ** Lemmas for handling [wpgen] goals *)
+
+(** For each term construct, and for [mkflocal], we introduce
+    a dedicated lemma, called "x-lemma", to help with the 
+    elimination of the construct. *)
 
 (** [xflocal_lemma] is a reformulation of [mkflocal_erase]. *)
 
@@ -1512,18 +1522,8 @@ Definition xtop_lemma := himpl_mkflocal_htop.
     devised. *)
 
 
-
-
-
-
-
-
-
-
-Module ExampleProofs.
-
-Import NotationForVariables NotationForTerms CoercionsFromStrings.
-Implicit Types n : int.
+(* ******************************************************* *)
+(** ** An example proof *)
 
 (** Recall the definition of the [incr] function, and its specification. *)
 
@@ -1542,11 +1542,7 @@ Definition mysucc :=
     incr 'r ';
     '! 'r.
 
-(** Recall the specification for this function. *)
-
-
-
-
+(** Let us specify and prove this function using the x-lemmas. *)
 
 Lemma triple_mysucc_with_xlemmas : forall n,
   triple (trm_app mysucc n)
@@ -1554,7 +1550,10 @@ Lemma triple_mysucc_with_xlemmas : forall n,
     (fun v => \[v = n+1]).
 Proof using.
   intros.
-  applys xcf_lemma. { reflexivity. } simpl.
+  applys xcf_lemma. { reflexivity. }
+  simpl. (* Here the [wpgen] function computes. *)
+  (* Observe how each node begin with [mkflocal].
+     Observe how program variables are all eliminated. *)
   applys xflocal_lemma.
   applys xlet_lemma.
   applys xflocal_lemma.
@@ -1565,13 +1564,19 @@ Proof using.
   applys xflocal_lemma.
   applys xapp_lemma. { apply triple_incr. }
   hsimpl'. intros ? ->.
-  applys xtop_lemma. (* use of a structural rule here *)
+  applys xtop_lemma. (* Here we exploit [mkflocal] to apply a structural rule. *)
   applys xflocal_lemma.
   applys xapp_lemma. { apply triple_get. }
   hsimpl'. intros ? ->.
   hsimpl'. auto.
 Qed.
 
+
+(* ******************************************************* *)
+(** ** Making proof obligations more readable *)
+
+(** Let us introduce a piece of notation for every "wpgen" auxiliary function,
+    including [mkflocal]. *)
 
 Notation "'Fail'" :=
   ((wpgen_fail))
@@ -1595,8 +1600,6 @@ Notation "'App' f v1 " :=
   ((wp (trm_app f v1)))
   (at level 68, f, v1 at level 0) : wp_scope.
 
-(* TODO: recursive notation for App *)
-
 Notation "'If'' b 'Then' F1 'Else' F2" :=
   ((wpgen_if b F1 F2))
   (at level 69) : wp_scope.
@@ -1605,14 +1608,38 @@ Notation "` F" := (mkflocal F) (at level 10, format "` F") : wp_scope.
 
 Open Scope wp_scope.
 
+Lemma triple_mysucc_with_notations : forall n,
+  triple (trm_app mysucc n)
+    \[]
+    (fun v => \[v = n+1]).
+Proof using.
+  intros. applys xcf_lemma. { reflexivity. } simpl.
+  (* Obseve the goal here, which is of the form [H ==> "t" Q],
+     where "t" reads just like the source code.
+     Thus, compared with a goal of the form [triple t H Q],
+     we have not lost readability. 
+     Yet, compared with [triple t H Q], our goal does not mention
+     any program variable at all. *)
+Abort.
+
+
+(* ******************************************************* *)
+(** ** Making proof scripts more concise *)
+
+(** For each term construct, and for [mkflocal] goals, we introduce
+    a dedicated tactic to apply the corresponding x-lemma, plus
+    performs some basic preliminary work. *)
+
+(** [xflocal] eliminates the leading [mkflocal]. *)
+
 Ltac xflocal :=
   applys xflocal_lemma.
 
+(** [xseq] and [xlet] invoke the corresponding lemma, after
+    calling [xflocal] if necessary. *)
+
 Ltac xflocal_if_needed :=
   try match goal with |- ?H ==> mkflocal ?F ?Q => xflocal end.
-
-Ltac xcf :=
-  intros; applys xcf_lemma; [ reflexivity | simpl ].
 
 Ltac xlet :=
   xflocal_if_needed; applys xlet_lemma.
@@ -1620,8 +1647,8 @@ Ltac xlet :=
 Ltac xseq :=
   xflocal_if_needed; applys xseq_lemma.
 
-Ltac xtop :=
-  applys xtop_lemma.
+(** [xapp] invokes [xapp_lemma], after calling [xseq] or [xlet]
+    if necessary. *)
 
 Ltac xseq_xlet_if_needed :=
   try match goal with |- ?H ==> mkflocal ?F ?Q => 
@@ -1632,6 +1659,18 @@ Ltac xseq_xlet_if_needed :=
 
 Ltac xapp :=
   xseq_xlet_if_needed; xflocal_if_needed; applys xapp_lemma.
+
+(** [xtop] involves [xtop_lemma], exploiting the leading [mkflocal]. *)
+
+Ltac xtop :=
+  applys xtop_lemma.
+
+(** [xcf] applys [xcf_lemma], then computes [wpgen] to begin the proof. *)
+
+Ltac xcf :=
+  intros; applys xcf_lemma; [ reflexivity | simpl ].
+
+(** The proof script becomes much more succint. *)
 
 Lemma triple_mysucc_with_xtactics : forall (n:int),
   triple (trm_app mysucc n)
@@ -1646,12 +1685,23 @@ Proof using.
   hsimpl. auto.
 Qed.
 
+
+(* ******************************************************* *)
+(** ** Further improvements to the [xapp] tactic *)
+
+(** We further improve [xapp] in two ways.
+
+    First, we introduce the variant [xapps] which is specializes
+    for reasoning on the application of functions whose postcondition
+    is of the form [fun r => \[r = v] \* H2], that is, whose result
+    is "equal to some value v", and for which the user wishes to
+    immediately substitute away this result. *)
+
 Lemma xapps_lemma : forall t v H1 H2 H Q,
   triple t H1 (fun r => \[r = v] \* H2) ->
   H ==> H1 \* (H2 \-* protect (Q v)) ->
   H ==> wp t Q.
 Proof using. introv M W. applys xapp_lemma M. hchanges W. intros ? ->. auto. Qed.
-
 
 Ltac xapp_pre :=
   xseq_xlet_if_needed; xflocal_if_needed.
@@ -1659,12 +1709,17 @@ Ltac xapp_pre :=
 Ltac xapps :=
   xapp_pre; applys xapps_lemma.
 
+(** Second, we introduce the [xapp' E] and [xapps' E] variants,
+    which instantiate [E] and exploit it as specification lemma,
+    then call [hsimpl'] on the remaining subgoal. *)
+
 Ltac xapp' E :=
   xapp_pre; applys xapp_lemma E; hsimpl'.
 
 Ltac xapps' E :=
   xapp_pre; applys xapps_lemma E; hsimpl'.
 
+(** The proof script now looks neat. *)
 
 Lemma triple_mysucc_with_more_xapp_args : forall n,
   triple (trm_app mysucc n)
@@ -1678,9 +1733,6 @@ Proof using.
   xapps' triple_get.
   hsimpl~.
 Qed.
-
-
-
 
 End ExampleProofs.
 
