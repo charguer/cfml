@@ -1262,7 +1262,7 @@ Fixpoint trm_size (t:trm) : nat :=
   | trm_constr id ts => 1 + List.fold_right (fun t acc => (acc + trm_size t)%nat) 0%nat ts (* TODO: list_sum *)
   | trm_if t0 t1 t2 => 1 + trm_size t0 + trm_size t1 + trm_size t2
   | trm_let x t1 t2 => 1 + trm_size t1 + trm_size t2
-  | trm_apps t0 ts => 1 + List.fold_right (fun t acc => (acc + trm_size t)%nat) 0%nat ts (* TODO: list_sum *)
+  | trm_apps t0 ts => 1 + trm_size t0 + List.fold_right (fun t acc => (acc + trm_size t)%nat) 0%nat ts (* TODO: list_sum *)
   | trm_while t1 t2 => 1 + trm_size t1 + trm_size t2
   | trm_for x t1 t2 t3 => 1 + trm_size t1 + trm_size t2 + trm_size t3
   | trm_match t0 pts => 1 + trm_size t0 + List.fold_right (fun '(p,t) acc => (acc + trm_size t)%nat) 0%nat pts (* TODO: list_sum+List.map *)

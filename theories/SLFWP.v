@@ -1450,20 +1450,48 @@ Fixpoint size (t:trm) : nat :=
 
 
 (* ******************************************************* *)
-(** ** An induction principle up to substitution *)
+(** ** An induction principle modulo substitution *)
 
 (** We show how to prove [trm_induct_subst] used earlier to justify the
     soundness of the non-structurally-decreasing definition of [wpgen].
+    First, we show that substitution preserves the size.
+    Second, we show how to prove the desired induction principle.
 
-    We assume [trm_induct], the structural induction principle for 
-    our sublanguage, to carry out the proof. *)
+    For the proofs, we assume the standard case-analysis principle,
+    which would be given directly by [destruct t] if our grammar
+    of terms was restricted to the sublanguage considered.
+    Thereafter, we'll invoke [destruct t using trm_case]. *)
 
-(** First, we show that substitution preserves the size. *)
+Parameter trm_case : forall (P : trm -> Prop),
+  (forall v, P (trm_val v)) ->
+  (forall x, P (trm_var x)) ->
+  (forall x t1 , P (trm_fun x t1)) ->
+  (forall (f:var) x t1, P (trm_fix f x t1)) ->
+  (forall t1 t2, P (trm_app t1 t2)) ->
+  (forall t1 t2, P (trm_seq t1 t2)) ->
+  (forall (x:var) t1 t2, P (trm_let x t1 t2)) ->
+  (forall v t1 t2, P (trm_if v t1 t2)) ->  
+  (forall t, P t).
+
+(** First, we show that substitution preserves the size.
+    Here, we exploit [trm_induct], the structural induction principle
+    for our sublanguage, to carry out the proof. *)
 
 Lemma size_subst : forall x v t,
   size (subst x v t) = size t.
 Proof using.
   intros. induction t using trm_induct; intros; simpl; repeat case_if; auto.
+Qed.
+
+(** Remark: the same proof can be carried out by induction on size. *)
+
+Lemma size_subst' : forall x v t,
+  size (subst x v t) = size t.
+Proof using.
+  intros. induction_wf IH: size t. unfolds measure.
+  destruct t using trm_case; simpls; 
+  repeat case_if; simpls;
+  repeat rewrite IH; try math.
 Qed.
 
 (** Second, we prove the desired induction principle by induction on
@@ -1487,21 +1515,21 @@ Proof using.
   introv M1 M2 M3 M4 M5 M6 M7 M8. 
   (** Next line applies [applys well_founded_ind (wf_measure trm_size)] *)
   intros t. induction_wf IH: size t. unfolds measure.
-  (** We perform a case analysis according to the grammar of our sublanguage;
-      ignore the generated induction hypotheses *)
-  destruct t using trm_induct; simpls; eauto.
+  (** We perform a case analysis according to the grammar of our sublanguage *)
+  destruct t using trm_case; simpls; auto.
+  (** Only the case for let-binding is not automatically discharged. We give details. *)
   { applys M7. { applys IH. math. } { intros v. applys IH. rewrite size_subst. math. } }
 Qed.
 
 End TrmInductSubst1.
 
-(** The general pattern for proving such induction principles with a more concise,
+(** Remark: the general pattern for proving such induction principles with a more concise,
     more robust proof script leverages a custom hint to treat the side conditions
     of the form [measure size t1 t2], which are equivalent to [size t1 < size t2]. *)
 
 Section TrmInductSubst2.
 
-Hint Extern 1 (measure size _ _) => 
+Hint Extern 1 (measure size _ _) => (* the custom hint *)
   unfold measure; simpls; repeat rewrite size_subst; math.
 
 Lemma trm_induct_subst' : forall (P : trm -> Prop),
@@ -1516,27 +1544,95 @@ Lemma trm_induct_subst' : forall (P : trm -> Prop),
   (forall t, P t).
 Proof using.
   intros. induction_wf IH: size t.
-  destruct t using trm_induct; simpls; eauto.
+  destruct t using trm_case; simpls; eauto. (* the fully automated proof *)
 Qed.
 
 End TrmInductSubst2.
 
 
-
 (* ******************************************************* *)
-(** ** An induction principle *)
+(** ** Fixedpoint equation for the non-structural definition of [wpgen] *)
+
+Module WPgenFix.
+Import WPgenSubst.
+
+(** Recall the definition of [wpgen t] using the functional [Wpgen],
+    whose fixed point was constructed using the "optimal fixed point
+    combinated" (module LibFix from TLC) as:
+[[
+    Definition wpgen := FixFun Wpgen.
+]]
+    We next show how to prove the fixed point equation, which enables
+    to "unfold" the definition of [wpgen]. The proof requires establishing
+    a "contraction condition", a notion defined in the theory of the
+    optimal fixed point combinator. In short, we must justify that:
+[[
+    forall f1 f2 t,
+    (forall t', size t' < size t -> f1 t' = f2 t') ->
+    Wpgen f1 t = Wpgen f2 t
+]]
+*)
+
+Section WPgenfix1.
+
+Hint Extern 1 (_ < _) => math.
+
+Lemma wpgen_fix : forall t, 
+  wpgen t = Wpgen wpgen t.
+Proof using.
+  applys~ (FixFun_fix (measure size)). { applys wf_measure. } 
+  unfolds measure. intros f1 f2 t IH. (* The goal here is the contraction condition. *)
+  unfold Wpgen. destruct t using trm_case; simpls; try solve [ fequals; auto ].
+  (* Only the case of the let-binding is not automatically proved. We give details.  *)
+  { fequal.
+    { applys IH. math. }
+    { applys fun_ext_1. intros v. applys IH. rewrite size_subst. math. } }
+Qed.
+
+End WPgenfix1.
+
+(** Here again, using the same custom hint as earlier on, and registering
+    functional extensionality as hint, we can shorten the proof script. *)
+
+Section WPgenfix2.
+
+Hint Extern 1 (measure size _ _) => (* the custom hint *)
+  unfold measure; simpls; repeat rewrite size_subst; math.
+
+Hint Resolve fun_ext_1.
+
+Lemma wpgen_fix' : forall t, 
+  wpgen t = Wpgen wpgen t.
+Proof using.
+  applys~ (FixFun_fix (measure size)). { applys wf_measure. } 
+  intros f1 f2 t IH. destruct t using trm_case; simpls; fequals; auto.
+Qed.
+
+End WPgenfix2.
 
 
-(* ---------------------------------------------------------------------- *)
-(** Size of a term, where all values counting for one unit. *)
 
-(** Hint for induction on size. Proves subgoals of the form
-    [measure trm_size t1 t2], when [t1] and [t2] may have some
-    structure or involve substitutions. *)
 
-Ltac solve_measure_trm_size tt :=
-  unfold measure in *; simpls; repeat rewrite trm_size_subst; math.
 
-Hint Extern 1 (measure trm_size _ _) => solve_measure_trm_size tt.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
