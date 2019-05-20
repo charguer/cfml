@@ -65,9 +65,9 @@ Definition formula := (val->hprop) -> hprop.
              \exists (b:bool), \[v0 = val_bool b]
                \* (if b then (wpgen t1) Q else (wpgen t2) Q)
         | trm_seq t1 t2 =>
-             (wpgen t1) (fun X => (wpgen t2) Q)
+             (wpgen t1) (fun v => (wpgen t2) Q)
         | trm_let x t1 t2 =>
-             (wpgen t1) (fun X => (wpgen (subst x X t2)) Q)
+             (wpgen t1) (fun v => (wpgen (subst x v t2)) Q)
         | trm_app t1 t2 => wp t Q
         end).
 ]]
@@ -299,7 +299,7 @@ Proof using. introv M. unfolds wpgen_val. applys triple_fix M. Qed.
     Recall that rule. *)
 
 Parameter triple_seq : forall t1 t2 H Q H1,
-  triple t1 H (fun r => H1) ->
+  triple t1 H (fun v => H1) ->
   triple t2 H1 Q ->
   triple (trm_seq t1 t2) H Q.
 
@@ -309,7 +309,7 @@ Parameter triple_seq : forall t1 t2 H Q H1,
     the rule [triple_seq] gives us: 
 
 [[
-      H ==> wpgen t1 (fun r => H1) ->
+      H ==> wpgen t1 (fun v => H1) ->
       H1 ==> wpgen t2 Q ->
       H ==> wpgen_seq (wpgen t1) (wpgen t2) Q.
 ]]
@@ -324,11 +324,11 @@ Parameter triple_seq : forall t1 t2 H Q H1,
       H => wpgen_seq F1 F2
 ]]
 
-    which simplifies to [F1 (fun r => F2 Q) ==> wpgen_seq F1 F2].
+    which simplifies to [F1 (fun v => F2 Q) ==> wpgen_seq F1 F2].
     This leads us to the following definition of [wpgen_seq]. *)
 
 Definition wpgen_seq (F1 F2:formula) : formula := fun Q =>
-  F1 (fun X => F2 Q).
+  F1 (fun v => F2 Q).
 
 (** Again, let us verify that we obtain the desired implication
     for [trm_seq t1 t2], assuming that we have sound formulae
@@ -683,7 +683,7 @@ Definition Wpgen wpgen (t:trm) : formula :=
   | (* [trm_seq t1 t2] => *)  trm_let bind_anon t1 t2 =>
        wpgen_seq (wpgen t1) (wpgen t2)
   | (* [trm_let x t1 t2] => *)  trm_let (bind_var x) t1 t2 =>
-       wpgen_let (wpgen t1) (fun X => wpgen (subst x X t2))
+       wpgen_let (wpgen t1) (fun v => wpgen (subst x v t2))
   | (* [trm_app t1 t2] => *)  trm_apps t1 (t2::nil) => 
        wp t
   | (* other terms are outside of the sub-language that we consider,
@@ -881,7 +881,37 @@ trivial instantiation of Q' concludes.
 (* ******************************************************* *)
 (** ** Definition of [wpgen] as a structurally-recursive function *)
 
+(** We next present an alternative definition to [wpgen] that has
+    two important benefits. First, it is structurally recursive,
+    thus easier to define in Coq, and more efficient to compute with.
+    Second, it performs substitutions easily rather than eagerly,
+    improving the asymptotic complexity. 
+
+    The new function takes the form [wpgen E t], where [E] denotes a
+    set of bindings from variables to values. Ideally, a "context" [E]
+    should be represented using a binary tree, leading to a [wpgen]
+    function running in O(n log n) compared with O(n^2) for the previous
+    definition which performs substitution during the recursion process.
+
+    However, for simplicity, we will here represent contexts using
+    simple association lists. *)
+
 Definition ctx : Type := list (var*val).
+
+(** On contexts, we'll need two basic operations: lookup and removal.
+
+    [lookup x E] returns [Some v] if [x] maps to [v] in [E],
+    and [None] if no value is bound to [x]. *)
+
+Fixpoint lookup (x:var) (E:ctx) : option val :=
+  match E with
+  | nil => None
+  | (y,v)::E1 => if var_eq x y
+                   then Some v
+                   else lookup x E1
+  end.
+
+(** [rem x E] removes from [E] all the bindings on [x]. *)
 
 Fixpoint rem (x:var) (E:ctx) : ctx :=
   match E with
@@ -891,13 +921,18 @@ Fixpoint rem (x:var) (E:ctx) : ctx :=
       if var_eq x y then E1' else (y,v)::E1'
   end.
 
-Fixpoint lookup (x:var) (E:ctx) : option val :=
-  match E with
-  | nil => None
-  | (y,v)::E1 => if var_eq x y
-                   then Some v
-                   else lookup x E1
-  end.
+(** In order to define [wpgen], we'll also need to define the
+    "substitution for a context" function, written [isubst E t].
+    This function could be defined by iteratively substituting
+    each of the bindings in [E]. However, to simplify the proofs
+    and improve efficiency, this function is defined by induction
+    on the structure of [t].
+
+    - When reaching a variable, [isubst E (trm_var x)] performs
+      a lookup for [x] in [E].
+    - When traversing a binding (e.g., to handle [let x = t1 in t2]=,
+      the bound name is removed from the context (e.g., the recursive
+      call is on (rem x E) t2]). *)
 
 Fixpoint isubst (E:ctx) (t:trm) : trm :=
   match t with
@@ -925,12 +960,28 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
     _ => t
   end.
 
-Parameter isubst_rem : forall x v E t,
-  subst x v (isubst (rem x E) t) = isubst ((x,v)::E) t.
+(** The new definition of [wpgen] is similar in structure to the previous
+    one, with four major changes. In [wpgen E t]:
 
-Parameter isubst_nil : forall t,
-  isubst nil t = t.
+    - The extra argument [E] keeps track of the substitutions that
+      morally should have been formed in [t]. As we formalize further,
+      [wpgen E t] provides a weakest precondition for [isubst E t].
 
+    - When reaching a function [trm_fun x t1], we invoke [wpgen_val]
+      not on [val_fun x t1], but on the function value that 
+      corresponds to the function term [isubst E (trm_fun x t1)],
+      that is, to [val_fun x (isubst (rem x E) t1].
+
+    - When traversing a binder (e.g., [trm_let x t1 t2]), the recursive
+      call is performed on an extended context (e.g., [wpgen ((x,v)::E) t2]).
+      In comparison, the prior definition of [wpgen] would involve a 
+      substitution before the recursive call (e.g., [wpgen (subst x b t2)]).
+
+    - When reaching a variable [trm_var x], we compute the lookup of [x]
+      in [E]. We expect [x] to be bound to some value [v], and return
+      [wpgen_val v]. If [x] is unbound, then it is a dandling free variable
+      so we return [wpgen_fail]. The treatment of variables is captured
+      by the following auxiliary definition. *)
 
 Definition wpgen_var (E:ctx) (x:var) : formula :=
   match lookup x E with
@@ -953,7 +1004,7 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
   | (* [trm_seq t1 t2] => *)  trm_let bind_anon t1 t2 =>
        wpgen_seq (wpgen E t1) (wpgen E t2)
   | (* [trm_let x t1 t2] => *)  trm_let (bind_var x) t1 t2 =>
-       wpgen_let (wpgen E t1) (fun X => wpgen (Ctx.add x X E) t2)
+       wpgen_let (wpgen E t1) (fun v => wpgen ((x,v)::E) t2)
   | (* [trm_app t1 t2] => *)  trm_apps t1 (t2::nil) => 
        wp (isubst E t)
   | (* other terms are outside of the sub-language that we consider,
@@ -961,7 +1012,21 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
     _ => wpgen_fail
   end.
 
-(** We establish the soundness of [wpgen] by structural induction on [t].
+(** In order to establish the soundness of this new definition of [wpgen],
+    we need to exploit two basic properties of substitution.
+    First, the substitution for the empty context is the identity.
+    Second, the substitution for [(x,v)::E] is the same as the 
+    substitution for [rem x E] followed with a substitution of [x] by [v].
+    The proof of these technical lemmas is given in appendix.
+    (The second one reveals quite tricky to obtain.) *)
+
+Parameter isubst_nil : forall t,
+  isubst nil t = t.
+
+Parameter isubst_rem : forall x v E t,
+  isubst ((x,v)::E) t = subst x v (isubst (rem x E) t).
+
+(** We prove the soundness of [wpgen E t] by structural induction on [t].
     The induction principle that we wish to use is that associated
     with the sublanguage presented in [SLFRules], whose inductive
     definition comes with the following induction principle. *)
@@ -978,10 +1043,12 @@ Parameter trm_induct : forall (P : trm -> Prop),
   (forall t, P t).
 
 (** The soundness lemma asserts that [H ==> wpgen t Q] implies
-    [triple t H Q]. Equivalently, it can be formulated as:
-    [forall t, formula_sound_for t (wpgen t)]. The proof consists
-    of invoking all the soundness lemmas which we have proved
-    previously. *)
+    [triple (isubst E t) H Q]. Equivalently, it can be formulated as:
+    [forall t, formula_sound_for (isubst E t) (wpgen t)].
+
+    Appart from the induction that is now structural, the proof script
+    is relatively similar to before. Only the treatment of the variable
+    case and of the binding traversal differ. *)
 
 Lemma wpgen_sound : forall E t,
   formula_sound_for (isubst E t) (wpgen E t).
@@ -998,9 +1065,13 @@ Proof using.
   { applys wpgen_seq_sound. { applys IHt1. } { applys IHt2. } }
   { applys wpgen_let_sound.
     { applys IHt1. }
-    { intros v. rewrite isubst_rem. applys IHt2. } }
+    { intros v. rewrite <- isubst_rem. applys IHt2. } }
   { applys wpgen_if_sound. { applys IHt1. } { applys IHt2. } }
 Qed.
+
+(** The final result for closed terms asserts that [wpgen nil t]
+    computes a weakest precondition for [t], in the sense that
+    [H ==> wpgen nil t Q] implies [triple t H Q]. *)
 
 Lemma triple_of_wpgen : forall t H Q,
   H ==> wpgen nil t Q ->
@@ -1094,16 +1165,21 @@ Proof using.
   { rewrite EQ. auto. }
 Qed.
 
-(** The definition of equivalent contexts up to one binding on [x]
-    appears next. If the binding [x] is removed from the two
-    contexts, then they become equivalent. If a binding other than
-    [x] is removed from the two contexts, then they remain
-    equivalent up to the binding on [x]. *)
+(** The definition of equivalent contexts up to one binding on [x],
+    written [ctx_differ_one x v E1 E2], captures that [E1] and [E2]
+    have the same bindings, except for [x] which [E1] binds to [v]
+    and [E2] does not bind. *)
 
 Definition ctx_differ_one x v E1 E2 :=
      (forall y, y <> x -> lookup y E1 = lookup y E2)
-  /\ (lookup x E1 = None)
-  /\ (lookup x E2 = Some v).
+  /\ (lookup x E1 = Some v)
+  /\ (lookup x E2 = None).
+
+(** Assume [ctx_differ_one x v E1 E2].
+    If the binding [x] is removed from [E1] and [E2], then 
+    they become equivalent.
+    If a binding other than [x] is removed from the two contexts, 
+    then they remain equivalent up to the binding on [x]. *)
 
 Lemma ctx_differ_one_rem_same : forall x v E1 E2,
   ctx_differ_one x v E1 E2 ->
@@ -1131,13 +1207,13 @@ Hint Resolve isubst_ctx_equiv
 
 Lemma isubst_rem_ind : forall y v E1 E2 t,
   ctx_differ_one y v E1 E2 ->
-  subst y v (isubst E1 t) = isubst E2 t.
+  isubst E1 t = subst y v (isubst E2 t).
 Proof using.
   intros. gen E1 E2. induction t using trm_induct; introv M; simpl; rew_trm.
   { fequals. }
   { destruct M as (M0&M1&M2). tests C: (x = y).
-    { rewrite M1,M2. simpl. case_var~. }
-    { rewrite~ M0. case_eq (lookup x E2).
+    { rewrite M2, M1. simpl. case_var~. }
+    { rewrite~ <- M0. case_eq (lookup x E1).
       { intros v' R'. auto. }
       { simpl. case_var~. } } }
   { fequals. case_var; rew_logic in *; subst*. }
@@ -1151,12 +1227,12 @@ Qed.
 End IsubstRemInd.
 
 Lemma isubst_rem' : forall x v E t,
-  subst x v (isubst (rem x E) t) = isubst ((x, v) :: E) t.
+  isubst ((x, v)::E) t = subst x v (isubst (rem x E) t).
 Proof using.
   intros. applys isubst_rem_ind. splits.
   { intros y K. simpl. rewrite lookup_rem. case_var~. }
-  { rewrite lookup_rem. case_var~. }
   { simpl. case_var~. }
+  { rewrite lookup_rem. case_var~. }
 Qed.
 
 
