@@ -1942,3 +1942,17 @@ Qed.
 Lemma mkflocal_ramified : forall F Q1 Q2,
   
 Proof using. unfold mkflocal. hsimpl. Qed.
+
+
+
+Lemma texan_triple_equiv' : forall t H A (Hof:val->A->hprop) (vof:A->val),
+      (triple t H (fun r => \exists x, \[r = vof x] \* Hof r x))
+  <-> (forall Q, H \* (\forall x, Hof (vof x) x \-* Q (vof x)) ==> wp t Q).
+Proof using.
+  intros. iff M.
+  { intros Q. rewrite <- wp_equiv. applys triple_conseq_frame M.
+    hsimpl. hsimpl. intros r x ->. hchanges (hforall_specialize x). }
+  { match goal with |- triple _ _ ?Q => specializes M Q end.
+    rewrite <- wp_equiv in M. applys triple_conseq_frame M. hsimpl.
+  skip. hsimpl~. }
+Qed.

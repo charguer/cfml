@@ -37,3 +37,22 @@ Definition trm_fun' x t1 := trm_fix bind_anon x t1.
 
 
 
+
+Notation "'TRIPLE' t 'PRE' H1 'BIND' x1 x2 x3 'RET' v 'POST' H2" :=
+  (forall Q, H1 \* \[forall x1 x2 x3, H2 ==> Q v] ==> WP t Q)
+  (at level 68, t at level 0, x1 ident, x2 ident, x3 ident) : triple_scope.
+
+Notation "'TRIPLE' t 'PRE' H1 'RET' v 'POST' H2" :=
+  (forall Q, H1 \* \[(fun r => \[r = v] \* H2) ===> Q] ==> WP t Q)
+  (at level 39, t at level 0) : triple_scope.
+
+
+Notation "'\exists' x1 .. xn , H" :=
+  (hexists (fun x1 => .. (hexists (fun xn => H)) ..))
+  (at level 39, x1 binder, H at level 50, right associativity,
+   format "'[' '\exists' '/ '  x1  ..  xn , '/ '  H ']'").
+
+
+
+
+

@@ -244,10 +244,13 @@ Qed.
 
 Lemma wp_ramified : forall t Q1 Q2,
   (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
-Proof using.
-  intros. applys wp_conseq_frame_htop.
-  hsimpl. (* exploiting [qwand_cancel] *)
-Qed.
+Proof using. intros. applys wp_conseq_frame_htop. hsimpl. Qed.
+
+(** The following specialization is useful to apply only frame. *)
+
+Lemma wp_ramified_frame : forall t Q1 Q2,
+  (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
+Proof using. intros. applys wp_conseq_frame_htop. hsimpl. Qed.
 
 (** The following reformulation is handy to apply on any goal
     of the form [H ==> wp t Q]. *)
@@ -404,6 +407,144 @@ Qed.
 
 (** Note, equivalently, the [H] from rules [wp_hany_pre] and 
    [wp_hand_post] may be replaced with [\Top]. *)
+
+
+(* ******************************************************* *)
+(** ** Texan triples *)
+
+(** In this section, we show that specification triples can be presented
+    in a different (yet equivalent) style using weakest preconditions. *)
+
+(** Consider for example the specification triple for allocation. *)
+
+Parameter triple_ref : forall v,
+  triple (val_ref v)
+    \[]
+    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v).
+
+(** This specification can be equivalently reformulated in the form: *)
+
+Parameter wp_ref : forall Q v,
+  \[] \* (\forall l, l ~~~> v \-* Q (val_loc l)) ==> wp (val_ref v) Q.
+
+(** Above, we purposely left the empty heap predicate to the front to
+    indicate where the precondition, if it were not empty, would go in
+    the reformulation. *)
+
+(** In what follows, we describe the chain of transformation that can take us
+    from the triple form to the wp form, and establish the reciprocal.
+    We then formalize the general pattern for translating a triple
+    into a "texan triple" (i.e., the wp-based specification). *)
+
+
+(* ------------------------------------------------------- *)
+(** *** 1. From the triple specification to the wp specification and back *)
+
+(** By replacing [triple t H Q] with [H ==> wp t Q], the specification
+    gets reformulated as: *)
+
+Lemma wp_ref_0 : forall v,
+  \[] ==> wp (val_ref v) (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
+Proof using. intros. rewrite <- wp_equiv. applys triple_ref. Qed.
+
+(** The statement can be reformulated with the aim of making the RHS of the
+    form [wp (val_ref v) Q] for an abstract [Q]. *)
+
+Lemma wp_ref_1 : forall Q v,
+  ((fun r => \exists l, \[r = val_loc l] \* l ~~~> v) \--* Q) ==> wp (val_ref v) Q.
+Proof using. intros. hchange (wp_ref_0 v); rew_trm. applys wp_ramified_frame. Qed.
+
+(** This statement can be further reformulated by quantifying [r] with a [\forall],
+    which essentially amounts to unfolding the definition of [\--*]. *)
+
+Lemma wp_ref_2 : forall Q v,
+  (\forall r, (\exists l, \[r = val_loc l] \* l ~~~> v) \-* Q r) ==> wp (val_ref v) Q.
+Proof using. intros. applys wp_ref_1. Qed.
+
+(** The point is that now we may eliminate [r]: *)
+
+Lemma wp_ref_3 : forall Q v,
+  (\forall l, l ~~~> v \-* Q (val_loc l)) ==> wp (val_ref v) Q.
+Proof using.
+  intros. applys himpl_trans wp_ref_2.
+  hsimpl. intros ? l ->. hchange (hforall_specialize l).
+Qed.
+
+(* ------------------------------------------------------- *)
+(** *** 2. The general pattern *)
+
+(** In practice, specification triples can (pretty much) all be casted
+    in the form: [triple t H (fun r => exists x1 x2, \[r = v] \* H'].
+    The value [v] may depend on the [xi].
+    The heap predicate [H'] may depend on [r] and the [xi].
+    The number of existentials [xi] may vary, possibly be zero.
+    The equality \[r = v] may degenerate to \[r = r] if no pure fact
+    is needed about [r]. 
+
+    A triple of the above form may be reformulated as:
+    [(\forall x1 x2, H \-* Q v) ==> wp t Q]. 
+
+    We next formalize this result for the case of a single [xi] variable,
+    making it explicit that [H] and [v] may depend on it. *)
+
+Lemma texan_triple_equiv : forall t H A (Hof:val->A->hprop) (vof:A->val),
+      (triple t H (fun r => \exists x, \[r = vof x] \* Hof r x))
+  <-> (forall Q, H \* (\forall x, Hof (vof x) x \-* Q (vof x)) ==> wp t Q).
+Proof using.
+  intros. rewrite wp_equiv. iff M.
+  { intros Q. hchange M. applys wp_ramified_trans.
+    hsimpl. intros r x ->. hchanges (hforall_specialize x). }
+  { applys himpl_trans M. hsimpl~. }
+Qed.
+
+
+(* ------------------------------------------------------- *)
+(** *** 3. Exercise *)
+
+(** Recall the function [incr] and its specification. *)
+
+Parameter incr : val. (* code omitted *)
+
+Parameter triple_incr : forall (p:loc) (n:int),
+  triple (trm_app incr p)
+    (p ~~~> n)
+    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+
+(* EX2! (wp_incr) *)
+(** State a Texan triple for [incr] as a lemma [wp_incr],
+    then prove this lemma from [triple_incr].
+
+    Hint: the proof is a bit easier by first turning the [wp] into a [triple]
+    and then reasoning about triples, compared than working on the [wp] form. *)
+
+(* SOLUTION *)
+Lemma wp_incr : forall (p:loc) (n:int) Q,
+  (p ~~~> n) \* (p ~~~> (n+1) \-* Q val_unit) ==> wp (trm_app incr p) Q.
+Proof using.
+  intros. rewrite <- wp_equiv. applys triple_conseq_frame.
+  { applys triple_incr. } { hsimpl. } { hsimpl ;=> ? ->. auto. }
+Qed.
+(* /SOLUTION *)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
