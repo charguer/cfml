@@ -927,7 +927,7 @@ Fixpoint rem (x:var) (E:ctx) : ctx :=
 
     - When reaching a variable, [isubst E (trm_var x)] performs
       a lookup for [x] in [E].
-    - When traversing a binding (e.g., to handle [let x = t1 in t2]=,
+    - When traversing a binding (e.g., to handle [let x = t1 in t2]),
       the bound name is removed from the context (e.g., the recursive
       call is on (rem x E) t2]). *)
 
@@ -952,9 +952,13 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
        trm_let x (isubst E t1) (isubst (rem x E) t2)
   | (* [trm_app t1 t2] => *)  trm_apps t1 (t2::nil) => 
        trm_app (isubst E t1) (isubst E t2)
-  | (* other terms are outside of the sub-language that we consider,
-       so let us here pretend that they are no such terms. *)
-    _ => t
+  (* Other terms are outside of the sub-language that we consider,
+     so let us here pretend that they are no such terms.
+     Nevertheless, we add support for n-ary applications, so as
+     to be able to consider interesting demos. *)
+  | trm_apps t1 ts => 
+       trm_apps (isubst E t1) (List.map (isubst E) ts)
+  | _ => t
   end.
 
 (** The new definition of [wpgen] is similar in structure to the previous
@@ -1002,10 +1006,12 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
        wpgen_seq (wpgen E t1) (wpgen E t2)
   | (* [trm_let x t1 t2] => *)  trm_let (bind_var x) t1 t2 =>
        wpgen_let (wpgen E t1) (fun v => wpgen ((x,v)::E) t2)
-  | (* [trm_app t1 t2] => *)  trm_apps t1 (t2::nil) => 
+  | (* [trm_app t1 t2] => *)  trm_apps t1 ts => 
        wp (isubst E t)
-  | (* other terms are outside of the sub-language that we consider,
-       so let us here pretend that they are no such terms. *)
+  | (* Other terms are outside of the sub-language that we consider,
+       so let us here pretend that they are no such terms. 
+       Note the exception in the [trm_app] case, whose pattern we encode
+       as [trm_apps t1 ts] to support n-ary applications. *)
     _ => wpgen_fail
   end.
 
@@ -1077,6 +1083,360 @@ Proof using.
   introv M. lets N: wpgen_sound M.
   rewrite isubst_nil in N. applys N.
 Qed.
+
+
+
+(* ####################################################### *)
+(** * Practical proofs using [wpgen] *)
+
+Module ExampleProofs.
+
+Import NotationForVariables NotationForTerms CoercionsFromStrings.
+Implicit Types n : int.
+
+
+(* ******************************************************* *)
+(** ** Lemmas for handling [wpgen] goals *)
+
+(** For each term construct, and for [mkstruct], we introduce
+    a dedicated lemma, called "x-lemma", to help with the 
+    elimination of the construct. *)
+
+(** [xstruct_lemma] is a reformulation of [mkstruct_erase]. *)
+
+Lemma xstruct_lemma : forall F H Q,
+  H ==> F Q ->
+  H ==> mkstruct F Q.
+Proof using. introv M. hchange M. applys mkstruct_erase. Qed.
+
+(** [xlet_lemma] reformulates the definition of [wpgen_let].
+    It just unfolds the definition. *)
+
+Lemma xlet_lemma : forall H F1 F2of Q,
+  H ==> F1 (fun v => F2of v Q) ->
+  H ==> wpgen_let F1 F2of Q.
+Proof using. introv M. hchange M. Qed.
+
+(** Likewise, [xseq_lemma] reformulates [wpgen_seq]. *)
+
+Lemma xseq_lemma : forall H F1 F2 Q,
+  H ==> F1 (fun v => F2 Q) ->
+  H ==> wpgen_seq F1 F2 Q.
+Proof using. introv M. hchange M. Qed.
+
+(** [xapp_lemma] reformulates the ramified frame rule, with a goal
+    as a [wp] (which is produced by [wpgen] on an application),
+    and a premise as a triple (because triples are used to state 
+    specification lemmas. Observe that the rule includes an identity
+    function called [protect], which is used to prevent [hsimpl]
+    from performing too aggressive simplifications. *)
+
+Lemma xapp_lemma : forall t Q1 H1 H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* protect Q) ->
+  H ==> wp t Q.
+Proof using. introv M W. rewrite <- wp_equiv. applys~ triple_ramified_frame M. Qed.
+
+(** The [hsimpl'] tactic is a variant of [hsimpl] that clears the
+    identity tag [protect] upon completion. *)
+
+Ltac hsimpl' := hsimpl; unfold protect.
+
+(** [xcf_lemma] is a variant of [wpgen_of_triple] specialized for
+    establishing a triple for a function application. The rule reformulates
+    [triple_app_fun] with a premise of the form [wpgen E t]. *)
+
+Lemma xcf_lemma : forall v1 v2 x t H Q,
+  v1 = val_fun x t ->
+  H ==> wpgen ((x,v2)::nil) t Q ->
+  triple (trm_app v1 v2) H Q.
+Proof using.
+  introv M1 M2. applys triple_app_fun M1.
+  asserts_rewrite (subst x v2 t = isubst ((x,v2)::nil) t).
+  { rewrite isubst_rem. rewrite~ isubst_nil. }
+  applys wpgen_sound M2.
+Qed.
+
+(** [xtop_lemma] helps exploiting [mkstruct] to augment the postcondition
+    with [\Top]. It proves the entailement:
+[[
+    H ==> mkstruct F (Q \*+ \Top) -> 
+    H ==> mkstruct F Q.
+]]
+*)
+
+Definition xtop_lemma := himpl_mkstruct_htop.
+
+(** Other lemmas for structural rules, not shown here, can be similarly
+    devised. *)
+
+
+(* ******************************************************* *)
+(** ** An example proof *)
+
+(** Recall the definition of the [incr] function, and its specification. *)
+
+Definition incr :=
+  VFun 'p :=
+    Let 'n := '! 'p in
+    Let 'm := 'n '+ 1 in
+   'p ':= 'm.
+
+Parameter triple_incr : forall (p:loc) (n:int),
+  triple (trm_app incr p)
+    (p ~~~> n)
+    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+
+(** Recall the definition of [mysucc], which allocates a reference
+    with contents [n], increments its contents, then reads the output. *)
+
+Definition mysucc :=
+  VFun 'n :=
+    Let 'r := val_ref 'n in
+    incr 'r ';
+    '! 'r.
+
+(** Let us specify and prove this function using the x-lemmas. *)
+
+Lemma triple_mysucc_with_xlemmas : forall n,
+  triple (trm_app mysucc n)
+    \[]
+    (fun v => \[v = n+1]).
+Proof using.
+  intros.
+  applys xcf_lemma. { reflexivity. }
+  simpl. (* Here the [wpgen] function computes. *)
+  (* Observe how each node begin with [mkstruct].
+     Observe how program variables are all eliminated. *)
+  applys xstruct_lemma.
+  applys xlet_lemma.
+  applys xstruct_lemma.
+  applys xapp_lemma. { apply triple_ref. }
+  hsimpl'. intros ? l ->.
+  applys xstruct_lemma.
+  applys xseq_lemma.
+  applys xstruct_lemma.
+  applys xapp_lemma. { apply triple_incr. }
+  hsimpl'. intros ? ->.
+  applys xtop_lemma. (* Here we exploit [mkstruct] to apply a structural rule. *)
+  applys xstruct_lemma.
+  applys xapp_lemma. { apply triple_get. }
+  hsimpl'. intros ? ->.
+  hsimpl'. auto.
+Qed.
+
+
+(* ******************************************************* *)
+(** ** Making proof obligations more readable *)
+
+(** Let us introduce a piece of notation for every "wpgen" auxiliary function,
+    including [mkstruct]. *)
+
+Notation "'Fail'" :=
+  ((wpgen_fail))
+  (at level 69) : wp_scope.
+
+Notation "'Val' v" :=
+  ((wpgen_val v))
+  (at level 69) : wp_scope.
+
+Notation "'`Let' x ':=' F1 'in' F2" :=
+  ((wpgen_let F1 (fun x => F2)))
+  (at level 69, x ident, right associativity,
+  format "'[v' '[' '`Let'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
+
+Notation "'Seq' F1 ;;; F2" :=
+  ((wpgen_seq F1 F2))
+  (at level 68, right associativity,
+   format "'[v' 'Seq'  '[' F1 ']'  ;;;  '/'  '[' F2 ']' ']'") : wp_scope.
+
+Notation "'App' f v1 " :=
+  ((wp (trm_app f v1)))
+  (at level 68, f, v1 at level 0) : wp_scope.
+
+Notation "'If'' b 'Then' F1 'Else' F2" :=
+  ((wpgen_if b F1 F2))
+  (at level 69) : wp_scope.
+
+Notation "` F" := (mkstruct F) (at level 10, format "` F") : wp_scope.
+
+Open Scope wp_scope.
+
+Lemma triple_mysucc_with_notations : forall n,
+  triple (trm_app mysucc n)
+    \[]
+    (fun v => \[v = n+1]).
+Proof using.
+  intros. applys xcf_lemma. { reflexivity. } simpl.
+  (* Obseve the goal here, which is of the form [H ==> "t" Q],
+     where "t" reads just like the source code.
+     Thus, compared with a goal of the form [triple t H Q],
+     we have not lost readability. 
+     Yet, compared with [triple t H Q], our goal does not mention
+     any program variable at all. *)
+Abort.
+
+
+(* ******************************************************* *)
+(** ** Making proof scripts more concise *)
+
+(** For each term construct, and for [mkstruct] goals, we introduce
+    a dedicated tactic to apply the corresponding x-lemma, plus
+    performs some basic preliminary work. *)
+
+(** [xstruct] eliminates the leading [mkstruct]. *)
+
+Ltac xstruct :=
+  applys xstruct_lemma.
+
+(** [xseq] and [xlet] invoke the corresponding lemma, after
+    calling [xstruct] if necessary. *)
+
+Ltac xstruct_if_needed :=
+  try match goal with |- ?H ==> mkstruct ?F ?Q => xstruct end.
+
+Ltac xlet :=
+  xstruct_if_needed; applys xlet_lemma.
+
+Ltac xseq :=
+  xstruct_if_needed; applys xseq_lemma.
+
+(** [xapp] invokes [xapp_lemma], after calling [xseq] or [xlet]
+    if necessary. *)
+
+Ltac xseq_xlet_if_needed :=
+  try match goal with |- ?H ==> mkstruct ?F ?Q => 
+  match F with 
+  | wpgen_seq ?F1 ?F2 => xseq
+  | wpgen_let ?F1 ?F2of => xlet
+  end end.
+
+Ltac xapp :=
+  xseq_xlet_if_needed; xstruct_if_needed; applys xapp_lemma.
+
+(** [xtop] involves [xtop_lemma], exploiting the leading [mkstruct]. *)
+
+Ltac xtop :=
+  applys xtop_lemma.
+
+(** [xcf] applys [xcf_lemma], then computes [wpgen] to begin the proof. *)
+
+Ltac xcf :=
+  intros; applys xcf_lemma; [ reflexivity | simpl ].
+
+(** The proof script becomes much more succint. *)
+
+Lemma triple_mysucc_with_xtactics : forall (n:int),
+  triple (trm_app mysucc n)
+    \[]
+    (fun v => \[v = n+1]).
+Proof using.
+  xcf.
+  xapp. { apply triple_ref. } hsimpl' ;=> ? l ->.
+  xapp. { apply triple_incr. } hsimpl' ;=> ? ->.
+  xtop.
+  xapp. { apply triple_get. } hsimpl' ;=> ? ->.
+  hsimpl. auto.
+Qed.
+
+(* EX2! (triple_incr_with_xtactics) *)
+(** Using x-tactics, verify the proof of [incr].
+    (The proof was carried out using triples in chapter [SLFRules].) *)
+
+Lemma triple_incr_with_xtactics : forall (p:loc) (n:int),
+  triple (trm_app incr p)
+    (p ~~~> n)
+    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+Proof using.
+(* SOLUTION *)
+  xcf.
+  xapp. { apply triple_get. } hsimpl' ;=> ? ->.
+  xapp. { apply triple_add. } hsimpl' ;=> ? ->.
+  xapp. { apply triple_set. } hsimpl' ;=> ? ->.
+  hsimpl. auto.
+(* /SOLUTION *)
+Qed.
+
+
+(* ******************************************************* *)
+(** ** Further improvements to the [xapp] tactic. *)
+
+(** We further improve [xapp] in two ways.
+
+    First, we introduce the variant [xapp' E] which mimics the
+    proof pattern: [xapp. { apply E. } hsimpl'.]. Concretely,
+    [xapp' E] directly exploits the specification [E] rather
+    than requiring an explicit [apply E], and a subsequent [hsimpl']. *)
+
+Ltac xapp_pre :=
+  xseq_xlet_if_needed; xstruct_if_needed.
+
+Ltac xapp' E :=
+  xapp_pre; applys xapp_lemma E; hsimpl'.
+
+(** Second, we introduce the variant [xapps E] to mimic the
+    pattern [xapp. { apply E. } hsimpl' ;=> ? ->]. Concretely,
+    the tactic [xapps E] exploits a specification [E] whose conclusion
+    is of the form [fun r => \[r = v] \* H] or [fun r => \[r = v]],
+    and for which the user wishes to immediately substitute [r] away. *)
+
+Lemma xapps_lemma0 : forall t v H1 H Q,
+  triple t H1 (fun r => \[r = v]) ->
+  H ==> H1 \* (protect (Q v)) ->
+  H ==> wp t Q.
+Proof using. introv M W. applys xapp_lemma M. hchanges W. intros ? ->. auto. Qed.
+
+Lemma xapps_lemma1 : forall t v H1 H2 H Q,
+  triple t H1 (fun r => \[r = v] \* H2) ->
+  H ==> H1 \* (H2 \-* protect (Q v)) ->
+  H ==> wp t Q.
+Proof using. introv M W. applys xapp_lemma M. hchanges W. intros ? ->. auto. Qed.
+
+Ltac xapps E :=
+  xapp_pre; first 
+  [ applys xapps_lemma0 E
+  | applys xapps_lemma1 E ];
+  hsimpl'.
+
+
+(* ******************************************************* *)
+(** ** Here is the DEMO of a practical proof based on x-tactics. *)
+
+(** The proof script now looks neat. *)
+
+Lemma triple_mysucc_with_xapps : forall n,
+  triple (trm_app mysucc n)
+    \[]
+    (fun v => \[v = n+1]).
+Proof using.
+  xcf.
+  xapp' triple_ref ;=> ? l ->.
+  xapps triple_incr.
+  xtop.
+  xapps triple_get.
+  hsimpl~.
+Qed.
+
+(* EX2! (triple_incr_with_xapps) *)
+(** Using [xapp] variants [xapp' E] and [xapps' E], refine the proof
+    script for [incr] from the previous exercise. *)
+
+Lemma triple_incr_with_xapps : forall (p:loc) (n:int),
+  triple (trm_app incr p)
+    (p ~~~> n)
+    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+Proof using.
+(* SOLUTION *)
+  xcf.
+  xapps triple_get.
+  xapps triple_add.
+  xapps triple_set.
+  hsimpl~.
+(* /SOLUTION *)
+Qed.
+
+End ExampleProofs.
+
 
 
 (* ####################################################### *)
@@ -1232,9 +1592,10 @@ Proof using.
   { rewrite lookup_rem. case_var~. }
 Qed.
 
-(** Another useful corollary reformulates [subst] in terms of [isubst] *)
+(** Another useful corollary reformulates [subst] in terms of [isubst].
+    This result is exploited, e.g., in the proof of [xcf_lemma]. *)
 
-Lemma subst_eq_isubst : forall x v t,
+Lemma subst_eq_isubst' : forall x v t,
   subst x v t = isubst ((x,v)::nil) t.
 Proof using. intros. rewrite isubst_rem. simpl. rewrite~ isubst_nil. Qed.
 
@@ -1435,314 +1796,4 @@ Qed.
 End WPgenfix2.
 
 End WPgenFix.
-
-
-(* ####################################################### *)
-(** * Practical proofs using [wpgen] *)
-
-Module ExampleProofs.
-
-Import NotationForVariables NotationForTerms CoercionsFromStrings.
-Implicit Types n : int.
-
-
-(* ******************************************************* *)
-(** ** Lemmas for handling [wpgen] goals *)
-
-(** For each term construct, and for [mkstruct], we introduce
-    a dedicated lemma, called "x-lemma", to help with the 
-    elimination of the construct. *)
-
-(** [xstruct_lemma] is a reformulation of [mkstruct_erase]. *)
-
-Lemma xstruct_lemma : forall F H Q,
-  H ==> F Q ->
-  H ==> mkstruct F Q.
-Proof using. introv M. hchange M. applys mkstruct_erase. Qed.
-
-(** [xlet_lemma] reformulates the definition of [wpgen_let].
-    It just unfolds the definition. *)
-
-Lemma xlet_lemma : forall H F1 F2of Q,
-  H ==> F1 (fun v => F2of v Q) ->
-  H ==> wpgen_let F1 F2of Q.
-Proof using. introv M. hchange M. Qed.
-
-(** Likewise, [xseq_lemma] reformulates [wpgen_seq]. *)
-
-Lemma xseq_lemma : forall H F1 F2 Q,
-  H ==> F1 (fun v => F2 Q) ->
-  H ==> wpgen_seq F1 F2 Q.
-Proof using. introv M. hchange M. Qed.
-
-(** [xapp_lemma] reformulates the ramified frame rule, with a goal
-    as a [wp] (which is produced by [wpgen] on an application),
-    and a premise as a triple (because triples are used to state 
-    specification lemmas. Observe that the rule includes an identity
-    function called [protect], which is used to prevent [hsimpl]
-    from performing too aggressive simplifications. *)
-
-Lemma xapp_lemma : forall t Q1 H1 H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* protect Q) ->
-  H ==> wp t Q.
-Proof using. introv M W. rewrite <- wp_equiv. applys~ triple_ramified_frame M. Qed.
-
-(** The [hsimpl'] tactic is a variant of [hsimpl] that clears the
-    identity tag [protect] upon completion. *)
-
-Ltac hsimpl' := hsimpl; unfold protect.
-
-(** [xcf_lemma] is a variant of [wpgen_of_triple] specialized for
-    establishing a triple for a function application. The rule reformulates
-    [triple_app_fun] with a premise of the form [wpgen E t]. *)
-
-Lemma xcf_lemma : forall v1 v2 x t H Q,
-  v1 = val_fun x t ->
-  H ==> wpgen ((x,v2)::nil) t Q ->
-  triple (trm_app v1 v2) H Q.
-Proof using.
-  introv M1 M2. applys triple_app_fun M1.
-  asserts_rewrite (subst x v2 t = isubst ((x,v2)::nil) t).
-  { rewrite isubst_rem. rewrite~ isubst_nil. }
-  applys wpgen_sound M2.
-Qed.
-
-(** [xtop_lemma] helps exploiting [mkstruct] to augment the postcondition
-    with [\Top]. It proves the entailement:
-[[
-    H ==> mkstruct F (Q \*+ \Top) -> 
-    H ==> mkstruct F Q.
-]]
-*)
-
-Definition xtop_lemma := himpl_mkstruct_htop.
-
-(** Other lemmas for structural rules, not shown here, can be similarly
-    devised. *)
-
-
-(* ******************************************************* *)
-(** ** An example proof *)
-
-(** Recall the definition of the [incr] function, and its specification. *)
-
-Parameter incr : val.
-
-Parameter triple_incr : forall (p:loc) (n:int),
-  triple (trm_app incr p)
-    (p ~~~> n)
-    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
-
-(** Recall the definition of [mysucc]. *)
-
-Definition mysucc :=
-  VFun 'n :=
-    Let 'r := val_ref 'n in
-    incr 'r ';
-    '! 'r.
-
-(** Let us specify and prove this function using the x-lemmas. *)
-
-Lemma triple_mysucc_with_xlemmas : forall n,
-  triple (trm_app mysucc n)
-    \[]
-    (fun v => \[v = n+1]).
-Proof using.
-  intros.
-  applys xcf_lemma. { reflexivity. }
-  simpl. (* Here the [wpgen] function computes. *)
-  (* Observe how each node begin with [mkstruct].
-     Observe how program variables are all eliminated. *)
-  applys xstruct_lemma.
-  applys xlet_lemma.
-  applys xstruct_lemma.
-  applys xapp_lemma. { apply triple_ref. }
-  hsimpl'. intros ? l ->.
-  applys xstruct_lemma.
-  applys xseq_lemma.
-  applys xstruct_lemma.
-  applys xapp_lemma. { apply triple_incr. }
-  hsimpl'. intros ? ->.
-  applys xtop_lemma. (* Here we exploit [mkstruct] to apply a structural rule. *)
-  applys xstruct_lemma.
-  applys xapp_lemma. { apply triple_get. }
-  hsimpl'. intros ? ->.
-  hsimpl'. auto.
-Qed.
-
-
-(* ******************************************************* *)
-(** ** Making proof obligations more readable *)
-
-(** Let us introduce a piece of notation for every "wpgen" auxiliary function,
-    including [mkstruct]. *)
-
-Notation "'Fail'" :=
-  ((wpgen_fail))
-  (at level 69) : wp_scope.
-
-Notation "'Val' v" :=
-  ((wpgen_val v))
-  (at level 69) : wp_scope.
-
-Notation "'`Let' x ':=' F1 'in' F2" :=
-  ((wpgen_let F1 (fun x => F2)))
-  (at level 69, x ident, right associativity,
-  format "'[v' '[' '`Let'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
-
-Notation "'Seq' F1 ;;; F2" :=
-  ((wpgen_seq F1 F2))
-  (at level 68, right associativity,
-   format "'[v' 'Seq'  '[' F1 ']'  ;;;  '/'  '[' F2 ']' ']'") : wp_scope.
-
-Notation "'App' f v1 " :=
-  ((wp (trm_app f v1)))
-  (at level 68, f, v1 at level 0) : wp_scope.
-
-Notation "'If'' b 'Then' F1 'Else' F2" :=
-  ((wpgen_if b F1 F2))
-  (at level 69) : wp_scope.
-
-Notation "` F" := (mkstruct F) (at level 10, format "` F") : wp_scope.
-
-Open Scope wp_scope.
-
-Lemma triple_mysucc_with_notations : forall n,
-  triple (trm_app mysucc n)
-    \[]
-    (fun v => \[v = n+1]).
-Proof using.
-  intros. applys xcf_lemma. { reflexivity. } simpl.
-  (* Obseve the goal here, which is of the form [H ==> "t" Q],
-     where "t" reads just like the source code.
-     Thus, compared with a goal of the form [triple t H Q],
-     we have not lost readability. 
-     Yet, compared with [triple t H Q], our goal does not mention
-     any program variable at all. *)
-Abort.
-
-
-(* ******************************************************* *)
-(** ** Making proof scripts more concise *)
-
-(** For each term construct, and for [mkstruct] goals, we introduce
-    a dedicated tactic to apply the corresponding x-lemma, plus
-    performs some basic preliminary work. *)
-
-(** [xstruct] eliminates the leading [mkstruct]. *)
-
-Ltac xstruct :=
-  applys xstruct_lemma.
-
-(** [xseq] and [xlet] invoke the corresponding lemma, after
-    calling [xstruct] if necessary. *)
-
-Ltac xstruct_if_needed :=
-  try match goal with |- ?H ==> mkstruct ?F ?Q => xstruct end.
-
-Ltac xlet :=
-  xstruct_if_needed; applys xlet_lemma.
-
-Ltac xseq :=
-  xstruct_if_needed; applys xseq_lemma.
-
-(** [xapp] invokes [xapp_lemma], after calling [xseq] or [xlet]
-    if necessary. *)
-
-Ltac xseq_xlet_if_needed :=
-  try match goal with |- ?H ==> mkstruct ?F ?Q => 
-  match F with 
-  | wpgen_seq ?F1 ?F2 => xseq
-  | wpgen_let ?F1 ?F2of => xlet
-  end end.
-
-Ltac xapp :=
-  xseq_xlet_if_needed; xstruct_if_needed; applys xapp_lemma.
-
-(** [xtop] involves [xtop_lemma], exploiting the leading [mkstruct]. *)
-
-Ltac xtop :=
-  applys xtop_lemma.
-
-(** [xcf] applys [xcf_lemma], then computes [wpgen] to begin the proof. *)
-
-Ltac xcf :=
-  intros; applys xcf_lemma; [ reflexivity | simpl ].
-
-(** The proof script becomes much more succint. *)
-
-Lemma triple_mysucc_with_xtactics : forall (n:int),
-  triple (trm_app mysucc n)
-    \[]
-    (fun v => \[v = n+1]).
-Proof using.
-  xcf.
-  xapp. { apply triple_ref. } hsimpl' ;=> ? l ->.
-  xapp. { apply triple_incr. } hsimpl' ;=> ? ->.
-  xtop.
-  xapp. { apply triple_get. } hsimpl' ;=> ? ->.
-  hsimpl. auto.
-Qed.
-
-
-(* ******************************************************* *)
-(** ** Further improvements to the [xapp] tactic *)
-
-(** We further improve [xapp] in two ways.
-
-    First, we introduce the variant [xapps] which is specializes
-    for reasoning on the application of functions whose postcondition
-    is of the form [fun r => \[r = v] \* H2], that is, whose result
-    is "equal to some value v", and for which the user wishes to
-    immediately substitute away this result. *)
-
-Lemma xapps_lemma : forall t v H1 H2 H Q,
-  triple t H1 (fun r => \[r = v] \* H2) ->
-  H ==> H1 \* (H2 \-* protect (Q v)) ->
-  H ==> wp t Q.
-Proof using. introv M W. applys xapp_lemma M. hchanges W. intros ? ->. auto. Qed.
-
-Ltac xapp_pre :=
-  xseq_xlet_if_needed; xstruct_if_needed.
-
-Ltac xapps :=
-  xapp_pre; applys xapps_lemma.
-
-(** Second, we introduce the [xapp' E] and [xapps' E] variants,
-    which instantiate [E] and exploit it as specification lemma,
-    then call [hsimpl'] on the remaining subgoal. *)
-
-Ltac xapp' E :=
-  xapp_pre; applys xapp_lemma E; hsimpl'.
-
-Ltac xapps' E :=
-  xapp_pre; applys xapps_lemma E; hsimpl'.
-
-(** The proof script now looks neat. *)
-
-Lemma triple_mysucc_with_more_xapp_args : forall n,
-  triple (trm_app mysucc n)
-    \[]
-    (fun v => \[v = n+1]).
-Proof using.
-  xcf.
-  xapp' triple_ref ;=> ? l ->.
-  xapps' triple_incr.
-  xtop.
-  xapps' triple_get.
-  hsimpl~.
-Qed.
-
-End ExampleProofs.
-
-
-
-
-
-
-
-
-
-
 
