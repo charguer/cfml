@@ -325,7 +325,7 @@ Proof using.
      hchanges (MList_eq' p2) ;=> v2.
      hchanges (MList_eq' p1) ;=> v1.
      xapp.
-     applys struct_hgc. applys struct_MkStruct. (* TODO: xgc *)
+     applys structural_hgc. applys structural_MkStruct. (* TODO: xgc *)
      xapp. (* todo : gc by default in xapp ? *) hchange <- (MList_eq' p1). } 
   { (* cons *) 
     intros p' x L' ->.
@@ -559,7 +559,7 @@ Lemma triple_succ_using_incr : forall n,
     (fun r => \[r = n+1]).
 Proof using.
   xtriple. xapp as p. intros; subst. xapp~. intros _. xapps~.
-  (* not possible: applys local_erase. unfold cf_val. hsimpl. *)
+  (* not possible: applys mklocal_erase. unfold cf_val. hsimpl. *)
   xvals~.
 Qed.
 

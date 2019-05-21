@@ -63,7 +63,7 @@ Definition Wpsubst (E:ctx) (t:trm) : Formula :=
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of [MkStruct] for WP *)
 
-(** The [MkStruct] predicate lifts [mklocal]. *)
+(** The [MkStruct] predicate lifts [mkstruct]. *)
 
 Definition MkStruct (F:Formula) : Formula :=
   fun A `{EA:Enc A} Q => mkstruct (@F A EA) Q.
@@ -75,11 +75,11 @@ Proof using.
   unfold MkStruct. rewrite mkstruct_mkstruct. split~.
 Qed.
 
-Lemma struct_MkStruct : forall A `{EA:Enc A} (F:Formula),
-  struct (@MkStruct F A EA).
-Proof using. intros. rewrite <- mkstruct_MkStruct_eq. apply struct_mkstruct. Qed.
+Lemma structural_MkStruct : forall A `{EA:Enc A} (F:Formula),
+  structural (@MkStruct F A EA).
+Proof using. intros. rewrite <- mkstruct_MkStruct_eq. apply structural_mkstruct. Qed.
 
-Hint Resolve struct_MkStruct.
+Hint Resolve structural_MkStruct.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -199,17 +199,17 @@ Definition Wpgen_while (F1 F2:Formula) : Formula :=
   MkStruct (`Formula_cast (fun (Q:unit->hprop) =>
     \forall (R:Formula),
     let F := Wpaux_if F1 (Wpgen_seq F2 R) (Wpgen_val val_unit) in
-    \[ struct (@R unit _) /\ (forall Q', ^F Q' ==> ^R Q')] \-* (^R Q))).
-    (* TODO: use a lifted version of struct *)
+    \[ structural (@R unit _) /\ (forall Q', ^F Q' ==> ^R Q')] \-* (^R Q))).
+    (* TODO: use a lifted version of structural *)
 
 Definition Wpgen_for_int (n1 n2:int) (F1:int->Formula) : Formula := 
   MkStruct (Formula_cast (fun (Q:unit->hprop) =>
     \forall (S:int->Formula),
     let F i := If (i <= n2) then (`Wpgen_seq (F1 i) (S (i+1)))
                             else (`Wpgen_val val_unit) in
-    \[   (forall i, struct (S i unit _)) 
+    \[   (forall i, structural (S i unit _)) 
       /\ (forall i Q', ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
-     (* TODO: use a lifted version of struct_pred *)
+     (* TODO: use a lifted version of structural_pred *)
 
 Definition Wpgen_case (F1:Formula) (P:Prop) (F2:Formula) : Formula :=
   MkStruct (fun `{Enc A} Q =>
@@ -276,20 +276,22 @@ Fixpoint Wpgen (E:ctx) (t:trm) : Formula :=
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of semantical wp *)
 
-(** [Wp t] is a local formula *)
+(** [Wp t] is a structural formula *)
 
-Lemma struct_Wp : forall `{EA:Enc A} t,
-  struct ((Wp t) A EA).
+Lemma structural_Wp : forall `{EA:Enc A} t,
+  structural ((Wp t) A EA).
 Proof using.
   intros. unfolds Wp. unfolds Weakestpre.
-  applys struct_weakestpre. applys is_local_Triple.
+  applys structural_weakestpre. applys local_Triple.
 Qed.
+
+Arguments structural_Wp : clear implicits.
 
 (** Equivalence between a [triple] and its weakest-precondition presentation. *)
 
 Lemma Triple_eq_himpl_Wp : forall `{EA:Enc A} H (Q:A->hprop) t,
   Triple t H Q = (H ==> ^(Wp t) Q).
-Proof using. intros. applys weakestpre_eq. applys is_local_Triple. Qed.
+Proof using. intros. applys weakestpre_eq. applys local_Triple. Qed.
 
 (** Reformulation of the right-to-left implication above as an implication. *)
 
@@ -314,7 +316,7 @@ Proof using. introv M. rewrite* <- Triple_eq_himpl_Wp. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Soundness of the [local] transformer *)
+(* ** Soundness of the [mklocal] transformer *)
 
 (** [The [MkStruct] transformer may be stripped from the postcondition. *)
 
@@ -332,13 +334,13 @@ Lemma Triple_MkStruct_pre : forall t (F:Formula) `{EA:Enc A} (Q:A->hprop),
   (forall Q, Triple t (^F Q) Q) ->
   Triple t (^(MkStruct F) Q) Q.
 Proof using.
-  introv M. applys~ is_local_elim.
+  introv M. applys~ local_elim.
   unfold MkStruct, mkstruct. hpull ;=> Q'.
   hsimpl (^F Q') ((Q' \--* Q \*+ \GC)) Q'. split~.
   { hsimpl. }
 Qed.
 
-(** The tactic [remove_MkStruct] applies to goal of the form [triple t (local F Q) Q]
+(** The tactic [remove_MkStruct] applies to goal of the form [triple t (mklocal F Q) Q]
     and turns it into [triple t (F Q) Q] for a fresh [Q]. *)
 
 Ltac remove_MkStruct :=
@@ -559,7 +561,7 @@ Proof using.
   { unfold Wpsubst. simpl. rewrite List_map_eq. applys M. }
   induction ts as [|t ts']; intros.
   { simpl. rewrite List_rev_eq. rew_list.
-    apply~ mkstruct_erase_l. applys struct_Wp. }
+    apply~ mkstruct_erase_l. applys structural_Wp. }
   { specializes IHts' __. { intros t' Ht'. applys* IHts. }
     unfold Wpaux_apps. fold (Wpaux_apps Wpgen E v0). rew_listx.
     forwards~ M: Wpgen_sound_getval E (fun t1 => trm_apps v0 (trms_vals (rev rvs) ++ t1 :: ts')).
@@ -580,7 +582,7 @@ Proof using.
   set (R := Wp (trm_while (isubst E t1) (isubst E t2))).
   applys Triple_hforall R. simpl. applys Triple_hwand_hpure_l.
   { split.
-    { applys @struct_Wp. }
+    { applys structural_Wp. }
     { clears Q. applys qimpl_Wp_of_Triple. intros Q.
       applys Triple_while_raw.
       asserts_rewrite~ (
@@ -603,7 +605,7 @@ Proof using. Opaque Ctx.add Ctx.rem.
   set (S := fun (i:int) => Wp (isubst E (trm_for x i n2 t1))).
   applys Triple_hforall S. simpl. applys Triple_hwand_hpure_l.
   { split.
-    { intros r. applys @struct_Wp. }
+    { intros r. applys structural_Wp. }
     { clears Q. intros i. applys qimpl_Wp_of_Triple. intros Q.
       applys Triple_for_raw. fold isubst.
       rewrite~ @Triple_eq_himpl_Wp. case_if.

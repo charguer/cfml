@@ -63,100 +63,100 @@ Definition formula' (B:Type) := (B -> hprop) -> hprop.
 (** [struct F] asserts that one is able to establish [F Q]
     by establishing [F Q'] for a [Q'] that entails [Q]. *)
 
-Definition struct B (F:formula' B) :=
+Definition structural B (F:formula' B) :=
   forall Q, (\exists Q', F Q' \* (Q' \--* (Q \*+ \GC))) ==> F Q.
 
-(** [struct_pred S] asserts that [struct (S x)] holds for any [x].
+(** [structural_pred S] asserts that [structural (S x)] holds for any [x].
     It is useful for describing loop invariants. *)
 
-Definition struct_pred B A (S:A->formula' B) :=
-  forall x, struct (S x).
+Definition structural_pred B A (S:A->formula' B) :=
+  forall x, structural (S x).
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** Rules for [struct] *)
 
-Section Flocal.
+Section Fmklocal.
 Variable (B : Type).
 Implicit Type Q : B->hprop.
 Implicit Type F : formula' B.
 
 (** A introduction rule to establish [struct], exposing the definition *)
 
-Lemma struct_intro : forall F,
+Lemma structural_intro : forall F,
   (forall Q, (\exists Q', F Q' \* (Q' \--* (Q \*+ \GC))) ==> F Q) ->
-  struct F.
+  structural F.
 Proof using. auto. Qed.
 
 (** Introduction rule for [struct] on [weakestpre] *)
 
-Lemma struct_weakestpre : forall (T:hprop->(B->hprop)->Prop),
-  SepBasicSetup.is_local T ->
-  struct (weakestpre T).
+Lemma structural_weakestpre : forall (T:hprop->(B->hprop)->Prop),
+  SepBasicSetup.local T ->
+  structural (weakestpre T).
 Proof using.
-  introv L. applys struct_intro. intros Q. unfold weakestpre.
+  introv L. applys structural_intro. intros Q. unfold weakestpre.
   hpull ;=> Q' H M. hsimpl (H \* (Q' \--* Q \*+ \GC)).
-  applys* is_local_ramified_frame_hgc.
+  applys* local_ramified_frame_hgc.
 Qed.
 
 (** An elimination rule for [struct] *)
 
-Lemma struct_elim : forall F H Q,
-  struct F ->
+Lemma structural_elim : forall F H Q,
+  structural F ->
   (H ==> \exists Q', F Q' \* (Q' \--* (Q \*+ \GC))) ->
   H ==> F Q.
 Proof using. introv L M. lets N: (L Q). applys* himpl_trans N. Qed.
 
 (** An elimination rule for [struct] without [\GC] *)
 
-Lemma struct_elim_nohgc : forall F H Q,
-  struct F ->
+Lemma structural_elim_nohgc : forall F H Q,
+  structural F ->
   (H ==> \exists Q', F Q' \* (Q' \--* Q)) ->
   H ==> F Q.
 Proof using. 
-  introv L M. applys~ struct_elim. hchanges M.
+  introv L M. applys~ structural_elim. hchanges M.
 Qed.
 
 (** Other specialized elimination rules *)
 
-Lemma struct_conseq : forall Q' F H Q,
-  struct F ->
+Lemma structural_conseq : forall Q' F H Q,
+  structural F ->
   H ==> F Q ->
   Q ===> Q' ->
   H ==> F Q'.
 Proof using.
-  introv L M W. applys~ struct_elim.
+  introv L M W. applys~ structural_elim.
   hchange (rm M). hsimpl Q. hchanges W.
 Qed.
 
-Lemma struct_hgc : forall F H Q,
-  struct F ->
+Lemma structural_hgc : forall F H Q,
+  structural F ->
   H ==> F (Q \*+ \GC) ->
   H ==> F Q.
 Proof using.
-  introv L M. applys~ struct_elim.
+  introv L M. applys~ structural_elim.
   hchange (rm M). hsimpl (Q \*+ \GC).
 Qed.
 
-Lemma struct_frame : forall H1 H2 F H Q,
-  struct F ->
+Lemma structural_frame : forall H1 H2 F H Q,
+  structural F ->
   H ==> H1 \* H2 ->
   H1 ==> F (fun x => H2 \-* Q x) ->
   H ==> F Q.
 Proof using.
-  introv L W M. applys~ struct_elim. hchange W. hchanges M.
+  introv L W M. applys~ structural_elim. hchange W. hchanges M.
 Qed.
 
-Lemma struct_frame_hgc : forall H1 H2 F H Q,
-  struct F ->
+Lemma structural_frame_hgc : forall H1 H2 F H Q,
+  structural F ->
   H ==> H1 \* H2 ->
   H1 ==> F (fun x => H2 \-* Q x \* \GC) ->
   H ==> F Q.
 Proof using.
-  introv L W M. applys* struct_hgc. applys* struct_frame.
+  introv L W M. applys* structural_hgc. applys* structural_frame.
 Qed.
 
-End Flocal.
+End Fmklocal.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -205,10 +205,10 @@ Qed.
 
 (** A definition whose head is [mkstruct] satisfies [struct] *)
 
-Lemma struct_mkstruct : forall F,
-  struct (mkstruct F).
+Lemma structural_mkstruct : forall F,
+  structural (mkstruct F).
 Proof using.
-  intros. applys struct_intro. intros Q.
+  intros. applys structural_intro. intros Q.
   pattern mkstruct at 1. rewrite <- mkstruct_mkstruct.
   unfold mkstruct. auto.
 Qed.
@@ -216,12 +216,12 @@ Qed.
 (** A [mkstruct] can be introduced at the head of a formula satisfying [struct] *)
 
 Lemma eq_mkstruct_of_struct : forall F,
-  struct F -> 
+  structural F -> 
   F = mkstruct F.
 Proof using.
   introv L. applys fun_ext_1 ;=> Q. applys himpl_antisym.
   { applys~ mkstruct_erase. }
-  { applys~ struct_elim. }
+  { applys~ structural_elim. }
 Qed.
 
 (** Contradictions can be extracted from mkstruct formulae *)
@@ -246,7 +246,7 @@ Qed.
     formula on the right is mkstruct. *)
 
 Lemma mkstruct_erase_l : forall F1 F2,
-  struct F2 ->
+  structural F2 ->
   F1 ===> F2 ->
   mkstruct F1 ===> F2.
 Proof using.
@@ -371,14 +371,14 @@ Definition wpgen_if (F0 F1 F2:formula) : formula :=
 Definition wpgen_while (F1 F2:formula) : formula := mkstruct (fun Q =>
   \forall (R:formula),
   let F := wpgen_if F1 (wpgen_seq F2 R) (wpgen_val val_unit) in
-  \[ struct R /\ F ===> R] \-* (R Q)).
+  \[ structural R /\ F ===> R] \-* (R Q)).
 
 Definition wpgen_for_val (v1 v2:val) (F1:val->formula) : formula := mkstruct (fun Q =>
   \exists (n1:int) (n2:int), \[v1 = val_int n1 /\ v2 = val_int n2] \*
   \forall (S:int->formula),
   let F i := If (i <= n2) then (wpgen_seq (F1 i) (S (i+1)))
                           else (wpgen_val val_unit) in
-  \[ struct_pred S /\ (forall i, F i ===> S i)] \-* (S n1 Q)).
+  \[ structural_pred S /\ (forall i, F i ===> S i)] \-* (S n1 Q)).
 
 Definition wpgen_case_val (F1:formula) (P:Prop) (F2:formula) : formula :=
   mkstruct (fun Q =>
@@ -437,9 +437,9 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
 
 (** [wp t] is a mkstruct formula *)
 
-Lemma struct_wp : forall t,
-  struct (wp t).
-Proof using. intros. applys~ struct_weakestpre. Qed.
+Lemma structural_wp : forall t,
+  structural (wp t).
+Proof using. intros. applys~ structural_weakestpre. Qed.
 
 (** Equivalence between a [triple] and its weakest-precondition presentation. *)
 
@@ -479,7 +479,7 @@ Lemma triple_mkstruct_pre : forall t (F:formula) Q,
   (forall Q, triple t (F Q) Q) ->
   triple t (mkstruct F Q) Q.
 Proof using.
-  introv M. applys~ is_local_elim.
+  introv M. applys~ local_elim.
   unfold mkstruct. hpull ;=> Q'.
   hsimpl (F Q') ((Q' \--* Q \*+ \GC)) Q'. split~.
   { hsimpl. }
@@ -639,7 +639,7 @@ Proof using.
   { unfold wpsubst. simpl. rewrite List_map_eq. applys M. }
   induction ts as [|t ts']; intros.
   { simpl. rewrite List_rev_eq. rew_list.
-    apply~ mkstruct_erase_l. applys struct_wp. }
+    apply~ mkstruct_erase_l. applys structural_wp. }
   { specializes IHts' __. { intros t' Ht'. applys* IHts. }
     unfold wpaux_apps. fold (wpaux_apps wpgen E v0). rew_listx.
     forwards~ M: wpgen_sound_getval E (fun t1 => trm_apps v0 (trms_vals (rev rvs) ++ t1 :: ts')).
@@ -659,7 +659,7 @@ Proof using.
   set (R := wp (trm_while (isubst E t1) (isubst E t2))).
   applys triple_hforall R. simpl. applys triple_hwand_hpure_l.
   { split.
-    { applys struct_wp. }
+    { applys structural_wp. }
     { clears Q. applys qimpl_wp_of_triple. intros Q.
       applys triple_while_raw. apply~ triple_of_wp.
       applys* wpgen_sound_if_trm t1 (trm_seq t2 (trm_while t1 t2)) val_unit.
@@ -677,7 +677,7 @@ Proof using. Opaque Ctx.add Ctx.rem. (* TODO: opaque elsewhere *)
   set (S := fun (i:int) => wp (isubst E (trm_for x i n2 t1))).
   applys triple_hforall S. simpl. applys triple_hwand_hpure_l.
   { split.
-    { intros r. applys struct_wp. }
+    { intros r. applys structural_wp. }
     { clears Q. intros i. applys qimpl_wp_of_triple. intros Q.
       applys triple_for_raw. fold isubst.
       apply~ triple_of_wp. case_if.
@@ -791,9 +791,9 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** All [wpgen] are trivially [struct] by construction *)
 
-Section FlocalWpgen.
+Section FmklocalWpgen.
 
-Hint Extern 1 (struct _) => (apply struct_mkstruct).
+Hint Extern 1 (structural _) => (apply structural_mkstruct).
 
 Ltac destruct_lookup :=
   match goal with |- context [Ctx.lookup ?x ?E] => destruct~ (Ctx.lookup x E) end.
@@ -801,34 +801,34 @@ Ltac destruct_lookup :=
 Tactic Notation "destruct_lookup" "~" :=
   destruct_lookup; auto_tilde.
 
-Lemma struct_wpaux_getval : forall wpgen E t1 F2of,
-  struct (wpgen E t1) ->
-  (forall v, struct (F2of v)) ->
-  struct (wpaux_getval wpgen E t1 F2of).
+Lemma structural_wpaux_getval : forall wpgen E t1 F2of,
+  structural (wpgen E t1) ->
+  (forall v, structural (F2of v)) ->
+  structural (wpaux_getval wpgen E t1 F2of).
 Proof using.
   introv M1 M2. destruct* t1. { simpl. destruct_lookup~. }
 Qed.
 
-Hint Resolve struct_wpaux_getval.
+Hint Resolve structural_wpaux_getval.
 
-Lemma struct_wpgen : forall E t,
-  struct (wpgen E t).
+Lemma structural_wpgen : forall E t,
+  structural (wpgen E t).
 Proof.
   intros. induction t using trm_induct; try solve [ simpl; eauto ]. 
   { simpl. rename v into x. simpl. unfold wpaux_var. destruct_lookup~. }
   { simpl. destruct~ xs. }
   { simpl. rename l into ts. simpl. generalize (@nil val) as rvs.
     induction ts as [|t' ts']; intros; auto.
-    { applys* struct_wpaux_getval. } }
-  { simpl. applys* struct_wpaux_getval. intros v0.
+    { applys* structural_wpaux_getval. } }
+  { simpl. applys* structural_wpaux_getval. intros v0.
     rename l into ts. simpl. generalize (@nil val) as rvs.
     induction ts as [|t' ts']; intros; auto.
     { simpl. generalize (List.rev rvs) as vs. intros.
       unfolds wpaux_apps. destruct~ v0. } }
-  { simpl. applys* struct_wpaux_getval. intros v0.
+  { simpl. applys* structural_wpaux_getval. intros v0.
     induction pts as [|(p,t') pts']; intros; auto. }
 Qed.
 
-End FlocalWpgen.
+End FmklocalWpgen.
 
 

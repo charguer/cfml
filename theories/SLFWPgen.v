@@ -145,7 +145,7 @@ End WpgenOverview.
       F Q ==> mkstruct F Q.
 ]] *)
 
-(** The following definition of [mklocal] satisfy the above two properties.
+(** The following definition of [mkmklocal] satisfy the above two properties.
     The tactic [hsimpl] trivializes the proofs. Details are discussed further on. *)
 
 Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>

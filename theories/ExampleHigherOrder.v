@@ -137,8 +137,8 @@ Lemma Triple_repeat : forall (I:int->hprop) (f:func) (n:int),
 Proof using.
   introv N M. xcf.
   asserts_rewrite (``n = val_int n). auto. (* todo: investigate *)
-  applys local_weaken_post. xlocal.
-  applys local_erase. applys xfor_inv_lemma (fun i => (I (i-1))).
+  applys mklocal_weaken_post. xlocal.
+  applys mklocal_erase. applys xfor_inv_lemma (fun i => (I (i-1))).
   { math. }
   { hsimpl. }
   { intros i Hi. xapp. { math. } { math_rewrite (i-1+1=i+1-1). hsimpl. } }

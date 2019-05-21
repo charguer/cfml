@@ -374,7 +374,7 @@ Proof using.
   forwards~ Ix: index_of_index_length' (rm Dx) Hn.
   forwards~ Hx: HR x.
   forwards (d&Hx'): reprn_of_repr Hx.
-  applys local_erase.
+  applys mklocal_erase.
   gen x. induction_wf IH: lt_wf d. hide IH. intros.
   rewrite EF. xcf. rewrite <- EF.
   xapp as vy. rew_array~. rewrite (@read_map int _ val _); auto.
@@ -416,7 +416,7 @@ Proof using.
   unfold UF. xpull ;=> L (Hn&HR).
   forwards~ Ix: index_of_index_length' (rm Dx) Hn.
   forwards~ Hx: HR x.
-  applys local_erase. (* TODO: avoid *)
+  applys mklocal_erase. (* TODO: avoid *)
   forwards (d&Hx'): reprn_of_repr Hx.
   gen L x. induction_wf IH: lt_wf d. hide IH. intros.
   rewrite EF. xcf. rewrite <- EF.

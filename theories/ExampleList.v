@@ -589,7 +589,7 @@ Lemma Triple_mlist_in_place_rev : forall A `{EA:Enc A} (L:list A) (p:loc),
 Proof using.
   intros. rename p into p0. xcf. xapps ;=> rp. xapps ;=> rs.
   xseq. (* todo xwhile_inv *)
-  { applys local_erase. applys Cf_while_of_Cf_while_inv. hnf.
+  { applys mklocal_erase. applys Cf_while_of_Cf_while_inv. hnf.
     sets I: (fun (b:bool) (L1:list A) => \exists p s L2,
       \[b = isTrue (L1 <> nil)] \* \[L = rev L2 ++ L1]
       \* rp ~~> p \* p ~> MList L1 \* rs ~~> s \* s ~> MList L2).

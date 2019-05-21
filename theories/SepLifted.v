@@ -473,14 +473,14 @@ Proof using.
   intros v. applys himpl_antisym; hsimpl~.
 Qed.
 
-(** [LiftPost] preserves [is_local] *)
+(** [LiftPost] preserves [local] *)
 
-Lemma is_local_LiftPost : forall A `{Enc A} (F:~~val),
-  is_local F ->
-  is_local (fun H (Q:A->hprop) => F H (LiftPost Q)).
+Lemma local_LiftPost : forall A `{Enc A} (F:~~val),
+  local F ->
+  local (fun H (Q:A->hprop) => F H (LiftPost Q)).
 Proof using.
-  introv L. rename H into EQ. applys is_local_intro.
-  intros H Q M. applys~ is_local_elim.
+  introv L. rename H into EQ. applys local_intro.
+  intros H Q M. applys~ local_elim.
   hchange M. hpull ;=> H1 H2 Q1 (N1&N2).
   hsimpl H1 H2 (LiftPost Q1). splits~. 
   do 2 rewrite <- LiftPost_star. applys~ LiftPost_himpl.
@@ -566,13 +566,13 @@ Definition Substn (ys:vars) (ds:dyns) (t:trm) : trm :=
 Definition Triple (t:trm) `{EA:Enc A} (H:hprop) (Q:A->hprop) : Prop :=
   triple t H (LiftPost Q).
 
-(** [Triple] satisfies [is_local], like [triple] does. *)
+(** [Triple] satisfies [local], like [triple] does. *)
 
-Lemma is_local_Triple : forall t A `{EA:Enc A},
-  is_local (@Triple t A EA).
-Proof using. intros. applys is_local_LiftPost. applys is_local_triple. Qed.
+Lemma local_Triple : forall t A `{EA:Enc A},
+  local (@Triple t A EA).
+Proof using. intros. applys local_LiftPost. applys local_triple. Qed.
 
-Hint Resolve @is_local_Triple.
+Hint Resolve @local_Triple.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -649,83 +649,83 @@ Lemma Triple_conseq : forall t H' `{Enc A} (Q':A->hprop) H (Q:A->hprop),
   Triple t H' Q' ->
   Q' ===> Q ->
   Triple t H Q.
-Proof using. intros. applys* is_local_conseq. Qed.
+Proof using. intros. applys* local_conseq. Qed.
 
 Lemma Triple_frame : forall t `{Enc A} H (Q:A->hprop) H',
   Triple t H Q ->
   Triple t (H \* H') (Q \*+ H').
-Proof using. intros. applys* is_local_frame. Qed.
+Proof using. intros. applys* local_frame. Qed.
 
 Lemma Triple_ramified_frame_hgc : forall t `{Enc A} H H1 (Q1 Q:A->hprop),
   Triple t H1 Q1 ->
   H ==> H1 \* (Q1 \--* Q \*+ \GC) ->
   Triple t H Q.
-Proof using. intros. applys* is_local_ramified_frame_hgc. Qed.
+Proof using. intros. applys* local_ramified_frame_hgc. Qed.
 
 Lemma Triple_ramified_frame : forall t `{Enc A} H H1 (Q1 Q:A->hprop),
   Triple t H1 Q1 ->
   H ==> H1 \* (Q1 \--* Q) ->
   Triple t H Q.
-Proof using. intros. applys* is_local_ramified_frame. Qed.
+Proof using. intros. applys* local_ramified_frame. Qed.
 
 Lemma Triple_hgc_pre : forall t `{Enc A} H (Q:A->hprop),
   Triple t H Q ->
   Triple t (H \* \GC) Q.
-Proof using. intros. applys* is_local_hgc_pre. Qed.
+Proof using. intros. applys* local_hgc_pre. Qed.
 
 Lemma Triple_hgc_post : forall t `{Enc A} H (Q:A->hprop),
   Triple t H (Q \*+ \GC) ->
   Triple t H Q.
-Proof using. intros. applys~ is_local_hgc_post. Qed.
+Proof using. intros. applys~ local_hgc_post. Qed.
 
 Lemma Triple_hexists : forall t `{Enc A} B (J:B->hprop) (Q:A->hprop),
   (forall x, Triple t (J x) Q) ->
   Triple t (hexists J) Q.
-Proof using. intros. applys~ is_local_hexists. Qed.
+Proof using. intros. applys~ local_hexists. Qed.
 
 Lemma Triple_hforall : forall B (x:B) t (J:B->hprop) `{EA:Enc A} (Q:A->hprop),
   Triple t (J x) Q ->
   Triple t (hforall J) Q.
-Proof using. intros. applys* is_local_hforall. Qed.
+Proof using. intros. applys* local_hforall. Qed.
 
 Lemma Triple_hforall_exists : forall t B (J:B->hprop) `{EA:Enc A} (Q:A->hprop),  (* TODO: needed? *)
   (exists x, Triple t (J x) Q) ->
   Triple t (hforall J) Q.
-Proof using. intros. applys~ is_local_hforall_exists. Qed.
+Proof using. intros. applys~ local_hforall_exists. Qed.
 
 Lemma Triple_hpure : forall t (P:Prop) `{Enc A} H (Q:A->hprop),
   (P -> Triple t H Q) ->
   Triple t (\[P] \* H) Q.
-Proof using. intros. applys~ is_local_hpure. Qed.
+Proof using. intros. applys~ local_hpure. Qed.
 
 Lemma Triple_hwand_hpure_l : forall t (P:Prop) H `{EA:Enc A} (Q:A->hprop),
   P ->
   Triple t H Q ->
   Triple t (\[P] \-* H) Q.
-Proof using. intros. applys~ is_local_hwand_hpure_l. Qed.
+Proof using. intros. applys~ local_hwand_hpure_l. Qed.
 
 Lemma Triple_hor : forall t H1 H2 `{Enc A} (Q:A->hprop),
   Triple t H1 Q ->
   Triple t H2 Q ->
   Triple t (hor H1 H2) Q.
-Proof using. intros. applys~ is_local_hor. Qed.
+Proof using. intros. applys~ local_hor. Qed.
 
 Lemma Triple_hand_l : forall t H1 H2 `{Enc A} (Q:A->hprop),
   Triple t H1 Q ->
   Triple t (hand H1 H2) Q.
-Proof using. intros. applys~ is_local_hand_l. Qed.
+Proof using. intros. applys~ local_hand_l. Qed.
 
 Lemma Triple_hand_r : forall t H1 H2 `{Enc A} (Q:A->hprop),
   Triple t H2 Q ->
   Triple t (hand H1 H2) Q.
-Proof using. intros. applys~ is_local_hand_r. Qed.
+Proof using. intros. applys~ local_hand_r. Qed.
 
 Lemma Triple_conseq_frame_hgc : forall t H1 H2 `{Enc A} (Q1 Q:A->hprop) H,
   Triple t H1 Q1 ->
   H ==> H1 \* H2 ->
   Q1 \*+ H2 ===> Q \*+ \GC ->
   Triple t H Q.
-Proof using. intros. applys* is_local_conseq_frame_hgc. Qed.
+Proof using. intros. applys* local_conseq_frame_hgc. Qed.
 
 
 (* ---------------------------------------------------------------------- *)

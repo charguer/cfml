@@ -34,13 +34,13 @@ The functor also provides:
 - [xchanges] is like [xchange] but calls [hsimpl] to simplify subgoals.
 - [xapplys] is like [xapply] but calls [hsimpl] to simplify subgoals.
 
-- [local F] is a predicate transformer used by characteristic formulae.
-- [is_local F], where [F] is typically a triple or a characteristic formula,
+- [mklocal F] is a predicate transformer used by characteristic formulae.
+- [local F], where [F] is typically a triple or a characteristic formula,
   asserts that [F] can be subject to frame, weakening, and extraction
   of existentials and pure facts from preconditions. Tactics such as
   [xapply] apply the frame rule in a generic manner, and produce a
-  [is_local] subgoal as side-condition.
-- [xlocal] automatically discharges goals of the form [is_local F].
+  [local] subgoal as side-condition.
+- [xlocal] automatically discharges goals of the form [local F].
 
 Author: Arthur Charguéraud, with contributions from Jacques-Henri Jourdan.
 License: MIT.
@@ -754,30 +754,30 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Definition of [is_local] *)
+(* ** Definition of [local] *)
 
 (** Type of characteristic formulae on values of type B *)
 
 Notation "'~~' B" := (hprop->(B->hprop)->Prop)
   (at level 8, only parsing) : type_scope.
 
-(** A formula [F] is local (e.g. [F] could be the predicate SL [triple])
+(** A formula [F] is mklocal (e.g. [F] could be the predicate SL [triple])
     if it is sufficient for establishing [F H Q] to establish that the
     the formula holds on a subheap, in the sense that [F H1 Q1] with
     [H = H1 \* H2] and [Q = Q1 \*+ H2]. 
     (Technically, we add an extra [\GC] in to capture the affinity of the logic.) *)
 
-Definition is_local B (F:~~B) : Prop :=
+Definition local B (F:~~B) : Prop :=
   forall H Q, 
     (H ==> \exists H1 H2 Q1, H1 \* H2 \*
              \[F H1 Q1 /\ Q1 \*+ H2 ===> Q \*+ \GC]) ->
     F H Q.
 
-(** [is_local_pred S] asserts that [is_local (S x)] holds for any [x].
+(** [local_pred S] asserts that [local (S x)] holds for any [x].
     It is useful for describing loop invariants. *)
 
-Definition is_local_pred A B (S:A->~~B) :=
-  forall x, is_local (S x).
+Definition local_pred A B (S:A->~~B) :=
+  forall x, local (S x).
 
 
 (* ---------------------------------------------------------------------- *)
@@ -807,7 +807,7 @@ Definition Id {A:Type} (X:A) (x:A) :=
 (** [xrepr_clean] simplifies instances of
    [p ~> (fun _ => _)] by unfolding the arrow,
    but only when the body does not captures
-   locally-bound variables. This tactic should
+   mklocally-bound variables. This tactic should
    normally not be used directly *)
 
 Ltac xrepr_clean_core tt :=
@@ -2749,415 +2749,415 @@ Proof using. introv M. applys* qwand_himpl. Qed.
 
 
 (* ********************************************************************** *)
-(** * Properties of [is_local] *)
+(** * Properties of [local] *)
 
 (** Remark: for conciseness, we abbreviate names of lemmas,
-    e.g. [is_local_inv_frame] is named [local_conseq_frame]. *)
+    e.g. [local_inv_frame] is named [mklocal_conseq_frame]. *)
 
 Section IsLocal.
 Variables (B : Type).
 Implicit Types (F : ~~B).
 Hint Resolve haffine_hempty.
 
-(** A introduction rule to establish [is_local], exposing the definition *)
+(** A introduction rule to establish [local], exposing the definition *)
 
-Lemma is_local_intro : forall F,
+Lemma local_intro : forall F,
   (forall H Q, 
     (H ==> \exists H1 H2 Q1, H1 \* H2 \*
              \[F H1 Q1 /\ Q1 \*+ H2 ===> Q \*+ \GC]) ->
     F H Q) ->
-  is_local F.
+  local F.
 Proof using. auto. Qed.
 
-(** An elimination rule for [is_local] *)
+(** An elimination rule for [local] *)
 
-Lemma is_local_elim : forall F H Q,
-  is_local F ->
+Lemma local_elim : forall F H Q,
+  local F ->
   (H ==> \exists H1 H2 Q1, H1 \* H2 \* \[F H1 Q1 /\ Q1 \*+ H2 ===> Q \*+ \GC]) ->
   F H Q.
 Proof using. auto. Qed.
 
-(** An elimination rule for [is_local] without [htop] *)
+(** An elimination rule for [local] without [htop] *)
 
-Lemma is_local_elim_frame : forall F H Q,
-  is_local F ->
+Lemma local_elim_frame : forall F H Q,
+  local F ->
   (H ==> \exists H1 H2 Q1, H1 \* H2 \* \[F H1 Q1 /\ Q1 \*+ H2 ===> Q]) ->
   F H Q.
 Proof using. 
-  introv L M. applys~ is_local_elim. hchange M.
+  introv L M. applys~ local_elim. hchange M.
   hpull ;=> H1 H2 Q1 (N1&N2). hsimpl H1 H2 Q1. split~.
   hchanges~ N2.
 Qed.
 
-(** An elimination rule for [is_local] specialized for no frame, and no [htop] *)
+(** An elimination rule for [local] specialized for no frame, and no [htop] *)
 
-Lemma is_local_elim_conseq_pre : forall F H Q,
-  is_local F ->
+Lemma local_elim_conseq_pre : forall F H Q,
+  local F ->
   (H ==> \exists H1, H1 \* \[F H1 Q]) ->
   F H Q.
 Proof using.
-  introv L M. applys~ is_local_elim_frame. hchange M.
+  introv L M. applys~ local_elim_frame. hchange M.
   hpull ;=> H1 N. hsimpl H1 \[] Q. splits*. hsimpl.
 Qed.
 
-(** Weaken and frame and gc property [local] *)
+(** Weaken and frame and gc property [mklocal] *)
 
-Lemma is_local_conseq_frame_hgc : forall F H H1 H2 Q1 Q,
-  is_local F ->
+Lemma local_conseq_frame_hgc : forall F H H1 H2 Q1 Q,
+  local F ->
   F H1 Q1 ->
   H ==> H1 \* H2 ->
   Q1 \*+ H2 ===> Q \*+ \GC ->
   F H Q.
 Proof using.
-  introv L M WH WQ. applys~ is_local_elim. hchange WH.
+  introv L M WH WQ. applys~ local_elim. hchange WH.
   hsimpl~ H1 H2 Q1.
 Qed.
 
-(** Weaken and frame properties from [local] *)
+(** Weaken and frame properties from [mklocal] *)
 
-Lemma is_local_conseq_frame : forall H1 H2 Q1 F H Q,
-  is_local F ->
+Lemma local_conseq_frame : forall H1 H2 Q1 F H Q,
+  local F ->
   F H1 Q1 ->
   H ==> H1 \* H2 ->
   Q1 \*+ H2 ===> Q ->
   F H Q.
 Proof using.
-  introv L M WH WQ. applys* is_local_conseq_frame_hgc M. hchanges~ WQ.
+  introv L M WH WQ. applys* local_conseq_frame_hgc M. hchanges~ WQ.
 Qed.
 
 (** Frame rule *)
 
-Lemma is_local_frame : forall H2 Q1 H1 F,
-  is_local F ->
+Lemma local_frame : forall H2 Q1 H1 F,
+  local F ->
   F H1 Q1 ->
   F (H1 \* H2) (Q1 \*+ H2).
-Proof using. introv L M. applys~ is_local_conseq_frame M. Qed.
+Proof using. introv L M. applys~ local_conseq_frame M. Qed.
 
 (** Ramified frame rule *)
 
-Lemma is_local_ramified_frame : forall Q1 H1 F H Q,
-  is_local F ->
+Lemma local_ramified_frame : forall Q1 H1 F H Q,
+  local F ->
   F H1 Q1 ->
   H ==> H1 \* (Q1 \--* Q) ->
   F H Q.
 Proof using.
-  introv L M WH. applys~ is_local_conseq_frame (Q1 \--* Q) M.
+  introv L M WH. applys~ local_conseq_frame (Q1 \--* Q) M.
   hsimpl.
 Qed.
 
 (** Ramified frame rule with \GC *)
 
-Lemma is_local_ramified_frame_hgc : forall Q1 H1 F H Q,
-  is_local F ->
+Lemma local_ramified_frame_hgc : forall Q1 H1 F H Q,
+  local F ->
   F H1 Q1 ->
   H ==> H1 \* (Q1 \--* Q \*+ \GC) ->
   F H Q.
 Proof using.
-  introv L M WH. applys~ is_local_conseq_frame_hgc (Q1 \--* Q \*+ \GC) M.
+  introv L M WH. applys~ local_conseq_frame_hgc (Q1 \--* Q \*+ \GC) M.
   hsimpl.
 Qed.
 
 (** Consequence rule *)
 
-Lemma is_local_conseq : forall H' Q' F H Q,
-  is_local F ->
+Lemma local_conseq : forall H' Q' F H Q,
+  local F ->
   F H' Q' ->
   H ==> H' ->
   Q' ===> Q ->
   F H Q.
 Proof using.
-  introv L M WH WQ. applys* is_local_conseq_frame_hgc \[] M. 
+  introv L M WH WQ. applys* local_conseq_frame_hgc \[] M. 
   { hsimpl*. } { hchanges WQ. }
 Qed.
 
-(** Garbage collection on precondition from [local] *)
+(** Garbage collection on precondition from [mklocal] *)
 
-Lemma is_local_hgc_pre : forall F H Q,
-  is_local F ->
+Lemma local_hgc_pre : forall F H Q,
+  local F ->
   F H Q ->
   F (H \* \GC) Q.
-Proof using. introv L M. applys~ is_local_conseq_frame_hgc M. Qed.
+Proof using. introv L M. applys~ local_conseq_frame_hgc M. Qed.
 
-Lemma is_local_conseq_pre_hgc : forall H' F H Q,
-  is_local F ->
+Lemma local_conseq_pre_hgc : forall H' F H Q,
+  local F ->
   H ==> H' \* \GC ->
   F H' Q ->
   F H Q.
-Proof using. introv L WH M. applys* is_local_conseq_frame_hgc M. Qed.
+Proof using. introv L WH M. applys* local_conseq_frame_hgc M. Qed.
 
-(** Garbage collection on postcondition from [local] *)
+(** Garbage collection on postcondition from [mklocal] *)
 
-Lemma is_local_hgc_post : forall F H Q,
-  is_local F ->
+Lemma local_hgc_post : forall F H Q,
+  local F ->
   F H (Q \*+ \GC) ->
   F H Q.
-Proof using. introv L M. applys* is_local_conseq_frame_hgc \[] M; hsimpl. Qed.
+Proof using. introv L M. applys* local_conseq_frame_hgc \[] M; hsimpl. Qed.
 
-Lemma is_local_conseq_post_hgc : forall Q' F H Q,
-  is_local F ->
+Lemma local_conseq_post_hgc : forall Q' F H Q,
+  local F ->
   F H Q' ->
   Q' ===> Q \*+ \GC ->
   F H Q.
 Proof using.
-  introv L M WQ. applys* is_local_conseq_frame_hgc \[] M.
+  introv L M WQ. applys* local_conseq_frame_hgc \[] M.
   { hsimpl. } { hchanges WQ. }
 Qed.
 
 (** Variant of the above, useful for tactics to specify
     the garbage collected part *)
 
-Lemma is_local_hgc_pre_on : forall HG H' F H Q,
-  is_local F ->
+Lemma local_hgc_pre_on : forall HG H' F H Q,
+  local F ->
   haffine HG ->
   H ==> HG \* H' ->
   F H' Q ->
   F H Q.
-Proof using. introv L K WH M. applys~ is_local_conseq_pre_hgc M. hchanges~ WH. Qed.
+Proof using. introv L K WH M. applys~ local_conseq_pre_hgc M. hchanges~ WH. Qed.
 
-(** Weakening on pre and post with gc-post from [local] *)
+(** Weakening on pre and post with gc-post from [mklocal] *)
 
-Lemma is_local_conseq_hgc_post : forall H' Q' F H Q,
-  is_local F ->
+Lemma local_conseq_hgc_post : forall H' Q' F H Q,
+  local F ->
   F H' Q' ->
   H ==> H' ->
   Q' ===> Q \*+ \GC ->
   F H Q.
 Proof using.
-  introv L M WH WQ. applys~ is_local_conseq_frame_hgc \[] M.
+  introv L M WH WQ. applys~ local_conseq_frame_hgc \[] M.
   { hchanges WH. } { hchanges WQ. }
 Qed.
 
-(** Weakening on pre and post with gc-pre from [local] *)
+(** Weakening on pre and post with gc-pre from [mklocal] *)
 
-Lemma is_local_conseq_hgc_pre : forall H' Q' F H Q,
-  is_local F ->
+Lemma local_conseq_hgc_pre : forall H' Q' F H Q,
+  local F ->
   F H' Q' ->
   H ==> H' \* \GC ->
   Q' ===> Q ->
   F H Q.
 Proof using.
-  introv L M WH WQ. applys~ is_local_conseq_frame_hgc \GC M.
+  introv L M WH WQ. applys~ local_conseq_frame_hgc \GC M.
   { hchanges WQ. }
 Qed.
 
-(** Weakening on pre from [local] *)
+(** Weakening on pre from [mklocal] *)
 
-Lemma is_local_conseq_pre : forall H' F H Q,
-  is_local F ->
+Lemma local_conseq_pre : forall H' F H Q,
+  local F ->
   F H' Q ->
   H ==> H' ->
   F H Q.
-Proof using. introv L M WH. applys* is_local_conseq M. Qed.
+Proof using. introv L M WH. applys* local_conseq M. Qed.
 
-(** Weakening on post from [local] *)
+(** Weakening on post from [mklocal] *)
 
-Lemma is_local_conseq_post : forall Q' F H Q,
-  is_local F ->
+Lemma local_conseq_post : forall Q' F H Q,
+  local F ->
   F H Q' ->
   Q' ===> Q ->
   F H Q.
-Proof using. introv L M WQ. applys* is_local_conseq M. Qed.
+Proof using. introv L M WQ. applys* local_conseq M. Qed.
 
-(** Extraction of pure facts from [local] *)
+(** Extraction of pure facts from [mklocal] *)
 
-Lemma is_local_hpure : forall F H P Q,
-  is_local F ->
+Lemma local_hpure : forall F H P Q,
+  local F ->
   (P -> F H Q) ->
   F (\[P] \* H) Q.
 Proof using.
-  introv L M. applys~ is_local_elim_conseq_pre. hpull ;=> HP. hsimpl~ H.
+  introv L M. applys~ local_elim_conseq_pre. hpull ;=> HP. hsimpl~ H.
 Qed.
 
-(** Extraction of existentials from [local] *)
+(** Extraction of existentials from [mklocal] *)
 
-Lemma is_local_hexists : forall F A (J:A->hprop) Q,
-  is_local F ->
+Lemma local_hexists : forall F A (J:A->hprop) Q,
+  local F ->
   (forall x, F (J x) Q) ->
   F (hexists J) Q.
 Proof using.
-  introv L M. applys~ is_local_elim_conseq_pre. hpull ;=> x. hsimpl* (J x).
+  introv L M. applys~ local_elim_conseq_pre. hpull ;=> x. hsimpl* (J x).
 Qed.
 
-(** Extraction of existentials below a star from [local] *)
+(** Extraction of existentials below a star from [mklocal] *)
 
-Lemma is_local_hstar_hexists : forall F H A (J:A->hprop) Q,
-  is_local F ->
+Lemma local_hstar_hexists : forall F H A (J:A->hprop) Q,
+  local F ->
   (forall x, F ((J x) \* H) Q) ->
    F (hexists J \* H) Q.
 Proof using.
-  introv L M. rewrite hstar_hexists. applys~ is_local_hexists.
+  introv L M. rewrite hstar_hexists. applys~ local_hexists.
 Qed.
 
-(** Extraction of forall from [local] *)
+(** Extraction of forall from [mklocal] *)
 
-Lemma is_local_hforall : forall A (x:A) F (J:A->hprop) Q,
-  is_local F ->
+Lemma local_hforall : forall A (x:A) F (J:A->hprop) Q,
+  local F ->
   F (J x) Q ->
   F (hforall J) Q.
 Proof using.
-  introv L M. applys~ is_local_elim_conseq_pre.
+  introv L M. applys~ local_elim_conseq_pre.
   applys himpl_hforall_l x. hsimpl~ (J x).
 Qed.
 
-Lemma is_local_hforall_exists : forall F A (J:A->hprop) Q,
-  is_local F ->
+Lemma local_hforall_exists : forall F A (J:A->hprop) Q,
+  local F ->
   (exists x, F (J x) Q) ->
   F (hforall J) Q.
-Proof using. introv L (x&M). applys* is_local_hforall. Qed.
+Proof using. introv L (x&M). applys* local_hforall. Qed.
 
-(** Extraction of forall below a star from [local] *)
+(** Extraction of forall below a star from [mklocal] *)
 (* TODO needed? *)
 
-Lemma is_local_hstar_hforall_l : forall F H A (J:A->hprop) Q,
-  is_local F ->
+Lemma local_hstar_hforall_l : forall F H A (J:A->hprop) Q,
+  local F ->
   (exists x, F ((J x) \* H) Q) ->
   F (hforall J \* H) Q.
 Proof using.
   introv L (x&M). 
-  applys is_local_conseq_pre; [ auto | | applys hstar_hforall ].
+  applys local_conseq_pre; [ auto | | applys hstar_hforall ].
   (* TODO: fix level for notation \forall and \hstar, so that parentheses show up *)
   (* above line same as: xchanges hstar_hforall. *)
-  applys* is_local_hforall.
+  applys* local_hforall.
 Qed.
 
 (** Case analysis for [hor] *)
 
-Lemma is_local_hor : forall F H1 H2 Q,
-  is_local F ->
+Lemma local_hor : forall F H1 H2 Q,
+  local F ->
   F H1 Q ->
   F H2 Q ->
   F (hor H1 H2) Q.
-Proof using. introv L M1 M2. apply* is_local_hexists. intros b. case_if*. Qed.
+Proof using. introv L M1 M2. apply* local_hexists. intros b. case_if*. Qed.
 
 (** Left branch for [hand] *)
 
-Lemma is_local_hand_l : forall F H1 H2 Q,
-  is_local F ->
+Lemma local_hand_l : forall F H1 H2 Q,
+  local F ->
   F H1 Q ->
   F (hand H1 H2) Q.
-Proof using. introv L M1. applys* is_local_hforall true. Qed.
+Proof using. introv L M1. applys* local_hforall true. Qed.
 
 (** Right branch for [hand] *)
 
-Lemma is_local_hand_r : forall F H1 H2 Q,
-  is_local F ->
+Lemma local_hand_r : forall F H1 H2 Q,
+  local F ->
   F H2 Q ->
   F (hand H1 H2) Q.
-Proof using. introv L M1. applys* is_local_hforall false. Qed.
+Proof using. introv L M1. applys* local_hforall false. Qed.
 
-(** Extraction of heap representation from [local] *)
+(** Extraction of heap representation from [mklocal] *)
 
-Lemma is_local_name_heap : forall F H Q,
-  is_local F ->
+Lemma local_name_heap : forall F H Q,
+  local F ->
   (forall h, H h -> F (= h) Q) ->
   F H Q.
 Proof using.
-  introv L M. applys~ is_local_elim_conseq_pre.
+  introv L M. applys~ local_elim_conseq_pre.
   intros h Hh. exists (= h). rewrite hstar_comm.
   applys* himpl_hstar_hpure_r (= h).
 Qed.
 
-(** Extraction of pure facts from the precondition under is_local *)
+(** Extraction of pure facts from the precondition under local *)
 
-Lemma is_local_prop : forall F H Q P,
-  is_local F ->
+Lemma local_prop : forall F H Q P,
+  local F ->
   (H ==> H \* \[P]) ->
   (P -> F H Q) ->
   F H Q.
 Proof using.
-  introv L WH M. applys~ is_local_elim_conseq_pre.
+  introv L WH M. applys~ local_elim_conseq_pre.
   hchanges WH. rew_heap~.
 Qed.
 
-(** Extraction of proof obligations from the precondition under is_local *)
+(** Extraction of proof obligations from the precondition under local *)
 
-Lemma is_local_hwand_hpure_l : forall F (P:Prop) H Q,
-  is_local F ->
+Lemma local_hwand_hpure_l : forall F (P:Prop) H Q,
+  local F ->
   P ->
   F H Q ->
   F (\[P] \-* H) Q.
 Proof using.
-  introv L HP M. applys~ is_local_elim_conseq_pre. hchanges~ hwand_hpure_l_intro.
+  introv L HP M. applys~ local_elim_conseq_pre. hchanges~ hwand_hpure_l_intro.
 Qed.
 
 End IsLocal.
 
-Global Opaque is_local.
+Global Opaque local.
 
 
 (* ********************************************************************** *)
-(** * Definition of the predicate transformer [local] *)
+(** * Definition of the predicate transformer [mklocal] *)
 (* TODO needed? *)
 
 (** Remark: this section might be specific to old-style characteristic formulae *)
 
-(** The [local] predicate is a predicate transformer that allows
-    to turn a formula into a local formula. *)
+(** The [mklocal] predicate is a predicate transformer that allows
+    to turn a formula into a mklocal formula. *)
 
-Definition local B (F:~~B) : ~~B :=
+Definition mklocal B (F:~~B) : ~~B :=
   fun (H:hprop) (Q:B->hprop) =>
     H ==> \exists H1 H2 Q1,
        H1 \* H2 \* \[F H1 Q1 /\ Q1 \*+ H2 ===> Q \*+ \GC].
 
 Section Local.
-Transparent is_local.
+Transparent local.
 Variables (B:Type).
 Implicit Types (F:~~B).
 
-(** The [local] operator can be freely erased from a conclusion *)
+(** The [mklocal] operator can be freely erased from a conclusion *)
 
-Lemma local_erase : forall F H Q,
+Lemma mklocal_erase : forall F H Q,
   F H Q ->
-  local F H Q.
+  mklocal F H Q.
 Proof using.
-  introv M. unfold local. hsimpl H \[]. splits*. hsimpl.
+  introv M. unfold mklocal. hsimpl H \[]. splits*. hsimpl.
 Qed.
 
-(** [local] is idempotent, i.e. nested applications
-   of [local] are redundant *)
+(** [mklocal] is idempotent, i.e. nested applications
+   of [mklocal] are redundant *)
 
-Lemma local_local : forall F,
-  local (local F) = local F.
+Lemma mklocal_mklocal : forall F,
+  mklocal (mklocal F) = mklocal F.
 Proof using.
   extens. intros H Q. iff M.
-  { unfold local. eapply himpl_trans; [apply M|]. hpull ;=> H1 H2 Q1 [P1 P2].
-    unfold local in P1. hchange P1. hpull ;=> H1' H2' Q1' [P1' P2'].
+  { unfold mklocal. eapply himpl_trans; [apply M|]. hpull ;=> H1 H2 Q1 [P1 P2].
+    unfold mklocal in P1. hchange P1. hpull ;=> H1' H2' Q1' [P1' P2'].
     hsimpl H1' (H2 \* H2') Q1'. splits*.
     intros x. hchanges P2'. hchange P2. }
-  { apply~ local_erase. }
+  { apply~ mklocal_erase. }
 Qed.
 
-(** The predicate [local] satisfies [is_local] *)
+(** The predicate [mklocal] satisfies [local] *)
 
-Lemma is_local_local : forall F,
-  is_local (local F).
-Proof using. introv M. rewrite <- local_local. applys M. Qed.
+Lemma local_mklocal : forall F,
+  local (mklocal F).
+Proof using. introv M. rewrite <- mklocal_mklocal. applys M. Qed.
 
-(** A [local] can be introduced at the head of a formula satisfying [is_local] *)
+(** A [mklocal] can be introduced at the head of a formula satisfying [local] *)
 
-Lemma eq_local_of_is_local : forall F,
-  is_local F -> 
-  F = local F.
+Lemma eq_mklocal_of_local : forall F,
+  local F -> 
+  F = mklocal F.
 Proof using.
   introv L. applys pred_ext_2. intros H Q. iff M.
-  { applys~ local_erase. }
-  { applys~ is_local_elim. }
+  { applys~ mklocal_erase. }
+  { applys~ local_elim. }
 Qed.
 
-(** [local] is a covariant transformer w.r.t. predicate inclusion *)
+(** [mklocal] is a covariant transformer w.r.t. predicate inclusion *)
 
-Lemma local_weaken : forall F F',
+Lemma mklocal_weaken : forall F F',
   F ===> F' ->
-  local F ===> local F'.
+  mklocal F ===> mklocal F'.
 Proof using.
-  unfold local. introv M. intros H Q N. hchange (rm N) ;=> H1 H2 Q' [P1 P2]. 
+  unfold mklocal. introv M. intros H Q N. hchange (rm N) ;=> H1 H2 Q' [P1 P2]. 
   hsimpl H1 H2 Q'. split~. applys~ M.
 Qed.
 
-(** Extraction of contradictions from the precondition under local *)
+(** Extraction of contradictions from the precondition under mklocal *)
 
-Lemma local_false : forall F H Q,
-  local F H Q ->
+Lemma mklocal_false : forall F H Q,
+  mklocal F H Q ->
   (forall H' Q', F H' Q' -> False) ->
   (H ==> \[False]).
 Proof using.
@@ -3171,18 +3171,18 @@ End Local.
 (* * Tactics for triples and characteristic formulae *)
 
 (* ---------------------------------------------------------------------- *)
-(* ** Tactic [xlocal] to prove side-conditions of the form [local F]. *)
+(* ** Tactic [xlocal] to prove side-conditions of the form [mklocal F]. *)
 
 Ltac xlocal_base tt :=
   auto 1.
 
 (* e.g.
 Ltac xlocal_base tt ::=
-  try first [ applys is_local_local ].
+  try first [ applys local_mklocal ].
 *)
 
 Ltac xlocal_unfold_pred tt :=
-  try match goal with |- is_local_pred ?S =>
+  try match goal with |- local_pred ?S =>
     let r := fresh "TEMP" in intros r end.
 
 Ltac xlocal_core tt :=
@@ -3250,31 +3250,31 @@ Lemma xpull_empty : forall B (F:~~B) H1 H2 Q,
 Proof using. intros. rew_heap. auto. Qed.
 
 Lemma xpull_hpure : forall B (F:~~B) H1 H2 P Q,
-  is_local F -> 
+  local F -> 
   (P -> F (H1 \* H2) Q) ->
   F (H1 \* (\[P] \* H2)) Q.
 Proof using.
-  intros. rewrite hstar_comm_assoc. apply~ is_local_hpure.
+  intros. rewrite hstar_comm_assoc. apply~ local_hpure.
 Qed.
 
 Lemma xpull_id : forall A (x X : A) B (F:~~B) H1 H2 Q,
-  is_local F -> 
+  local F -> 
   (x = X -> F (H1 \* H2) Q) -> 
   F (H1 \* (x ~> Id X \* H2)) Q.
 Proof using. intros. unfold Id. apply~ xpull_hpure. Qed.
 
 Lemma xpull_hexists : forall B (F:~~B) H1 H2 A (J:A->hprop) Q,
-  is_local F ->
+  local F ->
   (forall x, F (H1 \* ((J x) \* H2)) Q) ->
    F (H1 \* (hexists J \* H2)) Q.
 Proof using.
-  intros. rewrite hstar_comm_assoc. apply~ is_local_hstar_hexists.
+  intros. rewrite hstar_comm_assoc. apply~ local_hstar_hexists.
   intros. rewrite~ hstar_comm_assoc.
 Qed.
 
 (*
 Lemma xpull_hwand_hpure_l : forall B (F:~~B) H1 H2 (P:Prop) Q,
-  is_local F ->
+  local F ->
   (P -> F (H1 \* H2) Q) ->
    F (H1 \* (\[P] \-* H2)) Q.
 *)
@@ -3333,7 +3333,7 @@ Tactic Notation "xpull" "*" := xpull; auto_star.
 (* Demo *)
 
 Lemma xpull_demo_1 : forall H1 H2 A (P:A->Prop) (J:A->hprop) B (F:~~B) (Q:B->hprop),
-  is_local F ->
+  local F ->
   F (H1 \* \exists x, (J x \* H2 \* \[P x])) Q.
 Proof using.
   introv L. dup.
@@ -3368,8 +3368,8 @@ Abort.
 Ltac xapply_core H cont1 cont2 :=
   forwards_nounfold_then H ltac:(fun K =>
     match xpostcondition_is_evar tt with
-    | true => eapply is_local_conseq_frame; [ xlocal | sapply K | cont1 tt | try apply qimpl_refl ]
-    | false => eapply is_local_conseq_frame_hgc; [ xlocal | sapply K | cont1 tt | cont2 tt ]
+    | true => eapply local_conseq_frame; [ xlocal | sapply K | cont1 tt | try apply qimpl_refl ]
+    | false => eapply local_conseq_frame_hgc; [ xlocal | sapply K | cont1 tt | cont2 tt ]
     end).
 
 Ltac xapply_base H :=
@@ -3398,7 +3398,7 @@ Tactic Notation "xapplys" "*" constr(H) :=
 (* Demo *)
 
 Lemma xapply_demo_1 : forall H1 H2 H3 B (F:~~B) (Q1:B->hprop),
-  is_local F ->
+  local F ->
   F H1 Q1 ->
   H2 ==> H3 ->
   F (H2 \* H1) (Q1 \*+ H3).
@@ -3431,13 +3431,13 @@ Abort.
 (* Lemma used by [xchange] *)
 
 Lemma xchange_lemma : forall H1 H1' H2 B H Q (F:~~B),
-  is_local F ->
+  local F ->
   (H1 ==> H1') ->
   (H ==> H1 \* H2) ->
   F (H1' \* H2) Q ->
   F H Q.
 Proof using.
-  introv W1 L W2 M. applys is_local_conseq_frame __ \[]; eauto.
+  introv W1 L W2 M. applys local_conseq_frame __ \[]; eauto.
   hsimpl. hchange~ W2. hsimpl~. rew_heap~.
 Qed.
 
@@ -3519,7 +3519,7 @@ Tactic Notation "xchange_show" "<-" constr(E) :=
 (* Demo *)
 
 Lemma xchange_demo_1 : forall H1 H1' H2 B (F:~~B) (Q:B->hprop),
-  is_local F ->
+  local F ->
   H1 ==> H1' ->
   F (H2 \* H1) Q.
 Proof using.
@@ -3537,16 +3537,16 @@ Definition weakestpre (B : Type) (F:hprop->(B->hprop)->Prop) (Q:B->hprop) : hpro
   \exists (H:hprop), H \* \[F H Q].
 
 Lemma weakestpre_eq : forall B (F:~~B) H Q,
-  is_local F -> (* in fact, only requires weaken-pre and extract-hexists rules to hold *)
+  local F -> (* in fact, only requires weaken-pre and extract-hexists rules to hold *)
   F H Q = (H ==> weakestpre F Q).
 Proof using.
   introv L. applys prop_ext. unfold weakestpre. iff M.
   { hsimpl. rew_heap~. }
-  { applys~ is_local_conseq_pre M. xpull~. }
+  { applys~ local_conseq_pre M. xpull~. }
 Qed.
 
 Lemma weakestpre_conseq : forall B (F:~~B) Q1 Q2,
-  is_local F ->
+  local F ->
   Q1 ===> Q2 ->
   weakestpre F Q1 ==> weakestpre F Q2.
 Proof using.
@@ -3555,7 +3555,7 @@ Proof using.
 Qed.
 
 Lemma weakestpre_conseq_wand : forall B (F:~~B) Q1 Q2, 
-  is_local F ->
+  local F ->
   (Q1 \--* Q2) \* weakestpre F Q1 ==> weakestpre F Q2.
 Proof using.
   introv L. unfold weakestpre. hpull ;=> H1 M.
@@ -3563,7 +3563,7 @@ Proof using.
 Qed.
 
 Lemma weakestpre_frame : forall B (F:~~B) H Q,
-  is_local F ->
+  local F ->
   (weakestpre F Q) \* H ==> weakestpre F (Q \*+ H).
 Proof using.
   introv L. unfold weakestpre. hpull ;=> H1 M.
@@ -3571,7 +3571,7 @@ Proof using.
 Qed.
 
 Lemma weakestpre_absorb : forall B (F:~~B) Q,
-  is_local F ->
+  local F ->
   weakestpre F Q \* \GC ==> weakestpre F Q.
 Proof using.
   introv L. unfold weakestpre. hpull ;=> H1 M.
@@ -3579,7 +3579,7 @@ Proof using.
 Qed.
 
 Lemma weakestpre_pre : forall B (F:~~B) Q,
-  is_local F ->
+  local F ->
   F (weakestpre F Q) Q.
 Proof using. intros. unfold weakestpre. xpull ;=> H'. auto. Qed.
 

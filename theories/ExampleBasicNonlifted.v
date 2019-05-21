@@ -79,13 +79,13 @@ Lemma triple_incr_3 : forall p n,
     (fun r => (p ~~~> (n+1))).
 Proof using.
   intros. applys triple_app_fun_of_cf_iter 20%nat. reflexivity. simpl.
-  applys local_erase. esplit. split.
-  { applys local_erase. xapplys triple_get. }
+  applys mklocal_erase. esplit. split.
+  { applys mklocal_erase. xapplys triple_get. }
   intros x. xpull. intros E. subst.
-  applys local_erase. esplit. split.
-  { applys local_erase. xapplys triple_add. }
+  applys mklocal_erase. esplit. split.
+  { applys mklocal_erase. xapplys triple_add. }
   intros y. xpull. intros E. subst.
-  applys local_erase. xapplys triple_set.
+  applys mklocal_erase. xapplys triple_set.
 Qed.
 
 (** Same proof using support for nary functions *)
@@ -223,7 +223,7 @@ Lemma triple_succ_using_incr : forall n,
     (fun r => \[r = n+1]).
 Proof using.
   xcf. xapp as p. intros; subst. xapp~. intros _. xapps~.
-  (* not possible: applys local_erase. unfold cf_val. hsimpl. *)
+  (* not possible: applys mklocal_erase. unfold cf_val. hsimpl. *)
   xvals~.
 Qed.
 

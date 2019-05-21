@@ -208,7 +208,7 @@ Proof using.
   introv N. xcf. xapp~ triple_alloc_array ;=> r p L Er EL. subst r.
   xapps. xseq.
   { (* LATER: xfor tactic *)
-    applys local_erase. esplit; esplit; splits; [reflexivity|reflexivity|].
+    applys mklocal_erase. esplit; esplit; splits; [reflexivity|reflexivity|].
     intros S LS EF M. subst EF. simpl in M.
     cuts G: (forall i L', i >= 0 -> length L' = n-i ->
        S i (Array ((make i v)++L') p) (fun r => (Array (make n v) p))).

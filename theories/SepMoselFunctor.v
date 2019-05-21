@@ -96,18 +96,18 @@ Notation "Q1 \--* Q2" := (qwand Q1 Q2)
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Definition of [local] *)
+(* ** Definition of [mklocal] *)
 
 Notation "'~~' B" := (hprop->(B->hprop)->Prop)
   (at level 8, only parsing) : type_scope.
 
-Definition local B (F:~~B) : ~~B :=
+Definition mklocal B (F:~~B) : ~~B :=
   fun (H:hprop) (Q:B->hprop) =>
     H ==> \exists H1 H2 Q1,
        H1 \* H2 \* \[F H1 Q1 /\ Q1 \*+ H2 ===> Q \*+ \Top].
 
-Definition is_local B (F:~~B) :=
-  F = local F.
+Definition local B (F:~~B) :=
+  F = mklocal F.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -146,8 +146,8 @@ Ltac hpull_xpull_iris_hook := idtac.
 
 Ltac xlocal_core := idtac.
 
-Parameter local_ramified_frame : forall B (Q1:B->hprop) H1 F H Q,
-  is_local F ->
+Parameter mklocal_ramified_frame : forall B (Q1:B->hprop) H1 F H Q,
+  local F ->
   F H1 Q1 ->
   H ==> H1 \* (Q1 \--* Q) ->
   F H Q.
@@ -455,25 +455,25 @@ Ltac iPrepare :=
 
 (* ProofMode's [iIntros] tend to move pure facts in Coq's context.
    While, in general, this is desirable, this is not what we want
-   after having applied [local_ramified_frame] because we would loose
+   after having applied [mklocal_ramified_frame] because we would loose
    pure facts that will not be unified in [Q] when [Q] is an evar. As
    a result, we use a specific version of this lemma where Q1 is
    locked, and hence pure facts cannot escape.
 
    This specific version is only used when the postcondition is
    indeed an evar. *)
-Lemma local_ramified_frame_locked {B} : forall (Q1 : B → hprop) H1 F H Q,
-  is_local F ->
+Lemma mklocal_ramified_frame_locked {B} : forall (Q1 : B → hprop) H1 F H Q,
+  local F ->
   F H1 Q1 ->
   H ==> H1 \* (locked Q1 \--* Q) ->
   F H Q.
-Proof using. unlock. apply local_ramified_frame. Qed.
+Proof using. unlock. apply mklocal_ramified_frame. Qed.
 
 Ltac ram_apply lem :=
   lazymatch goal with
   | |- ?F _ ?Q =>
-    (is_evar Q; eapply local_ramified_frame_locked) ||
-    eapply local_ramified_frame
+    (is_evar Q; eapply mklocal_ramified_frame_locked) ||
+    eapply mklocal_ramified_frame
   end; [xlocal_core tt|eapply lem|iPrepare].
 
 

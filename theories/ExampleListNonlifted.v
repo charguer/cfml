@@ -369,21 +369,21 @@ Lemma triple_mlist_length_2 : forall L p,
 Proof using.
   intros L. induction_wf: list_sub_wf L. intros p.
   applys triple_app_fix_of_cf_iter 20%nat. reflexivity.
-  simpl. applys local_erase. esplit. split.
-  { applys local_erase. xapplys triple_neq. }
+  simpl. applys mklocal_erase. esplit. split.
+  { applys mklocal_erase. xapplys triple_neq. }
   intros X. xpull. intros EX. subst X.
-  applys local_erase. esplit. splits. eauto.
+  applys mklocal_erase. esplit. splits. eauto.
   { intros C. rew_bool_eq in *. xchange (MList_not_null_inv_cons p). { auto. }
     xpull. intros p' x L' EL.
-    applys local_erase. esplit. split.
-    { applys local_erase. xapplys triple_get_tl. }
+    applys mklocal_erase. esplit. split.
+    { applys mklocal_erase. xapplys triple_get_tl. }
     intros p''. xpull. intros E. subst p''.
-    applys local_erase. esplit. split.
-    { applys local_erase. xapplys IH. { subst~. } }
+    applys mklocal_erase. esplit. split.
+    { applys mklocal_erase. xapplys IH. { subst~. } }
     { intros r. xpull. intros Er. xchange (MList_cons p).
-      subst r L. applys local_erase. xapplys triple_add.
+      subst r L. applys mklocal_erase. xapplys triple_add.
       { intros. subst. rew_list. fequals. math. } } }
-  { intros C. rew_bool_eq in *. applys local_erase. unfolds. inverts C.
+  { intros C. rew_bool_eq in *. applys mklocal_erase. unfolds. inverts C.
     xchange MList_null_inv. hpull. intros EL.
     hsimpl. subst~. }
 Qed.

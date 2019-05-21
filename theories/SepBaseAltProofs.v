@@ -352,14 +352,14 @@ Definition triple (t:trm) (H:hprop) (Q:val->hprop) :=
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Triples satisfy the [local] predicate *)
+(* ** Triples satisfy the [mklocal] predicate *)
 
 (** This lemma is exploited indirectly by tactics such as [xapply],
   which perform application of lemmas modulo framing. *)
 
 
-Lemma is_local_triple : forall t,
-  is_local (triple t).
+Lemma local_triple : forall t,
+  local (triple t).
 Proof using.
   skip.
 (* TODO updated def...
@@ -378,18 +378,18 @@ Proof using.
 *)
 Qed.
 
-(** Make tactic [xlocal] aware that triples are local *)
+(** Make tactic [xlocal] aware that triples are mklocal *)
 
 Ltac xlocal_base tt ::=
-  try first [ applys is_local_local
-            | applys is_local_triple ].
+  try first [ applys local_mklocal
+            | applys local_triple ].
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** Structural rules *)
 
 (** Note: all these rules could be derived directly from the fact that
-    [triple] satisfies [is_local], using lemmas from [SepFunctor] *)
+    [triple] satisfies [local], using lemmas from [SepFunctor] *)
 
 Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, triple t (J x) Q) ->
