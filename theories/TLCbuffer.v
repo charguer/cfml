@@ -256,6 +256,14 @@ End FuncExtDep.
 (* ---------------------------------------------------------------------- *)
 (* LibTactics *)
 
+(* problematic to prove [(forall h, H1 h <-> H2 h) -> (H1 h <-> H2 h)]
+Ltac jauto_set_goal ::=
+  repeat match goal with
+  | |- exists a, _ => esplit
+  | |- _ /\ _ => split
+  | |- _ <-> _ => split
+  end. *)
+
 Ltac fequal_base ::=
   let go := f_equal_fixed; [ fequal_base | ] in
   match goal with

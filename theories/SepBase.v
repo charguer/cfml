@@ -445,185 +445,8 @@ Ltac simpl_abs := (* LATER: will be removed once [abs] computes *)
   end.
 
 
-
 (* ********************************************************************** *)
-(* * Hoare reasoning rules *)
-
-(* ---------------------------------------------------------------------- *)
-(* ** Definition of Hoare triples *)
-
-Definition hoare (t:trm) (H:hprop) (Q:val->hprop) :=
-  forall h, H h -> exists h' v, eval h t h' v /\ Q v h'.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Hoare structural rules *)
-
-Lemma hoare_conseq : forall t H' Q' H Q,
-  hoare t H' Q' ->
-  H ==> H' ->
-  Q' ===> Q ->
-  hoare t H Q.
-Proof using.
-  introv M MH MQ HF. forwards (h'&v&R&K): M h.
-  { hhsimpl~. }
-  exists h' v. splits~. { hhsimpl. auto. }
-Qed.
-
-Lemma hoare_named_heap : forall t H Q,
-  (forall h, H h -> hoare t (= h) Q) ->
-  hoare t H Q.
-Proof using. introv M. intros h Hh. applys* M. Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Hoare rules for term constructs *)
-
-Lemma hoare_evalctx : forall C t1 H Q Q1,
-  evalctx C ->
-  hoare t1 H Q1 ->
-  (forall v, hoare (C v) (Q1 v) Q) ->
-  hoare (C t1) H Q.
-Proof using.
-  introv HC M1 M2 Hh.
-  forwards* (h1'&v1&R1&K1): (rm M1).
-  forwards* (h2'&v2&R2&K2): (rm M2).
-  exists h2' v2. splits~. { applys~ eval_evalctx R2. }
-Qed.
-
-Lemma hoare_val : forall v H Q,
-  H ==> Q v ->
-  hoare (trm_val v) H Q.
-Proof using.
-  introv M. intros h Hh. exists h v. splits.
-  { applys eval_val. }
-  { hhsimpl~. }
-Qed.
-
-Lemma hoare_fixs : forall (f:bind) xs t1 H Q,
-  xs <> nil ->
-  H ==> Q (val_fixs f xs t1) ->
-  hoare (trm_fixs f xs t1) H Q.
-Proof using.
-  introv N M. intros h Hh. exists___. splits.
-  { applys~ eval_fixs. }
-  { hhsimpl~. }
-Qed.
-
-Lemma hoare_constr : forall id vs H Q,
-  H ==> Q (val_constr id vs) ->
-  hoare (trm_constr id (trms_vals vs)) H Q.
-Proof using.
-  introv M. intros h Hh. exists h (val_constr id vs). splits.
-  { applys eval_constr. }
-  { hhsimpl~. }
-Qed.
-
-Lemma hoare_constr_trm : forall id ts t1 vs H Q Q1,
-  hoare t1 H Q1 -> 
-  (forall v, hoare (trm_constr id ((trms_vals vs)++(trm_val v)::ts)) (Q1 v) Q) ->
-  hoare (trm_constr id ((trms_vals vs)++t1::ts)) H Q.
-Proof using.
-  introv M1 M2. intros h Hh.
-  forwards* (h1'&v1&R1&K1): (rm M1).
-  forwards* (h2'&v2&R2&K2): (rm M2).
-  exists h2' v2. splits~. { applys~ eval_constr_trm R2. }
-Qed.
-
-Lemma hoare_let : forall z t1 t2 H Q Q1,
-  hoare t1 H Q1 ->
-  (forall v, hoare (subst1 z v t2) (Q1 v) Q) ->
-  hoare (trm_let z t1 t2) H Q.
-Proof using.
-  introv M1 M2 Hh.
-  forwards* (h1'&v1&R1&K1): (rm M1).
-  forwards* (h2'&v2&R2&K2): (rm M2).
-  exists h2' v2. splits~. { applys~ eval_let_trm R2. }
-Qed.
-
-Lemma hoare_if_bool : forall (b:bool) t1 t2 H Q,
-  hoare (if b then t1 else t2) H Q ->
-  hoare (trm_if b t1 t2) H Q.
-Proof using.
-  introv M1. intros h Hh. forwards* (h1'&v1&R1&K1): (rm M1).
-  exists h1' v1. splits~. { applys* eval_if. }
-Qed.
-
-Lemma hoare_if_trm : forall Q1 t0 t1 t2 H Q, (* TODO needed? *)
-  hoare t0 H Q1 ->
-  (forall v, hoare (trm_if v t1 t2) (Q1 v) Q) ->
-  hoare (trm_if t0 t1 t2) H Q.
-Proof using.
-  introv M1 M2. applys* hoare_evalctx (fun t0 => trm_if t0 t1 t2).
-  { constructor. }
-Qed.
-
-Lemma hoare_apps_funs : forall xs F (Vs:vals) t1 H Q,
-  F = (val_funs xs t1) ->
-  var_funs (length Vs) xs ->
-  hoare (substn xs Vs t1) H Q ->
-  hoare (trm_apps F Vs) H Q.
-Proof using.
-  introv E N M. intros h Hh. forwards* (h'&v&R&K): (rm M).
-  exists h' v. splits~. { subst. applys* eval_apps_funs. }
-Qed.
-
-Lemma hoare_apps_fixs : forall xs (f:var) F (Vs:vals) t1 H Q,
-  F = (val_fixs f xs t1) ->
-  var_fixs f (length Vs) xs ->
-  hoare (substn (f::xs) (F::Vs) t1) H Q ->
-  hoare (trm_apps F Vs) H Q.
-Proof using.
-  introv E N M. intros h Hh. forwards* (h'&v&R&K): (rm M).
-  exists h' v. splits~. { subst. applys* eval_apps_fixs. }
-Qed.
-
-Lemma hoare_while_raw : forall t1 t2 H Q,
-  hoare (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) H Q ->
-  hoare (trm_while t1 t2) H Q.
-Proof using.
-  introv M Hh. forwards* (h1'&v1&R1&K1): (rm M).
-  exists h1' v1. splits~. { applys* eval_while. }
-Qed.
-
-Lemma hoare_for_raw : forall (x:var) (n1 n2:int) t3 H (Q:val->hprop),
-  hoare (
-    If (n1 <= n2)
-      then (trm_seq (subst1 x n1 t3) (trm_for x (n1+1) n2 t3))
-      else val_unit) H Q ->
-  hoare (trm_for x n1 n2 t3) H Q.
-Proof using.
-  introv M Hh. forwards* (h1'&v1&R1&K1): (rm M).
-  exists h1' v1. splits~. { applys* eval_for. }
-Qed.
-
-Lemma hoare_match : forall v p t1 pts H Q,
-  (forall (G:ctx), Ctx.dom G = patvars p -> v = patsubst G p -> hoare (isubst G t1) H Q) ->
-  ((forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p) -> hoare (trm_match v pts) H Q) ->
-  hoare (trm_match v ((p,t1)::pts)) H Q.
-Proof using.
-  introv M1 M2 Hh. tests C: (exists (G:ctx), Ctx.dom G = patvars p /\ v = patsubst G p).
-  { destruct C as (G&DG&Ev). forwards* (h1'&v1&R1&K1): (rm M1).
-    exists h1' v1. splits~. { applys~ eval_match_yes R1. } }
-  { forwards* (h1'&v1&R1&K1): (rm M2).
-    exists h1' v1. splits~. { applys~ eval_match_no R1.
-      intros G HG. specializes C G. rew_logic in C. destruct* C. } }
-Qed.
-
-Lemma hoare_case_trm : forall t1 pts H Q Q1,
-  hoare t1 H Q1 -> 
-  (forall v, hoare (trm_match v pts) (Q1 v) Q) ->
-  hoare (trm_match t1 pts) H Q.
-Proof using.
-  introv M1 M2. intros h Hh.
-  forwards* (h1'&v1&R1&K1): (rm M1).
-  forwards* (h2'&v2&R2&K2): (rm M2).
-  exists h2' v2. splits~. { applys~ eval_match_trm R2. }
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Hoare rules for primitives *)
+(* * Hoare reasoning rules for primitives *)
 
 Section HoarePrimitives.
 Transparent hstar hsingle hfield hexists loc null.
@@ -908,18 +731,18 @@ Proof using.
   Hint Resolve isubst_not_val_not_var.
   introv HC M1 M2. intros HF. inverts HC. (* simpl *)
   { rewrite isubst_trm_constr_args.
-    applys triple_evalctx (fun t1 => trm_constr id (trms_vals vs ++ t1 :: map (isubst E) ts)); eauto.
+    applys triple_evalctx (fun t1 => trm_constr id (trms_vals vs ++ t1 :: LibList.map (isubst E) ts)); eauto.
     intros v. specializes M2 v. rewrite isubst_trm_constr_args in M2. applys M2. }
   { applys triple_evalctx (fun t1 => trm_let z t1 (isubst (Ctx.rem z E) t2)); eauto. }
   { applys triple_evalctx (fun t1 => trm_if t1 (isubst E t2) (isubst E t3)); eauto. }
   { applys triple_evalctx (fun t0 => trm_apps t0 (List.map (isubst E) ts)); eauto. }
   { rewrite isubst_trm_apps_args.
-    applys triple_evalctx (fun t1 => trm_apps v0 (trms_vals vs ++ t1 :: map (isubst E) ts)); eauto.
+    applys triple_evalctx (fun t1 => trm_apps v0 (trms_vals vs ++ t1 :: LibList.map (isubst E) ts)); eauto.
     intros v. specializes M2 v. rewrite isubst_trm_apps_args in M2. applys M2. }
   { applys triple_evalctx (fun t1 => trm_for x t1 (isubst E t2) (isubst (Ctx.rem x E) t3)); eauto. }
   { applys triple_evalctx (fun t2 => trm_for x v1 t2 (isubst (Ctx.rem x E) t3)); eauto. }
   { applys triple_evalctx (fun t0 => trm_match t0 (List.map (fun '(pi,ti) => (pi, isubst (Ctx.rem_vars (patvars pi) E) ti)) pts)); eauto. }
-Qed.
+Qed. (* TODO: why List.map and LibList.map are mixed? Would a grammar of contexts work better? *)
 
 
 (* ---------------------------------------------------------------------- *)
