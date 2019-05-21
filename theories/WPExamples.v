@@ -325,7 +325,7 @@ Proof using.
      hchanges (MList_eq' p2) ;=> v2.
      hchanges (MList_eq' p1) ;=> v1.
      xapp.
-     applys flocal_hgc. applys flocal_Local. (* TODO: xgc *)
+     applys struct_hgc. applys struct_MkStruct. (* TODO: xgc *)
      xapp. (* todo : gc by default in xapp ? *) hchange <- (MList_eq' p1). } 
   { (* cons *) 
     intros p' x L' ->.

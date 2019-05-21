@@ -46,7 +46,7 @@ Definition formula := (val->hprop) -> hprop.
 
 (** The function [wpgen] is defined as shown below.
 
-    The definition makes use of a predicate [mkflocal] to support
+    The definition makes use of a predicate [mkstruct] to support
     structural rules of Separation Logic. For the moment, just ignore it.
 
     The details of the definition will be explained in detail
@@ -55,7 +55,7 @@ Definition formula := (val->hprop) -> hprop.
 
 [[
     Fixpoint wpgen (t:trm) : formula :=
-      mkflocal (fun Q => 
+      mkstruct (fun Q => 
         match t with
         | trm_val v => Q v
         | trm_var x => \[False]
@@ -95,21 +95,21 @@ Parameter triple_of_wpgen : forall H t Q,
 
 
 (* ******************************************************* *)
-(** ** Overview of the [mkflocal] predicate *)
+(** ** Overview of the [mkstruct] predicate *)
 
 (** The definition of [wpgen] provides, for each term construct,
     a piece of formula that mimics the term reasoning rules from
     Separation Logic. Yet, for [wpgen] to be useful for carrying
     out practical verification proofs, it also needs to also support,
     somehow, the structural rules of Separation Logic.
-    The predicate [mkflocal] serves exactly that purpose.
+    The predicate [mkstruct] serves exactly that purpose.
     It is inserted at every "node" in the construction of the 
     formual [wpgen t]. In other words, [wpgen t] always takes the
-    form [mkflocal F] for some formula [F], and for any subterm [t1]
+    form [mkstruct F] for some formula [F], and for any subterm [t1]
     of [t], the recursive call [wpgen t1] yields a formula of the
-    form [mkflocal F1]. 
+    form [mkstruct F1]. 
 
-    In what follows, we present the properties expected of [mkflocal],
+    In what follows, we present the properties expected of [mkstruct],
     and present a simple definition that satisfies the targeted property. *)
 
 (** Recall from the previous chapter that the ramified rule for [wp],
@@ -128,39 +128,39 @@ Parameter wpgen_ramified : forall t Q1 Q2,
 
 End WpgenOverview.
 
-(** We have set up [wpgen] so that [wpgen t] is always of the form [mkflocal F]
+(** We have set up [wpgen] so that [wpgen t] is always of the form [mkstruct F]
     for some formula [F]. Thus, to ensure the above entailment, it suffices
-    for the definition of [mkflocal] to be a "formula transformer" (more generally
+    for the definition of [mkstruct] to be a "formula transformer" (more generally
     known as a "predicate transformer") of type [formula->formula] such that:
 [[
-    Parameter mkflocal_ramified : forall F Q1 Q2,
-      (mkflocal F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkflocal F Q2).
+    Parameter mkstruct_ramified : forall F Q1 Q2,
+      (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
 ]]
     At the same time, in a situation where we do not need to apply any structural
-    rule, we'd like to be able to get rid of the leading [mkflocal] in the formula
+    rule, we'd like to be able to get rid of the leading [mkstruct] in the formula
     produced by [wpgen]. Concretely, we need:
 
 [[
-    Lemma mkflocal_erase : forall F Q,
-      F Q ==> mkflocal F Q.
+    Lemma mkstruct_erase : forall F Q,
+      F Q ==> mkstruct F Q.
 ]] *)
 
 (** The following definition of [mklocal] satisfy the above two properties.
     The tactic [hsimpl] trivializes the proofs. Details are discussed further on. *)
 
-Definition mkflocal (F:formula) : formula := fun (Q:val->hprop) =>
+Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
   \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
 
-Lemma mkflocal_ramified : forall Q1 Q2 F,
-  (mkflocal F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkflocal F Q2).
-Proof using. unfold mkflocal. hsimpl. Qed.
+Lemma mkstruct_ramified : forall Q1 Q2 F,
+  (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
+Proof using. unfold mkstruct. hsimpl. Qed.
 
-Lemma mkflocal_erase : forall Q F,
-  F Q ==> mkflocal F Q.
-Proof using. unfolds mkflocal. hsimpl. Qed.
+Lemma mkstruct_erase : forall Q F,
+  F Q ==> mkstruct F Q.
+Proof using. unfolds mkstruct. hsimpl. Qed.
 
-Arguments mkflocal_erase : clear implicits.
-Arguments mkflocal_ramified : clear implicits.
+Arguments mkstruct_erase : clear implicits.
+Arguments mkstruct_ramified : clear implicits.
 
 
 (* ******************************************************* *)
@@ -185,11 +185,11 @@ Arguments mkflocal_ramified : clear implicits.
     the subterms. The auxiliary functions named [wpgen_val],
     [wpgen_if], etc... describe the body of [wpgen t] for
     each term construct that [t] could be.
-    (For the time being, you may forget about [mkflocal].)
+    (For the time being, you may forget about [mkstruct].)
 
 [[
   Fixpoint wpgen (t:trm) : formula :=
-    mkflocal (match t with
+    mkstruct (match t with
     | trm_val v => wpgen_val v
     | trm_seq t1 t2 => wpgen_seq (wpgen t1) (wpgen t2)
     | trm_if v0 t1 t2 => wpgen_if v0 (wpgen t1) (wpgen t2)
@@ -219,8 +219,8 @@ Definition formula_sound_for (t:trm) (F:formula) : Prop :=
     For example, for [trm_val], we'll prove:
     [forall v, formula_sound_for [trm_val v] (wpgen_val v)].
 
-    Likewise, we'll have a soundness lemma for [mkflocal]:
-    [formula_sound_for t F -> formula_sound_for t (mkflocal F)]. *)
+    Likewise, we'll have a soundness lemma for [mkstruct]:
+    [formula_sound_for t F -> formula_sound_for t (mkstruct F)]. *)
 
 (** In what follows, we present the definition of each of the
     auxiliary functions involved, one per term construct. *)
@@ -406,7 +406,7 @@ Parameter triple_let : forall x t1 t2 H Q Q1,
 
 [[
     Fixpoint wpgen (t:trm) : formula :=
-      mkflocal 
+      mkstruct 
       match t with
       | trm_let x t1 t2 => wpgen_let (wpgen t1) (fun v => wpgen (subst x v t2))
       ...
@@ -604,24 +604,24 @@ Qed.
 
 
 (* ******************************************************* *)
-(** ** Definition of the [mkflocal] predicate transformer *)
+(** ** Definition of the [mkstruct] predicate transformer *)
 
-(** Recall the definition of [mkflocal].
+(** Recall the definition of [mkstruct].
 [[
-    Definition mkflocal (F:formula) : formula := fun (Q:val->hprop) =>
+    Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
       \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
 ]]
 
     Let us first explain in more details why this definition satisfies
     the required properties, whose proofs were trivialized by [hsimpl].
 
-    For the lemma [mkflocal_erase], we want to prove [F Q ==> mkflocal F Q].
+    For the lemma [mkstruct_erase], we want to prove [F Q ==> mkstruct F Q].
     This is equivalent to [F Q ==> \exists Q', F Q' \* (Q' \--* Q \*+ \Top)].
     Taking [Q'] to be [Q] and cancelling [F Q] from both sides leaves
     [\[] ==> Q \--* (Q \*+ \Top)], which is equivalent to [Q ==> Q \*+ \Top].
 
-    For the lemma [mkflocal_ramified], we want to prove
-    [(mkflocal F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkflocal F Q2)],
+    For the lemma [mkstruct_ramified], we want to prove
+    [(mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2)],
     which is equivalent to
     [\exists Q', F Q' \* (Q' \--* Q1 \*+ \Top) \* (Q1 \--* Q2 \*+ \Top) ==>
      \exists Q', F Q' \* (Q' \--* Q2 \*+ \Top)].
@@ -636,7 +636,7 @@ Qed.
     We conclude by cancelling out [Q1 \*+ \Top] accross the two magic wands
     from the LHS---recall the lemma [hwand_trans_elim] from [SLFHwand]. *)
 
-(** Let us now explain how, to a goal of the form [H ==> mkflocal F Q],
+(** Let us now explain how, to a goal of the form [H ==> mkstruct F Q],
     one can apply the structural rules of Separation Logic.
     Consider for example the ramified frame rule. *)
 
@@ -648,45 +648,45 @@ Parameter triple_ramified_frame : forall H1 Q1 t H Q,
 (** Let us reformulate this lemma in weakest-precondition style, 
     then prove it. *)
 
-Lemma himpl_mkflocal_conseq_frame : forall H Q H1 Q1 F,
-  H1 ==> mkflocal F Q1 ->
+Lemma himpl_mkstruct_conseq_frame : forall H Q H1 Q1 F,
+  H1 ==> mkstruct F Q1 ->
   H ==> H1 \* (Q1 \--* Q) ->
-  H ==> mkflocal F Q.
+  H ==> mkstruct F Q.
 Proof using.
   introv M W. hchange W. hchange M. 
-  lets N: mkflocal_ramified Q1 Q F. hchanges N.
+  lets N: mkstruct_ramified Q1 Q F. hchanges N.
 Qed.
 
-(* EX2! (himpl_mkflocal_htop) *)
+(* EX2! (himpl_mkstruct_htop) *)
 (** Prove the following reformulation of the garbage collection
     rule for postcondition in weakest-precondition style. *)
 
-Lemma himpl_mkflocal_htop : forall H Q F,
-  H ==> mkflocal F (Q \*+ \Top) ->
-  H ==> mkflocal F Q.
+Lemma himpl_mkstruct_htop : forall H Q F,
+  H ==> mkstruct F (Q \*+ \Top) ->
+  H ==> mkstruct F Q.
 Proof using.
 (* SOLUTION *)
   introv M. hchange M. 
-  lets N: mkflocal_ramified (Q \*+ \Top) Q F. hchanges N.
+  lets N: mkstruct_ramified (Q \*+ \Top) Q F. hchanges N.
 (* /SOLUTION *)
 Qed.
 
-(** An interesting property of [mkflocal] is its idempotence:
-    [mkflocal (mkflocal F) = mkflocal F].
+(** An interesting property of [mkstruct] is its idempotence:
+    [mkstruct (mkstruct F) = mkstruct F].
     Concretely, applying this predicate transformer more than
     once does not increase expressiveness. *)
 
-(* EX3! (mkflocal_idempotent) *)
-(** Prove the idempotence of [mkflocal]. Hint: use [hsimpl]. *)
+(* EX3! (mkstruct_idempotent) *)
+(** Prove the idempotence of [mkstruct]. Hint: use [hsimpl]. *)
 
-Lemma mkflocal_idempotent : forall F,
-  mkflocal (mkflocal F) = mkflocal F.
+Lemma mkstruct_idempotent : forall F,
+  mkstruct (mkstruct F) = mkstruct F.
 Proof using.
   (* SOLUTION *)
   intros. apply fun_ext_1. intros Q.
-  unfold mkflocal. hsimpl.
+  unfold mkstruct. hsimpl.
   (* [hsimpl] first invokes [applys himpl_antisym].
-     The right-to-left entailment is exactly [mkflocal_erase].
+     The right-to-left entailment is exactly [mkstruct_erase].
      The left-to-right entailment amounts to proving: 
      [F Q2 \* (Q2 \--* (Q1 \*+ \Top) \* (Q1 \--* (Q \*+ \Top))
       ==> \exists Q', F Q' \* (Q' \--* (Q \*+ \Top))]
@@ -697,18 +697,18 @@ Qed.
 
 
 (* ******************************************************* *)
-(** ** Soundness of the [mkflocal] predicate transformer *)
+(** ** Soundness of the [mkstruct] predicate transformer *)
 
-(** We need to justify that the addition of [mkflocal] to the head
+(** We need to justify that the addition of [mkstruct] to the head
     of every call to [wpgen] preserves the fact that [H ==> wpgen t Q]
     implies [triple t H Q]. In other words, we need to prove that,
     if [forall H' Q', H' ==> F Q' -> triple t H' Q'], then it is also 
-    the case that [H ==> mkflocal F Q -> triple t H Q].
+    the case that [H ==> mkstruct F Q -> triple t H Q].
 
     Equivalently, this soundness property can be formulated in the form:
-    [formula_sound_for t F -> formula_sound_for t (mkflocal F)]. *)
+    [formula_sound_for t F -> formula_sound_for t (mkstruct F)]. *)
 
-(** The proof of this implication stems from the fact that [mkflocal]
+(** The proof of this implication stems from the fact that [mkstruct]
     involves an entailment somewhat reminiscent of the (generalized)
     ramified rule for [triple]: *)
 
@@ -722,8 +722,8 @@ Parameter triple_ramified_frame_htop : forall H1 Q1 t H Q,
     One the one hand, from [H' ==> F Q' -> triple t H' Q'],
     we can derive the hypothesis: [triple t (F Q') Q'] for any [Q'].
 
-    On the other hand, the goal [H ==> mkflocal F Q -> triple t H Q]
-    simplifies to [triple t (mkflocal F Q) Q], which is equivalent to
+    On the other hand, the goal [H ==> mkstruct F Q -> triple t H Q]
+    simplifies to [triple t (mkstruct F Q) Q], which is equivalent to
     [forall Q', triple t [F Q' \* (Q' \--* Q \*+ \Top)] Q'].
 
     Establishing this conclusion from our reformulated hypothesis
@@ -732,15 +732,15 @@ Parameter triple_ramified_frame_htop : forall H1 Q1 t H Q,
 
     The Coq proof is there: *)
 
-Lemma mkflocal_sound : forall t F,
+Lemma mkstruct_sound : forall t F,
   formula_sound_for t F ->
-  formula_sound_for t (mkflocal F).
+  formula_sound_for t (mkstruct F).
 Proof using.
   introv HF. introv M.
-  (* Move [mkflocal F Q] into the precondition. *)
+  (* Move [mkstruct F Q] into the precondition. *)
   applys triple_conseq Q M; [| applys qimpl_refl ]. clear M.
-  (* Unfold [mkflocal] in the conclusion. *)
-  unfolds mkflocal. applys triple_hexists. intros Q'.
+  (* Unfold [mkstruct] in the conclusion. *)
+  unfolds mkstruct. applys triple_hexists. intros Q'.
   (** Invokve the ramified rule for [triple]. *)
   applys triple_ramified_frame_htop (F Q') Q'.
   (** Exploit the hypothesis and conclude. *)
@@ -774,7 +774,7 @@ Module WPgenSubst.
     and between [trm_seq] and [trm_let].) *)
 
 Definition Wpgen wpgen (t:trm) : formula :=
-  mkflocal
+  mkstruct
   match t with
   | (* [trm_val v] => *)  trm_val v =>
        wpgen_val v
@@ -848,15 +848,15 @@ Parameter trm_induct_subst : forall (P : trm -> Prop),
     [forall t, formula_sound_for t (wpgen t)].
 
     The proof is carried out by induction on [t]. For each term
-    construct, the proof consists of invoking the lemma [mkflocal_sound]
-    to justify soundness of the leading [mkflocal], then invoking
+    construct, the proof consists of invoking the lemma [mkstruct_sound]
+    to justify soundness of the leading [mkstruct], then invoking
     the soundness lemma specific to that term construct. *)
 
 Theorem wpgen_sound : forall t,
   formula_sound_for t (wpgen t).
 Proof using.
   intros. induction t using trm_induct_subst;
-   rewrite wpgen_fix; applys mkflocal_sound; simpl.
+   rewrite wpgen_fix; applys mkstruct_sound; simpl.
   { applys wpgen_val_sound. }
   { applys wpgen_fail_sound. }
   { applys wpgen_fun_sound. }
@@ -987,7 +987,7 @@ Definition wpgen_var (E:ctx) (x:var) : formula :=
   end.
 
 Fixpoint wpgen (E:ctx) (t:trm) : formula :=
-  mkflocal match t with
+  mkstruct match t with
   | (* [trm_val v] => *)  trm_val v =>
        wpgen_val v
   | (* [trm_var x] => *)  trm_var x =>
@@ -1051,7 +1051,7 @@ Lemma wpgen_sound : forall E t,
   formula_sound_for (isubst E t) (wpgen E t).
 Proof using.
   intros. gen E. induction t using trm_induct; intros; simpl; 
-   applys mkflocal_sound.
+   applys mkstruct_sound.
   { applys wpgen_val_sound. } 
   { unfold wpgen_var. case_eq (lookup x E).
     { intros v EQ. applys wpgen_val_sound. }
@@ -1449,16 +1449,16 @@ Implicit Types n : int.
 (* ******************************************************* *)
 (** ** Lemmas for handling [wpgen] goals *)
 
-(** For each term construct, and for [mkflocal], we introduce
+(** For each term construct, and for [mkstruct], we introduce
     a dedicated lemma, called "x-lemma", to help with the 
     elimination of the construct. *)
 
-(** [xflocal_lemma] is a reformulation of [mkflocal_erase]. *)
+(** [xstruct_lemma] is a reformulation of [mkstruct_erase]. *)
 
-Lemma xflocal_lemma : forall F H Q,
+Lemma xstruct_lemma : forall F H Q,
   H ==> F Q ->
-  H ==> mkflocal F Q.
-Proof using. introv M. hchange M. applys mkflocal_erase. Qed.
+  H ==> mkstruct F Q.
+Proof using. introv M. hchange M. applys mkstruct_erase. Qed.
 
 (** [xlet_lemma] reformulates the definition of [wpgen_let].
     It just unfolds the definition. *)
@@ -1508,15 +1508,15 @@ Proof using.
   applys wpgen_sound M2.
 Qed.
 
-(** [xtop_lemma] helps exploiting [mkflocal] to augment the postcondition
+(** [xtop_lemma] helps exploiting [mkstruct] to augment the postcondition
     with [\Top]. It proves the entailement:
 [[
-    H ==> mkflocal F (Q \*+ \Top) -> 
-    H ==> mkflocal F Q.
+    H ==> mkstruct F (Q \*+ \Top) -> 
+    H ==> mkstruct F Q.
 ]]
 *)
 
-Definition xtop_lemma := himpl_mkflocal_htop.
+Definition xtop_lemma := himpl_mkstruct_htop.
 
 (** Other lemmas for structural rules, not shown here, can be similarly
     devised. *)
@@ -1552,20 +1552,20 @@ Proof using.
   intros.
   applys xcf_lemma. { reflexivity. }
   simpl. (* Here the [wpgen] function computes. *)
-  (* Observe how each node begin with [mkflocal].
+  (* Observe how each node begin with [mkstruct].
      Observe how program variables are all eliminated. *)
-  applys xflocal_lemma.
+  applys xstruct_lemma.
   applys xlet_lemma.
-  applys xflocal_lemma.
+  applys xstruct_lemma.
   applys xapp_lemma. { apply triple_ref. }
   hsimpl'. intros ? l ->.
-  applys xflocal_lemma.
+  applys xstruct_lemma.
   applys xseq_lemma.
-  applys xflocal_lemma.
+  applys xstruct_lemma.
   applys xapp_lemma. { apply triple_incr. }
   hsimpl'. intros ? ->.
-  applys xtop_lemma. (* Here we exploit [mkflocal] to apply a structural rule. *)
-  applys xflocal_lemma.
+  applys xtop_lemma. (* Here we exploit [mkstruct] to apply a structural rule. *)
+  applys xstruct_lemma.
   applys xapp_lemma. { apply triple_get. }
   hsimpl'. intros ? ->.
   hsimpl'. auto.
@@ -1576,7 +1576,7 @@ Qed.
 (** ** Making proof obligations more readable *)
 
 (** Let us introduce a piece of notation for every "wpgen" auxiliary function,
-    including [mkflocal]. *)
+    including [mkstruct]. *)
 
 Notation "'Fail'" :=
   ((wpgen_fail))
@@ -1604,7 +1604,7 @@ Notation "'If'' b 'Then' F1 'Else' F2" :=
   ((wpgen_if b F1 F2))
   (at level 69) : wp_scope.
 
-Notation "` F" := (mkflocal F) (at level 10, format "` F") : wp_scope.
+Notation "` F" := (mkstruct F) (at level 10, format "` F") : wp_scope.
 
 Open Scope wp_scope.
 
@@ -1626,41 +1626,41 @@ Abort.
 (* ******************************************************* *)
 (** ** Making proof scripts more concise *)
 
-(** For each term construct, and for [mkflocal] goals, we introduce
+(** For each term construct, and for [mkstruct] goals, we introduce
     a dedicated tactic to apply the corresponding x-lemma, plus
     performs some basic preliminary work. *)
 
-(** [xflocal] eliminates the leading [mkflocal]. *)
+(** [xstruct] eliminates the leading [mkstruct]. *)
 
-Ltac xflocal :=
-  applys xflocal_lemma.
+Ltac xstruct :=
+  applys xstruct_lemma.
 
 (** [xseq] and [xlet] invoke the corresponding lemma, after
-    calling [xflocal] if necessary. *)
+    calling [xstruct] if necessary. *)
 
-Ltac xflocal_if_needed :=
-  try match goal with |- ?H ==> mkflocal ?F ?Q => xflocal end.
+Ltac xstruct_if_needed :=
+  try match goal with |- ?H ==> mkstruct ?F ?Q => xstruct end.
 
 Ltac xlet :=
-  xflocal_if_needed; applys xlet_lemma.
+  xstruct_if_needed; applys xlet_lemma.
 
 Ltac xseq :=
-  xflocal_if_needed; applys xseq_lemma.
+  xstruct_if_needed; applys xseq_lemma.
 
 (** [xapp] invokes [xapp_lemma], after calling [xseq] or [xlet]
     if necessary. *)
 
 Ltac xseq_xlet_if_needed :=
-  try match goal with |- ?H ==> mkflocal ?F ?Q => 
+  try match goal with |- ?H ==> mkstruct ?F ?Q => 
   match F with 
   | wpgen_seq ?F1 ?F2 => xseq
   | wpgen_let ?F1 ?F2of => xlet
   end end.
 
 Ltac xapp :=
-  xseq_xlet_if_needed; xflocal_if_needed; applys xapp_lemma.
+  xseq_xlet_if_needed; xstruct_if_needed; applys xapp_lemma.
 
-(** [xtop] involves [xtop_lemma], exploiting the leading [mkflocal]. *)
+(** [xtop] involves [xtop_lemma], exploiting the leading [mkstruct]. *)
 
 Ltac xtop :=
   applys xtop_lemma.
@@ -1704,7 +1704,7 @@ Lemma xapps_lemma : forall t v H1 H2 H Q,
 Proof using. introv M W. applys xapp_lemma M. hchanges W. intros ? ->. auto. Qed.
 
 Ltac xapp_pre :=
-  xseq_xlet_if_needed; xflocal_if_needed.
+  xseq_xlet_if_needed; xstruct_if_needed.
 
 Ltac xapps :=
   xapp_pre; applys xapps_lemma.

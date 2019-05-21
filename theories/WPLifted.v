@@ -61,25 +61,25 @@ Definition Wpsubst (E:ctx) (t:trm) : Formula :=
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Definition of [mkLocal] for WP *)
+(* ** Definition of [MkStruct] for WP *)
 
-(** The [mkLocal] predicate lifts [mklocal]. *)
+(** The [MkStruct] predicate lifts [mklocal]. *)
 
-Definition mkLocal (F:Formula) : Formula :=
-  fun A `{EA:Enc A} Q => mkflocal (@F A EA) Q.
+Definition MkStruct (F:Formula) : Formula :=
+  fun A `{EA:Enc A} Q => mkstruct (@F A EA) Q.
 
-Lemma mkflocal_mkLocal_eq : forall A `{EA:Enc A} (F:Formula),
-  mkflocal (@mkLocal F A EA) = (@mkLocal F A EA).
+Lemma mkstruct_MkStruct_eq : forall A `{EA:Enc A} (F:Formula),
+  mkstruct (@MkStruct F A EA) = (@MkStruct F A EA).
 Proof using.
   intros. apply fun_ext_1. intros Q.
-  unfold mkLocal. rewrite mkflocal_mkflocal. split~.
+  unfold MkStruct. rewrite mkstruct_mkstruct. split~.
 Qed.
 
-Lemma flocal_Local : forall A `{EA:Enc A} (F:Formula),
-  flocal (@mkLocal F A EA).
-Proof using. intros. rewrite <- mkflocal_mkLocal_eq. apply flocal_mkflocal. Qed.
+Lemma struct_MkStruct : forall A `{EA:Enc A} (F:Formula),
+  struct (@MkStruct F A EA).
+Proof using. intros. rewrite <- mkstruct_MkStruct_eq. apply struct_mkstruct. Qed.
 
-Hint Resolve flocal_Local.
+Hint Resolve struct_MkStruct.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -116,16 +116,16 @@ Definition Wpgen_cast `{Enc A1} (X:A1) A2 (EA2:Enc A2) (Q:A2->hprop) : hprop :=
     associated with each term construct. *)
 
 Definition Wpgen_fail : Formula :=
-  mkLocal (fun A (EA:Enc A) Q =>
+  MkStruct (fun A (EA:Enc A) Q =>
     \[False]).
 
 Definition Wpgen_val (v:val) : Formula :=
-  mkLocal (fun A (EA:Enc A) Q =>
+  MkStruct (fun A (EA:Enc A) Q =>
     \exists (V:A), \[v = enc V] \* Q V).
 
 (* DEPRECATED
 Definition Wpgen_val_typed `{EA1:Enc A1} (V:A1) : Formula :=
-  mkLocal (fun A (EA:Enc A) Q => Q V1).
+  MkStruct (fun A (EA:Enc A) Q => Q V1).
 *)
 
 Definition Wpaux_var (E:ctx) (x:var) : Formula :=
@@ -135,20 +135,20 @@ Definition Wpaux_var (E:ctx) (x:var) : Formula :=
   end.
 
 Definition Wpgen_let (F1:Formula) (F2of:forall `{EA1:Enc A1},A1->Formula) : Formula :=
-  mkLocal (fun A (EA:Enc A) Q =>
+  MkStruct (fun A (EA:Enc A) Q =>
     \exists (A1:Type) (EA1:Enc A1),
       ^F1 (fun (X:A1) => ^(F2of X) Q)).
 
 Definition Wpgen_let_typed (F1:Formula) `{EA1:Enc A1} (F2of:A1->Formula) : Formula :=
-  mkLocal (fun `{Enc A} Q =>
+  MkStruct (fun `{Enc A} Q =>
     ^F1 (fun (X:A1) => ^(F2of X) Q)).
 
 Definition Wpgen_seq (F1 F2:Formula) : Formula :=
-  mkLocal (fun A (EA:Enc A) Q =>
+  MkStruct (fun A (EA:Enc A) Q =>
     ^F1 (fun (X:unit) => ^F2 Q)).
 
 Definition Wpgen_letval_typed (v:val) `{EA1:Enc A1} (F2of:A1->Formula) : Formula :=
-  mkLocal (fun A (EA:Enc A) Q =>
+  MkStruct (fun A (EA:Enc A) Q =>
     \exists (V:A1), \[v = enc V] \* ^(F2of V) Q).
 
 Definition Wpaux_getval Wpgen (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
@@ -179,7 +179,7 @@ Definition Wpaux_constr Wpgen (E:ctx) (id:idconstr) : list val -> list trm -> Fo
     end.
 
 Definition Wpgen_app (t:trm) : Formula := 
-  mkLocal (Wp t).
+  MkStruct (Wp t).
 
 Definition Wpaux_apps Wpgen (E:ctx) (v0:func) : list val -> list trm -> Formula := 
   (fix mk (rvs : list val) (ts : list trm) : Formula :=
@@ -189,30 +189,30 @@ Definition Wpaux_apps Wpgen (E:ctx) (v0:func) : list val -> list trm -> Formula 
     end).
 
 Definition Wpgen_if_bool (b:bool) (F1 F2:Formula) : Formula :=
-  mkLocal (fun `{Enc A} Q =>
+  MkStruct (fun `{Enc A} Q =>
     if b then ^F1 Q else ^F2 Q).
 
 Definition Wpaux_if (F0 F1 F2:Formula) : Formula :=
   `Wpgen_let_typed F0 (fun (b:bool) => `Wpgen_if_bool b F1 F2).
 
 Definition Wpgen_while (F1 F2:Formula) : Formula :=
-  mkLocal (`Formula_cast (fun (Q:unit->hprop) =>
+  MkStruct (`Formula_cast (fun (Q:unit->hprop) =>
     \forall (R:Formula),
     let F := Wpaux_if F1 (Wpgen_seq F2 R) (Wpgen_val val_unit) in
-    \[ flocal (@R unit _) /\ (forall Q', ^F Q' ==> ^R Q')] \-* (^R Q))).
-    (* TODO: use a lifted version of flocal *)
+    \[ struct (@R unit _) /\ (forall Q', ^F Q' ==> ^R Q')] \-* (^R Q))).
+    (* TODO: use a lifted version of struct *)
 
 Definition Wpgen_for_int (n1 n2:int) (F1:int->Formula) : Formula := 
-  mkLocal (Formula_cast (fun (Q:unit->hprop) =>
+  MkStruct (Formula_cast (fun (Q:unit->hprop) =>
     \forall (S:int->Formula),
     let F i := If (i <= n2) then (`Wpgen_seq (F1 i) (S (i+1)))
                             else (`Wpgen_val val_unit) in
-    \[   (forall i, flocal (S i unit _)) 
+    \[   (forall i, struct (S i unit _)) 
       /\ (forall i Q', ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
-     (* TODO: use a lifted version of flocal_pred *)
+     (* TODO: use a lifted version of struct_pred *)
 
 Definition Wpgen_case (F1:Formula) (P:Prop) (F2:Formula) : Formula :=
-  mkLocal (fun `{Enc A} Q =>
+  MkStruct (fun `{Enc A} Q =>
     hand (^F1 Q) (\[P] \-* ^F2 Q)).
 
 Definition Wpaux_match Wpgen (E:ctx) (v:val) : list (pat*trm) ->  Formula :=
@@ -278,11 +278,11 @@ Fixpoint Wpgen (E:ctx) (t:trm) : Formula :=
 
 (** [Wp t] is a local formula *)
 
-Lemma flocal_Wp : forall `{EA:Enc A} t,
-  flocal ((Wp t) A EA).
+Lemma struct_Wp : forall `{EA:Enc A} t,
+  struct ((Wp t) A EA).
 Proof using.
   intros. unfolds Wp. unfolds Weakestpre.
-  applys flocal_weakestpre. applys is_local_Triple.
+  applys struct_weakestpre. applys is_local_Triple.
 Qed.
 
 (** Equivalence between a [triple] and its weakest-precondition presentation. *)
@@ -316,34 +316,34 @@ Proof using. introv M. rewrite* <- Triple_eq_himpl_Wp. Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Soundness of the [local] transformer *)
 
-(** [The [mkLocal] transformer may be stripped from the postcondition. *)
+(** [The [MkStruct] transformer may be stripped from the postcondition. *)
 
-Lemma mkLocal_erase : forall H F `{EA:Enc A} (Q:A->hprop),
+Lemma MkStruct_erase : forall H F `{EA:Enc A} (Q:A->hprop),
   H ==> ^F Q ->
-  H ==> ^(mkLocal F) Q.
+  H ==> ^(MkStruct F) Q.
 Proof using.
-  introv M. hchanges M. applys mkflocal_erase.
+  introv M. hchanges M. applys mkstruct_erase.
 Qed.
 
-(** The [mkLocal] transformer is sound w.r.t. [Triple], in other words, it
+(** The [MkStruct] transformer is sound w.r.t. [Triple], in other words, it
     may be stripped from the precondition. *)
 
-Lemma Triple_mkLocal_pre : forall t (F:Formula) `{EA:Enc A} (Q:A->hprop),
+Lemma Triple_MkStruct_pre : forall t (F:Formula) `{EA:Enc A} (Q:A->hprop),
   (forall Q, Triple t (^F Q) Q) ->
-  Triple t (^(mkLocal F) Q) Q.
+  Triple t (^(MkStruct F) Q) Q.
 Proof using.
   introv M. applys~ is_local_elim.
-  unfold mkLocal, mkflocal. hpull ;=> Q'.
+  unfold MkStruct, mkstruct. hpull ;=> Q'.
   hsimpl (^F Q') ((Q' \--* Q \*+ \GC)) Q'. split~.
   { hsimpl. }
 Qed.
 
-(** The tactic [remove_mkLocal] applies to goal of the form [triple t (local F Q) Q]
+(** The tactic [remove_MkStruct] applies to goal of the form [triple t (local F Q) Q]
     and turns it into [triple t (F Q) Q] for a fresh [Q]. *)
 
-Ltac remove_mkLocal :=
+Ltac remove_MkStruct :=
   match goal with |- @Triple _ _ _ _ ?Q =>
-    applys Triple_mkLocal_pre; try (clear Q; intros Q); fold wp end.
+    applys Triple_MkStruct_pre; try (clear Q; intros Q); fold wp end.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -372,7 +372,7 @@ Definition Wpgen_sound t := forall E,
 
 Lemma himpl_Wpgen_fail_l : forall `{EA:Enc A} (Q:A->hprop) H,
   ^Wpgen_fail Q ==> H.
-Proof using. intros. unfold Wpgen_fail, mkLocal, mkflocal. hpull. Qed.
+Proof using. intros. unfold Wpgen_fail, MkStruct, mkstruct. hpull. Qed.
 
 (* TODO: use lemma below for all occurences of wpgen_fail *)
 Lemma Triple_Wpgen_fail : forall t `{EA:Enc A} (Q Q':A->hprop),
@@ -401,10 +401,10 @@ Proof using.
   { destruct C2 as (x&Et). subst. simpl. case_eq (Ctx.lookup x E).
     { intros v Ev. rewrites~ (>> isubst_evalctx_trm_var Ev).
       apply Triple_of_Wp. applys M2. }
-    { introv N. remove_mkLocal. xpull. intros; false. } }
+    { introv N. remove_MkStruct. xpull. intros; false. } }
   asserts_rewrite (Wpaux_getval Wpgen E t1 (@F2of) = Wpgen_let (Wpgen E t1) (fun `{EA1:Enc A1} (V1:A1) => F2of (``V1))).
   { destruct t1; auto. { false C1. hnfs*. } { false C2. hnfs*. } }
-  remove_mkLocal. xpull ;=> A1 EA1. applys~ Triple_isubst_evalctx EA1.
+  remove_MkStruct. xpull ;=> A1 EA1. applys~ Triple_isubst_evalctx EA1.
   { apply Triple_of_Wp. applys M1. }
   { intros v. apply Triple_of_Wp. applys M2. }
 Qed.
@@ -414,7 +414,7 @@ Lemma Wpgen_sound_letval_typed : forall v E C `{EA:Enc A} (F2of:A->Formula),
   Wpgen_letval_typed v F2of ====> Wp (isubst E (C v)).
 Proof using.
   introv M. intros A1 EA1. applys qimpl_Wp_of_Triple. intros Q.
-  remove_mkLocal. xpull ;=> V ->. applys Triple_of_Wp. applys M.
+  remove_MkStruct. xpull ;=> V ->. applys Triple_of_Wp. applys M.
 Qed.
 
 Lemma Wpgen_sound_getval_typed : forall E C t1 `{EA:Enc A} (F2of:A->Formula),
@@ -431,10 +431,10 @@ Proof using.
   { destruct C2 as (x&Et). subst. simpl. case_eq (Ctx.lookup x E).
     { intros v Ev. rewrites~ (>> isubst_evalctx_trm_var Ev).
       apply Triple_of_Wp. applys~ Wpgen_sound_letval_typed C. }
-    { introv N. remove_mkLocal. xpull. intros; false. } }
+    { introv N. remove_MkStruct. xpull. intros; false. } }
   asserts_rewrite (Wpaux_getval_typed Wpgen E t1 (@F2of) = Wpgen_let_typed (Wpgen E t1) F2of).
   { destruct t1; auto. { false C1. hnfs*. } { false C2. hnfs*. } }
-  remove_mkLocal. applys~ Triple_isubst_evalctx EA.
+  remove_MkStruct. applys~ Triple_isubst_evalctx EA.
   { apply Triple_of_Wp. applys M1. }
   { intros v. apply Triple_of_Wp. applys M2. }
 Qed.
@@ -444,7 +444,7 @@ Lemma Wpgen_sound_var : forall x,
 Proof using.
   intros. intros E A EA. simpl. applys qimpl_Wp_of_Triple.
   intros Q. unfold Wpaux_var. simpl. destruct (Ctx.lookup x E).
-  { remove_mkLocal. xpull ;=> V EQ. applys* Triple_val. }
+  { remove_MkStruct. xpull ;=> V EQ. applys* Triple_val. }
   {  applys~ Triple_Wpgen_fail. }
 Qed.
 
@@ -452,7 +452,7 @@ Lemma Wpgen_sound_val : forall v,
   Wpgen_sound (trm_val v).
 Proof using.
   intros. intros E A EA. simpl. applys qimpl_Wp_of_Triple.
-  intros Q. remove_mkLocal. xpull ;=> V EQ.
+  intros Q. remove_MkStruct. xpull ;=> V EQ.
   simpl. intros. applys* Triple_val.
 Qed.
 
@@ -462,7 +462,7 @@ Proof using.
   intros. intros E A EA. simpl. applys qimpl_Wp_of_Triple.
   intros Q. destruct xs as [|x xs'].
   { applys~ Triple_Wpgen_fail. }
-  { remove_mkLocal. applys~ triple_fixs. auto_false. }
+  { remove_MkStruct. applys~ triple_fixs. auto_false. }
 Qed.
 
 Lemma Wpgen_sound_if_bool : forall b (F1 F2:Formula) E t1 t2,
@@ -471,7 +471,7 @@ Lemma Wpgen_sound_if_bool : forall b (F1 F2:Formula) E t1 t2,
   Wpgen_if_bool b F1 F2 ====> Wpsubst E (trm_if b t1 t2).
 Proof using.
   introv M1 M2. intros A EA. applys qimpl_Wp_of_Triple. simpl. intros Q.
-  remove_mkLocal. applys Triple_if_bool.
+  remove_MkStruct. applys Triple_if_bool.
   apply Triple_of_Wp. case_if. { applys M1. } { applys M2. }
 Qed.
 (* TODO choose version *)
@@ -482,7 +482,7 @@ Lemma Wpgen_sound_if_bool' : forall b (F1 F2:Formula) E t1 t2,
   Wpgen_if_bool b F1 F2 ====> Wp (if b then isubst E t1 else isubst E t2).
 Proof using.
   introv M1 M2. intros A EA. applys qimpl_Wp_of_Triple. simpl. intros Q.
-  remove_mkLocal. apply Triple_of_Wp. case_if. { applys M1. } { applys M2. }
+  remove_MkStruct. apply Triple_of_Wp. case_if. { applys M1. } { applys M2. }
 Qed.
 
 Lemma Wpgen_sound_if_trm : forall (F0 F1 F2:Formula) E t0 t1 t2,
@@ -492,7 +492,7 @@ Lemma Wpgen_sound_if_trm : forall (F0 F1 F2:Formula) E t0 t1 t2,
   Wpaux_if F0 F1 F2 ====> Wpsubst E (trm_if t0 t1 t2).
 Proof using.
   introv M0 M1 M2. intros A EA. applys qimpl_Wp_of_Triple. intros Q.
-  remove_mkLocal. xpull. simpl. applys Triple_if.
+  remove_MkStruct. xpull. simpl. applys Triple_if.
   { rewrite Triple_eq_himpl_Wp. applys* M0. }
   { intros b. apply Triple_of_Wp. applys* Wpgen_sound_if_bool'. }
 Qed.
@@ -515,7 +515,7 @@ Lemma Wpgen_sound_let : forall (F1:Formula) (F2of:forall `{EA1:Enc A1},A1->Formu
 Proof using.
   Opaque Ctx.rem.
   introv M1 M2. intros A EA. applys qimpl_Wp_of_Triple. intros Q.
-  remove_mkLocal. xpull ;=> A1 EA1. simpl. applys Triple_let.
+  remove_MkStruct. xpull ;=> A1 EA1. simpl. applys Triple_let.
   { rewrite Triple_eq_himpl_Wp. applys* M1. }
   { intros X. rewrite Triple_eq_himpl_Wp.
     unfold Subst1. rewrite <- isubst_add_eq_subst1_isubst. applys* M2. }
@@ -528,7 +528,7 @@ Lemma Wpgen_sound_let_typed : forall (F1:Formula) `{EA1:Enc A1} (F2of:A1->Formul
 Proof using.
   Opaque Ctx.rem.
   introv M1 M2. intros A EA. applys qimpl_Wp_of_Triple. intros Q.
-  remove_mkLocal. xpull. simpl. applys Triple_let EA1. 
+  remove_MkStruct. xpull. simpl. applys Triple_let EA1. 
   (* LATER: typeclass should not be resolved arbitrarily to EA if EA1 is not provided *)
   { rewrite Triple_eq_himpl_Wp. applys* M1. }
   { intros X. rewrite Triple_eq_himpl_Wp.
@@ -541,7 +541,7 @@ Lemma Wpgen_sound_seq : forall (F1 F2:Formula) E t1 t2,
   Wpgen_seq F1 F2 ====> Wpsubst E (trm_seq t1 t2).
 Proof using.
   introv M1 M2. intros A EA. applys qimpl_Wp_of_Triple. intros Q.
-  remove_mkLocal. simpl. applys Triple_seq.
+  remove_MkStruct. simpl. applys Triple_seq.
   { rewrite Triple_eq_himpl_Wp. applys* M1. }
   { rewrite Triple_eq_himpl_Wp. applys* M2. }
 Qed.
@@ -559,7 +559,7 @@ Proof using.
   { unfold Wpsubst. simpl. rewrite List_map_eq. applys M. }
   induction ts as [|t ts']; intros.
   { simpl. rewrite List_rev_eq. rew_list.
-    apply~ mkflocal_erase_l. applys flocal_Wp. }
+    apply~ mkstruct_erase_l. applys struct_Wp. }
   { specializes IHts' __. { intros t' Ht'. applys* IHts. }
     unfold Wpaux_apps. fold (Wpaux_apps Wpgen E v0). rew_listx.
     forwards~ M: Wpgen_sound_getval E (fun t1 => trm_apps v0 (trms_vals (rev rvs) ++ t1 :: ts')).
@@ -575,12 +575,12 @@ Lemma Wpgen_sound_while : forall (F1 F2:Formula) E t1 t2,
   Wpgen_while F1 F2 ====> Wpsubst E (trm_while t1 t2).
 Proof using.
   introv M1 M2. intros A EA. applys qimpl_Wp_of_Triple. intros Q.
-  remove_mkLocal. simpl.
+  remove_MkStruct. simpl.
   unfold Formula_cast, Wptag. xpull ;=> Q' C. applys Triple_enc_change (rm C).
   set (R := Wp (trm_while (isubst E t1) (isubst E t2))).
   applys Triple_hforall R. simpl. applys Triple_hwand_hpure_l.
   { split.
-    { applys @flocal_Wp. }
+    { applys @struct_Wp. }
     { clears Q. applys qimpl_Wp_of_Triple. intros Q.
       applys Triple_while_raw.
       asserts_rewrite~ (
@@ -597,13 +597,13 @@ Lemma Wpgen_sound_for_int : forall (x:var) n1 n2 (F1:int->Formula) E t1,
   Wpgen_for_int n1 n2 F1 ====> Wpsubst E (trm_for x n1 n2 t1).
 Proof using. Opaque Ctx.add Ctx.rem.
   introv M. intros A EA. applys qimpl_Wp_of_Triple. intros Q.
-  remove_mkLocal. simpl.
+  remove_MkStruct. simpl.
   unfold Formula_cast, Wptag. xpull ;=> Q' C.
   applys Triple_enc_change (rm C).
   set (S := fun (i:int) => Wp (isubst E (trm_for x i n2 t1))).
   applys Triple_hforall S. simpl. applys Triple_hwand_hpure_l.
   { split.
-    { intros r. applys @flocal_Wp. }
+    { intros r. applys @struct_Wp. }
     { clears Q. intros i. applys qimpl_Wp_of_Triple. intros Q.
       applys Triple_for_raw. fold isubst.
       rewrite~ @Triple_eq_himpl_Wp. case_if.
@@ -640,7 +640,7 @@ Proof using.
   intros v. clears t0 Q.
   induction pts as [|(p,t) pts'].
   { simpl. intros A EA Q. applys himpl_Wpgen_fail_l. }
-  { simpl. intros A EA. applys qimpl_Wp_of_Triple. intros Q. remove_mkLocal.
+  { simpl. intros A EA. applys qimpl_Wp_of_Triple. intros Q. remove_MkStruct.
     simpl. applys Triple_match.
     { intros G EG Hp. applys Triple_hand_l.
       forwards~ IH: M2 p t. clears IHpts' M2. subst v.
@@ -665,7 +665,7 @@ Proof using.
   induction ts as [|t ts']; intros.
   { simpl. rewrite List_rev_eq. rew_list. applys qimpl_Wp_of_Triple.
     simpl. rewrite List_map_eq.
-    intros Q. remove_mkLocal. rewrite map_isubst_trms_vals. applys~ @triple_constr. 
+    intros Q. remove_MkStruct. rewrite map_isubst_trms_vals. applys~ @triple_constr. 
     (* LATER: Triple_constr is not suitable here *) }
   { specializes IHts' __. { intros t' Ht'. applys* IHwp. }
     applys~ Wpgen_sound_getval (fun t1 => trm_constr id (trms_vals (rev rvs) ++ t1 :: ts')).
@@ -730,7 +730,7 @@ Proof using. introv M. applys himpl_weakestpre. applys* Triple_of_Wpgen. Qed.
 Lemma himpl_Wpgen_app_of_Triple : forall A `{EA:Enc A} (Q:A->hprop) t H,
   Triple t H Q ->
   H ==> ^(Wpgen_app t) Q.
-Proof using. intros. applys mkLocal_erase. rewrite~ <- Triple_eq_himpl_Wp. Qed.
+Proof using. intros. applys MkStruct_erase. rewrite~ <- Triple_eq_himpl_Wp. Qed.
 
 
 (* ********************************************************************** *)
