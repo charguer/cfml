@@ -1956,3 +1956,9 @@ Proof using.
     rewrite <- wp_equiv in M. applys triple_conseq_frame M. hsimpl.
   skip. hsimpl~. }
 Qed.
+
+
+Lemma wp_iff_hoare : forall t H Q,
+      H ==> wp t Q
+  <-> (forall H', hoare t (H \* H') (Q \*+ H' \*+ \Top)).
+Proof using. intros. rewrite <- wp_equiv. unfold triple. iff*. Qed.
