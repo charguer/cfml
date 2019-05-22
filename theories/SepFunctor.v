@@ -724,7 +724,7 @@ Proof using.
 Qed.
 
 Lemma hstar_hgc_hgc :
-  \GC \* \GC = \GC.
+  \GC \* \GC = \GC. (* TODO : can be simplified *)
 Proof using.
   repeat rewrite hgc_eq. applys himpl_antisym.
   { rewrite hstar_hexists. applys himpl_hexists_l ;=> H.
@@ -937,6 +937,10 @@ Ltac remove_empty_heaps_left tt :=
 
 Ltac remove_empty_heaps_right tt :=
   repeat match goal with |- _ ==> ?H2 => remove_empty_heaps_from H2 end.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Specific cleanup for formulaes *)
 
 Ltac on_formula_pre cont :=
   match goal with
