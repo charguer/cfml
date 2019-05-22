@@ -188,12 +188,12 @@ Definition Wpaux_apps Wpgen (E:ctx) (v0:func) : list val -> list trm -> Formula 
     | t1::ts' => Wpaux_getval Wpgen E t1 (fun v1 => mk (v1::rvs) ts')
     end).
 
-Definition Wpgen_if_bool (b:bool) (F1 F2:Formula) : Formula :=
+Definition Wpgen_if_case (b:bool) (F1 F2:Formula) : Formula :=
   MkStruct (fun `{Enc A} Q =>
     if b then ^F1 Q else ^F2 Q).
 
 Definition Wpaux_if (F0 F1 F2:Formula) : Formula :=
-  `Wpgen_let_typed F0 (fun (b:bool) => `Wpgen_if_bool b F1 F2).
+  `Wpgen_let_typed F0 (fun (b:bool) => `Wpgen_if_case b F1 F2).
 
 Definition Wpgen_while (F1 F2:Formula) : Formula :=
   MkStruct (`Formula_cast (fun (Q:unit->hprop) =>
@@ -247,7 +247,7 @@ Fixpoint Wpgen (E:ctx) (t:trm) : Formula :=
   | trm_constr id ts => Wpaux_constr Wpgen E id nil ts
   | trm_if t0 t1 t2 =>
      Wpaux_getval_typed Wpgen E t0 (fun b0 => 
-       `Wpgen_if_bool b0 (aux t1) (aux t2))
+       `Wpgen_if_case b0 (aux t1) (aux t2))
   | trm_let z t1 t2 =>
      match z with
      | bind_anon => `Wpgen_seq (aux t1) (aux t2)
@@ -467,21 +467,21 @@ Proof using.
   { remove_MkStruct. applys~ triple_fixs. auto_false. }
 Qed.
 
-Lemma Wpgen_sound_if_bool : forall b (F1 F2:Formula) E t1 t2,
+Lemma Wpgen_sound_if_case : forall b (F1 F2:Formula) E t1 t2,
   F1 ====> (Wpsubst E t1) ->
   F2 ====> (Wpsubst E t2) ->
-  Wpgen_if_bool b F1 F2 ====> Wpsubst E (trm_if b t1 t2).
+  Wpgen_if_case b F1 F2 ====> Wpsubst E (trm_if b t1 t2).
 Proof using.
   introv M1 M2. intros A EA. applys qimpl_Wp_of_Triple. simpl. intros Q.
-  remove_MkStruct. applys Triple_if_bool.
+  remove_MkStruct. applys Triple_if_case.
   apply Triple_of_Wp. case_if. { applys M1. } { applys M2. }
 Qed.
 (* TODO choose version *)
 
-Lemma Wpgen_sound_if_bool' : forall b (F1 F2:Formula) E t1 t2,
+Lemma Wpgen_sound_if_case' : forall b (F1 F2:Formula) E t1 t2,
   F1 ====> (Wpsubst E t1) ->
   F2 ====> (Wpsubst E t2) ->
-  Wpgen_if_bool b F1 F2 ====> Wp (if b then isubst E t1 else isubst E t2).
+  Wpgen_if_case b F1 F2 ====> Wp (if b then isubst E t1 else isubst E t2).
 Proof using.
   introv M1 M2. intros A EA. applys qimpl_Wp_of_Triple. simpl. intros Q.
   remove_MkStruct. apply Triple_of_Wp. case_if. { applys M1. } { applys M2. }
@@ -496,7 +496,7 @@ Proof using.
   introv M0 M1 M2. intros A EA. applys qimpl_Wp_of_Triple. intros Q.
   remove_MkStruct. xpull. simpl. applys Triple_if.
   { rewrite Triple_eq_himpl_Wp. applys* M0. }
-  { intros b. apply Triple_of_Wp. applys* Wpgen_sound_if_bool'. }
+  { intros b. apply Triple_of_Wp. applys* Wpgen_sound_if_case'. }
 Qed.
 
 Lemma Wpgen_sound_if : forall t1 t2 t3,
@@ -507,7 +507,7 @@ Lemma Wpgen_sound_if : forall t1 t2 t3,
 Proof using.
   intros. intros E. simpl.
   applys~ Wpgen_sound_getval_typed (fun t1 => trm_if t1 t2 t3).
-  intros v1. applys~ Wpgen_sound_if_bool.
+  intros v1. applys~ Wpgen_sound_if_case.
 Qed.
 
 Lemma Wpgen_sound_let : forall (F1:Formula) (F2of:forall `{EA1:Enc A1},A1->Formula) E (x:var) t1 t2,
@@ -802,7 +802,7 @@ Notation "'App' f v1 v2 v3 " :=
 (* TODO: recursive notation for App *)
 
 Notation "'Ifval' b 'Then' F1 'Else' F2" :=
-  ((Wpgen_if_bool b F1 F2))
+  ((Wpgen_if_case b F1 F2))
   (at level 69) : wp_scope.
 
 (* DEPRECATED

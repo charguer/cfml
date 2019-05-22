@@ -1450,28 +1450,8 @@ Module DirectSoundness.
     Yet, if our goal was only to set up [wpgen], we wouldn't
     need any result on [triple]. How much simpler would the
     construction be if we were to directly prove [wpgen] w.r.t.
-    the [hoare] rules? Let us investigate. *)
-
-(** We assume [wp] to be defined [wp] to be defined directly in terms 
-    of [hoare], following the definition of [wp_high] from [SLFWPsem.v]. *)
-
-Parameter wp_def : forall t Q,
-  wp t Q = \exists H, H \* \[forall H', hoare t (H \* H') (Q \*+ H' \*+ \Top)].
-
-(** We first establish the (most-general) structural rule for [wp]. *)
-
-Lemma wp_ramified : forall t Q1 Q2,
-  (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
-Proof using.
-  intros. do 2 rewrite wp_def. hpull ;=> H M.
-  hsimpl (H \* (Q1 \--* Q2 \*+ \Top)). intros H'.
-  applys hoare_conseq M; hsimpl.
-Qed.
-
-Lemma wp_conseq : forall t Q1 Q2,
-  Q1 ===> Q2 ->
-  wp t Q1 ==> wp t Q2.
-Proof using. introv M. lets N: wp_ramified t Q1 Q2. hchanges N. hchanges M. Qed.
+    the weakest preconditions style reasoning rules from [SLFWPsem]?
+    Let us investigate. *)
 
 (** We next give an introduction rule for [formula_sound_for] in
     term of [wp]. *)
@@ -1483,17 +1463,6 @@ Proof using.
   intros. iff N.
   { intros Q. rewrite <- wp_equiv. applys N. hsimpl. }
   { introv M. rewrite wp_equiv. hchange M. applys N. }
-Qed.
-
-(** And derive an introduction rule for [formula_sound_for] in 
-    terms of [hoare]. *)
-
-Lemma formula_sound_for_of_hoare : forall t F,
-  (forall Q H', hoare t ((F Q) \* H') (Q \*+ H' \*+ \Top)) ->
-  formula_sound_for t F.
-Proof using. 
-  introv M. rewrite formula_sound_for_iff_wp.
-  intros Q. rewrite wp_def. hsimpl (F Q). applys M.
 Qed.
 
 (** Let us now tackle the main lemmas for the soundness of [wpgen].
@@ -1527,54 +1496,23 @@ Qed.
 Lemma wpgen_val_sound : forall v,
   formula_sound_for (trm_val v) (wpgen_val v).
 Proof using.
-  intros. applys formula_sound_for_of_hoare. intros Q H'.
-  unfolds wpgen_val. applys hoare_val. hsimpl.
+  intros. rewrite formula_sound_for_iff_wp. intros Q H'.
+  unfolds wpgen_val. applys wp_val. hsimpl.
 Qed.
-
-Axiom hoare_fun : forall x t1 H Q,
-  H ==> Q (val_fun x t1) ->
-  hoare (trm_fun x t1) H Q.
-
-Axiom hoare_fix : forall f x t1 H Q,
-  H ==> Q (val_fix f x t1) ->
-  hoare (trm_fix f x t1) H Q.
-
 
 Lemma wpgen_fun_sound : forall x t,
   formula_sound_for (trm_fun x t) (wpgen_val (val_fun x t)).
 Proof using.
-  intros. applys formula_sound_for_of_hoare. intros Q H'.
-  unfolds wpgen_val. applys hoare_fun. hsimpl.
+wp_fun
 Qed.
 
 Lemma wpgen_fix_sound : forall f x t,
   formula_sound_for (trm_fix f x t) (wpgen_val (val_fix f x t)).
 Proof using.
-  intros. applys formula_sound_for_of_hoare. intros Q H'.
-  unfolds wpgen_val. applys hoare_fix. hsimpl.
+wp_fix
 Qed.
 
-Axiom hoare_seq : forall t1 t2 H Q H1,
-  hoare t1 H (fun r => H1) ->
-  hoare t2 H1 Q ->
-  hoare (trm_seq t1 t2) H Q.
 
-
-Lemma wp_seq : forall t1 t2 Q,
-  wp t1 (fun r => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
-Proof using.
-  intros. rewrite wp_def. hsimpl. intros H' M.
-  rewrite wp_def. hsimpl. intros H''.
-  applys hoare_seq. applys (rm M). rewrite wp_def.
-asserts:(
-forall H,  (forall H'0 : hprop, hoare t2 (H \* H'0) (fun x : val => (Q x \* H'0) \* \Top)) ->
-hoare t2
-  ((H \* H'') \* \Top)
-  (fun x : val => (Q x \* H'') \* \Top)). (* xpull *)
-{
-  intros H''' M'. applys hoare_conseq M'; hsimpl.
-}
-Admitted.
 
 Lemma wpgen_seq_sound : forall F1 F2 t1 t2,
   formula_sound_for t1 F1 ->
@@ -1590,15 +1528,22 @@ Lemma wpgen_let_sound : forall F1 F2of x t1 t2,
   formula_sound_for t1 F1 ->
   (forall v, formula_sound_for (subst x v t2) (F2of v)) ->
   formula_sound_for (trm_let x t1 t2) (wpgen_let F1 F2of).
-Admitted.
+Proof using.
+  introv S1 S2. rewrite formula_sound_for_iff_wp in *. intros Q.
+  unfold wpgen_let. applys himpl_trans wp_let. hchange S1.
+  applys wp_conseq. intros v. specializes S2 v.
+  rewrite formula_sound_for_iff_wp in S2. applys S2.
+Qed.
 
 Lemma wpgen_if_sound : forall F1 F2 v0 t1 t2,
   formula_sound_for t1 F1 ->
   formula_sound_for t2 F2 ->
   formula_sound_for (trm_if v0 t1 t2) (wpgen_if v0 F1 F2).
-Admitted.
-
-
+Proof using.
+  introv S1 S2. rewrite formula_sound_for_iff_wp in *. intros Q.
+  unfold wpgen_if. hsimpl ;=> b ->. applys himpl_trans wp_if.
+  case_if. { applys S1. } { applys S2. }
+Qed.
 
 End DirectSoundness.
 

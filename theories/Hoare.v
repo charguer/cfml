@@ -214,6 +214,16 @@ Proof using.
   { himpl_fold~. }
 Qed.
 
+Lemma hoare_fun : forall x t1 H Q,
+  H ==> Q (val_fun x t1) ->
+  hoare (trm_fun x t1) H Q.
+Proof using. introv M. applys hoare_fixs; auto_false. Qed.
+
+Lemma hoare_fix : forall f x t1 H Q,
+  H ==> Q (val_fix f x t1) ->
+  hoare (trm_fix f x t1) H Q.
+Proof using. introv M. applys hoare_fixs; auto_false. Qed.
+
 Lemma hoare_constr : forall id vs H Q,
   H ==> Q (val_constr id vs) ->
   hoare (trm_constr id (trms_vals vs)) H Q.
@@ -234,6 +244,7 @@ Proof using.
   exists h2' v2. splits~. { applys~ eval_constr_trm R2. }
 Qed.
 
+
 Lemma hoare_let : forall z t1 t2 H Q Q1,
   hoare t1 H Q1 ->
   (forall v, hoare (subst1 z v t2) (Q1 v) Q) ->
@@ -245,7 +256,13 @@ Proof using.
   exists h2' v2. splits~. { applys~ eval_let_trm R2. }
 Qed.
 
-Lemma hoare_if_bool : forall (b:bool) t1 t2 H Q,
+Lemma hoare_seq : forall t1 t2 H Q H1,
+  hoare t1 H (fun r => H1) ->
+  hoare t2 H1 Q ->
+  hoare (trm_seq t1 t2) H Q.
+Proof using. introv M1 M2. applys* hoare_let. Qed.
+
+Lemma hoare_if_case : forall (b:bool) t1 t2 H Q,
   hoare (if b then t1 else t2) H Q ->
   hoare (trm_if b t1 t2) H Q.
 Proof using.

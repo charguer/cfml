@@ -1962,3 +1962,16 @@ Lemma wp_iff_hoare : forall t H Q,
       H ==> wp t Q
   <-> (forall H', hoare t (H \* H') (Q \*+ H' \*+ \Top)).
 Proof using. intros. rewrite <- wp_equiv. unfold triple. iff*. Qed.
+
+
+
+(** And derive an introduction rule for [formula_sound_for] in 
+    terms of [hoare]. *)
+
+Lemma formula_sound_for_of_hoare : forall t F,
+  (forall Q H', hoare t ((F Q) \* H') (Q \*+ H' \*+ \Top)) ->
+  formula_sound_for t F.
+Proof using. 
+  introv M. rewrite formula_sound_for_iff_wp.
+  intros Q. rewrite wp_def. hsimpl (F Q). applys M.
+Qed.

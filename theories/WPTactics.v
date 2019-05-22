@@ -556,19 +556,19 @@ Tactic Notation "xval" "*"  :=
 Ltac xif_pre tt :=
   xlet_xseq_xcast_repeat tt; 
   match xgoal_code_without_wptag tt with
-  | (Wpgen_if_bool _ _ _) => idtac 
+  | (Wpgen_if_case _ _ _) => idtac 
   end.
 
 Lemma xifval_lemma : forall `{EA:Enc A} b H (Q:A->hprop) (F1 F2:Formula),
   (b = true -> H ==> ^F1 Q) ->
   (b = false -> H ==> ^F2 Q) ->
-  H ==> ^(Wpgen_if_bool b F1 F2) Q.
+  H ==> ^(Wpgen_if_case b F1 F2) Q.
 Proof using. introv E N. applys MkStruct_erase. case_if*. Qed.
 
 Lemma xifval_lemma_isTrue : forall `{EA:Enc A} (P:Prop) H (Q:A->hprop) (F1 F2:Formula),
   (P -> H ==> ^F1 Q) ->
   (~ P -> H ==> ^F2 Q) ->
-  H ==> ^(Wpgen_if_bool (isTrue P) F1 F2) Q.
+  H ==> ^(Wpgen_if_case (isTrue P) F1 F2) Q.
 Proof using. introv E N. applys MkStruct_erase. case_if*. Qed.
 
 Ltac xif_core tt :=

@@ -557,6 +557,10 @@ Qed.
 
 Hint Resolve local_triple.
 
+
+(* ---------------------------------------------------------------------- *)
+(* ** Connection with Hoare triples *)
+
 (** Lemma to introduce hoare instances for establishing triples,
     integrating the consequence rule. *)
 
@@ -575,6 +579,19 @@ Lemma hoare_of_triple : forall t H Q HF,
 Proof using.
   introv M. applys hoare_conseq. { applys M. } { hsimpl. } { hsimpl. }
 Qed.
+
+(** The extraction rules for [hoare] are not needed in this file, but are useful
+    for alternative proofs of the extraction rules for triples (see [SepBaseAltProof]). *)
+
+Lemma hoare_hexists : forall t A (J:A->state->Prop) Q,
+  (forall x, hoare t (J x) Q) ->
+  hoare t (hexists J) Q.
+Proof using. introv M. intros h (x&K). applys M K. Qed.
+
+Lemma hoare_hpure : forall t P H Q,
+  (P -> hoare t H Q) ->
+  hoare t (\[P] \* H) Q.
+Proof using. introv M. intros h K. rewrite hstar_hpure in K. applys* M. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -797,19 +814,19 @@ Proof using.
   introv M1 M2. applys* triple_let. (* BIND intros. rewrite* subst1_anon. *)
 Qed.
 
-Lemma triple_if_bool : forall (b:bool) t1 t2 H Q,
+Lemma triple_if_case : forall (b:bool) t1 t2 H Q,
   triple (if b then t1 else t2) H Q ->
   triple (trm_if b t1 t2) H Q.
 Proof using.
-  introv M1. intros HF. applys hoare_if_bool. applys M1.
+  introv M1. intros HF. applys hoare_if_case. applys M1.
 Qed.
 
-Lemma triple_if_bool_case : forall (b:bool) t1 t2 H Q,
+Lemma triple_if_bool : forall (b:bool) t1 t2 H Q,
   (b = true -> triple t1 H Q) ->
   (b = false -> triple t2 H Q) ->
   triple (trm_if b t1 t2) H Q.
 Proof using.
-  introv M1 M2. applys triple_if_bool. case_if*.
+  introv M1 M2. applys triple_if_case. case_if*.
 Qed.
 
 Lemma triple_if_trm : forall Q1 t0 t1 t2 H Q,
@@ -829,7 +846,7 @@ Lemma triple_if : forall Q1 t0 t1 t2 H Q, (* not very useful *)
 Proof using.
   introv M1 M2 M3. applys* triple_if_trm.
   { intros v. tests C: (is_val_bool v).
-    { destruct C as (b&E). subst. applys* triple_if_bool. }
+    { destruct C as (b&E). subst. applys* triple_if_case. }
     { xchange* M3. xpull ;=>. false. } }
 Qed.
 

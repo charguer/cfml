@@ -826,11 +826,11 @@ Proof using.
     rewrite enc_bool_eq. hnfs*. } (* LATER : simplify? *)
 Qed.
 
-Lemma Triple_if_bool : forall (b:bool) t1 t2 H A `{EA:Enc A} (Q:A->hprop),
+Lemma Triple_if_case : forall (b:bool) t1 t2 H A `{EA:Enc A} (Q:A->hprop),
   Triple (if b then t1 else t2) H Q ->
   Triple (trm_if b t1 t2) H Q.
 Proof using.
-  introv M1. applys triple_if_bool. { applys M1. }
+  introv M1. applys triple_if_case. { applys M1. }
 Qed.
 
 Lemma Triple_apps_funs : forall xs F vs t1 H A `{EA: Enc A} (Q:A->hprop),

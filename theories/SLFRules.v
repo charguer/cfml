@@ -1055,11 +1055,11 @@ Qed.
     due to the symmetry between the [b=true] and [b=false] branches.
     One way to conveniently factorize the proof arguments is to employ
     Coq's conditional to express the semantics of a term conditional. 
-    
+
     First, we establish a corollary to [red_if], expressed using a 
     single premise. *)
 
-Lemma eval_if_bool_case : forall s1 s2 b v t1 t2,
+Lemma eval_if_case : forall s1 s2 b v t1 t2,
   eval s1 (if b then t1 else t2) s2 v ->
   eval s1 (trm_if b t1 t2) s2 v.
 Proof using.

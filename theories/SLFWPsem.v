@@ -107,16 +107,12 @@ Qed.
        are not needed in a wp-style presentation, because they
        are directly subsumed by basic lemmas on entailment.
 
-    2. The predicate [wp t Q] is covariant in [Q], just the same
-       way [triple t H Q] is covariant in [Q] (and contravariant 
-       in [H]).
-
-    3. The combined consequence-frame-htop rule for [triple]
+    2. The combined consequence-frame-htop rule for [triple]
        has a counterpart for [wp]. This rule is, in effect,
        the unique structural rule that is needed for [wp].
        (All other structural rules are derivable from it.)
 
-    4. The ramified-frame rule for [triple] also has a
+    3. The ramified-frame rule for [triple] also has a
        counterpart for [wp]. This ramified rule for [wp]
        will play a crucial rule in the construction of
        our function that computes weakest precondition. *)
@@ -152,29 +148,7 @@ Proof using. introv M. applys himpl_hexists_l M. Qed.
 
 
 (* ------------------------------------------------------- *)
-(** *** 2. Covariance of [wp] *)
-
-(** If we have [triple t H Q1] and [Q1 ===> Q2], then, by the
-    rule of consequence, we can derive [triple t H Q2]. 
-    In other words, [triple t H Q] is covariant in [Q].
-
-    In a similiar way [wp t Q] is covariant in [Q], as we state
-    and prove next. *)
-
-Lemma wp_conseq : forall t Q1 Q2,
-  Q1 ===> Q2 ->
-  wp t Q1 ==> wp t Q2.
-Proof using.
-  introv WQ.
-  rewrite <- wp_equiv. (* same as [applys wp_weakest]. *)
-  applys triple_conseq (wp t Q1) WQ.
-  { rewrite wp_equiv. auto. (* same as [applys wp_pre]. *) }
-  { applys himpl_refl. }
-Qed.
-
-
-(* ------------------------------------------------------- *)
-(** *** 3. Combined structural rule for [wp] *)
+(** *** 2. Combined structural rule for [wp] *)
 
 (** Recall the combined consequence-frame-htop rule for [triple]. *)
 
@@ -227,7 +201,7 @@ Qed.
 
 
 (* ------------------------------------------------------- *)
-(** *** 4. The ramified structural rule for [wp] *)
+(** *** 3. The ramified structural rule for [wp] *)
 
 (** Consider the entailment  [Q1 \*+ H ===> Q2 \*+ \Top]
     that appears in the combined rule [wp_conseq_frame_htop].
@@ -263,7 +237,7 @@ Proof using. introv M. hchange M. applys wp_ramified. Qed.
 
 
 (* ####################################################### *)
-(** * Additional contents *)
+(** * Realization of [wp], and structural properties *)
 
 (* ******************************************************* *)
 (** ** Semantic definition of weakest precondition *)
@@ -342,11 +316,16 @@ Qed.
     specializations of this rule. The corresponding lemmas
     highlight interesting properties of the [wp] operator. *)
 
-(** Recall the [wp_conseq] rule. *)
+(** One important property of [wp] is its covariance, which
+    corresponds to the rule of consequence for [wp]. It asserts
+    that [wp t Q] is covariante in [Q], as we state and prove next. *)
 
-Parameter wp_conseq' : forall t Q1 Q2,
+Lemma wp_conseq : forall t Q1 Q2,
   Q1 ===> Q2 ->
   wp t Q1 ==> wp t Q2.
+Proof using.
+  introv M. lets N: wp_ramified t Q1 Q2. hchanges N. hchanges M.
+Qed.
 
 (** How can this rule simulate the rule of consequence, which also
     enables strenthening the precondition? The following lemma
@@ -360,7 +339,7 @@ Lemma wp_conseq_pre : forall t H' H Q,
 Proof using. introv M WH. applys himpl_trans WH. applys M. Qed.
 
 (** More generally, the consequence rule for goals in [wp] form
-    takes the form: *)
+    can be written in a form reminiscent of [triple_conseq]: *)
 
 Lemma wp_conseq_trans : forall t H' Q' H Q,
   H' ==> wp t Q' ->
@@ -409,8 +388,210 @@ Qed.
    [wp_hand_post] may be replaced with [\Top]. *)
 
 
+(* ####################################################### *)
+(** * Definition of [wp] directly in terms of [hoare] *)
+
 (* ******************************************************* *)
-(** ** Texan triples *)
+(** ** Direct definition for [wp] *)
+
+(** In our construction, we have proved reasoning rules for
+    [hoare], derived reasoning rules for [triple], then used
+    the latter for proving the soundness of [wp].
+    Yet, if our goal was only to prove properties [wp], we wouldn't
+    need any result on [triple]. How would the reasoning rules be
+    stated and proved if we were to directly state and prove [wp] 
+    properties from [hoare]? Let us investigate. *)
+
+(** We assume [wp] to be defined [wp] to be defined directly in terms 
+    of [hoare], following the definition of [wp_high] from above. *)
+
+Parameter wp_def : forall t Q,
+  wp t Q = \exists H, H \* \[forall H', hoare t (H \* H') (Q \*+ H' \*+ \Top)].
+
+(** We first establish the (most-general) structural rule for [wp],
+    directly with respect to the [hoare] judgment. *)
+
+Lemma wp_ramified' : forall t Q1 Q2,
+  (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
+Proof using.
+  intros. do 2 rewrite wp_def. hpull ;=> H M.
+  hsimpl (H \* (Q1 \--* Q2 \*+ \Top)). intros H'.
+  applys hoare_conseq M; hsimpl.
+Qed.
+
+(** We next establish [wp] for each term construct. To guide us towards
+    the appropriate statements, we start from the rule for [triple], 
+    and reformulate it using [triple t H Q <-> H ==> (wp t Q)]. *)
+
+
+(* ******************************************************* *)
+(** ** Weakest precondition for values and functions *)
+
+(** First, consider a value [v]. Recall the rule [triple_val],
+    which asserts that [H ==> Q v] is a sufficient condition for
+    establishing [triple t (trm_val v) H Q]. *)
+
+Parameter triple_val : forall v H Q,
+  H ==> Q v ->
+  triple (trm_val v) H Q.
+
+(** Equivalently, [H ==> Q v] is a sufficient condition to establish
+    [H ==> wp (trm_val) Q]. Since this implication holds for any [H],
+    it holds in particular for [H := Q v]. Thus, the entailement
+    [Q v ==> wp (trm_val v) Q] holds. Let us formalize the statement,
+    then prove it directly in terms of the [hoare] reasoning rule for
+    values. *)
+
+Lemma wp_val : forall v Q,
+  Q v ==> wp (trm_val v) Q.
+Proof using. intros. rewrite wp_def. hsimpl; intros H'. applys hoare_val. hsimpl. Qed.
+
+(** Interestingly, we have not lost any expressive power: from [wp_val]
+    one can recover [triple_val]. *)
+
+Lemma triple_val_derived_from_wp_val : forall v H Q,
+  H ==> Q v ->
+  triple (trm_val v) H Q.
+Proof using. introv M. rewrite wp_equiv. hchange M. applys wp_val. Qed.
+
+(** The [wp] rules for [trm_fun] and [trm_fix] follow the exact same pattern. *)
+
+Lemma wp_fun : forall x t Q,
+  Q (val_fun x t) ==> wp (trm_fun x t) Q.
+Proof using. intros. rewrite wp_def. hsimpl; intros H'. applys hoare_fun. hsimpl. Qed.
+
+Lemma wp_fix : forall f x t Q,
+  Q (val_fix f x t) ==> wp (trm_fix f x t) Q.
+Proof using. intros. rewrite wp_def. hsimpl; intros H'. applys hoare_fix. hsimpl. Qed.
+
+
+(* ******************************************************* *)
+(** ** Weakest precondition for conditionals *)
+
+(** Consider a term [triple_if b t1 t2]. Recall the reasoning rule. *)
+
+Parameter triple_if_case : forall b t1 t2 H Q,
+  triple (if b then t1 else t2) H Q ->
+  triple (trm_if (val_bool b) t1 t2) H Q.
+
+(** Replacing [triple] using [wp] entailements yields:
+
+[[
+    H ==> wp (if b then t1 else t2) Q ->
+    H ==> wp (trm_if (val_bool b) t1 t2) Q.
+]]
+    which simplifies to:
+[[
+    wp (if b then t1 else t2) Q ==> wp (trm_if (val_bool b) t1 t2) Q.
+]] 
+    This suggests.
+*)
+
+Lemma wp_if : forall b t1 t2 Q,
+  wp (if b then t1 else t2) Q ==> wp (trm_if b t1 t2) Q.
+Proof using.
+  intros. repeat rewrite wp_def. hsimpl; intros H M H'.
+  applys hoare_if_case. applys M.
+Qed.
+
+(** Equivalently, the rule may be stated with the conditional around
+    the calls to [wp t1] and [wp t2]. *)
+
+Lemma wp_if' : forall b t1 t2 Q,
+  (if b then wp t1 else wp t2) Q ==> wp (trm_if b t1 t2) Q.
+Proof using. intros. applys himpl_trans wp_if. case_if~. Qed.
+
+(** Or, even further, the rule may be stated with the conditional 
+    around the calls to [wp t1 Q] and [wp t2 Q]. *)
+
+Lemma wp_if'' : forall b t1 t2 Q,
+  (if b then wp t1 Q else wp t2 Q) ==> wp (trm_if b t1 t2) Q.
+Proof using. intros. applys himpl_trans wp_if. case_if~. Qed.
+
+(** Once again, let us check that we have not lost expressive power.
+    We prove [triple_if_case] only from [wp_if] and structural properties
+    of [wp]. Observe the transitivity step. *)
+
+Lemma triple_if_case_from_wp_if : forall b t1 t2 H Q,
+  triple (if b then t1 else t2) H Q ->
+  triple (trm_if (val_bool b) t1 t2) H Q.
+Proof using.
+  introv M. rewrite wp_equiv in *. hchange M.
+  applys himpl_trans wp_if. auto.
+Qed.
+
+
+(* ******************************************************* *)
+(** ** Weakest precondition for sequence and let-bindings *)
+
+(** Consider a sequence [trm_seq t1 t2]. Recall the rule [triple_seq]. *)
+
+Parameter triple_seq : forall t1 t2 H Q H1,
+  triple t1 H (fun v => H1) ->
+  triple t2 H1 Q ->
+  triple (trm_seq t1 t2) H Q.
+
+(** Replacing [triple t H Q] with [H ==> wp t Q] throughout the rule gives:
+
+[[
+      H ==> (wp t1) (fun v => H1) ->
+      H1 ==> (wp t2) Q ->
+      H ==> wp (trm_seq t1 t2) Q.
+]]
+    This entailment holds for any [H] and [H1]. Let us specialize it to
+    [H1 := (wp t2) Q] and [H := (wp t1) (fun v => (wp t2) Q)].
+    This leads us to the wp-style reasoning rule for sequences.
+    Again, we provide a direct proof from [hoare] triples. *)
+
+Lemma wp_seq : forall t1 t2 Q,
+  wp t1 (fun r => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
+Proof using.
+  intros. rewrite wp_def. hsimpl. intros H' M1.
+  rewrite wp_def. hsimpl. intros H''.
+  applys hoare_seq. applys (rm M1). rewrite wp_def.
+  repeat rewrite hstar_hexists. applys hoare_hexists; intros H'''.
+  rewrite (hstar_comm H'''); repeat rewrite hstar_assoc.
+  applys hoare_hpure; intros M2. applys hoare_conseq M2; hsimpl.
+Qed.
+
+(* EX2! (triple_seq_from_wp_seq) *)
+(** Once again, let us check that we have not lost expressive power.
+    Prove [triple_seq] only from [wp_seq] and structural properties
+    of [wp]. *)
+
+Lemma triple_seq_from_wp_seq : forall t1 t2 H Q H1,
+  triple t1 H (fun v => H1) ->
+  triple t2 H1 Q ->
+  triple (trm_seq t1 t2) H Q.
+Proof using.
+(* SOLUTION *)
+  introv M1 M2. rewrite wp_equiv in *. hchange M1.
+  applys himpl_trans wp_seq. applys wp_conseq. intros _. applys M2.
+(* /SOLUTION *)
+Qed.
+
+(** The rule of [trm_let x t1 t2] is very similar, the main difference
+    being the substitution on [t2]. *)
+
+Lemma wp_let : forall x t1 t2 Q,
+  wp t1 (fun v => wp (subst x v t2) Q) ==> wp (trm_let x t1 t2) Q.
+Proof using.
+  intros. rewrite wp_def. hsimpl. intros H' M1.
+  rewrite wp_def. hsimpl. intros H''.
+  applys hoare_let. applys (rm M1). intros v. simpl.
+  (* TODO *) skip_rewrite (Semantics.subst = subst).
+  rewrite wp_def.
+  repeat rewrite hstar_hexists. applys hoare_hexists; intros H'''.
+  rewrite (hstar_comm H'''); repeat rewrite hstar_assoc.
+  applys hoare_hpure; intros M2. applys hoare_conseq M2; hsimpl.
+Qed.
+
+
+(* ####################################################### *)
+(** * Bonus: Texan triples *)
+
+(* ******************************************************* *)
+(** ** Texan triples on a simple example *)
 
 (** In this section, we show that specification triples can be presented
     in a different (yet equivalent) style using weakest preconditions. *)
@@ -435,10 +616,6 @@ Parameter wp_ref : forall Q v,
     from the triple form to the wp form, and establish the reciprocal.
     We then formalize the general pattern for translating a triple
     into a "texan triple" (i.e., the wp-based specification). *)
-
-
-(* ------------------------------------------------------- *)
-(** *** 1. From the triple specification to the wp specification and back *)
 
 (** By replacing [triple t H Q] with [H ==> wp t Q], the specification
     gets reformulated as: *)

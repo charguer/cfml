@@ -576,7 +576,7 @@ Lemma wpgen_sound_if_val : forall v0 F1 F2 E t1 t2,
   wpgen_if_val v0 F1 F2 ===> wpsubst E (trm_if v0 t1 t2).
 Proof using.
   introv M1 M2. applys qimpl_wp_of_triple. simpl. intros Q.
-  remove_mkstruct. xpull ;=> b ->. applys triple_if_bool.
+  remove_mkstruct. xpull ;=> b ->. applys triple_if_case.
   apply triple_of_wp. case_if*.
 Qed.
 
