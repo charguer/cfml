@@ -835,7 +835,8 @@ Definition triple_lowlevel t H Q :=
 (** One can proove the equivalence of [triple] and [triple_lowlevel]
     following a similar proof pattern as previously. The proof is a bit 
     more technical and requires additional tactic support to deal with
-    the tedious disjointness conditions, so we omit the details. *)
+    the tedious disjointness conditions, so we omit the details.
+    (The proof is included in the file [SepBase.v] from CFML2.) *)
 
 Parameter triple_iff_triple_lowlevel : forall t H Q,
   triple t H Q <-> triple_lowlevel t H Q.
@@ -881,13 +882,5 @@ Proof using.
   applys M.
 (* /SOLUTION *)
 Qed.
-
-
-
-
-
-
-
-
 
 

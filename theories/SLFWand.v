@@ -867,3 +867,73 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+
+(* ******************************************************* *)
+(** ** Summary of all Separation Logic operators *)
+
+(** First, we give all the direct definitions in terms of heaps. *)
+
+Module SummaryHpropLowlevel.
+
+Definition hempty : hprop :=
+  fun h => (h = fmap_empty).
+
+Definition hpure (P:Prop) : hprop :=
+  fun h => (h = fmap_empty) /\ P.
+
+Definition hsingle (l:loc) (v:val) : hprop :=
+  fun h => (h = fmap_single l v).
+
+Definition hstar (H1 H2 : hprop) : hprop :=
+  fun h => exists h1 h2, H1 h1
+                              /\ H2 h2
+                              /\ fmap_disjoint h1 h2
+                              /\ h = fmap_union h1 h2.
+
+Definition hexists A (J:A->hprop) : hprop :=
+  fun h => exists x, J x h.
+
+Definition hforall (A : Type) (J : A -> hprop) : hprop :=
+  fun h => forall x, J x h.
+
+Definition hwand (H1 H2:hprop) : hprop :=
+  fun h => forall h', fmap_disjoint h h' -> H1 h' -> H2 (h \u h').
+
+Definition qwand A (Q1 Q2:A->hprop) :=
+  fun h => forall x h', fmap_disjoint h h' -> Q1 x h' -> Q2 x (h \u h').
+
+Definition hor (H1 H2 : hprop) : hprop :=
+  fun h => H1 h \/ H2 h.
+
+Definition hand (H1 H2 : hprop) : hprop :=
+  fun h => H1 h /\ H2 h.
+
+End SummaryHpropLowlevel.
+
+(** We next present derived definitions that may be used to reduce the number 
+    of predicates that need to be defined directly in terms of heaps.
+    Using these definitions reduces the effort in proving their 
+    properties, because more reasoning can be conducted at the level
+    of [hprop], with the help of the [hsimpl] tactic. *)
+
+Module SummaryHpropHigherlevel.
+
+Definition hpure (P:Prop) : hprop :=
+  \exists (p:P), \[].
+
+Definition htop : hprop :=
+  \exists (H:hprop), H.
+
+Definition hwand (H1 H2 : hprop) : hprop :=
+  \exists H0, H0 \* \[ (H0 \* H1) ==> H2].
+
+Definition qwand A (Q1 Q2:A->hprop) :=
+  \forall x, (Q1 x) \-* (Q2 x).
+
+Definition hand (H1 H2 : hprop) : hprop :=
+  \forall (b:bool), if b then H1 else H2.
+
+Definition hor (H1 H2 : hprop) : hprop :=
+  \exists (b:bool), if b then H1 else H2.
+
+End SummaryHpropHigherlevel.

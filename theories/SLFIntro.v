@@ -59,6 +59,19 @@ License: MIT.
  
     - [SLFExt]: examples of two extensions of Separation Logic, one with time 
                 credits, and one with read-only permissions.
+
+*)
+
+(* ####################################################### *)
+(** * TLC tactics and library *)
+
+(** The proofs are carried out using TLC tactics, which greatly help.
+    Most of the tactics used are described in the SF chapter [UseTactics]
+    from the "Programming Language Foundations" course.
+
+    The proofs also rely occasionnally on lemmas from the TLC library,
+    for example extensionality properties.
+
 *)
 
 
