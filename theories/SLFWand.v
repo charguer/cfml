@@ -830,6 +830,26 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(* TODO: describe the properties
+
+Lemma himpl_hor_r_r : forall H1 H2,
+  H1 ==> hor H1 H2.
+Proof using. intros. unfolds hor. exists* true. Qed.
+
+Lemma himpl_hor_r_l : forall H1 H2,
+  H2 ==> hor H1 H2.
+Proof using. intros. unfolds hor. exists* false. Qed.
+
+  TODO add to sepfunctor:
+
+Lemma himpl_hor_l : forall H1 H2 H3,
+  H1 ==> H3 ->
+  H2 ==> H3 ->
+  hor H1 H2 ==> H3.
+Proof using. intros. unfolds hor. exists* false. Qed.
+
+*)
+
 
 (* ------------------------------------------------------- *)
 (** *** Definition of [hand] *)
@@ -866,6 +886,34 @@ Proof using.
   { intros h N. split. { applys N true. } { applys N false. } }
 (* /SOLUTION *)
 Qed.
+
+(* TODO: describe the properties
+
+Lemma hand_sym : forall H1 H2,
+  hand H1 H2 = hand H2 H1.
+Proof using.
+  intros. unfold hand. applys himpl_antisym.
+  { applys himpl_hforall_r. intros b.
+    applys himpl_hforall_l (neg b). destruct* b. }
+  { applys himpl_hforall_r. intros b.
+    applys himpl_hforall_l (neg b). destruct* b. }
+Qed.
+
+Lemma himpl_hand_l_r : forall H1 H2,
+  hand H1 H2 ==> H1.
+Proof using. intros. unfolds hand. applys* himpl_hforall_l true. Qed.
+
+Lemma himpl_hand_l_l : forall H1 H2,
+  hand H1 H2 ==> H2.
+Proof using. intros. unfolds hand. applys* himpl_hforall_l false. Qed.
+
+Lemma himpl_hand_r : forall H1 H2 H3,
+  H1 ==> H2 ->
+  H1 ==> H3 ->
+  H1 ==> hand H2 H3.
+Proof using. introv M1 M2 Hh. intros b. case_if*. Qed.
+
+*)
 
 
 (* ******************************************************* *)

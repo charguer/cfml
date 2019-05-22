@@ -668,7 +668,7 @@ Lemma himpl_hand_r : forall H1 H2 H3,
   H1 ==> hand H2 H3.
 Proof using. introv M1 M2 Hh. intros b. case_if*. Qed.
 
-
+(* ---------------------------------------------------------------------- *)
 
 End HsimplArgs.
 
