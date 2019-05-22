@@ -936,10 +936,10 @@ Proof using.
   destruct b.
   { forwards* (h'&v'&R&K): (rm M1) h.
     exists h' v'. splits~.
-    { applys* eval_if_bool. } }
+    { applys* eval_if_case. } }
   { forwards* (h'&v'&R&K): (rm M2) h.
     exists h' v'. splits~.
-    { applys* eval_if_bool. } }
+    { applys* eval_if_case. } }
 Qed.
 
 (** A rule for unary function application -- DEPRECATED

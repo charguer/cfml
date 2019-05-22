@@ -25,10 +25,7 @@ Implicit Types Q : val->hprop.
 (** * The chapter in a rush *)
 
 (** This chapter introduces the notion of weakest precondition
-    for Separation Logic triples. 
-
-    Note: this chapter is relatively short. It goes in pair
-    with the next chapter, which is relatively long. *)
+    for Separation Logic triples. *)
 
 
 (* ******************************************************* *)
@@ -495,16 +492,9 @@ Proof using.
 Qed.
 
 (** Equivalently, the rule may be stated with the conditional around
-    the calls to [wp t1] and [wp t2]. *)
+    the calls to [wp t1 Q] and [wp t2 Q]. *)
 
 Lemma wp_if' : forall b t1 t2 Q,
-  (if b then wp t1 else wp t2) Q ==> wp (trm_if b t1 t2) Q.
-Proof using. intros. applys himpl_trans wp_if. case_if~. Qed.
-
-(** Or, even further, the rule may be stated with the conditional 
-    around the calls to [wp t1 Q] and [wp t2 Q]. *)
-
-Lemma wp_if'' : forall b t1 t2 Q,
   (if b then wp t1 Q else wp t2 Q) ==> wp (trm_if b t1 t2) Q.
 Proof using. intros. applys himpl_trans wp_if. case_if~. Qed.
 
@@ -702,27 +692,5 @@ Proof using.
   { applys triple_incr. } { hsimpl. } { hsimpl ;=> ? ->. auto. }
 Qed.
 (* /SOLUTION *)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

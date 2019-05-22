@@ -1975,3 +1975,557 @@ Proof using.
   introv M. rewrite formula_sound_for_iff_wp.
   intros Q. rewrite wp_def. hsimpl (F Q). applys M.
 Qed.
+
+
+(* ####################################################### *)
+(** * Additional contents *)
+
+(* ******************************************************* *)
+(** ** General structure *)
+
+(** The general shape of the definition of [wpgen] is a
+    recursive function on [t], with recursive calls for
+    the subterms. The auxiliary functions named [wpgen_val],
+    [wpgen_if], etc... describe the body of [wpgen t] for
+    each term construct that [t] could be.
+    (For the time being, you may forget about [mkstruct].)
+
+[[
+  Fixpoint wpgen (t:trm) : formula :=
+    mkstruct (match t with
+    | trm_val v => wpgen_val v
+    | trm_seq t1 t2 => wpgen_seq (wpgen t1) (wpgen t2)
+    | trm_if v0 t1 t2 => wpgen_if v0 (wpgen t1) (wpgen t2)
+    | ...
+    end).
+]]
+*)
+
+(** Recall the soundness theorem that we aim for:
+[[
+    Parameter triple_of_wpgen : forall H t Q,
+      H ==> wpgen t Q ->
+      triple t H Q.
+]]
+
+    To factorize statements and improve readibility during the
+    inductive proof, let us introduce the following definition.
+*)
+
+Definition formula_sound_for (t:trm) (F:formula) : Prop :=
+  forall H Q, H ==> F Q -> triple t H Q.
+
+(** The soundness theorem then reformulates as 
+    [forall t, formula_sound_for t (wpgen t)].
+
+    For each auxiliary function, we'll have a soundness lemma.
+    For example, for [trm_val], we'll prove:
+    [forall v, formula_sound_for [trm_val v] (wpgen_val v)].
+
+    Likewise, we'll have a soundness lemma for [mkstruct]:
+    [formula_sound_for t F -> formula_sound_for t (mkstruct F)]. *)
+
+(** In what follows, we present the definition of each of the
+    auxiliary functions involved, one per term construct. *)
+
+
+(* ******************************************************* *)
+(** ** Case of values *)
+
+(** First, consider a value [v]. The formula [wpgen (trm_val v)]
+    should be such that [H ==> wpgen (trm_val v) Q] entails
+    [triple (trm_val v) H Q]. Recall rule [triple_val]. *)
+
+Parameter triple_val : forall v H Q,
+  H ==> Q v ->
+  triple (trm_val v) H Q.
+
+(** [H ==> Q v] is a sufficient condition for [triple (trm_val v) H Q].
+    Thus, we wish [H ==> wpgen (trm_val v) Q] to imply [H ==> Q v],
+    for any [H]. To achieve this implication, it suffices to define
+    [wpgen (trm_val v) Q] as [Q v].
+
+    Recall that [wpgen_val v] describes the value of [wpgen (trm_val v)].
+    Thus, [wpgen_val v] is a function that takes [Q] as argument,
+    and returns the heap predicate [Q v]. *)
+
+Definition wpgen_val (v:val) : formula := fun Q =>
+  Q v.
+
+(** Just to be sure, let us check the desired property. *)
+
+Lemma triple_of_wpgen_val : forall v H Q,
+  H ==> wpgen_val v Q ->
+  triple (trm_val v) H Q.
+Proof using.
+  introv M. applys triple_val. unfolds wpgen_val. applys M.
+Qed.
+
+(** We can reformulate the lemma above using [formula_sound_for] as: *)
+
+Lemma wpgen_val_sound : forall v,
+  formula_sound_for (trm_val v) (wpgen_val v).
+Proof using. introv M. applys triple_of_wpgen_val M. Qed.
+
+(** Remark: ultimately, what we'd like to show for [wpgen] is:
+    [forall t, formula_sound_for t (wpgen t)]. *)
+
+
+(* ******************************************************* *)
+(** ** Case of functions *)
+
+(** Recall the rule for functions. It is almost exactly like
+    that for values, the only difference beeing that the
+    conclusion in on [trm_fun x t1] and the premise on [val_fun x t1]. *)
+
+Parameter triple_fun : forall x t1 H Q,
+  H ==> Q (val_fun x t1) ->
+  triple (trm_fun x t1) H Q.
+
+(** To handle functions in [wpgen], we can reuse the definition
+    of [wpgen_val], and simply adapt the statement of soundness
+    as follows. *)
+
+Lemma wpgen_fun_sound : forall x t,
+  formula_sound_for (trm_fun x t) (wpgen_val (val_fun x t)).
+Proof using. introv M. unfolds wpgen_val. applys triple_fun M. Qed.
+
+(** Likewise for recursive functions. *)
+
+Parameter triple_fix : forall f x t1 H Q,
+  H ==> Q (val_fix f x t1) ->
+  triple (trm_fix f x t1) H Q.
+
+Lemma wpgen_fix_sound : forall f x t,
+  formula_sound_for (trm_fix f x t) (wpgen_val (val_fix f x t)).
+Proof using. introv M. unfolds wpgen_val. applys triple_fix M. Qed.
+
+
+(* ******************************************************* *)
+(** ** Case of sequences *)
+
+(** Second, consider a sequence [trm_seq t1 t2].
+    The formula [wpgen (trm_seq t1 t2)] should be such that
+    [H ==> [wpgen (trm_seq t1 t2)] Q] entails
+    [triple (trm_seq t1 t2) H Q].
+
+    Recall that [wpgen (trm_seq t1 t2)] evaluates to
+    [wpgen_seq (wpgen t1) (wpgen t2)]. The definition of
+    [wpgen_seq] can be derived from that of [triple_seq]. 
+    Recall that rule. *)
+
+Parameter triple_seq : forall t1 t2 H Q H1,
+  triple t1 H (fun v => H1) ->
+  triple t2 H1 Q ->
+  triple (trm_seq t1 t2) H Q.
+
+(** By induction hypothesis on the subterms, a [triple] for 
+    [t1] or [t2] is equivalent to a [wpgen] entailment. 
+    Replacing [triple t H Q] with [H ==> wpgen t Q] throughout
+    the rule [triple_seq] gives us: 
+
+[[
+      H ==> wpgen t1 (fun v => H1) ->
+      H1 ==> wpgen t2 Q ->
+      H ==> wpgen_seq (wpgen t1) (wpgen t2) Q.
+]]
+
+    From there, let [F1] denote [wpgen t1] and [F2] denote [wpgen t2].
+    Moreover, let us substitute away [H1], by presuming that [wpgen]
+    is covariant in its second argument (just like [wp] is).
+    We obtain:
+
+[[
+      H => F1 (fun r => F2 Q) ->
+      H => wpgen_seq F1 F2
+]]
+
+    which simplifies to [F1 (fun v => F2 Q) ==> wpgen_seq F1 F2].
+    This leads us to the following definition of [wpgen_seq]. *)
+
+Definition wpgen_seq (F1 F2:formula) : formula := fun Q =>
+  F1 (fun v => F2 Q).
+
+(** Again, let us verify that we obtain the desired implication
+    for [trm_seq t1 t2], assuming that we have sound formulae
+    for the two subterms. *)
+
+Lemma wpgen_seq_sound : forall F1 F2 t1 t2,
+  formula_sound_for t1 F1 ->
+  formula_sound_for t2 F2 ->
+  formula_sound_for (trm_seq t1 t2) (wpgen_seq F1 F2).
+Proof using.
+  introv S1 S2 M. unfolds wpgen_seq. applys triple_seq.
+  { applys S1. applys M. }
+  { applys S2. applys himpl_refl. }
+Qed.
+
+
+(* ******************************************************* *)
+(** ** Case of let-bindings *)
+
+(** Consider now the case of a let-binding [trm_let x t1 t2].
+    Handling this construct is a bit more involved due to the
+    binding of the variable [x] in [t2].
+
+    The formula [wpgen (trm_let x t1 t2)] should be such that
+    [H ==> [wpgen (trm_let x t1 t2)] Q] entails
+    [triple (trm_let x t1 t2) H Q]. 
+
+    Recall the rule [triple_let]. *)
+
+Parameter triple_let : forall x t1 t2 H Q Q1,
+  triple t1 H Q1 ->
+  (forall v, triple (subst x v t2) (Q1 v) Q) ->
+  triple (trm_let x t1 t2) H Q.
+
+(** Replacing triples using [wpgen] entailements yields:
+
+[[
+      H ==> wpgen t1 Q1 ->
+      (forall v, (Q1 v) ==> wpgen (subst x v t2) Q) ->
+      H ==> wpgen (trm_let x t1 t2) Q.
+]]
+
+   The second premise can be reformuled as an entailment
+   between [Q1] and another postcondition, as follows:
+   [Q1 ===> (fun v => wpgen (subst x v t2) Q)].
+
+   From there, by covariante of [wpgen], we can replace [Q1]
+   with [fun v => wpgen (subst x v t2) Q] into the first premise
+   [H ==> wpgen t1 Q1]. We obtain the implication:
+
+[[
+      H ==> (wpgen t1) (fun v => wpgen (subst x v t2) Q) ->
+      H ==> wpgen (trm_let x t1 t2) Q.
+]]
+
+  Let [F1] denote [wpgen t1] and let [F2of] denote
+  [fun v => wpgen (subst x v t2)). In other words,
+  [F2of v Q] denotes [wpgen (subst x v t2) Q].
+  After eliminating [H], the implication above thus simplifies to:
+    [F1 (fun v => F2of v Q) ==> wpgen (trm_let x t1 t2) Q].
+  This discussion suggests the following definitions:
+
+[[
+    Fixpoint wpgen (t:trm) : formula :=
+      mkstruct 
+      match t with
+      | trm_let x t1 t2 => wpgen_let (wpgen t1) (fun v => wpgen (subst x v t2))
+      ...
+      end.
+]]
+    where [wgen_let] is defined as:
+*)
+
+Definition wpgen_let (F1:formula) (F2of:val->formula) : formula := fun Q =>
+  F1 (fun v => F2of v Q).
+
+(** The soundness result takes the following form.
+    It assumes that [F1] is a sound formula for [t1] and that
+    [F2of v] is a sound formula for [subst x v t2], for any [v]. *)
+
+Lemma wpgen_let_sound : forall F1 F2of x t1 t2,
+  formula_sound_for t1 F1 ->
+  (forall v, formula_sound_for (subst x v t2) (F2of v)) ->
+  formula_sound_for (trm_let x t1 t2) (wpgen_let F1 F2of).
+Proof using.
+  introv S1 S2 M. unfolds wpgen_let. applys triple_let.
+  { applys S1. applys M. }
+  { intros v. applys S2. applys himpl_refl. }
+Qed.
+
+
+(* ******************************************************* *)
+(** ** Case of variables *)
+
+(** What should be the weakest precondition of a free variable [x]?
+    There is no reasoning rule of the form [triple (trm_var x) H Q].
+    Indeed, if a program execution reaches a dandling free variable,
+    then the program is stuck.
+
+    Yet, the weakest precondition for a variable needs to be defined,
+    somehow. If we really need to introduce a reasoning rule for free
+    variables, it could be one with the premise [False]:
+[[
+              False
+      ----------------------
+      triple (trm_var x) H Q
+]]
+
+    To mimic [False -> triple x H Q] using [wpgen], we would like:
+    [False -> H ==> wp x Q]. This implication is equivalent to
+    [\[False] \* H ==> wp x Q], or just [\[False] ==> wp x Q].
+    This discussion suggests to define [wp x] as the formula
+    [fun Q => \False].  Let us name [wpgen_fail] this formula. *)
+
+Definition wpgen_fail : formula := fun Q =>
+  \[False].
+
+(** The function [wpgen] will thus treat variables as follows:
+[[
+      Fixpoint wpgen (t:trm) : formula :=
+        match t with
+        | trm_var x => wpgen_fail
+        ...
+        end.
+]]
+
+    The formula [wpgen_fail] is a sound formula not just for
+    a variable [x], but in fact for any term [t].
+    Indeed, if [H ==> \[False]], then [triple t H Q] is always true. *)
+
+Lemma wpgen_fail_sound : forall t,
+  formula_sound_for t wpgen_fail.
+Proof using.
+  intros. introv M. unfolds wpgen_fail.
+  applys triple_conseq Q M.
+  { rewrite <- (hstar_hempty_r \[False]). applys triple_hpure.
+    intros N. false. }
+  { applys qimpl_refl. }
+Qed.
+
+
+(* ******************************************************* *)
+(** ** Case of applications *)
+
+(** What should be the weakest precondition for an application?
+    Well, it depends on the function, and how this function was
+    specified. Yet, when constructing the weakest precondition
+    by induction on [t], we have no specification at hand.
+
+    We would like to just postpone the reasoning on an application
+    until we have established specifications for the function being
+    applied. The way we implement the postponing is by defining
+    [wpgen (trm_app t1 t2)] as [wp (trm_app t1 t2)]. In other words,
+    we fall back to the semantic definition of [wp].
+
+    We define:
+
+[[
+  Fixpoint wpgen (t:trm) : formula :=
+    match t with
+    | trm_app t1 t2 => wp t
+    ...
+    end.
+]]
+
+    "Obviously", [wp t] is always a sound formula for a term [t].
+    Indeed, by definition of [wp], [H ==> wp t] implies [triple t H Q].
+*)
+
+Lemma wp_sound : forall t,
+  formula_sound_for t (wp t).
+Proof using. intros. introv M. rewrite wp_equiv. applys M. Qed.
+
+(** Remark: recall that we consider terms in A-normal form, thus [t1]
+    and [t2] are assumed to be variables at the point where [wgpen]
+    reaches the application [trm_app t1 t2]. If [t1] and [t2] could
+    be general terms, we would need to call [wpgen] recursively,
+    essentially encoding [let x1 = t1 in let x2 = t2 in trm_app x1 x2]. *)
+
+
+(* ******************************************************* *)
+(** ** Case of conditionals *)
+
+(** Consider a conditional in A-normal form: [trm_if v0 then t1 else t2],
+    where [v0] denotes either a variable of a value. If [v0] is a variable,
+    by the time the [wpgen] function reaches it, it should already have
+    been substituted in by a value (recall the [subst] in the treatment
+    of let-bindings). Thus, we may assume here [v0] to be a value.
+
+    Moreover, in the expression [trm_if v0 then t1 else t2], if [v0] denotes
+    anything else than a boolean value, then the term would be stuck.
+    Thus, we may in fact assume that [exists b, v0 = val_bool b].
+
+    Note, however, that the [wpgen] function could see a term of the form
+    [trm_if v0 then t1 else t2] where [v0] denotes a Coq variable of type
+    [val], for which there is not yet any fact available to assert that it
+    is a boolean value. Thus, the [wpgen] function must not be restricted
+    to handling only terms of the form [trm_if (val_bool b) then t1 else t2].
+
+    Recall the reasoning rule for conditionals, more precisely the version
+    expressed using a Coq if-then-else. *)
+
+Parameter triple_if_case : forall b t1 t2 H Q,
+  triple (if b then t1 else t2) H Q ->
+  triple (trm_if (val_bool b) t1 t2) H Q.
+
+(** Replacing triples using [wpgen] entailements yields:
+
+[[
+    H ==> wpgen (if b then t1 else t2) Q ->
+    H ==> wpgen (trm_if (val_bool b) t1 t2) Q.
+]]
+
+    which simplifies to 
+
+[[
+    wpgen (if b then t1 else t2) Q ==> wpgen (trm_if (val_bool b) t1 t2) Q
+]]
+
+    We need to make appear [wpgen t1] and [wpgen t2] in the formula, so as
+    to compute recursively the weakest preconditions for the subterm.
+    To that end, we expand the Coq conditional as follows:
+
+[[
+    (if b then wpgen t1 Q else wpgen t2 Q) ==> wpgen (trm_if (val_bool b) t1 t2) Q
+]]
+
+    As explained earlier, we are actually seeking for a definition of
+    [wpgen (trm_if v0 t1 t2) Q] and not just for [trm_if (val_bool b) t1 t2].
+    We thus reformulate the above entailment as follows:
+
+[[
+        (\exists b, \[v0 = val_bool b]  (if b then wpgen t1 Q else wpgen t2 Q)
+    ==> wpgen (trm_if v0 t1 t2) Q
+]]
+
+    This lattest entailment leads us the definition of [wpgen] for conditionals.
+*)
+
+Definition wpgen_if (v:val) (F1 F2:formula) : formula := fun Q =>
+  \exists (b:bool), \[v = val_bool b] \* (if b then F1 Q else F2 Q).
+
+(** With just a little work to extract the information captured in the
+    [\exists (b:bool), \[v = val_bool b] ], we can prove [wpgen_if] 
+    to be a sound formula for a conditional. *)
+
+Lemma wpgen_if_sound : forall F1 F2 v0 t1 t2,
+  formula_sound_for t1 F1 ->
+  formula_sound_for t2 F2 ->
+  formula_sound_for (trm_if v0 t1 t2) (wpgen_if v0 F1 F2).
+Proof using.
+  introv S1 S2 M. unfolds wpgen_if. 
+  applys triple_conseq Q M; [|applys qimpl_refl].
+  applys triple_hexists. intros b.
+  applys triple_hpure. intros ->.
+  applys triple_if_case. case_if.
+  { applys S1. applys himpl_refl. }
+  { applys S2. applys himpl_refl. }
+Qed.
+
+
+
+(* ####################################################### *)
+(** * Appendix: direct soundness proofs [wpgen] *)
+
+Module DirectSoundness.
+
+(** In our construction, we have proved reasoning rules for
+    [hoare], derived reasoning rules for [triple], then used
+    the latter for proving the soundness of [wpgen].
+    Yet, if our goal was only to set up [wpgen], we wouldn't
+    need any result on [triple]. How much simpler would the
+    construction be if we were to directly prove [wpgen] w.r.t.
+    the weakest preconditions style reasoning rules from [SLFWPsem]?
+    Let us investigate. *)
+
+(** We next give an introduction rule for [formula_sound_for] in
+    term of [wp]. *)
+
+Lemma formula_sound_for_iff_wp : forall t F,
+      formula_sound_for t F
+  <-> (forall Q, F Q ==> wp t Q).
+Proof using.
+  intros. iff N.
+  { intros Q. rewrite <- wp_equiv. applys N. hsimpl. }
+  { introv M. rewrite wp_equiv. hchange M. applys N. }
+Qed.
+
+(** Let us now tackle the main lemmas for the soundness of [wpgen].
+    We begin with the soundness of [mkstruct]. *)
+
+Lemma mkstruct_sound : forall t F,
+  formula_sound_for t F ->
+  formula_sound_for t (mkstruct F).
+Proof using.
+  introv M. rewrite formula_sound_for_iff_wp in *. intros Q.
+  unfold mkstruct. hsimpl. intros Q'. hchange M. applys wp_ramified.
+Qed.
+
+(** We next show that [wp] is sound. *)
+
+Lemma wp_sound : forall t,
+  formula_sound_for t (wp t).
+Proof using. intros. rewrite formula_sound_for_iff_wp. hsimpl. Qed.
+
+(** We also show that [wpgen_fail] is sound. *)
+
+Lemma wpgen_fail_sound : forall t,
+  formula_sound_for t wpgen_fail.
+Proof using.
+  intros. rewrite formula_sound_for_iff_wp.
+  unfolds wpgen_fail. hsimpl.
+Qed.
+
+(** We now turn to treat each term construct. *)
+
+Lemma wpgen_val_sound : forall v,
+  formula_sound_for (trm_val v) (wpgen_val v).
+Proof using.
+  intros. rewrite formula_sound_for_iff_wp. intros Q H'.
+  unfolds wpgen_val. applys wp_val. hsimpl.
+Qed.
+
+Lemma wpgen_fun_sound : forall x t,
+  formula_sound_for (trm_fun x t) (wpgen_val (val_fun x t)).
+Proof using.
+wp_fun
+Qed.
+
+Lemma wpgen_fix_sound : forall f x t,
+  formula_sound_for (trm_fix f x t) (wpgen_val (val_fix f x t)).
+Proof using.
+wp_fix
+Qed.
+
+
+
+Lemma wpgen_seq_sound : forall F1 F2 t1 t2,
+  formula_sound_for t1 F1 ->
+  formula_sound_for t2 F2 ->
+  formula_sound_for (trm_seq t1 t2) (wpgen_seq F1 F2).
+Proof using.
+  introv S1 S2. rewrite formula_sound_for_iff_wp in *. intros Q.
+  unfold wpgen_seq. applys himpl_trans wp_seq. hchange S1.
+  applys wp_conseq. intros _. applys S2.
+Qed.
+
+Lemma wpgen_let_sound : forall F1 F2of x t1 t2,
+  formula_sound_for t1 F1 ->
+  (forall v, formula_sound_for (subst x v t2) (F2of v)) ->
+  formula_sound_for (trm_let x t1 t2) (wpgen_let F1 F2of).
+Proof using.
+  introv S1 S2. rewrite formula_sound_for_iff_wp in *. intros Q.
+  unfold wpgen_let. applys himpl_trans wp_let. hchange S1.
+  applys wp_conseq. intros v. specializes S2 v.
+  rewrite formula_sound_for_iff_wp in S2. applys S2.
+Qed.
+
+Lemma wpgen_if_sound : forall F1 F2 v0 t1 t2,
+  formula_sound_for t1 F1 ->
+  formula_sound_for t2 F2 ->
+  formula_sound_for (trm_if v0 t1 t2) (wpgen_if v0 F1 F2).
+Proof using.
+  introv S1 S2. rewrite formula_sound_for_iff_wp in *. intros Q.
+  unfold wpgen_if. hsimpl ;=> b ->. applys himpl_trans wp_if.
+  case_if. { applys S1. } { applys S2. }
+Qed.
+
+End DirectSoundness.
+
+
+(* EX2! (himpl_mkstruct_htop) *)
+(** Prove the following reformulation of the garbage collection
+    rule for postcondition in weakest-precondition style. *)
+
+Lemma himpl_mkstruct_htop : forall H Q F,
+  H ==> mkstruct F (Q \*+ \Top) ->
+  H ==> mkstruct F Q.
+Proof using.
+(* SOLUTION *)
+  introv M. hchange M. 
+  lets N: mkstruct_ramified (Q \*+ \Top) Q F. hchanges N.
+(* /SOLUTION *)
+Qed.
