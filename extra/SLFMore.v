@@ -2529,3 +2529,18 @@ Proof using.
   lets N: mkstruct_ramified (Q \*+ \Top) Q F. hchanges N.
 (* /SOLUTION *)
 Qed.
+
+
+
+
+
+
+Parameter repr : forall A, (A->hprop) -> A -> hprop.
+
+Parameter Id : forall A, A -> A -> hprop.
+Notation "x '~>' S" := (repr S x)
+  (at level 33, no associativity) : heap_scope.
+
+
+Parameter repr_id : forall A (x X:A),
+  (x ~> Id X) = \[x = X].

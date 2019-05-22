@@ -186,7 +186,7 @@ Parameter hwand_equiv : forall H0 H1 H2,
 Parameter qwand_equiv : forall H A (Q1 Q2:A->hprop),
   H ==> (Q1 \--* Q2) <-> (Q1 \*+ H) ===> Q2.
 
-(** Characterization of tops *)
+(** Characterization of htop *)
 
 Parameter himpl_htop_r : forall H,
   H ==> \Top.
@@ -194,12 +194,18 @@ Parameter himpl_htop_r : forall H,
 Parameter hstar_htop_htop :
   \Top \* \Top = \Top.
 
+(** Characterization of hgc *)
+
+Parameter haffine_hempty :
+  haffine \[].
+
 Parameter himpl_hgc_r : forall H,
   haffine H ->
   H ==> \GC.
 
 Parameter hstar_hgc_hgc :
   \GC \* \GC = \GC.
+
 
 End HsimplParams.
 
@@ -451,6 +457,55 @@ Qed.
 (* -none- *)
 
 
+(* ********************************************************************** *)
+(** * Representation predicates *)
+
+(* ---------------------------------------------------------------------- *)
+(* ** Notation for representation predicates *)
+
+(** The arrow notation typically takes the form [x ~> R x],
+   to indicate that [X] is the logical value that describes the
+   heap structure [x], according to the representation predicate [R].
+   It is just a notation for the heap predicate [R X x]. *)
+
+Definition repr (A:Type) (S:A->hprop) (x:A) : hprop :=
+  S x.
+
+Notation "x '~>' S" := (repr S x)
+  (at level 33, no associativity) : heap_scope.
+
+Lemma repr_eq : forall (A:Type) (S:A->hprop) (x:A),
+  (x ~> S) = (S x).
+Proof using. auto. Qed.
+
+(** [x ~> Id X] holds when [x] is equal to [X] in the empty heap.
+   [Id] is called the identity representation predicate. *)
+
+Definition Id {A:Type} (X:A) (x:A) :=
+  \[ X = x ].
+
+(** [xrepr_clean] simplifies instances of
+   [p ~> (fun _ => _)] by unfolding the arrow,
+   but only when the body does not captures
+   mklocally-bound variables. This tactic should
+   normally not be used directly *)
+
+Ltac xrepr_clean_core tt :=
+  repeat match goal with |- context C [?p ~> ?E] =>
+   match E with (fun _ => _) =>
+     let E' := eval cbv beta in (E p) in
+     let G' := context C [E'] in
+     let G := match goal with |- ?G => G end in
+     change G with G' end end.
+
+Tactic Notation "xrepr_clean" :=
+  xrepr_clean_core tt.
+
+Lemma repr_id : forall A (x X:A),
+  (x ~> Id X) = \[X = x].
+Proof using. intros. unfold Id. xrepr_clean. auto. Qed.
+
+
 (* ---------------------------------------------------------------------- *)
 (* ** [rew_heap] tactic to normalize expressions with [hstar] *)
 
@@ -524,7 +579,8 @@ Ltac remove_empty_heaps_right tt :=
 (* ---------------------------------------------------------------------- *)
 (* [haffine] placeholder *)
 
-Ltac haffine_core tt := idtac.
+Ltac haffine_core tt := (* to be generalized lated *)
+  try solve [ assumption | apply haffine_hempty ].
 
 Tactic Notation "haffine" :=
   haffine_core tt.
@@ -1073,11 +1129,11 @@ Lemma hsimpl_r_hexists : forall A (x:A) (J:A->hprop) Hra Hrg Hrt HL,
 Proof using. hsimpl_r_start' M. applys* himpl_hexists_r. Qed.
 
 Lemma hsimpl_r_id : forall A (x X:A) Hra Hrg Hrt HL,
-  (x = X) ->
+  (X = x) ->
   Hsimpl HL (Hra, Hrg, Hrt) ->
   Hsimpl HL (Hra, Hrg, (x ~> Id X \* Hrt)).
 Proof using.
-  introv ->. hsimpl_r_start' M. unfold Id. xrepr_clean_core tt.
+  introv ->. hsimpl_r_start' M. rewrite repr_id.
   applys* himpl_hempty_hpure.
 Qed.
 
@@ -1602,7 +1658,8 @@ Ltac hsimpl_step_lr tt :=
        | _ => hsimpl_flip_acc_lr tt; apply hsimpl_lr_exit_nogc
        end 
     | (\Top \* _) => apply himpl_lr_htop
-    | (\GC \* _) => apply L; [ try remove_empty_heaps_haffine tt; try solve [ haffine ] | ] 
+    | (\GC \* _) => apply himpl_lr_hgc;
+                    [ try remove_empty_heaps_haffine tt; try solve [ haffine ] | ] 
     | ?Hrg' => hsimpl_flip_acc_lr tt; apply hsimpl_lr_exit
   end end.
 
