@@ -20,7 +20,7 @@ License: MIT.
 
 Set Implicit Arguments.
 From TLC Require Export LibCore.
-From Sep Require Export TLCbuffer Hoare.
+From Sep Require Export TLCbuffer.
 
 
 (* ********************************************************************** *)

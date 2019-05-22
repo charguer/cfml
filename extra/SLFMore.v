@@ -2544,3 +2544,16 @@ Notation "x '~>' S" := (repr S x)
 
 Parameter repr_id : forall A (x X:A),
   (x ~> Id X) = \[x = X].
+
+
+  
+Parameter himpl : hprop -> hprop -> Prop.
+
+Definition qimpl A (Q1 Q2:A->hprop) :=
+  forall r, himpl (Q1 r) (Q2 r).
+
+Notation "H1 ==> H2" := (himpl H1 H2)
+  (at level 55) : heap_scope.
+
+Notation "Q1 ===> Q2" := (qimpl Q1 Q2)
+  (at level 55) : heap_scope.

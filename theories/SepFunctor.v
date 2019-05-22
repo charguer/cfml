@@ -49,7 +49,56 @@ License: MIT.
 
 Set Implicit Arguments.
 From TLC Require Export LibCore.
-From Sep Require Export TLCbuffer Hoare.
+From Sep Require Export TLCbuffer Entail Hsimpl.
+
+
+
+Module Type HeapType.
+
+Parameter heap : Type.
+Definition hprop := heap -> Prop.
+
+End HeapType.
+
+Module EntailFunctor (HT:HeapType).
+Import HT.
+
+(** [H1 ==> H2] is defined as [forall h, H1 h -> H2 h]. *)
+
+Definition himpl (H1 H2:hprop) : Prop :=
+  forall (h:heap), H1 h -> H2 h.
+
+Notation "H1 ==> H2" := (himpl H1 H2) (at level 55) : heap_scope.
+
+Lemma himpl_refl : forall H,
+  H ==> H.
+Proof using. intros h. hnf. auto. Qed.
+
+Lemma himpl_trans : forall H2 H1 H3,
+  (H1 ==> H2) ->
+  (H2 ==> H3) ->
+  (H1 ==> H3).
+Proof using. introv M1 M2. intros h H1h. eauto. Qed.
+
+Lemma himpl_antisym : forall H1 H2,
+  (H1 ==> H2) ->
+  (H2 ==> H1) ->
+  H1 = H2.
+Proof using. introv M1 M2. applys pred_ext_1. intros h. iff*. Qed.
+
+(** [Q1 ===> Q2] is defined as [forall x h, Q1 x h -> Q2 x h].
+    It is thus equivalent to [forall x, Q1 x ==> Q2 x].
+    Thus, invoking [intro] on a [===>] goal leaves a [==>] goal. *)
+
+Definition qimpl A (Q1 Q2:A->hprop) : Prop :=
+  forall (v:A), Q1 v ==> Q2 v.
+
+Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55) : heap_scope.
+
+Open Scope heap_scope.
+
+End EntailFunctor.
+
 
 
 (* ********************************************************************** *)
@@ -76,6 +125,33 @@ Parameter heap_affine : heap -> Prop.
 
 Definition haffine (H : hprop) : Prop :=
   forall h, H h -> heap_affine h.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Entailment *)
+
+Definition himpl (H1 H2:hprop) : Prop :=
+  forall (h:heap), H1 h -> H2 h.
+
+Notation "H1 ==> H2" := (himpl H1 H2) (at level 55) : heap_scope.
+
+Parameter himpl_refl : forall H,
+  H ==> H.
+
+Parameter himpl_trans : forall H2 H1 H3,
+  (H1 ==> H2) ->
+  (H2 ==> H3) ->
+  (H1 ==> H3).
+
+Parameter himpl_antisym : forall H1 H2,
+  (H1 ==> H2) ->
+  (H2 ==> H1) ->
+  H1 = H2.
+
+Definition qimpl A (Q1 Q2:A->hprop) : Prop :=
+  forall (v:A), Q1 v ==> Q2 v.
+
+Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55) : heap_scope.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -159,7 +235,10 @@ End SepCore.
 (** * Definition of heap predicates *)
 
 Module SepSetup (SH : SepCore).
-Import SH.
+
+Module HsimplArgs.
+
+Include SH.
 
 Open Scope heap_scope.
 
@@ -256,7 +335,7 @@ Definition haffine_post (A:Type) (J:A->hprop) : Prop :=
     [H1 ==+> H2] is short for [H1 ==> H1 \* H2] *)
 
 Notation "H1 ==+> H2" := (H1%hprop ==> H1%hprop \* H2%hprop)
-  (at level 55, only parsing) : heap_scope.
+  (at level 55, only parsing) : heap_scope_ext.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -267,7 +346,7 @@ Notation "H1 ==+> H2" := (H1%hprop ==> H1%hprop \* H2%hprop)
 
 Notation "F 'PRE' H 'POST' Q" :=
   (F H Q)
-  (at level 69, only parsing) : heap_scope.
+  (at level 69, only parsing) : heap_scope_ext.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -275,6 +354,85 @@ Notation "F 'PRE' H 'POST' Q" :=
 
 Global Instance hinhab : Inhab hprop.
 Proof using. intros. apply (Inhab_of_val hempty). Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Args of the Hsimple Module *)
+
+(** Characterization of hpure *)
+
+Parameter himpl_hempty_hpure : forall P,
+  P ->
+  \[] ==> \[P].
+
+Parameter himpl_hstar_hpure_l : forall P H H',
+  (P -> H ==> H') ->
+  (\[P] \* H) ==> H'.
+
+(** Characterization of hexists *)
+
+Parameter himpl_hexists_l : forall A H (J:A->hprop),
+  (forall x, J x ==> H) ->
+  (hexists J) ==> H.
+
+Parameter himpl_hexists_r : forall A (x:A) H J,
+  (H ==> J x) ->
+  H ==> (hexists J).
+
+(** Characterization of hforall *)
+
+Parameter himpl_hforall_r : forall A (J:A->hprop) H,
+  (forall x, H ==> J x) ->
+  H ==> (hforall J).
+
+Parameter himpl_hforall_l : forall A x (J:A->hprop) H,
+  (J x ==> H) ->
+  (hforall J) ==> H.
+
+(** Characterization of wands *)
+
+Parameter hwand_equiv : forall H0 H1 H2,
+  (H0 ==> H1 \-* H2) <-> (H0 \* H1 ==> H2).
+
+Parameter qwand_equiv : forall H A (Q1 Q2:A->hprop),
+  H ==> (Q1 \--* Q2) <-> (Q1 \*+ H) ===> Q2.
+
+(** Characterization of htop *)
+
+Parameter himpl_htop_r : forall H,
+  H ==> \Top.
+
+Parameter hstar_htop_htop :
+  \Top \* \Top = \Top.
+
+(** Characterization of hgc *)
+
+Parameter himpl_hgc_r : forall H,
+  haffine H ->
+  H ==> \GC.
+
+Parameter hstar_hgc_hgc :
+  \GC \* \GC = \GC.
+
+
+End HsimplArgs.
+
+Export HsimplArgs.
+
+Module Import HS := HsimplSetup(HsimplArgs).
+
+
+
+(** Properties of [hpure] *)
+
+Lemma hstar_hpure : forall P H h, 
+  (\[P] \* H) h = (P /\ H h).
+Proof using.
+  intros. extens. unfold hpure.
+  rewrite hstar_hexists.
+  rewrite* hstar_hempty_l.
+  iff (p&M) (p&M). { split~. } { exists~ p. }
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -330,16 +488,6 @@ Proof using.
   applys~ hstar_hempty_l.
 Qed.
 
-(** Properties of [hpure] *)
-
-Lemma hstar_hpure : forall P H h, 
-  (\[P] \* H) h = (P /\ H h).
-Proof using.
-  intros. extens. unfold hpure.
-  rewrite hstar_hexists.
-  rewrite* hstar_hempty_l.
-  iff (p&M) (p&M). { split~. } { exists~ p. }
-Qed.
 
 (* corollary only used for the SL course *)
 Lemma hstar_hpure_iff : forall P H h,
