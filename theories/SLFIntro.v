@@ -40,10 +40,12 @@ License: MIT.
 
     - [SLFDirect]: provides the minimal set of definitions and lemmas required
                    to build an effective program verification tool, without detour.
-                   (This file is self-contained.)
+                   This file is mostly self-contained; it depends on variables
+                   defined in [Var.v], on finite maps defined in [Fmap.v] and on the 
+                   implementation of the SL simplification tactic from [Hsimpl.v].
 
     - [SLFExtra]: recaps all the definition and lemmas from the course that are
-                  not included in [SLFDirect]. (This file only depends on [SLFDirect].)
+                  not included in [SLFDirect]. This file only depends on [SLFDirect].
 
 
     There are three future chapters, planned but not yet written:

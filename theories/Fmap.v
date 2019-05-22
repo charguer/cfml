@@ -48,7 +48,7 @@ Definition map_disjoint (A B : Type) (f1 f2 : map A B) :=
   forall (x:A), f1 x = None \/ f2 x = None.
 
 (** Compatibility of two partial functions on the intersection
-    of their domains *)
+    of their domains (only for Separation Logic with RO-permissions) *)
 
 Definition map_agree (A B : Type) (f1 f2 : map A B) :=
   forall x v1 v2,
@@ -174,7 +174,7 @@ Definition fmap_indom (A B: Type) (h:fmap A B) : (A->Prop) :=
 Global Instance Inhab_fmap A B : Inhab (fmap A B).
 Proof using. intros. applys Inhab_of_val (@fmap_empty A B). Qed.
 
-(** Compatible fmaps *)
+(** Compatible fmaps (only for Separation Logic with RO-permissions) *)
 
 Definition fmap_agree A B (h1 h2:fmap A B) :=
   map_agree h1 h2.
@@ -184,7 +184,7 @@ Definition fmap_agree A B (h1 h2:fmap A B) :=
 Definition fmap_disjoint A B (h1 h2 : fmap A B) : Prop :=
   map_disjoint h1 h2.
 
-(** Three disjoint fmaps *)
+(** Three disjoint fmaps (not needed for basic separation logic) *)
 
 Definition fmap_disjoint_3 A B (h1 h2 h3 : fmap A B) :=
      fmap_disjoint h1 h2

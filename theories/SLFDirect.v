@@ -19,3 +19,12 @@ Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
 
 
+(* ####################################################### *)
+(** * Assumptions *)
+
+(* fmap *)
+
+(* var *)
+
+(* ####################################################### *)
+(** * Source language *)
