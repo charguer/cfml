@@ -169,9 +169,9 @@ Arguments mkstruct_ramified : clear implicits.
 (** At this point, it may be a good time to illustrate how to
     carry out the proof of the function [mysucc] from [SLFRules],
     this time with help of our [wpgen] function. The proof with
-    x-tactics appears further down in the file. However, this demo
-    may not be necessary for anyone who has already experienced
-    verification using CFML's x-tactics. *)
+    x-tactics appears further down in the file (reach "THE_DEMO"). 
+    However, this demo may not be necessary for anyone who has 
+    already experienced verification using CFML's x-tactics. *)
 
 
 (* ####################################################### *)
@@ -1149,9 +1149,25 @@ Ltac xapps E :=
 
 
 (* ******************************************************* *)
-(** ** Here is the DEMO of a practical proof based on x-tactics. *)
+(** ** Here is the demo of a practical proof based on x-tactics. *)
 
-(** The proof script now looks neat. *)
+(** "THE_DEMO" begins here. *)
+
+(** The proof script for the verification of [incr] looks like this. *)
+
+Lemma triple_incr_with_xapps : forall (p:loc) (n:int),
+  triple (trm_app incr p)
+    (p ~~~> n)
+    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+Proof using.
+  xcf.
+  xapps triple_get.
+  xapps triple_add.
+  xapps triple_set.
+  hsimpl~.
+Qed.
+
+(** The proof script for the verification of [mysucc] is now shorter. *)
 
 Lemma triple_mysucc_with_xapps : forall n,
   triple (trm_app mysucc n)
@@ -1166,23 +1182,7 @@ Proof using.
   hsimpl~.
 Qed.
 
-(* EX2! (triple_incr_with_xapps) *)
-(** Using [xapp] variants [xapp' E] and [xapps' E], refine the proof
-    script for [incr] from the previous exercise. *)
-
-Lemma triple_incr_with_xapps : forall (p:loc) (n:int),
-  triple (trm_app incr p)
-    (p ~~~> n)
-    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
-Proof using.
-(* SOLUTION *)
-  xcf.
-  xapps triple_get.
-  xapps triple_add.
-  xapps triple_set.
-  hsimpl~.
-(* /SOLUTION *)
-Qed.
+(* TODO: add a few exercises here *)
 
 End ExampleProofs.
 
