@@ -2557,3 +2557,108 @@ Notation "H1 ==> H2" := (himpl H1 H2)
 
 Notation "Q1 ===> Q2" := (qimpl Q1 Q2)
   (at level 55) : heap_scope.
+
+  
+(* ---------------------------------------------------------------------- *)
+(** Auxiliary tactics used by many tactics *)
+
+(* [xprecondition tt] returns the current precondition. *)
+
+Ltac xprecondition tt :=
+  match goal with |- ?R ?H ?Q => constr:(H) end.
+
+(* [xpostcondition tt] returns the current postcondition. *)
+
+Ltac xpostcondition tt :=
+  match goal with |- ?E =>
+  match get_fun_arg E with (_,?Q) => constr:(Q)
+  end end.
+  (* LATER: is this now equivalent to:
+     match goal with |- ?J ?Q => constr:(Q) end. *)
+
+(** [xpostcondition_is_evar tt] returns a boolean indicating
+    whether the postcondition of the current goal is an evar. *)
+
+Ltac xpostcondition_is_evar tt :=
+  let Q := xpostcondition tt in
+  is_evar_as_bool Q.
+
+  
+(* not needed *)
+Lemma hwand_cancel_part : forall H1 H2 H3,
+  H1 \* ((H1 \* H2) \-* H3) ==> (H2 \-* H3).
+Proof using.
+  intros. hsimpl.
+  (* intros. unfold hwand. hsimpl. hsimpl ;=> H4 M. hchanges M. *)
+Qed.
+
+Arguments hwand_cancel_part : clear implicits.
+
+(* not needed *)
+Lemma himpl_hwand_r_inv_part_r : forall H1 H2 H3 H4,
+  H2 ==> ((H1 \* H3) \-* H4) ->
+  H1 \* H2 ==> (H3 \-* H4).
+Proof using.
+  introv M. hchanges M.
+  (* hchange (>> himpl_frame_r H1 M).
+  rew_heap. apply hwand_cancel_part.*)
+Qed.
+
+(* not needed *)
+Lemma himpl_hwand_r_part_l : forall H1 H2 H3 H4,
+  H1 \* H2 ==> (H3 \-* H4) ->
+  H2 ==> ((H1 \* H3) \-* H4).
+Proof using.
+  introv M. hsimpl. hchanges M.
+  (* unfold hwand. hsimpl. hchanges (himpl_hwand_r_inv M). *)
+Qed.
+
+
+
+Module Type HeapType.
+
+Parameter heap : Type.
+Definition hprop := heap -> Prop.
+
+End HeapType.
+
+Module EntailFunctor (HT:HeapType).
+Import HT.
+
+(** [H1 ==> H2] is defined as [forall h, H1 h -> H2 h]. *)
+
+Definition himpl (H1 H2:hprop) : Prop :=
+  forall (h:heap), H1 h -> H2 h.
+
+Notation "H1 ==> H2" := (himpl H1 H2) (at level 55) : heap_scope.
+
+Open Scope heap_scope.
+
+Lemma himpl_refl : forall H,
+  H ==> H.
+Proof using. intros h. hnf. auto. Qed.
+
+Lemma himpl_trans : forall H2 H1 H3,
+  (H1 ==> H2) ->
+  (H2 ==> H3) ->
+  (H1 ==> H3).
+Proof using. introv M1 M2. intros h H1h. eauto. Qed.
+
+Lemma himpl_antisym : forall H1 H2,
+  (H1 ==> H2) ->
+  (H2 ==> H1) ->
+  H1 = H2.
+Proof using. introv M1 M2. applys pred_ext_1. intros h. iff*. Qed.
+
+(** [Q1 ===> Q2] is defined as [forall x h, Q1 x h -> Q2 x h].
+    It is thus equivalent to [forall x, Q1 x ==> Q2 x].
+    Thus, invoking [intro] on a [===>] goal leaves a [==>] goal. *)
+
+Definition qimpl A (Q1 Q2:A->hprop) : Prop :=
+  forall (v:A), Q1 v ==> Q2 v.
+
+Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55) : heap_scope.
+
+Open Scope heap_scope.
+
+End EntailFunctor.

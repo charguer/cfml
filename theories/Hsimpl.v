@@ -1,3 +1,4 @@
+
 (**
 
 This file provides the essential tactics for manipulation of 
@@ -191,9 +192,6 @@ Parameter qwand_equiv : forall H A (Q1 Q2:A->hprop),
 Parameter himpl_htop_r : forall H,
   H ==> \Top.
 
-Parameter hstar_htop_htop :
-  \Top \* \Top = \Top.
-
 (** Characterization of hgc *)
 
 Parameter haffine_hempty :
@@ -224,6 +222,25 @@ Hint Resolve himpl_refl.
 
 (* ********************************************************************** *)
 (** * Derived properties of operators *)
+
+(* ---------------------------------------------------------------------- *)
+(* ** Properties of [himpl] *)
+
+Lemma himpl_forall_trans : forall H1 H2,
+  (forall H, H ==> H1 -> H ==> H2) ->
+  H1 ==> H2.
+Proof using. introv M. applys~ M. Qed.
+
+Lemma himpl_of_eq : forall H1 H2,
+  H1 = H2 ->
+  H1 ==> H2.
+Proof. intros. subst. applys~ himpl_refl. Qed.
+
+Lemma himpl_of_eq_sym : forall H1 H2,
+  H1 = H2 ->
+  H2 ==> H1.
+Proof. intros. subst. applys~ himpl_refl. Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [qimpl] *)
@@ -288,84 +305,30 @@ Proof using.
   applys~ hstar_hempty_l.
 Qed.
 
-
-(* ---------------------------------------------------------------------- *)
-(* ** Properties of [hpure] *)
-
-Lemma himpl_hstar_hpure_r : forall P H H',
-  P ->
-  (H ==> H') ->
-  H ==> (\[P] \* H').
-Proof using.
-  introv HP W. rewrite <- (hstar_hempty_l H).
-  applys himpl_frame_lr W. applys~ himpl_hempty_hpure.
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Properties of [hexists] *)
-
-Lemma himpl_hexists : forall A (J1 J2:A->hprop),
-  J1 ===> J2 ->
-  hexists J1 ==> hexists J2.
-Proof using.
-  introv W. applys himpl_hexists_l. intros x. applys himpl_hexists_r W.
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Properties of [hforall] *)
-
-Lemma himpl_hforall_l_exists : forall A (J:A->hprop) H,
-  (exists x, J x ==> H) ->
-  (hforall J) ==> H.
-Proof using. introv (x&M). applys* himpl_hforall_l. Qed.
-
-Lemma himpl_hforall : forall A (J1 J2:A->hprop),
-  J1 ===> J2 ->
-  hforall J1 ==> hforall J2.
-Proof using.
-  introv W. applys himpl_hforall_r. intros x. applys himpl_hforall_l W.
-Qed.
-
-Lemma hforall_specialize : forall A (x:A) (J:A->hprop),
-  (hforall J) ==> (J x).
-Proof using. intros. applys* himpl_hforall_l x. Qed.
-
-
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [hwand] *)
 
-Lemma himpl_hwand_r : forall H1 H2 H3,
-  H1 \* H2 ==> H3 ->
-  H1 ==> (H2 \-* H3).
-Proof using. introv M. rewrite~ hwand_equiv. Qed.
-
-Lemma himpl_hwand_r_inv : forall H1 H2 H3,
-  H1 ==> (H2 \-* H3) ->
-  H1 \* H2 ==> H3.
-Proof using. introv M. rewrite~ <- hwand_equiv. Qed.
-
 Lemma hwand_cancel : forall H1 H2,
   H1 \* (H1 \-* H2) ==> H2.
-Proof using. intros. rewrite hstar_comm. applys~ himpl_hwand_r_inv. Qed.
+Proof using. intros. rewrite hstar_comm. rewrite~ <- hwand_equiv. Qed.
 
 Arguments hwand_cancel : clear implicits.
 
 Lemma himpl_hempty_hwand_same : forall H,
   \[] ==> (H \-* H).
-Proof using. intros. applys himpl_hwand_r. rewrite~ hstar_hempty_l. Qed.
+Proof using. intros. rewrite hwand_equiv. rewrite~ hstar_hempty_l. Qed.
 
 Lemma hwand_hempty_l : forall H,
   (\[] \-* H) = H.
 Proof using.
   intros. applys himpl_antisym.
   { rewrite <- (hstar_hempty_l (\[] \-* H)). applys hwand_cancel. }
-  { apply himpl_hwand_r. rewrite~ hstar_hempty_r. }
+  { rewrite hwand_equiv. rewrite~ hstar_hempty_r. }
 Qed.
 
 Hint Rewrite hwand_hempty_l : rew_heap.
 
+(* currently only needed for the demo, but might be used one day by hsimpl *)
 Lemma hwand_hpure_l_intro : forall (P:Prop) H,
   P ->
   \[P] \-* H ==> H.
@@ -380,14 +343,14 @@ Arguments hwand_hpure_l_intro : clear implicits.
 Lemma hwand_curry : forall H1 H2 H3,
   (H1 \* H2) \-* H3 ==> H1 \-* (H2 \-* H3).
 Proof using.
-  intros. applys himpl_hwand_r. applys himpl_hwand_r.
+  intros. do 2 rewrite hwand_equiv.
   rewrite hstar_assoc. rewrite hstar_comm. applys hwand_cancel.
 Qed.
 
 Lemma hwand_uncurry : forall H1 H2 H3,
   H1 \-* (H2 \-* H3) ==> (H1 \* H2) \-* H3.
 Proof using.
-  intros. applys himpl_hwand_r. rewrite <- (hstar_comm (H1 \* H2)). 
+  intros. rewrite hwand_equiv. rewrite <- (hstar_comm (H1 \* H2)). 
   rewrite (@hstar_comm H1). rewrite hstar_assoc.
   applys himpl_trans. applys himpl_frame_r. applys hwand_cancel.
   applys hwand_cancel.
@@ -405,26 +368,9 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [qwand] *)
 
-Lemma himpl_qwand_r : forall A (Q1 Q2:A->hprop) H,
-  Q1 \*+ H ===> Q2 ->
-  H ==> (Q1 \--* Q2).
-Proof using. introv M. rewrite~ qwand_equiv. Qed.
-
-Arguments himpl_qwand_r [A].
-
-Lemma himpl_qwand_r_inv : forall H A (Q1 Q2:A->hprop),
-  H ==> (Q1 \--* Q2) ->
-  (Q1 \*+ H) ===> Q2.
-Proof using. introv M. rewrite~ <- qwand_equiv. Qed.
-
 Lemma himpl_qwand_hstar_same_r : forall A (Q:A->hprop) H,
   H ==> Q \--* (Q \*+ H).
-Proof using. intros. applys* himpl_qwand_r. Qed.
-
-Lemma himpl_forall_trans : forall H1 H2,
-  (forall H, H ==> H1 -> H ==> H2) ->
-  H1 ==> H2.
-Proof using. introv M. applys~ M. Qed.
+Proof using. intros. rewrite~ qwand_equiv. Qed.
 
 Lemma qwand_specialize : forall A (x:A) (Q1 Q2:A->hprop),
   (Q1 \--* Q2) ==> (Q1 x \-* Q2 x).
@@ -454,7 +400,14 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [hgc] *)
 
-(* -none- *)
+Lemma hgc_eq_htop_of_haffine_any :
+  (forall H, haffine H) ->
+  \GC = \Top.
+Proof using.
+  introv M. applys himpl_antisym. 
+  { applys himpl_htop_r. }
+  { applys himpl_hgc_r. applys M. }
+Qed.
 
 
 (* ********************************************************************** *)
@@ -1220,14 +1173,14 @@ Lemma hsimpl_lr_hwand : forall H1 H2 Hla,
   Hsimpl (\[], \[], (H1 \* Hla)) (\[], \[], H2 \* \[]) ->
   Hsimpl (Hla, \[], \[]) ((H1 \-* H2) \* \[], \[], \[]).
 Proof using.
-  hsimpl_lr_start' M. apply himpl_hwand_r.
+  hsimpl_lr_start' M. rewrite hwand_equiv.
   applys himpl_trans (rm M). hstars_simpl.
 Qed.
 
 Lemma hsimpl_lr_hwand_hfalse : forall Hla H1,
   Hsimpl (Hla, \[], \[]) ((\[False] \-* H1) \* \[], \[], \[]).
 Proof using.
-  intros. generalize True. hsimpl_lr_start M. apply himpl_hwand_r. 
+  intros. generalize True. hsimpl_lr_start M. rewrite hwand_equiv. 
   rewrite hstar_comm. applys himpl_hstar_hpure_l. auto_false.
 Qed.
 
@@ -1235,7 +1188,7 @@ Lemma hsimpl_lr_qwand : forall A (Q1 Q2:A->hprop) Hla,
   (forall x, Hsimpl (\[], \[], (Q1 x \* Hla)) (\[], \[], Q2 x \* \[])) ->
   Hsimpl (Hla, \[], \[]) ((Q1 \--* Q2) \* \[], \[], \[]).
 Proof using. 
-  hsimpl_lr_start M. applys himpl_qwand_r. intros x.
+  hsimpl_lr_start M. rewrite qwand_equiv. intros x.
   specializes M x. rew_heap~ in M.
 Qed.
 
@@ -1424,9 +1377,9 @@ Opaque Hsimpl.
 
 Ltac hsimpl_handle_qimpl tt :=
   match goal with
-  | |- @qimpl _ _ _ ?Q2 => is_evar Q2; apply qimpl_refl
-  | |- @qimpl unit _ ?Q1 ?Q2 => let t := fresh "_tt" in intros t; destruct t
-  | |- @qimpl _ _ _ _ => let r := fresh "r" in intros r
+  | |- @qimpl _ _ ?Q2 => is_evar Q2; apply qimpl_refl
+  | |- @qimpl unit ?Q1 ?Q2 => let t := fresh "_tt" in intros t; destruct t
+  | |- @qimpl _ _ _ => let r := fresh "r" in intros r
   | |- himpl _ ?H2 => is_evar H2; apply himpl_refl
   | |- himpl _ _ => idtac
   | |- eq _ _ => applys himpl_antisym
@@ -1756,10 +1709,10 @@ Ltac hchange_build_entailment modifier K :=
   match modifier with
   | __ =>
      match type of K with
-     | _ = _ => constr:(@himpl_of_eq _ _ _ K)
+     | _ = _ => constr:(@himpl_of_eq _ _ K)
      | _ => constr:(K)
      end
-  | _ => constr:(@modifier _ _ _ K)
+  | _ => constr:(@modifier _ _ K)
   end.
 
 Ltac hchange_perform L modifier cont :=
@@ -1779,10 +1732,10 @@ Ltac hchange_core L modifier cont :=
   gen_until_mark.
 
 Ltac hchange_hpull_cont tt :=
-  hsimpl; unfold protect; try apply himpl_refl.
+  hsimpl; unfold protect; try solve [ apply himpl_refl ].
 
 Ltac hchange_hsimpl_cont tt :=
-  unfold protect; hsimpl; try apply himpl_refl.
+  unfold protect; hsimpl; try solve [ apply himpl_refl ].
 
   (* TODO DEPRECATED: [instantiate] useful? no longer...*)
 
@@ -2204,7 +2157,9 @@ Qed.
 Lemma hchange_demo_hforall_l : forall (Q:int->hprop) H1,
   (\forall x, Q x) \* H1 ==> Q 2 \* \Top.
 Proof using.
-  intros. hchange (hforall_specialize 2). hsimpl.
+  asserts hforall_specialize : (forall A (x:A) (J:A->hprop),
+    (hforall J) ==> (J x)). { intros. applys* himpl_hforall_l x. }
+  intros. hchange (>> hforall_specialize 2). hsimpl.
 Qed.
 
 (* ---------------------------------------------------------------------- *)
