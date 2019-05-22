@@ -21,7 +21,7 @@ Set Implicit Arguments.
       they ensure that the proofs do not depend on which of the several possible 
       set of definitions is chosen to construct the Separation Logic.
 
-    - The predicate [Hoare_triple] is abbreviated as [hoare],
+    - The predicate [hoare] is abbreviated as [hoare],
 
     - The predicate [triple] is defined not using [\Top] to handle discarded
       pieces of heap, but using a specific instance of a general predicate
@@ -833,7 +833,7 @@ Module Proofs.
     To establish a reasoning rule w.r.t. a Hoare triple, we reveal
     the definition expressed in terms of the big-step semantics.
 [[
-      Definition Hoare_triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+      Definition hoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
         forall s, H s ->
         exists s' v, eval s t s' v /\ Q v s'.
 ]]

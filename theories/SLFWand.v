@@ -74,7 +74,7 @@ Parameter hwand_equiv : forall H0 H1 H2,
     when starting from a state described by [H0]. What needs to
     be proved is that [H0], if augmented with [H1], yields [H2]. *)
 
-Lemma hwand_intro : forall H0 H1 H2,
+Lemma himpl_hwand_r : forall H0 H1 H2,
   (H0 \* H1) ==> H2 ->
   H0 ==> (H1 \-* H2).
 Proof using. introv M. applys hwand_equiv. applys M. Qed.
@@ -84,7 +84,7 @@ Proof using. introv M. applys hwand_equiv. applys M. Qed.
     deduced is that if [H0] is augmented with [H1], then [H2]
     can be recovered. *)
 
-Lemma hwand_elim : forall H0 H1 H2,
+Lemma himpl_hwand_r_inv : forall H0 H1 H2,
   H0 ==> (H1 \-* H2) ->
   (H0 \* H1) ==> H2.
 Proof using. introv M. applys hwand_equiv. applys M. Qed.
@@ -98,7 +98,7 @@ Lemma hwand_cancel : forall H1 H2,
   H1 \* (H1 \-* H2) ==> H2.
 Proof using.
   intros. rewrite hstar_comm.
-  applys hwand_elim. applys himpl_refl.
+  applys himpl_hwand_r_inv. applys himpl_refl.
 Qed.
 
 Arguments hwand_cancel : clear implicits.
@@ -190,7 +190,7 @@ Proof using.
   intros. iff M. 
   { intros x. hchange M. hchange (qwand_specialize x).  
     hchange (hwand_cancel (Q1 x)). }
-  { applys himpl_hforall_r. intros x. applys hwand_intro.
+  { applys himpl_hforall_r. intros x. applys himpl_hwand_r.
     hchange (M x). }
 Qed.
 
@@ -292,13 +292,13 @@ Lemma hsimpl_demo_hwand_cancel_partial : forall H1 H2 H3 H4 H5 H6,
   ((H1 \* H2 \* H3) \-* H4) \* H5 \* H2 ==> H6.
 Proof using. intros. hsimpl. Abort.
 
-(** [hsimpl] automatically applies the [hwand_intro] when
+(** [hsimpl] automatically applies the [himpl_hwand_r] when
     the right-hand-side, after prior simplification, reduces 
     to just a magic wand. In the example below, [H1] is first
     cancelled out from both sides, then [H3] is moved from 
     the RHS to the LHS. *)
 
-Lemma hsimpl_demo_hwand_intro : forall H1 H2 H3 H4 H5,
+Lemma hsimpl_demo_himpl_hwand_r : forall H1 H2 H3 H4 H5,
   H1 \* H2 ==> H1 \* (H3 \-* (H4 \* H5)).
 Proof using. intros. hsimpl. Abort.
 
@@ -451,7 +451,7 @@ Lemma hwand_himpl : forall H1 H1' H2 H2',
   H2 ==> H2' ->
   (H1 \-* H2) ==> (H1' \-* H2').
 Proof using.
-  introv M1 M2. applys hwand_intro. hchange M1.
+  introv M1 M2. applys himpl_hwand_r. hchange M1.
   hchange (hwand_cancel H1 H2). applys M2.
 Qed.
 
@@ -462,7 +462,7 @@ Qed.
 Lemma hwand_trans_elim : forall H1 H2 H3,
   (H1 \-* H2) \* (H2 \-* H3) ==> (H1 \-* H3).
 Proof using.
-  intros. applys hwand_intro. hchange (hwand_cancel H1 H2).
+  intros. applys himpl_hwand_r. hchange (hwand_cancel H1 H2).
   hchange (hwand_cancel H2 H3).
 Qed.
 
@@ -471,7 +471,7 @@ Qed.
 
 Lemma himpl_hempty_hwand_same : forall H,
   \[] ==> (H \-* H).
-Proof using. intros. apply hwand_intro. hsimpl. Qed.
+Proof using. intros. apply himpl_hwand_r. hsimpl. Qed.
 
 
 (* ------------------------------------------------------- *)
@@ -499,7 +499,7 @@ Qed.
     We can prove that the empty heap does not satisfies 
     [\[False] \* (\[False] \-* \[])]. *)
 
-Lemma not_hwand_elim_reciprocal : exists H1 H2,
+Lemma not_himpl_hwand_r_inv_reciprocal : exists H1 H2,
   ~ (H2 ==> H1 \* (H1 \-* H2)).
 Proof using. 
   exists \[False] \[]. intros N. forwards K: N (fmap_empty:heap).
@@ -559,7 +559,7 @@ Qed.
 Lemma hwand_hpure_r_intro : forall H1 H2 P,
   (P -> H1 ==> H2) ->
   H1 ==> (\[P] \-* H2).
-Proof using. introv M. applys hwand_intro. hsimpl. applys M. Qed.
+Proof using. introv M. applys himpl_hwand_r. hsimpl. applys M. Qed.
 
 
 (* ------------------------------------------------------- *)
@@ -578,9 +578,9 @@ Lemma hwand_curry_eq : forall H1 H2 H3,
   (H1 \* H2) \-* H3 = H1 \-* (H2 \-* H3).
 Proof using.
   intros. applys himpl_antisym.
-  { apply hwand_intro. apply hwand_intro.
+  { apply himpl_hwand_r. apply himpl_hwand_r.
     hchange (hwand_cancel (H1 \* H2) H3). }
-  { apply hwand_intro. hchange (hwand_cancel H1 (H2 \-* H3)).
+  { apply himpl_hwand_r. hchange (hwand_cancel H1 (H2 \-* H3)).
     hchange (hwand_cancel H2 H3). }
 Qed.
 
@@ -592,7 +592,7 @@ Qed.
 Lemma hstar_hwand : forall H1 H2 H3,
   (H1 \-* H2) \* H3 ==> H1 \-* (H2 \* H3).
 Proof using.
-  intros. applys hwand_intro. hsimpl. hchange (hwand_cancel H1 H2).
+  intros. applys himpl_hwand_r. hsimpl. hchange (hwand_cancel H1 H2).
 Qed.
 
 
@@ -606,7 +606,7 @@ Lemma himpl_hwand_hstar_same_r : forall H1 H2,
   H1 ==> (H2 \-* (H2 \* H1)).
 Proof using.
 (* SOLUTION *)
-  intros. applys hwand_intro. hsimpl.
+  intros. applys himpl_hwand_r. hsimpl.
 (* /SOLUTION *)
 Qed.
 
@@ -617,7 +617,7 @@ Lemma hwand_cancel_part : forall H1 H2 H3,
   H1 \* ((H1 \* H2) \-* H3) ==> (H2 \-* H3).
 Proof using.
 (* SOLUTION *)
-  intros. applys hwand_intro. hchange (hwand_cancel (H1 \* H2)).
+  intros. applys himpl_hwand_r. hchange (hwand_cancel (H1 \* H2)).
 (* /SOLUTION *)
 Qed.
 
@@ -655,14 +655,14 @@ Proof using. introv M. applys himpl_trans M. applys hforall_specialize. Qed.
 (** *** Main properties of [qwand] *)
 
 (** We first state the introduction and elimination lemmas
-    analogous to [hwand_intro], [hwand_elim], and [hwand_cancel]. *)
+    analogous to [himpl_hwand_r], [himpl_hwand_r_inv], and [hwand_cancel]. *)
 
-Lemma qwand_intro : forall H Q1 Q2,
+Lemma himpl_qwand_r : forall H Q1 Q2,
   (Q1 \*+ H) ===> Q2 ->
   H ==> (Q1 \--* Q2).
 Proof using. introv M. rewrite* qwand_equiv. Qed.
 
-Lemma qwand_elim : forall H Q1 Q2,
+Lemma himpl_qwand_r_inv : forall H Q1 Q2,
   H ==> (Q1 \--* Q2) ->
   (Q1 \*+ H) ===> Q2.
 Proof using. introv M. rewrite* <- qwand_equiv. Qed.
@@ -675,8 +675,8 @@ Lemma qwand_himpl : forall Q1 Q1' Q2 Q2',
   Q2 ===> Q2' ->
   (Q1 \--* Q2) ==> (Q1' \--* Q2').
 Proof using.
-  introv M1 M2. applys qwand_intro. intros x.
-  hchange (qwand_specialize x). applys hwand_elim.
+  introv M1 M2. applys himpl_qwand_r. intros x.
+  hchange (qwand_specialize x). applys himpl_hwand_r_inv.
   applys hwand_himpl. { applys M1. } { applys M2. }
 Qed.
 
@@ -688,7 +688,7 @@ Qed.
 Lemma hstar_qwand : forall Q1 Q2 H,
   (Q1 \--* Q2) \* H ==> Q1 \--* (Q2 \*+ H).
 Proof using.
-  intros. applys qwand_intro. hchange (@qwand_cancel Q1).
+  intros. applys himpl_qwand_r. hchange (@qwand_cancel Q1).
 Qed.
 
 
@@ -702,7 +702,7 @@ Lemma himpl_qwand_hstar_same_r : forall H Q,
   H ==> Q \--* (Q \*+ H).
 Proof using.
 (* SOLUTION *)
-  intros. applys qwand_intro. hsimpl.
+  intros. applys himpl_qwand_r. hsimpl.
 (* /SOLUTION *)
 Qed.
 
@@ -713,7 +713,7 @@ Lemma qwand_cancel_part : forall H Q1 Q2,
   H \* ((Q1 \*+ H) \--* Q2) ==> (Q1 \--* Q2).
 Proof using.
 (* SOLUTION *)
-  intros. applys qwand_intro. intros x.
+  intros. applys himpl_qwand_r. intros x.
   hchange (qwand_specialize x).
   hchange (hwand_cancel (Q1 x \* H)).
 (* /SOLUTION *)

@@ -793,20 +793,20 @@ Proof using.
 Qed.
 
 (** However, it is simpler and more elegant to first establish
-    the consequence rule for [Hoare_triple], then derive its
+    the consequence rule for [hoare], then derive its
     generalization to the case of Separation Logic [triple]. *)
 
 (* EX2! (Hoare_conseq) *)
 (** Prove the consequence rule for Hoare triples. *)
 
 Lemma Hoare_conseq : forall t H Q H' Q',
-  Hoare_triple t H' Q' ->
+  hoare t H' Q' ->
   H ==> H' ->
   Q' ===> Q ->
-  Hoare_triple t H Q.
+  hoare t H Q.
 Proof using.
 (* SOLUTION *)
-  introv M WH WQ. unfold Hoare_triple.
+  introv M WH WQ. unfold hoare.
   intros s Hs. forwards (s'&v&R&HQ): M s.
   { applys WH. auto. }
   { exists s' v. split. { apply R. } { applys WQ. auto. } }
@@ -914,11 +914,11 @@ Parameter triple_hpure : forall t (P:Prop) H Q,
   triple t (\[P] \* H) Q.
 
 (** To prove these two lemmas, we first establish corresponding
-    results on [Hoare_triple], then derive them for [triple]. *)
+    results on [hoare], then derive them for [triple]. *)
 
-Lemma Hoare_triple_hexists : forall t (A:Type) (J:A->hprop) Q,
-  (forall x, Hoare_triple t (J x) Q) ->
-  Hoare_triple t (hexists J) Q.
+Lemma hoare_hexists : forall t (A:Type) (J:A->hprop) Q,
+  (forall x, hoare t (J x) Q) ->
+  hoare t (hexists J) Q.
 Proof using. introv M. intros h (x&Hh). applys M Hh. Qed.
 
 Lemma triple_hexists' : forall t (A:Type) (J:A->hprop) Q,
@@ -926,13 +926,13 @@ Lemma triple_hexists' : forall t (A:Type) (J:A->hprop) Q,
   triple t (hexists J) Q.
 Proof using.
   introv M. unfold triple. intros H'.
-  rewrite hstar_hexists. applys Hoare_triple_hexists.
+  rewrite hstar_hexists. applys hoare_hexists.
   intros v. applys M.
 Qed.
 
-Lemma Hoare_triple_hpure : forall t (P:Prop) H Q,
-  (P -> Hoare_triple t H Q) ->
-  Hoare_triple t (\[P] \* H) Q.
+Lemma hoare_hpure : forall t (P:Prop) H Q,
+  (P -> hoare t H Q) ->
+  hoare t (\[P] \* H) Q.
 Proof using.
   introv M. intros h (h1&h2&M1&M2&D&U). destruct M1 as (M1&HP).
   subst. rewrite fmap_union_empty_l. applys M HP M2.
@@ -943,13 +943,13 @@ Lemma triple_hpure' : forall t (P:Prop) H Q,
   triple t (\[P] \* H) Q.
 Proof using.
   introv M. unfold triple. intros H'.
-  rewrite hstar_assoc. applys Hoare_triple_hpure.
+  rewrite hstar_assoc. applys hoare_hpure.
   intros HP. applys M HP.
 Qed.
 
 (** Remark: recall that [\[P]] can be encoded as [\exists (p:P), \[]].
-    One may exploit this equivalence to show that [Hoare_triple_hpure]
-    is derivable from [Hoare_triple_hexists], as illustrated next. *)
+    One may exploit this equivalence to show that [hoare_hpure]
+    is derivable from [hoare_hexists], as illustrated next. *)
 
 Lemma triple_hpure_derived_from_triple_exists : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->

@@ -267,11 +267,11 @@ Proof using. applys functional_extensionality. Qed.
     the definition of a Hoare triple and state the much-desired frame rule. *)
 
 (** A Hoare triple, written [{H}t{Q}] on paper, and here written
-    [Hoare_triple t H Q], asserts that starting from a state [s] satisfying
+    [hoare t H Q], asserts that starting from a state [s] satisfying
     the precondition [H], the term [t] evaluates to a value [v] and to
     a state [s'] that, together, satisfy the postcondition [Q]. Formally: *)
 
-Definition Hoare_triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+Definition hoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (s:state), H s ->
   exists (s':state) (v:val), eval s t s' v /\ Q v s'.
 
@@ -290,7 +290,7 @@ Definition Hoare_triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
     that of a Hoare triple by "baking in" the frame rule. *)
 
 Definition SL_triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
-  forall (H':hprop), Hoare_triple t (H \* H') (Q \*+ H').
+  forall (H':hprop), hoare t (H \* H') (Q \*+ H').
 
 (** This definition inherently satisfies the frame rule, as we show
     below, by exploiting the associativity of the star operator. *)
@@ -337,7 +337,7 @@ Parameter SL_triple_htop_post : forall t H Q,
     The updated definition, called [triple], is as follows. *)
 
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
-  forall (H':hprop), Hoare_triple t (H \* H') (Q \*+ H' \*+ \Top).
+  forall (H':hprop), hoare t (H \* H') (Q \*+ H' \*+ \Top).
 
 (** From there, we can prove that the desired rule for discarding
     pieces of postconditions holds, and that the frame rule still
@@ -665,7 +665,7 @@ Parameter hstar_htop_htop :
 
 (* EX3! (triple_htop_post') *)
 (** Prove [triple_htop_post'], by unfolding the definition of [triple]
-    to reveal [Hoare_triple]. (However, do not unfold [Hoare_triple].) *)
+    to reveal [hoare]. (However, do not unfold [hoare].) *)
 
 Lemma triple_htop_post' : forall t H Q,
   triple t H (Q \*+ \Top) ->
@@ -760,9 +760,9 @@ Definition htop' : hprop :=
 (* ******************************************************* *)
 (** ** Alterative definitions for SL triples *)
 
-(** We have previously defined [SL_triple] on top of [Hoare_triple],
+(** We have previously defined [SL_triple] on top of [hoare],
     with the help of the separating conjunction operator, as:
-    [forall (H':hprop), Hoare_triple (H \* H') t (Q \*+ H')].
+    [forall (H':hprop), hoare (H \* H') t (Q \*+ H')].
 
     In what follows, we give an equivalent characterization, 
     expressed directly in terms of heaps and heap unions. 
@@ -790,7 +790,7 @@ Lemma SL_triple_iff_SL_triple_lowlevel : forall t H Q,
   SL_triple t H Q <-> SL_triple_lowlevel t H Q.
 Proof using.
 (* SOLUTION *)
-  unfold SL_triple, SL_triple_lowlevel, Hoare_triple. iff M.
+  unfold SL_triple, SL_triple_lowlevel, hoare. iff M.
   { introv D P1.
     forwards (h'&v&HR&HQ): M (=h2) (h1 \u h2). { hnf. eauto 8. }
     destruct HQ as (h1'&h2'&N0&N1&N2&N3). subst.
@@ -802,7 +802,7 @@ Proof using.
 Qed.
 
 (** Recall the final definition of [triple], as:
-    [forall (H':hprop), Hoare_triple (H \* H') t (Q \*+ H' \*+ \Top)].
+    [forall (H':hprop), hoare (H \* H') t (Q \*+ H' \*+ \Top)].
 
     This definition can also be reformulated directly in terms of union 
     of heaps. All we need to do is introduce an additional piece of 
