@@ -504,7 +504,7 @@ Lemma Hsingle_to_hsingle : forall `{EA:Enc A} (l:loc) (V:A),
 Proof using. auto. Qed.
 
 Lemma Hsingle_not_null : forall l `{EA:Enc A} (V:A),
-  (l ~~> V) ==+> \[l <> null].
+  (l ~~> V) ==> (l ~~> V) \* \[l <> null].
 Proof using. intros. xunfold Hsingle. applys hsingle_not_null. Qed.
 
 Arguments Hsingle_not_null : clear implicits.
@@ -533,7 +533,7 @@ Lemma Hfield_to_Hsingle : forall l f v,
 Proof using. intros. xunfold Hfield. hchanges~ hfield_to_hsingle. Qed.
 
 Lemma Hfield_not_null : forall l f `{EA:Enc A} (V:A),
-  (l`.`f ~~> V) ==+> \[l <> null].
+  (l`.`f ~~> V) ==> (l`.`f ~~> V) \* \[l <> null].
 Proof using. intros. xunfold Hfield. applys~ hfield_not_null. Qed.
 
 Arguments Hfield_not_null : clear implicits.

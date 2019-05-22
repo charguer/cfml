@@ -102,7 +102,7 @@ Notation "'\forall' x1 .. xn , H" :=
   (at level 39, x1 binder, H at level 50, right associativity,
    format "'[' '\forall' '/ '  x1  ..  xn , '/ '  H ']'") : heap_scope.
 
-Open Scope heap_scope.
+Local Open Scope heap_scope.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -213,6 +213,8 @@ End HsimplParams.
 
 Module HsimplSetup (HP : HsimplParams).
 Import HP.
+
+Local Open Scope heap_scope.
 
 Implicit Types H : hprop.
 Implicit Types P : Prop.

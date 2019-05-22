@@ -87,6 +87,8 @@ Lemma Record_cons : forall p x (V:dyn) L,
   (p`.`x ~~> ``V \* p ~> Record L).
 Proof using. intros. destruct~ V. Qed.
 
+Local Open Scope heap_scope_ext.
+
 Lemma Record_not_null : forall (r:loc) (L:Record_fields),
   L <> nil ->
   (r ~> Record L) ==+> \[r <> null].

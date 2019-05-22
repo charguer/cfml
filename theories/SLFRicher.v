@@ -1,5 +1,8 @@
 Arguments qwand_cancel [A].
 
+(* null pointer *)
+
+(* linear resources *)
 
 (* loops *)
 

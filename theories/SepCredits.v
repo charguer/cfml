@@ -224,11 +224,47 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Hprop *)
+(* ** Hprop *)
 
-(** Type of heap predicates *)
+(** A heap predicate, type [hprop] is a predicate over such heaps. *)
 
 Definition hprop := heap -> Prop.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Entailment *)
+
+Definition himpl (H1 H2:hprop) : Prop :=
+  forall (h:heap), H1 h -> H2 h.
+
+Notation "H1 ==> H2" := (himpl H1 H2) (at level 55) : heap_scope.
+
+Local Open Scope heap_scope.
+
+Definition qimpl A (Q1 Q2:A->hprop) : Prop :=
+  forall (v:A), Q1 v ==> Q2 v.
+
+Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55) : heap_scope.
+
+Lemma himpl_refl : forall H,
+  H ==> H.
+Proof using. introv M. auto. Qed.
+
+Lemma himpl_trans : forall H2 H1 H3,
+  (H1 ==> H2) ->
+  (H2 ==> H3) ->
+  (H1 ==> H3).
+Proof using. introv M1 M2. intros h H1h. eauto. Qed.
+
+Lemma himpl_antisym : forall H1 H2,
+  (H1 ==> H2) ->
+  (H2 ==> H1) ->
+  (H1 = H2).
+Proof using. introv M1 M2. applys pred_ext_1. intros h. iff*. Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Operators *)
 
 (** Affinity is defined in the standard way *)
 
@@ -445,7 +481,7 @@ Hint Resolve hempty_intro.
 Lemma hstar_hempty_l : forall H,
   hempty \* H = H.
 Proof using.
-  intros. applys hprop_extens. intros h.
+  intros. applys pred_ext_1. intros h.
   iff (h1&h2&M1&M2&D&U) M.
   { forwards E: hempty_inv M1. subst.
     rewrite~ heap_union_empty_l. }
@@ -476,7 +512,7 @@ Qed.
 Lemma hstar_hexists : forall A (J:A->hprop) H,
   (hexists J) \* H = hexists (fun x => (J x) \* H).
 Proof using.
-  intros. applys hprop_extens. intros h. iff M.
+  intros. applys pred_ext_1. intros h. iff M.
   { destruct M as (h1&h2&(x&M1)&M2&D&U). exists~ x h1 h2. }
   { destruct M as (x&(h1&h2&M1&M2&D&U)). exists h1 h2. splits~. exists~ x. }
 Qed.

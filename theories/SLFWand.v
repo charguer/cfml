@@ -774,7 +774,7 @@ Proof using.
       applys M. applys himpl_refl. }
     { hsimpl. intros H0 M. rewrite Hop. applys M. } }
   { subst. unfolds hwand_characterization, hwand'.
-    intros H0 H1 H2. iff M. { hchange M. } { hsimpl~ H0. } }
+    intros H0 H1 H2. iff M. { hchange~ M. } { hsimpl~ H0. } }
 Qed.
 
 (** Remark: the right-to-left direction was "too easy" to prove.

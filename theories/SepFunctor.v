@@ -87,7 +87,12 @@ Definition himpl (H1 H2:hprop) : Prop :=
 
 Notation "H1 ==> H2" := (himpl H1 H2) (at level 55) : heap_scope.
 
-Open Scope heap_scope.
+Local Open Scope heap_scope.
+
+Definition qimpl A (Q1 Q2:A->hprop) : Prop :=
+  forall (v:A), Q1 v ==> Q2 v.
+
+Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55) : heap_scope.
 
 Parameter himpl_refl : forall H,
   H ==> H.
@@ -101,11 +106,6 @@ Parameter himpl_antisym : forall H1 H2,
   (H1 ==> H2) ->
   (H2 ==> H1) ->
   H1 = H2.
-
-Definition qimpl A (Q1 Q2:A->hprop) : Prop :=
-  forall (v:A), Q1 v ==> Q2 v.
-
-Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55) : heap_scope.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -674,7 +674,7 @@ End HsimplArgs.
 
 Export HsimplArgs.
 
-Module Import HS := HsimplSetup(HsimplArgs).
+Module Export HS := HsimplSetup(HsimplArgs).
 
 (* ---------------------------------------------------------------------- *)
 (* ** Set operators to be opaque *)
