@@ -4,6 +4,10 @@ Separation Logic Foundations
 
 Chapter: "Direct".
 
+This file provides a pretty-much end-to-end construction of
+a weakest-precondition style characteristic formula generator
+(the function [wpgen]).
+
 Author: Arthur Charguéraud.
 License: MIT.
 
