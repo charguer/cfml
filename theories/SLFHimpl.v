@@ -11,7 +11,7 @@ License: MIT.
 
 Set Implicit Arguments.
 From Sep Require Export SLFHprop.
-From Sep Require SepBase.
+From Sep Require SLFDirect.
 
 (** Implicit Types *)
 

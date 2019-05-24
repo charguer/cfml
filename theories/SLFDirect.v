@@ -839,6 +839,11 @@ Module Export HS := Hsimpl.HsimplSetup(HsimplArgs).
 
 Export HsimplArgs.
 
+(** From now on, all operators have opaque definitions *)
+
+Global Opaque hempty hpure hstar hsingle hexists hforall hwand qwand htop hgc haffine.
+
+
 
 (* ####################################################### *)
 (** * Reasoning rules *)
