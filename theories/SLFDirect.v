@@ -1859,8 +1859,6 @@ Notation "'If'' v 'Then' F1 'Else' F2" :=
   ((wpgen_if v F1 F2))
   (at level 69) : wp_scope.
 
-Open Scope wp_scope.
-
 
 (* ******************************************************* *)
 (** ** Notation for terms *)
@@ -1915,16 +1913,20 @@ Notation "t1 '+ t2" :=
   (val_add t1 t2)
   (at level 68) : trm_scope.
 
-Open Scope val_scope.
-Open Scope trm_scope.
-
-(** We let ['x] be a shortname for [("x":var)], as defined in [Var.v] *)
-
-Import NotationForVariables.
-
 
 (* ******************************************************* *)
 (** ** Example proofs *)
+
+Module Demo.
+
+(** We let ['x] be a shortname for [("x":var)], as defined in [Var.v].
+    And we use all the notation defined above. *)
+
+Import NotationForVariables.
+Open Scope wp_scope.
+Open Scope val_scope.
+Open Scope trm_scope.
+
 
 (** Definition and verification of [incr]. *)
 
@@ -1967,3 +1969,4 @@ Proof using.
   hsimpl~.
 Qed.
 
+End Demo.
