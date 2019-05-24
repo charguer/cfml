@@ -162,10 +162,10 @@ Implicit Types Q : val->hprop.
 Hint Extern 1 (_ = _ :> heap) => fmap_eq.
 Hint Extern 1 (_ = _ :> state) => fmap_eq.
 
-Tactic Notation "Fmap.disjoint_pre" :=
+Tactic Notation "fmap_disjoint_pre" :=
   subst; rew_disjoint; jauto_set.
 
-Hint Extern 1 (Fmap.disjoint _ _) => Fmap.disjoint_pre.
+Hint Extern 1 (Fmap.disjoint _ _) => fmap_disjoint_pre.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1449,7 +1449,7 @@ Definition triple' t H Q :=
 
 Section TripleLowLevel.
 
-Hint Extern 1 (Fmap.disjoint_3 _ _ _) => Fmap.disjoint_pre.
+Hint Extern 1 (Fmap.disjoint_3 _ _ _) => fmap_disjoint_pre.
 
 Lemma triple_eq_triple' : triple = triple'.
 Proof using.

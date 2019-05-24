@@ -1290,7 +1290,7 @@ Parameter eval_get : forall s l,
     [get l]. *)
 
 Lemma eval_get_sep : forall s s2 l v, 
-  s = (Fmap.single l v) \u s2 ->
+  s = Fmap.union (Fmap.single l v) s2 ->
   eval s (val_get (val_loc l)) s v.
 
 (** The proof of this lemma is of little interest. We show it only to
@@ -1310,6 +1310,10 @@ Qed.
     at a location [l] from the domain of [s1] provides the result of
     reading at [l] in [s1], regardless of whether [s2] rebinds or not
     the same key [l]. *)
+
+(** Remark: while the formulation of [eval_get] performs a read in a map
+    and requires the type of values to be inhabited to justify this operation,
+    the formulation of [eval_get_sep] does not require the proof of inhabitance. *)
 
 (** Our goal is to establish the triple:
 [[

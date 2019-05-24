@@ -22,6 +22,13 @@ Implicit Types Q : val->hprop.
 (* ####################################################### *)
 (** * Separation Logic Triples *)
 
+(** The type [heap], a.k.a. [state]. By convention, the "state"
+    refers to the full memory state, while the "heap" potentially
+    refers to only a fraction of the memory state. *)
+
+
+Definition state : Type := heap.
+
 (* ******************************************************* *)
 (** ** Structural rules *)
 

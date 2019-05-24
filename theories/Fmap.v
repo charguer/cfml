@@ -702,7 +702,9 @@ Arguments union_comm_of_agree [A] [B].
     [\# h1 h2] and then exploiting symmetry and disjointness
     with [empty]. *)
 
+Module Export DisjointHints.
 Hint Resolve disjoint_sym disjoint_empty_l disjoint_empty_r.
+End DisjointHints.
 
 Hint Rewrite
   disjoint_union_eq_l

@@ -10,13 +10,9 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require Export SLFHprop.
-From Sep Require Var Fmap Hsimpl.
-
-(** Implicit Types *)
-
-Implicit Types H : hprop.
-Implicit Types Q : val->hprop.
+From TLC Require Export LibCore.
+From Sep Require Import TLCbuffer Var.
+From Sep Require Fmap Hsimpl.
 
 
 (* ####################################################### *)
@@ -109,17 +105,30 @@ with trm : Type :=
   | trm_let : var -> trm -> trm -> trm
   | trm_if : trm -> trm -> trm -> trm.
 
+Definition heap : Type := fmap loc val.
+
+Notation "'heap_empty'" := (@Fmap.empty loc val)
+  (at level 0).
+
+Notation "h1 \u h2" := (Fmap.union h1 h2) (* optional *)
+  (at level 37, right associativity).
+
 
 (* ******************************************************* *)
 (** ** Implicit Types *)
 
-Implicit Types x f : var.
+Implicit Types f : var.
 Implicit Types b : bool.
 Implicit Types l : loc.
 Implicit Types n : int.
 Implicit Types v w r : val.
 Implicit Types t : trm.
-Implicit Types s : state.
+Implicit Types h s : heap.
+
+(** The type of values is inhabited. *)
+
+Global Instance Inhab_val : Inhab val.
+Proof using. apply (Inhab_of_val val_unit). Qed.
 
 
 (* ******************************************************* *)
@@ -143,18 +152,19 @@ Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
 (* ******************************************************* *)
 (** ** Coercions *)
 
-Coercion trm_val : val >-> trm.
-Coercion trm_app : trm >-> Funclass.
+Coercion val_bool : bool >-> val.
+Coercion val_int : Z >-> val.
+Coercion val_loc : loc >-> val.
 
-Implicit Types h : heap.
-Implicit Types H : hprop.
-Implicit Types Q : val->hprop.
+Coercion trm_val : val >-> trm.
+Coercion trm_var : var >-> trm.
+Coercion trm_app : trm >-> Funclass.
 
 
 (* ******************************************************* *)
 (** ** Semantics *)
 
-Inductive eval : state -> trm -> state -> val -> Prop :=
+Inductive eval : heap -> trm -> heap -> val -> Prop :=
   | eval_val : forall s v,
       eval s (trm_val v) s v
   | eval_fun : forall s x t1,
@@ -200,7 +210,7 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
     the tactic [hsimpl], we need the definitions that follow to be
     wrapped in a module. *)
 
-Module HsimplArgs. 
+Module HsimplArgs.
 
 
 (* ******************************************************* *)
@@ -213,11 +223,9 @@ Definition hprop := heap -> Prop.
 (** Entailment for heap predicates *)
 
 Definition himpl (H1 H2:hprop) : Prop :=
-  forall (h:heap), H1 h -> H2 h.
+  forall h, H1 h -> H2 h.
 
 Notation "H1 ==> H2" := (himpl H1 H2) (at level 55).
-
-Open Scope heap_scope.
 
 (** Entailment between postconditions *)
 
@@ -225,6 +233,12 @@ Definition qimpl A (Q1 Q2:A->hprop) : Prop :=
   forall (v:A), Q1 v ==> Q2 v.
 
 Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55).
+
+(** Implicit Types *)
+
+Implicit Types P : Prop.
+Implicit Types H : hprop.
+Implicit Types Q : val->hprop.
 
 
 (* ******************************************************* *)
@@ -281,7 +295,7 @@ Definition htop : hprop :=
   \exists (H:hprop), H.
 
 Definition hwand (H1 H2 : hprop) : hprop :=
-  \exists H0, H0 \* \[ (H0 \* H1) ==> H2].
+  \exists H0, H0 \* hpure ((H0 \* H1) ==> H2).
 
 Definition qwand A (Q1 Q2:A->hprop) :=
   \forall x, hwand (Q1 x) (Q2 x).
@@ -305,11 +319,34 @@ Notation "Q1 \--* Q2" := (qwand Q1 Q2)
 (** ** Basic properties of Separation Logic operators *)
 
 (* ---------------------------------------------------------------------- *)
-(* ** Properties of [himpl] *)
+(* ** Tactic for automation *)
+
+(** [auto] is set up to process goals of the form [h1 = h2] by calling
+    [fmap_eq], which proves equality modulo associativity and commutativity. *)
+
+Hint Extern 1 (_ = _ :> heap) => fmap_eq.
+
+(** [auto] is set up to process goals of the form [Fmap.disjoint h1 h2] by calling
+    [fmap_disjoint], which essentially normalizes all disjointness goals and
+    hypotheses, split all conjunctions, and invokes proof search with a base
+    of hints specified in [Fmap.v]. *)
+
+Import Fmap.DisjointHints.
+
+Tactic Notation "fmap_disjoint_pre" :=
+  subst; rew_disjoint; jauto_set.
+
+Hint Extern 1 (Fmap.disjoint _ _) => fmap_disjoint_pre.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Properties of [himpl] and [qimpl] *)
 
 Lemma himpl_refl : forall H,
   H ==> H.
 Proof using. introv M. auto. Qed.
+
+Hint Resolve himpl_refl.
 
 Lemma himpl_trans : forall H2 H1 H3,
   (H1 ==> H2) ->
@@ -328,9 +365,68 @@ Lemma himpl_forall_trans : forall H1 H2,
   H1 ==> H2.
 Proof using. introv M. applys~ M. Qed.
 
+Lemma qimpl_refl : forall A (Q:A->hprop),
+  Q ===> Q.
+Proof using. intros. hnfs*. Qed.
+
+Hint Resolve qimpl_refl.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Properties of [hempty] *)
+
+Lemma hempty_intro :
+  \[] heap_empty.
+Proof using. hnfs~. Qed.
+
+Lemma hempty_inv : forall h,
+  \[] h ->
+  h = heap_empty.
+Proof using. auto. Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [hstar] *)
+
+Lemma hstar_intro : forall H1 H2 h1 h2,
+  H1 h1 ->
+  H2 h2 ->
+  Fmap.disjoint h1 h2 ->
+  (H1 \* H2) (h1 \u h2).
+Proof using. intros. exists~ h1 h2. Qed.
+
+Lemma hstar_inv : forall H1 H2 h,
+  (H1 \* H2) h ->
+  exists h1 h2, H1 h1 /\ H2 h2 /\ Fmap.disjoint h1 h2 /\ h = h1 \u h2.
+Proof using. introv M. hnf in M. eauto. Qed.
+
+Lemma hstar_comm : forall H1 H2,
+   H1 \* H2 = H2 \* H1.
+Proof using.
+  intros H1 H2. unfold hprop, hstar. extens. intros h.
+  iff (h1&h2&M1&M2&D&U); rewrite~ Fmap.union_comm_of_disjoint in U; 
+  exists* h2 h1.
+Qed.
+
+Lemma hstar_assoc : forall H1 H2 H3,
+  (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
+Proof using.
+  intros H1 H2 H3. applys pred_ext_1. intros h. split.
+  { intros (h'&h3&(h1&h2&M3&M4&D'&U')&M2&D&U). subst h'.
+    exists h1 (h2 \+ h3). splits~. { exists* h2 h3. } }
+  { intros (h1&h'&M1&(h2&h3&M3&M4&D'&U')&D&U). subst h'.
+    exists (h1 \+ h2) h3. splits~. { exists* h1 h2. } }
+Qed.
+
+Lemma hstar_hempty_l : forall H,
+  hempty \* H = H.
+Proof using.
+  intros. applys pred_ext_1. intros h.
+  iff (h1&h2&M1&M2&D&U) M.
+  { forwards E: hempty_inv M1. subst.
+    rewrite~ Fmap.union_empty_l. }
+  { exists heap_empty h. splits~. applys hempty_intro. }
+Qed.
 
 Lemma hstar_hempty_r : forall H,
   H \* \[] = H.
@@ -339,6 +435,25 @@ Proof using.
   applys~ hstar_comm.
   applys~ hstar_hempty_l.
 Qed.
+
+Lemma hstar_hexists : forall A (J:A->hprop) H,
+  (hexists J) \* H = hexists (fun x => (J x) \* H).
+Proof using.
+  intros. applys pred_ext_1. intros h. iff M.
+  { destruct M as (h1&h2&(x&M1)&M2&D&U). exists~ x h1 h2. }
+  { destruct M as (x&(h1&h2&M1&M2&D&U)). exists h1 h2. splits~. exists~ x. }
+Qed.
+
+Lemma hstar_hforall : forall H A (J:A->hprop),
+  (hforall J) \* H ==> hforall (J \*+ H).
+Proof using.
+  intros. intros h M. destruct M as (h1&h2&M1&M2&D&U). intros x. exists~ h1 h2.
+Qed.
+
+Lemma himpl_frame_l : forall H2 H1 H1',
+  H1 ==> H1' ->
+  (H1 \* H2) ==> (H1' \* H2).
+Proof using. introv W (h1&h2&?). exists* h1 h2. Qed.
 
 Lemma himpl_frame_r : forall H1 H2 H2',
   H2 ==> H2' ->
@@ -374,6 +489,16 @@ Qed.
 
 (* ---------------------------------------------------------------------- *)
 (** Properties of [hpure] *)
+
+Lemma hpure_intro : forall P,
+  P ->
+  \[P] heap_empty.
+Proof using. introv M. exists M. hnfs*. Qed.
+
+Lemma hpure_inv : forall P h,
+  \[P] h ->
+  P /\ h = heap_empty.
+Proof using. introv (p&M). split~. Qed.
 
 Lemma hstar_hpure : forall P H h, 
   (\[P] \* H) h = (P /\ H h).
@@ -442,7 +567,7 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Properties of hexists *)
+(** Properties of [hexists] *)
 
 Lemma hexists_intro : forall A (x:A) (J:A->hprop) h,
   J x h ->
@@ -474,7 +599,7 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Properties of hforall *)
+(** Properties of [hforall] *)
 
 Lemma himpl_hforall_r : forall A (J:A->hprop) H,
   (forall x, H ==> J x) ->
@@ -500,7 +625,7 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Properties of hwand (others are found further in the file) *)
+(** Properties of [hwand] *)
 
 Lemma hwand_equiv : forall H0 H1 H2,
   (H0 ==> H1 \-* H2) <-> (H0 \* H1 ==> H2).
@@ -613,7 +738,7 @@ Arguments qwand_specialize [ A ].
 
 
 (* ---------------------------------------------------------------------- *)
-(** Properties of htop *)
+(** Properties of [htop] *)
 
 Lemma htop_intro : forall h,
   \Top h.
@@ -638,13 +763,33 @@ Proof using.
 Qed.
 
 
+(* ---------------------------------------------------------------------- *)
+(** Properties of [hsingle] *)
+
+Lemma hsingle_intro : forall l v,
+  (l ~~~> v) (Fmap.single l v).
+Proof using. intros. hnfs*. Qed.
+
+Lemma hsingle_inv: forall l v h,
+  (l ~~~> v) h ->
+  h = Fmap.single l v.
+Proof using. auto. Qed.
+
+Lemma hstar_hsingle_same_loc : forall l v1 v2,
+  (l ~~~> v1) \* (l ~~~> v2) ==> \[False].
+Proof using.
+  intros. unfold hsingle. intros h (h1&h2&E1&E2&D&E). false.
+  subst. applys* Fmap.disjoint_single_single_same_inv.
+Qed.
+
+
 (* ******************************************************* *)
 (** ** Hsimpl tactic *)
 
 (** The definitions and properties above enable us to instantiate
     the [hsimpl] tactic, which implements powerful simplifications
     for Separation Logic entailments. 
-    
+
     For technical reasons, we need to provide a definition for [hgc],
     a restriction of [htop] to affine heap predicates. For our purpose,
     it suffices to define [hgc] as an alias for [htop]. *)
@@ -653,6 +798,8 @@ Qed.
 (** Definition and properties of hgc *)
 
 Definition hgc := htop.
+
+Notation "\GC" := (hgc).
 
 Definition haffine := fun H => True.
 
@@ -677,7 +824,7 @@ End HsimplArgs.
 
 (** We are now ready to instantiate the functor. *)
 
-Module Export HS := HsimplSetup(HsimplArgs).
+Module Export HS := Hsimpl.HsimplSetup(HsimplArgs).
 
 (** At this point, the tactic [hsimpl] is available.
     See the file [SLFHimpl.v] for demos of its usage. *)  
@@ -698,7 +845,7 @@ Export HsimplArgs.
 (** It is not needed to follow through these proofs. *)
 
 Lemma eval_get_sep : forall s s2 l v, 
-  s = (Fmap.single l v) \u s2 ->
+  s = Fmap.union (Fmap.single l v) s2 ->
   eval s (val_get (val_loc l)) s v.
 Proof using.
   introv ->. forwards Dv: Fmap.indom_single l v.
@@ -725,7 +872,6 @@ Lemma eval_ref_sep : forall s1 s2 v l,
   Fmap.disjoint s2 s1 ->
   eval s1 (val_ref v) (Fmap.union s2 s1) (val_loc l).
 Proof using.
-  (** It is not needed to follow through this proof. *)
   introv -> D. forwards Dv: Fmap.indom_single l v.
   rewrite <- Fmap.update_eq_union_single. applys~ eval_ref.
   { intros N. applys~ Fmap.disjoint_inv_not_indom_both D N. }
@@ -745,6 +891,12 @@ Definition hoare (t:trm) (H:hprop) (Q:val->hprop) :=
     then replaces the goal with [H1 ==> H2].
     It also deletes the assumption [H2 h]. *)
 
+Lemma himpl_inv : forall H1 H2 h,
+  (H1 ==> H2) ->
+  (H1 h) ->
+  (H2 h).
+Proof using. auto. Qed.
+
 Ltac himpl_fold_core tt :=
   match goal with N: ?H ?h |- _ ?h =>
     applys himpl_inv N; clear N end.
@@ -752,6 +904,8 @@ Ltac himpl_fold_core tt :=
 Tactic Notation "himpl_fold" := himpl_fold_core tt.
 Tactic Notation "himpl_fold" "~" := himpl_fold; auto_tilde.
 Tactic Notation "himpl_fold" "*" := himpl_fold; auto_star.
+
+(** Reasoning rules for [hoare] triples. *)
 
 Lemma hoare_conseq : forall t H' Q' H Q,
   hoare t H' Q' ->
@@ -777,7 +931,7 @@ Lemma hoare_fun : forall x t1 H Q,
   H ==> Q (val_fun x t1) ->
   hoare (trm_fun x t1) H Q.
 Proof using.
-  introv N M. intros h Hh. exists___. splits.
+  introv M. intros h Hh. exists___. splits.
   { applys~ eval_fun. }
   { himpl_fold~. }
 Qed.
@@ -786,7 +940,7 @@ Lemma hoare_fix : forall f x t1 H Q,
   H ==> Q (val_fix f x t1) ->
   hoare (trm_fix f x t1) H Q.
 Proof using.
-  introv N M. intros h Hh. exists___. splits.
+  introv M. intros h Hh. exists___. splits.
   { applys~ eval_fix. }
   { himpl_fold~. }
 Qed.
@@ -799,12 +953,12 @@ Proof using.
   introv M1 M2 Hh.
   forwards* (h1'&v1&R1&K1): (rm M1).
   forwards* (h2'&v2&R2&K2): (rm M2).
-  exists h2' v2. splits~. { applys~ eval_seq R2. }
+  exists h2' v2. splits~. { applys~ eval_seq R1 R2. }
 Qed.
 
 Lemma hoare_let : forall z t1 t2 H Q Q1,
   hoare t1 H Q1 ->
-  (forall v, hoare (subst1 z v t2) (Q1 v) Q) ->
+  (forall v, hoare (subst z v t2) (Q1 v) Q) ->
   hoare (trm_let z t1 t2) H Q.
 Proof using.
   introv M1 M2 Hh.
@@ -818,7 +972,7 @@ Lemma hoare_if_case : forall (b:bool) t1 t2 H Q,
   hoare (trm_if b t1 t2) H Q.
 Proof using.
   introv M1. intros h Hh. forwards* (h1'&v1&R1&K1): (rm M1).
-  exists h1' v1. splits~. { applys* eval_if. }
+  exists h1' v1. splits~. { applys* eval_if_case. }
 Qed.
 
 Lemma hoare_add : forall H n1 n2,
@@ -838,20 +992,11 @@ Lemma hoare_ref : forall H v,
     H
     (fun r => (\exists l, \[r = val_loc l] \* l ~~~> v) \* H).
 Proof using.
-  (* 1. We unfold the definition of [hoare]. *)
   intros. intros s1 K0.
-  (* 2. We claim the disjointness relation 
-       [Fmap.disjoint (Fmap.single l v) s1]. *)
-  forwards~ (l&D): (single_fresh s1 v).
-  (* 3. We provide the witnesses for the reduction,
-        as dictated by [red_ref_sep]. *)
-  exists ((Fmap.single l v) \u s1) (val_loc l). split.
-  { (* 4. We exploit [red_ref_sep], which has exactly the desired shape! *)
-    applys eval_ref_sep D. auto. }
-  { (* 5. We establish the postcondition 
-       [(\exists l, \[r = val_loc l] \* l ~~~> v) \* H]
-       by providing [p] and the relevant pieces of heap. *)
-    applys hstar_intro.
+  forwards~ (l&D&_): (Fmap.single_fresh 0%nat s1 v).
+  exists (Fmap.union (Fmap.single l v) s1) (val_loc l). split.
+  { applys~ eval_ref_sep D. }
+  { applys hstar_intro.
     { exists l. rewrite hstar_hpure.
       split. { auto. } { applys hsingle_intro. } }
     { applys K0. }
@@ -863,25 +1008,13 @@ Lemma hoare_get : forall H v l,
     ((l ~~~> v) \* H)
     (fun r => \[r = v] \* (l ~~~> v) \* H).
 Proof using.
-  (* 1. We unfold the definition of [hoare]. *)
   intros. intros s K0. 
-  (* 2. We provide the witnesses for the reduction,
-        as dictated by [red_get_sep]. *)
   exists s v. split.
-  { (* 3. To justify the reduction using [red_get_sep], we need to
-          argue that the state [s] decomposes as a singleton heap
-          [Fmap.single l v] and the rest of the state [s2]. This is
-          obtained by eliminating the star in hypothesis [K0]. *)
-    destruct K0 as (s1&s2&P1&P2&D&U).
-    (*    and subsequently inverting [(l ~~~> v) h1]. *)
+  { destruct K0 as (s1&s2&P1&P2&D&U).
     lets E1: hsingle_inv P1. subst s1.
-    (* 4. At this point, the goal matches exactly [red_get_sep]. *)
     applys eval_get_sep U. }
-  { (* 5. To establish the postcondition, we reuse justify the
-          pure fact \[v = v], and check that the state, which
-          has not changed, satisfy the same heap predicate as
-          in the precondition. *)
-    rewrite hstar_hpure. auto. }
+  { rewrite
+ hstar_hpure. auto. }
 Qed.
 
 

@@ -319,10 +319,10 @@ Proof using. auto. Qed.
 
 Hint Rewrite heap_disjoint_def : rew_disjoint.
 
-Tactic Notation "Fmap.disjoint_pre" :=
+Tactic Notation "fmap_disjoint_pre" :=
   subst; rew_disjoint; jauto_set.
 
-Hint Extern 1 (\# _ _) => Fmap.disjoint_pre.
+Hint Extern 1 (Fmap.disjoint _ _) => fmap_disjoint_pre.
 
 
 (* ---------------------------------------------------------------------- *)

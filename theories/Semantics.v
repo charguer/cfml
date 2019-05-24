@@ -90,6 +90,10 @@ with trm : Type :=
   | trm_match : trm -> list (pat * trm) -> trm
   | trm_fail : trm.
 
+(** The state is a finite map from location to values. *)
+
+Definition state : Type := fmap loc val.
+
 (** Shorthand [vars], [vals] and [trms] for lists of items. *)
 
 Definition vals : Type := list val.
@@ -830,12 +834,6 @@ Implicit Types x : var.
 Implicit Types f : bind.
 Implicit Types z : bind.
 Implicit Types G : ctx.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** State *)
-
-Definition state := fmap loc val.
 
 
 (* ---------------------------------------------------------------------- *)
