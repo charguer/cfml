@@ -1270,6 +1270,12 @@ Qed.
 (* ####################################################### *)
 (** * Appendix: proofs for iterated substitution lemmas *)
 
+Section IsubstProp.
+
+Open Scope liblist_scope.
+
+Implicit Types E : ctx.
+
 (** Recall that [isubst E t] denotes the multi-substitution
     in the term [t] of all bindings form the association list [E].
 
@@ -1297,11 +1303,9 @@ Qed.
     [E1] and [E2], and argue that substitution for two
     equivalent contexts yields the same result.
 
-    We then introduce the notion of "equivalent contexts
-    up to one binding", and reformulate the desired lemma
-    in the form [subst x v (isubst E1 t) = isubst E2 t]
-    when [E1] and [E2] differ only in the binding on [x],
-    with [E1] not binding it while [E2] binding it to [v]. *)
+    We then introduce the notion of "contexts with disjoint
+    domains", and argue that if [E1] and [E2] are disjoint then
+    [isubst (E1 ++ E2) t = isubst E1 (isubst E2 t)]. *)
 
 (** Before we start, we introduce the tactic [case_var] to
     help with the case_analyses on variable equalities,
@@ -1316,6 +1320,8 @@ Tactic Notation "case_var" :=
 Tactic Notation "case_var" "~" := 
   case_var; auto.
 
+(** A lemma about the lookup in a removal. *)
+
 Lemma lookup_rem : forall x y E,
   lookup x (rem y E) = if var_eq x y then None else lookup x E.
 Proof using.
@@ -1324,13 +1330,21 @@ Proof using.
   { simpl. case_var~; simpl; case_var~. }
 Qed.
 
-(** The definition of equivalent contexts, the fact that
-    equivalent contexts yield equivalent contexts after
-    removing a binding, and the fact that equivalent contexts
-    yield equivalent substitutions appear next. *)
+(** A lemma about the removal over an append. *)
+
+Lemma rem_app : forall x E1 E2,
+  rem x (E1 ++ E2) = rem x E1 ++ rem x E2.
+Proof using.
+  intros. induction E1 as [|(y,w) E1']; rew_list; simpl. { auto. }
+  { case_var~. { rew_list. fequals. } }
+Qed.
+
+(** The definition of equivalent contexts. *)
 
 Definition ctx_equiv E1 E2 :=
   forall x, lookup x E1 = lookup x E2.
+
+(** The fact that removal preserves equivalence. *)
 
 Lemma ctx_equiv_rem : forall x E1 E2,
   ctx_equiv E1 E2 ->
@@ -1339,6 +1353,9 @@ Proof using.
   introv M. unfolds ctx_equiv. intros y.
   do 2 rewrite lookup_rem. case_var~.
 Qed.
+
+(** The fact that substitution for equivalent contexts
+    yields equal results. *)
 
 Lemma isubst_ctx_equiv : forall t E1 E2,
   ctx_equiv E1 E2 ->
@@ -1349,75 +1366,96 @@ Proof using.
   { rewrite EQ. auto. }
 Qed.
 
-(** The definition of equivalent contexts up to one binding on [x],
-    written [ctx_differ_one x v E1 E2], captures that [E1] and [E2]
-    have the same bindings, except for [x] which [E1] binds to [v]
-    and [E2] does not bind. *)
+(** The definition of disjoint contexts. *)
 
-Definition ctx_differ_one x v E1 E2 :=
-     (forall y, y <> x -> lookup y E1 = lookup y E2)
-  /\ (lookup x E1 = Some v)
-  /\ (lookup x E2 = None).
+Definition ctx_disjoint E1 E2 :=
+  forall x v1 v2, lookup x E1 = Some v1 -> lookup x E2 = Some v2 -> False.
 
-(** Assume [ctx_differ_one x v E1 E2].
-    If the binding [x] is removed from [E1] and [E2], then 
-    they become equivalent.
-    If a binding other than [x] is removed from the two contexts, 
-    then they remain equivalent up to the binding on [x]. *)
+(** Removal preserves disjointness. *)
 
-Lemma ctx_differ_one_rem_same : forall x v E1 E2,
-  ctx_differ_one x v E1 E2 ->
-  ctx_equiv (rem x E1) (rem x E2).
+Lemma ctx_disjoint_rem : forall x E1 E2,
+  ctx_disjoint E1 E2 ->
+  ctx_disjoint (rem x E1) (rem x E2).
 Proof using.
-  introv (M0&_&_). intros y. do 2 rewrite lookup_rem. case_var~.
+  introv D. intros y v1 v2 K1 K2. rewrite lookup_rem in *.
+  rewrite var_eq_spec in *. case_if~. applys* D K1 K2.
 Qed.
 
-Lemma ctx_differ_one_rem_neq : forall y x v E1 E2,
-  ctx_differ_one x v E1 E2 ->
-  x <> y ->
-  ctx_differ_one x v (rem y E1) (rem y E2).
+(** An inversion lemma for [ctx_disjoint] *)
+
+Lemma ctx_disjoint_cons_l_inv : forall x v E1 E2,
+  ctx_disjoint ((x,v)::E1) E2 ->
+  ctx_disjoint E1 E2.
 Proof using.
-  introv (M1&M2&M3) N. splits; try intros z Hz;
-  repeat rewrite lookup_rem; case_var~.
+  introv M. intros y v1 v2 K1 K2. tests C: (x = y).
+  { applys M v v2 K2. simpl. rewrite var_eq_spec. case_if~. }
+  { applys M v1 v2 K2. simpl. rewrite var_eq_spec. case_if~. }
 Qed.
 
-(** The key induction is set up as follows. *)
+(** Lookup in the concatenation of two disjoint contexts *)
 
-Section IsubstRemInd.
-
-Hint Resolve isubst_ctx_equiv 
-  ctx_equiv_rem ctx_differ_one_rem_same ctx_differ_one_rem_neq.
-
-Lemma isubst_rem_ind : forall y v E1 E2 t,
-  ctx_differ_one y v E1 E2 ->
-  isubst E1 t = subst y v (isubst E2 t).
+Lemma lookup_app : forall x E1 E2,
+  ctx_disjoint E1 E2 ->
+  lookup x (E1 ++ E2) = match lookup x E1 with
+                        | None => lookup x E2
+                        | Some v => Some v
+                        end.
 Proof using.
-  intros. gen E1 E2. induction t using trm_induct; introv M; simpl; rew_trm.
+  introv. induction E1 as [|(y,w) E1']; rew_list; simpl; introv D.
+  { auto. }
+  { lets D': ctx_disjoint_cons_l_inv D. rewrite var_eq_spec. case_if~ . }
+Qed.
+
+(** The key induction shows that [isubst] distributes over
+    context concatenation. *)
+
+Lemma isubst_app : forall t E1 E2,
+  ctx_disjoint E1 E2 ->
+  isubst (E1 ++ E2) t = isubst E1 (isubst E2 t).
+Proof using.
+  hint ctx_disjoint_rem.
+  intros t. induction t using trm_induct; introv D; simpl; rew_trm.
   { fequals. }
-  { destruct M as (M0&M1&M2). tests C: (x = y).
-    { rewrite M2, M1. simpl. case_var~. }
-    { rewrite~ <- M0. case_eq (lookup x E1).
-      { intros v' R'. auto. }
-      { simpl. case_var~. } } }
-  { fequals. case_var; rew_logic in *; subst*. }
-  { fequals. case_var; rew_logic in *; subst*. }
+  { rewrite~ lookup_app.
+    case_eq (lookup x E1); introv K1; case_eq (lookup x E2); introv K2.
+    { false* D. }
+    { simpl. rewrite~ K1. }
+    { auto. }
+    { simpl. rewrite~ K1. } }
+  { fequals. rewrite* rem_app. }
+  { fequals. do 2 rewrite* rem_app. }
   { fequals*. }
   { fequals*. }
-  { fequals*. case_var~. subst*. }
+  { fequals*. { rewrite* rem_app. } }
   { fequals*. }
 Qed.
 
-End IsubstRemInd.
+(** To prove the desired lemma [isubst_rem], we need to relate
+    [subst] and [isubst]. *)
 
-(** As a corollary, we get the desired property of [isubst]. *)
+Lemma subst_eq_isubst_one : forall x v t,
+  subst x v t = isubst ((x,v)::nil) t.
+Proof using.
+  intros. induction t using trm_induct; simpl; rew_trm.
+  { fequals. }
+  { case_var~. }
+  { rew_bool. case_var~. { rewrite~ isubst_nil. } { fequals*. } }
+  { rew_bool. case_var; simpl; try case_var; try rewrite isubst_nil; fequals. }
+  { fequals*. }
+  { fequals*. }
+  { fequals*. case_var~. { rewrite~ isubst_nil. } }
+  { fequals*. }
+Qed.
+
+(** We are ready to derive the desired property of [isubst]. *)
 
 Lemma isubst_rem' : forall x v E t,
   isubst ((x, v)::E) t = subst x v (isubst (rem x E) t).
 Proof using.
-  intros. applys isubst_rem_ind. splits.
-  { intros y K. simpl. rewrite lookup_rem. case_var~. }
-  { simpl. case_var~. }
-  { rewrite lookup_rem. case_var~. }
+  intros. rewrite subst_eq_isubst_one. rewrite <- isubst_app.
+  { applys isubst_ctx_equiv. intros y. simpl. rewrite lookup_rem. case_var~. }
+  { intros y v1 v2 K1 K2. simpls. case_var.
+    { subst. rewrite lookup_rem in K2. case_var~. } }
 Qed.
 
 (** Another useful corollary reformulates [subst] in terms of [isubst].
@@ -1426,6 +1464,34 @@ Qed.
 Lemma subst_eq_isubst' : forall x v t,
   subst x v t = isubst ((x,v)::nil) t.
 Proof using. intros. rewrite isubst_rem. simpl. rewrite~ isubst_nil. Qed.
+
+(** As bonus, here is an additional property of [isubst]:
+    [isubst (E1 ++ E2) t = isubst (E2 ++ E1) t] when the two
+    contexts have disjoint domains. *)
+
+Lemma ctx_disjoint_sym : forall E1 E2,
+  ctx_disjoint E1 E2 ->
+  ctx_disjoint E2 E1.
+Proof using. introv D. intros x v1 v2 K1 K2. applys* D. Qed.
+
+Lemma ctx_disjoint_equiv_app : forall E1 E2,
+  ctx_disjoint E1 E2 ->
+  ctx_equiv (E1 ++ E2) (E2 ++ E1).
+Proof using.
+  introv D. lets D': ctx_disjoint_sym D. intros x. 
+  do 2 rewrite~ lookup_app. 
+  case_eq (lookup x E1); case_eq (lookup x E2); auto.
+  { intros v2 K2 v1 K1. false* D. }
+Qed.
+
+Lemma isubst_app_sym : forall t E1 E2,
+  ctx_disjoint E1 E2 ->
+  isubst (E1 ++ E2) t = isubst (E2 ++ E1) t.
+Proof using.
+  introv D. applys isubst_ctx_equiv. applys ctx_disjoint_equiv_app D.
+Qed.
+
+End IsubstProp.
 
 
 (* ####################################################### *)

@@ -22,6 +22,7 @@ Parameter val_div : prim.
 
 Parameter star : assertion -> assertion -> assertion.
 
+
 Notation "H1 '\*' H2" := (star H1 H2)
   (at level 41, right associativity).
 
@@ -2662,3 +2663,76 @@ Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55) : heap_scope.
 Open Scope heap_scope.
 
 End EntailFunctor.
+
+
+
+(** The definition of equivalent contexts up to one binding on [x],
+    written [ctx_differ_one x v E1 E2], captures that [E1] and [E2]
+    have the same bindings, except for [x] which [E1] binds to [v]
+    and [E2] does not bind. *)
+
+Definition ctx_differ_one x v E1 E2 :=
+     (forall y, y <> x -> lookup y E1 = lookup y E2)
+  /\ (lookup x E1 = Some v)
+  /\ (lookup x E2 = None).
+
+(** Assume [ctx_differ_one x v E1 E2].
+    If the binding [x] is removed from [E1] and [E2], then 
+    they become equivalent.
+    If a binding other than [x] is removed from the two contexts, 
+    then they remain equivalent up to the binding on [x]. *)
+
+Lemma ctx_differ_one_rem_same : forall x v E1 E2,
+  ctx_differ_one x v E1 E2 ->
+  ctx_equiv (rem x E1) (rem x E2).
+Proof using.
+  introv (M0&_&_). intros y. do 2 rewrite lookup_rem. case_var~.
+Qed.
+
+Lemma ctx_differ_one_rem_neq : forall y x v E1 E2,
+  ctx_differ_one x v E1 E2 ->
+  x <> y ->
+  ctx_differ_one x v (rem y E1) (rem y E2).
+Proof using.
+  introv (M1&M2&M3) N. splits; try intros z Hz;
+  repeat rewrite lookup_rem; case_var~.
+Qed.
+
+(** The key induction is set up as follows. *)
+
+Section IsubstRemInd.
+
+Hint Resolve isubst_ctx_equiv 
+  ctx_equiv_rem ctx_differ_one_rem_same ctx_differ_one_rem_neq.
+
+Lemma isubst_rem_ind : forall y v E1 E2 t,
+  ctx_differ_one y v E1 E2 ->
+  isubst E1 t = subst y v (isubst E2 t).
+Proof using.
+  intros. gen E1 E2. induction t using trm_induct; introv M; simpl; rew_trm.
+  { fequals. }
+  { destruct M as (M0&M1&M2). tests C: (x = y).
+    { rewrite M2, M1. simpl. case_var~. }
+    { rewrite~ <- M0. case_eq (lookup x E1).
+      { intros v' R'. auto. }
+      { simpl. case_var~. } } }
+  { fequals. case_var; rew_logic in *; subst*. }
+  { fequals. case_var; rew_logic in *; subst*. }
+  { fequals*. }
+  { fequals*. }
+  { fequals*. case_var~. subst*. }
+  { fequals*. }
+Qed.
+
+End IsubstRemInd.
+
+(** As a corollary, we get the desired property of [isubst]. *)
+
+Lemma isubst_rem' : forall x v E t,
+  isubst ((x, v)::E) t = subst x v (isubst (rem x E) t).
+Proof using.
+  intros. applys isubst_rem_ind. splits.
+  { intros y K. simpl. rewrite lookup_rem. case_var~. }
+  { simpl. case_var~. }
+  { rewrite lookup_rem. case_var~. }
+Qed.
