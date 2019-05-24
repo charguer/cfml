@@ -1071,6 +1071,13 @@ Proof using.
   applys hoare_conseq M; hsimpl.
 Qed.
 
+Lemma wp_conseq : forall t Q1 Q2,
+  Q1 ===> Q2 ->
+  wp t Q1 ==> wp t Q2.
+Proof using.
+  introv M. lets N: wp_ramified t Q1 Q2. hchanges N. hchanges M.
+Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (** Reasoning rules for terms. *)
@@ -1183,6 +1190,11 @@ Qed.
 (* ******************************************************* *)
 (** ** Definition of context as list of bindings *)
 
+(** This formalization of contexts leverages TLC definitions.
+    For direct definitions, open file [SLFWPgen.v]. *)
+
+Open Scope liblist_scope.
+
 (** A context is an association list from variables to values. *)
 
 Definition ctx : Type := list (var*val).
@@ -1190,13 +1202,127 @@ Definition ctx : Type := list (var*val).
 (** [rem x E] denotes the removal of bindings on [x] from [E]. *)
 
 Definition rem : var -> ctx -> ctx := 
-  @LibListAssocExec.rem var val var_eq.
+  @LibListAssocExec.rem var var_eq val.
 
 (** [lookup x E] returns [Some v] if [x] is bound to a value [v],
     and [None] otherwise. *)
 
 Definition lookup : var -> ctx -> option val := 
-  @LibListAssocExec.get_opt var val var_eq.
+  @LibListAssocExec.get_opt var var_eq val.
+
+(** [ctx_disjoint E1 E2] asserts that the two contexts have disjoint
+    domains. *)
+
+Definition ctx_disjoint (E1 E2:ctx) : Prop := 
+  forall x v1 v2, lookup x E1 = Some v1 -> lookup x E2 = Some v2 -> False.
+
+(** [ctx_equiv E1 E2] asserts that the two contexts bind same
+    keys to same values. *)
+
+Definition ctx_equiv (E1 E2:ctx) : Prop :=
+  forall x, lookup x E1 = lookup x E2.
+
+(** Basic properties of context operations follow. *)
+
+Section CtxOps.
+
+Lemma is_beq_var_eq :
+  LibListAssocExec.is_beq var_eq.
+Proof using. applys var_eq_spec. Qed.
+
+Hint Resolve is_beq_var_eq.
+
+Lemma ctx_equiv_eq :
+  ctx_equiv = @LibListAssoc.equiv var val.
+Proof using.
+  intros. extens. intros E1 E2.
+  unfold ctx_equiv, lookup, LibListAssoc.equiv. iff M.
+  { intros x. specializes M x. do 2 rewrite~ LibListAssocExec.get_opt_eq in M. }
+  { intros x. do 2 rewrite~ LibListAssocExec.get_opt_eq. }
+Qed.
+
+Lemma ctx_disjoint_eq :
+  ctx_disjoint = @LibListAssoc.disjoint var val.
+Proof using.
+  intros. extens. intros E1 E2.
+  unfold ctx_disjoint, lookup, LibListAssoc.disjoint. iff M; intros x v1 v2 K1 K2.
+  { applys M; rewrite* LibListAssocExec.get_opt_eq. }
+  { rewrite LibListAssocExec.get_opt_eq in K1, K2; auto. applys* M. }
+Qed.
+
+Lemma lookup_nil : forall y,
+  lookup y (nil:ctx) = None.
+Proof using.
+  intros. unfold lookup. rewrite~ LibListAssocExec.get_opt_eq. 
+Qed.
+
+Lemma lookup_cons : forall x v E y,
+  lookup y ((x,v)::E) = (If x = y then Some v else lookup y E).
+Proof using.
+  intros. unfold lookup. repeat rewrite~ LibListAssocExec.get_opt_eq.
+Qed.
+
+Lemma lookup_app : forall E1 E2 x,
+  lookup x (E1 ++ E2) = match lookup x E1 with
+                         | None => lookup x E2
+                         | Some v => Some v
+                         end.
+Proof using. 
+  intros. unfold lookup. repeat rewrite~ LibListAssocExec.get_opt_eq.
+  applys~ LibListAssoc.get_opt_app.
+Qed.
+
+Lemma lookup_rem : forall x y E,
+  lookup x (rem y E) = If x = y then None else lookup x E.
+Proof using. 
+  intros. unfold lookup, rem. repeat rewrite~ LibListAssocExec.get_opt_eq.
+  repeat rewrite~ LibListAssocExec.rem_eq. applys~ LibListAssoc.get_opt_rem.
+Qed.
+
+Lemma rem_nil : forall y,
+  rem y (nil:ctx) = nil.
+Proof using.
+  intros. unfold rem. rewrite~ LibListAssocExec.rem_eq.
+Qed.
+
+Lemma rem_cons : forall x v E y,
+  rem y ((x,v)::E) = (If x = y then rem y E else (x,v) :: rem y E).
+Proof using. 
+  intros. unfold rem. repeat rewrite~ LibListAssocExec.rem_eq.
+  rewrite~ LibListAssoc.rem_cons.
+Qed.
+
+Lemma rem_app : forall x E1 E2,
+  rem x (E1 ++ E2) = rem x E1 ++ rem x E2.
+Proof using. 
+  intros. unfold rem. repeat rewrite~ LibListAssocExec.rem_eq.
+  rewrite~ LibListAssoc.rem_app.
+Qed.
+
+Lemma ctx_equiv_rem : forall x E1 E2,
+  ctx_equiv E1 E2 ->
+  ctx_equiv (rem x E1) (rem x E2).
+Proof using.
+  introv M. rewrite ctx_equiv_eq in *. unfold rem.
+  repeat rewrite~ LibListAssocExec.rem_eq.
+  applys~ LibListAssoc.equiv_rem.
+Qed.
+
+Lemma ctx_disjoint_rem : forall x E1 E2,
+  ctx_disjoint E1 E2 ->
+  ctx_disjoint (rem x E1) (rem x E2).
+Proof using.
+  introv M. rewrite ctx_disjoint_eq in *. unfold rem.
+  repeat rewrite~ LibListAssocExec.rem_eq.
+  applys~ LibListAssoc.disjoint_rem.
+Qed.
+
+End CtxOps.
+
+Hint Rewrite lookup_nil lookup_cons rem_nil rem_cons : rew_ctx.
+
+Tactic Notation "rew_ctx" :=
+   autorewrite with rew_ctx.
 
 
 (* ******************************************************* *)
@@ -1215,8 +1341,8 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
        trm_fun x (isubst (rem x E) t1)
   | trm_fix f x t1 =>
        trm_fix f x (isubst (rem x (rem f E)) t1)
-  | trm_if v0 t1 t2 =>
-       trm_if v0 (isubst E t1) (isubst E t2)
+  | trm_if t0 t1 t2 =>
+       trm_if (isubst E t0) (isubst E t1) (isubst E t2)
   | trm_seq t1 t2 =>
        trm_seq (isubst E t1) (isubst E t2)
   | trm_let x t1 t2 =>
@@ -1292,7 +1418,10 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
   | trm_fix f x t1 =>
        wpgen_val (val_fix f x (isubst (rem x (rem f E)) t1))
   | trm_if t0 t1 t2 =>
-       wpgen_if_trm (wpgen E t0) (wpgen E t1) (wpgen E t2)
+      match isubst E t0 with
+      | trm_val v0 => wpgen_if v0 (wpgen E t1) (wpgen E t2)
+      | _ => wpgen_fail
+      end
   | trm_seq t1 t2 =>
        wpgen_seq (wpgen E t1) (wpgen E t2)
   | trm_let x t1 t2 =>
@@ -1316,37 +1445,32 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
     lists. A standalone formalization may be found in [SLFWPgen.v].
 *)
 
+
+(** The first targeted lemma. *)
+
 Lemma isubst_nil : forall t,
   isubst nil t = t.
 Proof using.
-  intros t. induction t using trm_induct; simpl; fequals.
+  intros t. induction t; simpl; rew_ctx; fequals.
 Qed.
-
-(** A few auxiliary definitions *)
-
-Definition ctx_disjoint : ctx -> ctx -> Prop := 
-  @LibListAssoc.disjoint_dom var val.
-
-Definition ctx_equiv : ctx -> ctx -> Prop := 
-  @LibListAssoc.equiv var val.
 
 (** The next lemma relates [subst] and [isubst]. *)
 
 Lemma subst_eq_isubst_one : forall x v t,
   subst x v t = isubst ((x,v)::nil) t.
 Proof using.
-  intros. induction t using trm_induct; simpl; rew_trm.
+  intros. induction t; simpl; rew_ctx.
   { fequals. }
   { case_var~. }
-  { rew_bool. case_var~. { rewrite~ isubst_nil. } { fequals*. } }
-  { rew_bool. case_var; simpl; try case_var; try rewrite isubst_nil; fequals. }
+  { fequals. case_var~. { rewrite~ isubst_nil. } }
+  { fequals. case_var; rew_ctx; try case_var; try rewrite isubst_nil; auto. }
   { fequals*. }
   { fequals*. }
   { fequals*. case_var~. { rewrite~ isubst_nil. } }
   { fequals*. }
 Qed.
 
-(** The next lemma shows that equivalent contexts produce equal 
+(** The next lemma shows that equivalent contexts produce equal
     results for [isubst] *)
 
 Lemma isubst_ctx_equiv : forall t E1 E2,
@@ -1354,8 +1478,8 @@ Lemma isubst_ctx_equiv : forall t E1 E2,
   isubst E1 t = isubst E2 t.
 Proof using.
   hint ctx_equiv_rem.
-  intros t. induction t using trm_induct; introv EQ; simpl; fequals~.
-  { rewrite EQ. auto. }
+  intros t. induction t; introv EQ; rew_ctx; simpl; fequals~.
+  { rewrite~ EQ. }
 Qed.
 
 (** The next lemma asserts that [isubst] distribute over concatenation
@@ -1366,9 +1490,9 @@ Lemma isubst_app : forall t E1 E2,
   isubst (E1 ++ E2) t = isubst E1 (isubst E2 t).
 Proof using.
   hint ctx_disjoint_rem.
-  intros t. induction t using trm_induct; introv D; simpl; rew_trm.
+  intros t. induction t; introv D; simpl.
   { fequals. }
-  { rewrite~ lookup_app.
+  { rename v into x. rewrite~ lookup_app.
     case_eq (lookup x E1); introv K1; case_eq (lookup x E2); introv K2.
     { false* D. }
     { simpl. rewrite~ K1. }
@@ -1389,8 +1513,10 @@ Lemma isubst_rem : forall x v E t,
   isubst ((x, v)::E) t = subst x v (isubst (rem x E) t).
 Proof using.
   intros. rewrite subst_eq_isubst_one. rewrite <- isubst_app.
-  { applys isubst_ctx_equiv. intros y. simpl. rewrite lookup_rem. case_var~. }
-  { intros y v1 v2 K1 K2. simpls. case_var.
+  { applys isubst_ctx_equiv. intros y. rew_list.
+    do 2 rewrite lookup_cons. case_var~.
+    { rewrite lookup_rem. case_var~. } }
+  { intros y v1 v2 K1 K2. rewrite lookup_cons in K1. case_var.
     { subst. rewrite lookup_rem in K2. case_var~. } }
 Qed.
 
@@ -1400,6 +1526,18 @@ Qed.
 
 Definition formula_sound_for (t:trm) (F:formula) : Prop :=
   forall Q, F Q ==> wp t Q.
+
+Lemma wp_sound : forall t,
+  formula_sound_for t (wp t).
+Proof using. intros. intros Q. applys himpl_refl. Qed.
+
+Lemma mkstruct_sound : forall t F,
+  formula_sound_for t F ->
+  formula_sound_for t (mkstruct F).
+Proof using.
+  introv M. intros Q. unfold mkstruct. hsimpl ;=> Q'.
+  lets N: M Q'. hchange N. applys wp_ramified.
+Qed.
 
 Lemma wpgen_fail_sound : forall t,
   formula_sound_for t wpgen_fail.
@@ -1444,35 +1582,23 @@ Proof using.
   applys himpl_trans wp_if. case_if. { applys S1. } { applys S2. }
 Qed.
 
-Lemma wp_sound : forall t,
-  formula_sound_for t (wp t).
-Proof using. intros. intros Q. applys himpl_refl. Qed.
-
-Lemma mkstruct_sound : forall t F,
-  formula_sound_for t F ->
-  formula_sound_for t (mkstruct F).
-Proof using.
-  introv M. intros Q. unfold mkstruct. hsimpl ;=> Q'.
-  lets N: M Q'. hchange N. applys wp_ramified.
-Qed.
-
 Lemma wpgen_sound : forall E t,
   formula_sound_for (isubst E t) (wpgen E t).
 Proof using.
-  intros. gen E. induction t using trm_induct; intros; simpl; 
+  intros. gen E. induction t; intros; simpl; 
    applys mkstruct_sound.
   { applys wpgen_val_sound. } 
-  { unfold wpgen_var. case_eq (lookup x E).
+  { rename v into x. unfold wpgen_var. case_eq (lookup x E).
     { intros v EQ. applys wpgen_val_sound. }
     { intros N. applys wpgen_fail_sound. } }
   { applys wpgen_fun_sound. } 
   { applys wpgen_fix_sound. }
   { applys wp_sound. }
-  { applys wpgen_seq_sound. { applys IHt1. } { applys IHt2. } }
-  { applys wpgen_let_sound.
-    { applys IHt1. }
-    { intros v. rewrite <- isubst_rem. applys IHt2. } }
-  { applys wpgen_if_sound. { applys IHt1. } { applys IHt2. } }
+  { applys* wpgen_seq_sound. }
+  { rename v into x. applys* wpgen_let_sound.
+    { intros v. rewrite* <- isubst_rem. } }
+  { case_eq (isubst E t1); simpl; intros; try applys wpgen_fail_sound.
+    { applys* wpgen_if_sound. } }
 Qed.
 
 Theorem wpgen_himpl_wp : forall t H Q,

@@ -266,7 +266,7 @@ Import LibListAssoc.
 Definition is_beq A (beq:A->A->bool) :=
   forall x y, beq x y = isTrue (x = y).
 
-Fixpoint get_opt A B (beq:A->A->bool) (a:A) (l:list(A*B)) : option B :=
+Fixpoint get_opt A (beq:A->A->bool) B (a:A) (l:list(A*B)) : option B :=
   match l with
   | nil => None
   | (x,v)::l' => if beq x a
@@ -274,7 +274,7 @@ Fixpoint get_opt A B (beq:A->A->bool) (a:A) (l:list(A*B)) : option B :=
                    else get_opt beq a l'
   end.
 
-Lemma get_eq : forall A B beq a (l:list(A*B)),
+Lemma get_opt_eq : forall A beq B a (l:list(A*B)),
   is_beq beq ->
   get_opt beq a l = LibListAssoc.get_opt a l.
 Proof using.
@@ -283,7 +283,7 @@ Proof using.
   { rewrite~ get_opt_cons. rewrite M. repeat case_if; auto. }
 Qed.
 
-Fixpoint rem A B (beq:A->A->bool) (x:A) (E:list(A*B)) : list(A*B) :=
+Fixpoint rem A (beq:A->A->bool) B (x:A) (E:list(A*B)) : list(A*B) :=
   match E with
   | nil => nil
   | (y,v)::E' =>
@@ -291,7 +291,7 @@ Fixpoint rem A B (beq:A->A->bool) (x:A) (E:list(A*B)) : list(A*B) :=
       if beq x y then E'' else (y,v)::E''
   end.
 
-Lemma rem_eq : forall A B beq a (l:list(A*B)),
+Lemma rem_eq : forall A beq B a (l:list(A*B)),
   is_beq beq ->
   rem beq a l = LibListAssoc.rem a l.
 Proof using.

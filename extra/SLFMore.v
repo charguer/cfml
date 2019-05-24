@@ -2785,3 +2785,76 @@ Ltac fmap_red_base tt ::=
   match goal with H: eval _ ?t _ _ |- eval _ ?t _ _ =>
     applys_eq H 2 4; try fmap_eq end.
 
+
+
+
+Definition ctx_disjoint : ctx -> ctx -> Prop := 
+  @LibListAssoc.disjoint var val.
+
+(** [ctx_equiv E1 E2] asserts that the two contexts bind same
+    keys to same values. *)
+
+Definition ctx_equiv : ctx -> ctx -> Prop := 
+  @LibListAssoc.equiv var val.
+
+
+(** Basic properties of context operations follow. *)
+
+Section CtxOps.
+
+Lemma is_beq_var_eq :
+  LibListAssocExec.is_beq var_eq.
+Proof using. applys var_eq_spec. Qed.
+
+Hint Resolve is_beq_var_eq.
+
+Lemma ctx_equiv_eq : forall E1 E2,
+  ctx_equiv E1 E2 = (forall x, lookup x E1 = lookup x E2).
+Proof using.
+  intros. extens. unfold lookup. iff M.
+  { intros x. repeat rewrite LibListAssocExec.get_opt_eq; auto.  }
+  { intros x. specializes M x. do 2 rewrite~ LibListAssocExec.get_opt_eq in M.  }
+Qed.
+
+Lemma ctx_disjoint_inv : forall E1 E2,
+  ctx_equiv E1 E2 ->
+  forall x, lookup x E1 = lookup x E2.
+Proof using.
+  introv M. intros x. unfold lookup. repeat rewrite~ LibListAssocExec.get_opt_eq.
+Qed.
+
+M : forall (x : var) (v1 v2 : val),
+    LibListAssoc.get_opt x E1 = Some v1 -> LibListAssoc.get_opt x E2 = Some v2 -> False
+
+Lemma ctx_disjoint_rem : forall x E1 E2,
+  ctx_disjoint E1 E2 ->
+  ctx_disjoint (rem x E1) (rem x E2).
+Proof using.
+  introv M. intros y v1 v2 M1 M2. unfolds in M.
+
+Lemma wpgen_if_trm_sound : forall F0 F1 F2 t0 t1 t2,
+  formula_sound_for t0 F0 ->
+  formula_sound_for t1 F1 ->
+  formula_sound_for t2 F2 ->
+  formula_sound_for (trm_if t0 t1 t2) (wpgen_if_trm F0 F1 F2).
+Proof using.
+  introv S0 S1 S2. intros Q. unfold wpgen_if_trm, wpgen_let.
+lets: wp_if.
+  applys himpl_trans wp_if.
+  applys S0.
+  
+  applys himpl_trans. applys wpgen_let_sound.
+
+  applys himpl_trans wp_if. case_if. { applys S1. } { applys S2. }
+Qed.
+
+
+wpgen_if_trm (wpgen E t1) (wpgen E t2) (wpgen E t3) Q ==>
+wp (trm_if (isubst E t1) (isubst E t2) (isubst E t3)) Q
+
+
+unfolds in M.
+  repeat rewrite LibListAssocExec.get_opt_eq in *.
+Qed.
+
+
