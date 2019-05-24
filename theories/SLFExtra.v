@@ -299,8 +299,8 @@ Qed.
 (** Disjunction and conjunction *)
 
 
-(* ---------------------------------------------------------------------- *)
-(* ** Definition and properties of [hor] *)
+(* ------------------------------------------------------- *)
+(** *** Definition and properties of [hor] *)
 
 Definition hor (H1 H2 : hprop) : hprop :=
   \exists (b:bool), if b then H1 else H2.
@@ -336,8 +336,8 @@ Proof using.
 Qed.
 
 
-(* ---------------------------------------------------------------------- *)
-(* ** Definition and properties of [hand] *)
+(* ------------------------------------------------------- *)
+(** *** Definition and properties of [hand] *)
 
 Definition hand (H1 H2 : hprop) : hprop :=
   \forall (b:bool), if b then H1 else H2.

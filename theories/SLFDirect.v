@@ -18,6 +18,7 @@ From TLC Require Export LibCore.
 From Sep Require Export TLCbuffer Var.
 From Sep Require Fmap Hsimpl.
 
+
 (* ####################################################### *)
 (** * Imports *)
 
@@ -110,15 +111,21 @@ with trm : Type :=
 
 Definition heap : Type := fmap loc val.
 
+
+(* ******************************************************* *)
+(** ** Coq tweaks *)
+
+(** Handy notation to avoid providing type arguments to [Fmap.empty] *)
+
 Notation "'heap_empty'" := (@Fmap.empty loc val)
   (at level 0).
 
-Notation "h1 \u h2" := (Fmap.union h1 h2) (* optional *)
+(** Optional notation for union, only used to improve display *)
+
+Notation "h1 \u h2" := (Fmap.union h1 h2)
   (at level 37, right associativity).
 
-
-(* ******************************************************* *)
-(** ** Implicit Types *)
+(** Implicit types associated with variables *)
 
 Implicit Types f : var.
 Implicit Types b : bool.
@@ -323,8 +330,8 @@ Notation "Q1 \--* Q2" := (qwand Q1 Q2)
 (* ******************************************************* *)
 (** ** Basic properties of Separation Logic operators *)
 
-(* ---------------------------------------------------------------------- *)
-(* ** Tactic for automation *)
+(* ------------------------------------------------------- *)
+(** *** Tactic for automation *)
 
 (** [auto] is set up to process goals of the form [h1 = h2] by calling
     [fmap_eq], which proves equality modulo associativity and commutativity. *)
@@ -344,8 +351,8 @@ Tactic Notation "fmap_disjoint_pre" :=
 Hint Extern 1 (Fmap.disjoint _ _) => fmap_disjoint_pre.
 
 
-(* ---------------------------------------------------------------------- *)
-(* ** Properties of [himpl] and [qimpl] *)
+(* ------------------------------------------------------- *)
+(** *** Properties of [himpl] and [qimpl] *)
 
 Lemma himpl_refl : forall H,
   H ==> H.
@@ -357,7 +364,7 @@ Lemma himpl_trans : forall H2 H1 H3,
   (H1 ==> H2) ->
   (H2 ==> H3) ->
   (H1 ==> H3).
-Proof using. introv M1 M2. intros h H1h. eauto. Qed.
+Proof using. introv M1 M2. unfolds* himpl. Qed.
 
 Lemma himpl_trans_r : forall H2 H1 H3,
    H2 ==> H3 ->
@@ -378,81 +385,76 @@ Proof using. introv M. applys~ M. Qed.
 
 Lemma qimpl_refl : forall A (Q:A->hprop),
   Q ===> Q.
-Proof using. intros. hnfs*. Qed.
+Proof using. intros. unfolds*. Qed.
 
 Hint Resolve qimpl_refl.
 
-
-(* ---------------------------------------------------------------------- *)
-(* ** Properties of [hempty] *)
+(* ------------------------------------------------------- *)
+(** *** Properties of [hempty] *)
 
 Lemma hempty_intro :
   \[] heap_empty.
-Proof using. hnfs~. Qed.
+Proof using. unfolds*. Qed.
 
 Lemma hempty_inv : forall h,
   \[] h ->
   h = heap_empty.
 Proof using. auto. Qed.
 
-
-(* ---------------------------------------------------------------------- *)
-(* ** Properties of [hstar] *)
+(* ------------------------------------------------------- *)
+(** *** Properties of [hstar] *)
 
 Lemma hstar_intro : forall H1 H2 h1 h2,
   H1 h1 ->
   H2 h2 ->
   Fmap.disjoint h1 h2 ->
-  (H1 \* H2) (h1 \u h2).
+  (H1 \* H2) (Fmap.union h1 h2).
 Proof using. intros. exists~ h1 h2. Qed.
 
 Lemma hstar_inv : forall H1 H2 h,
   (H1 \* H2) h ->
-  exists h1 h2, H1 h1 /\ H2 h2 /\ Fmap.disjoint h1 h2 /\ h = h1 \u h2.
-Proof using. introv M. hnf in M. eauto. Qed.
+  exists h1 h2, H1 h1 /\ H2 h2 /\ Fmap.disjoint h1 h2 /\ h = Fmap.union h1 h2.
+Proof using. introv M. applys M. Qed.
 
 Lemma hstar_comm : forall H1 H2,
    H1 \* H2 = H2 \* H1.
 Proof using.
-  intros H1 H2. unfold hprop, hstar. extens. intros h.
-  iff (h1&h2&M1&M2&D&U); rewrite~ Fmap.union_comm_of_disjoint in U; 
-  exists* h2 h1.
+  intros H1 H2. unfold hprop, hstar.
+  apply himpl_antisym; intros h (h1&h2&M1&M2&D&U);
+   rewrite~ Fmap.union_comm_of_disjoint in U; exists* h2 h1.
 Qed.
 
 Lemma hstar_assoc : forall H1 H2 H3,
   (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
 Proof using.
-  intros H1 H2 H3. applys pred_ext_1. intros h. split.
+  intros H1 H2 H3. applys himpl_antisym; intros h.
   { intros (h'&h3&(h1&h2&M3&M4&D'&U')&M2&D&U). subst h'.
-    exists h1 (h2 \+ h3). splits~. { exists* h2 h3. } }
+    exists h1 (h2 \+ h3). splits~. { applys* hstar_intro. } }
   { intros (h1&h'&M1&(h2&h3&M3&M4&D'&U')&D&U). subst h'.
-    exists (h1 \+ h2) h3. splits~. { exists* h1 h2. } }
+    exists (h1 \+ h2) h3. splits~. { applys* hstar_intro. } }
 Qed.
 
 Lemma hstar_hempty_l : forall H,
   hempty \* H = H.
 Proof using.
-  intros. applys pred_ext_1. intros h.
-  iff (h1&h2&M1&M2&D&U) M.
-  { forwards E: hempty_inv M1. subst.
+  intros. applys himpl_antisym; intros h.
+  { intros (h1&h2&M1&M2&D&U). forwards E: hempty_inv M1. subst.
     rewrite~ Fmap.union_empty_l. }
-  { exists heap_empty h. splits~. applys hempty_intro. }
+  { intros M. exists heap_empty h. splits~. { applys hempty_intro. } }
 Qed.
 
 Lemma hstar_hempty_r : forall H,
   H \* \[] = H.
 Proof using.
-  applys neutral_r_of_comm_neutral_l.
-  applys~ hstar_comm.
-  applys~ hstar_hempty_l.
+  applys neutral_r_of_comm_neutral_l. applys~ hstar_comm. applys~ hstar_hempty_l.
 Qed.
 
 Lemma hstar_hexists : forall A (J:A->hprop) H,
   (hexists J) \* H = hexists (fun x => (J x) \* H).
 Proof using.
-  intros. applys pred_ext_1. intros h. iff M.
-  { destruct M as (h1&h2&(x&M1)&M2&D&U). exists~ x h1 h2. }
-  { destruct M as (x&(h1&h2&M1&M2&D&U)). exists h1 h2. splits~. exists~ x. }
+  intros. applys himpl_antisym; intros h.
+  { intros (h1&h2&(x&M1)&M2&D&U). exists~ x h1 h2. }
+  { intros (x&(h1&h2&M1&M2&D&U)). exists h1 h2. splits~. { exists~ x. } }
 Qed.
 
 Lemma hstar_hforall : forall H A (J:A->hprop),
@@ -486,7 +488,7 @@ Lemma himpl_hstar_trans_l : forall H1 H2 H3 H4,
   H2 \* H3 ==> H4 ->
   H1 \* H3 ==> H4.
 Proof using.
-  introv M1 M2. applys himpl_trans M2. applys himpl_frame_l M1. 
+  introv M1 M2. applys himpl_trans M2. applys himpl_frame_l M1.
 Qed.
 
 Lemma himpl_hstar_trans_r : forall H1 H2 H3 H4,
@@ -494,29 +496,28 @@ Lemma himpl_hstar_trans_r : forall H1 H2 H3 H4,
   H3 \* H2 ==> H4 ->
   H3 \* H1 ==> H4.
 Proof using.
-  introv M1 M2. applys himpl_trans M2. applys himpl_frame_r M1. 
+  introv M1 M2. applys himpl_trans M2. applys himpl_frame_r M1.
 Qed.
 
-
-(* ---------------------------------------------------------------------- *)
-(** Properties of [hpure] *)
+(* ------------------------------------------------------- *)
+(** ***  Properties of [hpure] *)
 
 Lemma hpure_intro : forall P,
   P ->
   \[P] heap_empty.
-Proof using. introv M. exists M. hnfs*. Qed.
+Proof using. introv M. exists M. unfolds*. Qed.
 
 Lemma hpure_inv : forall P h,
   \[P] h ->
   P /\ h = heap_empty.
 Proof using. introv (p&M). split~. Qed.
 
+(* LATER: rename to hstar_hpure_l and add symmetric _r lemma *)
 Lemma hstar_hpure : forall P H h, 
   (\[P] \* H) h = (P /\ H h).
 Proof using.
-  intros. extens. unfold hpure.
-  rewrite hstar_hexists.
-  rewrite* hstar_hempty_l.
+  intros. apply prop_ext. unfold hpure.
+  rewrite hstar_hexists. rewrite* hstar_hempty_l.
   iff (p&M) (p&M). { split~. } { exists~ p. }
 Qed.
 
@@ -528,16 +529,13 @@ Lemma himpl_hstar_hpure_r : forall P H H',
   P ->
   (H ==> H') ->
   H ==> (\[P] \* H').
-Proof using.
-  introv HP W. intros h K. rewrite* hstar_hpure.
-Qed.
+Proof using. introv HP W. intros h K. rewrite* hstar_hpure. Qed.
 
 Lemma hpure_inv_hempty : forall P h,
   \[P] h ->
   P /\ \[] h.
-Proof using.
-  introv M. rewrite <- hstar_hpure.
-  rewrite~ hstar_hempty_r.
+Proof using. 
+  introv M. rewrite <- hstar_hpure. rewrite~ hstar_hempty_r.
 Qed.
 
 Lemma hpure_intro_hempty : forall P h,
@@ -564,7 +562,7 @@ Qed.
 Lemma hempty_eq_hpure_true :
   \[] = \[True].
 Proof using.
-  applys pred_ext_1. intros h. iff M.
+  applys himpl_antisym; intros h M.
   { applys* hpure_intro_hempty. }
   { forwards*: hpure_inv_hempty M. }
 Qed.
@@ -572,13 +570,12 @@ Qed.
 Lemma hfalse_hstar_any : forall H,
   \[False] \* H = \[False].
 Proof using.
-  intros. applys pred_ext_1. intros h. rewrite hstar_hpure. iff M.
+  intros. applys himpl_antisym; intros h; rewrite hstar_hpure; intros M.
   { false*. } { lets: hpure_inv_hempty M. false*. }
 Qed.
 
-
-(* ---------------------------------------------------------------------- *)
-(** Properties of [hexists] *)
+(* ------------------------------------------------------- *)
+(** *** Properties of [hexists] *)
 
 Lemma hexists_intro : forall A (x:A) (J:A->hprop) h,
   J x h ->
@@ -608,9 +605,8 @@ Proof using.
   introv W. applys himpl_hexists_l. intros x. applys himpl_hexists_r W.
 Qed.
 
-
-(* ---------------------------------------------------------------------- *)
-(** Properties of [hforall] *)
+(* ------------------------------------------------------- *)
+(** *** Properties of [hforall] *)
 
 Lemma himpl_hforall_r : forall A (J:A->hprop) H,
   (forall x, H ==> J x) ->
@@ -634,22 +630,20 @@ Proof using.
   introv W. applys himpl_hforall_r. intros x. applys himpl_hforall_l W.
 Qed.
 
-
-(* ---------------------------------------------------------------------- *)
-(** Properties of [hwand] *)
+(* ------------------------------------------------------- *)
+(** *** Properties of [hwand] *)
 
 Lemma hwand_equiv : forall H0 H1 H2,
   (H0 ==> H1 \-* H2) <-> (H0 \* H1 ==> H2).
 Proof using.
   unfold hwand. iff M.
-  { applys himpl_trans. applys himpl_frame_l M.
-    (* applys himpl_hstar_trans_l (rm M). *)
+  { applys himpl_hstar_trans_l (rm M).
     rewrite hstar_hexists. applys himpl_hexists_l. intros H.
     rewrite (hstar_comm H). rewrite hstar_assoc.
     applys~ himpl_hstar_hpure_l. }
-  { applys himpl_hexists_r H0. 
-    rewrite hstar_comm. rewrite <- (hstar_hempty_l H0) at 1.
-    applys himpl_frame_l. applys himpl_hempty_hpure M. }
+  { applys himpl_hexists_r H0.
+    rewrite <- (hstar_hempty_r H0) at 1.
+    applys himpl_frame_r. applys himpl_hempty_hpure M. }
 Qed.
 
 Lemma himpl_hwand_r : forall H1 H2 H3,
@@ -676,7 +670,7 @@ Lemma hwand_hempty_l : forall H,
   (\[] \-* H) = H.
 Proof using.
   intros. applys himpl_antisym.
-  { rewrite <- (hstar_hempty_l (\[] \-* H)). applys hwand_cancel. }
+  { rewrite <- hstar_hempty_l at 1. applys hwand_cancel. }
   { rewrite hwand_equiv. rewrite~ hstar_hempty_r. }
 Qed.
 
@@ -684,9 +678,9 @@ Lemma hwand_hpure_l_intro : forall (P:Prop) H,
   P ->
   \[P] \-* H ==> H.
 Proof using. 
-  introv HP. rewrite <- (hstar_hempty_l (\[P] \-* H)).
+  introv HP. rewrite <- hstar_hempty_l at 1.
   forwards~ K: himpl_hempty_hpure P.
-  applys* himpl_hstar_trans_l K. applys hwand_cancel.
+  applys himpl_hstar_trans_l K. applys hwand_cancel.
 Qed.
 
 Arguments hwand_hpure_l_intro : clear implicits.
@@ -703,8 +697,8 @@ Lemma hwand_uncurry : forall H1 H2 H3,
 Proof using.
   intros. rewrite hwand_equiv. rewrite <- (hstar_comm (H1 \* H2)). 
   rewrite (@hstar_comm H1). rewrite hstar_assoc.
-  applys himpl_trans. applys himpl_frame_r. applys hwand_cancel.
-  applys hwand_cancel.
+  applys himpl_hstar_trans_r. 
+  { applys hwand_cancel. } { applys hwand_cancel. }
 Qed.
 
 Lemma hwand_curry_eq : forall H1 H2 H3,
@@ -715,19 +709,17 @@ Proof using.
   { applys hwand_uncurry. }
 Qed.
 
-
-(* ---------------------------------------------------------------------- *)
-(** Properties of qwand *)
+(* ------------------------------------------------------- *)
+(** *** Properties of qwand *)
 
 Lemma qwand_equiv : forall H A (Q1 Q2:A->hprop),
   H ==> (Q1 \--* Q2) <-> (Q1 \*+ H) ===> Q2.
 Proof using.
   unfold qwand. iff M.
-  { intros x. rewrite hstar_comm. applys himpl_trans.
-    applys himpl_frame_l M. applys himpl_trans. applys hstar_hforall.
-    applys himpl_hforall_l x. rewrite <- hwand_equiv. applys himpl_refl. }
-  { applys himpl_hforall_r. intros x.
-    rewrite hwand_equiv. rewrite* hstar_comm. }
+  { intros x. rewrite hstar_comm. applys himpl_hstar_trans_l (rm M).
+    applys himpl_trans. applys hstar_hforall. simpl.
+    applys himpl_hforall_l x. rewrite hstar_comm. applys hwand_cancel. }
+  { applys himpl_hforall_r. intros x. rewrite hwand_equiv. rewrite* hstar_comm. }
 Qed.
 
 Lemma himpl_qwand_r : forall A (Q1 Q2:A->hprop) H,
@@ -743,13 +735,12 @@ Proof using.
   intros. applys himpl_forall_trans. intros H M.
   rewrite qwand_equiv in M. specializes M x.
   rewrite hwand_equiv. rewrite~ hstar_comm.
-Qed.
+Qed. (* LATER: can this proof be done without [himpl_forall_trans]? *)
 
 Arguments qwand_specialize [ A ].
 
-
-(* ---------------------------------------------------------------------- *)
-(** Properties of [htop] *)
+(* ------------------------------------------------------- *)
+(** *** Properties of [htop] *)
 
 Lemma htop_intro : forall h,
   \Top h.
@@ -768,14 +759,11 @@ Lemma hstar_htop_htop :
 Proof using.
   applys himpl_antisym.
   { applys himpl_htop_r. }
-  { applys himpl_forall_trans. intros H M. applys himpl_trans M.
-    rewrite <- (hstar_hempty_r \Top) at 1. applys himpl_frame_r.
-    applys himpl_htop_r. }
+  { rewrite <- hstar_hempty_r at 1. applys himpl_frame_r. applys himpl_htop_r. }
 Qed.
 
-
-(* ---------------------------------------------------------------------- *)
-(** Properties of [hsingle] *)
+(* ------------------------------------------------------- *)
+(** *** Properties of [hsingle] *)
 
 Lemma hsingle_intro : forall l v,
   (l ~~~> v) (Fmap.single l v).
@@ -807,8 +795,8 @@ Arguments hstar_hsingle_same_loc : clear implicits.
     a restriction of [htop] to affine heap predicates. For our purpose,
     it suffices to define [hgc] as an alias for [htop]. *)
 
-(* ---------------------------------------------------------------------- *)
-(** Definition and properties of hgc *)
+(* ------------------------------------------------------- *)
+(** *** Definition and properties of hgc *)
 
 Definition hgc := htop.
 
@@ -829,9 +817,8 @@ Lemma hstar_hgc_hgc :
   \GC \* \GC = \GC.
 Proof using. applys hstar_htop_htop. Qed.
 
-
-(* ---------------------------------------------------------------------- *)
-(** Functor instantiation to obtain [hsimpl] *)
+(* ------------------------------------------------------- *)
+(** *** Functor instantiation to obtain [hsimpl] *)
 
 End HsimplArgs. 
 
@@ -931,9 +918,8 @@ Lemma hoare_conseq : forall t H' Q' H Q,
   Q' ===> Q ->
   hoare t H Q.
 Proof using.
-  introv M MH MQ HF. forwards (h'&v&R&K): M h.
-  { himpl_fold~. }
-  exists h' v. splits~. { himpl_fold. auto. }
+  introv M MH MQ HF. forwards (h'&v&R&K): M h. { himpl_fold~. }
+  exists h' v. splits~. { himpl_fold~. }
 Qed.
 
 Lemma hoare_hexists : forall t (A:Type) (J:A->hprop) Q,
@@ -955,7 +941,7 @@ Lemma hoare_val : forall v H Q,
   H ==> Q v ->
   hoare (trm_val v) H Q.
 Proof using.
-  introv M. intros h Hh. exists h v. splits.
+  introv M. intros h K. exists h v. splits.
   { applys eval_val. }
   { himpl_fold~. }
 Qed.
@@ -964,7 +950,7 @@ Lemma hoare_fun : forall x t1 H Q,
   H ==> Q (val_fun x t1) ->
   hoare (trm_fun x t1) H Q.
 Proof using.
-  introv M. intros h Hh. exists___. splits.
+  introv M. intros h K. exists h __. splits.
   { applys~ eval_fun. }
   { himpl_fold~. }
 Qed.
@@ -973,7 +959,7 @@ Lemma hoare_fix : forall f x t1 H Q,
   H ==> Q (val_fix f x t1) ->
   hoare (trm_fix f x t1) H Q.
 Proof using.
-  introv M. intros h Hh. exists___. splits.
+  introv M. intros h K. exists h __. splits.
   { applys~ eval_fix. }
   { himpl_fold~. }
 Qed.
@@ -1033,9 +1019,7 @@ Lemma hoare_add : forall H n1 n2,
 Proof using.
   intros. intros s K0. exists s (val_int (n1 + n2)). split.
   { applys eval_add. }
-  { rewrite hstar_hpure_iff. split.
-    { auto. }
-    { applys K0. } }
+  { rewrite~ hstar_hpure_iff. }
 Qed.
 
 Lemma hoare_ref : forall H v,
@@ -1047,11 +1031,8 @@ Proof using.
   forwards~ (l&D&_): (Fmap.single_fresh 0%nat s1 v).
   exists (Fmap.union (Fmap.single l v) s1) (val_loc l). split.
   { applys~ eval_ref_sep D. }
-  { applys hstar_intro.
-    { exists l. rewrite hstar_hpure.
-      split. { auto. } { applys hsingle_intro. } }
-    { applys K0. }
-    { applys D. } }
+  { applys~ hstar_intro.
+    { exists l. rewrite~ hstar_hpure. split~. { applys~ hsingle_intro. } } }
 Qed.
 
 Lemma hoare_get : forall H v l,
@@ -1059,12 +1040,11 @@ Lemma hoare_get : forall H v l,
     ((l ~~~> v) \* H)
     (fun r => \[r = v] \* (l ~~~> v) \* H).
 Proof using.
-  intros. intros s K0. 
-  exists s v. split.
+  intros. intros s K0. exists s v. split.
   { destruct K0 as (s1&s2&P1&P2&D&U).
     lets E1: hsingle_inv P1. subst s1.
     applys eval_get_sep U. }
-  { rewrite hstar_hpure. auto. }
+  { rewrite~ hstar_hpure. }
 Qed.
 
 Lemma hoare_set : forall H w l v,
@@ -1075,13 +1055,11 @@ Proof using.
   intros. intros s1 K0.
   destruct K0 as (h1&h2&P1&P2&D&U).
   lets E1: hsingle_inv P1.
-  exists ((Fmap.single l w) \u h2) val_unit. split.
+  exists (Fmap.union (Fmap.single l w) h2) val_unit. split.
   { subst h1. applys eval_set_sep U D. auto. }
-  { rewrite hstar_hpure. split.
-    { auto. }
-    { applys hstar_intro.
+  { rewrite hstar_hpure. split~.
+    { applys~ hstar_intro.
       { applys hsingle_intro. }
-      { applys P2. }
       { subst h1. applys Fmap.disjoint_single_set D. } } }
 Qed.
 
@@ -1089,16 +1067,14 @@ Qed.
 (* ******************************************************* *)
 (** ** Definition of [wp] and reasoning rules *)
 
-
-(* ---------------------------------------------------------------------- *)
-(** Definition of [wp] w.r.t. [hoare]  *)
+(* ------------------------------------------------------- *)
+(** *** Definition of [wp] w.r.t. [hoare]  *)
 
 Definition wp (t:trm) := fun (Q:val->hprop) =>
   \exists H, H \* \[forall H', hoare t (H \* H') (Q \*+ H' \*+ \Top)].
 
-
-(* ---------------------------------------------------------------------- *)
-(** Structural rule for [wp]. *)
+(* ------------------------------------------------------- *)
+(** *** Structural rule for [wp]. *)
 
 Lemma wp_ramified : forall Q1 Q2 t,
   (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
@@ -1135,9 +1111,8 @@ Lemma wp_hany_post : forall t H Q ,
   wp t (Q \*+ H) ==> wp t Q.
 Proof using. intros. applys himpl_trans_r wp_ramified. hsimpl. Qed.
 
-
-(* ---------------------------------------------------------------------- *)
-(** Reasoning rules for terms. *)
+(* ------------------------------------------------------- *)
+(** *** Reasoning rules for terms. *)
 
 Lemma wp_val : forall v Q,
   Q v ==> wp (trm_val v) Q.
@@ -1179,7 +1154,7 @@ Proof using.
   unfold wp at 1. hsimpl. intros H''.
   applys hoare_let. applys (rm M1). intros v. simpl. unfold wp.
   repeat rewrite hstar_hexists. applys hoare_hexists; intros H'''.
-  rewrite (hstar_comm H'''); repeat rewrite hstar_assoc.
+  rewrite (hstar_comm H'''); rew_heap.
   applys hoare_hpure; intros M2. applys hoare_conseq M2; hsimpl.
 Qed.
 
@@ -1266,16 +1241,26 @@ Open Scope liblist_scope.
 
 Definition ctx : Type := list (var*val).
 
-(** [rem x E] denotes the removal of bindings on [x] from [E]. *)
-
-Definition rem : var -> ctx -> ctx := 
-  @LibListAssocExec.rem var var_eq val.
-
 (** [lookup x E] returns [Some v] if [x] is bound to a value [v],
     and [None] otherwise. *)
 
-Definition lookup : var -> ctx -> option val := 
-  @LibListAssocExec.get_opt var var_eq val.
+Fixpoint lookup (x:var) (E:ctx) : option val :=
+  match E with
+  | nil => None
+  | (y,v)::E1 => if var_eq x y
+                   then Some v
+                   else lookup x E1
+  end.
+
+(** [rem x E] denotes the removal of bindings on [x] from [E]. *)
+
+Fixpoint rem (x:var) (E:ctx) : ctx :=
+  match E with
+  | nil => nil
+  | (y,v)::E1 =>
+      let E1' := rem x E1 in
+      if var_eq x y then E1' else (y,v)::E1'
+  end.
 
 (** [ctx_disjoint E1 E2] asserts that the two contexts have disjoint
     domains. *)
@@ -1293,95 +1278,45 @@ Definition ctx_equiv (E1 E2:ctx) : Prop :=
 
 Section CtxOps.
 
-Lemma is_beq_var_eq :
-  LibListAssocExec.is_beq var_eq.
-Proof using. applys var_eq_spec. Qed.
-
-Hint Resolve is_beq_var_eq.
-
-Lemma ctx_equiv_eq :
-  ctx_equiv = @LibListAssoc.equiv var val.
-Proof using.
-  intros. extens. intros E1 E2.
-  unfold ctx_equiv, lookup, LibListAssoc.equiv. iff M.
-  { intros x. specializes M x. do 2 rewrite~ LibListAssocExec.get_opt_eq in M. }
-  { intros x. do 2 rewrite~ LibListAssocExec.get_opt_eq. }
-Qed.
-
-Lemma ctx_disjoint_eq :
-  ctx_disjoint = @LibListAssoc.disjoint var val.
-Proof using.
-  intros. extens. intros E1 E2.
-  unfold ctx_disjoint, lookup, LibListAssoc.disjoint. iff M; intros x v1 v2 K1 K2.
-  { applys M; rewrite* LibListAssocExec.get_opt_eq. }
-  { rewrite LibListAssocExec.get_opt_eq in K1, K2; auto. applys* M. }
-Qed.
-
-Lemma lookup_nil : forall y,
-  lookup y (nil:ctx) = None.
-Proof using.
-  intros. unfold lookup. rewrite~ LibListAssocExec.get_opt_eq. 
-Qed.
-
-Lemma lookup_cons : forall x v E y,
-  lookup y ((x,v)::E) = (If x = y then Some v else lookup y E).
-Proof using.
-  intros. unfold lookup. repeat rewrite~ LibListAssocExec.get_opt_eq.
-Qed.
-
 Lemma lookup_app : forall E1 E2 x,
   lookup x (E1 ++ E2) = match lookup x E1 with
                          | None => lookup x E2
                          | Some v => Some v
                          end.
-Proof using. 
-  intros. unfold lookup. repeat rewrite~ LibListAssocExec.get_opt_eq.
-  applys~ LibListAssoc.get_opt_app.
+Proof using.
+  introv. induction E1 as [|(y,w) E1']; rew_list; simpl; intros.
+  { auto. } { case_var~. }
 Qed.
 
 Lemma lookup_rem : forall x y E,
   lookup x (rem y E) = If x = y then None else lookup x E.
-Proof using. 
-  intros. unfold lookup, rem. repeat rewrite~ LibListAssocExec.get_opt_eq.
-  repeat rewrite~ LibListAssocExec.rem_eq. applys~ LibListAssoc.get_opt_rem.
-Qed.
-
-Lemma rem_nil : forall y,
-  rem y (nil:ctx) = nil.
 Proof using.
-  intros. unfold rem. rewrite~ LibListAssocExec.rem_eq.
-Qed.
-
-Lemma rem_cons : forall x v E y,
-  rem y ((x,v)::E) = (If x = y then rem y E else (x,v) :: rem y E).
-Proof using. 
-  intros. unfold rem. repeat rewrite~ LibListAssocExec.rem_eq.
-  rewrite~ LibListAssoc.rem_cons.
+  intros. induction E as [|(z,v) E'].
+  { simpl. case_var~. }
+  { simpl. case_var~; simpl; case_var~. }
 Qed.
 
 Lemma rem_app : forall x E1 E2,
   rem x (E1 ++ E2) = rem x E1 ++ rem x E2.
-Proof using. 
-  intros. unfold rem. repeat rewrite~ LibListAssocExec.rem_eq.
-  rewrite~ LibListAssoc.rem_app.
+Proof using.
+  intros. induction E1 as [|(y,w) E1']; rew_list; simpl. { auto. }
+  { case_var~. { rew_list. fequals. } }
 Qed.
 
 Lemma ctx_equiv_rem : forall x E1 E2,
   ctx_equiv E1 E2 ->
   ctx_equiv (rem x E1) (rem x E2).
 Proof using.
-  introv M. rewrite ctx_equiv_eq in *. unfold rem.
-  repeat rewrite~ LibListAssocExec.rem_eq.
-  applys~ LibListAssoc.equiv_rem.
+  introv M. unfolds ctx_equiv. intros y.
+  do 2 rewrite lookup_rem. case_var~.
 Qed.
 
 Lemma ctx_disjoint_rem : forall x E1 E2,
   ctx_disjoint E1 E2 ->
   ctx_disjoint (rem x E1) (rem x E2).
 Proof using.
-  introv M. rewrite ctx_disjoint_eq in *. unfold rem.
-  repeat rewrite~ LibListAssocExec.rem_eq.
-  applys~ LibListAssoc.disjoint_rem.
+  introv D. intros y v1 v2 K1 K2. rewrite lookup_rem in *.
+  case_var~. applys* D K1 K2.
 Qed.
 
 Lemma ctx_disjoint_equiv_app : forall E1 E2,
@@ -1394,11 +1329,6 @@ Proof using.
 Qed.
 
 End CtxOps.
-
-Hint Rewrite lookup_nil lookup_cons rem_nil rem_cons : rew_ctx.
-
-Tactic Notation "rew_ctx" :=
-   autorewrite with rew_ctx.
 
 
 (* ******************************************************* *)
@@ -1526,20 +1456,18 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
 
 Lemma isubst_nil : forall t,
   isubst nil t = t.
-Proof using.
-  intros t. induction t; simpl; rew_ctx; fequals.
-Qed.
+Proof using. intros t. induction t; simpl; fequals. Qed.
 
 (** The next lemma relates [subst] and [isubst]. *)
 
 Lemma subst_eq_isubst_one : forall x v t,
   subst x v t = isubst ((x,v)::nil) t.
 Proof using.
-  intros. induction t; simpl; rew_ctx.
+  intros. induction t; simpl.
   { fequals. }
   { case_var~. }
   { fequals. case_var~. { rewrite~ isubst_nil. } }
-  { fequals. case_var; rew_ctx; try case_var; try rewrite isubst_nil; auto. }
+  { fequals. case_var; try case_var; simpl; try case_var; try rewrite isubst_nil; auto. }
   { fequals*. }
   { fequals*. }
   { fequals*. case_var~. { rewrite~ isubst_nil. } }
@@ -1554,7 +1482,7 @@ Lemma isubst_ctx_equiv : forall t E1 E2,
   isubst E1 t = isubst E2 t.
 Proof using.
   hint ctx_equiv_rem.
-  intros t. induction t; introv EQ; rew_ctx; simpl; fequals~.
+  intros t. induction t; introv EQ; simpl; fequals~.
   { rewrite~ EQ. }
 Qed.
 
@@ -1588,18 +1516,16 @@ Proof using.
   introv D. applys isubst_ctx_equiv. applys~ ctx_disjoint_equiv_app.
 Qed.
 
-(** We are ready to derive the desired property of [isubst]
-    for the soundness proof of [wp_gen]. *)
+(** We are ready to derive the second targeted property of [isubst]. *)
 
 Lemma isubst_rem : forall x v E t,
   isubst ((x, v)::E) t = subst x v (isubst (rem x E) t).
 Proof using.
   intros. rewrite subst_eq_isubst_one. rewrite <- isubst_app.
   rewrite isubst_app_swap.
-  { applys isubst_ctx_equiv. intros y. rew_list.
-    do 2 rewrite lookup_cons. case_var~.
+  { applys isubst_ctx_equiv. intros y. rew_list. simpl. case_var~.
     { rewrite lookup_rem. case_var~. } }
-  { intros y v1 v2 K1 K2. rewrite lookup_cons in K2. case_var.
+  { intros y v1 v2 K1 K2. simpls. case_var.
     { subst. rewrite lookup_rem in K1. case_var~. } }
 Qed.
 
@@ -1684,13 +1610,13 @@ Proof using.
     { applys* wpgen_if_sound. } }
 Qed.
 
-Theorem himpl_wpgen_wp : forall t Q,
+Lemma himpl_wpgen_wp : forall t Q,
   wpgen nil t Q ==> wp t Q.
 Proof using.
   introv M. lets N: (wpgen_sound nil t). rewrite isubst_nil in N. applys* N.
 Qed.
 
-Theorem triple_of_wpgen : forall t H Q,
+Lemma triple_of_wpgen : forall t H Q,
   H ==> wpgen nil t Q ->
   triple t H Q.
 Proof using.
@@ -1698,14 +1624,11 @@ Proof using.
 Qed.
 
 
-
 (* ####################################################### *)
 (** * Practical proofs *)
 
 (* ******************************************************* *)
-(** ** Tactics for [wpgen] *)
-
-(** Lemmas *)
+(** ** Lemmas for tactics to manipulate [wpgen] formulae *)
 
 Lemma xstruct_lemma : forall F H Q,
   H ==> F Q ->
@@ -1773,16 +1696,12 @@ Proof using.
   lets N: mkstruct_ramified (Q \*+ \Top) Q F. hchanges N.
 Qed.
 
-Tactic Notation "hsimpl'" :=
-  hsimpl; unfold protect.
 
-(** [xstruct] eliminates the leading [mkstruct]. *)
+(* ******************************************************* *)
+(** ** Tactics to manipulate [wpgen] formulae *)
 
 Tactic Notation "xstruct" :=
   applys xstruct_lemma.
-
-(** [xseq] and [xlet] invoke the corresponding lemma, after
-    calling [xstruct] if necessary. *)
 
 Tactic Notation "xstruct_if_needed" :=
   try match goal with |- ?H ==> mkstruct ?F ?Q => xstruct end.
@@ -1792,9 +1711,6 @@ Tactic Notation "xlet" :=
 
 Tactic Notation "xseq" :=
   xstruct_if_needed; applys xseq_lemma.
-
-(** [xapp] invokes [xapp_lemma], after calling [xseq] or [xlet]
-    if necessary. *)
 
 Tactic Notation "xseq_xlet_if_needed" :=
   try match goal with |- ?H ==> mkstruct ?F ?Q => 
@@ -1810,20 +1726,16 @@ Tactic Notation "xapp" :=
   xapp_pre; applys xapp_lemma.
 
 Tactic Notation "xapp" constr(E) :=
-  xapp_pre; applys xapp_lemma E; hsimpl'.
+  xapp_pre; applys xapp_lemma E; hsimpl; unfold protect.
 
 Tactic Notation "xapps" constr(E) :=
   xapp_pre; first 
   [ applys xapps_lemma0 E
   | applys xapps_lemma1 E ];
-  hsimpl'.
-
-(** [xtop] involves [xtop_lemma], exploiting the leading [mkstruct]. *)
+  hsimpl; unfold protect.
 
 Tactic Notation "xtop" :=
   applys xtop_lemma.
-
-(** [xcf] applys [xcf_lemma], then computes [wpgen] to begin the proof. *)
 
 Tactic Notation "xcf" :=
   intros; 
@@ -1874,7 +1786,7 @@ Notation "'If'' v 'Then' F1 'Else' F2" :=
 
 
 (* ******************************************************* *)
-(** ** Notation for terms *)
+(** ** Notation for concrete terms *)
 
 Notation "'If_' t0 'Then' t1 'Else' t2" :=
   (trm_if t0 t1 t2)
@@ -1940,8 +1852,8 @@ Open Scope wp_scope.
 Open Scope val_scope.
 Open Scope trm_scope.
 
-
-(** Definition and verification of [incr]. *)
+(* ------------------------------------------------------- *)
+(** *** Definition and verification of [incr]. *)
 
 Definition incr : val :=
   VFun 'p :=
@@ -1961,7 +1873,8 @@ Proof using.
   hsimpl~.
 Qed.
 
-(** Definition and verification of [mysucc]. *)
+(* ------------------------------------------------------- *)
+(** *** Definition and verification of [mysucc]. *)
 
 Definition mysucc : val :=
   VFun 'n :=
