@@ -1371,6 +1371,15 @@ Proof using.
   applys~ LibListAssoc.disjoint_rem.
 Qed.
 
+Lemma ctx_disjoint_equiv_app : forall E1 E2,
+  ctx_disjoint E1 E2 ->
+  ctx_equiv (E1 ++ E2) (E2 ++ E1).
+Proof using.
+  introv D. intros x. do 2 rewrite~ lookup_app. 
+  case_eq (lookup x E1); case_eq (lookup x E2); auto.
+  { intros v2 K2 v1 K1. false* D. }
+Qed.
+
 End CtxOps.
 
 Hint Rewrite lookup_nil lookup_cons rem_nil rem_cons : rew_ctx.
@@ -1536,47 +1545,9 @@ Proof using.
   { rewrite~ EQ. }
 Qed.
 
-(** The next lemma asserts that [isubst] distribute over concatenation
-    of disjoint contexts. *)
+(** The next lemma asserts that [isubst] distribute over concatenation. *)
 
 Lemma isubst_app : forall t E1 E2,
-  ctx_disjoint E1 E2 ->
-  isubst (E1 ++ E2) t = isubst E1 (isubst E2 t).
-Proof using.
-  hint ctx_disjoint_rem.
-  intros t. induction t; introv D; simpl.
-  { fequals. }
-  { rename v into x. rewrite~ lookup_app.
-    case_eq (lookup x E1); introv K1; case_eq (lookup x E2); introv K2.
-    { false* D. }
-    { simpl. rewrite~ K1. }
-    { auto. }
-    { simpl. rewrite~ K1. } }
-  { fequals. rewrite* rem_app. }
-  { fequals. do 2 rewrite* rem_app. }
-  { fequals*. }
-  { fequals*. }
-  { fequals*. { rewrite* rem_app. } }
-  { fequals*. }
-Qed.
-
-(** We are ready to derive the desired property of [isubst]
-    for the soundness proof of [wp_gen]. *)
-
-Lemma isubst_rem : forall x v E t,
-  isubst ((x, v)::E) t = subst x v (isubst (rem x E) t).
-Proof using.
-  intros. rewrite subst_eq_isubst_one. rewrite <- isubst_app.
-  { applys isubst_ctx_equiv. intros y. rew_list.
-    do 2 rewrite lookup_cons. case_var~.
-    { rewrite lookup_rem. case_var~. } }
-  { intros y v1 v2 K1 K2. rewrite lookup_cons in K1. case_var.
-    { subst. rewrite lookup_rem in K2. case_var~. } }
-Qed.
-
-
-(** TODO: simplify this *)
-Lemma isubst_app' : forall t E1 E2,
   isubst (E1 ++ E2) t = isubst E2 (isubst E1 t).
 Proof using.
   hint ctx_disjoint_rem.
@@ -1592,6 +1563,31 @@ Proof using.
   { fequals*. }
   { fequals*. { rewrite* rem_app. } }
   { fequals*. }
+Qed.
+
+(** The next lemma asserts that the concatenation order is irrelevant
+    in a substitution if the contexts have disjoint domains. *)
+
+Lemma isubst_app_swap : forall t E1 E2,
+  ctx_disjoint E1 E2 ->
+  isubst (E1 ++ E2) t = isubst (E2 ++ E1) t.
+Proof using.
+  introv D. applys isubst_ctx_equiv. applys~ ctx_disjoint_equiv_app.
+Qed.
+
+(** We are ready to derive the desired property of [isubst]
+    for the soundness proof of [wp_gen]. *)
+
+Lemma isubst_rem : forall x v E t,
+  isubst ((x, v)::E) t = subst x v (isubst (rem x E) t).
+Proof using.
+  intros. rewrite subst_eq_isubst_one. rewrite <- isubst_app.
+  rewrite isubst_app_swap.
+  { applys isubst_ctx_equiv. intros y. rew_list.
+    do 2 rewrite lookup_cons. case_var~.
+    { rewrite lookup_rem. case_var~. } }
+  { intros y v1 v2 K1 K2. rewrite lookup_cons in K2. case_var.
+    { subst. rewrite lookup_rem in K1. case_var~. } }
 Qed.
 
 
@@ -1751,7 +1747,7 @@ Lemma xcf_lemma_fix : forall v1 v2 f x t H Q,
 Proof using.
   introv M1 M2. rewrite wp_equiv. hchange M2.
   lets N: wpgen_sound (((f,v1)::nil) ++ (x,v2)::nil) t Q.
-  hchange N. rewrite isubst_app'.
+  hchange N. rewrite isubst_app.
   do 2 rewrite <- subst_eq_isubst_one.
   applys* wp_app_fix.
 Qed.
