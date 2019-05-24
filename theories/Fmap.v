@@ -14,6 +14,17 @@ Set Implicit Arguments.
 From TLC Require Import LibCore.
 
 
+(** The type [map A B] is represented as a function of type [A -> option B].
+
+    Type type [fmap A B] is represented as a pair of a map of type [map A B]
+    and a proof that the domain of the map is finite. The finiteness of the
+    domain is witnessed by a list of keys such that the map binds any key 
+    not in that list to [None]. 
+
+*)
+
+
+
 (* ********************************************************************** *)
 (** * Maps (partial functions) *)
 
@@ -1023,7 +1034,3 @@ Proof using.
 Qed.
 
 End FmapFresh.
-
-
-
-

@@ -1307,18 +1307,16 @@ Qed.
     domains", and argue that if [E1] and [E2] are disjoint then
     [isubst (E1 ++ E2) t = isubst E1 (isubst E2 t)]. *)
 
-(** Before we start, we introduce the tactic [case_var] to
-    help with the case_analyses on variable equalities,
+(** Before we start, we describe the tactic [case_var], which
+    helps with the case_analyses on variable equalities,
     and we prove an auxiliary lemma that describes the
     result of a lookup on a context from which a binding
-    has been removed. *)
-
-Tactic Notation "case_var" := 
-  repeat rewrite var_eq_spec in *; repeat case_if.
-  (* LATER: use a case_if that performs substitution *)
-
-Tactic Notation "case_var" "~" := 
-  case_var; auto.
+    has been removed. It is defined in file [Var.v] as: 
+[[
+    Tactic Notation "case_var" := 
+      repeat rewrite var_eq_spec in *; repeat case_if.
+]]
+*)
 
 (** A lemma about the lookup in a removal. *)
 
@@ -1378,7 +1376,7 @@ Lemma ctx_disjoint_rem : forall x E1 E2,
   ctx_disjoint (rem x E1) (rem x E2).
 Proof using.
   introv D. intros y v1 v2 K1 K2. rewrite lookup_rem in *.
-  rewrite var_eq_spec in *. case_if~. applys* D K1 K2.
+  case_var~. applys* D K1 K2.
 Qed.
 
 (** An inversion lemma for [ctx_disjoint] *)
@@ -1388,8 +1386,8 @@ Lemma ctx_disjoint_cons_l_inv : forall x v E1 E2,
   ctx_disjoint E1 E2.
 Proof using.
   introv M. intros y v1 v2 K1 K2. tests C: (x = y).
-  { applys M v v2 K2. simpl. rewrite var_eq_spec. case_if~. }
-  { applys M v1 v2 K2. simpl. rewrite var_eq_spec. case_if~. }
+  { applys M v v2 K2. simpl. case_var~. }
+  { applys M v1 v2 K2. simpl. case_var~. }
 Qed.
 
 (** Lookup in the concatenation of two disjoint contexts *)
@@ -1403,7 +1401,7 @@ Lemma lookup_app : forall x E1 E2,
 Proof using.
   introv. induction E1 as [|(y,w) E1']; rew_list; simpl; introv D.
   { auto. }
-  { lets D': ctx_disjoint_cons_l_inv D. rewrite var_eq_spec. case_if~ . }
+  { lets D': ctx_disjoint_cons_l_inv D. case_var~. }
 Qed.
 
 (** The key induction shows that [isubst] distributes over

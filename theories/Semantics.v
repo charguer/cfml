@@ -506,7 +506,7 @@ Lemma subst_trm_fixs : forall y w f xs t,
   var_fresh y (f::xs) ->
   subst1 y w (trm_fixs f xs t) = trm_fixs f xs (subst1 y w t).
 Proof using.
-  introv N. simpls. rewrite var_eq_spec in N. repeat case_if.
+  introv N. simpls. case_var.
   { false* var_fresh_mem_inv. }
   { auto. }
 Qed.
@@ -554,7 +554,7 @@ Lemma isubst_cons : forall x v E t,
 Proof using.
   intros. rew_ctx. gen E.
   induction t using trm_induct; intros; simpl; try solve [ fequals* ].
-  { rewrite var_eq_spec. do 2 case_if*. }
+  { case_var~. }
   { rename b into f. rew_ctx. fequals. simpl. rew_ctx. case_if.
     { subst. rewrite~ Ctx.rem_add_same. }
     { rewrite~ Ctx.rem_add_neq. case_if.
@@ -571,7 +571,7 @@ Proof using.
     induction l as [|t' l'].
     { auto. }
     { rew_listx. rewrite* IHl'. fequals*. } } 
-  { rew_ctx. fequals. rewrite var_eq_spec. do 2 case_if*. }
+  { rew_ctx. fequals. case_var~. }
   { rew_ctx. fequals. rewrite List_map_eq. rewrite map_map. applys map_congr.
     intros [pi ti] Mi. fequals. case_if.
     { rewrite~ Ctx.rem_vars_add_mem. }
@@ -1202,7 +1202,7 @@ Proof using.
   { applys* eval_apps_funs (v2::nil). 
     { simpls. splits; auto_false. splits*. } }
   { applys* eval_apps_fixs (v2::nil). 
-    { simpls. splits; auto_false. splits*. simpls. rewrite var_eq_spec. case_if*. } }
+    { simpls. splits; auto_false. splits*. simpls. case_var~. } }
 Qed. (* LATER: clean up *)
 
 Lemma eval_app_trm : forall m1 m2 m3 m4 t1 t2 f x t3 v1 v2 r,

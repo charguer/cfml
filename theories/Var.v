@@ -17,6 +17,15 @@ Generalizable Variables A.
 (* ********************************************************************** *)
 (* * Variables *)
 
+(** A variable is represented as a string.
+
+    The boolean function [var_eq x y] compares two variables.
+
+    The tactic [case_var] performs case analysis on expressions of the form
+    [if var_eq x y then .. else ..] that appear in the goal. 
+
+*)
+
 (* ---------------------------------------------------------------------- *)
 (** Representation of variables *)
 
@@ -49,6 +58,16 @@ Ltac var_neq :=
               [ false | apply E ] ] end.
 
 Hint Extern 1 (?x <> ?y) => var_neq.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Tactic [case_var] *)
+
+Tactic Notation "case_var" := 
+  repeat rewrite var_eq_spec in *; repeat case_if.
+
+Tactic Notation "case_var" "~" := 
+  case_var; auto.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -98,7 +117,7 @@ Lemma var_fresh_mem_inv : forall y x xs,
 Proof using.
   introv H M N. subst. induction xs as [|x xs'].
   { inverts M. }
-  { simpls. rewrite var_eq_spec in H. case_if. inverts~ M. }
+  { simpls. case_var. inverts~ M. }
 Qed.
 
 
@@ -200,7 +219,7 @@ Lemma var_fresh_var_seq_lt : forall (x:nat) start nb,
 Proof using.
   intros. gen start. induction nb; intros.
   { auto. }
-  { simpl. rewrite var_eq_spec. case_if.
+  { simpl. case_var.
     { lets: injective_nat_to_var C. math. }
     { applys IHnb. math. } }
 Qed.
@@ -211,7 +230,7 @@ Lemma var_fresh_var_seq_ge : forall (x:nat) start nb,
 Proof using.
   intros. gen start. induction nb; intros.
   { auto. }
-  { simpl. rewrite var_eq_spec. case_if.
+  { simpl. case_var.
     { lets: injective_nat_to_var C. math. }
     { applys IHnb. math. } }
 Qed.

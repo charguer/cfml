@@ -217,10 +217,7 @@ Qed.
 Lemma fresh_inv : forall (x1 x2:var) v E,
   fresh x1 (add x2 v E) ->
   x1 <> x2 /\ fresh x1 E.
-Proof using.
-  introv M. unfolds fresh. simpls.
-  rewrite var_eq_spec in *. case_if~.
-Qed.
+Proof using. introv M. unfolds fresh. simpls. case_var~. Qed.
 
 (** [rem_var] and [rem] *)
 
@@ -243,7 +240,7 @@ Lemma rem_add_same : forall z v E,
 Proof using.
   intros. destruct z as [|x].
   { auto. }
-  { simpl. rewrite var_eq_spec. case_if~. }
+  { simpl. case_var~. }
 Qed.
 
 Lemma rem_add_neq : forall z1 z2 v E,
@@ -254,7 +251,7 @@ Proof using.
   { auto. }
   { destruct z1 as [|x1].
     { auto. }
-    { simpl. rewrite var_eq_spec. case_if~. } }
+    { simpl. case_var~. } }
 Qed.
 
 (** [rem] interacts with [fresh] *)
@@ -265,8 +262,7 @@ Lemma rem_fresh : forall x E,
 Proof using.
   introv M. unfold rem. induction E as [|(y,v) E'].
   { auto. }
-  { simpls. lets (N1&N2): fresh_inv (rm M).
-    rewrite var_eq_spec in *. case_if. rewrite~ IHE'. }
+  { simpls. lets (N1&N2): fresh_inv (rm M). case_var. fequals*. }
 Qed.
 
 (** [rem] interact with [rem] and [rem_vars] *)
@@ -276,11 +272,7 @@ Lemma rem_var_rem_var : forall x y E,
 Proof using. 
   intros. induction E as [| (z,w) E']; simpl.
   { auto. }
-  { repeat rewrite var_eq_spec. repeat case_if.
-    { auto. }
-    { subst. simpl. rewrite var_eq_spec. case_if. auto. }
-    { subst. simpl. rewrite var_eq_spec. case_if. auto. }
-    { simpl. repeat rewrite var_eq_spec. repeat case_if. fequals. } }
+  { repeat case_var; simpl; repeat case_var; auto. { fequals*. } }
 Qed.
 
 Lemma rem_var_rem_vars : forall xs x E,
@@ -313,7 +305,7 @@ Lemma rem_vars_add_mem : forall x v xs E,
 Proof using.
   introv M. gen E. induction xs as [|y xs']; intros.
   { inverts M. }
-  { simpl. rewrite var_eq_spec. case_if.
+  { simpl. case_var.
     { auto. } 
     { inverts M; tryfalse. rewrite cons_eq_ctx_add. rewrite~ IHxs'. } }
 Qed.
@@ -324,7 +316,7 @@ Lemma rem_vars_add_not_mem : forall x v xs E,
 Proof using.
   introv M. gen E. induction xs as [|y xs']; intros.
   { auto. }
-  { simpl. lets (N&M'): not_mem_inv (rm M). rewrite var_eq_spec. case_if. 
+  { simpl. lets (N&M'): not_mem_inv (rm M). case_var.
     rewrite cons_eq_ctx_add. rewrite~ IHxs'. }
 Qed.
 
@@ -335,8 +327,7 @@ Qed.
 Lemma lookup_or_arbitrary_cons : forall `{Inhab A} x y v (E:ctx A),
   lookup_or_arbitrary x ((y,v)::E) = If x = y then v else lookup_or_arbitrary x E.
 Proof using.
-  intros. unfold lookup_or_arbitrary. simpl lookup.
-  repeat rewrite var_eq_spec. repeat case_if~.
+  intros. unfold lookup_or_arbitrary. simpl lookup. repeat case_var; auto.
 Qed.
 
 Lemma lookup_or_arbitrary_cons_same : forall `{Inhab A} x v (E:ctx A),
