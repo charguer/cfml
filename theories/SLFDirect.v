@@ -109,7 +109,13 @@ with trm : Type :=
   | trm_let : var -> trm -> trm -> trm
   | trm_if : trm -> trm -> trm -> trm.
 
-Definition heap : Type := fmap loc val.
+Definition state : Type := fmap loc val.
+
+(** The type [heap], a.k.a. [state]. By convention, the "state"
+    refers to the full memory state, while the "heap" potentially
+    refers to only a fraction of the memory state. *)
+
+Definition heap : Type := state.
 
 
 (* ******************************************************* *)
@@ -133,7 +139,8 @@ Implicit Types l : loc.
 Implicit Types n : int.
 Implicit Types v w r : val.
 Implicit Types t : trm.
-Implicit Types h s : heap.
+Implicit Types h : heap.
+Implicit Types s : state.
 
 (** The type of values is inhabited. *)
 

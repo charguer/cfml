@@ -41,14 +41,18 @@ License: MIT.
     - [SLFDirect]: provides the minimal set of definitions and lemmas required
                    to build an effective program verification tool, without detour.
                    This file is mostly self-contained; it depends on variables
-                   defined in [Var.v], on finite maps defined in [Fmap.v] and on the 
+                   defined in [Var.v], on finite maps defined in [Fmap.v] and on the
                    implementation of the SL simplification tactic from [Hsimpl.v].
 
     - [SLFExtra]: recaps all the definition and lemmas from the course that are
                   not included in [SLFDirect]. This file only depends on [SLFDirect].
 
+*)
 
-    There are three future chapters, planned but not yet written:
+(* ####################################################### *)
+(** * Future work *)
+
+(** There are three future chapters, planned but not yet written:
 
     - [SLFLift]: presentation of a technique for writing postconditions that
                  directly bind a Coq value rather than a value from the deeply 
@@ -56,7 +60,7 @@ License: MIT.
 
     - [SLFRich]: presentation of the techniques for handling a source language 
                  with more features.
- 
+
     - [SLFExt]: examples of two extensions of Separation Logic, one with time 
                 credits, and one with read-only permissions.
 

@@ -23,11 +23,6 @@ Implicit Types l : loc.
 Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
 
-(** The type [heap], a.k.a. [state]. By convention, the "state"
-    refers to the full memory state, while the "heap" potentially
-    refers to only a fraction of the memory state. *)
-
-Definition state : Type := heap.
 
 
 (* ####################################################### *)
