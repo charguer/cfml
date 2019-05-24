@@ -311,7 +311,7 @@ Implicit Types Q : val->hprop.
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic for automation *)
 
-Hint Extern 1 (_ = _ :> heap) => prove_eq.
+Hint Extern 1 (_ = _ :> heap) => fmap_eq.
 
 Lemma heap_disjoint_def : forall h1 h2,
   heap_disjoint h1 h2 = Fmap.disjoint (h1^s) (h2^s).
@@ -399,14 +399,14 @@ Lemma heap_union_comm : forall h1 h2,
   h1 \u h2 = h2 \u h1.
 Proof using.
   intros [m1 n1] [m2 n2] H. unfold heap_union.
-  simpl. fequals. prove_eq. math.
+  simpl. fequals. fmap_eq. math.
 Qed.
 
 Lemma heap_union_assoc : forall h1 h2 h3,
   (h1 \u h2) \u h3 = h1 \u (h2 \u h3).
 Proof using.
   intros [m1 n1] [m2 n2] [m3 n3]. unfolds heap_union.
-  simpl. fequals. prove_eq. math.
+  simpl. fequals. fmap_eq. math.
 Qed.
 
 Lemma heap_union_empty_l : forall h,
@@ -502,11 +502,11 @@ Proof using.
   { intros (h'&h3&(h1&h2&M3&M4&D'&U')&M2&D&U). subst h'.
     exists h1 (h2 \u h3). splits~.
     { exists h2 h3. splits*. }
-    { subst. applys heap_eq. split. { prove_eq. } { simpl; math. } } }
+    { subst. applys heap_eq. split. { fmap_eq. } { simpl; math. } } }
   { intros (h1&h'&M1&(h2&h3&M3&M4&D'&U')&D&U). subst h'.
     exists (h1 \u h2) h3. splits~.
     { exists h1 h2. splits*. }
-    { subst. applys heap_eq. split. { prove_eq. } { simpl; math. } } }
+    { subst. applys heap_eq. split. { fmap_eq. } { simpl; math. } } }
 Qed.
 
 Lemma hstar_hexists : forall A (J:A->hprop) H,
@@ -685,10 +685,10 @@ Lemma hcredits_add_eq : forall n m,
 Proof using.
   intros c1 c2. unfold hcredits, hstar, heap_union, heap_disjoint, heap_credits.
   applys pred_ext_1. intros [m n]. iff M.
-  { inverts M. exists___. splits*; simpl; try prove_eq.
-    { fequals. prove_eq. math. } }
+  { inverts M. exists___. splits*; simpl; try fmap_eq.
+    { fequals. fmap_eq. math. } }
   { destruct M as ([m1 n1]&[m2 n2]&M3&M4&M5&M6).
-    inverts M3. inverts M4. rewrite M6. simpl. fequals. prove_eq. }
+    inverts M3. inverts M4. rewrite M6. simpl. fequals. fmap_eq. }
 Qed.
 
 Lemma hcredits_sub : forall n m,
@@ -956,7 +956,7 @@ Proof using.
   destruct h1 as [n1 c1]. simpls. subst. simpls.
   lets~ (n&h'&v&R&K&C): (rm M) HF h2.
   exists (n+1)%nat h' v. splits~.
-  { applys* eval_app_fix_val. applys_eq R 2 4; try prove_eq. }
+  { applys* eval_app_fix_val. applys_eq R 2 4; try fmap_eq. }
   { math. }
 Qed.
 
@@ -1071,14 +1071,14 @@ Proof using.
     splits~.
     { subst. rew_disjoint; simpls; rew_disjoint. destruct N2.
      splits~. }
-    { applys_eq R1 2 4; try prove_eq. }
+    { applys_eq R1 2 4; try fmap_eq. }
     { lets P: hgc_heap_inv T1. simpls. math. } }
   { introv (h1&h2&N1&N2&D&U).
     forwards~ (n&m1'&m3'&c1'&v&R1&R2&R3&R4): M (h1^s) (h1^c) (h2^s).
     { applys_eq N1 1. applys~ heap_eq. }
     lets (?&?): heap_eq_forward (rm U). simpls.
     exists n (m1' \+ m3' \+ h2^s) (c-n) v. splits~.
-    { applys_eq R2 2 4; try prove_eq. }
+    { applys_eq R2 2 4; try fmap_eq. }
     { exists (m1',c1') (m3' \+ h2^s, (h2^c + h1^c - n - c1')). splits~.
       { exists (m3',(h1^c - n - c1')) h2. splits~.
         { applys hgc_intro. simpl. math. }

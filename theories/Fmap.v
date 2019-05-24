@@ -714,7 +714,7 @@ Tactic Notation "rew_disjoint" :=
 Tactic Notation "rew_disjoint" "*" :=
   rew_disjoint; auto_star.
 
-Tactic Notation "prove_disjoint" :=
+Tactic Notation "fmap_disjoint" :=
   solve [ subst; rew_disjoint; jauto_set; auto ].
 
 Lemma disjoint_demo : forall A B (h1 h2 h3 h4 h5:fmap A B),
@@ -725,7 +725,7 @@ Lemma disjoint_demo : forall A B (h1 h2 h3 h4 h5:fmap A B),
 Proof using.
   intros. dup 2.
   { subst. rew_disjoint. jauto_set. auto. auto. auto. auto. }
-  { prove_disjoint. }
+  { fmap_disjoint. }
 Qed.
 
 
@@ -827,7 +827,7 @@ Tactic Notation "rew_fmap" "~" :=
 Tactic Notation "rew_fmap" "*" :=
   rew_fmap; auto_star.
 
-Ltac prove_eq_step tt :=
+Ltac fmap_eq_step tt :=
   match goal with | |- ?G => match G with
   | ?h1 = ?h1 => apply union_eq_cancel_1'
   | ?h1 \+ ?h2 = ?h1 \+ ?h2' => apply union_eq_cancel_1
@@ -839,22 +839,22 @@ Ltac prove_eq_step tt :=
   | ?h1 \+ ?h2 = ?h1' \+ ?h2' \+ ?h3' \+ ?h1 \+ ?h4' => apply union_eq_cancel_4
   end end.
 
-Tactic Notation "prove_eq" :=
+Tactic Notation "fmap_eq" :=
   subst;
   rew_fmap;
-  repeat (prove_eq_step tt);
+  repeat (fmap_eq_step tt);
   try match goal with
-  | |- \# _ _ => prove_disjoint
-  | |- \# _ _ _ => prove_disjoint
+  | |- \# _ _ => fmap_disjoint
+  | |- \# _ _ _ => fmap_disjoint
   end.
 
-Tactic Notation "prove_eq" "~" :=
-  prove_eq; auto_tilde.
+Tactic Notation "fmap_eq" "~" :=
+  fmap_eq; auto_tilde.
 
-Tactic Notation "prove_eq" "*" :=
-  prove_eq; auto_star.
+Tactic Notation "fmap_eq" "*" :=
+  fmap_eq; auto_star.
 
-Lemma prove_eq_demo : forall A B (h1 h2 h3 h4 h5:fmap A B),
+Lemma fmap_eq_demo : forall A B (h1 h2 h3 h4 h5:fmap A B),
   \# h1 h2 h3 ->
   \# (h1 \+ h2 \+ h3) h4 h5 ->
   h1 = h2 \+ h3 ->
@@ -862,10 +862,10 @@ Lemma prove_eq_demo : forall A B (h1 h2 h3 h4 h5:fmap A B),
 Proof using.
   intros. dup 2.
   { subst. rew_fmap.
-    prove_eq_step tt. prove_disjoint.
-    prove_eq_step tt.
-    prove_eq_step tt. prove_disjoint. auto. }
-  { prove_eq. }
+    fmap_eq_step tt. fmap_disjoint.
+    fmap_eq_step tt.
+    fmap_eq_step tt. fmap_disjoint. auto. }
+  { fmap_eq. }
 Qed.
 
 

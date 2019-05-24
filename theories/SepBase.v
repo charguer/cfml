@@ -159,8 +159,8 @@ Implicit Types Q : val->hprop.
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic for automation *)
 
-Hint Extern 1 (_ = _ :> heap) => prove_eq.
-Hint Extern 1 (_ = _ :> state) => prove_eq.
+Hint Extern 1 (_ = _ :> heap) => fmap_eq.
+Hint Extern 1 (_ = _ :> state) => fmap_eq.
 
 Tactic Notation "Fmap.disjoint_pre" :=
   subst; rew_disjoint; jauto_set.

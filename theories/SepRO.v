@@ -84,7 +84,7 @@ Definition heap_compat (h1 h2 : heap) : Prop :=
 Program Definition heap_union (h1 h2 : heap) : heap :=
   If (heap_compat h1 h2) then (h1^f \+ h2^f, h1^r \+ h2^r) else arbitrary.
 Next Obligation.
-  destruct H. prove_disjoint.
+  destruct H. fmap_disjoint.
 Qed.
 
 Notation "h1 \u h2" := (heap_union h1 h2)
@@ -176,13 +176,13 @@ Notation "Q \*+ H" := (fun x => hstar (Q x) H)
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic for automation *)
 
-(* Hint Extern 1 (_ = _ :> heap) => prove_eq. LATER *)
+(* Hint Extern 1 (_ = _ :> heap) => fmap_eq. LATER *)
 
-Tactic Notation "prove_disjoint_pre" :=
+Tactic Notation "fmap_disjoint_pre" :=
   subst; rew_disjoint; jauto_set.
 
-Hint Extern 1 (\# _ _) => prove_disjoint_pre.
-Hint Extern 1 (\# _ _ _) => prove_disjoint_pre.
+Hint Extern 1 (\# _ _) => fmap_disjoint_pre.
+Hint Extern 1 (\# _ _ _) => fmap_disjoint_pre.
 
 Hint Resolve Fmap.agree_sym.
 
@@ -253,7 +253,7 @@ Lemma heap_ro_state : forall h,
   heap_state (heap_ro h) = heap_state h.
 Proof using.
   intros h. do 2 rewrite heap_fmap_def. rewrite heap_ro_f, heap_ro_r.
-  prove_eq.
+  fmap_eq.
 Qed.
 
 
@@ -282,7 +282,7 @@ Lemma heap_union_f : forall h1 h2,
 Proof using.
   introv D. unfold heap_union. rewrite (classicT_l D).
   destruct h1 as ((f1,r1)&D1). destruct h2 as ((f2,r2)&D2).
-  unstate. prove_eq.
+  unstate. fmap_eq.
 Qed.
 
 Lemma heap_union_r : forall h1 h2,
@@ -291,7 +291,7 @@ Lemma heap_union_r : forall h1 h2,
 Proof using.
   introv D. unfold heap_union. rewrite (classicT_l D).
   destruct h1 as ((f1,r1)&D1). destruct h2 as ((f2,r2)&D2).
-  unstate. prove_eq.
+  unstate. fmap_eq.
 Qed.
 
 
@@ -319,7 +319,7 @@ Proof using.
   intros. lets: heap_disjoint_components h.
   unfold heap_empty. split; simpl.
   { apply Fmap.agree_empty_l. }
-  { prove_disjoint. }
+  { fmap_disjoint. }
 Qed.
 
 Lemma heap_compat_empty_r : forall h,
@@ -339,7 +339,7 @@ Proof using.
   intros (C1&D1) (C2&D2) (C3&D3). split; simpls.
   { rewrite heap_union_r; [|auto]. simpl. applys~ Fmap.agree_union_l. }
   { rewrite heap_union_r; [|auto]. rewrite heap_union_f; [|auto].
-    simpl. prove_disjoint. }
+    simpl. fmap_disjoint. }
 Qed.
 
 Lemma heap_compat_union_r : forall h1 h2 h3,
@@ -355,7 +355,7 @@ Lemma heap_compat_refl_if_ro : forall h,
 Proof using.
   introv M. split.
   { apply Fmap.agree_refl. }
-  { rewrite M. prove_disjoint. }
+  { rewrite M. fmap_disjoint. }
 Qed.
 
 Lemma heap_compat_ro_l : forall h1 h2,
@@ -364,7 +364,7 @@ Lemma heap_compat_ro_l : forall h1 h2,
 Proof using.
   introv (N1&N2). split; simpl.
   { applys~ Fmap.agree_union_l. applys~ Fmap.agree_of_disjoint. }
-  { prove_disjoint. }
+  { fmap_disjoint. }
 Qed.
 
 Lemma heap_compat_ro_r : forall h1 h2,
@@ -381,7 +381,7 @@ Proof using.
   introv (M1&M2). split.
   { do 2 rewrite heap_ro_r.
     applys~ Fmap.agree_union_lr. }
-  { do 2 rewrite heap_ro_f. prove_disjoint. }
+  { do 2 rewrite heap_ro_f. fmap_disjoint. }
 Qed.
 
 
@@ -389,7 +389,7 @@ Qed.
 (* ** Properties of [heap_empty] *)
 
 Lemma heap_empty_state : heap_state heap_empty = Fmap.empty.
-Proof. unfold heap_empty. unstate. prove_eq. Qed.
+Proof. unfold heap_empty. unstate. fmap_eq. Qed.
 
 Hint Rewrite heap_empty_state : rew_heap.
 
@@ -405,7 +405,7 @@ Proof using.
   tests E: (heap_compat h1 h2); tests E': (heap_compat h2 h1);
    try auto_false.
   fequals. fequals.
-  { applys Fmap.union_comm_of_disjoint. { destruct E. prove_disjoint. } }
+  { applys Fmap.union_comm_of_disjoint. { destruct E. fmap_disjoint. } }
   { applys Fmap.union_comm_of_agree. { destruct~ E. } }
 Qed.
 
@@ -425,7 +425,7 @@ Proof using.
   { applys~ heap_compat_union_r. }
   rewrites (rm E1). rewrites (rm E2).
   rewrite~ heap_union_f. rewrite~ heap_union_r.
-  split; prove_eq.
+  split; fmap_eq.
 Qed.
 
 Hint Resolve heap_union_comm.
@@ -436,7 +436,7 @@ Proof using.
   intros h. unfold heap_union.
   rewrite (classicT_l (heap_compat_empty_l h)).
   destruct h as ((f,r)&D). simpl.
-  fequals_rec; prove_eq.
+  fequals_rec; fmap_eq.
 Qed.
 
 Lemma heap_union_empty_r : forall h,
@@ -451,7 +451,7 @@ Lemma heap_union_state : forall h1 h2,
 Proof using.
   introv D. unfold heap_union. rewrite (classicT_l D).
   destruct h1 as ((f1,r1)&D1). destruct h2 as ((f2,r2)&D2).
-  unstate. prove_eq.
+  unstate. fmap_eq.
 Qed.
 
 Hint Rewrite heap_union_state : rew_fmap.
@@ -825,7 +825,7 @@ Proof using.
   exists h h. splits~.
   { applys heap_eq. rewrite~ heap_union_f.
     rewrite~ heap_union_r. rewrite M2.
-    split. prove_eq. rewrite~ Fmap.union_self. }
+    split. fmap_eq. rewrite~ Fmap.union_self. }
 Qed.
 
 Lemma RO_covariant : forall H1 H2,
@@ -841,10 +841,10 @@ Proof using.
   intros. apply pred_ext_1. intros h.
   iff (h'&(h''&M1'&M2'&M3')&M2&M3) (h'&M1&M2&M3).
   { exists h''. splits~.
-    rewrite M3. rewrite M3'. rewrite M2'. prove_eq. }
+    rewrite M3. rewrite M3'. rewrite M2'. fmap_eq. }
   { exists h. splits~.
     { exists h'. split~. }
-    { rewrite M2. prove_eq. } }
+    { rewrite M2. fmap_eq. } }
 Qed.
 
 Lemma RO_empty :
@@ -906,8 +906,8 @@ Proof using.
   { exists~ h2. }
   { auto. }
   { applys heap_eq. rew_heap~. split.
-    { rewrite M2. prove_eq. }
-    { rewrite M3,N2. rew_heap~. prove_eq. } }
+    { rewrite M2. fmap_eq. }
+    { rewrite M3,N2. rew_heap~. fmap_eq. } }
 Qed.
 
 Lemma heap_ro_pred : forall (H:hprop) h,
@@ -1046,8 +1046,8 @@ Proof using.
   forwards* (h1'&v&(N1&N2&N3&N4)): (rm M) (h12 \u h2) (rm P11).
   lets~ (D3&D4): heap_compat_union_r_inv (rm N1).
   exists (h1' \u h12) v. splits~.
-  { applys_eq N2 2 4; try prove_eq~. }
-  { rew_heap~. rewrite N3. prove_eq~. }
+  { applys_eq N2 2 4; try fmap_eq~. }
+  { rew_heap~. rewrite N3. fmap_eq~. }
   { applys~ on_rw_sub_union_r. }
 Qed.
 
@@ -1093,7 +1093,7 @@ Proof using.
   lets E12: (rm N) P12.
   subst h1. lets~ (D1&D2): heap_compat_union_l_inv (rm D).
   asserts R12: (heap_state (heap_ro h12) = heap_state h12).
-  { unstate. rewrite E12. prove_eq. }
+  { unstate. rewrite E12. fmap_eq. }
   asserts C: (heap_compat (h11 \u heap_ro h12) h2).
   { apply~ heap_compat_union_l. applys~ heap_compat_ro_l. }
   forwards~ (h1'&v&(N1&N2&N3&N4)): (rm M) (h11 \u (heap_ro h12)) h2.
@@ -1102,18 +1102,18 @@ Proof using.
   rew_heap~ in N3. rewrite E12 in N3.
   lets G: heap_disjoint_components h1'.
   forwards (h1''&F1&F2): heap_make (h1'^f \+ h12^f) (h11^r).
-  { rewrite N3 in G. prove_disjoint. }
+  { rewrite N3 in G. fmap_disjoint. }
   asserts C': (heap_compat h1'' h2).
   { unfolds. rewrite F1,F2. split.
     { destruct~ D1. }
     { lets G2: heap_disjoint_components h2. rewrite N3 in G.
-      prove_disjoint. } }
+      fmap_disjoint. } }
   exists h1'' v. splits.
   { auto. }
-  { applys_eq N2 2 4; try prove_eq~.
+  { applys_eq N2 2 4; try fmap_eq~.
     { rewrite~ R12. }
-    { fequals. unstate. rewrite F1,F2,N3. prove_eq. } }
-  { rew_heap~. rewrite F2,E12. prove_eq~. }
+    { fequals. unstate. rewrite F1,F2,N3. fmap_eq. } }
+  { rew_heap~. rewrite F2,E12. fmap_eq~. }
   {  clears h2.
      rename h1'' into hd. rename H2 into Hb. sets Ha: (Q1 v).
      rename h1' into ha.  rewrite~ Fmap.union_empty_r in N3.
@@ -1128,27 +1128,27 @@ Proof using.
      forwards~ (hyf&W1&W2): heap_make (hy^f) (Fmap.empty:state).
      forwards~ (hcr&Y1&Y2): heap_make (Fmap.empty:state) (hc^r).
      (* LATER: find a way to automate these lemmas *)
-     (* LATER: automate disjoint_components use by prove_disjoint *)
+     (* LATER: automate disjoint_components use by fmap_disjoint *)
      asserts C2: (heap_compat hcr hyf).
      { unfolds. split.
        { rewrite~ W2. }
-       { rewrite Y1,Y2,W1,W2. prove_disjoint. } }
+       { rewrite Y1,Y2,W1,W2. fmap_disjoint. } }
      asserts C3: (heap_compat hx hcr).
      { unfolds. split.
        { rewrite~ V3. }
-       { rewrite Y1,Y2,V3. prove_disjoint. } }
+       { rewrite Y1,Y2,V3. fmap_disjoint. } }
      asserts C4: (heap_compat hx hyf).
      { unfolds. split.
        { rewrite~ W2. }
-       { rewrite W1,W2,V3. prove_disjoint. } }
+       { rewrite W1,W2,V3. fmap_disjoint. } }
      asserts C5: (heap_compat hb hyf).
      { unfolds. split.
        { rewrite~ W2. }
-       { rewrite W1,W2,E12. prove_disjoint. } }
+       { rewrite W1,W2,E12. fmap_disjoint. } }
      asserts C6: (heap_compat hb hcr).
      { unfolds. split.
        { rewrite~ E12. }
-       { rewrite Y1,Y2,E12. prove_disjoint. } }
+       { rewrite Y1,Y2,E12. fmap_disjoint. } }
      exists (hx \u hb) (hcr \u hyf). splits.
      { auto. }
      { applys heap_eq. split.
@@ -1156,8 +1156,8 @@ Proof using.
          rewrite Fmap.union_empty_l.
          do 2 rewrite Fmap.union_assoc. fequals.
          applys Fmap.union_comm_of_disjoint. auto. }
-       { rew_heap~. rewrite V3,E12,W2,Y2,F2. prove_eq. } }
-     { rew_heap~. rewrite V3,E12. prove_eq. }
+       { rew_heap~. rewrite V3,E12,W2,Y2,F2. fmap_eq. } }
+     { rew_heap~. rewrite V3,E12. fmap_eq. }
      { exists~ hx hb. } }
 Qed.
 
@@ -1363,16 +1363,16 @@ Proof using.
   forwards~ (l&Dl&Nl): (Fmap.single_fresh null (heap_state h2) v).
   lets~ (h1'&E1&E2): heap_make (Fmap.single l v) (Fmap.empty:state).
   asserts E3: (heap_state h1' = Fmap.single l v).
-  { unstate. rewrite E1,E2. prove_eq. }
+  { unstate. rewrite E1,E2. fmap_eq. }
   asserts D1': (\# (heap_state h2) (heap_state h1')).
-  { unfold heap_state at 2. rewrite E1,E2. prove_disjoint. }
+  { unfold heap_state at 2. rewrite E1,E2. fmap_disjoint. }
   (* LATER: beautify the assertions above *)
   exists h1' (val_loc l).
   asserts C: (heap_compat h1' h2).
   { split.
     { rewrite~ E2. }
     { rewrite E1,E2. lets: heap_disjoint_components h2.
-      prove_disjoint. } }
+      fmap_disjoint. } }
   splits~.
   { rew_heap. rew_fmap~. applys~ eval_ref_sep. }
   { applys~ on_rw_sub_base. exists l.
@@ -1608,7 +1608,7 @@ Proof using.
   destruct P12 as (N&E12).
   subst h1. lets~ (D1&D2): heap_compat_union_l_inv (rm D).
   asserts R12: (heap_state (heap_ro h12) = heap_state h12).
-  { unstate. rewrite E12. prove_eq. }
+  { unstate. rewrite E12. fmap_eq. }
   asserts C: (heap_compat (h11 \u heap_ro h12) h2).
   { apply~ heap_compat_union_l. applys~ heap_compat_ro_l. }
   forwards~ (h1'&v&(N1&N2&N3&N4)): (rm M) (h11 \u (heap_ro h12)) h2.
@@ -1617,18 +1617,18 @@ Proof using.
   rew_heap~ in N3. rewrite E12 in N3.
   lets G: heap_disjoint_components h1'.
   forwards (h1''&F1&F2): heap_make (h1'^f \+ h12^f) (h11^r).
-  { rewrite N3 in G. prove_disjoint. }
+  { rewrite N3 in G. fmap_disjoint. }
   asserts C': (heap_compat h1'' h2).
   { unfolds. rewrite F1,F2. split.
     { destruct~ D1. }
     { lets G2: heap_disjoint_components h2. rewrite N3 in G.
-      prove_disjoint. } }
+      fmap_disjoint. } }
   exists h1'' v. splits.
   { auto. }
-  { applys_eq N2 2 4; try prove_eq~.
+  { applys_eq N2 2 4; try fmap_eq~.
     { rewrite~ R12. }
-    { fequals. unstate. rewrite F1,F2,N3. prove_eq. } }
-  { rew_heap~. rewrite F2,E12. prove_eq~. }
+    { fequals. unstate. rewrite F1,F2,N3. fmap_eq. } }
+  { rew_heap~. rewrite F2,E12. fmap_eq~. }
   {  clears h2.
      rename h1'' into hd. rename H2 into Hb. sets Ha: (Q1 v).
      rename h1' into ha.  rewrite~ Fmap.union_empty_r in N3.
@@ -1643,27 +1643,27 @@ Proof using.
      forwards~ (hyf&W1&W2): heap_make (hy^f) (Fmap.empty:state).
      forwards~ (hcr&Y1&Y2): heap_make (Fmap.empty:state) (hc^r).
      (* LATER: find a way to automate these lemmas *)
-     (* LATER: automate disjoint_components use by prove_disjoint *)
+     (* LATER: automate disjoint_components use by fmap_disjoint *)
      asserts C2: (heap_compat hcr hyf).
      { unfolds. split.
        { rewrite~ W2. }
-       { rewrite Y1,Y2,W1,W2. prove_disjoint. } }
+       { rewrite Y1,Y2,W1,W2. fmap_disjoint. } }
      asserts C3: (heap_compat hx hcr).
      { unfolds. split.
        { rewrite~ V3. }
-       { rewrite Y1,Y2,V3. prove_disjoint. } }
+       { rewrite Y1,Y2,V3. fmap_disjoint. } }
      asserts C4: (heap_compat hx hyf).
      { unfolds. split.
        { rewrite~ W2. }
-       { rewrite W1,W2,V3. prove_disjoint. } }
+       { rewrite W1,W2,V3. fmap_disjoint. } }
      asserts C5: (heap_compat hb hyf).
      { unfolds. split.
        { rewrite~ W2. }
-       { rewrite W1,W2,E12. prove_disjoint. } }
+       { rewrite W1,W2,E12. fmap_disjoint. } }
      asserts C6: (heap_compat hb hcr).
      { unfolds. split.
        { rewrite~ E12. }
-       { rewrite Y1,Y2,E12. prove_disjoint. } }
+       { rewrite Y1,Y2,E12. fmap_disjoint. } }
      exists (hx \u hb) (hcr \u hyf). splits.
      { auto. }
      { applys heap_eq. split.
@@ -1671,8 +1671,8 @@ Proof using.
          rewrite Fmap.union_empty_l.
          do 2 rewrite Fmap.union_assoc. fequals.
          applys Fmap.union_comm_of_disjoint. auto. }
-       { rew_heap~. rewrite V3,E12,W2,Y2,F2. prove_eq. } }
-     { rew_heap~. rewrite V3,E12. prove_eq. }
+       { rew_heap~. rewrite V3,E12,W2,Y2,F2. fmap_eq. } }
+     { rew_heap~. rewrite V3,E12. fmap_eq. }
      { exists~ hx hb. splits~. split~. } }
 Qed.
 
