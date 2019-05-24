@@ -14,7 +14,6 @@ From TLC Require Export LibCore.
 From Sep Require Import TLCbuffer Var.
 From Sep Require Fmap Hsimpl.
 
-
 (* ####################################################### *)
 (** * Imports *)
 
@@ -905,7 +904,7 @@ Tactic Notation "himpl_fold" := himpl_fold_core tt.
 Tactic Notation "himpl_fold" "~" := himpl_fold; auto_tilde.
 Tactic Notation "himpl_fold" "*" := himpl_fold; auto_star.
 
-(** Reasoning rules for [hoare] triples. *)
+(** Structural rules for [hoare] triples. *)
 
 Lemma hoare_conseq : forall t H' Q' H Q,
   hoare t H' Q' ->
@@ -917,6 +916,21 @@ Proof using.
   { himpl_fold~. }
   exists h' v. splits~. { himpl_fold. auto. }
 Qed.
+
+Lemma hoare_hexists : forall t (A:Type) (J:A->hprop) Q,
+  (forall x, hoare t (J x) Q) ->
+  hoare t (hexists J) Q.
+Proof using. introv M. intros h (x&Hh). applys M Hh. Qed.
+
+Lemma hoare_hpure : forall t (P:Prop) H Q,
+  (P -> hoare t H Q) ->
+  hoare t (\[P] \* H) Q.
+Proof using.
+  introv M. intros h (h1&h2&M1&M2&D&U). destruct M1 as (M1&HP).
+  lets E: hempty_inv HP. subst. rewrite Fmap.union_empty_l. applys~ M. 
+Qed.
+
+(** Reasoning rules for [hoare] triples. *)
 
 Lemma hoare_val : forall v H Q,
   H ==> Q v ->
@@ -1013,37 +1027,25 @@ Proof using.
   { destruct K0 as (s1&s2&P1&P2&D&U).
     lets E1: hsingle_inv P1. subst s1.
     applys eval_get_sep U. }
-  { rewrite
- hstar_hpure. auto. }
+  { rewrite hstar_hpure. auto. }
 Qed.
-
 
 Lemma hoare_set : forall H w l v,
   hoare (val_set (val_loc l) w)
     ((l ~~~> v) \* H)
     (fun r => \[r = val_unit] \* (l ~~~> w) \* H).
-Proof using. 
-  (* 1. We unfold the definition of [hoare]. *)
+Proof using.
   intros. intros s1 K0.
-  (* 2. We decompose the star from the precondition. *)
   destruct K0 as (h1&h2&P1&P2&D&U).
-  (* 3. We also decompose the singleton heap predicate from it. *)
   lets E1: hsingle_inv P1.
-  (* 4. We provide the witnesses as guided by [red_set_sep]. *)
   exists ((Fmap.single l w) \u h2) val_unit. split.
-  { (* 5. The evaluation subgoal matches the statement of [red_set_sep]. *)
-    subst h1. applys eval_set_sep U D. auto. }
-  { (* 6. To establish the postcondition, we first isolate the pure fact. *)
-    rewrite hstar_hpure. split.
+  { subst h1. applys eval_set_sep U D. auto. }
+  { rewrite hstar_hpure. split.
     { auto. }
-    { (* 7. Then establish the star. *)
-      applys hstar_intro.
-      { (* 8. We establish the heap predicate [l ~~~> w] *) 
-        applys hsingle_intro. }
+    { applys hstar_intro.
+      { applys hsingle_intro. }
       { applys P2. }
-      { (* 9. Finally, we justify disjointness using the lemma 
-              [Fmap.disjoint_single_set] introduced earlier. *)
-        subst h1. applys Fmap.disjoint_single_set D. } } }
+      { subst h1. applys Fmap.disjoint_single_set D. } } }
 Qed.
 
 
@@ -1064,32 +1066,33 @@ Definition wp (t:trm) := fun (Q:val->hprop) =>
 Lemma wp_ramified : forall t Q1 Q2,
   (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
 Proof using.
-  intros. do 2 rewrite wp_def. hpull ;=> H M.
+  intros. unfold wp. hpull ;=> H M.
   hsimpl (H \* (Q1 \--* Q2 \*+ \Top)). intros H'.
   applys hoare_conseq M; hsimpl.
 Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (** Reasoning rules for terms. *)
 
 Lemma wp_val : forall v Q,
   Q v ==> wp (trm_val v) Q.
-Proof using. intros. rewrite wp_def. hsimpl; intros H'. applys hoare_val. hsimpl. Qed.
+Proof using. intros. unfold wp. hsimpl; intros H'. applys hoare_val. hsimpl. Qed.
 
 Lemma wp_fun : forall x t Q,
   Q (val_fun x t) ==> wp (trm_fun x t) Q.
-Proof using. intros. rewrite wp_def. hsimpl; intros H'. applys hoare_fun. hsimpl. Qed.
+Proof using. intros. unfold wp. hsimpl; intros H'. applys hoare_fun. hsimpl. Qed.
 
 Lemma wp_fix : forall f x t Q,
   Q (val_fix f x t) ==> wp (trm_fix f x t) Q.
-Proof using. intros. rewrite wp_def. hsimpl; intros H'. applys hoare_fix. hsimpl. Qed.
+Proof using. intros. unfold wp. hsimpl; intros H'. applys hoare_fix. hsimpl. Qed.
 
 Lemma wp_seq : forall t1 t2 Q,
   wp t1 (fun r => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
 Proof using.
-  intros. rewrite wp_def. hsimpl. intros H' M1.
-  rewrite wp_def. hsimpl. intros H''.
-  applys hoare_seq. applys (rm M1). rewrite wp_def.
+  intros. unfold wp at 1. hsimpl. intros H' M1.
+  unfold wp at 1. hsimpl. intros H''.
+  applys hoare_seq. applys (rm M1). unfold wp.
   repeat rewrite hstar_hexists. applys hoare_hexists; intros H'''.
   rewrite (hstar_comm H'''); repeat rewrite hstar_assoc.
   applys hoare_hpure; intros M2. applys hoare_conseq M2; hsimpl.
@@ -1098,10 +1101,9 @@ Qed.
 Lemma wp_let : forall x t1 t2 Q,
   wp t1 (fun v => wp (subst x v t2) Q) ==> wp (trm_let x t1 t2) Q.
 Proof using.
-  intros. rewrite wp_def. hsimpl. intros H' M1.
-  rewrite wp_def. hsimpl. intros H''.
-  applys hoare_let. applys (rm M1). intros v. simpl.
-  rewrite wp_def.
+  intros. unfold wp at 1. hsimpl. intros H' M1.
+  unfold wp at 1. hsimpl. intros H''.
+  applys hoare_let. applys (rm M1). intros v. simpl. unfold wp.
   repeat rewrite hstar_hexists. applys hoare_hexists; intros H'''.
   rewrite (hstar_comm H'''); repeat rewrite hstar_assoc.
   applys hoare_hpure; intros M2. applys hoare_conseq M2; hsimpl.
@@ -1110,46 +1112,13 @@ Qed.
 Lemma wp_if_case : forall b t1 t2 Q,
   wp (if b then t1 else t2) Q ==> wp (trm_if b t1 t2) Q.
 Proof using.
-  intros. repeat rewrite wp_def. hsimpl; intros H M H'.
+  intros. repeat unfold wp. hsimpl; intros H M H'.
   applys hoare_if_case. applys M.
 Qed.
 
 Lemma wp_if : forall b t1 t2 Q,
   (if b then wp t1 Q else wp t2 Q) ==> wp (trm_if b t1 t2) Q.
 Proof using. intros. applys himpl_trans wp_if_case. case_if~. Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Rules for primitives. *)
-
-Lemma hoare_set : forall H w l v,
-  hoare (val_set (val_loc l) w)
-    ((l ~~~> v) \* H)
-    (fun r => \[r = val_unit] \* (l ~~~> w) \* H).
-Proof using. 
-  (* 1. We unfold the definition of [hoare]. *)
-  intros. intros s1 K0.
-  (* 2. We decompose the star from the precondition. *)
-  destruct K0 as (h1&h2&P1&P2&D&U).
-  (* 3. We also decompose the singleton heap predicate from it. *)
-  lets E1: hsingle_inv P1.
-  (* 4. We provide the witnesses as guided by [red_set_sep]. *)
-  exists ((Fmap.single l w) \u h2) val_unit. split.
-  { (* 5. The evaluation subgoal matches the statement of [red_set_sep]. *)
-    subst h1. applys eval_set_sep U D. auto. }
-  { (* 6. To establish the postcondition, we first isolate the pure fact. *)
-    rewrite hstar_hpure. split.
-    { auto. }
-    { (* 7. Then establish the star. *)
-      applys hstar_intro.
-      { (* 8. We establish the heap predicate [l ~~~> w] *) 
-        applys hsingle_intro. }
-      { applys P2. }
-      { (* 9. Finally, we justify disjointness using the lemma 
-              [Fmap.disjoint_single_set] introduced earlier. *)
-        subst h1. applys Fmap.disjoint_single_set D. } } }
-Qed.
-
 
 
 (* ******************************************************* *)
@@ -1161,28 +1130,25 @@ Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
 Lemma wp_equiv : forall t H Q,
   (triple t H Q) <-> (H ==> wp t Q).
 Proof using.
-  iff M.
+  unfold wp, triple. iff M.
   { hsimpl H. apply M. }
-  { applys triple_conseq Q M.
-    { applys triple_hexists. intros H'.
-      rewrite hstar_comm. applys triple_hpure. 
-      intros N. applys N. }
-    { applys qimpl_refl. } }
+  { intros H'. applys hoare_conseq. 2:{ applys himpl_frame_l M. }
+     { clear M. rewrite hstar_hexists. applys hoare_hexists. intros H''.
+       rewrite (hstar_comm H''). rew_heap. applys hoare_hpure. intros N.
+       applys N. } 
+     { auto. } }
 Qed.
 
 
 (* ******************************************************* *)
 (** ** Specification for primitive functions *)
 
-Lemma triple_add' : forall n1 n2,
+Lemma triple_add : forall n1 n2,
   triple (val_add n1 n2)
     \[]
     (fun r => \[r = val_int (n1 + n2)]).
 Proof using.
-  rewrite wp_equiv.
-  intros. applys triple_of_hoare. intros H'. esplit. split.
-  applys hoare_add. hsimpl. auto.
-(* /SOLUTION *)
+  intros. unfold triple. intros H'. applys hoare_conseq hoare_add; hsimpl~.
 Qed.
 
 Lemma triple_ref : forall v,
@@ -1190,10 +1156,7 @@ Lemma triple_ref : forall v,
     \[]
     (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
 Proof using.
-  intros. intros H'. applys hoare_conseq.
-  { applys hoare_ref. } 
-  { hsimpl. }
-  { hsimpl. auto. }
+  intros. unfold triple. intros H'. applys hoare_conseq hoare_ref; hsimpl~.
 Qed.
 
 Lemma triple_get : forall v l,
@@ -1201,10 +1164,7 @@ Lemma triple_get : forall v l,
     (l ~~~> v)
     (fun r => \[r = v] \* (l ~~~> v)).
 Proof using.
-  intros. intros H'. applys hoare_conseq.
-  { applys hoare_get. } 
-  { hsimpl. }
-  { hsimpl. auto. }
+  intros. unfold triple. intros H'. applys hoare_conseq hoare_get; hsimpl~.
 Qed.
 
 Lemma triple_set : forall w l v,
@@ -1212,16 +1172,13 @@ Lemma triple_set : forall w l v,
     (l ~~~> v)
     (fun r => \[r = val_unit] \* l ~~~> w).
 Proof using.
-  intros. intros H'. applys hoare_conseq.
-  { applys hoare_set. } 
-  { hsimpl. }
-  { hsimpl. auto. }
+  intros. unfold triple. intros H'. applys hoare_conseq hoare_set; hsimpl~.
 Qed.
-
 
 
 (* ####################################################### *)
 (** * WP generator *)
+
 
 (* ******************************************************* *)
 (** ** Definition of context as list of bindings *)
@@ -1230,16 +1187,16 @@ Qed.
 
 Definition ctx : Type := list (var*val).
 
-(** [rem x E] denotes the removal of bindings on [x] from [E] *)
+(** [rem x E] denotes the removal of bindings on [x] from [E]. *)
 
-Definition rem : ctx -> var -> ctx := 
-  @LibListAssoc.rem var val var_eq.
+Definition rem : var -> ctx -> ctx := 
+  @LibListAssocExec.rem var val var_eq.
 
 (** [lookup x E] returns [Some v] if [x] is bound to a value [v],
     and [None] otherwise. *)
 
-Definition lookup : ctx -> var -> option val := 
-  @LibListAssoc.lookup var val var_eq.
+Definition lookup : var -> ctx -> option val := 
+  @LibListAssocExec.get_opt var val var_eq.
 
 
 (* ******************************************************* *)
@@ -1270,6 +1227,34 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
 
 
 (* ******************************************************* *)
+(** ** Definition of [mkstruct] *)
+
+(** Let [formula] denote the type of [wp t] and [wpgen t]. *)
+
+Definition formula := (val -> hprop) -> hprop.
+
+Implicit Type F : formula.
+
+(** [mkstruct F] transforms a formula [F] into one that satisfies 
+    structural rules of Separation Logic. *)
+
+Definition mkstruct (F:formula) : formula :=
+  fun Q => \exists Q', F Q' \* (Q' \--* (Q \*+ \GC)).
+
+Lemma mkstruct_ramified : forall Q1 Q2 F,
+  (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
+Proof using. unfold mkstruct. hsimpl. Qed.
+
+Arguments mkstruct_ramified : clear implicits.
+
+Lemma mkstruct_erase : forall Q F,
+  F Q ==> mkstruct F Q.
+Proof using. unfolds mkstruct. hsimpl. Qed.
+
+Arguments mkstruct_erase : clear implicits.
+
+
+(* ******************************************************* *)
 (** ** Definition of [wpgen] *)
 
 Definition wpgen_fail : formula := fun Q =>
@@ -1293,6 +1278,9 @@ Definition wpgen_let (F1:formula) (F2of:val->formula) : formula := fun Q =>
 Definition wpgen_if (v:val) (F1 F2:formula) : formula := fun Q =>
   \exists (b:bool), \[v = val_bool b] \* (if b then F1 Q else F2 Q).
 
+Definition wpgen_if_trm (F0 F1 F2:formula) : formula := 
+  wpgen_let F0 (fun v => mkstruct (wpgen_if v F1 F2)).
+
 Fixpoint wpgen (E:ctx) (t:trm) : formula :=
   mkstruct match t with
   | trm_val v =>
@@ -1303,8 +1291,8 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
        wpgen_val (val_fun x (isubst (rem x E) t1))
   | trm_fix f x t1 =>
        wpgen_val (val_fix f x (isubst (rem x (rem f E)) t1))
-  | trm_if v0 t1 t2 =>
-       wpgen_if v0 (wpgen E t1) (wpgen E t2)
+  | trm_if t0 t1 t2 =>
+       wpgen_if_trm (wpgen E t0) (wpgen E t1) (wpgen E t2)
   | trm_seq t1 t2 =>
        wpgen_seq (wpgen E t1) (wpgen E t2)
   | trm_let x t1 t2 =>

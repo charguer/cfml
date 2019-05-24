@@ -34,7 +34,7 @@ export TLC
 ##############################################################################
 # List of files
 
-SRC_CORE := TLCbuffer Fmap Var Bind Semantics Hsimpl SepFunctor SepBase WPBase SepLifted WPLifted WPTactics WPRecord WPExamples WPExamplesDetails WPLib 
+SRC_CORE := TLCbuffer Fmap Var Hsimpl Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics WPRecord WPExamples WPExamplesDetails WPLib 
 
 SRC_MORE := SepBaseAltProofs SepCredits SepRO
 
@@ -42,7 +42,7 @@ SRC_MORE := SepBaseAltProofs SepCredits SepRO
 
 SRC_EXAMPLES := Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleList ExampleRO 
 
-SRC_SF := SLFIntro SLFHprop SLFHimpl SubstExec SLFRules SLFWand SLFWPsem SLFWPgen SLFDirect
+SRC_SF := SLFIntro SLFDirect SLFHprop SLFHimpl SubstExec SLFRules SLFWand SLFWPsem SLFWPgen 
  #  SLFLift SLFRicher SLFExt
 
 SRC_MOSEL := SepMoselFunctor SepBaseMosel SepROMosel ExampleROMosel ExampleListMosel
