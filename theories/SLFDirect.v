@@ -353,6 +353,12 @@ Lemma himpl_trans : forall H2 H1 H3,
   (H1 ==> H3).
 Proof using. introv M1 M2. intros h H1h. eauto. Qed.
 
+Lemma himpl_trans_r : forall H2 H1 H3,
+   H2 ==> H3 ->
+   H1 ==> H2 ->
+   H1 ==> H3.
+Proof using. introv M1 M2. applys* himpl_trans M2 M1. Qed.
+
 Lemma himpl_antisym : forall H1 H2,
   (H1 ==> H2) ->
   (H2 ==> H1) ->
@@ -959,6 +965,24 @@ Proof using.
   { himpl_fold~. }
 Qed.
 
+Lemma hoare_app_fun : forall v1 v2 x t1 H Q,
+  v1 = val_fun x t1 ->
+  hoare (subst x v2 t1) H Q ->
+  hoare (trm_app v1 v2) H Q.
+Proof using.
+  introv E M. intros s K0. forwards (s'&v&R1&K1): (rm M) K0.
+  exists s' v. splits. { applys eval_app_fun E R1. } { applys K1. }
+Qed.
+
+Lemma hoare_app_fix : forall v1 v2 f x t1 H Q,
+  v1 = val_fix f x t1 ->
+  hoare (subst x v2 (subst f v1 t1)) H Q ->
+  hoare (trm_app v1 v2) H Q.
+Proof using.
+  introv E M. intros s K0. forwards (s'&v&R1&K1): (rm M) K0.
+  exists s' v. splits. { applys eval_app_fix E R1. } { applys K1. }
+Qed.
+
 Lemma hoare_seq : forall t1 t2 H Q H1,
   hoare t1 H (fun r => H1) ->
   hoare t2 H1 Q ->
@@ -1063,7 +1087,7 @@ Definition wp (t:trm) := fun (Q:val->hprop) =>
 (* ---------------------------------------------------------------------- *)
 (** Structural rule for [wp]. *)
 
-Lemma wp_ramified : forall t Q1 Q2,
+Lemma wp_ramified : forall Q1 Q2 t,
   (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
 Proof using.
   intros. unfold wp. hpull ;=> H M.
@@ -1071,12 +1095,32 @@ Proof using.
   applys hoare_conseq M; hsimpl.
 Qed.
 
+Arguments wp_ramified : clear implicits.
+
+(** Corollaries *)
+
 Lemma wp_conseq : forall t Q1 Q2,
   Q1 ===> Q2 ->
   wp t Q1 ==> wp t Q2.
-Proof using.
-  introv M. lets N: wp_ramified t Q1 Q2. hchanges N. hchanges M.
+Proof using. 
+  introv M. applys himpl_trans_r (wp_ramified Q1 Q2). hsimpl. hchanges M.
 Qed.
+
+Lemma wp_frame : forall t H Q,
+  (wp t Q) \* H ==> wp t (Q \*+ H).
+Proof using. intros. applys himpl_trans_r wp_ramified. hsimpl. Qed.
+
+Lemma wp_ramified_frame : forall t Q1 Q2,
+  (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
+Proof using. intros. applys himpl_trans_r wp_ramified. hsimpl. Qed.
+
+Lemma wp_hany_pre : forall t H Q,
+  (wp t Q) \* H ==> wp t Q.
+Proof using. intros. applys himpl_trans_r wp_ramified. hsimpl. Qed.
+
+Lemma wp_hany_post : forall t H Q ,
+  wp t (Q \*+ H) ==> wp t Q.
+Proof using. intros. applys himpl_trans_r wp_ramified. hsimpl. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1093,6 +1137,16 @@ Proof using. intros. unfold wp. hsimpl; intros H'. applys hoare_fun. hsimpl. Qed
 Lemma wp_fix : forall f x t Q,
   Q (val_fix f x t) ==> wp (trm_fix f x t) Q.
 Proof using. intros. unfold wp. hsimpl; intros H'. applys hoare_fix. hsimpl. Qed.
+
+Lemma wp_app_fun : forall x v1 v2 t1 Q,
+  v1 = val_fun x t1 ->
+  wp (subst x v2 t1) Q ==> wp (v1 v2) Q.
+Proof using. introv EQ1. unfold wp. hsimpl; intros. applys* hoare_app_fun. Qed.
+
+Lemma wp_app_fix : forall f x v1 v2 t1 Q,
+  v1 = val_fix f x t1 ->
+  wp (subst x v2 (subst f v1 t1)) Q ==> wp (v1 v2) Q.
+Proof using. introv EQ1. unfold wp. hsimpl; intros. applys* hoare_app_fix. Qed.
 
 Lemma wp_seq : forall t1 t2 Q,
   wp t1 (fun r => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
@@ -1521,6 +1575,26 @@ Proof using.
 Qed.
 
 
+(** TODO: simplify this *)
+Lemma isubst_app' : forall t E1 E2,
+  isubst (E1 ++ E2) t = isubst E2 (isubst E1 t).
+Proof using.
+  hint ctx_disjoint_rem.
+  intros t. induction t; simpl; intros.
+  { fequals. }
+  { rename v into x. rewrite~ lookup_app.
+    case_eq (lookup x E1); introv K1; case_eq (lookup x E2); introv K2; auto.
+    { simpl. rewrite~ K2. }
+    { simpl. rewrite~ K2. } }
+  { fequals. rewrite* rem_app. }
+  { fequals. do 2 rewrite* rem_app. }
+  { fequals*. }
+  { fequals*. }
+  { fequals*. { rewrite* rem_app. } }
+  { fequals*. }
+Qed.
+
+
 (* ******************************************************* *)
 (** ** Soundness of [wpgen] *)
 
@@ -1601,74 +1675,23 @@ Proof using.
     { applys* wpgen_if_sound. } }
 Qed.
 
-Theorem wpgen_himpl_wp : forall t H Q,
+Theorem himpl_wpgen_wp : forall t Q,
   wpgen nil t Q ==> wp t Q.
 Proof using.
-  introv M. rewrite wp_equiv. hchange M.
-  lets N: (wpgen_sound nil t). rewrite isubst_nil in N. applys N.
-  (* same as: [applys_eq wpgen_sound 1. rewrite~ isubst_nil.] *)
+  introv M. lets N: (wpgen_sound nil t). rewrite isubst_nil in N. applys* N.
 Qed.
 
 Theorem triple_of_wpgen : forall t H Q,
   H ==> wpgen nil t Q ->
   triple t H Q.
 Proof using.
-wpgen_himpl_wp
-  introv M. rewrite wp_equiv. hchange M.
-  lets N: (wpgen_sound nil t). rewrite isubst_nil in N. applys N.
-  (* same as: [applys_eq wpgen_sound 1. rewrite~ isubst_nil.] *)
+  introv M. rewrite wp_equiv. hchange M. applys himpl_wpgen_wp.
 Qed.
 
 
 
 (* ####################################################### *)
 (** * Practical proofs *)
-
-(* ******************************************************* *)
-(** ** Notation for terms *)
-
-(* ******************************************************* *)
-(** ** Notations for triples and [wpgen] *)
-
-Notation "'TRIPLE' t 'PRE' H 'POST' Q" :=
-  (Triple t H Q)
-  (at level 39, t at level 0,
-  format "'[v' 'TRIPLE'  t  '/' 'PRE'  H  '/' 'POST'  Q ']'") : triple_scope.
-
-Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (mkstruct F) Q)
-  (at level 8, H, F, Q at level 0,
-   format "'[v' 'PRE'  H  '/' 'CODE'  F '/' 'POST'  Q ']'") : wp_scope.
-
-Notation "` F" := (mkstruct F) (at level 10, format "` F") : wp_scope.
-
-Notation "'Fail'" :=
-  ((wpgen_fail))
-  (at level 69) : wp_scope.
-
-Notation "'Val' v" :=
-  ((wpgen_val v))
-  (at level 69) : wp_scope.
-
-Notation "'`Let' x ':=' F1 'in' F2" :=
-  ((wpgen_let F1 (fun x => F2)))
-  (at level 69, x ident, right associativity,
-  format "'[v' '[' '`Let'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
-
-Notation "'Seq' F1 ;;; F2" :=
-  ((wpgen_seq F1 F2))
-  (at level 68, right associativity,
-   format "'[v' 'Seq'  '[' F1 ']'  ;;;  '/'  '[' F2 ']' ']'") : wp_scope.
-
-Notation "'App' f v1 " :=
-  ((wp (trm_app f v1)))
-  (at level 68, f, v1 at level 0) : wp_scope.
-
-Notation "'If'' b 'Then' F1 'Else' F2" :=
-  ((wpgen_if b F1 F2))
-  (at level 69) : wp_scope.
-
-Open Scope wp_scope.
-
 
 (* ******************************************************* *)
 (** ** Tactics for [wpgen] *)
@@ -1694,7 +1717,10 @@ Lemma xapp_lemma : forall t Q1 H1 H Q,
   triple t H1 Q1 ->
   H ==> H1 \* (Q1 \--* protect Q) ->
   H ==> wp t Q.
-Proof using. introv M W. rewrite <- wp_equiv. applys~ triple_ramified_frame M. Qed.
+Proof using.
+  introv M W. rewrite wp_equiv in M. hchange W. hchange M.
+  applys wp_ramified_frame.
+Qed.
 
 Lemma xapps_lemma0 : forall t v H1 H Q,
   triple t H1 (fun r => \[r = v]) ->
@@ -1708,15 +1734,26 @@ Lemma xapps_lemma1 : forall t v H1 H2 H Q,
   H ==> wp t Q.
 Proof using. introv M W. applys xapp_lemma M. hchanges W. intros ? ->. auto. Qed.
 
-Lemma xcf_lemma : forall v1 v2 x t H Q,
+Lemma xcf_lemma_fun : forall v1 v2 x t H Q,
   v1 = val_fun x t ->
   H ==> wpgen ((x,v2)::nil) t Q ->
   triple (trm_app v1 v2) H Q.
 Proof using.
-  introv M1 M2. applys triple_app_fun M1.
-  asserts_rewrite (subst x v2 t = isubst ((x,v2)::nil) t).
-  { rewrite isubst_rem. rewrite~ isubst_nil. }
-  rewrite wp_equiv. hchange M2. applys wpgen_sound.
+  introv M1 M2. rewrite wp_equiv. hchange M2.
+  lets N: wpgen_sound ((x,v2)::nil) t Q. hchange N.
+  rewrite <- subst_eq_isubst_one. applys* wp_app_fun.
+Qed.
+
+Lemma xcf_lemma_fix : forall v1 v2 f x t H Q,
+  v1 = val_fix f x t ->
+  H ==> wpgen ((f,v1)::(x,v2)::nil) t Q ->
+  triple (trm_app v1 v2) H Q.
+Proof using.
+  introv M1 M2. rewrite wp_equiv. hchange M2.
+  lets N: wpgen_sound (((f,v1)::nil) ++ (x,v2)::nil) t Q.
+  hchange N. rewrite isubst_app'.
+  do 2 rewrite <- subst_eq_isubst_one.
+  applys* wp_app_fix.
 Qed.
 
 Lemma xtop_lemma : forall H Q F,
@@ -1763,10 +1800,10 @@ Tactic Notation "xapp_pre" :=
 Tactic Notation "xapp" :=
   xapp_pre; applys xapp_lemma.
 
-Tactic Notation "xapp" constr:(E) :=
+Tactic Notation "xapp" constr(E) :=
   xapp_pre; applys xapp_lemma E; hsimpl'.
 
-Tactic Notation "xapps" consr:(E) :=
+Tactic Notation "xapps" constr(E) :=
   xapp_pre; first 
   [ applys xapps_lemma0 E
   | applys xapps_lemma1 E ];
@@ -1780,7 +1817,114 @@ Tactic Notation "xtop" :=
 (** [xcf] applys [xcf_lemma], then computes [wpgen] to begin the proof. *)
 
 Tactic Notation "xcf" :=
-  intros; applys xcf_lemma; [ reflexivity | simpl ].
+  intros; 
+  first [ applys xcf_lemma_fun; [ reflexivity | idtac]
+        | applys xcf_lemma_fix; [ reflexivity | idtac] ];
+  simpl.
+
+
+(* ******************************************************* *)
+(** ** Notations for triples and [wpgen] *)
+
+Notation "'TRIPLE' t 'PRE' H 'POST' Q" :=
+  (triple t H Q)
+  (at level 39, t at level 0, only parsing,
+  format "'[v' 'TRIPLE'  t  '/' 'PRE'  H  '/' 'POST'  Q ']'") : wp_scope.
+
+Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (mkstruct F) Q)
+  (at level 8, H, F, Q at level 0,
+   format "'[v' 'PRE'  H  '/' 'CODE'  F '/' 'POST'  Q ']'") : wp_scope.
+
+Notation "` F" := (mkstruct F) (at level 10, format "` F") : wp_scope.
+
+Notation "'Fail'" :=
+  ((wpgen_fail))
+  (at level 69) : wp_scope.
+
+Notation "'Val' v" :=
+  ((wpgen_val v))
+  (at level 69) : wp_scope.
+
+Notation "'`Let' x ':=' F1 'in' F2" :=
+  ((wpgen_let F1 (fun x => F2)))
+  (at level 69, x ident, right associativity,
+  format "'[v' '[' '`Let'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
+
+Notation "'Seq' F1 ;;; F2" :=
+  ((wpgen_seq F1 F2))
+  (at level 68, right associativity,
+   format "'[v' 'Seq'  '[' F1 ']'  ;;;  '/'  '[' F2 ']' ']'") : wp_scope.
+
+Notation "'App' f v1 " :=
+  ((wp (trm_app f v1)))
+  (at level 68, f, v1 at level 0) : wp_scope.
+
+Notation "'If'' v 'Then' F1 'Else' F2" :=
+  ((wpgen_if v F1 F2))
+  (at level 69) : wp_scope.
+
+Open Scope wp_scope.
+
+
+(* ******************************************************* *)
+(** ** Notation for terms *)
+
+Notation "'If_' t0 'Then' t1 'Else' t2" :=
+  (trm_if t0 t1 t2)
+  (at level 69, t0 at level 0) : trm_scope.
+
+Notation "'If_' t0 'Then' t1 'End'" :=
+  (trm_if t0 t1 val_unit)
+  (at level 69, t0 at level 0) : trm_scope.
+
+Notation "'Let' x ':=' t1 'in' t2" :=
+  (trm_let x t1 t2)
+  (at level 69, x at level 0, right associativity,
+  format "'[v' '[' 'Let'  x  ':='  t1  'in' ']'  '/'  '[' t2 ']' ']'") : trm_scope.
+
+Notation "t1 '';' t2" :=
+  (trm_seq t1 t2)
+  (at level 68, right associativity,
+   format "'[v' '[' t1 ']'  '';'  '/'  '[' t2 ']' ']'") : trm_scope.
+
+Notation "'VFix' f x1 ':=' t" :=
+  (val_fix f x1 t)
+  (at level 69, f, x1 at level 0, format "'VFix'  f  x1  ':='  t") : val_scope.
+
+Notation "'Fix' f x1 ':=' t" :=
+  (trm_fix f x1 t)
+  (at level 69, f, x1 at level 0) : trm_scope.
+
+Notation "'VFun' x1 ':=' t" :=
+  (val_fun x1 t)
+  (at level 69, x1 at level 0, format "'VFun'  x1  ':='  t") : val_scope.
+
+Notation "'Fun' x1 ':=' t" :=
+  (trm_fun x1 t)
+  (at level 69, x1 at level 0, format "'Fun'  x1  ':='  t") : trm_scope.
+
+Notation "'ref t" :=
+  (val_ref t)
+  (at level 67) : trm_scope.
+
+Notation "'! t" :=
+  (val_get t)
+  (at level 67) : trm_scope.
+
+Notation "t1 ':= t2" :=
+  (val_set t1 t2)
+  (at level 67) : trm_scope.
+
+Notation "t1 '+ t2" :=
+  (val_add t1 t2)
+  (at level 68) : trm_scope.
+
+Open Scope val_scope.
+Open Scope trm_scope.
+
+(** We let ['x] be a shortname for [("x":var)], as defined in [Var.v] *)
+
+Import NotationForVariables.
 
 
 (* ******************************************************* *)
@@ -1788,11 +1932,11 @@ Tactic Notation "xcf" :=
 
 (** Definition and verification of [incr]. *)
 
-Definition incr :=
+Definition incr : val :=
   VFun 'p :=
-    Let 'n := '! 'p in
+    (Let 'n := '! 'p in
     Let 'm := 'n '+ 1 in
-   'p ':= 'm.
+    'p ':= 'm).
 
 Lemma triple_incr : forall (p:loc) (n:int),
   TRIPLE (trm_app incr p)
@@ -1808,7 +1952,7 @@ Qed.
 
 (** Definition and verification of [mysucc]. *)
 
-Definition mysucc :=
+Definition mysucc : val :=
   VFun 'n :=
     Let 'r := val_ref 'n in
     incr 'r ';
@@ -1820,7 +1964,7 @@ Lemma triple_mysucc : forall n,
     POST (fun v => \[v = n+1]).
 Proof using.
   xcf.
-  xapp' triple_ref ;=> ? l ->.
+  xapp triple_ref ;=> ? l ->.
   xapps triple_incr.
   xtop.
   xapps triple_get.
