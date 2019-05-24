@@ -52,7 +52,7 @@ Implicit Types Q : val->hprop.
     The definition of [hwand] follows. *)
 
 Definition hwand (H1 H2:hprop) : hprop :=
-  fun h => forall h', fmap_disjoint h h' -> H1 h' -> H2 (h \u h').
+  fun h => forall h', Fmap.disjoint h h' -> H1 h' -> H2 (h \u h').
 
 Notation "H1 \-* H2" := (hwand H1 H2) (at level 43, right associativity).
 
@@ -487,7 +487,7 @@ Lemma not_hwand_self_himpl_hempty : exists H,
   ~ ((H \-* H) ==> \[]).
 Proof using.
   exists \Top. intros M.
-  lets (h&N): (@fmap_exists_not_empty val). { typeclass. }
+  lets (h&N): (@Fmap.exists_not_empty val). { typeclass. }
   forwards K: M h. { hnf. intros h' D K'. applys htop_intro. }
   false* (hempty_inv K).
 Qed.
@@ -502,7 +502,7 @@ Qed.
 Lemma not_himpl_hwand_r_inv_reciprocal : exists H1 H2,
   ~ (H2 ==> H1 \* (H1 \-* H2)).
 Proof using. 
-  exists \[False] \[]. intros N. forwards K: N (fmap_empty:heap).
+  exists \[False] \[]. intros N. forwards K: N (Fmap.empty:heap).
   applys hempty_intro. rewrite hstar_hpure in K. destruct K. auto.
 Qed.
 
@@ -548,10 +548,10 @@ Proof using.
 Qed.
    (* Note: here is an alterntive proof w.r.t. [hwand]:
     introv HP. unfold hwand. intros h K.
-    forwards M: K (fmap_empty:heap).
-    { apply fmap_disjoint_empty_r. }
+    forwards M: K (Fmap.empty:heap).
+    { apply Fmap.disjoint_empty_r. }
     { applys hpure_intro HP. }
-    { rewrite fmap_union_empty_r in M. applys M. } *)
+    { rewrite Fmap.union_empty_r in M. applys M. } *)
 
 (** [\[P] \-* H] can be proved of a heap if [H] can be proved
    of this heap under the assumption [P]. Formally: *)
@@ -726,7 +726,7 @@ Qed.
 (** In what follows we prove the equivalence between the three
     characterizations of [hwand H1 H2] that we have presented:
 
-    1. [fun h => forall h', fmap_disjoint h h' -> H1 h' -> H2 (h \u h')]
+    1. [fun h => forall h', Fmap.disjoint h h' -> H1 h' -> H2 (h \u h')]
 
     2. [\exists H0, H0 \* \[ (H0 \* H1) ==> H2]]
 
@@ -750,7 +750,7 @@ Proof using.
   { intros h1 D K1. destruct M as (H0&M).
     destruct M as (h0&h2&K0&K2&D'&U).
     lets (N&E): hpure_inv (rm K2). subst h h2.
-    rewrite fmap_union_empty_r in *.
+    rewrite Fmap.union_empty_r in *.
     applys N. applys hstar_intro K0 K1 D. }
 Qed.
 
@@ -924,19 +924,19 @@ Proof using. introv M1 M2 Hh. intros b. case_if*. Qed.
 Module SummaryHpropLowlevel.
 
 Definition hempty : hprop :=
-  fun h => (h = fmap_empty).
+  fun h => (h = Fmap.empty).
 
 Definition hpure (P:Prop) : hprop :=
-  fun h => (h = fmap_empty) /\ P.
+  fun h => (h = Fmap.empty) /\ P.
 
 Definition hsingle (l:loc) (v:val) : hprop :=
-  fun h => (h = fmap_single l v).
+  fun h => (h = Fmap.single l v).
 
 Definition hstar (H1 H2 : hprop) : hprop :=
   fun h => exists h1 h2, H1 h1
                               /\ H2 h2
-                              /\ fmap_disjoint h1 h2
-                              /\ h = fmap_union h1 h2.
+                              /\ Fmap.disjoint h1 h2
+                              /\ h = Fmap.union h1 h2.
 
 Definition hexists A (J:A->hprop) : hprop :=
   fun h => exists x, J x h.
@@ -945,10 +945,10 @@ Definition hforall (A : Type) (J : A -> hprop) : hprop :=
   fun h => forall x, J x h.
 
 Definition hwand (H1 H2:hprop) : hprop :=
-  fun h => forall h', fmap_disjoint h h' -> H1 h' -> H2 (h \u h').
+  fun h => forall h', Fmap.disjoint h h' -> H1 h' -> H2 (h \u h').
 
 Definition qwand A (Q1 Q2:A->hprop) :=
-  fun h => forall x h', fmap_disjoint h h' -> Q1 x h' -> Q2 x (h \u h').
+  fun h => forall x h', Fmap.disjoint h h' -> Q1 x h' -> Q2 x (h \u h').
 
 Definition hor (H1 H2 : hprop) : hprop :=
   fun h => H1 h \/ H2 h.

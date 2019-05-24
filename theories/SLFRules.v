@@ -54,11 +54,11 @@ Parameter htop_intro : forall h,
   \Top h.
 
 Parameter hsingle_intro : forall l v,
-  (l ~~~> v) (fmap_single l v).
+  (l ~~~> v) (Fmap.single l v).
 
 Parameter hsingle_inv: forall l v h,
   (l ~~~> v) h ->
-  h = fmap_single l v.
+  h = Fmap.single l v.
 
 
 (* ####################################################### *)
@@ -288,14 +288,14 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       n2 <> 0 ->
       eval s (val_div (val_int n1) (val_int n2)) s (val_int (Z.quot n1 n2))
   | eval_ref : forall s v l,
-      ~ fmap_indom s l ->
-      eval s (val_ref v) (fmap_update s l v) (val_loc l)
+      ~ Fmap.indom s l ->
+      eval s (val_ref v) (Fmap.update s l v) (val_loc l)
   | eval_get : forall s l,
-      fmap_indom s l ->
-      eval s (val_get (val_loc l)) s (fmap_read s l)
+      Fmap.indom s l ->
+      eval s (val_get (val_loc l)) s (Fmap.read s l)
   | eval_set : forall s l v,
-      fmap_indom s l ->
-      eval s (val_set (val_loc l) v) (fmap_update s l v) val_unit.
+      Fmap.indom s l ->
+      eval s (val_set (val_loc l) v) (Fmap.update s l v) val_unit.
 
 End SyntaxAndSemantics.
 
@@ -1277,33 +1277,33 @@ Qed.
     reading in [s] at location [l]. *)
 
 Parameter eval_get : forall s l,
-  fmap_indom s l ->
-  eval s (val_get (val_loc l)) s (fmap_read s l).
+  Fmap.indom s l ->
+  eval s (val_get (val_loc l)) s (Fmap.read s l).
 
 (** We reformulate this rule by isolating from the current state [s]
     the singleon heap made of the cell at location [l], and let [s2]
     denote the rest of the heap. When the singleton heap is described
-    as [fmap_single l v], then [v] is the result value returned by
+    as [Fmap.single l v], then [v] is the result value returned by
     [get l]. *)
 
 Lemma eval_get_sep : forall s s2 l v, 
-  s = (fmap_single l v) \u s2 ->
+  s = (Fmap.single l v) \u s2 ->
   eval s (val_get (val_loc l)) s v.
 
 (** The proof of this lemma is of little interest. We show it only to
    demonstrate that it relies only a basic facts related to finite maps. *)
 
 Proof using.
-  introv ->. forwards Dv: fmap_indom_single l v.
+  introv ->. forwards Dv: Fmap.indom_single l v.
   applys_eq eval_get 1.
-  { applys~ fmap_indom_union_l. }
-  { rewrite~ fmap_read_union_l. rewrite~ fmap_read_single. }
+  { applys~ Fmap.indom_union_l. }
+  { rewrite~ Fmap.read_union_l. rewrite~ Fmap.read_single. }
 Qed.
 
 (** Remark: the acute reader may have noticed that the lemma above
-    seems to be missing an hypothesis [fmap_disjoint (fmap_single l v) s2],
-    or, equivalently, [~ fmap_indom s2 l]. But in fact, the lemma
-    holds without this assumption. Indeed, the read in [fmap_union s1 s2]
+    seems to be missing an hypothesis [Fmap.disjoint (Fmap.single l v) s2],
+    or, equivalently, [~ Fmap.indom s2 l]. But in fact, the lemma
+    holds without this assumption. Indeed, the read in [Fmap.union s1 s2]
     at a location [l] from the domain of [s1] provides the result of
     reading at [l] in [s1], regardless of whether [s2] rebinds or not
     the same key [l]. *)
@@ -1321,7 +1321,7 @@ Qed.
 
 Parameter hsingle_inv: forall l v h,
   (l ~~~> v) h ->
-  h = fmap_single l v.
+  h = Fmap.single l v.
 
 Parameter hstar_hpure_iff' : forall P H h, 
   (\[P] \* H) h <-> (P /\ H h).
@@ -1340,7 +1340,7 @@ Proof using.
   exists s v. split.
   { (* 3. To justify the reduction using [red_get_sep], we need to
           argue that the state [s] decomposes as a singleton heap
-          [fmap_single l v] and the rest of the state [s2]. This is
+          [Fmap.single l v] and the rest of the state [s2]. This is
           obtained by eliminating the star in hypothesis [K0]. *)
     destruct K0 as (s1&s2&P1&P2&D&U).
     (*    and subsequently inverting [(l ~~~> v) h1]. *)
@@ -1376,41 +1376,43 @@ Qed.
     The location [l] must already belong to the domain of [s]. *)
 
 Parameter eval_set : forall m l v,
-   fmap_indom m l ->
-   eval m (val_set (val_loc l) v) (fmap_update m l v) val_unit.
+   Fmap.indom m l ->
+   eval m (val_set (val_loc l) v) (Fmap.update m l v) val_unit.
 
 (** As for [get], we first reformulate this lemma, to replace 
-   references to [fmap_indom] and [fmap_update] with references
-   to [fmap_union], [fmap_single], and [fmap_disjoint], to
+   references to [Fmap.indom] and [Fmap.update] with references
+   to [Fmap.union], [Fmap.single], and [Fmap.disjoint], to
    prepare for the introduction of separating conjuntions. *)
 
 Lemma eval_set_sep : forall s1 s2 h2 l v1 v2,
-  s1 = fmap_union (fmap_single l v1) h2 ->
-  s2 = fmap_union (fmap_single l v2) h2 ->
-  fmap_disjoint (fmap_single l v1) h2 ->
+  s1 = Fmap.union (Fmap.single l v1) h2 ->
+  s2 = Fmap.union (Fmap.single l v2) h2 ->
+  Fmap.disjoint (Fmap.single l v1) h2 ->
   eval s1 (val_set (val_loc l) v2) s2 val_unit.
 Proof using.
   (** It is not needed to follow through this proof. *)
-  introv -> -> D. forwards Dv: fmap_indom_single l v1.
+  introv -> -> D. forwards Dv: Fmap.indom_single l v1.
   applys_eq eval_set 2.
-  { applys~ fmap_indom_union_l. }
-  { rewrite~ fmap_update_union_l. fequals.
-    rewrite~ fmap_update_single. }
+  { applys~ Fmap.indom_union_l. }
+  { rewrite~ Fmap.update_union_l. fequals.
+    rewrite~ Fmap.update_single. }
 Qed.
 
 (** The proof of the Hoare rule for [set] makes use of the following
-    fact (from [Fmap.v]) about [fmap_disjoint]: when one of its argument is
-    a singleton map, the value stored in that singleton map is irrelevant. *)
-
-Parameter fmap_disjoint_single_set : forall l v1 v2 h2,
-  fmap_disjoint (fmap_single l v1) h2 ->
-  fmap_disjoint (fmap_single l v2) h2.
+    fact (from [Fmap.v]) about [Fmap.disjoint]: when one of its argument is
+    a singleton map, the value stored in that singleton map is irrelevant. 
+[[
+    Check Fmap.disjoint_single_set : forall l v1 v2 h2,
+      Fmap.disjoint (Fmap.single l v1) h2 ->
+      Fmap.disjoint (Fmap.single l v2) h2.
+]] 
+*)
 
 (** We willmake use of three lemmas, all introduced in the first chapter:
 
     - the lemma [hstar_hpure_iff], already used earlier in this chapter 
       to reformulate [(\[P] \* H) h] as [P /\ H h],
-    - the lemma [hsingle_intro], to prove [(l ~~~> v) (fmap_single l v)], 
+    - the lemma [hsingle_intro], to prove [(l ~~~> v) (Fmap.single l v)], 
     - and the lemma [hstar_intro], to prove [(H1 \* H2) (h1 \u h2)]. *)
 
 (** Let's now dive in the proof of the Hoare triple for [set]. *)
@@ -1427,7 +1429,7 @@ Proof using.
   (* 3. We also decompose the singleton heap predicate from it. *)
   lets E1: hsingle_inv P1.
   (* 4. We provide the witnesses as guided by [red_set_sep]. *)
-  exists ((fmap_single l w) \u h2) val_unit. split.
+  exists ((Fmap.single l w) \u h2) val_unit. split.
   { (* 5. The evaluation subgoal matches the statement of [red_set_sep]. *)
     subst h1. applys eval_set_sep U D. auto. }
   { (* 6. To establish the postcondition, we first isolate the pure fact. *)
@@ -1439,8 +1441,8 @@ Proof using.
         applys hsingle_intro. }
       { applys P2. }
       { (* 9. Finally, we justify disjointness using the lemma 
-              [fmap_disjoint_single_set] introduced earlier. *)
-        subst h1. applys fmap_disjoint_single_set D. } } }
+              [Fmap.disjoint_single_set] introduced earlier. *)
+        subst h1. applys Fmap.disjoint_single_set D. } } }
 Qed.
 
 (** We then derive the Separation Logic triple as usual. *)
@@ -1469,24 +1471,24 @@ Qed.
     fresh location [l]. *)
 
 Parameter eval_ref : forall s v l,
-  ~ fmap_indom s l ->
-  eval s (val_ref v) (fmap_update s l v) (val_loc l).
+  ~ Fmap.indom s l ->
+  eval s (val_ref v) (Fmap.update s l v) (val_loc l).
 
-(** Let us reformulate [red_ref] to replace references to [fmap_indom]
-    and [fmap_update] with references to [fmap_single] and [fmap_disjoint].
+(** Let us reformulate [red_ref] to replace references to [Fmap.indom]
+    and [Fmap.update] with references to [Fmap.single] and [Fmap.disjoint].
     Concretely, [ref v] extends the state from [s1] to [s1 \u s2],
-    where [s2] denotes the singleton heap [fmap_single l v], and with
-    the requirement that [fmap_disjoint s2 s1], to capture freshness. *)
+    where [s2] denotes the singleton heap [Fmap.single l v], and with
+    the requirement that [Fmap.disjoint s2 s1], to capture freshness. *)
 
 Lemma eval_ref_sep : forall s1 s2 v l,
-  s2 = fmap_single l v ->
-  fmap_disjoint s2 s1 ->
-  eval s1 (val_ref v) (fmap_union s2 s1) (val_loc l).
+  s2 = Fmap.single l v ->
+  Fmap.disjoint s2 s1 ->
+  eval s1 (val_ref v) (Fmap.union s2 s1) (val_loc l).
 Proof using.
   (** It is not needed to follow through this proof. *)
-  introv -> D. forwards Dv: fmap_indom_single l v.
-  rewrite <- fmap_update_eq_union_single. applys~ eval_ref.
-  { intros N. applys~ fmap_disjoint_inv_not_indom_both D N. }
+  introv -> D. forwards Dv: Fmap.indom_single l v.
+  rewrite <- Fmap.update_eq_union_single. applys~ eval_ref.
+  { intros N. applys~ Fmap.disjoint_inv_not_indom_both D N. }
 Qed.
 
 (** In order to apply the rules [red_ref] or [red_ref_sep], we need
@@ -1494,20 +1496,20 @@ Qed.
     (from [Fmap.v]) captures the existence, for any state [s], of 
     a location [l] not already bound in [s]. *)
 
-Parameter fmap_exists_not_indom : forall s,
-  exists l, ~ fmap_indom s l.
+Parameter exists_not_indom : forall s,
+   exists l, ~ Fmap.indom s l.
 
 (** For invokation in relation to rule [red_ref_sep], we actually
     will exploit the following corollary, which asserts, for any [h],
     the existence of a location [l] such that the singleton heap
-    [fmap_single l v] is disjoint from [h]. *)
+    [Fmap.single l v] is disjoint from [h]. *)
 
-Lemma fmap_single_fresh : forall h v,
-  exists l, fmap_disjoint (fmap_single l v) h.
+Lemma single_fresh : forall h v,
+  exists l, Fmap.disjoint (Fmap.single l v) h.
 Proof using.
   (** It is not needed to follow through this proof. *)
-  intros. forwards (l&F): fmap_exists_not_indom h.
-  exists l. applys* fmap_disjoint_single_of_not_indom.
+  intros. forwards (l&F): exists_not_indom h.
+  exists l. applys* Fmap.disjoint_single_of_not_indom.
 Qed.
 
 (** The proof of the Hoare triple for [ref] is as follows. *)
@@ -1520,11 +1522,11 @@ Proof using.
   (* 1. We unfold the definition of [hoare]. *)
   intros. intros s1 K0.
   (* 2. We claim the disjointness relation 
-       [fmap_disjoint (fmap_single l v) s1]. *)
-  forwards~ (l&D): (fmap_single_fresh s1 v).
+       [Fmap.disjoint (Fmap.single l v) s1]. *)
+  forwards~ (l&D): (single_fresh s1 v).
   (* 3. We provide the witnesses for the reduction,
         as dictated by [red_ref_sep]. *)
-  exists ((fmap_single l v) \u s1) (val_loc l). split.
+  exists ((Fmap.single l v) \u s1) (val_loc l). split.
   { (* 4. We exploit [red_ref_sep], which has exactly the desired shape! *)
     applys eval_ref_sep D. auto. }
   { (* 5. We establish the postcondition 

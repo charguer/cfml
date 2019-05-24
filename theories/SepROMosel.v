@@ -72,7 +72,7 @@ Instance RO_persistent P : Persistent P → Persistent (RO P).
 Proof.
   rewrite /Persistent /bi_persistently /= /hpersistently /RO=>HP h [h' [Hh' _]].
   exists heap_empty. split; [by eapply HP|split; [done|]].
-  by rewrite fmap_union_empty_l.
+  by rewrite Fmap.union_empty_l.
 Qed.
 Instance RO_affine P : Affine P → Affine (RO P).
 Proof. rewrite /Affine=>->. by rewrite RO_empty. Qed.

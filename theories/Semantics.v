@@ -1022,20 +1022,20 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       redbinop op v1 v2 v ->
       eval m (op v1 v2) m v
   | eval_ref : forall m v l,
-      ~ fmap_indom m l ->
+      ~ Fmap.indom m l ->
       l <> null ->
-      eval m (val_ref v) (fmap_update m l v) (val_loc l)
+      eval m (val_ref v) (Fmap.update m l v) (val_loc l)
   | eval_get : forall m l,
-      fmap_indom m l ->
-      eval m (val_get (val_loc l)) m (fmap_read m l)
+      Fmap.indom m l ->
+      eval m (val_get (val_loc l)) m (Fmap.read m l)
   | eval_set : forall m l v,
-      fmap_indom m l ->
-      eval m (val_set (val_loc l) v) (fmap_update m l v) val_unit
+      Fmap.indom m l ->
+      eval m (val_set (val_loc l) v) (Fmap.update m l v) val_unit
   | eval_alloc : forall k n ma mb l,
-      mb = fmap_conseq l k val_unit ->
+      mb = Fmap.conseq l k val_unit ->
       n = nat_to_Z k ->
       l <> null ->
-      fmap_disjoint ma mb -> (* TODO: reformulate using not_indom *)
+      Fmap.disjoint ma mb -> (* TODO: reformulate using not_indom *)
       eval ma (val_alloc (val_int n)) (mb \+ ma) (val_loc l).
 
 End Red.
@@ -1077,60 +1077,60 @@ Hint Resolve evalctx_app_arg.
 (** Rules for state *)
 
 (*
-Lemma fmap_update_eq_union
-  m1 = fmap_single l v ->
-     fmap_indom m1 l
-  /\ fmap_update m2 l v = fmap_union m1 m2.
+Lemma Fmap.update_eq_union
+  m1 = Fmap.single l v ->
+     Fmap.indom m1 l
+  /\ Fmap.update m2 l v = Fmap.union m1 m2.
 *)
 
 Lemma eval_ref_sep : forall s1 s2 v l,
   l <> null ->
-  s2 = fmap_single l v ->
-  fmap_disjoint s2 s1 ->
-  eval s1 (val_ref v) (fmap_union s2 s1) (val_loc l).
+  s2 = Fmap.single l v ->
+  Fmap.disjoint s2 s1 ->
+  eval s1 (val_ref v) (Fmap.union s2 s1) (val_loc l).
 Proof using.
-  introv Nl -> D. forwards Dv: fmap_indom_single l v.
-  rewrite <- fmap_update_eq_union_single. applys~ eval_ref.
-  { intros N. applys~ fmap_disjoint_inv_not_indom_both D N. }
+  introv Nl -> D. forwards Dv: Fmap.indom_single l v.
+  rewrite <- Fmap.update_eq_union_single. applys~ eval_ref.
+  { intros N. applys~ Fmap.disjoint_inv_not_indom_both D N. }
 Qed.
 
-(* m1 = fmap_single l v ->
-   m = fmap_union m1 m2 ->
-       fmap_indom m1 l
-    /\ fmap_read m1 l = v *)
+(* m1 = Fmap.single l v ->
+   m = Fmap.union m1 m2 ->
+       Fmap.indom m1 l
+    /\ Fmap.read m1 l = v *)
 
-(* Note: [fmap_disjoint s1 s2] is not needed, and in fact too 
-   restrictive, because [fmap_agree s1 s2] would be sufficient. *)
+(* Note: [Fmap.disjoint s1 s2] is not needed, and in fact too 
+   restrictive, because [Fmap.agree s1 s2] would be sufficient. *)
 
 Lemma eval_get_sep : forall s s1 s2 l v, 
-  s = fmap_union s1 s2 ->
-  s1 = fmap_single l v ->
+  s = Fmap.union s1 s2 ->
+  s1 = Fmap.single l v ->
   eval s (val_get (val_loc l)) s v.
 Proof using.
-  introv -> ->. forwards Dv: fmap_indom_single l v.
+  introv -> ->. forwards Dv: Fmap.indom_single l v.
   applys_eq eval_get 1.
-  { applys~ fmap_indom_union_l. }
-  { rewrite~ fmap_read_union_l. rewrite~ fmap_read_single. }
+  { applys~ Fmap.indom_union_l. }
+  { rewrite~ Fmap.read_union_l. rewrite~ Fmap.read_single. }
 Qed.
 
-(* m1 = fmap_single l v ->
-   m = fmap_union m1 m2 ->
-       fmap_indom m1 l
-    /\ fmap_update m l w = fmap_union (fmap_single l v) m2 *)
+(* m1 = Fmap.single l v ->
+   m = Fmap.union m1 m2 ->
+       Fmap.indom m1 l
+    /\ Fmap.update m l w = Fmap.union (Fmap.single l v) m2 *)
 
 Lemma eval_set_sep : forall s s' h1 h1' h2 l v v',
-  s = fmap_union h1 h2 ->
-  h1 = fmap_single l v ->
-  fmap_disjoint h1 h2 ->
-  s' = fmap_union h1' h2 ->
-  h1' = fmap_single l v' ->
+  s = Fmap.union h1 h2 ->
+  h1 = Fmap.single l v ->
+  Fmap.disjoint h1 h2 ->
+  s' = Fmap.union h1' h2 ->
+  h1' = Fmap.single l v' ->
   eval s (val_set (val_loc l) v') s' val_unit.
 Proof using.
-  introv -> -> D -> ->. forwards Dv: fmap_indom_single l v.
+  introv -> -> D -> ->. forwards Dv: Fmap.indom_single l v.
   applys_eq eval_set 2.
-  { applys~ fmap_indom_union_l. }
-  { rewrite~ fmap_update_union_l. fequals.
-    rewrite~ fmap_update_single. }
+  { applys~ Fmap.indom_union_l. }
+  { rewrite~ Fmap.update_union_l. fequals.
+    rewrite~ Fmap.update_single. }
 Qed.
 
 

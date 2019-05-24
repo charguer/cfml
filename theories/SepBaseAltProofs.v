@@ -741,8 +741,8 @@ Lemma triple_ref : forall v,
     (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
 Proof using.
   intros. intros HF h N.
-  forwards~ (l&Dl&Nl): (fmap_single_fresh null h v).
-  sets h1': (fmap_single l v).
+  forwards~ (l&Dl&Nl): (Fmap.single_fresh null h v).
+  sets h1': (Fmap.single l v).
   exists (h1' \u h) (val_loc l). splits~.
   { applys~ eval_ref_sep. }
   { exists h1' h. split.
@@ -766,13 +766,13 @@ Lemma triple_set : forall w l v,
     (fun r => \[r = val_unit] \* l ~~~> w).
 Proof using.
   intros. intros HF h N. destruct N as (h1&h2&(N0&N1)&N2&N3&N4).
-  hnf in N1. sets h1': (fmap_single l w).
+  hnf in N1. sets h1': (Fmap.single l w).
   exists (h1' \u h2) val_unit. splits~.
   { applys eval_set_sep; eauto. }
   { rew_heap. rewrite hstar_hpure. split~. exists h1' h2. splits~.
     { hnfs~. }
     { hhsimpl~. }
-    { subst h1. applys~ fmap_disjoint_single_set v. } }
+    { subst h1. applys~ Fmap.disjoint_single_set v. } }
 Qed.
 
 Lemma triple_set' : forall w l v,
@@ -792,8 +792,8 @@ Lemma triple_alloc : forall n,
     (fun r => \exists l, \[r = val_loc l /\ l <> null] \* Alloc (abs n) l).
 Proof using. (* Note: [abs n] currently does not compute in Coq. *)
   introv N Hh.
-  forwards~ (l&Dl&Nl): (fmap_conseq_fresh null h (abs n) val_unit).
-  sets h1': (fmap_conseq l (abs n) val_unit).
+  forwards~ (l&Dl&Nl): (Fmap.conseq_fresh null h (abs n) val_unit).
+  sets h1': (Fmap.conseq l (abs n) val_unit).
   exists (h1' \u h) (val_loc l). splits~.
   { applys (eval_alloc (abs n)); eauto.
     rewrite~ abs_nonneg. }

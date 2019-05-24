@@ -19,15 +19,15 @@ Import NotationForVariables NotationForTerms CoercionsFromStrings.
 
 (** Configuration of Fmap.v *)
 
-Arguments fmap_single {A} {B}.
-Arguments fmap_union {A} {B}.
-Arguments fmap_disjoint {A} {B}. 
-Arguments fmap_union_comm_of_disjoint {A} {B}.
-Arguments fmap_union_empty_l {A} {B}.
-Arguments fmap_union_empty_r {A} {B}.
-Arguments fmap_union_assoc {A} {B}.
-Arguments fmap_disjoint_union_eq_l {A} {B}.
-Arguments fmap_disjoint_union_eq_r {A} {B}.
+Arguments Fmap.single {A} {B}.
+Arguments Fmap.union {A} {B}.
+Arguments Fmap.disjoint {A} {B}. 
+Arguments Fmap.union_comm_of_disjoint {A} {B}.
+Arguments Fmap.union_empty_l {A} {B}.
+Arguments Fmap.union_empty_r {A} {B}.
+Arguments Fmap.union_assoc {A} {B}.
+Arguments Fmap.disjoint_union_eq_l {A} {B}.
+Arguments Fmap.disjoint_union_eq_r {A} {B}.
 
 Close Scope fmap_scope.
 
@@ -91,13 +91,13 @@ Definition heap := state.
 
 (** The main operations and predicates on the state are as follows.
 [[
-    Check fmap_empty : heap.
+    Check Fmap.empty : heap.
 
-    Check fmap_single : loc -> val -> heap.
+    Check Fmap.single : loc -> val -> heap.
 
-    Check fmap_union : heap -> heap -> heap.
+    Check Fmap.union : heap -> heap -> heap.
 
-    Check fmap_disjoint : heap -> heap -> Prop.
+    Check Fmap.disjoint : heap -> heap -> Prop.
 ]]
 *)
 
@@ -127,7 +127,7 @@ Implicit Type H : hprop.
 (** The heap predicate, written [\[]], characterizes an empty state. *)
 
 Definition hempty : hprop :=
-  fun (h:heap) => (h = fmap_empty).
+  fun (h:heap) => (h = Fmap.empty).
 
 Notation "\[]" := (hempty) (at level 0).
 
@@ -135,7 +135,7 @@ Notation "\[]" := (hempty) (at level 0).
     and moreover asserts that the proposition [P] is true. *)
 
 Definition hpure (P:Prop) : hprop :=
-  fun (h:heap) => (h = fmap_empty) /\ P.
+  fun (h:heap) => (h = Fmap.empty) /\ P.
 
 Notation "\[ P ]" := (hpure P) (at level 0, format "\[ P ]").
 
@@ -144,7 +144,7 @@ Notation "\[ P ]" := (hpure P) (at level 0, format "\[ P ]").
     value [v]. *)
 
 Definition hsingle (l:loc) (v:val) : hprop :=
-  fun (h:heap) => (h = fmap_single l v).
+  fun (h:heap) => (h = Fmap.single l v).
 
 Notation "l '~~~>' v" := (hsingle l v) (at level 32).
 
@@ -156,8 +156,8 @@ Notation "l '~~~>' v" := (hsingle l v) (at level 32).
 Definition hstar (H1 H2 : hprop) : hprop :=
   fun (h:heap) => exists h1 h2, H1 h1
                               /\ H2 h2
-                              /\ fmap_disjoint h1 h2
-                              /\ h = fmap_union h1 h2.
+                              /\ Fmap.disjoint h1 h2
+                              /\ h = Fmap.union h1 h2.
 
 Notation "H1 '\*' H2" := (hstar H1 H2) (at level 41, right associativity).
 
@@ -366,7 +366,7 @@ Parameter triple_frame : forall t H Q H',
 (** To improve readability of statements in proofs, we introduce
     the following notation for heap union. *)
 
-Notation "h1 \u h2" := (fmap_union h1 h2) (at level 37, right associativity).
+Notation "h1 \u h2" := (Fmap.union h1 h2) (at level 37, right associativity).
 
 
 (* ******************************************************* *)
@@ -380,22 +380,22 @@ Implicit Types P : Prop.
 (** Introduction lemmas: how to prove goals of the form [H h]. *)
 
 Lemma hempty_intro :
-  \[] fmap_empty.
+  \[] Fmap.empty.
 Proof using. hnf. auto. Qed.
 
 Lemma hpure_intro : forall P,
   P ->
-  \[P] fmap_empty.
+  \[P] Fmap.empty.
 Proof using. introv M. hnf. auto. Qed.
 
 Lemma hsingle_intro : forall l v,
-  (l ~~~> v) (fmap_single l v).
+  (l ~~~> v) (Fmap.single l v).
 Proof using. intros. hnf. auto. Qed.
 
 Lemma hstar_intro : forall H1 H2 h1 h2,
   H1 h1 ->
   H2 h2 ->
-  fmap_disjoint h1 h2 ->
+  Fmap.disjoint h1 h2 ->
   (H1 \* H2) (h1 \u h2).
 Proof using. intros. exists~ h1 h2. Qed.
 
@@ -413,22 +413,22 @@ Proof using. intros. hnf. auto. Qed.
 
 Lemma hempty_inv : forall h,
   \[] h ->
-  h = fmap_empty.
+  h = Fmap.empty.
 Proof using. introv M. hnf in M. auto. Qed.
 
 Lemma hpure_inv : forall P h,
   \[P] h ->
-  P /\ h = fmap_empty.
+  P /\ h = Fmap.empty.
 Proof using. introv M. hnf in M. autos*. Qed.
 
 Lemma hsingle_inv: forall l v h,
   (l ~~~> v) h ->
-  h = fmap_single l v.
+  h = Fmap.single l v.
 Proof using. introv M. hnf in M. auto. Qed.
 
 Lemma hstar_inv : forall H1 H2 h,
   (H1 \* H2) h ->
-  exists h1 h2, H1 h1 /\ H2 h2 /\ fmap_disjoint h1 h2 /\ h = h1 \u h2.
+  exists h1 h2, H1 h1 /\ H2 h2 /\ Fmap.disjoint h1 h2 /\ h = h1 \u h2.
 Proof using. introv M. hnf in M. eauto. Qed.
 
 Lemma hexists_inv : forall A (J:A->hprop) h,
@@ -448,11 +448,11 @@ Proof using. intros. auto. Qed.
     [P] is true and [h] it satisfies [H]. The proof requires
     two lemmas on finite maps from [Fmap.v]:
 
-  Lemma fmap_union_empty_l : forall h,
-    fmap_empty \u h = h.
+  Lemma Fmap.union_empty_l : forall h,
+    Fmap.empty \u h = h.
 
-  Lemma fmap_disjoint_empty_l : forall h,
-    fmap_disjoint fmap_empty h. 
+  Lemma Fmap.disjoint_empty_l : forall h,
+    Fmap.disjoint Fmap.empty h. 
 *)
 
 Lemma hstar_hpure_iff : forall P H h, 
@@ -462,13 +462,13 @@ Proof using.
   iff M. 
   { hnf in M. destruct M as (h1&h2&M1&M2&D&U).
     hnf in M1. destruct M1 as (M1&HP). subst.
-    rewrite fmap_union_empty_l. auto. }
+    rewrite Fmap.union_empty_l. auto. }
   { destruct M as (HP&Hh). hnf.
-    exists (fmap_empty:heap) h. splits.
+    exists (Fmap.empty:heap) h. splits.
     { hnf. auto. }
     { auto. }
-    { apply fmap_disjoint_empty_l. }
-    { rewrite fmap_union_empty_l. auto. } }
+    { apply Fmap.disjoint_empty_l. }
+    { rewrite Fmap.union_empty_l. auto. } }
 (* /SOLUTION *)
 Qed.
 
@@ -775,10 +775,10 @@ Definition htop' : hprop :=
 
 Definition SL_triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall h1 h2,
-  fmap_disjoint h1 h2 ->
+  Fmap.disjoint h1 h2 ->
   H h1 ->
   exists h1' v,
-       fmap_disjoint h1' h2
+       Fmap.disjoint h1' h2
     /\ eval (h1 \u h2) t (h1' \u h2) v
     /\ Q v h1'.
 
@@ -810,13 +810,13 @@ Qed.
 
     In order to describe disjointness of the 3 pieces of heap that 
     describe the final state, we first introduce an auxiliary definition:
-    [fmap_disjoint_3 h1 h2 h3] asserts that the three arguments denote
+    [Fmap.disjoint_3 h1 h2 h3] asserts that the three arguments denote
     pairwise disjoint heaps. *)
 
 Definition fmap_disjoint_3 (h1 h2 h3:heap) :=
-     fmap_disjoint h1 h2
-  /\ fmap_disjoint h2 h3
-  /\ fmap_disjoint h1 h3.
+     Fmap.disjoint h1 h2
+  /\ Fmap.disjoint h2 h3
+  /\ Fmap.disjoint h1 h3.
 
 (** We then generalize the result heap from [h1' \u h2] to
     [h1' \u h2 \u h3'], where [h3'] denotes the piece of the
@@ -825,7 +825,7 @@ Definition fmap_disjoint_3 (h1 h2 h3:heap) :=
 
 Definition triple_lowlevel t H Q :=
   forall h1 h2,
-  fmap_disjoint h1 h2 ->
+  Fmap.disjoint h1 h2 ->
   H h1 ->
   exists v h1' h3',
        fmap_disjoint_3 h1' h2 h3'

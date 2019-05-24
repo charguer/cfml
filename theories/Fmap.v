@@ -120,11 +120,11 @@ End MapOps.
 (* ---------------------------------------------------------------------- *)
 (** Definition of the type of finite maps *)
 
-Inductive fmap (A B : Type) : Type := fmap_make {
+Inductive fmap (A B : Type) : Type := make {
   fmap_data :> map A B;
   fmap_finite : map_finite fmap_data }.
 
-Arguments fmap_make [A] [B].
+Arguments make [A] [B].
 
 
 (* ---------------------------------------------------------------------- *)
@@ -132,40 +132,40 @@ Arguments fmap_make [A] [B].
 
 (** Empty fmap *)
 
-Program Definition fmap_empty (A B : Type) : fmap A B :=
-  fmap_make (fun l => None) _.
+Program Definition empty (A B : Type) : fmap A B :=
+  make (fun l => None) _.
 Next Obligation. exists (@nil A). auto_false. Qed.
 
-Arguments fmap_empty {A} {B}.
+Arguments empty {A} {B}.
 
 (** Singleton fmap *)
 
-Program Definition fmap_single A B (x:A) (v:B) : fmap A B :=
-  fmap_make (fun x' => If x = x' then Some v else None) _.
+Program Definition single A B (x:A) (v:B) : fmap A B :=
+  make (fun x' => If x = x' then Some v else None) _.
 Next Obligation.
   exists (x::nil). intros. case_if. subst~.
 Qed.
 
 (** Union of fmaps *)
 
-Program Definition fmap_union A B (h1 h2:fmap A B) : fmap A B :=
-  fmap_make (map_union h1 h2) _.
+Program Definition union A B (h1 h2:fmap A B) : fmap A B :=
+  make (map_union h1 h2) _.
 Next Obligation. destruct h1. destruct h2. apply~ map_union_finite. Qed.
 
-Notation "h1 \+ h2" := (fmap_union h1 h2)
+Notation "h1 \+ h2" := (union h1 h2)
    (at level 51, right associativity) : fmap_scope.
 
 Open Scope fmap_scope.
 
 (** Update of a fmap *)
 
-Definition fmap_update A B (h:fmap A B) (x:A) (v:B) : fmap A B :=
-  fmap_union (fmap_single x v) h.
+Definition update A B (h:fmap A B) (x:A) (v:B) : fmap A B :=
+  union (single x v) h.
   (* Note: the union operation first reads in the first argument. *)
 
 (** Read in a map *)
 
-Definition fmap_read (A B : Type) {IB:Inhab B} (h:fmap A B) (x:A) : B :=
+Definition read (A B : Type) {IB:Inhab B} (h:fmap A B) (x:A) : B :=
   match fmap_data h x with
   | Some y => y
   | None => arbitrary
@@ -173,7 +173,7 @@ Definition fmap_read (A B : Type) {IB:Inhab B} (h:fmap A B) (x:A) : B :=
 
 (** Domain of a fmap (as a predicate) *)
 
-Definition fmap_indom (A B: Type) (h:fmap A B) : (A->Prop) :=
+Definition indom (A B: Type) (h:fmap A B) : (A->Prop) :=
   map_indom h.
 
 
@@ -183,33 +183,33 @@ Definition fmap_indom (A B: Type) (h:fmap A B) : (A->Prop) :=
 (** Inhabited type [fmap] *)
 
 Global Instance Inhab_fmap A B : Inhab (fmap A B).
-Proof using. intros. applys Inhab_of_val (@fmap_empty A B). Qed.
+Proof using. intros. applys Inhab_of_val (@empty A B). Qed.
 
 (** Compatible fmaps (only for Separation Logic with RO-permissions) *)
 
-Definition fmap_agree A B (h1 h2:fmap A B) :=
+Definition agree A B (h1 h2:fmap A B) :=
   map_agree h1 h2.
 
 (** Disjoint fmaps *)
 
-Definition fmap_disjoint A B (h1 h2 : fmap A B) : Prop :=
+Definition disjoint A B (h1 h2 : fmap A B) : Prop :=
   map_disjoint h1 h2.
 
 (** Three disjoint fmaps (not needed for basic separation logic) *)
 
-Definition fmap_disjoint_3 A B (h1 h2 h3 : fmap A B) :=
-     fmap_disjoint h1 h2
-  /\ fmap_disjoint h2 h3
-  /\ fmap_disjoint h1 h3.
+Definition disjoint_3 A B (h1 h2 h3 : fmap A B) :=
+     disjoint h1 h2
+  /\ disjoint h2 h3
+  /\ disjoint h1 h3.
 
 (** Notation for disjointness *)
 
 Module NotationForFmapDisjoint.
 
-Notation "\# h1 h2" := (fmap_disjoint h1 h2)
+Notation "\# h1 h2" := (disjoint h1 h2)
   (at level 40, h1 at level 0, h2 at level 0, no associativity) : fmap_scope.
 
-Notation "\# h1 h2 h3" := (fmap_disjoint_3 h1 h2 h3)
+Notation "\# h1 h2 h3" := (disjoint_3 h1 h2 h3)
   (at level 40, h1 at level 0, h2 at level 0, h3 at level 0, no associativity)
   : fmap_scope.
 
@@ -228,15 +228,15 @@ Implicit Types f g h : fmap A B.
 (* ---------------------------------------------------------------------- *)
 (* ** Equality *)
 
-Lemma fmap_make_eq : forall (f1 f2:map A B) F1 F2,
+Lemma make_eq : forall (f1 f2:map A B) F1 F2,
   (forall x, f1 x = f2 x) ->
-  fmap_make f1 F1 = fmap_make f2 F2.
+  make f1 F1 = make f2 F2.
 Proof using.
   introv H. asserts: (f1 = f2). { unfold map. extens~. }
   subst. fequals. (* note: involves proof irrelevance *)
 Qed.
 
-Lemma fmap_eq_inv_fmap_data_eq : forall h1 h2,
+Lemma eq_inv_fmap_data_eq : forall h1 h2,
   h1 = h2 ->
   forall x, fmap_data h1 x = fmap_data h2 x.
 Proof using. intros. fequals. Qed.
@@ -245,31 +245,31 @@ Proof using. intros. fequals. Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Disjointness *)
 
-Lemma fmap_disjoint_sym : forall h1 h2,
+Lemma disjoint_sym : forall h1 h2,
   \# h1 h2 ->
   \# h2 h1.
 Proof using. intros [f1 F1] [f2 F2]. apply map_disjoint_sym. Qed.
 
-Lemma fmap_disjoint_comm : forall h1 h2,
+Lemma disjoint_comm : forall h1 h2,
   \# h1 h2 = \# h2 h1.
-Proof using. lets: fmap_disjoint_sym. extens*. Qed.
+Proof using. lets: disjoint_sym. extens*. Qed.
 
-Lemma fmap_disjoint_empty_l : forall h,
-  \# fmap_empty h.
+Lemma disjoint_empty_l : forall h,
+  \# empty h.
 Proof using. intros [f F] x. simple~. Qed.
 
-Lemma fmap_disjoint_empty_r : forall h,
-  \# h fmap_empty.
+Lemma disjoint_empty_r : forall h,
+  \# h empty.
 Proof using. intros [f F] x. simple~. Qed.
 
-Hint Resolve fmap_disjoint_sym fmap_disjoint_empty_l fmap_disjoint_empty_r.
+Hint Resolve disjoint_sym disjoint_empty_l disjoint_empty_r.
 
-Lemma fmap_disjoint_union_eq_r : forall h1 h2 h3,
+Lemma disjoint_union_eq_r : forall h1 h2 h3,
   \# h1 (h2 \+ h3) =
   (\# h1 h2 /\ \# h1 h3).
 Proof using.
   intros [f1 F1] [f2 F2] [f3 F3].
-  unfolds fmap_disjoint, fmap_union. simpls.
+  unfolds disjoint, union. simpls.
   unfolds map_disjoint, map_union. extens. iff M [M1 M2].
   split; intros x; specializes M x;
    destruct (f2 x); intuition; tryfalse.
@@ -277,37 +277,37 @@ Proof using.
    destruct (f2 x); intuition.
 Qed.
 
-Lemma fmap_disjoint_union_eq_l : forall h1 h2 h3,
+Lemma disjoint_union_eq_l : forall h1 h2 h3,
   \# (h2 \+ h3) h1 =
   (\# h1 h2 /\ \# h1 h3).
 Proof using.
-  intros. rewrite fmap_disjoint_comm.
-  apply fmap_disjoint_union_eq_r.
+  intros. rewrite disjoint_comm.
+  apply disjoint_union_eq_r.
 Qed.
 
-Lemma fmap_disjoint_single_single : forall (x1 x2:A) (v1 v2:B),
+Lemma disjoint_single_single : forall (x1 x2:A) (v1 v2:B),
   x1 <> x2 ->
-  \# (fmap_single x1 v1) (fmap_single x2 v2).
+  \# (single x1 v1) (single x2 v2).
 Proof using.
   introv N. intros x. simpls. do 2 case_if; auto.
 Qed.
 
-Lemma fmap_disjoint_single_single_same_inv : forall (x:A) (v1 v2:B),
-  \# (fmap_single x v1) (fmap_single x v2) ->
+Lemma disjoint_single_single_same_inv : forall (x:A) (v1 v2:B),
+  \# (single x v1) (single x v2) ->
   False.
 Proof using.
   introv D. specializes D x. simpls. case_if. destruct D; tryfalse.
 Qed.
 
-Lemma fmap_disjoint_3_unfold : forall h1 h2 h3,
+Lemma disjoint_3_unfold : forall h1 h2 h3,
   \# h1 h2 h3 = (\# h1 h2 /\ \# h2 h3 /\ \# h1 h3).
 Proof using. auto. Qed.
 
-Lemma fmap_disjoint_single_set : forall h l v1 v2,
-  \# (fmap_single l v1) h ->
-  \# (fmap_single l v2) h.
+Lemma disjoint_single_set : forall h l v1 v2,
+  \# (single l v1) h ->
+  \# (single l v2) h.
 Proof using.
-  introv M. unfolds fmap_disjoint, fmap_single, map_disjoint; simpls.
+  introv M. unfolds disjoint, single, map_disjoint; simpls.
   intros l'. specializes M l'. case_if~. destruct M; auto_false.
 Qed.
 
@@ -315,83 +315,83 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Union *)
 
-Lemma fmap_union_self : forall h,
+Lemma union_self : forall h,
   h \+ h = h.
 Proof using.
-  intros [f F]. apply~ fmap_make_eq. simpl. intros x.
+  intros [f F]. apply~ make_eq. simpl. intros x.
   unfold map_union. cases~ (f x).
 Qed.
 
-Lemma fmap_union_empty_l : forall h,
-  fmap_empty \+ h = h.
+Lemma union_empty_l : forall h,
+  empty \+ h = h.
 Proof using.
-  intros [f F]. unfold fmap_union, map_union, fmap_empty. simpl.
-  apply~ fmap_make_eq.
+  intros [f F]. unfold union, map_union, empty. simpl.
+  apply~ make_eq.
 Qed.
 
-Lemma fmap_union_empty_r : forall h,
-  h \+ fmap_empty = h.
+Lemma union_empty_r : forall h,
+  h \+ empty = h.
 Proof using.
-  intros [f F]. unfold fmap_union, map_union, fmap_empty. simpl.
-  apply fmap_make_eq. intros x. destruct~ (f x).
+  intros [f F]. unfold union, map_union, empty. simpl.
+  apply make_eq. intros x. destruct~ (f x).
 Qed.
 
-Lemma fmap_union_eq_empty_inv_l : forall h1 h2,
-  h1 \+ h2 = fmap_empty ->
-  h1 = fmap_empty.
+Lemma union_eq_empty_inv_l : forall h1 h2,
+  h1 \+ h2 = empty ->
+  h1 = empty.
 Proof using.
   intros (f1&F1) (f2&F2) M. inverts M as M.
-  applys fmap_make_eq. intros l.
+  applys make_eq. intros l.
   unfolds map_union.
   lets: fun_eq_1 l M.
   cases (f1 l); auto_false.
 Qed.
 
-Lemma fmap_union_eq_empty_inv_r : forall h1 h2,
-  h1 \+ h2 = fmap_empty ->
-  h2 = fmap_empty.
+Lemma union_eq_empty_inv_r : forall h1 h2,
+  h1 \+ h2 = empty ->
+  h2 = empty.
 Proof using.
   intros (f1&F1) (f2&F2) M. inverts M as M.
-  applys fmap_make_eq. intros l.
+  applys make_eq. intros l.
   unfolds map_union.
   lets: fun_eq_1 l M.
   cases (f1 l); auto_false.
 Qed.
 
-Lemma fmap_union_comm_of_disjoint : forall h1 h2,
+Lemma union_comm_of_disjoint : forall h1 h2,
   \# h1 h2 ->
   h1 \+ h2 = h2 \+ h1.
 Proof using.
-  intros [f1 F1] [f2 F2] H. simpls. apply fmap_make_eq. simpl.
+  intros [f1 F1] [f2 F2] H. simpls. apply make_eq. simpl.
   intros. rewrite~ map_union_comm.
 Qed.
 
-Lemma fmap_union_comm_of_agree : forall h1 h2,
-  fmap_agree h1 h2 ->
+Lemma union_comm_of_agree : forall h1 h2,
+  agree h1 h2 ->
   h1 \+ h2 = h2 \+ h1.
 Proof using.
-  intros [f1 F1] [f2 F2] H. simpls. apply fmap_make_eq. simpl.
+  intros [f1 F1] [f2 F2] H. simpls. apply make_eq. simpl.
   intros l. specializes H l. unfolds map_union. simpls.
   cases (f1 l); cases (f2 l); auto. fequals. applys* H.
 Qed.
 
-Lemma fmap_union_assoc : forall h1 h2 h3,
+Lemma union_assoc : forall h1 h2 h3,
   (h1 \+ h2) \+ h3 = h1 \+ (h2 \+ h3).
 Proof using.
-  intros [f1 F1] [f2 F2] [f3 F3]. unfolds fmap_union. simpls.
-  apply fmap_make_eq. intros x. unfold map_union. destruct~ (f1 x).
+  intros [f1 F1] [f2 F2] [f3 F3]. unfolds union. simpls.
+  apply make_eq. intros x. unfold map_union. destruct~ (f1 x).
 Qed.
 
 (*
-Lemma fmap_union_eq_inv_of_disjoint : forall h2 h1 h1' : fmap,
+Lemma union_eq_inv_of_disjoint : forall h2 h1 h1' : fmap,
   \# h1 h2 ->
-  fmap_agree h1' h2 ->
+  agree h1' h2 ->
   h1 \+ h2 = h1' \+ h2 ->
   h1 = h1'.
 Proof using.
   intros [f2 F2] [f1 F1] [f1' F1'] D D' E.
-  applys fmap_make_eq. intros x. specializes D x. specializes D' x.
-  lets E': fmap_eq_inv_fmap_data_eq (rm E) x. simpls.
+  applys make_eq. intros x. specializes D x. specializes D' x.
+  lets E': eq_inv_fmap_data_eq (rm E) x. simpls.
   unfolds map_union.
   cases (f1 x); cases (f2 x); try solve [cases (f1' x); destruct D; congruence ].
   destruct D; try false.
@@ -403,15 +403,15 @@ Proof using.
 Qed.
 *)
 
-Lemma fmap_union_eq_inv_of_disjoint : forall h2 h1 h1',
+Lemma union_eq_inv_of_disjoint : forall h2 h1 h1',
   \# h1 h2 ->
   \# h1' h2 ->
   h1 \+ h2 = h1' \+ h2 ->
   h1 = h1'.
 Proof using.
   intros [f2 F2] [f1' F1'] [f1 F1] D D' E.
-  applys fmap_make_eq. intros x. specializes D x. specializes D' x.
-  lets E': fmap_eq_inv_fmap_data_eq (rm E) x. simpls.
+  applys make_eq. intros x. specializes D x. specializes D' x.
+  lets E': eq_inv_fmap_data_eq (rm E) x. simpls.
   unfolds map_union.
   cases (f1' x); cases (f1 x);
     destruct D; try congruence;
@@ -422,41 +422,41 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Compatibility *)
 
-Lemma fmap_agree_refl : forall h,
-  fmap_agree h h.
+Lemma agree_refl : forall h,
+  agree h h.
 Proof using.
   intros h. introv M1 M2. congruence.
 Qed.
 
-Lemma fmap_agree_sym : forall f1 f2,
-  fmap_agree f1 f2 ->
-  fmap_agree f2 f1.
+Lemma agree_sym : forall f1 f2,
+  agree f1 f2 ->
+  agree f2 f1.
 Proof using.
   introv M. intros l v1 v2 E1 E2.
   specializes M l E1.
 Qed.
 
-Lemma fmap_agree_of_disjoint : forall h1 h2,
-  fmap_disjoint h1 h2 ->
-  fmap_agree h1 h2.
+Lemma agree_of_disjoint : forall h1 h2,
+  disjoint h1 h2 ->
+  agree h1 h2.
 Proof using.
   introv HD. intros l v1 v2 M1 M2. destruct (HD l); false.
 Qed.
 
-Lemma fmap_agree_empty_l : forall h,
-  fmap_agree fmap_empty h.
+Lemma agree_empty_l : forall h,
+  agree empty h.
 Proof using. intros h l v1 v2 E1 E2. simpls. false. Qed.
 
-Lemma fmap_agree_empty_r : forall h,
-  fmap_agree h fmap_empty.
+Lemma agree_empty_r : forall h,
+  agree h empty.
 Proof using.
-  hint fmap_agree_sym, fmap_agree_empty_l. eauto.
+  hint agree_sym, agree_empty_l. eauto.
 Qed.
 
-Lemma fmap_agree_union_l : forall f1 f2 f3,
-  fmap_agree f1 f3 ->
-  fmap_agree f2 f3 ->
-  fmap_agree (f1 \+ f2) f3.
+Lemma agree_union_l : forall f1 f2 f3,
+  agree f1 f3 ->
+  agree f2 f3 ->
+  agree (f1 \+ f2) f3.
 Proof using.
   introv M1 M2. intros l v1 v2 E1 E2.
   specializes M1 l. specializes M2 l.
@@ -465,86 +465,86 @@ Proof using.
   { applys* M2. }
 Qed.
 
-Lemma fmap_agree_union_r : forall f1 f2 f3,
-  fmap_agree f1 f2 ->
-  fmap_agree f1 f3 ->
-  fmap_agree f1 (f2 \+ f3).
+Lemma agree_union_r : forall f1 f2 f3,
+  agree f1 f2 ->
+  agree f1 f3 ->
+  agree f1 (f2 \+ f3).
 Proof using.
-  hint fmap_agree_sym, fmap_agree_union_l. eauto.
+  hint agree_sym, agree_union_l. eauto.
 Qed.
 
-Lemma fmap_agree_union_lr : forall f1 g1 f2 g2,
-  fmap_agree g1 g2 ->
+Lemma agree_union_lr : forall f1 g1 f2 g2,
+  agree g1 g2 ->
   \# f1 f2 (g1 \+ g2) ->
-  fmap_agree (f1 \+ g1) (f2 \+ g2).
+  agree (f1 \+ g1) (f2 \+ g2).
 Proof using.
   introv M1 (M2a&M2b&M2c).
-  rewrite fmap_disjoint_union_eq_r in *.
-  applys fmap_agree_union_l; applys fmap_agree_union_r;
-    try solve [ applys* fmap_agree_of_disjoint ].
+  rewrite disjoint_union_eq_r in *.
+  applys agree_union_l; applys agree_union_r;
+    try solve [ applys* agree_of_disjoint ].
   auto.
 Qed.
 
-Lemma fmap_agree_union_ll_inv : forall f1 f2 f3,
-  fmap_agree (f1 \+ f2) f3 ->
-  fmap_agree f1 f3.
+Lemma agree_union_ll_inv : forall f1 f2 f3,
+  agree (f1 \+ f2) f3 ->
+  agree f1 f3.
 Proof using.
   introv M. intros l v1 v2 E1 E2.
   specializes M l. simpls. unfolds map_union.
   rewrite E1 in M. applys* M.
 Qed.
 
-Lemma fmap_agree_union_rl_inv : forall f1 f2 f3,
-  fmap_agree f1 (f2 \+ f3) ->
-  fmap_agree f1 f2.
+Lemma agree_union_rl_inv : forall f1 f2 f3,
+  agree f1 (f2 \+ f3) ->
+  agree f1 f2.
 Proof using.
-  hint fmap_agree_union_ll_inv, fmap_agree_sym. eauto.
+  hint agree_union_ll_inv, agree_sym. eauto.
 Qed.
 
-Lemma fmap_agree_union_lr_inv_agree_agree : forall f1 f2 f3,
-  fmap_agree (f1 \+ f2) f3 ->
-  fmap_agree f1 f2 ->
-  fmap_agree f2 f3.
+Lemma agree_union_lr_inv_agree_agree : forall f1 f2 f3,
+  agree (f1 \+ f2) f3 ->
+  agree f1 f2 ->
+  agree f2 f3.
 Proof using.
-  introv M D. rewrite~ (@fmap_union_comm_of_agree f1 f2) in M.
-  applys* fmap_agree_union_ll_inv.
+  introv M D. rewrite~ (@union_comm_of_agree f1 f2) in M.
+  applys* agree_union_ll_inv.
 Qed.
 
-Lemma fmap_agree_union_rr_inv_agree : forall f1 f2 f3,
-  fmap_agree f1 (f2 \+ f3) ->
-  fmap_agree f2 f3 ->
-  fmap_agree f1 f3.
+Lemma agree_union_rr_inv_agree : forall f1 f2 f3,
+  agree f1 (f2 \+ f3) ->
+  agree f2 f3 ->
+  agree f1 f3.
 Proof using.
-  hint fmap_agree_union_lr_inv_agree_agree, fmap_agree_sym. eauto.
+  hint agree_union_lr_inv_agree_agree, agree_sym. eauto.
 Qed.
 
-Lemma fmap_agree_union_l_inv : forall f1 f2 f3,
-  fmap_agree (f1 \+ f2) f3 ->
-  fmap_agree f1 f2 ->
-     fmap_agree f1 f3
-  /\ fmap_agree f2 f3.
+Lemma agree_union_l_inv : forall f1 f2 f3,
+  agree (f1 \+ f2) f3 ->
+  agree f1 f2 ->
+     agree f1 f3
+  /\ agree f2 f3.
 Proof using.
   (* LATER: proofs redundant with others above *)
   introv M2 M1. split.
   { intros l v1 v2 E1 E2.
     specializes M1 l v1 v2 E1. applys~ M2 l v1 v2.
-    unfold fmap_union, map_union; simpl. rewrite~ E1. }
+    unfold union, map_union; simpl. rewrite~ E1. }
   { intros l v1 v2 E1 E2.
     specializes M1 l. specializes M2 l.
-    unfolds fmap_union, map_union; simpls.
+    unfolds union, map_union; simpls.
     cases (fmap_data f1 l). (* LATER: name b *)
     { applys eq_trans b. symmetry. applys~ M1. applys~ M2. }
     { auto. } }
 Qed.
 
-Lemma fmap_agree_union_r_inv : forall f1 f2 f3,
-  fmap_agree f1 (f2 \+ f3) ->
-  fmap_agree f2 f3 ->
-     fmap_agree f1 f2
-  /\ fmap_agree f1 f3.
+Lemma agree_union_r_inv : forall f1 f2 f3,
+  agree f1 (f2 \+ f3) ->
+  agree f2 f3 ->
+     agree f1 f2
+  /\ agree f1 f3.
 Proof using.
-  hint fmap_agree_sym.
-  intros. forwards~ (M1&M2): fmap_agree_union_l_inv f2 f3 f1.
+  hint agree_sym.
+  intros. forwards~ (M1&M2): agree_union_l_inv f2 f3 f1.
 Qed.
 
 
@@ -557,25 +557,25 @@ Implicit Types s : fmap A B.
 Implicit Types l : A.
 Implicit Types v : B.
 
-Lemma fmap_indom_single : forall l v,
-  fmap_indom (fmap_single l v) l.
+Lemma indom_single : forall l v,
+  indom (single l v) l.
 Proof using.
   intros. hnf. simpl. case_if. auto_false.
 Qed.
 
-Lemma fmap_indom_union_l : forall s1 s2 l,
-  fmap_indom s1 l ->
-  fmap_indom (fmap_union s1 s2) l.
+Lemma indom_union_l : forall s1 s2 l,
+  indom s1 l ->
+  indom (union s1 s2) l.
 Proof using.
-  intros. hnf. unfold fmap_union, map_union. simpl.
+  intros. hnf. unfold union, map_union. simpl.
   case_eq (fmap_data s1 l); auto_false.
 Qed.
 
-Lemma fmap_indom_union_r : forall s1 s2 l,
-  fmap_indom s2 l ->
-  fmap_indom (fmap_union s1 s2) l.
+Lemma indom_union_r : forall s1 s2 l,
+  indom s2 l ->
+  indom (union s1 s2) l.
 Proof using.
-  intros. hnf. unfold fmap_union, map_union. simpl.
+  intros. hnf. unfold union, map_union. simpl.
   case_eq (fmap_data s1 l); auto_false.
 Qed.
 
@@ -583,61 +583,61 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Disjoint and domain *)
 
-Lemma fmap_disjoint_eq_not_indom_both : forall s1 s2,
-  fmap_disjoint s1 s2 = (forall l, fmap_indom s1 l -> fmap_indom s2 l -> False).
+Lemma disjoint_eq_not_indom_both : forall s1 s2,
+  disjoint s1 s2 = (forall l, indom s1 l -> indom s2 l -> False).
 Proof using.
   extens. iff D E.
   { introv M1 M2. destruct (D l); false*. }
-  { intros l. specializes E l. unfolds fmap_indom, map_indom.
+  { intros l. specializes E l. unfolds indom, map_indom.
     applys not_not_inv. intros N. rew_logic in N. false*. }
 Qed.
 
-Lemma fmap_disjoint_of_not_indom_both : forall s1 s2,
-  (forall l, fmap_indom s1 l -> fmap_indom s2 l -> False) ->
-  fmap_disjoint s1 s2.
-Proof using. introv M. rewrite~ fmap_disjoint_eq_not_indom_both. Qed.
+Lemma disjoint_of_not_indom_both : forall s1 s2,
+  (forall l, indom s1 l -> indom s2 l -> False) ->
+  disjoint s1 s2.
+Proof using. introv M. rewrite~ disjoint_eq_not_indom_both. Qed.
 
-Lemma fmap_disjoint_inv_not_indom_both : forall s1 s2 l,
-  fmap_disjoint s1 s2 ->
-  fmap_indom s1 l ->
-  fmap_indom s2 l ->
+Lemma disjoint_inv_not_indom_both : forall s1 s2 l,
+  disjoint s1 s2 ->
+  indom s1 l ->
+  indom s2 l ->
   False.
-Proof using. introv. rewrite* fmap_disjoint_eq_not_indom_both. Qed.
+Proof using. introv. rewrite* disjoint_eq_not_indom_both. Qed.
 
-Lemma fmap_disjoint_single_of_not_indom : forall h l v,
-  ~ fmap_indom h l ->
-  fmap_disjoint (fmap_single l v) h.
+Lemma disjoint_single_of_not_indom : forall h l v,
+  ~ indom h l ->
+  disjoint (single l v) h.
 Proof using.
-  introv N. unfolds fmap_disjoint, map_disjoint. unfolds fmap_single, fmap_indom, map_indom.
+  introv N. unfolds disjoint, map_disjoint. unfolds single, indom, map_indom.
   simpl. rew_logic in N. intros l'. case_if; subst; autos*.
 Qed.
 
 (* Remark: the reciprocal of the above lemma is a special instance of 
-   [fmap_disjoint_inv_not_indom_both] *)
+   [disjoint_inv_not_indom_both] *)
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** Read *)
 
-Lemma fmap_read_single : forall {IB:Inhab B} l v,
-  fmap_read (fmap_single l v) l = v.
+Lemma read_single : forall {IB:Inhab B} l v,
+  read (single l v) l = v.
 Proof using.
-  intros. unfold fmap_read, fmap_single. simpl. case_if~.
+  intros. unfold read, single. simpl. case_if~.
 Qed.
 
-Lemma fmap_read_union_l : forall {IB:Inhab B} s1 s2 l,
-  fmap_indom s1 l ->
-  fmap_read (fmap_union s1 s2) l = fmap_read s1 l.
+Lemma read_union_l : forall {IB:Inhab B} s1 s2 l,
+  indom s1 l ->
+  read (union s1 s2) l = read s1 l.
 Proof using.
-  intros. unfold fmap_read, fmap_union, map_union. simpl.
+  intros. unfold read, union, map_union. simpl.
   case_eq (fmap_data s1 l); auto_false.
 Qed.
 
-Lemma fmap_read_union_r : forall {IB:Inhab B} s1 s2 l,
-  ~ fmap_indom s1 l ->
-  fmap_read (fmap_union s1 s2) l = fmap_read s2 l.
+Lemma read_union_r : forall {IB:Inhab B} s1 s2 l,
+  ~ indom s1 l ->
+  read (union s1 s2) l = read s2 l.
 Proof using.
-  intros. unfold fmap_read, fmap_union, map_union. simpl.
+  intros. unfold read, union, map_union. simpl.
   case_eq (fmap_data s1 l).
   { intros v Hv. false H. auto_false. }
   { auto_false. }
@@ -647,35 +647,35 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Update *)
 
-Lemma fmap_update_eq_union_single : forall s l v,
-  fmap_update s l v = fmap_union (fmap_single l v) s.
+Lemma update_eq_union_single : forall s l v,
+  update s l v = union (single l v) s.
 Proof using. auto. Qed.
 
-Lemma fmap_update_single : forall s l v w,
-  fmap_update (fmap_single l v) l w = fmap_single l w.
+Lemma update_single : forall s l v w,
+  update (single l v) l w = single l w.
 Proof using.
-  intros. rewrite fmap_update_eq_union_single.
-  applys fmap_make_eq. intros x.
-  unfold map_union, fmap_single. simpl. case_if~.
+  intros. rewrite update_eq_union_single.
+  applys make_eq. intros x.
+  unfold map_union, single. simpl. case_if~.
 Qed.
 
-Lemma fmap_update_union_l : forall s1 s2 l v,
-  fmap_indom s1 l ->
-  fmap_update (fmap_union s1 s2) l v = fmap_union (fmap_update s1 l v) s2.
+Lemma update_union_l : forall s1 s2 l v,
+  indom s1 l ->
+  update (union s1 s2) l v = union (update s1 l v) s2.
 Proof using.
-  intros. do 2 rewrite fmap_update_eq_union_single.
-  applys fmap_make_eq. intros x.
-  unfold map_union, fmap_union, map_union. simpl. case_if~.
+  intros. do 2 rewrite update_eq_union_single.
+  applys make_eq. intros x.
+  unfold map_union, union, map_union. simpl. case_if~.
 Qed.
 
-Lemma fmap_update_union_r : forall s1 s2 l v,
-  ~ fmap_indom s1 l ->
-  fmap_update (fmap_union s1 s2) l v = fmap_union s1 (fmap_update s2 l v).
+Lemma update_union_r : forall s1 s2 l v,
+  ~ indom s1 l ->
+  update (union s1 s2) l v = union s1 (update s2 l v).
 Proof using.
   introv M. asserts IB: (Inhab B). { applys Inhab_of_val v. }
-  do 2 rewrite fmap_update_eq_union_single.
-  applys fmap_make_eq. intros x.
-  unfold map_union, fmap_union, map_union. simpl. case_if~.
+  do 2 rewrite update_eq_union_single.
+  applys make_eq. intros x.
+  unfold map_union, union, map_union. simpl. case_if~.
   { subst. case_eq (fmap_data s1 x); auto_false. 
     { intros w Hw. false M. auto_false. } }
 Qed.
@@ -686,44 +686,38 @@ End FmapProp.
 (* ---------------------------------------------------------------------- *)
 (* ** Arguments *)
 
-Arguments fmap_union_assoc [A] [B].
-Arguments fmap_union_comm_of_disjoint [A] [B].
-Arguments fmap_union_comm_of_agree [A] [B].
+Arguments union_assoc [A] [B].
+Arguments union_comm_of_disjoint [A] [B].
+Arguments union_comm_of_agree [A] [B].
 
 
 (* ********************************************************************** *)
 (* * Tactics *)
 
 (* ---------------------------------------------------------------------- *)
-(* ** Tactic [fmap_disjoint] for proving disjointness results *)
+(* ** Tactic [disjoint] for proving disjointness results *)
 
-(** [fmap_disjoint] proves goals of the form [\# h1 h2] and
+(** [disjoint] proves goals of the form [\# h1 h2] and
     [\# h1 h2 h3] by expanding all hypotheses into binary forms
     [\# h1 h2] and then exploiting symmetry and disjointness
-    with [fmap_empty]. *)
+    with [empty]. *)
 
-Hint Resolve fmap_disjoint_sym fmap_disjoint_empty_l fmap_disjoint_empty_r.
+Hint Resolve disjoint_sym disjoint_empty_l disjoint_empty_r.
 
 Hint Rewrite
-  fmap_disjoint_union_eq_l
-  fmap_disjoint_union_eq_r
-  fmap_disjoint_3_unfold : rew_disjoint.
+  disjoint_union_eq_l
+  disjoint_union_eq_r
+  disjoint_3_unfold : rew_disjoint.
 
 Tactic Notation "rew_disjoint" :=
   autorewrite with rew_disjoint in *.
 Tactic Notation "rew_disjoint" "*" :=
   rew_disjoint; auto_star.
 
-Tactic Notation "fmap_disjoint" :=
+Tactic Notation "prove_disjoint" :=
   solve [ subst; rew_disjoint; jauto_set; auto ].
 
-Tactic Notation "fmap_disjoint_if_needed" :=
-  match goal with
-  | |- \# _ _ => fmap_disjoint
-  | |- \# _ _ _ => fmap_disjoint
-  end.
-
-Lemma fmap_disjoint_demo : forall A B (h1 h2 h3 h4 h5:fmap A B),
+Lemma disjoint_demo : forall A B (h1 h2 h3 h4 h5:fmap A B),
   h1 = h2 \+ h3 ->
   \# h2 h3 ->
   \# h1 h4 h5 ->
@@ -731,98 +725,98 @@ Lemma fmap_disjoint_demo : forall A B (h1 h2 h3 h4 h5:fmap A B),
 Proof using.
   intros. dup 2.
   { subst. rew_disjoint. jauto_set. auto. auto. auto. auto. }
-  { fmap_disjoint. }
+  { prove_disjoint. }
 Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Tactic [fmap_eq] for proving equality of fmaps,
+(* ** Tactic [eq] for proving equality of fmaps,
       and tactic [rew_fmap] to normalize fmap expressions. *)
 
 Section StateEq.
 Variables (A B : Type).
 Implicit Types h : fmap A B.
 
-(** [fmap_eq] proves equalities between unions of fmaps, of the form
+(** [eq] proves equalities between unions of fmaps, of the form
     [h1 \+ h2 \+ h3 \+ h4 = h1' \+ h2' \+ h3' \+ h4']
     It attempts to discharge the disjointness side-conditions.
     Disclaimer: it cancels heaps at depth up to 4, but no more. *)
 
-Lemma fmap_union_eq_cancel_1 : forall h1 h2 h2',
+Lemma union_eq_cancel_1 : forall h1 h2 h2',
   h2 = h2' ->
   h1 \+ h2 = h1 \+ h2'.
 Proof using. intros. subst. auto. Qed.
 
-Lemma fmap_union_eq_cancel_1' : forall h1,
+Lemma union_eq_cancel_1' : forall h1,
   h1 = h1.
 Proof using. intros. auto. Qed.
 
-Lemma fmap_union_eq_cancel_2 : forall h1 h1' h2 h2',
+Lemma union_eq_cancel_2 : forall h1 h1' h2 h2',
   \# h1 h1' ->
   h2 = h1' \+ h2' ->
   h1 \+ h2 = h1' \+ h1 \+ h2'.
 Proof using.
-  intros. subst. rewrite <- fmap_union_assoc.
-  rewrite (fmap_union_comm_of_disjoint h1 h1').
-  rewrite~ fmap_union_assoc. auto.
+  intros. subst. rewrite <- union_assoc.
+  rewrite (union_comm_of_disjoint h1 h1').
+  rewrite~ union_assoc. auto.
 Qed.
 
-Lemma fmap_union_eq_cancel_2' : forall h1 h1' h2,
+Lemma union_eq_cancel_2' : forall h1 h1' h2,
   \# h1 h1' ->
   h2 = h1' ->
   h1 \+ h2 = h1' \+ h1.
 Proof using.
-  intros. subst. apply~ fmap_union_comm_of_disjoint.
+  intros. subst. apply~ union_comm_of_disjoint.
 Qed.
 
-Lemma fmap_union_eq_cancel_3 : forall h1 h1' h2 h2' h3',
+Lemma union_eq_cancel_3 : forall h1 h1' h2 h2' h3',
   \# h1 (h1' \+ h2') ->
   h2 = h1' \+ h2' \+ h3' ->
   h1 \+ h2 = h1' \+ h2' \+ h1 \+ h3'.
 Proof using.
   intros. subst.
-  rewrite <- (fmap_union_assoc h1' h2' h3').
-  rewrite <- (fmap_union_assoc h1' h2' (h1 \+ h3')).
-  apply~ fmap_union_eq_cancel_2.
+  rewrite <- (union_assoc h1' h2' h3').
+  rewrite <- (union_assoc h1' h2' (h1 \+ h3')).
+  apply~ union_eq_cancel_2.
 Qed.
 
-Lemma fmap_union_eq_cancel_3' : forall h1 h1' h2 h2',
+Lemma union_eq_cancel_3' : forall h1 h1' h2 h2',
   \# h1 (h1' \+ h2') ->
   h2 = h1' \+ h2' ->
   h1 \+ h2 = h1' \+ h2' \+ h1.
 Proof using.
   intros. subst.
-  rewrite <- (fmap_union_assoc h1' h2' h1).
-  apply~ fmap_union_eq_cancel_2'.
+  rewrite <- (union_assoc h1' h2' h1).
+  apply~ union_eq_cancel_2'.
 Qed.
 
-Lemma fmap_union_eq_cancel_4 : forall h1 h1' h2 h2' h3' h4',
+Lemma union_eq_cancel_4 : forall h1 h1' h2 h2' h3' h4',
   \# h1 ((h1' \+ h2') \+ h3') ->
   h2 = h1' \+ h2' \+ h3' \+ h4' ->
   h1 \+ h2 = h1' \+ h2' \+ h3' \+ h1 \+ h4'.
 Proof using.
   intros. subst.
-  rewrite <- (fmap_union_assoc h1' h2' (h3' \+ h4')).
-  rewrite <- (fmap_union_assoc h1' h2' (h3' \+ h1 \+ h4')).
-  apply~ fmap_union_eq_cancel_3.
+  rewrite <- (union_assoc h1' h2' (h3' \+ h4')).
+  rewrite <- (union_assoc h1' h2' (h3' \+ h1 \+ h4')).
+  apply~ union_eq_cancel_3.
 Qed.
 
-Lemma fmap_union_eq_cancel_4' : forall h1 h1' h2 h2' h3',
+Lemma union_eq_cancel_4' : forall h1 h1' h2 h2' h3',
   \# h1 (h1' \+ h2' \+ h3') ->
   h2 = h1' \+ h2' \+ h3' ->
   h1 \+ h2 = h1' \+ h2' \+ h3' \+ h1.
 Proof using.
   intros. subst.
-  rewrite <- (fmap_union_assoc h2' h3' h1).
-  apply~ fmap_union_eq_cancel_3'.
+  rewrite <- (union_assoc h2' h3' h1).
+  apply~ union_eq_cancel_3'.
 Qed.
 
 End StateEq.
 
 Hint Rewrite
-  fmap_union_assoc
-  fmap_union_empty_l
-  fmap_union_empty_r : rew_fmap.
+  union_assoc
+  union_empty_l
+  union_empty_r : rew_fmap.
 
 Tactic Notation "rew_fmap" :=
   autorewrite with rew_fmap in *.
@@ -833,31 +827,34 @@ Tactic Notation "rew_fmap" "~" :=
 Tactic Notation "rew_fmap" "*" :=
   rew_fmap; auto_star.
 
-Ltac fmap_eq_step tt :=
+Ltac prove_eq_step tt :=
   match goal with | |- ?G => match G with
-  | ?h1 = ?h1 => apply fmap_union_eq_cancel_1'
-  | ?h1 \+ ?h2 = ?h1 \+ ?h2' => apply fmap_union_eq_cancel_1
-  | ?h1 \+ ?h2 = ?h1' \+ ?h1 => apply fmap_union_eq_cancel_2'
-  | ?h1 \+ ?h2 = ?h1' \+ ?h1 \+ ?h2' => apply fmap_union_eq_cancel_2
-  | ?h1 \+ ?h2 = ?h1' \+ ?h2' \+ ?h1 => apply fmap_union_eq_cancel_3'
-  | ?h1 \+ ?h2 = ?h1' \+ ?h2' \+ ?h1 \+ ?h3' => apply fmap_union_eq_cancel_3
-  | ?h1 \+ ?h2 = ?h1' \+ ?h2' \+ ?h3' \+ ?h1 => apply fmap_union_eq_cancel_4'
-  | ?h1 \+ ?h2 = ?h1' \+ ?h2' \+ ?h3' \+ ?h1 \+ ?h4' => apply fmap_union_eq_cancel_4
+  | ?h1 = ?h1 => apply union_eq_cancel_1'
+  | ?h1 \+ ?h2 = ?h1 \+ ?h2' => apply union_eq_cancel_1
+  | ?h1 \+ ?h2 = ?h1' \+ ?h1 => apply union_eq_cancel_2'
+  | ?h1 \+ ?h2 = ?h1' \+ ?h1 \+ ?h2' => apply union_eq_cancel_2
+  | ?h1 \+ ?h2 = ?h1' \+ ?h2' \+ ?h1 => apply union_eq_cancel_3'
+  | ?h1 \+ ?h2 = ?h1' \+ ?h2' \+ ?h1 \+ ?h3' => apply union_eq_cancel_3
+  | ?h1 \+ ?h2 = ?h1' \+ ?h2' \+ ?h3' \+ ?h1 => apply union_eq_cancel_4'
+  | ?h1 \+ ?h2 = ?h1' \+ ?h2' \+ ?h3' \+ ?h1 \+ ?h4' => apply union_eq_cancel_4
   end end.
 
-Tactic Notation "fmap_eq" :=
+Tactic Notation "prove_eq" :=
   subst;
   rew_fmap;
-  repeat (fmap_eq_step tt);
-  try fmap_disjoint_if_needed.
+  repeat (prove_eq_step tt);
+  try match goal with
+  | |- \# _ _ => prove_disjoint
+  | |- \# _ _ _ => prove_disjoint
+  end.
 
-Tactic Notation "fmap_eq" "~" :=
-  fmap_eq; auto_tilde.
+Tactic Notation "prove_eq" "~" :=
+  prove_eq; auto_tilde.
 
-Tactic Notation "fmap_eq" "*" :=
-  fmap_eq; auto_star.
+Tactic Notation "prove_eq" "*" :=
+  prove_eq; auto_star.
 
-Lemma fmap_eq_demo : forall A B (h1 h2 h3 h4 h5:fmap A B),
+Lemma prove_eq_demo : forall A B (h1 h2 h3 h4 h5:fmap A B),
   \# h1 h2 h3 ->
   \# (h1 \+ h2 \+ h3) h4 h5 ->
   h1 = h2 \+ h3 ->
@@ -865,10 +862,10 @@ Lemma fmap_eq_demo : forall A B (h1 h2 h3 h4 h5:fmap A B),
 Proof using.
   intros. dup 2.
   { subst. rew_fmap.
-    fmap_eq_step tt. fmap_disjoint.
-    fmap_eq_step tt.
-    fmap_eq_step tt. fmap_disjoint. auto. }
-  { fmap_eq. }
+    prove_eq_step tt. prove_disjoint.
+    prove_eq_step tt.
+    prove_eq_step tt. prove_disjoint. auto. }
+  { prove_eq. }
 Qed.
 
 
@@ -879,28 +876,28 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** ** Existence of fresh locations *)
 
-Fixpoint fmap_conseq (B:Type) (l:nat) (k:nat) (v:B) : fmap nat B :=
+Fixpoint conseq (B:Type) (l:nat) (k:nat) (v:B) : fmap nat B :=
   match k with
-  | O => fmap_empty
-  | S k' => (fmap_single l v) \+ (fmap_conseq (S l) k' v)
+  | O => empty
+  | S k' => (single l v) \+ (conseq (S l) k' v)
   end.
 
-Lemma fmap_conseq_zero : forall B (l:nat) (v:B),
-  fmap_conseq l O v = fmap_empty.
+Lemma conseq_zero : forall B (l:nat) (v:B),
+  conseq l O v = empty.
 Proof using. auto. Qed.
 
-Lemma fmap_conseq_succ : forall B (l:nat) (k:nat) (v:B),
-  fmap_conseq l (S k) v = (fmap_single l v) \+ (fmap_conseq (S l) k v).
+Lemma conseq_succ : forall B (l:nat) (k:nat) (v:B),
+  conseq l (S k) v = (single l v) \+ (conseq (S l) k v).
 Proof using. auto. Qed.
 
-Opaque fmap_conseq.
+Opaque conseq.
 
 
 (* ---------------------------------------------------------------------- *)
 (** ** Existence of fresh locations *)
 
 (** These lemmas are useful to prove:
-    [forall h v, exists l, fmap_disjoint (fmap_single l v) h]. *)
+    [forall h v, exists l, disjoint (single l v) h]. *)
 
 Definition loc_fresh_gen (L : list nat) :=
   (1 + fold_right plus O L)%nat.
@@ -937,33 +934,33 @@ Section FmapFresh.
 Variables (B : Type).
 Implicit Types h : fmap nat B.
 
-Lemma fmap_exists_not_indom : forall null h,
-  exists l, ~ fmap_indom h l /\ l <> null.
+Lemma exists_not_indom : forall null h,
+  exists l, ~ indom h l /\ l <> null.
 Proof using.
-  intros null (m&(L&M)). unfold fmap_indom, map_indom. simpl.
+  intros null (m&(L&M)). unfold indom, map_indom. simpl.
   lets (l&F): (loc_fresh_nat (null::L)).
   exists l. split.
   { simpl. intros l'. forwards~ E: M l. }
   { intro_subst. applys~ F. }
 Qed.
 
-Lemma fmap_single_fresh : forall null h v,
-  exists l, \# (fmap_single l v) h /\ l <> null.
+Lemma single_fresh : forall null h v,
+  exists l, \# (single l v) h /\ l <> null.
 Proof using.
-  intros. forwards (l&F&N): fmap_exists_not_indom null h.
-  exists l. split~. applys* fmap_disjoint_single_of_not_indom.
+  intros. forwards (l&F&N): exists_not_indom null h.
+  exists l. split~. applys* disjoint_single_of_not_indom.
 Qed.
 
-Lemma fmap_conseq_fresh : forall null h k v,
-  exists l, \# (fmap_conseq l k v) h /\ l <> null.
+Lemma conseq_fresh : forall null h k v,
+  exists l, \# (conseq l k v) h /\ l <> null.
 Proof using.
   intros null (m&(L&M)) k v.
-  unfold fmap_disjoint, map_disjoint. simpl.
+  unfold disjoint, map_disjoint. simpl.
   lets (l&F): (loc_fresh_nat_ge (null::L)).
   exists l. split.
   { intros l'. gen l. induction k; intros.
     { simple~. }
-    { rewrite fmap_conseq_succ.
+    { rewrite conseq_succ.
       destruct (IHk (S l)%nat) as [E|?].
       { intros i N. applys F (S i). applys_eq N 2. math. }
       { simpl. unfold map_union. case_if~.
@@ -973,14 +970,14 @@ Proof using.
   { intro_subst. applys~ F 0%nat. rew_nat. auto. }
 Qed.
 
-Lemma fmap_disjoint_single_conseq : forall B l l' k (v:B),
+Lemma disjoint_single_conseq : forall B l l' k (v:B),
   (l < l')%nat \/ (l >= l'+k)%nat ->
-  \# (fmap_single l v) (fmap_conseq l' k v).
+  \# (single l v) (conseq l' k v).
 Proof using.
   introv N. gen l'. induction k; intros.
-  { rewrite~ fmap_conseq_zero. }
-  { rewrite fmap_conseq_succ. rew_disjoint. split.
-    { applys fmap_disjoint_single_single. destruct N; math. }
+  { rewrite~ conseq_zero. }
+  { rewrite conseq_succ. rew_disjoint. split.
+    { applys disjoint_single_single. destruct N; math. }
     { applys IHk. destruct N. { left; math. } { right; math. } } }
 Qed.
 
@@ -990,16 +987,16 @@ Qed.
 
 (** This lemma is useful for constructing counterexamples. *)
 
-Lemma fmap_exists_not_empty : forall `{IB:Inhab B},
-  exists (h:fmap nat B), h <> fmap_empty.
+Lemma exists_not_empty : forall `{IB:Inhab B},
+  exists (h:fmap nat B), h <> empty.
 Proof using.
-  intros. sets l: 0%nat. sets h: (fmap_single l arbitrary).
+  intros. sets l: 0%nat. sets h: (single l arbitrary).
   exists h. intros N.
-  sets h': (fmap_empty:fmap nat B).
-  asserts M1: (fmap_indom h l). 
-  { applys fmap_indom_single. }
-  asserts M2: (~ fmap_indom h' l).
-  { unfolds @fmap_indom, map_indom, @fmap_empty. simpls. auto_false. }
+  sets h': (empty:fmap nat B).
+  asserts M1: (indom h l). 
+  { applys indom_single. }
+  asserts M2: (~ indom h' l).
+  { unfolds @indom, map_indom, @empty. simpls. auto_false. }
   rewrite N in M1. false*.
 Qed.
 

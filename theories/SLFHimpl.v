@@ -177,11 +177,12 @@ Lemma hstar_hsingle_same_loc : forall (l:loc) (v1 v2:val),
     Essentially, the domain of a single singleton map that binds
     a location [l] to some value is the singleton set [\{l}], thus 
     such a singleton map cannot be disjoint from another singleton 
-    map that binds the same location [l]. *)
-
-Parameter fmap_disjoint_single_single_same_inv : forall (l:loc) (v1 v2:val),
-  fmap_disjoint (fmap_single l v1) (fmap_single l v2) ->
-  False.
+    map that binds the same location [l].
+[[
+    Check disjoint_single_single_same_inv : forall (l:loc) (v1 v2:val),
+      Fmap.disjoint (Fmap.single l v1) (Fmap.single l v2) ->
+      False.
+]] *)
 
 (** Using this lemma, we can prove [hstar_hsingle_same_loc]
     by unfolding the definition of [hstar] to reveal the
@@ -189,7 +190,7 @@ Parameter fmap_disjoint_single_single_same_inv : forall (l:loc) (v1 v2:val),
 
 Proof using.
   intros. unfold hsingle. intros h (h1&h2&E1&E2&D&E). false.
-  subst. applys fmap_disjoint_single_single_same_inv D.
+  subst. applys Fmap.disjoint_single_single_same_inv D.
 Qed.
 
 (** More generally, a heap predicate of the form [H1 \* H1] 
@@ -680,8 +681,8 @@ Qed.
 (** To prove commutativity of star, we need to exploit the fact that 
     the union of two finite maps with disjoint domains commutes. 
 [[
-  Check fmap_union_comm_of_disjoint : forall h1 h2,
-    fmap_disjoint h1 h2 ->
+  Check Fmap.union_comm_of_disjoint : forall h1 h2,
+    Fmap.disjoint h1 h2 ->
     h1 \u h2 = h2 \u h1.
 ]]
 *)
@@ -692,7 +693,7 @@ Proof using.
   asserts F: (forall H1 H2, H1 \* H2 ==> H2 \* H1).
   { intros. intros h (h1&h2&M1&M2&D&U). exists h2 h1.
     subst. splits~.
-    { rewrite fmap_union_comm_of_disjoint; auto. } }
+    { rewrite Fmap.union_comm_of_disjoint; auto. } }
   intros. applys himpl_antisym. { applys F. } { applys F. }
 Qed.
 
@@ -700,8 +701,8 @@ Qed.
     we need to exploit the fact that the union with an empty map
     is the identity.
 [[
-  Check fmap_union_empty_l : forall h, 
-    fmap_empty \u h = h.
+  Check Fmap.union_empty_l : forall h, 
+    Fmap.empty \u h = h.
 ]] 
 *)
 
@@ -710,10 +711,10 @@ Lemma hstar_hempty_l' : forall H,
 Proof using.
   intros. applys himpl_antisym. 
   { intros h (h1&h2&M1&M2&D&U). hnf in M1. subst.
-    rewrite @fmap_union_empty_l. auto. }
-  { intros h M. exists (fmap_empty:heap) h. splits~.
+    rewrite @Fmap.union_empty_l. auto. }
+  { intros h M. exists (Fmap.empty:heap) h. splits~.
     { hnf. auto. }
-    { rewrite @fmap_union_empty_l. auto. } }
+    { rewrite @Fmap.union_empty_l. auto. } }
 Qed.
 
 (** The lemma showing that [\[]] is a left neutral can be derived
@@ -730,16 +731,16 @@ Qed.
     as well as lemmas about the disjointness of a map with the
     result of the union of two maps.
 [[
-  Check fmap_union_assoc : forall h1 h2 h3,
+  Check Fmap.union_assoc : forall h1 h2 h3,
     (h1 \u h2) \u h3 = h1 \u (h2 \u h3).
 
-  Check fmap_disjoint_union_eq_l : forall h1 h2 h3,
-      fmap_disjoint (h2 \u h3) h1 
-    = (fmap_disjoint h1 h2 /\ fmap_disjoint h1 h3).
+  Check Fmap.disjoint_union_eq_l : forall h1 h2 h3,
+      Fmap.disjoint (h2 \u h3) h1 
+    = (Fmap.disjoint h1 h2 /\ Fmap.disjoint h1 h3).
 
-  Check fmap_disjoint_union_eq_r : forall h1 h2 h3,
-     fmap_disjoint h1 (h2 \u h3) 
-   = (fmap_disjoint h1 h2 /\ fmap_disjoint h1 h3).
+  Check Fmap.disjoint_union_eq_r : forall h1 h2 h3,
+     Fmap.disjoint h1 (h2 \u h3) 
+   = (Fmap.disjoint h1 h2 /\ Fmap.disjoint h1 h3).
 ]] 
 *)
 
@@ -751,20 +752,20 @@ Lemma hstar_assoc' : forall H1 H2 H3,
 Proof using.
   intros. applys himpl_antisym.
   { intros h (h'&h3&M1&M2&D&U). destruct M1 as (h1&h2&M3&M4&D'&U').
-    subst h'. rewrite fmap_disjoint_union_eq_l in D.
+    subst h'. rewrite Fmap.disjoint_union_eq_l in D.
     exists h1 (h2 \u h3). splits.
     { applys M3. }
     { exists* h2 h3. }
-    { rewrite* @fmap_disjoint_union_eq_r. } 
-    { rewrite* @fmap_union_assoc in U. } }
+    { rewrite* @Fmap.disjoint_union_eq_r. } 
+    { rewrite* @Fmap.union_assoc in U. } }
 (* SOLUTION *)
   { intros h (h1&h'&M1&M2&D&U). destruct M2 as (h2&h3&M3&M4&D'&U').
-    subst h'. rewrite fmap_disjoint_union_eq_r in D.
+    subst h'. rewrite Fmap.disjoint_union_eq_r in D.
     exists (h1 \u h2) h3. splits.
     { exists* h1 h2. }
     { applys M4. }
-    { rewrite* @fmap_disjoint_union_eq_l. } 
-    { rewrite* @fmap_union_assoc. } }
+    { rewrite* @Fmap.disjoint_union_eq_l. } 
+    { rewrite* @Fmap.union_assoc. } }
 (* /SOLUTION *)
 Qed.
 
@@ -935,7 +936,7 @@ Lemma hoare_hpure : forall t (P:Prop) H Q,
   hoare t (\[P] \* H) Q.
 Proof using.
   introv M. intros h (h1&h2&M1&M2&D&U). destruct M1 as (M1&HP).
-  subst. rewrite fmap_union_empty_l. applys M HP M2.
+  subst. rewrite Fmap.union_empty_l. applys M HP M2.
 Qed.
 
 Lemma triple_hpure' : forall t (P:Prop) H Q,

@@ -67,15 +67,15 @@ Inductive eval : nat -> state -> trm -> state -> val -> Prop :=
       eval n3 m3 (subst2 f v1 x v2 t) m4 r ->
       eval (n1+n2+n3+1) m1 (trm_app t1 t2) m4 r
   | eval_ref : forall m v l,
-      ~ fmap_indom m l ->
+      ~ Fmap.indom m l ->
       l <> null ->
-      eval 0 m (val_ref v) (fmap_update m l v) (val_loc l)
+      eval 0 m (val_ref v) (Fmap.update m l v) (val_loc l)
   | eval_get : forall m l,
-      fmap_indom m l ->
-      eval 0 m (val_get (val_loc l)) m (fmap_read m l)
+      Fmap.indom m l ->
+      eval 0 m (val_get (val_loc l)) m (Fmap.read m l)
   | eval_set : forall m l v,
-      fmap_indom m l ->
-      eval 0 m (val_set (val_loc l) v) (fmap_update m l v) val_unit.
+      Fmap.indom m l ->
+      eval 0 m (val_set (val_loc l) v) (Fmap.update m l v) val_unit.
 
 Hint Resolve eval_val.
 
@@ -92,40 +92,40 @@ Qed.
 
 Lemma eval_ref_sep : forall s1 s2 v l,
   l <> null ->
-  s2 = fmap_single l v ->
-  fmap_disjoint s2 s1 ->
-  eval 0 s1 (val_ref v) (fmap_union s2 s1) (val_loc l).
+  s2 = Fmap.single l v ->
+  Fmap.disjoint s2 s1 ->
+  eval 0 s1 (val_ref v) (Fmap.union s2 s1) (val_loc l).
 Proof using.
-  introv Nl -> D. forwards Dv: fmap_indom_single l v.
-  rewrite <- fmap_update_eq_union_single. applys~ eval_ref.
-  { intros N. applys~ fmap_disjoint_inv_not_indom_both D N. }
+  introv Nl -> D. forwards Dv: Fmap.indom_single l v.
+  rewrite <- Fmap.update_eq_union_single. applys~ eval_ref.
+  { intros N. applys~ Fmap.disjoint_inv_not_indom_both D N. }
 Qed.
 
 Lemma eval_get_sep : forall s s1 s2 l v, 
-  s = fmap_union s1 s2 ->
-  fmap_disjoint s1 s2 ->
-  s1 = fmap_single l v ->
+  s = Fmap.union s1 s2 ->
+  Fmap.disjoint s1 s2 ->
+  s1 = Fmap.single l v ->
   eval 0 s (val_get (val_loc l)) s v.
 Proof using.
-  introv -> D ->. forwards Dv: fmap_indom_single l v.
+  introv -> D ->. forwards Dv: Fmap.indom_single l v.
   applys_eq eval_get 1.
-  { applys~ fmap_indom_union_l. }
-  { rewrite~ fmap_read_union_l. rewrite~ fmap_read_single. }
+  { applys~ Fmap.indom_union_l. }
+  { rewrite~ Fmap.read_union_l. rewrite~ Fmap.read_single. }
 Qed.
 
 Lemma eval_set_sep : forall s s' h1 h1' h2 l v v',
-  s = fmap_union h1 h2 ->
-  s' = fmap_union h1' h2 ->
-  fmap_disjoint h1 h2 ->
-  h1 = fmap_single l v ->
-  h1' = fmap_single l v' ->
+  s = Fmap.union h1 h2 ->
+  s' = Fmap.union h1' h2 ->
+  Fmap.disjoint h1 h2 ->
+  h1 = Fmap.single l v ->
+  h1' = Fmap.single l v' ->
   eval 0 s (val_set (val_loc l) v') s' val_unit.
 Proof using.
-  introv -> -> D -> ->. forwards Dv: fmap_indom_single l v.
+  introv -> -> D -> ->. forwards Dv: Fmap.indom_single l v.
   applys_eq eval_set 2.
-  { applys~ fmap_indom_union_l. }
-  { rewrite~ fmap_update_union_l. fequals.
-    rewrite~ fmap_update_single. }
+  { applys~ Fmap.indom_union_l. }
+  { rewrite~ Fmap.update_union_l. fequals.
+    rewrite~ Fmap.update_single. }
 Qed.
 
 End Redn.
@@ -166,7 +166,7 @@ Definition heap : Type := (state * credits)%type.
 (** Empty heap *)
 
 Definition heap_empty : heap :=
-  (fmap_empty, 0).
+  (Fmap.empty, 0).
 
 (** Projections *)
 
@@ -187,7 +187,7 @@ Open Scope heap_scope.
 (** Disjoint heaps *)
 
 Definition heap_disjoint (h1 h2 : heap) : Prop :=
-  fmap_disjoint (h1^s) (h2^s).
+  Fmap.disjoint (h1^s) (h2^s).
 
 Notation "\# h1 h2" := (heap_disjoint h1 h2)
   (at level 40, h1 at level 0, h2 at level 0, no associativity) : heap_scope.
@@ -311,18 +311,18 @@ Implicit Types Q : val->hprop.
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic for automation *)
 
-Hint Extern 1 (_ = _ :> heap) => fmap_eq.
+Hint Extern 1 (_ = _ :> heap) => prove_eq.
 
 Lemma heap_disjoint_def : forall h1 h2,
-  heap_disjoint h1 h2 = fmap_disjoint (h1^s) (h2^s).
+  heap_disjoint h1 h2 = Fmap.disjoint (h1^s) (h2^s).
 Proof using. auto. Qed.
 
 Hint Rewrite heap_disjoint_def : rew_disjoint.
 
-Tactic Notation "fmap_disjoint_pre" :=
+Tactic Notation "Fmap.disjoint_pre" :=
   subst; rew_disjoint; jauto_set.
 
-Hint Extern 1 (\# _ _) => fmap_disjoint_pre.
+Hint Extern 1 (\# _ _) => Fmap.disjoint_pre.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -347,30 +347,30 @@ Lemma heap_disjoint_sym : forall h1 h2,
   \# h1 h2 -> \# h2 h1.
 Proof using.
   intros [m1 n1] [m2 n2] H. simpls.
-  hint fmap_disjoint_sym. autos*.
+  hint Fmap.disjoint_sym. autos*.
 Qed.
 
 Lemma heap_disjoint_comm : forall h1 h2,
   \# h1 h2 = \# h2 h1.
 Proof using.
   intros [m1 n1] [m2 n2]. simpls.
-  hint fmap_disjoint_sym. extens*.
+  hint Fmap.disjoint_sym. extens*.
 Qed.
 
 Lemma heap_disjoint_empty_l : forall h,
   \# heap_empty h.
-Proof using. intros [m n]. hint fmap_disjoint_empty_l. hnfs*. Qed.
+Proof using. intros [m n]. hint Fmap.disjoint_empty_l. hnfs*. Qed.
 
 Lemma heap_disjoint_empty_r : forall h,
   \# h heap_empty.
-Proof using. intros [m n]. hint fmap_disjoint_empty_r. hnfs*. Qed.
+Proof using. intros [m n]. hint Fmap.disjoint_empty_r. hnfs*. Qed.
 
 Lemma heap_disjoint_union_eq_r : forall h1 h2 h3,
   \# h1 (h2 \u h3) = (\# h1 h2 /\ \# h1 h3).
 Proof using.
   intros [m1 n1] [m2 n2] [m3 n3].
   unfolds heap_disjoint, heap_union. simpls.
-  rewrite fmap_disjoint_union_eq_r. extens*.
+  rewrite Fmap.disjoint_union_eq_r. extens*.
 Qed.
 
 Lemma heap_disjoint_union_eq_l : forall h1 h2 h3,
@@ -399,21 +399,21 @@ Lemma heap_union_comm : forall h1 h2,
   h1 \u h2 = h2 \u h1.
 Proof using.
   intros [m1 n1] [m2 n2] H. unfold heap_union.
-  simpl. fequals. fmap_eq. math.
+  simpl. fequals. prove_eq. math.
 Qed.
 
 Lemma heap_union_assoc : forall h1 h2 h3,
   (h1 \u h2) \u h3 = h1 \u (h2 \u h3).
 Proof using.
   intros [m1 n1] [m2 n2] [m3 n3]. unfolds heap_union.
-  simpl. fequals. fmap_eq. math.
+  simpl. fequals. prove_eq. math.
 Qed.
 
 Lemma heap_union_empty_l : forall h,
   heap_empty \u h = h.
 Proof using.
   intros [m n]. unfold heap_union, heap_empty. simpl.
-  fequals. apply~ fmap_union_empty_l.
+  fequals. apply~ Fmap.union_empty_l.
 Qed.
 
 Lemma heap_union_empty_r : forall h,
@@ -502,11 +502,11 @@ Proof using.
   { intros (h'&h3&(h1&h2&M3&M4&D'&U')&M2&D&U). subst h'.
     exists h1 (h2 \u h3). splits~.
     { exists h2 h3. splits*. }
-    { subst. applys heap_eq. split. { fmap_eq. } { simpl; math. } } }
+    { subst. applys heap_eq. split. { prove_eq. } { simpl; math. } } }
   { intros (h1&h'&M1&(h2&h3&M3&M4&D'&U')&D&U). subst h'.
     exists (h1 \u h2) h3. splits~.
     { exists h1 h2. splits*. }
-    { subst. applys heap_eq. split. { fmap_eq. } { simpl; math. } } }
+    { subst. applys heap_eq. split. { prove_eq. } { simpl; math. } } }
 Qed.
 
 Lemma hstar_hexists : forall A (J:A->hprop) H,
@@ -570,7 +570,7 @@ Implicit Types Q : val->hprop.
 (* ** Singleton heap *)
 
 Definition hsingle (l:loc) (v:val) : hprop :=
-  fun h => h^s = fmap_single l v /\ h^c = credits_zero /\ l <> null.
+  fun h => h^s = Fmap.single l v /\ h^c = credits_zero /\ l <> null.
 
 Notation "l '~~~>' v" := (hsingle l v)
   (at level 32, no associativity) : heap_scope.
@@ -580,7 +580,7 @@ Lemma hstar_hsingle_same_loc : forall (l:loc) (v1 v2:val),
 Proof using.
   intros. unfold hsingle.
   intros h ((m1&n1)&(m2&n2)&(E1&X1&N1)&(E2&X2&N2)&D&E). false.
-  subst. applys* fmap_disjoint_single_single_same_inv l v1 v2.
+  subst. applys* Fmap.disjoint_single_single_same_inv l v1 v2.
   unfolds in D. rewrite <- E1. rewrite <- E2. auto.
 Qed.
 
@@ -611,7 +611,7 @@ Global Opaque hsingle.
 (* ** Credits heap *)
 
 Definition heap_credits (n:credits) : heap :=
-  (fmap_empty:state, n).
+  (Fmap.empty:state, n).
 
 Definition hcredits (n:credits) : hprop :=
   fun h => h = heap_credits n.
@@ -625,7 +625,7 @@ Proof using. intros. unfolds* hcredits. Qed.
 
 Lemma hcredits_inv : forall n h,
   (\$n) h -> 
-  h^s = fmap_empty /\ h^c = n.
+  h^s = Fmap.empty /\ h^c = n.
 Proof using.
   introv N. unfolds hcredits, heap_credits. subst*.
 Qed.
@@ -685,9 +685,10 @@ Lemma hcredits_add_eq : forall n m,
 Proof using.
   intros c1 c2. unfold hcredits, hstar, heap_union, heap_disjoint, heap_credits.
   applys pred_ext_1. intros [m n]. iff M.
-  { inverts M. exists___. splits*; simpl; try fmap_eq. { fequals. math. } }
+  { inverts M. exists___. splits*; simpl; try prove_eq.
+    { fequals. prove_eq. math. } }
   { destruct M as ([m1 n1]&[m2 n2]&M3&M4&M5&M6).
-    inverts M3. inverts M4. rewrite M6. simpl. fmap_eq. fequals. }
+    inverts M3. inverts M4. rewrite M6. simpl. fequals. prove_eq. }
 Qed.
 
 Lemma hcredits_sub : forall n m,
@@ -738,7 +739,7 @@ Lemma triple_hcredits_haffine_post : forall t n Q,
   triple t (\$ n) Q ->
   haffine_post Q ->
   exists n' h v,
-     eval n' fmap_empty t (h^s) v
+     eval n' Fmap.empty t (h^s) v
   /\ (Q v \* \GC) h
   /\ ((n':int) <= n).
 Proof using.
@@ -955,7 +956,7 @@ Proof using.
   destruct h1 as [n1 c1]. simpls. subst. simpls.
   lets~ (n&h'&v&R&K&C): (rm M) HF h2.
   exists (n+1)%nat h' v. splits~.
-  { applys* eval_app_fix_val. applys_eq R 2 4; try fmap_eq. }
+  { applys* eval_app_fix_val. applys_eq R 2 4; try prove_eq. }
   { math. }
 Qed.
 
@@ -968,8 +969,8 @@ Lemma triple_ref : forall v,
     (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
 Proof using.
   intros. intros HF h N. rew_heap in N.
-  forwards~ (l&Dl&Nl): (fmap_single_fresh null (h^s) v).
-  sets m1': (fmap_single l v).
+  forwards~ (l&Dl&Nl): (Fmap.single_fresh null (h^s) v).
+  sets m1': (Fmap.single l v).
   exists 0%nat ((m1' \+ h^s),h^c) (val_loc l). splits~.
   { applys~ eval_ref_sep. }
   { exists (m1',0) h. split.
@@ -997,7 +998,7 @@ Lemma triple_set : forall w l v,
 Proof using.
   intros. intros HF h N. destruct N as (h1&h2&(N1a&N1b&N1c)&N2&N3&N4).
   forwards (E1&E2): heap_eq_forward (rm N4). simpls.
-  sets m1': (fmap_single l w).
+  sets m1': (Fmap.single l w).
   exists 0%nat ((m1' \+ h2^s), h2^c) val_unit. splits~.
   { applys* eval_set_sep. }
   { rew_heap. rewrite hstar_hpure. split~.
@@ -1005,7 +1006,7 @@ Proof using.
       { hnfs~. }
       { hhsimpl~. }
       { unfold m1'. unfolds heap_disjoint. rewrite N1a in N3.
-        applys~ fmap_disjoint_single_set v. } } }
+        applys~ Fmap.disjoint_single_set v. } } }
    { simpls. rewrite N1b in E2. unfolds credits_zero. math. }
 Qed.
 
@@ -1044,10 +1045,10 @@ Qed.
 
 Definition triple'' t H Q :=
   forall m1 c1 m2,
-  fmap_disjoint m1 m2 ->
+  Fmap.disjoint m1 m2 ->
   H (m1,c1) ->
   exists n m1' m3' c1' v,
-       fmap_disjoint_3 m1' m3' m2
+       Fmap.disjoint_3 m1' m3' m2
     /\ eval n (m1 \+ m2) t (m1' \+ m3' \+ m2) v
     /\ (Q v) (m1',c1')
     /\ (c1 >= n + c1').
@@ -1070,14 +1071,14 @@ Proof using.
     splits~.
     { subst. rew_disjoint; simpls; rew_disjoint. destruct N2.
      splits~. }
-    { applys_eq R1 2 4; try fmap_eq. }
+    { applys_eq R1 2 4; try prove_eq. }
     { lets P: hgc_heap_inv T1. simpls. math. } }
   { introv (h1&h2&N1&N2&D&U).
     forwards~ (n&m1'&m3'&c1'&v&R1&R2&R3&R4): M (h1^s) (h1^c) (h2^s).
     { applys_eq N1 1. applys~ heap_eq. }
     lets (?&?): heap_eq_forward (rm U). simpls.
     exists n (m1' \+ m3' \+ h2^s) (c-n) v. splits~.
-    { applys_eq R2 2 4; try fmap_eq. }
+    { applys_eq R2 2 4; try prove_eq. }
     { exists (m1',c1') (m3' \+ h2^s, (h2^c + h1^c - n - c1')). splits~.
       { exists (m3',(h1^c - n - c1')) h2. splits~.
         { applys hgc_intro. simpl. math. }

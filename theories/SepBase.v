@@ -50,17 +50,17 @@ Definition heap_affine (h:heap) := True.
 (** For uniformity with other instantiations of the Separation Logic
   functor, we introduce mklocal names for operations and lemmas on heaps. *)
 
-Definition heap_empty : heap := fmap_empty.
+Definition heap_empty : heap := Fmap.empty.
 
-Notation "h1 \u h2" := (fmap_union h1 h2)
+Notation "h1 \u h2" := (Fmap.union h1 h2)
   (at level 37, right associativity) : heap_scope.
-  (* LATER: could try to introduce [heap_union := fmap_union] *)
+  (* LATER: could try to introduce [heap_union := Fmap.union] *)
 
-Definition heap_union_empty_l := fmap_union_empty_l.
+Definition heap_union_empty_l := Fmap.union_empty_l.
 
-Definition heap_union_empty_r := fmap_union_empty_r.
+Definition heap_union_empty_r := Fmap.union_empty_r.
 
-Definition heap_union_comm := fmap_union_comm_of_disjoint.
+Definition heap_union_comm := Fmap.union_comm_of_disjoint.
 
 (* ---------------------------------------------------------------------- *)
 (* ** Hprop *)
@@ -124,7 +124,7 @@ Definition hempty : hprop :=
 Definition hstar (H1 H2 : hprop) : hprop :=
   fun h => exists h1 h2, H1 h1
                       /\ H2 h2
-                      /\ (fmap_disjoint h1 h2)
+                      /\ (Fmap.disjoint h1 h2)
                       /\ h = h1 \+ h2.
 
 (** Quantifiers *)
@@ -159,12 +159,13 @@ Implicit Types Q : val->hprop.
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic for automation *)
 
-Hint Extern 1 (_ = _ :> heap) => fmap_eq.
+Hint Extern 1 (_ = _ :> heap) => prove_eq.
+Hint Extern 1 (_ = _ :> state) => prove_eq.
 
-Tactic Notation "fmap_disjoint_pre" :=
+Tactic Notation "Fmap.disjoint_pre" :=
   subst; rew_disjoint; jauto_set.
 
-Hint Extern 1 (fmap_disjoint _ _) => fmap_disjoint_pre.
+Hint Extern 1 (Fmap.disjoint _ _) => Fmap.disjoint_pre.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -286,13 +287,13 @@ Proof using. introv M. applys~ hpure_intro_hempty. applys hempty_intro. Qed.
 Lemma hstar_intro : forall H1 H2 h1 h2,
   H1 h1 ->
   H2 h2 ->
-  fmap_disjoint h1 h2 ->
+  Fmap.disjoint h1 h2 ->
   (H1 \* H2) (h1 \u h2).
 Proof using. intros. exists~ h1 h2. Qed.
 
 Lemma hstar_inv : forall H1 H2 h,
   (H1 \* H2) h ->
-  exists h1 h2, H1 h1 /\ H2 h2 /\ fmap_disjoint h1 h2 /\ h = h1 \u h2.
+  exists h1 h2, H1 h1 /\ H2 h2 /\ Fmap.disjoint h1 h2 /\ h = h1 \u h2.
 Proof using. introv M. hnf in M. eauto. Qed.
 
 Lemma hgc_intro : forall h,
@@ -314,21 +315,21 @@ Global Opaque heap_affine.
 (** Definition of the singleton heap predicate, written [r ~~~> v] *)
 
 Definition hsingle (l:loc) (v:val) : hprop :=
-  fun h => h = fmap_single l v /\ l <> null.
+  fun h => h = Fmap.single l v /\ l <> null.
 
 Notation "l '~~~>' v" := (hsingle l v)
   (at level 32, no associativity) : heap_scope.
 
 Lemma hsingle_intro : forall l v,
   l <> null ->
-  (l ~~~> v) (fmap_single l v).
+  (l ~~~> v) (Fmap.single l v).
 Proof using. intros. split~. Qed.
 
 Lemma hstar_hsingle_same_loc : forall l v1 v2,
   (l ~~~> v1) \* (l ~~~> v2) ==> \[False].
 Proof using.
   intros. unfold hsingle. intros h (h1&h2&E1&E2&D&E). false.
-  subst. applys* fmap_disjoint_single_single_same_inv.
+  subst. applys* Fmap.disjoint_single_single_same_inv.
 Qed.
 
 Lemma hsingle_not_null : forall l v,
@@ -440,15 +441,15 @@ Tactic Notation "rew_Alloc" :=
 
 Lemma Alloc_fmap_conseq : forall l k v,
   l <> null ->
-  (Alloc k l) (fmap_conseq l k v).
+  (Alloc k l) (Fmap.conseq l k v).
 Proof using.
   Transparent loc null.
   introv N. gen l. induction k; intros; rew_Alloc.
-  { rewrite fmap_conseq_zero. applys~ hempty_intro. }
-  { rewrite fmap_conseq_succ. applys hstar_intro.
+  { rewrite Fmap.conseq_zero. applys~ hempty_intro. }
+  { rewrite Fmap.conseq_succ. applys hstar_intro.
     { applys hexists_intro. split~. }
     { applys IHk. unfolds loc, null. math. }
-    { applys~ fmap_disjoint_single_conseq. } }
+    { applys~ Fmap.disjoint_single_conseq. } }
 Qed.
 
 Lemma Alloc_split_eq : forall k1 (k:nat) p,
@@ -703,9 +704,9 @@ Lemma hoare_ref : forall H v,
     (fun r => (\exists l, \[r = val_loc l] \* l ~~~> v) \* H).
 Proof using.
   intros. intros h Hh.
-  forwards~ (l&Dl&Nl): (fmap_single_fresh null h v).
+  forwards~ (l&Dl&Nl): (Fmap.single_fresh null h v).
   forwards~ Hh1': hsingle_intro l v.
-  sets h1': (fmap_single l v).
+  sets h1': (Fmap.single l v).
   exists (h1' \u h) (val_loc l). splits~.
   { applys~ eval_ref_sep. }
   { apply~ hstar_intro. { exists l. hhsimpl~. } }
@@ -729,11 +730,11 @@ Lemma hoare_set : forall H w l v,
 Proof using.
   intros. intros h Hh. destruct Hh as (h1&h2&(N1a&N1b)&N2&N3&N4).
   forwards~ Hh1': hsingle_intro l w.
-  sets h1': (fmap_single l w).
+  sets h1': (Fmap.single l w).
   exists (h1' \u h2) val_unit. splits~.
   { subst h h1. applys eval_set_sep; eauto. }
   { rewrite hstar_hpure. split~. apply~ hstar_intro.
-    { applys~ fmap_disjoint_single_set v. } }
+    { applys~ Fmap.disjoint_single_set v. } }
 Qed.
 
 Lemma hoare_alloc : forall H n,
@@ -743,8 +744,8 @@ Lemma hoare_alloc : forall H n,
     (fun r => (\exists l, \[r = val_loc l /\ l <> null] \* Alloc (abs n) l) \* H).
 Proof using. (* Note: [abs n] currently does not compute in Coq. *)
   introv N. intros h Hh.
-  forwards~ (l&Dl&Nl): (fmap_conseq_fresh null h (abs n) val_unit).
-  sets h1': (fmap_conseq l (abs n) val_unit).
+  forwards~ (l&Dl&Nl): (Fmap.conseq_fresh null h (abs n) val_unit).
+  sets h1': (Fmap.conseq l (abs n) val_unit).
   exists (h1' \u h) (val_loc l). splits~.
   { applys~ (eval_alloc (abs n)). rewrite~ abs_nonneg. }
   { apply~ hstar_intro.
@@ -1439,17 +1440,17 @@ Qed.
 
 Definition triple' t H Q :=
   forall h1 h2,
-  fmap_disjoint h1 h2 ->
+  Fmap.disjoint h1 h2 ->
   H h1 ->
   exists h1' h3' v,
-       fmap_disjoint_3 h1' h2 h3'
+       Fmap.disjoint_3 h1' h2 h3'
     /\ eval (h1 \u h2) t (h1' \u h2 \u h3') v
     /\ (Q v) h1'.
 
 
 Section TripleLowLevel.
 
-Hint Extern 1 (fmap_disjoint_3 _ _ _) => fmap_disjoint_pre.
+Hint Extern 1 (Fmap.disjoint_3 _ _ _) => Fmap.disjoint_pre.
 
 Lemma triple_eq_triple' : triple = triple'.
 Proof using.
@@ -1459,11 +1460,11 @@ Proof using.
     forwards~ (h'&v&R1&R2): M (=h2) (h1 \u h2). { apply~ hstar_intro. }
     destruct R2 as (h2'&h1''&N0&N1&N2&N3).
     destruct N0 as (h1'&h3'&T0&T1&T2&T3). subst.
-    exists h1' h1'' v. splits~. { applys_eq R1 2 4; try fmap_eq. } }
+    exists h1' h1'' v. splits~. { applys_eq~ R1 2 4. } }
   { introv (h1&h2&N1&N2&D&U).
     forwards~ (h1'&h3'&v&R1&R2&R3): M h1 h2.
     exists (h1' \u h3' \u h2) v. splits~.
-    { applys_eq R2 2 4; try fmap_eq. }
+    { applys_eq~ R2 2 4. }
     { subst. rewrite hstar_assoc. apply~ hstar_intro.
       rewrite hstar_comm. applys~ hstar_intro. applys hgc_intro. } }
 Qed.
