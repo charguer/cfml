@@ -222,7 +222,7 @@ Qed.
 *)
 
 Module Htactics.
-Import SepBase.
+Import SLFDirect.
 Notation "'hprop''" := (SLFHprop.hprop).
 
 

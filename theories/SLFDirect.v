@@ -11,7 +11,7 @@ License: MIT.
 
 Set Implicit Arguments.
 From TLC Require Export LibCore.
-From Sep Require Import TLCbuffer Var.
+From Sep Require Export TLCbuffer Var.
 From Sep Require Fmap Hsimpl.
 
 (* ####################################################### *)
@@ -224,14 +224,16 @@ Definition hprop := heap -> Prop.
 Definition himpl (H1 H2:hprop) : Prop :=
   forall h, H1 h -> H2 h.
 
-Notation "H1 ==> H2" := (himpl H1 H2) (at level 55).
+Notation "H1 ==> H2" := (himpl H1 H2) (at level 55) : heap_scope.
+
+Open Scope heap_scope.
 
 (** Entailment between postconditions *)
 
 Definition qimpl A (Q1 Q2:A->hprop) : Prop :=
   forall (v:A), Q1 v ==> Q2 v.
 
-Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55).
+Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55) : heap_scope.
 
 (** Implicit Types *)
 
@@ -264,22 +266,22 @@ Definition hforall (A : Type) (J : A -> hprop) : hprop :=
   fun h => forall x, J x h.
 
 Notation "\[]" := (hempty)
-  (at level 0).
+  (at level 0) : heap_scope.
 
-Notation "l '~~~>' v" := (hsingle l v) (at level 32).
+Notation "l '~~~>' v" := (hsingle l v) (at level 32) : heap_scope.
 
 Notation "H1 '\*' H2" := (hstar H1 H2)
-  (at level 41, right associativity).
+  (at level 41, right associativity) : heap_scope.
 
 Notation "'\exists' x1 .. xn , H" :=
   (hexists (fun x1 => .. (hexists (fun xn => H)) ..))
   (at level 39, x1 binder, H at level 50, right associativity,
-   format "'[' '\exists' '/ '  x1  ..  xn , '/ '  H ']'").
+   format "'[' '\exists' '/ '  x1  ..  xn , '/ '  H ']'") : heap_scope.
 
 Notation "'\forall' x1 .. xn , H" :=
   (hforall (fun x1 => .. (hforall (fun xn => H)) ..))
   (at level 39, x1 binder, H at level 50, right associativity,
-   format "'[' '\forall' '/ '  x1  ..  xn , '/ '  H ']'").
+   format "'[' '\forall' '/ '  x1  ..  xn , '/ '  H ']'") : heap_scope.
 
 (** Derived heap predicates.
 
@@ -300,18 +302,18 @@ Definition qwand A (Q1 Q2:A->hprop) :=
   \forall x, hwand (Q1 x) (Q2 x).
 
 Notation "\[ P ]" := (hpure P)
-  (at level 0, format "\[ P ]").
+  (at level 0, format "\[ P ]") : heap_scope.
 
-Notation "\Top" := (htop).
+Notation "\Top" := (htop) : heap_scope.
 
 Notation "Q \*+ H" := (fun x => hstar (Q x) H)
-  (at level 40).
+  (at level 40) : heap_scope.
 
 Notation "H1 \-* H2" := (hwand H1 H2)
-  (at level 43, right associativity).
+  (at level 43, right associativity) : heap_scope.
 
 Notation "Q1 \--* Q2" := (qwand Q1 Q2)
-  (at level 43).
+  (at level 43) : heap_scope.
 
 
 (* ******************************************************* *)
@@ -786,6 +788,8 @@ Proof using.
   intros. unfold hsingle. intros h (h1&h2&E1&E2&D&E). false.
   subst. applys* Fmap.disjoint_single_single_same_inv.
 Qed.
+
+Arguments hstar_hsingle_same_loc : clear implicits.
 
 
 (* ******************************************************* *)

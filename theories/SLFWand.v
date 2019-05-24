@@ -269,7 +269,7 @@ Qed.
 (** ** Automation with [hsimpl] for [hwand] expressions *)
 
 Module HsimplDemo.
-Import SepBase.
+Import SLFDirect.
 
 (** For this demo, we use the definition of [hwand] exported
     by [SepBase.v], and defined in [SepFunctor.v]. This

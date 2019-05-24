@@ -347,7 +347,7 @@ Lemma heap_disjoint_sym : forall h1 h2,
   \# h1 h2 -> \# h2 h1.
 Proof using.
   intros [m1 n1] [m2 n2] H. simpls.
-  hint Fmap.disjoint_sym. autos*.
+  hint heap_disjoint_sym. autos*.
 Qed.
 
 Lemma heap_disjoint_comm : forall h1 h2,

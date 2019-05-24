@@ -519,26 +519,32 @@ Module WPgenSubst.
 Definition Wpgen wpgen (t:trm) : formula :=
   mkstruct
   match t with
-  | (* [trm_val v] => *)  trm_val v =>
+  | trm_val v =>
        wpgen_val v
-  | (* [trm_var x] => *)  trm_var x =>
+  | trm_var x =>
        wpgen_fail
-  | (* [trm_fun x t1] => *)  trm_fixs bind_anon (x::nil) t1 =>
+  | trm_fun x t1 =>
        wpgen_val (val_fun x t1)
-  | (* [trm_fix f x t1] => *)  trm_fixs (bind_var f) (x::nil) t1 =>
+  | trm_fix f x t1 =>
        wpgen_val (val_fix f x t1)
-  | (* [trm_if v0 t1 t2] => *)  trm_if (trm_val v0) t1 t2 =>
-       wpgen_if v0 (wpgen t1) (wpgen t2)
-  | (* [trm_seq t1 t2] => *)  trm_let bind_anon t1 t2 =>
-       wpgen_seq (wpgen t1) (wpgen t2)
-  | (* [trm_let x t1 t2] => *)  trm_let (bind_var x) t1 t2 =>
-       wpgen_let (wpgen t1) (fun v => wpgen (subst x v t2))
-  | (* [trm_app t1 t2] => *)  trm_apps t1 (t2::nil) => 
+
+  | trm_app t1 t2 => 
        wp t
-  | (* other terms are outside of the sub-language that we consider,
+  | trm_seq t1 t2 =>
+       wpgen_seq (wpgen t1) (wpgen t2)
+  | trm_let x t1 t2 =>
+       wpgen_let (wpgen t1) (fun v => wpgen (subst x v t2))
+  | trm_if (trm_val v0) t1 t2 => 
+       wpgen_if v0 (wpgen t1) (wpgen t2)
+  | (* terms [trm_if t0 t1 t2] where [t0] is not a value or a variable
+       fall outside of the sub-language that we consider,
        so let us here pretend that they are no such terms. *)
     _ => wpgen_fail
   end.
+
+(** To build the fixed point, we need to show the result type inhabited. *)
+Global Instance Inhab_formula : Inhab formula.
+Proof using. apply (Inhab_of_val (fun _ => \[])). Qed.
 
 Definition wpgen := FixFun Wpgen.
 
@@ -560,7 +566,7 @@ Parameter trm_induct : forall (P : trm -> Prop),
   (forall t1, P t1 -> forall t2, P t2 -> P (trm_app t1 t2)) ->
   (forall t1, P t1 -> forall t2, P t2 -> P (trm_seq t1 t2)) ->
   (forall (x:var) t1, P t1 -> forall t2, P t2 -> P (trm_let x t1 t2)) ->
-  (forall v t1, P t1 -> forall t2, P t2 -> P (trm_if v t1 t2)) ->  
+  (forall t0, P t0 -> forall t1, P t1 -> forall t2, P t2 -> P (trm_if t0 t1 t2)) ->
   (forall t, P t).
 
 (** However, it does not quite suite our needs. Indeed, in the case
@@ -583,7 +589,7 @@ Parameter trm_induct_subst : forall (P : trm -> Prop),
   (forall t1, P t1 -> forall t2, P t2 -> P (trm_app t1 t2)) ->
   (forall t1, P t1 -> forall t2, P t2 -> P (trm_seq t1 t2)) ->
   (forall (x:var) t1, P t1 -> forall t2, (forall v, P (subst x v t2)) -> P (trm_let x t1 t2)) ->
-  (forall v t1, P t1 -> forall t2, P t2 -> P (trm_if v t1 t2)) ->  
+  (forall t0, P t0 -> forall t1, P t1 -> forall t2, P t2 -> P (trm_if t0 t1 t2)) ->
   (forall t, P t).
 
 (** The soundness lemma asserts that [H ==> wpgen t Q] implies
@@ -607,7 +613,8 @@ Proof using.
   { applys wp_sound. }
   { applys wpgen_seq_sound. { applys IHt1. } { applys IHt2. } }
   { applys wpgen_let_sound. { applys IHt1. } { intros v. applys H. } }
-  { applys wpgen_if_sound. { applys IHt1. } { applys IHt2. } }
+  { destruct t1; try applys wpgen_fail_sound.
+    { applys wpgen_if_sound. { applys IHt2. } { applys IHt3. } } }
 Qed.
 
 Theorem triple_of_wpgen : forall t H Q,
@@ -676,32 +683,25 @@ Fixpoint rem (x:var) (E:ctx) : ctx :=
 
 Fixpoint isubst (E:ctx) (t:trm) : trm :=
   match t with
-  | (* [trm_val v] => *)  trm_val v =>
+  | trm_val v =>
        v
-  | (* [trm_var x] => *)  trm_var x =>
+  | trm_var x =>
        match lookup x E with
        | None => t
        | Some v => v
        end
-  | (* [trm_fun x t1] => *)  trm_fixs bind_anon (x::nil) t1 =>
+  | trm_fun x t1 =>
        trm_fun x (isubst (rem x E) t1)
-  | (* [trm_fix f x t1] => *)  trm_fixs (bind_var f) (x::nil) t1 =>
+  | trm_fix f x t1 =>
        trm_fix f x (isubst (rem x (rem f E)) t1)
-  | (* [trm_if v0 t1 t2] => *)  trm_if (trm_val v0) t1 t2 =>
-       trm_if v0 (isubst E t1) (isubst E t2)
-  | (* [trm_seq t1 t2] => *)  trm_let bind_anon t1 t2 =>
-       trm_seq (isubst E t1) (isubst E t2)
-  | (* [trm_let x t1 t2] => *)  trm_let (bind_var x) t1 t2 =>
-       trm_let x (isubst E t1) (isubst (rem x E) t2)
-  | (* [trm_app t1 t2] => *)  trm_apps t1 (t2::nil) => 
+  | trm_app t1 t2 => 
        trm_app (isubst E t1) (isubst E t2)
-  (* Other terms are outside of the sub-language that we consider,
-     so let us here pretend that they are no such terms.
-     Nevertheless, we add support for n-ary applications, so as
-     to be able to consider interesting demos. *)
-  | trm_apps t1 ts => 
-       trm_apps (isubst E t1) (List.map (isubst E) ts)
-  | _ => t
+  | trm_seq t1 t2 =>
+       trm_seq (isubst E t1) (isubst E t2)
+  | trm_let x t1 t2 =>
+       trm_let x (isubst E t1) (isubst (rem x E) t2)
+  | trm_if t0 t1 t2 =>
+       trm_if (isubst E t0) (isubst E t1) (isubst E t2)
   end.
 
 (** The new definition of [wpgen] is similar in structure to the previous
@@ -735,27 +735,25 @@ Definition wpgen_var (E:ctx) (x:var) : formula :=
 
 Fixpoint wpgen (E:ctx) (t:trm) : formula :=
   mkstruct match t with
-  | (* [trm_val v] => *)  trm_val v =>
+  | trm_val v =>
        wpgen_val v
-  | (* [trm_var x] => *)  trm_var x =>
+  | trm_var x =>
        wpgen_var E x
-  | (* [trm_fun x t1] => *)  trm_fixs bind_anon (x::nil) t1 =>
+  | trm_fun x t1 =>
        wpgen_val (val_fun x (isubst (rem x E) t1))
-  | (* [trm_fix f x t1] => *)  trm_fixs (bind_var f) (x::nil) t1 =>
+  | trm_fix f x t1 =>
        wpgen_val (val_fix f x (isubst (rem x (rem f E)) t1))
-  | (* [trm_if v0 t1 t2] => *)  trm_if (trm_val v0) t1 t2 =>
-       wpgen_if v0 (wpgen E t1) (wpgen E t2)
-  | (* [trm_seq t1 t2] => *)  trm_let bind_anon t1 t2 =>
-       wpgen_seq (wpgen E t1) (wpgen E t2)
-  | (* [trm_let x t1 t2] => *)  trm_let (bind_var x) t1 t2 =>
-       wpgen_let (wpgen E t1) (fun v => wpgen ((x,v)::E) t2)
-  | (* [trm_app t1 t2] => *)  trm_apps t1 ts => 
+  | trm_app t1 t2 =>
        wp (isubst E t)
-  | (* Other terms are outside of the sub-language that we consider,
-       so let us here pretend that they are no such terms. 
-       Note the exception in the [trm_app] case, whose pattern we encode
-       as [trm_apps t1 ts] to support n-ary applications. *)
-    _ => wpgen_fail
+  | trm_seq t1 t2 =>
+       wpgen_seq (wpgen E t1) (wpgen E t2)
+  | trm_let x t1 t2 =>
+       wpgen_let (wpgen E t1) (fun v => wpgen ((x,v)::E) t2)
+  | trm_if t0 t1 t2 =>
+      match isubst E t0 with
+      | trm_val v0 => wpgen_if v0 (wpgen E t1) (wpgen E t2)
+      | _ => wpgen_fail
+      end
   end.
 
 (** In order to establish the soundness of this new definition of [wpgen],
@@ -772,23 +770,9 @@ Parameter isubst_nil : forall t,
 Parameter isubst_rem : forall x v E t,
   isubst ((x,v)::E) t = subst x v (isubst (rem x E) t).
 
-(** We prove the soundness of [wpgen E t] by structural induction on [t].
-    The induction principle that we wish to use is that associated
-    with the sublanguage presented in [SLFRules], whose inductive
-    definition comes with the following induction principle. *)
+(** We prove the soundness of [wpgen E t] by structural induction on [t]. 
 
-Parameter trm_induct : forall (P : trm -> Prop),
-  (forall v, P (trm_val v)) ->
-  (forall x, P (trm_var x)) ->
-  (forall x t1 , P t1 -> P (trm_fun x t1)) ->
-  (forall (f:var) x t1, P t1 -> P (trm_fix f x t1)) ->
-  (forall t1, P t1 -> forall t2, P t2 -> P (trm_app t1 t2)) ->
-  (forall t1, P t1 -> forall t2, P t2 -> P (trm_seq t1 t2)) ->
-  (forall (x:var) t1, P t1 -> forall t2, P t2 -> P (trm_let x t1 t2)) ->
-  (forall v t1, P t1 -> forall t2, P t2 -> P (trm_if v t1 t2)) ->  
-  (forall t, P t).
-
-(** The soundness lemma asserts that [H ==> wpgen t Q] implies
+    The soundness lemma asserts that [H ==> wpgen t Q] implies
     [triple (isubst E t) H Q]. Equivalently, it can be formulated as:
     [forall t, formula_sound_for (isubst E t) (wpgen t)].
 
@@ -799,20 +783,21 @@ Parameter trm_induct : forall (P : trm -> Prop),
 Lemma wpgen_sound : forall E t,
   formula_sound_for (isubst E t) (wpgen E t).
 Proof using.
-  intros. gen E. induction t using trm_induct; intros; simpl; 
+  intros. gen E. induction t; intros; simpl; 
    applys mkstruct_sound.
   { applys wpgen_val_sound. } 
-  { unfold wpgen_var. case_eq (lookup x E).
+  { rename v into x. unfold wpgen_var. case_eq (lookup x E).
     { intros v EQ. applys wpgen_val_sound. }
     { intros N. applys wpgen_fail_sound. } }
   { applys wpgen_fun_sound. } 
   { applys wpgen_fix_sound. }
   { applys wp_sound. }
   { applys wpgen_seq_sound. { applys IHt1. } { applys IHt2. } }
-  { applys wpgen_let_sound.
+  { rename v into x. applys wpgen_let_sound.
     { applys IHt1. }
     { intros v. rewrite <- isubst_rem. applys IHt2. } }
-  { applys wpgen_if_sound. { applys IHt1. } { applys IHt2. } }
+  { case_eq (isubst E t1); intros; try applys wpgen_fail_sound.
+    { applys wpgen_if_sound. { applys IHt2. } { applys IHt3. } } }
 Qed.
 
 (** The final result for closed terms asserts that [wpgen nil t]
@@ -834,7 +819,10 @@ Qed.
 
 Module ExampleProofs.
 
-Import NotationForVariables NotationForTerms CoercionsFromStrings.
+Import NotationForVariables.
+Open Scope val_scope.
+Open Scope trm_scope.
+
 Implicit Types n : int.
 
 
@@ -883,7 +871,7 @@ Proof using. introv M W. rewrite <- wp_equiv. applys~ triple_ramified_frame M. Q
 (** The [hsimpl'] tactic is a variant of [hsimpl] that clears the
     identity tag [protect] upon completion. *)
 
-Ltac hsimpl' := hsimpl; unfold protect.
+Tactic Notation "hsimpl'" := hsimpl; unfold protect.
 
 (** [xcf_lemma] is a variant of [wpgen_of_triple] specialized for
     establishing a triple for a function application. The rule reformulates
@@ -1035,42 +1023,42 @@ Abort.
 
 (** [xstruct] eliminates the leading [mkstruct]. *)
 
-Ltac xstruct :=
+Tactic Notation "xstruct" :=
   applys xstruct_lemma.
 
 (** [xseq] and [xlet] invoke the corresponding lemma, after
     calling [xstruct] if necessary. *)
 
-Ltac xstruct_if_needed :=
+Tactic Notation "xstruct_if_needed" :=
   try match goal with |- ?H ==> mkstruct ?F ?Q => xstruct end.
 
-Ltac xlet :=
+Tactic Notation "xlet" :=
   xstruct_if_needed; applys xlet_lemma.
 
-Ltac xseq :=
+Tactic Notation "xseq" :=
   xstruct_if_needed; applys xseq_lemma.
 
 (** [xapp] invokes [xapp_lemma], after calling [xseq] or [xlet]
     if necessary. *)
 
-Ltac xseq_xlet_if_needed :=
+Tactic Notation "xseq_xlet_if_needed" :=
   try match goal with |- ?H ==> mkstruct ?F ?Q => 
   match F with 
   | wpgen_seq ?F1 ?F2 => xseq
   | wpgen_let ?F1 ?F2of => xlet
   end end.
 
-Ltac xapp :=
+Tactic Notation "xapp" :=
   xseq_xlet_if_needed; xstruct_if_needed; applys xapp_lemma.
 
 (** [xtop] involves [xtop_lemma], exploiting the leading [mkstruct]. *)
 
-Ltac xtop :=
+Tactic Notation "xtop" :=
   applys xtop_lemma.
 
 (** [xcf] applys [xcf_lemma], then computes [wpgen] to begin the proof. *)
 
-Ltac xcf :=
+Tactic Notation "xcf" :=
   intros; applys xcf_lemma; [ reflexivity | simpl ].
 
 (** The proof script becomes much more succint. *)
@@ -1117,10 +1105,10 @@ Qed.
     [xapp' E] directly exploits the specification [E] rather
     than requiring an explicit [apply E], and a subsequent [hsimpl']. *)
 
-Ltac xapp_pre :=
+Tactic Notation "xapp_pre" :=
   xseq_xlet_if_needed; xstruct_if_needed.
 
-Ltac xapp' E :=
+Tactic Notation "xapp" constr(E) :=
   xapp_pre; applys xapp_lemma E; hsimpl'.
 
 (** Second, we introduce the variant [xapps E] to mimic the
@@ -1141,7 +1129,7 @@ Lemma xapps_lemma1 : forall t v H1 H2 H Q,
   H ==> wp t Q.
 Proof using. introv M W. applys xapp_lemma M. hchanges W. intros ? ->. auto. Qed.
 
-Ltac xapps E :=
+Tactic Notation "xapps" constr(E) :=
   xapp_pre; first 
   [ applys xapps_lemma0 E
   | applys xapps_lemma1 E ];
@@ -1175,7 +1163,7 @@ Lemma triple_mysucc_with_xapps : forall n,
     (fun v => \[v = n+1]).
 Proof using.
   xcf.
-  xapp' triple_ref ;=> ? l ->.
+  xapp triple_ref ;=> ? l ->.
   xapps triple_incr.
   xtop.
   xapps triple_get.
@@ -1294,7 +1282,7 @@ Implicit Types E : ctx.
 Lemma isubst_nil' : forall t,
   isubst nil t = t.
 Proof using.
-  intros t. induction t using trm_induct; simpl; fequals.
+  intros t. induction t; simpl; fequals.
 Qed.
 
 (** The second lemma is much more involved to prove.
@@ -1360,7 +1348,7 @@ Lemma isubst_ctx_equiv : forall t E1 E2,
   isubst E1 t = isubst E2 t.
 Proof using.
   hint ctx_equiv_rem.
-  intros t. induction t using trm_induct; introv EQ; simpl; fequals~.
+  intros t. induction t; introv EQ; simpl; fequals~.
   { rewrite EQ. auto. }
 Qed.
 
@@ -1412,9 +1400,9 @@ Lemma isubst_app : forall t E1 E2,
   isubst (E1 ++ E2) t = isubst E1 (isubst E2 t).
 Proof using.
   hint ctx_disjoint_rem.
-  intros t. induction t using trm_induct; introv D; simpl; rew_trm.
+  intros t. induction t; introv D; simpl.
   { fequals. }
-  { rewrite~ lookup_app.
+  { rename v into x. rewrite~ lookup_app.
     case_eq (lookup x E1); introv K1; case_eq (lookup x E2); introv K2.
     { false* D. }
     { simpl. rewrite~ K1. }
@@ -1434,7 +1422,7 @@ Qed.
 Lemma subst_eq_isubst_one : forall x v t,
   subst x v t = isubst ((x,v)::nil) t.
 Proof using.
-  intros. induction t using trm_induct; simpl; rew_trm.
+  intros. induction t; simpl.
   { fequals. }
   { case_var~. }
   { rew_bool. case_var~. { rewrite~ isubst_nil. } { fequals*. } }
@@ -1503,25 +1491,22 @@ End IsubstProp.
 
 Fixpoint size (t:trm) : nat :=
   match t with
-  | (* [trm_val v] => *)  trm_val v =>
+  | trm_val v =>
        1
-  | (* [trm_var x] => *)  trm_var x =>
+  | trm_var x =>
        1
-  | (* [trm_fun x t1] => *)  trm_fixs bind_anon (x::nil) t1 =>
+  | trm_fun x t1 =>
        1
-  | (* [trm_fix f x t1] => *)  trm_fixs (bind_var f) (x::nil) t1 =>
+  | trm_fix f x t1 =>
        1
-  | (* [trm_if v0 t1 t2] => *)  trm_if (trm_val v0) t1 t2 =>
+  | trm_app t1 t2 =>
        1 + (size t1) + (size t2)
-  | (* [trm_seq t1 t2] => *)  trm_let bind_anon t1 t2 =>
+  | trm_seq t1 t2 =>
        1 + (size t1) + (size t2)
-  | (* [trm_let x t1 t2] => *)  trm_let (bind_var x) t1 t2 =>
+  | trm_let x t1 t2 =>
        1 + (size t1) + (size t2)
-  | (* [trm_app t1 t2] => *)  trm_apps t1 (t2::nil) => 
-       1 + (size t1) + (size t2)
-  | (* other terms are outside of the sub-language that we consider,
-       so let us here pretend that they are no such terms. *)
-    _ => 1
+  | trm_if t0 t1 t2 =>
+       1 + (size t0) + (size t1) + (size t2)
   end.
 
 
@@ -1531,23 +1516,7 @@ Fixpoint size (t:trm) : nat :=
 (** We show how to prove [trm_induct_subst] used earlier to justify the
     soundness of the non-structurally-decreasing definition of [wpgen].
     First, we show that substitution preserves the size.
-    Second, we show how to prove the desired induction principle.
-
-    For the proofs, we assume the standard case-analysis principle,
-    which would be given directly by [destruct t] if our grammar
-    of terms was restricted to the sublanguage considered.
-    Thereafter, we'll invoke [destruct t using trm_case]. *)
-
-Parameter trm_case : forall (P : trm -> Prop),
-  (forall v, P (trm_val v)) ->
-  (forall x, P (trm_var x)) ->
-  (forall x t1 , P (trm_fun x t1)) ->
-  (forall (f:var) x t1, P (trm_fix f x t1)) ->
-  (forall t1 t2, P (trm_app t1 t2)) ->
-  (forall t1 t2, P (trm_seq t1 t2)) ->
-  (forall (x:var) t1 t2, P (trm_let x t1 t2)) ->
-  (forall v t1 t2, P (trm_if v t1 t2)) ->  
-  (forall t, P t).
+    Second, we show how to prove the desired induction principle. *)
 
 (** First, we show that substitution preserves the size.
     Here, we exploit [trm_induct], the structural induction principle
@@ -1556,7 +1525,7 @@ Parameter trm_case : forall (P : trm -> Prop),
 Lemma size_subst : forall x v t,
   size (subst x v t) = size t.
 Proof using.
-  intros. induction t using trm_induct; intros; simpl; repeat case_if; auto.
+  intros. induction t; intros; simpl; repeat case_if; auto.
 Qed.
 
 (** Remark: the same proof can be carried out by induction on size. *)
@@ -1565,7 +1534,7 @@ Lemma size_subst' : forall x v t,
   size (subst x v t) = size t.
 Proof using.
   intros. induction_wf IH: size t. unfolds measure.
-  destruct t using trm_case; simpls; 
+  destruct t; simpls; 
   repeat case_if; simpls;
   repeat rewrite IH; try math.
 Qed.
@@ -1585,16 +1554,16 @@ Lemma trm_induct_subst : forall (P : trm -> Prop),
   (forall t1, P t1 -> forall t2, P t2 -> P (trm_app t1 t2)) ->
   (forall t1, P t1 -> forall t2, P t2 -> P (trm_seq t1 t2)) ->
   (forall (x:var) t1, P t1 -> forall t2, (forall v, P (subst x v t2)) -> P (trm_let x t1 t2)) ->
-  (forall v t1, P t1 -> forall t2, P t2 -> P (trm_if v t1 t2)) ->  
+  (forall t0, P t0 -> forall t1, P t1 -> forall t2, P t2 -> P (trm_if t0 t1 t2)) ->
   (forall t, P t).
 Proof using.
   introv M1 M2 M3 M4 M5 M6 M7 M8. 
   (** Next line applies [applys well_founded_ind (wf_measure trm_size)] *)
   intros t. induction_wf IH: size t. unfolds measure.
   (** We perform a case analysis according to the grammar of our sublanguage *)
-  destruct t using trm_case; simpls; auto.
+  destruct t; simpls; auto.
   (** Only the case for let-binding is not automatically discharged. We give details. *)
-  { applys M7. { applys IH. math. } { intros v. applys IH. rewrite size_subst. math. } }
+  { applys M7. { applys IH. math. } { intros v'. applys IH. rewrite size_subst. math. } }
 Qed.
 
 End TrmInductSubst1.
@@ -1616,11 +1585,11 @@ Lemma trm_induct_subst' : forall (P : trm -> Prop),
   (forall t1, P t1 -> forall t2, P t2 -> P (trm_app t1 t2)) ->
   (forall t1, P t1 -> forall t2, P t2 -> P (trm_seq t1 t2)) ->
   (forall (x:var) t1, P t1 -> forall t2, (forall v, P (subst x v t2)) -> P (trm_let x t1 t2)) ->
-  (forall v t1, P t1 -> forall t2, P t2 -> P (trm_if v t1 t2)) ->  
+  (forall t0, P t0 -> forall t1, P t1 -> forall t2, P t2 -> P (trm_if t0 t1 t2)) ->  
   (forall t, P t).
 Proof using.
   intros. induction_wf IH: size t.
-  destruct t using trm_case; simpls; eauto. (* the fully automated proof *)
+  destruct t; simpls; eauto. (* the fully automated proof *)
 Qed.
 
 End TrmInductSubst2.
@@ -1658,11 +1627,12 @@ Lemma wpgen_fix : forall t,
 Proof using.
   applys~ (FixFun_fix (measure size)). { applys wf_measure. } 
   unfolds measure. intros f1 f2 t IH. (* The goal here is the contraction condition. *)
-  unfold Wpgen. fequal. destruct t using trm_case; simpls; try solve [ fequals; auto ].
+  unfold Wpgen. fequal. destruct t; simpls; try solve [ fequals; auto ].
   (* Only the case of the let-binding is not automatically proved. We give details.  *)
   { fequal.
     { applys IH. math. }
-    { applys fun_ext_1. intros v. applys IH. rewrite size_subst. math. } }
+    { applys fun_ext_1. intros v'. applys IH. rewrite size_subst. math. } }
+  { destruct t1; fequals~. }
 Qed.
 
 End WPgenfix1.
@@ -1682,7 +1652,8 @@ Lemma wpgen_fix' : forall t,
 Proof using.
   applys~ (FixFun_fix (measure size)). { applys wf_measure. } 
   intros f1 f2 t IH. unfold Wpgen. fequal.
-  destruct t using trm_case; simpls; fequals; auto.
+  destruct t; simpls; fequals; auto.
+  { destruct t1; fequals~. }
 Qed.
 
 End WPgenfix2.

@@ -11,11 +11,7 @@ License: MIT.
 
 Set Implicit Arguments.
 From TLC Require Export LibCore.
-From Sep Require Export Semantics.
-
-(** Configuration of Semantics.v *)
-
-Import NotationForVariables NotationForTerms CoercionsFromStrings.
+From Sep Require Export SLFExtra.
 
 (** Configuration of Fmap.v *)
 
@@ -29,7 +25,11 @@ Arguments Fmap.union_assoc {A} {B}.
 Arguments Fmap.disjoint_union_eq_l {A} {B}.
 Arguments Fmap.disjoint_union_eq_r {A} {B}.
 
-Close Scope fmap_scope.
+Local Close Scope fmap_scope.
+Local Open Scope string_scope.
+Local Open Scope val_scope.
+Local Open Scope trm_scope.
+Local Coercion string_to_var (x:string) : var := x.
 
 
 (* ####################################################### *)

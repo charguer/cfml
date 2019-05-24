@@ -568,9 +568,7 @@ Lemma wp_let : forall x t1 t2 Q,
 Proof using.
   intros. rewrite wp_def. hsimpl. intros H' M1.
   rewrite wp_def. hsimpl. intros H''.
-  applys hoare_let. applys (rm M1). intros v. simpl.
-  (* TODO *) skip_rewrite (Semantics.subst = subst).
-  rewrite wp_def.
+  applys hoare_let. applys (rm M1). intros v. simpl. rewrite wp_def.
   repeat rewrite hstar_hexists. applys hoare_hexists; intros H'''.
   rewrite (hstar_comm H'''); repeat rewrite hstar_assoc.
   applys hoare_hpure; intros M2. applys hoare_conseq M2; hsimpl.
@@ -619,14 +617,14 @@ Proof using. intros. rewrite <- wp_equiv. applys triple_ref. Qed.
 
 Lemma wp_ref_1 : forall Q v,
   ((fun r => \exists l, \[r = val_loc l] \* l ~~~> v) \--* Q) ==> wp (val_ref v) Q.
-Proof using. intros. hchange (wp_ref_0 v); rew_trm. applys wp_ramified_frame. Qed.
+Proof using. intros. hchange (wp_ref_0 v). applys wp_ramified_frame. Qed.
 
 (** This statement can be further reformulated by quantifying [r] with a [\forall],
     which essentially amounts to unfolding the definition of [\--*]. *)
 
 Lemma wp_ref_2 : forall Q v,
   (\forall r, (\exists l, \[r = val_loc l] \* l ~~~> v) \-* Q r) ==> wp (val_ref v) Q.
-Proof using. intros. applys wp_ref_1. Qed.
+Proof using. intros. applys himpl_trans wp_ref_1. hsimpl. Qed.
 
 (** The point is that now we may eliminate [r]: *)
 
@@ -636,6 +634,7 @@ Proof using.
   intros. applys himpl_trans wp_ref_2.
   hsimpl. intros ? l ->. hchange (hforall_specialize l).
 Qed.
+
 
 (* ------------------------------------------------------- *)
 (** *** 2. The general pattern *)

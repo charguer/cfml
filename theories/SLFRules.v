@@ -11,54 +11,17 @@ License: MIT.
 
 Set Implicit Arguments.
 
-(** The file [SepBase.v] contains definitions that are essentially similar
-    to those from [SLFHprop.v] and [SLFHimpl.v], with just a few differences:
+(** The file [SLFExtra.v] contains definitions that are essentially similar
+    to those from [SLFHprop.v] and [SLFHimpl.v], with just one main difference:
+    [SLFExtra] makes the definition of Separation Logic operators opaque.
 
-    - [SepBase] makes the definition of Separation Logic operators opaque.
-      Thus, one cannot unfold the definition of [hstar], [hpure], [htop], etc...
-      To carry out reasoning, one must use the introduction and elimination
-      lemmas (e.g. [hstar_intro], [hstar_elim]). These lemmas enforce abstraction:
-      they ensure that the proofs do not depend on which of the several possible 
-      set of definitions is chosen to construct the Separation Logic.
+    Thus, one cannot unfold the definition of [hstar], [hpure], [htop], etc...
+    To carry out reasoning, one must use the introduction and elimination
+    lemmas (e.g. [hstar_intro], [hstar_elim]). These lemmas enforce abstraction:
+    they ensure that the proofs do not depend on which of the several possible 
+    set of definitions is chosen to construct the Separation Logic. *)
 
-    - The predicate [hoare] is abbreviated as [hoare],
-
-    - The predicate [triple] is defined not using [\Top] to handle discarded
-      pieces of heap, but using a specific instance of a general predicate
-      called [\GC]. For the instance considered in [SepBase.v], it turns out
-      that [\GC = \Top]. Thus, the difference is irrelevant. To help forget
-      about this irrelevant difference, we overload the notation [\Top] for [\GC],
-      so that everything looks the same as in [SLFHprop.v].
-
-    - [SepBase.v] uses a definition of [l ~~~> v] which moreover enforces [l] to 
-      not be the [null] location. In this file, we will completely ignore this
-      extra requirement.
-
-    - [Semantics.v] exports a definition of substitution on terms that does
-      not compute in Coq. Yet, to present examples in this file, we need a
-      version that computes. Thus, we import the one defined in the file
-      [SubstExec.v], under the name [subst_exec]. We then overload [subst] 
-      to mean [subst_exec].
-
-All the necessary tweaks are set up in the few lines that follow. *)
-
-From Sep Require Export SepBase SubstExec.
-
-Notation "\Top" := hgc.
-
-Definition triple_conseq_frame_htop := triple_conseq_frame_hgc.
-
-Definition subst := subst_exec.
-
-Parameter htop_intro : forall h,
-  \Top h.
-
-Parameter hsingle_intro : forall l v,
-  (l ~~~> v) (Fmap.single l v).
-
-Parameter hsingle_inv: forall l v h,
-  (l ~~~> v) h ->
-  h = Fmap.single l v.
+From Sep Require Export SLFExtra.
 
 
 (* ####################################################### *)
@@ -505,7 +468,7 @@ Parameter val_div : val.
 
 Parameter eval_div : forall s n1 n2,
   n2 <> 0 ->
-  eval s (val_div (val_int n1) (val_int n2)) s (val_int (Z.quot n1 n2))
+  eval s (val_div (val_int n1) (val_int n2)) s (val_int (Z.quot n1 n2)).
 
 Parameter triple_div : forall n1 n2,
   n2 <> 0 ->
@@ -533,13 +496,14 @@ Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
   triple t H Q.
 
 
-Module ExampleProofs.
-
-Import NotationForVariables NotationForTerms CoercionsFromStrings.
-
-
 (* ------------------------------------------------------- *)
 (** *** Proof of [incr] *)
+
+Module ExampleProofs.
+Local Coercion string_to_var (x:string) : var := x.
+Import NotationForVariables.
+Open Scope trm_scope.
+Open Scope val_scope.
 
 (** The definition in OCaml syntax is: [fun p => p := (!p + 1)].
     In A-normal form syntax, this definition becomes: 
@@ -1038,9 +1002,9 @@ Lemma hoare_if : forall b t1 t2 H Q,
 Proof using.
   introv M1 M2. intros s K0. destruct b.
   { forwards* (s1'&v1&R1&K1): (rm M1) K0.
-    exists s1' v1. split*. { applys* eval_if. } }
+    exists s1' v1. split*. { applys* eval_if_case. } }
   { forwards* (s1'&v1&R1&K1): (rm M2) K0.
-    exists s1' v1. split*. { applys* eval_if. } }
+    exists s1' v1. split*. { applys* eval_if_case. } }
 Qed.
 
 Lemma triple_if' : forall b t1 t2 H Q,
@@ -1078,7 +1042,7 @@ Lemma hoare_if_case : forall (b:bool) t1 t2 H Q,
 Proof using.
   introv M1. intros s K0. 
   forwards (s'&v&R1&K1): (rm M1) K0.
-  exists s' v. split. { applys eval_if R1. } { applys K1. }
+  exists s' v. split. { applys eval_if_case R1. } { applys K1. }
 Qed.
 
 Lemma triple_if_case : forall b t1 t2 H Q,
