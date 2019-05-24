@@ -966,6 +966,26 @@ End SummaryHpropLowlevel.
 
 Module SummaryHpropHigherlevel.
 
+Definition hempty : hprop :=
+  fun h => (h = Fmap.empty).
+
+Definition hsingle (l:loc) (v:val) : hprop :=
+  fun h => (h = Fmap.single l v).
+
+Definition hstar (H1 H2 : hprop) : hprop :=
+  fun h => exists h1 h2, H1 h1
+                              /\ H2 h2
+                              /\ Fmap.disjoint h1 h2
+                              /\ h = Fmap.union h1 h2.
+
+Definition hexists A (J:A->hprop) : hprop :=
+  fun h => exists x, J x h.
+
+Definition hforall (A : Type) (J : A -> hprop) : hprop :=
+  fun h => forall x, J x h.
+
+(* derived *)
+
 Definition hpure (P:Prop) : hprop :=
   \exists (p:P), \[].
 

@@ -24,13 +24,13 @@ Open Scope string_scope.
 (* ---------------------------------------------------------------------- *)
 (** Representation of locations and fields *)
 
-Definition loc := nat.
+Definition loc : Type := nat.
 
 Definition null : loc := 0%nat.
 
-Definition field := nat.
+Definition field : Type := nat.
 
-Definition idconstr := var.
+Definition idconstr : Type := var.
 
 Global Opaque field loc.
 

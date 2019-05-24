@@ -592,7 +592,6 @@ Proof using.
   exists h2' v2. splits~. { applys~ eval_constr_trm R2. }
 Qed.
 
-
 Lemma hoare_let : forall z t1 t2 H Q Q1,
   hoare t1 H Q1 ->
   (forall v, hoare (subst1 z v t2) (Q1 v) Q) ->

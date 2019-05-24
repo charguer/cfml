@@ -148,7 +148,6 @@ Inductive val : Type :=
   | val_get : val
   | val_set : val
   | val_add : val
-  | val_div : val
 
 (** The grammar for terms includes values, variables, 
     function definitions, recursive function definitions,
@@ -284,9 +283,6 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
 
   | eval_add : forall s n1 n2,
       eval s (val_add (val_int n1) (val_int n2)) s (val_int (n1 + n2))
-  | eval_div : forall s n1 n2,
-      n2 <> 0 ->
-      eval s (val_div (val_int n1) (val_int n2)) s (val_int (Z.quot n1 n2))
   | eval_ref : forall s v l,
       ~ Fmap.indom s l ->
       eval s (val_ref v) (Fmap.update s l v) (val_loc l)
@@ -501,8 +497,15 @@ Parameter triple_add : forall n1 n2,
     \[]
     (fun r => \[r = val_int (n1 + n2)]).
 
-(** A division [val_div n1 n2] is similar, with the only extra
+(** Assume a primitive function for division, called [val_div].
+    A division [val_div n1 n2] is similar, with the only extra
     requirement that the divisor [n2] must be nonzero. *)
+
+Parameter val_div : val.
+
+Parameter eval_div : forall s n1 n2,
+  n2 <> 0 ->
+  eval s (val_div (val_int n1) (val_int n2)) s (val_int (Z.quot n1 n2))
 
 Parameter triple_div : forall n1 n2,
   n2 <> 0 ->
@@ -1214,7 +1217,7 @@ Qed.
 
 (** Recall the evaluation rule for division. *)
 
-Parameter eval_div : forall s n1 n2,
+Parameter eval_div' : forall s n1 n2,
   n2 <> 0 ->
   eval s (val_div (val_int n1) (val_int n2)) s (val_int (Z.quot n1 n2)).
 
