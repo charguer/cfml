@@ -1270,15 +1270,6 @@ Qed.
 
 End Derived.
 
-(* ---------------------------------------------------------------------- *)
-(* ** Tactic [fmap_red], defined in file [Fmap] for proving [eval] goals
-      modulo equalities between states, gets instantiated here. *)
-
-Ltac fmap_red_base tt ::=
-  match goal with H: eval _ ?t _ _ |- eval _ ?t _ _ =>
-    applys_eq H 2 4; try fmap_eq end.
-
-
 
 (* ********************************************************************** *)
 (* * Size of a term *)

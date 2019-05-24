@@ -1046,7 +1046,7 @@ Proof using.
   forwards* (h1'&v&(N1&N2&N3&N4)): (rm M) (h12 \u h2) (rm P11).
   lets~ (D3&D4): heap_compat_union_r_inv (rm N1).
   exists (h1' \u h12) v. splits~.
-  { fmap_red~. }
+  { applys_eq N2 2 4; try fmap_eq~. }
   { rew_heap~. rewrite N3. fmap_eq~. }
   { applys~ on_rw_sub_union_r. }
 Qed.
@@ -1110,7 +1110,7 @@ Proof using.
       fmap_disjoint. } }
   exists h1'' v. splits.
   { auto. }
-  { fmap_red~.
+  { applys_eq N2 2 4; try fmap_eq~.
     { rewrite~ R12. }
     { fequals. unstate. rewrite F1,F2,N3. fmap_eq. } }
   { rew_heap~. rewrite F2,E12. fmap_eq~. }
@@ -1625,7 +1625,7 @@ Proof using.
       fmap_disjoint. } }
   exists h1'' v. splits.
   { auto. }
-  { fmap_red~.
+  { applys_eq N2 2 4; try fmap_eq~.
     { rewrite~ R12. }
     { fequals. unstate. rewrite F1,F2,N3. fmap_eq. } }
   { rew_heap~. rewrite F2,E12. fmap_eq~. }

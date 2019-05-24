@@ -710,14 +710,6 @@ Qed.
 End Credits.
 
 
-(* ---------------------------------------------------------------------- *)
-(* ** Tactics for reductions *)
-
-Ltac fmap_red_base tt ::=
-  match goal with H: eval _ _ ?t _ _ |- eval _ _ ?t _ _ =>
-    applys_eq H 2 4; try fmap_eq end.
-
-
 
 (* ********************************************************************** *)
 (* * Reasoning Rules *)
@@ -963,7 +955,7 @@ Proof using.
   destruct h1 as [n1 c1]. simpls. subst. simpls.
   lets~ (n&h'&v&R&K&C): (rm M) HF h2.
   exists (n+1)%nat h' v. splits~.
-  { applys* eval_app_fix_val. fmap_red~. }
+  { applys* eval_app_fix_val. applys_eq R 2 4; try fmap_eq. }
   { math. }
 Qed.
 
@@ -1078,14 +1070,14 @@ Proof using.
     splits~.
     { subst. rew_disjoint; simpls; rew_disjoint. destruct N2.
      splits~. }
-    { fmap_red. }
+    { applys_eq R1 2 4; try fmap_eq. }
     { lets P: hgc_heap_inv T1. simpls. math. } }
   { introv (h1&h2&N1&N2&D&U).
     forwards~ (n&m1'&m3'&c1'&v&R1&R2&R3&R4): M (h1^s) (h1^c) (h2^s).
     { applys_eq N1 1. applys~ heap_eq. }
     lets (?&?): heap_eq_forward (rm U). simpls.
     exists n (m1' \+ m3' \+ h2^s) (c-n) v. splits~.
-    { fmap_red. }
+    { applys_eq R2 2 4; try fmap_eq. }
     { exists (m1',c1') (m3' \+ h2^s, (h2^c + h1^c - n - c1')). splits~.
       { exists (m3',(h1^c - n - c1')) h2. splits~.
         { applys hgc_intro. simpl. math. }

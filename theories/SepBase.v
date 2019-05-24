@@ -1459,11 +1459,11 @@ Proof using.
     forwards~ (h'&v&R1&R2): M (=h2) (h1 \u h2). { apply~ hstar_intro. }
     destruct R2 as (h2'&h1''&N0&N1&N2&N3).
     destruct N0 as (h1'&h3'&T0&T1&T2&T3). subst.
-    exists h1' h1'' v. splits~. { fmap_red. } }
+    exists h1' h1'' v. splits~. { applys_eq R1 2 4; try fmap_eq. } }
   { introv (h1&h2&N1&N2&D&U).
     forwards~ (h1'&h3'&v&R1&R2&R3): M h1 h2.
     exists (h1' \u h3' \u h2) v. splits~.
-    { fmap_red. }
+    { applys_eq R2 2 4; try fmap_eq. }
     { subst. rewrite hstar_assoc. apply~ hstar_intro.
       rewrite hstar_comm. applys~ hstar_intro. applys hgc_intro. } }
 Qed.

@@ -872,36 +872,6 @@ Proof using.
 Qed.
 
 
-(* ---------------------------------------------------------------------- *)
-(* ** Tactic [fmap_red] for proving [eval] goals
-      (reduction according to a big-step semantics)
-      modulo equalities between fmaps *)
-
-(** [fmap_red] proves a goal of the form [eval h1 t h2 v]
-    using an hypothesis of the shape [eval h1' t h2' v],
-    generating [h1 = h1'] and [h2 = h2'] as subgoals, and
-    attempting to solve them using the tactic [fmap_eq].
-    The tactic should be configured depending on [eval].
-    For example:
-
-       Ltac fmap_red_base tt :=
-        match goal with H: eval _ ?t _ _ |- eval _ ?t _ _ =>
-          applys_eq H 2 4; try fmap_eq end.
-
-    The default implementation is a dummy one.
-*)
-
-Ltac fmap_red_base tt := fail.
-
-Tactic Notation "fmap_red" :=
-  fmap_red_base tt.
-
-Tactic Notation "fmap_red" "~" :=
-  fmap_red; auto_tilde.
-
-Tactic Notation "fmap_red" "*" :=
-  fmap_red; auto_star.
-
 
 (* ********************************************************************** *)
 (** * Consecutive locations and fresh locations *)
