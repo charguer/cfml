@@ -88,10 +88,7 @@ Parameter triple_htop_post : forall t H Q,
 (** In order to establish reasoning rule for terms (e.g., a
     rule for a let-binding), it is useful to briefly review
     the grammar of terms and the formal (big-step) semantics
-    associated with the language that we consider.
-
-    Remark: the language presented here is a simplified language
-    compared with that defined in [Semantics.v]. *)
+    associated with the language that we consider. *)
 
 Module SyntaxAndSemantics.
 
@@ -151,15 +148,14 @@ with trm : Type :=
 Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
   let aux t := subst y w t in
   let if_y_eq x t1 t2 := if var_eq x y then t1 else t2 in
-  let aux_no_capt x t := if_y_eq x t (aux t) in
   match t with
   | trm_val v => trm_val v
   | trm_var x => if_y_eq x (trm_val w) t
-  | trm_fun x t1 => trm_fun x (aux_no_capt x t1)
-  | trm_fix f x t1 => trm_fix f x (if_y_eq f t1 (aux_no_capt x t1))
+  | trm_fun x t1 => trm_fun x (if_y_eq x t1 (aux t1))
+  | trm_fix f x t1 => trm_fix f x (if_y_eq f t1 (if_y_eq x t1 (aux t1)))
   | trm_app t1 t2 => trm_app (aux t1) (aux t2)
   | trm_seq t1 t2 => trm_seq  (aux t1) (aux t2)
-  | trm_let x t1 t2 => trm_let x (aux t1) (aux_no_capt x t2)
+  | trm_let x t1 t2 => trm_let x (aux t1) (if_y_eq x t2 (aux t2))
   | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
   end.
 
@@ -177,6 +173,7 @@ Proof using. apply (Inhab_of_val val_unit). Qed.
 (** To improve the readability of the evaluation rules, we take
     advantage of both implicit types and coercions. *)
 
+Implicit Types b : bool.
 Implicit Types v r : val.
 Implicit Types t : trm.
 Implicit Types s : state.
@@ -237,9 +234,8 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       eval s1 t1 s2 v1 ->
       eval s2 (subst x v1 t2) s3 r ->
       eval s1 (trm_let x t1 t2) s3 r
-  | eval_if : forall s1 s2 b v t1 t2,
-      (b = true -> eval s1 t1 s2 v) ->
-      (b = false -> eval s1 t2 s2 v) ->
+  | eval_if_case : forall s1 s2 b v t1 t2,
+      eval s1 (if b then t1 else t2) s2 v ->
       eval s1 (trm_if (val_bool b) t1 t2) s2 v
 
   (* [eval] for primitive operations *)
@@ -302,6 +298,7 @@ Parameter triple_seq : forall t1 t2 H Q H1,
   Yet, such a presentation makes a confusion between the [x] that
   denotes a program variable in [let x = t1 in t2], and the [x]
   that denotes a value when quantified as [forall x].
+
   The correct statement involves a substitution from the variable
   [x] to a value quantified as [forall v].
 [[
@@ -384,13 +381,7 @@ Parameter triple_app_fun : forall x v1 v2 t1 H Q,
   triple (trm_app v1 v2) H Q.
 
 (** The generalization to recursive functions is straightforward.
-    It is discussed further in this chapter.
-
-    The generalization to functions of several arguments follows
-    a similar pattern, although with a few additional technicalities.
-    N-ary functions and other language extensions such as records,
-    arrays, loops, data constructor and pattern matching are discussed
-    in the file [SLFExt.v]. *)
+    It is discussed further in this chapter. *)
 
 
 (* ******************************************************* *)
@@ -413,8 +404,8 @@ Parameter triple_get : forall v l,
     (l ~~~> v)
     (fun r => \[r = v] \* (l ~~~> v)).
 
-(** Remark: [val_loc] is registered as a coercion, so the triple could
-    also be written [triple (val_get l) ...]. *)
+(** Remark: [val_loc] is registered as a coercion, so [val_get (val_loc l)]
+    could be written just [val_get l], when [l] has type [loc]. *)
 
 (** Assume [val_set] to denote the operation for writing a memory cell.
     A call of the form [val_set v' w] executes safely if [v'] is of the
@@ -505,7 +496,7 @@ Import NotationForVariables.
 Open Scope trm_scope.
 Open Scope val_scope.
 
-(** The definition in OCaml syntax is: [fun p => p := (!p + 1)].
+(** The definition of [incr] in OCaml syntax is: [fun p => p := (!p + 1)].
     In A-normal form syntax, this definition becomes:
 [[
    fun p =>
@@ -537,6 +528,9 @@ Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
     (p ~~~> n)
     (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+
+(** We show a detailed proof exploiting the reasoning rules. *)
+
 Proof using.
   intros. applys triple_app_fun. { reflexivity. } simpl.
   applys triple_let.
@@ -630,6 +624,31 @@ End ExampleProofs.
 (* ####################################################### *)
 (** * Additional contents *)
 
+
+(* ******************************************************* *)
+(** ** Reasoning rules for recursive functions *)
+
+(** This reasoning rules for functions immediately generalizes
+    to recursive functions. A term describing a recursive
+    function is written [trm_fix f x t1], and the corresponding
+    value is written [val_fix f x t1]. *)
+
+Parameter triple_fix : forall f x t1 H Q,
+  H ==> Q (val_fix f x t1) ->
+  triple (trm_fix f x t1) H Q.
+
+(** The reasoning rule that corresponds to beta-reduction for
+    a recursive function involves two substitutions: a first
+    substitution for recursive occurences of the function,
+    followed with a second substitution for the argument
+    provided to the call. *)
+
+Parameter triple_app_fix : forall v1 v2 f x t1 H Q,
+  v1 = val_fix f x t1 ->
+  triple (subst x v2 (subst f v1 t1)) H Q ->
+  triple (trm_app v1 v2) H Q.
+
+
 (* ******************************************************* *)
 (** ** The combined let-frame rule rule *)
 
@@ -679,7 +698,7 @@ Qed.
 
 (** 1. Recall the specification for division. *)
 
-Parameter triple_div' : forall n1 n2,
+Parameter triple_div'' : forall n1 n2,
   n2 <> 0 ->
   triple (val_div n1 n2)
     \[]
@@ -688,7 +707,7 @@ Parameter triple_div' : forall n1 n2,
 (** Equivalently, we could place the requirement [n2 <> 0] in the
     precondition: *)
 
-Parameter triple_div'' : forall n1 n2,
+Parameter triple_div''' : forall n1 n2,
   triple (val_div n1 n2)
     \[n2 <> 0]
     (fun r => \[r = val_int (Z.quot n1 n2)]).
@@ -718,30 +737,6 @@ Parameter triple_ref'' : forall v,
 
 (** However, this presentation is less readable and would be
     fairly cumbersome to work with in practice. *)
-
-
-(* ******************************************************* *)
-(** ** Reasoning rules for recursive functions *)
-
-(** This reasoning rules for functions immediately generalizes
-    to recursive functions. A term describing a recursive
-    function is written [trm_fix f x t1], and the corresponding
-    value is written [val_fix f x t1]. *)
-
-Parameter triple_fix : forall f x t1 H Q,
-  H ==> Q (val_fix f x t1) ->
-  triple (trm_fix f x t1) H Q.
-
-(** The reasoning rule that corresponds to beta-reduction for
-    a recursive function involves two substitutions: a first
-    substitution for recursive occurences of the function,
-    followed with a second substitution for the argument
-    provided to the call. *)
-
-Parameter triple_app_fix : forall v1 v2 f x t1 H Q,
-  v1 = val_fix f x t1 ->
-  triple (subst x v2 (subst f v1 t1)) H Q ->
-  triple (trm_app v1 v2) H Q.
 
 
 (* ******************************************************* *)
@@ -1558,7 +1553,7 @@ Lemma triple_add' : forall n1 n2,
 Proof using.
 (* SOLUTION *)
   intros. applys triple_of_hoare. intros H'. esplit. split.
-  applys hoare_add. hsimpl. auto.
+  { applys hoare_add. } { hsimpl. auto. }
 (* /SOLUTION *)
 Qed.
 

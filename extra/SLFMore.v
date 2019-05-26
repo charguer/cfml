@@ -2858,3 +2858,16 @@ unfolds in M.
 Qed.
 
 
+
+
+
+(** It would be equivalent to place the assumption [n2 <> 0] in the
+    precondition, as shown below. *)
+
+Parameter triple_div' : forall n1 n2,
+  triple (val_div n1 n2)
+    \[n2 <> 0]
+    (fun r => \[r = val_int (Z.quot n1 n2)]).
+
+(** In practice, we prefer placing pure assumptions outside of the triples,
+    as it reduces the number of proof steps when exploiting the specification. *)

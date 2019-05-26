@@ -25,7 +25,7 @@ Implicit Types Q : val->hprop.
     most notably the "magic wand", written [H1 \-* H2].
 
     Magic wand does not only have a cool name, and it is not only
-    a fascinating operator for logicians: it turns out that the
+    a fascinating operator for logicians; it turns out that the
     magic wand is a key ingredient to streamlining the process of
     practical program verification in Separation Logic.
 
@@ -123,7 +123,7 @@ Definition hwand' (H1 H2:hprop) : hprop :=
 Parameter hwand_eq_hwand' :
   hwand = hwand'.
 
-(** In practice, [SepBase] relies on the definition of [hwand'],
+(** In practice, file [SLFDirect] relies on the definition [hwand'],
     which has the benefit that all properties of [hwand] can be
     established with help of the tactic [hsimpl]. In other words,
     we reduce the amount of work by conducting all the reasoning
@@ -181,8 +181,9 @@ Proof using. intros. unfold qwand. intros h K. applys K. Qed.
 
 (** The operator [qwand] satisfies many properties similar to those
     of [hwand]. We state these properties further in the chapter.
-    Here, we just state the two most important rules: the characterization
-    rule, and the cancellation rule. *)
+
+    For now, we just state the two most important rules: the 
+    characterization rule, and the cancellation rule. *)
 
 Lemma qwand_equiv : forall H Q1 Q2,
   H ==> (Q1 \--* Q2)  <->  (Q1 \*+ H) ===> Q2.
@@ -211,10 +212,12 @@ Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
   triple t H Q.
 
 (** This rule suffers from practical issues, which we discuss in
-    details further in this chapter.
+    details further in this chapter. In short, the main problem is 
+    that one needs to either provide a value for, or to introduce a
+    unification variable (evar) for [H2]. The problem would disappear
+    if we make use of the magic wand to eliminate the need to quantify
+    [H2] altogether. 
 
-    All these problems disappear if we make use of the magic wand
-    to eliminate the need to quantify [H2] altogether. Concretely,
     [Q1 \*+ H2 ===> Q] is equivalent to [H2 ==> (Q1 \--* Q)].
     By substituting away, we can merge the two entailments
     [H ==> H1 \* H2] and [H2 ==> (Q1 \--* Q)] into a single one:
@@ -407,7 +410,7 @@ Proof using.
   { hsimpl. auto. }
 Qed.
 
-(** Now, let's do the same proof using the ramified frame rule. *)
+(** Now, let's carry out the same proof using the ramified frame rule. *)
 
 Lemma triple_ref_with_ramified_frame : forall (l':loc) (v':val) (v:val),
   triple (val_ref v)
@@ -437,8 +440,7 @@ Qed.
     the lemmas capturing properties of the magic wand.
     Nevertheless, there are a few situations where [hsimpl]
     won't automatically perform the desired manipulation.
-    Morover, reading the properties of [hwand] may help providing
-    a better understanding of this operator. *)
+    In such cases, the tactic [hchange] proves very useful. *)
 
 (* ------------------------------------------------------- *)
 (** *** Structural properties of [hwand] *)
@@ -475,7 +477,7 @@ Proof using. intros. apply himpl_hwand_r. hsimpl. Qed.
 
 
 (* ------------------------------------------------------- *)
-(** *** Tempting but false properties for [hwand] *)
+(** *** Tempting yet false properties for [hwand] *)
 
 (** The reciprocal entailment to the above lemma, that is
     [(H \-* H) ==> \[]], does not hold.
@@ -525,7 +527,7 @@ Qed.
 (* ------------------------------------------------------- *)
 (** *** Interaction of [hwand] with [hempty] and [hpure] *)
 
-(** [\[] \-* H] is the same as [H]. *)
+(** [\[] \-* H] is equivalent to [H]. *)
 
 Lemma hwand_hempty_l : forall H,
   (\[] \-* H) = H.
@@ -572,7 +574,7 @@ Proof using. introv M. applys himpl_hwand_r. hsimpl. applys M. Qed.
     The equivalence between the uncurried form [(H1 \* H2) \-* H3]
     and the curried form [H1 \-* (H2 \-* H3)] is formalized by the
     lemma shown below. The third form [H2 \-* (H1 \-* H3)] follows
-    directly by exploiting the commutativity [H1 \* H2 = H2 \* H1]. *)
+    from the commutativity property [H1 \* H2 = H2 \* H1]. *)
 
 Lemma hwand_curry_eq : forall H1 H2 H3,
   (H1 \* H2) \-* H3 = H1 \-* (H2 \-* H3).
@@ -594,6 +596,8 @@ Lemma hstar_hwand : forall H1 H2 H3,
 Proof using.
   intros. applys himpl_hwand_r. hsimpl. hchange (hwand_cancel H1 H2).
 Qed.
+
+(** Remark: the reciprocal entailement is false. *)
 
 
 (* ------------------------------------------------------- *)
@@ -966,6 +970,8 @@ End SummaryHpropLowlevel.
 
 Module SummaryHpropHigherlevel.
 
+(** Primitives *)
+
 Definition hempty : hprop :=
   fun h => (h = Fmap.empty).
 
@@ -984,7 +990,7 @@ Definition hexists A (J:A->hprop) : hprop :=
 Definition hforall (A : Type) (J : A -> hprop) : hprop :=
   fun h => forall x, J x h.
 
-(* derived *)
+(** Derived *)
 
 Definition hpure (P:Prop) : hprop :=
   \exists (p:P), \[].

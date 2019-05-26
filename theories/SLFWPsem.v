@@ -58,7 +58,7 @@ Lemma wp_weakest : forall t H Q,
   H ==> wp t Q.
 Proof using. introv M. rewrite <- wp_equiv. applys M. Qed.
 
-(** As prove further in this chapter, it is possible to
+(** As we prove further in this chapter, it is possible to
     define a function [wp] satisfying [wp_equiv]. Formally: *)
 
 Definition wp_characterization (wp:trm->(val->hprop)->hprop) :=
@@ -69,8 +69,8 @@ Parameter wp_characterization_exists : exists wp0,
 
 (** In fact, there are several ways in which [wp] can be defined.
     It turns out that all possible definitions are equivalent.
-    In other words, [wp_equiv] defines a unique function.
-    We next formally justify this fact. *)
+    In other words, the property captured by [wp_characterization]
+    defines a unique function. We next formally justify this fact. *)
 
 Lemma wp_characterization_unique : forall wp1 wp2,
   wp_characterization wp1 ->
@@ -98,7 +98,7 @@ Qed.
 (** It is interesting to observe how the structural rules
     can be applied on a judgment of the form [H ==> wp t Q].
 
-    At this stage, we'll make four important observations.
+    At this stage, we'll make three important observations.
 
     1. The extraction rules [triple_hexists] and [triple_hpure]
        are not needed in a wp-style presentation, because they
@@ -111,8 +111,9 @@ Qed.
 
     3. The ramified-frame rule for [triple] also has a
        counterpart for [wp]. This ramified rule for [wp]
-       will play a crucial rule in the construction of
-       our function that computes weakest precondition. *)
+       will play a crucial rule in the construction of the function
+       that computes weakest precondition in the next chapter. *)
+
 
 (* ------------------------------------------------------- *)
 (** *** 1. Extraction rules are no longer needed *)
@@ -185,22 +186,25 @@ Proof using.
   { rewrite wp_equiv. hsimpl. } { hsimpl. }
 Qed.
 
-(** The above statement asserts that
-    - [wp t Q1] can absorb any heap predicate [H] with which it
-      is starred, changing it to [wp t (Q1 \*+ H)]
-    - [wp t Q1] can be weakened to [wp t Q2] when [Q1 ===> Q2]
-    - [wp t (Q1 \*+ H)] can be simplified to [wp t Q1] if one
+(** The above statement asserts that:
+
+    1. [wp t Q1] can absorb any heap predicate [H] with which it
+      is starred, changing it to [wp t (Q1 \*+ H)].
+
+    2. [wp t Q1] can be weakened to [wp t Q2] when [Q1 ===> Q2].
+
+    3. [wp t (Q1 \*+ H)] can be simplified to [wp t Q1] if one
       wants to discard [H] from the postcondition. *)
 
 (** Further in this chapter, we present specializations of
-    this rule to invoke only the [frame] rule, or only the
+    this rule, e.g., to invoke only the [frame] rule, or only the
     garbage collection rule. *)
 
 
 (* ------------------------------------------------------- *)
 (** *** 3. The ramified structural rule for [wp] *)
 
-(** Consider the entailment  [Q1 \*+ H ===> Q2 \*+ \Top]
+(** Consider the entailment [Q1 \*+ H ===> Q2 \*+ \Top]
     that appears in the combined rule [wp_conseq_frame_htop].
 
     This entailement can be rewritten using the magic wand as:
@@ -249,7 +253,7 @@ Proof using. introv M. hchange M. applys wp_ramified. Qed.
     Definition wp_characterization (wp:trm->(val->hprop)->hprop) :=
       forall t H Q, (triple t H Q) <-> (H ==> wp t Q).
 ]]
- *)
+*)
 
 (** In what follows, we'll give two possible definitions, a
     low-level one expressed as a function on heaps, and a high-level
@@ -257,9 +261,13 @@ Proof using. introv M. hchange M. applys wp_ramified. Qed.
     For both, we'll show that they satisfy [wp_characterization].
 
     Note that, by lemma [wp_characterization_unique], the two
-    definitions that we consider are necessarily equivalent. *)
+    definitions that we consider are necessarily equivalent to
+    each other. *)
 
-(** We now present the low-level definition. *)
+(** The low-level definition of [wp t Q] is a predicate that
+    characterizes a heap [h] if and only if [triple t (=h) Q]
+    holds, where [=h] is a heap predicate that holds only of
+    the heap [h]. *)
 
 Definition wp_low (t:trm) (Q:val->hprop) : hprop :=
   fun (h:heap) => triple t (=h) Q.
@@ -281,7 +289,9 @@ Proof using.
     { applys qimpl_refl. } }
 Qed.
 
-(** We now present the high-level definition. *)
+(** The high-level definition of [wp t Q] is defined as
+    the existence of a heap predicate [H] such that [H] holds
+    of the current heap and the judgment [triple t H Q] holds. *)
 
 Definition wp_high (t:trm) (Q:val->hprop) : hprop :=
   \exists (H:hprop), H \* \[triple t H Q].
@@ -306,7 +316,7 @@ Qed.
 
 
 (* ******************************************************* *)
-(** ** Frame rule and garbage rules for [wp] *)
+(** ** Specialized versions of the structural rule for [wp] *)
 
 (** The combined structural rule for [wp] captures all the
     structural rules. We here discuss the formulation of
@@ -389,11 +399,12 @@ Qed.
 (** * Definition of [wp] directly in terms of [hoare] *)
 
 (* ******************************************************* *)
-(** ** Direct definition for [wp] *)
+(** ** Motivation for direct definitions for [wp] rules *)
 
 (** In our construction, we have proved reasoning rules for
     [hoare], derived reasoning rules for [triple], then used
     the latter for proving the soundness of [wp].
+
     Yet, if our goal was only to prove properties [wp], we wouldn't
     need any result on [triple]. How would the reasoning rules be
     stated and proved if we were to directly state and prove [wp]
@@ -416,9 +427,11 @@ Proof using.
   applys hoare_conseq M; hsimpl.
 Qed.
 
-(** We next establish [wp] for each term construct. To guide us towards
-    the appropriate statements, we start from the rule for [triple],
-    and reformulate it using [triple t H Q <-> H ==> (wp t Q)]. *)
+(** We next establish [wp] reasoning rules for each term construct.
+
+    To guide us towards the appropriate statements, we start from the
+    rule for [triple], and reformulate it using the equivalence
+    [triple t H Q <-> H ==> (wp t Q)]. *)
 
 
 (* ******************************************************* *)
@@ -669,7 +682,7 @@ Qed.
 
 (** Recall the function [incr] and its specification. *)
 
-Parameter incr : val. (* code omitted *)
+Parameter incr : val. (** Code omitted, may be found in [SLFHprop.v]. *)
 
 Parameter triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
@@ -692,4 +705,10 @@ Proof using.
 Qed.
 (* /SOLUTION *)
 
+
+
+(* ******************************************************* *)
+(** ** Chapter's notes *)
+
+(** Texan triples are used in Iris. *)
 

@@ -27,6 +27,7 @@ Implicit Types Q : val->hprop.
 
 (** This chapter describes the construction of a function called
     [wpgen] that effectively computes in Coq weakest preconditions.
+
     The formula computed by [wpgen t] is equivalent to [wp t], but
     is expressed in a way that longer refers to the source code of [t].
 
@@ -80,14 +81,18 @@ Definition formula := (val->hprop) -> hprop.
     situation. The first approach relies on a general fixed point combinator.
     The second approach tweaks the definition to pass as extra argument a list
     of bindings and avoid the need for substitutions during the recursion
-    process. For now, let us assume the [wpgen] defined and see what we aim for. *)
+    process. For now, let us assume the [wpgen] defined and explain how we
+    plan to exploit this function. *)
 
 Module WpgenOverview.
 
 Parameter wpgen : trm -> formula.
 
 (** The soundness theorem that we aim for establishes that [wpgen] can be used
-    to establish triples. *)
+    to establish a judgment [triple t H Q] by proving [H ==> wpgen t Q].
+    In this premise, [wpgen t] can be computed using Coq's [simpl] tactic.
+    In the process, tthe expression [wpgen t] gets replace by a logical formula
+    that no longer refers to the syntax of the term [t]. *)
 
 Parameter triple_of_wpgen : forall H t Q,
   H ==> wpgen t Q ->
@@ -102,6 +107,7 @@ Parameter triple_of_wpgen : forall H t Q,
     Separation Logic. Yet, for [wpgen] to be useful for carrying
     out practical verification proofs, it also needs to also support,
     somehow, the structural rules of Separation Logic.
+
     The predicate [mkstruct] serves exactly that purpose.
     It is inserted at every "node" in the construction of the
     formual [wpgen t]. In other words, [wpgen t] always takes the
@@ -145,7 +151,7 @@ End WpgenOverview.
       F Q ==> mkstruct F Q.
 ]] *)
 
-(** The following definition of [mkmklocal] satisfy the above two properties.
+(** The following definition of [mkstruct] satisfy the above two properties.
     The tactic [hsimpl] trivializes the proofs. Details are discussed further on. *)
 
 Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
@@ -498,23 +504,15 @@ Qed.
 Module WPgenSubst.
 
 (** We are almost ready to formally define our function [wpgen].
-    There are two Coq-specific caveat on our way, however.
-
-    First, the definition of [wpgen] is not structurally recursive.
+    There is one Coq-specific caveat on our way, however.
+    The definition of [wpgen] is not structurally recursive.
     Thus, we'll have to play some tricks to first define it as a functional,
-    and then take the fixed point of this functional. The details of this
-    fixed point construction are not essential for the moment; they are
-    explained further in this chapter. In any case, we will shortly
-    afterwards present an alternative definition to [wpgen] which is
-    slightly more complex yet structurally recursive.
+    and then take the fixed point of this functional.
 
-    Second, the definition of [wpgen] as a pattern matching on terms
-    forces us to reveal our general grammar of terms. Indeed, Coq does
-    not support notations in the grammar of patterns. We will put as
-    comment the intended pattern, and write down the underlying pattern.
-    (These patterns reveals the support for n-ary functions and applications,
-    and the factorization between functions and recursive functions,
-    and between [trm_seq] and [trm_let].) *)
+    The details of this fixed point construction are not essential
+    for the moment; they are explained further in this chapter.
+    In any case, we will shortly afterwards present an alternative definition
+    to [wpgen] which is slightly more complex yet structurally recursive. *)
 
 Definition Wpgen wpgen (t:trm) : formula :=
   mkstruct
@@ -527,7 +525,6 @@ Definition Wpgen wpgen (t:trm) : formula :=
        wpgen_val (val_fun x t1)
   | trm_fix f x t1 =>
        wpgen_val (val_fix f x t1)
-
   | trm_app t1 t2 =>
        wp t
   | trm_seq t1 t2 =>
@@ -543,13 +540,17 @@ Definition Wpgen wpgen (t:trm) : formula :=
   end.
 
 (** To build the fixed point, we need to show the result type inhabited. *)
+
 Global Instance Inhab_formula : Inhab formula.
 Proof using. apply (Inhab_of_val (fun _ => \[])). Qed.
+
+(** [wpgen] is the fixed point of [Wpgen]. *)
 
 Definition wpgen := FixFun Wpgen.
 
 (** The fixed point equation, which enables unfolding the definition
-    of [wpgen], is proved further in this file. *)
+    of [wpgen], is proved further in this file. To establish it, we
+    essentially need to justify the termination of the recursive function. *)
 
 Parameter wpgen_fix : forall t,
   wpgen t = Wpgen wpgen t.
@@ -592,10 +593,7 @@ Parameter trm_induct_subst : forall (P : trm -> Prop),
   (forall t0, P t0 -> forall t1, P t1 -> forall t2, P t2 -> P (trm_if t0 t1 t2)) ->
   (forall t, P t).
 
-(** The soundness lemma asserts that [H ==> wpgen t Q] implies
-    [triple t H Q]. Recall that, equivalently, it can be formulated as:
-    [forall t, formula_sound_for t (wpgen t)].
-
+(** The soundness lemma asserts: [forall t, formula_sound_for t (wpgen t)].
     The proof is carried out by induction on [t]. For each term
     construct, the proof consists of invoking the lemma [mkstruct_sound]
     to justify soundness of the leading [mkstruct], then invoking
@@ -639,15 +637,14 @@ End WPgenSubst.
     should be represented using a binary tree, leading to a [wpgen]
     function running in O(n log n) compared with O(n^2) for the previous
     definition which performs substitution during the recursion process.
-
     However, for simplicity, we will here represent contexts using
     simple association lists. *)
 
 Definition ctx : Type := list (var*val).
 
-(** On contexts, we'll need two basic operations: lookup and removal.
+(** On contexts, we'll need two basic operations: lookup and removal. *)
 
-    [lookup x E] returns [Some v] if [x] maps to [v] in [E],
+(** [lookup x E] returns [Some v] if [x] maps to [v] in [E],
     and [None] if no value is bound to [x]. *)
 
 Fixpoint lookup (x:var) (E:ctx) : option val :=
@@ -761,8 +758,7 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
     First, the substitution for the empty context is the identity.
     Second, the substitution for [(x,v)::E] is the same as the
     substitution for [rem x E] followed with a substitution of [x] by [v].
-    The proof of these technical lemmas is given in appendix.
-    (The second one reveals quite tricky to obtain.) *)
+    The proof of these technical lemmas is given in appendix. *)
 
 Parameter isubst_nil : forall t,
   isubst nil t = t.
@@ -800,7 +796,7 @@ Proof using.
     { applys wpgen_if_sound. { applys IHt2. } { applys IHt3. } } }
 Qed.
 
-(** The final result for closed terms asserts that [wpgen nil t]
+(** The final result for a closed term asserts that [wpgen nil t]
     computes a weakest precondition for [t], in the sense that
     [H ==> wpgen nil t Q] implies [triple t H Q]. *)
 
@@ -967,37 +963,37 @@ Qed.
 (** ** Making proof obligations more readable *)
 
 (** Let us introduce a piece of notation for every "wpgen" auxiliary function,
-    including [mkstruct]. *)
+    including [mkstruct]. This allows the formula produced by [wpgen t]
+    to get displayed in a way that reads pretty much like the term [t],
+    even though it is a logical formula and not a term. *)
+
+Notation "` F" := (mkstruct F) (at level 10, format "` F").
 
 Notation "'Fail'" :=
   ((wpgen_fail))
-  (at level 69) : wp_scope.
+  (at level 69).
 
 Notation "'Val' v" :=
   ((wpgen_val v))
-  (at level 69) : wp_scope.
+  (at level 69).
 
 Notation "'`Let' x ':=' F1 'in' F2" :=
   ((wpgen_let F1 (fun x => F2)))
   (at level 69, x ident, right associativity,
-  format "'[v' '[' '`Let'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
+  format "'[v' '[' '`Let'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'").
 
 Notation "'Seq' F1 ;;; F2" :=
   ((wpgen_seq F1 F2))
   (at level 68, right associativity,
-   format "'[v' 'Seq'  '[' F1 ']'  ;;;  '/'  '[' F2 ']' ']'") : wp_scope.
+   format "'[v' 'Seq'  '[' F1 ']'  ;;;  '/'  '[' F2 ']' ']'").
 
 Notation "'App' f v1 " :=
   ((wp (trm_app f v1)))
-  (at level 68, f, v1 at level 0) : wp_scope.
+  (at level 68, f, v1 at level 0).
 
 Notation "'If'' b 'Then' F1 'Else' F2" :=
   ((wpgen_if b F1 F2))
-  (at level 69) : wp_scope.
-
-Notation "` F" := (mkstruct F) (at level 10, format "` F") : wp_scope.
-
-Open Scope wp_scope.
+  (at level 69).
 
 Lemma triple_mysucc_with_notations : forall n,
   triple (trm_app mysucc n)
@@ -1306,6 +1302,22 @@ Qed.
 ]]
 *)
 
+(** On key auxiliary lemma relates [subst] and [isubst]. *)
+
+Lemma subst_eq_isubst_one : forall x v t,
+  subst x v t = isubst ((x,v)::nil) t.
+Proof using.
+  intros. induction t; simpl.
+  { fequals. }
+  { case_var~. }
+  { fequals. case_var~. { rewrite~ isubst_nil. } }
+  { fequals. case_var; try case_var; simpl; try case_var; try rewrite isubst_nil; auto. }
+  { fequals*. }
+  { fequals*. }
+  { fequals*. case_var~. { rewrite~ isubst_nil. } }
+  { fequals*. }
+Qed.
+
 (** A lemma about the lookup in a removal. *)
 
 Lemma lookup_rem : forall x y E,
@@ -1367,47 +1379,32 @@ Proof using.
   case_var~. applys* D K1 K2.
 Qed.
 
-(** An inversion lemma for [ctx_disjoint] *)
-
-Lemma ctx_disjoint_cons_l_inv : forall x v E1 E2,
-  ctx_disjoint ((x,v)::E1) E2 ->
-  ctx_disjoint E1 E2.
-Proof using.
-  introv M. intros y v1 v2 K1 K2. tests C: (x = y).
-  { applys M v v2 K2. simpl. case_var~. }
-  { applys M v1 v2 K2. simpl. case_var~. }
-Qed.
-
 (** Lookup in the concatenation of two disjoint contexts *)
 
 Lemma lookup_app : forall x E1 E2,
-  ctx_disjoint E1 E2 ->
   lookup x (E1 ++ E2) = match lookup x E1 with
                         | None => lookup x E2
                         | Some v => Some v
                         end.
 Proof using.
-  introv. induction E1 as [|(y,w) E1']; rew_list; simpl; introv D.
+  introv. induction E1 as [|(y,w) E1']; rew_list; simpl; intros.
   { auto. }
-  { lets D': ctx_disjoint_cons_l_inv D. case_var~. }
+  { case_var~. }
 Qed.
 
 (** The key induction shows that [isubst] distributes over
     context concatenation. *)
 
 Lemma isubst_app : forall t E1 E2,
-  ctx_disjoint E1 E2 ->
-  isubst (E1 ++ E2) t = isubst E1 (isubst E2 t).
+  isubst (E1 ++ E2) t = isubst E2 (isubst E1 t).
 Proof using.
   hint ctx_disjoint_rem.
-  intros t. induction t; introv D; simpl.
+  intros t. induction t; simpl; intros.
   { fequals. }
   { rename v into x. rewrite~ lookup_app.
-    case_eq (lookup x E1); introv K1; case_eq (lookup x E2); introv K2.
-    { false* D. }
-    { simpl. rewrite~ K1. }
-    { auto. }
-    { simpl. rewrite~ K1. } }
+    case_eq (lookup x E1); introv K1; case_eq (lookup x E2); introv K2; auto.
+    { simpl. rewrite~ K2. }
+    { simpl. rewrite~ K2. } }
   { fequals. rewrite* rem_app. }
   { fequals. do 2 rewrite* rem_app. }
   { fequals*. }
@@ -1416,21 +1413,14 @@ Proof using.
   { fequals*. }
 Qed.
 
-(** To prove the desired lemma [isubst_rem], we need to relate
-    [subst] and [isubst]. *)
+(** The next lemma asserts that the concatenation order is irrelevant
+    in a substitution if the contexts have disjoint domains. *)
 
-Lemma subst_eq_isubst_one : forall x v t,
-  subst x v t = isubst ((x,v)::nil) t.
+Lemma isubst_app_swap : forall t E1 E2,
+  ctx_disjoint E1 E2 ->
+  isubst (E1 ++ E2) t = isubst (E2 ++ E1) t.
 Proof using.
-  intros. induction t; simpl.
-  { fequals. }
-  { case_var~. }
-  { rew_bool. case_var~. { rewrite~ isubst_nil. } { fequals*. } }
-  { rew_bool. case_var; simpl; try case_var; try rewrite isubst_nil; fequals. }
-  { fequals*. }
-  { fequals*. }
-  { fequals*. case_var~. { rewrite~ isubst_nil. } }
-  { fequals*. }
+  introv D. applys isubst_ctx_equiv. applys~ ctx_disjoint_equiv_app.
 Qed.
 
 (** We are ready to derive the desired property of [isubst]. *)
@@ -1439,42 +1429,11 @@ Lemma isubst_rem' : forall x v E t,
   isubst ((x, v)::E) t = subst x v (isubst (rem x E) t).
 Proof using.
   intros. rewrite subst_eq_isubst_one. rewrite <- isubst_app.
-  { applys isubst_ctx_equiv. intros y. simpl. rewrite lookup_rem. case_var~. }
+  rewrite isubst_app_swap.
+  { applys isubst_ctx_equiv. intros y. rew_list. simpl. case_var~.
+    { rewrite lookup_rem. case_var~. } }
   { intros y v1 v2 K1 K2. simpls. case_var.
-    { subst. rewrite lookup_rem in K2. case_var~. } }
-Qed.
-
-(** Another useful corollary reformulates [subst] in terms of [isubst].
-    This result is exploited, e.g., in the proof of [xcf_lemma]. *)
-
-Lemma subst_eq_isubst' : forall x v t,
-  subst x v t = isubst ((x,v)::nil) t.
-Proof using. intros. rewrite isubst_rem. simpl. rewrite~ isubst_nil. Qed.
-
-(** As bonus, here is an additional property of [isubst]:
-    [isubst (E1 ++ E2) t = isubst (E2 ++ E1) t] when the two
-    contexts have disjoint domains. *)
-
-Lemma ctx_disjoint_sym : forall E1 E2,
-  ctx_disjoint E1 E2 ->
-  ctx_disjoint E2 E1.
-Proof using. introv D. intros x v1 v2 K1 K2. applys* D. Qed.
-
-Lemma ctx_disjoint_equiv_app : forall E1 E2,
-  ctx_disjoint E1 E2 ->
-  ctx_equiv (E1 ++ E2) (E2 ++ E1).
-Proof using.
-  introv D. lets D': ctx_disjoint_sym D. intros x.
-  do 2 rewrite~ lookup_app.
-  case_eq (lookup x E1); case_eq (lookup x E2); auto.
-  { intros v2 K2 v1 K1. false* D. }
-Qed.
-
-Lemma isubst_app_sym : forall t E1 E2,
-  ctx_disjoint E1 E2 ->
-  isubst (E1 ++ E2) t = isubst (E2 ++ E1) t.
-Proof using.
-  introv D. applys isubst_ctx_equiv. applys ctx_disjoint_equiv_app D.
+    { subst. rewrite lookup_rem in K1. case_var~. } }
 Qed.
 
 End IsubstProp.
@@ -1660,3 +1619,9 @@ End WPgenfix2.
 
 End WPgenFix.
 
+
+
+(* ******************************************************* *)
+(** ** Chapter's notes *)
+
+(** The definition of [mkstruct] was suggested by Jacques-Henri Jourdan. *)

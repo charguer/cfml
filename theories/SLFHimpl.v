@@ -140,7 +140,8 @@ Parameter hstar_comm : forall H1 H2,
    H1 \* H2 = H2 \* H1.
 
 (** (3) The empty heap predicate is a neutral for the star.
-    It is both a left and a right neutral, since star is commutative. *)
+    Because star is commutative, it is equivalent to state
+    that [hempty] is a left or a right neutral. *)
 
 Parameter hstar_hempty_l : forall H,
   \[] \* H = H.
@@ -150,12 +151,17 @@ Parameter hstar_hempty_l : forall H,
       [(\exists x, H1) \* H2  =  \exists x, (H1 \* H2)].
       when [x] does not occur in [H2].
 
-    The corresponding formal statement is as follows: *)
+    To formalize this equality, we first rewrite it using [hexists]
+    directly instead of the notation [\exists]. We get:
+      [(hexists (fun x => J x)) \* H  =  hexists (fun x => (J x \* H))].
+    Then [fun x => (J x \* H)] can be written simply as [J \*+ H]. *)
 
 Parameter hstar_hexists : forall A (J:A->hprop) H,
   (hexists J) \* H = hexists (J \*+ H).
 
-(** (5) Star is "regular" with respect to entailment. *)
+(** (5) Star is "regular" with respect to entailment.
+    Here again, due to commutativity of star, it only suffices to state
+    the left version of the lemma. *)
 
 Parameter himpl_frame_l : forall H2 H1 H1',
   H1 ==> H1' ->
@@ -165,8 +171,8 @@ Parameter himpl_frame_l : forall H2 H1 H1',
     Logic, and many generic results can be derived from these facts alone. *)
 
 (** Remark: the star operator, together with the empty heap predicate,
-    form a "commutative monoid structure". Moreover, the star is "regular"
-    with respect to entailment and existentials. *)
+    form a "commutative monoid structure", for which moreover the star
+    operator is "regular" with respect to entailment and existentials. *)
 
 
 (* ******************************************************* *)
@@ -200,11 +206,12 @@ Proof using.
   subst. applys Fmap.disjoint_single_single_same_inv D.
 Qed.
 
-(** More generally, a heap predicate of the form [H1 \* H1]
+(** More generally, a heap predicate of the form [H \* H]
     is generally suspicious in Separation Logic.
-    Such a predicate can only be satisfied if [H1] covers no
-    memory cell, that is, if [H1] is a pure predicate of the
-    form [\[P]] for some proposition [P]. *)
+
+    In plain Separation Logic, such a predicate can only be
+    satisfied if [H] covers no memory cell, that is, if [H] is a
+    pure predicate of the form [\[P]] for some proposition [P]. *)
 
 
 (* ******************************************************* *)
@@ -225,7 +232,7 @@ Qed.
     These three steps are detailed and illustrated next.
 
     The tactic [hpull] is a degraded version of [hsimpl] that only
-    perform the first step. We will show examples where it is useful.
+    perform the first step. We will show examples highlighting its use.
 *)
 
 Module Htactics.
@@ -312,7 +319,7 @@ Proof using.
   intros. hsimpl.
 Abort.
 
-(** If all the pieces are cancelled out, then the goal is discharged. *)
+(** If all the pieces get cancelled out, then the goal is discharged. *)
 
 Lemma hsimpl_demo_cancel_all : forall H1 H2 H3 H4,
   H1 \* H2 \* H3 \* H4 ==> H4 \* H3 \* H1 \* H2.
@@ -327,7 +334,8 @@ Qed.
 (** The third feature of [hsimpl] is its ability to instantiate
     existential quantifiers, pure facts, and [\Top] in the RHS.
 
-    Let us first illustrate how it deals with pure facts. *)
+    Let us first illustrate how it deals with pure facts,
+    by spawning subgoals. *)
 
 Lemma hsimpl_demo_rhs_hpure : forall H1 H2 H3 (n:int),
   H1 ==> H2 \* \[n > 0] \* H3.
@@ -335,7 +343,8 @@ Proof using.
   intros. hsimpl.
 Abort.
 
-(** In the face of a quantifier in the RHS, it introduces an evar. *)
+(** In the face of a quantifier in the RHS, the [hsimpl] tactic
+    introduces an evar. *)
 
 Lemma hsimpl_demo_rhs_hexists : forall H1 H2 H3 H4 (p:loc),
   H1 ==> H2 \* \exists (n:int), (p ~~~> n \* H3) \* H4.
@@ -343,7 +352,7 @@ Proof using.
   intros. hsimpl. (* here, [p ~~~> n] becomes [p ~~~> ?x] *)
 Abort.
 
-(** The evar may often be subsequently instantiated as a result of
+(** The evar often gets subsequently instantiated as a result of
     a cancellation with a matching item from the LHS. For example: *)
 
 Lemma hsimpl_demo_rhs_hexists_unify : forall H1 H2 H3 H4 (p:loc),
@@ -353,8 +362,8 @@ Proof using.
                      which then cancels out with [p ~~~> 3] *)
 Abort.
 
-(** The instantiation of [n] can be observed if there is another
-    occurence of [n] in the entailment. For example: *)
+(** The instantiation of the evar (e.g., [n]) can be observed if there
+    is another occurence of the same variable in the entailment. For example: *)
 
 Lemma hsimpl_demo_rhs_hexists_unify_view : forall H1 H2 H3 (p:loc),
   H1 \* (p ~~~> 3) ==> H2 \* \exists (n:int), (p ~~~> n \* \[n > 0]) \* H3.
@@ -800,7 +809,7 @@ Proof using.
   exists v h1' h3'. splits~. applys WQ HQ.
 Qed.
 
-(** However, it is simpler and more elegant to first establish
+(** It is simpler and more elegant to first establish
     the consequence rule for [hoare], then derive its
     generalization to the case of Separation Logic [triple]. *)
 
@@ -1002,7 +1011,7 @@ Qed.
 (* ******************************************************* *)
 (** ** Variants for the garbage collection rule *)
 
-(** Recall the lemma [triple_htop_post]. *)
+(** Recall the lemma [triple_htop_post] from the previous chapter. *)
 
 Parameter triple_htop_post : forall t H Q,
   triple t H (Q \*+ \Top) ->
