@@ -50,8 +50,8 @@ End Assumptions.
 
     It provides the boolean function [var_eq x y] to compare two variables.
 
-    It provides the tactic [case_var] to perform case analysis on 
-    expressions of the form [if var_eq x y then .. else ..] 
+    It provides the tactic [case_var] to perform case analysis on
+    expressions of the form [if var_eq x y then .. else ..]
     that appear in the goal. *)
 
 
@@ -61,20 +61,20 @@ End Assumptions.
 (** The file [Fmap.v] provides a formalization of finite maps, which
     are then used to represent heaps in the semantics.
 
-    The implementation details need not be revealed. 
-  
+    The implementation details need not be revealed.
+
     Finiteness of maps is essential because to justify that allocation
-    yields a fresh reference, one must be able to argue for the 
-    existence of a location fresh from existing heaps. From the 
+    yields a fresh reference, one must be able to argue for the
+    existence of a location fresh from existing heaps. From the
     finiteness of heaps and the infinite number of variables, we
-    can conclude that fresh locations always exist. 
-    
+    can conclude that fresh locations always exist.
+
     The library [Fmap.v] provides the basic operations of finite maps,
     and in particular the definition of disjointness.
 
     It provides a tactic [fmap_disjoint] to automate the disjointness proofs,
     and a tactic [fmap_eq] to prove equalities between heaps modulo
-    associativity and commutativity. Without these two tactics, the 
+    associativity and commutativity. Without these two tactics, the
     proofs would be extremely tedious and fragile. *)
 
 
@@ -200,7 +200,7 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
       eval s1 t1 s2 v1 ->
       eval s2 t2 s3 v ->
       eval s1 (trm_seq t1 t2) s3 v
-  | eval_let : forall s1 s2 s3 x t1 t2 v1 r, 
+  | eval_let : forall s1 s2 s3 x t1 t2 v1 r,
       eval s1 t1 s2 v1 ->
       eval s2 (subst x v1 t2) s3 r ->
       eval s1 (trm_let x t1 t2) s3 r
@@ -223,7 +223,7 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
 (* ####################################################### *)
 (** * Heap predicates *)
 
-(** For technical reasons, to enable sharing the code implementing 
+(** For technical reasons, to enable sharing the code implementing
     the tactic [hsimpl], we need the definitions that follow to be
     wrapped in a module. *)
 
@@ -520,7 +520,7 @@ Lemma hpure_inv : forall P h,
 Proof using. introv (p&M). split~. Qed.
 
 (* LATER: rename to hstar_hpure_l and add symmetric _r lemma *)
-Lemma hstar_hpure : forall P H h, 
+Lemma hstar_hpure : forall P H h,
   (\[P] \* H) h = (P /\ H h).
 Proof using.
   intros. apply prop_ext. unfold hpure.
@@ -541,7 +541,7 @@ Proof using. introv HP W. intros h K. rewrite* hstar_hpure. Qed.
 Lemma hpure_inv_hempty : forall P h,
   \[P] h ->
   P /\ \[] h.
-Proof using. 
+Proof using.
   introv M. rewrite <- hstar_hpure. rewrite~ hstar_hempty_r.
 Qed.
 
@@ -684,7 +684,7 @@ Qed.
 Lemma hwand_hpure_l_intro : forall (P:Prop) H,
   P ->
   \[P] \-* H ==> H.
-Proof using. 
+Proof using.
   introv HP. rewrite <- hstar_hempty_l at 1.
   forwards~ K: himpl_hempty_hpure P.
   applys himpl_hstar_trans_l K. applys hwand_cancel.
@@ -702,9 +702,9 @@ Qed.
 Lemma hwand_uncurry : forall H1 H2 H3,
   H1 \-* (H2 \-* H3) ==> (H1 \* H2) \-* H3.
 Proof using.
-  intros. rewrite hwand_equiv. rewrite <- (hstar_comm (H1 \* H2)). 
+  intros. rewrite hwand_equiv. rewrite <- (hstar_comm (H1 \* H2)).
   rewrite (@hstar_comm H1). rewrite hstar_assoc.
-  applys himpl_hstar_trans_r. 
+  applys himpl_hstar_trans_r.
   { applys hwand_cancel. } { applys hwand_cancel. }
 Qed.
 
@@ -796,7 +796,7 @@ Arguments hstar_hsingle_same_loc : clear implicits.
 
 (** The definitions and properties above enable us to instantiate
     the [hsimpl] tactic, which implements powerful simplifications
-    for Separation Logic entailments. 
+    for Separation Logic entailments.
 
     For technical reasons, we need to provide a definition for [hgc],
     a restriction of [htop] to affine heap predicates. For our purpose,
@@ -827,14 +827,14 @@ Proof using. applys hstar_htop_htop. Qed.
 (* ------------------------------------------------------- *)
 (** *** Functor instantiation to obtain [hsimpl] *)
 
-End HsimplArgs. 
+End HsimplArgs.
 
 (** We are now ready to instantiate the functor. *)
 
 Module Export HS := Hsimpl.HsimplSetup(HsimplArgs).
 
 (** At this point, the tactic [hsimpl] is available.
-    See the file [SLFHimpl.v] for demos of its usage. *)  
+    See the file [SLFHimpl.v] for demos of its usage. *)
 
 (** And we open the module [HsimplArgs], essentially pretending
     that it was never created. *)
@@ -856,7 +856,7 @@ Global Opaque hempty hpure hstar hsingle hexists hforall hwand qwand htop hgc ha
 
 (** It is not needed to follow through these proofs. *)
 
-Lemma eval_get_sep : forall s s2 l v, 
+Lemma eval_get_sep : forall s s2 l v,
   s = Fmap.union (Fmap.single l v) s2 ->
   eval s (val_get (val_loc l)) s v.
 Proof using.
@@ -939,7 +939,7 @@ Lemma hoare_hpure : forall t (P:Prop) H Q,
   hoare t (\[P] \* H) Q.
 Proof using.
   introv M. intros h (h1&h2&M1&M2&D&U). destruct M1 as (M1&HP).
-  lets E: hempty_inv HP. subst. rewrite Fmap.union_empty_l. applys~ M. 
+  lets E: hempty_inv HP. subst. rewrite Fmap.union_empty_l. applys~ M.
 Qed.
 
 (** Reasoning rules for [hoare] triples. *)
@@ -1098,7 +1098,7 @@ Arguments wp_ramified : clear implicits.
 Lemma wp_conseq : forall t Q1 Q2,
   Q1 ===> Q2 ->
   wp t Q1 ==> wp t Q2.
-Proof using. 
+Proof using.
   introv M. applys himpl_trans_r (wp_ramified Q1 Q2). hsimpl. hchanges M.
 Qed.
 
@@ -1191,7 +1191,7 @@ Proof using.
   { intros H'. applys hoare_conseq. 2:{ applys himpl_frame_l M. }
      { clear M. rewrite hstar_hexists. applys hoare_hexists. intros H''.
        rewrite (hstar_comm H''). rew_heap. applys hoare_hpure. intros N.
-       applys N. } 
+       applys N. }
      { auto. } }
 Qed.
 
@@ -1272,7 +1272,7 @@ Fixpoint rem (x:var) (E:ctx) : ctx :=
 (** [ctx_disjoint E1 E2] asserts that the two contexts have disjoint
     domains. *)
 
-Definition ctx_disjoint (E1 E2:ctx) : Prop := 
+Definition ctx_disjoint (E1 E2:ctx) : Prop :=
   forall x v1 v2, lookup x E1 = Some v1 -> lookup x E2 = Some v2 -> False.
 
 (** [ctx_equiv E1 E2] asserts that the two contexts bind same
@@ -1330,7 +1330,7 @@ Lemma ctx_disjoint_equiv_app : forall E1 E2,
   ctx_disjoint E1 E2 ->
   ctx_equiv (E1 ++ E2) (E2 ++ E1).
 Proof using.
-  introv D. intros x. do 2 rewrite~ lookup_app. 
+  introv D. intros x. do 2 rewrite~ lookup_app.
   case_eq (lookup x E1); case_eq (lookup x E2); auto.
   { intros v2 K2 v1 K1. false* D. }
 Qed.
@@ -1360,7 +1360,7 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
        trm_seq (isubst E t1) (isubst E t2)
   | trm_let x t1 t2 =>
        trm_let x (isubst E t1) (isubst (rem x E) t2)
-  | trm_app t1 t2 => 
+  | trm_app t1 t2 =>
        trm_app (isubst E t1) (isubst E t2)
   end.
 
@@ -1374,7 +1374,7 @@ Definition formula := (val -> hprop) -> hprop.
 
 Implicit Type F : formula.
 
-(** [mkstruct F] transforms a formula [F] into one that satisfies 
+(** [mkstruct F] transforms a formula [F] into one that satisfies
     structural rules of Separation Logic. *)
 
 Definition mkstruct (F:formula) : formula :=
@@ -1417,7 +1417,7 @@ Definition wpgen_let (F1:formula) (F2of:val->formula) : formula := fun Q =>
 Definition wpgen_if (v:val) (F1 F2:formula) : formula := fun Q =>
   \exists (b:bool), \[v = val_bool b] \* (if b then F1 Q else F2 Q).
 
-Definition wpgen_if_trm (F0 F1 F2:formula) : formula := 
+Definition wpgen_if_trm (F0 F1 F2:formula) : formula :=
   wpgen_let F0 (fun v => mkstruct (wpgen_if v F1 F2)).
 
 Fixpoint wpgen (E:ctx) (t:trm) : formula :=
@@ -1439,7 +1439,7 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
        wpgen_seq (wpgen E t1) (wpgen E t2)
   | trm_let x t1 t2 =>
        wpgen_let (wpgen E t1) (fun v => wpgen ((x,v)::E) t2)
-  | trm_app t1 t2 => 
+  | trm_app t1 t2 =>
        wp (isubst E t)
   end.
 
@@ -1451,7 +1451,7 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
     and [isubst_rem], which assert:
 [[
         isubst nil t = t
-    and 
+    and
         isubst ((x,v)::E) t = subst x v (isubst (rem x E) t)
 ]]
     The proofs presented here depend on TLC library for association
@@ -1601,13 +1601,13 @@ Qed.
 Lemma wpgen_sound : forall E t,
   formula_sound_for (isubst E t) (wpgen E t).
 Proof using.
-  intros. gen E. induction t; intros; simpl; 
+  intros. gen E. induction t; intros; simpl;
    applys mkstruct_sound.
-  { applys wpgen_val_sound. } 
+  { applys wpgen_val_sound. }
   { rename v into x. unfold wpgen_var. case_eq (lookup x E).
     { intros v EQ. applys wpgen_val_sound. }
     { intros N. applys wpgen_fail_sound. } }
-  { applys wpgen_fun_sound. } 
+  { applys wpgen_fun_sound. }
   { applys wpgen_fix_sound. }
   { applys wp_sound. }
   { applys* wpgen_seq_sound. }
@@ -1699,7 +1699,7 @@ Lemma xtop_lemma : forall H Q F,
   H ==> mkstruct F (Q \*+ \Top) ->
   H ==> mkstruct F Q.
 Proof using.
-  introv M. hchange M. 
+  introv M. hchange M.
   lets N: mkstruct_ramified (Q \*+ \Top) Q F. hchanges N.
 Qed.
 
@@ -1720,8 +1720,8 @@ Tactic Notation "xseq" :=
   xstruct_if_needed; applys xseq_lemma.
 
 Tactic Notation "xseq_xlet_if_needed" :=
-  try match goal with |- ?H ==> mkstruct ?F ?Q => 
-  match F with 
+  try match goal with |- ?H ==> mkstruct ?F ?Q =>
+  match F with
   | wpgen_seq ?F1 ?F2 => xseq
   | wpgen_let ?F1 ?F2of => xlet
   end end.
@@ -1736,7 +1736,7 @@ Tactic Notation "xapp" constr(E) :=
   xapp_pre; applys xapp_lemma E; hsimpl; unfold protect.
 
 Tactic Notation "xapps" constr(E) :=
-  xapp_pre; first 
+  xapp_pre; first
   [ applys xapps_lemma0 E
   | applys xapps_lemma1 E ];
   hsimpl; unfold protect.
@@ -1745,7 +1745,7 @@ Tactic Notation "xtop" :=
   applys xtop_lemma.
 
 Tactic Notation "xcf" :=
-  intros; 
+  intros;
   first [ applys xcf_lemma_fun; [ reflexivity | idtac]
         | applys xcf_lemma_fix; [ reflexivity | idtac] ];
   simpl.

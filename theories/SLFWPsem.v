@@ -32,7 +32,7 @@ Implicit Types Q : val->hprop.
 (** ** Notion of weakest precondition *)
 
 (** We next introduce a function [wp], called "weakest precondition".
-    Given a term [t] and a postcondition [Q], this function computes 
+    Given a term [t] and a postcondition [Q], this function computes
     a heap predicate [wp t Q] such that [triple t H Q] holds if and
     only if [wp t Q] is weaker than the precondition [H]. Formally: *)
 
@@ -42,7 +42,7 @@ Parameter wp_equiv : forall t H Q,
   (triple t H Q) <-> (H ==> wp t Q).
 
 (** The [wp t Q] is called "weakest precondition" for two reasons.
-    First, because it is a "valid precondition" for the term [t] 
+    First, because it is a "valid precondition" for the term [t]
     and the postcondition [Q]: *)
 
 Lemma wp_pre : forall t Q,
@@ -58,7 +58,7 @@ Lemma wp_weakest : forall t H Q,
   H ==> wp t Q.
 Proof using. introv M. rewrite <- wp_equiv. applys M. Qed.
 
-(** As prove further in this chapter, it is possible to 
+(** As prove further in this chapter, it is possible to
     define a function [wp] satisfying [wp_equiv]. Formally: *)
 
 Definition wp_characterization (wp:trm->(val->hprop)->hprop) :=
@@ -76,7 +76,7 @@ Lemma wp_characterization_unique : forall wp1 wp2,
   wp_characterization wp1 ->
   wp_characterization wp2 ->
   wp1 = wp2.
-Proof using. 
+Proof using.
   asserts L: (forall t Q wp1 wp2,
     wp_characterization wp1 ->
     wp_characterization wp2 ->
@@ -207,7 +207,7 @@ Qed.
     [H ==> (Q1 \--* (Q2 \*+ \Top))].
 
     Thus, the conclusion [(wp t Q1) \* H ==> (wp t Q2)]
-    can be reformulated as 
+    can be reformulated as
     [(wp t Q1) \* (Q1 \--* (Q2 \*+ \Top)) ==> (wp t Q2)].
 
     The "ramified combined structural rule" for [wp], shown below,
@@ -240,8 +240,8 @@ Proof using. introv M. hchange M. applys wp_ramified. Qed.
 (** ** Semantic definition of weakest precondition *)
 
 (** The lemma [wp_equiv] asserts [(triple t H Q) <-> (H ==> wp t Q)].
-    We have seen in the introduction of this chapter that [wp_equiv] 
-    defines a unique function [wp]. There remains to show that there 
+    We have seen in the introduction of this chapter that [wp_equiv]
+    defines a unique function [wp]. There remains to show that there
     actually exists at least one such function.
 
     Recall the definition of [wp_characterization].
@@ -268,14 +268,14 @@ Lemma wp_equiv_wp_low : wp_characterization wp_low.
   (** [forall t H Q, (triple t H Q) <-> (H ==> wp_low t Q)]. *)
 Proof using.
   (** This proof is a bit technical, it is not required to follow it.
-      It requires the lemma [triple_named_heap] established 
+      It requires the lemma [triple_named_heap] established
       as exercise in an earlier chapter. *)
   unfold wp_low. iff M.
   { intros h K. applys triple_conseq M.
     { intros h' ->. applys K. }
     { applys qimpl_refl. } }
   { applys triple_named_heap. intros h K.
-    applys triple_conseq (=h) Q. 
+    applys triple_conseq (=h) Q.
     { specializes M K. applys M. }
     { intros ? ->. auto. }
     { applys qimpl_refl. } }
@@ -298,7 +298,7 @@ Proof using.
   { hsimpl H. apply M. }
   { applys triple_conseq Q M.
     { applys triple_hexists. intros H'.
-      rewrite hstar_comm. applys triple_hpure. 
+      rewrite hstar_comm. applys triple_hpure.
       intros N. applys N. }
     { applys qimpl_refl. } }
 (* /SOLUTION *)
@@ -370,7 +370,7 @@ Proof using.
   applys triple_hany_pre. rewrite~ wp_equiv.
 Qed.
 
-(** The garbage collection in postconditions for [wp] asserts 
+(** The garbage collection in postconditions for [wp] asserts
     that [wp] can absorb and discard any desired heap predicate
     [H] that appears in its postcondition. *)
 
@@ -381,7 +381,7 @@ Proof using.
   applys triple_hany_post. rewrite~ wp_equiv.
 Qed.
 
-(** Note, equivalently, the [H] from rules [wp_hany_pre] and 
+(** Note, equivalently, the [H] from rules [wp_hany_pre] and
    [wp_hand_post] may be replaced with [\Top]. *)
 
 
@@ -396,10 +396,10 @@ Qed.
     the latter for proving the soundness of [wp].
     Yet, if our goal was only to prove properties [wp], we wouldn't
     need any result on [triple]. How would the reasoning rules be
-    stated and proved if we were to directly state and prove [wp] 
+    stated and proved if we were to directly state and prove [wp]
     properties from [hoare]? Let us investigate. *)
 
-(** We assume [wp] to be defined [wp] to be defined directly in terms 
+(** We assume [wp] to be defined [wp] to be defined directly in terms
     of [hoare], following the definition of [wp_high] from above. *)
 
 Parameter wp_def : forall t Q,
@@ -417,7 +417,7 @@ Proof using.
 Qed.
 
 (** We next establish [wp] for each term construct. To guide us towards
-    the appropriate statements, we start from the rule for [triple], 
+    the appropriate statements, we start from the rule for [triple],
     and reformulate it using [triple t H Q <-> H ==> (wp t Q)]. *)
 
 
@@ -480,7 +480,7 @@ Parameter triple_if_case : forall b t1 t2 H Q,
     which simplifies to:
 [[
     wp (if b then t1 else t2) Q ==> wp (trm_if (val_bool b) t1 t2) Q.
-]] 
+]]
     This suggests.
 *)
 
@@ -645,10 +645,10 @@ Qed.
     The heap predicate [H'] may depend on [r] and the [xi].
     The number of existentials [xi] may vary, possibly be zero.
     The equality \[r = v] may degenerate to \[r = r] if no pure fact
-    is needed about [r]. 
+    is needed about [r].
 
     A triple of the above form may be reformulated as:
-    [(\forall x1 x2, H \-* Q v) ==> wp t Q]. 
+    [(\forall x1 x2, H \-* Q v) ==> wp t Q].
 
     We next formalize this result for the case of a single [xi] variable,
     making it explicit that [H] and [v] may depend on it. *)

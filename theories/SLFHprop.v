@@ -17,7 +17,7 @@ From Sep Require Export SLFExtra.
 
 Arguments Fmap.single {A} {B}.
 Arguments Fmap.union {A} {B}.
-Arguments Fmap.disjoint {A} {B}. 
+Arguments Fmap.disjoint {A} {B}.
 Arguments Fmap.union_comm_of_disjoint {A} {B}.
 Arguments Fmap.union_empty_l {A} {B}.
 Arguments Fmap.union_empty_r {A} {B}.
@@ -38,7 +38,7 @@ Local Coercion string_to_var (x:string) : var := x.
 (* ******************************************************* *)
 (** ** Syntax and semantics *)
 
-(** We here assume an imperative programming language with a formal semantics.
+(** We assume an imperative programming language with a formal semantics.
     Such a language is described in file [SLFDirect.v], but we do not need to
     know about the details for now. All we need to know is that there exists:
 
@@ -121,7 +121,7 @@ Implicit Type H : hprop.
 (** An essential aspect of Separation Logic is that all heap predicates
     defined and used in practice are built using a few basic combinators.
     In other words, except for the definition of the combinators themselves,
-    we will never define a custom heap predicate directly as a function 
+    we will never define a custom heap predicate directly as a function
     of the state. *)
 
 (** We next describe the most important combinators of Separation Logic. *)
@@ -170,7 +170,7 @@ Notation "H1 '\*' H2" := (hstar H1 H2) (at level 41, right associativity).
     The notation [\exists x, H] stands for [hexists (fun x => H)].
     The generalized notation [\exists x1 ... xn, H] is also available.
 
-    The definition of [hexists] is a bit technical. It may be skipped 
+    The definition of [hexists] is a bit technical. It may be skipped
     in first reading. Additional explanations are provided further on. *)
 
 Definition hexists A (J:A->hprop) : hprop :=
@@ -195,18 +195,18 @@ Notation "\Top" := (htop).
 (** ** Extensionality for heap predicates *)
 
 (** To work in Separation Logic, it is extremely convenient
-    to be able to state equalities between heap predicates. 
+    to be able to state equalities between heap predicates.
     For example, in the next chapter, we will establish associativity
     for the star operator, a property stated as an equality: *)
 
 Parameter hstar_assoc : forall H1 H2 H3,
   (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
 
-(** How can we prove a goal of the form [H1 = H2] when [H1] and [H2] 
+(** How can we prove a goal of the form [H1 = H2] when [H1] and [H2]
     have type [hprop], that is, [heap->Prop]?
 
-    Intuitively, [H] and [H'] are equal if and only if they 
-    characterize exactly the same set of heaps, that is, if 
+    Intuitively, [H] and [H'] are equal if and only if they
+    characterize exactly the same set of heaps, that is, if
     [forall h, H1 h <-> H2 h].
 
     This reasoning principle is not available by default in Coq,
@@ -298,7 +298,7 @@ Definition triple1 (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
 (** This definition inherently satisfies the frame rule, as we show
     below, by exploiting the associativity of the star operator. *)
 
-Lemma triple1_frame : forall t H Q H', 
+Lemma triple1_frame : forall t H Q H',
   triple1 t H Q ->
   triple1 t (H \* H') (Q \*+ H').
 Proof using.
@@ -335,7 +335,7 @@ Parameter triple_htop_post : forall t H Q,
     to the definition. Concretely, we augment the postcondition of
     the underlying Hoare triple with an extra [\Top], which is able
     to capture any piece of state that we do not wish to mention
-    explicitly in the postcondition. 
+    explicitly in the postcondition.
 
     The updated definition, called [triple], is as follows. *)
 
@@ -350,7 +350,7 @@ Parameter triple_htop_post' : forall t H Q,
   triple t H (Q \*+ \Top) ->
   triple t H Q.
 
-Parameter triple_frame : forall t H Q H', 
+Parameter triple_frame : forall t H Q H',
   triple t H Q ->
   triple t (H \* H') (Q \*+ H').
 
@@ -458,14 +458,14 @@ Proof using. intros. auto. Qed.
     Fmap.empty \u h = h.
 
   Lemma Fmap.disjoint_empty_l : forall h,
-    Fmap.disjoint Fmap.empty h. 
+    Fmap.disjoint Fmap.empty h.
 *)
 
-Lemma hstar_hpure_iff : forall P H h, 
-  (\[P] \* H) h <-> (P /\ H h). 
+Lemma hstar_hpure_iff : forall P H h,
+  (\[P] \* H) h <-> (P /\ H h).
 Proof using.
 (* SOLUTION *)
-  iff M. 
+  iff M.
   { hnf in M. destruct M as (h1&h2&M1&M2&D&U).
     hnf in M1. destruct M1 as (M1&HP). subst.
     rewrite Fmap.union_empty_l. auto. }
@@ -491,14 +491,14 @@ Qed.
   Check (\exists (n:int), l ~~~> (val_int n)) : hprop.
 ]]
 
-    The type of [\exists], which operates on [hprop], is very similar 
-    to that of [exists], which operates on [Prop]. 
+    The type of [\exists], which operates on [hprop], is very similar
+    to that of [exists], which operates on [Prop].
 
     The notation [exists x, P] stands for [ex (fun x => P)],
     where [ex] admits the following type:
 [[
     Check ex : forall A : Type, (A -> Prop) -> Prop.
-]] 
+]]
 
     Likewise, [\exists x, H] stands for [hexists (fun x => H)],
     where [hexists] admits the following type:
@@ -508,7 +508,7 @@ Qed.
 
 *)
 
-(** Remark: the notation for [\exists] is directly adapted from that 
+(** Remark: the notation for [\exists] is directly adapted from that
     of [exists], which supports the quantification an arbitrary number
     of variables, and is defined in [Coq.Init.Logic] as follows. *)
 
@@ -525,7 +525,7 @@ Notation "'exists' x .. y , p" := (ex (fun x => .. (ex (fun y => p)) ..))
 
 Parameter incr : val.
 
-(** An application of [incr] is a term of the form 
+(** An application of [incr] is a term of the form
     [trm_app (trm_val incr) (trm_val (val_loc p))].
     Because [trm_app], [trm_val], and [val_loc] are registered as
     coercions, it may be abbreviated as just [incr p].  *)
@@ -570,7 +570,7 @@ Lemma triple_incr_2 : forall (p q:loc) (n m:int),
     ((p ~~~> n) \* (q ~~~> m))
     (fun v => \[v = val_unit] \* (p ~~~> (n+1)) \* (q ~~~> m)).
 
-(** The above specification lemma is derivable from the specification 
+(** The above specification lemma is derivable from the specification
     lemma [triple_incr] by applying the frame rule to augment
     both the precondition and the postcondition with [q ~~~> m]. *)
 
@@ -594,7 +594,7 @@ Parameter triple_incr_3 : forall (p:loc) (n:int) (H:hprop),
 (** Remark: in practice, we always prefer writing
     "small-footprint specifications" (such as [triple_incr])
     that describe the minimal piece of state necessary for
-    the function to execute. Indeed, other specifications that 
+    the function to execute. Indeed, other specifications that
     describe a larger piece of state can be derived by simple
     application of the frame. *)
 
@@ -620,12 +620,12 @@ Parameter triple_ref_with_frame : forall (l':loc) (v':val) (v:val),
     (l' ~~~> v')
     (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v \* l' ~~~> v').
 
-(** This derived specification captures the fact that the newly 
+(** This derived specification captures the fact that the newly
     allocated cell at address [l] is distinct from the previously
     allocated cell at address [l'].
 
     More generally, through the frame rule, we can derive that
-    any piece of freshly allocated data is distinct from any 
+    any piece of freshly allocated data is distinct from any
     piece of previously existing data.
 
     This principle is extremely powerful. It is at the heart of
@@ -639,7 +639,7 @@ Parameter triple_ref_with_frame : forall (l':loc) (v':val) (v:val),
 (** Prove the frame rule for the actual definition of [triple].
     Take inspiration from the proof of [SL_frame_rule]. *)
 
-Lemma triple_frame' : forall t H Q H', 
+Lemma triple_frame' : forall t H Q H',
   triple t H Q ->
   triple t (H \* H') (Q \*+ H').
 Proof using.
@@ -652,9 +652,9 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
-(** The other main property to establish is [triple_htop_post]. 
+(** The other main property to establish is [triple_htop_post].
 
-    The proof expoits associativity and commutativity of the star 
+    The proof expoits associativity and commutativity of the star
     operator, as well as a property asserting that [\Top \* \Top]
     simplifies to [\Top]: both heap predicate can be used
     to describe arbitrary heaps. These properties are assumed here;
@@ -741,7 +741,7 @@ Definition hpure' (P:Prop) : hprop :=
     more fundamental. Hence, in practice we define [hpure] in terms of
     [hexists] and [hempty], as done in the definition [hpure'] above. *)
 
-(** The top heap predicate [\Top] is equivalent to [\exists H, H], 
+(** The top heap predicate [\Top] is equivalent to [\exists H, H],
     which is a heap predicate that also characterizes any state.
     Again, because we need [hexists] anyway, we prefer in practice
     to define [\Top] in terms of [hexists], as done in the definition
@@ -770,13 +770,13 @@ Definition htop' : hprop :=
     with the help of the separating conjunction operator, as:
     [forall (H':hprop), hoare (H \* H') t (Q \*+ H')].
 
-    In what follows, we give an equivalent characterization, 
-    expressed directly in terms of heaps and heap unions. 
+    In what follows, we give an equivalent characterization,
+    expressed directly in terms of heaps and heap unions.
     It asserts that if [h1] satisfies the precondition [H]
     and [h2] describes the rest of the state, then the evaluation
-    of [t] produces a value [v] in a final state made that 
+    of [t] produces a value [v] in a final state made that
     can be decomposed between a part [h1'] and [h2] unchanged,
-    in such a way that [v] and [h1'] together satisfy the 
+    in such a way that [v] and [h1'] together satisfy the
     poscondition [Q]. *)
 
 Definition triple1_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
@@ -810,11 +810,11 @@ Qed.
 (** Recall the final definition of [triple], as:
     [forall (H':hprop), hoare (H \* H') t (Q \*+ H' \*+ \Top)].
 
-    This definition can also be reformulated directly in terms of union 
-    of heaps. All we need to do is introduce an additional piece of 
+    This definition can also be reformulated directly in terms of union
+    of heaps. All we need to do is introduce an additional piece of
     state to describe the part covered by new [\Top] predicate.
 
-    In order to describe disjointness of the 3 pieces of heap that 
+    In order to describe disjointness of the 3 pieces of heap that
     describe the final state, we first introduce an auxiliary definition:
     [Fmap.disjoint_3 h1 h2 h3] asserts that the three arguments denote
     pairwise disjoint heaps. *)
@@ -827,7 +827,7 @@ Definition fmap_disjoint_3 (h1 h2 h3:heap) :=
 (** We then generalize the result heap from [h1' \u h2] to
     [h1' \u h2 \u h3'], where [h3'] denotes the piece of the
     final state that is described by the [\Top] heap predicate
-    that appears in the definition of [triple]. *) 
+    that appears in the definition of [triple]. *)
 
 Definition triple_lowlevel t H Q :=
   forall h1 h2,
@@ -839,7 +839,7 @@ Definition triple_lowlevel t H Q :=
     /\ (Q v) h1'.
 
 (** One can proove the equivalence of [triple] and [triple_lowlevel]
-    following a similar proof pattern as previously. The proof is a bit 
+    following a similar proof pattern as previously. The proof is a bit
     more technical and requires additional tactic support to deal with
     the tedious disjointness conditions, so we omit the details.
     (The proof is included in the file [SepBase.v] from CFML2.) *)
@@ -855,12 +855,12 @@ Parameter triple_iff_triple_lowlevel : forall t H Q,
 (** ** Formulation of the extensionality axioms *)
 
 (** To establish extensionality of entailment, we have used
-    the predicate extensionality axiom. In fact, this axiom 
+    the predicate extensionality axiom. In fact, this axiom
     is more the axiom of extensionality combined with a more
     fundamental axioms called "propositional extensionality". *)
 
 (** The axiom of "propositional extensionality" asserts that
-    two propositions that are logically equivalent (in the sense 
+    two propositions that are logically equivalent (in the sense
     that they imply each other) can be considered equal. *)
 
 Axiom propositional_extensionality : forall (P Q:Prop),

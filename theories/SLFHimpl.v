@@ -22,6 +22,11 @@ Implicit Types Q : val->hprop.
 (* ####################################################### *)
 (** * The chapter in a rush *)
 
+(** In this file, we discuss the order relation on heap predicates.
+    This relation plays a key role in stating the reasoning rules
+    of Separation Logic. *)
+
+
 (* ******************************************************* *)
 (** ** Definition of entailment *)
 
@@ -39,8 +44,8 @@ Notation "H1 ==> H2" := (himpl H1 H2) (at level 55).
 (** As we show next, the entailment relation is reflexive, transitive,
     and antisymmetric. It thus forms an order relation.
 
-    Remark: entailment on [hprop] satisfies these properties as a direct  
-    consequence of the fact that implication on [Prop] satisfies all 
+    Remark: entailment on [hprop] satisfies these properties as a direct
+    consequence of the fact that implication on [Prop] satisfies all
     these same properties. *)
 
 Lemma himpl_refl : forall H,
@@ -56,7 +61,8 @@ Proof using. introv M1 M2. intros h H1h. eauto. Qed.
 (* EX1! (himpl_antisym) *)
 (** Prove the antisymmetry of entailement result shown below
     using extensionatity for heap predicates, as captured by
-    lemma [predicate_extensionality] or lemma [hprop_eq]. *)
+    lemma [predicate_extensionality] (or lemma [hprop_eq])
+    introduced in the previous chapter ([SLFHprop]). *)
 
 Lemma himpl_antisym : forall H1 H2,
   (H1 ==> H2) ->
@@ -74,20 +80,21 @@ Qed.
 (** For example, [himpl_antisym] can be used to establish
     commutativity of separating conjunction: [(H1 \* H2) = (H2 \* H1)]
     by proving that each side entails the other:
-    [(H1 \* H2) ==> (H2 \* H1)] and [(H2 \* H1) ==> (H1 \* H2)]. *)
+    [(H1 \* H2) ==> (H2 \* H1)] and [(H2 \* H1) ==> (H1 \* H2)].
+    Such a proof appears further on. *)
 
 
 (* ******************************************************* *)
 (** ** Entailment for postconditions *)
 
 (** Entailment applies to heap predicates, so they can be used to capture
-    that a precondition is stronger than another one (i.e., that a 
-    precondition entails another one). It is similarly interesting to 
+    that a precondition is stronger than another one (i.e., that a
+    precondition entails another one). It is similarly interesting to
     express that a postcondition is stronger than another one.
 
     For that purpose, we introduce [Q1 ===> Q2], which asserts that
-    for any value [v], the heap predicate [Q1 v] entails [Q2 v]. 
- 
+    for any value [v], the heap predicate [Q1 v] entails [Q2 v].
+
     Equivalently, [Q1 ===> Q2] holds if for any value [v] and any heap [h],
     the proposition [Q1 v h] implies [Q2 v h]. *)
 
@@ -141,7 +148,7 @@ Parameter hstar_hempty_l : forall H,
 (** (4) Existentials can be "extruded" out of stars, that is:
 
       [(\exists x, H1) \* H2  =  \exists x, (H1 \* H2)].
-      when [x] does not occur in [H2]. 
+      when [x] does not occur in [H2].
 
     The corresponding formal statement is as follows: *)
 
@@ -165,7 +172,7 @@ Parameter himpl_frame_l : forall H2 H1 H1',
 (* ******************************************************* *)
 (** ** Contradictions from absurd separating conjunctions *)
 
-(** A heap predicate of the form [(l ~~~> v1) \* (l ~~~> v2)] 
+(** A heap predicate of the form [(l ~~~> v1) \* (l ~~~> v2)]
     describes two "disjoint" cells that are both "at location [l]".
     This is absurd. The contraction is formally captured by
     the following entailment: *)
@@ -175,8 +182,8 @@ Lemma hstar_hsingle_same_loc : forall (l:loc) (v1 v2:val),
 
 (** The proof of this result exploits a result on finite maps.
     Essentially, the domain of a single singleton map that binds
-    a location [l] to some value is the singleton set [\{l}], thus 
-    such a singleton map cannot be disjoint from another singleton 
+    a location [l] to some value is the singleton set [\{l}], thus
+    such a singleton map cannot be disjoint from another singleton
     map that binds the same location [l].
 [[
     Check disjoint_single_single_same_inv : forall (l:loc) (v1 v2:val),
@@ -193,8 +200,8 @@ Proof using.
   subst. applys Fmap.disjoint_single_single_same_inv D.
 Qed.
 
-(** More generally, a heap predicate of the form [H1 \* H1] 
-    is generally suspicious in Separation Logic. 
+(** More generally, a heap predicate of the form [H1 \* H1]
+    is generally suspicious in Separation Logic.
     Such a predicate can only be satisfied if [H1] covers no
     memory cell, that is, if [H1] is a pure predicate of the
     form [\[P]] for some proposition [P]. *)
@@ -205,7 +212,7 @@ Qed.
 
 (** The Separation Logic setup that we will rely on in subsequent
     chapters includes a tactic called [hsimpl], to assist in the
-    simplifications of entailment relations. 
+    simplifications of entailment relations.
 
     The working of [hsimpl] can be summarized as a 3-step process:
 
@@ -231,7 +238,7 @@ Notation "'hprop''" := (SLFHprop.hprop).
 
 (** The first feature of [hsimpl] is its ability to extract the
     pure facts and the existential quantifiers from the left-hand
-    side out into the Coq context. 
+    side out into the Coq context.
 
     For example, the proposition [P] appears in the LHS.
     After calling [hsimpl], it is turned into an hypothesis
@@ -242,7 +249,7 @@ Lemma hsimpl_demo_lhs_hpure : forall H1 H2 H3 H4 (n:int),
   H1 \* H2 \* \[n > 0] \* H3 ==> H4.
 Proof using.
   intros. hsimpl. intros Hn.
-  (* variant syntax: 
+  (* variant syntax:
      intros. hsimpl ;=> HP
   *)
 Abort.
@@ -264,7 +271,7 @@ Proof using.
   intros. hsimpl. intros n.
 Abort.
 
-(** The [hsimpl] or [hpull] tactic extracts at once everything it can, 
+(** The [hsimpl] or [hpull] tactic extracts at once everything it can,
     as illustrated next. *)
 
 Lemma hsimpl_demo_lhs_several : forall H1 H2 H3 H4 (p q:loc),
@@ -286,7 +293,7 @@ Abort.
 (** *** [hsimpl] to cancel out heap predicates from LHS and RHS *)
 
 (** The second feature of [hsimpl] is its ability to cancel out
-    similar heap predicates that occur on both sides of an entailment. 
+    similar heap predicates that occur on both sides of an entailment.
 
     For example, [H2] occurs on both sides, so it can be cancelled out. *)
 
@@ -342,7 +349,7 @@ Abort.
 Lemma hsimpl_demo_rhs_hexists_unify : forall H1 H2 H3 H4 (p:loc),
   H1 \* (p ~~~> 3) ==> H2 \* \exists (n:int), (p ~~~> n \* H3) \* H4.
 Proof using.
-  intros. hsimpl. (* [p ~~~> n] becomes [p ~~~> ?x], 
+  intros. hsimpl. (* [p ~~~> n] becomes [p ~~~> ?x],
                      which then cancels out with [p ~~~> 3] *)
 Abort.
 
@@ -377,7 +384,7 @@ Proof using.
 Abort.
 
 (** Finally, [hsimpl] provides support for eliminating [\Top] on the RHS.
-    First, if the RHS includes several occurences of [\Top], then they 
+    First, if the RHS includes several occurences of [\Top], then they
     are replaced with a single one. *)
 
 Lemma hsimpl_demo_rhs_htop_compact : forall H1 H2 H3 H4,
@@ -413,11 +420,11 @@ Proof using. hsimpl. Qed.
 
 Lemma himpl_example_4 : forall (p:loc),
   \exists (n:int), p ~~~> n ==> \exists (m:int), p ~~~> (m + 1).
-Proof using. 
+Proof using.
   intros. (* observe that [hsimpl] here does not work well. *)
   hpull. intros n. hsimpl (n-1).
   replace (n-1+1) with n. { auto. } { math. }
-  (* variant for the last line: 
+  (* variant for the last line:
   applys_eq himpl_refl 2. fequal. math. *)
 Qed.
 
@@ -487,7 +494,7 @@ Parameter case_study_10 : forall p,
   ==> p ~~~> 3.
 
 Parameter case_study_11 : forall p,
-      \exists n, p ~~~> n \* \[n > 0] 
+      \exists n, p ~~~> n \* \[n > 0]
   ==> \exists n, \[n > 1] \* p ~~~> (n-1).
 
 Parameter case_study_12 : forall p q,
@@ -551,7 +558,7 @@ Lemma case_study_9' : forall p,
 Proof using. hsimpl. Qed.
 
 Lemma case_study_11' : forall p,
-      \exists n, p ~~~> n \* \[n > 0] 
+      \exists n, p ~~~> n \* \[n > 0]
   ==> \exists n, \[n > 1] \* p ~~~> (n-1).
 Proof using.
   intros. hpull ;=> n Hn. hsimpl (n+1).
@@ -636,7 +643,7 @@ End Htactics.
 
     Note that these results must be proved without help of
     the tactic [hsimpl], because the implementation of the
-    tactic itself depends on these key lemmas. 
+    tactic itself depends on these key lemmas.
 
     To establish the properties, we need to exploit a few
     basic facts about finite maps; we will introduce them as
@@ -648,9 +655,9 @@ End Htactics.
 Lemma himpl_frame_l' : forall H2 H1 H1',
   H1 ==> H1' ->
   (H1 \* H2) ==> (H1' \* H2).
-Proof using. 
+Proof using.
 (* SOLUTION *)
-  introv W (h1&h2&M1&M2&D&U). exists* h1 h2. 
+  introv W (h1&h2&M1&M2&D&U). exists* h1 h2.
 (* /SOLUTION *)
 Qed.
 
@@ -662,7 +669,7 @@ Qed.
 Lemma himpl_frame_r : forall H1 H2 H2',
   H2 ==> H2' ->
   (H1 \* H2) ==> (H1 \* H2').
-Proof using. 
+Proof using.
   introv W. rewrite (hstar_comm H1 H2). rewrite (hstar_comm H1 H2').
   applys himpl_frame_l. auto.
 Qed.
@@ -678,8 +685,8 @@ Proof using.
   { intros h (x&M). destruct M as (h1&h2&M1&M2&D&U). exists h1 h2. splits~. exists~ x. }
 Qed.
 
-(** To prove commutativity of star, we need to exploit the fact that 
-    the union of two finite maps with disjoint domains commutes. 
+(** To prove commutativity of star, we need to exploit the fact that
+    the union of two finite maps with disjoint domains commutes.
 [[
   Check Fmap.union_comm_of_disjoint : forall h1 h2,
     Fmap.disjoint h1 h2 ->
@@ -701,15 +708,15 @@ Qed.
     we need to exploit the fact that the union with an empty map
     is the identity.
 [[
-  Check Fmap.union_empty_l : forall h, 
+  Check Fmap.union_empty_l : forall h,
     Fmap.empty \u h = h.
-]] 
+]]
 *)
 
 Lemma hstar_hempty_l' : forall H,
   \[] \* H = H.
 Proof using.
-  intros. applys himpl_antisym. 
+  intros. applys himpl_antisym.
   { intros h (h1&h2&M1&M2&D&U). hnf in M1. subst.
     rewrite @Fmap.union_empty_l. auto. }
   { intros h M. exists (Fmap.empty:heap) h. splits~.
@@ -735,13 +742,13 @@ Qed.
     (h1 \u h2) \u h3 = h1 \u (h2 \u h3).
 
   Check Fmap.disjoint_union_eq_l : forall h1 h2 h3,
-      Fmap.disjoint (h2 \u h3) h1 
+      Fmap.disjoint (h2 \u h3) h1
     = (Fmap.disjoint h1 h2 /\ Fmap.disjoint h1 h3).
 
   Check Fmap.disjoint_union_eq_r : forall h1 h2 h3,
-     Fmap.disjoint h1 (h2 \u h3) 
+     Fmap.disjoint h1 (h2 \u h3)
    = (Fmap.disjoint h1 h2 /\ Fmap.disjoint h1 h3).
-]] 
+]]
 *)
 
 (* EX2! (hstar_assoc) *)
@@ -756,7 +763,7 @@ Proof using.
     exists h1 (h2 \u h3). splits.
     { applys M3. }
     { exists* h2 h3. }
-    { rewrite* @Fmap.disjoint_union_eq_r. } 
+    { rewrite* @Fmap.disjoint_union_eq_r. }
     { rewrite* @Fmap.union_assoc in U. } }
 (* SOLUTION *)
   { intros h (h1&h'&M1&M2&D&U). destruct M2 as (h2&h3&M3&M4&D'&U').
@@ -764,7 +771,7 @@ Proof using.
     exists (h1 \u h2) h3. splits.
     { exists* h1 h2. }
     { applys M4. }
-    { rewrite* @Fmap.disjoint_union_eq_l. } 
+    { rewrite* @Fmap.disjoint_union_eq_l. }
     { rewrite* @Fmap.union_assoc. } }
 (* /SOLUTION *)
 Qed.
@@ -782,7 +789,7 @@ Lemma triple_conseq : forall t H Q H' Q',
   Q' ===> Q ->
   triple t H Q.
 
-(** The shortest proof of [triple_conseq] goes through the low-level 
+(** The shortest proof of [triple_conseq] goes through the low-level
     interpretation of Separation Logic triples in terms of heaps.
     A more elegant proof is presented further. *)
 
@@ -820,7 +827,7 @@ Qed.
 
 (* EX2! (rule_conseq) *)
 (** Prove the consequence rule by leveraging the lemma [Hoare_conseq],
-    rather than going through the definition of [triple_lowlevel]. 
+    rather than going through the definition of [triple_lowlevel].
     Hint: apply lemma [Hoare_conseq] with the appropriate arguments,
     and use lemma [applys himpl_frame_l] to prove the entailments. *)
 
@@ -832,7 +839,7 @@ Lemma rule_conseq'' : forall t H Q H' Q',
 Proof using.
 (* SOLUTION *)
   introv M WH WQ. unfold triple. intros H''.
-  applys Hoare_conseq M. 
+  applys Hoare_conseq M.
   { applys himpl_frame_l. applys WH. }
   { intros x. applys himpl_frame_l. applys himpl_frame_l. applys WQ. }
 (* /SOLUTION *)
@@ -970,7 +977,7 @@ Qed.
 
 Lemma himpl_htop_r : forall H,
   H ==> \Top.
-Proof using. 
+Proof using.
 (* SOLUTION *)
   intros. intros h Hh.
   applys htop_intro. (* hnf; auto. *)
@@ -1015,7 +1022,7 @@ Proof using.
   { applys himpl_refl. }
   { intros v. applys himpl_frame_r. applys himpl_htop_r. }
 (* /SOLUTION *)
-Qed. 
+Qed.
 
 (** Reciprocally, [triple_htop_post] is trivially derivable from
     [triple_hany_post], simply by instantiating [H'] as [\Top]. *)
@@ -1028,14 +1035,14 @@ Proof using. intros. applys triple_hany_post \Top. auto. Qed.
 (** The reason we prefer [triple_htop_post] to [triple_hany_post]
     is that it does not require providing [H'] at the time of applying
     the rule. The instantiation is postponed through the introduction
-    of [\Top], which is equivalent to [\exists H', H']. Delaying the 
+    of [\Top], which is equivalent to [\exists H', H']. Delaying the
     instantiation of [H'] using [\Top] rather than throught the
     introduction of an evar enables more robust proof scripts and
     tactic support. *)
 
 (* EX2! (triple_htop_pre) *)
 (** The rule [triple_htop_post] enables discarding pieces of
-    heap from the postcondition. The symmetric rule [triple_htop_pre] 
+    heap from the postcondition. The symmetric rule [triple_htop_pre]
     enables discarding pieces of heap from the precondition.
 
     Prove that it is derivable from [triple_htop_post] and
@@ -1052,14 +1059,14 @@ Qed.
 
 (* EX2! (triple_htop_pre) *)
 (** The rule [triple_hany_pre] is a variant of [triple_htop_pre].
-    Prove that it is derivable. 
+    Prove that it is derivable.
     You may exploit [triple_htop_pre], or [triple_hany_post],
     or [triple_htop_post], whichever you find simpler. *)
 
 Lemma triple_hany_pre : forall t H H' Q,
   triple t H Q ->
   triple t (H \* H') Q.
-Proof using. 
+Proof using.
   dup 3.
   (* first proof, based on [triple_hany_post]: *)
   introv M. applys triple_hany_post. applys triple_frame. auto.
@@ -1094,15 +1101,15 @@ Qed.
 
 (** Remark: the lemmas that enable discarding pieces of precondition
     (e.g., [triple_htop_pre]) are derivable from those that enable
-    discarding pices of postconditions (e.g., [triple_htop_post]), 
+    discarding pices of postconditions (e.g., [triple_htop_post]),
     but not the other way around.
 
-    Technical remark: the previous remark can be mitigated. If we expose 
+    Technical remark: the previous remark can be mitigated. If we expose
     that [triple t H Q <-> triple t' H Q] holds whenever [t] and [t']
-    are observationally equivalent (with respect to the semantics 
+    are observationally equivalent (with respect to the semantics
     defined by [eval]), and if we are able to prove that [let x = t in x]
     is observationally equivalent to [t] for some fresh variable x,
     then it is possible to prove that [triple_htop_post] is derivable
     from [triple_htop_pre]. (At a high-level, the postcondition of [t]
-    can be viewed as the precondition of the [x] occuring in the 
+    can be viewed as the precondition of the [x] occuring in the
     right-hand side of the term [let x = t in x].)  *)

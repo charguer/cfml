@@ -153,7 +153,7 @@ Lemma triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
   Q1 \*+ H2 ===> Q \*+ \Top ->
   triple t H Q.
 Proof using.
-  introv M WH WQ. applys triple_htop_post. 
+  introv M WH WQ. applys triple_htop_post.
   applys triple_conseq WH WQ. applys triple_frame M.
 Qed.
 
@@ -170,7 +170,7 @@ Lemma triple_ramified_frame_htop : forall H1 Q1 t H Q,
   triple t H1 Q1 ->
   H ==> H1 \* (Q1 \--* (Q \*+ \Top)) ->
   triple t H Q.
-Proof using. 
+Proof using.
   introv M W. applys triple_conseq_frame_htop (Q1 \--* Q \*+ \Top) M W.
   { rewrite~ <- qwand_equiv. }
 Qed.

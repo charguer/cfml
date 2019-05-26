@@ -25,9 +25,9 @@ Implicit Types Q : val->hprop.
     most notably the "magic wand", written [H1 \-* H2].
 
     Magic wand does not only have a cool name, and it is not only
-    a fascinating operator for logicians: it turns out that the 
+    a fascinating operator for logicians: it turns out that the
     magic wand is a key ingredient to streamlining the process of
-    practical program verification in Separation Logic. 
+    practical program verification in Separation Logic.
 
     In this chapter, we first introduce the new operators, then
     explain how they can be used to reformulate the frame rule
@@ -38,11 +38,11 @@ Implicit Types Q : val->hprop.
 (** ** Definition of the magic wand *)
 
 (** At a high level, [H1 \* H2] describes the "addition" of a
-    heap satisfying [H1] with a heap satisfying [H2]. 
+    heap satisfying [H1] with a heap satisfying [H2].
     Think of it as [H1 + H2].
 
     As a counterpart to this addition operator, we introduce
-    a subtraction operator, written [H1 \-* H2]. 
+    a subtraction operator, written [H1 \-* H2].
     Think of it as [ -H1 + H2].
 
     A heap [h] satisfies [H1 \-* H2] if and only if, when we augment
@@ -63,7 +63,7 @@ Notation "H1 \-* H2" := (hwand H1 H2) (at level 43, right associativity).
 
 (** The operator [H1 \-* H2] is uniquely defined by the followig
     equivalence. In other words, any operator that satisfies this
-    equivalence for all arguments is provably equal to the definition 
+    equivalence for all arguments is provably equal to the definition
     of [hwand] given above. (We proof this fact further in the chapter.) *)
 
 Parameter hwand_equiv : forall H0 H1 H2,
@@ -90,7 +90,7 @@ Lemma himpl_hwand_r_inv : forall H0 H1 H2,
 Proof using. introv M. applys hwand_equiv. applys M. Qed.
 
 (** This elimination rule can be equivalently reformulated in the
-    following form, which makes it perhaps even clearer that 
+    following form, which makes it perhaps even clearer that
     [H1 \-* H2], when augmented with [H1], yields [H2].
     Think of it as [H1 + (-H1 + H2)] simplifying to [H2]. *)
 
@@ -106,7 +106,7 @@ Arguments hwand_cancel : clear implicits.
 (** Another possible definition of [H1 \-* H2] can be stated
     without refering to heaps at all, by reusing the basic
     Separation Logic operators that we have already introduced.
-    [H1 \-* H2] denotes some heap, described as [H0], such 
+    [H1 \-* H2] denotes some heap, described as [H0], such
     that [H0] augmented with [H1] yields [H2].
 
     In the alternative definition of [hwand] shown below,
@@ -139,7 +139,7 @@ Parameter hwand_eq_hwand' :
     [forall x, (Q1 x) ==> (Q2 x)].
 
     Likewise, for magic wand, written [H1 \-* H2], we introduce
-    its extension to postconditions, written [Q1 \--* Q2], and 
+    its extension to postconditions, written [Q1 \--* Q2], and
     defined (in first approximation) as [forall x, (Q1 x) \-* (Q2 x)].
 
     Like [H1 \-* H2], the expression [Q1 \--* Q2] should denote a heap
@@ -150,7 +150,7 @@ Parameter hwand_eq_hwand' :
     In order to define [Q1 \--* Q2], we thus need to introduce the
     operation [\forall], which lifts the universal quantifier from
     [Prop] to [hprop]. In other words, [\forall] is to [forall]
-    what [\exists] is to [exists]. 
+    what [\exists] is to [exists].
 
     The definition of [\forall x, H], a notation for [hforall (fun x => H)],
     follows exactly the same pattern as that of [\exists x, H], with only
@@ -187,8 +187,8 @@ Proof using. intros. unfold qwand. intros h K. applys K. Qed.
 Lemma qwand_equiv : forall H Q1 Q2,
   H ==> (Q1 \--* Q2)  <->  (Q1 \*+ H) ===> Q2.
 Proof using.
-  intros. iff M. 
-  { intros x. hchange M. hchange (qwand_specialize x).  
+  intros. iff M.
+  { intros x. hchange M. hchange (qwand_specialize x).
     hchange (hwand_cancel (Q1 x)). }
   { applys himpl_hforall_r. intros x. applys himpl_hwand_r.
     hchange (M x). }
@@ -218,7 +218,7 @@ Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
     [Q1 \*+ H2 ===> Q] is equivalent to [H2 ==> (Q1 \--* Q)].
     By substituting away, we can merge the two entailments
     [H ==> H1 \* H2] and [H2 ==> (Q1 \--* Q)] into a single one:
-    [H ==> H1 \* (Q1 \--* Q)]. 
+    [H ==> H1 \* (Q1 \--* Q)].
 
     The resulting rule is called the "ramified frame rule". *)
 
@@ -228,9 +228,9 @@ Lemma triple_ramified_frame : forall H1 Q1 t H Q,
   triple t H Q.
 
 (** As we prove next, the ramified frame rule has exactly the same
-    expressive power as the consequence-frame rule. 
+    expressive power as the consequence-frame rule.
 
-    First, let us prove that it is derivable. 
+    First, let us prove that it is derivable.
     To that end, we instantiate [H2] as [Q1 \--* Q]. *)
 
 Proof using.
@@ -252,7 +252,7 @@ Proof using.
 Qed.
 
 (** The principle of the ramified-frame rule immediately generalizes
-    to handle the consequence-frame-top rule, which is like the 
+    to handle the consequence-frame-top rule, which is like the
     consequence-frame rule but with premise [Q1 \*+ H2 ===> Q \*+ \Top]. *)
 
 Lemma triple_ramified_frame_top : forall H1 Q1 t H Q,
@@ -293,9 +293,9 @@ Lemma hsimpl_demo_hwand_cancel_partial : forall H1 H2 H3 H4 H5 H6,
 Proof using. intros. hsimpl. Abort.
 
 (** [hsimpl] automatically applies the [himpl_hwand_r] when
-    the right-hand-side, after prior simplification, reduces 
+    the right-hand-side, after prior simplification, reduces
     to just a magic wand. In the example below, [H1] is first
-    cancelled out from both sides, then [H3] is moved from 
+    cancelled out from both sides, then [H3] is moved from
     the RHS to the LHS. *)
 
 Lemma hsimpl_demo_himpl_hwand_r : forall H1 H2 H3 H4 H5,
@@ -342,7 +342,7 @@ Parameter triple_conseq_frame'' : forall H2 H1 Q1 t H Q,
 
     This approach works, but is relatively fragile, as evars may get
     instantiated in undesired ways. Moreover, evars depend on the context
-    at the time of their creation, and they must be instantiated with 
+    at the time of their creation, and they must be instantiated with
     values from that context. Yet, for example, if [H] contains existential
     quantifiers at the moment of applying the consequence-frame rule,
     then extracting those quantifiers after the rule is applied makes
@@ -366,13 +366,13 @@ Lemma triple_ref_with_nonempty_pre : forall (v:val),
     (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v \*
               \exists l' v', l' ~~~> v').
 Proof using.
-  intros. applys triple_conseq_frame. 
+  intros. applys triple_conseq_frame.
   (* observe the evar [?H2] in second and third goals *)
   { applys triple_ref. }
   { (* here, [?H2] should be in theory instantiated with the RHS.
-       but [hsimpl] strategy is to first extract the quantifiers 
+       but [hsimpl] strategy is to first extract the quantifiers
        from the LHS. After that, the instantiation of [H2] fails. *)
-    hsimpl. 
+    hsimpl.
 Abort.
 
 (** Now, let us apply the ramified frame rule for the same goal. *)
@@ -389,7 +389,7 @@ Proof using.
 Qed.
 
 (** For a further comparison between the consequence-frame rule
-    and the ramified frame rule, consider the following example. 
+    and the ramified frame rule, consider the following example.
 
     Assume we want to frame the specification [triple_ref] with [l' ~~~> v'],
     that is, add this predicate to both the precondition and the postcondition.
@@ -400,7 +400,7 @@ Lemma triple_ref_with_consequence_frame : forall (l':loc) (v':val) (v:val),
     (l' ~~~> v')
     (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v \* l' ~~~> v').
 Proof using.
-  intros. applys triple_conseq_frame. 
+  intros. applys triple_conseq_frame.
   (* observe the evar [?H2] in second and third goals *)
   { applys triple_ref. }
   { hsimpl. (* instantiates the evar [H2] *) }
@@ -492,16 +492,16 @@ Proof using.
   false* (hempty_inv K).
 Qed.
 
-(** Likewise, the reciprocal entailment to the elimination 
+(** Likewise, the reciprocal entailment to the elimination
     lemma, that is, [H2 ==> H1 \* (H1 \-* H2)] does not hold.
 
-    As counter-example, consider [H2 = \[]] and [H1 = \[False]]. 
-    We can prove that the empty heap does not satisfies 
+    As counter-example, consider [H2 = \[]] and [H1 = \[False]].
+    We can prove that the empty heap does not satisfies
     [\[False] \* (\[False] \-* \[])]. *)
 
 Lemma not_himpl_hwand_r_inv_reciprocal : exists H1 H2,
   ~ (H2 ==> H1 \* (H1 \-* H2)).
-Proof using. 
+Proof using.
   exists \[False] \[]. intros N. forwards K: N (Fmap.empty:heap).
   applys hempty_intro. rewrite hstar_hpure in K. destruct K. auto.
 Qed.
@@ -566,8 +566,8 @@ Proof using. introv M. applys himpl_hwand_r. hsimpl. applys M. Qed.
 (** *** Interaction of [hwand] with [hstar] *)
 
 (** The heap predicates [(H1 \* H2) \-* H3] and [H1 \-* (H2 \-* H3)]
-    and [H2 \-* (H1 \-* H3)] are all equivalent. Intuitively, they all 
-    describe the predicate [H3] with the missing pieces [H1] and [H2]. 
+    and [H2 \-* (H1 \-* H3)] are all equivalent. Intuitively, they all
+    describe the predicate [H3] with the missing pieces [H1] and [H2].
 
     The equivalence between the uncurried form [(H1 \* H2) \-* H3]
     and the curried form [H1 \-* (H2 \-* H3)] is formalized by the
@@ -783,7 +783,7 @@ Qed.
 
 Lemma hwand_characterization_hwand'_details : forall H0 H1 H2,
   (H0 ==> hwand' H1 H2) <-> (H0 \* H1 ==> H2).
-Proof using. 
+Proof using.
   intros. unfold hwand'. iff M.
   { applys himpl_trans. applys himpl_frame_l M.
     rewrite hstar_hexists. applys himpl_hexists_l. intros H3.
@@ -803,8 +803,8 @@ Qed.
 (** For some advanced applications, it is useful to lift the
     disjunction operation [P1 \/ P2] from [Prop] to [hprop].
 
-    The heap predicate [hor H1 H2] describes a heap that 
-    satisfies [H1] or [H2] (possibly both). 
+    The heap predicate [hor H1 H2] describes a heap that
+    satisfies [H1] or [H2] (possibly both).
 
     An obvious definition for it is: *)
 
@@ -820,7 +820,7 @@ Definition hor' (H1 H2 : hprop) : hprop :=
 (* EX2! (hor_eq_hor') *)
 (** Prove the equivalence of the definitions [hor] and [hor']. *)
 
-Lemma hor_eq_hor' : 
+Lemma hor_eq_hor' :
   hor = hor'.
 Proof using.
 (* SOLUTION *)
@@ -866,7 +866,7 @@ Proof using. intros. unfolds hor. exists* false. Qed.
 Definition hand (H1 H2 : hprop) : hprop :=
   fun h => H1 h /\ H2 h.
 
-(** An alternative definition leverages [\forall] to 
+(** An alternative definition leverages [\forall] to
     non-deterministically quantify over a boolean indicating
     whether [H1] or [H2] should hold. This the quantification
     is over all booleans, both must hold. *)
@@ -877,7 +877,7 @@ Definition hand' (H1 H2 : hprop) : hprop :=
 (* EX3! (hand_eq_hand') *)
 (** Prove the equivalence of the definitions [hand] and [hand']. *)
 
-Lemma hand_eq_hand' : 
+Lemma hand_eq_hand' :
   hand = hand'.
 Proof using.
 (* SOLUTION *)
@@ -958,9 +958,9 @@ Definition hand (H1 H2 : hprop) : hprop :=
 
 End SummaryHpropLowlevel.
 
-(** We next present derived definitions that may be used to reduce the number 
+(** We next present derived definitions that may be used to reduce the number
     of predicates that need to be defined directly in terms of heaps.
-    Using these definitions reduces the effort in proving their 
+    Using these definitions reduces the effort in proving their
     properties, because more reasoning can be conducted at the level
     of [hprop], with the help of the [hsimpl] tactic. *)
 
