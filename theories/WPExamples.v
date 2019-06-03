@@ -58,15 +58,15 @@ Lemma Triple_move_X : forall p x y,
 Proof using.
   xwp.
   xunfolds Point ;=> k Hk. 
+(* TEST
   xseq. xlet. xlet. xapp_record tt.
 notypeclasses refine (xapp_lemma _ _ ). xapp. eapply @triple_add.
  xapp.
  xapp.
-
   xapp. eapply @xapp_lemma. lets: triple_add. simpls. unfold trms_vals. rew_enc. rew_listx. eapply H. Transparent trm_apps. eapply H. rew_trm_apps.
 notypeclasses refine (xlet_lemma _ _ _ _ _).
- xapp. xappn
-. hsimpl. math.
+*)
+  xappn. hsimpl. math.
 Qed.
 
 
