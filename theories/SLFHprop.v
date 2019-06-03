@@ -326,7 +326,7 @@ Qed.
     become useless. Concretely, we need the rule shown below to hold.
     The [\Top] predicate captures any (un)desired piece of state. *)
 
-Parameter triple_htop_post : forall t H Q,
+Parameter triple_htop_post' : forall t H Q,
   triple t H (Q \*+ \Top) ->
   triple t H Q.
 
@@ -346,7 +346,7 @@ Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
     pieces of postconditions holds, and that the frame rule still
     holds. The proof of these two results is studied further. *)
 
-Parameter triple_htop_post' : forall t H Q,
+Parameter triple_htop_post : forall t H Q,
   triple t H (Q \*+ \Top) ->
   triple t H Q.
 

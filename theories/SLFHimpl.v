@@ -10,8 +10,8 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require Export SLFHprop.
 From Sep Require SLFDirect.
+From Sep Require Export SLFHprop.
 
 (** Implicit Types *)
 
@@ -896,7 +896,7 @@ Lemma triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
 Proof using.
 (* SOLUTION *)
   introv M WH WQ. applys triple_htop_post.
-  applys triple_conseq_frame M WH WQ.
+  applys~ triple_conseq_frame M WH WQ.
 (* /SOLUTION *)
 Qed.
 
