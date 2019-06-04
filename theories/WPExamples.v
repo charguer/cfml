@@ -32,11 +32,26 @@ Proof using. introv M1 M2. applys* himpl_trans. Qed.
 (* * Let *)
 
 Definition xlet_test : val :=
-  VFun 'p :=
+  VFun 'x :=
      Let 'p := 3 in 
      'p.
 
+Lemma xlet_lemma' : forall A1 (EA1: protect (Enc A1)) H A (EA:Enc A) (Q:A->hprop) (F1:Formula) (F2of:forall A2 (EA2:Enc A2),A2->Formula),
+  (H ==> F1 _ (EA1 : Enc A1) (fun (X:A1) => ^(F2of _ (EA1 : Enc A1) X) Q)) ->
+  H ==> ^(Wpgen_let F1 (@F2of)) Q.
+Proof using. introv M. applys MkStruct_erase. hsimpl* A1 EA1. Qed.
 
+Lemma Triple_xlet_test : forall (x:unit),
+  TRIPLE (xlet_test x)
+    PRE \[]
+    POST (fun (r:int) => \[r = 3]).
+Proof using.
+  xwp. 
+  (*   notypeclasses refine (xlet_lemma _ _ _ _ _). *)
+  eapply xlet_lemma'.
+  xval 3.
+  xvals~.
+Qed.
 
 
 (* ********************************************************************** *)

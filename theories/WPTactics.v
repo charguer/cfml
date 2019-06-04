@@ -549,6 +549,28 @@ Tactic Notation "xval" "~" :=
 Tactic Notation "xval" "*"  :=
   xval; auto_star.
 
+(** [xvals] is like [xval] followed with [hsimpl] *)
+
+Ltac xvals_arg E :=
+  xval E; hsimpl.
+
+Tactic Notation "xvals" uconstr(E) :=
+  xvals_arg E.
+Tactic Notation "xvals" "~" uconstr(E) :=
+  xvals E; auto_tilde.
+Tactic Notation "xvals" "*" uconstr(E) :=
+  xvals E; auto_star.
+
+Ltac xvals_core tt :=
+  xval; hsimpl.
+
+Tactic Notation "xvals" :=
+  xvals_core tt.
+Tactic Notation "xvals" "~" :=
+  xvals; auto_tilde.
+Tactic Notation "xvals" "*"  :=
+  xvals; auto_star.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xif] *)
