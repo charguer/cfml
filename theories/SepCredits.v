@@ -322,7 +322,7 @@ Hint Rewrite heap_disjoint_def : rew_disjoint.
 Tactic Notation "fmap_disjoint_pre" :=
   subst; rew_disjoint; jauto_set.
 
-Hint Extern 1 (Fmap.disjoint _ _) => fmap_disjoint_pre.
+Hint Extern 1 (heap_disjoint _ _) => fmap_disjoint_pre.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -347,14 +347,14 @@ Lemma heap_disjoint_sym : forall h1 h2,
   \# h1 h2 -> \# h2 h1.
 Proof using.
   intros [m1 n1] [m2 n2] H. simpls.
-  hint heap_disjoint_sym. autos*.
+  hint Fmap.disjoint_sym. autos*.
 Qed.
 
 Lemma heap_disjoint_comm : forall h1 h2,
   \# h1 h2 = \# h2 h1.
 Proof using.
   intros [m1 n1] [m2 n2]. simpls.
-  hint Fmap.disjoint_sym. extens*.
+  hint heap_disjoint_sym. extens*.
 Qed.
 
 Lemma heap_disjoint_empty_l : forall h,

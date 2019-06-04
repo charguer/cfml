@@ -28,6 +28,15 @@ Lemma himpl_trans' : forall (H1 H2 H3:hprop),
 Proof using. introv M1 M2. applys* himpl_trans. Qed.
 
 
+(* ********************************************************************** *)
+(* * Let *)
+
+Definition xlet_test : val :=
+  VFun 'p :=
+     Let 'p := 3 in 
+     'p.
+
+
 
 
 (* ********************************************************************** *)
