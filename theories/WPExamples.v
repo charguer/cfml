@@ -28,6 +28,7 @@ Lemma himpl_trans' : forall (H1 H2 H3:hprop),
 Proof using. introv M1 M2. applys* himpl_trans. Qed.
 
 
+
 (* ********************************************************************** *)
 (* * Let *)
 
@@ -81,15 +82,7 @@ Lemma Triple_move_X : forall p x y,
     POST (fun (_:unit) => (Point (x+1) y p)).
 Proof using.
   xwp.
-  xunfolds Point ;=> k Hk. 
-(* TEST
-  xseq. xlet. xlet. xapp_record tt.
-notypeclasses refine (xapp_lemma _ _ ). xapp. eapply @triple_add.
- xapp.
- xapp.
-  xapp. eapply @xapp_lemma. lets: triple_add. simpls. unfold trms_vals. rew_enc. rew_listx. eapply H. Transparent trm_apps. eapply H. rew_trm_apps.
-notypeclasses refine (xlet_lemma _ _ _ _ _).
-*)
+  xunfolds Point ;=> k Hk.
   xappn. hsimpl. math.
 Qed.
 
