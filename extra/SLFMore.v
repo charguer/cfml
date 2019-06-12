@@ -2871,3 +2871,34 @@ Parameter triple_div' : forall n1 n2,
 
 (** In practice, we prefer placing pure assumptions outside of the triples,
     as it reduces the number of proof steps when exploiting the specification. *)
+
+
+
+Lemma himpl_hwand_hpure_l : forall (P:Prop) H1 H2,
+  P ->
+  H1 ==> H2 ->
+  \[P] \-* H1 ==> H2.
+Proof using.
+  introv HP M. applys himpl_trans M. applys~ hwand_hpure_l_intro.
+Qed.
+
+Arguments himpl_hwand_hpure_l : clear implicits.
+
+
+
+(* DEPRECATED
+Lemma wpgen_fun_sound : forall x t,
+  formula_sound_for (trm_fun x t) (wpgen_val (val_fun x t)).
+Proof using. intros. intros Q. unfolds wpgen_val. applys wp_fun. Qed.
+
+Lemma wpgen_fix_sound : forall f x t,
+  formula_sound_for (trm_fix f x t) (wpgen_val (val_fix f x t)).
+Proof using. intros. intros Q. unfolds wpgen_val. applys wp_fix. Qed.
+*)
+
+
+       (* DEPRECATED wpgen_val (val_fun x (isubst (rem x E) t1)) *)
+
+
+       (* wpgen_val (val_fix f x (isubst (rem x (rem f E)) t1)) *)
+

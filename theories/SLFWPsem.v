@@ -588,6 +588,38 @@ Proof using.
 Qed.
 
 
+(* ******************************************************* *)
+(** ** Weakest precondition for applications *)
+
+(** Recall the rule [triple_app_fun]. *)
+
+Parameter triple_app_fun : forall x v1 v2 t1 H Q,
+  v1 = val_fun x t1 ->
+  triple (subst x v2 t1) H Q ->
+  triple (trm_app v1 v2) H Q.
+
+(** The corresponding wp-style rule is stated and proved next. *)
+
+Lemma wp_app_fun : forall x v1 v2 t1 Q,
+  v1 = val_fun x t1 ->
+  wp (subst x v2 t1) Q ==> wp (trm_app v1 v2) Q.
+Proof using.
+  introv EQ1. repeat rewrite wp_def. hsimpl. intros.
+  applys* hoare_app_fun.
+Qed.
+
+(** Similarly, the weakest-precondition rule for recursive function
+    is stated and proved next. *)
+
+Lemma wp_app_fix : forall f x v1 v2 t1 Q,
+  v1 = val_fix f x t1 ->
+  wp (subst x v2 (subst f v1 t1)) Q ==> wp (trm_app v1 v2) Q.
+Proof using. 
+  introv EQ1. repeat rewrite wp_def. hsimpl. intros.
+  applys* hoare_app_fix.
+Qed.
+
+
 (* ####################################################### *)
 (** * Bonus: Texan triples *)
 

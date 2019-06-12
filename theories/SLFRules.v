@@ -367,10 +367,10 @@ Parameter triple_fun : forall x t1 H Q,
   triple (trm_fun x t1) H Q.
 
 (** Last but not least, we need a reasoning rule to reason about a
-    function application. Consider an application [(v1 v2)].
+    function application. Consider an application [trm_app v1 v2].
     Assume [v1] to be a function, that is, to be of the form
     [val_fun x t1]. Then, according to the beta-reduction rule,
-    the semantics of [(v1 v2)] is the same as that of [subst x v2 t1].
+    the semantics of [trm_app v1 v2] is the same as that of [subst x v2 t1].
     Thus, the triple [{H}(v1 v2){Q}] holds if the triple
     [{H}(subst x v2 t1){Q}] holds. This logic is captured by the
     following rule. *)

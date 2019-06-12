@@ -137,7 +137,7 @@ Implicit Types f : var.
 Implicit Types b : bool.
 Implicit Types l : loc.
 Implicit Types n : int.
-Implicit Types v w r : val.
+Implicit Types v w r vf vx : val.
 Implicit Types t : trm.
 Implicit Types h : heap.
 Implicit Types s : state.
@@ -1135,12 +1135,12 @@ Proof using. intros. unfold wp. hsimpl; intros H'. applys hoare_fix. hsimpl. Qed
 
 Lemma wp_app_fun : forall x v1 v2 t1 Q,
   v1 = val_fun x t1 ->
-  wp (subst x v2 t1) Q ==> wp (v1 v2) Q.
+  wp (subst x v2 t1) Q ==> wp (trm_app v1 v2) Q.
 Proof using. introv EQ1. unfold wp. hsimpl; intros. applys* hoare_app_fun. Qed.
 
 Lemma wp_app_fix : forall f x v1 v2 t1 Q,
   v1 = val_fix f x t1 ->
-  wp (subst x v2 (subst f v1 t1)) Q ==> wp (v1 v2) Q.
+  wp (subst x v2 (subst f v1 t1)) Q ==> wp (trm_app v1 v2) Q.
 Proof using. introv EQ1. unfold wp. hsimpl; intros. applys* hoare_app_fix. Qed.
 
 Lemma wp_seq : forall t1 t2 Q,
@@ -1402,6 +1402,12 @@ Definition wpgen_fail : formula := fun Q =>
 Definition wpgen_val (v:val) : formula := fun Q =>
   Q v.
 
+Definition wpgen_fun (Fof:val->formula) : formula := fun Q =>
+  \forall vf, \[forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
+
+Definition wpgen_fix (Fof:val->val->formula) : formula := fun Q =>
+  \forall vf, \[forall vx Q', Fof vf vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
+
 Definition wpgen_var (E:ctx) (x:var) : formula :=
   match lookup x E with
   | None => wpgen_fail
@@ -1427,9 +1433,9 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
   | trm_var x =>
        wpgen_var E x
   | trm_fun x t1 =>
-       wpgen_val (val_fun x (isubst (rem x E) t1))
+       wpgen_fun (fun v => wpgen ((x,v)::E) t1)
   | trm_fix f x t1 =>
-       wpgen_val (val_fix f x (isubst (rem x (rem f E)) t1))
+       wpgen_fix (fun vf v => wpgen ((f,vf)::(x,v)::E) t1)
   | trm_if t0 t1 t2 =>
       match isubst E t0 with
       | trm_val v0 => wpgen_if v0 (wpgen E t1) (wpgen E t2)
@@ -1530,10 +1536,19 @@ Lemma isubst_rem : forall x v E t,
 Proof using.
   intros. rewrite subst_eq_isubst_one. rewrite <- isubst_app.
   rewrite isubst_app_swap.
-  { applys isubst_ctx_equiv. intros y. rew_list. simpl. case_var~.
-    { rewrite lookup_rem. case_var~. } }
-  { intros y v1 v2 K1 K2. simpls. case_var.
-    { subst. rewrite lookup_rem in K1. case_var~. } }
+  { applys isubst_ctx_equiv. intros y. rew_list. simpl. rewrite lookup_rem. case_var~. }
+  { intros y v1 v2 K1 K2. simpls. rewrite lookup_rem in K1. case_var. }
+Qed.
+
+(** A variant useful for [trm_fix] *)
+
+Lemma isubst_rem_2 : forall f x vf vx E t,
+  isubst ((f,vf)::(x,vx)::E) t = subst x vx (subst f vf (isubst (rem x (rem f E)) t)).
+Proof using.
+  intros. do 2 rewrite subst_eq_isubst_one. do 2 rewrite <- isubst_app.
+  rewrite isubst_app_swap.
+  { applys isubst_ctx_equiv. intros y. rew_list. simpl. do 2 rewrite lookup_rem. case_var~. }
+  { intros y v1 v2 K1 K2. simpls. do 2 rewrite lookup_rem in K1. case_var. }
 Qed.
 
 
@@ -1563,13 +1578,25 @@ Lemma wpgen_val_sound : forall v,
   formula_sound_for (trm_val v) (wpgen_val v).
 Proof using. intros. intros Q. unfolds wpgen_val. applys wp_val. Qed.
 
-Lemma wpgen_fun_sound : forall x t,
-  formula_sound_for (trm_fun x t) (wpgen_val (val_fun x t)).
+Lemma wpgen_fun_sound : forall x t1 Fof,
+  (forall vx, formula_sound_for (subst x vx t1) (Fof vx)) ->
+  formula_sound_for (trm_fun x t1) (wpgen_fun Fof).
+Proof using.
+  introv M. intros Q. unfolds wpgen_fun. applys himpl_hforall_l (val_fun x t1).
+  hchange hwand_hpure_l_intro.
+  { intros. applys himpl_trans_r. { applys* wp_app_fun. } { applys* M. } }
+  { applys wp_fun. }
+Qed.
 
-Proof using. intros. intros Q. unfolds wpgen_val. applys wp_fun. Qed.
-Lemma wpgen_fix_sound : forall f x t,
-  formula_sound_for (trm_fix f x t) (wpgen_val (val_fix f x t)).
-Proof using. intros. intros Q. unfolds wpgen_val. applys wp_fix. Qed.
+Lemma wpgen_fix_sound : forall f x t1 Fof,
+  (forall vf vx, formula_sound_for (subst x vx (subst f vf t1)) (Fof vf vx)) ->
+  formula_sound_for (trm_fix f x t1) (wpgen_fix Fof).
+Proof using.
+  introv M. intros Q. unfolds wpgen_fix. applys himpl_hforall_l (val_fix f x t1).
+  hchange hwand_hpure_l_intro.
+  { intros. applys himpl_trans_r. { applys* wp_app_fix. } { applys* M. } }
+  { applys wp_fix. }
+Qed.
 
 Lemma wpgen_seq_sound : forall F1 F2 t1 t2,
   formula_sound_for t1 F1 ->
@@ -1607,8 +1634,10 @@ Proof using.
   { rename v into x. unfold wpgen_var. case_eq (lookup x E).
     { intros v EQ. applys wpgen_val_sound. }
     { intros N. applys wpgen_fail_sound. } }
-  { applys wpgen_fun_sound. }
-  { applys wpgen_fix_sound. }
+  { rename v into x. applys wpgen_fun_sound.
+    { intros vx. rewrite* <- isubst_rem. } }
+  { rename v into f, v0 into x. applys wpgen_fix_sound.
+    { intros vf vx. rewrite* <- isubst_rem_2. } }
   { applys wp_sound. }
   { applys* wpgen_seq_sound. }
   { rename v into x. applys* wpgen_let_sound.
