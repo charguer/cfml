@@ -2902,3 +2902,7 @@ Proof using. intros. intros Q. unfolds wpgen_val. applys wp_fix. Qed.
 
        (* wpgen_val (val_fix f x (isubst (rem x (rem f E)) t1)) *)
 
+Lemma xcase_false_lemma : forall A (x:A) (G:Prop),
+  x <> x -> G.
+Proof using. introv N. false* N. Qed.
+
