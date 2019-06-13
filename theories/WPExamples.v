@@ -29,6 +29,54 @@ Proof using. introv M1 M2. applys* himpl_trans. Qed.
 
 
 
+
+(* ---------------------------------------------------------------------- *)
+(** Incr *)
+
+Definition val_incr : val :=
+  VFun 'p :=
+   'p ':= ((val_get 'p) '+ 1).
+
+(* VARIANT:
+  VFun 'p :=
+    Let 'n := val_get 'p in
+   'p ':= ('n '+ 1).
+*)
+
+Lemma Triple_incr : forall (p:loc) (n:int),
+  TRIPLE (val_incr p)
+    PRE (p ~~> n)
+    POST (fun (r:unit) => (p ~~> (n+1))).
+Proof using.
+  xwp. xappn~.
+Qed.
+
+Lemma Triple_incr_frame : forall (p1 p2:loc) (n1 n2:int),
+  TRIPLE (val_incr p1)
+    PRE (p1 ~~> n1 \* p2 ~~> n2)
+    POST (fun (r:unit) => (p1 ~~> (n1+1) \* p2 ~~> n2)).
+Proof using.
+  skip.
+Qed.
+
+(* TODO SHOULD BE:
+
+  xtriple.
+  xlet. { xapp. xapplys triple_get. }
+  hpull ;=> ? ->.
+  xlet. { xapp. xapplys triple_add. }
+  hpull ;=> ? ->.
+  xapp. xapplys triple_set. auto.
+
+then just:
+
+  xtriple.
+  xapp.
+  xapp.
+  xapp.
+
+*)
+
 (* ********************************************************************** *)
 (* * Let *)
 
@@ -615,6 +663,105 @@ Proof using.
     hchange MList_cons_fold. }
 Qed.
 
+Notation "'Not'" := val_neg.
+
+(*
+Hint Extern 1 (Register_Spec (val_not)) => Provide @Triple_neg.
+*)
+
+Hint Extern 1 (Register_Spec (val_prim val_neg)) => Provide Triple_neg.
+
+Definition iter : val :=
+  VFix 'g 'f 'p :=
+    If_ Not (is_nil 'p) Then
+      'f (head 'p) ';
+      'g 'f (tail 'p)
+    End.
+
+Ltac xspec_prove_cont tt ::=
+  let H := fresh "Spec" in
+  intro H; eapply H; clear H.
+
+Lemma Triple_iter : forall `{EA:Enc A} (I:list A->hprop) (L:list A) (f:func) (p:loc),
+  (forall x L1 L2, L = L1++x::L2 ->
+    TRIPLE (f ``x)
+      PRE (I L1)
+      POST (fun (_:unit) => I (L1&x)))
+  ->
+  TRIPLE (iter ``f ``p)
+    PRE (p ~> MList L \* I nil)
+    POST (fun (_:unit) => p ~> MList L \* I L).
+Proof using.
+  introv Specf.
+  cuts G: (forall L1 L2, L = L1++L2 ->
+    TRIPLE (iter ``f ``p)
+      PRE (p ~> MList L2 \* I L1)
+      POST (fun (_:unit) => p ~> MList L2 \* I L)).
+  { applys~ G. }
+  intros L1 L2 E. gen p L1. induction_wf: list_sub_wf L2; intros.
+  xwp. xapp~. xapp. xif ;=> C; rew_bool_eq in C.  (* TODO *)  
+  { destruct L2 as [|x L2']; tryfalse. hchange MList_cons_unfold ;=> p'.
+    xapp. xapp*. (* xapp (>> __ L2'). *) 
+    xapp. xapp*. hchange MList_cons_fold. }
+  { xvals* tt. }
+Qed.
+
+Hint Extern 1 (Register_Spec (iter)) => Provide @Triple_iter.
+
+
+
+(* ********************************************************************** *)
+(* * Length of a mutable list using iter *)
+
+Definition length_using_iter : val :=
+  VFun 'p :=
+    Let 'n := val_ref ``0 in
+    LetFun 'f 'x := val_incr 'n in
+    iter 'f 'p ';
+    '! 'n.
+
+Ltac xwp_simpl ::=
+  cbn beta delta [ 
+  LibList.combine 
+  List.rev Datatypes.app List.fold_right List.map
+  Wpgen Wpaux_getval Wpaux_getval_typed
+  Wpaux_apps Wpaux_constr Wpaux_var Wpaux_match
+  hforall_vars forall_vars
+  trm_case trm_to_pat patvars patsubst combiner_to_trm
+  Ctx.app Ctx.empty Ctx.lookup Ctx.add 
+  Ctx.rem Ctx.rem_var Ctx.rem_vars isubst
+  var_eq eq_var_dec 
+  string_dec string_rec string_rect
+  sumbool_rec sumbool_rect
+  Ascii.ascii_dec Ascii.ascii_rec Ascii.ascii_rect
+  Bool.bool_dec bool_rec bool_rect ] iota zeta.
+
+Lemma xfun_lemma : forall (v:val) H (Q:val->hprop),
+  H ==> Q v ->
+  H ==> ^(Wpgen_val v) Q.
+Proof using. introv M. applys~ @xval_lemma M. Qed.
+
+Ltac xfun_core tt :=
+  xval_pre tt;
+  applys xfun_lemma.
+
+Tactic Notation "xfun" :=
+  xfun_core tt.
+
+Hint Extern 1 (Register_Spec (val_incr)) => Provide Triple_incr.
+
+Lemma Triple_mlist_length_using_iter : forall A `{EA:Enc A} (L:list A) (p:loc),
+  TRIPLE (length_using_iter ``p)
+    PRE (p ~> MList L)
+    POST (fun (r:int) => \[r = length L] \* p ~> MList L).
+Proof using.
+  xwp. xgc_post. (* TODO post *) xapp ;=> n. xfun.
+  xapp (>> __ (fun (K:list A) => n ~~> (length K:Z))). (* TODO: __ *)
+  { intros x K T E. xwp. xapp. hsimpl*. }
+  xapp. hsimpl~.
+Qed.
+
+
 
 
 (* ---------------------------------------------------------------------- *)
@@ -861,52 +1008,6 @@ End MListNopoints.
 
 Module Basic.
 
-(* ---------------------------------------------------------------------- *)
-(** Incr *)
-
-Definition val_incr : val :=
-  VFun 'p :=
-   'p ':= ((val_get 'p) '+ 1).
-
-(* VARIANT:
-  VFun 'p :=
-    Let 'n := val_get 'p in
-   'p ':= ('n '+ 1).
-*)
-
-Lemma Triple_incr : forall (p:loc) (n:int),
-  TRIPLE (val_incr p)
-    PRE (p ~~> n)
-    POST (fun (r:unit) => (p ~~> (n+1))).
-Proof using.
-  xwp. xappn~.
-Qed.
-
-Lemma Triple_incr_frame : forall (p1 p2:loc) (n1 n2:int),
-  TRIPLE (val_incr p1)
-    PRE (p1 ~~> n1 \* p2 ~~> n2)
-    POST (fun (r:unit) => (p1 ~~> (n1+1) \* p2 ~~> n2)).
-Proof using.
-  skip.
-Qed.
-
-(* TODO SHOULD BE:
-
-  xtriple.
-  xlet. { xapp. xapplys triple_get. }
-  hpull ;=> ? ->.
-  xlet. { xapp. xapplys triple_add. }
-  hpull ;=> ? ->.
-  xapp. xapplys triple_set. auto.
-
-then just:
-
-  xtriple.
-  xapp.
-  xapp.
-  xapp.
-
-*)
 
 
 (* ---------------------------------------------------------------------- *)
