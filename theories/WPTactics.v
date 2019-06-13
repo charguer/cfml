@@ -662,7 +662,10 @@ Qed.
 (* ** Tactic [xfail] *)
 
 Ltac xfail_core tt :=
-  hpull; false.
+  pose ltac_mark;
+  hpull; 
+  false;
+  gen_until_mark.
 
 Tactic Notation "xfail" :=
   xfail_core tt.

@@ -271,6 +271,22 @@ Proof using. introv M. hchange M. applys @Mlist_unfold_match'. Qed.
 (* ---------------------------------------------------------------------- *)
 (** Basic operations *)
 
+
+Ltac auto_false_base cont ::=
+  try solve [
+    intros_all; try match goal with |- _ <-> _ => split end;
+    solve [ cont tt
+          | intros_all; false;
+            solve [ try match goal with H: context [ _ <> _ ] |- _ => applys H; reflexivity end
+                  | cont tt ] ] ].
+
+Ltac auto_star ::=
+  try solve [ intuition eauto
+            | subst; rew_list in *; 
+              solve [ math 
+                    | auto_false_base ltac:(fun tt => intuition eauto) ] ].
+
+
 Definition is_nil : val :=
   VFun 'p :=
     Match '! 'p With
@@ -328,6 +344,20 @@ Definition head : val :=
     '| 'Cstr "cons" 'x 'q '=> 'x
     End.
 
+Ltac xfail_core tt ::=
+  hpull; 
+  pose ltac_mark;
+  intros;
+  false;
+  gen_until_mark.
+
+Tactic Notation "xfail" "~" :=
+  xfail; auto_tilde.
+
+Tactic Notation "xfail" "*" :=
+  xfail; auto_star.
+
+
 Lemma Triple_head : forall A `{EA:Enc A} p x q,
   TRIPLE (head ``p)
     PRE (p ~~> (Cons x q))
@@ -335,7 +365,7 @@ Lemma Triple_head : forall A `{EA:Enc A} p x q,
 Proof using.
   intros. xwp. xapp. applys xcase_lemma2. 
   { (* cons *) intros p' x' E. rew_enc in E. unfolds @Cons. inverts E. xval. hsimpl~. }
-  { (* else *) intros N. false N. reflexivity. }
+  { (* else *) xfail*. (* intros N. false N. reflexivity. *) }
 Qed.
 
 Hint Extern 1 (Register_Spec (head)) => Provide @Triple_head.
@@ -353,7 +383,7 @@ Lemma Triple_tail : forall A `{EA:Enc A} p x q,
 Proof using.
   intros. xwp. xapp. applys xcase_lemma2. 
   { (* cons *) intros p' x' E. rew_enc in E. unfolds @Cons. inverts E. xval. hsimpl~. }
-  { (* else *) intros N. false N. reflexivity. }
+  { (* else *) xfail*. (* intros N. false N. reflexivity. *) }
 Qed.
 
 Hint Extern 1 (Register_Spec (tail)) => Provide @Triple_tail.
@@ -486,19 +516,6 @@ Definition set_head : val :=
     End.
 
 
-Ltac auto_star ::=
-  subst; rew_list in *; try math; jauto.
-
-
-
-Ltac auto_false_base cont ::=
-  try solve [
-    intros_all; try match goal with |- _ <-> _ => split end;
-    solve [ cont tt
-          | intros_all; false;
-            solve [ try match goal with H: context [ _ <> _ ] |- _ => applys H; reflexivity end
-                  | cont tt ] ] ].
-
 
 Lemma Triple_set_head : forall A `{EA:Enc A} q p x1 x2,
   TRIPLE (set_head ``p ``x2)
@@ -508,7 +525,7 @@ Proof using.
   intros. xwp. xapp. applys xcase_lemma2. 
   { (* cons *) intros p' x' E. rew_enc in E. unfolds @Cons. inverts E.
      xval (Cons x2 q). xapp. hsimpl~. }
-  { (* else *) auto_false. (* intros N. false N. reflexivity. *) }
+  { (* else *) xfail*. (* intros N. false N. reflexivity. *) }
 Qed.
 
 
@@ -565,25 +582,39 @@ Proof using.
   intros. gen p. induction_wf IH: (@list_sub A) L. intros.
   xwp. xapp. xif ;=> E.
   { (* nil *)
-    xval 0. hsimpl*. (* subst; rew_list~. *) }
+    xval 0. hsimpl*. }
   { (* cons *)
     destruct L as [|x L']; tryfalse. hchange MList_cons_unfold ;=> p'.
-    xapp. xapp~. xapp~. hchange MList_cons_fold. hsimpl*. (* { rew_list; math. } *) }
+    xapp. xapp~. xapp~. hchange MList_cons_fold. hsimpl*. }
 Qed.
+
+ (* subst; rew_list~. *)
+(* { rew_list; math. } *)
+
 
 
 Definition copy : val :=
   VFix 'f 'p :=
     If_ is_nil 'p 
-      Then mk_nil() 
+      Then mk_nil '() 
       Else mk_cons (head 'p) ('f (tail 'p)).
 
-
-Lemma Triple_mlist_copy : forall `{EA:Enc A} (L:list A) (p:loc),
-  TRIPLE (val_mlist_copy p)
+Lemma Triple_copy : forall `{EA:Enc A} (L:list A) (p:loc),
+  TRIPLE (copy p)
     PRE (p ~> MList L)
     POST (fun (q:loc) => p ~> MList L \* q ~> MList L).
 Proof using.
+  intros. gen p. induction_wf IH: (@list_sub A) L. intros.
+  xwp. xapp. xif ;=> E.
+  { (* nil *)
+    xapp ;=> p'. hsimpl*. }
+  { (* cons *)
+    destruct L as [|x L']; tryfalse.
+    hchange MList_cons_unfold ;=> p'.
+    xapp. xapp~. xapp~ ;=> q'. xapp ;=> q.
+    hchange MList_cons_fold. }
+Qed.
+
 
 
 (* ---------------------------------------------------------------------- *)
@@ -816,7 +847,7 @@ Proof using.
       { intros q' E'. subst v. rewrite enc_val_eq in *. inverts E.
         xapp* IH. hsimpl. xapp.
         (* done *)
-        pattern MList at 2. rewrite MList_unfold. hsimpl*. rew_list; math. } }
+        pattern MList at 2. rewrite MList_unfold. hsimpl*.  (* rew_list; math.*) } }
     { intros N. destruct L as [|x L']; hpull.
       { intros ->. rewrite enc_val_eq in *. unfolds Nil. false. }
       { intros q ->. rewrite enc_val_eq in *. unfolds @Cons. false. } } }
