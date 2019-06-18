@@ -77,6 +77,10 @@ then just:
 
 *)
 
+Hint Extern 1 (Register_Spec (val_incr)) => Provide Triple_incr.
+
+
+
 (* ********************************************************************** *)
 (* * Let *)
 
@@ -510,8 +514,6 @@ Definition set_head : val :=
     '| 'Cstr "cons" 'x1 'q '=> 'p ':= ('Cstr "cons" 'x2 'q)
     End.
 
-
-
 Lemma Triple_set_head : forall A `{EA:Enc A} q p x1 x2,
   TRIPLE (set_head ``p ``x2)
     PRE (p ~~> Cons x1 q)
@@ -522,8 +524,6 @@ Proof using.
      xval (Cons x2 q). xapp. hsimpl~. }
   { (* else *) xfail*. (* intros N. false N. reflexivity. *) }
 Qed.
-
-
 
 Hint Extern 1 (Register_Spec (set_head)) => Provide @Triple_set_head.
 
@@ -586,8 +586,6 @@ Qed.
  (* subst; rew_list~. *)
 (* { rew_list; math. } *)
 
-
-
 Definition copy : val :=
   VFix 'f 'p :=
     If_ is_nil 'p 
@@ -610,7 +608,7 @@ Proof using.
     hchanges MList_cons_fold. }
 Qed.
 
-Notation "'Not'" := val_neg.
+
 
 (*
 Hint Extern 1 (Register_Spec (val_not)) => Provide @Triple_neg.
@@ -620,7 +618,7 @@ Hint Extern 1 (Register_Spec (val_prim val_neg)) => Provide Triple_neg.
 
 Definition iter : val :=
   VFix 'g 'f 'p :=
-    If_ Not (is_nil 'p) Then
+    If_ 'not (is_nil 'p) Then
       'f (head 'p) ';
       'g 'f (tail 'p)
     End.
@@ -647,8 +645,8 @@ Proof using.
     xapp. xapp*. (* xapp (>> __ L2'). *) 
     xapp. xapp*. hchanges MList_cons_fold. }
   { xval tt. subst; rew_list. hsimpl. }
-(* Qed.
- *)
+Qed.
+
 Hint Extern 1 (Register_Spec (iter)) => Provide @Triple_iter.
 
 
@@ -663,42 +661,12 @@ Definition length_using_iter : val :=
     iter 'f 'p ';
     '! 'n.
 
-Ltac xwp_simpl ::=
-  cbn beta delta [ 
-  LibList.combine 
-  List.rev Datatypes.app List.fold_right List.map
-  Wpgen Wpaux_getval Wpaux_getval_typed
-  Wpaux_apps Wpaux_constr Wpaux_var Wpaux_match
-  hforall_vars forall_vars
-  trm_case trm_to_pat patvars patsubst combiner_to_trm
-  Ctx.app Ctx.empty Ctx.lookup Ctx.add 
-  Ctx.rem Ctx.rem_var Ctx.rem_vars isubst
-  var_eq eq_var_dec 
-  string_dec string_rec string_rect
-  sumbool_rec sumbool_rect
-  Ascii.ascii_dec Ascii.ascii_rec Ascii.ascii_rect
-  Bool.bool_dec bool_rec bool_rect ] iota zeta.
-
-Lemma xfun_lemma : forall (v:val) H (Q:val->hprop),
-  H ==> Q v ->
-  H ==> ^(Wpgen_val v) Q.
-Proof using. introv M. applys~ @xval_lemma M. Qed.
-
-Ltac xfun_core tt :=
-  xval_pre tt;
-  applys xfun_lemma.
-
-Tactic Notation "xfun" :=
-  xfun_core tt.
-
-Hint Extern 1 (Register_Spec (val_incr)) => Provide Triple_incr.
-
 Lemma Triple_mlist_length_using_iter : forall A `{EA:Enc A} (L:list A) (p:loc),
   TRIPLE (length_using_iter ``p)
     PRE (p ~> MList L)
     POST (fun (r:int) => \[r = length L] \* p ~> MList L).
 Proof using.
-  xwp. xgc_post. (* TODO post *) xapp ;=> n. xfun.
+  xwp. xapp ;=> n. xfun.
   xapp (>> __ (fun (K:list A) => n ~~> (length K:Z))). (* TODO: __ *)
   { intros x K T E. xwp. xapp. hsimpl*. }
   xapp. hsimpl~.

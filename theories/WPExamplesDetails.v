@@ -65,7 +65,7 @@ Proof using.
   (* xapp *)
   applys @xapp_lemma. { eapply @Triple_set. } xapp_post tt.
   (* done *) 
-  auto. 
+  hsimpl.
 Qed.
 
 Lemma Triple_incr' : forall (p:loc) (n:int),
@@ -73,7 +73,7 @@ Lemma Triple_incr' : forall (p:loc) (n:int),
     PRE (p ~~> n)
     POST (fun (r:unit) => (p ~~> (n+1))).
 Proof using.
-  xwp. xlet. xlet. xapp. xapp. xapp. auto.
+  xwp. xlet. xlet. xapp. xapp. xapp. hsimpl.
 Qed.
 
 Lemma Triple_incr'' : forall (p:loc) (n:int),
@@ -81,7 +81,7 @@ Lemma Triple_incr'' : forall (p:loc) (n:int),
     PRE (p ~~> n)
     POST (fun (r:unit) => (p ~~> (n+1))).
 Proof using.
-  xwp. xapp. xapp. xapp. auto.
+  xwp. xapp. xapp. xapp. hsimpl.
 Qed.
 
 End Basic.
@@ -305,7 +305,8 @@ Proof using.
   (* xcase *)
   applys xcase_lemma0 ;=> E1.
   { destruct L as [|x L']; hpull.
-    { intros ->. applys~ @xval_lemma 0. hsimpl. rew_list~. rewrite~ MList_nil_eq. }
+    { intros ->. applys~ @xval_lemma 0. hsimpl. rew_list~.
+      rewrite~ MList_nil_eq. hsimpl. }
     { intros q ->. tryfalse. } }
   { applys xcase_lemma2.
     { intros x q E.
@@ -339,7 +340,8 @@ Proof using.
   (* xcase *)
   applys xcase_lemma0 ;=> E1.
   { destruct L as [|x L']; hpull.
-    { intros ->. applys~ @xval_lemma 0. hsimpl. rew_list~. rewrite~ MList_nil_eq. }
+    { intros ->. applys~ @xval_lemma 0. hsimpl. rew_list~.
+      rewrite~ MList_nil_eq. hsimpl. }
     { intros q ->. tryfalse. } }
   { applys xcase_lemma2.
     { intros x q E.
@@ -506,9 +508,9 @@ Proof using.
   (* xval *)
   applys~ (xval_lemma (@nil A)).
   (* xapp *)
-  applys @xapp_lemma. { eapply @Triple_ref. } hsimpl.
+  applys @xapp_lemma. { eapply @Triple_ref. } hsimpl. unfold protect.
   (* done *)
-  auto.
+  hsimpl.
 Qed.
 
 Lemma Triple_empty' : forall `{Enc A} (u:unit),
@@ -516,7 +518,7 @@ Lemma Triple_empty' : forall `{Enc A} (u:unit),
     PRE \[]
     POST (fun p => (p ~> Stack (@nil A))).
 Proof using.
-  xwp. xlet. xval nil. xapp~.
+  xwp. xlet. xval nil. xapp. hsimpl~.
 Qed.
 
 
@@ -540,7 +542,7 @@ Proof using.
   (* xapps *)
   applys @xapp_lemma. { eapply @Triple_set. } xapp_post tt. 
   (* done *)
-  auto.
+  hsimpl~.
 Qed.
 
 Lemma Triple_push' : forall `{Enc A} (p:loc) (x:A) (L:list A),
@@ -548,7 +550,7 @@ Lemma Triple_push' : forall `{Enc A} (p:loc) (x:A) (L:list A),
     PRE (p ~> Stack L)
     POST (fun (u:unit) => (p ~> Stack (x::L))).
 Proof using.
-  xwp. xunfold Stack. xlet. xlet. xapp. xval (x::L). xapp~.
+  xwp. xunfold Stack. xlet. xlet. xapp. xval (x::L). xapp. hsimpl~.
 Qed.
 
 

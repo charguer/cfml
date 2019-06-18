@@ -194,14 +194,15 @@ Ltac xwp_simpl :=
   LibList.combine 
   List.rev Datatypes.app List.fold_right List.map
   Wpgen Wpaux_getval Wpaux_getval_typed
-  Wpaux_apps Wpaux_constr Wpaux_var Wpaux_match  
+  Wpaux_apps Wpaux_constr Wpaux_var Wpaux_match
   hforall_vars forall_vars
   trm_case trm_to_pat patvars patsubst combiner_to_trm
   Ctx.app Ctx.empty Ctx.lookup Ctx.add 
+  Ctx.rem Ctx.rem_var Ctx.rem_vars isubst
   var_eq eq_var_dec 
   string_dec string_rec string_rect
   sumbool_rec sumbool_rect
-  Ascii.ascii_dec Ascii.ascii_rec Ascii.ascii_rect 
+  Ascii.ascii_dec Ascii.ascii_rec Ascii.ascii_rect
   Bool.bool_dec bool_rec bool_rect ] iota zeta.
 
 
@@ -597,6 +598,22 @@ Tactic Notation "xvals" "~" :=
   xvals; auto_tilde.
 Tactic Notation "xvals" "*"  :=
   xvals; auto_star.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xfun] *)
+
+Lemma xfun_lemma : forall (v:val) H (Q:val->hprop),
+  H ==> Q v ->
+  H ==> ^(Wpgen_val v) Q.
+Proof using. introv M. applys~ @xval_lemma M. Qed.
+
+Ltac xfun_core tt :=
+  xval_pre tt;
+  applys xfun_lemma.
+
+Tactic Notation "xfun" :=
+  xfun_core tt.
 
 
 (* ---------------------------------------------------------------------- *)
