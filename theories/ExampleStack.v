@@ -87,8 +87,8 @@ Definition Stack `{Enc A} (L:list A) (p:loc) : hprop :=
 
 (** Verification *)
 
-Lemma Triple_create : forall `{Enc A} (u:unit),
-  TRIPLE (create u)
+Lemma Triple_create : forall `{Enc A},
+  TRIPLE (create '())
     PRE \[]
     POST (fun p => (p ~> Stack (@nil A))).
 Proof using.
@@ -260,27 +260,39 @@ Proof using.
     xrecord_eq. subst; rew_list; math. }
 Qed.
 
-Opaque Stackn.
+
+(** ------------- TODO: implement record allocation ---------------*)
+
+Parameter val_record_alloc : Record_fields -> val.
+
+Parameter Triple_record_alloc : forall (L:Record_fields),
+  TRIPLE ((val_record_alloc L) '())
+    PRE \[]
+    POST (fun r => r ~> Record L).
+
+Notation "'New' L" :=
+  (val_record_alloc L tt)
+  (at level 66, L at level 0, format "New L" ) : trm_scope.
 
 
-(*
-Lemma Triple_get_field : forall (l:loc) f `{EA:Enc A} (V:A),
-  TRIPLE ((val_get_field f) l)
-    PRE (l `.` f ~~> V)
-    POST (fun r => \[r = V] \* (l `.` f ~~> V)).
-Proof using.
-*)
+Definition create : val :=
+  VFun 'u :=
+    New`{ data := ('nil%val); size := 0 }.
 
-(*
-Lemma Triple_create : forall `{Enc A} (u:unit),
-  TRIPLE (val_create u)
+(* TODO: new with terms in fields. *)
+
+
+Lemma Triple_create : forall `{Enc A},
+  TRIPLE (create '())
     PRE \[]
     POST (fun p => (p ~> Stackn (@nil A))).
 Proof using.
-  xwp. xval nil. xapp~.
+  xwp. xunfold Stackn. xapp Triple_record_alloc ;=> p. hsimpl.
 Qed.
-*)
-
 
 
 End Stackn.
+
+
+
+
