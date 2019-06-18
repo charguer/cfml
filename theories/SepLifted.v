@@ -991,10 +991,34 @@ Lemma Triple_eq : forall `{EA:Enc A},
   Triple (val_eq ``v1 ``v2)
     \[]
     (fun (b:bool) => \[b = isTrue (v1 = v2)]).
-Proof using.
+Proof using. (* LATER: simplify *)
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_eq_val. } (* todo: why sapply ? *)
   unfolds. hpull ;=> ? ->. hsimpl*. rewrite~ Enc_injective_eq.
+Qed.
+
+Lemma Triple_eq_l : forall `{EA:Enc A} (v1:A),
+  Enc_injective_value v1 ->
+  forall (v2 : A),
+  Triple (val_eq ``v1 ``v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (v1 = v2)]).
+Proof using. (* LATER: simplify *)
+  introv I. intros.
+  applys (@Triple_enc_change bool). { sapply Triple_eq_val. } (* todo: why sapply ? *)
+  unfolds. hpull ;=> ? ->. hsimpl*. rew_bool_eq. iff. { applys* I. } { subst*. }
+Qed.
+
+Lemma Triple_eq_r : forall `{EA:Enc A} (v2:A),
+  Enc_injective_value v2 ->
+  forall (v1 : A),
+  Triple (val_eq ``v1 ``v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (v1 = v2)]).
+Proof using. (* LATER: simplify *)
+  introv I. intros.
+  applys (@Triple_enc_change bool). { sapply Triple_eq_val. } (* todo: why sapply ? *)
+  unfolds. hpull ;=> ? ->. hsimpl*. rew_bool_eq. iff. { symmetry. applys* I. } { subst*. }
 Qed.
 
 Lemma Triple_neq_val : forall v1 v2,
@@ -1009,10 +1033,36 @@ Lemma Triple_neq : forall `{EA:Enc A},
   Triple (val_neq ``v1 ``v2)
     \[]
     (fun (b:bool) => \[b = isTrue (v1 <> v2)]).
-Proof using.
+Proof using. (* LATER: simplify *)
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_neq_val. } 
   unfolds. hpull ;=> ? ->. hsimpl*. rewrite* Enc_injective_eq.
+Qed.
+
+Lemma Triple_neq_l : forall `{EA:Enc A} (v1:A),
+  Enc_injective_value v1 ->
+  forall (v2 : A),
+  Triple (val_neq ``v1 ``v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (v1 <> v2)]).
+Proof using. (* LATER: simplify *)
+  introv I. intros.
+  applys (@Triple_enc_change bool). { sapply Triple_neq_val. } (* todo: why sapply ? *)
+  unfolds. hpull ;=> ? ->. hsimpl*. rew_bool_eq. iff R.
+  { intros N. applys R. subst*. } { intros N. applys R. applys* I. }
+Qed.
+
+Lemma Triple_neq_r : forall `{EA:Enc A} (v2:A),
+  Enc_injective_value v2 ->
+  forall (v1 : A),
+  Triple (val_neq ``v1 ``v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (v1 <> v2)]).
+Proof using. (* LATER: simplify *)
+  introv I. intros.
+  applys (@Triple_enc_change bool). { sapply Triple_neq_val. } (* todo: why sapply ? *)
+  unfolds. hpull ;=> ? ->. hsimpl*. rew_bool_eq. iff R.
+  { intros N. applys R. subst*. } { intros N. applys R. symmetry. applys* I. }
 Qed.
 
 Lemma Triple_add : forall n1 n2,

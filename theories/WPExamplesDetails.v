@@ -11,14 +11,10 @@ License: MIT.
 
 
 Set Implicit Arguments.
-From Sep Require Export WPRecord.
 Generalizable Variables A B.
+From Sep Require Import Example.
 
-Import NotationForVariables NotationForTerms.
-Open Scope val_scope.
-Open Scope pat_scope.
-Open Scope trm_scope.
-
+Ltac auto_star ::= auto_star_default.
 
 
 (* ********************************************************************** *)

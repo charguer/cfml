@@ -422,6 +422,13 @@ Lemma mem_map' : forall A B (l : list A) (f:A->B) (x:A) (y:B),
   mem y (LibList.map f l).
 Proof using. intros. subst. applys* mem_map. Qed.
 
+Lemma LibListZ_length_zero_eq_eq_nil : forall A (l:list A),
+  (LibListZ.length l = 0) = (l = nil).
+Proof using.
+  intros. rewrite <- length_zero_eq_eq_nil. 
+  unfold LibListZ.length. extens. math.
+Qed.
+
 (*----------------------*)
 (* LibInt *)
 

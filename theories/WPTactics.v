@@ -166,6 +166,7 @@ Hint Extern 1 (Register_Spec (val_prim val_ref)) => Provide Triple_ref.
 Hint Extern 1 (Register_Spec (val_prim val_get)) => Provide Triple_get.
 Hint Extern 1 (Register_Spec (val_prim val_set)) => Provide @Triple_set.
 Hint Extern 1 (Register_Spec (val_prim val_alloc)) => Provide Triple_alloc.
+Hint Extern 1 (Register_Spec (val_prim val_neg)) => Provide Triple_neg.
 Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide Triple_eq.
 Hint Extern 1 (Register_Spec (val_prim val_add)) => Provide Triple_add.
 Hint Extern 1 (Register_Spec (val_prim val_sub)) => Provide Triple_sub.
@@ -259,6 +260,16 @@ Ltac xstructural_core tt :=
 
 Tactic Notation "xstructural" :=
   xstructural_core tt.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xcleanup] -- for internal use *)
+
+Ltac xcleanup_core tt :=
+  rew_bool_eq.
+
+Tactic Notation "xcleanup" :=
+  xcleanup_core tt.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -424,8 +435,8 @@ Ltac xapp_pre tt :=
   end.
 
 Ltac xapp_post tt :=
-  hsimpl; unfold protect.
-  
+  hsimpl; unfold protect; xcleanup.
+
 Lemma xapp_find_spec_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
   Triple t H1 Q1 ->
   (Triple t H1 Q1 -> H ==> ^(Wpgen_app t) Q) ->
@@ -566,9 +577,13 @@ Tactic Notation "xval" "~" uconstr(E) :=
 Tactic Notation "xval" "*" uconstr(E) :=
   xval E; auto_star.
 
+Ltac xval_post tt :=
+  xcleanup.
+
 Ltac xval_core tt :=
   xval_pre tt;
-  applys @xval_lemma; [ try reflexivity | ].
+  applys @xval_lemma; [ try reflexivity | ];
+  xval_post tt.
 
 Tactic Notation "xval" :=
   xval_core tt.
@@ -638,7 +653,7 @@ Lemma xifval_lemma_isTrue : forall `{EA:Enc A} (P:Prop) H (Q:A->hprop) (F1 F2:Fo
 Proof using. introv E N. applys MkStruct_erase. case_if*. Qed.
 
 Ltac xif_post tt :=
-  rew_bool_eq.
+  xcleanup.
 
 Ltac xif_core tt :=
   first [ applys @xifval_lemma_isTrue

@@ -11,14 +11,8 @@ License: MIT.
 
 
 Set Implicit Arguments.
-From Sep Require Export WPRecord.
 Generalizable Variables A B.
-
-Import NotationForVariables NotationForTerms.
-Open Scope val_scope.
-Open Scope pat_scope.
-Open Scope trm_scope.
-
+From Sep Require Import Example.
 
 (* TODO *)
 Lemma himpl_trans' : forall (H1 H2 H3:hprop),
@@ -361,13 +355,13 @@ Proof using.
   intros. xwp. hchange MList_eq ;=> v. xapp. 
   applys xcase_lemma0 ;=> E1.
   { rew_enc in E1. subst. hchange MList_contents_Nil ;=> ->.
-    hchange MList_nil_fold. xval. hsimpl. rew_bool_eq~. (* TODO:automate *) }
+    hchange MList_nil_fold. xval. hsimpl~. }
   { applys xcase_lemma2.
     { intros x' q' E. rew_enc in E. inverts E. unfold MList_contents.
       destruct L as [|x L'].
       { hpull. }
       { xval. hpull ;=> p' E'. hchange (MList_cons_fold p). applys E'.
-        hsimpl. rew_bool_eq~. auto_false. } }
+        hsimpl. auto_false. } }
     { intros N. unfold MList_contents. destruct L as [|x L']; hpull.
       { intros ->. rewrite enc_val_eq in *. unfolds Nil. false. }
       { intros q ->. rewrite enc_val_eq in *. unfolds @Cons. false. } } }
@@ -383,9 +377,9 @@ Lemma Triple_is_nil : forall A `{EA:Enc A} (L:list A) p,
 Proof using.
   intros. xwp. applys @Mlist_unfold_match. hsimpl_hand.
   { (* nil *)
-    intros EL. xval. hsimpl. rew_bool_eq~. (* TODO:automate *) }
+    intros EL. xval. hsimpl~. }
   { (* cons *) 
-    intros p' x' L' ->. xval. hchanges (MList_cons_fold p). rew_bool_eq; auto_false. (* TODO:automate *) }
+    intros p' x' L' ->. xval. hchanges* (MList_cons_fold p). }
 Qed.
 
 Hint Extern 1 (Register_Spec (is_nil)) => Provide @Triple_is_nil.
@@ -403,7 +397,7 @@ Lemma Triple_head : forall A `{EA:Enc A} p x q,
 Proof using.
   intros. xwp. xapp. applys xcase_lemma2. 
   { (* cons *) intros p' x' E. rew_enc in E. unfolds @Cons. inverts E. xval. hsimpl~. }
-  { (* else *) xfail*. (* intros N. false N. reflexivity. *) }
+  { (* else *) xfail*. }
 Qed.
 
 Hint Extern 1 (Register_Spec (head)) => Provide @Triple_head.
@@ -421,7 +415,7 @@ Lemma Triple_tail : forall A `{EA:Enc A} p x q,
 Proof using.
   intros. xwp. xapp. applys xcase_lemma2. 
   { (* cons *) intros p' x' E. rew_enc in E. unfolds @Cons. inverts E. xval. hsimpl~. }
-  { (* else *) xfail*. (* intros N. false N. reflexivity. *) }
+  { (* else *) xfail*. }
 Qed.
 
 Hint Extern 1 (Register_Spec (tail)) => Provide @Triple_tail.
@@ -614,7 +608,7 @@ Qed.
 Hint Extern 1 (Register_Spec (val_not)) => Provide @Triple_neg.
 *)
 
-Hint Extern 1 (Register_Spec (val_prim val_neg)) => Provide Triple_neg.
+
 
 Definition iter : val :=
   VFix 'g 'f 'p :=
@@ -640,7 +634,7 @@ Proof using.
       POST (fun (_:unit) => p ~> MList L2 \* I L)).
   { applys~ G. }
   intros L1 L2 E. gen p L1. induction_wf: list_sub_wf L2; intros.
-  xwp. xapp~. xapp. xif ;=> C; rew_bool_eq in C.  (* TODO *)  
+  xwp. xapp~. xapp. xif ;=> C.
   { destruct L2 as [|x L2']; tryfalse. hchange MList_cons_unfold ;=> p'.
     xapp. xapp*. (* xapp (>> __ L2'). *) 
     xapp. xapp*. hchanges MList_cons_fold. }
@@ -939,8 +933,8 @@ Proof using.
    unfold protect. hsimpl.
   intros ? ->. 
   xif ;=> C.
-  { subst. xval. hsimpl*. rew_bool_eq*. } (* TODO: xvals *) 
-  { xval. hsimpl. destruct b; auto_false. }
+  { subst. xvals*. }
+  { xvals. destruct b; auto_false. }
 Qed.
 
 
@@ -1100,205 +1094,6 @@ Qed.
 
 End Basic.
 
-
-
-(* ********************************************************************** *)
-(* * Stack *)
-
-
-Module Stack.
-
-Definition val_is_empty : val :=
-  VFun 'p :=
-    val_get 'p '= 'nil.
-
-Definition val_empty : val :=
-  VFun 'u :=
-   val_ref 'nil.
-
-Definition val_push : val :=
-  VFun 'p 'x :=
-   'p ':= ('x ':: (val_get 'p)).
-
-Definition val_pop : val :=
-  VFun 'p :=
-   Let 'q := val_get 'p in
-   Match 'q With
-   '| 'nil '=> 'Fail
-   '| 'x ':: 'r '=> ('p ':= 'r) '; 'x
-   End.
-
-Definition val_rev_append : val :=
-  VFix 'f 'p1 'p2 :=
-    If_ val_is_empty 'p1 Then '() Else 
-       Let 'x := val_pop 'p1 in
-       val_push 'p2 'x ';
-       'f 'p1 'p2.
-
-
-Definition Stack `{Enc A} (L:list A) (p:loc) : hprop :=
-  p ~~> L.
-
-
-Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),
-  TRIPLE (val_is_empty p)
-    PRE (p ~> Stack L)
-    POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stack L).
-Proof using.
-  xwp. xunfold Stack. xapp. xval nil.
-  xapp @Triple_eq_val.
-  hsimpl. rewrite* @Enc_injective_value_eq_r.
-Qed.
-
-Lemma Triple_empty : forall `{Enc A} (u:unit),
-  TRIPLE (val_empty u)
-    PRE \[]
-    POST (fun p => (p ~> Stack (@nil A))).
-Proof using.
-  xwp. xval nil. xapp. hsimpl.
-Qed.
-
-Lemma Triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
-  TRIPLE (val_push p (``x))
-    PRE (p ~> Stack L)
-    POST (fun (u:unit) => (p ~> Stack (x::L))).
-Proof using.
-  xwp. xunfold Stack. xapp. xval (x::L). xapp. hsimpl.
-Qed.
-
-Lemma Triple_pop : forall `{Enc A} (p:loc) (L:list A),
-  L <> nil ->
-  TRIPLE (val_pop p)
-    PRE (p ~> Stack L)
-    POST (fun (x:A) => \exists L', \[L = x::L'] \* (p ~> Stack L')).
-Proof using.
-  introv N. xwp. xunfold Stack. xapp.
-  applys xmatch_lemma_list.
-  { intros HL. xfail. }
-  { intros X L' HL. xapp. xval. hsimpl~. }
-Qed.
-
-Opaque Stack.
-
-Hint Extern 1 (Register_Spec (val_is_empty)) => Provide @Triple_is_empty.
-Hint Extern 1 (Register_Spec (val_push)) => Provide @Triple_push.
-Hint Extern 1 (Register_Spec (val_pop)) => Provide @Triple_pop.
-
-
-Lemma Triple_rev_append : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
-  TRIPLE (val_rev_append p1 p2)
-    PRE (p1 ~> Stack L1 \* p2 ~> Stack L2)
-    POST (fun (u:unit) => p1 ~> Stack nil \* p2 ~> Stack (rev L1 ++ L2)).
-Proof using.
-  intros. gen p1 p2 L2. induction_wf IH: (@list_sub A) L1. intros.
-  xwp. xapp. xif ;=> C.
-  { (* case nil *)
-    xval tt. hsimpl~. subst. rew_list~. }
-  { (* case cons *)
-    xapp~ ;=> x L1' E.
-    xapp.
-    xapp. { subst*. } hsimpl. subst. rew_list~. }
-Qed.
-
-End Stack.
-
-
-
-(* ********************************************************************** *)
-(* * Stack with length *)
-
-Module StackLength.
-
-Definition data : field := 0%nat.
-Definition size : field := 1%nat.
-
-(*
-Definition val_is_empty : val :=
-  VFun 'p :=
-    val_get 'p '= 'nil.
-
-Definition val_empty : val :=
-  VFun 'u :=
-   val_ref 'nil.
-*)
-
-Definition val_push : val :=
-  VFun 'p 'x :=
-   Set 'p'.data ':= ('x ':: 'p'.data) ';
-   Set 'p'.size ':= ('p'.size '+ 1).
-
-Definition val_pop : val :=
-  VFun 'p :=
-   Let 'q := 'p'.data in 
-   Match 'q With (* TODO: allow inline *)
-   '| 'nil '=> 'Fail
-   '| 'x ':: 'r '=> 
-       Set 'p'.data ':= 'r ';
-       Set 'p'.size ':= ('p'.size '- 1) ';
-       'x
-   End.
-
-(* TODO: concat function with the sum of the lengths *)
-
-(*
-Definition val_rev_append : val :=
-  VFix 'f 'p1 'p2 :=
-    If_ val_is_empty 'p1 Then '() Else 
-       Let 'x := val_pop 'p1 in
-       val_push 'p2 'x ';
-       'f 'p1 'p2.
-*)
-
-Definition Stackn `{Enc A} (L:list A) (p:loc) : hprop :=
-  p ~> Record`{ data := L; size := (length L : int) }.
-
-(*
-Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),
-  TRIPLE (val_is_empty p)
-    PRE (p ~> Stack L)
-    POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stack L).
-Proof using.
-  xwp. xunfold Stack. xapp. xval nil.
-  xapp @Triple_eq_val.
-  hsimpl. rewrite* @Enc_injective_value_eq_r.
-Qed.
-
-Lemma Triple_empty : forall `{Enc A} (u:unit),
-  TRIPLE (val_empty u)
-    PRE \[]
-    POST (fun p => (p ~> Stack (@nil A))).
-Proof using.
-  xwp. xval nil. xapp~.
-Qed.
-*)
-
-
-Lemma Triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
-  TRIPLE (val_push p (``x))
-    PRE (p ~> Stackn L)
-    POST (fun (u:unit) => (p ~> Stackn (x::L))).
-Proof using.
-  xwp. xunfold Stackn. xapp. xval (x::L). xappn.
-  hsimpl. (* hsimpl could do xrecord_eq *) 
-  xrecord_eq. rew_list; math.
-Qed.
-
-Lemma Triple_pop : forall `{Enc A} (p:loc) (L:list A),
-  L <> nil ->
-  TRIPLE (val_pop p)
-    PRE (p ~> Stackn L)
-    POST (fun (x:A) => \exists L', \[L = x::L'] \* (p ~> Stackn L')).
-Proof using.
-  introv N. xwp. xunfold Stackn. xapp.
-  applys xmatch_lemma_list.
-  { intros HL. xfail. }
-  { intros X L' HL. xappn. xval. hsimpl*. (* hsimpl could do xrecord_eq *) 
-    xrecord_eq. subst; rew_list; math. }
-Qed.
-
-Opaque Stackn.
-
-End StackLength.
 
 
 (* ********************************************************************** *)

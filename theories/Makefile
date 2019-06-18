@@ -34,7 +34,7 @@ export TLC
 ##############################################################################
 # List of files
 
-SRC_CORE := TLCbuffer Fmap Var Hsimpl Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics WPRecord WPExamples WPExamplesDetails WPLib 
+SRC_CORE := TLCbuffer Fmap Var Hsimpl Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics WPRecord Example ExampleStack WPExamples WPExamplesDetails WPLib 
 
 SRC_MORE := SepBaseAltProofs SepCredits SepRO
 
@@ -47,7 +47,7 @@ SRC_SF := SLFIntro SLFDirect SLFExtra SLFHprop SLFHimpl SubstExec SLFRules SLFWa
 
 SRC_MOSEL := SepMoselFunctor SepBaseMosel SepROMosel ExampleROMosel ExampleListMosel
 
-SRC := $(SRC_SF) $(SRC_CORE) $(SRC_MORE)
+SRC := $(SRC_CORE) $(SRC_SF) $(SRC_MORE)
 # $(SRC_EXAMPLES)  $(SRC_MOSEL)
 
 # using the variable SRC_FORCE, one can modify the compilation targets and/or their order.
