@@ -1,6 +1,7 @@
 (**
 
-This file provides examples of the verification of a stack,
+This file provides examples of the verification of a mutable stack,
+and of a mutable stack with size available in constant time.
 using CFML 2.0.
 
 Author: Arthur Charguéraud.
