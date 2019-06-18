@@ -94,8 +94,9 @@ with trm : Type :=
 
 Definition state : Type := fmap loc val.
 
-(** Shorthand [vars], [vals] and [trms] for lists of items. *)
+(** Shorthand [vars], [fields], [vals] and [trms] for lists of items. *)
 
+Definition fields : Type := list field.
 Definition vals : Type := list val.
 Definition trms : Type := list trm.
 

@@ -199,6 +199,10 @@ Module Stackn.
 Definition data : field := 0%nat.
 Definition size : field := 1%nat.
 
+Definition create : val :=
+  VFun 'u :=
+    New`{ data := ('nil%val); size := 0 }.
+
 Definition is_empty : val :=
   VFun 'p :=
     'p'.size '= 0.
@@ -226,6 +230,14 @@ Definition Stackn `{Enc A} (L:list A) (p:loc) : hprop :=
 
 
 (** Verification *)
+
+Lemma Triple_create : forall `{Enc A},
+  TRIPLE (create '())
+    PRE \[]
+    POST (fun p => (p ~> Stackn (@nil A))).
+Proof using.
+  xwp. xunfold Stackn. xnew (>> (@nil A) 0). skip. (* TODO *) intros p. hsimpl.
+Qed.
 
 Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),
   TRIPLE (is_empty p)
@@ -259,37 +271,6 @@ Proof using.
     (* LATER:  hsimpl could do xrecord_eq *) 
     xrecord_eq. subst; rew_list; math. }
 Qed.
-
-
-(** ------------- TODO: implement record allocation ---------------*)
-
-Parameter val_record_alloc : Record_fields -> val.
-
-Parameter Triple_record_alloc : forall (L:Record_fields),
-  TRIPLE ((val_record_alloc L) '())
-    PRE \[]
-    POST (fun r => r ~> Record L).
-
-Notation "'New' L" :=
-  (val_record_alloc L tt)
-  (at level 66, L at level 0, format "New L" ) : trm_scope.
-
-
-Definition create : val :=
-  VFun 'u :=
-    New`{ data := ('nil%val); size := 0 }.
-
-(* TODO: new with terms in fields. *)
-
-
-Lemma Triple_create : forall `{Enc A},
-  TRIPLE (create '())
-    PRE \[]
-    POST (fun p => (p ~> Stackn (@nil A))).
-Proof using.
-  xwp. xunfold Stackn. xapp Triple_record_alloc ;=> p. hsimpl.
-Qed.
-
 
 End Stackn.
 

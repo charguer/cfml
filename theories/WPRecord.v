@@ -1,8 +1,9 @@
 (**
 
-This file defines tactics for manipulating characteristic formula 
-in weakest-precondition form, in lifted Separation Logic,
-as defined in [WPLifted.v].
+This file defines notation, specification and tactics for manipulating
+records.
+
+Disclaimer: notation currently support records with up to 5 fields.
 
 Author: Arthur Charguéraud.
 License: MIT.
@@ -26,7 +27,7 @@ Open Scope trm_scope.
 Implicit Types l : loc.
 
 (* ---------------------------------------------------------------------- *)
-(* ** Record get/set functions *)
+(* ** Record operations: get, set, alloc, init *)
 
 Definition val_get_field (k:field) : val :=
   VFun 'p :=
@@ -38,6 +39,25 @@ Definition val_set_field (k:field) : val :=
     Let 'q := val_ptr_add 'p (nat_to_Z k) in
     val_set 'q 'v.
 
+Definition val_record_alloc (ks:fields) : val :=
+  VFun 'u :=
+    val_alloc (1 + fold_right max 0%nat ks)%nat.
+
+Definition val_record_init (ks:fields) : val :=
+  let nb := List.length ks in
+  let xs := var_seq 0 nb in
+  let body := fix body (p:var) (kxs:list (field*var)) :=
+    match kxs with
+    | nil => trm_var p
+    | (k,x)::kxs' => (val_set_field k) (trm_var p) x '; body p kxs'
+    end in
+  val_funs xs (
+    Let 'p := (val_record_alloc ks) tt in
+    body 'p (List.combine ks xs)).
+
+
+(** Notation for record operations *)
+
 Notation "t1 ''.' f" :=
   (val_get_field f t1)
   (at level 66, f at level 0, format "t1 ''.' f" ) : trm_scope.
@@ -45,6 +65,53 @@ Notation "t1 ''.' f" :=
 Notation "'Set' t1 ''.' f '':=' t2" :=
   (val_set_field f t1 t2)
   (at level 65, t1 at level 0, f at level 0, format "'Set' t1 ''.' f  '':=' t2") : trm_scope.
+
+Notation "'New' `{ f1 := x1 }" :=
+  ((val_record_init (f1::nil)) x1)
+  (at level 0, f1 at level 0)
+  : trm_scope.
+Notation "'New' `{ f1 := x1 ; f2 := x2 }" :=
+  ((val_record_init (f1::f2::nil)) x1 x2)
+  (at level 0, f1 at level 0, f2 at level 0)
+  : trm_scope.
+Notation "'New' `{ f1 := x1 ; f2 := x2 ; f3 := x3 }" :=
+  ((val_record_init (f1::f2::f3::nil)) x1 x2 x3)
+  (at level 0, f1 at level 0, f2 at level 0, f3 at level 0)
+  : trm_scope.
+Notation "'New' `{ f1 := x1 ; f2 := x2 ; f3 := x3 ; f4 := x4 }" :=
+  ((val_record_init (f1::f2::f3::f4::nil)) x1 x2 x3 x4)
+  (at level 0, f1 at level 0, f2 at level 0, f3 at level 0, f4 at level 0)
+  : trm_scope.
+Notation "'New' `{ f1 := x1 ; f2 := x2 ; f3 := x3 ; f4 := x4 ; f5 := x5 }" :=
+  ((val_record_init (f1::f2::f3::f4::f5::nil)) x1 x2 x3 x4 x5)
+  (at level 0, f1 at level 0, f2 at level 0, f3 at level 0, f4 at level 0, f5 at level 0)
+  : trm_scope.
+
+(** Notation for record contents (only supported up to arity 5) *)
+
+Notation "`{ f1 := x1 }" :=
+  ((f1, Dyn x1)::nil)
+  (at level 0, f1 at level 0)
+  : fields_scope.
+Notation "`{ f1 := x1 ; f2 := x2 }" :=
+  ((f1, Dyn x1)::(f2, Dyn x2)::nil)
+  (at level 0, f1 at level 0, f2 at level 0)
+  : fields_scope.
+Notation "`{ f1 := x1 ; f2 := x2 ; f3 := x3 }" :=
+  ((f1, Dyn x1)::(f2, Dyn x2)::(f3, Dyn x3)::nil)
+  (at level 0, f1 at level 0, f2 at level 0, f3 at level 0)
+  : fields_scope.
+Notation "`{ f1 := x1 ; f2 := x2 ; f3 := x3 ; f4 := x4 }" :=
+  ((f1, Dyn x1)::(f2, Dyn x2)::(f3, Dyn x3)::(f4, Dyn x4)::nil)
+  (at level 0, f1 at level 0, f2 at level 0, f3 at level 0, f4 at level 0)
+  : fields_scope.
+Notation "`{ f1 := x1 ; f2 := x2 ; f3 := x3 ; f4 := x4 ; f5 := x5 }" :=
+  ((f1, Dyn x1)::(f2, Dyn x2)::(f3, Dyn x3)::(f4, Dyn x4)::(f5, Dyn x5)::nil)
+  (at level 0, f1 at level 0, f2 at level 0, f3 at level 0, f4 at level 0, f5 at level 0)
+  : fields_scope.
+
+Open Scope fields_scope.
+Delimit Scope fields_scope with fields.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -55,6 +122,8 @@ Notation "'Set' t1 ''.' f '':=' t2" :=
 
 Definition Record_field : Type := field * dyn.
 Definition Record_fields : Type := list Record_field.
+
+Bind Scope fields_scope with Record_fields.
 
 Fixpoint Record (L:Record_fields) (r:loc) : hprop :=
   match L with
@@ -96,34 +165,6 @@ Proof using.
   intros. destruct L as [|(f,v) L']. { false. }
   rewrite Record_cons. hchanges~ Hfield_not_null.
 Qed.
-
-
-(** Notation for record contents (only supported up to arity 5) *)
-
-Notation "`{ f1 := x1 }" :=
-  ((f1, Dyn x1)::nil)
-  (at level 0, f1 at level 0)
-  : fields_scope.
-Notation "`{ f1 := x1 ; f2 := x2 }" :=
-  ((f1, Dyn x1)::(f2, Dyn x2)::nil)
-  (at level 0, f1 at level 0, f2 at level 0)
-  : fields_scope.
-Notation "`{ f1 := x1 ; f2 := x2 ; f3 := x3 }" :=
-  ((f1, Dyn x1)::(f2, Dyn x2)::(f3, Dyn x3)::nil)
-  (at level 0, f1 at level 0, f2 at level 0, f3 at level 0)
-  : fields_scope.
-Notation "`{ f1 := x1 ; f2 := x2 ; f3 := x3 ; f4 := x4 }" :=
-  ((f1, Dyn x1)::(f2, Dyn x2)::(f3, Dyn x3)::(f4, Dyn x4)::nil)
-  (at level 0, f1 at level 0, f2 at level 0, f3 at level 0, f4 at level 0)
-  : fields_scope.
-Notation "`{ f1 := x1 ; f2 := x2 ; f3 := x3 ; f4 := x4 ; f5 := x5 }" :=
-  ((f1, Dyn x1)::(f2, Dyn x2)::(f3, Dyn x3)::(f4, Dyn x4)::(f5, Dyn x5)::nil)
-  (at level 0, f1 at level 0, f2 at level 0, f3 at level 0, f4 at level 0, f5 at level 0)
-  : fields_scope.
-
-Open Scope fields_scope.
-Bind Scope fields_scope with Record_fields.
-Delimit Scope fields_scope with fields.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -404,27 +445,153 @@ Qed. (* TODO: simplify proof *)
 
 Global Opaque val_set_field val_get_field.
 
+
+(* ---------------------------------------------------------------------- *)
+(* ** Record allocation *)
+
+
+
+Lemma Triple_record_alloc : forall (ks:fields),
+  noduplicates ks -> (* LATER: executable version *)
+  TRIPLE ((val_record_alloc ks) '())
+    PRE \[]
+    POST (fun r => \exists vs, \[length ks = length vs] \* r ~> Record (List.combine ks vs)).
+Proof using.
+  xwp. xapp. { math. } intros p N.
+  sets n: (abs (1 + fold_right Init.Nat.max 0%nat ks)%nat).
+  (* induction ks as [|k ks']. *)
+Admitted. (* TODO *)
+
+Axiom trms_to_vals_trms_vals : forall vs,
+  trms_to_vals (trms_vals vs) = Some vs.
+
+Lemma Triple_record_init : forall (ks:fields) (Vs:dyns) (vs:vals),
+  noduplicates ks -> (* LATER: executable version *)
+  ks <> nil ->
+  length ks = length Vs ->
+  vs = encs Vs ->
+  TRIPLE (trm_apps (val_record_init ks) vs)
+    PRE \[]
+    POST (fun r => r ~> Record (List.combine ks Vs)).
+Proof using.
+  introv Nd Nn L E.
+  unfold val_record_init.
+  sets xs: (var_seq 0 (Datatypes.length ks)).
+  asserts L'': (length xs = length ks).
+  { subst xs. rewrite length_var_seq. rewrite~ List_length_eq. }
+  applys xwp_lemma_funs.
+  { reflexivity. }
+  { applys trms_to_vals_trms_vals. }
+  { rewrite var_funs_exec_eq. rew_bool_eq. splits.
+    { applys var_distinct_var_seq. }
+    { subst vs. unfold encs. rewrite List_map_eq. rew_listx. math. }
+    { admit. } }
+  { xwp_simpl. xapp~ Triple_record_alloc ;=> p Vs' L'.
+    sets_eq kxs: (List.combine ks xs).
+    induction kxs as [|(k,x) kxs'].
+    { asserts: (ks = nil). admit.
+      asserts: (xs = nil). admit.
+      xwp_simpl. xval p. 
+      rewrite @List_combine_eq in *; try math.
+      rewrite @List_combine_eq in *; try math.
+      asserts: (Vs = nil). admit.
+      asserts: (Vs' = nil). admit.
+      subst. rewrite combine_nil. rew_listx. hsimpl. }
+Admitted.
+
+
+(* TODO: move
+
+Fixpoint field_fresh_exec (k:field) (ks:fields) : bool :=
+  match xs with
+  | nil => true
+  | x::xs' => if var_eq x y then false else var_fresh y xs'
+  end.
+
+Fixpoint field_distinct_exec (ks:fields) : bool :=
+  match ks with
+  | nil => true
+  | k::ks' => var_fresh k ks' && var_distinct_exec ks'
+  end.
+
+Lemma noduplicates_exec_eq : forall cmp xs,
+  noduplicates_exec xs = isTrue (noduplicates xs).
+Proof using.
+  intros. induction xs as [|x xs']; simpl; rew_isTrue.
+  { auto. } { rewrite~ IHxs'. }
+Qed.
+
+*)
+
+Parameter noduplicates_fields_exec : fields -> bool.
+
+Lemma xapp_record_new' : forall (Vs:dyns) (ks:fields) (vs:vals),
+  noduplicates_fields_exec ks = true ->
+  ks <> nil ->
+  List.length ks = List.length Vs ->
+  vs = encs Vs ->
+  TRIPLE (trm_apps (val_record_init ks) vs)
+    PRE \[]
+    POST (fun r => r ~> Record (List.combine ks Vs)).
+Proof using.
+Admitted.
+
+
+
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xapp_record] *)
 
-Ltac xapp_record_post tt :=
+Ltac xapp_record_get_set_post tt :=
   hsimpl; simpl; hsimpl; unfold protect; try xcast.
 
 Ltac xapp_record_get tt :=
-  applys xapp_record_get; xapp_record_post tt.
+  applys xapp_record_get; xapp_record_get_set_post tt.
 
 Ltac xapp_record_set tt :=
-  applys xapp_record_set; xapp_record_post tt.
+  applys xapp_record_set; xapp_record_get_set_post tt.
 
-Ltac xapp_record tt ::= (* dummy binding in WPTactics *)
+
+Ltac xapp_record tt ::= (* initial dummy binding located in WPTactics *)
   match xgoal_fun tt with
   | (val_get_field _) => xapp_record_get tt
   | (val_set_field _) => xapp_record_set tt
+  (* | (val_record_init _) => xapp_record_new tt *)
+  end.
+
+Ltac list_boxer_to_dyns E :=
+  match E with
+  | nil => constr:(@nil dyn)
+  | (boxer ?V)::?E' => 
+       let L := list_boxer_to_dyns E' in
+       constr:((Dyn V)::L)
   end.
 
 
 (* ---------------------------------------------------------------------- *)
+(* ** Tactic [xnew] *)
 
+Axiom xapp_record_new : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fields) (vs:vals),
+  noduplicates_fields_exec ks = true ->
+  ks <> nil ->
+  List.length ks = List.length Vs ->
+  vs = encs Vs ->
+  (fun p => p ~> Record (List.combine ks Vs)) \*+ H ===> (protect Q) ->
+  H ==> ^(Wpgen_app (trm_apps (trm_val (val_record_init ks)) (trms_vals vs))) Q.
+
+Ltac xnew_core E :=
+  let Vs := list_boxer_to_dyns E in 
+  applys (@xapp_record_new Vs);
+  [ try reflexivity (* TODO *)
+  | intros ?; solve [ false ]
+  | try reflexivity
+  | try reflexivity
+  | hsimpl; simpl List.combine; simpl; hsimpl; unfold protect ].
+
+Tactic Notation "xnew" constr(E) :=
+  xnew_core E.
+
+
+(* ---------------------------------------------------------------------- *)
 
 (* TODO: 
    Set 'p '. X ':= ('p '.X '+ 1).
@@ -432,4 +599,14 @@ Ltac xapp_record tt ::= (* dummy binding in WPTactics *)
 *)
 
 
+(* TODO 
 
+Notation "'New'' `{ f1 := x1 ; f2 := x2 }" :=
+   (Wptag (Wpgen_app (trm_apps (trm_val (val_record_init (f1::f2::nil)))) (trms_vals (x1::x2::nil))))
+  (at level 0, f1 at level 0, f2 at level 0)
+  : wp_scope.
+
+Open Scope wp_scope.
+
+
+*)

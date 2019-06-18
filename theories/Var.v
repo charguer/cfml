@@ -85,7 +85,8 @@ Fixpoint var_fresh (y:var) (xs:vars) : bool :=
   | x::xs' => if var_eq x y then false else var_fresh y xs'
   end.
 
-(** [var_distinct xs] asserts that [xs] consists of a list of distinct variables. *)
+(** [var_distinct xs] asserts that [xs] consists of a list of distinct variables.
+    LATER: use [noduplicates] *)
 
 Fixpoint var_distinct (xs:vars) : Prop :=
   match xs with
