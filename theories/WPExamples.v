@@ -48,7 +48,7 @@ Lemma Triple_incr : forall (p:loc) (n:int),
     PRE (p ~~> n)
     POST (fun (r:unit) => (p ~~> (n+1))).
 Proof using.
-  xwp. xappn~.
+  xwp. xappn. hsimpl~.
 Qed.
 
 Lemma Triple_incr_frame : forall (p1 p2:loc) (n1 n2:int),
@@ -392,20 +392,6 @@ Definition head : val :=
     '| 'Cstr "cons" 'x 'q '=> 'x
     End.
 
-Ltac xfail_core tt ::=
-  hpull; 
-  pose ltac_mark;
-  intros;
-  false;
-  gen_until_mark.
-
-Tactic Notation "xfail" "~" :=
-  xfail; auto_tilde.
-
-Tactic Notation "xfail" "*" :=
-  xfail; auto_star.
-
-
 Lemma Triple_head : forall A `{EA:Enc A} p x q,
   TRIPLE (head ``p)
     PRE (p ~~> (Cons x q))
@@ -469,32 +455,6 @@ Definition set_nil : val :=
     'p ':= 'Cstr "nil".
 
 
-Definition Structural (F:Formula) : Prop :=
-  forall A `{EA:Enc A}, structural (@F A EA).
-
-Lemma Structural_Mkstruct : forall (F:Formula),
-  Structural (MkStruct F).
-Proof using. intros. intros A EA. applys structural_mkstruct. Qed.
-
-Ltac xstructural_core tt :=
-  applys Structural_Mkstruct.
-
-Tactic Notation "xstructural" :=
-  xstructural_core tt.
-
-Lemma xgc_post_lemma : forall (H:hprop) (F:Formula) `{Enc A} (Q:A->hprop),
-  Structural F ->
-  H ==> ^F (Q \*+ \GC) ->
-  H ==> ^F Q.
-Proof using. introv HF M. applys* structural_hgc. Qed.
-
-Ltac xgc_post_core tt :=
-  applys xgc_post_lemma; [ try xstructural | ].
-
-Tactic Notation "xgc_post" :=
-  xgc_post_core tt.
-
-
 (* TODO: would also need a cast ?
 Lemma xwp_lemma_funs' : forall F vs ts xs t `{EA:Enc A} H (Q Q':A->hprop),
   F = val_funs xs t ->
@@ -509,25 +469,12 @@ Proof using.
 Qed.
 *)
 
-Lemma xwp_lemma_funs' : forall F vs ts xs t `{EA:Enc A} H (Q:A->hprop),
-  F = val_funs xs t ->
-  trms_to_vals ts = Some vs ->
-  var_funs_exec (length vs) xs ->
-  H ==> ^(Wpgen (combine xs vs) t) (Q \*+ \GC) ->
-  Triple (trm_apps F ts) H Q.
-Proof using.
-  introv EF Et Hxs M. applys Triple_hgc_post. applys* xwp_lemma_funs.
-Qed.
-
-Ltac xwp_fun' tt :=
-  applys xwp_lemma_funs'; [ reflexivity | reflexivity | reflexivity | xwp_simpl ].
-
 Lemma Triple_set_nil' : forall A `{EA:Enc A} (L:list A) p,
   TRIPLE (set_nil ``p)
     PRE (p ~> MList L)
     POST (fun (_:unit) => p ~> MList (@nil A)).
 Proof using.
-  intros. (* xwp. xgc_post. *) xwp_fun' tt. hchange MList_eq ;=> v.
+  intros. xwp. hchange MList_eq ;=> v.
   xval (Nil). xapp. rewrite MList_nil_eq. hsimpl.
 Qed.
 
@@ -660,7 +607,7 @@ Proof using.
     destruct L as [|x L']; tryfalse.
     hchange MList_cons_unfold ;=> p'.
     xapp. xapp~. xapp~ ;=> q'. xapp ;=> q.
-    hchange MList_cons_fold. }
+    hchanges MList_cons_fold. }
 Qed.
 
 Notation "'Not'" := val_neg.
@@ -677,10 +624,6 @@ Definition iter : val :=
       'f (head 'p) ';
       'g 'f (tail 'p)
     End.
-
-Ltac xspec_prove_cont tt ::=
-  let H := fresh "Spec" in
-  intro H; eapply H; clear H.
 
 Lemma Triple_iter : forall `{EA:Enc A} (I:list A->hprop) (L:list A) (f:func) (p:loc),
   (forall x L1 L2, L = L1++x::L2 ->
@@ -702,10 +645,10 @@ Proof using.
   xwp. xapp~. xapp. xif ;=> C; rew_bool_eq in C.  (* TODO *)  
   { destruct L2 as [|x L2']; tryfalse. hchange MList_cons_unfold ;=> p'.
     xapp. xapp*. (* xapp (>> __ L2'). *) 
-    xapp. xapp*. hchange MList_cons_fold. }
-  { xvals* tt. }
-Qed.
-
+    xapp. xapp*. hchanges MList_cons_fold. }
+  { xval tt. subst; rew_list. hsimpl. }
+(* Qed.
+ *)
 Hint Extern 1 (Register_Spec (iter)) => Provide @Triple_iter.
 
 
@@ -811,7 +754,7 @@ Proof using.
   (* xcase *)
   applys xcase_lemma0 ;=> E1.
   { destruct L as [|x L']; hpull.
-    { intros ->. applys~ @xval_lemma 0. hsimpl. rew_list~. rewrite~ MList_nil_eq. }
+    { intros ->. applys~ @xval_lemma 0. hsimpl. rew_list~. rewrite~ MList_nil_eq. hsimpl. }
     { intros q ->. tryfalse. } }
   { applys xcase_lemma2.
     { intros x q E.
@@ -849,7 +792,7 @@ Proof using.
   { (* cons *)
     intros p2 x L2 ->.
     xlet. xapp* IH ;=> q'. xval (Cons x q'). xapp ;=> q. 
-    hchange (MList_cons_fold q). hchange (MList_cons_fold p). }
+    hchange (MList_cons_fold q). hchanges (MList_cons_fold p). }
 Qed.
 
 (* LATER: copy using loop *)
@@ -985,7 +928,7 @@ Proof using.
   (* xcase *)
   applys xcase_lemma0 ;=> E1.
   { destruct L as [|x L']; hpull.
-    { intros ->. applys~ @xval_lemma 0. hsimpl. rew_list~. rewrite~ MList_nil_eq. }
+    { intros ->. applys~ @xval_lemma 0. hsimpl. rew_list~. rewrite~ MList_nil_eq. hsimpl. }
     { intros q ->. tryfalse. } }
   { applys xcase_lemma2.
     { intros x q E.
@@ -1028,7 +971,7 @@ Proof using.
    unfold protect. hsimpl.
   intros ? ->. 
   xif ;=> C.
-  { subst. xval. hsimpl*. } (* TODO: xvals *) 
+  { subst. xval. hsimpl*. rew_bool_eq*. } (* TODO: xvals *) 
   { xval. hsimpl. destruct b; auto_false. }
 Qed.
 
@@ -1244,7 +1187,7 @@ Lemma Triple_empty : forall `{Enc A} (u:unit),
     PRE \[]
     POST (fun p => (p ~> Stack (@nil A))).
 Proof using.
-  xwp. xval nil. xapp~.
+  xwp. xval nil. xapp. hsimpl.
 Qed.
 
 Lemma Triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
@@ -1252,7 +1195,7 @@ Lemma Triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
     PRE (p ~> Stack L)
     POST (fun (u:unit) => (p ~> Stack (x::L))).
 Proof using.
-  xwp. xunfold Stack. xapp. xval (x::L). xapp~.
+  xwp. xunfold Stack. xapp. xval (x::L). xapp. hsimpl.
 Qed.
 
 Lemma Triple_pop : forall `{Enc A} (p:loc) (L:list A),

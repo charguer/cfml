@@ -81,6 +81,15 @@ Proof using. intros. rewrite <- mkstruct_MkStruct_eq. apply structural_mkstruct.
 
 Hint Resolve structural_MkStruct.
 
+(** The predicate [Structural] lifts [structural] *)
+
+Definition Structural (F:Formula) : Prop :=
+  forall A `{EA:Enc A}, structural (@F A EA).
+
+Lemma Structural_Mkstruct : forall (F:Formula),
+  Structural (MkStruct F).
+Proof using. intros. intros A EA. applys structural_mkstruct. Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tag for improved pretty-printing of CF *)

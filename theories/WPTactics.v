@@ -136,7 +136,7 @@ Tactic Notation "xspec" :=
 
 Ltac xspec_prove_cont tt :=
   let H := fresh "Spec" in
-  intro H; apply H; clear H.
+  intro H; eapply H; clear H.
 
 Ltac xspec_prove_triple tt :=
   xspec; xspec_prove_cont tt.
@@ -212,10 +212,10 @@ Lemma xwp_lemma_funs : forall F vs ts xs t `{EA:Enc A} H (Q:A->hprop),
   F = val_funs xs t ->
   trms_to_vals ts = Some vs ->
   var_funs_exec (length vs) xs ->
-  H ==> ^(Wpgen (combine xs vs) t) Q ->
+  H ==> ^(Wpgen (combine xs vs) t) (Q \*+ \GC) ->
   Triple (trm_apps F ts) H Q.
 Proof using.
-  introv HF Hvs Hxs M. lets ->: trms_to_vals_spec Hvs.
+  introv HF Hvs Hxs M. applys Triple_hgc_post. lets ->: trms_to_vals_spec Hvs.
   rewrite var_funs_exec_eq in Hxs. rew_istrue in Hxs. lets (_&Lxs&_): Hxs.
   applys* Triple_apps_funs. rewrite~ <- isubstn_eq_substn.
   applys* Triple_isubst_of_Wpgen.
@@ -225,10 +225,10 @@ Lemma xwp_lemma_fixs : forall F (f:var) vs ts xs t `{EA:Enc A} H (Q:A->hprop),
   F = val_fixs f xs t ->
   trms_to_vals ts = Some vs ->
   var_fixs_exec f (length vs) xs ->
-  H ==> ^(Wpgen (combine (f::xs) (F::vs)) t) Q ->
+  H ==> ^(Wpgen (combine (f::xs) (F::vs)) t) (Q \*+ \GC) ->
   Triple (trm_apps F ts) H Q.
 Proof using.
-  introv HF Hvs Hxs M. lets ->: trms_to_vals_spec Hvs.
+  introv HF Hvs Hxs M. applys Triple_hgc_post. lets ->: trms_to_vals_spec Hvs.
   rewrite var_fixs_exec_eq in Hxs. rew_istrue in Hxs. lets (_&Lxs&_): Hxs.
   applys* Triple_apps_fixs. rewrite <- isubstn_eq_substn; [|rew_list~].
   applys* Triple_isubst_of_Wpgen.
@@ -249,7 +249,33 @@ Ltac xwp_core tt :=
 Tactic Notation "xwp" :=
   xwp_core tt.
 
- 
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xstructural] -- for internal use *)
+
+Ltac xstructural_core tt :=
+  applys Structural_Mkstruct.
+
+Tactic Notation "xstructural" :=
+  xstructural_core tt.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xgc] *)
+
+Lemma xgc_post_lemma : forall (H:hprop) (F:Formula) `{Enc A} (Q:A->hprop),
+  Structural F ->
+  H ==> ^F (Q \*+ \GC) ->
+  H ==> ^F Q.
+Proof using. introv HF M. applys* structural_hgc. Qed.
+
+Ltac xgc_post_core tt :=
+  applys xgc_post_lemma; [ try xstructural | ].
+
+Tactic Notation "xgc_post" :=
+  xgc_post_core tt.
+
+
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xseq] *)
 
@@ -313,6 +339,7 @@ Ltac xcast_core tt :=
 
 Tactic Notation "xcast" :=
   xcast_core tt.
+
 
 
 (* ---------------------------------------------------------------------- *)
@@ -578,7 +605,7 @@ Tactic Notation "xvals" "*"  :=
 Ltac xif_pre tt :=
   xlet_xseq_xcast_repeat tt; 
   match xgoal_code_without_wptag tt with
-  | (Wpgen_if_case _ _ _) => idtac 
+  | (Wpgen_if_case _ _ _) => idtac
   end.
 
 Lemma xifval_lemma : forall `{EA:Enc A} b H (Q:A->hprop) (F1 F2:Formula),
@@ -593,9 +620,13 @@ Lemma xifval_lemma_isTrue : forall `{EA:Enc A} (P:Prop) H (Q:A->hprop) (F1 F2:Fo
   H ==> ^(Wpgen_if_case (isTrue P) F1 F2) Q.
 Proof using. introv E N. applys MkStruct_erase. case_if*. Qed.
 
+Ltac xif_post tt :=
+  rew_bool_eq.
+
 Ltac xif_core tt :=
   first [ applys @xifval_lemma_isTrue
-        | applys @xifval_lemma ].
+        | applys @xifval_lemma ];
+  xif_post tt.
 
 Tactic Notation "xif" :=
   xif_core tt.
@@ -662,14 +693,21 @@ Qed.
 (* ** Tactic [xfail] *)
 
 Ltac xfail_core tt :=
-  pose ltac_mark;
   hpull; 
+  pose ltac_mark;
+  intros;
   false;
   gen_until_mark.
 
 Tactic Notation "xfail" :=
   xfail_core tt.
 
+Tactic Notation "xfail" "~" :=
+  xfail; auto_tilde.
+
+Tactic Notation "xfail" "*" :=
+  xfail; auto_star.
+ 
 
 
 (* ---------------------------------------------------------------------- *)
