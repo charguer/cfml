@@ -1384,3 +1384,111 @@ End MListReveal.
 (* LATER:    length : using loop *)
 
 End MList.
+
+
+
+
+
+(* ********************************************************************** *)
+(* * DEPRECATED *)
+
+(* ---------------------------------------------------------------------- *)
+(* not needed
+
+Arguments MList_nil_eq : clear implicits.
+
+Lemma MList_cons_unfold : forall (p:loc) A `{EA:Enc A} x (L':list A),
+  p ~> MList (x::L') ==> \exists p', p ~~> (Cons x p') \* (p' ~> MList L').
+Proof using. intros. rewrite* MList_cons_eq. Qed.
+
+Arguments MList_cons_unfold : clear implicits.
+
+Lemma MList_cons_eq : forall (p:loc) A `{EA:Enc A} x p' (L':list A),
+  p ~~> (Cons x p') \* (p' ~> MList L') ==> p ~> MList (x::L').
+Proof using. intros. rewrite MList_cons_eq. hsimpl. Qed.
+
+Arguments MList_cons_fold : clear implicits.
+
+Lemma MList_nil_unfold : forall (p:loc) A `{EA:Enc A},
+  (p ~> MList nil) ==> (p ~~> Nil).
+Proof using. intros. rewrite~ MList_nil_eq. Qed.
+
+Arguments MList_nil_unfold : clear implicits.
+
+Lemma MList_nil_fold : forall (p:loc) A `{EA:Enc A},
+  (p ~~> Nil) ==> (p ~> MList nil).
+Proof using. intros. rewrite~ MList_nil_eq. Qed.
+
+Arguments MList_nil_fold : clear implicits.
+Arguments MList_eq : clear implicits.
+*)
+
+
+Lemma MList_contents_Cons' : forall A `{EA:Enc A} (L:list A) x p',
+  (MList_contents (Cons x p') L) ==> \exists x' L', \[L = x'::L'] \* \[``x = ``x'] \* (p' ~> MList L').
+Proof using.
+  intros. unfold MList_contents. destruct L.
+  { hpull. } (* TODO: hsimpl. should not create evars!  Show Existentials.  *)
+  { hpull ;=> p'' E. unfolds @Cons.
+    rewrite (enc_loc_eq p'), (enc_loc_eq p'') in E.
+    inverts E. hsimpl~ a L. }
+Qed.
+
+Lemma MList_contents_Nil_keep : forall A `{EA:Enc A} (L:list A),
+  (MList_contents Nil L) ==> \[L = nil] \* (MList_contents Nil L).
+Proof using.
+  intros. unfold MList_contents. destruct L; hsimpl~.
+Qed.
+
+Lemma MList_unfold_case : forall A `{EA:Enc A} (L:list A) (p:loc),
+  p ~> MList L ==>
+    match L with
+    | nil => p ~~> Nil
+    | x::L' => \exists p', (p ~~> Cons x p') \* (p' ~> MList L')
+    end.
+Proof using. intros. hchange MList_unfold ;=> v. destruct L; hsimpl~. Qed.
+Lemma MList_eq_match : forall A `{EA:Enc A} (L:list A) (p:loc),
+  p ~> MList L ==>
+    (\exists v, p ~~> v \*
+    match L with
+    | nil => \[v = Nil]
+    | x::L' => \exists p', \[v = Cons x p'] \* (p' ~> MList L')
+    end).
+Proof using. intros. rewrite~ MList_eq. Qed.
+
+
+
+Lemma MList_contents_Cons' : forall A `{EA:Enc A} (L:list A) x p',
+  (MList_contents (Cons x p') L) ==> \exists x' L', \[L = x'::L'] \* \[``x = ``x'] \* (p' ~> MList L').
+Proof using.
+  intros. unfold MList_contents. destruct L.
+  { hpull. } (* TODO: hsimpl. should not create evars!  Show Existentials.  *)
+  { hpull ;=> p'' E. unfolds @Cons.
+    rewrite (enc_loc_eq p'), (enc_loc_eq p'') in E.
+    inverts E. hsimpl~ a L. }
+Qed.
+
+
+
+
+(*
+Lemma MListSeg_cons_fold : forall `{EA:Enc A} p p' q x (L':list A),
+  p ~~> (Cons x p') \* p' ~> MListSeg q L' ==> p ~> MListSeg q (x::L').
+Proof using. intros. rewrite MListSeg_cons_eq. hsimpl. Qed.
+*)
+
+
+Lemma MListSeg_concat : forall `{EA:Enc A} p1 p2 p3 (L1 L2:list A),
+  p1 ~> MListSeg p2 L1 \* p2 ~> MListSeg p3 L2 ==> p1 ~> MListSeg p3 (L1++L2).
+Proof using.
+  intros. gen p1. induction L1 as [|x L1']; intros.
+  { rewrite MListSeg_nil. hpull ;=> E. subst. rew_list~. }
+  { rew_list. hchange (MListSeg_cons p1). hpull ;=> p1'.
+    hchange (IHL1' p1'). hchanges <- (>> MListSeg_cons p1). }
+Qed.
+
+Lemma MListSeg_last_fold : forall `{EA:Enc A} p1 p2 p3 x (L:list A),
+  p1 ~> MListSeg p2 L \* p2 ~~> (Cons x p3) ==> p1 ~> MListSeg p3 (L&x).
+Proof using.
+  intros. hchange (>> MListSeg_one_fold p2). hchanges (>> (@MListSeg_concat) p1 p2).
+Qed.
