@@ -215,7 +215,7 @@ Qed.
 
 (** A [mkstruct] can be introduced at the head of a formula satisfying [struct] *)
 
-Lemma eq_mkstruct_of_struct : forall F,
+Lemma eq_mkstruct_of_structural : forall F,
   structural F -> 
   F = mkstruct F.
 Proof using.
@@ -250,7 +250,7 @@ Lemma mkstruct_erase_l : forall F1 F2,
   F1 ===> F2 ->
   mkstruct F1 ===> F2.
 Proof using.
-  introv LF M. rewrite~ (eq_mkstruct_of_struct LF). applys* mkstruct_weaken.
+  introv LF M. rewrite~ (eq_mkstruct_of_structural LF). applys* mkstruct_weaken.
 Qed.
 
 End Mkstruct.

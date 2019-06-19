@@ -90,6 +90,16 @@ Lemma Structural_Mkstruct : forall (F:Formula),
   Structural (MkStruct F).
 Proof using. intros. intros A EA. applys structural_mkstruct. Qed.
 
+(** A [MkStruct] can be introduced at the head of a formula satisfying [Struct] *)
+
+Lemma eq_Mkstruct_of_Structural : forall (F:Formula),
+  Structural F -> 
+  F = MkStruct F.
+Proof using.
+  introv L. applys fun_ext_3. intros A EA Q.
+  unfold MkStruct. rewrite* <- eq_mkstruct_of_structural.
+Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tag for improved pretty-printing of CF *)
@@ -287,14 +297,14 @@ Fixpoint Wpgen (E:ctx) (t:trm) : Formula :=
 
 (** [Wp t] is a structural formula *)
 
-Lemma structural_Wp : forall `{EA:Enc A} t,
-  structural ((Wp t) A EA).
+Lemma Structural_Wp : forall t,
+  Structural (Wp t).
 Proof using.
-  intros. unfolds Wp. unfolds Weakestpre.
+  intros. intros A EA. unfolds Wp. unfolds Weakestpre.
   applys structural_weakestpre. applys local_Triple.
 Qed.
 
-Arguments structural_Wp : clear implicits.
+Arguments Structural_Wp : clear implicits.
 
 (** Equivalence between a [triple] and its weakest-precondition presentation. *)
 
@@ -570,7 +580,7 @@ Proof using.
   { unfold Wpsubst. simpl. rewrite List_map_eq. applys M. }
   induction ts as [|t ts']; intros.
   { simpl. rewrite List_rev_eq. rew_list.
-    apply~ mkstruct_erase_l. applys structural_Wp. }
+    apply~ mkstruct_erase_l. applys Structural_Wp. }
   { specializes IHts' __. { intros t' Ht'. applys* IHts. }
     unfold Wpaux_apps. fold (Wpaux_apps Wpgen E v0). rew_listx.
     forwards~ M: Wpgen_sound_getval E (fun t1 => trm_apps v0 (trms_vals (rev rvs) ++ t1 :: ts')).
@@ -591,7 +601,7 @@ Proof using.
   set (R := Wp (trm_while (isubst E t1) (isubst E t2))).
   applys Triple_hforall R. simpl. applys Triple_hwand_hpure_l.
   { split.
-    { applys structural_Wp. }
+    { applys Structural_Wp. }
     { clears Q. applys qimpl_Wp_of_Triple. intros Q.
       applys Triple_while_raw.
       asserts_rewrite~ (
@@ -614,7 +624,7 @@ Proof using. Opaque Ctx.add Ctx.rem.
   set (S := fun (i:int) => Wp (isubst E (trm_for x i n2 t1))).
   applys Triple_hforall S. simpl. applys Triple_hwand_hpure_l.
   { split.
-    { intros r. applys structural_Wp. }
+    { intros r. applys Structural_Wp. }
     { clears Q. intros i. applys qimpl_Wp_of_Triple. intros Q.
       applys Triple_for_raw. fold isubst.
       rewrite~ @Triple_eq_himpl_Wp. case_if.

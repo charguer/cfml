@@ -253,6 +253,26 @@ Tactic Notation "xwp" :=
 
 
 (* ---------------------------------------------------------------------- *)
+(* ** Tactic [xtriple] *)
+
+Lemma xtriple_lemma : forall t f (vs:vals) `{EA:Enc A} H (Q:A->hprop),
+  t = trm_apps f (trms_vals vs) ->
+  H ==> ^(Wptag (Wpgen_app (trm_apps f (trms_vals vs)))) (Q \*+ \GC) ->
+  Triple t H Q.
+Proof using.
+  introv E M. subst t. applys Triple_hgc_post.
+  applys* Triple_of_Wp. unfolds Wpgen_app. 
+  rewrite <- eq_Mkstruct_of_Structural in M. applys M.
+  applys Structural_Wp.
+Qed.
+
+Tactic Notation "xtriple" :=
+  applys xtriple_lemma;
+  [ simpl combiner_to_trm; rew_trms_vals; reflexivity 
+  | ].
+
+
+(* ---------------------------------------------------------------------- *)
 (* ** Tactic [xstructural] -- for internal use *)
 
 Ltac xstructural_core tt :=
@@ -636,6 +656,9 @@ Tactic Notation "xfun" :=
 
 Ltac xif_pre tt :=
   xlet_xseq_xcast_repeat tt; 
+  try match xgoal_code_without_wptag tt with
+  | (Wpgen_app _) => xapp
+  end;
   match xgoal_code_without_wptag tt with
   | (Wpgen_if_case _ _ _) => idtac
   end.
@@ -656,6 +679,7 @@ Ltac xif_post tt :=
   xcleanup.
 
 Ltac xif_core tt :=
+  xif_pre tt;
   first [ applys @xifval_lemma_isTrue
         | applys @xifval_lemma ];
   xif_post tt.
@@ -774,3 +798,12 @@ Lemma eliminate_eta_in_code : forall `{EA:Enc A} H1 (Q1:A->hprop) (F1:Formula),
     CODE (fun (A0 : Type) (EA0 : Enc A0) (Q : A0 -> hprop) => F1 A0 EA0 Q)
     POST Q1).
 Proof using. introv M. hchanges M. Qed.
+
+
+
+(* ********************************************************************** *)
+
+(* TODO: decode typeclass *)
+
+(* LATER: xif automates xapp *)
+(* LATER: rename xchange xsimpl *)

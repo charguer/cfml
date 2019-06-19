@@ -22,35 +22,35 @@ Open Scope trm_scope.
 (* ---------------------------------------------------------------------- *)
 (** Increment function *)
 
-Definition val_incr : val :=
+Definition incr : val :=
   VFun 'p :=
    'p ':= ((val_get 'p) '+ 1).
 
 Lemma Triple_incr : forall (p:loc) (n:int),
-  TRIPLE (val_incr p)
+  TRIPLE (incr p)
     PRE (p ~~> n)
     POST (fun (r:unit) => (p ~~> (n+1))).
 Proof using.
-  xwp. xappn~.
+  xwp. xappn~. hsimpl.
 Qed.
 
-Hint Extern 1 (Register_Spec val_incr) => Provide Triple_incr.
+Hint Extern 1 (Register_Spec incr) => Provide Triple_incr.
 
 
 (* ---------------------------------------------------------------------- *)
 (** Decrement function *)
 
-Definition val_decr : val :=
+Definition decr : val :=
   VFun 'p :=
    'p ':= ((val_get 'p) '- 1).
 
 Lemma Triple_decr : forall (p:loc) (n:int),
-  TRIPLE (val_decr p)
+  TRIPLE (decr p)
     PRE (p ~~> n)
     POST (fun (r:unit) => (p ~~> (n-1))).
 Proof using.
-  xwp. xappn~.
+  xwp. xappn~. hsimpl.
 Qed.
 
-Hint Extern 1 (Register_Spec val_decr) => Provide Triple_decr.
+Hint Extern 1 (Register_Spec decr) => Provide Triple_decr.
 

@@ -1647,15 +1647,24 @@ Ltac hchanges_base E modif :=
 
 Tactic Notation "hchanges" constr(E) :=
   hchanges_base E __.
-Tactic Notation "hchanges" "->" constr(E) :=
-  hchanges_base E himpl_of_eq.
-Tactic Notation "hchange" "<-" constr(E) :=
-  hchanges_base E himpl_of_eq_sym.
-
 Tactic Notation "hchanges" "~" constr(E) :=
   hchanges E; auto_tilde.
 Tactic Notation "hchanges" "*" constr(E) :=
   hchanges E; auto_star.
+
+Tactic Notation "hchanges" "->" constr(E) :=
+  hchanges_base E himpl_of_eq.
+Tactic Notation "hchanges"  "~" "->" constr(E) :=
+  hchanges -> E; auto_tilde.
+Tactic Notation "hchanges" "*" "->" constr(E) :=
+  hchanges -> E; auto_star.
+
+Tactic Notation "hchanges" "<-" constr(E) :=
+  hchanges_base E himpl_of_eq_sym.
+Tactic Notation "hchanges" "~" "<-" constr(E) :=
+  hchanges <- E; auto_tilde.
+Tactic Notation "hchanges" "*" "<-" constr(E) :=
+  hchanges <- E; auto_star.
 
 Tactic Notation "hchange" constr(E1) "," constr(E2) :=
   hchange E1; try hchange E2.

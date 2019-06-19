@@ -11,7 +11,7 @@ License: MIT.
 Set Implicit Arguments.
 Generalizable Variables A B.
 
-From Sep Require Export WPRecord.
+From Sep Require Export WPLib.
 
 Export NotationForVariables NotationForTerms.
 Open Scope liblist_scope.
