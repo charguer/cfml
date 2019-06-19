@@ -159,9 +159,13 @@ Lemma MList_unfold_case : forall A `{EA:Enc A} (L:list A) (p:loc),
     end.
 Proof using. intros. hchange MList_unfold ;=> v. destruct L; hsimpl~. Qed.
 
+Lemma MList_cons_eq : forall (p:loc) A `{EA:Enc A} x (L':list A),
+  p ~> MList (x::L') = \exists p', p ~~> (Cons x p') \* (p' ~> MList L').
+Proof using. intros. xunfold MList at 1. hsimpl~. Qed.
+
 Lemma MList_cons_unfold : forall (p:loc) A `{EA:Enc A} x (L':list A),
   p ~> MList (x::L') ==> \exists p', p ~~> (Cons x p') \* (p' ~> MList L').
-Proof using. intros. xunfold MList at 1. hsimpl~. Qed.
+Proof using. intros. rewrite* MList_cons_eq. Qed.
 
 Arguments MList_cons_unfold : clear implicits.
 
@@ -174,7 +178,7 @@ Arguments MList_not_nil_unfold : clear implicits.
 
 Lemma MList_cons_fold : forall (p:loc) A `{EA:Enc A} x p' (L':list A),
   p ~~> (Cons x p') \* (p' ~> MList L') ==> p ~> MList (x::L').
-Proof using. intros. rewrites (>> MList_eq (x::L')). unfold MList_contents. hsimpl~. Qed.
+Proof using. intros. rewrite MList_cons_eq. hsimpl. Qed.
 
 Arguments MList_cons_fold : clear implicits.
 
@@ -741,5 +745,87 @@ Qed.
 *)
 
 
+
+
+
+
+
+(* ********************************************************************** *)
+(* * Segments *)
+
+(** Representation *)
+
+Fixpoint MListSeg A `{EA:Enc A} (q:loc) (L:list A) (p:loc) : hprop :=
+  match L with
+  | nil => \[p = q]
+  | x::L' => \exists p', p ~~> (Cons x p') \* (p' ~> MListSeg q L')
+  end.
+
+Section SegProperties.
+
+Lemma MListSeg_nil_eq : forall `{EA:Enc A} p q,
+  p ~> (MListSeg q (@nil A)) = \[p = q].
+Proof using. intros. xunfold~ MListSeg. Qed.
+
+Lemma MListSeg_cons_eq : forall `{EA:Enc A} p q x (L':list A),
+  p ~> MListSeg q (x::L') =
+  \exists (p':loc), (p ~~> Cons x p') \* p' ~> MListSeg q L'.
+Proof using. intros. xunfold~ MListSeg. Qed.
+
+Global Opaque MListSeg.
+
+Lemma MListSeg_nil_fold : forall `{EA:Enc A} p,
+  \[] ==> p ~> MListSeg p (@nil A).
+Proof using. intros. rewrite MListSeg_nil_eq. hsimpl~. Qed.
+
+Lemma MListSeg_cons_fold : forall `{EA:Enc A} p p' q x (L':list A),
+  p ~~> (Cons x p') \* p' ~> MListSeg q L' ==> p ~> MListSeg q (x::L').
+Proof using. intros. rewrite MListSeg_cons_eq. hsimpl. Qed.
+
+Lemma MListSeg_one_fold : forall `{EA:Enc A} p q (x:A),
+  p ~~> (Cons x q) ==> p ~> MListSeg q (x::nil).
+Proof using.
+  intros. hchange (MListSeg_nil_fold q). hchanges (>> MListSeg_cons_fold p).
+Qed.
+
+Lemma MListSeg_concat : forall `{EA:Enc A} p1 p2 p3 (L1 L2:list A),
+  p1 ~> MListSeg p2 L1 \* p2 ~> MListSeg p3 L2 ==> p1 ~> MListSeg p3 (L1++L2).
+Proof using.
+  intros. gen p1. induction L1 as [|x L1']; intros.
+  { rewrite MListSeg_nil_eq. hpull ;=> E. subst. rew_list~. }
+  { rew_list. hchange (MListSeg_cons_eq p1). hpull ;=> p1'.
+    hchange (IHL1' p1'). hchanges (>> MListSeg_cons_fold p1). }
+Qed.
+
+Lemma MListSeg_last_fold : forall `{EA:Enc A} p1 p2 p3 x (L:list A),
+  p1 ~> MListSeg p2 L \* p2 ~~> (Cons x p3) ==> p1 ~> MListSeg p3 (L&x).
+Proof using.
+  intros. hchange (>> MListSeg_one_fold p2). hchanges (>> (@MListSeg_concat) p1 p2).
+Qed.
+
+Ltac auto_star ::=
+  try solve [ intuition eauto
+            | intros; subst; rew_list in *; 
+              solve [ math 
+                    | auto_false_base ltac:(fun tt => intuition eauto) ] ].
+
+Lemma MList_eq_MListSeg : forall `{EA:Enc A} p (L:list A),
+  p ~> MList L = (\exists q, p ~> MListSeg q L \* q ~~> Nil).
+Proof using.
+  intros. gen p. induction L as [|x L']; intros.
+  { rewrite MList_nil_eq. hsimpl.
+    { hsimpl. rewrite MListSeg_nil_eq. hsimpl~. }
+    { hpull ;=> p'. rewrite MListSeg_nil_eq. hsimpl*. } }
+  { rewrite MList_cons_eq. applys himpl_antisym.
+    { hpull ;=> p'. rewrite IHL'. hpull ;=> q. hchanges MListSeg_cons_fold. }
+    { hpull ;=> q. rewrite MListSeg_cons_eq. hpull ;=> p'. hchanges <- IHL'. } }
+Qed.
+
+End SegProperties.
 End MList.
+
+
+(* TODO: remove unfold/fold lemmas, it's not needed to state them *)
+
+
 
