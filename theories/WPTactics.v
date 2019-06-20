@@ -332,7 +332,7 @@ Tactic Notation "xseq" :=
 Lemma xlet_lemma : forall A1 (EA1:Enc A1) H `{EA:Enc A} (Q:A->hprop) (F1:Formula) (F2of:forall `{EA1:Enc A2},A2->Formula),
   H ==> ^F1 (fun (X:A1) => ^(F2of X) Q) -> 
   H ==> ^(Wpgen_let F1 (@F2of)) Q.
-Proof using. introv M. applys MkStruct_erase. hsimpl* A1 EA1. Qed.
+Proof using. introv M. applys MkStruct_erase. xsimpl* A1 EA1. Qed.
 
 Definition xlet_typed_lemma := @MkStruct_erase.
 
@@ -409,7 +409,7 @@ Ltac xlet_xseq_xcast_repeat tt :=
   xapp_pre tt.
   applys xapp_find_spec_lemma.
   xspec_prove_triple tt .
-  xapp_select_lemma tt. hsimpl. xapp_post tt.
+  xapp_select_lemma tt. xsimpl. xapp_post tt.
 *)
 
 
@@ -455,7 +455,7 @@ Ltac xapp_pre tt :=
   end.
 
 Ltac xapp_post tt :=
-  hsimpl; unfold protect; xcleanup.
+  xsimpl; unfold protect; xcleanup.
 
 Lemma xapp_find_spec_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
   Triple t H1 Q1 ->
@@ -567,14 +567,14 @@ Lemma xval_lemma : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
   v = ``V ->
   H ==> Q V ->
   H ==> ^(Wpgen_val v) Q.
-Proof using. introv E N. subst. applys MkStruct_erase. hsimpl~ V. Qed.
+Proof using. introv E N. subst. applys MkStruct_erase. xsimpl~ V. Qed.
 
 (* NEEDED? *)
 Lemma xval_lemma_val : forall `{EA:Enc A} (V:A) v H (Q:val->hprop),
   v = ``V ->
   H ==> Q (``V) ->
   H ==> ^(Wpgen_val v) Q.
-Proof using. introv E N. subst. applys MkStruct_erase. hsimpl~ (``V). Qed.
+Proof using. introv E N. subst. applys MkStruct_erase. xsimpl~ (``V). Qed.
 
 (* [xval_pre tt] automatically performs the necessary 
    [xlet], [xseq] and [xcast], then checks that the goal 
@@ -612,10 +612,10 @@ Tactic Notation "xval" "~" :=
 Tactic Notation "xval" "*"  :=
   xval; auto_star.
 
-(** [xvals] is like [xval] followed with [hsimpl] *)
+(** [xvals] is like [xval] followed with [xsimpl] *)
 
 Ltac xvals_arg E :=
-  xval E; hsimpl.
+  xval E; xsimpl.
 
 Tactic Notation "xvals" uconstr(E) :=
   xvals_arg E.
@@ -625,7 +625,7 @@ Tactic Notation "xvals" "*" uconstr(E) :=
   xvals E; auto_star.
 
 Ltac xvals_core tt :=
-  xval; hsimpl.
+  xval; xsimpl.
 
 Tactic Notation "xvals" :=
   xvals_core tt.
@@ -773,15 +773,15 @@ Lemma xreturn_lemma_typed : forall `{Enc A1} (F:(A1->hprop)->hprop) (Q:A1->hprop
   H ==> F Q ->
   H ==> ^(Formula_cast F) Q.
 Proof using.
-  introv M. unfold Formula_cast. hsimpl* Q. applys RetypePost_refl.
+  introv M. unfold Formula_cast. xsimpl* Q. applys RetypePost_refl.
 Qed.
 
 Lemma xreturn_lemma_val : forall `{Enc A1} (F:(A1->hprop)->hprop) (Q:val->hprop) H,
   H ==> F (fun (X:A1) => Q (enc X)) ->
   H ==> ^(Formula_cast F) Q.
 Proof using.
-  introv M. unfold Formula_cast. hsimpl* Q.
-  unfold RetypePost. intros X. hsimpl* X.
+  introv M. unfold Formula_cast. xsimpl* Q.
+  unfold RetypePost. intros X. xsimpl* X.
 Qed.
 
 
@@ -806,4 +806,3 @@ Proof using. introv M. hchanges M. Qed.
 (* TODO: decode typeclass *)
 
 (* LATER: xif automates xapp *)
-(* LATER: rename xchange xsimpl *)

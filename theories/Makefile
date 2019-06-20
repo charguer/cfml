@@ -34,7 +34,7 @@ export TLC
 ##############################################################################
 # List of files
 
-SRC_CORE := TLCbuffer Fmap Var Hsimpl Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics WPRecord Example ExampleList ExampleStack WPExamples WPExamplesDetails WPLib 
+SRC_CORE := TLCbuffer Fmap Var SepSimpl Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics WPRecord Example ExampleList ExampleStack WPExamples WPExamplesDetails WPLib 
 
 SRC_MORE := SepBaseAltProofs SepCredits SepRO
 

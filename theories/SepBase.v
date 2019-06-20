@@ -384,7 +384,7 @@ Proof using. intros. auto. Qed.
 Lemma hsingle_to_hfield : forall l k v,
   l <> null ->
   ((l+k)%nat ~~~> v) ==> l`.`k ~~~> v.
-Proof using. intros. unfold hfield. hsimpl~. Qed.
+Proof using. intros. unfold hfield. xsimpl~. Qed.
 
 Arguments hsingle_to_hfield : clear implicits.
 
@@ -394,12 +394,12 @@ Global Opaque hsingle hfield.
 (* ---------------------------------------------------------------------- *)
 (* ** Configuration of tactics *)
 
-(* ** Configure [hsimpl] to make it aware of [hsingle] *)
+(* ** Configure [xsimpl] to make it aware of [hsingle] *)
 
-Ltac hsimpl_hook H ::=
+Ltac xsimpl_hook H ::=
   match H with
-  | hsingle _ _ => hsimpl_cancel_same H
-  | hfield _ _ _ => hsimpl_cancel_same H
+  | hsingle _ _ => xsimpl_cancel_same H
+  | hfield _ _ _ => xsimpl_cancel_same H
   end.
 
 (* ** Configure [haffine] to make it aware of [haffine_any] *)
@@ -708,7 +708,7 @@ Proof using.
   sets h1': (Fmap.single l v).
   exists (h1' \u h) (val_loc l). splits~.
   { applys~ eval_ref_sep. }
-  { apply~ hstar_intro. { exists l. hhsimpl~. } }
+  { apply~ hstar_intro. { exists l. hxsimpl~. } }
 Qed.
 
 Lemma hoare_get : forall H v l,
@@ -719,7 +719,7 @@ Proof using.
   intros. intros h Hh. exists h v. splits~.
   { destruct Hh as (h1&h2&(N1a&N1b)&N2&N3&N4).
     subst h. applys* eval_get_sep. }
-  { hhsimpl~. }
+  { hxsimpl~. }
 Qed.
 
 Lemma hoare_set : forall H w l v,
@@ -759,7 +759,7 @@ Lemma hoare_unop : forall v H op v1,
 Proof using.
   introv R. intros h Hh. exists h v. splits.
   { applys* eval_unop. }
-  { hhsimpl~. }
+  { hxsimpl~. }
 Qed.
 
 Lemma hoare_binop : forall v H op v1 v2,
@@ -770,7 +770,7 @@ Lemma hoare_binop : forall v H op v1 v2,
 Proof using.
   introv R. intros h Hh. exists h v. splits.
   { applys* eval_binop. }
-  { hhsimpl~. }
+  { hxsimpl~. }
 Qed.
 
 End HoarePrimitives.
@@ -822,7 +822,7 @@ Lemma hoare_of_triple : forall t H Q HF,
   triple t H Q ->
   hoare t ((H \* HF) \* \GC) (fun r => (Q r \* HF) \* \GC).
 Proof using.
-  introv M. applys hoare_conseq. { applys M. } { hsimpl. } { hsimpl. }
+  introv M. applys hoare_conseq. { applys M. } { xsimpl. } { xsimpl. }
 Qed.
 
 (** The extraction rules for [hoare] are not needed in this file, but are useful
@@ -898,7 +898,7 @@ Lemma triple_hany_pre : forall t H H' Q,
 Proof using.
   introv M. applys triple_conseq.
   { applys* triple_htop_pre. }
-  { hsimpl. } { hsimpl. }
+  { xsimpl. } { xsimpl. }
 Qed.
 
 Lemma triple_hany_post : forall t H H' Q,
@@ -906,7 +906,7 @@ Lemma triple_hany_post : forall t H H' Q,
   triple t H Q.
 Proof using.
   introv M. applys triple_htop_post.
-  applys triple_conseq M; hsimpl.
+  applys triple_conseq M; xsimpl.
 Qed.
 
 Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
@@ -1092,7 +1092,7 @@ Proof using.
   introv M1 M2 M3. applys* triple_if_trm.
   { intros v. tests C: (is_val_bool v).
     { destruct C as (b&E). subst. applys* triple_if_case. }
-    { xchange* M3. xpull ;=>. false. } }
+    { xtchange* M3. xpull ;=>. false. } }
 Qed.
 
 Lemma triple_apps_funs : forall xs F (Vs:vals) t1 H Q,
@@ -1225,7 +1225,7 @@ Lemma triple_for_inv : forall (I:int->hprop) H' (x:var) n1 n2 t3 H Q,
   (I (n2+1) \* H' ==> Q val_unit \* \GC) ->
   triple (trm_for x n1 n2 t3) H Q.
 Proof using.
-  introv N M1 M2 M3. xchange (rm M1). gen N M2.
+  introv N M1 M2 M3. xtchange (rm M1). gen N M2.
   induction_wf IH: (wf_upto (n2+1)) n1; intros.
   tests C: (n1 = n2+1).
   { xapply* triple_for_gt. hchanges M3. }
@@ -1271,7 +1271,7 @@ Lemma triple_ref : forall v,
     (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
 Proof using.
   intros. applys triple_of_hoare. intros HF. rew_heap.
-  esplit; split. { applys hoare_ref. } { hsimpl*. }
+  esplit; split. { applys hoare_ref. } { xsimpl*. }
 Qed.
 
 Lemma triple_get : forall v l,
@@ -1280,7 +1280,7 @@ Lemma triple_get : forall v l,
     (fun x => \[x = v] \* (l ~~~> v)).
 Proof using.
   intros. applys triple_of_hoare. intros HF.
-  esplit; split. { applys hoare_get. } { hsimpl*. }
+  esplit; split. { applys hoare_get. } { xsimpl*. }
 Qed.
 
 Lemma triple_set : forall w l v,
@@ -1289,7 +1289,7 @@ Lemma triple_set : forall w l v,
     (fun r => \[r = val_unit] \* l ~~~> w).
 Proof using.
   intros. applys triple_of_hoare. intros HF.
-  esplit; split. { applys hoare_set. } { hsimpl*. }
+  esplit; split. { applys hoare_set. } { xsimpl*. }
 Qed.
 
 Lemma triple_set' : forall w l v,
@@ -1305,7 +1305,7 @@ Lemma triple_alloc : forall n,
     (fun r => \exists l, \[r = val_loc l /\ l <> null] \* Alloc (abs n) l).
 Proof using.
   intros. applys triple_of_hoare. intros HF.
-  esplit; split. { applys~ hoare_alloc. } { hsimpl*. }
+  esplit; split. { applys~ hoare_alloc. } { xsimpl*. }
 Qed.
 
 
@@ -1317,7 +1317,7 @@ Lemma triple_unop : forall v op v1,
   triple (op v1) \[] (fun r => \[r = v]).
 Proof using.
   introv R. applys triple_of_hoare. intros HF.
-  esplit; split. { applys* hoare_unop. } { hsimpl*. }
+  esplit; split. { applys* hoare_unop. } { xsimpl*. }
 Qed.
 
 Lemma triple_neg : forall (b1:bool),
@@ -1337,7 +1337,7 @@ Lemma triple_binop : forall v op v1 v2,
   triple (op v1 v2) \[] (fun r => \[r = v]).
 Proof using.
   introv R. applys triple_of_hoare. intros HF.
-  esplit; split. { applys* hoare_binop. } { hsimpl*. }
+  esplit; split. { applys* hoare_binop. } { xsimpl*. }
 Qed.
 
 Lemma triple_eq : forall v1 v2,

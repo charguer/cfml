@@ -43,14 +43,14 @@ Lemma RO_himpl_RO_hstar_RO : forall H,
   RO H ==> (RO H \* RO H).
 Proof using. intros. applys RO_duplicatable. Qed.
 
-Lemma triple_xchange : forall (H1 H1':hprop), H1 ==> H1' ->
+Lemma triple_xtchange : forall (H1 H1':hprop), H1 ==> H1' ->
   forall t H H2 Q,
   H ==> H1 \* H2 ->
   triple t (H1' \* H2) Q ->
   triple t H Q.
 Proof using.
   introv M1 M2 M. applys~ triple_conseq M2.
-  applys* triple_conseq (H1' \* H2). hsimpl~.
+  applys* triple_conseq (H1' \* H2). xsimpl~.
 Qed.
 
 Lemma triple_frame_read_only_conseq : forall t H1 Q1 H2 H Q,
@@ -71,7 +71,7 @@ Lemma triple_get : forall v l,
     (fun x => \[x = v] \* l ~~~> v).
 Proof using.
   intros. applys triple_frame_read_only_conseq (l ~~~> v).
-  { hsimpl. } { apply _. }
+  { xsimpl. } { apply _. }
   { rew_heap. applys triple_get_ro. }
   { auto. }
 Qed.
@@ -89,7 +89,7 @@ Lemma triple_frame : forall t H1 Q1 H2,
   triple t (H1 \* H2) (Q1 \*+ H2).
 Proof using.
   introv M N. applys~ triple_frame_read_only.
-  applys~ triple_conseq (H1 \* \Top). hsimpl.
+  applys~ triple_conseq (H1 \* \Top). xsimpl.
   applys* triple_htop_pre.
 Qed.
 
@@ -132,11 +132,11 @@ Lemma triple_ref_apply : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop)
     PRE (RO(p ~~~> v) \* H)
     POST Q).
 Proof using.
-  introv M. xdef. xchange (@RO_himpl_RO_hstar_RO (p ~~~> v)).
+  introv M. xdef. xtchange (@RO_himpl_RO_hstar_RO (p ~~~> v)).
   rew_heap. applys triple_let (RO (p ~~~> v)).
   { applys triple_get_ro. }
   { intros x; simpl. xpull ;=> E. subst x.
-    applys triple_conseq M; hsimpl. }
+    applys triple_conseq M; xsimpl. }
 Qed.
 
 (* Note: this specification allows [f] to call [val_get] on [r],
@@ -185,14 +185,14 @@ Proof using.
   applys triple_let.
   { applys triple_get. }
   { intros x; simpl. xpull ;=> E. subst x.
-    applys triple_let' \[]. { hsimpl. }
+    applys triple_let' \[]. { xsimpl. }
     applys~ triple_frame_read_only_conseq (p ~~~> v).
-    { applys triple_conseq M; hsimpl. }
-    { hsimpl. }
+    { applys triple_conseq M; xsimpl. }
+    { xsimpl. }
     { clear M. intros y; simpl. xpull.
       applys~ triple_frame_conseq (Q y).
       { applys triple_set. }
-      { hsimpl~. } } }
+      { xsimpl~. } } }
 Qed.
 
 
@@ -211,7 +211,7 @@ Lemma triple_htop_pre' : forall H2 H1 t H Q,
   triple t H Q.
 Proof using.
   introv W M. applys triple_conseq; [| applys triple_htop_pre M |].
-  { hchange W. hsimpl. } { auto. }
+  { hchange W. xsimpl. } { auto. }
 Qed.
 
 
@@ -224,11 +224,11 @@ Definition Box (n:int) (p:loc) :=
 
 Lemma Box_unfold : forall p n,
   (p ~> Box n) ==> \exists (q:loc), (p ~~~> q) \* (q ~~~> n).
-Proof using. intros. xunfold Box. hsimpl. Qed.
+Proof using. intros. xunfold Box. xsimpl. Qed.
 
 Lemma Box_fold : forall p q n,
   (p ~~~> q) \* (q ~~~> n) ==> (p ~> Box n).
-Proof using. intros. xunfold Box. hsimpl. Qed.
+Proof using. intros. xunfold Box. xsimpl. Qed.
 
 Lemma RO_Box_unfold : forall p n,
   RO (p ~> Box n) ==> RO (p ~> Box n) \* \exists (q:loc), RO (p ~~~> q) \* RO (q ~~~> n).
@@ -254,10 +254,10 @@ Lemma triple_box_get : forall p n,
     PRE (RO (p ~> Box n))
     POST (fun r => \[r = val_int n]).
 Proof using.
-  intros. xdef. xchange (RO_Box_unfold p). xpull ;=> q.
-  applys triple_htop_pre' (RO (p ~> Box n)). hsimpl. (* not need, ideally *)
+  intros. xdef. xtchange (RO_Box_unfold p). xpull ;=> q.
+  applys triple_htop_pre' (RO (p ~> Box n)). xsimpl. (* not need, ideally *)
   rew_heap. applys triple_let' __ (RO (p ~~~> q)).
-  { hsimpl. }
+  { xsimpl. }
   { applys triple_get_ro. }
   { intros x; simpl; xpull ;=> E; subst x. applys triple_get_ro. }
 Qed.
@@ -291,13 +291,13 @@ Lemma triple_box_twice : forall (f:val) p n (F:int->int),
     PRE (p ~> Box n)
     POST (fun r => p ~> Box (2 * F n)).
 Proof using.
-  introv M. xdef. xchange (Box_unfold p). xpull ;=> q.
+  introv M. xdef. xtchange (Box_unfold p). xpull ;=> q.
   applys triple_let' __ (p ~~~> q).
-  { hsimpl. }
+  { xsimpl. }
   { rew_heap. applys triple_get. }
   { intros x; simpl; xpull ;=> E; subst x.
   applys triple_let' __ (q ~~~> n).
-  { hsimpl. }
+  { xsimpl. }
   { rew_heap. applys triple_get. }
   { intros x; simpl; xpull ;=> E; subst x.
 Abort.

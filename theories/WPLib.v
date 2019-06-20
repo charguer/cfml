@@ -31,7 +31,7 @@ Lemma Triple_incr : forall (p:loc) (n:int),
     PRE (p ~~> n)
     POST (fun (r:unit) => (p ~~> (n+1))).
 Proof using.
-  xwp. xappn~. hsimpl.
+  xwp. xappn~. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec incr) => Provide Triple_incr.
@@ -49,7 +49,7 @@ Lemma Triple_decr : forall (p:loc) (n:int),
     PRE (p ~~> n)
     POST (fun (r:unit) => (p ~~> (n-1))).
 Proof using.
-  xwp. xappn~. hsimpl.
+  xwp. xappn~. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec decr) => Provide Triple_decr.

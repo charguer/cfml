@@ -32,7 +32,7 @@ Lemma wp_equiv : forall t H Q,
   triple t H Q <-> (H ==> wp t Q).
 Proof using.
   intros. unfold wp. iff M.
-  { hsimpl. rew_heap~. }
+  { xsimpl. rew_heap~. }
   { applys~ triple_conseq (rm M). xpull~. }
 Qed.
 

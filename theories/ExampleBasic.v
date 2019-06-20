@@ -30,7 +30,7 @@ Lemma Triple_swap_neq : forall A1 A2 `{EA1:Enc A1} `{EA2:Enc A2} (v:A1) (w:A2) p
     PRE (p ~~> v \* q ~~> w)
     POST (fun (r:unit) => p ~~> w \* q ~~> v).
 Proof using.
-  xcf. xapps. xapps. xapps. xapps. hsimpl~.
+  xcf. xapps. xapps. xapps. xapps. xsimpl~.
 Qed.
 
 Lemma Triple_swap_eq : forall A1 `{EA1:Enc A1} (v:A1) p,
@@ -38,7 +38,7 @@ Lemma Triple_swap_eq : forall A1 `{EA1:Enc A1} (v:A1) p,
     PRE (p ~~> v)
     POST (fun (r:unit) => p ~~> v).
 Proof using.
-  xcf. xapps. xapps. xapps. xapps. hsimpl~.
+  xcf. xapps. xapps. xapps. xapps. xsimpl~.
 Qed.
 
 
@@ -52,7 +52,7 @@ Lemma Triple_val_example_let : forall n,
     PRE \[]
     POST (fun r => \[r = 2*n]).
 Proof using.
-  xcf. xapps. xapps. xapp. hsimpl. math.
+  xcf. xapps. xapps. xapp. xsimpl. math.
 Qed.
 
 
@@ -66,7 +66,7 @@ Lemma Triple_val_example_one_ref : forall n,
     PRE \[]
     POST (fun r => \[r = n+2]).
 Proof using.
-  xcf. xapps. xapps ;=> r. xapp~. xapp~. hsimpl. math.
+  xcf. xapps. xapps ;=> r. xapp~. xapp~. xsimpl. math.
 Qed.
 
 
@@ -83,7 +83,7 @@ Proof using.
   xcf. xapp ;=> i. xapp ;=> r.
   xapp~. xapp~. xapps. xapps. xapps. xapps~.
   xapps. xapps. xapps.
-  hsimpl. math.
+  xsimpl. math.
 Qed.
 
 
@@ -241,10 +241,10 @@ Qed.
     =>> Hn. xcf. xapps.
     xfor_inv (fun i => r ~~> (facto (i-1))).
     { math. }
-    { xsimpl. forwards: facto_zero. easy. }
-    { =>> Hi. xapps. xapps. xsimpl.
+    { oldxsimpl. forwards: facto_zero. easy. }
+    { =>> Hi. xapps. xapps. oldxsimpl.
       rew_maths. rewrite (@facto_succ i). ring.  math. }
-    xapps.  xsimpl. rew_maths. auto.
+    xapps.  oldxsimpl. rew_maths. auto.
   Qed.
 
 
@@ -284,10 +284,10 @@ Qed.
     =>> Hn. xcf. xapps. xapps.
     xfor_inv (fun i => a ~~> (fib i) \* b ~~> (fib (i+1)) ).
     { math. }
-    { xsimpl. rewrite fib_base. math. math. rewrite~ fib_base. (*math. math.*) }
-    { =>> Hi. xapps. xapps. xrets. xapps. xapps. xapps. xsimpl.
+    { oldxsimpl. rewrite fib_base. math. math. rewrite~ fib_base. (*math. math.*) }
+    { =>> Hi. xapps. xapps. xrets. xapps. xapps. xapps. oldxsimpl.
       rew_maths. rewrite~ (@fib_succ (i+2)). rew_maths. math_rewrite ((i + 2)-1 = i+1). math. }
-    xapps.  xsimpl~.
+    xapps.  oldxsimpl~.
     (* </EXO> *)
   Qed.
 
@@ -297,12 +297,12 @@ Qed.
     =>> Hn. xcf. xapps. xapps.
     xfor_inv (fun i => a ~~> (fib i) \* b ~~> (fib (i+1))).
     { math. }
-    { xsimpl.
+    { oldxsimpl.
       { forwards~: fib_base. math. }
       { forwards~: fib_base. math. } }
-    { introv Hi. xapps. xapps. xret. intros. xapps. xapps. xapps. xsimpl.
+    { introv Hi. xapps. xapps. xret. intros. xapps. xapps. xapps. oldxsimpl.
       rewrite fib_succ. rew_maths. math. math. }
-    xapps. xsimpl. auto.
+    xapps. oldxsimpl. auto.
   *)
 
 
@@ -331,13 +331,13 @@ Qed.
     introv Hn. xcf. xapps. xapps.
     xwhile_inv_basic (fun b k => \[b = isTrue (k < n)] \* \[k <= n] \* i ~~> k \* r ~~> k)
       (upto n).
-    { xsimpl. eauto. eauto. }
-    { => b k. xpull. => Hb Hk. xapps. xrets. auto. autos*. } (* short for: xret; xsimpl. *)
-    { => k. xpull. => Hb Hk. xapps. xapps. xsimpl.
+    { oldxsimpl. eauto. eauto. }
+    { => b k. xpull. => Hb Hk. xapps. xrets. auto. autos*. } (* short for: xret; oldxsimpl. *)
+    { => k. xpull. => Hb Hk. xapps. xapps. oldxsimpl.
       { math. }
       { eauto. }
       { hnf. math. } }
-    =>> Hb Hk. xclean. xapps. xsimpl. subst. math.
+    =>> Hb Hk. xclean. xapps. oldxsimpl. subst. math.
   Qed.
 
 
@@ -364,14 +364,14 @@ Qed.
     xwhile_inv_basic (fun b k => \[b = isTrue (k <= n)] \* \[2 <= k <= n+1]
                                  \* i ~~> k \* r ~~> (facto (k-1)))
       (upto (n+1)).
-    { xsimpl. rew_maths. rewrite~ facto_one. math. eauto. }
-    { => b k. xpull. => Hb Hk. xapps. xrets. auto. autos*. } (* short for: xret; xsimpl. *)
-    { => k. xpull. => Hb Hk. xapps. xapps. xapps. xapps. xsimpl.
+    { oldxsimpl. rew_maths. rewrite~ facto_one. math. eauto. }
+    { => b k. xpull. => Hb Hk. xapps. xrets. auto. autos*. } (* short for: xret; oldxsimpl. *)
+    { => k. xpull. => Hb Hk. xapps. xapps. xapps. xapps. oldxsimpl.
       { rew_maths. rewrite (@facto_succ k). ring. math. }
       { math. }
       { eauto. }
       { math. } }
-    =>> Hb Hk. xclean. xapps. xsimpl. subst. fequal. math.
+    =>> Hb Hk. xclean. xapps. oldxsimpl. subst. fequal. math.
     (* </EXO> *)
   Qed.
 
@@ -403,25 +403,25 @@ Qed.
          \* i ~~> k
          \* p ~~> vp)
       (upto n).
-    { xsimpl. math. math. eauto. }
+    { oldxsimpl. math. math. eauto. }
     { => b k. xpull ;=> vp Hb Hp Hk. xapps. xand.
       { xapps. xapps. xrets*. }
-      { xsimpl*. } }
+      { oldxsimpl*. } }
     { => k. xpull ;=> vp Hb Hp Hk.
       (* TODO: xclean. *) xclean. destruct Hb as (Hvp&Hkk).
       xapps. xapps. math.
       xrets. xseq. xif (# \exists (vp':bool), i ~~> k \* p ~~> vp' \*
          \[if vp' then (forall d, 1 < d < (k+1) -> Z.rem n d <> 0) else (~ prime n)]).
         (* TODO: remove xseq *)
-        { xapps. xsimpl. applys~ divide_not_prime. math_nia. }
+        { xapps. oldxsimpl. applys~ divide_not_prime. math_nia. }
         { xrets. rewrite Hvp in *. =>> Hd. tests: (d = k). auto. applys~ Hp. }
-      xpull ;=> vp' Hvp'. xapps. xsimpl.
+      xpull ;=> vp' Hvp'. xapps. oldxsimpl.
       { math. }
       { auto. }
       { eauto. }
       { math_nia. } }
     => k vp Hb Hvp Hk. xclean. rew_logic in Hb.
-    xapps. xsimpl. subst. case_if.
+    xapps. oldxsimpl. subst. case_if.
     { destruct Hb; tryfalse. applys* not_divide_prime_sqrt. math. }
     { auto. }
   Qed.

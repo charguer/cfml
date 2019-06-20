@@ -141,8 +141,8 @@ Proof using.
   introv M. induction L as [|(f,[A EA v]) L'].
   { inverts M. }
   { xunfold Record. inverts M.
-    { hchange~ (Hfield_not_null r). hsimpl~. }
-    { hchange~ IHL'. hsimpl~. } }
+    { hchange~ (Hfield_not_null r). xsimpl~. }
+    { hchange~ IHL'. xsimpl~. } }
 Qed.
 
 (** Lemmas for unfolding the definition *)
@@ -203,7 +203,7 @@ Proof using. intros. rewrite~ Hfield_eq_fun_Hsingle_ext. Qed.
 Lemma Hsingle_to_Hfield : forall (l:loc) (f:field) `{EA:Enc A} (V:A),
   l <> null ->
   ((l+f)%nat ~~> V) ==> (l`.`f ~~> V).
-Proof using. introv N. rewrite Hfield_eq_fun_Hsingle_ext. hsimpl~. Qed.
+Proof using. introv N. rewrite Hfield_eq_fun_Hsingle_ext. xsimpl~. Qed.
 
 
 
@@ -215,7 +215,7 @@ Proof using.
   dup. 
   { intros. 
     rewrite Hfield_eq_fun_Hsingle, repr_eq. xpull ;=> N.
-    xwp. xapp @Triple_ptr_add_nat. xapp. hsimpl~. }
+    xwp. xapp @Triple_ptr_add_nat. xapp. xsimpl~. }
   { (* details TEMPORARY *)
     intros.
     (* unfold field *)
@@ -229,7 +229,7 @@ Proof using.
     (* xapp *)
     applys @xapps_lemma. { applys @Triple_get. } xapp_post tt.
     (* done *)
-    hsimpl~. }
+    xsimpl~. }
 Qed.
 
 Lemma Triple_set_field_strong : forall `{EA1:Enc A1} (V1:A1) (l:loc) f `{EA2:Enc A2} (V2:A2),
@@ -241,7 +241,7 @@ Proof using.
   { intros. 
     rewrite Hfield_eq_fun_Hsingle. rewrite repr_eq. rewrites (>> repr_eq (l,f)).
     xpull ;=> N. xwp. xapp @Triple_ptr_add_nat. xapp (>> (@Triple_set_strong) A1 A2). 
-    hsimpl~. }
+    xsimpl~. }
   { intros.
     (* unfold field *)
     rewrite Hfield_eq_fun_Hsingle. rewrite repr_eq. rewrites (>> repr_eq (l,f)).
@@ -251,11 +251,11 @@ Proof using.
     (* xlet-poly *)
     notypeclasses refine (xlet_lemma _ _ _ _ _).
     (* xapp *)
-    applys @xapp_lemma. { applys @Triple_ptr_add_nat. } hsimpl ;=> r ->.
+    applys @xapp_lemma. { applys @Triple_ptr_add_nat. } xsimpl ;=> r ->.
     (* xapp *)
-    applys @xapp_lemma. { applys @Triple_set_strong A1 A2. } hsimpl. xapp_post tt.
+    applys @xapp_lemma. { applys @Triple_set_strong A1 A2. } xsimpl. xapp_post tt.
     (* done *)
-    hsimpl~. }
+    xsimpl~. }
 Qed.
 
 Lemma Triple_set_field : forall `{EA:Enc A} (V1:A) (l:loc) f (V2:A),
@@ -335,10 +335,10 @@ Proof using.
   destruct D as [A' EA' V]. simpl in E.
   xunfold Record at 1. simpl. case_if. (*--todo fix subst *)
   { subst. inverts E. xapply~ Triple_set_field_strong. 
-    intros _. xunfold Record at 2. simpl. hsimpl. }
+    intros _. xunfold Record at 2. simpl. xsimpl. }
   { cases (record_set_compute_dyn f (Dyn W) T) as C'; [|false].
-    inverts E. specializes~ IHT r. xapply IHT. hsimpl.
-    intros. xunfold Record at 2. hsimpl~. }
+    inverts E. specializes~ IHT r. xapply IHT. xsimpl.
+    intros. xunfold Record at 2. xsimpl~. }
 Qed.
 
 Global Opaque Record.
@@ -496,7 +496,7 @@ Proof using.
       rewrite @List_combine_eq in *; try math.
       asserts: (Vs = nil). admit.
       asserts: (Vs' = nil). admit.
-      subst. rewrite combine_nil. rew_listx. hsimpl. }
+      subst. rewrite combine_nil. rew_listx. xsimpl. }
 Admitted.
 
 
@@ -542,7 +542,7 @@ Admitted.
 (* ** Tactic [xapp_record] *)
 
 Ltac xapp_record_get_set_post tt :=
-  hsimpl; simpl; hsimpl; unfold protect; try xcast.
+  xsimpl; simpl; xsimpl; unfold protect; try xcast.
 
 Ltac xapp_record_get tt :=
   applys xapp_record_get; xapp_record_get_set_post tt.
@@ -585,7 +585,7 @@ Ltac xnew_core E :=
   | intros ?; solve [ false ]
   | try reflexivity
   | try reflexivity
-  | hsimpl; simpl List.combine; simpl; hsimpl; unfold protect ].
+  | xsimpl; simpl List.combine; simpl; xsimpl; unfold protect ].
 
 Tactic Notation "xnew" constr(E) :=
   xnew_core E.

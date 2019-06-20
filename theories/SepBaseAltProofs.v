@@ -89,7 +89,7 @@ Qed.
   introv HP M. intros h (H1&(h1&h2&N1&N2&N3&N4)).
   lets (N2'&E): (hpure_inv (rm N2)). subst.
   rewrite heap_union_empty_r.
-  applys* M. applys N2'. hhsimpl~.
+  applys* M. applys N2'. hxsimpl~.
 *)
 
 (* ---------------------------------------------------------------------- *)
@@ -178,7 +178,7 @@ Lemma triple_frame : forall t H Q H',
   triple t (H \* H') (Q \*+ H').
 Proof using.
   introv M. intros HF.
-  applys hoare_conseq (M (HF \* H')); hsimpl.
+  applys hoare_conseq (M (HF \* H')); xsimpl.
 Qed.
 
 Lemma triple_hgc_post : forall t H Q,
@@ -186,7 +186,7 @@ Lemma triple_hgc_post : forall t H Q,
   triple t H Q.
 Proof using.
   introv M. intros HF.
-  applys hoare_conseq (M HF); hsimpl.
+  applys hoare_conseq (M HF); xsimpl.
 Qed.
 
 Lemma triple_hgc_pre : forall t H Q,
@@ -364,8 +364,8 @@ Proof using.
   skip.
 (* TODO updated def...
   intros. applys pred_ext_2. intros H Q. iff M.
-  { intros h Hh. forwards (h'&v&N1&N2): M \[] h. { hhsimpl. }
-    exists H \[] Q. hhsimpl. splits~. hsimpl. }
+  { intros h Hh. forwards (h'&v&N1&N2): M \[] h. { hxsimpl. }
+    exists H \[] Q. hxsimpl. splits~. xsimpl. }
   { intros H' h Hh. lets (h1&h2&N1&N2&N3&N4): Hh. hnf in M.
     lets (H1&H2&Q1&R): M N1. rewrite <-hstar_assoc, hstar_comm, hstar_hpure in R.
     lets ((R1&R2)&R3): R.
@@ -374,7 +374,7 @@ Proof using.
     exists h' v. splits~. rewrite <- hstar_htop_htop.
     applys himpl_inv S2.
     hchange (R2 v). rew_heap.
-    rewrite (hstar_comm_assoc \Top H'). hsimpl. }
+    rewrite (hstar_comm_assoc \Top H'). xsimpl. }
 *)
 Qed.
 
@@ -434,8 +434,8 @@ Lemma triple_conseq : forall t H' Q' H Q,
   triple t H Q.
 Proof using.
   introv MH M MQ. intros HF h N.
-  forwards (h'&v&R&K): (rm M) HF h. { hhsimpl~. }
-  exists h' v. splits~. { hhsimpl. hchanges (MQ v). }
+  forwards (h'&v&R&K): (rm M) HF h. { hxsimpl~. }
+  exists h' v. splits~. { hxsimpl. hchanges (MQ v). }
 Qed.
 
 Lemma triple_frame : forall t H Q H',
@@ -443,8 +443,8 @@ Lemma triple_frame : forall t H Q H',
   triple t (H \* H') (Q \*+ H').
 Proof using.
   introv M. intros HF h N. rewrite hstar_assoc in N.
-  forwards (h'&v&R&K): (rm M) (H' \* HF) h. { hhsimpl~. }
-  exists h' v. splits~. { hhsimpl~. }
+  forwards (h'&v&R&K): (rm M) (H' \* HF) h. { hxsimpl~. }
+  exists h' v. splits~. { hxsimpl~. }
 Qed.
 
 Lemma triple_htop_post : forall t H Q,
@@ -452,7 +452,7 @@ Lemma triple_htop_post : forall t H Q,
   triple t H Q.
 Proof using.
   introv M. intros HF h N. forwards* (h'&v&R&K): (rm M) HF h.
-  exists h' v. splits~. { rewrite <- hstar_htop_htop. hhsimpl. }
+  exists h' v. splits~. { rewrite <- hstar_htop_htop. hxsimpl. }
 Qed.
 
 Lemma triple_htop_pre : forall t H Q,
@@ -472,7 +472,7 @@ Lemma triple_val : forall v H Q,
 Proof using.
   introv M. intros HF h N. exists h v. splits.
   { applys eval_val. }
-  { hhsimpl. hchanges M. }
+  { hxsimpl. hchanges M. }
 Qed.
 
 (*
@@ -482,7 +482,7 @@ Lemma triple_fun : forall x t1 H Q,
 Proof using.
   introv M. intros HF h N. exists___. splits.
   { applys eval_fun. }
-  { hhsimpl. hchanges M. }
+  { hxsimpl. hchanges M. }
 Qed.
 *)
 
@@ -492,7 +492,7 @@ Lemma triple_fix : forall f x t1 H Q,
 Proof using.
   introv M. intros HF h N. exists___. splits.
   { applys eval_fix. }
-  { hhsimpl. hchanges M. }
+  { hxsimpl. hchanges M. }
 Qed.
 
 
@@ -527,7 +527,7 @@ Lemma triple_if_bool : forall (b:bool) t1 t2 H Q,
   triple (trm_if b t1 t2) H Q.
 Proof using.
   introv M1 M2. applys triple_if (fun r => \[r = val_bool b] \* H).
-  { applys triple_val. hsimpl~. }
+  { applys triple_val. xsimpl~. }
   { intros b'. applys~ triple_hpure. intros E. inverts E. case_if*. }
   { intros v' N. hpull. intros E. inverts~ E. false N. hnfs*. }
 Qed.
@@ -542,7 +542,7 @@ Proof using.
   subst. forwards* (h2'&v2&R2&K2): (rm M2) (\Top \* HF) h1'.
   exists h2' v2. splits~.
   { applys~ eval_seq R1 R2. }
-  { rewrite <- hstar_htop_htop. hhsimpl. }
+  { rewrite <- hstar_htop_htop. hxsimpl. }
 Qed.
 
 Lemma triple_let : forall z t1 t2 H Q Q1,
@@ -555,7 +555,7 @@ Proof using.
   forwards* (h2'&v2&R2&K2): (rm M2) (\Top \* HF) h1'.
   exists h2' v2. splits~.
   { applys~ eval_let_trm R2. }
-  { rewrite <- hstar_htop_htop. hhsimpl. }
+  { rewrite <- hstar_htop_htop. hxsimpl. }
 Qed.
 
 
@@ -589,7 +589,7 @@ Lemma triple_while_inv : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) t1 t2
       triple (trm_if t1 (trm_seq t2 t) val_unit) (I b X) Q) ->
   triple (trm_while t1 t2) H Q. (* LATER: allow for weakening on Q *)
 Proof using.
-  introv WR H0 HX. xchange (rm H0). xpull ;=> b0 X0.
+  introv WR H0 HX. xtchange (rm H0). xpull ;=> b0 X0.
   rewrite hstar_comm. applys triple_htop_pre. gen b0.
   induction_wf IH: WR X0. intros. applys triple_while_raw.
   applys HX. intros b' X' HR'. applys~ IH.
@@ -614,7 +614,7 @@ Lemma triple_for_gt : forall x n1 n2 t3 H Q,
 Proof using.
   introv N M. intros H' h Hf. exists h val_unit. splits~.
   { applys* eval_for_gt. }
-  { hhsimpl. hchanges~ M. }
+  { hxsimpl. hchanges~ M. }
 Qed.
 
 (* LATER: simplify proof using triple_for_raw *)
@@ -628,7 +628,7 @@ Proof using.
   forwards* (h2'&v2&R2&K2): (rm M2) (\Top \* HF) h1'.
   exists h2' v2. splits~.
   { applys* eval_for_le. }
-  { rewrite <- hstar_htop_htop. hhsimpl. }
+  { rewrite <- hstar_htop_htop. hxsimpl. }
 Qed.
 
 (* LATER: simplify proof using triple_for_raw *)
@@ -655,7 +655,7 @@ Lemma triple_for_inv : forall (I:int->hprop) H' (x:var) n1 n2 t3 H Q,
   (I (n2+1) \* H' ==> Q val_unit \* \Top) ->
   triple (trm_for x n1 n2 t3) H Q.
 Proof using.
-  introv N M1 M2 M3. xchange (rm M1). gen N M2.
+  introv N M1 M2 M3. xtchange (rm M1). gen N M2.
   induction_wf IH: (wf_upto (n2+1)) n1; intros.
   asserts M4: (triple (trm_for x (n2 + 1)%I n2 t3) (I (n2+1) \* H') Q).
   { applys triple_for_gt. { math. }
@@ -718,12 +718,12 @@ Proof using. (* might be simplified using triple_for_trm *)
       { rewrite <- hstar_htop_htop. rew_heap~. } }
     { specializes nQ2 C2.
       asserts Z: ((\[False] \* \Top \* HF) h2').
-      { applys himpl_trans K2. hchange nQ2. hsimpl. hsimpl. }
+      { applys himpl_trans K2. hchange nQ2. xsimpl. xsimpl. }
       repeat rewrite hfalse_hstar_any in Z.
       lets: hpure_inv_hempty Z. false*. } } (* LATER: shorten *)
   { specializes nQ1 C1.
     asserts Z: ((\[False] \* \Top \* HF) h1').
-    { applys himpl_trans K1. hchange nQ1. hsimpl. hsimpl. }
+    { applys himpl_trans K1. hchange nQ1. xsimpl. xsimpl. }
     repeat rewrite hfalse_hstar_any in Z.
     lets: hpure_inv_hempty Z. false*. } (* LATER: shorten *)
 Qed.
@@ -747,7 +747,7 @@ Proof using.
   { applys~ eval_ref_sep. }
   { exists h1' h. split.
     { exists l. applys~ himpl_hstar_hpure_r. unfold h1'. hnfs~. }
-    { splits~. hhsimpl~. } }
+    { splits~. hxsimpl~. } }
 Qed.
 
 Lemma triple_get : forall v l,
@@ -757,7 +757,7 @@ Lemma triple_get : forall v l,
 Proof using.
   intros. intros HF h N. exists h v. splits~.
   { destruct N as (?&?&(?&?)&?&?&?). subst. applys~ eval_get_sep. }
-  { rew_heap. rewrite hstar_hpure. split~. hhsimpl~. }
+  { rew_heap. rewrite hstar_hpure. split~. hxsimpl~. }
 Qed.
 
 Lemma triple_set : forall w l v,
@@ -771,7 +771,7 @@ Proof using.
   { applys eval_set_sep; eauto. }
   { rew_heap. rewrite hstar_hpure. split~. exists h1' h2. splits~.
     { hnfs~. }
-    { hhsimpl~. }
+    { hxsimpl~. }
     { subst h1. applys~ Fmap.disjoint_single_set v. } }
 Qed.
 
@@ -799,7 +799,7 @@ Proof using. (* Note: [abs n] currently does not compute in Coq. *)
     rewrite~ abs_nonneg. }
   { exists h1' h. split.
     { exists l. applys~ himpl_hstar_hpure_r. applys~ Alloc_fmap_conseq. }
-    { splits~. hhsimpl~. } }
+    { splits~. hxsimpl~. } }
 Qed.
 
 End RulesStateOps.
@@ -815,7 +815,7 @@ Lemma triple_eq : forall v1 v2,
 Proof using.
   introv Hh. exists___. splits.
   { applys* eval_binop. applys* redbinop_eq. }
-  { hhsimpl~. }
+  { hxsimpl~. }
 Qed.
 
 Lemma triple_add : forall n1 n2,
@@ -825,7 +825,7 @@ Lemma triple_add : forall n1 n2,
 Proof using.
   introv Hh. exists___. splits.
   { applys* eval_binop. applys* redbinop_add. }
-  { hhsimpl*. }
+  { hxsimpl*. }
 Qed.
 
 Lemma triple_sub : forall n1 n2,
@@ -835,7 +835,7 @@ Lemma triple_sub : forall n1 n2,
 Proof using.
   introv Hh. exists___. splits.
   { applys* eval_binop. applys* redbinop_sub. }
-  { hhsimpl*. }
+  { hxsimpl*. }
 Qed.
 
 (* DEPRECATED details
@@ -848,7 +848,7 @@ Lemma triple_ptr_add : forall l n,
 Proof using.
   introv N Hh. exists___. splits.
   { applys* eval_binop. applys* redbinop_ptr_add (abs (l + n)). rewrite~ abs_nonneg. }
-  { hhsimpl*. }
+  { hxsimpl*. }
 Qed.
 
 Lemma triple_ptr_add_nat : forall l (f:nat),
@@ -870,7 +870,7 @@ Lemma triple_ptr_add_nat' : forall l (f:nat),
 Proof using.
   introv Hh. exists___. splits.
   { applys* eval_binop. applys* redbinop_ptr_add_nat. }
-  { hhsimpl*. }
+  { hxsimpl*. }
 Qed.
 
 
@@ -907,7 +907,7 @@ Lemma triple_let_val : forall z v1 t2 H Q,
 Proof using.
   introv M. forwards~ M': (rm M).
   applys_eq~ (>> triple_let H (fun x => \[x = v1] \* H)) 2.
-  { applys triple_val. hsimpl~. }
+  { applys triple_val. xsimpl~. }
   { intros X. applys triple_hpure. intro_subst. applys M'. }
 Qed.
 

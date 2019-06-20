@@ -92,7 +92,7 @@ Lemma triple_hwand_hpure_l : forall t (P:Prop) H Q,
   triple t (\[P] \-* H) Q.
 Proof using.
   introv HP M. intros HF. applys* hoare_conseq M.
-  hsimpl. applys hwand_hpure_l_intro HP.
+  xsimpl. applys hwand_hpure_l_intro HP.
 Qed.
 
 (** Consequence and frame rule *)
@@ -112,7 +112,7 @@ Lemma triple_frame : forall t H Q H',
   triple t H Q ->
   triple t (H \* H') (Q \*+ H').
 Proof using.
-  introv M. intros HF. applys hoare_conseq (M (HF \* H')); hsimpl.
+  introv M. intros HF. applys hoare_conseq (M (HF \* H')); xsimpl.
 Qed.
 
 (** Garbage rules *)
@@ -121,7 +121,7 @@ Lemma triple_htop_post : forall t H Q,
   triple t H (Q \*+ \Top) ->
   triple t H Q.
 Proof using.
-  introv M. intros HF. applys hoare_conseq (M HF); hsimpl.
+  introv M. intros HF. applys hoare_conseq (M HF); xsimpl.
 Qed.
 
 Lemma triple_htop_pre : forall t H Q,
@@ -135,14 +135,14 @@ Lemma triple_hany_pre : forall t H H' Q,
   triple t H Q ->
   triple t (H \* H') Q.
 Proof using.
-  introv M. applys triple_conseq (triple_htop_pre M); hsimpl.
+  introv M. applys triple_conseq (triple_htop_pre M); xsimpl.
 Qed.
 
 Lemma triple_hany_post : forall t H H' Q,
   triple t H (Q \*+ H') ->
   triple t H Q.
 Proof using.
-  introv M. applys triple_htop_post. applys triple_conseq M; hsimpl.
+  introv M. applys triple_htop_post. applys triple_conseq M; xsimpl.
 Qed.
 
 (** Combined and ramified rules *)
@@ -215,7 +215,7 @@ Lemma triple_seq : forall t1 t2 H Q H1,
 Proof using.
   introv M1 M2. intros HF. applys hoare_seq.
   { applys M1. }
-  { applys hoare_conseq M2; hsimpl. }
+  { applys hoare_conseq M2; xsimpl. }
 Qed.
 
 Lemma triple_let : forall z t1 t2 H Q Q1,
@@ -225,7 +225,7 @@ Lemma triple_let : forall z t1 t2 H Q Q1,
 Proof using.
   introv M1 M2. intros HF. applys hoare_let.
   { applys M1. }
-  { intros v. applys hoare_conseq M2; hsimpl. }
+  { intros v. applys hoare_conseq M2; xsimpl. }
 Qed.
 
 Lemma triple_if_case : forall (b:bool) t1 t2 H Q,
@@ -262,7 +262,7 @@ Lemma triple_add : forall n1 n2,
     \[]
     (fun r => \[r = val_int (n1 + n2)]).
 Proof using.
-  intros. intros H'. applys hoare_conseq hoare_add; hsimpl~.
+  intros. intros H'. applys hoare_conseq hoare_add; xsimpl~.
 Qed.
 
 Lemma triple_ref : forall v,
@@ -270,7 +270,7 @@ Lemma triple_ref : forall v,
     \[]
     (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
 Proof using.
-  intros. intros HF. applys hoare_conseq hoare_ref; hsimpl~.
+  intros. intros HF. applys hoare_conseq hoare_ref; xsimpl~.
 Qed.
 
 Lemma triple_get : forall v l,
@@ -278,7 +278,7 @@ Lemma triple_get : forall v l,
     (l ~~~> v)
     (fun x => \[x = v] \* (l ~~~> v)).
 Proof using.
-  intros. intros HF. applys hoare_conseq hoare_get; hsimpl~.
+  intros. intros HF. applys hoare_conseq hoare_get; xsimpl~.
 Qed.
 
 Lemma triple_set : forall w l v,
@@ -286,7 +286,7 @@ Lemma triple_set : forall w l v,
     (l ~~~> v)
     (fun r => \[r = val_unit] \* l ~~~> w).
 Proof using.
-  intros. intros HF. applys hoare_conseq hoare_set; hsimpl~.
+  intros. intros HF. applys hoare_conseq hoare_set; xsimpl~.
 Qed.
 
 

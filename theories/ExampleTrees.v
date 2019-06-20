@@ -108,13 +108,13 @@ Proof using. intros. xunfold~ MTree. Qed.
 
 Lemma MTree_leaf :
   \[] ==> (null ~> MTree Leaf).
-Proof using. intros. rewrite MTree_leaf_eq. hsimpl~. Qed.
+Proof using. intros. rewrite MTree_leaf_eq. xsimpl~. Qed.
 
 Lemma MTree_null_eq : forall T,
   (null ~> MTree T) = \[T = Leaf].
 Proof using.
   intros. destruct T.
-  { xunfold MTree. applys himpl_antisym; hsimpl~. }
+  { xunfold MTree. applys himpl_antisym; xsimpl~. }
   { xunfold MTree. applys himpl_antisym.
     { hpull ;=> p'. hchange (hRecord_not_null null).
       { simpl. unfold item. auto. }
@@ -126,8 +126,8 @@ Lemma MTree_null_inv : forall T,
   (null ~> MTree T) ==+> \[T = Leaf].
 Proof using.
   intros. destruct T.
-  { hsimpl~. }
-  { rewrite MTree_null_eq. hsimpl. }
+  { xsimpl~. }
+  { rewrite MTree_null_eq. xsimpl. }
 Qed.
 
 (** Lemmas for nodes *)
@@ -141,7 +141,7 @@ Proof using. intros. xunfold MTree at 1. simple~. Qed.
 Lemma MTree_node : forall p p1 p2 x T1 T2,
   (p ~> Cell x p1 p2) \* (p1 ~> MTree T1) \* (p2 ~> MTree T2) ==>
   (p ~> MTree (Node x T1 T2)).
-Proof using. intros. rewrite MTree_node_eq. hsimpl. Qed.
+Proof using. intros. rewrite MTree_node_eq. xsimpl. Qed.
 
 Lemma MTree_not_null_inv_not_leaf : forall p T,
   p <> null ->
@@ -149,7 +149,7 @@ Lemma MTree_not_null_inv_not_leaf : forall p T,
 Proof using.
   intros. destruct T.
   { hchanges -> (MTree_leaf_eq p). }
-  { hsimpl. auto_false. }
+  { xsimpl. auto_false. }
 Qed.
 
 Lemma MTree_not_null_inv_node : forall p T,
@@ -160,7 +160,7 @@ Lemma MTree_not_null_inv_node : forall p T,
 Proof using.
   intros. hchange~ (@MTree_not_null_inv_not_leaf p). hpull. intros.
   destruct T; tryfalse.
-  hchange (MTree_node_eq p). hsimpl~.
+  hchange (MTree_node_eq p). xsimpl~.
 Qed.
 
 Arguments MTree_not_null_inv_not_leaf : clear implicits.
@@ -219,10 +219,10 @@ Lemma Triple_tree_copy : forall p T,
 Proof using.
   intros. gen p. induction_wf IH: tree_sub_wf T. xcf.
   xapps~. xif ;=> C.
-  { xval. subst p. rewrite MTree_null_eq. hsimpl~. }
-  { xchanges~ (MTree_not_null_inv_node p) ;=> x p1 p2 T1 T2 E. subst.
+  { xval. subst p. rewrite MTree_null_eq. xsimpl~. }
+  { xtchanges~ (MTree_not_null_inv_node p) ;=> x p1 p2 T1 T2 E. subst.
   xapps. xapps. xapps. xapp~ IH as p1'. xapp~ IH as p2'.
-  xapp. intros p'. do 2 rewrite MTree_node_eq. hsimpl. }
+  xapp. intros p'. do 2 rewrite MTree_node_eq. xsimpl. }
 Qed.
 
 
@@ -268,8 +268,8 @@ Proof using.
   applys fun_ext_2 ;=> T p.
   unfold MTreeComplete, MTreeComplete''.
   applys himpl_antisym.
-  { hpull ;=> (n&E). hsimpl*. }
-  { hpull ;=> n E. hsimpl*. }
+  { hpull ;=> (n&E). xsimpl*. }
+  { hpull ;=> n E. xsimpl*. }
 Qed.
 
 
@@ -324,11 +324,11 @@ Definition Stree (E:set int) (p:loc) :=
 Lemma focus_Stree : forall p E,
   p ~> Stree E ==>
   \exists (T:tree), p ~> MTree T \* \[stree T E].
-Proof using. intros. xunfold Stree. hsimpl~. Qed.
+Proof using. intros. xunfold Stree. xsimpl~. Qed.
 
 Lemma unfocus_Stree : forall p T E,
   p ~> MTree T \* \[stree T E] ==> p ~> Stree E.
-Proof using. intros. xunfold Stree. hsimpl~. Qed.
+Proof using. intros. xunfold Stree. xsimpl~. Qed.
 
 Global Opaque Stree.
 
@@ -385,14 +385,14 @@ Proof using.
   xinduction_heap (tree_sub).
   xcf. intros x p T. introv IH IE.
   xapps. xif.
-  xchange focus_tree_null. xextracts. xret.
-   inverts IE. hsimpl. hchanges unfocus_Leaf.
+  xtchange focus_tree_null. xextracts. xret.
+   inverts IE. xsimpl. hchanges unfocus_Leaf.
    fold_bool; rew_istrue. intros H. set_in H.
-  xchange~ (@focus_tree_not_null p).
+  xtchange~ (@focus_tree_not_null p).
    xextract as y p1 p2 T1 T2 EQ. subst T.
    inverts IE. xapps. xif.
   xapps. xapp*. intros b.
-   hchange (@unfocus_Node p). hsimpl.
+   hchange (@unfocus_Node p). xsimpl.
    subst b. extens; rew_istrue. subst E. iff M.
     eauto.
     set_in M.
@@ -400,7 +400,7 @@ Proof using.
       auto.
       false* foreach_gt_notin H6 C0.
   xif. xapps. xapps*. intros b.
-    hchange (@unfocus_Node p). hsimpl.
+    hchange (@unfocus_Node p). xsimpl.
    subst b. extens; rew_istrue. subst E. iff M.
     rewrite <- for_set_union_empty_r.
      repeat rewrite <- for_set_union_assoc.
@@ -410,7 +410,7 @@ Proof using.
       lets: foreach_lt_notin x H4 __. math. false.
       auto.
   xret.
-    hchange (@unfocus_Node p). hsimpl. subst E.
+    hchange (@unfocus_Node p). xsimpl. subst E.
     asserts_rewrite (x = y). math. auto.
 Qed.
 
@@ -421,9 +421,9 @@ Lemma search_spec :
        (fun b => \[b = isTrue (x \in E)] \* p ~> Stree E).
 Proof using.
   xweaken search_spec_ind. simpl. introv M S1. intros.
-  xchange (@focus_Stree x2). xextract as T1 R1.
-  xapply S1. eauto. hsimpl. intros. hextracts.
-  hchange* (@unfocus_Stree x2). hsimpl*.
+  xtchange (@focus_Stree x2). xextract as T1 R1.
+  xapply S1. eauto. xsimpl. intros. hextracts.
+  hchange* (@unfocus_Stree x2). xsimpl*.
 Qed.
 
 *)

@@ -42,7 +42,7 @@ License: MIT.
                    to build an effective program verification tool, without detour.
                    This file is mostly self-contained; it depends on variables
                    defined in [Var.v], on finite maps defined in [Fmap.v] and on the
-                   implementation of the SL simplification tactic from [Hsimpl.v].
+                   implementation of the SL simplification tactic from [SepSimpl.v].
 
     - [SLFExtra]: recaps all the definition and lemmas from the course that are
                   not included in [SLFDirect]. This file only depends on [SLFDirect].

@@ -125,7 +125,7 @@ Parameter hwand_eq_hwand' :
 
 (** In practice, file [SLFDirect] relies on the definition [hwand'],
     which has the benefit that all properties of [hwand] can be
-    established with help of the tactic [hsimpl]. In other words,
+    established with help of the tactic [xsimpl]. In other words,
     we reduce the amount of work by conducting all the reasoning
     at the level of [hprop] and avoiding the need to work with
     explicit heaps (of type [heap]). *)
@@ -251,7 +251,7 @@ Lemma triple_conseq_frame' : forall H2 H1 Q1 t H Q,
   triple t H Q.
 Proof using.
   introv M WH WQ. applys triple_ramified_frame M.
-  hchange WH. hsimpl. rewrite qwand_equiv. applys WQ.
+  hchange WH. xsimpl. rewrite qwand_equiv. applys WQ.
 Qed.
 
 (** The principle of the ramified-frame rule immediately generalizes
@@ -269,57 +269,57 @@ Qed.
 
 
 (* ******************************************************* *)
-(** ** Automation with [hsimpl] for [hwand] expressions *)
+(** ** Automation with [xsimpl] for [hwand] expressions *)
 
-Module HsimplDemo.
+Module XsimplDemo.
 Import SLFDirect.
 
 (** For this demo, we use the definition of [hwand] exported
     by [SepBase.v], and defined in [SepFunctor.v]. This
     definition of [hwand], equivalent to the one defined
-    in this chapter, is recognized by the tactic [hsimpl]. *)
+    in this chapter, is recognized by the tactic [xsimpl]. *)
 
-(** [hsimpl] is able to spot magic wand that cancel out.
+(** [xsimpl] is able to spot magic wand that cancel out.
     For example, [H2 \-* H3] can be simplified with [H2]
     to leave only [H3]. *)
 
-Lemma hsimpl_demo_hwand_cancel : forall H1 H2 H3 H4 H5,
+Lemma xsimpl_demo_hwand_cancel : forall H1 H2 H3 H4 H5,
   H1 \* (H2 \-* H3) \* H4 \* H2 ==> H5.
-Proof using. intros. hsimpl. Abort.
+Proof using. intros. xsimpl. Abort.
 
-(** [hsimpl] is able to simplified uncurried magic wands
+(** [xsimpl] is able to simplified uncurried magic wands
     of the form [(H1 \* H2 \* H3) \-* H4] against a fragment,
     e.g., [H2], leaving in this case [(H1 \* H3) \-* H4]. *)
 
-Lemma hsimpl_demo_hwand_cancel_partial : forall H1 H2 H3 H4 H5 H6,
+Lemma xsimpl_demo_hwand_cancel_partial : forall H1 H2 H3 H4 H5 H6,
   ((H1 \* H2 \* H3) \-* H4) \* H5 \* H2 ==> H6.
-Proof using. intros. hsimpl. Abort.
+Proof using. intros. xsimpl. Abort.
 
-(** [hsimpl] automatically applies the [himpl_hwand_r] when
+(** [xsimpl] automatically applies the [himpl_hwand_r] when
     the right-hand-side, after prior simplification, reduces
     to just a magic wand. In the example below, [H1] is first
     cancelled out from both sides, then [H3] is moved from
     the RHS to the LHS. *)
 
-Lemma hsimpl_demo_himpl_hwand_r : forall H1 H2 H3 H4 H5,
+Lemma xsimpl_demo_himpl_hwand_r : forall H1 H2 H3 H4 H5,
   H1 \* H2 ==> H1 \* (H3 \-* (H4 \* H5)).
-Proof using. intros. hsimpl. Abort.
+Proof using. intros. xsimpl. Abort.
 
-(** [hsimpl] iterates the simplifications it is able to perform
+(** [xsimpl] iterates the simplifications it is able to perform
     until it no obvious simplification remain. *)
 
-Lemma hsimpl_demo_hwand_iter : forall H1 H2 H3 H4 H5,
+Lemma xsimpl_demo_hwand_iter : forall H1 H2 H3 H4 H5,
   H1 \* H2 \* ((H1 \* H3) \-* (H4 \-* H5)) \* H4 ==> ((H2 \-* H3) \-* H5).
-Proof using. intros. hsimpl. Qed.
+Proof using. intros. xsimpl. Qed.
 
-(** [hsimpl] is also able to deal with [qwand]. In particular,
+(** [xsimpl] is also able to deal with [qwand]. In particular,
     it can cancel out [Q1 \--* Q2] against [Q1 v], leaving [Q2 v]. *)
 
-Lemma hsimpl_demo_qwand_cancel : forall A (v:A) (Q1 Q2:A->hprop) H1 H2,
+Lemma xsimpl_demo_qwand_cancel : forall A (v:A) (Q1 Q2:A->hprop) H1 H2,
   (Q1 \--* Q2) \* H1 \* (Q1 v) ==> H2.
-Proof using. intros. hsimpl. Abort.
+Proof using. intros. xsimpl. Abort.
 
-End HsimplDemo.
+End XsimplDemo.
 
 
 (* ####################################################### *)
@@ -340,7 +340,7 @@ Parameter triple_conseq_frame'' : forall H2 H1 Q1 t H Q,
     which corresponds to the difference between [H] and [H1].
     In practice, providing [H2] explicitly is extremely tedious.
     The alternative is to leave [H2] as an evar, and count on the
-    fact that the tactic [hsimpl], when applied to [H ==> H1 \* H2],
+    fact that the tactic [xsimpl], when applied to [H ==> H1 \* H2],
     will correctly instantiate [H2].
 
     This approach works, but is relatively fragile, as evars may get
@@ -373,9 +373,9 @@ Proof using.
   (* observe the evar [?H2] in second and third goals *)
   { applys triple_ref. }
   { (* here, [?H2] should be in theory instantiated with the RHS.
-       but [hsimpl] strategy is to first extract the quantifiers
+       but [xsimpl] strategy is to first extract the quantifiers
        from the LHS. After that, the instantiation of [H2] fails. *)
-    hsimpl.
+    xsimpl.
 Abort.
 
 (** Now, let us apply the ramified frame rule for the same goal. *)
@@ -388,7 +388,7 @@ Lemma triple_ref_with_nonempty_pre' : forall (v:val),
 Proof using.
   intros. applys triple_ramified_frame.
   { applys triple_ref. }
-  { hsimpl. intros l' v'. rewrite qwand_equiv. hsimpl. auto. }
+  { xsimpl. intros l' v'. rewrite qwand_equiv. xsimpl. auto. }
 Qed.
 
 (** For a further comparison between the consequence-frame rule
@@ -406,8 +406,8 @@ Proof using.
   intros. applys triple_conseq_frame.
   (* observe the evar [?H2] in second and third goals *)
   { applys triple_ref. }
-  { hsimpl. (* instantiates the evar [H2] *) }
-  { hsimpl. auto. }
+  { xsimpl. (* instantiates the evar [H2] *) }
+  { xsimpl. auto. }
 Qed.
 
 (** Now, let's carry out the same proof using the ramified frame rule. *)
@@ -421,9 +421,9 @@ Proof using.
   { applys triple_ref. }
   { rewrite hstar_hempty_l. rewrite qwand_equiv.
     (* Remark: the first two steps above will be automatically
-       carried out by [hsimpl], in subsequent chapters. *)
+       carried out by [xsimpl], in subsequent chapters. *)
     (* Here, we read the same state as in the previous proof. *)
-    hsimpl. auto. }
+    xsimpl. auto. }
 Qed.
 
 (** Again, observe how we have been able to complete the same proof
@@ -434,11 +434,11 @@ Qed.
 (** ** Properties of [hwand] *)
 
 (** We next present the most important properties of [H1 \-* H2].
-    The tactic [hsimpl] provides dedicated support for
+    The tactic [xsimpl] provides dedicated support for
     simplifying expressions involving magic wand. So,
     in most proofs, it is not required to manually manipulate
     the lemmas capturing properties of the magic wand.
-    Nevertheless, there are a few situations where [hsimpl]
+    Nevertheless, there are a few situations where [xsimpl]
     won't automatically perform the desired manipulation.
     In such cases, the tactic [hchange] proves very useful. *)
 
@@ -473,7 +473,7 @@ Qed.
 
 Lemma himpl_hempty_hwand_same : forall H,
   \[] ==> (H \-* H).
-Proof using. intros. apply himpl_hwand_r. hsimpl. Qed.
+Proof using. intros. apply himpl_hwand_r. xsimpl. Qed.
 
 
 (* ------------------------------------------------------- *)
@@ -532,9 +532,9 @@ Qed.
 Lemma hwand_hempty_l : forall H,
   (\[] \-* H) = H.
 Proof using.
-  intros. rewrite hwand_eq_hwand'. unfold hwand'. hsimpl.
+  intros. rewrite hwand_eq_hwand'. unfold hwand'. xsimpl.
   { intros H0 M. hchange M. }
-  { hsimpl. }
+  { xsimpl. }
 Qed.
 
 (** Assume that [\[P] \-* H] holds of a heap.
@@ -545,7 +545,7 @@ Lemma hwand_hpure_l_intro : forall P H,
   P ->
   (\[P] \-* H) ==> H.
 Proof using.
-  introv HP. rewrite hwand_eq_hwand'. unfold hwand'. hsimpl.
+  introv HP. rewrite hwand_eq_hwand'. unfold hwand'. xsimpl.
   intros H0 M. hchange M. applys HP.
 Qed.
    (* Note: here is an alterntive proof w.r.t. [hwand]:
@@ -561,7 +561,7 @@ Qed.
 Lemma hwand_hpure_r_intro : forall H1 H2 P,
   (P -> H1 ==> H2) ->
   H1 ==> (\[P] \-* H2).
-Proof using. introv M. applys himpl_hwand_r. hsimpl. applys M. Qed.
+Proof using. introv M. applys himpl_hwand_r. xsimpl. applys M. Qed.
 
 
 (* ------------------------------------------------------- *)
@@ -594,7 +594,7 @@ Qed.
 Lemma hstar_hwand : forall H1 H2 H3,
   (H1 \-* H2) \* H3 ==> H1 \-* (H2 \* H3).
 Proof using.
-  intros. applys himpl_hwand_r. hsimpl. hchange (hwand_cancel H1 H2).
+  intros. applys himpl_hwand_r. xsimpl. hchange (hwand_cancel H1 H2).
 Qed.
 
 (** Remark: the reciprocal entailement is false. *)
@@ -610,7 +610,7 @@ Lemma himpl_hwand_hstar_same_r : forall H1 H2,
   H1 ==> (H2 \-* (H2 \* H1)).
 Proof using.
 (* SOLUTION *)
-  intros. applys himpl_hwand_r. hsimpl.
+  intros. applys himpl_hwand_r. xsimpl.
 (* /SOLUTION *)
 Qed.
 
@@ -706,7 +706,7 @@ Lemma himpl_qwand_hstar_same_r : forall H Q,
   H ==> Q \--* (Q \*+ H).
 Proof using.
 (* SOLUTION *)
-  intros. applys himpl_qwand_r. hsimpl.
+  intros. applys himpl_qwand_r. xsimpl.
 (* /SOLUTION *)
 Qed.
 
@@ -774,16 +774,16 @@ Proof using.
   iff Hop.
   { apply fun_ext_2. intros H1 H2.
     unfolds hwand_characterization, hwand'. apply himpl_antisym.
-    { lets (M&_): (Hop (op H1 H2) H1 H2). hsimpl (op H1 H2).
+    { lets (M&_): (Hop (op H1 H2) H1 H2). xsimpl (op H1 H2).
       applys M. applys himpl_refl. }
-    { hsimpl. intros H0 M. rewrite Hop. applys M. } }
+    { xsimpl. intros H0 M. rewrite Hop. applys M. } }
   { subst. unfolds hwand_characterization, hwand'.
-    intros H0 H1 H2. iff M. { hchange~ M. } { hsimpl~ H0. } }
+    intros H0 H1 H2. iff M. { hchange~ M. } { xsimpl~ H0. } }
 Qed.
 
 (** Remark: the right-to-left direction was "too easy" to prove.
-    It's because [hsimpl] is doing all the work for us.
-    Here is a detailed proof not using [hsimpl]. *)
+    It's because [xsimpl] is doing all the work for us.
+    Here is a detailed proof not using [xsimpl]. *)
 
 Lemma hwand_characterization_hwand'_details : forall H0 H1 H2,
   (H0 ==> hwand' H1 H2) <-> (H0 \* H1 ==> H2).
@@ -830,7 +830,7 @@ Proof using.
 (* SOLUTION *)
   applys fun_ext_2. intros H1 H2. unfold hor, hor'. applys himpl_antisym.
   { intros h K. destruct K. { exists* true. } { exists* false. } }
-  { hsimpl. intros b h K. destruct b. { left*. } { right*. } }
+  { xsimpl. intros b h K. destruct b. { left*. } { right*. } }
 (* /SOLUTION *)
 Qed.
 
@@ -966,7 +966,7 @@ End SummaryHpropLowlevel.
     of predicates that need to be defined directly in terms of heaps.
     Using these definitions reduces the effort in proving their
     properties, because more reasoning can be conducted at the level
-    of [hprop], with the help of the [hsimpl] tactic. *)
+    of [hprop], with the help of the [xsimpl] tactic. *)
 
 Module SummaryHpropHigherlevel.
 

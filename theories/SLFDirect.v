@@ -16,7 +16,7 @@ License: MIT.
 Set Implicit Arguments.
 From TLC Require Export LibCore.
 From Sep Require Export TLCbuffer Var.
-From Sep Require Fmap Hsimpl.
+From Sep Require Fmap SepSimpl.
 
 
 (* ####################################################### *)
@@ -224,10 +224,10 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
 (** * Heap predicates *)
 
 (** For technical reasons, to enable sharing the code implementing
-    the tactic [hsimpl], we need the definitions that follow to be
+    the tactic [xsimpl], we need the definitions that follow to be
     wrapped in a module. *)
 
-Module HsimplArgs.
+Module SepSimplArgs.
 
 
 (* ******************************************************* *)
@@ -792,10 +792,10 @@ Arguments hstar_hsingle_same_loc : clear implicits.
 
 
 (* ******************************************************* *)
-(** ** Hsimpl tactic *)
+(** ** Xsimpl tactic *)
 
 (** The definitions and properties above enable us to instantiate
-    the [hsimpl] tactic, which implements powerful simplifications
+    the [xsimpl] tactic, which implements powerful simplifications
     for Separation Logic entailments.
 
     For technical reasons, we need to provide a definition for [hgc],
@@ -825,21 +825,21 @@ Lemma hstar_hgc_hgc :
 Proof using. applys hstar_htop_htop. Qed.
 
 (* ------------------------------------------------------- *)
-(** *** Functor instantiation to obtain [hsimpl] *)
+(** *** Functor instantiation to obtain [xsimpl] *)
 
-End HsimplArgs.
+End SepSimplArgs.
 
 (** We are now ready to instantiate the functor. *)
 
-Module Export HS := Hsimpl.HsimplSetup(HsimplArgs).
+Module Export HS := SepSimpl.XsimplSetup(SepSimplArgs).
 
-(** At this point, the tactic [hsimpl] is available.
+(** At this point, the tactic [xsimpl] is available.
     See the file [SLFHimpl.v] for demos of its usage. *)
 
-(** And we open the module [HsimplArgs], essentially pretending
+(** And we open the module [SepHsimplArgs], essentially pretending
     that it was never created. *)
 
-Export HsimplArgs.
+Export SepSimplArgs.
 
 (** From now on, all operators have opaque definitions *)
 
@@ -1087,8 +1087,8 @@ Lemma wp_ramified : forall Q1 Q2 t,
   (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
 Proof using.
   intros. unfold wp. hpull ;=> H M.
-  hsimpl (H \* (Q1 \--* Q2 \*+ \Top)). intros H'.
-  applys hoare_conseq M; hsimpl.
+  xsimpl (H \* (Q1 \--* Q2 \*+ \Top)). intros H'.
+  applys hoare_conseq M; xsimpl.
 Qed.
 
 Arguments wp_ramified : clear implicits.
@@ -1099,76 +1099,76 @@ Lemma wp_conseq : forall t Q1 Q2,
   Q1 ===> Q2 ->
   wp t Q1 ==> wp t Q2.
 Proof using.
-  introv M. applys himpl_trans_r (wp_ramified Q1 Q2). hsimpl. hchanges M.
+  introv M. applys himpl_trans_r (wp_ramified Q1 Q2). xsimpl. hchanges M.
 Qed.
 
 Lemma wp_frame : forall t H Q,
   (wp t Q) \* H ==> wp t (Q \*+ H).
-Proof using. intros. applys himpl_trans_r wp_ramified. hsimpl. Qed.
+Proof using. intros. applys himpl_trans_r wp_ramified. xsimpl. Qed.
 
 Lemma wp_ramified_frame : forall t Q1 Q2,
   (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
-Proof using. intros. applys himpl_trans_r wp_ramified. hsimpl. Qed.
+Proof using. intros. applys himpl_trans_r wp_ramified. xsimpl. Qed.
 
 Lemma wp_hany_pre : forall t H Q,
   (wp t Q) \* H ==> wp t Q.
-Proof using. intros. applys himpl_trans_r wp_ramified. hsimpl. Qed.
+Proof using. intros. applys himpl_trans_r wp_ramified. xsimpl. Qed.
 
 Lemma wp_hany_post : forall t H Q ,
   wp t (Q \*+ H) ==> wp t Q.
-Proof using. intros. applys himpl_trans_r wp_ramified. hsimpl. Qed.
+Proof using. intros. applys himpl_trans_r wp_ramified. xsimpl. Qed.
 
 (* ------------------------------------------------------- *)
 (** *** Reasoning rules for terms. *)
 
 Lemma wp_val : forall v Q,
   Q v ==> wp (trm_val v) Q.
-Proof using. intros. unfold wp. hsimpl; intros H'. applys hoare_val. hsimpl. Qed.
+Proof using. intros. unfold wp. xsimpl; intros H'. applys hoare_val. xsimpl. Qed.
 
 Lemma wp_fun : forall x t Q,
   Q (val_fun x t) ==> wp (trm_fun x t) Q.
-Proof using. intros. unfold wp. hsimpl; intros H'. applys hoare_fun. hsimpl. Qed.
+Proof using. intros. unfold wp. xsimpl; intros H'. applys hoare_fun. xsimpl. Qed.
 
 Lemma wp_fix : forall f x t Q,
   Q (val_fix f x t) ==> wp (trm_fix f x t) Q.
-Proof using. intros. unfold wp. hsimpl; intros H'. applys hoare_fix. hsimpl. Qed.
+Proof using. intros. unfold wp. xsimpl; intros H'. applys hoare_fix. xsimpl. Qed.
 
 Lemma wp_app_fun : forall x v1 v2 t1 Q,
   v1 = val_fun x t1 ->
   wp (subst x v2 t1) Q ==> wp (trm_app v1 v2) Q.
-Proof using. introv EQ1. unfold wp. hsimpl; intros. applys* hoare_app_fun. Qed.
+Proof using. introv EQ1. unfold wp. xsimpl; intros. applys* hoare_app_fun. Qed.
 
 Lemma wp_app_fix : forall f x v1 v2 t1 Q,
   v1 = val_fix f x t1 ->
   wp (subst x v2 (subst f v1 t1)) Q ==> wp (trm_app v1 v2) Q.
-Proof using. introv EQ1. unfold wp. hsimpl; intros. applys* hoare_app_fix. Qed.
+Proof using. introv EQ1. unfold wp. xsimpl; intros. applys* hoare_app_fix. Qed.
 
 Lemma wp_seq : forall t1 t2 Q,
   wp t1 (fun r => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
 Proof using.
-  intros. unfold wp at 1. hsimpl. intros H' M1.
-  unfold wp at 1. hsimpl. intros H''.
+  intros. unfold wp at 1. xsimpl. intros H' M1.
+  unfold wp at 1. xsimpl. intros H''.
   applys hoare_seq. applys (rm M1). unfold wp.
   repeat rewrite hstar_hexists. applys hoare_hexists; intros H'''.
   rewrite (hstar_comm H'''); repeat rewrite hstar_assoc.
-  applys hoare_hpure; intros M2. applys hoare_conseq M2; hsimpl.
+  applys hoare_hpure; intros M2. applys hoare_conseq M2; xsimpl.
 Qed.
 
 Lemma wp_let : forall x t1 t2 Q,
   wp t1 (fun v => wp (subst x v t2) Q) ==> wp (trm_let x t1 t2) Q.
 Proof using.
-  intros. unfold wp at 1. hsimpl. intros H' M1.
-  unfold wp at 1. hsimpl. intros H''.
+  intros. unfold wp at 1. xsimpl. intros H' M1.
+  unfold wp at 1. xsimpl. intros H''.
   applys hoare_let. applys (rm M1). intros v. simpl. unfold wp.
   repeat rewrite hstar_hexists. applys hoare_hexists; intros H'''.
   rewrite (hstar_comm H'''); rew_heap.
-  applys hoare_hpure; intros M2. applys hoare_conseq M2; hsimpl.
+  applys hoare_hpure; intros M2. applys hoare_conseq M2; xsimpl.
 Qed.
 
 Lemma wp_if_case : forall b t1 t2 Q,
   wp (if b then t1 else t2) Q ==> wp (trm_if b t1 t2) Q.
 Proof using.
-  intros. repeat unfold wp. hsimpl; intros H M H'.
+  intros. repeat unfold wp. xsimpl; intros H M H'.
   applys hoare_if_case. applys M.
 Qed.
 
@@ -1187,7 +1187,7 @@ Lemma wp_equiv : forall t H Q,
   (triple t H Q) <-> (H ==> wp t Q).
 Proof using.
   unfold wp, triple. iff M.
-  { hsimpl H. apply M. }
+  { xsimpl H. apply M. }
   { intros H'. applys hoare_conseq. 2:{ applys himpl_frame_l M. }
      { clear M. rewrite hstar_hexists. applys hoare_hexists. intros H''.
        rewrite (hstar_comm H''). rew_heap. applys hoare_hpure. intros N.
@@ -1204,7 +1204,7 @@ Lemma triple_add : forall n1 n2,
     \[]
     (fun r => \[r = val_int (n1 + n2)]).
 Proof using.
-  intros. unfold triple. intros H'. applys hoare_conseq hoare_add; hsimpl~.
+  intros. unfold triple. intros H'. applys hoare_conseq hoare_add; xsimpl~.
 Qed.
 
 Lemma triple_ref : forall v,
@@ -1212,7 +1212,7 @@ Lemma triple_ref : forall v,
     \[]
     (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
 Proof using.
-  intros. unfold triple. intros H'. applys hoare_conseq hoare_ref; hsimpl~.
+  intros. unfold triple. intros H'. applys hoare_conseq hoare_ref; xsimpl~.
 Qed.
 
 Lemma triple_get : forall v l,
@@ -1220,7 +1220,7 @@ Lemma triple_get : forall v l,
     (l ~~~> v)
     (fun r => \[r = v] \* (l ~~~> v)).
 Proof using.
-  intros. unfold triple. intros H'. applys hoare_conseq hoare_get; hsimpl~.
+  intros. unfold triple. intros H'. applys hoare_conseq hoare_get; xsimpl~.
 Qed.
 
 Lemma triple_set : forall w l v,
@@ -1228,7 +1228,7 @@ Lemma triple_set : forall w l v,
     (l ~~~> v)
     (fun r => \[r = val_unit] \* l ~~~> w).
 Proof using.
-  intros. unfold triple. intros H'. applys hoare_conseq hoare_set; hsimpl~.
+  intros. unfold triple. intros H'. applys hoare_conseq hoare_set; xsimpl~.
 Qed.
 
 
@@ -1382,13 +1382,13 @@ Definition mkstruct (F:formula) : formula :=
 
 Lemma mkstruct_ramified : forall Q1 Q2 F,
   (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
-Proof using. unfold mkstruct. hsimpl. Qed.
+Proof using. unfold mkstruct. xsimpl. Qed.
 
 Arguments mkstruct_ramified : clear implicits.
 
 Lemma mkstruct_erase : forall Q F,
   F Q ==> mkstruct F Q.
-Proof using. unfolds mkstruct. hsimpl. Qed.
+Proof using. unfolds mkstruct. xsimpl. Qed.
 
 Arguments mkstruct_erase : clear implicits.
 
@@ -1566,7 +1566,7 @@ Lemma mkstruct_sound : forall t F,
   formula_sound_for t F ->
   formula_sound_for t (mkstruct F).
 Proof using.
-  introv M. intros Q. unfold mkstruct. hsimpl ;=> Q'.
+  introv M. intros Q. unfold mkstruct. xsimpl ;=> Q'.
   lets N: M Q'. hchange N. applys wp_ramified.
 Qed.
 
@@ -1762,13 +1762,13 @@ Tactic Notation "xapp" :=
   xapp_pre; applys xapp_lemma.
 
 Tactic Notation "xapp" constr(E) :=
-  xapp_pre; applys xapp_lemma E; hsimpl; unfold protect.
+  xapp_pre; applys xapp_lemma E; xsimpl; unfold protect.
 
 Tactic Notation "xapps" constr(E) :=
   xapp_pre; first
   [ applys xapps_lemma0 E
   | applys xapps_lemma1 E ];
-  hsimpl; unfold protect.
+  xsimpl; unfold protect.
 
 Tactic Notation "xtop" :=
   applys xtop_lemma.
@@ -1906,7 +1906,7 @@ Proof using.
   xapps triple_get.
   xapps triple_add.
   xapps triple_set.
-  hsimpl~.
+  xsimpl~.
 Qed.
 
 (* ------------------------------------------------------- *)
@@ -1928,7 +1928,7 @@ Proof using.
   xapps triple_incr.
   xtop.
   xapps triple_get.
-  hsimpl~.
+  xsimpl~.
 Qed.
 
 End Demo.

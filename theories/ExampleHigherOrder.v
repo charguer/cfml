@@ -30,7 +30,7 @@ Lemma Triple_apply : forall (f:func) `{EA:Enc A} (x:A),
 Proof using.
   introv M. xcf. (* todo why not simplified? *)
     unfold Substn, substn; simpl; rew_enc_dyn.
-  xapp. hsimpl~.
+  xapp. xsimpl~.
 Qed.
 
 Lemma Triple_apply' : forall (f:func) `{EA:Enc A} (x:A),
@@ -61,7 +61,7 @@ Lemma Triple_refapply_pure : forall (f:func) `{EA:Enc A} (r:loc) (x:A),
     PRE (r ~~> x)
     POST (fun (_:unit) => \exists y, \[P x y] \* r ~~> y).
 Proof using.
-  introv M. xcf. xapps. xapp ;=> y E. xapp. hsimpl~.
+  introv M. xcf. xapps. xapp ;=> y E. xapp. xsimpl~.
 Qed.
 
 Lemma Triple_refapply_effect : forall (f:func) `{EA:Enc A} (r:loc) (x:A),
@@ -74,7 +74,7 @@ Lemma Triple_refapply_effect : forall (f:func) `{EA:Enc A} (r:loc) (x:A),
     PRE (r ~~> x \* H)
     POST (fun (_:unit) => \exists y, \[P x y] \* r ~~> y \* H').
 Proof using.
-  introv M. xcf. xapps. xapp ;=> y E. xapp. hsimpl~.
+  introv M. xcf. xapps. xapp ;=> y E. xapp. xsimpl~.
 Qed.
 
 
@@ -92,7 +92,7 @@ Lemma Triple_twice : forall (f:func) (H H':hprop) `{EB:Enc B} (Q:B->hprop),
   Triple (f ``tt) H' Q ->
   Triple (val_twice ``f) H Q.
 Proof using.
-  introv M1 M2. xcf. xseq. xapp M1. xapp M2. hsimpl~.
+  introv M1 M2. xcf. xseq. xapp M1. xapp M2. xsimpl~.
 Qed.
 
 
@@ -140,11 +140,11 @@ Proof using.
   applys mklocal_weaken_post. xlocal.
   applys mklocal_erase. applys xfor_inv_lemma (fun i => (I (i-1))).
   { math. }
-  { hsimpl. }
-  { intros i Hi. xapp. { math. } { math_rewrite (i-1+1=i+1-1). hsimpl. } }
-  { math_rewrite (n+1-1=n). hsimpl. }
+  { xsimpl. }
+  { intros i Hi. xapp. { math. } { math_rewrite (i-1+1=i+1-1). xsimpl. } }
+  { math_rewrite (n+1-1=n). xsimpl. }
   (* todo : avoid math_rewrite,
-     thanks to hsimpl simplification of invariants *)
+     thanks to xsimpl simplification of invariants *)
 Qed.
 
 
@@ -178,7 +178,7 @@ Lemma Triple_MCount : forall n g,
   Triple (g '()) (g ~> MCount n) (fun r => \[ r = n+1 ] \* g ~> MCount (n+1)).
 Proof using.
   intros. xunfolds MCount at 1 ;=> p Hg. xapp.
-  hpulls. xunfold MCount. hsimpl~.
+  hpulls. xunfold MCount. xsimpl~.
 Qed.
 
 
@@ -199,8 +199,8 @@ Lemma Triple_mkcounter :
     \[]
     (fun g => g ~> MCount 0).
 Proof using.
-  xcf. xapps ;=> r. xval. xunfold MCount. hsimpl.
-  { intros n'. xcf. xapp~. xapp. hsimpl~. }
+  xcf. xapps ;=> r. xval. xunfold MCount. xsimpl.
+  { intros n'. xcf. xapp~. xapp. xsimpl~. }
 Qed.
 
 Hint Extern 1 (Register_Spec val_mkcounter) => Provide Triple_mkcounter.
@@ -225,5 +225,5 @@ Proof using.
   xapps Triple_MCount.
   xapps Triple_MCount.
   xapps.
-  hsimpl~.
+  xsimpl~.
 Qed.

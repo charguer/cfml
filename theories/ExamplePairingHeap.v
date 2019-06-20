@@ -1,3 +1,102 @@
+(**
+
+Formalization of 
+- purely functional pairing heaps in Coq
+- ephemeral (pointer-based) pairing heaps in CFML2
+
+Author: Arthur Charguéraud.
+License: MIT.
+
+*)
+
+(** For simplicity, assume the heap stores integer values.
+    It is not hard to generalize everything to any ordered type. *)
+
+Definition elem := int.
+
+
+(* ####################################################### *)
+(** * Purely functional pairing heaps *)
+
+Module PurePairing.
+
+
+(* ******************************************************* *)
+(** ** Code *)
+
+Inductive heap : Type :=
+  | Empty : heap
+  | Node : elem -> heap -> list heap -> heap.
+
+Definition is_empty (h:heap) : bool :=
+  match h with
+  | Empty -> true
+  | _ -> false
+  end.
+
+Definition merge (h1 h2:heap) : heap :=
+  match h1, h2 with
+   | _, Empty -> h1
+   | Empty, _ -> h2
+   | Node x hs1, Node y hs2 ->
+       if x < y 
+          then Node (x, h2::hs1)
+          else Node (y, h1::hs2)
+   end.
+
+Definition insert x h :=
+  merge (Node x nil) h.
+
+Definition merge_pairs (hs:list heap) : heap :=
+  match hs with
+  | nil -> Empty
+  | h::nil -> h
+  | h1::h2::hs' -> merge (merge h1 h2) (merge_pairs hs')
+  end.
+
+Definition pop_min (h:heap) : elem * heap :=
+  match h with
+  | Node x hs -> (x, merge_pairs hs)
+  | _ -> arbitrary
+  end.
+
+
+(* ******************************************************* *)
+(** ** Invariant and lemmas *)
+
+Definition is_ge (x y:elem) : Prop :=
+  x <= y.
+
+Definition list_union (Hs:list (multiset T)) := 
+  fold_right union \{} Hs.
+
+Inductive inv : heap -> multiset T -> Prop :=
+  | inv_empty : 
+      inv Empty \{} 
+  | inv_node : forall x X hs Hs E,
+      rep x X ->
+      Forall2 inv hs Hs ->
+      Forall (fun H => H <> \{}) Hs ->
+      Forall (foreach (is_ge X)) Hs ->
+      E = \{X} \u list_union Hs ->   
+      inv (Node x hs) E.
+
+
+
+(* ******************************************************* *)
+(** ** Verification *)
+
+
+End PurePairing.
+
+
+
+(**
+
+
+
+(*
+
 Set Implicit Arguments.
 Require Import FuncTactics LibCore.
 Require Import OrderedSig_ml HeapSig_ml OrderedSig_proof HeapSig_proof.
@@ -183,8 +282,12 @@ End PairingHeapSpec.
 
 
 
+*)
 
-(* https://sites.google.com/site/progyumming/cpp/pairing-heap
+(*
+
+
+https://sites.google.com/site/progyumming/cpp/pairing-heap
 
 https://github.com/saadtaame/pairing-heap/blob/master/pairing_heap.cc
 

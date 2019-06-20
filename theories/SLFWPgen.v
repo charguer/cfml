@@ -152,18 +152,18 @@ End WpgenOverview.
 ]] *)
 
 (** The following definition of [mkstruct] satisfy the above two properties.
-    The tactic [hsimpl] trivializes the proofs. Details are discussed further on. *)
+    The tactic [xsimpl] trivializes the proofs. Details are discussed further on. *)
 
 Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
   \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
 
 Lemma mkstruct_ramified : forall Q1 Q2 F,
   (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
-Proof using. unfold mkstruct. hsimpl. Qed.
+Proof using. unfold mkstruct. xsimpl. Qed.
 
 Lemma mkstruct_erase : forall Q F,
   F Q ==> mkstruct F Q.
-Proof using. unfolds mkstruct. hsimpl. Qed.
+Proof using. unfolds mkstruct. xsimpl. Qed.
 
 Arguments mkstruct_erase : clear implicits.
 Arguments mkstruct_ramified : clear implicits.
@@ -512,7 +512,7 @@ Lemma mkstruct_sound : forall t F,
   formula_sound_for t F ->
   formula_sound_for t (mkstruct F).
 Proof using.
-  introv M. intros Q. unfold mkstruct. hsimpl ;=> Q'.
+  introv M. intros Q. unfold mkstruct. xsimpl ;=> Q'.
   lets N: M Q'. hchange N. applys wp_ramified.
 Qed.
 
@@ -874,7 +874,7 @@ Proof using. introv M. hchange M. Qed.
     as a [wp] (which is produced by [wpgen] on an application),
     and a premise as a triple (because triples are used to state
     specification lemmas. Observe that the rule includes an identity
-    function called [protect], which is used to prevent [hsimpl]
+    function called [protect], which is used to prevent [xsimpl]
     from performing too aggressive simplifications. *)
 
 Lemma xapp_lemma : forall t Q1 H1 H Q,
@@ -883,10 +883,10 @@ Lemma xapp_lemma : forall t Q1 H1 H Q,
   H ==> wp t Q.
 Proof using. introv M W. rewrite <- wp_equiv. applys~ triple_ramified_frame M. Qed.
 
-(** The [hsimpl'] tactic is a variant of [hsimpl] that clears the
+(** The [xsimpl'] tactic is a variant of [xsimpl] that clears the
     identity tag [protect] upon completion. *)
 
-Tactic Notation "hsimpl'" := hsimpl; unfold protect.
+Tactic Notation "xsimpl'" := xsimpl; unfold protect.
 
 (** [xcf_lemma] is a variant of [wpgen_of_triple] specialized for
     establishing a triple for a function application. The rule reformulates
@@ -964,17 +964,17 @@ Proof using.
   applys xlet_lemma.
   applys xstruct_lemma.
   applys xapp_lemma. { apply triple_ref. }
-  hsimpl'. intros ? l ->.
+  xsimpl'. intros ? l ->.
   applys xstruct_lemma.
   applys xseq_lemma.
   applys xstruct_lemma.
   applys xapp_lemma. { apply triple_incr. }
-  hsimpl'. intros ? ->.
+  xsimpl'. intros ? ->.
   applys xtop_lemma. (* Here we exploit [mkstruct] to apply a structural rule. *)
   applys xstruct_lemma.
   applys xapp_lemma. { apply triple_get. }
-  hsimpl'. intros ? ->.
-  hsimpl'. auto.
+  xsimpl'. intros ? ->.
+  xsimpl'. auto.
 Qed.
 
 
@@ -1084,11 +1084,11 @@ Lemma triple_mysucc_with_xtactics : forall (n:int),
     (fun v => \[v = n+1]).
 Proof using.
   xcf.
-  xapp. { apply triple_ref. } hsimpl' ;=> ? l ->.
-  xapp. { apply triple_incr. } hsimpl' ;=> ? ->.
+  xapp. { apply triple_ref. } xsimpl' ;=> ? l ->.
+  xapp. { apply triple_incr. } xsimpl' ;=> ? ->.
   xtop.
-  xapp. { apply triple_get. } hsimpl' ;=> ? ->.
-  hsimpl. auto.
+  xapp. { apply triple_get. } xsimpl' ;=> ? ->.
+  xsimpl. auto.
 Qed.
 
 (* EX2! (triple_incr_with_xtactics) *)
@@ -1102,10 +1102,10 @@ Lemma triple_incr_with_xtactics : forall (p:loc) (n:int),
 Proof using.
 (* SOLUTION *)
   xcf.
-  xapp. { apply triple_get. } hsimpl' ;=> ? ->.
-  xapp. { apply triple_add. } hsimpl' ;=> ? ->.
-  xapp. { apply triple_set. } hsimpl' ;=> ? ->.
-  hsimpl. auto.
+  xapp. { apply triple_get. } xsimpl' ;=> ? ->.
+  xapp. { apply triple_add. } xsimpl' ;=> ? ->.
+  xapp. { apply triple_set. } xsimpl' ;=> ? ->.
+  xsimpl. auto.
 (* /SOLUTION *)
 Qed.
 
@@ -1116,18 +1116,18 @@ Qed.
 (** We further improve [xapp] in two ways.
 
     First, we introduce the variant [xapp' E] which mimics the
-    proof pattern: [xapp. { apply E. } hsimpl'.]. Concretely,
+    proof pattern: [xapp. { apply E. } xsimpl'.]. Concretely,
     [xapp' E] directly exploits the specification [E] rather
-    than requiring an explicit [apply E], and a subsequent [hsimpl']. *)
+    than requiring an explicit [apply E], and a subsequent [xsimpl']. *)
 
 Tactic Notation "xapp_pre" :=
   xseq_xlet_if_needed; xstruct_if_needed.
 
 Tactic Notation "xapp" constr(E) :=
-  xapp_pre; applys xapp_lemma E; hsimpl'.
+  xapp_pre; applys xapp_lemma E; xsimpl'.
 
 (** Second, we introduce the variant [xapps E] to mimic the
-    pattern [xapp. { apply E. } hsimpl' ;=> ? ->]. Concretely,
+    pattern [xapp. { apply E. } xsimpl' ;=> ? ->]. Concretely,
     the tactic [xapps E] exploits a specification [E] whose conclusion
     is of the form [fun r => \[r = v] \* H] or [fun r => \[r = v]],
     and for which the user wishes to immediately substitute [r] away. *)
@@ -1148,7 +1148,7 @@ Tactic Notation "xapps" constr(E) :=
   xapp_pre; first
   [ applys xapps_lemma0 E
   | applys xapps_lemma1 E ];
-  hsimpl'.
+  xsimpl'.
 
 
 (* ******************************************************* *)
@@ -1167,7 +1167,7 @@ Proof using.
   xapps triple_get.
   xapps triple_add.
   xapps triple_set.
-  hsimpl~.
+  xsimpl~.
 Qed.
 
 (** The proof script for the verification of [mysucc] is now shorter. *)
@@ -1182,7 +1182,7 @@ Proof using.
   xapps triple_incr.
   xtop.
   xapps triple_get.
-  hsimpl~.
+  xsimpl~.
 Qed.
 
 (* TODO: add a few exercises here *)
@@ -1337,7 +1337,7 @@ Qed.
 
     Let us first explain in more details why this definition satisfies
     the required properties, namely [mkstruct_erase] and [mkstruct_ramified],
-    whose proofs were trivialized by [hsimpl].
+    whose proofs were trivialized by [xsimpl].
 
     For the lemma [mkstruct_erase], we want to prove [F Q ==> mkstruct F Q].
     This is equivalent to [F Q ==> \exists Q', F Q' \* (Q' \--* Q \*+ \Top)].
@@ -1387,15 +1387,15 @@ Qed.
     once does not increase expressiveness. *)
 
 (* EX3! (mkstruct_idempotent) *)
-(** Prove the idempotence of [mkstruct]. Hint: use [hsimpl]. *)
+(** Prove the idempotence of [mkstruct]. Hint: use [xsimpl]. *)
 
 Lemma mkstruct_idempotent : forall F,
   mkstruct (mkstruct F) = mkstruct F.
 Proof using.
   (* SOLUTION *)
   intros. apply fun_ext_1. intros Q.
-  unfold mkstruct. hsimpl.
-  (* [hsimpl] first invokes [applys himpl_antisym].
+  unfold mkstruct. xsimpl.
+  (* [xsimpl] first invokes [applys himpl_antisym].
      The right-to-left entailment is exactly [mkstruct_erase].
      The left-to-right entailment amounts to proving:
      [F Q2 \* (Q2 \--* (Q1 \*+ \Top) \* (Q1 \--* (Q \*+ \Top))

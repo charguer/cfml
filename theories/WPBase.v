@@ -95,7 +95,7 @@ Lemma structural_weakestpre : forall (T:hprop->(B->hprop)->Prop),
   structural (weakestpre T).
 Proof using.
   introv L. applys structural_intro. intros Q. unfold weakestpre.
-  hpull ;=> Q' H M. hsimpl (H \* (Q' \--* Q \*+ \GC)).
+  hpull ;=> Q' H M. xsimpl (H \* (Q' \--* Q \*+ \GC)).
   applys* local_ramified_frame_hgc.
 Qed.
 
@@ -126,7 +126,7 @@ Lemma structural_conseq : forall Q' F H Q,
   H ==> F Q'.
 Proof using.
   introv L M W. applys~ structural_elim.
-  hchange (rm M). hsimpl Q. hchanges W.
+  hchange (rm M). xsimpl Q. hchanges W.
 Qed.
 
 Lemma structural_hgc : forall F H Q,
@@ -135,7 +135,7 @@ Lemma structural_hgc : forall F H Q,
   H ==> F Q.
 Proof using.
   introv L M. applys~ structural_elim.
-  hchange (rm M). hsimpl (Q \*+ \GC).
+  hchange (rm M). xsimpl (Q \*+ \GC).
 Qed.
 
 Lemma structural_frame : forall H1 H2 F H Q,
@@ -179,7 +179,7 @@ Implicit Type F : formula' B.
 Lemma mkstruct_erase : forall F Q,
   F Q ==> mkstruct F Q.
 Proof using.
-  intros. unfold mkstruct. repeat hsimpl.
+  intros. unfold mkstruct. repeat xsimpl.
 Qed.
 
 (** [mkstruct] can be erased, with transitivity *)
@@ -199,7 +199,7 @@ Lemma mkstruct_mkstruct : forall F,
   mkstruct (mkstruct F) = mkstruct F.
 Proof using.
   intros F. applys fun_ext_1. intros Q. applys himpl_antisym.
-  { unfold mkstruct. hpull ;=> Q' Q''. hsimpl Q''. }
+  { unfold mkstruct. hpull ;=> Q' Q''. xsimpl Q''. }
   { hchanges mkstruct_erase. }
 Qed.
 
@@ -239,7 +239,7 @@ Lemma mkstruct_weaken : forall F F',
   F ===> F' ->
   mkstruct F ===> mkstruct F'.
 Proof using.
-  unfold mkstruct. introv M. intros Q. hpull ;=> Q'. hsimpl~ Q'.
+  unfold mkstruct. introv M. intros Q. hpull ;=> Q'. xsimpl~ Q'.
 Qed.
 
 (** [mkstruct] can be erased on the left of an entailment if the 
@@ -481,8 +481,8 @@ Lemma triple_mkstruct_pre : forall t (F:formula) Q,
 Proof using.
   introv M. applys~ local_elim.
   unfold mkstruct. hpull ;=> Q'.
-  hsimpl (F Q') ((Q' \--* Q \*+ \GC)) Q'. split~.
-  { hsimpl. }
+  xsimpl (F Q') ((Q' \--* Q \*+ \GC)) Q'. split~.
+  { xsimpl. }
 Qed.
 
 (** The tactic [remove_mkstruct] applies to goal of the form [triple t (mkstruct F Q) Q]
@@ -778,7 +778,7 @@ Qed.
 Lemma triple_isubst_of_wpgen : forall t E H Q,
   H ==> wpgen E t Q ->
   triple (isubst E t) H Q.
-Proof using. introv M. xchanges M. applys triple_isubst_wpgen. Qed.
+Proof using. introv M. xtchanges M. applys triple_isubst_wpgen. Qed.
 
 Lemma triple_of_wpgen_empty : forall (t:trm) H Q,
   H ==> wpgen Ctx.empty t Q ->

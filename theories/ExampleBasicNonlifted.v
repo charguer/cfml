@@ -46,12 +46,12 @@ Proof using.
   intros x. apply triple_hpure. intros E. subst.
   applys triple_let.
   { applys triple_frame_consequence (p ~~~> n).
-    { hsimpl. }
+    { xsimpl. }
     { applys triple_add. }
-    { hsimpl. } }
+    { xsimpl. } }
   simpl. intros y. apply triple_hpure. intros E. subst.
   applys triple_conseq.
-  { hsimpl. }
+  { xsimpl. }
   { applys triple_set. }
   { intros r. applys himpl_hpure_l. intros E. subst. auto. }
 Qed.
@@ -113,7 +113,7 @@ Lemma triple_incr_5 : forall p n,
 Proof using.
   xcf. xlet as x. xapp. xpull. intro_subst.
   xlet as y. xapp. xpull. intro_subst.
-  xapp. hsimpl.
+  xapp. xsimpl.
 Qed.
 
 (** Same proof using characteristic formulae with more tactics *)
@@ -125,7 +125,7 @@ Lemma triple_incr_6 : forall p n,
 Proof using.
   xcf. xapp as x. intro_subst.
   xapp as y. intro_subst.
-  xapps. hsimpl~.
+  xapps. xsimpl~.
 Qed.
 
 (** Same proof using characteristic formulae with yet more
@@ -136,7 +136,7 @@ Lemma triple_incr__7 : forall p n,
     (p ~~~> n)
     (fun r => (p ~~~> (n+1))).
 Proof using.
-  xcf. xapps. xapps. xapps. hsimpl~.
+  xcf. xapps. xapps. xapps. xsimpl~.
 Qed.
 
 Hint Extern 1 (Register_spec val_incr) => Provide triple_incr__7.
@@ -151,9 +151,9 @@ Lemma triple_incr_with_other_1 : forall p n q m,
     (fun r => (p ~~~> (n+1)) \* q ~~~> m).
 Proof using.
   intros. applys triple_frame_consequence (q ~~~> m).
-  { hsimpl. }
+  { xsimpl. }
   { rew_heap. apply triple_incr_5. }
-  { intros r. hsimpl. }
+  { intros r. xsimpl. }
 Qed.
 
 Lemma triple_incr_with_other_2 : forall p n q m,
@@ -162,21 +162,21 @@ Lemma triple_incr_with_other_2 : forall p n q m,
     (fun r => (p ~~~> (n+1)) \* q ~~~> m).
 Proof using.
   intros. xapply triple_incr_5.
-  { hsimpl. }
-  { intros r. hsimpl. }
+  { xsimpl. }
+  { intros r. xsimpl. }
 Qed.
 
 Lemma triple_incr_with_other : forall p n q m,
   triple (val_incr p)
     (p ~~~> n \* q ~~~> m)
     (fun r => (p ~~~> (n+1)) \* q ~~~> m).
-Proof using. intros. xapps. hsimpl~. Qed.
+Proof using. intros. xapps. xsimpl~. Qed.
 
 Lemma triple_incr_with_frame : forall p n H,
   triple (val_incr p)
     (p ~~~> n \* H)
     (fun r => (p ~~~> (n+1)) \* H).
-Proof using. intros. xapps. hsimpl~. Qed.
+Proof using. intros. xapps. xsimpl~. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -195,7 +195,7 @@ Lemma triple_swap_neq : forall p q v w,
     (fun r => p ~~~> w \* q ~~~> v).
 Proof using.
   xcf. xapps. xapps. xapp. intros _.
-  xapps. hsimpl~.
+  xapps. xsimpl~.
 Qed.
 
 Lemma triple_swap_eq : forall p v,
@@ -203,7 +203,7 @@ Lemma triple_swap_eq : forall p v,
     (p ~~~> v)
     (fun r => p ~~~> v).
 Proof using.
-  xcf. xapps. xapps. xapp~. intros _. xapps. hsimpl~.
+  xcf. xapps. xapps. xapp~. intros _. xapps. xsimpl~.
 Qed.
 
 
@@ -223,7 +223,7 @@ Lemma triple_succ_using_incr : forall n,
     (fun r => \[r = n+1]).
 Proof using.
   xcf. xapp as p. intros; subst. xapp~. intros _. xapps~.
-  (* not possible: applys mklocal_erase. unfold cf_val. hsimpl. *)
+  (* not possible: applys mklocal_erase. unfold cf_val. xsimpl. *)
   xvals~.
 Qed.
 
@@ -251,7 +251,7 @@ Proof using.
   xapps. (* same as [xapp; hpull] *)
   intros; subst.
   math_rewrite ((n + 1) + 1 = (n + 2)). (* TODO: avoid this ?*)
-  hsimpl.
+  xsimpl.
 Qed.
 
 
@@ -270,7 +270,7 @@ Lemma triple_val_example_let : forall n,
     (fun r => \[r = 2*n]).
 Proof using.
   xcf. xapps. xapps. xapp.
-  hsimpl. intros. subst. fequals. math.
+  xsimpl. intros. subst. fequals. math.
 Qed.
 
 
@@ -300,7 +300,7 @@ Proof using.
   xapp. intros; subst.
   xapp. intros I i ?. subst.
   xapp. intros _.
-  xapp. intros r. hsimpl. intros; subst. fequals. math.
+  xapp. intros r. xsimpl. intros; subst. fequals. math.
 Qed.
 
 
@@ -342,5 +342,5 @@ Proof using.
   xapp~. intros _. xapp~. intros _.
   xapps. xapps. xapps. xapps~. intros _.
   xapps. xapps. xapps.
-  hsimpl. intros. subst. fequals. math.
+  xsimpl. intros. subst. fequals. math.
 Qed.

@@ -71,7 +71,7 @@ Proof using.
     xapps~. xapps~. xapps~. xapps~. xapps~.
     hchange (>> (@MListSeg_last) pf1).
     hchange (MListSeg_concat pf1 pf2'). rew_list.
-    hchange (MListSeg_nil pf2). hsimpl~. }
+    hchange (MListSeg_nil pf2). xsimpl~. }
   { subst. rew_list. xvals~. }
 Qed.
 
@@ -104,8 +104,8 @@ Lemma triple_create :
 Proof using.
   xcf. unfold MQueue.
   xapp triple_alloc_cell as r. intros p v1 v2. intro_subst.
-  xapp~. hpull ;=> r x E. hsimpl~.
-  { rewrite MListSeg_nil_eq. hsimpl~. }
+  xapp~. hpull ;=> r x E. xsimpl~.
+  { rewrite MListSeg_nil_eq. xsimpl~. }
 Qed.
 
 
@@ -125,9 +125,9 @@ Lemma triple_is_empty : forall L p,
 Proof using.
   xcf. unfold MQueue. xpull ;=> pf pb vx vy.
   xapps. xapps.
-  xchanges (MListSeg_then_MCell_inv_neq pf pb) ;=> R.
-  (* xchange (MListSeg_then_MCell_inv_neq pf pb). xpull ;=> R. *)
-  xapp. hsimpl ;=> ? ->. fequals. rew_bool_eq. rewrite R. iff; congruence.
+  xtchanges (MListSeg_then_MCell_inv_neq pf pb) ;=> R.
+  (* xtchange (MListSeg_then_MCell_inv_neq pf pb). xpull ;=> R. *)
+  xapp. xsimpl ;=> ? ->. fequals. rew_bool_eq. rewrite R. iff; congruence.
 Qed.
 
 Hint Extern 1 (Register_spec val_is_empty) => Provide triple_is_empty.
@@ -171,7 +171,7 @@ Lemma triple_push_front : forall L v p,
 Proof using.
   xcf. unfold MQueue. xpull ;=> pf pb vx vy.
   xapps. xapp as r. intros x. intro_subst.
-  xapp. hsimpl~. intros _. hchanges (@MListSeg_cons x).
+  xapp. xsimpl~. intros _. hchanges (@MListSeg_cons x).
 Qed.
 
 
@@ -205,8 +205,8 @@ Lemma triple_pop_front' : forall L v p x,
 Proof using.
   intros. xapply (@triple_pop_front (x::L)).
   { auto_false. }
-  { hsimpl. }
-  { intros r. hpull ;=> L' E. inverts E. hsimpl~. }
+  { xsimpl. }
+  { intros r. hpull ;=> L' E. inverts E. xsimpl~. }
 Qed.
 
 
@@ -236,11 +236,11 @@ Proof using.
   xcf. xapps. xapps. xif ;=> C.
   { unfold MQueue. xpull ;=> pf2 pb2 vx2 vy2 pf1 pb1 vx1 vy1.
     destruct L2 as [|x L2']; tryfalse.
-    xchanges MListSeg_cons_eq ;=> pf2'.
+    xtchanges MListSeg_cons_eq ;=> pf2'.
     xapps. xapps. xapps. xapps.
     xapps~. xapps~. intros _. xapps~. intros _. xapps~. intros _. xapps~.
     intros r. hchange (MListSeg_last pf1).
     hchange (MListSeg_concat pf1 pf2' pb2). rew_list.
-    hchange (MListSeg_nil pf2). hsimpl~. }
+    hchange (MListSeg_nil pf2). xsimpl~. }
   { subst. rew_list. xvals~. }
 Qed.

@@ -183,7 +183,7 @@ Lemma wp_conseq_frame_htop : forall t H Q1 Q2,
 Proof using.
   introv M. rewrite <- wp_equiv.
   applys triple_conseq_frame_htop (wp t Q1) M.
-  { rewrite wp_equiv. hsimpl. } { hsimpl. }
+  { rewrite wp_equiv. xsimpl. } { xsimpl. }
 Qed.
 
 (** The above statement asserts that:
@@ -219,13 +219,13 @@ Qed.
 
 Lemma wp_ramified : forall t Q1 Q2,
   (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
-Proof using. intros. applys wp_conseq_frame_htop. hsimpl. Qed.
+Proof using. intros. applys wp_conseq_frame_htop. xsimpl. Qed.
 
 (** The following specialization is useful to apply only frame. *)
 
 Lemma wp_ramified_frame : forall t Q1 Q2,
   (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
-Proof using. intros. applys wp_conseq_frame_htop. hsimpl. Qed.
+Proof using. intros. applys wp_conseq_frame_htop. xsimpl. Qed.
 
 (** The following reformulation is handy to apply on any goal
     of the form [H ==> wp t Q]. *)
@@ -305,7 +305,7 @@ Lemma wp_equiv_wp_high : wp_characterization wp_high.
 Proof using.
 (* SOLUTION *)
   unfold wp_characterization, wp_high. iff M.
-  { hsimpl H. apply M. }
+  { xsimpl H. apply M. }
   { applys triple_conseq Q M.
     { applys triple_hexists. intros H'.
       rewrite hstar_comm. applys triple_hpure.
@@ -423,8 +423,8 @@ Lemma wp_ramified' : forall t Q1 Q2,
   (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
 Proof using.
   intros. do 2 rewrite wp_def. hpull ;=> H M.
-  hsimpl (H \* (Q1 \--* Q2 \*+ \Top)). intros H'.
-  applys hoare_conseq M; hsimpl.
+  xsimpl (H \* (Q1 \--* Q2 \*+ \Top)). intros H'.
+  applys hoare_conseq M; xsimpl.
 Qed.
 
 (** We next establish [wp] reasoning rules for each term construct.
@@ -454,7 +454,7 @@ Parameter triple_val : forall v H Q,
 
 Lemma wp_val : forall v Q,
   Q v ==> wp (trm_val v) Q.
-Proof using. intros. rewrite wp_def. hsimpl; intros H'. applys hoare_val. hsimpl. Qed.
+Proof using. intros. rewrite wp_def. xsimpl; intros H'. applys hoare_val. xsimpl. Qed.
 
 (** Interestingly, we have not lost any expressive power: from [wp_val]
     one can recover [triple_val]. *)
@@ -468,11 +468,11 @@ Proof using. introv M. rewrite wp_equiv. hchange M. applys wp_val. Qed.
 
 Lemma wp_fun : forall x t Q,
   Q (val_fun x t) ==> wp (trm_fun x t) Q.
-Proof using. intros. rewrite wp_def. hsimpl; intros H'. applys hoare_fun. hsimpl. Qed.
+Proof using. intros. rewrite wp_def. xsimpl; intros H'. applys hoare_fun. xsimpl. Qed.
 
 Lemma wp_fix : forall f x t Q,
   Q (val_fix f x t) ==> wp (trm_fix f x t) Q.
-Proof using. intros. rewrite wp_def. hsimpl; intros H'. applys hoare_fix. hsimpl. Qed.
+Proof using. intros. rewrite wp_def. xsimpl; intros H'. applys hoare_fix. xsimpl. Qed.
 
 
 (* ******************************************************* *)
@@ -500,7 +500,7 @@ Parameter triple_if_case : forall b t1 t2 H Q,
 Lemma wp_if : forall b t1 t2 Q,
   wp (if b then t1 else t2) Q ==> wp (trm_if b t1 t2) Q.
 Proof using.
-  intros. repeat rewrite wp_def. hsimpl; intros H M H'.
+  intros. repeat rewrite wp_def. xsimpl; intros H M H'.
   applys hoare_if_case. applys M.
 Qed.
 
@@ -549,12 +549,12 @@ Parameter triple_seq : forall t1 t2 H Q H1,
 Lemma wp_seq : forall t1 t2 Q,
   wp t1 (fun r => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
 Proof using.
-  intros. rewrite wp_def. hsimpl. intros H' M1.
-  rewrite wp_def. hsimpl. intros H''.
+  intros. rewrite wp_def. xsimpl. intros H' M1.
+  rewrite wp_def. xsimpl. intros H''.
   applys hoare_seq. applys (rm M1). rewrite wp_def.
   repeat rewrite hstar_hexists. applys hoare_hexists; intros H'''.
   rewrite (hstar_comm H'''); repeat rewrite hstar_assoc.
-  applys hoare_hpure; intros M2. applys hoare_conseq M2; hsimpl.
+  applys hoare_hpure; intros M2. applys hoare_conseq M2; xsimpl.
 Qed.
 
 (* EX2! (triple_seq_from_wp_seq) *)
@@ -579,12 +579,12 @@ Qed.
 Lemma wp_let : forall x t1 t2 Q,
   wp t1 (fun v => wp (subst x v t2) Q) ==> wp (trm_let x t1 t2) Q.
 Proof using.
-  intros. rewrite wp_def. hsimpl. intros H' M1.
-  rewrite wp_def. hsimpl. intros H''.
+  intros. rewrite wp_def. xsimpl. intros H' M1.
+  rewrite wp_def. xsimpl. intros H''.
   applys hoare_let. applys (rm M1). intros v. simpl. rewrite wp_def.
   repeat rewrite hstar_hexists. applys hoare_hexists; intros H'''.
   rewrite (hstar_comm H'''); repeat rewrite hstar_assoc.
-  applys hoare_hpure; intros M2. applys hoare_conseq M2; hsimpl.
+  applys hoare_hpure; intros M2. applys hoare_conseq M2; xsimpl.
 Qed.
 
 
@@ -604,7 +604,7 @@ Lemma wp_app_fun : forall x v1 v2 t1 Q,
   v1 = val_fun x t1 ->
   wp (subst x v2 t1) Q ==> wp (trm_app v1 v2) Q.
 Proof using.
-  introv EQ1. repeat rewrite wp_def. hsimpl. intros.
+  introv EQ1. repeat rewrite wp_def. xsimpl. intros.
   applys* hoare_app_fun.
 Qed.
 
@@ -615,7 +615,7 @@ Lemma wp_app_fix : forall f x v1 v2 t1 Q,
   v1 = val_fix f x t1 ->
   wp (subst x v2 (subst f v1 t1)) Q ==> wp (trm_app v1 v2) Q.
 Proof using. 
-  introv EQ1. repeat rewrite wp_def. hsimpl. intros.
+  introv EQ1. repeat rewrite wp_def. xsimpl. intros.
   applys* hoare_app_fix.
 Qed.
 
@@ -669,7 +669,7 @@ Proof using. intros. hchange (wp_ref_0 v). applys wp_ramified_frame. Qed.
 
 Lemma wp_ref_2 : forall Q v,
   (\forall r, (\exists l, \[r = val_loc l] \* l ~~~> v) \-* Q r) ==> wp (val_ref v) Q.
-Proof using. intros. applys himpl_trans wp_ref_1. hsimpl. Qed.
+Proof using. intros. applys himpl_trans wp_ref_1. xsimpl. Qed.
 
 (** The point is that now we may eliminate [r]: *)
 
@@ -677,7 +677,7 @@ Lemma wp_ref_3 : forall Q v,
   (\forall l, l ~~~> v \-* Q (val_loc l)) ==> wp (val_ref v) Q.
 Proof using.
   intros. applys himpl_trans wp_ref_2.
-  hsimpl. intros ? l ->. hchange (hforall_specialize l).
+  xsimpl. intros ? l ->. hchange (hforall_specialize l).
 Qed.
 
 
@@ -704,8 +704,8 @@ Lemma texan_triple_equiv : forall t H A (Hof:val->A->hprop) (vof:A->val),
 Proof using.
   intros. rewrite wp_equiv. iff M.
   { intros Q. hchange M. applys wp_ramified_trans.
-    hsimpl. intros r x ->. hchanges (hforall_specialize x). }
-  { applys himpl_trans M. hsimpl~. }
+    xsimpl. intros r x ->. hchanges (hforall_specialize x). }
+  { applys himpl_trans M. xsimpl~. }
 Qed.
 
 
@@ -733,7 +733,7 @@ Lemma wp_incr : forall (p:loc) (n:int) Q,
   (p ~~~> n) \* (p ~~~> (n+1) \-* Q val_unit) ==> wp (trm_app incr p) Q.
 Proof using.
   intros. rewrite <- wp_equiv. applys triple_conseq_frame.
-  { applys triple_incr. } { hsimpl. } { hsimpl ;=> ? ->. auto. }
+  { applys triple_incr. } { xsimpl. } { xsimpl ;=> ? ->. auto. }
 Qed.
 (* /SOLUTION *)
 

@@ -93,7 +93,7 @@ Lemma Triple_create : forall `{Enc A},
     PRE \[]
     POST (fun p => (p ~> Stack (@nil A))).
 Proof using.
-  xwp. xval nil. xapp. hsimpl.
+  xwp. xval nil. xapp. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec create) => Provide @Triple_create.
@@ -104,7 +104,7 @@ Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stack L).
 Proof using.
   xwp. xunfold Stack. xapp. xval nil.
-  xapp~ @Triple_eq_r. hsimpl*.
+  xapp~ @Triple_eq_r. xsimpl*.
 Qed.
 
 Hint Extern 1 (Register_Spec is_empty) => Provide @Triple_is_empty.
@@ -114,7 +114,7 @@ Lemma Triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
     PRE (p ~> Stack L)
     POST (fun (u:unit) => (p ~> Stack (x::L))).
 Proof using.
-  xwp. xunfold Stack. xapp. xval (x::L). xapp. hsimpl.
+  xwp. xunfold Stack. xapp. xval (x::L). xapp. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec push) => Provide @Triple_push.
@@ -128,7 +128,7 @@ Proof using.
   introv N. xwp. xunfold Stack. xapp.
   applys xmatch_lemma_list.
   { intros HL. xfail. }
-  { intros X L' HL. xapp. xval. hsimpl~. }
+  { intros X L' HL. xapp. xval. xsimpl~. }
 Qed.
 
 Hint Extern 1 (Register_Spec pop) => Provide @Triple_pop.
@@ -143,9 +143,9 @@ Proof using.
   intros. gen p1 p2 L2. induction_wf IH: (@list_sub A) L1. intros.
   xwp. xapp. xapp. xif ;=> C.
   { (* case cons *)
-    xapp~ ;=> x L1' E. xapp. xapp. { subst*. } hsimpl. subst. rew_list~. }
+    xapp~ ;=> x L1' E. xapp. xapp. { subst*. } xsimpl. subst. rew_list~. }
   { (* case nil *)
-    xval tt. hsimpl~. subst. rew_list~. }
+    xval tt. xsimpl~. subst. rew_list~. }
 Qed.
 
 Hint Extern 1 (Register_Spec rev_append) => Provide @Triple_rev_append.
@@ -237,7 +237,7 @@ Lemma Triple_create : forall `{Enc A},
     PRE \[]
     POST (fun p => (p ~> Stackn (@nil A))).
 Proof using.
-  xwp. xunfold Stackn. xnew (>> (@nil A) 0). skip. (* TODO *) intros p. hsimpl.
+  xwp. xunfold Stackn. xnew (>> (@nil A) 0). skip. (* TODO *) intros p. xsimpl.
 Qed.
 
 Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),
@@ -245,7 +245,7 @@ Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),
     PRE (p ~> Stackn L)
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stackn L).
 Proof using.
-  xwp. xunfold Stackn. xapp. xapp~. hsimpl.
+  xwp. xunfold Stackn. xapp. xapp~. xsimpl.
   rewrite* LibListZ_length_zero_eq_eq_nil.
 Qed.
 
@@ -255,7 +255,7 @@ Lemma Triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
     POST (fun (u:unit) => (p ~> Stackn (x::L))).
 Proof using.
   xwp. xunfold Stackn. xapp. xval (x::L). xappn.
-  hsimpl. (* LATER: hsimpl could do xrecord_eq *) 
+  xsimpl. (* LATER: xsimpl could do xrecord_eq *) 
   xrecord_eq. rew_list; math.
 Qed.
 
@@ -268,8 +268,8 @@ Proof using.
   introv N. xwp. xunfold Stackn. xapp.
   applys xmatch_lemma_list.
   { intros HL. xfail. }
-  { intros X L' HL. xappn. xval. hsimpl*. 
-    (* LATER:  hsimpl could do xrecord_eq *) 
+  { intros X L' HL. xappn. xval. xsimpl*. 
+    (* LATER:  xsimpl could do xrecord_eq *) 
     xrecord_eq. subst; rew_list; math. }
 Qed.
 

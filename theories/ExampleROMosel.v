@@ -168,7 +168,7 @@ Lemma triple_box_get : forall p n,
     PRE (RO (p ~> Box n))
     POST (fun r => \[r = val_int n]).
 Proof using.
-  intros. xdef. xchanges (RO_Box_unfold p) ;=> q.
+  intros. xdef. xtchanges (RO_Box_unfold p) ;=> q.
   xletapp triple_get_ro => ? ->.
   ram_apply triple_get_ro. auto 10 with iFrame.
 Qed.
@@ -201,7 +201,7 @@ Lemma triple_box_up2 : forall (F:int->int) n (f:val) p,
     PRE (p ~> Box n)
     POST (fun r => p ~> Box (2 * F n)).
 Proof using.
-  introv M. xdef. xchange (Box_unfold p). xpull ;=> q.
+  introv M. xdef. xtchange (Box_unfold p). xpull ;=> q.
   xletapp triple_get_ro => ? ->.
   xletapp triple_get_ro => ? ->.
   ram_apply_let M.

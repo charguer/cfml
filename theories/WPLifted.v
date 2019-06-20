@@ -355,8 +355,8 @@ Lemma Triple_MkStruct_pre : forall t (F:Formula) `{EA:Enc A} (Q:A->hprop),
 Proof using.
   introv M. applys~ local_elim.
   unfold MkStruct, mkstruct. hpull ;=> Q'.
-  hsimpl (^F Q') ((Q' \--* Q \*+ \GC)) Q'. split~.
-  { hsimpl. }
+  xsimpl (^F Q') ((Q' \--* Q \*+ \GC)) Q'. split~.
+  { xsimpl. }
 Qed.
 
 (** The tactic [remove_MkStruct] applies to goal of the form [triple t (mklocal F Q) Q]
@@ -731,13 +731,13 @@ Qed.
 Lemma Triple_isubst_of_Wpgen : forall t E H `{EA:Enc A} (Q:A->hprop),
   H ==> ^(Wpgen E t) Q ->
   Triple (isubst E t) H Q.
-Proof using. introv M. xchanges M. applys Triple_isubst_Wpgen. Qed.
+Proof using. introv M. xtchanges M. applys Triple_isubst_Wpgen. Qed.
 
 Lemma Triple_of_Wpgen : forall (t:trm) H `{EA:Enc A} (Q:A->hprop),
   H ==> ^(Wpgen Ctx.empty t) Q ->
   Triple t H Q.
 Proof using.
-  introv M. xchanges M. pattern t at 1; rewrite <- (isubst_empty t).
+  introv M. xtchanges M. pattern t at 1; rewrite <- (isubst_empty t).
   applys Triple_isubst_Wpgen.
 Qed.
 

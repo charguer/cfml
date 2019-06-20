@@ -80,11 +80,11 @@ Proof using.
     asserts (N1&N2): (0 <= abs n /\ (abs n < length L)%Z).
     { split; rewrite abs_nonneg; math. } math.
     lets M': eq_int_of_eq_nat HM. rewrite abs_nonneg in M'; [|math].
-    hsimpl~ (>> L1 x L2). subst L. rewrite Array_concat_eq, Array_cons_eq.
-    rew_nat. hsimpl. rewrite HM. rewrite~ abs_nat_plus_nonneg. math. }
+    xsimpl~ (>> L1 x L2). subst L. rewrite Array_concat_eq, Array_cons_eq.
+    rew_nat. xsimpl. rewrite HM. rewrite~ abs_nat_plus_nonneg. math. }
   { hpull ;=> L1 x L2 HM E. subst n.
     subst L. rewrite Array_concat_eq, Array_cons_eq.
-    rew_nat. hsimpl. applys_eq himpl_refl 1. fequals.
+    rew_nat. xsimpl. applys_eq himpl_refl 1. fequals.
     rewrite abs_nat_plus_nonneg; [|math]. rewrite~ abs_nat. }
 Qed.
 
@@ -99,10 +99,10 @@ Lemma Array_of_Alloc : forall k l,
   \exists (L : list val), \[length L = k] \* Array L l.
 Proof using.
   intros. gen l. induction k; intros.
-  { rew_Alloc. hsimpl (@nil val). rew_list~. }
+  { rew_Alloc. xsimpl (@nil val). rew_list~. }
   { rew_Alloc. hpull ;=> v. hchange IHk. hpull ;=> L E.
-    hsimpl (v::L).
-    { rewrite Array_cons_eq. hsimpl~. }
+    xsimpl (v::L).
+    { rewrite Array_cons_eq. xsimpl~. }
     { rew_list. math. } }
 Qed.
 
@@ -116,7 +116,7 @@ Proof using.
   introv N. xapp. math.
   intros r. hpull ;=> l (E&Nl). subst r.
   hchange Array_of_Alloc. hpull ;=> L HL.
-  hsimpl~. rewrite HL. rewrite~ abs_nonneg.
+  xsimpl~. rewrite HL. rewrite~ abs_nonneg.
 Qed.
 
 
@@ -146,7 +146,7 @@ Proof using.
   rewrites (>> Array_middle_eq i). { math. }
   xpull ;=> L1 x L2 EL HL.
   xapp. hpull ;=> r. intro_subst.
-  hsimpl; auto. { subst. rewrite~ read_middle. }
+  xsimpl; auto. { subst. rewrite~ read_middle. }
 Qed.
 
 Hint Extern 1 (Register_spec val_array_get) => Provide triple_array_get.
@@ -177,7 +177,7 @@ Proof using.
   xapp triple_set. hpull ;=> r. intro_subst.
   rewrites (>> Array_middle_eq i (L[i := v])).
    { rewrite <- length_eq in *. rew_array. math. }
-  hsimpl; auto. { subst. rewrite~ update_middle. rew_list~. }
+  xsimpl; auto. { subst. rewrite~ update_middle. rew_list~. }
 Qed.
 
 Hint Extern 1 (Register_spec val_array_set) => Provide triple_array_set.
@@ -217,7 +217,7 @@ Proof using.
     applys (rm M). case_if.
     { xseq. (* later: remove *)
       xapp~. { rewrite index_eq_inbound. rew_list. rewrite length_make; math. }
-      intros r. hsimpl.
+      intros r. xsimpl.
       destruct L' as [|x L']. { false. rew_list in EL'. math. }
       rewrite~ update_middle; [| rewrite length_make; math ].
       rew_list. xapplys (>> IH L').
@@ -225,11 +225,11 @@ Proof using.
       { rew_list; math. }
       { rew_list in *; math. }
       { applys LS. }
-      { rewrite make_succ_r; [|math]. rew_list. hsimpl~. } }
+      { rewrite make_succ_r; [|math]. rew_list. xsimpl~. } }
     { xval. math E: (i = LibList.length L).
       asserts: (L' = nil). { applys length_zero_inv. math. }
-      subst. rew_list. hsimpl~. } }
-  { simpl ;=> _. xval. subst n. hsimpl~. }
+      subst. rew_list. xsimpl~. } }
+  { simpl ;=> _. xval. subst n. xsimpl~. }
 Qed.
 
 Hint Extern 1 (Register_spec val_array_make) => Provide triple_array_make.
@@ -307,10 +307,10 @@ Proof using.
   apply himpl_antisym.
   { hpull ;=> L1 x L2 N1 N2.
     lets (L1'&X'&L2'&E1&E2&E3&E4): map_eq_middle_inv N1. subst.
-    rewrite length_map. hsimpl~ L1' X' L2'.
-    do 2 rewrite Array_unlift. hsimpl. }
-  { hpull ;=> L1 x L2 N1 N2. hsimpl (map enc L1) (enc x) (map enc L2).
-    repeat rewrite Array_unlift. rewrite length_map. (* todo rew_list *) hsimpl.
+    rewrite length_map. xsimpl~ L1' X' L2'.
+    do 2 rewrite Array_unlift. xsimpl. }
+  { hpull ;=> L1 x L2 N1 N2. xsimpl (map enc L1) (enc x) (map enc L2).
+    repeat rewrite Array_unlift. rewrite length_map. (* todo rew_list *) xsimpl.
     rewrite~ length_map. subst L. rew_listx~. }
 Qed.
 
@@ -325,8 +325,8 @@ Lemma Triple_alloc_array : forall n,
     POST (fun p => \exists (L:list val), \[length L = n :> int] \* p ~> Array L).
 Proof using.
   intros. unfold Triple. xapplys~ triple_alloc_array.
-  intros r x L. intros E N. subst. unfold LiftPost. hsimpl~ L.
-  rewrite Array_unlift. rewrite map_id_ext. hsimpl.
+  intros r x L. intros E N. subst. unfold LiftPost. xsimpl~ L.
+  rewrite Array_unlift. rewrite map_id_ext. xsimpl.
   { intros v. rewrite~ enc_val_eq. }
 Qed.
 
@@ -348,7 +348,7 @@ Proof using.
   intros. unfold Triple. rewrite Array_unlift.
   xapplys~ triple_array_get. intros r E.
  lets M: (@read_map A _ val) L. rewrites~ (rm M) in E. (* todo: polish *)
-  unfold LiftPost. subst. hsimpl*.
+  unfold LiftPost. subst. xsimpl*.
 Qed.
 
 Hint Extern 1 (Register_Spec val_array_get) => Provide Triple_array_get.
@@ -362,7 +362,7 @@ Proof using.
   intros. unfold Triple. rewrite Array_unlift.
   xapplys~ triple_array_set. intros r E.
   rewrite~ <- map_update.
-  unfold LiftPost. subst. rewrite Array_unlift. hsimpl~ tt.
+  unfold LiftPost. subst. rewrite Array_unlift. xsimpl~ tt.
 Qed.
 
 Hint Extern 1 (Register_Spec val_array_set) => Provide Triple_array_set.
@@ -374,8 +374,8 @@ Lemma Triple_array_make : forall n v,
     POST (fun p => \exists L, \[L = make n v] \* p ~> Array L).
 Proof using.
   intros. unfold Triple. xapplys~ triple_array_make.
-  intros r p L E N. unfold LiftPost. hsimpl~ p (make n v).
-  rewrite Array_unlift. subst L. rewrite map_make; [|math]. hsimpl.
+  intros r p L E N. unfold LiftPost. xsimpl~ p (make n v).
+  rewrite Array_unlift. subst L. rewrite map_make; [|math]. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec val_array_make) => Provide Triple_array_make.

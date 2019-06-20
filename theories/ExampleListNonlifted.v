@@ -41,7 +41,7 @@ Definition MCell (v:val) (q:val) (p:loc) :=
 (* ---------------------------------------------------------------------- *)
 (** Tactics *)
 
-(** Tactic hack to make [hsimpl] able to cancel out [hfield]
+(** Tactic hack to make [xsimpl] able to cancel out [hfield]
     and [Mcell] predicates in heap entailment.
     Later won't be needed when using [~>] notation. *)
 
@@ -65,7 +65,7 @@ Lemma MCell_inv_not_null : forall p v q,
   (* i.e. (MCell v q p) ==> (MCell v q p) \* \[p <> null]. *)
 Proof using.
   intros. unfold MCell, hd.
-  hchange~ (hfield_not_null p hd). hsimpl~.
+  hchange~ (hfield_not_null p hd). xsimpl~.
 Qed.
 
 Arguments MCell_inv_not_null : clear implicits.
@@ -81,7 +81,7 @@ Lemma MCell_hstar_MCell_inv : forall p1 p2 x1 x2 y1 y2,
 Proof using.
   intros. do 2 rewrite MCell_eq. tests C: (p1 = p2).
   { hchanges (@hstar_hfield_same_loc_disjoint p2 hd). }
-  { hsimpl~. }
+  { xsimpl~. }
 Qed.
 
 
@@ -162,13 +162,13 @@ Lemma triple_alloc_cell :
     (fun r => \exists (p:loc), \exists v1 v2,
               \[r = p] \* MCell v1 v2 p).
 Proof using.
-  xapply triple_alloc. { math. } { hsimpl. }
+  xapply triple_alloc. { math. } { xsimpl. }
   { intros r. hpull ;=> l (E&N). subst.
     simpl_abs. rew_Alloc. hpull ;=> v1 v2.
     unfold MCell. rewrite hfield_eq_fun_hsingle.
-    unfold hd, tl. hsimpl~ l v1 v2.
+    unfold hd, tl. xsimpl~ l v1 v2.
     math_rewrite (l + 1 = S l)%nat.
-    math_rewrite (l+0 = l)%nat. hsimpl. }
+    math_rewrite (l+0 = l)%nat. xsimpl. }
 Qed.
 
 Lemma triple_new_cell : forall v q,
@@ -192,7 +192,7 @@ Proof using.
   intros p. xpull ;=> p' v' q'. intro_subst. simpl.
   applys triple_seq. { xapplys triple_set_hd. }
   applys triple_seq. { xapplys triple_set_tl. }
-  applys triple_val. hsimpl. auto.
+  applys triple_val. xsimpl. auto.
 Qed.
 *)
 
@@ -224,7 +224,7 @@ Fixpoint MList (L:list val) (p:loc) : hprop :=
 (* ---------------------------------------------------------------------- *)
 (** Tactic *)
 
-(** Tactic hack to make [hsimpl] able to cancel out [MList] in
+(** Tactic hack to make [xsimpl] able to cancel out [MList] in
    heap entailments. Later won't be needed when using [~>] notation. *)
 
 Ltac hcancel_hook H ::=
@@ -252,7 +252,7 @@ Lemma MList_null_eq : forall L,
   MList L null = \[L = nil].
 Proof using.
   intros. destruct L.
-  { xunfold MList. applys himpl_antisym; hsimpl~. }
+  { xunfold MList. applys himpl_antisym; xsimpl~. }
   { xunfold MList. applys himpl_antisym.
     { hpull ;=> p'. hchanges (MCell_null_false v p'). }
     { hpull. } }
@@ -260,11 +260,11 @@ Qed.
 
 Lemma MList_null_inv : forall L,
   MList L null ==+> \[L = nil].
-Proof using. intros. rewrite MList_null_eq. hsimpl~. Qed.
+Proof using. intros. rewrite MList_null_eq. xsimpl~. Qed.
 
 Lemma MList_nil :
   \[] ==> MList nil null.
-Proof using. intros. rewrite MList_nil_eq. hsimpl~. Qed.
+Proof using. intros. rewrite MList_nil_eq. xsimpl~. Qed.
 
 (** For nonempty lists *)
 
@@ -275,15 +275,15 @@ Proof using. intros. unfold MList at 1. simple~. Qed.
 
 Lemma MList_cons : forall p p' x L',
   MCell x p' p \* MList L' p' ==> MList (x::L') p.
-Proof using. intros. rewrite MList_cons_eq. hsimpl. Qed.
+Proof using. intros. rewrite MList_cons_eq. xsimpl. Qed.
 
 Lemma MList_not_null_inv_not_nil : forall p L,
   p <> null ->
   MList L p ==+> \[L <> nil].
 Proof using.
   introv N. destruct L.
-  { rewrite (MList_nil_eq p). hsimpl. }
-  { hsimpl. auto_false. }
+  { rewrite (MList_nil_eq p). xsimpl. }
+  { xsimpl. auto_false. }
 Qed.
 
 Lemma MList_not_null_inv_cons : forall p L,
@@ -340,18 +340,18 @@ Definition val_mlist_length : val :=
     applys triple_if'. { xapplys triple_neq. }
     simpl. intros X. xpull. intros EX. subst X.
     case_if as C1; case_if as C2; tryfalse.
-    { inverts C2. xchange MList_null_inv.
-      xpull. intros EL. applys triple_val. hsimpl. subst~. }
-    { xchange (MList_not_null_inv_cons p). { auto. }
+    { inverts C2. xtchange MList_null_inv.
+      xpull. intros EL. applys triple_val. xsimpl. subst~. }
+    { xtchange (MList_not_null_inv_cons p). { auto. }
       xpull. intros x p' L' EL. applys triple_let.
       { xapplys triple_get_tl. }
       { simpl. intros p''. xpull. intros E. subst p''.
         applys triple_let.
         { simpl. xapplys IH. { subst~. } }
         { simpl. intros r. xpull. intros Er. subst r.
-          xchange (MList_cons p p' x L').
+          xtchange (MList_cons p p' x L').
           xapplys triple_add_int.
-          { intros. subst L. hsimpl. }
+          { intros. subst L. xsimpl. }
           { intros. subst. rew_length. fequals. math. } } } }
   Qed.
 
@@ -373,19 +373,19 @@ Proof using.
   { applys mklocal_erase. xapplys triple_neq. }
   intros X. xpull. intros EX. subst X.
   applys mklocal_erase. esplit. splits. eauto.
-  { intros C. rew_bool_eq in *. xchange (MList_not_null_inv_cons p). { auto. }
+  { intros C. rew_bool_eq in *. xtchange (MList_not_null_inv_cons p). { auto. }
     xpull. intros p' x L' EL.
     applys mklocal_erase. esplit. split.
     { applys mklocal_erase. xapplys triple_get_tl. }
     intros p''. xpull. intros E. subst p''.
     applys mklocal_erase. esplit. split.
     { applys mklocal_erase. xapplys IH. { subst~. } }
-    { intros r. xpull. intros Er. xchange (MList_cons p).
+    { intros r. xpull. intros Er. xtchange (MList_cons p).
       subst r L. applys mklocal_erase. xapplys triple_add.
       { intros. subst. rew_list. fequals. math. } } }
   { intros C. rew_bool_eq in *. applys mklocal_erase. unfolds. inverts C.
-    xchange MList_null_inv. hpull. intros EL.
-    hsimpl. subst~. }
+    xtchange MList_null_inv. hpull. intros EL.
+    xsimpl. subst~. }
 Qed.
 
 
@@ -400,15 +400,15 @@ Proof using.
   intros L. induction_wf: list_sub_wf L. intros p. xcf.
   xlet as b. { xapp. } xpull ;=> Eb. subst.
   xif ;=> C.
-  { xchange (MList_not_null_inv_cons p). { auto. }
+  { xtchange (MList_not_null_inv_cons p). { auto. }
     xpull ;=> p' x L' EL.
     xlet as p''. { xapp. }
     xpull ;=> E. subst p''.
     xlet as r. { xapp IH. { subst~. } }
-    xpull ;=> Er. subst r L. xchange (MList_cons p).
-    xapp. { hsimpl. intros. subst. rew_list. fequals. math. } }
-  { xval. inverts C. xchange MList_null_inv.
-    hpull ;=> EL. hsimpl. subst~. }
+    xpull ;=> Er. subst r L. xtchange (MList_cons p).
+    xapp. { xsimpl. intros. subst. rew_list. fequals. math. } }
+  { xval. inverts C. xtchange MList_null_inv.
+    hpull ;=> EL. xsimpl. subst~. }
 Qed.
 
 
@@ -422,11 +422,11 @@ Lemma triple_mlist_length_1 : forall L p,
 Proof using.
   intros L. induction_wf: list_sub_wf L. xcf.
   xapps. xif ;=> C.
-  { xchanges~ (MList_not_null_inv_cons p) ;=> x p' L' EL. subst L.
+  { xtchanges~ (MList_not_null_inv_cons p) ;=> x p' L' EL. subst L.
     xapps. xapps~ (IH L').
-    xchange (MList_cons p).
-    xapps. hsimpl. isubst. rew_list. fequals. math. }
-  { inverts C. xchanges MList_null_inv ;=> EL. subst. xvals~. }
+    xtchange (MList_cons p).
+    xapps. xsimpl. isubst. rew_list. fequals. math. }
+  { inverts C. xtchanges MList_null_inv ;=> EL. subst. xvals~. }
 Qed.
 
 
@@ -462,16 +462,16 @@ Proof using.
     { xapplys* K. }
     gen p. induction_wf: list_sub_wf L; intros. applys (rm HR).
     xlet. { xapps. xapps. } xpull ;=> ? ->. xif ;=> C.
-    { xchanges~ (MList_not_null_inv_cons p) ;=> p' x L' EL. xseq.
+    { xtchanges~ (MList_not_null_inv_cons p) ;=> p' x L' EL. xseq.
       { xseq. xapp~. simpl ;=> _. xapps.
-        xapps. xapps~. hsimpl. }
-      { xapply (>> IH L'). { subst~. } { hsimpl. }
+        xapps. xapps~. xsimpl. }
+      { xapply (>> IH L'). { subst~. } { xsimpl. }
         { hpull. isubst. hchange (MList_cons p). subst. rew_list.
-          math_rewrite (forall x (y:nat), (x+1)+y = x+(1+y)%nat). hsimpl~. } } }
+          math_rewrite (forall x (y:nat), (x+1)+y = x+(1+y)%nat). xsimpl~. } } }
           (* todo: cancel on ~~> *)
-    { inverts C. xchanges MList_null_inv ;=> EL. subst. rew_list.
+    { inverts C. xtchanges MList_null_inv ;=> EL. subst. rew_list.
       math_rewrite (nacc+0%nat = nacc). xvals~. } }
-  { xpull. intros ? ->. xapp. hsimpl ;=> ? ->. fequals. }
+  { xpull. intros ? ->. xapp. xsimpl ;=> ? ->. fequals. }
 Qed.
 
 
@@ -491,7 +491,7 @@ Fixpoint MListSeg (q:loc) (L:list val) (p:loc) : hprop :=
 (* ---------------------------------------------------------------------- *)
 (** Hack *)
 
-(** Tactic hack to make [hsimpl] able to cancel out [MList]
+(** Tactic hack to make [xsimpl] able to cancel out [MList]
     in heap entailment. *)
 
 Ltac hcancel_hook H ::=
@@ -523,16 +523,16 @@ Global Opaque MListSeg.
 
 Lemma MListSeg_nil : forall p,
   \[] ==> MListSeg p nil p.
-Proof using. intros. rewrite MListSeg_nil_eq. hsimpl~. Qed.
+Proof using. intros. rewrite MListSeg_nil_eq. xsimpl~. Qed.
 
 Lemma MListSeg_cons : forall p p' q x L',
   MCell x p' p \* MListSeg q L' p' ==> MListSeg q (x::L') p.
-Proof using. intros. rewrite MListSeg_cons_eq. hsimpl. Qed.
+Proof using. intros. rewrite MListSeg_cons_eq. xsimpl. Qed.
 
 Lemma MListSeg_one : forall p q x,
   MCell x q p ==> MListSeg q (x::nil) p.
 Proof using.
-  intros. hchange (@MListSeg_nil q). hchange MListSeg_cons. hsimpl.
+  intros. hchange (@MListSeg_nil q). hchange MListSeg_cons. xsimpl.
 Qed.
 
 Lemma MListSeg_concat : forall p1 p2 p3 L1 L2,
@@ -555,10 +555,10 @@ Lemma MListSeg_then_MCell_inv_neq : forall p q L v1 v2,
   MListSeg q L p \* MCell v1 v2 q \* \[L = nil <-> p = q].
 Proof using.
   intros. destruct L.
-  { rewrite MListSeg_nil_eq. hsimpl*. split*. (* TODO: why not proved? *) }
+  { rewrite MListSeg_nil_eq. xsimpl*. split*. (* TODO: why not proved? *) }
   { rewrite MListSeg_cons_eq. hpull ;=> p'. tests: (p = q).
     { hchanges (@MCell_hstar_MCell_inv q). }
-    { hsimpl. split; auto_false. } }
+    { xsimpl. split; auto_false. } }
 Qed.
 
 End Properties.

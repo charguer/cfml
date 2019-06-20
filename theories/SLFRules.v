@@ -540,14 +540,14 @@ Proof using.
   applys triple_let.
   { applys triple_conseq_frame.
     { applys triple_add. }
-    { hsimpl. }
-    { hsimpl. } }
+    { xsimpl. }
+    { xsimpl. } }
   intros m'. simpl.
   apply triple_hpure. intros ->.
   applys triple_conseq_frame.
   { applys triple_set. }
-  { hsimpl. }
-  hsimpl. auto.
+  { xsimpl. }
+  xsimpl. auto.
 Qed.
 
 
@@ -599,12 +599,12 @@ Proof using.
   applys triple_seq.
   { applys triple_conseq_frame.
     { applys triple_incr. }
-    { hsimpl. }
-    { hsimpl. } }
+    { xsimpl. }
+    { xsimpl. } }
   applys triple_conseq_frame_htop.
   { applys triple_get. }
-  { hsimpl. }
-  { hsimpl. auto. }
+  { xsimpl. }
+  { xsimpl. auto. }
 Qed.
 (* /SOLUTION *)
 
@@ -758,7 +758,7 @@ Lemma triple_val_minimal : forall v,
   triple (trm_val v) \[] (fun r => \[r = v]).
 Proof using.
 (* SOLUTION *)
-  intros. applys triple_val. hsimpl. auto.
+  intros. applys triple_val. xsimpl. auto.
 (* /SOLUTION *)
 Qed.
 
@@ -773,8 +773,8 @@ Proof using.
 (* SOLUTION *)
   introv M. applys triple_conseq_frame.
   { applys triple_val_minimal. }
-  { hsimpl. }
-  { intros r. hsimpl. intros ->. applys M. }
+  { xsimpl. }
+  { intros r. xsimpl. intros ->. applys M. }
 (* /SOLUTION *)
 Qed.
 
@@ -844,8 +844,8 @@ Proof using.
   introv M. intros H'.
   (* 2. We invoke the reasoning rule [hoare_val] that we have just established. *)
   applys hoare_val.
-  (* 3. We exploit the assumption and conclude using [hsimpl]. *)
-  hchange M. hsimpl.
+  (* 3. We exploit the assumption and conclude using [xsimpl]. *)
+  hchange M. xsimpl.
 Qed.
 
 (** Remark: in the proof of [hoare_val], the witnesses [h] and [v] are
@@ -935,8 +935,8 @@ Proof using.
        We could begin the proof script with:
          [specializes M2 (H' \* \Top). rewrite <- hstar_assoc in M2.]
        However, it is simpler to directly invoke the consequence rule,
-       and let [hsimpl] do all the tedious work for us. *)
-    applys hoare_conseq. { applys M2. } { hsimpl. } { hsimpl. } }
+       and let [xsimpl] do all the tedious work for us. *)
+    applys hoare_conseq. { applys M2. } { xsimpl. } { xsimpl. } }
 Qed.
 
 
@@ -975,7 +975,7 @@ Proof using.
   unfold triple. introv M1 M2. intros H'. applys hoare_let.
   { applys M1. }
   { intros v. applys hoare_conseq.
-    { applys M2. } { hsimpl. } { hsimpl. } }
+    { applys M2. } { xsimpl. } { xsimpl. } }
 Qed.
 (* /SOLUTION *)
 
@@ -1167,7 +1167,7 @@ Lemma triple_add : forall n1 n2,
     (fun r => \[r = val_int (n1 + n2)]).
 Proof using.
   intros. intros H'. applys hoare_conseq.
-  { applys hoare_add. } { hsimpl. } { hsimpl. auto. }
+  { applys hoare_add. } { xsimpl. } { xsimpl. auto. }
 Qed.
 
 
@@ -1206,7 +1206,7 @@ Lemma triple_div : forall n1 n2,
     (fun r => \[r = val_int (Z.quot n1 n2)]).
 Proof using.
   introv N. intros H'. applys hoare_conseq.
-  { applys hoare_div N. } { hsimpl. } { hsimpl. auto. }
+  { applys hoare_div N. } { xsimpl. } { xsimpl. auto. }
 Qed.
 (* /SOLUTION *)
 
@@ -1329,8 +1329,8 @@ Lemma triple_get : forall v l,
 Proof using.
   intros. intros H'. applys hoare_conseq.
   { applys hoare_get. }
-  { hsimpl. }
-  { hsimpl. auto. }
+  { xsimpl. }
+  { xsimpl. auto. }
 Qed.
 
 
@@ -1420,8 +1420,8 @@ Lemma triple_set : forall w l v,
 Proof using.
   intros. intros H'. applys hoare_conseq.
   { applys hoare_set. }
-  { hsimpl. }
-  { hsimpl. auto. }
+  { xsimpl. }
+  { xsimpl. auto. }
 Qed.
 
 
@@ -1514,8 +1514,8 @@ Lemma triple_ref : forall v,
 Proof using.
   intros. intros H'. applys hoare_conseq.
   { applys hoare_ref. }
-  { hsimpl. }
-  { hsimpl. auto. }
+  { xsimpl. }
+  { xsimpl. auto. }
 Qed.
 
 
@@ -1553,7 +1553,7 @@ Lemma triple_add' : forall n1 n2,
 Proof using.
 (* SOLUTION *)
   intros. applys triple_of_hoare. intros H'. esplit. split.
-  { applys hoare_add. } { hsimpl. auto. }
+  { applys hoare_add. } { xsimpl. auto. }
 (* /SOLUTION *)
 Qed.
 

@@ -459,7 +459,7 @@ Lemma LiftPost_himpl : forall `{Enc A} Q Q',
   LiftPost Q ===> LiftPost Q'.
 Proof using.
   introv M. unfold LiftPost. intros v.
-  hpull. intros x E. subst v. hsimpl*.
+  hpull. intros x E. subst v. xsimpl*.
 Qed.
 
 Local Hint Resolve LiftPost_himpl.
@@ -470,7 +470,7 @@ Lemma LiftPost_star : forall `{Enc A} Q H,
   LiftPost (Q \*+ H) = (LiftPost Q) \*+ H.
 Proof using.
   intros. unfold LiftPost. applys fun_ext_1.
-  intros v. applys himpl_antisym; hsimpl~.
+  intros v. applys himpl_antisym; xsimpl~.
 Qed.
 
 (** [LiftPost] preserves [local] *)
@@ -482,7 +482,7 @@ Proof using.
   introv L. rename H into EQ. applys local_intro.
   intros H Q M. applys~ local_elim.
   hchange M. hpull ;=> H1 H2 Q1 (N1&N2).
-  hsimpl H1 H2 (LiftPost Q1). splits~. 
+  xsimpl H1 H2 (LiftPost Q1). splits~. 
   do 2 rewrite <- LiftPost_star. applys~ LiftPost_himpl.
 Qed.
 
@@ -587,7 +587,7 @@ Definition RetypePost `{Enc A1} (Q1:A1->hprop) `{Enc A2} (Q2:A2->hprop) :=
 
 Lemma RetypePost_refl : forall `{EA:Enc A} (Q:A->hprop),
   RetypePost Q Q.
-Proof using. intros. unfolds. intros X. hsimpl*. Qed.
+Proof using. intros. unfolds. intros X. xsimpl*. Qed.
 
 (* NEEDED TODO RENAME ?*)
 Lemma RetypePost_same : forall `{EA:Enc A} (Q1 Q2:A->hprop),
@@ -634,7 +634,7 @@ Lemma Triple_enc_val :
   Triple t H Q2.
 Proof using.
   introv M N. applys* Triple_enc_change.
-  intros X. hchange (N X). hsimpl~.
+  intros X. hchange (N X). xsimpl~.
 Qed.
 
 
@@ -766,7 +766,7 @@ Lemma Triple_val : forall A `{EA:Enc A} (V:A) v H (Q:A->hprop),
   Triple (trm_val v) H Q.
 Proof using.
   introv E M. applys triple_val. subst.
-  unfold LiftPost. hsimpl*.
+  unfold LiftPost. xsimpl*.
 Qed.
 
 Lemma Triple_fixs : forall f xs t1 H (Q:func->hprop),
@@ -913,7 +913,7 @@ Lemma Triple_set_strong : forall A1 A2 `{EA1:Enc A1} (V1:A1) `{EA2:Enc A2} (V2:A
     (fun u => l ~~> V2).
 Proof using.
   intros. unfold Triple. rewrite Hsingle_to_hsingle. xapplys triple_set.
-  intros. subst. unfold LiftPost. hsimpl~ tt.
+  intros. subst. unfold LiftPost. xsimpl~ tt.
 Qed.
 
 Lemma Triple_set_strong_val : forall v1 A2 `{EA2:Enc A2} (V2:A2) l,
@@ -949,7 +949,7 @@ Lemma Triple_alloc_nat : forall (k:nat),
     (fun l => \[l <> null] \* Alloc k l).
 Proof using.
   intros. xapplys~ Triple_alloc. { math. }
-  { intros. rewrite abs_nat. hsimpl. }
+  { intros. rewrite abs_nat. xsimpl. }
 Qed.
 
 End RulesStateOps.
@@ -994,7 +994,7 @@ Lemma Triple_eq : forall `{EA:Enc A},
 Proof using. (* LATER: simplify *)
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_eq_val. } (* todo: why sapply ? *)
-  unfolds. hpull ;=> ? ->. hsimpl*. rewrite~ Enc_injective_eq.
+  unfolds. hpull ;=> ? ->. xsimpl*. rewrite~ Enc_injective_eq.
 Qed.
 
 Lemma Triple_eq_l : forall `{EA:Enc A} (v1:A),
@@ -1006,7 +1006,7 @@ Lemma Triple_eq_l : forall `{EA:Enc A} (v1:A),
 Proof using. (* LATER: simplify *)
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_eq_val. } (* todo: why sapply ? *)
-  unfolds. hpull ;=> ? ->. hsimpl*. rew_bool_eq. iff. { applys* I. } { subst*. }
+  unfolds. hpull ;=> ? ->. xsimpl*. rew_bool_eq. iff. { applys* I. } { subst*. }
 Qed.
 
 Lemma Triple_eq_r : forall `{EA:Enc A} (v2:A),
@@ -1018,7 +1018,7 @@ Lemma Triple_eq_r : forall `{EA:Enc A} (v2:A),
 Proof using. (* LATER: simplify *)
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_eq_val. } (* todo: why sapply ? *)
-  unfolds. hpull ;=> ? ->. hsimpl*. rew_bool_eq. iff. { symmetry. applys* I. } { subst*. }
+  unfolds. hpull ;=> ? ->. xsimpl*. rew_bool_eq. iff. { symmetry. applys* I. } { subst*. }
 Qed.
 
 Lemma Triple_neq_val : forall v1 v2,
@@ -1036,7 +1036,7 @@ Lemma Triple_neq : forall `{EA:Enc A},
 Proof using. (* LATER: simplify *)
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_neq_val. } 
-  unfolds. hpull ;=> ? ->. hsimpl*. rewrite* Enc_injective_eq.
+  unfolds. hpull ;=> ? ->. xsimpl*. rewrite* Enc_injective_eq.
 Qed.
 
 Lemma Triple_neq_l : forall `{EA:Enc A} (v1:A),
@@ -1048,7 +1048,7 @@ Lemma Triple_neq_l : forall `{EA:Enc A} (v1:A),
 Proof using. (* LATER: simplify *)
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_neq_val. } (* todo: why sapply ? *)
-  unfolds. hpull ;=> ? ->. hsimpl*. rew_bool_eq. iff R.
+  unfolds. hpull ;=> ? ->. xsimpl*. rew_bool_eq. iff R.
   { intros N. applys R. subst*. } { intros N. applys R. applys* I. }
 Qed.
 
@@ -1061,7 +1061,7 @@ Lemma Triple_neq_r : forall `{EA:Enc A} (v2:A),
 Proof using. (* LATER: simplify *)
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_neq_val. } (* todo: why sapply ? *)
-  unfolds. hpull ;=> ? ->. hsimpl*. rew_bool_eq. iff R.
+  unfolds. hpull ;=> ? ->. xsimpl*. rew_bool_eq. iff R.
   { intros N. applys R. subst*. } { intros N. applys R. symmetry. applys* I. }
 Qed.
 

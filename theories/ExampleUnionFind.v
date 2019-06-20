@@ -384,7 +384,7 @@ Proof using.
   { introv _ _ Ex. xvals~. }
   { rename d0 into d. introv _ _ Nx. sets y: (L[x]).
     forwards~ ER: roots_inv_R y (R x) HR.
-    xapp~ (>> IH d). hsimpl~. }
+    xapp~ (>> IH d). xsimpl~. }
 Qed.
 
 Hint Extern 1 (Register_spec val_root) => Provide triple_root.
@@ -434,7 +434,7 @@ Proof using.
     xapp~ (>> IH d).
     { subst L'. rew_array~. }
     { applys~ roots_compress' HR. }
-    { hsimpl~. } }
+    { xsimpl~. } }
   { xvals~. }
 Qed.
 
@@ -488,7 +488,7 @@ Proof using.
     forwards~ Iy: index_of_index_length' (rm Dy) Hn.
     xapp~. (* todo: xapps does not do the right thing *)
     { hpull ;=> r Er. rewrite~ <- map_update; auto.
-      hsimpl~. rew_array~. split~.
+      xsimpl~. rew_array~. split~.
       { applys~ roots_link L R x y. } } }
   { xvals~. rewrite~ link_related. }
 Qed.

@@ -311,7 +311,7 @@ Proof using.
   applys triple_app=>//=. applys triple_if'.
   - ram_apply triple_neq. auto with iFrame.
   - unlock. xpull ;=>[= Hp]. rewrite true_eq_isTrue_eq in Hp.
-    xchange (MList_not_null_inv_cons p); [by auto|]. xpull=>p' x L' ?. subst.
+    xtchange (MList_not_null_inv_cons p); [by auto|]. xpull=>p' x L' ?. subst.
     applys triple_let. { ram_apply triple_get_tl. auto with iFrame. }
     unlock=> q /=. xpull=>->.
     applys triple_let. { ram_apply (IH L'); [done|]. auto with iFrame. }
@@ -362,7 +362,7 @@ Proof using.
     + eapply triple_let. ram_apply triple_get. { auto with iFrame. }
       unlock=>pp /=. xpull=>->. ram_apply triple_neq. eauto with iFrame.
     + unlock. xpull. intros [=Hp]. rewrite true_eq_isTrue_eq in Hp.
-      xchange (MList_not_null_inv_cons p); [by auto|iPrepare; auto with iFrame|].
+      xtchange (MList_not_null_inv_cons p); [by auto|iPrepare; auto with iFrame|].
       xpull=>p' x L' ?. subst. applys triple_seq.
       { applys triple_seq. { ram_apply triple_incr. auto with iFrame. }
         { unlock ;=> _. eapply triple_let. { ram_apply triple_get. auto with iFrame. }

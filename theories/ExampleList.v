@@ -21,8 +21,8 @@ Hint Extern 1 (list_sub _ _) => subst.
 *)
 
 
-Tactic Notation "hsimpl_hand" :=
-   hsimpl; try (applys himpl_hand_r; hsimpl).
+Tactic Notation "xsimpl_hand" :=
+   xsimpl; try (applys himpl_hand_r; xsimpl).
 
 Tactic Notation "hchanges" "*" "<-" constr(E) :=
   hchanges <- E; auto_star.
@@ -123,12 +123,12 @@ Lemma MList_nil : forall (p:loc) A `{EA:Enc A},
 Proof using.
   intros. xunfold MList. applys himpl_antisym.
   { hpull ;=> ? ->. auto. }
-  { hsimpl~. }
+  { xsimpl~. }
 Qed.
 
 Lemma MList_cons : forall (p:loc) A `{EA:Enc A} x (L':list A),
   p ~> MList (x::L') = \exists p', p ~~> (Cons x p') \* (p' ~> MList L').
-Proof using. intros. xunfold MList at 1. hsimpl~. Qed.
+Proof using. intros. xunfold MList at 1. xsimpl~. Qed.
 
 Lemma MList_not_nil : forall (p:loc) A `{EA:Enc A} (L:list A),
   L <> nil ->
@@ -143,7 +143,7 @@ Arguments MList_not_nil : clear implicits.
 Lemma MList_contents_Nil : forall A `{EA:Enc A} (L:list A),
   (MList_contents Nil L) ==> \[L = nil].
 Proof using.
-  intros. unfold MList_contents. destruct L; hsimpl~.
+  intros. unfold MList_contents. destruct L; xsimpl~.
 Qed.
 
 (* LATER
@@ -151,12 +151,12 @@ Lemma MList_contents_Cons : forall A `{EA:Enc A} (L:list A) x p',
   (MList_contents (Cons x p') L) ==> \exists L', \[L = x::L'] \* (p' ~> MList L').
 Proof using.
   intros. unfold MList_contents. destruct L.
-  { hsimpl. }
+  { xsimpl. }
   { hpull ;=> p'' E. unfolds @Cons.
     rewrite (enc_loc_eq p'), (enc_loc_eq p'') in E. (* rew_enc in *. *)
     asserts_rewrite (x = a). { admit. }
     (* Enc_injective EA --- all encoders should be injective!  *)
-    inverts E. hsimpl~. }
+    inverts E. xsimpl~. }
 Admitted.
 *)
 
@@ -232,9 +232,9 @@ Lemma Triple_is_nil : forall A `{EA:Enc A} (L:list A) p,
     PRE (p ~> MList L)
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> MList L).
 Proof using.
-  intros. xwp. applys @Mlist_unfold_match. hsimpl_hand.
+  intros. xwp. applys @Mlist_unfold_match. xsimpl_hand.
   { (* nil *)
-    intros EL. xval. hsimpl~. }
+    intros EL. xval. xsimpl~. }
   { (* cons *) 
     intros p' x' L' ->. xval. hchanges* <- (MList_cons p). }
 Qed.
@@ -257,7 +257,7 @@ Lemma Triple_head : forall A `{EA:Enc A} p x q,
     POST (fun r => \[r = x] \* p ~~> (Cons x q)).
 Proof using.
   intros. xwp. xapp. applys xcase_lemma2. 
-  { (* cons *) intros p' x' E. rew_enc in E. unfolds @Cons. inverts E. xval. hsimpl~. }
+  { (* cons *) intros p' x' E. rew_enc in E. unfolds @Cons. inverts E. xval. xsimpl~. }
   { (* else *) xfail*. }
 Qed.
 
@@ -275,7 +275,7 @@ Lemma Triple_tail : forall A `{EA:Enc A} p x q,
     POST (fun r => \[r = q] \* p ~~> (Cons x q)).
 Proof using.
   intros. xwp. xapp. applys xcase_lemma2. 
-  { (* cons *) intros p' x' E. rew_enc in E. unfolds @Cons. inverts E. xval. hsimpl~. }
+  { (* cons *) intros p' x' E. rew_enc in E. unfolds @Cons. inverts E. xval. xsimpl~. }
   { (* else *) xfail*. }
 Qed.
 
@@ -326,7 +326,7 @@ Lemma Triple_set_nil : forall p (v:val),
     PRE (p ~~> v)
     POST (fun (_:unit) => p ~~> Nil).
 Proof using.
-  intros. xwp. xval (Nil). xapp. hsimpl.
+  intros. xwp. xval (Nil). xapp. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec (set_nil)) => Provide @Triple_set_nil.
@@ -340,7 +340,7 @@ Lemma Triple_set_cons : forall A `{EA:Enc A} (L:list A) p (v:val) (x:A) q,
     PRE (p ~~> v)
     POST (fun (_:unit) => p ~~> Cons x q).
 Proof using.
-  intros. xwp. xval (Cons x q). xapp. hsimpl.
+  intros. xwp. xval (Cons x q). xapp. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec (set_cons)) => Provide @Triple_set_cons.
@@ -358,7 +358,7 @@ Lemma Triple_set_head : forall A `{EA:Enc A} q p x1 x2,
 Proof using.
   intros. xwp. xapp. applys xcase_lemma2. 
   { (* cons *) intros p' x' E. rew_enc in E. unfolds @Cons. inverts E.
-     xval (Cons x2 q). xapp. hsimpl~. }
+     xval (Cons x2 q). xapp. xsimpl~. }
   { (* else *) xfail*. (* intros N. false N. reflexivity. *) }
 Qed.
 
@@ -377,7 +377,7 @@ Lemma Triple_set_tail : forall A `{EA:Enc A} p x q1 q2,
 Proof using.
   intros. xwp.  xapp. applys xcase_lemma2. 
   { (* cons *) intros p' x' E. rew_enc in E. unfolds @Cons. inverts E.
-     xval (Cons x q2). xapp. hsimpl~. }
+     xval (Cons x q2). xapp. xsimpl~. }
   { (* else *) intros N. false N. reflexivity. }
 Qed.
 
@@ -404,9 +404,9 @@ Lemma Triple_mlength : forall `{EA:Enc A} (L:list A) (p:loc),
 Proof using.
   intros. gen p. induction_wf IH: (@list_sub A) L. intros.
   xwp. xapp. xif ;=> E.
-  { xval 0. hsimpl*. }
+  { xval 0. xsimpl*. }
   { hchanges~ MList_not_nil ;=> x L' p' ->.
-    xapp. xapp~. xapp~. hchange <- MList_cons. hsimpl*. }
+    xapp. xapp~. xapp~. hchange <- MList_cons. xsimpl*. }
 Qed.
 
     (* hchanges~ MList_not_nil ;=> x L' p' ->.
@@ -430,7 +430,7 @@ Lemma Triple_copy : forall `{EA:Enc A} (L:list A) (p:loc),
 Proof using.
   intros. gen p. induction_wf IH: (@list_sub A) L. intros.
   xwp. xapp. xif ;=> E.
-  { xapp ;=> p'. hsimpl*. }
+  { xapp ;=> p'. xsimpl*. }
   { hchanges~ MList_not_nil ;=> x L' p' ->.
     xapp. xapp~. xapp~ ;=> q'. xapp ;=> q.
     hchanges <- MList_cons. }
@@ -468,7 +468,7 @@ Proof using.
   { hchanges~ MList_not_nil ;=> x L2' p2' ->.
     xapp. xapp*. (* xapp (>> __ L2'). *) 
     xapp. xapp*. hchanges <- MList_cons. }
-  { xval tt. subst; rew_list. hsimpl. }
+  { xval tt. subst; rew_list. xsimpl. }
 Qed.
 
 Hint Extern 1 (Register_Spec (iter)) => Provide @Triple_iter.
@@ -490,8 +490,8 @@ Lemma Triple_mlist_length_using_iter : forall A `{EA:Enc A} (L:list A) (p:loc),
 Proof using.
   xwp. xapp ;=> n. xfun.
   xapp (>> __ (fun (K:list A) => n ~~> (length K:Z))).
-  { intros x K T E. xwp. xapp. hsimpl*. }
-  xapp. hsimpl~.
+  { intros x K T E. xwp. xapp. xsimpl*. }
+  xapp. xsimpl~.
 Qed.
 
 
@@ -511,10 +511,10 @@ Lemma Triple_nondestructive_append : forall `{EA:Enc A} (L1 L2:list A) (p1 p2:lo
 Proof using.
   intros. gen p1. induction_wf IH: (@list_sub A) L1. intros.
   xwp. xif ;=> C.
-  { xapp Triple_copy ;=> p3. hsimpl*. }
+  { xapp Triple_copy ;=> p3. xsimpl*. }
   { hchanges~ (MList_not_nil p1) ;=> x L1' p1' ->.
     xapp. xapp. xapp* ;=> p3'. hchanges <- (MList_cons p1).
-    xapp ;=> p3. hsimpl. }
+    xapp ;=> p3. xsimpl. }
 Qed.
 
 Hint Extern 1 (Register_Spec (nondestructive_append)) => Provide @Triple_nondestructive_append.
@@ -572,7 +572,7 @@ Proof using.
   introv Hk. gen H p1 p2 L2 k. induction_wf IH: (@list_sub A) L1. intros.
   xwp. xapp (>> __ EA). (* LATER: resolve typeclass better *)
   xif ;=> C.
-  { subst. xapp. hsimpl~. }
+  { subst. xapp. xsimpl~. }
   { hchanges~ (MList_not_nil p1) ;=> x L1' p1' ->.
     xapp (>> __ EA). xfun. 
     (* LATER: xapp (>> IH L1' (H \* (p1 ~~> Cons x p1'))). *)
@@ -581,7 +581,7 @@ Proof using.
     xapp IH'; clear IH'. (* LATER: xapp (rm IH') *)
     { intros p3. xwp. xapp (>> __ EA). xapp. 
       hchanges <- (MList_cons p1). }
-    hsimpl*. }
+    xsimpl*. }
 Qed.
 
 (* Hint Extern 1 (Register_Spec (cps_append_aux)) => Provide @Triple_cps_append_aux. *)
@@ -592,8 +592,8 @@ Lemma Triple_mlist_cps_append : forall A `{EA:Enc A} (L1 L2:list A) (p1 p2:loc),
     POST (fun p3 => p3 ~> MList (L1 ++ L2)).
 Proof using.
   intros. xwp. xfun. xapp (>> (@Triple_cps_append_aux) \[] (fun p3 => p3 ~> MList (L1 ++ L2))).
-  { intros p3. xwp. xval. hsimpl. }
-  hsimpl.
+  { intros p3. xwp. xval. xsimpl. }
+  xsimpl.
 Qed.
 
 
@@ -630,8 +630,8 @@ Lemma Triple_mlist_length_using_iter' : forall A `{EA:Enc A} (L:list A) (p:loc),
 Proof using.
   xwp. xapp ;=> n. xfun.
   xapp (>> __ (fun (K:list A) => n ~~> (length K:Z))).
-  { intros x K T E. xwp. xappn. hsimpl*. }
-  xapp. hsimpl~.
+  { intros x K T E. xwp. xappn. xsimpl*. }
+  xapp. xsimpl~.
 Qed.
 
 
@@ -643,7 +643,7 @@ Lemma Triple_set_nil_of_MList : forall A `{EA:Enc A} (L:list A) p,
     PRE (p ~> MList L)
     POST (fun (_:unit) => p ~> MList (@nil A)).
 Proof using.
-  intros. xtriple. hchange @MList_eq ;=> v. xapp. rewrite MList_nil. hsimpl.
+  intros. xtriple. hchange @MList_eq ;=> v. xapp. rewrite MList_nil. xsimpl.
 Qed.
 
 Lemma Triple_set_nil_of_MList_direct_proof : forall A `{EA:Enc A} (L:list A) p,
@@ -652,7 +652,7 @@ Lemma Triple_set_nil_of_MList_direct_proof : forall A `{EA:Enc A} (L:list A) p,
     POST (fun (_:unit) => p ~> MList (@nil A)).
 Proof using.
   intros. xwp. hchange MList_eq ;=> v.
-  xval (Nil). xapp. rewrite MList_nil. hsimpl.
+  xval (Nil). xapp. rewrite MList_nil. xsimpl.
 Qed.
 
 (* ---------------------------------------------------------------------- *)
@@ -666,13 +666,13 @@ Proof using.
   intros. xwp. hchange MList_eq ;=> v. xapp. 
   applys xcase_lemma0 ;=> E1.
   { rew_enc in E1. subst. hchange MList_contents_Nil ;=> ->.
-    hchange <- MList_nil. xval. hsimpl~. }
+    hchange <- MList_nil. xval. xsimpl~. }
   { applys xcase_lemma2.
     { intros x' q' E. rew_enc in E. inverts E. unfold MList_contents.
       destruct L as [|x L'].
       { hpull. }
       { xval. hpull ;=> p' E'. hchange <- (MList_cons p). applys E'.
-        hsimpl. auto_false. } }
+        xsimpl. auto_false. } }
     { intros N. unfold MList_contents. destruct L as [|x L']; hpull.
       { intros ->. rewrite enc_val_eq in *. unfolds Nil. false. }
       { intros q ->. rewrite enc_val_eq in *. unfolds @Cons. false. } } }
@@ -731,23 +731,23 @@ Global Opaque MListSeg.
 
 Lemma MListSeg_nil_of_hempty : forall `{EA:Enc A} p,
   \[] ==> p ~> MListSeg p (@nil A).
-Proof using. intros. rewrite MListSeg_nil. hsimpl~. Qed.
+Proof using. intros. rewrite MListSeg_nil. xsimpl~. Qed.
 
 Lemma MListSeg_one : forall `{EA:Enc A} p q (x:A),
   p ~~> (Cons x q) = p ~> MListSeg q (x::nil).
 Proof using.
   intros. rewrite MListSeg_cons. applys himpl_antisym.
-  { hsimpl. rewrite MListSeg_nil. hsimpl~. }
-  { hpull ;=> p'. rewrite MListSeg_nil. hsimpl~. }
+  { xsimpl. rewrite MListSeg_nil. xsimpl~. }
+  { hpull ;=> p'. rewrite MListSeg_nil. xsimpl~. }
 Qed.
 
 Lemma MListSeg_concat : forall `{EA:Enc A} p1 p3 (L1 L2:list A),
   p1 ~> MListSeg p3 (L1++L2) = \exists p2, p1 ~> MListSeg p2 L1 \* p2 ~> MListSeg p3 L2.
 Proof using.
   intros. gen p1. induction L1 as [|x L1']; intros.
-  { rew_list. applys himpl_antisym. (* TODO: hsimpl too aggressive here *)
+  { rew_list. applys himpl_antisym. (* TODO: xsimpl too aggressive here *)
     { hchanges (MListSeg_nil_of_hempty p1). }
-    { hpull ;=> p2. rewrite MListSeg_nil. hsimpl*. } }
+    { hpull ;=> p2. rewrite MListSeg_nil. xsimpl*. } }
   { rew_list. applys himpl_antisym.
     { rewrite (MListSeg_cons p1). hpull ;=> p1'. hchange IHL1' ;=> p2.
       hchanges <- (>> MListSeg_cons p1). }
@@ -759,17 +759,17 @@ Lemma MListSeg_last : forall `{EA:Enc A} p1 p3 x (L:list A),
   p1 ~> MListSeg p3 (L&x) = \exists p2, p1 ~> MListSeg p2 L \* p2 ~~> (Cons x p3).
 Proof using.
   intros. rewrite MListSeg_concat. applys himpl_antisym.
-  { hpull ;=> p2. rewrite <- MListSeg_one. hsimpl. }
-  { hpull ;=> p2. rewrite MListSeg_one. hsimpl. }
+  { hpull ;=> p2. rewrite <- MListSeg_one. xsimpl. }
+  { hpull ;=> p2. rewrite MListSeg_one. xsimpl. }
 Qed.
 
 Lemma MList_eq_MListSeg : forall `{EA:Enc A} p (L:list A),
   p ~> MList L = (\exists q, p ~> MListSeg q L \* q ~~> Nil).
 Proof using.
   intros. gen p. induction L as [|x L']; intros.
-  { rewrite MList_nil. hsimpl.
-    { hsimpl. rewrite MListSeg_nil. hsimpl~. }
-    { hpull ;=> p'. rewrite MListSeg_nil. hsimpl*. } }
+  { rewrite MList_nil. xsimpl.
+    { xsimpl. rewrite MListSeg_nil. xsimpl~. }
+    { hpull ;=> p'. rewrite MListSeg_nil. xsimpl*. } }
   { rewrite MList_cons. applys himpl_antisym.
     { hpull ;=> p'. rewrite IHL'. hpull ;=> q. hchanges <- MListSeg_cons. }
     { hpull ;=> q. rewrite MListSeg_cons. hpull ;=> p'. hchanges <- IHL'. } }

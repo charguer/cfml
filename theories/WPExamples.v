@@ -42,7 +42,7 @@ Lemma Triple_incr : forall (p:loc) (n:int),
     PRE (p ~~> n)
     POST (fun (r:unit) => (p ~~> (n+1))).
 Proof using.
-  xwp. xappn. hsimpl~.
+  xwp. xappn. xsimpl~.
 Qed.
 
 Lemma Triple_incr_frame : forall (p1 p2:loc) (n1 n2:int),
@@ -86,7 +86,7 @@ Definition xlet_test : val :=
 Lemma xlet_lemma' : forall A1 (EA1: protect (Enc A1)) H A (EA:Enc A) (Q:A->hprop) (F1:Formula) (F2of:forall A2 (EA2:Enc A2),A2->Formula),
   (H ==> F1 _ (EA1 : Enc A1) (fun (X:A1) => ^(F2of _ (EA1 : Enc A1) X) Q)) ->
   H ==> ^(Wpgen_let F1 (@F2of)) Q.
-Proof using. introv M. applys MkStruct_erase. hsimpl* A1 EA1. Qed.
+Proof using. introv M. applys MkStruct_erase. xsimpl* A1 EA1. Qed.
 
 Lemma Triple_xlet_test : forall (x:unit),
   TRIPLE (xlet_test x)
@@ -129,7 +129,7 @@ Lemma Triple_move_X : forall p x y,
 Proof using.
   xwp.
   xunfolds Point ;=> k Hk.
-  xappn. hsimpl. math.
+  xappn. xsimpl. math.
 Qed.
 
 
@@ -177,7 +177,7 @@ Lemma MList_nil_eq : forall A `{EA:Enc A} (p:loc),
 Proof using.
   intros. xunfold MList. applys himpl_antisym.
   { hpull ;=> ? ->. auto. }
-  { hsimpl~. }
+  { xsimpl~. }
 Qed.
 
 
@@ -206,16 +206,16 @@ Proof using.
   (* xcase *)
   applys xcase_lemma0 ;=> E1.
   { destruct L as [|x L']; hpull.
-    { intros ->. applys~ @xval_lemma 0. hsimpl. rew_list~. rewrite~ MList_nil_eq. hsimpl. }
+    { intros ->. applys~ @xval_lemma 0. xsimpl. rew_list~. rewrite~ MList_nil_eq. xsimpl. }
     { intros q ->. tryfalse. } }
   { applys xcase_lemma2.
     { intros x q E.
       destruct L as [|x' L']; hpull.
       { intros ->. tryfalse. }
       { intros q' E'. subst v. rewrite enc_val_eq in *. inverts E.
-        xapp* IH. hsimpl. xapp.
+        xapp* IH. xsimpl. xapp.
         (* done *)
-        pattern MList at 2. rewrite MList_unfold. hsimpl*.  (* rew_list; math.*) } }
+        pattern MList at 2. rewrite MList_unfold. xsimpl*.  (* rew_list; math.*) } }
     { intros N. destruct L as [|x L']; hpull.
       { intros ->. rewrite enc_val_eq in *. unfolds Nil. false. }
       { intros q ->. rewrite enc_val_eq in *. unfolds @Cons. false. } } }
@@ -246,7 +246,7 @@ Proof using.
   xwp. 
   (* TODO fix xapp *)
   xlet. xapp_debug. lets K: (>> Spec b true). typeclass. apply K.
-   unfold protect. hsimpl.
+   unfold protect. xsimpl.
   intros ? ->. 
   xif ;=> C.
   { subst. xvals*. }
@@ -269,8 +269,8 @@ Proof using.
   xwp. 
   (* TODO fix xapp *)
   xlet. xapp_debug. lets K: (>> Spec v1 v2). typeclass. apply K.
-   unfold protect. hsimpl.
- xapp Triple_eq. xapps. hsimpl ;=> ? ->. rew_isTrue~.
+   unfold protect. xsimpl.
+ xapp Triple_eq. xapps. xsimpl ;=> ? ->. rew_isTrue~.
 Qed.
 *)
 
@@ -291,7 +291,7 @@ Lemma Triple_swap_neq : forall A1 A2 `{EA1:Enc A1} `{EA2:Enc A2} (v:A1) (w:A2) p
     PRE (p ~~> v \* q ~~> w)
     POST (fun (r:unit) => p ~~> w \* q ~~> v).
 Proof using.
-  xtriple. xapps. xapps. xapps. xapps. hsimpl~.
+  xtriple. xapps. xapps. xapps. xapps. xsimpl~.
 Qed.
 
 Lemma Triple_swap_eq : forall A1 `{EA1:Enc A1} (v:A1) p,
@@ -299,7 +299,7 @@ Lemma Triple_swap_eq : forall A1 `{EA1:Enc A1} (v:A1) p,
     PRE (p ~~> v)
     POST (fun (r:unit) => p ~~> v).
 Proof using.
-  xtriple. xapps. xapps. xapps. xapps. hsimpl~.
+  xtriple. xapps. xapps. xapps. xapps. xsimpl~.
 Qed.
 
 
@@ -319,7 +319,7 @@ Lemma triple_succ_using_incr : forall n,
     (fun r => \[r = n+1]).
 Proof using.
   xtriple. xapp as p. intros; subst. xapp~. intros _. xapps~.
-  (* not possible: applys mklocal_erase. unfold cf_val. hsimpl. *)
+  (* not possible: applys mklocal_erase. unfold cf_val. xsimpl. *)
   xvals~.
 Qed.
 
@@ -338,7 +338,7 @@ Lemma Triple_val_example_let : forall n,
     PRE \[]
     POST (fun r => \[r = 2*n]).
 Proof using.
-  xtriple. xapps. xapps. xapp. hsimpl. math.
+  xtriple. xapps. xapps. xapp. xsimpl. math.
 Qed.
 
 
@@ -364,7 +364,7 @@ Lemma Triple_val_example_one_ref : forall n,
     PRE \[]
     POST (fun r => \[r = n+2]).
 Proof using.
-  xtriple. xapps. xapps ;=> r. xapp~. xapp~. hsimpl. math.
+  xtriple. xapps. xapps ;=> r. xapp~. xapp~. xsimpl. math.
 Qed.
 
 
@@ -403,7 +403,7 @@ Proof using.
   xtriple. xapp ;=> i. xapp ;=> r.
   xapp~. xapp~. xapps. xapps. xapps. xapps~.
   xapps. xapps. xapps.
-  hsimpl. math.
+  xsimpl. math.
 Qed.
 
 *)
