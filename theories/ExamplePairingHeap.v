@@ -20,7 +20,15 @@ From Sep Require Import ExampleList.
 
 Module MList.
 
-Parameter MListOf : forall A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc), hprop.
+Definition head : field := 0%nat.
+Definition tail : field := 1%nat.
+
+Fixpoint MListOf A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc) : hprop :=
+  match L with
+  | nil => \[p = null]
+  | X::L' => \exists x p', p ~> Record`{ head := x; tail := p'} \* (x ~> R X) \* (p' ~> MListOf R L')
+  end.
+
 (*
   \exists v, p ~~> v \*
   match L with
@@ -318,35 +326,39 @@ Module ImperativePairing.
 (**
 [[
 
-  type heap = ref node
+  type heap = ref node  (* [ref null] when empty *)
 
   type node = {
     value : elem;
-    sub : heap mlist; }
+    sub : node mlist; }
 
   let create() =
     ref null
 
-	let is_empty p =
-		(!p == null)
+	let is_empty h =
+		(!h == null)
 
   let merge p1 p2 =
-		if is_empty p1 then p1 else
-		if is_empty p2 then p2 else
-		if (!p1.value < !p2.value) then (
-			push !p1.sub p2;
+		if p1 == null then p1 else
+		if p2 == null then p2 else
+		if (p1.value < p2.value) then (
+			MList.push p1.sub p2;
 			p1
 		) else (
-			push !p2.sub p1;
+			MList.push p2.sub p1;
 			p2
 		)
 
+  let insert h x =
+    let p = ref { value = x; sub = MList.create() } in
+    h := merge !h p
+
 	let merge_pairs hs =
-    if is_empty hs then null else
-    let p1 = pop hs in
-    if is_empty hs then p1 else
-    let p2 = pop hs in
-		merge (merge p1 p2) (merge_pairs hs)
+    if MList.is_empty hs then null else
+    let h1 = MList.pop hs in
+    if MList.is_empty hs then h1 else
+    let h2 = MList.pop hs in
+		merge (merge h1 h2) (merge_pairs hs)
 
 	let pop_min p =
     let x = !p.value in
@@ -370,28 +382,28 @@ Definition create : val :=
     val_ref null.
 
 Definition is_empty : val :=
-  VFun 'p := 
-    'p '= null.
+  VFun 'h := 
+    '!'h '= null.
 
 Definition merge : val :=
   VFun 'p1 'p2 := 
-		If_ is_empty 'p1 Then 'p1 Else
-		If_ is_empty 'p2 Then 'p2 Else
-		If_ ('!'p1'.value '< '!'p2'.value) Then (
-			MList.push ('!'p1'.sub) 'p2 ';
+		If_ 'p1 '= null Then 'p1 Else
+		If_ 'p2 '= null Then 'p2 Else
+		If_ ('p1'.value '< 'p2'.value) Then (
+			MList.push ('p1'.sub) 'p2 ';
 			'p1
 		) Else (
-			MList.push ('!'p2'.sub) 'p1 ';
+			MList.push ('p2'.sub) 'p1 ';
 			'p2
 		).
 
 Definition merge_pairs : val :=
   VFix 'f 'hs := 
-		If_ is_empty 'hs Then null Else
-    Let 'p1 := MList.pop 'hs in
-    If_ is_empty 'hs Then 'p1 Else
-    Let 'p2 := MList.pop 'hs in
-		merge (merge 'p1 'p2) ('f 'hs).
+		If_ MList.is_empty 'hs Then null Else
+    Let 'h1 := MList.pop 'hs in
+    If_ MList.is_empty 'hs Then 'h1 Else
+    Let 'h2 := MList.pop 'hs in
+		merge (merge 'h1 'h2) ('f 'hs).
 
 Definition pop_min : val :=
   VFun 'p :=
@@ -401,7 +413,118 @@ Definition pop_min : val :=
 
 
 
+(* ******************************************************* *)
+(** ** Representation predicate *)
 
+(*
+Definition Heap (E:elems) (p:loc) : hprop :=
+  \exists (v:loc), p ~~> v \*
+  If E = \{} then \[v = null] else 
+    \exists x hs, v ~> Record`{ value := x; sub := hs } \* .
+*)
+(*
+Inductive tree : Type :=
+  | Leaf : tree
+  | Node : list tree -> tree.
+
+Fixpoint MListOf' A TA (R:TA->A->hprop) (L:list TA) (p:loc) : hprop :=
+  match L with
+  | nil => \[p = null]
+  | X::L' => (p ~> MListOf' R L')
+  end.
+
+
+Fixpoint Repr (t:tree) (p:loc) {struct t} :=
+  match t with
+  | Leaf => \[p = null]
+  | Node ts => (* MListOf' Repr ts p*)
+    (fix f R ts p : hprop := match ts with
+    | nil => \[p = null]
+    | X::L' => (p ~> f R L') \* p ~> R X
+    end) Repr ts p
+  end.
+
+
+      Fixpoint MListOf' A TA (R:TA->A->hprop) (L:list TA) (p:loc) : hprop :=
+  match L with
+  | nil => \[p = null]
+  | X::L' => (p ~> MListOf' R L')
+  end.
+
+Fixpoint MListOf A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc) : hprop :=
+  match L with
+  | nil => \[p = null]
+  | X::L' => \exists x p', p ~> Record`{ head := x; tail := p'} \* (x ~> R X) \* (p' ~> MListOf R L')
+  end.
+
+Fixpoint MListOf' A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc) : hprop :=
+  match L with
+  | nil => \[p = null]
+  | X::L' => \exists (x:A) p', p ~> Record`{ head := x; tail := p'} \* (x ~> R X) \* (p' ~> MListOf' R L')
+  end.
+*)
+
+Definition head : field := 0%nat.
+Definition tail : field := 1%nat.
+
+
+
+Fixpoint Repr (h:heap) (p:loc) { struct h } : hprop :=
+  match h with
+  | Empty => \[p = null]
+  | Node x hs => 
+      \exists q,
+       p ~> Record`{ value := x; sub := q } 
+      (* \* q ~> MListOf Repr hs *) \*
+      (fix MListOf L p : hprop :=
+      match L with
+      | nil => \[p = null]
+      | X::L' => \exists (x:loc) p', p ~> Record`{ head := x; tail := p'} \* (x ~> Repr X) \* (p' ~> MListOf L')
+      end) hs q
+  end.
+
+Lemma Repr_eq : forall h p,
+    Repr h p 
+  = match h with
+    | Empty => \[p = null]
+    | Node x hs => 
+        \exists q,
+         p ~> Record`{ value := x; sub := q } 
+       \* q ~> MList.MListOf Repr hs
+   end.
+Proof using.
+  intros. gen p. induction h; intros.
+  auto.
+  simpl.
+  fequals. applys fun_ext_1.  intros q. fequals. gen q. induction l; intros.
+  auto.
+  simpl. xrepr_clean.  fequals.   applys fun_ext_1.  intros x. fequals. 
+applys fun_ext_1.  intros p'. fequals. fequals.
+Admitted. (* generalized induction on trees *)
+
+
+
+Definition Heap (E:elems) (p:loc) : hprop :=
+  \exists (h:heap), p ~> Repr h \* \[inv h E].
+
+
+
+(* ******************************************************* *)
+(** ** Verification 
+
+
+Lemma triple_create :
+  triple (val_create val_unit)
+    \[]
+    (fun r => \exists p, \[r = val_loc p] \* MQueue nil p).
+Proof using.
+  xcf. unfold MQueue.
+  xapp triple_alloc_cell as r. intros p v1 v2. intro_subst.
+  xapp~. hpull ;=> r x E. xsimpl~.
+  { rewrite MListSeg_nil_eq. xsimpl~. }
+Qed.
+
+*)
 
 (* ####################################################### *)
 
