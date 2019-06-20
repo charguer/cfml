@@ -9,10 +9,14 @@ License: MIT.
 
 *)
 
+Set Implicit Arguments.
+Require Import LibCore LibMultiset.
+
 (** For simplicity, assume the heap stores integer values.
     It is not hard to generalize everything to any ordered type. *)
 
 Definition elem := int.
+
 
 
 (* ####################################################### *)
@@ -27,6 +31,9 @@ Module PurePairing.
 Inductive heap : Type :=
   | Empty : heap
   | Node : elem -> heap -> list heap -> heap.
+
+Definition empty : heap :=
+  Empty.
 
 Definition is_empty (h:heap) : bool :=
   match h with
@@ -44,7 +51,7 @@ Definition merge (h1 h2:heap) : heap :=
           else Node (y, h1::hs2)
    end.
 
-Definition insert x h :=
+Definition insert (h:heap) (x:elem) : heap :=
   merge (Node x nil) h.
 
 Definition merge_pairs (hs:list heap) : heap :=
@@ -62,34 +69,96 @@ Definition pop_min (h:heap) : elem * heap :=
 
 
 (* ******************************************************* *)
-(** ** Invariant and lemmas *)
+(** ** Invariant *)
+
+Definition elems : Type :=
+  multiset elem.
+
+Implicit Types x y : elem.
+Implicit Types h : heap.
+Implicit Types hs : list heap.
+Implicit Types E : elems.
+Implicit Types Es : list elems.
+
+Definition min_of (E:elems) (x:elem) := 
+  x \in E /\ forall_ y \in E, x <= y.
+
+Definition removed_min (E E':elems) : Prop :=
+  exists x, min_of E x /\ E = \{x} \u E'.
 
 Definition is_ge (x y:elem) : Prop :=
   x <= y.
 
-Definition list_union (Hs:list (multiset T)) := 
-  fold_right union \{} Hs.
+Definition list_union (Es:list elems) := 
+  LibList.fold_right union \{} Es.
 
-Inductive inv : heap -> multiset T -> Prop :=
-  | inv_empty : 
+Inductive inv : heap -> elems -> Prop :=
+  | inv_Empty : 
       inv Empty \{} 
-  | inv_node : forall x X hs Hs E,
-      rep x X ->
+  | inv_Node : forall x hs Es E,
       Forall2 inv hs Hs ->
-      Forall (fun H => H <> \{}) Hs ->
-      Forall (foreach (is_ge X)) Hs ->
-      E = \{X} \u list_union Hs ->   
+      (* Forall (fun H => H <> \{}) Hs -> *)
+      Forall (foreach (is_ge x)) Es ->
+      E = \{X} \u (list_union Es) ->   
       inv (Node x hs) E.
 
+
+(* ******************************************************* *)
+(** ** Lemmas and tactics *)
+
+Hint Extern 1 (_ < _) => simpl; math.
+Hint Extern 1 (_ = _ :> multiset _) => multiset_eq.
+Hint Extern 1 (_ = _ :> elems) => multiset_eq.
+(* Hint Unfold removed_min. *)
 
 
 (* ******************************************************* *)
 (** ** Verification *)
 
+Definition is_empty (h:heap) : bool :=
+Definition merge (h1 h2:heap) : heap :=
+Definition insert x h :=
+Definition insert (x:elem) (h:heap) : heap :=
+Definition merge_pairs (hs:list heap) : heap :=
+Definition pop_min (h:heap) : elem * heap :=
+
+Lemma empty_spec : 
+  inv empty \{}.
+Proof using. Qed.
+
+Lemma is_empty_spec : forall h E,
+  inv h E ->
+  is_empty h = isTrue (E = \{}).
+Proof using. Qed.
+ 
+Lemma merge_spec : forall h1 E1 h2 E2,
+  inv h1 E1 ->
+  inv h2 E2 ->
+  inv (merge h1 h2) (E1 \u E2).
+Proof using. Qed.
+
+Lemma insert_spec : forall x h E,
+  inv h E ->
+  inv (insert h x) (E \u \{x}).
+Proof using. Qed.
+
+Lemma delete_min_spec : forall h E h' x,
+  inv h E ->
+  (x,h') = delete_min h ->
+     min_of E x
+  /\ exists E', inv h' E' /\ E = \{x} \u E'.
+Proof using. Qed.
+
+Lemma merge_pairs_spec : forall hs Es,
+  Forall2 inv hs Es ->
+  (* Forall (fun H => H <> \{}) Hs -> *)
+  inv (merge_pairs hs) (list_union Es).
+Proof using. Qed.
 
 End PurePairing.
 
 
+(* ####################################################### *)
 
 (**
 
