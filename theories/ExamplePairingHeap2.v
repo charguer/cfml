@@ -117,6 +117,13 @@ Parameter Triple_pop : forall L p,
 
 End Ops.
 
+Module Export Hints.
+Hint Extern 1 (Register_Spec (create)) => Provide @Triple_create.
+Hint Extern 1 (Register_Spec (is_empty)) => Provide @Triple_is_empty.
+Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
+Hint Extern 1 (Register_Spec (pop)) => Provide @Triple_pop.
+End Hints.
+
 End MList.
 
 
@@ -223,6 +230,11 @@ Proof using.
   { applys foreach_empty. }
   { unfold list_union; rew_listx. applys* foreach_union. }
 Qed.
+
+Lemma inv_not_empty : forall n E,
+  inv n E ->
+  E <> \{}.
+Proof using. introv I. inverts I. multiset_inv. Qed.
 
 Lemma merge_lemma : forall x1 x2 ns1 ns2 Es1 Es2,
   Forall2 inv ns1 Es1 ->
@@ -447,7 +459,7 @@ Fixpoint Repr (h:heap) (q:loc) : hprop :=
 ]]
 *)
 
-Fixpoint Repr (n:node) (q:loc) : hprop :=
+Fixpoint Tree (n:node) (q:loc) : hprop :=
   match n with
   | Node x hs => 
       \exists l,
@@ -457,20 +469,32 @@ Fixpoint Repr (n:node) (q:loc) : hprop :=
       | nil => \[p = null]
       | X::L' => \exists (x:loc) p', 
                     p ~> Record`{ MList.head := x; MList.tail := p'} 
-                   \* (x ~> Repr X) \* (p' ~> MListOf L')
+                   \* (x ~> Tree X) \* (p' ~> MListOf L')
       end) hs l
   end.
 
-Lemma Repr_eq : forall n q,
-  q ~> Repr n =
+
+Definition Repr (E:elems) (q:loc) : hprop :=
+  \exists n, q ~> Tree n \* \[inv n E].
+
+Definition Contents (E:elems) (q:loc) : hprop :=
+  If q = null then \[E = \{}] else q ~> Repr E.
+
+Definition Heap (E:elems) (p:loc) : hprop :=
+  \exists q, p ~~> q \* Contents E q.
+
+
+
+Lemma Tree_eq : forall n q,
+  q ~> Tree n =
     match n with
     | Node x hs =>
         \exists l, q ~> Record`{ value := x; sub := l }
-                \* l ~> MList.MListOf Repr hs
+                \* l ~> MList.MListOf Tree hs
   end.
 Proof using.
   intros n. induction n as [x hs]; intros.
-  xunfold Repr. fequals; applys fun_ext_1 ;=> l. fequals.
+  xunfold Tree. fequals; applys fun_ext_1 ;=> l. fequals.
   gen l. induction hs as [|n hs']; intros.
   { auto. }
   { xunfold MList.MListOf. fequals; applys fun_ext_1 ;=> y.
@@ -478,41 +502,62 @@ Proof using.
     rewrite~ <- IHhs'. }
 Qed.
 
-Lemma Repr_Node : forall q x hs,
-  q ~> Repr (Node x hs) =
+Lemma Tree_Node : forall q x hs,
+  q ~> Tree (Node x hs) =
       \exists l, q ~> Record`{ value := x; sub := l }
-              \* l ~> MList.MListOf Repr hs.
-Proof using. intros. rewrite~ Repr_eq. Qed.
+              \* l ~> MList.MListOf Tree hs.
+Proof using. intros. rewrite~ Tree_eq. Qed.
 
 
-Definition Contents (E:elems) (q:loc) : hprop :=
-  If q = null then \[E = \{}]
-              else \exists n, q ~> Repr n \* \[inv n E].
+Lemma Repr_eq : forall q E,
+  q ~> Repr E = \exists n, q ~> Tree n \* \[inv n E].
+Proof using. auto. Qed.
 
-Definition Heap (E:elems) (p:loc) : hprop :=
-  \exists q, p ~~> q \* Contents E q.
+Lemma Repr_not_empty : forall q E,
+  q ~> Repr E ==> \[E <> \{}] \* q ~> Repr E.
+Proof using.
+  intros. xunfold Repr. xpull ;=> n I. lets: inv_not_empty I. xsimpl*.
+Qed.
 
+Lemma Repr_not_null : forall q E,
+  q ~> Repr E ==> \[q <> null] \* q ~> Repr E.
+Proof using.
+  intros. xunfold Repr. xpull ;=> n I. destruct n as [x hs].
+  rewrite Tree_Node. xpull ;=> l. xchange* Record_not_null ;=> N.
+  xsimpl~ (Node x hs). rewrite Tree_eq. xsimpl.
+Qed.
 
-Lemma inv_not_empty : forall n E,
-  inv n E ->
-  E <> \{}.
-Proof using. introv I. inverts I. multiset_inv. Qed.
+Lemma Contents_eq : forall E q,
+  Contents E q = (If q = null then \[E = \{}] else q ~> Repr E).
+Proof using. auto. Qed.
 
 Lemma Contents_is_empty : forall q E,
   Contents E q ==> \[q = null <-> E = \{}] \* Contents E q.
 Proof using.
   intros. unfold Contents. case_if.
   { xsimpl*. } 
-  { xpull ;=> n. xsimpl*. introv M. iff R; tryfalse. 
-    false~ (>> inv_not_empty M). }
+  { xchange Repr_not_empty ;=> N. xsimpl*. }
 Qed.
 
 Lemma Contents_null :
   \[] ==> Contents \{} null.
 Proof using. unfold Contents. case_if. xsimpl*. Qed.
 
+Lemma Heap_eq : forall p E,
+  p ~> Heap E = \exists q, p ~~> q \* Contents E q.
+Proof using. auto. Qed.
+
+Lemma Heap_of_Repr : forall p q E,
+  p ~~> q \* q ~> Repr E ==> p ~> Heap E.
+Proof using.
+  intros. xchanges Repr_not_empty ;=> N. xunfold Heap.
+  xsimpl. xchange Repr_not_null ;=> N'. unfold Contents. case_if~.
+Qed.
+
 
 (* ******************************************************* *)
+
+Import MList.Hints.
 
 Implicit Types p q : loc.
 
@@ -522,7 +567,7 @@ Lemma Triple_create :
     POST (fun p => p ~> Heap \{}).
 Proof using.
   xwp. xapp (>> Triple_ref Enc_loc null) ;=> p. (* LATER: spec auto *)
-  xunfold Heap. xsimpl. hchanges~ Contents_null.
+  xunfold Heap. xsimpl. xchanges~ Contents_null.
 Qed.
 
 Lemma Triple_is_empty : forall p E,
@@ -531,10 +576,8 @@ Lemma Triple_is_empty : forall p E,
     POST (fun b => \[b = isTrue (E = \{})] \* p ~> Heap E).
 Proof using.
   xwp. xunfolds Heap ;=> q. xapp. xapp. typeclass. (* LATER: inj by default *)
-  hchanges~ Contents_is_empty.
+  xchanges~ Contents_is_empty.
 Qed.
-
-
 
 Lemma Triple_merge : forall q1 q2 E1 E2,
   TRIPLE (merge q1 q2)
@@ -542,14 +585,23 @@ Lemma Triple_merge : forall q1 q2 E1 E2,
     POST (fun q => q ~> Repr (E1 \u E2)).
 Proof using.
 admit.
-Qed.
+Admitted.
+
+Hint Extern 1 (Register_Spec (merge)) => Provide @Triple_merge.
+
+Opaque MList.MListOf.
 
 Lemma Triple_insert : forall p x E,
-  TRIPLE (insert x p)
+  TRIPLE (insert p x)
     PRE (p ~> Heap E)
-    POST (fun (_:unit) => p ~> Heap (E \u \{x}).
+    POST (fun (_:unit) => p ~> Heap (E \u \{x})).
 Proof using.
-
+  xwp. xchange Heap_eq ;=> q. xapp. xapp (>> __ Tree) ;=> l.
+  xnew (>> x l). skip. (* TODO *) intros q2.
+  xchange <- Tree_Node. xchange <- Repr_eq. { applys* inv_Node. }
+  rew_listx. xapp. typeclass. unfold Contents. xif ;=> C; case_if.
+  { xpull ;=> ->. xapp. xchanges* Heap_of_Repr. }
+  { xapp ;=> r. xapp. xchanges* Heap_of_Repr. }
 Qed.
 
 
