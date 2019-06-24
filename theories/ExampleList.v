@@ -518,76 +518,6 @@ Tactic Notation "rew_heapx" "*" :=
   rew_heapx; auto_star.
 
 
-(* ********************************************************************** *)
-(* * Lists with recursive ownership *)
-
-Module MListOf.
-
-Definition MListOf A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc) : hprop :=
-  \exists (l:list A), \[length l = length L] \* p ~> MList l
-                      \* hfold_list2 (fun x X => x ~> R X) l L. 
-
-
-(*
-Lemma MListOf_eq : forall A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc),
-  p ~> MListOf R L =
-  match L with
-  | nil => \[p = null]
-  | X::L' => \exists x p', p ~> Record`{ Field.head := x; Field.tail := p'} 
-                   \* (x ~> R X) \* (p' ~> MListOf R L')
-  end.
-Proof using. intros. xunfold MListOf at 1. destruct~ L. Qed.
-*)
-
-
-Section Ops.
-
-Context A {EA:Enc A} TA (R:TA->A->hprop).
-Implicit Types L : list TA.
-Implicit Types x : A.
-Implicit Types X : TA.
-
-
-Hint Rewrite fold_nil fold_cons fold_app : rew_listx.
-
-Lemma Triple_create : 
-  TRIPLE (create tt)
-    PRE \[]
-    POST (fun p => p ~> MListOf R nil).
-Proof using.
-  xtriple. xapp ;=> p. xunfold MListOf. xsimpl*.
-  { rew_heapx. xsimpl. } 
-Qed.
-
-
-Parameter Triple_is_empty : forall L p,
-  TRIPLE (is_empty p)
-    PRE (p ~> MListOf R L)
-    POST (fun b => \[b = isTrue (L = nil)] \* p ~> MListOf R L).
-
-Parameter Triple_push : forall L p x X,
-  TRIPLE (push p ``x)
-    PRE (p ~> MListOf R L \* x ~> R X)
-    POST (fun (_:unit) => p ~> MListOf R (X::L)).
-
-
-Parameter Triple_pop : forall L p,
-  L <> nil ->
-  TRIPLE (pop p)
-    PRE (p ~> MListOf R L)
-    POST (fun x => \exists X L', \[L = X::L'] \* x ~> R X \* p ~> MListOf R L').
-
-End Ops.
-
-Hint Extern 1 (Register_Spec (create)) => Provide @Triple_create.
-Hint Extern 1 (Register_Spec (is_empty)) => Provide @Triple_is_empty.
-Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
-Hint Extern 1 (Register_Spec (pop)) => Provide @Triple_pop.
-
-Global Opaque MListOf.
-
-End MListOf.
-
 
 
 (* ********************************************************************** *)
@@ -984,7 +914,110 @@ Qed. (* LATER: using rewrite below existential binders, the proof would be far e
 
 End SegProperties.
 
+
+
+
+
+(* ********************************************************************** *)
+(* * Lists with recursive ownership *)
+
+Module MListOf.
+
+Definition MListOf A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc) : hprop :=
+  \exists (l:list A), \[length l = length L] \* p ~> MList l
+                      \* hfold_list2 (fun x X => x ~> R X) l L. 
+
+
+(*
+Lemma MListOf_eq : forall A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc),
+  p ~> MListOf R L =
+  match L with
+  | nil => \[p = null]
+  | X::L' => \exists x p', p ~> Record`{ Field.head := x; Field.tail := p'} 
+                   \* (x ~> R X) \* (p' ~> MListOf R L')
+  end.
+Proof using. intros. xunfold MListOf at 1. destruct~ L. Qed.
+*)
+
+
+Section Ops.
+
+Context A {EA:Enc A} TA (R:TA->A->hprop).
+Implicit Types L : list TA.
+Implicit Types x : A.
+Implicit Types X : TA.
+
+
+Hint Rewrite fold_nil fold_cons fold_app : rew_listx.
+
+Lemma Triple_create : 
+  TRIPLE (create tt)
+    PRE \[]
+    POST (fun p => p ~> MListOf R nil).
+Proof using.
+  xtriple. xapp ;=> p. xunfold MListOf. xsimpl*.
+  { rew_heapx. xsimpl. } 
+Qed.
+
+Ltac xtriple_pre tt :=
+  intros.
+
+Ltac xtriple_core tt :=
+  xtriple_pre tt;
+  applys xtriple_lemma;
+  [ simpl combiner_to_trm; rew_trms_vals; reflexivity 
+  | ].
+
+Tactic Notation "xtriple" :=
+  xtriple_core tt.
+
+Lemma list_same_length_inv_nil : forall A1 A2 (l1:list A1) (l2:list A2),
+  length l1 = length l2 ->
+  l1 = nil <-> l2 = nil.
+Proof using. intros. destruct l1; destruct l2; autos*. Qed.
+
+
+Lemma Triple_is_empty : forall L p,
+  TRIPLE (is_empty p)
+    PRE (p ~> MListOf R L)
+    POST (fun b => \[b = isTrue (L = nil)] \* p ~> MListOf R L).
+Proof using.
+  xtriple. xunfold MListOf. xpull ;=> l E. xapp. xsimpl*.
+  { applys* list_same_length_inv_nil. }
+Qed.
+
+Lemma Triple_push : forall L p x X,
+  TRIPLE (push p ``x)
+    PRE (p ~> MListOf R L \* x ~> R X)
+    POST (fun (_:unit) => p ~> MListOf R (X::L)).
+Proof using.
+  xtriple. xunfold MListOf. xpull ;=> l E. xapp.
+  xsimpl (x::l). { rew_list~. } { rew_heapx. xsimpl. }
+Qed.
+
+Lemma Triple_pop : forall L p,
+  L <> nil ->
+  TRIPLE (pop p)
+    PRE (p ~> MListOf R L)
+    POST (fun x => \exists X L', \[L = X::L'] \* x ~> R X \* p ~> MListOf R L').
+Proof using.
+  xtriple. xunfold MListOf. xpull ;=> l E. xapp.
+  { rewrites~ (>> list_same_length_inv_nil L). }
+  intros x l' ->. destruct L as [|X L']; rew_listx in *; tryfalse.
+  rew_heapx. xsimpl*.
+Qed.
+
+End Ops.
+
+Hint Extern 1 (Register_Spec (create)) => Provide @Triple_create.
+Hint Extern 1 (Register_Spec (is_empty)) => Provide @Triple_is_empty.
+Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
+Hint Extern 1 (Register_Spec (pop)) => Provide @Triple_pop.
+
+Global Opaque MListOf.
+
+End MListOf.
+
+
+
 End MList.
-
-
-
