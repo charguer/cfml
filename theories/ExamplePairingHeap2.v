@@ -485,29 +485,48 @@ Lemma Repr_Node : forall q x hs,
 Proof using. intros. rewrite~ Repr_eq. Qed.
 
 
+Definition Contents (E:elems) (q:loc) : hprop :=
+  If q = null then \[E = \{}]
+              else \exists n, q ~> Repr n \* \[inv n E].
+
 Definition Heap (E:elems) (p:loc) : hprop :=
-  \exists q, p ~~> q \* 
-  If E = \{} then \[q = null]
-             else \exists n, q ~> Repr n \* \[inv n E].
+  \exists q, p ~~> q \* Contents E q.
+
+
+Lemma Contents_case : forall q E,
+  Contents E q ==> \[q = null <-> E = \{}] \* Contents E q.
+Proof using.
+  intros. unfold Contents. case_if.
+  { xsimpl*. } 
+  { hpull. xpull ;=> n. xsimpl*.
+ inverts I. multiset_inv. Qed.
+
+Lemma inv_not_empty : forall n E,
+  inv n E ->
+  E <> \{}.
+Proof using. introv I. inverts I. multiset_inv. Qed.
 
 
 (* ******************************************************* *)
+
+Implicit Types p q : loc.
 
 Lemma Triple_create :
   TRIPLE (create tt)
     PRE \[]
     POST (fun p => p ~> Heap \{}).
 Proof using.
-
+  xwp. xapp (>> Triple_ref Enc_loc null) ;=> p. (* LATER: spec auto *)
+  xunfold Heap. xsimpl. case_if. xsimpl*.
 Qed.
-
 
 Lemma Triple_is_empty : forall p E,
   TRIPLE (is_empty p)
     PRE (p ~> Heap E)
     POST (fun b => \[b = isTrue (E = \{})] \* p ~> Heap E).
 Proof using.
-
+  xwp. xunfolds Heap ;=> q. xapp. xapp. typeclass. (* LATER: inj by default *)
+  case_if. xsimpl.
 Qed.
 
 
@@ -523,7 +542,7 @@ Qed.
 Lemma Triple_pop_min : forall p E,
   E <> \{} ->
   TRIPLE (pop_min p)
-    PRE (p ~> Heap E)
+    PRE (p ~> Heap E*)
     POST (fun x => \exists E', \[min_of E x /\ E = \{x} \u E'] \* p ~> Heap E').
 Proof using.
 
