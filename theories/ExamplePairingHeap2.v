@@ -124,6 +124,8 @@ Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
 Hint Extern 1 (Register_Spec (pop)) => Provide @Triple_pop.
 End Hints.
 
+Opaque MList.MListOf.
+
 End MList.
 
 
@@ -398,6 +400,7 @@ End Pure.
 (* ******************************************************* *)
 (** ** Deeply embedded code *)
 
+Implicit Types p q l : loc.
 Notation "''hs'" := ("hs":var) : var_scope.
 
 Definition value : field := 0%nat.
@@ -442,9 +445,9 @@ Definition pop_min : val :=
   VFun 'p :=
     Let 'q := '!'p in
     Let 'x := 'q'.value in
-    If_ MList.is_empty 'q'.sub 
+    (If_ MList.is_empty ('q'.sub)
       Then 'p ':= null
-      Else 'p ':= merge_pairs ('q'.sub) ';
+      Else 'p ':= merge_pairs ('q'.sub) )';
 		'x.
 
 (**
@@ -531,6 +534,15 @@ Lemma Contents_eq : forall E q,
   Contents E q = (If q = null then \[E = \{}] else q ~> Repr E).
 Proof using. auto. Qed.
 
+Lemma Contents_not_empty : forall E q,
+  E <> \{} ->
+  Contents E q = (q ~> Repr E).
+Proof using.
+  introv N. unfold Contents. applys himpl_antisym.
+  { case_if; xsimpl. }
+  { xchange Repr_not_null ;=> N'. case_if*. }
+Qed.
+
 Lemma Contents_is_empty : forall q E,
   Contents E q ==> \[q = null <-> E = \{}] \* Contents E q.
 Proof using.
@@ -554,12 +566,16 @@ Proof using.
   xsimpl. xchange Repr_not_null ;=> N'. unfold Contents. case_if~.
 Qed.
 
+Lemma Heap_of_null : forall p,
+  p ~~> null ==> p ~> Heap \{}.
+Proof using. intros. xchanges Contents_null. xchange <- Heap_eq. Qed.
 
-(* ******************************************************* *)
 
 Import MList.Hints.
 
-Implicit Types p q : loc.
+
+(* ******************************************************* *)
+
 
 Lemma Triple_create :
   TRIPLE (create tt)
@@ -570,6 +586,8 @@ Proof using.
   xunfold Heap. xsimpl. xchanges~ Contents_null.
 Qed.
 
+Hint Extern 1 (Register_Spec (create)) => Provide @Triple_create.
+
 Lemma Triple_is_empty : forall p E,
   TRIPLE (is_empty p)
     PRE (p ~> Heap E)
@@ -578,6 +596,8 @@ Proof using.
   xwp. xunfolds Heap ;=> q. xapp. xapp. typeclass. (* LATER: inj by default *)
   xchanges~ Contents_is_empty.
 Qed.
+
+Hint Extern 1 (Register_Spec (is_empty)) => Provide @Triple_is_empty.
 
 Lemma Triple_merge : forall q1 q2 E1 E2,
   TRIPLE (merge q1 q2)
@@ -588,8 +608,6 @@ admit.
 Admitted.
 
 Hint Extern 1 (Register_Spec (merge)) => Provide @Triple_merge.
-
-Opaque MList.MListOf.
 
 Lemma Triple_insert : forall p x E,
   TRIPLE (insert p x)
@@ -604,26 +622,42 @@ Proof using.
   { xapp ;=> r. xapp. xchanges* Heap_of_Repr. }
 Qed.
 
+Hint Extern 1 (Register_Spec (insert)) => Provide @Triple_insert.
+
+Lemma Triple_merge_pairs : forall l ns Es,
+  ns <> nil ->
+  Forall2 inv ns Es ->
+  TRIPLE (merge_pairs l)
+    PRE (l ~> MList.MListOf Tree ns)
+    POST (fun q => q ~> Repr (list_union Es)).
+Proof using.
+skip.
+Qed.
+
+Hint Extern 1 (Register_Spec (merge_pairs)) => Provide @Triple_merge_pairs.
 
 Lemma Triple_pop_min : forall p E,
   E <> \{} ->
   TRIPLE (pop_min p)
-    PRE (p ~> Heap E*)
+    PRE (p ~> Heap E)
     POST (fun x => \exists E', \[min_of E x /\ E = \{x} \u E'] \* p ~> Heap E').
 Proof using.
-
+  introv HE. xwp. xchange Heap_eq ;=> q. xapp. xchange~ Contents_not_empty.
+  xchange Repr_eq ;=> [x hs] I. invert I ;=> ? ? ? ? Is Ks Eq -> -> ->.
+  xchange Tree_Node ;=> l. xapp.
+  xseq. xapp. xapp (>> __ Tree). (* LATER: no arg *) 
+  xpost (fun (_:unit) => \exists E', \[E = '{x} \u E'] \* p ~> Heap E' \* \GC). xif ;=> C.
+  { { subst. inverts Is. inverts Ks. rew_listx.
+      xapp (>> Triple_set Enc_loc). xchange <- Tree_Node. xchanges* Heap_of_null. } }
+    { xapp. xapp; eauto ;=> r. xapp. xchange Heap_of_Repr. xsimpl*. }
+  { intros _. xpull ;=> E' ->. xval. xsimpl. split~.
+    { rewrite Eq. applys~ pop_min_lemma. } }
 Qed.
 
+Hint Extern 1 (Register_Spec (merpop_min)) => Provide @Triple_pop_min.
 
 
-Lemma Triple_merge_pairs : forall qs Es,
-  Es <> nil ->
-  TRIPLE (merge_pairs qs)
-    PRE (qs ~> MListOf Repr Es)
-    POST (fun q => q ~> Repr (list_union s)).
-Proof using.
 
-Qed.
 
 
   (* LATER: reimplement merge_pairs using a whilte loop *)

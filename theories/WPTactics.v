@@ -373,6 +373,24 @@ Tactic Notation "xcast" :=
   xcast_core tt.
 
 
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xpost] *)
+
+Lemma xpost_lemma : forall `{EA:Enc A} (Q1 Q2:A->hprop) H (F:Formula),
+  Structural F ->
+  H ==> ^F Q1 ->
+  Q1 ===> Q2 ->
+  H ==> ^F Q2.
+Proof using. introv M W. applys* structural_conseq. Qed.
+
+Arguments xpost_lemma : clear implicits.
+
+Ltac xpost_core Q :=
+  applys (@xpost_lemma _ _ Q); [ xstructural | | ].
+
+Tactic Notation "xpost" constr(Q) :=
+  xpost_core Q.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xlet_xseq_xcast_repeat] *)

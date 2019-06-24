@@ -1632,15 +1632,24 @@ Ltac xchange_base E modif :=
 
 Tactic Notation "xchange" constr(E) :=
   xchange_base E __.
-Tactic Notation "xchange" "->" constr(E) :=
-  xchange_base E himpl_of_eq.
-Tactic Notation "xchange" "<-" constr(E) :=
-  xchange_base E himpl_of_eq_sym.
-
 Tactic Notation "xchange" "~" constr(E) :=
   xchange E; auto_tilde.
 Tactic Notation "xchange" "*" constr(E) :=
   xchange E; auto_star.
+
+Tactic Notation "xchange" "->" constr(E) :=
+  xchange_base E himpl_of_eq.
+Tactic Notation "xchange"  "~" "->" constr(E) :=
+  xchange -> E; auto_tilde.
+Tactic Notation "xchange" "*" "->" constr(E) :=
+  xchange -> E; auto_star.
+
+Tactic Notation "xchange" "<-" constr(E) :=
+  xchange_base E himpl_of_eq_sym.
+Tactic Notation "xchange" "~" "<-" constr(E) :=
+  xchange <- E; auto_tilde.
+Tactic Notation "xchange" "*" "<-" constr(E) :=
+  xchange <- E; auto_star.
 
 Ltac xchanges_base E modif :=
   xchange_core E modif ltac:(xchange_xsimpl_cont).
