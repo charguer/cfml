@@ -8,6 +8,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
+From TLC Require Import LibMonoid.
 From Sep Require Import Example.
 Generalizable Variables A B.
 
@@ -39,6 +40,7 @@ Ltac auto_star ::=
 (* * Towards a representation *)
 
 Module MListNull.
+
 
 Definition head : field := 0%nat.
 Definition tail : field := 1%nat.
@@ -424,6 +426,168 @@ Proof using.
 Qed.
 
 Hint Extern 1 (Register_Spec (pop)) => Provide @Triple_pop.
+
+
+
+(* ********************************************************************** *)
+(* * TODO: move *)
+
+
+
+Definition sep_monoid := monoid_make hstar hempty.
+
+Global Instance Monoid_sep : Monoid sep_monoid.
+Proof using. constructor; simpl; intros_all; xsimpl. Qed.
+
+Global Instance Comm_monoid_sep : Comm_monoid sep_monoid.
+Proof using.
+  constructor; simpl.
+  applys Monoid_sep.
+  intros_all. apply hstar_comm.
+Qed.
+
+(* ---------------------------------------------------------------------- *)
+(** [hfold_list] *)
+
+Definition hfold_list A (f:A->hprop) (l:list A) : hprop :=
+  LibList.fold sep_monoid f l.
+
+Section HfoldList.
+Variables (A:Type).
+Implicit Types l : list A.
+Implicit Types f : A->hprop.
+Hint Resolve Monoid_sep.
+
+Lemma hfold_list_nil : forall f,
+  hfold_list f nil = \[].
+Proof using. intros. unfold hfold_list. rewrite~ fold_nil. Qed.
+
+Lemma hfold_list_cons : forall f x l,
+  hfold_list f (x::l) = (f x) \* (hfold_list f l).
+Proof using. intros. unfold hfold_list. rewrite~ fold_cons. Qed.
+
+Lemma hfold_list_one : forall f x,
+  hfold_list f (x::nil) = f x.
+Proof using. intros. unfold hfold_list. rewrite~ fold_one. Qed.
+
+Lemma hfold_list_app : forall f l1 l2,
+  hfold_list f (l1 ++ l2) = (hfold_list f l1) \* (hfold_list f l2).
+Proof using. intros. unfold hfold_list. rewrite~ fold_app. Qed.
+
+Lemma hfold_list_last : forall f x l,
+  hfold_list f (l & x) = (hfold_list f l) \* (f x).
+Proof using. intros. unfold hfold_list. rewrite~ fold_last. Qed.
+
+End HfoldList.
+
+Hint Rewrite hfold_list_nil hfold_list_cons 
+             hfold_list_one hfold_list_app hfold_list_last : rew_heapx.
+
+
+(* ---------------------------------------------------------------------- *)
+(** [hfold_list2] *)
+
+Definition hfold_list2 A B (f:A->B->hprop) (l1:list A) (l2:list B) : hprop :=
+  hfold_list (fun '(x1,x2) => f x1 x2) (LibList.combine l1 l2).
+
+Section HfoldList2.
+Variables (A B:Type).
+Implicit Types f : A->B->hprop.
+
+Lemma hfold_list2_nil : forall f,
+  hfold_list2 f nil nil = \[].
+Proof using. intros. unfold hfold_list2. rew_listx. rewrite~ hfold_list_nil. Qed.
+
+Lemma hfold_list2_cons : forall f x1 x2 l1 l2,
+  hfold_list2 f (x1::l1) (x2::l2) = (f x1 x2) \* (hfold_list2 f l1 l2).
+Proof using. intros. unfold hfold_list2. rew_listx. rewrite~ hfold_list_cons. Qed.
+
+Lemma hfold_list2_one : forall f x1 x2,
+  hfold_list2 f (x1::nil) (x2::nil) = f x1 x2.
+Proof using. intros. unfold hfold_list2. rew_listx. rewrite~ hfold_list_one. Qed.
+
+End HfoldList2.
+
+Hint Rewrite hfold_list2_nil hfold_list2_cons hfold_list2_one : rew_heapx.
+
+Tactic Notation "rew_heapx" := 
+  autorewrite with rew_heapx.
+Tactic Notation "rew_heapx" "~" := 
+  rew_heapx; auto_tilde.
+Tactic Notation "rew_heapx" "*" := 
+  rew_heapx; auto_star.
+
+
+(* ********************************************************************** *)
+(* * Lists with recursive ownership *)
+
+Module MListOf.
+
+Definition MListOf A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc) : hprop :=
+  \exists (l:list A), \[length l = length L] \* p ~> MList l
+                      \* hfold_list2 (fun x X => x ~> R X) l L. 
+
+
+(*
+Lemma MListOf_eq : forall A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc),
+  p ~> MListOf R L =
+  match L with
+  | nil => \[p = null]
+  | X::L' => \exists x p', p ~> Record`{ Field.head := x; Field.tail := p'} 
+                   \* (x ~> R X) \* (p' ~> MListOf R L')
+  end.
+Proof using. intros. xunfold MListOf at 1. destruct~ L. Qed.
+*)
+
+
+Section Ops.
+
+Context A {EA:Enc A} TA (R:TA->A->hprop).
+Implicit Types L : list TA.
+Implicit Types x : A.
+Implicit Types X : TA.
+
+
+Hint Rewrite fold_nil fold_cons fold_app : rew_listx.
+
+Lemma Triple_create : 
+  TRIPLE (create tt)
+    PRE \[]
+    POST (fun p => p ~> MListOf R nil).
+Proof using.
+  xtriple. xapp ;=> p. xunfold MListOf. xsimpl*.
+  { rew_heapx. xsimpl. } 
+Qed.
+
+
+Parameter Triple_is_empty : forall L p,
+  TRIPLE (is_empty p)
+    PRE (p ~> MListOf R L)
+    POST (fun b => \[b = isTrue (L = nil)] \* p ~> MListOf R L).
+
+Parameter Triple_push : forall L p x X,
+  TRIPLE (push p ``x)
+    PRE (p ~> MListOf R L \* x ~> R X)
+    POST (fun (_:unit) => p ~> MListOf R (X::L)).
+
+
+Parameter Triple_pop : forall L p,
+  L <> nil ->
+  TRIPLE (pop p)
+    PRE (p ~> MListOf R L)
+    POST (fun x => \exists X L', \[L = X::L'] \* x ~> R X \* p ~> MListOf R L').
+
+End Ops.
+
+Hint Extern 1 (Register_Spec (create)) => Provide @Triple_create.
+Hint Extern 1 (Register_Spec (is_empty)) => Provide @Triple_is_empty.
+Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
+Hint Extern 1 (Register_Spec (pop)) => Provide @Triple_pop.
+
+Global Opaque MListOf.
+
+End MListOf.
+
 
 
 (* ********************************************************************** *)
