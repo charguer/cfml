@@ -70,6 +70,14 @@ Fixpoint MListOf A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc) : hprop :
   | X::L' => \exists x p', p ~> Record`{ head := x; tail := p'} \* (x ~> R X) \* (p' ~> MListOf R L')
   end.
 
+Lemma MListOf_eq : forall A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc),
+  p ~> MListOf R L =
+  match L with
+  | nil => \[p = null]
+  | X::L' => \exists x p', p ~> Record`{ head := x; tail := p'} \* (x ~> R X) \* (p' ~> MListOf R L')
+  end.
+Proof using. intros. xunfold MListOf at 1. destruct~ L. Qed.
+
 (*
   \exists v, p ~~> v \*
   match L with
@@ -124,7 +132,7 @@ Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
 Hint Extern 1 (Register_Spec (pop)) => Provide @Triple_pop.
 End Hints.
 
-Opaque MList.MListOf.
+Global Opaque MList.MListOf.
 
 End MList.
 
@@ -500,7 +508,7 @@ Proof using.
   xunfold Tree. fequals; applys fun_ext_1 ;=> l. fequals.
   gen l. induction hs as [|n hs']; intros.
   { auto. }
-  { xunfold MList.MListOf. fequals; applys fun_ext_1 ;=> y.
+  { rewrite MList.MListOf_eq. fequals; applys fun_ext_1 ;=> y.
     fequals; applys fun_ext_1 ;=> p'. fequals. fequals.
     rewrite~ <- IHhs'. }
 Qed.
@@ -654,7 +662,7 @@ Proof using.
     { rewrite Eq. applys~ pop_min_lemma. } }
 Qed.
 
-Hint Extern 1 (Register_Spec (merpop_min)) => Provide @Triple_pop_min.
+Hint Extern 1 (Register_Spec (pop_min)) => Provide @Triple_pop_min.
 
 
 
