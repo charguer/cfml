@@ -218,17 +218,17 @@ Proof using. introv M. xchange M. applys @Mlist_unfold_match'. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** [is_nil] *)
+(** [is_empty] *)
 
-Definition is_nil : val :=
+Definition is_empty : val :=
   VFun 'p :=
     Match '! 'p With
     '| 'Cstr "nil" '=> true 
     '| 'Cstr "cons" 'x 'q '=> false
     End.
 
-Lemma Triple_is_nil : forall A `{EA:Enc A} (L:list A) p,
-  TRIPLE (is_nil ``p)
+Lemma Triple_is_empty : forall A `{EA:Enc A} (L:list A) p,
+  TRIPLE (is_empty ``p)
     PRE (p ~> MList L)
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> MList L).
 Proof using.
@@ -239,7 +239,7 @@ Proof using.
     intros p' x' L' ->. xval. xchanges* <- (MList_cons p). }
 Qed.
 
-Hint Extern 1 (Register_Spec (is_nil)) => Provide @Triple_is_nil.
+Hint Extern 1 (Register_Spec (is_empty)) => Provide @Triple_is_empty.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -283,21 +283,21 @@ Hint Extern 1 (Register_Spec (tail)) => Provide @Triple_tail.
 
 
 (* ---------------------------------------------------------------------- *)
-(** [mk_nil] and [mk_cons] *)
+(** [create] and [mk_cons] *)
 
-Definition mk_nil : val :=
+Definition create : val :=
   VFun 'u :=
     val_ref ('Cstr "nil").
 
-Lemma Triple_mk_nil : forall A `{EA:Enc A},
-  TRIPLE (mk_nil ``tt)
+Lemma Triple_create : forall A `{EA:Enc A},
+  TRIPLE (create ``tt)
     PRE \[]
     POST (fun p => p ~> MList (@nil A)).
 Proof using.
   intros. xwp. xval (@nil A). xapp ;=> p. xchanges <- MList_nil.
 Qed.
 
-Hint Extern 1 (Register_Spec (mk_nil)) => Provide @Triple_mk_nil.
+Hint Extern 1 (Register_Spec (create)) => Provide @Triple_create.
 
 Definition mk_cons : val :=
   VFun 'x 'q :=
@@ -335,7 +335,7 @@ Definition set_cons : val :=
   VFun 'p 'x 'q :=
     'p ':= 'Cstr "cons" 'x 'q.
 
-Lemma Triple_set_cons : forall A `{EA:Enc A} (L:list A) p (v:val) (x:A) q,
+Lemma Triple_set_cons : forall A `{EA:Enc A} p (v:val) (x:A) q,
   TRIPLE (set_cons ``p ``x ``q)
     PRE (p ~~> v)
     POST (fun (_:unit) => p ~~> Cons x q).
@@ -384,16 +384,59 @@ Qed.
 Hint Extern 1 (Register_Spec (set_tail)) => Provide @Triple_set_tail.
 
 
+(* ---------------------------------------------------------------------- *)
+(** [push] *)
+
+Definition push : val :=
+  VFun 'p 'x :=
+    Let 'q := '!'p in
+    set_cons 'p 'x (val_ref 'q).
+
+Lemma Triple_push : forall `{EA:Enc A} (L:list A) (p:loc) (x:A),
+  TRIPLE (push p ``x)
+    PRE (p ~> MList L)
+    POST (fun (_:unit) => p ~> MList (x::L)).
+Proof using.
+  xwp. xchange MList_eq ;=> q. xapp. xapp ;=> q2. xapp.
+  xchange <- MList_eq. xchanges <- MList_cons.
+Qed.
+
+Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
+
+
+(* ---------------------------------------------------------------------- *)
+(** [pop] *)
+
+Definition pop : val :=
+  VFun 'p  :=
+    Let 'x := head 'p in
+    ('p ':= '! (tail 'p)) '; (* LATER/ fix priority *)
+    'x.
+
+Lemma Triple_pop : forall `{EA:Enc A} (L:list A) (p:loc),
+  L <> nil ->
+  TRIPLE (pop p)
+    PRE (p ~> MList L)
+    POST (fun (x:A) => \exists L', \[L = x::L'] \* p ~> MList L').
+Proof using.
+  introv N. xwp. destruct L as [|x L']; tryfalse. xchange MList_cons ;=> q.
+  xapp. xchange MList_eq ;=> q2. xapp. xapp. xapp. xchange <- (MList_eq p). xvals*.
+Qed.
+
+Hint Extern 1 (Register_Spec (pop)) => Provide @Triple_pop.
+
 
 (* ********************************************************************** *)
 (* * High-level operations *)
+
+
 
 (* ---------------------------------------------------------------------- *)
 (** [mlength] *)
 
 Definition mlength : val :=
   VFix 'f 'p :=
-    If_ is_nil 'p 
+    If_ is_empty 'p 
       Then 0 
       Else 1 '+ 'f (tail 'p).
 
@@ -419,8 +462,8 @@ Qed.
 
 Definition copy : val :=
   VFix 'f 'p :=
-    If_ is_nil 'p 
-      Then mk_nil '() 
+    If_ is_empty 'p 
+      Then create '() 
       Else mk_cons (head 'p) ('f (tail 'p)).
 
 Lemma Triple_copy : forall `{EA:Enc A} (L:list A) (p:loc),
@@ -442,7 +485,7 @@ Qed.
 
 Definition iter : val :=
   VFix 'g 'f 'p :=
-    If_ 'not (is_nil 'p) Then
+    If_ 'not (is_empty 'p) Then
       'f (head 'p) ';
       'g 'f (tail 'p)
     End.
@@ -500,7 +543,7 @@ Qed.
 
 Definition nondestructive_append : val :=
   VFix 'f 'p1 'p2 :=
-    If_ is_nil 'p1 
+    If_ is_empty 'p1 
       Then copy 'p2
       Else mk_cons (head 'p1) ('f (tail 'p1) 'p2).
 
@@ -526,7 +569,7 @@ Hint Extern 1 (Register_Spec (nondestructive_append)) => Provide @Triple_nondest
 
 Definition inplace_append : val :=
   VFix 'f 'p1 'p2 :=
-    If_ is_nil 'p1 
+    If_ is_empty 'p1 
       Then 'p1 ':= '! 'p2
       Else 'f (tail 'p1) 'p2.
 
@@ -551,7 +594,7 @@ Hint Extern 1 (Register_Spec (inplace_append)) => Provide @Triple_inplace_append
 
 Definition cps_append_aux : val :=
   VFix 'f 'p1 'p2 'k :=
-    If_ is_nil 'p1 
+    If_ is_empty 'p1 
       Then 'k 'p2
       Else 'f (tail 'p1) 'p2 (Fun 'r := (set_tail 'p1 'r '; 'k 'p1)).
 
@@ -656,10 +699,10 @@ Proof using.
 Qed.
 
 (* ---------------------------------------------------------------------- *)
-(** Detailed proof for is_nil *)
+(** Detailed proof for is_empty *)
 
-Lemma Triple_is_nil' : forall A `{EA:Enc A} (L:list A) p,
-  TRIPLE (is_nil ``p)
+Lemma Triple_is_empty' : forall A `{EA:Enc A} (L:list A) p,
+  TRIPLE (is_empty ``p)
     PRE (p ~> MList L)
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> MList L).
 Proof using.
