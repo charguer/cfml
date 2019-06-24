@@ -612,10 +612,19 @@ Lemma Triple_merge : forall q1 q2 E1 E2,
     PRE (q1 ~> Repr E1 \* q2 ~> Repr E2)
     POST (fun q => q ~> Repr (E1 \u E2)).
 Proof using.
-admit.
-Admitted.
+  xwp. xchange (Repr_eq q1) ;=> [x1 hs1] I1. xchange (Repr_eq q2) ;=> [x2 hs2] I2.
+  xchange (Tree_Node q1) ;=> l1. xchange (Tree_Node q2) ;=> l2.
+  inverts I1 as Is1 Ks1. inverts I2 as Is2 Ks2.
+  xapp. xapp. xapp. xif ;=> C.
+  { xapp. xchange <- (Tree_Node q2). xapp (>> __ Enc_loc). (* LATEr: fix *)
+    xval. xchange <- Tree_Node. xchange <- Repr_eq. (* LATEr factorize *)
+    applys* merge_lemma. xsimpl*. }
+  { xapp. xchange <- (Tree_Node q1). xapp (>> __ Enc_loc). (* LATEr: fix *)
+    xval. xchange <- Tree_Node. xchange <- Repr_eq. (* LATEr factorize *)
+    applys* merge_lemma. xsimpl*. }
+Qed.
 
-Hint Extern 1 (Register_Spec (merge)) => Provide @Triple_merge.
+Hint Extern 1 (Register_Spec (merge)) => Provide @Triple_merge.s
 
 Lemma Triple_insert : forall p x E,
   TRIPLE (insert p x)
