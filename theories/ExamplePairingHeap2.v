@@ -86,6 +86,13 @@ Implicit Types p : loc.
 Implicit Types x : A.
 Implicit Types X : TA.
 
+Parameter create : val.
+
+Parameter Triple_create : 
+  TRIPLE (create tt)
+    PRE \[]
+    POST (fun p => p ~> MListOf R nil).
+
 Parameter is_empty : val.
 
 Parameter Triple_is_empty : forall L p,
@@ -147,7 +154,7 @@ Proof using. applys Inhab_of_val (Node arbitrary nil). Qed.
 
 Implicit Types x y : elem.
 Implicit Types h : heap.
-Implicit Types hs : list heap.
+Implicit Types hs : list node.
 Implicit Types E : elems.
 Implicit Types Es : list elems.
 
@@ -217,12 +224,42 @@ Proof using.
   { unfold list_union; rew_listx. applys* foreach_union. }
 Qed.
 
+Lemma merge_lemma : forall x1 x2 ns1 ns2 Es1 Es2,
+  Forall2 inv ns1 Es1 ->
+  Forall2 inv ns2 Es2 ->
+  Forall (foreach (is_ge x2)) Es1 ->
+  Forall (foreach (is_ge x1)) Es2 ->
+  x1 <= x2 ->
+  inv (Node x1 (Node x2 ns1 :: ns2)) ('{x1} \u '{x2} \u list_union Es1 \u list_union Es2).
+Proof using.
+  introv Is1 Is2 Ks1 Ks2 L. applys_eq inv_Node 1. constructor.
+  { applys* inv_Node. }
+  { eauto. }
+  { constructors.
+    { applys foreach_union.
+      { applys* foreach_single. }
+      { applys* foreach_list_union. applys Forall_pred_incl Ks1.
+        { intros x Hx. applys* foreach_weaken. { intros y Hy. unfolds* is_ge. } } } }
+    { eauto. } }
+  { reflexivity. }
+  { autos*. }
+Qed.
 
+Lemma pop_min_lemma : forall x Es,
+  Forall (foreach (is_ge x)) Es ->
+  min_of (\{x} \u list_union Es) x.
+Proof.
+  introv M. split. 
+  { auto. }
+  { intros y Hy. multiset_in Hy.
+    { auto. } { applys* Forall_foreach_is_ge_inv Es. } }
+Qed.
 
 
 (* ******************************************************* *)
 (** ** Coq code *)
 
+Module Pure.
 
 Definition empty : heap :=
   None.
@@ -269,8 +306,6 @@ Definition pop_min (h:heap) : elem * heap :=
   end.
 
 
-
-
 (* ******************************************************* *)
 (** ** Verification *)
 
@@ -285,27 +320,6 @@ Proof using.
   introv I. unfold is_empty. destruct h; rew_bool_eq; inverts I as.
   { introv N. inverts N. multiset_inv. }
   { auto. }
-Qed.
-
-Lemma merge_lemma : forall x1 x2 ns1 ns2 Es1 Es2,
-  Forall2 inv ns1 Es1 ->
-  Forall2 inv ns2 Es2 ->
-  Forall (foreach (is_ge x2)) Es1 ->
-  Forall (foreach (is_ge x1)) Es2 ->
-  x1 <= x2 ->
-  inv (Node x1 (Node x2 ns1 :: ns2)) ('{x1} \u '{x2} \u list_union Es1 \u list_union Es2).
-Proof using.
-  introv Is1 Is2 Ks1 Ks2 L. applys_eq inv_Node 1. constructor.
-  { applys* inv_Node. }
-  { eauto. }
-  { constructors.
-    { applys foreach_union.
-      { applys* foreach_single. }
-      { applys* foreach_list_union. applys Forall_pred_incl Ks1.
-        { intros x Hx. applys* foreach_weaken. { intros y Hy. unfolds* is_ge. } } } }
-    { eauto. } }
-  { reflexivity. }
-  { autos*. }
 Qed.
 
 Lemma merge_spec : forall n1 E1 n2 E2,
@@ -350,17 +364,6 @@ Proof using.
       { autos*. } } }
 Qed.
 
-Lemma pop_min_lemma : forall x Es,
-  Forall (foreach (is_ge x)) Es ->
-  min_of (\{x} \u list_union Es) x.
-Proof.
-  introv M. split. 
-  { auto. }
-  { intros y Hy. multiset_in Hy.
-    { auto. } { applys* Forall_foreach_is_ge_inv Es. } }
-Qed.
-
-
 Lemma pop_min_spec : forall h E h' x,
   E <> \{} ->
   repr h E ->
@@ -378,6 +381,7 @@ Proof using.
       constructor~. } }
 Qed.
 
+End Pure.
 
 (* ******************************************************* *)
 (** ** Deeply embedded code *)
@@ -407,28 +411,28 @@ Definition merge : val :=
 
 Definition insert : val :=
   VFun 'p 'x :=
-    Let 'q := '!p in
-    let 'q2 := New`{ value := x; sub := MList.create '() } in
-    If 'q '= 'null
-      Then 'p := 'q2
-      Else 'p := merge 'q 'q2.
+    Let 'q := '!'p in
+    Let 'q2 := New`{ value := 'x; sub := MList.create '() } in
+    If_ 'q '= null
+      Then 'p ':= 'q2
+      Else 'p ':= merge 'q 'q2.
 
 Definition merge_pairs : val :=
-  VFix 'f 'qs := 
-    Let 'q1 := MList.pop 'qs in
-    If_ MList.is_empty 'qs Then 'q1 Else
-    Let 'q2 := MList.pop 'qs in
-    let 'q3 := merge 'q1 'q2 in
-		If_ MList.is_empty 'qs Then 'q3 Else
-    merge 'q3 ('f 'qs).
+  VFix 'f 'l := 
+    Let 'q1 := MList.pop 'l in
+    If_ MList.is_empty 'l Then 'q1 Else
+    Let 'q2 := MList.pop 'l in
+    Let 'q := merge 'q1 'q2 in
+		If_ MList.is_empty 'l Then 'q Else
+    merge 'q ('f 'l).
 
 Definition pop_min : val :=
   VFun 'p :=
-    Let 'q := '!p in
-    Let 'x := 'q.value in
-    If MList.is_empty 'q'.sub 
-      Then 'p := null
-      Else 'p := merge_pairs ('q'.sub) ';
+    Let 'q := '!'p in
+    Let 'x := 'q'.value in
+    If_ MList.is_empty 'q'.sub 
+      Then 'p ':= null
+      Else 'p ':= merge_pairs ('q'.sub) ';
 		'x.
 
 (**
@@ -443,22 +447,48 @@ Fixpoint Repr (h:heap) (q:loc) : hprop :=
 ]]
 *)
 
-Fixpoint Repr (h:heap) (q:loc) : hprop :=
-  match h with
+Fixpoint Repr (n:node) (q:loc) : hprop :=
+  match n with
   | Node x hs => 
-      \exists q',
-       p ~> Record`{ value := x; sub := q' } 
+      \exists l,
+       q ~> Record`{ value := x; sub := l } \*
       (fix MListOf L p : hprop :=
       match L with
       | nil => \[p = null]
-      | X::L' => \exists (x:loc) p', p ~> Record`{ head := x; tail := p'} \* (x ~> Repr X) \* (p' ~> MListOf L')
-      end) hs q'
+      | X::L' => \exists (x:loc) p', 
+                    p ~> Record`{ MList.head := x; MList.tail := p'} 
+                   \* (x ~> Repr X) \* (p' ~> MListOf L')
+      end) hs l
   end.
+
+Lemma Repr_eq : forall n q,
+  q ~> Repr n =
+    match n with
+    | Node x hs =>
+        \exists l, q ~> Record`{ value := x; sub := l }
+                \* l ~> MList.MListOf Repr hs
+  end.
+Proof using.
+  intros n. induction n as [x hs]; intros.
+  xunfold Repr. fequals; applys fun_ext_1 ;=> l. fequals.
+  gen l. induction hs as [|n hs']; intros.
+  { auto. }
+  { xunfold MList.MListOf. fequals; applys fun_ext_1 ;=> y.
+    fequals; applys fun_ext_1 ;=> p'. fequals. fequals.
+    rewrite~ <- IHhs'. }
+Qed.
+
+Lemma Repr_Node : forall q x hs,
+  q ~> Repr (Node x hs) =
+      \exists l, q ~> Record`{ value := x; sub := l }
+              \* l ~> MList.MListOf Repr hs.
+Proof using. intros. rewrite~ Repr_eq. Qed.
+
 
 Definition Heap (E:elems) (p:loc) : hprop :=
   \exists q, p ~~> q \* 
   If E = \{} then \[q = null]
-             else \exists (h:heap), q ~> Repr h \* \[inv h E].
+             else \exists n, q ~> Repr n \* \[inv n E].
 
 
 (* ******************************************************* *)
