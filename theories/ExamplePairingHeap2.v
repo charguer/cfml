@@ -214,6 +214,7 @@ Lemma list_union_cons : forall E Es,
 Proof using. auto. Qed.
 
 Hint Rewrite list_union_nil list_union_cons : rew_listx.
+Hint Rewrite (@union_empty_r elems _ _ _) (@union_empty_l elems _ _ _) : rew_listx.
 
 Hint Extern 1 (_ < _) => simpl; math.
 Hint Extern 1 (_ <= _) => simpl; math.
@@ -374,12 +375,12 @@ Lemma merge_pairs_spec : forall ns Es,
   inv (merge_pairs ns) (list_union Es).
 Proof using.
   intros ns. induction_wf IH: (@list_sub node) ns; introv N Is.
-  destruct ns as [|n1 ns'']; tryfalse. inverts Is as I1 Is. 
-  destruct ns'' as [|n2 ns']; simpl.
+  destruct ns as [|n1 ns']; tryfalse. inverts Is as I1 Is. 
+  destruct ns' as [|n2 ns'']; simpl.
   { inverts Is. rename y into E. applys_eq* I1 1. }
   { inverts Is as I2 Is. rename r0 into Es, y0 into E2.
     rewrite is_nil_eq. case_if as C.
-    { subst ns'. inverts Is. applys merge_spec. { applys I1. } { applys_eq* I2 1. } }
+    { subst ns''. inverts Is. applys merge_spec. { applys I1. } { applys_eq* I2 1. } }
     { applys_eq merge_spec 1.
       { applys* merge_spec. }
       { applys* IH. }
@@ -394,7 +395,7 @@ Lemma pop_min_spec : forall h E h' x,
   /\ exists E', repr h' E' /\ E = \{x} \u E'.
 Proof using.
   introv N I M. unfolds pop_min.
-  destruct h as [|n]; inverts I as I; tryfalse.
+  destruct h as [n|]; inverts I as I; tryfalse.
   destruct n as [y ns]. inverts M. inverts I as I1 Ks. split. 
   { applys~ pop_min_lemma. }
   { rewrite is_nil_eq. case_if as C.
@@ -624,7 +625,7 @@ Proof using.
     applys* merge_lemma. xsimpl*. }
 Qed.
 
-Hint Extern 1 (Register_Spec (merge)) => Provide @Triple_merge.s
+Hint Extern 1 (Register_Spec (merge)) => Provide @Triple_merge.
 
 Lemma Triple_insert : forall p x E,
   TRIPLE (insert p x)
@@ -632,7 +633,7 @@ Lemma Triple_insert : forall p x E,
     POST (fun (_:unit) => p ~> Heap (E \u \{x})).
 Proof using.
   xwp. xchange Heap_eq ;=> q. xapp. xapp (>> __ Tree) ;=> l.
-  xnew (>> x l). skip. (* TODO *) intros q2.
+  xnew (>> x l). skip. (* TODO noduplicates *) intros q2.
   xchange <- Tree_Node. xchange <- Repr_eq. { applys* inv_Node. }
   rew_listx. xapp. typeclass. unfold Contents. xif ;=> C; case_if.
   { xpull ;=> ->. xapp. xchanges* Heap_of_Repr. }
@@ -641,14 +642,21 @@ Qed.
 
 Hint Extern 1 (Register_Spec (insert)) => Provide @Triple_insert.
 
-Lemma Triple_merge_pairs : forall l ns Es,
+Lemma Triple_merge_pairs : forall ns l Es,
   ns <> nil ->
   Forall2 inv ns Es ->
   TRIPLE (merge_pairs l)
     PRE (l ~> MList.MListOf Tree ns)
     POST (fun q => q ~> Repr (list_union Es)).
 Proof using.
-skip.
+  intros ns. induction_wf IH: (@list_sub node) ns; introv N Is.
+  xwp. xapp~ ;=> q1 n1 ns' ->. inverts Is as I1 Is. rename r into Es'.
+  xapp (>> __ Tree). xif ;=> C.
+  { subst. inverts Is. rew_listx. xval. xchanges* <- Repr_eq. }
+  { xapp~ ;=> q2 n2 ns'' ->. inverts Is as I2 Is. rename r into Es''.
+    do 2 xchange* <- Repr_eq. xapp ;=> r. xapp (>> __ Tree). xif ;=> C'.
+    { subst. inverts Is. rew_listx. xvals. }
+    { xapp* ;=> r'. xapp ;=> r''. rew_listx. xsimpl*. } }
 Qed.
 
 Hint Extern 1 (Register_Spec (merge_pairs)) => Provide @Triple_merge_pairs.
