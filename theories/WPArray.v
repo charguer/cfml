@@ -82,7 +82,7 @@ Proof using.
     lets M': eq_int_of_eq_nat HM. rewrite abs_nonneg in M'; [|math].
     xsimpl~ (>> L1 x L2). subst L. rewrite Array_concat_eq, Array_cons_eq.
     rew_nat. xsimpl. rewrite HM. rewrite~ abs_nat_plus_nonneg. math. }
-  { hpull ;=> L1 x L2 HM E. subst n.
+  { xpull ;=> L1 x L2 HM E. subst n.
     subst L. rewrite Array_concat_eq, Array_cons_eq.
     rew_nat. xsimpl. applys_eq himpl_refl 1. fequals.
     rewrite abs_nat_plus_nonneg; [|math]. rewrite~ abs_nat. }
@@ -100,7 +100,7 @@ Lemma Array_of_Alloc : forall k l,
 Proof using.
   intros. gen l. induction k; intros.
   { rew_Alloc. xsimpl (@nil val). rew_list~. }
-  { rew_Alloc. hpull ;=> v. hchange IHk. hpull ;=> L E.
+  { rew_Alloc. xpull ;=> v. xchange IHk. xpull ;=> L E.
     xsimpl (v::L).
     { rewrite Array_cons_eq. xsimpl~. }
     { rew_list. math. } }
@@ -114,8 +114,8 @@ Lemma triple_alloc_array : forall n,
               \[length L = n :> int] \* Array L p).
 Proof using.
   introv N. xapp. math.
-  intros r. hpull ;=> l (E&Nl). subst r.
-  hchange Array_of_Alloc. hpull ;=> L HL.
+  intros r. xpull ;=> l (E&Nl). subst r.
+  xchange Array_of_Alloc. xpull ;=> L HL.
   xsimpl~. rewrite HL. rewrite~ abs_nonneg.
 Qed.
 
@@ -144,8 +144,8 @@ Proof using.
   introv N. rewrite index_eq_inbound in N.
   xcf. xapps. { math. }
   rewrites (>> Array_middle_eq i). { math. }
-  xpull ;=> L1 x L2 EL HL.
-  xapp. hpull ;=> r. intro_subst.
+  xtpull ;=> L1 x L2 EL HL.
+  xapp. xpull ;=> r. intro_subst.
   xsimpl; auto. { subst. rewrite~ read_middle. }
 Qed.
 
@@ -173,8 +173,8 @@ Proof using.
   introv N. rewrite index_eq_inbound in N.
   xcf. xapps. { math. }
   rewrites (>> Array_middle_eq i). { math. }
-  xpull ;=> L1 x L2 EL HL.
-  xapp triple_set. hpull ;=> r. intro_subst.
+  xtpull ;=> L1 x L2 EL HL.
+  xapp triple_set. xpull ;=> r. intro_subst.
   rewrites (>> Array_middle_eq i (L[i := v])).
    { rewrite <- length_eq in *. rew_array. math. }
   xsimpl; auto. { subst. rewrite~ update_middle. rew_list~. }
@@ -305,11 +305,11 @@ Proof using.
   rewrites (>> Array_middle_eq n p (map enc L)).
   rewrite length_map. auto. (* TODO: add to rew_listx. *)
   apply himpl_antisym.
-  { hpull ;=> L1 x L2 N1 N2.
+  { xpull ;=> L1 x L2 N1 N2.
     lets (L1'&X'&L2'&E1&E2&E3&E4): map_eq_middle_inv N1. subst.
     rewrite length_map. xsimpl~ L1' X' L2'.
     do 2 rewrite Array_unlift. xsimpl. }
-  { hpull ;=> L1 x L2 N1 N2. xsimpl (map enc L1) (enc x) (map enc L2).
+  { xpull ;=> L1 x L2 N1 N2. xsimpl (map enc L1) (enc x) (map enc L2).
     repeat rewrite Array_unlift. rewrite length_map. (* todo rew_list *) xsimpl.
     rewrite~ length_map. subst L. rew_listx~. }
 Qed.

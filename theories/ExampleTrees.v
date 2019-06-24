@@ -116,10 +116,10 @@ Proof using.
   intros. destruct T.
   { xunfold MTree. applys himpl_antisym; xsimpl~. }
   { xunfold MTree. applys himpl_antisym.
-    { hpull ;=> p'. hchange (hRecord_not_null null).
+    { xpull ;=> p'. xchange (hRecord_not_null null).
       { simpl. unfold item. auto. }
-      { hpull; auto_false. } }
-    { hpull. } }
+      { xpull; auto_false. } }
+    { xpull. } }
 Qed. (* todo: factorize with proof for lists *)
 
 Lemma MTree_null_inv : forall T,
@@ -148,7 +148,7 @@ Lemma MTree_not_null_inv_not_leaf : forall p T,
   p ~> MTree T ==+> \[T <> Leaf].
 Proof using.
   intros. destruct T.
-  { hchanges -> (MTree_leaf_eq p). }
+  { xchanges -> (MTree_leaf_eq p). }
   { xsimpl. auto_false. }
 Qed.
 
@@ -158,9 +158,9 @@ Lemma MTree_not_null_inv_node : forall p T,
   \exists x p1 p2 T1 T2, \[T = Node x T1 T2] \*
     (p ~> Cell x p1 p2) \* (p1 ~> MTree T1) \* (p2 ~> MTree T2).
 Proof using.
-  intros. hchange~ (@MTree_not_null_inv_not_leaf p). hpull. intros.
+  intros. xchange~ (@MTree_not_null_inv_not_leaf p). xpull. intros.
   destruct T; tryfalse.
-  hchange (MTree_node_eq p). xsimpl~.
+  xchange (MTree_node_eq p). xsimpl~.
 Qed.
 
 Arguments MTree_not_null_inv_not_leaf : clear implicits.
@@ -268,8 +268,8 @@ Proof using.
   applys fun_ext_2 ;=> T p.
   unfold MTreeComplete, MTreeComplete''.
   applys himpl_antisym.
-  { hpull ;=> (n&E). xsimpl*. }
-  { hpull ;=> n E. xsimpl*. }
+  { xpull ;=> (n&E). xsimpl*. }
+  { xpull ;=> n E. xsimpl*. }
 Qed.
 
 
@@ -386,13 +386,13 @@ Proof using.
   xcf. intros x p T. introv IH IE.
   xapps. xif.
   xtchange focus_tree_null. xextracts. xret.
-   inverts IE. xsimpl. hchanges unfocus_Leaf.
+   inverts IE. xsimpl. xchanges unfocus_Leaf.
    fold_bool; rew_istrue. intros H. set_in H.
   xtchange~ (@focus_tree_not_null p).
    xextract as y p1 p2 T1 T2 EQ. subst T.
    inverts IE. xapps. xif.
   xapps. xapp*. intros b.
-   hchange (@unfocus_Node p). xsimpl.
+   xchange (@unfocus_Node p). xsimpl.
    subst b. extens; rew_istrue. subst E. iff M.
     eauto.
     set_in M.
@@ -400,7 +400,7 @@ Proof using.
       auto.
       false* foreach_gt_notin H6 C0.
   xif. xapps. xapps*. intros b.
-    hchange (@unfocus_Node p). xsimpl.
+    xchange (@unfocus_Node p). xsimpl.
    subst b. extens; rew_istrue. subst E. iff M.
     rewrite <- for_set_union_empty_r.
      repeat rewrite <- for_set_union_assoc.
@@ -410,7 +410,7 @@ Proof using.
       lets: foreach_lt_notin x H4 __. math. false.
       auto.
   xret.
-    hchange (@unfocus_Node p). xsimpl. subst E.
+    xchange (@unfocus_Node p). xsimpl. subst E.
     asserts_rewrite (x = y). math. auto.
 Qed.
 
@@ -423,7 +423,7 @@ Proof using.
   xweaken search_spec_ind. simpl. introv M S1. intros.
   xtchange (@focus_Stree x2). xextract as T1 R1.
   xapply S1. eauto. xsimpl. intros. hextracts.
-  hchange* (@unfocus_Stree x2). xsimpl*.
+  xchange* (@unfocus_Stree x2). xsimpl*.
 Qed.
 
 *)

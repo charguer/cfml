@@ -56,7 +56,7 @@ Proof using.
   { intros r. applys himpl_hpure_l. intros E. subst. auto. }
 Qed.
 
-(** Same proof using [xapply], [xapplys] and [xpull] *)
+(** Same proof using [xapply], [xapplys] and [xtpull] *)
 
 Lemma triple_incr_2 : forall p n,
   triple (val_incr p)
@@ -65,9 +65,9 @@ Lemma triple_incr_2 : forall p n,
 Proof using.
   intros. applys triple_app. reflexivity. simpl.
   applys triple_let. { applys triple_get. } simpl.
-  intros x. xpull. intros E. subst.
+  intros x. xtpull. intros E. subst.
   applys triple_let. { xapplys triple_add. }
-  simpl. intros y. xpull. intro_subst.
+  simpl. intros y. xtpull. intro_subst.
   xapplys triple_set.
 Qed.
 
@@ -81,10 +81,10 @@ Proof using.
   intros. applys triple_app_fun_of_cf_iter 20%nat. reflexivity. simpl.
   applys mklocal_erase. esplit. split.
   { applys mklocal_erase. xapplys triple_get. }
-  intros x. xpull. intros E. subst.
+  intros x. xtpull. intros E. subst.
   applys mklocal_erase. esplit. split.
   { applys mklocal_erase. xapplys triple_add. }
-  intros y. xpull. intros E. subst.
+  intros y. xtpull. intros E. subst.
   applys mklocal_erase. xapplys triple_set.
 Qed.
 
@@ -111,8 +111,8 @@ Lemma triple_incr_5 : forall p n,
     (p ~~~> n)
     (fun r => (p ~~~> (n+1))).
 Proof using.
-  xcf. xlet as x. xapp. xpull. intro_subst.
-  xlet as y. xapp. xpull. intro_subst.
+  xcf. xlet as x. xapp. xtpull. intro_subst.
+  xlet as y. xapp. xtpull. intro_subst.
   xapp. xsimpl.
 Qed.
 
@@ -248,7 +248,7 @@ Lemma triple_incr_twice : forall p n,
     (fun r => p ~~~> (n+2)).
 Proof using.
   xcf. xapp. auto. intros _.
-  xapps. (* same as [xapp; hpull] *)
+  xapps. (* same as [xapp; xpull] *)
   intros; subst.
   math_rewrite ((n + 1) + 1 = (n + 2)). (* TODO: avoid this ?*)
   xsimpl.

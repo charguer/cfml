@@ -523,7 +523,7 @@ Lemma triple_create :
 Proof using.
   xcf. unfold MQueue.
   xapp triple_alloc_cell as r. intros p v1 v2. intro_subst.
-  xapp~. hpull ;=> r x E. xsimpl~.
+  xapp~. xpull ;=> r x E. xsimpl~.
   { rewrite MListSeg_nil_eq. xsimpl~. }
 Qed.
 

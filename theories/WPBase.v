@@ -95,7 +95,7 @@ Lemma structural_weakestpre : forall (T:hprop->(B->hprop)->Prop),
   structural (weakestpre T).
 Proof using.
   introv L. applys structural_intro. intros Q. unfold weakestpre.
-  hpull ;=> Q' H M. xsimpl (H \* (Q' \--* Q \*+ \GC)).
+  xpull ;=> Q' H M. xsimpl (H \* (Q' \--* Q \*+ \GC)).
   applys* local_ramified_frame_hgc.
 Qed.
 
@@ -114,7 +114,7 @@ Lemma structural_elim_nohgc : forall F H Q,
   (H ==> \exists Q', F Q' \* (Q' \--* Q)) ->
   H ==> F Q.
 Proof using. 
-  introv L M. applys~ structural_elim. hchanges M.
+  introv L M. applys~ structural_elim. xchanges M.
 Qed.
 
 (** Other specialized elimination rules *)
@@ -126,7 +126,7 @@ Lemma structural_conseq : forall Q' F H Q,
   H ==> F Q'.
 Proof using.
   introv L M W. applys~ structural_elim.
-  hchange (rm M). xsimpl Q. hchanges W.
+  xchange (rm M). xsimpl Q. xchanges W.
 Qed.
 
 Lemma structural_hgc : forall F H Q,
@@ -135,7 +135,7 @@ Lemma structural_hgc : forall F H Q,
   H ==> F Q.
 Proof using.
   introv L M. applys~ structural_elim.
-  hchange (rm M). xsimpl (Q \*+ \GC).
+  xchange (rm M). xsimpl (Q \*+ \GC).
 Qed.
 
 Lemma structural_frame : forall H1 H2 F H Q,
@@ -144,7 +144,7 @@ Lemma structural_frame : forall H1 H2 F H Q,
   H1 ==> F (fun x => H2 \-* Q x) ->
   H ==> F Q.
 Proof using.
-  introv L W M. applys~ structural_elim. hchange W. hchanges M.
+  introv L W M. applys~ structural_elim. xchange W. xchanges M.
 Qed.
 
 Lemma structural_frame_hgc : forall H1 H2 F H Q,
@@ -189,7 +189,7 @@ Lemma mkstruct_erase' : forall H F Q,
   H ==> F Q ->
   H ==> mkstruct F Q.
 Proof using.
-  introv M. hchanges M. applys mkstruct_erase.
+  introv M. xchanges M. applys mkstruct_erase.
 Qed.
 
 (** [mkstruct] is idempotent, i.e. nested applications
@@ -199,8 +199,8 @@ Lemma mkstruct_mkstruct : forall F,
   mkstruct (mkstruct F) = mkstruct F.
 Proof using.
   intros F. applys fun_ext_1. intros Q. applys himpl_antisym.
-  { unfold mkstruct. hpull ;=> Q' Q''. xsimpl Q''. }
-  { hchanges mkstruct_erase. }
+  { unfold mkstruct. xpull ;=> Q' Q''. xsimpl Q''. }
+  { xchanges mkstruct_erase. }
 Qed.
 
 (** A definition whose head is [mkstruct] satisfies [struct] *)
@@ -230,7 +230,7 @@ Lemma mkstruct_false : forall F Q,
   (forall Q', F Q' ==> \[False]) ->
   (mkstruct F Q ==> \[False]).
 Proof using.
-  introv M. unfold mkstruct. hpull ;=> Q'. hchange (M Q').
+  introv M. unfold mkstruct. xpull ;=> Q'. xchange (M Q').
 Qed.
 
 (** [mkstruct] is a covariant transformer w.r.t. predicate inclusion *)
@@ -239,7 +239,7 @@ Lemma mkstruct_weaken : forall F F',
   F ===> F' ->
   mkstruct F ===> mkstruct F'.
 Proof using.
-  unfold mkstruct. introv M. intros Q. hpull ;=> Q'. xsimpl~ Q'.
+  unfold mkstruct. introv M. intros Q. xpull ;=> Q'. xsimpl~ Q'.
 Qed.
 
 (** [mkstruct] can be erased on the left of an entailment if the 
@@ -480,7 +480,7 @@ Lemma triple_mkstruct_pre : forall t (F:formula) Q,
   triple t (mkstruct F Q) Q.
 Proof using.
   introv M. applys~ local_elim.
-  unfold mkstruct. hpull ;=> Q'.
+  unfold mkstruct. xpull ;=> Q'.
   xsimpl (F Q') ((Q' \--* Q \*+ \GC)) Q'. split~.
   { xsimpl. }
 Qed.
@@ -509,7 +509,7 @@ Definition wpgen_sound t := forall E,
 
 Lemma himpl_wpgen_fail_l : forall Q H,
   wpgen_fail Q ==> H.
-Proof using. intros. unfold wpgen_fail, mkstruct. hpull. Qed.
+Proof using. intros. unfold wpgen_fail, mkstruct. xpull. Qed.
 
 Lemma triple_wpgen_fail : forall t Q Q',
   triple t (wpgen_fail Q) Q'.
@@ -537,7 +537,7 @@ Proof using.
   { destruct C2 as (x&Et). subst. simpl. case_eq (Ctx.lookup x E).
     { intros v Ev. rewrites~ (>> isubst_evalctx_trm_var Ev).
       apply triple_of_wp. applys M2. }
-    { introv N. remove_mkstruct. xpull. intros; false. } }
+    { introv N. remove_mkstruct. xtpull. intros; false. } }
   asserts_rewrite (wpaux_getval wpgen E t1 F2of = wpgen_let (wpgen E t1) F2of).
   { destruct t1; auto. { false C1. hnfs*. } { false C2. hnfs*. } }
   remove_mkstruct. applys~ triple_isubst_evalctx.
@@ -576,7 +576,7 @@ Lemma wpgen_sound_if_val : forall v0 F1 F2 E t1 t2,
   wpgen_if_val v0 F1 F2 ===> wpsubst E (trm_if v0 t1 t2).
 Proof using.
   introv M1 M2. applys qimpl_wp_of_triple. simpl. intros Q.
-  remove_mkstruct. xpull ;=> b ->. applys triple_if_case.
+  remove_mkstruct. xtpull ;=> b ->. applys triple_if_case.
   apply triple_of_wp. case_if*.
 Qed.
 
@@ -673,7 +673,7 @@ Lemma wpgen_sound_for_val : forall (x:var) v1 v2 F1 E t1,
   wpgen_for_val v1 v2 F1 ===> wpsubst E (trm_for x v1 v2 t1).
 Proof using. Opaque Ctx.add Ctx.rem. (* TODO: opaque elsewhere *)
   introv M. applys qimpl_wp_of_triple. simpl. intros Q.
-  remove_mkstruct. xpull ;=> n1 n2 (->&->). 
+  remove_mkstruct. xtpull ;=> n1 n2 (->&->). 
   set (S := fun (i:int) => wp (isubst E (trm_for x i n2 t1))).
   applys triple_hforall S. simpl. applys triple_hwand_hpure_l.
   { split.

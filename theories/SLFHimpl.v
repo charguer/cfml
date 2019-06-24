@@ -231,7 +231,7 @@ Qed.
 
     These three steps are detailed and illustrated next.
 
-    The tactic [hpull] is a degraded version of [xsimpl] that only
+    The tactic [xpull] is a degraded version of [xsimpl] that only
     perform the first step. We will show examples highlighting its use.
 *)
 
@@ -278,7 +278,7 @@ Proof using.
   intros. xsimpl. intros n.
 Abort.
 
-(** The [xsimpl] or [hpull] tactic extracts at once everything it can,
+(** The [xsimpl] or [xpull] tactic extracts at once everything it can,
     as illustrated next. *)
 
 Lemma xsimpl_demo_lhs_several : forall H1 H2 H3 H4 (p q:loc),
@@ -287,12 +287,12 @@ Proof using.
   intros. xsimpl. intros n Hn Hp.
 Abort.
 
-(** This task is also performed by the simpler tactic [hpull]. *)
+(** This task is also performed by the simpler tactic [xpull]. *)
 
-Lemma hpull_demo_lhs_several : forall H1 H2 H3 H4 (p q:loc),
+Lemma xpull_demo_lhs_several : forall H1 H2 H3 H4 (p q:loc),
   H1 \* \exists (n:int), (p ~~~> n \* \[n > 0] \* H2) \* \[p <> q] \* H3 ==> H4.
 Proof using.
-  intros. hpull. intros n Hn Hp.
+  intros. xpull. intros n Hn Hp.
 Abort.
 
 
@@ -431,7 +431,7 @@ Lemma himpl_example_4 : forall (p:loc),
   \exists (n:int), p ~~~> n ==> \exists (m:int), p ~~~> (m + 1).
 Proof using.
   intros. (* observe that [xsimpl] here does not work well. *)
-  hpull. intros n. xsimpl (n-1).
+  xpull. intros n. xsimpl (n-1).
   replace (n-1+1) with n. { auto. } { math. }
   (* variant for the last line:
   applys_eq himpl_refl 2. fequal. math. *)
@@ -554,12 +554,12 @@ Proof using. xsimpl. Qed.
 Lemma case_study_7' : forall p,
       p ~~~> 3 \* p ~~~> 4
   ==> \[False].
-Proof using. intros. hchange (hstar_hsingle_same_loc p). Qed.
+Proof using. intros. xchange (hstar_hsingle_same_loc p). Qed.
 
 Lemma case_study_8' : forall p,
       p ~~~> 3 \* p ~~~> 3
   ==> \[False].
-Proof using. intros. hchange (hstar_hsingle_same_loc p). Qed.
+Proof using. intros. xchange (hstar_hsingle_same_loc p). Qed.
 
 Lemma case_study_9' : forall p,
       p ~~~> 3
@@ -570,7 +570,7 @@ Lemma case_study_11' : forall p,
       \exists n, p ~~~> n \* \[n > 0]
   ==> \exists n, \[n > 1] \* p ~~~> (n-1).
 Proof using.
-  intros. hpull ;=> n Hn. xsimpl (n+1).
+  intros. xpull ;=> n Hn. xsimpl (n+1).
   math. math_rewrite (n+1-1 = n). xsimpl.
 Qed.
 
@@ -587,55 +587,55 @@ End CaseStudies.
 
 
 (* ******************************************************* *)
-(** ** The [hchange] tactic *)
+(** ** The [xchange] tactic *)
 
 (** Assume an entailment goal of the form [H1 \* H2 \* H3 ==> H4].
     Assume an entailment assumption [M], say [H2 ==> H2'].
-    Then [hchange M] turns the goal into [H1 \* H2' \* H3 ==> H4],
+    Then [xchange M] turns the goal into [H1 \* H2' \* H3 ==> H4],
     effectively replacing [H2] with [H2'].
 
-    In a sense, [hchange] is to entailment what [rewrite] is to equality. *)
+    In a sense, [xchange] is to entailment what [rewrite] is to equality. *)
 
-Lemma hchange_demo_base : forall H1 H2 H2' H3 H4,
+Lemma xchange_demo_base : forall H1 H2 H2' H3 H4,
   H2 ==> H2' ->
   H1 \* H2 \* H3 ==> H4.
 Proof using.
-  introv M. hchange M. (* Note that freshly produced items appear to the front *)
+  introv M. xchange M. (* Note that freshly produced items appear to the front *)
 Abort.
 
-(** The tactic [hchange] can also take as argument equalities.
-    Use [hchange M] to exploit the left-to-right direction
-    and [hchange <- M] to exploit the right-to-left direction . *)
+(** The tactic [xchange] can also take as argument equalities.
+    Use [xchange M] to exploit the left-to-right direction
+    and [xchange <- M] to exploit the right-to-left direction . *)
 
-Lemma hchange_demo_eq : forall H1 H2 H3 H4 H5,
+Lemma xchange_demo_eq : forall H1 H2 H3 H4 H5,
   H1 \* H3 = H5 ->
   H1 \* H2 \* H3 ==> H4.
 Proof using.
-  introv M. hchange M.
-  hchange <- M.
+  introv M. xchange M.
+  xchange <- M.
 Abort.
 
-(** The tactic [hchange] is also able to instantiate lemmas if needed. *)
+(** The tactic [xchange] is also able to instantiate lemmas if needed. *)
 
-Lemma hchange_demo_inst : forall H1 (J J':int->hprop) H3 H4,
+Lemma xchange_demo_inst : forall H1 (J J':int->hprop) H3 H4,
   (forall n, J n = J' (n+1)) ->
   H1 \* J 3 \* H3 ==> H4.
 Proof using.
-  introv M. hchange M.
+  introv M. xchange M.
   (* Note that freshly produced items appear to the front *)
 Abort.
 
-(** The tactic [hchanges M] is a shorthand for [hchange M; xsimpl]. *)
+(** The tactic [xchanges M] is a shorthand for [xchange M; xsimpl]. *)
 
-Lemma hchanges_demo_base : forall p H1 H2 H3,
+Lemma xchanges_demo_base : forall p H1 H2 H3,
   H1 \* H3 ==> p ~~~> 3 ->
   H1 \* H2 \* H3 ==> H2 \* \exists (n:int), p ~~~> n.
 Proof using.
   introv M. dup.
   (* details: *)
-  { hchange M. xsimpl. }
+  { xchange M. xsimpl. }
   (* shorthand: *)
-  { hchanges M. }
+  { xchanges M. }
 Abort.
 
 End Htactics.

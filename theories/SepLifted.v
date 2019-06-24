@@ -459,7 +459,7 @@ Lemma LiftPost_himpl : forall `{Enc A} Q Q',
   LiftPost Q ===> LiftPost Q'.
 Proof using.
   introv M. unfold LiftPost. intros v.
-  hpull. intros x E. subst v. xsimpl*.
+  xpull. intros x E. subst v. xsimpl*.
 Qed.
 
 Local Hint Resolve LiftPost_himpl.
@@ -481,7 +481,7 @@ Lemma local_LiftPost : forall A `{Enc A} (F:~~val),
 Proof using.
   introv L. rename H into EQ. applys local_intro.
   intros H Q M. applys~ local_elim.
-  hchange M. hpull ;=> H1 H2 Q1 (N1&N2).
+  xchange M. xpull ;=> H1 H2 Q1 (N1&N2).
   xsimpl H1 H2 (LiftPost Q1). splits~. 
   do 2 rewrite <- LiftPost_star. applys~ LiftPost_himpl.
 Qed.
@@ -530,7 +530,7 @@ Proof using. auto. Qed.
 
 Lemma Hfield_to_Hsingle : forall l f v,
   (l`.`f ~~> v) ==> ((l+f)%nat ~~> v) \* \[l <> null].
-Proof using. intros. xunfold Hfield. hchanges~ hfield_to_hsingle. Qed.
+Proof using. intros. xunfold Hfield. xchanges~ hfield_to_hsingle. Qed.
 
 Lemma Hfield_not_null : forall l f `{EA:Enc A} (V:A),
   (l`.`f ~~> V) ==> (l`.`f ~~> V) \* \[l <> null].
@@ -593,13 +593,13 @@ Proof using. intros. unfolds. intros X. xsimpl*. Qed.
 Lemma RetypePost_same : forall `{EA:Enc A} (Q1 Q2:A->hprop),
   Q1 ===> Q2 ->
   RetypePost Q1 Q2.
-Proof using. introv M. unfolds. intros X. hchanges* M. Qed.
+Proof using. introv M. unfolds. intros X. xchanges* M. Qed.
 
 (* NEEDED ?*)
 Lemma RetypePost_same_subst : forall H `{EA:Enc A} (V:A) (Q:A->hprop),
   H ==> Q V ->
   RetypePost (fun x => \[x = V] \* H) Q.
-Proof using. introv M. applys RetypePost_same. hpull ;=> ? ->. auto. Qed.
+Proof using. introv M. applys RetypePost_same. xpull ;=> ? ->. auto. Qed.
 
 
 Lemma Triple_enc_change :
@@ -609,7 +609,7 @@ Lemma Triple_enc_change :
   Triple t H Q2.
 Proof using.
   introv M N. unfolds Triple. applys~ triple_conseq (rm M).
-  unfold LiftPost. intros v. hpull ;=> V EV. subst. applys N.
+  unfold LiftPost. intros v. xpull ;=> V EV. subst. applys N.
 Qed.
 
 (** Specialization of [Triple_enc_change] for converting from a postcondition
@@ -634,7 +634,7 @@ Lemma Triple_enc_val :
   Triple t H Q2.
 Proof using.
   introv M N. applys* Triple_enc_change.
-  intros X. hchange (N X). xsimpl~.
+  intros X. xchange (N X). xsimpl~.
 Qed.
 
 
@@ -740,7 +740,7 @@ Lemma Triple_evalctx : forall C t1 H,
   Triple (C t1) H Q.
 Proof using.
   introv EC M1 M2. applys* triple_evalctx. 
-  { intros v. unfold LiftPost. xpull ;=> V ->. applys M2. }
+  { intros v. unfold LiftPost. xtpull ;=> V ->. applys M2. }
 Qed.
 
 (** Substitution commutes with evaluation contexts, for triples *)
@@ -753,7 +753,7 @@ Lemma Triple_isubst_evalctx : forall E C t1 H,
   Triple (isubst E (C t1)) H Q.
 Proof using.
   introv EC M1 M2. applys* triple_isubst_evalctx. 
-  { intros v. unfold LiftPost. xpull ;=> V ->. applys M2. }
+  { intros v. unfold LiftPost. xtpull ;=> V ->. applys M2. }
 Qed.
 
 
@@ -774,13 +774,13 @@ Lemma Triple_fixs : forall f xs t1 H (Q:func->hprop),
   H ==> Q (val_fixs f xs t1) ->
   Triple (trm_fixs f xs t1) H Q.
 Proof using.
-  introv N M. applys* triple_fixs. unfold LiftPost. hchanges* M.
+  introv N M. applys* triple_fixs. unfold LiftPost. xchanges* M.
 Qed.
 
 Lemma Triple_constr : forall id vs H (Q:tyconstr->hprop),
   H ==> Q (constr id vs) ->
   Triple (trm_constr id (LibList.map trm_val vs)) H Q.
-Proof using. introv M. applys triple_constr. unfold LiftPost. hchanges* M. Qed.
+Proof using. introv M. applys triple_constr. unfold LiftPost. xchanges* M. Qed.
 
 Lemma Triple_constr_trm : forall id ts t1 vs H,
   forall A `{EA:Enc A} (Q:A->hprop) A1 `{EA1:Enc A1} (Q1:A1->hprop),
@@ -789,7 +789,7 @@ Lemma Triple_constr_trm : forall id ts t1 vs H,
   Triple (trm_constr id ((trms_vals vs)++t1::ts)) H Q.
 Proof using.
   introv M1 M2. applys* triple_constr_trm M1.
-  intros v. unfold LiftPost at 1. xpull ;=> V ->. subst. applys M2.
+  intros v. unfold LiftPost at 1. xtpull ;=> V ->. subst. applys M2.
 Qed.
 
 Lemma Triple_let : forall z t1 t2 H,
@@ -799,7 +799,7 @@ Lemma Triple_let : forall z t1 t2 H,
   Triple (trm_let z t1 t2) H Q.
 Proof using.
   introv M1 M2. applys triple_let M1. 
-  intros v. unfold LiftPost at 1. xpull ;=> V ->. subst. applys M2.
+  intros v. unfold LiftPost at 1. xtpull ;=> V ->. subst. applys M2.
 Qed.
 
 Lemma Triple_seq : forall t1 t2 H,
@@ -810,7 +810,7 @@ Lemma Triple_seq : forall t1 t2 H,
 Proof using.
   introv M1 M2. applys triple_seq.
   { applys M1. }
-  { intros X. unfold LiftPost. xpull ;=> V E.
+  { intros X. unfold LiftPost. xtpull ;=> V E.
     destruct V. applys M2. }
 Qed.
 
@@ -820,9 +820,9 @@ Lemma Triple_if : forall t0 t1 t2 H (Q1:bool->hprop) A `{EA:Enc A} (Q:A->hprop),
   Triple (trm_if t0 t1 t2) H Q.
 Proof using.
   introv M1 M2. applys* triple_if.
-  { intros b. unfold LiftPost. xpull ;=> V E.
+  { intros b. unfold LiftPost. xtpull ;=> V E.
     asserts E': (V = b). { destruct* V. } clears E. subst V. applys M2. }
-  { intros v N. unfold LiftPost. hpull ;=> V ->. false N.
+  { intros v N. unfold LiftPost. xpull ;=> V ->. false N.
     rewrite enc_bool_eq. hnfs*. } (* LATER : simplify? *)
 Qed.
 
@@ -871,7 +871,7 @@ Lemma Triple_match_trm : forall t1 pts H,
   Triple (trm_match t1 pts) H Q.
 Proof using.
   introv M1 M2. applys* triple_match_trm.
-  intros v. unfold LiftPost at 1. xpull ;=> V ->. applys M2.
+  intros v. unfold LiftPost at 1. xtpull ;=> V ->. applys M2.
 Qed.
 
 Lemma Triple_match : forall v p t1 pts H `{EA:Enc A} (Q:A->hprop),
@@ -994,7 +994,7 @@ Lemma Triple_eq : forall `{EA:Enc A},
 Proof using. (* LATER: simplify *)
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_eq_val. } (* todo: why sapply ? *)
-  unfolds. hpull ;=> ? ->. xsimpl*. rewrite~ Enc_injective_eq.
+  unfolds. xpull ;=> ? ->. xsimpl*. rewrite~ Enc_injective_eq.
 Qed.
 
 Lemma Triple_eq_l : forall `{EA:Enc A} (v1:A),
@@ -1006,7 +1006,7 @@ Lemma Triple_eq_l : forall `{EA:Enc A} (v1:A),
 Proof using. (* LATER: simplify *)
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_eq_val. } (* todo: why sapply ? *)
-  unfolds. hpull ;=> ? ->. xsimpl*. rew_bool_eq. iff. { applys* I. } { subst*. }
+  unfolds. xpull ;=> ? ->. xsimpl*. rew_bool_eq. iff. { applys* I. } { subst*. }
 Qed.
 
 Lemma Triple_eq_r : forall `{EA:Enc A} (v2:A),
@@ -1018,7 +1018,7 @@ Lemma Triple_eq_r : forall `{EA:Enc A} (v2:A),
 Proof using. (* LATER: simplify *)
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_eq_val. } (* todo: why sapply ? *)
-  unfolds. hpull ;=> ? ->. xsimpl*. rew_bool_eq. iff. { symmetry. applys* I. } { subst*. }
+  unfolds. xpull ;=> ? ->. xsimpl*. rew_bool_eq. iff. { symmetry. applys* I. } { subst*. }
 Qed.
 
 Lemma Triple_neq_val : forall v1 v2,
@@ -1036,7 +1036,7 @@ Lemma Triple_neq : forall `{EA:Enc A},
 Proof using. (* LATER: simplify *)
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_neq_val. } 
-  unfolds. hpull ;=> ? ->. xsimpl*. rewrite* Enc_injective_eq.
+  unfolds. xpull ;=> ? ->. xsimpl*. rewrite* Enc_injective_eq.
 Qed.
 
 Lemma Triple_neq_l : forall `{EA:Enc A} (v1:A),
@@ -1048,7 +1048,7 @@ Lemma Triple_neq_l : forall `{EA:Enc A} (v1:A),
 Proof using. (* LATER: simplify *)
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_neq_val. } (* todo: why sapply ? *)
-  unfolds. hpull ;=> ? ->. xsimpl*. rew_bool_eq. iff R.
+  unfolds. xpull ;=> ? ->. xsimpl*. rew_bool_eq. iff R.
   { intros N. applys R. subst*. } { intros N. applys R. applys* I. }
 Qed.
 
@@ -1061,7 +1061,7 @@ Lemma Triple_neq_r : forall `{EA:Enc A} (v2:A),
 Proof using. (* LATER: simplify *)
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_neq_val. } (* todo: why sapply ? *)
-  unfolds. hpull ;=> ? ->. xsimpl*. rew_bool_eq. iff R.
+  unfolds. xpull ;=> ? ->. xsimpl*. rew_bool_eq. iff R.
   { intros N. applys R. subst*. } { intros N. applys R. symmetry. applys* I. }
 Qed.
 

@@ -46,7 +46,7 @@ Lemma triple_hwand_hpure_l_from_hexists_and_consequence :
     F (\[P] \-* H) Q).
 Proof using.
   introv M W HP. introv N. rewrite hwand_eq_hexists_hstar_hpure.
-  applys M. intros. applys* W. hpull. introv R. hchanges~ R.
+  applys M. intros. applys* W. xpull. introv R. xchanges~ R.
 Qed.
 
 (* ---------------------------------------------------------------------- *)
@@ -105,8 +105,8 @@ Lemma triple_conseq : forall t H' Q' H Q,
   triple t H Q.
 Proof using.
   introv M MH MQ. intros HF. applys hoare_conseq M.
-  { hchanges MH. }
-  { intros x. hchanges (MQ x). }
+  { xchanges MH. }
+  { intros x. xchanges (MQ x). }
 Qed.
 
 Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
@@ -373,7 +373,7 @@ Proof using.
     { subst h. rewrite <- hstar_assoc. exists~ h1 h2. }
     exists h' v. splits~. rewrite <- hstar_htop_htop.
     applys himpl_inv S2.
-    hchange (R2 v). rew_heap.
+    xchange (R2 v). rew_heap.
     rewrite (hstar_comm_assoc \Top H'). xsimpl. }
 *)
 Qed.
@@ -435,7 +435,7 @@ Lemma triple_conseq : forall t H' Q' H Q,
 Proof using.
   introv MH M MQ. intros HF h N.
   forwards (h'&v&R&K): (rm M) HF h. { hxsimpl~. }
-  exists h' v. splits~. { hxsimpl. hchanges (MQ v). }
+  exists h' v. splits~. { hxsimpl. xchanges (MQ v). }
 Qed.
 
 Lemma triple_frame : forall t H Q H',
@@ -472,7 +472,7 @@ Lemma triple_val : forall v H Q,
 Proof using.
   introv M. intros HF h N. exists h v. splits.
   { applys eval_val. }
-  { hxsimpl. hchanges M. }
+  { hxsimpl. xchanges M. }
 Qed.
 
 (*
@@ -482,7 +482,7 @@ Lemma triple_fun : forall x t1 H Q,
 Proof using.
   introv M. intros HF h N. exists___. splits.
   { applys eval_fun. }
-  { hxsimpl. hchanges M. }
+  { hxsimpl. xchanges M. }
 Qed.
 *)
 
@@ -492,7 +492,7 @@ Lemma triple_fix : forall f x t1 H Q,
 Proof using.
   introv M. intros HF h N. exists___. splits.
   { applys eval_fix. }
-  { hxsimpl. hchanges M. }
+  { hxsimpl. xchanges M. }
 Qed.
 
 
@@ -529,7 +529,7 @@ Proof using.
   introv M1 M2. applys triple_if (fun r => \[r = val_bool b] \* H).
   { applys triple_val. xsimpl~. }
   { intros b'. applys~ triple_hpure. intros E. inverts E. case_if*. }
-  { intros v' N. hpull. intros E. inverts~ E. false N. hnfs*. }
+  { intros v' N. xpull. intros E. inverts~ E. false N. hnfs*. }
 Qed.
 
 Lemma triple_seq : forall t1 t2 H Q Q1,
@@ -589,7 +589,7 @@ Lemma triple_while_inv : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) t1 t2
       triple (trm_if t1 (trm_seq t2 t) val_unit) (I b X) Q) ->
   triple (trm_while t1 t2) H Q. (* LATER: allow for weakening on Q *)
 Proof using.
-  introv WR H0 HX. xtchange (rm H0). xpull ;=> b0 X0.
+  introv WR H0 HX. xtchange (rm H0). xtpull ;=> b0 X0.
   rewrite hstar_comm. applys triple_htop_pre. gen b0.
   induction_wf IH: WR X0. intros. applys triple_while_raw.
   applys HX. intros b' X' HR'. applys~ IH.
@@ -614,7 +614,7 @@ Lemma triple_for_gt : forall x n1 n2 t3 H Q,
 Proof using.
   introv N M. intros H' h Hf. exists h val_unit. splits~.
   { applys* eval_for_gt. }
-  { hxsimpl. hchanges~ M. }
+  { hxsimpl. xchanges~ M. }
 Qed.
 
 (* LATER: simplify proof using triple_for_raw *)
@@ -643,7 +643,7 @@ Lemma triple_for : forall (x:var) (n1 n2:int) t3 H Q,
 Proof using.
   introv M. case_if.
   { destruct M. applys* triple_for_le. }
-  { xapplys* triple_for_gt. { math. } hchanges* M. }
+  { xapplys* triple_for_gt. { math. } xchanges* M. }
 Qed.
 
 (* LATER: simplify proof using triple_for_raw *)
@@ -659,13 +659,13 @@ Proof using.
   induction_wf IH: (wf_upto (n2+1)) n1; intros.
   asserts M4: (triple (trm_for x (n2 + 1)%I n2 t3) (I (n2+1) \* H') Q).
   { applys triple_for_gt. { math. }
-    { hchanges M3. } }
+    { xchanges M3. } }
   tests C: (n1 = n2+1).
   { xapplys M4. }
   { applys triple_for_le.
     { math. }
     { xapplys M2. { math. } }
-    { simpl. xpull ;=> _. tests C': (n1 = n2).
+    { simpl. xtpull ;=> _. tests C': (n1 = n2).
       { xapplys M4. }
       { xapplys IH. { hnf; math. } { math. } { intros. applys M2. math. } } } }
 Qed.
@@ -718,12 +718,12 @@ Proof using. (* might be simplified using triple_for_trm *)
       { rewrite <- hstar_htop_htop. rew_heap~. } }
     { specializes nQ2 C2.
       asserts Z: ((\[False] \* \Top \* HF) h2').
-      { applys himpl_trans K2. hchange nQ2. xsimpl. xsimpl. }
+      { applys himpl_trans K2. xchange nQ2. xsimpl. xsimpl. }
       repeat rewrite hfalse_hstar_any in Z.
       lets: hpure_inv_hempty Z. false*. } } (* LATER: shorten *)
   { specializes nQ1 C1.
     asserts Z: ((\[False] \* \Top \* HF) h1').
-    { applys himpl_trans K1. hchange nQ1. xsimpl. xsimpl. }
+    { applys himpl_trans K1. xchange nQ1. xsimpl. xsimpl. }
     repeat rewrite hfalse_hstar_any in Z.
     lets: hpure_inv_hempty Z. false*. } (* LATER: shorten *)
 Qed.

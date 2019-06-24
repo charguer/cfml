@@ -363,7 +363,7 @@ Ltac xcast_pre tt :=
 Lemma xcast_lemma : forall (H:hprop) `{Enc A} (Q:A->hprop) (X:A),
   H ==> Q X ->
   H ==> ^(Wpgen_cast X) Q.
-Proof using. introv M. unfold Wptag, Wpgen_cast. hchanges~ M. Qed.
+Proof using. introv M. unfold Wptag, Wpgen_cast. xchanges~ M. Qed.
 
 Ltac xcast_core tt :=
   xcast_pre tt;
@@ -422,7 +422,7 @@ Lemma xapp_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
   H ==> ^(Wpgen_app t) Q.
 Proof using.
   introv M1 M2. applys MkStruct_erase.
-  hchanges (rm M2).
+  xchanges (rm M2).
   rewrite <- Triple_eq_himpl_Wp.
   applys* Triple_ramified_frame.
 Qed.
@@ -432,7 +432,7 @@ Lemma xapps_lemma : forall A `{EA:Enc A} (V:A) H2 t H1 H Q,
   H ==> H1 \* (H2 \-* protect (Q V)) ->
   H ==> ^(Wpgen_app t) Q.
 Proof using.
-  introv M1 M2. applys xapp_lemma M1. hchanges M2.
+  introv M1 M2. applys xapp_lemma M1. xchanges M2.
   intros ? ->. auto.
 Qed.
 
@@ -749,7 +749,7 @@ Qed.
 (* ** Tactic [xfail] *)
 
 Ltac xfail_core tt :=
-  hpull; 
+  xpull; 
   pose ltac_mark;
   intros;
   false;
@@ -797,7 +797,7 @@ Lemma eliminate_eta_in_code : forall `{EA:Enc A} H1 (Q1:A->hprop) (F1:Formula),
     (PRE H1
     CODE (fun (A0 : Type) (EA0 : Enc A0) (Q : A0 -> hprop) => F1 A0 EA0 Q)
     POST Q1).
-Proof using. introv M. hchanges M. Qed.
+Proof using. introv M. xchanges M. Qed.
 
 
 

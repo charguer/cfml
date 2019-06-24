@@ -52,9 +52,9 @@ Proof using.
   intros. destruct L.
   { xunfold MList. applys himpl_antisym; xsimpl~. }
   { xunfold MList. applys himpl_antisym.
-    { hpull ;=> p'. hchange (hRecord_not_null null).
+    { xpull ;=> p'. xchange (hRecord_not_null null).
       { simpl. unfold hd. auto. } }
-    { hpull. } }
+    { xpull. } }
 Qed.
 
 Lemma MList_null_inv : forall A `{EA:Enc A} (L:list A),
@@ -82,7 +82,7 @@ Lemma MList_not_null_inv_not_nil : forall p A `{EA:Enc A} (L:list A),
   p ~> MList L ==> p ~> MList L \* \[L <> nil].
 Proof using.
   intros. destruct L.
-  { hchanges -> (MList_nil_eq p). }
+  { xchanges -> (MList_nil_eq p). }
   { xsimpl. auto_false. }
 Qed.
 
@@ -93,9 +93,9 @@ Lemma MList_not_null_inv_cons : forall p A `{EA:Enc A} (L:list A),
     \* (p ~> Record`{ hd := x; tl := p' })
     \* p' ~> MList L'.
 Proof using.
-  intros. hchange~ (@MList_not_null_inv_not_nil p). hpull. intros.
+  intros. xchange~ (@MList_not_null_inv_not_nil p). xpull. intros.
   destruct L; tryfalse.
-  hchange (MList_cons_eq p). xsimpl~.
+  xchange (MList_cons_eq p). xsimpl~.
 Qed.
 
 End Properties.
@@ -147,7 +147,7 @@ Proof using. intros. rewrite MListSeg_cons_eq. xsimpl. Qed.
 Lemma MListSeg_one : forall `{EA:Enc A} p q (x:A),
   p ~> (MCell x q) ==> p ~> MListSeg q (x::nil).
 Proof using.
-  intros. hchange (MListSeg_nil q). hchanges (>> MListSeg_cons p).
+  intros. xchange (MListSeg_nil q). xchanges (>> MListSeg_cons p).
 Qed.
 
 Lemma MListSeg_to_MList : forall `{EA:Enc A} p (L:list A),
@@ -156,22 +156,22 @@ Proof using.
   intros. gen p. induction L; intros.
   { rewrite MListSeg_nil_eq. rewrite MList_nil_eq. auto. }
   { rewrite MListSeg_cons_eq. rewrite MList_cons_eq.
-    hpull ;=> p'. hchange IHL. xsimpl~. }
+    xpull ;=> p'. xchange IHL. xsimpl~. }
 Qed.
 
 Lemma MListSeg_concat : forall `{EA:Enc A} p1 p2 p3 (L1 L2:list A),
   p1 ~> MListSeg p2 L1 \* p2 ~> MListSeg p3 L2 ==> p1 ~> MListSeg p3 (L1++L2).
 Proof using.
   intros. gen p1. induction L1 as [|x L1']; intros.
-  { rewrite MListSeg_nil_eq. hpull ;=> E. subst. rew_list~. }
-  { rew_list. hchange (MListSeg_cons_eq p1). hpull ;=> p1'.
-    hchange (IHL1' p1'). hchanges (>> MListSeg_cons p1). }
+  { rewrite MListSeg_nil_eq. xpull ;=> E. subst. rew_list~. }
+  { rew_list. xchange (MListSeg_cons_eq p1). xpull ;=> p1'.
+    xchange (IHL1' p1'). xchanges (>> MListSeg_cons p1). }
 Qed.
 
 Lemma MListSeg_last : forall `{EA:Enc A} p1 p2 p3 x (L:list A),
   p1 ~> MListSeg p2 L \* p2 ~> (MCell x p3) ==> p1 ~> MListSeg p3 (L&x).
 Proof using.
-  intros. hchange (>> MListSeg_one p2). hchanges (>> (@MListSeg_concat) p1 p2).
+  intros. xchange (>> MListSeg_one p2). xchanges (>> (@MListSeg_concat) p1 p2).
 Qed.
 
 End SegProperties.
@@ -266,9 +266,9 @@ Proof using.
   intros. destruct L.
   { xunfold MList. applys himpl_antisym; xsimpl~. }
   { xunfold MList. applys himpl_antisym.
-    { hpull ;=> p'. hchange (hRecord_not_null null).
+    { xpull ;=> p'. xchange (hRecord_not_null null).
       { simpl. unfold hd. auto. } }
-    { hpull. } }
+    { xpull. } }
 Qed.
 
 Lemma MList_null_inv : forall A `{EA:Enc A} (L:list A),
@@ -296,7 +296,7 @@ Lemma MList_not_null_inv_not_nil : forall p A `{EA:Enc A} (L:list A),
   p ~> MList L ==> p ~> MList L \* \[L <> nil].
 Proof using.
   intros. destruct L.
-  { hchanges -> (MList_nil_eq p). }
+  { xchanges -> (MList_nil_eq p). }
   { xsimpl. auto_false. }
 Qed.
 
@@ -307,9 +307,9 @@ Lemma MList_not_null_inv_cons : forall p A `{EA:Enc A} (L:list A),
     \* (p ~> Record`{ hd := x; tl := p' })
     \* p' ~> MList L'.
 Proof using.
-  intros. hchange~ (@MList_not_null_inv_not_nil p). hpull. intros.
+  intros. xchange~ (@MList_not_null_inv_not_nil p). xpull. intros.
   destruct L; tryfalse.
-  hchange (MList_cons_eq p). xsimpl~.
+  xchange (MList_cons_eq p). xsimpl~.
 Qed.
 
 End Properties.
@@ -361,7 +361,7 @@ Proof using. intros. rewrite MListSeg_cons_eq. xsimpl. Qed.
 Lemma MListSeg_one : forall `{EA:Enc A} p q (x:A),
   p ~> (MCell x q) ==> p ~> MListSeg q (x::nil).
 Proof using.
-  intros. hchange (MListSeg_nil q). hchanges (>> MListSeg_cons p).
+  intros. xchange (MListSeg_nil q). xchanges (>> MListSeg_cons p).
 Qed.
 
 Lemma MListSeg_to_MList : forall `{EA:Enc A} p (L:list A),
@@ -370,22 +370,22 @@ Proof using.
   intros. gen p. induction L; intros.
   { rewrite MListSeg_nil_eq. rewrite MList_nil_eq. auto. }
   { rewrite MListSeg_cons_eq. rewrite MList_cons_eq.
-    hpull ;=> p'. hchange IHL. xsimpl~. }
+    xpull ;=> p'. xchange IHL. xsimpl~. }
 Qed.
 
 Lemma MListSeg_concat : forall `{EA:Enc A} p1 p2 p3 (L1 L2:list A),
   p1 ~> MListSeg p2 L1 \* p2 ~> MListSeg p3 L2 ==> p1 ~> MListSeg p3 (L1++L2).
 Proof using.
   intros. gen p1. induction L1 as [|x L1']; intros.
-  { rewrite MListSeg_nil_eq. hpull ;=> E. subst. rew_list~. }
-  { rew_list. hchange (MListSeg_cons_eq p1). hpull ;=> p1'.
-    hchange (IHL1' p1'). hchanges (>> MListSeg_cons p1). }
+  { rewrite MListSeg_nil_eq. xpull ;=> E. subst. rew_list~. }
+  { rew_list. xchange (MListSeg_cons_eq p1). xpull ;=> p1'.
+    xchange (IHL1' p1'). xchanges (>> MListSeg_cons p1). }
 Qed.
 
 Lemma MListSeg_last : forall `{EA:Enc A} p1 p2 p3 x (L:list A),
   p1 ~> MListSeg p2 L \* p2 ~> (MCell x p3) ==> p1 ~> MListSeg p3 (L&x).
 Proof using.
-  intros. hchange (>> MListSeg_one p2). hchanges (>> (@MListSeg_concat) p1 p2).
+  intros. xchange (>> MListSeg_one p2). xchanges (>> (@MListSeg_concat) p1 p2).
 Qed.
 
 End SegProperties.
@@ -510,8 +510,8 @@ Proof using.
     intros p. subst. rew_list. xsimpl. }
   { xtchanges~ (MList_not_null_inv_cons p1) ;=> x p1' L' EL.
     xapps. xapps. xapp~ as p'. xapps. intros p. subst. rew_list.
-    hchange~ (>> MList_cons p Enc_int).
-    hchanges~ (>> MList_cons p1 Enc_int). }
+    xchange~ (>> MList_cons p Enc_int).
+    xchanges~ (>> MList_cons p1 Enc_int). }
 Qed.
 
 
@@ -532,14 +532,14 @@ Proof using.
   intros. gen p3 L1. induction_wf: list_sub_wf L2; intros. xcf.
   xapps~. xif ;=> C.
   { subst. xtchanges MList_null_inv ;=> EL. subst. rew_list.
-    rewrite MList_nil_eq. xpull ;=> _.
+    rewrite MList_nil_eq. xtpull ;=> _.
     xtchange (>> (@MListSeg_to_MList int) p1).
     xapp. intros p. rew_list. xsimpl. }
   { xtchanges~ (MList_not_null_inv_cons p3) ;=> x p3' L2' EL2.
     xapps. xapps.
     xtchange (>> (@MListSeg_last int) p1).
     xapp~ (>> IH L2' (L1&x)) as p'. xapps.
-    intros p. hchange~ (>> (@MList_cons) p Enc_int).
+    intros p. xchange~ (>> (@MList_cons) p Enc_int).
     subst. rew_list. xsimpl. }
 Qed.
 
@@ -575,10 +575,10 @@ Proof using.
          (fun (_:unit) => p ~> MList L \* n ~~> (nacc + length L))).
     { xapplys* K. }
     gen p. induction_wf: list_sub_wf L; intros. applys (rm HR).
-    xlet. { xapps. xapps~. } xpull ;=> ? ->. xif ;=> C.
+    xlet. { xapps. xapps~. } xtpull ;=> ? ->. xif ;=> C.
     { xtchanges~ (MList_not_null_inv_cons p) ;=> p' x L' EL. xseq.
       { xseq. xapp~. xapps. xapps. xapps~. }
-      { xapply~ (>> IH L'). { xsimpl. } { hpull. hchanges~ (MList_cons p). } } }
+      { xapply~ (>> IH L'). { xsimpl. } { xpull. xchanges~ (MList_cons p). } } }
     { inverts C. xtchanges MList_null_inv ;=> EL. xvals~. }
   { xapp. xsimpl~. } }
 Qed.
@@ -613,7 +613,7 @@ Proof using.
   xapps~. xif ;=> C.
   { xtchanges~ (MList_not_null_inv_cons p) ;=> x p' L' EL.
     xapps. xapps. xapps. xapps. xapps~.
-    hchanges~ (>> MList_cons p Enc_int). }
+    xchanges~ (>> MList_cons p Enc_int). }
   { subst. xtchanges MList_null_inv ;=> EL. xvals~. }
 Qed.
 
@@ -649,17 +649,17 @@ Proof using.
       \* rp ~~> p \* p ~> MList L1 \* rs ~~> s \* s ~> MList L2).
     exists __ I (@list_sub A) __. splits.
     { solve_wf. }
-    { hchange MList_nil. unfold I. xsimpl*. }
-    { intros F LF b L1 IH. unfold I at 1. xpull ;=> p s L2 E1 E2. clears b.
-      xlet. { xapps. xapps~. } xpull ;=> ? ->.
+    { xchange MList_nil. unfold I. xsimpl*. }
+    { intros F LF b L1 IH. unfold I at 1. xtpull ;=> p s L2 E1 E2. clears b.
+      xlet. { xapps. xapps~. } xtpull ;=> ? ->.
       xif ;=> Cb.
       { xtchanges~ (MList_not_null_inv_cons p) ;=> x p1' L1' EL1.
         xseq. (* todo: problem of parentheses around xwhile body *)
         { xapps. xapps. xapps. xapps. xapps. xapps. }
-        { xapps~. { unfold I. hchanges~ (MList_cons p). } } }
-      { xval. subst p. unfold I. hchanges~ MList_null_inv. } }
+        { xapps~. { unfold I. xchanges~ (MList_cons p). } } }
+      { xval. subst p. unfold I. xchanges~ MList_null_inv. } }
     { xsimpl. } }
-  { xpull ;=> L1 p s L2 E1 E2. xapp. hpull ;=> ? ->. xsimpl~. }
+  { xtpull ;=> L1 p s L2 E1 E2. xapp. xpull ;=> ? ->. xsimpl~. }
 Qed.
 
 
@@ -745,8 +745,8 @@ Proof using.
     intros p. subst. rew_list. xsimpl. }
   { xtchanges~ (MList_not_null_inv_cons p1) ;=> x p1' L' EL.
     xapps. xapps. xapp~ as p'. xapps. intros p. subst. rew_list.
-    hchange~ (>> MList_cons p Enc_int).
-    hchanges~ (>> MList_cons p1 Enc_int). }
+    xchange~ (>> MList_cons p Enc_int).
+    xchanges~ (>> MList_cons p1 Enc_int). }
 Qed.
 
 
@@ -780,10 +780,10 @@ Proof using.
          (fun (_:unit) => p ~> MList L \* n ~~> (nacc + length L))).
     { xapplys* K. }
     gen p. induction_wf: list_sub_wf L; intros. applys (rm HR).
-    xlet. { xapps. xapps~. } xpull ;=> ? ->. xif ;=> C.
+    xlet. { xapps. xapps~. } xtpull ;=> ? ->. xif ;=> C.
     { xtchanges~ (MList_not_null_inv_cons p) ;=> p' x L' EL. xseq.
       { xseq. xapp~. xapps. xapps. xapps~. }
-      { xapply~ (>> IH L'). { xsimpl. } { hpull. hchanges~ (MList_cons p). } } }
+      { xapply~ (>> IH L'). { xsimpl. } { xpull. xchanges~ (MList_cons p). } } }
     { inverts C. xtchanges MList_null_inv ;=> EL. xvals~. }
   { xapp. xsimpl~. } }
 Qed.
@@ -827,17 +827,17 @@ Proof using.
       \* rp ~~> p \* p ~> MList L1 \* rs ~~> s \* s ~> MList L2).
     exists __ I (@list_sub A) __. splits.
     { solve_wf. }
-    { hchange MList_nil. unfold I. xsimpl*. }
-    { intros F LF b L1 IH. unfold I at 1. xpull ;=> p s L2 E1 E2. clears b.
-      xlet. { xapps. xapps~. } xpull ;=> ? ->.
+    { xchange MList_nil. unfold I. xsimpl*. }
+    { intros F LF b L1 IH. unfold I at 1. xtpull ;=> p s L2 E1 E2. clears b.
+      xlet. { xapps. xapps~. } xtpull ;=> ? ->.
       xif ;=> Cb.
       { xtchanges~ (MList_not_null_inv_cons p) ;=> x p1' L1' EL1.
         xseq. (* todo: problem of parentheses around xwhile body *)
         { xapps. xapps. xapps. xapps. xapps. xapps. }
-        { xapps~. { unfold I. hchanges~ (MList_cons p). } } }
-      { xval. subst p. unfold I. hchanges~ MList_null_inv. } }
+        { xapps~. { unfold I. xchanges~ (MList_cons p). } } }
+      { xval. subst p. unfold I. xchanges~ MList_null_inv. } }
     { xsimpl. } }
-  { xpull ;=> L1 p s L2 E1 E2. xapp. hpull ;=> ? ->. xsimpl~. }
+  { xtpull ;=> L1 p s L2 E1 E2. xapp. xpull ;=> ? ->. xsimpl~. }
 Qed.
 
 

@@ -493,18 +493,23 @@ Definition Heap (E:elems) (p:loc) : hprop :=
   \exists q, p ~~> q \* Contents E q.
 
 
-Lemma Contents_case : forall q E,
-  Contents E q ==> \[q = null <-> E = \{}] \* Contents E q.
-Proof using.
-  intros. unfold Contents. case_if.
-  { xsimpl*. } 
-  { hpull. xpull ;=> n. xsimpl*.
- inverts I. multiset_inv. Qed.
-
 Lemma inv_not_empty : forall n E,
   inv n E ->
   E <> \{}.
 Proof using. introv I. inverts I. multiset_inv. Qed.
+
+Lemma Contents_is_empty : forall q E,
+  Contents E q ==> \[q = null <-> E = \{}] \* Contents E q.
+Proof using.
+  intros. unfold Contents. case_if.
+  { xsimpl*. } 
+  { xpull ;=> n. xsimpl*. introv M. iff R; tryfalse. 
+    false~ (>> inv_not_empty M). }
+Qed.
+
+Lemma Contents_null :
+  \[] ==> Contents \{} null.
+Proof using. unfold Contents. case_if. xsimpl*. Qed.
 
 
 (* ******************************************************* *)
@@ -517,7 +522,7 @@ Lemma Triple_create :
     POST (fun p => p ~> Heap \{}).
 Proof using.
   xwp. xapp (>> Triple_ref Enc_loc null) ;=> p. (* LATER: spec auto *)
-  xunfold Heap. xsimpl. case_if. xsimpl*.
+  xunfold Heap. xsimpl. hchanges~ Contents_null.
 Qed.
 
 Lemma Triple_is_empty : forall p E,
@@ -526,9 +531,18 @@ Lemma Triple_is_empty : forall p E,
     POST (fun b => \[b = isTrue (E = \{})] \* p ~> Heap E).
 Proof using.
   xwp. xunfolds Heap ;=> q. xapp. xapp. typeclass. (* LATER: inj by default *)
-  case_if. xsimpl.
+  hchanges~ Contents_is_empty.
 Qed.
 
+
+
+Lemma Triple_merge : forall q1 q2 E1 E2,
+  TRIPLE (merge q1 q2)
+    PRE (q1 ~> Repr E1 \* q2 ~> Repr E2)
+    POST (fun q => q ~> Repr (E1 \u E2)).
+Proof using.
+admit.
+Qed.
 
 Lemma Triple_insert : forall p x E,
   TRIPLE (insert x p)
@@ -548,14 +562,6 @@ Proof using.
 
 Qed.
 
-
-Lemma Triple_merge : forall q1 q2 E1 E2,
-  TRIPLE (merge q1 q2)
-    PRE (q1 ~> Repr E1 \* q2 ~> Repr E2)
-    POST (fun q => q ~> Repr (E1 \u E2)).
-Proof using.
-
-Qed.
 
 
 Lemma Triple_merge_pairs : forall qs Es,

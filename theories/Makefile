@@ -36,6 +36,8 @@ export TLC
 
 SRC_CORE := TLCbuffer Fmap Var SepSimpl Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics WPRecord Example ExampleList ExampleStack WPExamples WPExamplesDetails WPLib 
 
+#ExamplePairingHeap2
+
 SRC_MORE := SepBaseAltProofs SepCredits SepRO
 
 # WPArray

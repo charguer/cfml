@@ -175,7 +175,7 @@ Lemma triple_new_cell' : forall v q,
     (fun r => \exists p, \[r = val_loc p] \* MCell v q p).
 Proof using.
   intros. eapply triple_app_fun2 =>//=; [].
-  eapply triple_let; [apply triple_alloc_cell|]=>p /=. xpull=> p' v' q' ->.
+  eapply triple_let; [apply triple_alloc_cell|]=>p /=. xtpull=> p' v' q' ->.
   eapply triple_seq.
   { rewrite MCell_eq. ram_apply triple_set_hd. auto with iFrame. }
   { unlock ;=> _. eapply triple_seq.
@@ -310,12 +310,12 @@ Proof using.
   intros L. induction_wf: list_sub_wf L. intros p.
   applys triple_app=>//=. applys triple_if'.
   - ram_apply triple_neq. auto with iFrame.
-  - unlock. xpull ;=>[= Hp]. rewrite true_eq_isTrue_eq in Hp.
-    xtchange (MList_not_null_inv_cons p); [by auto|]. xpull=>p' x L' ?. subst.
+  - unlock. xtpull ;=>[= Hp]. rewrite true_eq_isTrue_eq in Hp.
+    xtchange (MList_not_null_inv_cons p); [by auto|]. xtpull=>p' x L' ?. subst.
     applys triple_let. { ram_apply triple_get_tl. auto with iFrame. }
-    unlock=> q /=. xpull=>->.
+    unlock=> q /=. xtpull=>->.
     applys triple_let. { ram_apply (IH L'); [done|]. auto with iFrame. }
-    unlock=> n /=. xpull=>->. ram_apply triple_add.
+    unlock=> n /=. xtpull=>->. ram_apply triple_add.
     iIntros "??" (?) "->". iSplitR.
     { iPureIntro. f_equal. math. } { iApply MList_cons. iFrame. }
   - unlock. eapply triple_val. iPrepare. iIntros "HL" ([= Hp]). revert Hp.
@@ -350,9 +350,9 @@ Lemma triple_mlist_length_loop : forall L p,
 Proof using.
   intros L p. eapply triple_app=>//=.
   applys triple_let. { ram_apply triple_ref. auto with iFrame. }
-  unlock=> ? /=. xpull=>r ->.
+  unlock=> ? /=. xtpull=>r ->.
   applys triple_let. { ram_apply triple_ref. auto with iFrame. }
-  unlock=> ? /=. xpull=>n ->. applys triple_seq.
+  unlock=> ? /=. xtpull=>n ->. applys triple_seq.
   - applys triple_while=>t R.
     cuts K: (forall (nacc:int),
       triple t (n ~~~> nacc \* MList L p \* r ~~~> p)
@@ -360,15 +360,15 @@ Proof using.
     { ram_apply K. auto with iFrame. }
     gen p. induction_wf: list_sub_wf L=>p nacc. apply R. applys triple_if'.
     + eapply triple_let. ram_apply triple_get. { auto with iFrame. }
-      unlock=>pp /=. xpull=>->. ram_apply triple_neq. eauto with iFrame.
-    + unlock. xpull. intros [=Hp]. rewrite true_eq_isTrue_eq in Hp.
+      unlock=>pp /=. xtpull=>->. ram_apply triple_neq. eauto with iFrame.
+    + unlock. xtpull. intros [=Hp]. rewrite true_eq_isTrue_eq in Hp.
       xtchange (MList_not_null_inv_cons p); [by auto|iPrepare; auto with iFrame|].
-      xpull=>p' x L' ?. subst. applys triple_seq.
+      xtpull=>p' x L' ?. subst. applys triple_seq.
       { applys triple_seq. { ram_apply triple_incr. auto with iFrame. }
         { unlock ;=> _. eapply triple_let. { ram_apply triple_get. auto with iFrame. }
-        unlock. xpull=>? -> /=. eapply triple_let.
+        unlock. xtpull=>? -> /=. eapply triple_let.
         { ram_apply triple_get_tl. auto with iFrame. }
-        unlock=>? /=. xpull=>->. ram_apply triple_set'. auto with iFrame. } }
+        unlock=>? /=. xtpull=>->. ram_apply triple_set'. auto with iFrame. } }
       { unlock ;=> _. ram_apply (IH L'); [done|]. iIntros. iFrame.
       iIntros (?) "$ Hn ?". iSplitL "Hn".
       * by math_rewrite ((nacc + 1) + length L' = nacc + S (length (L')))%Z.
@@ -377,7 +377,7 @@ Proof using.
       revert Hp. rewrite false_eq_isTrue_eq. intros [= ->]%not_not_inv.
       iDestruct (MList_null_inv with "HL") as "[$ ->]". rewrite plus_zero_r. by iFrame.
     + unlock. iIntros ([] Hb) "(? & ? & ? & %)"=>//. destruct Hb. eexists _. auto.
-  - unlock. xpull ;=> u U. subst u. apply triple_htop_post.
+  - unlock. xtpull ;=> u U. subst u. apply triple_htop_post.
     ram_apply triple_get. auto with iFrame.
 Qed.
 
@@ -447,7 +447,7 @@ Lemma MListSeg_then_MCell_inv_neq : forall p q L v1 v2,
 Proof using.
   intros. destruct L.
   { rewrite MListSeg_nil_eq. iIntros "[-> $]". auto. }
-  { rewrite MListSeg_cons_eq. hpull ;=> p'. iIntros "(H1 & ? & H2)".
+  { rewrite MListSeg_cons_eq. xpull ;=> p'. iIntros "(H1 & ? & H2)".
     iDestruct (MCell_hstar_MCell_inv with "[$H1 $H2]") as "[[$ H2] %]".
     auto with iFrame. }
 Qed.

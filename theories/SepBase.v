@@ -359,7 +359,7 @@ Notation "l `.` k '~~~>' v" := (hfield l k v)
 Lemma hstar_hfield_same_loc : forall l k v1 v2,
   (l`.`k ~~~> v1) \* (l`.`k ~~~> v2) ==> \[False].
 Proof using.
-  intros. unfold hfield. hpull ;=> N1 N2.
+  intros. unfold hfield. xpull ;=> N1 N2.
   applys hstar_hsingle_same_loc.
 Qed.
 
@@ -368,7 +368,7 @@ Arguments hstar_hsingle_same_loc : clear implicits.
 Lemma hfield_not_null : forall l k v,
   (l`.`k ~~~> v) ==> (l`.`k ~~~> v) \* \[l <> null].
 Proof using.
-  intros. subst. unfold hfield. hchanges~ hsingle_not_null.
+  intros. subst. unfold hfield. xchanges~ hsingle_not_null.
 Qed.
 
 Arguments hfield_not_null : clear implicits.
@@ -797,7 +797,7 @@ Proof using.
   destruct M0 as ((M1&M2)&M3).
   applys hoare_conseq (M1 (H2 \* H')).
   { subst. rewrite <- hstar_assoc. intros h ->. apply~ hstar_intro. }
-  { intros x. hchanges (M2 x). }
+  { intros x. xchanges (M2 x). }
 Qed.
 
 Hint Resolve local_triple.
@@ -1014,7 +1014,7 @@ Lemma triple_val : forall v H Q,
   H ==> Q v ->
   triple (trm_val v) H Q.
 Proof using.
-  introv M. intros HF. applys hoare_val. { hchanges M. }
+  introv M. intros HF. applys hoare_val. { xchanges M. }
 Qed.
 
 Lemma triple_fixs : forall f xs t1 H Q,
@@ -1022,14 +1022,14 @@ Lemma triple_fixs : forall f xs t1 H Q,
   H ==> Q (val_fixs f xs t1) ->
   triple (trm_fixs f xs t1) H Q.
 Proof using.
-  introv N M. intros HF. applys~ hoare_fixs. { hchanges M. }
+  introv N M. intros HF. applys~ hoare_fixs. { xchanges M. }
 Qed.
 
 Lemma triple_constr : forall id vs H Q,
   H ==> Q (val_constr id vs) ->
   triple (trm_constr id vs) H Q.
 Proof using.
-  introv M. intros HF. applys hoare_constr. { hchanges M. }
+  introv M. intros HF. applys hoare_constr. { xchanges M. }
 Qed.
 
 Lemma triple_constr_trm : forall id ts t1 vs H Q Q1,
@@ -1092,7 +1092,7 @@ Proof using.
   introv M1 M2 M3. applys* triple_if_trm.
   { intros v. tests C: (is_val_bool v).
     { destruct C as (b&E). subst. applys* triple_if_case. }
-    { xtchange* M3. xpull ;=>. false. } }
+    { xtchange* M3. xtpull ;=>. false. } }
 Qed.
 
 Lemma triple_apps_funs : forall xs F (Vs:vals) t1 H Q,
@@ -1154,7 +1154,7 @@ Lemma triple_while_inv : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) H' t1
   triple (trm_while t1 t2) H Q.
 Proof using.
   introv WR WH HX WQ. applys triple_conseq_frame_hgc WH WQ.
-  xpull ;=> b0 X0. gen b0. induction_wf IH: WR X0.
+  xtpull ;=> b0 X0. gen b0. induction_wf IH: WR X0.
   intros. applys triple_while_raw.
   applys HX. intros b' X' HR'. applys~ IH.
 Qed.
@@ -1208,7 +1208,7 @@ Lemma triple_for : forall (x:var) (n1 n2:int) t3 H Q,
 Proof using.
   introv M. case_if.
   { destruct M. applys* triple_for_le. }
-  { xapplys* triple_for_gt. { math. } hchanges* M. }
+  { xapplys* triple_for_gt. { math. } xchanges* M. }
 Qed.
 
 (** Derived rule using an invariant for reasoning about a for-loop *)
@@ -1228,11 +1228,11 @@ Proof using.
   introv N M1 M2 M3. xtchange (rm M1). gen N M2.
   induction_wf IH: (wf_upto (n2+1)) n1; intros.
   tests C: (n1 = n2+1).
-  { xapply* triple_for_gt. hchanges M3. }
+  { xapply* triple_for_gt. xchanges M3. }
   { applys* triple_for_le.
     { xapplys* M2. }
-    { xpull ;=> _. tests C': (n1 = n2).
-      { xapply* triple_for_gt. hchanges M3. }
+    { xtpull ;=> _. tests C': (n1 = n2).
+      { xapply* triple_for_gt. xchanges M3. }
       { xapplys* IH. } } }
 Qed.
 

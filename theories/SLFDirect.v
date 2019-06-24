@@ -1086,7 +1086,7 @@ Definition wp (t:trm) := fun (Q:val->hprop) =>
 Lemma wp_ramified : forall Q1 Q2 t,
   (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
 Proof using.
-  intros. unfold wp. hpull ;=> H M.
+  intros. unfold wp. xpull ;=> H M.
   xsimpl (H \* (Q1 \--* Q2 \*+ \Top)). intros H'.
   applys hoare_conseq M; xsimpl.
 Qed.
@@ -1099,7 +1099,7 @@ Lemma wp_conseq : forall t Q1 Q2,
   Q1 ===> Q2 ->
   wp t Q1 ==> wp t Q2.
 Proof using.
-  introv M. applys himpl_trans_r (wp_ramified Q1 Q2). xsimpl. hchanges M.
+  introv M. applys himpl_trans_r (wp_ramified Q1 Q2). xsimpl. xchanges M.
 Qed.
 
 Lemma wp_frame : forall t H Q,
@@ -1567,12 +1567,12 @@ Lemma mkstruct_sound : forall t F,
   formula_sound_for t (mkstruct F).
 Proof using.
   introv M. intros Q. unfold mkstruct. xsimpl ;=> Q'.
-  lets N: M Q'. hchange N. applys wp_ramified.
+  lets N: M Q'. xchange N. applys wp_ramified.
 Qed.
 
 Lemma wpgen_fail_sound : forall t,
   formula_sound_for t wpgen_fail.
-Proof using. intros. intros Q. unfold wpgen_fail. hpull. Qed.
+Proof using. intros. intros Q. unfold wpgen_fail. xpull. Qed.
 
 Lemma wpgen_val_sound : forall v,
   formula_sound_for (trm_val v) (wpgen_val v).
@@ -1583,7 +1583,7 @@ Lemma wpgen_fun_sound : forall x t1 Fof,
   formula_sound_for (trm_fun x t1) (wpgen_fun Fof).
 Proof using.
   introv M. intros Q. unfolds wpgen_fun. applys himpl_hforall_l (val_fun x t1).
-  hchange hwand_hpure_l_intro.
+  xchange hwand_hpure_l_intro.
   { intros. applys himpl_trans_r. { applys* wp_app_fun. } { applys* M. } }
   { applys wp_fun. }
 Qed.
@@ -1593,7 +1593,7 @@ Lemma wpgen_fix_sound : forall f x t1 Fof,
   formula_sound_for (trm_fix f x t1) (wpgen_fix Fof).
 Proof using.
   introv M. intros Q. unfolds wpgen_fix. applys himpl_hforall_l (val_fix f x t1).
-  hchange hwand_hpure_l_intro.
+  xchange hwand_hpure_l_intro.
   { intros. applys himpl_trans_r. { applys* wp_app_fix. } { applys* M. } }
   { applys wp_fix. }
 Qed.
@@ -1621,7 +1621,7 @@ Lemma wpgen_if_sound : forall F1 F2 v0 t1 t2,
   formula_sound_for t2 F2 ->
   formula_sound_for (trm_if v0 t1 t2) (wpgen_if v0 F1 F2).
 Proof using.
-  introv S1 S2. intros Q. unfold wpgen_if. hpull. intros b ->.
+  introv S1 S2. intros Q. unfold wpgen_if. xpull. intros b ->.
   applys himpl_trans wp_if. case_if. { applys S1. } { applys S2. }
 Qed.
 
@@ -1656,7 +1656,7 @@ Lemma triple_of_wpgen : forall t H Q,
   H ==> wpgen nil t Q ->
   triple t H Q.
 Proof using.
-  introv M. rewrite wp_equiv. hchange M. applys himpl_wpgen_wp.
+  introv M. rewrite wp_equiv. xchange M. applys himpl_wpgen_wp.
 Qed.
 
 
@@ -1669,24 +1669,24 @@ Qed.
 Lemma xstruct_lemma : forall F H Q,
   H ==> F Q ->
   H ==> mkstruct F Q.
-Proof using. introv M. hchange M. applys mkstruct_erase. Qed.
+Proof using. introv M. xchange M. applys mkstruct_erase. Qed.
 
 Lemma xlet_lemma : forall H F1 F2of Q,
   H ==> F1 (fun v => F2of v Q) ->
   H ==> wpgen_let F1 F2of Q.
-Proof using. introv M. hchange M. Qed.
+Proof using. introv M. xchange M. Qed.
 
 Lemma xseq_lemma : forall H F1 F2 Q,
   H ==> F1 (fun v => F2 Q) ->
   H ==> wpgen_seq F1 F2 Q.
-Proof using. introv M. hchange M. Qed.
+Proof using. introv M. xchange M. Qed.
 
 Lemma xapp_lemma : forall t Q1 H1 H Q,
   triple t H1 Q1 ->
   H ==> H1 \* (Q1 \--* protect Q) ->
   H ==> wp t Q.
 Proof using.
-  introv M W. rewrite wp_equiv in M. hchange W. hchange M.
+  introv M W. rewrite wp_equiv in M. xchange W. xchange M.
   applys wp_ramified_frame.
 Qed.
 
@@ -1694,21 +1694,21 @@ Lemma xapps_lemma0 : forall t v H1 H Q,
   triple t H1 (fun r => \[r = v]) ->
   H ==> H1 \* (protect (Q v)) ->
   H ==> wp t Q.
-Proof using. introv M W. applys xapp_lemma M. hchanges W. intros ? ->. auto. Qed.
+Proof using. introv M W. applys xapp_lemma M. xchanges W. intros ? ->. auto. Qed.
 
 Lemma xapps_lemma1 : forall t v H1 H2 H Q,
   triple t H1 (fun r => \[r = v] \* H2) ->
   H ==> H1 \* (H2 \-* protect (Q v)) ->
   H ==> wp t Q.
-Proof using. introv M W. applys xapp_lemma M. hchanges W. intros ? ->. auto. Qed.
+Proof using. introv M W. applys xapp_lemma M. xchanges W. intros ? ->. auto. Qed.
 
 Lemma xcf_lemma_fun : forall v1 v2 x t H Q,
   v1 = val_fun x t ->
   H ==> wpgen ((x,v2)::nil) t Q ->
   triple (trm_app v1 v2) H Q.
 Proof using.
-  introv M1 M2. rewrite wp_equiv. hchange M2.
-  lets N: wpgen_sound ((x,v2)::nil) t Q. hchange N.
+  introv M1 M2. rewrite wp_equiv. xchange M2.
+  lets N: wpgen_sound ((x,v2)::nil) t Q. xchange N.
   rewrite <- subst_eq_isubst_one. applys* wp_app_fun.
 Qed.
 
@@ -1717,9 +1717,9 @@ Lemma xcf_lemma_fix : forall v1 v2 f x t H Q,
   H ==> wpgen ((f,v1)::(x,v2)::nil) t Q ->
   triple (trm_app v1 v2) H Q.
 Proof using.
-  introv M1 M2. rewrite wp_equiv. hchange M2.
+  introv M1 M2. rewrite wp_equiv. xchange M2.
   lets N: wpgen_sound (((f,v1)::nil) ++ (x,v2)::nil) t Q.
-  hchange N. rewrite isubst_app.
+  xchange N. rewrite isubst_app.
   do 2 rewrite <- subst_eq_isubst_one.
   applys* wp_app_fix.
 Qed.
@@ -1728,8 +1728,8 @@ Lemma xtop_lemma : forall H Q F,
   H ==> mkstruct F (Q \*+ \Top) ->
   H ==> mkstruct F Q.
 Proof using.
-  introv M. hchange M.
-  lets N: mkstruct_ramified (Q \*+ \Top) Q F. hchanges N.
+  introv M. xchange M.
+  lets N: mkstruct_ramified (Q \*+ \Top) Q F. xchanges N.
 Qed.
 
 

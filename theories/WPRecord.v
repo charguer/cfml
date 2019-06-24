@@ -141,8 +141,8 @@ Proof using.
   introv M. induction L as [|(f,[A EA v]) L'].
   { inverts M. }
   { xunfold Record. inverts M.
-    { hchange~ (Hfield_not_null r). xsimpl~. }
-    { hchange~ IHL'. xsimpl~. } }
+    { xchange~ (Hfield_not_null r). xsimpl~. }
+    { xchange~ IHL'. xsimpl~. } }
 Qed.
 
 (** Lemmas for unfolding the definition *)
@@ -163,7 +163,7 @@ Lemma Record_not_null : forall (r:loc) (L:Record_fields),
   (r ~> Record L) ==+> \[r <> null].
 Proof using.
   intros. destruct L as [|(f,v) L']. { false. }
-  rewrite Record_cons. hchanges~ Hfield_not_null.
+  rewrite Record_cons. xchanges~ Hfield_not_null.
 Qed.
 
 
@@ -214,12 +214,12 @@ Lemma Triple_get_field : forall (l:loc) f `{EA:Enc A} (V:A),
 Proof using.
   dup. 
   { intros. 
-    rewrite Hfield_eq_fun_Hsingle, repr_eq. xpull ;=> N.
+    rewrite Hfield_eq_fun_Hsingle, repr_eq. xtpull ;=> N.
     xwp. xapp @Triple_ptr_add_nat. xapp. xsimpl~. }
   { (* details TEMPORARY *)
     intros.
     (* unfold field *)
-    rewrite Hfield_eq_fun_Hsingle, repr_eq. xpull ;=> N.
+    rewrite Hfield_eq_fun_Hsingle, repr_eq. xtpull ;=> N.
     (* xwp *)
     applys xwp_lemma_funs; try reflexivity; simpl.
     (* xlet-poly *)
@@ -240,12 +240,12 @@ Proof using.
   dup. 
   { intros. 
     rewrite Hfield_eq_fun_Hsingle. rewrite repr_eq. rewrites (>> repr_eq (l,f)).
-    xpull ;=> N. xwp. xapp @Triple_ptr_add_nat. xapp (>> (@Triple_set_strong) A1 A2). 
+    xtpull ;=> N. xwp. xapp @Triple_ptr_add_nat. xapp (>> (@Triple_set_strong) A1 A2). 
     xsimpl~. }
   { intros.
     (* unfold field *)
     rewrite Hfield_eq_fun_Hsingle. rewrite repr_eq. rewrites (>> repr_eq (l,f)).
-    xpull ;=> N.
+    xtpull ;=> N.
     (* xwp *)
     applys xwp_lemma_funs; try reflexivity; simpl.
     (* xlet-poly *)
@@ -413,15 +413,15 @@ Lemma xapp_record_get : forall A `{EA:Enc A} (Q:A->hprop) (H:hprop) (p:loc) (f:f
     | Some (Dyn V) => (p ~> Record L) \-* ^(Wptag (Wpgen_cast V)) (protect Q) end) ->
   H ==> ^(Wpgen_app (trm_apps (trm_val (val_get_field f)) (trms_vals ((p:val)::nil)))) Q.
 Proof using.
-  introv M1. hchanges (rm M1).
+  introv M1. xchanges (rm M1).
   lets R: record_get_compute_spec_correct f L.
   unfolds record_get_compute_spec.
-  destruct (record_get_compute_dyn f L) as [[T ET V]|]; try solve [hpull].  
+  destruct (record_get_compute_dyn f L) as [[T ET V]|]; try solve [xpull].  
   set (H' := (p ~> Record L \-* ^(`Wpgen_cast V) Q)).
   forwards R': R; eauto. clear R. specializes R' p.
   applys himpl_Wpgen_app_of_Triple.
   applys Triple_enc_change. xapplys (rm R'). simpl.
-  unfold RetypePost, Wptag. hpull ;=> ? ->. unfold H'. hpull.
+  unfold RetypePost, Wptag. xpull ;=> ? ->. unfold H'. xpull.
   unfold Wpgen_cast, Wptag. applys himpl_refl.
 Qed. (* TODO: simplify proof *)
 
@@ -433,10 +433,10 @@ Lemma xapp_record_set : forall A1 `{EA1:Enc A1} (W:A1) (Q:unit->hprop) (H:hprop)
         (p ~> Record L' \-* protect (Q tt)) end)  ) ->
   H ==> ^(Wpgen_app (trm_apps (trm_val (val_set_field f)) (trms_vals ((p:val)::(``W)::nil)))) Q.
 Proof using.
-  introv M1. hchanges (rm M1).
+  introv M1. xchanges (rm M1).
   lets R: record_set_compute_spec_correct f W L.
   unfolds record_set_compute_spec.
-  destruct (record_set_compute_dyn f (Dyn W) L) as [L'|]; try solve [hpull].
+  destruct (record_set_compute_dyn f (Dyn W) L) as [L'|]; try solve [xpull].
   forwards R': R; eauto. clear R. specializes R' p. 
   applys himpl_Wpgen_app_of_Triple.
   xapplys R'.

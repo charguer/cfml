@@ -104,8 +104,8 @@ Lemma triple_conseq : forall t H' Q' H Q,
   triple t H Q.
 Proof using.
   introv M MH MQ. intros HF. applys hoare_conseq M.
-  { hchanges MH. }
-  { intros x. hchanges (MQ x). }
+  { xchanges MH. }
+  { intros x. xchanges (MQ x). }
 Qed.
 
 Lemma triple_frame : forall t H Q H',
@@ -163,7 +163,7 @@ Lemma triple_conseq_frame : forall H2 H1 Q1 t H Q,
   Q1 \*+ H2 ===> Q ->
   triple t H Q.
 Proof using.
-  introv M WH WQ. applys triple_conseq_frame_htop M WH. hchanges WQ.
+  introv M WH WQ. applys triple_conseq_frame_htop M WH. xchanges WQ.
 Qed.
 
 Lemma triple_ramified_frame_htop : forall H1 Q1 t H Q,
@@ -180,7 +180,7 @@ Lemma triple_ramified_frame : forall H1 Q1 t H Q,
   H ==> H1 \* (Q1 \--* Q) ->
   triple t H Q.
 Proof using.
-  introv M W. applys triple_ramified_frame_htop M. hchanges W.
+  introv M W. applys triple_ramified_frame_htop M. xchanges W.
 Qed.
 
 
@@ -191,21 +191,21 @@ Lemma triple_val : forall v H Q,
   H ==> Q v ->
   triple (trm_val v) H Q.
 Proof using.
-  introv M. intros HF. applys hoare_val. { hchanges M. }
+  introv M. intros HF. applys hoare_val. { xchanges M. }
 Qed.
 
 Lemma triple_fun : forall x t1 H Q,
   H ==> Q (val_fun x t1) ->
   triple (trm_fun x t1) H Q.
 Proof using.
-  introv M. intros HF. applys~ hoare_fun. { hchanges M. }
+  introv M. intros HF. applys~ hoare_fun. { xchanges M. }
 Qed.
 
 Lemma triple_fix : forall f x t1 H Q,
   H ==> Q (val_fix f x t1) ->
   triple (trm_fix f x t1) H Q.
 Proof using.
-  introv M. intros HF. applys~ hoare_fix. { hchanges M. }
+  introv M. intros HF. applys~ hoare_fix. { xchanges M. }
 Qed.
 
 Lemma triple_seq : forall t1 t2 H Q H1,

@@ -30,12 +30,12 @@ Implicit Types r : val.
 Tactic Notation "xletapp" constr(M) :=
   ram_apply_let M;
   [ solve [ auto 20 with iFrame ]
-  | unlock; xpull; simpl ].
+  | unlock; xtpull; simpl ].
 
 (** Tactic to reason about [let f x = t1 in t2] *)
 
 Tactic Notation "xletfun" :=
-  applys triple_letfun; simpl; xpull.
+  applys triple_letfun; simpl; xtpull.
 
 (** Tactic to reason about [triple (f x) H Q], by unfolding
     the definition of [f]. *)
@@ -54,13 +54,13 @@ Tactic Notation "xdef" :=
   end
  end.
 
-(** Patch to call [unlock] automatically before [xpull] *)
+(** Patch to call [unlock] automatically before [xtpull] *)
 
-Ltac xpull_main tt ::=
+Ltac xtpull_main tt ::=
   unlock;
-  xpull_setup tt;
-  (repeat (xpull_step tt));
-  xpull_cleanup tt.
+  xtpull_setup tt;
+  (repeat (xtpull_step tt));
+  xtpull_cleanup tt.
 
 
 (* ********************************************************************** *)
@@ -84,7 +84,7 @@ Lemma triple_ref_apply : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop)
     POST Q).
 Proof using.
   introv M. xdef. ram_apply_let triple_get_ro. { auto with iFrame. }
-  move=>X /=. xpull=>->. done.
+  move=>X /=. xtpull=>->. done.
 Qed.
 
 
@@ -108,7 +108,7 @@ Lemma triple_ref_update : forall (f:val) (p:loc) (v:val) (H:hprop) (Q:val->hprop
     POST (fun r => \exists w, (p ~~~> w) \* (Q w))).
 Proof using.
   introv N M. xdef. ram_apply_let triple_get_ro. { auto with iFrame. }
-  unlock. move=>x /=. xpull=>->. ram_apply_let M. { auto with iFrame. }
+  unlock. move=>x /=. xtpull=>->. ram_apply_let M. { auto with iFrame. }
   unlock. move=>y /=. ram_apply triple_set. { auto 10 with iFrame. }
 Qed.
 
@@ -201,18 +201,18 @@ Lemma triple_box_up2 : forall (F:int->int) n (f:val) p,
     PRE (p ~> Box n)
     POST (fun r => p ~> Box (2 * F n)).
 Proof using.
-  introv M. xdef. xtchange (Box_unfold p). xpull ;=> q.
+  introv M. xdef. xtchange (Box_unfold p). xtpull ;=> q.
   xletapp triple_get_ro => ? ->.
   xletapp triple_get_ro => ? ->.
   ram_apply_let M.
   { rewrite -RO_Box_fold. iIntros "Hq Hp". iCombine "Hp Hq" as "H".
     auto with iFrame. }
-  unlock. xpull => /= a1 ->.
+  unlock. xtpull => /= a1 ->.
   xletapp triple_get_ro => ? ->.
   ram_apply_let M.
   { rewrite -RO_Box_fold. iIntros "Hq Hp". iCombine "Hp Hq" as "H".
     auto with iFrame. }
-  unlock. xpull => /= a2 ->.
+  unlock. xtpull => /= a2 ->.
   xletapp triple_add => ? ->.
   ram_apply triple_set.
   iIntros "Hp $ !>!> % -> Hq". iApply Box_fold. iFrame.
@@ -249,6 +249,6 @@ Proof using.
     ram_apply triple_add. { auto 10 with iFrame. } }
   { iIntros "Hq Hp". iDestruct (Box_fold with "[$Hq $Hp]") as "$".
     auto with iFrame. }
-  unlock. xpull=> u. apply triple_htop_post. ram_apply triple_box_get.
+  unlock. xtpull=> u. apply triple_htop_post. ram_apply triple_box_get.
   math_rewrite (2 * (n + n) = 4 * n)%Z. auto 10 with iFrame.
 Qed.

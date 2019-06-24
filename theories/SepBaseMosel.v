@@ -33,7 +33,7 @@ Lemma wp_equiv : forall t H Q,
 Proof using.
   intros. unfold wp. iff M.
   { xsimpl. rew_heap~. }
-  { applys~ triple_conseq (rm M). xpull~. }
+  { applys~ triple_conseq (rm M). xtpull~. }
 Qed.
 
 Instance triple_as_valid t H Q : AsEmpValid (triple t H Q) (H -∗ wp t Q).

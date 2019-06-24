@@ -10,8 +10,8 @@ The functor in this file assumes:
 
 It provides the following tactics:
 - [xsimpl] simplifies heap entailments
-- [hpull] is a restricted version of [xsimpl] that only act over the LHS
-- [hchange] performs transitivity steps in entailments, modulo frame
+- [xpull] is a restricted version of [xsimpl] that only act over the LHS
+- [xchange] performs transitivity steps in entailments, modulo frame
 - [rew_heap] normalizes heap predicate expressions
 
 Author: Arthur Charguéraud.
@@ -381,7 +381,7 @@ Tactic Notation "rew_heap_assoc" :=
 
 
 (* ---------------------------------------------------------------------- *)
-(** Auxiliary tactics used by [hpull] and [xsimpl] *)
+(** Auxiliary tactics used by [xpull] and [xsimpl] *)
 
 Ltac remove_empty_heaps_from H :=
   match H with context[ ?H1 \* \[] ] =>
@@ -815,7 +815,7 @@ Tactic Notation "hstars_simpl" :=
 
 (** Transition lemmas to start the process *)
 
-Lemma hpull_protect : forall H1 H2,
+Lemma xpull_protect : forall H1 H2,
   H1 ==> protect H2 ->
   H1 ==> H2.
 Proof using. auto. Qed.
@@ -1261,17 +1261,17 @@ Ltac xsimpl_handle_qimpl tt :=
   | |- himpl _ ?H2 => is_evar H2; apply himpl_refl
   | |- himpl _ _ => idtac
   | |- eq _ _ => applys himpl_antisym
-  | _ => fail 1 "not a goal for xsimpl/hpull"
+  | _ => fail 1 "not a goal for xsimpl/xpull"
   end.
 
 Ltac xsimpl_intro tt :=
   applys xsimpl_start.
 
-Ltac hpull_start tt :=
+Ltac xpull_start tt :=
   pose ltac_mark;
   intros;
   xsimpl_handle_qimpl tt;
-  applys hpull_protect;
+  applys xpull_protect;
   xsimpl_intro tt.
 
 Ltac xsimpl_start tt :=
@@ -1313,7 +1313,7 @@ Ltac xsimpl_post tt :=
   xsimpl_clean tt;
   xsimpl_generalize tt.
 
-Ltac hpull_post tt :=
+Ltac xpull_post tt :=
   xsimpl_clean tt;
   unfold protect;
   xsimpl_generalize tt.
@@ -1506,14 +1506,14 @@ Ltac xsimpl_step tt :=
 (* ---------------------------------------------------------------------- *)
 (** ** Tactic notation *)
 
-Ltac hpull_core tt :=
-  hpull_start tt;
+Ltac xpull_core tt :=
+  xpull_start tt;
   repeat (xsimpl_step tt);
-  hpull_post tt.
+  xpull_post tt.
 
-Tactic Notation "hpull" := hpull_core tt.
-Tactic Notation "hpull" "~" := hpull; auto_tilde.
-Tactic Notation "hpull" "*" := hpull; auto_star.
+Tactic Notation "xpull" := xpull_core tt.
+Tactic Notation "xpull" "~" := xpull; auto_tilde.
+Tactic Notation "xpull" "*" := xpull; auto_star.
 
 Ltac xsimpl_core tt :=
   xsimpl_start tt;
@@ -1550,9 +1550,9 @@ Tactic Notation "xsimpl" "*" constr(X1) constr(X2) constr(X3) :=
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Tactic [hchange] *)
+(* ** Tactic [xchange] *)
 
-(** [hchange] performs rewriting on the LHS of an entailment.
+(** [xchange] performs rewriting on the LHS of an entailment.
   Essentially, it applies to a goal of the form [H1 \* H2 ==> H3],
   and exploits an entailment [H1 ==> H1'] to replace the goal with
   [H1' \* H2 ==> H3].
@@ -1563,12 +1563,12 @@ Tactic Notation "xsimpl" "*" constr(X1) constr(X2) constr(X3) :=
     a heap entailment of the form [H1 ==> H1'].
 
   Concretely, the tactic is just a wrapper around an application
-  of the lemma called [hchange_lemma], which appears below.
+  of the lemma called [xchange_lemma], which appears below.
 
-  [hchanges] combines a call to [hchange] with calls to [xsimpl]
+  [xchanges] combines a call to [xchange] with calls to [xsimpl]
   on the subgoals. *)
 
-Lemma hchange_lemma : forall H1 H2 H3 H4,
+Lemma xchange_lemma : forall H1 H2 H3 H4,
   H1 ==> H2 ->
   H3 ==> H1 \* (H2 \-* protect H4) ->
   H3 ==> H4.
@@ -1577,13 +1577,13 @@ Proof using.
   applys himpl_hstar_trans_l (rm M1). applys hwand_cancel.
 Qed.
 
-Ltac hchange_apply L :=
-  eapply hchange_lemma; [ eapply L | ].
+Ltac xchange_apply L :=
+  eapply xchange_lemma; [ eapply L | ].
 
 (* Below, the modifier is either [__] or [himpl_of_eq]
    or [himpl_of_eq_sym] *)
 
-Ltac hchange_build_entailment modifier K :=
+Ltac xchange_build_entailment modifier K :=
   match modifier with
   | __ =>
      match type of K with
@@ -1593,85 +1593,85 @@ Ltac hchange_build_entailment modifier K :=
   | _ => constr:(@modifier _ _ K)
   end.
 
-Ltac hchange_perform L modifier cont :=
+Ltac xchange_perform L modifier cont :=
   forwards_nounfold_then L ltac:(fun K =>
-    let M := hchange_build_entailment modifier K in
-    hchange_apply M;
+    let M := xchange_build_entailment modifier K in
+    xchange_apply M;
     cont tt).
 
-Ltac hchange_core L modifier cont :=
+Ltac xchange_core L modifier cont :=
   pose ltac_mark;
   intros;
   match goal with
   | |- _ ==> _ => idtac
   | |- _ ===> _ => let x := fresh "r" in intros x
   end;
-  hchange_perform L modifier cont;
+  xchange_perform L modifier cont;
   gen_until_mark.
 
-Ltac hchange_hpull_cont tt :=
+Ltac xchange_xpull_cont tt :=
   xsimpl; unfold protect; try solve [ apply himpl_refl ].
 
-Ltac hchange_xsimpl_cont tt :=
+Ltac xchange_xsimpl_cont tt :=
   unfold protect; xsimpl; try solve [ apply himpl_refl ].
 
   (* TODO DEPRECATED: [instantiate] useful? no longer...*)
 
-Ltac hchange_nosimpl_base E modifier :=
-  hchange_core E modifier ltac:(idcont).
+Ltac xchange_nosimpl_base E modifier :=
+  xchange_core E modifier ltac:(idcont).
 
-Tactic Notation "hchange_nosimpl" constr(E) :=
-  hchange_nosimpl_base E __.
-Tactic Notation "hchange_nosimpl" "->" constr(E) :=
-  hchange_nosimpl_base E himpl_of_eq.
-Tactic Notation "hchange_nosimpl" "<-" constr(E) :=
-  hchange_nosimpl_base himpl_of_eq_sym.
+Tactic Notation "xchange_nosimpl" constr(E) :=
+  xchange_nosimpl_base E __.
+Tactic Notation "xchange_nosimpl" "->" constr(E) :=
+  xchange_nosimpl_base E himpl_of_eq.
+Tactic Notation "xchange_nosimpl" "<-" constr(E) :=
+  xchange_nosimpl_base himpl_of_eq_sym.
 
-Ltac hchange_base E modif :=
-  hchange_core E modif ltac:(hchange_hpull_cont).
+Ltac xchange_base E modif :=
+  xchange_core E modif ltac:(xchange_xpull_cont).
 
-Tactic Notation "hchange" constr(E) :=
-  hchange_base E __.
-Tactic Notation "hchange" "->" constr(E) :=
-  hchange_base E himpl_of_eq.
-Tactic Notation "hchange" "<-" constr(E) :=
-  hchange_base E himpl_of_eq_sym.
+Tactic Notation "xchange" constr(E) :=
+  xchange_base E __.
+Tactic Notation "xchange" "->" constr(E) :=
+  xchange_base E himpl_of_eq.
+Tactic Notation "xchange" "<-" constr(E) :=
+  xchange_base E himpl_of_eq_sym.
 
-Tactic Notation "hchange" "~" constr(E) :=
-  hchange E; auto_tilde.
-Tactic Notation "hchange" "*" constr(E) :=
-  hchange E; auto_star.
+Tactic Notation "xchange" "~" constr(E) :=
+  xchange E; auto_tilde.
+Tactic Notation "xchange" "*" constr(E) :=
+  xchange E; auto_star.
 
-Ltac hchanges_base E modif :=
-  hchange_core E modif ltac:(hchange_xsimpl_cont).
+Ltac xchanges_base E modif :=
+  xchange_core E modif ltac:(xchange_xsimpl_cont).
 
-Tactic Notation "hchanges" constr(E) :=
-  hchanges_base E __.
-Tactic Notation "hchanges" "~" constr(E) :=
-  hchanges E; auto_tilde.
-Tactic Notation "hchanges" "*" constr(E) :=
-  hchanges E; auto_star.
+Tactic Notation "xchanges" constr(E) :=
+  xchanges_base E __.
+Tactic Notation "xchanges" "~" constr(E) :=
+  xchanges E; auto_tilde.
+Tactic Notation "xchanges" "*" constr(E) :=
+  xchanges E; auto_star.
 
-Tactic Notation "hchanges" "->" constr(E) :=
-  hchanges_base E himpl_of_eq.
-Tactic Notation "hchanges"  "~" "->" constr(E) :=
-  hchanges -> E; auto_tilde.
-Tactic Notation "hchanges" "*" "->" constr(E) :=
-  hchanges -> E; auto_star.
+Tactic Notation "xchanges" "->" constr(E) :=
+  xchanges_base E himpl_of_eq.
+Tactic Notation "xchanges"  "~" "->" constr(E) :=
+  xchanges -> E; auto_tilde.
+Tactic Notation "xchanges" "*" "->" constr(E) :=
+  xchanges -> E; auto_star.
 
-Tactic Notation "hchanges" "<-" constr(E) :=
-  hchanges_base E himpl_of_eq_sym.
-Tactic Notation "hchanges" "~" "<-" constr(E) :=
-  hchanges <- E; auto_tilde.
-Tactic Notation "hchanges" "*" "<-" constr(E) :=
-  hchanges <- E; auto_star.
+Tactic Notation "xchanges" "<-" constr(E) :=
+  xchanges_base E himpl_of_eq_sym.
+Tactic Notation "xchanges" "~" "<-" constr(E) :=
+  xchanges <- E; auto_tilde.
+Tactic Notation "xchanges" "*" "<-" constr(E) :=
+  xchanges <- E; auto_star.
 
-Tactic Notation "hchange" constr(E1) "," constr(E2) :=
-  hchange E1; try hchange E2.
-Tactic Notation "hchange" constr(E1) "," constr(E2) "," constr(E3) :=
-  hchange E1; try hchange E2; try hchange E3.
-Tactic Notation "hchange" constr(E1) "," constr(E2) "," constr(E3) "," constr(E4) :=
-  hchange E1; try hchange E2; try hchange E3; try hchange E4.
+Tactic Notation "xchange" constr(E1) "," constr(E2) :=
+  xchange E1; try xchange E2.
+Tactic Notation "xchange" constr(E1) "," constr(E2) "," constr(E3) :=
+  xchange E1; try xchange E2; try xchange E3.
+Tactic Notation "xchange" constr(E1) "," constr(E2) "," constr(E3) "," constr(E4) :=
+  xchange E1; try xchange E2; try xchange E3; try xchange E4.
 
 
 
@@ -1778,9 +1778,9 @@ Abort.
 
 
 (* ---------------------------------------------------------------------- *)
-(** [hpull] and [xsimpl] demos *)
+(** [xpull] and [xsimpl] demos *)
 
-Tactic Notation "hpull0" := hpull_start tt.
+Tactic Notation "xpull0" := xpull_start tt.
 Tactic Notation "xsimpl0" := xsimpl_start tt.
 Tactic Notation "xsimpl1" := xsimpl_step tt.
 Tactic Notation "xsimpl2" := xsimpl_post tt.
@@ -1792,20 +1792,20 @@ Notation "'HSIMPL' Hla Hlw Hlt =====> Hra Hrg Hrt" := (Xsimpl (Hla, Hlw, Hlt) (H
   (at level 69, Hla, Hlw, Hlt, Hra, Hrg, Hrt at level 0,
    format "'[v' 'HSIMPL' '/' Hla  '/' Hlw  '/' Hlt  '/' =====> '/' Hra  '/' Hrg  '/' Hrt ']'").
 
-Lemma hpull_demo : forall H1 H2 H3 H,
+Lemma xpull_demo : forall H1 H2 H3 H,
   (H1 \* \[] \* (H2 \* \exists (y:int) z (n:nat), \[y = y + z + n]) \* H3) ==> H.
 Proof using.
   dup.
-  { intros. hpull0. xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1.
+  { intros. xpull0. xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1.
     xsimpl1. xsimpl1. xsimpl2. demo. }
-  { hpull. intros. demo. }
+  { xpull. intros. demo. }
 Abort.
 
 Lemma xsimpl_demo_stars : forall H1 H2 H3 H4 H5,
   H1 \* H2 \* H3 \* H4 ==> H4 \* H3 \* H5 \* H2.
 Proof using.
   dup 3.
-  { hpull. demo. }
+  { xpull. demo. }
   { intros. xsimpl0. xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1.
     xsimpl1. xsimpl1. xsimpl1. xsimpl1. demo. }
   { intros. xsimpl. demo. }
@@ -1993,60 +1993,60 @@ Proof using. intros. xsimpl. Abort.
 
 
 (* ---------------------------------------------------------------------- *)
-(** [hchange] demos *)
+(** [xchange] demos *)
 
-Lemma hchange_demo_1 : forall H1 H2 H3 H4 H5 H6,
+Lemma xchange_demo_1 : forall H1 H2 H3 H4 H5 H6,
   H1 ==> H2 \* H3 ->
   H1 \* H4 ==> (H5 \-* H6).
 Proof using.
   introv M. dup 3.
-  { hchange_nosimpl M. xsimpl. demo. }
-  { hchange M. xsimpl. demo. }
-  { hchanges M. demo. }
+  { xchange_nosimpl M. xsimpl. demo. }
+  { xchange M. xsimpl. demo. }
+  { xchanges M. demo. }
 Qed.
 
-Lemma hchange_demo_2 : forall A (Q:A->hprop) H1 H2 H3,
+Lemma xchange_demo_2 : forall A (Q:A->hprop) H1 H2 H3,
   H1 ==> \exists x, Q x \* (H2 \-* H3) ->
   H1 \* H2 ==> \exists x, Q x \* H3.
 Proof using.
   introv M. dup 3.
-  { hchange_nosimpl M. xsimpl. unfold protect. xsimpl. }
-  { hchange M. xsimpl. }
-  { hchanges M. }
+  { xchange_nosimpl M. xsimpl. unfold protect. xsimpl. }
+  { xchange M. xsimpl. }
+  { xchanges M. }
 Qed.
 
-Lemma hchange_demo_hwand_hpure : forall (P:Prop) H1 H2 H3,
+Lemma xchange_demo_hwand_hpure : forall (P:Prop) H1 H2 H3,
   P ->
   H1 \* H3 ==> H2 ->
   (\[P] \-* H1) \* H3 ==> H2.
 Proof using.
   introv HP M1. dup 3.
-  { hchange (hwand_hpure_l_intro P H1). auto. hchange M1. }
-  { hchange hwand_hpure_l_intro. auto. hchange M1. }
-  { hchange hwand_hpure_l_intro, M1. auto. }
+  { xchange (hwand_hpure_l_intro P H1). auto. xchange M1. }
+  { xchange hwand_hpure_l_intro. auto. xchange M1. }
+  { xchange hwand_hpure_l_intro, M1. auto. }
 Qed.
 
-Lemma hchange_demo_4 : forall A (Q1 Q2:A->hprop) H,
+Lemma xchange_demo_4 : forall A (Q1 Q2:A->hprop) H,
   Q1 ===> Q2 ->
   Q1 \*+ H ===> Q2 \*+ H.
-Proof using. introv M. hchanges M. Qed.
+Proof using. introv M. xchanges M. Qed.
 
 Lemma xsimpl_demo_hfalse : forall H1 H2,
   H1 ==> \[False] ->
   H1 \* H2 ==> \[False].
 Proof using.
   introv M. dup.
-  { hchange_nosimpl M. xsimpl0. xsimpl1. xsimpl1. xsimpl1. 
+  { xchange_nosimpl M. xsimpl0. xsimpl1. xsimpl1. xsimpl1. 
     xsimpl1. xsimpl1. xsimpl1. xsimpl1. }
-  { hchange M. }
+  { xchange M. }
 Qed.
 
-Lemma hchange_demo_hforall_l : 
+Lemma xchange_demo_hforall_l : 
  forall (hforall_specialize : forall A (x:A) (J:A->hprop), (hforall J) ==> (J x)),
  forall (Q:int->hprop) H1,
   (\forall x, Q x) \* H1 ==> Q 2 \* \Top.
 Proof using.
-  intros. hchange (>> hforall_specialize 2). xsimpl.
+  intros. xchange (>> hforall_specialize 2). xsimpl.
 Qed.
 
 (* ---------------------------------------------------------------------- *)

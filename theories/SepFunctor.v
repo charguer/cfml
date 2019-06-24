@@ -19,18 +19,18 @@ The functor also provides:
 - notation for representation predicates: [x ~> R X].
 
 - [rew_heap] normalizes heap predicate expressions
-- [hpull] extracts existentials and pure facts from LHS of entailments
-- [xsimpl] simplifies heap entailments (it calls [hpull] first)
+- [xpull] extracts existentials and pure facts from LHS of entailments
+- [xsimpl] simplifies heap entailments (it calls [xpull] first)
 - [hxsimpl] uses [xsimpl] to solves goal of the form [X: H h, ... |- H' h]
-- [hchange] performs transitivity steps in entailments, modulo frame
+- [xchange] performs transitivity steps in entailments, modulo frame
 
-- [xpull] extracts existentials and pure facts from preconditions.
+- [xtpull] extracts existentials and pure facts from preconditions.
 - [xtchange] performs transitivity steps in preconditions.
 - [xapply] applies a lemma (triple or characteristic formula) modulo
   frame and weakening.
 - [xunfold] unfolds representation predicates of the form [x ~> R X]
 
-- [xpulls] is like [xpull] but performs one substitution automatically.
+- [xtpulls] is like [xtpull] but performs one substitution automatically.
 - [xtchanges] is like [xtchange] but calls [xsimpl] to simplify subgoals.
 - [xapplys] is like [xapply] but calls [xsimpl] to simplify subgoals.
 
@@ -817,7 +817,7 @@ Lemma hwand_himpl : forall H1 H1' H2 H2',
   H1' ==> H1 ->
   H2 ==> H2' ->
   (H1 \-* H2) ==> (H1' \-* H2').
-Proof using. introv M1 M2. xsimpl. hchange~ M1. Qed.
+Proof using. introv M1 M2. xsimpl. xchange~ M1. Qed.
 
 Lemma hwand_himpl_r : forall H1 H2 H2',
   H2 ==> H2' ->
@@ -839,7 +839,7 @@ Lemma hstar_hwand : forall H1 H2 H3,
 Proof using.
   xsimpl.
 Qed.
-  (* intros. unfold hwand. xsimpl ;=> H4 M. hchanges M. 
+  (* intros. unfold hwand. xsimpl ;=> H4 M. xchanges M. 
   unfold hwand. xsimpl ;=> H4 M. *)
 
 Arguments hstar_hwand : clear implicits.
@@ -861,9 +861,9 @@ Lemma hstar_qwand : forall H A (Q1 Q2:A->hprop),
   (Q1 \--* Q2) \* H ==> Q1 \--* (Q2 \*+ H).
 Proof using. xsimpl.
 (*
-  intros. unfold qwand. hchanges hstar_hforall.
+  intros. unfold qwand. xchanges hstar_hforall.
   applys himpl_hforall. intros x.
-  hchanges hstar_hwand.
+  xchanges hstar_hwand.
 *)
 Qed.
 
@@ -872,15 +872,15 @@ Lemma qwand_cancel : forall A (Q1 Q2:A->hprop),
 Proof using. xsimpl. Qed.
 (*
   intros. intros x.
-  hchange (qwand_specialize x Q1 Q2).
-  hchanges (hwand_cancel (Q1 x)).
+  xchange (qwand_specialize x Q1 Q2).
+  xchanges (hwand_cancel (Q1 x)).
 *)
 
 Lemma qwand_cancel_part : forall H A (Q1 Q2:A->hprop),
   H \* ((Q1 \*+ H) \--* Q2) ==> (Q1 \--* Q2).
 Proof using.
   intros. applys himpl_qwand_r. intros x.
-  hchange (qwand_specialize x). 
+  xchange (qwand_specialize x). 
 Qed.
 
 Lemma qwand_himpl : forall A (Q1 Q1' Q2 Q2':A->hprop),
@@ -1080,9 +1080,9 @@ Lemma local_elim_frame : forall F H Q,
   (H ==> \exists H1 H2 Q1, H1 \* H2 \* \[F H1 Q1 /\ Q1 \*+ H2 ===> Q]) ->
   F H Q.
 Proof using. 
-  introv L M. applys~ local_elim. hchange M.
-  hpull ;=> H1 H2 Q1 (N1&N2). xsimpl H1 H2 Q1. split~.
-  hchanges~ N2.
+  introv L M. applys~ local_elim. xchange M.
+  xpull ;=> H1 H2 Q1 (N1&N2). xsimpl H1 H2 Q1. split~.
+  xchanges~ N2.
 Qed.
 
 (** An elimination rule for [local] specialized for no frame, and no [htop] *)
@@ -1092,8 +1092,8 @@ Lemma local_elim_conseq_pre : forall F H Q,
   (H ==> \exists H1, H1 \* \[F H1 Q]) ->
   F H Q.
 Proof using.
-  introv L M. applys~ local_elim_frame. hchange M.
-  hpull ;=> H1 N. xsimpl H1 \[] Q. splits*. xsimpl.
+  introv L M. applys~ local_elim_frame. xchange M.
+  xpull ;=> H1 N. xsimpl H1 \[] Q. splits*. xsimpl.
 Qed.
 
 (** Weaken and frame and gc property [mklocal] *)
@@ -1105,7 +1105,7 @@ Lemma local_conseq_frame_hgc : forall F H H1 H2 Q1 Q,
   Q1 \*+ H2 ===> Q \*+ \GC ->
   F H Q.
 Proof using.
-  introv L M WH WQ. applys~ local_elim. hchange WH.
+  introv L M WH WQ. applys~ local_elim. xchange WH.
   xsimpl~ H1 H2 Q1.
 Qed.
 
@@ -1118,7 +1118,7 @@ Lemma local_conseq_frame : forall H1 H2 Q1 F H Q,
   Q1 \*+ H2 ===> Q ->
   F H Q.
 Proof using.
-  introv L M WH WQ. applys* local_conseq_frame_hgc M. hchanges~ WQ.
+  introv L M WH WQ. applys* local_conseq_frame_hgc M. xchanges~ WQ.
 Qed.
 
 (** Frame rule *)
@@ -1163,7 +1163,7 @@ Lemma local_conseq : forall H' Q' F H Q,
   F H Q.
 Proof using.
   introv L M WH WQ. applys* local_conseq_frame_hgc \[] M. 
-  { xsimpl*. } { hchanges WQ. }
+  { xsimpl*. } { xchanges WQ. }
 Qed.
 
 (** Garbage collection on precondition from [mklocal] *)
@@ -1196,7 +1196,7 @@ Lemma local_conseq_post_hgc : forall Q' F H Q,
   F H Q.
 Proof using.
   introv L M WQ. applys* local_conseq_frame_hgc \[] M.
-  { xsimpl. } { hchanges WQ. }
+  { xsimpl. } { xchanges WQ. }
 Qed.
 
 (** Variant of the above, useful for tactics to specify
@@ -1208,7 +1208,7 @@ Lemma local_hgc_pre_on : forall HG H' F H Q,
   H ==> HG \* H' ->
   F H' Q ->
   F H Q.
-Proof using. introv L K WH M. applys~ local_conseq_pre_hgc M. hchanges~ WH. Qed.
+Proof using. introv L K WH M. applys~ local_conseq_pre_hgc M. xchanges~ WH. Qed.
 
 (** Weakening on pre and post with gc-post from [mklocal] *)
 
@@ -1220,7 +1220,7 @@ Lemma local_conseq_hgc_post : forall H' Q' F H Q,
   F H Q.
 Proof using.
   introv L M WH WQ. applys~ local_conseq_frame_hgc \[] M.
-  { hchanges WH. } { hchanges WQ. }
+  { xchanges WH. } { xchanges WQ. }
 Qed.
 
 (** Weakening on pre and post with gc-pre from [mklocal] *)
@@ -1233,7 +1233,7 @@ Lemma local_conseq_hgc_pre : forall H' Q' F H Q,
   F H Q.
 Proof using.
   introv L M WH WQ. applys~ local_conseq_frame_hgc \GC M.
-  { hchanges WQ. }
+  { xchanges WQ. }
 Qed.
 
 (** Weakening on pre from [mklocal] *)
@@ -1261,7 +1261,7 @@ Lemma local_hpure : forall F H P Q,
   (P -> F H Q) ->
   F (\[P] \* H) Q.
 Proof using.
-  introv L M. applys~ local_elim_conseq_pre. hpull ;=> HP. xsimpl~ H.
+  introv L M. applys~ local_elim_conseq_pre. xpull ;=> HP. xsimpl~ H.
 Qed.
 
 (** Extraction of existentials from [mklocal] *)
@@ -1271,7 +1271,7 @@ Lemma local_hexists : forall F A (J:A->hprop) Q,
   (forall x, F (J x) Q) ->
   F (hexists J) Q.
 Proof using.
-  introv L M. applys~ local_elim_conseq_pre. hpull ;=> x. xsimpl* (J x).
+  introv L M. applys~ local_elim_conseq_pre. xpull ;=> x. xsimpl* (J x).
 Qed.
 
 (** Extraction of existentials below a star from [mklocal] *)
@@ -1362,7 +1362,7 @@ Lemma local_prop : forall F H Q P,
   F H Q.
 Proof using.
   introv L WH M. applys~ local_elim_conseq_pre.
-  hchanges WH. rew_heap~.
+  xchanges WH. rew_heap~.
 Qed.
 
 (** Extraction of proof obligations from the precondition under local *)
@@ -1373,7 +1373,7 @@ Lemma local_hwand_hpure_l : forall F (P:Prop) H Q,
   F H Q ->
   F (\[P] \-* H) Q.
 Proof using.
-  introv L HP M. applys~ local_elim_conseq_pre. hchanges~ hwand_hpure_l_intro.
+  introv L HP M. applys~ local_elim_conseq_pre. xchanges~ hwand_hpure_l_intro.
 Qed.
 
 End IsLocal.
@@ -1416,10 +1416,10 @@ Lemma mklocal_mklocal : forall F,
   mklocal (mklocal F) = mklocal F.
 Proof using.
   extens. intros H Q. iff M.
-  { unfold mklocal. eapply himpl_trans; [apply M|]. hpull ;=> H1 H2 Q1 [P1 P2].
-    unfold mklocal in P1. hchange P1. hpull ;=> H1' H2' Q1' [P1' P2'].
+  { unfold mklocal. eapply himpl_trans; [apply M|]. xpull ;=> H1 H2 Q1 [P1 P2].
+    unfold mklocal in P1. xchange P1. xpull ;=> H1' H2' Q1' [P1' P2'].
     xsimpl H1' (H2 \* H2') Q1'. splits*.
-    intros x. hchanges P2'. hchange P2. }
+    intros x. xchanges P2'. xchange P2. }
   { apply~ mklocal_erase. }
 Qed.
 
@@ -1448,7 +1448,7 @@ Lemma mklocal_weaken : forall F F',
   F ===>' F' ->
   mklocal F ===>' mklocal F'.
 Proof using.
-  unfold mklocal. introv M. intros H Q N. hchange (rm N) ;=> H1 H2 Q' [P1 P2]. 
+  unfold mklocal. introv M. intros H Q N. xchange (rm N) ;=> H1 H2 Q' [P1 P2]. 
   xsimpl H1 H2 Q'. split~. (* applys~ M. *)
 Qed.
 
@@ -1459,7 +1459,7 @@ Lemma mklocal_false : forall F H Q,
   (forall H' Q', F H' Q' -> False) ->
   (H ==> \[False]).
 Proof using.
-  introv M N. hchange M. hpull ;=> H' H1 Q' [HF _]. false* N.
+  introv M N. xchange M. xpull ;=> H' H1 Q' [HF _]. false* N.
 Qed.
 
 End Local.
@@ -1491,26 +1491,26 @@ Tactic Notation "xlocal" :=
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Tactic [xpull_check] tests whether it would be useful
-      to call [xpull] to extract things from the precondition.
+(* ** Tactic [xtpull_check] tests whether it would be useful
+      to call [xtpull] to extract things from the precondition.
       Applies to a goal of the form [F H Q]. *)
 
-Ltac xpull_check tt := (* DEPRECATED *)
+Ltac xtpull_check tt := (* DEPRECATED *)
   idtac.
 (* 
   let H := xprecondition tt in
-  hpull_check_rec H.
+  xpull_check_rec H.
 *)
 
 (* ---------------------------------------------------------------------- *)
-(* ** Tactic [xpull] to extract existentials and pure facts from
+(* ** Tactic [xtpull] to extract existentials and pure facts from
       preconditions. *)
 
-(** [xpull] plays a similar role to [hpull], except that it works on
+(** [xtpull] plays a similar role to [xpull], except that it works on
    goals of the form [F H Q], where [F] is typically a triple predicate
    or a characteristic formula.
 
-   [xpull] simplifies the precondition [H] as follows:
+   [xtpull] simplifies the precondition [H] as follows:
    - it removes empty heap predicates
    - it pulls pure facts out as hypotheses into the context
    - it pulls existentials as variables into the context.
@@ -1522,32 +1522,32 @@ Ltac xpull_check tt := (* DEPRECATED *)
 
 (** Lemmas *)
 
-Lemma xpull_start : forall B (F:~~B) H Q,
+Lemma xtpull_start : forall B (F:~~B) H Q,
   F (\[] \* H) Q -> 
   F H Q.
 Proof using. intros. rew_heap in *. auto. Qed.
 
-Lemma xpull_keep : forall B (F:~~B) H1 H2 H3 Q,
+Lemma xtpull_keep : forall B (F:~~B) H1 H2 H3 Q,
   F ((H2 \* H1) \* H3) Q -> 
   F (H1 \* (H2 \* H3)) Q.
 Proof using. intros. rewrite (hstar_comm H2) in H. rew_heap in *. auto. Qed.
 
-Lemma xpull_assoc : forall B (F:~~B) H1 H2 H3 H4 Q,
+Lemma xtpull_assoc : forall B (F:~~B) H1 H2 H3 H4 Q,
   F (H1 \* (H2 \* (H3 \* H4))) Q ->
   F (H1 \* ((H2 \* H3) \* H4)) Q.
 Proof using. intros. rew_heap in *. auto. Qed.
 
-Lemma xpull_starify : forall B (F:~~B) H1 H2 Q,
+Lemma xtpull_starify : forall B (F:~~B) H1 H2 Q,
   F (H1 \* (H2 \* \[])) Q -> 
   F (H1 \* H2) Q.
 Proof using. intros. rew_heap in *. auto. Qed.
 
-Lemma xpull_empty : forall B (F:~~B) H1 H2 Q,
+Lemma xtpull_empty : forall B (F:~~B) H1 H2 Q,
   (F (H1 \* H2) Q) -> 
   F (H1 \* (\[] \* H2)) Q.
 Proof using. intros. rew_heap. auto. Qed.
 
-Lemma xpull_hpure : forall B (F:~~B) H1 H2 P Q,
+Lemma xtpull_hpure : forall B (F:~~B) H1 H2 P Q,
   local F -> 
   (P -> F (H1 \* H2) Q) ->
   F (H1 \* (\[P] \* H2)) Q.
@@ -1555,13 +1555,13 @@ Proof using.
   intros. rewrite hstar_comm_assoc. apply~ local_hpure.
 Qed.
 
-Lemma xpull_id : forall A (x X : A) B (F:~~B) H1 H2 Q,
+Lemma xtpull_id : forall A (x X : A) B (F:~~B) H1 H2 Q,
   local F -> 
   (x = X -> F (H1 \* H2) Q) -> 
   F (H1 \* (x ~> Id X \* H2)) Q.
-Proof using. intros. unfold Id. apply~ xpull_hpure. Qed.
+Proof using. intros. unfold Id. apply~ xtpull_hpure. Qed.
 
-Lemma xpull_hexists : forall B (F:~~B) H1 H2 A (J:A->hprop) Q,
+Lemma xtpull_hexists : forall B (F:~~B) H1 H2 A (J:A->hprop) Q,
   local F ->
   (forall x, F (H1 \* ((J x) \* H2)) Q) ->
    F (H1 \* (hexists J \* H2)) Q.
@@ -1571,81 +1571,81 @@ Proof using.
 Qed.
 
 (*
-Lemma xpull_hwand_hpure_l : forall B (F:~~B) H1 H2 (P:Prop) Q,
+Lemma xtpull_hwand_hpure_l : forall B (F:~~B) H1 H2 (P:Prop) Q,
   local F ->
   (P -> F (H1 \* H2) Q) ->
    F (H1 \* (\[P] \-* H2)) Q.
 *)
 
-Ltac hpull_xpull_iris_hook tt := idtac.
+Ltac xpull_xtpull_iris_hook tt := idtac.
 
-Ltac xpull_setup tt :=
+Ltac xtpull_setup tt :=
   pose ltac_mark;
   intros;
   try match goal with |- ?H ==> ?H' =>
-        fail 100 "you should call hpull, not xpull" end;
-  hpull_xpull_iris_hook tt;
-  apply xpull_start.
+        fail 100 "you should call xpull, not xtpull" end;
+  xpull_xtpull_iris_hook tt;
+  apply xtpull_start.
 
-Ltac xpull_post_processing_for_hyp H :=
+Ltac xtpull_post_processing_for_hyp H :=
   idtac.
 
-Ltac xpull_cleanup tt :=
+Ltac xtpull_cleanup tt :=
   remove_empty_heaps_formula tt;
-  gen_until_mark_with_processing ltac:(xpull_post_processing_for_hyp).
+  gen_until_mark_with_processing ltac:(xtpull_post_processing_for_hyp).
 
-Ltac xpull_hpure tt :=
-  apply xpull_hpure; [ try xlocal | intro ].
-Ltac xpull_hexists tt :=
-  apply xpull_hexists; [ try xlocal | intro ].
-Ltac xpull_id tt :=
-  apply xpull_id; [ try xlocal | intro ].
+Ltac xtpull_hpure tt :=
+  apply xtpull_hpure; [ try xlocal | intro ].
+Ltac xtpull_hexists tt :=
+  apply xtpull_hexists; [ try xlocal | intro ].
+Ltac xtpull_id tt :=
+  apply xtpull_id; [ try xlocal | intro ].
 
-Ltac xpull_step tt :=
+Ltac xtpull_step tt :=
   let go HP :=
     match HP with _ \* ?HN =>
     match HN with
     | ?H \* _ =>
       match H with
-      | \[] => apply xpull_empty
-      | \[_] => xpull_hpure tt
-      | hexists _ => xpull_hexists tt
-      | _ ~> Id _ => xpull_id tt
-      | _ \* _ => apply xpull_assoc
-      | _ => apply xpull_keep
+      | \[] => apply xtpull_empty
+      | \[_] => xtpull_hpure tt
+      | hexists _ => xtpull_hexists tt
+      | _ ~> Id _ => xtpull_id tt
+      | _ \* _ => apply xtpull_assoc
+      | _ => apply xtpull_keep
       end
     | \[] => fail 1
-    | _ => apply xpull_starify
+    | _ => apply xtpull_starify
     end end in
   on_formula_pre ltac:(go).
 
-Ltac xpull_main tt :=
-  xpull_setup tt;
-  (repeat (xpull_step tt));
-  xpull_cleanup tt.
+Ltac xtpull_main tt :=
+  xtpull_setup tt;
+  (repeat (xtpull_step tt));
+  xtpull_cleanup tt.
 
-Tactic Notation "xpull" := xpull_main tt.
-Tactic Notation "xpull" "~" := xpull; auto_tilde.
-Tactic Notation "xpull" "*" := xpull; auto_star.
+Tactic Notation "xtpull" := xtpull_main tt.
+Tactic Notation "xtpull" "~" := xtpull; auto_tilde.
+Tactic Notation "xtpull" "*" := xtpull; auto_star.
 
 (* Demo *)
 
-Lemma xpull_demo_1 : forall H1 H2 A (P:A->Prop) (J:A->hprop) B (F:~~B) (Q:B->hprop),
+Lemma xtpull_demo_1 : forall H1 H2 A (P:A->Prop) (J:A->hprop) B (F:~~B) (Q:B->hprop),
   local F ->
   F (H1 \* \exists x, (J x \* H2 \* \[P x])) Q.
 Proof using.
   introv L. dup.
-  { xpull_setup tt.
-    xpull_step tt.
-    xpull_step tt.
-    xpull_step tt.
-    xpull_step tt.
-    xpull_step tt.
-    xpull_step tt.
-    xpull_step tt.
-    xpull_step tt.
-    xpull_cleanup tt. demo. }
-  { xpull. demo. }
+  { xtpull_setup tt.
+    xtpull_step tt.
+    xtpull_step tt.
+    xtpull_step tt.
+    xtpull_step tt.
+    xtpull_step tt.
+    xtpull_step tt.
+    xtpull_step tt.
+    xtpull_step tt.
+    xtpull_cleanup tt. demo. }
+  { xtpull. demo. }
 Abort.
 
 
@@ -1696,11 +1696,11 @@ Ltac xapply_core H cont1 cont2 :=
     end).
 
 Ltac xapply_base H :=
-  xpull_check tt;
+  xtpull_check tt;
   xapply_core H ltac:(fun tt => idtac) ltac:(fun tt => idtac).
 
 Ltac xapplys_base H :=
-  xpull_check tt;
+  xtpull_check tt;
   xapply_core H ltac:(fun tt => xsimpl) ltac:(fun tt => xsimpl).
 
 Tactic Notation "xapply" constr(H) :=
@@ -1727,8 +1727,8 @@ Lemma xapply_demo_1 : forall H1 H2 H3 B (F:~~B) (Q1:B->hprop),
   F (H2 \* H1) (Q1 \*+ H3).
 Proof using.
   introv L M HW. dup.
-  { xapply M. xsimpl. hchanges HW. }
-  { xapplys M. hchanges HW. }
+  { xapply M. xsimpl. xchanges HW. }
+  { xapplys M. xchanges HW. }
 Abort.
 
 
@@ -1761,7 +1761,7 @@ Lemma xtchange_lemma : forall H1 H1' H2 B H Q (F:~~B),
   F H Q.
 Proof using.
   introv W1 L W2 M. applys local_conseq_frame __ \[]; eauto.
-  xsimpl. hchange~ W2. xsimpl~. rew_heap~.
+  xsimpl. xchange~ W2. xsimpl~. rew_heap~.
 Qed.
 
 Ltac xtchange_apply L cont1 cont2 :=
@@ -1793,18 +1793,18 @@ Ltac xtchange_core cont1 cont2 E modif :=
   end.
 
 Ltac xtchange_base cont1 cont2 E modif :=
-  xpull_check tt;
+  xtpull_check tt;
   match goal with
-  | |- _ ==> _ => hchange_core E modif ltac:(hchange_xsimpl_cont) cont2
-  | |- _ ===> _ => hchange_core E modif ltac:(hchange_xsimpl_cont) cont2
+  | |- _ ==> _ => xchange_core E modif ltac:(xchange_xsimpl_cont) cont2
+  | |- _ ===> _ => xchange_core E modif ltac:(xchange_xsimpl_cont) cont2
   | _ => xtchange_core cont1 cont2 E modif
   end.
 
-Ltac hpull_or_xpull tt :=
+Ltac xpull_or_xtpull tt :=
   match goal with
-  | |- _ ==> _ => hpull
-  | |- _ ===> _ => hpull
-  | |- _ => xpull
+  | |- _ ==> _ => xpull
+  | |- _ ===> _ => xpull
+  | |- _ => xtpull
   end.
 
 Tactic Notation "xtchange" constr(E) :=
@@ -1822,7 +1822,7 @@ Tactic Notation "xtchange" "*" "<-" constr(E) :=
   xtchange <- E; auto_star.
 
 Tactic Notation "xtchanges" constr(E) :=
-  xtchange_base ltac:(fun tt => xsimpl) ltac:(fun tt => hpull_or_xpull tt) E __.
+  xtchange_base ltac:(fun tt => xsimpl) ltac:(fun tt => xpull_or_xtpull tt) E __.
 Tactic Notation "xtchanges" "~" constr(E) :=
   xtchanges E; auto_tilde.
 Tactic Notation "xtchanges" "*" constr(E) :=
@@ -1865,7 +1865,7 @@ Lemma weakestpre_eq : forall B (F:~~B) H Q,
 Proof using.
   introv L. applys prop_ext. unfold weakestpre. iff M.
   { xsimpl. rew_heap~. }
-  { applys~ local_conseq_pre M. xpull~. }
+  { applys~ local_conseq_pre M. xtpull~. }
 Qed.
 
 Lemma weakestpre_conseq : forall B (F:~~B) Q1 Q2,
@@ -1873,15 +1873,15 @@ Lemma weakestpre_conseq : forall B (F:~~B) Q1 Q2,
   Q1 ===> Q2 ->
   weakestpre F Q1 ==> weakestpre F Q2.
 Proof using.
-  introv L W. unfold weakestpre. hpull ;=> H1 M. xsimpl~.
-  xapply M. xsimpl. xsimpl. hchanges W.
+  introv L W. unfold weakestpre. xpull ;=> H1 M. xsimpl~.
+  xapply M. xsimpl. xsimpl. xchanges W.
 Qed.
 
 Lemma weakestpre_conseq_wand : forall B (F:~~B) Q1 Q2, 
   local F ->
   (Q1 \--* Q2) \* weakestpre F Q1 ==> weakestpre F Q2.
 Proof using.
-  introv L. unfold weakestpre. hpull ;=> H1 M.
+  introv L. unfold weakestpre. xpull ;=> H1 M.
   xsimpl (H1 \* (Q1 \--* Q2)). xapplys M.
 Qed.
 
@@ -1889,7 +1889,7 @@ Lemma weakestpre_frame : forall B (F:~~B) H Q,
   local F ->
   (weakestpre F Q) \* H ==> weakestpre F (Q \*+ H).
 Proof using.
-  introv L. unfold weakestpre. hpull ;=> H1 M.
+  introv L. unfold weakestpre. xpull ;=> H1 M.
   xsimpl (H1 \* H). xapplys M.
 Qed.
 
@@ -1897,14 +1897,14 @@ Lemma weakestpre_absorb : forall B (F:~~B) Q,
   local F ->
   weakestpre F Q \* \GC ==> weakestpre F Q.
 Proof using.
-  introv L. unfold weakestpre. hpull ;=> H1 M.
+  introv L. unfold weakestpre. xpull ;=> H1 M.
   xsimpl~ (H1 \* \GC). xapplys M.
 Qed.
 
 Lemma weakestpre_pre : forall B (F:~~B) Q,
   local F ->
   F (weakestpre F Q) Q.
-Proof using. intros. unfold weakestpre. xpull ;=> H'. auto. Qed.
+Proof using. intros. unfold weakestpre. xtpull ;=> H'. auto. Qed.
 
 Lemma himpl_weakestpre : forall B (F:~~B) H Q,
   F H Q ->
@@ -2065,7 +2065,7 @@ Tactic Notation "xunfold" constr(E) "at" constr(n) :=
   xunfold_arg_at_core E n.
 
 Ltac xunfolds_post tt :=
-  first [ hpull | xpull ].
+  first [ xpull | xtpull ].
 
 Tactic Notation "xunfolds" "at" constr(n) :=
   xunfold at n; xunfolds_post tt.

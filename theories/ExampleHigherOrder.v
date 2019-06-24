@@ -38,7 +38,7 @@ Lemma Triple_apply' : forall (f:func) `{EA:Enc A} (x:A),
   Triple (val_apply f ``x)
     PRE (\[Triple (f ``x) H Q] \* H)
     POST Q.
-Proof using. intros. xpull ;=> M. applys~ Triple_apply. Qed.
+Proof using. intros. xtpull ;=> M. applys~ Triple_apply. Qed.
 
 
 
@@ -178,7 +178,7 @@ Lemma Triple_MCount : forall n g,
   Triple (g '()) (g ~> MCount n) (fun r => \[ r = n+1 ] \* g ~> MCount (n+1)).
 Proof using.
   intros. xunfolds MCount at 1 ;=> p Hg. xapp.
-  hpulls. xunfold MCount. xsimpl~.
+  xpulls. xunfold MCount. xsimpl~.
 Qed.
 
 

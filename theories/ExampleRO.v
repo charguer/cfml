@@ -135,7 +135,7 @@ Proof using.
   introv M. xdef. xtchange (@RO_himpl_RO_hstar_RO (p ~~~> v)).
   rew_heap. applys triple_let (RO (p ~~~> v)).
   { applys triple_get_ro. }
-  { intros x; simpl. xpull ;=> E. subst x.
+  { intros x; simpl. xtpull ;=> E. subst x.
     applys triple_conseq M; xsimpl. }
 Qed.
 
@@ -184,12 +184,12 @@ Proof using.
   introv N M. xdef.
   applys triple_let.
   { applys triple_get. }
-  { intros x; simpl. xpull ;=> E. subst x.
+  { intros x; simpl. xtpull ;=> E. subst x.
     applys triple_let' \[]. { xsimpl. }
     applys~ triple_frame_read_only_conseq (p ~~~> v).
     { applys triple_conseq M; xsimpl. }
     { xsimpl. }
-    { clear M. intros y; simpl. xpull.
+    { clear M. intros y; simpl. xtpull.
       applys~ triple_frame_conseq (Q y).
       { applys triple_set. }
       { xsimpl~. } } }
@@ -211,7 +211,7 @@ Lemma triple_htop_pre' : forall H2 H1 t H Q,
   triple t H Q.
 Proof using.
   introv W M. applys triple_conseq; [| applys triple_htop_pre M |].
-  { hchange W. xsimpl. } { auto. }
+  { xchange W. xsimpl. } { auto. }
 Qed.
 
 
@@ -233,8 +233,8 @@ Proof using. intros. xunfold Box. xsimpl. Qed.
 Lemma RO_Box_unfold : forall p n,
   RO (p ~> Box n) ==> RO (p ~> Box n) \* \exists (q:loc), RO (p ~~~> q) \* RO (q ~~~> n).
 Proof using.
-  intros. hchange RO_duplicatable. xunfold Box at 1.
-  rew_RO. hpull ;=> q. hchanges (RO_star (p ~~~> q) (q ~~~> n)).
+  intros. xchange RO_duplicatable. xunfold Box at 1.
+  rew_RO. xpull ;=> q. xchanges (RO_star (p ~~~> q) (q ~~~> n)).
 Qed.
 
 Arguments Box_fold : clear implicits.
@@ -254,12 +254,12 @@ Lemma triple_box_get : forall p n,
     PRE (RO (p ~> Box n))
     POST (fun r => \[r = val_int n]).
 Proof using.
-  intros. xdef. xtchange (RO_Box_unfold p). xpull ;=> q.
+  intros. xdef. xtchange (RO_Box_unfold p). xtpull ;=> q.
   applys triple_htop_pre' (RO (p ~> Box n)). xsimpl. (* not need, ideally *)
   rew_heap. applys triple_let' __ (RO (p ~~~> q)).
   { xsimpl. }
   { applys triple_get_ro. }
-  { intros x; simpl; xpull ;=> E; subst x. applys triple_get_ro. }
+  { intros x; simpl; xtpull ;=> E; subst x. applys triple_get_ro. }
 Qed.
 
 
@@ -291,15 +291,15 @@ Lemma triple_box_twice : forall (f:val) p n (F:int->int),
     PRE (p ~> Box n)
     POST (fun r => p ~> Box (2 * F n)).
 Proof using.
-  introv M. xdef. xtchange (Box_unfold p). xpull ;=> q.
+  introv M. xdef. xtchange (Box_unfold p). xtpull ;=> q.
   applys triple_let' __ (p ~~~> q).
   { xsimpl. }
   { rew_heap. applys triple_get. }
-  { intros x; simpl; xpull ;=> E; subst x.
+  { intros x; simpl; xtpull ;=> E; subst x.
   applys triple_let' __ (q ~~~> n).
   { xsimpl. }
   { rew_heap. applys triple_get. }
-  { intros x; simpl; xpull ;=> E; subst x.
+  { intros x; simpl; xtpull ;=> E; subst x.
 Abort.
 
 

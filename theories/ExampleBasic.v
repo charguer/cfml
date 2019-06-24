@@ -332,8 +332,8 @@ Qed.
     xwhile_inv_basic (fun b k => \[b = isTrue (k < n)] \* \[k <= n] \* i ~~> k \* r ~~> k)
       (upto n).
     { oldxsimpl. eauto. eauto. }
-    { => b k. xpull. => Hb Hk. xapps. xrets. auto. autos*. } (* short for: xret; oldxsimpl. *)
-    { => k. xpull. => Hb Hk. xapps. xapps. oldxsimpl.
+    { => b k. xtpull. => Hb Hk. xapps. xrets. auto. autos*. } (* short for: xret; oldxsimpl. *)
+    { => k. xtpull. => Hb Hk. xapps. xapps. oldxsimpl.
       { math. }
       { eauto. }
       { hnf. math. } }
@@ -365,8 +365,8 @@ Qed.
                                  \* i ~~> k \* r ~~> (facto (k-1)))
       (upto (n+1)).
     { oldxsimpl. rew_maths. rewrite~ facto_one. math. eauto. }
-    { => b k. xpull. => Hb Hk. xapps. xrets. auto. autos*. } (* short for: xret; oldxsimpl. *)
-    { => k. xpull. => Hb Hk. xapps. xapps. xapps. xapps. oldxsimpl.
+    { => b k. xtpull. => Hb Hk. xapps. xrets. auto. autos*. } (* short for: xret; oldxsimpl. *)
+    { => k. xtpull. => Hb Hk. xapps. xapps. xapps. xapps. oldxsimpl.
       { rew_maths. rewrite (@facto_succ k). ring. math. }
       { math. }
       { eauto. }
@@ -404,10 +404,10 @@ Qed.
          \* p ~~> vp)
       (upto n).
     { oldxsimpl. math. math. eauto. }
-    { => b k. xpull ;=> vp Hb Hp Hk. xapps. xand.
+    { => b k. xtpull ;=> vp Hb Hp Hk. xapps. xand.
       { xapps. xapps. xrets*. }
       { oldxsimpl*. } }
-    { => k. xpull ;=> vp Hb Hp Hk.
+    { => k. xtpull ;=> vp Hb Hp Hk.
       (* TODO: xclean. *) xclean. destruct Hb as (Hvp&Hkk).
       xapps. xapps. math.
       xrets. xseq. xif (# \exists (vp':bool), i ~~> k \* p ~~> vp' \*
@@ -415,7 +415,7 @@ Qed.
         (* TODO: remove xseq *)
         { xapps. oldxsimpl. applys~ divide_not_prime. math_nia. }
         { xrets. rewrite Hvp in *. =>> Hd. tests: (d = k). auto. applys~ Hp. }
-      xpull ;=> vp' Hvp'. xapps. oldxsimpl.
+      xtpull ;=> vp' Hvp'. xapps. oldxsimpl.
       { math. }
       { auto. }
       { eauto. }

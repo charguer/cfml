@@ -370,7 +370,7 @@ Lemma triple_root : forall n R p x,
     (fun r => \[r = R x] \* UF n R p).
 Proof using.
   introv Dx. xcf. xval as F ;=> EF.
-  unfold UF. xpull ;=> L (Hn&HR).
+  unfold UF. xtpull ;=> L (Hn&HR).
   forwards~ Ix: index_of_index_length' (rm Dx) Hn.
   forwards~ Hx: HR x.
   forwards (d&Hx'): reprn_of_repr Hx.
@@ -413,7 +413,7 @@ Lemma triple_compress : forall n R p x z,
     (fun r => UF n R p).
 Proof using.
   introv Dx Ez. xcf. xval as F ;=> EF.
-  unfold UF. xpull ;=> L (Hn&HR).
+  unfold UF. xtpull ;=> L (Hn&HR).
   forwards~ Ix: index_of_index_length' (rm Dx) Hn.
   forwards~ Hx: HR x.
   applys mklocal_erase. (* TODO: avoid *)
@@ -483,11 +483,11 @@ Lemma triple_union : forall n R p x y,
     (fun r => \exists R', UF n R' p \* \[R' = link R x y]).
 Proof using.
   introv Dx Dy. xcf. xapps~. xapps~. xapps. xif ;=> C.
-  { unfold UF. xpull ;=> L (Hn&HR).
+  { unfold UF. xtpull ;=> L (Hn&HR).
     forwards~ Ix: index_of_index_length' (rm Dx) Hn.
     forwards~ Iy: index_of_index_length' (rm Dy) Hn.
     xapp~. (* todo: xapps does not do the right thing *)
-    { hpull ;=> r Er. rewrite~ <- map_update; auto.
+    { xpull ;=> r Er. rewrite~ <- map_update; auto.
       xsimpl~. rew_array~. split~.
       { applys~ roots_link L R x y. } } }
   { xvals~. rewrite~ link_related. }

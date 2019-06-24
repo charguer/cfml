@@ -142,7 +142,7 @@ Global Opaque hempty hpure hstar hexists htop.
 (* ---------------------------------------------------------------------- *)
 (* ** Tactics *)
 
-Ltac hpull_xpull_iris_hook := idtac.
+Ltac xpull_xtpull_iris_hook := idtac.
 
 Ltac xlocal_core := idtac.
 
@@ -477,9 +477,9 @@ Ltac ram_apply lem :=
   end; [xlocal_core tt|eapply lem|iPrepare].
 
 
-(** Fix for hpull/xpull to unfold proof mode functions *)
+(** Fix for xpull/xtpull to unfold proof mode functions *)
 
-Ltac hpull_xpull_iris_hook tt ::=
+Ltac xpull_xtpull_iris_hook tt ::=
   ProofModeInstantiate.unfold_proofmode.
 
 

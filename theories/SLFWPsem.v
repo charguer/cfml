@@ -233,7 +233,7 @@ Proof using. intros. applys wp_conseq_frame_htop. xsimpl. Qed.
 Lemma wp_ramified_trans : forall t H Q1 Q2,
   H ==> (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ->
   H ==> (wp t Q2).
-Proof using. introv M. hchange M. applys wp_ramified. Qed.
+Proof using. introv M. xchange M. applys wp_ramified. Qed.
 
 
 
@@ -331,7 +331,7 @@ Lemma wp_conseq : forall t Q1 Q2,
   Q1 ===> Q2 ->
   wp t Q1 ==> wp t Q2.
 Proof using.
-  introv M. lets N: wp_ramified t Q1 Q2. hchanges N. hchanges M.
+  introv M. lets N: wp_ramified t Q1 Q2. xchanges N. xchanges M.
 Qed.
 
 (** How can this rule simulate the rule of consequence, which also
@@ -353,7 +353,7 @@ Lemma wp_conseq_trans : forall t H' Q' H Q,
   H ==> H' ->
   Q' ===> Q ->
   H ==> wp t Q.
-Proof using. introv M WH WQ. hchange WH. hchange M. applys wp_conseq WQ. Qed.
+Proof using. introv M WH WQ. xchange WH. xchange M. applys wp_conseq WQ. Qed.
 
 (** Thereafter, we present rules in the form of entailments between [wp],
     that is, [wp ... ==> wp ...], but keep in mind that this presentation
@@ -422,7 +422,7 @@ Parameter wp_def : forall t Q,
 Lemma wp_ramified' : forall t Q1 Q2,
   (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
 Proof using.
-  intros. do 2 rewrite wp_def. hpull ;=> H M.
+  intros. do 2 rewrite wp_def. xpull ;=> H M.
   xsimpl (H \* (Q1 \--* Q2 \*+ \Top)). intros H'.
   applys hoare_conseq M; xsimpl.
 Qed.
@@ -462,7 +462,7 @@ Proof using. intros. rewrite wp_def. xsimpl; intros H'. applys hoare_val. xsimpl
 Lemma triple_val_derived_from_wp_val : forall v H Q,
   H ==> Q v ->
   triple (trm_val v) H Q.
-Proof using. introv M. rewrite wp_equiv. hchange M. applys wp_val. Qed.
+Proof using. introv M. rewrite wp_equiv. xchange M. applys wp_val. Qed.
 
 (** The [wp] rules for [trm_fun] and [trm_fix] follow the exact same pattern. *)
 
@@ -519,7 +519,7 @@ Lemma triple_if_case_from_wp_if : forall b t1 t2 H Q,
   triple (if b then t1 else t2) H Q ->
   triple (trm_if (val_bool b) t1 t2) H Q.
 Proof using.
-  introv M. rewrite wp_equiv in *. hchange M.
+  introv M. rewrite wp_equiv in *. xchange M.
   applys himpl_trans wp_if. auto.
 Qed.
 
@@ -568,7 +568,7 @@ Lemma triple_seq_from_wp_seq : forall t1 t2 H Q H1,
   triple (trm_seq t1 t2) H Q.
 Proof using.
 (* SOLUTION *)
-  introv M1 M2. rewrite wp_equiv in *. hchange M1.
+  introv M1 M2. rewrite wp_equiv in *. xchange M1.
   applys himpl_trans wp_seq. applys wp_conseq. intros _. applys M2.
 (* /SOLUTION *)
 Qed.
@@ -662,7 +662,7 @@ Proof using. intros. rewrite <- wp_equiv. applys triple_ref. Qed.
 
 Lemma wp_ref_1 : forall Q v,
   ((fun r => \exists l, \[r = val_loc l] \* l ~~~> v) \--* Q) ==> wp (val_ref v) Q.
-Proof using. intros. hchange (wp_ref_0 v). applys wp_ramified_frame. Qed.
+Proof using. intros. xchange (wp_ref_0 v). applys wp_ramified_frame. Qed.
 
 (** This statement can be further reformulated by quantifying [r] with a [\forall],
     which essentially amounts to unfolding the definition of [\--*]. *)
@@ -677,7 +677,7 @@ Lemma wp_ref_3 : forall Q v,
   (\forall l, l ~~~> v \-* Q (val_loc l)) ==> wp (val_ref v) Q.
 Proof using.
   intros. applys himpl_trans wp_ref_2.
-  xsimpl. intros ? l ->. hchange (hforall_specialize l).
+  xsimpl. intros ? l ->. xchange (hforall_specialize l).
 Qed.
 
 
@@ -703,8 +703,8 @@ Lemma texan_triple_equiv : forall t H A (Hof:val->A->hprop) (vof:A->val),
   <-> (forall Q, H \* (\forall x, Hof (vof x) x \-* Q (vof x)) ==> wp t Q).
 Proof using.
   intros. rewrite wp_equiv. iff M.
-  { intros Q. hchange M. applys wp_ramified_trans.
-    xsimpl. intros r x ->. hchanges (hforall_specialize x). }
+  { intros Q. xchange M. applys wp_ramified_trans.
+    xsimpl. intros r x ->. xchanges (hforall_specialize x). }
   { applys himpl_trans M. xsimpl~. }
 Qed.
 

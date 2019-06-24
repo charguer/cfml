@@ -406,7 +406,7 @@ Lemma wpgen_if_sound : forall F1 F2 v0 t1 t2,
   formula_sound_for t2 F2 ->
   formula_sound_for (trm_if v0 t1 t2) (wpgen_if v0 F1 F2).
 Proof using.
-  introv S1 S2. intros Q. unfold wpgen_if. hpull. intros b ->.
+  introv S1 S2. intros Q. unfold wpgen_if. xpull. intros b ->.
   applys himpl_trans wp_if. case_if. { applys S1. } { applys S2. }
 Qed.
 
@@ -453,7 +453,7 @@ Definition wpgen_fail : formula := fun Q =>
 
 Lemma wpgen_fail_sound : forall t,
   formula_sound_for t wpgen_fail.
-Proof using. intros. intros Q. unfold wpgen_fail. hpull. Qed.
+Proof using. intros. intros Q. unfold wpgen_fail. xpull. Qed.
 
 
 (* ******************************************************* *)
@@ -513,7 +513,7 @@ Lemma mkstruct_sound : forall t F,
   formula_sound_for t (mkstruct F).
 Proof using.
   introv M. intros Q. unfold mkstruct. xsimpl ;=> Q'.
-  lets N: M Q'. hchange N. applys wp_ramified.
+  lets N: M Q'. xchange N. applys wp_ramified.
 Qed.
 
 
@@ -637,7 +637,7 @@ Qed.
 Theorem triple_of_wpgen : forall t H Q,
   H ==> wpgen t Q ->
   triple t H Q.
-Proof using. introv M. rewrite wp_equiv. hchange M. applys wpgen_sound. Qed.
+Proof using. introv M. rewrite wp_equiv. xchange M. applys wpgen_sound. Qed.
 
 End WPgenSubst.
 
@@ -823,7 +823,7 @@ Theorem triple_of_wpgen : forall t H Q,
   H ==> wpgen nil t Q ->
   triple t H Q.
 Proof using.
-  introv M. rewrite wp_equiv. hchange M.
+  introv M. rewrite wp_equiv. xchange M.
   lets N: (wpgen_sound nil t). rewrite isubst_nil in N. applys N.
   (* same as: [applys_eq wpgen_sound 1. rewrite~ isubst_nil.] *)
 Qed.
@@ -853,7 +853,7 @@ Implicit Types n : int.
 Lemma xstruct_lemma : forall F H Q,
   H ==> F Q ->
   H ==> mkstruct F Q.
-Proof using. introv M. hchange M. applys mkstruct_erase. Qed.
+Proof using. introv M. xchange M. applys mkstruct_erase. Qed.
 
 (** [xlet_lemma] reformulates the definition of [wpgen_let].
     It just unfolds the definition. *)
@@ -861,14 +861,14 @@ Proof using. introv M. hchange M. applys mkstruct_erase. Qed.
 Lemma xlet_lemma : forall H F1 F2of Q,
   H ==> F1 (fun v => F2of v Q) ->
   H ==> wpgen_let F1 F2of Q.
-Proof using. introv M. hchange M. Qed.
+Proof using. introv M. xchange M. Qed.
 
 (** Likewise, [xseq_lemma] reformulates [wpgen_seq]. *)
 
 Lemma xseq_lemma : forall H F1 F2 Q,
   H ==> F1 (fun v => F2 Q) ->
   H ==> wpgen_seq F1 F2 Q.
-Proof using. introv M. hchange M. Qed.
+Proof using. introv M. xchange M. Qed.
 
 (** [xapp_lemma] reformulates the ramified frame rule, with a goal
     as a [wp] (which is produced by [wpgen] on an application),
@@ -900,7 +900,7 @@ Proof using.
   introv M1 M2. applys triple_app_fun M1.
   asserts_rewrite (subst x v2 t = isubst ((x,v2)::nil) t).
   { rewrite isubst_rem. rewrite~ isubst_nil. }
-  rewrite wp_equiv. hchange M2. applys wpgen_sound.
+  rewrite wp_equiv. xchange M2. applys wpgen_sound.
 Qed.
 
 (** [xtop_lemma] helps exploiting [mkstruct] to augment the postcondition
@@ -915,8 +915,8 @@ Lemma xtop_lemma : forall H Q F,
   H ==> mkstruct F (Q \*+ \Top) ->
   H ==> mkstruct F Q.
 Proof using.
-  introv M. hchange M.
-  lets N: mkstruct_ramified (Q \*+ \Top) Q F. hchanges N.
+  introv M. xchange M.
+  lets N: mkstruct_ramified (Q \*+ \Top) Q F. xchanges N.
 Qed.
 
 (** Other lemmas for structural rules, not shown here, can be similarly
@@ -1136,13 +1136,13 @@ Lemma xapps_lemma0 : forall t v H1 H Q,
   triple t H1 (fun r => \[r = v]) ->
   H ==> H1 \* (protect (Q v)) ->
   H ==> wp t Q.
-Proof using. introv M W. applys xapp_lemma M. hchanges W. intros ? ->. auto. Qed.
+Proof using. introv M W. applys xapp_lemma M. xchanges W. intros ? ->. auto. Qed.
 
 Lemma xapps_lemma1 : forall t v H1 H2 H Q,
   triple t H1 (fun r => \[r = v] \* H2) ->
   H ==> H1 \* (H2 \-* protect (Q v)) ->
   H ==> wp t Q.
-Proof using. introv M W. applys xapp_lemma M. hchanges W. intros ? ->. auto. Qed.
+Proof using. introv M W. applys xapp_lemma M. xchanges W. intros ? ->. auto. Qed.
 
 Tactic Notation "xapps" constr(E) :=
   xapp_pre; first
@@ -1249,7 +1249,7 @@ Lemma wpgen_fun_sound : forall x t1 Fof,
   formula_sound_for (trm_fun x t1) (wpgen_fun Fof).
 Proof using.
   introv M. intros Q. unfolds wpgen_fun. applys himpl_hforall_l (val_fun x t1).
-  hchange hwand_hpure_l_intro.
+  xchange hwand_hpure_l_intro.
   { intros. applys himpl_trans_r. { applys* wp_app_fun. } { applys* M. } }
   { applys wp_fun. }
 Qed.
@@ -1301,7 +1301,7 @@ Lemma wpgen_fix_sound : forall f x t1 Fof,
   formula_sound_for (trm_fix f x t1) (wpgen_fix Fof).
 Proof using.
   introv M. intros Q. unfolds wpgen_fix. applys himpl_hforall_l (val_fix f x t1).
-  hchange hwand_hpure_l_intro.
+  xchange hwand_hpure_l_intro.
   { intros. applys himpl_trans_r. { applys* wp_app_fix. } { applys* M. } }
   { applys wp_fix. }
 Qed.
@@ -1377,8 +1377,8 @@ Lemma himpl_mkstruct_conseq_frame : forall H Q H1 Q1 F,
   H ==> H1 \* (Q1 \--* Q) ->
   H ==> mkstruct F Q.
 Proof using.
-  introv M W. hchange W. hchange M.
-  lets N: mkstruct_ramified Q1 Q F. hchanges N.
+  introv M W. xchange W. xchange M.
+  lets N: mkstruct_ramified Q1 Q F. xchanges N.
 Qed.
 
 (** An interesting property of [mkstruct] is its idempotence:

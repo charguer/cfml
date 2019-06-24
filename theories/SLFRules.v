@@ -845,7 +845,7 @@ Proof using.
   (* 2. We invoke the reasoning rule [hoare_val] that we have just established. *)
   applys hoare_val.
   (* 3. We exploit the assumption and conclude using [xsimpl]. *)
-  hchange M. xsimpl.
+  xchange M. xsimpl.
 Qed.
 
 (** Remark: in the proof of [hoare_val], the witnesses [h] and [v] are

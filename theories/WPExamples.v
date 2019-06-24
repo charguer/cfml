@@ -57,9 +57,9 @@ Qed.
 
   xtriple.
   xlet. { xapp. xapplys triple_get. }
-  hpull ;=> ? ->.
+  xpull ;=> ? ->.
   xlet. { xapp. xapplys triple_add. }
-  hpull ;=> ? ->.
+  xpull ;=> ? ->.
   xapp. xapplys triple_set. auto.
 
 then just:
@@ -176,7 +176,7 @@ Lemma MList_nil_eq : forall A `{EA:Enc A} (p:loc),
   (MList nil p) = (p ~~> Nil).
 Proof using.
   intros. xunfold MList. applys himpl_antisym.
-  { hpull ;=> ? ->. auto. }
+  { xpull ;=> ? ->. auto. }
   { xsimpl~. }
 Qed.
 
@@ -202,21 +202,21 @@ Proof using.
   xwp.
   xlet.
   (* xunfold *)
-  pattern MList at 1. rewrite MList_unfold. hpull ;=> v. xapp.
+  pattern MList at 1. rewrite MList_unfold. xpull ;=> v. xapp.
   (* xcase *)
   applys xcase_lemma0 ;=> E1.
-  { destruct L as [|x L']; hpull.
+  { destruct L as [|x L']; xpull.
     { intros ->. applys~ @xval_lemma 0. xsimpl. rew_list~. rewrite~ MList_nil_eq. xsimpl. }
     { intros q ->. tryfalse. } }
   { applys xcase_lemma2.
     { intros x q E.
-      destruct L as [|x' L']; hpull.
+      destruct L as [|x' L']; xpull.
       { intros ->. tryfalse. }
       { intros q' E'. subst v. rewrite enc_val_eq in *. inverts E.
         xapp* IH. xsimpl. xapp.
         (* done *)
         pattern MList at 2. rewrite MList_unfold. xsimpl*.  (* rew_list; math.*) } }
-    { intros N. destruct L as [|x L']; hpull.
+    { intros N. destruct L as [|x L']; xpull.
       { intros ->. rewrite enc_val_eq in *. unfolds Nil. false. }
       { intros q ->. rewrite enc_val_eq in *. unfolds @Cons. false. } } }
 Qed.

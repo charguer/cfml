@@ -64,14 +64,14 @@ Lemma Triple_transfer : forall `{EA:Enc A} (L1 L2:list A) p1 p2,
     (fun (_:unit) => p1 ~> MQueue (L1 ++ L2) \* p2 ~> MQueue nil).
 Proof using.
   xcf. xapps. xapps. xif ;=> C.
-  { xunfold MQueue. xpull ;=> pf2 pb2 vx2 vy2 pf1 pb1 vx1 vy1.
+  { xunfold MQueue. xtpull ;=> pf2 pb2 vx2 vy2 pf1 pb1 vx1 vy1.
     destruct L2 as [|x L2']; tryfalse.
-    rewrite MListSeg_cons_eq. xpull ;=> pf2'.
+    rewrite MListSeg_cons_eq. xtpull ;=> pf2'.
     xapps. xapps. xapps. xapps.
     xapps~. xapps~. xapps~. xapps~. xapps~.
-    hchange (>> (@MListSeg_last) pf1).
-    hchange (MListSeg_concat pf1 pf2'). rew_list.
-    hchange (MListSeg_nil pf2). xsimpl~. }
+    xchange (>> (@MListSeg_last) pf1).
+    xchange (MListSeg_concat pf1 pf2'). rew_list.
+    xchange (MListSeg_nil pf2). xsimpl~. }
   { subst. rew_list. xvals~. }
 Qed.
 
@@ -104,7 +104,7 @@ Lemma triple_create :
 Proof using.
   xcf. unfold MQueue.
   xapp triple_alloc_cell as r. intros p v1 v2. intro_subst.
-  xapp~. hpull ;=> r x E. xsimpl~.
+  xapp~. xpull ;=> r x E. xsimpl~.
   { rewrite MListSeg_nil_eq. xsimpl~. }
 Qed.
 
@@ -123,10 +123,10 @@ Lemma triple_is_empty : forall L p,
     (MQueue L p)
     (fun r => \[r = isTrue (L = nil)] \* MQueue L p).
 Proof using.
-  xcf. unfold MQueue. xpull ;=> pf pb vx vy.
+  xcf. unfold MQueue. xtpull ;=> pf pb vx vy.
   xapps. xapps.
   xtchanges (MListSeg_then_MCell_inv_neq pf pb) ;=> R.
-  (* xtchange (MListSeg_then_MCell_inv_neq pf pb). xpull ;=> R. *)
+  (* xtchange (MListSeg_then_MCell_inv_neq pf pb). xtpull ;=> R. *)
   xapp. xsimpl ;=> ? ->. fequals. rew_bool_eq. rewrite R. iff; congruence.
 Qed.
 
@@ -149,9 +149,9 @@ Lemma triple_push_back : forall L v p,
     (MQueue L p)
     (fun r => MQueue (L&v) p).
 Proof using.
-  xcf. unfold MQueue. xpull ;=> pf pb vx vy.
+  xcf. unfold MQueue. xtpull ;=> pf pb vx vy.
   xapps. xapp triple_alloc_cell as r. intros pb' v1 v2. intro_subst.
-  xapp~. intros _. xapp~. intros _. xapp~. hchanges~ MListSeg_last.
+  xapp~. intros _. xapp~. intros _. xapp~. xchanges~ MListSeg_last.
 Qed.
 
 
@@ -169,9 +169,9 @@ Lemma triple_push_front : forall L v p,
     (MQueue L p)
     (fun r => MQueue (v::L) p).
 Proof using.
-  xcf. unfold MQueue. xpull ;=> pf pb vx vy.
+  xcf. unfold MQueue. xtpull ;=> pf pb vx vy.
   xapps. xapp as r. intros x. intro_subst.
-  xapp. xsimpl~. intros _. hchanges (@MListSeg_cons x).
+  xapp. xsimpl~. intros _. xchanges (@MListSeg_cons x).
 Qed.
 
 
@@ -192,9 +192,9 @@ Lemma triple_pop_front : forall L v p,
     (MQueue L p)
     (fun v => \exists L', \[L = v::L'] \* MQueue L' p).
 Proof using.
-  xcf. unfold MQueue. xpull ;=> pf pb vx vy.
+  xcf. unfold MQueue. xtpull ;=> pf pb vx vy.
   destruct L as [|x L']; tryfalse.
-  rewrite MListSeg_cons_eq. xpull ;=> pf'.
+  rewrite MListSeg_cons_eq. xtpull ;=> pf'.
   xapps. xapps. xapps. xapp~. intros _. xvals~.
 Qed.
 
@@ -206,7 +206,7 @@ Proof using.
   intros. xapply (@triple_pop_front (x::L)).
   { auto_false. }
   { xsimpl. }
-  { intros r. hpull ;=> L' E. inverts E. xsimpl~. }
+  { intros r. xpull ;=> L' E. inverts E. xsimpl~. }
 Qed.
 
 
@@ -234,13 +234,13 @@ Lemma triple_transfer : forall L1 L2 p1 p2,
     (fun r => MQueue (L1 ++ L2) p1 \* MQueue nil p2).
 Proof using.
   xcf. xapps. xapps. xif ;=> C.
-  { unfold MQueue. xpull ;=> pf2 pb2 vx2 vy2 pf1 pb1 vx1 vy1.
+  { unfold MQueue. xtpull ;=> pf2 pb2 vx2 vy2 pf1 pb1 vx1 vy1.
     destruct L2 as [|x L2']; tryfalse.
     xtchanges MListSeg_cons_eq ;=> pf2'.
     xapps. xapps. xapps. xapps.
     xapps~. xapps~. intros _. xapps~. intros _. xapps~. intros _. xapps~.
-    intros r. hchange (MListSeg_last pf1).
-    hchange (MListSeg_concat pf1 pf2' pb2). rew_list.
-    hchange (MListSeg_nil pf2). xsimpl~. }
+    intros r. xchange (MListSeg_last pf1).
+    xchange (MListSeg_concat pf1 pf2' pb2). rew_list.
+    xchange (MListSeg_nil pf2). xsimpl~. }
   { subst. rew_list. xvals~. }
 Qed.
