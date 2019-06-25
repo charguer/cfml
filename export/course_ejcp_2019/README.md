@@ -1,9 +1,7 @@
 #############################################################
 # Version of Coq
 
-The theories compile with Coq 8.8 and they probably also compile 
-with more recent versions. (Let me know otherwise.)
-
+The theories compile with Coq 8.8 and Coq 8.9.
 
 
 #############################################################
@@ -13,8 +11,10 @@ with more recent versions. (Let me know otherwise.)
 ```
    git clone https://gitlab.inria.fr/charguer/cfml2_ejcp2019
    cd cfml2_ejcp2019/theories
-   make
+   make -j2
 ```
+
+If your machine features more than 2 cores, adjust the number after "-j" accordingly.
 
 
 #############################################################

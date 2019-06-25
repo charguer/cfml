@@ -119,7 +119,7 @@ Hint Rewrite (@union_empty_r elems _ _ _) (@union_empty_l elems _ _ _) : rew_lis
 Hint Extern 1 (_ < _) => simpl; math.
 Hint Extern 1 (_ <= _) => simpl; math.
 Hint Extern 1 (_ = _ :> multiset _) => rew_listx; multiset_eq.
-Hint Extern 1 (_ \in (_ : multiset _)) => multiset_in.
+Hint Extern 1 (_ \in _) => multiset_in. 
 Hint Constructors Forall Forall2 list_sub.
 Hint Unfold is_ge.
 
