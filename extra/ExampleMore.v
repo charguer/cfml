@@ -812,3 +812,66 @@ Definition trm_Cons (t1 t2:trm) : trm := trm_constr "cons" (t1::t2::nil).
 Definition pat_Nil : pat := pat_constr "nil" nil.
 Definition pat_Cons (p1 p2:pat) : pat := pat_constr "cons" (p1::p2::nil).
 *)
+
+
+
+
+
+Lemma Tree_eq : forall n q,
+  q ~> Tree n =
+    match n with
+    | Node x hs =>
+        \exists l, q ~> Record`{ value := x; sub := l }
+                \* l ~> MList.MListOf Tree hs
+  end.
+Proof using.
+  intros n. induction n as [x hs]; intros.
+  xunfold Tree. fequals; applys fun_ext_1 ;=> l. fequals.
+  gen l. induction hs as [|n hs']; intros.
+  { auto. }
+  { rewrite MList.MListOf_eq. fequals; applys fun_ext_1 ;=> y.
+    fequals; applys fun_ext_1 ;=> p'. fequals. fequals.
+    rewrite~ <- IHhs'. }
+Qed.
+
+
+
+(**
+[[
+
+Fixpoint Repr (n:node) (q:loc) : hprop :=
+  match n with
+  | Node x hs => 
+      \exists q',
+         q ~> Record`{ value := x; sub := q' } 
+      \* q' ~> MList.MListOf.MListOf Repr hs
+  end.
+
+]]
+*)
+
+
+(*
+Definition hfold_list' A (f:A->hprop) :=
+  fix hfold_list' (l1:list A) { struct l1 } : hprop := 
+  match l1 with 
+  | nil => \[]
+  | x1::l1' => f x1 \* hfold_list' l1'
+  end.
+
+Definition hfold_list2'' A B (f:A->B->hprop) (l1:list A) (l2:list B) : hprop :=
+  hfold_list (fun '(a,b) => f a b) (List.combine l1 l2).
+
+Definition hfold_list2' A B (f:A->B->hprop) :=
+  fix hfold_list2' (l1:list A) (l2:list B) { struct l1 } : hprop := 
+  match l1,l2 with 
+  | nil, nil => \[]
+  | x1::l1', x2::l2' => f x1 x2 \* hfold_list2' l1' l2'
+  | _,_ => arbitrary
+  end.
+
+
+Definition MListOf' A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc) : hprop :=
+  \exists (l:list A), \[length l = length L] \* p ~> MList.MList l
+                      \* hfold_list2 (fun (X:TA) (x:A) => x ~> R X) L l. 
+*)

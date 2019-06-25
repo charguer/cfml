@@ -14,6 +14,8 @@ From TLC Require Import LibCore.
 From Sep Require Import Example.
 From Sep Require Import ExampleList.
 
+Module Import M := MList.MListOf.
+
 
 Definition is_nil A (l:list A) : bool :=
   match l with
@@ -55,86 +57,6 @@ Hint Resolve list_sub_wf : wf.
 
 
 
-
-(* ******************************************************* *)
-(** ** Mutable lists extension *)
-
-Module MList.
-
-Definition head : field := 0%nat.
-Definition tail : field := 1%nat.
-
-Fixpoint MListOf A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc) : hprop :=
-  match L with
-  | nil => \[p = null]
-  | X::L' => \exists x p', p ~> Record`{ head := x; tail := p'} \* (x ~> R X) \* (p' ~> MListOf R L')
-  end.
-
-Lemma MListOf_eq : forall A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc),
-  p ~> MListOf R L =
-  match L with
-  | nil => \[p = null]
-  | X::L' => \exists x p', p ~> Record`{ head := x; tail := p'} \* (x ~> R X) \* (p' ~> MListOf R L')
-  end.
-Proof using. intros. xunfold MListOf at 1. destruct~ L. Qed.
-
-(*
-  \exists v, p ~~> v \*
-  match L with
-  | nil => \[v = Nil]
-  | x::L' => \exists X p', \[v = Cons x p'] \* (x ~> RA X) \* (p' ~> MList L')
-  end.
-*)
-
-Section Ops.
-
-Context A {EA:Enc A} TA (R:TA->A->hprop).
-Implicit Types L : list TA.
-Implicit Types p : loc.
-Implicit Types x : A.
-Implicit Types X : TA.
-
-Parameter create : val.
-
-Parameter Triple_create : 
-  TRIPLE (create tt)
-    PRE \[]
-    POST (fun p => p ~> MListOf R nil).
-
-Parameter is_empty : val.
-
-Parameter Triple_is_empty : forall L p,
-  TRIPLE (is_empty p)
-    PRE (p ~> MListOf R L)
-    POST (fun b => \[b = isTrue (L = nil)] \* p ~> MListOf R L).
-
-Parameter push : val.
-
-Parameter Triple_push : forall L p x X,
-  TRIPLE (push p ``x)
-    PRE (p ~> MListOf R L \* x ~> R X)
-    POST (fun (_:unit) => p ~> MListOf R (X::L)).
-
-Parameter pop : val.
-
-Parameter Triple_pop : forall L p,
-  L <> nil ->
-  TRIPLE (pop p)
-    PRE (p ~> MListOf R L)
-    POST (fun x => \exists X L', \[L = X::L'] \* x ~> R X \* p ~> MListOf R L').
-
-End Ops.
-
-Module Export Hints.
-Hint Extern 1 (Register_Spec (create)) => Provide @Triple_create.
-Hint Extern 1 (Register_Spec (is_empty)) => Provide @Triple_is_empty.
-Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
-Hint Extern 1 (Register_Spec (pop)) => Provide @Triple_pop.
-End Hints.
-
-Global Opaque MList.MListOf.
-
-End MList.
 
 
 (* ####################################################### *)
@@ -459,32 +381,15 @@ Definition pop_min : val :=
       Else 'p ':= merge_pairs ('q'.sub) )';
 		'x.
 
-(**
-[[
-Fixpoint Repr (h:heap) (q:loc) : hprop :=
-  match h with
-  | Node x hs => 
-      \exists q',
-         q ~> Record`{ value := x; sub := q' } 
-      \* q' ~> MListOf Repr hs
-  end.
-]]
-*)
 
-Fixpoint Tree (n:node) (q:loc) : hprop :=
+
+Fixpoint Tree (n:node) (q:loc) { struct n } : hprop :=
   match n with
   | Node x hs => 
-      \exists l,
-       q ~> Record`{ value := x; sub := l } \*
-      (fix MListOf L p : hprop :=
-      match L with
-      | nil => \[p = null]
-      | X::L' => \exists (x:loc) p', 
-                    p ~> Record`{ MList.head := x; MList.tail := p'} 
-                   \* (x ~> Tree X) \* (p' ~> MListOf L')
-      end) hs l
+      \exists (q':loc),
+         q ~> Record`{ value := x; sub := q' } 
+      \* q' ~> M.MListOf Tree hs
   end.
-
 
 Definition Repr (E:elems) (q:loc) : hprop :=
   \exists n, q ~> Tree n \* \[inv n E].
@@ -497,28 +402,11 @@ Definition Heap (E:elems) (p:loc) : hprop :=
 
 
 
-Lemma Tree_eq : forall n q,
-  q ~> Tree n =
-    match n with
-    | Node x hs =>
-        \exists l, q ~> Record`{ value := x; sub := l }
-                \* l ~> MList.MListOf Tree hs
-  end.
-Proof using.
-  intros n. induction n as [x hs]; intros.
-  xunfold Tree. fequals; applys fun_ext_1 ;=> l. fequals.
-  gen l. induction hs as [|n hs']; intros.
-  { auto. }
-  { rewrite MList.MListOf_eq. fequals; applys fun_ext_1 ;=> y.
-    fequals; applys fun_ext_1 ;=> p'. fequals. fequals.
-    rewrite~ <- IHhs'. }
-Qed.
-
 Lemma Tree_Node : forall q x hs,
   q ~> Tree (Node x hs) =
       \exists l, q ~> Record`{ value := x; sub := l }
-              \* l ~> MList.MListOf Tree hs.
-Proof using. intros. rewrite~ Tree_eq. Qed.
+              \* l ~> M.MListOf Tree hs.
+Proof using. auto. Qed.
 
 
 Lemma Repr_eq : forall q E,
@@ -536,7 +424,7 @@ Lemma Repr_not_null : forall q E,
 Proof using.
   intros. xunfold Repr. xpull ;=> n I. destruct n as [x hs].
   rewrite Tree_Node. xpull ;=> l. xchange* Record_not_null ;=> N.
-  xsimpl~ (Node x hs). rewrite Tree_eq. xsimpl.
+  xsimpl~ (Node x hs). rewrite Tree_Node. xsimpl.
 Qed.
 
 Lemma Contents_eq : forall E q,
@@ -578,9 +466,6 @@ Qed.
 Lemma Heap_of_null : forall p,
   p ~~> null ==> p ~> Heap \{}.
 Proof using. intros. xchanges Contents_null. xchange <- Heap_eq. Qed.
-
-
-Import MList.Hints.
 
 
 (* ******************************************************* *)
@@ -646,7 +531,7 @@ Lemma Triple_merge_pairs : forall ns l Es,
   ns <> nil ->
   Forall2 inv ns Es ->
   TRIPLE (merge_pairs l)
-    PRE (l ~> MList.MListOf Tree ns)
+    PRE (l ~> MListOf Tree ns)
     POST (fun q => q ~> Repr (list_union Es)).
 Proof using.
   intros ns. induction_wf IH: (@list_sub node) ns; introv N Is.

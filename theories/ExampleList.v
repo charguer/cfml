@@ -36,6 +36,142 @@ Ltac auto_star ::=
                     | auto_false_base ltac:(fun tt => intuition eauto) ] ].
 
 
+
+(* ********************************************************************** *)
+(* * TODO: move *)
+
+
+
+Definition sep_monoid := monoid_make hstar hempty.
+
+Global Instance Monoid_sep : Monoid sep_monoid.
+Proof using. constructor; simpl; intros_all; xsimpl. Qed.
+
+Global Instance Comm_monoid_sep : Comm_monoid sep_monoid.
+Proof using.
+  constructor; simpl.
+  applys Monoid_sep.
+  intros_all. apply hstar_comm.
+Qed.
+
+(* ---------------------------------------------------------------------- *)
+(** [hfold_list] *)
+
+Definition hfold_list A (f:A->hprop) := fix F (l:list A) : hprop := 
+  match l with 
+  | nil => \[]
+  | x::l' => f x \* F l'
+  end.
+
+Definition hfold_list' A (f:A->hprop) (l:list A) : hprop :=
+  LibList.fold sep_monoid f l.
+
+Lemma hfold_list_eq : 
+  hfold_list = hfold_list'.
+Proof using.
+  applys fun_ext_3 ;=> A f l. induction l as [|x l'].
+  { auto. }
+  { unfold hfold_list'. rewrite fold_cons. simpl. rewrite~ IHl'. }
+Qed.
+
+Section HfoldList.
+Variables (A:Type).
+Implicit Types l : list A.
+Implicit Types f : A->hprop.
+Hint Resolve Monoid_sep.
+
+Lemma hfold_list_nil : forall f,
+  hfold_list f nil = \[].
+Proof using. auto. Qed.
+(* intros. rewrite hfold_list_eq; unfold hfold_list'. rewrite~ fold_nil. *)
+
+Lemma hfold_list_cons : forall f x l,
+  hfold_list f (x::l) = (f x) \* (hfold_list f l).
+Proof using. auto. Qed.
+(* intros. repeat rewrite hfold_list_eq; unfold hfold_list'. rewrite~ fold_cons. *)
+
+Lemma hfold_list_one : forall f x,
+  hfold_list f (x::nil) = f x.
+Proof using. intros. simpl. xsimpl. Qed.
+(*
+Proof using. intros. rewrite hfold_list_eq; unfold hfold_list'. rewrite~ fold_one. Qed.
+*)
+(*
+
+Lemma hfold_list_app : forall f l1 l2,
+  hfold_list f (l1 ++ l2) = (hfold_list f l1) \* (hfold_list f l2).
+Proof using. intros. repeat rewrite hfold_list_eq; unfold hfold_list'. rewrite~ fold_app. Qed.
+
+Lemma hfold_list_last : forall f x l,
+  hfold_list f (l & x) = (hfold_list f l) \* (f x).
+Proof using. intros. repeat rewrite hfold_list_eq; unfold hfold_list'. rewrite~ fold_last. Qed.
+*)
+
+End HfoldList.
+
+Hint Rewrite hfold_list_nil hfold_list_cons hfold_list_one : rew_heapx.
+(* hfold_list_app hfold_list_last*) 
+
+
+(* ---------------------------------------------------------------------- *)
+(** [hfold_list2] *)
+
+Definition hfold_list2 A B (f:A->B->hprop) :=
+  fix F (l1:list A) (l2:list B) { struct l1 } : hprop := 
+  match l1,l2 with 
+  | nil, nil => \[]
+  | x1::l1', x2::l2' => f x1 x2 \* F l1' l2'
+  | _, _ => arbitrary
+  end.
+
+(*
+Definition hfold_list2' A B (f:A->B->hprop) (l1:list A) (l2:list B) : hprop :=
+  hfold_list' (fun '(x1,x2) => f x1 x2) (LibList.combine l1 l2).
+
+-- only for same lengths
+Lemma hfold_list2_eq : 
+  hfold_list2 = hfold_list2'.
+Proof using.
+  unfold hfold_list2', hfold_list'. applys fun_ext_5 ;=> A B f l1.
+  induction l1 as [|x1 l1']; intros l2; destruct l2 as [|x2 l2'].
+  { rewrite . }
+  { unfold hfold_list'. rewrite fold_cons. simpl. rewrite~ IHl'. }
+Qed.
+*)
+
+Section HfoldList2.
+Variables (A B:Type).
+Implicit Types f : A->B->hprop.
+
+Lemma hfold_list2_nil : forall f,
+  hfold_list2 f nil nil = \[].
+Proof using. auto. Qed.
+(* intros. unfold hfold_list2. rew_listx. rewrite~ hfold_list_nil.  *)
+
+Lemma hfold_list2_cons : forall f x1 x2 l1 l2,
+  hfold_list2 f (x1::l1) (x2::l2) = (f x1 x2) \* (hfold_list2 f l1 l2).
+Proof using. auto. Qed.
+
+Lemma hfold_list2_one : forall f x1 x2,
+  hfold_list2 f (x1::nil) (x2::nil) = f x1 x2.
+Proof using. intros. simpl. xsimpl. Qed.
+
+End HfoldList2.
+
+Hint Rewrite hfold_list2_nil hfold_list2_cons hfold_list2_one : rew_heapx.
+
+Tactic Notation "rew_heapx" := 
+  autorewrite with rew_heapx.
+Tactic Notation "rew_heapx" "~" := 
+  rew_heapx; auto_tilde.
+Tactic Notation "rew_heapx" "*" := 
+  rew_heapx; auto_star.
+
+
+
+
+
+
 (* ********************************************************************** *)
 (* * Towards a representation *)
 
@@ -426,96 +562,6 @@ Proof using.
 Qed.
 
 Hint Extern 1 (Register_Spec (pop)) => Provide @Triple_pop.
-
-
-
-(* ********************************************************************** *)
-(* * TODO: move *)
-
-
-
-Definition sep_monoid := monoid_make hstar hempty.
-
-Global Instance Monoid_sep : Monoid sep_monoid.
-Proof using. constructor; simpl; intros_all; xsimpl. Qed.
-
-Global Instance Comm_monoid_sep : Comm_monoid sep_monoid.
-Proof using.
-  constructor; simpl.
-  applys Monoid_sep.
-  intros_all. apply hstar_comm.
-Qed.
-
-(* ---------------------------------------------------------------------- *)
-(** [hfold_list] *)
-
-Definition hfold_list A (f:A->hprop) (l:list A) : hprop :=
-  LibList.fold sep_monoid f l.
-
-Section HfoldList.
-Variables (A:Type).
-Implicit Types l : list A.
-Implicit Types f : A->hprop.
-Hint Resolve Monoid_sep.
-
-Lemma hfold_list_nil : forall f,
-  hfold_list f nil = \[].
-Proof using. intros. unfold hfold_list. rewrite~ fold_nil. Qed.
-
-Lemma hfold_list_cons : forall f x l,
-  hfold_list f (x::l) = (f x) \* (hfold_list f l).
-Proof using. intros. unfold hfold_list. rewrite~ fold_cons. Qed.
-
-Lemma hfold_list_one : forall f x,
-  hfold_list f (x::nil) = f x.
-Proof using. intros. unfold hfold_list. rewrite~ fold_one. Qed.
-
-Lemma hfold_list_app : forall f l1 l2,
-  hfold_list f (l1 ++ l2) = (hfold_list f l1) \* (hfold_list f l2).
-Proof using. intros. unfold hfold_list. rewrite~ fold_app. Qed.
-
-Lemma hfold_list_last : forall f x l,
-  hfold_list f (l & x) = (hfold_list f l) \* (f x).
-Proof using. intros. unfold hfold_list. rewrite~ fold_last. Qed.
-
-End HfoldList.
-
-Hint Rewrite hfold_list_nil hfold_list_cons 
-             hfold_list_one hfold_list_app hfold_list_last : rew_heapx.
-
-
-(* ---------------------------------------------------------------------- *)
-(** [hfold_list2] *)
-
-Definition hfold_list2 A B (f:A->B->hprop) (l1:list A) (l2:list B) : hprop :=
-  hfold_list (fun '(x1,x2) => f x1 x2) (LibList.combine l1 l2).
-
-Section HfoldList2.
-Variables (A B:Type).
-Implicit Types f : A->B->hprop.
-
-Lemma hfold_list2_nil : forall f,
-  hfold_list2 f nil nil = \[].
-Proof using. intros. unfold hfold_list2. rew_listx. rewrite~ hfold_list_nil. Qed.
-
-Lemma hfold_list2_cons : forall f x1 x2 l1 l2,
-  hfold_list2 f (x1::l1) (x2::l2) = (f x1 x2) \* (hfold_list2 f l1 l2).
-Proof using. intros. unfold hfold_list2. rew_listx. rewrite~ hfold_list_cons. Qed.
-
-Lemma hfold_list2_one : forall f x1 x2,
-  hfold_list2 f (x1::nil) (x2::nil) = f x1 x2.
-Proof using. intros. unfold hfold_list2. rew_listx. rewrite~ hfold_list_one. Qed.
-
-End HfoldList2.
-
-Hint Rewrite hfold_list2_nil hfold_list2_cons hfold_list2_one : rew_heapx.
-
-Tactic Notation "rew_heapx" := 
-  autorewrite with rew_heapx.
-Tactic Notation "rew_heapx" "~" := 
-  rew_heapx; auto_tilde.
-Tactic Notation "rew_heapx" "*" := 
-  rew_heapx; auto_star.
 
 
 
@@ -925,7 +971,7 @@ Module MListOf.
 
 Definition MListOf A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc) : hprop :=
   \exists (l:list A), \[length l = length L] \* p ~> MList l
-                      \* hfold_list2 (fun x X => x ~> R X) l L. 
+                      \* hfold_list2 (fun X x => x ~> R X) L l. 
 
 
 (*
@@ -1015,6 +1061,26 @@ Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
 Hint Extern 1 (Register_Spec (pop)) => Provide @Triple_pop.
 
 Global Opaque MListOf.
+
+(* Bad:
+
+
+Fixpoint MListOf A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc) : hprop :=
+  match L with
+  | nil => \[p = null]
+  | X::L' => \exists x p', p ~> Record`{ head := x; tail := p'} \* (x ~> R X) \* (p' ~> MListOf R L')
+  end.
+
+Lemma MListOf_eq : forall A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc),
+  p ~> MListOf R L =
+  match L with
+  | nil => \[p = null]
+  | X::L' => \exists x p', p ~> Record`{ head := x; tail := p'} \* (x ~> R X) \* (p' ~> MListOf R L')
+  end.
+Proof using. intros. xunfold MListOf at 1. destruct~ L. Qed.
+
+
+*)
 
 End MListOf.
 
