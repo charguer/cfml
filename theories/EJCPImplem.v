@@ -9,6 +9,7 @@ License: MIT.
 
 Set Implicit Arguments.
 From Sep Require Import SLFDirect.
+Generalizable Variables A.
 
 
 (* ####################################################### *)
@@ -61,19 +62,40 @@ Definition heap : Type := state.
 ]]
 *)
 
+(** [Fmap] operations require [val] to be inhabited. *)
+
+Global Instance Inhab_val : Inhab val.
+Proof using. apply (Inhab_of_val val_unit). Qed.
+
+(** Example term *)
+
 Definition example_trm : trm :=
   trm_fun "x" (trm_if (trm_var "x") (trm_val (val_int 0)) (trm_val (val_int 1))).
 
+(** Coercions, e.g. *)
+
 Coercion trm_val : val >-> trm.
 Coercion val_int : Z >-> val.
+Coercion trm_app : trm >-> Funclass.
 
-Definition example_trm' : trm :=
-  Fun "x" :=
-    If_ "x" Then 0 Else 1.
-
+(** With notation, can write:
+[[
+  Definition example_trm' : trm :=
+    Fun "x" :=
+      If_ "x" Then 0 Else 1.
+]]
+*)
 
 (* ******************************************************* *)
 (** ** Semantics *)
+
+Implicit Types v : val.
+
+(** Substitution function *)
+
+Parameter subst : forall (y:var) (w:val) (t:trm), trm.
+
+(** Big-step semantics *)
 
 Inductive eval : state -> trm -> state -> val -> Prop :=
 
@@ -108,7 +130,7 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       eval s2 (subst x v1 t2) s3 r ->
       eval s1 (trm_let x t1 t2) s3 r
   | eval_if_case : forall s1 s2 b v t1 t2,
-      eval s1 (if b then t1 else t2) s2 v ->
+      eval s1 (if (b:bool) then t1 else t2) s2 v ->
       eval s1 (trm_if (val_bool b) t1 t2) s2 v
 
   (* [eval] for primitive operations *)
@@ -222,10 +244,14 @@ Module Himpl.
 (* ******************************************************* *)
 (** ** Definition of entailment *)
 
+(** Definition of [H1 ==> H2] *)
+
 Definition himpl (H1 H2:hprop) : Prop :=
   forall (h:heap), H1 h -> H2 h.
 
 Notation "H1 ==> H2" := (himpl H1 H2) (at level 55).
+
+(** Entailment is an order relation *)
 
 Parameter himpl_refl : forall H,
   H ==> H.
@@ -240,14 +266,13 @@ Lemma himpl_antisym : forall H1 H2,
   (H2 ==> H1) ->
   H1 = H2.
 Proof using.
-  introv M1 M2. applys hprop_eq.
+  introv M1 M2. applys Hprop.hprop_eq.
   intros h. iff N.
   { applys M1. auto. }
   { applys M2. auto. }
 Qed.
 
-(* ******************************************************* *)
-(** ** Entailment on postconditions *)
+(** Definition of [Q1 ==> Q2] *)
 
 Definition qimpl (Q1 Q2:val->hprop) : Prop :=
   forall (v:val), Q1 v ==> Q2 v.
@@ -308,19 +333,26 @@ Module Triple.
 (* ******************************************************* *)
 (** ** Triples *)
 
+(** [hoare t H Q] features pre- and post-conditions describing
+    the full state. *)
+
 Definition hoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (s:state), H s ->
   exists (s':state) (v:val), eval s t s' v /\ Q v s'.
 
+(** [triple1 t H Q] features pre- and post-conditions describing
+    only a piece of state. *)
+
 Definition triple1 (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (H':hprop), hoare t (H \* H') (Q \*+ H').
+
+(** [triple t H Q] adds a [\Top] to make the logic affine as 
+    opposed to linear: resources can be freely thrown away. *)
 
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (H':hprop), hoare t (H \* H') (Q \*+ H' \*+ \Top).
 
-
-(* ******************************************************* *)
-(** ** Triple low-level *)
+(** An alternative, equivalent definition of triples *)
 
 Definition fmap_disjoint_3 (h1 h2 h3:heap) :=
      Fmap.disjoint h1 h2
@@ -341,28 +373,27 @@ Parameter triple_iff_triple_lowlevel : forall t H Q,
 
 
 (* ******************************************************* *)
-(** ** Frame rule *)
+(** ** Frame *)
+
+(** The frame rule *)
 
 Parameter triple_frame : forall t H Q H',
   triple t H Q ->
   triple t (H \* H') (Q \*+ H').
+
+(** Example application of the frame *)
+
+Parameter incr : val.
 
 Parameter triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
     (p ~~~> n)
     (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
 
-Lemma triple_incr_2 : forall (p q:loc) (n m:int),
+Parameter triple_incr_2 : forall (p q:loc) (n m:int),
   triple (incr p)
     ((p ~~~> n) \* (q ~~~> m))
     (fun v => \[v = val_unit] \* (p ~~~> (n+1)) \* (q ~~~> m)).
-Proof using.
-  intros. lets M: triple_incr p n.
-  lets N: triple_frame (q ~~~> m) M.
-  applys_eq N 1 2.
-  { auto. }
-  { apply qprop_eq. intros v. rewrite hstar_assoc. auto. }
-Qed.
 
 Parameter triple_incr_3 : forall (p:loc) (n:int) (H:hprop),
   triple (incr p)
@@ -535,6 +566,7 @@ Parameter wp_equiv : forall t H Q,
 Parameter wp_pre : forall t Q,
   triple t (wp t Q) Q.
 
+
 (* ******************************************************* *)
 (** ** Benefits *)
 
@@ -552,14 +584,14 @@ Parameter wp_conseq_frame_htop : forall t H Q1 Q2,
 
 (** Reformulation of the reasoning rules for terms *)
 
-Lemma wp_seq : forall t1 t2 Q,
+Parameter wp_seq : forall t1 t2 Q,
   wp t1 (fun r => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
 
-Lemma wp_let : forall x t1 t2 Q,
+Parameter wp_let : forall x t1 t2 Q,
   wp t1 (fun v => wp (subst x v t2) Q) ==> wp (trm_let x t1 t2) Q.
 
-
 End Wpsem.
+
 
 (* ####################################################### *)
 (** * Characteristic formula (extract from [SLFWPgen]) *)
@@ -571,6 +603,7 @@ Module Wpgen.
 
 Definition formula := (val->hprop) -> hprop.
 
+(** Definition of the characteristic formula generator *)
 (* 
 [[
     Fixpoint wpgen (t:trm) : formula :=
@@ -596,12 +629,17 @@ Definition formula := (val->hprop) -> hprop.
 
 ]]
 *)
+Module Wpgen1.
+
+Parameter wpgen : forall (t:trm), formula.
 
 (** Role of [mkstruct] is to ensure that the ramified frame rule
     can be applied to any formula produced by [wpgen], that is: *)
 
 Parameter wpgen_ramified : forall t Q1 Q2,
   (wpgen t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wpgen t Q2).
+
+End Wpgen1.
 
 (** [mkstruct] is a formula transformer *)
 
@@ -757,8 +795,9 @@ Qed.
 
 (** Inductive proof of soundness *)
 
-Lemma wpgen_sound : forall E t,
+Parameter wpgen_sound : forall E t,
   formula_sound_for (isubst E t) (wpgen E t).
+(**
 Proof using.
   intros. gen E. induction t; intros; simpl;
    applys mkstruct_sound.
@@ -776,6 +815,7 @@ Proof using.
   { case_eq (isubst E t1); intros; try applys wpgen_fail_sound.
     { applys wpgen_if_sound. { applys IHt2. } { applys IHt3. } } }
 Qed.
+*)
 
 Parameter triple_of_wpgen : forall t H Q,
   H ==> wpgen nil t Q ->
@@ -791,12 +831,18 @@ Notation "'Seq' F1 ; F2" :=
   (at level 68, right associativity,
    format "'[v' 'Seq'  '[' F1 ']'  ;  '/'  '[' F2 ']' ']'") : wp_scope.
 
-(** The tag trick *)
+(** Tactic [xseq] applies to goal of the form [(Seq F1 ; F2) Q] *)
+
+Parameter xseq_lemma : forall H F1 F2 Q,
+  H ==> F1 (fun v => F2 Q) ->
+  H ==> mkstruct (wpgen_seq F1 F2) Q.
+
+Tactic Notation "xseq" :=
+   applys xseq_lemma.
+
+(** The tag trick (displayed as [`F] in CFML) *)
 
 Definition wptag (F:formula) : formula := F.
-
-Notation "'`' F" := (wptag F)
-  (at level 69, F at level 100, format "'`' F") : wp_scope.
 
 (** Integration:
 [[
@@ -805,21 +851,17 @@ Notation "'`' F" := (wptag F)
 ]]
 *)
 
-(** Notation for goals involving tagged formulae *)
+(** Notation for goals involving tagged formulae in the form
+[[
+    PRE H
+    CODE F
+    POST Q
+]]
+*)
 
-Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (Wptag F) _ _ Q)
+Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (wptag F) Q)
   (at level 8, H, F, Q at level 0,
    format "'[v' 'PRE'  H  '/' 'CODE'  F '/' 'POST'  Q ']'") : wp_scope.
-
-(** Tactic [xseq] applies to goal of the form [`(Seq F1 ; F2) Q] *)
-
-Lemma xseq_lemma : forall H F1 F2 Q,
-  H ==> F1 (fun v => F2 Q) ->
-  H ==> wptag (mkstruct (wpgen_seq F1 F2)) Q.
-Proof using. introv M. xchange M. Qed.
-
-Tactic Notation "xseq" :=
-   applys xseq_lemma.
 
 End Wpgen.
 
@@ -840,10 +882,14 @@ Class Enc (A:Type) :=
 
 Notation "`` V" := (enc V) (at level 8, format "`` V").
 
-(** Example instance *)
+(** Example instances *)
 
 Instance Enc_int : Enc int.
 Proof using. constructor. applys val_int. Defined.
+
+Instance Enc_unit : Enc unit.
+Proof using. constructor. intros. applys val_unit. Defined.
+
 
 
 (* ******************************************************* *)
@@ -866,7 +912,7 @@ Notation "l '~~>' V" := (l ~> Hsingle V)
     type [A->hprop] for some encodable type [A] *)
 
 Definition Triple (t:trm) `{EA:Enc A} (H:hprop) (Q:A->hprop) : Prop :=
-  triple t H (\exists V, \[v = enc V] \* Q V).
+  triple t H (fun v => \exists V, \[v = enc V] \* Q V).
 
 (** Lifted rule for sequence: [Q1] has type [unit->hprop] *)
 
@@ -899,10 +945,12 @@ Definition Formula := forall A (EA:Enc A), (A -> hprop) -> hprop.
 Notation "^ F Q" := ((F:Formula) _ _ Q)
   (at level 45, F at level 0, Q at level 0, format "^ F  Q") : wp_scope.
 
+Open Scope wp_scope.
+
 (** The [MkStruct] predicate lifts [mkstruct]. *)
 
 Definition MkStruct (F:Formula) : Formula :=
-  fun A `{EA:Enc A} Q => mkstruct (@F A EA) Q.
+  fun A `{EA:Enc A} Q => \exists Q', ^F Q' \* (Q' \--* (Q \*+ \GC)).
 
 (** Lifted characteristic formula generator *)
 
@@ -910,7 +958,7 @@ Definition Wpgen_seq (F1 F2:Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
     ^F1 (fun (X:unit) => ^F2 Q)).
 
-Definition Wpgen_let (F1:Formula) (F2of:forall A1 (EA1:Enc A1),A1->Formula) : Formula :=
+Definition Wpgen_let (F1:Formula) (F2of:forall `{EA1:Enc A1} ,A1->Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
     \exists (A1:Type) (EA1:Enc A1), ^F1 (fun (X:A1) => ^(F2of X) Q)).
 
@@ -928,12 +976,13 @@ Fixpoint Wpgen (E:ctx) (t:trm) : Formula :=
 ]]
 *)
 
+Parameter Wpgen : forall (E:ctx) (t:trm), Formula.
+
 (** Soundness theorem *)
 
 Parameter Triple_of_Wpgen : forall (t:trm) H `{EA:Enc A} (Q:A->hprop),
   H ==> ^(Wpgen nil t) Q ->
   Triple t H Q.
-
 
 End Lift.
 
