@@ -114,8 +114,8 @@ t1 ':= t2
 t1 '+ t1
 t1 '= t2
 
-Tactics for entailment
-======================
+Tactics for entailments
+=======================
 
 xpull
    applies e.g. to:    \exists x, \[x = 3] \* H1 ==> H2
@@ -130,22 +130,25 @@ xsimpl X1 XN
    instantiates x1 := X1 and x2 := X2, then call xsimpl
 
 xchange M
-   where M :     H1 ==> H2         or     H1 = H2
+   where M:      H1 ==> H2         or     H1 = H2
    applies to:   H1 \* H3 ==> H4
    produces:     H2 \* H3 ==> H4
 
 xchange <- M
-   where M :     H1 = H2
+   where M:      H1 = H2
    applies to:   H2 \* H3 ==> H4
    produces:     H1 \* H3 ==> H4
 
 xchanges E
-   invokes xchange then xsimpl
+   invokes "xchange E" then "xsimpl"
+
+xunfold R
+   applies to:   p ~> R X
+   changes to:   R X p
 
 
-
-Structural tactics for CF
-=========================
+Tactics for structural rules
+============================
 
 xwp         TRIPLE (f v) PRE H POST Q
    turns the goal into H ==> wpgen (f v) Q
@@ -155,29 +158,32 @@ xtriple     TRIPLE (f v) PRE H POST Q
    turns the goal into H ==> `App f v Q
    useful to prove a derived specification
 
-xgc         H ==> ^F Q
-   turns to H ==> ^F Q \* \GC
+xgc             H ==> ^F Q
+   turns into:  H ==> ^F Q \* \GC
 
-xcast
+xcast           H ==> ^(Cast V) Q
+   turns into:  H ==> Q V
 
-xpost
+xpost Q'        H ==> ^F Q
+   turns into:  H ==> ^F Q'   and   Q' ===> Q
 
 
-xframe
+Term tactics for term rules
+===========================
 
-Term tactics for CF
-===================
-
-xfail       H ==> `Fail Q
+xfail       H ==> ^(`Fail) Q
    turns the goal to [False]
 
-xval        H ==> (`Val v) Q
+xval        H ==> ^(`Val v) Q
    turns the goal to H ==> Q v
 
-xval V
+xval V      H ==> ^(`Val v) Q
    specifies the value of which v is the encoding
 
-xapp        H ==> `App f v Q
+xfun        H ==> ^(`Val (val_fun x t)) Q
+   instantiates Q as the specification for the function
+
+xapp        H ==> ^(`App f v) Q
    exploits the registered specification Triple for f
 
 xapp E
@@ -189,91 +195,91 @@ xapp_nosubst
 xappn
    repeat xapp
 
-xseq        H ==> `Seq F1 F2 Q
+xseq        H ==> ^(`Seq F1 F2) Q
    remark: xapp usually applies directly
 
-xlet        H ==> (`Let 'x := F1 F2) Q
+xlet        H ==> ^(`Let 'x := F1 F2) Q
    remark: xapp usually applies directly
 
-xif         H ==> (`If b Then F1 Else F2)
+xif         H ==> ^(`If b Then F1 Else F2) Q
+   performs the case analysis
+
+xcase       H ==>^ (`Case ..) Q
+   performs the case analysis
+
 
 TLC tactics
 ===========
-
-Notation
---------
 
 E: stands for an expression
 H: stands for an existing hypothesis
 X: stands for a fresh identifier
 I: stands for an introduction pattern
-R: stands for a definition (a "reference")
-__: is a special notation for "wildcard"
 
-foo ;=> I1 .. IN     (same as [foo; intros I1 .. IN])
-introv I1 I2 .. IN   (introduction that inputs only the name of hypotheses, not variables)
+A tactic followed with the symbol "~" triggers call to [auto] on all subgoals
+A tactic followed with the symbol "*" triggers call to [jauto], a variant of [induction eauto]
+A tactic arguments may have a subterm "rm X" to trigger a call to "clear X" after the tactic
 
-gen H1 H2 .. HN      (generalizes and clears hypotheses and their dependencies)
-clears H1 ... HN     (clears hypotheses and their dependencies)
-sets X: E            (defines X as a local definition for E, and replaces occurences of E with X)
-sets_eq X: E         (introduces a name X and an equality X = E, and replaces occurences of E with X)
+Most useful tactics
+-------------------
+
+foo ;=> I1 .. IN     (shorthand for "foo; intros I1 .. IN")
+introv I1 I2 .. IN   (introduction tactic that inputs only the name of hypotheses, not of variables)
+
+inverts H             (inversion followed with substitution of all equalities produced)
+inverts H as I1..IN   (similar to "inverts H", but produced hypotheses are named explictly)
+invert H              (similar to "inverts H", but no substitution is performed, everything is left in the goal)
+
+lets I: E0 E1 ... EN        (instantiates a lemma E0 on arguments Ei and names the result)
+applys E0 E1 ... EN         (instantiates a lemma E0 on arguments Ei and apply the result to the goal)
+specializes H E1 ... EN     (instantiates an hypothesis H in-place on the arguments Ei)
+forwards I: E0 E1 .. EN     (instantiates a lemma on all its arguments, same as "lets I: E0 E1 .. EN __ __ .. __")
+rewrites (>> E0 E1 ... EN)  (instantiates a lemma E0 arguments Ei, then perform a "rewrite" with the result)
+applys_eq E0 i1 .. iN       (applys a lemma E0 up to equality on arguments at specified indices i1 .. iN)
+
+In all tactics above, "E0 E1 .. EN" may be written "(>> E0 E1 ... EN)", as shown for the tactic "rewrites".
+Any of the arguments E1 .. EN may be a wildcard, written "__".
+
+Very useful tactics
+-------------------
+
+false             (replaces the goal by "False", and kills it if obvious contradictions are found)
+false E           (a shorthand for [false; applys E])
+tryfalse          (solves the goal if [false] kills it, else does nothing)
+
+fequals           (improved implementation of "f_equal", leveraging the "congruence" tactice)
+simpls            (shorthand for "simpl in *")
+unfolds R         (shorthand for "unfold R in *")
+
+case_if           (performs a case analysis on the first "if" statement in the goal)
+cases E as I      (performs a case analysis on E, remembering the equality as I)
+
 asserts I: E      (asserts statement E as first subgoal, destruct E as I in the second goal)
 cuts I: E         (asserts statement E as second subgoal, destruct E as I in the first goal)
-
-Absurd goals
-false             (replaces the goal by "False", and try to solve it with contradiction and discriminate)
-false E           (shorthand for [false; applys E])
-tryfalse          (proves a goal by contradiction or discriminate, or do nothing)
-
-Logical constructs
-iff              (tactic to prove an equivalence)
-splits           (splits an N-ary conjunction into N goals)
-branch N         (selects the N-th branch of a M-ary disjunction)
-exists E1 .. EN  (to provide witnesses to an N-ary existential goal, wildcards are supported)
-
-Case analysis and inversion
-cases E as I          (case analysis on E, remembering the equality as H)
-case_if as I          (case analysis on the first "if" statement in the goal)
-
-inverts H             (inversion followed with substitution of freshly introduced variables)
-inverts H as I1..IN   (same as inverts H, but allows to name produced hypotheses)
-invert H              (same as inverts H, but leaves hypotheses in the goal)
-
-Induction
-inductions_wf X: E H  (applies the well-founded induction principle for a particular well-founded relation)
-gen_eq X: E           (generalize X as E and add "X = E" as hypothesis in the goal, useful for induction)
-
-Working with equalities
-
-fequals           (improved implementation of f_equal  calls congruence, and better on tuples)
 asserts_rewrite E (rewrites with E and generates E as first subgoal)
 cuts_rewrite E    (rewrites with E and generates E as second subgoal)
+sets X: E         (defines X as a local definition for E, and replaces occurences of E with X)
+sets_eq X: E      (introduces a name X and an equality X = E, and replaces occurences of E with X)
+clears H1 ... HN  (clears hypotheses Hi and their dependencies)
 
-Simplification and unfolding
-simpls        (simpl everywhere in hypotheses and conclusion)
-unfolds R     (unfolds the definition of R in hypotheses and conclusion)
+iff               (tactic to split an equivalence "P <-> Q")
+splits            (splits an N-ary conjunction into N goals)
+branch N          (selects the N-th branch of a disjunction with several branches)
+exists E1 .. EN   (provides witnesses to an N-ary existential goal, wildcards "__" are supported)
 
-Automation
-- any tactic name followed with the symbol "~" will call [auto] on all subgoals
-- any tactic name followed with the symbol "*" will call [jauto], a variant of [induction eauto]
+inductions_wf I: E X  (exploit well-founded induction, E is a measure or relation, X the argument, I the hypothesis)
+gen_eq X: E           (generalize X as E and add "X = E" as hypothesis in the goal, useful for inductions)
+gen H1 H2 .. HN       (generalizes and clears the hypotheses Hi and their dependencies, like "dependent generalize")
 
+Normalization tactics
+---------------------
 
-Below, H stands for the lemma to be instantiated, and the names Ei correspond to the arguments.
-Note that wildcards, written "__", can be provided in place of any argument.
-
-lets I: H E1 ... EN                    (instantiates a lemma and names it)
-applys H E1 ... EN                     (instantiates a lemma and applies it)
-specializes H E1 ... EN                (instantiates an hypothesis H in-place)
-forwards I: H E1 .. EN                 (instantiates a lemma on all its arguments, same as "lets I: H E1 .. EN __ __ .. __"
-rewrites (>> H E1 ... EN)              (instantiates a lemma, then rewrite with it)
-
-Variant syntax:
-   lets I: (>> H E1 ... EN)
+rew_list          (normalizes basic list functions, e.g. "++" and "length")
+rew_listx         (normalizes advanced list functions, e.g. "map")
+rew_heap          (normalizes Separation Logic expressions)
+rew_bool_eq       (normalizes expressions involving "isTrue", in particular)
+rew_fmap          (normalizes finite map expressions)
 
 
-applys_eq H i1 .. iN                   (applys H up to equality on arguments of the goal at specified indices)
 
-Clear variables
-
-Any subterm can be of the form rm X, which indicates that the variable X should be cleared after the operation is complete.
 
