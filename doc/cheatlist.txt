@@ -196,3 +196,84 @@ xlet        H ==> (`Let 'x := F1 F2) Q
    remark: xapp usually applies directly
 
 xif         H ==> (`If b Then F1 Else F2)
+
+TLC tactics
+===========
+
+Notation
+--------
+
+E: stands for an expression
+H: stands for an existing hypothesis
+X: stands for a fresh identifier
+I: stands for an introduction pattern
+R: stands for a definition (a "reference")
+__: is a special notation for "wildcard"
+
+foo ;=> I1 .. IN     (same as [foo; intros I1 .. IN])
+introv I1 I2 .. IN   (introduction that inputs only the name of hypotheses, not variables)
+
+gen H1 H2 .. HN      (generalizes and clears hypotheses and their dependencies)
+clears H1 ... HN     (clears hypotheses and their dependencies)
+sets X: E            (defines X as a local definition for E, and replaces occurences of E with X)
+sets_eq X: E         (introduces a name X and an equality X = E, and replaces occurences of E with X)
+asserts I: E      (asserts statement E as first subgoal, destruct E as I in the second goal)
+cuts I: E         (asserts statement E as second subgoal, destruct E as I in the first goal)
+
+Absurd goals
+false             (replaces the goal by "False", and try to solve it with contradiction and discriminate)
+false E           (shorthand for [false; applys E])
+tryfalse          (proves a goal by contradiction or discriminate, or do nothing)
+
+Logical constructs
+iff              (tactic to prove an equivalence)
+splits           (splits an N-ary conjunction into N goals)
+branch N         (selects the N-th branch of a M-ary disjunction)
+exists E1 .. EN  (to provide witnesses to an N-ary existential goal, wildcards are supported)
+
+Case analysis and inversion
+cases E as I          (case analysis on E, remembering the equality as H)
+case_if as I          (case analysis on the first "if" statement in the goal)
+
+inverts H             (inversion followed with substitution of freshly introduced variables)
+inverts H as I1..IN   (same as inverts H, but allows to name produced hypotheses)
+invert H              (same as inverts H, but leaves hypotheses in the goal)
+
+Induction
+inductions_wf X: E H  (applies the well-founded induction principle for a particular well-founded relation)
+gen_eq X: E           (generalize X as E and add "X = E" as hypothesis in the goal, useful for induction)
+
+Working with equalities
+
+fequals           (improved implementation of f_equal  calls congruence, and better on tuples)
+asserts_rewrite E (rewrites with E and generates E as first subgoal)
+cuts_rewrite E    (rewrites with E and generates E as second subgoal)
+
+Simplification and unfolding
+simpls        (simpl everywhere in hypotheses and conclusion)
+unfolds R     (unfolds the definition of R in hypotheses and conclusion)
+
+Automation
+- any tactic name followed with the symbol "~" will call [auto] on all subgoals
+- any tactic name followed with the symbol "*" will call [jauto], a variant of [induction eauto]
+
+
+Below, H stands for the lemma to be instantiated, and the names Ei correspond to the arguments.
+Note that wildcards, written "__", can be provided in place of any argument.
+
+lets I: H E1 ... EN                    (instantiates a lemma and names it)
+applys H E1 ... EN                     (instantiates a lemma and applies it)
+specializes H E1 ... EN                (instantiates an hypothesis H in-place)
+forwards I: H E1 .. EN                 (instantiates a lemma on all its arguments, same as "lets I: H E1 .. EN __ __ .. __"
+rewrites (>> H E1 ... EN)              (instantiates a lemma, then rewrite with it)
+
+Variant syntax:
+   lets I: (>> H E1 ... EN)
+
+
+applys_eq H i1 .. iN                   (applys H up to equality on arguments of the goal at specified indices)
+
+Clear variables
+
+Any subterm can be of the form rm X, which indicates that the variable X should be cleared after the operation is complete.
+
