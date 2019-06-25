@@ -8,6 +8,7 @@ Generalizable Variables A.
 
 Module SepBaseAltStruct.
 Import SepBase.
+Local Open Scope heap_union_scope.
 Implicit Types P : Prop.
 
 (* ---------------------------------------------------------------------- *)
@@ -214,6 +215,7 @@ End SepBaseAltStruct.
 
 Module SepLiftedAltStruct.
 Import SepBase SepLifted.
+Local Open Scope heap_union_scope.
 
 Implicit Types H : hprop.
 
@@ -320,6 +322,7 @@ End SepLiftedAltStruct.
 
 Module SepBaseAltTerm.
 Import SepBase.
+Local Open Scope heap_union_scope.
 Implicit Types P : Prop.
 Implicit Types v w : val.
 Implicit Types n : int.

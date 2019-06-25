@@ -1,7 +1,26 @@
 URGENT
 
 skip. (* TODO noduplicates *)
+Triple_create IN sTACK ALSO
+
 (* LATER: inj by default *)
+(* LATER:  xsimpl could do xrecord_eq *)
+
+https://gitlab.inria.fr/charguer/cfml2_ejcp2019
+
+Framework
+=========
+
+# WPLoops
+
+# WPArray
+
+ ('p ':= '! (tail 'p)) '; (* LATER/ fix priority *)
+
+ (If_ MList.is_empty ('q'.sub) (* LATER/ fix priority *)
+   Then 'p ':= null
+   Else 'p ':= merge_pairs ('q'.sub) )';
+   'x.
 
 
 Pairing heaps
@@ -12,3 +31,18 @@ xapp (>> Triple_ref Enc_loc null) ;=> p. (* LATER: spec auto *)
 
 xapp. typeclass. (* LATER: inj by default *)
 xapp (>> __ Enc_loc). (* LATEr: fix *)
+
+
+Hint Extern 1 (_ \in _) => multiset_in.  ==> restrict to : multiset _
+
+Mutable lists
+=============
+
+xapp (>> __ EA). (* LATER: resolve typeclass better *)
+
+(* LATER:    length : using loop *)
+
+. (* MListSeg_concat: using rewrite below existential binders, the proof would be far easier *)
+
+
+* List segments : related to mlist

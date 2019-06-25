@@ -15,13 +15,15 @@ Generalizable Variables A B.
 From Sep Require Import Example.
 
 
-
 (* ********************************************************************** *)
-(* * Stack *)
-
-(** Implementation of a stack as a reference on a list *)
+(* ********************************************************************** *)
+(* ********************************************************************** *)
+(** * Stack as a reference on a list *)
 
 Module Stack.
+
+(* ********************************************************************** *)
+(** ** Ocaml syntax *)
 
 (** OCaml syntax
 [[
@@ -51,7 +53,8 @@ Module Stack.
 ]]
 *)
 
-(** Code *)
+(* ********************************************************************** *)
+(** ** Embedded syntax *)
 
 Definition create : val :=
   VFun 'u :=
@@ -81,12 +84,19 @@ Definition rev_append : val :=
        'f 'p1 'p2
     End.
 
-(** Representation predicate *)
+
+(* ********************************************************************** *)
+(** ** Representation predicate *)
+
+(** [p ~> Stack L] relates a pointer [p] with the list [L] made of
+    the elements in the stack. *)
 
 Definition Stack `{Enc A} (L:list A) (p:loc) : hprop :=
   p ~~> L.
 
-(** Verification *)
+
+(* ********************************************************************** *)
+(** ** Verification *)
 
 Lemma Triple_create : forall `{Enc A},
   TRIPLE (create '())
@@ -155,12 +165,14 @@ End Stack.
 
 
 (* ********************************************************************** *)
-(* * Stack with length *)
-
-(** Implementation of a stack with a size as a record made of
-    a list and a size field *)
+(* ********************************************************************** *)
+(* ********************************************************************** *)
+(** * Stack as a record with a list and a size field *)
 
 Module Stackn.
+
+(* ********************************************************************** *)
+(** ** OCaml syntax *)
 
 (** OCaml syntax
 [[
@@ -195,7 +207,9 @@ Module Stackn.
 ]]
 *)
 
-(** Source code *)
+
+(* ********************************************************************** *)
+(** ** Embedded code *)
 
 Definition data : field := 0%nat.
 Definition size : field := 1%nat.
@@ -224,13 +238,20 @@ Definition val_pop : val :=
        'x
    End.
 
-(** Representation predicate *)
+
+
+(* ********************************************************************** *)
+(** ** Representation predicate *)
+
+(** [p ~> Stackn L] relates a pointer [p] with the list [L] made of
+    the elements in the stack. *)
 
 Definition Stackn `{Enc A} (L:list A) (p:loc) : hprop :=
   p ~> Record`{ data := L; size := LibListZ.length L }.
 
 
-(** Verification *)
+(* ********************************************************************** *)
+(** ** Verification *)
 
 Lemma Triple_create : forall `{Enc A},
   TRIPLE (create '())
@@ -268,8 +289,7 @@ Proof using.
   introv N. xwp. xunfold Stackn. xapp.
   applys xmatch_lemma_list.
   { intros HL. xfail. }
-  { intros X L' HL. xappn. xval. xsimpl*. 
-    (* LATER:  xsimpl could do xrecord_eq *) 
+  { intros X L' HL. xappn. xval. xsimpl*.
     xrecord_eq. subst; rew_list; math. }
 Qed.
 

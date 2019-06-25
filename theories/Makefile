@@ -34,13 +34,11 @@ export TLC
 ##############################################################################
 # List of files
 
-SRC_CORE := TLCbuffer Fmap Var SepSimpl Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics WPRecord Example ExampleList ExampleStack WPExamples WPExamplesDetails WPLib 
 
-#ExamplePairingHeap2
+SRC_EXAMPLES := Example ExampleList ExampleStack ExamplePairingHeap
+SRC_CORE := TLCbuffer Fmap Var SepSimpl Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics WPRecord $(SRC_EXAMPLES) WPExamples WPExamplesDetails WPLib 
 
 SRC_MORE := SepBaseAltProofs SepCredits SepRO
-
-# WPArray
 
 SRC_EXAMPLES := Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleList ExampleRO 
 

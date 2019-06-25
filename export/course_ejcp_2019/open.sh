@@ -1,0 +1,1 @@
+coqide -async-proofs off -async-proofs-command-error-resilience off EJCPTuto.v EJCPExo.v EJCPImplem.v ExampleStack.v ExampleList.v ExamplePairingHeap.v

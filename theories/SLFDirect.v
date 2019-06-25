@@ -15,8 +15,8 @@ License: MIT.
 
 Set Implicit Arguments.
 From TLC Require Export LibCore.
-From Sep Require Export TLCbuffer Var.
-From Sep Require Fmap SepSimpl.
+From Sep Require Export TLCbuffer Var Fmap.
+From Sep Require SepSimpl.
 
 
 (* ####################################################### *)

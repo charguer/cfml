@@ -9,7 +9,8 @@ License: MIT.
 
 Set Implicit Arguments.
 From TLC Require Export LibString LibList LibCore.
-From Sep Require Export Fmap TLCbuffer Var.
+From Sep Require Import Fmap TLCbuffer.
+From Sep Require Export Var.
 Open Scope string_scope.
 Generalizable Variables A.
 

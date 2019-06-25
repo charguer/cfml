@@ -29,6 +29,7 @@ License: MIT.
 
 Set Implicit Arguments.
 From Sep Require Export Semantics SepFunctor.
+From Sep Require Import Fmap.
 Open Scope fmap_scope.
 
 
@@ -198,7 +199,9 @@ Definition heap_union (h1 h2 : heap) : heap :=
    (h1^s \+ h2^s, h1^c + h2^c).
 
 Notation "h1 \u h2" := (heap_union h1 h2)
-   (at level 37, right associativity) : heap_scope.
+   (at level 37, right associativity) : heap_union_scope.
+
+Local Open Scope heap_union_scope.
 
 (** Affine heaps are those such that [heap_credits c >= 0] *)
 
@@ -556,6 +559,8 @@ End SepCreditsCore.
 
 Module Export SepCreditsSetup := SepSetup SepCreditsCore.
 Export SepCreditsCore.
+
+Local Open Scope heap_union_scope.
 
 Implicit Types n : credits.
 Implicit Types H : hprop.

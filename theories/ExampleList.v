@@ -8,27 +8,19 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From TLC Require Import LibMonoid.
 From Sep Require Import Example.
 Generalizable Variables A B.
 
 Implicit Types p : loc.
 Implicit Types n : int.
 
-(*
-Hint Extern 1 (_ = _ :> Z) => subst; rew_list; math.
-Hint Extern 1 (_ = _ :> list _) => subst; rew_list.
-Hint Extern 1 (list_sub _ _) => subst.
-*)
 
+(* ********************************************************************** *)
+(* * Automation *)
 
-Tactic Notation "xsimpl_hand" :=
-   xsimpl; try (applys himpl_hand_r; xsimpl).
-
-Tactic Notation "xchanges" "*" "<-" constr(E) :=
-  xchanges <- E; auto_star.
-
-
+(** Strengthen version of the automation associated with the star,
+    e.g. in [mytactic* args]. *)
+ 
 Ltac auto_star ::=
   try solve [ intuition eauto
             | intros; subst; rew_list in *; 
@@ -38,148 +30,24 @@ Ltac auto_star ::=
 
 
 (* ********************************************************************** *)
-(* * TODO: move *)
-
-
-
-Definition sep_monoid := monoid_make hstar hempty.
-
-Global Instance Monoid_sep : Monoid sep_monoid.
-Proof using. constructor; simpl; intros_all; xsimpl. Qed.
-
-Global Instance Comm_monoid_sep : Comm_monoid sep_monoid.
-Proof using.
-  constructor; simpl.
-  applys Monoid_sep.
-  intros_all. apply hstar_comm.
-Qed.
-
-(* ---------------------------------------------------------------------- *)
-(** [hfold_list] *)
-
-Definition hfold_list A (f:A->hprop) := fix F (l:list A) : hprop := 
-  match l with 
-  | nil => \[]
-  | x::l' => f x \* F l'
-  end.
-
-Definition hfold_list' A (f:A->hprop) (l:list A) : hprop :=
-  LibList.fold sep_monoid f l.
-
-Lemma hfold_list_eq : 
-  hfold_list = hfold_list'.
-Proof using.
-  applys fun_ext_3 ;=> A f l. induction l as [|x l'].
-  { auto. }
-  { unfold hfold_list'. rewrite fold_cons. simpl. rewrite~ IHl'. }
-Qed.
-
-Section HfoldList.
-Variables (A:Type).
-Implicit Types l : list A.
-Implicit Types f : A->hprop.
-Hint Resolve Monoid_sep.
-
-Lemma hfold_list_nil : forall f,
-  hfold_list f nil = \[].
-Proof using. auto. Qed.
-(* intros. rewrite hfold_list_eq; unfold hfold_list'. rewrite~ fold_nil. *)
-
-Lemma hfold_list_cons : forall f x l,
-  hfold_list f (x::l) = (f x) \* (hfold_list f l).
-Proof using. auto. Qed.
-(* intros. repeat rewrite hfold_list_eq; unfold hfold_list'. rewrite~ fold_cons. *)
-
-Lemma hfold_list_one : forall f x,
-  hfold_list f (x::nil) = f x.
-Proof using. intros. simpl. xsimpl. Qed.
-(*
-Proof using. intros. rewrite hfold_list_eq; unfold hfold_list'. rewrite~ fold_one. Qed.
-*)
-(*
-
-Lemma hfold_list_app : forall f l1 l2,
-  hfold_list f (l1 ++ l2) = (hfold_list f l1) \* (hfold_list f l2).
-Proof using. intros. repeat rewrite hfold_list_eq; unfold hfold_list'. rewrite~ fold_app. Qed.
-
-Lemma hfold_list_last : forall f x l,
-  hfold_list f (l & x) = (hfold_list f l) \* (f x).
-Proof using. intros. repeat rewrite hfold_list_eq; unfold hfold_list'. rewrite~ fold_last. Qed.
-*)
-
-End HfoldList.
-
-Hint Rewrite hfold_list_nil hfold_list_cons hfold_list_one : rew_heapx.
-(* hfold_list_app hfold_list_last*) 
-
-
-(* ---------------------------------------------------------------------- *)
-(** [hfold_list2] *)
-
-Definition hfold_list2 A B (f:A->B->hprop) :=
-  fix F (l1:list A) (l2:list B) { struct l1 } : hprop := 
-  match l1,l2 with 
-  | nil, nil => \[]
-  | x1::l1', x2::l2' => f x1 x2 \* F l1' l2'
-  | _, _ => arbitrary
-  end.
-
-(*
-Definition hfold_list2' A B (f:A->B->hprop) (l1:list A) (l2:list B) : hprop :=
-  hfold_list' (fun '(x1,x2) => f x1 x2) (LibList.combine l1 l2).
-
--- only for same lengths
-Lemma hfold_list2_eq : 
-  hfold_list2 = hfold_list2'.
-Proof using.
-  unfold hfold_list2', hfold_list'. applys fun_ext_5 ;=> A B f l1.
-  induction l1 as [|x1 l1']; intros l2; destruct l2 as [|x2 l2'].
-  { rewrite . }
-  { unfold hfold_list'. rewrite fold_cons. simpl. rewrite~ IHl'. }
-Qed.
-*)
-
-Section HfoldList2.
-Variables (A B:Type).
-Implicit Types f : A->B->hprop.
-
-Lemma hfold_list2_nil : forall f,
-  hfold_list2 f nil nil = \[].
-Proof using. auto. Qed.
-(* intros. unfold hfold_list2. rew_listx. rewrite~ hfold_list_nil.  *)
-
-Lemma hfold_list2_cons : forall f x1 x2 l1 l2,
-  hfold_list2 f (x1::l1) (x2::l2) = (f x1 x2) \* (hfold_list2 f l1 l2).
-Proof using. auto. Qed.
-
-Lemma hfold_list2_one : forall f x1 x2,
-  hfold_list2 f (x1::nil) (x2::nil) = f x1 x2.
-Proof using. intros. simpl. xsimpl. Qed.
-
-End HfoldList2.
-
-Hint Rewrite hfold_list2_nil hfold_list2_cons hfold_list2_one : rew_heapx.
-
-Tactic Notation "rew_heapx" := 
-  autorewrite with rew_heapx.
-Tactic Notation "rew_heapx" "~" := 
-  rew_heapx; auto_tilde.
-Tactic Notation "rew_heapx" "*" := 
-  rew_heapx; auto_star.
-
-
-
-
-
-
-(* ********************************************************************** *)
 (* * Towards a representation *)
 
+(** Let's try to first formalize the C representation:
+[[
+    typedef struct node<A> { 
+      A head; 
+      node<A>* tail; 
+    };
+    // with node = null for the empty list
+]]
+*)
 Module MListNull.
-
 
 Definition head : field := 0%nat.
 Definition tail : field := 1%nat.
+
+(* ---------------------------------------------------------------------- *)
+(** ** Inductive presentation (does not work) *)
 
 (** [p ~> MList L], (hypothetically) defined as an inductive predicate 
 
@@ -196,6 +64,9 @@ Definition tail : field := 1%nat.
 
 *)
 
+(* ---------------------------------------------------------------------- *)
+(** ** Recursive presentation *)
+
 (** Recursive of [p ~> MList L], that is, [MList L p]. *)
 
 Fixpoint MList (L:list val) (p:loc) : hprop :=
@@ -206,8 +77,17 @@ Fixpoint MList (L:list val) (p:loc) : hprop :=
 
 End MListNull.
 
+(* ---------------------------------------------------------------------- *)
+(** ** Recursive presentation for a ML representation *)
 
+(** 
+[[
+  type 'a mlist = ('a contents) ref
+  and  'a contents = Nil | Cons of 'a * 'a mlist
+]]
 
+Let's begin by assuming that type ['a] is represented as type [val].
+*)
 
 Module MListVal.
 
@@ -223,12 +103,18 @@ Fixpoint MList (L:list val) (p:loc) : hprop :=
 
 End MListVal.
 
+(** The definition below is similar, but uses encoders for type ['a] *)
 
 
 (* ********************************************************************** *)
 (* * Representation *)
 
 Module MList.
+
+(* ---------------------------------------------------------------------- *)
+(** ** Representation *)
+
+(** Embedded constructors *)
 
 Definition Nil : val := val_constr "nil" nil.
 Definition Cons `{Enc A} (V:A) (p:loc) : val := val_constr "cons" (``V::``p::nil).
@@ -242,6 +128,10 @@ Fixpoint MList A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
   | x::L' => \exists p', \[v = Cons x p'] \* (p' ~> MList L')
   end.
 
+
+(* ---------------------------------------------------------------------- *)
+(** ** Lemmas about the representation *)
+
 (** Name for the match part inside the body of the definition *)
 
 Definition MList_contents (v:val) A `{EA:Enc A} (L:list A) : hprop :=
@@ -250,7 +140,11 @@ Definition MList_contents (v:val) A `{EA:Enc A} (L:list A) : hprop :=
   | x::L' => \exists p', \[v = Cons x p'] \* (p' ~> MList L')
   end.
 
-(** Lemmas for [MList] *)
+Lemma MList_contents_Nil : forall A `{EA:Enc A} (L:list A),
+  (MList_contents Nil L) ==> \[L = nil].
+Proof using.
+  intros. unfold MList_contents. destruct L; xsimpl~.
+Qed.
 
 Lemma MList_eq : forall (p:loc) A `{EA:Enc A} (L:list A),
   p ~> MList L = (\exists v, p ~~> v \* MList_contents v L).
@@ -276,28 +170,6 @@ Proof using. introv N. destruct L as [|x L']; tryfalse. xchanges* MList_cons. Qe
 Arguments MList_not_nil : clear implicits.
 
 
-(** Lemmas for [MList_contents] *)
-
-Lemma MList_contents_Nil : forall A `{EA:Enc A} (L:list A),
-  (MList_contents Nil L) ==> \[L = nil].
-Proof using.
-  intros. unfold MList_contents. destruct L; xsimpl~.
-Qed.
-
-(* LATER
-Lemma MList_contents_Cons : forall A `{EA:Enc A} (L:list A) x p',
-  (MList_contents (Cons x p') L) ==> \exists L', \[L = x::L'] \* (p' ~> MList L').
-Proof using.
-  intros. unfold MList_contents. destruct L.
-  { xsimpl. }
-  { xpull ;=> p'' E. unfolds @Cons.
-    rewrite (enc_loc_eq p'), (enc_loc_eq p'') in E. (* rew_enc in *. *)
-    asserts_rewrite (x = a). { admit. }
-    (* Enc_injective EA --- all encoders should be injective!  *)
-    inverts E. xsimpl~. }
-Admitted.
-*)
-
 
 (* ********************************************************************** *)
 (* * Basic operations *)
@@ -314,7 +186,7 @@ Lemma Mlist_unfold_match' : forall `{EA:Enc A} (L:list A) (p:loc) `{EB:Enc B}
               \-* p ~~> (Cons x' q') 
               \-* q' ~> MList L'
               \-* ^(F2 ``x' ``q' : Formula) Q))
-  CODE (Let [A0 EA0] X := `App (trm_val (val_prim val_get)) (val_loc p) in
+  CODE (Let_ [A0 EA0] X := `App (trm_val (val_prim val_get)) (val_loc p) in
          Case ``X = 'VCstr "nil" '=> F1 
       '| Case ``X = 'VCstr "cons" X0 X1 [X0 X1] '=> F2 X0 X1
       '| Fail) 
@@ -348,7 +220,7 @@ Lemma Mlist_unfold_match : forall `{EA:Enc A} (L:list A) (p:loc) `{EB:Enc B}
               \-* p ~~> (Cons x' q') 
               \-* q' ~> MList L'
               \-* ^(F2 ``x' ``q' : Formula) Q)) ->
-  H ==> ^ (Let [A0 EA0] X := `App (trm_val (val_prim val_get)) (val_loc p) in
+  H ==> ^ (Let_ [A0 EA0] X := `App (trm_val (val_prim val_get)) (val_loc p) in
          Case ``X = 'VCstr "nil" '=> F1 
       '| Case ``X = 'VCstr "cons" X0 X1 [X0 X1] '=> F2 X0 X1
       '| Fail) Q.
@@ -497,7 +369,7 @@ Proof using.
   intros. xwp. xapp. applys xcase_lemma2. 
   { (* cons *) intros p' x' E. rew_enc in E. unfolds @Cons. inverts E.
      xval (Cons x2 q). xapp. xsimpl~. }
-  { (* else *) xfail*. (* intros N. false N. reflexivity. *) }
+  { (* else *) xfail*. }
 Qed.
 
 Hint Extern 1 (Register_Spec (set_head)) => Provide @Triple_set_head.
@@ -548,7 +420,7 @@ Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
 Definition pop : val :=
   VFun 'p  :=
     Let 'x := head 'p in
-    ('p ':= '! (tail 'p)) '; (* LATER/ fix priority *)
+    ('p ':= '! (tail 'p)) ';
     'x.
 
 Lemma Triple_pop : forall `{EA:Enc A} (L:list A) (p:loc),
@@ -565,10 +437,8 @@ Hint Extern 1 (Register_Spec (pop)) => Provide @Triple_pop.
 
 
 
-
 (* ********************************************************************** *)
 (* * High-level operations *)
-
 
 
 (* ---------------------------------------------------------------------- *)
@@ -592,9 +462,7 @@ Proof using.
     xapp. xapp~. xapp~. xchange <- MList_cons. xsimpl*. }
 Qed.
 
-    (* xchanges~ MList_not_nil ;=> x L' p' ->.
-      short for
-      destruct L as [|x L']; tryfalse. xchange MList_cons_unfold ;=> p'. *)
+Hint Extern 1 (Register_Spec (mlength)) => Provide @Triple_mlength.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -618,6 +486,8 @@ Proof using.
     xapp. xapp~. xapp~ ;=> q'. xapp ;=> q.
     xchanges <- MList_cons. }
 Qed.
+
+Hint Extern 1 (Register_Spec (copy)) => Provide @Triple_copy.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -702,8 +572,6 @@ Qed.
 
 Hint Extern 1 (Register_Spec (nondestructive_append)) => Provide @Triple_nondestructive_append.
 
-
-
 (* ---------------------------------------------------------------------- *)
 (** Destructive append *)
 
@@ -742,7 +610,6 @@ Definition cps_append : val :=
   VFun 'p1 'p2 :=
     cps_append_aux 'p1 'p2 (Fun 'r := 'r).
 
-
 Lemma Triple_cps_append_aux : forall A `{EA:Enc A} (L1 L2:list A) (p1 p2:loc) (k:func),
   forall `{EB: Enc B} (H:hprop) (Q:B->hprop),
   (forall (p3:loc), TRIPLE (k ``p3)
@@ -753,8 +620,7 @@ Lemma Triple_cps_append_aux : forall A `{EA:Enc A} (L1 L2:list A) (p1 p2:loc) (k
     POST Q.
 Proof using.
   introv Hk. gen H p1 p2 L2 k. induction_wf IH: (@list_sub A) L1. intros.
-  xwp. xapp (>> __ EA). (* LATER: resolve typeclass better *)
-  xif ;=> C.
+  xwp. xapp (>> __ EA). xif ;=> C.
   { subst. xapp. xsimpl~. }
   { xchanges~ (MList_not_nil p1) ;=> x L1' p1' ->.
     xapp (>> __ EA). xfun. 
@@ -766,8 +632,6 @@ Proof using.
       xchanges <- (MList_cons p1). }
     xsimpl*. }
 Qed.
-
-(* Hint Extern 1 (Register_Spec (cps_append_aux)) => Provide @Triple_cps_append_aux. *)
 
 Lemma Triple_mlist_cps_append : forall A `{EA:Enc A} (L1 L2:list A) (p1 p2:loc),
   TRIPLE (cps_append ``p1 ``p2)
@@ -782,20 +646,17 @@ Qed.
 
 (* Note that the continuation k' used in the recursive call
    could be given the following spec, rather than inlining its code:
+[[
      Triple (k' ``r)
        PRE (p ~~> (x,p') \* r ~> Mlist (L'++M) \* H)
        POST Q.
+]]
 *)
-
-(* LATER:    length : using loop *)
-
-
 
 
 
 (* ********************************************************************** *)
 (* * Bonus *)
-
 
 (* ---------------------------------------------------------------------- *)
 (** Length using iter but not incr *)
@@ -838,6 +699,7 @@ Proof using.
   xval (Nil). xapp. rewrite MList_nil. xsimpl.
 Qed.
 
+
 (* ---------------------------------------------------------------------- *)
 (** Detailed proof for is_empty *)
 
@@ -862,34 +724,9 @@ Proof using.
 Qed.
 
 
-(* ---------------------------------------------------------------------- *)
-(** Detailed proof for set_head *)
-
-(*
-Lemma Triple_set_head' : forall A `{EA:Enc A} (L:list A) p x y,
-  TRIPLE (set_head ``p ``y)
-    PRE (p ~> MList (x::L))
-    POST (fun (_:unit) => p ~> MList (y::L)).
-Proof using.
-  intros. (*  xwp. xgc_post. *) xwp_fun' tt.
-  xchange MList_cons_unfold ;=> q. xapp.
-  applys xcase_lemma0 ;=> E1.
-  { false. }
-  { applys xcase_lemma2.
-    { intros x' q' E. unfold Cons in E. rew_enc in E. inverts E.
-      xval (Cons y q). xapp. xchanges MList_cons. }
-    { intros N. false N. reflexivity. } }
-Qed.
-*)
-
-
-
-
-
-
 
 (* ********************************************************************** *)
-(* * Segments *)
+(* * List segments *)
 
 (** Representation *)
 
@@ -928,7 +765,7 @@ Lemma MListSeg_concat : forall `{EA:Enc A} p1 p3 (L1 L2:list A),
   p1 ~> MListSeg p3 (L1++L2) = \exists p2, p1 ~> MListSeg p2 L1 \* p2 ~> MListSeg p3 L2.
 Proof using.
   intros. gen p1. induction L1 as [|x L1']; intros.
-  { rew_list. applys himpl_antisym. (* TODO: xsimpl too aggressive here *)
+  { rew_list. applys himpl_antisym. (* Note: xsimpl too aggressive here *)
     { xchanges (MListSeg_nil_of_hempty p1). }
     { xpull ;=> p2. rewrite MListSeg_nil. xsimpl*. } }
   { rew_list. applys himpl_antisym.
@@ -936,7 +773,7 @@ Proof using.
       xchanges <- (>> MListSeg_cons p1). }
     { xpull ;=> p2. rewrite (MListSeg_cons p1). xpull ;=> p1'.
       xchange <- IHL1'. xchanges <- (>> MListSeg_cons p1). } }
-Qed. (* LATER: using rewrite below existential binders, the proof would be far easier *)
+Qed.
 
 Lemma MListSeg_last : forall `{EA:Enc A} p1 p3 x (L:list A),
   p1 ~> MListSeg p3 (L&x) = \exists p2, p1 ~> MListSeg p2 L \* p2 ~~> (Cons x p3).
@@ -956,16 +793,31 @@ Proof using.
   { rewrite MList_cons. applys himpl_antisym.
     { xpull ;=> p'. rewrite IHL'. xpull ;=> q. xchanges <- MListSeg_cons. }
     { xpull ;=> q. rewrite MListSeg_cons. xpull ;=> p'. xchanges <- IHL'. } }
-Qed. (* LATER: using rewrite below existential binders, the proof would be far easier *)
+Qed. (* Note: using rewrite below existential binders, the proof would be far easier *)
 
 End SegProperties.
 
 
 
-
-
 (* ********************************************************************** *)
 (* * Lists with recursive ownership *)
+
+(* ---------------------------------------------------------------------- *)
+(** ** Recursive representation predicate: works, but not modular *)
+
+(**
+[[
+  Definition MListOf A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc) : hprop :=
+    match L with
+    | nil => \[p = null]
+    | X::L' => \exists x p', p ~> Record`{ head := x; tail := p'} 
+                     \* (x ~> R X) \* (p' ~> MListOf R L')
+    end.
+]]
+*)
+
+(* ---------------------------------------------------------------------- *)
+(** ** Representation predicate for [MListOf] *)
 
 Module MListOf.
 
@@ -973,18 +825,8 @@ Definition MListOf A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc) : hprop
   \exists (l:list A), \[length l = length L] \* p ~> MList l
                       \* hfold_list2 (fun X x => x ~> R X) L l. 
 
-
-(*
-Lemma MListOf_eq : forall A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc),
-  p ~> MListOf R L =
-  match L with
-  | nil => \[p = null]
-  | X::L' => \exists x p', p ~> Record`{ Field.head := x; Field.tail := p'} 
-                   \* (x ~> R X) \* (p' ~> MListOf R L')
-  end.
-Proof using. intros. xunfold MListOf at 1. destruct~ L. Qed.
-*)
-
+(* ---------------------------------------------------------------------- *)
+(** ** Derived specifications for stack operations *)
 
 Section Ops.
 
@@ -992,9 +834,6 @@ Context A {EA:Enc A} TA (R:TA->A->hprop).
 Implicit Types L : list TA.
 Implicit Types x : A.
 Implicit Types X : TA.
-
-
-Hint Rewrite fold_nil fold_cons fold_app : rew_listx.
 
 Lemma Triple_create : 
   TRIPLE (create tt)
@@ -1004,24 +843,6 @@ Proof using.
   xtriple. xapp ;=> p. xunfold MListOf. xsimpl*.
   { rew_heapx. xsimpl. } 
 Qed.
-
-Ltac xtriple_pre tt :=
-  intros.
-
-Ltac xtriple_core tt :=
-  xtriple_pre tt;
-  applys xtriple_lemma;
-  [ simpl combiner_to_trm; rew_trms_vals; reflexivity 
-  | ].
-
-Tactic Notation "xtriple" :=
-  xtriple_core tt.
-
-Lemma list_same_length_inv_nil : forall A1 A2 (l1:list A1) (l2:list A2),
-  length l1 = length l2 ->
-  l1 = nil <-> l2 = nil.
-Proof using. intros. destruct l1; destruct l2; autos*. Qed.
-
 
 Lemma Triple_is_empty : forall L p,
   TRIPLE (is_empty p)
@@ -1062,28 +883,6 @@ Hint Extern 1 (Register_Spec (pop)) => Provide @Triple_pop.
 
 Global Opaque MListOf.
 
-(* Bad:
-
-
-Fixpoint MListOf A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc) : hprop :=
-  match L with
-  | nil => \[p = null]
-  | X::L' => \exists x p', p ~> Record`{ head := x; tail := p'} \* (x ~> R X) \* (p' ~> MListOf R L')
-  end.
-
-Lemma MListOf_eq : forall A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc),
-  p ~> MListOf R L =
-  match L with
-  | nil => \[p = null]
-  | X::L' => \exists x p', p ~> Record`{ head := x; tail := p'} \* (x ~> R X) \* (p' ~> MListOf R L')
-  end.
-Proof using. intros. xunfold MListOf at 1. destruct~ L. Qed.
-
-
-*)
-
 End MListOf.
-
-
 
 End MList.

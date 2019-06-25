@@ -16,6 +16,7 @@ License: MIT.
 
 Set Implicit Arguments.
 From Sep Require Export Semantics SepFunctor.
+From Sep Require Import Fmap.
 Open Scope fmap_scope.
 
 Ltac auto_star ::= jauto.
@@ -53,8 +54,10 @@ Definition heap_affine (h:heap) := True.
 Definition heap_empty : heap := Fmap.empty.
 
 Notation "h1 \u h2" := (Fmap.union h1 h2)
-  (at level 37, right associativity) : heap_scope.
+  (at level 37, right associativity) : heap_union_scope.
   (* LATER: could try to introduce [heap_union := Fmap.union] *)
+
+Local Open Scope heap_union_scope.
 
 Definition heap_union_empty_l := Fmap.union_empty_l.
 
@@ -257,6 +260,8 @@ End SepBasicCore.
 
 Module Export SepBasicSetup := SepSetup SepBasicCore.
 Export SepBasicCore.
+
+Local Open Scope heap_union_scope.
 
 Implicit Types P : Prop.
 Implicit Types H : hprop.

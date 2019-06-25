@@ -270,10 +270,17 @@ Proof using.
   applys Structural_Wp.
 Qed.
 
-Tactic Notation "xtriple" :=
+Ltac xtriple_pre tt :=
+  intros.
+
+Ltac xtriple_core tt :=
+  xtriple_pre tt;
   applys xtriple_lemma;
   [ simpl combiner_to_trm; rew_trms_vals; reflexivity 
   | ].
+
+Tactic Notation "xtriple" :=
+  xtriple_core tt.
 
 
 (* ---------------------------------------------------------------------- *)

@@ -48,10 +48,10 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From TLC Require Export LibCore.
+From TLC Require Export LibCore. 
+From TLC Require Import LibMonoid.
 From Sep Require Export TLCbuffer SepSimpl.
-
-
+  
 
 (* ********************************************************************** *)
 (** * Assumptions of the functor *)
@@ -795,6 +795,12 @@ End SepSimplArgs.
 Export SepSimplArgs.
 
 Module Export HS := SepSimpl.XsimplSetup(SepSimplArgs).
+
+(** Experimental tactic [xsimpl_hand] *)
+
+Tactic Notation "xsimpl_hand" :=
+   xsimpl; try (applys himpl_hand_r; xsimpl).
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Set operators to be opaque *)
@@ -1848,6 +1854,117 @@ Lemma xtchange_demo_1 : forall H1 H1' H2 B (F:~~B) (Q:B->hprop),
 Proof using.
   introv L M. xtchange M.
 Abort.
+
+
+
+(* ********************************************************************** *)
+(* * Iterated star *)
+
+(* ---------------------------------------------------------------------- *)
+(** Separation commutative monoid [(hstar,hempty)] *)
+
+Definition sep_monoid := monoid_make hstar hempty.
+
+Global Instance Monoid_sep : Monoid sep_monoid.
+Proof using. constructor; simpl; intros_all; xsimpl. Qed.
+
+Global Instance Comm_monoid_sep : Comm_monoid sep_monoid.
+Proof using.
+  constructor; simpl.
+  applys Monoid_sep.
+  intros_all. apply hstar_comm.
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** [hfold_list] *)
+
+Definition hfold_list A (f:A->hprop) := fix F (l:list A) : hprop := 
+  match l with 
+  | nil => \[]
+  | x::l' => f x \* F l'
+  end.
+
+Definition hfold_list' A (f:A->hprop) (l:list A) : hprop :=
+  LibList.fold sep_monoid f l.
+
+Lemma hfold_list_eq : 
+  hfold_list = hfold_list'.
+Proof using.
+  applys fun_ext_3 ;=> A f l. induction l as [|x l'].
+  { auto. }
+  { unfold hfold_list'. rewrite fold_cons. simpl. rewrite~ IHl'. }
+Qed.
+
+Section HfoldList.
+Variables (A:Type).
+Implicit Types l : list A.
+Implicit Types f : A->hprop.
+Hint Resolve Monoid_sep.
+
+Lemma hfold_list_nil : forall f,
+  hfold_list f nil = \[].
+Proof using. auto. Qed.
+
+Lemma hfold_list_cons : forall f x l,
+  hfold_list f (x::l) = (f x) \* (hfold_list f l).
+Proof using. auto. Qed.
+
+Lemma hfold_list_one : forall f x,
+  hfold_list f (x::nil) = f x.
+Proof using. intros. simpl. xsimpl. Qed.
+
+End HfoldList.
+
+Hint Rewrite hfold_list_nil hfold_list_cons hfold_list_one : rew_heapx.
+
+(* ---------------------------------------------------------------------- *)
+(** [hfold_list2] *)
+
+Definition hfold_list2 A B (f:A->B->hprop) :=
+  fix F (l1:list A) (l2:list B) { struct l1 } : hprop := 
+  match l1,l2 with 
+  | nil, nil => \[]
+  | x1::l1', x2::l2' => f x1 x2 \* F l1' l2'
+  | _, _ => arbitrary
+  end.
+
+(*
+Definition hfold_list2' A B (f:A->B->hprop) (l1:list A) (l2:list B) : hprop :=
+  hfold_list' (fun '(x1,x2) => f x1 x2) (LibList.combine l1 l2).
+
+  --- matches only for lists of the same length
+*)
+
+Section HfoldList2.
+Variables (A B:Type).
+Implicit Types f : A->B->hprop.
+
+Lemma hfold_list2_nil : forall f,
+  hfold_list2 f nil nil = \[].
+Proof using. auto. Qed.
+
+Lemma hfold_list2_cons : forall f x1 x2 l1 l2,
+  hfold_list2 f (x1::l1) (x2::l2) = (f x1 x2) \* (hfold_list2 f l1 l2).
+Proof using. auto. Qed.
+
+Lemma hfold_list2_one : forall f x1 x2,
+  hfold_list2 f (x1::nil) (x2::nil) = f x1 x2.
+Proof using. intros. simpl. xsimpl. Qed.
+
+End HfoldList2.
+
+Hint Rewrite hfold_list2_nil hfold_list2_cons hfold_list2_one : rew_heapx.
+
+(* ---------------------------------------------------------------------- *)
+(** Tactic [rew_heapx] for normalization of [hfold] *)
+
+Tactic Notation "rew_heapx" := 
+  autorewrite with rew_heapx.
+Tactic Notation "rew_heapx" "~" := 
+  rew_heapx; auto_tilde.
+Tactic Notation "rew_heapx" "*" := 
+  rew_heapx; auto_star.
 
 
 (* ********************************************************************** *)

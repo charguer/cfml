@@ -17,6 +17,7 @@ License: MIT.
 
 Set Implicit Arguments.
 From Sep Require Export Semantics SepFunctor.
+From Sep Require Import Fmap.
 Import NotationForFmapDisjoint.
 Open Scope fmap_scope.
 Arguments exist [A] [P].
@@ -88,7 +89,9 @@ Next Obligation.
 Qed.
 
 Notation "h1 \u h2" := (heap_union h1 h2)
-   (at level 37, right associativity) : heap_scope.
+   (at level 37, right associativity) : heap_union_scope.
+
+Local Open Scope heap_union_scope.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -623,6 +626,8 @@ End SepROCore.
 
 Module Export SepROSetup := SepSetup SepROCore.
 Export SepROCore.
+
+Local Open Scope heap_union_scope.
 
 Implicit Types h : heap.
 Implicit Types P : Prop.
