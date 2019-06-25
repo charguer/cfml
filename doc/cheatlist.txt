@@ -1,0 +1,161 @@
+
+===============
+CFML Cheat List
+===============
+
+Types
+=====
+
+b   bool          boolean value
+n   int           idealized integer
+l   loc           memory location
+x   var           variable
+
+v   val           closed value
+t   trm           term
+s   state         state                 := fmap loc val
+
+h   heap          piece of state        := state
+H   hprop         heap predicate        := heap->Prop
+Q                 postcondition         := val->hprop  or  := A->hprop
+
+E   ctx           substitution context  := list (var*val).
+
+Entailment
+==========
+
+H1 ==> H2         := forall h, H1 h -> H2 h
+Q1 ===> Q2        := forall x, Q1 x ==> Q2 x
+
+Core heap predicates
+====================
+
+\[]             hempty                 empty state predicate     := fun h => h = fmap_empty /\ P
+\[P]            hpure P                pure heap predicate       := fun h => h = fmap_empty /\ P
+\Top            htop                   any heap predicate        := fun h => True
+H1 \* H2        hstar H1 H2            separating conjunction    := fun h => exists h1 h2, h = h1 \u h2
+                                                                              /\ fmap_disjoint h1 h2
+                                                                              /\ H1 h2 /\ H2 h2
+\exists x, H    hexists (fun x => H)   existential on hprop      := fun h => exists x, H
+p ~~~> v        hsingle p v            singleton heap            := fun h => h = fmap_single p v
+p ~~> V         Hsingle p V            lifted singleton heap     := hsingle p (enc V)
+p ~> MList L    MList L p              mutable list
+
+
+Advanced heap predicates
+========================
+
+\GC             hgc                    any heap predicate            := exists H, H \* \[haffine H]
+\forall x, H    hforall (fun x => H)   universal on hprop            := fun h => forall x, H
+H1 \-* H2       hwand H1 h2            magic wand                    := exists H, H \* [H \* H1 ==> H2]
+Q1 \--* Q2      qwand Q1 Q2            magic wand on postconditions  := \forall x, Q1 x \-* Q2 x
+                hand H1 H2             non-separating conjunction    := fun h => H1 h /\ H2 h
+
+
+Judgments
+=========
+
+red s t s' v     evaluation judgment
+hoare t H Q      total correctness Hoare triple, on the whole state
+triple t H Q     total correctness SL triple, on a piece of state
+Triple t H Q     lifted SL triple
+H ==> wp t Q     weakest-precondition style SL triple
+H ==> Wp t Q     lifted wp-style SL triple
+
+TRIPLE t PRE H  POST Q                    := Triple t H Q
+
+
+
+Wp operators
+============
+
+formula        result of wp                := (val->hprop)->hprop
+wpgen E t      formula generator
+subst x v t    substitution
+isubst E t     iterated substitution
+structural F   structural formula
+mkstruct F     structural wrapper
+
+Lifted wp operators
+===================
+
+Formula        result of Wp                := forall A, Enc A -> (A->hprop)->hprop
+`F             structural wrapper          := MkStruct F
+^F Q           applied formula             := F _ _ Q
+Structural F
+
+
+Syntax for values
+=================
+
+'()
+n
+b
+l
+VFun 'x := t1
+VFix 'f 'x := t1
+
+Syntax for terms
+=================
+
+'x
+Cstr C x1 xn
+If_ t0 Then t1 Else t2
+If_ t0 Then t1 End
+t1 '; t2
+Let 'x := t1 in t2
+Let Rec 'f 'x := t1 in t2
+Match t With p1 '=> t1 | pn '=> tn End
+Fail
+'ref t
+'! t
+t1 ':= t2
+'not t
+t1 '+ t1
+t1 '= t2
+
+Tactics for entailment
+======================
+
+xchange M
+   where M :     H1 ==> H2
+   applies to:   H1 \* H3 ==> H4
+   produces:     H2 \* H3 ==> H4
+
+xchange <- M
+
+xpull
+   applies e.g. to:    \exists x, \[x = 3] \* H1 ==> H2
+   produces e.g:       forall x, x = 3 -> (H1 ==> H2)
+
+xsimpl
+   applies to:     H1 ==> H2
+   invokes xpull, then cancel out items on both sides
+
+xsimpl X1 XN
+   applies to:     H1 ==> \exists x1 xn, H2
+   instantiates x1 := X1 and x2 := X2, then call xsimpl
+
+
+Tactics for CF
+==============
+
+xfail       H ==> `Fail Q
+
+xval        H ==> (`Val v) Q
+
+xval V
+   specifies the value of which v is the encoding
+
+xapp        H ==> `App f v Q
+   exploits the registered triple
+
+xapp E
+   enables to specify
+
+xseq        H ==> `Seq F1 F2 Q
+
+xlet        H ==> (`Let 'x := F1 F2) Q
+
+xif         H ==> (`If b Then F1 Else F2)
+

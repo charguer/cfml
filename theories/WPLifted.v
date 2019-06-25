@@ -772,25 +772,25 @@ Notation "'Return' F " :=
   (Formula_cast F)
   (at level 68) : wp_scope.
 
-Notation "'`Let' x ':=' F1 'in' F2" :=
+Notation "'Let_' x ':=' F1 'in' F2" :=
   ((Wpgen_let_typed F1 (fun x => F2)))
   (at level 69, x ident, right associativity,
-  format "'[v' '[' '`Let'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
+  format "'[v' '[' 'Let_'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
 
-Notation "'Let' [ A EA ] x ':=' F1 'in' F2" :=
+Notation "'Let_' [ A EA ] x ':=' F1 'in' F2" :=
   ((Wpgen_let F1 (fun A EA x => F2)))
   (at level 69, A at level 0, EA at level 0, x ident, right associativity,
-  format "'[v' '[' 'Let'  [ A  EA ]  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
+  format "'[v' '[' 'Let_'  [ A  EA ]  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
 
-Notation "'Seq' F1 ;;; F2" :=
+Notation "'Seq' F1 '; F2" :=
   ((Wpgen_seq F1 F2))
   (at level 68, right associativity,
-   format "'[v' 'Seq'  '[' F1 ']'  ;;;  '/'  '[' F2 ']' ']'") : wp_scope.
+   format "'[v' 'Seq'  '[' F1 ']' ';  '/'  '[' F2 ']' ']'") : wp_scope.
 
-Notation "'`Letval' x ':=' v 'in' F2" :=
+Notation "'Letval' x ':=' v 'in' F2" :=
   ((Wpgen_letval_typed v (fun x => F2)))
   (at level 69, x ident, right associativity,
-  format "'[v' '[' '`Letval'  x  ':='  v  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
+  format "'[v' '[' 'Letval'  x  ':='  v  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
  
 (*
 Notation "'App' f t1 " :=
