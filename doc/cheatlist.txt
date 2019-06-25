@@ -117,13 +117,6 @@ t1 '= t2
 Tactics for entailment
 ======================
 
-xchange M
-   where M :     H1 ==> H2
-   applies to:   H1 \* H3 ==> H4
-   produces:     H2 \* H3 ==> H4
-
-xchange <- M
-
 xpull
    applies e.g. to:    \exists x, \[x = 3] \* H1 ==> H2
    produces e.g:       forall x, x = 3 -> (H1 ==> H2)
@@ -136,26 +129,70 @@ xsimpl X1 XN
    applies to:     H1 ==> \exists x1 xn, H2
    instantiates x1 := X1 and x2 := X2, then call xsimpl
 
+xchange M
+   where M :     H1 ==> H2         or     H1 = H2
+   applies to:   H1 \* H3 ==> H4
+   produces:     H2 \* H3 ==> H4
 
-Tactics for CF
-==============
+xchange <- M
+   where M :     H1 = H2
+   applies to:   H2 \* H3 ==> H4
+   produces:     H1 \* H3 ==> H4
+
+xchanges E
+   invokes xchange then xsimpl
+
+
+
+Structural tactics for CF
+=========================
+
+xwp         TRIPLE (f v) PRE H POST Q
+   turns the goal into H ==> wpgen (f v) Q
+   useful to establish a specification
+
+xtriple     TRIPLE (f v) PRE H POST Q
+   turns the goal into H ==> `App f v Q
+   useful to prove a derived specification
+
+xgc         H ==> ^F Q
+   turns to H ==> ^F Q \* \GC
+
+xcast
+
+xpost
+
+
+xframe
+
+Term tactics for CF
+===================
 
 xfail       H ==> `Fail Q
+   turns the goal to [False]
 
 xval        H ==> (`Val v) Q
+   turns the goal to H ==> Q v
 
 xval V
    specifies the value of which v is the encoding
 
 xapp        H ==> `App f v Q
-   exploits the registered triple
+   exploits the registered specification Triple for f
 
 xapp E
-   enables to specify
+   enables to specify the specification triples
+
+xapp_nosubst
+   xapp with the substitution that may occur for the reult
+
+xappn
+   repeat xapp
 
 xseq        H ==> `Seq F1 F2 Q
+   remark: xapp usually applies directly
 
 xlet        H ==> (`Let 'x := F1 F2) Q
+   remark: xapp usually applies directly
 
 xif         H ==> (`If b Then F1 Else F2)
-
