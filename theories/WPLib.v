@@ -24,7 +24,7 @@ Open Scope trm_scope.
 
 Definition incr : val :=
   VFun 'p :=
-   'p ':= ((val_get 'p) '+ 1).
+   'p ':= (('! 'p) '+ 1).
 
 Lemma Triple_incr : forall (p:loc) (n:int),
   TRIPLE (incr p)
@@ -42,7 +42,7 @@ Hint Extern 1 (Register_Spec incr) => Provide Triple_incr.
 
 Definition decr : val :=
   VFun 'p :=
-   'p ':= ((val_get 'p) '- 1).
+   'p ':= (('! 'p) '- 1).
 
 Lemma Triple_decr : forall (p:loc) (n:int),
   TRIPLE (decr p)

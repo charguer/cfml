@@ -15,6 +15,156 @@ Set Implicit Arguments.
 
 From Sep Require Import Example.
 
+(* TODO: move *)
+
+Definition max (n m:int) : int := 
+  if n > m then n else m.
+
+Lemma max_nonpos : forall n,
+  n <= 0 ->
+  max 0 n = 0.
+Proof using. introv M. unfold max. case_if; math. Qed.
+
+
+(* ####################################################### *)
+(** * Basic programs *)
+
+Module Basics.
+
+
+(* ******************************************************* *)
+(** *** Let computation *) 
+
+(** 
+[[
+  let example_let n =
+    let a = n + 1 in
+    let b = n - 1 in
+    a + b
+]]
+*)
+
+Definition example_let :=
+  VFun 'n :=
+    Let 'a := 'n '+ 1 in
+    Let 'b := 'n '- 1 in
+    'a '+ 'b.
+
+Lemma Triple_example_let : forall n,
+  Triple (example_let n)
+    PRE \[]
+    POST (fun r => \[r = 2*n]).
+Proof using.
+  xtriple. xapp. xapp. xapp. xsimpl. math.
+Qed.
+
+
+
+(* ******************************************************* *)
+(** *** Increment *) 
+
+(** 
+[[
+  let incr p =
+    p := !p + 1
+]]
+*)
+
+Definition incr : val :=
+  VFun 'p :=
+   'p ':= '! 'p '+ 1.
+
+Lemma Triple_incr : forall (p:loc) (n:int),
+  TRIPLE (incr p)
+    PRE (p ~~> n)
+    POST (fun (r:unit) => (p ~~> (n+1))).
+Proof using.
+  xwp. xapp. xapp. xapp. xsimpl~.
+Qed.
+
+(** Note: [xappn] factorizes the [xapp] calls. *)
+
+Hint Extern 1 (Register_Spec (val_incr)) => Provide Triple_incr.
+
+
+(* ******************************************************* *)
+(** *** Successor using increment *) 
+
+(** 
+[[
+  let succ_using_incr n =
+    let p = ref n in
+    incr p;
+    !p
+]]
+*)
+
+Definition succ_using_incr :=
+  VFun 'n :=
+    Let 'p := val_ref 'n in
+    val_incr 'p ';
+    '! 'p.
+
+Lemma Triple_succ_using_incr : forall n,
+  TRIPLE (succ_using_incr n)
+    PRE \[]
+    POST (fun r => \[r = n+1]).
+Proof using.
+  xtriple. xapp as p. intros; subst. xapp~. intros _. xapps~.
+  xvals~.
+Qed.
+
+(** Note: [xapps] is short for [xval; xsimpl]. *)
+
+(** Note: [decr] is similarly defined in the library. *)
+
+
+(* ******************************************************* *)
+(** *** A simple recursion *) 
+
+(** 
+[[
+  let rec repeat_incr p m =
+    if m > 0 then (
+      incr p;
+      repeat_incr p (m-1)
+    )
+]]
+*)
+
+Definition repeat_incr :=
+  VFix 'f 'p 'm :=
+    If_ 'm '> 0 Then
+      incr 'p ';
+      'f 'p ('m '- 1)
+    End.
+
+Lemma Triple_succ_using_incr : forall p n m,
+  TRIPLE (repeat_incr p m)
+    PRE (p ~~> n)
+    POST (fun (_:unit) => p ~~> (n + m)).
+Proof using.
+Abort.
+
+(** Let's try again *)
+
+Lemma Triple_succ_using_incr : forall p n m,
+  m > 0 ->
+  TRIPLE (repeat_incr p m)
+    PRE (p ~~> n)
+    POST (fun (_:unit) => p ~~> (n + m)).
+Proof using.
+Qed.
+
+(** Let's try yet another time *)
+
+Lemma Triple_succ_using_incr : forall p n m,
+  TRIPLE (repeat_incr p m)
+    PRE (p ~~> n)
+    POST (fun (_:unit) => p ~~> (n + max 0 m)).
+Proof using.
+Qed.
+
 
 
 

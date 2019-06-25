@@ -222,12 +222,12 @@ Definition is_empty : val :=
   VFun 'p :=
     'p'.size '= 0.
 
-Definition val_push : val :=
+Definition push : val :=
   VFun 'p 'x :=
    Set 'p'.data ':= ('x ':: 'p'.data) ';
    Set 'p'.size ':= ('p'.size '+ 1).
 
-Definition val_pop : val :=
+Definition pop : val :=
   VFun 'p :=
    Let 'q := 'p'.data in 
    Match 'q With (* LATER: allow inline *)
@@ -271,7 +271,7 @@ Proof using.
 Qed.
 
 Lemma Triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
-  TRIPLE (val_push p (``x))
+  TRIPLE (push p (``x))
     PRE (p ~> Stackn L)
     POST (fun (u:unit) => (p ~> Stackn (x::L))).
 Proof using.
@@ -282,7 +282,7 @@ Qed.
 
 Lemma Triple_pop : forall `{Enc A} (p:loc) (L:list A),
   L <> nil ->
-  TRIPLE (val_pop p)
+  TRIPLE (pop p)
     PRE (p ~> Stackn L)
     POST (fun (x:A) => \exists L', \[L = x::L'] \* (p ~> Stackn L')).
 Proof using.
