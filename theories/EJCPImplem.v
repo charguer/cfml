@@ -781,6 +781,46 @@ Parameter triple_of_wpgen : forall t H Q,
   H ==> wpgen nil t Q ->
   triple t H Q.
 
+(* ******************************************************* *)
+(** ** Notation and tactics *)
+
+(** Notation for [wpgen_seq] *)
+
+Notation "'Seq' F1 ; F2" :=
+  ((wpgen_seq F1 F2))
+  (at level 68, right associativity,
+   format "'[v' 'Seq'  '[' F1 ']'  ;  '/'  '[' F2 ']' ']'") : wp_scope.
+
+(** The tag trick *)
+
+Definition wptag (F:formula) : formula := F.
+
+Notation "'`' F" := (wptag F)
+  (at level 69, F at level 100, format "'`' F") : wp_scope.
+
+(** Integration:
+[[
+  Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+    wptag (mkstruct (match t with ... end))
+]]
+*)
+
+(** Notation for goals involving tagged formulae *)
+
+Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (Wptag F) _ _ Q)
+  (at level 8, H, F, Q at level 0,
+   format "'[v' 'PRE'  H  '/' 'CODE'  F '/' 'POST'  Q ']'") : wp_scope.
+
+(** Tactic [xseq] applies to goal of the form [`(Seq F1 ; F2) Q] *)
+
+Lemma xseq_lemma : forall H F1 F2 Q,
+  H ==> F1 (fun v => F2 Q) ->
+  H ==> wptag (mkstruct (wpgen_seq F1 F2)) Q.
+Proof using. introv M. xchange M. Qed.
+
+Tactic Notation "xseq" :=
+   applys xseq_lemma.
+
 End Wpgen.
 
 
@@ -790,14 +830,110 @@ End Wpgen.
 
 Module Lift.
 
+(* ******************************************************* *)
+(** ** The encoder typeclass *)
+
+Class Enc (A:Type) :=
+  make_Enc { enc : A -> val }.
+
+(** Notation [``V] for [enc V] *)
+
+Notation "`` V" := (enc V) (at level 8, format "`` V").
+
+(** Example instance *)
+
+Instance Enc_int : Enc int.
+Proof using. constructor. applys val_int. Defined.
+
+
+(* ******************************************************* *)
+(** ** Lifted singleton heap predicate *)
+
+(** Singleton: [l ~~> V] describes a singleton heap at location [l]
+    whose contents is the encoding of [V]. *)
+
+Definition Hsingle `{EA:Enc A} (V:A) (l:loc) : hprop :=
+  hsingle l (enc V).
+
+Notation "l '~~>' V" := (l ~> Hsingle V)
+  (at level 32, no associativity) : heap_scope.
+
+
+(* ******************************************************* *)
+(** ** Lifted triples *)
+
+(** [Triple t H Q] describes a triple where the postcondition [Q] has
+    type [A->hprop] for some encodable type [A] *)
+
+Definition Triple (t:trm) `{EA:Enc A} (H:hprop) (Q:A->hprop) : Prop :=
+  triple t H (\exists V, \[v = enc V] \* Q V).
+
+(** Lifted rule for sequence: [Q1] has type [unit->hprop] *)
+
+Parameter Triple_seq : forall t1 t2 H,
+  forall A `{EA:Enc A} (Q:A->hprop) (Q1:unit->hprop),
+  Triple t1 H Q1 ->
+  Triple t2 (Q1 tt) Q ->
+  Triple (trm_seq t1 t2) H Q.
+
+(** Lifted rule for let bindings: [Q1] has type [A1->hprop]
+    for some encodable type [A1] *)
+
+Parameter Triple_let : forall z t1 t2 H,
+  forall A `{EA:Enc A} (Q:A->hprop) A1 `{EA1:Enc A1} (Q1:A1->hprop),
+  Triple t1 H Q1 ->
+  (forall (X:A1), Triple (subst z (enc X) t2) (Q1 X) Q) ->
+  Triple (trm_let z t1 t2) H Q.
+
+
+(* ******************************************************* *)
+(** ** Lifted characteristic formulae *)
+
+(** Type of a lifted formula *)
+
+Definition Formula := forall A (EA:Enc A), (A -> hprop) -> hprop.
+
+(** Notation [^F Q] as a shorthand for [F _ _ Q], which is same as  
+    [F A EA Q] where [Q] has type [A->hprop] and [EA:Enc A]. *)
+
+Notation "^ F Q" := ((F:Formula) _ _ Q)
+  (at level 45, F at level 0, Q at level 0, format "^ F  Q") : wp_scope.
+
+(** The [MkStruct] predicate lifts [mkstruct]. *)
+
+Definition MkStruct (F:Formula) : Formula :=
+  fun A `{EA:Enc A} Q => mkstruct (@F A EA) Q.
+
+(** Lifted characteristic formula generator *)
+
+Definition Wpgen_seq (F1 F2:Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+    ^F1 (fun (X:unit) => ^F2 Q)).
+
+Definition Wpgen_let (F1:Formula) (F2of:forall A1 (EA1:Enc A1),A1->Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+    \exists (A1:Type) (EA1:Enc A1), ^F1 (fun (X:A1) => ^(F2of X) Q)).
+
+(*
+[[
+Fixpoint Wpgen (E:ctx) (t:trm) : Formula :=
+  MkStruct 
+  match t with 
+  ..
+  | trm_seq t1 t2 => Wpgen_seq (Wpgen E t1) (Wpgen E t2)
+  | trm_let x t1 t2 => Wpgen_let (Wpgen E t1) (fun A (EA:Enc A) (X:A) =>
+                         Wpgen ((x, enc X)::E) t2)
+  ...
+  end
+]]
+*)
+
+(** Soundness theorem *)
+
+Parameter Triple_of_Wpgen : forall (t:trm) H `{EA:Enc A} (Q:A->hprop),
+  H ==> ^(Wpgen nil t) Q ->
+  Triple t H Q.
+
+
 End Lift.
-
-
-
-(* ####################################################### *)
-(** * Richer language (will be later in [SLFRich] *)
-
-Module Rich.
-
-End Rich.
 
