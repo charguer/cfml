@@ -303,6 +303,39 @@ Qed.
 End LibListAssocExec.
 
 
+(*----------------------*)
+(* List *)
+
+Section ListSub.
+Variable (A:Type).
+
+(** Sub-list well-founded order *)
+
+Inductive list_sub : list A -> list A -> Prop :=
+  | list_sub_cons : forall x l,
+      list_sub l (x::l)
+  | list_sub_tail : forall x l1 l2,
+      list_sub l1 l2 ->
+      list_sub l1 (x::l2).
+
+Hint Constructors list_sub.
+
+Lemma list_sub_wf : wf list_sub.
+Proof using.
+  intros l. induction l; apply Acc_intro; introv H.
+  { inverts~ H. }
+  { inverts~ H. applys~ IHl. }
+Qed.
+
+End ListSub.
+
+Arguments list_sub {A}.
+Hint Constructors list_sub.
+Hint Resolve list_sub_wf : wf.
+
+
+
+
 
 
 (*----------------------*)
@@ -319,6 +352,16 @@ Proof using.
   { intro_subst. false* M. }
   { intros N. false* M. }
 Qed.
+
+Definition is_nil A (l:list A) : bool :=
+  match l with
+  | nil => true
+  | _ => false
+  end.
+
+Lemma is_nil_eq : forall A (l:list A),
+  is_nil l = isTrue (l = nil).
+Proof using. intros. destruct l; simpl; rew_bool_eq*. Qed.
 
 Definition is_not_nil A (l:list A) : bool :=
   match l with
@@ -574,4 +617,8 @@ Tactic Notation "list2_ind_last" constr(E) :=
     list2_ind_last l1 l2; [ apply E | | ] end.
 
 
+(* ---------------------------------------------------------------------- *)
+(* Libmultiset *)
 
+Tactic Notation "multiset_eq" := (* TODO: move to TLC *)
+  check_noevar_goal; permut_simpl.

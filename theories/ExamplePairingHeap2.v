@@ -1,8 +1,11 @@
 (**
 
-Formalization of 
-- purely functional pairing heaps in Coq
+Formalization of pairing heaps, covering both
+- purely functional pairing heaps (in Coq code)
 - ephemeral (pointer-based) pairing heaps in CFML2
+
+More information about pairing heaps:
+  https://www.cise.ufl.edu/~sahni/dsaaj/enrich/c13/pairing.htm
 
 Author: Arthur Charguéraud.
 License: MIT.
@@ -10,104 +13,62 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From TLC Require Import LibCore.
-From Sep Require Import Example.
-From Sep Require Import ExampleList.
-
+From TLC Require Import LibCore LibMultiset.
+From Sep Require Import Example ExampleList.
 Module Import M := MList.MListOf.
-
-
-Definition is_nil A (l:list A) : bool :=
-  match l with
-  | nil => true
-  | _ => false
-  end.
-
-Lemma is_nil_eq : forall A (l:list A),
-  is_nil l = isTrue (l = nil).
-Proof using. intros. destruct l; simpl; rew_bool_eq*. Qed.
-
-
-Section ListSub.
-Variable (A:Type).
-
-(** Sub-list well-founded order *)
-
-Inductive list_sub : list A -> list A -> Prop :=
-  | list_sub_cons : forall x l,
-      list_sub l (x::l)
-  | list_sub_tail : forall x l1 l2,
-      list_sub l1 l2 ->
-      list_sub l1 (x::l2).
-
-Hint Constructors list_sub.
-
-Lemma list_sub_wf : wf list_sub.
-Proof using.
-  intros l. induction l; apply Acc_intro; introv H.
-  { inverts~ H. }
-  { inverts~ H. applys~ IHl. }
-Qed.
-
-End ListSub.
-
-Arguments list_sub {A}.
-Hint Constructors list_sub.
-Hint Resolve list_sub_wf : wf.
-
-
 
 
 
 (* ####################################################### *)
+(** * Representation and lemmas *)
 
-From TLC Require Import LibMultiset.
+(* ******************************************************* *)
+(** ** Types of elements *)
 
-Tactic Notation "multiset_eq" := (* TODO: move to TLC *)
-  check_noevar_goal; permut_simpl.
-
-
-
-(** For simplicity, assume the heap stores integer values.
+(** For simplicity, assume the priority queue to store integer values.
     It is not hard to generalize everything to any ordered type. *)
 
 Notation "'elem'" := (int).
 Notation "'elems'" := (multiset elem).
 
 
+(* ******************************************************* *)
+(** ** Data structure and definitions *)
+
+(** Functional representation of a node in a (nonempty) pairing heap *)
 
 Inductive node : Type :=
   | Node : elem -> list node -> node.
 
-Implicit Types n : node.
+Instance Inhab_node : Inhab node.
+Proof using. applys Inhab_of_val (Node arbitrary nil). Qed.
+
+(** Functional representation of a possibly-empty pairing heap *)
 
 Definition heap := option node.
 
 Instance Inhab_heap : Inhab heap.
 Proof using. applys Inhab_of_val (@None node). Qed.
 
-Instance Inhab_node : Inhab node.
-Proof using. applys Inhab_of_val (Node arbitrary nil). Qed.
-
-
-
-Implicit Types x y : elem.
-Implicit Types h : heap.
-Implicit Types hs : list node.
-Implicit Types E : elems.
-Implicit Types Es : list elems.
+(** Auxiliary definition for specifications *)
 
 Definition min_of (E:elems) (x:elem) := 
   x \in E /\ forall_ y \in E, x <= y.
 
-Definition removed_min (E E':elems) : Prop :=
-  exists x, min_of E x /\ E = \{x} \u E'.
+(** Auxiliary definition for stating invariants follow. *)
+
+(** [is_ge x] is a predicate that characterizes items no less than [x] *)
 
 Definition is_ge (x y:elem) : Prop :=
   x <= y.
 
+(** [list_union Es] computes the iterated union of the multisets in the list [Es] *)
+
 Definition list_union (Es:list elems) := 
   LibList.fold_right union \{} Es.
+
+(** [inv n E] relates a tree node [n] with the multiset [E] made of
+    the items that the tree contains *)
 
 Inductive inv : node -> elems -> Prop :=
   | inv_Node : forall x ns Es E,
@@ -116,16 +77,31 @@ Inductive inv : node -> elems -> Prop :=
       E = \{x} \u (list_union Es) ->   
       inv (Node x ns) E.
 
+(** [repr h E] relates a heap representation [h] with the multiset [E] made of the items 
+    that the heap contains *)
+
 Inductive repr : heap -> elems -> Prop :=
   | repr_None :
       repr None \{}
   | repr_Some : forall n E,
       inv n E ->
       repr (Some n) E.
-  
+
 
 (* ******************************************************* *)
 (** ** Lemmas and tactics *)
+
+(** Implicit Types *)
+
+Implicit Types n : node.
+Implicit Types p q l : loc.
+Implicit Types x y : elem.
+Implicit Types h : heap.
+Implicit Types hs : list node.
+Implicit Types E : elems.
+Implicit Types Es : list elems.
+
+(** Normalization lemmas for [list_union] *)
 
 Lemma list_union_nil :
   list_union (@nil elems) = \{}.
@@ -135,15 +111,18 @@ Lemma list_union_cons : forall E Es,
   list_union (E::Es) = E \u list_union Es.
 Proof using. auto. Qed.
 
+(** Hints *)
+
 Hint Rewrite list_union_nil list_union_cons : rew_listx.
 Hint Rewrite (@union_empty_r elems _ _ _) (@union_empty_l elems _ _ _) : rew_listx.
-
 Hint Extern 1 (_ < _) => simpl; math.
 Hint Extern 1 (_ <= _) => simpl; math.
 Hint Extern 1 (_ = _ :> multiset _) => rew_listx; multiset_eq.
 Hint Extern 1 (_ \in (_ : multiset _)) => multiset_in.
 Hint Constructors Forall Forall2 list_sub.
 Hint Unfold is_ge.
+
+(** Lemmas to manipulate the invariant [Forall (foreach (is_ge x)) Es] *)
 
 Lemma Forall_foreach_is_ge_inv : forall x y Es,
   Forall (foreach (is_ge x)) Es ->
@@ -163,6 +142,9 @@ Proof using.
   { applys foreach_empty. }
   { unfold list_union; rew_listx. applys* foreach_union. }
 Qed.
+
+(** Key auxiliary lemmas for the verification proofs
+    (both for the functional version and the imperative version) *)
 
 Lemma inv_not_empty : forall n E,
   inv n E ->
@@ -201,10 +183,13 @@ Proof.
 Qed.
 
 
-(* ******************************************************* *)
-(** ** Coq code *)
+(* ####################################################### *)
+(** * Purely functional pairing heaps *)
 
 Module Pure.
+
+(* ******************************************************* *)
+(** ** Source code *)
 
 Definition empty : heap :=
   None.
@@ -328,11 +313,60 @@ Qed.
 
 End Pure.
 
-(* ******************************************************* *)
-(** ** Deeply embedded code *)
 
-Implicit Types p q l : loc.
-Notation "''hs'" := ("hs":var) : var_scope.
+(* ####################################################### *)
+(** * Imperative pairing heaps *)
+
+Module Imperative.
+
+(* ******************************************************* *)
+(** ** Source code in OCaml+null syntax *)
+
+(**
+[[
+
+type node = { value : elem; sub : node mlist }
+type heap = null OR node
+
+let create () =
+  ref null
+
+let is_empty p = 
+  p == null
+
+let merge q1 q2 =
+  if q1.value < q2.value 
+    then (MList.push q1.sub q2; q1)
+    else (MList.push q2.sub q1; q2)
+
+let insert p x =
+  let q1 = !p in
+  let q2 = { value = x; sub = MList.create() } in
+  if q1 == null 
+    then p := q2
+    else p := merge q1 q2
+
+let merge_pairs l =
+  let q1 = MList.pop l in
+  if MList.is_empty l then q else
+  let q2 = MList.pop l in
+  let q = merge q1 q2 in
+  if MList.is_empty l 
+     then q
+     else merge q (merge_pairs l)
+
+let pop_min p =
+  let q = !p in
+  let x = q.value in
+  if MList.is_empty q.sub 
+    then p := null
+    else p := merge_pairs q.sub
+]]
+
+*)
+
+(* ******************************************************* *)
+(** ** Source code in embedded syntax *)
 
 Definition value : field := 0%nat.
 Definition sub : field := 1%nat.
@@ -357,11 +391,11 @@ Definition merge : val :=
 
 Definition insert : val :=
   VFun 'p 'x :=
-    Let 'q := '!'p in
+    Let 'q1 := '!'p in
     Let 'q2 := New`{ value := 'x; sub := MList.create '() } in
-    If_ 'q '= null
+    If_ 'q1 '= null
       Then 'p ':= 'q2
-      Else 'p ':= merge 'q 'q2.
+      Else 'p ':= merge 'q1 'q2.
 
 Definition merge_pairs : val :=
   VFix 'f 'l := 
@@ -382,6 +416,11 @@ Definition pop_min : val :=
 		'x.
 
 
+(* ******************************************************* *)
+(** ** Representation predicates *)
+
+(** [q ~> Tree n] related a pointer [q] with the functional tree structure [n]
+    that it represents in memory *)
 
 Fixpoint Tree (n:node) (q:loc) { struct n } : hprop :=
   match n with
@@ -391,8 +430,14 @@ Fixpoint Tree (n:node) (q:loc) { struct n } : hprop :=
       \* q' ~> M.MListOf Tree hs
   end.
 
+(** [q ~> Repr E] related a non-null pointer [q] with the multiset of items [E]
+    that are stored in the tree *)
+
 Definition Repr (E:elems) (q:loc) : hprop :=
   \exists n, q ~> Tree n \* \[inv n E].
+
+(** [q ~> Heap E] relates a possibly-null pointer [q] with the multiset of items [E]
+    that are stored in the heap. It uses [Contents E q] as an auxiliary definition. *)
 
 Definition Contents (E:elems) (q:loc) : hprop :=
   If q = null then \[E = \{}] else q ~> Repr E.
@@ -401,6 +446,10 @@ Definition Heap (E:elems) (p:loc) : hprop :=
   \exists q, p ~~> q \* Contents E q.
 
 
+(* ******************************************************* *)
+(** ** Lemmas for the representation predicates *)
+
+(** For [Tree] *)
 
 Lemma Tree_Node : forall q x hs,
   q ~> Tree (Node x hs) =
@@ -408,6 +457,7 @@ Lemma Tree_Node : forall q x hs,
               \* l ~> M.MListOf Tree hs.
 Proof using. auto. Qed.
 
+(** For [Repr] *)
 
 Lemma Repr_eq : forall q E,
   q ~> Repr E = \exists n, q ~> Tree n \* \[inv n E].
@@ -426,6 +476,8 @@ Proof using.
   rewrite Tree_Node. xpull ;=> l. xchange* Record_not_null ;=> N.
   xsimpl~ (Node x hs). rewrite Tree_Node. xsimpl.
 Qed.
+
+(** For [Contents] *)
 
 Lemma Contents_eq : forall E q,
   Contents E q = (If q = null then \[E = \{}] else q ~> Repr E).
@@ -452,6 +504,8 @@ Lemma Contents_null :
   \[] ==> Contents \{} null.
 Proof using. unfold Contents. case_if. xsimpl*. Qed.
 
+(** For [Heap] *)
+
 Lemma Heap_eq : forall p E,
   p ~> Heap E = \exists q, p ~~> q \* Contents E q.
 Proof using. auto. Qed.
@@ -469,14 +523,14 @@ Proof using. intros. xchanges Contents_null. xchange <- Heap_eq. Qed.
 
 
 (* ******************************************************* *)
-
+(** ** Verification *)
 
 Lemma Triple_create :
   TRIPLE (create tt)
     PRE \[]
     POST (fun p => p ~> Heap \{}).
 Proof using.
-  xwp. xapp (>> Triple_ref Enc_loc null) ;=> p. (* LATER: spec auto *)
+  xwp. xapp (>> Triple_ref Enc_loc null) ;=> p.
   xunfold Heap. xsimpl. xchanges~ Contents_null.
 Qed.
 
@@ -487,7 +541,7 @@ Lemma Triple_is_empty : forall p E,
     PRE (p ~> Heap E)
     POST (fun b => \[b = isTrue (E = \{})] \* p ~> Heap E).
 Proof using.
-  xwp. xunfolds Heap ;=> q. xapp. xapp. typeclass. (* LATER: inj by default *)
+  xwp. xunfolds Heap ;=> q. xapp. xapp. typeclass.
   xchanges~ Contents_is_empty.
 Qed.
 
@@ -502,11 +556,11 @@ Proof using.
   xchange (Tree_Node q1) ;=> l1. xchange (Tree_Node q2) ;=> l2.
   inverts I1 as Is1 Ks1. inverts I2 as Is2 Ks2.
   xapp. xapp. xapp. xif ;=> C.
-  { xapp. xchange <- (Tree_Node q2). xapp (>> __ Enc_loc). (* LATEr: fix *)
-    xval. xchange <- Tree_Node. xchange <- Repr_eq. (* LATEr factorize *)
+  { xapp. xchange <- (Tree_Node q2). xapp (>> __ Enc_loc).
+    xval. xchange <- Tree_Node. xchange <- Repr_eq.
     applys* merge_lemma. xsimpl*. }
-  { xapp. xchange <- (Tree_Node q1). xapp (>> __ Enc_loc). (* LATEr: fix *)
-    xval. xchange <- Tree_Node. xchange <- Repr_eq. (* LATEr factorize *)
+  { xapp. xchange <- (Tree_Node q1). xapp (>> __ Enc_loc).
+    xval. xchange <- Tree_Node. xchange <- Repr_eq.
     applys* merge_lemma. xsimpl*. }
 Qed.
 
@@ -555,7 +609,7 @@ Proof using.
   introv HE. xwp. xchange Heap_eq ;=> q. xapp. xchange~ Contents_not_empty.
   xchange Repr_eq ;=> [x hs] I. invert I ;=> ? ? ? ? Is Ks Eq -> -> ->.
   xchange Tree_Node ;=> l. xapp.
-  xseq. xapp. xapp (>> __ Tree). (* LATER: no arg *) 
+  xseq. xapp. xapp (>> __ Tree).
   xpost (fun (_:unit) => \exists E', \[E = '{x} \u E'] \* p ~> Heap E' \* \GC). xif ;=> C.
   { { subst. inverts Is. inverts Ks. rew_listx.
       xapp (>> Triple_set Enc_loc). xchange <- Tree_Node. xchanges* Heap_of_null. } }
@@ -566,8 +620,8 @@ Qed.
 
 Hint Extern 1 (Register_Spec (pop_min)) => Provide @Triple_pop_min.
 
+End Imperative.
 
 
 
 
-  (* LATER: reimplement merge_pairs using a whilte loop *)

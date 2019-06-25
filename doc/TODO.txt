@@ -1,0 +1,14 @@
+URGENT
+
+skip. (* TODO noduplicates *)
+(* LATER: inj by default *)
+
+
+Pairing heaps
+=============
+
+  (* LATER: reimplement merge_pairs using a whilte loop *)
+xapp (>> Triple_ref Enc_loc null) ;=> p. (* LATER: spec auto *)
+
+xapp. typeclass. (* LATER: inj by default *)
+xapp (>> __ Enc_loc). (* LATEr: fix *)
