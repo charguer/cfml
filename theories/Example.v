@@ -11,6 +11,7 @@ License: MIT.
 Set Implicit Arguments.
 Generalizable Variables A B.
 
+From TLC Require Import LibCore.
 From Sep Require Export WPLib.
 
 Export NotationForVariables NotationForTerms.

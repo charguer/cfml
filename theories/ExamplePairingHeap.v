@@ -13,7 +13,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From TLC Require Import LibCore LibMultiset.
+From TLC Require Import LibMultiset.
 From Sep Require Import Example ExampleList.
 Module Import M := MList.MListOf.
 
