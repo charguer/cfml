@@ -15,6 +15,11 @@ LATER: exo with iter (push) into other list
 =========
 =========
 =========
+
+LATER: improve to use older technology
+   Ltac xsimpl_lr_cancel_eq_repr_post tt :=
+     try fequal; try reflexivity.
+
 LATER: inj by default
 
 (* LATER: if hsimpl fails to progress after xapp, warning *)

@@ -249,6 +249,11 @@ Definition pop : val :=
 Definition Stackn `{Enc A} (L:list A) (p:loc) : hprop :=
   p ~> Record`{ data := L; size := LibListZ.length L }.
 
+Lemma Stackn_eq : forall (p:loc) `{Enc A} (L:list A),
+  p ~> Stackn L =
+  p ~> Record`{ data := L; size := LibListZ.length L }.
+Proof using. auto. Qed.
+
 
 (* ********************************************************************** *)
 (** ** Verification *)
@@ -276,8 +281,7 @@ Lemma Triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
     POST (fun (u:unit) => (p ~> Stackn (x::L))).
 Proof using.
   xwp. xunfold Stackn. xapp. xval (x::L). xappn.
-  xsimpl. (* LATER: xsimpl could do xrecord_eq *) 
-  xrecord_eq. rew_list; math.
+  xsimpl*.
 Qed.
 
 Lemma Triple_pop : forall `{Enc A} (p:loc) (L:list A),
@@ -289,8 +293,7 @@ Proof using.
   introv N. xwp. xunfold Stackn. xapp.
   applys xmatch_lemma_list.
   { intros HL. xfail. }
-  { intros X L' HL. xappn. xval. xsimpl*.
-    xrecord_eq. subst; rew_list; math. }
+  { intros X L' HL. xappn. xval. xsimpl*. }
 Qed.
 
 End Stackn.

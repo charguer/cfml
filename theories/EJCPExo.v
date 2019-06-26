@@ -184,13 +184,6 @@ Hint Extern 1 (Register_Spec (clear)) => Provide @Triple_clear.
 ]]
 *)
 
-(* TODO move *)
-
-Lemma Stackn_eq : forall (p:loc) `{Enc A} (L:list A),
-  p ~> Stackn L =
-  p ~> Record`{ data := L; size := LibListZ.length L }.
-Proof using. auto. Qed.
-
 Definition concat :=
   VFun 'p1 'p2 :=
     Set 'p1'.data ':= (('p1'.data) '++ ('p2'.data)) ';
@@ -203,8 +196,7 @@ Lemma Triple_concat : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
     POST (fun (u:unit) => p1 ~> Stackn (L1 ++ L2) \* p2 ~> Stackn nil).
 Proof using.
   xwp. xunfold Stackn. xapp. xapp. xapp. xapp. xapp. xapp. xapp.
-  xapp. xchange <- (Stackn_eq p1).
-  (* TODO: xsimpl do record_eq *) { xrecord_eq. rew_listx. auto. }
+  xapp. xchange <- (Stackn_eq p1). { rew_listx. auto. }
   xchange <- (Stackn_eq p2). xapp. xsimpl.
 Qed.
 

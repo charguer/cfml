@@ -182,7 +182,15 @@ Ltac xrecord_eq_core tt :=
 Tactic Notation "xrecord_eq" :=
   xrecord_eq_core tt.
 
-(* todo: xrecord_eq might need to take care of reordering *)
+(* LATER: xrecord_eq might need to take care of reordering *)
+
+(** Updating the cancellation tactic. *)
+
+Ltac xsimpl_lr_cancel_eq_repr_post tt ::=
+  match goal with
+  | |- Record ?L1 = Record ?L2 => fequal; xrecord_eq
+  | _ => try fequal; try reflexivity
+  end.
 
 
 (* ---------------------------------------------------------------------- *)

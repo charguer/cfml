@@ -1328,6 +1328,7 @@ Ltac xpull_post tt :=
 
 Ltac xsimpl_lr_cancel_eq_repr_post tt :=
   try fequal; try reflexivity.
+  (* Later refined for records *)
 
 (* DEPRECATED
   try solve
