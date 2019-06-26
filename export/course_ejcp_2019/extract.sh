@@ -70,3 +70,9 @@ cd ${THEORIES_TARGET}
 sed -i -e 's/^From[[:space:]]TLC[[:space:]]//' *.v
 sed -i -e 's/^From[[:space:]]Sep[[:space:]]//' *.v
 
+
+##############################################################################
+# Remove solutions
+
+cd ${THEORIES_TARGET}
+perl -i -pe 'BEGIN{undef $/;} s/\(\* SOLUTION \*\).*?\(\* \/SOLUTION \*\)/ (* FILL *) /smg' EJCPExo.v

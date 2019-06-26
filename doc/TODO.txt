@@ -3,8 +3,6 @@
 
 skip. (* TODO noduplicates *)
 
-TODO: script to remove the solutions
-
 TODO: add hints for exercises
 
 
