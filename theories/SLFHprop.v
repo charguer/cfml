@@ -819,7 +819,7 @@ Qed.
     [Fmap.disjoint_3 h1 h2 h3] asserts that the three arguments denote
     pairwise disjoint heaps. *)
 
-Definition fmap_disjoint_3 (h1 h2 h3:heap) :=
+Definition fmap_disjoint_3 (h1 h2 h3:heap) : Prop :=
      Fmap.disjoint h1 h2
   /\ Fmap.disjoint h2 h3
   /\ Fmap.disjoint h1 h3.
@@ -829,14 +829,14 @@ Definition fmap_disjoint_3 (h1 h2 h3:heap) :=
     final state that is described by the [\Top] heap predicate
     that appears in the definition of [triple]. *)
 
-Definition triple_lowlevel t H Q :=
+Definition triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall h1 h2,
   Fmap.disjoint h1 h2 ->
   H h1 ->
   exists v h1' h3',
        fmap_disjoint_3 h1' h2 h3'
     /\ eval (h1 \u h2) t (h1' \u h2 \u h3') v
-    /\ (Q v) h1'.
+    /\ Q v h1'.
 
 (** One can proove the equivalence of [triple] and [triple_lowlevel]
     following a similar proof pattern as previously. The proof is a bit

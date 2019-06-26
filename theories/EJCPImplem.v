@@ -1,6 +1,6 @@
 (**
 
-EJCP Course: implementation of CFML
+EJCP Course: implementation of CFML.
 
 Author: Arthur Charguéraud.
 License: MIT.
@@ -53,11 +53,8 @@ Definition heap : Type := state.
 (*
 [[
     Check Fmap.empty : heap.
-
     Check Fmap.single : loc -> val -> heap.
-
     Check Fmap.union : heap -> heap -> heap.
-
     Check Fmap.disjoint : heap -> heap -> Prop.
 ]]
 *)
@@ -160,38 +157,42 @@ Module Hprop.
 
 Definition hprop := heap -> Prop.
 
+Implicit Type h : heap.
 Implicit Type H : hprop.
 
 
 Definition hempty : hprop :=
-  fun (h:heap) => (h = Fmap.empty).
+  fun h => (h = Fmap.empty).
 
 Notation "\[]" := (hempty) (at level 0).
 
 
 Definition hpure (P:Prop) : hprop :=
-  fun (h:heap) => (h = Fmap.empty) /\ P.
+  fun h => (h = Fmap.empty) /\ P.
 
 Notation "\[ P ]" := (hpure P) (at level 0, format "\[ P ]").
 
 
 Definition hsingle (l:loc) (v:val) : hprop :=
-  fun (h:heap) => (h = Fmap.single l v).
+  fun h => (h = Fmap.single l v).
 
 Notation "l '~~~>' v" := (hsingle l v) (at level 32).
 
 
 Definition hstar (H1 H2 : hprop) : hprop :=
-  fun (h:heap) => exists h1 h2, H1 h1
-                              /\ H2 h2
-                              /\ Fmap.disjoint h1 h2
-                              /\ h = Fmap.union h1 h2.
+  fun h => exists h1 h2, H1 h1
+                      /\ H2 h2
+                      /\ Fmap.disjoint h1 h2
+                      /\ h = Fmap.union h1 h2.
 
 Notation "H1 '\*' H2" := (hstar H1 H2) (at level 41, right associativity).
 
 
+Notation "Q \*+ H" := (fun x => (Q x) \* H) (at level 40).
+
+
 Definition hexists A (J:A->hprop) : hprop :=
-  fun (h:heap) => exists x, J x h.
+  fun h => exists x, J x h.
 
 Notation "'\exists' x1 .. xn , H" :=
   (hexists (fun x1 => .. (hexists (fun xn => H)) ..))
@@ -200,13 +201,25 @@ Notation "'\exists' x1 .. xn , H" :=
 
 
 Definition htop : hprop :=
-  fun (h:heap) => True.
+  fun h => True.
 
 Notation "\Top" := (htop).
 
 
+Definition hgc : hprop := htop.
+(** In general, [Definition hgc := fun h => heap_affine h], 
+    where [heap_affine] is a predicate that characterizes which pieces
+    of heap are garbaged collected, as opposed to those that need to be
+    deallocated explicitly (e.g. file handles, or heap-allocated data in C). *)
+
+Notation "\GC" := (hgc).
+
+
 (* ******************************************************* *)
 (** ** Extensionality *)
+
+Parameter hstar_assoc : forall H1 H2 H3,
+  (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
 
 Axiom functional_extensionality : forall A B (f g:A->B),
   (forall x, f x = g x) ->
@@ -229,9 +242,6 @@ Lemma hprop_eq : forall H1 H2,
   H1 = H2.
 Proof using. applys predicate_extensionality. Qed.
 
-Parameter hstar_assoc : forall H1 H2 H3,
-  (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
-
 End Hprop.
 
 
@@ -247,7 +257,7 @@ Module Himpl.
 (** Definition of [H1 ==> H2] *)
 
 Definition himpl (H1 H2:hprop) : Prop :=
-  forall (h:heap), H1 h -> H2 h.
+  forall h, H1 h -> H2 h.
 
 Notation "H1 ==> H2" := (himpl H1 H2) (at level 55).
 
@@ -316,6 +326,7 @@ Parameter himpl_frame_l : forall H2 H1 H1',
 Parameter hstar_hsingle_same_loc : forall (l:loc) (v1 v2:val),
   (l ~~~> v1) \* (l ~~~> v2) ==> \[False].
 
+
 (* ******************************************************* *)
 (** ** The tactics for entailment *)
 
@@ -334,14 +345,14 @@ Module Triple.
 (** ** Triples *)
 
 (** [hoare t H Q] features pre- and post-conditions describing
-    the full state. *)
+    the full state. Usually written [{H} t {Q}] on paper. *)
 
 Definition hoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (s:state), H s ->
   exists (s':state) (v:val), eval s t s' v /\ Q v s'.
 
 (** [triple1 t H Q] features pre- and post-conditions describing
-    only a piece of state. *)
+    only a piece of state. [H'] denotes the framed part. *)
 
 Definition triple1 (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (H':hprop), hoare t (H \* H') (Q \*+ H').
@@ -354,52 +365,22 @@ Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
 
 (** An alternative, equivalent definition of triples *)
 
-Definition fmap_disjoint_3 (h1 h2 h3:heap) :=
+Definition fmap_disjoint_3 (h1 h2 h3:heap) : Prop :=
      Fmap.disjoint h1 h2
   /\ Fmap.disjoint h2 h3
   /\ Fmap.disjoint h1 h3.
 
-Definition triple_lowlevel t H Q :=
+Definition triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall h1 h2,
   Fmap.disjoint h1 h2 ->
   H h1 ->
   exists v h1' h3',
        fmap_disjoint_3 h1' h2 h3'
     /\ eval (h1 \u h2) t (h1' \u h2 \u h3') v
-    /\ (Q v) h1'.
+    /\ Q v h1'.
 
 Parameter triple_iff_triple_lowlevel : forall t H Q,
   triple t H Q <-> triple_lowlevel t H Q.
-
-
-(* ******************************************************* *)
-(** ** Frame *)
-
-(** The frame rule *)
-
-Parameter triple_frame : forall t H Q H',
-  triple t H Q ->
-  triple t (H \* H') (Q \*+ H').
-
-(** Example application of the frame *)
-
-Parameter incr : val.
-
-Parameter triple_incr : forall (p:loc) (n:int),
-  triple (trm_app incr p)
-    (p ~~~> n)
-    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
-
-Parameter triple_incr_2 : forall (p q:loc) (n m:int),
-  triple (incr p)
-    ((p ~~~> n) \* (q ~~~> m))
-    (fun v => \[v = val_unit] \* (p ~~~> (n+1)) \* (q ~~~> m)).
-
-Parameter triple_incr_3 : forall (p:loc) (n:int) (H:hprop),
-  triple (incr p)
-    ((p ~~~> n) \* H)
-    (fun v => \[v = val_unit] \* (p ~~~> (n+1)) \* H).
-
 
 End Triple.
 
@@ -411,11 +392,26 @@ End Triple.
 Module Rules.
 
 (* ******************************************************* *)
-(** ** Structural rules *)
+(** ** The frame rule *)
+
+(** The frame rule *)
 
 Parameter triple_frame : forall t H Q H',
   triple t H Q ->
   triple t (H \* H') (Q \*+ H').
+
+(**
+[[
+  (forall H0, hoare t (H \* H0) (Q \*+ H0 \*+ \Top)) ->
+  (forall H1, hoare t (H \* H' \* H1) (Q \*+ H' \*+ H1 \*+ \Top)).
+
+  Take [H0 := H' \* H1] and the result is trivial up to associativity.
+]]
+*)
+
+
+(* ******************************************************* *)
+(** ** Other structural rules *)
 
 Parameter triple_conseq : forall t H' Q' H Q,
   triple t H' Q' ->
@@ -439,7 +435,13 @@ Parameter triple_htop_post : forall t H Q,
   triple t H (Q \*+ \Top) ->
   triple t H Q.
 
-(** Factorized into the combined rule *)
+(** Factorized rules *)
+
+Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q ->
+  triple t H Q.
 
 Parameter triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
   triple t H1 Q1 ->
@@ -489,8 +491,18 @@ Parameter triple_let : forall x t1 t2 H Q Q1,
   (forall v, triple (subst x v t2) (Q1 v) Q) ->
   triple (trm_let x t1 t2) H Q.
 
-(** Plus one rule for each term construct, 
-    plus one rule for each primitive operation. *)
+(** Plus one rule for each other term construct. *)
+
+
+(* ******************************************************* *)
+(** ** Primitive rules *)
+
+Parameter triple_get : forall v l,
+  triple (val_get (val_loc l))
+    (l ~~~> v)
+    (fun x => \[x = v] \* (l ~~~> v)).
+
+(** Plus one rule for each other primitive operation. *)
 
 End Rules.
 
@@ -500,14 +512,15 @@ End Rules.
 
 Module Wand.
 
+
 (* ******************************************************* *)
 (** ** Definition of magic wand *)
 
-(** The following equivalence can be proved to characterizes a unique 
-    heap predicate [hwand]. *)
+(** The following equivalence can be proved to characterizes a
+    unique heap predicate [H1 \-* H2]. *)
 
 Parameter hwand_equiv : forall H0 H1 H2,
-  (H0 ==> hwand H1 H2) <-> (H0 \* H1 ==> H2).
+  (H0 ==> (H1 \-* H2)) <-> ((H0 \* H1) ==> H2).
 
 (** Corrolaries *)
 
@@ -516,8 +529,9 @@ Parameter hwand_cancel : forall H1 H2,
 
 (** For postconditions *)
 
-Definition qwand A (Q1 Q2:A->hprop) :=
+Definition qwand A (Q1 Q2:A->hprop) : hprop :=
   \forall x, (Q1 x) \-* (Q2 x).
+
 
 (* ******************************************************* *)
 (** ** Ramified frame rule *)
@@ -530,12 +544,16 @@ Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
   Q1 \*+ H2 ===> Q ->
   triple t H Q.
 
-(** New formulation using the magic wand to eliminate [H2] *)
+(** New formulation using the magic wand to eliminate [H2]. *)
 
 Parameter triple_ramified_frame : forall H1 Q1 t H Q,
   triple t H1 Q1 ->
   H ==> H1 \* (Q1 \--* Q) ->
   triple t H Q.
+
+(** Note: [H1 \* H2 ==> H1 \* (Q1 \--* Q)] simplifies to
+          [H2 ==> (Q1 \--* Q)] which simplifies to
+          [Q1 \*+ H2 ===> Q]. *)
 
 (** Generalization with \Top *)
 
@@ -552,11 +570,12 @@ End Wand.
 
 Module Wpsem.
 
+
 (* ******************************************************* *)
 (** ** Definition of [wp] *)
 
 (** The following equivalence can be proved to characterizes a unique 
-    function [wp]. *)
+    function [wp], where [wp t Q] has type [hprop]. *)
 
 Parameter wp_equiv : forall t H Q,
   (triple t H Q) <-> (H ==> wp t Q).
@@ -590,6 +609,9 @@ Parameter wp_seq : forall t1 t2 Q,
 Parameter wp_let : forall x t1 t2 Q,
   wp t1 (fun v => wp (subst x v t2) Q) ==> wp (trm_let x t1 t2) Q.
 
+(** In the current design, we use triples to state specifications,
+    but technically we could use [wp] for that purpose as well. *)
+
 End Wpsem.
 
 
@@ -598,19 +620,34 @@ End Wpsem.
 
 Module Wpgen.
 
+
+(** Distinguish:
+    - a semantic weakest precondition, i.e. predicate [wp].
+    - a syntactic weakest precondition computed from an 
+      program annotated with its invariants (e.g., as in Why3).
+    - a syntactic weakest precondition for un-annotated code,
+      as the function [wpgen] presented next.
+      To distinguish, we call it a characteristic formula. *)
+
+
 (* ******************************************************* *)
 (** ** High-level picture *)
 
+(** [wpgen] has the same type as [wp], in other words
+    [wpgen t Q] has type [hprop].
+    Let [formula] denote the type of [wpgen t]. *)
+
 Definition formula := (val->hprop) -> hprop.
 
-(** Definition of the characteristic formula generator *)
+(** Definition of the characteristic formula generator.
+    For simplicity, we assume terms in normal form. *)
 (* 
 [[
     Fixpoint wpgen (t:trm) : formula :=
       mkstruct (fun Q =>
         match t with
         | trm_val v => Q v
-        | trm_var x => \[False]
+        | trm_var x => \[False] (* unbound variable *)
         | trm_fun x t1 => Q (val_fun x t1)
         | trm_fix f x t1 => Q (val_fix f x t1)
         | trm_if v0 t1 t2 =>
@@ -620,7 +657,8 @@ Definition formula := (val->hprop) -> hprop.
              (wpgen t1) (fun v => (wpgen t2) Q)
         | trm_let x t1 t2 =>
              (wpgen t1) (fun v => (wpgen (subst x v t2)) Q)
-        | trm_app t1 t2 => wp t Q
+        | trm_app v1 v2 => wp t Q
+        | _ => \[False] (* term not in normal form *)
         end).
 
     Parameter triple_of_wpgen : forall H t Q,
@@ -677,6 +715,9 @@ Definition wpgen_if (v:val) (F1 F2:formula) : formula := fun Q =>
 Definition wpgen_fail : formula := fun Q =>
   \[False].
 
+(** Non-structural recursion, need to play some tricks to construct
+    the fixed point. *)
+
 Definition Wpgen wpgen (t:trm) : formula :=
   mkstruct
   match t with
@@ -700,8 +741,17 @@ Definition Wpgen wpgen (t:trm) : formula :=
   end.
 
 
+(** Construction of the fixed point, see [SLFWPGen.v] for details.
+[[
+    Definition wpgen : trm -> formula := FixFun Wpgen.
+
+    Parameter wpgen_fix : forall t,
+      wpgen t = Wpgen wpgen t.
+]]
+*)
+
 (* ******************************************************* *)
-(** ** Real implementation *)
+(** ** Implementation with delayed substitution *)
 
 Definition ctx : Type := list (var*val).
 
@@ -734,18 +784,15 @@ Parameter isubst : forall (E:ctx) (t:trm), trm.
 
 (** Function [wpgen E t] computes a [wp (isubst E t)] *)
 
-Definition wpgen_var (E:ctx) (x:var) : formula :=
-  match lookup x E with
-  | None => wpgen_fail
-  | Some v => wpgen_val v
-  end.
-
 Fixpoint wpgen (E:ctx) (t:trm) : formula :=
   mkstruct match t with
   | trm_val v =>
        wpgen_val v
   | trm_var x =>
-       wpgen_var E x
+       match lookup x E with
+       | None => wpgen_fail
+       | Some v => wpgen_val v
+       end
   | trm_fun x t1 =>
        wpgen_val (val_fun x (isubst (rem x E) t1))
   | trm_fix f x t1 =>
@@ -763,8 +810,20 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
       end
   end.
 
+
 (* ******************************************************* *)
 (** ** Soundness proof *)
+
+(** Soundness theorem: syntactic wp implies semantics wp. *)
+
+Parameter wp_of_wpgen : forall t Q,
+  wpgen nil t Q ==> wp t Q.
+
+(** Corrolary: to prove a triple, use the characteristic formula. *)
+
+Parameter triple_of_wpgen : forall t H Q,
+  H ==> wpgen nil t Q ->
+  triple t H Q.
 
 (** Statement of the soundness result:
     [formula_sound_for (isubst E t) (wpgen E t)] *)
@@ -817,7 +876,9 @@ Proof using.
 Qed.
 *)
 
-Parameter triple_of_wpgen : forall t H Q,
+(** Conclusion *)
+
+Parameter triple_of_wpgen' : forall t H Q,
   H ==> wpgen nil t Q ->
   triple t H Q.
 
@@ -886,10 +947,35 @@ End Wpgen.
 
 Module Lift.
 
+
+(* ******************************************************* *)
+(** ** Motivation *)
+
+(** Compare these two specifications for the function [ref]:
+
+[[
+  triple (val_ref v)
+    \[]
+    (fun (r:val) => \exists (p:loc), \[r = val_loc p] \* p ~~~> v).
+
+  Triple (val_ref v)
+    \[]
+    (fun (p:loc) => p ~~> v).
+]]
+
+  Clearly, the second one is desirable. Let's see how to derive it.
+*)
+
+
 (* ******************************************************* *)
 (** ** The encoder typeclass *)
 
-Class Enc (A:Type) :=
+(** [Enc A] holds if the Coq type [A] matches a data type from
+    the imperative programming language embedded in Coq. 
+    
+    [enc V] encodes a value [V] of type [A] to a value of type [val]. *)
+
+Class Enc (A:Type) : Type :=
   make_Enc { enc : A -> val }.
 
 (** Notation [``V] for [enc V] *)
@@ -904,10 +990,20 @@ Proof using. constructor. applys val_int. Defined.
 Instance Enc_unit : Enc unit.
 Proof using. constructor. intros. applys val_unit. Defined.
 
+Instance Enc_loc : Enc loc.
+Proof using. constructor. applys val_loc. Defined.
+
+Instance Enc_list : forall `{Enc A}, Enc (list A).
+Proof using. Abort. (* details omitted *)
 
 
 (* ******************************************************* *)
 (** ** Lifted singleton heap predicate *)
+
+(** Recall definition of [hsingle], written [l ~~~> v]. *)
+
+Definition hsingle (l:loc) (v:val) : hprop :=
+  fun h => (h = Fmap.single l v).
 
 (** Singleton: [l ~~> V] describes a singleton heap at location [l]
     whose contents is the encoding of [V]. *)
@@ -920,15 +1016,26 @@ Notation "l '~~>' V" := (l ~> Hsingle V)
 
 
 (* ******************************************************* *)
-(** ** Lifted triples *)
+(** ** Lifted triples and rules *)
 
 (** [Triple t H Q] describes a triple where the postcondition [Q] has
-    type [A->hprop] for some encodable type [A] *)
+    type [A->hprop] for some encodable type [A].
+    
+    [Triple t H Q] captures the fact that [t] evaluates to a value [v]
+    which is the encoding of a value [V] for which the postcondition 
+    [Q] holds. *)
 
 Definition Triple (t:trm) `{EA:Enc A} (H:hprop) (Q:A->hprop) : Prop :=
   triple t H (fun v => \exists V, \[v = enc V] \* Q V).
 
-(** Lifted rule for sequence: [Q1] has type [unit->hprop] *)
+(** Lifted rule for [ref] *)
+
+Parameter Triple_ref : forall A `{EA:Enc A} (V:A),
+  Triple (val_ref ``V)
+    \[]
+    (fun (p:loc) => p ~~> V).
+
+(** Lifted rule for sequence: [Q1] now has type [unit->hprop] *)
 
 Parameter Triple_seq : forall t1 t2 H,
   forall A `{EA:Enc A} (Q:A->hprop) (Q1:unit->hprop),
@@ -936,7 +1043,7 @@ Parameter Triple_seq : forall t1 t2 H,
   Triple t2 (Q1 tt) Q ->
   Triple (trm_seq t1 t2) H Q.
 
-(** Lifted rule for let bindings: [Q1] has type [A1->hprop]
+(** Lifted rule for let bindings: [Q1] now has type [A1->hprop]
     for some encodable type [A1] *)
 
 Parameter Triple_let : forall z t1 t2 H,
@@ -972,7 +1079,7 @@ Definition Wpgen_seq (F1 F2:Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
     ^F1 (fun (X:unit) => ^F2 Q)).
 
-Definition Wpgen_let (F1:Formula) (F2of:forall `{EA1:Enc A1} ,A1->Formula) : Formula :=
+Definition Wpgen_let (F1:Formula) (F2of:forall `{EA1:Enc A1}, A1->Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
     \exists (A1:Type) (EA1:Enc A1), ^F1 (fun (X:A1) => ^(F2of X) Q)).
 

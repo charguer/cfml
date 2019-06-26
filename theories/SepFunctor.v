@@ -261,7 +261,7 @@ Notation "H1 \-* H2" := (hwand H1 H2)
 
 (** Magic wand for postconditions, written [Q1 \--* Q2] *)
 
-Definition qwand A (Q1 Q2:A->hprop) :=
+Definition qwand A (Q1 Q2:A->hprop) : hprop :=
   hforall (fun x => hwand (Q1 x) (Q2 x)).
 
 Notation "Q1 \--* Q2" := (qwand Q1 Q2)

@@ -27,7 +27,7 @@ Module ExoBasic.
     - [xapp] for applications, or [xappn] to repeat
     - [xif] for a case analysis
     - [xval V] for a value, where [V] is a Coq value,
-      e.g. [val tt] or [val (x::L)].
+      e.g. [xval tt] or [xval (x::L)].
     - [xsimpl] to prove entailments
     - [auto], [math], [rew_list] to prove pure facts
       or just [*] after a tactic to invoke automation.
@@ -35,7 +35,7 @@ Module ExoBasic.
 
 
 (* ******************************************************* *)
-(** ** Basic pure function *)
+(** ** Basic pure function (warm up) *)
 
 (** 
 [[
@@ -298,11 +298,24 @@ Qed.
 (* ******************************************************* *)
 (** ** Push back not using append (blue belt) *)
 
+(** Hint: the following function is a specialization of 
+    [inplace_append] for the case where the second list
+    consists of a single element. Its proof is similar. *)
+
+(**
+[[
+  let rec push_back' p x =
+    if is_empty p 
+      then set_cons p x (create())
+      else push_back' (tail p) x
+]]
+*)
+
 Definition push_back' : val :=
-  VFix 'f 'p1 'x :=
-    If_ is_empty 'p1 
-      Then set_cons 'p1 'x (create '())
-      Else 'f (tail 'p1) 'x.
+  VFix 'f 'p 'x :=
+    If_ is_empty 'p 
+      Then set_cons 'p 'x (create '())
+      Else 'f (tail 'p) 'x.
 
 Lemma Triple_push_back' : forall `{EA:Enc A} (L:list A) (x:A) (p:loc),
   TRIPLE (push_back' ``p ``x)
@@ -366,6 +379,13 @@ Qed.
 
 (* ******************************************************* *)
 (** ** Reversed copy using iter (black belt) *)
+
+(** Hints: 
+    - [xfun] to substitute a function definition in its occurences
+    - [xapp (>> __ E)] to provide [E] as argument to the specification
+      lemma that [xapp] would apply.
+    - The proof has a similar pattern to [length_using_iter].
+*)
 
 (**
 [[

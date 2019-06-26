@@ -167,7 +167,7 @@ Notation "'\forall' x1 .. xn , H" :=
 (** We are now read to formally define [Q1 \--* Q2], a notation that stands
     for [qwand Q1 Q2], and which is defined as [\forall x, (Q1 x) \-* (Q2 x)]. *)
 
-Definition qwand A (Q1 Q2:A->hprop) :=
+Definition qwand A (Q1 Q2:A->hprop) : hprop :=
   \forall x, (Q1 x) \-* (Q2 x).
 
 Notation "Q1 \--* Q2" := (qwand Q1 Q2) (at level 43).
@@ -951,7 +951,7 @@ Definition hforall (A : Type) (J : A -> hprop) : hprop :=
 Definition hwand (H1 H2:hprop) : hprop :=
   fun h => forall h', Fmap.disjoint h h' -> H1 h' -> H2 (h \u h').
 
-Definition qwand A (Q1 Q2:A->hprop) :=
+Definition qwand A (Q1 Q2:A->hprop) : hprop :=
   fun h => forall x h', Fmap.disjoint h h' -> Q1 x h' -> Q2 x (h \u h').
 
 Definition hor (H1 H2 : hprop) : hprop :=
@@ -1001,7 +1001,7 @@ Definition htop : hprop :=
 Definition hwand (H1 H2 : hprop) : hprop :=
   \exists H0, H0 \* \[ (H0 \* H1) ==> H2].
 
-Definition qwand A (Q1 Q2:A->hprop) :=
+Definition qwand A (Q1 Q2:A->hprop) : hprop :=
   \forall x, (Q1 x) \-* (Q2 x).
 
 Definition hand (H1 H2 : hprop) : hprop :=

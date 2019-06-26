@@ -153,7 +153,7 @@ Definition Wpaux_var (E:ctx) (x:var) : Formula :=
   | Some v => `Wpgen_val v
   end.
 
-Definition Wpgen_let (F1:Formula) (F2of:forall `{EA1:Enc A1},A1->Formula) : Formula :=
+Definition Wpgen_let (F1:Formula) (F2of:forall `{EA1:Enc A1}, A1->Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
     \exists (A1:Type) (EA1:Enc A1),
       ^F1 (fun (X:A1) => ^(F2of X) Q)).

@@ -66,7 +66,7 @@ Definition hand (H1 H2 : hprop) : hprop :=
 Definition hwand (H1 H2 : hprop) : hprop :=
   hexists (fun (H:hprop) => H \* (hpure (H \* H1 ==> H2))).
 
-Definition qwand A (Q1 Q2:A->hprop) :=
+Definition qwand A (Q1 Q2:A->hprop) : hprop :=
   hforall (fun x => hwand (Q1 x) (Q2 x)).
 
 Definition htop : hprop :=

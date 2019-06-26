@@ -37,7 +37,7 @@ Implicit Types b : bool.
 (* ---------------------------------------------------------------------- *)
 (* ** Encoders *)
 
-Class Enc (A:Type) :=
+Class Enc (A:Type) : Type :=
   make_Enc { enc : A -> val }.
 
 Notation "`` V" := (enc V) (at level 8, format "`` V").

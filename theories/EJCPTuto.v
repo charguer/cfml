@@ -4,6 +4,7 @@ EJCP: tutorial using basic functions.
 The tutorial continues with the files:
 - ExampleStack
 - ExampleList
+- ExampleListOf
 - ExamplePairingHeap
 
 Author: Arthur Charguéraud.
@@ -15,22 +16,6 @@ Set Implicit Arguments.
 From Sep Require Import Example.
 Implicit Types n m : int.
 Implicit Types p q : loc.
-Open Scope comp_scope. (* TODO: move *)
-
-(* TODO: move *)
-
-Definition max (n m:int) : int := 
-  If n > m then n else m.
-
-Lemma max_nonpos : forall n,
-  n <= 0 ->
-  max 0 n = 0.
-Proof using. introv M. unfold max. case_if; math. Qed.
-
-Lemma max_nonneg : forall n,
-  n >= 0 ->
-  max 0 n = n.
-Proof using. introv M. unfold max. case_if; math. Qed.
 
 
 (* ####################################################### *)

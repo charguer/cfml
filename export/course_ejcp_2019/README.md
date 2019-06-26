@@ -30,7 +30,7 @@ To use CoqIDE, execute:
 This script executes the following command:
 
 ```
-   coqide -async-proofs off -async-proofs-command-error-resilience off EJCPTuto.v EJCPExo.v EJCPImplem.v ExampleStack.v ExampleList.v ExamplePairingHeap.v
+   coqide -async-proofs off -async-proofs-command-error-resilience off EJCPTuto.v EJCPExo.v EJCPImplem.v ExampleStack.v ExampleList.v ExampleListOf.v ExamplePairingHeap.v
 ```
 
 The options to CoqIDE makes its use much smoother.

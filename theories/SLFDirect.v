@@ -316,7 +316,7 @@ Definition htop : hprop :=
 Definition hwand (H1 H2 : hprop) : hprop :=
   \exists H0, H0 \* hpure ((H0 \* H1) ==> H2).
 
-Definition qwand A (Q1 Q2:A->hprop) :=
+Definition qwand A (Q1 Q2:A->hprop) : hprop :=
   \forall x, hwand (Q1 x) (Q2 x).
 
 Notation "\[ P ]" := (hpure P)
