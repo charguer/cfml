@@ -199,10 +199,17 @@ Hint Extern 1 (Register_Spec (clear)) => Provide @Triple_clear.
 ]]
 *)
 
+(* TODO move *)
+
+Lemma Stackn_eq : forall (p:loc) `{Enc A} (L:list A),
+  p ~> Stackn L =
+  p ~> Record`{ data := L; size := LibListZ.length L }.
+Proof using. auto. Qed.
+
 Definition concat :=
   VFun 'p1 'p2 :=
-    Set 'p1'.data ':= ('p1'.data) '++ ('p2'.data) ';
-    Set 'p2'.size ':= ('p1'.size) '+ ('p2'.size) ';
+    Set 'p1'.data ':= (('p1'.data) '++ ('p2'.data)) ';
+    Set 'p1'.size ':= (('p1'.size) '+ ('p2'.size)) ';
     clear 'p2.
 
 Lemma Triple_concat : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
@@ -210,31 +217,98 @@ Lemma Triple_concat : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
     PRE (p1 ~> Stackn L1 \* p2 ~> Stackn L2)
     POST (fun (u:unit) => p1 ~> Stackn (L1 ++ L2) \* p2 ~> Stackn nil).
 Proof using.
-  xwp. xunfold Stackn. xapp. xapp. xseq.
-  xlet. xlet. xapp.  xapp. xappn.
-  xsimpl.
+  xwp. xunfold Stackn. xapp. xapp. xapp. xapp. xapp. xapp. xapp.
+  xapp. xchange <- (Stackn_eq p1).
+  (* TODO: xsimpl do record_eq *) { xrecord_eq. rew_listx. auto. }
+  xchange <- (Stackn_eq p2). xapp. xsimpl.
 Qed.
 
 End ExoStack.
-
 
 
 (* ####################################################### *)
 (** * Mutable lists *)
 
 Module ExoList.
+Import ExampleList.MList.
+Hint Extern 1 (Register_Spec (is_empty)) => Provide @Triple_is_empty.
+Hint Extern 1 (Register_Spec (create)) => Provide @Triple_create.
+
+(* ******************************************************* *)
+(** ** Create one element *)
+
+(**
+[[
+  let mk_one x =
+    mk_cons x (create())
+]]
+*)
+
+Definition mk_one : val :=
+  VFun 'x :=
+     mk_cons 'x (create '()).
+
+Lemma Triple_mk_one : forall A `{EA:Enc A} (x:A),
+  TRIPLE (mk_one ``x)
+    PRE \[]
+    POST (fun p => p ~> MList (x::nil)).
+Proof using.
+  intros. xwp. xapp ;=> q. xapp. xsimpl.
+Qed.
+
+Hint Extern 1 (Register_Spec (mk_one)) => Provide @Triple_mk_one.
 
 
 (* ******************************************************* *)
 (** ** Push back using append *)
 
+(** Note: [L&x] is a notation for [L++x::nil]. *)
+
+(**
+[[
+  let push_back p x =
+    inplace_append p (mk_one x)
+]]
+*)
+
+Definition push_back : val :=
+  VFun 'p 'x :=
+    inplace_append 'p (mk_one 'x).
+
+Lemma Triple_push_back : forall `{EA:Enc A} (L:list A) (x:A) (p:loc),
+  TRIPLE (push_back ``p ``x)
+    PRE (p ~> MList L)
+    POST (fun (_:unit) => p ~> MList (L++x::nil)).
+Proof using.
+  xwp. xapp ;=> q. xapp. xsimpl.
+Qed.
+
 
 (* ******************************************************* *)
-(** ** Pop back *)
+(** ** Push back not using append (blue belt) *)
+
+Definition push_back' : val :=
+  VFix 'f 'p1 'x :=
+    If_ is_empty 'p1 
+      Then set_cons 'p1 'x (create '())
+      Else 'f (tail 'p1) 'x.
+
+Lemma Triple_push_back' : forall `{EA:Enc A} (L:list A) (x:A) (p:loc),
+  TRIPLE (push_back' ``p ``x)
+    PRE (p ~> MList L)
+    POST (fun (_:unit) => p ~> MList (L++x::nil)).
+Proof using.
+  intros. gen p. induction_wf IH: (@list_sub A) L. intros.
+  xwp. xif ;=> C. 
+  { xchanges (MList_eq p) ;=> v1.
+    xapp ;=> q. xapp. xchanges* <- (MList_cons p). }
+  { xchanges~ (MList_not_nil p) ;=> y L' p' ->.
+    xapp. xapp. { auto. } xchanges <- MList_cons. }
+Qed.
 
 
 (* ******************************************************* *)
-(** ** Nondestructive append (blue belt) *)
+(** ** Nondestructive append (violet belt) *)
 
 Definition nondestructive_append : val :=
   VFix 'f 'p1 'p2 :=
@@ -248,14 +322,55 @@ Lemma Triple_nondestructive_append : forall `{EA:Enc A} (L1 L2:list A) (p1 p2:lo
     POST (fun (p3:loc) => p1 ~> MList L1 \* p2 ~> MList L2 \* p3 ~> MList (L1++L2)).
 Proof using.
   intros. gen p1. induction_wf IH: (@list_sub A) L1. intros.
-  xwp. xif ;=> C.
+  xwp. xapp. xif ;=> C.
   { xapp Triple_copy ;=> p3. xsimpl*. }
   { xchanges~ (MList_not_nil p1) ;=> x L1' p1' ->.
     xapp. xapp. xapp* ;=> p3'. xchanges <- (MList_cons p1).
     xapp ;=> p3. xsimpl. }
 Qed.
 
-Hint Extern 1 (Register_Spec (nondestructive_append)) => Provide @Triple_nondestructive_append.
 
+(* ******************************************************* *)
+(** ** Pop back (brown belt) *)
+
+(**
+[[
+  let rec pop_back p =
+    if is_empty (tail p) then (
+      let x = head p in
+      set_nil p;
+      x 
+    ) else (
+      pop_back (tail p)
+    )
+]]
+*)
+
+Definition pop_back : val :=
+  VFix 'f 'p :=
+    If_ is_empty (tail 'p) Then (
+      Let 'x := head 'p in
+      set_nil 'p ';
+      'x
+    ) Else (
+      'f (tail 'p)
+    ).
+
+Lemma Triple_pop_back : forall `{EA:Enc A} (L:list A) (p:loc),
+  L <> nil ->
+  TRIPLE (pop_back ``p)
+    PRE (p ~> MList L)
+    POST (fun x => \exists L1, \[L = L1++x::nil] \* p ~> MList L1).
+Proof using.
+  introv. gen p. induction_wf IH: (@list_sub A) L. introv N.
+  xwp. destruct L as [|x L']; tryfalse. xchange MList_cons ;=> p'.
+  xapp. xapp. xif ;=> C.
+  { skip. }
+  { xapp. xapp. { auto. } { auto. } intros y L1' ->.
+    xsimpl (x::L1'). { rew_list. auto. } xchanges <- MList_cons. }
+Qed.
 
 End ExoList.
+
+
+

@@ -876,10 +876,12 @@ Qed.
 
 End Ops.
 
+Module MListOfSpecs.
 Hint Extern 1 (Register_Spec (create)) => Provide @Triple_create.
 Hint Extern 1 (Register_Spec (is_empty)) => Provide @Triple_is_empty.
 Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
 Hint Extern 1 (Register_Spec (pop)) => Provide @Triple_pop.
+End MListOfSpecs.
 
 Global Opaque MListOf.
 

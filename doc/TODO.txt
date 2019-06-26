@@ -3,10 +3,13 @@ URGENT
 skip. (* TODO noduplicates *)
 Triple_create IN sTACK ALSO
 
+  (* TODO: xsimpl do record_eq *) { xrecord_eq. rew_listx. auto. }
+  (* TODO: if hsimpl fails to progress after xapp, warning *)
 (* LATER: inj by default *)
 (* LATER:  xsimpl could do xrecord_eq *)
 
 LATER Parameter list_concat : val.
+
 
 
 https://gitlab.inria.fr/charguer/cfml2_ejcp2019

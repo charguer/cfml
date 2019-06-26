@@ -189,6 +189,8 @@ Proof using.
   { xval tt. xsimpl. rewrite max_nonpos; math. }
 Qed.
 
+(** Note: [xif] calls [xapp] if necessary. *)
+
 
 (* ####################################################### *)
 (** * Entailment tactic *)
