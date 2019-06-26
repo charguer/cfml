@@ -191,6 +191,8 @@ Qed.
 
 (** Note: [xif] calls [xapp] if necessary. *)
 
+End Basics.
+
 
 (* ####################################################### *)
 (** * Entailment tactic *)
