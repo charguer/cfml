@@ -101,12 +101,11 @@ Definition succ_using_incr :=
     '! 'p.
 
 Lemma Triple_succ_using_incr : forall n,
-  TRIPLE (succ_using_incr n)
+  TRIPLE (succ_using_incr ``n)
     PRE \[]
     POST (fun r => \[r = n+1]).
 Proof using.
-  xwp. xapp (>> __ Enc_int) ;=> l. (* TODO: why *) 
-  xapp. xapp. xsimpl. auto.
+  xwp. xapp ;=> p. xapp. xapp. xsimpl. auto.
 Qed.
 
 (** Note: [xapps] is short for [xval; xsimpl]. 
@@ -157,7 +156,7 @@ Proof using.
   xwp. xapp. xif; intros C.
   { xapp. xapp. xapp. { hnf. math. } { math. }
     xsimpl. math. }
-  { xval tt. xsimpl. math. } (* TODO: xval tt *)
+  { xval tt. xsimpl. math. }
 Qed.
 
 (** Let's try yet another time *)
