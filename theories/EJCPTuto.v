@@ -170,7 +170,7 @@ Proof using.
   xwp. xapp. xif; intros C.
   { xapp. xapp. xapp. { hnf. math. }
     xsimpl. repeat rewrite max_nonneg; math. }
-  { xval tt. xsimpl. rewrite max_nonpos; math. }
+  { xval. xsimpl. rewrite max_nonpos; math. }
 Qed.
 
 (** Note: [xif] calls [xapp] if necessary. *)

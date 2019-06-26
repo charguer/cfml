@@ -304,7 +304,7 @@ Lemma Triple_create : forall A `{EA:Enc A},
     PRE \[]
     POST (fun p => p ~> MList (@nil A)).
 Proof using.
-  intros. xwp. xval (@nil A). xapp ;=> p. xchanges <- MList_nil.
+  intros. xwp. xval. xapp ;=> p. xchanges <- MList_nil.
 Qed.
 
 Hint Extern 1 (Register_Spec (create)) => Provide @Triple_create.
@@ -318,7 +318,7 @@ Lemma Triple_mk_cons : forall A `{EA:Enc A} (L:list A) (x:A) (q:loc),
     PRE (q ~> MList L)
     POST (fun p => p ~> MList (x::L)).
 Proof using.
-  intros. xwp. xval (Cons x q). xapp ;=> p. xchanges <- MList_cons.
+  intros. xwp. xval. xapp ;=> p. xchanges <- MList_cons.
 Qed.
 
 Hint Extern 1 (Register_Spec (mk_cons)) => Provide @Triple_mk_cons.
@@ -336,7 +336,7 @@ Lemma Triple_set_nil : forall p (v:val),
     PRE (p ~~> v)
     POST (fun (_:unit) => p ~~> Nil).
 Proof using.
-  intros. xwp. xval (Nil). xapp. xsimpl.
+  intros. xwp. xval. xapp. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec (set_nil)) => Provide @Triple_set_nil.
@@ -350,7 +350,7 @@ Lemma Triple_set_cons : forall A `{EA:Enc A} p (v:val) (x:A) q,
     PRE (p ~~> v)
     POST (fun (_:unit) => p ~~> Cons x q).
 Proof using.
-  intros. xwp. xval (Cons x q). xapp. xsimpl.
+  intros. xwp. xval. xapp. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec (set_cons)) => Provide @Triple_set_cons.
@@ -368,7 +368,7 @@ Lemma Triple_set_head : forall A `{EA:Enc A} q p x1 x2,
 Proof using.
   intros. xwp. xapp. applys xcase_lemma2. 
   { (* cons *) intros p' x' E. rew_enc in E. unfolds @Cons. inverts E.
-     xval (Cons x2 q). xapp. xsimpl~. }
+     xval. xapp. xsimpl~. }
   { (* else *) xfail*. }
 Qed.
 
@@ -387,7 +387,7 @@ Lemma Triple_set_tail : forall A `{EA:Enc A} p x q1 q2,
 Proof using.
   intros. xwp.  xapp. applys xcase_lemma2. 
   { (* cons *) intros p' x' E. rew_enc in E. unfolds @Cons. inverts E.
-     xval (Cons x q2). xapp. xsimpl~. }
+     xval. xapp. xsimpl~. }
   { (* else *) intros N. false N. reflexivity. }
 Qed.
 
@@ -457,7 +457,7 @@ Lemma Triple_mlength : forall `{EA:Enc A} (L:list A) (p:loc),
 Proof using.
   intros. gen p. induction_wf IH: (@list_sub A) L. intros.
   xwp. xapp. xif ;=> E.
-  { xval 0. xsimpl*. }
+  { xval. xsimpl*. }
   { xchanges~ MList_not_nil ;=> x L' p' ->.
     xapp. xapp~. xapp~. xchange <- MList_cons. xsimpl*. }
 Qed.
@@ -521,7 +521,7 @@ Proof using.
   { xchanges~ MList_not_nil ;=> x L2' p2' ->.
     xapp. xapp*. (* xapp (>> __ L2'). *) 
     xapp. xapp*. xchanges <- MList_cons. }
-  { xval tt. subst; rew_list. xsimpl. }
+  { xval. subst; rew_list. xsimpl. }
 Qed.
 
 Hint Extern 1 (Register_Spec (iter)) => Provide @Triple_iter.
@@ -697,7 +697,7 @@ Lemma Triple_set_nil_of_MList_direct_proof : forall A `{EA:Enc A} (L:list A) p,
     POST (fun (_:unit) => p ~> MList (@nil A)).
 Proof using.
   intros. xwp. xchange MList_eq ;=> v.
-  xval (Nil). xapp. rewrite MList_nil. xsimpl.
+  xval. xapp. rewrite MList_nil. xsimpl.
 Qed.
 
 

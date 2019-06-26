@@ -26,8 +26,7 @@ Module ExoBasic.
     - [xwp] to begin the proof
     - [xapp] for applications, or [xappn] to repeat
     - [xif] for a case analysis
-    - [xval V] for a value, where [V] is a Coq value,
-      e.g. [xval tt] or [xval (x::L)].
+    - [xval] for a value
     - [xsimpl] to prove entailments
     - [auto], [math], [rew_list] to prove pure facts
       or just [*] after a tactic to invoke automation.
@@ -139,7 +138,7 @@ Proof using.
   xwp. xapp. xapp. xif ;=> C.
   { xapp. xapp. xapp. { hnf. math. } { math. } 
     xsimpl. math. }
-  { xval tt. xsimpl. math. math. }
+  { xval. xsimpl. math. math. }
   (* /SOLUTION *)
 Qed.
 
