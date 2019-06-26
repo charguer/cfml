@@ -41,7 +41,7 @@ Definition val_set_field (k:field) : val :=
 
 Definition val_record_alloc (ks:fields) : val :=
   VFun 'u :=
-    val_alloc (1 + fold_right max 0%nat ks)%nat.
+    val_alloc (1 + List.fold_right Nat.max 0%nat ks)%nat.
 
 Definition val_record_init (ks:fields) : val :=
   let nb := List.length ks in

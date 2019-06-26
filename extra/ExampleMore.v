@@ -942,3 +942,24 @@ Proof using.
 Admitted.
 
 *)
+
+(* do not include
+Instance Decode_val : forall (v:val), (* LATER: redundant with above? *)
+  Decode v v.
+Proof using. intros. constructors~. Defined.  
+*)
+
+
+
+
+(* ********************************************************************** *)
+(* * Automation *)
+
+(** Strengthen version of the automation associated with the star,
+    e.g. in [mytactic* args]. *)
+ 
+Ltac auto_star ::=
+  try solve [ intuition eauto
+            | intros; subst; rew_list in *; 
+              solve [ math 
+                    | auto_false_base ltac:(fun tt => intuition eauto) ] ].

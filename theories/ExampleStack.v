@@ -103,7 +103,7 @@ Lemma Triple_create : forall `{Enc A},
     PRE \[]
     POST (fun p => (p ~> Stack (@nil A))).
 Proof using.
-  xwp. xval nil. xapp. xsimpl.
+  xwp. xval. xapp. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec create) => Provide @Triple_create.
@@ -113,8 +113,7 @@ Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),
     PRE (p ~> Stack L)
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stack L).
 Proof using.
-  xwp. xunfold Stack. xapp. xval nil.
-  xapp~ @Triple_eq_r. xsimpl*.
+  xwp. xunfold Stack. xapp. xval. xapp~ @Triple_eq_r. xsimpl*.
 Qed.
 
 Hint Extern 1 (Register_Spec is_empty) => Provide @Triple_is_empty.
@@ -124,7 +123,7 @@ Lemma Triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
     PRE (p ~> Stack L)
     POST (fun (u:unit) => (p ~> Stack (x::L))).
 Proof using.
-  xwp. xunfold Stack. xapp. xval (x::L). xapp. xsimpl.
+  xwp. xunfold Stack. xapp. xval. xapp. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec push) => Provide @Triple_push.
@@ -155,7 +154,7 @@ Proof using.
   { (* case cons *)
     xapp~ ;=> x L1' E. xapp. xapp. { subst*. } xsimpl. subst. rew_list~. }
   { (* case nil *)
-    xval tt. xsimpl~. subst. rew_list~. }
+    xval. xsimpl~. subst. rew_list~. }
 Qed.
 
 Hint Extern 1 (Register_Spec rev_append) => Provide @Triple_rev_append.
@@ -280,7 +279,7 @@ Lemma Triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
     PRE (p ~> Stackn L)
     POST (fun (u:unit) => (p ~> Stackn (x::L))).
 Proof using.
-  xwp. xunfold Stackn. xapp. xval (x::L). xappn.
+  xwp. xunfold Stackn. xapp. xval. xappn.
   xsimpl*.
 Qed.
 

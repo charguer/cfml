@@ -16,69 +16,7 @@ Implicit Types n : int.
 
 
 (* ********************************************************************** *)
-(* * Automation *)
-
-(** Strengthen version of the automation associated with the star,
-    e.g. in [mytactic* args]. *)
- 
-Ltac auto_star ::=
-  try solve [ intuition eauto
-            | intros; subst; rew_list in *; 
-              solve [ math 
-                    | auto_false_base ltac:(fun tt => intuition eauto) ] ].
-
-
-
-(* ********************************************************************** *)
 (* * Towards a representation *)
-
-(** Let's try to first formalize the C representation:
-[[
-    typedef struct node<A> { 
-      A head; 
-      node<A>* tail; 
-    };
-    // with node = null for the empty list
-]]
-*)
-Module MListNull.
-
-Definition head : field := 0%nat.
-Definition tail : field := 1%nat.
-
-(* ---------------------------------------------------------------------- *)
-(** ** Inductive presentation (does not work) *)
-
-(** [p ~> MList L], (hypothetically) defined as an inductive predicate 
-
-[[
-
-  -----------------
-  null ~> MList nil
-
-  p ~> Record`{ head := x; tail := p'}      p' ~> MList L'
-  -------------------------------------------------------
-                       p ~> MList (x::L')
-
-]]
-
-*)
-
-(* ---------------------------------------------------------------------- *)
-(** ** Recursive presentation *)
-
-(** Recursive of [p ~> MList L], that is, [MList L p]. *)
-
-Fixpoint MList (L:list val) (p:loc) : hprop :=
-  match L with
-  | nil => \[p = null]
-  | x::L' => \exists p', p ~> Record`{ head := x; tail := p'} \* (p' ~> MList L')
-  end.
-
-End MListNull.
-
-(* ---------------------------------------------------------------------- *)
-(** ** Recursive presentation for a ML representation *)
 
 (** 
 [[
@@ -91,8 +29,8 @@ Let's begin by assuming that type ['a] is represented as type [val].
 
 Module MListVal.
 
-Definition Nil : val := val_constr "nil" nil.
-Definition Cons (v:val) (p:loc) : val := val_constr "cons" (v::(val_loc p)::nil).
+Definition Nil : val := val_constr "Nil" nil.
+Definition Cons (v:val) (p:loc) : val := val_constr "Cons" (v::(val_loc p)::nil).
 
 Fixpoint MList (L:list val) (p:loc) : hprop :=
   \exists v, p ~~> v \*
@@ -112,12 +50,31 @@ End MListVal.
 Module MList.
 
 (* ---------------------------------------------------------------------- *)
-(** ** Representation *)
+(** ** Data constructors *)
 
 (** Embedded constructors *)
 
-Definition Nil : val := val_constr "nil" nil.
-Definition Cons `{Enc A} (V:A) (p:loc) : val := val_constr "cons" (``V::``p::nil).
+Definition Nil : val := val_constr "Nil" nil.
+Definition Cons `{Enc A} (V:A) (p:loc) : val := val_constr "Cons" (``V::``p::nil).
+
+(** Setup for the tactic [xval], to convert embedded values into Coq values. *)
+
+Instance Decode_Nil :
+  Decode (val_constr "Nil" nil) Nil.
+Proof using. intros. constructors~. Defined.
+
+Instance Decode_Cons : forall `{EA:Enc A} (V:A) (v vp:val) (p:loc),
+  Decode v V ->
+  Decode vp p ->
+  Decode (val_constr "Cons" (v::vp::nil)) (Cons V p).
+Proof using.
+  introv Dx DL. constructors. unfold Cons. rew_enc. fequals. fequals.
+  { applys decode. } { fequals. rewrites~ (>> (@decode) DL). }
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** Representation *)
 
 (** Representation predicate *)
 
@@ -187,8 +144,8 @@ Lemma Mlist_unfold_match' : forall `{EA:Enc A} (L:list A) (p:loc) `{EB:Enc B}
               \-* q' ~> MList L'
               \-* ^(F2 ``x' ``q' : Formula) Q))
   CODE (Let_ [A0 EA0] X := `App (trm_val (val_prim val_get)) (val_loc p) in
-         Case ``X = 'VCstr "nil" '=> F1 
-      '| Case ``X = 'VCstr "cons" X0 X1 [X0 X1] '=> F2 X0 X1
+         Case ``X = 'VCstr "Nil" '=> F1 
+      '| Case ``X = 'VCstr "Cons" X0 X1 [X0 X1] '=> F2 X0 X1
       '| Fail) 
   POST Q.
 Proof using.
@@ -221,8 +178,8 @@ Lemma Mlist_unfold_match : forall `{EA:Enc A} (L:list A) (p:loc) `{EB:Enc B}
               \-* q' ~> MList L'
               \-* ^(F2 ``x' ``q' : Formula) Q)) ->
   H ==> ^ (Let_ [A0 EA0] X := `App (trm_val (val_prim val_get)) (val_loc p) in
-         Case ``X = 'VCstr "nil" '=> F1 
-      '| Case ``X = 'VCstr "cons" X0 X1 [X0 X1] '=> F2 X0 X1
+         Case ``X = 'VCstr "Nil" '=> F1 
+      '| Case ``X = 'VCstr "Cons" X0 X1 [X0 X1] '=> F2 X0 X1
       '| Fail) Q.
 Proof using. introv M. xchange M. applys @Mlist_unfold_match'. Qed.
 
@@ -233,8 +190,8 @@ Proof using. introv M. xchange M. applys @Mlist_unfold_match'. Qed.
 Definition is_empty : val :=
   VFun 'p :=
     Match '! 'p With
-    '| 'Cstr "nil" '=> true 
-    '| 'Cstr "cons" 'x 'q '=> false
+    '| 'Cstr "Nil" '=> true 
+    '| 'Cstr "Cons" 'x 'q '=> false
     End.
 
 Lemma Triple_is_empty : forall A `{EA:Enc A} (L:list A) p,
@@ -258,7 +215,7 @@ Hint Extern 1 (Register_Spec (is_empty)) => Provide @Triple_is_empty.
 Definition head : val :=
   VFun 'p :=
     Match '! 'p With
-    '| 'Cstr "cons" 'x 'q '=> 'x
+    '| 'Cstr "Cons" 'x 'q '=> 'x
     End.
 
 Lemma Triple_head : forall A `{EA:Enc A} p x q,
@@ -276,7 +233,7 @@ Hint Extern 1 (Register_Spec (head)) => Provide @Triple_head.
 Definition tail : val :=
   VFun 'p :=
     Match '! 'p With
-    '| 'Cstr "cons" 'x 'q '=> 'q
+    '| 'Cstr "Cons" 'x 'q '=> 'q
     End.
 
 Lemma Triple_tail : forall A `{EA:Enc A} p x q,
@@ -297,7 +254,7 @@ Hint Extern 1 (Register_Spec (tail)) => Provide @Triple_tail.
 
 Definition create : val :=
   VFun 'u :=
-    val_ref ('Cstr "nil").
+    val_ref ('Cstr "Nil").
 
 Lemma Triple_create : forall A `{EA:Enc A},
   TRIPLE (create ``tt)
@@ -311,7 +268,7 @@ Hint Extern 1 (Register_Spec (create)) => Provide @Triple_create.
 
 Definition mk_cons : val :=
   VFun 'x 'q :=
-    val_ref ('Cstr "cons" 'x 'q).
+    val_ref ('Cstr "Cons" 'x 'q).
 
 Lemma Triple_mk_cons : forall A `{EA:Enc A} (L:list A) (x:A) (q:loc),
   TRIPLE (mk_cons ``x ``q)
@@ -329,7 +286,7 @@ Hint Extern 1 (Register_Spec (mk_cons)) => Provide @Triple_mk_cons.
 
 Definition set_nil : val :=
   VFun 'p :=
-    'p ':= 'Cstr "nil".
+    'p ':= 'Cstr "Nil".
 
 Lemma Triple_set_nil : forall p (v:val),
   TRIPLE (set_nil ``p)
@@ -343,7 +300,7 @@ Hint Extern 1 (Register_Spec (set_nil)) => Provide @Triple_set_nil.
 
 Definition set_cons : val :=
   VFun 'p 'x 'q :=
-    'p ':= 'Cstr "cons" 'x 'q.
+    'p ':= 'Cstr "Cons" 'x 'q.
 
 Lemma Triple_set_cons : forall A `{EA:Enc A} p (v:val) (x:A) q,
   TRIPLE (set_cons ``p ``x ``q)
@@ -358,7 +315,7 @@ Hint Extern 1 (Register_Spec (set_cons)) => Provide @Triple_set_cons.
 Definition set_head : val :=
   VFun 'p 'x2 :=
     Match '! 'p With
-    '| 'Cstr "cons" 'x1 'q '=> 'p ':= ('Cstr "cons" 'x2 'q)
+    '| 'Cstr "Cons" 'x1 'q '=> 'p ':= ('Cstr "Cons" 'x2 'q)
     End.
 
 Lemma Triple_set_head : forall A `{EA:Enc A} q p x1 x2,
@@ -377,7 +334,7 @@ Hint Extern 1 (Register_Spec (set_head)) => Provide @Triple_set_head.
 Definition set_tail : val :=
   VFun 'p 'q2 :=
     Match '! 'p With
-    '| 'Cstr "cons" 'x 'q '=> 'p ':= ('Cstr "cons" 'x 'q2)
+    '| 'Cstr "Cons" 'x 'q '=> 'p ':= ('Cstr "Cons" 'x 'q2)
     End.
 
 Lemma Triple_set_tail : forall A `{EA:Enc A} p x q1 q2,
@@ -799,4 +756,4 @@ Qed. (* Note: using rewrite below existential binders, the proof would be far ea
 End SegProperties.
 
 
-End MList.
+End MList.  

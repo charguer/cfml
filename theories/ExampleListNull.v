@@ -1,4 +1,55 @@
 
+
+(* ********************************************************************** *)
+(* * Towards a representation *)
+
+(** Let's try to first formalize the C representation:
+[[
+    typedef struct node<A> { 
+      A head; 
+      node<A>* tail; 
+    };
+    // with node = null for the empty list
+]]
+*)
+Module MListNull.
+
+Definition head : field := 0%nat.
+Definition tail : field := 1%nat.
+
+(* ---------------------------------------------------------------------- *)
+(** ** Inductive presentation (does not work) *)
+
+(** [p ~> MList L], (hypothetically) defined as an inductive predicate 
+
+[[
+
+  -----------------
+  null ~> MList nil
+
+  p ~> Record`{ head := x; tail := p'}      p' ~> MList L'
+  -------------------------------------------------------
+                       p ~> MList (x::L')
+
+]]
+
+*)
+
+(* ---------------------------------------------------------------------- *)
+(** ** Recursive presentation *)
+
+(** Recursive of [p ~> MList L], that is, [MList L p]. *)
+
+Fixpoint MList (L:list val) (p:loc) : hprop :=
+  match L with
+  | nil => \[p = null]
+  | x::L' => \exists p', p ~> Record`{ head := x; tail := p'} \* (p' ~> MList L')
+  end.
+
+End MListNull.
+
+
+
 (*
 
 

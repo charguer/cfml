@@ -601,9 +601,7 @@ Instance Decode_enc : forall `{EA:Enc A} (V:A),
   Decode (``V) V.
 Proof using. intros. constructors~. Defined.
 
-Instance Decode_val : forall (v:val), (* LATER: redundant with above? *)
-  Decode v v.
-Proof using. intros. constructors~. Defined.  
+Hint Extern 1 (Decode (``_) _) => eapply Decode_enc : typeclasses_instances.
 
 Instance Decode_unit : 
   Decode val_unit tt.
@@ -634,6 +632,10 @@ Proof using.
   fequals. applys~ decode.
 Qed.
 
+(* LATER: why needed? *)
+Hint Extern 3 (Decode (val_constr "nil" (@nil _)) _) => eapply Decode_nil : typeclass_instances.
+Hint Extern 3 (Decode (val_constr "cons" (_::_::nil)) _) => eapply Decode_cons : typeclass_instances.
+
 Instance Decode_None : forall `{EA:Enc A},
   Decode (val_constr "none" nil) (@None A).
 Proof using. intros. constructors~. Defined.
@@ -642,6 +644,8 @@ Instance Decode_Some : forall `{EA:Enc A} (V:A) (v:val),
   Decode v V ->
   Decode (val_constr "some" (v::nil)) (Some V).
 Proof using. intros. constructors. rew_enc. fequals. fequals. applys decode. Defined.
+
+(* LATER: similar hints needed? *)
 
 
 (* ---------------------------------------------------------------------- *)

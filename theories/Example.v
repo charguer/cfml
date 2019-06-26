@@ -49,22 +49,7 @@ Ltac auto_false_base cont ::=
 
 Ltac auto_star ::=
   try solve [ intuition eauto
-            | subst; rew_list in *; 
+            | intros; subst; rew_list in *; 
               solve [ math 
                     | auto_false_base ltac:(fun tt => intuition eauto) ] ].
 
-
-(* LATER: move to TLC *)
-
-Definition max (n m:int) : int := 
-  If n > m then n else m.
-
-Lemma max_nonpos : forall n,
-  n <= 0 ->
-  max 0 n = 0.
-Proof using. introv M. unfold max. case_if; math. Qed.
-
-Lemma max_nonneg : forall n,
-  n >= 0 ->
-  max 0 n = n.
-Proof using. introv M. unfold max. case_if; math. Qed.
