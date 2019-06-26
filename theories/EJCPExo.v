@@ -8,10 +8,12 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-
+Generalizable Variables A.
 From Sep Require Import Example.
 From Sep Require ExampleStack ExampleList.
-
+Open Scope comp_scope. (* TODO: move *)
+Implicit Types n m : int.
+Implicit Types p q : loc.
 
 (* TODO: move *)
 
@@ -22,7 +24,7 @@ Notation "t1 '++ t2" :=
   (at level 68) : trm_scope.
 
 Parameter Triple_list_concat : forall `{Enc A} (l1 l2:list A),
-  TRIPLE (list_concat l1 l2)
+  TRIPLE (list_concat ``l1 ``l2)
     PRE \[]
     POST (fun r => \[r = l1 ++ l2]).
 
@@ -33,7 +35,7 @@ Hint Extern 1 (Register_Spec (list_concat)) => Provide @Triple_list_concat.
 (* ####################################################### *)
 (** * Basic functions *)
 
-Module ExampleBasic.
+Module ExoBasic.
 
 
 (* ******************************************************* *)
@@ -55,7 +57,8 @@ Lemma Triple_double : forall n,
     PRE \[]
     POST (fun m => \[m = 2 * n]).
 Proof using.
-Abort.
+  xwp. xapp. xsimpl. math.
+Qed.
 
 
 (* ******************************************************* *)
@@ -70,14 +73,15 @@ Abort.
 
 Definition inplace_double :=
   VFun 'p :=
-    ('! 'p) '+ ('! 'p).
+    'p ':= ('!'p '+ '!'p).
 
-Lemma Triple_inplace_double : forall p,
+Lemma Triple_inplace_double : forall p n,
   TRIPLE (inplace_double p)
     PRE (p ~~> n)
     POST (fun (_:unit) => p ~~> (2 * n)).
 Proof using.
-Abort.
+  xwp. xapp. xapp. xapp. xapp. xsimpl. math.
+Qed.
 
 
 (* ******************************************************* *)
@@ -93,15 +97,16 @@ Abort.
 
 Definition decr_and_incr :=
   VFun 'p 'q :=
-    incr 'p ';
-    decr 'q.
+    decr 'p ';
+    incr 'q.
 
 Lemma Triple_decr_and_incr : forall p q n m,
   TRIPLE (decr_and_incr p q)
     PRE (p ~~> n \* q ~~> m)
     POST (fun (_:unit) => p ~~> (n-1) \* q ~~> (m+1)).
 Proof using.
-Abort.
+  xwp. xapp. xapp. xsimpl.
+Qed.
 
 
 (* ******************************************************* *)
@@ -122,28 +127,32 @@ Abort.
 Definition transfer :=
   VFix 'f 'p 'q :=
     If_ '! 'p '> 0 Then
-      incr 'p ';
-      decr 'q ';
+      decr 'p ';
+      incr 'q ';
       'f 'p 'q
     End.
 
 Lemma Triple_transfer : forall p q n m,
-  n > 0 ->
+  n >= 0 ->
   TRIPLE (transfer p q)
     PRE (p ~~> n \* q ~~> m)
     POST (fun (_:unit) => p ~~> 0 \* q ~~> (n + m)).
 Proof using.
-Abort.
+  introv N. gen m N. induction_wf IH: (downto 0) n. intros.
+  xwp. xapp. xapp. xif ;=> C.
+  { xapp. xapp. xapp. { hnf. math. } { math. } 
+    xsimpl. math. }
+  { xval tt. xsimpl. math. math. }
+Qed.
 
-
-End ExampleBasic.
+End ExoBasic.
 
 
 (* ####################################################### *)
 (** * Stack *)
 
-Module ExampleStack.
-Import Stackn.
+Module ExoStack.
+Import ExampleStack.Stackn.
 
 (** Recall from [ExampleStack.v]
 [[
@@ -164,16 +173,15 @@ Import Stackn.
 
 Definition clear :=
   VFun 'p :=
-    Set 'p'.data := ('nil%val) ';
-    Set 'p'.size := 0.
+    Set 'p'.data ':= ``nil '; (* TODO: ('nil%val)*)
+    Set 'p'.size ':= ``0.
 
 Lemma Triple_clear : forall `{Enc A} (p:loc) (L:list A),
   TRIPLE (clear p)
     PRE (p ~> Stackn L)
-    POST (fun (u:unit) => (p ~> Stackn nil).
+    POST (fun (u:unit) => p ~> Stackn nil).
 Proof using.
-  xwp. xunfold Stackn. xapp. xappn.
-  xsimpl.
+  xwp. xunfold Stackn. xapp. xapp. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec (clear)) => Provide @Triple_clear.
@@ -193,27 +201,28 @@ Hint Extern 1 (Register_Spec (clear)) => Provide @Triple_clear.
 
 Definition concat :=
   VFun 'p1 'p2 :=
-    Set 'p1'.data := 'p1'.data '++ 'p2'.data;
-    Set 'p2'.size := 'p1'.size '+ 'p2'.size;
+    Set 'p1'.data ':= ('p1'.data) '++ ('p2'.data) ';
+    Set 'p2'.size ':= ('p1'.size) '+ ('p2'.size) ';
     clear 'p2.
 
-Lemma Triple_clear : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
+Lemma Triple_concat : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
   TRIPLE (concat p1 p2)
     PRE (p1 ~> Stackn L1 \* p2 ~> Stackn L2)
     POST (fun (u:unit) => p1 ~> Stackn (L1 ++ L2) \* p2 ~> Stackn nil).
 Proof using.
-  xwp. xunfold Stackn. xapp. xappn.
+  xwp. xunfold Stackn. xapp. xapp. xseq.
+  xlet. xlet. xapp.  xapp. xappn.
   xsimpl.
 Qed.
 
-End ExampleStack.
+End ExoStack.
 
 
 
 (* ####################################################### *)
 (** * Mutable lists *)
 
-Module ExampleList.
+Module ExoList.
 
 
 (* ******************************************************* *)
@@ -249,4 +258,4 @@ Qed.
 Hint Extern 1 (Register_Spec (nondestructive_append)) => Provide @Triple_nondestructive_append.
 
 
-End ExampleList.
+End ExoList.

@@ -15,6 +15,7 @@ Set Implicit Arguments.
 From Sep Require Import Example.
 Implicit Types n m : int.
 Implicit Types p q : loc.
+Open Scope comp_scope. (* TODO: move *)
 
 (* TODO: move *)
 
@@ -61,10 +62,14 @@ Lemma Triple_example_let : forall n,
     PRE \[]
     POST (fun r => \[r = 2*n]).
 Proof using.
-  xwp. xapp. xapp. xapp. xsimpl. math.
+  xwp. xlet. xapp. xlet. xapp. xapp. xsimpl. math.
 Qed.
 
+(** Note: [xapp] calls [xlet] automatically when needed. *)
+
 (** Note: [xappn] factorizes the [xapp] calls. *)
+
+(** Note: [xsimpl*] does [xsimpl] but automation that can call [xmath]. *)
 
 
 (* ******************************************************* *)
@@ -144,8 +149,6 @@ Definition repeat_incr :=
       incr 'p ';
       'f 'p ('m '- 1)
     End.
-
-Open Scope comp_scope.
 
 Lemma Triple_repeat_incr : forall p n m,
   TRIPLE (repeat_incr p m)
