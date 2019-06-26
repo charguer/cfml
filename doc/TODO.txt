@@ -7,12 +7,24 @@ TODO: script to remove the solutions
 
 TODO: add hints for exercises
 
-LATER: exo with iter (push) into other list
+
+TODO: xval tt
+
+TODO
+Definition clear :=
+  VFun 'p :=
+    Set 'p'.data ':= ``nil '; (* TODO: ('nil%val)*)
+    Set 'p'.size ':= ``0.
 
 
 =========
 =========
 =========
+
+LATER
+   xfun_nosubst
+   xfun S  // calls wp automatically
+
 
 LATER: improve to use older technology
    Ltac xsimpl_lr_cancel_eq_repr_post tt :=
@@ -32,6 +44,8 @@ https://gitlab.inria.fr/charguer/cfml2_ejcp2019
 
 Framework
 =========
+
+# wp recursively computed for funs
 
 # WPLoops
 

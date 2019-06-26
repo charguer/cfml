@@ -299,5 +299,3 @@ Qed.
 End Stackn.
 
 
-
-

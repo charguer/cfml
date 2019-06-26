@@ -40,9 +40,9 @@ Definition double :=
 Lemma Triple_double : forall n,
   TRIPLE (double n)
     PRE \[]
-    POST (fun m => \[m = 2 * n]).
+    POST (fun m => (* SOLUTION *) \[m = 2 * n] (* /SOLUTION *)).
 Proof using.
-  xwp. xapp. xsimpl. math.
+  (* SOLUTION *) xwp. xapp. xsimpl. math. (* /SOLUTION *)
 Qed.
 
 
@@ -62,10 +62,10 @@ Definition inplace_double :=
 
 Lemma Triple_inplace_double : forall p n,
   TRIPLE (inplace_double p)
-    PRE (p ~~> n)
-    POST (fun (_:unit) => p ~~> (2 * n)).
+    PRE ((* SOLUTION *) p ~~> n (* /SOLUTION *))
+    POST (fun (_:unit) => (* SOLUTION *) p ~~> (2 * n) (* /SOLUTION *)).
 Proof using.
-  xwp. xapp. xapp. xapp. xapp. xsimpl. math.
+  (* SOLUTION *) xwp. xapp. xapp. xapp. xapp. xsimpl. math. (* /SOLUTION *)
 Qed.
 
 
@@ -87,10 +87,10 @@ Definition decr_and_incr :=
 
 Lemma Triple_decr_and_incr : forall p q n m,
   TRIPLE (decr_and_incr p q)
-    PRE (p ~~> n \* q ~~> m)
-    POST (fun (_:unit) => p ~~> (n-1) \* q ~~> (m+1)).
+    PRE ((* SOLUTION *) p ~~> n \* q ~~> m (* /SOLUTION *))
+    POST ((* SOLUTION *) fun (_:unit) => p ~~> (n-1) \* q ~~> (m+1) (* /SOLUTION *)).
 Proof using.
-  xwp. xapp. xapp. xsimpl.
+  (* SOLUTION *) xwp. xapp. xapp. xsimpl. (* /SOLUTION *)
 Qed.
 
 
@@ -121,13 +121,15 @@ Lemma Triple_transfer : forall p q n m,
   n >= 0 ->
   TRIPLE (transfer p q)
     PRE (p ~~> n \* q ~~> m)
-    POST (fun (_:unit) => p ~~> 0 \* q ~~> (n + m)).
+    POST (fun (_:unit) => (* SOLUTION *) p ~~> 0 \* q ~~> (n + m) (* /SOLUTION *)).
 Proof using.
   introv N. gen m N. induction_wf IH: (downto 0) n. intros.
+  (* SOLUTION *)
   xwp. xapp. xapp. xif ;=> C.
   { xapp. xapp. xapp. { hnf. math. } { math. } 
     xsimpl. math. }
   { xval tt. xsimpl. math. math. }
+  (* /SOLUTION *)
 Qed.
 
 End ExoBasic.
@@ -158,7 +160,7 @@ Import ExampleStack.Stackn.
 
 Definition clear :=
   VFun 'p :=
-    Set 'p'.data ':= ``nil '; (* TODO: ('nil%val)*)
+    Set 'p'.data ':= ``nil ';
     Set 'p'.size ':= ``0.
 
 Lemma Triple_clear : forall `{Enc A} (p:loc) (L:list A),
@@ -166,7 +168,7 @@ Lemma Triple_clear : forall `{Enc A} (p:loc) (L:list A),
     PRE (p ~> Stackn L)
     POST (fun (u:unit) => p ~> Stackn nil).
 Proof using.
-  xwp. xunfold Stackn. xapp. xapp. xsimpl.
+  (* SOLUTION *) xwp. xunfold Stackn. xapp. xapp. xsimpl. (* /SOLUTION *)
 Qed.
 
 Hint Extern 1 (Register_Spec (clear)) => Provide @Triple_clear.
@@ -193,11 +195,13 @@ Definition concat :=
 Lemma Triple_concat : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
   TRIPLE (concat p1 p2)
     PRE (p1 ~> Stackn L1 \* p2 ~> Stackn L2)
-    POST (fun (u:unit) => p1 ~> Stackn (L1 ++ L2) \* p2 ~> Stackn nil).
+    POST (fun (u:unit) => (* SOLUTION *) p1 ~> Stackn (L1 ++ L2) \* p2 ~> Stackn nil (* /SOLUTION *)).
 Proof using.
+  (* SOLUTION *) 
   xwp. xunfold Stackn. xapp. xapp. xapp. xapp. xapp. xapp. xapp.
   xapp. xchange <- (Stackn_eq p1). { rew_listx. auto. }
-  xchange <- (Stackn_eq p2). xapp. xsimpl.
+  xchange <- (Stackn_eq p2). xapp. xsimpl. 
+  (* /SOLUTION *)
 Qed.
 
 End ExoStack.
@@ -208,9 +212,6 @@ End ExoStack.
 
 Module ExoList.
 Import ExampleList.MList.
-Hint Extern 1 (Register_Spec (is_empty)) => Provide @Triple_is_empty.
-Hint Extern 1 (Register_Spec (create)) => Provide @Triple_create.
-Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
 
 
 (* ******************************************************* *)
@@ -232,7 +233,7 @@ Lemma Triple_mk_one : forall A `{EA:Enc A} (x:A),
     PRE \[]
     POST (fun p => p ~> MList (x::nil)).
 Proof using.
-  intros. xwp. xapp ;=> q. xapp. xsimpl.
+  (* SOLUTION *) intros. xwp. xapp ;=> q. xapp. xsimpl. (* /SOLUTION *)
 Qed.
 
 Hint Extern 1 (Register_Spec (mk_one)) => Provide @Triple_mk_one.
@@ -259,7 +260,7 @@ Lemma Triple_push_back : forall `{EA:Enc A} (L:list A) (x:A) (p:loc),
     PRE (p ~> MList L)
     POST (fun (_:unit) => p ~> MList (L++x::nil)).
 Proof using.
-  xwp. xapp ;=> q. xapp. xsimpl.
+  (* SOLUTION *) xwp. xapp ;=> q. xapp. xsimpl. (* /SOLUTION *)
 Qed.
 
 
@@ -278,11 +279,13 @@ Lemma Triple_push_back' : forall `{EA:Enc A} (L:list A) (x:A) (p:loc),
     POST (fun (_:unit) => p ~> MList (L++x::nil)).
 Proof using.
   intros. gen p. induction_wf IH: (@list_sub A) L. intros.
+  (* SOLUTION *) 
   xwp. xif ;=> C. 
   { subst. xchanges (MList_eq p) ;=> v1.
     xapp ;=> q. xapp. xchanges <- (MList_cons p). }
   { xchanges~ (MList_not_nil p) ;=> y L' p' ->.
     xapp. xapp. { auto. } xchanges <- MList_cons. }
+  (* /SOLUTION *)
 Qed.
 
 
@@ -319,12 +322,14 @@ Lemma Triple_pop_back : forall `{EA:Enc A} (L:list A) (p:loc),
     POST (fun x => \exists L1, \[L = L1++x::nil] \* p ~> MList L1).
 Proof using.
   introv. gen p. induction_wf IH: (@list_sub A) L. introv N.
+  (* SOLUTION *) 
   xwp. destruct L as [|x L']; tryfalse. xchange MList_cons ;=> p'.
   xapp. xapp. xif ;=> C.
   { subst. xapp. xapp. xval. xsimpl (@nil A). { rew_list. auto. }
     xchanges <- MList_nil. }
   { xapp. xapp. { auto. } { auto. } intros y L1' ->.
-    xsimpl (x::L1'). { rew_list. auto. } xchanges <- MList_cons. }
+    xsimpl (x::L1'). { rew_list. auto. } xchanges <- MList_cons. } 
+  (* /SOLUTION *)
 Qed.
 
 
@@ -351,10 +356,12 @@ Lemma Triple_reversed_copy : forall A `{EA:Enc A} (L:list A) (p:loc),
     PRE (p ~> MList L)
     POST (fun q => p ~> MList L \* q ~> MList (rev L)).
 Proof using.
+  (* SOLUTION *) 
   xwp. xapp ;=> q. xfun.
   xapp (>> __ (fun (K:list A) => q ~> MList (rev K))).
   { intros x K L' E. xwp. xapp. xsimpl*. }
   xval. xsimpl~.
+  (* /SOLUTION *)
 Qed.
 
 End ExoList.

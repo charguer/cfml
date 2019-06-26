@@ -15,7 +15,7 @@ DOC_FOLDER=~/cfml2/doc
 ##############################################################################
 # File list
 
-CFML_IMPORTS="Example.v ExampleList.v ExampleStack.v ExamplePairingHeap.v TLCbuffer.v Fmap.v Var.v SepSimpl.v Bind.v Semantics.v SepFunctor.v SepBase.v WPBase.v SepLifted.v WPLifted.v WPTactics.v WPRecord.v WPLib.v EJCPTuto.v EJCPExo.v EJCPImplem.v SLFIntro.v SLFDirect.v SLFExtra.v SLFHprop.v SLFHimpl.v SubstExec.v SLFRules.v SLFWand.v SLFWPsem.v SLFWPgen.v"
+CFML_IMPORTS="Example.v ExampleList.v ExampleListOf.v ExampleStack.v ExamplePairingHeap.v TLCbuffer.v Fmap.v Var.v SepSimpl.v Bind.v Semantics.v SepFunctor.v SepBase.v WPBase.v SepLifted.v WPLifted.v WPTactics.v WPRecord.v WPLib.v EJCPTuto.v EJCPExo.v EJCPImplem.v SLFIntro.v SLFDirect.v SLFExtra.v SLFHprop.v SLFHimpl.v SubstExec.v SLFRules.v SLFWand.v SLFWPsem.v SLFWPgen.v"
 
 TLC_IMPORTS="LibAxioms.v LibTactics.v LibEqual.v LibLogic.v LibOperation.v LibBool.v LibReflect.v LibProd.v LibSum.v LibRelation.v LibOrder.v LibNat.v LibEpsilon.v LibInt.v LibMonoid.v LibContainer.v LibOption.v LibWf.v LibList.v LibListZ.v LibMin.v LibSet.v LibChoice.v LibUnit.v LibCore.v LibFun.v LibFix.v LibMap.v LibString.v LibMultiset.v Makefile.coq"
 

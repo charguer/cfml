@@ -13,10 +13,8 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require Import Example ExampleList.
+From Sep Require Import Example ExampleList ExampleListOf.
 From TLC Require Import LibMultiset.
-Module Import M := MList.MListOf.
-Import M.MListOfSpecs.
 
 
 (* ********************************************************************** *)
@@ -433,7 +431,7 @@ Fixpoint Tree (n:node) (q:loc) { struct n } : hprop :=
   | Node x hs => 
       \exists (q':loc),
          q ~> Record`{ value := x; sub := q' } 
-      \* q' ~> M.MListOf Tree hs
+      \* q' ~> MListOf Tree hs
   end.
 
 (** [q ~> Repr E] related a non-null pointer [q] with the multiset of items [E]
@@ -460,7 +458,7 @@ Definition Heap (E:elems) (p:loc) : hprop :=
 Lemma Tree_Node : forall q x hs,
   q ~> Tree (Node x hs) =
       \exists l, q ~> Record`{ value := x; sub := l }
-              \* l ~> M.MListOf Tree hs.
+              \* l ~> MListOf Tree hs.
 Proof using. auto. Qed.
 
 (** For [Repr] *)
