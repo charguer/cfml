@@ -11,24 +11,9 @@ Set Implicit Arguments.
 Generalizable Variables A.
 From Sep Require Import Example.
 From Sep Require ExampleStack ExampleList.
-Open Scope comp_scope. (* TODO: move *)
+
 Implicit Types n m : int.
 Implicit Types p q : loc.
-
-(* TODO: move *)
-
-Parameter list_concat : val.
-
-Notation "t1 '++ t2" :=
-  (list_concat t1 t2)
-  (at level 68) : trm_scope.
-
-Parameter Triple_list_concat : forall `{Enc A} (l1 l2:list A),
-  TRIPLE (list_concat ``l1 ``l2)
-    PRE \[]
-    POST (fun r => \[r = l1 ++ l2]).
-
-Hint Extern 1 (Register_Spec (list_concat)) => Provide @Triple_list_concat.
 
 
 
@@ -234,6 +219,7 @@ Import ExampleList.MList.
 Hint Extern 1 (Register_Spec (is_empty)) => Provide @Triple_is_empty.
 Hint Extern 1 (Register_Spec (create)) => Provide @Triple_create.
 
+
 (* ******************************************************* *)
 (** ** Create one element *)
 
@@ -300,33 +286,10 @@ Lemma Triple_push_back' : forall `{EA:Enc A} (L:list A) (x:A) (p:loc),
 Proof using.
   intros. gen p. induction_wf IH: (@list_sub A) L. intros.
   xwp. xif ;=> C. 
-  { xchanges (MList_eq p) ;=> v1.
-    xapp ;=> q. xapp. xchanges* <- (MList_cons p). }
+  { subst. xchanges (MList_eq p) ;=> v1.
+    xapp ;=> q. xapp. xchanges <- (MList_cons p). }
   { xchanges~ (MList_not_nil p) ;=> y L' p' ->.
     xapp. xapp. { auto. } xchanges <- MList_cons. }
-Qed.
-
-
-(* ******************************************************* *)
-(** ** Nondestructive append (violet belt) *)
-
-Definition nondestructive_append : val :=
-  VFix 'f 'p1 'p2 :=
-    If_ is_empty 'p1 
-      Then copy 'p2
-      Else mk_cons (head 'p1) ('f (tail 'p1) 'p2).
-
-Lemma Triple_nondestructive_append : forall `{EA:Enc A} (L1 L2:list A) (p1 p2:loc),
-  TRIPLE (nondestructive_append p1 p2)
-    PRE (p1 ~> MList L1 \* p2 ~> MList L2)
-    POST (fun (p3:loc) => p1 ~> MList L1 \* p2 ~> MList L2 \* p3 ~> MList (L1++L2)).
-Proof using.
-  intros. gen p1. induction_wf IH: (@list_sub A) L1. intros.
-  xwp. xapp. xif ;=> C.
-  { xapp Triple_copy ;=> p3. xsimpl*. }
-  { xchanges~ (MList_not_nil p1) ;=> x L1' p1' ->.
-    xapp. xapp. xapp* ;=> p3'. xchanges <- (MList_cons p1).
-    xapp ;=> p3. xsimpl. }
 Qed.
 
 
@@ -365,7 +328,8 @@ Proof using.
   introv. gen p. induction_wf IH: (@list_sub A) L. introv N.
   xwp. destruct L as [|x L']; tryfalse. xchange MList_cons ;=> p'.
   xapp. xapp. xif ;=> C.
-  { skip. }
+  { subst. xapp. xapp. xval. xsimpl (@nil A). { rew_list. auto. }
+    xchanges <- MList_nil. }
   { xapp. xapp. { auto. } { auto. } intros y L1' ->.
     xsimpl (x::L1'). { rew_list. auto. } xchanges <- MList_cons. }
 Qed.

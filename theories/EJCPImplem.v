@@ -821,6 +821,7 @@ Parameter triple_of_wpgen : forall t H Q,
   H ==> wpgen nil t Q ->
   triple t H Q.
 
+
 (* ******************************************************* *)
 (** ** Notation and tactics *)
 
@@ -831,7 +832,7 @@ Notation "'Seq' F1 ; F2" :=
   (at level 68, right associativity,
    format "'[v' 'Seq'  '[' F1 ']'  ;  '/'  '[' F2 ']' ']'") : wp_scope.
 
-(** Tactic [xseq] applies to goal of the form [(Seq F1 ; F2) Q] *)
+(** The tactic [xseq] applies to goal of the form [(Seq F1 ; F2) Q] *)
 
 Parameter xseq_lemma : forall H F1 F2 Q,
   H ==> F1 (fun v => F2 Q) ->
@@ -839,6 +840,19 @@ Parameter xseq_lemma : forall H F1 F2 Q,
 
 Tactic Notation "xseq" :=
    applys xseq_lemma.
+
+(** The tactic [xapp] leverages the following lemma. 
+    Assume the current state [H] decomposes as [H1 \* H2]. 
+    Then, the premise becomes [H1 \* H2 ==> H1 \* (Q1 \--* Q)]
+    which simplifies to [H2 ==> Q1 \--* Q], which in turns 
+    is equivalent to [Q1 \*+ H2 ==> Q]. In other words,
+    [Q] is equal to [Q1] augmented with "[H] minus [H1]",
+    which corresponds to the framed part. *)
+
+Parameter xapp_lemma : forall t Q1 H1 H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* Q) ->
+  H ==> wp t Q.
 
 (** The tag trick (displayed as [`F] in CFML) *)
 

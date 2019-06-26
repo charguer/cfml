@@ -17,6 +17,7 @@ From Sep Require Export WPLib.
 Export NotationForVariables NotationForTerms.
 Open Scope liblist_scope.
 Open Scope Z_scope.
+Open Scope comp_scope.
 Open Scope val_scope.
 Open Scope pat_scope.
 Open Scope trm_scope.

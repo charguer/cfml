@@ -572,6 +572,7 @@ Qed.
 
 Hint Extern 1 (Register_Spec (nondestructive_append)) => Provide @Triple_nondestructive_append.
 
+
 (* ---------------------------------------------------------------------- *)
 (** Destructive append *)
 

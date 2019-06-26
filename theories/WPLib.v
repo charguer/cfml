@@ -54,3 +54,33 @@ Qed.
 
 Hint Extern 1 (Register_Spec decr) => Provide Triple_decr.
 
+
+(* ---------------------------------------------------------------------- *)
+(** Decrement function *)
+
+Definition list_concat : val :=
+  VFix 'f 'l1 'l2 :=
+   Match 'l1 With
+   '| 'nil '=> 'l2
+   '| 'x ':: 'r '=> 'x ':: ('f 'r 'l2)
+   End.
+
+Notation "t1 '++ t2" :=
+  (list_concat t1 t2)
+  (at level 68) : trm_scope.
+
+Lemma Triple_list_concat : forall `{Enc A} (l1 l2:list A),
+  TRIPLE (list_concat ``l1 ``l2)
+    PRE \[]
+    POST (fun r => \[r = l1 ++ l2]).
+Proof using.
+  intros. induction_wf IH: (@list_sub A) l1.
+  xwp. applys xmatch_lemma_list.
+  { intros ->. xvals~. }
+  { intros x l1' ->. xapp~. xval (x::(l1'++l2)). xsimpl~. }
+Qed.
+
+Hint Extern 1 (Register_Spec (list_concat)) => Provide @Triple_list_concat.
+  
+
+

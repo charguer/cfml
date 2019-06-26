@@ -16,6 +16,7 @@ Set Implicit Arguments.
 From Sep Require Import Example ExampleList.
 From TLC Require Import LibMultiset.
 Module Import M := MList.MListOf.
+Import M.MListOfSpecs.
 
 
 (* ********************************************************************** *)
