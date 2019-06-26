@@ -12,17 +12,23 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-
 From Sep Require Import Example.
+Implicit Types n m : int.
+Implicit Types p q : loc.
 
 (* TODO: move *)
 
 Definition max (n m:int) : int := 
-  if n > m then n else m.
+  If n > m then n else m.
 
 Lemma max_nonpos : forall n,
   n <= 0 ->
   max 0 n = 0.
+Proof using. introv M. unfold max. case_if; math. Qed.
+
+Lemma max_nonneg : forall n,
+  n >= 0 ->
+  max 0 n = n.
 Proof using. introv M. unfold max. case_if; math. Qed.
 
 
@@ -51,13 +57,14 @@ Definition example_let :=
     'a '+ 'b.
 
 Lemma Triple_example_let : forall n,
-  Triple (example_let n)
+  TRIPLE (example_let n)
     PRE \[]
     POST (fun r => \[r = 2*n]).
 Proof using.
-  xtriple. xapp. xapp. xapp. xsimpl. math.
+  xwp. xapp. xapp. xapp. xsimpl. math.
 Qed.
 
+(** Note: [xappn] factorizes the [xapp] calls. *)
 
 
 (* ******************************************************* *)
@@ -79,12 +86,10 @@ Lemma Triple_incr : forall (p:loc) (n:int),
     PRE (p ~~> n)
     POST (fun (r:unit) => (p ~~> (n+1))).
 Proof using.
-  xwp. xapp. xapp. xapp. xsimpl~.
+  xwp. xapp. xapp. xapp. xsimpl.
 Qed.
 
-(** Note: [xappn] factorizes the [xapp] calls. *)
-
-Hint Extern 1 (Register_Spec (val_incr)) => Provide Triple_incr.
+Hint Extern 1 (Register_Spec (incr)) => Provide Triple_incr.
 
 
 (* ******************************************************* *)
@@ -101,8 +106,8 @@ Hint Extern 1 (Register_Spec (val_incr)) => Provide Triple_incr.
 
 Definition succ_using_incr :=
   VFun 'n :=
-    Let 'p := val_ref 'n in
-    val_incr 'p ';
+    Let 'p := 'ref 'n in
+    incr 'p ';
     '! 'p.
 
 Lemma Triple_succ_using_incr : forall n,
@@ -110,11 +115,12 @@ Lemma Triple_succ_using_incr : forall n,
     PRE \[]
     POST (fun r => \[r = n+1]).
 Proof using.
-  xtriple. xapp as p. intros; subst. xapp~. intros _. xapps~.
-  xvals~.
+  xwp. xapp (>> __ Enc_int) ;=> l. (* TODO: why *) 
+  xapp. xapp. xsimpl. auto.
 Qed.
 
-(** Note: [xapps] is short for [xval; xsimpl]. *)
+(** Note: [xapps] is short for [xval; xsimpl]. 
+    Note: [xapps~] is short for [xapp; auto]. *)
 
 (** Note: [decr] is similarly defined in the library. *)
 
@@ -139,40 +145,52 @@ Definition repeat_incr :=
       'f 'p ('m '- 1)
     End.
 
-Lemma Triple_succ_using_incr : forall p n m,
+Open Scope comp_scope.
+
+Lemma Triple_repeat_incr : forall p n m,
   TRIPLE (repeat_incr p m)
     PRE (p ~~> n)
     POST (fun (_:unit) => p ~~> (n + m)).
 Proof using.
+  intros. induction_wf IH: (downto 0) m.
+  xwp. xapp. xif; intros C.
+  { xapp. xapp. xapp. { hnf. math. }
 Abort.
 
 (** Let's try again *)
 
-Lemma Triple_succ_using_incr : forall p n m,
-  m > 0 ->
+Lemma Triple_repeat_incr : forall p n m,
+  m >= 0 ->
   TRIPLE (repeat_incr p m)
     PRE (p ~~> n)
     POST (fun (_:unit) => p ~~> (n + m)).
 Proof using.
+  introv. gen n. induction_wf IH: (downto 0) m; introv Hm.
+  xwp. xapp. xif; intros C.
+  { xapp. xapp. xapp. { hnf. math. } { math. }
+    xsimpl. math. }
+  { xval tt. xsimpl. math. } (* TODO: xval tt *)
 Qed.
 
 (** Let's try yet another time *)
 
-Lemma Triple_succ_using_incr : forall p n m,
+Lemma Triple_repeat_incr' : forall p n m,
   TRIPLE (repeat_incr p m)
     PRE (p ~~> n)
     POST (fun (_:unit) => p ~~> (n + max 0 m)).
 Proof using.
+  intros. gen n. induction_wf IH: (downto 0) m; intros.
+  xwp. xapp. xif; intros C.
+  { xapp. xapp. xapp. { hnf. math. }
+    xsimpl. repeat rewrite max_nonneg; math. }
+  { xval tt. xsimpl. rewrite max_nonpos; math. }
 Qed.
-
-
 
 
 (* ####################################################### *)
 (** * Entailment tactic *)
 
 Module XsimplDemo.
-Implicit Types p q : loc.
 
 (* ******************************************************* *)
 (** *** [xpull] to extract from LHS *)
