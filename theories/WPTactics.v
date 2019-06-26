@@ -590,7 +590,68 @@ Tactic Notation "xappn" "*" constr(n) :=
 
 
 (* ---------------------------------------------------------------------- *)
+(* ** Decode typeclass *)
+
+Class Decode (v:val) `{EA:Enc A} (V:A) : Type :=
+  mk_Decode { decode : v = ``V }.
+
+Arguments decode v {A} {EA} {V} {Decode}.
+
+Instance Decode_enc : forall `{EA:Enc A} (V:A),
+  Decode (``V) V.
+Proof using. intros. constructors~. Defined.
+
+Instance Decode_val : forall (v:val), (* LATER: redundant with above? *)
+  Decode v v.
+Proof using. intros. constructors~. Defined.  
+
+Instance Decode_unit : 
+  Decode val_unit tt.
+Proof using. intros. constructors~. Defined.
+
+Instance Decode_int : forall (n:int),
+  Decode (val_int n) n.
+Proof using. intros. constructors~. Defined.
+
+Instance Decode_bool : forall (b:bool),
+  Decode (val_bool b) b.
+Proof using. intros. constructors~. Defined.
+
+Instance Decode_loc : forall (l:loc),
+  Decode (val_loc l) l.
+Proof using. intros. constructors~. Defined.
+
+Instance Decode_nil : forall `{EA:Enc A},
+  Decode ('nil%val) (@nil A).
+Proof using. intros. constructors~. Defined.
+
+Instance Decode_cons : forall `{EA:Enc A} (X:A) (L:list A) (x l : val),
+  Decode x X ->
+  Decode l L ->
+  Decode ((x ':: l)%val) (X::L).
+Proof using.
+  introv Dx DL. constructors. rew_enc. fequals. fequals. applys decode.
+  fequals. applys~ decode.
+Qed.
+
+Instance Decode_None : forall `{EA:Enc A},
+  Decode (val_constr "none" nil) (@None A).
+Proof using. intros. constructors~. Defined.
+
+Instance Decode_Some : forall `{EA:Enc A} (V:A) (v:val),
+  Decode v V ->
+  Decode (val_constr "some" (v::nil)) (Some V).
+Proof using. intros. constructors. rew_enc. fequals. fequals. applys decode. Defined.
+
+
+(* ---------------------------------------------------------------------- *)
 (* ** Tactic [xval] *)
+
+Lemma xval_lemma_decode : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
+  Decode v V ->
+  H ==> Q V ->
+  H ==> ^(Wpgen_val v) Q.
+Proof using. introv E N. subst. applys MkStruct_erase. xsimpl~ V. applys decode. Qed.
 
 Lemma xval_lemma : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
   v = ``V ->
@@ -631,7 +692,7 @@ Ltac xval_post tt :=
 
 Ltac xval_core tt :=
   xval_pre tt;
-  applys @xval_lemma; [ try reflexivity | ];
+  applys @xval_lemma_decode; [ try solve [ typeclass ] | ];
   xval_post tt.
 
 Tactic Notation "xval" :=

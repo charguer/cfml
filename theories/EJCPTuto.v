@@ -156,7 +156,7 @@ Proof using.
   xwp. xapp. xif; intros C.
   { xapp. xapp. xapp. { hnf. math. } { math. }
     xsimpl. math. }
-  { xval tt. xsimpl. math. }
+  { xval. xsimpl. math. }
 Qed.
 
 (** Let's try yet another time *)
