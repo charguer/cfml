@@ -3,8 +3,6 @@
 
 skip. (* TODO noduplicates *)
 
-( TODO  xsimpl could do xrecord_eq )
-
 TODO: script to remove the solutions
 
 TODO: add hints for exercises

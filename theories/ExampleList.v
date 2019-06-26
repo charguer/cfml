@@ -543,7 +543,7 @@ Lemma Triple_mlist_length_using_iter : forall A `{EA:Enc A} (L:list A) (p:loc),
 Proof using.
   xwp. xapp ;=> n. xfun.
   xapp (>> __ (fun (K:list A) => n ~~> (length K:Z))).
-  { intros x K T E. xwp. xapp. xsimpl*. }
+  { intros x K L' E. xwp. xapp. xsimpl*. }
   xapp. xsimpl~.
 Qed.
 

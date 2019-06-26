@@ -210,6 +210,7 @@ Module ExoList.
 Import ExampleList.MList.
 Hint Extern 1 (Register_Spec (is_empty)) => Provide @Triple_is_empty.
 Hint Extern 1 (Register_Spec (create)) => Provide @Triple_create.
+Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
 
 
 (* ******************************************************* *)
@@ -326,7 +327,38 @@ Proof using.
     xsimpl (x::L1'). { rew_list. auto. } xchanges <- MList_cons. }
 Qed.
 
+
+(* ******************************************************* *)
+(** ** Reversed copy using iter (black belt) *)
+
+(**
+[[
+  let rec reversed_copy p =
+    let q = create() in
+    iter (fun x => push q x) p;
+    q
+]]
+*)
+
+Definition reversed_copy : val :=
+  VFun 'p :=
+    Let 'q := create '() in
+    iter (Fun 'x := push 'q 'x) 'p ';
+    'q.
+
+Lemma Triple_reversed_copy : forall A `{EA:Enc A} (L:list A) (p:loc),
+  TRIPLE (reversed_copy ``p)
+    PRE (p ~> MList L)
+    POST (fun q => p ~> MList L \* q ~> MList (rev L)).
+Proof using.
+  xwp. xapp ;=> q. xfun.
+  xapp (>> __ (fun (K:list A) => q ~> MList (rev K))).
+  { intros x K L' E. xwp. xapp. xsimpl*. }
+  xval. xsimpl~.
+Qed.
+
 End ExoList.
+
 
 
 
