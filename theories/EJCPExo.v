@@ -22,6 +22,17 @@ Implicit Types p q : loc.
 
 Module ExoBasic.
 
+(** Hints: 
+    - [xwp] to begin the proof
+    - [xapp] for applications, or [xappn] to repeat
+    - [xif] for a case analysis
+    - [xval V] for a value, where [V] is a Coq value,
+      e.g. [val tt] or [val (x::L)].
+    - [xsimpl] to prove entailments
+    - [auto], [math], [rew_list] to prove pure facts
+      or just [*] after a tactic to invoke automation.
+*)
+
 
 (* ******************************************************* *)
 (** ** Basic pure function *)
@@ -138,6 +149,16 @@ End ExoBasic.
 (* ####################################################### *)
 (** * Stack *)
 
+(** Hints: 
+    - [xunfold Stackn] to unfold all
+    - [xchange Stackn_eq] to unfold one
+    - [xchange <- Stackn_eq] to fold one
+    - [xchange (Stackn_eq p)] to unfold the one at pointer [p]
+    - [xchange <- (Stackn_eq p)] to fold the one at pointer [p]
+    - [xchanges] to invoke [xsimpl] subsequently
+*)
+
+
 Module ExoStack.
 Import ExampleStack.Stackn.
 
@@ -209,6 +230,16 @@ End ExoStack.
 
 (* ####################################################### *)
 (** * Mutable lists *)
+
+(** Hints: 
+    - [xchange MList_eq] and the variants like for [Stackn]
+    - [xchange (MList_not_nil p)] to unfold [p ~> MList L] when [L <> nil]
+    - [xchange MList_cons] to unfold [p ~> MList (x::L)] 
+      into [\exists q, p ~~> Cons x q \* q ~> MList L]
+    - [xchange <- MList_cons] to fold back to [p ~> MList (x::L)]
+    - [xchange <- (MList_cons p)], like the above for a specific [p]
+    - [xchanges] is convenient here too.
+*)
 
 Module ExoList.
 Import ExampleList.MList.
@@ -365,7 +396,5 @@ Proof using.
 Qed.
 
 End ExoList.
-
-
 
 

@@ -1,23 +1,14 @@
 
 
-
-skip. (* TODO noduplicates *)
-
-TODO: add hints for exercises
-
-
 TODO: xval tt
 
-TODO
+
+=========
+=========
+=========
+LATER
 Definition clear :=
-  VFun 'p :=
     Set 'p'.data ':= ``nil '; (* TODO: ('nil%val)*)
-    Set 'p'.size ':= ``0.
-
-
-=========
-=========
-=========
 
 LATER
    xfun_nosubst
