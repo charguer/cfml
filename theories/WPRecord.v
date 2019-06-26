@@ -454,59 +454,11 @@ Qed. (* TODO: simplify proof *)
 Global Opaque val_set_field val_get_field.
 
 
+
 (* ---------------------------------------------------------------------- *)
-(* ** Record allocation *)
+(* ** No duplicated fields checker *)
 
-
-
-Lemma Triple_record_alloc : forall (ks:fields),
-  noduplicates ks -> (* LATER: executable version *)
-  TRIPLE ((val_record_alloc ks) '())
-    PRE \[]
-    POST (fun r => \exists vs, \[length ks = length vs] \* r ~> Record (List.combine ks vs)).
-Proof using.
-  xwp. xapp. { math. } intros p N.
-  sets n: (abs (1 + fold_right Init.Nat.max 0%nat ks)%nat).
-  (* induction ks as [|k ks']. *)
-Admitted. (* TODO *)
-
-Axiom trms_to_vals_trms_vals : forall vs,
-  trms_to_vals (trms_vals vs) = Some vs.
-
-Lemma Triple_record_init : forall (ks:fields) (Vs:dyns) (vs:vals),
-  noduplicates ks -> (* LATER: executable version *)
-  ks <> nil ->
-  length ks = length Vs ->
-  vs = encs Vs ->
-  TRIPLE (trm_apps (val_record_init ks) vs)
-    PRE \[]
-    POST (fun r => r ~> Record (List.combine ks Vs)).
-Proof using.
-  introv Nd Nn L E.
-  unfold val_record_init.
-  sets xs: (var_seq 0 (Datatypes.length ks)).
-  asserts L'': (length xs = length ks).
-  { subst xs. rewrite length_var_seq. rewrite~ List_length_eq. }
-  applys xwp_lemma_funs.
-  { reflexivity. }
-  { applys trms_to_vals_trms_vals. }
-  { rewrite var_funs_exec_eq. rew_bool_eq. splits.
-    { applys var_distinct_var_seq. }
-    { subst vs. unfold encs. rewrite List_map_eq. rew_listx. math. }
-    { admit. } }
-  { xwp_simpl. xapp~ Triple_record_alloc ;=> p Vs' L'.
-    sets_eq kxs: (List.combine ks xs).
-    induction kxs as [|(k,x) kxs'].
-    { asserts: (ks = nil). admit.
-      asserts: (xs = nil). admit.
-      xwp_simpl. xval p. 
-      rewrite @List_combine_eq in *; try math.
-      rewrite @List_combine_eq in *; try math.
-      asserts: (Vs = nil). admit.
-      asserts: (Vs' = nil). admit.
-      subst. rewrite combine_nil. rew_listx. xsimpl. }
-Admitted.
-
+(* LATER: use a more generic noduplicates_exec function *)
 
 (* TODO: move
 
@@ -531,19 +483,17 @@ Qed.
 
 *)
 
-Parameter noduplicates_fields_exec : fields -> bool.
+Fixpoint fresh_field_exec (k:field) (ks:fields) : bool :=
+  match ks with
+  | nil => true
+  | k'::ks' => if eq_nat_dec k k' then false else fresh_field_exec k ks'
+  end.
 
-Lemma xapp_record_new' : forall (Vs:dyns) (ks:fields) (vs:vals),
-  noduplicates_fields_exec ks = true ->
-  ks <> nil ->
-  List.length ks = List.length Vs ->
-  vs = encs Vs ->
-  TRIPLE (trm_apps (val_record_init ks) vs)
-    PRE \[]
-    POST (fun r => r ~> Record (List.combine ks Vs)).
-Proof using.
-Admitted.
-
+Fixpoint noduplicates_fields_exec (ks:fields) : bool :=
+  match ks with
+  | nil => true
+  | k::ks' => fresh_field_exec k ks' && noduplicates_fields_exec ks'
+  end.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -578,7 +528,8 @@ Ltac list_boxer_to_dyns E :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xnew] *)
 
-Axiom xapp_record_new : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fields) (vs:vals),
+(* TODO: port the proof from the previous CFML version to the new setting *)
+Parameter xapp_record_new : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fields) (vs:vals),
   noduplicates_fields_exec ks = true ->
   ks <> nil ->
   List.length ks = List.length Vs ->
@@ -589,7 +540,7 @@ Axiom xapp_record_new : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fields) (v
 Ltac xnew_core E :=
   let Vs := list_boxer_to_dyns E in 
   applys (@xapp_record_new Vs);
-  [ try reflexivity (* TODO *)
+  [ try reflexivity
   | intros ?; solve [ false ]
   | try reflexivity
   | try reflexivity
@@ -600,21 +551,3 @@ Tactic Notation "xnew" constr(E) :=
 
 
 (* ---------------------------------------------------------------------- *)
-
-(* TODO: 
-   Set 'p '. X ':= ('p '.X '+ 1).
-   won't parse 
-*)
-
-
-(* TODO 
-
-Notation "'New'' `{ f1 := x1 ; f2 := x2 }" :=
-   (Wptag (Wpgen_app (trm_apps (trm_val (val_record_init (f1::f2::nil)))) (trms_vals (x1::x2::nil))))
-  (at level 0, f1 at level 0, f2 at level 0)
-  : wp_scope.
-
-Open Scope wp_scope.
-
-
-*)

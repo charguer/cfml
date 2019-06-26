@@ -33,6 +33,8 @@ LATER: inj by default
 (* LATER: if hsimpl fails to progress after xapp, warning *)
 
 
+LATER: admitted in altproofs
+
 =========
 =========
 =========
@@ -42,6 +44,21 @@ https://gitlab.inria.fr/charguer/cfml2_ejcp2019
 
 Framework
 =========
+
+
+# Record
+(* TODO:
+   Set 'p '. X ':= ('p '.X '+ 1).
+   won't parse
+*)
+
+
+# Record
+Notation "'New'' `{ f1 := x1 ; f2 := x2 }" :=
+   (Wptag (Wpgen_app (trm_apps (trm_val (val_record_init (f1::f2::nil)))) (trms_vals (x1::x2::nil))))
+  (at level 0, f1 at level 0, f2 at level 0)
+  : wp_scope.
+
 
 # wp recursively computed for funs
 

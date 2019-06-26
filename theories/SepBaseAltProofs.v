@@ -364,7 +364,7 @@ Definition triple (t:trm) (H:hprop) (Q:val->hprop) :=
 Lemma local_triple : forall t,
   local (triple t).
 Proof using.
-  skip.
+Admitted.
 (* TODO updated def...
   intros. applys pred_ext_2. intros H Q. iff M.
   { intros h Hh. forwards (h'&v&N1&N2): M \[] h. { hxsimpl. }
@@ -379,7 +379,6 @@ Proof using.
     xchange (R2 v). rew_heap.
     rewrite (hstar_comm_assoc \Top H'). xsimpl. }
 *)
-Qed.
 
 (** Make tactic [xlocal] aware that triples are mklocal *)
 

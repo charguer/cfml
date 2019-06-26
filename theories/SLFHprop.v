@@ -170,7 +170,7 @@ Notation "H1 '\*' H2" := (hstar H1 H2) (at level 41, right associativity).
     The notation [\exists x, H] stands for [hexists (fun x => H)].
     The generalized notation [\exists x1 ... xn, H] is also available.
 
-    The definition of [hexists] is a bit technical. It may be skipped
+    The definition of [hexists] is a bit technical. It is not essential
     in first reading. Additional explanations are provided further on. *)
 
 Definition hexists A (J:A->hprop) : hprop :=
@@ -495,13 +495,13 @@ Qed.
     to that of [exists], which operates on [Prop].
 
     The notation [exists x, P] stands for [ex (fun x => P)],
-    where [ex] admits the following type:
+    where [ex] has the following type:
 [[
     Check ex : forall A : Type, (A -> Prop) -> Prop.
 ]]
 
     Likewise, [\exists x, H] stands for [hexists (fun x => H)],
-    where [hexists] admits the following type:
+    where [hexists] has the following type:
 [[
     Check hexists : forall A : Type, (A -> hprop) -> hprop.
 ]]

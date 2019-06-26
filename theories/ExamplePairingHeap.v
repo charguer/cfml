@@ -576,8 +576,8 @@ Lemma Triple_insert : forall p x E,
     POST (fun (_:unit) => p ~> Heap (E \u \{x})).
 Proof using.
   xwp. xchange Heap_eq ;=> q. xapp. xapp (>> __ Tree) ;=> l.
-  xnew (>> x l). skip. (* TODO noduplicates *) intros q2.
-  xchange <- Tree_Node. xchange <- Repr_eq. { applys* inv_Node. }
+  xnew (>> x l) ;=> q2. xchange <- Tree_Node. 
+  xchange <- Repr_eq. { applys* inv_Node. }
   rew_listx. xapp. typeclass. unfold Contents. xif ;=> C; case_if.
   { xpull ;=> ->. xapp. xchanges* Heap_of_Repr. }
   { xapp ;=> r. xapp. xchanges* Heap_of_Repr. }

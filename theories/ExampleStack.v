@@ -263,7 +263,7 @@ Lemma Triple_create : forall `{Enc A},
     PRE \[]
     POST (fun p => (p ~> Stackn (@nil A))).
 Proof using.
-  xwp. xunfold Stackn. xnew (>> (@nil A) 0). skip. (* TODO *) intros p. xsimpl.
+  xwp. xunfold Stackn. xnew (>> (@nil A) 0) ;=> p. xsimpl.
 Qed.
 
 Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),

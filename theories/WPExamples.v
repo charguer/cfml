@@ -45,13 +45,14 @@ Proof using.
   xwp. xappn. xsimpl~.
 Qed.
 
+(*
 Lemma Triple_incr_frame : forall (p1 p2:loc) (n1 n2:int),
   TRIPLE (val_incr p1)
     PRE (p1 ~~> n1 \* p2 ~~> n2)
     POST (fun (r:unit) => (p1 ~~> (n1+1) \* p2 ~~> n2)).
 Proof using.
-  skip.
 Qed.
+*)
 
 (* TODO SHOULD BE:
 

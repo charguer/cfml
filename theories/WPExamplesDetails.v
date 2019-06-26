@@ -174,12 +174,10 @@ Proof using.
   xsimpl. math.
 Qed.
 
-
-
   (* TODO [xnew details -> for proof details]
   let Vs := list_boxer_to_dyns (>> (@nil A) 0) in 
   applys (@xapp_record_new Vs);
-  [ skip (* TODO try reflexivity *)
+  [ (* TODO try reflexivity *)
   | intros ?; solve [ false ]
   | try reflexivity
   | try reflexivity

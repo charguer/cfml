@@ -875,3 +875,70 @@ Definition MListOf' A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc) : hpro
   \exists (l:list A), \[length l = length L] \* p ~> MList.MList l
                       \* hfold_list2 (fun (X:TA) (x:A) => x ~> R X) L l. 
 *)
+
+
+Lemma xapp_record_new' : forall (Vs:dyns) (ks:fields) (vs:vals),
+  noduplicates_fields_exec ks = true ->
+  ks <> nil ->
+  List.length ks = List.length Vs ->
+  vs = encs Vs ->
+  TRIPLE (trm_apps (val_record_init ks) vs)
+    PRE \[]
+    POST (fun r => r ~> Record (List.combine ks Vs)).
+Proof using.
+Admitted.
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Record allocation *)
+
+(* DEPRECATED
+
+Lemma Triple_record_alloc : forall (ks:fields),
+  noduplicates ks ->
+  TRIPLE ((val_record_alloc ks) '())
+    PRE \[]
+    POST (fun r => \exists vs, \[length ks = length vs] \* r ~> Record (List.combine ks vs)).
+Proof using.
+  xwp. xapp. { math. } intros p N.
+  sets n: (abs (1 + fold_right Init.Nat.max 0%nat ks)%nat).
+
+Lemma trms_to_vals_trms_vals : forall vs,
+  trms_to_vals (trms_vals vs) = Some vs.
+
+Lemma Triple_record_init : forall (ks:fields) (Vs:dyns) (vs:vals),
+  noduplicates ks ->
+  ks <> nil ->
+  length ks = length Vs ->
+  vs = encs Vs ->
+  TRIPLE (trm_apps (val_record_init ks) vs)
+    PRE \[]
+    POST (fun r => r ~> Record (List.combine ks Vs)).
+Proof using.
+  introv Nd Nn L E.
+  unfold val_record_init.
+  sets xs: (var_seq 0 (Datatypes.length ks)).
+  asserts L'': (length xs = length ks).
+  { subst xs. rewrite length_var_seq. rewrite~ List_length_eq. }
+  applys xwp_lemma_funs.
+  { reflexivity. }
+  { applys trms_to_vals_trms_vals. }
+  { rewrite var_funs_exec_eq. rew_bool_eq. splits.
+    { applys var_distinct_var_seq. }
+    { subst vs. unfold encs. rewrite List_map_eq. rew_listx. math. }
+    { . } }
+  { xwp_simpl. xapp~ Triple_record_alloc ;=> p Vs' L'.
+    sets_eq kxs: (List.combine ks xs).
+    induction kxs as [|(k,x) kxs'].
+    { asserts: (ks = nil). .
+      asserts: (xs = nil). .
+      xwp_simpl. xval p. 
+      rewrite @List_combine_eq in *; try math.
+      rewrite @List_combine_eq in *; try math.
+      asserts: (Vs = nil). admit.
+      asserts: (Vs' = nil). admit.
+      subst. rewrite combine_nil. rew_listx. xsimpl. }
+Admitted.
+
+*)

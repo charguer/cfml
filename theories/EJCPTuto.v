@@ -302,9 +302,9 @@ Proof using.
   intros. xsimpl 3 4.
 Abort.
 
-(** The placeholder value [__] can be used to skip an existential. *)
+(** Use the placeholder value [__] to instantiate an existential with an evar. *)
 
-Lemma xsimpl_demo_rhs_hints_skip : forall H1 (p q:loc),
+Lemma xsimpl_demo_rhs_hints_evar : forall H1 (p q:loc),
   H1 ==> \exists (n m:int), (p ~~~> n \* q ~~~> m).
 Proof using.
   intros. xsimpl __ 4.

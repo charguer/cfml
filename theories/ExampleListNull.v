@@ -395,17 +395,14 @@ End SegProperties.
 (* ---------------------------------------------------------------------- *)
 (* ** Node allocation *)
 
-(*
+(* TODO WIP
 Definition val_new_cell : val := val_new_record 2%nat.
 
 (** Above equivalent to :
 
 Definition val_new_cell :=
   ValFun 'x 'y :=
-    Let 'p := val_alloc 2 in
-    val_set_item 'p 'x;;;
-    val_set_left 'p 'y;;;
-    'p.
+    New`{ hd := x; tl := p' }
 *)
 *)
 
@@ -418,7 +415,6 @@ Lemma Triple_new_cell : forall `{EA:Enc A} (x:A) (q:loc),
 (*
 Proof using. xtriple_new_record. Qed.
 *)
-Admitted.
 
 Hint Extern 1 (Register_Spec val_new_cell) => Provide Triple_new_cell.
 
