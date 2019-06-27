@@ -114,6 +114,65 @@ Qed.
 (** Note: [decr] is similarly defined in the library. *)
 
 
+
+(* ******************************************************* *)
+(** *** Increment with two references *) 
+
+(** 
+[[
+  let incr_one_of_two p q =
+    incr p
+]]
+*)
+
+Definition incr_one_of_two : val :=
+  VFun 'p 'q :=
+    incr 'p.
+
+Lemma Triple_incr_one_of_two : forall (p q:loc) (n m:int),
+  TRIPLE (incr_one_of_two p q)
+    PRE (p ~~> n \* q ~~> m)
+    POST (fun (r:unit) => p ~~> (n+1) \* q ~~> m).
+Proof using.
+  xwp. xapp. xsimpl.
+Qed.
+
+
+(* ******************************************************* *)
+(** *** Increment and allocate a copy *) 
+
+(** 
+[[
+  let incr_and_ref p =
+    incr p;
+    ref !p
+]]
+*)
+
+Definition incr_and_ref : val :=
+  VFun 'p :=
+    incr 'p ';
+    'ref ('! 'p).
+
+Lemma Triple_incr_and_ref : forall (p:loc) (n:int),
+  TRIPLE (incr_and_ref p)
+    PRE (p ~~> n)
+    POST (fun (q:loc) => q ~~> (n+1) \* p ~~> (n+1)).
+Proof using.
+  xwp. xapp. xapp. xapp. xsimpl.
+Qed.
+
+Hint Extern 1 (Register_Spec (incr_and_ref)) => Provide Triple_incr_and_ref.
+
+Lemma Triple_incr_and_ref' : forall (p:loc) (n:int),
+  TRIPLE (incr_and_ref p)
+    PRE (p ~~> n)
+    POST (fun (q:loc) => \exists m, \[m > n] \* q ~~> m \* p ~~> (n+1)).
+Proof using.
+  xtriple. xapp. intros q. xsimpl. math.
+Qed.
+
+
 (* ******************************************************* *)
 (** *** A simple recursion *) 
 
@@ -134,14 +193,19 @@ Definition repeat_incr :=
       'f 'p ('m '- 1)
     End.
 
+(** Let's try to prove a false specification *)
+
 Lemma Triple_repeat_incr : forall p n m,
   TRIPLE (repeat_incr p m)
     PRE (p ~~> n)
     POST (fun (_:unit) => p ~~> (n + m)).
 Proof using.
-  intros. induction_wf IH: (downto 0) m.
+  intros. gen n. induction_wf IH: (downto 0) m. intros.
   xwp. xapp. xif; intros C.
-  { xapp. xapp. xapp. { hnf. math. }
+  { (* then branch *) 
+    xapp. xapp. xapp. { hnf. math. } xsimpl. math. }
+  { (* else branch *) 
+    xval. xsimpl.
 Abort.
 
 (** Let's try again *)
