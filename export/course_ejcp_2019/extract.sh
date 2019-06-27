@@ -11,6 +11,7 @@ CFML_FOLDER=~/cfml2/theories
 TLC_FOLDER=~/tlc/src
 DOC_FOLDER=~/cfml2/doc
 
+CP="cp -u"
 
 ##############################################################################
 # File list
@@ -43,7 +44,7 @@ cp open.sh ${THEORIES_TARGET}
 # Import CFML
 
 for i in ${CFML_IMPORTS} ; do
-  cp ${CFML_FOLDER}/$i ${THEORIES_TARGET} ;
+  ${CP} ${CFML_FOLDER}/$i ${THEORIES_TARGET} ;
 done
 
 
@@ -51,7 +52,7 @@ done
 # Import TLC
 
 for i in ${TLC_IMPORTS} ; do
-  cp ${TLC_FOLDER}/$i ${THEORIES_TARGET} ;
+  ${CP} ${TLC_FOLDER}/$i ${THEORIES_TARGET} ;
 done
 
 
@@ -59,7 +60,7 @@ done
 # Import DOC
 
 for i in ${DOC_IMPORTS} ; do
-  cp ${DOC_FOLDER}/$i ${DOC_TARGET} ;
+  ${CP} ${DOC_FOLDER}/$i ${DOC_TARGET} ;
 done
 
 

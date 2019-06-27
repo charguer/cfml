@@ -1,8 +1,7 @@
 #############################################################
 # Version of Coq
 
-The theories compile with Coq 8.8 and they probably also compile 
-with more recent versions. (Let me know otherwise.)
+The theories compile with Coq 8.8 and Coq 8.9.
 
 
 #############################################################
@@ -145,20 +144,34 @@ The course depend on 4 auxiliary files.
 
 
 #############################################################
-# Other models of Separation Logics
+# Model of Separation Logic with Time Credits
 
-This file `SepCredits.v` and `SepRO.v` formalize variants of Separation Logic.
+This file `SepCredits.v` contains a formalization of Separation Logic
+extended with Time Credits, with credits represented on Z (integers).
 
-The Separation Logic equipped with time credits is described in:
+The original "Separation Logic with time credits" represented time credits 
+on N (natural number). This original presentation is described in the paper:
 __Verifying the correctness and amortized complexity of a union-find
 implementation in separation logic with time credits__
-by Arthur Charguéraud and François Pottier, JAR 2017
+by Arthur Charguéraud and François Pottier, published at JAR 2017.
   http://gallium.inria.fr/~fpottier/publis/chargueraud-pottier-uf-sltc.pdf
 
-The Separation Logic equipped with read-only permissions is described in:
+The switch from N to Z for representing credits brings numerous benefits,
+as described in the paper:
+__Formal proof and analysis of an incremental cycle detection algorithm__
+by Armaël Guéneau, Jacques-Henri Jourdan, Arthur Charguéraud, and François Pottier, 
+published at ITP 2019.
+  http://gallium.inria.fr/~fpottier/publis/gueneau-jourdan-chargueraud-pottier-2019.pdf
+
+
+
+#############################################################
+# Model of Separation Logic with Read-Only Permissions
+
+The file `SepRO.v` contains a formalization of Separation Logic extended
+with read-only permissions. This extension is described in the paper:
 __Temporary Read-Only Permissions for Separation Logic__
-by Arthur Charguéraud and François Pottier
-(ESOP 2017).
+by Arthur Charguéraud and François Pottier, published at ESOP 2017.
   http://www.chargueraud.org/research/2017/readonlysep/readonlysep.pdf
 
 
