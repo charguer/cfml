@@ -271,7 +271,7 @@ Abort.
 Lemma xpull_demo_lhs_several : forall H1 H2 H3 H4 p q,
   H1 \* \exists (n:int), (p ~~~> n \* \[n > 0] \* H2) \* \[p <> q] \* H3 ==> H4.
 Proof using.
-  intros. xpull. intros n Hn Hp.
+  intros. xpull. intros n Hn Hp. (* or [xpull ;=> n Hn Hp] *)
 Abort.
 
 
@@ -358,12 +358,12 @@ Proof using.
   intros. xsimpl __ 4.
 Abort.
 
-(** [xsimpl] collapses the multiple occurences of [\Top].
-    If the RHS consists of exactly [\Top] and nothing else, 
+(** [xsimpl] collapses the multiple occurences of [\GC].
+    If the RHS consists of exactly [\GC] and nothing else, 
     then the goal is discharged. *)
 
-Lemma xsimpl_demo_rhs_htop : forall H1 H2 H3,
-  H1 \* H2 \* H3 ==> H3 \* \Top \* H2 \* \Top.
+Lemma xsimpl_demo_rhs_hgc : forall H1 H2 H3,
+  H1 \* H2 \* H3 ==> H3 \* \GC \* H2 \* \GC.
 Proof using.
   intros. xsimpl.
 Abort.
@@ -415,16 +415,5 @@ Proof using.
 Abort.
 
 (** The tactic [xchanges M] is a shorthand for [xchange M; xsimpl]. *)
-
-Lemma xchanges_demo_base : forall p H1 H2 H3,
-  H1 \* H3 ==> p ~~~> 3 ->
-  H1 \* H2 \* H3 ==> H2 \* \exists (n:int), p ~~~> n.
-Proof using.
-  introv M. dup.
-  (* details: *)
-  { xchange M. xsimpl. }
-  (* shorthand: *)
-  { xchanges M. }
-Abort.
 
 End XsimplDemo.

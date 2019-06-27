@@ -134,23 +134,22 @@ Arguments MList_not_nil : clear implicits.
 (* ---------------------------------------------------------------------- *)
 (** Match on a list *)
 
-Lemma Mlist_unfold_match' : forall `{EA:Enc A} (L:list A) (p:loc) `{EB:Enc B} 
-  (F1:Formula) (F2:val->val->Formula) (Q:B->hprop),
-  PRE
+Lemma Mlist_unfold_match : forall `{EA:Enc A} (L:list A) (p:loc) `{EB:Enc B} 
+  (F1:Formula) (F2:val->val->Formula) (Q:B->hprop) H,
+  H ==>
     (p ~> MList L)
   \* (hand (\[L = nil] \-* p ~> MList L \-* ^F1 Q)
            (\forall q' x' L', \[L = x'::L']
               \-* p ~~> (Cons x' q') 
               \-* q' ~> MList L'
-              \-* ^(F2 ``x' ``q' : Formula) Q))
-  CODE (Let_ [A0 EA0] X := `App (trm_val (val_prim val_get)) (val_loc p) in
+              \-* ^(F2 ``x' ``q' : Formula) Q)) ->
+  H ==> ^ (Let_ [A0 EA0] X := `App (trm_val (val_prim val_get)) (val_loc p) in
          Case ``X = 'VCstr "Nil" '=> F1 
       '| Case ``X = 'VCstr "Cons" X0 X1 [X0 X1] '=> F2 X0 X1
-      '| Fail) 
-  POST Q.
-Proof using.
-  intros.
-  xlet.  xchanges (MList_eq p) ;=> v. unfolds MList_contents. xapp.
+      '| Fail) Q.
+Proof using. 
+  introv M. xchange M. (* xlet *) notypeclasses refine (xlet_lemma _ _ _ _ _).
+  xchanges (MList_eq p) ;=> v. unfolds MList_contents. xapp.
   applys xcase_lemma0 ;=> E1.
   { destruct L as [|x L']; xpull.
     { intros ->. xchange himpl_hand_l_r. xchange~ (hwand_hpure_l_intro).
@@ -167,21 +166,6 @@ Proof using.
       { intros ->. rewrite enc_val_eq in *. unfolds Nil. false. }
       { intros q ->. rewrite enc_val_eq in *. unfolds @Cons. false. } } }
 Qed.
-
-Lemma Mlist_unfold_match : forall `{EA:Enc A} (L:list A) (p:loc) `{EB:Enc B} 
-  (F1:Formula) (F2:val->val->Formula) (Q:B->hprop) H,
-  H ==>
-    (p ~> MList L)
-  \* (hand (\[L = nil] \-* p ~> MList L \-* ^F1 Q)
-           (\forall q' x' L', \[L = x'::L']
-              \-* p ~~> (Cons x' q') 
-              \-* q' ~> MList L'
-              \-* ^(F2 ``x' ``q' : Formula) Q)) ->
-  H ==> ^ (Let_ [A0 EA0] X := `App (trm_val (val_prim val_get)) (val_loc p) in
-         Case ``X = 'VCstr "Nil" '=> F1 
-      '| Case ``X = 'VCstr "Cons" X0 X1 [X0 X1] '=> F2 X0 X1
-      '| Fail) Q.
-Proof using. introv M. xchange M. applys @Mlist_unfold_match'. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
