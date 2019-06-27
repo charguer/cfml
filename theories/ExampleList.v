@@ -171,6 +171,15 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** [is_empty] *)
 
+(** 
+[[
+    let is_empty p =
+      match !p with
+      | Nil -> true
+      | Cons x q -> false
+]]
+*)
+
 Definition is_empty : val :=
   VFun 'p :=
     Match '! 'p With
@@ -195,6 +204,21 @@ Hint Extern 1 (Register_Spec (is_empty)) => Provide @Triple_is_empty.
 
 (* ---------------------------------------------------------------------- *)
 (** [head] and [tail] *)
+
+(** 
+[[
+    let head p =
+      match !p with
+      | Nil -> raise Not_found
+      | Cons x q -> x
+
+    let tail p =
+      match !p with
+      | Nil -> raise Not_found
+      | Cons x q -> q
+
+]]
+*)
 
 Definition head : val :=
   VFun 'p :=
@@ -236,6 +260,17 @@ Hint Extern 1 (Register_Spec (tail)) => Provide @Triple_tail.
 (* ---------------------------------------------------------------------- *)
 (** [create] and [mk_cons] *)
 
+(** 
+[[
+    let create () =
+      ref Nil
+
+    let mk_cons x q =
+      ref (Cons x q)
+
+]]
+*)
+
 Definition create : val :=
   VFun 'u :=
     val_ref ('Cstr "Nil").
@@ -267,6 +302,22 @@ Hint Extern 1 (Register_Spec (mk_cons)) => Provide @Triple_mk_cons.
 
 (* ---------------------------------------------------------------------- *)
 (** [set_nil], [set_cons], [set_head], and [set_tail] *)
+
+(** 
+[[
+    let set_nil p =
+      p := Nil
+
+    let set_cons p x q =
+      p := Cons x q
+
+    let set_head p x =
+      p := Cons x (tail p)
+
+    let set_tail p q =
+      p := Cons (head p) q
+]]
+*)
 
 Definition set_nil : val :=
   VFun 'p :=
@@ -338,10 +389,16 @@ Hint Extern 1 (Register_Spec (set_tail)) => Provide @Triple_set_tail.
 (* ---------------------------------------------------------------------- *)
 (** [push] *)
 
+(** 
+[[
+    let push p x =
+      set_cons p x (ref !p)
+]]
+*)
+
 Definition push : val :=
   VFun 'p 'x :=
-    Let 'q := '!'p in
-    set_cons 'p 'x (val_ref 'q).
+    set_cons 'p 'x (val_ref ('!'p)).
 
 Lemma Triple_push : forall `{EA:Enc A} (L:list A) (p:loc) (x:A),
   TRIPLE (push p ``x)
@@ -357,6 +414,15 @@ Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
 
 (* ---------------------------------------------------------------------- *)
 (** [pop] *)
+
+(** 
+[[
+    let pop p =
+      let x = head p in
+      p := !(tail p);
+      x
+]]
+*)
 
 Definition pop : val :=
   VFun 'p  :=
@@ -385,6 +451,15 @@ Hint Extern 1 (Register_Spec (pop)) => Provide @Triple_pop.
 (* ---------------------------------------------------------------------- *)
 (** [mlength] *)
 
+(** 
+[[
+    let rec mlength p =
+      if is_empty p
+        then 0
+        else 1 + mlength (tail p)
+]]
+*)
+
 Definition mlength : val :=
   VFix 'f 'p :=
     If_ is_empty 'p 
@@ -408,6 +483,15 @@ Hint Extern 1 (Register_Spec (mlength)) => Provide @Triple_mlength.
 
 (* ---------------------------------------------------------------------- *)
 (** [copy] *)
+
+(** 
+[[
+    let rec copy p =
+      if is_empty p
+        then create()
+        else mk_cons (head p) (copy (tail p))
+]]
+*)
 
 Definition copy : val :=
   VFix 'f 'p :=
@@ -433,6 +517,16 @@ Hint Extern 1 (Register_Spec (copy)) => Provide @Triple_copy.
 
 (* ---------------------------------------------------------------------- *)
 (** [iter] *)
+
+(** 
+[[
+    let rec iter f p =
+      if not (is_empty p) then (
+        f (head p);
+        iter f (tail p)
+      )
+]]
+*)
 
 Definition iter : val :=
   VFix 'g 'f 'p :=
@@ -471,6 +565,15 @@ Hint Extern 1 (Register_Spec (iter)) => Provide @Triple_iter.
 (* ---------------------------------------------------------------------- *)
 (** Length of a mutable list using iter *)
 
+(** 
+[[
+    let length_using_iter p =
+      let n = ref 0 in
+      iter (fun x -> incr n) p;
+      !n
+]]
+*)
+
 Definition length_using_iter : val :=
   VFun 'p :=
     Let 'n := val_ref ``0 in
@@ -491,6 +594,15 @@ Qed.
 
 (* ---------------------------------------------------------------------- *)
 (** Nondestructive append *)
+
+(** 
+[[
+    let rec nondestructive_append p1 p2 =
+      if is_empty p1
+        then copy p2
+        else mk_cons (head p1) (nondestructive_append (tail p1) p2)
+]]
+*)
 
 Definition nondestructive_append : val :=
   VFix 'f 'p1 'p2 :=
@@ -514,8 +626,23 @@ Qed.
 Hint Extern 1 (Register_Spec (nondestructive_append)) => Provide @Triple_nondestructive_append.
 
 
+
+(** End of the course *)
+
+
+(* ---------------------------------------------------------------------- *)
+(* ---------------------------------------------------------------------- *)
 (* ---------------------------------------------------------------------- *)
 (** Destructive append *)
+
+(** 
+[[
+    let rec inplace_append p1 p2 =
+      if is_empty p1
+        then p1 := !p2
+        else inplace_append (tail p1) p2
+]]
+*)
 
 Definition inplace_append : val :=
   VFix 'f 'p1 'p2 :=
@@ -541,6 +668,11 @@ Hint Extern 1 (Register_Spec (inplace_append)) => Provide @Triple_inplace_append
 
 (* ---------------------------------------------------------------------- *)
 (** CPS append *)
+
+(** 
+[[
+]]
+*)
 
 Definition cps_append_aux : val :=
   VFix 'f 'p1 'p2 'k :=
