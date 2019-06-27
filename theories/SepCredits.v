@@ -4,7 +4,7 @@ This file formalizes Separation Logic with possibly negative
 time credits. It is described in the paper:
 
 "Formal Proof and Analysis of an Incremental Cycle Detection Algorithm"
-(submitted for publication)
+(ITP'19)
 
 And is a variant of the Separation Logic with time credits in [nat],
 described in the papers:
