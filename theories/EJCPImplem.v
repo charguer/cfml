@@ -78,8 +78,8 @@ Coercion trm_app : trm >-> Funclass.
 (** With notation, can write:
 [[
   Definition example_trm' : trm :=
-    Fun "x" :=
-      If_ "x" Then 0 Else 1.
+    Fun 'x :=
+      If_ 'x Then 0 Else 1.
 ]]
 *)
 
@@ -92,7 +92,7 @@ Implicit Types v : val.
 
 Parameter subst : forall (y:var) (w:val) (t:trm), trm.
 
-(** Big-step semantics *)
+(** Big-step semantics  [eval s t s' v] *)
 
 Inductive eval : state -> trm -> state -> val -> Prop :=
 
@@ -191,6 +191,11 @@ Notation "H1 '\*' H2" := (hstar H1 H2) (at level 41, right associativity).
 Notation "Q \*+ H" := (fun x => (Q x) \* H) (at level 40).
 
 
+(**
+   (\exists x, H) h
+ = exists x, (H h).
+*) 
+
 Definition hexists A (J:A->hprop) : hprop :=
   fun h => exists x, J x h.
 
@@ -282,7 +287,7 @@ Proof using.
   { applys M2. auto. }
 Qed.
 
-(** Definition of [Q1 ==> Q2] *)
+(** Definition of [Q1 ===> Q2] *)
 
 Definition qimpl (Q1 Q2:val->hprop) : Prop :=
   forall (v:val), Q1 v ==> Q2 v.
@@ -909,6 +914,14 @@ Tactic Notation "xseq" :=
     is equivalent to [Q1 \*+ H2 ==> Q]. In other words,
     [Q] is equal to [Q1] augmented with "[H] minus [H1]",
     which corresponds to the framed part. *)
+
+(* TODO
+Parameter xapp_lemma : forall t Q1 H1 H2 H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q \*+ H2 ===> Q ->
+  H ==> wp t Q.
+*)
 
 Parameter xapp_lemma : forall t Q1 H1 H Q,
   triple t H1 Q1 ->

@@ -350,7 +350,7 @@ let insert p x =
     then p := q2
     else p := merge q1 q2
 
-let merge_pairs l =
+let rec merge_pairs l =
   let q1 = MList.pop l in
   if MList.is_empty l then q else
   let q2 = MList.pop l in
@@ -422,6 +422,29 @@ Definition pop_min : val :=
 
 (* ******************************************************* *)
 (** ** Representation predicates *)
+
+(**
+
+Definition is_ge (x y:elem) : Prop :=
+  x <= y.
+
+(** [list_union Es] computes the iterated union of the multisets in the list [Es] *)
+
+Definition list_union (Es:list elems) : elems := 
+  LibList.fold_right union \{} Es.
+
+(** [inv n E] relates a tree node [n] with the multiset [E] made of
+    the items that the tree contains *)
+
+Inductive inv : node -> elems -> Prop :=
+  | inv_Node : forall x ns Es E,
+      Forall2 inv ns Es ->
+      Forall (foreach (is_ge x)) Es ->
+      E = \{x} \u (list_union Es) ->   
+      inv (Node x ns) E.
+
+*)
+
 
 (** [q ~> Tree n] related a pointer [q] with the functional tree structure [n]
     that it represents in memory *)
@@ -550,7 +573,17 @@ Proof using.
 Qed.
 
 Hint Extern 1 (Register_Spec (is_empty)) => Provide @Triple_is_empty.
-
+(**
+Definition merge : val :=
+  VFun 'q1 'q2 := 
+		If_ ('q1'.value '< 'q2'.value) Then (
+			MList.push ('q1'.sub) 'q2 ';
+			'q1
+		) Else (
+			MList.push ('q2'.sub) 'q1 ';
+			'q2
+		).
+*)
 Lemma Triple_merge : forall q1 q2 E1 E2,
   TRIPLE (merge q1 q2)
     PRE (q1 ~> Repr E1 \* q2 ~> Repr E2)
@@ -584,6 +617,16 @@ Proof using.
 Qed.
 
 Hint Extern 1 (Register_Spec (insert)) => Provide @Triple_insert.
+(**
+Definition merge_pairs : val :=
+  VFix 'f 'l := 
+    Let 'q1 := MList.pop 'l in
+    If_ MList.is_empty 'l Then 'q1 Else
+    Let 'q2 := MList.pop 'l in
+    Let 'q := merge 'q1 'q2 in
+		If_ MList.is_empty 'l Then 'q Else
+    merge 'q ('f 'l).
+**)
 
 Lemma Triple_merge_pairs : forall ns l Es,
   ns <> nil ->
@@ -598,7 +641,7 @@ Proof using.
   { subst. inverts Is. rew_listx. xval. xchanges* <- Repr_eq. }
   { xapp~ ;=> q2 n2 ns'' ->. inverts Is as I2 Is. rename r into Es''.
     do 2 xchange* <- Repr_eq. xapp ;=> r. xapp (>> __ Tree). xif ;=> C'.
-    { subst. inverts Is. rew_listx. xvals. }
+    { subst. inverts Is. rew_listx. xval. xsimpl. }
     { xapp* ;=> r'. xapp ;=> r''. rew_listx. xsimpl*. } }
 Qed.
 

@@ -100,6 +100,11 @@ Lemma Triple_decr_and_incr : forall p q n m,
     PRE ((* SOLUTION *) p ~~> n \* q ~~> m (* /SOLUTION *))
     POST ((* SOLUTION *) fun (_:unit) => p ~~> (n-1) \* q ~~> (m+1) (* /SOLUTION *)).
 Proof using.
+
+
+
+
+
   (* SOLUTION *) xwp. xapp. xapp. xsimpl. (* /SOLUTION *)
 Qed.
 
@@ -278,6 +283,14 @@ Hint Extern 1 (Register_Spec (mk_one)) => Provide @Triple_mk_one.
 [[
   let push_back p x =
     inplace_append p (mk_one x)
+]]
+*)
+
+(** Recall:
+[[
+  TRIPLE (inplace_append p1 p2)
+    PRE (p1 ~> MList L1 \* p2 ~> MList L2)
+    POST (fun (_:unit) => p1 ~> MList (L1++L2)).
 ]]
 *)
 

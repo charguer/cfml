@@ -24,7 +24,8 @@ Implicit Types n : int.
   and  'a contents = Nil | Cons of 'a * 'a mlist
 ]]
 
-Let's begin by assuming that type ['a] is represented as type [val].
+Let's begin by assuming that type ['a] 
+is represented as type [val].
 *)
 
 Module MListVal.
@@ -116,12 +117,14 @@ Proof using.
 Qed.
 
 Lemma MList_cons : forall (p:loc) A `{EA:Enc A} x (L':list A),
-  p ~> MList (x::L') = \exists p', p ~~> (Cons x p') \* (p' ~> MList L').
+  p ~> MList (x::L') 
+= \exists p', p ~~> (Cons x p') \* (p' ~> MList L').
 Proof using. intros. xunfold MList at 1. xsimpl~. Qed.
 
 Lemma MList_not_nil : forall (p:loc) A `{EA:Enc A} (L:list A),
   L <> nil ->
-  p ~> MList L ==> \exists x L' p', \[L = x::L'] \* p ~~> (Cons x p') \* (p' ~> MList L').
+  p ~> MList L ==> \exists x L' p', \[L = x::L'] \*
+                      p ~~> (Cons x p') \* (p' ~> MList L').
 Proof using. introv N. destruct L as [|x L']; tryfalse. xchanges* MList_cons. Qed.
 
 Arguments MList_not_nil : clear implicits.
@@ -276,11 +279,11 @@ Definition create : val :=
     val_ref ('Cstr "Nil").
 
 Lemma Triple_create : forall A `{EA:Enc A},
-  TRIPLE (create ``tt)
+  TRIPLE (create '())
     PRE \[]
     POST (fun p => p ~> MList (@nil A)).
 Proof using.
-  intros. xwp. xval. xapp ;=> p. xchanges <- MList_nil.
+  xwp. xval. xapp ;=> p. xchanges <- MList_nil.
 Qed.
 
 Hint Extern 1 (Register_Spec (create)) => Provide @Triple_create.
@@ -294,7 +297,8 @@ Lemma Triple_mk_cons : forall A `{EA:Enc A} (L:list A) (x:A) (q:loc),
     PRE (q ~> MList L)
     POST (fun p => p ~> MList (x::L)).
 Proof using.
-  intros. xwp. xval. xapp ;=> p. xchanges <- MList_cons.
+  xwp. xval. xapp ;=> p. 
+  xchanges <- MList_cons.
 Qed.
 
 Hint Extern 1 (Register_Spec (mk_cons)) => Provide @Triple_mk_cons.
@@ -405,8 +409,9 @@ Lemma Triple_push : forall `{EA:Enc A} (L:list A) (p:loc) (x:A),
     PRE (p ~> MList L)
     POST (fun (_:unit) => p ~> MList (x::L)).
 Proof using.
-  xwp. xchange MList_eq ;=> q. xapp. xapp ;=> q2. xapp.
-  xchange <- MList_eq. xchanges <- MList_cons.
+  xwp. xchange MList_eq ;=> v. xapp. 
+  xapp ;=> p'. xapp.
+  xchange <- MList_eq. xchange <- MList_cons. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
@@ -434,7 +439,8 @@ Lemma Triple_pop : forall `{EA:Enc A} (L:list A) (p:loc),
   L <> nil ->
   TRIPLE (pop p)
     PRE (p ~> MList L)
-    POST (fun (x:A) => \exists L', \[L = x::L'] \* p ~> MList L').
+    POST (fun (x:A) => 
+      \exists L', \[L = x::L'] \* p ~> MList L').
 Proof using.
   introv N. xwp. destruct L as [|x L']; tryfalse. xchange MList_cons ;=> q.
   xapp. xchange MList_eq ;=> q2. xapp. xapp. xapp. xchange <- (MList_eq p). xvals*.
@@ -474,7 +480,7 @@ Proof using.
   intros. gen p. induction_wf IH: (@list_sub A) L. intros.
   xwp. xapp. xif ;=> E.
   { xval. xsimpl*. }
-  { xchanges~ MList_not_nil ;=> x L' p' ->.
+  { xchange* MList_not_nil. intros x L' p' ->.
     xapp. xapp~. xapp~. xchange <- MList_cons. xsimpl*. }
 Qed.
 

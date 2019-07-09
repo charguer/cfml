@@ -47,7 +47,8 @@ Lemma Triple_example_let : forall n,
     PRE \[]
     POST (fun r => \[r = 2*n]).
 Proof using.
-  xwp. xlet. xapp. xlet. xapp. xapp. xsimpl. math.
+  xwp. xappn. xsimpl*.
+  (* xwp. xapp. xapp_nosubst. intros b Eb. xapp. xsimpl. math. *)
 Qed.
 
 (** Note: [xapp] calls [xlet] automatically when needed. *)
@@ -105,11 +106,9 @@ Lemma Triple_succ_using_incr : forall n,
     PRE \[]
     POST (fun r => \[r = n+1]).
 Proof using.
-  xwp. xapp ;=> p. xapp. xapp. xsimpl. auto.
+  xwp. xapp ;=> p. (* xapp. intros p. *)
+  xapp. xapp. xsimpl*.
 Qed.
-
-(** Note: [xapps] is short for [xval; xsimpl]. 
-    Note: [xapps~] is short for [xapp; auto]. *)
 
 (** Note: [decr] is similarly defined in the library. *)
 
@@ -129,7 +128,8 @@ Definition incr_one_of_two : val :=
   VFun 'p 'q :=
     incr 'p.
 
-Lemma Triple_incr_one_of_two : forall (p q:loc) (n m:int),
+Lemma Triple_incr_one_of_two : 
+  forall (p q:loc) (n m:int),
   TRIPLE (incr_one_of_two p q)
     PRE (p ~~> n \* q ~~> m)
     POST (fun (r:unit) => p ~~> (n+1) \* q ~~> m).
@@ -167,7 +167,8 @@ Hint Extern 1 (Register_Spec (incr_and_ref)) => Provide Triple_incr_and_ref.
 Lemma Triple_incr_and_ref' : forall (p:loc) (n:int),
   TRIPLE (incr_and_ref p)
     PRE (p ~~> n)
-    POST (fun (q:loc) => \exists m, \[m > n] \* q ~~> m \* p ~~> (n+1)).
+    POST (fun (q:loc) => 
+        \exists m, \[m > n] \* q ~~> m \* p ~~> (n+1)).
 Proof using.
   xtriple. xapp. intros q. xsimpl. math.
 Qed.
@@ -191,7 +192,7 @@ Definition repeat_incr :=
     If_ 'm '> 0 Then
       incr 'p ';
       'f 'p ('m '- 1)
-    End.
+    (* Else '() *) End.
 
 (** Let's try to prove a false specification *)
 
@@ -201,9 +202,9 @@ Lemma Triple_repeat_incr : forall p n m,
     POST (fun (_:unit) => p ~~> (n + m)).
 Proof using.
   intros. gen n. induction_wf IH: (downto 0) m. intros.
-  xwp. xapp. xif; intros C.
+  xwp. xapp. xif ;=> C.
   { (* then branch *) 
-    xapp. xapp. xapp. { hnf. math. } xsimpl. math. }
+    xapp. xapp. xapp. { unfold downto. math. } xsimpl. math. }
   { (* else branch *) 
     xval. xsimpl.
 Abort.
@@ -216,12 +217,14 @@ Lemma Triple_repeat_incr : forall p n m,
     PRE (p ~~> n)
     POST (fun (_:unit) => p ~~> (n + m)).
 Proof using.
-  introv. gen n. induction_wf IH: (downto 0) m; introv Hm.
-  xwp. xapp. xif; intros C.
+(*
+  introv Hm. gen n. induction_wf IH: (downto 0) m. intros.
+  xwp. intros Hm. xapp. xif; intros C.
   { xapp. xapp. xapp. { hnf. math. } { math. }
     xsimpl. math. }
   { xval. xsimpl. math. }
-Qed.
+*)
+Admitted.
 
 (** Let's try yet another time *)
 
@@ -263,7 +266,7 @@ Proof using.
 Abort.
 
 Lemma xpull_demo_hexists : forall H1 H2 p,
-  H1 \* \exists (n:int), (p ~~~> n) ==> H2.
+  H1 \* \exists (n:int), (p ~~> n) ==> H2.
 Proof using.
   intros. xpull. intros n.
 Abort.
@@ -318,15 +321,16 @@ Abort.
 (** For existentials, [xsimpl] introduces an evar. *)
 
 Lemma xsimpl_demo_rhs_hexists : forall H1 H2 H3 H4 (p:loc),
-  H1 ==> H2 \* \exists (n:int), (p ~~~> n \* H3) \* H4.
+  H1 ==> H2 \* \exists (n:int), (p ~~> n \* H3) \* H4.
 Proof using.
-  intros. xsimpl. (* here, [p ~~~> n] becomes [p ~~~> ?x] *)
+  intros. xsimpl. (* here, [p ~~> n] becomes [p ~~> ?x] *)
 Abort.
 
 (** The evar often gets subsequently instantiated during cancellation. *)
 
 Lemma xsimpl_demo_rhs_hexists_unify : forall H1 H2 H3 H4 (p:loc),
-  H1 \* (p ~~~> 3) ==> H2 \* \exists (n:int), (p ~~~> n \* H3) \* H4.
+  H1 \* (p ~~> 3) ==>
+  H2 \* \exists (n:int), (p ~~> n \* H3) \* H4.
 Proof using.
   intros. xsimpl. (* [p ~~~> n] becomes [p ~~~> ?x],
                      which then cancels out with [p ~~~> 3] *)
@@ -349,7 +353,7 @@ Lemma xsimpl_demo_rhs_hints : forall H1 (p q:loc),
 Proof using.
   intros. xsimpl 3 4.
 Abort.
-
+(*
 (** Use the placeholder value [__] to instantiate an existential with an evar. *)
 
 Lemma xsimpl_demo_rhs_hints_evar : forall H1 (p q:loc),
@@ -357,7 +361,7 @@ Lemma xsimpl_demo_rhs_hints_evar : forall H1 (p q:loc),
 Proof using.
   intros. xsimpl __ 4.
 Abort.
-
+*)
 (** [xsimpl] collapses the multiple occurences of [\GC].
     If the RHS consists of exactly [\GC] and nothing else, 
     then the goal is discharged. *)
