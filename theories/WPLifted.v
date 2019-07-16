@@ -166,9 +166,11 @@ Definition Wpgen_seq (F1 F2:Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
     ^F1 (fun (X:unit) => ^F2 Q)).
 
+(*
 Definition Wpgen_letval_typed (v:val) `{EA1:Enc A1} (F2of:A1->Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
     \exists (V:A1), \[v = enc V] \* ^(F2of V) Q).
+*)
 
 Definition Wpaux_getval Wpgen (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
   match t1 with
@@ -180,11 +182,23 @@ Definition Wpaux_getval Wpgen (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
   | _ => `Wpgen_let (Wpgen E t1) (fun `{EA1:Enc A1} (V1:A1) => F2of (``V1))
   end.
 
+(*
 Definition Wpaux_getval_typed Wpgen (E:ctx) (t1:trm) `{EA1:Enc A1} (F2of:A1->Formula) : Formula :=
   match t1 with
   | trm_val v => `Wpgen_letval_typed v F2of
   | trm_var x => match Ctx.lookup x E with
                  | Some v => `Wpgen_letval_typed v F2of
+                 | None => `Wpgen_fail
+                 end
+  | _ => `Wpgen_let_typed (Wpgen E t1) F2of
+  end.
+*)
+
+Definition Wpaux_getval_typed Wpgen (E:ctx) (t1:trm) `{EA1:Enc A1} (F2of:A1->Formula) : Formula :=
+  match t1 with
+  | trm_val v => `Wpgen_let_typed (`Wpgen_val v) F2of
+  | trm_var x => match Ctx.lookup x E with
+                 | Some v => `Wpgen_let_typed (`Wpgen_val v) F2of
                  | None => `Wpgen_fail
                  end
   | _ => `Wpgen_let_typed (Wpgen E t1) F2of
@@ -430,6 +444,7 @@ Proof using.
   { intros v. apply Triple_of_Wp. applys M2. }
 Qed.
 
+(*
 Lemma Wpgen_sound_letval_typed : forall v E C `{EA:Enc A} (F2of:A->Formula),
   (forall V, F2of V ====> Wpsubst E (C ``V)) ->
   Wpgen_letval_typed v F2of ====> Wp (isubst E (C v)).
@@ -437,28 +452,8 @@ Proof using.
   introv M. intros A1 EA1. applys qimpl_Wp_of_Triple. intros Q.
   remove_MkStruct. xtpull ;=> V ->. applys Triple_of_Wp. applys M.
 Qed.
+*)
 
-Lemma Wpgen_sound_getval_typed : forall E C t1 `{EA:Enc A} (F2of:A->Formula),
-  evalctx C ->
-  Wpgen_sound t1 ->
-  (forall (V:A), F2of V ====> Wpsubst E (C ``V)) ->
-  Wpaux_getval_typed Wpgen E t1 F2of ====> Wpsubst E (C t1).
-Proof using. 
-  introv HC M1 M2. intros A1 EA1. applys qimpl_Wp_of_Triple. simpl. intros Q.
-  tests C1: (trm_is_val t1).
-  { destruct C1 as (v&Et). subst. simpl. 
-    apply Triple_of_Wp. applys~ Wpgen_sound_letval_typed C. }
-  tests C2: (trm_is_var t1).
-  { destruct C2 as (x&Et). subst. simpl. case_eq (Ctx.lookup x E).
-    { intros v Ev. rewrites~ (>> isubst_evalctx_trm_var Ev).
-      apply Triple_of_Wp. applys~ Wpgen_sound_letval_typed C. }
-    { introv N. remove_MkStruct. xtpull. intros; false. } }
-  asserts_rewrite (Wpaux_getval_typed Wpgen E t1 (@F2of) = Wpgen_let_typed (Wpgen E t1) F2of).
-  { destruct t1; auto. { false C1. hnfs*. } { false C2. hnfs*. } }
-  remove_MkStruct. applys~ Triple_isubst_evalctx EA.
-  { apply Triple_of_Wp. applys M1. }
-  { intros v. apply Triple_of_Wp. applys M2. }
-Qed.
 
 Lemma Wpgen_sound_var : forall x,
   Wpgen_sound (trm_var x).
@@ -506,27 +501,15 @@ Proof using.
   remove_MkStruct. apply Triple_of_Wp. case_if. { applys M1. } { applys M2. }
 Qed.
 
-Lemma Wpgen_sound_if_trm : forall (F0 F1 F2:Formula) E t0 t1 t2,
-  F0 ====> (Wpsubst E t0) ->
-  F1 ====> (Wpsubst E t1) ->
-  F2 ====> (Wpsubst E t2) ->
-  Wpaux_if F0 F1 F2 ====> Wpsubst E (trm_if t0 t1 t2).
+Lemma Wpgen_sound_seq : forall (F1 F2:Formula) E t1 t2,
+  F1 ====> Wpsubst E t1 ->
+  F2 ====> Wpsubst E t2 ->
+  Wpgen_seq F1 F2 ====> Wpsubst E (trm_seq t1 t2).
 Proof using.
-  introv M0 M1 M2. intros A EA. applys qimpl_Wp_of_Triple. intros Q.
-  remove_MkStruct. xtpull. simpl. applys Triple_if.
-  { rewrite Triple_eq_himpl_Wp. applys* M0. }
-  { intros b. apply Triple_of_Wp. applys* Wpgen_sound_if_case'. }
-Qed.
-
-Lemma Wpgen_sound_if : forall t1 t2 t3,
-  Wpgen_sound t1 ->
-  Wpgen_sound t2 ->
-  Wpgen_sound t3 ->
-  Wpgen_sound (trm_if t1 t2 t3).
-Proof using.
-  intros. intros E. simpl.
-  applys~ Wpgen_sound_getval_typed (fun t1 => trm_if t1 t2 t3).
-  intros v1. applys~ Wpgen_sound_if_case.
+  introv M1 M2. intros A EA. applys qimpl_Wp_of_Triple. intros Q.
+  remove_MkStruct. simpl. applys Triple_seq.
+  { rewrite Triple_eq_himpl_Wp. applys* M1. }
+  { rewrite Triple_eq_himpl_Wp. applys* M2. }
 Qed.
 
 Lemma Wpgen_sound_let : forall (F1:Formula) (F2of:forall `{EA1:Enc A1},A1->Formula) E (x:var) t1 t2,
@@ -549,22 +532,68 @@ Lemma Wpgen_sound_let_typed : forall (F1:Formula) `{EA1:Enc A1} (F2of:A1->Formul
 Proof using.
   Opaque Ctx.rem.
   introv M1 M2. intros A EA. applys qimpl_Wp_of_Triple. intros Q.
-  remove_MkStruct. xtpull. simpl. applys Triple_let EA1. 
+  remove_MkStruct. xtpull. simpl. applys Triple_let EA1.
   (* LATER: typeclass should not be resolved arbitrarily to EA if EA1 is not provided *)
   { rewrite Triple_eq_himpl_Wp. applys* M1. }
   { intros X. rewrite Triple_eq_himpl_Wp.
     unfold Subst1. rewrite <- isubst_add_eq_subst1_isubst. applys* M2. }
 Qed.
 
-Lemma Wpgen_sound_seq : forall (F1 F2:Formula) E t1 t2,
-  F1 ====> Wpsubst E t1 ->
-  F2 ====> Wpsubst E t2 ->
-  Wpgen_seq F1 F2 ====> Wpsubst E (trm_seq t1 t2).
+Lemma Wpgen_sound_let_typed_val : forall v E (C:trm -> trm) `{EA:Enc A} (F2of:A->Formula),
+  evalctx C ->
+  (forall V, F2of V ====> @Wpsubst E (C ``V)) ->
+  Wpgen_let_typed (`Wpgen_val v) F2of ====> Wp (isubst E (C v)).
 Proof using.
-  introv M1 M2. intros A EA. applys qimpl_Wp_of_Triple. intros Q.
-  remove_MkStruct. simpl. applys Triple_seq.
-  { rewrite Triple_eq_himpl_Wp. applys* M1. }
-  { rewrite Triple_eq_himpl_Wp. applys* M2. }
+  introv HC M1. intros A1 EA1. applys qimpl_Wp_of_Triple. intros Q.
+  remove_MkStruct. applys~ Triple_isubst_evalctx EA.
+  { rewrite Triple_eq_himpl_Wp. lets K: Wpgen_sound_val.
+    unfold Wpgen_sound in K. simpl in K. xchange K. }
+  { intros V. rewrite Triple_eq_himpl_Wp. xchange M1. }
+Qed.
+
+Lemma Wpgen_sound_getval_typed : forall E C t1 `{EA:Enc A} (F2of:A->Formula),
+  evalctx C ->
+  Wpgen_sound t1 ->
+  (forall (V:A), F2of V ====> Wpsubst E (C ``V)) ->
+  Wpaux_getval_typed Wpgen E t1 F2of ====> Wpsubst E (C t1).
+Proof using. 
+  introv HC M1 M2. intros A1 EA1. applys qimpl_Wp_of_Triple. simpl. intros Q.
+  tests C1: (trm_is_val t1).
+  { destruct C1 as (v&Et). subst. simpl.
+    apply Triple_of_Wp. applys~ Wpgen_sound_let_typed_val. }
+  tests C2: (trm_is_var t1).
+  { destruct C2 as (x&Et). subst. simpl. case_eq (Ctx.lookup x E).
+    { intros v Ev. rewrites~ (>> isubst_evalctx_trm_var Ev).
+      apply Triple_of_Wp. applys~ Wpgen_sound_let_typed_val. }
+    { introv N. remove_MkStruct. xtpull. intros; false. } }
+  asserts_rewrite (Wpaux_getval_typed Wpgen E t1 (@F2of) = Wpgen_let_typed (Wpgen E t1) F2of).
+  { destruct t1; auto. { false C2. hnfs*. } }
+  remove_MkStruct. applys~ Triple_isubst_evalctx EA.
+  { apply Triple_of_Wp. applys M1. }
+  { intros V. apply Triple_of_Wp. applys M2. }
+Qed.
+
+Lemma Wpgen_sound_if_trm : forall (F0 F1 F2:Formula) E t0 t1 t2,
+  F0 ====> (Wpsubst E t0) ->
+  F1 ====> (Wpsubst E t1) ->
+  F2 ====> (Wpsubst E t2) ->
+  Wpaux_if F0 F1 F2 ====> Wpsubst E (trm_if t0 t1 t2).
+Proof using.
+  introv M0 M1 M2. intros A EA. applys qimpl_Wp_of_Triple. intros Q.
+  remove_MkStruct. xtpull. simpl. applys Triple_if.
+  { rewrite Triple_eq_himpl_Wp. applys* M0. }
+  { intros b. apply Triple_of_Wp. applys* Wpgen_sound_if_case'. }
+Qed.
+
+Lemma Wpgen_sound_if : forall t1 t2 t3,
+  Wpgen_sound t1 ->
+  Wpgen_sound t2 ->
+  Wpgen_sound t3 ->
+  Wpgen_sound (trm_if t1 t2 t3).
+Proof using.
+  intros. intros E. simpl.
+  applys~ Wpgen_sound_getval_typed (fun t1 => trm_if t1 t2 t3).
+  intros v1. applys~ Wpgen_sound_if_case.
 Qed.
 
 Lemma Wpgen_sound_apps : forall t0 ts,
@@ -787,11 +816,13 @@ Notation "'Seq' F1 '; F2" :=
   (at level 68, right associativity,
    format "'[v' 'Seq'  '[' F1 ']' '';' '/'  '[' F2 ']' ']'") : wp_scope.
 
+(*
 Notation "'Letval' x ':=' v 'in' F2" :=
   ((Wpgen_letval_typed v (fun x => F2)))
   (at level 69, x ident, right associativity,
   format "'[v' '[' 'Letval'  x  ':='  v  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
- 
+*)
+
 (*
 Notation "'App' f t1 " :=
   (Wpgen_app (trm_apps f (t1::nil)))

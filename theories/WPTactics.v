@@ -752,6 +752,7 @@ Ltac xif_pre tt :=
   xlet_xseq_xcast_repeat tt; 
   try match xgoal_code_without_wptag tt with
   | (Wpgen_app _) => xapp
+  | (Wpgen_val _) => xval
   end;
   match xgoal_code_without_wptag tt with
   | (Wpgen_if_case _ _ _) => idtac

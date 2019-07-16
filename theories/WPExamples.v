@@ -25,6 +25,24 @@ Proof using. introv M1 M2. applys* himpl_trans. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
+(** If-val test *)
+
+Definition example_ifval : val :=
+  VFun 'u :=
+    If_ true Then 0 Else 1.
+
+Lemma Triple_example_ifval :
+  TRIPLE (example_ifval tt)
+    PRE \[]
+    POST (fun r => \[ r = 0 ]).
+Proof using.
+  xwp. dup.
+  { xval. xif ;=> C; tryfalse. xval. xsimpl. auto. }
+  { xif ;=> C; tryfalse. xvals*. }
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
 (** Incr *)
 
 Definition val_incr : val :=
