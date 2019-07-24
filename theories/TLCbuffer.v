@@ -15,11 +15,11 @@ From TLC Require LibListZ LibWf LibMultiset.
 Generalizable Variables A B.
 
 
-
 (*----------------------*)
 (* Nat *)
 
 From TLC Require Import LibNat LibInt.
+Open Scope Int_scope.
 
 
 Section NatSimpl.
