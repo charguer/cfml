@@ -85,6 +85,9 @@ End Assumptions.
 (* ******************************************************* *)
 (** ** Syntax *)
 
+(** The grammar of the deeply-embedded language includes
+    terms and values. Values include locations and primitive functions. *)
+
 Definition loc : Type := nat.
 
 Inductive val : Type :=
@@ -109,6 +112,9 @@ with trm : Type :=
   | trm_let : var -> trm -> trm -> trm
   | trm_if : trm -> trm -> trm -> trm.
 
+(** The state consists of a finite map from location to values. 
+    Records and arrays are represented as sets of consecutive cells. *)
+
 Definition state : Type := fmap loc val.
 
 (** The type [heap], a.k.a. [state]. By convention, the "state"
@@ -121,17 +127,19 @@ Definition heap : Type := state.
 (* ******************************************************* *)
 (** ** Coq tweaks *)
 
-(** Handy notation to avoid providing type arguments to [Fmap.empty] *)
+(** [heap_empty] is a handy notation to avoid providing 
+    type arguments to [Fmap.empty] *)
 
 Notation "'heap_empty'" := (@Fmap.empty loc val)
   (at level 0).
 
-(** Optional notation for union, only used to improve display *)
+(** [h1 \u h2] is an optional notation for union of two heaps;
+    in this file, it is only used for pretty-printing. *)
 
 Notation "h1 \u h2" := (Fmap.union h1 h2)
   (at level 37, right associativity).
 
-(** Implicit types associated with variables *)
+(** Implicit types associated with meta-variables. *)
 
 Implicit Types f : var.
 Implicit Types b : bool.
@@ -151,6 +159,8 @@ Proof using. apply (Inhab_of_val val_unit). Qed.
 (* ******************************************************* *)
 (** ** Substitution *)
 
+(** Capture-avoiding substitution, standard definition. *)
+
 Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
   let aux t := subst y w t in
   let if_y_eq x t1 t2 := if var_eq x y then t1 else t2 in
@@ -169,6 +179,8 @@ Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
 (* ******************************************************* *)
 (** ** Coercions *)
 
+(** Coercions to improve conciseness in the statment of evaluation rules. *)
+
 Coercion val_bool : bool >-> val.
 Coercion val_int : Z >-> val.
 Coercion val_loc : loc >-> val.
@@ -180,6 +192,8 @@ Coercion trm_app : trm >-> Funclass.
 
 (* ******************************************************* *)
 (** ** Semantics *)
+
+(** Big-step evaluation judgment. *)
 
 Inductive eval : heap -> trm -> heap -> val -> Prop :=
   | eval_val : forall s v,
@@ -223,9 +237,10 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
 (* ####################################################### *)
 (** * Heap predicates *)
 
+(** The combinators for heap predicates are defined next. *)
+
 (** For technical reasons, to enable sharing the code implementing
-    the tactic [xsimpl], we need the definitions that follow to be
-    wrapped in a module. *)
+    the tactic [xsimpl], we wrap the definitions inside a module. *)
 
 Module SepSimplArgs.
 
@@ -233,11 +248,12 @@ Module SepSimplArgs.
 (* ******************************************************* *)
 (** ** Hprop and entailement *)
 
-(** Type of heap predicates *)
+(** The type of heap predicates is named [hprop]. *)
 
 Definition hprop := heap -> Prop.
 
-(** Entailment for heap predicates *)
+(** Entailment for heap predicates 
+    (the entailment is linear, although our triples will be affine). *)
 
 Definition himpl (H1 H2:hprop) : Prop :=
   forall h, H1 h -> H2 h.
@@ -253,7 +269,7 @@ Definition qimpl A (Q1 Q2:A->hprop) : Prop :=
 
 Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55) : heap_scope.
 
-(** Implicit Types *)
+(** Implicit types for meta-variables. *)
 
 Implicit Types P : Prop.
 Implicit Types H : hprop.
@@ -263,7 +279,19 @@ Implicit Types Q : val->hprop.
 (* ******************************************************* *)
 (** ** Definition of heap predicates *)
 
-(** Core heap predicates *)
+(** Core heap predicates, and their associated notations:
+
+    - [\[]] denotes the empty heap predicate
+    - [\[P]] denotes a pure fact
+    - [\Top] denotes the true heap predicate (affine)
+    - [l ~~~> v] denotes a singleton heap
+    - [H1 \* H2] denotes the separating conjunction
+    - [\exists x, H] denotes an existential
+    - [\forall x, H] denotes a universal 
+    - [H1 \-* H2] denotes a magic wand between heap predicates
+    - [Q1 \--* Q2] denotes a magic wand between postconditions
+
+*)
 
 Definition hempty : hprop :=
   fun h => (h = Fmap.empty).
@@ -361,6 +389,8 @@ Hint Extern 1 (Fmap.disjoint _ _) => fmap_disjoint_pre.
 (* ------------------------------------------------------- *)
 (** *** Properties of [himpl] and [qimpl] *)
 
+(** Entailment forms an order relation. *)
+
 Lemma himpl_refl : forall H,
   H ==> H.
 Proof using. introv M. auto. Qed.
@@ -396,6 +426,7 @@ Proof using. intros. unfolds*. Qed.
 
 Hint Resolve qimpl_refl.
 
+
 (* ------------------------------------------------------- *)
 (** *** Properties of [hempty] *)
 
@@ -407,6 +438,7 @@ Lemma hempty_inv : forall h,
   \[] h ->
   h = heap_empty.
 Proof using. auto. Qed.
+
 
 (* ------------------------------------------------------- *)
 (** *** Properties of [hstar] *)
@@ -506,6 +538,7 @@ Proof using.
   introv M1 M2. applys himpl_trans M2. applys himpl_frame_r M1.
 Qed.
 
+
 (* ------------------------------------------------------- *)
 (** ***  Properties of [hpure] *)
 
@@ -581,6 +614,7 @@ Proof using.
   { false*. } { lets: hpure_inv_hempty M. false*. }
 Qed.
 
+
 (* ------------------------------------------------------- *)
 (** *** Properties of [hexists] *)
 
@@ -612,6 +646,7 @@ Proof using.
   introv W. applys himpl_hexists_l. intros x. applys himpl_hexists_r W.
 Qed.
 
+
 (* ------------------------------------------------------- *)
 (** *** Properties of [hforall] *)
 
@@ -636,6 +671,7 @@ Lemma himpl_hforall : forall A (J1 J2:A->hprop),
 Proof using.
   introv W. applys himpl_hforall_r. intros x. applys himpl_hforall_l W.
 Qed.
+
 
 (* ------------------------------------------------------- *)
 (** *** Properties of [hwand] *)
@@ -716,6 +752,7 @@ Proof using.
   { applys hwand_uncurry. }
 Qed.
 
+
 (* ------------------------------------------------------- *)
 (** *** Properties of qwand *)
 
@@ -746,6 +783,7 @@ Qed. (* LATER: can this proof be done without [himpl_forall_trans]? *)
 
 Arguments qwand_specialize [ A ].
 
+
 (* ------------------------------------------------------- *)
 (** *** Properties of [htop] *)
 
@@ -768,6 +806,7 @@ Proof using.
   { applys himpl_htop_r. }
   { rewrite <- hstar_hempty_r at 1. applys himpl_frame_r. applys himpl_htop_r. }
 Qed.
+
 
 (* ------------------------------------------------------- *)
 (** *** Properties of [hsingle] *)
@@ -792,7 +831,7 @@ Arguments hstar_hsingle_same_loc : clear implicits.
 
 
 (* ******************************************************* *)
-(** ** Xsimpl tactic *)
+(** ** The [xsimpl] tactic *)
 
 (** The definitions and properties above enable us to instantiate
     the [xsimpl] tactic, which implements powerful simplifications
@@ -824,6 +863,7 @@ Lemma hstar_hgc_hgc :
   \GC \* \GC = \GC.
 Proof using. applys hstar_htop_htop. Qed.
 
+
 (* ------------------------------------------------------- *)
 (** *** Functor instantiation to obtain [xsimpl] *)
 
@@ -854,7 +894,10 @@ Global Opaque hempty hpure hstar hsingle hexists hforall hwand qwand htop hgc ha
 (* ******************************************************* *)
 (** ** Evaluation rules for primitives in Separation style *)
 
-(** It is not needed to follow through these proofs. *)
+(** These lemmas reformulated the big-step evaluation rule
+    in a Separation-Logic friendly presentation, that is,
+    by using disjoint unions as much as possible.
+    It is not needed to follow through these proofs. *)
 
 Lemma eval_get_sep : forall s s2 l v,
   s = Fmap.union (Fmap.single l v) s2 ->
@@ -893,7 +936,7 @@ Qed.
 (* ******************************************************* *)
 (** ** Hoare reasoning rules *)
 
-(** * Definition of Hoare triples *)
+(** * Definition of (total correctness) Hoare triples. *)
 
 Definition hoare (t:trm) (H:hprop) (Q:val->hprop) :=
   forall h, H h -> exists h' v, eval h t h' v /\ Q v h'.
@@ -942,7 +985,8 @@ Proof using.
   lets E: hempty_inv HP. subst. rewrite Fmap.union_empty_l. applys~ M.
 Qed.
 
-(** Reasoning rules for [hoare] triples. *)
+(** Reasoning rules for [hoare] triples. 
+    These rules follow directly from the big-step evaluation rules. *)
 
 Lemma hoare_val : forall v H Q,
   H ==> Q v ->
@@ -1075,13 +1119,19 @@ Qed.
 (** ** Definition of [wp] and reasoning rules *)
 
 (* ------------------------------------------------------- *)
-(** *** Definition of [wp] w.r.t. [hoare]  *)
+(** *** Definition of the weakest-precondition judgment,
+        on top of [hoare] triples. More precisely [wp t Q]
+        is a heap predicate such that [H ==> wp t Q] if and
+        only if [SL_triple t H Q], where [SL_triple t H Q]
+        is defined as [forall H', hoare t (H \* H') (Q \*+ H' \*+ \Top)]. *)
 
 Definition wp (t:trm) := fun (Q:val->hprop) =>
   \exists H, H \* \[forall H', hoare t (H \* H') (Q \*+ H' \*+ \Top)].
 
 (* ------------------------------------------------------- *)
 (** *** Structural rule for [wp]. *)
+
+(** The ramified frame rule (with garbage collection) *)
 
 Lemma wp_ramified : forall Q1 Q2 t,
   (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
@@ -1118,8 +1168,9 @@ Lemma wp_hany_post : forall t H Q ,
   wp t (Q \*+ H) ==> wp t Q.
 Proof using. intros. applys himpl_trans_r wp_ramified. xsimpl. Qed.
 
+
 (* ------------------------------------------------------- *)
-(** *** Reasoning rules for terms. *)
+(** *** Weakest-precondition style reasoning rules for terms. *)
 
 Lemma wp_val : forall v Q,
   Q v ==> wp (trm_val v) Q.
@@ -1178,7 +1229,13 @@ Proof using. intros. applys himpl_trans wp_if_case. case_if~. Qed.
 
 
 (* ******************************************************* *)
-(** ** Definition of triple and equivalence *)
+(** ** Definition of SL triple, and proof of equivalence with [wp]. *)
+
+(** Remark: we deliberately choose to state program specifications
+    using [triple] and not [wp], because we find the former concept
+    to be more elementary. However, one could very well define
+    [triple t H Q] simply as a shorthand for [H ==> wp t Q], rather
+    than definining it in terms of Hoare triples as we do here. *)
 
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (H':hprop), hoare t (H \* H') (Q \*+ H' \*+ \Top).
@@ -1197,7 +1254,7 @@ Qed.
 
 
 (* ******************************************************* *)
-(** ** Specification for primitive functions *)
+(** ** Triple-style specification for primitive functions *)
 
 Lemma triple_add : forall n1 n2,
   triple (val_add n1 n2)
@@ -1235,12 +1292,28 @@ Qed.
 (* ####################################################### *)
 (** * WP generator *)
 
+(** This section defines a "weakest-precondition style characteristic 
+     formula generator". This technology adapts the technique of
+     "characteristic formulae" (initially developed in CFML 1.0) 
+     to produce weakest preconditions. (The formulae, their manipulation, 
+     and their correctness proofs are simpler in wp-style.) 
+     
+    The goal of the section is to define a function [wpgen t], recursively
+    over the structure of [t], such that [wpgen t Q] entails [wp t Q].
+    Unlike [wp t Q], which is defined semantically, [wpgen t Q] is defined
+    following the syntax of [t]. 
+    
+    Technically, we define [wpgen E t], where [E] is a list of bindings,
+    to compute a formula that entails [wp (isubst E t)], where [isubst E t]
+    denotes the iterated substitution of bindings from [E] inside [t]. *)
+
 
 (* ******************************************************* *)
 (** ** Definition of context as list of bindings *)
 
-(** This formalization of contexts leverages TLC definitions.
-    For direct definitions, open file [SLFWPgen.v]. *)
+(** In order to define a structurally-recursive and relatively 
+    efficient characteristic formula generator, we need to introduce 
+    contexts, that essentially serve to apply substitutions lazily. *)
 
 Open Scope liblist_scope.
 
@@ -1339,7 +1412,14 @@ End CtxOps.
 
 
 (* ******************************************************* *)
-(** ** Definition of multi-substitution *)
+(** ** Multi-substitution *)
+
+(* ------------------------------------------------------- *)
+(** *** Definition of multi-substitution *)
+
+(** The specification of the characteristic formula generator is
+    expressed using the multi-substitution function, which substitutes
+    a list of bindings inside a term. *)
 
 Fixpoint isubst (E:ctx) (t:trm) : trm :=
   match t with
@@ -1365,93 +1445,8 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
   end.
 
 
-(* ******************************************************* *)
-(** ** Definition of [mkstruct] *)
-
-(** Let [formula] denote the type of [wp t] and [wpgen t]. *)
-
-Definition formula := (val -> hprop) -> hprop.
-
-Implicit Type F : formula.
-
-(** [mkstruct F] transforms a formula [F] into one that satisfies
-    structural rules of Separation Logic. *)
-
-Definition mkstruct (F:formula) : formula :=
-  fun Q => \exists Q', F Q' \* (Q' \--* (Q \*+ \GC)).
-
-Lemma mkstruct_ramified : forall Q1 Q2 F,
-  (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
-Proof using. unfold mkstruct. xsimpl. Qed.
-
-Arguments mkstruct_ramified : clear implicits.
-
-Lemma mkstruct_erase : forall Q F,
-  F Q ==> mkstruct F Q.
-Proof using. unfolds mkstruct. xsimpl. Qed.
-
-Arguments mkstruct_erase : clear implicits.
-
-
-(* ******************************************************* *)
-(** ** Definition of [wpgen] *)
-
-Definition wpgen_fail : formula := fun Q =>
-  \[False].
-
-Definition wpgen_val (v:val) : formula := fun Q =>
-  Q v.
-
-Definition wpgen_fun (Fof:val->formula) : formula := fun Q =>
-  \forall vf, \[forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
-
-Definition wpgen_fix (Fof:val->val->formula) : formula := fun Q =>
-  \forall vf, \[forall vx Q', Fof vf vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
-
-Definition wpgen_var (E:ctx) (x:var) : formula :=
-  match lookup x E with
-  | None => wpgen_fail
-  | Some v => wpgen_val v
-  end.
-
-Definition wpgen_seq (F1 F2:formula) : formula := fun Q =>
-  F1 (fun v => F2 Q).
-
-Definition wpgen_let (F1:formula) (F2of:val->formula) : formula := fun Q =>
-  F1 (fun v => F2of v Q).
-
-Definition wpgen_if (v:val) (F1 F2:formula) : formula := fun Q =>
-  \exists (b:bool), \[v = val_bool b] \* (if b then F1 Q else F2 Q).
-
-Definition wpgen_if_trm (F0 F1 F2:formula) : formula :=
-  wpgen_let F0 (fun v => mkstruct (wpgen_if v F1 F2)).
-
-Fixpoint wpgen (E:ctx) (t:trm) : formula :=
-  mkstruct match t with
-  | trm_val v =>
-       wpgen_val v
-  | trm_var x =>
-       wpgen_var E x
-  | trm_fun x t1 =>
-       wpgen_fun (fun v => wpgen ((x,v)::E) t1)
-  | trm_fix f x t1 =>
-       wpgen_fix (fun vf v => wpgen ((f,vf)::(x,v)::E) t1)
-  | trm_if t0 t1 t2 =>
-      match isubst E t0 with
-      | trm_val v0 => wpgen_if v0 (wpgen E t1) (wpgen E t2)
-      | _ => wpgen_fail
-      end
-  | trm_seq t1 t2 =>
-       wpgen_seq (wpgen E t1) (wpgen E t2)
-  | trm_let x t1 t2 =>
-       wpgen_let (wpgen E t1) (fun v => wpgen ((x,v)::E) t2)
-  | trm_app t1 t2 =>
-       wp (isubst E t)
-  end.
-
-
-(* ******************************************************* *)
-(** ** Properties of [isubst] *)
+(* ------------------------------------------------------- *)
+(** *** Properties of multi-substitution *)
 
 (** The goal of this entire section is only to establish [isubst_nil]
     and [isubst_rem], which assert:
@@ -1460,10 +1455,7 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
     and
         isubst ((x,v)::E) t = subst x v (isubst (rem x E) t)
 ]]
-    The proofs presented here depend on TLC library for association
-    lists. A standalone formalization may be found in [SLFWPgen.v].
 *)
-
 
 (** The first targeted lemma. *)
 
@@ -1553,7 +1545,124 @@ Qed.
 
 
 (* ******************************************************* *)
-(** ** Soundness of [wpgen] *)
+(** ** Definition of [wpgen] *)
+
+(** The definition of [wpgen E t] comes next. It depends on
+    a predicate called [mkstruct] to handle structural rules,
+    and on auxiliary definitions to handle each term rule. *)
+
+
+(* ------------------------------------------------------- *)
+(** *** Definition of [mkstruct] *)
+
+(** Let [formula] denote the type of [wp t] and [wpgen t]. *)
+
+Definition formula := (val -> hprop) -> hprop.
+
+Implicit Type F : formula.
+
+(** [mkstruct F] transforms a formula [F] into one that satisfies
+    structural rules of Separation Logic. This predicate transformer
+    enables integrating support for the frame rule (and other structural
+    rules), in characteristic formulae. *)
+
+Definition mkstruct (F:formula) : formula :=
+  fun Q => \exists Q', F Q' \* (Q' \--* (Q \*+ \GC)).
+
+Lemma mkstruct_ramified : forall Q1 Q2 F,
+  (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
+Proof using. unfold mkstruct. xsimpl. Qed.
+
+Arguments mkstruct_ramified : clear implicits.
+
+Lemma mkstruct_erase : forall Q F,
+  F Q ==> mkstruct F Q.
+Proof using. unfolds mkstruct. xsimpl. Qed.
+
+Arguments mkstruct_erase : clear implicits.
+
+
+(* ------------------------------------------------------- *)
+(** *** Definition of auxiliary definition for [wpgen] *)
+
+(** we state auxiliary definitions for [wpgen], one per term construct. 
+    For simplicity, we here assume the term [t] to be in A-normal form. 
+    If it is not, the formula generated will be incomplete, that is, 
+    useless to prove triples about the term [t]. Note that the actual 
+    generator in CFML2 does support terms that are not in A-normal form. *)
+
+Definition wpgen_fail : formula := fun Q =>
+  \[False].
+
+Definition wpgen_val (v:val) : formula := fun Q =>
+  Q v.
+
+Definition wpgen_fun (Fof:val->formula) : formula := fun Q =>
+  \forall vf, \[forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
+
+Definition wpgen_fix (Fof:val->val->formula) : formula := fun Q =>
+  \forall vf, \[forall vx Q', Fof vf vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
+
+Definition wpgen_var (E:ctx) (x:var) : formula :=
+  match lookup x E with
+  | None => wpgen_fail
+  | Some v => wpgen_val v
+  end.
+
+Definition wpgen_seq (F1 F2:formula) : formula := fun Q =>
+  F1 (fun v => F2 Q).
+
+Definition wpgen_let (F1:formula) (F2of:val->formula) : formula := fun Q =>
+  F1 (fun v => F2of v Q).
+
+Definition wpgen_if (v:val) (F1 F2:formula) : formula := fun Q =>
+  \exists (b:bool), \[v = val_bool b] \* (if b then F1 Q else F2 Q).
+
+Definition wpgen_if_trm (F0 F1 F2:formula) : formula :=
+  wpgen_let F0 (fun v => mkstruct (wpgen_if v F1 F2)).
+
+
+(* ------------------------------------------------------- *)
+(** *** Recursive definition of [wpgen] *)
+
+(** [wpgen E t] is structurally recursive on [t].
+    Note that it does not recurse through values.
+    Note that the context [E] gets extended when traversing bindings,
+    in the let-binding and the function cases. *)
+
+Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+  mkstruct match t with
+  | trm_val v =>
+       wpgen_val v
+  | trm_var x =>
+       wpgen_var E x
+  | trm_fun x t1 =>
+       wpgen_fun (fun v => wpgen ((x,v)::E) t1)
+  | trm_fix f x t1 =>
+       wpgen_fix (fun vf v => wpgen ((f,vf)::(x,v)::E) t1)
+  | trm_if t0 t1 t2 =>
+      match isubst E t0 with
+      | trm_val v0 => wpgen_if v0 (wpgen E t1) (wpgen E t2)
+      | _ => wpgen_fail
+      end
+  | trm_seq t1 t2 =>
+       wpgen_seq (wpgen E t1) (wpgen E t2)
+  | trm_let x t1 t2 =>
+       wpgen_let (wpgen E t1) (fun v => wpgen ((x,v)::E) t2)
+  | trm_app t1 t2 =>
+       wp (isubst E t)
+  end.
+
+
+(* ------------------------------------------------------- *)
+(** *** Soundness of [wpgen] *)
+
+(** [formula_sound_for t F] asserts that, for any [Q], the
+    SL judgment [triple (F Q) t Q] is valid. In other words,
+    it states that [F] is a stronger formula than [wp t]. 
+    
+    The soundness theorem that we are interested in asserts:
+    [formula_sound_for (isubst E t) (wpgen E t)] for any [E] and [t]. *)
 
 Definition formula_sound_for (t:trm) (F:formula) : Prop :=
   forall Q, F Q ==> wp t Q.
@@ -1562,6 +1671,8 @@ Lemma wp_sound : forall t,
   formula_sound_for t (wp t).
 Proof using. intros. intros Q. applys himpl_refl. Qed.
 
+(** One soundness lemma for [mkstruct]. *)
+
 Lemma mkstruct_sound : forall t F,
   formula_sound_for t F ->
   formula_sound_for t (mkstruct F).
@@ -1569,6 +1680,8 @@ Proof using.
   introv M. intros Q. unfold mkstruct. xsimpl ;=> Q'.
   lets N: M Q'. xchange N. applys wp_ramified.
 Qed.
+
+(** One soundness lemma for each term construct. *)
 
 Lemma wpgen_fail_sound : forall t,
   formula_sound_for t wpgen_fail.
@@ -1625,6 +1738,8 @@ Proof using.
   applys himpl_trans wp_if. case_if. { applys S1. } { applys S2. }
 Qed.
 
+(** The main inductive proof for the soundness theorem. *)
+
 Lemma wpgen_sound : forall E t,
   formula_sound_for (isubst E t) (wpgen E t).
 Proof using.
@@ -1652,6 +1767,8 @@ Proof using.
   introv M. lets N: (wpgen_sound nil t). rewrite isubst_nil in N. applys* N.
 Qed.
 
+(** The final theorem for closed terms. *)
+
 Lemma triple_of_wpgen : forall t H Q,
   H ==> wpgen nil t Q ->
   triple t H Q.
@@ -1662,6 +1779,13 @@ Qed.
 
 (* ####################################################### *)
 (** * Practical proofs *)
+
+(** This last section shows the techniques involved in constructing
+    the lemmas and tactics required to carry out pratical verification
+    proof with concise proof scripts. 
+    
+    It does not cover all constructs, but just a few, to highlight
+    the main ideas. (The file [WPTactics] contains more tactics.) *)
 
 (* ******************************************************* *)
 (** ** Lemmas for tactics to manipulate [wpgen] formulae *)
@@ -1891,11 +2015,27 @@ Open Scope trm_scope.
 (* ------------------------------------------------------- *)
 (** *** Definition and verification of [incr]. *)
 
+(** Here is an implementation of the increment function, 
+    written in A-normal form. 
+[[
+   let incr p =
+       let n = !p in
+       let m = n + 1 in
+       p := m
+]]
+*)
+
 Definition incr : val :=
   VFun 'p :=
     (Let 'n := '! 'p in
     Let 'm := 'n '+ 1 in
     'p ':= 'm).
+
+(** Here is the Separation Logic triple specifying increment. 
+    And the proof follows. Note that the script contains explicit
+    references to the specification lemmas of the functions being
+    called (e.g. [triple_get] for the [get] operation). The actual
+    CFML2 setup is able to automatically infer those names. *)
 
 Lemma triple_incr : forall (p:loc) (n:int),
   TRIPLE (trm_app incr p)
@@ -1909,8 +2049,20 @@ Proof using.
   xsimpl~.
 Qed.
 
+
 (* ------------------------------------------------------- *)
 (** *** Definition and verification of [mysucc]. *)
+
+(** Here is another example, the function:
+[[
+   let mysucc n =
+       let r = ref n in
+       incr r;
+       !r
+]]
+Note that this function has the same behavior as [succ],
+but its implementation makes use of the [incr] function 
+from above. *)
 
 Definition mysucc : val :=
   VFun 'n :=
