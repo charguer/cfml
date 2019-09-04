@@ -1,4 +1,64 @@
 
+--equiv but impractical--
+p ~> MList L =
+   \exists q, p ~~> q \*
+   match L with
+   | nil => \[q = null]
+   | x::L' => q.head ~~> x \* q.tail ~> MList L'
+   end
+--
+
+p ~> MListSeg r L =
+   match L with
+   | nil => \[p = r]
+   | x::L' => \exists q, p ~~> q \* q.head ~~> x \* q.tail ~> MListSeg r L'
+   end
+
+p ~> MListSeg r nil = \[p = r]
+
+p ~> MListSeg r (x::L') = \exists q, p ~~> q \* q.head ~~> x \* q.tail ~> MListSeg r L'
+
+p ~> MListSeg r (L1++L2) = \exists q, p ~> MListSeg q L1 \* q ~> MListSeq r L2
+
+
+p ~> MList L = \exists r, p ~> MListSeg r L \* r ~~> null
+
+p ~> MList nil = p ~~> null
+
+p ~> Mist (x::L') = \exists q, p ~~> q \* q.head ~~> x \* q.tail ~> MList L'
+
+
+let rec mlength p =
+   let q = get p in
+   if q == null
+      then 0
+      else 1 + mlength q.tail
+
+let mlength' p =
+   let r = ref p in
+   let n = ref 0 in
+   while !r <> null do
+      incr n;
+      r := (!r).tail
+   done;
+   !n
+
+# PRE p ~> MList L
+# POST fun r => p ~> MListSeg r L \* r ~~> null
+let rec get_back p =
+   let q = get p in
+   if q == null
+      then p
+      else get_back q.tail
+
+# PRE p1 ~> MList L1 \* p2 ~> MList L2
+# POST p1 ~> MList (L1 ++ L2)
+let append p1 p2 =
+  let r = get_back p1 in
+  r := get p2
+
+
+
 
 =========
 =========
