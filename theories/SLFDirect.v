@@ -27,10 +27,7 @@ From Sep Require SepSimpl.
 
 Module Assumptions.
 
-(** The file [LibAxioms] from the TLC library includes the axioms of
-    functional extensionality and propositional extensionality.
-    These axioms are essential to proving equalities between
-    heap predicates, and between postconditions. *)
+(** These standard extensionality axioms come from TLC's LibAxiom.v file. *)
 
 Axiom functional_extensionality : forall A B (f g:A->B),
   (forall x, f x = g x) ->
@@ -47,9 +44,7 @@ End Assumptions.
 (** ** Variables *)
 
 (** The file [Var.v] defines the type [var] as an alias for [string].
-
     It provides the boolean function [var_eq x y] to compare two variables.
-
     It provides the tactic [case_var] to perform case analysis on
     expressions of the form [if var_eq x y then .. else ..]
     that appear in the goal. *)
@@ -60,23 +55,12 @@ End Assumptions.
 
 (** The file [Fmap.v] provides a formalization of finite maps, which
     are then used to represent heaps in the semantics.
-
     The implementation details need not be revealed.
 
-    Finiteness of maps is essential because to justify that allocation
-    yields a fresh reference, one must be able to argue for the
-    existence of a location fresh from existing heaps. From the
-    finiteness of heaps and the infinite number of variables, we
-    can conclude that fresh locations always exist.
-
-    The library [Fmap.v] provides the basic operations of finite maps,
-    and in particular the definition of disjointness.
-
-    It provides a tactic [fmap_disjoint] to automate the disjointness proofs,
-    and a tactic [fmap_eq] to prove equalities between heaps modulo
+    The library provides a tactic [fmap_disjoint] to automate the disjointness 
+    proofs, and a tactic [fmap_eq] to prove equalities between heaps modulo
     associativity and commutativity. Without these two tactics, the
     proofs would be extremely tedious and fragile. *)
-
 
 
 (* ####################################################### *)
@@ -193,7 +177,7 @@ Coercion trm_app : trm >-> Funclass.
 (* ******************************************************* *)
 (** ** Semantics *)
 
-(** Big-step evaluation judgment. *)
+(** Big-step evaluation judgement, written [eval s t s' v] *)
 
 Inductive eval : heap -> trm -> heap -> val -> Prop :=
   | eval_val : forall s v,
@@ -237,8 +221,6 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
 (* ####################################################### *)
 (** * Heap predicates *)
 
-(** The combinators for heap predicates are defined next. *)
-
 (** For technical reasons, to enable sharing the code implementing
     the tactic [xsimpl], we wrap the definitions inside a module. *)
 
@@ -252,7 +234,7 @@ Module SepSimplArgs.
 
 Definition hprop := heap -> Prop.
 
-(** Entailment for heap predicates 
+(** Entailment for heap predicates, written [H1 ==> H2]  
     (the entailment is linear, although our triples will be affine). *)
 
 Definition himpl (H1 H2:hprop) : Prop :=
@@ -262,7 +244,7 @@ Notation "H1 ==> H2" := (himpl H1 H2) (at level 55) : heap_scope.
 
 Open Scope heap_scope.
 
-(** Entailment between postconditions *)
+(** Entailment between postconditions, written [Q1 ===> Q2] *)
 
 Definition qimpl A (Q1 Q2:A->hprop) : Prop :=
   forall (v:A), Q1 v ==> Q2 v.
@@ -286,6 +268,7 @@ Implicit Types Q : val->hprop.
     - [\Top] denotes the true heap predicate (affine)
     - [l ~~~> v] denotes a singleton heap
     - [H1 \* H2] denotes the separating conjunction
+    - [Q1 \*+ H2] denotes the separating conjunction extending a postcondition
     - [\exists x, H] denotes an existential
     - [\forall x, H] denotes a universal 
     - [H1 \-* H2] denotes a magic wand between heap predicates
@@ -388,8 +371,6 @@ Hint Extern 1 (Fmap.disjoint _ _) => fmap_disjoint_pre.
 
 (* ------------------------------------------------------- *)
 (** *** Properties of [himpl] and [qimpl] *)
-
-(** Entailment forms an order relation. *)
 
 Lemma himpl_refl : forall H,
   H ==> H.
@@ -1119,14 +1100,16 @@ Qed.
 (** ** Definition of [wp] and reasoning rules *)
 
 (* ------------------------------------------------------- *)
-(** *** Definition of the weakest-precondition judgment,
-        on top of [hoare] triples. More precisely [wp t Q]
-        is a heap predicate such that [H ==> wp t Q] if and
-        only if [SL_triple t H Q], where [SL_triple t H Q]
-        is defined as [forall H', hoare t (H \* H') (Q \*+ H' \*+ \Top)]. *)
+(** *** Definition of the weakest-precondition judgment. *)
+
+(** [wp] is defined on top of [hoare] triples. More precisely [wp t Q]
+    is a heap predicate such that [H ==> wp t Q] if and
+    only if [SL_triple t H Q], where [SL_triple t H Q]
+    is defined as [forall H', hoare t (H \* H') (Q \*+ H' \*+ \Top)]. *)
 
 Definition wp (t:trm) := fun (Q:val->hprop) =>
   \exists H, H \* \[forall H', hoare t (H \* H') (Q \*+ H' \*+ \Top)].
+
 
 (* ------------------------------------------------------- *)
 (** *** Structural rule for [wp]. *)

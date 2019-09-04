@@ -457,6 +457,7 @@ Fixpoint Tree (n:node) (q:loc) { struct n } : hprop :=
       \* q' ~> MListOf Tree hs
   end.
 
+
 (** [q ~> Repr E] related a non-null pointer [q] with the multiset of items [E]
     that are stored in the tree *)
 

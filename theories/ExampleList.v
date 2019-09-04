@@ -33,6 +33,7 @@ Module MListVal.
 Definition Nil : val := val_constr "Nil" nil.
 Definition Cons (v:val) (p:loc) : val := val_constr "Cons" (v::(val_loc p)::nil).
 
+(* p ~> MList L     MList L p   *)
 Fixpoint MList (L:list val) (p:loc) : hprop :=
   \exists v, p ~~> v \*
   match L with
@@ -512,7 +513,7 @@ Lemma Triple_copy : forall `{EA:Enc A} (L:list A) (p:loc),
 Proof using.
   intros. gen p. induction_wf IH: (@list_sub A) L. intros.
   xwp. xapp. xif ;=> E.
-  { xapp ;=> p'. xsimpl*. }
+  { xapp ;=> p'. subst. xsimpl*. }
   { xchanges~ MList_not_nil ;=> x L' p' ->.
     xapp. xapp~. xapp~ ;=> q'. xapp ;=> q.
     xchanges <- MList_cons. }
@@ -741,6 +742,13 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Length using iter but not incr *)
 
+(**
+   let length_using_iter p = 
+      let n = ref 0 in
+      MList.iter (fun x -> incr n) p;
+      !n
+*)
+
 Definition length_using_iter' : val :=
   VFun 'p :=
     Let 'n := val_ref ``0 in
@@ -803,6 +811,50 @@ Proof using.
       { intros q ->. rewrite enc_val_eq in *. unfolds @Cons. false. } } }
 Qed.
 
+
+
+(* ---------------------------------------------------------------------- *)
+(** Pop back not reusing append *)
+
+(**
+[[
+  let rec pop_back p =
+    if is_empty (tail p) then (
+      let x = head p in
+      set_nil p;
+      x 
+    ) else (
+      pop_back (tail p)
+    )
+]]
+*)
+
+Definition pop_back : val :=
+  VFix 'f 'p :=
+    If_ is_empty (tail 'p) Then (
+      Let 'x := head 'p in
+      set_nil 'p ';
+      'x
+    ) Else (
+      'f (tail 'p)
+    ).
+
+Lemma Triple_pop_back : forall `{EA:Enc A} (L:list A) (p:loc),
+  L <> nil ->
+  TRIPLE (pop_back ``p)
+    PRE (p ~> MList L)
+    POST (fun x => \exists L1, \[L = L1++x::nil] \* p ~> MList L1).
+Proof using.
+  introv. gen p. induction_wf IH: (@list_sub A) L. introv N.
+  (* SOLUTION *) 
+  xwp. destruct L as [|x L']; tryfalse. xchange MList_cons ;=> p'.
+  xapp. xapp. xif ;=> C.
+  { subst. xapp. xapp. xval. xsimpl (@nil A). { rew_list. auto. }
+    xchanges <- MList_nil. }
+  { xapp. xapp. { auto. } { auto. } intros y L1' ->.
+    xsimpl (x::L1'). { rew_list. auto. } xchanges <- MList_cons. } 
+  (* /SOLUTION *)
+Qed.
 
 
 (* ********************************************************************** *)

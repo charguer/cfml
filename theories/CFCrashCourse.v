@@ -1,11 +1,8 @@
 (**
 
-EJCP: tutorial using basic functions.
-The tutorial continues with the files:
-- ExampleStack
-- ExampleList
-- ExampleListOf
-- ExamplePairingHeap
+Crash course on using CFML2.
+
+Covers basic functions and mutable lists.
 
 Author: Arthur Charguéraud.
 License: MIT.
@@ -14,6 +11,9 @@ License: MIT.
 
 Set Implicit Arguments.
 From Sep Require Import Example.
+From Sep Require ExampleStack ExampleList.
+Generalizable Variables A.
+
 Implicit Types n m : int.
 Implicit Types p q : loc.
 
@@ -47,8 +47,7 @@ Lemma Triple_example_let : forall n,
     PRE \[]
     POST (fun r => \[r = 2*n]).
 Proof using.
-  xwp. xappn. xsimpl*.
-  (* xwp. xapp. xapp_nosubst. intros b Eb. xapp. xsimpl. math. *)
+  xwp. xapp. xapp. xapp. xsimpl. math.
 Qed.
 
 (** Note: [xapp] calls [xlet] automatically when needed. *)
@@ -217,14 +216,12 @@ Lemma Triple_repeat_incr : forall p n m,
     PRE (p ~~> n)
     POST (fun (_:unit) => p ~~> (n + m)).
 Proof using.
-(*
-  introv Hm. gen n. induction_wf IH: (downto 0) m. intros.
-  xwp. intros Hm. xapp. xif; intros C.
+  introv Hm. gen n Hm. induction_wf IH: (downto 0) m. intros.
+  xwp. xapp. xif; intros C.
   { xapp. xapp. xapp. { hnf. math. } { math. }
     xsimpl. math. }
   { xval. xsimpl. math. }
-*)
-Admitted.
+Qed.
 
 (** Let's try yet another time *)
 
@@ -257,12 +254,6 @@ Lemma xpull_demo_hpure : forall H1 H2 n,
   H1 \* \[n = 3] ==> H2.
 Proof using.
   intros. xpull. intros Hn.
-Abort.
-
-Lemma xpull_demo_hpure_false : forall H1 H2,
-  H1 \* \[False] ==> H2.
-Proof using.
-  intros. xpull. 
 Abort.
 
 Lemma xpull_demo_hexists : forall H1 H2 p,
@@ -305,6 +296,14 @@ Proof using.
   intros. xsimpl.
 Qed.
 
+(** [xsimpl] cancels what remains with the [\GC] from the RHS. *)
+
+Lemma xsimpl_demo_rhs_hgc : forall H1 H2 H3 H4,
+  H1 \* H2 \* H3 \* H4 ==> H3 \* H2 \* \GC.
+Proof using.
+  intros. xsimpl.
+Abort.
+
 
 (* ******************************************************* *)
 (** *** [xsimpl] to instantiate pure facts and quantifiers in RHS *)
@@ -336,48 +335,6 @@ Proof using.
                      which then cancels out with [p ~~~> 3] *)
 Abort.
 
-(** The instantiation of the evar (e.g., [n]) can be observed if there
-    is another occurence of the same variable in the entailment. For example: *)
-
-Lemma xsimpl_demo_rhs_hexists_unify_view : forall H1 H2 H3 (p:loc),
-  H1 \* (p ~~~> 3) ==> H2 \* \exists (n:int), (p ~~~> n \* \[n > 0]) \* H3.
-Proof using.
-  intros. xsimpl. (* [p ~~~> n] unifies with [p ~~~> 3], then [3 > 0] remains. *)
-Abort.
-
-(** In some cases, it may desirable to provide an explicit instantiation,
-    using the syntax [xsimpl v1 .. vn] or [xsimpl (>> v1 .. vn)]. *)
-
-Lemma xsimpl_demo_rhs_hints : forall H1 (p q:loc),
-  H1 ==> \exists (n m:int), (p ~~~> n \* q ~~~> m).
-Proof using.
-  intros. xsimpl 3 4.
-Abort.
-(*
-(** Use the placeholder value [__] to instantiate an existential with an evar. *)
-
-Lemma xsimpl_demo_rhs_hints_evar : forall H1 (p q:loc),
-  H1 ==> \exists (n m:int), (p ~~~> n \* q ~~~> m).
-Proof using.
-  intros. xsimpl __ 4.
-Abort.
-*)
-(** [xsimpl] collapses the multiple occurences of [\GC].
-    If the RHS consists of exactly [\GC] and nothing else, 
-    then the goal is discharged. *)
-
-Lemma xsimpl_demo_rhs_hgc : forall H1 H2 H3,
-  H1 \* H2 \* H3 ==> H3 \* \GC \* H2 \* \GC.
-Proof using.
-  intros. xsimpl.
-Abort.
-
-(** The tactic [xsimpl] also work on [===>]. *)
-
-Lemma qimpl_example_1 : forall (Q1 Q2:val->hprop) (H2 H3:hprop),
-  Q1 \*+ H2 ===> Q2 \*+ H2 \*+ H3.
-Proof using. intros. xsimpl. intros r. Abort.
-
 
 (* ******************************************************* *)
 (** ** The [xchange] tactic *)
@@ -408,16 +365,303 @@ Proof using.
   xchange <- M.
 Abort.
 
-(** The tactic [xchange] is also able to instantiate lemmas if needed. *)
-
-Lemma xchange_demo_inst : forall H1 (J J':int->hprop) H3 H4,
-  (forall n, J n = J' (n+1)) ->
-  H1 \* J 3 \* H3 ==> H4.
-Proof using.
-  introv M. xchange M.
-  (* Note that freshly produced items appear to the front *)
-Abort.
-
 (** The tactic [xchanges M] is a shorthand for [xchange M; xsimpl]. *)
 
 End XsimplDemo.
+
+
+
+(* ####################################################### *)
+(** * Hands-on: basic functions *)
+
+Module ExoBasic.
+
+(** Hints: 
+    - [xwp] to begin the proof
+    - [xapp] for applications, or [xappn] to repeat
+    - [xif] for a case analysis
+    - [xval] for a value
+    - [xsimpl] to prove entailments
+    - [auto], [math], [rew_list] to prove pure facts
+      or just [*] after a tactic to invoke automation.
+*)
+
+
+(* ******************************************************* *)
+(** ** Basic pure function (warm up) *)
+
+(** 
+[[
+  let double n =
+    n + n
+]]
+*)
+
+Definition double :=
+  VFun 'n :=
+    'n '+ 'n.
+
+Lemma Triple_double : forall n,
+  TRIPLE (double n)
+    PRE \[]
+    POST (fun m => (* SOLUTION *) \[m = 2 * n] (* /SOLUTION *)).
+Proof using.
+  (* SOLUTION *) xwp. xapp. xsimpl. math. (* /SOLUTION *)
+Qed.
+
+
+(* ******************************************************* *)
+(** ** Basic imperative function with one argument *)
+
+(** 
+[[
+  let inplace_double p =
+    p := !p + !p
+]]
+*)
+
+Definition inplace_double :=
+  VFun 'p :=
+    'p ':= ('!'p '+ '!'p).
+
+Lemma Triple_inplace_double : forall p n,
+  TRIPLE (inplace_double p)
+    PRE ((* SOLUTION *) p ~~> n (* /SOLUTION *))
+    POST (fun (_:unit) => (* SOLUTION *) p ~~> (2 * n) (* /SOLUTION *)).
+Proof using.
+  (* SOLUTION *) xwp. xapp. xapp. xapp. xapp. xsimpl. math. (* /SOLUTION *)
+Qed.
+
+
+(* ******************************************************* *)
+(** ** Basic imperative function with two arguments (white belt) *)
+
+(** 
+[[
+  let decr_and_incr p q =
+    decr p;
+    incr q
+]]
+*)
+
+Definition decr_and_incr :=
+  VFun 'p 'q :=
+    decr 'p ';
+    incr 'q.
+
+Lemma Triple_decr_and_incr : forall p q n m,
+  TRIPLE (decr_and_incr p q)
+    PRE ((* SOLUTION *) p ~~> n \* q ~~> m (* /SOLUTION *))
+    POST ((* SOLUTION *) fun (_:unit) => p ~~> (n-1) \* q ~~> (m+1) (* /SOLUTION *)).
+Proof using.
+  (* SOLUTION *) xwp. xapp. xapp. xsimpl. (* /SOLUTION *)
+Qed.
+
+
+(* ******************************************************* *)
+(** *** A recursive function (yellow belt) *) 
+
+(** Here, we will assume [!p > 0].
+
+[[
+  let rec transfer p q =
+    if !p > 0 then (
+      decr p;
+      incr q;
+      transfer p q
+    )
+]]
+*)
+
+Definition transfer :=
+  VFix 'f 'p 'q :=
+    If_ '! 'p '> 0 Then
+      decr 'p ';
+      incr 'q ';
+      'f 'p 'q
+    End.
+
+Lemma Triple_transfer : forall p q n m,
+  n >= 0 ->
+  TRIPLE (transfer p q)
+    PRE (p ~~> n \* q ~~> m)
+    POST (fun (_:unit) => (* SOLUTION *) p ~~> 0 \* q ~~> (n + m) (* /SOLUTION *)).
+Proof using.
+  introv N. gen m N. induction_wf IH: (downto 0) n. intros.
+  (* SOLUTION *)
+  xwp. xapp. xapp. xif ;=> C.
+  { xapp. xapp. xapp. { hnf. math. } { math. } 
+    xsimpl. math. }
+  { xval. xsimpl. math. math. }
+  (* /SOLUTION *)
+Qed.
+
+End ExoBasic.
+
+
+(* ####################################################### *)
+(** * Mutable lists *)
+
+(** See in file [ExampleList.v] the following items:
+    - definition of [MList], and lemmas about it
+    - specifications for [is_empty], [head], [tail]
+    - specifications for [create], [mk_cons], [set_cons], [set_tail]
+    - specifications and proofs for [push], [pop], [mlength], [copy].
+*)
+
+
+
+(* ####################################################### *)
+(** * Hands-on: mutable lists *)
+
+(** Hints: 
+    - [xchange MList_eq] and the variants like for [Stackn]
+    - [xchange (MList_not_nil p)] to unfold [p ~> MList L] when [L <> nil]
+    - [xchange MList_cons] to unfold [p ~> MList (x::L)] 
+      into [\exists q, p ~~> Cons x q \* q ~> MList L]
+    - [xchange <- MList_cons] to fold back to [p ~> MList (x::L)]
+    - [xchange <- (MList_cons p)], like the above for a specific [p]
+    - [xchanges] is convenient here too.
+*)
+
+Module ExoList.
+Import ExampleList.MList.
+
+
+(* ******************************************************* *)
+(** ** Create one element *)
+
+(**
+[[
+  let mk_one x =
+    mk_cons x (create())
+]]
+*)
+
+Definition mk_one : val :=
+  VFun 'x :=
+     mk_cons 'x (create '()).
+
+Lemma Triple_mk_one : forall A `{EA:Enc A} (x:A),
+  TRIPLE (mk_one ``x)
+    PRE \[]
+    POST (fun p => p ~> MList (x::nil)).
+Proof using.
+  (* SOLUTION *) intros. xwp. xapp ;=> q. xapp. xsimpl. (* /SOLUTION *)
+Qed.
+
+Hint Extern 1 (Register_Spec (mk_one)) => Provide @Triple_mk_one.
+
+
+(* ******************************************************* *)
+(** ** Push back using append *)
+
+(** Note: [L&x] is a notation for [L++x::nil]. *)
+
+(**
+[[
+  let push_back p x =
+    inplace_append p (mk_one x)
+]]
+*)
+
+(** Recall:
+[[
+  TRIPLE (inplace_append p1 p2)
+    PRE (p1 ~> MList L1 \* p2 ~> MList L2)
+    POST (fun (_:unit) => p1 ~> MList (L1++L2)).
+]]
+*)
+
+Definition push_back : val :=
+  VFun 'p 'x :=
+    inplace_append 'p (mk_one 'x).
+
+Lemma Triple_push_back : forall `{EA:Enc A} (L:list A) (x:A) (p:loc),
+  TRIPLE (push_back ``p ``x)
+    PRE (p ~> MList L)
+    POST (fun (_:unit) => p ~> MList (L++x::nil)).
+Proof using.
+  (* SOLUTION *) xwp. xapp ;=> q. xapp. xsimpl. (* /SOLUTION *)
+Qed.
+
+
+(* ******************************************************* *)
+(** ** Push back not using append (blue belt) *)
+
+(** Hint: the following function is a specialization of 
+    [inplace_append] for the case where the second list
+    consists of a single element. Its proof is similar. *)
+
+(**
+[[
+  let rec push_back' p x =
+    if is_empty p 
+      then set_cons p x (create())
+      else push_back' (tail p) x
+]]
+*)
+
+Definition push_back' : val :=
+  VFix 'f 'p 'x :=
+    If_ is_empty 'p 
+      Then set_cons 'p 'x (create '())
+      Else 'f (tail 'p) 'x.
+
+Lemma Triple_push_back' : forall `{EA:Enc A} (L:list A) (x:A) (p:loc),
+  TRIPLE (push_back' ``p ``x)
+    PRE (p ~> MList L)
+    POST (fun (_:unit) => p ~> MList (L++x::nil)).
+Proof using.
+  intros. gen p. induction_wf IH: (@list_sub A) L. intros.
+  (* SOLUTION *) 
+  xwp. xif ;=> C. 
+  { subst. xchanges (MList_eq p) ;=> v1.
+    xapp ;=> q. xapp. xchanges <- (MList_cons p). }
+  { xchanges~ (MList_not_nil p) ;=> y L' p' ->.
+    xapp. xapp. { auto. } xchanges <- MList_cons. }
+  (* /SOLUTION *)
+Qed.
+
+
+(* ******************************************************* *)
+(** ** Reversed copy using iter (brown belt) *)
+
+(** Hints: 
+    - [xfun] to substitute a function definition in its occurences
+    - [xapp (>> __ E)] to provide [E] as argument to the specification
+      lemma that [xapp] would apply.
+    - The proof has a similar pattern to [length_using_iter].
+*)
+
+(**
+[[
+  let rec reversed_copy p =
+    let q = create() in
+    iter (fun x => push q x) p;
+    q
+]]
+*)
+
+Definition reversed_copy : val :=
+  VFun 'p :=
+    Let 'q := create '() in
+    iter (Fun 'x := push 'q 'x) 'p ';
+    'q.
+
+Lemma Triple_reversed_copy : forall A `{EA:Enc A} (L:list A) (p:loc),
+  TRIPLE (reversed_copy ``p)
+    PRE (p ~> MList L)
+    POST (fun q => p ~> MList L \* q ~> MList (rev L)).
+Proof using.
+  (* SOLUTION *) 
+  xwp. xapp ;=> q. xfun.
+  xapp (>> __ (fun (K:list A) => q ~> MList (rev K))).
+  { intros x K L' E. xwp. xapp. xsimpl*. }
+  xval. xsimpl~.
+  (* /SOLUTION *)
+Qed.
+
+End ExoList.
+
+

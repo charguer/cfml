@@ -35,19 +35,21 @@ export TLC
 # List of files
 
 
-SRC_EXAMPLES := Example ExampleList ExampleListOf ExampleStack ExamplePairingHeap EJCPExo EJCPTuto EJCPImplem
+SRC_EXAMPLES := Example ExampleList ExampleListOf ExampleStack ExamplePairingHeap
 SRC_CORE := TLCbuffer Fmap Var SepSimpl Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics WPRecord $(SRC_EXAMPLES) WPExamples WPExamplesDetails WPLib 
 
 SRC_MORE := SepBaseAltProofs SepCredits SepRO
 
 SRC_EXAMPLES := Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleList ExampleRO 
 
-SRC_SF := SLFIntro SLFDirect SLFExtra SLFHprop SLFHimpl SubstExec SLFRules SLFWand SLFWPsem SLFWPgen 
+SRC_CF := CFCrashCourse
+
+SRC_SF := SLFIntro SLFDirect SLFExtra SLFHprop SLFHimpl SubstExec SLFRules SLFWand SLFWPsem SLFWPgen SLFSummary 
  #  SLFLift SLFRicher SLFExt
 
 SRC_MOSEL := SepMoselFunctor SepBaseMosel SepROMosel ExampleROMosel ExampleListMosel
 
-SRC := $(SRC_CORE) $(SRC_SF) $(SRC_MORE)
+SRC := $(SRC_CORE) $(SRC_CF) $(SRC_SF) $(SRC_MORE)
 # $(SRC_EXAMPLES)  $(SRC_MOSEL)
 
 # using the variable SRC_FORCE, one can modify the compilation targets and/or their order.

@@ -1,6 +1,8 @@
 (**
 
-EJCP Course: implementation of CFML.
+Summary of the techniques involved in the implementation of CFML.
+
+This file contains excerpt from the file SLFDirect.v.
 
 Author: Arthur Charguéraud.
 License: MIT.
@@ -20,9 +22,20 @@ Module Language.
 (* ******************************************************* *)
 (** ** Syntax *)
 
+(** The type [var] is an alias for [string].
+
+    The library [Var.v] provides the boolean function [var_eq x y] to compare 
+    two variables. It provides the tactic [case_var] to perform case analysis on
+    expressions of the form [if var_eq x y then .. else ..] that appear in the goal. *)
+
 Definition var := string.
 
+(** Locations are implemented as natural numbers. *)
+
 Definition loc : Type := nat.
+
+(** The grammar of the deeply-embedded language includes terms and values. 
+    Values include locations and primitive functions. *)
 
 Inductive val : Type :=
   | val_unit : val
@@ -46,9 +59,28 @@ with trm : Type :=
   | trm_let : var -> trm -> trm -> trm
   | trm_if : trm -> trm -> trm -> trm.
 
+(** The state consists of a finite map from location to values.
+    (See further for additional information about finite maps.)
+    Records and arrays are represented as sets of consecutive cells. *)
+
 Definition state : Type := fmap loc val.
 
+(** The type [heap], a.k.a. [state]. By convention, the "state"
+    refers to the full memory state, while the "heap" potentially
+    refers to only a fraction of the memory state. *)
+
 Definition heap : Type := state.
+
+(** The file [Fmap.v] provides a formalization of finite maps, which
+    are then used to represent heaps in the semantics.
+
+    Finiteness of maps is essential because to justify that allocation
+    yields a fresh reference, one must be able to argue for the
+    existence of a location fresh from existing heaps. From the
+    finiteness of heaps and the infinite number of variables, we
+    can conclude that fresh locations always exist.
+
+    The implementation details of [fmap] need not be revealed. *)
 
 (*
 [[
@@ -69,7 +101,7 @@ Proof using. apply (Inhab_of_val val_unit). Qed.
 Definition example_trm : trm :=
   trm_fun "x" (trm_if (trm_var "x") (trm_val (val_int 0)) (trm_val (val_int 1))).
 
-(** Coercions, e.g. *)
+(** Coercions to improve conciseness in the statment of evaluation rules. *)
 
 Coercion trm_val : val >-> trm.
 Coercion val_int : Z >-> val.
@@ -83,16 +115,19 @@ Coercion trm_app : trm >-> Funclass.
 ]]
 *)
 
+
 (* ******************************************************* *)
 (** ** Semantics *)
 
 Implicit Types v : val.
 
-(** Substitution function *)
+(** The capture-avoiding substitution (not shown) is defined in a
+    standard way. [subst x v t] replaces all occurences of the variable
+    [x] with the value [v] inside the term [t]. *)
 
-Parameter subst : forall (y:var) (w:val) (t:trm), trm.
+Parameter subst : forall (x:var) (v:val) (t:trm), trm.
 
-(** Big-step semantics  [eval s t s' v] *)
+(** Big-step evaluation judgement, written [eval s t s' v] *)
 
 Inductive eval : state -> trm -> state -> val -> Prop :=
 
@@ -152,14 +187,29 @@ End Language.
 
 Module Hprop.
 
+
 (* ******************************************************* *)
 (** ** Core heap predicates *)
+
+(** The type of heap predicates is named [hprop]. *)
 
 Definition hprop := heap -> Prop.
 
 Implicit Type h : heap.
 Implicit Type H : hprop.
 
+(** The core heap predicates are defined next:
+
+    - [\[]] denotes the empty heap predicate
+    - [\[P]] denotes a pure fact
+    - [l ~~~> v] denotes a singleton heap
+    - [H1 \* H2] denotes the separating conjunction
+    - [Q1 \*+ H2] denotes the separating conjunction extending a postcondition
+    - [\exists x, H] denotes an existential
+    - [\GC] denotes the true heap predicate
+      (in the basic affine logic that we consider, [\GC] is the same as [\Top]).
+
+*)
 
 Definition hempty : hprop :=
   fun h => (h = Fmap.empty).
@@ -210,8 +260,8 @@ Definition htop : hprop :=
 
 Notation "\Top" := (htop).
 
-
 Definition hgc : hprop := htop.
+
 (** In general, [Definition hgc := fun h => heap_affine h], 
     where [heap_affine] is a predicate that characterizes which pieces
     of heap are garbaged collected, as opposed to those that need to be
@@ -223,8 +273,16 @@ Notation "\GC" := (hgc).
 (* ******************************************************* *)
 (** ** Extensionality *)
 
+(** We'd like to perform simplification by rewriting on heap predicates.
+    For example, be able to exploit associativity. *)
+
 Parameter hstar_assoc : forall H1 H2 H3,
   (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
+
+(** The file [LibAxioms] from the TLC library includes the axioms of
+    functional extensionality and propositional extensionality.
+    These axioms are essential to proving equalities between
+    heap predicates, and between postconditions. *)
 
 Axiom functional_extensionality : forall A B (f g:A->B),
   (forall x, f x = g x) ->
@@ -259,14 +317,15 @@ Module Himpl.
 (* ******************************************************* *)
 (** ** Definition of entailment *)
 
-(** Definition of [H1 ==> H2] *)
+(** Entailment for heap predicates, written [H1 ==> H2]  
+    (the entailment is linear, although our triples will be affine). *)
 
 Definition himpl (H1 H2:hprop) : Prop :=
   forall h, H1 h -> H2 h.
 
 Notation "H1 ==> H2" := (himpl H1 H2) (at level 55).
 
-(** Entailment is an order relation *)
+(** Entailment is an order relation. *)
 
 Parameter himpl_refl : forall H,
   H ==> H.
@@ -287,7 +346,7 @@ Proof using.
   { applys M2. auto. }
 Qed.
 
-(** Definition of [Q1 ===> Q2] *)
+(** Entailment between postconditions, written [Q1 ===> Q2] *)
 
 Definition qimpl (Q1 Q2:val->hprop) : Prop :=
   forall (v:val), Q1 v ==> Q2 v.
@@ -362,11 +421,11 @@ Definition hoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
 Definition triple1 (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (H':hprop), hoare t (H \* H') (Q \*+ H').
 
-(** [triple t H Q] adds a [\Top] to make the logic affine as 
+(** [triple t H Q] adds a [\GC] to make the logic affine as 
     opposed to linear: resources can be freely thrown away. *)
 
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
-  forall (H':hprop), hoare t (H \* H') (Q \*+ H' \*+ \Top).
+  forall (H':hprop), hoare t (H \* H') (Q \*+ H' \*+ \GC).
 
 (** An alternative, equivalent definition of triples *)
 
@@ -407,8 +466,8 @@ Parameter triple_frame : forall t H Q H',
 
 (**
 [[
-  (forall H0, hoare t (H \* H0) (Q \*+ H0 \*+ \Top)) ->
-  (forall H1, hoare t (H \* H' \* H1) (Q \*+ H' \*+ H1 \*+ \Top)).
+  (forall H0, hoare t (H \* H0) (Q \*+ H0 \*+ \GC)) ->
+  (forall H1, hoare t (H \* H' \* H1) (Q \*+ H' \*+ H1 \*+ \GC)).
 
   Take [H0 := H' \* H1] and the result is trivial up to associativity.
 ]]
@@ -418,11 +477,16 @@ Parameter triple_frame : forall t H Q H',
 (* ******************************************************* *)
 (** ** Other structural rules *)
 
+(** The classic rule of consequence. *)
+
 Parameter triple_conseq : forall t H' Q' H Q,
   triple t H' Q' ->
   H ==> H' ->
   Q' ===> Q ->
   triple t H Q.
+
+(** Two extraction rules allow to extract pure facts and existentials
+    out of preconditions. *)
 
 Parameter triple_hpure : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
@@ -432,15 +496,17 @@ Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall (x:A), triple t (J x) Q) ->
   triple t (hexists J) Q.
 
-Parameter triple_htop_pre : forall t H Q,
-  triple t H Q ->
-  triple t (H \* \Top) Q.
+(** Two garbage collection rules allow throwing away. *)
 
-Parameter triple_htop_post : forall t H Q,
-  triple t H (Q \*+ \Top) ->
+Parameter triple_hgc_pre : forall t H Q,
+  triple t H Q ->
+  triple t (H \* \GC) Q.
+
+Parameter triple_hgc_post : forall t H Q,
+  triple t H (Q \*+ \GC) ->
   triple t H Q.
 
-(** Factorized rules *)
+(** The structural rule can be factorized. Here is "consequence + frame". *)
 
 Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
   triple t H1 Q1 ->
@@ -448,10 +514,12 @@ Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
   Q1 \*+ H2 ===> Q ->
   triple t H Q.
 
-Parameter triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
+(** And its generalization "consequence + frame + gc". *)
+
+Parameter triple_conseq_frame_hgc : forall H2 H1 Q1 t H Q,
   triple t H1 Q1 ->
   H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \Top ->
+  Q1 \*+ H2 ===> Q \*+ \GC ->
   triple t H Q.
 
 
@@ -532,7 +600,18 @@ Parameter hwand_equiv : forall H0 H1 H2,
 Parameter hwand_cancel : forall H1 H2,
   H1 \* (H1 \-* H2) ==> H2.
 
-(** For postconditions *)
+(** Remark: there are several possibilities to define the magic wand,
+    all are equivalent to the characterization by equivalence. *)
+
+Definition hwand1 (H1 H2:hprop) : hprop :=
+  fun h => forall h', Fmap.disjoint h h' -> H1 h' -> H2 (h \u h').
+
+Definition hwand2 (H1 H2 : hprop) : hprop :=
+  \exists H0, H0 \* \[(H0 \* H1) ==> H2].
+
+(** For postconditions, written [Q1 \--* Q2]. 
+    It is defined using the heap predicate [\forall x, H], which is 
+    the analogous of [\exists x, H] but for the universal quantifier. *)
 
 Definition qwand A (Q1 Q2:A->hprop) : hprop :=
   \forall x, (Q1 x) \-* (Q2 x).
@@ -560,11 +639,11 @@ Parameter triple_ramified_frame : forall H1 Q1 t H Q,
           [H2 ==> (Q1 \--* Q)] which simplifies to
           [Q1 \*+ H2 ===> Q]. *)
 
-(** Generalization with \Top *)
+(** Generalization with \GC *)
 
-Parameter triple_ramified_frame_top : forall H1 Q1 t H Q,
+Parameter triple_ramified_frame_hgc : forall H1 Q1 t H Q,
   triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* (Q \*+ \Top)) ->
+  H ==> H1 \* (Q1 \--* (Q \*+ \GC)) ->
   triple t H Q.
 
 End Wand.
@@ -602,8 +681,8 @@ Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
 
 (** Reformulation of the combined structural rule *)
 
-Parameter wp_conseq_frame_htop : forall t H Q1 Q2,
-  Q1 \*+ H ===> Q2 \*+ \Top ->
+Parameter wp_conseq_frame_hgc : forall t H Q1 Q2,
+  Q1 \*+ H ===> Q2 \*+ \GC ->
   (wp t Q1) \* H ==> (wp t Q2).
 
 (** Reformulation of the reasoning rules for terms *)
@@ -667,12 +746,21 @@ Definition formula := (val->hprop) -> hprop.
         end).
 
     Parameter triple_of_wpgen : forall H t Q,
+      wpgen t Q ==> wp t Q
+
+    Parameter triple_of_wpgen : forall H t Q,
       H ==> wpgen t Q ->
       triple t H Q.
 
 ]]
 *)
+
+(* ******************************************************* *)
+(** ** Support for the frame rule and other structural rules *)
+
 Module Wpgen1.
+
+(** What we want to define: *)
 
 Parameter wpgen : forall (t:trm), formula.
 
@@ -680,19 +768,19 @@ Parameter wpgen : forall (t:trm), formula.
     can be applied to any formula produced by [wpgen], that is: *)
 
 Parameter wpgen_ramified : forall t Q1 Q2,
-  (wpgen t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wpgen t Q2).
+  (wpgen t Q1) \* (Q1 \--* Q2 \*+ \GC) ==> (wpgen t Q2).
 
 End Wpgen1.
 
 (** [mkstruct] is a formula transformer *)
 
 Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
-  \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
+  \exists Q', F Q' \* (Q' \--* (Q \*+ \GC)).
 
 (** [mkstruct] can be exploited to apply frame/consequence/garbage rules *)
 
 Lemma mkstruct_ramified : forall Q1 Q2 F,
-  (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
+  (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \GC) ==> (mkstruct F Q2).
 Proof using. unfold mkstruct. xsimpl. Qed.
 
 (** [mkstruct] can be dropped *)
@@ -703,7 +791,7 @@ Proof using. unfolds mkstruct. xsimpl. Qed.
 
 
 (* ******************************************************* *)
-(** ** Naive implementation *)
+(** ** Attempt at a direct implementation *)
 
 Definition wpgen_val (v:val) : formula := fun Q =>
   Q v.
@@ -755,8 +843,14 @@ Definition Wpgen wpgen (t:trm) : formula :=
 ]]
 *)
 
+
 (* ******************************************************* *)
 (** ** Implementation with delayed substitution *)
+
+(** Instead of trying to define [wpgen t] to compute [wp t], we define
+    the function [wpgen E t] which computes [wp (isubst E t)],
+    where [E : ctx] is a list of bindings from variables to values,
+    and [isubst] denotes the substitution for these bindings. *)
 
 Definition ctx : Type := list (var*val).
 
@@ -861,7 +955,7 @@ Qed.
 
 Parameter wpgen_sound : forall E t,
   formula_sound_for (isubst E t) (wpgen E t).
-(**
+(** Overview of the proof:
 Proof using.
   intros. gen E. induction t; intros; simpl;
    applys mkstruct_sound.
@@ -1033,7 +1127,7 @@ Notation "l '~~>' V" := (l ~> Hsingle V)
 
 (** [Triple t H Q] describes a triple where the postcondition [Q] has
     type [A->hprop] for some encodable type [A].
-    
+
     [Triple t H Q] captures the fact that [t] evaluates to a value [v]
     which is the encoding of a value [V] for which the postcondition 
     [Q] holds. *)
@@ -1077,9 +1171,7 @@ Definition Formula := forall A (EA:Enc A), (A -> hprop) -> hprop.
     [F A EA Q] where [Q] has type [A->hprop] and [EA:Enc A]. *)
 
 Notation "^ F Q" := ((F:Formula) _ _ Q)
-  (at level 45, F at level 0, Q at level 0, format "^ F  Q") : wp_scope.
-
-Open Scope wp_scope.
+  (at level 45, F at level 0, Q at level 0, format "^ F  Q").
 
 (** The [MkStruct] predicate lifts [mkstruct]. *)
 

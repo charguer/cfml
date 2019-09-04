@@ -295,6 +295,90 @@ Proof using.
   { intros X L' HL. xappn. xval. xsimpl*. }
 Qed.
 
+
+
+(* ####################################################### *)
+(** * Stack exercises *)
+
+(** Hints: 
+    - [xunfold Stackn] to unfold all
+    - [xchange Stackn_eq] to unfold one
+    - [xchange <- Stackn_eq] to fold one
+    - [xchange (Stackn_eq p)] to unfold the one at pointer [p]
+    - [xchange <- (Stackn_eq p)] to fold the one at pointer [p]
+    - [xchanges] to invoke [xsimpl] subsequently
+*)
+
+(*
+Module ExoStack.
+Import ExampleStack.Stackn.
+*)
+
+(** Recall from [ExampleStack.v]
+[[
+  type 'a lstack = { data : 'a list; size : int }
+]]
+*)
+
+(* ******************************************************* *)
+(** ** The clear function *) 
+
+(** 
+[[
+   let clear p =  
+     p.data <- [];
+     p.size <- 0
+]]
+*)
+
+Definition clear :=
+  VFun 'p :=
+    Set 'p'.data ':= ``nil ';
+    Set 'p'.size ':= ``0.
+
+Lemma Triple_clear : forall `{Enc A} (p:loc) (L:list A),
+  TRIPLE (clear p)
+    PRE (p ~> Stackn L)
+    POST (fun (u:unit) => p ~> Stackn nil).
+Proof using.
+  (* SOLUTION *) xwp. xunfold Stackn. xapp. xapp. xsimpl. (* /SOLUTION *)
+Qed.
+
+Hint Extern 1 (Register_Spec (clear)) => Provide @Triple_clear.
+
+
+(* ******************************************************* *)
+(** ** The concat function (orange belt)  *) 
+
+(** 
+[[
+   let concat p1 p2 =
+     p1.data <- p1.data @ p2.data;
+     p1.size <- p1.size + p2.size;
+     clear p2
+]]
+*)
+
+Definition concat :=
+  VFun 'p1 'p2 :=
+    Set 'p1'.data ':= (('p1'.data) '++ ('p2'.data)) ';
+    Set 'p1'.size ':= (('p1'.size) '+ ('p2'.size)) ';
+    clear 'p2.
+
+Lemma Triple_concat : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
+  TRIPLE (concat p1 p2)
+    PRE (p1 ~> Stackn L1 \* p2 ~> Stackn L2)
+    POST (fun (u:unit) => (* SOLUTION *) p1 ~> Stackn (L1 ++ L2) \* p2 ~> Stackn nil (* /SOLUTION *)).
+Proof using.
+  (* SOLUTION *) 
+  xwp. xunfold Stackn. xapp. xapp. xapp. xapp. xapp. xapp. xapp.
+  xapp. xchange <- (Stackn_eq p1). { rew_listx. auto. }
+  xchange <- (Stackn_eq p2). xapp. xsimpl. 
+  (* /SOLUTION *)
+Qed.
+
+(*
+End ExoStack.
+*)
+
 End Stackn.
-
-
