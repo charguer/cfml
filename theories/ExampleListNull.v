@@ -183,6 +183,15 @@ Proof using.
   intros. xchange MList_head ;=> q. xchange MListTail_null ;=> M. xsimpl*.
 Qed.
 
+Lemma MList_head_if : forall `{EA:Enc A} (L:list A) (p:loc),
+  p ~> MList L ==>
+  \exists (q:loc), p ~~> q \* If q = null 
+    then \[L = nil] 
+    else \exists x L', \[L = x::L'] \* q`.head ~~> x \* q`.tail ~> MList L'.
+Proof using.
+  intros. xchange MList_head ;=> q. xchange MListTail_if. xsimpl*.
+Qed.
+
 Lemma MList_nil : forall p A `{EA:Enc A},
   (p ~> MList (@nil A)) = p ~~> null.
 Proof using.
@@ -277,13 +286,10 @@ Lemma Triple_mlength : forall A `{EA:Enc A} (L:list A) (p:loc),
     POST (fun (r:int) => \[r = length L] \* p ~> MList L).
 Proof using.
   intros. gen p. induction_wf: list_sub_wf L; intros. xwp.
-  xchange MList_head_null ;=> q Hq. xapp. xapp.
-  typeclass. (* todo *) 
-  xif ;=> C. rewrite Hq in C.
-  { xval. xchange <- MList_head. xsimpl*. }
-  { destruct L as [|x L']; [tryfalse*|]. xapp.
-    xchange MListTail_cons. xapp*. (* xapp~ (IH L'). *) 
-    xapp. xchanges* <- MList_cons. }
+  xchange MList_head_if ;=> q. xapp. xapp~.
+  xif ;=> C; case_if; xpull.
+  { intros ->. xval. subst q. xchange <- MList_nil. xsimpl*. }
+  { intros x L' ->. xapp. xapp~. xapp. xchanges* <- MList_cons. }
 Qed.
 
 
@@ -320,34 +326,6 @@ Qed.
 Hint Extern 1 (Register_Spec val_mlist_copy) => Provide Triple_mlist_copy.
 
 
-
-(* ********************************************************************** *)
-(* * Length of a mutable list *)
-
-(** Note: same definition as in [ExampleListNonLifted] *)
-
-Definition val_mlist_length : val :=
-  VFix 'f 'p :=
-    If_ 'p '<> null Then (
-      Let 'q := val_get_tl 'p in
-      Let 'n := 'f 'q in
-      val_add 'n 1
-    ) Else (
-      0
-    ).
-
-Lemma Triple_mlist_length : forall A `{EA:Enc A} (L:list A) (p:loc),
-  TRIPLE (val_mlist_length ``p)
-    PRE (p ~> MList L)
-    POST (fun (r:int) => \[r = length L] \* p ~> MList L).
-Proof using.
-  intros. gen p. induction_wf: list_sub_wf L; intros. xcf.
-  xapps~. xif ;=> C.
-  { xtchanges~ (MList_not_null_inv_cons p) ;=> x p' L' EL.
-    xapps. xapps~ (IH L'). xtchange (MList_cons p).
-    xapps. xsimpl ;=> ? ->. auto. }
-  { subst. xtchanges MList_null_inv ;=> EL. xvals~. }
-Qed.
 
 
 (* ********************************************************************** *)
