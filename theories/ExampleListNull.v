@@ -275,323 +275,95 @@ Qed.
 End SegProperties.
 
 
-
-(* ---------------------------------------------------------------------- *)
+(* ********************************************************************** *)
 (* ** Node allocation *)
 
-(*
-Definition val_new_cell : val := val_new_record 2%nat.
+Definition mk_cell :=
+  VFun 'x 'q :=
+    New`{ head := 'x; tail := 'q }.
 
-(** Above equivalent to :
-
-Definition val_new_cell :=
-  ValFun 'x 'y :=
-    Let 'p := val_alloc 2 in
-    val_set_item 'p 'x;;;
-    val_set_left 'p 'y;;;
-    'p.
-*)
-*)
-
-*)
-
-
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Node allocation *)
-
-(* TODO WIP
-Definition val_new_cell : val := val_new_record 2%nat.
-
-(** Above equivalent to :
-
-Definition val_new_cell :=
-  ValFun 'x 'y :=
-    New`{ hd := x; tl := p' }
-*)
-*)
-
-Parameter val_new_cell : val.
-
-Lemma Triple_new_cell : forall `{EA:Enc A} (x:A) (q:loc),
-  TRIPLE (val_new_cell ``x ``q)
+Lemma Triple_mk_cell : forall `{EA:Enc A} (x:A) (q:loc),
+  TRIPLE (mk_cell ``x ``q)
     PRE \[]
     POST (fun p => (p ~> MCell x q)).
-(*
-Proof using. xtriple_new_record. Qed.
-*)
-Admitted.
+Proof using. xwp. xnew (>> x q). xsimpl. Qed.
 
-Hint Extern 1 (Register_Spec val_new_cell) => Provide Triple_new_cell.
-
-Opaque val_new_cell.
-
-
-(* ********************************************************************** *)
-(* * List Copy *)
-
-Definition val_mlist_copy :=
-  VFix 'f 'p :=
-    If_ val_eq 'p null Then null Else (
-      Let 'x := val_get_hd 'p in
-      Let 'p1 := val_get_tl 'p in
-      Let 'p2 := 'f 'p1 in
-      val_new_cell 'x 'p2
-   ).
-
-Lemma Triple_mlist_copy : forall p (L:list int),
-  TRIPLE (val_mlist_copy ``p)
-    PRE (p ~> MList L)
-    POST (fun (p':loc) =>
-         (p ~> MList L) \* (p' ~> MList L)).
-Proof using.
-  intros. gen p. induction_wf IH: list_sub_wf L. xwp.
-  xapps~. xif ;=> C.
-  { xval. subst p. rewrite MList_null_eq. xsimpl~. }
-  { xtchanges~ (MList_not_null_inv_cons p) ;=> x p1 T1 E.
-    subst. xapps. xapps. xapp~ as p1'. xapp.
-    intros p'. do 2 rewrite MList_cons_eq. xsimpl. }
-Qed.
-
-Hint Extern 1 (Register_Spec val_mlist_copy) => Provide Triple_mlist_copy.
-
+Hint Extern 1 (Register_Spec mk_cell) => Provide Triple_mk_cell.
 
 
 (* ********************************************************************** *)
 (* * Length of a mutable list *)
 
-(** Note: same definition as in [ExampleListNonLifted] *)
+(** 
+[[
+    let rec mlength p =
+      if p == null
+        then 0
+        else 1 + mlength (tail p)
+]]
+*)
 
-Definition val_mlist_length : val :=
+Definition mlength : val :=
   VFix 'f 'p :=
-    If_ 'p '<> null Then (
-      Let 'q := val_get_tl 'p in
-      Let 'n := 'f 'q in
-      val_add 'n 1
-    ) Else (
-      0
-    ).
+    If_ 'p '= null
+      Then 0 
+      Else 1 '+ 'f ('p'.tail).
 
-Lemma Triple_mlist_length : forall A `{EA:Enc A} (L:list A) (p:loc),
-  TRIPLE (val_mlist_length ``p)
+Lemma Triple_mlength : forall A `{EA:Enc A} (L:list A) (p:loc),
+  TRIPLE (mlength ``p)
     PRE (p ~> MList L)
     POST (fun (r:int) => \[r = length L] \* p ~> MList L).
 Proof using.
-  intros. gen p. induction_wf: list_sub_wf L; intros. xcf.
-  xapps~. xif ;=> C.
-  { xtchanges~ (MList_not_null_inv_cons p) ;=> x p' L' EL.
-    xapps. xapps~ (IH L'). xtchange (MList_cons p).
-    xapps. xsimpl ;=> ? ->. auto. }
-  { subst. xtchanges MList_null_inv ;=> EL. xvals~. }
+  intros. gen p. induction_wf: list_sub_wf L; intros. xwp.
+  xapp~. xchange MList_if. xif ;=> C; case_if; xpull.
+  { intros ->. xval. xchanges* <- (MList_nil p). }
+  { intros x q L' ->. xapp. xapp~. xapp. xchanges* <- (MList_cons p). }
 Qed.
 
+Hint Extern 1 (Register_Spec mlength) => Provide Triple_mlength.
 
-
-
-========================================
-
-(**
-
-
-
-
-This file formalizes mutable list examples in CFML 2.0.
-
-Author: Arthur Charguéraud.
-License: MIT.
-
-*)
-
-Set Implicit Arguments.
-From Sep Require Import Example.
-
-(*
-Implicit Types p : loc.
-Implicit Types n : int.
-*)
-
-(*
-Hint Extern 1 (_ = _ :> Z) => subst; rew_list; math.
-Hint Extern 1 (_ = _ :> list _) => subst; rew_list.
-Hint Extern 1 (list_sub _ _) => subst.
-*)
 
 
 (* ********************************************************************** *)
-(* * Formalization of mutable lists, with lifting *)
+(* * List Copy *)
 
-(* ---------------------------------------------------------------------- *)
-(* ** Fields *)
+(** 
+[[
+    let rec copy p =
+      if p == null
+        then null
+        else mk_cell (p.head) (copy p.tail)
+]]
+*)
 
-Definition hd : field := 0%nat.
-Definition tl : field := 1%nat.
+Definition copy : val :=
+  VFix 'f 'p :=
+    If_ 'p  '= null
+      Then null
+      Else mk_cell ('p'.head) ('f ('p'.tail)).
 
-Notation "'val_get_hd'" := (val_get_field hd).
-Notation "'val_get_tl'" := (val_get_field tl).
-Notation "'val_set_hd'" := (val_set_field hd).
-Notation "'val_set_tl'" := (val_set_field tl).
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Representation *)
-
-Fixpoint MList A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
-  match L with
-  | nil => \[p = null]
-  | x::L' => \exists (p':loc), (p ~> Record`{ hd := x; tl := p' }) \* (p' ~> MList L')
-  end.
-
-Notation "'MCell' x q" :=
-  (Record`{ hd := x; tl := q })
-  (at level 19, x at level 0, q at level 0).
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Lemmas *)
-
-Section Properties.
-
-(** Conversion lemmas for empty lists *)
-
-Lemma MList_nil_eq : forall p A `{EA:Enc A},
-  (p ~> MList (@nil A)) = \[p = null].
-Proof using. intros. xunfold~ MList. Qed.
-
-Lemma MList_nil : forall A `{EA:Enc A},
-  \[] ==> (null ~> MList (@nil A)).
-Proof using. intros. rewrite MList_nil_eq. xsimpl~. Qed.
-
-Lemma MList_null_eq : forall A `{EA:Enc A} (L:list A),
-  (null ~> MList L) = \[L = nil].
+Lemma Triple_copy : forall p (L:list int),
+  TRIPLE (copy ``p)
+    PRE (p ~> MList L)
+    POST (fun (p':loc) => (p ~> MList L) \* (p' ~> MList L)).
 Proof using.
-  intros. destruct L.
-  { xunfold MList. applys himpl_antisym; xsimpl~. }
-  { xunfold MList. applys himpl_antisym.
-    { xpull ;=> p'. xchange (hRecord_not_null null).
-      { simpl. unfold hd. auto. } }
-    { xpull. } }
+  intros. gen p. induction_wf IH: list_sub_wf L. xwp.
+  xapp~. xchange MList_if. xif ;=> C; case_if; xpull.
+  { intros ->. xval. xchanges~ <- (MList_nil p). xchanges* <- (MList_nil null). }
+  { intros x q L' ->. xapp. xapp. xapp~ ;=> q'. xapp ;=> p'.
+    xchanges <- (MList_cons p). xchanges* <- (MList_cons p'). }
 Qed.
 
-Lemma MList_null_inv : forall A `{EA:Enc A} (L:list A),
-  null ~> MList L ==> null ~> MList L \* \[L = nil].
-Proof using.
-  intros. destruct L.
-  { xsimpl~. }
-  { rewrite MList_null_eq. xsimpl. }
-Qed.
-
-(** Conversion lemmas for non-empty lists *)
-
-Lemma MList_cons_eq : forall p A `{EA:Enc A} (x:A) L',
-  p ~> MList (x::L') =
-  \exists p', (p ~> Record`{ hd := x; tl := p' }) \* p' ~> MList L'.
-Proof using. intros. xunfold MList at 1. simple~. Qed.
-
-Lemma MList_cons : forall p p' A `{EA:Enc A} (x:A) L',
-  (p ~> Record`{ hd := x; tl := p' }) \* p' ~> MList L' ==>
-  p ~> MList (x::L').
-Proof using. intros. rewrite MList_cons_eq. xsimpl. Qed.
-
-Lemma MList_not_null_inv_not_nil : forall p A `{EA:Enc A} (L:list A),
-  p <> null ->
-  p ~> MList L ==> p ~> MList L \* \[L <> nil].
-Proof using.
-  intros. destruct L.
-  { xchanges -> (MList_nil_eq p). }
-  { xsimpl. auto_false. }
-Qed.
-
-Lemma MList_not_null_inv_cons : forall p A `{EA:Enc A} (L:list A),
-  p <> null ->
-  p ~> MList L ==> \exists x p' L',
-       \[L = x::L']
-    \* (p ~> Record`{ hd := x; tl := p' })
-    \* p' ~> MList L'.
-Proof using.
-  intros. xchange~ (@MList_not_null_inv_not_nil p). xpull. intros.
-  destruct L; tryfalse.
-  xchange (MList_cons_eq p). xsimpl~.
-Qed.
-
-End Properties.
-
-Arguments MList_null_inv : clear implicits.
-Arguments MList_cons_eq : clear implicits.
-Arguments MList_cons : clear implicits.
-Arguments MList_not_null_inv_not_nil : clear implicits.
-Arguments MList_not_null_inv_cons : clear implicits.
-
-Global Opaque MList.
+Hint Extern 1 (Register_Spec copy) => Provide Triple_copy.
 
 
 
-(* ---------------------------------------------------------------------- *)
-(** Representation *)
-
-Fixpoint MListSeg `{EA:Enc A} (q:loc) (L:list A) (p:loc) : hprop :=
-  match L with
-  | nil => \[p = q]
-  | x::L' => \exists (p':loc), (p ~> MCell x p') \* (p' ~> MListSeg q L')
-  end.
 
 
-(* ---------------------------------------------------------------------- *)
-(** Properties *)
-
-Section SegProperties.
-
-Lemma MListSeg_nil_eq : forall `{EA:Enc A} p q,
-  p ~> (MListSeg q (@nil A)) = \[p = q].
-Proof using. intros. xunfold~ MListSeg. Qed.
-
-Lemma MListSeg_cons_eq : forall `{EA:Enc A} p q x (L':list A),
-  p ~> MListSeg q (x::L') =
-  \exists (p':loc), (p ~> MCell x p') \* p' ~> MListSeg q L'.
-Proof using. intros. xunfold MListSeg at 1. simple~. Qed.
-
-Global Opaque MListSeg.
-
-Lemma MListSeg_nil : forall `{EA:Enc A} p,
-  \[] ==> p ~> MListSeg p (@nil A).
-Proof using. intros. rewrite MListSeg_nil_eq. xsimpl~. Qed.
-
-Lemma MListSeg_cons : forall `{EA:Enc A} p p' q x (L':list A),
-  p ~> (MCell x p') \* p' ~> MListSeg q L' ==> p ~> MListSeg q (x::L').
-Proof using. intros. rewrite MListSeg_cons_eq. xsimpl. Qed.
-
-Lemma MListSeg_one : forall `{EA:Enc A} p q (x:A),
-  p ~> (MCell x q) ==> p ~> MListSeg q (x::nil).
-Proof using.
-  intros. xchange (MListSeg_nil q). xchanges (>> MListSeg_cons p).
-Qed.
-
-Lemma MListSeg_to_MList : forall `{EA:Enc A} p (L:list A),
-  p ~> MListSeg null L ==> p ~> MList L.
-Proof using.
-  intros. gen p. induction L; intros.
-  { rewrite MListSeg_nil_eq. rewrite MList_nil_eq. auto. }
-  { rewrite MListSeg_cons_eq. rewrite MList_cons_eq.
-    xpull ;=> p'. xchange IHL. xsimpl~. }
-Qed.
-
-Lemma MListSeg_concat : forall `{EA:Enc A} p1 p2 p3 (L1 L2:list A),
-  p1 ~> MListSeg p2 L1 \* p2 ~> MListSeg p3 L2 ==> p1 ~> MListSeg p3 (L1++L2).
-Proof using.
-  intros. gen p1. induction L1 as [|x L1']; intros.
-  { rewrite MListSeg_nil_eq. xpull ;=> E. subst. rew_list~. }
-  { rew_list. xchange (MListSeg_cons_eq p1). xpull ;=> p1'.
-    xchange (IHL1' p1'). xchanges (>> MListSeg_cons p1). }
-Qed.
-
-Lemma MListSeg_last : forall `{EA:Enc A} p1 p2 p3 x (L:list A),
-  p1 ~> MListSeg p2 L \* p2 ~> (MCell x p3) ==> p1 ~> MListSeg p3 (L&x).
-Proof using.
-  intros. xchange (>> MListSeg_one p2). xchanges (>> (@MListSeg_concat) p1 p2).
-Qed.
-
-End SegProperties.
-
+(* ********************************************************************** *)
+(* ********************************************************************** *)
+(* ********************************************************************** *)
+(* LATER 
 
 (* ********************************************************************** *)
 (* * Out-of-place append of two mutable lists *)
@@ -992,3 +764,4 @@ Qed.
 *)
 
 *)
+
