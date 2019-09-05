@@ -192,9 +192,6 @@ Arguments MList_null_inv : clear implicits.
 Arguments MList_not_null_inv_not_nil : clear implicits.
 Arguments MList_not_null_inv_cons : clear implicits.
 
-Global Opaque MList.
-
-
 
 (* ---------------------------------------------------------------------- *)
 (** Representation of list segments *)
@@ -211,53 +208,68 @@ Fixpoint MListSeg `{EA:Enc A} (q:loc) (L:list A) (p:loc) : hprop :=
 
 Section SegProperties.
 
-Lemma MListSeg_nil_eq : forall `{EA:Enc A} p q,
+Lemma MListSeg_eq : forall (p:loc) `{EA:Enc A} (q:loc) (L:list A),
+  p ~> MListSeg q L =
+  match L with
+  | nil => \[p = q]
+  | x::L' => \exists (p':loc), (p ~> MCell x p') \* (p' ~> MListSeg q L')
+  end.
+Proof using. intros. xunfold~ MListSeg. destruct~ L. Qed.
+
+Lemma MListSeg_nil : forall `{EA:Enc A} p q,
   p ~> (MListSeg q (@nil A)) = \[p = q].
 Proof using. intros. xunfold~ MListSeg. Qed.
 
-Lemma MListSeg_cons_eq : forall `{EA:Enc A} p q x (L':list A),
+Lemma MListSeg_cons : forall `{EA:Enc A} p q x (L':list A),
   p ~> MListSeg q (x::L') =
   \exists (p':loc), (p ~> MCell x p') \* p' ~> MListSeg q L'.
-Proof using. intros. xunfold MListSeg at 1. simple~. Qed.
+Proof using. intros. xunfold~ MListSeg. Qed.
 
 Global Opaque MListSeg.
 
-Lemma MListSeg_nil : forall `{EA:Enc A} p,
-  \[] ==> p ~> MListSeg p (@nil A).
-Proof using. intros. rewrite MListSeg_nil_eq. xsimpl~. Qed.
-
-Lemma MListSeg_cons : forall `{EA:Enc A} p p' q x (L':list A),
-  p ~> (MCell x p') \* p' ~> MListSeg q L' ==> p ~> MListSeg q (x::L').
-Proof using. intros. rewrite MListSeg_cons_eq. xsimpl. Qed.
+Lemma MListSeg_nil_intro : forall `{EA:Enc A} p,
+  \[] = p ~> MListSeg p (@nil A).
+Proof using. intros. rewrite MListSeg_nil. xsimpl*. Qed.
 
 Lemma MListSeg_one : forall `{EA:Enc A} p q (x:A),
-  p ~> (MCell x q) ==> p ~> MListSeg q (x::nil).
+  p ~> MListSeg q (x::nil) = p ~> (MCell x q).
 Proof using.
-  intros. xchange (MListSeg_nil q). xchanges (>> MListSeg_cons p).
+  intros. rewrite MListSeg_cons. applys himpl_antisym.
+  { xpull ;=> p'. xchange MListSeg_nil ;=> ->. xsimpl. }
+  { xsimpl q. xchanges* <- MListSeg_nil. }
 Qed.
 
-Lemma MListSeg_to_MList : forall `{EA:Enc A} p (L:list A),
-  p ~> MListSeg null L ==> p ~> MList L.
+Lemma MListSeg_MList : forall `{EA:Enc A} p (L:list A),
+  p ~> MListSeg null L = p ~> MList L.
 Proof using.
   intros. gen p. induction L; intros.
-  { rewrite MListSeg_nil_eq. rewrite MList_nil_eq. auto. }
-  { rewrite MListSeg_cons_eq. rewrite MList_cons_eq.
-    xpull ;=> p'. xchange IHL. xsimpl~. }
+  { rewrite MListSeg_nil. rewrite~ MList_nil. }
+  { rewrite MListSeg_cons. rewrite MList_cons.
+    fequals. apply fun_ext_1. intros q. (* todo simplify *)
+    rewrite~ IHL. }
 Qed.
 
-Lemma MListSeg_concat : forall `{EA:Enc A} p1 p2 p3 (L1 L2:list A),
-  p1 ~> MListSeg p2 L1 \* p2 ~> MListSeg p3 L2 ==> p1 ~> MListSeg p3 (L1++L2).
+Lemma MListSeg_concat : forall `{EA:Enc A} p1 p3 (L1 L2:list A),
+  p1 ~> MListSeg p3 (L1++L2) = 
+  \exists p2, p1 ~> MListSeg p2 L1 \* p2 ~> MListSeg p3 L2.
 Proof using.
-  intros. gen p1. induction L1 as [|x L1']; intros.
-  { rewrite MListSeg_nil_eq. xpull ;=> E. subst. rew_list~. }
-  { rew_list. xchange (MListSeg_cons_eq p1). xpull ;=> p1'.
-    xchange (IHL1' p1'). xchanges (>> MListSeg_cons p1). }
+  intros. gen p1. induction L1 as [|x L1']; intros; rew_list.
+  { applys himpl_antisym.
+    { applys himpl_hexists_r p1. (* TODO fix  xsimpl p1. *)
+      xchange~ <- MListSeg_nil. }
+    {  xpull ;=> p2. xchange~ MListSeg_nil ;=> ->. xsimpl. } }
+  { rewrite MListSeg_cons. applys himpl_antisym.
+    { xpull ;=> p1'. xchange IHL1' ;=> p2. xsimpl p2. xchange <- MListSeg_cons. }
+    { xpull ;=> p2. xchange MListSeg_cons ;=> p1'. xchanges <- IHL1'. } }
 Qed.
 
-Lemma MListSeg_last : forall `{EA:Enc A} p1 p2 p3 x (L:list A),
-  p1 ~> MListSeg p2 L \* p2 ~> (MCell x p3) ==> p1 ~> MListSeg p3 (L&x).
+Lemma MListSeg_last : forall `{EA:Enc A} p1 p3 x (L:list A),
+  p1 ~> MListSeg p3 (L&x) = 
+  \exists p2, p1 ~> MListSeg p2 L \* p2 ~> (MCell x p3).
 Proof using.
-  intros. xchange (>> MListSeg_one p2). xchanges (>> (@MListSeg_concat) p1 p2).
+  intros. rewrite MListSeg_concat. 
+  fequals. apply fun_ext_1. intros p2. (* todo simplify *)
+  rewrite~ MListSeg_one.
 Qed.
 
 End SegProperties.
