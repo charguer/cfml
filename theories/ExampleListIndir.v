@@ -72,7 +72,7 @@ Hint Extern 1 (Register_Spec (val_get_field _)) => Provide Triple_val_get_field.
     };
 ]]
 *)
-Module MListNull.
+
 
 Definition head : field := 0%nat.
 Definition tail : field := 1%nat.
