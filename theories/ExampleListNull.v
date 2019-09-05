@@ -16,22 +16,29 @@ Implicit Types p : loc.
 Implicit Types n : int.
 
 
+
+(* ********************************************************************** *)
+(* * Field names *)
+
+Definition head : field := 0%nat.
+Definition tail : field := 1%nat.
+
+
 (* ********************************************************************** *)
 (* * Towards a representation *)
 
+(* ---------------------------------------------------------------------- *)
+(** ** C-style datatype *)
+
 (** Let's try to first formalize the C representation:
 [[
-    typedef struct node<A> { 
-      A head; 
-      node<A>* tail; 
+    typedef struct node { 
+      item  head; 
+      node* tail; 
     };
     // with node = null for the empty list
 ]]
 *)
-Module MListNull.
-
-Definition head : field := 0%nat.
-Definition tail : field := 1%nat.
 
 (* ---------------------------------------------------------------------- *)
 (** ** Inductive presentation (does not work) *)
@@ -54,6 +61,8 @@ Definition tail : field := 1%nat.
 (* ---------------------------------------------------------------------- *)
 (** ** Recursive presentation *)
 
+Module MListVal.
+
 (** Recursive of [p ~> MList L], that is, [MList L p]. *)
 
 Fixpoint MList (L:list val) (p:loc) : hprop :=
@@ -62,25 +71,12 @@ Fixpoint MList (L:list val) (p:loc) : hprop :=
   | x::L' => \exists p', p ~> Record`{ head := x; tail := p'} \* (p' ~> MList L')
   end.
 
-End MListNull.
-
-
+End MListVal.
 
 
 
 (* ********************************************************************** *)
 (* * Formalization of mutable lists with null pointers *)
-
-(* ---------------------------------------------------------------------- *)
-(* ** Fields *)
-
-Definition hd : field := 0%nat.
-Definition tl : field := 1%nat.
-
-Notation "'val_get_hd'" := (val_get_field hd).
-Notation "'val_get_tl'" := (val_get_field tl).
-Notation "'val_set_hd'" := (val_set_field hd).
-Notation "'val_set_tl'" := (val_set_field tl).
 
 
 (* ---------------------------------------------------------------------- *)
@@ -89,11 +85,11 @@ Notation "'val_set_tl'" := (val_set_field tl).
 Fixpoint MList A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
   match L with
   | nil => \[p = null]
-  | x::L' => \exists (p':loc), (p ~> Record`{ hd := x; tl := p' }) \* (p' ~> MList L')
+  | x::L' => \exists (p':loc), (p ~> Record`{ head := x; tail := p' }) \* (p' ~> MList L')
   end.
 
 Notation "'MCell' x q" :=
-  (Record`{ hd := x; tl := q })
+  (Record`{ head := x; tail := q })
   (at level 19, x at level 0, q at level 0).
 
 
@@ -102,73 +98,97 @@ Notation "'MCell' x q" :=
 
 Section Properties.
 
-(** Conversion lemmas for empty lists *)
+Lemma MList_eq : forall (p:loc) A `{EA:Enc A} (L:list A),
+  p ~> MList L =
+  match L with
+  | nil => \[p = null]
+  | x::L' => \exists (p':loc), (p ~> Record`{ head := x; tail := p' }) \* (p' ~> MList L')
+  end.
+Proof using. intros. xunfold~ MList. destruct~ L. Qed.
 
-Lemma MList_nil_eq : forall p A `{EA:Enc A},
+Lemma MList_nil : forall p A `{EA:Enc A},
   (p ~> MList (@nil A)) = \[p = null].
 Proof using. intros. xunfold~ MList. Qed.
 
-Lemma MList_nil : forall A `{EA:Enc A},
-  \[] ==> (null ~> MList (@nil A)).
-Proof using. intros. rewrite MList_nil_eq. xsimpl~. Qed.
+Lemma MList_cons : forall p A `{EA:Enc A} (x:A) L',
+  p ~> MList (x::L') =
+  \exists p', p ~> MCell x p' \* p' ~> MList L'.
+Proof using. intros. xunfold~ MList. Qed.
 
-Lemma MList_null_eq : forall A `{EA:Enc A} (L:list A),
+Global Opaque MList.
+
+Lemma MCell_null : forall A `{EA:Enc A} (x:A) (p':loc),
+  null ~> MCell x p' = \[False].
+Proof using.
+  intros. applys himpl_antisym.
+  { xchange hRecord_not_null. simpl. unfold head. auto. } (* todo simplify *)
+  { xpull. }
+Qed.
+
+Lemma MCell_not_null : forall (p:loc) A `{EA:Enc A} (x:A) (p':loc),
+  p ~> MCell x p' ==> p ~> MCell x p' \* \[p <> null].
+Proof using.
+  intros. tests C: (p = null). { xchange MCell_null. } { xsimpl~. }
+Qed.
+
+Lemma MList_null : forall A `{EA:Enc A} (L:list A),
   (null ~> MList L) = \[L = nil].
 Proof using.
   intros. destruct L.
-  { xunfold MList. applys himpl_antisym; xsimpl~. }
-  { xunfold MList. applys himpl_antisym.
-    { xpull ;=> p'. xchange (hRecord_not_null null).
-      { simpl. unfold hd. auto. } }
-    { xpull. } }
+  { rewrite MList_nil. xsimpl*. }
+  { rewrite MList_cons. applys himpl_antisym. (* todo xsimpl. too much *)
+    { xpull ;=> p'. xchange MCell_null. }
+    { xpull. (* TODO xsimpl. pb *) } }
 Qed.
+
+Lemma MList_nil_intro : forall A `{EA:Enc A},
+  \[] ==> (null ~> MList (@nil A)).
+Proof using. intros. rewrite MList_null. xsimpl*. Qed.
 
 Lemma MList_null_inv : forall A `{EA:Enc A} (L:list A),
-  null ~> MList L ==> null ~> MList L \* \[L = nil].
-Proof using.
-  intros. destruct L.
-  { xsimpl~. }
-  { rewrite MList_null_eq. xsimpl. }
-Qed.
-
-(** Conversion lemmas for non-empty lists *)
-
-Lemma MList_cons_eq : forall p A `{EA:Enc A} (x:A) L',
-  p ~> MList (x::L') =
-  \exists p', (p ~> Record`{ hd := x; tl := p' }) \* p' ~> MList L'.
-Proof using. intros. xunfold MList at 1. simple~. Qed.
-
-Lemma MList_cons : forall p p' A `{EA:Enc A} (x:A) L',
-  (p ~> Record`{ hd := x; tl := p' }) \* p' ~> MList L' ==>
-  p ~> MList (x::L').
-Proof using. intros. rewrite MList_cons_eq. xsimpl. Qed.
+  null ~> MList L ==> 
+  null ~> MList L \* \[L = nil].
+Proof using. intros. rewrite MList_null. xsimpl*. Qed.
 
 Lemma MList_not_null_inv_not_nil : forall p A `{EA:Enc A} (L:list A),
   p <> null ->
   p ~> MList L ==> p ~> MList L \* \[L <> nil].
 Proof using.
-  intros. destruct L.
-  { xchanges -> (MList_nil_eq p). }
-  { xsimpl. auto_false. }
+  intros. destruct L. { xchanges MList_nil. } { xsimpl*. }
 Qed.
 
 Lemma MList_not_null_inv_cons : forall p A `{EA:Enc A} (L:list A),
   p <> null ->
   p ~> MList L ==> \exists x p' L',
        \[L = x::L']
-    \* (p ~> Record`{ hd := x; tl := p' })
+    \* p ~> MCell x p'
     \* p' ~> MList L'.
 Proof using.
-  intros. xchange~ (@MList_not_null_inv_not_nil p). xpull. intros.
-  destruct L; tryfalse.
-  xchange (MList_cons_eq p). xsimpl~.
+  intros. xchange~ MList_not_null_inv_not_nil ;=> M.
+  destruct L; tryfalse. xchanges~ MList_cons.
+Qed.
+
+Lemma MList_if : forall p A `{EA:Enc A} (L:list A),
+  p ~> MList L ==> 
+  If p = null
+    then \[L = nil] 
+   else \exists x p' L', \[L = x::L'] \* p ~> MCell x p' \* p' ~> MList L'.
+Proof using.
+  intros. destruct L as [|x L'].
+  { xchanges MList_nil ;=> M. case_if. xsimpl~. }
+  { xchange MList_cons ;=> p'. case_if.
+    { subst. xchange MCell_null. }
+    { xsimpl~. } }
 Qed.
 
 End Properties.
 
-Arguments MList_null_inv : clear implicits.
-Arguments MList_cons_eq : clear implicits.
+Arguments MList_eq : clear implicits.
+Arguments MList_nil : clear implicits.
 Arguments MList_cons : clear implicits.
+Arguments MList_null : clear implicits.
+Arguments MList_nil_intro : clear implicits.
+Arguments MList_null_inv : clear implicits.
 Arguments MList_not_null_inv_not_nil : clear implicits.
 Arguments MList_not_null_inv_cons : clear implicits.
 
@@ -177,7 +197,7 @@ Global Opaque MList.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Representation *)
+(** Representation of list segments *)
 
 Fixpoint MListSeg `{EA:Enc A} (q:loc) (L:list A) (p:loc) : hprop :=
   match L with
@@ -187,7 +207,7 @@ Fixpoint MListSeg `{EA:Enc A} (q:loc) (L:list A) (p:loc) : hprop :=
 
 
 (* ---------------------------------------------------------------------- *)
-(** Properties *)
+(** Lemmas *)
 
 Section SegProperties.
 
