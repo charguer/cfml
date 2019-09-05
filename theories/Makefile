@@ -35,7 +35,7 @@ export TLC
 # List of files
 
 
-SRC_EXAMPLES := Example ExampleList ExampleListNull ExampleListIndir ExampleListOf ExampleStack ExamplePairingHeap
+SRC_EXAMPLES := Example ExampleList ExampleListNull ExampleListIndir ExampleQueue ExampleListOf ExampleStack ExamplePairingHeap
 SRC_CORE := TLCbuffer Fmap Var SepSimpl Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics WPRecord $(SRC_EXAMPLES) WPExamples WPExamplesDetails WPLib 
 
 SRC_MORE := SepBaseAltProofs SepCredits SepRO

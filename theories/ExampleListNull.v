@@ -11,6 +11,7 @@ License: MIT.
 Set Implicit Arguments.
 From Sep Require Import Example.
 Generalizable Variables A B.
+Open Scope heap_scope_ext.
 
 Implicit Types p : loc.
 Implicit Types n : int.
@@ -75,6 +76,40 @@ End MListVal.
 
 
 
+
+
+(* ********************************************************************** *)
+(* * Formalization of list cells *)
+
+Notation "'MCell' x q" :=
+  (Record`{ head := x; tail := q })
+  (at level 19, x at level 0, q at level 0).
+
+
+Lemma MCell_null : forall A `{EA:Enc A} (x:A) (p':loc),
+  null ~> MCell x p' = \[False].
+Proof using.
+  intros. applys himpl_antisym.
+  { xchange hRecord_not_null. simpl. unfold head. auto. } (* todo simplify *)
+  { xpull. }
+Qed.
+
+Lemma MCell_not_null : forall (p:loc) A `{EA:Enc A} (x:A) (p':loc),
+  p ~> MCell x p' ==+> \[p <> null].
+Proof using.
+  intros. tests C: (p = null). { xchange MCell_null. } { xsimpl~. }
+Qed.
+ 
+Lemma MCell_conflict : forall p1 p2 `{EA1:Enc A1} `{EA2:Enc A2} (x1 x2:A1) (y1 y2:A2),
+  p1 ~> MCell x1 y1 \* p2 ~> MCell x2 y2 ==+> \[p1 <> p2].
+(* TODO: two records with one common field have disjoint addresses *)
+Admitted.
+
+Arguments MCell_null : clear implicits.
+Arguments MCell_not_null : clear implicits.
+Arguments MCell_conflict : clear implicits.
+
+
 (* ********************************************************************** *)
 (* * Formalization of mutable lists with null pointers *)
 
@@ -85,13 +120,10 @@ End MListVal.
 Fixpoint MList A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
   match L with
   | nil => \[p = null]
-  | x::L' => \exists (p':loc), (p ~> Record`{ head := x; tail := p' }) \* (p' ~> MList L')
+  | x::L' => \exists (p':loc), p ~> MCell x p' \* p' ~> MList L'
   end.
 
-Notation "'MCell' x q" :=
-  (Record`{ head := x; tail := q })
-  (at level 19, x at level 0, q at level 0).
-
+(* (p ~> Record`{ head := x; tail := p' }) *)
 
 (* ---------------------------------------------------------------------- *)
 (* ** Lemmas *)
@@ -116,20 +148,6 @@ Lemma MList_cons : forall p A `{EA:Enc A} (x:A) L',
 Proof using. intros. xunfold~ MList. Qed.
 
 Global Opaque MList.
-
-Lemma MCell_null : forall A `{EA:Enc A} (x:A) (p':loc),
-  null ~> MCell x p' = \[False].
-Proof using.
-  intros. applys himpl_antisym.
-  { xchange hRecord_not_null. simpl. unfold head. auto. } (* todo simplify *)
-  { xpull. }
-Qed.
-
-Lemma MCell_not_null : forall (p:loc) A `{EA:Enc A} (x:A) (p':loc),
-  p ~> MCell x p' ==> p ~> MCell x p' \* \[p <> null].
-Proof using.
-  intros. tests C: (p = null). { xchange MCell_null. } { xsimpl~. }
-Qed.
 
 Lemma MList_null : forall A `{EA:Enc A} (L:list A),
   (null ~> MList L) = \[L = nil].
@@ -272,7 +290,21 @@ Proof using.
   rewrite~ MListSeg_one.
 Qed.
 
+Lemma MListSeg_MCell_conflict : forall `{EA:Enc A} p q L (x:A) (q':loc),
+  p ~> MListSeg q L \* q ~> MCell x q' ==+> \[L = nil <-> p = q].
+Proof using.
+  intros. destruct L.
+  { xchange MListSeg_nil. xsimpl*. split*. (* TODO: why not proved? *) }
+  { xchange MListSeg_cons ;=> p'. tests: (p = q).
+    { xchange (@MCell_conflict q q A EA loc Enc_loc). }
+    { xsimpl*. xchange <- MListSeg_cons. } }
+Qed.
+
 End SegProperties.
+
+
+
+
 
 
 (* ********************************************************************** *)

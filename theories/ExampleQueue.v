@@ -11,7 +11,7 @@ License: MIT.
 
 Set Implicit Arguments.
 Generalizable Variables A B.
-From Sep Require Import Example.
+From Sep Require Import Example ExampleListNull.
 
 Implicit Types p q : loc.
 Implicit Types n : int.
@@ -23,25 +23,45 @@ Implicit Types v : val.
 (* ********************************************************************** *)
 (* * Mutable queue *)
 
+(* ---------------------------------------------------------------------- *)
+(** ** Representation *)
+
+
 Definition MQueue `{EA:Enc A} (L:list A) (p:loc) :=
   \exists (pf:loc), \exists (pb:loc), \exists (vx:A), \exists (vy:loc),
     p ~> MCell pf pb \* pf ~> MListSeg pb L \* pb ~> MCell vx vy.
 
-(* Same as in [ExampleQueueNonlifted.v] *)
+Lemma MQueue_eq : forall (p:loc) `{EA:Enc A} (L:list A),
+  p ~> MQueue L =
+   \exists (pf:loc), \exists (pb:loc), \exists (vx:A), \exists (vy:loc),
+    p ~> MCell pf pb \* pf ~> MListSeg pb L \* pb ~> MCell vx vy.
+Proof using. intros. xunfold~ MQueue. Qed.
 
-Definition val_is_empty :=
-  ValFun 'p :=
-    Let 'x := val_get_hd 'p in
-    Let 'y := val_get_tl 'p in
-    val_eq 'x 'y.
 
-Parameter Triple_is_empty : forall `{EA:Enc A} (L:list A) p,
-  Triple (val_is_empty p)
+
+(* ********************************************************************** *)
+(* * Is-empty *)
+
+Definition is_empty :=
+  VFun 'p :=
+    'p'.head '= 'p'.tail.
+
+Lemma Triple_is_empty : forall `{EA:Enc A} (L:list A) p,
+  Triple (is_empty p)
     (p ~> MQueue L)
     (fun r => \[r = isTrue (L = nil)] \* p ~> MQueue L).
-(* LATER: similar proof to ExampleQueueNonLifted, todo *)
+Proof using.
+  xwp. xunfolds MQueue ;=> pf pb vx vy. xapp. xapp. xapp~.
+  xchange (MListSeg_MCell_conflict) ;=> M. xsimpl*.
+Qed.
 
-Hint Extern 1 (Register_Spec val_is_empty) => Provide Triple_is_empty.
+Hint Extern 1 (Register_Spec is_empty) => Provide Triple_is_empty.
+
+(*
+
+(* ********************************************************************** *)
+(* * Transfer 
+
 
 Definition val_transfer :=
   ValFun 'p1 'p2 :=
@@ -76,7 +96,7 @@ Proof using.
 Qed.
 
 
-
+*)
 
 (* ********************************************************************** *)
 (* * Mutable queue *)
@@ -244,3 +264,5 @@ Proof using.
     xchange (MListSeg_nil pf2). xsimpl~. }
   { subst. rew_list. xvals~. }
 Qed.
+
+*)
