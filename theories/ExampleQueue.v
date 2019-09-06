@@ -208,6 +208,60 @@ Hint Extern 1 (Register_Spec push_back) => Provide Triple_push_back.
 
 
 (* ********************************************************************** *)
+(* ** Transfer *)
+
+(** The function [transfer p1 p2] migrates all the items from the queue [p2]
+    to the back of the queue [p1], then clears [p2].
+
+    If [p2] is empty there is nothing to do. Else, the function performs
+    copy the data from the front cell of [p2] into the back cell of [p1],
+    then sets the back pointer of [p2] as new back pointer for [p1].
+
+[[
+  let transfer p1 p2 =
+    if not (is_empty p2) then begin
+      let b1 = p1.tail in
+      let f2 = p2.front in
+      b1.head := f2.head;
+      b1.tail := f2.tail;
+      p1.tail := p2.tail
+    end
+]]
+*)
+ 
+Definition transfer :=
+  VFun 'p1 'p2 :=
+    If_ 'not (is_empty 'p2) Then
+       Let 'b1 := 'p1'.tail in
+       Let 'f2 := 'p2'.head in
+       Let 'd := 'b1'.head in
+       Set 'b1'.head ':= ('f2'.head) ';
+       Set 'b1'.tail ':= ('f2'.tail) ';
+       Set 'p1'.tail ':= ('p2'.tail) ';
+       Set 'f2'.head ':= 'd ';
+       Set 'f2'.tail ':= ``null ';
+       Set 'p2'.tail ':= 'f2
+    End.
+
+(* TODO: remove ' in Set, for symmetry with let *)
+
+Lemma Triple_transfer : forall `{EA:Enc A} (L1 L2:list A) p1 p2,
+  TRIPLE (transfer p1 p2)
+    PRE (p1 ~> MQueue L1 \* p2 ~> MQueue L2)
+    POST (fun (_:unit) => p1 ~> MQueue (L1 ++ L2) \* p2 ~> MQueue nil).
+Proof using.
+  xwp. xapp. xapp. xif ;=> C.
+  { xunfold MQueue. xpull ;=> f2 b2 d2 f1 b1 d1. (* TODO: fix order, should be preserved *)
+    destruct L2 as [|x L2']; tryfalse.
+    xchange MListSeg_cons ;=> c2.
+    xapp. xapp. xapp. xapp. xapp. xapp. xapp. xapp. xapp. xapp. xapp. xapp.
+    xchange <- (MListSeg_cons b1). xchange <- (MListSeg_concat f1).
+    xchanges (MListSeg_nil_intro f2). }
+  { subst. rew_list. xvals~. }
+Qed.
+
+
+(* ********************************************************************** *)
 (* ** Bonus *)
 
 (** Alternative specification for [pop_front] for the case the list
@@ -226,86 +280,3 @@ Qed.
 
 (* TODO: disable RET notation in TRIPLE *)
  
-
-(* ********************************************************************** *)
-(* * Transfer
-
- 
-
-
-Definition val_transfer :=
-  ValFun 'p1 'p2 :=
-    Let 'e2 := val_is_empty 'p2 in
-    If_ val_not 'e2 Then
-       Let 'b1 := val_get_tl 'p1 in
-       Let 'f2 := val_get_hd 'p2 in
-       Let 'x2 := val_get_hd 'f2 in
-       Let 'n2 := val_get_tl 'f2 in
-       Let 'b2 := val_get_tl 'p2 in
-       val_set_tl 'p1 'b2 ;;;
-       val_set_hd 'b1 'x2 ;;;
-       val_set_tl 'b1 'n2 ;;;
-       val_set_tl 'p2 'f2
-    End.
-
-Lemma Triple_transfer : forall `{EA:Enc A} (L1 L2:list A) p1 p2,
-  Triple (val_transfer p1 p2)
-    (p1 ~> MQueue L1 \* p2 ~> MQueue L2)
-    (fun (_:unit) => p1 ~> MQueue (L1 ++ L2) \* p2 ~> MQueue nil).
-Proof using.
-  xcf. xapps. xapps. xif ;=> C.
-  { xunfold MQueue. xtpull ;=> f2 b2 vx2 vy2 f1 b1 vx1 vy1.
-    destruct L2 as [|x L2']; tryfalse.
-    rewrite MListSeg_cons_eq. xtpull ;=> f2'.
-    xapps. xapps. xapps. xapps.
-    xapps~. xapps~. xapps~. xapps~. xapps~.
-    xchange (>> (@MListSeg_last) f1).
-    xchange (MListSeg_concat f1 f2'). rew_list.
-    xchange (MListSeg_nil f2). xsimpl~. }
-  { subst. rew_list. xvals~. }
-Qed.
-
-(*
-*)
-
-
-
-(* ********************************************************************** *)
-(* ** Create *)
-
-(* ---------------------------------------------------------------------- *)
-(** Transfer *)
-
-Definition val_transfer :=
-  ValFun 'p1 'p2 :=
-    Let 'e2 := val_is_empty 'p2 in
-    If_ val_not 'e2 Then
-       Let 'b1 := val_get_tl 'p1 in
-       Let 'f2 := val_get_hd 'p2 in
-       Let 'x2 := val_get_hd 'f2 in
-       Let 'n2 := val_get_tl 'f2 in
-       Let 'b2 := val_get_tl 'p2 in
-       val_set_tl 'p1 'b2 ;;;
-       val_set_hd 'b1 'x2 ;;;
-       val_set_tl 'b1 'n2 ;;;
-       val_set_tl 'p2 'f2
-    End.
-
-Lemma triple_transfer : forall L1 L2 p1 p2,
-  triple (val_transfer p1 p2)
-    (MQueue L1 p1 \* MQueue L2 p2)
-    (fun r => MQueue (L1 ++ L2) p1 \* MQueue nil p2).
-Proof using.
-  xcf. xapps. xapps. xif ;=> C.
-  { unfold MQueue. xtpull ;=> f2 b2 vx2 vy2 f1 b1 vx1 vy1.
-    destruct L2 as [|x L2']; tryfalse.
-    xtchanges MListSeg_cons_eq ;=> f2'.
-    xapps. xapps. xapps. xapps.
-    xapps~. xapps~. intros _. xapps~. intros _. xapps~. intros _. xapps~.
-    intros r. xchange (MListSeg_last f1).
-    xchange (MListSeg_concat f1 f2' b2). rew_list.
-    xchange (MListSeg_nil f2). xsimpl~. }
-  { subst. rew_list. xvals~. }
-Qed.
-
-*)
