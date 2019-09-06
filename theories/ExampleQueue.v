@@ -26,41 +26,211 @@ Implicit Types v : val.
 (* ---------------------------------------------------------------------- *)
 (** ** Representation *)
 
+(** The mutable queue stores items in a linked list. The queue is described by
+    a record made of two pointers, one on the front cell of the list, and one
+    on the back cell (i.e. the last cell) of that list. The last cell of the
+    list contains a default value that is not treated as a proper item. The role
+    of the last cell is to ensure that even an empty queue contains at least 
+    one cell, thereby avoiding a special treatment for empty queues. 
+
+    Concretely, a queue at location [p] consists of a cell with fields [f] and [b],
+    a linked list segment from location [f] to location [b], storing a list [L] of
+    items, and a special cell at location [b] storing the default value [d], and
+    whose tail field stores the [null] value. *)
 
 Definition MQueue `{EA:Enc A} (L:list A) (p:loc) :=
-  \exists (pf:loc), \exists (pb:loc), \exists (vx:A), \exists (vy:loc),
-    p ~> MCell pf pb \* pf ~> MListSeg pb L \* pb ~> MCell vx vy.
+  \exists (f:loc) (b:loc) (d:A),
+    p ~> MCell f b \* f ~> MListSeg b L \* b ~> MCell d null.
 
 Lemma MQueue_eq : forall (p:loc) `{EA:Enc A} (L:list A),
   p ~> MQueue L =
-   \exists (pf:loc), \exists (pb:loc), \exists (vx:A), \exists (vy:loc),
-    p ~> MCell pf pb \* pf ~> MListSeg pb L \* pb ~> MCell vx vy.
+   \exists (f:loc) (b:loc) (d:A),
+    p ~> MCell f b \* f ~> MListSeg b L \* b ~> MCell d null.
 Proof using. intros. xunfold~ MQueue. Qed.
 
 
 
 (* ********************************************************************** *)
-(* * Is-empty *)
+(* ** Is-empty *)
+
+(**
+[[
+  let is_empty p =
+    p.head == p.tail
+]]
+*)
 
 Definition is_empty :=
   VFun 'p :=
     'p'.head '= 'p'.tail.
 
 Lemma Triple_is_empty : forall `{EA:Enc A} (L:list A) p,
-  Triple (is_empty p)
-    (p ~> MQueue L)
-    (fun r => \[r = isTrue (L = nil)] \* p ~> MQueue L).
+  TRIPLE (is_empty p)
+    PRE (p ~> MQueue L)
+    POST (fun r => \[r = isTrue (L = nil)] \* p ~> MQueue L).
 Proof using.
-  xwp. xunfolds MQueue ;=> pf pb vx vy. xapp. xapp. xapp~.
+  xwp. xunfolds MQueue ;=> f b d. xapp. xapp. xapp~.
   xchange (MListSeg_MCell_conflict) ;=> M. xsimpl*.
 Qed.
 
 Hint Extern 1 (Register_Spec is_empty) => Provide Triple_is_empty.
 
-(*
 
 (* ********************************************************************** *)
-(* * Transfer 
+(* ** Create *)
+
+(** The function [create] takes as argument a default value [d] of type [A].
+    It allocates adummy cell, at location [c]. It then allocates a queue record
+    with a front pointer and a back pointer both set to [c].
+[[
+  let create d = 
+    let c = mk_cell d null in  
+    mk_cell c c
+]]
+*)
+
+Definition create :=
+  VFun 'd :=
+    Let 'c := mk_cell 'd null in
+    mk_cell 'c 'c.
+
+Lemma Triple_create : forall `{EA:Enc A} (d:A),
+  TRIPLE (create ``d)
+    PRE \[]
+    POST (fun (p:loc) => p ~> MQueue (@nil A)).
+Proof using.
+  xwp. xunfold MQueue. xapp ;=> c. xapp ;=> p.
+  xchanges (MListSeg_nil_intro c).
+Qed.
+
+Hint Extern 1 (Register_Spec create) => Provide Triple_create.
+
+
+(* ********************************************************************** *)
+(* ** Push front *)
+
+(** The function [push_front p x] inserts an item [x] at the front of the
+    queue at location [p], in place.
+[[
+  let push_front p x = 
+    p.head := mk_cell x p.head
+]]
+*)
+
+Definition push_front :=
+  VFun 'p 'x :=
+    Set 'p'.head ':= mk_cell 'x ('p'.head).
+
+Lemma Triple_push_front : forall `{EA:Enc A} p L (x:A),
+  TRIPLE (push_front ``p ``x)
+    PRE (p ~> MQueue L)
+    POST (fun (_:unit) => p ~> MQueue (x::L)).
+Proof using.
+  xwp. xunfold MQueue. xpull ;=> f b d. xapp. xapp ;=> q. xapp.
+  xchanges <- (MListSeg_cons q).
+Qed.
+
+Hint Extern 1 (Register_Spec push_front) => Provide Triple_push_front.
+
+
+(* ********************************************************************** *)
+(* ** Pop front *)
+
+(** The function [pop_front p] assumes a nonempty queue at location [p], and
+    extracts the head item [x] from that queue, in place.
+
+[[
+  let pop_front p =
+    let f = p.head in
+    let x = f.head in
+    p.head := f.tail;
+    x
+]]
+*)
+
+Definition pop_front :=
+  VFun 'p :=
+    Let 'f := 'p'.head in    
+    Let 'x := 'f'.head in
+    Set 'p'.head ':= ('f'.tail) '; (* TODO: pb without parenthesis *)
+    'x.
+
+(* TODO FIX NOTATIONS display record field *)
+
+Lemma Triple_pop_front : forall `{EA:Enc A} p (L:list A),
+  L <> nil ->
+  TRIPLE (pop_front ``p)
+    PRE (p ~> MQueue L)
+    POST (fun x => \exists L', \[L = x::L'] \* p ~> MQueue L').
+Proof using.
+  xwp. destruct L as [|x L']; tryfalse.
+  xunfold MQueue. xpull ;=> f b d.
+  xchange MListSeg_cons ;=> f'.
+  xapp. xapp. xapp. xapp. xvals*.
+Qed.
+
+Hint Extern 1 (Register_Spec pop_front) => Provide Triple_pop_front.
+
+
+(* ********************************************************************** *)
+(* ** Push back *)
+
+(** The function [push_back p x] inserts the item [x] at the back of the queue,
+    in place. The function runs in constant time.
+
+[[
+  let push_back p x =
+    let b = p.tail in
+    b.tail := mk_cell b.head null;
+    b.head := x
+]]
+*)
+
+Definition push_back :=
+  VFun 'p 'x :=
+    Let 'b := 'p'.tail in
+    Let 'c := mk_cell ('b'.head) null in
+    Set 'b'.head ':= 'x ';
+    Set 'b'.tail ':= 'c ';
+    Set 'p'.tail ':= 'c.
+
+Lemma Triple_push_back : forall `{EA:Enc A} p x (L:list A),
+  TRIPLE (push_back ``p ``x)
+    PRE (p ~> MQueue L)
+    POST (fun (_:unit) => p ~> MQueue (L++x::nil)).
+Proof using.
+  xwp. xunfold MQueue. xpull ;=> f b d.
+  xapp. xapp. xapp ;=> c. xapp. xapp. xapp. 
+  xchanges <- MListSeg_last.
+Qed.
+
+Hint Extern 1 (Register_Spec push_back) => Provide Triple_push_back.
+
+
+(* ********************************************************************** *)
+(* ** Bonus *)
+
+(** Alternative specification for [pop_front] for the case the list
+    is already of the form [x::L']. *)
+
+Lemma triple_pop_front' : forall `{EA:Enc A} p x (L':list A),
+  TRIPLE (pop_front p)
+    PRE (p ~> MQueue (x::L'))
+    POST (fun r => \[r = x] \* p ~> MQueue L').
+Proof using.
+  intros. xapply (>> Triple_pop_front (x::L')).
+  { auto_false. }
+  { xsimpl. }
+  { xpull ;=> r L'2 E. inverts E. xsimpl~. }
+Qed.
+
+(* TODO: disable RET notation in TRIPLE *)
+ 
+
+(* ********************************************************************** *)
+(* * Transfer
+
+ 
 
 
 Definition val_transfer :=
@@ -84,151 +254,24 @@ Lemma Triple_transfer : forall `{EA:Enc A} (L1 L2:list A) p1 p2,
     (fun (_:unit) => p1 ~> MQueue (L1 ++ L2) \* p2 ~> MQueue nil).
 Proof using.
   xcf. xapps. xapps. xif ;=> C.
-  { xunfold MQueue. xtpull ;=> pf2 pb2 vx2 vy2 pf1 pb1 vx1 vy1.
+  { xunfold MQueue. xtpull ;=> f2 b2 vx2 vy2 f1 b1 vx1 vy1.
     destruct L2 as [|x L2']; tryfalse.
-    rewrite MListSeg_cons_eq. xtpull ;=> pf2'.
+    rewrite MListSeg_cons_eq. xtpull ;=> f2'.
     xapps. xapps. xapps. xapps.
     xapps~. xapps~. xapps~. xapps~. xapps~.
-    xchange (>> (@MListSeg_last) pf1).
-    xchange (MListSeg_concat pf1 pf2'). rew_list.
-    xchange (MListSeg_nil pf2). xsimpl~. }
+    xchange (>> (@MListSeg_last) f1).
+    xchange (MListSeg_concat f1 f2'). rew_list.
+    xchange (MListSeg_nil f2). xsimpl~. }
   { subst. rew_list. xvals~. }
 Qed.
 
-
+(*
 *)
 
+
+
 (* ********************************************************************** *)
-(* * Mutable queue *)
-
-(* ---------------------------------------------------------------------- *)
-(** Representation *)
-
-Definition MQueue (L:list val) (p:loc) : hprop :=
-  \exists (pf:loc), \exists (pb:loc), \exists (vx:val), \exists (vy:val),
-    MCell pf pb p \* MListSeg pb L pf \* MCell vx vy pb.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Create *)
-
-Definition val_create :=
-  ValFun 'v :=
-    Let 'r := val_alloc 2 in
-    val_new_cell 'r 'r.
-
-Lemma triple_create :
-  triple (val_create val_unit)
-    \[]
-    (fun r => \exists p, \[r = val_loc p] \* MQueue nil p).
-Proof using.
-  xcf. unfold MQueue.
-  xapp triple_alloc_cell as r. intros p v1 v2. intro_subst.
-  xapp~. xpull ;=> r x E. xsimpl~.
-  { rewrite MListSeg_nil_eq. xsimpl~. }
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Is empty *)
-
-Definition val_is_empty :=
-  ValFun 'p :=
-    Let 'x := val_get_hd 'p in
-    Let 'y := val_get_tl 'p in
-    val_eq 'x 'y.
-
-Lemma triple_is_empty : forall L p,
-  triple (val_is_empty p)
-    (MQueue L p)
-    (fun r => \[r = isTrue (L = nil)] \* MQueue L p).
-Proof using.
-  xcf. unfold MQueue. xtpull ;=> pf pb vx vy.
-  xapps. xapps.
-  xtchanges (MListSeg_then_MCell_inv_neq pf pb) ;=> R.
-  (* xtchange (MListSeg_then_MCell_inv_neq pf pb). xtpull ;=> R. *)
-  xapp. xsimpl ;=> ? ->. fequals. rew_bool_eq. rewrite R. iff; congruence.
-Qed.
-
-Hint Extern 1 (Register_spec val_is_empty) => Provide triple_is_empty.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Push back *)
-
-Definition val_push_back :=
-  ValFun 'v 'p :=
-    Let 'q := val_get_tl 'p in
-    Let 'r := val_alloc 2 in
-    val_set_hd 'q 'v ;;;
-    val_set_tl 'q 'r ;;;
-    val_set_tl 'p 'r.
-
-Lemma triple_push_back : forall L v p,
-  triple (val_push_back v p)
-    (MQueue L p)
-    (fun r => MQueue (L&v) p).
-Proof using.
-  xcf. unfold MQueue. xtpull ;=> pf pb vx vy.
-  xapps. xapp triple_alloc_cell as r. intros pb' v1 v2. intro_subst.
-  xapp~. intros _. xapp~. intros _. xapp~. xchanges~ MListSeg_last.
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Push front *)
-
-Definition val_push_front :=
-  ValFun 'v 'p :=
-    Let 'q := val_get_hd 'p in
-    Let 'r := val_new_cell 'v 'q in
-    val_set_hd 'p 'r.
-
-Lemma triple_push_front : forall L v p,
-  triple (val_push_front v p)
-    (MQueue L p)
-    (fun r => MQueue (v::L) p).
-Proof using.
-  xcf. unfold MQueue. xtpull ;=> pf pb vx vy.
-  xapps. xapp as r. intros x. intro_subst.
-  xapp. xsimpl~. intros _. xchanges (@MListSeg_cons x).
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Pop front *)
-
-Definition val_pop_front :=
-  ValFun 'v 'p :=
-    Let 'q := val_get_hd 'p in
-    Let 'x := val_get_hd 'q in
-    Let 'r := val_get_tl 'q in
-    val_set_hd 'p 'r;;;
-    'x.
-
-Lemma triple_pop_front : forall L v p,
-  L <> nil ->
-  triple (val_pop_front v p)
-    (MQueue L p)
-    (fun v => \exists L', \[L = v::L'] \* MQueue L' p).
-Proof using.
-  xcf. unfold MQueue. xtpull ;=> pf pb vx vy.
-  destruct L as [|x L']; tryfalse.
-  rewrite MListSeg_cons_eq. xtpull ;=> pf'.
-  xapps. xapps. xapps. xapp~. intros _. xvals~.
-Qed.
-
-Lemma triple_pop_front' : forall L v p x,
-  triple (val_pop_front v p)
-    (MQueue (x::L) p)
-    (fun r => \[r = x] \* MQueue L p).
-Proof using.
-  intros. xapply (@triple_pop_front (x::L)).
-  { auto_false. }
-  { xsimpl. }
-  { intros r. xpull ;=> L' E. inverts E. xsimpl~. }
-Qed.
-
+(* ** Create *)
 
 (* ---------------------------------------------------------------------- *)
 (** Transfer *)
@@ -254,14 +297,14 @@ Lemma triple_transfer : forall L1 L2 p1 p2,
     (fun r => MQueue (L1 ++ L2) p1 \* MQueue nil p2).
 Proof using.
   xcf. xapps. xapps. xif ;=> C.
-  { unfold MQueue. xtpull ;=> pf2 pb2 vx2 vy2 pf1 pb1 vx1 vy1.
+  { unfold MQueue. xtpull ;=> f2 b2 vx2 vy2 f1 b1 vx1 vy1.
     destruct L2 as [|x L2']; tryfalse.
-    xtchanges MListSeg_cons_eq ;=> pf2'.
+    xtchanges MListSeg_cons_eq ;=> f2'.
     xapps. xapps. xapps. xapps.
     xapps~. xapps~. intros _. xapps~. intros _. xapps~. intros _. xapps~.
-    intros r. xchange (MListSeg_last pf1).
-    xchange (MListSeg_concat pf1 pf2' pb2). rew_list.
-    xchange (MListSeg_nil pf2). xsimpl~. }
+    intros r. xchange (MListSeg_last f1).
+    xchange (MListSeg_concat f1 f2' b2). rew_list.
+    xchange (MListSeg_nil f2). xsimpl~. }
   { subst. rew_list. xvals~. }
 Qed.
 
