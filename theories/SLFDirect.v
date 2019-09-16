@@ -58,7 +58,7 @@ End Assumptions.
     are then used to represent heaps in the semantics.
     The implementation details need not be revealed.
 
-    The library provides a tactic [fmap_disjoint] to automate the disjointness 
+    The library provides a tactic [fmap_disjoint] to automate the disjointness
     proofs, and a tactic [fmap_eq] to prove equalities between heaps modulo
     associativity and commutativity. Without these two tactics, the
     proofs would be extremely tedious and fragile. *)
@@ -97,7 +97,7 @@ with trm : Type :=
   | trm_let : var -> trm -> trm -> trm
   | trm_if : trm -> trm -> trm -> trm.
 
-(** The state consists of a finite map from location to values. 
+(** The state consists of a finite map from location to values.
     Records and arrays are represented as sets of consecutive cells. *)
 
 Definition state : Type := fmap loc val.
@@ -112,7 +112,7 @@ Definition heap : Type := state.
 (* ******************************************************* *)
 (** ** Coq tweaks *)
 
-(** [heap_empty] is a handy notation to avoid providing 
+(** [heap_empty] is a handy notation to avoid providing
     type arguments to [Fmap.empty] *)
 
 Notation "'heap_empty'" := (@Fmap.empty loc val)
@@ -235,7 +235,7 @@ Module SepSimplArgs.
 
 Definition hprop := heap -> Prop.
 
-(** Entailment for heap predicates, written [H1 ==> H2]  
+(** Entailment for heap predicates, written [H1 ==> H2]
     (the entailment is linear, although our triples will be affine). *)
 
 Definition himpl (H1 H2:hprop) : Prop :=
@@ -271,7 +271,7 @@ Implicit Types Q : val->hprop.
     - [H1 \* H2] denotes the separating conjunction
     - [Q1 \*+ H2] denotes the separating conjunction extending a postcondition
     - [\exists x, H] denotes an existential
-    - [\forall x, H] denotes a universal 
+    - [\forall x, H] denotes a universal
     - [H1 \-* H2] denotes a magic wand between heap predicates
     - [Q1 \--* Q2] denotes a magic wand between postconditions
 
@@ -316,7 +316,7 @@ Notation "'\forall' x1 .. xn , H" :=
 (** Derived heap predicates.
 
     The following operators are defined in terms of the ones
-    above, rather than as functions over heaps, to reduce the proof effort. 
+    above, rather than as functions over heaps, to reduce the proof effort.
     See the summary section in [SLFWand.v] for details. *)
 
 Definition hpure (P:Prop) : hprop :=
@@ -967,7 +967,7 @@ Proof using.
   lets E: hempty_inv HP. subst. rewrite Fmap.union_empty_l. applys~ M.
 Qed.
 
-(** Reasoning rules for [hoare] triples. 
+(** Reasoning rules for [hoare] triples.
     These rules follow directly from the big-step evaluation rules. *)
 
 Lemma hoare_val : forall v H Q,
@@ -1276,17 +1276,17 @@ Qed.
 (* ####################################################### *)
 (** * WP generator *)
 
-(** This section defines a "weakest-precondition style characteristic 
+(** This section defines a "weakest-precondition style characteristic
      formula generator". This technology adapts the technique of
-     "characteristic formulae" (initially developed in CFML 1.0) 
-     to produce weakest preconditions. (The formulae, their manipulation, 
-     and their correctness proofs are simpler in wp-style.) 
-     
+     "characteristic formulae" (initially developed in CFML 1.0)
+     to produce weakest preconditions. (The formulae, their manipulation,
+     and their correctness proofs are simpler in wp-style.)
+
     The goal of the section is to define a function [wpgen t], recursively
     over the structure of [t], such that [wpgen t Q] entails [wp t Q].
     Unlike [wp t Q], which is defined semantically, [wpgen t Q] is defined
-    following the syntax of [t]. 
-    
+    following the syntax of [t].
+
     Technically, we define [wpgen E t], where [E] is a list of bindings,
     to compute a formula that entails [wp (isubst E t)], where [isubst E t]
     denotes the iterated substitution of bindings from [E] inside [t]. *)
@@ -1295,8 +1295,8 @@ Qed.
 (* ******************************************************* *)
 (** ** Definition of context as list of bindings *)
 
-(** In order to define a structurally-recursive and relatively 
-    efficient characteristic formula generator, we need to introduce 
+(** In order to define a structurally-recursive and relatively
+    efficient characteristic formula generator, we need to introduce
     contexts, that essentially serve to apply substitutions lazily. *)
 
 Open Scope liblist_scope.
@@ -1569,10 +1569,10 @@ Arguments mkstruct_erase : clear implicits.
 (* ------------------------------------------------------- *)
 (** *** Definition of auxiliary definition for [wpgen] *)
 
-(** we state auxiliary definitions for [wpgen], one per term construct. 
-    For simplicity, we here assume the term [t] to be in A-normal form. 
-    If it is not, the formula generated will be incomplete, that is, 
-    useless to prove triples about the term [t]. Note that the actual 
+(** we state auxiliary definitions for [wpgen], one per term construct.
+    For simplicity, we here assume the term [t] to be in A-normal form.
+    If it is not, the formula generated will be incomplete, that is,
+    useless to prove triples about the term [t]. Note that the actual
     generator in CFML2 does support terms that are not in A-normal form. *)
 
 Definition wpgen_fail : formula := fun Q =>
@@ -1643,8 +1643,8 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
 
 (** [formula_sound_for t F] asserts that, for any [Q], the
     SL judgment [triple (F Q) t Q] is valid. In other words,
-    it states that [F] is a stronger formula than [wp t]. 
-    
+    it states that [F] is a stronger formula than [wp t].
+
     The soundness theorem that we are interested in asserts:
     [formula_sound_for (isubst E t) (wpgen E t)] for any [E] and [t]. *)
 
@@ -1766,8 +1766,8 @@ Qed.
 
 (** This last section shows the techniques involved in constructing
     the lemmas and tactics required to carry out pratical verification
-    proof with concise proof scripts. 
-    
+    proof with concise proof scripts.
+
     It does not cover all constructs, but just a few, to highlight
     the main ideas. (The file [WPTactics] contains more tactics.) *)
 
@@ -2001,8 +2001,8 @@ Open Scope trm_scope.
 (* ------------------------------------------------------- *)
 (** *** Definition and verification of [incr]. *)
 
-(** Here is an implementation of the increment function, 
-    written in A-normal form. 
+(** Here is an implementation of the increment function,
+    written in A-normal form.
 [[
    let incr p =
        let n = !p in
@@ -2017,7 +2017,7 @@ Definition incr : val :=
     Let 'm := 'n '+ 1 in
     'p ':= 'm).
 
-(** Here is the Separation Logic triple specifying increment. 
+(** Here is the Separation Logic triple specifying increment.
     And the proof follows. Note that the script contains explicit
     references to the specification lemmas of the functions being
     called (e.g. [triple_get] for the [get] operation). The actual
@@ -2048,7 +2048,7 @@ Qed.
 ]]
 
 Note that this function has the same behavior as [succ],
-but its implementation makes use of the [incr] function 
+but its implementation makes use of the [incr] function
 from above. *)
 
 Definition mysucc : val :=

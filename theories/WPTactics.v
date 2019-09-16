@@ -1,6 +1,6 @@
 (**
 
-This file defines tactics for manipulating characteristic formula 
+This file defines tactics for manipulating characteristic formula
 in weakest-precondition form, in lifted Separation Logic,
 as defined in [WPLifted.v].
 
@@ -91,7 +91,7 @@ Ltac xgoal_code_without_wptag tt :=
   xgoal_code_strip_wptag C.
 
 Ltac xgoal_fun tt :=
-  match xgoal_code_without_wptag tt with 
+  match xgoal_code_without_wptag tt with
   | Wpgen_app (trm_apps (trm_val ?f) _) => constr:(f)
   end.
 
@@ -119,8 +119,8 @@ Ltac xspec_remove_combiner tt :=
 
 Ltac xspec_context tt :=
   xspec_remove_combiner tt;
-  match goal with 
-   H: context [ Triple (trm_apps (trm_val ?f) _) _ _ ] 
+  match goal with
+   H: context [ Triple (trm_apps (trm_val ?f) _) _ _ ]
    |- Triple (trm_apps (trm_val ?f) _) _ _ => generalize H
   end.
 
@@ -128,7 +128,7 @@ Ltac xspec_registered tt :=
   match goal with |- ?G => ltac_database_get database_spec G end.
 
 Ltac xspec_core tt :=
-  first [ xspec_registered tt 
+  first [ xspec_registered tt
         | xspec_context tt ].
 
 Tactic Notation "xspec" :=
@@ -146,9 +146,9 @@ Ltac xspec_lemma_of_args E :=
   match list_boxer_of E with
   | cons (boxer ltac_wild) ?E' => (* only args provided *)
      let K := fresh "BaseSpec" in (* TODO: need to clear K at some point... *)
-     xspec; intro K;  
-     lets H: ((boxer K)::E'); 
-     revert H; 
+     xspec; intro K;
+     lets H: ((boxer K)::E');
+     revert H;
      try clear K
   | _ => (* spec and args provided *)
      lets H: E; revert H
@@ -181,8 +181,8 @@ Hint Extern 1 (Register_Spec (val_prim val_ptr_add)) => Provide Triple_ptr_add.
 (* ** Tactic [xwp_simpl] for computing characteristic formulae *)
 
 Arguments var_eq s1 s2 /.
-Arguments eq_var_dec s1 s2 /. 
-Arguments string_dec s1 s2 /. 
+Arguments eq_var_dec s1 s2 /.
+Arguments string_dec s1 s2 /.
 Arguments string_rec P /.
 Arguments string_rect P /.
 Arguments sumbool_rec A B P /.
@@ -195,16 +195,16 @@ Arguments bool_rec P /.
 Arguments bool_rect P /.
 
 Ltac xwp_simpl :=
-  cbn beta delta [ 
-  LibList.combine 
+  cbn beta delta [
+  LibList.combine
   List.rev Datatypes.app List.fold_right List.map
   Wpgen Wpaux_getval Wpaux_getval_typed
   Wpaux_apps Wpaux_constr Wpaux_var Wpaux_match
   hforall_vars forall_vars
   trm_case trm_to_pat patvars patsubst combiner_to_trm
-  Ctx.app Ctx.empty Ctx.lookup Ctx.add 
+  Ctx.app Ctx.empty Ctx.lookup Ctx.add
   Ctx.rem Ctx.rem_var Ctx.rem_vars isubst
-  var_eq eq_var_dec 
+  var_eq eq_var_dec
   string_dec string_rec string_rect
   sumbool_rec sumbool_rect
   Ascii.ascii_dec Ascii.ascii_rec Ascii.ascii_rect
@@ -265,7 +265,7 @@ Lemma xtriple_lemma : forall t f (vs:vals) `{EA:Enc A} H (Q:A->hprop),
   Triple t H Q.
 Proof using.
   introv E M. subst t. applys Triple_hgc_post.
-  applys* Triple_of_Wp. unfolds Wpgen_app. 
+  applys* Triple_of_Wp. unfolds Wpgen_app.
   rewrite <- eq_Mkstruct_of_Structural in M. applys M.
   applys Structural_Wp.
 Qed.
@@ -276,7 +276,7 @@ Ltac xtriple_pre tt :=
 Ltac xtriple_core tt :=
   xtriple_pre tt;
   applys xtriple_lemma;
-  [ simpl combiner_to_trm; rew_trms_vals; reflexivity 
+  [ simpl combiner_to_trm; rew_trms_vals; reflexivity
   | ].
 
 Tactic Notation "xtriple" :=
@@ -324,7 +324,7 @@ Tactic Notation "xgc_post" :=
 
 Ltac xseq_pre tt :=
   match xgoal_code_without_wptag tt with
-  | (Wpgen_seq _ _) => idtac 
+  | (Wpgen_seq _ _) => idtac
   end.
 
 Definition xseq_lemma := @MkStruct_erase.
@@ -341,7 +341,7 @@ Tactic Notation "xseq" :=
 (* ** Tactic [xlet] *)
 
 Lemma xlet_lemma : forall A1 (EA1:Enc A1) H `{EA:Enc A} (Q:A->hprop) (F1:Formula) (F2of:forall `{EA1:Enc A2},A2->Formula),
-  H ==> ^F1 (fun (X:A1) => ^(F2of X) Q) -> 
+  H ==> ^F1 (fun (X:A1) => ^(F2of X) Q) ->
   H ==> ^(Wpgen_let F1 (@F2of)) Q.
 Proof using. introv M. applys MkStruct_erase. xsimpl* A1 EA1. Qed.
 
@@ -368,7 +368,7 @@ Tactic Notation "xlet" :=
 
 Ltac xcast_pre tt :=
   match xgoal_code_without_wptag tt with
-  | (Wpgen_cast _) => idtac 
+  | (Wpgen_cast _) => idtac
   end.
 
 Lemma xcast_lemma : forall (H:hprop) `{Enc A} (Q:A->hprop) (X:A),
@@ -429,9 +429,9 @@ Ltac xlet_xseq_xcast_repeat tt :=
 
     [xapp_nosubst]
     [xapp_nosubst E]
-    
-    [xapp_debug] 
-    [xapp_debug E] 
+
+    [xapp_debug]
+    [xapp_debug E]
 *)
 
 (* DEBUG XAPP
@@ -473,14 +473,14 @@ Proof using.
   introv M1 M2. applys xapps_lemma \[]; rew_heap; eauto.
 Qed.
 
-(* [xapp_pre tt] automatically performs the necessary 
-   [xlet], [xseq] and [xcast], then checks that the goal 
+(* [xapp_pre tt] automatically performs the necessary
+   [xlet], [xseq] and [xcast], then checks that the goal
    is a [Wpgen_app] goal. *)
 
 Ltac xapp_pre tt :=
-  xlet_xseq_xcast_repeat tt; 
+  xlet_xseq_xcast_repeat tt;
   match xgoal_code_without_wptag tt with
-  | (Wpgen_app _) => idtac 
+  | (Wpgen_app _) => idtac
   end.
 
 Ltac xapp_post tt :=
@@ -493,9 +493,9 @@ Lemma xapp_find_spec_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
 Proof using. auto. Qed.
 
 Ltac xapp_select_lemma tt :=
-  let S := fresh "Spec" in 
+  let S := fresh "Spec" in
   intro S;
-  match type of S with 
+  match type of S with
   | Triple _ _ (fun _ => \[_ = _] \* _) => applys @xapps_lemma
   | Triple _ _ (fun _ => \[_ = _]) => applys @xapps_lemma_pure
   | _ => applys @xapp_lemma
@@ -503,13 +503,13 @@ Ltac xapp_select_lemma tt :=
 
 Ltac xapp_apply_lemma cont_prove_triple :=
   xapp_pre tt;
-  applys xapp_find_spec_lemma; 
-    [ cont_prove_triple tt 
+  applys xapp_find_spec_lemma;
+    [ cont_prove_triple tt
     | xapp_select_lemma tt; xapp_post tt ].
 
 (* DEPRECATED (too slow)
 Ltac xapp_apply_lemma cont_prove_triple :=
-  first 
+  first
     [ applys @xapps_lemma; [ cont_prove_triple tt | xapp_post tt ]
     | applys @xapps_lemma_pure; [ cont_prove_triple tt | xapp_post tt ]
     | applys @xapp_lemma; [ cont_prove_triple tt | xapp_post tt ] ].
@@ -544,7 +544,7 @@ Tactic Notation "xapp" "*" constr(E) :=
 
 Ltac xapp_debug_intro tt :=
   let H := fresh "Spec" in
-  intro H. 
+  intro H.
 
 Tactic Notation "xapp_debug" :=
   applys @xapp_lemma; [ xspec; xapp_debug_intro tt | ].
@@ -603,7 +603,7 @@ Proof using. intros. constructors~. Defined.
 
 Hint Extern 1 (Decode (``_) _) => eapply Decode_enc : typeclasses_instances.
 
-Instance Decode_unit : 
+Instance Decode_unit :
   Decode val_unit tt.
 Proof using. intros. constructors~. Defined.
 
@@ -670,14 +670,14 @@ Lemma xval_lemma_val : forall `{EA:Enc A} (V:A) v H (Q:val->hprop),
   H ==> ^(Wpgen_val v) Q.
 Proof using. introv E N. subst. applys MkStruct_erase. xsimpl~ (``V). Qed.
 
-(* [xval_pre tt] automatically performs the necessary 
-   [xlet], [xseq] and [xcast], then checks that the goal 
+(* [xval_pre tt] automatically performs the necessary
+   [xlet], [xseq] and [xcast], then checks that the goal
    is a [Wpgen_val] goal. *)
 
 Ltac xval_pre tt :=
-  xlet_xseq_xcast_repeat tt; 
+  xlet_xseq_xcast_repeat tt;
   match xgoal_code_without_wptag tt with
-  | (Wpgen_val _) => idtac 
+  | (Wpgen_val _) => idtac
   end.
 
 Ltac xval_arg E :=
@@ -749,7 +749,7 @@ Tactic Notation "xfun" :=
 (* ** Tactic [xif] *)
 
 Ltac xif_pre tt :=
-  xlet_xseq_xcast_repeat tt; 
+  xlet_xseq_xcast_repeat tt;
   try match xgoal_code_without_wptag tt with
   | (Wpgen_app _) => xapp
   | (Wpgen_val _) => xval
@@ -787,17 +787,17 @@ Tactic Notation "xif" :=
 (* ** Tactic [xcase] *)
 
 Ltac xcase_pre tt :=
-  xlet_xseq_xcast_repeat tt; 
+  xlet_xseq_xcast_repeat tt;
   match xgoal_code_without_wptag tt with
-  | (Wpgen_case _ _ _) => idtac 
+  | (Wpgen_case _ _ _) => idtac
   end.
 
 Lemma xcase_lemma : forall F1 (P:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
   (H ==> ^F1 Q) ->
   (P -> H ==> ^F2 Q) ->
   H ==> ^(Wpgen_case F1 P F2) Q.
-Proof using. 
-  introv M1 M2. apply MkStruct_erase. applys himpl_hand_r. 
+Proof using.
+  introv M1 M2. apply MkStruct_erase. applys himpl_hand_r.
   { auto. }
   { applys* hwand_hpure_r_intro. }
 Qed.
@@ -806,7 +806,7 @@ Lemma xcase_lemma0 : forall F1 (P1 P2:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
   (P1 -> H ==> ^F1 Q) ->
   (P2 -> H ==> ^F2 Q) ->
   H ==> ^(Wpgen_case (fun `{EA1:Enc A1} (Q:A1->hprop) => \[P1] \-* ^F1 Q) P2 F2) Q.
-Proof using. 
+Proof using.
   introv M1 M2. applys* xcase_lemma. { applys* hwand_hpure_r_intro. }
 Qed.
 
@@ -814,7 +814,7 @@ Lemma xcase_lemma2 : forall (F1:val->val->Formula) (P1:val->val->Prop) (P2:Prop)
   (forall x1 x2, P1 x1 x2 -> H ==> ^(F1 x1 x2) Q) ->
   (P2 -> H ==> ^F2 Q) ->
   H ==> ^(Wpgen_case (fun `{EA1:Enc A1} (Q:A1->hprop) => \forall x1 x2, \[P1 x1 x2] \-* ^(F1 x1 x2) Q) P2 F2) Q.
-Proof using. 
+Proof using.
   introv M1 M2. applys* xcase_lemma.
   { repeat (applys himpl_hforall_r ;=> ?). applys* hwand_hpure_r_intro. }
 Qed.
@@ -823,8 +823,8 @@ Qed.
 Lemma xmatch_lemma_list : forall `{EA:Enc A} (L:list A) (F1:Formula) (F2:val->val->Formula) H `{HB:Enc B} (Q:B->hprop),
   (L = nil -> H ==> ^F1 Q) ->
   (forall X L', L = X::L' -> H ==> ^(F2 ``X ``L') Q) ->
-  H ==> ^(  Case ``L = 'nil '=> F1 
-         '| Case ``L = (vX ':: vL') [vX vL'] '=> F2 vX vL' 
+  H ==> ^(  Case ``L = 'nil '=> F1
+         '| Case ``L = (vX ':: vL') [vX vL'] '=> F2 vX vL'
          '| Fail) Q.
 Proof using.
   introv M1 M2. applys xcase_lemma0 ;=> E1.
@@ -844,7 +844,7 @@ Qed.
 (* ** Tactic [xfail] *)
 
 Ltac xfail_core tt :=
-  xpull; 
+  xpull;
   pose ltac_mark;
   intros;
   false;
@@ -858,7 +858,7 @@ Tactic Notation "xfail" "~" :=
 
 Tactic Notation "xfail" "*" :=
   xfail; auto_star.
- 
+
 
 
 (* ---------------------------------------------------------------------- *)

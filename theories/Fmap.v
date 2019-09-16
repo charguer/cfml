@@ -18,8 +18,8 @@ From TLC Require Import LibCore.
 
     Type type [fmap A B] is represented as a pair of a map of type [map A B]
     and a proof that the domain of the map is finite. The finiteness of the
-    domain is witnessed by a list of keys such that the map binds any key 
-    not in that list to [None]. 
+    domain is witnessed by a list of keys such that the map binds any key
+    not in that list to [None].
 
 *)
 
@@ -612,7 +612,7 @@ Proof using.
   simpl. rew_logic in N. intros l'. case_if; subst; autos*.
 Qed.
 
-(* Remark: the reciprocal of the above lemma is a special instance of 
+(* Remark: the reciprocal of the above lemma is a special instance of
    [disjoint_inv_not_indom_both] *)
 
 
@@ -676,7 +676,7 @@ Proof using.
   do 2 rewrite update_eq_union_single.
   applys make_eq. intros x.
   unfold map_union, union, map_union. simpl. case_if~.
-  { subst. case_eq (fmap_data s1 x); auto_false. 
+  { subst. case_eq (fmap_data s1 x); auto_false.
     { intros w Hw. false M. auto_false. } }
 Qed.
 
@@ -995,7 +995,7 @@ Proof using.
   intros. sets l: 0%nat. sets h: (single l arbitrary).
   exists h. intros N.
   sets h': (empty:fmap nat B).
-  asserts M1: (indom h l). 
+  asserts M1: (indom h l).
   { applys indom_single. }
   asserts M2: (~ indom h' l).
   { unfolds @indom, map_indom, @empty. simpls. auto_false. }

@@ -18,15 +18,15 @@ License: MIT.
 
     - [CFIntro]: the present introduction, which lists the chapters.
 
-    - [CFList]: 
+    - [CFList]:
 
-    - [CFTree]: 
+    - [CFTree]:
 
-    - [CFQueue]: 
+    - [CFQueue]:
 
-    - [CFQueueOf]: 
+    - [CFQueueOf]:
 
-    - [CFPairingHeap]: 
+    - [CFPairingHeap]:
 
     - [CF_UF_Pointer]
 
@@ -43,9 +43,9 @@ License: MIT.
 
     - [CF_UF_Array]
 
-    - [CFLoops]: 
+    - [CFLoops]:
 
-    - [CFIterators]: 
+    - [CFIterators]:
 
     - [CFFirstClass]:  CPS and counter
 
@@ -54,7 +54,7 @@ License: MIT.
 (* ####################################################### *)
 (** * With OCaml-to-CF generator *)
 
-(**  
+(**
     - Sized stack
 
     - Batched queue

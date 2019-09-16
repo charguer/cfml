@@ -27,7 +27,7 @@ Implicit Types n : int.
   Definition MListOf A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc) : hprop :=
     match L with
     | nil => \[p = null]
-    | X::L' => \exists x p', p ~> Record`{ head := x; tail := p'} 
+    | X::L' => \exists x p', p ~> Record`{ head := x; tail := p'}
                      \* (x ~> R X) \* (p' ~> MListOf R L')
     end.
 ]]
@@ -38,7 +38,7 @@ Implicit Types n : int.
 
 Definition MListOf A `{EA:Enc A} TA (R:TA->A->hprop) (L:list TA) (p:loc) : hprop :=
   \exists (l:list A), \[length l = length L] \* p ~> MList l
-                      \* hfold_list2 (fun X x => x ~> R X) L l. 
+                      \* hfold_list2 (fun X x => x ~> R X) L l.
 
 (* ---------------------------------------------------------------------- *)
 (** ** Derived specifications for stack operations *)
@@ -50,13 +50,13 @@ Implicit Types L : list TA.
 Implicit Types x : A.
 Implicit Types X : TA.
 
-Lemma Triple_create : 
+Lemma Triple_create :
   TRIPLE (create tt)
     PRE \[]
     POST (fun p => p ~> MListOf R nil).
 Proof using.
   xtriple. xapp ;=> p. xunfold MListOf. xsimpl*.
-  { rew_heapx. xsimpl. } 
+  { rew_heapx. xsimpl. }
 Qed.
 
 Lemma Triple_is_empty : forall L p,

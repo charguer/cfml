@@ -274,7 +274,7 @@ Proof using. intros. intros Q. unfolds wpgen_val. applys wp_val. Qed.
     for every function that it encounters. This second variant appears
     desirable as it saves some work to the end user. However, it is
     slightly more involved, so we postpone its presentation, and begin
-    with a presentation of the simpler approach. *)    
+    with a presentation of the simpler approach. *)
 
 (** Recall the [wp] for [trm_fun]. *)
 
@@ -1273,7 +1273,7 @@ Qed.
 
 (** The discussion above generalizes almost directly to recursive functions.
     To compute [wpgen] of [trm_fix f x t1] in a context [E], the recursive
-    call to [wpgen] extends the context [E] with two bindings, one for [f] 
+    call to [wpgen] extends the context [E] with two bindings, one for [f]
     and one for [x].
 
 [[

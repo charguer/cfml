@@ -48,10 +48,10 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From TLC Require Export LibCore. 
+From TLC Require Export LibCore.
 From TLC Require Import LibMonoid.
 From Sep Require Export TLCbuffer SepSimpl.
-  
+
 
 (* ********************************************************************** *)
 (** * Assumptions of the functor *)
@@ -70,7 +70,7 @@ Parameter heap : Type.
 
 Definition hprop := heap -> Prop.
 
-(** Characterization of affine heaps: 
+(** Characterization of affine heaps:
     the [haffine H] asserts that [H] only holds for affine heaps. *)
 
 Parameter heap_affine : heap -> Prop.
@@ -357,7 +357,7 @@ Lemma himpl_hstar_trans_l : forall H1 H2 H3 H4,
   H2 \* H3 ==> H4 ->
   H1 \* H3 ==> H4.
 Proof using.
-  introv M1 M2. applys himpl_trans M2. applys himpl_frame_l M1. 
+  introv M1 M2. applys himpl_trans M2. applys himpl_frame_l M1.
 Qed.
 
 Lemma himpl_hstar_trans_r : forall H1 H2 H3 H4,
@@ -365,14 +365,14 @@ Lemma himpl_hstar_trans_r : forall H1 H2 H3 H4,
   H3 \* H2 ==> H4 ->
   H3 \* H1 ==> H4.
 Proof using.
-  introv M1 M2. applys himpl_trans M2. applys himpl_frame_r M1. 
+  introv M1 M2. applys himpl_trans M2. applys himpl_frame_r M1.
 Qed.
 
 
 (* ---------------------------------------------------------------------- *)
 (** Properties of [hpure] *)
 
-Lemma hstar_hpure : forall P H h, 
+Lemma hstar_hpure : forall P H h,
   (\[P] \* H) h = (P /\ H h).
 Proof using.
   intros. extens. unfold hpure.
@@ -519,7 +519,7 @@ Proof using.
     rewrite hstar_hexists. applys himpl_hexists_l. intros H.
     rewrite (hstar_comm H). rewrite hstar_assoc.
     applys~ himpl_hstar_hpure_l. }
-  { applys himpl_hexists_r H0. 
+  { applys himpl_hexists_r H0.
     rewrite hstar_comm. rewrite <- (hstar_hempty_l H0) at 1.
     applys himpl_frame_l. applys himpl_hempty_hpure M. }
 Qed.
@@ -555,7 +555,7 @@ Qed.
 Lemma hwand_hpure_l_intro : forall (P:Prop) H,
   P ->
   \[P] \-* H ==> H.
-Proof using. 
+Proof using.
   introv HP. rewrite <- (hstar_hempty_l (\[P] \-* H)).
   forwards~ K: himpl_hempty_hpure P.
   applys* himpl_hstar_trans_l K. applys hwand_cancel.
@@ -573,7 +573,7 @@ Qed.
 Lemma hwand_uncurry : forall H1 H2 H3,
   H1 \-* (H2 \-* H3) ==> (H1 \* H2) \-* H3.
 Proof using.
-  intros. rewrite hwand_equiv. rewrite <- (hstar_comm (H1 \* H2)). 
+  intros. rewrite hwand_equiv. rewrite <- (hstar_comm (H1 \* H2)).
   rewrite (@hstar_comm H1). rewrite hstar_assoc.
   applys himpl_trans. applys himpl_frame_r. applys hwand_cancel.
   applys hwand_cancel.
@@ -700,7 +700,7 @@ Proof using.
   introv M. rewrite hgc_eq. applys himpl_hexists_r H.
   applys~ himpl_hstar_hpure_r.
   (* low-level: [intros h K. applys hgc_of_heap_affine. applys M K. *)
-Qed. 
+Qed.
 
 Lemma hempty_himpl_hgc :
   \[] ==> \GC.
@@ -733,7 +733,7 @@ Lemma hgc_eq_htop_of_haffine_any :
   (forall H, haffine H) ->
   \GC = \Top.
 Proof using.
-  introv M. applys himpl_antisym. 
+  introv M. applys himpl_antisym.
   { applys himpl_htop_r. }
   { applys himpl_hgc_r. applys M. }
 Qed.
@@ -845,7 +845,7 @@ Lemma hstar_hwand : forall H1 H2 H3,
 Proof using.
   xsimpl.
 Qed.
-  (* intros. unfold hwand. xsimpl ;=> H4 M. xchanges M. 
+  (* intros. unfold hwand. xsimpl ;=> H4 M. xchanges M.
   unfold hwand. xsimpl ;=> H4 M. *)
 
 Arguments hstar_hwand : clear implicits.
@@ -886,7 +886,7 @@ Lemma qwand_cancel_part : forall H A (Q1 Q2:A->hprop),
   H \* ((Q1 \*+ H) \--* Q2) ==> (Q1 \--* Q2).
 Proof using.
   intros. applys himpl_qwand_r. intros x.
-  xchange (qwand_specialize x). 
+  xchange (qwand_specialize x).
 Qed.
 
 Lemma qwand_himpl : forall A (Q1 Q1' Q2 Q2':A->hprop),
@@ -965,7 +965,7 @@ Ltac haffine_custom tt :=
 *)
 
 Ltac haffine_step tt :=
-  match goal with 
+  match goal with
   | |- haffine_post (_) => intros ? (* todo: interesting to have? *)
   | |- haffine ?H =>
     match H with
@@ -1030,11 +1030,11 @@ Notation "'~~' B" := (hprop->(B->hprop)->Prop)
 (** A formula [F] is mklocal (e.g. [F] could be the predicate SL [triple])
     if it is sufficient for establishing [F H Q] to establish that the
     the formula holds on a subheap, in the sense that [F H1 Q1] with
-    [H = H1 \* H2] and [Q = Q1 \*+ H2]. 
+    [H = H1 \* H2] and [Q = Q1 \*+ H2].
     (Technically, we add an extra [\GC] in to capture the affinity of the logic.) *)
 
 Definition local B (F:~~B) : Prop :=
-  forall H Q, 
+  forall H Q,
     (H ==> \exists H1 H2 Q1, H1 \* H2 \*
              \[F H1 Q1 /\ Q1 \*+ H2 ===> Q \*+ \GC]) ->
     F H Q.
@@ -1064,7 +1064,7 @@ Hint Resolve haffine_hempty.
 (** A introduction rule to establish [local], exposing the definition *)
 
 Lemma local_intro : forall F,
-  (forall H Q, 
+  (forall H Q,
     (H ==> \exists H1 H2 Q1, H1 \* H2 \*
              \[F H1 Q1 /\ Q1 \*+ H2 ===> Q \*+ \GC]) ->
     F H Q) ->
@@ -1085,7 +1085,7 @@ Lemma local_elim_frame : forall F H Q,
   local F ->
   (H ==> \exists H1 H2 Q1, H1 \* H2 \* \[F H1 Q1 /\ Q1 \*+ H2 ===> Q]) ->
   F H Q.
-Proof using. 
+Proof using.
   introv L M. applys~ local_elim. xchange M.
   xpull ;=> H1 H2 Q1 (N1&N2). xsimpl H1 H2 Q1. split~.
   xchanges~ N2.
@@ -1168,7 +1168,7 @@ Lemma local_conseq : forall H' Q' F H Q,
   Q' ===> Q ->
   F H Q.
 Proof using.
-  introv L M WH WQ. applys* local_conseq_frame_hgc \[] M. 
+  introv L M WH WQ. applys* local_conseq_frame_hgc \[] M.
   { xsimpl*. } { xchanges WQ. }
 Qed.
 
@@ -1315,7 +1315,7 @@ Lemma local_hstar_hforall_l : forall F H A (J:A->hprop) Q,
   (exists x, F ((J x) \* H) Q) ->
   F (hforall J \* H) Q.
 Proof using.
-  introv L (x&M). 
+  introv L (x&M).
   applys local_conseq_pre; [ auto | | applys hstar_hforall ].
   (* TODO: fix level for notation \forall and \hstar, so that parentheses show up *)
   (* above line same as: xtchanges hstar_hforall. *)
@@ -1438,7 +1438,7 @@ Proof using. introv M. rewrite <- mklocal_mklocal. applys M. Qed.
 (** A [mklocal] can be introduced at the head of a formula satisfying [local] *)
 
 Lemma eq_mklocal_of_local : forall F,
-  local F -> 
+  local F ->
   F = mklocal F.
 Proof using.
   introv L. applys pred_ext_2. intros H Q. iff M.
@@ -1454,7 +1454,7 @@ Lemma mklocal_weaken : forall F F',
   F ===>' F' ->
   mklocal F ===>' mklocal F'.
 Proof using.
-  unfold mklocal. introv M. intros H Q N. xchange (rm N) ;=> H1 H2 Q' [P1 P2]. 
+  unfold mklocal. introv M. intros H Q N. xchange (rm N) ;=> H1 H2 Q' [P1 P2].
   xsimpl H1 H2 Q'. split~. (* applys~ M. *)
 Qed.
 
@@ -1503,7 +1503,7 @@ Tactic Notation "xlocal" :=
 
 Ltac xtpull_check tt := (* DEPRECATED *)
   idtac.
-(* 
+(*
   let H := xprecondition tt in
   xpull_check_rec H.
 *)
@@ -1529,12 +1529,12 @@ Ltac xtpull_check tt := (* DEPRECATED *)
 (** Lemmas *)
 
 Lemma xtpull_start : forall B (F:~~B) H Q,
-  F (\[] \* H) Q -> 
+  F (\[] \* H) Q ->
   F H Q.
 Proof using. intros. rew_heap in *. auto. Qed.
 
 Lemma xtpull_keep : forall B (F:~~B) H1 H2 H3 Q,
-  F ((H2 \* H1) \* H3) Q -> 
+  F ((H2 \* H1) \* H3) Q ->
   F (H1 \* (H2 \* H3)) Q.
 Proof using. intros. rewrite (hstar_comm H2) in H. rew_heap in *. auto. Qed.
 
@@ -1544,17 +1544,17 @@ Lemma xtpull_assoc : forall B (F:~~B) H1 H2 H3 H4 Q,
 Proof using. intros. rew_heap in *. auto. Qed.
 
 Lemma xtpull_starify : forall B (F:~~B) H1 H2 Q,
-  F (H1 \* (H2 \* \[])) Q -> 
+  F (H1 \* (H2 \* \[])) Q ->
   F (H1 \* H2) Q.
 Proof using. intros. rew_heap in *. auto. Qed.
 
 Lemma xtpull_empty : forall B (F:~~B) H1 H2 Q,
-  (F (H1 \* H2) Q) -> 
+  (F (H1 \* H2) Q) ->
   F (H1 \* (\[] \* H2)) Q.
 Proof using. intros. rew_heap. auto. Qed.
 
 Lemma xtpull_hpure : forall B (F:~~B) H1 H2 P Q,
-  local F -> 
+  local F ->
   (P -> F (H1 \* H2) Q) ->
   F (H1 \* (\[P] \* H2)) Q.
 Proof using.
@@ -1562,8 +1562,8 @@ Proof using.
 Qed.
 
 Lemma xtpull_id : forall A (x X : A) B (F:~~B) H1 H2 Q,
-  local F -> 
-  (x = X -> F (H1 \* H2) Q) -> 
+  local F ->
+  (x = X -> F (H1 \* H2) Q) ->
   F (H1 \* (x ~> Id X \* H2)) Q.
 Proof using. intros. unfold Id. apply~ xtpull_hpure. Qed.
 
@@ -1879,8 +1879,8 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** [hfold_list] *)
 
-Definition hfold_list A (f:A->hprop) := fix F (l:list A) : hprop := 
-  match l with 
+Definition hfold_list A (f:A->hprop) := fix F (l:list A) : hprop :=
+  match l with
   | nil => \[]
   | x::l' => f x \* F l'
   end.
@@ -1888,7 +1888,7 @@ Definition hfold_list A (f:A->hprop) := fix F (l:list A) : hprop :=
 Definition hfold_list' A (f:A->hprop) (l:list A) : hprop :=
   LibList.fold sep_monoid f l.
 
-Lemma hfold_list_eq : 
+Lemma hfold_list_eq :
   hfold_list = hfold_list'.
 Proof using.
   applys fun_ext_3 ;=> A f l. induction l as [|x l'].
@@ -1922,8 +1922,8 @@ Hint Rewrite hfold_list_nil hfold_list_cons hfold_list_one : rew_heapx.
 (** [hfold_list2] *)
 
 Definition hfold_list2 A B (f:A->B->hprop) :=
-  fix F (l1:list A) (l2:list B) { struct l1 } : hprop := 
-  match l1,l2 with 
+  fix F (l1:list A) (l2:list B) { struct l1 } : hprop :=
+  match l1,l2 with
   | nil, nil => \[]
   | x1::l1', x2::l2' => f x1 x2 \* F l1' l2'
   | _, _ => arbitrary
@@ -1959,11 +1959,11 @@ Hint Rewrite hfold_list2_nil hfold_list2_cons hfold_list2_one : rew_heapx.
 (* ---------------------------------------------------------------------- *)
 (** Tactic [rew_heapx] for normalization of [hfold] *)
 
-Tactic Notation "rew_heapx" := 
+Tactic Notation "rew_heapx" :=
   autorewrite with rew_heapx.
-Tactic Notation "rew_heapx" "~" := 
+Tactic Notation "rew_heapx" "~" :=
   rew_heapx; auto_tilde.
-Tactic Notation "rew_heapx" "*" := 
+Tactic Notation "rew_heapx" "*" :=
   rew_heapx; auto_star.
 
 
@@ -1994,7 +1994,7 @@ Proof using.
   xapply M. xsimpl. xsimpl. xchanges W.
 Qed.
 
-Lemma weakestpre_conseq_wand : forall B (F:~~B) Q1 Q2, 
+Lemma weakestpre_conseq_wand : forall B (F:~~B) Q1 Q2,
   local F ->
   (Q1 \--* Q2) \* weakestpre F Q1 ==> weakestpre F Q2.
 Proof using.

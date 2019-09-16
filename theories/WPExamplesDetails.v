@@ -1,7 +1,7 @@
 (**
 
 This file shows step-by-step details of tactics for manipulating
-characteristic formula in weakest-precondition form, in lifted 
+characteristic formula in weakest-precondition form, in lifted
 Separation Logic, as defined in [WPLifted.v].
 
 Author: Arthur Charguéraud.
@@ -60,7 +60,7 @@ Proof using.
   applys @xapps_lemma_pure. { applys Triple_add. } xapp_post tt.
   (* xapp *)
   applys @xapp_lemma. { eapply @Triple_set. } xapp_post tt.
-  (* done *) 
+  (* done *)
   xsimpl.
 Qed.
 
@@ -115,7 +115,7 @@ Proof using.
   unfold Point. xpull ;=> k Hk.
   (* xseq *)
   applys xseq_lemma.
-  (* xlet-poly *) 
+  (* xlet-poly *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xlet-poly *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
@@ -126,7 +126,7 @@ Proof using.
   applys @xapps_lemma_pure. { applys @Triple_add. } xapp_post tt.
   (* xapp_record *)
   applys xapp_record_set. xapp_record_get_set_post tt.
-  (* xlet-poly *) 
+  (* xlet-poly *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
   (* xlet *)
   notypeclasses refine (xlet_lemma _ _ _ _ _).
@@ -175,7 +175,7 @@ Proof using.
 Qed.
 
   (* TODO [xnew details -> for proof details]
-  let Vs := list_boxer_to_dyns (>> (@nil A) 0) in 
+  let Vs := list_boxer_to_dyns (>> (@nil A) 0) in
   applys (@xapp_record_new Vs);
   [ (* TODO try reflexivity *)
   | intros ?; solve [ false ]
@@ -230,8 +230,8 @@ Abort.
 Definition val_test0 : val :=
   VFun 'p :=
     Match 'p With
-    '| pat_unit '=> 'Fail 
-    '| pat_unit '=> 'p 
+    '| pat_unit '=> 'Fail
+    '| pat_unit '=> 'p
     End.
 
 Lemma triple_test0 : forall (p:loc),
@@ -264,7 +264,7 @@ Fixpoint MList A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
   | x::L' => \exists p', \[v = Cons x p'] \* (MList L' p')
   end.
 
-Lemma MList_unfold : 
+Lemma MList_unfold :
   MList = fun A `{EA:Enc A} (L:list A) (p:loc) =>
     \exists v, p ~~> v \*
     match L with
@@ -353,7 +353,7 @@ Proof using.
       destruct L as [|x' L']; xpull.
       { intros ->. tryfalse. }
       { intros q' E'. subst v. rewrite enc_val_eq in *. inverts E.
-        xlet. 
+        xlet.
         xapp* IH.
         xapp.
         (* done *)
@@ -397,7 +397,7 @@ Definition val_pop : val :=
 
 Definition val_rev_append : val :=
   VFix 'f 'p1 'p2 :=
-    If_ val_is_empty 'p1 Then '() Else 
+    If_ val_is_empty 'p1 Then '() Else
        Let 'x := val_pop 'p1 in
        val_push 'p2 'x ';
        'f 'p1 'p2.
@@ -459,10 +459,10 @@ Proof using.
   dup.
   (* xcase with lemma for match list *)
   { applys xmatch_lemma_list.
-    { intros HL. 
+    { intros HL.
       (* xfail *)
       false. }
-    { intros X L' HL. 
+    { intros X L' HL.
       (* xseq *)
       applys xseq_lemma.
       (* xapp *)
@@ -545,7 +545,7 @@ Proof using.
   (* xval *)
   applys~ (xval_lemma (x::L)).
   (* xapps *)
-  applys @xapp_lemma. { eapply @Triple_set. } xapp_post tt. 
+  applys @xapp_lemma. { eapply @Triple_set. } xapp_post tt.
   (* done *)
   xsimpl~.
 Qed.
@@ -607,9 +607,9 @@ Proof using.
   { (* case nil *)
     xval tt. xsimpl~. subst. rew_list~. }
   { (* case cons *)
-    xlet. xapp~ @Triple_pop ;=> x L1' E. 
-    xseq. xapp @Triple_push. 
-    xapp (>> IH L1'). (* [xapp.] also works *) 
+    xlet. xapp~ @Triple_pop ;=> x L1' E.
+    xseq. xapp @Triple_push.
+    xapp (>> IH L1'). (* [xapp.] also works *)
     { subst*. }
     xsimpl. subst. rew_list~. }
 Qed.
@@ -624,13 +624,13 @@ Proof using.
   { (* case nil *)
     xval tt. xsimpl~. subst. rew_list~. }
   { (* case cons *)
-    xlet. xapp~ @Triple_pop ;=> x L1' E. 
+    xlet. xapp~ @Triple_pop ;=> x L1' E.
     xseq.
     (* xapp: *) xapp_debug @Triple_push. applys Spec. xsimpl.
-    dup. 
-    { (* xapp (>> IH L1'): *) xapp_debug (>> IH L1'). applys Spec. { subst*. } xapp_post tt. 
+    dup.
+    { (* xapp (>> IH L1'): *) xapp_debug (>> IH L1'). applys Spec. { subst*. } xapp_post tt.
       xsimpl. subst. rew_list~. }
-     { (* xapp (>> __ L1'): *) xapp_debug (>> __ L1'). applys Spec. { subst*. } xapp_post tt. 
+     { (* xapp (>> __ L1'): *) xapp_debug (>> __ L1'). applys Spec. { subst*. } xapp_post tt.
       xsimpl. subst. rew_list~. } }
 Qed.
 

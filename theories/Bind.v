@@ -129,7 +129,7 @@ Fixpoint rem_vars' A (xs:list var) (E:ctx A) : ctx A :=
   | x::xs' => rem_var x (rem_vars' xs' E)
   end.
 
-(** [one_var x v] consists of a single binding from variable [x] 
+(** [one_var x v] consists of a single binding from variable [x]
     to the value [v]. *)
 
 Definition one_var A (x:var) (v:A) : ctx A :=
@@ -142,7 +142,7 @@ Definition one_var A (x:var) (v:A) : ctx A :=
 Definition combine A (xs:list var) (vs:list A) : ctx A :=
   List.combine xs vs. (* LATER: use [LibListExec.combine] *)
 
-(** [app E1 E2] appends two contexts. 
+(** [app E1 E2] appends two contexts.
     Binders from [E1] may shadow those from [E2]. *)
 
 Definition app A (E1 E2:ctx A) : ctx A :=
@@ -158,7 +158,7 @@ Definition lookup_or_arbitrary `{Inhab A} (x:var) (E:ctx A) : A :=
   | Some v => v
   end.
 
-  
+
 
 (* ---------------------------------------------------------------------- *)
 (** Properties of operations on contexts *)
@@ -205,7 +205,7 @@ Lemma app_empty_r : forall E,
 Proof using. intros. unfold app, empty. rewrite List_app_eq. rew_list~. Qed.
 
 Lemma app_rev_add : forall E1 E2 x X,
-   app (LibList.rev E1) (add x X E2) 
+   app (LibList.rev E1) (add x X E2)
  = app (LibList.rev (add x X E1)) E2.
 Proof using.
   intros. unfolds app. unfolds add.
@@ -270,7 +270,7 @@ Qed.
 
 Lemma rem_var_rem_var : forall x y E,
   rem_var x (rem_var y E) = rem_var y (rem_var x E).
-Proof using. 
+Proof using.
   intros. induction E as [| (z,w) E']; simpl.
   { auto. }
   { repeat case_var; simpl; repeat case_var; auto. { fequals*. } }
@@ -278,7 +278,7 @@ Qed.
 
 Lemma rem_var_rem_vars : forall xs x E,
   rem_var x (rem_vars xs E) = rem_vars xs (rem_var x E).
-Proof using. 
+Proof using.
   intros xs. induction xs as [|y xs']; intros; simpl.
   { auto. }
   { rewrite rem_var_rem_var. rewrite~ IHxs'. }
@@ -307,7 +307,7 @@ Proof using.
   introv M. gen E. induction xs as [|y xs']; intros.
   { inverts M. }
   { simpl. case_var.
-    { auto. } 
+    { auto. }
     { inverts M; tryfalse. rewrite cons_eq_ctx_add. rewrite~ IHxs'. } }
 Qed.
 

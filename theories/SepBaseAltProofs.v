@@ -500,7 +500,7 @@ Qed.
 
 (* TODO: move to SepFunctor? *)
 Lemma hprop_extract_hfalse : forall H1 H2 h,
-  (H1 \* H2) h -> 
+  (H1 \* H2) h ->
   H1 ==> \[False] ->
   False.
 Proof using.

@@ -32,8 +32,8 @@ Module Lift.
 (** ** The encoder typeclass *)
 
 (** [Enc A] holds if the Coq type [A] matches a data type from
-    the imperative programming language embedded in Coq. 
-    
+    the imperative programming language embedded in Coq.
+
     [enc V] encodes a value [V] of type [A] to a value of type [val]. *)
 
 Class Enc (A:Type) : Type :=
@@ -83,7 +83,7 @@ Notation "l '~~>' V" := (l ~> Hsingle V)
     type [A->hprop] for some encodable type [A].
 
     [Triple t H Q] captures the fact that [t] evaluates to a value [v]
-    which is the encoding of a value [V] for which the postcondition 
+    which is the encoding of a value [V] for which the postcondition
     [Q] holds. *)
 
 Definition Triple (t:trm) `{EA:Enc A} (H:hprop) (Q:A->hprop) : Prop :=
@@ -121,7 +121,7 @@ Parameter Triple_let : forall z t1 t2 H,
 
 Definition Formula := forall A (EA:Enc A), (A -> hprop) -> hprop.
 
-(** Notation [^F Q] as a shorthand for [F _ _ Q], which is same as  
+(** Notation [^F Q] as a shorthand for [F _ _ Q], which is same as
     [F A EA Q] where [Q] has type [A->hprop] and [EA:Enc A]. *)
 
 Notation "^ F Q" := ((F:Formula) _ _ Q)
@@ -145,8 +145,8 @@ Definition Wpgen_let (F1:Formula) (F2of:forall `{EA1:Enc A1}, A1->Formula) : For
 (*
 [[
 Fixpoint Wpgen (E:ctx) (t:trm) : Formula :=
-  MkStruct 
-  match t with 
+  MkStruct
+  match t with
   ..
   | trm_seq t1 t2 => Wpgen_seq (Wpgen E t1) (Wpgen E t2)
   | trm_let x t1 t2 => Wpgen_let (Wpgen E t1) (fun A (EA:Enc A) (X:A) =>

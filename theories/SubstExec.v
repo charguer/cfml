@@ -1,6 +1,6 @@
 (**
 
-This file contains a computable definition for [subst]. 
+This file contains a computable definition for [subst].
 
 Author: Arthur Charguéraud.
 License: MIT.
@@ -14,16 +14,16 @@ Open Scope string_scope.
 (** [subst_exec] is like [subst] except that it computes with [simpl]. *)
 
 Fixpoint subst_exec (y:var) (w:val) (t:trm) : trm :=
-  let aux t := 
+  let aux t :=
     subst_exec y w t in
-  let bind_no_capture z t t' := 
+  let bind_no_capture z t t' :=
     match z with
     | bind_anon => t'
     | bind_var x => if var_eq x y then t else t'
     end in
-  let aux_no_capture z t := 
+  let aux_no_capture z t :=
     bind_no_capture z t (aux t) in
-  let aux_no_captures xs t := 
+  let aux_no_captures xs t :=
     if mem_exec var_eq y xs then t else aux t in
   match t with
   | trm_val v => trm_val v
@@ -60,7 +60,7 @@ Proof using.
   applys fun_ext_3. intros y w t. induction t using trm_induct; simpl; fequals.
   { rewrite~ if_var_eq_spec. }
   { rewrite mem_exec_var_eq_eq. destruct b; [|try rewrite if_var_eq_spec];
-    repeat case_if; tryfalse; auto. } 
+    repeat case_if; tryfalse; auto. }
   { rewrite List_map_eq. applys* map_congr. }
   { destruct b; [|try rewrite if_var_eq_spec];
     repeat case_if; tryfalse; auto. }

@@ -109,7 +109,7 @@ Proof using. auto. Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Func type *)
 
-(** Let [func] be an alias for [val], used to describing functions. 
+(** Let [func] be an alias for [val], used to describing functions.
     This type name helps deriving instances of encoders. *)
 
 Definition func := val.
@@ -151,7 +151,7 @@ Instance Enc_prim : Enc prim.
 Proof using. constructor. applys (fun (p:prim) => val_prim p). Defined.
 
 Instance Enc_tyconstr : Enc tyconstr.
-Proof using. constructor. applys (fun (cstr:tyconstr) => 
+Proof using. constructor. applys (fun (cstr:tyconstr) =>
   match cstr with constr id vs => val_constr id vs end). Defined.
 
 Instance Enc_option : forall `{Enc A}, Enc (option A).
@@ -295,7 +295,7 @@ Proof using.
   congruence.
 Qed.
 
-Lemma Enc_injective_option : forall A (EA:Enc A), 
+Lemma Enc_injective_option : forall A (EA:Enc A),
   Enc_injective EA ->
   Enc_injective (@Enc_option A EA).
 Proof using.
@@ -305,7 +305,7 @@ Proof using.
   { auto. }
 Qed.
 
-Lemma Enc_injective_list : forall A (EA:Enc A), 
+Lemma Enc_injective_list : forall A (EA:Enc A),
   Enc_injective EA ->
   Enc_injective (@Enc_list A EA).
 Proof using.
@@ -405,7 +405,7 @@ Fixpoint decode (v:val) : dyn :=
   | val_prim p => Dyn p
   | val_fixs f xs t => Dyn (v:func)
   | val_constr id vs => Dyn (constr id vs)
-     (* Note: universe constraints prevent decoding to 
+     (* Note: universe constraints prevent decoding to
         [Dyn (Constr id (List.map decode vs))] *)
   end.
 
@@ -482,7 +482,7 @@ Proof using.
   introv L. rename H into EQ. applys local_intro.
   intros H Q M. applys~ local_elim.
   xchange M. xpull ;=> H1 H2 Q1 (N1&N2).
-  xsimpl H1 H2 (LiftPost Q1). splits~. 
+  xsimpl H1 H2 (LiftPost Q1). splits~.
   do 2 rewrite <- LiftPost_star. applys~ LiftPost_himpl.
 Qed.
 
@@ -739,7 +739,7 @@ Lemma Triple_evalctx : forall C t1 H,
   (forall (V:A1), Triple (C ``V) (Q1 V) Q) ->
   Triple (C t1) H Q.
 Proof using.
-  introv EC M1 M2. applys* triple_evalctx. 
+  introv EC M1 M2. applys* triple_evalctx.
   { intros v. unfold LiftPost. xtpull ;=> V ->. applys M2. }
 Qed.
 
@@ -752,7 +752,7 @@ Lemma Triple_isubst_evalctx : forall E C t1 H,
   (forall V, Triple (isubst E (C ``V)) (Q1 V) Q) ->
   Triple (isubst E (C t1)) H Q.
 Proof using.
-  introv EC M1 M2. applys* triple_isubst_evalctx. 
+  introv EC M1 M2. applys* triple_isubst_evalctx.
   { intros v. unfold LiftPost. xtpull ;=> V ->. applys M2. }
 Qed.
 
@@ -784,7 +784,7 @@ Proof using. introv M. applys triple_constr. unfold LiftPost. xchanges* M. Qed.
 
 Lemma Triple_constr_trm : forall id ts t1 vs H,
   forall A `{EA:Enc A} (Q:A->hprop) A1 `{EA1:Enc A1} (Q1:A1->hprop),
-  Triple t1 H Q1 -> 
+  Triple t1 H Q1 ->
   (forall (X:A1), Triple (trm_constr id ((trms_vals vs)++(trm_val ``X)::ts)) (Q1 X) Q) ->
   Triple (trm_constr id ((trms_vals vs)++t1::ts)) H Q.
 Proof using.
@@ -798,7 +798,7 @@ Lemma Triple_let : forall z t1 t2 H,
   (forall (X:A1), Triple (Subst1 z X t2) (Q1 X) Q) ->
   Triple (trm_let z t1 t2) H Q.
 Proof using.
-  introv M1 M2. applys triple_let M1. 
+  introv M1 M2. applys triple_let M1.
   intros v. unfold LiftPost at 1. xtpull ;=> V ->. subst. applys M2.
 Qed.
 
@@ -866,7 +866,7 @@ Proof using. introv M. applys triple_for_raw. applys M. Qed.
 
 Lemma Triple_match_trm : forall t1 pts H,
   forall A `{EA:Enc A} (Q:A->hprop) A1 `{EA1:Enc A1} (Q1:A1->hprop),
-  Triple t1 H Q1 -> 
+  Triple t1 H Q1 ->
   (forall (X:A1), Triple (trm_match (``X) pts) (Q1 X) Q) ->
   Triple (trm_match t1 pts) H Q.
 Proof using.
@@ -878,7 +878,7 @@ Lemma Triple_match : forall v p t1 pts H `{EA:Enc A} (Q:A->hprop),
   (forall (G:ctx), Ctx.dom G = patvars p -> v = patsubst G p -> Triple (isubst G t1) H Q) ->
   ((forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p) -> Triple (trm_match v pts) H Q) ->
   Triple (trm_match v ((p,t1)::pts)) H Q.
-Proof using. 
+Proof using.
   introv M1 M2. applys* triple_match.
   { introv HG Hv. applys* M1. }
   { introv HG Hv. applys* M2. }
@@ -1035,7 +1035,7 @@ Lemma Triple_neq : forall `{EA:Enc A},
     (fun (b:bool) => \[b = isTrue (v1 <> v2)]).
 Proof using. (* LATER: simplify *)
   introv I. intros.
-  applys (@Triple_enc_change bool). { sapply Triple_neq_val. } 
+  applys (@Triple_enc_change bool). { sapply Triple_neq_val. }
   unfolds. xpull ;=> ? ->. xsimpl*. rewrite* Enc_injective_eq.
 Qed.
 

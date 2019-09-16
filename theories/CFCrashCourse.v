@@ -25,9 +25,9 @@ Module Basics.
 
 
 (* ******************************************************* *)
-(** *** Let computation *) 
+(** *** Let computation *)
 
-(** 
+(**
 [[
   let example_let n =
     let a = n + 1 in
@@ -58,9 +58,9 @@ Qed.
 
 
 (* ******************************************************* *)
-(** *** Increment *) 
+(** *** Increment *)
 
-(** 
+(**
 [[
   let incr p =
     p := !p + 1
@@ -83,9 +83,9 @@ Hint Extern 1 (Register_Spec (incr)) => Provide Triple_incr.
 
 
 (* ******************************************************* *)
-(** *** Successor using increment *) 
+(** *** Successor using increment *)
 
-(** 
+(**
 [[
   let succ_using_incr n =
     let p = ref n in
@@ -114,9 +114,9 @@ Qed.
 
 
 (* ******************************************************* *)
-(** *** Increment with two references *) 
+(** *** Increment with two references *)
 
-(** 
+(**
 [[
   let incr_one_of_two p q =
     incr p
@@ -127,7 +127,7 @@ Definition incr_one_of_two : val :=
   VFun 'p 'q :=
     incr 'p.
 
-Lemma Triple_incr_one_of_two : 
+Lemma Triple_incr_one_of_two :
   forall (p q:loc) (n m:int),
   TRIPLE (incr_one_of_two p q)
     PRE (p ~~> n \* q ~~> m)
@@ -138,9 +138,9 @@ Qed.
 
 
 (* ******************************************************* *)
-(** *** Increment and allocate a copy *) 
+(** *** Increment and allocate a copy *)
 
-(** 
+(**
 [[
   let incr_and_ref p =
     incr p;
@@ -166,7 +166,7 @@ Hint Extern 1 (Register_Spec (incr_and_ref)) => Provide Triple_incr_and_ref.
 Lemma Triple_incr_and_ref' : forall (p:loc) (n:int),
   TRIPLE (incr_and_ref p)
     PRE (p ~~> n)
-    POST (fun (q:loc) => 
+    POST (fun (q:loc) =>
         \exists m, \[m > n] \* q ~~> m \* p ~~> (n+1)).
 Proof using.
   xtriple. xapp. intros q. xsimpl. math.
@@ -174,9 +174,9 @@ Qed.
 
 
 (* ******************************************************* *)
-(** *** A simple recursion *) 
+(** *** A simple recursion *)
 
-(** 
+(**
 [[
   let rec repeat_incr p m =
     if m > 0 then (
@@ -202,9 +202,9 @@ Lemma Triple_repeat_incr : forall p n m,
 Proof using.
   intros. gen n. induction_wf IH: (downto 0) m. intros.
   xwp. xapp. xif ;=> C.
-  { (* then branch *) 
+  { (* then branch *)
     xapp. xapp. xapp. { unfold downto. math. } xsimpl. math. }
-  { (* else branch *) 
+  { (* else branch *)
     xval. xsimpl.
 Abort.
 
@@ -376,7 +376,7 @@ End XsimplDemo.
 
 Module ExoBasic.
 
-(** Hints: 
+(** Hints:
     - [xwp] to begin the proof
     - [xapp] for applications, or [xappn] to repeat
     - [xif] for a case analysis
@@ -390,7 +390,7 @@ Module ExoBasic.
 (* ******************************************************* *)
 (** ** Basic pure function (warm up) *)
 
-(** 
+(**
 [[
   let double n =
     n + n
@@ -413,7 +413,7 @@ Qed.
 (* ******************************************************* *)
 (** ** Basic imperative function with one argument *)
 
-(** 
+(**
 [[
   let inplace_double p =
     p := !p + !p
@@ -436,7 +436,7 @@ Qed.
 (* ******************************************************* *)
 (** ** Basic imperative function with two arguments (white belt) *)
 
-(** 
+(**
 [[
   let decr_and_incr p q =
     decr p;
@@ -459,7 +459,7 @@ Qed.
 
 
 (* ******************************************************* *)
-(** *** A recursive function (yellow belt) *) 
+(** *** A recursive function (yellow belt) *)
 
 (** Here, we will assume [!p > 0].
 
@@ -490,7 +490,7 @@ Proof using.
   introv N. gen m N. induction_wf IH: (downto 0) n. intros.
   (* SOLUTION *)
   xwp. xapp. xapp. xif ;=> C.
-  { xapp. xapp. xapp. { hnf. math. } { math. } 
+  { xapp. xapp. xapp. { hnf. math. } { math. }
     xsimpl. math. }
   { xval. xsimpl. math. math. }
   (* /SOLUTION *)
@@ -514,10 +514,10 @@ End ExoBasic.
 (* ####################################################### *)
 (** * Hands-on: mutable lists *)
 
-(** Hints: 
+(** Hints:
     - [xchange MList_eq] and the variants like for [Stackn]
     - [xchange (MList_not_nil p)] to unfold [p ~> MList L] when [L <> nil]
-    - [xchange MList_cons] to unfold [p ~> MList (x::L)] 
+    - [xchange MList_cons] to unfold [p ~> MList (x::L)]
       into [\exists q, p ~~> Cons x q \* q ~> MList L]
     - [xchange <- MList_cons] to fold back to [p ~> MList (x::L)]
     - [xchange <- (MList_cons p)], like the above for a specific [p]
@@ -589,14 +589,14 @@ Qed.
 (* ******************************************************* *)
 (** ** Push back not using append (blue belt) *)
 
-(** Hint: the following function is a specialization of 
+(** Hint: the following function is a specialization of
     [inplace_append] for the case where the second list
     consists of a single element. Its proof is similar. *)
 
 (**
 [[
   let rec push_back' p x =
-    if is_empty p 
+    if is_empty p
       then set_cons p x (create())
       else push_back' (tail p) x
 ]]
@@ -604,7 +604,7 @@ Qed.
 
 Definition push_back' : val :=
   VFix 'f 'p 'x :=
-    If_ is_empty 'p 
+    If_ is_empty 'p
       Then set_cons 'p 'x (create '())
       Else 'f (tail 'p) 'x.
 
@@ -614,8 +614,8 @@ Lemma Triple_push_back' : forall `{EA:Enc A} (L:list A) (x:A) (p:loc),
     POST (fun (_:unit) => p ~> MList (L++x::nil)).
 Proof using.
   intros. gen p. induction_wf IH: (@list_sub A) L. intros.
-  (* SOLUTION *) 
-  xwp. xif ;=> C. 
+  (* SOLUTION *)
+  xwp. xif ;=> C.
   { subst. xchanges (MList_eq p) ;=> v1.
     xapp ;=> q. xapp. xchanges <- (MList_cons p). }
   { xchanges~ (MList_not_nil p) ;=> y L' p' ->.
@@ -627,7 +627,7 @@ Qed.
 (* ******************************************************* *)
 (** ** Reversed copy using iter (brown belt) *)
 
-(** Hints: 
+(** Hints:
     - [xfun] to substitute a function definition in its occurences
     - [xapp (>> __ E)] to provide [E] as argument to the specification
       lemma that [xapp] would apply.
@@ -654,7 +654,7 @@ Lemma Triple_reversed_copy : forall A `{EA:Enc A} (L:list A) (p:loc),
     PRE (p ~> MList L)
     POST (fun q => p ~> MList L \* q ~> MList (rev L)).
 Proof using.
-  (* SOLUTION *) 
+  (* SOLUTION *)
   xwp. xapp ;=> q. xfun.
   xapp (>> __ (fun (K:list A) => q ~> MList (rev K))).
   { intros x K L' E. xwp. xapp. xsimpl*. }

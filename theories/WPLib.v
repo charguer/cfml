@@ -81,6 +81,6 @@ Proof using.
 Qed.
 
 Hint Extern 1 (Register_Spec (list_concat)) => Provide @Triple_list_concat.
-  
+
 
 

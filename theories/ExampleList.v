@@ -18,13 +18,13 @@ Implicit Types n : int.
 (* ********************************************************************** *)
 (* * Towards a representation *)
 
-(** 
+(**
 [[
   type 'a mlist = ('a contents) ref
   and  'a contents = Nil | Cons of 'a * 'a mlist
 ]]
 
-Let's begin by assuming that type ['a] 
+Let's begin by assuming that type ['a]
 is represented as type [val].
 *)
 
@@ -118,7 +118,7 @@ Proof using.
 Qed.
 
 Lemma MList_cons : forall (p:loc) A `{EA:Enc A} x (L':list A),
-  p ~> MList (x::L') 
+  p ~> MList (x::L')
 = \exists p', p ~~> (Cons x p') \* (p' ~> MList L').
 Proof using. intros. xunfold MList at 1. xsimpl~. Qed.
 
@@ -138,20 +138,20 @@ Arguments MList_not_nil : clear implicits.
 (* ---------------------------------------------------------------------- *)
 (** Match on a list *)
 
-Lemma Mlist_unfold_match : forall `{EA:Enc A} (L:list A) (p:loc) `{EB:Enc B} 
+Lemma Mlist_unfold_match : forall `{EA:Enc A} (L:list A) (p:loc) `{EB:Enc B}
   (F1:Formula) (F2:val->val->Formula) (Q:B->hprop) H,
   H ==>
     (p ~> MList L)
   \* (hand (\[L = nil] \-* p ~> MList L \-* ^F1 Q)
            (\forall q' x' L', \[L = x'::L']
-              \-* p ~~> (Cons x' q') 
+              \-* p ~~> (Cons x' q')
               \-* q' ~> MList L'
               \-* ^(F2 ``x' ``q' : Formula) Q)) ->
   H ==> ^ (Let_ [A0 EA0] X := `App (trm_val (val_prim val_get)) (val_loc p) in
-         Case ``X = 'VCstr "Nil" '=> F1 
+         Case ``X = 'VCstr "Nil" '=> F1
       '| Case ``X = 'VCstr "Cons" X0 X1 [X0 X1] '=> F2 X0 X1
       '| Fail) Q.
-Proof using. 
+Proof using.
   introv M. xchange M. (* xlet *) notypeclasses refine (xlet_lemma _ _ _ _ _).
   xchanges (MList_eq p) ;=> v. unfolds MList_contents. xapp.
   applys xcase_lemma0 ;=> E1.
@@ -175,7 +175,7 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** [is_empty] *)
 
-(** 
+(**
 [[
     let is_empty p =
       match !p with
@@ -187,7 +187,7 @@ Qed.
 Definition is_empty : val :=
   VFun 'p :=
     Match '! 'p With
-    '| 'Cstr "Nil" '=> true 
+    '| 'Cstr "Nil" '=> true
     '| 'Cstr "Cons" 'x 'q '=> false
     End.
 
@@ -199,7 +199,7 @@ Proof using.
   intros. xwp. applys @Mlist_unfold_match. xsimpl_hand.
   { (* nil *)
     intros EL. xval. xsimpl~. }
-  { (* cons *) 
+  { (* cons *)
     intros p' x' L' ->. xval. xchanges* <- (MList_cons p). }
 Qed.
 
@@ -209,7 +209,7 @@ Hint Extern 1 (Register_Spec (is_empty)) => Provide @Triple_is_empty.
 (* ---------------------------------------------------------------------- *)
 (** [head] and [tail] *)
 
-(** 
+(**
 [[
     let head p =
       match !p with
@@ -235,7 +235,7 @@ Lemma Triple_head : forall A `{EA:Enc A} p x q,
     PRE (p ~~> (Cons x q))
     POST (fun r => \[r = x] \* p ~~> (Cons x q)).
 Proof using.
-  intros. xwp. xapp. applys xcase_lemma2. 
+  intros. xwp. xapp. applys xcase_lemma2.
   { (* cons *) intros p' x' E. rew_enc in E. unfolds @Cons. inverts E. xval. xsimpl~. }
   { (* else *) xfail*. }
 Qed.
@@ -253,7 +253,7 @@ Lemma Triple_tail : forall A `{EA:Enc A} p x q,
     PRE (p ~~> (Cons x q))
     POST (fun r => \[r = q] \* p ~~> (Cons x q)).
 Proof using.
-  intros. xwp. xapp. applys xcase_lemma2. 
+  intros. xwp. xapp. applys xcase_lemma2.
   { (* cons *) intros p' x' E. rew_enc in E. unfolds @Cons. inverts E. xval. xsimpl~. }
   { (* else *) xfail*. }
 Qed.
@@ -264,7 +264,7 @@ Hint Extern 1 (Register_Spec (tail)) => Provide @Triple_tail.
 (* ---------------------------------------------------------------------- *)
 (** [create] and [mk_cons] *)
 
-(** 
+(**
 [[
     let create () =
       ref Nil
@@ -298,7 +298,7 @@ Lemma Triple_mk_cons : forall A `{EA:Enc A} (L:list A) (x:A) (q:loc),
     PRE (q ~> MList L)
     POST (fun p => p ~> MList (x::L)).
 Proof using.
-  xwp. xval. xapp ;=> p. 
+  xwp. xval. xapp ;=> p.
   xchanges <- MList_cons.
 Qed.
 
@@ -308,7 +308,7 @@ Hint Extern 1 (Register_Spec (mk_cons)) => Provide @Triple_mk_cons.
 (* ---------------------------------------------------------------------- *)
 (** [set_nil], [set_cons], [set_head], and [set_tail] *)
 
-(** 
+(**
 [[
     let set_nil p =
       p := Nil
@@ -363,7 +363,7 @@ Lemma Triple_set_head : forall A `{EA:Enc A} q p x1 x2,
     PRE (p ~~> Cons x1 q)
     POST (fun (_:unit) => p ~~> Cons x2 q).
 Proof using.
-  intros. xwp. xapp. applys xcase_lemma2. 
+  intros. xwp. xapp. applys xcase_lemma2.
   { (* cons *) intros p' x' E. rew_enc in E. unfolds @Cons. inverts E.
      xval. xapp. xsimpl~. }
   { (* else *) xfail*. }
@@ -382,7 +382,7 @@ Lemma Triple_set_tail : forall A `{EA:Enc A} p x q1 q2,
     PRE (p ~~> Cons x q1)
     POST (fun (_:unit) => p ~~> Cons x q2).
 Proof using.
-  intros. xwp.  xapp. applys xcase_lemma2. 
+  intros. xwp.  xapp. applys xcase_lemma2.
   { (* cons *) intros p' x' E. rew_enc in E. unfolds @Cons. inverts E.
      xval. xapp. xsimpl~. }
   { (* else *) intros N. false N. reflexivity. }
@@ -394,7 +394,7 @@ Hint Extern 1 (Register_Spec (set_tail)) => Provide @Triple_set_tail.
 (* ---------------------------------------------------------------------- *)
 (** [push] *)
 
-(** 
+(**
 [[
     let push p x =
       set_cons p x (ref !p)
@@ -410,7 +410,7 @@ Lemma Triple_push : forall `{EA:Enc A} (L:list A) (p:loc) (x:A),
     PRE (p ~> MList L)
     POST (fun (_:unit) => p ~> MList (x::L)).
 Proof using.
-  xwp. xchange MList_eq ;=> v. xapp. 
+  xwp. xchange MList_eq ;=> v. xapp.
   xapp ;=> p'. xapp.
   xchange <- MList_eq. xchange <- MList_cons. xsimpl.
 Qed.
@@ -421,7 +421,7 @@ Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
 (* ---------------------------------------------------------------------- *)
 (** [pop] *)
 
-(** 
+(**
 [[
     let pop p =
       let x = head p in
@@ -440,7 +440,7 @@ Lemma Triple_pop : forall `{EA:Enc A} (L:list A) (p:loc),
   L <> nil ->
   TRIPLE (pop p)
     PRE (p ~> MList L)
-    POST (fun (x:A) => 
+    POST (fun (x:A) =>
       \exists L', \[L = x::L'] \* p ~> MList L').
 Proof using.
   introv N. xwp. destruct L as [|x L']; tryfalse. xchange MList_cons ;=> q.
@@ -458,7 +458,7 @@ Hint Extern 1 (Register_Spec (pop)) => Provide @Triple_pop.
 (* ---------------------------------------------------------------------- *)
 (** [mlength] *)
 
-(** 
+(**
 [[
     let rec mlength p =
       if is_empty p
@@ -469,8 +469,8 @@ Hint Extern 1 (Register_Spec (pop)) => Provide @Triple_pop.
 
 Definition mlength : val :=
   VFix 'f 'p :=
-    If_ is_empty 'p 
-      Then 0 
+    If_ is_empty 'p
+      Then 0
       Else 1 '+ 'f (tail 'p).
 
 Lemma Triple_mlength : forall `{EA:Enc A} (L:list A) (p:loc),
@@ -491,7 +491,7 @@ Hint Extern 1 (Register_Spec (mlength)) => Provide @Triple_mlength.
 (* ---------------------------------------------------------------------- *)
 (** [copy] *)
 
-(** 
+(**
 [[
     let rec copy p =
       if is_empty p
@@ -502,8 +502,8 @@ Hint Extern 1 (Register_Spec (mlength)) => Provide @Triple_mlength.
 
 Definition copy : val :=
   VFix 'f 'p :=
-    If_ is_empty 'p 
-      Then create '() 
+    If_ is_empty 'p
+      Then create '()
       Else mk_cons (head 'p) ('f (tail 'p)).
 
 Lemma Triple_copy : forall `{EA:Enc A} (L:list A) (p:loc),
@@ -525,7 +525,7 @@ Hint Extern 1 (Register_Spec (copy)) => Provide @Triple_copy.
 (* ---------------------------------------------------------------------- *)
 (** [iter] *)
 
-(** 
+(**
 [[
     let rec iter f p =
       if not (is_empty p) then (
@@ -561,7 +561,7 @@ Proof using.
   intros L1 L2 E. gen p L1. induction_wf: list_sub_wf L2; intros.
   xwp. xapp~. xapp. xif ;=> C.
   { xchanges~ MList_not_nil ;=> x L2' p2' ->.
-    xapp. xapp*. (* xapp (>> __ L2'). *) 
+    xapp. xapp*. (* xapp (>> __ L2'). *)
     xapp. xapp*. xchanges <- MList_cons. }
   { xval. subst; rew_list. xsimpl. }
 Qed.
@@ -572,7 +572,7 @@ Hint Extern 1 (Register_Spec (iter)) => Provide @Triple_iter.
 (* ---------------------------------------------------------------------- *)
 (** Length of a mutable list using iter *)
 
-(** 
+(**
 [[
     let length_using_iter p =
       let n = ref 0 in
@@ -602,7 +602,7 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Nondestructive append *)
 
-(** 
+(**
 [[
     let rec nondestructive_append p1 p2 =
       if is_empty p1
@@ -613,7 +613,7 @@ Qed.
 
 Definition nondestructive_append : val :=
   VFix 'f 'p1 'p2 :=
-    If_ is_empty 'p1 
+    If_ is_empty 'p1
       Then copy 'p2
       Else mk_cons (head 'p1) ('f (tail 'p1) 'p2).
 
@@ -642,7 +642,7 @@ Hint Extern 1 (Register_Spec (nondestructive_append)) => Provide @Triple_nondest
 (* ---------------------------------------------------------------------- *)
 (** Destructive append *)
 
-(** 
+(**
 [[
     let rec inplace_append p1 p2 =
       if is_empty p1
@@ -653,7 +653,7 @@ Hint Extern 1 (Register_Spec (nondestructive_append)) => Provide @Triple_nondest
 
 Definition inplace_append : val :=
   VFix 'f 'p1 'p2 :=
-    If_ is_empty 'p1 
+    If_ is_empty 'p1
       Then 'p1 ':= '! 'p2
       Else 'f (tail 'p1) 'p2.
 
@@ -663,7 +663,7 @@ Lemma Triple_inplace_append : forall `{EA:Enc A} (L1 L2:list A) (p1 p2:loc),
     POST (fun (_:unit) => p1 ~> MList (L1++L2)).
 Proof using.
   intros. gen p1. induction_wf IH: (@list_sub A) L1. intros.
-  xwp. xif ;=> C. 
+  xwp. xif ;=> C.
   { xchanges (MList_eq p1) ;=> v1. xchanges (MList_eq p2) ;=> v2.
     xapp. xapp. xchanges* <- (MList_eq p1). }
   { xchanges~ (MList_not_nil p1) ;=> x L1' p1' ->.
@@ -676,14 +676,14 @@ Hint Extern 1 (Register_Spec (inplace_append)) => Provide @Triple_inplace_append
 (* ---------------------------------------------------------------------- *)
 (** CPS append *)
 
-(** 
+(**
 [[
 ]]
 *)
 
 Definition cps_append_aux : val :=
   VFix 'f 'p1 'p2 'k :=
-    If_ is_empty 'p1 
+    If_ is_empty 'p1
       Then 'k 'p2
       Else 'f (tail 'p1) 'p2 (Fun 'r := (set_tail 'p1 'r '; 'k 'p1)).
 
@@ -704,12 +704,12 @@ Proof using.
   xwp. xapp (>> __ EA). xif ;=> C.
   { subst. xapp. xsimpl~. }
   { xchanges~ (MList_not_nil p1) ;=> x L1' p1' ->.
-    xapp (>> __ EA). xfun. 
+    xapp (>> __ EA). xfun.
     (* LATER: xapp (>> IH L1' (H \* (p1 ~~> Cons x p1'))). *)
     lets IH': (>> (rm IH) L1' (H \* (p1 ~~> Cons x p1'))).
     { autos*. }
     xapp IH'; clear IH'. (* LATER: xapp (rm IH') *)
-    { intros p3. xwp. xapp (>> __ EA). xapp. 
+    { intros p3. xwp. xapp (>> __ EA). xapp.
       xchanges <- (MList_cons p1). }
     xsimpl*. }
 Qed.
@@ -743,7 +743,7 @@ Qed.
 (** Length using iter but not incr *)
 
 (**
-   let length_using_iter p = 
+   let length_using_iter p =
       let n = ref 0 in
       MList.iter (fun x -> incr n) p;
       !n
@@ -796,7 +796,7 @@ Lemma Triple_is_empty' : forall A `{EA:Enc A} (L:list A) p,
     PRE (p ~> MList L)
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> MList L).
 Proof using.
-  intros. xwp. xchange MList_eq ;=> v. xapp. 
+  intros. xwp. xchange MList_eq ;=> v. xapp.
   applys xcase_lemma0 ;=> E1.
   { rew_enc in E1. subst. xchange MList_contents_Nil ;=> ->.
     xchange <- MList_nil. xval. xsimpl~. }
@@ -822,7 +822,7 @@ Qed.
     if is_empty (tail p) then (
       let x = head p in
       set_nil p;
-      x 
+      x
     ) else (
       pop_back (tail p)
     )
@@ -846,13 +846,13 @@ Lemma Triple_pop_back : forall `{EA:Enc A} (L:list A) (p:loc),
     POST (fun x => \exists L1, \[L = L1++x::nil] \* p ~> MList L1).
 Proof using.
   introv. gen p. induction_wf IH: (@list_sub A) L. introv N.
-  (* SOLUTION *) 
+  (* SOLUTION *)
   xwp. destruct L as [|x L']; tryfalse. xchange MList_cons ;=> p'.
   xapp. xapp. xif ;=> C.
   { subst. xapp. xapp. xval. xsimpl (@nil A). { rew_list. auto. }
     xchanges <- MList_nil. }
   { xapp. xapp. { auto. } { auto. } intros y L1' ->.
-    xsimpl (x::L1'). { rew_list. auto. } xchanges <- MList_cons. } 
+    xsimpl (x::L1'). { rew_list. auto. } xchanges <- MList_cons. }
   (* /SOLUTION *)
 Qed.
 
@@ -930,4 +930,4 @@ Qed. (* Note: using rewrite below existential binders, the proof would be far ea
 End SegProperties.
 
 
-End MList.  
+End MList.

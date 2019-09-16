@@ -47,7 +47,7 @@ For the course on the practice of proofs with CFML, see files named [CF*.v].
     - [SLFWPgen]: presents an effective function to compute weakest preconditions,
                   and the techniques for obtaining concise verification proofs.
 
-    - [SLFLift]:  presents a technique for writing postconditions that directly 
+    - [SLFLift]:  presents a technique for writing postconditions that directly
                   bind a Coq value rather than a value from the deeply embedded language.
 
     - [SLFRich]:  describes how to handle more advanced language constructs, such as
@@ -57,9 +57,9 @@ For the course on the practice of proofs with CFML, see files named [CF*.v].
 
     - [SLFSummary]: provides a brief summary of all the contents of this course.
                     It is intended as support for a 1-hour technical course to
-                    experts with prior knowledge of Separation Logic. It also 
+                    experts with prior knowledge of Separation Logic. It also
                     serves as a summary of the present course, as a target for
-                    readers who, by the end of the course, presumably have become 
+                    readers who, by the end of the course, presumably have become
                     experts in Separation Logic.
 
     - [SLFDirect]: provides the minimal set of definitions and lemmas required
@@ -68,7 +68,7 @@ For the course on the practice of proofs with CFML, see files named [CF*.v].
                    This file is mostly self-contained; it depends on variables
                    defined in [Var.v], on finite maps defined in [Fmap.v] and on the
                    implementation of the SL simplification tactic from [SepSimpl.v].
-                   Note that this file contains a minimal amount of comments, 
+                   Note that this file contains a minimal amount of comments,
                    as they would be redundant with the other course files.
 
     - [SLFExtra]: recaps all the definition and lemmas from the course that are

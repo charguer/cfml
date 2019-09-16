@@ -93,7 +93,7 @@ Proof using. intros. intros A EA. applys structural_mkstruct. Qed.
 (** A [MkStruct] can be introduced at the head of a formula satisfying [Struct] *)
 
 Lemma eq_Mkstruct_of_Structural : forall (F:Formula),
-  Structural F -> 
+  Structural F ->
   F = MkStruct F.
 Proof using.
   introv L. applys fun_ext_3. intros A EA Q.
@@ -204,17 +204,17 @@ Definition Wpaux_getval_typed Wpgen (E:ctx) (t1:trm) `{EA1:Enc A1} (F2of:A1->For
   | _ => `Wpgen_let_typed (Wpgen E t1) F2of
   end.
 
-Definition Wpaux_constr Wpgen (E:ctx) (id:idconstr) : list val -> list trm -> Formula := 
+Definition Wpaux_constr Wpgen (E:ctx) (id:idconstr) : list val -> list trm -> Formula :=
   fix mk (rvs : list val) (ts : list trm) : Formula :=
     match ts with
     | nil => `Wpgen_val (val_constr id (List.rev rvs))
     | t1::ts' => Wpaux_getval Wpgen E t1 (fun v1 => mk (v1::rvs) ts')
     end.
 
-Definition Wpgen_app (t:trm) : Formula := 
+Definition Wpgen_app (t:trm) : Formula :=
   MkStruct (Wp t).
 
-Definition Wpaux_apps Wpgen (E:ctx) (v0:func) : list val -> list trm -> Formula := 
+Definition Wpaux_apps Wpgen (E:ctx) (v0:func) : list val -> list trm -> Formula :=
   (fix mk (rvs : list val) (ts : list trm) : Formula :=
     match ts with
     | nil => `Wpgen_app (trm_apps v0 (trms_vals (List.rev rvs)))
@@ -235,12 +235,12 @@ Definition Wpgen_while (F1 F2:Formula) : Formula :=
     \[ structural (@R unit _) /\ (forall Q', ^F Q' ==> ^R Q')] \-* (^R Q))).
     (* TODO: use a lifted version of structural *)
 
-Definition Wpgen_for_int (n1 n2:int) (F1:int->Formula) : Formula := 
+Definition Wpgen_for_int (n1 n2:int) (F1:int->Formula) : Formula :=
   MkStruct (Formula_cast (fun (Q:unit->hprop) =>
     \forall (S:int->Formula),
     let F i := If (i <= n2) then (`Wpgen_seq (F1 i) (S (i+1)))
                             else (`Wpgen_val val_unit) in
-    \[   (forall i, structural (S i unit _)) 
+    \[   (forall i, structural (S i unit _))
       /\ (forall i Q', ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
      (* TODO: use a lifted version of structural_pred *)
 
@@ -254,7 +254,7 @@ Definition Wpaux_match Wpgen (E:ctx) (v:val) : list (pat*trm) ->  Formula :=
     | nil => `Wpgen_fail
     | (p,t)::pts' =>
         let xs := patvars p in
-        let F1 A (EA:Enc A) (Q:A->hprop) := 
+        let F1 A (EA:Enc A) (Q:A->hprop) :=
            hforall_vars (fun G => let E' := (Ctx.app G E) in
               \[v = patsubst G p] \-* ^(Wpgen E' t) Q) Ctx.empty xs in
         let P := forall_vars (fun G => v <> patsubst G p) Ctx.empty xs in
@@ -273,13 +273,13 @@ Fixpoint Wpgen (E:ctx) (t:trm) : Formula :=
   | trm_val v => `Wpgen_val v
   | trm_var x => Wpaux_var E x
   | trm_fixs f xs t1 =>
-      match xs with 
+      match xs with
       | nil => `Wpgen_fail
       | _ => `Wpgen_val (val_fixs f xs (isubst (Ctx.rem_vars xs (Ctx.rem f E)) t1))
       end
   | trm_constr id ts => Wpaux_constr Wpgen E id nil ts
   | trm_if t0 t1 t2 =>
-     Wpaux_getval_typed Wpgen E t0 (fun b0 => 
+     Wpaux_getval_typed Wpgen E t0 (fun b0 =>
        `Wpgen_if_case b0 (aux t1) (aux t2))
   | trm_let z t1 t2 =>
      match z with
@@ -287,14 +287,14 @@ Fixpoint Wpgen (E:ctx) (t:trm) : Formula :=
      | bind_var x => `Wpgen_let (aux t1) (fun `{EA:Enc A} (X:A) =>
                          Wpgen (Ctx.add x (enc X) E) t2)
      end
-  | trm_apps t0 ts => 
-     Wpaux_getval Wpgen E t0 (fun v0 => 
+  | trm_apps t0 ts =>
+     Wpaux_getval Wpgen E t0 (fun v0 =>
        Wpaux_apps Wpgen E v0 nil ts)
   | trm_while t1 t2 => `Wpgen_while (aux t1) (aux t2)
-  | trm_for x t1 t2 t3 => 
+  | trm_for x t1 t2 t3 =>
      Wpaux_getval_typed Wpgen E t1 (fun n1 =>
        Wpaux_getval_typed Wpgen E t2 (fun n2 =>
-         `Wpgen_for_int n1 n2 (fun n => 
+         `Wpgen_for_int n1 n2 (fun n =>
             Wpgen (Ctx.add x (enc n) E) t3)))
   | trm_match t0 pts =>
       Wpaux_getval Wpgen E t0 (fun v0 =>
@@ -394,7 +394,7 @@ Notation "F1 ====> F2" := (forall (A:Type) `{EA:Enc A}, F1 A EA ===> F2 A EA)
     in the sense that the syntactic wp entails the semantics wp.
     The definition below is equivalent to:
 [[
-    Definition Wpgen_sound t := 
+    Definition Wpgen_sound t :=
        forall E `{EA:Enc A} (Q:A->hprop),
        ^(Wpgen E t) Q ==> ^(Wpsubst E t) Q.
 ]]
@@ -412,7 +412,7 @@ Proof using. intros. unfold Wpgen_fail, MkStruct, mkstruct. xpull. Qed.
 (* TODO: use lemma below for all occurences of wpgen_fail *)
 Lemma Triple_Wpgen_fail : forall t `{EA:Enc A} (Q Q':A->hprop),
   Triple t (^Wpgen_fail Q) Q'.
-Proof using. 
+Proof using.
   intros. apply Triple_of_Wp. applys himpl_Wpgen_fail_l.
 Qed.
 
@@ -427,10 +427,10 @@ Lemma Wpgen_sound_getval : forall E C t1 (F2of:val->Formula),
   Wpgen_sound t1 ->
   (forall v, F2of v ====> Wpsubst E (C (trm_val v))) ->
   Wpaux_getval Wpgen E t1 F2of ====> Wpsubst E (C t1).
-Proof using. 
+Proof using.
   introv HC M1 M2. intros A EA. applys qimpl_Wp_of_Triple. simpl. intros Q.
   tests C1: (trm_is_val t1).
-  { destruct C1 as (v&Et). subst. simpl. 
+  { destruct C1 as (v&Et). subst. simpl.
     apply Triple_of_Wp. applys M2. }
   tests C2: (trm_is_var t1).
   { destruct C2 as (x&Et). subst. simpl. case_eq (Ctx.lookup x E).
@@ -556,7 +556,7 @@ Lemma Wpgen_sound_getval_typed : forall E C t1 `{EA:Enc A} (F2of:A->Formula),
   Wpgen_sound t1 ->
   (forall (V:A), F2of V ====> Wpsubst E (C ``V)) ->
   Wpaux_getval_typed Wpgen E t1 F2of ====> Wpsubst E (C t1).
-Proof using. 
+Proof using.
   introv HC M1 M2. intros A1 EA1. applys qimpl_Wp_of_Triple. simpl. intros Q.
   tests C1: (trm_is_val t1).
   { destruct C1 as (v&Et). subst. simpl.
@@ -603,8 +603,8 @@ Lemma Wpgen_sound_apps : forall t0 ts,
 Proof using.
   introv IH0 IHts. intros E A EA Q. simpl.
   applys~ Wpgen_sound_getval (fun t1 => trm_apps t1 ts). intros v0. clear Q.
-  cuts M: (forall rvs,  
-    Wpaux_apps Wpgen E v0 rvs ts ====> 
+  cuts M: (forall rvs,
+    Wpaux_apps Wpgen E v0 rvs ts ====>
     Wp (trm_apps v0 ((trms_vals (LibList.rev rvs))++(LibList.map (isubst E) ts)))).
   { unfold Wpsubst. simpl. rewrite List_map_eq. applys M. }
   induction ts as [|t ts']; intros.
@@ -686,7 +686,7 @@ Lemma Wpgen_sound_match : forall t0 pts,
   Wpgen_sound (trm_match t0 pts).
 Proof using.
   introv M1 M2. intros E Q. simpl.
-  applys~ Wpgen_sound_getval (fun t1 => trm_match t1 pts). 
+  applys~ Wpgen_sound_getval (fun t1 => trm_match t1 pts).
   intros v. clears t0 Q.
   induction pts as [|(p,t) pts'].
   { simpl. intros A EA Q. applys himpl_Wpgen_fail_l. }
@@ -696,7 +696,7 @@ Proof using.
       forwards~ IH: M2 p t. clears IHpts' M2. subst v.
       rewrite <- EG. rewrite <- isubst_app_eq_isubst_isubst_rem_vars.
       sets_eq xs: (Ctx.dom G). forwards~ W: hforall_vars_intro G xs.
-      applys~ Triple_conseq Q W. simpl. 
+      applys~ Triple_conseq Q W. simpl.
       applys~ Triple_hwand_hpure_l.
       applys Triple_of_Wp. applys IH. }
     { intros Hp. applys Triple_hand_r. applys Triple_hwand_hpure_l.
@@ -708,14 +708,14 @@ Lemma Wpgen_sound_constr : forall E id ts,
   (forall t, mem t ts -> Wpgen_sound t) ->
   Wpaux_constr Wpgen E id nil ts ====> Wpsubst E (trm_constr id ts).
 Proof using.
-  introv IHwp. cuts M: (forall rvs,  
-         Wpaux_constr Wpgen E id rvs ts 
+  introv IHwp. cuts M: (forall rvs,
+         Wpaux_constr Wpgen E id rvs ts
     ====> Wpsubst E (trm_constr id ((trms_vals (LibList.rev rvs))++ts))).
   { applys M. }
   induction ts as [|t ts']; intros.
   { simpl. rewrite List_rev_eq. rew_list. applys qimpl_Wp_of_Triple.
     simpl. rewrite List_map_eq.
-    intros Q. remove_MkStruct. rewrite map_isubst_trms_vals. applys~ @triple_constr. 
+    intros Q. remove_MkStruct. rewrite map_isubst_trms_vals. applys~ @triple_constr.
     (* LATER: Triple_constr is not suitable here *) }
   { specializes IHts' __. { intros t' Ht'. applys* IHwp. }
     applys~ Wpgen_sound_getval (fun t1 => trm_constr id (trms_vals (rev rvs) ++ t1 :: ts')).
@@ -753,7 +753,7 @@ Qed.
 
 Lemma Triple_isubst_Wpgen : forall t E `{EA:Enc A} (Q:A->hprop),
   Triple (isubst E t) (^(Wpgen E t) Q) Q.
-Proof using. 
+Proof using.
   intros. rewrite Triple_eq_himpl_Wp. applys Wpgen_sound_trm.
 Qed.
 
@@ -895,22 +895,22 @@ Notation "'Case' v '=' vp [ x1 x2 ] ''=>' F1 ''|' F2" :=
 
 (* DEPRECATED
 Notation "'Match_' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 ''=>' F2" :=
-  (Case v = vp1%val Then F1 Else 
-   Wptag (Case v = vp2%val Then F2 Else 
+  (Case v = vp1%val Then F1 Else
+   Wptag (Case v = vp2%val Then F2 Else
    Wptag (Fail))) (at level 69, v, vp1, vp2 at level 69,
    format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  ''=>'  '/' F2 ']' ']'")
   : wp_scope.
 
 Notation "'Match_' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 ] ''=>' F2" :=
-  (Case v = vp1%val Then F1 Else 
-   Wptag (Case v = vp2%val [ x21 ] Then F2 Else 
+  (Case v = vp1%val Then F1 Else
+   Wptag (Case v = vp2%val [ x21 ] Then F2 Else
    Wptag (Fail))) (at level 69, v, vp1, vp2 at level 69, x21 ident,
    format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21 ]  ''=>'  '/' F2 ']' ']'")
   : wp_scope.
 
 Notation "'Match_' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>' F2" :=
-  (Case v = vp1%val Then F1 Else 
-   Wptag (Case v = vp2%val [ x21 x22 ] Then F2 Else 
+  (Case v = vp1%val Then F1 Else
+   Wptag (Case v = vp2%val [ x21 x22 ] Then F2 Else
    Wptag (Fail))) (at level 69, v, vp1, vp2 at level 0, x21 ident, x22 ident,
    format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
   : wp_scope.

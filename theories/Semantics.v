@@ -61,7 +61,7 @@ Inductive prim : Type :=
 
 Inductive pat : Type :=
   | pat_var : var -> pat
-  | pat_unit : pat 
+  | pat_unit : pat
   | pat_bool : bool -> pat
   | pat_int : int -> pat
   | pat_constr : idconstr -> list pat -> pat.
@@ -142,10 +142,10 @@ Notation val_funs := (val_fixs bind_anon).
 
 (** Unary functions *)
 
-Definition val_fix f x t1 := 
+Definition val_fix f x t1 :=
   val_fixs f (x::nil) t1.
 
-Definition trm_fix f x t1 := 
+Definition trm_fix f x t1 :=
   trm_fixs f (x::nil) t1.
 
 Definition trm_app t0 t1 :=
@@ -246,7 +246,7 @@ Fixpoint trm_to_pat (t:trm) : pat :=
 
 Coercion trm_to_pat : trm >-> pat.
 
-(** Parsing facility: coercions for turning [t1 t2 t3] 
+(** Parsing facility: coercions for turning [t1 t2 t3]
     into [trm_apps t1 (t2::t3::nil)] *)
 
 Inductive combiner :=
@@ -257,9 +257,9 @@ Coercion combiner_nil : trm >-> Funclass.
 Coercion combiner_cons : combiner >-> Funclass.
 
 Fixpoint combiner_to_trm (c:combiner) : trm :=
-  match c with 
+  match c with
   | combiner_nil t1 t2 => trm_apps t1 (t2::nil)
-  | combiner_cons c1 t2 => 
+  | combiner_cons c1 t2 =>
       match combiner_to_trm c1 with
       | trm_apps t1 ts => trm_apps t1 (List.app ts (t2::nil))
       | t1 => trm_apps t1 (t2::nil)
@@ -282,10 +282,10 @@ Fixpoint trms_to_vals_rec (acc:vals) (ts:trms) : option vals :=
 Definition trms_to_vals (ts:trms) : option vals :=
   trms_to_vals_rec nil ts.
 
-Lemma trms_to_vals_rec_spec : forall ts vs acc, 
+Lemma trms_to_vals_rec_spec : forall ts vs acc,
   trms_to_vals_rec acc ts = Some vs ->
   trms_vals (List.rev acc) ++ ts = trms_vals vs.
-Proof using. 
+Proof using.
   intros ts. induction ts as [|t ts']; simpl; introv E.
   { inverts E. rew_list~. }
   { destruct t; inverts E as E. forwards IH: IHts' E.
@@ -308,14 +308,14 @@ Proof using. intros. applys* trms_to_vals_rec_spec (@nil val). Qed.
 
 (** An induction principle for [trm] *)
 
-Section Trm_induct. 
+Section Trm_induct.
 (* Obtained from [Print trm_ind] then manual editing for introducing [Q]. *)
 Variables
-  (P : trm -> Prop) 
+  (P : trm -> Prop)
   (Q : list trm -> Prop)
   (Q1 : Q nil)
   (Q2 : forall t l, P t -> Q l -> Q (t::l))
-  (f : forall (v : val), P v) 
+  (f : forall (v : val), P v)
   (f0 : forall (v : var), P v)
   (f1 : forall (b : bind) (xs : list var) (t : trm), P t -> P (trm_fixs b xs t))
   (f2 : forall (i : idconstr) (l : list trm), Q l -> P (trm_constr i l))
@@ -364,7 +364,7 @@ Lemma trm_induct : forall P : trm -> Prop,
   (forall t : trm, P t -> forall t0 : trm, P t0 -> P (trm_while t t0)) ->
   (forall (v : var) (t : trm), P t -> forall t0 : trm, P t0 -> forall t1 : trm, P t1 -> P (trm_for v t t0 t1)) ->
   (forall t : trm, P t -> forall pts, (forall p t, mem (p,t) pts -> P t) -> P (trm_match t pts)) ->
-  P trm_fail -> 
+  P trm_fail ->
   forall t : trm, P t.
 Proof using.
   hint mem_map'.
@@ -373,7 +373,7 @@ Proof using.
   { introv M. inverts M. }
   { introv M1 M2 M3. inverts~ M3. }
   (* for match case:
-     rename H8 into Hm. applys~ Hm. intros pi ti Mi. applys M2. applys mem_map Mi. *) 
+     rename H8 into Hm. applys~ Hm. intros pi ti Mi. applys M2. applys mem_map Mi. *)
 Qed.
 
 
@@ -387,7 +387,7 @@ Qed.
 Fixpoint patvars (p:pat) : vars :=
   match p with
   | pat_var x => x::nil
-  | pat_unit => nil 
+  | pat_unit => nil
   | pat_bool b => nil
   | pat_int n => nil
   | pat_constr id ps => List.fold_right (fun p acc => List.app (patvars p) acc) nil ps
@@ -400,11 +400,11 @@ Fixpoint patvars (p:pat) : vars :=
 (** Substitution of a variable with a value. *)
 
 Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
-  let aux t := 
+  let aux t :=
     subst y w t in
-  let aux_no_capture z t := 
+  let aux_no_capture z t :=
     If z = bind_var y then t else aux t in
-  let aux_no_captures xs t := 
+  let aux_no_captures xs t :=
     If LibList.mem y xs then t else aux t in
   match t with
   | trm_val v => trm_val v
@@ -520,8 +520,8 @@ Qed.
 Lemma subst_trm_funs : forall y w xs t,
   var_fresh y xs ->
   subst1 y w (trm_funs xs t) = trm_funs xs (subst1 y w t).
-Proof using. 
-  introv N. simpls. repeat case_if. 
+Proof using.
+  introv N. simpls. repeat case_if.
   { false* var_fresh_mem_inv. }
   { auto. }
 Qed.
@@ -576,7 +576,7 @@ Proof using.
   { rename H into IH. repeat rewrite List_map_eq. rew_ctx. fequals.
     induction l as [|t' l'].
     { auto. }
-    { rew_listx. rewrite* IHl'. fequals*. } } 
+    { rew_listx. rewrite* IHl'. fequals*. } }
   { rew_ctx. fequals. case_var~. }
   { rew_ctx. fequals. rewrite List_map_eq. rewrite map_map. applys map_congr.
     intros [pi ti] Mi. fequals. case_if.
@@ -755,11 +755,11 @@ Qed.
 (** Only the substitution applied to a variable or a value can produce a value *)
 
 Lemma isubst_not_val_not_var : forall E t,
-  ~ trm_is_val t -> 
+  ~ trm_is_val t ->
   ~ trm_is_var t ->
   ~ trm_is_val (isubst E t).
 Proof using.
-  introv N1 N2 N3. destruct t; simpls; 
+  introv N1 N2 N3. destruct t; simpls;
     try solve [ destruct N3 as (v'&Ev'); false ].
   { false. }
   { false N2. hnfs*. }
@@ -770,31 +770,31 @@ Qed.
 Lemma map_isubst_trms_vals : forall E vs,
   LibList.map (isubst E) (trms_vals vs) = trms_vals vs.
 Proof using.
-  intros. induction vs as [|v vs']; simpl. 
+  intros. induction vs as [|v vs']; simpl.
   { auto. }
-  { unfold trms_vals. rew_listx. simpl. fequals*. } 
+  { unfold trms_vals. rew_listx. simpl. fequals*. }
 Qed.
 
 (** Substitution lemma for nary constructors and applications *)
 
 Lemma isubst_trm_constr_args : forall E id vs t ts,
-  isubst E (trm_constr id (trms_vals vs ++ t :: ts)) = 
+  isubst E (trm_constr id (trms_vals vs ++ t :: ts)) =
   trm_constr id (trms_vals vs ++ isubst E t :: LibList.map (isubst E) ts).
 Proof using.
-  intros. simpl. fequals. rewrite List_map_eq. rew_listx. 
+  intros. simpl. fequals. rewrite List_map_eq. rew_listx.
   rewrite map_isubst_trms_vals. fequals.
 Qed.
 
 Lemma isubst_trm_apps_app : forall E t0 vs ts,
-  isubst E (trm_apps t0 (trms_vals vs ++ ts)) = 
+  isubst E (trm_apps t0 (trms_vals vs ++ ts)) =
   trm_apps (isubst E t0) (trms_vals vs ++ LibList.map (isubst E) ts).
 Proof using.
-  intros. simpl. fequals. rewrite List_map_eq. rew_listx. 
+  intros. simpl. fequals. rewrite List_map_eq. rew_listx.
   rewrite map_isubst_trms_vals. fequals.
 Qed.
 
 Lemma isubst_trm_apps_args : forall E t0 vs t ts,
-  isubst E (trm_apps t0 (trms_vals vs ++ t :: ts)) = 
+  isubst E (trm_apps t0 (trms_vals vs ++ t :: ts)) =
   trm_apps (isubst E t0) (trms_vals vs ++ isubst E t :: LibList.map (isubst E) ts).
 Proof using. intros. rewrite isubst_trm_apps_app. fequals. Qed.
 
@@ -807,13 +807,13 @@ Proof using. intros. rewrite isubst_trm_apps_app. fequals. Qed.
 
 Fixpoint patsubst (G:ctx) (p:pat) : val :=
   match p with
-  | pat_var x => 
+  | pat_var x =>
       (* Ctx.lookup_or_arbitrary x G ==> fails to compute (why?) *)
         match Ctx.lookup x G with
       | None => val_unit (* arbitrary *)
       | Some v => v
       end
-  | pat_unit => val_unit 
+  | pat_unit => val_unit
   | pat_bool b => val_bool b
   | pat_int n => val_int n
   | pat_constr id ps => val_constr id (List.map (patsubst G) ps)
@@ -856,7 +856,7 @@ Inductive evalctx : (trm -> trm) -> Prop :=
   | evalctx_let : forall z t2,
       evalctx (fun t1 => trm_let z t1 t2)
   | evalctx_if : forall t2 t3,
-      evalctx (fun t1 => trm_if t1 t2 t3) 
+      evalctx (fun t1 => trm_if t1 t2 t3)
   | evalctx_apps_fun : forall t2 ts,
       evalctx (fun t0 => trm_apps t0 ts)
   | evalctx_apps_arg : forall v0 vs ts,
@@ -874,8 +874,8 @@ Lemma isubst_evalctx_trm_var : forall E C x v,
   evalctx C ->
   Ctx.lookup x E = Some v ->
   isubst E (C (trm_var x)) = isubst E (C v).
-Proof using. 
-  introv HC HE. inverts HC; 
+Proof using.
+  introv HC HE. inverts HC;
    try solve [ simpl; rewrite~ HE ].
   { do 2 rewrite isubst_trm_constr_args. simpl; rewrite~ HE. }
   { do 2 rewrite isubst_trm_apps_args. simpl; rewrite~ HE. }
@@ -884,13 +884,13 @@ Qed.
 (* TODO: LATER use an inductive grammar of evalcxt,
    plus a applyctx function to perform the substitution,
    so as to be able to define the notion of substitution
-   into an evaluation context 
+   into an evaluation context
 
     Lemma isubst_evalctx : forall E C t,
       evalctx C ->
-        isubst E (evalctx_apply C t) 
+        isubst E (evalctx_apply C t)
       = evalctx_apply (evalctx_subst E C) (isubst E t).
-    Proof using. 
+    Proof using.
       introv HC. inverts HC.
 Qed.
 *)
@@ -964,7 +964,7 @@ Inductive redbinop : prim -> val -> val -> val -> Prop :=
 
 Inductive eval : state -> trm -> state -> val -> Prop :=
   (* [eval] for evaluation contexts *)
-  | eval_evalctx_not_val : forall t1 m1 m2 m3 C v1 r, 
+  | eval_evalctx_not_val : forall t1 m1 m2 m3 C v1 r,
       evalctx C ->
       ~ trm_is_val t1 -> (* this premise later proved to be optional *)
       eval m1 t1 m2 v1 ->
@@ -984,7 +984,7 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
   | eval_let : forall m1 m2 z v1 t2 r,
       eval m1 (subst1 z v1 t2) m2 r ->
       eval m1 (trm_let z v1 t2) m2 r
-  (* LATER: factorize using [subst1 f v0 (substn xs vs) t]   
+  (* LATER: factorize using [subst1 f v0 (substn xs vs) t]
       and a relatex version of var_fixs that accept a [f:bind] *)
   | eval_apps_funs : forall m1 m2 xs t3 v0 vs r,
       v0 = val_funs xs t3 ->
@@ -1071,7 +1071,7 @@ End Red.
 (* ** Derived rules *)
 
 Section Derived.
-Hint Constructors evalctx. 
+Hint Constructors evalctx.
 Hint Resolve evalctx_app_arg.
 
 (** Rules for state *)
@@ -1099,10 +1099,10 @@ Qed.
        Fmap.indom m1 l
     /\ Fmap.read m1 l = v *)
 
-(* Note: [Fmap.disjoint s1 s2] is not needed, and in fact too 
+(* Note: [Fmap.disjoint s1 s2] is not needed, and in fact too
    restrictive, because [Fmap.agree s1 s2] would be sufficient. *)
 
-Lemma eval_get_sep : forall s s1 s2 l v, 
+Lemma eval_get_sep : forall s s1 s2 l v,
   s = Fmap.union s1 s2 ->
   s1 = Fmap.single l v ->
   eval s (val_get (val_loc l)) s v.
@@ -1145,7 +1145,7 @@ Lemma eval_evalctx : forall m1 m2 m3 t1 v1 C r,
 Proof using.
   introv HC M1 M2. tests CV: (trm_is_val t1).
   { destruct CV as (v'&Ev'). subst. inverts M1.
-    { false evalctx_not_val; eauto. } 
+    { false evalctx_not_val; eauto. }
     { auto. } }
   { applys* eval_evalctx_not_val C. }
 Qed.
@@ -1171,7 +1171,7 @@ Lemma eval_let_trm : forall m1 m2 m3 z t1 t2 v1 r,
   eval m1 (trm_let z t1 t2) m3 r.
 Proof using.
   introv M1 M2. applys* eval_evalctx (fun t1 => trm_let z t1 t2).
-  applys* eval_let. 
+  applys* eval_let.
 Qed.
 
 Lemma eval_if_trm : forall m1 m2 m3 b r t0 t1 t2,
@@ -1180,7 +1180,7 @@ Lemma eval_if_trm : forall m1 m2 m3 b r t0 t1 t2,
   eval m1 (trm_if t0 t1 t2) m3 r.
 Proof using.
   introv M1 M2. applys* eval_evalctx (fun t0 => trm_if t0 t1 t2).
-  applys* eval_if. 
+  applys* eval_if.
 Qed.
 
 Lemma eval_constr_trm : forall m1 m2 m3 id ts vs t1 v1 r,
@@ -1188,7 +1188,7 @@ Lemma eval_constr_trm : forall m1 m2 m3 id ts vs t1 v1 r,
   eval m2 (trm_constr id ((trms_vals vs)++(trm_val v1)::ts)) m3 r ->
   eval m1 (trm_constr id ((trms_vals vs)++t1::ts)) m3 r.
 Proof using.
-  introv M1 M2. 
+  introv M1 M2.
   applys* eval_evalctx (fun t1 => trm_constr id ((trms_vals vs)++t1::ts)).
 Qed.
 
@@ -1199,9 +1199,9 @@ Lemma eval_app : forall m1 m2 f x t3 v1 v2 r,
   eval m1 (trm_app v1 v2) m2 r.
 Proof using.
   introv EQ N M. destruct f as [|f].
-  { applys* eval_apps_funs (v2::nil). 
+  { applys* eval_apps_funs (v2::nil).
     { simpls. splits; auto_false. splits*. } }
-  { applys* eval_apps_fixs (v2::nil). 
+  { applys* eval_apps_fixs (v2::nil).
     { simpls. splits; auto_false. splits*. simpls. case_var~. } }
 Qed. (* LATER: clean up *)
 
@@ -1212,7 +1212,7 @@ Lemma eval_app_trm : forall m1 m2 m3 m4 t1 t2 f x t3 v1 v2 r,
   f <> x ->
   eval m3 (subst2 f v1 x v2 t3) m4 r ->
   eval m1 (trm_app t1 t2) m4 r.
-Proof using. 
+Proof using.
   introv M1 M2 EQ N M3. applys* eval_evalctx (fun t1 => trm_apps t1 (t2::nil)).
   applys* eval_evalctx (fun t2 => trm_apps v1 (t2::nil)). applys* eval_app.
 Qed.
@@ -1370,7 +1370,7 @@ Notation "''VCstr' C" :=
   (val_constr C nil)
   (at level 69, C at level 0, format "''VCstr'  C") : val_scope.
 
-(* Note: due to a bug affecting Coq 8.8, we use the notation 'VCstr' and not 'Cstr' 
+(* Note: due to a bug affecting Coq 8.8, we use the notation 'VCstr' and not 'Cstr'
    to avoid a conflict. (https://github.com/coq/coq/issues/8106) *)
 
 Notation "''VCstr' C x1 .. xn" :=
@@ -1617,7 +1617,7 @@ Open Scope trm_scope.
 
   Definition val_rev_append : val :=
   VFix 'f 'p1 'p2 :=
-    If_ val_is_empty 'p1 Then '() Else 
+    If_ val_is_empty 'p1 Then '() Else
        Let 'x := val_pop 'p1 in
        val_push 'p2 'x ';
        'f 'p1 'p2.
@@ -1625,7 +1625,7 @@ Open Scope trm_scope.
 
   Definition val_rev_append2 : val :=
   VFix 'f 'p1 'p2 :=
-    If_ 'App val_is_empty 'p1 Then '() Else 
+    If_ 'App val_is_empty 'p1 Then '() Else
        Let 'x := 'App val_pop 'p1 in
        'App val_push 'p2 'x ';
        'App 'f 'p1 'p2.

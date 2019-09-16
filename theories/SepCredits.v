@@ -102,7 +102,7 @@ Proof using.
   { intros N. applys~ Fmap.disjoint_inv_not_indom_both D N. }
 Qed.
 
-Lemma eval_get_sep : forall s s1 s2 l v, 
+Lemma eval_get_sep : forall s s1 s2 l v,
   s = Fmap.union s1 s2 ->
   Fmap.disjoint s1 s2 ->
   s1 = Fmap.single l v ->
@@ -629,7 +629,7 @@ Lemma hcredits_heap_credits : forall n,
 Proof using. intros. unfolds* hcredits. Qed.
 
 Lemma hcredits_inv : forall n h,
-  (\$n) h -> 
+  (\$n) h ->
   h^s = Fmap.empty /\ h^c = n.
 Proof using.
   introv N. unfolds hcredits, heap_credits. subst*.
@@ -705,7 +705,7 @@ Proof using.
 Qed.
 
 Lemma hcredits_drop : forall n m,
-  n >= m -> 
+  n >= m ->
   exists H', haffine H' /\ \$ n ==> \$ m \* H'.
 Proof using.
   introv M. exists (\$(n-m)). split.
@@ -737,7 +737,7 @@ Definition triple t H Q :=
     /\ (h^c = n + h'^c).
 
 (** Interpretation of triples for full executions:
-    the number of credits in the precondition is an upper bound 
+    the number of credits in the precondition is an upper bound
     on the number of steps taken by the execution. *)
 
 Lemma triple_hcredits_haffine_post : forall t n Q,
@@ -751,8 +751,8 @@ Proof using.
   introv M F. forwards (n'&h&v&R&K&C): (rm M) hempty (heap_credits n).
   { rew_heap. applys hcredits_heap_credits. }
   rew_heap in K. exists n' h v. splits*.
-  { simpls. forwards N: haffine_heap_inv K. 
-    { applys haffine_hstar. applys* F. applys haffine_hgc. } 
+  { simpls. forwards N: haffine_heap_inv K.
+    { applys haffine_hstar. applys* F. applys haffine_hgc. }
    math. }
 Qed.
 
@@ -761,7 +761,7 @@ Qed.
 Lemma local_triple : forall t,
   local (triple t).
 Proof using.
-  intros. applys local_intro. intros H Q M H'. 
+  intros. applys local_intro. intros H Q M H'.
   intros h (h1&h2&N1&N2&N3&N4). hnf in M.
   lets (H1&H2&Q1&R): M N1.
   rewrite <- hstar_assoc, hstar_comm, hstar_hpure in R.
@@ -860,7 +860,7 @@ Proof using. intros. applys* local_conseq_frame_hgc. Qed.
 (* TODO: move to SepFunctor? *)
 
 Lemma hprop_extract_hfalse : forall H1 H2 h,
-  (H1 \* H2) h -> 
+  (H1 \* H2) h ->
   H1 ==> \[False] ->
   False.
 Proof using.

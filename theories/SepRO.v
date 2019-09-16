@@ -643,7 +643,7 @@ Section Aux.
 Lemma hpure_inv : forall P h,
   \[P] h ->
   P /\ h = heap_empty.
-Proof using. 
+Proof using.
   introv M. lets (HP&N): hpure_inv_hempty M. lets E: hempty_inv N. auto.
 Qed.
 
@@ -886,7 +886,7 @@ Proof using.
   { exists h'. splits~. { exists~ x. } }
 Qed.
 
-(* NOT NEEDED? 
+(* NOT NEEDED?
 Lemma RO_if : forall (b:bool) H1 H2,
     RO (if b then H1 else H2)
   = (if b then RO H1 else RO H2).
@@ -1392,7 +1392,7 @@ Proof using.
   intros. intros h1 h2 D (h1'&(E1'&E2'&NL)&E1&E2).
   rewrites E2' in E2. rewrite Fmap.union_empty_r in E2.
   exists h1 v. splits~.
-  { rew_fmap~. unfold heap_state. rewrite E1,E2,E1'. rew_fmap. 
+  { rew_fmap~. unfold heap_state. rewrite E1,E2,E1'. rew_fmap.
     applys~ eval_get_sep. }
   { exists heap_empty h1. splits~.
     { applys~ heap_compat_empty_l. }
@@ -1417,7 +1417,7 @@ Proof using.
   splits~.
   { rew_fmap~. rewrite (@heap_fmap_def h1'). rewrite (@heap_fmap_def h1).
     rewrite E1,E1',E2,E2'. rew_fmap.
-    applys eval_set_sep; try reflexivity. 
+    applys eval_set_sep; try reflexivity.
     { eapply Fmap.disjoint_single_set; eauto. } }
   { rewrite E2,E2'. auto. }
   { applys~ on_rw_sub_base. applys~ himpl_hstar_hpure_r (l ~~~> w). split~. }
@@ -1521,7 +1521,7 @@ Qed.
 Lemma normally_hor : forall H1 H2,
   normally (hor H1 H2) = hor (normally H1) (normally H2).
 Proof using.
-  intros H1 H2. unfolds hor. rewrite normally_hexists. 
+  intros H1 H2. unfolds hor. rewrite normally_hexists.
   fequals. applys fun_ext_1. intros b. destruct* b.
 Qed.
 
@@ -1708,8 +1708,8 @@ Definition ROFrame (H1 H2 : hprop) :=
   \exists H3, normally H3 \* (RO(H3) \-* H1) \* (H3 \-* H2).
 
 Lemma ROFrame_himpl : forall H1 H2 H1' H2',
-  H1 ==> H1' -> 
-  H2 ==> H2' -> 
+  H1 ==> H1' ->
+  H2 ==> H2' ->
   ROFrame H1 H2 ==> ROFrame H1' H2'.
 Proof.
   unfold ROFrame. intros H1 H2 H1' H2' MONO1 MONO2.
@@ -1739,7 +1739,7 @@ Proof.
   intros H1 H2 H3 NORM.
   unfold ROFrame. xpull ;=> HF. apply himpl_hexists_r with (H1 \* HF).
   xchange (normally_intro NORM). rewrite normally_hstar. xsimpl.
-  applys himpl_frame_lr. 
+  applys himpl_frame_lr.
   { xsimpl. xchange (>> RO_star H1 HF). }
   { xsimpl. }
 Qed.
@@ -1767,13 +1767,13 @@ Lemma triple_ramified_frame_read_only_core : forall H2 t H Q H' Q',
   H = normally H2 \* (RO H2 \-* H') \* (H2 \-* normally (Q' \--* Q)) ->
   triple t H Q.
 Proof using.
-  introv M W. subst H. 
+  introv M W. subst H.
   applys~ triple_conseq ((normally H2 \* normally (normally H2 \-* Q' \--* Q)) \* (RO H2 \-* H')).
   { (* TODO: proof not supported by xsimpl, which cancels out too aggressively *)
     applys himpl_trans (normally H2 \* (RO H2 \-* H') \* (normally H2 \-* normally (Q' \--* Q))).
     { xsimpl. xchange (hwand_normally_l_erase H2 (normally (Q' \--* Q))). }
     { rewrite <- hstar_comm. rewrite <- (hstar_comm (RO H2 \-* H')). rewrite hstar_assoc.
-      apply himpl_frame_r. rewrite hstar_comm. 
+      apply himpl_frame_r. rewrite hstar_comm.
       applys (>> normally_hwand_hstar (normally H2) (Q' \--* Q)). } }
   { forwards K: triple_frame_read_only_with_frame t
                  (RO H2 \-* H') H2 (normally H2 \-* (Q' \--* Q)) Q'.

@@ -52,7 +52,7 @@ Proof using. applys Inhab_of_val (@None node). Qed.
 
 (** Auxiliary definition for specifications *)
 
-Definition min_of (E:elems) (x:elem) : Prop := 
+Definition min_of (E:elems) (x:elem) : Prop :=
   x \in E /\ forall_ y \in E, x <= y.
 
 (** Auxiliary definition for stating invariants follow. *)
@@ -64,7 +64,7 @@ Definition is_ge (x y:elem) : Prop :=
 
 (** [list_union Es] computes the iterated union of the multisets in the list [Es] *)
 
-Definition list_union (Es:list elems) : elems := 
+Definition list_union (Es:list elems) : elems :=
   LibList.fold_right union \{} Es.
 
 (** [inv n E] relates a tree node [n] with the multiset [E] made of
@@ -74,10 +74,10 @@ Inductive inv : node -> elems -> Prop :=
   | inv_Node : forall x ns Es E,
       Forall2 inv ns Es ->
       Forall (foreach (is_ge x)) Es ->
-      E = \{x} \u (list_union Es) ->   
+      E = \{x} \u (list_union Es) ->
       inv (Node x ns) E.
 
-(** [repr h E] relates a heap representation [h] with the multiset [E] made of the items 
+(** [repr h E] relates a heap representation [h] with the multiset [E] made of the items
     that the heap contains *)
 
 Inductive repr : heap -> elems -> Prop :=
@@ -118,7 +118,7 @@ Hint Rewrite (@union_empty_r elems _ _ _) (@union_empty_l elems _ _ _) : rew_lis
 Hint Extern 1 (_ < _) => simpl; math.
 Hint Extern 1 (_ <= _) => simpl; math.
 Hint Extern 1 (_ = _ :> multiset _) => rew_listx; multiset_eq.
-Hint Extern 1 (_ \in _) => multiset_in. 
+Hint Extern 1 (_ \in _) => multiset_in.
 Hint Constructors Forall Forall2 list_sub.
 Hint Unfold is_ge.
 
@@ -128,7 +128,7 @@ Lemma Forall_foreach_is_ge_inv : forall x y Es,
   Forall (foreach (is_ge x)) Es ->
   y \in list_union Es ->
   x <= y.
-Proof using. 
+Proof using.
   introv M Hy. unfolds list_union. induction M; rew_listx in *.
   { multiset_in Hy. }
   { multiset_in Hy. { applys* H. } { applys* IHM. } }
@@ -176,7 +176,7 @@ Lemma pop_min_lemma : forall x Es,
   Forall (foreach (is_ge x)) Es ->
   min_of (\{x} \u list_union Es) x.
 Proof.
-  introv M. split. 
+  introv M. split.
   { auto. }
   { intros y Hy. multiset_in Hy.
     { auto. } { applys* Forall_foreach_is_ge_inv Es. } }
@@ -220,17 +220,17 @@ Fixpoint merge_pairs (ns:list node) : node :=
   match ns with
   | nil => arbitrary
   | n::nil => n
-  | n1::n2::hs' => 
+  | n1::n2::hs' =>
       let n12 := merge n1 n2 in
-      if is_nil hs' 
-        then n12 
+      if is_nil hs'
+        then n12
         else merge n12 (merge_pairs hs')
   end.
 
 Definition pop_min (h:heap) : elem * heap :=
   match h with
   | Some (Node x ns) =>
-      let h' := if is_nil ns 
+      let h' := if is_nil ns
                   then None
                   else Some (merge_pairs ns) in
       (x, h')
@@ -241,7 +241,7 @@ Definition pop_min (h:heap) : elem * heap :=
 (* ******************************************************* *)
 (** ** Verification *)
 
-Lemma empty_spec : 
+Lemma empty_spec :
   repr empty \{}.
 Proof using. constructor. Qed.
 
@@ -274,7 +274,7 @@ Proof using.
   introv I. unfold insert.
   destruct h as [n|].
   { inverts I as I. constructor. applys_eq (>> merge_spec I) 1.
-    { applys* inv_Node. } { autos*. } } 
+    { applys* inv_Node. } { autos*. } }
   { inverts I. constructor. applys* inv_Node. }
 Qed.
 
@@ -284,7 +284,7 @@ Lemma merge_pairs_spec : forall ns Es,
   inv (merge_pairs ns) (list_union Es).
 Proof using.
   intros ns. induction_wf IH: (@list_sub node) ns; introv N Is.
-  destruct ns as [|n1 ns']; tryfalse. inverts Is as I1 Is. 
+  destruct ns as [|n1 ns']; tryfalse. inverts Is as I1 Is.
   destruct ns' as [|n2 ns'']; simpl.
   { inverts Is. rename y into E. applys_eq* I1 1. }
   { inverts Is as I2 Is. rename r0 into Es, y0 into E2.
@@ -305,7 +305,7 @@ Lemma pop_min_spec : forall h E h' x,
 Proof using.
   introv N I M. unfolds pop_min.
   destruct h as [n|]; inverts I as I; tryfalse.
-  destruct n as [y ns]. inverts M. inverts I as I1 Ks. split. 
+  destruct n as [y ns]. inverts M. inverts I as I1 Ks. split.
   { applys~ pop_min_lemma. }
   { rewrite is_nil_eq. case_if as C.
     { subst ns. inverts I1. exists \{}. split~. constructor. }
@@ -335,18 +335,18 @@ type heap = null OR node
 let create () =
   ref null
 
-let is_empty p = 
+let is_empty p =
   p == null
 
 let merge q1 q2 =
-  if q1.value < q2.value 
+  if q1.value < q2.value
     then (MList.push q1.sub q2; q1)
     else (MList.push q2.sub q1; q2)
 
 let insert p x =
   let q1 = !p in
   let q2 = { value = x; sub = MList.create() } in
-  if q1 == null 
+  if q1 == null
     then p := q2
     else p := merge q1 q2
 
@@ -355,14 +355,14 @@ let rec merge_pairs l =
   if MList.is_empty l then q else
   let q2 = MList.pop l in
   let q = merge q1 q2 in
-  if MList.is_empty l 
+  if MList.is_empty l
      then q
      else merge q (merge_pairs l)
 
 let pop_min p =
   let q = !p in
   let x = q.value in
-  if MList.is_empty q.sub 
+  if MList.is_empty q.sub
     then p := null
     else p := merge_pairs q.sub
 ]]
@@ -376,15 +376,15 @@ Definition value : field := 0%nat.
 Definition sub : field := 1%nat.
 
 Definition create : val :=
-  VFun 'u := 
+  VFun 'u :=
     val_ref null.
 
 Definition is_empty : val :=
-  VFun 'p := 
+  VFun 'p :=
     '!'p '= null.
 
 Definition merge : val :=
-  VFun 'q1 'q2 := 
+  VFun 'q1 'q2 :=
 		If_ ('q1'.value '< 'q2'.value) Then (
 			MList.push ('q1'.sub) 'q2 ';
 			'q1
@@ -402,7 +402,7 @@ Definition insert : val :=
       Else 'p ':= merge 'q1 'q2.
 
 Definition merge_pairs : val :=
-  VFix 'f 'l := 
+  VFix 'f 'l :=
     Let 'q1 := MList.pop 'l in
     If_ MList.is_empty 'l Then 'q1 Else
     Let 'q2 := MList.pop 'l in
@@ -430,7 +430,7 @@ Definition is_ge (x y:elem) : Prop :=
 
 (** [list_union Es] computes the iterated union of the multisets in the list [Es] *)
 
-Definition list_union (Es:list elems) : elems := 
+Definition list_union (Es:list elems) : elems :=
   LibList.fold_right union \{} Es.
 
 (** [inv n E] relates a tree node [n] with the multiset [E] made of
@@ -440,7 +440,7 @@ Inductive inv : node -> elems -> Prop :=
   | inv_Node : forall x ns Es E,
       Forall2 inv ns Es ->
       Forall (foreach (is_ge x)) Es ->
-      E = \{x} \u (list_union Es) ->   
+      E = \{x} \u (list_union Es) ->
       inv (Node x ns) E.
 
 *)
@@ -451,9 +451,9 @@ Inductive inv : node -> elems -> Prop :=
 
 Fixpoint Tree (n:node) (q:loc) { struct n } : hprop :=
   match n with
-  | Node x hs => 
+  | Node x hs =>
       \exists (q':loc),
-         q ~> Record`{ value := x; sub := q' } 
+         q ~> Record`{ value := x; sub := q' }
       \* q' ~> MListOf Tree hs
   end.
 
@@ -524,7 +524,7 @@ Lemma Contents_is_empty : forall q E,
   Contents E q ==> \[q = null <-> E = \{}] \* Contents E q.
 Proof using.
   intros. unfold Contents. case_if.
-  { xsimpl*. } 
+  { xsimpl*. }
   { xchange Repr_not_empty ;=> N. xsimpl*. }
 Qed.
 
@@ -576,7 +576,7 @@ Qed.
 Hint Extern 1 (Register_Spec (is_empty)) => Provide @Triple_is_empty.
 (**
 Definition merge : val :=
-  VFun 'q1 'q2 := 
+  VFun 'q1 'q2 :=
 		If_ ('q1'.value '< 'q2'.value) Then (
 			MList.push ('q1'.sub) 'q2 ';
 			'q1
@@ -610,7 +610,7 @@ Lemma Triple_insert : forall p x E,
     POST (fun (_:unit) => p ~> Heap (E \u \{x})).
 Proof using.
   xwp. xchange Heap_eq ;=> q. xapp. xapp (>> __ Tree) ;=> l.
-  xnew (>> x l) ;=> q2. xchange <- Tree_Node. 
+  xnew (>> x l) ;=> q2. xchange <- Tree_Node.
   xchange <- Repr_eq. { applys* inv_Node. }
   rew_listx. xapp. typeclass. unfold Contents. xif ;=> C; case_if.
   { xpull ;=> ->. xapp. xchanges* Heap_of_Repr. }
@@ -620,7 +620,7 @@ Qed.
 Hint Extern 1 (Register_Spec (insert)) => Provide @Triple_insert.
 (**
 Definition merge_pairs : val :=
-  VFix 'f 'l := 
+  VFix 'f 'l :=
     Let 'q1 := MList.pop 'l in
     If_ MList.is_empty 'l Then 'q1 Else
     Let 'q2 := MList.pop 'l in

@@ -279,9 +279,9 @@ Section Aux.
 Lemma hpure_inv : forall P h,
   \[P] h ->
   P /\ h = heap_empty.
-Proof using. 
-  introv M. lets (HP&HE): hpure_inv_hempty M. 
-  lets*: hempty_inv HE. 
+Proof using.
+  introv M. lets (HP&HE): hpure_inv_hempty M.
+  lets*: hempty_inv HE.
 Qed.
 
 Lemma hpure_intro : forall P,
@@ -587,7 +587,7 @@ Proof using.
 Qed.
 
 Lemma hoare_constr_trm : forall id ts t1 vs H Q Q1,
-  hoare t1 H Q1 -> 
+  hoare t1 H Q1 ->
   (forall v, hoare (trm_constr id ((trms_vals vs)++(trm_val v)::ts)) (Q1 v) Q) ->
   hoare (trm_constr id ((trms_vals vs)++t1::ts)) H Q.
 Proof using.
@@ -684,7 +684,7 @@ Proof using.
 Qed.
 
 Lemma hoare_case_trm : forall t1 pts H Q Q1,
-  hoare t1 H Q1 -> 
+  hoare t1 H Q1 ->
   (forall v, hoare (trm_match v pts) (Q1 v) Q) ->
   hoare (trm_match t1 pts) H Q.
 Proof using.
@@ -795,7 +795,7 @@ Definition triple (t:trm) (H:hprop) (Q:val->hprop) :=
 Lemma local_triple : forall t,
   local (triple t).
 Proof using.
-  intros. applys local_intro. intros H Q M H'. 
+  intros. applys local_intro. intros H Q M H'.
   applys hoare_named_heap. intros h (h1&h2&N1&N2&N3&N4).
   lets (H1&H2&Q1&M0): (rm M) (rm N1).
   rewrite <- hstar_assoc, hstar_comm, hstar_hpure in M0.
@@ -1038,7 +1038,7 @@ Proof using.
 Qed.
 
 Lemma triple_constr_trm : forall id ts t1 vs H Q Q1,
-  triple t1 H Q1 -> 
+  triple t1 H Q1 ->
   (forall (X:val), triple (trm_constr id ((trms_vals vs)++(trm_val X)::ts)) (Q1 X) Q) ->
   triple (trm_constr id ((trms_vals vs)++t1::ts)) H Q.
 Proof using.
@@ -1248,7 +1248,7 @@ End RuleForInv.
 (* ** SL rules for pattern matching *)
 
 Lemma triple_match_trm : forall t1 pts H Q Q1,
-  triple t1 H Q1 -> 
+  triple t1 H Q1 ->
   (forall v, triple (trm_match v pts) (Q1 v) Q) ->
   triple (trm_match t1 pts) H Q.
 Proof using.

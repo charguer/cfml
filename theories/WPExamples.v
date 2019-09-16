@@ -1,6 +1,6 @@
 (**
 
-This file provides examples of proofs manipulating characteristic formula 
+This file provides examples of proofs manipulating characteristic formula
 in weakest-precondition form, in lifted Separation Logic,
 as defined in [WPLifted.v].
 
@@ -99,7 +99,7 @@ Hint Extern 1 (Register_Spec (val_incr)) => Provide Triple_incr.
 
 Definition xlet_test : val :=
   VFun 'x :=
-     Let 'p := 3 in 
+     Let 'p := 3 in
      'p.
 
 Lemma xlet_lemma' : forall A1 (EA1: protect (Enc A1)) H A (EA:Enc A) (Q:A->hprop) (F1:Formula) (F2of:forall A2 (EA2:Enc A2),A2->Formula),
@@ -112,7 +112,7 @@ Lemma Triple_xlet_test : forall (x:unit),
     PRE \[]
     POST (fun (r:int) => \[r = 3]).
 Proof using.
-  xwp. 
+  xwp.
   (*   notypeclasses refine (xlet_lemma _ _ _ _ _). *)
   eapply xlet_lemma'.
   xval 3.
@@ -182,7 +182,7 @@ Fixpoint MList A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
   | x::L' => \exists p', \[v = Cons x p'] \* (MList L' p')
   end.
 
-Lemma MList_unfold : 
+Lemma MList_unfold :
   MList = fun A `{EA:Enc A} (L:list A) (p:loc) =>
     \exists v, p ~~> v \*
     match L with
@@ -254,7 +254,7 @@ Module Basic.
 (** Negation *)
 
 Definition val_myneg :=
-  VFun 'b := 
+  VFun 'b :=
     If_ 'b '= true Then false Else true.
 
 Lemma Triple_decr : forall (b:bool),
@@ -262,11 +262,11 @@ Lemma Triple_decr : forall (b:bool),
     PRE \[]
     POST (fun (r:bool) => \[r = !b]).
 Proof using.
-  xwp. 
+  xwp.
   (* TODO fix xapp *)
   xlet. xapp_debug. lets K: (>> Spec b true). typeclass. apply K.
    unfold protect. xsimpl.
-  intros ? ->. 
+  intros ? ->.
   xif ;=> C.
   { subst. xvals*. }
   { xvals. destruct b; auto_false. }
@@ -285,7 +285,7 @@ Lemma Triple_myneq : forall (v1 v2:val),
     PRE \[]
     POST (fun (r:bool) => \[r = isTrue (v1 <> v2)]).
 Proof using.
-  xwp. 
+  xwp.
   (* TODO fix xapp *)
   xlet. xapp_debug. lets K: (>> Spec v1 v2). typeclass. apply K.
    unfold protect. xsimpl.
@@ -459,7 +459,7 @@ Parameter facto_succ : forall n, n >= 1 -> facto n = n * facto(n-1).
     let rec f n =
       if n > 1
         then r := !r * n; f (n-1) in
-    f n; 
+    f n;
     !r
 
   let facto_for n =
@@ -471,21 +471,21 @@ Parameter facto_succ : forall n, n >= 1 -> facto n = n * facto(n-1).
 
   let facto_for_down n =
     let r = ref 1 in
-    for x = 0 to n-1 do 
+    for x = 0 to n-1 do
       r := !r * (n-x);
     done;
     !r
 
   let facto_for_downto n =
     let r = ref 1 in
-    for x = n downto 1 do 
+    for x = n downto 1 do
       r := !r * x;
     done;
     !r
 
   let facto_for_downto2 n =
     let r = ref 1 in
-    for x = n downto 2 do 
+    for x = n downto 2 do
       r := !r * x;
     done;
     !r
@@ -518,8 +518,8 @@ End Factorial.
    count
    in-place reversal
    cps-append (bonus example)
-   split 
-   combine  
+   split
+   combine
    basic sorting on list of integers, e.g. merge sort, insertion sort
 
 *)

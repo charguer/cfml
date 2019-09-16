@@ -182,7 +182,7 @@ Proof using. intros. unfold qwand. intros h K. applys K. Qed.
 (** The operator [qwand] satisfies many properties similar to those
     of [hwand]. We state these properties further in the chapter.
 
-    For now, we just state the two most important rules: the 
+    For now, we just state the two most important rules: the
     characterization rule, and the cancellation rule. *)
 
 Lemma qwand_equiv : forall H Q1 Q2,
@@ -212,11 +212,11 @@ Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
   triple t H Q.
 
 (** This rule suffers from practical issues, which we discuss in
-    details further in this chapter. In short, the main problem is 
+    details further in this chapter. In short, the main problem is
     that one needs to either provide a value for, or to introduce a
     unification variable (evar) for [H2]. The problem would disappear
     if we make use of the magic wand to eliminate the need to quantify
-    [H2] altogether. 
+    [H2] altogether.
 
     [Q1 \*+ H2 ===> Q] is equivalent to [H2 ==> (Q1 \--* Q)].
     By substituting away, we can merge the two entailments

@@ -1,7 +1,7 @@
 (**
 
 This file formalizes mutable list examples in CFML 2.0,
-using a representation of lists as a reference on 
+using a representation of lists as a reference on
 either null or on a two-cell record.
 
 Author: Arthur Charguéraud.
@@ -20,7 +20,7 @@ Implicit Types n m : int.
 (* TODO -- pointer arithmetic *)
 
 
-Definition pointer_field (l:loc) (k:field) := 
+Definition pointer_field (l:loc) (k:field) :=
   (l+k)%nat.
 
 Notation "l `. k" := (pointer_field l k)
@@ -66,8 +66,8 @@ Hint Extern 1 (Register_Spec (val_get_field _)) => Provide Triple_val_get_field.
        // the pointer is null for an empty list
        // the pointer is the address of a record otherwise
 
-    type node = record { 
-      item  head; 
+    type node = record {
+      item  head;
       node* tail;
     };
 ]]
@@ -114,7 +114,7 @@ Proof using.
     { (* TODO fix [xsimpl r]. *) applys himpl_hexists_r p1.
       (* TODO: xsimpl bug *) xchange~ <- MListSeg_nil. }
     { xpull ;=> p2. xchange* MListSeg_nil. } }
-  { applys himpl_antisym. 
+  { applys himpl_antisym.
     { rewrite MListSeg_cons. xpull ;=> q. xchange IHL1' ;=> p2.
       xchanges <- MListSeg_cons. }
     { xpull ;=> p2. xchange MListSeg_cons ;=> q. xchange <- IHL1'.
@@ -175,8 +175,8 @@ Qed.
 
 Lemma MListTail_if : forall `{EA:Enc A} (L:list A) (q:loc),
   q ~> MListTail L =
-  If q = null 
-    then \[L = nil] 
+  If q = null
+    then \[L = nil]
     else \exists x L', \[L = x::L'] \* q`.head ~~> x \* q`.tail ~> MList L'.
 Proof using.
   intros. apply himpl_antisym.
@@ -210,8 +210,8 @@ Qed.
 
 Lemma MList_Tail_if : forall `{EA:Enc A} (L:list A) (p:loc),
   p ~> MList L ==>
-  \exists (q:loc), p ~~> q \* If q = null 
-    then \[L = nil] 
+  \exists (q:loc), p ~~> q \* If q = null
+    then \[L = nil]
     else \exists x L', \[L = x::L'] \* q`.head ~~> x \* q`.tail ~> MList L'.
 Proof using.
   intros. xchange MList_Tail ;=> q. xchange MListTail_if. xsimpl*.
@@ -258,7 +258,7 @@ Hint Extern 1 (Register_Spec (mk_node)) => Provide @Triple_mk_node.
 (* ********************************************************************** *)
 (* ** Push (inserts an element at the head of the list, in place) *)
 
-(** 
+(**
 [[
     void push(node** p, item x) {
       *p = mk_node(x, *p);
@@ -285,12 +285,12 @@ Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
 (* ********************************************************************** *)
 (* * Length of a mutable list *)
 
-(** 
+(**
 [[
     int mlength(node** p) =
       node* q = *p;
       if (q == null) {
-        return 0; 
+        return 0;
       } else {
         return 1 + mlength(&q.tail);
       }
@@ -300,7 +300,7 @@ Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
 Definition mlength : val :=
   VFix 'f 'p :=
     Let 'q := '! 'p in
-    If_ 'q '= null 
+    If_ 'q '= null
       Then 0
       Else 1 '+ 'f ('q ``.tail).
 
@@ -320,11 +320,11 @@ Qed.
 (* ********************************************************************** *)
 (* * List Copy, recursion on nodes *)
 
-(** 
+(**
 [[
     node* copy_node(node* q) =
       if (q == null) {
-        return null; 
+        return null;
       } else {
         return mk_node(q.head, copy_node(q.tail));
       }
@@ -333,8 +333,8 @@ Qed.
 
 Definition copy_node :=
   VFix 'f 'q :=
-    If_ val_eq 'q null 
-      Then null 
+    If_ val_eq 'q null
+      Then null
       Else mk_node ('q'.head) ('f ('q'.tail)).
 
 Lemma Triple_copy_node : forall `{EA:Enc A} q (L:list A),
@@ -385,7 +385,7 @@ Qed.
     node* copy_list(node** p) =
       node* q = *p;
       if (q == null) {
-        return null; 
+        return null;
       } else {
         node* q2 = mk_node(q.head, copy_list(&q.tail));
         *p2 = q2;

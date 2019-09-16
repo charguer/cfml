@@ -614,7 +614,7 @@ Qed.
 Lemma wp_app_fix : forall f x v1 v2 t1 Q,
   v1 = val_fix f x t1 ->
   wp (subst x v2 (subst f v1 t1)) Q ==> wp (trm_app v1 v2) Q.
-Proof using. 
+Proof using.
   introv EQ1. repeat rewrite wp_def. xsimpl. intros.
   applys* hoare_app_fix.
 Qed.

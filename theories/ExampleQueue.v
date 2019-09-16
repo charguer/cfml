@@ -30,8 +30,8 @@ Implicit Types v : val.
     a record made of two pointers, one on the front cell of the list, and one
     on the back cell (i.e. the last cell) of that list. The last cell of the
     list contains a default value that is not treated as a proper item. The role
-    of the last cell is to ensure that even an empty queue contains at least 
-    one cell, thereby avoiding a special treatment for empty queues. 
+    of the last cell is to ensure that even an empty queue contains at least
+    one cell, thereby avoiding a special treatment for empty queues.
 
     Concretely, a queue at location [p] consists of a cell with fields [f] and [b],
     a linked list segment from location [f] to location [b], storing a list [L] of
@@ -83,8 +83,8 @@ Hint Extern 1 (Register_Spec is_empty) => Provide Triple_is_empty.
     It allocates adummy cell, at location [c]. It then allocates a queue record
     with a front pointer and a back pointer both set to [c].
 [[
-  let create d = 
-    let c = mk_cell d null in  
+  let create d =
+    let c = mk_cell d null in
     mk_cell c c
 ]]
 *)
@@ -112,7 +112,7 @@ Hint Extern 1 (Register_Spec create) => Provide Triple_create.
 (** The function [push_front p x] inserts an item [x] at the front of the
     queue at location [p], in place.
 [[
-  let push_front p x = 
+  let push_front p x =
     p.head := mk_cell x p.head
 ]]
 *)
@@ -150,7 +150,7 @@ Hint Extern 1 (Register_Spec push_front) => Provide Triple_push_front.
 
 Definition pop_front :=
   VFun 'p :=
-    Let 'f := 'p'.head in    
+    Let 'f := 'p'.head in
     Let 'x := 'f'.head in
     Set 'p'.head ':= ('f'.tail) '; (* TODO: pb without parenthesis *)
     'x.
@@ -200,7 +200,7 @@ Lemma Triple_push_back : forall `{EA:Enc A} p x (L:list A),
     POST (fun (_:unit) => p ~> MQueue (L++x::nil)).
 Proof using.
   xwp. xunfold MQueue. xpull ;=> f b d.
-  xapp. xapp. xapp ;=> c. xapp. xapp. xapp. 
+  xapp. xapp. xapp ;=> c. xapp. xapp. xapp.
   xchanges <- MListSeg_last.
 Qed.
 
@@ -228,7 +228,7 @@ Hint Extern 1 (Register_Spec push_back) => Provide Triple_push_back.
     end
 ]]
 *)
- 
+
 Definition transfer :=
   VFun 'p1 'p2 :=
     If_ 'not (is_empty 'p2) Then
@@ -279,4 +279,4 @@ Proof using.
 Qed.
 
 (* TODO: disable RET notation in TRIPLE *)
- 
+

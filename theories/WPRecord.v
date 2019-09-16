@@ -220,8 +220,8 @@ Lemma Triple_get_field : forall (l:loc) f `{EA:Enc A} (V:A),
     PRE (l `.` f ~~> V)
     POST (fun r => \[r = V] \* (l `.` f ~~> V)).
 Proof using.
-  dup. 
-  { intros. 
+  dup.
+  { intros.
     rewrite Hfield_eq_fun_Hsingle, repr_eq. xtpull ;=> N.
     xwp. xapp @Triple_ptr_add_nat. xapp. xsimpl~. }
   { (* details TEMPORARY *)
@@ -245,10 +245,10 @@ Lemma Triple_set_field_strong : forall `{EA1:Enc A1} (V1:A1) (l:loc) f `{EA2:Enc
     PRE (l `.` f ~~> V1)
     POST (fun (r:unit) => l `.` f ~~> V2).
 Proof using.
-  dup. 
-  { intros. 
+  dup.
+  { intros.
     rewrite Hfield_eq_fun_Hsingle. rewrite repr_eq. rewrites (>> repr_eq (l,f)).
-    xtpull ;=> N. xwp. xapp @Triple_ptr_add_nat. xapp (>> (@Triple_set_strong) A1 A2). 
+    xtpull ;=> N. xwp. xapp @Triple_ptr_add_nat. xapp (>> (@Triple_set_strong) A1 A2).
     xsimpl~. }
   { intros.
     (* unfold field *)
@@ -342,7 +342,7 @@ Proof using.
   gen L'. induction L as [|[f' D] T]; intros; [false|].
   destruct D as [A' EA' V]. simpl in E.
   xunfold Record at 1. simpl. case_if. (*--todo fix subst *)
-  { subst. inverts E. xapply~ Triple_set_field_strong. 
+  { subst. inverts E. xapply~ Triple_set_field_strong.
     intros _. xunfold Record at 2. simpl. xsimpl. }
   { cases (record_set_compute_dyn f (Dyn W) T) as C'; [|false].
     inverts E. specializes~ IHT r. xapply IHT. xsimpl.
@@ -424,7 +424,7 @@ Proof using.
   introv M1. xchanges (rm M1).
   lets R: record_get_compute_spec_correct f L.
   unfolds record_get_compute_spec.
-  destruct (record_get_compute_dyn f L) as [[T ET V]|]; try solve [xpull].  
+  destruct (record_get_compute_dyn f L) as [[T ET V]|]; try solve [xpull].
   set (H' := (p ~> Record L \-* ^(`Wpgen_cast V) Q)).
   forwards R': R; eauto. clear R. specializes R' p.
   applys himpl_Wpgen_app_of_Triple.
@@ -437,7 +437,7 @@ Lemma xapp_record_set : forall A1 `{EA1:Enc A1} (W:A1) (Q:unit->hprop) (H:hprop)
   H ==> p ~> Record L \* ((
     match record_set_compute_dyn f (Dyn W) L with
     | None => \[False]
-    | Some L' =>  
+    | Some L' =>
         (p ~> Record L' \-* protect (Q tt)) end)  ) ->
   H ==> ^(Wpgen_app (trm_apps (trm_val (val_set_field f)) (trms_vals ((p:val)::(``W)::nil)))) Q.
 Proof using.
@@ -445,7 +445,7 @@ Proof using.
   lets R: record_set_compute_spec_correct f W L.
   unfolds record_set_compute_spec.
   destruct (record_set_compute_dyn f (Dyn W) L) as [L'|]; try solve [xpull].
-  forwards R': R; eauto. clear R. specializes R' p. 
+  forwards R': R; eauto. clear R. specializes R' p.
   applys himpl_Wpgen_app_of_Triple.
   xapplys R'.
 Qed. (* TODO: simplify proof *)
@@ -519,7 +519,7 @@ Ltac xapp_record tt ::= (* initial dummy binding located in WPTactics *)
 Ltac list_boxer_to_dyns E :=
   match E with
   | nil => constr:(@nil dyn)
-  | (boxer ?V)::?E' => 
+  | (boxer ?V)::?E' =>
        let L := list_boxer_to_dyns E' in
        constr:((Dyn V)::L)
   end.
@@ -538,7 +538,7 @@ Parameter xapp_record_new : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fields
   H ==> ^(Wpgen_app (trm_apps (trm_val (val_record_init ks)) (trms_vals vs))) Q.
 
 Ltac xnew_core E :=
-  let Vs := list_boxer_to_dyns E in 
+  let Vs := list_boxer_to_dyns E in
   applys (@xapp_record_new Vs);
   [ try reflexivity
   | intros ?; solve [ false ]

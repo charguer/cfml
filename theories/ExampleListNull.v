@@ -33,9 +33,9 @@ Definition tail : field := 1%nat.
 
 (** Let's try to first formalize the C representation:
 [[
-    typedef struct node { 
-      item  head; 
-      node* tail; 
+    typedef struct node {
+      item  head;
+      node* tail;
     };
     // with node = null for the empty list
 ]]
@@ -44,7 +44,7 @@ Definition tail : field := 1%nat.
 (* ---------------------------------------------------------------------- *)
 (** ** Inductive presentation (does not work) *)
 
-(** [p ~> MList L], (hypothetically) defined as an inductive predicate 
+(** [p ~> MList L], (hypothetically) defined as an inductive predicate
 
 [[
 
@@ -99,7 +99,7 @@ Lemma MCell_not_null : forall (p:loc) A `{EA:Enc A} (x:A) (p':loc),
 Proof using.
   intros. tests C: (p = null). { xchange MCell_null. } { xsimpl~. }
 Qed.
- 
+
 Lemma MCell_conflict : forall p1 p2 `{EA1:Enc A1} `{EA2:Enc A2} (x1 x2:A1) (y1 y2:A2),
   p1 ~> MCell x1 y1 \* p2 ~> MCell x2 y2 ==+> \[p1 <> p2].
 (* TODO: two records with one common field have disjoint addresses *)
@@ -164,7 +164,7 @@ Lemma MList_nil_intro : forall A `{EA:Enc A},
 Proof using. intros. rewrite MList_null. xsimpl*. Qed.
 
 Lemma MList_null_inv : forall A `{EA:Enc A} (L:list A),
-  null ~> MList L ==> 
+  null ~> MList L ==>
   null ~> MList L \* \[L = nil].
 Proof using. intros. rewrite MList_null. xsimpl*. Qed.
 
@@ -187,9 +187,9 @@ Proof using.
 Qed.
 
 Lemma MList_if : forall p A `{EA:Enc A} (L:list A),
-  p ~> MList L ==> 
+  p ~> MList L ==>
   If p = null
-    then \[L = nil] 
+    then \[L = nil]
    else \exists x p' L', \[L = x::L'] \* p ~> MCell x p' \* p' ~> MList L'.
 Proof using.
   intros. destruct L as [|x L'].
@@ -268,7 +268,7 @@ Proof using.
 Qed.
 
 Lemma MListSeg_concat : forall `{EA:Enc A} p1 p3 (L1 L2:list A),
-  p1 ~> MListSeg p3 (L1++L2) = 
+  p1 ~> MListSeg p3 (L1++L2) =
   \exists p2, p1 ~> MListSeg p2 L1 \* p2 ~> MListSeg p3 L2.
 Proof using.
   intros. gen p1. induction L1 as [|x L1']; intros; rew_list.
@@ -282,10 +282,10 @@ Proof using.
 Qed.
 
 Lemma MListSeg_last : forall `{EA:Enc A} p1 p3 x (L:list A),
-  p1 ~> MListSeg p3 (L&x) = 
+  p1 ~> MListSeg p3 (L&x) =
   \exists p2, p1 ~> MListSeg p2 L \* p2 ~> (MCell x p3).
 Proof using.
-  intros. rewrite MListSeg_concat. 
+  intros. rewrite MListSeg_concat.
   fequals. apply fun_ext_1. intros p2. (* todo simplify *)
   rewrite~ MListSeg_one.
 Qed.
@@ -326,7 +326,7 @@ Hint Extern 1 (Register_Spec mk_cell) => Provide Triple_mk_cell.
 (* ********************************************************************** *)
 (* * Length of a mutable list *)
 
-(** 
+(**
 [[
     let rec mlength p =
       if p == null
@@ -338,7 +338,7 @@ Hint Extern 1 (Register_Spec mk_cell) => Provide Triple_mk_cell.
 Definition mlength : val :=
   VFix 'f 'p :=
     If_ 'p '= null
-      Then 0 
+      Then 0
       Else 1 '+ 'f ('p'.tail).
 
 Lemma Triple_mlength : forall A `{EA:Enc A} (L:list A) (p:loc),
@@ -359,7 +359,7 @@ Hint Extern 1 (Register_Spec mlength) => Provide Triple_mlength.
 (* ********************************************************************** *)
 (* * List Copy *)
 
-(** 
+(**
 [[
     let rec copy p =
       if p == null
@@ -395,7 +395,7 @@ Hint Extern 1 (Register_Spec copy) => Provide Triple_copy.
 (* ********************************************************************** *)
 (* ********************************************************************** *)
 (* ********************************************************************** *)
-(* LATER 
+(* LATER
 
 (* ********************************************************************** *)
 (* * Out-of-place append of two mutable lists *)

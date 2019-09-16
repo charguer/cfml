@@ -24,7 +24,7 @@ Module Language.
 
 (** The type [var] is an alias for [string].
 
-    The library [Var.v] provides the boolean function [var_eq x y] to compare 
+    The library [Var.v] provides the boolean function [var_eq x y] to compare
     two variables. It provides the tactic [case_var] to perform case analysis on
     expressions of the form [if var_eq x y then .. else ..] that appear in the goal. *)
 
@@ -34,7 +34,7 @@ Definition var := string.
 
 Definition loc : Type := nat.
 
-(** The grammar of the deeply-embedded language includes terms and values. 
+(** The grammar of the deeply-embedded language includes terms and values.
     Values include locations and primitive functions. *)
 
 Inductive val : Type :=
@@ -260,7 +260,7 @@ Notation "\Top" := (htop).
 
 Definition hgc : hprop := htop.
 
-(** In general, [Definition hgc := fun h => heap_affine h], 
+(** In general, [Definition hgc := fun h => heap_affine h],
     where [heap_affine] is a predicate that characterizes which pieces
     of heap are garbaged collected, as opposed to those that need to be
     deallocated explicitly (e.g. file handles, or heap-allocated data in C). *)
@@ -294,8 +294,8 @@ Lemma predicate_extensionality : forall A (P Q:A->Prop),
   (forall x, P x <-> Q x) ->
   P = Q.
 Proof using.
-  introv M. applys functional_extensionality. 
-  intros. applys* propositional_extensionality. 
+  introv M. applys functional_extensionality.
+  intros. applys* propositional_extensionality.
 Qed.
 
 Lemma hprop_eq : forall H1 H2,
@@ -315,7 +315,7 @@ Module Himpl.
 (* ******************************************************* *)
 (** ** Definition of entailment *)
 
-(** Entailment for heap predicates, written [H1 ==> H2]  
+(** Entailment for heap predicates, written [H1 ==> H2]
     (the entailment is linear, although our triples will be affine). *)
 
 Definition himpl (H1 H2:hprop) : Prop :=
@@ -373,7 +373,7 @@ Parameter hstar_hempty_l : forall H,
 (** (4) Existentials can be "extruded" out of stars, that is:
       [(\exists x, H1) \* H2  =  \exists x, (H1 \* H2)].
       when [x] does not occur in [H2]. *)
- 
+
 Parameter hstar_hexists : forall A (J:A->hprop) H,
   (hexists J) \* H = hexists (J \*+ H).
 
@@ -419,7 +419,7 @@ Definition hoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
 Definition triple1 (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (H':hprop), hoare t (H \* H') (Q \*+ H').
 
-(** [triple t H Q] adds a [\GC] to make the logic affine as 
+(** [triple t H Q] adds a [\GC] to make the logic affine as
     opposed to linear: resources can be freely thrown away. *)
 
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
@@ -607,8 +607,8 @@ Definition hwand1 (H1 H2:hprop) : hprop :=
 Definition hwand2 (H1 H2 : hprop) : hprop :=
   \exists H0, H0 \* \[(H0 \* H1) ==> H2].
 
-(** For postconditions, written [Q1 \--* Q2]. 
-    It is defined using the heap predicate [\forall x, H], which is 
+(** For postconditions, written [Q1 \--* Q2].
+    It is defined using the heap predicate [\forall x, H], which is
     the analogous of [\exists x, H] but for the universal quantifier. *)
 
 Definition qwand A (Q1 Q2:A->hprop) : hprop :=
@@ -656,7 +656,7 @@ Module Wpsem.
 (* ******************************************************* *)
 (** ** Definition of [wp] *)
 
-(** The following equivalence can be proved to characterizes a unique 
+(** The following equivalence can be proved to characterizes a unique
     function [wp], where [wp t Q] has type [hprop]. *)
 
 Parameter wp_equiv : forall t H Q,
@@ -705,7 +705,7 @@ Module Wpgen.
 
 (** Distinguish:
     - a semantic weakest precondition, i.e. predicate [wp].
-    - a syntactic weakest precondition computed from an 
+    - a syntactic weakest precondition computed from an
       program annotated with its invariants (e.g., as in Why3).
     - a syntactic weakest precondition for un-annotated code,
       as the function [wpgen] presented next.
@@ -723,7 +723,7 @@ Definition formula := (val->hprop) -> hprop.
 
 (** Definition of the characteristic formula generator.
     For simplicity, we assume terms in normal form. *)
-(* 
+(*
 [[
     Fixpoint wpgen (t:trm) : formula :=
       mkstruct (fun Q =>
@@ -1002,10 +1002,10 @@ Parameter xseq_lemma : forall H F1 F2 Q,
 Tactic Notation "xseq" :=
    applys xseq_lemma.
 
-(** The tactic [xapp] leverages the following lemma. 
-    Assume the current state [H] decomposes as [H1 \* H2]. 
+(** The tactic [xapp] leverages the following lemma.
+    Assume the current state [H] decomposes as [H1 \* H2].
     Then, the premise becomes [H1 \* H2 ==> H1 \* (Q1 \--* Q)]
-    which simplifies to [H2 ==> Q1 \--* Q], which in turns 
+    which simplifies to [H2 ==> Q1 \--* Q], which in turns
     is equivalent to [Q1 \*+ H2 ==> Q]. In other words,
     [Q] is equal to [Q1] augmented with "[H] minus [H1]",
     which corresponds to the framed part. *)
@@ -1079,8 +1079,8 @@ Module Lift.
 (** ** The encoder typeclass *)
 
 (** [Enc A] holds if the Coq type [A] matches a data type from
-    the imperative programming language embedded in Coq. 
-    
+    the imperative programming language embedded in Coq.
+
     [enc V] encodes a value [V] of type [A] to a value of type [val]. *)
 
 Class Enc (A:Type) : Type :=
@@ -1130,7 +1130,7 @@ Notation "l '~~>' V" := (l ~> Hsingle V)
     type [A->hprop] for some encodable type [A].
 
     [Triple t H Q] captures the fact that [t] evaluates to a value [v]
-    which is the encoding of a value [V] for which the postcondition 
+    which is the encoding of a value [V] for which the postcondition
     [Q] holds. *)
 
 Definition Triple (t:trm) `{EA:Enc A} (H:hprop) (Q:A->hprop) : Prop :=
@@ -1192,8 +1192,8 @@ Definition Wpgen_let (F1:Formula) (F2of:forall `{EA1:Enc A1}, A1->Formula) : For
 (*
 [[
 Fixpoint Wpgen (E:ctx) (t:trm) : Formula :=
-  MkStruct 
-  match t with 
+  MkStruct
+  match t with
   ..
   | trm_seq t1 t2 => Wpgen_seq (Wpgen E t1) (Wpgen E t2)
   | trm_let x t1 t2 => Wpgen_let (Wpgen E t1) (fun A (EA:Enc A) (X:A) =>

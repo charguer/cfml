@@ -49,7 +49,7 @@ Ltac auto_false_base cont ::=
 
 Ltac auto_star ::=
   try solve [ intuition eauto
-            | intros; subst; rew_list in *; 
-              solve [ math 
+            | intros; subst; rew_list in *;
+              solve [ math
                     | auto_false_base ltac:(fun tt => intuition eauto) ] ].
 

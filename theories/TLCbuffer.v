@@ -101,7 +101,7 @@ Qed.
 (*----------------------*)
 (* LibInt *)
 
-Definition max (n m:int) : int := 
+Definition max (n m:int) : int :=
   If n > m then n else m.
 
 Lemma max_nonpos : forall n,
@@ -361,7 +361,7 @@ Hint Resolve list_sub_wf : wf.
 From TLC Require Import LibLogic. (* needed? *)
 From TLC Require Import LibReflect.
 
-Lemma not_mem_inv : forall A x y (l:list A), 
+Lemma not_mem_inv : forall A x y (l:list A),
   ~ mem x (y::l) ->
   x <> y /\ ~ mem x l.
 Proof using.
@@ -464,11 +464,11 @@ Hint Rewrite LibListZ.length_map LibListZ.index_map_eq : rew_arr.
 Lemma map_congr : forall A B (f1 f2 : A->B) l,
   (forall x, mem x l -> f1 x = f2 x) ->
   LibList.map f1 l = LibList.map f2 l.
-Proof using. 
+Proof using.
   introv H. induction l. { auto. } { rew_listx. fequals~. }
 Qed.
 
-Lemma map_map : forall A B C (l:list A) (f:A->B) (g:B->C), 
+Lemma map_map : forall A B C (l:list A) (f:A->B) (g:B->C),
   map g (map f l) = map (fun x => g (f x)) l.
 Proof using.
   intros. induction l as [|x l'].
@@ -485,7 +485,7 @@ Proof using. intros. subst. applys* mem_map. Qed.
 Lemma LibListZ_length_zero_eq_eq_nil : forall A (l:list A),
   (LibListZ.length l = 0) = (l = nil).
 Proof using.
-  intros. rewrite <- length_zero_eq_eq_nil. 
+  intros. rewrite <- length_zero_eq_eq_nil.
   unfold LibListZ.length. extens. math.
 Qed.
 
@@ -550,7 +550,7 @@ Tactic Notation "isubst" :=
 (** [get_head E] implemented recursively *)
 
 Ltac get_head E :=
-  match E with 
+  match E with
   | ?E' ?x => get_head E'
   | _ => constr:(E)
   end.

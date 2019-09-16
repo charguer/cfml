@@ -190,12 +190,12 @@ Module Stackn.
   let pop p =
     match !p.data with
     | [] -> raise Not_found
-    | x::r -> 
+    | x::r ->
         p.data <- r;
         p.size <- p.size - 1;
         x
 
-   let clear p =  
+   let clear p =
      p.data <- [];
      p.size <- 0
 
@@ -228,10 +228,10 @@ Definition push : val :=
 
 Definition pop : val :=
   VFun 'p :=
-   Let 'q := 'p'.data in 
+   Let 'q := 'p'.data in
    Match 'q With (* LATER: allow inline *)
    '| 'nil '=> 'Fail
-   '| 'x ':: 'r '=> 
+   '| 'x ':: 'r '=>
        Set 'p'.data ':= 'r ';
        Set 'p'.size ':= ('p'.size '- 1) ';
        'x
@@ -300,7 +300,7 @@ Qed.
 (* ####################################################### *)
 (** * Stack exercises *)
 
-(** Hints: 
+(** Hints:
     - [xunfold Stackn] to unfold all
     - [xchange Stackn_eq] to unfold one
     - [xchange <- Stackn_eq] to fold one
@@ -321,11 +321,11 @@ Import ExampleStack.Stackn.
 *)
 
 (* ******************************************************* *)
-(** ** The clear function *) 
+(** ** The clear function *)
 
-(** 
+(**
 [[
-   let clear p =  
+   let clear p =
      p.data <- [];
      p.size <- 0
 ]]
@@ -348,9 +348,9 @@ Hint Extern 1 (Register_Spec (clear)) => Provide @Triple_clear.
 
 
 (* ******************************************************* *)
-(** ** The concat function (orange belt)  *) 
+(** ** The concat function (orange belt)  *)
 
-(** 
+(**
 [[
    let concat p1 p2 =
      p1.data <- p1.data @ p2.data;
@@ -370,10 +370,10 @@ Lemma Triple_concat : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
     PRE (p1 ~> Stackn L1 \* p2 ~> Stackn L2)
     POST (fun (u:unit) => (* SOLUTION *) p1 ~> Stackn (L1 ++ L2) \* p2 ~> Stackn nil (* /SOLUTION *)).
 Proof using.
-  (* SOLUTION *) 
+  (* SOLUTION *)
   xwp. xunfold Stackn. xapp. xapp. xapp. xapp. xapp. xapp. xapp.
   xapp. xchange <- (Stackn_eq p1). { rew_listx. auto. }
-  xchange <- (Stackn_eq p2). xapp. xsimpl. 
+  xchange <- (Stackn_eq p2). xapp. xsimpl.
   (* /SOLUTION *)
 Qed.
 

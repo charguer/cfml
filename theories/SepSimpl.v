@@ -1,7 +1,7 @@
 
 (**
 
-This file provides the essential tactics for manipulation of 
+This file provides the essential tactics for manipulation of
 Separation Logic formulae.
 
 The functor in this file assumes:
@@ -341,9 +341,9 @@ Proof using. intros. unfold Id. xrepr_clean. auto. Qed.
 (* ** [rew_heap] tactic to normalize expressions with [hstar] *)
 
 (** [rew_heap] removes empty heap predicates, and normalizes w.r.t.
-    associativity of star. 
+    associativity of star.
 
-    [rew_heap_assoc] only normalizes w.r.t. associativity. 
+    [rew_heap_assoc] only normalizes w.r.t. associativity.
     (It should only be used internally for tactic implementation. *)
 
 Lemma star_post_empty : forall B (Q:B->hprop),
@@ -483,7 +483,7 @@ Lemma hstars_flip_8 : forall H1 H2 H3 H4 H5 H6 H7 H8,
 Proof using. intros. rewrite <- (hstars_flip_7 H1). rew_heap. rewrite (hstar_comm H8). rew_heap~. Qed.
 
 Lemma hstars_flip_9 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9,
-    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* \[] 
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* \[]
   = H9 \* H8 \* H7 \* H6 \* H5 \* H4 \* H3 \* H2 \* H1 \* \[].
 Proof using. intros. rewrite <- (hstars_flip_8 H1). rew_heap. rewrite (hstar_comm H9). rew_heap~. Qed.
 
@@ -522,9 +522,9 @@ Ltac hstars_flip tt :=
 (* Lemmas [hstars_pick_...] to extract hyps in depth. *)
 
 (** [hstars_search Hs test] applies to an expression [Hs]
-    of the form either [H1 \* ... \* Hn \* \[]] 
+    of the form either [H1 \* ... \* Hn \* \[]]
     or [H1 \* ... \* Hn]. It invokes the function [test i Hi]
-    for each of the [Hi] in turn until the tactic succeeds. 
+    for each of the [Hi] in turn until the tactic succeeds.
     In the particular case of invoking [test n Hn] when there
     is no trailing [\[]], the call is of the form [test (hstars_last n) Hn]
     where [hstars_last] is an identity tag. *)
@@ -563,12 +563,12 @@ Lemma hstars_pick_5 : forall H1 H2 H3 H4 H5 H,
 Proof using. intros. rewrite~ (hstar_comm_assoc H4). applys hstars_pick_4. Qed.
 
 Lemma hstars_pick_6 : forall H1 H2 H3 H4 H5 H6 H,
-    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H 
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H
   = H6 \* H1 \* H2 \* H3 \* H4 \* H5 \* H.
 Proof using. intros. rewrite~ (hstar_comm_assoc H5). applys hstars_pick_5. Qed.
 
 Lemma hstars_pick_7 : forall H1 H2 H3 H4 H5 H6 H7 H,
-    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H 
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H
   = H7 \* H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H.
 Proof using. intros. rewrite~ (hstar_comm_assoc H6). applys hstars_pick_6. Qed.
 
@@ -578,7 +578,7 @@ Lemma hstars_pick_8 : forall H1 H2 H3 H4 H5 H6 H7 H8 H,
 Proof using. intros. rewrite~ (hstar_comm_assoc H7). applys hstars_pick_7. Qed.
 
 Lemma hstars_pick_9 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9 H,
-    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* H 
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* H
   = H9 \* H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H.
 Proof using. intros. rewrite~ (hstar_comm_assoc H8). applys hstars_pick_8. Qed.
 
@@ -618,7 +618,7 @@ Lemma hstars_pick_last_8 : forall H1 H2 H3 H4 H5 H6 H7 H8,
 Proof using. intros. rewrite~ (hstar_comm H7). applys hstars_pick_7. Qed.
 
 Lemma hstars_pick_last_9 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9,
-    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9
   = H9 \* H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8.
 Proof using. intros. rewrite~ (hstar_comm H8). applys hstars_pick_8. Qed.
 
@@ -698,9 +698,9 @@ Ltac hstars_pick_lemma i :=
     - [Hlt] denotes the remaining items to process  items from the left hand side
     - [Hra] denotes "cleaned up" items from the right hand side
     - [Hrg] denotes the [\GC] and [\Top] items from the right hand side
-    - [Hrt] denotes the remaining items to process from the right hand side 
+    - [Hrt] denotes the remaining items to process from the right hand side
 
-    Note: we assume that all items consist of iterated hstars, and are 
+    Note: we assume that all items consist of iterated hstars, and are
     always terminated by an empty heap.
 *)
 
@@ -792,7 +792,7 @@ Ltac hstars_simpl_start tt :=
 Ltac hstars_simpl_step tt :=
   match goal with |- ?Hl ==> ?Ha \* ?H \* ?H2 =>
     first [
-      hstars_search Hl ltac:(fun i H' => 
+      hstars_search Hl ltac:(fun i H' =>
         match H' with H => hstars_simpl_pick i end);
       apply hstars_simpl_cancel
     | apply hstars_simpl_keep ]
@@ -851,7 +851,7 @@ Qed.
 Lemma xsimpl_l_hexists : forall A (J:A->hprop) Hla Hlw Hlt HR,
   (forall x, Xsimpl (Hla, Hlw, (J x \* Hlt)) HR) ->
   Xsimpl (Hla, Hlw, (hexists J \* Hlt)) HR.
-Proof using. 
+Proof using.
   xsimpl_l_start M. rewrite hstars_pick_3. rewrite hstar_hexists.
   applys* himpl_hexists_l. intros. rewrite~ <- hstars_pick_3.
 Qed.
@@ -886,7 +886,7 @@ Lemma xsimpl_l_cancel_qwand : forall A (x:A) (Q1 Q2:A->hprop) Hla Hlw Hlt HR,
 Proof using.
   xsimpl_l_start' M. applys himpl_trans.
   applys himpl_frame_lr. applys qwand_specialize x.
-  applys hwand_cancel. 
+  applys hwand_cancel.
 Qed.
 *)
 
@@ -981,7 +981,7 @@ Proof using. xsimpl_r_start' M. Qed.
 (** Transition lemmas for [\Top] and [\GC] cancellation *)
 
   (* [H] meant to be [\GC] or [\Top] *)
-Lemma xsimpl_r_hgc_or_htop : forall H Hra Hrg Hrt HL, 
+Lemma xsimpl_r_hgc_or_htop : forall H Hra Hrg Hrt HL,
   Xsimpl HL (Hra, (H \* Hrg), Hrt) ->
   Xsimpl HL (Hra, Hrg, (H \* Hrt)).
 Proof using. xsimpl_r_start' M. Qed.
@@ -1001,7 +1001,7 @@ Lemma xsimpl_r_htop_drop : forall Hra Hrg Hrt HL,
   Xsimpl HL (Hra, Hrg, (\Top \* Hrt)).
 Proof using. xsimpl_r_start' M. applys himpl_htop_r. Qed.
 
-(** Transition lemmas for LHS/RHS cancellation 
+(** Transition lemmas for LHS/RHS cancellation
     --- meant to be applied when Hlw and Hlt are empty *)
 
 Ltac xsimpl_lr_start M :=
@@ -1058,14 +1058,14 @@ Qed.
 Lemma xsimpl_lr_hwand_hfalse : forall Hla H1,
   Xsimpl (Hla, \[], \[]) ((\[False] \-* H1) \* \[], \[], \[]).
 Proof using.
-  intros. generalize True. xsimpl_lr_start M. rewrite hwand_equiv. 
+  intros. generalize True. xsimpl_lr_start M. rewrite hwand_equiv.
   rewrite hstar_comm. applys himpl_hstar_hpure_l. auto_false.
 Qed.
 
 Lemma xsimpl_lr_qwand : forall A (Q1 Q2:A->hprop) Hla,
   (forall x, Xsimpl (\[], \[], (Q1 x \* Hla)) (\[], \[], Q2 x \* \[])) ->
   Xsimpl (Hla, \[], \[]) ((Q1 \--* Q2) \* \[], \[], \[]).
-Proof using. 
+Proof using.
   xsimpl_lr_start M. rewrite qwand_equiv. intros x.
   specializes M x. rew_heap~ in M.
 Qed.
@@ -1078,7 +1078,7 @@ Proof using. introv M. applys xsimpl_lr_qwand. intros []. applys M. Qed.
 Lemma xsimpl_lr_hforall : forall A (J:A->hprop) Hla,
   (forall x, Xsimpl (\[], \[], Hla) (\[], \[], J x \* \[])) ->
   Xsimpl (Hla, \[], \[]) ((hforall J) \* \[], \[], \[]).
-Proof using. 
+Proof using.
   xsimpl_lr_start M. applys himpl_hforall_r. intros x.
   specializes M x. rew_heap~ in M.
 Qed.
@@ -1173,7 +1173,7 @@ Lemma xsimpl_pick_lemma : forall Hla1 Hla2 Hlw Hlt HR,
   Xsimpl (Hla2, Hlw, Hlt) HR ->
   Xsimpl (Hla1, Hlw, Hlt) HR.
 Proof using. introv M. subst~. Qed.
- 
+
 Ltac xsimpl_pick i :=
   let L := hstars_pick_lemma i in
   eapply xsimpl_pick_lemma; [ apply L | ].
@@ -1184,8 +1184,8 @@ Ltac xsimpl_pick i :=
     for the first [i] such that [f Hi] returns [true]. *)
 
 Ltac xsimpl_pick_st f :=
-  match goal with |- Xsimpl (?Hla, ?Hlw, ?Hlt) ?HR => 
-    hstars_search Hla ltac:(fun i H => 
+  match goal with |- Xsimpl (?Hla, ?Hlw, ?Hlt) ?HR =>
+    hstars_search Hla ltac:(fun i H =>
       match f H with true => xsimpl_pick i end)
   end.
 
@@ -1196,15 +1196,15 @@ Ltac xsimpl_pick_syntactically H :=
   xsimpl_pick_st ltac:(fun H' =>
     match H' with H => constr:(true) end).
 
-(** [xsimpl_pick_unifiable H] applies to a goal of the form 
+(** [xsimpl_pick_unifiable H] applies to a goal of the form
     [Xsimpl (Hla, Hlw, Hlt) HR], where [Hla] is of the form
-    [H1 \* .. \* Hn \* \[]]. It searches for [H] among the [Hi]. 
-    If it finds it, it moves this [Hi] to the front, just before [H1]. 
+    [H1 \* .. \* Hn \* \[]]. It searches for [H] among the [Hi].
+    If it finds it, it moves this [Hi] to the front, just before [H1].
     Else, it fails. *)
 
 Ltac xsimpl_pick_unifiable H :=
-  match goal with |- Xsimpl (?Hla, ?Hlw, ?Hlt) ?HR => 
-    hstars_search Hla ltac:(fun i H' => 
+  match goal with |- Xsimpl (?Hla, ?Hlw, ?Hlt) ?HR =>
+    hstars_search Hla ltac:(fun i H' =>
       unify H H'; xsimpl_pick i)
   end.
 
@@ -1215,10 +1215,10 @@ Ltac xsimpl_pick_unifiable H :=
 Ltac xsimpl_pick_same H :=
   xsimpl_pick_unifiable H.
 
-(** [xsimpl_pick_applied Q] applies to a goal of the form 
+(** [xsimpl_pick_applied Q] applies to a goal of the form
     [Xsimpl (Hla, Hlw, Hlt) HR], where [Hla] is of the form
-    [H1 \* .. \* Hn \* \[]]. It searches for [Q ?x] among the [Hi]. 
-    If it finds it, it moves this [Hi] to the front, just before [H1]. 
+    [H1 \* .. \* Hn \* \[]]. It searches for [Q ?x] among the [Hi].
+    If it finds it, it moves this [Hi] to the front, just before [H1].
     Else, it fails. *)
 
 Ltac xsimpl_pick_applied Q :=
@@ -1231,18 +1231,18 @@ Ltac xsimpl_pick_applied Q :=
 Ltac repr_get_predicate H :=
   match H with ?p ~> ?E => get_head E end.
 
-(** [xsimpl_pick_repr H] applies to a goal of the form 
+(** [xsimpl_pick_repr H] applies to a goal of the form
     [Xsimpl (Hla, Hlw, Hlt) HR], where [Hla] is of the form
     [H1 \* .. \* Hn \* \[]], and where [H] is of the form [p ~> R _]
-    (same as [repr _ p]). It searches for [p ~> R _] among the [Hi]. 
-    If it finds it, it moves this [Hi] to the front, just before [H1]. 
+    (same as [repr _ p]). It searches for [p ~> R _] among the [Hi].
+    If it finds it, it moves this [Hi] to the front, just before [H1].
     Else, it fails. *)
 
 Ltac xsimpl_pick_repr H :=
-  match H with ?p ~> ?E => 
+  match H with ?p ~> ?E =>
     let R := get_head E in
     xsimpl_pick_st ltac:(fun H' =>
-      match H' with (p ~> ?E') => 
+      match H' with (p ~> ?E') =>
         let R' := get_head E' in
         match R' with R => constr:(true) end end)
   end.
@@ -1294,7 +1294,7 @@ Ltac xsimpl_handle_false_subgoals tt :=
 
 (* DEPRECATED
 Ltac xsimpl_handle_haffine_subgoals tt :=
-  match goal with |- haffine _ =>   
+  match goal with |- haffine _ =>
     try solve [ haffine ] end.
 *)
 
@@ -1360,7 +1360,7 @@ Ltac xsimpl_r_hexists_apply tt :=
       end)
   | eapply xsimpl_r_hexists ].
 
-(** [xsimpl_hook H] can be customize to handle cancellation of specific 
+(** [xsimpl_hook H] can be customize to handle cancellation of specific
     kind of heap predicates (e.g., [hsingle]). *)
 
 Ltac xsimpl_hook H := fail.
@@ -1370,11 +1370,11 @@ Ltac xsimpl_hook H := fail.
 (** ** Tactic step *)
 
 Ltac xsimpl_hwand_hstars_l tt :=
-  match goal with |- Xsimpl (?Hla, ((?H1s \-* ?H2) \* ?Hlw), \[]) ?HR => 
+  match goal with |- Xsimpl (?Hla, ((?H1s \-* ?H2) \* ?Hlw), \[]) ?HR =>
     hstars_search H1s ltac:(fun i H =>
       let L := hstars_pick_lemma i in
       eapply xsimpl_l_hwand_reorder;
-      [ apply L 
+      [ apply L
       | match H with
         | \[] => apply xsimpl_l_cancel_hwand_hstar_hempty
         | _ => xsimpl_pick_same H; apply xsimpl_l_cancel_hwand_hstar
@@ -1383,10 +1383,10 @@ Ltac xsimpl_hwand_hstars_l tt :=
   end.
 
 Ltac xsimpl_step_l tt :=
-  match goal with |- Xsimpl ?HL ?HR => 
+  match goal with |- Xsimpl ?HL ?HR =>
   match HL with
   | (?Hla, ?Hlw, (?H \* ?Hlt)) =>
-    match H with 
+    match H with
     | \[] => apply xsimpl_l_hempty
     | \[?P] => apply xsimpl_l_hpure; intro
     | ?H1 \* ?H2 => rewrite (@hstar_assoc H1 H2)
@@ -1395,19 +1395,19 @@ Ltac xsimpl_step_l tt :=
     | ?Q1 \--* ?Q2 => apply xsimpl_l_acc_wand
     | _ => apply xsimpl_l_acc_other
     end
-  | (?Hla, ((?H1 \-* ?H2) \* ?Hlw), \[]) => 
+  | (?Hla, ((?H1 \-* ?H2) \* ?Hlw), \[]) =>
       match H1 with
       | \[] => apply xsimpl_l_cancel_hwand_hempty
       | (_ \* _) => xsimpl_hwand_hstars_l tt
       | _ => first [ xsimpl_pick_same H1; apply xsimpl_l_cancel_hwand
-                   | apply xsimpl_l_keep_wand ] 
+                   | apply xsimpl_l_keep_wand ]
       end
-  | (?Hla, ((?Q1 \--* ?Q2) \* ?Hlw), \[]) => 
+  | (?Hla, ((?Q1 \--* ?Q2) \* ?Hlw), \[]) =>
       first [ xsimpl_pick_applied Q1; eapply xsimpl_l_cancel_qwand
             | apply xsimpl_l_keep_wand ]
   end end.
 
-(* Limitation: [((Q1 \*+ H) \--* Q2) \* H] is not automatically 
+(* Limitation: [((Q1 \*+ H) \--* Q2) \* H] is not automatically
    simplified to [Q1 \--* Q2]. *)
 
 Ltac xsimpl_hgc_or_htop_cancel cancel_item cancel_lemma :=
@@ -1415,14 +1415,14 @@ Ltac xsimpl_hgc_or_htop_cancel cancel_item cancel_lemma :=
   repeat (xsimpl_pick_same cancel_item; apply cancel_lemma).
 
 Ltac xsimpl_hgc_or_htop_step tt :=
-  match goal with |- Xsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) => 
+  match goal with |- Xsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) =>
     match constr:((Hrg,H)) with
     | (\[], \GC) => applys xsimpl_r_hgc_or_htop;
                     xsimpl_hgc_or_htop_cancel (\GC) xsimpl_lr_cancel_hgc
     | (\[], \Top) => applys xsimpl_r_hgc_or_htop;
                     xsimpl_hgc_or_htop_cancel (\GC) xsimpl_lr_cancel_htop;
                     xsimpl_hgc_or_htop_cancel (\Top) xsimpl_lr_cancel_htop
-    | (\GC \* \[], \Top) => applys xsimpl_r_htop_replace_hgc; 
+    | (\GC \* \[], \Top) => applys xsimpl_r_htop_replace_hgc;
                             xsimpl_hgc_or_htop_cancel (\Top) xsimpl_lr_cancel_htop
     | (\GC \* \[], \GC) => applys xsimpl_r_hgc_drop
     | (\Top \* \[], \GC) => applys xsimpl_r_hgc_drop
@@ -1433,7 +1433,7 @@ Ltac xsimpl_cancel_same H :=
   xsimpl_pick_same H; apply xsimpl_lr_cancel_same.
 
 Ltac xsimpl_step_r tt :=
-  match goal with |- Xsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) => 
+  match goal with |- Xsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) =>
   match H with
   | ?H' => xsimpl_hook H (* else continue *)
   | \[] => apply xsimpl_r_hempty
@@ -1442,9 +1442,9 @@ Ltac xsimpl_step_r tt :=
   | ?H \-* ?H'eqH =>
       match H with
       | \[?P] => fail 1 (* don't cancel out cause [P] might contain a contradiction *)
-      | _ => 
-        match H'eqH with 
-        | H => apply xsimpl_r_hwand_same 
+      | _ =>
+        match H'eqH with
+        | H => apply xsimpl_r_hwand_same
         (* | protect H => apply xsimpl_r_hwand_same  --NOTE: purposely refuse to unify this*)
         end
       end
@@ -1454,31 +1454,31 @@ Ltac xsimpl_step_r tt :=
   | protect ?H' => apply xsimpl_r_keep
   | protect ?Q' _ => apply xsimpl_r_keep
   | ?H' => is_not_evar H;  xsimpl_cancel_same H (* else continue *)
-  | ?p ~> _ => xsimpl_pick_repr H; apply xsimpl_lr_cancel_eq_repr; 
+  | ?p ~> _ => xsimpl_pick_repr H; apply xsimpl_lr_cancel_eq_repr;
                [ xsimpl_lr_cancel_eq_repr_post tt | ]  (* else continue *)
   | ?x ~> Id ?X => has_no_evar x; apply xsimpl_r_id
   (* TODO DEPRECATED? | ?x ~> ?T _ => has_no_evar x;
                   let M := fresh in assert (M: T = Id); [ reflexivity | clear M ];
                   apply xsimpl_r_id; [ try reflexivity |  ] *)
-  | ?x ~> ?T_evar ?X_evar => has_no_evar x; is_evar T_evar; is_evar X_evar; 
+  | ?x ~> ?T_evar ?X_evar => has_no_evar x; is_evar T_evar; is_evar X_evar;
                            apply xsimpl_r_id_unify
   | _ => apply xsimpl_r_keep
   end end.
 
 Ltac xsimpl_step_lr tt :=
-  match goal with |- Xsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, \[]) => 
+  match goal with |- Xsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, \[]) =>
     match Hrg with
     | \[] =>
-       match Hra with 
-       | ?H1 \* \[] => 
+       match Hra with
+       | ?H1 \* \[] =>
          match H1 with
          | ?Hra_evar => is_evar Hra_evar; rew_heap; apply himpl_lr_refl (* else continue *)
        (*   | ?Hla' => (* unify Hla Hla'; *) apply himpl_lr_refl (* else continue *) TODO: needed? *)
          | ?Q1 \--* ?Q2 => is_evar Q2; eapply himpl_lr_qwand_unify
          | \[False] \-* ?H2 => apply xsimpl_lr_hwand_hfalse
          | ?H1 \-* ?H2 => xsimpl_flip_acc_l tt; apply xsimpl_lr_hwand
-         | ?Q1 \--* ?Q2 => 
-             xsimpl_flip_acc_l tt; 
+         | ?Q1 \--* ?Q2 =>
+             xsimpl_flip_acc_l tt;
              match H1 with
              | @qwand unit ?Q1' ?Q2' => apply xsimpl_lr_qwand_unit
              | _ => apply xsimpl_lr_qwand; intro
@@ -1488,10 +1488,10 @@ Ltac xsimpl_step_lr tt :=
          end
        | \[] => apply himpl_lr_refl
        | _ => xsimpl_flip_acc_lr tt; apply xsimpl_lr_exit_nogc
-       end 
+       end
     | (\Top \* _) => apply himpl_lr_htop
     | (\GC \* _) => apply himpl_lr_hgc;
-                    [ try remove_empty_heaps_haffine tt; try solve [ haffine ] | ] 
+                    [ try remove_empty_heaps_haffine tt; try solve [ haffine ] | ]
     | ?Hrg' => xsimpl_flip_acc_lr tt; apply xsimpl_lr_exit
   end end.
 
@@ -1734,7 +1734,7 @@ Abort.
 
 Lemma demo_hstars_pick_1 : forall H1 H2 H3 H4 Hresult,
   (forall H, H1 \* H2 \* H3 \* H4 = H -> H = Hresult -> True) -> True.
-Proof using. 
+Proof using.
   introv M. dup 2.
   { eapply M. let L := hstars_pick_lemma 3 in eapply L. demo. }
   { eapply M. let L := hstars_pick_lemma (hstars_last 4) in eapply L. demo. }
@@ -1747,7 +1747,7 @@ Qed.
 Lemma demo_hstars_simpl_1 : forall H1 H2 H3 H4 H5,
   H2 ==> H5 ->
   H1 \* H2 \* H3 \* H4 ==> H4 \* H5 \* H3 \* H1.
-Proof using. 
+Proof using.
   intros. dup.
   { hstars_simpl_start tt.
     hstars_simpl_step tt.
@@ -1760,7 +1760,7 @@ Qed.
 
 Lemma demo_hstars_simpl_2 : forall H1 H2 H3 H4 H5,
   (forall H, H \* H2 \* H3 \* H4 ==> H4 \* H5 \* H3 \* H1 -> True) -> True.
-Proof using. 
+Proof using.
   introv M. eapply M. hstars_simpl.
 Abort.
 
@@ -1769,7 +1769,7 @@ Abort.
 (** [xsimpl_pick] demos *)
 
 Lemma xsimpl_pick_demo : forall (Q:bool->hprop) (P:Prop) H1 H2 H3 Hlw Hlt Hra Hrg Hrt,
-  (forall HX HY,  
+  (forall HX HY,
     Xsimpl ((H1 \* H2 \* H3 \* Q true \* (\[P] \-* HX) \* HY \* \[]), Hlw, Hlt)
            (Hra, Hrg, Hrt)
   -> True) -> True.
@@ -1888,7 +1888,7 @@ Proof using. intros. xsimpl~. Qed.
 
 Lemma xsimpl_demo_hwand : forall H1 H2 H3 H4,
   (H1 \-* (H2 \-* H3)) \* H1 \* H4 ==> (H2 \-* (H3 \* H4)).
-Proof using. 
+Proof using.
   dup.
   { intros. xsimpl0. xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1.
     xsimpl1. xsimpl1. xsimpl1.
@@ -1942,7 +1942,7 @@ Qed.
 
 Lemma xsimpl_demo_repr_1 : forall p q (R:int->int->hprop),
   p ~> R 3 \* q ~> R 4 ==> \exists n m, p ~> R n \* q ~> R m.
-Proof using. 
+Proof using.
   intros. dup.
   { xsimpl0. xsimpl1. xsimpl1. xsimpl1. xsimpl1.
     xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1. }
@@ -1957,7 +1957,7 @@ Proof using. introv E. xsimpl. subst R'. xsimpl. Qed.
 Lemma xsimpl_demo_repr_3 : forall p (R:int->int->hprop),
   let R' := R in
   p ~> R' 3 ==> \exists n, p ~> R n.
-Proof using. 
+Proof using.
   intros. dup.
   { xsimpl0. xsimpl1. xsimpl1. xsimpl1. xsimpl1. }
   { xsimpl~. }
@@ -1967,12 +1967,12 @@ Lemma xsimpl_demo_repr_4 : forall p n m (R:int->int->hprop),
   n = m + 0 ->
   p ~> R n ==> p ~> R m.
 Proof using. intros. xsimpl. math. Qed.
- 
+
 (* NOTE: in the presence of [let R' := R], it is possible that R'
    is renamed into R during a call to [xsimpl], because
    [remove_empty_heaps_right tt] called from [xsimpl_clean tt]
    invokes [rewrite] which performs a matching upto unification,
-   and not syntactically. *) 
+   and not syntactically. *)
 
 Lemma xsimpl_demo_gc_0 : forall H1 H2,
   H1 ==> H2 \* \GC \* \GC.
@@ -2046,12 +2046,12 @@ Lemma xsimpl_demo_hfalse : forall H1 H2,
   H1 \* H2 ==> \[False].
 Proof using.
   introv M. dup.
-  { xchange_nosimpl M. xsimpl0. xsimpl1. xsimpl1. xsimpl1. 
+  { xchange_nosimpl M. xsimpl0. xsimpl1. xsimpl1. xsimpl1.
     xsimpl1. xsimpl1. xsimpl1. xsimpl1. }
   { xchange M. }
 Qed.
 
-Lemma xchange_demo_hforall_l : 
+Lemma xchange_demo_hforall_l :
  forall (hforall_specialize : forall A (x:A) (J:A->hprop), (hforall J) ==> (J x)),
  forall (Q:int->hprop) H1,
   (\forall x, Q x) \* H1 ==> Q 2 \* \Top.

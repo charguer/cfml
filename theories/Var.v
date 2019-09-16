@@ -22,7 +22,7 @@ Generalizable Variables A.
     The boolean function [var_eq x y] compares two variables.
 
     The tactic [case_var] performs case analysis on expressions of the form
-    [if var_eq x y then .. else ..] that appear in the goal. 
+    [if var_eq x y then .. else ..] that appear in the goal.
 
 *)
 
@@ -63,10 +63,10 @@ Hint Extern 1 (?x <> ?y) => var_neq.
 (* ---------------------------------------------------------------------- *)
 (** Tactic [case_var] *)
 
-Tactic Notation "case_var" := 
+Tactic Notation "case_var" :=
   repeat rewrite var_eq_spec in *; repeat case_if.
 
-Tactic Notation "case_var" "~" := 
+Tactic Notation "case_var" "~" :=
   case_var; auto.
 
 
