@@ -1551,7 +1551,7 @@ Implicit Type F : formula.
     rules), in characteristic formulae. *)
 
 Definition mkstruct (F:formula) : formula :=
-  fun Q => \exists Q', F Q' \* (Q' \--* (Q \*+ \GC)).
+  fun Q => \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
 
 Lemma mkstruct_ramified : forall Q1 Q2 F,
   (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
@@ -1812,34 +1812,26 @@ Proof using. introv M W. applys xapp_lemma M. xchanges W. intros ? ->. auto. Qed
 
 Lemma xcf_lemma_fun : forall v1 v2 x t H Q,
   v1 = val_fun x t ->
-  H ==> wpgen ((x,v2)::nil) t (Q \*+ \GC) ->
+  H ==> wpgen ((x,v2)::nil) t (Q \*+ \Top) ->
   triple (trm_app v1 v2) H Q.
 Proof using.
   introv M1 M2. rewrite wp_equiv.
-  applys himpl_trans; [| applys (>> wp_hany_post \GC)].
+  applys himpl_trans; [| applys (>> wp_hany_post \Top)].
   xchange M2.
-  xchange (>> wpgen_sound ((x,v2)::nil) t (Q \*+ \GC)).
+  xchange (>> wpgen_sound ((x,v2)::nil) t (Q \*+ \Top)).
   rewrite <- subst_eq_isubst_one. applys* wp_app_fun.
 Qed.
 
 Lemma xcf_lemma_fix : forall v1 v2 f x t H Q,
   v1 = val_fix f x t ->
-  H ==> wpgen ((f,v1)::(x,v2)::nil) t (Q \*+ \GC) ->
+  H ==> wpgen ((f,v1)::(x,v2)::nil) t (Q \*+ \Top) ->
   triple (trm_app v1 v2) H Q.
 Proof using.
   introv M1 M2. rewrite wp_equiv. xchange M2.
-  applys himpl_trans; [| applys (>> wp_hany_post \GC)].
-  xchange (>> wpgen_sound (((f,v1)::nil) ++ (x,v2)::nil) t (Q \*+ \GC)).
+  applys himpl_trans; [| applys (>> wp_hany_post \Top)].
+  xchange (>> wpgen_sound (((f,v1)::nil) ++ (x,v2)::nil) t (Q \*+ \Top)).
   rewrite isubst_app. do 2 rewrite <- subst_eq_isubst_one.
   applys* wp_app_fix.
-Qed.
-
-Lemma xgc_lemma : forall H Q F,
-  H ==> mkstruct F (Q \*+ \GC) ->
-  H ==> mkstruct F Q.
-Proof using.
-  introv M. xchange M.
-  lets N: mkstruct_ramified (Q \*+ \GC) Q F. xchanges N.
 Qed.
 
 
@@ -1879,9 +1871,6 @@ Tactic Notation "xapps" constr(E) :=
   [ applys xapps_lemma0 E
   | applys xapps_lemma1 E ];
   xsimpl; unfold protect.
-
-Tactic Notation "xgc" :=
-  applys xgc_lemma.
 
 Tactic Notation "xcf" :=
   intros;

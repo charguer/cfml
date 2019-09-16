@@ -64,3 +64,18 @@ Proof using.
   introv M. xchange M.
   (* Note that freshly produced items appear to the front *)
 Abort.
+----------
+
+
+Lemma xgc_lemma : forall H Q F,
+  H ==> mkstruct F (Q \*+ \Top) ->
+  H ==> mkstruct F Q.
+Proof using.
+  introv M. xchange M.
+  lets N: mkstruct_ramified (Q \*+ \Top) Q F. xchanges N.
+Qed.
+
+
+Tactic Notation "xgc" :=
+  applys xgc_lemma.
+

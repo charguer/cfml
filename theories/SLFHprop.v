@@ -4,6 +4,9 @@ Separation Logic Foundations
 
 Chapter: "Hprop".
 
+This chapter introduces heap predicates, Separation Logic triples,
+and the frame rule.
+
 Author: Arthur Charguéraud.
 License: MIT.
 
@@ -108,8 +111,8 @@ Definition heap := state.
 (* ******************************************************* *)
 (** ** Heap predicates *)
 
-(** In Separation Logic (SL), the state is described using "heap predicates",
-    which are predicate over pieces of state.
+(** In Separation Logic (SL), the state is described using "heap predicates".
+    A heap predicate is a predicate over a piece of state.
     Let [hprop] denote the type of heap predicates. *)
 
 Definition hprop := heap -> Prop.
@@ -124,7 +127,10 @@ Implicit Type H : hprop.
     we will never define a custom heap predicate directly as a function
     of the state. *)
 
-(** We next describe the most important combinators of Separation Logic. *)
+(** We next describe the most important combinators of Separation Logic.
+    Their use will be illustrated subsequently. For those who followed
+    the "practical Separation Logic course" (files [CF*.v]), the combinators
+    and the associated notation should already be familiar. *)
 
 (** The heap predicate, written [\[]], characterizes an empty state. *)
 

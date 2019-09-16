@@ -130,7 +130,7 @@ Notation "^ F Q" := ((F:Formula) _ _ Q)
 (** The [MkStruct] predicate lifts [mkstruct]. *)
 
 Definition MkStruct (F:Formula) : Formula :=
-  fun A `{EA:Enc A} Q => \exists Q', ^F Q' \* (Q' \--* (Q \*+ \GC)).
+  fun A `{EA:Enc A} Q => \exists Q', ^F Q' \* (Q' \--* (Q \*+ \Top)).
 
 (** Lifted characteristic formula generator *)
 

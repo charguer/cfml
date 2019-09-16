@@ -206,9 +206,10 @@ Implicit Type H : hprop.
     - [H1 \* H2] denotes the separating conjunction
     - [Q1 \*+ H2] denotes the separating conjunction extending a postcondition
     - [\exists x, H] denotes an existential
-    - [\GC] denotes the true heap predicate
-      (in the basic affine logic that we consider, [\GC] is the same as [\Top],
-       defined as [fun h => True]).
+    - [\Top] denotes the true heap predicate
+      (Remark: in the basic logic that we consider, all predicates are affine.
+       In CFML, the predicate [\GC] enables a finer control of which
+       predicates are affine and which ones are linear.)
 
 *)
 
@@ -419,11 +420,11 @@ Definition hoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
 Definition triple1 (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (H':hprop), hoare t (H \* H') (Q \*+ H').
 
-(** [triple t H Q] adds a [\GC] to make the logic affine as
+(** [triple t H Q] adds a [\Top] to make the logic affine as
     opposed to linear: resources can be freely thrown away. *)
 
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
-  forall (H':hprop), hoare t (H \* H') (Q \*+ H' \*+ \GC).
+  forall (H':hprop), hoare t (H \* H') (Q \*+ H' \*+ \Top).
 
 (** An alternative, equivalent definition of SL triples. *)
 
@@ -464,8 +465,8 @@ Parameter triple_frame : forall t H Q H',
 
 (**
 [[
-  (forall H0, hoare t (H \* H0) (Q \*+ H0 \*+ \GC)) ->
-  (forall H1, hoare t (H \* H' \* H1) (Q \*+ H' \*+ H1 \*+ \GC)).
+  (forall H0, hoare t (H \* H0) (Q \*+ H0 \*+ \Top)) ->
+  (forall H1, hoare t (H \* H' \* H1) (Q \*+ H' \*+ H1 \*+ \Top)).
 
   Take [H0 := H' \* H1] and the result holds up to associativity.
 ]]
@@ -496,12 +497,12 @@ Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
 
 (** Two garbage collection rules allow throwing away. *)
 
-Parameter triple_hgc_pre : forall t H Q,
+Parameter triple_htop_pre : forall t H Q,
   triple t H Q ->
-  triple t (H \* \GC) Q.
+  triple t (H \* \Top) Q.
 
-Parameter triple_hgc_post : forall t H Q,
-  triple t H (Q \*+ \GC) ->
+Parameter triple_htop_post : forall t H Q,
+  triple t H (Q \*+ \Top) ->
   triple t H Q.
 
 (** The structural rule can be factorized. Here is "consequence + frame". *)
@@ -512,12 +513,12 @@ Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
   Q1 \*+ H2 ===> Q ->
   triple t H Q.
 
-(** And its generalization "consequence + frame + gc". *)
+(** And its generalization "consequence + frame + top". *)
 
-Parameter triple_conseq_frame_hgc : forall H2 H1 Q1 t H Q,
+Parameter triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
   triple t H1 Q1 ->
   H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \GC ->
+  Q1 \*+ H2 ===> Q \*+ \Top ->
   triple t H Q.
 
 
@@ -637,11 +638,11 @@ Parameter triple_ramified_frame : forall H1 Q1 t H Q,
           [H2 ==> (Q1 \--* Q)] which simplifies to
           [Q1 \*+ H2 ===> Q]. *)
 
-(** Generalization with \GC *)
+(** Generalization with \Top *)
 
-Parameter triple_ramified_frame_hgc : forall H1 Q1 t H Q,
+Parameter triple_ramified_frame_htop : forall H1 Q1 t H Q,
   triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* (Q \*+ \GC)) ->
+  H ==> H1 \* (Q1 \--* (Q \*+ \Top)) ->
   triple t H Q.
 
 End Wand.
@@ -679,8 +680,8 @@ Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
 
 (** Reformulation of the combined structural rule *)
 
-Parameter wp_conseq_frame_hgc : forall t H Q1 Q2,
-  Q1 \*+ H ===> Q2 \*+ \GC ->
+Parameter wp_conseq_frame_htop : forall t H Q1 Q2,
+  Q1 \*+ H ===> Q2 \*+ \Top ->
   (wp t Q1) \* H ==> (wp t Q2).
 
 (** Reformulation of the reasoning rules for terms *)
@@ -766,19 +767,19 @@ Parameter wpgen : forall (t:trm), formula.
     can be applied to any formula produced by [wpgen], that is: *)
 
 Parameter wpgen_ramified : forall t Q1 Q2,
-  (wpgen t Q1) \* (Q1 \--* Q2 \*+ \GC) ==> (wpgen t Q2).
+  (wpgen t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wpgen t Q2).
 
 End Wpgen1.
 
 (** [mkstruct] is a formula transformer *)
 
 Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
-  \exists Q', F Q' \* (Q' \--* (Q \*+ \GC)).
+  \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
 
 (** [mkstruct] can be exploited to apply frame/consequence/garbage rules *)
 
 Lemma mkstruct_ramified : forall Q1 Q2 F,
-  (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \GC) ==> (mkstruct F Q2).
+  (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
 Proof using. unfold mkstruct. xsimpl. Qed.
 
 (** [mkstruct] can be dropped *)
@@ -1177,7 +1178,7 @@ Notation "^ F Q" := ((F:Formula) _ _ Q)
 (** The [MkStruct] predicate lifts [mkstruct]. *)
 
 Definition MkStruct (F:Formula) : Formula :=
-  fun A `{EA:Enc A} Q => \exists Q', ^F Q' \* (Q' \--* (Q \*+ \GC)).
+  fun A `{EA:Enc A} Q => \exists Q', ^F Q' \* (Q' \--* (Q \*+ \Top)).
 
 (** Lifted characteristic formula generator *)
 
