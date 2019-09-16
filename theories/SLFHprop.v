@@ -797,6 +797,8 @@ Definition triple1_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
 (** Let us establish the equivalence between this alternative definition
     of [triple1] and the original one. *)
 
+(* LATER: is it too hard as an exercise? *)
+
 (* EX3! (triple1_iff_triple_lowlevel) *)
 Lemma triple1_iff_triple_lowlevel : forall t H Q,
   triple1 t H Q <-> triple1_lowlevel t H Q.
@@ -844,14 +846,17 @@ Definition triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
     /\ eval (h1 \u h2) t (h1' \u h2 \u h3') v
     /\ Q v h1'.
 
-(** One can proove the equivalence of [triple] and [triple_lowlevel]
+(** One can prove the equivalence of [triple] and [triple_lowlevel]
     following a similar proof pattern as previously. The proof is a bit
     more technical and requires additional tactic support to deal with
-    the tedious disjointness conditions, so we omit the details.
-    (The proof is included in the file [SepBase.v] from CFML2.) *)
+    the tedious disjointness conditions, so we omit the details here. *)
 
 Parameter triple_iff_triple_lowlevel : forall t H Q,
   triple t H Q <-> triple_lowlevel t H Q.
+
+(* INSTRUCTORS *)
+(** The proof of the above lemma is included in the file [SepBase.v] from CFML2. *)
+(* /INSTRUCTORS *)
 
 
 (* ####################################################### *)
@@ -862,8 +867,8 @@ Parameter triple_iff_triple_lowlevel : forall t H Q,
 
 (** To establish extensionality of entailment, we have used
     the predicate extensionality axiom. In fact, this axiom
-    is more the axiom of extensionality combined with a more
-    fundamental axioms called "propositional extensionality". *)
+    can be derived by combining the axiom of "functional extensionality"
+    with another one called "propositional extensionality". *)
 
 (** The axiom of "propositional extensionality" asserts that
     two propositions that are logically equivalent (in the sense
