@@ -2,7 +2,7 @@
 
 Summary of the techniques involved in the implementation of CFML.
 
-This file contains excerpt from the file SLFDirect.v.
+This file contains excerpts from the file SLFDirect.v.
 
 Author: Arthur Charguéraud.
 License: MIT.
@@ -207,7 +207,8 @@ Implicit Type H : hprop.
     - [Q1 \*+ H2] denotes the separating conjunction extending a postcondition
     - [\exists x, H] denotes an existential
     - [\GC] denotes the true heap predicate
-      (in the basic affine logic that we consider, [\GC] is the same as [\Top]).
+      (in the basic affine logic that we consider, [\GC] is the same as [\Top],
+       defined as [fun h => True]).
 
 *)
 
@@ -241,10 +242,7 @@ Notation "H1 '\*' H2" := (hstar H1 H2) (at level 41, right associativity).
 Notation "Q \*+ H" := (fun x => (Q x) \* H) (at level 40).
 
 
-(**
-   (\exists x, H) h
- = exists x, (H h).
-*) 
+(** [(\exists x, H) h] is defined as [exists x, (H h)]. *)
 
 Definition hexists A (J:A->hprop) : hprop :=
   fun h => exists x, J x h.
@@ -385,7 +383,7 @@ Parameter himpl_frame_l : forall H2 H1 H1',
   H1 ==> H1' ->
   (H1 \* H2) ==> (H1' \* H2).
 
-(** (+) Only one cell can be allocated at a given address *)
+(** (+) Only one cell can be allocated at a given address. *)
 
 Parameter hstar_hsingle_same_loc : forall (l:loc) (v1 v2:val),
   (l ~~~> v1) \* (l ~~~> v2) ==> \[False].
@@ -427,7 +425,7 @@ Definition triple1 (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (H':hprop), hoare t (H \* H') (Q \*+ H' \*+ \GC).
 
-(** An alternative, equivalent definition of triples *)
+(** An alternative, equivalent definition of SL triples. *)
 
 Definition fmap_disjoint_3 (h1 h2 h3:heap) : Prop :=
      Fmap.disjoint h1 h2
@@ -469,7 +467,7 @@ Parameter triple_frame : forall t H Q H',
   (forall H0, hoare t (H \* H0) (Q \*+ H0 \*+ \GC)) ->
   (forall H1, hoare t (H \* H' \* H1) (Q \*+ H' \*+ H1 \*+ \GC)).
 
-  Take [H0 := H' \* H1] and the result is trivial up to associativity.
+  Take [H0 := H' \* H1] and the result holds up to associativity.
 ]]
 *)
 
@@ -564,7 +562,7 @@ Parameter triple_let : forall x t1 t2 H Q Q1,
   (forall v, triple (subst x v t2) (Q1 v) Q) ->
   triple (trm_let x t1 t2) H Q.
 
-(** Plus one rule for each other term construct. *)
+(** Plus one similar rule for each other term construct. *)
 
 
 (* ******************************************************* *)
@@ -664,7 +662,7 @@ Module Wpsem.
 Parameter wp_equiv : forall t H Q,
   (triple t H Q) <-> (H ==> wp t Q).
 
-(** Corrolary *)
+(** Corrolary: *)
 
 Parameter wp_pre : forall t Q,
   triple t (wp t Q) Q.
@@ -955,8 +953,10 @@ Qed.
 
 Parameter wpgen_sound : forall E t,
   formula_sound_for (isubst E t) (wpgen E t).
-(** Overview of the proof:
-Proof using.
+(** Overview of the proof, which does not compile here because we have
+    not stated all the necessary lemmas explicitly.
+[[
+  Proof using.
   intros. gen E. induction t; intros; simpl;
    applys mkstruct_sound.
   { applys wpgen_val_sound. }
@@ -972,7 +972,8 @@ Proof using.
     { intros v. rewrite <- isubst_rem. applys IHt2. } }
   { case_eq (isubst E t1); intros; try applys wpgen_fail_sound.
     { applys wpgen_if_sound. { applys IHt2. } { applys IHt3. } } }
-Qed.
+  Qed.
+]]
 *)
 
 (** Conclusion *)
@@ -1167,7 +1168,7 @@ Parameter Triple_let : forall z t1 t2 H,
 
 Definition Formula := forall A (EA:Enc A), (A -> hprop) -> hprop.
 
-(** Notation [^F Q] as a shorthand for [F _ _ Q], which is same as  
+(** Notation [^F Q] as a shorthand for [F _ _ Q], which is same as
     [F A EA Q] where [Q] has type [A->hprop] and [EA:Enc A]. *)
 
 Notation "^ F Q" := ((F:Formula) _ _ Q)
