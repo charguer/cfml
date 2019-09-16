@@ -1,20 +1,58 @@
+(**
+
+Separation Logic Foundations
+
+Chapter: "Rich".
+
+This chapter describes extension to the Separation Logic foundations
+for dealing with richer language constructs, including records, arrays,
+loops, data constructors, pattern matching, null pointers, as well as
+terms that are not in A-normal form, and support for linear (non-affine)
+resources.
+
+Author: Arthur Charguéraud.
+License: MIT.
+
+*)
+
+(* ####################################################### *)
+(** * The chapter in a rush *)
+
+(* ******************************************************* *)
+(** ** Records *)
+
+(* ******************************************************* *)
+(** ** Arrays *)
+
+(* ******************************************************* *)
+(** ** While loops *)
+
+(* ******************************************************* *)
+(** ** For loops *)
+
+(* ******************************************************* *)
+(** ** Data constructors *)
+
+(* ******************************************************* *)
+(** ** Pattern matching *)
+
+(* ******************************************************* *)
+(** ** Null pointers *)
+
+(* ******************************************************* *)
+(** ** Terms not in A-normal form *)
+
+(* ******************************************************* *)
+(** ** Linear resources *)
+
+
+(* ####################################################### *)
+(** * Details *)
+
+
+
 Arguments qwand_cancel [A].
 
-(* null pointer *)
-
-(* linear resources *)
-
-(* loops *)
-
-(* records *)
-
-(* arrays *)
-
-(* constr *)
-
-(* pattern *)
-
-(* not a-normal *)
 (** A conditional of the form [if t0 then t1 else t2] can
     be encoded as [let x = t0 in if x then t1 else t2].
     Thus, assuming programs to be written in A-normal form

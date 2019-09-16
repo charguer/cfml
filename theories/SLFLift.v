@@ -1,3 +1,21 @@
+(**
+
+Separation Logic Foundations
+
+Chapter: "Lift".
+
+This chapter describes the "lifting" technique that enables smoother
+specification in a Separation Logic (shallowly) embeded in the proof
+assistant logic. The idea is to relate program values with corresponding
+logical values, e.g. a program boolean with a logical boolean.
+This relation is exploited to more concisely specify return values and 
+values that are stored in the heap.
+
+Author: Arthur Charguéraud.
+License: MIT.
+
+*)
+
 
 (*
 

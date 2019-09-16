@@ -9,6 +9,8 @@ a weakest-precondition style characteristic formula generator
 (the function [wpgen]), for a core programming language with
 programs assumed to be in A-normal form.
 
+This file is included by several [SLF*.v] files from the course.
+
 Author: Arthur Charguéraud.
 License: MIT.
 
