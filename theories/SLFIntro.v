@@ -10,11 +10,22 @@ License: MIT.
 *)
 
 (* ####################################################### *)
+(** * Foreword *)
+
+(** Welcome to the course on the theoretical foundations of Separation Logic,
+at the heart of the implementation of the CFML tool.
+
+This course on the theoretical foundation consists of the files named [SLF*.v].
+For the course on the practice of proofs with CFML, see files named [CF*.v].
+
+*)
+
+
+(* ####################################################### *)
 (** * Structure *)
 
 (** The "Separation Logic Foundations" course includes the following chapters,
     one file per chapter.
-
 
     - [SLFIntro]: the present introduction, which lists the chapters.
 
@@ -36,35 +47,37 @@ License: MIT.
     - [SLFWPgen]: presents an effective function to compute weakest preconditions,
                   and the techniques for obtaining concise verification proofs.
 
-    The course is completed with two summary chapters.
+    - [SLFLift]:  presents a technique for writing postconditions that directly 
+                  bind a Coq value rather than a value from the deeply embedded language.
+
+    - [SLFRich]:  describes how to handle more advanced language constructs, such as
+                  arrays, records, loops, data constructors and pattern matching.
+
+    These chapters are accompanied with three special chapters.
+
+    - [SLFSummary]: provides a brief summary of all the contents of this course.
+                    It is intended as support for a 1-hour technical course to
+                    experts with prior knowledge of Separation Logic. It also 
+                    serves as a summary of the present course, as a target for
+                    readers who, by the end of the course, presumably have become 
+                    experts in Separation Logic.
 
     - [SLFDirect]: provides the minimal set of definitions and lemmas required
                    to build an effective program verification tool, without detour.
+                   Note that it does not cover [SLFLift] nor [SLFRich].
                    This file is mostly self-contained; it depends on variables
                    defined in [Var.v], on finite maps defined in [Fmap.v] and on the
                    implementation of the SL simplification tactic from [SepSimpl.v].
+                   Note that this file contains a minimal amount of comments, 
+                   as they would be redundant with the other course files.
 
     - [SLFExtra]: recaps all the definition and lemmas from the course that are
                   not included in [SLFDirect]. This file only depends on [SLFDirect].
+                  This file serves as reference, and a priori there is no reason
+                  to read through it.
 
 *)
 
-(* ####################################################### *)
-(** * Future work *)
-
-(** There are three future chapters, planned but not yet written:
-
-    - [SLFLift]: presentation of a technique for writing postconditions that
-                 directly bind a Coq value rather than a value from the deeply
-                 embedded language.
-
-    - [SLFRich]: presentation of the techniques for handling a source language
-                 with more features.
-
-    - [SLFExt]: examples of two extensions of Separation Logic, one with time
-                credits, and one with read-only permissions.
-
-*)
 
 (* ####################################################### *)
 (** * TLC tactics and library *)
@@ -73,7 +86,7 @@ License: MIT.
     Most of the tactics used are described in the SF chapter [UseTactics]
     from the "Programming Language Foundations" course.
 
-    The proofs also rely occasionnally on lemmas from the TLC library,
+    The proofs also rely occasionally on lemmas from the TLC library,
     for example extensionality properties.
 
 *)
@@ -82,7 +95,7 @@ License: MIT.
 (* ####################################################### *)
 (** * Organization of each chapter *)
 
-(** Each chapter has a short first part entitled "the chapter in a rush"
+(** Each chapter begins with a first part entitled "the chapter in a rush"
     that presents the main take away messages.
 
     The course is organized so that reading only the "in a rush" parts

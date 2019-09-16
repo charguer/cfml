@@ -6,7 +6,8 @@ Chapter: "Direct".
 
 This file provides a pretty-much end-to-end construction of
 a weakest-precondition style characteristic formula generator
-(the function [wpgen]).
+(the function [wpgen]), for a core programming language with
+programs assumed to be in A-normal form.
 
 Author: Arthur Charguéraud.
 License: MIT.
@@ -315,8 +316,8 @@ Notation "'\forall' x1 .. xn , H" :=
 (** Derived heap predicates.
 
     The following operators are defined in terms of the ones
-    above, rather than as functions over heaps, to reduce the
-    proof effort. (See the summary in [SLFWand.v] for details.) *)
+    above, rather than as functions over heaps, to reduce the proof effort. 
+    See the summary section in [SLFWand.v] for details. *)
 
 Definition hpure (P:Prop) : hprop :=
   \exists (p:P), \[].
@@ -1811,32 +1812,34 @@ Proof using. introv M W. applys xapp_lemma M. xchanges W. intros ? ->. auto. Qed
 
 Lemma xcf_lemma_fun : forall v1 v2 x t H Q,
   v1 = val_fun x t ->
-  H ==> wpgen ((x,v2)::nil) t Q ->
+  H ==> wpgen ((x,v2)::nil) t (Q \*+ \GC) ->
   triple (trm_app v1 v2) H Q.
 Proof using.
-  introv M1 M2. rewrite wp_equiv. xchange M2.
-  lets N: wpgen_sound ((x,v2)::nil) t Q. xchange N.
+  introv M1 M2. rewrite wp_equiv.
+  applys himpl_trans; [| applys (>> wp_hany_post \GC)].
+  xchange M2.
+  xchange (>> wpgen_sound ((x,v2)::nil) t (Q \*+ \GC)).
   rewrite <- subst_eq_isubst_one. applys* wp_app_fun.
 Qed.
 
 Lemma xcf_lemma_fix : forall v1 v2 f x t H Q,
   v1 = val_fix f x t ->
-  H ==> wpgen ((f,v1)::(x,v2)::nil) t Q ->
+  H ==> wpgen ((f,v1)::(x,v2)::nil) t (Q \*+ \GC) ->
   triple (trm_app v1 v2) H Q.
 Proof using.
   introv M1 M2. rewrite wp_equiv. xchange M2.
-  lets N: wpgen_sound (((f,v1)::nil) ++ (x,v2)::nil) t Q.
-  xchange N. rewrite isubst_app.
-  do 2 rewrite <- subst_eq_isubst_one.
+  applys himpl_trans; [| applys (>> wp_hany_post \GC)].
+  xchange (>> wpgen_sound (((f,v1)::nil) ++ (x,v2)::nil) t (Q \*+ \GC)).
+  rewrite isubst_app. do 2 rewrite <- subst_eq_isubst_one.
   applys* wp_app_fix.
 Qed.
 
-Lemma xtop_lemma : forall H Q F,
-  H ==> mkstruct F (Q \*+ \Top) ->
+Lemma xgc_lemma : forall H Q F,
+  H ==> mkstruct F (Q \*+ \GC) ->
   H ==> mkstruct F Q.
 Proof using.
   introv M. xchange M.
-  lets N: mkstruct_ramified (Q \*+ \Top) Q F. xchanges N.
+  lets N: mkstruct_ramified (Q \*+ \GC) Q F. xchanges N.
 Qed.
 
 
@@ -1877,8 +1880,8 @@ Tactic Notation "xapps" constr(E) :=
   | applys xapps_lemma1 E ];
   xsimpl; unfold protect.
 
-Tactic Notation "xtop" :=
-  applys xtop_lemma.
+Tactic Notation "xgc" :=
+  applys xgc_lemma.
 
 Tactic Notation "xcf" :=
   intros;
@@ -2043,6 +2046,7 @@ Qed.
        incr r;
        !r
 ]]
+
 Note that this function has the same behavior as [succ],
 but its implementation makes use of the [incr] function 
 from above. *)
@@ -2061,7 +2065,6 @@ Proof using.
   xcf.
   xapp triple_ref ;=> ? l ->.
   xapps triple_incr.
-  xtop.
   xapps triple_get.
   xsimpl~.
 Qed.
