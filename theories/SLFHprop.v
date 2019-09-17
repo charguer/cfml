@@ -42,8 +42,8 @@ Local Coercion string_to_var (x:string) : var := x.
 (** ** Syntax and semantics *)
 
 (** We assume an imperative programming language with a formal semantics.
-    Such a language is described in file [SLFDirect.v], but we do not need to
-    know about the details for now. All we need to know is that there exists:
+    We do not need to know about the details of the language construct for now.
+    All we need to know is that there exists:
 
     - a type of terms, written [trm],
     - a type of values, written [val],
@@ -55,6 +55,9 @@ Local Coercion string_to_var (x:string) : var := x.
 [[
     Check eval : state -> trm -> state -> val -> Prop.
 ]]
+
+    Remark: the corresponding definitions appear in file [SLFDirect.v], and are 
+    discussed later in the chapter [SLFRules.v].
 *)
 
 (** At this point, we don't need to know the exact grammar of terms and values.
@@ -67,7 +70,7 @@ Definition example_trm : trm :=
   trm_fun "x" (trm_if (trm_var "x") (trm_val (val_int 0)) (trm_val (val_int 1))).
 
 (** Thanks to a set of coercions and notation, this term can be written in a
-    more readable way: *)
+    somewhat more readable way, as follows. *)
 
 Definition example_trm' : trm :=
   Fun "x" :=
@@ -82,19 +85,28 @@ Definition example_trm' : trm :=
 
 Definition heap := state.
 
-(** The file [Fmap.v] contains a self-contained formalization of
-    finite maps and the associated operations needed for Separation Logic.
+(** The file [Fmap.v] provides a self-contained formalization of finite maps,
+    and of the associated operations on maps useful in Separation Logic reasoning.
 
     Locations, of type [loc], denote the addresses of allocated objects.
     Locations are a particular kind of values.
 
     A state is a finite map from locations to values.
-      [Definition state := fmap loc val.] *)
+    [Definition state := fmap loc val.] *)
 
-(** The main operations and predicates on the state are as follows:
-    empty state, singleton state, union of two states (union is
-    symmetric only if the two arguments have disjoint domains),
-    and definition of disjointness.
+(** In particular, the [Fmap.v] library exports the following definitions:
+
+    - [Fmap.empty] denotes the empty state, 
+    - [Fmap.single l v] denotes a singleton state, that is, a unique cell
+      at location [l] with contents [v],
+    - [Fmap.union h1 h2] denotes the union of the two states [h1] and [h2].
+    - [Fmap.disjoint h1 h2] asserts that [h1] and [h2] have disjoint domains.
+    
+    Note that the union operation is commutative only when its two arguments
+    have disjoint domains. Throughout the Separation Logic course, we will only
+    consider disjoint unions, for which commutativity holds. 
+    
+    The types of these definitions are as follows.
 
 [[
     Check Fmap.empty : heap.
@@ -176,10 +188,10 @@ Notation "H1 '\*' H2" := (hstar H1 H2) (at level 41, right associativity).
     The notation [\exists x, H] stands for [hexists (fun x => H)].
     The generalized notation [\exists x1 ... xn, H] is also available.
 
-    The definition of [hexists] is a bit technical. It is not essential
-    in first reading. Additional explanations are provided further on. *)
+    The definition of [hexists] is a bit technical. It is not essential to master
+    it at this point. Additional explanations are provided further on. *)
 
-Definition hexists A (J:A->hprop) : hprop :=
+Definition hexists (A:Type) (J:A->hprop) : hprop :=
   fun (h:heap) => exists x, J x h.
 
 Notation "'\exists' x1 .. xn , H" :=
@@ -200,10 +212,9 @@ Notation "\Top" := (htop).
 (* ******************************************************* *)
 (** ** Extensionality for heap predicates *)
 
-(** To work in Separation Logic, it is extremely convenient
-    to be able to state equalities between heap predicates.
-    For example, in the next chapter, we will establish associativity
-    for the star operator, a property stated as an equality: *)
+(** To work in Separation Logic, it is extremely convenient to be able to exploit 
+    equalities between heap predicates. For example, in the next chapter, 
+    we will establish the associativity property for the star operator, that is: *)
 
 Parameter hstar_assoc : forall H1 H2 H3,
   (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
@@ -215,19 +226,19 @@ Parameter hstar_assoc : forall H1 H2 H3,
     characterize exactly the same set of heaps, that is, if
     [forall h, H1 h <-> H2 h].
 
-    This reasoning principle is not available by default in Coq,
-    however we can have it if we extend Coq with a standard axiom
-    called "predicate extensionality". *)
+    This reasoning principle, a specific form of extensionality property, is not 
+    available by default in Coq. Yet, we can safely assume it if we consider the
+    extension of Coq with the (standard) axiom called "predicate extensionality". *)
 
-Axiom predicate_extensionality : forall A (P Q:A->Prop),
+Axiom predicate_extensionality : forall (A:Type) (P Q:A->Prop),
   (forall x, P x <-> Q x) ->
   P = Q.
 
 (** By specializing [P] and [Q] above to the type [hprop], we obtain
     exactly the desired extensionality principle. *)
 
-Lemma hprop_eq : forall H1 H2,
-  (forall h, H1 h <-> H2 h) ->
+Lemma hprop_eq : forall (H1 H2:hprop),
+  (forall (h:heap), H1 h <-> H2 h) ->
   H1 = H2.
 Proof using. applys predicate_extensionality. Qed.
 
@@ -250,18 +261,21 @@ Implicit Type Q : val -> hprop.
 
 Notation "Q \*+ H" := (fun x => hstar (Q x) H) (at level 40).
 
-(** In order to prove that two postconditions [Q1] and [Q2] are equal,
-    it suffices to show that [Q1 v = Q2 v] for any value [v].
+(** Intuitively, in order to prove that two postconditions [Q1] and [Q2] are equal,
+    it suffices to show that the heap predicates [Q1 v] and [Q2 v] (both of type [hprop])
+    are equal for any value [v].
 
-    This reasoning principle follows from another axiom, called
-    [functional_extensionality], and stated next. *)
+    Again, the extensionality property that we need is not builtin in Coq.
+    We need the axiom called "functional extensionality", stated next. *)
 
 Axiom functional_extensionality : forall A B (f g:A->B),
   (forall x, f x = g x) ->
   f = g.
 
+(** The desired equality property for postconditions follows directly from that axiom. *)
+
 Lemma qprop_eq : forall (Q1 Q2:val->hprop),
-  (forall v, Q1 v = Q2 v) ->
+  (forall (v:val), Q1 v = Q2 v) ->
   Q1 = Q2.
 Proof using. applys functional_extensionality. Qed.
 
@@ -269,15 +283,15 @@ Proof using. applys functional_extensionality. Qed.
 (* ******************************************************* *)
 (** ** Separation Logic triples and the frame rule *)
 
-(** A Separation Logic triple is a generalization of a Hoare triple
-    that integrate builtin support for the "frame rule". Before we give
-    the definition of a Separation Logic triple, let us first give
-    the definition of a Hoare triple and state the much-desired frame rule. *)
+(** A Separation Logic triple is a generalization of a Hoare triple that integrate 
+    builtin support for an essential rule called "the frame rule". Before we give
+    the definition of a Separation Logic triple, let us first give the definition 
+    of a Hoare triple and state the much-desired frame rule. *)
 
-(** A Hoare triple, written [{H} t {Q}] on paper, and here written
-    [hoare t H Q], asserts that starting from a state [s] satisfying
-    the precondition [H], the term [t] evaluates to a value [v] and to
-    a state [s'] that, together, satisfy the postcondition [Q]. Formally: *)
+(** A (total correctness) Hoare triple, written [{H} t {Q}] on paper, and here 
+    written [hoare t H Q], asserts that starting from a state [s] satisfying the 
+    precondition [H], the term [t] evaluates to a value [v] and to a state [s'] that, 
+    together, satisfy the postcondition [Q]. Formally: *)
 
 Definition hoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (s:state), H s ->
@@ -291,9 +305,9 @@ Definition hoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
     to automatically derive [triple (H \* H') t (Q \*+ H')] for any [H'].
 
     Intuitively, if [t] executes safely in a heap [H], it should behave
-    similarly in any extension of [H] with a disjoint part [H'], moreover
-    its evaluation should leave this piece of state [H'] unmodified until
-    the end.
+    similarly in any extension of [H] with a disjoint part [H']. Moreover,
+    its evaluation should leave this piece of state [H'] unmodified throughout
+    the execution of [t].
 
     The following definition of a Separation Logic triple builds upon
     that of a Hoare triple by "baking in" the frame rule. *)
@@ -302,7 +316,7 @@ Definition triple1 (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (H':hprop), hoare t (H \* H') (Q \*+ H').
 
 (** This definition inherently satisfies the frame rule, as we show
-    below, by exploiting the associativity of the star operator. *)
+    below. The proof exploits the associativity of the star operator. *)
 
 Lemma triple1_frame : forall t H Q H',
   triple1 t H Q ->
@@ -336,21 +350,27 @@ Parameter triple_htop_post' : forall t H Q,
   triple t H (Q \*+ \Top) ->
   triple t H Q.
 
-(** The rule above is not satisfied by the definition of [triple].
-    However, it can be satisfied by applying just a minor tweak
-    to the definition. Concretely, we augment the postcondition of
-    the underlying Hoare triple with an extra [\Top], which is able
-    to capture any piece of state that we do not wish to mention
-    explicitly in the postcondition.
+(** Above, recall that [\Top] is defined as [fun h => True]. Thus, for 
+    some value [v], the heap predicate [(Q \*+ \Top) v] holds of any state
+    that decomposes as a disjoint union of the form [h1 \u h2], such that
+    [Q v h1] holds. In other words, [(Q \*+ \Top) v] holds of any state
+    that contains a sub-state [h1] such that [Q v h1] holds. *)
+
+(** The definition [triple1] provided earlier does not allow deriving the
+    rule [triple_htop_post']. However, we can tweak slightly the definition
+    to enable it. Concretely, in the definition of [triple1], we augment the 
+    postcondition of the underlying Hoare triple with an extra [\Top].
+    Intuitively, this added [\Top] captures any piece of state that we do not 
+    wish to mention explicitly in the postcondition.
 
     The updated definition, called [triple], is as follows. *)
 
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (H':hprop), hoare t (H \* H') (Q \*+ H' \*+ \Top).
 
-(** From there, we can prove that the desired rule for discarding
-    pieces of postconditions holds, and that the frame rule still
-    holds. The proof of these two results is studied further. *)
+(** From there, we can prove that the desired rule for discarding pieces 
+    of postconditions holds. We can also prove that the frame rule still holds
+    for the modified definition. The proof of these two results is studied further. *)
 
 Parameter triple_htop_post : forall t H Q,
   triple t H (Q \*+ \Top) ->
@@ -360,171 +380,18 @@ Parameter triple_frame : forall t H Q H',
   triple t H Q ->
   triple t (H \* H') (Q \*+ H').
 
-(** Remark: it may also be useful to set up finer-grained versions
-    of Separation Logic, where only certain types of heap predicates
-    can be discarded, but not all. Technically, only "affine" predicates
-    may be discarded. Such a set up is discussed in an advanced chapter. *)
+(** Remark: it may also be useful to set up finer-grained versions of Separation Logic, 
+    where only certain types of heap predicates  can be discarded, but not all. Technically, 
+    only "affine" predicates may be discarded. Such a set up is discussed in the chapter
+    [SLFRich.v]. *)
 
 
 (* ####################################################### *)
 (** * Additional notation, explanations and lemmas *)
 
-(* ******************************************************* *)
-(** ** Notation for heap union *)
-
-(** To improve readability of statements in proofs, we introduce
-    the following notation for heap union. *)
-
-Notation "h1 \u h2" := (Fmap.union h1 h2) (at level 37, right associativity).
-
 
 (* ******************************************************* *)
-(** ** Introduction and inversion lemmas for basic operators *)
-
-(** The following lemmas help getting a better understanding
-    of the meaning of the Separation Logic combinators.
-
-    For each operator, there is one introduction lemma and one
-    inversion lemma. *)
-
-Implicit Types P : Prop.
-
-(** Introduction lemmas: how to prove goals of the form [H h]. *)
-
-Lemma hempty_intro :
-  \[] Fmap.empty.
-Proof using. hnf. auto. Qed.
-
-Lemma hpure_intro : forall P,
-  P ->
-  \[P] Fmap.empty.
-Proof using. introv M. hnf. auto. Qed.
-
-Lemma hsingle_intro : forall l v,
-  (l ~~~> v) (Fmap.single l v).
-Proof using. intros. hnf. auto. Qed.
-
-Lemma hstar_intro : forall H1 H2 h1 h2,
-  H1 h1 ->
-  H2 h2 ->
-  Fmap.disjoint h1 h2 ->
-  (H1 \* H2) (h1 \u h2).
-Proof using. intros. exists~ h1 h2. Qed.
-
-Lemma hexists_intro : forall A (x:A) (J:A->hprop) h,
-  J x h ->
-  (\exists x, J x) h.
-Proof using. introv M. hnf. eauto. Qed.
-
-Lemma htop_intro : forall h,
-  \Top h.
-Proof using. intros. hnf. auto. Qed.
-
-(** Inversion lemmas: how to extract information from hypotheses
-    of the form [H h].*)
-
-Lemma hempty_inv : forall h,
-  \[] h ->
-  h = Fmap.empty.
-Proof using. introv M. hnf in M. auto. Qed.
-
-Lemma hpure_inv : forall P h,
-  \[P] h ->
-  P /\ h = Fmap.empty.
-Proof using. introv M. hnf in M. autos*. Qed.
-
-Lemma hsingle_inv: forall l v h,
-  (l ~~~> v) h ->
-  h = Fmap.single l v.
-Proof using. introv M. hnf in M. auto. Qed.
-
-Lemma hstar_inv : forall H1 H2 h,
-  (H1 \* H2) h ->
-  exists h1 h2, H1 h1 /\ H2 h2 /\ Fmap.disjoint h1 h2 /\ h = h1 \u h2.
-Proof using. introv M. hnf in M. eauto. Qed.
-
-Lemma hexists_inv : forall A (J:A->hprop) h,
-  (\exists x, J x) h ->
-  exists x, J x h.
-Proof using. introv M. hnf in M. eauto. Qed.
-
-Lemma htop_inv : forall h, (* this lemma has no interest *)
-  \Top h ->
-  True.
-Proof using. intros. auto. Qed.
-
-
-(* EX3! (hstar_hpure_iff) *)
-
-(** Prove that a heap [h] satisfies [\[P] \* H] if and only if
-    [P] is true and [h] it satisfies [H]. The proof requires
-    two lemmas on finite maps from [Fmap.v]:
-
-  Lemma Fmap.union_empty_l : forall h,
-    Fmap.empty \u h = h.
-
-  Lemma Fmap.disjoint_empty_l : forall h,
-    Fmap.disjoint Fmap.empty h.
-*)
-
-Lemma hstar_hpure_iff : forall P H h,
-  (\[P] \* H) h <-> (P /\ H h).
-Proof using.
-(* SOLUTION *)
-  iff M.
-  { hnf in M. destruct M as (h1&h2&M1&M2&D&U).
-    hnf in M1. destruct M1 as (M1&HP). subst.
-    rewrite Fmap.union_empty_l. auto. }
-  { destruct M as (HP&Hh). hnf.
-    exists (Fmap.empty:heap) h. splits.
-    { hnf. auto. }
-    { auto. }
-    { apply Fmap.disjoint_empty_l. }
-    { rewrite Fmap.union_empty_l. auto. } }
-(* /SOLUTION *)
-Qed.
-
-
-(* ******************************************************* *)
-(** ** Additional explanations for the definition of [\exists] *)
-
-(** The heap predicate [\exists (n:int), l ~~~> (val_int n)] characterizes
-    a state that contains a single memory cell, at address [l], storing
-    the integer value [n], for "some" (unspecified) integer [n].
-
-[[
-  Parameter (l:loc).
-  Check (\exists (n:int), l ~~~> (val_int n)) : hprop.
-]]
-
-    The type of [\exists], which operates on [hprop], is very similar
-    to that of [exists], which operates on [Prop].
-
-    The notation [exists x, P] stands for [ex (fun x => P)],
-    where [ex] has the following type:
-[[
-    Check ex : forall A : Type, (A -> Prop) -> Prop.
-]]
-
-    Likewise, [\exists x, H] stands for [hexists (fun x => H)],
-    where [hexists] has the following type:
-[[
-    Check hexists : forall A : Type, (A -> hprop) -> hprop.
-]]
-
-*)
-
-(** Remark: the notation for [\exists] is directly adapted from that
-    of [exists], which supports the quantification an arbitrary number
-    of variables, and is defined in [Coq.Init.Logic] as follows. *)
-
-Notation "'exists' x .. y , p" := (ex (fun x => .. (ex (fun y => p)) ..))
-  (at level 200, x binder, right associativity,
-   format "'[' 'exists' '/ ' x .. y , '/ ' p ']'").
-
-
-(* ******************************************************* *)
-(** ** Example of triples *)
+(** ** Example of a triple: the increment function *)
 
 (** Assume a function called [incr] that increments the contents
     of a memory cell. *)
@@ -601,8 +468,8 @@ Parameter triple_incr_3 : forall (p:loc) (n:int) (H:hprop),
     "small-footprint specifications" (such as [triple_incr])
     that describe the minimal piece of state necessary for
     the function to execute. Indeed, other specifications that
-    describe a larger piece of state can be derived by simple
-    application of the frame. *)
+    describe a larger piece of state can be derived by application 
+    of the frame rule. *)
 
 
 (* ******************************************************* *)
@@ -639,7 +506,162 @@ Parameter triple_ref_with_frame : forall (l':loc) (v':val) (v:val),
 
 
 (* ******************************************************* *)
-(** ** Establishing properties of [triple] *)
+(** ** Notation for heap union *)
+
+(** Thereafter, to improve readability of statements in proofs, we introduce
+    the following notation for heap union. *)
+
+Notation "h1 \u h2" := (Fmap.union h1 h2) (at level 37, right associativity).
+
+
+(* ******************************************************* *)
+(** ** Introduction and inversion lemmas for basic operators *)
+
+(** The following lemmas help getting a better understanding of the meaning 
+    of the Separation Logic combinators. For each operator, we present one 
+    introduction lemma and one inversion lemma. *)
+
+Implicit Types P : Prop.
+
+(** The introduction lemmas show how to prove goals of the form [H h], 
+    for various forms of the heap predicate [H]. *)
+
+Lemma hempty_intro :
+  \[] Fmap.empty.
+Proof using. hnf. auto. Qed.
+
+Lemma hpure_intro : forall P,
+  P ->
+  \[P] Fmap.empty.
+Proof using. introv M. hnf. auto. Qed.
+
+Lemma hsingle_intro : forall l v,
+  (l ~~~> v) (Fmap.single l v).
+Proof using. intros. hnf. auto. Qed.
+
+Lemma hstar_intro : forall H1 H2 h1 h2,
+  H1 h1 ->
+  H2 h2 ->
+  Fmap.disjoint h1 h2 ->
+  (H1 \* H2) (h1 \u h2).
+Proof using. intros. exists~ h1 h2. Qed.
+
+Lemma hexists_intro : forall A (x:A) (J:A->hprop) h,
+  J x h ->
+  (\exists x, J x) h.
+Proof using. introv M. hnf. eauto. Qed.
+
+Lemma htop_intro : forall h,
+  \Top h.
+Proof using. intros. hnf. auto. Qed.
+
+(** The inversion lemmas show how to extract information from hypotheses
+    of the form [H h], for various forms of the heap predicate [H].*)
+
+Lemma hempty_inv : forall h,
+  \[] h ->
+  h = Fmap.empty.
+Proof using. introv M. hnf in M. auto. Qed.
+
+Lemma hpure_inv : forall P h,
+  \[P] h ->
+  P /\ h = Fmap.empty.
+Proof using. introv M. hnf in M. autos*. Qed.
+
+Lemma hsingle_inv: forall l v h,
+  (l ~~~> v) h ->
+  h = Fmap.single l v.
+Proof using. introv M. hnf in M. auto. Qed.
+
+Lemma hstar_inv : forall H1 H2 h,
+  (H1 \* H2) h ->
+  exists h1 h2, H1 h1 /\ H2 h2 /\ Fmap.disjoint h1 h2 /\ h = h1 \u h2.
+Proof using. introv M. hnf in M. eauto. Qed.
+
+Lemma hexists_inv : forall A (J:A->hprop) h,
+  (\exists x, J x) h ->
+  exists x, J x h.
+Proof using. introv M. hnf in M. eauto. Qed.
+
+Lemma htop_inv : forall h, (* Note: this lemma is of no practical interest. *)
+  \Top h ->
+  True.
+Proof using. intros. auto. Qed.
+
+
+(* EX3! (hstar_hpure_iff) *)
+
+(** Prove that a heap [h] satisfies [\[P] \* H] if and only if
+    [P] is true and [h] it satisfies [H]. The proof requires
+    two lemmas on finite maps from [Fmap.v]:
+
+[[
+  Lemma Fmap.union_empty_l : forall h,
+    Fmap.empty \u h = h.
+
+  Lemma Fmap.disjoint_empty_l : forall h,
+    Fmap.disjoint Fmap.empty h.
+]]
+*)
+
+Lemma hstar_hpure_iff : forall P H h,
+  (\[P] \* H) h <-> (P /\ H h).
+Proof using.
+(* SOLUTION *)
+  iff M.
+  { hnf in M. destruct M as (h1&h2&M1&M2&D&U).
+    hnf in M1. destruct M1 as (M1&HP). subst.
+    rewrite Fmap.union_empty_l. auto. }
+  { destruct M as (HP&Hh). hnf.
+    exists (Fmap.empty:heap) h. splits.
+    { hnf. auto. }
+    { auto. }
+    { apply Fmap.disjoint_empty_l. }
+    { rewrite Fmap.union_empty_l. auto. } }
+(* /SOLUTION *)
+Qed.
+
+
+(* ******************************************************* *)
+(** ** Additional explanations for the definition of [\exists] *)
+
+(** The heap predicate [\exists (n:int), l ~~~> (val_int n)] characterizes
+    a state that contains a single memory cell, at address [l], storing
+    the integer value [n], for "some" (unspecified) integer [n].
+
+[[
+  Parameter (l:loc).
+  Check (\exists (n:int), l ~~~> (val_int n)) : hprop.
+]]
+
+    The type of [\exists], which operates on [hprop], is very similar
+    to that of [exists], which operates on [Prop].
+
+    The notation [exists x, P] stands for [ex (fun x => P)],
+    where [ex] has the following type:
+[[
+    Check ex : forall A : Type, (A -> Prop) -> Prop.
+]]
+
+    Likewise, [\exists x, H] stands for [hexists (fun x => H)],
+    where [hexists] has the following type:
+[[
+    Check hexists : forall A : Type, (A -> hprop) -> hprop.
+]]
+
+*)
+
+(** Remark: the notation for [\exists] is directly adapted from that
+    of [exists], which supports the quantification an arbitrary number
+    of variables, and is defined in [Coq.Init.Logic] as follows. *)
+
+Notation "'exists' x .. y , p" := (ex (fun x => .. (ex (fun y => p)) ..))
+  (at level 200, x binder, right associativity,
+   format "'[' 'exists' '/ ' x .. y , '/ ' p ']'").
+
+
+(* ******************************************************* *)
+(** ** Establishing properties of [triple]: exercises. *)
 
 (* EX1! (triple_frame) *)
 (** Prove the frame rule for the actual definition of [triple].
@@ -676,8 +698,9 @@ Parameter hstar_htop_htop :
   \Top \* \Top = \Top.
 
 (* EX3! (triple_htop_post'') *)
-(** Prove [triple_htop_post], by unfolding the definition of [triple]
-    to reveal [hoare]. (However, do not unfold [hoare].) *)
+(** Prove lemma [triple_htop_post], by unfolding the definition of [triple]
+    to reveal [hoare]. Note, however, that your proof should not attempt to
+    unfold the definition of a [hoare] triple. *)
 
 Lemma triple_htop_post'' : forall t H Q,
   triple t H (Q \*+ \Top) ->
@@ -702,11 +725,11 @@ Qed.
 
 (** In what follows, we discuss alternative, equivalent defininitions for
     the fundamental heap predicates. We write these equivalence using
-    equalities of the form [H1 = H2]. We will justify later the use of
-    the equal sign for relating predicates. *)
+    equalities of the form [H1 = H2]. Recall that lemma [hprop_eq] enables
+    deriving such equalities by invoking predicate extensionality. *)
 
 (** The empty heap predicate [\[]] is equivalent to the pure fact predicate
-    [\[True]]. (The proof details are presented shortly afterwards. *)
+    [\[True]]. *)
 
 Lemma hempty_eq_hpure_true :
   \[] = \[True].
@@ -716,36 +739,40 @@ Proof using.
   { jauto. }
 Qed.
 
-(** Thus, [hempty] could be defined in terms of [hpure]. *)
+(** Thus, [hempty] could be defined in terms of [hpure], as [hpure True],
+    written [\[True]]. *)
 
 Definition hempty' : hprop :=
   \[True].
 
 (** The pure fact predicate [[\P]] is equivalent to the existential
     quantification over a proof of [P] in the empty heap, that is,
-    to the heap predicate [\exists (p:P), \[]]. Thus, [hpure] could
-    be defined in terms of [hexists] and [hempty]. *)
+    to the heap predicate [\exists (p:P), \[]]. *)
 
 Lemma hpure_eq_hexists_proof : forall P,
-  \[P] = \exists (p:P), \[].
+  \[P] = (\exists (p:P), \[]).
 Proof using.
   unfold hempty, hpure, hexists. intros P. apply hprop_eq. intros h. iff Hh.
   { destruct Hh as (E&p). exists p. auto. }
   { destruct Hh as (p&E). auto. }
 Qed.
 
-(* LATER: one of these proofs could be an exercise *)
+(** Thus, [hpure] could be defined in terms of [hexists] and [hempty], as 
+    [hexists (fun (p:P) => hempty)], also written [\exists (p:P), \[]]. *)
 
 Definition hpure' (P:Prop) : hprop :=
   \exists (p:P), \[].
 
-(** We like to reduce the number of combinators to the minimum number,
-    both for elegance and to reduce the subsesquent proof effort.
+(** It is useful to minimize the number of combinators, both for elegance and 
+    to reduce the subsequent proof effort.
+
     Since we cannot do without [hexists], we have a choice between
     considering either [hpure] or [hempty] as primitive, and the other
     one as derived. The predicate [hempty] is simpler and appears as
-    more fundamental. Hence, in practice we define [hpure] in terms of
-    [hexists] and [hempty], as done in the definition [hpure'] above. *)
+    more fundamental. 
+    
+    Hence, in the subsequent chapters and in the CFML tool, we define [hpure] in terms 
+    of [hexists] and [hempty], like in the definition of [hpure'] shown above. *)
 
 (** The top heap predicate [\Top] is equivalent to [\exists H, H],
     which is a heap predicate that also characterizes any state.
@@ -764,26 +791,33 @@ Qed.
 Definition htop' : hprop :=
   \exists (H:hprop), H.
 
-(** The Separation Logic framework uses the alternative definitions
-    [hpure'] and [htop'] because they enable better factorization
-    of proofs. *)
+(** In summary, in subsequent chapters, we assume the following definitions:
+
+[[
+  Definition hpure (P:Prop) : hprop :=
+    \exists (p:P), \[].
+
+  Definition htop : hprop :=
+    \exists (H:hprop), H.
+]]
+*)
 
 
 (* ******************************************************* *)
-(** ** Alterative definitions for SL triples *)
+(** ** Alternative, equivalent definitions for SL triples *)
 
 (** We have previously defined [triple1] on top of [hoare],
     with the help of the separating conjunction operator, as:
     [forall (H':hprop), hoare (H \* H') t (Q \*+ H')].
-
     In what follows, we give an equivalent characterization,
     expressed directly in terms of heaps and heap unions.
-    It asserts that if [h1] satisfies the precondition [H]
-    and [h2] describes the rest of the state, then the evaluation
-    of [t] produces a value [v] in a final state made that
-    can be decomposed between a part [h1'] and [h2] unchanged,
-    in such a way that [v] and [h1'] together satisfy the
-    poscondition [Q]. *)
+
+    The alternative definition of [triple t H Q] asserts that if 
+    [h1] satisfies the precondition [H] and [h2] describes the rest of the 
+    state, then the evaluation of [t] produces a value [v] in a final state 
+    made that can be decomposed between a part [h1'] and [h2] unchanged,
+    in such a way that [v] and [h1'] together satisfy the poscondition [Q]. 
+    Formally: *)
 
 Definition triple1_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall h1 h2,
@@ -797,9 +831,9 @@ Definition triple1_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
 (** Let us establish the equivalence between this alternative definition
     of [triple1] and the original one. *)
 
-(* LATER: is it too hard as an exercise? *)
-
 (* EX3! (triple1_iff_triple_lowlevel) *)
+(** This is probably a very challenging exercise. *)
+
 Lemma triple1_iff_triple_lowlevel : forall t H Q,
   triple1 t H Q <-> triple1_lowlevel t H Q.
 Proof using.
