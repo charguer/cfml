@@ -42,11 +42,7 @@ Notation "H1 ==> H2" := (himpl H1 H2) (at level 55).
     than [H2], in the sense that it is more restrictive. *)
 
 (** As we show next, the entailment relation is reflexive, transitive,
-    and antisymmetric. It thus forms an order relation.
-
-    Remark: entailment on [hprop] satisfies these properties as a direct
-    consequence of the fact that implication on [Prop] satisfies all
-    these same properties. *)
+    and antisymmetric. It thus forms an order relation on heap predicates. *)
 
 Lemma himpl_refl : forall H,
   H ==> H.
@@ -83,11 +79,16 @@ Qed.
     [(H1 \* H2) ==> (H2 \* H1)] and [(H2 \* H1) ==> (H1 \* H2)].
     Such a proof appears further on. *)
 
+(** Remark: as the proofs suggest, the fact that entailment on [hprop] constitute an 
+    order relation is a direct consequence of the fact that implication on [Prop],
+    (that is, [->]) is an order relation on [Prop] (when assuming the propositional
+    extensionality axiom). *)
+
 
 (* ******************************************************* *)
 (** ** Entailment for postconditions *)
 
-(** Entailment applies to heap predicates, so they can be used to capture
+(** The entailment [==>] relates heap predicates. It is used to capture
     that a precondition is stronger than another one (i.e., that a
     precondition entails another one). It is similarly interesting to
     express that a postcondition is stronger than another one.
@@ -102,6 +103,9 @@ Definition qimpl (Q1 Q2:val->hprop) : Prop :=
   forall (v:val), Q1 v ==> Q2 v.
 
 Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55).
+
+(** Entailment on postconditions also forms an order relation: it is reflexive,
+    transitive, and antisymetric. *)
 
 Lemma qimpl_refl : forall Q,
   Q ===> Q.
@@ -126,8 +130,8 @@ Qed.
 (* ******************************************************* *)
 (** ** Fundamental properties of Separation Logic operators *)
 
-(** The fundamental properties of Separation Logic operators are
-    described next. *)
+(** The fundamental properties of Separation Logic operators are described next. 
+    Numerous other useful properties are derivable from just these. *)
 
 (** (1) The star operator is associative. *)
 
@@ -140,8 +144,9 @@ Parameter hstar_comm : forall H1 H2,
    H1 \* H2 = H2 \* H1.
 
 (** (3) The empty heap predicate is a neutral for the star.
-    Because star is commutative, it is equivalent to state
-    that [hempty] is a left or a right neutral. *)
+    Because star is commutative, it is equivalent to state that 
+    [hempty] is a left or a right neutral for [hstar].
+    We chose, arbitrarily, to state the left-neutral property. *)
 
 Parameter hstar_hempty_l : forall H,
   \[] \* H = H.
@@ -152,14 +157,18 @@ Parameter hstar_hempty_l : forall H,
       when [x] does not occur in [H2].
 
     To formalize this equality, we first rewrite it using [hexists]
-    directly instead of the notation [\exists]. We get:
+    instead of the notation [\exists]. We get:
       [(hexists (fun x => J x)) \* H  =  hexists (fun x => (J x \* H))].
-    Then [fun x => (J x \* H)] can be written simply as [J \*+ H]. *)
+    We then recall that [fun x => (J x \* H)] can be written simply as [J \*+ H]. 
+    These observations lead us to the following statement. *)
 
 Parameter hstar_hexists : forall A (J:A->hprop) H,
   (hexists J) \* H = hexists (J \*+ H).
 
-(** (5) Star is "regular" with respect to entailment.
+(** (5) Star is "regular" with respect to entailment, in the sense that
+    if we have a goal of the form [(H1 \* H2) ==> (H1' \* H2)], then we
+    may "cancel out" the [H2] that appears on both sides.
+
     Here again, due to commutativity of star, it only suffices to state
     the left version of the lemma. *)
 
@@ -170,8 +179,8 @@ Parameter himpl_frame_l : forall H2 H1 H1',
 (** These properties are shared by essentially all variants of Separation
     Logic, and many generic results can be derived from these facts alone. *)
 
-(** Remark: the star operator, together with the empty heap predicate,
-    form a "commutative monoid structure", for which moreover the star
+(** Remark: in technical vocabulary, the star operator together with the empty heap 
+    predicate form a "commutative monoid structure", for which moreover the star
     operator is "regular" with respect to entailment and existentials. *)
 
 
@@ -180,7 +189,7 @@ Parameter himpl_frame_l : forall H2 H1 H1',
 
 (** A heap predicate of the form [(l ~~~> v1) \* (l ~~~> v2)]
     describes two "disjoint" cells that are both "at location [l]".
-    This is absurd. The contraction is formally captured by
+    Such a state cannot exist. The contraction is formally captured by
     the following entailment: *)
 
 Lemma hstar_hsingle_same_loc : forall (l:loc) (v1 v2:val),
@@ -207,32 +216,32 @@ Proof using.
 Qed.
 
 (** More generally, a heap predicate of the form [H \* H]
-    is generally suspicious in Separation Logic.
-
-    In plain Separation Logic, such a predicate can only be
-    satisfied if [H] covers no memory cell, that is, if [H] is a
-    pure predicate of the form [\[P]] for some proposition [P]. *)
+    is generally suspicious in Separation Logic. In plain 
+    Separation Logic, such a predicate can only be satisfied 
+    if [H] covers no memory cell, that is, if [H] is a pure 
+    predicate of the form [\[P]] for some proposition [P]. *)
 
 
 (* ******************************************************* *)
 (** ** The [xsimpl] tactic *)
 
 (** The Separation Logic setup that we will rely on in subsequent
-    chapters includes a tactic called [xsimpl], to assist in the
+    chapters includes a tactic called [xsimpl] to assist in the
     simplifications of entailment relations.
 
     The working of [xsimpl] can be summarized as a 3-step process:
 
-    1. extract pure facts and existential quantifiers from the LHS
-    2. cancel out equal predicates occuring both in the LHS and RHS
+    1. extract pure facts and existential quantifiers from the LHS,
+    2. cancel out equal predicates occuring both in the LHS and RHS,
     3. instantiate existential quantifiers (using either evars or
        user-provided hints) and generate subgoals for the pure facts
-       occuring in the RHS. Moreover, eliminate any redundant [\Top].
+       occuring in the RHS. 
+    4. Eliminate any redundant [\Top] from the RHS.
 
-    These three steps are detailed and illustrated next.
+    These steps are detailed and illustrated next.
 
     The tactic [xpull] is a degraded version of [xsimpl] that only
-    perform the first step. We will show examples highlighting its use.
+    performs the first step. We will show examples highlighting its use.
 *)
 
 Module Htactics.
@@ -371,7 +380,7 @@ Proof using.
   intros. xsimpl. (* [p ~~~> n] unifies with [p ~~~> 3], then [3 > 0] remains. *)
 Abort.
 
-(** In some cases, it may desirable to provide an explicit value
+(** (Advanced.) In some cases, it may desirable to provide an explicit value
     to instantiate the existential quantifiers from the RHS.
     Such values may be passed as arguments to [xsimpl],
     using the syntax [xsimpl v1 .. vn] or [xsimpl (>> v1 .. vn)]. *)
@@ -382,7 +391,7 @@ Proof using.
   intros. xsimpl 3 4.
 Abort.
 
-(** It is possible to provide hint for only a subset of the quantifier,
+(** (Advanced.) It is possible to provide hint for only a subset of the quantifier,
     using the placeholder value [__] for arguments that should be instantiated
     using evars. *)
 
@@ -416,19 +425,23 @@ Abort.
 (** ** Example of entailment proofs using [xsimpl] *)
 
 Lemma himpl_example_1 : forall (p:loc),
-  p ~~~> 3 ==> \exists (n:int), p ~~~> n.
+  p ~~~> 3 ==> 
+  \exists (n:int), p ~~~> n.
 Proof using. xsimpl. Qed.
 
 Lemma himpl_example_2 : forall (p q:loc),
-  p ~~~> 3 \* q ~~~> 3 ==> \exists (n:int), p ~~~> n \* q ~~~> n.
+  p ~~~> 3 \* q ~~~> 3 ==> 
+  \exists (n:int), p ~~~> n \* q ~~~> n.
 Proof using. xsimpl. Qed.
 
 Lemma himpl_example_3 : forall (p q:loc),
-  p ~~~> 3 \* q ~~~> 3 ==> p ~~~> 3 \* \Top.
+  p ~~~> 3 \* q ~~~> 3 ==>
+  p ~~~> 3 \* \Top.
 Proof using. xsimpl. Qed.
 
 Lemma himpl_example_4 : forall (p:loc),
-  \exists (n:int), p ~~~> n ==> \exists (m:int), p ~~~> (m + 1).
+  \exists (n:int), p ~~~> n ==>
+  \exists (m:int), p ~~~> (m + 1).
 Proof using.
   intros. (* observe that [xsimpl] here does not work well. *)
   xpull. intros n. xsimpl (n-1).
@@ -441,8 +454,9 @@ Lemma himpl_example_5 : forall (H:hprop),
   \[False] ==> H.
 Proof using. xsimpl. Qed.
 
-(** The tactic [xsimpl] also work on [===>]. In this case, it
-    introduces a name for the result, and resolves the [==>] goal. *)
+(** The tactic [xsimpl] also applies on goals of the form [Q1 ===> Q2]. In such case,
+    it introduces a name for the result, invokes [xsimpl] on the [==>] goal, then
+    quantifies the name of the result at the head of the goal. *)
 
 Lemma qimpl_example_1 : forall (Q1 Q2:val->hprop) (H2 H3:hprop),
   Q1 \*+ H2 ===> Q2 \*+ H2 \*+ H3.
@@ -453,7 +467,7 @@ Proof using. intros. xsimpl. intros r. Abort.
 (* ******************************************************* *)
 (** ** Identifying true and false entailments *)
 
-(** For each entailment relation, indicate (without proof)
+(** For each entailment relation, indicate (without a Coq proof)
     whether it is true or false. Solutions appear further on. *)
 
 (* WORKINCLASS *)
@@ -519,27 +533,27 @@ Parameter case_study_13 : forall p n,
 (* SOLUTION *)
 (**
 
-1. true (commutativity)
-2. false (one cell does not entail two cell)
-3. false (one cell does not entail two cell)
-4. false (one cell does not entail two cell)
+1. True, by commutativity.
+2. False, because one cell does not entail two cell.
+3. False, because one cell does not entail two cell.
+4. False, because one cell does not entail two cell.
    Note: [q ~~~> 4 \* p ~~~> 3 ==> p ~~~> 3 \* \Top] would be true.
 
-5. true (\[False] entails anything)
-6. false (a satisfiable heap predicate does not entail \[False])
-7. true (a cell cannot be starred with itself)
-8. true (a cell cannot be starred with itself)
+5. True, because \[False] entails anything.
+6. False, because a satisfiable heap predicate does not entail \[False].
+7. True, because a cell cannot be starred with itself.
+8. True, because a cell cannot be starred with itself.
 
-9. true (instantiate [n] with [3])
-10. false ([n] could be something else than [3])
+9. True, by nstantiating [n] with [3].
+10. False, because [n] could be something else than [3].
    Note [\exists (u:unit), p ~~~> u ==> p ~~~> tt] would be true.
 
-11. true (instantiate [n] in RHS with [n+1] for the [n] of the LHS)
-12. true (instantiate [n] with [3])
-13. true (equivalent to \[False] ==> \[False])
+11. True, by instantiating [n] in RHS with [n+1] for the [n] of the LHS.
+12. True, by instantiating [n] with [3].
+13. True, because it is equivalent to [\[False] ==> \[False]].
 
+Proofs for the true results appear below.
 *)
-(* /SOLUTION *)
 
 Lemma case_study_1' : forall p q,
       p ~~~> 3 \* q ~~~> 4
@@ -583,18 +597,20 @@ Lemma case_study_13' : forall p n,
   p ~~~> n \* \[n > 0] \* \[n < 0] ==> p ~~~> n \* p ~~~> n.
 Proof using. intros. xsimpl ;=> Hn1 Hn2. false. math. Qed.
 
+(* /SOLUTION *)
+
 End CaseStudies.
 
 
 (* ******************************************************* *)
 (** ** The [xchange] tactic *)
 
-(** Assume an entailment goal of the form [H1 \* H2 \* H3 ==> H4].
+(** The tactic [xchange] is to entailment what [rewrite] is to equality.
+
+    Assume an entailment goal of the form [H1 \* H2 \* H3 ==> H4].
     Assume an entailment assumption [M], say [H2 ==> H2'].
     Then [xchange M] turns the goal into [H1 \* H2' \* H3 ==> H4],
-    effectively replacing [H2] with [H2'].
-
-    In a sense, [xchange] is to entailment what [rewrite] is to equality. *)
+    effectively replacing [H2] with [H2']. *)
 
 Lemma xchange_demo_base : forall H1 H2 H2' H3 H4,
   H2 ==> H2' ->
@@ -659,7 +675,8 @@ End Htactics.
     we go along. *)
 
 (* EX1! (himpl_frame_l) *)
-(** The simplest result to derive is the frame lemma for entailment. *)
+(** The simplest result to derive is the frame lemma for entailment.
+    To establish it, you will need to unfold the definition of [hstar]. *)
 
 Lemma himpl_frame_l' : forall H2 H1 H1',
   H1 ==> H1' ->
@@ -733,8 +750,8 @@ Proof using.
     { rewrite @Fmap.union_empty_l. auto. } }
 Qed.
 
-(** The lemma showing that [\[]] is a left neutral can be derived
-    from the previous result and commutativity. *)
+(** The lemma showing that [hempty] is a right neutral can be derived
+    from the previous result ([hempty] is a left neutral) and commutativity. *)
 
 Lemma hstar_hempty_r : forall H,
   H \* \[] = H.
@@ -891,7 +908,8 @@ Lemma triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
   triple t H Q.
 
 (* EX1! (himpl_frame_l) *)
-(** Prove the combined structural rule. *)
+(** Prove the combined structural rule. 
+    Hint: recall lemma [triple_htop_post]. *)
 
 Proof using.
 (* SOLUTION *)
@@ -1076,6 +1094,7 @@ Lemma triple_hany_pre : forall t H H' Q,
   triple t H Q ->
   triple t (H \* H') Q.
 Proof using.
+(* SOLUTION *)
   dup 3.
   (* first proof, based on [triple_hany_post]: *)
   introv M. applys triple_hany_post. applys triple_frame. auto.
@@ -1089,6 +1108,7 @@ Proof using.
   applys triple_conseq N.
   { applys himpl_refl. }
   { intros v. applys himpl_frame_r. applys himpl_htop_r. }
+(* /SOLUTION *)
 Qed.
 
 (** Here again, the reciprocal holds: [triple_hany_pre] is trivially
@@ -1113,12 +1133,14 @@ Qed.
     discarding pices of postconditions (e.g., [triple_htop_post]),
     but not the other way around.
 
-    Technical remark: the previous remark can be mitigated. If we expose
+    Advanced remark: the above remark can be mitigated. If we expose
     that [triple t H Q <-> triple t' H Q] holds whenever [t] and [t']
-    are observationally equivalent (with respect to the semantics
-    defined by [eval]), and if we are able to prove that [let x = t in x]
+    are observationally equivalent with respect to the semantics
+    defined by [eval], and if we are able to prove that [let x = t in x]
     is observationally equivalent to [t] for some fresh variable x,
     then it is possible to prove that [triple_htop_post] is derivable
-    from [triple_htop_pre]. (At a high-level, the postcondition of [t]
-    can be viewed as the precondition of the [x] occuring in the
-    right-hand side of the term [let x = t in x].)  *)
+    from [triple_htop_pre]. Indeed, the postcondition of [t] can be viewed 
+    as the precondition of the [x] occuring in the right-hand side of the 
+    term [let x = t in x]. Thus, discarding a heap predicate from the
+    postcondition of [t] can be simulated by discarding a heap predicate
+    from the precondition of [x]. *)
