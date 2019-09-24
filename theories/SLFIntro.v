@@ -29,6 +29,10 @@ For the course on the practice of proofs with CFML, see files named [CF*.v].
 
     - [SLFIntro]: the present introduction, which lists the chapters.
 
+    - [SLFBasic]: present verification proofs on basic imperative programs.
+
+    - [SLFMList]: presents verification proofs on mutable lists.
+
     - [SLFHprop]: definition of the core operators of Separation Logic,
                   and of Hoare triples and Separation Logic triples.
 
@@ -50,8 +54,8 @@ For the course on the practice of proofs with CFML, see files named [CF*.v].
     - [SLFLift]:  presents a technique for writing postconditions that directly
                   bind a Coq value rather than a value from the deeply embedded language.
 
-    - [SLFRich]:  describes how to handle more advanced language constructs, such as
-                  arrays, records, loops, data constructors and pattern matching.
+    - [SLFRich]:  describes how to handle more advanced language constructs,
+                  such as arrays, records, and structures with sharing.
 
     These chapters are accompanied with three special chapters.
 

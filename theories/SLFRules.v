@@ -11,15 +11,16 @@ License: MIT.
 
 Set Implicit Arguments.
 
-(** The file [SLFExtra.v] contains definitions that are essentially similar
-    to those from [SLFHprop.v] and [SLFHimpl.v], with just one main difference:
+(** This file imports [SLFExtra.v] instead of [SLFHprop.v] and [SLFHimpl.v].
+    The file [SLFExtra.v] contains definitions that are essentially similar
+    to those from [SLFHprop.v] and [SLFHimpl.v], yet with one main difference:
     [SLFExtra] makes the definition of Separation Logic operators opaque.
 
-    Thus, one cannot unfold the definition of [hstar], [hpure], [htop], etc...
+    Thus, one cannot unfold the definition of [hstar], [hpure], [htop], etc.
     To carry out reasoning, one must use the introduction and elimination
     lemmas (e.g. [hstar_intro], [hstar_elim]). These lemmas enforce abstraction:
-    they ensure that the proofs do not depend on which of the several possible
-    set of definitions is chosen to construct the Separation Logic. *)
+    they ensure that the proofs do not depend on the particular choice of the 
+    definitions used for constructing Separation Logic. *)
 
 From Sep Require Export SLFExtra.
 
@@ -27,27 +28,28 @@ From Sep Require Export SLFExtra.
 (* ####################################################### *)
 (** * The chapter in a rush *)
 
-(** This chapter first summarizes the structural rules from
-    Separation Logic. It then recall the syntax and semantics
-    of the programming language considered, and presents the
-    statement and proofs for the reasoning rules for terms
-    and primitive operations. *)
+(** This chapter first summarizes the structural rules from Separation Logic.
+    It then describes the syntax and semantics of the (toy) programming 
+    language considered, and presents the statement and proofs for the 
+    reasoning rules for terms  and primitive operations. *)
 
 
 (* ******************************************************* *)
 (** ** Structural rules *)
 
-(** We have already introduced in the first two chapters all the
-    essential structural rules. *)
+(** Let us first review the essential structural rules, which were 
+    introduced through the first two chapters. *)
 
 (** The frame rule asserts that the precondition and the postcondition
-    can be extended together by an arbitrary heap predicate. *)
+    can be extended together by an arbitrary heap predicate. 
+    Recall that the definition of [triple] was set up precisely to
+    validate this frame rule, so in a sense in holds "by construction". *)
 
 Parameter triple_frame : forall t H Q H',
   triple t H Q ->
   triple t (H \* H') (Q \*+ H').
 
-(** The consequence rule enables to strengthen the precondition
+(** The consequence rule allows to strengthen the precondition
     and weaken the postcondition. *)
 
 Parameter triple_conseq : forall t H' Q' H Q,
@@ -57,8 +59,9 @@ Parameter triple_conseq : forall t H' Q' H Q,
   triple t H Q.
 
 (** The two extraction rules enable to extract pure facts and
-    existentially quantified variables from the precondition
-    into the Coq context. *)
+    existentially quantified variables, from the precondition
+    into the Coq context. Recall that the first rule is a particular 
+    instance of the second one, as we may instantiate [A] with [P].) *)
 
 Parameter triple_hpure : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
@@ -70,8 +73,9 @@ Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
 
 (** The garbage collection rules enable to discard any desired
     piece of heap from the precondition or the postcondition.
-    (As we have seen, it is equivalent to state these two rules
-    by writing [H'] instead of [\Top].) *)
+    Recall that the first rule is derivable from the second one.
+    Moreover, it is equivalent to state these two rules by writing 
+    [H'] instead of [\Top]. *)
 
 Parameter triple_htop_pre : forall t H Q,
   triple t H Q ->
@@ -85,17 +89,32 @@ Parameter triple_htop_post : forall t H Q,
 (* ******************************************************* *)
 (** ** Semantic of terms *)
 
-(** In order to establish reasoning rule for terms (e.g., a
-    rule for a let-binding), it is useful to briefly review
-    the grammar of terms and the formal (big-step) semantics
-    associated with the language that we consider. *)
+(** The aim of this chapter is to present reasoning rule for terms,
+    e.g., a reasoning rule for let-bindings. Before we get there, 
+    we first need to present the grammar of the programming language.
+
+    The syntax is a standard syntax that distiguishes between values
+    and terms. To simplify matters with substitution, we maintain the
+    invariant that values are always closed (no free variables in them).
+
+    The semantics is presented in big-step style. This presentation makes 
+    it easier to establish reasoning rules, because both the big-step
+    judgment and a triple judgment describe complete execution, relating
+    a term with the value that it produces. *)
 
 Module SyntaxAndSemantics.
 
 (** The grammar for values includes unit, boolean, integers,
-    locations, functions, recursive functions, and primitive
-    operations. For the latter, we here only include a few:
-    [ref], [get], and [set], [add] and [div]. *)
+    locations, functions, recursive functions, and primitive operations. 
+    For example, [val_int 3] denotes the integer value [3]. The value
+    [val_fun x t] denotes the function [fun x => t], and the value
+    [val_fix f x t] denotes the function [fix f x => t], also written
+    [let rec f x = t in f].
+
+    We here only include a few primitive operations (for conciseness):
+    [ref], [get], and [set] for manipulating the heap, [add] to illustrate
+    a total arithmetic operation, and [div] to illustrate a partial one.
+    The semantics of these operations is described further on. *)
 
 Inductive val : Type :=
   | val_unit : val
@@ -108,11 +127,21 @@ Inductive val : Type :=
   | val_get : val
   | val_set : val
   | val_add : val
+  | val_div : val
 
-(** The grammar for terms includes values, variables,
-    function definitions, recursive function definitions,
-    function applications, sequences, let-bindings, and
-    conditionals. *)
+(** The grammar for terms includes values, variables, function definitions, 
+    recursive function definitions, function applications, sequences, 
+    let-bindings, and conditionals. 
+
+    Note that [trm_fun] and [trm_fix] denote functions that may feature free
+    variables, unlike [val_fun] and [val_fix] which denote closed values.
+    The intention is that the evaluation of a [trm_fun] in the empty context
+    produces a [val_fun] value. Likewise, a [trm_fix] eventually evaluates to
+    a [val_fix].
+    
+    Remark: although it is technically possible to encode a sequence as a 
+    let-binding with a dummy fresh name, we save ourselves trouble with
+    binder-related issues by including a distinct constructor for sequences. *)
 
 with trm : Type :=
   | trm_val : val -> trm
@@ -124,26 +153,27 @@ with trm : Type :=
   | trm_let : var -> trm -> trm -> trm
   | trm_if : trm -> trm -> trm -> trm.
 
-(** Note that the grammar of values is mutually inductive with that
-    of terms. The type [val] is intented to denote only closed
-    values. In particular, a [val_fun x t] or a [val_fix f x t]
-    should not contain any free variable. *)
-
-(** The beta-reduction rule involves a substitution function.
+(** To describe the evaluation of functions, the semantics of the language 
+    includes beta-reduction rules, which involve the substitution function.
 
     The substitution function, written [subst y w t], replaces all
     occurences of a variable [y] with a value [w] inside a term [t].
-    This definition exploits the comparison function [var_eq x y],
+    Its definition exploits the comparison function [var_eq x y],
     which produces a boolean indicating whether [x] and [y] denote
     the same variable.
 
-    Because [trm_val v] denotes a closed value, any substitution on
-    it should behave like the identity. For the remaining constructs,
-    substitution is essentially structural: it traverses through all
-    subterms until reaching a variable. The only specific care is to
-    ensure that substitution is capture-avoiding: an operation
-    [subst y w t] does not recurse below the scope of binders whose
-    name is also [y]. *)
+    The subtitution operation is always the identity function on values,
+    because our language only considers closed values. In other words,
+    we define [subst y w (trm_val v) = (trm_val v)].
+
+    The substitution operation traverses all other language constructs
+    in a structural manner, taking care of avoiding capture when
+    traversing binders. More precisely, [subst y w t] does not recurse 
+    below the scope of binders whose name is equal to [y]. For example,
+    [subst y w (trm_let x t1 t2)] is defined as 
+    [trm_let x (subst y w t1) (if var_eq x y then t2 else (subst y w t2))].
+    The auxiliary function [if_y_eq], which appears below, helps performing 
+    the factorizing the relevant check among the various binding constructs. *)
 
 Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
   let aux t := subst y w t in
@@ -159,8 +189,10 @@ Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
   | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
   end.
 
-(** The evaluation rules involves the state. Recall that a state is
-    a finite map from location to values. *)
+(** The language we consider is an imperative language, with primitive 
+    functions for manipulating the state. Thus, the statement of the 
+    evaluation rules involve a memory state. Recall from chapter [SLFHprop]
+    that a state is described a finite map from location to values. *)
 
 Definition state := fmap loc val.
 
@@ -170,41 +202,54 @@ Definition state := fmap loc val.
 Instance Inhab_val : Inhab val.
 Proof using. apply (Inhab_of_val val_unit). Qed.
 
-(** To improve the readability of the evaluation rules, we take
-    advantage of both implicit types and coercions. *)
+(** The evaluation judgment appears below. To improve the readability 
+    of the evaluation rules, we take advantage of both implicit types 
+    and coercions. The implicit types are defined as follows, e.g.,
+    meta-variables named [v], [v1], ... always denote a value. *)
 
 Implicit Types b : bool.
 Implicit Types v r : val.
 Implicit Types t : trm.
 Implicit Types s : state.
 
-(** We declare [trm_val] as a coercion, so that we may freely write
-    [v] wherever a term is expected, to mean [trm_val v]. *)
+(** We next introduce two key coercions. First, we declare 
+    [trm_val] as a coercion, so that, instead of writing [trm_val v],
+    we may write simply [v] wherever a term is expected. *)
 
 Coercion trm_val : val >-> trm.
 
-(** We declare [trm_app] as a coercion, so that we may write
-    [t1 t2] as a shorthand for [trm_app t1 t2]. *)
+(** Second, we declare [trm_app] as a "Funclass" coercion. This piece
+    of magic enables us to write [t1 t2] as a shorthand for [trm_app t1 t2]. 
+    Thanks to this coercion, we may write [val_get (val_loc l)]
+    to mean [trm_app (val_get (val_loc l))]. Applications can even
+    be iterated, for example we may write [val_set (val_loc l) v]
+    to mean [trm_app (trm_app (val_set (val_loc l)) v]. *)
 
 Coercion trm_app : trm >-> Funclass.
 
-(** The big-step evaluation judgment takes the form [eval s t s' v],
-    describing that, starting from state [s], the evaluation of the
-    term [t] terminates in a state [s'], producing an output value [v].
+(** The big-step evaluation judgment, written [eval s t s' v], asserts that, 
+    starting from state [s], the evaluation of the term [t] terminates in 
+    a state [s'], producing an output value [v].
 
-    For simplicity, in this chapter, we assume terms in "A-normal form":
+    For simplicity, in this chapter, we assume terms to be in "A-normal form":
     the arguments of applications and of conditionals are restricted to
-    variables and value. Such a requirement does not limit expressiveness.
+    variables and value. Such a requirement does not limit expressiveness,
+    yet it simplifies the statement of evaluation rules.
 
-    For example, a source program may not use the general form
-    [trm_if t0 t1 t2], but only the form [trm_if v0 t1 t2],
-    where [v0] denotes a variable or a value. This is not a
-    restriction, because [trm_if t0 t1 t2] can be encoded as
-    [let x = t0 in if x then t1 else t2]. *)
+    For example, if a source program includes a conditional [trm_if t0 t1 t2], 
+    then it is required that [t0] be either a variable or a value. 
+    This is not a real restriction, because [trm_if t0 t1 t2] can always be 
+    encoded as [let x = t0 in if x then t1 else t2]. 
+    
+    The big-step jugdment is inductively defined as follows. *)
 
 Inductive eval : state -> trm -> state -> val -> Prop :=
 
-  (* [eval] for values and function definitions *)
+  (** 1. [eval] for values and function definitions.
+
+      A value evaluates to itself. 
+      A term function evaluates to a value function.
+      Likewise for recursive functions. *)
 
   | eval_val : forall s v,
       eval s (trm_val v) s v
@@ -213,7 +258,14 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
   | eval_fix : forall s f x t1,
       eval s (trm_fix f x t1) s (val_fix f x t1)
 
-  (* [eval] for function applications *)
+  (** 2. [eval] for function applications.
+     
+     The beta reduction rule asserts that [(val_fun x t1) v2]
+     evaluates to the same result as [subst x v2 t1]. 
+
+     In the recursive case, [(val_fix f x t1) v2] evaluates to
+     [subst x v2 (subst f v1 t1)], where [v1] denotes the recursive
+     function itself, that is, [val_fix f x t1]. *)
 
   | eval_app_fun : forall s1 s2 v1 v2 x t1 v,
       v1 = val_fun x t1 ->
@@ -224,7 +276,16 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       eval s1 (subst x v2 (subst f v1 t1)) s2 v ->
       eval s1 (trm_app v1 v2) s2 v
 
-  (* [eval] for structural constructs *)
+  (** 3. [eval] for structural constructs.
+  
+      The sequence [trm_seq t1 t2] first evaluates [t1], taking the 
+      state from [s1] to [s2], drops the result of [t1], then evaluates
+      [t2], taking the state from [s2] to [s3].
+
+      The let-binding [trm_let x t1 t2] is similar, except that the
+      variable [x] gets substituted for the result of [t1] inside [t2]. *)
+      
+(* TODO: modify conditional because currently [trm_if x t1 t2] is unsupported. *)
 
   | eval_seq : forall s1 s2 s3 t1 t2 v1 v,
       eval s1 t1 s2 v1 ->
@@ -238,10 +299,20 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       eval s1 (if b then t1 else t2) s2 v ->
       eval s1 (trm_if (val_bool b) t1 t2) s2 v
 
-  (* [eval] for primitive operations *)
+  (** 4. [eval] for primitive stateless operations.
+  
+      *)
 
   | eval_add : forall s n1 n2,
       eval s (val_add (val_int n1) (val_int n2)) s (val_int (n1 + n2))
+  | eval_div : forall s n1 n2,
+      n2 <> 0 ->
+      eval s (val_div (val_int n1) (val_int n2)) s (val_int (Z.quot n1 n2))
+
+  (** 5. [eval] for primitive stateful operations.
+  
+      *)
+
   | eval_ref : forall s v l,
       ~ Fmap.indom s l ->
       eval s (val_ref v) (Fmap.update s l v) (val_loc l)

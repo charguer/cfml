@@ -802,6 +802,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(* LATER: we could ask the full proof as exercise, but then it's much harder *)
+
 
 (* ******************************************************* *)
 (** ** Proof of the consequence rule. *)
@@ -907,7 +909,7 @@ Lemma triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
   Q1 \*+ H2 ===> Q \*+ \Top ->
   triple t H Q.
 
-(* EX1! (himpl_frame_l) *)
+(* EX1! (triple_conseq_frame_htop) *)
 (** Prove the combined structural rule. 
     Hint: recall lemma [triple_htop_post]. *)
 
