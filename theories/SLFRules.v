@@ -11,10 +11,10 @@ License: MIT.
 
 Set Implicit Arguments.
 
-(** This file imports [SLFExtra.v] instead of [SLFHprop.v] and [SLFHimpl.v].
-    The file [SLFExtra.v] contains definitions that are essentially similar
+(** This file imports [SLFDirect.v] instead of [SLFHprop.v] and [SLFHimpl.v].
+    The file [SLFDirect.v] contains definitions that are essentially similar
     to those from [SLFHprop.v] and [SLFHimpl.v], yet with one main difference:
-    [SLFExtra] makes the definition of Separation Logic operators opaque.
+    [SLFDirect] makes the definition of Separation Logic operators opaque.
 
     Thus, one cannot unfold the definition of [hstar], [hpure], [htop], etc.
     To carry out reasoning, one must use the introduction and elimination
@@ -22,7 +22,7 @@ Set Implicit Arguments.
     they ensure that the proofs do not depend on the particular choice of the 
     definitions used for constructing Separation Logic. *)
 
-From Sep Require Export SLFExtra.
+From Sep Require Export SLFDirect SLFExtra.
 
 
 (* ####################################################### *)
@@ -278,14 +278,12 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
 
   (** 3. [eval] for structural constructs.
   
-      The sequence [trm_seq t1 t2] first evaluates [t1], taking the 
+      A sequence [trm_seq t1 t2] first evaluates [t1], taking the 
       state from [s1] to [s2], drops the result of [t1], then evaluates
       [t2], taking the state from [s2] to [s3].
 
       The let-binding [trm_let x t1 t2] is similar, except that the
       variable [x] gets substituted for the result of [t1] inside [t2]. *)
-      
-(* TODO: modify conditional because currently [trm_if x t1 t2] is unsupported. *)
 
   | eval_seq : forall s1 s2 s3 t1 t2 v1 v,
       eval s1 t1 s2 v1 ->
@@ -295,13 +293,34 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       eval s1 t1 s2 v1 ->
       eval s2 (subst x v1 t2) s3 r ->
       eval s1 (trm_let x t1 t2) s3 r
+
+  (** 4. [eval] for conditionals. 
+  
+      A conditional in a source program is assumed to be of the form 
+      [if t0 then t1 else t2], where [t0] is either a variable or a
+      value. If it is a variable, then by the time it reaches an evaluation 
+      position, the variable must have been substituted by a value.
+      Thus, the evaluation rule only considers the form [if v0 then t1 else t2].
+      The value [v0] must be a boolean value, otherwise evaluation gets stuck.
+
+      The term [trm_if (val_bool true) t1 t2] behaves like [t1], whereas
+      the term [trm_if (val_bool false) t1 t2] behaves like [t2]. 
+      This behavior is described by a single rule, leveraging Coq's "if"
+      constructor to factor out the two cases. *)
+
   | eval_if_case : forall s1 s2 b v t1 t2,
       eval s1 (if b then t1 else t2) s2 v ->
       eval s1 (trm_if (val_bool b) t1 t2) s2 v
 
-  (** 4. [eval] for primitive stateless operations.
+  (** 5. [eval] for primitive stateless operations.
   
-      *)
+      For similar reasons as explained above, the behavior of applied primitive
+      functions only need to be described for the case of value arguments.
+      An arithmetic operation expects integer arguments.
+      The addition of [val_int n1] and [val_int n2] produces [val_int (n1 + n2)].
+      The division operation, on the same arguments, produces the quotient,
+      under the assumption that the dividor [n2] is non-zero.
+      Division by zero leads to a stuck term in our semantics. *)
 
   | eval_add : forall s n1 n2,
       eval s (val_add (val_int n1) (val_int n2)) s (val_int (n1 + n2))
@@ -309,9 +328,21 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       n2 <> 0 ->
       eval s (val_div (val_int n1) (val_int n2)) s (val_int (Z.quot n1 n2))
 
-  (** 5. [eval] for primitive stateful operations.
+  (** 6. [eval] for primitive stateful operations.
   
-      *)
+      There remains to describe operations that act on the mutable store.
+
+      [val_ref v] allocates a fresh cell with contents [v]. The operation
+      returns the location, written [l], of the new cell. This location 
+      must not be previously in the domain of the store [s]. 
+      
+      [val_get (val_loc l)] reads the value in the store [s] at location [l].
+      The location must be bound to a value in the store, else evaluation
+      is stuck.
+
+      [val_set (val_loc l) v] updates the store at a location [l] assumed to
+      be bound in the store [s]. The operation modifies the store and returns
+      the unit value. *)
 
   | eval_ref : forall s v l,
       ~ Fmap.indom s l ->
@@ -325,9 +356,14 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
 
 End SyntaxAndSemantics.
 
-(** In the rest of this file, we technically depend on the definitions
-    from [Semantics.v] and [SepBase.v]. For our purposes, these
-    definitions are equivalent to the ones given above. *)
+
+(** Throughout the rest of this file, we rely not on the definitions shown
+    above but on the definitions from [SLFDirect.v], which are slightly
+    more general, yet essentially equivalent for the purpose of establishing
+    the reasoning rules that we are interested in. *)
+
+(** To reduce the clutter in the statement of lemmas, we associate default
+    types to a number of common meta-variables. *)
 
 Implicit Types x f : var.
 Implicit Types b : bool.
@@ -344,52 +380,74 @@ Implicit Types Q : val->hprop.
 (* ******************************************************* *)
 (** ** Rules for terms *)
 
-(** The reasoning rule for a sequence [t1;t2] is similar to that
-    from Hoare logic. The rule is:
+(** We next present reasoning rule for terms. Most of these Separation Logic
+    rules have a statement essentially identical to the statement of the 
+    corresponding Hoare Logic rule. The main difference lies in their 
+    interpretation: whereas Hoare Logic pre- and post-conditions describe
+    the full state, a Separation Logic rule describes only a fraction of 
+    the mutable state. *)
+
+(** Let us begin with the reasoning rule for sequences.
+    The Separation Logic reasoning rule for a sequence [t1;t2] is
+    essentially the same as that from Hoare logic. The rule is:
 [[
       {H} t1 {fun r => H1}     {H1} t2 {Q}
       ------------------------------------
               {H} (t1;t2) {Q}
 ]]
     Remark: the variable [r] denotes the result of the evaluation
-    of [t1]. For well-typed programs, this result is always [val_unit]. *)
+    of [t1]. For well-typed programs, this result would always be [val_unit],
+    but here we consider an untyped language, so we simply treat the
+    result of [t1] as a value irrelevant to the final result. 
+    
+    The Coq statement corresponding to the above rule is: *)
 
 Parameter triple_seq : forall t1 t2 H Q H1,
   triple t1 H (fun r => H1) ->
   triple t2 H1 Q ->
   triple (trm_seq t1 t2) H Q.
 
-(** The reasoning rule for a let binding [let x = t1 in t2] could
+(** Next, we present the reasoning rule for let-bindings. Here again,
+    there is nothing specific to Separation Logic, the rule would be
+    exactly the same in Hoare Logic.
+
+    The reasoning rule for a let binding [let x = t1 in t2] could
     be stated, in informal writing, in the form:
 [[
       {H} t1 {Q1}     (forall x, {Q1 x} t2 {Q})
       -----------------------------------------
             {H} (let x = t1 in t2) {Q}
 ]]
+
   Yet, such a presentation makes a confusion between the [x] that
   denotes a program variable in [let x = t1 in t2], and the [x]
   that denotes a value when quantified as [forall x].
 
   The correct statement involves a substitution from the variable
   [x] to a value quantified as [forall v].
+
 [[
       {H} t1 {Q1}     (forall v, {Q1 v} (subst x v t2) {Q})
       -----------------------------------------------------
                 {H} (let x = t1 in t2) {Q}
 ]]
-*)
+
+  The corresponding Coq statement is thus as follows. *)
 
 Parameter triple_let : forall x t1 t2 H Q Q1,
   triple t1 H Q1 ->
   (forall v, triple (subst x v t2) (Q1 v) Q) ->
   triple (trm_let x t1 t2) H Q.
 
-(** The rule for a conditional is exactly like in Hoare logic.
+(** The rule for a conditional is, again, exactly like in Hoare logic.
+
 [[
       b = true -> {H} t1 {Q}     b = false -> {H} t2 {Q}
       --------------------------------------------------
                {H} (if b then t1 in t2) {Q}
 ]]
+
+  The corresponding Coq statement appears next.
 *)
 
 Parameter triple_if : forall b t1 t2 H Q,
@@ -397,31 +455,42 @@ Parameter triple_if : forall b t1 t2 H Q,
   (b = false -> triple t2 H Q) ->
   triple (trm_if (val_bool b) t1 t2) H Q.
 
+(** Remark: an alternative presentation of the rule for conditional 
+    using Coq's conditional construct is discussed further in this file. *)
+
 (** The rule for a value [v] can be written as a triple with an
     empty precondition and a postcondition asserting that the
-    result value [x] is equal to [v], in the empty heap.
+    result value [r] is equal to [v], in the empty heap. Formally:
+
 [[
      ----------------------------
       {\[]} v {fun r => \[r = v]}
 ]]
-    Yet, it is more convenient in practice to work with a judgment
-    whose conclusion is of the form [{H}v{Q}], for an arbitrary
+
+    It is however more convenient in practice to work with a judgment
+    whose conclusion is of the form [{H} v {Q}], for an arbitrary
     [H] and [Q]. For this reason, we prever the following rule for
-    values:
+    values.
 
       H ==> Q v
       ---------
       {H} v {Q}
 
-    It may not be completely obvious at first sight why this
-    alternative rule is equivalent to the former. We will prove
-    the equivalence further in this chapter. *)
+    It may not be completely obvious at first sight why this alternative 
+    rule is equivalent to the former. We prove the equivalence further 
+    in this chapter. 
+    
+    The Coq statement of the rule for values is thus as follows. *)
 
 Parameter triple_val : forall v H Q,
   H ==> Q v ->
   triple (trm_val v) H Q.
 
-(** A function definition [trm_fun x t1], expressed as a subterm in a
+(** In addition to the reasoning rule for values, we need reasoning
+    rules for functions and recursive functions that appear as terms
+    in the source program (as opposed to appearing as values).
+
+    A function definition [trm_fun x t1], expressed as a subterm in a
     program, evaluates to a value, more precisely to [val_fun x t1].
     Again, we could consider a rule with an empty precondition:
 
@@ -429,46 +498,95 @@ Parameter triple_val : forall v H Q,
      ------------------------------------------------------
       {\[]} (trm_fun x t1) {fun r => \[r = val_fun x t1]}
 ]]
-   However, we prefer a conclusion of the form [{H}(trm_fun x t1){Q}].
-   We thus consider the following rule, very similar to [triple_val]:
-*)
+
+   However, we prefer a conclusion of the form [{H} (trm_fun x t1) {Q}].
+   We thus consider the following rule, very similar to [triple_val]. *)
 
 Parameter triple_fun : forall x t1 H Q,
   H ==> Q (val_fun x t1) ->
   triple (trm_fun x t1) H Q.
+
+(** The rule for recursive functions is similar. It is presented 
+    further in the file. *)
 
 (** Last but not least, we need a reasoning rule to reason about a
     function application. Consider an application [trm_app v1 v2].
     Assume [v1] to be a function, that is, to be of the form
     [val_fun x t1]. Then, according to the beta-reduction rule,
     the semantics of [trm_app v1 v2] is the same as that of [subst x v2 t1].
-    Thus, the triple [{H}(v1 v2){Q}] holds if the triple
-    [{H}(subst x v2 t1){Q}] holds. This logic is captured by the
-    following rule. *)
+    On paper, this reasoning rule would thus be written:
+
+[[    
+        {H} (subst x v2 t1) {Q}
+     -----------------------------
+      {H} ((val_fun x t1) v2) {Q}
+]]
+
+   The corresponding Coq statement is as shown below. *)
 
 Parameter triple_app_fun : forall x v1 v2 t1 H Q,
   v1 = val_fun x t1 ->
   triple (subst x v2 t1) H Q ->
   triple (trm_app v1 v2) H Q.
 
-(** The generalization to recursive functions is straightforward.
-    It is discussed further in this chapter. *)
+(** The generalization to the application of recursive functions is 
+    straightforward. It is discussed further in this chapter. *)
 
 
 (* ******************************************************* *)
 (** ** Specification of primitive operations *)
 
 (** For a complete set of reasoning rules, there remains to present
-    the specification for builtin functions. The most interesting
-    functions are those that manipulate the state. *)
+    the specification for primitive functions. We begin with the
+    arithmetic operations, which are straighforward. *)
 
-(** Assume [val_get] to denote the operation for reading a memory cell.
+(** Consider a term of the form [val_add n1 n2], which is short for
+    [trm_app (trm_app (trm_val val_add) (val_int n1)) (val_int n2)].
+    The addition can execute in an empty state, and does not modify
+    the state. It returns the value [val_int (n1+n2)]. In the 
+    specification shown below, the precondition is written [\[]]
+    and the postcondition binds a return value [r] specified to be
+    equal to [val_int (n1+n2)]. To improve readability, we write
+    the precondition and the postcondition on separate lines. *)
+
+Parameter triple_add : forall n1 n2,
+  triple (val_add n1 n2)
+    \[]
+    (fun r => \[r = val_int (n1 + n2)]).
+
+(** Specification of division [val_div n1 n2] is similar, with the extra
+    requirement that the divisor [n2] must be nonzero. This requirement
+    [n2 <> 0] is a pure fact. This pure fact can be placed inside the
+    precondition, as follows. *)
+
+Parameter triple_div : forall n1 n2,
+  triple (val_div n1 n2)
+    \[n2 <> 0]
+    (fun r => \[r = val_int (Z.quot n1 n2)]).
+
+(** Or, equivalently, it can be pulled outside of the triple judgment, 
+    taking the form of a Coq hypothesis, as shown below. *)
+    
+Parameter triple_div' : forall n1 n2,
+  n2 <> 0 ->
+  triple (val_div n1 n2)
+    \[]
+    (fun r => \[r = val_int (Z.quot n1 n2)]).
+
+(** This latter presentation with the pure facts outside of triples
+    turns out to be more practical to exploit in proofs, hence we 
+    always follow this convention, and use the precondition for 
+    describing mutable data. *)
+
+(** There remains to describe the specification of operations on the heap. *)
+
+(** Recall that [val_get] denotes the operation for reading a memory cell.
     A call of the form [val_get v'] executes safely if [v'] is of the
     form [val_loc l] for some location [l], in a state that features
-    a memory cell at location [l] with some contents [v]. Such a state
+    a memory cell at location [l], storing some contents [v]. Such a state
     is described as [l ~~~> v]. The read operation returns a value [r]
     such that [r = v], and the memory state of the operation remains
-    unchanged. The specification of a read may is be expressed as: *)
+    unchanged. The specification of [val_get] is thus expressed as follows. *)
 
 Parameter triple_get : forall v l,
   triple (val_get (val_loc l))
@@ -476,67 +594,36 @@ Parameter triple_get : forall v l,
     (fun r => \[r = v] \* (l ~~~> v)).
 
 (** Remark: [val_loc] is registered as a coercion, so [val_get (val_loc l)]
-    could be written just [val_get l], when [l] has type [loc]. *)
+    could be written simply as [val_get l], where [l] has type [loc]. 
+    We here chose to write [val_loc] explicitly for clarity. *)
 
-(** Assume [val_set] to denote the operation for writing a memory cell.
+(** Recall that [val_set] denotes the operation for writing a memory cell.
     A call of the form [val_set v' w] executes safely if [v'] is of the
     form [val_loc l] for some location [l], in a state [l ~~~> v].
     The write operation updates this state to [l ~~~> w], and returns
     the unit value. In other words, it returns a value [r] such that
-    [r = val_unit]. Hence the following specification. *)
+    [r = val_unit]. Hence, [val_set] is specified as follows. *)
 
 Parameter triple_set : forall w l v,
   triple (val_set (val_loc l) w)
     (l ~~~> v)
     (fun r => \[r = val_unit] \* l ~~~> w).
 
-(** Assume [val_ref] to denote the value that corresponds to the
-    builtin operation for allocating a cell with a given contents.
-    A call to [val_ref v] may execute in the empty state and
-    augment the state with a singleton cell, allocated at some
-    location [l], with contents [v]. This new cell is described
-    by the heap predicate [l ~~~> v].
-
-    The value returned by the operation is the location [val_loc l],
-    that is, the location [l] viewed as a value. Thus, if [r] denotes
-    the result value, we have [r = val_loc l] for some [l]. The
-    location [l] needs to be existentially quantified. *)
+(** Recall that [val_ref] denotes the operation for allocating a cell 
+    with a given contents. A call to [val_ref v] does not depend on
+    the contents of the existing state. It extends the state with a fresh 
+    singleton cell, at some location [l], assigning it [v] as contents.
+    The fresh cell is then described by the heap predicate [l ~~~> v].
+    The evaluation of [val_ref v] produces the value [val_loc l]. Thus, 
+    if [r] denotes the result value, we have [r = val_loc l] for some [l]. 
+    Observe how, in the specification shown below, the location [l] is 
+    existentially quantified in the postcondition. *)
 
 Parameter triple_ref : forall v,
   triple (val_ref v)
     \[]
-    (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
+    (fun (r:val) => \exists (l:loc), \[r = val_loc l] \* l ~~~> v).
 
-(** The programming language targeted may include other builtin
-    functions, for example arithmetic operations. We here present
-    just two examples: addition and division. Others follow a
-    similar pattern.
-
-    Assume [val_add] to denote the value that corresponds to the
-    builtin operation [+]. A call to an addition [val_add n1 n2]
-    executes in a empty state, and produces an empty state. It
-    returns the value [n1+n2]. Formally: *)
-
-Parameter triple_add : forall n1 n2,
-  triple (val_add n1 n2)
-    \[]
-    (fun r => \[r = val_int (n1 + n2)]).
-
-(** Assume a primitive function for division, called [val_div].
-    A division [val_div n1 n2] is similar, with the only extra
-    requirement that the divisor [n2] must be nonzero. *)
-
-Parameter val_div : val.
-
-Parameter eval_div : forall s n1 n2,
-  n2 <> 0 ->
-  eval s (val_div (val_int n1) (val_int n2)) s (val_int (Z.quot n1 n2)).
-
-Parameter triple_div : forall n1 n2,
-  n2 <> 0 ->
-  triple (val_div n1 n2)
-    \[]
-    (fun r => \[r = val_int (Z.quot n1 n2)]).
 
 
 (* ******************************************************* *)
@@ -765,7 +852,7 @@ Qed.
 
 
 (* ******************************************************* *)
-(** ** Alternative presentation for the specifications of builtin functions *)
+(** ** Alternative presentation for the specifications of primitive functions *)
 
 (** 1. Recall the specification for division. *)
 
@@ -777,6 +864,8 @@ Parameter triple_div'' : forall n1 n2,
 
 (** Equivalently, we could place the requirement [n2 <> 0] in the
     precondition: *)
+
+(* TODO :exercise prove equivalence *)
 
 Parameter triple_div''' : forall n1 n2,
   triple (val_div n1 n2)
