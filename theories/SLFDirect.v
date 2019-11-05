@@ -88,6 +88,7 @@ Inductive val : Type :=
   | val_get : val
   | val_set : val
   | val_add : val
+  | val_div : val
 
 with trm : Type :=
   | trm_val : val -> trm
@@ -210,6 +211,9 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
       eval s1 (trm_if (val_bool b) t1 t2) s2 v
   | eval_add : forall s n1 n2,
       eval s (val_add (val_int n1) (val_int n2)) s (val_int (n1 + n2))
+  | eval_div : forall s n1 n2,
+      n2 <> 0 ->
+      eval s (val_div (val_int n1) (val_int n2)) s (val_int (Z.quot n1 n2))
   | eval_ref : forall s v l,
       ~ Fmap.indom s l ->
       eval s (val_ref v) (Fmap.update s l v) (val_loc l)

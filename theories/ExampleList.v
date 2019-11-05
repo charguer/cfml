@@ -512,7 +512,34 @@ Lemma Triple_copy : forall `{EA:Enc A} (L:list A) (p:loc),
     POST (fun (q:loc) => p ~> MList L \* q ~> MList L).
 Proof using.
   intros. gen p. induction_wf IH: (@list_sub A) L. intros.
-  xwp. xapp. xif ;=> E.
+  xwp.
+
+(* DETAILS  
+xapp_pre tt. 
+(* works 
+ eapply @xapps_lemma; [ eapply Triple_is_empty | 
+ xsimpl_start tt ; xsimpl_step tt ].
+ match goal with |- Xsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) => 
+  idtac "here"; match H with
+  | ?H1 \* ?H2 => idtac "there"; rewrite (@hstar_assoc H1 H2)
+end end.
+*)
+Hint Mode Enc + : typeclasses_instances.
+
+(* does not work with erewrite but with rewrite does *)
+ eapply @xapps_lemma; [ eapply Triple_is_empty | 
+ xsimpl_start tt ; xsimpl_step tt ;
+
+ match goal with |- Xsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) => 
+  idtac "here"; match H with
+  | ?H1 \* ?H2 => idtac "there"; rewrite (@hstar_assoc H1 H2)
+end end ].
+*)
+
+
+
+
+ xapp. xif ;=> E.
   { xapp ;=> p'. subst. xsimpl*. }
   { xchanges~ MList_not_nil ;=> x L' p' ->.
     xapp. xapp~. xapp~ ;=> q'. xapp ;=> q.
