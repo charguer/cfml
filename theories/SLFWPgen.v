@@ -169,6 +169,41 @@ Arguments mkstruct_erase : clear implicits.
 Arguments mkstruct_ramified : clear implicits.
 
 
+(* TODO integrate *)
+Module MkstructAlt.
+
+Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
+  \exists Q' H', F Q' \* H' \* \[Q' \*+ H' ===> Q \*+ \Top].
+
+Lemma mkstruct_erase : forall Q F,
+  F Q ==> mkstruct F Q.
+Proof using. unfolds mkstruct. intros. xsimpl \[] Q. xsimpl. Qed.
+
+Lemma mkstruct_ramified : forall Q1 Q2 F,
+  (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
+Proof using.
+  unfold mkstruct. intros. xpull ;=> Q' H' M.
+  applys himpl_hexists_r Q'.
+  applys himpl_hexists_r (H' \* (Q1 \--* Q2 \*+ \Top)).
+  rew_heap.
+  applys himpl_frame_r.
+  applys himpl_frame_r.
+  xsimpl. xchange M. intros x. xsimpl.
+Qed.
+
+Definition equiv_mkstruct :
+  mkstruct = Top.mkstruct.
+Proof using.
+  intros. apply fun_ext_2 ;=> F Q. unfold mkstruct, Top.mkstruct.
+  applys himpl_antisym.
+  { xpull ;=> Q' H' M. xsimpl Q'. xchanges M. }
+  { xpull ;=> Q'. xsimpl Q'. xsimpl. }
+Qed.
+
+End MkstructAlt.
+
+
+
 (* ******************************************************* *)
 (** ** Demo of practical proofs using [wpgen]. *)
 
