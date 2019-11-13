@@ -40,7 +40,7 @@ SRC_CORE := TLCbuffer Fmap Var SepSimpl Bind Semantics SepFunctor SepBase WPBase
 
 SRC_MORE := SepBaseAltProofs SepCredits SepRO
 
-SRC_EXAMPLES := Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder  ExampleListNull ExampleListIndir ExampleRO 
+SRC_EXAMPLES := Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleListNull ExampleListIndir ExampleRO 
 
 SRC_CF := CFCrashCourse
 

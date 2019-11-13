@@ -592,59 +592,59 @@ Tactic Notation "xappn" "*" constr(n) :=
 (* ---------------------------------------------------------------------- *)
 (* ** Decode typeclass *)
 
-Class Decode (v:val) `{EA:Enc A} (V:A) : Type :=
-  mk_Decode { decode : v = ``V }.
+Definition Decode (v:val) `{EA:Enc A} (V:A) : Prop :=
+  v = ``V.
 
-Arguments decode v {A} {EA} {V} {Decode}.
-
-Instance Decode_enc : forall `{EA:Enc A} (V:A),
+Lemma Decode_enc : forall `{EA:Enc A} (V:A),
   Decode (``V) V.
-Proof using. intros. constructors~. Defined.
+Proof using. intros. hnfs~. Qed.
 
-Hint Extern 1 (Decode (``_) _) => eapply Decode_enc : typeclasses_instances.
+Hint Extern 1 (Decode (``_) _) => eapply Decode_enc : Decode.
 
-Instance Decode_unit :
+Lemma Decode_unit :
   Decode val_unit tt.
-Proof using. intros. constructors~. Defined.
+Proof using. intros. hnfs~. Qed.
 
-Instance Decode_int : forall (n:int),
+Lemma Decode_int : forall (n:int),
   Decode (val_int n) n.
-Proof using. intros. constructors~. Defined.
+Proof using. intros. hnfs~. Qed.
 
-Instance Decode_bool : forall (b:bool),
+Lemma Decode_bool : forall (b:bool),
   Decode (val_bool b) b.
-Proof using. intros. constructors~. Defined.
+Proof using. intros. hnfs~. Qed.
 
-Instance Decode_loc : forall (l:loc),
+Lemma Decode_loc : forall (l:loc),
   Decode (val_loc l) l.
-Proof using. intros. constructors~. Defined.
+Proof using. intros. hnfs~. Qed.
 
-Instance Decode_nil : forall `{EA:Enc A},
+Hint Resolve Decode_unit Decode_int Decode_bool Decode_loc : Decode.
+
+Lemma Decode_nil : forall A `{EA:Enc A},
   Decode ('nil%val) (@nil A).
-Proof using. intros. constructors~. Defined.
+Proof using. intros. hnfs~. Qed.
 
-Instance Decode_cons : forall `{EA:Enc A} (X:A) (L:list A) (x l : val),
+Lemma Decode_cons : forall A `{EA:Enc A} (X:A) (L:list A) (x l : val),
   Decode x X ->
   Decode l L ->
   Decode ((x ':: l)%val) (X::L).
-Proof using.
-  introv Dx DL. constructors. rew_enc. fequals. fequals. applys decode.
-  fequals. applys~ decode.
-Qed.
+Proof using. introv Dx DL. unfolds. rew_enc. fequals. Qed.
 
-(* LATER: why needed? *)
-Hint Extern 3 (Decode (val_constr "nil" (@nil _)) _) => eapply Decode_nil : typeclass_instances.
-Hint Extern 3 (Decode (val_constr "cons" (_::_::nil)) _) => eapply Decode_cons : typeclass_instances.
+(* LATER: WORK AROUND TYPECLASS RESOLUTION BUG *)
+Hint Extern 1 (Decode 'nil%val _) => 
+  match goal with H: Enc ?A |- _ => eapply (@Decode_nil A) end : Decode.
+Hint Extern 1 (Decode ('VCstr "cons" _ _) _) => 
+  match goal with H: Enc ?A |- _ => eapply (@Decode_cons A) end : Decode.
 
-Instance Decode_None : forall `{EA:Enc A},
+Lemma Decode_None : forall A `{EA:Enc A},
   Decode (val_constr "none" nil) (@None A).
-Proof using. intros. constructors~. Defined.
+Proof using. intros. hnfs~. Qed.
 
-Instance Decode_Some : forall `{EA:Enc A} (V:A) (v:val),
+Lemma Decode_Some : forall A `{EA:Enc A} (V:A) (v:val),
   Decode v V ->
   Decode (val_constr "some" (v::nil)) (Some V).
-Proof using. intros. constructors. rew_enc. fequals. fequals. applys decode. Defined.
+Proof using. intros. unfolds. rew_enc. fequals. Qed.
 
+Hint Resolve @Decode_None @Decode_Some : Decode.
 (* LATER: similar hints needed? *)
 
 
@@ -655,7 +655,7 @@ Lemma xval_lemma_decode : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
   Decode v V ->
   H ==> Q V ->
   H ==> ^(Wpgen_val v) Q.
-Proof using. introv E N. subst. applys MkStruct_erase. xsimpl~ V. applys decode. Qed.
+Proof using. introv E N. subst. applys MkStruct_erase. xsimpl~ V. Qed.
 
 Lemma xval_lemma : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
   v = ``V ->
@@ -696,7 +696,7 @@ Ltac xval_post tt :=
 
 Ltac xval_core tt :=
   xval_pre tt;
-  applys @xval_lemma_decode; [ try solve [ typeclass ] | ];
+  applys @xval_lemma_decode; [ try solve [ eauto with Decode ] | ];
   xval_post tt.
 
 Tactic Notation "xval" :=

@@ -61,18 +61,19 @@ Definition Cons `{Enc A} (V:A) (p:loc) : val := val_constr "Cons" (``V::``p::nil
 
 (** Setup for the tactic [xval], to convert embedded values into Coq values. *)
 
-Instance Decode_Nil :
+Lemma Decode_Nil :
   Decode (val_constr "Nil" nil) Nil.
 Proof using. intros. constructors~. Defined.
 
-Instance Decode_Cons : forall `{EA:Enc A} (V:A) (v vp:val) (p:loc),
+Lemma Decode_Cons : forall A `{EA:Enc A} (V:A) (v vp:val) (p:loc),
   Decode v V ->
   Decode vp p ->
   Decode (val_constr "Cons" (v::vp::nil)) (Cons V p).
 Proof using.
-  introv Dx DL. constructors. unfold Cons. rew_enc. fequals. fequals.
-  { applys decode. } { fequals. rewrites~ (>> (@decode) DL). }
+  introv Dx DL. unfolds Decode. unfold Cons. rew_enc in *. fequals.
 Qed.
+
+Hint Resolve @Decode_Nil @Decode_Cons : Decode.
 
 
 (* ---------------------------------------------------------------------- *)
