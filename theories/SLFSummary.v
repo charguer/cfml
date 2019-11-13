@@ -210,11 +210,6 @@ Implicit Type H : hprop.
     - [H1 \* H2] denotes the separating conjunction
     - [Q1 \*+ H2] denotes the separating conjunction extending a postcondition
     - [\exists x, H] denotes an existential
-    - [\Top] denotes the true heap predicate
-      (Remark: in the basic logic that we consider, all predicates are affine.
-       In CFML, the predicate [\GC] enables a finer control of which
-       predicates are affine and which ones are linear.)
-
 *)
 
 Definition hempty : hprop :=
@@ -256,21 +251,6 @@ Notation "'\exists' x1 .. xn , H" :=
   (hexists (fun x1 => .. (hexists (fun xn => H)) ..))
   (at level 39, x1 binder, H at level 50, right associativity,
    format "'[' '\exists' '/ '  x1  ..  xn , '/ '  H ']'").
-
-
-Definition htop : hprop :=
-  fun h => True.
-
-Notation "\Top" := (htop).
-
-Definition hgc : hprop := htop.
-
-(** In general, [Definition hgc := fun h => heap_affine h],
-    where [heap_affine] is a predicate that characterizes which pieces
-    of heap are garbaged collected, as opposed to those that need to be
-    deallocated explicitly (e.g. file handles, or heap-allocated data in C). *)
-
-Notation "\GC" := (hgc).
 
 
 (* ******************************************************* *)
@@ -421,29 +401,18 @@ Definition hoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
 (** [triple1 t H Q] features pre- and post-conditions describing
     only a piece of state. [H'] denotes the framed part. *)
 
-Definition triple1 (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (H':hprop), hoare t (H \* H') (Q \*+ H').
 
-(** [triple t H Q] adds a [\Top] to make the logic affine as
-    opposed to linear: resources can be freely thrown away. *)
-
-Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
-  forall (H':hprop), hoare t (H \* H') (Q \*+ H' \*+ \Top).
-
 (** An alternative, equivalent definition of SL triples. *)
-
-Definition fmap_disjoint_3 (h1 h2 h3:heap) : Prop :=
-     Fmap.disjoint h1 h2
-  /\ Fmap.disjoint h2 h3
-  /\ Fmap.disjoint h1 h3.
 
 Definition triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall h1 h2,
   Fmap.disjoint h1 h2 ->
   H h1 ->
-  exists v h1' h3',
-       fmap_disjoint_3 h1' h2 h3'
-    /\ eval (h1 \u h2) t (h1' \u h2 \u h3') v
+  exists v h1',
+       Fmap.disjoint h1' h2
+    /\ eval (h1 \u h2) t (h1' \u h2) v
     /\ Q v h1'.
 
 Parameter triple_iff_triple_lowlevel : forall t H Q,
@@ -684,8 +653,8 @@ Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
 
 (** Reformulation of the combined structural rule *)
 
-Parameter wp_conseq_frame_htop : forall t H Q1 Q2,
-  Q1 \*+ H ===> Q2 \*+ \Top ->
+Parameter wp_conseq_frame : forall t H Q1 Q2,
+  Q1 \*+ H ===> Q2 ->
   (wp t Q1) \* H ==> (wp t Q2).
 
 (** Reformulation of the reasoning rules for terms *)
@@ -771,19 +740,19 @@ Parameter wpgen : forall (t:trm), formula.
     can be applied to any formula produced by [wpgen], that is: *)
 
 Parameter wpgen_ramified : forall t Q1 Q2,
-  (wpgen t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wpgen t Q2).
+  (wpgen t Q1) \* (Q1 \--* Q2) ==> (wpgen t Q2).
 
 End Wpgen1.
 
 (** [mkstruct] is a formula transformer *)
 
 Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
-  \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
+  \exists Q', F Q' \* (Q' \--* Q).
 
 (** [mkstruct] can be exploited to apply frame/consequence/garbage rules *)
 
 Lemma mkstruct_ramified : forall Q1 Q2 F,
-  (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
+  (mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2).
 Proof using. unfold mkstruct. xsimpl. Qed.
 
 (** [mkstruct] can be dropped *)
@@ -1182,7 +1151,7 @@ Notation "^ F Q" := ((F:Formula) _ _ Q)
 (** The [MkStruct] predicate lifts [mkstruct]. *)
 
 Definition MkStruct (F:Formula) : Formula :=
-  fun A `{EA:Enc A} Q => \exists Q', ^F Q' \* (Q' \--* (Q \*+ \Top)).
+  fun A `{EA:Enc A} Q => \exists Q', ^F Q' \* (Q' \--* Q).
 
 (** Lifted characteristic formula generator *)
 

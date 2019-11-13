@@ -117,47 +117,7 @@ Proof using.
   introv M. intros HF. applys hoare_conseq (M (HF \* H')); xsimpl.
 Qed.
 
-(** Garbage rules *)
-
-Lemma triple_htop_post : forall t H Q,
-  triple t H (Q \*+ \Top) ->
-  triple t H Q.
-Proof using.
-  introv M. intros HF. applys hoare_conseq (M HF); xsimpl.
-Qed.
-
-Lemma triple_htop_pre : forall t H Q,
-  triple t H Q ->
-  triple t (H \* \Top) Q.
-Proof using.
-  introv M. applys triple_htop_post. applys~ triple_frame.
-Qed.
-
-Lemma triple_hany_pre : forall t H H' Q,
-  triple t H Q ->
-  triple t (H \* H') Q.
-Proof using.
-  introv M. applys triple_conseq (triple_htop_pre M); xsimpl.
-Qed.
-
-Lemma triple_hany_post : forall t H H' Q,
-  triple t H (Q \*+ H') ->
-  triple t H Q.
-Proof using.
-  introv M. applys triple_htop_post. applys triple_conseq M; xsimpl.
-Qed.
-
 (** Combined and ramified rules *)
-
-Lemma triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \Top ->
-  triple t H Q.
-Proof using.
-  introv M WH WQ. applys triple_htop_post.
-  applys triple_conseq WH WQ. applys triple_frame M.
-Qed.
 
 Lemma triple_conseq_frame : forall H2 H1 Q1 t H Q,
   triple t H1 Q1 ->
@@ -165,16 +125,7 @@ Lemma triple_conseq_frame : forall H2 H1 Q1 t H Q,
   Q1 \*+ H2 ===> Q ->
   triple t H Q.
 Proof using.
-  introv M WH WQ. applys triple_conseq_frame_htop M WH. xchanges WQ.
-Qed.
-
-Lemma triple_ramified_frame_htop : forall H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* (Q \*+ \Top)) ->
-  triple t H Q.
-Proof using.
-  introv M W. applys triple_conseq_frame_htop (Q1 \--* Q \*+ \Top) M W.
-  { rewrite~ <- qwand_equiv. }
+  introv M WH WQ. applys triple_conseq WH WQ. applys triple_frame M.
 Qed.
 
 Lemma triple_ramified_frame : forall H1 Q1 t H Q,
@@ -182,7 +133,8 @@ Lemma triple_ramified_frame : forall H1 Q1 t H Q,
   H ==> H1 \* (Q1 \--* Q) ->
   triple t H Q.
 Proof using.
-  introv M W. applys triple_ramified_frame_htop M. xchanges W.
+  introv M W. applys triple_conseq_frame (Q1 \--* Q) M W.
+  { rewrite~ <- qwand_equiv. }
 Qed.
 
 

@@ -104,7 +104,7 @@ Qed.
        are not needed in a wp-style presentation, because they
        are directly subsumed by basic lemmas on entailment.
 
-    2. The combined consequence-frame-htop rule for [triple]
+    2. The combined consequence-frame rule for [triple]
        has a counterpart for [wp]. This rule is, in effect,
        the unique structural rule that is needed for [wp].
        (All other structural rules are derivable from it.)
@@ -148,12 +148,12 @@ Proof using. introv M. applys himpl_hexists_l M. Qed.
 (* ------------------------------------------------------- *)
 (** *** 2. Combined structural rule for [wp] *)
 
-(** Recall the combined consequence-frame-htop rule for [triple]. *)
+(** Recall the combined consequence-frame rule for [triple]. *)
 
-Parameter triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
+Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
   triple t H1 Q1 ->
   H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \Top ->
+  Q1 \*+ H2 ===> Q ->
   triple t H Q.
 
 (** Let us reformulate this rule using [wp]:
@@ -161,7 +161,7 @@ Parameter triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
 [[
     H1 ==> wp t Q1 ->
     H ==> H1 \* H2 ->
-    Q1 \*+ H2 ===> Q \*+ \Top ->
+    Q1 \*+ H2 ===> Q ->
     H ==> wp t Q.
 ]]
 
@@ -170,19 +170,19 @@ Parameter triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
    We obtain:
 
 [[
-    Q1 \*+ H2 ===> Q \*+ \Top ->
+    Q1 \*+ H2 ===> Q ->
     (wp t Q1) \* H2 ==> wp t Q.
 ]]
    After renaming [H2] into [H] and [Q] into [Q2], we arrive at
    the combined rule for [wp]:
 *)
 
-Lemma wp_conseq_frame_htop : forall t H Q1 Q2,
-  Q1 \*+ H ===> Q2 \*+ \Top ->
+Lemma wp_conseq_frame : forall t H Q1 Q2,
+  Q1 \*+ H ===> Q2 ->
   (wp t Q1) \* H ==> (wp t Q2).
 Proof using.
   introv M. rewrite <- wp_equiv.
-  applys triple_conseq_frame_htop (wp t Q1) M.
+  applys triple_conseq_frame (wp t Q1) M.
   { rewrite wp_equiv. xsimpl. } { xsimpl. }
 Qed.
 
@@ -191,10 +191,7 @@ Qed.
     1. [wp t Q1] can absorb any heap predicate [H] with which it
       is starred, changing it to [wp t (Q1 \*+ H)].
 
-    2. [wp t Q1] can be weakened to [wp t Q2] when [Q1 ===> Q2].
-
-    3. [wp t (Q1 \*+ H)] can be simplified to [wp t Q1] if one
-      wants to discard [H] from the postcondition. *)
+    2. [wp t Q1] can be weakened to [wp t Q2] when [Q1 ===> Q2]. *)
 
 (** Further in this chapter, we present specializations of
     this rule, e.g., to invoke only the [frame] rule, or only the
@@ -204,34 +201,34 @@ Qed.
 (* ------------------------------------------------------- *)
 (** *** 3. The ramified structural rule for [wp] *)
 
-(** Consider the entailment [Q1 \*+ H ===> Q2 \*+ \Top]
-    that appears in the combined rule [wp_conseq_frame_htop].
+(** Consider the entailment [Q1 \*+ H ===> Q2]
+    that appears in the combined rule [wp_conseq_frame].
 
     This entailement can be rewritten using the magic wand as:
-    [H ==> (Q1 \--* (Q2 \*+ \Top))].
+    [H ==> (Q1 \--* Q2)].
 
     Thus, the conclusion [(wp t Q1) \* H ==> (wp t Q2)]
     can be reformulated as
-    [(wp t Q1) \* (Q1 \--* (Q2 \*+ \Top)) ==> (wp t Q2)].
+    [(wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2)].
 
     The "ramified combined structural rule" for [wp], shown below,
     captures in a single line all the structural properties of [wp]. *)
 
 Lemma wp_ramified : forall t Q1 Q2,
-  (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
-Proof using. intros. applys wp_conseq_frame_htop. xsimpl. Qed.
+  (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
+Proof using. intros. applys wp_conseq_frame. xsimpl. Qed.
 
 (** The following specialization is useful to apply only frame. *)
 
 Lemma wp_ramified_frame : forall t Q1 Q2,
   (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
-Proof using. intros. applys wp_conseq_frame_htop. xsimpl. Qed.
+Proof using. intros. applys wp_conseq_frame. xsimpl. Qed.
 
 (** The following reformulation is handy to apply on any goal
     of the form [H ==> wp t Q]. *)
 
 Lemma wp_ramified_trans : forall t H Q1 Q2,
-  H ==> (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ->
+  H ==> (wp t Q1) \* (Q1 \--* Q2) ->
   H ==> (wp t Q2).
 Proof using. introv M. xchange M. applys wp_ramified. Qed.
 
@@ -369,31 +366,6 @@ Proof using.
   applys triple_frame. rewrite~ wp_equiv.
 Qed.
 
-(** The garbage collection in precondition for [wp] asserts that
-    [wp] can absorb and discard any desired heap predicate [H]
-    that sits next to it (i.e., that it is starred with). *)
-
-Lemma wp_hany_pre : forall t H Q,
-  (wp t Q) \* H ==> wp t Q.
-Proof using.
-  intros. rewrite <- wp_equiv.
-  applys triple_hany_pre. rewrite~ wp_equiv.
-Qed.
-
-(** The garbage collection in postconditions for [wp] asserts
-    that [wp] can absorb and discard any desired heap predicate
-    [H] that appears in its postcondition. *)
-
-Lemma wp_hany_post : forall t H Q ,
-  wp t (Q \*+ H) ==> wp t Q.
-Proof using.
-  intros. rewrite <- wp_equiv.
-  applys triple_hany_post. rewrite~ wp_equiv.
-Qed.
-
-(** Note, equivalently, the [H] from rules [wp_hany_pre] and
-   [wp_hand_post] may be replaced with [\Top]. *)
-
 
 (* ####################################################### *)
 (** * Definition of [wp] directly in terms of [hoare] *)
@@ -414,16 +386,16 @@ Qed.
     of [hoare], following the definition of [wp_high] from above. *)
 
 Parameter wp_def : forall t Q,
-  wp t Q = \exists H, H \* \[forall H', hoare t (H \* H') (Q \*+ H' \*+ \Top)].
+  wp t Q = \exists H, H \* \[forall H', hoare t (H \* H') (Q \*+ H')].
 
 (** We first establish the (most-general) structural rule for [wp],
     directly with respect to the [hoare] judgment. *)
 
 Lemma wp_ramified' : forall t Q1 Q2,
-  (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
+  (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
 Proof using.
   intros. do 2 rewrite wp_def. xpull ;=> H M.
-  xsimpl (H \* (Q1 \--* Q2 \*+ \Top)). intros H'.
+  xsimpl (H \* (Q1 \--* Q2)). intros H'.
   applys hoare_conseq M; xsimpl.
 Qed.
 

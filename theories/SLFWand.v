@@ -254,19 +254,6 @@ Proof using.
   xchange WH. xsimpl. rewrite qwand_equiv. applys WQ.
 Qed.
 
-(** The principle of the ramified-frame rule immediately generalizes
-    to handle the consequence-frame-top rule, which is like the
-    consequence-frame rule but with premise [Q1 \*+ H2 ===> Q \*+ \Top]. *)
-
-Lemma triple_ramified_frame_top : forall H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* (Q \*+ \Top)) ->
-  triple t H Q.
-Proof using.
-  introv M W. applys triple_conseq_frame_htop (Q1 \--* (Q \*+ \Top)) M.
-  { applys W. } { applys qwand_cancel. }
-Qed.
-
 
 (* ******************************************************* *)
 (** ** Automation with [xsimpl] for [hwand] expressions *)

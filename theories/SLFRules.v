@@ -996,7 +996,7 @@ Proof using.
   (* 2. We invoke the reasoning rule [hoare_val] that we have just established. *)
   applys hoare_val.
   (* 3. We exploit the assumption and conclude using [xsimpl]. *)
-  xchange M. xsimpl.
+  xchange M.
 Qed.
 
 (** Remark: in the proof of [hoare_val], the witnesses [h] and [v] are
@@ -1078,17 +1078,7 @@ Proof using.
   { (* 3. For the hypothesis on the first subterm [t1],
        we can invoke directly our first hypothesis. *)
     applys M1. }
-  { applys M2.
-  { (* 4. For the hypothesis on the first subterm [t2],
-       we need a little more work to exploit our second hypothesis.
-       Indeed, the precondition features an extra [\Top].
-       To handle it, we need to instantiate [M2] with [H' \* \Top],
-       then merge the two [\Top] that appear into a single one.
-       We could begin the proof script with:
-         [specializes M2 (H' \* \Top). rewrite <- hstar_assoc in M2.]
-       However, it is simpler to directly invoke the consequence rule,
-       and let [xsimpl] do all the tedious work for us. *)
-    applys hoare_conseq. { applys M2. } { xsimpl. } { xsimpl. } }
+  { applys M2. }
 Qed.
 
 
@@ -1810,7 +1800,7 @@ Proof using.
   lets N: M h1 (=h2). applys K1.
   applys hoare_conseq N.
   { intros ? ->. applys~ hstar_intro. }
-  { intros x. applys himpl_frame_l. applys himpl_frame_r.
+  { intros x. applys himpl_frame_r.
     intros ? ->. applys K2. }
 (* /SOLUTION *)
 Qed.

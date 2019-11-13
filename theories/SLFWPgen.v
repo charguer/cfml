@@ -123,14 +123,14 @@ Parameter triple_of_wpgen : forall H t Q,
     of Separation Logic. *)
 
 Parameter wp_ramified : forall t Q1 Q2,
-  (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
+  (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
 
 (** If [wpgen] were to satisfy this same property like [wp], then it would
     also capture the expressive power of all the structural rules of
     Separation Logic. In other words, we would like to have: *)
 
 Parameter wpgen_ramified : forall t Q1 Q2,
-  (wpgen t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wpgen t Q2).
+  (wpgen t Q1) \* (Q1 \--* Q2) ==> (wpgen t Q2).
 
 End WpgenOverview.
 
@@ -140,7 +140,7 @@ End WpgenOverview.
     known as a "predicate transformer") of type [formula->formula] such that:
 [[
     Parameter mkstruct_ramified : forall F Q1 Q2,
-      (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
+      (mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2).
 ]]
     At the same time, in a situation where we do not need to apply any structural
     rule, we'd like to be able to get rid of the leading [mkstruct] in the formula
@@ -155,10 +155,10 @@ End WpgenOverview.
     The tactic [xsimpl] trivializes the proofs. Details are discussed further on. *)
 
 Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
-  \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
+  \exists Q', F Q' \* (Q' \--* Q).
 
 Lemma mkstruct_ramified : forall Q1 Q2 F,
-  (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
+  (mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2).
 Proof using. unfold mkstruct. xsimpl. Qed.
 
 Lemma mkstruct_erase : forall Q F,
@@ -168,27 +168,26 @@ Proof using. unfolds mkstruct. xsimpl. Qed.
 Arguments mkstruct_erase : clear implicits.
 Arguments mkstruct_ramified : clear implicits.
 
-
 (* TODO integrate
 Module MkstructAlt.
 
 Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
-  \exists Q' H', F Q' \* H' \* \[Q' \*+ H' ===> Q \*+ \Top].
+  \exists Q' H', F Q' \* H' \* \[Q' \*+ H' ===> Q].
 
 Lemma mkstruct_erase : forall Q F,
   F Q ==> mkstruct F Q.
 Proof using. unfolds mkstruct. intros. xsimpl \[] Q. xsimpl. Qed.
 
 Lemma mkstruct_ramified : forall Q1 Q2 F,
-  (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
+  (mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2).
 Proof using.
   unfold mkstruct. intros. xpull ;=> Q' H' M.
   applys himpl_hexists_r Q'.
-  applys himpl_hexists_r (H' \* (Q1 \--* Q2 \*+ \Top)).
+  applys himpl_hexists_r (H' \* (Q1 \--* Q2)).
   rew_heap.
   applys himpl_frame_r.
   applys himpl_frame_r.
-  xsimpl. xchange M. intros x. xsimpl.
+  xsimpl. xchange M.
 Qed.
 
 Definition equiv_mkstruct :
@@ -199,6 +198,7 @@ Proof using.
   { xpull ;=> Q' H' M. xsimpl Q'. xchanges M. }
   { xpull ;=> Q'. xsimpl Q'. xsimpl. }
 Qed.
+
 
 End MkstructAlt.
  *)
@@ -890,6 +890,14 @@ Lemma xstruct_lemma : forall F H Q,
   H ==> mkstruct F Q.
 Proof using. introv M. xchange M. applys mkstruct_erase. Qed.
 
+(** [xval_lemma] reformulates the definition of [wpgen_val].
+    It just unfolds the definition. *)
+
+Lemma xval_lemma : forall v H Q,
+  H ==> Q v ->
+  H ==> wpgen_val v Q.
+Proof using. introv M. applys M. Qed.
+
 (** [xlet_lemma] reformulates the definition of [wpgen_let].
     It just unfolds the definition. *)
 
@@ -923,11 +931,11 @@ Proof using. introv M W. rewrite <- wp_equiv. applys~ triple_ramified_frame M. Q
 
 Tactic Notation "xsimpl'" := xsimpl; unfold protect.
 
-(** [xcf_lemma] is a variant of [wpgen_of_triple] specialized for
+(** [xwp_lemma] is a variant of [wpgen_of_triple] specialized for
     establishing a triple for a function application. The rule reformulates
     [triple_app_fun] with a premise of the form [wpgen E t]. *)
 
-Lemma xcf_lemma : forall v1 v2 x t H Q,
+Lemma xwp_lemma : forall v1 v2 x t H Q,
   v1 = val_fun x t ->
   H ==> wpgen ((x,v2)::nil) t Q ->
   triple (trm_app v1 v2) H Q.
@@ -937,25 +945,6 @@ Proof using.
   { rewrite isubst_rem. rewrite~ isubst_nil. }
   rewrite wp_equiv. xchange M2. applys wpgen_sound.
 Qed.
-
-(** [xtop_lemma] helps exploiting [mkstruct] to augment the postcondition
-    with [\Top]. It proves the entailement:
-[[
-    H ==> mkstruct F (Q \*+ \Top) ->
-    H ==> mkstruct F Q.
-]]
-*)
-
-Lemma xtop_lemma : forall H Q F,
-  H ==> mkstruct F (Q \*+ \Top) ->
-  H ==> mkstruct F Q.
-Proof using.
-  introv M. xchange M.
-  lets N: mkstruct_ramified (Q \*+ \Top) Q F. xchanges N.
-Qed.
-
-(** Other lemmas for structural rules, not shown here, can be similarly
-    devised. *)
 
 
 (* ******************************************************* *)
@@ -977,11 +966,13 @@ Parameter triple_incr : forall (p:loc) (n:int),
 (** Recall the definition of [mysucc], which allocates a reference
     with contents [n], increments its contents, then reads the output. *)
 
-Definition mysucc :=
+Definition mysucc : val :=
   VFun 'n :=
     Let 'r := val_ref 'n in
     incr 'r ';
-    '! 'r.
+    Let 'x := '! 'r in
+    val_free 'r ';
+    'x.
 
 (** Let us specify and prove this function using the x-lemmas. *)
 
@@ -991,8 +982,10 @@ Lemma triple_mysucc_with_xlemmas : forall n,
     (fun v => \[v = n+1]).
 Proof using.
   intros.
-  applys xcf_lemma. { reflexivity. }
-  simpl. (* Here the [wpgen] function computes. *)
+  applys xwp_lemma. { reflexivity. }
+  (* Here the [wpgen] function computes. 
+     For technical reasons, we need to help it a little bit with the unfolding. *)
+  simpl; unfold wpgen_var; simpl. 
   (* Observe how each node begin with [mkstruct].
      Observe how program variables are all eliminated. *)
   applys xstruct_lemma.
@@ -1005,10 +998,18 @@ Proof using.
   applys xstruct_lemma.
   applys xapp_lemma. { apply triple_incr. }
   xsimpl'. intros ? ->.
-  applys xtop_lemma. (* Here we exploit [mkstruct] to apply a structural rule. *)
+  applys xstruct_lemma.
+  applys xlet_lemma.
   applys xstruct_lemma.
   applys xapp_lemma. { apply triple_get. }
   xsimpl'. intros ? ->.
+  applys xstruct_lemma.
+  applys xseq_lemma.
+  applys xstruct_lemma.
+  applys xapp_lemma. { apply triple_free. }
+  xsimpl'. intros ? ->.
+  applys xstruct_lemma.
+  applys xval_lemma.
   xsimpl'. auto.
 Qed.
 
@@ -1054,7 +1055,7 @@ Lemma triple_mysucc_with_notations : forall n,
     \[]
     (fun v => \[v = n+1]).
 Proof using.
-  intros. applys xcf_lemma. { reflexivity. } simpl.
+  intros. applys xwp_lemma. { reflexivity. } simpl.
   (* Obseve the goal here, which is of the form [H ==> "t" Q],
      where "t" reads just like the source code.
      Thus, compared with a goal of the form [triple t H Q],
@@ -1082,6 +1083,9 @@ Tactic Notation "xstruct" :=
 Tactic Notation "xstruct_if_needed" :=
   try match goal with |- ?H ==> mkstruct ?F ?Q => xstruct end.
 
+Tactic Notation "xval" :=
+  xstruct_if_needed; applys xval_lemma.
+
 Tactic Notation "xlet" :=
   xstruct_if_needed; applys xlet_lemma.
 
@@ -1101,15 +1105,10 @@ Tactic Notation "xseq_xlet_if_needed" :=
 Tactic Notation "xapp" :=
   xseq_xlet_if_needed; xstruct_if_needed; applys xapp_lemma.
 
-(** [xtop] involves [xtop_lemma], exploiting the leading [mkstruct]. *)
+(** [xwp] applys [xwp_lemma], then computes [wpgen] to begin the proof. *)
 
-Tactic Notation "xtop" :=
-  applys xtop_lemma.
-
-(** [xcf] applys [xcf_lemma], then computes [wpgen] to begin the proof. *)
-
-Tactic Notation "xcf" :=
-  intros; applys xcf_lemma; [ reflexivity | simpl ].
+Tactic Notation "xwp" :=
+  intros; applys xwp_lemma; [ reflexivity | simpl; unfold wpgen_var; simpl ].
 
 (** The proof script becomes much more succint. *)
 
@@ -1118,11 +1117,12 @@ Lemma triple_mysucc_with_xtactics : forall (n:int),
     \[]
     (fun v => \[v = n+1]).
 Proof using.
-  xcf.
+  xwp.
   xapp. { apply triple_ref. } xsimpl' ;=> ? l ->.
   xapp. { apply triple_incr. } xsimpl' ;=> ? ->.
-  xtop.
   xapp. { apply triple_get. } xsimpl' ;=> ? ->.
+  xapp. { apply triple_free. } xsimpl' ;=> ? ->.
+  xval.
   xsimpl. auto.
 Qed.
 
@@ -1136,7 +1136,7 @@ Lemma triple_incr_with_xtactics : forall (p:loc) (n:int),
     (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
 Proof using.
 (* SOLUTION *)
-  xcf.
+  xwp.
   xapp. { apply triple_get. } xsimpl' ;=> ? ->.
   xapp. { apply triple_add. } xsimpl' ;=> ? ->.
   xapp. { apply triple_set. } xsimpl' ;=> ? ->.
@@ -1198,7 +1198,7 @@ Lemma triple_incr_with_xapps : forall (p:loc) (n:int),
     (p ~~~> n)
     (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
 Proof using.
-  xcf.
+  xwp.
   xapps triple_get.
   xapps triple_add.
   xapps triple_set.
@@ -1212,11 +1212,12 @@ Lemma triple_mysucc_with_xapps : forall n,
     \[]
     (fun v => \[v = n+1]).
 Proof using.
-  xcf.
+  xwp.
   xapp triple_ref ;=> ? l ->.
   xapps triple_incr.
-  xtop.
   xapps triple_get.
+  xapps triple_free.
+  xval.
   xsimpl~.
 Qed.
 
@@ -1367,7 +1368,7 @@ Qed.
 (** Recall the definition of [mkstruct].
 [[
     Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
-      \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
+      \exists Q', F Q' \* (Q' \--* Q).
 ]]
 
     Let us first explain in more details why this definition satisfies
@@ -1375,24 +1376,19 @@ Qed.
     whose proofs were trivialized by [xsimpl].
 
     For the lemma [mkstruct_erase], we want to prove [F Q ==> mkstruct F Q].
-    This is equivalent to [F Q ==> \exists Q', F Q' \* (Q' \--* Q \*+ \Top)].
+    This is equivalent to [F Q ==> \exists Q', F Q' \* (Q' \--* Q)].
     Taking [Q'] to be [Q] and cancelling [F Q] from both sides leaves
-    [\[] ==> Q \--* (Q \*+ \Top)], which is equivalent to [Q ==> Q \*+ \Top].
+    [\[] ==> Q \--* (Q \*+ \Top)], which is equivalent to [Q ==> Q].
 
     For the lemma [mkstruct_ramified], we want to prove
-    [(mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2)],
+    [(mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2)],
     which is equivalent to
-    [\exists Q', F Q' \* (Q' \--* Q1 \*+ \Top) \* (Q1 \--* Q2 \*+ \Top) ==>
-     \exists Q', F Q' \* (Q' \--* Q2 \*+ \Top)].
+    [\exists Q', F Q' \* (Q' \--* Q1) \* (Q1 \--* Q2) ==>
+     \exists Q', F Q' \* (Q' \--* Q2)].
     By instantiatiating the LHS [Q'] with the value of the RHS [Q'], and
     cancelling [F Q'] form both sides, the entailment simplifies to:
-    [(Q' \--* Q1 \*+ \Top) \* (Q1 \--* Q2 \*+ \Top) ==> (Q' \--* Q2 \*+ \Top)].
-    The wand [Q1 \--* (Q2 \*+ \Top)] is equal to [(Q1 \*+ \Top) \--* (Q2 \*+ \Top)]
-    (because both are equal to [(Q1 \*+ \Top) \--* (Q2 \*+ \Top \*+ \Top))]).
-    Thus, the goal reformulates as
-    [Q' \--* (Q1 \*+ \Top)) \* ((Q1 \*+ \Top) \--* (Q2 \*+ \Top)) ==>
-     Q' \--* (Q2 \*+ \Top)].
-    We conclude by cancelling out [Q1 \*+ \Top] accross the two magic wands
+    [(Q' \--* Q1) \* (Q1 \--* Q2) ==> (Q' \--* Q2)].
+    We conclude by cancelling out [Q1] accross the two magic wands
     from the LHS---recall the lemma [hwand_trans_elim] from [SLFHwand]. *)
 
 (** Let us now explain how, to a goal of the form [H ==> mkstruct F Q],
@@ -1433,10 +1429,10 @@ Proof using.
   (* [xsimpl] first invokes [applys himpl_antisym].
      The right-to-left entailment is exactly [mkstruct_erase].
      The left-to-right entailment amounts to proving:
-     [F Q2 \* (Q2 \--* (Q1 \*+ \Top) \* (Q1 \--* (Q \*+ \Top))
-      ==> \exists Q', F Q' \* (Q' \--* (Q \*+ \Top))]
+     [F Q2 \* (Q2 \--* Q1) \* (Q1 \--* Q))
+      ==> \exists Q', F Q' \* (Q' \--* Q))]
      To conclude the proof, instantiate [Q'] as [Q2] and cancel
-     out [Q1 \*+ \Top] (like done earlier in this section). *)
+     out [Q1] (as done in an earlier proof from this section). *)
 (* /SOLUTION *)
 Qed.
 

@@ -590,3 +590,405 @@ Qed.
 
 
 
+
+(* ******************************************************* *)
+(** ** wand *)
+
+(** The principle of the ramified-frame rule immediately generalizes
+    to handle the consequence-frame-top rule, which is like the
+    consequence-frame rule but with premise [Q1 \*+ H2 ===> Q \*+ \Top]. *)
+
+Lemma triple_ramified_frame_top : forall H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* (Q \*+ \Top)) ->
+  triple t H Q.
+Proof using.
+  introv M W. applys triple_conseq_frame_htop (Q1 \--* (Q \*+ \Top)) M.
+  { applys W. } { applys qwand_cancel. }
+Qed.
+
+
+
+
+(** The reciprocal entailment to the above lemma, that is
+    [(H \-* H) ==> \[]], does not hold.
+
+    For example, [\Top \-* \Top] is a heap predicate that
+    holds of any heap, and not just of the empty heap. *)
+
+Lemma not_hwand_self_himpl_hempty : exists H,
+  ~ ((H \-* H) ==> \[]).
+Proof using.
+  exists \Top. intros M.
+  lets (h&N): (@Fmap.exists_not_empty val). { typeclass. }
+  forwards K: M h. { hnf. intros h' D K'. applys htop_intro. }
+  false* (hempty_inv K).
+Qed.
+
+
+(*derived*)
+Definition htop : hprop :=
+  \exists (H:hprop), H.
+
+
+
+
+(* ------------------------------------------------------- *)
+(** *** 2. Combined structural rule for [wp] *)
+
+(** Recall the combined consequence-frame-htop rule for [triple]. *)
+
+Parameter triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q \*+ \Top ->
+  triple t H Q.
+
+(** Let us reformulate this rule using [wp]:
+
+[[
+    H1 ==> wp t Q1 ->
+    H ==> H1 \* H2 ->
+    Q1 \*+ H2 ===> Q \*+ \Top ->
+    H ==> wp t Q.
+]]
+
+   The beove statement can be simplified by substituting [H]
+   with [H1 \* H2], then substituting [H1] with [wp t Q1].
+   We obtain:
+
+[[
+    Q1 \*+ H2 ===> Q \*+ \Top ->
+    (wp t Q1) \* H2 ==> wp t Q.
+]]
+   After renaming [H2] into [H] and [Q] into [Q2], we arrive at
+   the combined rule for [wp]:
+*)
+
+Lemma wp_conseq_frame_htop : forall t H Q1 Q2,
+  Q1 \*+ H ===> Q2 \*+ \Top ->
+  (wp t Q1) \* H ==> (wp t Q2).
+Proof using.
+  introv M. rewrite <- wp_equiv.
+  applys triple_conseq_frame_htop (wp t Q1) M.
+  { rewrite wp_equiv. xsimpl. } { xsimpl. }
+Qed.
+
+(** The above statement asserts that:
+
+    1. [wp t Q1] can absorb any heap predicate [H] with which it
+      is starred, changing it to [wp t (Q1 \*+ H)].
+
+    2. [wp t Q1] can be weakened to [wp t Q2] when [Q1 ===> Q2].
+
+    3. [wp t (Q1 \*+ H)] can be simplified to [wp t Q1] if one
+      wants to discard [H] from the postcondition. *)
+
+(** Further in this chapter, we present specializations of
+    this rule, e.g., to invoke only the [frame] rule, or only the
+    garbage collection rule. *)
+
+
+(* ------------------------------------------------------- *)
+(** *** 3. The ramified structural rule for [wp] *)
+
+(** Consider the entailment [Q1 \*+ H ===> Q2 \*+ \Top]
+    that appears in the combined rule [wp_conseq_frame_htop].
+
+    This entailement can be rewritten using the magic wand as:
+    [H ==> (Q1 \--* (Q2 \*+ \Top))].
+
+    Thus, the conclusion [(wp t Q1) \* H ==> (wp t Q2)]
+    can be reformulated as
+    [(wp t Q1) \* (Q1 \--* (Q2 \*+ \Top)) ==> (wp t Q2)].
+
+    The "ramified combined structural rule" for [wp], shown below,
+    captures in a single line all the structural properties of [wp]. *)
+
+Lemma wp_ramified : forall t Q1 Q2,
+  (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
+Proof using. intros. applys wp_conseq_frame_htop. xsimpl. Qed.
+
+(** The following specialization is useful to apply only frame. *)
+
+Lemma wp_ramified_frame : forall t Q1 Q2,
+  (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
+Proof using. intros. applys wp_conseq_frame_htop. xsimpl. Qed.
+
+(** The following reformulation is handy to apply on any goal
+    of the form [H ==> wp t Q]. *)
+
+Lemma wp_ramified_trans : forall t H Q1 Q2,
+  H ==> (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ->
+  H ==> (wp t Q2).
+Proof using. introv M. xchange M. applys wp_ramified. Qed.
+
+
+
+
+
+(* ------------------------------------------------------- *)
+
+
+(** The garbage collection in precondition for [wp] asserts that
+    [wp] can absorb and discard any desired heap predicate [H]
+    that sits next to it (i.e., that it is starred with). *)
+
+Lemma wp_hany_pre : forall t H Q,
+  (wp t Q) \* H ==> wp t Q.
+Proof using.
+  intros. rewrite <- wp_equiv.
+  applys triple_hany_pre. rewrite~ wp_equiv.
+Qed.
+
+(** The garbage collection in postconditions for [wp] asserts
+    that [wp] can absorb and discard any desired heap predicate
+    [H] that appears in its postcondition. *)
+
+Lemma wp_hany_post : forall t H Q ,
+  wp t (Q \*+ H) ==> wp t Q.
+Proof using.
+  intros. rewrite <- wp_equiv.
+  applys triple_hany_post. rewrite~ wp_equiv.
+Qed.
+
+(** Note, equivalently, the [H] from rules [wp_hany_pre] and
+   [wp_hand_post] may be replaced with [\Top]. *)
+
+
+
+
+(* ******************************************************* *)
+(** ** Motivation for direct definitions for [wp] rules *)
+
+(** In our construction, we have proved reasoning rules for
+    [hoare], derived reasoning rules for [triple], then used
+    the latter for proving the soundness of [wp].
+
+    Yet, if our goal was only to prove properties [wp], we wouldn't
+    need any result on [triple]. How would the reasoning rules be
+    stated and proved if we were to directly state and prove [wp]
+    properties from [hoare]? Let us investigate. *)
+
+(** We assume [wp] to be defined [wp] to be defined directly in terms
+    of [hoare], following the definition of [wp_high] from above. *)
+
+Parameter wp_def : forall t Q,
+  wp t Q = \exists H, H \* \[forall H', hoare t (H \* H') (Q \*+ H' \*+ \Top)].
+
+(** We first establish the (most-general) structural rule for [wp],
+    directly with respect to the [hoare] judgment. *)
+
+Lemma wp_ramified' : forall t Q1 Q2,
+  (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
+Proof using.
+  intros. do 2 rewrite wp_def. xpull ;=> H M.
+  xsimpl (H \* (Q1 \--* Q2 \*+ \Top)). intros H'.
+  applys hoare_conseq M; xsimpl.
+Qed.
+
+(** We next establish [wp] reasoning rules for each term construct.
+
+    To guide us towards the appropriate statements, we start from the
+    rule for [triple], and reformulate it using the equivalence
+    [triple t H Q <-> H ==> (wp t Q)]. *)
+
+
+
+
+(* ******************************************************* *)
+(** Garbage rules *)
+
+Lemma triple_htop_post : forall t H Q,
+  triple t H (Q \*+ \Top) ->
+  triple t H Q.
+Proof using.
+  introv M. intros HF. applys hoare_conseq (M HF); xsimpl.
+Qed.
+
+Lemma triple_htop_pre : forall t H Q,
+  triple t H Q ->
+  triple t (H \* \Top) Q.
+Proof using.
+  introv M. applys triple_htop_post. applys~ triple_frame.
+Qed.
+
+Lemma triple_hany_pre : forall t H H' Q,
+  triple t H Q ->
+  triple t (H \* H') Q.
+Proof using.
+  introv M. applys triple_conseq (triple_htop_pre M); xsimpl.
+Qed.
+
+Lemma triple_hany_post : forall t H H' Q,
+  triple t H (Q \*+ H') ->
+  triple t H Q.
+Proof using.
+  introv M. applys triple_htop_post. applys triple_conseq M; xsimpl.
+Qed.
+
+
+
+(** Combined and ramified rules *)
+
+Lemma triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q \*+ \Top ->
+  triple t H Q.
+Proof using.
+  introv M WH WQ. applys triple_htop_post.
+  applys triple_conseq WH WQ. applys triple_frame M.
+Qed.
+
+Lemma triple_conseq_frame : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q ->
+  triple t H Q.
+Proof using.
+  introv M WH WQ. applys triple_conseq_frame_htop M WH. xchanges WQ.
+Qed.
+
+Lemma triple_ramified_frame_htop : forall H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* (Q \*+ \Top)) ->
+  triple t H Q.
+Proof using.
+  introv M W. applys triple_conseq_frame_htop (Q1 \--* Q \*+ \Top) M W.
+  { rewrite~ <- qwand_equiv. }
+Qed.
+
+Lemma triple_ramified_frame : forall H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* Q) ->
+  triple t H Q.
+Proof using.
+  introv M W. applys triple_ramified_frame_htop M. xchanges W.
+Qed.
+
+
+
+
+
+(* ******************************************************* *)
+
+
+
+(** The principle of the ramified-frame rule immediately generalizes
+    to handle the consequence-frame-top rule, which is like the
+    consequence-frame rule but with premise [Q1 \*+ H2 ===> Q \*+ \Top]. *)
+
+Lemma triple_ramified_frame_top : forall H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* (Q \*+ \Top)) ->
+  triple t H Q.
+Proof using.
+  introv M W. applys triple_conseq_frame (Q1 \--* (Q \*+ \Top)) M.
+  { applys W. } { applys qwand_cancel. }
+Qed.
+
+
+(* ******************************************************* *)
+
+Definition htop : hprop :=
+  fun h => True.
+
+Notation "\Top" := (htop).
+
+Definition hgc : hprop := htop.
+
+(** In general, [Definition hgc := fun h => heap_affine h],
+    where [heap_affine] is a predicate that characterizes which pieces
+    of heap are garbaged collected, as opposed to those that need to be
+    deallocated explicitly (e.g. file handles, or heap-allocated data in C). *)
+
+Notation "\GC" := (hgc).
+
+
+(* ******************************************************* *)
+
+
+(** [triple1 t H Q] features pre- and post-conditions describing
+    only a piece of state. [H'] denotes the framed part. *)
+
+Definition triple1 (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall (H':hprop), hoare t (H \* H') (Q \*+ H').
+
+(** [triple t H Q] adds a [\Top] to make the logic affine as
+    opposed to linear: resources can be freely thrown away. *)
+
+Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall (H':hprop), hoare t (H \* H') (Q \*+ H' \*+ \Top).
+
+(** An alternative, equivalent definition of SL triples. *)
+
+Definition fmap_disjoint_3 (h1 h2 h3:heap) : Prop :=
+     Fmap.disjoint h1 h2
+  /\ Fmap.disjoint h2 h3
+  /\ Fmap.disjoint h1 h3.
+
+Definition triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall h1 h2,
+  Fmap.disjoint h1 h2 ->
+  H h1 ->
+  exists v h1' h3',
+       fmap_disjoint_3 h1' h2 h3'
+    /\ eval (h1 \u h2) t (h1' \u h2 \u h3') v
+    /\ Q v h1'.
+
+Parameter triple_iff_triple_lowlevel : forall t H Q,
+  triple t H Q <-> triple_lowlevel t H Q.
+
+
+(* ******************************************************* *)
+
+
+(** Recall from the previous chapter that the ramified rule for [wp],
+    stated below, captures in a single line all the structural properties
+    of Separation Logic. *)
+
+Parameter wp_ramified : forall t Q1 Q2,
+  (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
+
+(** If [wpgen] were to satisfy this same property like [wp], then it would
+    also capture the expressive power of all the structural rules of
+    Separation Logic. In other words, we would like to have: *)
+
+Parameter wpgen_ramified : forall t Q1 Q2,
+  (wpgen t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wpgen t Q2).
+
+End WpgenOverview.
+
+
+
+(* ******************************************************* *)
+
+(** [xtop_lemma] helps exploiting [mkstruct] to augment the postcondition
+    with [\Top]. It proves the entailement:
+[[
+    H ==> mkstruct F (Q \*+ \Top) ->
+    H ==> mkstruct F Q.
+]]
+*)
+
+Lemma xtop_lemma : forall H Q F,
+  H ==> mkstruct F (Q \*+ \Top) ->
+  H ==> mkstruct F Q.
+Proof using.
+  introv M. xchange M.
+  lets N: mkstruct_ramified (Q \*+ \Top) Q F. xchanges N.
+Qed.
+
+(** Other lemmas for structural rules, not shown here, can be similarly
+    devised. *)
+
+
+
+(* ******************************************************* *)
+
+
+(** [xtop] involves [xtop_lemma], exploiting the leading [mkstruct]. *)
+
+Tactic Notation "xtop" :=
+  applys xtop_lemma.
