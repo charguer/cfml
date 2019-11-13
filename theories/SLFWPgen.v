@@ -169,7 +169,7 @@ Arguments mkstruct_erase : clear implicits.
 Arguments mkstruct_ramified : clear implicits.
 
 
-(* TODO integrate *)
+(* TODO integrate
 Module MkstructAlt.
 
 Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
@@ -201,7 +201,7 @@ Proof using.
 Qed.
 
 End MkstructAlt.
-
+ *)
 
 
 (* ******************************************************* *)
