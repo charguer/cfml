@@ -199,15 +199,6 @@ Notation "'\exists' x1 .. xn , H" :=
   (at level 39, x1 binder, H at level 50, right associativity,
    format "'[' '\exists' '/ '  x1  ..  xn , '/ '  H ']'").
 
-(** The "top" heap predicate, written [\Top], holds of any heap predicate.
-    It plays a useful role for denoting pieces of state that needs to be
-    discarded, reflecting in the logic the action of the garbage collector. *)
-
-Definition htop : hprop :=
-  fun (h:heap) => True.
-
-Notation "\Top" := (htop).
-
 
 (* ******************************************************* *)
 (** ** Extensionality for heap predicates *)
@@ -312,17 +303,17 @@ Definition hoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
     The following definition of a Separation Logic triple builds upon
     that of a Hoare triple by "baking in" the frame rule. *)
 
-Definition triple1 (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (H':hprop), hoare t (H \* H') (Q \*+ H').
 
 (** This definition inherently satisfies the frame rule, as we show
     below. The proof exploits the associativity of the star operator. *)
 
-Lemma triple1_frame : forall t H Q H',
-  triple1 t H Q ->
-  triple1 t (H \* H') (Q \*+ H').
+Lemma triple_frame : forall t H Q H',
+  triple t H Q ->
+  triple t (H \* H') (Q \*+ H').
 Proof using.
-  introv M. unfold triple1 in *. rename H' into H1. intros H2.
+  introv M. unfold triple in *. rename H' into H1. intros H2.
   specializes M (H1 \* H2).
   (* [M] matches the goal up to rewriting for associativity. *)
   applys_eq M 1 2.
@@ -337,53 +328,6 @@ Qed.
     freely forget about pieces of heaps that become no longer relevant.
     The required modification is motivated and explained next. *)
 
-
-(* ******************************************************* *)
-(** ** Separation Logic triples and the garbage collection rule *)
-
-(** To conduct verification proofs in a language equipped with a garbage
-    collector, we need to be able to discard pieces of states when they
-    become useless. Concretely, we need the rule shown below to hold.
-    The [\Top] predicate captures any (un)desired piece of state. *)
-
-Parameter triple_htop_post' : forall t H Q,
-  triple t H (Q \*+ \Top) ->
-  triple t H Q.
-
-(** Above, recall that [\Top] is defined as [fun h => True]. Thus, for 
-    some value [v], the heap predicate [(Q \*+ \Top) v] holds of any state
-    that decomposes as a disjoint union of the form [h1 \u h2], such that
-    [Q v h1] holds. In other words, [(Q \*+ \Top) v] holds of any state
-    that contains a sub-state [h1] such that [Q v h1] holds. *)
-
-(** The definition [triple1] provided earlier does not allow deriving the
-    rule [triple_htop_post']. However, we can tweak slightly the definition
-    to enable it. Concretely, in the definition of [triple1], we augment the 
-    postcondition of the underlying Hoare triple with an extra [\Top].
-    Intuitively, this added [\Top] captures any piece of state that we do not 
-    wish to mention explicitly in the postcondition.
-
-    The updated definition, called [triple], is as follows. *)
-
-Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
-  forall (H':hprop), hoare t (H \* H') (Q \*+ H' \*+ \Top).
-
-(** From there, we can prove that the desired rule for discarding pieces 
-    of postconditions holds. We can also prove that the frame rule still holds
-    for the modified definition. The proof of these two results is studied further. *)
-
-Parameter triple_htop_post : forall t H Q,
-  triple t H (Q \*+ \Top) ->
-  triple t H Q.
-
-Parameter triple_frame : forall t H Q H',
-  triple t H Q ->
-  triple t (H \* H') (Q \*+ H').
-
-(** Remark: it may also be useful to set up finer-grained versions of Separation Logic, 
-    where only certain types of heap predicates  can be discarded, but not all. Technically, 
-    only "affine" predicates may be discarded. Such a set up is discussed in the chapter
-    [SLFRich.v]. *)
 
 
 (* ####################################################### *)
@@ -551,10 +495,6 @@ Lemma hexists_intro : forall A (x:A) (J:A->hprop) h,
   (\exists x, J x) h.
 Proof using. introv M. hnf. eauto. Qed.
 
-Lemma htop_intro : forall h,
-  \Top h.
-Proof using. intros. hnf. auto. Qed.
-
 (** The inversion lemmas show how to extract information from hypotheses
     of the form [H h], for various forms of the heap predicate [H].*)
 
@@ -582,12 +522,6 @@ Lemma hexists_inv : forall A (J:A->hprop) h,
   (\exists x, J x) h ->
   exists x, J x h.
 Proof using. introv M. hnf in M. eauto. Qed.
-
-Lemma htop_inv : forall h, (* Note: this lemma is of no practical interest. *)
-  \Top h ->
-  True.
-Proof using. intros. auto. Qed.
-
 
 (* EX3! (hstar_hpure_iff) *)
 
@@ -660,61 +594,6 @@ Notation "'exists' x .. y , p" := (ex (fun x => .. (ex (fun y => p)) ..))
    format "'[' 'exists' '/ ' x .. y , '/ ' p ']'").
 
 
-(* ******************************************************* *)
-(** ** Establishing properties of [triple]: exercises. *)
-
-(* EX1! (triple_frame) *)
-(** Prove the frame rule for the actual definition of [triple].
-    Take inspiration from the proof of [SL_frame_rule]. *)
-
-Lemma triple_frame' : forall t H Q H',
-  triple t H Q ->
-  triple t (H \* H') (Q \*+ H').
-Proof using.
-(* SOLUTION *)
-  introv M. unfold triple in *. rename H' into H1. intros H2.
-  specializes M (H1 \* H2). applys_eq M 1 2.
-  { rewrite hstar_assoc. auto. }
-  { applys qprop_eq. intros v.
-    repeat rewrite hstar_assoc. auto. }
-(* /SOLUTION *)
-Qed.
-
-(** The other main property to establish is [triple_htop_post].
-
-    The proof expoits associativity and commutativity of the star
-    operator, as well as a property asserting that [\Top \* \Top]
-    simplifies to [\Top]: both heap predicate can be used
-    to describe arbitrary heaps. These properties are assumed here;
-    they are proved in the next chapter ([SLFHimpl]). *)
-
-Parameter hstar_assoc' : forall H1 H2 H3,
-  (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
-
-Parameter hstar_comm : forall H1 H2,
-  H1 \* H2 = H2 \* H1.
-
-Parameter hstar_htop_htop :
-  \Top \* \Top = \Top.
-
-(* EX3! (triple_htop_post'') *)
-(** Prove lemma [triple_htop_post], by unfolding the definition of [triple]
-    to reveal [hoare]. Note, however, that your proof should not attempt to
-    unfold the definition of a [hoare] triple. *)
-
-Lemma triple_htop_post'' : forall t H Q,
-  triple t H (Q \*+ \Top) ->
-  triple t H Q.
-Proof using.
-(* SOLUTION *)
-  introv M. unfold triple in *. intros H2.
-  specializes M H2. applys_eq M 1.
-  { applys qprop_eq. intros v. repeat rewrite hstar_assoc.
-    rewrite (hstar_comm H2).
-    rewrite <- (hstar_assoc \Top \Top).
-    rewrite hstar_htop_htop. auto. }
-(* /SOLUTION *)
-Qed.
 
 
 (* ####################################################### *)
@@ -772,41 +651,19 @@ Definition hpure' (P:Prop) : hprop :=
     more fundamental. 
     
     Hence, in the subsequent chapters and in the CFML tool, we define [hpure] in terms 
-    of [hexists] and [hempty], like in the definition of [hpure'] shown above. *)
-
-(** The top heap predicate [\Top] is equivalent to [\exists H, H],
-    which is a heap predicate that also characterizes any state.
-    Again, because we need [hexists] anyway, we prefer in practice
-    to define [\Top] in terms of [hexists], as done in the definition
-    of [htop'] shown below. *)
-
-Lemma htop_eq_hexists_hprop :
-  \Top = (\exists (H:hprop), H).
-Proof using.
-  unfold htop, hexists. apply hprop_eq. intros h. iff Hh.
-  { exists (=h). auto. }
-  { auto. }
-Qed.
-
-Definition htop' : hprop :=
-  \exists (H:hprop), H.
-
-(** In summary, in subsequent chapters, we assume the following definitions:
+    of [hexists] and [hempty], like in the definition of [hpure'] shown above.
+    In other words, we assume the definition:
 
 [[
   Definition hpure (P:Prop) : hprop :=
     \exists (p:P), \[].
-
-  Definition htop : hprop :=
-    \exists (H:hprop), H.
-]]
 *)
 
 
 (* ******************************************************* *)
 (** ** Alternative, equivalent definitions for SL triples *)
 
-(** We have previously defined [triple1] on top of [hoare],
+(** We have previously defined [triple] on top of [hoare],
     with the help of the separating conjunction operator, as:
     [forall (H':hprop), hoare (H \* H') t (Q \*+ H')].
     In what follows, we give an equivalent characterization,
@@ -819,7 +676,7 @@ Definition htop' : hprop :=
     in such a way that [v] and [h1'] together satisfy the poscondition [Q]. 
     Formally: *)
 
-Definition triple1_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+Definition triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall h1 h2,
   Fmap.disjoint h1 h2 ->
   H h1 ->
@@ -829,16 +686,16 @@ Definition triple1_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
     /\ Q v h1'.
 
 (** Let us establish the equivalence between this alternative definition
-    of [triple1] and the original one. *)
+    of [triple] and the original one. *)
 
-(* EX3! (triple1_iff_triple_lowlevel) *)
+(* EX3! (triple_iff_triple_lowlevel) *)
 (** This is probably a very challenging exercise. *)
 
-Lemma triple1_iff_triple_lowlevel : forall t H Q,
-  triple1 t H Q <-> triple1_lowlevel t H Q.
+Lemma triple_iff_triple_lowlevel : forall t H Q,
+  triple t H Q <-> triple_lowlevel t H Q.
 Proof using.
 (* SOLUTION *)
-  unfold triple1, triple1_lowlevel, hoare. iff M.
+  unfold triple, triple_lowlevel, hoare. iff M.
   { introv D P1.
     forwards (h'&v&HR&HQ): M (=h2) (h1 \u h2). { hnf. eauto 8. }
     destruct HQ as (h1'&h2'&N0&N1&N2&N3). subst.
@@ -848,49 +705,6 @@ Proof using.
     exists (h1' \u h2) v. split. { eauto. } { hnf. eauto 8. } }
 (* /SOLUTION *)
 Qed.
-
-(** Recall the final definition of [triple], as:
-    [forall (H':hprop), hoare (H \* H') t (Q \*+ H' \*+ \Top)].
-
-    This definition can also be reformulated directly in terms of union
-    of heaps. All we need to do is introduce an additional piece of
-    state to describe the part covered by new [\Top] predicate.
-
-    In order to describe disjointness of the 3 pieces of heap that
-    describe the final state, we first introduce an auxiliary definition:
-    [Fmap.disjoint_3 h1 h2 h3] asserts that the three arguments denote
-    pairwise disjoint heaps. *)
-
-Definition fmap_disjoint_3 (h1 h2 h3:heap) : Prop :=
-     Fmap.disjoint h1 h2
-  /\ Fmap.disjoint h2 h3
-  /\ Fmap.disjoint h1 h3.
-
-(** We then generalize the result heap from [h1' \u h2] to
-    [h1' \u h2 \u h3'], where [h3'] denotes the piece of the
-    final state that is described by the [\Top] heap predicate
-    that appears in the definition of [triple]. *)
-
-Definition triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
-  forall h1 h2,
-  Fmap.disjoint h1 h2 ->
-  H h1 ->
-  exists v h1' h3',
-       fmap_disjoint_3 h1' h2 h3'
-    /\ eval (h1 \u h2) t (h1' \u h2 \u h3') v
-    /\ Q v h1'.
-
-(** One can prove the equivalence of [triple] and [triple_lowlevel]
-    following a similar proof pattern as previously. The proof is a bit
-    more technical and requires additional tactic support to deal with
-    the tedious disjointness conditions, so we omit the details here. *)
-
-Parameter triple_iff_triple_lowlevel : forall t H Q,
-  triple t H Q <-> triple_lowlevel t H Q.
-
-(* INSTRUCTORS *)
-(** The proof of the above lemma is included in the file [SepBase.v] from CFML2. *)
-(* /INSTRUCTORS *)
 
 
 (* ####################################################### *)

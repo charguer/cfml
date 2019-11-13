@@ -16,7 +16,7 @@ Set Implicit Arguments.
     to those from [SLFHprop.v] and [SLFHimpl.v], yet with one main difference:
     [SLFDirect] makes the definition of Separation Logic operators opaque.
 
-    Thus, one cannot unfold the definition of [hstar], [hpure], [htop], etc.
+    Thus, one cannot unfold the definition of [hstar], [hpure], [hsingle] etc.
     To carry out reasoning, one must use the introduction and elimination
     lemmas (e.g. [hstar_intro], [hstar_elim]). These lemmas enforce abstraction:
     they ensure that the proofs do not depend on the particular choice of the 
@@ -70,20 +70,6 @@ Parameter triple_hpure : forall t (P:Prop) H Q,
 Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall (x:A), triple t (J x) Q) ->
   triple t (hexists J) Q.
-
-(** The garbage collection rules enable to discard any desired
-    piece of heap from the precondition or the postcondition.
-    Recall that the first rule is derivable from the second one.
-    Moreover, it is equivalent to state these two rules by writing 
-    [H'] instead of [\Top]. *)
-
-Parameter triple_htop_pre : forall t H Q,
-  triple t H Q ->
-  triple t (H \* \Top) Q.
-
-Parameter triple_htop_post : forall t H Q,
-  triple t H (Q \*+ \Top) ->
-  triple t H Q.
 
 
 (* ******************************************************* *)
@@ -679,7 +665,7 @@ Definition incr :=
 
 (** Alternatively, using notation, the same program can be written: *)
 
-Definition incr' :=
+Definition incr' : val :=
   VFun 'p :=
     Let 'n := '! 'p in
     Let 'm := 'n '+ 1 in
@@ -718,32 +704,24 @@ Qed.
 (* ------------------------------------------------------- *)
 (** *** Proof of [mysucc] *)
 
-(** Recall from the previous chapter the combined structural
-    rule [triple_conseq_frame_htop], which generalizes the rule
-    [triple_conseq_frame] with the possibility to discard
-    undesired heap predicate. This rule will be handy at
-    some point in the exercise that follows. *)
-
-Parameter triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \Top ->
-  triple t H Q.
-
 (** Consider the following function, written in OCaml syntax:
 [[
      fun n =>
         let r = ref n in
         incr r;
-        !r
+        let x = !r in
+        free r;
+        x
 ]]
     Using the notation for our embedded language, we write: *)
 
-Definition mysucc :=
+Definition mysucc : val :=
   VFun 'n :=
     Let 'r := val_ref 'n in
     incr 'r ';
-    '! 'r.
+    Let 'x := '! 'r in
+    val_free 'r ';
+    'x.
 
 (* EX3! (triple_incr) *)
 (** Specify and verify the function [mysucc]. *)
@@ -765,10 +743,17 @@ Proof using.
     { applys triple_incr. }
     { xsimpl. }
     { xsimpl. } }
-  applys triple_conseq_frame_htop.
-  { applys triple_get. }
-  { xsimpl. }
-  { xsimpl. auto. }
+  applys triple_let.
+  { apply triple_get. }
+  intros x. simpl.
+  apply triple_hpure. intros ->.
+  applys triple_seq.
+  { applys triple_conseq_frame.
+    { applys triple_free. }
+    { xsimpl. }
+    { xsimpl. } }
+  applys triple_val.
+  xsimpl. auto.
 Qed.
 (* /SOLUTION *)
 
@@ -956,7 +941,7 @@ Module Proofs.
     following the definition:
 [[
       Definition triple t H Q :=
-       forall H', hoare t (H \* H') ((Q \*+ H') \*+ \Top)
+       forall H', hoare t (H \* H') (Q \*+ H').
 ]]
     To establish a reasoning rule w.r.t. a Hoare triple, we reveal
     the definition expressed in terms of the big-step semantics.
@@ -1093,6 +1078,7 @@ Proof using.
   { (* 3. For the hypothesis on the first subterm [t1],
        we can invoke directly our first hypothesis. *)
     applys M1. }
+  { applys M2.
   { (* 4. For the hypothesis on the first subterm [t2],
        we need a little more work to exploit our second hypothesis.
        Indeed, the precondition features an extra [\Top].
@@ -1757,7 +1743,7 @@ Qed.
 
 Lemma triple_of_hoare : forall t H Q,
   (forall H', exists Q', hoare t (H \* H') Q'
-                     /\  Q' ===> Q \*+ H' \*+ \Top) ->
+                     /\  Q' ===> Q \*+ H') ->
   triple t H Q.
 Proof using.
 (* SOLUTION *)

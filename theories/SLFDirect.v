@@ -356,6 +356,7 @@ Notation "Q1 \--* Q2" := (qwand Q1 Q2)
   (at level 43) : heap_scope.
 
 
+
 (* ******************************************************* *)
 (** ** Basic properties of Separation Logic operators *)
 
@@ -1143,10 +1144,10 @@ Qed.
 (** [wp] is defined on top of [hoare] triples. More precisely [wp t Q]
     is a heap predicate such that [H ==> wp t Q] if and
     only if [SL_triple t H Q], where [SL_triple t H Q]
-    is defined as [forall H', hoare t (H \* H') (Q \*+ H' \*+ \Top)]. *)
+    is defined as [forall H', hoare t (H \* H') (Q \*+ H')]. *)
 
 Definition wp (t:trm) := fun (Q:val->hprop) =>
-  \exists H, H \* \[forall H', hoare t (H \* H') (Q \*+ H' \*+ \Top)].
+  \exists H, H \* \[forall H', hoare t (H \* H') (Q \*+ H')].
 
 
 (* ------------------------------------------------------- *)
@@ -1155,10 +1156,10 @@ Definition wp (t:trm) := fun (Q:val->hprop) =>
 (** The ramified frame rule (with garbage collection) *)
 
 Lemma wp_ramified : forall Q1 Q2 t,
-  (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
+  (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
 Proof using.
   intros. unfold wp. xpull ;=> H M.
-  xsimpl (H \* (Q1 \--* Q2 \*+ \Top)). intros H'.
+  xsimpl (H \* (Q1 \--* Q2)). intros H'.
   applys hoare_conseq M; xsimpl.
 Qed.
 
@@ -1179,14 +1180,6 @@ Proof using. intros. applys himpl_trans_r wp_ramified. xsimpl. Qed.
 
 Lemma wp_ramified_frame : forall t Q1 Q2,
   (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
-Proof using. intros. applys himpl_trans_r wp_ramified. xsimpl. Qed.
-
-Lemma wp_hany_pre : forall t H Q,
-  (wp t Q) \* H ==> wp t Q.
-Proof using. intros. applys himpl_trans_r wp_ramified. xsimpl. Qed.
-
-Lemma wp_hany_post : forall t H Q ,
-  wp t (Q \*+ H) ==> wp t Q.
 Proof using. intros. applys himpl_trans_r wp_ramified. xsimpl. Qed.
 
 
@@ -1259,7 +1252,7 @@ Proof using. intros. applys himpl_trans wp_if_case. case_if~. Qed.
     than definining it in terms of Hoare triples as we do here. *)
 
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
-  forall (H':hprop), hoare t (H \* H') (Q \*+ H' \*+ \Top).
+  forall (H':hprop), hoare t (H \* H') (Q \*+ H').
 
 Lemma wp_equiv : forall t H Q,
   (triple t H Q) <-> (H ==> wp t Q).
@@ -1596,10 +1589,10 @@ Implicit Type F : formula.
     rules), in characteristic formulae. *)
 
 Definition mkstruct (F:formula) : formula :=
-  fun Q => \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
+  fun Q => \exists Q', F Q' \* (Q' \--* Q).
 
 Lemma mkstruct_ramified : forall Q1 Q2 F,
-  (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
+  (mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2).
 Proof using. unfold mkstruct. xsimpl. Qed.
 
 Arguments mkstruct_ramified : clear implicits.
@@ -1824,6 +1817,11 @@ Lemma xstruct_lemma : forall F H Q,
   H ==> mkstruct F Q.
 Proof using. introv M. xchange M. applys mkstruct_erase. Qed.
 
+Lemma xval_lemma : forall v H Q,
+  H ==> Q v ->
+  H ==> wpgen_val v Q.
+Proof using. introv M. applys M. Qed.
+
 Lemma xlet_lemma : forall H F1 F2of Q,
   H ==> F1 (fun v => F2of v Q) ->
   H ==> wpgen_let F1 F2of Q.
@@ -1855,26 +1853,23 @@ Lemma xapps_lemma1 : forall t v H1 H2 H Q,
   H ==> wp t Q.
 Proof using. introv M W. applys xapp_lemma M. xchanges W. intros ? ->. auto. Qed.
 
-Lemma xcf_lemma_fun : forall v1 v2 x t H Q,
+Lemma xwp_lemma_fun : forall v1 v2 x t H Q,
   v1 = val_fun x t ->
-  H ==> wpgen ((x,v2)::nil) t (Q \*+ \Top) ->
-  triple (trm_app v1 v2) H Q.
-Proof using.
-  introv M1 M2. rewrite wp_equiv.
-  applys himpl_trans; [| applys (>> wp_hany_post \Top)].
-  xchange M2.
-  xchange (>> wpgen_sound ((x,v2)::nil) t (Q \*+ \Top)).
-  rewrite <- subst_eq_isubst_one. applys* wp_app_fun.
-Qed.
-
-Lemma xcf_lemma_fix : forall v1 v2 f x t H Q,
-  v1 = val_fix f x t ->
-  H ==> wpgen ((f,v1)::(x,v2)::nil) t (Q \*+ \Top) ->
+  H ==> wpgen ((x,v2)::nil) t Q ->
   triple (trm_app v1 v2) H Q.
 Proof using.
   introv M1 M2. rewrite wp_equiv. xchange M2.
-  applys himpl_trans; [| applys (>> wp_hany_post \Top)].
-  xchange (>> wpgen_sound (((f,v1)::nil) ++ (x,v2)::nil) t (Q \*+ \Top)).
+  xchange (>> wpgen_sound ((x,v2)::nil) t Q).
+  rewrite <- subst_eq_isubst_one. applys* wp_app_fun.
+Qed.
+
+Lemma xwp_lemma_fix : forall v1 v2 f x t H Q,
+  v1 = val_fix f x t ->
+  H ==> wpgen ((f,v1)::(x,v2)::nil) t Q ->
+  triple (trm_app v1 v2) H Q.
+Proof using.
+  introv M1 M2. rewrite wp_equiv. xchange M2.
+  xchange (>> wpgen_sound (((f,v1)::nil) ++ (x,v2)::nil) t Q).
   rewrite isubst_app. do 2 rewrite <- subst_eq_isubst_one.
   applys* wp_app_fix.
 Qed.
@@ -1888,6 +1883,9 @@ Tactic Notation "xstruct" :=
 
 Tactic Notation "xstruct_if_needed" :=
   try match goal with |- ?H ==> mkstruct ?F ?Q => xstruct end.
+
+Tactic Notation "xval" :=
+  xstruct_if_needed; applys xval_lemma.
 
 Tactic Notation "xlet" :=
   xstruct_if_needed; applys xlet_lemma.
@@ -1917,11 +1915,19 @@ Tactic Notation "xapps" constr(E) :=
   | applys xapps_lemma1 E ];
   xsimpl; unfold protect.
 
-Tactic Notation "xcf" :=
+Ltac xwp_simpl := (* variant of [simpl] to compute well on [wp] *)
+  cbn beta delta [
+     wpgen wpgen_var isubst lookup var_eq
+     eq_var_dec string_dec string_rec string_rect
+     sumbool_rec sumbool_rect
+     Ascii.ascii_dec Ascii.ascii_rec Ascii.ascii_rect
+     Bool.bool_dec bool_rec bool_rect ] iota zeta.
+
+Tactic Notation "xwp" :=
   intros;
-  first [ applys xcf_lemma_fun; [ reflexivity | idtac]
-        | applys xcf_lemma_fix; [ reflexivity | idtac] ];
-  simpl.
+  first [ applys xwp_lemma_fun; [ reflexivity | idtac]
+        | applys xwp_lemma_fix; [ reflexivity | idtac] ];
+  xwp_simpl.
 
 
 (* ******************************************************* *)
@@ -2062,7 +2068,7 @@ Lemma triple_incr : forall (p:loc) (n:int),
     PRE (p ~~~> n)
     POST (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
 Proof using.
-  xcf.
+  xwp.
   xapps triple_get.
   xapps triple_add.
   xapps triple_set.
@@ -2076,31 +2082,36 @@ Qed.
 (** Here is another example, the function:
 [[
    let mysucc n =
-       let r = ref n in
-       incr r;
-       !r
+      let r = ref n in
+      incr r;
+      let x = !r in
+      free r;
+      x
 ]]
 
-Note that this function has the same behavior as [succ],
-but its implementation makes use of the [incr] function
-from above. *)
+  Note that this function has the same behavior as [succ],
+  but its implementation makes use of the [incr] function
+  from above. *)
 
 Definition mysucc : val :=
   VFun 'n :=
     Let 'r := val_ref 'n in
     incr 'r ';
-    '! 'r.
+    Let 'x := '! 'r in
+    val_free 'r ';
+    'x.
 
 Lemma triple_mysucc : forall n,
   TRIPLE (trm_app mysucc n)
     PRE \[]
     POST (fun v => \[v = n+1]).
 Proof using.
-  xcf.
+  xwp.
   xapp triple_ref ;=> ? l ->.
   xapps triple_incr.
   xapps triple_get.
-  xsimpl~.
+  xapps triple_free.
+  xval. xsimpl~. 
 Qed.
 
 End Demo.

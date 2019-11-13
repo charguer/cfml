@@ -236,7 +236,6 @@ Qed.
     3. instantiate existential quantifiers (using either evars or
        user-provided hints) and generate subgoals for the pure facts
        occuring in the RHS. 
-    4. Eliminate any redundant [\Top] from the RHS.
 
     These steps are detailed and illustrated next.
 
@@ -341,7 +340,7 @@ Qed.
 (** *** [xsimpl] to instantiate pure facts and quantifiers in RHS *)
 
 (** The third feature of [xsimpl] is its ability to instantiate
-    existential quantifiers, pure facts, and [\Top] in the RHS.
+    existential quantifiers and pure facts in the RHS.
 
     Let us first illustrate how it deals with pure facts,
     by spawning subgoals. *)
@@ -401,25 +400,6 @@ Proof using.
   intros. xsimpl __ 4.
 Abort.
 
-(** Finally, [xsimpl] provides support for eliminating [\Top] on the RHS.
-    First, if the RHS includes several occurences of [\Top], then they
-    are replaced with a single one. *)
-
-Lemma xsimpl_demo_rhs_htop_compact : forall H1 H2 H3 H4,
-  H1 \* H2 ==> H3 \* \Top \* H4 \* \Top.
-Proof using.
-  intros. xsimpl.
-Abort.
-
-(** Second, if after cancellations the RHS consists of exactly
-   [\Top] and nothing else, then the goal is discharged. *)
-
-Lemma xsimpl_demo_rhs_htop : forall H1 H2 H3,
-  H1 \* H2 \* H3 ==> H3 \* \Top \* H2 \* \Top.
-Proof using.
-  intros. xsimpl.
-Abort.
-
 
 (* ******************************************************* *)
 (** ** Example of entailment proofs using [xsimpl] *)
@@ -432,11 +412,6 @@ Proof using. xsimpl. Qed.
 Lemma himpl_example_2 : forall (p q:loc),
   p ~~~> 3 \* q ~~~> 3 ==> 
   \exists (n:int), p ~~~> n \* q ~~~> n.
-Proof using. xsimpl. Qed.
-
-Lemma himpl_example_3 : forall (p q:loc),
-  p ~~~> 3 \* q ~~~> 3 ==>
-  p ~~~> 3 \* \Top.
 Proof using. xsimpl. Qed.
 
 Lemma himpl_example_4 : forall (p:loc),
@@ -537,8 +512,6 @@ Parameter case_study_13 : forall p n,
 2. False, because one cell does not entail two cell.
 3. False, because one cell does not entail two cell.
 4. False, because one cell does not entail two cell.
-   Note: [q ~~~> 4 \* p ~~~> 3 ==> p ~~~> 3 \* \Top] would be true.
-
 5. True, because \[False] entails anything.
 6. False, because a satisfiable heap predicate does not entail \[False].
 7. True, because a cell cannot be starred with itself.
@@ -824,8 +797,8 @@ Lemma triple_conseq : forall t H Q H' Q',
 Proof using.
   (* No need to follow through this low-level proof. *)
   introv M WH WQ. rewrite triple_iff_triple_lowlevel in *.
-  intros h1 h2 D HH. forwards (v&h1'&h3'&D'&R&HQ): M D. applys WH HH.
-  exists v h1' h3'. splits~. applys WQ HQ.
+  intros h1 h2 D HH. forwards (v&h1'&D'&R&HQ): M D. applys WH HH.
+  exists v h1'. splits~. applys WQ HQ.
 Qed.
 
 (** It is simpler and more elegant to first establish
@@ -869,7 +842,7 @@ Proof using.
   introv M WH WQ. unfold triple. intros H''.
   applys Hoare_conseq M.
   { applys himpl_frame_l. applys WH. }
-  { intros x. applys himpl_frame_l. applys himpl_frame_l. applys WQ. }
+  { intros x. applys himpl_frame_l. applys WQ. }
 (* /SOLUTION *)
 Qed.
 
@@ -897,26 +870,6 @@ Proof using.
 (* SOLUTION *)
   introv M WH WQ. applys triple_conseq WH WQ.
   applys triple_frame M.
-(* /SOLUTION *)
-Qed.
-
-(** The "combined structural rule" generalizes the rule above
-    by also integrating the garbage collection rule. *)
-
-Lemma triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \Top ->
-  triple t H Q.
-
-(* EX1! (triple_conseq_frame_htop) *)
-(** Prove the combined structural rule. 
-    Hint: recall lemma [triple_htop_post]. *)
-
-Proof using.
-(* SOLUTION *)
-  introv M WH WQ. applys triple_htop_post.
-  applys~ triple_conseq_frame M WH WQ.
 (* /SOLUTION *)
 Qed.
 
@@ -996,153 +949,3 @@ Proof using.
   rewrite hstar_hexists. applys triple_hexists.
   rewrite hstar_hempty_l. apply M.
 Qed.
-
-
-(* ******************************************************* *)
-(** ** Entailment lemmas for [\Top] *)
-
-(* EX1! (himpl_htop_r) *)
-(** Prove that any heap predicate entails [\Top] *)
-
-Lemma himpl_htop_r : forall H,
-  H ==> \Top.
-Proof using.
-(* SOLUTION *)
-  intros. intros h Hh.
-  applys htop_intro. (* hnf; auto. *)
-(* /SOLUTION *)
-Qed.
-
-(* EX2! (hstar_htop_htop) *)
-(** Prove that [\Top \* \Top] is equivalent to [\Top] *)
-
-Lemma hstar_htop_htop :
-  \Top \* \Top = \Top.
-Proof using.
-(* SOLUTION *)
-  applys himpl_antisym.
-  { applys himpl_htop_r. }
-  { rewrite <- hstar_hempty_l at 1. applys himpl_frame_l.
-    applys himpl_htop_r. }
-(* /SOLUTION *)
-Qed.
-
-
-(* ******************************************************* *)
-(** ** Variants for the garbage collection rule *)
-
-(** Recall the lemma [triple_htop_post] from the previous chapter. *)
-
-Parameter triple_htop_post : forall t H Q,
-  triple t H (Q \*+ \Top) ->
-  triple t H Q.
-
-(* EX2! (triple_hany_post) *)
-(** The following lemma provides an alternative presentation of the
-    same result as [triple_htop_post]. Prove that it is derivable
-    from [triple_htop_post] and [triple_conseq]. *)
-
-Lemma triple_hany_post : forall t H H' Q,
-  triple t H (Q \*+ H') ->
-  triple t H Q.
-Proof using.
-(* SOLUTION *)
-  introv M. applys* triple_htop_post. applys triple_conseq M.
-  { applys himpl_refl. }
-  { intros v. applys himpl_frame_r. applys himpl_htop_r. }
-(* /SOLUTION *)
-Qed.
-
-(** Reciprocally, [triple_htop_post] is trivially derivable from
-    [triple_hany_post], simply by instantiating [H'] as [\Top]. *)
-
-Lemma triple_htop_post_derived_from_triple_hany_post : forall t H Q,
-  triple t H (Q \*+ \Top) ->
-  triple t H Q.
-Proof using. intros. applys triple_hany_post \Top. auto. Qed.
-
-(** The reason we prefer [triple_htop_post] to [triple_hany_post]
-    is that it does not require providing [H'] at the time of applying
-    the rule. The instantiation is postponed through the introduction
-    of [\Top], which is equivalent to [\exists H', H']. Delaying the
-    instantiation of [H'] using [\Top] rather than throught the
-    introduction of an evar enables more robust proof scripts and
-    tactic support. *)
-
-(* EX2! (triple_htop_pre) *)
-(** The rule [triple_htop_post] enables discarding pieces of
-    heap from the postcondition. The symmetric rule [triple_htop_pre]
-    enables discarding pieces of heap from the precondition.
-
-    Prove that it is derivable from [triple_htop_post] and
-    [triple_frame] (and, optionally, [triple_conseq]). *)
-
-Lemma triple_htop_pre : forall t H Q,
-  triple t H Q ->
-  triple t (H \* \Top) Q.
-Proof using.
-(* SOLUTION *)
-  introv M. applys triple_htop_post. applys triple_frame. auto.
-(* /SOLUTION *)
-Qed.
-
-(* EX2! (triple_htop_pre) *)
-(** The rule [triple_hany_pre] is a variant of [triple_htop_pre].
-    Prove that it is derivable.
-    You may exploit [triple_htop_pre], or [triple_hany_post],
-    or [triple_htop_post], whichever you find simpler. *)
-
-Lemma triple_hany_pre : forall t H H' Q,
-  triple t H Q ->
-  triple t (H \* H') Q.
-Proof using.
-(* SOLUTION *)
-  dup 3.
-  (* first proof, based on [triple_hany_post]: *)
-  introv M. applys triple_hany_post. applys triple_frame. auto.
-  (* second proof, based on [triple_htop_pre]: *)
-  introv M. lets N: triple_htop_pre M. applys triple_conseq N.
-  { applys himpl_frame_r. applys himpl_htop_r. }
-  { applys qimpl_refl. }
-  (* third proof, based on [triple_htop_post]: *)
-  introv M. applys triple_htop_post.
-  lets N: triple_frame H' M.
-  applys triple_conseq N.
-  { applys himpl_refl. }
-  { intros v. applys himpl_frame_r. applys himpl_htop_r. }
-(* /SOLUTION *)
-Qed.
-
-(** Here again, the reciprocal holds: [triple_hany_pre] is trivially
-    derivable from [triple_htop_pre]. The variant of the rule that is
-    most useful in practice is actually yet another presentation,
-    which applies to any goal and enables specifying explicitly the
-    piece of the precondition that one wishes to discard. *)
-
-Lemma triple_hany_pre_trans : forall H1 H2 t H Q,
-  triple t H1 Q ->
-  H ==> H1 \* H2 ->
-  triple t H Q.
-Proof using.
-  introv M WH. applys triple_conseq (H1 \* H2) Q.
-  { applys triple_hany_pre. auto. }
-  { applys WH. }
-  { applys qimpl_refl. }
-Qed.
-
-(** Remark: the lemmas that enable discarding pieces of precondition
-    (e.g., [triple_htop_pre]) are derivable from those that enable
-    discarding pices of postconditions (e.g., [triple_htop_post]),
-    but not the other way around.
-
-    Advanced remark: the above remark can be mitigated. If we expose
-    that [triple t H Q <-> triple t' H Q] holds whenever [t] and [t']
-    are observationally equivalent with respect to the semantics
-    defined by [eval], and if we are able to prove that [let x = t in x]
-    is observationally equivalent to [t] for some fresh variable x,
-    then it is possible to prove that [triple_htop_post] is derivable
-    from [triple_htop_pre]. Indeed, the postcondition of [t] can be viewed 
-    as the precondition of the [x] occuring in the right-hand side of the 
-    term [let x = t in x]. Thus, discarding a heap predicate from the
-    postcondition of [t] can be simulated by discarding a heap predicate
-    from the precondition of [x]. *)
