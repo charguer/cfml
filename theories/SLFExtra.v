@@ -291,6 +291,14 @@ Proof using.
   intros. intros HF. applys hoare_conseq hoare_set; xsimpl~.
 Qed.
 
+Lemma triple_free : forall l v,
+  triple (val_free (val_loc l))
+    (l ~~~> v)
+    (fun r => \[r = val_unit]).
+Proof using.
+  intros. intros HF. applys hoare_conseq hoare_free; xsimpl~.
+Qed.
+
 
 (* ####################################################### *)
 (** Disjunction and conjunction *)

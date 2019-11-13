@@ -47,6 +47,7 @@ Inductive val : Type :=
   | val_ref : val
   | val_get : val
   | val_set : val
+  | val_free : val
   | val_add : val
 
 with trm : Type :=
@@ -177,7 +178,10 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       eval s (val_get (val_loc l)) s (Fmap.read s l)
   | eval_set : forall s l v,
       Fmap.indom s l ->
-      eval s (val_set (val_loc l) v) (Fmap.update s l v) val_unit.
+      eval s (val_set (val_loc l) v) (Fmap.update s l v) val_unit
+  | eval_free : forall s l,
+      Fmap.indom s l ->
+      eval s (val_free (val_loc l)) (Fmap.remove s l) val_unit.
 
 End Language.
 

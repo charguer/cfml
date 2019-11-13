@@ -126,6 +126,7 @@ Inductive val : Type :=
   | val_ref : val
   | val_get : val
   | val_set : val
+  | val_free : val
   | val_add : val
   | val_div : val
 
@@ -342,7 +343,9 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
 
       [val_set (val_loc l) v] updates the store at a location [l] assumed to
       be bound in the store [s]. The operation modifies the store and returns
-      the unit value. *)
+      the unit value.
+      
+      [val_free (val_loc l)] deallocates the cell at location [l]. *)
 
   | eval_ref : forall s v l,
       ~ Fmap.indom s l ->
@@ -352,7 +355,10 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       eval s (val_get (val_loc l)) s (Fmap.read s l)
   | eval_set : forall s l v,
       Fmap.indom s l ->
-      eval s (val_set (val_loc l) v) (Fmap.update s l v) val_unit.
+      eval s (val_set (val_loc l) v) (Fmap.update s l v) val_unit
+  | eval_free : forall s l,
+      Fmap.indom s l ->
+      eval s (val_free (val_loc l)) (Fmap.remove s l) val_unit.
 
 End SyntaxAndSemantics.
 
@@ -986,9 +992,9 @@ Proof using.
   (* 1. We unfold the definition of [hoare]. *)
   introv M. intros s K0.
   (* 2. We provide the witnesses for the output value and heap.
-        These witnesses are dictated by the statement of [red_val]. *)
+        These witnesses are dictated by the statement of [eval_val]. *)
   exists s v. splits.
-  { (* 3. We invoke the big-step rule [red_val] *)
+  { (* 3. We invoke the big-step rule [eval_val] *)
     applys eval_val. }
   { (* 4. We establish the postcondition, exploiting the entailment hypothesis. *)
     applys M. auto. }
@@ -1009,7 +1015,7 @@ Proof using.
 Qed.
 
 (** Remark: in the proof of [hoare_val], the witnesses [h] and [v] are
-    contrained by the rule [red_val]. It is thus not needed to provide
+    contrained by the rule [eval_val]. It is thus not needed to provide
     them explicitly: we can let Coq inference figure them out. *)
 
 Lemma hoare_val' : forall v H Q,
@@ -1178,7 +1184,7 @@ Qed.
     One way to conveniently factorize the proof arguments is to employ
     Coq's conditional to express the semantics of a term conditional.
 
-    First, we establish a corollary to [red_if], expressed using a
+    First, we establish a corollary to [eval_if], expressed using a
     single premise. *)
 
 Lemma eval_if_case : forall s1 s2 b v t1 t2,
@@ -1462,16 +1468,16 @@ Proof using.
   (* 1. We unfold the definition of [hoare]. *)
   intros. intros s K0.
   (* 2. We provide the witnesses for the reduction,
-        as dictated by [red_get_sep]. *)
+        as dictated by [eval_get_sep]. *)
   exists s v. split.
-  { (* 3. To justify the reduction using [red_get_sep], we need to
+  { (* 3. To justify the reduction using [eval_get_sep], we need to
           argue that the state [s] decomposes as a singleton heap
           [Fmap.single l v] and the rest of the state [s2]. This is
           obtained by eliminating the star in hypothesis [K0]. *)
     destruct K0 as (s1&s2&P1&P2&D&U).
     (*    and subsequently inverting [(l ~~~> v) h1]. *)
     lets E1: hsingle_inv P1. subst s1.
-    (* 4. At this point, the goal matches exactly [red_get_sep]. *)
+    (* 4. At this point, the goal matches exactly [eval_get_sep]. *)
     applys eval_get_sep U. }
   { (* 5. To establish the postcondition, we reuse justify the
           pure fact \[v = v], and check that the state, which
@@ -1554,9 +1560,9 @@ Proof using.
   destruct K0 as (h1&h2&P1&P2&D&U).
   (* 3. We also decompose the singleton heap predicate from it. *)
   lets E1: hsingle_inv P1.
-  (* 4. We provide the witnesses as guided by [red_set_sep]. *)
+  (* 4. We provide the witnesses as guided by [eval_set_sep]. *)
   exists ((Fmap.single l w) \u h2) val_unit. split.
-  { (* 5. The evaluation subgoal matches the statement of [red_set_sep]. *)
+  { (* 5. The evaluation subgoal matches the statement of [eval_set_sep]. *)
     subst h1. applys eval_set_sep U D. auto. }
   { (* 6. To establish the postcondition, we first isolate the pure fact. *)
     rewrite hstar_hpure. split.
@@ -1588,9 +1594,9 @@ Qed.
 (* ------------------------------------------------------- *)
 (** *** Allocation of a reference *)
 
-(** Last but not least, the reasoning rule for operation [ref]
-    involves a proof yet slightly more trickier than that
-    for [get] and [set]. *)
+(** Next, we consider the reasoning rule for operation [ref], which
+    involves a proof yet slightly more trickier than that for 
+    [get] and [set]. *)
 
 (** The big-step evaluation rule for [ref v] extends the initial
     state [s] with an extra binding from [l] to [v], for some
@@ -1600,7 +1606,7 @@ Parameter eval_ref : forall s v l,
   ~ Fmap.indom s l ->
   eval s (val_ref v) (Fmap.update s l v) (val_loc l).
 
-(** Let us reformulate [red_ref] to replace references to [Fmap.indom]
+(** Let us reformulate [eval_ref] to replace references to [Fmap.indom]
     and [Fmap.update] with references to [Fmap.single] and [Fmap.disjoint].
     Concretely, [ref v] extends the state from [s1] to [s1 \u s2],
     where [s2] denotes the singleton heap [Fmap.single l v], and with
@@ -1617,7 +1623,7 @@ Proof using.
   { intros N. applys~ Fmap.disjoint_inv_not_indom_both D N. }
 Qed.
 
-(** In order to apply the rules [red_ref] or [red_ref_sep], we need
+(** In order to apply the rules [eval_ref] or [eval_ref_sep], we need
     to be able to synthetize fresh locations. The following lemma
     (from [Fmap.v]) captures the existence, for any state [s], of
     a location [l] not already bound in [s]. *)
@@ -1625,7 +1631,7 @@ Qed.
 Parameter exists_not_indom : forall s,
    exists l, ~ Fmap.indom s l.
 
-(** For invokation in relation to rule [red_ref_sep], we actually
+(** For invokation in relation to rule [eval_ref_sep], we actually
     will exploit the following corollary, which asserts, for any [h],
     the existence of a location [l] such that the singleton heap
     [Fmap.single l v] is disjoint from [h]. *)
@@ -1651,9 +1657,9 @@ Proof using.
        [Fmap.disjoint (Fmap.single l v) s1]. *)
   forwards~ (l&D): (single_fresh s1 v).
   (* 3. We provide the witnesses for the reduction,
-        as dictated by [red_ref_sep]. *)
+        as dictated by [eval_ref_sep]. *)
   exists ((Fmap.single l v) \u s1) (val_loc l). split.
-  { (* 4. We exploit [red_ref_sep], which has exactly the desired shape! *)
+  { (* 4. We exploit [eval_ref_sep], which has exactly the desired shape! *)
     applys eval_ref_sep D. auto. }
   { (* 5. We establish the postcondition
        [(\exists l, \[r = val_loc l] \* l ~~~> v) \* H]
@@ -1674,6 +1680,64 @@ Lemma triple_ref : forall v,
 Proof using.
   intros. intros H'. applys hoare_conseq.
   { applys hoare_ref. }
+  { xsimpl. }
+  { xsimpl. auto. }
+Qed.
+
+
+(* ------------------------------------------------------- *)
+(** *** Deallocation of a reference *)
+
+(** Last, we consider the reasoning rule for operation [free].
+    We leave this one as exercise. 
+    This section may be safely skipped. *)
+
+(** Recall the big-step evaluation rule for [free l]. *)
+
+Parameter eval_free : forall s l,
+  Fmap.indom s l ->
+  eval s (val_set (val_loc l)) (Fmap.remove s l) val_unit.
+
+(** Let us reformulate [eval_free] to replace references to [Fmap.indom]
+    and [Fmap.remove] with references to [Fmap.single] and [Fmap.union]
+    and [Fmap.disjoint]. The details are not essential, thus omitted. *)
+
+Parameter eval_free_sep : forall s1 s2 v l,
+  s1 = Fmap.union (Fmap.single l v) s2 ->
+  Fmap.disjoint (Fmap.single l v) s2 ->
+  eval s1 (val_free l) s2 val_unit.
+
+(* EX3? (hoare_free) *)
+(** Prove the Hoare triple for the operation [free].
+    Hint: adapt the proof of lemma [hoare_set]. *)
+
+Lemma hoare_free : forall H l v,
+  hoare (val_free (val_loc l))
+    ((l ~~~> v) \* H)
+    (fun r => \[r = val_unit] \* H).
+Proof using.
+(* SOLUTION *)
+  intros. intros s1 K0.
+  destruct K0 as (h1&h2&P1&P2&D&U).
+  lets E1: hsingle_inv P1.
+  exists h2 val_unit. split.
+  { subst h1. applys eval_free_sep U D. }
+  { rewrite hstar_hpure. split~. }
+(* /SOLUTION *)
+Qed.
+
+(* EX1? (triple_free) *)
+(** Derive from the Hoare triple for the operation [free]
+    the corresponding Separation Logic triple.
+    Hint: adapt the proof of lemma [triple_set]. *)
+
+Lemma triple_free : forall l v,
+  triple (val_free (val_loc l))
+    (l ~~~> v)
+    (fun r => \[r = val_unit]).
+Proof using.
+  intros. intros H'. applys hoare_conseq.
+  { applys hoare_free. }
   { xsimpl. }
   { xsimpl. auto. }
 Qed.

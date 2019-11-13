@@ -48,6 +48,11 @@ Definition map_union (A B : Type) (f1 f2 : map A B) : map A B :=
            | None => f2 x
            end.
 
+(** Removal from a partial functions *)
+
+Definition map_remove (A B : Type) (f : map A B) (k:A) : map A B :=
+  fun (x:A) => If x = k then None else f x.
+
 (** Finite domain of a partial function *)
 
 Definition map_finite (A B : Type) (f : map A B) :=
@@ -106,9 +111,19 @@ Lemma map_union_finite : forall f1 f2,
   map_finite f2 ->
   map_finite (map_union f1 f2).
 Proof using.
-  introv [L1 F1] [L2 F2]. exists (L1 ++ L2). introv M.
+  introv [L1 F1] [L2 F2]. exists (L1 ++ L2). intros x M.
   specializes F1 x. specializes F2 x. unfold map_union in M.
   apply mem_app. destruct~ (f1 x).
+Qed.
+
+(** Finiteness of removal *)
+
+Definition map_remove_finite : forall x f,
+  map_finite f ->
+  map_finite (map_remove f x).
+Proof using.
+  introv [L F]. exists L. intros x' M.
+  specializes F x'. unfold map_remove in M. case_if~.
 Qed.
 
 End MapOps.
@@ -163,13 +178,19 @@ Definition update A B (h:fmap A B) (x:A) (v:B) : fmap A B :=
   union (single x v) h.
   (* Note: the union operation first reads in the first argument. *)
 
-(** Read in a map *)
+(** Read in a fmap *)
 
 Definition read (A B : Type) {IB:Inhab B} (h:fmap A B) (x:A) : B :=
   match fmap_data h x with
   | Some y => y
   | None => arbitrary
   end.
+
+(** Removal from a fmap *)
+
+Program Definition remove A B (h:fmap A B) (x:A) : fmap A B :=
+  make (map_remove h x) _.
+Next Obligation. destruct h. apply~ map_remove_finite. Qed.
 
 (** Domain of a fmap (as a predicate) *)
 
@@ -240,6 +261,11 @@ Lemma eq_inv_fmap_data_eq : forall h1 h2,
   h1 = h2 ->
   forall x, fmap_data h1 x = fmap_data h2 x.
 Proof using. intros. fequals. Qed.
+
+Lemma fmap_extens : forall h1 h2,
+  (forall x, fmap_data h1 x = fmap_data h2 x) ->
+  h1 = h2.
+Proof using. intros [f1 F1] [f2 F2] M. simpls. applys~ make_eq. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -548,7 +574,6 @@ Proof using.
 Qed.
 
 
-
 (* ---------------------------------------------------------------------- *)
 (* ** Domain *)
 
@@ -678,6 +703,21 @@ Proof using.
   unfold map_union, union, map_union. simpl. case_if~.
   { subst. case_eq (fmap_data s1 x); auto_false.
     { intros w Hw. false M. auto_false. } }
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Removal *)
+
+Lemma remove_union_single_l : forall s l v,
+  ~ indom s l ->
+  remove (union (single l v) s) l = s.
+Proof using.
+  introv M. applys fmap_extens. intros x. 
+  unfold remove, map_remove, union, map_union, single. simpls.
+  case_if. (* LATER: simplify? *)
+  { destruct s as [f F]. unfolds indom, map_indom. simpls. subst. rew_logic~ in M. }
+  { case_if~. } 
 Qed.
 
 End FmapProp.

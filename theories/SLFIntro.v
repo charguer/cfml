@@ -54,6 +54,9 @@ For the course on the practice of proofs with CFML, see files named [CF*.v].
     - [SLFLift]:  presents a technique for writing postconditions that directly
                   bind a Coq value rather than a value from the deeply embedded language.
 
+    - [SLFAffine]: describes how to make the logic affine or partially affine
+                   instead of linear.
+
     - [SLFRich]:  describes how to handle more advanced language constructs,
                   such as arrays, records, and structures with sharing.
 

@@ -87,6 +87,7 @@ Inductive val : Type :=
   | val_ref : val
   | val_get : val
   | val_set : val
+  | val_free : val
   | val_add : val
   | val_div : val
 
@@ -222,7 +223,10 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
       eval s (val_get (val_loc l)) s (Fmap.read s l)
   | eval_set : forall s l v,
       Fmap.indom s l ->
-      eval s (val_set (val_loc l) v) (Fmap.update s l v) val_unit.
+      eval s (val_set (val_loc l) v) (Fmap.update s l v) val_unit
+  | eval_free : forall s l,
+      Fmap.indom s l ->
+      eval s (val_free (val_loc l)) (Fmap.remove s l) val_unit.
 
 
 (* ####################################################### *)
@@ -887,6 +891,16 @@ Global Opaque hempty hpure hstar hsingle hexists hforall hwand qwand htop hgc ha
     by using disjoint unions as much as possible.
     It is not needed to follow through these proofs. *)
 
+Lemma eval_ref_sep : forall s1 s2 v l,
+  s2 = Fmap.single l v ->
+  Fmap.disjoint s2 s1 ->
+  eval s1 (val_ref v) (Fmap.union s2 s1) (val_loc l).
+Proof using.
+  introv -> D. forwards Dv: Fmap.indom_single l v.
+  rewrite <- Fmap.update_eq_union_single. applys~ eval_ref.
+  { intros N. applys~ Fmap.disjoint_inv_not_indom_both D N. }
+Qed.
+
 Lemma eval_get_sep : forall s s2 l v,
   s = Fmap.union (Fmap.single l v) s2 ->
   eval s (val_get (val_loc l)) s v.
@@ -910,14 +924,17 @@ Proof using.
     rewrite~ Fmap.update_single. }
 Qed.
 
-Lemma eval_ref_sep : forall s1 s2 v l,
-  s2 = Fmap.single l v ->
-  Fmap.disjoint s2 s1 ->
-  eval s1 (val_ref v) (Fmap.union s2 s1) (val_loc l).
+Lemma eval_free_sep : forall s1 s2 v l,
+  s1 = Fmap.union (Fmap.single l v) s2 ->
+  Fmap.disjoint (Fmap.single l v) s2 ->
+  eval s1 (val_free l) s2 val_unit.
 Proof using.
   introv -> D. forwards Dv: Fmap.indom_single l v.
-  rewrite <- Fmap.update_eq_union_single. applys~ eval_ref.
-  { intros N. applys~ Fmap.disjoint_inv_not_indom_both D N. }
+  applys_eq eval_free 2.
+  { applys~ Fmap.indom_union_l. }
+  { rewrite~ Fmap.remove_union_single_l.
+    intros Dl. applys Fmap.disjoint_inv_not_indom_both D Dl. 
+    applys Fmap.indom_single. }
 Qed.
 
 
@@ -1102,6 +1119,20 @@ Proof using.
       { subst h1. applys Fmap.disjoint_single_set D. } } }
 Qed.
 
+Lemma hoare_free : forall H l v,
+  hoare (val_free (val_loc l))
+    ((l ~~~> v) \* H)
+    (fun r => \[r = val_unit] \* H).
+Proof using.
+  intros. intros s1 K0.
+  destruct K0 as (h1&h2&P1&P2&D&U).
+  lets E1: hsingle_inv P1.
+  exists h2 val_unit. split.
+  { subst h1. applys eval_free_sep U D. }
+  { rewrite hstar_hpure. split~. }
+Qed.
+
+
 
 (* ******************************************************* *)
 (** ** Definition of [wp] and reasoning rules *)
@@ -1276,6 +1307,14 @@ Lemma triple_set : forall w l v,
     (fun r => \[r = val_unit] \* l ~~~> w).
 Proof using.
   intros. unfold triple. intros H'. applys hoare_conseq hoare_set; xsimpl~.
+Qed.
+
+Lemma triple_free : forall l v,
+  triple (val_free (val_loc l))
+    (l ~~~> v)
+    (fun r => \[r = val_unit]).
+Proof using.
+  intros. unfold triple. intros H'. applys hoare_conseq hoare_free; xsimpl~.
 Qed.
 
 
