@@ -992,3 +992,163 @@ Qed.
 
 Tactic Notation "xtop" :=
   applys xtop_lemma.
+
+
+
+(* ####################################################### *)
+(** * Appendix: details on the definition of [mkstruct] *)
+
+(** Recall the definition of [mkstruct].
+[[
+    Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
+      \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
+]]
+
+    Let us first explain in more details why this definition satisfies
+    the required properties, namely [mkstruct_erase] and [mkstruct_ramified],
+    whose proofs were trivialized by [xsimpl].
+
+    For the lemma [mkstruct_erase], we want to prove [F Q ==> mkstruct F Q].
+    This is equivalent to [F Q ==> \exists Q', F Q' \* (Q' \--* Q \*+ \Top)].
+    Taking [Q'] to be [Q] and cancelling [F Q] from both sides leaves
+    [\[] ==> Q \--* (Q \*+ \Top)], which is equivalent to [Q ==> Q \*+ \Top].
+
+    For the lemma [mkstruct_ramified], we want to prove
+    [(mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2)],
+    which is equivalent to
+    [\exists Q', F Q' \* (Q' \--* Q1 \*+ \Top) \* (Q1 \--* Q2 \*+ \Top) ==>
+     \exists Q', F Q' \* (Q' \--* Q2 \*+ \Top)].
+    By instantiatiating the LHS [Q'] with the value of the RHS [Q'], and
+    cancelling [F Q'] form both sides, the entailment simplifies to:
+    [(Q' \--* Q1 \*+ \Top) \* (Q1 \--* Q2 \*+ \Top) ==> (Q' \--* Q2 \*+ \Top)].
+    The wand [Q1 \--* (Q2 \*+ \Top)] is equal to [(Q1 \*+ \Top) \--* (Q2 \*+ \Top)]
+    (because both are equal to [(Q1 \*+ \Top) \--* (Q2 \*+ \Top \*+ \Top))]).
+    Thus, the goal reformulates as
+    [Q' \--* (Q1 \*+ \Top)) \* ((Q1 \*+ \Top) \--* (Q2 \*+ \Top)) ==>
+     Q' \--* (Q2 \*+ \Top)].
+    We conclude by cancelling out [Q1 \*+ \Top] accross the two magic wands
+    from the LHS---recall the lemma [hwand_trans_elim] from [SLFHwand]. *)
+
+(** Let us now explain how, to a goal of the form [H ==> mkstruct F Q],
+    one can apply the structural rules of Separation Logic.
+    Consider for example the ramified frame rule. *)
+
+Parameter triple_ramified_frame : forall H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* Q) ->
+  triple t H Q.
+
+(** Let us reformulate this lemma in weakest-precondition style,
+    then prove it. *)
+
+Lemma himpl_mkstruct_conseq_frame : forall H Q H1 Q1 F,
+  H1 ==> mkstruct F Q1 ->
+  H ==> H1 \* (Q1 \--* Q) ->
+  H ==> mkstruct F Q.
+Proof using.
+  introv M W. xchange W. xchange M.
+  lets N: mkstruct_ramified Q1 Q F. xchanges N.
+Qed.
+
+(** An interesting property of [mkstruct] is its idempotence:
+    [mkstruct (mkstruct F) = mkstruct F].
+    Concretely, applying this predicate transformer more than
+    once does not increase expressiveness. *)
+
+(* EX3! (mkstruct_idempotent) *)
+(** Prove the idempotence of [mkstruct]. Hint: use [xsimpl]. *)
+
+Lemma mkstruct_idempotent : forall F,
+  mkstruct (mkstruct F) = mkstruct F.
+Proof using.
+  (* SOLUTION *)
+  intros. apply fun_ext_1. intros Q.
+  unfold mkstruct. xsimpl.
+  (* [xsimpl] first invokes [applys himpl_antisym].
+     The right-to-left entailment is exactly [mkstruct_erase].
+     The left-to-right entailment amounts to proving:
+     [F Q2 \* (Q2 \--* (Q1 \*+ \Top) \* (Q1 \--* (Q \*+ \Top))
+      ==> \exists Q', F Q' \* (Q' \--* (Q \*+ \Top))]
+     To conclude the proof, instantiate [Q'] as [Q2] and cancel
+     out [Q1 \*+ \Top] (like done earlier in this section). *)
+(* /SOLUTION *)
+Qed.
+
+
+
+----------------------------------------------
+(* TODO integrate
+Module MkstructAlt.
+
+Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
+  \exists Q' H', F Q' \* H' \* \[Q' \*+ H' ===> Q \*+ \Top].
+
+Lemma mkstruct_erase : forall Q F,
+  F Q ==> mkstruct F Q.
+Proof using. unfolds mkstruct. intros. xsimpl \[] Q. xsimpl. Qed.
+
+Lemma mkstruct_ramified : forall Q1 Q2 F,
+  (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
+Proof using.
+  unfold mkstruct. intros. xpull ;=> Q' H' M.
+  applys himpl_hexists_r Q'.
+  applys himpl_hexists_r (H' \* (Q1 \--* Q2 \*+ \Top)).
+  rew_heap.
+  applys himpl_frame_r.
+  applys himpl_frame_r.
+  xsimpl. xchange M. intros x. xsimpl.
+Qed.
+
+Definition equiv_mkstruct :
+  mkstruct = Top.mkstruct.
+Proof using.
+  intros. apply fun_ext_2 ;=> F Q. unfold mkstruct, Top.mkstruct.
+  applys himpl_antisym.
+  { xpull ;=> Q' H' M. xsimpl Q'. xchanges M. }
+  { xpull ;=> Q'. xsimpl Q'. xsimpl. }
+Qed.
+
+End MkstructAlt.
+ *)
+
+
+
+----------------------------------------------
+
+
+(** Two garbage collection rules allow throwing away. *)
+
+Parameter triple_htop_pre : forall t H Q,
+  triple t H Q ->
+  triple t (H \* \Top) Q.
+
+Parameter triple_htop_post : forall t H Q,
+  triple t H (Q \*+ \Top) ->
+  triple t H Q.
+
+
+(** And its generalization "consequence + frame + top". *)
+
+Parameter triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q \*+ \Top ->
+  triple t H Q.
+
+
+
+(** Generalization with \Top *)
+
+Parameter triple_ramified_frame_htop : forall H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* (Q \*+ \Top)) ->
+  triple t H Q.
+
+
+
+
+----------------------------------------------
+
+Definition MkStruct (F:Formula) : Formula :=
+  fun A `{EA:Enc A} Q => \exists Q', ^F Q' \* (Q' \--* (Q \*+ \Top)).
+

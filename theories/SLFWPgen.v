@@ -1378,7 +1378,7 @@ Qed.
     For the lemma [mkstruct_erase], we want to prove [F Q ==> mkstruct F Q].
     This is equivalent to [F Q ==> \exists Q', F Q' \* (Q' \--* Q)].
     Taking [Q'] to be [Q] and cancelling [F Q] from both sides leaves
-    [\[] ==> Q \--* (Q \*+ \Top)], which is equivalent to [Q ==> Q].
+    [\[] ==> Q \--* Q)], which is equivalent to [Q ==> Q].
 
     For the lemma [mkstruct_ramified], we want to prove
     [(mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2)],

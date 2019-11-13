@@ -438,8 +438,8 @@ Parameter triple_frame : forall t H Q H',
 
 (**
 [[
-  (forall H0, hoare t (H \* H0) (Q \*+ H0 \*+ \Top)) ->
-  (forall H1, hoare t (H \* H' \* H1) (Q \*+ H' \*+ H1 \*+ \Top)).
+  (forall H0, hoare t (H \* H0) (Q \*+ H0)) ->
+  (forall H1, hoare t (H \* H' \* H1) (Q \*+ H' \*+ H1)).
 
   Take [H0 := H' \* H1] and the result holds up to associativity.
 ]]
@@ -468,30 +468,12 @@ Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall (x:A), triple t (J x) Q) ->
   triple t (hexists J) Q.
 
-(** Two garbage collection rules allow throwing away. *)
-
-Parameter triple_htop_pre : forall t H Q,
-  triple t H Q ->
-  triple t (H \* \Top) Q.
-
-Parameter triple_htop_post : forall t H Q,
-  triple t H (Q \*+ \Top) ->
-  triple t H Q.
-
 (** The structural rule can be factorized. Here is "consequence + frame". *)
 
 Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
   triple t H1 Q1 ->
   H ==> H1 \* H2 ->
   Q1 \*+ H2 ===> Q ->
-  triple t H Q.
-
-(** And its generalization "consequence + frame + top". *)
-
-Parameter triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \Top ->
   triple t H Q.
 
 
@@ -610,13 +592,6 @@ Parameter triple_ramified_frame : forall H1 Q1 t H Q,
 (** Note: [H1 \* H2 ==> H1 \* (Q1 \--* Q)] simplifies to
           [H2 ==> (Q1 \--* Q)] which simplifies to
           [Q1 \*+ H2 ===> Q]. *)
-
-(** Generalization with \Top *)
-
-Parameter triple_ramified_frame_htop : forall H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* (Q \*+ \Top)) ->
-  triple t H Q.
 
 End Wand.
 

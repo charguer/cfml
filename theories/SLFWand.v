@@ -466,23 +466,8 @@ Proof using. intros. apply himpl_hwand_r. xsimpl. Qed.
 (* ------------------------------------------------------- *)
 (** *** Tempting yet false properties for [hwand] *)
 
-(** The reciprocal entailment to the above lemma, that is
-    [(H \-* H) ==> \[]], does not hold.
-
-    For example, [\Top \-* \Top] is a heap predicate that
-    holds of any heap, and not just of the empty heap. *)
-
-Lemma not_hwand_self_himpl_hempty : exists H,
-  ~ ((H \-* H) ==> \[]).
-Proof using.
-  exists \Top. intros M.
-  lets (h&N): (@Fmap.exists_not_empty val). { typeclass. }
-  forwards K: M h. { hnf. intros h' D K'. applys htop_intro. }
-  false* (hempty_inv K).
-Qed.
-
-(** Likewise, the reciprocal entailment to the elimination
-    lemma, that is, [H2 ==> H1 \* (H1 \-* H2)] does not hold.
+(** The reciprocal entailment to the elimination lemma,
+    that is, [H2 ==> H1 \* (H1 \-* H2)] does not hold.
 
     As counter-example, consider [H2 = \[]] and [H1 = \[False]].
     We can prove that the empty heap does not satisfies
@@ -981,9 +966,6 @@ Definition hforall (A : Type) (J : A -> hprop) : hprop :=
 
 Definition hpure (P:Prop) : hprop :=
   \exists (p:P), \[].
-
-Definition htop : hprop :=
-  \exists (H:hprop), H.
 
 Definition hwand (H1 H2 : hprop) : hprop :=
   \exists H0, H0 \* \[ (H0 \* H1) ==> H2].
