@@ -335,4 +335,3 @@ Lemma triple_hand_r : forall t H1 H2 Q,
   triple t (hand H1 H2) Q.
 Proof using. introv M1. unfold hand. applys~ triple_hforall false. Qed.
 
-

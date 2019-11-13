@@ -937,6 +937,10 @@ Proof using.
   intros HP. applys M HP.
 Qed.
 
+
+(* ####################################################### *)
+(** Appendix *)
+
 (** Remark: recall that [\[P]] can be encoded as [\exists (p:P), \[]].
     One may exploit this equivalence to show that [hoare_hpure]
     is derivable from [hoare_hexists], as illustrated next. *)

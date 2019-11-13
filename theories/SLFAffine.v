@@ -21,6 +21,15 @@ Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
 
 
+(** The definition of [triple] presented above can be used as such for
+    dealing with languages that feature explicit deallocation. However,
+    for a programming language equipped with a garbage collector, we need
+    one additional tweak, to account for the fact that a postcondition may
+    freely forget about pieces of heaps that become no longer relevant.
+    The required modification is motivated and explained next. *)
+
+
+
 (* ####################################################### *)
 (** * The chapter in a rush *)
 

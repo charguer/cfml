@@ -526,7 +526,7 @@ Parameter triple_app_fun : forall x v1 v2 t1 H Q,
 
 
 (* ******************************************************* *)
-(** ** Specification of primitive operations *)
+(** ** Specification of pure primitive operations *)
 
 (** For a complete set of reasoning rules, there remains to present
     the specification for primitive functions. We begin with the
@@ -569,6 +569,9 @@ Parameter triple_div' : forall n1 n2,
     turns out to be more practical to exploit in proofs, hence we 
     always follow this convention, and use the precondition for 
     describing mutable data. *)
+
+(* ******************************************************* *)
+(** ** Specification of primitive operations acting on the memory *)
 
 (** There remains to describe the specification of operations on the heap. *)
 
@@ -616,6 +619,15 @@ Parameter triple_ref : forall v,
     \[]
     (fun (r:val) => \exists (l:loc), \[r = val_loc l] \* l ~~~> v).
 
+(** Recall that [val_free] denotes the operation for deallocating a cell 
+    at a given address. A call of the form [val_free l] executes safely 
+    in a state [l ~~~> v]. The operation leaves an empty state, and
+    asserts that the return value, named [r], is equal to unit. *)
+
+Parameter triple_free : forall l v,
+  triple (val_free (val_loc l))
+    (l ~~~> v)
+    (fun r => \[r = val_unit]).
 
 
 (* ******************************************************* *)
@@ -647,7 +659,8 @@ Open Scope trm_scope.
 Open Scope val_scope.
 
 (** The definition of [incr] in OCaml syntax is: [fun p => p := (!p + 1)].
-    In A-normal form syntax, this definition becomes:
+    In A-normal form (intermediate expressions are named by a "let"), 
+    this definition can be written:
 [[
    fun p =>
         let n = !p in
@@ -775,27 +788,30 @@ End ExampleProofs.
 
 
 (* ******************************************************* *)
-(** ** Reasoning rules for recursive functions *)
+(** ** Alternative specification style for pure preconditions *)
 
-(** This reasoning rules for functions immediately generalizes
-    to recursive functions. A term describing a recursive
-    function is written [trm_fix f x t1], and the corresponding
-    value is written [val_fix f x t1]. *)
+(** Recall the specification for division. *)
 
-Parameter triple_fix : forall f x t1 H Q,
-  H ==> Q (val_fix f x t1) ->
-  triple (trm_fix f x t1) H Q.
+Parameter triple_div'' : forall n1 n2,
+  n2 <> 0 ->
+  triple (val_div n1 n2)
+    \[]
+    (fun r => \[r = val_int (Z.quot n1 n2)]).
 
-(** The reasoning rule that corresponds to beta-reduction for
-    a recursive function involves two substitutions: a first
-    substitution for recursive occurences of the function,
-    followed with a second substitution for the argument
-    provided to the call. *)
+(** Equivalently, we could place the requirement [n2 <> 0] in the
+    precondition: *)
 
-Parameter triple_app_fix : forall v1 v2 f x t1 H Q,
-  v1 = val_fix f x t1 ->
-  triple (subst x v2 (subst f v1 t1)) H Q ->
-  triple (trm_app v1 v2) H Q.
+Parameter triple_div''' : forall n1 n2,
+  triple (val_div n1 n2)
+    \[n2 <> 0]
+    (fun r => \[r = val_int (Z.quot n1 n2)]).
+
+(** Yet, placing pure preconditions outside of the triples makes
+    it slightly more convient to exploit specifications, so we
+    adopt the style that precondition only contain the description
+    of heap-allocated data structures. *)
+
+(* TODO : as exercise, prove the equivalence *)
 
 
 (* ******************************************************* *)
@@ -838,94 +854,6 @@ Proof using.
     { applys triple_frame. applys M1. }
     { applys M2. } }
   { applys qimpl_refl. }
-(* /SOLUTION *)
-Qed.
-
-
-(* ******************************************************* *)
-(** ** Alternative presentation for the specifications of primitive functions *)
-
-(** 1. Recall the specification for division. *)
-
-Parameter triple_div'' : forall n1 n2,
-  n2 <> 0 ->
-  triple (val_div n1 n2)
-    \[]
-    (fun r => \[r = val_int (Z.quot n1 n2)]).
-
-(** Equivalently, we could place the requirement [n2 <> 0] in the
-    precondition: *)
-
-(* TODO :exercise prove equivalence *)
-
-Parameter triple_div''' : forall n1 n2,
-  triple (val_div n1 n2)
-    \[n2 <> 0]
-    (fun r => \[r = val_int (Z.quot n1 n2)]).
-
-(** Yet, placing pure preconditions outside of the triples makes
-    it slightly more convient to exploit specifications, so we
-    adopt the style that precondition only contain the description
-    of heap-allocated data structures. *)
-
-(** 2. Recall the specification for allocation. *)
-
-Parameter triple_ref' : forall v,
-  triple (val_ref v)
-    \[]
-    (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
-
-(** Remark: the postcondition could be equivalently stated using
-    a pattern matching instead of an existential. *)
-
-Parameter triple_ref'' : forall v,
-  triple (val_ref v)
-    \[]
-    (fun r => match r with
-              | val_loc l => (l ~~~> v)
-              | _ => \[False]
-              end).
-
-(** However, this presentation is less readable and would be
-    fairly cumbersome to work with in practice. *)
-
-
-(* ******************************************************* *)
-(** ** Alternative rule for values *)
-
-(** When discussing the reasoning rule for values, we mention
-    that the rule could be expressed with an empty precondition,
-    as shown next:
-[[
-     ----------------------------
-      {\[]} v {fun r => \[r = v]}
-]]
-    Let us prove that this rule is equivalent to [triple_val]. *)
-
-(* EX1! (triple_val_minimal) *)
-(** Prove the alternative rule for values derivable from [triple_val]. *)
-
-Lemma triple_val_minimal : forall v,
-  triple (trm_val v) \[] (fun r => \[r = v]).
-Proof using.
-(* SOLUTION *)
-  intros. applys triple_val. xsimpl. auto.
-(* /SOLUTION *)
-Qed.
-
-(* EX2! (triple_val_minimal) *)
-(** More interestingly, prove that [triple_val] is derivable
-    from [triple_val_minimal]. *)
-
-Lemma triple_val' : forall v H Q,
-  H ==> Q v ->
-  triple (trm_val v) H Q.
-Proof using.
-(* SOLUTION *)
-  introv M. applys triple_conseq_frame.
-  { applys triple_val_minimal. }
-  { xsimpl. }
-  { intros r. xsimpl. intros ->. applys M. }
 (* /SOLUTION *)
 Qed.
 
@@ -1015,14 +943,6 @@ Qed.
 (** Nevertheless, considering that these witnesses are just single-letter
     variables, to improve readability of proofs in this chapter, we will
     thereafter provide the witnesses explicitly. *)
-
-
-(* ------------------------------------------------------- *)
-(** *** Proof of [triple_fun] and [triple_fix] *)
-
-(** The proofs for [triple_fun] and [triple_fix] are essentially
-    identical to that of [triple_val], so we do not include them
-    here. *)
 
 
 (* ------------------------------------------------------- *)
@@ -1120,154 +1040,6 @@ Proof using.
     { applys M2. } { xsimpl. } { xsimpl. } }
 Qed.
 (* /SOLUTION *)
-
-
-(* ------------------------------------------------------- *)
-(** *** Proof of [triple_if] *)
-
-(** The treatment of conditional can be handled in a similar way. *)
-
-Parameter eval_if_bool : forall s1 s2 b v t1 t2,
-  (b = true -> eval s1 t1 s2 v) ->
-  (b = false -> eval s1 t2 s2 v) ->
-  eval s1 (trm_if b t1 t2) s2 v.
-
-Lemma hoare_if : forall b t1 t2 H Q,
-  (b = true -> hoare t1 H Q) ->
-  (b = false -> hoare t2 H Q) ->
-  hoare (trm_if b t1 t2) H Q.
-Proof using.
-  introv M1 M2. intros s K0. destruct b.
-  { forwards* (s1'&v1&R1&K1): (rm M1) K0.
-    exists s1' v1. split*. { applys* eval_if_case. } }
-  { forwards* (s1'&v1&R1&K1): (rm M2) K0.
-    exists s1' v1. split*. { applys* eval_if_case. } }
-Qed.
-
-Lemma triple_if' : forall b t1 t2 H Q,
-  (b = true -> triple t1 H Q) ->
-  (b = false -> triple t2 H Q) ->
-  triple (trm_if (val_bool b) t1 t2) H Q.
-Proof using.
-  unfold triple. introv M1 M2. intros H'.
-  applys hoare_if; intros Eb.
-  { applys* M1. }
-  { applys* M2. }
-Qed.
-
-(** Observe that the above proofs contain a fair amount of duplication,
-    due to the symmetry between the [b=true] and [b=false] branches.
-    One way to conveniently factorize the proof arguments is to employ
-    Coq's conditional to express the semantics of a term conditional.
-
-    First, we establish a corollary to [eval_if], expressed using a
-    single premise. *)
-
-Lemma eval_if_case : forall s1 s2 b v t1 t2,
-  eval s1 (if b then t1 else t2) s2 v ->
-  eval s1 (trm_if b t1 t2) s2 v.
-Proof using.
-  intros. case_if; applys eval_if_bool; auto_false.
-Qed.
-
-(** Then, we are able to establish the Hoare triple and the Separation
-    Logic triple with much less effort. *)
-
-Lemma hoare_if_case : forall (b:bool) t1 t2 H Q,
-  hoare (if b then t1 else t2) H Q ->
-  hoare (trm_if b t1 t2) H Q.
-Proof using.
-  introv M1. intros s K0.
-  forwards (s'&v&R1&K1): (rm M1) K0.
-  exists s' v. split. { applys eval_if_case R1. } { applys K1. }
-Qed.
-
-Lemma triple_if_case : forall b t1 t2 H Q,
-  triple (if b then t1 else t2) H Q ->
-  triple (trm_if (val_bool b) t1 t2) H Q.
-Proof using.
-  unfold triple. introv M1. intros H'.
-  applys hoare_if_case. applys M1.
-Qed.
-
-
-(* ------------------------------------------------------- *)
-(** *** Proof of [triple_app_fun] *)
-
-(** The reasoning rule for an application asserts that the
-    a pre- and poscondition hold for a beta-redex [(val_fun x t1) v2]
-    provided that they hold for the term [subst x v2 t1].
-
-    This result follows directly from the big-step evaluation rule
-    for applications. *)
-
-Parameter eval_app_fun : forall s1 s2 v1 v2 x t1 v,
-  v1 = val_fun x t1 ->
-  eval s1 (subst x v2 t1) s2 v ->
-  eval s1 (trm_app v1 v2) s2 v.
-
-(* EX2! (hoare_app_fun) *)
-
-Lemma hoare_app_fun : forall v1 v2 x t1 H Q,
-  v1 = val_fun x t1 ->
-  hoare (subst x v2 t1) H Q ->
-  hoare (trm_app v1 v2) H Q.
-Proof using.
-(* SOLUTION *)
-  introv E M. intros s K0. forwards (s'&v&R1&K1): (rm M) K0.
-  exists s' v. splits. { applys eval_app_fun E R1. } { applys K1. }
-(* /SOLUTION *)
-Qed.
-
-(* EX2! (triple_app_fun) *)
-
-Lemma triple_app_fun : forall x v1 v2 t1 H Q,
-  v1 = val_fun x t1 ->
-  triple (subst x v2 t1) H Q ->
-  triple (trm_app v1 v2) H Q.
-Proof using.
-(* SOLUTION *)
-  unfold triple. introv E M1. intros H'.
-  applys hoare_app_fun E. applys M1.
-(* /SOLUTION *)
-Qed.
-
-
-(* ------------------------------------------------------- *)
-(** *** Triple for terms with same semantics *)
-
-(** The proofs above can in fact be obtained by invoking a general
-    result: if [t2] has the same semantics as [t1], then any triple
-    valid for [t1] is also valid for [t2]. *)
-
-Lemma hoare_same_semantics : forall t1 t2 H Q,
-  (forall s s' v, eval s t1 s' v -> eval s t2 s' v) ->
-  hoare t1 H Q ->
-  hoare t2 H Q.
-Proof using.
-  introv E M1 K0. forwards (s'&v&R1&K1): M1 K0.
-  exists s' v. split. { applys E R1. } { applys K1. }
-Qed.
-
-Lemma triple_same_semantics : forall t1 t2 H Q,
-  (forall s s' v, eval s t1 s' v -> eval s t2 s' v) ->
-  triple t1 H Q ->
-  triple t2 H Q.
-Proof using.
-  introv E M1. intros H'. applys hoare_same_semantics E. applys M1.
-Qed.
-
-(** Using this general result, we can revisit the proof of
-    [triple_app_fun] in a much more succint way. *)
-
-Lemma triple_app_fun' : forall x v1 v2 t1 H Q,
-  v1 = val_fun x t1 ->
-  triple (subst x v2 t1) H Q ->
-  triple (trm_app v1 v2) H Q.
-Proof using.
-  introv E M1. applys triple_same_semantics M1.
-  introv R. applys eval_app_fun E R.
-Qed.
 
 
 (* ******************************************************* *)
@@ -1477,97 +1249,6 @@ Qed.
 
 
 (* ------------------------------------------------------- *)
-(** *** Write in a reference *)
-
-(** The big-step evaluation rule for [set l v] updates the initial
-    state [s] by re-binding the location [l] to the value [v].
-    The location [l] must already belong to the domain of [s]. *)
-
-Parameter eval_set : forall m l v,
-   Fmap.indom m l ->
-   eval m (val_set (val_loc l) v) (Fmap.update m l v) val_unit.
-
-(** As for [get], we first reformulate this lemma, to replace
-   references to [Fmap.indom] and [Fmap.update] with references
-   to [Fmap.union], [Fmap.single], and [Fmap.disjoint], to
-   prepare for the introduction of separating conjuntions. *)
-
-Lemma eval_set_sep : forall s1 s2 h2 l v1 v2,
-  s1 = Fmap.union (Fmap.single l v1) h2 ->
-  s2 = Fmap.union (Fmap.single l v2) h2 ->
-  Fmap.disjoint (Fmap.single l v1) h2 ->
-  eval s1 (val_set (val_loc l) v2) s2 val_unit.
-Proof using.
-  (** It is not needed to follow through this proof. *)
-  introv -> -> D. forwards Dv: Fmap.indom_single l v1.
-  applys_eq eval_set 2.
-  { applys~ Fmap.indom_union_l. }
-  { rewrite~ Fmap.update_union_l. fequals.
-    rewrite~ Fmap.update_single. }
-Qed.
-
-(** The proof of the Hoare rule for [set] makes use of the following
-    fact (from [Fmap.v]) about [Fmap.disjoint]: when one of its argument is
-    a singleton map, the value stored in that singleton map is irrelevant.
-[[
-    Check Fmap.disjoint_single_set : forall l v1 v2 h2,
-      Fmap.disjoint (Fmap.single l v1) h2 ->
-      Fmap.disjoint (Fmap.single l v2) h2.
-]]
-*)
-
-(** We willmake use of three lemmas, all introduced in the first chapter:
-
-    - the lemma [hstar_hpure_iff], already used earlier in this chapter
-      to reformulate [(\[P] \* H) h] as [P /\ H h],
-    - the lemma [hsingle_intro], to prove [(l ~~~> v) (Fmap.single l v)],
-    - and the lemma [hstar_intro], to prove [(H1 \* H2) (h1 \u h2)]. *)
-
-(** Let's now dive in the proof of the Hoare triple for [set]. *)
-
-Lemma hoare_set : forall H w l v,
-  hoare (val_set (val_loc l) w)
-    ((l ~~~> v) \* H)
-    (fun r => \[r = val_unit] \* (l ~~~> w) \* H).
-Proof using.
-  (* 1. We unfold the definition of [hoare]. *)
-  intros. intros s1 K0.
-  (* 2. We decompose the star from the precondition. *)
-  destruct K0 as (h1&h2&P1&P2&D&U).
-  (* 3. We also decompose the singleton heap predicate from it. *)
-  lets E1: hsingle_inv P1.
-  (* 4. We provide the witnesses as guided by [eval_set_sep]. *)
-  exists ((Fmap.single l w) \u h2) val_unit. split.
-  { (* 5. The evaluation subgoal matches the statement of [eval_set_sep]. *)
-    subst h1. applys eval_set_sep U D. auto. }
-  { (* 6. To establish the postcondition, we first isolate the pure fact. *)
-    rewrite hstar_hpure. split.
-    { auto. }
-    { (* 7. Then establish the star. *)
-      applys hstar_intro.
-      { (* 8. We establish the heap predicate [l ~~~> w] *)
-        applys hsingle_intro. }
-      { applys P2. }
-      { (* 9. Finally, we justify disjointness using the lemma
-              [Fmap.disjoint_single_set] introduced earlier. *)
-        subst h1. applys Fmap.disjoint_single_set D. } } }
-Qed.
-
-(** We then derive the Separation Logic triple as usual. *)
-
-Lemma triple_set : forall w l v,
-  triple (val_set (val_loc l) w)
-    (l ~~~> v)
-    (fun r => \[r = val_unit] \* l ~~~> w).
-Proof using.
-  intros. intros H'. applys hoare_conseq.
-  { applys hoare_set. }
-  { xsimpl. }
-  { xsimpl. auto. }
-Qed.
-
-
-(* ------------------------------------------------------- *)
 (** *** Allocation of a reference *)
 
 (** Next, we consider the reasoning rule for operation [ref], which
@@ -1660,6 +1341,290 @@ Proof using.
   { xsimpl. auto. }
 Qed.
 
+End Proofs.
+
+
+(* ####################################################### *)
+(** * Bonus contents (optional reading) *)
+
+(* ******************************************************* *)
+(** ** Alternative rule for values *)
+
+(** When discussing the reasoning rule for values, we mention
+    that the rule could be expressed with an empty precondition,
+    as shown next:
+[[
+     ----------------------------
+      {\[]} v {fun r => \[r = v]}
+]]
+    Let us prove that this rule is equivalent to [triple_val]. *)
+
+(* EX1! (triple_val_minimal) *)
+(** Prove the alternative rule for values derivable from [triple_val]. *)
+
+Lemma triple_val_minimal : forall v,
+  triple (trm_val v) \[] (fun r => \[r = v]).
+Proof using.
+(* SOLUTION *)
+  intros. applys triple_val. xsimpl. auto.
+(* /SOLUTION *)
+Qed.
+
+(* EX2! (triple_val_minimal) *)
+(** More interestingly, prove that [triple_val] is derivable
+    from [triple_val_minimal]. *)
+
+Lemma triple_val' : forall v H Q,
+  H ==> Q v ->
+  triple (trm_val v) H Q.
+Proof using.
+(* SOLUTION *)
+  introv M. applys triple_conseq_frame.
+  { applys triple_val_minimal. }
+  { xsimpl. }
+  { intros r. xsimpl. intros ->. applys M. }
+(* /SOLUTION *)
+Qed.
+
+
+(* ******************************************************* *)
+(** ** Reasoning rules for recursive functions *)
+
+(** This reasoning rules for functions immediately generalizes
+    to recursive functions. A term describing a recursive
+    function is written [trm_fix f x t1], and the corresponding
+    value is written [val_fix f x t1]. *)
+
+Parameter triple_fix : forall f x t1 H Q,
+  H ==> Q (val_fix f x t1) ->
+  triple (trm_fix f x t1) H Q.
+
+(** The reasoning rule that corresponds to beta-reduction for
+    a recursive function involves two substitutions: a first
+    substitution for recursive occurences of the function,
+    followed with a second substitution for the argument
+    provided to the call. *)
+
+Parameter triple_app_fix : forall v1 v2 f x t1 H Q,
+  v1 = val_fix f x t1 ->
+  triple (subst x v2 (subst f v1 t1)) H Q ->
+  triple (trm_app v1 v2) H Q.
+
+
+(* ******************************************************* *)
+(** *** Proof of other term rules *)
+
+Module Proofs2.
+
+(* ------------------------------------------------------- *)
+(** *** Proof of [triple_fun] and [triple_fix] *)
+
+(** The proofs for [triple_fun] and [triple_fix] are essentially
+    identical to that of [triple_val], so we do not include them
+    here. *)
+
+
+(* ------------------------------------------------------- *)
+(** *** Proof of [triple_if] *)
+
+(** The treatment of conditional can be handled in a similar way. *)
+
+Parameter eval_if_bool : forall s1 s2 b v t1 t2,
+  (b = true -> eval s1 t1 s2 v) ->
+  (b = false -> eval s1 t2 s2 v) ->
+  eval s1 (trm_if b t1 t2) s2 v.
+
+Lemma hoare_if : forall b t1 t2 H Q,
+  (b = true -> hoare t1 H Q) ->
+  (b = false -> hoare t2 H Q) ->
+  hoare (trm_if b t1 t2) H Q.
+Proof using.
+  introv M1 M2. intros s K0. destruct b.
+  { forwards* (s1'&v1&R1&K1): (rm M1) K0.
+    exists s1' v1. split*. { applys* eval_if_case. } }
+  { forwards* (s1'&v1&R1&K1): (rm M2) K0.
+    exists s1' v1. split*. { applys* eval_if_case. } }
+Qed.
+
+Lemma triple_if' : forall b t1 t2 H Q,
+  (b = true -> triple t1 H Q) ->
+  (b = false -> triple t2 H Q) ->
+  triple (trm_if (val_bool b) t1 t2) H Q.
+Proof using.
+  unfold triple. introv M1 M2. intros H'.
+  applys hoare_if; intros Eb.
+  { applys* M1. }
+  { applys* M2. }
+Qed.
+
+(** Observe that the above proofs contain a fair amount of duplication,
+    due to the symmetry between the [b=true] and [b=false] branches.
+    One way to conveniently factorize the proof arguments is to employ
+    Coq's conditional to express the semantics of a term conditional.
+
+    First, we establish a corollary to [eval_if], expressed using a
+    single premise. *)
+
+Lemma eval_if_case : forall s1 s2 b v t1 t2,
+  eval s1 (if b then t1 else t2) s2 v ->
+  eval s1 (trm_if b t1 t2) s2 v.
+Proof using.
+  intros. case_if; applys eval_if_bool; auto_false.
+Qed.
+
+(** Then, we are able to establish the Hoare triple and the Separation
+    Logic triple with much less effort. *)
+
+Lemma hoare_if_case : forall (b:bool) t1 t2 H Q,
+  hoare (if b then t1 else t2) H Q ->
+  hoare (trm_if b t1 t2) H Q.
+Proof using.
+  introv M1. intros s K0.
+  forwards (s'&v&R1&K1): (rm M1) K0.
+  exists s' v. split. { applys eval_if_case R1. } { applys K1. }
+Qed.
+
+Lemma triple_if_case : forall b t1 t2 H Q,
+  triple (if b then t1 else t2) H Q ->
+  triple (trm_if (val_bool b) t1 t2) H Q.
+Proof using.
+  unfold triple. introv M1. intros H'.
+  applys hoare_if_case. applys M1.
+Qed.
+
+
+(* ------------------------------------------------------- *)
+(** *** Proof of [triple_app_fun] *)
+
+(** The reasoning rule for an application asserts that the
+    a pre- and poscondition hold for a beta-redex [(val_fun x t1) v2]
+    provided that they hold for the term [subst x v2 t1].
+
+    This result follows directly from the big-step evaluation rule
+    for applications. *)
+
+Parameter eval_app_fun : forall s1 s2 v1 v2 x t1 v,
+  v1 = val_fun x t1 ->
+  eval s1 (subst x v2 t1) s2 v ->
+  eval s1 (trm_app v1 v2) s2 v.
+
+(* EX2! (hoare_app_fun) *)
+
+Lemma hoare_app_fun : forall v1 v2 x t1 H Q,
+  v1 = val_fun x t1 ->
+  hoare (subst x v2 t1) H Q ->
+  hoare (trm_app v1 v2) H Q.
+Proof using.
+(* SOLUTION *)
+  introv E M. intros s K0. forwards (s'&v&R1&K1): (rm M) K0.
+  exists s' v. splits. { applys eval_app_fun E R1. } { applys K1. }
+(* /SOLUTION *)
+Qed.
+
+(* EX2! (triple_app_fun) *)
+
+Lemma triple_app_fun : forall x v1 v2 t1 H Q,
+  v1 = val_fun x t1 ->
+  triple (subst x v2 t1) H Q ->
+  triple (trm_app v1 v2) H Q.
+Proof using.
+(* SOLUTION *)
+  unfold triple. introv E M1. intros H'.
+  applys hoare_app_fun E. applys M1.
+(* /SOLUTION *)
+Qed.
+
+
+(* ------------------------------------------------------- *)
+(** *** Write in a reference *)
+
+(** The big-step evaluation rule for [set l v] updates the initial
+    state [s] by re-binding the location [l] to the value [v].
+    The location [l] must already belong to the domain of [s]. *)
+
+Parameter eval_set : forall m l v,
+   Fmap.indom m l ->
+   eval m (val_set (val_loc l) v) (Fmap.update m l v) val_unit.
+
+(** As for [get], we first reformulate this lemma, to replace
+   references to [Fmap.indom] and [Fmap.update] with references
+   to [Fmap.union], [Fmap.single], and [Fmap.disjoint], to
+   prepare for the introduction of separating conjuntions. *)
+
+Lemma eval_set_sep : forall s1 s2 h2 l v1 v2,
+  s1 = Fmap.union (Fmap.single l v1) h2 ->
+  s2 = Fmap.union (Fmap.single l v2) h2 ->
+  Fmap.disjoint (Fmap.single l v1) h2 ->
+  eval s1 (val_set (val_loc l) v2) s2 val_unit.
+Proof using.
+  (** It is not needed to follow through this proof. *)
+  introv -> -> D. forwards Dv: Fmap.indom_single l v1.
+  applys_eq eval_set 2.
+  { applys~ Fmap.indom_union_l. }
+  { rewrite~ Fmap.update_union_l. fequals.
+    rewrite~ Fmap.update_single. }
+Qed.
+
+(** The proof of the Hoare rule for [set] makes use of the following
+    fact (from [Fmap.v]) about [Fmap.disjoint]: when one of its argument is
+    a singleton map, the value stored in that singleton map is irrelevant.
+[[
+    Check Fmap.disjoint_single_set : forall l v1 v2 h2,
+      Fmap.disjoint (Fmap.single l v1) h2 ->
+      Fmap.disjoint (Fmap.single l v2) h2.
+]]
+*)
+
+(** We willmake use of three lemmas, all introduced in the first chapter:
+
+    - the lemma [hstar_hpure_iff], already used earlier in this chapter
+      to reformulate [(\[P] \* H) h] as [P /\ H h],
+    - the lemma [hsingle_intro], to prove [(l ~~~> v) (Fmap.single l v)],
+    - and the lemma [hstar_intro], to prove [(H1 \* H2) (h1 \u h2)]. *)
+
+(** Let's now dive in the proof of the Hoare triple for [set]. *)
+
+Lemma hoare_set : forall H w l v,
+  hoare (val_set (val_loc l) w)
+    ((l ~~~> v) \* H)
+    (fun r => \[r = val_unit] \* (l ~~~> w) \* H).
+Proof using.
+  (* 1. We unfold the definition of [hoare]. *)
+  intros. intros s1 K0.
+  (* 2. We decompose the star from the precondition. *)
+  destruct K0 as (h1&h2&P1&P2&D&U).
+  (* 3. We also decompose the singleton heap predicate from it. *)
+  lets E1: hsingle_inv P1.
+  (* 4. We provide the witnesses as guided by [eval_set_sep]. *)
+  exists ((Fmap.single l w) \u h2) val_unit. split.
+  { (* 5. The evaluation subgoal matches the statement of [eval_set_sep]. *)
+    subst h1. applys eval_set_sep U D. auto. }
+  { (* 6. To establish the postcondition, we first isolate the pure fact. *)
+    rewrite hstar_hpure. split.
+    { auto. }
+    { (* 7. Then establish the star. *)
+      applys hstar_intro.
+      { (* 8. We establish the heap predicate [l ~~~> w] *)
+        applys hsingle_intro. }
+      { applys P2. }
+      { (* 9. Finally, we justify disjointness using the lemma
+              [Fmap.disjoint_single_set] introduced earlier. *)
+        subst h1. applys Fmap.disjoint_single_set D. } } }
+Qed.
+
+(** We then derive the Separation Logic triple as usual. *)
+
+Lemma triple_set : forall w l v,
+  triple (val_set (val_loc l) w)
+    (l ~~~> v)
+    (fun r => \[r = val_unit] \* l ~~~> w).
+Proof using.
+  intros. intros H'. applys hoare_conseq.
+  { applys hoare_set. }
+  { xsimpl. }
+  { xsimpl. auto. }
+Qed.
+
 
 (* ------------------------------------------------------- *)
 (** *** Deallocation of a reference *)
@@ -1718,6 +1683,8 @@ Proof using.
   { xsimpl. auto. }
 Qed.
 
+End Proofs2.
+
 
 (* ******************************************************* *)
 (** *** Proofs revisited using the [triple_of_hoare] lemma *)
@@ -1758,7 +1725,41 @@ Proof using.
 Qed.
 
 
-End Proofs.
+(* ******************************************************* *)
+(** *** Triple for terms with same semantics *)
+
+(** The proofs above can in fact be obtained by invoking a general
+    result: if [t2] has the same semantics as [t1], then any triple
+    valid for [t1] is also valid for [t2]. *)
+
+Lemma hoare_same_semantics : forall t1 t2 H Q,
+  (forall s s' v, eval s t1 s' v -> eval s t2 s' v) ->
+  hoare t1 H Q ->
+  hoare t2 H Q.
+Proof using.
+  introv E M1 K0. forwards (s'&v&R1&K1): M1 K0.
+  exists s' v. split. { applys E R1. } { applys K1. }
+Qed.
+
+Lemma triple_same_semantics : forall t1 t2 H Q,
+  (forall s s' v, eval s t1 s' v -> eval s t2 s' v) ->
+  triple t1 H Q ->
+  triple t2 H Q.
+Proof using.
+  introv E M1. intros H'. applys hoare_same_semantics E. applys M1.
+Qed.
+
+(** Using this general result, we can revisit the proof of
+    [triple_app_fun] in a much more succint way. *)
+
+Lemma triple_app_fun' : forall x v1 v2 t1 H Q,
+  v1 = val_fun x t1 ->
+  triple (subst x v2 t1) H Q ->
+  triple (trm_app v1 v2) H Q.
+Proof using.
+  introv E M1. applys triple_same_semantics M1.
+  introv R. applys eval_app_fun E R.
+Qed.
 
 
 (* ******************************************************* *)
@@ -1806,5 +1807,24 @@ Proof using.
 Qed.
 
 
+(* ******************************************************* *)
+(** ** Alternative specification style for result values. *)
 
+Parameter triple_ref' : forall v,
+  triple (val_ref v)
+    \[]
+    (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
 
+(** Remark: the postcondition could be equivalently stated using
+    a pattern matching instead of an existential. *)
+
+Parameter triple_ref'' : forall v,
+  triple (val_ref v)
+    \[]
+    (fun r => match r with
+              | val_loc l => (l ~~~> v)
+              | _ => \[False]
+              end).
+
+(** However, this presentation is less readable and would be
+    fairly cumbersome to work with in practice. *)

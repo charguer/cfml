@@ -321,17 +321,9 @@ Proof using.
   { applys qprop_eq. intros v. rewrite hstar_assoc. auto. }
 Qed.
 
-(** The definition of [triple] presented above can be used as such for
-    dealing with languages that feature explicit deallocation. However,
-    for a programming language equipped with a garbage collector, we need
-    one additional tweak, to account for the fact that a postcondition may
-    freely forget about pieces of heaps that become no longer relevant.
-    The required modification is motivated and explained next. *)
-
-
 
 (* ####################################################### *)
-(** * Additional notation, explanations and lemmas *)
+(** * Additional explanations and lemmas *)
 
 
 (* ******************************************************* *)
@@ -417,7 +409,7 @@ Parameter triple_incr_3 : forall (p:loc) (n:int) (H:hprop),
 
 
 (* ******************************************************* *)
-(** ** Power of the frame rule w.r.t. allocation *)
+(** ** Power of the frame rule with respect to allocation *)
 
 (** Consider the specification lemma for an allocation operation.
     This rule states that, starting from the empty heap, one
@@ -556,48 +548,55 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
-(** ** Additional explanations for the definition of [\exists] *)
-
-(** The heap predicate [\exists (n:int), l ~~~> (val_int n)] characterizes
-    a state that contains a single memory cell, at address [l], storing
-    the integer value [n], for "some" (unspecified) integer [n].
-
-[[
-  Parameter (l:loc).
-  Check (\exists (n:int), l ~~~> (val_int n)) : hprop.
-]]
-
-    The type of [\exists], which operates on [hprop], is very similar
-    to that of [exists], which operates on [Prop].
-
-    The notation [exists x, P] stands for [ex (fun x => P)],
-    where [ex] has the following type:
-[[
-    Check ex : forall A : Type, (A -> Prop) -> Prop.
-]]
-
-    Likewise, [\exists x, H] stands for [hexists (fun x => H)],
-    where [hexists] has the following type:
-[[
-    Check hexists : forall A : Type, (A -> hprop) -> hprop.
-]]
-
-*)
-
-(** Remark: the notation for [\exists] is directly adapted from that
-    of [exists], which supports the quantification an arbitrary number
-    of variables, and is defined in [Coq.Init.Logic] as follows. *)
-
-Notation "'exists' x .. y , p" := (ex (fun x => .. (ex (fun y => p)) ..))
-  (at level 200, x binder, right associativity,
-   format "'[' 'exists' '/ ' x .. y , '/ ' p ']'").
-
-
-
-
 (* ####################################################### *)
-(** * Alternative definitions *)
+(** * Bonus contents (optional reading) *)
+
+(* ******************************************************* *)
+(** ** Alternative, equivalent definitions for SL triples *)
+
+(** We have previously defined [triple] on top of [hoare],
+    with the help of the separating conjunction operator, as:
+    [forall (H':hprop), hoare (H \* H') t (Q \*+ H')].
+    In what follows, we give an equivalent characterization,
+    expressed directly in terms of heaps and heap unions.
+
+    The alternative definition of [triple t H Q] asserts that if 
+    [h1] satisfies the precondition [H] and [h2] describes the rest of the 
+    state, then the evaluation of [t] produces a value [v] in a final state 
+    made that can be decomposed between a part [h1'] and [h2] unchanged,
+    in such a way that [v] and [h1'] together satisfy the poscondition [Q]. 
+    Formally: *)
+
+Definition triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall h1 h2,
+  Fmap.disjoint h1 h2 ->
+  H h1 ->
+  exists h1' v,
+       Fmap.disjoint h1' h2
+    /\ eval (h1 \u h2) t (h1' \u h2) v
+    /\ Q v h1'.
+
+(** Let us establish the equivalence between this alternative definition
+    of [triple] and the original one. *)
+
+(* EX3! (triple_iff_triple_lowlevel) *)
+(** This is probably a very challenging exercise. *)
+
+Lemma triple_iff_triple_lowlevel : forall t H Q,
+  triple t H Q <-> triple_lowlevel t H Q.
+Proof using.
+(* SOLUTION *)
+  unfold triple, triple_lowlevel, hoare. iff M.
+  { introv D P1.
+    forwards (h'&v&HR&HQ): M (=h2) (h1 \u h2). { hnf. eauto 8. }
+    destruct HQ as (h1'&h2'&N0&N1&N2&N3). subst.
+    exists h1' v. auto. }
+  { intros H' h. introv (h1&h2&N1&N2&D&U).
+    forwards (h1'&v&D'&HR&HQ): M h1 h2; auto. subst.
+    exists (h1' \u h2) v. split. { eauto. } { hnf. eauto 8. } }
+(* /SOLUTION *)
+Qed.
+
 
 (* ******************************************************* *)
 (** ** Alternative definitions for heap predicates *)
@@ -650,65 +649,54 @@ Definition hpure' (P:Prop) : hprop :=
     one as derived. The predicate [hempty] is simpler and appears as
     more fundamental. 
     
-    Hence, in the subsequent chapters and in the CFML tool, we define [hpure] in terms 
-    of [hexists] and [hempty], like in the definition of [hpure'] shown above.
-    In other words, we assume the definition:
+    Hence, in the subsequent chapters and in the CFML tool, we define [hpure] 
+    in terms of [hexists] and [hempty], like in the definition of [hpure'] 
+    shown above. In other words, we assume the definition:
 
 [[
   Definition hpure (P:Prop) : hprop :=
     \exists (p:P), \[].
+]]
 *)
 
 
 (* ******************************************************* *)
-(** ** Alternative, equivalent definitions for SL triples *)
+(** ** Additional explanations for the definition of [\exists] *)
 
-(** We have previously defined [triple] on top of [hoare],
-    with the help of the separating conjunction operator, as:
-    [forall (H':hprop), hoare (H \* H') t (Q \*+ H')].
-    In what follows, we give an equivalent characterization,
-    expressed directly in terms of heaps and heap unions.
+(** The heap predicate [\exists (n:int), l ~~~> (val_int n)] characterizes
+    a state that contains a single memory cell, at address [l], storing
+    the integer value [n], for "some" (unspecified) integer [n].
 
-    The alternative definition of [triple t H Q] asserts that if 
-    [h1] satisfies the precondition [H] and [h2] describes the rest of the 
-    state, then the evaluation of [t] produces a value [v] in a final state 
-    made that can be decomposed between a part [h1'] and [h2] unchanged,
-    in such a way that [v] and [h1'] together satisfy the poscondition [Q]. 
-    Formally: *)
+[[
+  Parameter (l:loc).
+  Check (\exists (n:int), l ~~~> (val_int n)) : hprop.
+]]
 
-Definition triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
-  forall h1 h2,
-  Fmap.disjoint h1 h2 ->
-  H h1 ->
-  exists h1' v,
-       Fmap.disjoint h1' h2
-    /\ eval (h1 \u h2) t (h1' \u h2) v
-    /\ Q v h1'.
+    The type of [\exists], which operates on [hprop], is very similar
+    to that of [exists], which operates on [Prop].
 
-(** Let us establish the equivalence between this alternative definition
-    of [triple] and the original one. *)
+    The notation [exists x, P] stands for [ex (fun x => P)],
+    where [ex] has the following type:
+[[
+    Check ex : forall A : Type, (A -> Prop) -> Prop.
+]]
 
-(* EX3! (triple_iff_triple_lowlevel) *)
-(** This is probably a very challenging exercise. *)
+    Likewise, [\exists x, H] stands for [hexists (fun x => H)],
+    where [hexists] has the following type:
+[[
+    Check hexists : forall A : Type, (A -> hprop) -> hprop.
+]]
 
-Lemma triple_iff_triple_lowlevel : forall t H Q,
-  triple t H Q <-> triple_lowlevel t H Q.
-Proof using.
-(* SOLUTION *)
-  unfold triple, triple_lowlevel, hoare. iff M.
-  { introv D P1.
-    forwards (h'&v&HR&HQ): M (=h2) (h1 \u h2). { hnf. eauto 8. }
-    destruct HQ as (h1'&h2'&N0&N1&N2&N3). subst.
-    exists h1' v. auto. }
-  { intros H' h. introv (h1&h2&N1&N2&D&U).
-    forwards (h1'&v&D'&HR&HQ): M h1 h2; auto. subst.
-    exists (h1' \u h2) v. split. { eauto. } { hnf. eauto 8. } }
-(* /SOLUTION *)
-Qed.
+*)
 
+(** Remark: the notation for [\exists] is directly adapted from that
+    of [exists], which supports the quantification an arbitrary number
+    of variables, and is defined in [Coq.Init.Logic] as follows. *)
 
-(* ####################################################### *)
-(** * Appendix: extensionality *)
+Notation "'exists' x .. y , p" := (ex (fun x => .. (ex (fun y => p)) ..))
+  (at level 200, x binder, right associativity,
+   format "'[' 'exists' '/ ' x .. y , '/ ' p ']'").
+
 
 (* ******************************************************* *)
 (** ** Formulation of the extensionality axioms *)
