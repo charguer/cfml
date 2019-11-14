@@ -261,13 +261,21 @@ Proof using. introv M. xchange M. applys wp_ramified. Qed.
     definitions that we consider are necessarily equivalent to
     each other. *)
 
-(** The low-level definition of [wp t Q] is a predicate that
-    characterizes a heap [h] if and only if [triple t (=h) Q]
-    holds, where [=h] is a heap predicate that holds only of
-    the heap [h]. *)
+(** Firstly, we present the "low-level" definition of [wp t Q].
+    It is defined as a heap predicate that holds of a heap [h]
+    if and only if the execution of [t] starting the heap [h]
+    produces the post-condition [Q].
+
+    Technically, it is defined as [fun h => triple t (=h) Q], 
+    where [=h] is a shorthand for [fun h' => (h' = h)]. 
+    In other words, the precondition [=h] requires the input heap 
+    to be identical to [h]. *)
 
 Definition wp_low (t:trm) (Q:val->hprop) : hprop :=
   fun (h:heap) => triple t (=h) Q.
+
+(** We next shot that [wp_low] statisfies the equivalence 
+    [triple t H Q <-> H ==> wp Q] that characterizes [wp]. *)
 
 Lemma wp_equiv_wp_low : wp_characterization wp_low.
   (** [forall t H Q, (triple t H Q) <-> (H ==> wp_low t Q)]. *)
@@ -286,14 +294,37 @@ Proof using.
     { applys qimpl_refl. } }
 Qed.
 
-(** The high-level definition of [wp t Q] is defined as
-    the existence of a heap predicate [H] such that [H] holds
-    of the current heap and the judgment [triple t H Q] holds. *)
+(** Secondly, we present the "high-level" definition of [wp t Q].
+    It is "higher-level" because it is defined using Separation Logic 
+    combinators, without resorting to the manipulation of heaps.
+
+    The idea is to define [wp t Q] as the predicate 
+    [\exists H, H \* \[triple t H Q]]. As we argue next,
+    this heap predicate is entailed by any valid precondition,
+    and it is itself a valid precondition.
+*)
 
 Definition wp_high (t:trm) (Q:val->hprop) : hprop :=
   \exists (H:hprop), H \* \[triple t H Q].
 
-(* EX3! (wp_equiv_wp_high) *)
+(** On the one hand, if [H'] is a valid precondition, i.e. such that
+    [triple t H' Q] holds, then it is the case that 
+    [H' ==> \exists H, H \* \[triple t H Q]].
+    Indeed, the entailment holds by instantiating [H] as [H'].
+
+    On the other hand [\exists H, H \* \[triple t H Q]] is a valid
+    precondition for [t] with postcondition [Q], that is:
+    [triple t (\exists H, H \* \[triple t H Q]) Q]. To see why,
+    apply the extraction rule for existentials gives:
+    [forall H, triple t (H \* \[triple t H Q]) Q]
+    then apply the extraction rule for pure facts gives:
+    [forall H, (triple t H Q) -> (triple t H Q)], i.e., a tautology.
+
+    The above reasoning is formalized next, through the proof
+    that [wp_high] also statisfies the equivalence 
+    [triple t H Q <-> H ==> wp Q], which characterizes [wp]. *)
+
+(* EX2! (wp_equiv_wp_high) *)
 (** Prove that this second definition of [wp] statisfies
     the characteristic property [wp_equiv]. *)
 
