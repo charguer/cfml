@@ -42,14 +42,17 @@ For the course on the practice of proofs with CFML, see files named [CF*.v].
     - [SLFRules]: reasoning rules for Separation Logic triples, and
                   examples of program verification proofs.
 
-    - [SLFWand]: introduction of the magic wand operator, and of the
-                 ramified frame rule.
-
     - [SLFWPsem]: definition of the notion of weakest precondition (semantically),
                   and statement of reasoning rules in weakest-precondition style.
 
     - [SLFWPgen]: presents an effective function to compute weakest preconditions,
                   and the techniques for obtaining concise verification proofs.
+
+
+    Bonus chapters:
+
+    - [SLFWand]: introduction of the magic wand operator, and of the
+                 ramified frame rule.
 
     - [SLFLift]:  presents a technique for writing postconditions that directly
                   bind a Coq value rather than a value from the deeply embedded language.
@@ -60,7 +63,8 @@ For the course on the practice of proofs with CFML, see files named [CF*.v].
     - [SLFRich]:  describes how to handle more advanced language constructs,
                   such as arrays, records, and structures with sharing.
 
-    These chapters are accompanied with three special chapters.
+
+    Special chapters:
 
     - [SLFSummary]: provides a brief summary of all the contents of this course.
                     It is intended as support for a 1-hour technical course to

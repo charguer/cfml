@@ -34,6 +34,7 @@ Implicit Types Q : val->hprop.
     such that [H ==> wp t Q] if and only if [triple t H Q] holds.
 
     The benefits of introducing weakest preconditions is two-fold:
+
     - the use of [wp] greatly reduces the number of structural rules 
       required, and reduces accordingly the number of different tactics 
       required for carrying out proofs in practice.

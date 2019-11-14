@@ -44,11 +44,13 @@ Implicit Types Q : val->hprop.
     
     Contrary to [wp t Q], with [wpgen t Q] one can carry out practical 
     reasoning on a concrete term [t]:
+
     - without having to manually invoke the reasoning rules such as [wp_seq],
     - without having to manipulate the concrete syntax (AST) of the term [t],
     - without having to manually simplify substitutions of the form [subst x v t1].
 
     The matter of the present chapter is to show:
+
     - how to define [wpgen t Q] as a recursive function that computes in Coq,
     - how to integrate support for the frame rule in this recursive definition,
     - how to prove the soundness theorem [wpgen t Q ==> wp t Q],
