@@ -66,6 +66,7 @@ Implicit Types Q : val->hprop.
 Definition formula_sound_for (t:trm) (F:formula) : Prop :=
   forall Q, F Q ==> wp t Q.
 
+*)
 
 
 (** [wpgen t] is defined by recursion on [t], as a function
