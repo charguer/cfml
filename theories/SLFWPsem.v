@@ -267,7 +267,7 @@ Proof using.
   { rewrite~ wp_equiv. }
 Qed.
 
-(* EX2! (triple_seq_from_wp_seq) *)
+(* EX2? (triple_seq_from_wp_seq) *)
 (** Check that [wp_seq] is just as expressive as [triple_seq],
     by proving that [triple_seq] is derivable from [wp_seq]
     and from the structural rules for [wp] and/or the structural
@@ -534,7 +534,7 @@ Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
 (** Replacing [triple t H Q] with [H ==> wp t Q] yields the
     following lemma. Prove it. *)
 
-(* EX2! (triple_hexists_in_wp) *)
+(* EX1? (triple_hexists_in_wp) *)
 (** Prove the extraction rule for existentials in [wp] style. *)
 
 Lemma triple_hexists_in_wp : forall t Q A (J:A->hprop),
@@ -566,7 +566,7 @@ Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
 (** Let us reformulate this rule using [wp], replacing the
     form [triple t H Q] with the form [H ==> wp t Q]. *)
 
-(* EX2? (wp_conseq_frame_trans) *)
+(* EX2! (wp_conseq_frame_trans) *)
 (** Prove the combined structural rule in [wp] style.
     Hint: exploit [wp_conseq_trans] and [wp_frame]. *)
 
@@ -620,7 +620,7 @@ Parameter wp_if' : forall b t1 t2 Q,
 (** Equivalently, the rule may be stated with the conditional around
     the calls to [wp t1 Q] and [wp t2 Q]. *)
 
-(* EX1! (wp_if'') *)
+(* EX1? (wp_if'') *)
 (** Prove the alternative statement of rule [wp_if],
     either from [wp_if] or directly from [triple_if]*)
 
@@ -737,15 +737,21 @@ Qed.
 
 Lemma wp_val : forall v Q,
   Q v ==> wp (trm_val v) Q.
-Proof using. intros. unfold wp. xsimpl. intros H'. applys hoare_val. xsimpl. Qed.
+Proof using. 
+  intros. unfold wp. xsimpl. intros H'. applys hoare_val. xsimpl. 
+Qed.
 
 Lemma wp_fun : forall x t Q,
   Q (val_fun x t) ==> wp (trm_fun x t) Q.
-Proof using. intros. unfold wp. xsimpl. intros H'. applys hoare_fun. xsimpl. Qed.
+Proof using. 
+  intros. unfold wp. xsimpl. intros H'. applys hoare_fun. xsimpl. 
+Qed.
 
 Lemma wp_fix : forall f x t Q,
   Q (val_fix f x t) ==> wp (trm_fix f x t) Q.
-Proof using. intros. unfold wp. xsimpl. intros H'. applys hoare_fix. xsimpl. Qed.
+Proof using. 
+  intros. unfold wp. xsimpl. intros H'. applys hoare_fix. xsimpl. 
+Qed.
 
 Lemma wp_if : forall b t1 t2 Q,
   wp (if b then t1 else t2) Q ==> wp (trm_if b t1 t2) Q.
@@ -769,7 +775,8 @@ Lemma wp_let : forall x t1 t2 Q,
 Proof using.
   intros. unfold wp. xsimpl. intros H' M1. intros H''. applys hoare_let.
   { applys M1. }
-  { intros v. simpl. repeat rewrite hstar_hexists. applys hoare_hexists. intros H'''.
+  { intros v. simpl. repeat rewrite hstar_hexists.
+    applys hoare_hexists. intros H'''.
     rewrite (hstar_comm H'''). repeat rewrite hstar_assoc.
     applys hoare_hpure. intros M2. applys hoare_conseq M2. xsimpl. xsimpl. }
 Qed.

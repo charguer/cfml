@@ -1012,7 +1012,7 @@ Parameter eval_let : forall s1 s2 s3 x t1 t2 v1 v,
   eval s2 (subst x v1 t2) s3 v ->
   eval s1 (trm_let x t1 t2) s3 v.
 
-(* EX1! (triple_let) *)
+(* EX2! (triple_let) *)
 (** Following the same proof scheme as for [triple_seq], establish
     the reasoning rule for [triple_let]. Make sure to first state
     and prove [hoare_let]. *)
@@ -1094,7 +1094,7 @@ Parameter eval_div' : forall s n1 n2,
   n2 <> 0 ->
   eval s (val_div (val_int n1) (val_int n2)) s (val_int (Z.quot n1 n2)).
 
-(* EX1! (triple_div) *)
+(* EX2? (triple_div) *)
 (** Following the same proof scheme as for [triple_add], establish
     the reasoning rule for [triple_div]. Make sure to first state
     and prove [hoare_div]. *)
@@ -1508,7 +1508,7 @@ Parameter eval_app_fun : forall s1 s2 v1 v2 x t1 v,
   eval s1 (subst x v2 t1) s2 v ->
   eval s1 (trm_app v1 v2) s2 v.
 
-(* EX2! (hoare_app_fun) *)
+(* EX2? (hoare_app_fun) *)
 
 Lemma hoare_app_fun : forall v1 v2 x t1 H Q,
   v1 = val_fun x t1 ->
@@ -1521,7 +1521,7 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
-(* EX2! (triple_app_fun) *)
+(* EX2? (triple_app_fun) *)
 
 Lemma triple_app_fun : forall x v1 v2 t1 H Q,
   v1 = val_fun x t1 ->
@@ -1695,7 +1695,7 @@ End Proofs2.
    Thus, we could attempt at factorizing this proof pattern.
    The following lemma corresponds to such an attempt. *)
 
-(* EX2! (triple_of_hoare) *)
+(* EX2? (triple_of_hoare) *)
 (** Prove the lemma [triple_of_hoare] stated below. *)
 
 Lemma triple_of_hoare : forall t H Q,
@@ -1709,7 +1709,7 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
-(* EX2! (triple_add') *)
+(* EX2? (triple_add') *)
 (** Prove that [triple_add] is a consequence of [hoare_add] by
     exploiting [triple_of_hoare]. *)
 
@@ -1765,7 +1765,7 @@ Qed.
 (* ******************************************************* *)
 (** *** Rules for naming heaps *)
 
-(* EX2! (hoare_named_heap) *)
+(* EX1? (hoare_named_heap) *)
 (** Prove that to establish a [hoare t H Q], it is sufficient
     to establish [hoare t (=h) Q] for any heap [h] satisfying [H].
     (This reformulation can be useful when one needs to gets his
@@ -1780,7 +1780,7 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
-(* EX3! (triple_named_heap) *)
+(* EX3? (triple_named_heap) *)
 (** Prove the counterpart of [hoare_named_heap] for Separation
     Logic triples.
 
