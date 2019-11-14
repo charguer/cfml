@@ -38,6 +38,33 @@ Local Coercion string_to_var (x:string) : var := x.
 (* ####################################################### *)
 (** * The chapter in a rush *)
 
+(** This chapter presents the definition of the key heap predicate
+    operators from Separation Logic.
+
+    Throughout the course:
+    - [H] denotes a heap predicate of type [heap->Prop], which describes a
+      piece of state,
+    - [Q] denotes a postcondition, of type [val->heap->Prop], which describes
+      both a result value and a piece of state.
+
+    The operators defined in this chapter are:
+    - [\[]] denotes the empty heap predicate
+    - [\[P]] denotes a pure fact
+    - [l ~~~> v] denotes a singleton heap
+    - [H1 \* H2] denotes the separating conjunction
+    - [Q1 \*+ H2] denotes the separating conjunction extending a postcondition
+    - [\exists x, H] denotes an existential
+
+   This chapter also introduces the formal definition of triples:
+   - a Hoare triple, written [hoare t H Q], features a precondition [H] and
+     a postcondition [Q] that describe the whole memory state in which the
+     execution of the term [t] takes place.
+   - a Separation Logic triple, written [triple t H Q], features a pre- and
+     a postcondition that only describes a piece of the memory state sufficient
+     for the safe execution of the term [t].
+*)
+
+
 (* ******************************************************* *)
 (** ** Syntax and semantics *)
 

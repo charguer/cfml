@@ -22,9 +22,39 @@ Implicit Types Q : val->hprop.
 (* ####################################################### *)
 (** * The chapter in a rush *)
 
-(** In this file, we discuss the order relation on heap predicates.
-    This relation plays a key role in stating the reasoning rules
-    of Separation Logic. *)
+(** In the previous chapter, we have introduced the key heap predicate
+    operators, and we have defined the notion of Separation Logic triple.
+
+    In order to be able to state and prove reasoning rules for establishing
+    triples, we first need to introduce the "entailement relation",
+    written [H1 ==> H2], and asserting that any heap satisfying [H1] also
+    satisfies [H2].
+
+    This entailement relation defines an order relation on heap predicates.
+
+    By extension, we define an entailement relation on postconditions,
+    written [Q1 ===> Q2], asserting that for any result value [v],
+    the entailement [Q1 v ==> Q2 v] holds.
+
+    For example, the two kind of entailments appear in the statement of
+    the rule of consequence, similar to that from Hoare logic:
+
+[[
+  Lemma triple_conseq : forall t H Q H' Q',
+    triple t H' Q' ->
+    H ==> H' ->
+    Q' ===> Q ->
+    triple t H Q.
+]]
+
+   This chapter presents not just the rule of consequence but also the
+   other "structural rules" of Separation Logic.
+
+   This chapter also introduces a tactic called [xsimpl] for automatically
+   simplifying entailment relations. This tactic is absolutely essential
+   for carrying out practical proofs.
+
+*)
 
 
 (* ******************************************************* *)

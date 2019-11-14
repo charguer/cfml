@@ -25,19 +25,46 @@ Implicit Types Q : val->hprop.
 (* ####################################################### *)
 (** * The chapter in a rush *)
 
-(** This chapter describes the construction of a function called
-    [wpgen] that effectively computes in Coq weakest preconditions.
+(** In the previous chapter, we have introduced a predicate called [wp]
+    to describe the weakest precondition" of a term [t] with respect to 
+    a given postcondition [Q]. The weakest precondition [wp] is defined
+    by the equivalence [H ==> wp t Q] if and only if [triple t H Q].
 
-    The formula computed by [wpgen t] is equivalent to [wp t], but
-    is expressed in a way that longer refers to the source code of [t].
+    This definition gives a "semantics" to [wp], for which reasoning
+    rules can be proved. For example, [wp (trm_seq t1 t2) Q] is 
+    entailed by [wp t1 (fun r => wp t2 Q)], as captured by lemma [wp_seq].
 
-    Using the function [wpgen], we'll be able to carry out verification
-    proofs using Separation Logic reasoning rules but without never
-    needing to reason about program variables and substitutions. *)
+    In this chapter, we introduce a function to "compute" [wpgen t Q]
+    recursively over the structure of the term [t]. For example,
+    [wpgen t Q] is essentially defined as [wpgen t1 (fun r => wpgen t2 Q)].
+
+    The intention is for [wpgen t Q] to recursively construct a heap predicate
+    that has the same interpretation [wp t Q], but that can be directly
+    used for interactive reasoning about a concrete term [t]. 
+    
+    Contrary to [wp t Q], with [wpgen t Q] one can carry out practical 
+    reasoning on a concrete term [t]:
+    - without having to manually invoke the reasoning rules such as [wp_seq],
+    - without having to manipulate the concrete syntax (AST) of the term [t],
+    - without having to manually simplify substitutions of the form [subst x v t1].
+
+    The matter of the present chapter is to show:
+    - how to define [wpgen t Q] as a recursive function that computes in Coq,
+    - how to integrate support for the frame rule in this recursive definition,
+    - how to prove the soundness theorem [wpgen t Q ==> wp t Q],
+    - how to carry out practical proofs using [wpgen t Q].
+*)
 
 
 (* ******************************************************* *)
 (** ** Overview of the weakest precondition generator *)
+
+(** The function [wpgen] computes the 
+
+Definition formula_sound_for (t:trm) (F:formula) : Prop :=
+  forall Q, F Q ==> wp t Q.
+
+
 
 (** [wpgen t] is defined by recursion on [t], as a function
     that expects a postcondition [Q] and returns a [hprop].
@@ -1235,6 +1262,7 @@ End ExampleProofs.
     function definitions. We next explain how. *)
 
 Implicit Types vf vx : val.
+
 
 (* ******************************************************* *)
 (** ** WP for non-recursive functions *)

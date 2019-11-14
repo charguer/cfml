@@ -28,69 +28,50 @@ From Sep Require Export SLFDirect SLFExtra.
 (* ####################################################### *)
 (** * The chapter in a rush *)
 
-(** This chapter first summarizes the structural rules from Separation Logic.
-    It then describes the syntax and semantics of the (toy) programming 
-    language considered, and presents the statement and proofs for the 
-    reasoning rules for terms  and primitive operations. *)
 
+(** In the previous chapters, we have:
+    - introduced the key heap predicate operators, 
+    - introduced the notion of Separation Logic triple,
+    - introduced the entailment relation,
+    - introduced the structural rules of Separation Logic.
 
-(* ******************************************************* *)
-(** ** Structural rules *)
+    We are now ready to present the other reasoning rules,
+    which enable establishing properties of concrete programs.
 
-(** Let us first review the essential structural rules, which were 
-    introduced through the first two chapters. *)
+    These reasoning rules are proved correct with respect to the
+    semantics of the programming language in which the programs
+    are expressed. Thus, a necessary preliminary step is to present
+    the syntax and the semantics of a (toy) programming language
+    for which we aim to provide Separation Logic reasoning rules.
 
-(** The frame rule asserts that the precondition and the postcondition
-    can be extended together by an arbitrary heap predicate. 
-    Recall that the definition of [triple] was set up precisely to
-    validate this frame rule, so in a sense in holds "by construction". *)
-
-Parameter triple_frame : forall t H Q H',
-  triple t H Q ->
-  triple t (H \* H') (Q \*+ H').
-
-(** The consequence rule allows to strengthen the precondition
-    and weaken the postcondition. *)
-
-Parameter triple_conseq : forall t H' Q' H Q,
-  triple t H' Q' ->
-  H ==> H' ->
-  Q' ===> Q ->
-  triple t H Q.
-
-(** The two extraction rules enable to extract pure facts and
-    existentially quantified variables, from the precondition
-    into the Coq context. Recall that the first rule is a particular 
-    instance of the second one, as we may instantiate [A] with [P].) *)
-
-Parameter triple_hpure : forall t (P:Prop) H Q,
-  (P -> triple t H Q) ->
-  triple t (\[P] \* H) Q.
-
-Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
-  (forall (x:A), triple t (J x) Q) ->
-  triple t (hexists J) Q.
+    The present chapter is thus organized as follows:
+    - definition of the syntax of the language,
+    - definition of the semantics of the language,
+    - review of the 4 structural rules introduced in prior chapters,
+    - statements and proofs for the reasoning rules associated
+      with each of the term constructions from the language,
+    - specification of the primitive operations of the language,
+      including those associated with memory operations.
+    
+*)
 
 
 (* ******************************************************* *)
 (** ** Semantic of terms *)
 
-(** The aim of this chapter is to present reasoning rule for terms,
-    e.g., a reasoning rule for let-bindings. Before we get there, 
-    we first need to present the grammar of the programming language.
-
-    The syntax is a standard syntax that distiguishes between values
-    and terms. To simplify matters with substitution, we maintain the
-    invariant that values are always closed (no free variables in them).
-
-    The semantics is presented in big-step style. This presentation makes 
-    it easier to establish reasoning rules, because both the big-step
-    judgment and a triple judgment describe complete execution, relating
-    a term with the value that it produces. *)
-
 Module SyntaxAndSemantics.
 
-(** The grammar for values includes unit, boolean, integers,
+(* ------------------------------------------------------- *)
+(** *** Syntax *)
+
+(** The syntax described next captures the "abstract syntax tree" 
+    of a programming language. It follows a presentation that distiguishes 
+    between closed values and terms. This presentation is intended to simplify 
+    the definition and evaluation of the substitution function: because
+    values are always closed (i.e., no free variables in them), the 
+    substitution function never needs to traverse through values.
+
+    The grammar for values includes unit, boolean, integers,
     locations, functions, recursive functions, and primitive operations. 
     For example, [val_int 3] denotes the integer value [3]. The value
     [val_fun x t] denotes the function [fun x => t], and the value
@@ -98,9 +79,9 @@ Module SyntaxAndSemantics.
     [let rec f x = t in f].
 
     We here only include a few primitive operations (for conciseness):
-    [ref], [get], and [set] for manipulating the heap, [add] to illustrate
-    a total arithmetic operation, and [div] to illustrate a partial one.
-    The semantics of these operations is described further on. *)
+    [ref], [get], [set] and [free] for manipulating the heap, 
+    the operation [add] to illustrate a simple arithmetic operation, 
+    and the operation [div] to illustrate a partial operation. *)
 
 Inductive val : Type :=
   | val_unit : val
@@ -140,6 +121,23 @@ with trm : Type :=
   | trm_let : var -> trm -> trm -> trm
   | trm_if : trm -> trm -> trm -> trm.
 
+(** The language we consider is an imperative language, with primitive 
+    functions for manipulating the state. Thus, the statement of the 
+    evaluation rules involve a memory state. Recall from chapter [SLFHprop]
+    that a state is described a finite map from location to values. *)
+
+Definition state := fmap loc val.
+
+(** For technical reasons, to enable reading in a state, we need
+    to justify that the grammar of values is inhabited. *)
+
+Instance Inhab_val : Inhab val.
+Proof using. apply (Inhab_of_val val_unit). Qed.
+
+
+(* ------------------------------------------------------- *)
+(** *** Substitution *)
+
 (** To describe the evaluation of functions, the semantics of the language 
     includes beta-reduction rules, which involve the substitution function.
 
@@ -176,22 +174,14 @@ Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
   | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
   end.
 
-(** The language we consider is an imperative language, with primitive 
-    functions for manipulating the state. Thus, the statement of the 
-    evaluation rules involve a memory state. Recall from chapter [SLFHprop]
-    that a state is described a finite map from location to values. *)
 
-Definition state := fmap loc val.
+(* ------------------------------------------------------- *)
+(** *** Implicit Types and coercions *)
 
-(** For technical reasons, to enable reading in a state, we need
-    to justify that the grammar of values is inhabited. *)
-
-Instance Inhab_val : Inhab val.
-Proof using. apply (Inhab_of_val val_unit). Qed.
-
-(** The evaluation judgment appears below. To improve the readability 
-    of the evaluation rules, we take advantage of both implicit types 
-    and coercions. The implicit types are defined as follows, e.g.,
+(** To improve the readability of the evaluation rules stated further,
+    we take advantage of both implicit types and coercions. 
+    
+    The implicit types are defined as follows, e.g.,
     meta-variables named [v], [v1], ... always denote a value. *)
 
 Implicit Types b : bool.
@@ -214,7 +204,16 @@ Coercion trm_val : val >-> trm.
 
 Coercion trm_app : trm >-> Funclass.
 
-(** The big-step evaluation judgment, written [eval s t s' v], asserts that, 
+
+(* ------------------------------------------------------- *)
+(** *** Big-step semantics *)
+
+(** The semantics is presented in big-step style. This presentation makes 
+    it easier to establish reasoning rules, because both the big-step
+    judgment and a triple judgment describe complete execution, relating
+    a term with the value that it produces. 
+
+    The big-step evaluation judgment, written [eval s t s' v], asserts that, 
     starting from state [s], the evaluation of the term [t] terminates in 
     a state [s'], producing an output value [v].
 
@@ -367,6 +366,47 @@ Implicit Types h : heap.
 Implicit Types s : state.
 Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
+
+
+
+
+(* ******************************************************* *)
+(** ** Review of the structural rules *)
+
+(** Let us first review the essential structural rules, which were 
+    introduced through the first two chapters. They will be useful
+    for the proofs carried out through the present chapter. *)
+
+(** The frame rule asserts that the precondition and the postcondition
+    can be extended together by an arbitrary heap predicate. 
+    Recall that the definition of [triple] was set up precisely to
+    validate this frame rule, so in a sense in holds "by construction". *)
+
+Parameter triple_frame : forall t H Q H',
+  triple t H Q ->
+  triple t (H \* H') (Q \*+ H').
+
+(** The consequence rule allows to strengthen the precondition
+    and weaken the postcondition. *)
+
+Parameter triple_conseq : forall t H' Q' H Q,
+  triple t H' Q' ->
+  H ==> H' ->
+  Q' ===> Q ->
+  triple t H Q.
+
+(** The two extraction rules enable to extract pure facts and
+    existentially quantified variables, from the precondition
+    into the Coq context. *)
+
+Parameter triple_hpure : forall t (P:Prop) H Q,
+  (P -> triple t H Q) ->
+  triple t (\[P] \* H) Q.
+
+Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
+  (forall (x:A), triple t (J x) Q) ->
+  triple t (hexists J) Q.
+
 
 
 (* ******************************************************* *)

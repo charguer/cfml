@@ -24,8 +24,24 @@ Implicit Types Q : val->hprop.
 (* ####################################################### *)
 (** * The chapter in a rush *)
 
-(** This chapter introduces the notion of weakest precondition
-    for Separation Logic triples. *)
+(** In the previous chapter, we have introduced the notion of 
+    Separation Logic triple, written [triple t H Q].
+
+    In this chapter, we introduce the notion of weakest precondition
+    for Separation Logic triples, written [wp t Q].
+    
+    The intention is for [wp t Q] to be a heap predicate (of type [hprop])
+    such that [H ==> wp t Q] if and only if [triple t H Q] holds.
+
+    The benefits of introducing weakest preconditions is two-fold:
+    - the use of [wp] greatly reduces the number of structural rules 
+      required, and reduces accordingly the number of different tactics 
+      required for carrying out proofs in practice.
+    - the predicate [wp] will be used in the next chapter to enable a
+      simpler set up of a "characteristic formula generator", the key
+      ingredient of CFML's technology for carrying out proofs in practice.
+    
+*)
 
 
 (* ******************************************************* *)
