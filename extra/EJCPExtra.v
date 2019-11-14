@@ -79,3 +79,67 @@ Qed.
 Tactic Notation "xgc" :=
   applys xgc_lemma.
 
+
+
+
+(** Once again, let us check that we have not lost expressive power.
+    We prove [triple_if_case] only from [wp_if] and structural properties
+    of [wp]. Observe the transitivity step. *)
+
+Lemma triple_if_case_from_wp_if : forall b t1 t2 H Q,
+  triple (if b then t1 else t2) H Q ->
+  triple (trm_if (val_bool b) t1 t2) H Q.
+Proof using.
+  introv M. rewrite wp_equiv in *. xchange M.
+  applys himpl_trans wp_if. auto.
+Qed.
+
+
+
+Lemma wp_characterization_wp_low :
+  wp_characterization wp_low.
+Proof using. apply wp_equiv_wp_low. Qed.
+
+Lemma wp_characterization_wp_high :
+  wp_characterization wp_high.
+Proof using. apply wp_equiv_wp_high. Qed.
+
+
+    To that end, we introduce a predicate [wp_characterization]
+    such that [wp_characterization wpX] holds of a predicate [wpX]
+    iff the equivalence [(triple t H Q) <-> (H ==> wpX t Q)] holds
+    for all [t], [H] and [Q]. *)
+
+Definition wp_characterization (wp:trm->(val->hprop)->hprop) :=
+  forall t H Q, (triple t H Q) <-> (H ==> wp t Q).
+
+(** Observe that the two definitions for [wp] (the "high level" and
+    the "low level") both satisfy the predicate [wp_characterization]. *)
+
+
+(** Our goal is to show that if any two predicates [wp1] and [wp2]
+    both satisfy [wp_characterizations], then they are equal, 
+    in the sense [wp1 = wp2]. By extensionality, and by exploiting
+    the symmetry in [wp1] and [wp2], this amounts to showing that
+    the entailment [wp1 t Q ==> wp2 t Q] holds for any [t] and [Q]. 
+    We formalize this result throught the following lemma. *)
+
+Lemma wp_characterization_unique : forall wp1 wp2,
+  wp_characterization wp1 ->
+  wp_characterization wp2 ->
+  wp1 = wp2.
+Proof using.
+  (* Observe how the assertion is used to exploit the symmetry. *)
+  asserts L: (forall t Q wp1 wp2,
+    wp_characterization wp1 ->
+    wp_characterization wp2 ->
+    wp1 t Q ==> wp2 t Q).
+  { introv M1 M2. unfolds wp_characterization.
+    rewrite <- M2. rewrite M1. applys himpl_refl. }
+  (* Observe how extensionality is exploited to prove the equality. *)
+  introv M1 M2. applys fun_ext_2. intros t Q.
+  applys himpl_antisym; applys L; auto.
+Qed.
+
+(** In conclusion, it really does not matter which concrete definition 
+    of [wp] is considered, because all definitions are equivalent. *)

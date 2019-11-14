@@ -44,7 +44,8 @@ SRC_EXAMPLES := Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueN
 
 SRC_CF := CFCrashCourse
 
-SRC_SF := SLFIntro SLFDirect SLFExtra SLFHprop SLFHimpl SubstExec SLFRules SLFWand SLFWPsem SLFWPgen SLFSummary 
+SRC_SF := SLFIntro SLFDirect SLFExtra SLFHprop SLFHimpl SubstExec SLFRules SLFWPsem SLFSummary 
+# SLFWand SLFWPgen 
  #  SLFLift SLFRicher SLFExt
 
 SRC_MOSEL := SepMoselFunctor SepBaseMosel SepROMosel ExampleROMosel ExampleListMosel
