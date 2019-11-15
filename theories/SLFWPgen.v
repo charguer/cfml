@@ -26,7 +26,7 @@ Implicit Types Q : val->hprop.
 (** * The chapter in a rush *)
 
 (** In the previous chapter, we have introduced a predicate called [wp]
-    to describe the weakest precondition" of a term [t] with respect to 
+    to describe the weakest precondition of a term [t] with respect to 
     a given postcondition [Q]. The weakest precondition [wp] is defined
     by the equivalence [H ==> wp t Q] if and only if [triple t H Q].
 
@@ -118,7 +118,7 @@ Parameter wp_val : forall v Q,
     [wpgen (trm_val v) Q ==> wp (trm_val v) Q].
     To satisfy this entailement, it suffices to define [wpgen (trm_val v) Q] 
     as [Q v]. 
-    
+
     Concretely, we fill in the first dots as follows:
 
 [[
@@ -139,7 +139,7 @@ Parameter wp_val : forall v Q,
     to that for values: *)
 
 Parameter wp_fun : forall x t Q,
-  Q (val_fun x t) ==> wp (trm_fun x t) Q
+  Q (val_fun x t) ==> wp (trm_fun x t) Q.
 
 (** So, likewise, we can define [wpgen] for functions and for
     recursive functions as follows:
@@ -258,7 +258,7 @@ Proof using. intros. false. Qed.
 
 Lemma wp_var : forall x Q,
   \[False] ==> wp (trm_var x) Q.
-Proof using. intros. intro h. false. Qed.
+Proof using. intros. intros h Hh. destruct (hpure_inv Hh). false. Qed.
 
 
 (* ------------------------------------------------------- *)
@@ -363,7 +363,9 @@ Parameter wp_if : forall (b:bool) t1 t2 Q,
           \exists (b:bool), \[t0 = trm_val (val_bool b)]
             \* (if b then (wpgen t1) Q else (wpgen t2) Q)
       ...
-]]
+]] 
+
+*)
 
 (* ------------------------------------------------------- *)
 (** *** Summary of the definition of [wpgen] for term rules *)
@@ -403,7 +405,7 @@ Parameter wp_if : forall (b:bool) t1 t2 Q,
 (** Recall from the previous chapter the statement of the 
     frame rule in [wp]-style. *)
 
-Lemma wp_frame : forall t H Q,
+Parameter wp_frame : forall t H Q,
   (wp t Q) \* H ==> wp t (Q \*+ H).
 
 (** We would like [wpgen] to satisfy the same rule, so that we can
@@ -455,7 +457,7 @@ Lemma wp_frame : forall t H Q,
 
 
 (* ------------------------------------------------------- *)
-(** *** Desired properties of [mkstruct] *)
+(** *** Properties and realization of [mkstruct] *)
 
 (** Before we state the properties that [mkstruct] should satisfy,
     let us first figure out the type  of [mkstruct].
@@ -466,6 +468,8 @@ Lemma wp_frame : forall t H Q,
     [formula->formula]. *)
 
 Definition formula : Type := (val->hprop)->hprop.
+
+Module MkstructProp.
 
 Parameter mkstruct : formula->formula.
 
@@ -490,27 +494,63 @@ Parameter mkstruct_conseq : forall (F:formula) Q1 Q2,
 Parameter mkstruct_erase : forall (F:formula) Q,
   F Q ==> mkstruct F Q.
 
-(** As we show next, there exists a predicate [mkstruct] satisfying the
-    three required properties: [mkstruct_frame], [mkstruct_conseq], and
-    [mkstruct_erase]. *)
+End MkstructProp.
+
+(** Fortunately, it turns out that there exists a predicate [mkstruct] satisfying 
+    the three required properties: [mkstruct_frame], [mkstruct_conseq], and
+    [mkstruct_erase]. Let us pull out of our hat a definition that works,
+    and postpone to a bonus section the discussion of how one could have 
+    guessed it. Again, it really does not matter the details of the definition,
+    all that matters is that it does satisfy the three required properties. *)
+
+Definition mkstruct (F:formula) : formula := 
+  fun (Q:val->hprop) => \exists Q1 H, F Q1 \* H \* \[Q1 \*+ H ===> Q].
+
+Lemma mkstruct_frame : forall (F:formula) H Q,
+  (mkstruct F Q) \* H ==> mkstruct F (Q \*+ H).
+Proof using. 
+  intros. unfold mkstruct. xpull ;=> Q' H' M. xsimpl. xchange M.
+Qed.
+
+Lemma mkstruct_conseq : forall (F:formula) Q1 Q2,
+  Q1 ===> Q2 ->
+  mkstruct F Q1 ==> mkstruct F Q2.
+Proof using.
+  introv WQ. unfold mkstruct. xpull ;=> Q' H' M. xsimpl. xchange M. xchange WQ.
+ Qed.
+
+Lemma mkstruct_erase : forall (F:formula) Q,
+  F Q ==> mkstruct F Q.
+Proof using. intros. unfold mkstruct. xsimpl. xsimpl. Qed.
+
+
+
+
 
 
 (* ------------------------------------------------------- *)
 (** *** Realisation of [mkstruct] *)
 
 
+(** Rather than pulling out the definition of [mkstruct] from a hat,
+    let us explain how to converge towards a sensible definition. 
+    
+    The rule [mkstruct_frame] provides an introduction rule for
+    [mkstruct F Q'] when [Q'] is of the form [Q \*+ H].
+
+[[
+    (mkstruct F Q) \* H ==> mkstruct F (Q \*+ H)
+]]
+
+    Our goal is to define [mkstruct F Q'] for an arbitrary [Q'].
+    So, let us rewrite [mkstruct_frame] rule
+
+[[
+    (mkstruct F Q) \* H ==> mkstruct F Q'
+]]
 
 
 
-Parameter mkstruct_frame : forall (F:formula) H Q,
-  (mkstruct F Q) \* H ==> mkstruct F (Q \*+ H).
-
-
-
-(1) On a choisit de définir "wp t Q" de la forme "mkstruct F Q", exprès pour.
-Notre espoir est donc d'avoir :
-
-(mkstruct F Q1) * H ==> mkstruct F (Q1 * H)
 
 (2) Cela indique une propriété de "mkstruct F (Q1 * H)".
 On a besoin de définir "mkstruct F Q" pour un "Q" arbitraire.
