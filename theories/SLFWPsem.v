@@ -213,7 +213,7 @@ Proof using. introv M. applys himpl_hstar_hpure_l M. Qed.
 (** ** Reasoning rules for terms, in weakest-precondition style *)
 
 (* ------------------------------------------------------- *)
-(** *** Rules for values *)
+(** *** Rule for values *)
 
 (** Recall the rule [triple_val] which gives a reasoning rule for
     establishing a triple for a value [v]. *)
@@ -251,7 +251,7 @@ Proof using. introv M. rewrite wp_equiv. xchange M. applys wp_val. Qed.
 
 
 (* ------------------------------------------------------- *)
-(** *** Rules for sequence *)
+(** *** Rule for sequence *)
 
 (** Recall the reasoning rule for a sequence [trm_seq t1 t2]. *)
 
@@ -277,7 +277,7 @@ Parameter triple_seq : forall t1 t2 H Q H1,
     which the evaluation of the sequence [t1;t2] produces [Q]. *)
 
 Lemma wp_seq : forall t1 t2 Q,
-  wp t1 (fun r => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
+  wp t1 (fun v => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
 Proof using.
   intros. rewrite <- wp_equiv. applys triple_seq.
   { rewrite~ wp_equiv. }
@@ -778,7 +778,7 @@ Proof using.
 Qed.
 
 Lemma wp_seq : forall t1 t2 Q,
-  wp t1 (fun r => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
+  wp t1 (fun v => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
 Proof using.
   intros. unfold wp. xsimpl. intros H' M1. intros H''. applys hoare_seq.
   { applys M1. }

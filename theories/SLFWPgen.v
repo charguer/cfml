@@ -53,15 +53,308 @@ Implicit Types Q : val->hprop.
 
     - how to define [wpgen t Q] as a recursive function that computes in Coq,
     - how to integrate support for the frame rule in this recursive definition,
-    - how to prove the soundness theorem [wpgen t Q ==> wp t Q],
     - how to carry out practical proofs using [wpgen t Q].
+
+    A bonus section explains how to establish the soundness theorem for [wpgen].
 *)
 
 
 (* ******************************************************* *)
 (** ** Overview of the weakest precondition generator *)
 
-(** The function [wpgen] computes the 
+(** [wpgen] computes a heap predicate that has the same meaning as [wp].
+    In essence, [wpgen] takes the form of a recursive function that,
+    like [wp], expects a term [t] and a postcondition [Q], and produces
+    a heap predicate. The function is recursively defined and its result
+    is guided by the structure of the term [t].
+    
+    Thus, in essence, the definition of [wpgen] admits the following shape:
+
+[[
+    Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
+      match t with
+      | trm_val v => ..
+      | trm_seq t1 t2 => ..
+      | trm_let x t1 t2 => ..
+      | trm_var x => ..
+      | trm_app t1 t2 => ..
+      | trm_fun x t1 => ..
+      | trm_fix f x t1 => ..
+      | trm_if v0 t1 t2 => ..
+      end).
+]]
+
+    Our first goal is to fill in the dots for each of the term constructors.
+
+    The intention that guides us for filling the dot is the soundness theorem
+    for [wpgen], which takes the following form:
+    
+[[
+    wpgen t Q ==> wp t Q
+]]
+
+    This entailement asserts in particular that if we are able to establish 
+    [H ==> wpgen t Q], then we have proved [H ==> wp t Q], and thus also
+    proved [triple t H Q].
+
+    Remark: the main difference between [wpgen] and a "traditional" weakest 
+    precondition generator (as the reader might have seen for Hoare logic)
+    is that here we compute the weakest precondition of a raw term,
+    not annotated with any invariant or specification.
+
+*)
+
+
+(* ******************************************************* *)
+(** ** Overview of the weakest precondition generator *)
+
+(* ------------------------------------------------------- *)
+(** *** Definition of [wpgen] for values *)
+
+(** Consider first the case of a value [v]. Recall the reasoning
+    rule for values in weakest-precondition style. *)
+
+Parameter wp_val : forall v Q,
+  Q v ==> wp (trm_val v) Q.
+
+(** The soundness theorem requires us to have:
+    [wpgen (trm_val v) Q ==> wp (trm_val v) Q].
+    To satisfy this entailement, it suffices to define [wpgen (trm_val v) Q] 
+    as [Q v]. 
+    
+    Concretely, we fill in the first dots as follows:
+
+[[
+    Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
+      match t with
+      | trm_val v => Q v
+      ...
+]]
+
+*)
+
+
+(* ------------------------------------------------------- *)
+(** *** Definition of [wpgen] for functions *)
+
+(** Consider the case of a function definition [trm_fun x t].
+    Recall that the [wp] reasoning rule for functions is very similar 
+    to that for values: *)
+
+Parameter wp_fun : forall x t Q,
+  Q (val_fun x t) ==> wp (trm_fun x t) Q
+
+(** So, likewise, we can define [wpgen] for functions and for
+    recursive functions as follows:
+
+[[
+    Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
+      match t with
+      | trm_fun x t1   => Q (val_fun x t)
+      | trm_fix f x t1 => Q (val_fix f x t)
+      ...
+]]
+
+*)
+
+(** An important observation is that we here do not attempt to 
+    to recursively compute [wpgen] over the body of the function.
+    This is something that we could do, and that we will see how
+    to achiever further on, but postpone it for now because it is
+    relatively technical. In practice, if the program feature a 
+    local function definition, the user can easily request the 
+    computation of [wpgen] over the body of that function. Thus,
+    the fact that we do not recursively traverse functions bodies
+    does not harm expressivity. *)
+
+
+(* ------------------------------------------------------- *)
+(** *** Definition of [wpgen] for sequence *)
+
+(** Recall the [wp] reasoning rule for a sequence [trm_seq t1 t2]: *)
+
+Parameter wp_seq : forall t1 t2 Q,
+  wp t1 (fun v => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
+
+(** The intention is for [wpgen] to admit the same semantics as [wp].
+    For this reason, we define [wpgen (trm_seq t1 t2) Q] as
+    [wpgen t1 (fun r => wpgen t2 Q)].
+
+[[
+    Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
+      match t with
+      | trm_seq t1 t2 => wpgen t1 (fun v => wpgen t2 Q)
+      ...
+]]
+
+*)
+
+(* ------------------------------------------------------- *)
+(** *** Definition of [wpgen] for let-bindings *)
+
+(** The case of let bindings is similar to that of sequences, 
+    yet it involves a substitution. Recall the [wp] rule: *)
+
+Parameter wp_let : forall x t1 t2 Q,
+  wp t1 (fun v => wp (subst x v t2) Q) ==> wp (trm_let x t1 t2) Q.
+
+(** We thus fill in the dots as follows:
+
+[[
+    Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
+      match t with
+      | trm_seq t1 t2 => wpgen t1 (fun v => wpgen (subst x v t2) Q)
+      ...
+]]
+
+    One important observation to make at this point is that the 
+    function [wpgen] is no longer structurally recursive. 
+    While the first recursive call to [wpgen] is invoked on [t1], which
+    is a strict subterm of [t], the second call is invoked on [subst x v t2],
+    which is not a strict subterm of [t].
+
+    We'll come back later to the issue later and explain how it is possible:
+    - either to convince Coq that the function [wpgen] nevertheless terminates,
+    - or to circumvent the problem by adding as argument to [wpgen] a substitution 
+      context that avoids computing substitution before making recursive calls.
+
+*)
+
+(* ------------------------------------------------------- *)
+(** *** Definition of [wpgen] for variables *)
+
+(** There are no reasoning rule that concludes [H ==> wp (trm_var x) Q]
+    of [triple (trm_var x) H Q]. Indeed, [trm_var x] is a stuck term.
+
+    While a term may feature variables, all these variables should have
+    been substituted away before we reach them, through substitutions
+    such as the one described above in the treatment of let-bindings.
+    If a variable is reached, it means that it is a dandling free 
+    variable, and that the program is broken. 
+    
+    Although there are no rules to introduce [wp (trm_var x) Q], we 
+    nevertheless need to provide some meaningful definition for 
+    [wpgen (trm_var x) Q]. This definition should capture the fact
+    that this case must not happen. The predicate [\[False]] captures
+    this well.
+
+[[
+    Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
+      match t with
+      | trm_var x => \[False]
+      ...
+]]
+
+*)
+
+(** Remark: this definition suggests that, in fact, we could technically
+    have stated a Separation Logic rule free variables, using [False]
+    as a premise. *)
+
+Lemma triple_var : forall x H Q,
+  False ->
+  triple (trm_var x) H Q.
+Proof using. intros. false. Qed.
+
+(** Likewise, a [wp] reasoning rule with [\[False]] as precondition
+    would be technically correct, albeit totally useless. *)
+
+Lemma wp_var : forall x Q,
+  \[False] ==> wp (trm_var x) Q.
+Proof using. intros. intro h. false. Qed.
+
+
+(* ------------------------------------------------------- *)
+(** *** Definition of [wpgen] for function applications *)
+
+(** Consider an application in A-normal form, that is,  
+    an application of the form [trm_app v1 v2].
+    
+    We have [wp]-style rules to reason about the application of
+    a known function, e.g. [trm_app (val_fun x t1) v2].
+    However, if [v1] is an abstrat value (e.g., a Coq variable
+    of type [var]), we have no specific reasoning rule at hand.
+
+    Thus, we will simply define [wpgen (trm_app v1 v2) Q] as
+    [wp (trm_app v1 v2) Q]. In other words, we fall back to the
+    semantic definition of [wp].
+
+[[
+    Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
+      match t with
+      | trm_app v1 v2 => wp (trm_app v1 v2) Q
+      ...
+]]
+
+    As we carry out verification proofs in practice, when reaching
+    an application we will face a goal of the form:
+[[
+    H ==> wpgen (trm_app v1 v2) Q
+]]
+    By revealing the definition of [wpgen] on applications, we get:
+[[
+    H ==> wp (trm_app v1 v2) Q
+]]
+    Then by exploiting the equivalence with triples, we get:
+[[
+    triple (trm_app v1 v2) H Q
+]]
+    which can be proved by invoking a specification triple for 
+    the function [v1].
+
+    In other words, we falling back to the semantics definition
+    when reaching a function application, we allow the user to choose 
+    which specification lemma to exploit for reasoning about this 
+    particular function application. Remark: with some degree of tactic 
+    automation, we will avoid the user having to explicitly provide
+    the name of the specification lemma, as this would be cumbersome.
+
+*)
+
+(** Remark: we assume throughout the course that terms are written 
+    in A-normal form. Nevertheless, we need to define [wpgen] even
+    on terms that are not in A-normal form. One possibility is
+    to map all these terms to [\[False]]. In the specific case of an
+    application of the form [trm_app t1 t2] where [t1] and [t2] are
+    not both values, it is still correct to define [wpgen (trm_app t1 t2))
+    as [wp (trm_app t1 t2)]. So, we need not bother checking here
+    that the arguments of [trm_app] are actually values.
+
+    Thus, the most concise definition for [wpgen] on applications is:
+
+[[
+    Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
+      match t with
+      | trm_app t1 t2 => wp t Q
+      ...
+]]
+
+*)
+
+
+
+(* ------------------------------------------------------- *)
+(** *** Definition of [wpgen] for conditionals *)
+
+
+
+    which establishes the entailment [wpgen t Q ==> wp t Q].
+
+
+
+
+
+    In particular, [wpgen] has the same type as [wp].
+    Recall that [wp t Q] denotes a heap predicate of type [hprop], where [t]
+    is a term of type [trm] and [Q] is a postcondition of type [val->hprop].
+    Thus, [wpgen] has type [trm->(val->hprop)->hprop]. *)
+
+, which we name
+    [formula] for brevity.
+
+
+Definition formula := (val->hprop) -> hprop.
+
 
 Definition formula_sound_for (t:trm) (F:formula) : Prop :=
   forall Q, F Q ==> wp t Q.
@@ -73,7 +366,6 @@ Definition formula_sound_for (t:trm) (F:formula) : Prop :=
     that expects a postcondition [Q] and returns a [hprop].
     We call "formula" the result type of [wgpen t]: *)
 
-Definition formula := (val->hprop) -> hprop.
 
 (** The function [wpgen] is defined as shown below.
 
@@ -303,15 +595,7 @@ Definition formula_sound_for (t:trm) (F:formula) : Prop :=
 (* ******************************************************* *)
 (** ** Case of values *)
 
-(** First, consider a value [v]. Recall the [wp] of a value. *)
-
-Parameter wp_val : forall v Q,
-  Q v ==> wp (trm_val v) Q.
-
-(** The auxiliary function [wpgen_val] is such that the expression
-    [wpgen (trm_val v) Q] evaluates to [wpgen_val v Q].
-    Since [wpgen (trm_val v) Q] should entail [wp (trm_val v) Q],
-    this suggests the definition of [wpgen_val v Q] as [Q v]. *)
+(*    this suggests the definition of [wpgen_val v Q] as [Q v]. *)
 
 Definition wpgen_val (v:val) : formula := fun Q =>
   Q v.
@@ -326,25 +610,7 @@ Proof using. intros. intros Q. unfolds wpgen_val. applys wp_val. Qed.
 (* ******************************************************* *)
 (** ** Case of functions *)
 
-(** There are two ways to deal with functions defined in the
-    source code.
-
-    The first approach is to treat them like other values.
-    To establish a specification for a function value, the user
-    is expected to explicitly request the computation of [wpgen]
-    over the body of the function.
-
-    The second approach is to set up [wpgen] so that it immediately
-    computes recursively a weakest-precondition based specification
-    for every function that it encounters. This second variant appears
-    desirable as it saves some work to the end user. However, it is
-    slightly more involved, so we postpone its presentation, and begin
-    with a presentation of the simpler approach. *)
-
-(** Recall the [wp] for [trm_fun]. *)
-
-Parameter wp_fun : forall x t Q,
-  Q (val_fun x t) ==> wp (trm_fun x t) Q.
+.
 
 (** The value of [wpgen (trm_fun x t) Q] may be computed as
     [wpgen_val (val_fun x t)]. Formally: *)
@@ -365,17 +631,6 @@ Proof using. intros. intros Q. unfolds wpgen_val. applys wp_fix. Qed.
 
 (** Consider a sequence [trm_seq t1 t2]. Recall the rule. *)
 
-Parameter wp_seq : forall t1 t2 Q,
-  wp t1 (fun r => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
-
-(** The auxiliary function [wpgen_seq] is such that
-    [wpgen (trm_seq t1 t2) Q] evaluates to
-    [wpgen_seq (wpgen t1) (wpgen t2) Q].
-
-    The rule above suggests that the latter should be defined as:
-    [(wpgen t1) (fun r => (wpgen t2 Q))].
-    If we let [F1] denote [wpgen t1] and [F2] denote [wpgen t2],
-    the formula becomes [F1 (fun r => F2 Q)]. Thus, we let: *)
 
 Definition wpgen_seq (F1 F2:formula) : formula := fun Q =>
   F1 (fun v => F2 Q).
@@ -393,21 +648,6 @@ Proof using.
   introv S1 S2. intros Q. unfolds wpgen_seq. applys himpl_trans wp_seq.
   applys himpl_trans S1. applys wp_conseq. intros v. applys S2.
 Qed.
-
-(** The case of let-bindings is similar, only with the substitution
-    to handle. Recall the rule. *)
-
-Parameter wp_let : forall x t1 t2 Q,
-  wp t1 (fun v => wp (subst x v t2) Q) ==> wp (trm_let x t1 t2) Q.
-
-(** This definition suggests [wpgen (trm_let x t1 t2) Q] to be of
-    the form [wpgen t1 (fun v => wpgen (subst x v t2) Q)].
-
-    Let [F1] denote [wpgen t1] and [F2of] denote [fun v => wpgen (subst x v t2)].
-    The above formula is equivalent to: [F1 (fun v => F2of v Q)].
-
-    The auxiliary function [wpgen_let] is set up to take [F1] and [F2of]
-    as arguments. *)
 
 Definition wpgen_let (F1:formula) (F2of:val->formula) : formula := fun Q =>
   F1 (fun v => F2of v Q).
@@ -524,29 +764,6 @@ Proof using. intros. intros Q. unfold wpgen_fail. xpull. Qed.
 (* ******************************************************* *)
 (** ** Case of applications *)
 
-(** What should be the weakest precondition for an application?
-    Well, it depends on the function, and how this function was
-    specified. Yet, when constructing the weakest precondition
-    by induction on [t], we have no specification at hand.
-
-    We would like to just postpone the reasoning on an application
-    until we have established specifications for the function being
-    applied. The way we implement the postponing is by defining
-    [wpgen (trm_app t1 t2)] as [wp (trm_app t1 t2)]. In other words,
-    we fall back to the semantic definition of [wp].
-
-    We define:
-
-[[
-  Fixpoint wpgen (t:trm) : formula :=
-    match t with
-    | trm_app t1 t2 => wp t
-    ...
-    end.
-]]
-
-    As we prove, [wp t] is always a sound formula for a term [t].
-*)
 
 Lemma wp_sound : forall t,
   formula_sound_for t (wp t).
@@ -1308,6 +1525,34 @@ Implicit Types vf vx : val.
 
 Definition wpgen_fun (Fof:val->formula) : formula := fun Q =>
   \forall vf, \[forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
+
+(*
+   \exists H, H \* \[forall vf, 
+                     (forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q') ->
+                      H ==> Q vf].
+
+
+  Goal:   H0 ==> wpgen (trm_fun x t)
+  unfolds to: 
+      H0 ==> \exists H, H \* \[forall vf, 
+                     (forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q') ->
+                      H ==> Q vf].
+  simplifies to:
+
+      forall vf, 
+      (forall vx H' Q', 
+          H' ==> Fof vx Q' ->
+          triple (trm_app vf vx) H' Q') ->
+      H0 ==> Q vf
+
+  xfun_lemma: 
+      S vf => specification for the functoin
+
+      (forall vf, (forall H' Q', H' ==> Fof vx Q' -> triple (trm_app vf vx) H' Q') -> S vf) ->
+      (fun r => H0 \* \[S r]) ===> Q ->
+      H0 ==> wpgen (trm_fun x t) Q 
+
+*)
 
 (** The soundness lemma for this construct is as follows. *)
 

@@ -635,7 +635,7 @@ Parameter wp_conseq_frame : forall t H Q1 Q2,
 (** Reformulation of the reasoning rules for terms *)
 
 Parameter wp_seq : forall t1 t2 Q,
-  wp t1 (fun r => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
+  wp t1 (fun v => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
 
 Parameter wp_let : forall x t1 t2 Q,
   wp t1 (fun v => wp (subst x v t2) Q) ==> wp (trm_let x t1 t2) Q.

@@ -397,11 +397,11 @@ Implicit Types Q : val->hprop.
     The Separation Logic reasoning rule for a sequence [t1;t2] is
     essentially the same as that from Hoare logic. The rule is:
 [[
-      {H} t1 {fun r => H1}     {H1} t2 {Q}
+      {H} t1 {fun v => H1}     {H1} t2 {Q}
       ------------------------------------
               {H} (t1;t2) {Q}
 ]]
-    Remark: the variable [r] denotes the result of the evaluation
+    Remark: the variable [v] denotes the result of the evaluation
     of [t1]. For well-typed programs, this result would always be [val_unit],
     but here we consider an untyped language, so we simply treat the
     result of [t1] as a value irrelevant to the final result. 
@@ -409,7 +409,7 @@ Implicit Types Q : val->hprop.
     The Coq statement corresponding to the above rule is: *)
 
 Parameter triple_seq : forall t1 t2 H Q H1,
-  triple t1 H (fun r => H1) ->
+  triple t1 H (fun v => H1) ->
   triple t2 H1 Q ->
   triple (trm_seq t1 t2) H Q.
 
