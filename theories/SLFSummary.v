@@ -482,7 +482,7 @@ Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
 
 (** Hoare logic rule for sequence:
 [[
-      {H} t1 {fun r => H1}     {H1} t2 {Q}
+      {H} t1 {fun v => H1}     {H1} t2 {Q}
       ------------------------------------
               {H} (t1;t2) {Q}
 ]]
@@ -491,7 +491,7 @@ In SL:
 *)
 
 Parameter triple_seq : forall t1 t2 H Q H1,
-  triple t1 H (fun r => H1) ->
+  triple t1 H (fun v => H1) ->
   triple t2 H1 Q ->
   triple (trm_seq t1 t2) H Q.
 

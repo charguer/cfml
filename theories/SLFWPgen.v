@@ -60,7 +60,7 @@ Implicit Types Q : val->hprop.
 
 
 (* ******************************************************* *)
-(** ** Overview of the weakest precondition generator *)
+(** ** Definition of [wpgen] for term rules *)
 
 (** [wpgen] computes a heap predicate that has the same meaning as [wp].
     In essence, [wpgen] takes the form of a recursive function that,
@@ -104,9 +104,6 @@ Implicit Types Q : val->hprop.
 
 *)
 
-
-(* ******************************************************* *)
-(** ** Overview of the weakest precondition generator *)
 
 (* ------------------------------------------------------- *)
 (** *** Definition of [wpgen] for values *)
@@ -203,7 +200,7 @@ Parameter wp_let : forall x t1 t2 Q,
 [[
     Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
       match t with
-      | trm_seq t1 t2 => wpgen t1 (fun v => wpgen (subst x v t2) Q)
+      | trm_let x t1 t2 => wpgen t1 (fun v => wpgen (subst x v t2) Q)
       ...
 ]]
 
@@ -332,9 +329,222 @@ Proof using. intros. intro h. false. Qed.
 *)
 
 
-
 (* ------------------------------------------------------- *)
 (** *** Definition of [wpgen] for conditionals *)
+
+(** The last remaining case is that for conditionals.
+    Recall the [wp]-style reasoning rule stated using 
+    a Coq conditional. *)
+
+Parameter wp_if : forall (b:bool) t1 t2 Q,
+  (if b then (wp t1 Q) else (wp t2 Q)) ==> wp (trm_if b t1 t2) Q.
+
+(** The statement above actually features hidden coercions.
+    The right-hand side of the entailment only applies to a term 
+    of the form [trm_if (trm_val (val_bool b)) t1 t2].
+
+    Yet, we need to define [wpgen] for all conditionals in A-normal
+    form, i.e., all terms of the form [trm_if (trm_val v0) t1 t2], where
+    [v0] could a value of unknown shape. Typically, a program may feature
+    a conditional [trm_if (trm_var x) t1 t2] that, after substitution
+    for [x], becomes [trm_if (trm_val v) t1 t2], for some abstract
+    [v] of type [val] that might not yet be know to be a boolean value.
+
+    To handle the problem, we pattern match [t] as [trm_if t0 t1 t2],
+    and define its [wpgen] as a heap predicate that requires the 
+    existence of a boolean [b] such that [t0 = trm_val (val_bool b)]. 
+    This way, we delay the moment at which the argument of the conditional
+    needs to be shown to be a boolean value. The formal definition is:
+
+[[
+    Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
+      match t with
+      | trm_if t0 t1 t2 =>
+          \exists (b:bool), \[t0 = trm_val (val_bool b)]
+            \* (if b then (wpgen t1) Q else (wpgen t2) Q)
+      ...
+]]
+
+(* ------------------------------------------------------- *)
+(** *** Summary of the definition of [wpgen] for term rules *)
+
+(** In summary, we have defined:
+
+[[
+    Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
+      match t with
+      | trm_val v => Q v
+      | trm_fun x t1 => Q (val_fun x t)
+      | trm_fix f x t1 => Q (val_fix f x t)
+      | trm_seq t1 t2 => wpgen t1 (fun v => wpgen t2 Q)
+      | trm_let x t1 t2 => wpgen t1 (fun v => wpgen (subst x v t2) Q)
+      | trm_var x => \[False]
+      | trm_app v1 v2 => wp (trm_app v1 v2) Q
+      | trm_if t0 t1 t2 =>
+          \exists (b:bool), \[t0 = trm_val (val_bool b)]
+            \* (if b then (wpgen t1) Q else (wpgen t2) Q)
+      end.
+]]
+
+
+    This definition accounts for the reasoning rules for terms.
+
+    However, this definition lacks support for conveniently exploiting
+    the structural rules of the logic. We are going to fix this next.
+*)
+
+
+(* ******************************************************* *)
+(** ** Extension of [wpgen] to handle structural rules *)
+
+(* ------------------------------------------------------- *)
+(** *** Introduction of [mkstruct] in the definition of [wpgen] *)
+
+(** Recall from the previous chapter the statement of the 
+    frame rule in [wp]-style. *)
+
+Lemma wp_frame : forall t H Q,
+  (wp t Q) \* H ==> wp t (Q \*+ H).
+
+(** We would like [wpgen] to satisfy the same rule, so that we can
+    exploit the frame rule while reasoning about a program using
+    the heap predicate produced by [wpgen]. 
+    
+    With the definition of [wpgen] set up so far, it is possible
+    to prove, for any concrete term [t], that the frame property
+    [(wpgen t Q) \* H ==> wpgen t (Q \*+ H)] holds.
+    However, establishing this result requires an induction over
+    the entire structure of the term [t]---a lot of tedious work.
+
+    Instead, we are going to tweak the definition of [wpgen] so as to
+    produce, at every step of the recursion, a special token to capture
+    the property that "whatever the details of the output predicate 
+    produced, it does satisfy the frame property". *)
+
+(** We achieve this magic in two steps. First, we rewrite the 
+    prototype of the function [wpgen] so as to make it explicitly
+    a function of the postcondition [Q].
+
+[[
+    Fixpoint wpgen (t:trm) : (val->hprop)->hprop :=
+      fun (Q:val->hprop) =>   
+        match t with
+        | trm_val v => ..
+        | .. => ..
+        end.
+
+]]
+
+    Second, we introduce a predicate called [mkstruct], and insert 
+    it at the head of the output produced by [wpgen] (and all of 
+    its recursive invokation) as follows:
+
+[[
+    Fixpoint wpgen (t:trm) : (val->hprop)->hprop :=
+      mkstruct (
+        fun (Q:val->hprop) =>   
+          match t with
+          | trm_val v => ..
+          | .. => ..
+          end).
+]]
+
+    The interest is that every result of a computation of [wpgen t] 
+    on a concrete term [t] is, by construction, of the form [mkstruct F]
+    for some argument [F]. *)
+
+
+(* ------------------------------------------------------- *)
+(** *** Desired properties of [mkstruct] *)
+
+(** Before we state the properties that [mkstruct] should satisfy,
+    let us first figure out the type  of [mkstruct].
+    
+    Let us call [formula] the type of [wpgen t], that is, the type
+    [(val->hprop)->hprop]. Then, because [mkstruct] appears between
+    the prototype and the prior body of [wpgen], it must have type
+    [formula->formula]. *)
+
+Definition formula : Type := (val->hprop)->hprop.
+
+Parameter mkstruct : formula->formula.
+
+(** There remains to find a suitable definition for [mkstruct] that enables
+    the frame property and the consequence property. These properties can
+    be stated by mimicking the rules [wp_frame] and [wp_conseq]. *)
+
+Parameter mkstruct_frame : forall (F:formula) H Q,
+  (mkstruct F Q) \* H ==> mkstruct F (Q \*+ H).
+
+Parameter mkstruct_conseq : forall (F:formula) Q1 Q2,
+  Q1 ===> Q2 ->
+  mkstruct F Q1 ==> mkstruct F Q2.
+
+(** In addition, it should be possible to erase [mkstruct] from the head
+    of the output produced [wpgen t] when we do not need to apply any 
+    structural rule. In other words, we need to be able to prove 
+    [H ==> mkstruct F Q] by proving [H ==> F Q], for any [H]. 
+    
+    This erasure property is captured by the following entailment. *)
+
+Parameter mkstruct_erase : forall (F:formula) Q,
+  F Q ==> mkstruct F Q.
+
+(** As we show next, there exists a predicate [mkstruct] satisfying the
+    three required properties: [mkstruct_frame], [mkstruct_conseq], and
+    [mkstruct_erase]. *)
+
+
+(* ------------------------------------------------------- *)
+(** *** Realisation of [mkstruct] *)
+
+
+
+
+
+Parameter mkstruct_frame : forall (F:formula) H Q,
+  (mkstruct F Q) \* H ==> mkstruct F (Q \*+ H).
+
+
+
+(1) On a choisit de définir "wp t Q" de la forme "mkstruct F Q", exprès pour.
+Notre espoir est donc d'avoir :
+
+(mkstruct F Q1) * H ==> mkstruct F (Q1 * H)
+
+(2) Cela indique une propriété de "mkstruct F (Q1 * H)".
+On a besoin de définir "mkstruct F Q" pour un "Q" arbitraire.
+Ajoutons donc une prémisse pour dire contraindre "Q" à être de la forme "Q1 * H" :
+
+      Q1 * H ===> Q
+-------------------------------------
+(mkstruct F Q1) * H ==> mkstruct F Q
+
+
+(2) En déplaçant l'hypothèse comme un fait pur dans la précondition
+et en quantifiant H et Q1 existentiellement dans la précondition,
+on obtient la règle équivalente suivante :
+
+    \exists H Q1, (mkstruct F Q1) * H * \[Q1 * H ===> Q]
+==> mkstruct F Q
+
+
+(3) Cela suggère la définition de "mkstruct" :
+
+  Definition mkstruct F Q :=
+\exists H Q1, F Q1 * H * \[Q1 * H ===> Q]
+
+
+Réciproquement, on prouve en Coq que cette définition satisfait bien
+les deux propriétés annoncées au début, et on peut montrer aussi
+"mkstruct F = mkstruct (mkstruct F)".
+
+
+
+
+
+
+
 
 
 
@@ -631,7 +841,6 @@ Proof using. intros. intros Q. unfolds wpgen_val. applys wp_fix. Qed.
 
 (** Consider a sequence [trm_seq t1 t2]. Recall the rule. *)
 
-
 Definition wpgen_seq (F1 F2:formula) : formula := fun Q =>
   F1 (fun v => F2 Q).
 
@@ -670,31 +879,8 @@ Qed.
 (* ******************************************************* *)
 (** ** Case of conditionals *)
 
-(** Consider an expression of the form [trm_if (val_bool b) t1 t2].
-    Recall the reasoning rule for conditionals, specifically
-    the version expressed that makes the subexpressions
-    [wp t1 Q] and [wp t2 Q] visible. *)
-
-Parameter wp_if' : forall b t1 t2 Q,
-  (if b then wp t1 Q else wp t2 Q) ==> wp (trm_if b t1 t2) Q.
 
 (** The expression [wpgen (trm_if (val_bool b) t1 t2) Q] should
-    thus evaluate to [if b then (wpgen t1) Q else (wpgen t2) Q].
-    If we let [F1] and [F2] denote [wpgen t1] and [wpgen t2], respectively,
-    we obtain the formula [if b then F1 Q else F2 Q].
-
-    Yet, it would be insufficient (in the sense "incomplete") for [wpgen]
-    to only treat conditionals of the form [trm_if (val_bool b) t1 t2].
-    Indeed, a source program in A-normal form may involve expressions of
-    the form [trm_if v0 then t1 else t2], where [v0] could be a variable
-    and not necessarily a boolean value. If [v0] is a variable,
-    by the time the [wpgen] function reaches it, it should already have
-    been substituted in by a value (recall the [subst] in the treatment
-    of let-bindings). Thus, we may assume here [v0] to be a value.
-    However, this value [v0] may not be syntactically of the form [val_bool b].
-    We may only assume that, when reasoning about the conditional, the user
-    is able to prove that [v0] is semantically equal to [val_bool b] for some [b].
-    In other words, all we can assume is that [exists b, v0 = val_bool b].
 
     This discussion leads us to define [wpgen (trm_if v0 t1 t2)] as
     [wpgen_if v0 F1 F2], where [F1] denotes [wpgen t1] and [F2] denotes

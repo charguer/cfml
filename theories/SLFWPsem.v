@@ -286,7 +286,7 @@ Qed.
 
 (* EX2? (triple_seq_from_wp_seq) *)
 (** Check that [wp_seq] is just as expressive as [triple_seq],
-    by proving that [triple_seq] is derivable from [wp_seq]
+    by proving that [triple_seq] is derivable from [wp_seqd]
     and from the structural rules for [wp] and/or the structural
     rules for [triple]. *)
 
