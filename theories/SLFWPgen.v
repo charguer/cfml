@@ -860,7 +860,7 @@ Abort.
 
     In what follows, we explain how to remedy the situation. *)
 
-End WpgenExec.
+End WpgenExec1.
 
 
 (* ------------------------------------------------------- *)
@@ -905,7 +905,7 @@ Definition wpgen_seq (F1 F2:formula) : formula := fun Q =>
 Notation "'Seq' F1 '; F2" :=
   ((wpgen_seq F1 F2))
   (at level 68, right associativity,
-   format "'[v' 'Seq'  '[' F1 ']'  ';  '/'  '[' F2 ']' ']'").
+   format "'[v' 'Seq'  '[' F1 ']'  '';'  '/'  '[' F2 ']' ']'").
 
 (** Thanks to this notation, the [wpgen] of a sequence [t1 '; t2] displays as 
     [Seq F1 '; F2] where [F1] and [F2] denote the [wpgen] of [t1] and [t2],
@@ -951,6 +951,39 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
   | trm_if t0 t1 t2 => wpgen_if (isubst E t0) (wpgen E t1) (wpgen E t2)
   end).
 
+(** The corresonding pieces of notation are defined next. 
+    Details can be skipped. *)
+
+Notation "'Val' v" :=
+  ((wpgen_val v))
+  (at level 69).
+
+Notation "'`Let' x ':=' F1 'in' F2" :=
+  ((wpgen_let F1 (fun x => F2)))
+  (at level 69, x ident, right associativity,
+  format "'[v' '[' '`Let'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'").
+
+Notation "'If'' b 'Then' F1 'Else' F2" :=
+  ((wpgen_if b F1 F2))
+  (at level 69).
+
+Notation "'Fail'" :=
+  ((wpgen_fail))
+  (at level 69).
+
+(** In addition, we introduce handy notation of the result of [wpgen t]
+    where [t] denotes an application. *)
+
+Notation "'App' f v1 " :=
+  ((wp (trm_app f v1)))
+  (at level 68, f, v1 at level 0).
+
+(** We also introduce a tiny shorthand to denote [mkstruct F], writing
+    [`F], so that it does not clutter the display. *)
+
+Notation "` F" := (mkstruct F) (at level 10, format "` F").
+
+
 
 (* ------------------------------------------------------- *)
 (** *** Test of [wpgen] with improved readability. *)
@@ -983,9 +1016,15 @@ Proof using.
   intros. applys triple_app_fun_from_wpgen. { reflexivity. }
   simpl. (* Read the goal here... It is of the form [H ==> F Q],
             where [F] vaguely looks like the code of the body of [incr]. *)
+
+  (** Up to proper tabulation, alpha-renaming, and removal of
+      parentheses, [F] reads as:
+[[ 
+  `Let n := `(App val_get p) in
+  ``Let m := `(App (val_add n) 1) in
+  `App (val_set p) m)
+*)
 Abort.
-
-
 
 
 
@@ -1515,38 +1554,6 @@ Qed.
 (* ******************************************************* *)
 (** ** Making proof obligations more readable *)
 
-(** Let us introduce a piece of notation for every "wpgen" auxiliary function,
-    including [mkstruct]. This allows the formula produced by [wpgen t]
-    to get displayed in a way that reads pretty much like the term [t],
-    even though it is a logical formula and not a term. *)
-
-Notation "` F" := (mkstruct F) (at level 10, format "` F").
-
-Notation "'Fail'" :=
-  ((wpgen_fail))
-  (at level 69).
-
-Notation "'Val' v" :=
-  ((wpgen_val v))
-  (at level 69).
-
-Notation "'`Let' x ':=' F1 'in' F2" :=
-  ((wpgen_let F1 (fun x => F2)))
-  (at level 69, x ident, right associativity,
-  format "'[v' '[' '`Let'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'").
-
-Notation "'Seq' F1 '; F2" :=
-  ((wpgen_seq F1 F2))
-  (at level 68, right associativity,
-   format "'[v' 'Seq'  '[' F1 ']'  ';  '/'  '[' F2 ']' ']'").
-
-Notation "'App' f v1 " :=
-  ((wp (trm_app f v1)))
-  (at level 68, f, v1 at level 0).
-
-Notation "'If'' b 'Then' F1 'Else' F2" :=
-  ((wpgen_if b F1 F2))
-  (at level 69).
 
 Lemma triple_mysucc_with_notations : forall n,
   triple (trm_app mysucc n)
