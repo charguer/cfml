@@ -138,8 +138,8 @@ Parameter wp_val : forall v Q,
     Recall that the [wp] reasoning rule for functions is very similar 
     to that for values: *)
 
-Parameter wp_fun : forall x t Q,
-  Q (val_fun x t) ==> wp (trm_fun x t) Q.
+Parameter wp_fun : forall x t1 Q,
+  Q (val_fun x t1) ==> wp (trm_fun x t1) Q.
 
 (** So, likewise, we can define [wpgen] for functions and for
     recursive functions as follows:
@@ -147,8 +147,8 @@ Parameter wp_fun : forall x t Q,
 [[
     Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
       match t with
-      | trm_fun x t1   => Q (val_fun x t)
-      | trm_fix f x t1 => Q (val_fix f x t)
+      | trm_fun x t1   => Q (val_fun x t1)
+      | trm_fix f x t1 => Q (val_fix f x t1)
       ...
 ]]
 
@@ -381,7 +381,7 @@ Parameter wp_if : forall (b:bool) t1 t2 Q,
       | trm_seq t1 t2 => wpgen t1 (fun v => wpgen t2 Q)
       | trm_let x t1 t2 => wpgen t1 (fun v => wpgen (subst x v t2) Q)
       | trm_var x => \[False]
-      | trm_app v1 v2 => wp (trm_app v1 v2) Q
+      | trm_app v1 v2 => wp t Q
       | trm_if t0 t1 t2 =>
           \exists (b:bool), \[t0 = trm_val (val_bool b)]
             \* (if b then (wpgen t1) Q else (wpgen t2) Q)
@@ -423,7 +423,7 @@ Parameter wp_frame : forall t H Q,
     the property that "whatever the details of the output predicate 
     produced, it does satisfy the frame property". *)
 
-(** We achieve this magic in two steps. First, we rewrite the 
+(** We achieve this magic in three steps. First, we rewrite the 
     prototype of the function [wpgen] so as to make it explicitly
     a function of the postcondition [Q].
 
@@ -431,7 +431,7 @@ Parameter wp_frame : forall t H Q,
     Fixpoint wpgen (t:trm) : (val->hprop)->hprop :=
       fun (Q:val->hprop) =>   
         match t with
-        | trm_val v => ..
+        | trm_val v => Q v
         | .. => ..
         end.
 
@@ -446,21 +446,37 @@ Parameter wp_frame : forall t H Q,
       mkstruct (
         fun (Q:val->hprop) =>   
           match t with
-          | trm_val v => ..
+          | trm_val v => Q v
           | .. => ..
           end).
 ]]
 
-    The interest is that every result of a computation of [wpgen t] 
-    on a concrete term [t] is, by construction, of the form [mkstruct F]
-    for some argument [F]. *)
+    The interest of the insertion of [mkstruct] above is that every result 
+    of a computation of [wpgen t] on a concrete term [t] is, by construction, 
+    of the form [mkstruct F] for some argument [F].
+
+    Third, to enable the function [wpgen] to compute well in Coq,
+    we need to swap the [fun Q] with the [match t], so that the
+    pattern matching on [t] is visible enough for Coq to simplify it.
+
+[[
+    Fixpoint wpgen (t:trm) : (val->hprop)->hprop :=
+      mkstruct (
+        match t with
+        | trm_val v => (fun Q => Q v)
+        | .. => (fun Q => ..)
+        end).
+]]
+
+    There remains to investigate how [mkstruct] should be defined. 
+*)
 
 
 (* ------------------------------------------------------- *)
 (** *** Properties and realization of [mkstruct] *)
 
 (** Before we state the properties that [mkstruct] should satisfy,
-    let us first figure out the type  of [mkstruct].
+    let us first figure out the type of [mkstruct].
     
     Let us call [formula] the type of [wpgen t], that is, the type
     [(val->hprop)->hprop]. Then, because [mkstruct] appears between
@@ -497,14 +513,16 @@ Parameter mkstruct_erase : forall (F:formula) Q,
 End MkstructProp.
 
 (** Fortunately, it turns out that there exists a predicate [mkstruct] satisfying 
-    the three required properties: [mkstruct_frame], [mkstruct_conseq], and
-    [mkstruct_erase]. Let us pull out of our hat a definition that works,
-    and postpone to a bonus section the discussion of how one could have 
-    guessed it. Again, it really does not matter the details of the definition,
-    all that matters is that it does satisfy the three required properties. *)
+    the three required properties. Let us pull out of our hat a definition that works. *)
 
 Definition mkstruct (F:formula) : formula := 
   fun (Q:val->hprop) => \exists Q1 H, F Q1 \* H \* \[Q1 \*+ H ===> Q].
+
+(** We postpone to a bonus section the discussion of why it works and of how 
+    one could have guessed this definition. Again, it really does not matter 
+    the details of the definition, as long as it satisfies the three required 
+    properties: [mkstruct_frame], [mkstruct_conseq], and [mkstruct_erase],
+    as established below. *)
 
 Lemma mkstruct_frame : forall (F:formula) H Q,
   (mkstruct F Q) \* H ==> mkstruct F (Q \*+ H).
@@ -524,137 +542,277 @@ Lemma mkstruct_erase : forall (F:formula) Q,
 Proof using. intros. unfold mkstruct. xsimpl. xsimpl. Qed.
 
 
-
-
-
+(* ******************************************************* *)
+(** ** Computating with [wpgen] *)
 
 (* ------------------------------------------------------- *)
-(** *** Realisation of [mkstruct] *)
+(** *** A structurally recursive version of [wpgen] *)
 
-
-(** Rather than pulling out the definition of [mkstruct] from a hat,
-    let us explain how to converge towards a sensible definition. 
-    
-    The rule [mkstruct_frame] provides an introduction rule for
-    [mkstruct F Q'] when [Q'] is of the form [Q \*+ H].
-
-[[
-    (mkstruct F Q) \* H ==> mkstruct F (Q \*+ H)
-]]
-
-    Our goal is to define [mkstruct F Q'] for an arbitrary [Q'].
-    So, let us rewrite [mkstruct_frame] rule
-
-[[
-    (mkstruct F Q) \* H ==> mkstruct F Q'
-]]
-
-
-
-
-(2) Cela indique une propriété de "mkstruct F (Q1 * H)".
-On a besoin de définir "mkstruct F Q" pour un "Q" arbitraire.
-Ajoutons donc une prémisse pour dire contraindre "Q" à être de la forme "Q1 * H" :
-
-      Q1 * H ===> Q
--------------------------------------
-(mkstruct F Q1) * H ==> mkstruct F Q
-
-
-(2) En déplaçant l'hypothèse comme un fait pur dans la précondition
-et en quantifiant H et Q1 existentiellement dans la précondition,
-on obtient la règle équivalente suivante :
-
-    \exists H Q1, (mkstruct F Q1) * H * \[Q1 * H ===> Q]
-==> mkstruct F Q
-
-
-(3) Cela suggère la définition de "mkstruct" :
-
-  Definition mkstruct F Q :=
-\exists H Q1, F Q1 * H * \[Q1 * H ===> Q]
-
-
-Réciproquement, on prouve en Coq que cette définition satisfait bien
-les deux propriétés annoncées au début, et on peut montrer aussi
-"mkstruct F = mkstruct (mkstruct F)".
-
-
-
-
-
-
-
-
-
-
-    which establishes the entailment [wpgen t Q ==> wp t Q].
-
-
-
-
-
-    In particular, [wpgen] has the same type as [wp].
-    Recall that [wp t Q] denotes a heap predicate of type [hprop], where [t]
-    is a term of type [trm] and [Q] is a postcondition of type [val->hprop].
-    Thus, [wpgen] has type [trm->(val->hprop)->hprop]. *)
-
-, which we name
-    [formula] for brevity.
-
-
-Definition formula := (val->hprop) -> hprop.
-
-
-Definition formula_sound_for (t:trm) (F:formula) : Prop :=
-  forall Q, F Q ==> wp t Q.
-
-*)
-
-
-(** [wpgen t] is defined by recursion on [t], as a function
-    that expects a postcondition [Q] and returns a [hprop].
-    We call "formula" the result type of [wgpen t]: *)
-
-
-(** The function [wpgen] is defined as shown below.
-
-    The definition makes use of a predicate [mkstruct] to support
-    structural rules of Separation Logic. For the moment, just ignore it.
-
-    The details of the definition will be explained in detail
-    throughout the chapter. What matters for the moment is to
-    get a high-level picture of the shape of the definition.
+(** Consider the current proposal for [wpgen].
 
 [[
     Fixpoint wpgen (t:trm) : formula :=
-      mkstruct (fun Q =>
-        match t with
-        | trm_val v => Q v
-        | trm_var x => \[False]
-        | trm_fun x t1 => Q (val_fun x t1)
-        | trm_fix f x t1 => Q (val_fix f x t1)
-        | trm_if v0 t1 t2 =>
-             \exists (b:bool), \[v0 = val_bool b]
-               \* (if b then (wpgen t1) Q else (wpgen t2) Q)
-        | trm_seq t1 t2 =>
-             (wpgen t1) (fun v => (wpgen t2) Q)
-        | trm_let x t1 t2 =>
-             (wpgen t1) (fun v => (wpgen (subst x v t2)) Q)
-        | trm_app t1 t2 => wp t Q
-        end).
+      mkstruct (match t with
+      | trm_val v => fun Q => Q v
+      | trm_fun x t1 => fun Q => Q (val_fun x t)
+      | trm_fix f x t1 => fun Q => Q (val_fix f x t)
+      | trm_seq t1 t2 => fun Q => wpgen t1 (fun v => wpgen t2 Q)
+      | trm_let x t1 t2 => fun Q => wpgen t1 (fun v => wpgen (subst x v t2) Q)
+      | trm_var x => fun Q => \[False]
+      | trm_app v1 v2 => fun Q => wp t Q
+      | trm_if t0 t1 t2 => fun Q => 
+          \exists (b:bool), \[t0 = trm_val (val_bool b)]
+            \* (if b then (wpgen t1) Q else (wpgen t2) Q)
+      end).
 ]]
 
-    The reason we present this definition as comment is that the above
-    definition is not structurally recursive (the let-binding case
-    involves a substitution), hence not accepted as such by Coq.
+    This definition is not accepted by Coq because, as mentioned earlier,
+    it is not structurally recursive, due to the recursive call 
+    [wpgen (subst x v t2)]. 
+    
+    The problem is associated with the substitution. The fix that we
+    consider next consists in delaying the substitutions until the
+    end of the recursive calls.
+    
+    Concretely, we modify the function to take the form [wpgen E t], 
+    where [E] denotes a set of bindings from variables to values. 
+    The intention is that [wpgen E t] computes the result of
+    [wpgen t'], where [t'] is obtained by substituting in [t] all
+    the bindings from [E]. *)
 
-    In the course of this chapter, we'll present two approaches to remedy the
-    situation. The first approach relies on a general fixed point combinator.
-    The second approach tweaks the definition to pass as extra argument a list
-    of bindings and avoid the need for substitutions during the recursion
-    process. For now, let us assume the [wpgen] defined and explain how we
-    plan to exploit this function. *)
+(** The simplest way to define a context [E] is as an association 
+    list relating variables to values. *)
+
+Definition ctx : Type := list (var*val).
+
+(** We next explain how the introduction of a context impacts the definition
+    of [wpgen]. *)
+
+(** First, when [wpgen] traverses a let-binding, rather than eargerly 
+    performing a substitution, it simply extends the current context.
+    Concretely, a call to [wpgen E (trm_let x t1 t2)] triggers a recursive 
+    call to [wpgen ((x,v)::E) t2]. The corresponding definition is:
+
+[[
+  Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+    mkstruct (match t with
+      ...
+      | trm_let x t1 t2 => fun Q => 
+           (wpgen E t1) (fun v => wpgen ((x,v)::E) t2)
+      ...
+      ) end.
+]]
+
+*)
+
+(** Second, when [wpgen] reaches a variable, it lookups for a binding 
+    on the variable [x] inside the context [E]. Concretely, the evaluation
+    of [wpgen E (trm_var x)] triggers a call to [lookup x E], an operation
+    which returns [Some v] if [x] maps to [v] in [E], and [None] if no 
+    value is bound to [x].
+
+[[
+  Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+    mkstruct (match t with
+      ...
+      | trm_var x => fun Q => 
+           match lookup x E with
+           | Some v => Q v
+           | None => \[False]
+           end
+      ...
+      ) end.
+]]
+
+TODO explain false
+*)
+
+(** The definition of the [lookup] operation is standard. *)
+
+Fixpoint lookup (x:var) (E:ctx) : option val :=
+  match E with
+  | nil => None
+  | (y,v)::E1 => if var_eq x y
+                   then Some v
+                   else lookup x E1
+  end.
+
+(** Third, when [wpgen] reaches a function definition, in order to handle 
+    correctly the shadowing of variables, we need to remove the name of 
+    the variables bound by the function from the domain of the context [E]. 
+    To that end, we exploit the operation [rem x E], which removes from [E] 
+    all the bindings on [x]. 
+
+
+    TODO isubst
+
+[[
+  Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+    mkstruct (match t with
+      ...
+      | trm_fun x t1 => fun Q => Q (val_fun x (isubst (rem x E) t1))
+      | trm_fix f x t1 => fun Q => Q (val_fix f x (isubst (rem x (rem f E)) t1))
+      ...
+      ) end.
+]]
+
+    | trm_app v1 v2 => fun Q => wp (isubst E t) Q
+
+
+(* The definition of the operation [rem] is standard. *)
+
+Fixpoint rem (x:var) (E:ctx) : ctx :=
+  match E with
+  | nil => nil
+  | (y,v)::E1 =>
+      let E1' := rem x E1 in
+      if var_eq x y then E1' else (y,v)::E1'
+  end.
+
+(* The definition of the operation [isubst] is also relatively standard. *)
+
+Fixpoint isubst (E:ctx) (t:trm) : trm :=
+  match t with
+  | trm_val v =>
+       v
+  | trm_var x =>
+       match lookup x E with
+       | None => t
+       | Some v => v
+       end
+  | trm_fun x t1 =>
+       trm_fun x (isubst (rem x E) t1)
+  | trm_fix f x t1 =>
+       trm_fix f x (isubst (rem x (rem f E)) t1)
+  | trm_app t1 t2 =>
+       trm_app (isubst E t1) (isubst E t2)
+  | trm_seq t1 t2 =>
+       trm_seq (isubst E t1) (isubst E t2)
+  | trm_let x t1 t2 =>
+       trm_let x (isubst E t1) (isubst (rem x E) t2)
+  | trm_if t0 t1 t2 =>
+       trm_if (isubst E t0) (isubst E t1) (isubst E t2)
+  end.
+
+(** At last, we arrive to a definition of [wpgen] that typechecks in Coq. *)
+
+  Fixpoint wpgen (t:trm) : formula :=
+    mkstruct (match t with
+    | trm_val v => fun Q => Q v
+    | trm_fun x t1 => fun Q => Q (val_fun x (isubst (rem x E) t1))
+    | trm_fix f x t1 => fun Q => Q (val_fix f x (isubst (rem x (rem f E)) t1))
+    | trm_seq t1 t2 => fun Q => wpgen t1 (fun v => wpgen t2 Q)
+    | trm_let x t1 t2 => fun Q => wpgen E t1 (fun v => wpgen ((x,v)::E) t2) Q
+    | trm_var x => fun Q =>
+         match lookup x E with
+         | Some v => Q v
+         | None => \[False]
+         end
+    | trm_app v1 v2 => fun Q => wp (isubst E t) Q
+    | trm_if t0 t1 t2 => fun Q => 
+        \exists (b:bool), \[t0 = trm_val (val_bool b)]
+          \* (if b then (wpgen E t1) Q else (wpgen E t2) Q)
+    end).
+
+
+
+
+
+
+
+
+  | trm_let x t1 t2 =>
+       wpgen_let (wpgen E t1) (fun v => wpgen ((x,v)::E) t2)
+Definition wpgen_let (F1:formula) (F2of:val->formula) : formula := fun Q =>
+  F1 (fun v => F2of v Q).
+
+
+
+
+(** 
+
+In order to define [wpgen], we'll also need to define the
+    "substitution for a context" function, written [isubst E t].
+    This function could be defined by iteratively substituting
+    each of the bindings in [E]. However, to simplify the proofs
+    and improve efficiency, this function is defined by induction
+    on the structure of [t].
+
+    - When reaching a variable, [isubst E (trm_var x)] performs
+      a lookup for [x] in [E].
+    - When traversing a binding (e.g., to handle [let x = t1 in t2]),
+      the bound name is removed from the context (e.g., the recursive
+      call is on (rem x E) t2]). *)
+
+Fixpoint isubst (E:ctx) (t:trm) : trm :=
+  match t with
+  | trm_val v =>
+       v
+  | trm_var x =>
+       match lookup x E with
+       | None => t
+       | Some v => v
+       end
+  | trm_fun x t1 =>
+       trm_fun x (isubst (rem x E) t1)
+  | trm_fix f x t1 =>
+       trm_fix f x (isubst (rem x (rem f E)) t1)
+  | trm_app t1 t2 =>
+       trm_app (isubst E t1) (isubst E t2)
+  | trm_seq t1 t2 =>
+       trm_seq (isubst E t1) (isubst E t2)
+  | trm_let x t1 t2 =>
+       trm_let x (isubst E t1) (isubst (rem x E) t2)
+  | trm_if t0 t1 t2 =>
+       trm_if (isubst E t0) (isubst E t1) (isubst E t2)
+  end.
+
+(** The new definition of [wpgen] is similar in structure to the previous
+    one, with four major changes. In [wpgen E t]:
+
+    - The extra argument [E] keeps track of the substitutions that
+      morally should have been formed in [t]. As we formalize further,
+      [wpgen E t] provides a weakest precondition for [isubst E t].
+
+    - When reaching a function [trm_fun x t1], we invoke [wpgen_val]
+      not on [val_fun x t1], but on the function value that
+      corresponds to the function term [isubst E (trm_fun x t1)],
+      that is, to [val_fun x (isubst (rem x E) t1].
+
+    - When traversing a binder (e.g., [trm_let x t1 t2]), the recursive
+      call is performed on an extended context (e.g., [wpgen ((x,v)::E) t2]).
+      In comparison, the prior definition of [wpgen] would involve a
+      substitution before the recursive call (e.g., [wpgen (subst x b t2)]).
+
+    - When reaching a variable [trm_var x], we compute the lookup of [x]
+      in [E]. We expect [x] to be bound to some value [v], and return
+      [wpgen_val v]. If [x] is unbound, then it is a dandling free variable
+      so we return [wpgen_fail]. The treatment of variables is captured
+      by the following auxiliary definition. *)
+
+Definition wpgen_var (E:ctx) (x:var) : formula :=
+  match lookup x E with
+  | None => wpgen_fail
+  | Some v => wpgen_val v
+  end.
+
+
+
+(** We next present an alternative definition to [wpgen] that has
+    two important benefits. First, it is structurally recursive,
+    thus easier to define in Coq, and more efficient to compute with.
+    Second, it performs substitutions easily rather than eagerly,
+    improving the asymptotic complexity.
+
+
+
+
+
+(* ******************************************************* *)
+(** ** Extension of [wpgen] to handle structural rules *)
+
+
+
 
 Module WpgenOverview.
 
@@ -670,110 +828,6 @@ Parameter triple_of_wpgen : forall H t Q,
   H ==> wpgen t Q ->
   triple t H Q.
 
-
-(* ******************************************************* *)
-(** ** Overview of the [mkstruct] predicate *)
-
-(** The definition of [wpgen] provides, for each term construct,
-    a piece of formula that mimics the term reasoning rules from
-    Separation Logic. Yet, for [wpgen] to be useful for carrying
-    out practical verification proofs, it also needs to also support,
-    somehow, the structural rules of Separation Logic.
-
-    The predicate [mkstruct] serves exactly that purpose.
-    It is inserted at every "node" in the construction of the
-    formual [wpgen t]. In other words, [wpgen t] always takes the
-    form [mkstruct F] for some formula [F], and for any subterm [t1]
-    of [t], the recursive call [wpgen t1] yields a formula of the
-    form [mkstruct F1].
-
-    In what follows, we present the properties expected of [mkstruct],
-    and present a simple definition that satisfies the targeted property. *)
-
-(** Recall from the previous chapter that the ramified rule for [wp],
-    stated below, captures in a single line all the structural properties
-    of Separation Logic. *)
-
-Parameter wp_ramified : forall t Q1 Q2,
-  (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
-
-(** If [wpgen] were to satisfy this same property like [wp], then it would
-    also capture the expressive power of all the structural rules of
-    Separation Logic. In other words, we would like to have: *)
-
-Parameter wpgen_ramified : forall t Q1 Q2,
-  (wpgen t Q1) \* (Q1 \--* Q2) ==> (wpgen t Q2).
-
-End WpgenOverview.
-
-(** We have set up [wpgen] so that [wpgen t] is always of the form [mkstruct F]
-    for some formula [F]. Thus, to ensure the above entailment, it suffices
-    for the definition of [mkstruct] to be a "formula transformer" (more generally
-    known as a "predicate transformer") of type [formula->formula] such that:
-[[
-    Parameter mkstruct_ramified : forall F Q1 Q2,
-      (mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2).
-]]
-    At the same time, in a situation where we do not need to apply any structural
-    rule, we'd like to be able to get rid of the leading [mkstruct] in the formula
-    produced by [wpgen]. Concretely, we need:
-
-[[
-    Lemma mkstruct_erase : forall F Q,
-      F Q ==> mkstruct F Q.
-]] *)
-
-(** The following definition of [mkstruct] satisfy the above two properties.
-    The tactic [xsimpl] trivializes the proofs. Details are discussed further on. *)
-
-Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
-  \exists Q', F Q' \* (Q' \--* Q).
-
-Lemma mkstruct_ramified : forall Q1 Q2 F,
-  (mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2).
-Proof using. unfold mkstruct. xsimpl. Qed.
-
-Lemma mkstruct_erase : forall Q F,
-  F Q ==> mkstruct F Q.
-Proof using. unfolds mkstruct. xsimpl. Qed.
-
-Arguments mkstruct_erase : clear implicits.
-Arguments mkstruct_ramified : clear implicits.
-
-(* TODO integrate
-Module MkstructAlt.
-
-Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
-  \exists Q' H', F Q' \* H' \* \[Q' \*+ H' ===> Q].
-
-Lemma mkstruct_erase : forall Q F,
-  F Q ==> mkstruct F Q.
-Proof using. unfolds mkstruct. intros. xsimpl \[] Q. xsimpl. Qed.
-
-Lemma mkstruct_ramified : forall Q1 Q2 F,
-  (mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2).
-Proof using.
-  unfold mkstruct. intros. xpull ;=> Q' H' M.
-  applys himpl_hexists_r Q'.
-  applys himpl_hexists_r (H' \* (Q1 \--* Q2)).
-  rew_heap.
-  applys himpl_frame_r.
-  applys himpl_frame_r.
-  xsimpl. xchange M.
-Qed.
-
-Definition equiv_mkstruct :
-  mkstruct = Top.mkstruct.
-Proof using.
-  intros. apply fun_ext_2 ;=> F Q. unfold mkstruct, Top.mkstruct.
-  applys himpl_antisym.
-  { xpull ;=> Q' H' M. xsimpl Q'. xchanges M. }
-  { xpull ;=> Q'. xsimpl Q'. xsimpl. }
-Qed.
-
-
-End MkstructAlt.
- *)
 
 
 (* ******************************************************* *)
@@ -1025,129 +1079,6 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
-(** ** A simple yet non-structurally recursive definition of [wpgen] *)
-
-Module WPgenSubst.
-
-(** We are almost ready to formally define our function [wpgen].
-    There is one Coq-specific caveat on our way, however.
-    The definition of [wpgen] is not structurally recursive.
-    Thus, we'll have to play some tricks to first define it as a functional,
-    and then take the fixed point of this functional.
-
-    The details of this fixed point construction are not essential
-    for the moment; they are explained further in this chapter.
-    In any case, we will shortly afterwards present an alternative definition
-    to [wpgen] which is slightly more complex yet structurally recursive. *)
-
-Definition Wpgen wpgen (t:trm) : formula :=
-  mkstruct
-  match t with
-  | trm_val v =>
-       wpgen_val v
-  | trm_var x =>
-       wpgen_fail
-  | trm_fun x t1 =>
-       wpgen_val (val_fun x t1)
-  | trm_fix f x t1 =>
-       wpgen_val (val_fix f x t1)
-  | trm_app t1 t2 =>
-       wp t
-  | trm_seq t1 t2 =>
-       wpgen_seq (wpgen t1) (wpgen t2)
-  | trm_let x t1 t2 =>
-       wpgen_let (wpgen t1) (fun v => wpgen (subst x v t2))
-  | trm_if (trm_val v0) t1 t2 =>
-       wpgen_if v0 (wpgen t1) (wpgen t2)
-  | (* terms [trm_if t0 t1 t2] where [t0] is not a value or a variable
-       fall outside of the sub-language that we consider,
-       so let us here pretend that they are no such terms. *)
-    _ => wpgen_fail
-  end.
-
-(** To build the fixed point, we need to show the result type inhabited. *)
-
-Global Instance Inhab_formula : Inhab formula.
-Proof using. apply (Inhab_of_val (fun _ => \[])). Qed.
-
-(** [wpgen] is the fixed point of [Wpgen]. *)
-
-Definition wpgen := FixFun Wpgen.
-
-(** The fixed point equation, which enables unfolding the definition
-    of [wpgen], is proved further in this file. To establish it, we
-    essentially need to justify the termination of the recursive function. *)
-
-Parameter wpgen_fix : forall t,
-  wpgen t = Wpgen wpgen t.
-
-(** We establish the soundness of [wpgen] by induction on [t].
-    The induction principle that comes with the sublanguage
-    presented in [SLFRules] is as follows: *)
-
-Parameter trm_induct : forall (P : trm -> Prop),
-  (forall v, P (trm_val v)) ->
-  (forall x, P (trm_var x)) ->
-  (forall x t1 , P t1 -> P (trm_fun x t1)) ->
-  (forall (f:var) x t1, P t1 -> P (trm_fix f x t1)) ->
-  (forall t1, P t1 -> forall t2, P t2 -> P (trm_app t1 t2)) ->
-  (forall t1, P t1 -> forall t2, P t2 -> P (trm_seq t1 t2)) ->
-  (forall (x:var) t1, P t1 -> forall t2, P t2 -> P (trm_let x t1 t2)) ->
-  (forall t0, P t0 -> forall t1, P t1 -> forall t2, P t2 -> P (trm_if t0 t1 t2)) ->
-  (forall t, P t).
-
-(** However, it does not quite suite our needs. Indeed, in the case
-    of a [trm_let x t1 t2], the induction principle applies to [t2],
-    but we need to invoke it on [subst x v t2].
-
-    We thus exploit a variant induction principle, justified by an
-    induction on the size of a term, for a definition of size where
-    all values and functions are considered to be of size one unit.
-
-    This induction principle is stated below. The details of its proof
-    are not essential here; they may be found in the appendix to the
-    present chapter. *)
-
-Parameter trm_induct_subst : forall (P : trm -> Prop),
-  (forall v, P (trm_val v)) ->
-  (forall x, P (trm_var x)) ->
-  (forall x t1 , P (trm_fun x t1)) ->
-  (forall (f:var) x t1, P (trm_fix f x t1)) ->
-  (forall t1, P t1 -> forall t2, P t2 -> P (trm_app t1 t2)) ->
-  (forall t1, P t1 -> forall t2, P t2 -> P (trm_seq t1 t2)) ->
-  (forall (x:var) t1, P t1 -> forall t2, (forall v, P (subst x v t2)) -> P (trm_let x t1 t2)) ->
-  (forall t0, P t0 -> forall t1, P t1 -> forall t2, P t2 -> P (trm_if t0 t1 t2)) ->
-  (forall t, P t).
-
-(** The soundness lemma asserts: [forall t, formula_sound_for t (wpgen t)].
-    The proof is carried out by induction on [t]. For each term
-    construct, the proof consists of invoking the lemma [mkstruct_sound]
-    to justify soundness of the leading [mkstruct], then invoking
-    the soundness lemma specific to that term construct. *)
-
-Lemma wpgen_sound : forall t,
-  formula_sound_for t (wpgen t).
-Proof using.
-  intros. induction t using trm_induct_subst;
-   rewrite wpgen_fix; applys mkstruct_sound; simpl.
-  { applys wpgen_val_sound. }
-  { applys wpgen_fail_sound. }
-  { applys wpgen_fun_val_sound. }
-  { applys wpgen_fix_val_sound. }
-  { applys wp_sound. }
-  { applys wpgen_seq_sound. { applys IHt1. } { applys IHt2. } }
-  { applys wpgen_let_sound. { applys IHt1. } { intros v. applys H. } }
-  { destruct t1; try applys wpgen_fail_sound.
-    { applys wpgen_if_sound. { applys IHt2. } { applys IHt3. } } }
-Qed.
-
-Theorem triple_of_wpgen : forall t H Q,
-  H ==> wpgen t Q ->
-  triple t H Q.
-Proof using. introv M. rewrite wp_equiv. xchange M. applys wpgen_sound. Qed.
-
-End WPgenSubst.
 
 
 (* ******************************************************* *)
@@ -2313,3 +2244,109 @@ End WPgenFix.
 (** ** Chapter's notes *)
 
 (** The definition of [mkstruct] was suggested by Jacques-Henri Jourdan. *)
+
+
+
+(* ******************************************************* *)
+(** ** Overview of the [mkstruct] predicate *)
+
+(** The definition of [wpgen] provides, for each term construct,
+    a piece of formula that mimics the term reasoning rules from
+    Separation Logic. Yet, for [wpgen] to be useful for carrying
+    out practical verification proofs, it also needs to also support,
+    somehow, the structural rules of Separation Logic.
+
+    The predicate [mkstruct] serves exactly that purpose.
+    It is inserted at every "node" in the construction of the
+    formual [wpgen t]. In other words, [wpgen t] always takes the
+    form [mkstruct F] for some formula [F], and for any subterm [t1]
+    of [t], the recursive call [wpgen t1] yields a formula of the
+    form [mkstruct F1].
+
+    In what follows, we present the properties expected of [mkstruct],
+    and present a simple definition that satisfies the targeted property. *)
+
+(** Recall from the previous chapter that the ramified rule for [wp],
+    stated below, captures in a single line all the structural properties
+    of Separation Logic. *)
+
+Parameter wp_ramified : forall t Q1 Q2,
+  (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
+
+(** If [wpgen] were to satisfy this same property like [wp], then it would
+    also capture the expressive power of all the structural rules of
+    Separation Logic. In other words, we would like to have: *)
+
+Parameter wpgen_ramified : forall t Q1 Q2,
+  (wpgen t Q1) \* (Q1 \--* Q2) ==> (wpgen t Q2).
+
+End WpgenOverview.
+
+(** We have set up [wpgen] so that [wpgen t] is always of the form [mkstruct F]
+    for some formula [F]. Thus, to ensure the above entailment, it suffices
+    for the definition of [mkstruct] to be a "formula transformer" (more generally
+    known as a "predicate transformer") of type [formula->formula] such that:
+[[
+    Parameter mkstruct_ramified : forall F Q1 Q2,
+      (mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2).
+]]
+    At the same time, in a situation where we do not need to apply any structural
+    rule, we'd like to be able to get rid of the leading [mkstruct] in the formula
+    produced by [wpgen]. Concretely, we need:
+
+[[
+    Lemma mkstruct_erase : forall F Q,
+      F Q ==> mkstruct F Q.
+]] *)
+
+(** The following definition of [mkstruct] satisfy the above two properties.
+    The tactic [xsimpl] trivializes the proofs. Details are discussed further on. *)
+
+Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
+  \exists Q', F Q' \* (Q' \--* Q).
+
+Lemma mkstruct_ramified : forall Q1 Q2 F,
+  (mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2).
+Proof using. unfold mkstruct. xsimpl. Qed.
+
+Lemma mkstruct_erase : forall Q F,
+  F Q ==> mkstruct F Q.
+Proof using. unfolds mkstruct. xsimpl. Qed.
+
+Arguments mkstruct_erase : clear implicits.
+Arguments mkstruct_ramified : clear implicits.
+
+(* TODO integrate
+Module MkstructAlt.
+
+Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
+  \exists Q' H', F Q' \* H' \* \[Q' \*+ H' ===> Q].
+
+Lemma mkstruct_erase : forall Q F,
+  F Q ==> mkstruct F Q.
+Proof using. unfolds mkstruct. intros. xsimpl \[] Q. xsimpl. Qed.
+
+Lemma mkstruct_ramified : forall Q1 Q2 F,
+  (mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2).
+Proof using.
+  unfold mkstruct. intros. xpull ;=> Q' H' M.
+  applys himpl_hexists_r Q'.
+  applys himpl_hexists_r (H' \* (Q1 \--* Q2)).
+  rew_heap.
+  applys himpl_frame_r.
+  applys himpl_frame_r.
+  xsimpl. xchange M.
+Qed.
+
+Definition equiv_mkstruct :
+  mkstruct = Top.mkstruct.
+Proof using.
+  intros. apply fun_ext_2 ;=> F Q. unfold mkstruct, Top.mkstruct.
+  applys himpl_antisym.
+  { xpull ;=> Q' H' M. xsimpl Q'. xchanges M. }
+  { xpull ;=> Q'. xsimpl Q'. xsimpl. }
+Qed.
+
+
+End MkstructAlt.
+ *)

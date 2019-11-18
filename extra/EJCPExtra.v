@@ -143,3 +143,135 @@ Qed.
 
 (** In conclusion, it really does not matter which concrete definition 
     of [wp] is considered, because all definitions are equivalent. *)
+
+
+
+
+
+(* ------------------------------------------------------- *)
+(** *** Realisation of [mkstruct] *)
+
+
+(** Rather than pulling out the definition of [mkstruct] from a hat,
+    let us explain how to converge towards a sensible definition. 
+    
+    The rule [mkstruct_frame] provides an introduction rule for
+    [mkstruct F Q'] when [Q'] is of the form [Q \*+ H].
+
+[[
+    (mkstruct F Q) \* H ==> mkstruct F (Q \*+ H)
+]]
+
+    Our goal is to define [mkstruct F Q'] for an arbitrary [Q'].
+    So, let us rewrite [mkstruct_frame] rule
+
+[[
+    (mkstruct F Q) \* H ==> mkstruct F Q'
+]]
+
+
+
+
+(2) Cela indique une propriété de "mkstruct F (Q1 * H)".
+On a besoin de définir "mkstruct F Q" pour un "Q" arbitraire.
+Ajoutons donc une prémisse pour dire contraindre "Q" à être de la forme "Q1 * H" :
+
+      Q1 * H ===> Q
+-------------------------------------
+(mkstruct F Q1) * H ==> mkstruct F Q
+
+
+(2) En déplaçant l'hypothèse comme un fait pur dans la précondition
+et en quantifiant H et Q1 existentiellement dans la précondition,
+on obtient la règle équivalente suivante :
+
+    \exists H Q1, (mkstruct F Q1) * H * \[Q1 * H ===> Q]
+==> mkstruct F Q
+
+
+(3) Cela suggère la définition de "mkstruct" :
+
+  Definition mkstruct F Q :=
+\exists H Q1, F Q1 * H * \[Q1 * H ===> Q]
+
+
+Réciproquement, on prouve en Coq que cette définition satisfait bien
+les deux propriétés annoncées au début, et on peut montrer aussi
+"mkstruct F = mkstruct (mkstruct F)".
+
+
+
+
+
+
+
+
+
+
+    which establishes the entailment [wpgen t Q ==> wp t Q].
+
+
+
+
+
+    In particular, [wpgen] has the same type as [wp].
+    Recall that [wp t Q] denotes a heap predicate of type [hprop], where [t]
+    is a term of type [trm] and [Q] is a postcondition of type [val->hprop].
+    Thus, [wpgen] has type [trm->(val->hprop)->hprop]. *)
+
+, which we name
+    [formula] for brevity.
+
+
+Definition formula := (val->hprop) -> hprop.
+
+
+Definition formula_sound_for (t:trm) (F:formula) : Prop :=
+  forall Q, F Q ==> wp t Q.
+
+*)
+
+
+(** [wpgen t] is defined by recursion on [t], as a function
+    that expects a postcondition [Q] and returns a [hprop].
+    We call "formula" the result type of [wgpen t]: *)
+
+
+(** The function [wpgen] is defined as shown below.
+
+    The definition makes use of a predicate [mkstruct] to support
+    structural rules of Separation Logic. For the moment, just ignore it.
+
+    The details of the definition will be explained in detail
+    throughout the chapter. What matters for the moment is to
+    get a high-level picture of the shape of the definition.
+
+[[
+    Fixpoint wpgen (t:trm) : formula :=
+      mkstruct (fun Q =>
+        match t with
+        | trm_val v => Q v
+        | trm_var x => \[False]
+        | trm_fun x t1 => Q (val_fun x t1)
+        | trm_fix f x t1 => Q (val_fix f x t1)
+        | trm_if v0 t1 t2 =>
+             \exists (b:bool), \[v0 = val_bool b]
+               \* (if b then (wpgen t1) Q else (wpgen t2) Q)
+        | trm_seq t1 t2 =>
+             (wpgen t1) (fun v => (wpgen t2) Q)
+        | trm_let x t1 t2 =>
+             (wpgen t1) (fun v => (wpgen (subst x v t2)) Q)
+        | trm_app t1 t2 => wp t Q
+        end).
+]]
+
+    The reason we present this definition as comment is that the above
+    definition is not structurally recursive (the let-binding case
+    involves a substitution), hence not accepted as such by Coq.
+
+    In the course of this chapter, we'll present two approaches to remedy the
+    situation. The first approach relies on a general fixed point combinator.
+    The second approach tweaks the definition to pass as extra argument a list
+    of bindings and avoid the need for substitutions during the recursion
+    process. For now, let us assume the [wpgen] defined and explain how we
+    plan to exploit this function. *)
