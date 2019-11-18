@@ -791,6 +791,24 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
     Moreover, it is algorithmically more efficient in general, because 
     it performs substitutions easily rather than eagerly. *)
 
+(** Let us state the soundness theorem and its corrolary for establishing
+    triples for functions. *)
+
+Parameter wpgen_sound : forall E t Q,
+   wpgen E t Q ==> wp (isubst E t) Q.
+
+(** This entailement asserts in particular that if we can derive
+    [triple t H Q] by proving [H ==> wpgen t Q]. If we exploit
+    this result to the case of the application of a function,
+    we obtain the lemma shown below. *)
+
+Parameter triple_app_fun_from_wpgen : forall v1 v2 x t1 H Q,
+  v1 = val_fun x t1 ->
+  H ==> wpgen ((x,v2)::nil) t1 Q ->
+  triple (trm_app v1 v2) H Q.
+
+(* -- TODO: missing details *)
+
 
 (* ******************************************************* *)
 (** ** Testing [wpgen] and optimizing the readability of its output *)
@@ -799,24 +817,16 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
 (* ------------------------------------------------------- *)
 (** *** Executing [wpgen] on a concrete program *)
 
+(** Using [triple_app_fun_from_wpgen], we can demonstrate the
+    computation of a [wpgen] on a practical program, for example [incr]. *)
+
 Module WpgenExec.
-
-(** In order to test [wpgen], let us assume that it is correct
-    with respect to [wp] for functions---we show the proof 
-    details later. In other words, if [t] is a function application,
-    then this application can be specified in the form [triple t H Q],
-    by invoking the [wpgen] function on the body of the function. *)
-
-Parameter wpgen_soundness_app_fun : forall v1 v2 x t1 H Q,
-  v1 = val_fun x t1 ->
-  H ==> wpgen ((x,v2)::nil) t1 Q ->
-  triple (trm_app v1 v2) H Q.
-
-
 Import NotationForVariables.
 Open Scope val_scope.
 Open Scope trm_scope.
 Implicit Types n : int.
+
+(** Recall the definition of [incr]. *)
 
 Definition incr :=
   VFun 'p :=
@@ -824,13 +834,15 @@ Definition incr :=
     Let 'm := 'n '+ 1 in
    'p ':= 'm.
 
+(** Recall the specification of [incr]. *)
+
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
     (p ~~~> n)
     (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
 Proof using.
-  intros. applys wpgen_soundness_app_fun. { reflexivity. }
-  simpl. (* read the goal here *)
+  intros. applys triple_app_fun_from_wpgen. { reflexivity. }
+  simpl. (* Read the goal here... *)
 Abort.
 
 (** The goal takes the form [H ==> wpgen body Q],
@@ -843,19 +855,25 @@ Abort.
     operations.
 
     Observe that the goal is nevertheless somewhat hard to relate
-    to the original program... *)
+    to the original program... 
 
-Abort.
+    In what follows, we explain how to remedy the situation. *)
+
+End WpgenExec.
 
 
 (* ------------------------------------------------------- *)
 (** *** Improving readability. *)
 
+(** We reformulate the definition of [wpgen E t] by introducing
+    intermediate definitions, one per term construct. For each
+    of these intermediate definition, we introduce an ad-hoc 
+    notation that enables displaying the [wpgen] of a term [t] in
+    a way that resembles the source code of [t].
 
 
-(** 
 
-EndWpgenExec.
+
 
 
 
