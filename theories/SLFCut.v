@@ -121,3 +121,23 @@ Theorem triple_of_wpgen : forall t H Q,
 Proof using. introv M. rewrite wp_equiv. xchange M. applys wpgen_sound. Qed.
 
 End WPgenSubst.
+
+========================================================
+
+
+val_of_function t =
+  trm_fun => 
+  trm_fix => 
+  _ => arbitrary
+
+fun Q => Q (val_of_function (isubst E t))
+fun Q => Q (val_of_function (isubst E t))
+
+
+wpgen_function t =
+  | trm_fun x t1 => fun Q => val_fun x t1
+  | trm_fix f x t1 => fun Q => val_fix f x t1
+  | _ => \[]
+
+  | trm_fun x t1 => wpgen_function (isubst E t)
+  | trm_fix f x t1 => wpgen_function (isubst E t)

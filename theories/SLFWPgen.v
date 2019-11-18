@@ -576,19 +576,86 @@ Proof using. intros. unfold mkstruct. xsimpl. xsimpl. Qed.
     
     Concretely, we modify the function to take the form [wpgen E t], 
     where [E] denotes a set of bindings from variables to values. 
-    The intention is that [wpgen E t] computes the result of
-    [wpgen t'], where [t'] is obtained by substituting in [t] all
-    the bindings from [E]. *)
+    The intention is that [wpgen E t] computes the weakest precondition
+    for the term [isubst E t], which denotes the result of substituting
+    all bindings from E inside the term [t]. *)
+
+
+(* ------------------------------------------------------- *)
+(** *** Definition of contexts and operations on them *)
 
 (** The simplest way to define a context [E] is as an association 
     list relating variables to values. *)
 
 Definition ctx : Type := list (var*val).
 
-(** We next explain how the introduction of a context impacts the definition
-    of [wpgen]. *)
+(** Before we present how the introduction of a context impacts 
+    the definition of [wpgen], we need to formalize the "iterated
+    substitution" operation, written [isubst E t]. The definition
+    is relatively standard: the substitution traverses the term
+    recursively and, when reaching a variable, performs a lookup
+    in the term [E]. 
+    
+    The definition of the [lookup] operation on association lists
+    is standard. *)
 
-(** First, when [wpgen] traverses a let-binding, rather than eargerly 
+Fixpoint lookup (x:var) (E:ctx) : option val :=
+  match E with
+  | nil => None
+  | (y,v)::E1 => if var_eq x y
+                   then Some v
+                   else lookup x E1
+  end.
+
+(** One additional technicality is the need to respect variable shadowing,
+    which imposes to remove bindings on a variable [x] when entering
+    through the scope of a bound variable named [x]. The removal operation 
+    on a context represented as an association list is also standard. *)
+
+Fixpoint rem (x:var) (E:ctx) : ctx :=
+  match E with
+  | nil => nil
+  | (y,v)::E1 =>
+      let E1' := rem x E1 in
+      if var_eq x y then E1' else (y,v)::E1'
+  end.
+
+(* The definition of the operation [isubst] can then be expressed as a 
+   recursive function over the term [t]. *)
+
+Fixpoint isubst (E:ctx) (t:trm) : trm :=
+  match t with
+  | trm_val v =>
+       v
+  | trm_var x =>
+       match lookup x E with
+       | None => t
+       | Some v => v
+       end
+  | trm_fun x t1 =>
+       trm_fun x (isubst (rem x E) t1)
+  | trm_fix f x t1 =>
+       trm_fix f x (isubst (rem x (rem f E)) t1)
+  | trm_app t1 t2 =>
+       trm_app (isubst E t1) (isubst E t2)
+  | trm_seq t1 t2 =>
+       trm_seq (isubst E t1) (isubst E t2)
+  | trm_let x t1 t2 =>
+       trm_let x (isubst E t1) (isubst (rem x E) t2)
+  | trm_if t0 t1 t2 =>
+       trm_if (isubst E t0) (isubst E t1) (isubst E t2)
+  end.
+
+(** Remark: it would be also possible to define the substitution by
+    iterating the unary substitution [subst] over the list of bindings
+    from [E], however doing so is much less efficient and would 
+    complicate proofs. *)
+
+
+(* ------------------------------------------------------- *)
+(** *** [wpgen]: the let-binding case *)
+
+(** When [wpgen] traverses a let-binding, rather than eargerly 
     performing a substitution, it simply extends the current context.
     Concretely, a call to [wpgen E (trm_let x t1 t2)] triggers a recursive 
     call to [wpgen ((x,v)::E) t2]. The corresponding definition is:
@@ -605,11 +672,22 @@ Definition ctx : Type := list (var*val).
 
 *)
 
-(** Second, when [wpgen] reaches a variable, it lookups for a binding 
+
+(* ------------------------------------------------------- *)
+(** *** [wpgen]: the variable case *)
+
+(** When [wpgen] reaches a variable, it lookups for a binding 
     on the variable [x] inside the context [E]. Concretely, the evaluation
-    of [wpgen E (trm_var x)] triggers a call to [lookup x E], an operation
-    which returns [Some v] if [x] maps to [v] in [E], and [None] if no 
-    value is bound to [x].
+    of [wpgen E (trm_var x)] triggers a call to [lookup x E]. 
+
+    If the context [E] binds the variable [x] to some value [v], then
+    the operation [lookup x E] returns [Some v]. In that case, 
+    [wpgen] returns the weakest precondition for that value [v], 
+    that is, [Q v].
+
+    Otherwise, if [E] does not bind [x], the lookup operation returns [None].
+    In that case, [wpgen] returns [\[False]], which we have explained to be
+    the weakest precondition for a stuck program.
 
 [[
   Fixpoint wpgen (E:ctx) (t:trm) : formula :=
@@ -624,27 +702,50 @@ Definition ctx : Type := list (var*val).
       ) end.
 ]]
 
-TODO explain false
+----TODO: essayer  lookup swap with fun Q.
 *)
 
-(** The definition of the [lookup] operation is standard. *)
 
-Fixpoint lookup (x:var) (E:ctx) : option val :=
-  match E with
-  | nil => None
-  | (y,v)::E1 => if var_eq x y
-                   then Some v
-                   else lookup x E1
-  end.
+(* ------------------------------------------------------- *)
+(** *** [wpgen]: the application case *)
 
-(** Third, when [wpgen] reaches a function definition, in order to handle 
-    correctly the shadowing of variables, we need to remove the name of 
-    the variables bound by the function from the domain of the context [E]. 
-    To that end, we exploit the operation [rem x E], which removes from [E] 
-    all the bindings on [x]. 
+(** In the previous definition of [wpgen] with contexts, the argued
+    that the result of [wpgen t Q] in the case where [t] is an application
+    should be simply [wp t Q]. In other words, we resort to the semantics
+    interpretation for an application.
+
+    In the definition of [wpgen] with contexts, the intepretation of
+    [wpgen E t] is the weakest precondition of the term [isubst E t],
+    which denotes the result of substituting variables from [E] in [t].
+
+    When [t] is an application, we thus define [wpgen E t] as the formula
+    [fun Q => wp (isubst E t) Q], or simply [wp (isubst E t)] by eliminating
+    the useless eta-expansion.
+
+[[
+  Fixpoint wpgen (t:trm) : formula :=
+    mkstruct (match t with
+      ...
+      | trm_app v1 v2 => wp (isubst E t)
+      ..
+]]
+
+*)
 
 
-    TODO isubst
+(* ------------------------------------------------------- *)
+(** *** [wpgen]: the function definition case *)
+
+(** Consider the case where [t] is a function definition, for example  
+    [trm_fun x t1]. The formula [wpgen E t] is interpreted as the weakest
+    precondition of [isubst E t].
+    
+    By unfolding the definition of [isubst] in the case where [t] is 
+    [trm_fun x t1], we obtain [trm_fun x (isubst (rem x E) t1)].
+
+    The weakest precondition for that value is 
+    [fun Q => Q (val_fun x (isubst (rem x E) t1))].
+    Thus, [wpgen E t] handles functions, and recursive functions, as follows:
 
 [[
   Fixpoint wpgen (E:ctx) (t:trm) : formula :=
@@ -656,155 +757,105 @@ Fixpoint lookup (x:var) (E:ctx) : option val :=
       ) end.
 ]]
 
-    | trm_app v1 v2 => fun Q => wp (isubst E t) Q
+*)
 
 
-(* The definition of the operation [rem] is standard. *)
+(* ------------------------------------------------------- *)
+(** *** [wpgen]: at last, an executable function *)
 
-Fixpoint rem (x:var) (E:ctx) : ctx :=
-  match E with
-  | nil => nil
-  | (y,v)::E1 =>
-      let E1' := rem x E1 in
-      if var_eq x y then E1' else (y,v)::E1'
-  end.
+(** At last, we arrive to a definition of [wpgen] that typechecks in Coq,
+    and that can be used to effectively compute weakest preconditions in
+    Separation Logic. *)
 
-(* The definition of the operation [isubst] is also relatively standard. *)
-
-Fixpoint isubst (E:ctx) (t:trm) : trm :=
-  match t with
-  | trm_val v =>
-       v
-  | trm_var x =>
+Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+  mkstruct (match t with
+  | trm_val v => fun Q => Q v
+  | trm_fun x t1 => fun Q => Q (val_fun x (isubst (rem x E) t1))
+  | trm_fix f x t1 => fun Q => Q (val_fix f x (isubst (rem x (rem f E)) t1))
+  | trm_seq t1 t2 => fun Q => wpgen E t1 (fun v => wpgen E t2 Q)
+  | trm_let x t1 t2 => fun Q => wpgen E t1 (fun v => wpgen ((x,v)::E) t2 Q)
+  | trm_var x => fun Q =>
        match lookup x E with
-       | None => t
-       | Some v => v
+       | Some v => Q v
+       | None => \[False]
        end
-  | trm_fun x t1 =>
-       trm_fun x (isubst (rem x E) t1)
-  | trm_fix f x t1 =>
-       trm_fix f x (isubst (rem x (rem f E)) t1)
-  | trm_app t1 t2 =>
-       trm_app (isubst E t1) (isubst E t2)
-  | trm_seq t1 t2 =>
-       trm_seq (isubst E t1) (isubst E t2)
-  | trm_let x t1 t2 =>
-       trm_let x (isubst E t1) (isubst (rem x E) t2)
-  | trm_if t0 t1 t2 =>
-       trm_if (isubst E t0) (isubst E t1) (isubst E t2)
-  end.
+  | trm_app v1 v2 => fun Q => wp (isubst E t) Q
+  | trm_if t0 t1 t2 => fun Q => 
+      \exists (b:bool), \[t0 = trm_val (val_bool b)]
+        \* (if b then (wpgen E t1) Q else (wpgen E t2) Q)
+  end).
 
-(** At last, we arrive to a definition of [wpgen] that typechecks in Coq. *)
-
-  Fixpoint wpgen (t:trm) : formula :=
-    mkstruct (match t with
-    | trm_val v => fun Q => Q v
-    | trm_fun x t1 => fun Q => Q (val_fun x (isubst (rem x E) t1))
-    | trm_fix f x t1 => fun Q => Q (val_fix f x (isubst (rem x (rem f E)) t1))
-    | trm_seq t1 t2 => fun Q => wpgen t1 (fun v => wpgen t2 Q)
-    | trm_let x t1 t2 => fun Q => wpgen E t1 (fun v => wpgen ((x,v)::E) t2) Q
-    | trm_var x => fun Q =>
-         match lookup x E with
-         | Some v => Q v
-         | None => \[False]
-         end
-    | trm_app v1 v2 => fun Q => wp (isubst E t) Q
-    | trm_if t0 t1 t2 => fun Q => 
-        \exists (b:bool), \[t0 = trm_val (val_bool b)]
-          \* (if b then (wpgen E t1) Q else (wpgen E t2) Q)
-    end).
+(** Compared with the presentation using the form [wpgen t], the 
+    new presentation using the form [wpgen E t] has the main benefits
+    that it is structurally recursive, thus easy to define in Coq.
+    Moreover, it is algorithmically more efficient in general, because 
+    it performs substitutions easily rather than eagerly. *)
 
 
+(* ******************************************************* *)
+(** ** Testing [wpgen] and optimizing the readability of its output *)
 
 
+(* ------------------------------------------------------- *)
+(** *** Executing [wpgen] on a concrete program *)
+
+Module WpgenExec.
+
+(** In order to test [wpgen], let us assume that it is correct
+    with respect to [wp] for functions---we show the proof 
+    details later. In other words, if [t] is a function application,
+    then this application can be specified in the form [triple t H Q],
+    by invoking the [wpgen] function on the body of the function. *)
+
+Parameter wpgen_soundness_app_fun : forall v1 v2 x t1 H Q,
+  v1 = val_fun x t1 ->
+  H ==> wpgen ((x,v2)::nil) t1 Q ->
+  triple (trm_app v1 v2) H Q.
 
 
+Import NotationForVariables.
+Open Scope val_scope.
+Open Scope trm_scope.
+Implicit Types n : int.
+
+Definition incr :=
+  VFun 'p :=
+    Let 'n := '! 'p in
+    Let 'm := 'n '+ 1 in
+   'p ':= 'm.
+
+Lemma triple_incr : forall (p:loc) (n:int),
+  triple (trm_app incr p)
+    (p ~~~> n)
+    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+Proof using.
+  intros. applys wpgen_soundness_app_fun. { reflexivity. }
+  simpl. (* read the goal here *)
+Abort.
+
+(** The goal takes the form [H ==> wpgen body Q],
+    where [H] denotes the precondition, [Q] the postcondition,
+    and [body] the body of the function [incr].
+
+    Observe the nested calls to [mkstruct].
+
+    Observe the invokations of [wp] on the application of primitive
+    operations.
+
+    Observe that the goal is nevertheless somewhat hard to relate
+    to the original program... *)
+
+Abort.
 
 
-  | trm_let x t1 t2 =>
-       wpgen_let (wpgen E t1) (fun v => wpgen ((x,v)::E) t2)
-Definition wpgen_let (F1:formula) (F2of:val->formula) : formula := fun Q =>
-  F1 (fun v => F2of v Q).
-
+(* ------------------------------------------------------- *)
+(** *** Improving readability. *)
 
 
 
 (** 
 
-In order to define [wpgen], we'll also need to define the
-    "substitution for a context" function, written [isubst E t].
-    This function could be defined by iteratively substituting
-    each of the bindings in [E]. However, to simplify the proofs
-    and improve efficiency, this function is defined by induction
-    on the structure of [t].
-
-    - When reaching a variable, [isubst E (trm_var x)] performs
-      a lookup for [x] in [E].
-    - When traversing a binding (e.g., to handle [let x = t1 in t2]),
-      the bound name is removed from the context (e.g., the recursive
-      call is on (rem x E) t2]). *)
-
-Fixpoint isubst (E:ctx) (t:trm) : trm :=
-  match t with
-  | trm_val v =>
-       v
-  | trm_var x =>
-       match lookup x E with
-       | None => t
-       | Some v => v
-       end
-  | trm_fun x t1 =>
-       trm_fun x (isubst (rem x E) t1)
-  | trm_fix f x t1 =>
-       trm_fix f x (isubst (rem x (rem f E)) t1)
-  | trm_app t1 t2 =>
-       trm_app (isubst E t1) (isubst E t2)
-  | trm_seq t1 t2 =>
-       trm_seq (isubst E t1) (isubst E t2)
-  | trm_let x t1 t2 =>
-       trm_let x (isubst E t1) (isubst (rem x E) t2)
-  | trm_if t0 t1 t2 =>
-       trm_if (isubst E t0) (isubst E t1) (isubst E t2)
-  end.
-
-(** The new definition of [wpgen] is similar in structure to the previous
-    one, with four major changes. In [wpgen E t]:
-
-    - The extra argument [E] keeps track of the substitutions that
-      morally should have been formed in [t]. As we formalize further,
-      [wpgen E t] provides a weakest precondition for [isubst E t].
-
-    - When reaching a function [trm_fun x t1], we invoke [wpgen_val]
-      not on [val_fun x t1], but on the function value that
-      corresponds to the function term [isubst E (trm_fun x t1)],
-      that is, to [val_fun x (isubst (rem x E) t1].
-
-    - When traversing a binder (e.g., [trm_let x t1 t2]), the recursive
-      call is performed on an extended context (e.g., [wpgen ((x,v)::E) t2]).
-      In comparison, the prior definition of [wpgen] would involve a
-      substitution before the recursive call (e.g., [wpgen (subst x b t2)]).
-
-    - When reaching a variable [trm_var x], we compute the lookup of [x]
-      in [E]. We expect [x] to be bound to some value [v], and return
-      [wpgen_val v]. If [x] is unbound, then it is a dandling free variable
-      so we return [wpgen_fail]. The treatment of variables is captured
-      by the following auxiliary definition. *)
-
-Definition wpgen_var (E:ctx) (x:var) : formula :=
-  match lookup x E with
-  | None => wpgen_fail
-  | Some v => wpgen_val v
-  end.
-
-
-
-(** We next present an alternative definition to [wpgen] that has
-    two important benefits. First, it is structurally recursive,
-    thus easier to define in Coq, and more efficient to compute with.
-    Second, it performs substitutions easily rather than eagerly,
-    improving the asymptotic complexity.
-
-
+EndWpgenExec.
 
 
 
@@ -1080,84 +1131,7 @@ Qed.
 
 
 
-
 (* ******************************************************* *)
-(** ** Definition of [wpgen] as a structurally-recursive function *)
-
-(** We next present an alternative definition to [wpgen] that has
-    two important benefits. First, it is structurally recursive,
-    thus easier to define in Coq, and more efficient to compute with.
-    Second, it performs substitutions easily rather than eagerly,
-    improving the asymptotic complexity.
-
-    The new function takes the form [wpgen E t], where [E] denotes a
-    set of bindings from variables to values. Ideally, a "context" [E]
-    should be represented using a binary tree, leading to a [wpgen]
-    function running in O(n log n) compared with O(n^2) for the previous
-    definition which performs substitution during the recursion process.
-    However, for simplicity, we will here represent contexts using
-    simple association lists. *)
-
-Definition ctx : Type := list (var*val).
-
-(** On contexts, we'll need two basic operations: lookup and removal. *)
-
-(** [lookup x E] returns [Some v] if [x] maps to [v] in [E],
-    and [None] if no value is bound to [x]. *)
-
-Fixpoint lookup (x:var) (E:ctx) : option val :=
-  match E with
-  | nil => None
-  | (y,v)::E1 => if var_eq x y
-                   then Some v
-                   else lookup x E1
-  end.
-
-(** [rem x E] removes from [E] all the bindings on [x]. *)
-
-Fixpoint rem (x:var) (E:ctx) : ctx :=
-  match E with
-  | nil => nil
-  | (y,v)::E1 =>
-      let E1' := rem x E1 in
-      if var_eq x y then E1' else (y,v)::E1'
-  end.
-
-(** In order to define [wpgen], we'll also need to define the
-    "substitution for a context" function, written [isubst E t].
-    This function could be defined by iteratively substituting
-    each of the bindings in [E]. However, to simplify the proofs
-    and improve efficiency, this function is defined by induction
-    on the structure of [t].
-
-    - When reaching a variable, [isubst E (trm_var x)] performs
-      a lookup for [x] in [E].
-    - When traversing a binding (e.g., to handle [let x = t1 in t2]),
-      the bound name is removed from the context (e.g., the recursive
-      call is on (rem x E) t2]). *)
-
-Fixpoint isubst (E:ctx) (t:trm) : trm :=
-  match t with
-  | trm_val v =>
-       v
-  | trm_var x =>
-       match lookup x E with
-       | None => t
-       | Some v => v
-       end
-  | trm_fun x t1 =>
-       trm_fun x (isubst (rem x E) t1)
-  | trm_fix f x t1 =>
-       trm_fix f x (isubst (rem x (rem f E)) t1)
-  | trm_app t1 t2 =>
-       trm_app (isubst E t1) (isubst E t2)
-  | trm_seq t1 t2 =>
-       trm_seq (isubst E t1) (isubst E t2)
-  | trm_let x t1 t2 =>
-       trm_let x (isubst E t1) (isubst (rem x E) t2)
-  | trm_if t0 t1 t2 =>
-       trm_if (isubst E t0) (isubst E t1) (isubst E t2)
-  end.
 
 (** The new definition of [wpgen] is similar in structure to the previous
     one, with four major changes. In [wpgen E t]:
