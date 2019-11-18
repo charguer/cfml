@@ -763,6 +763,8 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
 (* ------------------------------------------------------- *)
 (** *** [wpgen]: at last, an executable function *)
 
+Module WpgenExec1.
+
 (** At last, we arrive to a definition of [wpgen] that typechecks in Coq,
     and that can be used to effectively compute weakest preconditions in
     Separation Logic. *)
@@ -791,7 +793,7 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
     Moreover, it is algorithmically more efficient in general, because 
     it performs substitutions easily rather than eagerly. *)
 
-(** Let us state the soundness theorem and its corrolary for establishing
+(** Let us state the soundness theorem and its corollary for establishing
     triples for functions. *)
 
 Parameter wpgen_sound : forall E t Q,
@@ -820,7 +822,6 @@ Parameter triple_app_fun_from_wpgen : forall v1 v2 x t1 H Q,
 (** Using [triple_app_fun_from_wpgen], we can demonstrate the
     computation of a [wpgen] on a practical program, for example [incr]. *)
 
-Module WpgenExec.
 Import NotationForVariables.
 Open Scope val_scope.
 Open Scope trm_scope.
@@ -863,13 +864,128 @@ End WpgenExec.
 
 
 (* ------------------------------------------------------- *)
-(** *** Improving readability. *)
+(** *** Improving readability using intermediate definitions *)
+
+Module WpgenExec2.
 
 (** We reformulate the definition of [wpgen E t] by introducing
     intermediate definitions, one per term construct. For each
     of these intermediate definition, we introduce an ad-hoc 
     notation that enables displaying the [wpgen] of a term [t] in
-    a way that resembles the source code of [t].
+    a way that resembles the source code of [t]. *)
+
+(** Consider for example the case of a sequence. The definition
+    of [wpgen E (trm_seq t1 t2)] is [fun Q => wpgen E t1 (fun v => wpgen E t2 Q)].
+    Let [F1] and [F2] denote the results of the recursive calls,
+    [wpgen E t1] and [wpgen E t2], respectively.
+    Then [wpgen E (trm_seq t1 t2)] reformulates as [fun Q => F1 (fun v => F2 Q)].
+
+    We introduce definition a combinator named [wpgen_seq F1 F2] to capture
+    the logic of [fun Q => F1 (fun v => F2 Q)], in such a way that
+    [wgpen E (trm_seq t1 t2)] can be defined as [wp_seq (wpgen E t1) (wpgen E t2)]. *)
+
+Definition wpgen_seq (F1 F2:formula) : formula := fun Q =>
+  F1 (fun v => F2 Q).
+
+(** The definition of [wpgen E t] may then be rewritten as follows:
+
+[[
+  Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+    mkstruct (match t with
+    ...
+    | trm_seq t1 t2 => wpgen_seq (wpgen E t1) (wpgen E t2 Q)
+    ... 
+    end).
+]]
+*)
+
+(** Next, we introduce a piece of notation so as to display any formula 
+    of the form [wpgen_seq F1 F2] as [Seq F1 '; F2 ].  *)
+
+Notation "'Seq' F1 '; F2" :=
+  ((wpgen_seq F1 F2))
+  (at level 68, right associativity,
+   format "'[v' 'Seq'  '[' F1 ']'  ';  '/'  '[' F2 ']' ']'").
+
+(** Thanks to this notation, the [wpgen] of a sequence [t1 '; t2] displays as 
+    [Seq F1 '; F2] where [F1] and [F2] denote the [wpgen] of [t1] and [t2],
+    respectively.
+    
+    By generalizing this approach to every term constructs, we obtain the
+    property that the [wpgen] of a term [t] displays "pretty much" like
+    the source term [t] itself---up to alpha-renaming of local variables. 
+    
+    Let us assume the other definitions without looking at the details,
+    and read again the output of [wpgen] on [incr]. *)
+
+
+Definition wpgen_val (v:val) : formula := fun Q =>
+  Q v.
+
+Definition wpgen_let (F1:formula) (F2of:val->formula) : formula := fun Q =>
+  F1 (fun v => F2of v Q).
+
+Definition wpgen_if (t:trm) (F1 F2:formula) : formula := fun Q =>
+  \exists (b:bool), \[t = trm_val (val_bool b)] \* (if b then F1 Q else F2 Q).
+
+Definition wpgen_fail : formula := fun Q =>
+  \[False].
+
+Definition wpgen_var (E:ctx) (x:var) : formula :=
+  match lookup x E with
+  | None => wpgen_fail
+  | Some v => wpgen_val v
+  end.
+
+(** The new definition of [wpgen] reads as follows *)
+
+Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+  mkstruct (match t with
+  | trm_val v => wpgen_val v
+  | trm_var x => wpgen_var E x
+  | trm_fun x t1 => wpgen_val (val_fun x (isubst (rem x E) t1))
+  | trm_fix f x t1 => wpgen_val (val_fix f x (isubst (rem x (rem f E)) t1))
+  | trm_app t1 t2 => wp (isubst E t)
+  | trm_seq t1 t2 => wpgen_seq (wpgen E t1) (wpgen E t2)
+  | trm_let x t1 t2 => wpgen_let (wpgen E t1) (fun v => wpgen ((x,v)::E) t2)
+  | trm_if t0 t1 t2 => wpgen_if (isubst E t0) (wpgen E t1) (wpgen E t2)
+  end).
+
+
+(* ------------------------------------------------------- *)
+(** *** Test of [wpgen] with improved readability. *)
+
+(** Assume again the soundness corollary *)
+
+Parameter triple_app_fun_from_wpgen : forall v1 v2 x t1 H Q,
+  v1 = val_fun x t1 ->
+  H ==> wpgen ((x,v2)::nil) t1 Q ->
+  triple (trm_app v1 v2) H Q.
+
+(** Consider again the example of [incr]. *)
+
+Import NotationForVariables.
+Open Scope val_scope.
+Open Scope trm_scope.
+Implicit Types n : int.
+
+Definition incr :=
+  VFun 'p :=
+    Let 'n := '! 'p in
+    Let 'm := 'n '+ 1 in
+   'p ':= 'm.
+
+Lemma triple_incr : forall (p:loc) (n:int),
+  triple (trm_app incr p)
+    (p ~~~> n)
+    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+Proof using.
+  intros. applys triple_app_fun_from_wpgen. { reflexivity. }
+  simpl. (* Read the goal here... It is of the form [H ==> F Q],
+            where [F] vaguely looks like the code of the body of [incr]. *)
+Abort.
+
+
 
 
 
@@ -970,8 +1086,6 @@ Definition formula_sound_for (t:trm) (F:formula) : Prop :=
 
 (*    this suggests the definition of [wpgen_val v Q] as [Q v]. *)
 
-Definition wpgen_val (v:val) : formula := fun Q =>
-  Q v.
 
 (** Let us check the desired soundness property. *)
 
@@ -1003,10 +1117,6 @@ Proof using. intros. intros Q. unfolds wpgen_val. applys wp_fix. Qed.
 (** ** Case of sequences and let-bindings *)
 
 (** Consider a sequence [trm_seq t1 t2]. Recall the rule. *)
-
-Definition wpgen_seq (F1 F2:formula) : formula := fun Q =>
-  F1 (fun v => F2 Q).
-
 (** When we try to prove that [wpgen_seq F1 F2] is a sound formula
     for [trm_seq t1 t2], we may assume, by induction hypothesis,
     that [F1] is a sound formula for [t1], and [F2] is a sound
@@ -1020,9 +1130,6 @@ Proof using.
   introv S1 S2. intros Q. unfolds wpgen_seq. applys himpl_trans wp_seq.
   applys himpl_trans S1. applys wp_conseq. intros v. applys S2.
 Qed.
-
-Definition wpgen_let (F1:formula) (F2of:val->formula) : formula := fun Q =>
-  F1 (fun v => F2of v Q).
 
 (** The soundness result takes the following form.
     It assumes that [F1] is a sound formula for [t1] and that
@@ -1048,9 +1155,6 @@ Qed.
     This discussion leads us to define [wpgen (trm_if v0 t1 t2)] as
     [wpgen_if v0 F1 F2], where [F1] denotes [wpgen t1] and [F2] denotes
     [wpgen t2] and [wpgen_if] is defined as: *)
-
-Definition wpgen_if (v:val) (F1 F2:formula) : formula := fun Q =>
-  \exists (b:bool), \[v = val_bool b] \* (if b then F1 Q else F2 Q).
 
 (** The soundness proof extracts the information from the hypothesis
     [\exists (b:bool), \[v = val_bool b] ] and concludes using [wp_if]. *)
@@ -1089,8 +1193,6 @@ Qed.
     This observation suggests to define [wpgen (trm_var x) Q] as
     [\[False]]. Let us name [wpgen_fail] the formula [fun Q => \[False]]. *)
 
-Definition wpgen_fail : formula := fun Q =>
-  \[False].
 
 (** The function [wpgen] will thus treat variables as follows:
 [[
@@ -1433,10 +1535,10 @@ Notation "'`Let' x ':=' F1 'in' F2" :=
   (at level 69, x ident, right associativity,
   format "'[v' '[' '`Let'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'").
 
-Notation "'Seq' F1 ;;; F2" :=
+Notation "'Seq' F1 '; F2" :=
   ((wpgen_seq F1 F2))
   (at level 68, right associativity,
-   format "'[v' 'Seq'  '[' F1 ']'  ;;;  '/'  '[' F2 ']' ']'").
+   format "'[v' 'Seq'  '[' F1 ']'  ';  '/'  '[' F2 ']' ']'").
 
 Notation "'App' f v1 " :=
   ((wp (trm_app f v1)))
