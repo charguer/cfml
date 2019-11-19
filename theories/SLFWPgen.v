@@ -482,6 +482,8 @@ Parameter wp_frame : forall t H Q,
 
 Definition formula : Type := (val->hprop)->hprop.
 
+Module MkstructProp.
+
 (** Because [mkstruct] appears between the prototype and the 
     [match] in the body of [wpgen], the predicate [mkstruct]
     has type [formula->formula]. *)
@@ -508,14 +510,14 @@ Parameter mkstruct_conseq : forall (F:formula) Q1 Q2,
 Parameter mkstruct_erase : forall (F:formula) Q,
   F Q ==> mkstruct F Q.
 
+End MkstructProp.
+
 
 (* ------------------------------------------------------- *)
 (** *** Realization of [mkstruct] *)
 
 (** Fortunately, it turns out that there exists a predicate [mkstruct] satisfying 
     the three required properties. Let us pull out of our hat a definition that works. *)
-
-Module MkstructRealize.
 
 Definition mkstruct (F:formula) : formula := 
   fun (Q:val->hprop) => \exists Q1 H, F Q1 \* H \* \[Q1 \*+ H ===> Q].
@@ -542,8 +544,6 @@ Proof using.
 Lemma mkstruct_erase : forall (F:formula) Q,
   F Q ==> mkstruct F Q.
 Proof using. intros. unfold mkstruct. xsimpl. xsimpl. Qed.
-
-End MkstructRealize.
 
 
 (* ******************************************************* *)
@@ -815,11 +815,13 @@ Parameter triple_app_fun_from_wpgen : forall v1 v2 x t1 H Q,
 
 (* -- TODO: missing details *)
 
+End WpgenExec1.
+
 
 (* ******************************************************* *)
 (** ** Testing [wpgen] and optimizing the readability of its output *)
 
-Module IncrDef.
+Module ProgDef.
 
 Import NotationForVariables.
 Open Scope val_scope.
@@ -834,7 +836,18 @@ Definition incr :=
     Let 'm := 'n '+ 1 in
    'p ':= 'm.
 
-End IncrDef.
+(** Recall the definition of [mysucc], which allocates a reference
+    with contents [n], increments its contents, then reads the output. *)
+
+Definition mysucc : val :=
+  VFun 'n :=
+    Let 'r := val_ref 'n in
+    incr 'r ';
+    Let 'x := '! 'r in
+    val_free 'r ';
+    'x.
+
+End ProgDef.
 
 
 (* ------------------------------------------------------- *)
@@ -844,7 +857,7 @@ End IncrDef.
     computation of a [wpgen] on a practical program, for example [incr]. *)
 
 Module ProofsBasic.
-Import IncrDef.
+Import WpgenExec1 ProgDef.
 
 (** Recall the specification of [incr]. *)
 
@@ -964,6 +977,13 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
   | trm_if t0 t1 t2 => wpgen_if (isubst E t0) (wpgen E t1) (wpgen E t2)
   end).
 
+(** This definition is, up to unfolding of the new intermediate definitions,
+    totally equivalent to the previous one. We will prove its soundness
+    result further on. *)
+
+Parameter wpgen_sound : forall E t Q,
+   wpgen E t Q ==> wp (isubst E t) Q.
+
 (** The corresonding pieces of notation are defined next. 
     Details can be skipped. *)
 
@@ -1010,7 +1030,7 @@ Parameter triple_app_fun_from_wpgen : forall v1 v2 x t1 H Q,
 (** Consider again the example of [incr]. *)
 
 Module ProofsNotation.
-Import IncrDef.
+Import ProgDef.
 
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
@@ -1090,6 +1110,8 @@ Proof using. introv M. xchange M. Qed.
     function called [protect], which is used to prevent [xsimpl]
     from performing too aggressive simplifications. *)
 
+(** TODO: explain magic wand !! *)
+
 Lemma xapp_lemma : forall t Q1 H1 H Q,
   triple t H1 Q1 ->
   H ==> H1 \* (Q1 \--* protect Q) ->
@@ -1121,61 +1143,40 @@ Qed.
 (** ** An example proof *)
 
 Module ProofsXlemmas.
-Import IncrDef.
+Import ProgDef.
 
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
     (p ~~~> n)
     (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
 Proof using.
-  intros. ...
+  intros.
   applys xwp_lemma. { reflexivity. }
-  (* Here the [wpgen] function computes. 
-     For technical reasons, we need to help it a little bit with the unfolding. *)
-  simpl; unfold wpgen_var; simpl. 
+  (* Here the [wpgen] function computes. *)
+  simpl.
   (* Observe how each node begin with [mkstruct].
      Observe how program variables are all eliminated. *)
-  applys xstruct_lemma.
-  applys xlet_lemma.
-  applys xstruct_lemma.
-  applys xapp_lemma. { apply triple_ref. }
-  xsimpl'. intros ? l ->.
-  applys xstruct_lemma.
-  applys xseq_lemma.
-  applys xstruct_lemma.
-  applys xapp_lemma. { apply triple_incr. }
-  xsimpl'. intros ? ->.
   applys xstruct_lemma.
   applys xlet_lemma.
   applys xstruct_lemma.
   applys xapp_lemma. { apply triple_get. }
   xsimpl'. intros ? ->.
   applys xstruct_lemma.
-  applys xseq_lemma.
+  applys xlet_lemma.
   applys xstruct_lemma.
-  applys xapp_lemma. { apply triple_free. }
+  applys xapp_lemma. { apply triple_add. }
   xsimpl'. intros ? ->.
   applys xstruct_lemma.
-  applys xval_lemma.
+  applys xapp_lemma. { apply triple_set. }
+  xsimpl'. intros ? ->.
   xsimpl'. auto.
 Qed.
-
-(** Recall the definition of [mysucc], which allocates a reference
-    with contents [n], increments its contents, then reads the output. *)
-
-Definition mysucc : val :=
-  VFun 'n :=
-    Let 'r := val_ref 'n in
-    incr 'r ';
-    Let 'x := '! 'r in
-    val_free 'r ';
-    'x.
 
 (* EX2! (triple_mysucc_with_xlemmas) *)
 (** Using x-lemmas, verify the proof of [triple_mysucc].
     (The proof was carried out using triples in chapter [SLFRules].) *)
 
-Lemma triple_mysucc_with_xlemmas : forall n,
+Lemma triple_mysucc_with_xlemmas : forall (n:int),
   triple (trm_app mysucc n)
     \[]
     (fun v => \[v = n+1]).
@@ -1261,9 +1262,9 @@ Tactic Notation "xwp" :=
 (** The proof script becomes much more succint. *)
 
 Module ProofsXtactics.
-Import IncrDef.
+Import ProgDef.
 
-Lemma triple_incr_with_xtactics : forall (p:loc) (n:int),
+Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
     (p ~~~> n)
     (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
@@ -1342,14 +1343,14 @@ Tactic Notation "xapps" constr(E) :=
 (** ** Demo of a practical proof using x-tactics. *)
 
 (** "THE_DEMO" begins here. *)
+(* TODO: add forward pointer *)
 
-Module ProofsXtactics.
-Import IncrDef.
-End ProofsXtactics.
+Module ProofsXtactics2.
+Import ProgDef.
 
 (** The proof script for the verification of [incr] looks like this. *)
 
-Lemma triple_incr_with_xapps : forall (p:loc) (n:int),
+Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
     (p ~~~> n)
     (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
@@ -1364,7 +1365,7 @@ Qed.
 (* EX2! (triple_mysucc_with_xapps) *)
 (** Using the improved x-tactics, verify the proof of [mysucc]. *)
 
-Lemma triple_mysucc_with_xapps : forall n,
+Lemma triple_mysucc_with_xapps : forall (n:int),
   triple (trm_app mysucc n)
     \[]
     (fun v => \[v = n+1]).
@@ -1391,7 +1392,7 @@ Qed.
     we are able to verify concrete programs in Separation Logic 
     with concise proof scripts. *)
 
-End ExampleProofs.
+End ProofsXtactics2.
 
 
 
@@ -1407,10 +1408,12 @@ Module WPgenSound.
 (* ------------------------------------------------------- *)
 (** *** Introduction of the predicate [formula_sound] *)
 
-(** The soundness theorem that we aim to establish for [wpgen] is: *)
-
-Parameter wpgen_sound : forall E t Q,
-  wpgen E t Q ==> wp (isubst E t) Q.
+(** The soundness theorem that we aim to establish for [wpgen] is: 
+[[
+  Parameter wpgen_sound : forall E t Q,
+    wpgen E t Q ==> wp (isubst E t) Q.
+]]
+*)
 
 (** Before we enter the details of the proof, let us reformulate the 
     soundness statement of the soundness theorem in a way that will 
@@ -1425,7 +1428,7 @@ Definition formula_sound (t:trm) (F:formula) : Prop :=
 (** Using [formula_sound], the soundness theorem reformulates as: *)
 
 Parameter wpgen_sound' : forall E t,
-  formula_sound (isubst E t) (wpgen t).
+  formula_sound (isubst E t) (wpgen E t).
 
 
 (* ------------------------------------------------------- *)
@@ -1451,7 +1454,7 @@ Parameter wpgen_sound' : forall E t,
     The corresponding statement is: *)
 
 Parameter wpgen_sound_seq : forall E t1 t2,
-  formula_sound (isubst E (trm_seq t1 t2)) (wpgen (trm_seq t1 t2)).
+  formula_sound (isubst E (trm_seq t1 t2)) (wpgen E (trm_seq t1 t2)).
 
 (** In that statement:
     
@@ -1467,8 +1470,8 @@ Parameter wpgen_sound_seq : forall E t1 t2,
     have to prove the following result: *)
 
 Parameter wpgen_sound_seq' : forall E t1 t2,
-  formula_sound (isubst E t1) (wpgen t1) ->
-  formula_sound (isubst E t2) (wpgen t2) ->
+  formula_sound (isubst E t1) (wpgen E t1) ->
+  formula_sound (isubst E t2) (wpgen E t2) ->
   formula_sound (trm_seq (isubst E t1) (isubst E t2)) 
                 (wpgen_seq (wpgen E t1) (wpgen E t2)).
 
@@ -1496,7 +1499,7 @@ Proof using.
   applys himpl_trans.
   (* Apply the soundness result for [wp] on sequences:
      [wp t1 (fun v => wp t2 Q) ==> wp (trm_seq t1 t2) Q]. *)
-  { applys wp_seq. }
+  2:{ applys wp_seq. }
   (* Exploit the induction hypotheses to conclude *)
   { applys himpl_trans. 
     { applys S1. }
@@ -1550,7 +1553,7 @@ Lemma wp_sound : forall t,
 Proof using. intros. intros Q. applys himpl_refl. Qed.
 
 (** Remark: the formula [wp t] is a sound formula for a term [t],
-    not just when [t] is an application, but for any term [t].
+    not just when [t] is an application, but for any term [t]. *)
 
 
 (* ------------------------------------------------------- *)
@@ -1576,13 +1579,13 @@ Proof using.
   (* Consider a postcondition [Q] *)
   intros Q. 
   (* Reveal the definition of [mkstruct] *)
-  unfold mkstruct. 
+  unfolds mkstruct. 
   (* Extract the [Q'] quantified in the definition of [mkstruct] *)
-  xsimpl ;=> Q'.
-  (* Instantiate the assumption on [F] with that [Q'] *)
-  lets N: M Q'. 
+  xsimpl ;=> Q' H N.
+  (* Instantiate the assumption on [F] with that [Q'], and exploit it. *)
+  lets M': M Q'. xchange M'.
   (* Conclude using the structural rules for [wp]. *)
-  xchange N. applys wp_ramified.
+  applys wp_conseq_frame. applys N.
 Qed.
 
 
@@ -1630,6 +1633,16 @@ Parameter isubst_rem : forall x v E t,
 
 *)
 
+(* TODO: move *)
+Lemma wpgen_if_sound' : forall F1 F2 t0 t1 t2,
+  formula_sound t1 F1 ->
+  formula_sound t2 F2 ->
+  formula_sound (trm_if t0 t1 t2) (wpgen_if t0 F1 F2).
+Proof using.
+  introv S1 S2. intros Q. unfold wpgen_if. xpull. intros b ->.
+  applys himpl_trans wp_if. case_if. { applys S1. } { applys S2. }
+Qed.
+
 Lemma wpgen_sound_induct : forall E t,
   formula_sound (isubst E t) (wpgen E t).
 Proof using.
@@ -1646,8 +1659,7 @@ Proof using.
   { rename v into x. applys wpgen_let_sound.
     { applys IHt1. }
     { intros v. rewrite <- isubst_rem. applys IHt2. } }
-  { case_eq (isubst E t1); intros; try applys wpgen_fail_sound.
-    { applys wpgen_if_sound. { applys IHt2. } { applys IHt3. } } }
+  { applys wpgen_if_sound'. { applys IHt2. } { applys IHt3. } }
 Qed.
 
 
@@ -1657,11 +1669,10 @@ Qed.
 (** For a closed term [t], the context [E] is instantiated as [nil],
     and [isubst nil t] simplifies to [t]. We obtain the statement: *)
 
-Theorem wpgen_sound :
-  wpgen nil t Q ==> wp t Q
+Theorem wpgen_sound : forall t Q,
+  wpgen nil t Q ==> wp t Q.
 Proof using.
-  introv M. xchange M.
-  lets N: (wpgen_sound nil t). rewrite isubst_nil in N. applys N.
+  introv M. lets N: (wpgen_sound nil t). rewrite isubst_nil in N. applys* N.
 Qed.
 
 (** A corollary can be derived for deriving a triple of the
@@ -1670,11 +1681,7 @@ Qed.
 Corollary triple_of_wpgen : forall t H Q,
   H ==> wpgen nil t Q ->
   triple t H Q.
-Proof using.
-  introv M. rewrite wp_equiv. xchange M.
-  lets N: (wpgen_sound nil t). rewrite isubst_nil in N. applys N.
-  (* same as: [applys_eq wpgen_sound 1. rewrite~ isubst_nil.] *)
-Qed.
+Proof using. introv M. rewrite wp_equiv. xchange M. applys wpgen_sound. Qed.
 
 (** The lemma [xwp_lemma], used by the tactic [xwp], is a variant of 
     [wpgen_of_triple] specialized for establishing a triple for a 
@@ -1688,12 +1695,10 @@ Corollary xwp_lemma : forall v1 v2 x t1 H Q,
   triple (trm_app v1 v2) H Q.
 Proof using.
   introv M1 M2. applys triple_app_fun M1.
-  asserts_rewrite (subst x v2 t = isubst ((x,v2)::nil) t).
+  asserts_rewrite (subst x v2 t1 = isubst ((x,v2)::nil) t1).
   { rewrite isubst_rem. rewrite~ isubst_nil. }
-  rewrite wp_equiv. xchange M2. applys wpgen_sound.
+  rewrite wp_equiv. xchange M2. applys wpgen_sound_induct.
 Qed.
-
-
 
 
 (* ####################################################### *)
@@ -1719,7 +1724,7 @@ Parameter mkstruct_conseq : forall F Q1 Q2,
 (** Let us reformulate this as an introduction rule for [mkstruct]. *)
 
 Parameter mkstruct_conseq' : forall F Q2,
-  \exists Q1, \[Q1 ===> Q2] \* (mkstruct F Q1) ==> mkstruct F Q2.
+  \exists Q1, \[Q1 ===> Q2] \* (mkstruct F Q1) ==> mkstruct F Q2.
 
 (** From there, it would tempting to define [mkstruct F Q2] as
     [\exists Q1, \[Q1 ===> Q2] \* (mkstruct F Q1)]. 
@@ -1736,7 +1741,7 @@ Definition mkstruct1 (F:formula) : formula :=
 Lemma mkstruct1_conseq : forall F Q1 Q2,
   Q1 ===> Q2 ->
   mkstruct1 F Q1 ==> mkstruct1 F Q2.
-Proof using. introv M. unfolds mkstruct1. xsimpl. Qed.
+Proof using. introv M. unfolds mkstruct1. xsimpl. intros Q' N. xchange* N. Qed.
 
 (** The second task is to extend the definition in order to also support
     not just [mkstruct_conseq], but also [mkstruct_frame]. *)
@@ -1755,8 +1760,8 @@ Parameter mkstruct_conseq_frame : forall F Q1 Q2 H,
 
 (** Again, let us reformulate this as an introduction rule for [mkstruct]. *)
 
-Parameter mkstruct_conseq' : forall F Q2,
-  \exists Q1 H, \[Q1 \*+ H ===> Q2] \* H \* (mkstruct F Q1) ==> mkstruct F Q2.
+Parameter mkstruct_conseq'' : forall F Q2,
+  \exists Q1 H, \[Q1 \*+ H ===> Q2] \* H \* (mkstruct F Q1) ==> mkstruct F Q2.
 
 (** Again, eliminating the reference to [mkstruct] on the left-hand side of
     the entailment suggests the following definition. *)
@@ -1792,17 +1797,11 @@ Parameter mkstruct_erase : forall (F:formula) Q,
 Lemma mkstruct_idempotent : forall F,
   mkstruct (mkstruct F) = mkstruct F.
 Proof using.
-  intros. apply fun_ext_1. intros Q. unfold mkstruct. xsimpl.
+  intros. apply fun_ext_1. intros Q. applys himpl_antisym.
   (* SOLUTION *)
-  {}
-  {}
-  (* [xsimpl] first invokes [applys himpl_antisym].
-     The right-to-left entailment is exactly [mkstruct_erase].
-     The left-to-right entailment amounts to proving:
-     [F Q2 \* (Q2 \--* Q1) \* (Q1 \--* Q))
-      ==> \exists Q', F Q' \* (Q' \--* Q))]
-     To conclude the proof, instantiate [Q'] as [Q2] and cancel
-     out [Q1] (as done in an earlier proof from this section). *)
+  { unfold mkstruct. xpull ;=> Q1 H1 Q2 H2. intros M1 M2. 
+    xsimpl Q2 (H1 \* H2). xchanges* M1. }
+  { applys mkstruct_erase. }
 (* /SOLUTION *)
 Qed.
 
@@ -1813,7 +1812,7 @@ End MkstructGuess.
 (* ******************************************************* *)
 (** ** Proof of properties of iterated substitution *)
 
-Section IsubstProp.
+Module IsubstProp.
 
 Open Scope liblist_scope.
 

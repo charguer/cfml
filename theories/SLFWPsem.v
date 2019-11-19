@@ -326,6 +326,10 @@ Proof using. intros. rewrite <- wp_equiv. applys* triple_fun. Qed.
 
 (** A similar rule holds for the evaluation of a recursive function. *)
 
+Lemma wp_fix : forall f x t Q,
+  Q (val_fix f x t) ==> wp (trm_fix f x t) Q.
+Proof using. intros. rewrite <- wp_equiv. applys* triple_fix. Qed.
+
 
 (* ------------------------------------------------------- *)
 (** *** Rule for conditionals *)
