@@ -388,7 +388,6 @@ Parameter wp_if : forall (b:bool) t1 t2 Q,
       end.
 ]]
 
-
     This definition accounts for the reasoning rules for terms.
 
     However, this definition lacks support for conveniently exploiting
@@ -473,19 +472,19 @@ Parameter wp_frame : forall t H Q,
 
 
 (* ------------------------------------------------------- *)
-(** *** Properties and realization of [mkstruct] *)
+(** *** Properties of [mkstruct] *)
 
 (** Before we state the properties that [mkstruct] should satisfy,
     let us first figure out the type of [mkstruct].
     
-    Let us call [formula] the type of [wpgen t], that is, the type
-    [(val->hprop)->hprop]. Then, because [mkstruct] appears between
-    the prototype and the prior body of [wpgen], it must have type
-    [formula->formula]. *)
+    The type of [wpgen t] is [(val->hprop)->hprop].
+    Thereafter, let [formula] be a shorthand for this type. *)
 
 Definition formula : Type := (val->hprop)->hprop.
 
-Module MkstructProp.
+(** Because [mkstruct] appears between the prototype and the 
+    [match] in the body of [wpgen], the predicate [mkstruct]
+    has type [formula->formula]. *)
 
 Parameter mkstruct : formula->formula.
 
@@ -504,16 +503,19 @@ Parameter mkstruct_conseq : forall (F:formula) Q1 Q2,
     of the output produced [wpgen t] when we do not need to apply any 
     structural rule. In other words, we need to be able to prove 
     [H ==> mkstruct F Q] by proving [H ==> F Q], for any [H]. 
-    
     This erasure property is captured by the following entailment. *)
 
 Parameter mkstruct_erase : forall (F:formula) Q,
   F Q ==> mkstruct F Q.
 
-End MkstructProp.
+
+(* ------------------------------------------------------- *)
+(** *** Realization of [mkstruct] *)
 
 (** Fortunately, it turns out that there exists a predicate [mkstruct] satisfying 
     the three required properties. Let us pull out of our hat a definition that works. *)
+
+Module MkstructRealize.
 
 Definition mkstruct (F:formula) : formula := 
   fun (Q:val->hprop) => \exists Q1 H, F Q1 \* H \* \[Q1 \*+ H ===> Q].
@@ -540,6 +542,8 @@ Proof using.
 Lemma mkstruct_erase : forall (F:formula) Q,
   F Q ==> mkstruct F Q.
 Proof using. intros. unfold mkstruct. xsimpl. xsimpl. Qed.
+
+End MkstructRealize.
 
 
 (* ******************************************************* *)
@@ -858,13 +862,15 @@ Abort.
     Observe that the goal is nevertheless somewhat hard to relate
     to the original program... 
 
-    In what follows, we explain how to remedy the situation. *)
+    In what follows, we explain how to remedy the situation, and
+    set up [wpgen] is such a way that its output is human-readable,
+    moreover resembles the original source code. *)
 
 End WpgenExec1.
 
 
 (* ------------------------------------------------------- *)
-(** *** Improving readability using intermediate definitions *)
+(** *** Intermediate definitions for [wpgen]: case of sequences *)
 
 Module WpgenExec2.
 
@@ -909,15 +915,17 @@ Notation "'Seq' F1 '; F2" :=
 
 (** Thanks to this notation, the [wpgen] of a sequence [t1 '; t2] displays as 
     [Seq F1 '; F2] where [F1] and [F2] denote the [wpgen] of [t1] and [t2],
-    respectively.
+    respectively. *)
     
-    By generalizing this approach to every term constructs, we obtain the
+(* ------------------------------------------------------- *)
+(** *** Intermediate definitions for [wpgen]: other constructs *)
+
+(** By generalizing this approach to every term constructs, we obtain the
     property that the [wpgen] of a term [t] displays "pretty much" like
     the source term [t] itself---up to alpha-renaming of local variables. 
     
-    Let us assume the other definitions without looking at the details,
-    and read again the output of [wpgen] on [incr]. *)
-
+    The other definitions are stated below. It is not required to understand
+    all the details from this subsection. *)
 
 Definition wpgen_val (v:val) : formula := fun Q =>
   Q v.
@@ -937,7 +945,7 @@ Definition wpgen_var (E:ctx) (x:var) : formula :=
   | Some v => wpgen_val v
   end.
 
-(** The new definition of [wpgen] reads as follows *)
+(** The new definition of [wpgen] reads as follows. *)
 
 Fixpoint wpgen (E:ctx) (t:trm) : formula :=
   mkstruct (match t with
@@ -984,9 +992,8 @@ Notation "'App' f v1 " :=
 Notation "` F" := (mkstruct F) (at level 10, format "` F").
 
 
-
 (* ------------------------------------------------------- *)
-(** *** Test of [wpgen] with improved readability. *)
+(** *** Test of [wpgen] with notation. *)
 
 (** Assume again the soundness corollary *)
 
@@ -1022,14 +1029,18 @@ Proof using.
 [[ 
   `Let n := `(App val_get p) in
   ``Let m := `(App (val_add n) 1) in
-  `App (val_set p) m)
+  `App (val_set p) m
+]]
+
 *)
 Abort.
 
+(*--TODO: figure out why there is a double backtick *)
 
-
-
-
+(** Throught the introduction of intermediate definitions for
+    [wpgen] and of associated notations for each term construct,
+    the output of [wpgen] is human readable and resembles the 
+    input source code. *)
 
 
 (* ******************************************************* *)
