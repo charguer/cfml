@@ -1703,120 +1703,88 @@ Qed.
 (* ******************************************************* *)
 (** ** Guessing the definition of [mkstruct] *)
 
+Module MkstructGuess.
 
+(** How could we have possibly guessed the definition of [mkstruct]?
 
-(* ------------------------------------------------------- *)
-(** *** Realisation of [mkstruct] *)
+    This predicate should satisfy the three properties:
+    [mkstruct_frame], [mkstruct_conseq] and [mkstruct_erase].
 
+    Recall the property [mkstruct_conseq]: *)
 
-(** Rather than pulling out the definition of [mkstruct] from a hat,
-    let us explain how to converge towards a sensible definition. 
-    
-    The rule [mkstruct_frame] provides an introduction rule for
-    [mkstruct F Q'] when [Q'] is of the form [Q \*+ H].
+Parameter mkstruct_conseq : forall F Q1 Q2,
+  Q1 ===> Q2 ->
+  mkstruct F Q1 ==> mkstruct F Q2.
 
-[[
-    (mkstruct F Q) \* H ==> mkstruct F (Q \*+ H)
-]]
+(** Let us reformulate this as an introduction rule for [mkstruct]. *)
 
-    Our goal is to define [mkstruct F Q'] for an arbitrary [Q'].
-    So, let us rewrite [mkstruct_frame] rule
+Parameter mkstruct_conseq' : forall F Q2,
+  \exists Q1, \[Q1 ===> Q2] \* (mkstruct F Q1) ==> mkstruct F Q2.
 
-[[
-    (mkstruct F Q) \* H ==> mkstruct F Q'
-]]
+(** From there, it would tempting to define [mkstruct F Q2] as
+    [\exists Q1, \[Q1 ===> Q2] \* (mkstruct F Q1)]. 
+    Yet, this definition of [mkstruct] is circular: it refers to itself. 
+    Let's overcome the circularity in a radical manner, by getting rid
+    of the occurence of [mkstruct] inside its definition. 
 
+    Doing so, it turns out, leads to a definition that does satisfy
+    the property [mkstruct_conseq] as required. *)
 
+Definition mkstruct1 (F:formula) : formula := 
+  fun (Q2:val->hprop) => \exists Q1, F Q1 \* \[Q1 ===> Q2].
 
+Lemma mkstruct1_conseq : forall F Q1 Q2,
+  Q1 ===> Q2 ->
+  mkstruct1 F Q1 ==> mkstruct1 F Q2.
+Proof using. introv M. unfolds mkstruct1. xsimpl. Qed.
 
-(2) Cela indique une propriété de "mkstruct F (Q1 * H)".
-On a besoin de définir "mkstruct F Q" pour un "Q" arbitraire.
-Ajoutons donc une prémisse pour dire contraindre "Q" à être de la forme "Q1 * H" :
+(** The second task is to extend the definition in order to also support
+    not just [mkstruct_conseq], but also [mkstruct_frame]. *)
 
-      Q1 * H ===> Q
--------------------------------------
-(mkstruct F Q1) * H ==> mkstruct F Q
+Parameter mkstruct_frame : forall F H Q,
+  (mkstruct F Q) \* H ==> mkstruct F (Q \*+ H).
 
+(** Taking inspiration from the rule [wp_conseq_frame] which combines
+    the frame rule and the rule of consequence into a single rule, we
+    can state a property of [mkstruct] that captures at once the two
+    required properties. *)
 
-(2) En déplaçant l'hypothèse comme un fait pur dans la précondition
-et en quantifiant H et Q1 existentiellement dans la précondition,
-on obtient la règle équivalente suivante :
+Parameter mkstruct_conseq_frame : forall F Q1 Q2 H,
+  Q1 \*+ H ===> Q2 ->
+  H \* (mkstruct F Q1) ==> mkstruct F (Q2 \*+ H).
 
-    \exists H Q1, (mkstruct F Q1) * H * \[Q1 * H ===> Q]
-==> mkstruct F Q
+(** Again, let us reformulate this as an introduction rule for [mkstruct]. *)
 
+Parameter mkstruct_conseq' : forall F Q2,
+  \exists Q1 H, \[Q1 \*+ H ===> Q2] \* H \* (mkstruct F Q1) ==> mkstruct F Q2.
 
-(3) Cela suggère la définition de "mkstruct" :
+(** Again, eliminating the reference to [mkstruct] on the left-hand side of
+    the entailment suggests the following definition. *)
 
-  Definition mkstruct F Q :=
-\exists H Q1, F Q1 * H * \[Q1 * H ===> Q]
+Definition mkstruct (F:formula) : formula := 
+  fun (Q2:val->hprop) => \exists Q1 H, F Q1 \* H \* \[Q1 \*+ H ===> Q2].
 
+(** As we have proved earlier in this chapter, this definition indeed satisfies
+    all the required properties. In particular, recall [mkstruct_erase]: *)
 
-Réciproquement, on prouve en Coq que cette définition satisfait bien
-les deux propriétés annoncées au début, et on peut montrer aussi
-"mkstruct F = mkstruct (mkstruct F)".
+Parameter mkstruct_erase : forall (F:formula) Q,
+  F Q ==> mkstruct F Q.
 
+(** To prove it, instantiate [Q2] from the definition of [mkstruct] as [Q],
+    and [H] as the empty heap predicate. *)
 
-
-
-
-
-(** Recall the definition of [mkstruct].
-[[
-    Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
-      \exists Q', F Q' \* (Q' \--* Q).
-]]
-
-    Let us first explain in more details why this definition satisfies
-    the required properties, namely [mkstruct_erase] and [mkstruct_ramified],
-    whose proofs were trivialized by [xsimpl].
-
-    For the lemma [mkstruct_erase], we want to prove [F Q ==> mkstruct F Q].
-    This is equivalent to [F Q ==> \exists Q', F Q' \* (Q' \--* Q)].
-    Taking [Q'] to be [Q] and cancelling [F Q] from both sides leaves
-    [\[] ==> Q \--* Q)], which is equivalent to [Q ==> Q].
-
-    For the lemma [mkstruct_ramified], we want to prove
-    [(mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2)],
-    which is equivalent to
-    [\exists Q', F Q' \* (Q' \--* Q1) \* (Q1 \--* Q2) ==>
-     \exists Q', F Q' \* (Q' \--* Q2)].
-    By instantiatiating the LHS [Q'] with the value of the RHS [Q'], and
-    cancelling [F Q'] form both sides, the entailment simplifies to:
-    [(Q' \--* Q1) \* (Q1 \--* Q2) ==> (Q' \--* Q2)].
-    We conclude by cancelling out [Q1] accross the two magic wands
-    from the LHS---recall the lemma [hwand_trans_elim] from [SLFHwand]. *)
-
-(** Let us now explain how, to a goal of the form [H ==> mkstruct F Q],
-    one can apply the structural rules of Separation Logic.
-    Consider for example the ramified frame rule. *)
-
-Parameter triple_ramified_frame : forall H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* Q) ->
-  triple t H Q.
-
-(** Let us reformulate this lemma in weakest-precondition style,
-    then prove it. *)
-
-Lemma himpl_mkstruct_conseq_frame : forall H Q H1 Q1 F,
-  H1 ==> mkstruct F Q1 ->
-  H ==> H1 \* (Q1 \--* Q) ->
-  H ==> mkstruct F Q.
-Proof using.
-  introv M W. xchange W. xchange M.
-  lets N: mkstruct_ramified Q1 Q F. xchanges N.
-Qed.
-
-
-(* ******************************************************* *)
-(** ** Idempotence of [mkstruct] *)
-
-(** An interesting property of [mkstruct] is its idempotence:
+(** Remark: an interesting property of [mkstruct] is its idempotence:
     [mkstruct (mkstruct F) = mkstruct F].
 
-    Intuitively, applying the predicate [mkstruct] more than
-    once does not increase the expressiveness in any way. *)
+    Idempotence asserts that applying the predicate [mkstruct] more than 
+    once does provide more expressiveness than applying it just once. 
+
+    Intuitively, idempotence reflects in particular the fact that two nested 
+    applications of the rule of consequence can always be combined into a 
+    single application of that rule (due to the transitivity of entailement) 
+    and that, similarly, two nested applications of the frame rule can always 
+    be combined into a single application of that rule (framing on [H1] then 
+    framing on [H2] is equivalent to framing on [H1 \* H2]). *)
 
 (* EX3! (mkstruct_idempotent) *)
 (** Prove the idempotence of [mkstruct]. Hint: use [xsimpl]. *)
@@ -1837,6 +1805,9 @@ Proof using.
      out [Q1] (as done in an earlier proof from this section). *)
 (* /SOLUTION *)
 Qed.
+
+
+End MkstructGuess.
 
 
 (* ******************************************************* *)
