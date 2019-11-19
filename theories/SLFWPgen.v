@@ -819,12 +819,7 @@ Parameter triple_app_fun_from_wpgen : forall v1 v2 x t1 H Q,
 (* ******************************************************* *)
 (** ** Testing [wpgen] and optimizing the readability of its output *)
 
-
-(* ------------------------------------------------------- *)
-(** *** Executing [wpgen] on a concrete program *)
-
-(** Using [triple_app_fun_from_wpgen], we can demonstrate the
-    computation of a [wpgen] on a practical program, for example [incr]. *)
+Module IncrDef.
 
 Import NotationForVariables.
 Open Scope val_scope.
@@ -838,6 +833,18 @@ Definition incr :=
     Let 'n := '! 'p in
     Let 'm := 'n '+ 1 in
    'p ':= 'm.
+
+End IncrDef.
+
+
+(* ------------------------------------------------------- *)
+(** *** Executing [wpgen] on a concrete program *)
+
+(** Using [triple_app_fun_from_wpgen], we can demonstrate the
+    computation of a [wpgen] on a practical program, for example [incr]. *)
+
+Module ProofsBasic.
+Import IncrDef.
 
 (** Recall the specification of [incr]. *)
 
@@ -866,13 +873,11 @@ Abort.
     set up [wpgen] is such a way that its output is human-readable,
     moreover resembles the original source code. *)
 
-End WpgenExec1.
+End ProofsBasic.
 
 
 (* ------------------------------------------------------- *)
 (** *** Intermediate definitions for [wpgen]: case of sequences *)
-
-Module WpgenExec2.
 
 (** We reformulate the definition of [wpgen E t] by introducing
     intermediate definitions, one per term construct. For each
@@ -1004,16 +1009,8 @@ Parameter triple_app_fun_from_wpgen : forall v1 v2 x t1 H Q,
 
 (** Consider again the example of [incr]. *)
 
-Import NotationForVariables.
-Open Scope val_scope.
-Open Scope trm_scope.
-Implicit Types n : int.
-
-Definition incr :=
-  VFun 'p :=
-    Let 'n := '! 'p in
-    Let 'm := 'n '+ 1 in
-   'p ':= 'm.
+Module ProofsNotation.
+Import IncrDef.
 
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
@@ -1042,386 +1039,11 @@ Abort.
     the output of [wpgen] is human readable and resembles the 
     input source code. *)
 
-
-(* ******************************************************* *)
-(** ** Extension of [wpgen] to handle structural rules *)
-
-
-
-
-Module WpgenOverview.
-
-Parameter wpgen : trm -> formula.
-
-(** The soundness theorem that we aim for establishes that [wpgen] can be used
-    to establish a judgment [triple t H Q] by proving [H ==> wpgen t Q].
-    In this premise, [wpgen t] can be computed using Coq's [simpl] tactic.
-    In the process, tthe expression [wpgen t] gets replace by a logical formula
-    that no longer refers to the syntax of the term [t]. *)
-
-Parameter triple_of_wpgen : forall H t Q,
-  H ==> wpgen t Q ->
-  triple t H Q.
-
-
-
-(* ******************************************************* *)
-(** ** Demo of practical proofs using [wpgen]. *)
-
-(** At this point, it may be a good time to illustrate how to
-    carry out the proof of the function [mysucc] from [SLFRules],
-    this time with help of our [wpgen] function. The proof with
-    x-tactics appears further down in the file (reach "THE_DEMO").
-    However, this demo may not be necessary for anyone who has
-    already experienced verification using CFML's x-tactics. *)
-
-
-(* ####################################################### *)
-(** * Details of the definition of [wpgen] and soundness proof *)
-
-(* ******************************************************* *)
-(** ** General structure *)
-
-(** The general shape of the definition of [wpgen] is a
-    recursive function on [t], with recursive calls for
-    the subterms. The auxiliary functions named [wpgen_val],
-    [wpgen_if], etc... describe the body of [wpgen t] for
-    each term construct that [t] could be.
-    (For the time being, you may forget about [mkstruct].)
-
-[[
-  Fixpoint wpgen (t:trm) : formula :=
-    mkstruct (match t with
-    | trm_val v => wpgen_val v
-    | trm_seq t1 t2 => wpgen_seq (wpgen t1) (wpgen t2)
-    | trm_if v0 t1 t2 => wpgen_if v0 (wpgen t1) (wpgen t2)
-    | ...
-    end).
-]]
-*)
-
-(** Recall the soundness theorem that we aim for:
-[[
-    Parameter triple_of_wpgen : forall H t Q,
-      H ==> wpgen t Q ->
-      triple t H Q.
-]]
-    Because [triple t H Q] is equivalent to [H ==> wp t Q],
-    it is sufficient to prove [wpgen t Q ==> wp t Q].
-
-    To factorize statements and improve readibility during the
-    inductive proof, let us introduce the following definition,
-    which captures the fact that a formula [F] (for example [wpgen t])
-    is sound for a term [t]. *)
-
-Definition formula_sound_for (t:trm) (F:formula) : Prop :=
-  forall Q, F Q ==> wp t Q.
-
-(** The soundness theorem then reformulates as
-    [forall t, formula_sound_for t (wpgen t)].
-
-    For each auxiliary function, we'll have a soundness lemma.
-    For example, for [trm_val], we'll prove:
-    [forall v, formula_sound_for [trm_val v] (wpgen_val v)].
-
-    Likewise, we'll have a soundness lemma for [mkstruct]:
-    [formula_sound_for t F -> formula_sound_for t (mkstruct F)]. *)
-
-(** In what follows, we present the definition of each of the
-    auxiliary functions involved, one per term construct. *)
-
-
-(* ******************************************************* *)
-(** ** Case of values *)
-
-(*    this suggests the definition of [wpgen_val v Q] as [Q v]. *)
-
-
-(** Let us check the desired soundness property. *)
-
-Lemma wpgen_val_sound : forall v,
-  formula_sound_for (trm_val v) (wpgen_val v).
-Proof using. intros. intros Q. unfolds wpgen_val. applys wp_val. Qed.
-
-
-(* ******************************************************* *)
-(** ** Case of functions *)
-
-.
-
-(** The value of [wpgen (trm_fun x t) Q] may be computed as
-    [wpgen_val (val_fun x t)]. Formally: *)
-
-Lemma wpgen_fun_val_sound : forall x t,
-  formula_sound_for (trm_fun x t) (wpgen_val (val_fun x t)).
-Proof using. intros. intros Q. unfolds wpgen_val. applys wp_fun. Qed.
-
-(** Likewise for recursive functions. *)
-
-Lemma wpgen_fix_val_sound : forall f x t,
-  formula_sound_for (trm_fix f x t) (wpgen_val (val_fix f x t)).
-Proof using. intros. intros Q. unfolds wpgen_val. applys wp_fix. Qed.
-
-
-(* ******************************************************* *)
-(** ** Case of sequences and let-bindings *)
-
-(** Consider a sequence [trm_seq t1 t2]. Recall the rule. *)
-(** When we try to prove that [wpgen_seq F1 F2] is a sound formula
-    for [trm_seq t1 t2], we may assume, by induction hypothesis,
-    that [F1] is a sound formula for [t1], and [F2] is a sound
-    formula for [t2]. The soundness result thus takes the following form. *)
-
-Lemma wpgen_seq_sound : forall F1 F2 t1 t2,
-  formula_sound_for t1 F1 ->
-  formula_sound_for t2 F2 ->
-  formula_sound_for (trm_seq t1 t2) (wpgen_seq F1 F2).
-Proof using.
-  introv S1 S2. intros Q. unfolds wpgen_seq. applys himpl_trans wp_seq.
-  applys himpl_trans S1. applys wp_conseq. intros v. applys S2.
-Qed.
-
-(** The soundness result takes the following form.
-    It assumes that [F1] is a sound formula for [t1] and that
-    [F2of v] is a sound formula for [subst x v t2], for any [v].
-    The proof script is essentially the same as for sequences. *)
-
-Lemma wpgen_let_sound : forall F1 F2of x t1 t2,
-  formula_sound_for t1 F1 ->
-  (forall v, formula_sound_for (subst x v t2) (F2of v)) ->
-  formula_sound_for (trm_let x t1 t2) (wpgen_let F1 F2of).
-Proof using.
-  introv S1 S2. intros Q. unfolds wpgen_let. applys himpl_trans wp_let.
-  applys himpl_trans S1. applys wp_conseq. intros v. applys S2.
-Qed.
-
-
-(* ******************************************************* *)
-(** ** Case of conditionals *)
-
-
-(** The expression [wpgen (trm_if (val_bool b) t1 t2) Q] should
-
-    This discussion leads us to define [wpgen (trm_if v0 t1 t2)] as
-    [wpgen_if v0 F1 F2], where [F1] denotes [wpgen t1] and [F2] denotes
-    [wpgen t2] and [wpgen_if] is defined as: *)
-
-(** The soundness proof extracts the information from the hypothesis
-    [\exists (b:bool), \[v = val_bool b] ] and concludes using [wp_if]. *)
-
-Lemma wpgen_if_sound : forall F1 F2 v0 t1 t2,
-  formula_sound_for t1 F1 ->
-  formula_sound_for t2 F2 ->
-  formula_sound_for (trm_if v0 t1 t2) (wpgen_if v0 F1 F2).
-Proof using.
-  introv S1 S2. intros Q. unfold wpgen_if. xpull. intros b ->.
-  applys himpl_trans wp_if. case_if. { applys S1. } { applys S2. }
-Qed.
-
-
-(* ******************************************************* *)
-(** ** Case of variables *)
-
-(** What should be the weakest precondition of a free variable [x]?
-    There is no reasoning rule of the form [triple (trm_var x) H Q].
-    Indeed, if a program execution reaches a dandling free variable,
-    then the program is stuck.
-
-    Yet, the weakest precondition for a variable needs to be defined,
-    somehow. If we really need to introduce a triple for free variables,
-    it could be one with the premise [False]:
-[[
-              False
-      ----------------------
-      triple (trm_var x) H Q
-]]
-    The corresponding weakest-precondition rule would be:
-[[
-    \[False] ==> wp (trm_var x) Q
-]]
-
-    This observation suggests to define [wpgen (trm_var x) Q] as
-    [\[False]]. Let us name [wpgen_fail] the formula [fun Q => \[False]]. *)
-
-
-(** The function [wpgen] will thus treat variables as follows:
-[[
-      Fixpoint wpgen (t:trm) : formula :=
-        match t with
-        | trm_var x => wpgen_fail
-        ...
-        end.
-]]
-
-    The formula [wpgen_fail] is a sound formula not just for
-    a variable [trm_var x], but in fact for any term [t].
-    Indeed, if [\[False] ==> wp t Q] is always true. *)
-
-Lemma wpgen_fail_sound : forall t,
-  formula_sound_for t wpgen_fail.
-Proof using. intros. intros Q. unfold wpgen_fail. xpull. Qed.
-
-
-(* ******************************************************* *)
-(** ** Case of applications *)
-
-
-Lemma wp_sound : forall t,
-  formula_sound_for t (wp t).
-Proof using. intros. intros Q. applys himpl_refl. Qed.
-
-(** Remark: recall that we consider terms in A-normal form, thus [t1]
-    and [t2] are assumed to be variables at the point where [wgpen]
-    reaches the application [trm_app t1 t2]. If [t1] and [t2] could
-    be general terms, we would need to call [wpgen] recursively,
-    essentially encoding [let x1 = t1 in let x2 = t2 in trm_app x1 x2]. *)
-
-
-(* ******************************************************* *)
-(** ** Soundness of the [mkstruct] predicate transformer *)
-
-(** We need to justify that the addition of [mkstruct] to the head
-    of every call to [wpgen] preserves the entailment [wpgen t Q ==> wp t Q].
-    To that end, we need to prove that, for any [F], the entailment
-    [mkstruct F Q ==> wp t Q] is derivable from the entailment [F Q ==> wp t Q].
-
-    Equivalently, this soundness property can be formulated in the form:
-    [formula_sound_for t F -> formula_sound_for t (mkstruct F)],
-    or simply [mkstruct F Q ==> F Q].
-
-    (Remark: this entailment is the opposite to [mkstruct_erase]) *)
-
-Lemma mkstruct_sound : forall t F,
-  formula_sound_for t F ->
-  formula_sound_for t (mkstruct F).
-Proof using.
-  introv M. intros Q. unfold mkstruct. xsimpl ;=> Q'.
-  lets N: M Q'. xchange N. applys wp_ramified.
-Qed.
-
-
-
-(* ******************************************************* *)
-
-(** The new definition of [wpgen] is similar in structure to the previous
-    one, with four major changes. In [wpgen E t]:
-
-    - The extra argument [E] keeps track of the substitutions that
-      morally should have been formed in [t]. As we formalize further,
-      [wpgen E t] provides a weakest precondition for [isubst E t].
-
-    - When reaching a function [trm_fun x t1], we invoke [wpgen_val]
-      not on [val_fun x t1], but on the function value that
-      corresponds to the function term [isubst E (trm_fun x t1)],
-      that is, to [val_fun x (isubst (rem x E) t1].
-
-    - When traversing a binder (e.g., [trm_let x t1 t2]), the recursive
-      call is performed on an extended context (e.g., [wpgen ((x,v)::E) t2]).
-      In comparison, the prior definition of [wpgen] would involve a
-      substitution before the recursive call (e.g., [wpgen (subst x b t2)]).
-
-    - When reaching a variable [trm_var x], we compute the lookup of [x]
-      in [E]. We expect [x] to be bound to some value [v], and return
-      [wpgen_val v]. If [x] is unbound, then it is a dandling free variable
-      so we return [wpgen_fail]. The treatment of variables is captured
-      by the following auxiliary definition. *)
-
-Definition wpgen_var (E:ctx) (x:var) : formula :=
-  match lookup x E with
-  | None => wpgen_fail
-  | Some v => wpgen_val v
-  end.
-
-Fixpoint wpgen (E:ctx) (t:trm) : formula :=
-  mkstruct match t with
-  | trm_val v =>
-       wpgen_val v
-  | trm_var x =>
-       wpgen_var E x
-  | trm_fun x t1 =>
-       wpgen_val (val_fun x (isubst (rem x E) t1))
-  | trm_fix f x t1 =>
-       wpgen_val (val_fix f x (isubst (rem x (rem f E)) t1))
-  | trm_app t1 t2 =>
-       wp (isubst E t)
-  | trm_seq t1 t2 =>
-       wpgen_seq (wpgen E t1) (wpgen E t2)
-  | trm_let x t1 t2 =>
-       wpgen_let (wpgen E t1) (fun v => wpgen ((x,v)::E) t2)
-  | trm_if t0 t1 t2 =>
-      match isubst E t0 with
-      | trm_val v0 => wpgen_if v0 (wpgen E t1) (wpgen E t2)
-      | _ => wpgen_fail
-      end
-  end.
-
-(** In order to establish the soundness of this new definition of [wpgen],
-    we need to exploit two basic properties of substitution.
-    First, the substitution for the empty context is the identity.
-    Second, the substitution for [(x,v)::E] is the same as the
-    substitution for [rem x E] followed with a substitution of [x] by [v].
-    The proof of these technical lemmas is given in appendix. *)
-
-Parameter isubst_nil : forall t,
-  isubst nil t = t.
-
-Parameter isubst_rem : forall x v E t,
-  isubst ((x,v)::E) t = subst x v (isubst (rem x E) t).
-
-(** We prove the soundness of [wpgen E t] by structural induction on [t].
-
-    The soundness lemma asserts that [H ==> wpgen t Q] implies
-    [triple (isubst E t) H Q]. Equivalently, it can be formulated as:
-    [forall t, formula_sound_for (isubst E t) (wpgen t)].
-
-    Appart from the induction that is now structural, the proof script
-    is relatively similar to before. Only the treatment of the variable
-    case and of the binding traversal differ. *)
-
-Lemma wpgen_sound : forall E t,
-  formula_sound_for (isubst E t) (wpgen E t).
-Proof using.
-  intros. gen E. induction t; intros; simpl;
-   applys mkstruct_sound.
-  { applys wpgen_val_sound. }
-  { rename v into x. unfold wpgen_var. case_eq (lookup x E).
-    { intros v EQ. applys wpgen_val_sound. }
-    { intros N. applys wpgen_fail_sound. } }
-  { applys wpgen_fun_val_sound. }
-  { applys wpgen_fix_val_sound. }
-  { applys wp_sound. }
-  { applys wpgen_seq_sound. { applys IHt1. } { applys IHt2. } }
-  { rename v into x. applys wpgen_let_sound.
-    { applys IHt1. }
-    { intros v. rewrite <- isubst_rem. applys IHt2. } }
-  { case_eq (isubst E t1); intros; try applys wpgen_fail_sound.
-    { applys wpgen_if_sound. { applys IHt2. } { applys IHt3. } } }
-Qed.
-
-(** The final result for a closed term asserts that [wpgen nil t]
-    computes a weakest precondition for [t], in the sense that
-    [H ==> wpgen nil t Q] implies [triple t H Q]. *)
-
-Theorem triple_of_wpgen : forall t H Q,
-  H ==> wpgen nil t Q ->
-  triple t H Q.
-Proof using.
-  introv M. rewrite wp_equiv. xchange M.
-  lets N: (wpgen_sound nil t). rewrite isubst_nil in N. applys N.
-  (* same as: [applys_eq wpgen_sound 1. rewrite~ isubst_nil.] *)
-Qed.
+End ProofsNotation.
 
 
 (* ####################################################### *)
 (** * Practical proofs using [wpgen] *)
-
-Module ExampleProofs.
-
-Import NotationForVariables.
-Open Scope val_scope.
-Open Scope trm_scope.
-
-Implicit Types n : int.
 
 
 (* ******************************************************* *)
@@ -1498,38 +1120,15 @@ Qed.
 (* ******************************************************* *)
 (** ** An example proof *)
 
-(** Recall the definition of the [incr] function, and its specification. *)
+Module ProofsXlemmas.
+Import IncrDef.
 
-Definition incr :=
-  VFun 'p :=
-    Let 'n := '! 'p in
-    Let 'm := 'n '+ 1 in
-   'p ':= 'm.
-
-Parameter triple_incr : forall (p:loc) (n:int),
+Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
     (p ~~~> n)
     (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
-
-(** Recall the definition of [mysucc], which allocates a reference
-    with contents [n], increments its contents, then reads the output. *)
-
-Definition mysucc : val :=
-  VFun 'n :=
-    Let 'r := val_ref 'n in
-    incr 'r ';
-    Let 'x := '! 'r in
-    val_free 'r ';
-    'x.
-
-(** Let us specify and prove this function using the x-lemmas. *)
-
-Lemma triple_mysucc_with_xlemmas : forall n,
-  triple (trm_app mysucc n)
-    \[]
-    (fun v => \[v = n+1]).
 Proof using.
-  intros.
+  intros. ...
   applys xwp_lemma. { reflexivity. }
   (* Here the [wpgen] function computes. 
      For technical reasons, we need to help it a little bit with the unfolding. *)
@@ -1561,24 +1160,57 @@ Proof using.
   xsimpl'. auto.
 Qed.
 
+(** Recall the definition of [mysucc], which allocates a reference
+    with contents [n], increments its contents, then reads the output. *)
 
-(* ******************************************************* *)
-(** ** Making proof obligations more readable *)
+Definition mysucc : val :=
+  VFun 'n :=
+    Let 'r := val_ref 'n in
+    incr 'r ';
+    Let 'x := '! 'r in
+    val_free 'r ';
+    'x.
 
+(* EX2! (triple_mysucc_with_xlemmas) *)
+(** Using x-lemmas, verify the proof of [triple_mysucc].
+    (The proof was carried out using triples in chapter [SLFRules].) *)
 
-Lemma triple_mysucc_with_notations : forall n,
+Lemma triple_mysucc_with_xlemmas : forall n,
   triple (trm_app mysucc n)
     \[]
     (fun v => \[v = n+1]).
 Proof using.
-  intros. applys xwp_lemma. { reflexivity. } simpl.
-  (* Obseve the goal here, which is of the form [H ==> "t" Q],
-     where "t" reads just like the source code.
-     Thus, compared with a goal of the form [triple t H Q],
-     we have not lost readability.
-     Yet, compared with [triple t H Q], our goal does not mention
-     any program variable at all. *)
-Abort.
+(* SOLUTION *)
+  intros.
+  applys xwp_lemma. { reflexivity. }
+  simpl; unfold wpgen_var; simpl. 
+  applys xstruct_lemma.
+  applys xlet_lemma.
+  applys xstruct_lemma.
+  applys xapp_lemma. { apply triple_ref. }
+  xsimpl'. intros ? l ->.
+  applys xstruct_lemma.
+  applys xseq_lemma.
+  applys xstruct_lemma.
+  applys xapp_lemma. { apply triple_incr. }
+  xsimpl'. intros ? ->.
+  applys xstruct_lemma.
+  applys xlet_lemma.
+  applys xstruct_lemma.
+  applys xapp_lemma. { apply triple_get. }
+  xsimpl'. intros ? ->.
+  applys xstruct_lemma.
+  applys xseq_lemma.
+  applys xstruct_lemma.
+  applys xapp_lemma. { apply triple_free. }
+  xsimpl'. intros ? ->.
+  applys xstruct_lemma.
+  applys xval_lemma.
+  xsimpl'. auto.
+(* /SOLUTION *)
+Qed.
+
+End ProofsXlemmas.
 
 
 (* ******************************************************* *)
@@ -1628,11 +1260,30 @@ Tactic Notation "xwp" :=
 
 (** The proof script becomes much more succint. *)
 
+Module ProofsXtactics.
+Import IncrDef.
+
+Lemma triple_incr_with_xtactics : forall (p:loc) (n:int),
+  triple (trm_app incr p)
+    (p ~~~> n)
+    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+Proof using.
+  xwp.
+  xapp. { apply triple_get. } xsimpl' ;=> ? ->.
+  xapp. { apply triple_add. } xsimpl' ;=> ? ->.
+  xapp. { apply triple_set. } xsimpl' ;=> ? ->.
+  xsimpl. auto.
+Qed.
+
+(* EX2! (triple_mysucc_with_xtactics) *)
+(** Using x-tactics, verify the proof of [mysucc]. *)
+
 Lemma triple_mysucc_with_xtactics : forall (n:int),
   triple (trm_app mysucc n)
     \[]
     (fun v => \[v = n+1]).
 Proof using.
+(* SOLUTION *)
   xwp.
   xapp. { apply triple_ref. } xsimpl' ;=> ? l ->.
   xapp. { apply triple_incr. } xsimpl' ;=> ? ->.
@@ -1640,25 +1291,10 @@ Proof using.
   xapp. { apply triple_free. } xsimpl' ;=> ? ->.
   xval.
   xsimpl. auto.
-Qed.
-
-(* EX2! (triple_incr_with_xtactics) *)
-(** Using x-tactics, verify the proof of [incr].
-    (The proof was carried out using triples in chapter [SLFRules].) *)
-
-Lemma triple_incr_with_xtactics : forall (p:loc) (n:int),
-  triple (trm_app incr p)
-    (p ~~~> n)
-    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
-Proof using.
-(* SOLUTION *)
-  xwp.
-  xapp. { apply triple_get. } xsimpl' ;=> ? ->.
-  xapp. { apply triple_add. } xsimpl' ;=> ? ->.
-  xapp. { apply triple_set. } xsimpl' ;=> ? ->.
-  xsimpl. auto.
 (* /SOLUTION *)
 Qed.
+
+End ProofsXtactics.
 
 
 (* ******************************************************* *)
@@ -1703,9 +1339,13 @@ Tactic Notation "xapps" constr(E) :=
 
 
 (* ******************************************************* *)
-(** ** Here is the demo of a practical proof based on x-tactics. *)
+(** ** Demo of a practical proof using x-tactics. *)
 
 (** "THE_DEMO" begins here. *)
+
+Module ProofsXtactics.
+Import IncrDef.
+End ProofsXtactics.
 
 (** The proof script for the verification of [incr] looks like this. *)
 
@@ -1721,13 +1361,15 @@ Proof using.
   xsimpl~.
 Qed.
 
-(** The proof script for the verification of [mysucc] is now shorter. *)
+(* EX2! (triple_mysucc_with_xapps) *)
+(** Using the improved x-tactics, verify the proof of [mysucc]. *)
 
 Lemma triple_mysucc_with_xapps : forall n,
   triple (trm_app mysucc n)
     \[]
     (fun v => \[v = n+1]).
 Proof using.
+(* SOLUTION *)
   xwp.
   xapp triple_ref ;=> ? l ->.
   xapps triple_incr.
@@ -1735,180 +1377,389 @@ Proof using.
   xapps triple_free.
   xval.
   xsimpl~.
+(* /SOLUTION *)
 Qed.
 
-(* TODO: add a few exercises here *)
+(** The actual [wpgen] library [WPTactics] provides support for 
+    automatically inferring the names of specification lemmas
+    associated with function calls. For example [xapps triple_get]
+    can be shorted to just [xapps]. The implementation relies 
+    on a lookup table that binds each function to its specification
+    lemma. *)
+
+(** In summary, thanks to [wpgen] and its associated x-tactics,
+    we are able to verify concrete programs in Separation Logic 
+    with concise proof scripts. *)
 
 End ExampleProofs.
 
 
 
 (* ####################################################### *)
-(** * Recursive treatment of local function definitions *)
+(** * Soundness proof for [wpgen] *)
 
-(** As mentioned in the section on the treatment of function definitions,
-    it is possible to recursively invoke [wpgen] on the body of local
-    function definitions. We next explain how. *)
-
-Implicit Types vf vx : val.
+Module WPgenSound.
 
 
 (* ******************************************************* *)
-(** ** WP for non-recursive functions *)
+(** ** Statement of soundness *)
 
-(** The definition of [wpgen] is modified so that [wpgen (trm x t1)]
-    is no longer expressed in terms of [t1], but rather in terms of
-    the formula produced by recursively computing [wpgen] on [t1].
+(* ------------------------------------------------------- *)
+(** *** Introduction of the predicate [formula_sound] *)
 
-    Recall that [wpgen (trm_fun x t1) Q] was previously defined as
-    [wpgen_val (val_fun x t1) Q], that is, as [Q (val_fun x t1)].
-    Here, we'd like to eliminate the reference to the code [t1].
-    Let us introduce [vf], a variable that stands for [val_fun x t1],
-    and reformulae the heap predicate [wpgen (trm_fun x t1) Q] from
-    [Q (val_fun x t1)] to  [\forall vf, \[P vf] \-* (Q vf)], where
-    [P vf] denotes some proposition that characterizes the function
-    [val_fun x t1] in terms of its weakest precondition.
+(** The soundness theorem that we aim to establish for [wpgen] is: *)
 
-    The proposition [P vf] characterizes the function [vf] extensionally:
-    it provides an hypothesis sufficient for reasoning about an application
-    of the function [vf] to any argument [vx]. In other words, it provides
-    a [wp] for [trm_app vf vx]. This [wp] is expressed in terms of the
-    [wpgen] for [t1]. Concretely, [P vf] is defined as:
-    [forall vx Q', (wpgen ((x,v)::E) t1) Q' ==> wp (trm_app vf vx) Q']. *)
+Parameter wpgen_sound : forall E t Q,
+  wpgen E t Q ==> wp (isubst E t) Q.
 
-(** Similarly to what is done for other constructs, we introduce an auxiliary
-    function called [wpgen_fun] to isolate the logic of the definition from
-    the recursive call on [t1]. The function of [wpgen] becomes:
+(** Before we enter the details of the proof, let us reformulate the 
+    soundness statement of the soundness theorem in a way that will 
+    make proof obligations and induction hypotheses easier to read. 
+    To that end, we introduce the predicate [formula_sound t F],
+    which asserts that [F] is a weakest-precondition style formula 
+    that entails [wp t]. Formally: *)
+
+Definition formula_sound (t:trm) (F:formula) : Prop :=
+  forall Q, F Q ==> wp t Q.
+
+(** Using [formula_sound], the soundness theorem reformulates as: *)
+
+Parameter wpgen_sound' : forall E t,
+  formula_sound (isubst E t) (wpgen t).
+
+
+(* ------------------------------------------------------- *)
+(** *** Soundness for the case of sequences *)
+
+(** Let us forget about the existence of [mkstruct] for a minute,
+    that is, pretend that [wpgen] is defined without [mkstruct].
+
+    In that setting, [wpgen E (trm_seq t1 t2)] evaluates to
+    [wpgen_seq (wpgen E t1) (wpgen E t2)]. 
+
+    Recall the definition of [wpgen_seq]:
 
 [[
-  Fixpoint wpgen (E:ctx) (t:trm) : formula :=
-    mkstruct match t with
-    | ..
-    | trm_fun x t1 =>
-        wpgen_fun (fun v => wpgen ((x,v)::E) t1)
-    | ..
-    end
+  Definition wpgen_seq (F1 F2:formula) : formula := fun Q =>
+    F1 (fun v => F2 Q).
 ]]
-
-   The definition of [wpgen_fun] appears next. *)
-
-Definition wpgen_fun (Fof:val->formula) : formula := fun Q =>
-  \forall vf, \[forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
-
-(*
-   \exists H, H \* \[forall vf, 
-                     (forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q') ->
-                      H ==> Q vf].
-
-
-  Goal:   H0 ==> wpgen (trm_fun x t)
-  unfolds to: 
-      H0 ==> \exists H, H \* \[forall vf, 
-                     (forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q') ->
-                      H ==> Q vf].
-  simplifies to:
-
-      forall vf, 
-      (forall vx H' Q', 
-          H' ==> Fof vx Q' ->
-          triple (trm_app vf vx) H' Q') ->
-      H0 ==> Q vf
-
-  xfun_lemma: 
-      S vf => specification for the functoin
-
-      (forall vf, (forall H' Q', H' ==> Fof vx Q' -> triple (trm_app vf vx) H' Q') -> S vf) ->
-      (fun r => H0 \* \[S r]) ===> Q ->
-      H0 ==> wpgen (trm_fun x t) Q 
 
 *)
 
-(** The soundness lemma for this construct is as follows. *)
+(** Consider the soundness theorem [wpgen_sound'] and in the 
+    particular case where [t] is of the form [trm_seq t1 t2].
+    The corresponding statement is: *)
 
-Lemma wpgen_fun_sound : forall x t1 Fof,
-  (forall vx, formula_sound_for (subst x vx t1) (Fof vx)) ->
-  formula_sound_for (trm_fun x t1) (wpgen_fun Fof).
+Parameter wpgen_sound_seq : forall E t1 t2,
+  formula_sound (isubst E (trm_seq t1 t2)) (wpgen (trm_seq t1 t2)).
+
+(** In that statement:
+    
+    - [wpgen E (trm_seq t1 t2)] evaluates to
+      [wpgen_seq (wpgen E t1) (wpgen E t2)].
+    - [isubst E (trm_seq t1 t2)] evaluates to
+      [trm_seq (isubst E t1) (isubst E t2)]. 
+    
+    Moreover, by induction hypothesis, we will be able to assume
+    the soundness result to already hold for the subterms [t1] and [t2].
+    
+    Thus, to establish the soundness of [wpgen] for sequences, we 
+    have to prove the following result: *)
+
+Parameter wpgen_sound_seq' : forall E t1 t2,
+  formula_sound (isubst E t1) (wpgen t1) ->
+  formula_sound (isubst E t2) (wpgen t2) ->
+  formula_sound (trm_seq (isubst E t1) (isubst E t2)) 
+                (wpgen_seq (wpgen E t1) (wpgen E t2)).
+
+(** In the above, let us abstract [isubst E t1] as [t1'] and 
+    [wpgen t1] as [F1], and similarly [isubst E t2] as [t2'] 
+    and [wpgen t2] as [F2]. We obtain: *)
+
+Lemma wpgen_seq_sound : forall t1' t2' F1 F2,
+  formula_sound t1' F1 ->
+  formula_sound t2' F2 ->
+  formula_sound (trm_seq t1' t2') (wpgen_seq F1 F2).
+
+(** This statement captures the essence of the correctness of
+    the definition of [wpgen_seq]. Let's prove it. *)
+
 Proof using.
-  introv M. intros Q. unfolds wpgen_fun. applys himpl_hforall_l (val_fun x t1).
-  xchange hwand_hpure_l_intro.
-  { intros. applys himpl_trans_r. { applys* wp_app_fun. } { applys* M. } }
-  { applys wp_fun. }
+  introv S1 S2. 
+  (* Reveal the soundness statement *)
+  unfolds formula_sound.
+  (* Consider a postcondition [Q] *)
+  intros Q. 
+  (* Reveal [wpgen_seq F1 F2], which is defined as [F1 (fun v => F2 Q)]. *)
+  unfolds wpgen_seq. 
+  (* By transitivity of entailement *)
+  applys himpl_trans.
+  (* Apply the soundness result for [wp] on sequences:
+     [wp t1 (fun v => wp t2 Q) ==> wp (trm_seq t1 t2) Q]. *)
+  { applys wp_seq. }
+  (* Exploit the induction hypotheses to conclude *)
+  { applys himpl_trans. 
+    { applys S1. }
+    { applys wp_conseq. intros v. applys S2. } }
 Qed.
 
-(** When we carry out the proof of soundness for the presented of [wpgen]
-    suggested above (this proof may be found in file [SLFDirect.v]), we
-    obtain the following proof obligation, whose proof exploits [wpgen_fun_sound]
-    and exploits the same substitution lemma as for the let-binding case. *)
 
-Lemma wpgen_fun_proof_obligation : forall E x t1,
-  (forall E, formula_sound_for (isubst E t1) (wpgen E t1)) ->
-  formula_sound_for (trm_fun x (isubst (rem x E) t1)) (wpgen_fun (fun v => wpgen ((x,v)::E) t1)).
+(* ------------------------------------------------------- *)
+(** *** Soundness of [wpgen] for the other term constructs *)
+
+Lemma wpgen_val_sound : forall v,
+  formula_sound (trm_val v) (wpgen_val v).
+Proof using. intros. intros Q. unfolds wpgen_val. applys wp_val. Qed.
+
+Lemma wpgen_fun_val_sound : forall x t,
+  formula_sound (trm_fun x t) (wpgen_val (val_fun x t)).
+Proof using. intros. intros Q. unfolds wpgen_val. applys wp_fun. Qed.
+
+Lemma wpgen_fix_val_sound : forall f x t,
+  formula_sound (trm_fix f x t) (wpgen_val (val_fix f x t)).
+Proof using. intros. intros Q. unfolds wpgen_val. applys wp_fix. Qed.
+
+Lemma wpgen_let_sound : forall F1 F2of x t1 t2,
+  formula_sound t1 F1 ->
+  (forall v, formula_sound (subst x v t2) (F2of v)) ->
+  formula_sound (trm_let x t1 t2) (wpgen_let F1 F2of).
 Proof using.
-  introv IH. applys wpgen_fun_sound.
-  { intros vx. rewrite <- isubst_rem. applys IH. }
+  introv S1 S2. intros Q. unfolds wpgen_let. applys himpl_trans wp_let.
+  applys himpl_trans S1. applys wp_conseq. intros v. applys S2.
+Qed.
+
+Lemma wpgen_if_sound : forall F1 F2 v0 t1 t2,
+  formula_sound t1 F1 ->
+  formula_sound t2 F2 ->
+  formula_sound (trm_if v0 t1 t2) (wpgen_if v0 F1 F2).
+Proof using.
+  introv S1 S2. intros Q. unfold wpgen_if. xpull. intros b ->.
+  applys himpl_trans wp_if. case_if. { applys S1. } { applys S2. }
+Qed.
+
+Lemma wpgen_fail_sound : forall t,
+  formula_sound t wpgen_fail.
+Proof using. intros. intros Q. unfold wpgen_fail. xpull. Qed.
+
+(** Remark: the formula [wpgen_fail] is a sound formula not just 
+    for a variable [trm_var x], but in fact for any term [t].
+    Indeed, if [\[False] ==> wp t Q] is always true. *)
+
+Lemma wp_sound : forall t,
+  formula_sound t (wp t).
+Proof using. intros. intros Q. applys himpl_refl. Qed.
+
+(** Remark: the formula [wp t] is a sound formula for a term [t],
+    not just when [t] is an application, but for any term [t].
+
+
+(* ------------------------------------------------------- *)
+(** *** Soundness of [mkstruct] *)
+
+(** To carry out the soundness proof, we also need to justify 
+    that the addition of [mkstruct] to the head of every call to 
+    [wpgen] preserves the entailment [wpgen t Q ==> wp t Q].
+
+    Consider a term [t]. The result of [wpgen t] takes the form
+    [mkstruct F], where [F] denotes the main pattern matching 
+    on [t] that occurs in the definition of [wpgen].
+    
+    Our goal is to show that if the formula [F] is a valid
+    weakest precondition for [t], then so is [mkstruct F].
+    Formally: *)
+
+Lemma mkstruct_sound : forall t F,
+  formula_sound t F ->
+  formula_sound t (mkstruct F).
+Proof using.
+  introv M. unfolds formula_sound.
+  (* Consider a postcondition [Q] *)
+  intros Q. 
+  (* Reveal the definition of [mkstruct] *)
+  unfold mkstruct. 
+  (* Extract the [Q'] quantified in the definition of [mkstruct] *)
+  xsimpl ;=> Q'.
+  (* Instantiate the assumption on [F] with that [Q'] *)
+  lets N: M Q'. 
+  (* Conclude using the structural rules for [wp]. *)
+  xchange N. applys wp_ramified.
 Qed.
 
 
-(* ******************************************************* *)
-(** ** Generalization to recursive functions *)
+(* ------------------------------------------------------- *)
+(** *** Lemmas capturing properties of iterated substitutions *)
 
-(** The discussion above generalizes almost directly to recursive functions.
-    To compute [wpgen] of [trm_fix f x t1] in a context [E], the recursive
-    call to [wpgen] extends the context [E] with two bindings, one for [f]
-    and one for [x].
+(** In the proof of soundness for [wpgen], we need to exploit two 
+    basic properties of the iterated substitution function [isubst].
+    
+    The first property asserts that the substitution for the empty 
+    context is the identity. This result is needed to cleanly state
+    the final statement of the soundness theorem. *)
 
-[[
-  Fixpoint wpgen (E:ctx) (t:trm) : formula :=
-    mkstruct match t with
-    | ..
-    | trm_fun x t1 =>
-        wpgen_fix (fun vf v => wpgen ((f,vf)::(x,v)::E) t1)
-    | ..
-    end
-]]
+Parameter isubst_nil : forall t,
+  isubst nil t = t.
 
-   The auxiliary function [wpgen_fix] is defined as follows.
-   Observe how [vf] now occurs not only in [trm_app vf vx], but also
-   in the formula [Fof vf vx] which describes the behavior of the
-   recursive function. *)
+(** The second property asserts that the substitution for a context
+    [(x,v)::E] is the same as the substitution for the context [rem x E]
+    followed with the substitution of [x] by [v] using the basic
+    substitution function [subst]. This second property is needed to
+    handle the case of let-bindings. *)
 
-Definition wpgen_fix (Fof:val->val->formula) : formula := fun Q =>
-  \forall vf, \[forall vx Q', Fof vf vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
+Parameter isubst_rem : forall x v E t,
+  isubst ((x,v)::E) t = subst x v (isubst (rem x E) t).
 
-(** The corresponding soundness lemma for this construct appears next. *)
+(** The proof of these lemmas is technical and of little interest.
+    They can be found in appendix near the end of this chapter. *)
 
-Lemma wpgen_fix_sound : forall f x t1 Fof,
-  (forall vf vx, formula_sound_for (subst x vx (subst f vf t1)) (Fof vf vx)) ->
-  formula_sound_for (trm_fix f x t1) (wpgen_fix Fof).
+
+(* ------------------------------------------------------- *)
+(** *** Main induction for the soundness proof of [wpgen] *)
+
+(** We prove the soundness of [wpgen E t] by structural induction on [t].
+
+    As explaiend previously, the soundness lemma is stated with help
+    of the predicate [formula_sound], in the form:
+    [formula_sound (isubst E t) (wpgen t)].
+
+    For each term construct, the proof case consists of two steps: 
+    
+    - first, invoke the lemma [mkstruct_sound] to justify soundness 
+      of the leading [mkstruct] produced by [wpgen],
+    - second, invoke the the soundness lemma specific to that term 
+      construct, e.g. [wpgen_seq_sound] for sequences.
+
+*)
+
+Lemma wpgen_sound_induct : forall E t,
+  formula_sound (isubst E t) (wpgen E t).
 Proof using.
-  introv M. intros Q. unfolds wpgen_fix. applys himpl_hforall_l (val_fix f x t1).
-  xchange hwand_hpure_l_intro.
-  { intros. applys himpl_trans_r. { applys* wp_app_fix. } { applys* M. } }
-  { applys wp_fix. }
+  intros. gen E. induction t; intros; simpl;
+   applys mkstruct_sound.
+  { applys wpgen_val_sound. }
+  { rename v into x. unfold wpgen_var. case_eq (lookup x E).
+    { intros v EQ. applys wpgen_val_sound. }
+    { intros N. applys wpgen_fail_sound. } }
+  { applys wpgen_fun_val_sound. }
+  { applys wpgen_fix_val_sound. }
+  { applys wp_sound. }
+  { applys wpgen_seq_sound. { applys IHt1. } { applys IHt2. } }
+  { rename v into x. applys wpgen_let_sound.
+    { applys IHt1. }
+    { intros v. rewrite <- isubst_rem. applys IHt2. } }
+  { case_eq (isubst E t1); intros; try applys wpgen_fail_sound.
+    { applys wpgen_if_sound. { applys IHt2. } { applys IHt3. } } }
 Qed.
 
-(** When we carry out the proof of soundness (again, details for this proof
-    may be found in file [SLFDirect.v]), we obtain a proof obligation for
-    which we need a little generalization of [isubst_rem], called [isubst_rem_2]
-    and stated next. (Its proof appears in [SLFDirect.v].) *)
 
-Parameter isubst_rem_2 : forall f x vf vx E t,
-  isubst ((f,vf)::(x,vx)::E) t = subst x vx (subst f vf (isubst (rem x (rem f E)) t)).
+(* ------------------------------------------------------- *)
+(** *** Statement of soundness of [wpgen] for closed terms *)
 
-(** The proof of soundness is otherwise similar to that of non-recursive functions. *)
+(** For a closed term [t], the context [E] is instantiated as [nil],
+    and [isubst nil t] simplifies to [t]. We obtain the statement: *)
 
-Lemma wpgen_fix_proof_obligation : forall E f x t1,
-  (forall E, formula_sound_for (isubst E t1) (wpgen E t1)) ->
-  formula_sound_for (trm_fix f x (isubst (rem x (rem f E)) t1))
-                    (wpgen_fix (fun vf vx => wpgen ((f,vf)::(x,vx)::E) t1)).
+Theorem wpgen_sound :
+  wpgen nil t Q ==> wp t Q
 Proof using.
-  introv IH. applys wpgen_fix_sound.
-  { intros vf vx. rewrite <- isubst_rem_2. applys IH. }
+  introv M. xchange M.
+  lets N: (wpgen_sound nil t). rewrite isubst_nil in N. applys N.
 Qed.
+
+(** A corollary can be derived for deriving a triple of the
+    form [triple t H Q] from [wpgen nil t]. *)
+
+Corollary triple_of_wpgen : forall t H Q,
+  H ==> wpgen nil t Q ->
+  triple t H Q.
+Proof using.
+  introv M. rewrite wp_equiv. xchange M.
+  lets N: (wpgen_sound nil t). rewrite isubst_nil in N. applys N.
+  (* same as: [applys_eq wpgen_sound 1. rewrite~ isubst_nil.] *)
+Qed.
+
+(** The lemma [xwp_lemma], used by the tactic [xwp], is a variant of 
+    [wpgen_of_triple] specialized for establishing a triple for a 
+    function application. In essence, this lemma, stated below,
+    reformulates the reasoning rule [triple_app_fun] with a premise 
+    of the form [wpgen E t1], where [t1] denotes the body of the function. *)
+
+Corollary xwp_lemma : forall v1 v2 x t1 H Q,
+  v1 = val_fun x t1 ->
+  H ==> wpgen ((x,v2)::nil) t1 Q ->
+  triple (trm_app v1 v2) H Q.
+Proof using.
+  introv M1 M2. applys triple_app_fun M1.
+  asserts_rewrite (subst x v2 t = isubst ((x,v2)::nil) t).
+  { rewrite isubst_rem. rewrite~ isubst_nil. }
+  rewrite wp_equiv. xchange M2. applys wpgen_sound.
+Qed.
+
+
 
 
 (* ####################################################### *)
-(** * Appendix: details on the definition of [mkstruct] *)
+(** * Bonus contents (optional reading) *)
+
+
+(* ******************************************************* *)
+(** ** Guessing the definition of [mkstruct] *)
+
+
+
+(* ------------------------------------------------------- *)
+(** *** Realisation of [mkstruct] *)
+
+
+(** Rather than pulling out the definition of [mkstruct] from a hat,
+    let us explain how to converge towards a sensible definition. 
+    
+    The rule [mkstruct_frame] provides an introduction rule for
+    [mkstruct F Q'] when [Q'] is of the form [Q \*+ H].
+
+[[
+    (mkstruct F Q) \* H ==> mkstruct F (Q \*+ H)
+]]
+
+    Our goal is to define [mkstruct F Q'] for an arbitrary [Q'].
+    So, let us rewrite [mkstruct_frame] rule
+
+[[
+    (mkstruct F Q) \* H ==> mkstruct F Q'
+]]
+
+
+
+
+(2) Cela indique une propriété de "mkstruct F (Q1 * H)".
+On a besoin de définir "mkstruct F Q" pour un "Q" arbitraire.
+Ajoutons donc une prémisse pour dire contraindre "Q" à être de la forme "Q1 * H" :
+
+      Q1 * H ===> Q
+-------------------------------------
+(mkstruct F Q1) * H ==> mkstruct F Q
+
+
+(2) En déplaçant l'hypothèse comme un fait pur dans la précondition
+et en quantifiant H et Q1 existentiellement dans la précondition,
+on obtient la règle équivalente suivante :
+
+    \exists H Q1, (mkstruct F Q1) * H * \[Q1 * H ===> Q]
+==> mkstruct F Q
+
+
+(3) Cela suggère la définition de "mkstruct" :
+
+  Definition mkstruct F Q :=
+\exists H Q1, F Q1 * H * \[Q1 * H ===> Q]
+
+
+Réciproquement, on prouve en Coq que cette définition satisfait bien
+les deux propriétés annoncées au début, et on peut montrer aussi
+"mkstruct F = mkstruct (mkstruct F)".
+
+
+
+
+
 
 (** Recall the definition of [mkstruct].
 [[
@@ -1957,10 +1808,15 @@ Proof using.
   lets N: mkstruct_ramified Q1 Q F. xchanges N.
 Qed.
 
+
+(* ******************************************************* *)
+(** ** Idempotence of [mkstruct] *)
+
 (** An interesting property of [mkstruct] is its idempotence:
     [mkstruct (mkstruct F) = mkstruct F].
-    Concretely, applying this predicate transformer more than
-    once does not increase expressiveness. *)
+
+    Intuitively, applying the predicate [mkstruct] more than
+    once does not increase the expressiveness in any way. *)
 
 (* EX3! (mkstruct_idempotent) *)
 (** Prove the idempotence of [mkstruct]. Hint: use [xsimpl]. *)
@@ -1968,9 +1824,10 @@ Qed.
 Lemma mkstruct_idempotent : forall F,
   mkstruct (mkstruct F) = mkstruct F.
 Proof using.
+  intros. apply fun_ext_1. intros Q. unfold mkstruct. xsimpl.
   (* SOLUTION *)
-  intros. apply fun_ext_1. intros Q.
-  unfold mkstruct. xsimpl.
+  {}
+  {}
   (* [xsimpl] first invokes [applys himpl_antisym].
      The right-to-left entailment is exactly [mkstruct_erase].
      The left-to-right entailment amounts to proving:
@@ -1982,8 +1839,8 @@ Proof using.
 Qed.
 
 
-(* ####################################################### *)
-(** * Appendix: proofs for iterated substitution lemmas *)
+(* ******************************************************* *)
+(** ** Proof of properties of iterated substitution *)
 
 Section IsubstProp.
 
@@ -2006,7 +1863,7 @@ Implicit Types E : ctx.
 
 (** The first lemma is straightforward by induction. *)
 
-Lemma isubst_nil' : forall t,
+Lemma isubst_nil : forall t,
   isubst nil t = t.
 Proof using.
   intros t. induction t; simpl; fequals.
@@ -2156,7 +2013,7 @@ Qed.
 
 (** We are ready to derive the desired property of [isubst]. *)
 
-Lemma isubst_rem' : forall x v E t,
+Lemma isubst_rem : forall x v E t,
   isubst ((x, v)::E) t = subst x v (isubst (rem x E) t).
 Proof using.
   intros. rewrite subst_eq_isubst_one. rewrite <- isubst_app.
@@ -2169,296 +2026,3 @@ Qed.
 
 End IsubstProp.
 
-
-(* ####################################################### *)
-(** * Appendix: non-structural induction and recursion *)
-
-(* ******************************************************* *)
-(** ** Size of a term *)
-
-(** Definition of the size of a term. Note that all values count for one unit,
-    even functions. *)
-
-Fixpoint size (t:trm) : nat :=
-  match t with
-  | trm_val v =>
-       1
-  | trm_var x =>
-       1
-  | trm_fun x t1 =>
-       1
-  | trm_fix f x t1 =>
-       1
-  | trm_app t1 t2 =>
-       1 + (size t1) + (size t2)
-  | trm_seq t1 t2 =>
-       1 + (size t1) + (size t2)
-  | trm_let x t1 t2 =>
-       1 + (size t1) + (size t2)
-  | trm_if t0 t1 t2 =>
-       1 + (size t0) + (size t1) + (size t2)
-  end.
-
-
-(* ******************************************************* *)
-(** ** An induction principle modulo substitution *)
-
-(** We show how to prove [trm_induct_subst] used earlier to justify the
-    soundness of the non-structurally-decreasing definition of [wpgen].
-    First, we show that substitution preserves the size.
-    Second, we show how to prove the desired induction principle. *)
-
-(** First, we show that substitution preserves the size.
-    Here, we exploit [trm_induct], the structural induction principle
-    for our sublanguage, to carry out the proof. *)
-
-Lemma size_subst : forall x v t,
-  size (subst x v t) = size t.
-Proof using.
-  intros. induction t; intros; simpl; repeat case_if; auto.
-Qed.
-
-(** Remark: the same proof can be carried out by induction on size. *)
-
-Lemma size_subst' : forall x v t,
-  size (subst x v t) = size t.
-Proof using.
-  intros. induction_wf IH: size t. unfolds measure.
-  destruct t; simpls;
-  repeat case_if; simpls;
-  repeat rewrite IH; try math.
-Qed.
-
-(** Second, we prove the desired induction principle by induction on
-    the size of the term. *)
-
-Section TrmInductSubst1.
-
-Hint Extern 1 (_ < _) => math.
-
-Lemma trm_induct_subst : forall (P : trm -> Prop),
-  (forall v, P (trm_val v)) ->
-  (forall x, P (trm_var x)) ->
-  (forall x t1 , P (trm_fun x t1)) ->
-  (forall (f:var) x t1,P (trm_fix f x t1)) ->
-  (forall t1, P t1 -> forall t2, P t2 -> P (trm_app t1 t2)) ->
-  (forall t1, P t1 -> forall t2, P t2 -> P (trm_seq t1 t2)) ->
-  (forall (x:var) t1, P t1 -> forall t2, (forall v, P (subst x v t2)) -> P (trm_let x t1 t2)) ->
-  (forall t0, P t0 -> forall t1, P t1 -> forall t2, P t2 -> P (trm_if t0 t1 t2)) ->
-  (forall t, P t).
-Proof using.
-  introv M1 M2 M3 M4 M5 M6 M7 M8.
-  (** Next line applies [applys well_founded_ind (wf_measure trm_size)] *)
-  intros t. induction_wf IH: size t. unfolds measure.
-  (** We perform a case analysis according to the grammar of our sublanguage *)
-  destruct t; simpls; auto.
-  (** Only the case for let-binding is not automatically discharged. We give details. *)
-  { applys M7. { applys IH. math. } { intros v'. applys IH. rewrite size_subst. math. } }
-Qed.
-
-End TrmInductSubst1.
-
-(** Remark: the general pattern for proving such induction principles with a more concise,
-    more robust proof script leverages a custom hint to treat the side conditions
-    of the form [measure size t1 t2], which are equivalent to [size t1 < size t2]. *)
-
-Section TrmInductSubst2.
-
-Hint Extern 1 (measure size _ _) => (* the custom hint *)
-  unfold measure; simpls; repeat rewrite size_subst; math.
-
-Lemma trm_induct_subst' : forall (P : trm -> Prop),
-  (forall v, P (trm_val v)) ->
-  (forall x, P (trm_var x)) ->
-  (forall x t1 , P (trm_fun x t1)) ->
-  (forall (f:var) x t1,P (trm_fix f x t1)) ->
-  (forall t1, P t1 -> forall t2, P t2 -> P (trm_app t1 t2)) ->
-  (forall t1, P t1 -> forall t2, P t2 -> P (trm_seq t1 t2)) ->
-  (forall (x:var) t1, P t1 -> forall t2, (forall v, P (subst x v t2)) -> P (trm_let x t1 t2)) ->
-  (forall t0, P t0 -> forall t1, P t1 -> forall t2, P t2 -> P (trm_if t0 t1 t2)) ->
-  (forall t, P t).
-Proof using.
-  intros. induction_wf IH: size t.
-  destruct t; simpls; eauto. (* the fully automated proof *)
-Qed.
-
-End TrmInductSubst2.
-
-
-(* ******************************************************* *)
-(** ** Fixedpoint equation for the non-structural definition of [wpgen] *)
-
-Module WPgenFix.
-Import WPgenSubst.
-
-(** Recall the definition of [wpgen t] using the functional [Wpgen],
-    whose fixed point was constructed using the "optimal fixed point
-    combinated" (module LibFix from TLC) as:
-[[
-    Definition wpgen := FixFun Wpgen.
-]]
-    We next show how to prove the fixed point equation, which enables
-    to "unfold" the definition of [wpgen]. The proof requires establishing
-    a "contraction condition", a notion defined in the theory of the
-    optimal fixed point combinator. In short, we must justify that:
-[[
-    forall f1 f2 t,
-    (forall t', size t' < size t -> f1 t' = f2 t') ->
-    Wpgen f1 t = Wpgen f2 t
-]]
-*)
-
-Section WPgenfix1.
-
-Hint Extern 1 (_ < _) => math.
-
-Lemma wpgen_fix : forall t,
-  wpgen t = Wpgen wpgen t.
-Proof using.
-  applys~ (FixFun_fix (measure size)). { applys wf_measure. }
-  unfolds measure. intros f1 f2 t IH. (* The goal here is the contraction condition. *)
-  unfold Wpgen. fequal. destruct t; simpls; try solve [ fequals; auto ].
-  (* Only the case of the let-binding is not automatically proved. We give details.  *)
-  { fequal.
-    { applys IH. math. }
-    { applys fun_ext_1. intros v'. applys IH. rewrite size_subst. math. } }
-  { destruct t1; fequals~. }
-Qed.
-
-End WPgenfix1.
-
-(** Here again, using the same custom hint as earlier on, and registering
-    functional extensionality as hint, we can shorten the proof script. *)
-
-Section WPgenfix2.
-
-Hint Extern 1 (measure size _ _) => (* the custom hint *)
-  unfold measure; simpls; repeat rewrite size_subst; math.
-
-Hint Resolve fun_ext_1.
-
-Lemma wpgen_fix' : forall t,
-  wpgen t = Wpgen wpgen t.
-Proof using.
-  applys~ (FixFun_fix (measure size)). { applys wf_measure. }
-  intros f1 f2 t IH. unfold Wpgen. fequal.
-  destruct t; simpls; fequals; auto.
-  { destruct t1; fequals~. }
-Qed.
-
-End WPgenfix2.
-
-End WPgenFix.
-
-
-
-(* ******************************************************* *)
-(** ** Chapter's notes *)
-
-(** The definition of [mkstruct] was suggested by Jacques-Henri Jourdan. *)
-
-
-
-(* ******************************************************* *)
-(** ** Overview of the [mkstruct] predicate *)
-
-(** The definition of [wpgen] provides, for each term construct,
-    a piece of formula that mimics the term reasoning rules from
-    Separation Logic. Yet, for [wpgen] to be useful for carrying
-    out practical verification proofs, it also needs to also support,
-    somehow, the structural rules of Separation Logic.
-
-    The predicate [mkstruct] serves exactly that purpose.
-    It is inserted at every "node" in the construction of the
-    formual [wpgen t]. In other words, [wpgen t] always takes the
-    form [mkstruct F] for some formula [F], and for any subterm [t1]
-    of [t], the recursive call [wpgen t1] yields a formula of the
-    form [mkstruct F1].
-
-    In what follows, we present the properties expected of [mkstruct],
-    and present a simple definition that satisfies the targeted property. *)
-
-(** Recall from the previous chapter that the ramified rule for [wp],
-    stated below, captures in a single line all the structural properties
-    of Separation Logic. *)
-
-Parameter wp_ramified : forall t Q1 Q2,
-  (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
-
-(** If [wpgen] were to satisfy this same property like [wp], then it would
-    also capture the expressive power of all the structural rules of
-    Separation Logic. In other words, we would like to have: *)
-
-Parameter wpgen_ramified : forall t Q1 Q2,
-  (wpgen t Q1) \* (Q1 \--* Q2) ==> (wpgen t Q2).
-
-End WpgenOverview.
-
-(** We have set up [wpgen] so that [wpgen t] is always of the form [mkstruct F]
-    for some formula [F]. Thus, to ensure the above entailment, it suffices
-    for the definition of [mkstruct] to be a "formula transformer" (more generally
-    known as a "predicate transformer") of type [formula->formula] such that:
-[[
-    Parameter mkstruct_ramified : forall F Q1 Q2,
-      (mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2).
-]]
-    At the same time, in a situation where we do not need to apply any structural
-    rule, we'd like to be able to get rid of the leading [mkstruct] in the formula
-    produced by [wpgen]. Concretely, we need:
-
-[[
-    Lemma mkstruct_erase : forall F Q,
-      F Q ==> mkstruct F Q.
-]] *)
-
-(** The following definition of [mkstruct] satisfy the above two properties.
-    The tactic [xsimpl] trivializes the proofs. Details are discussed further on. *)
-
-Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
-  \exists Q', F Q' \* (Q' \--* Q).
-
-Lemma mkstruct_ramified : forall Q1 Q2 F,
-  (mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2).
-Proof using. unfold mkstruct. xsimpl. Qed.
-
-Lemma mkstruct_erase : forall Q F,
-  F Q ==> mkstruct F Q.
-Proof using. unfolds mkstruct. xsimpl. Qed.
-
-Arguments mkstruct_erase : clear implicits.
-Arguments mkstruct_ramified : clear implicits.
-
-(* TODO integrate
-Module MkstructAlt.
-
-Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
-  \exists Q' H', F Q' \* H' \* \[Q' \*+ H' ===> Q].
-
-Lemma mkstruct_erase : forall Q F,
-  F Q ==> mkstruct F Q.
-Proof using. unfolds mkstruct. intros. xsimpl \[] Q. xsimpl. Qed.
-
-Lemma mkstruct_ramified : forall Q1 Q2 F,
-  (mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2).
-Proof using.
-  unfold mkstruct. intros. xpull ;=> Q' H' M.
-  applys himpl_hexists_r Q'.
-  applys himpl_hexists_r (H' \* (Q1 \--* Q2)).
-  rew_heap.
-  applys himpl_frame_r.
-  applys himpl_frame_r.
-  xsimpl. xchange M.
-Qed.
-
-Definition equiv_mkstruct :
-  mkstruct = Top.mkstruct.
-Proof using.
-  intros. apply fun_ext_2 ;=> F Q. unfold mkstruct, Top.mkstruct.
-  applys himpl_antisym.
-  { xpull ;=> Q' H' M. xsimpl Q'. xchanges M. }
-  { xpull ;=> Q'. xsimpl Q'. xsimpl. }
-Qed.
-
-
-End MkstructAlt.
- *)

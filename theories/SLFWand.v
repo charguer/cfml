@@ -1167,3 +1167,171 @@ Proof using.
   xsimpl (H \* (Q1 \--* Q2)). intros H'.
   applys hoare_conseq M; xsimpl.
 Qed.
+
+
+
+
+
+(* ####################################################### *)
+(** * Recursive treatment of local function definitions *)
+
+(** As mentioned in the section on the treatment of function definitions,
+    it is possible to recursively invoke [wpgen] on the body of local
+    function definitions. We next explain how. *)
+
+Implicit Types vf vx : val.
+
+
+(* ******************************************************* *)
+(** ** WP for non-recursive functions *)
+
+(** The definition of [wpgen] is modified so that [wpgen (trm x t1)]
+    is no longer expressed in terms of [t1], but rather in terms of
+    the formula produced by recursively computing [wpgen] on [t1].
+
+    Recall that [wpgen (trm_fun x t1) Q] was previously defined as
+    [wpgen_val (val_fun x t1) Q], that is, as [Q (val_fun x t1)].
+    Here, we'd like to eliminate the reference to the code [t1].
+    Let us introduce [vf], a variable that stands for [val_fun x t1],
+    and reformulae the heap predicate [wpgen (trm_fun x t1) Q] from
+    [Q (val_fun x t1)] to  [\forall vf, \[P vf] \-* (Q vf)], where
+    [P vf] denotes some proposition that characterizes the function
+    [val_fun x t1] in terms of its weakest precondition.
+
+    The proposition [P vf] characterizes the function [vf] extensionally:
+    it provides an hypothesis sufficient for reasoning about an application
+    of the function [vf] to any argument [vx]. In other words, it provides
+    a [wp] for [trm_app vf vx]. This [wp] is expressed in terms of the
+    [wpgen] for [t1]. Concretely, [P vf] is defined as:
+    [forall vx Q', (wpgen ((x,v)::E) t1) Q' ==> wp (trm_app vf vx) Q']. *)
+
+(** Similarly to what is done for other constructs, we introduce an auxiliary
+    function called [wpgen_fun] to isolate the logic of the definition from
+    the recursive call on [t1]. The function of [wpgen] becomes:
+
+[[
+  Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+    mkstruct match t with
+    | ..
+    | trm_fun x t1 =>
+        wpgen_fun (fun v => wpgen ((x,v)::E) t1)
+    | ..
+    end
+]]
+
+   The definition of [wpgen_fun] appears next. *)
+
+Definition wpgen_fun (Fof:val->formula) : formula := fun Q =>
+  \forall vf, \[forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
+
+(*
+   \exists H, H \* \[forall vf, 
+                     (forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q') ->
+                      H ==> Q vf].
+
+
+  Goal:   H0 ==> wpgen (trm_fun x t)
+  unfolds to: 
+      H0 ==> \exists H, H \* \[forall vf, 
+                     (forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q') ->
+                      H ==> Q vf].
+  simplifies to:
+
+      forall vf, 
+      (forall vx H' Q', 
+          H' ==> Fof vx Q' ->
+          triple (trm_app vf vx) H' Q') ->
+      H0 ==> Q vf
+
+  xfun_lemma: 
+      S vf => specification for the functoin
+
+      (forall vf, (forall H' Q', H' ==> Fof vx Q' -> triple (trm_app vf vx) H' Q') -> S vf) ->
+      (fun r => H0 \* \[S r]) ===> Q ->
+      H0 ==> wpgen (trm_fun x t) Q 
+
+*)
+
+(** The soundness lemma for this construct is as follows. *)
+
+Lemma wpgen_fun_sound : forall x t1 Fof,
+  (forall vx, formula_sound (subst x vx t1) (Fof vx)) ->
+  formula_sound (trm_fun x t1) (wpgen_fun Fof).
+Proof using.
+  introv M. intros Q. unfolds wpgen_fun. applys himpl_hforall_l (val_fun x t1).
+  xchange hwand_hpure_l_intro.
+  { intros. applys himpl_trans_r. { applys* wp_app_fun. } { applys* M. } }
+  { applys wp_fun. }
+Qed.
+
+(** When we carry out the proof of soundness for the presented of [wpgen]
+    suggested above (this proof may be found in file [SLFDirect.v]), we
+    obtain the following proof obligation, whose proof exploits [wpgen_fun_sound]
+    and exploits the same substitution lemma as for the let-binding case. *)
+
+Lemma wpgen_fun_proof_obligation : forall E x t1,
+  (forall E, formula_sound (isubst E t1) (wpgen E t1)) ->
+  formula_sound (trm_fun x (isubst (rem x E) t1)) (wpgen_fun (fun v => wpgen ((x,v)::E) t1)).
+Proof using.
+  introv IH. applys wpgen_fun_sound.
+  { intros vx. rewrite <- isubst_rem. applys IH. }
+Qed.
+
+
+(* ******************************************************* *)
+(** ** Generalization to recursive functions *)
+
+(** The discussion above generalizes almost directly to recursive functions.
+    To compute [wpgen] of [trm_fix f x t1] in a context [E], the recursive
+    call to [wpgen] extends the context [E] with two bindings, one for [f]
+    and one for [x].
+
+[[
+  Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+    mkstruct match t with
+    | ..
+    | trm_fun x t1 =>
+        wpgen_fix (fun vf v => wpgen ((f,vf)::(x,v)::E) t1)
+    | ..
+    end
+]]
+
+   The auxiliary function [wpgen_fix] is defined as follows.
+   Observe how [vf] now occurs not only in [trm_app vf vx], but also
+   in the formula [Fof vf vx] which describes the behavior of the
+   recursive function. *)
+
+Definition wpgen_fix (Fof:val->val->formula) : formula := fun Q =>
+  \forall vf, \[forall vx Q', Fof vf vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
+
+(** The corresponding soundness lemma for this construct appears next. *)
+
+Lemma wpgen_fix_sound : forall f x t1 Fof,
+  (forall vf vx, formula_sound (subst x vx (subst f vf t1)) (Fof vf vx)) ->
+  formula_sound (trm_fix f x t1) (wpgen_fix Fof).
+Proof using.
+  introv M. intros Q. unfolds wpgen_fix. applys himpl_hforall_l (val_fix f x t1).
+  xchange hwand_hpure_l_intro.
+  { intros. applys himpl_trans_r. { applys* wp_app_fix. } { applys* M. } }
+  { applys wp_fix. }
+Qed.
+
+(** When we carry out the proof of soundness (again, details for this proof
+    may be found in file [SLFDirect.v]), we obtain a proof obligation for
+    which we need a little generalization of [isubst_rem], called [isubst_rem_2]
+    and stated next. (Its proof appears in [SLFDirect.v].) *)
+
+Parameter isubst_rem_2 : forall f x vf vx E t,
+  isubst ((f,vf)::(x,vx)::E) t = subst x vx (subst f vf (isubst (rem x (rem f E)) t)).
+
+(** The proof of soundness is otherwise similar to that of non-recursive functions. *)
+
+Lemma wpgen_fix_proof_obligation : forall E f x t1,
+  (forall E, formula_sound (isubst E t1) (wpgen E t1)) ->
+  formula_sound (trm_fix f x (isubst (rem x (rem f E)) t1))
+                    (wpgen_fix (fun vf vx => wpgen ((f,vf)::(x,vx)::E) t1)).
+Proof using.
+  introv IH. applys wpgen_fix_sound.
+  { intros vf vx. rewrite <- isubst_rem_2. applys IH. }
+Qed.
+

@@ -872,17 +872,17 @@ Parameter triple_of_wpgen : forall t H Q,
   triple t H Q.
 
 (** Statement of the soundness result:
-    [formula_sound_for (isubst E t) (wpgen E t)] *)
+    [formula_sound (isubst E t) (wpgen E t)] *)
 
-Definition formula_sound_for (t:trm) (F:formula) : Prop :=
+Definition formula_sound (t:trm) (F:formula) : Prop :=
   forall Q, F Q ==> wp t Q.
 
 (** Example soundness lemma, for [wpgen_seq] *)
 
 Lemma wpgen_seq_sound : forall F1 F2 t1 t2,
-  formula_sound_for t1 F1 ->
-  formula_sound_for t2 F2 ->
-  formula_sound_for (trm_seq t1 t2) (wpgen_seq F1 F2).
+  formula_sound t1 F1 ->
+  formula_sound t2 F2 ->
+  formula_sound (trm_seq t1 t2) (wpgen_seq F1 F2).
 Proof using.
   introv S1 S2. intros Q. unfolds wpgen_seq. applys himpl_trans wp_seq.
   applys himpl_trans S1. applys wp_conseq. intros v. applys S2.
@@ -891,8 +891,8 @@ Qed.
 (** Soundness of [mkstruct] *)
 
 Lemma mkstruct_sound : forall t F,
-  formula_sound_for t F ->
-  formula_sound_for t (mkstruct F).
+  formula_sound t F ->
+  formula_sound t (mkstruct F).
 Proof using.
   introv M. intros Q. unfold mkstruct. xsimpl ;=> Q'.
   lets N: M Q'. xchange N. applys wp_ramified.
@@ -901,7 +901,7 @@ Qed.
 (** Inductive proof of soundness *)
 
 Parameter wpgen_sound : forall E t,
-  formula_sound_for (isubst E t) (wpgen E t).
+  formula_sound (isubst E t) (wpgen E t).
 (** Overview of the proof, which does not compile here because we have
     not stated all the necessary lemmas explicitly.
 [[

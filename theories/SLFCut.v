@@ -1,3 +1,188 @@
+
+(* ####################################################### *)
+(** * Appendix: non-structural induction and recursion *)
+
+(* ******************************************************* *)
+(** ** Size of a term *)
+
+(** Definition of the size of a term. Note that all values count for one unit,
+    even functions. *)
+
+Fixpoint size (t:trm) : nat :=
+  match t with
+  | trm_val v =>
+       1
+  | trm_var x =>
+       1
+  | trm_fun x t1 =>
+       1
+  | trm_fix f x t1 =>
+       1
+  | trm_app t1 t2 =>
+       1 + (size t1) + (size t2)
+  | trm_seq t1 t2 =>
+       1 + (size t1) + (size t2)
+  | trm_let x t1 t2 =>
+       1 + (size t1) + (size t2)
+  | trm_if t0 t1 t2 =>
+       1 + (size t0) + (size t1) + (size t2)
+  end.
+
+
+(* ******************************************************* *)
+(** ** An induction principle modulo substitution *)
+
+(** We show how to prove [trm_induct_subst] used earlier to justify the
+    soundness of the non-structurally-decreasing definition of [wpgen].
+    First, we show that substitution preserves the size.
+    Second, we show how to prove the desired induction principle. *)
+
+(** First, we show that substitution preserves the size.
+    Here, we exploit [trm_induct], the structural induction principle
+    for our sublanguage, to carry out the proof. *)
+
+Lemma size_subst : forall x v t,
+  size (subst x v t) = size t.
+Proof using.
+  intros. induction t; intros; simpl; repeat case_if; auto.
+Qed.
+
+(** Remark: the same proof can be carried out by induction on size. *)
+
+Lemma size_subst' : forall x v t,
+  size (subst x v t) = size t.
+Proof using.
+  intros. induction_wf IH: size t. unfolds measure.
+  destruct t; simpls;
+  repeat case_if; simpls;
+  repeat rewrite IH; try math.
+Qed.
+
+(** Second, we prove the desired induction principle by induction on
+    the size of the term. *)
+
+Section TrmInductSubst1.
+
+Hint Extern 1 (_ < _) => math.
+
+Lemma trm_induct_subst : forall (P : trm -> Prop),
+  (forall v, P (trm_val v)) ->
+  (forall x, P (trm_var x)) ->
+  (forall x t1 , P (trm_fun x t1)) ->
+  (forall (f:var) x t1,P (trm_fix f x t1)) ->
+  (forall t1, P t1 -> forall t2, P t2 -> P (trm_app t1 t2)) ->
+  (forall t1, P t1 -> forall t2, P t2 -> P (trm_seq t1 t2)) ->
+  (forall (x:var) t1, P t1 -> forall t2, (forall v, P (subst x v t2)) -> P (trm_let x t1 t2)) ->
+  (forall t0, P t0 -> forall t1, P t1 -> forall t2, P t2 -> P (trm_if t0 t1 t2)) ->
+  (forall t, P t).
+Proof using.
+  introv M1 M2 M3 M4 M5 M6 M7 M8.
+  (** Next line applies [applys well_founded_ind (wf_measure trm_size)] *)
+  intros t. induction_wf IH: size t. unfolds measure.
+  (** We perform a case analysis according to the grammar of our sublanguage *)
+  destruct t; simpls; auto.
+  (** Only the case for let-binding is not automatically discharged. We give details. *)
+  { applys M7. { applys IH. math. } { intros v'. applys IH. rewrite size_subst. math. } }
+Qed.
+
+End TrmInductSubst1.
+
+(** Remark: the general pattern for proving such induction principles with a more concise,
+    more robust proof script leverages a custom hint to treat the side conditions
+    of the form [measure size t1 t2], which are equivalent to [size t1 < size t2]. *)
+
+Section TrmInductSubst2.
+
+Hint Extern 1 (measure size _ _) => (* the custom hint *)
+  unfold measure; simpls; repeat rewrite size_subst; math.
+
+Lemma trm_induct_subst' : forall (P : trm -> Prop),
+  (forall v, P (trm_val v)) ->
+  (forall x, P (trm_var x)) ->
+  (forall x t1 , P (trm_fun x t1)) ->
+  (forall (f:var) x t1,P (trm_fix f x t1)) ->
+  (forall t1, P t1 -> forall t2, P t2 -> P (trm_app t1 t2)) ->
+  (forall t1, P t1 -> forall t2, P t2 -> P (trm_seq t1 t2)) ->
+  (forall (x:var) t1, P t1 -> forall t2, (forall v, P (subst x v t2)) -> P (trm_let x t1 t2)) ->
+  (forall t0, P t0 -> forall t1, P t1 -> forall t2, P t2 -> P (trm_if t0 t1 t2)) ->
+  (forall t, P t).
+Proof using.
+  intros. induction_wf IH: size t.
+  destruct t; simpls; eauto. (* the fully automated proof *)
+Qed.
+
+End TrmInductSubst2.
+
+
+(* ******************************************************* *)
+(** ** Fixedpoint equation for the non-structural definition of [wpgen] *)
+
+Module WPgenFix.
+Import WPgenSubst.
+
+(** Recall the definition of [wpgen t] using the functional [Wpgen],
+    whose fixed point was constructed using the "optimal fixed point
+    combinated" (module LibFix from TLC) as:
+[[
+    Definition wpgen := FixFun Wpgen.
+]]
+    We next show how to prove the fixed point equation, which enables
+    to "unfold" the definition of [wpgen]. The proof requires establishing
+    a "contraction condition", a notion defined in the theory of the
+    optimal fixed point combinator. In short, we must justify that:
+[[
+    forall f1 f2 t,
+    (forall t', size t' < size t -> f1 t' = f2 t') ->
+    Wpgen f1 t = Wpgen f2 t
+]]
+*)
+
+Section WPgenfix1.
+
+Hint Extern 1 (_ < _) => math.
+
+Lemma wpgen_fix : forall t,
+  wpgen t = Wpgen wpgen t.
+Proof using.
+  applys~ (FixFun_fix (measure size)). { applys wf_measure. }
+  unfolds measure. intros f1 f2 t IH. (* The goal here is the contraction condition. *)
+  unfold Wpgen. fequal. destruct t; simpls; try solve [ fequals; auto ].
+  (* Only the case of the let-binding is not automatically proved. We give details.  *)
+  { fequal.
+    { applys IH. math. }
+    { applys fun_ext_1. intros v'. applys IH. rewrite size_subst. math. } }
+  { destruct t1; fequals~. }
+Qed.
+
+End WPgenfix1.
+
+(** Here again, using the same custom hint as earlier on, and registering
+    functional extensionality as hint, we can shorten the proof script. *)
+
+Section WPgenfix2.
+
+Hint Extern 1 (measure size _ _) => (* the custom hint *)
+  unfold measure; simpls; repeat rewrite size_subst; math.
+
+Hint Resolve fun_ext_1.
+
+Lemma wpgen_fix' : forall t,
+  wpgen t = Wpgen wpgen t.
+Proof using.
+  applys~ (FixFun_fix (measure size)). { applys wf_measure. }
+  intros f1 f2 t IH. unfold Wpgen. fequal.
+  destruct t; simpls; fequals; auto.
+  { destruct t1; fequals~. }
+Qed.
+
+End WPgenfix2.
+
+End WPgenFix.
+
+
+
+
+
 (* ******************************************************* *)
 (** ** A simple yet non-structurally recursive definition of [wpgen] *)
 
@@ -93,14 +278,14 @@ Parameter trm_induct_subst : forall (P : trm -> Prop),
   (forall t0, P t0 -> forall t1, P t1 -> forall t2, P t2 -> P (trm_if t0 t1 t2)) ->
   (forall t, P t).
 
-(** The soundness lemma asserts: [forall t, formula_sound_for t (wpgen t)].
+(** The soundness lemma asserts: [forall t, formula_sound t (wpgen t)].
     The proof is carried out by induction on [t]. For each term
     construct, the proof consists of invoking the lemma [mkstruct_sound]
     to justify soundness of the leading [mkstruct], then invoking
     the soundness lemma specific to that term construct. *)
 
 Lemma wpgen_sound : forall t,
-  formula_sound_for t (wpgen t).
+  formula_sound t (wpgen t).
 Proof using.
   intros. induction t using trm_induct_subst;
    rewrite wpgen_fix; applys mkstruct_sound; simpl.
@@ -141,3 +326,307 @@ wpgen_function t =
 
   | trm_fun x t1 => wpgen_function (isubst E t)
   | trm_fix f x t1 => wpgen_function (isubst E t)
+
+
+
+
+(* ******************************************************* *)
+(** ** Overview of the [mkstruct] predicate *)
+
+(** The definition of [wpgen] provides, for each term construct,
+    a piece of formula that mimics the term reasoning rules from
+    Separation Logic. Yet, for [wpgen] to be useful for carrying
+    out practical verification proofs, it also needs to also support,
+    somehow, the structural rules of Separation Logic.
+
+    The predicate [mkstruct] serves exactly that purpose.
+    It is inserted at every "node" in the construction of the
+    formual [wpgen t]. In other words, [wpgen t] always takes the
+    form [mkstruct F] for some formula [F], and for any subterm [t1]
+    of [t], the recursive call [wpgen t1] yields a formula of the
+    form [mkstruct F1].
+
+    In what follows, we present the properties expected of [mkstruct],
+    and present a simple definition that satisfies the targeted property. *)
+
+(** Recall from the previous chapter that the ramified rule for [wp],
+    stated below, captures in a single line all the structural properties
+    of Separation Logic. *)
+
+Parameter wp_ramified : forall t Q1 Q2,
+  (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
+
+(** If [wpgen] were to satisfy this same property like [wp], then it would
+    also capture the expressive power of all the structural rules of
+    Separation Logic. In other words, we would like to have: *)
+
+Parameter wpgen_ramified : forall t Q1 Q2,
+  (wpgen t Q1) \* (Q1 \--* Q2) ==> (wpgen t Q2).
+
+End WpgenOverview.
+
+(** We have set up [wpgen] so that [wpgen t] is always of the form [mkstruct F]
+    for some formula [F]. Thus, to ensure the above entailment, it suffices
+    for the definition of [mkstruct] to be a "formula transformer" (more generally
+    known as a "predicate transformer") of type [formula->formula] such that:
+[[
+    Parameter mkstruct_ramified : forall F Q1 Q2,
+      (mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2).
+]]
+    At the same time, in a situation where we do not need to apply any structural
+    rule, we'd like to be able to get rid of the leading [mkstruct] in the formula
+    produced by [wpgen]. Concretely, we need:
+
+[[
+    Lemma mkstruct_erase : forall F Q,
+      F Q ==> mkstruct F Q.
+]] *)
+
+(** The following definition of [mkstruct] satisfy the above two properties.
+    The tactic [xsimpl] trivializes the proofs. Details are discussed further on. *)
+
+Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
+  \exists Q', F Q' \* (Q' \--* Q).
+
+Lemma mkstruct_ramified : forall Q1 Q2 F,
+  (mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2).
+Proof using. unfold mkstruct. xsimpl. Qed.
+
+Lemma mkstruct_erase : forall Q F,
+  F Q ==> mkstruct F Q.
+Proof using. unfolds mkstruct. xsimpl. Qed.
+
+Arguments mkstruct_erase : clear implicits.
+Arguments mkstruct_ramified : clear implicits.
+
+(* TODO integrate
+Module MkstructAlt.
+
+Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
+  \exists Q' H', F Q' \* H' \* \[Q' \*+ H' ===> Q].
+
+Lemma mkstruct_erase : forall Q F,
+  F Q ==> mkstruct F Q.
+Proof using. unfolds mkstruct. intros. xsimpl \[] Q. xsimpl. Qed.
+
+Lemma mkstruct_ramified : forall Q1 Q2 F,
+  (mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2).
+Proof using.
+  unfold mkstruct. intros. xpull ;=> Q' H' M.
+  applys himpl_hexists_r Q'.
+  applys himpl_hexists_r (H' \* (Q1 \--* Q2)).
+  rew_heap.
+  applys himpl_frame_r.
+  applys himpl_frame_r.
+  xsimpl. xchange M.
+Qed.
+
+Definition equiv_mkstruct :
+  mkstruct = Top.mkstruct.
+Proof using.
+  intros. apply fun_ext_2 ;=> F Q. unfold mkstruct, Top.mkstruct.
+  applys himpl_antisym.
+  { xpull ;=> Q' H' M. xsimpl Q'. xchanges M. }
+  { xpull ;=> Q'. xsimpl Q'. xsimpl. }
+Qed.
+
+
+End MkstructAlt.
+ *)
+
+
+
+(* ####################################################### *)
+(** * Appendix: details on the definition of [mkstruct] *)
+
+(** Recall the definition of [mkstruct].
+[[
+    Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
+      \exists Q', F Q' \* (Q' \--* Q).
+]]
+
+    Let us first explain in more details why this definition satisfies
+    the required properties, namely [mkstruct_erase] and [mkstruct_ramified],
+    whose proofs were trivialized by [xsimpl].
+
+    For the lemma [mkstruct_erase], we want to prove [F Q ==> mkstruct F Q].
+    This is equivalent to [F Q ==> \exists Q', F Q' \* (Q' \--* Q)].
+    Taking [Q'] to be [Q] and cancelling [F Q] from both sides leaves
+    [\[] ==> Q \--* Q)], which is equivalent to [Q ==> Q].
+
+    For the lemma [mkstruct_ramified], we want to prove
+    [(mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2)],
+    which is equivalent to
+    [\exists Q', F Q' \* (Q' \--* Q1) \* (Q1 \--* Q2) ==>
+     \exists Q', F Q' \* (Q' \--* Q2)].
+    By instantiatiating the LHS [Q'] with the value of the RHS [Q'], and
+    cancelling [F Q'] form both sides, the entailment simplifies to:
+    [(Q' \--* Q1) \* (Q1 \--* Q2) ==> (Q' \--* Q2)].
+    We conclude by cancelling out [Q1] accross the two magic wands
+    from the LHS---recall the lemma [hwand_trans_elim] from [SLFHwand]. *)
+
+(** Let us now explain how, to a goal of the form [H ==> mkstruct F Q],
+    one can apply the structural rules of Separation Logic.
+    Consider for example the ramified frame rule. *)
+
+Parameter triple_ramified_frame : forall H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* Q) ->
+  triple t H Q.
+
+(** Let us reformulate this lemma in weakest-precondition style,
+    then prove it. *)
+
+Lemma himpl_mkstruct_conseq_frame : forall H Q H1 Q1 F,
+  H1 ==> mkstruct F Q1 ->
+  H ==> H1 \* (Q1 \--* Q) ->
+  H ==> mkstruct F Q.
+Proof using.
+  introv M W. xchange W. xchange M.
+  lets N: mkstruct_ramified Q1 Q F. xchanges N.
+Qed.
+
+(** An interesting property of [mkstruct] is its idempotence:
+    [mkstruct (mkstruct F) = mkstruct F].
+    Concretely, applying this predicate transformer more than
+    once does not increase expressiveness. *)
+
+(* EX3! (mkstruct_idempotent) *)
+(** Prove the idempotence of [mkstruct]. Hint: use [xsimpl]. *)
+
+Lemma mkstruct_idempotent : forall F,
+  mkstruct (mkstruct F) = mkstruct F.
+Proof using.
+  (* SOLUTION *)
+  intros. apply fun_ext_1. intros Q.
+  unfold mkstruct. xsimpl.
+  (* [xsimpl] first invokes [applys himpl_antisym].
+     The right-to-left entailment is exactly [mkstruct_erase].
+     The left-to-right entailment amounts to proving:
+     [F Q2 \* (Q2 \--* Q1) \* (Q1 \--* Q))
+      ==> \exists Q', F Q' \* (Q' \--* Q))]
+     To conclude the proof, instantiate [Q'] as [Q2] and cancel
+     out [Q1] (as done in an earlier proof from this section). *)
+(* /SOLUTION *)
+Qed.
+
+==============
+
+
+
+Parameter wpgen_sound_seq : forall E t1 t2 Q,
+  wpgen E (trm_seq t1 t2) Q ==> wp (isubst E (trm_seq t1 t2)) Q.
+
+    
+
+Parameter  : forall E t1 t2,
+  (forall Q, wpgen E t1 Q ==> wp (isubst E t1) Q) ->
+  (forall Q, wpgen E t2 Q ==> wp (isubst E t2) Q) ->
+  (forall Q, wpgen E (trm_seq t1 t2) Q
+             ==> wp (trm_seq (isubst E t1) (isubst E t2))) Q).
+
+(** To make this proof obligation more readable, let us abstract
+    
+    - [wpgen E t1] as [F1]
+    - [wpgen E t2] as [F2]
+    - [isubst E t1] as [t1']
+    - [isubst E t2] as [t2']
+
+    and observe that [wpgen E (trm_seq t1 t2) Q] is
+    
+    wpgen E (trm_seq t1 t2) Q
+
+    The proof obligation then reformulates as: *)
+
+
+Parameter wpgen_sound_seq'' : forall E t1 t2,
+  (forall Q, F1 Q ==> wp (isubst E t2) Q) ->
+  (forall Q, F2 Q ==> wp (isubst E t1) Q) ->
+  (forall Q, wpgen E (trm_seq t1 t2) Q
+             ==> wp (trm_seq (isubst E t1) (isubst E t2))) Q).
+
+
+
+  formula_sound (trm_val v) (wpgen_val v).
+
+  formula_sound t1 F1 ->
+  formula_sound t2 F2 ->
+  formula_sound (trm_seq t1 t2) (wpgen_seq F1 F2).
+
+
+
+
+
+(* ******************************************************* *)
+
+(** The new definition of [wpgen] is similar in structure to the previous
+    one, with four major changes. In [wpgen E t]:
+
+    - The extra argument [E] keeps track of the substitutions that
+      morally should have been formed in [t]. As we formalize further,
+      [wpgen E t] provides a weakest precondition for [isubst E t].
+
+    - When reaching a function [trm_fun x t1], we invoke [wpgen_val]
+      not on [val_fun x t1], but on the function value that
+      corresponds to the function term [isubst E (trm_fun x t1)],
+      that is, to [val_fun x (isubst (rem x E) t1].
+
+    - When traversing a binder (e.g., [trm_let x t1 t2]), the recursive
+      call is performed on an extended context (e.g., [wpgen ((x,v)::E) t2]).
+      In comparison, the prior definition of [wpgen] would involve a
+      substitution before the recursive call (e.g., [wpgen (subst x b t2)]).
+
+    - When reaching a variable [trm_var x], we compute the lookup of [x]
+      in [E]. We expect [x] to be bound to some value [v], and return
+      [wpgen_val v]. If [x] is unbound, then it is a dandling free variable
+      so we return [wpgen_fail]. The treatment of variables is captured
+      by the following auxiliary definition. *)
+
+Definition wpgen_var (E:ctx) (x:var) : formula :=
+  match lookup x E with
+  | None => wpgen_fail
+  | Some v => wpgen_val v
+  end.
+
+Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+  mkstruct match t with
+  | trm_val v =>
+       wpgen_val v
+  | trm_var x =>
+       wpgen_var E x
+  | trm_fun x t1 =>
+       wpgen_val (val_fun x (isubst (rem x E) t1))
+  | trm_fix f x t1 =>
+       wpgen_val (val_fix f x (isubst (rem x (rem f E)) t1))
+  | trm_app t1 t2 =>
+       wp (isubst E t)
+  | trm_seq t1 t2 =>
+       wpgen_seq (wpgen E t1) (wpgen E t2)
+  | trm_let x t1 t2 =>
+       wpgen_let (wpgen E t1) (fun v => wpgen ((x,v)::E) t2)
+  | trm_if t0 t1 t2 =>
+      match isubst E t0 with
+      | trm_val v0 => wpgen_if v0 (wpgen E t1) (wpgen E t2)
+      | _ => wpgen_fail
+      end
+  end.
+
+
+
+(* ******************************************************* *)
+(** ** Making proof obligations more readable *)
+
+
+Lemma triple_mysucc_with_notations : forall n,
+  triple (trm_app mysucc n)
+    \[]
+    (fun v => \[v = n+1]).
+Proof using.
+  intros. applys xwp_lemma. { reflexivity. } simpl.
+  (* Obseve the goal here, which is of the form [H ==> "t" Q],
+     where "t" reads just like the source code.
+     Thus, compared with a goal of the form [triple t H Q],
+     we have not lost readability.
+     Yet, compared with [triple t H Q], our goal does not mention
+     any program variable at all. *)
+Abort.

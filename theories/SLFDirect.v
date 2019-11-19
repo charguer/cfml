@@ -1679,25 +1679,25 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
 (* ------------------------------------------------------- *)
 (** *** Soundness of [wpgen] *)
 
-(** [formula_sound_for t F] asserts that, for any [Q], the
+(** [formula_sound t F] asserts that, for any [Q], the
     SL judgment [triple (F Q) t Q] is valid. In other words,
     it states that [F] is a stronger formula than [wp t].
 
     The soundness theorem that we are interested in asserts:
-    [formula_sound_for (isubst E t) (wpgen E t)] for any [E] and [t]. *)
+    [formula_sound (isubst E t) (wpgen E t)] for any [E] and [t]. *)
 
-Definition formula_sound_for (t:trm) (F:formula) : Prop :=
+Definition formula_sound (t:trm) (F:formula) : Prop :=
   forall Q, F Q ==> wp t Q.
 
 Lemma wp_sound : forall t,
-  formula_sound_for t (wp t).
+  formula_sound t (wp t).
 Proof using. intros. intros Q. applys himpl_refl. Qed.
 
 (** One soundness lemma for [mkstruct]. *)
 
 Lemma mkstruct_sound : forall t F,
-  formula_sound_for t F ->
-  formula_sound_for t (mkstruct F).
+  formula_sound t F ->
+  formula_sound t (mkstruct F).
 Proof using.
   introv M. intros Q. unfold mkstruct. xsimpl ;=> Q'.
   lets N: M Q'. xchange N. applys wp_ramified.
@@ -1706,16 +1706,16 @@ Qed.
 (** One soundness lemma for each term construct. *)
 
 Lemma wpgen_fail_sound : forall t,
-  formula_sound_for t wpgen_fail.
+  formula_sound t wpgen_fail.
 Proof using. intros. intros Q. unfold wpgen_fail. xpull. Qed.
 
 Lemma wpgen_val_sound : forall v,
-  formula_sound_for (trm_val v) (wpgen_val v).
+  formula_sound (trm_val v) (wpgen_val v).
 Proof using. intros. intros Q. unfolds wpgen_val. applys wp_val. Qed.
 
 Lemma wpgen_fun_sound : forall x t1 Fof,
-  (forall vx, formula_sound_for (subst x vx t1) (Fof vx)) ->
-  formula_sound_for (trm_fun x t1) (wpgen_fun Fof).
+  (forall vx, formula_sound (subst x vx t1) (Fof vx)) ->
+  formula_sound (trm_fun x t1) (wpgen_fun Fof).
 Proof using.
   introv M. intros Q. unfolds wpgen_fun. applys himpl_hforall_l (val_fun x t1).
   xchange hwand_hpure_l_intro.
@@ -1724,8 +1724,8 @@ Proof using.
 Qed.
 
 Lemma wpgen_fix_sound : forall f x t1 Fof,
-  (forall vf vx, formula_sound_for (subst x vx (subst f vf t1)) (Fof vf vx)) ->
-  formula_sound_for (trm_fix f x t1) (wpgen_fix Fof).
+  (forall vf vx, formula_sound (subst x vx (subst f vf t1)) (Fof vf vx)) ->
+  formula_sound (trm_fix f x t1) (wpgen_fix Fof).
 Proof using.
   introv M. intros Q. unfolds wpgen_fix. applys himpl_hforall_l (val_fix f x t1).
   xchange hwand_hpure_l_intro.
@@ -1734,27 +1734,27 @@ Proof using.
 Qed.
 
 Lemma wpgen_seq_sound : forall F1 F2 t1 t2,
-  formula_sound_for t1 F1 ->
-  formula_sound_for t2 F2 ->
-  formula_sound_for (trm_seq t1 t2) (wpgen_seq F1 F2).
+  formula_sound t1 F1 ->
+  formula_sound t2 F2 ->
+  formula_sound (trm_seq t1 t2) (wpgen_seq F1 F2).
 Proof using.
   introv S1 S2. intros Q. unfolds wpgen_seq. applys himpl_trans wp_seq.
   applys himpl_trans S1. applys wp_conseq. intros v. applys S2.
 Qed.
 
 Lemma wpgen_let_sound : forall F1 F2of x t1 t2,
-  formula_sound_for t1 F1 ->
-  (forall v, formula_sound_for (subst x v t2) (F2of v)) ->
-  formula_sound_for (trm_let x t1 t2) (wpgen_let F1 F2of).
+  formula_sound t1 F1 ->
+  (forall v, formula_sound (subst x v t2) (F2of v)) ->
+  formula_sound (trm_let x t1 t2) (wpgen_let F1 F2of).
 Proof using.
   introv S1 S2. intros Q. unfolds wpgen_let. applys himpl_trans wp_let.
   applys himpl_trans S1. applys wp_conseq. intros v. applys S2.
 Qed.
 
 Lemma wpgen_if_sound : forall F1 F2 v0 t1 t2,
-  formula_sound_for t1 F1 ->
-  formula_sound_for t2 F2 ->
-  formula_sound_for (trm_if v0 t1 t2) (wpgen_if v0 F1 F2).
+  formula_sound t1 F1 ->
+  formula_sound t2 F2 ->
+  formula_sound (trm_if v0 t1 t2) (wpgen_if v0 F1 F2).
 Proof using.
   introv S1 S2. intros Q. unfold wpgen_if. xpull. intros b ->.
   applys himpl_trans wp_if. case_if. { applys S1. } { applys S2. }
@@ -1763,7 +1763,7 @@ Qed.
 (** The main inductive proof for the soundness theorem. *)
 
 Lemma wpgen_sound : forall E t,
-  formula_sound_for (isubst E t) (wpgen E t).
+  formula_sound (isubst E t) (wpgen E t).
 Proof using.
   intros. gen E. induction t; intros; simpl;
    applys mkstruct_sound.
