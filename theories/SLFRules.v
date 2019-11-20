@@ -722,7 +722,7 @@ Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
 (** We have at hand all the necessary rules for carrying out actual 
     verification proofs in Separation Logic. Let's go! *)
 
-Module ExampleProofs.
+Module ExamplePrograms.
 Local Coercion string_to_var (x:string) : var := x.
 Import NotationForVariables.
 Open Scope trm_scope.
@@ -750,7 +750,7 @@ Open Scope val_scope.
     Using the construct from our programming language embedded in Coq,
     the definition of [incr] is written: *)
 
-Definition incr :=
+Definition incr : val :=
   val_fun "p" (
     trm_let "n" (val_get "p") (
     trm_let "m" (val_add "n" 1) (
@@ -857,7 +857,7 @@ Proof using.
 Qed.
 (* /SOLUTION *)
 
-End ExampleProofs.
+End ExamplePrograms.
 
 (** The matter of the next chapter is to introduce additional
     technology to streamline the proof process, notably by

@@ -630,3 +630,36 @@ Proof using.
      Yet, compared with [triple t H Q], our goal does not mention
      any program variable at all. *)
 Abort.
+
+
+===========================================
+
+
+Module ProgDef.
+
+Import NotationForVariables.
+Open Scope val_scope.
+Open Scope trm_scope.
+Implicit Types n : int.
+
+(** Recall the definition of [incr]. *)
+
+Definition incr : val :=
+  VFun 'p :=
+    Let 'n := '! 'p in
+    Let 'm := 'n '+ 1 in
+   'p ':= 'm.
+
+(** Recall the definition of [mysucc], which allocates a reference
+    with contents [n], increments its contents, then reads the output. *)
+
+Definition mysucc : val :=
+  VFun 'n :=
+    Let 'r := val_ref 'n in
+    incr 'r ';
+    Let 'x := '! 'r in
+    val_free 'r ';
+    'x.
+
+End ProgDef.
+

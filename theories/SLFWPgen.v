@@ -815,51 +815,22 @@ Parameter triple_app_fun_from_wpgen : forall v1 v2 x t1 H Q,
 
 (* -- TODO: missing details *)
 
-End WpgenExec1.
+
 
 
 (* ******************************************************* *)
 (** ** Testing [wpgen] and optimizing the readability of its output *)
 
-Module ProgDef.
-
-Import NotationForVariables.
-Open Scope val_scope.
-Open Scope trm_scope.
-Implicit Types n : int.
-
-(** Recall the definition of [incr]. *)
-
-Definition incr :=
-  VFun 'p :=
-    Let 'n := '! 'p in
-    Let 'm := 'n '+ 1 in
-   'p ':= 'm.
-
-(** Recall the definition of [mysucc], which allocates a reference
-    with contents [n], increments its contents, then reads the output. *)
-
-Definition mysucc : val :=
-  VFun 'n :=
-    Let 'r := val_ref 'n in
-    incr 'r ';
-    Let 'x := '! 'r in
-    val_free 'r ';
-    'x.
-
-End ProgDef.
-
-
 (* ------------------------------------------------------- *)
 (** *** Executing [wpgen] on a concrete program *)
 
+Import ExamplePrograms.
+
 (** Using [triple_app_fun_from_wpgen], we can demonstrate the
-    computation of a [wpgen] on a practical program, for example [incr]. *)
+    computation of a [wpgen] on a practical program.
 
-Module ProofsBasic.
-Import WpgenExec1 ProgDef.
-
-(** Recall the specification of [incr]. *)
+    Recall the function [incr] (defined in SLFRules), and its
+    specification, whose statement appears below. *)
 
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
@@ -886,7 +857,7 @@ Abort.
     set up [wpgen] is such a way that its output is human-readable,
     moreover resembles the original source code. *)
 
-End ProofsBasic.
+End WpgenExec1.
 
 
 (* ------------------------------------------------------- *)
@@ -934,14 +905,15 @@ Notation "'Seq' F1 '; F2" :=
 (** Thanks to this notation, the [wpgen] of a sequence [t1 '; t2] displays as 
     [Seq F1 '; F2] where [F1] and [F2] denote the [wpgen] of [t1] and [t2],
     respectively. *)
-    
+
+
 (* ------------------------------------------------------- *)
 (** *** Intermediate definitions for [wpgen]: other constructs *)
 
 (** By generalizing this approach to every term constructs, we obtain the
     property that the [wpgen] of a term [t] displays "pretty much" like
     the source term [t] itself---up to alpha-renaming of local variables. 
-    
+
     The other definitions are stated below. It is not required to understand
     all the details from this subsection. *)
 
@@ -1029,8 +1001,8 @@ Parameter triple_app_fun_from_wpgen : forall v1 v2 x t1 H Q,
 
 (** Consider again the example of [incr]. *)
 
-Module ProofsNotation.
-Import ProgDef.
+Module WPgenWithNotation.
+Import ExamplePrograms.
 
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
@@ -1059,7 +1031,7 @@ Abort.
     the output of [wpgen] is human readable and resembles the 
     input source code. *)
 
-End ProofsNotation.
+End WPgenWithNotation.
 
 
 (* ####################################################### *)
@@ -1142,8 +1114,8 @@ Qed.
 (* ******************************************************* *)
 (** ** An example proof *)
 
-Module ProofsXlemmas.
-Import ProgDef.
+Module ProofsWithXlemmas.
+Import ExamplePrograms.
 
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
@@ -1211,7 +1183,7 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
-End ProofsXlemmas.
+End ProofsWithXlemmas.
 
 
 (* ******************************************************* *)
@@ -1261,8 +1233,8 @@ Tactic Notation "xwp" :=
 
 (** The proof script becomes much more succint. *)
 
-Module ProofsXtactics.
-Import ProgDef.
+Module ProofsWithXtactics.
+Import ExamplePrograms.
 
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
@@ -1295,7 +1267,7 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
-End ProofsXtactics.
+End ProofsWithXtactics.
 
 
 (* ******************************************************* *)
@@ -1338,6 +1310,23 @@ Tactic Notation "xapps" constr(E) :=
   | applys xapps_lemma1 E ];
   xsimpl'.
 
+(** Third, we instrument [eauto] to automatically figure out the
+    specification lemma that should be provided as argument to [xapp] or [xapps].
+    To that end, we set up a data base of hints gathering all the
+    specification triples established for functions that we might call. *)
+
+Hint Resolve triple_get triple_set triple_ref triple_free triple_add : triple.
+
+Ltac xapp_using lemma :=
+  applys lemma; [ solve [ eauto with triple ] | xsimpl' ].
+
+Tactic Notation "xapp" :=
+   xapp_pre; xapp_using xapp_lemma.
+
+Tactic Notation "xapps" :=
+  xapp_pre; first [ xapp_using xapps_lemma0 
+                  | xapp_using xapps_lemma1 ].
+
 
 (* ******************************************************* *)
 (** ** Demo of a practical proof using x-tactics. *)
@@ -1345,10 +1334,11 @@ Tactic Notation "xapps" constr(E) :=
 (** "THE_DEMO" begins here. *)
 (* TODO: add forward pointer *)
 
-Module ProofsXtactics2.
-Import ProgDef.
+Module ProofsWithAdvancedXtactics.
+Import ExamplePrograms.
 
-(** The proof script for the verification of [incr] looks like this. *)
+(** The proof script for the verification of [incr] using the
+    tactic [xapps] with explicit arguments. *)
 
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
@@ -1362,6 +1352,22 @@ Proof using.
   xsimpl~.
 Qed.
 
+(** The same proof script using the variant of [xapps] without argument. *)
+
+Lemma triple_incr' : forall (p:loc) (n:int),
+  triple (trm_app incr p)
+    (p ~~~> n)
+    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+Proof using.
+  xwp. xapps. xapps. xapps. xsimpl~.
+Qed.
+
+(** In order to enable automatically exploiting the specification
+    of [triple] in the verification of [mysucc], which includes a
+    function call to [triple], we add it to the hint database. *)
+
+Hint Resolve triple_incr : triple.
+
 (* EX2! (triple_mysucc_with_xapps) *)
 (** Using the improved x-tactics, verify the proof of [mysucc]. *)
 
@@ -1371,28 +1377,23 @@ Lemma triple_mysucc_with_xapps : forall (n:int),
     (fun v => \[v = n+1]).
 Proof using.
 (* SOLUTION *)
-  xwp.
-  xapp triple_ref ;=> ? l ->.
-  xapps triple_incr.
-  xapps triple_get.
-  xapps triple_free.
-  xval.
-  xsimpl~.
+  xwp. xapp ;=> ? l ->. xapps. xapps. xapps. xval. xsimpl~.
+  (* details:
+    xwp.
+    xapp triple_ref ;=> ? l ->.
+    xapps triple_incr.
+    xapps triple_get.
+    xapps triple_free.
+    xval. xsimpl~.
+  *)
 (* /SOLUTION *)
 Qed.
-
-(** The actual [wpgen] library [WPTactics] provides support for 
-    automatically inferring the names of specification lemmas
-    associated with function calls. For example [xapps triple_get]
-    can be shorted to just [xapps]. The implementation relies 
-    on a lookup table that binds each function to its specification
-    lemma. *)
 
 (** In summary, thanks to [wpgen] and its associated x-tactics,
     we are able to verify concrete programs in Separation Logic 
     with concise proof scripts. *)
 
-End ProofsXtactics2.
+End ProofsWithAdvancedXtactics.
 
 
 
@@ -1699,6 +1700,8 @@ Proof using.
   { rewrite isubst_rem. rewrite~ isubst_nil. }
   rewrite wp_equiv. xchange M2. applys wpgen_sound_induct.
 Qed.
+
+End WPgenSound.
 
 
 (* ####################################################### *)
