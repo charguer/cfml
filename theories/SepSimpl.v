@@ -1,4 +1,3 @@
-
 (**
 
 This file provides the essential tactics for manipulation of

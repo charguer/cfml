@@ -13,12 +13,9 @@ License: MIT.
 (** * Foreword *)
 
 (** Welcome to the course on the theoretical foundations of Separation Logic,
-at the heart of the implementation of the CFML tool.
+    at the heart of the implementation of the CFML tool.
 
-This course on the theoretical foundation consists of the files named [SLF*.v].
-For the course on the practice of proofs with CFML, see files named [CF*.v].
-
-*)
+    This course consists of the files named [SLF*.v]. *)
 
 
 (* ####################################################### *)
@@ -49,7 +46,7 @@ For the course on the practice of proofs with CFML, see files named [CF*.v].
                   and the techniques for obtaining concise verification proofs.
 
 
-    Bonus chapters (NOT READY YET):
+    Bonus chapters (NOT YET READY):
 
     - [SLFWand]: introduction of the magic wand operator, and of the
                  ramified frame rule.
@@ -92,29 +89,22 @@ For the course on the practice of proofs with CFML, see files named [CF*.v].
 *)
 
 
-(* ####################################################### *)
-(** * TLC tactics and library *)
-
-(** The proofs are carried out using TLC tactics, which greatly help.
-    Most of the tactics used are described in the SF chapter [UseTactics]
-    from the "Programming Language Foundations" course.
-
-    The proofs also rely occasionally on lemmas from the TLC library,
-    for example extensionality properties.
-
-*)
-
 
 (* ####################################################### *)
 (** * Organization of each chapter *)
 
-(** Each chapter begins with a first part entitled "the chapter in a rush"
-    that presents the main take away messages.
+(** Each chapter contains three parts:
+    - "the chapter in a rush" that presents the main take-away messages,
+    - "detailed contents" with presentation of important technical results,
+    - "optional contents" for those who seek a deeper understanding or find 
+       additional exercises.
 
-    The course is organized so that reading only the "in a rush" parts
-    of every chapter should make sense.
+    The course is organized so that:
+    - reading only the "in a rush" parts of every chapter should make some sense,
+    - all the "optional contents" parts may be independently read or skipped.
 
 *)
+
 
 (* ####################################################### *)
 (** * Imports between chapters *)
@@ -128,6 +118,16 @@ For the course on the practice of proofs with CFML, see files named [CF*.v].
     exception, though: the definition of the core operators of Separation
     Logic are, at one point, set "Opaque", for the benefits of abstraction.
     One may no longer "unfold" their definitions, and must work exclusively
-    using the lemmas about the definitions---this is done on purpose.
+    using the lemmas about the definitions---this is done on purpose. *)
 
-*)
+
+(* ####################################################### *)
+(** * TLC tactics and library *)
+
+(** The proofs are carried out using TLC tactics, which greatly help.
+    Most of the tactics used are described in the SF chapter [UseTactics]
+    from the "Programming Language Foundations" course.
+
+    The proofs also rely occasionally on lemmas from the TLC library,
+    for example extensionality properties. *)
+

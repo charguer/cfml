@@ -4,6 +4,9 @@ Summary of the techniques involved in the implementation of CFML.
 
 This file contains excerpts from the file SLFDirect.v.
 
+It is intended as support for a technical presentation of the
+implementation of CFML.
+
 Author: Arthur Charguéraud.
 License: MIT.
 

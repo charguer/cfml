@@ -24,7 +24,7 @@ Implicit Types p q : loc.
 
 
 (* ####################################################### *)
-(** * The chapter in a rush *)
+(** * Additional contents *)
 
 
 
