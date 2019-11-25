@@ -663,3 +663,110 @@ Definition mysucc : val :=
 
 End ProgDef.
 
+
+
+
+
+
+(* ******************************************************* *)
+[[
+    Fixpoint wpgen (t:trm) : formula :=
+      mkstruct (match t with
+      | trm_val v => fun Q => Q v
+      | trm_fun x t1 => fun Q => Q (val_fun x t)
+      | trm_fix f x t1 => fun Q => Q (val_fix f x t)
+      | trm_seq t1 t2 => fun Q => wpgen t1 (fun v => wpgen t2 Q)
+      | trm_let x t1 t2 => fun Q => wpgen t1 (fun v => wpgen (subst x v t2) Q)
+      | trm_var x => fun Q => \[False]
+      | trm_app v1 v2 => fun Q => wp t Q
+      | trm_if t0 t1 t2 => fun Q => 
+          \exists (b:bool), \[t0 = trm_val (val_bool b)]
+            \* (if b then (wpgen t1) Q else (wpgen t2) Q)
+      end).
+]]
+
+(* ******************************************************* *)
+
+
+
+(* ******************************************************* *)
+(** ** Extension of [wpgen] to handle structural rules *)
+
+(*
+    However, this definition lacks support for conveniently exploiting
+    the structural rules of the logic. We are going to fix this next.
+*)
+
+
+(* ------------------------------------------------------- *)
+(** *** Introduction of [mkstruct] in the definition of [wpgen] *)
+
+(** Recall from the previous chapter the statement of the 
+    frame rule in [wp]-style. *)
+
+Parameter wp_frame : forall t H Q,
+  (wp t Q) \* H ==> wp t (Q \*+ H).
+
+(** We would like [wpgen] to satisfy the same rule, so that we can
+    exploit the frame rule while reasoning about a program using
+    the heap predicate produced by [wpgen]. 
+    
+    With the definition of [wpgen] set up so far, it is possible
+    to prove, for any concrete term [t], that the frame property
+    [(wpgen t Q) \* H ==> wpgen t (Q \*+ H)] holds.
+    However, establishing this result requires an induction over
+    the entire structure of the term [t]---a lot of tedious work.
+
+    Instead, we are going to tweak the definition of [wpgen] so as to
+    produce, at every step of the recursion, a special token to capture
+    the property that "whatever the details of the output predicate 
+    produced, it does satisfy the frame property". *)
+
+(** We achieve this magic in three steps. First, we rewrite the 
+    prototype of the function [wpgen] so as to make it explicitly
+    a function of the postcondition [Q].
+
+[[
+    Fixpoint wpgen (t:trm) : (val->hprop)->hprop :=
+      fun (Q:val->hprop) =>   
+        match t with
+        | trm_val v => Q v
+        | .. => ..
+        end.
+
+]]
+
+    Second, we introduce a predicate called [mkstruct], and insert 
+    it at the head of the output produced by [wpgen] (and all of 
+    its recursive invokation) as follows:
+
+[[
+    Fixpoint wpgen (t:trm) : (val->hprop)->hprop :=
+      mkstruct (
+        fun (Q:val->hprop) =>   
+          match t with
+          | trm_val v => Q v
+          | .. => ..
+          end).
+]]
+
+    The interest of the insertion of [mkstruct] above is that every result 
+    of a computation of [wpgen t] on a concrete term [t] is, by construction, 
+    of the form [mkstruct F] for some argument [F].
+
+    Third, to enable the function [wpgen] to compute well in Coq,
+    we need to swap the [fun Q] with the [match t], so that the
+    pattern matching on [t] is visible enough for Coq to simplify it.
+
+[[
+    Fixpoint wpgen (t:trm) : (val->hprop)->hprop :=
+      mkstruct (
+        match t with
+        | trm_val v => (fun Q => Q v)
+        | .. => (fun Q => ..)
+        end).
+]]
+
+    There remains to investigate how [mkstruct] should be defined. 
+*)
+
