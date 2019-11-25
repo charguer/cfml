@@ -1,8 +1,8 @@
 (**
 
-Crash course on using CFML2.
+Separation Logic Foundations
 
-Covers basic functions and mutable lists.
+Chapter: "Basic".
 
 Author: Arthur Charguéraud.
 License: MIT.
@@ -10,12 +10,54 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require Import Example.
-From Sep Require ExampleStack ExampleList.
-Generalizable Variables A.
-
+From Sep Require SLFDirect.
 Implicit Types n m : int.
 Implicit Types p q : loc.
+
+
+(* ####################################################### *)
+(** * The chapter in a rush *)
+
+(** This chapter gives a quick overview of how to state specifications and 
+    carry out basic proofs in Separation Logic using CFML tactics. *)
+
+
+
+(* ####################################################### *)
+(** * The chapter in a rush *)
+
+
+
+(* ******************************************************* *)
+(** ** The increment function *)
+
+(**
+[[
+  let incr p =
+    p := !p + 1
+]]
+*)
+
+Definition incr : val :=
+  VFun 'p :=
+   'p ':= '! 'p '+ 1.
+
+Lemma Triple_incr : forall (p:loc) (n:int),
+  TRIPLE (incr p)
+    PRE (p ~~> n)
+    POST (fun (r:unit) => (p ~~> (n+1))).
+Proof using.
+  xwp. xapp. xapp. xapp. xsimpl.
+Qed.
+
+Hint Extern 1 (Register_Spec (incr)) => Provide Triple_incr.
+
+
+
+(* ******************************************************* *)
+(** ** Definition of entailment *)
+
+
 
 
 (* ####################################################### *)

@@ -20,7 +20,7 @@ Implicit Types Q : val->hprop.
 
 
 (* ####################################################### *)
-(** * The chapter in a rush *)
+(** * Chapter in a rush *)
 
 (** In the previous chapter, we have introduced the key heap predicate
     operators, and we have defined the notion of Separation Logic triple.
@@ -47,12 +47,18 @@ Implicit Types Q : val->hprop.
       triple t H Q.
 ]]
 
-   This chapter presents not just the rule of consequence but also the
-   other "structural rules" of Separation Logic.
-
-   This chapter also introduces a tactic called [xsimpl] for automatically
-   simplifying entailment relations. This tactic is absolutely essential
-   for carrying out practical proofs.
+   This chapter presents:
+   - the definition of the entailment relations,
+   - the fundamental properties of the Separation Logic operators
+     (these properties are expressed either as entailments or as
+     equalities, which denote symmetric entailments),
+   - the 4 structural rules of Separation Logic: the rule of consequence,
+     the frame rule (which can be combined with the rule of consequence),
+     and the extractions rules for pure facts and for quantifiers,
+   - the tactics [xsimpl] and [xchange] that are critically useful
+     for manipulating entailments in practice,
+   - (optional) details on how to prove the fundamental properties
+     and the structural rules.
 
 *)
 
@@ -253,6 +259,99 @@ Qed.
 
 
 (* ******************************************************* *)
+(** ** Consequence, frame, and their combination *)
+
+(** The rule of consequence in Separation Logic is similar
+    to that in Hoared logic. *)
+
+Parameter triple_conseq : forall t H Q H' Q',
+  triple t H' Q' ->
+  H ==> H' ->
+  Q' ===> Q ->
+  triple t H Q.
+
+(** Recall the frame rule introduced in the previous chapter. *)
+
+Parameter triple_frame : forall t H Q H',
+  triple t H Q ->
+  triple t (H \* H') (Q \*+ H').
+
+(** Observe that, stated as such, it is very unlikely for the
+    frame rule to be applicable in practice, because the
+    precondition must be exactly of the form [H \* H'] and 
+    the postcondition exactly of the form [Q \*+ H'] where [H'] 
+    denotes the heap predicate to be framed. For example,
+    the frame rule would not apply directly to a conclusion of the
+    form [triple t (H' \* H) (Q \*+ H')]
+
+    This limitation of the frame rule can be addressed by combining
+    the frame rule with the rule of consequence, as follows. 
+    Observe that the new statement applies to any triple. It is 
+    the user's responsability to explicitly provide either [H1]
+    (the precondition that remains) or [H2] (the part of the
+    precondition being framed). *)
+
+Lemma triple_conseq_frame : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q ->
+  triple t H Q.
+
+(* EX1! (triple_conseq_frame) *)
+(** Prove the combined consequence-frame rule. *)
+
+Proof using.
+(* SOLUTION *)
+  introv M WH WQ. applys triple_conseq WH WQ.
+  applys triple_frame M.
+(* /SOLUTION *)
+Qed.
+
+
+(* ******************************************************* *)
+(** ** The extraction rules *)
+
+(** From an entailment [(\[P] \* H) ==> H'], it is useful
+    to extract [P] into the context, and turn the goal into:
+    [P -> (H ==> H')].
+
+    Likewise, for a goal [triple t (\[P] \* H) Q], it is
+    useful to extract [P] into the context, and turn the goal into:
+    [P -> triple t H Q].
+
+    The structural rule called [triple_hpure] captures this
+    extraction of the pure facts. *)
+
+Parameter triple_hpure : forall t (P:Prop) H Q,
+  (P -> triple t H Q) ->
+  triple t (\[P] \* H) Q.
+
+(** From an entailment [(\exists x, (J x) ==> H], it is useful
+    to extract [x] into the context, and turn the goal into:
+    [forall x, (J x ==> H)].
+
+    Likewise, for a goal [triple t (\exists x, (J x)) Q], it is
+    useful to extract [x] into the context, and turn the goal into:
+    [forall x, triple t (J x) Q].
+
+    The structural rule called [triple_hexists] captures this
+    extraction of the existential quantifier. *)
+
+Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
+  (forall x, triple t (J x) Q) ->
+  triple t (hexists J) Q.
+
+
+
+(* ####################################################### *)
+(** * Additional contents *)
+
+Module Htactics.
+Import SLFDirect.
+Notation "'hprop''" := (SLFHprop.hprop).
+
+
+(* ******************************************************* *)
 (** ** The [xsimpl] tactic *)
 
 (** The Separation Logic setup that we will rely on in subsequent
@@ -272,10 +371,6 @@ Qed.
     The tactic [xpull] is a degraded version of [xsimpl] that only
     performs the first step. We will show examples highlighting its use.
 *)
-
-Module Htactics.
-Import SLFDirect.
-Notation "'hprop''" := (SLFHprop.hprop).
 
 
 (* ******************************************************* *)
@@ -470,6 +565,59 @@ Proof using. intros. xsimpl. intros r. Abort.
 
 
 (* ******************************************************* *)
+(** ** The [xchange] tactic *)
+
+(** The tactic [xchange] is to entailment what [rewrite] is to equality.
+
+    Assume an entailment goal of the form [H1 \* H2 \* H3 ==> H4].
+    Assume an entailment assumption [M], say [H2 ==> H2'].
+    Then [xchange M] turns the goal into [H1 \* H2' \* H3 ==> H4],
+    effectively replacing [H2] with [H2']. *)
+
+Lemma xchange_demo_base : forall H1 H2 H2' H3 H4,
+  H2 ==> H2' ->
+  H1 \* H2 \* H3 ==> H4.
+Proof using.
+  introv M. xchange M. (* Note that freshly produced items appear to the front *)
+Abort.
+
+(** The tactic [xchange] can also take as argument equalities.
+    Use [xchange M] to exploit the left-to-right direction
+    and [xchange <- M] to exploit the right-to-left direction . *)
+
+Lemma xchange_demo_eq : forall H1 H2 H3 H4 H5,
+  H1 \* H3 = H5 ->
+  H1 \* H2 \* H3 ==> H4.
+Proof using.
+  introv M. xchange M.
+  xchange <- M.
+Abort.
+
+(** The tactic [xchange] is also able to instantiate lemmas if needed. *)
+
+Lemma xchange_demo_inst : forall H1 (J J':int->hprop) H3 H4,
+  (forall n, J n = J' (n+1)) ->
+  H1 \* J 3 \* H3 ==> H4.
+Proof using.
+  introv M. xchange M.
+  (* Note that freshly produced items appear to the front *)
+Abort.
+
+(** The tactic [xchanges M] is a shorthand for [xchange M; xsimpl]. *)
+
+Lemma xchanges_demo_base : forall p H1 H2 H3,
+  H1 \* H3 ==> p ~~~> 3 ->
+  H1 \* H2 \* H3 ==> H2 \* \exists (n:int), p ~~~> n.
+Proof using.
+  introv M. dup.
+  (* details: *)
+  { xchange M. xsimpl. }
+  (* shorthand: *)
+  { xchanges M. }
+Abort.
+
+
+(* ******************************************************* *)
 (** ** Identifying true and false entailments *)
 
 (** For each entailment relation, indicate (without a Coq proof)
@@ -604,64 +752,11 @@ Proof using. intros. xsimpl ;=> Hn1 Hn2. false. math. Qed.
 
 End CaseStudies.
 
-
-(* ******************************************************* *)
-(** ** The [xchange] tactic *)
-
-(** The tactic [xchange] is to entailment what [rewrite] is to equality.
-
-    Assume an entailment goal of the form [H1 \* H2 \* H3 ==> H4].
-    Assume an entailment assumption [M], say [H2 ==> H2'].
-    Then [xchange M] turns the goal into [H1 \* H2' \* H3 ==> H4],
-    effectively replacing [H2] with [H2']. *)
-
-Lemma xchange_demo_base : forall H1 H2 H2' H3 H4,
-  H2 ==> H2' ->
-  H1 \* H2 \* H3 ==> H4.
-Proof using.
-  introv M. xchange M. (* Note that freshly produced items appear to the front *)
-Abort.
-
-(** The tactic [xchange] can also take as argument equalities.
-    Use [xchange M] to exploit the left-to-right direction
-    and [xchange <- M] to exploit the right-to-left direction . *)
-
-Lemma xchange_demo_eq : forall H1 H2 H3 H4 H5,
-  H1 \* H3 = H5 ->
-  H1 \* H2 \* H3 ==> H4.
-Proof using.
-  introv M. xchange M.
-  xchange <- M.
-Abort.
-
-(** The tactic [xchange] is also able to instantiate lemmas if needed. *)
-
-Lemma xchange_demo_inst : forall H1 (J J':int->hprop) H3 H4,
-  (forall n, J n = J' (n+1)) ->
-  H1 \* J 3 \* H3 ==> H4.
-Proof using.
-  introv M. xchange M.
-  (* Note that freshly produced items appear to the front *)
-Abort.
-
-(** The tactic [xchanges M] is a shorthand for [xchange M; xsimpl]. *)
-
-Lemma xchanges_demo_base : forall p H1 H2 H3,
-  H1 \* H3 ==> p ~~~> 3 ->
-  H1 \* H2 \* H3 ==> H2 \* \exists (n:int), p ~~~> n.
-Proof using.
-  introv M. dup.
-  (* details: *)
-  { xchange M. xsimpl. }
-  (* shorthand: *)
-  { xchanges M. }
-Abort.
-
 End Htactics.
 
 
 (* ####################################################### *)
-(** * Additional contents *)
+(** * Bonus contents (optional reading) *)
 
 (* ******************************************************* *)
 (** ** Proofs for the Separation Algebra *)
@@ -805,14 +900,16 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
-(* LATER: we could ask the full proof as exercise, but then it's much harder *)
+(* INSTRUCTORS: we can ask the full proof as exercise, 
+   but then it becomes much harder *)
 
 
 (* ******************************************************* *)
 (** ** Proof of the consequence rule. *)
 
-(** The rule of consequence in Separation Logic is similar
-    to that in Hoared logic. *)
+Module ProveConsequenceRules.
+
+(** Recall the statement of the rule of consequence. *)
 
 Lemma triple_conseq : forall t H Q H' Q',
   triple t H' Q' ->
@@ -820,7 +917,7 @@ Lemma triple_conseq : forall t H Q H' Q',
   Q' ===> Q ->
   triple t H Q.
 
-(** The shortest proof of [triple_conseq] goes through the low-level
+(** A direct proof of [triple_conseq] goes through the low-level
     interpretation of Separation Logic triples in terms of heaps.
     A more elegant proof is presented further. *)
 
@@ -835,10 +932,10 @@ Qed.
     the consequence rule for [hoare], then derive its
     generalization to the case of Separation Logic [triple]. *)
 
-(* EX2! (Hoare_conseq) *)
+(* EX2! (hoare_conseq) *)
 (** Prove the consequence rule for Hoare triples. *)
 
-Lemma Hoare_conseq : forall t H Q H' Q',
+Lemma hoare_conseq : forall t H Q H' Q',
   hoare t H' Q' ->
   H ==> H' ->
   Q' ===> Q ->
@@ -857,12 +954,12 @@ Proof using.
 Qed.
 
 (* EX2! (rule_conseq) *)
-(** Prove the consequence rule by leveraging the lemma [Hoare_conseq],
+(** Prove the consequence rule by leveraging the lemma [hoare_conseq],
     rather than going through the definition of [triple_lowlevel].
     Hint: apply lemma [Hoare_conseq] with the appropriate arguments,
     and use lemma [applys himpl_frame_l] to prove the entailments. *)
 
-Lemma rule_conseq'' : forall t H Q H' Q',
+Lemma rule_conseq' : forall t H Q H' Q',
   triple t H' Q' ->
   H ==> H' ->
   Q' ===> Q ->
@@ -870,85 +967,28 @@ Lemma rule_conseq'' : forall t H Q H' Q',
 Proof using.
 (* SOLUTION *)
   introv M WH WQ. unfold triple. intros H''.
-  applys Hoare_conseq M.
+  applys hoare_conseq M.
   { applys himpl_frame_l. applys WH. }
   { intros x. applys himpl_frame_l. applys WQ. }
 (* /SOLUTION *)
 Qed.
 
-
-(* ******************************************************* *)
-(** ** Combined structural rules *)
-
-(** The frame rule almost never applies to a goal in practice,
-    because it requires the goal to be exactly in the form
-    [triple t (H1 \* H2) (Q1 \*+ H2)].
-
-    This limitation can be addressed by combining the frame rule
-    with the rule of consequence, as follows. *)
-
-Lemma triple_conseq_frame : forall H2 H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q ->
-  triple t H Q.
-
-(* EX1! (triple_conseq_frame) *)
-(** Prove the combined consequence-frame rule. *)
-
-Proof using.
-(* SOLUTION *)
-  introv M WH WQ. applys triple_conseq WH WQ.
-  applys triple_frame M.
-(* /SOLUTION *)
-Qed.
+End ProveConsequenceRules.
 
 
 (* ******************************************************* *)
-(** ** Structural rules for extracting existentials and pure facts *)
+(** ** Proof of the extraction rules *)
 
-(** From an entailment [(\exists x, (J x) ==> H], it is useful
-    to extract [x] into the context, and turn the goal into:
-    [forall x, (J x ==> H)].
+Module ProveExtractionRules.
 
-    Likewise, for a goal [triple t (\exists x, (J x)) Q], it is
-    useful to extract [x] into the context, and turn the goal into:
-    [forall x, triple t (J x) Q].
+(** Recall the extraction rule for pure facts. *)
 
-    The structural rule called [triple_hexists] captures this
-    extraction of the existential quantifier. *)
-
-Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
-  (forall x, triple t (J x) Q) ->
-  triple t (hexists J) Q.
-
-(** Similarly, for a goal [triple t (\[P] \* H) Q], it is
-    useful to extract [P] into the context, and turn the goal into:
-    [P -> triple t H Q].
-
-    The structural rule called [triple_hpure] captures this
-    extraction of the existential quantifier. *)
-
-Parameter triple_hpure : forall t (P:Prop) H Q,
+Parameter triple_hpure' : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
 
-(** To prove these two lemmas, we first establish corresponding
-    results on [hoare], then derive them for [triple]. *)
-
-Lemma hoare_hexists : forall t (A:Type) (J:A->hprop) Q,
-  (forall x, hoare t (J x) Q) ->
-  hoare t (hexists J) Q.
-Proof using. introv M. intros h (x&Hh). applys M Hh. Qed.
-
-Lemma triple_hexists' : forall t (A:Type) (J:A->hprop) Q,
-  (forall x, triple t (J x) Q) ->
-  triple t (hexists J) Q.
-Proof using.
-  introv M. unfold triple. intros H'.
-  rewrite hstar_hexists. applys hoare_hexists.
-  intros v. applys M.
-Qed.
+(** To prove this lemma, we first the establish corresponding
+    result on [hoare], then derive its version for [triple]. *)
 
 Lemma hoare_hpure : forall t (P:Prop) H Q,
   (P -> hoare t H Q) ->
@@ -958,7 +998,7 @@ Proof using.
   subst. rewrite Fmap.union_empty_l. applys M HP M2.
 Qed.
 
-Lemma triple_hpure' : forall t (P:Prop) H Q,
+Lemma triple_hpure : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
 Proof using.
@@ -967,19 +1007,28 @@ Proof using.
   intros HP. applys M HP.
 Qed.
 
+(** Similarly, the extraction rule for existentials for
+    [triple] can be derived from that for [hoare]. *)
 
-(* ####################################################### *)
-(** Appendix *)
+(* EX2! (triple_hexists) *)
+(** Prove the extraction rule [triple_hexists].
+    Hint: start by stating and proving the corresponding
+    lemma for [hoare] triples. *)
 
-(** Remark: recall that [\[P]] can be encoded as [\exists (p:P), \[]].
-    One may exploit this equivalence to show that [hoare_hpure]
-    is derivable from [hoare_hexists], as illustrated next. *)
+Lemma hoare_hexists : forall t (A:Type) (J:A->hprop) Q,
+  (forall x, hoare t (J x) Q) ->
+  hoare t (hexists J) Q.
+Proof using. introv M. intros h (x&Hh). applys M Hh. Qed.
 
-Lemma triple_hpure_derived_from_triple_exists : forall t (P:Prop) H Q,
-  (P -> triple t H Q) ->
-  triple t (\[P] \* H) Q.
+Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
+  (forall x, triple t (J x) Q) ->
+  triple t (hexists J) Q.
 Proof using.
-  introv M. rewrite hpure_eq_hexists_proof. (* TODO: fix display *)
-  rewrite hstar_hexists. applys triple_hexists.
-  rewrite hstar_hempty_l. apply M.
+(* SOLUTION *)
+  introv M. unfold triple. intros H'.
+  rewrite hstar_hexists. applys hoare_hexists.
+  intros v. applys M.
+(* /SOLUTION *)
 Qed.
+
+End ProveExtractionRules.

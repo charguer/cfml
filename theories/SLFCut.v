@@ -997,3 +997,20 @@ Tactic Notation "xapps" :=
 
 
 
+
+
+(* ####################################################### *)
+(** Appendix *)
+
+(** Remark: recall that [\[P]] can be encoded as [\exists (p:P), \[]].
+    One may exploit this equivalence to show that [hoare_hpure]
+    is derivable from [hoare_hexists], as illustrated next. *)
+
+Lemma triple_hpure_derived_from_triple_exists : forall t (P:Prop) H Q,
+  (P -> triple t H Q) ->
+  triple t (\[P] \* H) Q.
+Proof using.
+  introv M. rewrite hpure_eq_hexists_proof. (* TODO: fix display *)
+  rewrite hstar_hexists. applys triple_hexists.
+  rewrite hstar_hempty_l. apply M.
+Qed.
