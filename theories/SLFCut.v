@@ -787,3 +787,213 @@ Qed.
 
 
 ===========================
+
+
+
+
+(** [xapp_lemma] reformulates the ramified frame rule, with a goal
+    as a [wp] (which is produced by [wpgen] on an application),
+    and a premise as a triple (because triples are used to state
+    specification lemmas. Observe that the rule includes an identity
+    function called [protect], which is used to prevent [xsimpl]
+    from performing too aggressive simplifications. *)
+
+(** TODO: explain magic wand !! *)
+
+Lemma xapp_lemma : forall t Q1 H1 H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* protect Q) ->
+  H ==> wp t Q.
+Proof using. introv M W. rewrite <- wp_equiv. applys~ triple_ramified_frame M. Qed.
+
+(** The [xsimpl'] tactic is a variant of [xsimpl] that clears the
+    identity tag [protect] upon completion. *)
+
+Tactic Notation "xsimpl'" := xsimpl; unfold protect.
+
+
+
+
+Lemma triple_incr : forall (p:loc) (n:int),
+  triple (trm_app incr p)
+    (p ~~~> n)
+    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+Proof using.
+  intros.
+  applys xwp_lemma. { reflexivity. }
+  (* Here the [wpgen] function computes. *)
+  simpl.
+  (* Observe how each node begin with [mkstruct].
+     Observe how program variables are all eliminated. *)
+  applys xstruct_lemma.
+  applys xlet_lemma.
+  applys xstruct_lemma.
+  applys xapp_lemma. { apply triple_get. }
+  xsimpl'. intros ? ->.
+  applys xstruct_lemma.
+  applys xlet_lemma.
+  applys xstruct_lemma.
+  applys xapp_lemma. { apply triple_add. }
+  xsimpl'. intros ? ->.
+  applys xstruct_lemma.
+  applys xapp_lemma. { apply triple_set. }
+  xsimpl'. intros ? ->.
+  xsimpl'. auto.
+Qed.
+
+(* EX2! (triple_mysucc_with_xlemmas) *)
+(** Using x-lemmas, verify the proof of [triple_mysucc].
+    (The proof was carried out using triples in chapter [SLFRules].) *)
+
+Lemma triple_mysucc_with_xlemmas : forall (n:int),
+  triple (trm_app mysucc n)
+    \[]
+    (fun v => \[v = n+1]).
+Proof using.
+(* SOLUTION *)
+  intros.
+  applys xwp_lemma. { reflexivity. }
+  simpl; unfold wpgen_var; simpl. 
+  applys xstruct_lemma.
+  applys xlet_lemma.
+  applys xstruct_lemma.
+  applys xapp_lemma. { apply triple_ref. }
+  xsimpl'. intros ? l ->.
+  applys xstruct_lemma.
+  applys xseq_lemma.
+  applys xstruct_lemma.
+  applys xapp_lemma. { apply triple_incr. }
+  xsimpl'. intros ? ->.
+  applys xstruct_lemma.
+  applys xlet_lemma.
+  applys xstruct_lemma.
+  applys xapp_lemma. { apply triple_get. }
+  xsimpl'. intros ? ->.
+  applys xstruct_lemma.
+  applys xseq_lemma.
+  applys xstruct_lemma.
+  applys xapp_lemma. { apply triple_free. }
+  xsimpl'. intros ? ->.
+  applys xstruct_lemma.
+  applys xval_lemma.
+  xsimpl'. auto.
+(* /SOLUTION *)
+Qed.
+
+End ProofsWithXlemmas.
+
+Tactic Notation "xapp" :=
+  xseq_xlet_if_needed; xstruct_if_needed; applys xapp_lemma.
+
+
+Lemma triple_incr : forall (p:loc) (n:int),
+  triple (trm_app incr p)
+    (p ~~~> n)
+    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+Proof using.
+  xwp.
+  xapp. { apply triple_get. } xsimpl' ;=> ? ->.
+  xapp. { apply triple_add. } xsimpl' ;=> ? ->.
+  xapp. { apply triple_set. } xsimpl' ;=> ? ->.
+  xsimpl. auto.
+Qed.
+
+(* EX2! (triple_mysucc_with_xtactics) *)
+(** Using x-tactics, verify the proof of [mysucc]. *)
+
+Lemma triple_mysucc_with_xtactics : forall (n:int),
+  triple (trm_app mysucc n)
+    \[]
+    (fun v => \[v = n+1]).
+Proof using.
+(* SOLUTION *)
+  xwp.
+  xapp. { apply triple_ref. } xsimpl' ;=> ? l ->.
+  xapp. { apply triple_incr. } xsimpl' ;=> ? ->.
+  xapp. { apply triple_get. } xsimpl' ;=> ? ->.
+  xapp. { apply triple_free. } xsimpl' ;=> ? ->.
+  xval.
+  xsimpl. auto.
+(* /SOLUTION *)
+Qed.
+
+
+============================
+
+Lemma xapp_lemma_wand : forall t Q1 H1 H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* protect Q) ->
+  H ==> wp t Q.
+Proof using. introv M W. rewrite <- wp_equiv. applys~ triple_ramified_frame M. Qed.
+
+
+(** The [xsimpl'] tactic is a variant of [xsimpl] that clears the
+    identity tag [protect] upon completion. *)
+
+Tactic Notation "xsimpl'" := xsimpl; unfold protect.
+
+Observe that the rule includes an identity
+    function called [protect], which is used to prevent [xsimpl]
+    from performing too aggressive simplifications. *)
+
+
+
+(** We further improve [xapp] in two ways.
+
+    First, we introduce the variant [xapp' E] which mimics the
+    proof pattern: [xapp. { apply E. } xsimpl'.]. Concretely,
+    [xapp' E] directly exploits the specification [E] rather
+    than requiring an explicit [apply E], and a subsequent [xsimpl']. *)
+
+Tactic Notation "xapp_pre" :=
+  xseq_xlet_if_needed; xstruct_if_needed.
+
+Tactic Notation "xapp" constr(E) :=
+  xapp_pre; applys xapp_lemma E; xsimpl'.
+
+(** Second, we introduce the variant [xapps E] to mimic the
+    pattern [xapp. { apply E. } xsimpl' ;=> ? ->]. Concretely,
+    the tactic [xapps E] exploits a specification [E] whose conclusion
+    is of the form [fun r => \[r = v] \* H] or [fun r => \[r = v]],
+    and for which the user wishes to immediately substitute [r] away. *)
+
+Lemma xapps_lemma0 : forall t v H1 H Q,
+  triple t H1 (fun r => \[r = v]) ->
+  H ==> H1 \* (protect (Q v)) ->
+  H ==> wp t Q.
+Proof using. introv M W. applys xapp_lemma M. xchanges W. intros ? ->. auto. Qed.
+
+Lemma xapps_lemma1 : forall t v H1 H2 H Q,
+  triple t H1 (fun r => \[r = v] \* H2) ->
+  H ==> H1 \* (H2 \-* protect (Q v)) ->
+  H ==> wp t Q.
+Proof using. introv M W. applys xapp_lemma M. xchanges W. intros ? ->. auto. Qed.
+
+Tactic Notation "xapps" constr(E) :=
+  xapp_pre; first
+  [ applys xapps_lemma0 E
+  | applys xapps_lemma1 E ];
+  xsimpl'.
+
+(** Third, we instrument [eauto] to automatically figure out the
+    specification lemma that should be provided as argument to [xapp] or [xapps].
+    To that end, we set up a data base of hints gathering all the
+    specification triples established for functions that we might call. *)
+
+Hint Resolve triple_get triple_set triple_ref triple_free triple_add : triple.
+
+Ltac xapp_using lemma :=
+  applys lemma; [ solve [ eauto with triple ] | xsimpl' ].
+
+Tactic Notation "xapp" :=
+   xapp_pre; xapp_using xapp_lemma.
+
+Tactic Notation "xapps" :=
+  xapp_pre; first [ xapp_using xapps_lemma0 
+                  | xapp_using xapps_lemma1 ].
+
+
+
+
+
+
