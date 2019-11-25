@@ -40,14 +40,16 @@ Implicit Types Q : val->hprop.
 
     The intention is for [wpgen t Q] to recursively construct a heap predicate
     that has the same interpretation [wp t Q], but that can be directly
-    used for interactive reasoning about a concrete term [t]. 
-    
-    Contrary to [wp t Q], with [wpgen t Q] one can carry out practical 
-    reasoning on a concrete term [t]:
+    used for interactive reasoning about a concrete term [t].
 
-    - without having to manually invoke the reasoning rules such as [wp_seq],
-    - without having to manipulate the concrete syntax (AST) of the term [t],
-    - without having to manually simplify substitutions of the form [subst x v t1].
+    The predicate [wpgen t Q] enables convenient interactive reasoning
+    about a concrete term [t]. Contrary to [wp t Q], the manipulation of
+    [wpgen t Q]:
+
+    - does not require manipulating the concrete syntax (AST) of the term [t],
+    - does not require manipulating substitutions of the form [subst x v t1],
+    - does not require manual invokation of the reasoning rules such as [wp_seq],
+      because these rules are "pre-applied" in the formula [wpgen t Q].
 
     The matter of the present chapter is to show:
 
@@ -67,8 +69,8 @@ Implicit Types Q : val->hprop.
     like [wp], expects a term [t] and a postcondition [Q], and produces
     a heap predicate. The function is recursively defined and its result
     is guided by the structure of the term [t].
-    
-    Thus, in essence, the definition of [wpgen] admits the following shape:
+
+    In essence, the definition of [wpgen] admits the following shape:
 
 [[
     Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
@@ -84,18 +86,20 @@ Implicit Types Q : val->hprop.
       end).
 ]]
 
-    Our first goal is to fill in the dots for each of the term constructors.
+    Our first target is to figure out how to fill in the dots for each of the
+    term constructors.
 
     The intention that guides us for filling the dot is the soundness theorem
     for [wpgen], which takes the following form:
-    
+
 [[
     wpgen t Q ==> wp t Q
 ]]
 
-    This entailement asserts in particular that if we are able to establish 
-    [H ==> wpgen t Q], then we have proved [H ==> wp t Q], and thus also
-    proved [triple t H Q].
+    This entailement asserts in particular that, if we are able to establish
+    a statement of the form [H ==> wpgen t Q], then we can derive from it
+    [H ==> wp t Q]. The latter is also equivalent to [triple t H Q].
+    Thus, [wpgen] can be viewed as a practical tool to establish triples.
 
     Remark: the main difference between [wpgen] and a "traditional" weakest 
     precondition generator (as the reader might have seen for Hoare logic)
@@ -114,10 +118,11 @@ Implicit Types Q : val->hprop.
 Parameter wp_val : forall v Q,
   Q v ==> wp (trm_val v) Q.
 
-(** The soundness theorem requires us to have:
+(** The soundness theorem for [wpgen] requires us to have:
     [wpgen (trm_val v) Q ==> wp (trm_val v) Q].
-    To satisfy this entailement, it suffices to define [wpgen (trm_val v) Q] 
-    as [Q v]. 
+
+    To satisfy this entailement, according to the rule [wp_val],
+    it suffices to define [wpgen (trm_val v) Q] as [Q v].
 
     Concretely, we fill in the first dots as follows:
 
@@ -147,6 +152,7 @@ Parameter wp_fun : forall x t1 Q,
 [[
     Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
       match t with
+      ...
       | trm_fun x t1   => Q (val_fun x t1)
       | trm_fix f x t1 => Q (val_fix f x t1)
       ...
@@ -174,12 +180,16 @@ Parameter wp_seq : forall t1 t2 Q,
   wp t1 (fun v => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
 
 (** The intention is for [wpgen] to admit the same semantics as [wp].
-    For this reason, we define [wpgen (trm_seq t1 t2) Q] as
-    [wpgen t1 (fun r => wpgen t2 Q)].
+    We thus expect the definition of [wpgen (trm_seq t1 t2) Q] to have a
+    similar shape as [wp t1 (fun v => wp t2 Q)].
+
+    We therefore define [wpgen (trm_seq t1 t2) Q] as
+    [wpgen t1 (fun r => wpgen t2 Q)]. Concretely:
 
 [[
     Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
       match t with
+      ...
       | trm_seq t1 t2 => wpgen t1 (fun v => wpgen t2 Q)
       ...
 ]]
@@ -195,70 +205,79 @@ Parameter wp_seq : forall t1 t2 Q,
 Parameter wp_let : forall x t1 t2 Q,
   wp t1 (fun v => wp (subst x v t2) Q) ==> wp (trm_let x t1 t2) Q.
 
-(** We thus fill in the dots as follows:
+(** We fill in the dots as follows:
 
 [[
     Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
       match t with
+      ...
       | trm_let x t1 t2 => wpgen t1 (fun v => wpgen (subst x v t2) Q)
       ...
 ]]
 
     One important observation to make at this point is that the 
-    function [wpgen] is no longer structurally recursive. 
-    While the first recursive call to [wpgen] is invoked on [t1], which
+    function [wpgen] is no longer structurally recursive. Indeed,
+    while the first recursive call to [wpgen] is invoked on [t1], which
     is a strict subterm of [t], the second call is invoked on [subst x v t2],
     which is not a strict subterm of [t].
 
-    We'll come back later to the issue later and explain how it is possible:
-    - either to convince Coq that the function [wpgen] nevertheless terminates,
-    - or to circumvent the problem by adding as argument to [wpgen] a substitution 
-      context that avoids computing substitution before making recursive calls.
+    It is possible to  convince Coq that the function [wpgen] nevertheless
+    terminates, or, more simply, to circumvent the problem altogether by
+    casting the function in a form that makes it structurally recursive.
+    Concretely, we will see further on how to add as argument to [wpgen] 
+    a substitution context (written [E]) to delay the computation of
+    substitutions until the leaves of the recursion. *)
 
-*)
 
 (* ------------------------------------------------------- *)
 (** *** Definition of [wpgen] for variables *)
 
-(** There are no reasoning rule that concludes [H ==> wp (trm_var x) Q]
-    of [triple (trm_var x) H Q]. Indeed, [trm_var x] is a stuck term.
+(** There are no reasoning rules to establish a triple or a [wp]-entailment
+    for a program variable. In other words, there are no rules to prove 
+    [triple (trm_var x) H Q] or prove concludes [H ==> wp (trm_var x) Q].
+    Indeed, [trm_var x] is a stuck term---its execution does not produce
+    an output.
 
-    While a term may feature variables, all these variables should have
-    been substituted away before we reach them, through substitutions
-    such as the one described above in the treatment of let-bindings.
-    If a variable is reached, it means that it is a dandling free 
-    variable, and that the program is broken. 
-    
-    Although there are no rules to introduce [wp (trm_var x) Q], we 
-    nevertheless need to provide some meaningful definition for 
+    While a source term may contain program variables, all these variables 
+    should have been substituted away before the execution reaches them.
+    In the case of the function [wpgen], the variables bound by a "let"
+    get substituted while traversing the let-binding construct.
+    If a free variable is reached by [wpgen], it means that this variable
+    was a dandling free variable, and therefore that the initial source term 
+    was invalid.
+
+    Although there are no rules to introduce [wp (trm_var x) Q], we
+    nevertheless have to provide some meaningful definition for
     [wpgen (trm_var x) Q]. This definition should capture the fact
-    that this case must not happen. The predicate [\[False]] captures
-    this well.
+    that this case must not happen. The heap predicate [\[False]] captures
+    this intention perfectly.
 
 [[
     Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
       match t with
+      ...
       | trm_var x => \[False]
       ...
 ]]
 
 *)
 
-(** Remark: this definition suggests that, in fact, we could technically
-    have stated a Separation Logic rule free variables, using [False]
-    as a premise. *)
+(** Remark: the definition of \[False] translates the fact that,
+    technically, we could have stated a Separation Logic rule 
+    for free variables, using [False] as a premise, either as a triple: *)
 
 Lemma triple_var : forall x H Q,
   False ->
   triple (trm_var x) H Q.
 Proof using. intros. false. Qed.
 
-(** Likewise, a [wp] reasoning rule with [\[False]] as precondition
-    would be technically correct, albeit totally useless. *)
+(** or as a [wp]-entailemnt with [\[False]] as precondition: *)
 
 Lemma wp_var : forall x Q,
   \[False] ==> wp (trm_var x) Q.
 Proof using. intros. intros h Hh. destruct (hpure_inv Hh). false. Qed.
+
+(** These two rules are correct, albeit totally useless in practice. *)
 
 
 (* ------------------------------------------------------- *)
@@ -266,19 +285,20 @@ Proof using. intros. intros h Hh. destruct (hpure_inv Hh). false. Qed.
 
 (** Consider an application in A-normal form, that is,  
     an application of the form [trm_app v1 v2].
-    
+
     We have [wp]-style rules to reason about the application of
     a known function, e.g. [trm_app (val_fun x t1) v2].
     However, if [v1] is an abstrat value (e.g., a Coq variable
-    of type [var]), we have no specific reasoning rule at hand.
+    of type [var]), we have no reasoning rule at hand that applies.
 
     Thus, we will simply define [wpgen (trm_app v1 v2) Q] as
-    [wp (trm_app v1 v2) Q]. In other words, we fall back to the
-    semantic definition of [wp].
+    [wp (trm_app v1 v2) Q]. In other words, to define [wpgen] for
+    a function application, we fall back to the semantic definition of [wp].
 
 [[
     Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
       match t with
+      ...
       | trm_app v1 v2 => wp (trm_app v1 v2) Q
       ...
 ]]
@@ -292,21 +312,17 @@ Proof using. intros. intros h Hh. destruct (hpure_inv Hh). false. Qed.
 [[
     H ==> wp (trm_app v1 v2) Q
 ]]
-    Then by exploiting the equivalence with triples, we get:
+    Then by exploiting the equivalence with triples, we obtain:
 [[
     triple (trm_app v1 v2) H Q
 ]]
     which can be proved by invoking a specification triple for 
     the function [v1].
 
-    In other words, we falling back to the semantics definition
+    In other words, by falling back to the semantics definition
     when reaching a function application, we allow the user to choose 
     which specification lemma to exploit for reasoning about this 
-    particular function application. Remark: with some degree of tactic 
-    automation, we will avoid the user having to explicitly provide
-    the name of the specification lemma, as this would be cumbersome.
-
-*)
+    particular function application. *)
 
 (** Remark: we assume throughout the course that terms are written 
     in A-normal form. Nevertheless, we need to define [wpgen] even
@@ -322,6 +338,7 @@ Proof using. intros. intros h Hh. destruct (hpure_inv Hh). false. Qed.
 [[
     Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
       match t with
+      ...
       | trm_app t1 t2 => wp t Q
       ...
 ]]
@@ -350,9 +367,9 @@ Parameter wp_if : forall (b:bool) t1 t2 Q,
     for [x], becomes [trm_if (trm_val v) t1 t2], for some abstract
     [v] of type [val] that might not yet be know to be a boolean value.
 
-    To handle the problem, we pattern match [t] as [trm_if t0 t1 t2],
-    and define its [wpgen] as a heap predicate that requires the 
-    existence of a boolean [b] such that [t0 = trm_val (val_bool b)]. 
+    To handle the problem, we pattern match a conditional as [trm_if t0 t1 t2],
+    and define its [wpgen] as a heap predicate that requires the existence
+    of a boolean [b] such that [t0 = trm_val (val_bool b)]. 
     This way, we delay the moment at which the argument of the conditional
     needs to be shown to be a boolean value. The formal definition is:
 
@@ -389,6 +406,9 @@ Parameter wp_if : forall (b:bool) t1 t2 Q,
 ]]
 
     This definition accounts for the reasoning rules for terms.
+
+    We will later see how to turn it into a structurally recursive
+    function. But first, 
 
     However, this definition lacks support for conveniently exploiting
     the structural rules of the logic. We are going to fix this next.
