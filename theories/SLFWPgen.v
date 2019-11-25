@@ -60,7 +60,11 @@ Implicit Types Q : val->hprop.
     A bonus section explains how to establish the soundness theorem for [wpgen].
 *)
 
-(** The "chapter in a rush" section that follows is fairly short.
+
+(* ******************************************************* *)
+(** ** Summary *)
+
+(** The "chapter in a rush" overview that comes next is fairly short.
     It only gives a bird-eye tour of the steps of the construction.
     All the explanations are provided in the main body of the chapter. *)
 
@@ -682,7 +686,6 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
       ) end.
 ]]
 
-----TODO: essayer  lookup swap with fun Q.
 *)
 
 
@@ -1252,7 +1255,7 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
   | trm_if t0 t1 t2 => wpgen_if (isubst E t0) (wpgen E t1) (wpgen E t2)
   end).
 
-(** Again, we postpone the proof of soundness. *)
+(** Again, we assert soundness and postpone the proof. *)
 
 Parameter wpgen_sound : forall E t Q,
    wpgen E t Q ==> wp (isubst E t) Q.
@@ -1261,7 +1264,6 @@ Parameter triple_app_fun_from_wpgen : forall v1 v2 x t1 H Q,
   v1 = val_fun x t1 ->
   H ==> wpgen ((x,v2)::nil) t1 Q ->
   triple (trm_app v1 v2) H Q.
-
 
 
 (* ------------------------------------------------------- *)
@@ -1589,14 +1591,15 @@ Lemma triple_incr : forall (p:loc) (n:int),
     (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
 Proof using.
   xwp. xapps. xapps. xapps. xsimpl~.
-  (* details:
+ Qed.
+
+(* Proof details:
     xwp.
     xapps triple_get.
     xapps triple_add.
     xapps triple_set.
     xsimpl~.
   *)
-Qed.
 
 
 (** In order to enable automatically exploiting the specification
@@ -1615,14 +1618,6 @@ Lemma triple_mysucc_with_xapps : forall (n:int),
 Proof using.
 (* SOLUTION *)
   xwp. xapp ;=> ? l ->. xapps. xapps. xapps. xval. xsimpl~.
-  (* details:
-    xwp.
-    xapp triple_ref ;=> ? l ->.
-    xapps triple_incr.
-    xapps triple_get.
-    xapps triple_free.
-    xval. xsimpl~.
-  *)
 (* /SOLUTION *)
 Qed.
 
@@ -1743,7 +1738,7 @@ Definition formula_sound (t:trm) (F:formula) : Prop :=
 
 (** Using [formula_sound], the soundness theorem reformulates as: *)
 
-Parameter wpgen_sound' : forall E t,
+Parameter wpgen_sound : forall E t,
   formula_sound (isubst E t) (wpgen E t).
 
 
@@ -1765,7 +1760,7 @@ Parameter wpgen_sound' : forall E t,
 
 *)
 
-(** Consider the soundness theorem [wpgen_sound'] and in the 
+(** Consider the soundness theorem [wpgen_sound] and in the 
     particular case where [t] is of the form [trm_seq t1 t2].
     The corresponding statement is: *)
 
@@ -1975,7 +1970,7 @@ Qed.
 (** For a closed term [t], the context [E] is instantiated as [nil],
     and [isubst nil t] simplifies to [t]. We obtain the statement: *)
 
-Theorem wpgen_sound : forall t Q,
+Lemma wpgen_sound : forall t Q,
   wpgen nil t Q ==> wp t Q.
 Proof using.
   introv M. lets N: (wpgen_sound nil t). rewrite isubst_nil in N. applys* N.
@@ -1984,7 +1979,7 @@ Qed.
 (** A corollary can be derived for deriving a triple of the
     form [triple t H Q] from [wpgen nil t]. *)
 
-Corollary triple_of_wpgen : forall t H Q,
+Lemma triple_of_wpgen : forall t H Q,
   H ==> wpgen nil t Q ->
   triple t H Q.
 Proof using. introv M. rewrite wp_equiv. xchange M. applys wpgen_sound. Qed.
@@ -1995,7 +1990,7 @@ Proof using. introv M. rewrite wp_equiv. xchange M. applys wpgen_sound. Qed.
     reformulates the reasoning rule [triple_app_fun] with a premise 
     of the form [wpgen E t1], where [t1] denotes the body of the function. *)
 
-Corollary xwp_lemma : forall v1 v2 x t1 H Q,
+Lemma xwp_lemma : forall v1 v2 x t1 H Q,
   v1 = val_fun x t1 ->
   H ==> wpgen ((x,v2)::nil) t1 Q ->
   triple (trm_app v1 v2) H Q.
