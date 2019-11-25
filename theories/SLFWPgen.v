@@ -930,15 +930,15 @@ Definition wpgen_seq (F1 F2:formula) : formula := fun Q =>
 
 
 (** In step 3, we introduce a piece of notation so that any formula 
-    of the form [wpgen_seq F1 F2] displays as [Seq F1 '; F2 ].  *)
+    of the form [wpgen_seq F1 F2] displays as [Seq F1 ; F2 ].  *)
 
-Notation "'Seq' F1 '; F2" :=
+Notation "'Seq' F1 ; F2" :=
   ((wpgen_seq F1 F2))
   (at level 68, right associativity,
-   format "'[v' 'Seq'  '[' F1 ']'  '';'  '/'  '[' F2 ']' ']'").
+   format "'[v' 'Seq'  '[' F1 ']'  ';'  '/'  '[' F2 ']' ']'").
 
-(** Thanks to this notation, the [wpgen] of a sequence [t1 '; t2] displays as 
-    [Seq F1 '; F2] where [F1] and [F2] denote the [wpgen] of [t1] and [t2],
+(** Thanks to this notation, the [wpgen] of a sequence [t1 ; t2] displays as 
+    [Seq F1 ; F2] where [F1] and [F2] denote the [wpgen] of [t1] and [t2],
     respectively. *)
 
 

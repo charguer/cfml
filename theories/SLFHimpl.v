@@ -40,11 +40,11 @@ Implicit Types Q : val->hprop.
     the rule of consequence, similar to that from Hoare logic:
 
 [[
-  Lemma triple_conseq : forall t H Q H' Q',
-    triple t H' Q' ->
-    H ==> H' ->
-    Q' ===> Q ->
-    triple t H Q.
+    Lemma triple_conseq : forall t H Q H' Q',
+      triple t H' Q' ->
+      H ==> H' ->
+      Q' ===> Q ->
+      triple t H Q.
 ]]
 
    This chapter presents not just the rule of consequence but also the

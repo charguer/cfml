@@ -49,7 +49,7 @@ For the course on the practice of proofs with CFML, see files named [CF*.v].
                   and the techniques for obtaining concise verification proofs.
 
 
-    Bonus chapters:
+    Bonus chapters (NOT READY YET):
 
     - [SLFWand]: introduction of the magic wand operator, and of the
                  ramified frame rule.
@@ -66,7 +66,9 @@ For the course on the practice of proofs with CFML, see files named [CF*.v].
 
     Special chapters:
 
-    - [SLFSummary]: provides a brief summary of all the contents of this course.
+    - [SLFSummary]: provides a brief summary of all the contents of this course,
+                    including [SLFWAnd] and [SLFLift].
+
                     It is intended as support for a 1-hour technical course to
                     experts with prior knowledge of Separation Logic. It also
                     serves as a summary of the present course, as a target for

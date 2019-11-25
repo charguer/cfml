@@ -755,39 +755,33 @@ Definition wpgen_if (v:val) (F1 F2:formula) : formula := fun Q =>
 Definition wpgen_fail : formula := fun Q =>
   \[False].
 
-(** Non-structural recursion, need to play some tricks to construct
-    the fixed point. *)
+(** Non-structurally recursive functions, would need additional tricks
+    to justify the fixed point construction:
 
-Definition Wpgen wpgen (t:trm) : formula :=
-  mkstruct
-  match t with
-  | trm_val v =>
-       wpgen_val v
-  | trm_var x =>
-       wpgen_fail
-  | trm_fun x t1 =>
-       wpgen_val (val_fun x t1)
-  | trm_fix f x t1 =>
-       wpgen_val (val_fix f x t1)
-  | trm_app t1 t2 =>
-       wp t
-  | trm_seq t1 t2 =>
-       wpgen_seq (wpgen t1) (wpgen t2)
-  | trm_let x t1 t2 =>
-       wpgen_let (wpgen t1) (fun v => wpgen (subst x v t2))
-  | trm_if (trm_val v0) t1 t2 =>
-       wpgen_if v0 (wpgen t1) (wpgen t2)
-  |  _ => wpgen_fail (* term not in normal form *)
-  end.
-
-
-(** Construction of the fixed point, see [SLFWPGen.v] for details.
 [[
-    Definition wpgen : trm -> formula := FixFun Wpgen.
-
-    Parameter wpgen_fix : forall t,
-      wpgen t = Wpgen wpgen t.
+  Fixpoint wpgen (t:trm) : formula :=
+    mkstruct
+    match t with
+    | trm_val v =>
+         wpgen_val v
+    | trm_var x =>
+         wpgen_fail
+    | trm_fun x t1 =>
+         wpgen_val (val_fun x t1)
+    | trm_fix f x t1 =>
+         wpgen_val (val_fix f x t1)
+    | trm_app t1 t2 =>
+         wp t
+    | trm_seq t1 t2 =>
+         wpgen_seq (wpgen t1) (wpgen t2)
+    | trm_let x t1 t2 =>
+         wpgen_let (wpgen t1) (fun v => wpgen (subst x v t2))
+    | trm_if (trm_val v0) t1 t2 =>
+         wpgen_if v0 (wpgen t1) (wpgen t2)
+    |  _ => wpgen_fail (* term not in normal form *)
+    end.
 ]]
+
 *)
 
 
@@ -898,38 +892,23 @@ Proof using.
   lets N: M Q'. xchange N. applys wp_ramified.
 Qed.
 
-(** Inductive proof of soundness *)
+(** Soundness theorem *)
 
 Parameter wpgen_sound : forall E t,
   formula_sound (isubst E t) (wpgen E t).
-(** Overview of the proof, which does not compile here because we have
-    not stated all the necessary lemmas explicitly.
-[[
-  Proof using.
-  intros. gen E. induction t; intros; simpl;
-   applys mkstruct_sound.
-  { applys wpgen_val_sound. }
-  { rename v into x. unfold wpgen_var. case_eq (lookup x E).
-    { intros v EQ. applys wpgen_val_sound. }
-    { intros N. applys wpgen_fail_sound. } }
-  { applys wpgen_fun_val_sound. }
-  { applys wpgen_fix_val_sound. }
-  { applys wp_sound. }
-  { applys wpgen_seq_sound. { applys IHt1. } { applys IHt2. } }
-  { rename v into x. applys wpgen_let_sound.
-    { applys IHt1. }
-    { intros v. rewrite <- isubst_rem. applys IHt2. } }
-  { case_eq (isubst E t1); intros; try applys wpgen_fail_sound.
-    { applys wpgen_if_sound. { applys IHt2. } { applys IHt3. } } }
-  Qed.
-]]
-*)
 
-(** Conclusion *)
+(** Corollary, to derive triples *)
 
 Parameter triple_of_wpgen' : forall t H Q,
   H ==> wpgen nil t Q ->
   triple t H Q.
+
+(** Corollary, to derive triples for function applications *)
+
+Parameter triple_app_fun_from_wpgen : forall v1 v2 x t1 H Q,
+  v1 = val_fun x t1 ->
+  H ==> wpgen ((x,v2)::nil) t1 Q ->
+  triple (trm_app v1 v2) H Q.
 
 
 (* ******************************************************* *)
@@ -958,14 +937,6 @@ Tactic Notation "xseq" :=
     is equivalent to [Q1 \*+ H2 ==> Q]. In other words,
     [Q] is equal to [Q1] augmented with "[H] minus [H1]",
     which corresponds to the framed part. *)
-
-(* TODO
-Parameter xapp_lemma : forall t Q1 H1 H2 H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* H2 ->
-  Q \*+ H2 ===> Q ->
-  H ==> wp t Q.
-*)
 
 Parameter xapp_lemma : forall t Q1 H1 H Q,
   triple t H1 Q1 ->

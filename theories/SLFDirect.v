@@ -1955,7 +1955,7 @@ Notation "'Val' v" :=
 Notation "'Let'' x ':=' F1 'in' F2" :=
   ((wpgen_let F1 (fun x => F2)))
   (at level 69, x ident, right associativity,
-  format "'[v' '[' 'Let_'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
+  format "'[v' '[' 'Let''  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
 
 Notation "'Seq' F1 ;;; F2" :=
   ((wpgen_seq F1 F2))
