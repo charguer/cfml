@@ -1952,7 +1952,7 @@ Notation "'Val' v" :=
   ((wpgen_val v))
   (at level 69) : wp_scope.
 
-Notation "'Let_' x ':=' F1 'in' F2" :=
+Notation "'Let'' x ':=' F1 'in' F2" :=
   ((wpgen_let F1 (fun x => F2)))
   (at level 69, x ident, right associativity,
   format "'[v' '[' 'Let_'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.

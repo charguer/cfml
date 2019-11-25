@@ -60,6 +60,137 @@ Implicit Types Q : val->hprop.
     A bonus section explains how to establish the soundness theorem for [wpgen].
 *)
 
+(** The "chapter in a rush" section that follows is fairly short.
+    It only gives a bird-eye tour of the steps of the construction.
+    All the explanations are provided in the main body of the chapter. *)
+
+(** At first, [wpgen t Q] is presented as a recursive function
+    that pattern matches on its argument [t] and produces the 
+    appropriate heap predicate in each case.
+
+[[
+    Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
+      match t with
+      | trm_val v => Q v
+      | trm_var x => \[False]
+      | trm_app v1 v2 => wp t Q
+      | trm_let x t1 t2 => wpgen t1 (fun v => wpgen (subst x v t2) Q)
+      ...
+      end.
+]]
+
+    In a second step, the definition is modified to make it structurally
+    recursive. It is changed to the form [wpgen E t Q], where [E] denotes
+    an association list bindings values to variables. The intention is that
+    [wpgen E t Q] computes the weakest precondition for [isubst E t], which
+    is the result of substituting bindings from [E] inside [t].
+
+[[
+    Fixpoint wpgen (E:ctx) (t:trm) (Q:val->hprop) : hprop :=
+      match t with
+      | trm_val v => Q v
+      | trm_var x =>
+           match lookup x E with
+           | Some v => Q v
+           | None => \[False]
+           end
+      | trm_app v1 v2 => wp (isubst E t) Q
+      | trm_let x t1 t2 => wpgen E t1 (fun v => wpgen ((x,v)::E) t2 Q)
+      ...
+      end.
+]]
+
+    In a third step, the argument [Q] is moved below the [match t with].
+    The type of [wpgen E t] is [(val->hprop)->hprop], which is abbreviated
+    as [formula].
+
+[[
+    Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+      match t with
+      | trm_val v =>  fun (Q:val->hprop) => Q v
+      | trm_var x =>  fun (Q:val->hprop) => 
+           match lookup x E with
+           | Some v => Q v
+           | None => \[False]
+           end
+      | trm_app v1 v2 => fun (Q:val->hprop) =>  wp (isubst E t) Q
+      | trm_let x t1 t2 => fun (Q:val->hprop) => 
+                              wpgen E t1 (fun v => wpgen ((x,v)::E) t2 Q)
+      ...
+      end.
+]]
+
+    In a fourth step, auxiliary definitions, e.g. [wpgen_val], [wpgen_var], 
+    are [wpgen_let] are introduced, to improve the readability of the output.
+
+[[
+    Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+      match t with
+      | trm_val v => wpgen_val v
+      | trm_var x => wpgen_var E x
+      | trm_app t1 t2 => wp (isubst E t)
+      | trm_let x t1 t2 => wpgen_let (wpgen E t1) (fun v => wpgen ((x,v)::E) t2)
+      ...
+      end.
+]]
+
+    For example, [wpgen_let] is defined as:
+
+[[
+    Definition wpgen_let (F1:formula) (F2of:val->formula) : formula := fun Q =>
+      F1 (fun v => F2of v Q).
+]]
+
+    And this definition comes with a custom notation:
+
+[[
+    Notation "'Let'' x ':=' F1 'in' F2" :=
+      ((wpgen_let F1 (fun x => F2))).
+]]
+
+    The result of invoking [wpgen] on a let-binding is a formula that displays
+    in the form [Let' x := F1 in F2], where [F1] and [F2] denote the result of
+    [wpgen] for the subterms of that let-binding.
+
+
+    In a fifth step, a predicate [mkstruct] is inserted at the head of the
+    output of [wpgen] (and of all its recursive invokation), to enable capturing
+    the structural rules of the logic.
+
+[[
+    Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+      mkstruct (match t with 
+                | trm_val v => ...
+                | ...
+                end).
+]]
+
+    In a sixth step, tactics are introduced to manipulate the elements from 
+    the output of [wpgen]. For example, [xstruct_lemma] enables dropping
+    [mkstruct] when it is not needed, and [xlet_lemma] reveals the definition
+    of [wpgen_let]. These lemmas are exploited by the implementation of the
+    x-tactics, for example [xlet].
+
+[[
+
+    Lemma xstruct_lemma : forall F H Q,
+      H ==> F Q ->
+      H ==> mkstruct F Q.
+
+    Lemma xlet_lemma : forall H F1 F2of Q,
+      H ==> F1 (fun v => F2of v Q) ->
+      H ==> mkstruct (wpgen_let F1 F2of Q).
+
+    Tactic Notation "xlet" :=
+      applys xstruct_lemma; applys xlet_lemma.
+]] 
+
+*)
+
+
+(* ####################################################### *)
+(** * Additional contents *)
+
 
 (* ******************************************************* *)
 (** ** Definition of [wpgen] for term rules *)
@@ -726,7 +857,7 @@ End WpgenExec1.
     to the equivalent form:
 
 [[
-    Fixpoint wpgen (E:ctx) (t:trm) : hprop :=
+    Fixpoint wpgen (E:ctx) (t:trm) : (val->hprop)->hprop :=
       match t with
       | trm_val v     =>  fun (Q:val->hprop) => Q v
       | trm_fun x t1  =>  fun (Q:val->hprop) => Q (val_fun x (isubst (rem x E) t1))
@@ -736,6 +867,11 @@ End WpgenExec1.
 
 *)
 
+(** The result type of [wpgen E t] is [(val->hprop)->hprop].
+    Thereafter, we let [formula] be a shorthand for this type. *)
+
+Definition formula : Type := (val->hprop)->hprop.
+
 
 (* ------------------------------------------------------- *)
 (** *** Reability Steps 2 and 3, illustrated on the case of sequences *)
@@ -743,7 +879,7 @@ End WpgenExec1.
 (** In step 2, we change from: 
 
 [[
-    Fixpoint wpgen (E:ctx) (t:trm) : hprop :=
+    Fixpoint wpgen (E:ctx) (t:trm) : formula :=
       match t with
       ...
       | trm_seq t1 t2 =>  fun Q => (wpgen E t1) (fun v => wpgen E t2 Q)
@@ -754,7 +890,7 @@ End WpgenExec1.
     to the equivalent form:
 
 [[
-    Fixpoint wpgen (E:ctx) (t:trm) : hprop :=
+    Fixpoint wpgen (E:ctx) (t:trm) : formula :=
       match t with
       ...
       | trm_seq t1 t2 =>  wpgen_seq (wpgen E t1) (wpgen E t2)
@@ -920,9 +1056,15 @@ End WPgenWithNotation.
 (* ******************************************************* *)
 (** ** Extension of [wpgen] to handle structural rules *)
 
-(*
-    However, this definition lacks support for conveniently exploiting
-    the structural rules of the logic. We are going to fix this next.
+(** The definition of [wpgen] proposed so far integrates the logic of
+    the reasoning rules for terms, however it lacks support for
+    conveniently exploiting the structural rules of the logic.
+
+    We fix this next, by showing how to tweak the definition of [wpgen]
+    in such a way that, by construction, it satisfies both
+    - the frame rule [(wpgen t Q) \* H ==> wpgen t (Q \*+ H)] 
+    - and the rule of consequence [wpgen t Q1 ==> wpgen t Q2] when [Q1 ===> Q2].
+
 *)
 
 
@@ -947,35 +1089,20 @@ Parameter wp_frame : forall t H Q,
 
     Instead, we are going to tweak the definition of [wpgen] so as to
     produce, at every step of the recursion, a special token to capture
-    the property that "whatever the details of the output predicate 
-    produced, it does satisfy the frame property". *)
+    the idea that whatever the details of the output predicate produced
+    by [wpgen], this predicate does satisfy the frame property. *)
 
-(** We achieve this magic in three steps. First, we rewrite the 
-    prototype of the function [wpgen] so as to make it explicitly
-    a function of the postcondition [Q].
+(** We achieve this magic by introducing a predicate called [mkstruct], 
+    and inserting it at the head of the output produced by [wpgen]
+    (and all of its recursive invokation) as follows:
 
 [[
-    Fixpoint wpgen (t:trm) : (val->hprop)->hprop :=
-      fun (Q:val->hprop) =>   
+    Fixpoint wpgen (E:ctx) (t:trm) : (val->hprop)->hprop :=
+      mkstruct (
         match t with
         | trm_val v => wpgen_val v
-        | .. => ..
-        end.
-
-]]
-
-    Second, we introduce a predicate called [mkstruct], and insert 
-    it at the head of the output produced by [wpgen] (and all of 
-    its recursive invokation) as follows:
-
-[[
-    Fixpoint wpgen (t:trm) : (val->hprop)->hprop :=
-      mkstruct (
-        fun (Q:val->hprop) =>   
-          match t with
-          | trm_val v => Q v
-          | .. => ..
-          end).
+        ...
+        end).
 ]]
 
     The interest of the insertion of [mkstruct] above is that every result 
@@ -986,14 +1113,7 @@ Parameter wp_frame : forall t H Q,
     we need to swap the [fun Q] with the [match t], so that the
     pattern matching on [t] is visible enough for Coq to simplify it.
 
-[[
-    Fixpoint wpgen (t:trm) : (val->hprop)->hprop :=
-      mkstruct (
-        match t with
-        | trm_val v => (fun Q => Q v)
-        | .. => (fun Q => ..)
-        end).
-]]
+
 
     There remains to investigate how [mkstruct] should be defined. 
 *)
@@ -1002,15 +1122,9 @@ Parameter wp_frame : forall t H Q,
 (* ------------------------------------------------------- *)
 (** *** Properties of [mkstruct] *)
 
-(** Before we state the properties that [mkstruct] should satisfy,
-    let us first figure out the type of [mkstruct].
-    
-    The type of [wpgen t] is [(val->hprop)->hprop].
-    Thereafter, let [formula] be a shorthand for this type. *)
-
-Definition formula : Type := (val->hprop)->hprop.
-
 Module MkstructProp.
+
+(** Let us state the properties that [mkstruct] should satisfy. *)
 
 (** Because [mkstruct] appears between the prototype and the 
     [match] in the body of [wpgen], the predicate [mkstruct]
@@ -1073,17 +1187,110 @@ Lemma mkstruct_erase : forall (F:formula) Q,
   F Q ==> mkstruct F Q.
 Proof using. intros. unfold mkstruct. xsimpl. xsimpl. Qed.
 
+(** Remark: an interesting property of [mkstruct] is its idempotence:
+    [mkstruct (mkstruct F) = mkstruct F].
 
-(** We also introduce a tiny shorthand to denote [mkstruct F], writing
-    [`F], so that it does not clutter the display. *)
+    Idempotence asserts that applying the predicate [mkstruct] more than 
+    once does provide more expressiveness than applying it just once. 
+
+    Intuitively, idempotence reflects in particular the fact that two nested 
+    applications of the rule of consequence can always be combined into a 
+    single application of that rule (due to the transitivity of entailement) 
+    and that, similarly, two nested applications of the frame rule can always 
+    be combined into a single application of that rule (framing on [H1] then 
+    framing on [H2] is equivalent to framing on [H1 \* H2]). *)
+
+(* EX3! (mkstruct_idempotent) *)
+(** Prove the idempotence of [mkstruct].
+    Hint: leverage [xpull] and [xsimpl]. *)
+
+Lemma mkstruct_idempotent : forall F,
+  mkstruct (mkstruct F) = mkstruct F.
+Proof using.
+  intros. apply fun_ext_1. intros Q. applys himpl_antisym.
+  (* SOLUTION *)
+  { unfold mkstruct. xpull ;=> Q1 H1 Q2 H2 M1 M2. 
+    xsimpl Q2 (H1 \* H2). xchanges* M1. }
+  { applys mkstruct_erase. }
+(* /SOLUTION *)
+Qed.
+
+
+(* ------------------------------------------------------- *)
+(** *** Definition of [wpgen] featuring [mkstruct] *)
+
+(** Our final definition of [wpgen] is the same as before, except with
+    the [mkstruct] predicate appearing before the [match t with]. *)
+
+Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+  mkstruct (match t with
+  | trm_val v => wpgen_val v
+  | trm_var x => wpgen_var E x
+  | trm_fun x t1 => wpgen_val (val_fun x (isubst (rem x E) t1))
+  | trm_fix f x t1 => wpgen_val (val_fix f x (isubst (rem x (rem f E)) t1))
+  | trm_app t1 t2 => wp (isubst E t)
+  | trm_seq t1 t2 => wpgen_seq (wpgen E t1) (wpgen E t2)
+  | trm_let x t1 t2 => wpgen_let (wpgen E t1) (fun v => wpgen ((x,v)::E) t2)
+  | trm_if t0 t1 t2 => wpgen_if (isubst E t0) (wpgen E t1) (wpgen E t2)
+  end).
+
+(** Again, we postpone the proof of soundness. *)
+
+Parameter wpgen_sound : forall E t Q,
+   wpgen E t Q ==> wp (isubst E t) Q.
+
+Parameter triple_app_fun_from_wpgen : forall v1 v2 x t1 H Q,
+  v1 = val_fun x t1 ->
+  H ==> wpgen ((x,v2)::nil) t1 Q ->
+  triple (trm_app v1 v2) H Q.
+
+
+
+(* ------------------------------------------------------- *)
+(** *** Notation for [mkstruct] and test *)
+
+(** To avoid clutter in reading the output of [wpgen],
+    we introduce a tiny shorthand to denote [mkstruct F],
+    allowing it to display simply as [`F]. *)
 
 Notation "` F" := (mkstruct F) (at level 10, format "` F").
 
+
+(** Let us test the output. *)
+
+Module WPgenWithMkstruct.
+Import ExamplePrograms.
+
+Lemma triple_incr : forall (p:loc) (n:int),
+  triple (trm_app incr p)
+    (p ~~~> n)
+    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+Proof using.
+  intros. applys triple_app_fun_from_wpgen. { reflexivity. }
+  simpl.
+  (** Up to proper tabulation, alpha-renaming, and removal of
+      parentheses (and dummy quotes after [Let] and [If]), 
+     [F] reads as:
+[[ 
+  `Let n := `(App val_get p) in
+  `Let m := `(App (val_add n) 1) in
+  `App (val_set p) m
+]]
+
+*)
+
+Abort.
+
+End WPgenWithMkstruct.
 
 
 
 (* ####################################################### *)
 (** * Practical proofs using [wpgen] *)
+
+(** The last major step consists in introducing lemmas and 
+    tactics to assist in the processing of formulas produced
+    by [wpgen]. *)
 
 
 (* ******************************************************* *)
@@ -1444,15 +1651,13 @@ Qed.
 End ProofsWithAdvancedXtactics.
 
 
-
 (* ####################################################### *)
-(** * Soundness proof for [wpgen] *)
-
-Module WPgenSound.
-
+(** * Bonus contents (optional reading) *)
 
 (* ******************************************************* *)
-(** ** Statement of soundness *)
+(** ** Soundness proof for [wpgen] *)
+
+Module WPgenSound.
 
 (* ------------------------------------------------------- *)
 (** *** Introduction of the predicate [formula_sound] *)
@@ -1580,10 +1785,10 @@ Proof using.
   applys himpl_trans S1. applys wp_conseq. intros v. applys S2.
 Qed.
 
-Lemma wpgen_if_sound : forall F1 F2 v0 t1 t2,
+Lemma wpgen_if_sound : forall F1 F2 t0 t1 t2,
   formula_sound t1 F1 ->
   formula_sound t2 F2 ->
-  formula_sound (trm_if v0 t1 t2) (wpgen_if v0 F1 F2).
+  formula_sound (trm_if t0 t1 t2) (wpgen_if t0 F1 F2).
 Proof using.
   introv S1 S2. intros Q. unfold wpgen_if. xpull. intros b ->.
   applys himpl_trans wp_if. case_if. { applys S1. } { applys S2. }
@@ -1682,16 +1887,6 @@ Parameter isubst_rem : forall x v E t,
 
 *)
 
-(* TODO: move *)
-Lemma wpgen_if_sound' : forall F1 F2 t0 t1 t2,
-  formula_sound t1 F1 ->
-  formula_sound t2 F2 ->
-  formula_sound (trm_if t0 t1 t2) (wpgen_if t0 F1 F2).
-Proof using.
-  introv S1 S2. intros Q. unfold wpgen_if. xpull. intros b ->.
-  applys himpl_trans wp_if. case_if. { applys S1. } { applys S2. }
-Qed.
-
 Lemma wpgen_sound_induct : forall E t,
   formula_sound (isubst E t) (wpgen E t).
 Proof using.
@@ -1708,7 +1903,7 @@ Proof using.
   { rename v into x. applys wpgen_let_sound.
     { applys IHt1. }
     { intros v. rewrite <- isubst_rem. applys IHt2. } }
-  { applys wpgen_if_sound'. { applys IHt2. } { applys IHt3. } }
+  { applys wpgen_if_sound. { applys IHt2. } { applys IHt3. } }
 Qed.
 
 
@@ -1750,10 +1945,6 @@ Proof using.
 Qed.
 
 End WPgenSound.
-
-
-(* ####################################################### *)
-(** * Bonus contents (optional reading) *)
 
 
 (* ******************************************************* *)
@@ -1828,34 +2019,6 @@ Parameter mkstruct_erase : forall (F:formula) Q,
 
 (** To prove it, instantiate [Q2] from the definition of [mkstruct] as [Q],
     and [H] as the empty heap predicate. *)
-
-(** Remark: an interesting property of [mkstruct] is its idempotence:
-    [mkstruct (mkstruct F) = mkstruct F].
-
-    Idempotence asserts that applying the predicate [mkstruct] more than 
-    once does provide more expressiveness than applying it just once. 
-
-    Intuitively, idempotence reflects in particular the fact that two nested 
-    applications of the rule of consequence can always be combined into a 
-    single application of that rule (due to the transitivity of entailement) 
-    and that, similarly, two nested applications of the frame rule can always 
-    be combined into a single application of that rule (framing on [H1] then 
-    framing on [H2] is equivalent to framing on [H1 \* H2]). *)
-
-(* EX3! (mkstruct_idempotent) *)
-(** Prove the idempotence of [mkstruct]. Hint: use [xsimpl]. *)
-
-Lemma mkstruct_idempotent : forall F,
-  mkstruct (mkstruct F) = mkstruct F.
-Proof using.
-  intros. apply fun_ext_1. intros Q. applys himpl_antisym.
-  (* SOLUTION *)
-  { unfold mkstruct. xpull ;=> Q1 H1 Q2 H2. intros M1 M2. 
-    xsimpl Q2 (H1 \* H2). xchanges* M1. }
-  { applys mkstruct_erase. }
-(* /SOLUTION *)
-Qed.
-
 
 End MkstructGuess.
 

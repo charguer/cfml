@@ -770,3 +770,20 @@ Parameter wp_frame : forall t H Q,
     There remains to investigate how [mkstruct] should be defined. 
 *)
 
+
+====================
+
+
+Lemma wpgen_if_sound : forall F1 F2 v0 t1 t2,
+  formula_sound t1 F1 ->
+  formula_sound t2 F2 ->
+  formula_sound (trm_if v0 t1 t2) (wpgen_if v0 F1 F2).
+Proof using.
+  introv S1 S2. intros Q. unfold wpgen_if. xpull. intros b ->.
+  applys himpl_trans wp_if. case_if. { applys S1. } { applys S2. }
+Qed.
+
+(* TODO: move *)
+
+
+===========================
