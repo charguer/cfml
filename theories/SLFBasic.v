@@ -124,7 +124,8 @@ Lemma Triple_incr : forall (p:loc) (n:int),
       value; here [r] has type unit, reflecting the type of [incr p].
       The expression [p ~~> (n+1)] describes the output state.
 
-*)
+      Important remark: [p ~~> n+1] would parse as [(p ~~> n) + 1] and fail
+      to typecheck, so please beware that parentheses are required. *)
 
 (** Let us now prove that specification, by conducting a verification proof 
     using CFML tactics. *)
@@ -175,6 +176,16 @@ Proof using.
               which require checking that the final state matches what 
               is claimed in the postcondition. *)
 Qed.
+
+(** The command below associates the specification lemma [Triple_incr]
+    with the function [incr] in a database, so that if we subsequently
+    verify a program that features a call to [incr], the [xapp] tactic
+    is able to automatically invoke the lemma [Triple_incr]. 
+
+    (There is no need to understand the internal magic of how the
+    database is implemented by hacking Coq's [Hint] mechanism.) *)
+
+Hint Extern 1 (Register_Spec incr) => Provide Triple_incr.
 
 
 (* ******************************************************* *)
@@ -308,16 +319,129 @@ Definition inplace_double : val :=
 Lemma Triple_inplace_double : forall (p:loc) (n:int),
   TRIPLE (inplace_double p)
     PRE ((* SOLUTION *) p ~~> n (* /SOLUTION *))
-    POST (fun (_:unit) => (* SOLUTION *) p ~~> (2 * n) (* /SOLUTION *)).
+    POST (fun (_:unit) => (* SOLUTION *) p ~~> (2*n) (* /SOLUTION *)).
 Proof using.
   (* SOLUTION *) xwp. xapp. xapp. xapp. xapp. xsimpl. math. (* /SOLUTION *)
 Qed.
 
 
 (* ******************************************************* *)
+(** *** Increment of two references *)
+
+(** Consider the following function, which expects the addresses
+    of two reference cells, and increments both of them.
+
+[[
+  let incr_two p q =
+    incr p;
+    incr q
+]]
+*)
+
+Definition incr_two : val :=
+  VFun 'p 'q :=
+    incr 'p ';
+    incr 'q.
+
+(** The specificaiton of this function takes the form
+    [TRIPLE (incr_two p q) PRE _ POST (fun (r:unit) => _ )], 
+    where [r] denotes the result value of type unit. 
+
+    The precondition describes two references cells:
+    [p ~~> n] for the first one, and [q ~~> m]. To assert
+    that the two cells are distinct from each other, we
+    separate the two with the token [\*], which is called
+    "separating conjunction" in Separation Logic, and is
+    also known as the "star" operator. Thus, the precondition
+    is [(p ~~> n) \* (q ~~> m)], or simply [p ~~> n \* q ~~> m].
+
+    The postcondition describes the final state as
+    is [p ~~> (n+1) \* q ~~> (m+1)], where the contents of both
+    cells increased by one unit. 
+
+    The specification triple for [incr_two] is thus: *)
+
+Lemma Triple_incr_one_of_two : forall (p q:loc) (n m:int),
+  TRIPLE (incr_two p q)
+    PRE (p ~~> n \* q ~~> m)
+    POST (fun (r:unit) => p ~~> (n+1) \* q ~~> (m+1)).
+
+(** The proof follow the usual pattern. *)
+
+Proof using.
+  xwp. xapp. xapp. xsimpl.
+Qed.
+
+(** Let us register the specification [Triple_incr_one_of_two] in 
+    the database of specifications. *)
+
+Hint Extern 1 (Register_Spec incr_two) => Provide Triple_incr_one_of_two.
+
+(** The specification above correctly describes calls to the function
+    [incr_two] when providing it with two distinct reference cells.
+    But it says nothing about a call of the form [incr_two p p].
+    Indeed, in Separation Logic, if we have a state described by [p ~~> n], 
+    we cannot possibly match it with [p ~~> n \* p ~~> n], because the
+    star operator requires its operand to correspond to disjoint pieces
+    of heap. 
+
+    What happens if we nevertheless try to exploit [Triple_incr_one_of_two]
+    on a call of the form [incr_two p p]? Let's try, by considering a 
+    function [aliased_call p] that execute precisely this call. *)
+
+Definition aliased_call : val :=
+  VFun 'p :=
+    incr_two 'p 'p.
+
+Lemma Triple_aliased_call : forall (p:loc) (n:int),
+  TRIPLE (aliased_call p)
+    PRE (p ~~> n)
+    POST (fun (r:unit) => p ~~> (n+2)).
+
+(** The proof follow the usual pattern. *)
+
+Proof using.
+  xwp. xapp.
+Abort.
+
+(** We get stuck with a proof obligation of the form:
+    [\[] ==> (p ~~> ?m) \* _], which requires showing that
+    from an empty state one can extract a reference [p ~~> ?m]
+    for some integer [?m].
+  
+    What happened in that when matching the current state
+    [p ~~> n] against [p ~~> ?n \* p ~~> ?m]
+    (that is, the precondition of [Triple_incr_one_of_two]
+    when [q = p]), the internal simplification tactic could cancel 
+    out [p ~~> n] in both expressions, but then got stuck with
+    matching the empty state against [q ~~> ?m]. *)
+
+(** It is, however, possible to state and prove an alternative
+    specification for the function [incr_two], specifically covering 
+    the case where the two arguments are equal. In that case, the
+    specification is totally different: the precondition mentions
+    only one reference, [p ~~> n], and the postcondition asserts
+    that its contents gets increased by two units. *)
+
+Lemma Triple_incr_one_of_two' : forall (p:loc) (n:int),
+  TRIPLE (incr_two p p)
+    PRE (p ~~> n)
+    POST (fun (r:unit) => p ~~> (n+2)).
+
+(** The proof follow the usual pattern. *)
+
+Proof using.
+  xwp. xapp. xapp. xsimpl. math.
+Qed.
+
+
+
+(* ******************************************************* *)
 (** *** Increment with two references *)
 
-(**
+(** Consider the following function, which expects the addresses
+    of two reference cells, and increments both of them.
+
 [[
   let incr_one_of_two p q =
     incr p
@@ -328,8 +452,9 @@ Definition incr_one_of_two : val :=
   VFun 'p 'q :=
     incr 'p.
 
-Lemma Triple_incr_one_of_two :
-  forall (p q:loc) (n m:int),
+(** The input state *)
+
+Lemma Triple_incr_one_of_two : forall (p q:loc) (n m:int),
   TRIPLE (incr_one_of_two p q)
     PRE (p ~~> n \* q ~~> m)
     POST (fun (r:unit) => p ~~> (n+1) \* q ~~> m).
@@ -355,10 +480,13 @@ Definition decr_and_incr :=
     decr 'p ';
     incr 'q.
 
+(* TODO: solution as part of a def... *)
 Lemma Triple_decr_and_incr : forall p q n m,
+  (* SOLUTION *)
   TRIPLE (decr_and_incr p q)
-    PRE ((* SOLUTION *) p ~~> n \* q ~~> m (* /SOLUTION *))
-    POST ((* SOLUTION *) fun (_:unit) => p ~~> (n-1) \* q ~~> (m+1) (* /SOLUTION *)).
+    PRE  (p ~~> n \* q ~~> m)
+    POST (fun (_:unit) => p ~~> (n-1) \* q ~~> (m+1) ).
+  (* /SOLUTION *)
 Proof using.
   (* SOLUTION *) xwp. xapp. xapp. xsimpl. (* /SOLUTION *)
 Qed.
@@ -478,8 +606,7 @@ Proof using. xwp. xappn. xsimpl*. Qed.
 
 End OptimizedScripts.
 
-
-
+(** Remark: [fun (r:unit)] could also be written [fun (_:unit)]. *)
 
 
 (* ******************************************************* *)
