@@ -17,6 +17,11 @@ Implicit Types n m : int.
 Implicit Types p q : loc.
 
 
+
+(* TODO: tune to make it linear by default ;
+    there will be no need to explain \GC then . *)
+
+
 (* ####################################################### *)
 (** * The chapter in a rush *)
 
@@ -361,7 +366,7 @@ Definition incr_two : val :=
 
     The specification triple for [incr_two] is thus: *)
 
-Lemma Triple_incr_one_of_two : forall (p q:loc) (n m:int),
+Lemma Triple_incr_two : forall (p q:loc) (n m:int),
   TRIPLE (incr_two p q)
     PRE (p ~~> n \* q ~~> m)
     POST (fun (r:unit) => p ~~> (n+1) \* q ~~> (m+1)).
@@ -375,7 +380,7 @@ Qed.
 (** Let us register the specification [Triple_incr_one_of_two] in 
     the database of specifications. *)
 
-Hint Extern 1 (Register_Spec incr_two) => Provide Triple_incr_one_of_two.
+Hint Extern 1 (Register_Spec incr_two) => Provide Triple_incr_two.
 
 (** The specification above correctly describes calls to the function
     [incr_two] when providing it with two distinct reference cells.
@@ -423,7 +428,7 @@ Abort.
     only one reference, [p ~~> n], and the postcondition asserts
     that its contents gets increased by two units. *)
 
-Lemma Triple_incr_one_of_two' : forall (p:loc) (n:int),
+Lemma Triple_incr_two_aliased : forall (p:loc) (n:int),
   TRIPLE (incr_two p p)
     PRE (p ~~> n)
     POST (fun (r:unit) => p ~~> (n+2)).
@@ -491,38 +496,62 @@ Proof using.
   xtriple. xapp Triple_incr_first'. xsimpl.
 Qed.
 
-(** More generally, in Separation Logic, if a specification triple holds, 
-    then this specification triple remains valid by adding a same predicate 
+(** More generally, in Separation Logic, if a specification triple holds,
+    then this specification triple remains valid by adding a same predicate
     in both the precondition and the postcondition. This is the "frame"
     principle, a key modularity feature that we'll discuss later. *)
 
 
 (* ******************************************************* *)
-(** ** Basic imperative function with two arguments (white belt) *)
+(** ** Exercise: transfer from one reference to another *)
 
-(**
+(** Consider the following function.
+
 [[
-  let decr_and_incr p q =
-    decr p;
-    incr q
+  let transfer p q =
+    p := !p + !q;
+    q := 0
 ]]
+
+    Remark: for technical reasons, the constant [0] needs to be
+    written [``0] in the code below. --  TODO: fix this.
 *)
 
-Definition decr_and_incr :=
+Definition transfer : val :=
   VFun 'p 'q :=
-    decr 'p ';
-    incr 'q.
+   'p ':= ('!'p '+ '!'q) ';
+   'q ':= ``0.
 
-(* TODO: solution as part of a def... *)
-Lemma Triple_decr_and_incr : forall p q n m,
-  (* SOLUTION *)
-  TRIPLE (decr_and_incr p q)
-    PRE  (p ~~> n \* q ~~> m)
-    POST (fun (_:unit) => p ~~> (n-1) \* q ~~> (m+1) ).
-  (* /SOLUTION *)
+(* EX2! (Triple_transfer) *)
+(** State and prove a lemma called [Triple_transfer] specifying
+    the behavior of [transfer] when its arguments consists of two
+    distinct references. *)
+
+(* SOLUTION *)
+Lemma Triple_transfer : forall (p q:loc) (n m:int),
+  TRIPLE (transfer p q)
+    PRE (p ~~> n \* q ~~> m)
+    POST (fun (_:unit) => p ~~> (n + m) \* q ~~> 0).
 Proof using.
-  (* SOLUTION *) xwp. xapp. xapp. xsimpl. (* /SOLUTION *)
+  xwp. xapp. xapp. xapp. xapp. xapp. xsimpl.
 Qed.
+(* /SOLUTION *)
+
+(* EX2! (Triple_transfer_aliased) *)
+(** State and prove a lemma called [Triple_transfer_aliased] 
+    specifying the behavior of [transfer] when it is applied
+    twice to the same argument, that is, [transfer p p]. *)
+
+(* SOLUTION *)
+Lemma Triple_transfer_aliased : forall (p:loc) (n:int),
+  TRIPLE (transfer p p)
+    PRE (p ~~> n)
+    POST (fun (_:unit) => p ~~> 0).
+Proof using.
+  xwp. xapp. xapp. xapp. xapp. xapp. xsimpl.
+Qed.
+(* /SOLUTION *)
+
 
 
 
@@ -564,8 +593,6 @@ Qed.
 
 (* ******************************************************* *)
 (** *** Deallocation in Separation Logic *)
-
-(* TODO: tune to make it linear by default *)
 
 (** By default, Separation Logic treats allocated resources 
     ---it is a "linear" logic as opposed to an "affine" logic.

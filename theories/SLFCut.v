@@ -1014,3 +1014,62 @@ Proof using.
   rewrite hstar_hexists. applys triple_hexists.
   rewrite hstar_hempty_l. apply M.
 Qed.
+
+
+
+
+=============================
+
+(**
+[[
+  let transfer p q =
+    p := !p - 1
+]]
+*)
+
+Lemma Triple_incr : forall (p:loc) (n:int),
+  TRIPLE (incr p)
+    PRE (p ~~> n)
+    POST (fun (r:unit) => (p ~~> (n+1))).
+
+Definition decr : val :=
+  VFun 'p :=
+   'p ':= '! 'p '- 1.
+
+(* SOLUTION *)
+
+Hint Extern 1 (Register_Spec decr) => Provide Triple_decr.
+
+(* /SOLUTION *)
+
+(** 
+[[
+    Hint Extern 1 (Register_Spec decr) => Provide Triple_decr.
+]]
+*)
+
+(**
+[[
+  let decr_and_incr p q =
+    decr p;
+    incr q
+]]
+*)
+
+Definition decr_and_incr :=
+  VFun 'p 'q :=
+    decr 'p ';
+    incr 'q.
+
+(* TODO: solution as part of a def... *)
+Lemma Triple_decr_and_incr : forall p q n m,
+  (* SOLUTION *)
+  TRIPLE (decr_and_incr p q)
+    PRE  (p ~~> n \* q ~~> m)
+    POST (fun (_:unit) => p ~~> (n-1) \* q ~~> (m+1) ).
+  (* /SOLUTION *)
+Proof using.
+  (* SOLUTION *) xwp. xapp. xapp. xsimpl. (* /SOLUTION *)
+Qed.
+
+
