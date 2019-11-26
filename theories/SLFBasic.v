@@ -643,8 +643,6 @@ Proof using.
 Qed.
 
 
-
-
 (* ******************************************************* *)
 (** *** Exercise: allocate a reference with greater contents *)
 
@@ -878,10 +876,6 @@ Proof using. xwp. xappn. xsimpl*. Qed.
 End OptimizedScripts.
 
 (** Remark: [fun (r:unit)] could also be written [fun (_:unit)]. *)
-
-
-
-
 
 
 (* ******************************************************* *)
