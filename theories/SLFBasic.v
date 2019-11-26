@@ -10,7 +10,9 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require SLFDirect.
+From Sep Require Import Example. (* TODO: depend on CFML ? *)
+Generalizable Variables A B.
+
 Implicit Types n m : int.
 Implicit Types p q : loc.
 
@@ -19,57 +21,166 @@ Implicit Types p q : loc.
 (** * The chapter in a rush *)
 
 (** This chapter gives a quick overview of how to state specifications and 
-    carry out basic proofs in Separation Logic using CFML tactics. *)
+    carry out basic proofs in Separation Logic using CFML tactics.
 
+    In this chapter, we will present:
+  
+    - "Specification triples", of the form [TRIPLE _ PRE _ POST _],
+      relating a term, a precondition, and a postcondition.
+    - "Verification proof obligations", of the form [PRE _ CODE _ POST _],
+      which is a variant of the [TRIPLE] notation that puts the current
+      state as first argument.
+    - "Entailement proof obligations", of the form [_ ==> _] or [_ ===> _],
+      which require proving that a description of a state implies another one.
 
+    The "heap predicates" used to describe the current memory state include:
+    - [p ~~> n], which describes a memory cell at location [p] with contents [n],
+    - [\[]], which describes an empty state,
+    - [\[P]], which asserts that a proposition [P] is true (in an empty state),
+    - [H1 \* H2], which describes a state made of two disjoint parts: [H1] and [H2],
+    - [\exists x, H], which is used to quantify variables in postconditions.
 
-(* ####################################################### *)
-(** * Additional contents *)
+    The proofs are carried out using CFML "x-tactics", including:
+    - [xwp] to being a proof,
+    - [xapp] to reason about an application,
+    - [xval] to reason about a returned value,
+    - [xsimpl] to simplify or prove entailments ([_ ==> _] or [_ ===> _]).
 
+    In addition, the proof script exploit standard Coq tactics as well as
+    tactics from the TLC library, including:
+    - [unfold] to reveal a definition,
+    - [introv H1 H2] as a variant of [intros] that skips variables
+      and names only hypotheses,
+    - [tactic ;=> x y] as a shorthand for [tactic; intros x y],
+    - [math] to prove purely mathematical goals,
+    - [gen] and [induction_wf] to set up (non-structural) inductions.
+ *)
 
 
 (* ******************************************************* *)
 (** ** The increment function *)
 
-(**
+(** As first example, consider the function [incr], which increments
+    the contents of a mutable cell that stores an integer. 
+    In OCaml syntax, this function is defined as:
+
 [[
   let incr p =
     p := !p + 1
 ]]
+  
+    In the real CFML tools, programs can be provided as input in
+    OCaml syntax. However, throughout this course, to avoid unnecessary 
+    tooling, we will input programs using a custom set of Coq notation.
+
+    It is no needed to learn how to write programs in that funny syntax.
+    All that matters is to be able to recognize that the Coq definition
+    somehow matches the intended OCaml source code. 
+
+    Below is the code for [incr]. The quotes are used to disambiguate
+    with Coq syntax; the [VFun] token reads like [fun].
+    
 *)
 
 Definition incr : val :=
   VFun 'p :=
    'p ':= '! 'p '+ 1.
 
+(** Let [p] be the address of a reference cell, that is, a "location". 
+    
+    The expression [p ~~> n] describes a memory state in which the
+    contents of the location [p] is the value [n], in this case an 
+    integer value.
+
+    The behavior of [incr p] is to update the memory state by incrementing
+    the contents of the cell at location [p], so that its new contents is [n+1].
+    The new memory state is described by the expression [p ~~> (n+1)].
+
+    The result value returned by [incr p] is simply the "unit" value,
+    so there is not much to specify about the result value, appart from
+    the fact that it has type unit.
+
+    The specification of [incr p] can be expressed using a 
+    "Separation Logic triple"  using the custom notation
+    [TRIPLE _ PRE _ POST _], as follows. *)
+
 Lemma Triple_incr : forall (p:loc) (n:int),
   TRIPLE (incr p)
     PRE (p ~~> n)
     POST (fun (r:unit) => (p ~~> (n+1))).
+
+(** Let us describe the components:
+
+    - The [forall (p:loc) (n:int)] quantifies the argument of the function
+      ([p]), as well as the ghost argument ([n]) which is used to describe
+      the input state.
+    - The keyword [TRIPLE] introduces the expression [incr p], which is the
+      function call being specified.
+    - The keyword [PRE] introduces the "precondition", which describes the
+      input state that the function expects, here [p ~~> n].
+    - The keyword [POST] introduces the "postcondition", which describes 
+      both the output value and the output state produced by the call.
+      The pattern [fun (r:unit) => _] binds the name [r] to denote the result 
+      value; here [r] has type unit, reflecting the type of [incr p].
+      The expression [p ~~> (n+1)] describes the output state.
+
+*)
+
+(** Let us now prove that specification, by conducting a verification proof 
+    using CFML tactics. *)
+
+(** The CFML tooling will transform on-the-fly the code so that all 
+    intermediate expressions are named (that is, in "A-normal form").
+    In OCaml syntax, this would be:
+    
+[[
+  let incr p =
+    let m = 
+      let n = !p in
+      n + 1 in
+    p := m
+]]
+
+  This transformation is performed by the tactic [xwp], which begins every
+  CFML verification proof script.
+*)
+
 Proof using.
-  xwp. xapp. xapp. xapp. xsimpl.
+  xwp.     (* Begin the verification proof. The proof obligation is 
+              displayed using the custom notation [PRE _ CODE _ POST _]. 
+              The [CODE] part does not look very nice, but one should
+              be able to somehow recognize the body of [incr]. Indeed,
+              ignorining the details, and after alpha-renaming,
+              it looks like:
+[[
+              Let m := 
+                  Let n := App val_get p in
+                  App val_add n 1 
+                  in
+               App val_set p m
+]]
+
+             The remaining of the proof performs some form of symbolic 
+             execution. One should not attempt to read all the proof 
+             obligation at each step, but instead look at the current
+             state (the [PRE] part, which is [p ~~> n]), and the first
+             line only of the [CODE] part.
+ *)
+  xapp.    (* Reason about the the operation [!p] that reads into [p];
+              the read operation returns the value [n]. *)
+  xapp.    (* Reason about the addition operation [n+1]. *)
+  xapp.    (* Reason about the update operation [p := n+1],
+              thereby updating the state to [p ~~> (n+1)]. *)
+  xsimpl.  (* At this stage, the proof obligation takes the form [_ ==> _],
+              which require checking that the final state matches what 
+              is claimed in the postcondition. *)
 Qed.
 
-Hint Extern 1 (Register_Spec (incr)) => Provide Triple_incr.
-
-
 
 (* ******************************************************* *)
-(** ** Definition of entailment *)
+(** *** A function with a return value *)
 
-
-
-
-(* ####################################################### *)
-(** * Basic programs *)
-
-Module Basics.
-
-
-(* ******************************************************* *)
-(** *** Let computation *)
-
-(**
+(** 
 [[
   let example_let n =
     let a = n + 1 in
@@ -97,6 +208,14 @@ Qed.
 (** Note: [xappn] factorizes the [xapp] calls. *)
 
 (** Note: [xsimpl*] does [xsimpl] but automation that can call [xmath]. *)
+
+
+
+
+(* ####################################################### *)
+(** * Additional contents *)
+
+
 
 
 (* ******************************************************* *)
@@ -407,4 +526,69 @@ Proof using.
 Qed.
 
 End ExoBasic.
+
+
+
+
+
+(* ******************************************************* *)
+(** *** Facto *)
+
+(**
+[[
+  let rec facto n f =
+    ...
+    
+]]
+*)
+
+
+
+
+(* ******************************************************* *)
+(** *** Repeat *)
+
+(**
+[[
+  let rec repeat n f =
+    if n > 0 then begin
+      f ();
+      repeat (n-1) f
+    end
+]]
+*)
+
+
+
+
+(* ******************************************************* *)
+(** *** Add_to *)
+
+(**
+[[
+  let add_to p n =
+    let f = (fun () -> incr p) in 
+    repeat f n
+]]
+*)
+
+
+
+(* ******************************************************* *)
+(** *** Square *)
+
+(**
+[[
+  let square n =
+    let p = ref 0 in
+    let f = (fun () -> add_to p n) in 
+    repeat f n;
+    !p
+]]
+
+*)
+
+
+
+
 
