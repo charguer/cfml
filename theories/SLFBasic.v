@@ -558,14 +558,92 @@ Qed.
 (* ******************************************************* *)
 (** *** Existential quantifier to introduce abstraction *)
 
-(** Assume the existence of a random generator function,
-    which expects an integer [n] and output an unspecified
-    number between [0] and [n-1] inclusive.
+(** Assume that the programming language includes a builtin
+    random generator function, which expects an integer [n]
+    and outputs an unspecified number between [0] and [n-1]
+    inclusive. *)
+
+Parameter random_int : val.
+
+(** The function [random_int] can be specified as follows.
+
+    The precondition describes the empty state: [\[]]. 
+
+    The postcondition describes an integer [m], whose value
+    is specified to lie in the expected range: [0 <= m < n].
+
+    Formally:
+*)
+
+Parameter Triple_random_int : forall (n:int),
+  TRIPLE (random_int n)
+    PRE \[]
+    POST (fun (m:int) => \[0 <= m < n]).
+
+Hint Extern 1 (Register_Spec random_int) => Provide Triple_random_int.
+
+(** Consider now the following function, which expects an 
+    integer [n], then invokes the random number generator 
+    with argument [n], and places the result into a fresh
+    reference cell, which it returns.
+
 [[
-  let ref_greater p =
-    ref (!p + 1)
+  let ref_random_int p =
+    ref (random_int n)
 ]]
 *)
+
+Definition ref_random_int : val :=
+  VFun 'n :=
+    'ref (random_int 'n).
+
+(** How can we specify the function [ref_random_int]?
+    The precondition describes the empty state: [\[]].
+    The postcondition should bind the result value [(p:loc)],
+    which describes the address of the freshly allocated cell.
+    Moreover, it should assert that the memory state is of
+    the form [p ~~> m], for some [m] such that [0 <= m < n].
+
+    We can use the star operator to join the two pieces of
+    information [p ~~> m] and [0 <= m < n] in the postcondition:
+
+[[    
+    POST (fun (p:loc) => (p ~~> m) \* \[0 <= m < n]).
+]]
+
+    Yet, this statement does not typecheck because [m] is unbound.
+    To fix the issue appropriately, we need to introduce a new
+    Separation Logic operator: the existential quantifier for
+    postconditions (and possibly also preconditions).
+    The syntax is [\exists x, _], with a leading backslash. *)
+
+Lemma Triple_ref_random_int : forall (n:int),
+  TRIPLE (ref_random_int n)
+    PRE \[]
+    POST (fun (p:loc) => \exists m, (p ~~> m) \* \[0 <= m < n]).
+
+(** The proof of this lemma is interesting. *)
+
+Proof using.
+  xwp.
+  xapp. intros m Hm. 
+  (* [m] denotes the result of [random_int n].
+     This variable is not substituted away because there is no equality
+     of the form [m = _], but instead a constraint [Hm: 0 <= m < n]. *)
+  xapp. intros q.
+  (* [q] denotes the result of [ref m]. *)
+  (* There remains to justify that the current state
+     [q ~~> m] matches the postcondition, which is
+     [\exists m0, q ~~> m0 \* \[0 <= m0 < n]].
+     The simplification tactic is able to instantiate [m0] as [m]. *)
+  xsimpl. 
+  (* There remains to justify the constraint [0 <= m < n], which
+     matches exactly the assumption [Hm] obtained earlier. *)
+  auto.
+Qed.
+
+
+
 
 (* ******************************************************* *)
 (** *** Exercise: allocate a reference with greater contents *)
@@ -800,6 +878,42 @@ Proof using. xwp. xappn. xsimpl*. Qed.
 End OptimizedScripts.
 
 (** Remark: [fun (r:unit)] could also be written [fun (_:unit)]. *)
+
+
+
+
+
+
+(* ******************************************************* *)
+(** *** Incorrect quantification of existential variables *)
+
+(** Recall the function [ref_random_int n], defined as
+    [ref (random_int n)].
+
+    Consider the following specification, which quantifies [m]
+    outside of the triple, rather than using a [\exists] in the
+    postcondition. *)
+
+Parameter Triple_ref_random_int_incorrect : forall (n:int) (m:int),
+  TRIPLE (ref_random_int n)
+    PRE \[]
+    POST (fun (p:loc) => (p ~~> m) \* \[0 <= m < n]).
+
+(** What does this specification mean? It is useful? Is it provable?
+    
+    ...
+
+    Answer: no function can admit this specification, because it
+    could be instantiated, say, with [m=0] to prove that the output
+    reference contains the integer [0]; and also with [m1] to prove
+    that the output reference contains the integer [1]; the two
+    instantiations contradict each other. *)
+
+(** As a general rule, variables that are not arguments of the function,
+    nor variables used in the preconditions (i.e., "ghost arguments"),
+    should be bound in the postcondition, either as the return value
+    (like [fun (p:loc) => _], or using a Separation Logic existential
+    quantifier (e.g., [\exists m, _]). *)
 
 
 (* ******************************************************* *)
