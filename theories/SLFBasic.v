@@ -195,7 +195,7 @@ Qed.
 ]]
 *)
 
-Definition example_let :=
+Definition example_let : val :=
   VFun 'n :=
     Let 'a := 'n '+ 1 in
     Let 'b := 'n '- 1 in
@@ -214,7 +214,7 @@ Definition example_let :=
     Instead, we would like to specify that the result [r] is equal to [2*n].
     To that end, we write [fun (r:int) => \[2*n]] as postcondition. *)
 
-Lemma Triple_example_let : forall n,
+Lemma Triple_example_let : forall (n:int),
   TRIPLE (example_let n)
     PRE \[]
     POST (fun (r:int) => \[r = 2*n]).
@@ -241,7 +241,7 @@ Qed.
     substitution, whereas its variant [xapp_nosubst] instead introduces an
     explicit equality, as illustrated next. *)
 
-Lemma Triple_example_let' : forall n,
+Lemma Triple_example_let_with_nosubst : forall (n:int),
   TRIPLE (example_let n)
     PRE \[]
     POST (fun (r:int) => \[r = 2*n]).
@@ -253,75 +253,65 @@ Proof using.
   xsimpl. math. (* check that, under these hypotheses, [r = 2 * n]. *)
 Qed.
 
-(** Note: [xapp] calls [xlet] automatically when needed. *)
-
-(** Note: [xappn] factorizes the [xapp] calls. *)
-
-(** Note: [xsimpl*] does [xsimpl] but automation that can call [xmath]. *)
-
-
-
-
-(* ####################################################### *)
-(** * Additional contents *)
-
-
-
 
 (* ******************************************************* *)
-(** *** Increment *)
+(** ** Exercise: function [double] *)
 
-(**
+(** Consider the function [double] that expects an integer [n]
+    and returns its double, that is, the value [2 * n].
+
 [[
-  let incr p =
-    p := !p + 1
+  let double n =
+    n + n
 ]]
 *)
 
-Definition incr : val :=
-  VFun 'p :=
-   'p ':= '! 'p '+ 1.
-
-Lemma Triple_incr : forall (p:loc) (n:int),
-  TRIPLE (incr p)
-    PRE (p ~~> n)
-    POST (fun (r:unit) => (p ~~> (n+1))).
-Proof using.
-  xwp. xapp. xapp. xapp. xsimpl.
-Qed.
-
-Hint Extern 1 (Register_Spec (incr)) => Provide Triple_incr.
-
-
-(* ******************************************************* *)
-(** *** Successor using increment *)
-
-(**
-[[
-  let succ_using_incr n =
-    let p = ref n in
-    incr p;
-    !p
-]]
-*)
-
-Definition succ_using_incr :=
+Definition double : val :=
   VFun 'n :=
-    Let 'p := 'ref 'n in
-    incr 'p ';
-    '! 'p.
+    'n '+ 'n.
 
-Lemma Triple_succ_using_incr : forall n,
-  TRIPLE (succ_using_incr ``n)
+(* EX1! (Triple_double) *)
+(** Complete the postcondition of [Triple_double] to express that
+    it returns [2*n], then prove it. *)
+
+Lemma Triple_double : forall (n:int),
+  TRIPLE (double n)
     PRE \[]
-    POST (fun r => \[r = n+1]).
+    POST (fun (r:int) => (* SOLUTION *) \[r = 2 * n] (* /SOLUTION *)).
 Proof using.
-  xwp. xapp ;=> p. (* xapp. intros p. *)
-  xapp. xapp. xsimpl*.
+  (* SOLUTION *) xwp. xapp. xsimpl. math. (* /SOLUTION *)
 Qed.
 
-(** Note: [decr] is similarly defined in the library. *)
 
+(* ******************************************************* *)
+(** ** Exercise: function [inplace_double] *)
+
+(** Consider the function [inplace_double] that expects a reference
+    on an integer, reads twice in that reference, and updates the
+    reference with the sum of the two values that have been read.
+
+[[
+  let inplace_double p =
+    p := !p + !p
+]]
+*)
+
+(* EX1! (Triple_inplace_double) *)
+(** Complete the precondition and the postcondition of
+    [Triple_inplace_double] to express that it returns [2*n],
+    then prove the specification. *)
+
+Definition inplace_double : val :=
+  VFun 'p :=
+    'p ':= ('!'p '+ '!'p).
+
+Lemma Triple_inplace_double : forall (p:loc) (n:int),
+  TRIPLE (inplace_double p)
+    PRE ((* SOLUTION *) p ~~> n (* /SOLUTION *))
+    POST (fun (_:unit) => (* SOLUTION *) p ~~> (2 * n) (* /SOLUTION *)).
+Proof using.
+  (* SOLUTION *) xwp. xapp. xapp. xapp. xapp. xsimpl. math. (* /SOLUTION *)
+Qed.
 
 
 (* ******************************************************* *)
@@ -346,6 +336,34 @@ Lemma Triple_incr_one_of_two :
 Proof using.
   xwp. xapp. xsimpl.
 Qed.
+
+
+
+(* ******************************************************* *)
+(** ** Basic imperative function with two arguments (white belt) *)
+
+(**
+[[
+  let decr_and_incr p q =
+    decr p;
+    incr q
+]]
+*)
+
+Definition decr_and_incr :=
+  VFun 'p 'q :=
+    decr 'p ';
+    incr 'q.
+
+Lemma Triple_decr_and_incr : forall p q n m,
+  TRIPLE (decr_and_incr p q)
+    PRE ((* SOLUTION *) p ~~> n \* q ~~> m (* /SOLUTION *))
+    POST ((* SOLUTION *) fun (_:unit) => p ~~> (n-1) \* q ~~> (m+1) (* /SOLUTION *)).
+Proof using.
+  (* SOLUTION *) xwp. xapp. xapp. xsimpl. (* /SOLUTION *)
+Qed.
+
+
 
 
 (* ******************************************************* *)
@@ -382,6 +400,86 @@ Lemma Triple_incr_and_ref' : forall (p:loc) (n:int),
 Proof using.
   xtriple. xapp. intros q. xsimpl. math.
 Qed.
+
+(* ******************************************************* *)
+(** *** Deallocation in Separation Logic *)
+
+(* TODO: tune to make it linear by default *)
+
+(** By default, Separation Logic treats allocated resources 
+    ---it is a "linear" logic as opposed to an "affine" logic.
+    Remark: it is possible to tweak Separation Logic to make it
+    affine and enable throwing away. *)
+
+(*
+
+[[
+  let succ_using_incr n =
+    let p = ref n in
+    incr p;
+    let x = !p in
+    free p;
+    x
+]]
+*)
+
+Definition succ_using_incr :=
+  VFun 'n :=
+    Let 'p := 'ref 'n in
+    incr 'p ';
+    '! 'p.
+
+Lemma Triple_succ_using_incr : forall n,
+  TRIPLE (succ_using_incr ``n)
+    PRE \[]
+    POST (fun r => \[r = n+1]).
+Proof using.
+  xwp. xapp ;=> p. (* xapp. intros p. *)
+  xapp. xapp. xsimpl*.
+Qed.
+
+(** Note: [decr] is similarly defined in the library. *)
+
+
+
+
+(* ####################################################### *)
+(** * Additional contents *)
+
+
+(* ******************************************************* *)
+(** *** Optimized scripts *)
+
+Module OptimizedScripts.
+
+(** The CFML tool features the tactic [xappn] that iterates calls to [xapp],
+    and the tactic [xsimpl*] that combines [xsimpl] with call to automation. 
+    Using these tactics, proofs scripts for simple functions can be greatly
+    shortened. *)
+
+Lemma Triple_incr : forall (p:loc) (n:int),
+  TRIPLE (incr p)
+    PRE (p ~~> n)
+    POST (fun (r:unit) => (p ~~> (n+1))).
+Proof using. xwp. xappn. xsimpl*. Qed.
+
+Lemma Triple_example_let : forall n,
+  TRIPLE (example_let n)
+    PRE \[]
+    POST (fun (r:int) => \[r = 2*n]).
+Proof using. xwp. xappn. xsimpl*. Qed.
+
+(** The use of such advanced tactics is beyond the scope of this course.
+    In general, the overhead of executing the steps one by one is acceptable,
+    and it helps better reflecting the structure of the program in the proof.
+    Moreover, for complex programs, the advanced tactics are generally of 
+    limited benefits, because at each step there are many side-conditions
+    that need to be justified. *)
+
+End OptimizedScripts.
+
+
+
 
 
 (* ******************************************************* *)
@@ -465,76 +563,6 @@ End Basics.
       or just [*] after a tactic to invoke automation.
 *)
 
-
-(* ******************************************************* *)
-(** ** Basic pure function (warm up) *)
-
-(**
-[[
-  let double n =
-    n + n
-]]
-*)
-
-Definition double :=
-  VFun 'n :=
-    'n '+ 'n.
-
-Lemma Triple_double : forall n,
-  TRIPLE (double n)
-    PRE \[]
-    POST (fun m => (* SOLUTION *) \[m = 2 * n] (* /SOLUTION *)).
-Proof using.
-  (* SOLUTION *) xwp. xapp. xsimpl. math. (* /SOLUTION *)
-Qed.
-
-
-(* ******************************************************* *)
-(** ** Basic imperative function with one argument *)
-
-(**
-[[
-  let inplace_double p =
-    p := !p + !p
-]]
-*)
-
-Definition inplace_double :=
-  VFun 'p :=
-    'p ':= ('!'p '+ '!'p).
-
-Lemma Triple_inplace_double : forall p n,
-  TRIPLE (inplace_double p)
-    PRE ((* SOLUTION *) p ~~> n (* /SOLUTION *))
-    POST (fun (_:unit) => (* SOLUTION *) p ~~> (2 * n) (* /SOLUTION *)).
-Proof using.
-  (* SOLUTION *) xwp. xapp. xapp. xapp. xapp. xsimpl. math. (* /SOLUTION *)
-Qed.
-
-
-(* ******************************************************* *)
-(** ** Basic imperative function with two arguments (white belt) *)
-
-(**
-[[
-  let decr_and_incr p q =
-    decr p;
-    incr q
-]]
-*)
-
-Definition decr_and_incr :=
-  VFun 'p 'q :=
-    decr 'p ';
-    incr 'q.
-
-Lemma Triple_decr_and_incr : forall p q n m,
-  TRIPLE (decr_and_incr p q)
-    PRE ((* SOLUTION *) p ~~> n \* q ~~> m (* /SOLUTION *))
-    POST ((* SOLUTION *) fun (_:unit) => p ~~> (n-1) \* q ~~> (m+1) (* /SOLUTION *)).
-Proof using.
-  (* SOLUTION *) xwp. xapp. xapp. xsimpl. (* /SOLUTION *)
-Qed.
 
 
 (* ******************************************************* *)
