@@ -180,7 +180,13 @@ Qed.
 (* ******************************************************* *)
 (** *** A function with a return value *)
 
-(** 
+(** As second example, we describe a function that performs some simple
+    computations, and features no mutation---working in an empty memory state.
+
+    The function, whose code appears below, expects an integer argument [n],
+    computes [a] as [n+1], computes [b] as [n-1], then returns [a+b].
+    The function thus always returns [2*n].
+
 [[
   let example_let n =
     let a = n + 1 in
@@ -195,12 +201,56 @@ Definition example_let :=
     Let 'b := 'n '- 1 in
     'a '+ 'b.
 
+(** We specify this function using the the triple notation, in the form
+    [TRIPLE (example_let n) PRE _ POST (fun (r:int) => _ )], where [r] 
+    denotes the output value---this time, a value of type [int].
+
+    To denote the fact that the input state is empty, we write [\[]]
+    in the precondition (after the [PRE] keyword).
+
+    To denote the fact that the output state is empty, we could use [\[]].
+    Yet, if we write [fun (r:int) => \[]] as postcondition, we would have 
+    said nothing about the output value [r] produced by a call [example_let].
+    Instead, we would like to specify that the result [r] is equal to [2*n].
+    To that end, we write [fun (r:int) => \[2*n]] as postcondition. *)
+
 Lemma Triple_example_let : forall n,
   TRIPLE (example_let n)
     PRE \[]
-    POST (fun r => \[r = 2*n]).
+    POST (fun (r:int) => \[r = 2*n]).
+
+(** The verification proof script is very similar to the previous one. 
+    The x-tactics [xapp] perform symbolic execution of the code.
+    Ultimately, we need to check that the expression computed,
+    [(n + 1) + (n - 1)] is equal to the specified result, that is, [2*n].
+    We exploit the tactics [xsimpl] and [math] to prove this result. *)
+
 Proof using.
   xwp. xapp. xapp. xapp. xsimpl. math.
+Qed.
+
+(** In the proof above, we have eargerly substituted [a] with [n+1], 
+    then substituted [b] with [n-1]. Such eager substitutions generally
+    work well for small programs, yet in some programs can lead to
+    exponential blow-up in the terms being manipulated. To avoid the
+    blow-up, it may be necessary to preserve explicit equalities, 
+    such as [a = n+1] and [b = n-1] in the context.
+
+    In general, it is desirable to let the user control when substitutions
+    should or should not be performed. The [xapp] tactic does perfom the
+    substitution, whereas its variant [xapp_nosubst] instead introduces an
+    explicit equality, as illustrated next. *)
+
+Lemma Triple_example_let' : forall n,
+  TRIPLE (example_let n)
+    PRE \[]
+    POST (fun (r:int) => \[r = 2*n]).
+Proof using.
+  xwp. 
+  xapp_nosubst. intros a Ha.  (* introduces [Ha: a = n + 1] *)
+  xapp_nosubst. intros b Hb.  (* introduces [Hb: b = n - 1] *)
+  xapp_nosubst. intros r Hr.  (* introduces [Hb: r = a + b] *)
+  xsimpl. math. (* check that, under these hypotheses, [r = 2 * n]. *)
 Qed.
 
 (** Note: [xapp] calls [xlet] automatically when needed. *)
