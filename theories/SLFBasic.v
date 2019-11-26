@@ -435,33 +435,66 @@ Proof using.
 Qed.
 
 
-
 (* ******************************************************* *)
-(** *** Increment with two references *)
+(** *** A function that takes two references, and increment one *)
 
 (** Consider the following function, which expects the addresses
-    of two reference cells, and increments both of them.
+    of two reference cells, and increments only the first one.
 
 [[
-  let incr_one_of_two p q =
+  let incr_first p q =
     incr p
 ]]
 *)
 
-Definition incr_one_of_two : val :=
+Definition incr_first : val :=
   VFun 'p 'q :=
     incr 'p.
 
-(** The input state *)
+(** We can specify this function by describing its input state
+    as [p ~~> n \* q ~~> m], and describing its output state
+    as [p ~~> (n+1) \* q ~~> m]. Formally: *)
 
-Lemma Triple_incr_one_of_two : forall (p q:loc) (n m:int),
-  TRIPLE (incr_one_of_two p q)
+Lemma Triple_incr_first : forall (p q:loc) (n m:int),
+  TRIPLE (incr_first p q)
     PRE (p ~~> n \* q ~~> m)
     POST (fun (r:unit) => p ~~> (n+1) \* q ~~> m).
 Proof using.
   xwp. xapp. xsimpl.
 Qed.
 
+(** Observe, however, that the second reference plays absolutely
+    no role in the execution of the function. In fact, we might
+    equally well have described in the precondition and in the
+    postcondition only the first reference, the one that the code
+    manipulates. *)
+
+Lemma Triple_incr_first' : forall (p q:loc) (n:int),
+  TRIPLE (incr_first p q)
+    PRE (p ~~> n)
+    POST (fun (r:unit) => p ~~> (n+1)).
+Proof using.
+  xwp. xapp. xsimpl.
+Qed.
+
+(** Interestingly, the former definition is "derivable" from the latter.
+    The tactic [xweaken] can be used to derive a specification from another. *)
+
+Lemma Triple_incr_first_derived : forall (p q:loc) (n m:int),
+  TRIPLE (incr_first p q)
+    PRE (p ~~> n \* q ~~> m)
+    POST (fun (r:unit) => p ~~> (n+1) \* q ~~> m).
+Proof using.
+  intros.
+  (* TODO: will be [xweaken Triple_incr_first'],
+      implemented as [applys Triple_conseq_frame Triple_incr_first']. *)
+  xtriple. xapp Triple_incr_first'. xsimpl.
+Qed.
+
+(** More generally, in Separation Logic, if a specification triple holds, 
+    then this specification triple remains valid by adding a same predicate 
+    in both the precondition and the postcondition. This is the "frame"
+    principle, a key modularity feature that we'll discuss later. *)
 
 
 (* ******************************************************* *)
