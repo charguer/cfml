@@ -1738,7 +1738,7 @@ Definition formula_sound (t:trm) (F:formula) : Prop :=
 
 (** Using [formula_sound], the soundness theorem reformulates as: *)
 
-Parameter wpgen_sound : forall E t,
+Parameter wpgen_sound' : forall E t,
   formula_sound (isubst E t) (wpgen E t).
 
 

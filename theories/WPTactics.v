@@ -475,13 +475,25 @@ Qed.
 
 (* [xapp_pre tt] automatically performs the necessary
    [xlet], [xseq] and [xcast], then checks that the goal
-   is a [Wpgen_app] goal. *)
+   is a [Wpgen_app] goal. 
+  
+   Besides, if the goal is a triple, then it converts it
+   to [wp]-style using [xtriple]. This is useful when proving
+   a specification by weakening an existing one. *)
 
-Ltac xapp_pre tt :=
+Ltac xapp_pre_wp tt :=
   xlet_xseq_xcast_repeat tt;
   match xgoal_code_without_wptag tt with
   | (Wpgen_app _) => idtac
   end.
+
+Ltac xapp_pre_triple tt :=
+  match goal with
+  | |- (Triple _ _ _) => xtriple
+  end.
+
+Ltac xapp_pre tt :=
+  first [ xapp_pre_wp tt | xapp_pre_triple tt ].
 
 Ltac xapp_post tt :=
   xsimpl; unfold protect; xcleanup.

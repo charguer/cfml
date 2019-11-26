@@ -1302,11 +1302,32 @@ Ltac xsimpl_clean tt :=
   try remove_empty_heaps_left tt;
   try xsimpl_hint_remove tt.
 
+(* LATER: might move to TLC *)
+Ltac gen_until_mark_with_processing_and_cleaning cont :=
+  match goal with H: ?T |- _ =>
+  match T with
+  | ltac_Mark => clear H
+  | _ => cont H; 
+         let T := type of H in
+         generalize H; clear H;
+         (* discard non-dependent hyps that are not of type Prop *)
+         try (match goal with |- _ -> _ => 
+              match type of T with  
+              | Prop => idtac
+              | _ => intros _ 
+              end end);
+         gen_until_mark_with_processing cont
+  end end.
+
 Ltac xsimpl_generalize tt :=
   xsimpl_post_before_generalize tt;
   xsimpl_handle_false_subgoals tt;
-  gen_until_mark_with_processing ltac:(himpl_post_processing_for_hyp);
+  gen_until_mark_with_processing_and_cleaning
+    ltac:(himpl_post_processing_for_hyp);
   xsimpl_post_after_generalize tt.
+  (* Note: was
+     [gen_until_mark_with_processing 
+       ltac:(himpl_post_processing_for_hyp)]. *)
 
 Ltac xsimpl_post tt :=
   xsimpl_clean tt;

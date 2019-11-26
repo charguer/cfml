@@ -23,7 +23,7 @@ Implicit Types p q : loc.
 
 
 (* ####################################################### *)
-(** * The chapter in a rush *)
+(** * The chapter in a rush & Additional contents *)
 
 (** This chapter gives a quick overview of how to state specifications and 
     carry out basic proofs in Separation Logic using CFML tactics.
@@ -59,6 +59,7 @@ Implicit Types p q : loc.
     - [tactic ;=> x y] as a shorthand for [tactic; intros x y],
     - [math] to prove purely mathematical goals,
     - [gen] and [induction_wf] to set up (non-structural) inductions.
+
  *)
 
 
@@ -483,17 +484,18 @@ Proof using.
 Qed.
 
 (** Interestingly, the former definition is "derivable" from the latter.
-    The tactic [xweaken] can be used to derive a specification from another. *)
+    To illustrate this, let us register the specification [Triple_incr_first]
+    in the database, and use the tactic [xapp] to exploit it to derive
+    [Triple_incr_first']. *)
 
-Lemma Triple_incr_first_derived : forall (p q:loc) (n m:int),
+Hint Extern 1 (Register_Spec incr_first) => Provide Triple_incr_first.
+
+Lemma Triple_incr_first'_derived : forall (p q:loc) (n m:int),
   TRIPLE (incr_first p q)
     PRE (p ~~> n \* q ~~> m)
     POST (fun (r:unit) => p ~~> (n+1) \* q ~~> m).
 Proof using.
-  intros.
-  (* TODO: will be [xweaken Triple_incr_first'],
-      implemented as [applys Triple_conseq_frame Triple_incr_first']. *)
-  xtriple. xapp Triple_incr_first'. xsimpl.
+  intros. xapp. xsimpl.
 Qed.
 
 (** More generally, in Separation Logic, if a specification triple holds,
@@ -553,120 +555,67 @@ Qed.
 (* /SOLUTION *)
 
 
-
-
-
 (* ******************************************************* *)
-(** *** Increment and allocate a copy *)
+(** *** Existential quantifier to introduce abstraction *)
 
-(**
+(** Assume the existence of a random generator function,
+    which expects an integer [n] and output an unspecified
+    number between [0] and [n-1] inclusive.
 [[
-  let incr_and_ref p =
-    incr p;
-    ref !p
+  let ref_greater p =
+    ref (!p + 1)
 ]]
 *)
 
-Definition incr_and_ref : val :=
-  VFun 'p :=
-    incr 'p ';
-    'ref ('! 'p).
+(* ******************************************************* *)
+(** *** Exercise: allocate a reference with greater contents *)
 
-Lemma Triple_incr_and_ref : forall (p:loc) (n:int),
-  TRIPLE (incr_and_ref p)
+(** Consider the following function.
+[[
+  let ref_greater p =
+    ref (!p + 1)
+]]
+*)
+
+Definition ref_greater : val :=
+  VFun 'p :=
+    'ref ('!'p '+ 1).
+
+(* EX2! (Triple_ref_greater) *)
+(** State a specification for the function [ref_greater].
+    Hint: the postcondition takes the form [POST (fun (q:loc) => _)],
+    where [q] denotes the location of the freshly allocated reference. *)
+
+Lemma Triple_ref_greater : forall (p:loc) (n:int),
+  TRIPLE (ref_greater p)
+(* SOLUTION *)
     PRE (p ~~> n)
-    POST (fun (q:loc) => q ~~> (n+1) \* p ~~> (n+1)).
+    POST (fun (q:loc) => p ~~> n \* q ~~> (n+1)).
 Proof using.
   xwp. xapp. xapp. xapp. xsimpl.
 Qed.
+(* /SOLUTION *)
 
-Hint Extern 1 (Register_Spec (incr_and_ref)) => Provide Triple_incr_and_ref.
+Hint Extern 1 (Register_Spec ref_greater) => Provide Triple_ref_greater.
 
-Lemma Triple_incr_and_ref' : forall (p:loc) (n:int),
-  TRIPLE (incr_and_ref p)
+(* EX2! (Triple_ref_greater_abstract) *)
+(** State another specification for the function [ref_greater],
+    with a postcondition that does not reveal the contents of 
+    the freshly reference [q], but instead only asserts that the
+    contents of it is greater than the contents of the argument [p].
+
+    Then, derive the new specification from the former one. 
+    Hint: invoke [xapp]. *)
+
+Lemma Triple_ref_greater_abstract : forall (p:loc) (n:int),
+(* SOLUTION *)
+  TRIPLE (ref_greater p)
     PRE (p ~~> n)
-    POST (fun (q:loc) =>
-        \exists m, \[m > n] \* q ~~> m \* p ~~> (n+1)).
+    POST (fun (q:loc) => \exists m, \[m > n] \* q ~~> m \* p ~~> n).
 Proof using.
-  xtriple. xapp. intros q. xsimpl. math.
+  intros. xapp. xsimpl. math.
 Qed.
-
-(* ******************************************************* *)
-(** *** Deallocation in Separation Logic *)
-
-(** By default, Separation Logic treats allocated resources 
-    ---it is a "linear" logic as opposed to an "affine" logic.
-    Remark: it is possible to tweak Separation Logic to make it
-    affine and enable throwing away. *)
-
-(*
-
-[[
-  let succ_using_incr n =
-    let p = ref n in
-    incr p;
-    let x = !p in
-    free p;
-    x
-]]
-*)
-
-Definition succ_using_incr :=
-  VFun 'n :=
-    Let 'p := 'ref 'n in
-    incr 'p ';
-    '! 'p.
-
-Lemma Triple_succ_using_incr : forall n,
-  TRIPLE (succ_using_incr ``n)
-    PRE \[]
-    POST (fun r => \[r = n+1]).
-Proof using.
-  xwp. xapp ;=> p. (* xapp. intros p. *)
-  xapp. xapp. xsimpl*.
-Qed.
-
-(** Note: [decr] is similarly defined in the library. *)
-
-
-
-
-(* ####################################################### *)
-(** * Additional contents *)
-
-
-(* ******************************************************* *)
-(** *** Optimized scripts *)
-
-Module OptimizedScripts.
-
-(** The CFML tool features the tactic [xappn] that iterates calls to [xapp],
-    and the tactic [xsimpl*] that combines [xsimpl] with call to automation. 
-    Using these tactics, proofs scripts for simple functions can be greatly
-    shortened. *)
-
-Lemma Triple_incr : forall (p:loc) (n:int),
-  TRIPLE (incr p)
-    PRE (p ~~> n)
-    POST (fun (r:unit) => (p ~~> (n+1))).
-Proof using. xwp. xappn. xsimpl*. Qed.
-
-Lemma Triple_example_let : forall n,
-  TRIPLE (example_let n)
-    PRE \[]
-    POST (fun (r:int) => \[r = 2*n]).
-Proof using. xwp. xappn. xsimpl*. Qed.
-
-(** The use of such advanced tactics is beyond the scope of this course.
-    In general, the overhead of executing the steps one by one is acceptable,
-    and it helps better reflecting the structure of the program in the proof.
-    Moreover, for complex programs, the advanced tactics are generally of 
-    limited benefits, because at each step there are many side-conditions
-    that need to be justified. *)
-
-End OptimizedScripts.
-
-(** Remark: [fun (r:unit)] could also be written [fun (_:unit)]. *)
+(* /SOLUTION *)
 
 
 (* ******************************************************* *)
@@ -758,7 +707,7 @@ End Basics.
 (** Here, we will assume [!p > 0].
 
 [[
-  let rec transfer p q =
+  let rec slow_transfer p q =
     if !p > 0 then (
       decr p;
       incr q;
@@ -767,7 +716,7 @@ End Basics.
 ]]
 *)
 
-Definition transfer :=
+Definition slow_transfer :=
   VFix 'f 'p 'q :=
     If_ '! 'p '> 0 Then
       decr 'p ';
@@ -775,9 +724,9 @@ Definition transfer :=
       'f 'p 'q
     End.
 
-Lemma Triple_transfer : forall p q n m,
+Lemma Triple_slow_transfer : forall p q n m,
   n >= 0 ->
-  TRIPLE (transfer p q)
+  TRIPLE (slow_transfer p q)
     PRE (p ~~> n \* q ~~> m)
     POST (fun (_:unit) => (* SOLUTION *) p ~~> 0 \* q ~~> (n + m) (* /SOLUTION *)).
 Proof using.
@@ -810,8 +759,91 @@ End ExoBasic.
 
 
 
+
+
+
+
+
+(* ####################################################### *)
+(** * Optional contents *)
+
+
 (* ******************************************************* *)
-(** *** Repeat *)
+(** *** Optimized scripts *)
+
+Module OptimizedScripts.
+
+(** The CFML tool features the tactic [xappn] that iterates calls to [xapp],
+    and the tactic [xsimpl*] that combines [xsimpl] with call to automation. 
+    Using these tactics, proofs scripts for simple functions can be greatly
+    shortened. *)
+
+Lemma Triple_incr : forall (p:loc) (n:int),
+  TRIPLE (incr p)
+    PRE (p ~~> n)
+    POST (fun (r:unit) => (p ~~> (n+1))).
+Proof using. xwp. xappn. xsimpl*. Qed.
+
+Lemma Triple_example_let : forall n,
+  TRIPLE (example_let n)
+    PRE \[]
+    POST (fun (r:int) => \[r = 2*n]).
+Proof using. xwp. xappn. xsimpl*. Qed.
+
+(** The use of such advanced tactics is beyond the scope of this course.
+    In general, the overhead of executing the steps one by one is acceptable,
+    and it helps better reflecting the structure of the program in the proof.
+    Moreover, for complex programs, the advanced tactics are generally of 
+    limited benefits, because at each step there are many side-conditions
+    that need to be justified. *)
+
+End OptimizedScripts.
+
+(** Remark: [fun (r:unit)] could also be written [fun (_:unit)]. *)
+
+
+(* ******************************************************* *)
+(** *** Deallocation in Separation Logic *)
+
+(** By default, Separation Logic treats allocated resources 
+    ---it is a "linear" logic as opposed to an "affine" logic.
+    Remark: it is possible to tweak Separation Logic to make it
+    affine and enable throwing away. *)
+
+(*
+
+[[
+  let succ_using_incr n =
+    let p = ref n in
+    incr p;
+    let x = !p in
+    free p;
+    x
+]]
+*)
+
+Definition succ_using_incr :=
+  VFun 'n :=
+    Let 'p := 'ref 'n in
+    incr 'p ';
+    '! 'p.
+
+Lemma Triple_succ_using_incr : forall n,
+  TRIPLE (succ_using_incr ``n)
+    PRE \[]
+    POST (fun r => \[r = n+1]).
+Proof using.
+  xwp. xapp ;=> p. (* xapp. intros p. *)
+  xapp. xapp. xsimpl*.
+Qed.
+
+(** Note: [decr] is similarly defined in the library. *)
+
+
+
+
+(* ******************************************************* *)
+(** *** Specification of a higher-order function: repeat *)
 
 (**
 [[
@@ -827,7 +859,7 @@ End ExoBasic.
 
 
 (* ******************************************************* *)
-(** *** Add_to *)
+(** *** Call to a higher-order function *)
 
 (**
 [[
@@ -840,7 +872,7 @@ End ExoBasic.
 
 
 (* ******************************************************* *)
-(** *** Square *)
+(** *** Exercise: square *)
 
 (**
 [[
