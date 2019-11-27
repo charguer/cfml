@@ -984,12 +984,14 @@ Lemma Triple_example_let : forall n,
     POST (fun (r:int) => \[r = 2*n]).
 Proof using. xwp. xappn. xsimpl*. Qed.
 
-Lemma Triple_factorial : forall n,
-  TRIPLE (factorial n)
+Lemma Triple_factorec : forall n,
+  n >= 0 ->
+  TRIPLE (factorec n)
     PRE \[]
     POST (fun (r:int) => \[r = facto n]).
 Proof using.
-  intros. induction_wf IH: (downto 1) n. xwp. xif ;=> C.
+  introv Hn. gen Hn. induction_wf IH: (downto 1) n.
+  xwp. xif ;=> C.
   { xval. xsimpl. rewrite* facto_init. }
   { xapp. xapp*. xapp. xsimpl. rewrite* (@facto_step n). }
 Qed.

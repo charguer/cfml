@@ -39,6 +39,8 @@ Implicit Types n : int.
 
 (** Configuration of automation *)
 
+Hint Unfold downto upto : maths.
+
 Ltac auto_false_base cont ::=
   try solve [
     intros_all; try match goal with |- _ <-> _ => split end;
