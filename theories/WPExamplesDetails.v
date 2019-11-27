@@ -626,12 +626,10 @@ Proof using.
   { (* case cons *)
     xlet. xapp~ @Triple_pop ;=> x L1' E.
     xseq.
-    (* xapp: *) xapp_debug @Triple_push. applys Spec. xsimpl.
+    (* xapp: *) xapp @Triple_push. xsimpl.
     dup.
-    { (* xapp (>> IH L1'): *) xapp_debug (>> IH L1'). applys Spec. { subst*. } xapp_post tt.
-      xsimpl. subst. rew_list~. }
-     { (* xapp (>> __ L1'): *) xapp_debug (>> __ L1'). applys Spec. { subst*. } xapp_post tt.
-      xsimpl. subst. rew_list~. } }
+    { xapp (>> IH L1'). { subst*. } xsimpl. subst. rew_list~. }
+    { xapp (>> __ L1'). { subst*. } xsimpl. subst. rew_list~. } }
 Qed.
 
 End Stack.

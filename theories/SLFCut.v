@@ -1198,3 +1198,80 @@ Qed.
 
 (** Note: [decr] is similarly defined in the library. *)
 
+
+
+
+
+(* ******************************************************* *)
+(** *** Specification of a higher-order function: repeat *)
+
+(**
+[[
+  let rec repeat n f =
+    if n > 0 then begin
+      f ();
+      repeat (n-1) f
+    end
+]]
+*)
+
+Definition repeat :=
+  VFix 'g 'n 'f :=
+    If_ 'n '> 0 Then
+      'f '() ';
+      'g ('n '- 1) 'f
+    End.
+
+Lemma Triple_repeat : forall (n:int) (f:val) (I:int->hprop),
+  n >= 0 ->
+  (forall i, 0 <= i < n ->
+    TRIPLE (f '())
+      PRE (I i)
+      POST (fun (_:unit) => I (i+1))) ->
+  TRIPLE (repeat ``n ``f)
+    PRE (I 0)
+    POST (fun (_:unit) => I n).
+Proof using.
+  introv Hn Hf.
+  assert (M: forall i0, 0 <= i0 < n ->
+    TRIPLE (repeat ``n ``f)
+      PRE (I i0)
+      POST (fun (_:unit) => I (i0+n))).
+  { intros i0.  induction_wf IH: (upto n) i0. unfolds upto.
+    introv Hi0. xwp. xapp. xif; intros C. 
+    { (* Case [n>0] *)
+      (* Call to [f] *)
+      xapp. { math. } xapp. xapp_debug. simpl. simpls. unfold trms_vals. rew_listx. eapply Spec. unfold trm_val. rew_list. eapply Spec. xapp IH. math.
+Qed.
+
+
+
+
+
+(* ******************************************************* *)
+(** *** Call to a higher-order function *)
+
+(**
+[[
+  let add_to p n =
+    let f = (fun () -> incr p) in 
+    repeat f n
+]]
+*)
+
+
+
+(* ******************************************************* *)
+(** *** Exercise: square *)
+
+(**
+[[
+  let square n =
+    let p = ref 0 in
+    let f = (fun () -> add_to p n) in 
+    repeat f n;
+    !p
+]]
+
+*)
+

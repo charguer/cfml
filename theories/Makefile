@@ -36,7 +36,7 @@ export TLC
 
 
 SRC_EXAMPLES := Example ExampleList ExampleListNull ExampleListIndir ExampleQueue ExampleListOf ExampleStack ExamplePairingHeap
-SRC_CORE := TLCbuffer Fmap Var SepSimpl Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics WPRecord $(SRC_EXAMPLES) WPExamples WPExamplesDetails WPLib 
+SRC_CORE := TLCbuffer Fmap Var SepSimpl Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics WPRecord $(SRC_EXAMPLES) WPExamples WPExamplesDetails WPLib WPUnitTests 
 
 SRC_MORE := SepBaseAltProofs SepCredits SepRO
 
@@ -44,7 +44,7 @@ SRC_EXAMPLES := Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueN
 
 SRC_CF := CFCrashCourse
 
-SRC_SF := SLFIntro SLFDirect SLFExtra SLFHprop SLFHimpl SubstExec SLFRules SLFWPsem SLFWPgen SLFSummary 
+SRC_SF := SLFIntro SLFDirect SLFExtra SLFBasic SLFHprop SLFHimpl SubstExec SLFRules SLFWPsem SLFWPgen SLFSummary 
 # SLFWand  
  #  SLFLift SLFRicher SLFExt
 

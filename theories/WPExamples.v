@@ -263,6 +263,7 @@ Lemma Triple_decr : forall (b:bool),
     POST (fun (r:bool) => \[r = !b]).
 Proof using.
   xwp.
+(*
   (* TODO fix xapp *)
   xlet. xapp_debug. lets K: (>> Spec b true). typeclass. apply K.
    unfold protect. xsimpl.
@@ -271,6 +272,8 @@ Proof using.
   { subst. xvals*. }
   { xvals. destruct b; auto_false. }
 Qed.
+*)
+Abort.
 
 
 (* ---------------------------------------------------------------------- *)

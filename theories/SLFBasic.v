@@ -46,8 +46,8 @@ Implicit Types p q : loc.
     - [\exists x, H], which is used to quantify variables in postconditions.
 
     The proofs are carried out using CFML "x-tactics", including:
-    - [xwp] to being a proof,
-    - [xapp] to reason about an application,
+    - [xwp] to being a proof (in case of failure, try [xwp_debug]),
+    - [xapp] to reason about an application (in case of failure, try [xapp_debug]),
     - [xval] to reason about a returned value,
     - [xsimpl] to simplify or prove entailments ([_ ==> _] or [_ ===> _]).
 
@@ -58,7 +58,8 @@ Implicit Types p q : loc.
       and names only hypotheses,
     - [tactic ;=> x y] as a shorthand for [tactic; intros x y],
     - [math] to prove purely mathematical goals,
-    - [gen] and [induction_wf] to set up (non-structural) inductions.
+    - [induction_wf] to set up (non-structural) inductions,
+    - [gen] as a shorthand for [generalize dependent].
 
  *)
 
@@ -771,7 +772,8 @@ Lemma Triple_factorec : forall n,
 Proof using.
   (* Set up a proof by induction on [n] to obtain an induction 
      hypothesis for the recursive calls, the last one being
-     made on [n = 1]. *)
+     made on [n = 1]. The tactic [induction_wf] is provided by the TLC
+     library to assist in setting up well-founded inductions. *)
   intros n. induction_wf IH: (downto 1) n.
   (* Observe the induction hypothesis [IH]. By unfolding [downto]
      as done in the next step, this hypothesis asserts that the
@@ -897,7 +899,7 @@ Proof using.
   (* First, introduces all variables and hypotheses. *)
   introv Hm.  (* equivalent to [intros n m Hm] *)
   (* Next, generalize those that are not constant during the recursion. *)
-  revert n Hm.
+  gen n Hm.
   (* Then, set up the induction. *)
   induction_wf IH: (downto 0) m. unfolds downto.
   (* Finally, re-introduce the generalized hypotheses. *)
@@ -957,10 +959,8 @@ Proof using.
 Qed.
 
 
-
 (* ####################################################### *)
 (** * Optional contents *)
-
 
 (* ******************************************************* *)
 (** *** Optimized scripts *)
@@ -1010,8 +1010,6 @@ Qed.
     that need to be justified. *)
 
 End OptimizedScripts.
-
-
 
 
 (* ******************************************************* *)
@@ -1104,7 +1102,7 @@ Parameter Triple_ref_random_int_incorrect : forall (n:int) (m:int),
     POST (fun (p:loc) => (p ~~> m) \* \[0 <= m < n]).
 
 (** What does this specification mean? It is useful? Is it provable?
-    
+
     ...
 
     Answer: no function can admit this specification, because it
@@ -1119,50 +1117,6 @@ Parameter Triple_ref_random_int_incorrect : forall (n:int) (m:int),
     (like [fun (p:loc) => _], or using a Separation Logic existential
     quantifier (e.g., [\exists m, _]). *)
 
-
-
-(* ******************************************************* *)
-(** *** Specification of a higher-order function: repeat *)
-
-(**
-[[
-  let rec repeat n f =
-    if n > 0 then begin
-      f ();
-      repeat (n-1) f
-    end
-]]
-*)
-
-
-
-
-(* ******************************************************* *)
-(** *** Call to a higher-order function *)
-
-(**
-[[
-  let add_to p n =
-    let f = (fun () -> incr p) in 
-    repeat f n
-]]
-*)
-
-
-
-(* ******************************************************* *)
-(** *** Exercise: square *)
-
-(**
-[[
-  let square n =
-    let p = ref 0 in
-    let f = (fun () -> add_to p n) in 
-    repeat f n;
-    !p
-]]
-
-*)
 
 
 

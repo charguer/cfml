@@ -257,6 +257,20 @@ Ltac xwp_core tt :=
 Tactic Notation "xwp" :=
   xwp_core tt.
 
+(** [xwp_debug] *)
+
+Ltac xwp_debug_core tt :=
+  first [ applys xwp_lemma_funs  
+        | applys xwp_lemma_fixs 
+        | fail 1 "Goal does not appear to be of the form [Triple (trm_apps F ts) H Q]" ];
+  [ first [ reflexivity | fail 1 "The function applied in the triple cannot be unified with [val_funs xs t]" ]
+  | first [ reflexivity | fail 1 "One of the arguments in the triple is not must of the form [trm_val v] for some [v]" ]
+  | first [ reflexivity | fail 1 "The number of arguments that appear in the triple does not match the exected number of arguments of the function" ]
+  | try xwp_simpl ].
+
+Tactic Notation "xwp_debug" :=
+  xwp_debug_core tt.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xtriple] *)
@@ -555,17 +569,6 @@ Tactic Notation "xapp" "~" constr(E) :=
 Tactic Notation "xapp" "*" constr(E) :=
   xapp E; auto_star.
 
-
-Ltac xapp_debug_intro tt :=
-  let H := fresh "Spec" in
-  intro H.
-
-Tactic Notation "xapp_debug" :=
-  applys @xapp_lemma; [ xspec; xapp_debug_intro tt | ].
-
-Tactic Notation "xapp_debug" constr(E) :=
-  applys @xapp_lemma; [ xspec_lemma_of_args E; xapp_debug_intro tt | ].
-
 Ltac xapp_nosubst_core tt :=
   xapp_pre tt;
   applys @xapp_lemma; [ xspec_prove_triple tt | xapp_post tt ].
@@ -601,6 +604,79 @@ Tactic Notation "xappn" "~" constr(n) :=
   do n (try (xapp; auto_tilde)).
 Tactic Notation "xappn" "*" constr(n) :=
   do n (try (xapp; auto_star)).
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** [xapp_debug] *)
+
+Ltac xapp_types_for_val v :=
+  match v with
+  | val_unit => idtac "unit"
+  | val_bool _ => idtac "bool"
+  | val_int _ => idtac "int"
+  | val_loc _ => idtac "loc"
+  | @enc ?T _ _ => idtac T
+  | _ => idtac "val"
+  end.
+
+Ltac xapp_types_for_vals vs :=
+  match vs with
+  | nil => idtac
+  | ?v :: ?vs' => xapp_types_for_val v; idtac "->"; xapp_types_for_vals vs'
+  end.
+
+Ltac xapp_types_for_trms ts :=
+  match ts with
+  | nil => idtac
+  | trms_vals ?vs => xapp_types_for_vals vs
+  | ?t :: ?ts' => 
+      match t with
+      | trm_val ?v => xapp_types_for_val v
+      | _ => idtac "trm"
+      end;
+      idtac "->"; 
+      xapp_types_for_trms ts'
+  end.
+
+Ltac xapp_types_in_triple ETriple :=
+  match ETriple with @Triple (trm_apps ?f ?ts) ?Tr ?ETr ?H ?Q =>
+    xapp_types_for_trms ts;
+    idtac Tr
+  end.
+
+Ltac xapp_debug_report_instantiated K :=
+  let EtripleS := type of K in 
+  idtac "=== Type of the specification for that function:";
+  xapp_types_in_triple EtripleS;
+  idtac "";
+  idtac "=== Type of the function call in the code:";
+  match goal with |- ?EtripleF => xapp_types_in_triple EtripleF end.
+
+Ltac xapp_debug_report H :=
+  forwards_then H ltac:(fun K => 
+    let X := fresh "SpecInstantiated" in
+    generalize K; intros X;
+    xapp_debug_report_instantiated X ).
+
+Ltac xspec_with_optional_arg E_or_double_underscore :=
+  match E_or_double_underscore with 
+  | __ => first [ xspec | fail 2 ]
+  | ?E => xspec_lemma_of_args E
+  end.
+
+Ltac xapp_debug_core E_or_double_underscore :=
+  xapp_pre tt; applys @xapp_lemma;
+  [ first [ xspec_with_optional_arg E_or_double_underscore;
+            let H := fresh "Spec" in intro H; simpl in H; xapp_debug_report H
+          | fail 1 "No specification registered for that function" ]
+  | ].
+
+Tactic Notation "xapp_debug" constr(E) :=
+  xapp_debug_core E.
+
+Tactic Notation "xapp_debug" :=
+  xapp_debug_core __.
 
 
 (* ---------------------------------------------------------------------- *)
