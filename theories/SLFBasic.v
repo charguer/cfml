@@ -702,12 +702,13 @@ Qed.
 
     We specify and verify these functions with respect to a Coq
     axiomatization of the corresponding mathematical function,
-    called [facto]. *)
+    called [facto]. Observe that we purposely do not specify
+    the value of [facto] on negative arguments. *)
 
 Parameter facto : int -> int.
 
 Parameter facto_init : forall n, 
-  n <= 1 ->
+  0 <= n <= 1 ->
   facto n = 1.
 
 Parameter facto_step : forall n, 
@@ -716,7 +717,7 @@ Parameter facto_step : forall n,
 
 
 (* ******************************************************* *)
-(** *** A simple recursive function *)
+(** *** A partial recursive function, without state *)
 
 (** In the rest of the chapter, we will consider recursive 
     functions that manipulate the state. To gently introduce
@@ -734,15 +735,36 @@ Parameter facto_step : forall n,
 
 *)
 
-Definition factorec :=
+Definition factorec : val :=
   VFix 'f 'n :=
     If_ 'n '<= 1 Then 1 Else 'n '* 'f ('n '- 1).
 
-(** We specify a call to [factorec n] using an empty precondition,
-    and a postcondition that simply asserts that the result is equal
-    to [facto n]. *)
+(** A call [factorec n] can be specified as follows:
 
-Lemma Triple_factorec : forall n,
+    - the initial state is empty
+    - the final state is empty
+    - the result value [r] is such that [r = facto n] when [n >= 0].
+
+    In case the argument is negative (i.e., [n < 0]), we have two choices:
+
+    - either we explicitly specify that the result is [1] in this case
+    - or we rule out this possibility by requiring [n >= 0].
+  
+    Let us follow the second approach, in order to illustrate the
+    specification of partial functions. There are yet two possibilities
+    for expressing the constraint [n >= 0]:
+
+    - either we use as precondition [\[n >= 0]],
+    - or we place an asssumption [(n >= 0) -> _] to the front of the triple.
+
+    The two presentations are totally equivalent. By convention, we follow  
+    the second presentation, which tends to improve the readability of
+    specifications and the conciseness of proof scripts.
+
+    The specification thus looks as follows. *)
+
+Lemma Triple_factorec : forall n, 
+  n >= 0 ->
   TRIPLE (factorec n)
     PRE \[]
     POST (fun (r:int) => \[r = facto n]).
@@ -750,7 +772,7 @@ Proof using.
   (* Set up a proof by induction on [n] to obtain an induction 
      hypothesis for the recursive calls, the last one being
      made on [n = 1]. *)
-  intros. induction_wf IH: (downto 1) n.
+  intros n. induction_wf IH: (downto 1) n.
   (* Observe the induction hypothesis [IH]. By unfolding [downto]
      as done in the next step, this hypothesis asserts that the
      specification that we are trying to prove already holds for
@@ -758,7 +780,7 @@ Proof using.
      (and greater than or equal to [1]). *)
   unfolds downto.
   (* Begin the interactive verification proof. *)
-  xwp. 
+  intros Hn. xwp. 
   (* Reason about the evaluation of the boolean condition [n <= 1]. *)
   xapp. 
   (* Perform a case analysis. *)
@@ -780,6 +802,9 @@ Proof using.
     (* Justify that the recursive call is indeed made on a smaller
        argument than the current one, that is, [n]. *)
     { math. }
+    (* Justify that the recursive call is made to a nonnegative argument,
+       as required by the specification. *)
+    { math. }
     (* Reason about the multiplication [n * facto(n-1)]. *)
     xapp.
     (* Check that [n * facto (n-1)] matches [facto n]. *)
@@ -789,26 +814,29 @@ Qed.
 (** Let's revisit the proof script without comments, and by skipping
     the superfluous tactics, such as [xapp] before [xif]. *)
 
-Lemma Triple_factorial' : forall n,
-  TRIPLE (factorial n)
+Lemma Triple_factorec' : forall n,
+  n >= 0 ->
+  TRIPLE (factorec n)
     PRE \[]
     POST (fun (r:int) => \[r = facto n]).
 Proof using.
- intros. induction_wf IH: (downto 1) n. 
-  xwp. xif ;=> C.
+  intros n. induction_wf IH: (downto 1) n. unfolds downto.
+  intros Hn. xwp. xif; intros C.
   { xval. xsimpl.
     rewrite facto_init; math. }
-  { xapp. xapp. { hnf. math. } xapp. xsimpl. 
+  { xapp. xapp. { math. } { math. } xapp. xsimpl. 
     rewrite (@facto_step n); math. }
 Qed.
-
-(* Later: fix the notation in the display *)
 
 
 (* ******************************************************* *)
 (** *** A recursive function with state *)
 
-(** We now tackle a recursive function
+(** We now tackle a recursive function involving mutable state.
+    
+    The function [repeat_incr p m] makes [m] times a call to [incr p].
+    Here, [m] is assumed to be a nonnegative value.
+    
 
 [[
   let rec repeat_incr p m =
@@ -819,60 +847,63 @@ Qed.
 ]]
 *)
 
-Definition repeat_incr :=
+Definition repeat_incr : val :=
   VFix 'f 'p 'm :=
     If_ 'm '> 0 Then
       incr 'p ';
       'f 'p ('m '- 1)
-    (* Else '() *) End.
+    End.
 
-(** Let's try to prove a false specification *)
+(** The specification for [repeat_incr] requires that the initial
+    state contains a reference [p] with some integer contents [n], 
+    that is, [p ~~> n]. Its postcondition asserts that the resulting
+    state is [p ~~> (n+m)], which is the result after incrementing
+    [m] times the reference [p]. This specification holds under the 
+    assumption that [m >= 0]. *)
 
-Lemma Triple_repeat_incr : forall p n m,
-  TRIPLE (repeat_incr p m)
-    PRE (p ~~> n)
-    POST (fun (_:unit) => p ~~> (n + m)).
-Proof using.
-  intros. gen n. induction_wf IH: (downto 0) m. intros.
-  xwp. xapp. xif ;=> C.
-  { (* then branch *)
-    xapp. xapp. xapp. { unfold downto. math. } xsimpl. math. }
-  { (* else branch *)
-    xval. xsimpl.
-Abort.
-
-(** Let's try again *)
-
-Lemma Triple_repeat_incr : forall p n m,
+Lemma Triple_repeat_incr : forall (m n:int) (p:loc),
   m >= 0 ->
   TRIPLE (repeat_incr p m)
     PRE (p ~~> n)
-    POST (fun (_:unit) => p ~~> (n + m)).
+    POST (fun (r:unit) => p ~~> (n + m)).
+
+(* EX2! (Triple_repeat_incr) *)
+(** Prove the function [Triple_repeat_incr].
+    Hint: it resembles the proof [Triple_factorec']. *)
+
 Proof using.
-  introv Hm. gen n Hm. induction_wf IH: (downto 0) m. intros.
-  xwp. xapp. xif; intros C.
-  { xapp. xapp. xapp. { hnf. math. } { math. }
-    xsimpl. math. }
+(* SOLUTION *)
+  intros m. induction_wf IH: (downto 0) m. unfolds downto.
+  intros n p Hm. xwp. xif; intros C.
+  { xapp. xapp. xapp. { math. } { math. } xsimpl. math. }
   { xval. xsimpl. math. }
+(* /SOLUTION *)
 Qed.
 
-(** Let's try yet another time *)
+(** In the previous examples of recursive functions, the induction
+    was always performed on the first argument quantified in the
+    specification. When the decreasing argument is not the first one,
+    additional manipulations are required for re-generalizing into
+    the goal the variables that may change during the course of the
+    induction.
 
-Lemma Triple_repeat_incr' : forall p n m,
+    Here is an exmaple. *)
+
+Lemma Triple_repeat_incr' : forall (p:loc) (n m:int),
+  m >= 0 ->
   TRIPLE (repeat_incr p m)
     PRE (p ~~> n)
-    POST (fun (_:unit) => p ~~> (n + max 0 m)).
+    POST (fun (r:unit) => p ~~> (n + m)).
 Proof using.
-  intros. gen n. induction_wf IH: (downto 0) m; intros.
-  xwp. xapp. xif; intros C.
-  { xapp. xapp. xapp. { hnf. math. }
-    xsimpl. repeat rewrite max_nonneg; math. }
-  { xval. xsimpl. rewrite max_nonpos; math. }
-Qed.
-
-(** Note: [xif] calls [xapp] if necessary. *)
-
-End Basics.
+  (* First, introduces all variables and hypotheses. *)
+  introv Hm.  (* equivalent to [intros n m Hm] *)
+  (* Next, generalize those that are not constant during the recursion. *)
+  revert n Hm.
+  (* Then, set up the induction. *)
+  induction_wf IH: (downto 0) m. 
+  (* Finally, re-introduce the generalized hypotheses. *)
+  intros.
+Abort.
 
 
 (* ******************************************************* *)
@@ -1068,6 +1099,44 @@ Proof using.
 Qed.
 
 (** Note: [decr] is similarly defined in the library. *)
+
+
+
+
+
+(* ******************************************************* *)
+(** *** Trying to prove incorrect specifications *)
+
+
+(** Let's try to prove a false specification *)
+
+Lemma Triple_repeat_incr : forall p n m,
+  TRIPLE (repeat_incr p m)
+    PRE (p ~~> n)
+    POST (fun (_:unit) => p ~~> (n + m)).
+Proof using.
+  intros. gen n. induction_wf IH: (downto 0) m. intros.
+  xwp. xapp. xif ;=> C.
+  { (* then branch *)
+    xapp. xapp. xapp. { unfold downto. math. } xsimpl. math. }
+  { (* else branch *)
+    xval. xsimpl.
+Abort.
+
+
+(** Let's try yet another time *)
+
+Lemma Triple_repeat_incr' : forall p n m,
+  TRIPLE (repeat_incr p m)
+    PRE (p ~~> n)
+    POST (fun (_:unit) => p ~~> (n + max 0 m)).
+Proof using.
+  intros. gen n. induction_wf IH: (downto 0) m; intros.
+  xwp. xapp. xif; intros C.
+  { xapp. xapp. xapp. { hnf. math. }
+    xsimpl. repeat rewrite max_nonneg; math. }
+  { xval. xsimpl. rewrite max_nonpos; math. }
+Qed.
 
 
 
