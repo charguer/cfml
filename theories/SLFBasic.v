@@ -811,8 +811,7 @@ Proof using.
     xsimpl. rewrite (@facto_step n); math. }  
 Qed.
 
-(** Let's revisit the proof script without comments, and by skipping
-    the superfluous tactics, such as [xapp] before [xif]. *)
+(** Let's revisit the proof script without comments. *)
 
 Lemma Triple_factorec' : forall n,
   n >= 0 ->
@@ -821,7 +820,7 @@ Lemma Triple_factorec' : forall n,
     POST (fun (r:int) => \[r = facto n]).
 Proof using.
   intros n. induction_wf IH: (downto 1) n. unfolds downto.
-  intros Hn. xwp. xif; intros C.
+  intros Hn. xwp. xapp. xif; intros C.
   { xval. xsimpl.
     rewrite facto_init; math. }
   { xapp. xapp. { math. } { math. } xapp. xsimpl. 
@@ -874,7 +873,7 @@ Lemma Triple_repeat_incr : forall (m n:int) (p:loc),
 Proof using.
 (* SOLUTION *)
   intros m. induction_wf IH: (downto 0) m. unfolds downto.
-  intros n p Hm. xwp. xif; intros C.
+  intros n p Hm. xwp. xapp. xif; intros C.
   { xapp. xapp. xapp. { math. } { math. } xsimpl. math. }
   { xval. xsimpl. math. }
 (* /SOLUTION *)
@@ -900,86 +899,62 @@ Proof using.
   (* Next, generalize those that are not constant during the recursion. *)
   revert n Hm.
   (* Then, set up the induction. *)
-  induction_wf IH: (downto 0) m. 
+  induction_wf IH: (downto 0) m. unfolds downto.
   (* Finally, re-introduce the generalized hypotheses. *)
   intros.
 Abort.
 
 
 (* ******************************************************* *)
+(** *** Exercise: one-by-one transfer from a reference to another *)
 
-(** Hints:
-    - [xwp] to begin the proof
-    - [xapp] for applications, or [xappn] to repeat
-    - [xif] for a case analysis
-    - [xval] for a value
-    - [xsimpl] to prove entailments
-    - [auto], [math], [rew_list] to prove pure facts
-      or just [*] after a tactic to invoke automation.
-*)
-
-
-
-(* ******************************************************* *)
-(** *** A recursive function (yellow belt) *)
-
-(** Here, we will assume [!p > 0].
+(** Consider the following function, which repeatedly increment
+    a reference [p] and decrement a reference [q], until [q]
+    contains zero. The contents of [q] is asssumed to be initially
+    nonegative.
 
 [[
-  let rec slow_transfer p q =
-    if !p > 0 then (
-      decr p;
-      incr q;
-      transfer p q
+  let rec step_transfer p q =
+    if !q > 0 then (
+      incr p;
+      decr q;
+      step_transfer p q
     )
 ]]
 *)
 
-Definition slow_transfer :=
+Definition step_transfer :=
   VFix 'f 'p 'q :=
-    If_ '! 'p '> 0 Then
-      decr 'p ';
-      incr 'q ';
+    If_ '! 'q '> 0 Then
+      incr 'p ';
+      decr 'q ';
       'f 'p 'q
     End.
 
-Lemma Triple_slow_transfer : forall p q n m,
-  n >= 0 ->
-  TRIPLE (slow_transfer p q)
+(** The specification of [step_transfer] is essentially the same as
+    that of the function [transfer], presented previously, with the
+    only difference that the contents of [q] needs to be assumed 
+    nonnegative. *)
+
+Lemma Triple_step_transfer : forall p q n m,
+  m >= 0 ->
+  TRIPLE (step_transfer p q)
     PRE (p ~~> n \* q ~~> m)
-    POST (fun (_:unit) => (* SOLUTION *) p ~~> 0 \* q ~~> (n + m) (* /SOLUTION *)).
+    POST (fun (_:unit) => p ~~> (n + m) \* q ~~> 0).
+
+(* EX2! (Triple_step_transfer) *)
+(** Prove the function [Triple_step_transfer].
+    Hint: to set up the induction, follow the pattern of
+    [Triple_repeat_incr'] just above. *)
+
 Proof using.
-  introv N. gen m N. induction_wf IH: (downto 0) n. intros.
   (* SOLUTION *)
-  xwp. xapp. xapp. xif ;=> C.
-  { xapp. xapp. xapp. { hnf. math. } { math. }
-    xsimpl. math. }
+  introv Hm. revert n Hm. induction_wf IH: (downto 0) m. unfolds downto.
+  intros. xwp. xapp. xapp. xif; intros C.
+  { xapp. xapp. xapp. { math. } { math. } xsimpl. math. }
   { xval. xsimpl. math. math. }
   (* /SOLUTION *)
 Qed.
-
-End ExoBasic.
-
-
-
-
-
-(* ******************************************************* *)
-(** *** Facto *)
-
-(**
-[[
-  let rec facto n f =
-    ...
-    
-]]
-*)
-
-
-
-
-
-
 
 
 

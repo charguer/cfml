@@ -18,6 +18,19 @@ Implicit Types p : loc.
 Implicit Types n : int.
 
 
+(* ******************************************************* *)
+
+(** Hints:
+    - [xwp] to begin the proof
+    - [xapp] for applications, or [xappn] to repeat
+    - [xif] for a case analysis
+    - [xval] for a value
+    - [xsimpl] to prove entailments
+    - [auto], [math], [rew_list] to prove pure facts
+      or just [*] after a tactic to invoke automation.
+*)
+
+
 
 (* ********************************************************************** *)
 (* * Field names *)
