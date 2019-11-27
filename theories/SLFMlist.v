@@ -1,8 +1,8 @@
-
 (**
 
-This file formalizes mutable list examples in CFML 2.0.
-using a representation of lists as either null or a two-cell record.
+Separation Logic Foundations
+
+Chapter: "Mlist".
 
 Author: Arthur Charguéraud.
 License: MIT.
@@ -12,31 +12,229 @@ License: MIT.
 Set Implicit Arguments.
 From Sep Require Import Example.
 Generalizable Variables A B.
-Open Scope heap_scope_ext.
 
-Implicit Types p : loc.
-Implicit Types n : int.
+Implicit Types x n m : int.
+Implicit Types p q : loc.
+Implicit Types L : list int.
+
+
+(* ####################################################### *)
+(** * The chapter in a rush,
+      nested with exercises as additional contents *)
+
+(** The previous chapter has introduced the notation for specification
+    triples, the entailements relation, and the grammar for heap predicates,
+    with: [p ~~> n] and [\[]] and [\[P]] and [H1 \* H2] and [\exists x, H].
+  
+    The proofs are carried out using CFML "x-tactics", including:
+    [xwp] and [xapp] and [xval] and [xsimpl], and with help of TLC tactics
+    [math] for mathematical goals, and [induction_wf] and [gen] for inductions.
+
+    The present chapter focuses on the specification and verification
+    in Separation Logic of linked lists. Specifically, we consider a
+    representation of lists where each cell consists of a two-cell record,
+    storing a head value and a tail pointer, the empty list being represented
+    by the null value.
+ 
+    To avoid unnecessary complications with polymorphism, we restrict ourselves
+    throughout the chapter to mutable lists that store integer values.
+
+    This chapter presents:
+
+    - a simple technique for representing mutable records such as list cells.
+    - the definition of the "representation predicate" [p ~> MList L] which
+      describes a (null-terminated) mutable list, whose elements are those
+      from the Coq list [L].
+    - [xunfold], a CFML tactic for unfolding the definition of [MList].
+    - examples of specifications and proofs for programs manipulating mutable lists.
+
+*)
+
+ 
+(* ******************************************************* *)
+(** *** Representation of a list cell as a two-field record *)
+
+(** In the previous chapter, we have only manipulated OCaml-style
+    references, which correspond to a mutable record with a single 
+    field (its "contents"). 
+
+    A two-field record can be described in Separation Logic as the
+    separating conjunction of two cells at consecutive addresses.
+
+    A list cell allocated at address [p], featuring a head value [x] 
+    and a tail pointer [q], can be represented as:
+    [p ~~> x \* (p+1) ~~> q].
+
+    Throughout this file, to improve clarity, we write:
+
+    - [p`.head] as short for [p], where we intend to describe the 
+      address of the head field;
+    - [p`.tail] as short for [p+1], where we intend to describe the 
+      address of the tail field.
+
+    Using these notation, the list cell considered can be represented as:
+    [(p`.head) ~~> x  \*  (p`.tail) ~~> q], which looks more symmetric.
+
+    Remark: for technical reasons, these notation are only available for
+    parsing, not for pretty-printing.
+*)
+
+Notation "p '`.head'" := p (only parsing).
+Notation "p '`.tail'" := (p+1) (only parsing).
+
+
+
+(* ******************************************************* *)
+(** *** Representation of a mutable list *)
+
+(** Our goal is to define a custom heap predicate, written
+    [MList L p] or, more conveniently [p ~> MList L], to
+    describe a mutable linked lists, that is, a set of list cells with
+    each one pointing to the next until reaching a null tail pointer.
+
+    The simple arrow [p ~> R] is just a generic notation for [R p]
+    that increases readability and helps [xsimpl] spotting items 
+    that should be identified when simplifying entailments. *)
+
+(** If [p ~> MList L] could be defined as an inductive predicate,
+    its definition would consists of the following two rules:
+
+[[
+
+  -----------------
+  null ~> MList nil
+
+  p`.head ~~> x   \*   p`.tail ~~> q    \*   q ~> MList L'
+  --------------------------------------------------------
+                       p ~> MList (x::L')
+
+]]
+
+    - The [null] pointer represents the empty list, that is, [nil].
+    - A non-null pointer [p] represents a list of the form [n::L'],
+      if the head field of [p] contains [n] and the tail field of [p]
+      contains some pointer [q] that is the head of a linked list
+      that represents the list [L'].
+
+    For reasons that we won't detail here, the definition of the predicate
+    [p ~> MList L] cannot take the form of an inductive predicate in Coq.
+    Fortunately, it can very well be defined as a recursive function.
+
+    The definition of [MList L p], a.k.a. [p ~> MList L], appears below.
+    It is defined as a fixpoint over the structure of the list [L].
+
+    - if [L] is [nil], then [p] should be [null]
+    - if [L] decomposes as [n::L'], then the head field of [p] should store
+      the value [n], the tail field of [p] should store some pointer [q]
+      (which is existentially quantified), and [q ~> MList L'] should
+      describe the remaining of the list structure.
+*)
+
+Fixpoint MList (L:list int) (p:loc) : hprop :=
+  match L with
+  | nil => \[p = null]
+  | x::L' => \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* (p' ~> MList L')
+  end.
+
+
+(* ******************************************************* *)
+(** *** Basic properties of the mutable list predicate *)
+
+(** To begin with, we prove two lemmas that will be helpful for manipulating
+    the definition. *)
+
+Lemma MList_nil : forall p,
+  (p ~> MList nil) = \[p = null].
+Proof using. intros. xunfold~ MList. Qed.
+
+Lemma MList_cons : forall p x L',
+  p ~> MList (x::L') =
+  \exists p', p ~> MCell x p' \* p' ~> MList L'.
+Proof using. intros. xunfold~ MList. Qed.
+
+(** We then set [MList] as opaque to ensure that the [simpl] tactic never
+    attempts to unfold the definition in an uncontrolled manner. *)
+
+Global Opaque MList.
+
+(** The definition of [MList] performs a case analysis on whether 
+    the logical list [L] is [nil] or not. Yet, programs perform a 
+    case analysis on whether the pointer [p] on the list is [null] or not. 
+
+    The following lemma reformulates the definition of [MList] using
+    a case analysis on whether [MList] is null on not. It turns out
+    to be very handy for reasoning about list-manipulating programs. *)
+
+Lemma MList_if : forall p L,
+  p ~> MList L ==>
+  If p = null
+    then \[L = nil]
+   else \exists x p' L', \[L = x::L'] \* p ~> MCell x p' \* p' ~> MList L'.
+Proof using.
+  intros. destruct L as [|x L'].
+  { xchanges MList_nil ;=> M. case_if. xsimpl~. }
+  { xchange MList_cons ;=> p'. case_if.
+    { subst. xchange MCell_null. }
+    { xsimpl~. } }
+Qed.
+
 
 
 (* ******************************************************* *)
 
-(** Hints:
-    - [xwp] to begin the proof
-    - [xapp] for applications, or [xappn] to repeat
-    - [xif] for a case analysis
-    - [xval] for a value
-    - [xsimpl] to prove entailments
-    - [auto], [math], [rew_list] to prove pure facts
-      or just [*] after a tactic to invoke automation.
+
+(**---prove as we go--
+
+Lemma MList_null : forall (L:list int),
+  (null ~> MList L) = \[L = nil].
+Proof using.
+  intros. destruct L.
+  { rewrite MList_nil. xsimpl*. }
+  { rewrite MList_cons. applys himpl_antisym. (* todo xsimpl. too much *)
+    { xpull ;=> p'. xchange MCell_null. }
+    { xpull. (* TODO xsimpl. pb *) } }
+Qed.
+
+Lemma MList_nil_intro :
+  \[] = (null ~> MList nil).
+Proof using. intros. rewrite MList_null. xsimpl*. Qed.
+
+Lemma MList_null_inv : forall (L:list int),
+  null ~> MList L ==>
+  null ~> MList L \* \[L = nil].
+Proof using. intros. rewrite MList_null. xsimpl*. Qed.
 *)
 
 
+(*
 
-(* ********************************************************************** *)
-(* * Field names *)
+Lemma MList_not_null_inv_not_nil : forall p (L:list int),
+  p <> null ->
+  p ~> MList L ==> p ~> MList L \* \[L <> nil].
+Proof using.
+  intros. destruct L. { xchanges MList_nil. } { xsimpl*. }
+Qed.
 
-Definition head : field := 0%nat.
-Definition tail : field := 1%nat.
+Lemma MList_not_null_inv_cons : forall p (L:list int),
+  p <> null ->
+  p ~> MList L ==> \exists x p' L',
+       \[L = x::L']
+    \* p ~> MCell x p'
+    \* p' ~> MList L'.
+Proof using.
+  intros. xchange~ MList_not_null_inv_not_nil ;=> M.
+  destruct L; tryfalse. xchanges~ MList_cons.
+Qed.
+
+Lemma MList_eq : forall (p:loc) (L:list int),
+  p ~> MList L =
+  match L with
+  | nil => \[p = null]
+  | x::L' => \exists (p':loc), (p ~> Record`{ head := x; tail := p' }) \* (p' ~> MList L')
+  end.
+Proof using. intros. xunfold~ MList. destruct~ L. Qed.
+
+*)
 
 
 (* ********************************************************************** *)
@@ -58,33 +256,12 @@ Definition tail : field := 1%nat.
 (* ---------------------------------------------------------------------- *)
 (** ** Inductive presentation (does not work) *)
 
-(** [p ~> MList L], (hypothetically) defined as an inductive predicate
-
-[[
-
-  -----------------
-  null ~> MList nil
-
-  p ~> Record`{ head := x; tail := p'}      p' ~> MList L'
-  -------------------------------------------------------
-                       p ~> MList (x::L')
-
-]]
-
-*)
 
 (* ---------------------------------------------------------------------- *)
 (** ** Recursive presentation *)
 
 Module MListVal.
 
-(** Recursive of [p ~> MList L], that is, [MList L p]. *)
-
-Fixpoint MList (L:list val) (p:loc) : hprop :=
-  match L with
-  | nil => \[p = null]
-  | x::L' => \exists p', p ~> Record`{ head := x; tail := p'} \* (p' ~> MList L')
-  end.
 
 End MListVal.
 
@@ -123,97 +300,6 @@ Arguments MCell_null : clear implicits.
 Arguments MCell_not_null : clear implicits.
 Arguments MCell_conflict : clear implicits.
 
-
-(* ********************************************************************** *)
-(* * Formalization of mutable lists with null pointers *)
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Representation *)
-
-Fixpoint MList A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
-  match L with
-  | nil => \[p = null]
-  | x::L' => \exists (p':loc), p ~> MCell x p' \* p' ~> MList L'
-  end.
-
-(* (p ~> Record`{ head := x; tail := p' }) *)
-
-(* ---------------------------------------------------------------------- *)
-(* ** Lemmas *)
-
-Section Properties.
-
-Lemma MList_eq : forall (p:loc) A `{EA:Enc A} (L:list A),
-  p ~> MList L =
-  match L with
-  | nil => \[p = null]
-  | x::L' => \exists (p':loc), (p ~> Record`{ head := x; tail := p' }) \* (p' ~> MList L')
-  end.
-Proof using. intros. xunfold~ MList. destruct~ L. Qed.
-
-Lemma MList_nil : forall p A `{EA:Enc A},
-  (p ~> MList (@nil A)) = \[p = null].
-Proof using. intros. xunfold~ MList. Qed.
-
-Lemma MList_cons : forall p A `{EA:Enc A} (x:A) L',
-  p ~> MList (x::L') =
-  \exists p', p ~> MCell x p' \* p' ~> MList L'.
-Proof using. intros. xunfold~ MList. Qed.
-
-Global Opaque MList.
-
-Lemma MList_null : forall A `{EA:Enc A} (L:list A),
-  (null ~> MList L) = \[L = nil].
-Proof using.
-  intros. destruct L.
-  { rewrite MList_nil. xsimpl*. }
-  { rewrite MList_cons. applys himpl_antisym. (* todo xsimpl. too much *)
-    { xpull ;=> p'. xchange MCell_null. }
-    { xpull. (* TODO xsimpl. pb *) } }
-Qed.
-
-Lemma MList_nil_intro : forall A `{EA:Enc A},
-  \[] ==> (null ~> MList (@nil A)).
-Proof using. intros. rewrite MList_null. xsimpl*. Qed.
-
-Lemma MList_null_inv : forall A `{EA:Enc A} (L:list A),
-  null ~> MList L ==>
-  null ~> MList L \* \[L = nil].
-Proof using. intros. rewrite MList_null. xsimpl*. Qed.
-
-Lemma MList_not_null_inv_not_nil : forall p A `{EA:Enc A} (L:list A),
-  p <> null ->
-  p ~> MList L ==> p ~> MList L \* \[L <> nil].
-Proof using.
-  intros. destruct L. { xchanges MList_nil. } { xsimpl*. }
-Qed.
-
-Lemma MList_not_null_inv_cons : forall p A `{EA:Enc A} (L:list A),
-  p <> null ->
-  p ~> MList L ==> \exists x p' L',
-       \[L = x::L']
-    \* p ~> MCell x p'
-    \* p' ~> MList L'.
-Proof using.
-  intros. xchange~ MList_not_null_inv_not_nil ;=> M.
-  destruct L; tryfalse. xchanges~ MList_cons.
-Qed.
-
-Lemma MList_if : forall p A `{EA:Enc A} (L:list A),
-  p ~> MList L ==>
-  If p = null
-    then \[L = nil]
-   else \exists x p' L', \[L = x::L'] \* p ~> MCell x p' \* p' ~> MList L'.
-Proof using.
-  intros. destruct L as [|x L'].
-  { xchanges MList_nil ;=> M. case_if. xsimpl~. }
-  { xchange MList_cons ;=> p'. case_if.
-    { subst. xchange MCell_null. }
-    { xsimpl~. } }
-Qed.
-
-End Properties.
 
 Arguments MList_eq : clear implicits.
 Arguments MList_nil : clear implicits.

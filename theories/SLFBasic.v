@@ -10,20 +10,16 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require Import Example. (* TODO: depend on CFML ? *)
+From Sep Require Import Example.
 Generalizable Variables A B.
 
 Implicit Types n m : int.
 Implicit Types p q : loc.
 
 
-
-(* TODO: tune to make it linear by default ;
-    there will be no need to explain \GC then . *)
-
-
 (* ####################################################### *)
-(** * The chapter in a rush & Additional contents *)
+(** * The chapter in a rush,
+      nested with exercises as additional contents *)
 
 (** This chapter gives a quick overview of how to state specifications and 
     carry out basic proofs in Separation Logic using CFML tactics.
@@ -43,7 +39,13 @@ Implicit Types p q : loc.
     - [\[]], which describes an empty state,
     - [\[P]], which asserts that a proposition [P] is true (in an empty state),
     - [H1 \* H2], which describes a state made of two disjoint parts: [H1] and [H2],
-    - [\exists x, H], which is used to quantify variables in postconditions.
+    - [\exists x, H], which is used to quantify variables in postconditions
+
+    All these heap predicates have a type [hprop], whose implementation needs
+    not be revealed, but essentially consists of predicate over memory states.
+
+    In a few proof obligations, a special heap predicate written [\GC] may
+    pop up. It should be totally ignored throughout this chapter.
 
     The proofs are carried out using CFML "x-tactics", including:
     - [xwp] to being a proof (in case of failure, try [xwp_debug]),

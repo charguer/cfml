@@ -1275,3 +1275,15 @@ Qed.
 
 *)
 
+=================================================
+
+
+    - [p ~> MCell n q] to describe a mutable list cell at address [p], with head 
+      value [n] and tail value [q].
+    - [p ~> MList L] to describe a (null-terminated) mutable list, whose elements
+      are described by the Coq list [L].
+    - [xunfold], a CFML tactic for unfolding the definitions of [MCell] and [MList].
+    - examples of specifications and proofs for programs manipulating mutable lists.
+
+    - [p ~> MCell n q] as a shorthand for [p ~~> n \* (p+1) ~~> q],
+      to describe the ownserhip
