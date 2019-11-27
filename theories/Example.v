@@ -39,7 +39,7 @@ Implicit Types n : int.
 
 (** Configuration of automation *)
 
-Hint Unfold downto upto : maths.
+Ltac math_0 ::= unfolds downto, upto.
 
 Ltac auto_false_base cont ::=
   try solve [

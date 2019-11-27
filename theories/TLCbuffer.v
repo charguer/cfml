@@ -114,6 +114,16 @@ Lemma max_nonneg : forall n,
   max 0 n = n.
 Proof using. introv M. unfold max. case_if; math. Qed.
 
+Lemma max_l : forall n m, 
+  n >= m -> 
+  max n m = n.
+Proof using. introv M. unfold max. case_if; math. Qed.
+
+Lemma max_r : forall n m, 
+  n <= m -> 
+  max n m = m.
+Proof using. introv M. unfold max. case_if; math. Qed.
+
 
 (*----------------------*)
 (* LibLogic *)

@@ -1154,3 +1154,47 @@ Proof using.
 Qed.
 
 (* Later: fix the notation in the display *)
+
+
+================================
+
+
+
+
+(* ******************************************************* *)
+(** *** Deallocation in Separation Logic *)
+
+(** By default, Separation Logic treats allocated resources 
+    ---it is a "linear" logic as opposed to an "affine" logic.
+    Remark: it is possible to tweak Separation Logic to make it
+    affine and enable throwing away. *)
+
+(*
+
+[[
+  let succ_using_incr n =
+    let p = ref n in
+    incr p;
+    let x = !p in
+    free p;
+    x
+]]
+*)
+
+Definition succ_using_incr :=
+  VFun 'n :=
+    Let 'p := 'ref 'n in
+    incr 'p ';
+    '! 'p.
+
+Lemma Triple_succ_using_incr : forall n,
+  TRIPLE (succ_using_incr ``n)
+    PRE \[]
+    POST (fun r => \[r = n+1]).
+Proof using.
+  xwp. xapp ;=> p. (* xapp. intros p. *)
+  xapp. xapp. xsimpl*.
+Qed.
+
+(** Note: [decr] is similarly defined in the library. *)
+

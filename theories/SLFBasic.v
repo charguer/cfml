@@ -967,15 +967,21 @@ Qed.
 
 Module OptimizedScripts.
 
-(** The CFML tool features the tactic [xappn] that iterates calls to [xapp],
-    and the tactic [xsimpl*] that combines [xsimpl] with call to automation. 
-    Using these tactics, proofs scripts for simple functions can be greatly
-    shortened. *)
+(** The CFML tool features a number of tricks:
+    - [xappn] that iterates calls to [xapp],
+    - writing [*] after a tactic name, such as in [xsimpl*],
+      combines the tactic with a call to automation (including [math]),
+    - a call to [intros] in front of an [xwp] is always optional,
+    - a single [xapp] in front of an [xif] is generally optional,
+    - [fun (r:unit)] can also be written [fun (_:unit)],  
+    - [unfolds downto] is not required because [math] can take care of it. 
+
+    Here are a few examples of compact proof scripts. *)
 
 Lemma Triple_incr : forall (p:loc) (n:int),
   TRIPLE (incr p)
     PRE (p ~~> n)
-    POST (fun (r:unit) => (p ~~> (n+1))).
+    POST (fun (_:unit) => (p ~~> (n+1))).
 Proof using. xwp. xappn. xsimpl*. Qed.
 
 Lemma Triple_example_let : forall n,
@@ -1005,7 +1011,81 @@ Qed.
 
 End OptimizedScripts.
 
-(** Remark: [fun (r:unit)] could also be written [fun (_:unit)]. *)
+
+
+
+(* ******************************************************* *)
+(** *** Trying to prove incorrect specifications *)
+
+(** Recall the function [repeat_incr p n], which invokes [n]
+    times [incr p].
+
+[[
+  let rec repeat_incr p m =
+    if m > 0 then (
+      incr p;
+      repeat_incr p (m-1)
+    )
+]]
+*)
+
+(** We proved for this function a specification with the constraint
+    [m >= 0]. What if did omit it? Where would we get stuck in the proof? 
+
+    Clearly, something should break in the proof, because when [m < 0],
+    the call [repeat_incr p m] terminates immediately. Thus, the final
+    state should be like the initial state, that is [p ~~> n], and it
+    should not be [p ~~> (n + m)].
+
+    Let us investigate. *)
+
+Lemma Triple_repeat_incr_incorrect : forall (p:loc) (n m:int),
+  TRIPLE (repeat_incr p m)
+    PRE (p ~~> n)
+    POST (fun (_:unit) => p ~~> (n + m)).
+Proof using.
+  intros. revert n. induction_wf IH: (downto 0) m. unfolds downto.
+  intros. xwp. xapp. xif ;=> C.
+  { (* then branch: [m > 0] *)
+    xapp. xapp. xapp. { math. } xsimpl. math. }
+  { (* else branch: [m <= 0] *)
+    xval. 
+    (* Here we are requested to justify that the current state
+       [p ~~> n] matches the postcondition [p ~~> (n + m)], which
+       amounts to proving [n = n + m]. *)
+    xsimpl.
+    (* When the specification features the assumption [m >= 0],
+       we can prove this equality because the fact that we are
+       in the else branch means that [m <= 0], thus [m = 0]. 
+       However, without [m >= 0], the value of [m] could be negative. *)
+Abort.
+
+(** There exists a valid specification for [repeat_incr] that does
+    not constraint [m], but instead specifies that the state evolves
+    from [p ~~> n] to [p ~~> (n + max 0 m)]. This is the most-general
+    specification for the function [repeat_incr]. *)
+
+Lemma Triple_repeat_incr' : forall (p:loc) (n m:int),
+  TRIPLE (repeat_incr p m)
+    PRE (p ~~> n)
+    POST (fun (_:unit) => p ~~> (n + max 0 m)).
+
+(** Let's prove the above specification. The proof scripts exploits
+    two properties of the [max] function.
+
+[[
+   max_l : forall n m, (n >= m) -> (max n m = n).
+   max_r : forall n m, (n <= m) -> (max n m = m).
+]]
+*)
+
+Proof using.
+  intros. gen n. induction_wf IH: (downto 0) m. unfold downto.
+  xwp. xapp. xif; intros C.
+  { xapp. xapp. xapp. { math. }
+    xsimpl. repeat rewrite max_r; math. }
+  { xval. xsimpl. rewrite max_l; math. }
+Qed.
 
 
 (* ******************************************************* *)
@@ -1038,83 +1118,6 @@ Parameter Triple_ref_random_int_incorrect : forall (n:int) (m:int),
     should be bound in the postcondition, either as the return value
     (like [fun (p:loc) => _], or using a Separation Logic existential
     quantifier (e.g., [\exists m, _]). *)
-
-
-(* ******************************************************* *)
-(** *** Deallocation in Separation Logic *)
-
-(** By default, Separation Logic treats allocated resources 
-    ---it is a "linear" logic as opposed to an "affine" logic.
-    Remark: it is possible to tweak Separation Logic to make it
-    affine and enable throwing away. *)
-
-(*
-
-[[
-  let succ_using_incr n =
-    let p = ref n in
-    incr p;
-    let x = !p in
-    free p;
-    x
-]]
-*)
-
-Definition succ_using_incr :=
-  VFun 'n :=
-    Let 'p := 'ref 'n in
-    incr 'p ';
-    '! 'p.
-
-Lemma Triple_succ_using_incr : forall n,
-  TRIPLE (succ_using_incr ``n)
-    PRE \[]
-    POST (fun r => \[r = n+1]).
-Proof using.
-  xwp. xapp ;=> p. (* xapp. intros p. *)
-  xapp. xapp. xsimpl*.
-Qed.
-
-(** Note: [decr] is similarly defined in the library. *)
-
-
-
-
-
-(* ******************************************************* *)
-(** *** Trying to prove incorrect specifications *)
-
-
-(** Let's try to prove a false specification *)
-
-Lemma Triple_repeat_incr : forall p n m,
-  TRIPLE (repeat_incr p m)
-    PRE (p ~~> n)
-    POST (fun (_:unit) => p ~~> (n + m)).
-Proof using.
-  intros. gen n. induction_wf IH: (downto 0) m. intros.
-  xwp. xapp. xif ;=> C.
-  { (* then branch *)
-    xapp. xapp. xapp. { unfold downto. math. } xsimpl. math. }
-  { (* else branch *)
-    xval. xsimpl.
-Abort.
-
-
-(** Let's try yet another time *)
-
-Lemma Triple_repeat_incr' : forall p n m,
-  TRIPLE (repeat_incr p m)
-    PRE (p ~~> n)
-    POST (fun (_:unit) => p ~~> (n + max 0 m)).
-Proof using.
-  intros. gen n. induction_wf IH: (downto 0) m; intros.
-  xwp. xapp. xif; intros C.
-  { xapp. xapp. xapp. { hnf. math. }
-    xsimpl. repeat rewrite max_nonneg; math. }
-  { xval. xsimpl. rewrite max_nonpos; math. }
-Qed.
-
 
 
 
