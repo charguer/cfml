@@ -1499,6 +1499,14 @@ Notation "t1 '- t2" :=
   (val_sub t1 t2)
   (at level 68) : trm_scope.
 
+Notation "t1 '* t2" :=
+  (val_mul t1 t2)
+  (at level 67) : trm_scope.
+
+Notation "t1 '/ t2" :=
+  (val_div t1 t2)
+  (at level 67) : trm_scope.
+
 Notation "t1 '= t2" :=
   (val_eq t1 t2)
   (at level 68) : trm_scope.

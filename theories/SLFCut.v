@@ -1073,3 +1073,84 @@ Proof using.
 Qed.
 
 
+
+====================================
+
+(*
+
+[[
+  let rec factorec n =
+    if n <= 1 then 1 else n * factorec (n-1)
+]]
+
+*)
+
+Definition factorec :=
+  VFix 'f 'n :=
+    If_ 'n '<= 1 Then 1 Else 'n '* 'f ('n '- 1).
+
+(** We specify a call to [factorec n] using an empty precondition,
+    and a postcondition that simply asserts that the result is equal
+    to [facto n]. *)
+
+Lemma Triple_factorec : forall n,
+  TRIPLE (factorec n)
+    PRE \[]
+    POST (fun (r:int) => \[r = facto n]).
+Proof using.
+  (* Set up a proof by induction on [n] to obtain an induction 
+     hypothesis for the recursive calls, the last one being
+     made on [n = 1]. *)
+  intros. induction_wf IH: (downto 1) n.
+  (* Observe the induction hypothesis [IH]. By unfolding [downto]
+     as done in the next step, this hypothesis asserts that the
+     specification that we are trying to prove already holds for
+     arguments that are smaller than the current argument [n]
+     (and greater than or equal to [1]). *)
+  unfolds downto.
+  (* Begin the interactive verification proof. *)
+  xwp. 
+  (* Reason about the evaluation of the boolean condition [n <= 1]. *)
+  xapp. 
+  (* Perform a case analysis. *)
+  xif.
+  (* This gives two branches. *)
+  { (* In the "then" branch, [n <= 1]. *)
+    intros C.
+    (* The return value is [1]. *)
+    xval. xsimpl. 
+    (* Check that [1 = facto n] when [n <= 1]. *)
+    rewrite facto_init; math. }
+  { (* In the "else" branch, [n > 1]. *)
+    intros C.
+    (* Reason about the evaluation of [n-1] *)
+    xapp.
+    (* Reason about the recursive call, implicitly exploiting 
+       the induction hypothesis [IH] with [n-1]. *)
+    xapp.
+    (* Justify that the recursive call is indeed made on a smaller
+       argument than the current one, that is, [n]. *)
+    { math. }
+    (* Reason about the multiplication [n * facto(n-1)]. *)
+    xapp.
+    (* Check that [n * facto (n-1)] matches [facto n]. *)
+    xsimpl. rewrite (@facto_step n); math. }  
+Qed.
+
+(** Let's revisit the proof script without comments, and by skipping
+    the superfluous tactics, such as [xapp] before [xif]. *)
+
+Lemma Triple_factorial' : forall n,
+  TRIPLE (factorial n)
+    PRE \[]
+    POST (fun (r:int) => \[r = facto n]).
+Proof using.
+ intros. induction_wf IH: (downto 1) n. 
+  xwp. xif ;=> C.
+  { xval. xsimpl.
+    rewrite facto_init; math. }
+  { xapp. xapp. { hnf. math. } xapp. xsimpl. 
+    rewrite (@facto_step n); math. }
+Qed.
+
+(* Later: fix the notation in the display *)

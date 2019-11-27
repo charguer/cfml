@@ -175,6 +175,8 @@ Hint Extern 1 (Register_Spec (val_prim val_ge)) => Provide Triple_ge.
 Hint Extern 1 (Register_Spec (val_prim val_add)) => Provide Triple_add.
 Hint Extern 1 (Register_Spec (val_prim val_sub)) => Provide Triple_sub.
 Hint Extern 1 (Register_Spec (val_prim val_ptr_add)) => Provide Triple_ptr_add.
+Hint Extern 1 (Register_Spec (val_prim val_mul)) => Provide Triple_mul.
+Hint Extern 1 (Register_Spec (val_prim val_div)) => Provide Triple_div.
 
 
 (* ---------------------------------------------------------------------- *)
