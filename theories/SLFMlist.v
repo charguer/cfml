@@ -670,31 +670,52 @@ Hint Extern 1 (Register_Spec pop) => Provide Triple_pop.
 (** * Additional contents *)
 
 (* ******************************************************* *)
-(** *** Exercise: operation [clear] on stack *)
+(** *** Exercise: specialization of [mcons] to a [null] tail *)
+
+(* exo : *)
+
+Lemma Triple_mcons_null : forall (x:int),
+  TRIPLE (mcons x null)
+    PRE \[] 
+    POST (fun (p:loc) => p ~> MList (x::nil)).
+Proof using.
+  intros. xtriple. xchange <- (MList_nil null). { auto. }
+  xapp. intros p. xsimpl.
+Qed.
+
+
+(* ******************************************************* *)
+(** *** Exercise: out-of-place append of two mutable lists *)
 
 (**
 [[
-    let rec clear q =
-      q := mnil()
+    let rec mappend_copy p1 p2 =
+      if p1 == null then copy p2 else begin
+        let p = mappend_copy p1.tail p2 in
+        mcons p1.head p
+      end
 ]]
 *)
 
-Definition clear : val :=
-  VFun 'q :=
-    'q ':= mnil '().
+Definition mappend_copy : val :=
+  VFix 'f 'p1 'p2 :=
+    If_ 'p1 '= null Then copy 'p2 Else (
+      Let 'p := 'f ('p1'.tail) 'p2 in
+      mcons ('p1'.head) 'p
+    ).
 
-Lemma Triple_clear : forall (q:loc) (L:list int),
-  TRIPLE (clear q)
-    PRE (q ~> Stack L)
-    POST (fun (r:unit) => q ~> Stack nil).
+Lemma Triple_mappend_copy : forall (p1 p2:loc) (L1 L2:list int),
+  TRIPLE (mappend_copy p1 p2)
+    PRE (p1 ~> MList L1 \* p2 ~> MList L2)
+    POST (fun (p:loc) => p ~> MList (L1++L2) 
+                      \* p1 ~> MList L1 \* p2 ~> MList L2).
 Proof using.
-  xwp. xchange Stack_eq. intros p. xapp. intros p'.
-  xapp. xchange <- Stack_eq. xsimpl.
+  intros. gen p1. induction_wf: list_sub_wf L1.
+  xwp. xapp. xchange (MList_if p1). xif; intros C; case_if; xpull.
+  { intros ->. xapp. xsimpl. xchanges* <- MList_nil. }
+  { intros x q L' ->. xapp. xapp. { auto. } intros q'.
+    xapp. xapp. intros p'. xchanges <- MList_cons. }
 Qed.
-
-Hint Extern 1 (Register_Spec clear) => Provide Triple_clear.
-
-(* Note: [\GC] plays a role here *)
 
 
 (* ******************************************************* *)
@@ -784,7 +805,7 @@ Proof using.
   xwp. xchange (MList_if p1). case_if. xpull. intros x q L' ->.
   xapp. xapp. xif; intros Cq.
   { xchange (MList_if q). case_if. xpull. intros ->.
-     xapp (>> (@Triple_set_field loc) q). (* TODO fix *) 
+    xapp (>> (@Triple_set_field loc) q). (* TODO fix *) 
     xchange <- MList_cons. xsimpl. }
   { xapp. xapp. { auto. } { auto. }
     xchange <- MList_cons. rew_list. xsimpl. }
@@ -807,6 +828,34 @@ Hint Extern 1 (Register_Spec mappend) => Provide Triple_mappend.
 
 
 (* ******************************************************* *)
+(** *** Exercise: operation [clear] on stack *)
+
+(**
+[[
+    let rec clear q =
+      q := mnil()
+]]
+*)
+
+Definition clear : val :=
+  VFun 'q :=
+    'q ':= mnil '().
+
+Lemma Triple_clear : forall (q:loc) (L:list int),
+  TRIPLE (clear q)
+    PRE (q ~> Stack L)
+    POST (fun (r:unit) => q ~> Stack nil).
+Proof using.
+  xwp. xchange Stack_eq. intros p. xapp. intros p'.
+  xapp. xchange <- Stack_eq. xsimpl.
+Qed.
+
+Hint Extern 1 (Register_Spec clear) => Provide Triple_clear.
+
+(* Note: [\GC] plays a role here *)
+
+
+(* ******************************************************* *)
 (** *** Exercise: concatenation on stacks *)
 
 (**
@@ -822,68 +871,18 @@ Definition concat : val :=
     'q1 ':= mappend ('!'q1) ('!'q2) ';
     'q2 ':= mnil '().
 
-Lemma Triple_concat : forall (q1 q2:loc) (L1 L2:list int)
+Lemma Triple_concat : forall (q1 q2:loc) (L1 L2:list int),
   TRIPLE (concat q1 q2)
     PRE (q1 ~> Stack L1 \* q2 ~> Stack L2)
     POST (fun (r:unit) => q1 ~> Stack (L1 ++ L2) \* q2 ~> Stack nil).
 Proof using.
-  xwp. xchange Stack_eq. xapp. xapp. xchange <- Stack_eq.
+  xwp. do 2 xchange Stack_eq. intros p1 p2. xapp. xapp.
+  xapp. intros p1'. xapp.
+  xapp. intros p2'. xapp.
+  do 2 xchange <- Stack_eq. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec concat) => Provide Triple_concat.
-
-
-
-(* ******************************************************* *)
-(** *** Out-of-place append of two mutable lists *)
-
-(**
-[[
-    let rec mappend_copy p1 p2 =
-      if p1 == null then copy p2 else begin
-        let p = mappend_copy (mtail p1) p2 in
-        mcons (mhead p1) p
-      end
-]]
-*)
-
-Definition mappend_copy : val :=
-  VFix 'f 'p1 'p2 :=
-    If_ 'p1 '= null Then copy 'p2 Else (
-      Let 'p := mappend_copy (mtail 'p1) 'p2 in
-      mcons (mhead p1) p
-    End.
-
-Lemma Triple_mappend_copy : forall (p1 p2:loc) (L1 L2:list int),
-  TRIPLE (mappend_copy p1 p2)
-    PRE (p1 ~> MList L1 \* p2 ~> MList L2)
-    POST (fun (p:loc) => p ~> MList (L1++L2) 
-                      \* p1 ~> MList L1 \* p2 ~> MList L2).
-Proof using.
-  intros. gen p1. induction_wf: list_sub_wf L1; intros. xcf.
-  xapps~. xif ;=> C.
-  { subst. xtchanges MList_null_inv ;=> EL. xapp.
-    intros p. subst. rew_list. xsimpl. }
-  { xtchanges~ (MList_not_null_inv_cons p1) ;=> x p1' L' EL.
-    xapps. xapps. xapp~ as p'. xapps. intros p. subst. rew_list.
-    xchange~ (>> MList_cons p Enc_int).
-    xchanges~ (>> MList_cons p1 Enc_int). }
-Qed.
-
-
-(* ******************************************************* *)
-(** *** Exercise: specialization of [mcons] to a [null] tail *)
-
-(* exo : *)
-
-Lemma Triple_mcons_null : forall (x:int),
-  TRIPLE (mcons x null)
-    PRE \[] 
-    POST (fun (p:loc) => p ~> MList (x::nil)).
-Proof using.
-  intros. xtriple. xchange <- (MList_nil null). { auto. }
-  xapp. intros p. xsimpl.
-Qed.
 
 
 (* ******************************************************* *)
@@ -901,62 +900,75 @@ Qed.
 
 Definition push_back : val :=
   VFun 'q 'x :=
-    Let 'p2 := mcell 'x (mnil'()) in
+    Let 'p2 := mcell 'x (mnil '()) in
     'q ':= mappend ('!'q) 'p2.
 
-Lemma Triple_push_back : forall (q:loc) (x:A) (L:list A),
+Lemma Triple_push_back : forall (q:loc) (x:int) (L:list int),
   TRIPLE (push_back q x)
-    PRE (p ~> Stack L)
-    POST (fun (_:unit) => p ~> Stack (L++x::nil)).
+    PRE (q ~> Stack L)
+    POST (fun (_:unit) => q ~> Stack (L++x::nil)).
 Proof using.
-  xwp. xapp ;=> q. xapp. xsimpl.
+  xwp. xchange Stack_eq. intros p. 
+  xapp. intros p0. xapp. intros p1. 
+  xapp. xchange <- MList_cons. xapp. intros p2.
+  xapp. xchange <- Stack_eq. xsimpl.
 Qed.
-
 
 
 (* ******************************************************* *)
 (** *** Exercise: in-place reverse on lists *)
 
-(**
+(* hard *)
+
+(** [p1] denotes cells already reversed, [p2] the ones remaining to reverse 
 [[
     let mrev_aux p1 p2 =
-      if p1 == null then p2 else begin
-        let q = p1.tail in
-        p1.tail <- p2;
-        mrev_aux q p1
+      if p2 == null then p1 else begin
+        let q = p2.tail in
+        p2.tail <- p1;
+        mrev_aux p2 q
       end
 
     let mrev p =
-      mrev_aux p null
+      mrev_aux null p
 ]]
 *)
 
 Definition mrev_aux : val :=
   VFix 'f 'p1 'p2 :=
-    If_ 'p1 '= null Then 'p2 Else (
-      Let 'q := '!'p1`.tail in
-      'p1`.tail ':= 'p2 ';
-      'f 'q 'p1
+    If_ 'p2 '= null Then 'p1 Else (
+      Let 'q := 'p2'.tail in
+      Set 'p2'.tail ':= 'p1 ';
+      'f 'p2 'q
     ).
 
 Definition mrev : val :=
   VFun 'p :=
-    mrev_aux 'p null.
+    mrev_aux null 'p.
 
 Lemma Triple_mrev_aux : forall (p1 p2:loc) (L1 L2:list int),
-  TRIPLE (Triple_mrev_aux ``p1 ``p2)
+  TRIPLE (mrev_aux p1 p2)
     PRE (p1 ~> MList L1 \* p2 ~> MList L2)
-    POST (fun (r:loc) => r ~> MList (rev L1 ++ L2)).
+    POST (fun (r:loc) => r ~> MList (rev L2 ++ L1)).
 Proof using.
+  (* important: need to generalize p1 and p2 *)
+  intros. gen p1 p2 L1. induction_wf IH: list_sub_wf L2.
+  xwp. xchange (MList_if p2). xif; intros C; case_if; xpull.
+  { intros ->. xval. rew_list. xsimpl. }
+  { intros x q L' ->. xapp.
+    xapp (>> (@Triple_set_field loc) q). (* TODO fix ; previous contents should be at type val *) 
+    xchange <- MList_cons. xapp. { auto. }
+    intros r. rew_list. xsimpl. }
 Qed.
 
 Hint Extern 1 (Register_Spec mrev_aux) => Provide Triple_mrev_aux.
 
 Lemma Triple_mrev : forall (p:loc) (L:list int),
-  TRIPLE (Triple_mrev ``p)
+  TRIPLE (mrev p)
     PRE (p ~> MList L)
     POST (fun (r:loc) => r ~> MList (rev L)).
 Proof using.
+  xwp. xchange <- (MList_nil null). { auto. } xapp. rew_list. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec mrev) => Provide Triple_mrev.
