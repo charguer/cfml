@@ -18,6 +18,82 @@ Implicit Types p q : loc.
 Implicit Types L : list int.
 
 
+
+(*
+Ltac xwp_simpl ::= (* todo *)
+  cbn beta delta [
+  LibList.combine
+  List.rev Datatypes.app List.fold_right List.map
+  Wpgen Wpaux_getval Wpaux_getval_typed
+  Wpaux_apps Wpaux_constr Wpaux_var Wpaux_match
+  hforall_vars forall_vars
+  trm_case trm_to_pat patvars patsubst combiner_to_trm
+  Ctx.app Ctx.empty Ctx.lookup Ctx.add
+  Ctx.rem Ctx.rem_var Ctx.rem_vars isubst
+  var_eq eq_var_dec
+  string_dec string_rec string_rect
+  sumbool_rec sumbool_rect
+  Ascii.ascii_dec Ascii.ascii_rec Ascii.ascii_rect
+  Bool.bool_dec bool_rec bool_rect  Wpaux_getval ] iota zeta; simpl.
+*)
+
+
+
+Hint Extern 1 (Register_Spec (val_get_field _)) => Provide @Triple_get_field.
+
+(*
+Hint Extern 1 (Register_Spec (val_set_field _)) => Provide @Triple_set_field.
+*)
+
+Ltac xapp_record tt ::= fail.
+
+
+
+
+Lemma Triple_set_field' : forall (v2:val) A (EA:Enc A) (V1:A) (l:loc) f (V2:A),
+  Decode v2 V2 ->
+  TRIPLE ((val_set_field f) l v2)
+    PRE (l `.` f ~~> V1)
+    POST (fun (r:unit) => l `.` f ~~> V2).
+Proof using. introv M. unfolds Decode. subst v2. applys Triple_set_field_strong. Qed.
+
+
+Hint Extern 1 (Register_Spec (val_set_field _)) => Provide @Triple_set_field'.
+
+
+Ltac decode_core tt :=
+  try solve [ eauto with Decode ].
+
+Tactic Notation "decode" :=
+  decode_core tt.
+
+Tactic Notation "trydecode" :=
+  try match goal with |- Decode _ _ => decode end.
+
+Ltac nrapply H :=
+  first 
+  [ notypeclasses refine (H)
+  | notypeclasses refine (H _)
+  | notypeclasses refine (H _ _)
+  | notypeclasses refine (H _ _ _)
+  | notypeclasses refine (H _ _ _ _)
+  | notypeclasses refine (H _ _ _ _ _)
+  | notypeclasses refine (H _ _ _ _ _ _)
+  | notypeclasses refine (H _ _ _ _ _ _ _)
+  | notypeclasses refine (H _ _ _ _ _ _ _ _)
+  | notypeclasses refine (H _ _ _ _ _ _ _ _ _)
+  | notypeclasses refine (H _ _ _ _ _ _ _ _ _ _)
+  | notypeclasses refine (H _ _ _ _ _ _ _ _ _ _ _) ].
+
+Ltac xspec_prove_cont tt ::=
+  let H := fresh "Spec" in
+  intro H; nrapply H; try clear H; trydecode.
+
+
+
+
+
+
 (* ####################################################### *)
 (** * The chapter in a rush, 
       nested with exercises as additional contents *)
@@ -205,29 +281,6 @@ Definition mcell : val :=
     Set 'p'.head ':= 'x ';
     Set 'p'.tail ':= 'q ';
     'p.
-
-(*
-Ltac xwp_simpl ::= (* todo *)
-  cbn beta delta [
-  LibList.combine
-  List.rev Datatypes.app List.fold_right List.map
-  Wpgen Wpaux_getval Wpaux_getval_typed
-  Wpaux_apps Wpaux_constr Wpaux_var Wpaux_match
-  hforall_vars forall_vars
-  trm_case trm_to_pat patvars patsubst combiner_to_trm
-  Ctx.app Ctx.empty Ctx.lookup Ctx.add
-  Ctx.rem Ctx.rem_var Ctx.rem_vars isubst
-  var_eq eq_var_dec
-  string_dec string_rec string_rect
-  sumbool_rec sumbool_rect
-  Ascii.ascii_dec Ascii.ascii_rec Ascii.ascii_rect
-  Bool.bool_dec bool_rec bool_rect  Wpaux_getval ] iota zeta; simpl.
-*)
-
-
-Hint Extern 1 (Register_Spec (val_get_field _)) => Provide Triple_get_field.
-Hint Extern 1 (Register_Spec (val_set_field _)) => Provide Triple_set_field.
-Ltac xapp_record tt ::= fail.
 
 Lemma Triple_mcell : forall (x:int) (q:loc),
   TRIPLE (mcell ``x ``q)
@@ -795,6 +848,21 @@ Definition mappend : val :=
       'p1
     ).
 
+
+(* TEMP
+Lemma Triple_set_field' : forall A (EA:Enc A) v2 (V1:A) (l:loc) f (V2:A),
+  v2 = ``V2 ->
+  TRIPLE ((val_set_field f) l v2)
+    PRE (l `.` f ~~> V1)
+    POST (fun (r:unit) => l `.` f ~~> V2).
+Proof using. intros. subst. applys Triple_set_field. Qed.
+
+    xapp_debug @Triple_set_field'. 2:{ eapply SpecInstantiated. } 
+    xapp_debug (>> (@Triple_set_field loc)).
+
+*)
+
+
 Lemma Triple_mappend_aux : forall (p1 p2:loc) (L1 L2:list int),
   p1 <> null ->
   TRIPLE (mappend_aux p1 p2)
@@ -805,7 +873,7 @@ Proof using.
   xwp. xchange (MList_if p1). case_if. xpull. intros x q L' ->.
   xapp. xapp. xif; intros Cq.
   { xchange (MList_if q). case_if. xpull. intros ->.
-    xapp (>> (@Triple_set_field loc) q). (* TODO fix *) 
+    xapp (>> (@Triple_set_field loc) q).
     xchange <- MList_cons. xsimpl. }
   { xapp. xapp. { auto. } { auto. }
     xchange <- MList_cons. rew_list. xsimpl. }
@@ -946,6 +1014,8 @@ Definition mrev : val :=
   VFun 'p :=
     mrev_aux null 'p.
 
+
+
 Lemma Triple_mrev_aux : forall (p1 p2:loc) (L1 L2:list int),
   TRIPLE (mrev_aux p1 p2)
     PRE (p1 ~> MList L1 \* p2 ~> MList L2)
@@ -955,8 +1025,7 @@ Proof using.
   intros. gen p1 p2 L1. induction_wf IH: list_sub_wf L2.
   xwp. xchange (MList_if p2). xif; intros C; case_if; xpull.
   { intros ->. xval. rew_list. xsimpl. }
-  { intros x q L' ->. xapp.
-    xapp (>> (@Triple_set_field loc) q). (* TODO fix ; previous contents should be at type val *) 
+  { intros x q L' ->. xapp. xapp.
     xchange <- MList_cons. xapp. { auto. }
     intros r. rew_list. xsimpl. }
 Qed.

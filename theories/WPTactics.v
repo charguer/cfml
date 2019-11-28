@@ -451,6 +451,15 @@ Ltac xlet_xseq_xcast_repeat tt :=
 *)
 
 (* DEBUG XAPP
+
+  xapp_pre tt;
+  applys xapp_find_spec_lemma;
+    [ xspec; 
+      let H := fresh "Spec" in
+      intro H; eapply H; clear H
+    | xapp_select_lemma tt;
+      xapp_post tt ].
+
   xapp_pre tt.
   applys xapp_find_spec_lemma.
   xspec_prove_triple tt .
@@ -530,7 +539,7 @@ Ltac xapp_select_lemma tt :=
   end; [ applys S | clear S ].
 
 Ltac xapp_apply_lemma cont_prove_triple :=
-  xapp_pre tt;
+  (* TODO should remove *) xapp_pre tt;
   applys xapp_find_spec_lemma;
     [ cont_prove_triple tt
     | xapp_select_lemma tt; xapp_post tt ].
@@ -737,6 +746,12 @@ Proof using. intros. unfolds. rew_enc. fequals. Qed.
 Hint Resolve @Decode_None @Decode_Some : Decode.
 (* LATER: similar hints needed? *)
 
+Ltac decode_core tt :=
+  try solve [ eauto with Decode ].
+
+Tactic Notation "decode" :=
+  decode_core tt.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xval] *)
@@ -786,7 +801,7 @@ Ltac xval_post tt :=
 
 Ltac xval_core tt :=
   xval_pre tt;
-  applys @xval_lemma_decode; [ try solve [ eauto with Decode ] | ];
+  applys @xval_lemma_decode; [ Decode | ];
   xval_post tt.
 
 Tactic Notation "xval" :=
