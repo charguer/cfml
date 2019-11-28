@@ -340,7 +340,9 @@ Lemma Triple_mhead' : forall (p:loc) (L:list int),
     PRE (p ~> MList L)
     POST (fun (x:int) => \exists L', \[L = x::L'] \* (p ~> MList L)).
 Proof using.
-  introv HL. destruct L as [|x L']; tryfalse. 
+  introv HL. 
+  (* Case analysis on [L]. The tactic [tryfalse] is short for [try contradiction] *)
+  destruct L as [|x L']. { contradiction. }
   dup. (* let's duplicate the proof obligation to see two ways to prove it *) 
   { (* proof by invoking [Triple_mhead] *)
   xapp. xsimpl. eauto. }
@@ -354,7 +356,7 @@ Lemma Triple_mtail' : forall (p:loc) (L:list int),
     PRE (p ~> MList L)
     POST (fun (q:loc) => \exists x L', (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L')).
 Proof using.
-  introv HL. destruct L as [|x L']; tryfalse. 
+  introv HL. destruct L as [|x L']. { contradiction. }
   xapp. xsimpl. (* invoking the specification of [Triple_mtail]. *)
   (* alternative: xwp. xchange MList_cons. intros q. xapp. xsimpl. *)
 Qed.
@@ -409,6 +411,16 @@ Proof using. intros. xapp~ (@Triple_eq loc). xsimpl*. Qed.
 
 Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide Triple_eq_loc.
 
+Lemma Triple_neq_loc : forall (v1 v2 : loc),
+  Triple (val_neq ``v1 ``v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (v1 <> v2)]).
+Proof using. intros. xapp~ (@Triple_neq loc). xsimpl*. Qed.
+
+Hint Extern 1 (Register_Spec (val_prim val_neq)) => Provide Triple_neq_loc.
+
+
+
 (**
 [[
     let rec mlength p =
@@ -440,7 +452,7 @@ Proof using.
      the case analysis on the condition [p = null] visible. *)
   xchange MList_if. xif; intros C; case_if; xpull.
   { (* case [p = null]. *)
-    intros ->. subst p. xval. xchange <- (MList_nil null). { auto. }
+    intros ->. xval. xchange <- (MList_nil p). { auto. }
     (* justify that [length nil = 0] *)
     xsimpl. rew_list. math. }
   { (* case [p <> null]. *)
@@ -458,7 +470,7 @@ Lemma Triple_mlength_concise : forall (p:loc) (L:list int),
 Proof using.
   intros. gen p. induction_wf: list_sub_wf L. intros.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
-  { intros ->. subst p. xval. xchanges* <- MList_nil. }
+  { intros ->. xval. xchanges* <- MList_nil. }
   { intros x q L' ->. xapp. xapp*. xapp. xchanges* <- MList_cons. }
 Qed.
 
@@ -481,8 +493,8 @@ Hint Extern 1 (Register_Spec mlength) => Provide Triple_mlength.
 Definition mlist_incr : val :=
   VFix 'f 'p :=
     If_ 'p '<> null Then (
-      ('!'p`.head) ':= ('!'p`.head) '+ 1 ';
-      'f ('!'p`.tail)
+      Set 'p'.head ':= (('p'.head) '+ 1) '; (* todo : fix parsing *)
+      'f ('p'.tail)
     ) End.
 
 Lemma Triple_mlist_incr : forall (p:loc) (L:list int),
@@ -491,11 +503,13 @@ Lemma Triple_mlist_incr : forall (p:loc) (L:list int),
     POST (fun (r:unit) => p ~> MList (LibList.map (fun x => x+1) L)).
 Proof using.
   intros. gen p. induction_wf: list_sub_wf L.
-  xwp. xapps~. xif ;=> C.
-  { xtchanges~ (MList_not_null_inv_cons p) ;=> x p' L' EL.
-    xapps. xapps. xapps. xapps. xapps~.
-    xchanges~ (>> MList_cons p Enc_int). }
-  { subst. xtchanges MList_null_inv ;=> EL. xvals~. }
+  xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull. 
+  { intros x p' L' ->. xapp. xapp. xapp. xapp. xapp. { auto. }
+    xchange <- MList_cons. xsimpl.
+    (* short version: [xchanges* <- MList_cons] *) }
+  { intros ->. xval.
+    xchange <- (MList_nil p). { auto. } xsimpl. 
+    (* short version: [xchanges* <- MList_nil] *)  }
 Qed.
 
 
@@ -515,22 +529,21 @@ Definition copy : val :=
   VFix 'f 'p :=
     If_ 'p  '= null
       Then mnil '()
-      Else mcons ('!'p'`.head) ('f ('!'p'`.tail)).
+      Else mcons ('p'.head) ('f ('p'.tail)).
 
 Lemma Triple_copy : forall (p:loc) (L:list int),
   TRIPLE (copy ``p)
     PRE (p ~> MList L)
     POST (fun (p':loc) => (p ~> MList L) \* (p' ~> MList L)).
 Proof using.
-  intros. gen p. induction_wf IH: list_sub_wf L. xwp.
-  xapp~. xchange MList_if. xif ;=> C; case_if; xpull.
-  { intros ->. xval. xchanges~ <- (MList_nil p). xchanges* <- (MList_nil null). }
-  { intros x q L' ->. xapp. xapp. xapp~ ;=> q'. xapp ;=> p'.
-    xchanges <- (MList_cons p). xchanges* <- (MList_cons p'). }
+  intros. gen p. induction_wf IH: list_sub_wf L.
+  xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
+  { intros ->. xapp. xsimpl. xchanges* <- MList_nil. }
+  { intros x q L' ->. xapp. xapp. xapp. { auto. } intros q'.
+    xapp. intros p'. xchanges <- MList_cons. }
 Qed.
 
 Hint Extern 1 (Register_Spec copy) => Provide Triple_copy.
-
 
 
 (* ******************************************************* *)
@@ -560,18 +573,20 @@ Proof using. xunfold* Stack. Qed.
 
 Definition create : val :=
   VFun 'u :=
-    ref (mnil '()).
+    'ref (mnil '()).
 
 Lemma Triple_create :
   TRIPLE (create '())
     PRE \[]
-    POST (fun (q:loc) => (q ~> Stack nil).
+    POST (fun (q:loc) => q ~> Stack nil).
 Proof using.
-  xwp. xapp. xapp. xchange <- Stack_eq.
+  xwp. xapp. intros p. xapp.
+  intros q. xchange <- Stack_eq. xsimpl.
 Qed.
 
-Hint Extern 1 (Register_Spec create) => Provide Triple_create.
+(* Note: shorter version for the last line: [xchanges <- Stack_eq]. *)
 
+Hint Extern 1 (Register_Spec create) => Provide Triple_create.
 
 
 (* ******************************************************* *)
@@ -585,16 +600,20 @@ Hint Extern 1 (Register_Spec create) => Provide Triple_create.
 *)
 
 Definition push : val :=
-  VFun 'q :=
-    'q ':= mcons x ('!'q).
+  VFun 'q 'x :=
+    'q ':= mcons 'x ('!'q).
 
-Lemma Triple_push : forall (q:loc) (L:list int)
+Lemma Triple_push : forall (q:loc) (x:int) (L:list int),
   TRIPLE (push q x)
     PRE (q ~> Stack L)
     POST (fun (r:unit) => q ~> Stack (x::L)).
 Proof using.
-  xwp. xchange Stack_eq. xapp. xapp. xchange <- Stack_eq.
+  xwp. xchange Stack_eq. intros p.
+  xapp. xapp. intros p'. xapp.
+  xchange <- Stack_eq. xsimpl.
 Qed.
+
+(* Note: shorter version for the last line: [xchanges <- Stack_eq]. *)
 
 Hint Extern 1 (Register_Spec push) => Provide Triple_push.
 
@@ -617,34 +636,38 @@ Definition pop : val :=
     Let 'p := '!'q in
     Let 'x := mhead 'p in
     'q ':= mtail 'p ';
-    x
+    'x.
 
-Lemma Triple_pop_from_cons : forall (q:loc) (L:list int)
+Lemma Triple_pop_from_cons : forall (q:loc) (x:int) (L:list int),
   TRIPLE (pop q)
     PRE (q ~> Stack (x::L))
     POST (fun (r:int) => \[r = x] \* q ~> Stack L).
 Proof using.
-  xwp. xchange Stack_eq. xapp. xapp. xchange <- Stack_eq.
+  xwp. xchange Stack_eq. intros p.
+  xapp. xapp. xapp. intros p'. xapp. xval.
+  xchange <- Stack_eq. xsimpl. auto.
 Qed.
 
-Lemma Triple_pop : forall (q:loc) (L:list int)
+(* Note: shorter version for the last line: [xchanges* <- Stack_eq]. *)
+
+Lemma Triple_pop : forall (q:loc) (L:list int),
   L <> nil ->
   TRIPLE (pop q)
     PRE (q ~> Stack L)
     POST (fun (x:int) => \exists L', \[L = x::L'] \* q ~> Stack L').
 Proof using.
-  xwp. xchange Stack_eq. xapp. xapp. xchange <- Stack_eq.
+  introv HL. destruct L as [|x L']; [contradiction|].
+  xwp. xchange Stack_eq. intros p. xapp. xapp.
+  xapp. intros p'. xapp. xval.
+  xchange <- Stack_eq. xsimpl. auto.
 Qed.
 
 Hint Extern 1 (Register_Spec pop) => Provide Triple_pop.
 
 
 
-
-
 (* ####################################################### *)
 (** * Additional contents *)
-
 
 (* ******************************************************* *)
 (** *** Exercise: operation [clear] on stack *)

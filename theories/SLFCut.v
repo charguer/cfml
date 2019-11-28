@@ -1489,3 +1489,19 @@ Proof using.
   (* /SOLUTION *)
 Qed.
 
+
+
+==================
+
+
+Lemma MList_null : forall p,
+  p = null ->
+  \[] ==> (p ~> MList nil).
+Proof using. introv M. xchange <- (MList_nil p). auto. Qed.
+
+ p = null
+______________________________________(1/1)
+PRE \[]
+CODE (Val 0)
+POST (fun x : int => (\[x = length nil] \* p ~> MList nil)
+
