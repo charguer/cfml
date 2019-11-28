@@ -76,13 +76,35 @@ Implicit Types L : list int.
     [(p`.head) ~~> x  \*  (p`.tail) ~~> q], which looks more symmetric.
 *)
 
-Definition field_head (p:loc) := (p+0)%nat.
-Definition field_tail (p:loc) := (p+1)%nat.
+Definition head : field := 0%nat.
+Definition tail : field := 1%nat.
 
-Notation "p '`.head'" := (field_head p) 
-  (at level 65, format "p '`.head'") : fields_scope.
-Notation "p '`.tail'" := (field_tail p)
-  (at level 65, format "p '`.tail'") : fields_scope.
+
+Notation "l `. f '~~>' V" := ((l,f) ~> Hfield V)
+  (at level 32, f at level 0, no associativity,
+   format "l `. f  '~~>'  V") : heap_scope.
+
+(*
+Definition loc_field (p:loc) (k:field) : loc :=
+  (p+k)%nat.
+
+Notation "p `. k" := (loc_field p k) 
+  (at level 31, format "p `. k") : fields_scope.
+
+Definition val_field (k:field) : val :=
+  VFun 'p :=
+    val_ptr_add 'p (nat_to_Z k).
+
+(*
+Notation "p ''`.' k" := (trm_app (val_field k) p) 
+  (at level 31, format "p ''`.' k") : trm_scope.
+*)
+
+Notation "t ''.' k" := (trm_app (val_field k) t)
+  (at level 66, k at level 0, format "t ''.' k" ) : trm_scope.
+*)
+
+
 
 (** Thus, to read in the head field of a list at address [p],
     we would write ['! p`.head], like if [p`.head] was the
@@ -142,7 +164,7 @@ Notation "p '`.tail'" := (field_tail p)
 Fixpoint MList (L:list int) (p:loc) : hprop :=
   match L with
   | nil => \[p = null]
-  | x::L' => \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* (p' ~> MList L')
+  | x::L' => \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L')
   end.
 
 
@@ -154,12 +176,12 @@ Fixpoint MList (L:list int) (p:loc) : hprop :=
 
 Lemma MList_nil : forall p,
   (p ~> MList nil) = \[p = null].
-Proof using. intros. xunfold~ MList. Qed.
+Proof using. xunfold MList. auto. Qed.
 
 Lemma MList_cons : forall p x L',
   p ~> MList (x::L') =
-  \exists p', p ~> MCell x p' \* p' ~> MList L'.
-Proof using. intros. xunfold~ MList. Qed.
+  \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* q ~> MList L'.
+Proof using. xunfold MList. auto. Qed.
 
 (** We then set [MList] as opaque to ensure that the [simpl] tactic never
     attempts to unfold the definition in an uncontrolled manner. *)
@@ -178,19 +200,45 @@ Global Opaque MList.
 *)
 
 Definition mcell : val :=
-  VFfun 'x 'q :=
-    Let p := val_alloc ((2%nat):int) in
-    'p`.head ':= 'x ';
-    'p`.tail ':= 'q ';
+  VFun 'x 'q :=
+    Let 'p := val_alloc ((2%nat):int) in
+    Set 'p'.head ':= 'x ';
+    Set 'p'.tail ':= 'q ';
     'p.
+
+(*
+Ltac xwp_simpl ::= (* todo *)
+  cbn beta delta [
+  LibList.combine
+  List.rev Datatypes.app List.fold_right List.map
+  Wpgen Wpaux_getval Wpaux_getval_typed
+  Wpaux_apps Wpaux_constr Wpaux_var Wpaux_match
+  hforall_vars forall_vars
+  trm_case trm_to_pat patvars patsubst combiner_to_trm
+  Ctx.app Ctx.empty Ctx.lookup Ctx.add
+  Ctx.rem Ctx.rem_var Ctx.rem_vars isubst
+  var_eq eq_var_dec
+  string_dec string_rec string_rect
+  sumbool_rec sumbool_rect
+  Ascii.ascii_dec Ascii.ascii_rec Ascii.ascii_rect
+  Bool.bool_dec bool_rec bool_rect  Wpaux_getval ] iota zeta; simpl.
+*)
+
+
+Hint Extern 1 (Register_Spec (val_get_field _)) => Provide Triple_get_field.
+Hint Extern 1 (Register_Spec (val_set_field _)) => Provide Triple_set_field.
+Ltac xapp_record tt ::= fail.
 
 Lemma Triple_mcell : forall (x:int) (q:loc),
   TRIPLE (mcell ``x ``q)
     PRE \[] 
     POST (fun (p:loc) => (p`.head ~~> x) \* (p`.tail ~~> q)).
 Proof using.
-  xwp. xapp. xapp. xapp. xval.
-Qed.
+  (* TODO: cleanup alloc *)
+  xwp. xapp. { math. } intros p _. rewrite abs_nat.
+  do 2 rewrite Alloc_succ_eq. rewrite Alloc_zero_eq. xpull ;=> v1 v2.
+  xapp. 
+Admitted.
 
 Hint Extern 1 (Register_Spec mcell) => Provide Triple_mcell.
 
@@ -206,7 +254,7 @@ Lemma Triple_mcons : forall (x:int) (q:loc) (L:list int),
     PRE (q ~> MList L)
     POST (fun (p:loc) => p ~> MList (x::L)).
 Proof using.
-  unfold mcons. xapp. xchange <- (MList_cons p).
+  intros. unfold mcons. xapp ;=> p. xchange <- MList_cons. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec mcons) => Provide Triple_mcons.
@@ -219,7 +267,7 @@ Hint Extern 1 (Register_Spec mcons) => Provide Triple_mcons.
 *)
 
 Definition mnil : val :=
-  VFfun 'u :=
+  VFun 'u :=
     null.
 
 Lemma Triple_mnil :
@@ -227,25 +275,11 @@ Lemma Triple_mnil :
     PRE \[] 
     POST (fun (p:loc) => p ~> MList nil).
 Proof using.
-  xwp. xval. xchange <- (MList_nil p).
+  xwp. xval. rewrite MList_nil. xsimpl. auto.
+  (* alternative: xchange <- (MList_nil null). auto. xsimpl. *)
 Qed.
 
 Hint Extern 1 (Register_Spec mnil) => Provide Triple_mnil.
-
-
-(* ******************************************************* *)
-(** *** Exercise: specialization of [mcons] to a [null] tail *)
-
-(* exo : *)
-
-Lemma Triple_mcons_null : forall (x:int),
-  TRIPLE (mcons ``x ``null)
-    PRE \[] 
-    POST (fun (p:loc) => p ~> MList (x::nil)).
-Proof using.
-  intros. xapp. .
-Qed.
-
 
 
 (* ******************************************************* *)
@@ -259,15 +293,16 @@ Qed.
 *)
 
 Definition mhead : val :=
-  VFfun 'p :=
-  '! p`.head.
+  VFun 'p :=
+    'p'.head.
 
-Lemma Triple_mhead : forall (x:int) (L:list int),
+Lemma Triple_mhead : forall (p:loc) (x:int) (L:list int),
   TRIPLE (mhead p)
     PRE (p ~> MList (x::L))
-    POST (fun (r:int) => \[r = x] \* (p ~> MList (x::L)).
+    POST (fun (r:int) => \[r = x] \* (p ~> MList (x::L))).
 Proof using.
-  xwp. xchange MList_cons. xapp. xapp. xapp. xval. xchange <- MList_cons. 
+  xwp. xchange MList_cons. intros q.
+  xapp. xchange <- MList_cons. xsimpl. auto.
 Qed.
 
 Hint Extern 1 (Register_Spec mhead) => Provide Triple_mhead.
@@ -280,15 +315,15 @@ Hint Extern 1 (Register_Spec mhead) => Provide Triple_mhead.
 *)
 
 Definition mtail : val :=
-  VFfun 'p :=
-  '! p`.tail.
+  VFun 'p :=
+   'p'.tail.
 
-Lemma Triple_mtail : forall (x:int) (L:list int),
+Lemma Triple_mtail : forall (p:loc) (x:int) (L:list int),
   TRIPLE (mtail p)
     PRE (p ~> MList (x::L))
     POST (fun (q:loc) => (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L)).
 Proof using.
-  xwp. xchange MList_cons. xapp. 
+  xwp. xchange MList_cons. intros q. xapp. xsimpl. 
 Qed.
 
 Hint Extern 1 (Register_Spec mtail) => Provide Triple_mtail.
@@ -299,22 +334,29 @@ Hint Extern 1 (Register_Spec mtail) => Provide Triple_mtail.
 
 (* exo *)
 
-Lemma Triple_mhead' : forall (x:int) (L:list int),
+Lemma Triple_mhead' : forall (p:loc) (L:list int),
   L <> nil ->
   TRIPLE (mhead p)
     PRE (p ~> MList L)
     POST (fun (x:int) => \exists L', \[L = x::L'] \* (p ~> MList L)).
 Proof using.
-  intros. xapp. xapp. xapp. xval.
+  introv HL. destruct L as [|x L']; tryfalse. 
+  dup. (* let's duplicate the proof obligation to see two ways to prove it *) 
+  { (* proof by invoking [Triple_mhead] *)
+  xapp. xsimpl. eauto. }
+  { (* proof by unfolding the code *) 
+    xwp. xchange MList_cons. intros q. xapp. xchange <- MList_cons. xsimpl. eauto. }
 Qed.
 
-Lemma Triple_mtail' : forall (x:int) (L:list int),
+Lemma Triple_mtail' : forall (p:loc) (L:list int),
   L <> nil ->
   TRIPLE (mtail p)
     PRE (p ~> MList L)
     POST (fun (q:loc) => \exists x L', (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L')).
 Proof using.
-  xwp. xchange MList_cons. xapp. 
+  introv HL. destruct L as [|x L']; tryfalse. 
+  xapp. xsimpl. (* invoking the specification of [Triple_mtail]. *)
+  (* alternative: xwp. xchange MList_cons. intros q. xapp. xsimpl. *)
 Qed.
 
 
@@ -330,23 +372,42 @@ Qed.
     a case analysis on whether [MList] is null on not. It turns out
     to be very handy for reasoning about list-manipulating programs. *)
 
-Lemma MList_if : forall p L,
+Lemma MList_if : forall (p:loc) (L:list int),
   p ~> MList L ==>
   If p = null
     then \[L = nil]
-   else \exists x p' L', \[L = x::L'] \* p ~> MCell x p' \* p' ~> MList L'.
+    else \exists x q L', \[L = x::L']  
+         \* (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L').
 Proof using.
+  (* Let's prove this by case analysis on [L]. *)
   intros. destruct L as [|x L'].
-  { xchanges MList_nil ;=> M. case_if. xsimpl~. }
-  { xchange MList_cons ;=> p'. case_if.
-    { subst. xchange MCell_null. }
-    { xsimpl~. } }
+  { (* case [L = nil]. By definition of [MList], we have [p = null]. *)
+    xchange MList_nil. intros M.
+    (* we have to justify [L = nil], which is trivial. *)
+    case_if. xsimpl. auto. }
+  { (* case [L = x::L']. *)
+    xchange MList_cons. intros q. case_if.
+    { (* case [p = null]. Contradiction because nothing can be allocated at
+         the null location, as captured by lemma [Hfield_not_null]. *) 
+      subst. xchange Hfield_not_null. }
+    { (* case [p <> null]. The 'else' branch corresponds to the definition
+         of [MList] in the [cons] case, it suffices to instantiate the existentials. *)
+      xsimpl. auto. } }
 Qed.
-
 
 
 (* ******************************************************* *)
 (** *** Length of a mutable list *)
+
+(* TODO *)
+
+Lemma Triple_eq_loc : forall (v1 v2 : loc),
+  Triple (val_eq ``v1 ``v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (v1 = v2)]).
+Proof using. intros. xapp~ (@Triple_eq loc). xsimpl*. Qed.
+
+Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide Triple_eq_loc.
 
 (**
 [[
@@ -359,19 +420,46 @@ Qed.
 
 Definition mlength : val :=
   VFix 'f 'p :=
-    If_ 'p '= null
+    If_ 'p '= ``null
       Then 0
-      Else 1 '+ 'f ('!'p`.tail).
+      Else 1 '+ 'f ('p'.tail).
 
-Lemma Triple_mlength : forall A `{EA:Enc A} (L:list A) (p:loc),
-  TRIPLE (mlength ``p)
+Lemma Triple_mlength : forall (p:loc) (L:list int),
+  TRIPLE (mlength p)
     PRE (p ~> MList L)
     POST (fun (r:int) => \[r = length L] \* p ~> MList L).
 Proof using.
-  intros. gen p. induction_wf: list_sub_wf L; intros. xwp.
-  xapp~. xchange MList_if. xif ;=> C; case_if; xpull.
-  { intros ->. xval. xchanges* <- (MList_nil p). }
-  { intros x q L' ->. xapp. xapp~. xapp. xchanges* <- (MList_cons p). }
+  (* Well-founded induction over the structure of the list [L],
+     which provides an induction principle for the tail of [L].
+     More precisely, the induction principle holds for a list 
+     [L'] such that [list_sub L' L], where [list_sub] is 
+     an inductive defined with a single constructor [list_sub L' (x::L')]. *)
+  intros. gen p. induction_wf: list_sub_wf L. intros.
+  xwp. xapp.
+  (* Critical step is to reformulate [MList] using lemma [MList_if] to make
+     the case analysis on the condition [p = null] visible. *)
+  xchange MList_if. xif; intros C; case_if; xpull.
+  { (* case [p = null]. *)
+    intros ->. subst p. xval. xchange <- (MList_nil null). { auto. }
+    (* justify that [length nil = 0] *)
+    xsimpl. rew_list. math. }
+  { (* case [p <> null]. *)
+     intros x q L' ->. xapp.
+     (* recursive call, exploit [IH], justifying [L'] sublist of [x::L']. *)
+     xapp. { auto. } 
+     (* justify that [length (x::L') = 1 + length L'] *)
+     xapp. xchanges <- MList_cons. rew_list. math. }
+Qed.
+
+Lemma Triple_mlength_concise : forall (p:loc) (L:list int),
+  TRIPLE (mlength p)
+    PRE (p ~> MList L)
+    POST (fun (r:int) => \[r = length L] \* p ~> MList L).
+Proof using.
+  intros. gen p. induction_wf: list_sub_wf L. intros.
+  xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
+  { intros ->. subst p. xval. xchanges* <- MList_nil. }
+  { intros x q L' ->. xapp. xapp*. xapp. xchanges* <- MList_cons. }
 Qed.
 
 Hint Extern 1 (Register_Spec mlength) => Provide Triple_mlength.
@@ -740,6 +828,21 @@ Proof using.
     xapps. xapps. xapp~ as p'. xapps. intros p. subst. rew_list.
     xchange~ (>> MList_cons p Enc_int).
     xchanges~ (>> MList_cons p1 Enc_int). }
+Qed.
+
+
+(* ******************************************************* *)
+(** *** Exercise: specialization of [mcons] to a [null] tail *)
+
+(* exo : *)
+
+Lemma Triple_mcons_null : forall (x:int),
+  TRIPLE (mcons x null)
+    PRE \[] 
+    POST (fun (p:loc) => p ~> MList (x::nil)).
+Proof using.
+  intros. xtriple. xchange <- (MList_nil null). { auto. }
+  xapp. intros p. xsimpl.
 Qed.
 
 
