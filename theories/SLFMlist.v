@@ -61,14 +61,59 @@ Proof using. introv M. unfolds Decode. subst v2. applys Triple_set_field_strong.
 Hint Extern 1 (Register_Spec (val_set_field _)) => Provide @Triple_set_field'.
 
 
+Lemma Triple_eq' : forall A `(EA:Enc A) (v1 v2:val) (V1 V2:A),
+  Decode v1 V1 ->
+  Decode v2 V2 ->
+  Enc_injective EA ->
+  Triple (val_eq v1 v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (V1 = V2)]).
+Proof using.
+  introv D1 D2 I. unfolds Decode. subst v1 v2. applys* Triple_eq.
+Qed.
+
+Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide @Triple_eq'.
+
+Lemma Triple_neq' : forall A `(EA:Enc A) (v1 v2:val) (V1 V2:A),
+  Decode v1 V1 ->
+  Decode v2 V2 ->
+  Enc_injective EA ->
+  Triple (val_neq v1 v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (V1 <> V2)]).
+Proof using.
+  introv D1 D2 I. unfolds Decode. subst v1 v2. applys* Triple_neq.
+Qed.
+
+Hint Extern 1 (Register_Spec (val_prim val_neq)) => Provide @Triple_neq'.
+
+
+(*
+
+Lemma Triple_eq_loc : forall (v1 v2 : loc),
+  Triple (val_eq ``v1 ``v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (v1 = v2)]).
+Proof using. intros. xapp~ (@Triple_eq loc). xsimpl*. Qed.
+
+Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide Triple_eq_loc.
+
+Lemma Triple_neq_loc : forall (v1 v2 : loc),
+  Triple (val_neq ``v1 ``v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (v1 <> v2)]).
+Proof using. intros. xapp~ (@Triple_neq loc). xsimpl*. Qed.
+
+Hint Extern 1 (Register_Spec (val_prim val_neq)) => Provide Triple_neq_loc.
+
+*)
+
+
 Ltac decode_core tt :=
   try solve [ eauto with Decode ].
 
 Tactic Notation "decode" :=
   decode_core tt.
-
-Tactic Notation "trydecode" :=
-  try match goal with |- Decode _ _ => decode end.
 
 Ltac nrapply H :=
   first 
@@ -85,9 +130,15 @@ Ltac nrapply H :=
   | notypeclasses refine (H _ _ _ _ _ _ _ _ _ _)
   | notypeclasses refine (H _ _ _ _ _ _ _ _ _ _ _) ].
 
+Ltac xenc_side_conditions tt :=
+  try match goal with
+  | |- Decode _ _ => decode 
+  | |- Enc_injective _ => eauto (* TODO: in hint database *)
+  end.
+
 Ltac xspec_prove_cont tt ::=
   let H := fresh "Spec" in
-  intro H; nrapply H; try clear H; trydecode.
+  intro H; nrapply H; try clear H; xenc_side_conditions tt.
 
 
 
@@ -453,26 +504,6 @@ Qed.
 
 (* ******************************************************* *)
 (** *** Length of a mutable list *)
-
-(* TODO *)
-
-Lemma Triple_eq_loc : forall (v1 v2 : loc),
-  Triple (val_eq ``v1 ``v2)
-    \[]
-    (fun (b:bool) => \[b = isTrue (v1 = v2)]).
-Proof using. intros. xapp~ (@Triple_eq loc). xsimpl*. Qed.
-
-Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide Triple_eq_loc.
-
-Lemma Triple_neq_loc : forall (v1 v2 : loc),
-  Triple (val_neq ``v1 ``v2)
-    \[]
-    (fun (b:bool) => \[b = isTrue (v1 <> v2)]).
-Proof using. intros. xapp~ (@Triple_neq loc). xsimpl*. Qed.
-
-Hint Extern 1 (Register_Spec (val_prim val_neq)) => Provide Triple_neq_loc.
-
-
 
 (**
 [[
