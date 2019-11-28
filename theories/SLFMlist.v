@@ -683,15 +683,18 @@ Definition clear : val :=
   VFun 'q :=
     'q ':= mnil '().
 
-Lemma Triple_clear : forall (q:loc) (L:list int)
-  TRIPLE (clear '())
+Lemma Triple_clear : forall (q:loc) (L:list int),
+  TRIPLE (clear q)
     PRE (q ~> Stack L)
     POST (fun (r:unit) => q ~> Stack nil).
 Proof using.
-  xwp. xchange Stack_eq. xapp. xapp. xchange <- Stack_eq.
+  xwp. xchange Stack_eq. intros p. xapp. intros p'.
+  xapp. xchange <- Stack_eq. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec clear) => Provide Triple_clear.
+
+(* Note: [\GC] plays a role here *)
 
 
 (* ******************************************************* *)
@@ -713,8 +716,8 @@ Hint Extern 1 (Register_Spec clear) => Provide Triple_clear.
 Definition mcopy_nonneg : val :=
   VFix 'f 'p :=
     If_ 'p '= null Then mnil '() Else (
-      Let 'x := '!'p`.head in
-      Let 'q2 := 'f ('!'p`.tail) in
+      Let 'x := 'p'.head in
+      Let 'q2 := 'f ('p'.tail) in
       If_ 'x '= 0 Then 'q2 Else (mcons 'x 'q2)
     ).
 
@@ -723,13 +726,18 @@ Lemma Triple_mcopy_nonneg : forall (p:loc) (L:list int),
     PRE (p ~> MList L)
     POST (fun (p2:loc) => p ~> MList L \* p2 ~> MList (LibList.filter (<> 0) L)).
 Proof using.
-  intros. gen p1. induction_wf IH: (@list_sub A) L1. intros.
-  xwp. xif ;=> C.
-  { xchanges (MList_eq p1) ;=> v1. xchanges (MList_eq p2) ;=> v2.
-    xapp. xapp. xchanges* <- (MList_eq p1). }
-  { xchanges~ (MList_not_nil p1) ;=> x L1' p1' ->.
-    xapp. xapp*. xchanges <- (MList_cons p1). }
+  intros. gen p. induction_wf IH: list_sub_wf L. intros.
+  xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
+  { intros ->. xapp. xsimpl. xchanges* <- MList_nil. }
+  { intros x q L' ->. xapp. xapp. xapp. { auto. } intros q'.
+    xchange <- MList_cons.
+    xapp (@Triple_eq int). auto. (* TODO: fix *) 
+    rewrite filter_cons. xif; intros Cx; case_if as Cx'. 
+    { xval. xsimpl. }
+    { xapp. intros p2. xsimpl. } }
 Qed.
+
+(* TODO: allow induction_wf to take [list_sub] as argument *)
 
 Hint Extern 1 (Register_Spec mcopy_nonneg) => Provide Triple_mcopy_nonneg.
 
@@ -737,56 +745,65 @@ Hint Extern 1 (Register_Spec mcopy_nonneg) => Provide Triple_mcopy_nonneg.
 (* ******************************************************* *)
 (** *** In-place append on lists *)
 
+(* hard exercise *)
+
 (**
-[[
-    let rec mappend p1 p2 =
-      if p1 == null then 
-        p2
-      else if p1.tail == null then  
-        p1.tail <- p2
-      else
-        mappend p1.tail p2
-]]
-*)
-
-Definition mappend : val :=
-  VFix 'f 'p1 'p2 :=
-    If_ 'p1 '= null
-      Then 'p1 ':= '! 'p2
-      Else 'f (tail 'p1) 'p2.
-
-Lemma Triple_mappend : forall (p1 p2:loc) L1 L2:list int),
-  TRIPLE (mappend p1 p2)
-    PRE (p1 ~> MList L1 \* p2 ~> MList L2)
-    POST (fun (_:unit) => p1 ~> MList (L1++L2)).
-Proof using.
-  intros. gen p1. induction_wf IH: (@list_sub A) L1. intros.
-  xwp. xif ;=> C.
-  { xchanges (MList_eq p1) ;=> v1. xchanges (MList_eq p2) ;=> v2.
-    xapp. xapp. xchanges* <- (MList_eq p1). }
-  { xchanges~ (MList_not_nil p1) ;=> x L1' p1' ->.
-    xapp. xapp*. xchanges <- (MList_cons p1). }
-Qed.
-
-Hint Extern 1 (Register_Spec mappend) => Provide @Triple_mappend.
-
-
-(* ******************************************************* *)
-(** *** Exercise: optimized in-place append on lists *)
-
-(** exo :
 [[
     let mappend_aux p1 p2 =
       if p1.tail == null  
         then p1.tail <- p2
         else mappend p1.tail p2
 
-    let mappend' p1 p2 =
+    let mappend p1 p2 =
       if p1 == null 
         then p2 
         else mappend_aux p1 p2
 ]]
 *)
+
+Definition mappend_aux : val :=
+  VFix 'f 'p1 'p2 :=
+    If_ 'p1'.tail '= null
+      Then Set 'p1'.tail ':= 'p2
+      Else 'f ('p1'.tail) 'p2.
+
+Definition mappend : val :=
+  VFun 'p1 'p2 :=
+    If_ 'p1 '= null Then 'p2 Else (
+      mappend_aux 'p1 'p2 ';
+      'p1
+    ).
+
+Lemma Triple_mappend_aux : forall (p1 p2:loc) (L1 L2:list int),
+  p1 <> null ->
+  TRIPLE (mappend_aux p1 p2)
+    PRE (p1 ~> MList L1 \* p2 ~> MList L2)
+    POST (fun (r:unit) => p1 ~> MList (L1++L2)).
+Proof using.
+  intros. gen p1. induction_wf IH: list_sub_wf L1.
+  xwp. xchange (MList_if p1). case_if. xpull. intros x q L' ->.
+  xapp. xapp. xif; intros Cq.
+  { xchange (MList_if q). case_if. xpull. intros ->.
+     xapp (>> (@Triple_set_field loc) q). (* TODO fix *) 
+    xchange <- MList_cons. xsimpl. }
+  { xapp. xapp. { auto. } { auto. }
+    xchange <- MList_cons. rew_list. xsimpl. }
+Qed.
+
+Hint Extern 1 (Register_Spec mappend_aux) => Provide Triple_mappend_aux.
+
+Lemma Triple_mappend : forall (p1 p2:loc) (L1 L2:list int),
+  TRIPLE (mappend p1 p2)
+    PRE (p1 ~> MList L1 \* p2 ~> MList L2)
+    POST (fun (p:loc) => p ~> MList (L1++L2)).
+Proof using.
+  xwp. xapp. xif; intros C.
+  { xchange (MList_if p1). case_if. xpull. intros ->.
+    xval. xsimpl. }
+  { xapp. { auto. } xval. xsimpl. }
+Qed.
+
+Hint Extern 1 (Register_Spec mappend) => Provide Triple_mappend.
 
 
 (* ******************************************************* *)

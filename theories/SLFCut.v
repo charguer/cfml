@@ -1505,3 +1505,41 @@ PRE \[]
 CODE (Val 0)
 POST (fun x : int => (\[x = length nil] \* p ~> MList nil)
 
+
+
+(**
+[[
+    let rec mappend p1 p2 =
+      if p1 == null then 
+        p2
+      else if p1.tail == null then  
+        (p1.tail <- p2; p1)
+      else
+        mappend p1.tail p2
+]]
+*)
+
+Definition mappend : val :=
+  VFix 'f 'p1 'p2 :=
+    If_ 'p1 '= null Then
+      'p2
+    Else If_ ('p1'.tail) '= null Then
+       Set 'p1'.tail ':= 'p2               (* TODO: Set := vs Set ':= *)
+    Else
+      'f ('p1'.tail) 'p2.
+
+Lemma Triple_mappend : forall (p1 p2:loc) (L1 L2:list int),
+  TRIPLE (mappend p1 p2)
+    PRE (p1 ~> MList L1 \* p2 ~> MList L2)
+    POST (fun (p:loc) => p ~> MList (L1++L2)).
+Proof using.
+  intros. gen p1. induction_wf IH: list_sub_wf L1.
+  xwp. xchange (MList_if p1). xif; intros C; case_if; xpull.
+  { intros ->. xval. p2. xsimpl. xchanges* <- (MList_nil. }
+  { intros x q L' ->. xapp. xapp. xapp. { auto. } intros q'.
+
+  { xchanges (MList_eq p1) ;=> v1. xchanges (MList_eq p2) ;=> v2.
+    xapp. xapp. xchanges* <- (MList_eq p1). }
+  { xchanges~ (MList_not_nil p1) ;=> x L1' p1' ->.
+    xapp. xapp*. xchanges <- (MList_cons p1). }
+Qed.
