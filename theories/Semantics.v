@@ -1515,6 +1515,10 @@ Notation "t1 '<> t2" :=
   (val_neq t1 t2)
   (at level 68) : trm_scope.
 
+(* Notation "t1 '!= t2" :=
+  (val_neq t1 t2)
+  (at level 68) : trm_scope. *)
+
 (* TODO: conflict with TCL? to resolve *)
 
 Notation "t1 '<= t2" :=
