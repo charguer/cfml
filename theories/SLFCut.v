@@ -1287,3 +1287,61 @@ Qed.
 
     - [p ~> MCell n q] as a shorthand for [p ~~> n \* (p+1) ~~> q],
       to describe the ownserhip
+
+=======================
+
+
+
+(* exo *) 
+
+(**
+[[
+    let rec concat_left_clear q1 q2 =
+      concat_left q1 q2;
+      clear q2
+]]
+*)
+
+Definition concat_left : val :=
+  VFun 'q1 'q2 :=
+    'q1 ':= mappend ('!'q1) ('!'q2).
+
+
+Lemma Triple_concat_left : forall (q1 q2:loc) (L1 L2:list int)
+  TRIPLE (concat_left q1 q2)
+    PRE (q1 ~> Stack L1 \* q2 ~> Stack L2)
+    POST (fun (r:unit) => q1 ~> Stack (L1 ++ L2)).
+Proof using.
+  xwp. xchange Stack_eq. xapp. xapp. xchange <- Stack_eq.
+Qed.
+
+Hint Extern 1 (Register_Spec mappend) => Provide Triple_concat_left.
+
+
+Lemma Triple_concat_left_2 : forall (q1 q2:loc) (L1 L2:list int)
+  TRIPLE (concat_left q1 q2)
+    PRE (q1 ~> Stack L1 \* q2 ~> Stack L2)
+    POST (fun (r:unit) => q1 ~> Stack (L1 ++ L2)).
+Proof using.
+  xwp. xchange Stack_eq. xapp. xapp. xchange <- Stack_eq.
+Qed.
+
+Lemma Triple_concat_left_1 : forall (q1 q2:loc) (L1 L2:list int)
+  TRIPLE (concat_left q1 q2)
+    PRE (q1 ~> Stack L1 \* q2 ~> Stack L2)
+    POST (fun (r:unit) => q1 ~> Stack (L1 ++ L2)).
+Proof using.
+  xwp. xchange Stack_eq. xapp. xapp. xchange <- Stack_eq.
+Qed.
+
+
+
+
+---------------
+(**
+[[
+    let rec concat_right q1 q2 =
+      q1 := mappend q2 q1;
+      q2 := mnil ()
+]]
+*)

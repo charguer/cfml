@@ -19,7 +19,8 @@ Implicit Types L : list int.
 
 
 (* ####################################################### *)
-(** * The chapter in a rush *)
+(** * The chapter in a rush, 
+      nested with exercises as additional contents *)
 
 (** The previous chapter has introduced the notation for specification
     triples, the entailements relation, and the grammar for heap predicates,
@@ -410,7 +411,6 @@ Proof using.
 Qed.
 
 
-
 (* ******************************************************* *)
 (** *** List Copy *)
 
@@ -444,11 +444,147 @@ Qed.
 Hint Extern 1 (Register_Spec copy) => Provide Triple_copy.
 
 
+
+(* ******************************************************* *)
+(** *** Representation of a mutable stack *)
+
+(** The predicate [q ~> Stack L]  
+
+*)
+
+Definition Stack (L:list int) (q:loc) : hprop :=
+  \exists p, (q ~~> p) \* (p ~> MList L).
+
+Lemma Stack_eq : forall (q:loc) (L:list int),
+  (q ~> Stack L) = (\exists p, (q ~~> p) \* (p ~> MList L)).
+Proof using. xunfold* Stack. Qed.
+
+
+(* ******************************************************* *)
+(** *** Operations [create] *)
+
+(**
+[[
+    let create () =
+      ref (mnil())
+]]
+*)
+
+Definition create : val :=
+  VFun 'u :=
+    ref (mnil '()).
+
+Lemma Triple_create :
+  TRIPLE (create '())
+    PRE \[]
+    POST (fun (q:loc) => (q ~> Stack nil).
+Proof using.
+  xwp. xapp. xapp. xchange <- Stack_eq.
+Qed.
+
+Hint Extern 1 (Register_Spec create) => Provide Triple_create.
+
+
+
+(* ******************************************************* *)
+(** *** Operations [push] *)
+
+(**
+[[
+    let push q x =
+      q := mcons x !q
+]]
+*)
+
+Definition push : val :=
+  VFun 'q :=
+    'q ':= mcons x ('!'q).
+
+Lemma Triple_push : forall (q:loc) (L:list int)
+  TRIPLE (push q x)
+    PRE (q ~> Stack L)
+    POST (fun (r:unit) => q ~> Stack (x::L)).
+Proof using.
+  xwp. xchange Stack_eq. xapp. xapp. xchange <- Stack_eq.
+Qed.
+
+Hint Extern 1 (Register_Spec push) => Provide Triple_push.
+
+
+(* ******************************************************* *)
+(** *** Operations [pop] *)
+
+(**
+[[
+    let pop q =
+      let p = !q in
+      let x = mhead p in
+      q := mtail p;
+      x
+]]
+*)
+
+Definition pop : val :=
+  VFun 'q :=
+    Let 'p := '!'q in
+    Let 'x := mhead 'p in
+    'q ':= mtail 'p ';
+    x
+
+Lemma Triple_pop_from_cons : forall (q:loc) (L:list int)
+  TRIPLE (pop q)
+    PRE (q ~> Stack (x::L))
+    POST (fun (r:int) => \[r = x] \* q ~> Stack L).
+Proof using.
+  xwp. xchange Stack_eq. xapp. xapp. xchange <- Stack_eq.
+Qed.
+
+Lemma Triple_pop : forall (q:loc) (L:list int)
+  L <> nil ->
+  TRIPLE (pop q)
+    PRE (q ~> Stack L)
+    POST (fun (x:int) => \exists L', \[L = x::L'] \* q ~> Stack L').
+Proof using.
+  xwp. xchange Stack_eq. xapp. xapp. xchange <- Stack_eq.
+Qed.
+
+Hint Extern 1 (Register_Spec pop) => Provide Triple_pop.
+
+
+
+
+
 (* ####################################################### *)
 (** * Additional contents *)
 
+
 (* ******************************************************* *)
-(** *** Exercise: out-of-place filter *)
+(** *** Exercise: operation [clear] on stack *)
+
+(**
+[[
+    let rec clear q =
+      q := mnil()
+]]
+*)
+
+Definition clear : val :=
+  VFun 'q :=
+    'q ':= mnil '().
+
+Lemma Triple_clear : forall (q:loc) (L:list int)
+  TRIPLE (clear '())
+    PRE (q ~> Stack L)
+    POST (fun (r:unit) => q ~> Stack nil).
+Proof using.
+  xwp. xchange Stack_eq. xapp. xapp. xchange <- Stack_eq.
+Qed.
+
+Hint Extern 1 (Register_Spec clear) => Provide Triple_clear.
+
+
+(* ******************************************************* *)
+(** *** Exercise: out-of-place filter on list *)
 
 (**
 [[
@@ -487,9 +623,8 @@ Qed.
 Hint Extern 1 (Register_Spec mcopy_nonneg) => Provide Triple_mcopy_nonneg.
 
 
-
 (* ******************************************************* *)
-(** *** In-place append *)
+(** *** In-place append on lists *)
 
 (**
 [[
@@ -526,7 +661,7 @@ Hint Extern 1 (Register_Spec mappend) => Provide @Triple_mappend.
 
 
 (* ******************************************************* *)
-(** *** Exercise: optimized in-place reverse *)
+(** *** Exercise: optimized in-place append on lists *)
 
 (** exo :
 [[
@@ -544,7 +679,34 @@ Hint Extern 1 (Register_Spec mappend) => Provide @Triple_mappend.
 
 
 (* ******************************************************* *)
-(** *** Exercise: in-place reverse *)
+(** *** Exercise: in-place concatenation on stacks *)
+
+(**
+[[
+    let rec concat q1 q2 =
+      q1 := mappend q1 q2;
+      q2 := mnil ()
+]]
+*)
+
+Definition concat : val :=
+  VFun 'q1 'q2 :=
+    'q1 ':= mappend ('!'q1) ('!'q2) ';
+    'q2 ':= mnil '().
+
+Lemma Triple_concat : forall (q1 q2:loc) (L1 L2:list int)
+  TRIPLE (concat q1 q2)
+    PRE (q1 ~> Stack L1 \* q2 ~> Stack L2)
+    POST (fun (r:unit) => q1 ~> Stack (L1 ++ L2) \* q2 ~> Stack nil).
+Proof using.
+  xwp. xchange Stack_eq. xapp. xapp. xchange <- Stack_eq.
+Qed.
+
+Hint Extern 1 (Register_Spec concat) => Provide Triple_concat.
+
+
+(* ******************************************************* *)
+(** *** Exercise: in-place reverse on lists *)
 
 (**
 [[
