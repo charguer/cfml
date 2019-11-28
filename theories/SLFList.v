@@ -2,7 +2,7 @@
 
 Separation Logic Foundations
 
-Chapter: "Mlist".
+Chapter: "List".
 
 Author: Arthur Charguéraud.
 License: MIT.
@@ -17,20 +17,11 @@ Implicit Types x n m : int.
 Implicit Types p q : loc.
 Implicit Types L : list int.
 
-
-
-
-(* TODO make record mode generic *)
-
-Hint Extern 1 (Register_Spec (val_get_field _)) => Provide @Triple_get_field.
-Hint Extern 1 (Register_Spec (val_set_field _)) => Provide @Triple_set_field'.
+(** Technical tweaks to simplify manipulation of records in this file. *)
 
 Ltac xapp_record tt ::= fail.
-
-
-
-
-
+Hint Extern 1 (Register_Spec (val_get_field _)) => Provide @Triple_get_field.
+Hint Extern 1 (Register_Spec (val_set_field _)) => Provide @Triple_set_field'.
 
 
 (* ####################################################### *)
@@ -93,33 +84,6 @@ Ltac xapp_record tt ::= fail.
 
 Definition head : field := 0%nat.
 Definition tail : field := 1%nat.
-
-
-Notation "l `. f '~~>' V" := ((l,f) ~> Hfield V)
-  (at level 32, f at level 0, no associativity,
-   format "l `. f  '~~>'  V") : heap_scope.
-
-(*
-Definition loc_field (p:loc) (k:field) : loc :=
-  (p+k)%nat.
-
-Notation "p `. k" := (loc_field p k) 
-  (at level 31, format "p `. k") : fields_scope.
-
-Definition val_field (k:field) : val :=
-  VFun 'p :=
-    val_ptr_add 'p (nat_to_Z k).
-
-(*
-Notation "p ''`.' k" := (trm_app (val_field k) p) 
-  (at level 31, format "p ''`.' k") : trm_scope.
-*)
-
-Notation "t ''.' k" := (trm_app (val_field k) t)
-  (at level 66, k at level 0, format "t ''.' k" ) : trm_scope.
-*)
-
-
 
 (** Thus, to read in the head field of a list at address [p],
     we would write ['! p`.head], like if [p`.head] was the
@@ -418,7 +382,7 @@ Proof using.
      More precisely, the induction principle holds for a list 
      [L'] such that [list_sub L' L], where [list_sub] is 
      an inductive defined with a single constructor [list_sub L' (x::L')]. *)
-  intros. gen p. induction_wf: list_sub_wf L. intros.
+  intros. gen p. induction_wf IH: list_sub L. intros.
   xwp. xapp.
   (* Critical step is to reformulate [MList] using lemma [MList_if] to make
      the case analysis on the condition [p = null] visible. *)
@@ -440,7 +404,7 @@ Lemma Triple_mlength_concise : forall (p:loc) (L:list int),
     PRE (p ~> MList L)
     POST (fun (r:int) => \[r = length L] \* p ~> MList L).
 Proof using.
-  intros. gen p. induction_wf: list_sub_wf L. intros.
+  intros. gen p. induction_wf IH: list_sub L. intros.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
   { intros ->. xval. xchanges* <- MList_nil. }
   { intros x q L' ->. xapp. xapp*. xapp. xchanges* <- MList_cons. }
@@ -474,7 +438,7 @@ Lemma Triple_mlist_incr : forall (p:loc) (L:list int),
     PRE (p ~> MList L)
     POST (fun (r:unit) => p ~> MList (LibList.map (fun x => x+1) L)).
 Proof using.
-  intros. gen p. induction_wf: list_sub_wf L.
+  intros. gen p. induction_wf IH: list_sub L.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull. 
   { intros x p' L' ->. xapp. xapp. xapp. xapp. xapp. { auto. }
     xchange <- MList_cons. xsimpl.
@@ -508,7 +472,7 @@ Lemma Triple_copy : forall (p:loc) (L:list int),
     PRE (p ~> MList L)
     POST (fun (p':loc) => (p ~> MList L) \* (p' ~> MList L)).
 Proof using.
-  intros. gen p. induction_wf IH: list_sub_wf L.
+  intros. gen p. induction_wf IH: list_sub L.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
   { intros ->. xapp. xsimpl. xchanges* <- MList_nil. }
   { intros x q L' ->. xapp. xapp. xapp. { auto. } intros q'.
@@ -682,7 +646,7 @@ Lemma Triple_mappend_copy : forall (p1 p2:loc) (L1 L2:list int),
     POST (fun (p:loc) => p ~> MList (L1++L2) 
                       \* p1 ~> MList L1 \* p2 ~> MList L2).
 Proof using.
-  intros. gen p1. induction_wf: list_sub_wf L1.
+  intros. gen p1. induction_wf IH: list_sub L1.
   xwp. xapp. xchange (MList_if p1). xif; intros C; case_if; xpull.
   { intros ->. xapp. xsimpl. xchanges* <- MList_nil. }
   { intros x q L' ->. xapp. xapp. { auto. } intros q'.
@@ -719,18 +683,15 @@ Lemma Triple_mcopy_nonneg : forall (p:loc) (L:list int),
     PRE (p ~> MList L)
     POST (fun (p2:loc) => p ~> MList L \* p2 ~> MList (LibList.filter (<> 0) L)).
 Proof using.
-  intros. gen p. induction_wf IH: list_sub_wf L. intros.
+  intros. gen p. induction_wf IH: list_sub L. intros.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
   { intros ->. xapp. xsimpl. xchanges* <- MList_nil. }
   { intros x q L' ->. xapp. xapp. xapp. { auto. } intros q'.
-    xchange <- MList_cons.
-    xapp (@Triple_eq int). auto. (* TODO: fix *) 
+    xchange <- MList_cons. xapp.
     rewrite filter_cons. xif; intros Cx; case_if as Cx'. 
     { xval. xsimpl. }
     { xapp. intros p2. xsimpl. } }
 Qed.
-
-(* TODO: allow induction_wf to take [list_sub] as argument *)
 
 Hint Extern 1 (Register_Spec mcopy_nonneg) => Provide Triple_mcopy_nonneg.
 
@@ -773,7 +734,7 @@ Lemma Triple_set_field' : forall A (EA:Enc A) v2 (V1:A) (l:loc) f (V2:A),
   v2 = ``V2 ->
   TRIPLE ((val_set_field f) l v2)
     PRE (l `.` f ~~> V1)
-    POST (fun (r:unit) => l `.` f ~~> V2).
+    POST (fun (r:unit) => l `. f ~~> V2).
 Proof using. intros. subst. applys Triple_set_field. Qed.
 
     xapp_debug @Triple_set_field'. 2:{ eapply SpecInstantiated. } 
@@ -788,7 +749,7 @@ Lemma Triple_mappend_aux : forall (p1 p2:loc) (L1 L2:list int),
     PRE (p1 ~> MList L1 \* p2 ~> MList L2)
     POST (fun (r:unit) => p1 ~> MList (L1++L2)).
 Proof using.
-  intros. gen p1. induction_wf IH: list_sub_wf L1.
+  intros. gen p1. induction_wf IH: list_sub L1.
   xwp. xchange (MList_if p1). case_if. xpull. intros x q L' ->.
   xapp. xapp. xif; intros Cq.
   { xchange (MList_if q). case_if. xpull. intros ->.
@@ -941,7 +902,7 @@ Lemma Triple_mrev_aux : forall (p1 p2:loc) (L1 L2:list int),
     POST (fun (r:loc) => r ~> MList (rev L2 ++ L1)).
 Proof using.
   (* important: need to generalize p1 and p2 *)
-  intros. gen p1 p2 L1. induction_wf IH: list_sub_wf L2.
+  intros. gen p1 p2 L1. induction_wf IH: list_sub L2.
   xwp. xchange (MList_if p2). xif; intros C; case_if; xpull.
   { intros ->. xval. rew_list. xsimpl. }
   { intros x q L' ->. xapp. xapp.

@@ -128,10 +128,10 @@ Bind Scope fields_scope with Record_fields.
 Fixpoint Record (L:Record_fields) (r:loc) : hprop :=
   match L with
   | nil => \[]
-  | (f, Dyn V)::L' => (r `.` f ~~> V) \* (r ~> Record L')
+  | (f, Dyn V)::L' => (r `. f ~~> V) \* (r ~> Record L')
   end.
 
-(* TODO: currently restricted due to [r `.` f ~> V] not ensuring [r<>null] *)
+(* TODO: currently restricted due to [r `. f ~> V] not ensuring [r<>null] *)
 (* TODO: rename *)
 Lemma hRecord_not_null : forall (r:loc) (L:Record_fields),
   (* L <> nil -> *)
@@ -153,7 +153,7 @@ Proof using. auto. Qed.
 
 Lemma Record_cons : forall p x (V:dyn) L,
   (p ~> Record ((x, V)::L)) =
-  (p`.`x ~~> ``V \* p ~> Record L).
+  (p`.x ~~> ``V \* p ~> Record L).
 Proof using. intros. destruct~ V. Qed.
 
 Local Open Scope heap_scope_ext.
@@ -201,24 +201,24 @@ Transparent loc field Hfield.
 
 (* TODO move *)
 Lemma Hfield_eq_fun_Hsingle_ext : forall `{EA:Enc A} (V:A) (l:loc) (f:field),
-  (l`.`f ~~> V) = (((l+f)%nat ~~> V) \* \[l <> null]).
+  (l`.f ~~> V) = (((l+f)%nat ~~> V) \* \[l <> null]).
 Proof using. intros. rewrite Hfield_eq_fun_Hsingle. rewrite~ repr_eq. Qed.
 
 Lemma Hfield_to_Hsingle : forall (l:loc) (f:field) `{EA:Enc A} (V:A),
-  (l`.`f ~~> V) ==> ((l+f)%nat ~~> V) \* \[l <> null].
+  (l`.f ~~> V) ==> ((l+f)%nat ~~> V) \* \[l <> null].
 Proof using. intros. rewrite~ Hfield_eq_fun_Hsingle_ext. Qed.
 
 Lemma Hsingle_to_Hfield : forall (l:loc) (f:field) `{EA:Enc A} (V:A),
   l <> null ->
-  ((l+f)%nat ~~> V) ==> (l`.`f ~~> V).
+  ((l+f)%nat ~~> V) ==> (l`.f ~~> V).
 Proof using. introv N. rewrite Hfield_eq_fun_Hsingle_ext. xsimpl~. Qed.
 
 
 
 Lemma Triple_get_field : forall (l:loc) f `{EA:Enc A} (V:A),
   TRIPLE ((val_get_field f) l)
-    PRE (l `.` f ~~> V)
-    POST (fun r => \[r = V] \* (l `.` f ~~> V)).
+    PRE (l `. f ~~> V)
+    POST (fun r => \[r = V] \* (l `. f ~~> V)).
 Proof using.
   dup.
   { intros.
@@ -242,8 +242,8 @@ Qed.
 
 Lemma Triple_set_field_strong : forall `{EA1:Enc A1} (V1:A1) (l:loc) f `{EA2:Enc A2} (V2:A2),
   TRIPLE ((val_set_field f) l ``V2)
-    PRE (l `.` f ~~> V1)
-    POST (fun (r:unit) => l `.` f ~~> V2).
+    PRE (l `. f ~~> V1)
+    POST (fun (r:unit) => l `. f ~~> V2).
 Proof using.
   dup.
   { intros.
@@ -268,15 +268,15 @@ Qed.
 
 Lemma Triple_set_field : forall `{EA:Enc A} (V1:A) (l:loc) f (V2:A),
   TRIPLE ((val_set_field f) l ``V2)
-    PRE (l `.` f ~~> V1)
-    POST (fun (r:unit) => l `.` f ~~> V2).
+    PRE (l `. f ~~> V1)
+    POST (fun (r:unit) => l `. f ~~> V2).
 Proof using. intros. applys Triple_set_field_strong. Qed.
 
 Lemma Triple_set_field' : forall (v2:val) A (EA:Enc A) (V1:A) (l:loc) f (V2:A),
   Decode v2 V2 ->
   TRIPLE ((val_set_field f) l v2)
-    PRE (l `.` f ~~> V1)
-    POST (fun (r:unit) => l `.` f ~~> V2).
+    PRE (l `. f ~~> V1)
+    POST (fun (r:unit) => l `. f ~~> V2).
 Proof using. introv M. unfolds Decode. subst v2. applys Triple_set_field_strong. Qed.
 
 End Triple_fields.

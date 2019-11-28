@@ -509,31 +509,31 @@ Proof using. intros. xunfold Hsingle. applys hsingle_not_null. Qed.
 
 Arguments Hsingle_not_null : clear implicits.
 
-(** Field: [ l `.` f ~~> V ] describes the ownership of a record field
+(** Field: [ l `. f ~~> V ] describes the ownership of a record field
     storing one encodable value [V]. *)
 
 Definition Hfield `{EA:Enc A} (V:A) (l_f:loc*field) : hprop :=
   let '(l,f) := l_f in
   hfield l f (enc V).
 
-Notation "l `.` f '~~>' V" := ((l,f) ~> Hfield V)
+Notation "l `. f '~~>' V" := ((l,f) ~> Hfield V)
   (at level 32, f at level 0, no associativity,
-   format "l `.` f  '~~>'  V") : heap_scope.
+   format "l `. f  '~~>'  V") : heap_scope.
 
 Lemma Hfield_eq_fun_Hsingle :
   @Hfield = (fun `{EA:Enc A} (V:A) l_f => let '(l,f) := l_f in ((l+f)%nat ~~> V) \* \[l <> null]).
 Proof using. intros. auto. Qed.
 
 Lemma Hfield_to_hfield : forall `{EA:Enc A} (l:loc) (f:field) (V:A),
-  (l`.`f ~~> V) = hfield l f (enc V).
+  (l`.f ~~> V) = hfield l f (enc V).
 Proof using. auto. Qed.
 
 Lemma Hfield_to_Hsingle : forall l f v,
-  (l`.`f ~~> v) ==> ((l+f)%nat ~~> v) \* \[l <> null].
+  (l`.f ~~> v) ==> ((l+f)%nat ~~> v) \* \[l <> null].
 Proof using. intros. xunfold Hfield. xchanges~ hfield_to_hsingle. Qed.
 
 Lemma Hfield_not_null : forall l f `{EA:Enc A} (V:A),
-  (l`.`f ~~> V) ==> (l`.`f ~~> V) \* \[l <> null].
+  (l`.f ~~> V) ==> (l`.f ~~> V) \* \[l <> null].
 Proof using. intros. xunfold Hfield. applys~ hfield_not_null. Qed.
 
 Arguments Hfield_not_null : clear implicits.

@@ -352,17 +352,17 @@ Qed.
 (* ** Singleton field heap *)
 
 (** Definition of the heap predicate describing a single record field,
-  written [l `.` f ~> v]. *)
+  written [l `. f ~> v]. *)
 
 Definition hfield (l:loc) (k:field) (v:val) : hprop :=
   (l+k)%nat ~~~> v \* \[ l <> null ].
 
-Notation "l `.` k '~~~>' v" := (hfield l k v)
+Notation "l `. k '~~~>' v" := (hfield l k v)
   (at level 32, k at level 0, no associativity,
-   format "l `.` k  '~~~>'  v") : heap_scope.
+   format "l `. k  '~~~>'  v") : heap_scope.
 
 Lemma hstar_hfield_same_loc : forall l k v1 v2,
-  (l`.`k ~~~> v1) \* (l`.`k ~~~> v2) ==> \[False].
+  (l`.k ~~~> v1) \* (l`.k ~~~> v2) ==> \[False].
 Proof using.
   intros. unfold hfield. xpull ;=> N1 N2.
   applys hstar_hsingle_same_loc.
@@ -371,7 +371,7 @@ Qed.
 Arguments hstar_hsingle_same_loc : clear implicits.
 
 Lemma hfield_not_null : forall l k v,
-  (l`.`k ~~~> v) ==> (l`.`k ~~~> v) \* \[l <> null].
+  (l`.k ~~~> v) ==> (l`.k ~~~> v) \* \[l <> null].
 Proof using.
   intros. subst. unfold hfield. xchanges~ hsingle_not_null.
 Qed.
@@ -383,12 +383,12 @@ Lemma hfield_eq_fun_hsingle :
 Proof using. intros. auto. Qed.
 
 Lemma hfield_to_hsingle : forall l k v,
-  (l`.`k ~~~> v) ==> ((l+k)%nat ~~~> v) \* \[l <> null].
+  (l`.k ~~~> v) ==> ((l+k)%nat ~~~> v) \* \[l <> null].
 Proof using. intros. auto. Qed.
 
 Lemma hsingle_to_hfield : forall l k v,
   l <> null ->
-  ((l+k)%nat ~~~> v) ==> l`.`k ~~~> v.
+  ((l+k)%nat ~~~> v) ==> l`.k ~~~> v.
 Proof using. intros. unfold hfield. xsimpl~. Qed.
 
 Arguments hsingle_to_hfield : clear implicits.

@@ -1569,3 +1569,31 @@ Proof using. intros. xapp~ (@Triple_neq loc). xsimpl*. Qed.
 Hint Extern 1 (Register_Spec (val_prim val_neq)) => Provide Triple_neq_loc.
 
 *)
+
+
+
+
+
+
+(*
+Definition loc_field (p:loc) (k:field) : loc :=
+  (p+k)%nat.
+
+Notation "p `. k" := (loc_field p k) 
+  (at level 31, format "p `. k") : fields_scope.
+
+Definition val_field (k:field) : val :=
+  VFun 'p :=
+    val_ptr_add 'p (nat_to_Z k).
+
+(*
+Notation "p ''`.' k" := (trm_app (val_field k) p) 
+  (at level 31, format "p ''`.' k") : trm_scope.
+*)
+
+Notation "t ''.' k" := (trm_app (val_field k) t)
+  (at level 66, k at level 0, format "t ''.' k" ) : trm_scope.
+*)
+
+
+

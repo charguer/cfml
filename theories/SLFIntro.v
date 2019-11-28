@@ -28,7 +28,7 @@ License: MIT.
 
     - [SLFBasic]: verification proofs on basic imperative programs.
 
-    - [SLFMList]: representation predicate and verification proofs for mutable lists.
+    - [SLFList]: representation predicate and verification proofs for mutable lists.
 
     - [SLFHprop]: definition of the core operators of Separation Logic,
                   and of Hoare triples and Separation Logic triples.

@@ -37,13 +37,13 @@ Definition tl : field := 1%nat.
   with head value [v] and tail value [q]. *)
 
 Definition MCell (v:val) (q:val) (p:loc) :=
-  (p `.` hd ~~~> v) \* (p `.` tl ~~~> q).
+  (p `. hd ~~~> v) \* (p `. tl ~~~> q).
 
 (* ---------------------------------------------------------------------- *)
 (** Properties of list cells *)
 
 Lemma MCell_eq : forall (v:val) (q:val) (p:loc),
-  MCell v q p = (p `.` hd ~~~> v) \* (p `.` tl ~~~> q).
+  MCell v q p = (p `. hd ~~~> v) \* (p `. tl ~~~> q).
 Proof using. auto. Qed.
 
 Lemma MCell_inv_not_null : forall p v q,
