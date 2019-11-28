@@ -679,12 +679,12 @@ Hint Extern 1 (Register_Spec mappend) => Provide @Triple_mappend.
 
 
 (* ******************************************************* *)
-(** *** Exercise: in-place concatenation on stacks *)
+(** *** Exercise: concatenation on stacks *)
 
 (**
 [[
     let rec concat q1 q2 =
-      q1 := mappend q1 q2;
+      q1 := mappend !q1 !q2;
       q2 := mnil ()
 ]]
 *)
@@ -703,6 +703,72 @@ Proof using.
 Qed.
 
 Hint Extern 1 (Register_Spec concat) => Provide Triple_concat.
+
+
+
+(* ******************************************************* *)
+(** *** Out-of-place append of two mutable lists *)
+
+(**
+[[
+    let rec mappend_copy p1 p2 =
+      if p1 == null then copy p2 else begin
+        let p = mappend_copy (mtail p1) p2 in
+        mcons (mhead p1) p
+      end
+]]
+*)
+
+Definition mappend_copy : val :=
+  VFix 'f 'p1 'p2 :=
+    If_ 'p1 '= null Then copy 'p2 Else (
+      Let 'p := mappend_copy (mtail 'p1) 'p2 in
+      mcons (mhead p1) p
+    End.
+
+Lemma Triple_mappend_copy : forall (p1 p2:loc) (L1 L2:list int),
+  TRIPLE (mappend_copy p1 p2)
+    PRE (p1 ~> MList L1 \* p2 ~> MList L2)
+    POST (fun (p:loc) => p ~> MList (L1++L2) 
+                      \* p1 ~> MList L1 \* p2 ~> MList L2).
+Proof using.
+  intros. gen p1. induction_wf: list_sub_wf L1; intros. xcf.
+  xapps~. xif ;=> C.
+  { subst. xtchanges MList_null_inv ;=> EL. xapp.
+    intros p. subst. rew_list. xsimpl. }
+  { xtchanges~ (MList_not_null_inv_cons p1) ;=> x p1' L' EL.
+    xapps. xapps. xapp~ as p'. xapps. intros p. subst. rew_list.
+    xchange~ (>> MList_cons p Enc_int).
+    xchanges~ (>> MList_cons p1 Enc_int). }
+Qed.
+
+
+(* ******************************************************* *)
+(** *** Exercise: push back on stacks *)
+
+(** Note: [L&x] is a notation for [L++x::nil]. *)
+
+(**
+[[
+  let push_back q x =
+    let p2 = mcell x (mnil()) in
+    q := mappend !q p2
+]]
+*)
+
+Definition push_back : val :=
+  VFun 'q 'x :=
+    Let 'p2 := mcell 'x (mnil'()) in
+    'q ':= mappend ('!'q) 'p2.
+
+Lemma Triple_push_back : forall (q:loc) (x:A) (L:list A),
+  TRIPLE (push_back q x)
+    PRE (p ~> Stack L)
+    POST (fun (_:unit) => p ~> Stack (L++x::nil)).
+Proof using.
+  xwp. xapp ;=> q. xapp. xsimpl.
+Qed.
+
 
 
 (* ******************************************************* *)
@@ -751,276 +817,5 @@ Proof using.
 Qed.
 
 Hint Extern 1 (Register_Spec mrev) => Provide Triple_mrev.
-
-
-(* ******************************************************* *)
-
-
-(**---prove as we go--
-
-Lemma MList_null : forall (L:list int),
-  (null ~> MList L) = \[L = nil].
-Proof using.
-  intros. destruct L.
-  { rewrite MList_nil. xsimpl*. }
-  { rewrite MList_cons. applys himpl_antisym. (* todo xsimpl. too much *)
-    { xpull ;=> p'. xchange MCell_null. }
-    { xpull. (* TODO xsimpl. pb *) } }
-Qed.
-
-Lemma MList_nil_intro :
-  \[] = (null ~> MList nil).
-Proof using. intros. rewrite MList_null. xsimpl*. Qed.
-
-Lemma MList_null_inv : forall (L:list int),
-  null ~> MList L ==>
-  null ~> MList L \* \[L = nil].
-Proof using. intros. rewrite MList_null. xsimpl*. Qed.
-*)
-
-
-(*
-
-Lemma MList_not_null_inv_not_nil : forall p (L:list int),
-  p <> null ->
-  p ~> MList L ==> p ~> MList L \* \[L <> nil].
-Proof using.
-  intros. destruct L. { xchanges MList_nil. } { xsimpl*. }
-Qed.
-
-Lemma MList_not_null_inv_cons : forall p (L:list int),
-  p <> null ->
-  p ~> MList L ==> \exists x p' L',
-       \[L = x::L']
-    \* p ~> MCell x p'
-    \* p' ~> MList L'.
-Proof using.
-  intros. xchange~ MList_not_null_inv_not_nil ;=> M.
-  destruct L; tryfalse. xchanges~ MList_cons.
-Qed.
-
-Lemma MList_eq : forall (p:loc) (L:list int),
-  p ~> MList L =
-  match L with
-  | nil => \[p = null]
-  | x::L' => \exists (p':loc), (p ~> Record`{ head := x; tail := p' }) \* (p' ~> MList L')
-  end.
-Proof using. intros. xunfold~ MList. destruct~ L. Qed.
-
-*)
-
-
-(* ********************************************************************** *)
-(* * Towards a representation *)
-
-(* ---------------------------------------------------------------------- *)
-(** ** C-style datatype *)
-
-(** Let's try to first formalize the C representation:
-[[
-    typedef struct node {
-      item  head;
-      node* tail;
-    };
-    // with node = null for the empty list
-]]
-*)
-
-(* ---------------------------------------------------------------------- *)
-(** ** Inductive presentation (does not work) *)
-
-
-(* ---------------------------------------------------------------------- *)
-(** ** Recursive presentation *)
-
-Module MListVal.
-
-
-End MListVal.
-
-
-
-
-
-(* ********************************************************************** *)
-(* * Formalization of list cells *)
-
-Notation "'MCell' x q" :=
-  (Record`{ head := x; tail := q })
-  (at level 19, x at level 0, q at level 0).
-
-
-Lemma MCell_null : forall A `{EA:Enc A} (x:A) (p':loc),
-  null ~> MCell x p' = \[False].
-Proof using.
-  intros. applys himpl_antisym.
-  { xchange hRecord_not_null. simpl. unfold head. auto. } (* todo simplify *)
-  { xpull. }
-Qed.
-
-Lemma MCell_not_null : forall (p:loc) A `{EA:Enc A} (x:A) (p':loc),
-  p ~> MCell x p' ==+> \[p <> null].
-Proof using.
-  intros. tests C: (p = null). { xchange MCell_null. } { xsimpl~. }
-Qed.
-
-Lemma MCell_conflict : forall p1 p2 `{EA1:Enc A1} `{EA2:Enc A2} (x1 x2:A1) (y1 y2:A2),
-  p1 ~> MCell x1 y1 \* p2 ~> MCell x2 y2 ==+> \[p1 <> p2].
-(* TODO: two records with one common field have disjoint addresses *)
-Admitted.
-
-Arguments MCell_null : clear implicits.
-Arguments MCell_not_null : clear implicits.
-Arguments MCell_conflict : clear implicits.
-
-
-Arguments MList_eq : clear implicits.
-Arguments MList_nil : clear implicits.
-Arguments MList_cons : clear implicits.
-Arguments MList_null : clear implicits.
-Arguments MList_nil_intro : clear implicits.
-Arguments MList_null_inv : clear implicits.
-Arguments MList_not_null_inv_not_nil : clear implicits.
-Arguments MList_not_null_inv_cons : clear implicits.
-
-
-
-
-
-
-
-(* ********************************************************************** *)
-(* * Out-of-place append of two mutable lists *)
-
-Definition val_mlist_append : val :=
-  ValFix 'f 'p1 'p2 :=
-    If_ val_eq 'p1 null Then (
-      val_mlist_copy 'p2
-    ) Else (
-      Let 'x := val_get_hd 'p1 in
-      Let 'c1 := val_get_tl 'p1 in
-      Let 'p := 'f 'c1 'p2 in
-      val_new_cell 'x 'p
-    ).
-
-Lemma Triple_mlist_append : forall (L1 L2:list int) (p1 p2:loc),
-  TRIPLE (val_mlist_append ``p1 ``p2)
-    PRE (p1 ~> MList L1 \* p2 ~> MList L2)
-    POST (fun (p:loc) =>
-         p ~> MList (L1++L2) \* p1 ~> MList L1 \* p2 ~> MList L2).
-Proof using.
-  intros. gen p1. induction_wf: list_sub_wf L1; intros. xcf.
-  xapps~. xif ;=> C.
-  { subst. xtchanges MList_null_inv ;=> EL. xapp.
-    intros p. subst. rew_list. xsimpl. }
-  { xtchanges~ (MList_not_null_inv_cons p1) ;=> x p1' L' EL.
-    xapps. xapps. xapp~ as p'. xapps. intros p. subst. rew_list.
-    xchange~ (>> MList_cons p Enc_int).
-    xchanges~ (>> MList_cons p1 Enc_int). }
-Qed.
-
-
-
-
-Module ExoList.
-Import ExampleList.MList.
-
-
-(* ******************************************************* *)
-(** ** Create one element *)
-
-(**
-[[
-  let mk_one x =
-    mk_cons x (create())
-]]
-*)
-
-Definition mk_one : val :=
-  VFun 'x :=
-     mk_cons 'x (create '()).
-
-Lemma Triple_mk_one : forall A `{EA:Enc A} (x:A),
-  TRIPLE (mk_one ``x)
-    PRE \[]
-    POST (fun p => p ~> MList (x::nil)).
-Proof using.
-  (* SOLUTION *) intros. xwp. xapp ;=> q. xapp. xsimpl. (* /SOLUTION *)
-Qed.
-
-Hint Extern 1 (Register_Spec (mk_one)) => Provide @Triple_mk_one.
-
-
-(* ******************************************************* *)
-(** ** Push back using append *)
-
-(** Note: [L&x] is a notation for [L++x::nil]. *)
-
-(**
-[[
-  let push_back p x =
-    inplace_append p (mk_one x)
-]]
-*)
-
-(** Recall:
-[[
-  TRIPLE (inplace_append p1 p2)
-    PRE (p1 ~> MList L1 \* p2 ~> MList L2)
-    POST (fun (_:unit) => p1 ~> MList (L1++L2)).
-]]
-*)
-
-Definition push_back : val :=
-  VFun 'p 'x :=
-    inplace_append 'p (mk_one 'x).
-
-Lemma Triple_push_back : forall `{EA:Enc A} (L:list A) (x:A) (p:loc),
-  TRIPLE (push_back ``p ``x)
-    PRE (p ~> MList L)
-    POST (fun (_:unit) => p ~> MList (L++x::nil)).
-Proof using.
-  (* SOLUTION *) xwp. xapp ;=> q. xapp. xsimpl. (* /SOLUTION *)
-Qed.
-
-
-(* ******************************************************* *)
-(** ** Push back not using append (blue belt) *)
-
-(** Hint: the following function is a specialization of
-    [inplace_append] for the case where the second list
-    consists of a single element. Its proof is similar. *)
-
-(**
-[[
-  let rec push_back' p x =
-    if is_empty p
-      then set_cons p x (create())
-      else push_back' (tail p) x
-]]
-*)
-
-Definition push_back' : val :=
-  VFix 'f 'p 'x :=
-    If_ is_empty 'p
-      Then set_cons 'p 'x (create '())
-      Else 'f (tail 'p) 'x.
-
-Lemma Triple_push_back' : forall `{EA:Enc A} (L:list A) (x:A) (p:loc),
-  TRIPLE (push_back' ``p ``x)
-    PRE (p ~> MList L)
-    POST (fun (_:unit) => p ~> MList (L++x::nil)).
-Proof using.
-  intros. gen p. induction_wf IH: (@list_sub A) L. intros.
-  (* SOLUTION *)
-  xwp. xif ;=> C.
-  { subst. xchanges (MList_eq p) ;=> v1.
-    xapp ;=> q. xapp. xchanges <- (MList_cons p). }
-  { xchanges~ (MList_not_nil p) ;=> y L' p' ->.
-    xapp. xapp. { auto. } xchanges <- MList_cons. }
-  (* /SOLUTION *)
-Qed.
-
-
 
 

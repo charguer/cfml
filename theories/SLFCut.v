@@ -1345,3 +1345,147 @@ Qed.
       q2 := mnil ()
 ]]
 *)
+
+
+
+(* ******************************************************* *)
+(* ******************************************************* *)
+(* ******************************************************* *)
+
+
+(**---prove as we go--
+
+Lemma MList_null : forall (L:list int),
+  (null ~> MList L) = \[L = nil].
+Proof using.
+  intros. destruct L.
+  { rewrite MList_nil. xsimpl*. }
+  { rewrite MList_cons. applys himpl_antisym. (* todo xsimpl. too much *)
+    { xpull ;=> p'. xchange MCell_null. }
+    { xpull. (* TODO xsimpl. pb *) } }
+Qed.
+
+Lemma MList_nil_intro :
+  \[] = (null ~> MList nil).
+Proof using. intros. rewrite MList_null. xsimpl*. Qed.
+
+Lemma MList_null_inv : forall (L:list int),
+  null ~> MList L ==>
+  null ~> MList L \* \[L = nil].
+Proof using. intros. rewrite MList_null. xsimpl*. Qed.
+*)
+
+
+(*
+
+Lemma MList_not_null_inv_not_nil : forall p (L:list int),
+  p <> null ->
+  p ~> MList L ==> p ~> MList L \* \[L <> nil].
+Proof using.
+  intros. destruct L. { xchanges MList_nil. } { xsimpl*. }
+Qed.
+
+Lemma MList_not_null_inv_cons : forall p (L:list int),
+  p <> null ->
+  p ~> MList L ==> \exists x p' L',
+       \[L = x::L']
+    \* p ~> MCell x p'
+    \* p' ~> MList L'.
+Proof using.
+  intros. xchange~ MList_not_null_inv_not_nil ;=> M.
+  destruct L; tryfalse. xchanges~ MList_cons.
+Qed.
+
+Lemma MList_eq : forall (p:loc) (L:list int),
+  p ~> MList L =
+  match L with
+  | nil => \[p = null]
+  | x::L' => \exists (p':loc), (p ~> Record`{ head := x; tail := p' }) \* (p' ~> MList L')
+  end.
+Proof using. intros. xunfold~ MList. destruct~ L. Qed.
+
+*)
+
+
+
+(* ********************************************************************** *)
+(* * Formalization of list cells *)
+
+Notation "'MCell' x q" :=
+  (Record`{ head := x; tail := q })
+  (at level 19, x at level 0, q at level 0).
+
+
+Lemma MCell_null : forall A `{EA:Enc A} (x:A) (p':loc),
+  null ~> MCell x p' = \[False].
+Proof using.
+  intros. applys himpl_antisym.
+  { xchange hRecord_not_null. simpl. unfold head. auto. } (* todo simplify *)
+  { xpull. }
+Qed.
+
+Lemma MCell_not_null : forall (p:loc) A `{EA:Enc A} (x:A) (p':loc),
+  p ~> MCell x p' ==+> \[p <> null].
+Proof using.
+  intros. tests C: (p = null). { xchange MCell_null. } { xsimpl~. }
+Qed.
+
+Lemma MCell_conflict : forall p1 p2 `{EA1:Enc A1} `{EA2:Enc A2} (x1 x2:A1) (y1 y2:A2),
+  p1 ~> MCell x1 y1 \* p2 ~> MCell x2 y2 ==+> \[p1 <> p2].
+(* TODO: two records with one common field have disjoint addresses *)
+Admitted.
+
+Arguments MCell_null : clear implicits.
+Arguments MCell_not_null : clear implicits.
+Arguments MCell_conflict : clear implicits.
+
+
+Arguments MList_eq : clear implicits.
+Arguments MList_nil : clear implicits.
+Arguments MList_cons : clear implicits.
+Arguments MList_null : clear implicits.
+Arguments MList_nil_intro : clear implicits.
+Arguments MList_null_inv : clear implicits.
+Arguments MList_not_null_inv_not_nil : clear implicits.
+Arguments MList_not_null_inv_cons : clear implicits.
+
+
+
+
+(* ******************************************************* *)
+(** ** Push back not using append (blue belt) *)
+
+(** Hint: the following function is a specialization of
+    [inplace_append] for the case where the second list
+    consists of a single element. Its proof is similar. *)
+
+(**
+[[
+  let rec push_back' p x =
+    if is_empty p
+      then set_cons p x (create())
+      else push_back' (tail p) x
+]]
+*)
+
+Definition push_back' : val :=
+  VFix 'f 'p 'x :=
+    If_ is_empty 'p
+      Then set_cons 'p 'x (create '())
+      Else 'f (tail 'p) 'x.
+
+Lemma Triple_push_back' : forall `{EA:Enc A} (L:list A) (x:A) (p:loc),
+  TRIPLE (push_back' ``p ``x)
+    PRE (p ~> MList L)
+    POST (fun (_:unit) => p ~> MList (L++x::nil)).
+Proof using.
+  intros. gen p. induction_wf IH: (@list_sub A) L. intros.
+  (* SOLUTION *)
+  xwp. xif ;=> C.
+  { subst. xchanges (MList_eq p) ;=> v1.
+    xapp ;=> q. xapp. xchanges <- (MList_cons p). }
+  { xchanges~ (MList_not_nil p) ;=> y L' p' ->.
+    xapp. xapp. { auto. } xchanges <- MList_cons. }
+  (* /SOLUTION *)
+Qed.
+
