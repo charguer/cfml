@@ -19,126 +19,14 @@ Implicit Types L : list int.
 
 
 
-(*
-Ltac xwp_simpl ::= (* todo *)
-  cbn beta delta [
-  LibList.combine
-  List.rev Datatypes.app List.fold_right List.map
-  Wpgen Wpaux_getval Wpaux_getval_typed
-  Wpaux_apps Wpaux_constr Wpaux_var Wpaux_match
-  hforall_vars forall_vars
-  trm_case trm_to_pat patvars patsubst combiner_to_trm
-  Ctx.app Ctx.empty Ctx.lookup Ctx.add
-  Ctx.rem Ctx.rem_var Ctx.rem_vars isubst
-  var_eq eq_var_dec
-  string_dec string_rec string_rect
-  sumbool_rec sumbool_rect
-  Ascii.ascii_dec Ascii.ascii_rec Ascii.ascii_rect
-  Bool.bool_dec bool_rec bool_rect  Wpaux_getval ] iota zeta; simpl.
-*)
 
-
+(* TODO make record mode generic *)
 
 Hint Extern 1 (Register_Spec (val_get_field _)) => Provide @Triple_get_field.
-
-(*
-Hint Extern 1 (Register_Spec (val_set_field _)) => Provide @Triple_set_field.
-*)
+Hint Extern 1 (Register_Spec (val_set_field _)) => Provide @Triple_set_field'.
 
 Ltac xapp_record tt ::= fail.
 
-
-
-
-Lemma Triple_set_field' : forall (v2:val) A (EA:Enc A) (V1:A) (l:loc) f (V2:A),
-  Decode v2 V2 ->
-  TRIPLE ((val_set_field f) l v2)
-    PRE (l `.` f ~~> V1)
-    POST (fun (r:unit) => l `.` f ~~> V2).
-Proof using. introv M. unfolds Decode. subst v2. applys Triple_set_field_strong. Qed.
-
-
-Hint Extern 1 (Register_Spec (val_set_field _)) => Provide @Triple_set_field'.
-
-
-Lemma Triple_eq' : forall A `(EA:Enc A) (v1 v2:val) (V1 V2:A),
-  Decode v1 V1 ->
-  Decode v2 V2 ->
-  Enc_injective EA ->
-  Triple (val_eq v1 v2)
-    \[]
-    (fun (b:bool) => \[b = isTrue (V1 = V2)]).
-Proof using.
-  introv D1 D2 I. unfolds Decode. subst v1 v2. applys* Triple_eq.
-Qed.
-
-Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide @Triple_eq'.
-
-Lemma Triple_neq' : forall A `(EA:Enc A) (v1 v2:val) (V1 V2:A),
-  Decode v1 V1 ->
-  Decode v2 V2 ->
-  Enc_injective EA ->
-  Triple (val_neq v1 v2)
-    \[]
-    (fun (b:bool) => \[b = isTrue (V1 <> V2)]).
-Proof using.
-  introv D1 D2 I. unfolds Decode. subst v1 v2. applys* Triple_neq.
-Qed.
-
-Hint Extern 1 (Register_Spec (val_prim val_neq)) => Provide @Triple_neq'.
-
-
-(*
-
-Lemma Triple_eq_loc : forall (v1 v2 : loc),
-  Triple (val_eq ``v1 ``v2)
-    \[]
-    (fun (b:bool) => \[b = isTrue (v1 = v2)]).
-Proof using. intros. xapp~ (@Triple_eq loc). xsimpl*. Qed.
-
-Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide Triple_eq_loc.
-
-Lemma Triple_neq_loc : forall (v1 v2 : loc),
-  Triple (val_neq ``v1 ``v2)
-    \[]
-    (fun (b:bool) => \[b = isTrue (v1 <> v2)]).
-Proof using. intros. xapp~ (@Triple_neq loc). xsimpl*. Qed.
-
-Hint Extern 1 (Register_Spec (val_prim val_neq)) => Provide Triple_neq_loc.
-
-*)
-
-
-Ltac decode_core tt :=
-  try solve [ eauto with Decode ].
-
-Tactic Notation "decode" :=
-  decode_core tt.
-
-Ltac nrapply H :=
-  first 
-  [ notypeclasses refine (H)
-  | notypeclasses refine (H _)
-  | notypeclasses refine (H _ _)
-  | notypeclasses refine (H _ _ _)
-  | notypeclasses refine (H _ _ _ _)
-  | notypeclasses refine (H _ _ _ _ _)
-  | notypeclasses refine (H _ _ _ _ _ _)
-  | notypeclasses refine (H _ _ _ _ _ _ _)
-  | notypeclasses refine (H _ _ _ _ _ _ _ _)
-  | notypeclasses refine (H _ _ _ _ _ _ _ _ _)
-  | notypeclasses refine (H _ _ _ _ _ _ _ _ _ _)
-  | notypeclasses refine (H _ _ _ _ _ _ _ _ _ _ _) ].
-
-Ltac xenc_side_conditions tt :=
-  try match goal with
-  | |- Decode _ _ => decode 
-  | |- Enc_injective _ => eauto (* TODO: in hint database *)
-  end.
-
-Ltac xspec_prove_cont tt ::=
-  let H := fresh "Spec" in
-  intro H; nrapply H; try clear H; xenc_side_conditions tt.
 
 
 

@@ -660,3 +660,28 @@ Lemma list_same_length_inv_nil : forall A1 A2 (l1:list A1) (l2:list A2),
   length l1 = length l2 ->
   l1 = nil <-> l2 = nil.
 Proof using. intros. destruct l1; destruct l2; auto_false*. Qed.
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* LibTactics, temporary for Coq < 8.11 *)
+
+Ltac nrapply H :=
+  first 
+  [ notypeclasses refine (H)
+  | notypeclasses refine (H _)
+  | notypeclasses refine (H _ _)
+  | notypeclasses refine (H _ _ _)
+  | notypeclasses refine (H _ _ _ _)
+  | notypeclasses refine (H _ _ _ _ _)
+  | notypeclasses refine (H _ _ _ _ _ _)
+  | notypeclasses refine (H _ _ _ _ _ _ _)
+  | notypeclasses refine (H _ _ _ _ _ _ _ _)
+  | notypeclasses refine (H _ _ _ _ _ _ _ _ _)
+  | notypeclasses refine (H _ _ _ _ _ _ _ _ _ _)
+  | notypeclasses refine (H _ _ _ _ _ _ _ _ _ _ _)
+  | notypeclasses refine (H _ _ _ _ _ _ _ _ _ _ _ _)
+  | notypeclasses refine (H _ _ _ _ _ _ _ _ _ _ _ _ _)
+  | notypeclasses refine (H _ _ _ _ _ _ _ _ _ _ _ _ _ _) ].
+
+

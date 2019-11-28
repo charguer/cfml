@@ -74,6 +74,79 @@ Open Scope triple_scope.
 (* ********************************************************************** *)
 (* * Tactics for manipulating goals of the form [PRE H CODE F POST Q]. *)
 
+
+(* ---------------------------------------------------------------------- *)
+(* ** Decode typeclass *)
+
+Definition Decode (v:val) `{EA:Enc A} (V:A) : Prop :=
+  v = ``V.
+
+Lemma Decode_enc : forall `{EA:Enc A} (V:A),
+  Decode (``V) V.
+Proof using. intros. hnfs~. Qed.
+
+Hint Extern 1 (Decode (``_) _) => eapply Decode_enc : Decode.
+
+Lemma Decode_unit :
+  Decode val_unit tt.
+Proof using. intros. hnfs~. Qed.
+
+Lemma Decode_int : forall (n:int),
+  Decode (val_int n) n.
+Proof using. intros. hnfs~. Qed.
+
+Lemma Decode_bool : forall (b:bool),
+  Decode (val_bool b) b.
+Proof using. intros. hnfs~. Qed.
+
+Lemma Decode_loc : forall (l:loc),
+  Decode (val_loc l) l.
+Proof using. intros. hnfs~. Qed.
+
+Hint Resolve Decode_unit Decode_int Decode_bool Decode_loc : Decode.
+
+Lemma Decode_nil : forall A `{EA:Enc A},
+  Decode ('nil%val) (@nil A).
+Proof using. intros. hnfs~. Qed.
+
+Lemma Decode_cons : forall A `{EA:Enc A} (X:A) (L:list A) (x l : val),
+  Decode x X ->
+  Decode l L ->
+  Decode ((x ':: l)%val) (X::L).
+Proof using. introv Dx DL. unfolds. rew_enc. fequals. Qed.
+
+(* LATER: WORK AROUND TYPECLASS RESOLUTION BUG *)
+Hint Extern 1 (Decode 'nil%val _) => 
+  match goal with H: Enc ?A |- _ => eapply (@Decode_nil A) end : Decode.
+Hint Extern 1 (Decode ('VCstr "cons" _ _) _) => 
+  match goal with H: Enc ?A |- _ => eapply (@Decode_cons A) end : Decode.
+
+Lemma Decode_None : forall A `{EA:Enc A},
+  Decode (val_constr "none" nil) (@None A).
+Proof using. intros. hnfs~. Qed.
+
+Lemma Decode_Some : forall A `{EA:Enc A} (V:A) (v:val),
+  Decode v V ->
+  Decode (val_constr "some" (v::nil)) (Some V).
+Proof using. intros. unfolds. rew_enc. fequals. Qed.
+
+Hint Resolve @Decode_None @Decode_Some : Decode.
+(* LATER: similar hints needed? *)
+
+Ltac xdecode_core tt :=
+  try solve [ eauto with Decode ].
+
+Tactic Notation "xdecode" :=
+  xdecode_core tt.
+
+Ltac xenc_side_conditions tt :=
+  try match goal with
+  | |- Enc _ => typeclasses eauto with typeclass_instances
+  | |- Decode _ _ => xdecode 
+  | |- Enc_injective _ => eauto (* TODO: in hint database *)
+  end.
+
+
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xgoal_code] and [xgoal_fun] *)
 
@@ -134,9 +207,17 @@ Ltac xspec_core tt :=
 Tactic Notation "xspec" :=
   xspec_core tt.
 
+(* DEPRECATED
 Ltac xspec_prove_cont tt :=
   let H := fresh "Spec" in
   intro H; eapply H; clear H.
+*)
+
+Ltac xspec_prove_cont tt :=
+  let H := fresh "Spec" in
+  intro H; nrapply H; 
+  xenc_side_conditions tt;
+  try clear H.
 
 Ltac xspec_prove_triple tt :=
   xspec; xspec_prove_cont tt.
@@ -167,7 +248,6 @@ Hint Extern 1 (Register_Spec (val_prim val_get)) => Provide Triple_get.
 Hint Extern 1 (Register_Spec (val_prim val_set)) => Provide @Triple_set.
 Hint Extern 1 (Register_Spec (val_prim val_alloc)) => Provide Triple_alloc.
 Hint Extern 1 (Register_Spec (val_prim val_neg)) => Provide Triple_neg.
-Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide Triple_eq.
 Hint Extern 1 (Register_Spec (val_prim val_lt)) => Provide Triple_lt.
 Hint Extern 1 (Register_Spec (val_prim val_le)) => Provide Triple_le.
 Hint Extern 1 (Register_Spec (val_prim val_gt)) => Provide Triple_gt.
@@ -177,6 +257,37 @@ Hint Extern 1 (Register_Spec (val_prim val_sub)) => Provide Triple_sub.
 Hint Extern 1 (Register_Spec (val_prim val_ptr_add)) => Provide Triple_ptr_add.
 Hint Extern 1 (Register_Spec (val_prim val_mul)) => Provide Triple_mul.
 Hint Extern 1 (Register_Spec (val_prim val_div)) => Provide Triple_div.
+
+
+(** TODO MIGRATE LEMMAS REFORMULATION *)
+
+Lemma Triple_eq' : forall A `(EA:Enc A) (v1 v2:val) (V1 V2:A),
+  Decode v1 V1 ->
+  Decode v2 V2 ->
+  Enc_injective EA ->
+  Triple (val_eq v1 v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (V1 = V2)]).
+Proof using.
+  introv D1 D2 I. unfolds Decode. subst v1 v2. applys* Triple_eq.
+Qed.
+
+Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide @Triple_eq'.
+
+Lemma Triple_neq' : forall A `(EA:Enc A) (v1 v2:val) (V1 V2:A),
+  Decode v1 V1 ->
+  Decode v2 V2 ->
+  Enc_injective EA ->
+  Triple (val_neq v1 v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (V1 <> V2)]).
+Proof using.
+  introv D1 D2 I. unfolds Decode. subst v1 v2. applys* Triple_neq.
+Qed.
+
+Hint Extern 1 (Register_Spec (val_prim val_neq)) => Provide @Triple_neq'.
+
+
 
 
 (* ---------------------------------------------------------------------- *)
@@ -689,71 +800,6 @@ Tactic Notation "xapp_debug" :=
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Decode typeclass *)
-
-Definition Decode (v:val) `{EA:Enc A} (V:A) : Prop :=
-  v = ``V.
-
-Lemma Decode_enc : forall `{EA:Enc A} (V:A),
-  Decode (``V) V.
-Proof using. intros. hnfs~. Qed.
-
-Hint Extern 1 (Decode (``_) _) => eapply Decode_enc : Decode.
-
-Lemma Decode_unit :
-  Decode val_unit tt.
-Proof using. intros. hnfs~. Qed.
-
-Lemma Decode_int : forall (n:int),
-  Decode (val_int n) n.
-Proof using. intros. hnfs~. Qed.
-
-Lemma Decode_bool : forall (b:bool),
-  Decode (val_bool b) b.
-Proof using. intros. hnfs~. Qed.
-
-Lemma Decode_loc : forall (l:loc),
-  Decode (val_loc l) l.
-Proof using. intros. hnfs~. Qed.
-
-Hint Resolve Decode_unit Decode_int Decode_bool Decode_loc : Decode.
-
-Lemma Decode_nil : forall A `{EA:Enc A},
-  Decode ('nil%val) (@nil A).
-Proof using. intros. hnfs~. Qed.
-
-Lemma Decode_cons : forall A `{EA:Enc A} (X:A) (L:list A) (x l : val),
-  Decode x X ->
-  Decode l L ->
-  Decode ((x ':: l)%val) (X::L).
-Proof using. introv Dx DL. unfolds. rew_enc. fequals. Qed.
-
-(* LATER: WORK AROUND TYPECLASS RESOLUTION BUG *)
-Hint Extern 1 (Decode 'nil%val _) => 
-  match goal with H: Enc ?A |- _ => eapply (@Decode_nil A) end : Decode.
-Hint Extern 1 (Decode ('VCstr "cons" _ _) _) => 
-  match goal with H: Enc ?A |- _ => eapply (@Decode_cons A) end : Decode.
-
-Lemma Decode_None : forall A `{EA:Enc A},
-  Decode (val_constr "none" nil) (@None A).
-Proof using. intros. hnfs~. Qed.
-
-Lemma Decode_Some : forall A `{EA:Enc A} (V:A) (v:val),
-  Decode v V ->
-  Decode (val_constr "some" (v::nil)) (Some V).
-Proof using. intros. unfolds. rew_enc. fequals. Qed.
-
-Hint Resolve @Decode_None @Decode_Some : Decode.
-(* LATER: similar hints needed? *)
-
-Ltac decode_core tt :=
-  try solve [ eauto with Decode ].
-
-Tactic Notation "decode" :=
-  decode_core tt.
-
-
-(* ---------------------------------------------------------------------- *)
 (* ** Tactic [xval] *)
 
 Lemma xval_lemma_decode : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
@@ -801,7 +847,7 @@ Ltac xval_post tt :=
 
 Ltac xval_core tt :=
   xval_pre tt;
-  applys @xval_lemma_decode; [ Decode | ];
+  applys @xval_lemma_decode; [ try xdecode | ];
   xval_post tt.
 
 Tactic Notation "xval" :=

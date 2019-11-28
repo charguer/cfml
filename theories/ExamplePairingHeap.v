@@ -569,7 +569,7 @@ Lemma Triple_is_empty : forall p E,
     PRE (p ~> Heap E)
     POST (fun b => \[b = isTrue (E = \{})] \* p ~> Heap E).
 Proof using.
-  xwp. xunfolds Heap ;=> q. xapp. xapp. typeclass.
+  xwp. xunfolds Heap ;=> q. xapp. xapp.
   xchanges~ Contents_is_empty.
 Qed.
 
@@ -612,7 +612,7 @@ Proof using.
   xwp. xchange Heap_eq ;=> q. xapp. xapp (>> __ Tree) ;=> l.
   xnew (>> x l) ;=> q2. xchange <- Tree_Node.
   xchange <- Repr_eq. { applys* inv_Node. }
-  rew_listx. xapp. typeclass. unfold Contents. xif ;=> C; case_if.
+  rew_listx. xapp. unfold Contents. xif ;=> C; case_if.
   { xpull ;=> ->. xapp. xchanges* Heap_of_Repr. }
   { xapp ;=> r. xapp. xchanges* Heap_of_Repr. }
 Qed.

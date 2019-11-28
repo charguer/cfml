@@ -1543,3 +1543,29 @@ Proof using.
   { xchanges~ (MList_not_nil p1) ;=> x L1' p1' ->.
     xapp. xapp*. xchanges <- (MList_cons p1). }
 Qed.
+
+
+
+
+
+
+
+(*
+
+Lemma Triple_eq_loc : forall (v1 v2 : loc),
+  Triple (val_eq ``v1 ``v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (v1 = v2)]).
+Proof using. intros. xapp~ (@Triple_eq loc). xsimpl*. Qed.
+
+Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide Triple_eq_loc.
+
+Lemma Triple_neq_loc : forall (v1 v2 : loc),
+  Triple (val_neq ``v1 ``v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (v1 <> v2)]).
+Proof using. intros. xapp~ (@Triple_neq loc). xsimpl*. Qed.
+
+Hint Extern 1 (Register_Spec (val_prim val_neq)) => Provide Triple_neq_loc.
+
+*)

@@ -272,6 +272,13 @@ Lemma Triple_set_field : forall `{EA:Enc A} (V1:A) (l:loc) f (V2:A),
     POST (fun (r:unit) => l `.` f ~~> V2).
 Proof using. intros. applys Triple_set_field_strong. Qed.
 
+Lemma Triple_set_field' : forall (v2:val) A (EA:Enc A) (V1:A) (l:loc) f (V2:A),
+  Decode v2 V2 ->
+  TRIPLE ((val_set_field f) l v2)
+    PRE (l `.` f ~~> V1)
+    POST (fun (r:unit) => l `.` f ~~> V2).
+Proof using. introv M. unfolds Decode. subst v2. applys Triple_set_field_strong. Qed.
+
 End Triple_fields.
 
 (* Arguments Triple_get_field Triple_set_field : clear implicits. *)
