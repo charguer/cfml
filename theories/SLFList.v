@@ -20,11 +20,12 @@ Implicit Types L : list int.
 (** A few technical tweaks to simplify manipulation of records in this file. *)
 
 Hint Extern 1 (Register_Spec (val_get_field _)) => Provide @Triple_get_field.
-Hint Extern 1 (Register_Spec (val_set_field _)) => Provide @Triple_set_field'.
+Hint Extern 1 (Register_Spec (val_set_field _)) => Provide @Triple_set_field_Decode.
 Ltac xapp_record tt ::= 
   match xgoal_fun tt with (val_record_init _) => xapp_record_new tt end.
 Ltac xnew_post tt ::=
   let r := fresh "r" in intros r; autorewrite with Record_to_HField; gen r.
+
 
 
 (* ####################################################### *)
@@ -429,62 +430,11 @@ Hint Extern 1 (Register_Spec mcons) => Provide Triple_mcons.
 
 
 (* ******************************************************* *)
-(** *** Function [mnil] *)
-
-(** A call to the function [mnil()] returns the [null] value,
-    with the intention of producing a representation for the
-    empty list.
-
-[[
-    let rec mnil () =
-      null
-]]
-*)
-
-Definition mnil : val :=
-  VFun 'u :=
-    null.
-
-(** The precondition of [mnil] is empty. The postcondition of [mnil]
-    asserts that the return value [p] is a pointer such that
-    [p ~> MList nil]. Note that, although the postcondition implies 
-    that [p = null], there is no explicit mention of [null] in the
-    specification---implementation details are not revealed. *)
-
-Lemma Triple_mnil :
-  TRIPLE (mnil '())
-    PRE \[] 
-    POST (fun (p:loc) => p ~> MList nil).
-Proof using.
-  (* The proof requires introducing [null ~> MList nil] from nothing. *)
-  xwp. xval. xchange <- (MList_nil null). { auto. } xsimpl.
-Qed.
-
-Hint Extern 1 (Register_Spec mnil) => Provide Triple_mnil.
-
-
-(** Remark: the call to [xchange <- (MList_nil null)] can here
-    be replaced by [rewrite MList_nil] or, even better, by a call
-    to [xchange] on a specific lemma capturing the entailement
-    [\[] ==> (null ~> MList nil)], as demonstrated next. *)
-
-Lemma MList_nil_intro :
-  \[] ==> (null ~> MList nil).
-Proof using. intros. xchange <- (MList_nil null). auto. Qed.
-
-Lemma Triple_mnil' :
-  TRIPLE (mnil '())
-    PRE \[] 
-    POST (fun (p:loc) => p ~> MList nil).
-Proof using.
-  xwp. xval. xchange MList_nil_intro. xsimpl.
-Qed.
-
-
-(* ******************************************************* *)
 (** *** Length of a mutable list *)
 
-(**
+(** The function [mlength] computes the length of a linked list
+    by recursively traversing through its cells.
+
 [[
     let rec mlength p =
       if p == null
@@ -540,6 +490,77 @@ Qed.
 Hint Extern 1 (Register_Spec mlength) => Provide Triple_mlength.
 
 
+
+(* ******************************************************* *)
+(** *** Exercise: length of a mutable list using a reference *)
+
+(**
+[[
+    let rec mlength_acc_rec a p =
+      if p <> null then
+        incr a;
+        mlength_acc_rec a (tail p)
+      end
+  
+   let mlength_acc p =
+      let a = ref 0 in
+      mlength_acc_rec a p;
+      !a
+]]
+*)
+
+Definition mlength_acc_rec : val :=
+  VFix 'f 'a 'p :=
+    If_ 'p '<> ``null Then
+      incr 'a ';
+      'f 'a ('p'.tail)
+   End.
+
+Definition mlength_acc : val :=
+  VFun 'p :=
+    Let 'a := 'ref 0 in
+    mlength_acc_rec 'a 'p ';
+    '! 'a.
+
+Lemma Triple_mlength_acc_rec : forall (a:loc) (n:int) (p:loc) (L:list int),
+  TRIPLE (mlength_acc_rec a p)
+    PRE (a ~~> n \* p ~> MList L)
+    POST (fun (r:unit) => a ~~> (n + length L) \* p ~> MList L).
+Proof using.
+  intros. gen n p. induction_wf IH: list_sub L.
+  xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
+  { intros x q L' ->. xapp. xapp. xapp. { auto. }
+     xchange <- MList_cons. xsimpl. rew_list. math. }
+  { intros ->. xval. xchange <- (MList_nil p). { auto. }
+    xsimpl. rew_list. math.  }
+Qed.
+
+Hint Extern 1 (Register_Spec mlength_acc_rec) => Provide Triple_mlength_acc_rec.
+
+Lemma Triple_mlength_acc : forall (p:loc) (L:list int),
+  TRIPLE (mlength_acc p)
+    PRE (p ~> MList L)
+    POST (fun (r:int) => \[r = length L] \* p ~> MList L).
+Proof using.
+  xwp. xapp. intros a. xapp. xapp. xsimpl. math.
+Qed.
+
+(** Remark: proof script of [Triple_mlength_acc_rec] revisited with
+    some automation. *)
+
+Lemma Triple_mlength_acc_ind' : forall (a:loc) (n:int) (p:loc) (L:list int),
+  TRIPLE (mlength_acc_rec a p)
+    PRE (a ~~> n \* p ~> MList L)
+    POST (fun (r:unit) => a ~~> (n + length L) \* p ~> MList L).
+Proof using.
+  intros. gen n p. induction_wf IH: list_sub L.
+  xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
+  { intros x q L' ->. xapp. xapp. xapp*. xchanges* <- MList_cons. }
+  { intros ->. xval. xchanges* <- (MList_nil p). }
+Qed.
+
+
+
 (* ******************************************************* *)
 (** *** Increment through a mutable list *)
 
@@ -574,6 +595,61 @@ Proof using.
     xchange <- (MList_nil p). { auto. } xsimpl. 
     (* short version: [xchanges* <- MList_nil] *)  }
 Qed.
+
+
+(* ******************************************************* *)
+(** *** Function [mnil] *)
+
+(** A call to the function [mnil()] returns the [null] value,
+    with the intention of producing a representation for the
+    empty list.
+
+[[
+    let rec mnil () =
+      null
+]]
+*)
+
+Definition mnil : val :=
+  VFun 'u :=
+    null.
+
+(** The precondition of [mnil] is empty. The postcondition of [mnil]
+    asserts that the return value [p] is a pointer such that
+    [p ~> MList nil]. Note that, although the postcondition implies 
+    that [p = null], there is no explicit mention of [null] in the
+    specification---implementation details are not revealed. *)
+
+Lemma Triple_mnil :
+  TRIPLE (mnil '())
+    PRE \[] 
+    POST (fun (p:loc) => p ~> MList nil).
+Proof using.
+  (* The proof requires introducing [null ~> MList nil] from nothing. *)
+  xwp. xval. xchange <- (MList_nil null). { auto. } xsimpl.
+Qed.
+
+Hint Extern 1 (Register_Spec mnil) => Provide Triple_mnil.
+
+
+(** Remark: the call to [xchange <- (MList_nil null)] can here
+    be replaced by [rewrite MList_nil] or, even better, by a call
+    to [xchange] on a specific lemma capturing the entailement
+    [\[] ==> (null ~> MList nil)], as demonstrated next. *)
+
+Lemma MList_nil_intro :
+  \[] ==> (null ~> MList nil).
+Proof using. intros. xchange <- (MList_nil null). auto. Qed.
+
+Lemma Triple_mnil' :
+  TRIPLE (mnil '())
+    PRE \[] 
+    POST (fun (p:loc) => p ~> MList nil).
+Proof using.
+  xwp. xval. xchange MList_nil_intro. xsimpl.
+Qed.
+
+
 
 
 (* ******************************************************* *)

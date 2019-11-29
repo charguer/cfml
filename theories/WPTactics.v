@@ -285,11 +285,55 @@ Ltac xspec_prove_triple_with_args E :=
 Notation "'Register_Spec' f" := (Register_goal (Triple (trm_apps (trm_val f) _) _ _))
   (at level 69) : xspec_scope.
 
+
+(** Explicit Decoding for polymorphic primitive  -- TODO: move to separate file *)
+
+Lemma Triple_ref_Decode : forall A `{EA:Enc A} (V:A) (v:val),
+  Decode v V ->
+  Triple (val_ref v)
+    \[]
+    (fun l => l ~~> V).
+Proof using. introv Hv. unfolds Decode. subst v. applys Triple_ref. Qed.
+
+Lemma Triple_set_Decode : forall A1 `{EA1:Enc A1} (V1 V2:A1) (l:loc) (v2:val),
+  Decode v2 V2 ->
+  Triple (val_set l v2)
+    (l ~~> V1)
+    (fun (u:unit) => l ~~> V2).
+Proof using.
+  introv Hv2. unfolds Decode. subst v2. applys Triple_set.
+Qed.
+
+Lemma Triple_eq_Decode : forall A `(EA:Enc A) (v1 v2:val) (V1 V2:A),
+  Decode v1 V1 ->
+  Decode v2 V2 ->
+  Enc_injective EA ->
+  Triple (val_eq v1 v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (V1 = V2)]).
+Proof using.
+  introv D1 D2 I. unfolds Decode. subst v1 v2. applys* Triple_eq.
+Qed.
+
+Lemma Triple_neq_Decode : forall A `(EA:Enc A) (v1 v2:val) (V1 V2:A),
+  Decode v1 V1 ->
+  Decode v2 V2 ->
+  Enc_injective EA ->
+  Triple (val_neq v1 v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (V1 <> V2)]).
+Proof using.
+  introv D1 D2 I. unfolds Decode. subst v1 v2. applys* Triple_neq.
+Qed.
+
 (* ** Specification of primitives *)
 
-Hint Extern 1 (Register_Spec (val_prim val_ref)) => Provide Triple_ref.
-Hint Extern 1 (Register_Spec (val_prim val_get)) => Provide Triple_get.
-Hint Extern 1 (Register_Spec (val_prim val_set)) => Provide @Triple_set.
+Hint Extern 1 (Register_Spec (val_prim val_set)) => Provide @Triple_set_Decode.
+Hint Extern 1 (Register_Spec (val_prim val_ref)) => Provide @Triple_ref_Decode.
+Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide @Triple_eq_Decode.
+Hint Extern 1 (Register_Spec (val_prim val_neq)) => Provide @Triple_neq_Decode.
+
+Hint Extern 1 (Register_Spec (val_prim val_get)) => Provide @Triple_get.
 Hint Extern 1 (Register_Spec (val_prim val_alloc)) => Provide Triple_alloc.
 Hint Extern 1 (Register_Spec (val_prim val_neg)) => Provide Triple_neg.
 Hint Extern 1 (Register_Spec (val_prim val_lt)) => Provide Triple_lt.
@@ -301,37 +345,6 @@ Hint Extern 1 (Register_Spec (val_prim val_sub)) => Provide Triple_sub.
 Hint Extern 1 (Register_Spec (val_prim val_ptr_add)) => Provide Triple_ptr_add.
 Hint Extern 1 (Register_Spec (val_prim val_mul)) => Provide Triple_mul.
 Hint Extern 1 (Register_Spec (val_prim val_div)) => Provide Triple_div.
-
-
-(** TODO MIGRATE LEMMAS REFORMULATION *)
-
-Lemma Triple_eq' : forall A `(EA:Enc A) (v1 v2:val) (V1 V2:A),
-  Decode v1 V1 ->
-  Decode v2 V2 ->
-  Enc_injective EA ->
-  Triple (val_eq v1 v2)
-    \[]
-    (fun (b:bool) => \[b = isTrue (V1 = V2)]).
-Proof using.
-  introv D1 D2 I. unfolds Decode. subst v1 v2. applys* Triple_eq.
-Qed.
-
-Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide @Triple_eq'.
-
-Lemma Triple_neq' : forall A `(EA:Enc A) (v1 v2:val) (V1 V2:A),
-  Decode v1 V1 ->
-  Decode v2 V2 ->
-  Enc_injective EA ->
-  Triple (val_neq v1 v2)
-    \[]
-    (fun (b:bool) => \[b = isTrue (V1 <> V2)]).
-Proof using.
-  introv D1 D2 I. unfolds Decode. subst v1 v2. applys* Triple_neq.
-Qed.
-
-Hint Extern 1 (Register_Spec (val_prim val_neq)) => Provide @Triple_neq'.
-
-
 
 
 (* ---------------------------------------------------------------------- *)

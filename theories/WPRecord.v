@@ -128,7 +128,7 @@ Bind Scope fields_scope with Record_fields.
 Fixpoint Record (L:Record_fields) (r:loc) : hprop :=
   match L with
   | nil => \[]
-  | (f, Dyn V)::L' => (r `. f ~~> V) \* (r ~> Record L')
+  | (f, Dyn V)::L' => (r`.f ~~> V) \* (r ~> Record L')
   end.
 
 (* TODO: currently restricted due to [r `. f ~> V] not ensuring [r<>null] *)
@@ -220,13 +220,13 @@ Proof using. introv N. rewrite Hfield_eq_fun_Hsingle_ext. xsimpl~. Qed.
 
 Lemma Triple_get_field : forall (l:loc) f `{EA:Enc A} (V:A),
   TRIPLE ((val_get_field f) l)
-    PRE (l `. f ~~> V)
-    POST (fun r => \[r = V] \* (l `. f ~~> V)).
+    PRE (l`.f ~~> V)
+    POST (fun r => \[r = V] \* (l`.f ~~> V)).
 Proof using.
   dup.
   { intros.
     rewrite Hfield_eq_fun_Hsingle, repr_eq. xtpull ;=> N.
-    xwp. xapp @Triple_ptr_add_nat. xapp. xsimpl~. }
+    xwp. xapp @Triple_ptr_add_nat. xapp Triple_get. xsimpl~. }
   { (* details TEMPORARY *)
     intros.
     (* unfold field *)
@@ -245,8 +245,8 @@ Qed.
 
 Lemma Triple_set_field_strong : forall `{EA1:Enc A1} (V1:A1) (l:loc) f `{EA2:Enc A2} (V2:A2),
   TRIPLE ((val_set_field f) l ``V2)
-    PRE (l `. f ~~> V1)
-    POST (fun (r:unit) => l `. f ~~> V2).
+    PRE (l`.f ~~> V1)
+    POST (fun (r:unit) => l`.f ~~> V2).
 Proof using.
   dup.
   { intros.
@@ -271,15 +271,15 @@ Qed.
 
 Lemma Triple_set_field : forall `{EA:Enc A} (V1:A) (l:loc) f (V2:A),
   TRIPLE ((val_set_field f) l ``V2)
-    PRE (l `. f ~~> V1)
-    POST (fun (r:unit) => l `. f ~~> V2).
+    PRE (l`.f ~~> V1)
+    POST (fun (r:unit) => l`.f ~~> V2).
 Proof using. intros. applys Triple_set_field_strong. Qed.
 
-Lemma Triple_set_field' : forall (v2:val) A (EA:Enc A) (V1:A) (l:loc) f (V2:A),
+Lemma Triple_set_field_Decode : forall (v2:val) A (EA:Enc A) (V1:A) (l:loc) f (V2:A),
   Decode v2 V2 ->
   TRIPLE ((val_set_field f) l v2)
-    PRE (l `. f ~~> V1)
-    POST (fun (r:unit) => l `. f ~~> V2).
+    PRE (l`.f ~~> V1)
+    POST (fun (r:unit) => l`.f ~~> V2).
 Proof using. introv M. unfolds Decode. subst v2. applys Triple_set_field_strong. Qed.
 
 End Triple_fields.
