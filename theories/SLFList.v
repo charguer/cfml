@@ -449,32 +449,59 @@ Definition mlength : val :=
       Then 0
       Else 1 '+ 'f ('p'.tail).
 
+(** The precondition of [mlength p] requires the description of the
+    linked list that it traverses, that is, [p ~> MList L].
+    The postcondition asserts that the result is equal to [length L],
+    and that the list predicate [p ~> MList L] is returned unmodified. *)
+
 Lemma Triple_mlength : forall (p:loc) (L:list int),
   TRIPLE (mlength p)
     PRE (p ~> MList L)
     POST (fun (r:int) => \[r = length L] \* p ~> MList L).
+
+(** The proof goes by induction on the length of the list [L]. 
+    Each time the code traverses a cell, this cell is isolated
+    from the tail of the list. The recursive call is applied to
+    the tail, then the original list is restored. *)
+
 Proof using.
-  (* Well-founded induction over the structure of the list [L],
-     which provides an induction principle for the tail of [L].
-     More precisely, the induction principle holds for a list 
-     [L'] such that [list_sub L' L], where [list_sub] is 
-     an inductive defined with a single constructor [list_sub L' (x::L')]. *)
+  (* We use the tactic [induction_wf] like in the previous chapter,
+     but this time instantiated with the [list_sub] relation,
+     which provides an induction hypothesis for the tail of the current list.
+     More precisely, the induction hypothesis asserts that the specification
+     holds for the list [L'] when [L'] is the tail of [L].
+     Technically [list_sub L' L] is inductive defined with a single
+     constructor [list_sub L' (x::L')]. *)
   intros. gen p. induction_wf IH: list_sub L. intros.
+  (* Once the induction is set up, we are ready to verify the code. *)
   xwp. xapp.
-  (* Critical step is to reformulate [MList] using lemma [MList_if] to make
-     the case analysis on the condition [p = null] visible. *)
-  xchange MList_if. xif; intros C; case_if; xpull.
-  { (* case [p = null]. *)
+  (* The critical step is to reformulate [MList] using lemma [MList_if] 
+     so as to make the case analysis on the condition [p = null] visible. *)
+  xchange MList_if.
+  (* The [xif] tactics performs the case analysis on the condition [p = null] 
+     that occurs in the code, while the [case_if] tactic performs the case analysis
+     on the (similar) condition [p = null] that occurs in the precondition 
+     (the condition that was just introduced by [MList_if]. *)
+  xif; intros C; case_if; xpull.
+  { (* Case [p = null]. *)
     intros ->. xval. xchange <- (MList_nil p). { auto. }
-    (* justify that [length nil = 0] *)
+    (* Justify that [length nil = 0] *)
     xsimpl. rew_list. math. }
-  { (* case [p <> null]. *)
+  { (* Case [p <> null]. *)
      intros x q L' ->. xapp.
-     (* recursive call, exploit [IH], justifying [L'] sublist of [x::L']. *)
-     xapp. { auto. } 
-     (* justify that [length (x::L') = 1 + length L'] *)
-     xapp. xchanges <- MList_cons. rew_list. math. }
+     (* Recursive call, exploit [IH] applied to the sublist [q ~> MList L']. *)
+     xapp.
+     (* Justify that [L'] is a sublist of [x::L']. *)
+     { auto. } 
+     (* Add one unit to the result of the recursive call. *)
+     xapp.
+     (* Fold back the list into [p ~> MList(x::L')] *)
+     xchange <- MList_cons. 
+     (* Justify that [length (x::L') = 1 + length L'] *)
+     xsimpl. rew_list. math. }
 Qed.
+
+(** Same proof, more concisely. *)
 
 Lemma Triple_mlength_concise : forall (p:loc) (L:list int),
   TRIPLE (mlength p)
@@ -490,81 +517,13 @@ Qed.
 Hint Extern 1 (Register_Spec mlength) => Provide Triple_mlength.
 
 
-
 (* ******************************************************* *)
-(** *** Exercise: length of a mutable list using a reference *)
+(** *** Exercise: increment through a mutable list *)
 
-(**
-[[
-    let rec mlength_acc_rec a p =
-      if p <> null then
-        incr a;
-        mlength_acc_rec a (tail p)
-      end
-  
-   let mlength_acc p =
-      let a = ref 0 in
-      mlength_acc_rec a p;
-      !a
-]]
-*)
+(** The following function expects a linked list of integers
+    and updates the list in place by augmenting every item
+    in the list by one unit.
 
-Definition mlength_acc_rec : val :=
-  VFix 'f 'a 'p :=
-    If_ 'p '<> ``null Then
-      incr 'a ';
-      'f 'a ('p'.tail)
-   End.
-
-Definition mlength_acc : val :=
-  VFun 'p :=
-    Let 'a := 'ref 0 in
-    mlength_acc_rec 'a 'p ';
-    '! 'a.
-
-Lemma Triple_mlength_acc_rec : forall (a:loc) (n:int) (p:loc) (L:list int),
-  TRIPLE (mlength_acc_rec a p)
-    PRE (a ~~> n \* p ~> MList L)
-    POST (fun (r:unit) => a ~~> (n + length L) \* p ~> MList L).
-Proof using.
-  intros. gen n p. induction_wf IH: list_sub L.
-  xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
-  { intros x q L' ->. xapp. xapp. xapp. { auto. }
-     xchange <- MList_cons. xsimpl. rew_list. math. }
-  { intros ->. xval. xchange <- (MList_nil p). { auto. }
-    xsimpl. rew_list. math.  }
-Qed.
-
-Hint Extern 1 (Register_Spec mlength_acc_rec) => Provide Triple_mlength_acc_rec.
-
-Lemma Triple_mlength_acc : forall (p:loc) (L:list int),
-  TRIPLE (mlength_acc p)
-    PRE (p ~> MList L)
-    POST (fun (r:int) => \[r = length L] \* p ~> MList L).
-Proof using.
-  xwp. xapp. intros a. xapp. xapp. xsimpl. math.
-Qed.
-
-(** Remark: proof script of [Triple_mlength_acc_rec] revisited with
-    some automation. *)
-
-Lemma Triple_mlength_acc_ind' : forall (a:loc) (n:int) (p:loc) (L:list int),
-  TRIPLE (mlength_acc_rec a p)
-    PRE (a ~~> n \* p ~> MList L)
-    POST (fun (r:unit) => a ~~> (n + length L) \* p ~> MList L).
-Proof using.
-  intros. gen n p. induction_wf IH: list_sub L.
-  xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
-  { intros x q L' ->. xapp. xapp. xapp*. xchanges* <- MList_cons. }
-  { intros ->. xval. xchanges* <- (MList_nil p). }
-Qed.
-
-
-
-(* ******************************************************* *)
-(** *** Increment through a mutable list *)
-
-(**
 [[
     let rec mlist_incr p =
       if p != null then begin 
@@ -581,19 +540,27 @@ Definition mlist_incr : val :=
       'f ('p'.tail)
     ) End.
 
+(** If needed,  *) 
+
 Lemma Triple_mlist_incr : forall (p:loc) (L:list int),
-  TRIPLE (mlist_incr ``p)
+  TRIPLE (mlist_incr p)
     PRE (p ~> MList L)
     POST (fun (r:unit) => p ~> MList (LibList.map (fun x => x+1) L)).
+
+(* EX2! (Triple_mlist_incr) *)
+(** Prove [Triple_mlist_incr], following the pattern of [Triple_mlength].
+    Hint: it need, you can use the tactic [rew_listx] or lemmma
+    [LibList.map_cons] to rewrite [LibList.map f (x::l)] into
+    [f x :: LibList.map f l]. *)
+
 Proof using.
+  (* SOLUTION *)
   intros. gen p. induction_wf IH: list_sub L.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull. 
   { intros x p' L' ->. xapp. xapp. xapp. xapp. xapp. { auto. }
-    xchange <- MList_cons. xsimpl.
-    (* short version: [xchanges* <- MList_cons] *) }
-  { intros ->. xval.
-    xchange <- (MList_nil p). { auto. } xsimpl. 
-    (* short version: [xchanges* <- MList_nil] *)  }
+    xchange <- MList_cons.xsimpl. }
+  { intros ->. xval. xchange <- (MList_nil p). { auto. } xsimpl. }
+  (* /SOLUTION *)
 Qed.
 
 
@@ -899,6 +866,78 @@ Qed.
 Hint Extern 1 (Register_Spec mcopy_nonneg) => Provide Triple_mcopy_nonneg.
 
 
+
+(* ******************************************************* *)
+(** *** Exercise: length of a mutable list using a reference *)
+
+(**
+[[
+    let rec mlength_acc_rec a p =
+      if p <> null then
+        incr a;
+        mlength_acc_rec a (tail p)
+      end
+  
+   let mlength_acc p =
+      let a = ref 0 in
+      mlength_acc_rec a p;
+      !a
+]]
+*)
+
+Definition mlength_acc_rec : val :=
+  VFix 'f 'a 'p :=
+    If_ 'p '<> ``null Then
+      incr 'a ';
+      'f 'a ('p'.tail)
+   End.
+
+Definition mlength_acc : val :=
+  VFun 'p :=
+    Let 'a := 'ref 0 in
+    mlength_acc_rec 'a 'p ';
+    '! 'a.
+
+Lemma Triple_mlength_acc_rec : forall (a:loc) (n:int) (p:loc) (L:list int),
+  TRIPLE (mlength_acc_rec a p)
+    PRE (a ~~> n \* p ~> MList L)
+    POST (fun (r:unit) => a ~~> (n + length L) \* p ~> MList L).
+Proof using.
+  intros. gen n p. induction_wf IH: list_sub L.
+  xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
+  { intros x q L' ->. xapp. xapp. xapp. { auto. }
+     xchange <- MList_cons. xsimpl. rew_list. math. }
+  { intros ->. xval. xchange <- (MList_nil p). { auto. }
+    xsimpl. rew_list. math.  }
+Qed.
+
+Hint Extern 1 (Register_Spec mlength_acc_rec) => Provide Triple_mlength_acc_rec.
+
+Lemma Triple_mlength_acc : forall (p:loc) (L:list int),
+  TRIPLE (mlength_acc p)
+    PRE (p ~> MList L)
+    POST (fun (r:int) => \[r = length L] \* p ~> MList L).
+Proof using.
+  xwp. xapp. intros a. xapp. xapp. xsimpl. math.
+Qed.
+
+(** Remark: proof script of [Triple_mlength_acc_rec] revisited with
+    some automation. *)
+
+Lemma Triple_mlength_acc_ind' : forall (a:loc) (n:int) (p:loc) (L:list int),
+  TRIPLE (mlength_acc_rec a p)
+    PRE (a ~~> n \* p ~> MList L)
+    POST (fun (r:unit) => a ~~> (n + length L) \* p ~> MList L).
+Proof using.
+  intros. gen n p. induction_wf IH: list_sub L.
+  xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
+  { intros x q L' ->. xapp. xapp. xapp*. xchanges* <- MList_cons. }
+  { intros ->. xval. xchanges* <- (MList_nil p). }
+Qed.
+
+
+
+
 (* ******************************************************* *)
 (** *** In-place append on lists *)
 
@@ -930,21 +969,6 @@ Definition mappend : val :=
       mappend_aux 'p1 'p2 ';
       'p1
     ).
-
-
-(* TEMP
-Lemma Triple_set_field' : forall A (EA:Enc A) v2 (V1:A) (l:loc) f (V2:A),
-  v2 = ``V2 ->
-  TRIPLE ((val_set_field f) l v2)
-    PRE (l `.` f ~~> V1)
-    POST (fun (r:unit) => l `. f ~~> V2).
-Proof using. intros. subst. applys Triple_set_field. Qed.
-
-    xapp_debug @Triple_set_field'. 2:{ eapply SpecInstantiated. } 
-    xapp_debug (>> (@Triple_set_field loc)).
-
-*)
-
 
 Lemma Triple_mappend_aux : forall (p1 p2:loc) (L1 L2:list int),
   p1 <> null ->

@@ -949,7 +949,7 @@ Lemma Triple_step_transfer : forall p q n m,
     POST (fun (_:unit) => p ~~> (n + m) \* q ~~> 0).
 
 (* EX2! (Triple_step_transfer) *)
-(** Prove the function [Triple_step_transfer].
+(** Verify the function [step_transfer].
     Hint: to set up the induction, follow the pattern of
     [Triple_repeat_incr'] just above. *)
 
