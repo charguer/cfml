@@ -64,7 +64,8 @@ Ltac xnew_post tt ::=
     - [xunfold], a CFML tactic for unfolding the definition of [MList],
     - [xchange], a CFML tactic to transform the precondition by exploiting 
       entailments or equalities,
-    - [rew_list], a TLC tactic to normalize list expressions.
+    - [rew_listx], a TLC tactic to normalize list expressions, e.g.,
+      [(x::L1)++L2] or [length (x::L)] or [map f (x::L)] or [filter f (x::L)].
 
 *)
 
@@ -438,7 +439,7 @@ Proof using.
   { (* Case [p = null]. *)
     intros ->. xval. xchange <- (MList_nil p). { auto. }
     (* Justify that [length nil = 0] *)
-    xsimpl. rew_list. math. }
+    xsimpl. rew_listx. math. }
   { (* Case [p <> null]. *)
      intros x q L' ->. xapp.
      (* Recursive call, exploit [IH] applied to the sublist [q ~> MList L']. 
@@ -453,7 +454,7 @@ Proof using.
      (* Fold back the list into [p ~> MList(x::L')] *)
      xchange <- MList_cons. 
      (* Justify that [length (x::L') = 1 + length L'] *)
-     xsimpl. rew_list. math. }
+     xsimpl. rew_listx. math. }
 Qed.
 
 (** Same proof, more concisely. *)
@@ -507,9 +508,9 @@ Lemma Triple_mlist_incr : forall (p:loc) (L:list int),
 
 (* EX2! (Triple_mlist_incr) *)
 (** Prove [Triple_mlist_incr], following the pattern of [Triple_mlength].
-    Hint: it need, you can use the tactic [rew_listx] or lemmma
-    [LibList.map_cons] to rewrite [LibList.map f (x::l)] into
-    [f x :: LibList.map f l]. *)
+    Hint: it need, you can use the tactic [rew_listx] to rewrite using
+    [LibList.map_nil] and [LibList.map_cons], e.g., for normalizing
+    [LibList.map f (x::l)] into [f x :: LibList.map f l]. *)
 
 Proof using.
   (* SOLUTION *)
@@ -682,7 +683,8 @@ Qed.
 Hint Extern 1 (Register_Spec mcopy) => Provide Triple_mcopy.
 
 (** This concludes our quick tour of functions on mutable lists.
-    Additional functions are presented further in the file. *)
+    Additional functions are presented further in the file:
+    [append], and [filter_nonneg]. *)
 
 
 (* ******************************************************* *)
@@ -912,30 +914,23 @@ Qed.
 
 Hint Extern 1 (Register_Spec pop) => Provide Triple_pop.
 
+(** This concludes our investigation of the representation in 
+    Separation Logic of a mutable stack. Additional functions
+    are presented further in this file: [clear], [concat],
+    and [push_back]. *)
 
 
 (* ####################################################### *)
 (** * Additional contents *)
 
-(* ******************************************************* *)
-(** *** Exercise: specialization of [mcons] to a [null] tail *)
-
-(* exo : *)
-
-Lemma Triple_mcons_null : forall (x:int),
-  TRIPLE (mcons x null)
-    PRE \[] 
-    POST (fun (p:loc) => p ~> MList (x::nil)).
-Proof using.
-  intros. xtriple. xchange MList_nil_intro.
-  xapp. intros p. xsimpl.
-Qed.
-
 
 (* ******************************************************* *)
 (** *** Exercise: out-of-place append of two mutable lists *)
 
-(**
+(** The function [mappend_copy p1 p2] expects two independent lists
+    and constructs a third list whose items are the concatetation
+    of those from the two input lists.
+
 [[
     let rec mappend_copy p1 p2 =
       if p1 == null then mcopy p2 else begin
@@ -952,6 +947,12 @@ Definition mappend_copy : val :=
       mcons ('p1'.head) 'p
     ).
 
+(* EX3! (Triple_mappend_copy) *)
+(** Specify and verify the function [mappend_copy].
+    Hint: perform the induction on the list [L1] after generalizing [p1],
+    and use [xchange (MList_if p1)] to unfold the list predicate for [p1]. *)
+
+(* SOLUTION *)
 Lemma Triple_mappend_copy : forall (p1 p2:loc) (L1 L2:list int),
   TRIPLE (mappend_copy p1 p2)
     PRE (p1 ~> MList L1 \* p2 ~> MList L2)
@@ -964,12 +965,16 @@ Proof using.
   { intros x q L' ->. xapp. xapp. { auto. } intros q'.
     xapp. xapp. intros p'. xchanges <- MList_cons. }
 Qed.
+(* /SOLUTION *)
 
 
 (* ******************************************************* *)
 (** *** Exercise: out-of-place filter on list *)
 
-(**
+(** The function [copy_nonneg] expects a list of integers,
+    and produces an independent copy of that list from which
+    the zero values have been filetered out.
+
 [[
     let rec mcopy_nonneg p =
       if p == null then 
@@ -990,6 +995,15 @@ Definition mcopy_nonneg : val :=
       If_ 'x '= 0 Then 'q2 Else (mcons 'x 'q2)
     ).
 
+(* EX3! (Triple_mcopy_nonneg) *)
+(** Specify and verify the function [mcopy_nonneg],
+    using [LibList.filter (<> 0) L] to describe the resulting list.
+    
+    The tactic [rew_listx] simplifies expressions involving [filter].
+    It invokes the lemmas [LibList.filter_nil] and [LibList.filter_cons] 
+    for simplifying [filter f nil] and [filter f (x::L)]. *)
+
+(* SOLUTION *)
 Lemma Triple_mcopy_nonneg : forall (p:loc) (L:list int),
   TRIPLE (mcopy_nonneg p)
     PRE (p ~> MList L)
@@ -1000,19 +1014,22 @@ Proof using.
   { intros ->. xapp. xsimpl. xchanges* <- MList_nil. }
   { intros x q L' ->. xapp. xapp. xapp. { auto. } intros q'.
     xchange <- MList_cons. xapp.
-    rewrite filter_cons. xif; intros Cx; case_if as Cx'. 
+    rew_listx. xif; intros Cx; case_if as Cx'. 
     { xval. xsimpl. }
     { xapp. intros p2. xsimpl. } }
 Qed.
-
-Hint Extern 1 (Register_Spec mcopy_nonneg) => Provide Triple_mcopy_nonneg.
-
+(* /SOLUTION *)
 
 
 (* ******************************************************* *)
 (** *** Exercise: length of a mutable list using a reference *)
 
-(**
+(** The function [mlength_acc p] computes the length of a list [p]
+    by traversing the cells of the list and incrementing a reference
+    by one unit at each step. If the reference cell is initialized  
+    with zero, then at the end of the traversal, it contains the 
+    length of the list.
+
 [[
     let rec mlength_acc_rec a p =
       if p <> null then
@@ -1040,6 +1057,12 @@ Definition mlength_acc : val :=
     mlength_acc_rec 'a 'p ';
     '! 'a.
 
+(* EX2! (Triple_mlength_acc_rec) *)
+(** Specify and verify the function [mlength_acc_rec]. 
+    Hint: make sure to generalize the relevant variables in
+    [gen ???. induction_wf IH: list_sub L.], so that your
+    induction principle is strong enough to complete the proof. *)
+(* SOLUTION *)
 Lemma Triple_mlength_acc_rec : forall (a:loc) (n:int) (p:loc) (L:list int),
   TRIPLE (mlength_acc_rec a p)
     PRE (a ~~> n \* p ~> MList L)
@@ -1048,24 +1071,18 @@ Proof using.
   intros. gen n p. induction_wf IH: list_sub L.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
   { intros x q L' ->. xapp. xapp. xapp. { auto. }
-     xchange <- MList_cons. xsimpl. rew_list. math. }
+     xchange <- MList_cons. xsimpl. rew_listx. math. }
   { intros ->. xval. xchange <- (MList_nil p). { auto. }
-    xsimpl. rew_list. math.  }
+    xsimpl. rew_listx. math.  }
+(* /SOLUTION *)
 Qed.
 
 Hint Extern 1 (Register_Spec mlength_acc_rec) => Provide Triple_mlength_acc_rec.
 
-Lemma Triple_mlength_acc : forall (p:loc) (L:list int),
-  TRIPLE (mlength_acc p)
-    PRE (p ~> MList L)
-    POST (fun (r:int) => \[r = length L] \* p ~> MList L).
-Proof using.
-  xwp. xapp. intros a. xapp. xapp. xsimpl. math.
-Qed.
+(* INSTRUCTORS *)
 
-(** Remark: proof script of [Triple_mlength_acc_rec] revisited with
+(** Remark: the proof script of [Triple_mlength_acc_rec] revisited with
     some automation. *)
-
 Lemma Triple_mlength_acc_ind' : forall (a:loc) (n:int) (p:loc) (L:list int),
   TRIPLE (mlength_acc_rec a p)
     PRE (a ~~> n \* p ~> MList L)
@@ -1075,6 +1092,21 @@ Proof using.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
   { intros x q L' ->. xapp. xapp. xapp*. xchanges* <- MList_cons. }
   { intros ->. xval. xchanges* <- (MList_nil p). }
+Qed.
+
+(* /INSTRUCTORS *)
+
+(* EX2! (Triple_mlength_acc) *)
+(** Prove that [mlength_acc] satisfies the same specification as [mlength]. *)
+
+Lemma Triple_mlength_acc : forall (p:loc) (L:list int),
+  TRIPLE (mlength_acc p)
+    PRE (p ~> MList L)
+    POST (fun (r:int) => \[r = length L] \* p ~> MList L).
+Proof using.
+(* SOLUTION *)
+  xwp. xapp. intros a. xapp. xapp. xsimpl. math.
+(* /SOLUTION *)
 Qed.
 
 
@@ -1112,12 +1144,16 @@ Definition mappend : val :=
       'p1
     ).
 
+(* EX2! (Triple_ref_greater_abstract) *)
+
 Lemma Triple_mappend_aux : forall (p1 p2:loc) (L1 L2:list int),
   p1 <> null ->
   TRIPLE (mappend_aux p1 p2)
     PRE (p1 ~> MList L1 \* p2 ~> MList L2)
     POST (fun (r:unit) => p1 ~> MList (L1++L2)).
 Proof using.
+(* SOLUTION *)
+(* /SOLUTION *)
   intros. gen p1. induction_wf IH: list_sub L1.
   xwp. xchange (MList_if p1). case_if. xpull. intros x q L' ->.
   xapp. xapp. xif; intros Cq.
@@ -1125,7 +1161,7 @@ Proof using.
     xapp (>> (@Triple_set_field loc) q).
     xchange <- MList_cons. xsimpl. }
   { xapp. xapp. { auto. } { auto. }
-    xchange <- MList_cons. rew_list. xsimpl. }
+    xchange <- MList_cons. rew_listx. xsimpl. }
 Qed.
 
 Hint Extern 1 (Register_Spec mappend_aux) => Provide Triple_mappend_aux.
@@ -1135,6 +1171,8 @@ Lemma Triple_mappend : forall (p1 p2:loc) (L1 L2:list int),
     PRE (p1 ~> MList L1 \* p2 ~> MList L2)
     POST (fun (p:loc) => p ~> MList (L1++L2)).
 Proof using.
+(* SOLUTION *)
+(* /SOLUTION *)
   xwp. xapp. xif; intros C.
   { xchange (MList_if p1). case_if. xpull. intros ->.
     xval. xsimpl. }
@@ -1158,11 +1196,15 @@ Definition clear : val :=
   VFun 'q :=
     'q ':= mnil '().
 
+(* EX2! (Triple_ref_greater_abstract) *)
+
 Lemma Triple_clear : forall (q:loc) (L:list int),
   TRIPLE (clear q)
     PRE (q ~> Stack L)
     POST (fun (r:unit) => q ~> Stack nil).
 Proof using.
+(* SOLUTION *)
+(* /SOLUTION *)
   xwp. xchange Stack_eq. intros p. xapp. intros p'.
   xapp. xchange <- Stack_eq. xsimpl.
 Qed.
@@ -1188,11 +1230,15 @@ Definition concat : val :=
     'q1 ':= mappend ('!'q1) ('!'q2) ';
     'q2 ':= mnil '().
 
+(* EX2! (Triple_ref_greater_abstract) *)
+
 Lemma Triple_concat : forall (q1 q2:loc) (L1 L2:list int),
   TRIPLE (concat q1 q2)
     PRE (q1 ~> Stack L1 \* q2 ~> Stack L2)
     POST (fun (r:unit) => q1 ~> Stack (L1 ++ L2) \* q2 ~> Stack nil).
 Proof using.
+(* SOLUTION *)
+(* /SOLUTION *)
   xwp. do 2 xchange Stack_eq. intros p1 p2. xapp. xapp.
   xapp. intros p1'. xapp.
   xapp. intros p2'. xapp.
@@ -1220,11 +1266,15 @@ Definition push_back : val :=
     Let 'p2 := mcell 'x (mnil '()) in
     'q ':= mappend ('!'q) 'p2.
 
+(* EX2! (Triple_ref_greater_abstract) *)
+
 Lemma Triple_push_back : forall (q:loc) (x:int) (L:list int),
   TRIPLE (push_back q x)
     PRE (q ~> Stack L)
     POST (fun (_:unit) => q ~> Stack (L++x::nil)).
 Proof using.
+(* SOLUTION *)
+(* /SOLUTION *)
   xwp. xchange Stack_eq. intros p. 
   xapp. intros p0. xapp. intros p1. 
   xapp. xchange <- MList_cons. xapp. intros p2.
@@ -1264,19 +1314,22 @@ Definition mrev : val :=
     mrev_aux null 'p.
 
 
+(* EX2! (Triple_ref_greater_abstract) *)
 
 Lemma Triple_mrev_aux : forall (p1 p2:loc) (L1 L2:list int),
   TRIPLE (mrev_aux p1 p2)
     PRE (p1 ~> MList L1 \* p2 ~> MList L2)
     POST (fun (r:loc) => r ~> MList (rev L2 ++ L1)).
 Proof using.
+(* SOLUTION *)
+(* /SOLUTION *)
   (* important: need to generalize p1 and p2 *)
   intros. gen p1 p2 L1. induction_wf IH: list_sub L2.
   xwp. xchange (MList_if p2). xif; intros C; case_if; xpull.
-  { intros ->. xval. rew_list. xsimpl. }
+  { intros ->. xval. rew_listx. xsimpl. }
   { intros x q L' ->. xapp. xapp.
     xchange <- MList_cons. xapp. { auto. }
-    intros r. rew_list. xsimpl. }
+    intros r. rew_listx. xsimpl. }
 Qed.
 
 Hint Extern 1 (Register_Spec mrev_aux) => Provide Triple_mrev_aux.
@@ -1286,7 +1339,9 @@ Lemma Triple_mrev : forall (p:loc) (L:list int),
     PRE (p ~> MList L)
     POST (fun (r:loc) => r ~> MList (rev L)).
 Proof using.
-  xwp. xchange MList_nil_intro. xapp. rew_list. xsimpl.
+(* SOLUTION *)
+(* /SOLUTION *)
+  xwp. xchange MList_nil_intro. xapp. rew_listx. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec mrev) => Provide Triple_mrev.

@@ -1709,3 +1709,23 @@ Qed.
 Section MtailMinimal.
 End MtailMinimal.
 
+
+
+(* ******************************************************* *)
+(** *** Exercise: specialization of [mcons] to a [null] tail *)
+
+(* EX2? (Triple_mcons_null) *)
+(** Prove a specialized specification for [mcons] in case it
+    is applied to a null tail, i.e. for calls of the form [mcons x null].  *)
+
+Lemma Triple_mcons_null : forall (x:int),
+  TRIPLE (mcons x null)
+    PRE \[] 
+    POST (fun (p:loc) => p ~> MList (x::nil)).
+Proof using.
+(* SOLUTION *)
+(* /SOLUTION *)
+(* PB xtriple not introduced *)
+  intros. xtriple. xchange MList_nil_intro.
+  xapp. intros p. xsimpl.
+Qed.
