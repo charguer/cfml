@@ -251,8 +251,15 @@ Proof using.
   xwp.
   (* In order to read in [p.head], we must make visible in the current
      state the head field, that is [p`.head ~~> x]. We achieve this by
-     unfolding the definition of [MList], using lemma [MList_cons]. 
-     Rather than using [rewrite MList_cons. xpull.], we use the tactic [xchange]
+     unfolding the definition of [MList], using lemma [MList_cons]. *)
+  (* One possibility is to perform a rewrite operation using [MList_cons]
+     on its first occurence. Then using CFML the tactic [xpull] to extract
+     the existential quantifiers out from the precondition:
+[[
+  rewrite MList_cons at 1. xpull. intros q.
+]]
+  *)
+  (* A more efficient approach is to use the dedicated CFML tactic [xchange],
      which is specialized for performing updates in the current state. *)
   xchange MList_cons. intros q.
   (* Here, the name [q] introduced comes from the existentially quantified  
@@ -710,9 +717,9 @@ Proof using. xunfold* Stack. Qed.
 
 
 (* ******************************************************* *)
-(** *** Operations [create] *)
+(** *** Operation [create] *)
 
-(**
+(** The operation [create ()] allocates an empty stack.
 [[
     let create () =
       ref (mnil())
@@ -723,24 +730,32 @@ Definition create : val :=
   VFun 'u :=
     'ref (mnil '()).
 
+(** The precondition of [create] is empty. Its postcondition asserts
+    that the result value is a pointer [q] such that [q ~> Stack nil],
+    i.e. a pointer onto the representation of an empty stack. *)
+
 Lemma Triple_create :
   TRIPLE (create '())
     PRE \[]
     POST (fun (q:loc) => q ~> Stack nil).
 Proof using.
-  xwp. xapp. intros p. xapp.
-  intros q. xchange <- Stack_eq. xsimpl.
+  xwp.
+  (* [mnil()] creates an empty linked list: [p ~> MList nil]. *)
+  xapp. intros p.
+  (* [ref p] allocates a reference with contents [q]: i.e, [q ~~> p]. *)
+  xapp. intros q.
+  (* Folding the definition of [Stack] gives [p ~> Stack nil]. *)
+  xchange <- Stack_eq. xsimpl.
 Qed.
-
-(* Note: shorter version for the last line: [xchanges <- Stack_eq]. *)
 
 Hint Extern 1 (Register_Spec create) => Provide Triple_create.
 
 
 (* ******************************************************* *)
-(** *** Operations [push] *)
+(** *** Operation [push] *)
 
-(**
+(** The operation [push q x] modifies the stack [q] in place by
+    inserting the element [x] at the top of the stack.
 [[
     let push q x =
       q := mcons x !q
@@ -751,13 +766,28 @@ Definition push : val :=
   VFun 'q 'x :=
     'q ':= mcons 'x ('!'q).
 
+(** The precondition of [push] requires a stack [q ~> Stack L].
+    The postcondition describes the updated stack as [q ~> Stack (x::L)]. *)
+
 Lemma Triple_push : forall (q:loc) (x:int) (L:list int),
   TRIPLE (push q x)
     PRE (q ~> Stack L)
     POST (fun (r:unit) => q ~> Stack (x::L)).
 Proof using.
-  xwp. xchange Stack_eq. intros p.
-  xapp. xapp. intros p'. xapp.
+  xwp.
+  (* The first step is to unfold the definition of [Stack].
+     It is necessary to reveal the reference [q ~~> p] that
+     the code manipulates. *)
+  xchange Stack_eq. intros p.
+  (* The read operation [!q] returns the value [p]. *)
+  xapp.
+  (* The operation [mcons x p] allocates a list cell with head field [x]
+     and tail field [q], and packs this cell together with [p ~> MList L]
+     to form [p' ~> MList (x::L)], where [p'] denotes the result of [mcons x p]. *)
+  xapp. intros p'.
+  (* The operation [q := p'] updates the reference implementing the queue. *)
+  xapp.
+  (* The new state [q ~~> p' \* p' ~> MList (x::L')] can be folded into a [Stack]. *)
   xchange <- Stack_eq. xsimpl.
 Qed.
 
@@ -767,9 +797,72 @@ Hint Extern 1 (Register_Spec push) => Provide Triple_push.
 
 
 (* ******************************************************* *)
-(** *** Operations [pop] *)
+(** *** Operation [is_empty] *)
 
-(**
+(** The operation [is_empty p] returns a boolean value indicating
+    whether the stack is empty.
+[[
+    let is_empty q =
+      !q == null
+]]
+*)
+
+Definition is_empty : val :=
+  VFun 'q :=
+    '!'q '= null.
+
+Lemma Triple_is_empty : forall (q:loc) (L:list int),
+  TRIPLE (is_empty q)
+    PRE (q ~> Stack L)
+    POST (fun (b:bool) => \[b = isTrue (L = nil)] \* q ~> Stack L).
+
+(** A naive attempt at the proof leaves a final proof obligation
+    [p = null <-> L = nil] with absolutely no hypothesis to prove it. *)
+
+Proof using.
+  xwp. xchange Stack_eq. intros p. xapp. xapp. xchange <- Stack_eq. xsimpl.
+Abort.
+
+(** What is needed here is a lemma asserting that whenever [p ~> MList L]
+    is valid, it is the case that [p = null <-> L = nil]. This result
+    is captured by the following entailment, which can be used by [xchange]. *)
+
+Lemma MList_null_iff_nil : forall (p:loc) (L:list int),
+  p ~> MList L ==> p ~> MList L \* \[p = null <-> L = nil].
+Proof using.
+  intros. xchange MList_if. case_if.
+  { xpull. intros HL. xchanges* <- (MList_nil p). }
+  { xpull. intros x q L' HL'. xchanges* <- MList_cons. }
+Qed.
+
+(** Equipped with this lemma, let's revisit the verification proof of [is_empty]. *)
+
+Lemma Triple_is_empty : forall (q:loc) (L:list int),
+  TRIPLE (is_empty q)
+    PRE (q ~> Stack L)
+    POST (fun (b:bool) => \[b = isTrue (L = nil)] \* q ~> Stack L).
+
+(** A naive attempt at the proof leaves a final proof obligation
+    [p = null <-> L = nil] with absolutely no hypothesis to prove it. *)
+
+Proof using.
+  xwp. xchange Stack_eq. intros p.
+  (* At this stage, from [p ~> MList L] we extract the equivalence  
+     [p = null <-> L = nil]. *)
+  xchange MList_null_iff_nil. intros Hp.
+  (* Then we continue the proof as before *)
+  xapp. xapp. xchange <- Stack_eq. xsimpl.
+  (* Finally, we can conclude using the extracted equivalence. *)
+  auto.
+Qed.
+
+
+(* ******************************************************* *)
+(** *** Operation [pop] *)
+
+(** The operation [pop p] applies to a nonempty stack.
+    It returns the element at the top of the stack,
+    and removes it from the stack.
 [[
     let pop q =
       let p = !q in
@@ -786,17 +879,24 @@ Definition pop : val :=
     'q ':= mtail 'p ';
     'x.
 
-Lemma Triple_pop_from_cons : forall (q:loc) (x:int) (L:list int),
-  TRIPLE (pop q)
-    PRE (q ~> Stack (x::L))
-    POST (fun (r:int) => \[r = x] \* q ~> Stack L).
-Proof using.
-  xwp. xchange Stack_eq. intros p.
-  xapp. xapp. xapp. intros p'. xapp. xval.
-  xchange <- Stack_eq. xsimpl. auto.
-Qed.
+(** Again, there are two ways to specify a nonempty stack:
+    either using [q ~> Stack (x::L)], or using [q ~> Stack L]
+    with [L <> nil]. In practice, the second presentation turns
+    out to be almost always preferable. Indeed, a typical 
+    programming idiom is:
+[[
+   while not (Stack.is_empty q) do 
+      let x = Stack.pop q in
+      ...
+   done
+]]
+    where the operation [is_empty] is testing whether [L = nil] 
+    or [L <> nil]. Thus, at the entrance of the loop body, the
+    information available is [L <> nil], which is thus a natural
+    precondition for [Stack.pop]. 
 
-(* Note: shorter version for the last line: [xchanges* <- Stack_eq]. *)
+    For this reason, we formulate the specification of [pop]
+    as follows. *)
 
 Lemma Triple_pop : forall (q:loc) (L:list int),
   L <> nil ->
