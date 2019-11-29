@@ -70,6 +70,7 @@ Inductive pat : Type :=
     [pat_bool] and [pat_int] can be simulated using conditionals. *)
 
 Inductive val : Type :=
+  | val_uninitialized : val
   | val_unit : val
   | val_bool : bool -> val
   | val_int : int -> val
@@ -1032,7 +1033,7 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       Fmap.indom m l ->
       eval m (val_set (val_loc l) v) (Fmap.update m l v) val_unit
   | eval_alloc : forall k n ma mb l,
-      mb = Fmap.conseq l k val_unit ->
+      mb = Fmap.conseq l k val_uninitialized ->
       n = nat_to_Z k ->
       l <> null ->
       Fmap.disjoint ma mb -> (* TODO: reformulate using not_indom *)

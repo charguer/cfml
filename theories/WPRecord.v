@@ -156,6 +156,9 @@ Lemma Record_cons : forall p x (V:dyn) L,
   (p`.x ~~> ``V \* p ~> Record L).
 Proof using. intros. destruct~ V. Qed.
 
+Hint Rewrite Record_nil Record_cons enc_dyn_make : Record_to_HField.
+
+
 Local Open Scope heap_scope_ext.
 
 Lemma Record_not_null : forall (r:loc) (L:Record_fields),
@@ -544,6 +547,9 @@ Parameter xapp_record_new : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fields
   (fun p => p ~> Record (List.combine ks Vs)) \*+ H ===> (protect Q) ->
   H ==> ^(Wpgen_app (trm_apps (trm_val (val_record_init ks)) (trms_vals vs))) Q.
 
+Ltac xnew_post tt :=
+  idtac.
+
 Ltac xnew_core E :=
   let Vs := list_boxer_to_dyns E in
   applys (@xapp_record_new Vs);
@@ -551,10 +557,32 @@ Ltac xnew_core E :=
   | intros ?; solve [ false ]
   | try reflexivity
   | try reflexivity
-  | xsimpl; simpl List.combine; simpl; xsimpl; unfold protect ].
+  | xsimpl; simpl List.combine; simpl; xsimpl; unfold protect; xnew_post tt ].
+(* TODO:  simpl; xsimpl; might not be needed *)
 
 Tactic Notation "xnew" constr(E) :=
   xnew_core E.
+
+Lemma xapp_record_new' : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fields) (vs:vals),
+  noduplicates_fields_exec ks = true ->
+  ks <> nil ->
+  Decodes vs Vs ->
+  List.length ks = List.length Vs ->
+  (fun p => p ~> Record (List.combine ks Vs)) \*+ H ===> (protect Q) ->
+  H ==> ^(Wpgen_app (trm_apps (trm_val (val_record_init ks)) (trms_vals vs))) Q.
+Proof using. introv HN HE HD EQ HI. unfolds Decodes. applys* xapp_record_new. Qed.
+
+Ltac xnew_core_noarg tt :=
+  applys xapp_record_new';
+  [ try reflexivity
+  | intros ?; solve [ false ]
+  | xdecodes
+  | try reflexivity
+  | xsimpl; simpl List.combine; unfold protect; xnew_post tt ].
+
+Tactic Notation "xnew" :=
+  xnew_core_noarg tt.
+
 
 
 (* ---------------------------------------------------------------------- *)

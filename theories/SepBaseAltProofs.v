@@ -794,8 +794,8 @@ Lemma triple_alloc : forall n,
     (fun r => \exists l, \[r = val_loc l /\ l <> null] \* Alloc (abs n) l).
 Proof using. (* Note: [abs n] currently does not compute in Coq. *)
   introv N Hh.
-  forwards~ (l&Dl&Nl): (Fmap.conseq_fresh null h (abs n) val_unit).
-  sets h1': (Fmap.conseq l (abs n) val_unit).
+  forwards~ (l&Dl&Nl): (Fmap.conseq_fresh null h (abs n) val_uninitialized).
+  sets h1': (Fmap.conseq l (abs n) val_uninitialized).
   exists (h1' \u h) (val_loc l). splits~.
   { applys (eval_alloc (abs n)); eauto.
     rewrite~ abs_nonneg. }

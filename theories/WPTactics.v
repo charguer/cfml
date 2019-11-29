@@ -76,7 +76,7 @@ Open Scope triple_scope.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Decode typeclass *)
+(* ** Predicate [Decode] and tactic [xdecode] *)
 
 Definition Decode (v:val) `{EA:Enc A} (V:A) : Prop :=
   v = ``V.
@@ -133,6 +133,25 @@ Proof using. intros. unfolds. rew_enc. fequals. Qed.
 Hint Resolve @Decode_None @Decode_Some : Decode.
 (* LATER: similar hints needed? *)
 
+
+(* ---------------------------------------------------------------------- *)
+(* ** Predicate [Decodes] and tactic [xdecodes] *)
+
+Definition Decodes (vs:vals) (Vs:dyns) : Prop :=
+  vs = encs Vs.
+
+Lemma Decodes_nil :
+  Decodes nil nil.
+Proof using. intros. hnfs~. Qed.
+
+Lemma Decodes_cons : forall (v:val) (vs:vals) A (EA:Enc A) (V:A) (Vs:dyns),
+  Decode v V ->
+  Decodes vs Vs ->
+  Decodes (v::vs) ((Dyn V)::Vs).
+Proof using.
+  introv Dv Dvs. unfolds Decodes. simpl. rewrite enc_dyn_make. fequals.
+Qed.
+
 Ltac xdecode_core tt :=
   try solve [ eauto with Decode ].
 
@@ -145,6 +164,31 @@ Ltac xenc_side_conditions tt :=
   | |- Decode _ _ => xdecode 
   | |- Enc_injective _ => eauto (* TODO: in hint database *)
   end.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic *)
+
+(** [xdecodes] applys to a call of the form [Decodes vs ?Vs].
+    It refines [Vs] as a list (of type [dyns]) of the same length as [vs],
+    and calls [xdecode] on every pair of items at corresponding indices. *)
+
+Ltac xdecodes_splits tt :=
+  match goal with
+  | |- Decodes nil _ => apply Decodes_nil
+  | |- Decodes (_::_) _ => nrapply Decodes_cons; [ | xdecodes_splits tt ]
+  end.
+
+Ltac xdecodes_core tt :=
+  xdecodes_splits tt; xdecode.
+
+Tactic Notation "xdecodes" :=
+  xdecodes_core tt.
+
+Tactic Notation "xdecodes_debug" :=
+  xdecodes_splits tt; try xdecode.
+
+
 
 
 (* ---------------------------------------------------------------------- *)

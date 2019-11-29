@@ -1596,4 +1596,10 @@ Notation "t ''.' k" := (trm_app (val_field k) t)
 *)
 
 
+---------------------------------
 
+
+    Let 'p := val_alloc ((2%nat):int) in
+    Set 'p'.head ':= 'x ';
+    Set 'p'.tail ':= 'q ';
+    'p.

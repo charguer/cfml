@@ -17,11 +17,13 @@ Implicit Types x n m : int.
 Implicit Types p q : loc.
 Implicit Types L : list int.
 
-(** Technical tweaks to simplify manipulation of records in this file. *)
+(** A few technical tweaks to simplify manipulation of records in this file. *)
 
-Ltac xapp_record tt ::= fail.
 Hint Extern 1 (Register_Spec (val_get_field _)) => Provide @Triple_get_field.
 Hint Extern 1 (Register_Spec (val_set_field _)) => Provide @Triple_set_field'.
+Ltac xapp_record tt ::= fail.
+Ltac xnew_post tt ::=
+  let r := fresh "r" in intros r; autorewrite with Record_to_HField; gen r.
 
 
 (* ####################################################### *)
@@ -180,21 +182,15 @@ Global Opaque MList.
 
 Definition mcell : val :=
   VFun 'x 'q :=
-    Let 'p := val_alloc ((2%nat):int) in
-    Set 'p'.head ':= 'x ';
-    Set 'p'.tail ':= 'q ';
-    'p.
+     New`{ head := 'x ; tail := 'q }.
 
 Lemma Triple_mcell : forall (x:int) (q:loc),
   TRIPLE (mcell ``x ``q)
     PRE \[] 
     POST (fun (p:loc) => (p`.head ~~> x) \* (p`.tail ~~> q)).
 Proof using.
-  (* TODO: cleanup alloc *)
-  xwp. xapp. { math. } intros p _. rewrite abs_nat.
-  do 2 rewrite Alloc_succ_eq. rewrite Alloc_zero_eq. xpull ;=> v1 v2.
-  xapp. 
-Admitted.
+  xwp. xnew. xsimpl.
+Qed.
 
 Hint Extern 1 (Register_Spec mcell) => Provide Triple_mcell.
 

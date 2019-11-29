@@ -426,7 +426,7 @@ Definition is_val_bool (v:val) : Prop :=
 Fixpoint Alloc (k:nat) (l:loc) :=
   match k with
   | O => \[]
-  | S k' => (\exists v, l ~~~> v) \* (Alloc k' (S l)%nat)
+  | S k' => l ~~~> val_uninitialized \* (Alloc k' (S l)%nat)
   end.
 
 Lemma Alloc_zero_eq : forall l,
@@ -434,7 +434,7 @@ Lemma Alloc_zero_eq : forall l,
 Proof using. auto. Qed.
 
 Lemma Alloc_succ_eq : forall l k,
-  Alloc (S k) l = (\exists v, l ~~~> v) \* Alloc k (S l)%nat.
+  Alloc (S k) l = l ~~~> val_uninitialized \* Alloc k (S l)%nat.
 Proof using. auto. Qed.
 
 Global Opaque Alloc.
@@ -444,15 +444,15 @@ Hint Rewrite Alloc_zero_eq Alloc_succ_eq : rew_Alloc.
 Tactic Notation "rew_Alloc" :=
   autorewrite with rew_Alloc.
 
-Lemma Alloc_fmap_conseq : forall l k v,
+Lemma Alloc_fmap_conseq : forall l k,
   l <> null ->
-  (Alloc k l) (Fmap.conseq l k v).
+  (Alloc k l) (Fmap.conseq l k val_uninitialized).
 Proof using.
   Transparent loc null.
   introv N. gen l. induction k; intros; rew_Alloc.
   { rewrite Fmap.conseq_zero. applys~ hempty_intro. }
   { rewrite Fmap.conseq_succ. applys hstar_intro.
-    { applys hexists_intro. split~. }
+    { split~. }
     { applys IHk. unfolds loc, null. math. }
     { applys~ Fmap.disjoint_single_conseq. } }
 Qed.
@@ -479,7 +479,7 @@ Qed.
 
 (** Tactic for helping reasoning about concrete calls to [alloc] *)
 
-Ltac simpl_abs := (* LATER: will be removed once [abs] computes *)
+Ltac simpl_abs := (* TODO: remove this *)
   match goal with
   | |- context [ abs 0 ] => change (abs 0) with 0%nat
   | |- context [ abs 1 ] => change (abs 1) with 1%nat
@@ -748,8 +748,8 @@ Lemma hoare_alloc : forall H n,
     (fun r => (\exists l, \[r = val_loc l /\ l <> null] \* Alloc (abs n) l) \* H).
 Proof using. (* Note: [abs n] currently does not compute in Coq. *)
   introv N. intros h Hh.
-  forwards~ (l&Dl&Nl): (Fmap.conseq_fresh null h (abs n) val_unit).
-  sets h1': (Fmap.conseq l (abs n) val_unit).
+  forwards~ (l&Dl&Nl): (Fmap.conseq_fresh null h (abs n) val_uninitialized).
+  sets h1': (Fmap.conseq l (abs n) val_uninitialized).
   exists (h1' \u h) (val_loc l). splits~.
   { applys~ (eval_alloc (abs n)). rewrite~ abs_nonneg. }
   { apply~ hstar_intro.

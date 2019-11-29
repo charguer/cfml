@@ -229,7 +229,8 @@ Lemma enc_dyn_eq_dyn_to_val : forall (d:dyn),
   enc d = dyn_to_val d.
 Proof using. auto. Qed.
 
-(** The encoding of a dynamic value [V] is the same as the encoding of V *)
+(** The encoding of a dynamic value [V] is the same as the encoding of V.
+    This goal displays as [``(Dyn V) = ``V] *)
 
 Lemma enc_dyn_make : forall `{EA:Enc A} (V:A),
   enc (dyn_make V) = enc V.
@@ -398,6 +399,7 @@ Proof using. intros. induction ds; simpl; rew_list; math. Qed.
 
 Fixpoint decode (v:val) : dyn :=
   match v with
+  | val_uninitialized => Dyn val_uninitialized
   | val_unit => Dyn tt
   | val_bool b => Dyn b
   | val_int n => Dyn n
