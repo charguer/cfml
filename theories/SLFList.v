@@ -536,7 +536,7 @@ Hint Extern 1 (Register_Spec mlength) => Provide Triple_mlength.
 Definition mlist_incr : val :=
   VFix 'f 'p :=
     If_ 'p '<> null Then (
-      Set 'p'.head ':= (('p'.head) '+ 1) '; (* todo : fix parsing *)
+      Set 'p'.head ':= 'p'.head '+ 1 '; (* todo : fix parsing *)
       'f ('p'.tail)
     ) End.
 
@@ -558,7 +558,7 @@ Proof using.
   intros. gen p. induction_wf IH: list_sub L.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull. 
   { intros x p' L' ->. xapp. xapp. xapp. xapp. xapp. { auto. }
-    xchange <- MList_cons.xsimpl. }
+    xchange <- MList_cons. xsimpl. }
   { intros ->. xval. xchange <- (MList_nil p). { auto. } xsimpl. }
   (* /SOLUTION *)
 Qed.

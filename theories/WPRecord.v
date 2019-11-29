@@ -60,7 +60,7 @@ Definition val_record_init (ks:fields) : val :=
 
 Notation "t1 ''.' f" :=
   (val_get_field f t1)
-  (at level 66, f at level 0, format "t1 ''.' f" ) : trm_scope.
+  (at level 56, f at level 0, format "t1 ''.' f" ) : trm_scope.
 
 Notation "'Set' t1 ''.' f '':=' t2" :=
   (val_set_field f t1 t2)

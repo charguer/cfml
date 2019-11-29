@@ -1474,69 +1474,69 @@ Notation "'Match' t 'With' ''|' c1 ''|' .. ''|' cn 'End'" :=
 
 Notation "'ref t" :=
   (val_ref t)
-  (at level 67) : trm_scope.
+  (at level 57) : trm_scope.
 
 Notation "'! t" :=
   (val_get t)
-  (at level 67) : trm_scope.
+  (at level 57) : trm_scope.
 
 Notation "t1 ':= t2" :=
   (val_set t1 t2)
-  (at level 67) : trm_scope.
+  (at level 57) : trm_scope.
 
 Notation "'not t" :=
   (val_neg t)
-  (at level 67) : trm_scope.
+  (at level 57) : trm_scope.
 
 Notation "'- t" :=
   (val_add t)
-  (at level 67) : trm_scope.
+  (at level 57) : trm_scope.
 
 Notation "t1 '+ t2" :=
   (val_add t1 t2)
-  (at level 68) : trm_scope.
+  (at level 58) : trm_scope.
 
 Notation "t1 '- t2" :=
   (val_sub t1 t2)
-  (at level 68) : trm_scope.
+  (at level 58) : trm_scope.
 
 Notation "t1 '* t2" :=
   (val_mul t1 t2)
-  (at level 67) : trm_scope.
+  (at level 57) : trm_scope.
 
 Notation "t1 '/ t2" :=
   (val_div t1 t2)
-  (at level 67) : trm_scope.
+  (at level 57) : trm_scope.
 
 Notation "t1 '= t2" :=
   (val_eq t1 t2)
-  (at level 68) : trm_scope.
+  (at level 58) : trm_scope.
 
 Notation "t1 '<> t2" :=
   (val_neq t1 t2)
-  (at level 68) : trm_scope.
+  (at level 58) : trm_scope.
 
 (* Notation "t1 '!= t2" :=
   (val_neq t1 t2)
-  (at level 68) : trm_scope. *)
+  (at level 58) : trm_scope. *)
 
 (* TODO: conflict with TCL? to resolve *)
 
 Notation "t1 '<= t2" :=
   (val_le t1 t2)
-  (at level 70) : trm_scope.
+  (at level 60) : trm_scope.
 
 Notation "t1 '< t2" :=
   (val_lt t1 t2)
-  (at level 70) : trm_scope.
+  (at level 60) : trm_scope.
 
 Notation "t1 '>= t2" :=
   (val_ge t1 t2)
-  (at level 70) : trm_scope.
+  (at level 60) : trm_scope.
 
 Notation "t1 '> t2" :=
   (val_gt t1 t2)
-  (at level 70) : trm_scope.
+  (at level 60) : trm_scope.
 
 Notation "'()" := val_unit : val_scope.
 
@@ -1546,7 +1546,7 @@ Notation "''None'" :=
 
 Notation "''Some' t1" :=
   (trm_constr "some" (t1:trm)::nil)
-  (at level 67) : trm_scope.
+  (at level 57) : trm_scope.
 
 Notation "''None'" :=
   (val_constr "none" nil)
@@ -1554,7 +1554,7 @@ Notation "''None'" :=
 
 Notation "''Some' t1" :=
   (val_constr "some" (t1::nil))
-  (at level 67, only printing) : val_scope.
+  (at level 57, only printing) : val_scope.
 
 (*
 Notation "''None'" :=
@@ -1563,7 +1563,7 @@ Notation "''None'" :=
 
 Notation "''Some' p1" :=
   (pat_constr "some" (p1::nil))
-  (at level 67, only printing) : pat_scope.
+  (at level 57, only printing) : pat_scope.
 *)
 
 Notation "''nil'" :=
@@ -1572,7 +1572,7 @@ Notation "''nil'" :=
 
 Notation "t1 ':: t2" :=
   (trm_constr "cons" ((t1:trm)::(t2:trm)::nil))
-  (at level 67) : trm_scope.
+  (at level 57) : trm_scope.
 
 Notation "''nil'" :=
   (val_constr "nil" (@nil _))
@@ -1580,7 +1580,7 @@ Notation "''nil'" :=
 
 Notation "v1 ':: v2" :=
   (val_constr "cons" ((v1:val)::(v2:val)::nil))
-  (at level 67) : val_scope.
+  (at level 57) : val_scope.
 
 (*
 Notation "''nil'" :=
@@ -1589,7 +1589,7 @@ Notation "''nil'" :=
 
 Notation "p1 ':: p2" :=
   (pat_constr "cons" (p1::p2::nil))
-  (at level 67, only printing) : pat_scope.
+  (at level 57, only printing) : pat_scope.
 *)
 
 Open Scope pat_scope.

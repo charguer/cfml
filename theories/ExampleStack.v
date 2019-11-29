@@ -224,8 +224,8 @@ Definition is_empty : val :=
 
 Definition push : val :=
   VFun 'p 'x :=
-   Set 'p'.data ':= ('x ':: 'p'.data) ';
-   Set 'p'.size ':= ('p'.size '+ 1).
+   Set 'p'.data ':= 'x ':: ('p'.data) ';
+   Set 'p'.size ':= 'p'.size '+ 1.
 
 Definition pop : val :=
   VFun 'p :=
@@ -280,8 +280,7 @@ Lemma Triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
     PRE (p ~> Stackn L)
     POST (fun (u:unit) => (p ~> Stackn (x::L))).
 Proof using.
-  xwp. xunfold Stackn. xapp. xval. xappn.
-  xsimpl*.
+  xwp. xunfold Stackn. xapp. xval. xappn. xsimpl*.
 Qed.
 
 Lemma Triple_pop : forall `{Enc A} (p:loc) (L:list A),
