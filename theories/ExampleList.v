@@ -737,8 +737,8 @@ Proof using.
     lets IH': (>> (rm IH) L1' (H \* (p1 ~~> Cons x p1'))).
     { autos*. }
     xapp IH'; clear IH'. (* LATER: xapp (rm IH') *)
-    { intros p3. xwp. xapp (>> __ EA). xapp.
-      xchanges <- (MList_cons p1). }
+    { intros p3. xwp. xapp (>> __ EA). 
+      xchanges <- (MList_cons p1). xapp. xsimpl*. }
     xsimpl*. }
 Qed.
 

@@ -675,8 +675,26 @@ Ltac xapp_pre_triple tt :=
 Ltac xapp_pre tt :=
   first [ xapp_pre_wp tt | xapp_pre_triple tt ].
 
+
+(** [xapp_post] presents a nice error message in case of failure *)
+
+Definition xapp_hidden (P:Type) (e:P) := e.
+
+Notation "'__XAPP_FAILED_TO_MATCH_PRECONDITION__'" :=
+  (@xapp_hidden _ _).
+
+Ltac xapp_report_error tt :=
+  match goal with |- context [?Q1 \--* protect ?Q2] => 
+    change (Q1 \--* protect Q2) with (@xapp_hidden _ (Q1 \--* protect Q2)) end.
+
 Ltac xapp_post tt :=
+  xsimpl;
+  first [ xapp_report_error tt
+        | unfold protect; xcleanup ].
+
+Ltac xapp_post_basic tt := (* version without error message *)
   xsimpl; unfold protect; xcleanup.
+
 
 Lemma xapp_find_spec_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
   Triple t H1 Q1 ->

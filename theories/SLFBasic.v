@@ -411,6 +411,7 @@ Lemma Triple_aliased_call : forall (p:loc) (n:int),
 
 Proof using.
   xwp. xapp.
+  (* observe how [xapp] reports the failure to match. *)
 Abort.
 
 (** We get stuck with a proof obligation of the form:
