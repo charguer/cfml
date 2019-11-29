@@ -55,7 +55,10 @@ Ltac xnew_post tt ::=
     - the definition of the "representation predicate" [p ~> MList L] which
       describes a (null-terminated) mutable list, whose elements are those
       from the Coq list [L].
-    - examples of specifications and proofs for programs manipulating mutable lists.
+    - examples of specifications and proofs for programs manipulating mutable lists, 
+    - how to use specify and verify an implementation of imperative stacks 
+      implemented as a reference on a linked list, using a representation predicate 
+      of the form [q ~> Stack L].
 
     This chapter exploits a few additional tactics:
     - [xunfold], a CFML tactic for unfolding the definition of [MList],
@@ -372,64 +375,6 @@ Qed.
 
 
 (* ******************************************************* *)
-(** *** Allocation of a new cell: [mcell] and [mcons] *)
-
-(** Next, we consider functions for constructing mutable lists.
-    We begin with the function that allocates one cell.
-    The function [mcell] takes as arguments the values to be
-    stored in the head and the tail fields of the new cell.
-
-[[
-    let rec mcell x q =
-      { head = x; tail = q }
-]]
-
-    In the embedded language, the [New] construct denotes record allocation.
-*)
-
-Definition mcell : val :=
-  VFun 'x 'q :=
-    New`{ head := 'x ; tail := 'q }.
-
-(** The precondition of [mcell x q] is empty. The postcondition
-    asserts that the return value is a location [p] such that
-    two fields are allocated: [p`.head ~~> x] and [p`.tail ~~> q]. *)
-
-Lemma Triple_mcell : forall (x:int) (q:loc),
-  TRIPLE (mcell x q)
-    PRE \[] 
-    POST (fun (p:loc) => (p`.head ~~> x) \* (p`.tail ~~> q)).
-Proof using.
-  (* The tactic [xapp] handles the reasoning on the [New] construct. *)
-  xwp. xapp. xsimpl.
-Qed.
-
-Hint Extern 1 (Register_Spec mcell) => Provide Triple_mcell.
-
-(** The function [mcons] is an alias for [mcell]. 
-    Whereas [mcell] is intended to allocate a fresh cell on its own,  
-    [mcons] is intended to extend an existing list by appending
-    to it a fresh cell. *)
-
-Definition mcons : val := mcell.
-
-(** The specification of [mcons] thus requires a list [q ~> MList L]
-    in the precondition, and produces a list [p ~> MList (x::L)] in 
-    the postcondition. *)
-
-Lemma Triple_mcons : forall (x:int) (q:loc) (L:list int),
-  TRIPLE (mcons x q)
-    PRE (q ~> MList L)
-    POST (fun (p:loc) => p ~> MList (x::L)).
-Proof using.
-  intros. unfold mcons. xapp. (* invoke [Triple_mcell] *)
-  intros p. xchange <- MList_cons. xsimpl. (* fold back the list *)
-Qed.
-
-Hint Extern 1 (Register_Spec mcons) => Provide Triple_mcons.
-
-
-(* ******************************************************* *)
 (** *** Length of a mutable list *)
 
 (** The function [mlength] computes the length of a linked list
@@ -489,7 +434,10 @@ Proof using.
     xsimpl. rew_list. math. }
   { (* Case [p <> null]. *)
      intros x q L' ->. xapp.
-     (* Recursive call, exploit [IH] applied to the sublist [q ~> MList L']. *)
+     (* Recursive call, exploit [IH] applied to the sublist [q ~> MList L']. 
+        Observe that, during this call, the head cell described by
+        [p`.tail ~~> q \* p`.head ~~> x] remain unchanged---the two fields
+        fields are said to be "framed", in the Separation Logic jargon. *)
      xapp.
      (* Justify that [L'] is a sublist of [x::L']. *)
      { auto. } 
@@ -536,11 +484,14 @@ Hint Extern 1 (Register_Spec mlength) => Provide Triple_mlength.
 Definition mlist_incr : val :=
   VFix 'f 'p :=
     If_ 'p '<> null Then (
-      Set 'p'.head ':= 'p'.head '+ 1 '; (* todo : fix parsing *)
+      Set 'p'.head ':= 'p'.head '+ 1 ';
       'f ('p'.tail)
     ) End.
 
-(** If needed,  *) 
+(** The precondition of [mlist_incr] requires a linked list [p ~> MList L].
+    The postcondition asserts that the updated list takes the form [p ~> MList L2],
+    where [L2 = LibList.map (fun x => x+1) L], that is, the result of mapping
+    the successor function onto every item from [L].  *) 
 
 Lemma Triple_mlist_incr : forall (p:loc) (L:list int),
   TRIPLE (mlist_incr p)
@@ -565,11 +516,68 @@ Qed.
 
 
 (* ******************************************************* *)
+(** *** Allocation of a new cell: [mcell] and [mcons] *)
+
+(** Next, we consider functions for constructing mutable lists.
+    We begin with the function that allocates one cell.
+    The function [mcell] takes as arguments the values to be
+    stored in the head and the tail fields of the new cell.
+
+[[
+    let rec mcell x q =
+      { head = x; tail = q }
+]]
+
+    In the embedded language, the [New] construct denotes record allocation.
+*)
+
+Definition mcell : val :=
+  VFun 'x 'q :=
+    New`{ head := 'x ; tail := 'q }.
+
+(** The precondition of [mcell x q] is empty. The postcondition
+    asserts that the return value is a location [p] such that
+    two fields are allocated: [p`.head ~~> x] and [p`.tail ~~> q]. *)
+
+Lemma Triple_mcell : forall (x:int) (q:loc),
+  TRIPLE (mcell x q)
+    PRE \[] 
+    POST (fun (p:loc) => (p`.head ~~> x) \* (p`.tail ~~> q)).
+Proof using.
+  (* The tactic [xapp] handles the reasoning on the [New] construct. *)
+  xwp. xapp. xsimpl.
+Qed.
+
+Hint Extern 1 (Register_Spec mcell) => Provide Triple_mcell.
+
+(** The function [mcons] is an alias for [mcell]. 
+    Whereas [mcell] is intended to allocate a fresh cell on its own,  
+    [mcons] is intended to extend an existing list by appending
+    to it a fresh cell. *)
+
+Definition mcons : val := mcell.
+
+(** The specification of [mcons] thus requires a list [q ~> MList L]
+    in the precondition, and produces a list [p ~> MList (x::L)] in 
+    the postcondition. *)
+
+Lemma Triple_mcons : forall (x:int) (q:loc) (L:list int),
+  TRIPLE (mcons x q)
+    PRE (q ~> MList L)
+    POST (fun (p:loc) => p ~> MList (x::L)).
+Proof using.
+  intros. unfold mcons. xapp. (* invoke [Triple_mcell] *)
+  intros p. xchange <- MList_cons. xsimpl. (* fold back the list *)
+Qed.
+
+Hint Extern 1 (Register_Spec mcons) => Provide Triple_mcons.
+
+
+(* ******************************************************* *)
 (** *** Function [mnil] *)
 
-(** A call to the function [mnil()] returns the [null] value,
-    with the intention of producing a representation for the
-    empty list.
+(** A call to the function [mnil()] returns the [null] value.
+    The intention is to produce a representation for the empty list.
 
 [[
     let rec mnil () =
@@ -617,12 +625,13 @@ Proof using.
 Qed.
 
 
-
-
 (* ******************************************************* *)
-(** *** List Copy *)
+(** *** List copy *)
 
-(**
+(** Let's put to practice the function [mnil] and [mcons] for
+    verifying a function that constructs an independent copy 
+    of a given linked list. 
+
 [[
     let rec mcopy p =
       if p == null
@@ -631,36 +640,69 @@ Qed.
 ]]
 *)
 
-Definition copy : val :=
+Definition mcopy : val :=
   VFix 'f 'p :=
     If_ 'p  '= null
       Then mnil '()
       Else mcons ('p'.head) ('f ('p'.tail)).
 
-Lemma Triple_copy : forall (p:loc) (L:list int),
-  TRIPLE (copy ``p)
+(** The precondition of [mcopy] requires a linked list [p ~> MList L].
+    Its postcondition asserts that the function returns a pointer [p']
+    and a list [p' ~> MList L], in addition to the original list
+    [p ~> MList L]. The two lists are totally disjoint and independent,
+    as captured by the separating conjunction symbol (the star). *)
+
+Lemma Triple_mcopy : forall (p:loc) (L:list int),
+  TRIPLE (mcopy p)
     PRE (p ~> MList L)
     POST (fun (p':loc) => (p ~> MList L) \* (p' ~> MList L)).
+
+(** The proof script is very similar in structure to the previous ones. 
+    While playing the script, try to spot the places where:
+    
+    - [mnil] produces an empty list of the form [p' ~> MList nil],
+    - the recursive call produces a list of the form [q' ~> MList L'],
+    - [mcons] produces a list of the form [p' ~> MList (x::L')]. *)
+
 Proof using.
   intros. gen p. induction_wf IH: list_sub L.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
   { intros ->. xapp. xsimpl. xchanges* <- MList_nil. }
-  { intros x q L' ->. xapp. xapp. xapp. { auto. } intros q'.
+  { intros x q L' ->. xapp. xapp. xapp*. intros q'.
     xapp. intros p'. xchanges <- MList_cons. }
 Qed.
 
-Hint Extern 1 (Register_Spec copy) => Provide Triple_copy.
+Hint Extern 1 (Register_Spec mcopy) => Provide Triple_mcopy.
+
+(** This concludes our quick tour of functions on mutable lists.
+    Additional functions are presented further in the file. *)
 
 
 (* ******************************************************* *)
 (** *** Representation of a mutable stack *)
 
-(** The predicate [q ~> Stack L]  
+(** We now move on to using linked lists for implementing stacks.
+    Thereafter, a stack is represented as a reference on a linked
+    list. 
 
-*)
+    We first introduce the heap predicate [q ~> Stack L] to describe
+    stacks. For example, the empty stack is represented as a reference
+    whose contents is null, that is, [q ~~> null], while a nonempty
+    stack is represented as a reference whose contents is a pointer
+    on a proper linked list, that is, [(q ~~> p) \* (p ~> MList L)]
+    for some pointer [p].
+
+    The definition of [q ~> Stack L], that is [Stack L q], is thus
+    as follows. *)
 
 Definition Stack (L:list int) (q:loc) : hprop :=
   \exists p, (q ~~> p) \* (p ~> MList L).
+
+(** The following lemma reformulates the definition of [Stack]
+    as an equality. The tactic [xchange Stack_eq] is handy to
+    unfold the definition of [Stack], while the tactic
+    [xchange <- Stack_eq] performs the reciprocal operation of
+    folding back the definition. *)
 
 Lemma Stack_eq : forall (q:loc) (L:list int),
   (q ~> Stack L) = (\exists p, (q ~~> p) \* (p ~> MList L)).
@@ -796,7 +838,7 @@ Qed.
 (**
 [[
     let rec mappend_copy p1 p2 =
-      if p1 == null then copy p2 else begin
+      if p1 == null then mcopy p2 else begin
         let p = mappend_copy p1.tail p2 in
         mcons p1.head p
       end
@@ -805,7 +847,7 @@ Qed.
 
 Definition mappend_copy : val :=
   VFix 'f 'p1 'p2 :=
-    If_ 'p1 '= null Then copy 'p2 Else (
+    If_ 'p1 '= null Then mcopy 'p2 Else (
       Let 'p := 'f ('p1'.tail) 'p2 in
       mcons ('p1'.head) 'p
     ).
