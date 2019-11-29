@@ -1807,7 +1807,7 @@ Proof.
   eapply triple_let.
   - rewrite hstar_comm. apply triple_frame_read_only, _.
     eapply triple_conseq; [|apply Ht1|auto].
-    xchange (hwand_cancel (RO H2) H1). xsimpl.
+    applys himpl_trans (hwand_cancel (RO H2) H1). xsimpl.
     apply RO_covariant, normally_erase.
   - intros X. eapply triple_conseq; [|apply Ht2L|auto].
     xchange (>> normally_erase H2).

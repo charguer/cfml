@@ -1630,7 +1630,23 @@ Ltac xchange_core L modifier cont :=
   xchange_perform L modifier cont;
   gen_until_mark.
 
+(** Error reporting support for [xchange] (not for [xchanges]) *)
+
+Definition xchange_hidden (P:Type) (e:P) := e.
+
+Notation "'__XCHANGE_FAILED_TO_MATCH_PRECONDITION__'" :=
+  (@xchange_hidden _ _).
+
+Ltac xchange_report_error tt :=
+  match goal with |- context [?H1 \-* protect ?H2] => 
+    change (H1 \-* protect H2) with (@xchange_hidden _ (H1 \-* protect H2)) end.
+
 Ltac xchange_xpull_cont tt :=
+  xsimpl; first
+  [ xchange_report_error tt
+  | unfold protect; try solve [ apply himpl_refl ] ].
+
+Ltac xchange_xpull_cont_basic tt := (* version without error reporting *)
   xsimpl; unfold protect; try solve [ apply himpl_refl ].
 
 Ltac xchange_xsimpl_cont tt :=

@@ -299,6 +299,9 @@ Lemma Triple_mhead' : forall (p:loc) (L:list int),
     POST (fun (x:int) => \exists L', \[L = x::L'] \* (p ~> MList L)).
 Proof using.
   introv HL. 
+  (* Play this script: [xwp. xchange MList_cons.] to observe how the [xchange]
+     tactic fails to unfold the definition of [MList] when the list is not a [cons]. *)
+
   (* Case analysis on [L]. The tactic [tryfalse] is short for [try contradiction] *)
   destruct L as [|x L']. { contradiction. }
   dup. (* let's duplicate the proof obligation to see two ways to prove it *) 
