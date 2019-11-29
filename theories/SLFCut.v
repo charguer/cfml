@@ -1603,3 +1603,83 @@ Notation "t ''.' k" := (trm_app (val_field k) t)
     Set 'p'.head ':= 'x ';
     Set 'p'.tail ':= 'q ';
     'p.
+
+
+=================
+
+
+
+(*
+
+Notation "'ref t" :=
+  (val_ref t)
+  (at level 67) : trm_scope.
+Notation "t1 ':= t2" :=
+  (val_set t1 t2)
+  (at level 67) : trm_scope.
+
+Notation "'not t" :=
+  (val_neg t)
+  (at level 67) : trm_scope.
+
+Notation "'- t" :=
+  (val_add t)
+  (at level 67) : trm_scope.
+
+Notation "t1 '+ t2" :=
+  (val_add t1 t2)
+  (at level 68) : trm_scope.
+
+Notation "t1 '- t2" :=
+  (val_sub t1 t2)
+  (at level 68) : trm_scope.
+
+Notation "t1 '* t2" :=
+  (val_mul t1 t2)
+  (at level 67) : trm_scope.
+
+Notation "t1 '/ t2" :=
+  (val_div t1 t2)
+  (at level 67) : trm_scope.
+
+Notation "t1 '= t2" :=
+  (val_eq t1 t2)
+  (at level 68) : trm_scope.
+
+Notation "t1 '<> t2" :=
+  (val_neq t1 t2)
+  (at level 68) : trm_scope.
+
+Notation "t1 '<= t2" :=
+  (val_le t1 t2)
+  (at level 70) : trm_scope.
+
+Notation "t1 '< t2" :=
+  (val_lt t1 t2)
+  (at level 70) : trm_scope.
+
+Notation "t1 '>= t2" :=
+  (val_ge t1 t2)
+  (at level 70) : trm_scope.
+
+Notation "t1 '> t2" :=
+  (val_gt t1 t2)
+  (at level 70) : trm_scope.
+*)
+
+
+
+Notation "`App '! t" :=
+  (Wptag (Wpgen_app (trm_apps (trm_val (val_prim val_get)) (trms_vals (cons t nil)))))
+  (at level 67) : wp_scope.
+
+
+=========
+
+Triple_mhead_notnil
+  (* Play this script: [xwp. xchange MList_cons.] to observe how the [xchange]
+     tactic fails to unfold the definition of [MList] when the list is not a [cons]. *)
+
+
+
+=======

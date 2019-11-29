@@ -57,9 +57,9 @@ Ltac xnew_post tt ::=
     - examples of specifications and proofs for programs manipulating mutable lists.
 
     This chapter exploits a few additional tactics:
-    - [xunfold], a CFML tactic for unfolding the definition of [MList].
+    - [xunfold], a CFML tactic for unfolding the definition of [MList],
     - [xchange], a CFML tactic to transform the precondition by exploiting 
-      entailments or equalities.
+      entailments or equalities,
     - [rew_list], a TLC tactic to normalize list expressions.
 
 *)
@@ -70,36 +70,28 @@ Ltac xnew_post tt ::=
 
 (** In the previous chapter, we have only manipulated OCaml-style
     references, which correspond to a mutable record with a single 
-    field (its "contents"). 
+    field, storing the contents of the reference.
 
     A two-field record can be described in Separation Logic as the
     separating conjunction of two cells at consecutive addresses.
 
     A list cell allocated at address [p], featuring a head value [x] 
     and a tail pointer [q], can be represented as:
-    [p ~~> x \* (p+1) ~~> q].
+    [(p+0) ~~> x \* (p+1) ~~> q].
 
     Throughout this file, to improve clarity, we write:
 
-    - [p`.head] as short for [p], where we intend to describe the 
+    - [p`.head] as short for [p+0], where we intend to describe the 
       address of the head field;
     - [p`.tail] as short for [p+1], where we intend to describe the 
       address of the tail field.
 
     Using these notation, the list cell considered can be represented as:
-    [(p`.head) ~~> x  \*  (p`.tail) ~~> q], which looks more symmetric.
+    [p`.head ~~> x  \*  p`.tail ~~> q], which looks more symmetric.
 *)
 
 Definition head : field := 0%nat.
 Definition tail : field := 1%nat.
-
-(** Thus, to read in the head field of a list at address [p],
-    we would write ['! p`.head], like if [p`.head] was the
-    address of an individual reference cell. Likewise, 
-    ['! p`.tail] denotes the contents of the tail field.
-
-    Remark: [p`.tail] by itself denotes the address of the
-    tail field, like the expression [&p->tail] in the C language. *)
 
 
 (* ******************************************************* *)
@@ -128,8 +120,8 @@ Definition tail : field := 1%nat.
 
 ]]
 
-    - The [null] pointer represents the empty list, that is, [nil].
-    - A non-null pointer [p] represents a list of the form [n::L'],
+    - The [null] pointer represents the empty list, that is, [L = nil].
+    - A non-null pointer [p] represents a list [L] of the form [n::L'],
       if the head field of [p] contains [n] and the tail field of [p]
       contains some pointer [q] that is the head of a linked list
       that represents the list [L'].
@@ -138,8 +130,25 @@ Definition tail : field := 1%nat.
     [p ~> MList L] cannot take the form of an inductive predicate in Coq.
     Fortunately, it can very well be defined as a recursive function.
 
-    The definition of [MList L p], a.k.a. [p ~> MList L], appears below.
-    It is defined as a fixpoint over the structure of the list [L].
+    A tentative definition would thus be the following, which defines
+    [MList L p], that is [p ~> MList L], by case analysis on the 
+    condition [p = null] (using a classical-logic test [If P then X else Y]
+    where [P] is a proposition of type [Prop]). 
+
+[[
+    Fixpoint MList (L:list int) (p:loc) : hprop :=
+      If p = null
+        then \[L = nil]
+        else \exists x q L', \[L = x::L']  
+             \* (p`.head ~~> x) \* (p`.tail ~~> q) \* (MList L' q).
+]]
+
+    Yet, this definition is rejected by Coq, which does not recorgnize the
+    structural recursion, even though the recursive call is made to a list [L'] 
+    which is a strict sublist of the argument [L]. *)
+
+(** To circumvent the problem, we present the definition of [MList] using a 
+    pattern matching on the structure of the list [L]. The logic is as follows:
 
     - if [L] is [nil], then [p] should be [null]
     - if [L] decomposes as [n::L'], then the head field of [p] should store
@@ -153,6 +162,8 @@ Fixpoint MList (L:list int) (p:loc) : hprop :=
   | nil => \[p = null]
   | x::L' => \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L')
   end.
+
+(** Above, observe the existential quantification of the tail pointer [q]. *)
 
 
 (* ******************************************************* *)
@@ -174,6 +185,148 @@ Proof using. xunfold MList. auto. Qed.
     attempts to unfold the definition in an uncontrolled manner. *)
 
 Global Opaque MList.
+
+(** At this stage, we can prove that the definition of [MList] that performs 
+    a pattern matching on [L] is equivalent to a characterization of [MList]
+    based on testing test condition [p = null]. *)
+
+Lemma MList_if : forall (p:loc) (L:list int),
+  p ~> MList L ==>
+  If p = null
+    then \[L = nil]
+    else \exists x q L', \[L = x::L']  
+         \* (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L').
+Proof using.
+  (* Let's prove this by case analysis on [L]. *)
+  intros. destruct L as [|x L'].
+  { (* case [L = nil]. By definition of [MList], we have [p = null]. *)
+    xchange MList_nil. intros M.
+    (* we have to justify [L = nil], which is trivial. *)
+    case_if. xsimpl. auto. }
+  { (* case [L = x::L']. *)
+    xchange MList_cons. intros q. case_if.
+    { (* case [p = null]. Contradiction because nothing can be allocated at
+         the null location, as captured by lemma [Hfield_not_null]. *) 
+      subst. xchange Hfield_not_null. }
+    { (* case [p <> null]. The 'else' branch corresponds to the definition
+         of [MList] in the [cons] case, it suffices to instantiate the existentials. *)
+      xsimpl. auto. } }
+Qed.
+
+(** The lemma [MList_if] stated above will prove to be very handy for
+    reasoning about list-manipulating programs, whose code generally
+    begins by testing whether the list pointers are null. *)
+
+
+(* ******************************************************* *)
+(** *** Function [mhead] *)
+
+(** Consider first the function [mhead p], which expects a pointer [p]
+    on a nonempty mutable list and returns the value of the head element. 
+
+[[
+    let rec mhead p =
+      p.head
+]]
+*)
+
+Definition mhead : val :=
+  VFun 'p :=
+    'p'.head.
+
+(** One way to capture in the specification that the list should be 
+    nonempty is to state a precondition of the form [p ~> MList (x::L)].
+    With such a precondition, the postcondition asserts that the
+    result of reading the head value yields exactly the value [x]. *)
+
+Lemma Triple_mhead : forall (p:loc) (x:int) (L:list int),
+  TRIPLE (mhead p)
+    PRE (p ~> MList (x::L))
+    POST (fun (r:int) => \[r = x] \* (p ~> MList (x::L))).
+Proof using.
+  xwp.
+  (* In order to read in [p.head], we must make visible in the current
+     state the head field, that is [p`.head ~~> x]. We achieve this by
+     unfolding the definition of [MList], using lemma [MList_cons]. 
+     Rather than using [rewrite MList_cons. xpull.], we use the tactic [xchange]
+     which is specialized for performing updates in the current state. *)
+  xchange MList_cons. intros q.
+  (* Here, the name [q] introduced comes from the existentially quantified  
+     variable [q] in the definition of [MList]. *)
+  (* At this stage, we are ready to read the value [x] in the head field. *)
+  xapp. 
+  (* To conclude, there remains to fold back the definition of [MList]. 
+     This task is achieved by means of the [xchange <-] tactic, which
+     exploits the equality [MList_cons] backwards. *)
+  xchange <- MList_cons.
+  (* There remains to check that the final state matches the postcondition. *)
+  xsimpl. auto.
+Qed.
+
+Hint Extern 1 (Register_Spec mhead) => Provide Triple_mhead.
+
+(** An alternative statement for the specification of [mhead] features a
+    precondition of the form [p ~> MList L], accompanied with a pure  
+    side-condition asserting that the list is nonempty, that is, [L <> nil].
+    
+    In that specification, the postcondition asserts that the result value
+    [x] is the head of the list [L]. This can be written
+    [\[exists L', L = x::L']], or equivalently, [\exists L', \[L = x::L']].
+*)
+
+Lemma Triple_mhead_notnil : forall (p:loc) (L:list int),
+  L <> nil ->
+  TRIPLE (mhead p)
+    PRE (p ~> MList L)
+    POST (fun (x:int) => \exists L', \[L = x::L'] \* (p ~> MList L)).
+Proof using.
+  introv HL.
+  (* By case analysis on [L], we eliminiate the case [L = nil]. *)
+  destruct L as [|x L']. { contradiction. }
+  (* Then, the proof script is the same as in the previous lemma. 
+     Rather than copy-pasting it, we can invoke [Triple_mhead]. *)
+  xapp. xsimpl. eauto.
+Qed.
+
+
+(* ******************************************************* *)
+(** *** Function [mtail] *)
+
+
+(**
+[[
+    let rec mtail p =
+      p.tail
+]]
+*)
+
+Definition mtail : val :=
+  VFun 'p :=
+   'p'.tail.
+
+Lemma Triple_mtail : forall (p:loc) (x:int) (L:list int),
+  TRIPLE (mtail p)
+    PRE (p ~> MList (x::L))
+    POST (fun (q:loc) => (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L)).
+Proof using.
+  xwp. xchange MList_cons. intros q. xapp. xsimpl. 
+Qed.
+
+Hint Extern 1 (Register_Spec mtail) => Provide Triple_mtail.
+
+
+
+Lemma Triple_mtail' : forall (p:loc) (L:list int),
+  L <> nil ->
+  TRIPLE (mtail p)
+    PRE (p ~> MList L)
+    POST (fun (q:loc) => \exists x L', (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L')).
+Proof using.
+  introv HL. destruct L as [|x L']. { contradiction. }
+  xapp. xsimpl. (* invoking the specification of [Triple_mtail]. *)
+  (* alternative: xwp. xchange MList_cons. intros q. xapp. xsimpl. *)
+Qed.
+
 
 
 (* ******************************************************* *)
@@ -240,123 +393,6 @@ Qed.
 Hint Extern 1 (Register_Spec mnil) => Provide Triple_mnil.
 
 
-(* ******************************************************* *)
-(** *** Functions [mhead] and [mtail] *)
-
-(**
-[[
-    let rec mhead p =
-      p.head
-]]
-*)
-
-Definition mhead : val :=
-  VFun 'p :=
-    'p'.head.
-
-Lemma Triple_mhead : forall (p:loc) (x:int) (L:list int),
-  TRIPLE (mhead p)
-    PRE (p ~> MList (x::L))
-    POST (fun (r:int) => \[r = x] \* (p ~> MList (x::L))).
-Proof using.
-  xwp. xchange MList_cons. intros q.
-  xapp. xchange <- MList_cons. xsimpl. auto.
-Qed.
-
-Hint Extern 1 (Register_Spec mhead) => Provide Triple_mhead.
-
-(**
-[[
-    let rec mtail p =
-      p.tail
-]]
-*)
-
-Definition mtail : val :=
-  VFun 'p :=
-   'p'.tail.
-
-Lemma Triple_mtail : forall (p:loc) (x:int) (L:list int),
-  TRIPLE (mtail p)
-    PRE (p ~> MList (x::L))
-    POST (fun (q:loc) => (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L)).
-Proof using.
-  xwp. xchange MList_cons. intros q. xapp. xsimpl. 
-Qed.
-
-Hint Extern 1 (Register_Spec mtail) => Provide Triple_mtail.
-
-
-(* ******************************************************* *)
-(** *** Exercises: alternative specifications for [mhead] and [mtail] *)
-
-(* exo *)
-
-Lemma Triple_mhead' : forall (p:loc) (L:list int),
-  L <> nil ->
-  TRIPLE (mhead p)
-    PRE (p ~> MList L)
-    POST (fun (x:int) => \exists L', \[L = x::L'] \* (p ~> MList L)).
-Proof using.
-  introv HL. 
-  (* Play this script: [xwp. xchange MList_cons.] to observe how the [xchange]
-     tactic fails to unfold the definition of [MList] when the list is not a [cons]. *)
-
-  (* Case analysis on [L]. The tactic [tryfalse] is short for [try contradiction] *)
-  destruct L as [|x L']. { contradiction. }
-  dup. (* let's duplicate the proof obligation to see two ways to prove it *) 
-  { (* proof by invoking [Triple_mhead] *)
-  xapp. xsimpl. eauto. }
-  { (* proof by unfolding the code *) 
-    xwp. xchange MList_cons. intros q. xapp. xchange <- MList_cons. xsimpl. eauto. }
-Qed.
-
-Lemma Triple_mtail' : forall (p:loc) (L:list int),
-  L <> nil ->
-  TRIPLE (mtail p)
-    PRE (p ~> MList L)
-    POST (fun (q:loc) => \exists x L', (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L')).
-Proof using.
-  introv HL. destruct L as [|x L']. { contradiction. }
-  xapp. xsimpl. (* invoking the specification of [Triple_mtail]. *)
-  (* alternative: xwp. xchange MList_cons. intros q. xapp. xsimpl. *)
-Qed.
-
-
-
-(* ******************************************************* *)
-(** *** Unfolding lemma [MList_if] to reason about testing against [null] *)
-
-(** The definition of [MList] performs a case analysis on whether 
-    the logical list [L] is [nil] or not. Yet, programs perform a 
-    case analysis on whether the pointer [p] on the list is [null] or not. 
-
-    The following lemma reformulates the definition of [MList] using
-    a case analysis on whether [MList] is null on not. It turns out
-    to be very handy for reasoning about list-manipulating programs. *)
-
-Lemma MList_if : forall (p:loc) (L:list int),
-  p ~> MList L ==>
-  If p = null
-    then \[L = nil]
-    else \exists x q L', \[L = x::L']  
-         \* (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L').
-Proof using.
-  (* Let's prove this by case analysis on [L]. *)
-  intros. destruct L as [|x L'].
-  { (* case [L = nil]. By definition of [MList], we have [p = null]. *)
-    xchange MList_nil. intros M.
-    (* we have to justify [L = nil], which is trivial. *)
-    case_if. xsimpl. auto. }
-  { (* case [L = x::L']. *)
-    xchange MList_cons. intros q. case_if.
-    { (* case [p = null]. Contradiction because nothing can be allocated at
-         the null location, as captured by lemma [Hfield_not_null]. *) 
-      subst. xchange Hfield_not_null. }
-    { (* case [p <> null]. The 'else' branch corresponds to the definition
-         of [MList] in the [cons] case, it suffices to instantiate the existentials. *)
-      xsimpl. auto. } }
-Qed.
 
 
 (* ******************************************************* *)

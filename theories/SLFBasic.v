@@ -113,6 +113,7 @@ Definition incr : val :=
     "Separation Logic triple"  using the custom notation
     [TRIPLE _ PRE _ POST _], as follows. *)
 
+
 Lemma Triple_incr : forall (p:loc) (n:int),
   TRIPLE (incr p)
     PRE (p ~~> n)
