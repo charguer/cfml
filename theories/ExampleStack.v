@@ -224,7 +224,7 @@ Definition is_empty : val :=
 
 Definition push : val :=
   VFun 'p 'x :=
-   Set 'p'.data ':= 'x ':: ('p'.data) ';
+   Set 'p'.data ':= 'x ':: 'p'.data ';
    Set 'p'.size ':= 'p'.size '+ 1.
 
 Definition pop : val :=
@@ -234,7 +234,7 @@ Definition pop : val :=
    '| 'nil '=> 'Fail
    '| 'x ':: 'r '=>
        Set 'p'.data ':= 'r ';
-       Set 'p'.size ':= ('p'.size '- 1) ';
+       Set 'p'.size ':= 'p'.size '- 1 ';
        'x
    End.
 
@@ -258,7 +258,7 @@ Proof using. auto. Qed.
 (* ********************************************************************** *)
 (** ** Verification *)
 
-Lemma Triple_create : forall `{Enc A},
+Lemma Triple_create : forall A `{Enc A},
   TRIPLE (create '())
     PRE \[]
     POST (fun p => (p ~> Stackn (@nil A))).
@@ -266,7 +266,7 @@ Proof using.
   xwp. xunfold Stackn. xnew (>> (@nil A) 0) ;=> p. xsimpl.
 Qed.
 
-Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),
+Lemma Triple_is_empty : forall A `{Enc A} (p:loc) (L:list A),
   TRIPLE (is_empty p)
     PRE (p ~> Stackn L)
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stackn L).
@@ -275,7 +275,7 @@ Proof using.
   rewrite* LibListZ_length_zero_eq_eq_nil.
 Qed.
 
-Lemma Triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
+Lemma Triple_push : forall A `{Enc A} (p:loc) (x:A) (L:list A),
   TRIPLE (push p (``x))
     PRE (p ~> Stackn L)
     POST (fun (u:unit) => (p ~> Stackn (x::L))).
@@ -283,7 +283,7 @@ Proof using.
   xwp. xunfold Stackn. xapp. xval. xappn. xsimpl*.
 Qed.
 
-Lemma Triple_pop : forall `{Enc A} (p:loc) (L:list A),
+Lemma Triple_pop : forall A `{Enc A} (p:loc) (L:list A),
   L <> nil ->
   TRIPLE (pop p)
     PRE (p ~> Stackn L)
@@ -336,7 +336,7 @@ Definition clear :=
     Set 'p'.data ':= ``nil ';
     Set 'p'.size ':= ``0.
 
-Lemma Triple_clear : forall `{Enc A} (p:loc) (L:list A),
+Lemma Triple_clear : forall A `{Enc A} (p:loc) (L:list A),
   TRIPLE (clear p)
     PRE (p ~> Stackn L)
     POST (fun (u:unit) => p ~> Stackn nil).
@@ -361,11 +361,11 @@ Hint Extern 1 (Register_Spec (clear)) => Provide @Triple_clear.
 
 Definition concat :=
   VFun 'p1 'p2 :=
-    Set 'p1'.data ':= (('p1'.data) '++ ('p2'.data)) ';
-    Set 'p1'.size ':= (('p1'.size) '+ ('p2'.size)) ';
+    Set 'p1'.data ':= 'p1'.data '++ 'p2'.data ';
+    Set 'p1'.size ':= 'p1'.size '+ 'p2'.size ';
     clear 'p2.
 
-Lemma Triple_concat : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
+Lemma Triple_concat : forall A `{Enc A} (p1 p2:loc) (L1 L2:list A),
   TRIPLE (concat p1 p2)
     PRE (p1 ~> Stackn L1 \* p2 ~> Stackn L2)
     POST (fun (u:unit) => (* SOLUTION *) p1 ~> Stackn (L1 ++ L2) \* p2 ~> Stackn nil (* /SOLUTION *)).

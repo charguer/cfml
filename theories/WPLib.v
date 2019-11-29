@@ -67,7 +67,7 @@ Definition list_concat : val :=
 
 Notation "t1 '++ t2" :=
   (list_concat t1 t2)
-  (at level 68) : trm_scope.
+  (at level 58) : trm_scope.
 
 Lemma Triple_list_concat : forall `{Enc A} (l1 l2:list A),
   TRIPLE (list_concat ``l1 ``l2)
