@@ -21,7 +21,8 @@ Implicit Types L : list int.
 
 Hint Extern 1 (Register_Spec (val_get_field _)) => Provide @Triple_get_field.
 Hint Extern 1 (Register_Spec (val_set_field _)) => Provide @Triple_set_field'.
-Ltac xapp_record tt ::= fail.
+Ltac xapp_record tt ::= 
+  match xgoal_fun tt with (val_record_init _) => xapp_record_new tt end.
 Ltac xnew_post tt ::=
   let r := fresh "r" in intros r; autorewrite with Record_to_HField; gen r.
 
@@ -53,8 +54,13 @@ Ltac xnew_post tt ::=
     - the definition of the "representation predicate" [p ~> MList L] which
       describes a (null-terminated) mutable list, whose elements are those
       from the Coq list [L].
-    - [xunfold], a CFML tactic for unfolding the definition of [MList].
     - examples of specifications and proofs for programs manipulating mutable lists.
+
+    This chapter exploits a few additional tactics:
+    - [xunfold], a CFML tactic for unfolding the definition of [MList].
+    - [xchange], a CFML tactic to transform the precondition by exploiting 
+      entailments or equalities.
+    - [rew_list], a TLC tactic to normalize list expressions.
 
 *)
 
@@ -182,14 +188,14 @@ Global Opaque MList.
 
 Definition mcell : val :=
   VFun 'x 'q :=
-     New`{ head := 'x ; tail := 'q }.
+    New`{ head := 'x ; tail := 'q }.
 
 Lemma Triple_mcell : forall (x:int) (q:loc),
   TRIPLE (mcell ``x ``q)
     PRE \[] 
     POST (fun (p:loc) => (p`.head ~~> x) \* (p`.tail ~~> q)).
 Proof using.
-  xwp. xnew. xsimpl.
+  xwp. xapp. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec mcell) => Provide Triple_mcell.

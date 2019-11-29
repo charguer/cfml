@@ -519,12 +519,9 @@ Ltac xapp_record_set tt :=
   applys xapp_record_set; xapp_record_get_set_post tt.
 
 
-Ltac xapp_record tt ::= (* initial dummy binding located in WPTactics *)
-  match xgoal_fun tt with
-  | (val_get_field _) => xapp_record_get tt
-  | (val_set_field _) => xapp_record_set tt
-  (* | (val_record_init _) => xapp_record_new tt *)
-  end.
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xnew] *)
 
 Ltac list_boxer_to_dyns E :=
   match E with
@@ -533,10 +530,6 @@ Ltac list_boxer_to_dyns E :=
        let L := list_boxer_to_dyns E' in
        constr:((Dyn V)::L)
   end.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Tactic [xnew] *)
 
 (* TODO: port the proof from the previous CFML version to the new setting *)
 Parameter xapp_record_new : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fields) (vs:vals),
@@ -583,6 +576,17 @@ Ltac xnew_core_noarg tt :=
 Tactic Notation "xnew" :=
   xnew_core_noarg tt.
 
+Ltac xapp_record_new tt :=
+  xnew_core_noarg tt.
 
 
 (* ---------------------------------------------------------------------- *)
+(* ** Extending tactic [xapp] to support record operations *)
+
+Ltac xapp_record tt ::= (* initial dummy binding located in WPTactics *)
+  match xgoal_fun tt with
+  | (val_get_field _) => xapp_record_get tt
+  | (val_set_field _) => xapp_record_set tt
+  | (val_record_init _) => xapp_record_new tt
+  end.
+
