@@ -292,8 +292,10 @@ Qed.
 (* ******************************************************* *)
 (** *** Function [mtail] *)
 
+(** Second, consider the function [mtail], which returns the pointer on the
+    tail of a mutable list. As we are going to see, it is quite interesting
+    from a Separation Logic perspective.
 
-(**
 [[
     let rec mtail p =
       p.tail
@@ -303,6 +305,31 @@ Qed.
 Definition mtail : val :=
   VFun 'p :=
    'p'.tail.
+
+(** In a context [p ~> MList (x::L)], a call to [mtail p] returns 
+    a pointer [q] to a mutable list such that [q ~> MList L].
+    However, it would be incorrect to pretend that both 
+    [p ~> MList (x::L)] and [q ~> MList L] coexist, because the
+    two heap predicates describe overlapping pieces of memory. 
+
+    The following lemma is thus incorrect. If we play the same script
+    as for [Triple_mhead], we end up stuck. *)
+
+Lemma Triple_mtail_incorrect : forall (p:loc) (x:int) (L:list int),
+  TRIPLE (mtail p)
+    PRE (p ~> MList (x::L))
+    POST (fun (q:loc) => (p ~> MList (x::L)) \* (q ~> MList L)).
+Proof using.
+  xwp. xchange MList_cons. intros q. xapp.
+  (* With [xchange <- MList_cons. xsimpl.]
+     we can satisfy [p ~> MList (x::L)] but not [q ~> MList L]. *)
+  (* With [xsimpl.]
+     we can satisfy [q ~> MList L] but not [p ~> MList (x::L)]. *)
+Abort.
+
+(** As suggested by the execution of the above proof script, a valid
+    postcondition for [mtail] is:
+    [p`.tail ~~> q \* p`.head ~~> x \* q ~> MList L]. *)
 
 Lemma Triple_mtail : forall (p:loc) (x:int) (L:list int),
   TRIPLE (mtail p)
@@ -314,63 +341,100 @@ Qed.
 
 Hint Extern 1 (Register_Spec mtail) => Provide Triple_mtail.
 
+(** Again, an equivalent specification can be stated with a precondition
+    of the form [p ~> MList L] accompanied with [L <> nil]. In that case,
+    the variables [x] and [L'] such that [L = x::L'] are existentially
+    quantified in the postcondition. *)    
 
-
-Lemma Triple_mtail' : forall (p:loc) (L:list int),
+Lemma Triple_mtail_notnil : forall (p:loc) (L:list int),
   L <> nil ->
   TRIPLE (mtail p)
     PRE (p ~> MList L)
-    POST (fun (q:loc) => \exists x L', (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L')).
+    POST (fun (q:loc) => \exists x L', \[L = x::L'] 
+             \* (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L')).
 Proof using.
   introv HL. destruct L as [|x L']. { contradiction. }
-  xapp. xsimpl. (* invoking the specification of [Triple_mtail]. *)
-  (* alternative: xwp. xchange MList_cons. intros q. xapp. xsimpl. *)
+  xapp. xsimpl. eauto. (* invoking the specification [Triple_mtail]. *)
+Qed.
+
+(** In fact, the minimal specification of [mtail] is one that only
+    mentions the field [p.head] both in the precondition and the 
+    postcondition. *)
+
+Lemma Triple_mtail_minimal : forall (p:loc) (q:loc),
+  TRIPLE (mtail p)
+    PRE (p`.tail ~~> q)
+    POST (fun (r:loc) => \[r = q] \* (p`.tail ~~> q)).
+Proof using.
+  xwp. xapp. xsimpl. eauto. 
 Qed.
 
 
-
 (* ******************************************************* *)
-(** *** Allocation of a new cell *)
+(** *** Allocation of a new cell: [mcell] and [mcons] *)
 
-(**
+(** Next, we consider functions for constructing mutable lists.
+    We begin with the function that allocates one cell.
+    The function [mcell] takes as arguments the values to be
+    stored in the head and the tail fields of the new cell.
+
 [[
     let rec mcell x q =
       { head = x; tail = q }
 ]]
+
+    In the embedded language, the [New] construct denotes record allocation.
 *)
 
 Definition mcell : val :=
   VFun 'x 'q :=
     New`{ head := 'x ; tail := 'q }.
 
+(** The precondition of [mcell x q] is empty. The postcondition
+    asserts that the return value is a location [p] such that
+    two fields are allocated: [p`.head ~~> x] and [p`.tail ~~> q]. *)
+
 Lemma Triple_mcell : forall (x:int) (q:loc),
-  TRIPLE (mcell ``x ``q)
+  TRIPLE (mcell x q)
     PRE \[] 
     POST (fun (p:loc) => (p`.head ~~> x) \* (p`.tail ~~> q)).
 Proof using.
+  (* The tactic [xapp] handles the reasoning on the [New] construct. *)
   xwp. xapp. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec mcell) => Provide Triple_mcell.
 
-
-
-(* ******************************************************* *)
-(** *** Functions [mcons] and [mnil] *)
+(** The function [mcons] is an alias for [mcell]. 
+    Whereas [mcell] is intended to allocate a fresh cell on its own,  
+    [mcons] is intended to extend an existing list by appending
+    to it a fresh cell. *)
 
 Definition mcons : val := mcell.
 
+(** The specification of [mcons] thus requires a list [q ~> MList L]
+    in the precondition, and produces a list [p ~> MList (x::L)] in 
+    the postcondition. *)
+
 Lemma Triple_mcons : forall (x:int) (q:loc) (L:list int),
-  TRIPLE (mcons ``x ``q)
+  TRIPLE (mcons x q)
     PRE (q ~> MList L)
     POST (fun (p:loc) => p ~> MList (x::L)).
 Proof using.
-  intros. unfold mcons. xapp ;=> p. xchange <- MList_cons. xsimpl.
+  intros. unfold mcons. xapp. (* invoke [Triple_mcell] *)
+  intros p. xchange <- MList_cons. xsimpl. (* fold back the list *)
 Qed.
 
 Hint Extern 1 (Register_Spec mcons) => Provide Triple_mcons.
 
-(**
+
+(* ******************************************************* *)
+(** *** Function [mnil] *)
+
+(** A call to the function [mnil()] returns the [null] value,
+    with the intention of producing a representation for the
+    empty list.
+
 [[
     let rec mnil () =
       null
@@ -381,18 +445,40 @@ Definition mnil : val :=
   VFun 'u :=
     null.
 
+(** The precondition of [mnil] is empty. The postcondition of [mnil]
+    asserts that the return value [p] is a pointer such that
+    [p ~> MList nil]. Note that, although the postcondition implies 
+    that [p = null], there is no explicit mention of [null] in the
+    specification---implementation details are not revealed. *)
+
 Lemma Triple_mnil :
   TRIPLE (mnil '())
     PRE \[] 
     POST (fun (p:loc) => p ~> MList nil).
 Proof using.
-  xwp. xval. rewrite MList_nil. xsimpl. auto.
-  (* alternative: xchange <- (MList_nil null). auto. xsimpl. *)
+  (* The proof requires introducing [null ~> MList nil] from nothing. *)
+  xwp. xval. xchange <- (MList_nil null). { auto. } xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec mnil) => Provide Triple_mnil.
 
 
+(** Remark: the call to [xchange <- (MList_nil null)] can here
+    be replaced by [rewrite MList_nil] or, even better, by a call
+    to [xchange] on a specific lemma capturing the entailement
+    [\[] ==> (null ~> MList nil)], as demonstrated next. *)
+
+Lemma MList_nil_intro :
+  \[] ==> (null ~> MList nil).
+Proof using. intros. xchange <- (MList_nil null). auto. Qed.
+
+Lemma Triple_mnil' :
+  TRIPLE (mnil '())
+    PRE \[] 
+    POST (fun (p:loc) => p ~> MList nil).
+Proof using.
+  xwp. xval. xchange MList_nil_intro. xsimpl.
+Qed.
 
 
 (* ******************************************************* *)
@@ -656,7 +742,7 @@ Lemma Triple_mcons_null : forall (x:int),
     PRE \[] 
     POST (fun (p:loc) => p ~> MList (x::nil)).
 Proof using.
-  intros. xtriple. xchange <- (MList_nil null). { auto. }
+  intros. xtriple. xchange MList_nil_intro.
   xapp. intros p. xsimpl.
 Qed.
 
@@ -958,7 +1044,7 @@ Lemma Triple_mrev : forall (p:loc) (L:list int),
     PRE (p ~> MList L)
     POST (fun (r:loc) => r ~> MList (rev L)).
 Proof using.
-  xwp. xchange <- (MList_nil null). { auto. } xapp. rew_list. xsimpl.
+  xwp. xchange MList_nil_intro. xapp. rew_list. xsimpl.
 Qed.
 
 Hint Extern 1 (Register_Spec mrev) => Provide Triple_mrev.

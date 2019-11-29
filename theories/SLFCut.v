@@ -1683,3 +1683,29 @@ Triple_mhead_notnil
 
 
 =======
+
+
+
+(** Assume the minimal specification to be the reference one. *)
+
+Hint Extern 1 (Register_Spec mtail) => Provide Triple_mtail_minimal.
+
+(* EX1? (Triple_mtail') *)
+(** Prove [Triple_mtail'] by using [xapp] to invoke the specification
+    [Triple_mtail_minimal]. *)
+
+Lemma Triple_mtail' : forall (p:loc) (x:int) (L:list int),
+  TRIPLE (mtail p)
+    PRE (p ~> MList (x::L))
+    POST (fun (q:loc) => (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L)).
+Proof using.
+(* SOLUTION *)
+  intros. (* TODO [xapp] should display error *)
+  xtriple. xchange MList_cons. intros q. xapp. xsimpl.
+(* /SOLUTION *)
+Qed.
+
+
+Section MtailMinimal.
+End MtailMinimal.
+
