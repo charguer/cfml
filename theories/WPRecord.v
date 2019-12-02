@@ -55,6 +55,9 @@ Definition val_record_init (ks:fields) : val :=
     Let 'p := (val_record_alloc ks) tt in
     body 'p (List.combine ks xs)).
 
+(* Delete a list of record fields, given in the same order as allocation *)
+Definition val_record_delete (ks:fields) : val :=
+  val_funs ("p"::nil) (val_dealloc (val_int (List.length ks)) (trm_var "p")).
 
 (** Notation for record operations *)
 
@@ -84,6 +87,27 @@ Notation "'New' `{ f1 := x1 ; f2 := x2 ; f3 := x3 ; f4 := x4 }" :=
   : trm_scope.
 Notation "'New' `{ f1 := x1 ; f2 := x2 ; f3 := x3 ; f4 := x4 ; f5 := x5 }" :=
   ((val_record_init (f1::f2::f3::f4::f5::nil)) x1 x2 x3 x4 x5)
+  (at level 0, f1 at level 0, f2 at level 0, f3 at level 0, f4 at level 0, f5 at level 0)
+  : trm_scope.
+
+Notation "'Delete' `{ f1 }" :=
+  (val_record_delete (f1::nil))
+  (at level 0, f1 at level 0)
+  : trm_scope.
+Notation "'Delete' `{ f1 ; f2 }" :=
+  (val_record_delete (f1::f2::nil))
+  (at level 0, f1 at level 0, f2 at level 0)
+  : trm_scope.
+Notation "'Delete' `{ f1 ; f2 ; f3 }" :=
+  (val_record_delete (f1::f2::f3::nil))
+  (at level 0, f1 at level 0, f2 at level 0, f3 at level 0)
+  : trm_scope.
+Notation "'Delete' `{ f1 ; f2 ; f3 ; f4 }" :=
+  (val_record_delete (f1::f2::f3::f4::nil))
+  (at level 0, f1 at level 0, f2 at level 0, f3 at level 0, f4 at level 0)
+  : trm_scope.
+Notation "'Delete' `{ f1 ; f2 ; f3 ; f4 ; f5 }" :=
+  (val_record_delete (f1::f2::f3::f4::f5::nil))
   (at level 0, f1 at level 0, f2 at level 0, f3 at level 0, f4 at level 0, f5 at level 0)
   : trm_scope.
 
@@ -505,6 +529,25 @@ Fixpoint noduplicates_fields_exec (ks:fields) : bool :=
   | k::ks' => fresh_field_exec k ks' && noduplicates_fields_exec ks'
   end.
 
+Fixpoint consecutive_fields_exec (koffset:nat) (ks:fields) : bool :=
+  match ks with
+  | nil => true
+  | k::ks => if eq_nat_dec k koffset 
+               then consecutive_fields_exec (S koffset) ks 
+               else false
+  end.
+
+Fixpoint fields_check (ks:fields) (L:Record_fields) : bool :=
+  match ks,L with
+  | nil, nil => true
+  | k::ks', (f,d)::L' => if eq_nat_dec k f 
+                           then fields_check ks' L'
+                           else false
+  | _, _ => false
+  end.
+
+(* TODO: use boolean version of [eq_nat_dec] *)
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xapp_record_get] *)
@@ -513,12 +556,10 @@ Fixpoint noduplicates_fields_exec (ks:fields) : bool :=
 Hint Extern 1 (Register_Spec (val_get_field _)) => Provide @Triple_get_field.
 
 (* Test to detect whether the precondition contains [ p`.f ~~> ?V ] *)
-Ltac xapp_record_get_fail_if_single_field tt :=
+Ltac xapp_record_get_find_single_field tt :=
   match goal with
-  | |- ?H ==> @Wptag (Wpgen_app (trm_apps (trm_val (val_get_field ?f)) (trms_vals ((val_loc ?p)::nil)))) ?A ?EA ?Q =>
-      match H with context [ p`.f ~~> ?V ] => fail 2 end
-      (* effect is to trigger [xapp] instead of [applies xapp_record_set] *)  
-  | _ => idtac
+  |- ?H ==> @Wptag (Wpgen_app (trm_apps (trm_val (val_get_field ?f)) (trms_vals ((val_loc ?p)::nil)))) ?A ?EA ?Q =>
+      match H with context [ p`.f ~~> ?V ] => idtac end
   end.  
  
 (* Common postprocessing to [xapp_record_get] and [xapp_record_set] *)
@@ -526,12 +567,16 @@ Ltac xapp_record_get_fail_if_single_field tt :=
 Ltac xapp_record_get_set_post tt :=
   xsimpl; simpl; xsimpl; unfold protect; try xcast.
 
+Ltac xapp_record_get_grouped tt :=
+  applys xapp_record_get; xapp_record_get_set_post tt.
+
 (* Tactic to handle [get_field] using lemma [xapp_record_get] which expects 
-   [p ~> Record ?L], unless the precondition contains [ p`.f ~~> ?V ] *)
+   [p ~> Record ?L], unless the precondition contains [ p`.f ~~> ?V ] in which 
+   case there is support for the "exploded" mode. *)
 
 Ltac xapp_record_get tt :=
-  xapp_record_get_fail_if_single_field tt;
-  applys xapp_record_get; xapp_record_get_set_post tt.
+  first [ xapp_record_get_find_single_field tt; fail 1 (* trigger call to [xapp] *)
+        | xapp_record_get_grouped tt ].
 
 
 (* ---------------------------------------------------------------------- *)
@@ -541,21 +586,22 @@ Ltac xapp_record_get tt :=
 
 Hint Extern 1 (Register_Spec (val_set_field _)) => Provide @Triple_set_field_Decode.
 
-Ltac xapp_record_set_fail_if_single_field tt :=
+Ltac xapp_record_set_find_single_field tt :=
   match goal with
-  | |- ?H ==> @Wptag (Wpgen_app (trm_apps (trm_val (val_set_field ?f)) (trms_vals ((val_loc ?p)::?W::nil)))) ?A ?EA ?Q =>
-      match H with context [ p`.f ~~> ?V ] => fail 2 end
-      (* effect is to trigger [xapp] instead of [applies xapp_record_set] *)  
-  | _ => idtac
+  |- ?H ==> @Wptag (Wpgen_app (trm_apps (trm_val (val_set_field ?f)) (trms_vals ((val_loc ?p)::?W::nil)))) ?A ?EA ?Q =>
+      match H with context [ p`.f ~~> ?V ] => idtac end
   end.  
+
+Ltac xapp_record_set_grouped tt :=
+  applys xapp_record_set; xapp_record_get_set_post tt.
  
 Ltac xapp_record_set tt :=
-  xapp_record_set_fail_if_single_field tt;
-  applys xapp_record_set; xapp_record_get_set_post tt.
+  first [ xapp_record_set_find_single_field tt; fail 1 (* trigger call to [xapp] *)
+        | xapp_record_set_grouped tt ].
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Tactic [xnew] *)
+(* ** Tactic [xapp_record_new] *)
 
 Ltac list_boxer_to_dyns E :=
   match E with
@@ -568,16 +614,11 @@ Ltac list_boxer_to_dyns E :=
 (* TODO: port the proof from the previous CFML version to the new setting *)
 Parameter xapp_record_new : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fields) (vs:vals),
   noduplicates_fields_exec ks = true ->
-  ks <> nil ->
+  is_nil ks = false ->
   List.length ks = List.length Vs ->
   vs = encs Vs ->
   (fun p => p ~> Record (List.combine ks Vs)) \*+ H ===> (protect Q) ->
   H ==> ^(Wpgen_app (trm_apps (trm_val (val_record_init ks)) (trms_vals vs))) Q.
-
-(* An implementation of [xnew_post] that can be used to expose fields one by one
-   instead of generating [p ~> Record ?L]. *)
-Ltac xnew_post_expose_fields tt :=
-  let r := fresh "r" in intros r; autorewrite with Record_to_HField; gen r.
 
 Ltac xnew_post tt :=
   idtac.
@@ -586,7 +627,7 @@ Ltac xnew_core E :=
   let Vs := list_boxer_to_dyns E in
   applys (@xapp_record_new Vs);
   [ try reflexivity
-  | intros ?; solve [ false ]
+  | try reflexivity
   | try reflexivity
   | try reflexivity
   | xsimpl; simpl List.combine; simpl; xsimpl; unfold protect; xnew_post tt ].
@@ -595,9 +636,9 @@ Ltac xnew_core E :=
 Tactic Notation "xnew" constr(E) :=
   xnew_core E.
 
-Lemma xapp_record_new' : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fields) (vs:vals),
+Lemma xapp_record_new_noarg : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fields) (vs:vals),
   noduplicates_fields_exec ks = true ->
-  ks <> nil ->
+  is_nil ks = false ->
   Decodes vs Vs ->
   List.length ks = List.length Vs ->
   (fun p => p ~> Record (List.combine ks Vs)) \*+ H ===> (protect Q) ->
@@ -605,18 +646,69 @@ Lemma xapp_record_new' : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fields) (
 Proof using. introv HN HE HD EQ HI. unfolds Decodes. applys* xapp_record_new. Qed.
 
 Ltac xnew_core_noarg tt :=
-  applys xapp_record_new';
+  applys xapp_record_new_noarg;
   [ try reflexivity
-  | intros ?; solve [ false ]
+  | try reflexivity
   | xdecodes
   | try reflexivity
   | xsimpl; simpl List.combine; unfold protect; xnew_post tt ].
 
+Ltac xapp_record_new tt :=
+  xnew_core_noarg tt.
+
 Tactic Notation "xnew" :=
   xnew_core_noarg tt.
 
-Ltac xapp_record_new tt :=
-  xnew_core_noarg tt.
+(* An implementation of [xnew_post] that can be used to expose fields one by one
+   instead of generating [p ~> Record ?L]. To activate, use: 
+   [Ltac xnew_post ::= xnew_post_exploded]. *)
+
+Ltac xnew_post_exploded tt :=
+  let r := fresh "r" in intros r; autorewrite with Record_to_HField; gen r.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xapp_record_delete] *)
+
+Parameter xapp_record_delete : forall (L:Record_fields) (Q:unit->hprop) (H:hprop) (ks:fields) (p:loc),
+  H ==> p ~> Record L \* (protect (Q tt)) ->
+  fields_check ks L = true ->
+  H ==> ^(Wpgen_app (trm_apps (trm_val (val_record_delete ks)) (trms_vals ((val_loc p)::nil)))) Q.
+
+Ltac xapp_record_delete_grouped tt :=
+  fail "not yet implemented: xapp_record_delete_grouped".
+
+
+(* TODO: define delete tactic for [p ~> Record L] *)
+
+Fixpoint xapp_to_delete_fields (p:loc) (ks:fields) :=
+  match ks with
+  | nil => \[]
+  | k::ks' => (\exists (A:Type) (EA:Enc A) (V:A), p`.k ~~> V) \* xapp_to_delete_fields p ks'
+  end.
+
+(** Exploded mode for delete *)
+
+Parameter xapp_record_delete_exploded : forall (Q:unit->hprop) (H:hprop) (ks:fields) (p:loc),
+  consecutive_fields_exec 0 ks = true ->
+  H ==> xapp_to_delete_fields p ks \* (protect (Q tt)) ->
+  H ==> ^(Wpgen_app (trm_apps (trm_val (val_record_delete ks)) (trms_vals ((val_loc p)::nil)))) Q.
+
+Ltac xapp_record_delete_exploded tt :=
+  applys xapp_record_delete_exploded; 
+  [ try reflexivity
+  | unfold xapp_to_delete_fields; xsimpl; unfold protect ].
+
+Ltac xapp_record_delete_find_single_field tt :=
+  match goal with
+  |- ?H ==> @Wptag (Wpgen_app (trm_apps (trm_val (val_record_delete ?ks)) (trms_vals ((val_loc ?p)::nil)))) ?A ?EA ?Q =>
+      match H with context [ p`.?f ~~> ?V ] => idtac end
+  end.  
+
+Ltac xapp_record_delete tt :=
+  first [ xapp_record_delete_find_single_field tt; xapp_record_delete_exploded tt
+        | xapp_record_delete_grouped tt ].
+
 
 
 (* ---------------------------------------------------------------------- *)
@@ -627,5 +719,6 @@ Ltac xapp_record tt ::= (* initial dummy binding located in WPTactics *)
   | (val_get_field _) => xapp_record_get tt
   | (val_set_field _) => xapp_record_set tt
   | (val_record_init _) => xapp_record_new tt
+  | (val_record_delete _) => xapp_record_delete tt
   end.
 

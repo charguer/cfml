@@ -21,7 +21,7 @@ Implicit Types L : list int.
 Ltac xwp_xtriple_handle_gc ::= xwp_xtriple_remove_gc.
 
 (** Tweak to make record allocation expose fields individually instead of grouped. *)
-Ltac xnew_post ::= xnew_post_expose_fields. 
+Ltac xnew_post ::= xnew_post_exploded. 
 
 
 (* ####################################################### *)
