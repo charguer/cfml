@@ -330,6 +330,11 @@ Lemma hsingle_intro : forall l v,
   (l ~~~> v) (Fmap.single l v).
 Proof using. intros. split~. Qed.
 
+Lemma hsingle_inv : forall h l v,
+  (l ~~~> v) h ->
+  h = Fmap.single l v /\ (l <> null).
+Proof using. auto. Qed.
+
 Lemma hstar_hsingle_same_loc : forall l v1 v2,
   (l ~~~> v1) \* (l ~~~> v2) ==> \[False].
 Proof using.
@@ -423,7 +428,7 @@ Definition is_val_bool (v:val) : Prop :=
 (* ---------------------------------------------------------------------- *)
 (* ** Auxiliary definitions for [triple_alloc] *)
 
-Fixpoint Alloc (k:nat) (l:loc) :=
+Fixpoint Alloc (k:nat) (l:loc) : hprop :=
   match k with
   | O => \[]
   | S k' => l ~~~> val_uninitialized \* (Alloc k' (S l)%nat)
@@ -491,7 +496,7 @@ Ltac simpl_abs := (* TODO: remove this *)
 (* ---------------------------------------------------------------------- *)
 (* ** Auxiliary definitions for [triple_dealloc] *)
 
-Fixpoint Dealloc (k:nat) (l:loc) :=
+Fixpoint Dealloc (k:nat) (l:loc) : hprop :=
   match k with
   | O => \[]
   | S k' => \exists v, l ~~~> v \* (Dealloc k' (S l)%nat)
@@ -512,27 +517,23 @@ Hint Rewrite Dealloc_zero_eq Dealloc_succ_eq : rew_Dealloc.
 Tactic Notation "rew_Dealloc" :=
   autorewrite with rew_Dealloc.
 
-(*
-Lemma Dealloc_fmap_conseq : forall l k,
-  l <> null ->
-   (Fmap.conseq l k val_uninitialized)
-  (Delloc k l) h.
-*)
-
 Lemma Dealloc_inv : forall k l h,
   Dealloc k l h ->
-  (forall l', indom h l' <-> l <= l' <= (l+k)%nat).
-Admitted.
-(* TODO 
+  exists vs, k = LibList.length vs 
+          /\ h = conseqs l vs.
 Proof using.
   Transparent loc.
-  intros k1 k. gen k1. induction k; introv N.
-  {math_rewrite (k1 = 0%nat). rew_Alloc. rew_heap~. }
-  { destruct k1 as [|k1']; rew_nat.
-    { rew_Alloc. rew_heap~. }
-    { rew_Alloc. rewrite (IHk k1'); [|math]. rew_heap~. } }
+  intros k l. gen l. induction k; introv N.
+  { rewrite Dealloc_zero_eq in N. exists (@nil val). 
+    rewrite conseqs_zero. split~. }
+  { rewrite Dealloc_succ_eq in N. lets (v&N2): hexists_inv N.
+    lets (h1&h2&R1&R2&R3&R4): hstar_inv N2.
+    lets (R1'&Hl): hsingle_inv R1.
+    forwards (vs'&Lvs'&Hvs'): IHk R2.
+    exists (v::vs'). split.
+    { rew_list~. }
+    { subst h. rewrite~ conseqs_succ. } }
 Qed.
-*)
 
 
 (* ********************************************************************** *)
@@ -810,9 +811,8 @@ Lemma hoare_dealloc : forall H l n,
 Proof using. 
   introv N. intros h Hh. destruct Hh as (h1&h2&N1&N2&N3&N4). subst h.
   exists h2 val_unit. split.
-  { applys~ eval_dealloc (abs n).
-    { applys~ Dealloc_inv. }
-    { rewrite~ abs_to_int. } }
+  { forwards (vs&Lvs&Hvs): Dealloc_inv N1. applys* eval_dealloc.
+    { rewrite <- Lvs. rewrite~ abs_to_int. } }
   { rewrite~ hstar_hpure. }
 Qed.
 

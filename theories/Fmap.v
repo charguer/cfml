@@ -916,7 +916,29 @@ Qed.
 (** * Consecutive locations and fresh locations *)
 
 (* ---------------------------------------------------------------------- *)
-(** ** Existence of fresh consecutive locations *)
+(** ** Consecutive locations -- TODO: merge *)
+
+Fixpoint conseqs (B:Type) (l:nat) (vs:list B) : fmap nat B :=
+  match vs with
+  | nil => empty
+  | v::vs' => (single l v) \+ (conseqs (S l) vs')
+  end.
+
+(* TODO: rename *)
+
+Lemma conseqs_zero : forall B (l:nat),
+  conseqs l (@nil B) = empty.
+Proof using. auto. Qed.
+
+Lemma conseqs_succ : forall B (l:nat) (v:B) (vs:list B),
+  conseqs l (v::vs) = (single l v) \+ (conseqs (S l) vs).
+Proof using. auto. Qed.
+
+Opaque conseqs.
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** Consecutive locations *)
 
 Fixpoint conseq (B:Type) (l:nat) (k:nat) (v:B) : fmap nat B :=
   match k with

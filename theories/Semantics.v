@@ -1036,15 +1036,15 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       Fmap.indom m l ->
       eval m (val_set (val_loc l) v) (Fmap.update m l v) val_unit
   | eval_alloc : forall k n ma mb l,
-      mb = Fmap.conseq l k val_uninitialized ->
+      mb = Fmap.conseq l k val_uninitialized -> (* TODO: change *)
       n = nat_to_Z k ->
       l <> null ->
-      Fmap.disjoint ma mb -> (* TODO: reformulate using not_indom *)
+      Fmap.disjoint ma mb -> (* LATER: reformulate using not_indom *)
       eval ma (val_alloc (val_int n)) (mb \+ ma) (val_loc l)
-  | eval_dealloc : forall k n ma mb l,
-      (forall l', Fmap.indom mb l' <-> l <= l' <= (l+k)%nat) -> (* TODO: abstract better *)
-      n = nat_to_Z k ->
-      Fmap.disjoint ma mb -> (* TODO: reformulate using not_indom *)
+  | eval_dealloc : forall (n:int) vs ma mb l,
+      mb = Fmap.conseqs l vs ->
+      n = LibList.length vs ->
+      Fmap.disjoint ma mb -> (* LATER: reformulate using not_indom *)
       eval (mb \+ ma) (val_dealloc (val_int n) (val_loc l)) ma val_unit.
 
 End Red.
