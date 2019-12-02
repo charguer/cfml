@@ -17,16 +17,6 @@ Implicit Types x n m : int.
 Implicit Types p q : loc.
 Implicit Types L : list int.
 
-(** A few technical tweaks to simplify manipulation of records in this file. *)
-
-Hint Extern 1 (Register_Spec (val_get_field _)) => Provide @Triple_get_field.
-Hint Extern 1 (Register_Spec (val_set_field _)) => Provide @Triple_set_field_Decode.
-Ltac xapp_record tt ::= 
-  match xgoal_fun tt with (val_record_init _) => xapp_record_new tt end.
-Ltac xnew_post tt ::=
-  let r := fresh "r" in intros r; autorewrite with Record_to_HField; gen r.
-
-
 
 (* ####################################################### *)
 (** * The chapter in a rush, 
@@ -525,6 +515,12 @@ Qed.
 
 (* ******************************************************* *)
 (** *** Allocation of a new cell: [mcell] and [mcons] *)
+
+(** Tweak to expose fields one by one while reasoning about record 
+    allocation, rather than exposing a more elaborated construct
+    for representing records. *)
+
+Ltac xnew_post ::= xnew_post_expose_fields. 
 
 (** Next, we consider functions for constructing mutable lists.
     We begin with the function that allocates one cell.

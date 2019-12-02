@@ -507,17 +507,51 @@ Fixpoint noduplicates_fields_exec (ks:fields) : bool :=
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Tactic [xapp_record] *)
+(* ** Tactic [xapp_record_get] *)
+
+(* Binding for use by [xapp] in case the precondition contains [ p`.f ~~> ?V ] *)
+Hint Extern 1 (Register_Spec (val_get_field _)) => Provide @Triple_get_field.
+
+(* Test to detect whether the precondition contains [ p`.f ~~> ?V ] *)
+Ltac xapp_record_get_fail_if_single_field tt :=
+  match goal with
+  | |- ?H ==> @Wptag (Wpgen_app (trm_apps (trm_val (val_get_field ?f)) (trms_vals ((val_loc ?p)::nil)))) ?A ?EA ?Q =>
+      match H with context [ p`.f ~~> ?V ] => fail 2 end
+      (* effect is to trigger [xapp] instead of [applies xapp_record_set] *)  
+  | _ => idtac
+  end.  
+ 
+(* Common postprocessing to [xapp_record_get] and [xapp_record_set] *)
 
 Ltac xapp_record_get_set_post tt :=
   xsimpl; simpl; xsimpl; unfold protect; try xcast.
 
+(* Tactic to handle [get_field] using lemma [xapp_record_get] which expects 
+   [p ~> Record ?L], unless the precondition contains [ p`.f ~~> ?V ] *)
+
 Ltac xapp_record_get tt :=
+  xapp_record_get_fail_if_single_field tt;
   applys xapp_record_get; xapp_record_get_set_post tt.
 
-Ltac xapp_record_set tt :=
-  applys xapp_record_set; xapp_record_get_set_post tt.
 
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xapp_record_set] *)
+
+(* Similar construction as for [xapp_record_get] *)
+
+Hint Extern 1 (Register_Spec (val_set_field _)) => Provide @Triple_set_field_Decode.
+
+Ltac xapp_record_set_fail_if_single_field tt :=
+  match goal with
+  | |- ?H ==> @Wptag (Wpgen_app (trm_apps (trm_val (val_set_field ?f)) (trms_vals ((val_loc ?p)::?W::nil)))) ?A ?EA ?Q =>
+      match H with context [ p`.f ~~> ?V ] => fail 2 end
+      (* effect is to trigger [xapp] instead of [applies xapp_record_set] *)  
+  | _ => idtac
+  end.  
+ 
+Ltac xapp_record_set tt :=
+  xapp_record_set_fail_if_single_field tt;
+  applys xapp_record_set; xapp_record_get_set_post tt.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -539,6 +573,11 @@ Parameter xapp_record_new : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fields
   vs = encs Vs ->
   (fun p => p ~> Record (List.combine ks Vs)) \*+ H ===> (protect Q) ->
   H ==> ^(Wpgen_app (trm_apps (trm_val (val_record_init ks)) (trms_vals vs))) Q.
+
+(* An implementation of [xnew_post] that can be used to expose fields one by one
+   instead of generating [p ~> Record ?L]. *)
+Ltac xnew_post_expose_fields tt :=
+  let r := fresh "r" in intros r; autorewrite with Record_to_HField; gen r.
 
 Ltac xnew_post tt :=
   idtac.
