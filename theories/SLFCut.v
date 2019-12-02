@@ -1691,3 +1691,31 @@ Proof using.
   intros. xtriple. xchange MList_nil_intro.
   xapp. intros p. xsimpl.
 Qed.
+
+
+========================================
+
+
+Lemma Triple_incr : forall (p:loc) (n:int),
+  TRIPLE (incr p)
+    PRE (p ~~> n)
+    POST (fun (_:unit) => (p ~~> (n+1))).
+Proof using. xwp. xappn. xsimpl*. Qed.
+
+Lemma Triple_example_let : forall n,
+  TRIPLE (example_let n)
+    PRE \[]
+    POST (fun (r:int) => \[r = 2*n]).
+Proof using. xwp. xappn. xsimpl*. Qed.
+
+    - [xappn] is a tactic that iterates calls to [xapp],
+
+
+    In general, the overhead of executing the steps one by one is acceptable,
+    and it helps better reflecting the structure of the program in the proof.
+    Moreover, for complex programs, the advanced tactics are generally of
+    limited benefits, because at each step there are many side-conditions
+    that need to be justified. *)
+(** The use of such advanced tactics is beyond the scope of this course.
+
+    - [fun (r:unit)] can also be written [fun (_:unit)],

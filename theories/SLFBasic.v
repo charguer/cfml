@@ -39,6 +39,8 @@ Ltac xwp_xtriple_handle_gc ::= xwp_xtriple_remove_gc.
     - "Entailement proof obligations", of the form [_ ==> _] or [_ ===> _].
       Such entailments require proving that a description of a state implies
       another one.
+    - Practical verification proofs, using CFML "x-tactics" to demonstrate
+      that a given program satisfies a given specification.
 
     The "heap predicates" used to describe the current memory state include:
     - [p ~~> n], which describes a memory cell at location [p] with contents [n],
@@ -541,22 +543,19 @@ Qed.
 (** More generally, in Separation Logic, if a specification triple holds,
     then this specification triple remains valid by adding a same predicate
     in both the precondition and the postcondition. This is the "frame"
-    principle, a key modularity feature that we'll discuss later. *)
+    principle, a key modularity feature that we'll come back to later on. *)
 
 
 (* ******************************************************* *)
 (** ** Exercise: transfer from one reference to another *)
 
-(** Consider the following function.
+(** Consider the [transfer] function, whose code appears below.
 
 [[
   let transfer p q =
     p := !p + !q;
     q := 0
 ]]
-
-    Remark: for technical reasons, the constant [0] needs to be
-    written [``0] in the code below. --  TODO: fix this.
 *)
 
 Definition transfer : val :=
@@ -564,10 +563,10 @@ Definition transfer : val :=
    'p ':= ('!'p '+ '!'q) ';
    'q ':= ``0.
 
-(* EX2! (Triple_transfer) *)
+(* EX1! (Triple_transfer) *)
 (** State and prove a lemma called [Triple_transfer] specifying
-    the behavior of [transfer] when its arguments consists of two
-    distinct references. *)
+    the behavior of [transfer p q] covering the case where [p]
+    and [q] denote two distinct references. *)
 
 (* SOLUTION *)
 Lemma Triple_transfer : forall (p q:loc) (n m:int),
@@ -579,10 +578,10 @@ Proof using.
 Qed.
 (* /SOLUTION *)
 
-(* EX2! (Triple_transfer_aliased) *)
-(** State and prove a lemma called [Triple_transfer_aliased]
-    specifying the behavior of [transfer] when it is applied
-    twice to the same argument, that is, [transfer p p]. *)
+(* EX1! (Triple_transfer_aliased) *)
+(** State and prove a lemma called [Triple_transfer_aliased] specifying
+    the behavior of [transfer] when it is applied twice to the same argument.
+    It should take the form [TRIPLE (transfer p p) PRE _ POST _]. *)
 
 (* SOLUTION *)
 Lemma Triple_transfer_aliased : forall (p:loc) (n:int),
@@ -596,7 +595,7 @@ Qed.
 
 
 (* ******************************************************* *)
-(** *** Existential quantifier to introduce abstraction *)
+(** *** Existential quantification in heap predicates *)
 
 (** Assume that the programming language includes a builtin
     random generator function, which expects an integer [n]
@@ -607,9 +606,9 @@ Parameter random_int : val.
 
 (** The function [random_int] can be specified as follows.
 
-    The precondition describes the empty state: [\[]].
+    Its precondition describes the empty state: [\[]].
 
-    The postcondition describes an integer [m], whose value
+    Its postcondition describes an integer [m], whose value
     is specified to lie in the expected range: [0 <= m < n].
 
     Formally:
@@ -624,8 +623,8 @@ Hint Extern 1 (Register_Spec random_int) => Provide Triple_random_int.
 
 (** Consider now the following function, which expects an
     integer [n], then invokes the random number generator
-    with argument [n], and places the result into a fresh
-    reference cell, which it returns.
+    with argument [n], places the result into a fresh
+    reference cell, and returns the address of that reference.
 
 [[
   let ref_random_int p =
@@ -638,31 +637,39 @@ Definition ref_random_int : val :=
     'ref (random_int 'n).
 
 (** How can we specify the function [ref_random_int]?
-    The precondition describes the empty state: [\[]].
-    The postcondition should bind the result value [(p:loc)],
+
+    Its precondition should describe the empty state: [\[]].
+
+    Its postcondition should bind the result value [(p:loc)],
     which describes the address of the freshly allocated cell.
     Moreover, it should assert that the memory state is of
     the form [p ~~> m], for some [m] such that [0 <= m < n].
 
     We can use the star operator to join the two pieces of
-    information [p ~~> m] and [0 <= m < n] in the postcondition:
+    information [p ~~> m] and [0 <= m < n] in the postcondition.
+    Doing so, we would obtain:
 
 [[
-    POST (fun (p:loc) => (p ~~> m) \* \[0 <= m < n]).
+  Lemma Triple_ref_random_int : forall (n:int),
+   TRIPLE (ref_random_int n)
+      PRE \[]
+      POST (fun (p:loc) => (p ~~> m) \* \[0 <= m < n]).
 ]]
 
     Yet, this statement does not typecheck because [m] is unbound.
+
     To fix the issue appropriately, we need to introduce a new
     Separation Logic operator: the existential quantifier for
     postconditions (and possibly also preconditions).
-    The syntax is [\exists x, _], with a leading backslash. *)
+    The syntax is [\exists x, _], with a leading backslash to
+    distinguish it from the Coq's standard existential quantifier. *)
 
 Lemma Triple_ref_random_int : forall (n:int),
   TRIPLE (ref_random_int n)
     PRE \[]
     POST (fun (p:loc) => \exists m, (p ~~> m) \* \[0 <= m < n]).
 
-(** The proof of this lemma is interesting. *)
+(** Let's comment the proof of this lemma step by step. *)
 
 Proof using.
   xwp.
@@ -675,7 +682,7 @@ Proof using.
   (* There remains to justify that the current state
      [q ~~> m] matches the postcondition, which is
      [\exists m0, q ~~> m0 \* \[0 <= m0 < n]].
-     The simplification tactic is able to instantiate [m0] as [m]. *)
+     The simplification tactic [xsimpl] is able to instantiate [m0] as [m]. *)
   xsimpl.
   (* There remains to justify the constraint [0 <= m < n], which
      matches exactly the assumption [Hm] obtained earlier. *)
@@ -697,14 +704,16 @@ Definition ref_greater : val :=
   VFun 'p :=
     'ref ('!'p '+ 1).
 
-(* EX2! (Triple_ref_greater) *)
-(** State a specification for the function [ref_greater].
+(* EX1! (Triple_ref_greater) *)
+(** State a specification for the function [ref_greater], describing
+    precisely the contents of the allocated reference.
+
     Hint: the postcondition takes the form [POST (fun (q:loc) => _)],
     where [q] denotes the location of the freshly allocated reference. *)
 
+(* SOLUTION *)
 Lemma Triple_ref_greater : forall (p:loc) (n:int),
   TRIPLE (ref_greater p)
-(* SOLUTION *)
     PRE (p ~~> n)
     POST (fun (q:loc) => p ~~> n \* q ~~> (n+1)).
 Proof using.
@@ -712,16 +721,14 @@ Proof using.
 Qed.
 (* /SOLUTION *)
 
-Hint Extern 1 (Register_Spec ref_greater) => Provide Triple_ref_greater.
-
-(* EX2! (Triple_ref_greater_abstract) *)
+(* EX1! (Triple_ref_greater_abstract) *)
 (** State another specification for the function [ref_greater],
     with a postcondition that does not reveal the contents of
     the freshly reference [q], but instead only asserts that the
     contents of it is greater than the contents of the argument [p].
 
-    Then, derive the new specification from the former one.
-    Hint: invoke [xapp]. *)
+    Then, derive the new specification from the former one, by
+    invoking the tactics [xtriple] and [xapp Triple_ref_greater]. *)
 
 Lemma Triple_ref_greater_abstract : forall (p:loc) (n:int),
 (* SOLUTION *)
@@ -729,7 +736,7 @@ Lemma Triple_ref_greater_abstract : forall (p:loc) (n:int),
     PRE (p ~~> n)
     POST (fun (q:loc) => \exists m, \[m > n] \* q ~~> m \* p ~~> n).
 Proof using.
-  intros. xapp. xsimpl. math.
+  xtriple. xapp Triple_ref_greater. xsimpl. math.
 Qed.
 (* /SOLUTION *)
 
@@ -742,8 +749,8 @@ Qed.
     deallocated. (Technically, the logic is said to "linear" as opposed
     to "affine".) *)
 
-(** Let us illustrate what happens if we forget to deallocated some
-    data. To that end, Consider the following program, which computes
+(** Let us illustrate what happens when we forget to deallocate data.
+    To that end, consider the following program, which computes
     the successor of a integer [n] by storing it into a reference cell,
     then incrementing that reference, and finally returning its contents.
 
@@ -763,7 +770,8 @@ Definition succ_using_incr_attempt :=
 
 (** The operation [succ_using_incr_attempt n] admits an empty
     precondition, and a postcondition asserting that the final
-    result is [n+1]. *)
+    result is [n+1]. Yet, if we try to prove this specification,
+    we get stuck. *)
 
 Lemma Triple_succ_using_incr_attempt : forall (n:int),
   TRIPLE (succ_using_incr_attempt n)
@@ -773,22 +781,22 @@ Proof using.
   xwp. xapp. intros p. xapp. xapp. xsimpl. { auto. }
 Abort.
 
-(** In the above script, we gets stuck with the entailment:
+(** In the above script, we are stuck with the entailment
     [p ~~> (n+1) ==> \[]], which indicates that the current state contains
     a reference, whereas the postcondition describes an empty state. *)
 
-(** We could attempt to patch the specification to account for the leftover
-    reference. *)
+(** We could attempt to patch the specification to account for the left-over
+    reference. This yields a provable yet ususable specification. *)
 
 Lemma Triple_succ_using_incr_attempt' : forall (n:int),
   TRIPLE (succ_using_incr_attempt n)
     PRE \[]
-    POST (fun r => \[r = n+1] \* \exists p, p ~~> (n+1)).
+    POST (fun r => \[r = n+1] \* \exists p, (p ~~> (n+1))).
 Proof using.
   xwp. xapp. intros p. xapp. xapp. xsimpl. { auto. }
 Qed.
 
-(** However, the specification above features a piece of postcondition
+(** Indeed, the specification above features a piece of postcondition
     [\exists p, p ~~> (n+1)] that is of absolutely no use to the caller
     of the function. Worse, the caller will have its state polluted with
     [\exists p, p ~~> (n+1)] and will have no way to get rid of it appart
@@ -815,8 +823,9 @@ Definition succ_using_incr :=
     'free 'p ';
     'x.
 
-(** This program may now be proved correct with respect to the original
-    specification. *)
+(** This program may now be proved correct with respect to the intended
+    specification. Observe in particular the last call to [xapp] below,
+    which corresponds to the [free] operation. *)
 
 Lemma Triple_succ_using_incr : forall n,
   TRIPLE (succ_using_incr n)
@@ -830,13 +839,10 @@ Qed.
 (* ******************************************************* *)
 (** *** Axiomatization of the mathematical factorial function *)
 
-(** Throughout the rest of the course, we will see several
-    examples of programs that evaluate the factorial function.
-
-    We specify and verify these functions with respect to a Coq
-    axiomatization of the corresponding mathematical function,
-    called [facto]. Observe that we purposely do not specify
-    the value of [facto] on negative arguments. *)
+(** Our next example consists of a program that evaluate the
+    factorial function. To specify this function, we consider
+    a Coq axiomatization of the mathematical factorial function,
+    which is called [facto]. *)
 
 Parameter facto : int -> int.
 
@@ -848,6 +854,9 @@ Parameter facto_step : forall n,
   n > 1 ->
   facto n = n * (facto (n-1)).
 
+(** Remark: throught this axiomatization, we purposely do not specify
+    the value of [facto] on negative arguments. *)
+
 
 (* ******************************************************* *)
 (** *** A partial recursive function, without state *)
@@ -855,11 +864,10 @@ Parameter facto_step : forall n,
 (** In the rest of the chapter, we will consider recursive
     functions that manipulate the state. To gently introduce
     the necessary technique for reasoning about recursive
-    functions, we first consider one that does not involve
-    any mutable state.
+    functions, we first consider a recursive function that does
+    not involve any mutable state.
 
-    To that end, consider the [factorec] function, which
-    recursively computes the factorial of its argument [n].
+    The function [factorec] computes the factorial of its argument.
 
 [[
   let rec factorec n =
@@ -894,15 +902,20 @@ Definition factorec : val :=
     the second presentation, which tends to improve the readability of
     specifications and the conciseness of proof scripts.
 
-    The specification thus looks as follows. *)
+    The specification of [factorec] is thus stated as follows. *)
 
 Lemma Triple_factorec : forall n,
   n >= 0 ->
   TRIPLE (factorec n)
     PRE \[]
     POST (fun (r:int) => \[r = facto n]).
+
+(** We next go through the proof script in details, to explain in particular
+    how to set up the induction, how to reason about the recursive call,
+    and how to deal with the precondition [n >= 0]. *)
+
 Proof using.
-  (* Set up a proof by induction on [n] to obtain an induction
+  (* We set up a proof by induction on [n] to obtain an induction
      hypothesis for the recursive calls, the last one being
      made on [n = 1]. The tactic [induction_wf] is provided by the TLC
      library to assist in setting up well-founded inductions. *)
@@ -910,38 +923,38 @@ Proof using.
   (* Observe the induction hypothesis [IH]. By unfolding [downto]
      as done in the next step, this hypothesis asserts that the
      specification that we are trying to prove already holds for
-     arguments that are smaller than the current argument [n]
-     (and greater than or equal to [1]). *)
-  unfolds downto.
-  (* Begin the interactive verification proof. *)
+     arguments that are smaller than the current argument [n],
+     and that are greater than or equal to [1]. *)
+  unfold downto in IH.
+  (* We may then begin the interactive verification proof. *)
   intros Hn. xwp.
-  (* Reason about the evaluation of the boolean condition [n <= 1]. *)
+  (* We reason about the evaluation of the boolean condition [n <= 1]. *)
   xapp.
-  (* Perform a case analysis. *)
+  (* We perform a case analysis. *)
   xif.
   (* This gives two branches. *)
-  { (* In the "then" branch, [n <= 1]. *)
+  { (* In the "then" branch, we can assume [n <= 1]. *)
     intros C.
-    (* The return value is [1]. *)
+    (* Here, the return value is [1]. *)
     xval. xsimpl.
-    (* Check that [1 = facto n] when [n <= 1]. *)
+    (* We check that [1 = facto n] when [n <= 1]. *)
     rewrite facto_init; math. }
-  { (* In the "else" branch, [n > 1]. *)
+  { (* In the "else" branch, we can assume [n > 1]. *)
     intros C.
-    (* Reason about the evaluation of [n-1] *)
+    (* We reason about the evaluation of [n-1] *)
     xapp.
-    (* Reason about the recursive call, implicitly exploiting
+    (* We reason about the recursive call, implicitly exploiting
        the induction hypothesis [IH] with [n-1]. *)
     xapp.
-    (* Justify that the recursive call is indeed made on a smaller
+    (* We justify that the recursive call is indeed made on a smaller
        argument than the current one, that is, [n]. *)
     { math. }
-    (* Justify that the recursive call is made to a nonnegative argument,
+    (* We justify that the recursive call is made to a nonnegative argument,
        as required by the specification. *)
     { math. }
-    (* Reason about the multiplication [n * facto(n-1)]. *)
+    (* We reason about the multiplication [n * facto(n-1)]. *)
     xapp.
-    (* Check that [n * facto (n-1)] matches [facto n]. *)
+    (* We check that [n * facto (n-1)] matches [facto n]. *)
     xsimpl. rewrite (@facto_step n); math. }
 Qed.
 
@@ -953,10 +966,9 @@ Lemma Triple_factorec' : forall n,
     PRE \[]
     POST (fun (r:int) => \[r = facto n]).
 Proof using.
-  intros n. induction_wf IH: (downto 1) n. unfolds downto.
+  intros n. induction_wf IH: (downto 1) n. unfold downto in IH.
   intros Hn. xwp. xapp. xif; intros C.
-  { xval. xsimpl.
-    rewrite facto_init; math. }
+  { xval. xsimpl. rewrite facto_init; math. }
   { xapp. xapp. { math. } { math. } xapp. xsimpl.
     rewrite (@facto_step n); math. }
 Qed.
@@ -965,11 +977,12 @@ Qed.
 (* ******************************************************* *)
 (** *** A recursive function with state *)
 
-(** We now tackle a recursive function involving mutable state.
+(** The example of [factorec] was a warmup: a recursive function without
+    mutable state. Let's now tackle a recursive function involving mutable
+    state.
 
     The function [repeat_incr p m] makes [m] times a call to [incr p].
     Here, [m] is assumed to be a nonnegative value.
-
 
 [[
   let rec repeat_incr p m =
@@ -987,12 +1000,12 @@ Definition repeat_incr : val :=
       'f 'p ('m '- 1)
     End.
 
-(** The specification for [repeat_incr] requires that the initial
+(** The specification for [repeat_incr p] requires that the initial
     state contains a reference [p] with some integer contents [n],
     that is, [p ~~> n]. Its postcondition asserts that the resulting
     state is [p ~~> (n+m)], which is the result after incrementing
-    [m] times the reference [p]. This specification holds under the
-    assumption that [m >= 0]. *)
+    [m] times the reference [p]. Observe that this postcondition is
+    only valid under the assumption that [m >= 0]. *)
 
 Lemma Triple_repeat_incr : forall (m n:int) (p:loc),
   m >= 0 ->
@@ -1002,11 +1015,11 @@ Lemma Triple_repeat_incr : forall (m n:int) (p:loc),
 
 (* EX2! (Triple_repeat_incr) *)
 (** Prove the function [Triple_repeat_incr].
-    Hint: it resembles the proof [Triple_factorec']. *)
+    Hint: the structure of the proof resembles that of [Triple_factorec']. *)
 
 Proof using.
 (* SOLUTION *)
-  intros m. induction_wf IH: (downto 0) m. unfolds downto.
+  intros m. induction_wf IH: (downto 0) m. unfold downto in IH.
   intros n p Hm. xwp. xapp. xif; intros C.
   { xapp. xapp. xapp. { math. } { math. } xsimpl. math. }
   { xval. xsimpl. math. }
@@ -1018,9 +1031,8 @@ Qed.
     specification. When the decreasing argument is not the first one,
     additional manipulations are required for re-generalizing into
     the goal the variables that may change during the course of the
-    induction.
-
-    Here is an exmaple. *)
+    induction. Here is an example illustrating how to deal with such
+    a situation. *)
 
 Lemma Triple_repeat_incr' : forall (p:loc) (n m:int),
   m >= 0 ->
@@ -1033,7 +1045,7 @@ Proof using.
   (* Next, generalize those that are not constant during the recursion. *)
   gen n Hm.
   (* Then, set up the induction. *)
-  induction_wf IH: (downto 0) m. unfolds downto.
+  induction_wf IH: (downto 0) m. unfold downto in IH.
   (* Finally, re-introduce the generalized hypotheses. *)
   intros.
 Abort.
@@ -1042,10 +1054,9 @@ Abort.
 (* ******************************************************* *)
 (** *** Exercise: one-by-one transfer from a reference to another *)
 
-(** Consider the following function, which repeatedly increment
-    a reference [p] and decrement a reference [q], until [q]
-    contains zero. The contents of [q] is asssumed to be initially
-    nonegative.
+(** Consider the function [step_transfer p q], which repeatedly increment
+    a reference [p] and decrement a reference [q], until the contents
+    of [q] reaches zero.
 
 [[
   let rec step_transfer p q =
@@ -1067,7 +1078,7 @@ Definition step_transfer :=
 
 (** The specification of [step_transfer] is essentially the same as
     that of the function [transfer], presented previously, with the
-    only difference that the contents of [q] needs to be assumed
+    only difference that we here assume the contents of [q] to be
     nonnegative. *)
 
 Lemma Triple_step_transfer : forall p q n m,
@@ -1078,13 +1089,13 @@ Lemma Triple_step_transfer : forall p q n m,
 
 (* EX2! (Triple_step_transfer) *)
 (** Verify the function [step_transfer].
-    Hint: to set up the induction, follow the pattern of
-    [Triple_repeat_incr'] just above. *)
+    Hint: to set up the induction, follow the pattern from
+    [Triple_repeat_incr'] presented just above. *)
 
 Proof using.
   (* SOLUTION *)
   intros q p n m Hm.
-  revert n Hm. induction_wf IH: (downto 0) m. unfolds downto.
+  revert n Hm. induction_wf IH: (downto 0) m. unfold downto in IH.
   intros. xwp. xapp. xapp. xif; intros C.
   { xapp. xapp. xapp. { math. } { math. } xsimpl. math. }
   { xval. xsimpl. math. math. }
@@ -1098,51 +1109,31 @@ Qed.
 (* ******************************************************* *)
 (** *** Optimized scripts *)
 
-Module OptimizedScripts.
-
 (** The CFML tool features a number of tricks:
-    - [xappn] that iterates calls to [xapp],
-    - writing [*] after a tactic name, such as in [xsimpl*],
-      combines the tactic with a call to automation (including [math]),
     - a call to [intros] in front of an [xwp] is always optional,
-    - a single [xapp] in front of an [xif] is generally optional,
-    - [fun (r:unit)] can also be written [fun (_:unit)],
-    - [unfolds downto] is not required because [math] can take care of it.
+    - a single [xapp] in front of an [xif] is generally optional.
 
-    Here are a few examples of compact proof scripts. *)
+    Moreover, the TLC library offers a number of useful features:
+    - writing [*] after a tactic name, such as in [xsimpl*],
+      combines the tactic with a call to automation
+      (in short, a combination of [intuition eauto] and [math]),
+    - [unfold downto in IH] is not required because [math] can take care of it,
+    - [introv] is a variant of [intros] that automatically introduces
+      variables, and allows naming only actual hypotheses.
 
-Lemma Triple_incr : forall (p:loc) (n:int),
-  TRIPLE (incr p)
-    PRE (p ~~> n)
-    POST (fun (_:unit) => (p ~~> (n+1))).
-Proof using. xwp. xappn. xsimpl*. Qed.
+    Here is an example of a compact proof script for [factorec]. *)
 
-Lemma Triple_example_let : forall n,
-  TRIPLE (example_let n)
-    PRE \[]
-    POST (fun (r:int) => \[r = 2*n]).
-Proof using. xwp. xappn. xsimpl*. Qed.
-
-Lemma Triple_factorec : forall n,
+Lemma Triple_factorec'' : forall n,
   n >= 0 ->
   TRIPLE (factorec n)
     PRE \[]
     POST (fun (r:int) => \[r = facto n]).
 Proof using.
-  intros n Hn. gen Hn. induction_wf IH: (downto 1) n.
-  xwp. xif ;=> C.
+  introv Hn. gen Hn. induction_wf IH: (downto 1) n.
+  xwp. xif; intros C.
   { xval. xsimpl. rewrite* facto_init. }
   { xapp. xapp*. xapp. xsimpl. rewrite* (@facto_step n). }
 Qed.
-
-(** The use of such advanced tactics is beyond the scope of this course.
-    In general, the overhead of executing the steps one by one is acceptable,
-    and it helps better reflecting the structure of the program in the proof.
-    Moreover, for complex programs, the advanced tactics are generally of
-    limited benefits, because at each step there are many side-conditions
-    that need to be justified. *)
-
-End OptimizedScripts.
 
 
 (* ******************************************************* *)
@@ -1166,22 +1157,20 @@ End OptimizedScripts.
     Clearly, something should break in the proof, because when [m < 0],
     the call [repeat_incr p m] terminates immediately. Thus, the final
     state should be like the initial state, that is [p ~~> n], and it
-    should not be [p ~~> (n + m)].
-
-    Let us investigate. *)
+    should not be [p ~~> (n + m)]. Let us investigate. *)
 
 Lemma Triple_repeat_incr_incorrect : forall (p:loc) (n m:int),
   TRIPLE (repeat_incr p m)
     PRE (p ~~> n)
     POST (fun (_:unit) => p ~~> (n + m)).
 Proof using.
-  intros. revert n. induction_wf IH: (downto 0) m. unfolds downto.
+  intros. revert n. induction_wf IH: (downto 0) m. unfold downto in IH.
   intros. xwp. xapp. xif ;=> C.
   { (* then branch: [m > 0] *)
     xapp. xapp. xapp. { math. } xsimpl. math. }
   { (* else branch: [m <= 0] *)
     xval.
-    (* Here we are requested to justify that the current state
+    (* Here, we are requested to justify that the current state
        [p ~~> n] matches the postcondition [p ~~> (n + m)], which
        amounts to proving [n = n + m]. *)
     xsimpl.
@@ -1191,18 +1180,19 @@ Proof using.
        However, without [m >= 0], the value of [m] could be negative. *)
 Abort.
 
-(** There exists a valid specification for [repeat_incr] that does
-    not constraint [m], but instead specifies that the state evolves
-    from [p ~~> n] to [p ~~> (n + max 0 m)]. This is the most-general
-    specification for the function [repeat_incr]. *)
+(** Note that there exists a valid specification for [repeat_incr] that
+    does not constraint [m], but instead specifies that the state evolves
+    from [p ~~> n] to [p ~~> (n + max 0 m)]. Formally: *)
 
 Lemma Triple_repeat_incr' : forall (p:loc) (n m:int),
   TRIPLE (repeat_incr p m)
     PRE (p ~~> n)
     POST (fun (_:unit) => p ~~> (n + max 0 m)).
 
-(** Let's prove the above specification. The proof scripts exploits
-    two properties of the [max] function.
+(** Let's prove the above specification, which is the most-general
+    specification for the function [repeat_incr].
+
+    The proof scripts exploits two properties of the [max] function.
 
 [[
    max_l : forall n m, (n >= m) -> (max n m = n).
@@ -1249,9 +1239,4 @@ Parameter Triple_ref_random_int_incorrect : forall (n:int) (m:int),
     should be bound in the postcondition, either as the return value
     (like [fun (p:loc) => _], or using a Separation Logic existential
     quantifier (e.g., [\exists m, _]). *)
-
-
-
-
-
 
