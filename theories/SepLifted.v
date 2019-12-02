@@ -962,9 +962,9 @@ Lemma Triple_dealloc : forall n l,
   n >= 0 ->
   Triple (val_dealloc n l)
     (Dealloc (abs n) l)
-    (fun r => \[r = val_unit]).
+    (fun u => \[]).
 Proof using.
-  introv M. unfold Triple, LiftPost. xapplys* triple_dealloc. auto.
+  introv M. unfold Triple, LiftPost. xapply~ triple_dealloc. xsimpl. xsimpl* tt.
 Qed.
 
 End RulesStateOps.

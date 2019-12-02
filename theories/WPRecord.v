@@ -57,7 +57,8 @@ Definition val_record_init (ks:fields) : val :=
 
 (* Delete a list of record fields, given in the same order as allocation *)
 Definition val_record_delete (ks:fields) : val :=
-  val_funs ("p"::nil) (val_dealloc (val_int (List.length ks)) (trm_var "p")).
+  VFun 'p :=
+    val_dealloc (val_int (List.length ks)) 'p.
 
 (** Notation for record operations *)
 
@@ -670,10 +671,12 @@ Ltac xnew_post_exploded tt :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xapp_record_delete] *)
 
+(*
 Parameter xapp_record_delete : forall (L:Record_fields) (Q:unit->hprop) (H:hprop) (ks:fields) (p:loc),
   H ==> p ~> Record L \* (protect (Q tt)) ->
   fields_check ks L = true ->
   H ==> ^(Wpgen_app (trm_apps (trm_val (val_record_delete ks)) (trms_vals ((val_loc p)::nil)))) Q.
+*)
 
 Ltac xapp_record_delete_grouped tt :=
   fail "not yet implemented: xapp_record_delete_grouped".
@@ -689,10 +692,33 @@ Fixpoint xapp_to_delete_fields (p:loc) (ks:fields) :=
 
 (** Exploded mode for delete *)
 
-Parameter xapp_record_delete_exploded : forall (Q:unit->hprop) (H:hprop) (ks:fields) (p:loc),
+Lemma xapp_to_delete_fields_of_consecutive_fields_exec : forall ks koffset p,
+  consecutive_fields_exec koffset ks = true ->
+  xapp_to_delete_fields p ks ==> Dealloc (List.length ks) (p+koffset)%nat.
+Proof using.
+  intros ks. induction ks as [|k ks']; simpl; introv M.
+  { rewrite Dealloc_zero_eq. (* TODO: rename *) xsimpl. } 
+  { case_if. subst k. rewrite Dealloc_succ_eq. xpull ;=> A EA V. 
+    rewrite Hfield_to_hfield. xchange hfield_to_hsingle ;=> N.
+    xsimpl (``V). xchange (>> IHks' M). 
+    math_rewrite ((p + S koffset)%nat = S (p + koffset)%nat). xsimpl. }
+Qed.
+
+Lemma xapp_record_delete_exploded : forall (Q:unit->hprop) (H:hprop) (ks:fields) (p:loc),
   consecutive_fields_exec 0 ks = true ->
   H ==> xapp_to_delete_fields p ks \* (protect (Q tt)) ->
   H ==> ^(Wpgen_app (trm_apps (trm_val (val_record_delete ks)) (trms_vals ((val_loc p)::nil)))) Q.
+Proof using.
+  introv Hks M. applys MkStruct_erase. xchange (rm M). 
+  xchange (>> xapp_to_delete_fields_of_consecutive_fields_exec Hks).
+  math_rewrite ((p+0)%nat = p). rewrite <- Triple_eq_himpl_Wp.
+  (* xwp *)
+  applys xwp_lemma_funs; try reflexivity; simpl.
+  (* xapp *) 
+  xapp Triple_dealloc. { math. }
+  (* xsimpl *)
+  rewrite abs_nat. unfold xapp_hidden, protect. xsimpl.  (* TODO avoid *)
+Qed.
 
 Ltac xapp_record_delete_exploded tt :=
   applys xapp_record_delete_exploded;
