@@ -466,7 +466,7 @@ Hint Extern 1 (Register_Spec mlength) => Provide Triple_mlength.
 (* ******************************************************* *)
 (** *** Exercise: increment through a mutable list *)
 
-(** The following function expects a linked list of integers
+(** The function [mlist_incr] expects a linked list of integers
     and updates the list in place by augmenting every item
     in the list by one unit.
 
@@ -516,9 +516,9 @@ Qed.
 (* ******************************************************* *)
 (** *** Allocation of a new cell: [mcell] and [mcons] *)
 
-(** Tweak to expose fields one by one while reasoning about record 
-    allocation, rather than exposing a more elaborated construct
-    for representing records. *)
+(** The following command is a tweak to expose fields one by one 
+    when reasoning about record allocation, rather than exposing 
+    a more elaborated construct for representing records. *)
 
 Ltac xnew_post ::= xnew_post_expose_fields. 
 
@@ -580,7 +580,7 @@ Hint Extern 1 (Register_Spec mcons) => Provide Triple_mcons.
 (* ******************************************************* *)
 (** *** Function [mnil] *)
 
-(** A call to the function [mnil()] returns the [null] value.
+(** The operation [mnil()] returns the [null] value.
     The intention is to produce a representation for the empty list.
 
 [[
@@ -923,9 +923,9 @@ Hint Extern 1 (Register_Spec pop) => Provide Triple_pop.
 (* ******************************************************* *)
 (** *** Exercise: out-of-place append of two mutable lists *)
 
-(** The function [mappend_copy p1 p2] expects two independent lists
-    and constructs a third list whose items are the concatenation
-    of those from the two input lists.
+(** The operation [mappend_copy p1 p2] assumes two independent lists
+    at location [p1] and [p2], and constructs a third, independent list
+    whose items are the concatenation of those from the two input lists.
 
 [[
     let rec mappend_copy p1 p2 =
@@ -1020,7 +1020,7 @@ Qed.
 (* ******************************************************* *)
 (** *** Exercise: length of a mutable list using a reference *)
 
-(** The function [mlength_acc p] computes the length of a list [p]
+(** The operation [mlength_acc p] computes the length of a list [p]
     by traversing the cells of the list and incrementing a reference
     by one unit at each step. If the reference cell is initialized  
     with zero, then at the end of the traversal, it contains the 
@@ -1070,10 +1070,17 @@ Proof using.
      xchange <- MList_cons. xsimpl. rew_listx. math. }
   { intros ->. xval. xchange <- (MList_nil p). { auto. }
     xsimpl. rew_listx. math.  }
-(* /SOLUTION *)
 Qed.
+(* /SOLUTION *)
 
 Hint Extern 1 (Register_Spec mlength_acc_rec) => Provide Triple_mlength_acc_rec.
+
+(** Make sure to include the following command to enable reasoning
+    about the call to [mrev_append] from the proof of [mrev].
+[[
+  Hint Extern 1 (Register_Spec mlength_acc_rec) => Provide Triple_mlength_acc_rec.
+]]
+*)
 
 (* INSTRUCTORS *)
 
@@ -1148,77 +1155,26 @@ Qed.
 
 
 (* ******************************************************* *)
-(** *** Exercise: in-place reverse on lists *)
-
-(* hard *)
-
-(** [p1] denotes cells already reversed, [p2] the ones remaining to reverse 
-[[
-    let mrev_aux p1 p2 =
-      if p2 == null then p1 else begin
-        let q = p2.tail in
-        p2.tail <- p1;
-        mrev_aux p2 q
-      end
-
-    let mrev p =
-      mrev_aux null p
-]]
-*)
-
-Definition mrev_aux : val :=
-  VFix 'f 'p1 'p2 :=
-    If_ 'p2 '= null Then 'p1 Else (
-      Let 'q := 'p2'.tail in
-      Set 'p2'.tail ':= 'p1 ';
-      'f 'p2 'q
-    ).
-
-Definition mrev : val :=
-  VFun 'p :=
-    mrev_aux null 'p.
-
-
-(* EX2! (Triple_ref_greater_abstract) *)
-
-Lemma Triple_mrev_aux : forall (p1 p2:loc) (L1 L2:list int),
-  TRIPLE (mrev_aux p1 p2)
-    PRE (p1 ~> MList L1 \* p2 ~> MList L2)
-    POST (fun (r:loc) => r ~> MList (rev L2 ++ L1)).
-Proof using.
-(* SOLUTION *)
-(* /SOLUTION *)
-  (* important: need to generalize p1 and p2 *)
-  intros. gen p1 p2 L1. induction_wf IH: list_sub L2.
-  xwp. xchange (MList_if p2). xif; intros C; case_if; xpull.
-  { intros ->. xval. rew_listx. xsimpl. }
-  { intros x q L' ->. xapp. xapp.
-    xchange <- MList_cons. xapp. { auto. }
-    intros r. rew_listx. xsimpl. }
-Qed.
-
-Hint Extern 1 (Register_Spec mrev_aux) => Provide Triple_mrev_aux.
-
-Lemma Triple_mrev : forall (p:loc) (L:list int),
-  TRIPLE (mrev p)
-    PRE (p ~> MList L)
-    POST (fun (r:loc) => r ~> MList (rev L)).
-Proof using.
-(* SOLUTION *)
-(* /SOLUTION *)
-  xwp. xchange MList_nil_intro. xapp. rew_listx. xsimpl.
-Qed.
-
-Hint Extern 1 (Register_Spec mrev) => Provide Triple_mrev.
-
-
-
-(* ******************************************************* *)
 (** *** In-place append on lists *)
 
-(* hard exercise *)
+(** The operation [mappend p1 p2] performs in-place append of two 
+    independent mutable lists. The operation returns a pointer [p]
+    on a list that stores all the items from [p1] followed by all
+    the items from [p2]. The operation does not allocate any list
+    cell; Instead, it reuses the cells from the two input lists.
+  
+    The function [mappend] treats specially the case where [p1]
+    is null, by directly returning [p2]. Otherwise, if [p1] is not
+    null, it invokes an auxiliary function called [mappend_aux],
+    which expects pointers [p1] and [p2] on two lists, and traverses 
+    the first list until reaching its last cell. At that point, it
+    sets the tail field of the last cell to point on [p2]. 
+    Subsequently to a call to [mappend p1 p2], the pointer [p1]
+    points to a list that stores the result of the concatenation
+    of the two input lists.
 
-(**
+    The implementation is as follows.
+
 [[
     let mappend_aux p1 p2 =
       if p1.tail == null  
@@ -1245,7 +1201,12 @@ Definition mappend : val :=
       'p1
     ).
 
-(* EX2! (Triple_ref_greater_abstract) *)
+(* EX3! (Triple_mappend_aux) *)
+(** [Verify the implementation of [mappend_aux].
+    Hint: use [xchange (MList_if p1)] to exploit [MList_if] for
+    the first list. 
+    Hint: use [rew_listx] (or [rewrite app_cons_l]) to normalize
+    the list expression [(x::L1')++L2]. *)
 
 Lemma Triple_mappend_aux : forall (p1 p2:loc) (L1 L2:list int),
   p1 <> null ->
@@ -1254,18 +1215,20 @@ Lemma Triple_mappend_aux : forall (p1 p2:loc) (L1 L2:list int),
     POST (fun (r:unit) => p1 ~> MList (L1++L2)).
 Proof using.
 (* SOLUTION *)
-(* /SOLUTION *)
   intros. gen p1. induction_wf IH: list_sub L1.
   xwp. xchange (MList_if p1). case_if. xpull. intros x q L' ->.
   xapp. xapp. xif; intros Cq.
   { xchange (MList_if q). case_if. xpull. intros ->.
-    xapp (>> (@Triple_set_field loc) q).
-    xchange <- MList_cons. xsimpl. }
+    xapp. xchange <- MList_cons. xsimpl. }
   { xapp. xapp. { auto. } { auto. }
     xchange <- MList_cons. rew_listx. xsimpl. }
+(* /SOLUTION *)
 Qed.
 
 Hint Extern 1 (Register_Spec mappend_aux) => Provide Triple_mappend_aux.
+
+(* EX2! (Triple_mappend) *)
+(** Verify the function implementation of [mappend]. *)
 
 Lemma Triple_mappend : forall (p1 p2:loc) (L1 L2:list int),
   TRIPLE (mappend p1 p2)
@@ -1273,11 +1236,11 @@ Lemma Triple_mappend : forall (p1 p2:loc) (L1 L2:list int),
     POST (fun (p:loc) => p ~> MList (L1++L2)).
 Proof using.
 (* SOLUTION *)
-(* /SOLUTION *)
   xwp. xapp. xif; intros C.
   { xchange (MList_if p1). case_if. xpull. intros ->.
     xval. xsimpl. }
   { xapp. { auto. } xval. xsimpl. }
+(* /SOLUTION *)
 Qed.
 
 Hint Extern 1 (Register_Spec mappend) => Provide Triple_mappend.
@@ -1286,7 +1249,7 @@ Hint Extern 1 (Register_Spec mappend) => Provide Triple_mappend.
 (* ******************************************************* *)
 (** *** Exercise: concatenation on stacks *)
 
-(**
+(** 
 [[
     let rec concat q1 q2 =
       q1 := mappend !q1 !q2;
@@ -1351,5 +1314,94 @@ Proof using.
   xapp. xchange <- Stack_eq. xsimpl.
 Qed.
 (* /SOLUTION *)
+
+
+
+(* ******************************************************* *)
+(** *** Exercise: in-place reversal for mutable lists *)
+
+(** The operation [mrev p] reverses a list "in place": it does not allocate
+    any list cell, but instead reuses the list cells from its input to
+    construct the output list. 
+
+    The operation is implemented by means of an auxiliary function:
+    [mrev_append p1 p2] constructs the reverse of the list [p2] appended
+    to the list [p1]. In other words, [p1] represents the accumulator
+    storing the portion of the list already reversed, while [p2]
+    represents the portion of the list that remains to be reversed. 
+
+[[
+    let mrev_append p1 p2 =
+      if p2 == null then p1 else begin
+        let q = p2.tail in
+        p2.tail <- p1;
+        mrev_append p2 q
+      end
+
+    let mrev p =
+      mrev_append null p
+]]
+*)
+
+Definition mrev_append : val :=
+  VFix 'f 'p1 'p2 :=
+    If_ 'p2 '= null Then 'p1 Else (
+      Let 'q := 'p2'.tail in
+      Set 'p2'.tail ':= 'p1 ';
+      'f 'p2 'q
+    ).
+
+Definition mrev : val :=
+  VFun 'p :=
+    mrev_append null 'p.
+
+
+(* EX3! (Triple_ref_greater_abstract) *)
+(** Specify and verify [mrev_append].
+    Hint: use [gen p1 p2 L1. induction_wf IH: list_sub L2.]
+    to set up an induction on the structure of [L2] while 
+    generalizing [p1], [p2] and [L1], whose value evolves
+    throughout the recursive calls. 
+    Hint: use [xchange (MList_if p2)] to exploit the lemma
+    [MList_if] for the second list. *)
+
+(* SOLUTION *)
+Lemma Triple_mrev_append : forall (p1 p2:loc) (L1 L2:list int),
+  TRIPLE (mrev_append p1 p2)
+    PRE (p1 ~> MList L1 \* p2 ~> MList L2)
+    POST (fun (r:loc) => r ~> MList (rev L2 ++ L1)).
+Proof using.
+  intros. gen p1 p2 L1. induction_wf IH: list_sub L2.
+  xwp. xchange (MList_if p2). xif; intros C; case_if; xpull.
+  { intros ->. xval. rew_listx. xsimpl. }
+  { intros x q L' ->. xapp. xapp.
+    xchange <- MList_cons. xapp. { auto. }
+    intros r. rew_listx. xsimpl. }
+Qed.
+
+Hint Extern 1 (Register_Spec mrev_append) => Provide Triple_mrev_append.
+(* /SOLUTION *)
+
+(** Make sure to include the following command to enable reasoning
+    about the call to [mrev_append] from the proof of [mrev].
+[[
+  Hint Extern 1 (Register_Spec mrev_append) => Provide Triple_mrev_append.
+]]
+*)
+
+(* EX2! (Triple_mrev) *)
+(** Verify [mrev]. *)
+
+Lemma Triple_mrev : forall (p:loc) (L:list int),
+  TRIPLE (mrev p)
+    PRE (p ~> MList L)
+    POST (fun (r:loc) => r ~> MList (rev L)).
+Proof using.
+(* SOLUTION *)
+  intros. xwp. xchange MList_nil_intro. xapp. rew_listx. xsimpl.
+(* /SOLUTION *)
+Qed.
+
+Hint Extern 1 (Register_Spec mrev) => Provide Triple_mrev.
 
 
