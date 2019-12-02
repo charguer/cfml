@@ -713,11 +713,11 @@ Lemma remove_union_single_l : forall s l v,
   ~ indom s l ->
   remove (union (single l v) s) l = s.
 Proof using.
-  introv M. applys fmap_extens. intros x. 
+  introv M. applys fmap_extens. intros x.
   unfold remove, map_remove, union, map_union, single. simpls.
   case_if. (* LATER: simplify? *)
   { destruct s as [f F]. unfolds indom, map_indom. simpls. subst. rew_logic~ in M. }
-  { case_if~. } 
+  { case_if~. }
 Qed.
 
 End FmapProp.

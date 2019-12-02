@@ -77,7 +77,7 @@ Parameter triple_htop_post' : forall t H Q,
   triple t H (Q \*+ \Top) ->
   triple t H Q.
 
-(** Above, recall that [\Top] is defined as [fun h => True]. Thus, for 
+(** Above, recall that [\Top] is defined as [fun h => True]. Thus, for
     some value [v], the heap predicate [(Q \*+ \Top) v] holds of any state
     that decomposes as a disjoint union of the form [h1 \u h2], such that
     [Q v h1] holds. In other words, [(Q \*+ \Top) v] holds of any state
@@ -85,9 +85,9 @@ Parameter triple_htop_post' : forall t H Q,
 
 (** The definition [triple1] provided earlier does not allow deriving the
     rule [triple_htop_post']. However, we can tweak slightly the definition
-    to enable it. Concretely, in the definition of [triple1], we augment the 
+    to enable it. Concretely, in the definition of [triple1], we augment the
     postcondition of the underlying Hoare triple with an extra [\Top].
-    Intuitively, this added [\Top] captures any piece of state that we do not 
+    Intuitively, this added [\Top] captures any piece of state that we do not
     wish to mention explicitly in the postcondition.
 
     The updated definition, called [triple], is as follows. *)
@@ -95,7 +95,7 @@ Parameter triple_htop_post' : forall t H Q,
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (H':hprop), hoare t (H \* H') (Q \*+ H' \*+ \Top).
 
-(** From there, we can prove that the desired rule for discarding pieces 
+(** From there, we can prove that the desired rule for discarding pieces
     of postconditions holds. We can also prove that the frame rule still holds
     for the modified definition. The proof of these two results is studied further. *)
 
@@ -107,8 +107,8 @@ Parameter triple_frame : forall t H Q H',
   triple t H Q ->
   triple t (H \* H') (Q \*+ H').
 
-(** Remark: it may also be useful to set up finer-grained versions of Separation Logic, 
-    where only certain types of heap predicates  can be discarded, but not all. Technically, 
+(** Remark: it may also be useful to set up finer-grained versions of Separation Logic,
+    where only certain types of heap predicates  can be discarded, but not all. Technically,
     only "affine" predicates may be discarded. Such a set up is discussed in the chapter
     [SLFRich.v]. *)
 
@@ -296,7 +296,7 @@ Lemma triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
   triple t H Q.
 
 (* EX1! (triple_conseq_frame_htop) *)
-(** Prove the combined structural rule. 
+(** Prove the combined structural rule.
     Hint: recall lemma [triple_htop_post]. *)
 
 Proof using.
@@ -454,8 +454,8 @@ Qed.
     defined by [eval], and if we are able to prove that [let x = t in x]
     is observationally equivalent to [t] for some fresh variable x,
     then it is possible to prove that [triple_htop_post] is derivable
-    from [triple_htop_pre]. Indeed, the postcondition of [t] can be viewed 
-    as the precondition of the [x] occuring in the right-hand side of the 
+    from [triple_htop_pre]. Indeed, the postcondition of [t] can be viewed
+    as the precondition of the [x] occuring in the right-hand side of the
     term [let x = t in x]. Thus, discarding a heap predicate from the
     postcondition of [t] can be simulated by discarding a heap predicate
     from the precondition of [x]. *)
@@ -470,7 +470,7 @@ Qed.
 (** The garbage collection rules enable to discard any desired
     piece of heap from the precondition or the postcondition.
     Recall that the first rule is derivable from the second one.
-    Moreover, it is equivalent to state these two rules by writing 
+    Moreover, it is equivalent to state these two rules by writing
     [H'] instead of [\Top]. *)
 
 Parameter triple_htop_pre : forall t H Q,

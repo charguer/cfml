@@ -116,9 +116,9 @@ Lemma Decode_cons : forall A `{EA:Enc A} (X:A) (L:list A) (x l : val),
 Proof using. introv Dx DL. unfolds. rew_enc. fequals. Qed.
 
 (* LATER: WORK AROUND TYPECLASS RESOLUTION BUG *)
-Hint Extern 1 (Decode 'nil%val _) => 
+Hint Extern 1 (Decode 'nil%val _) =>
   match goal with H: Enc ?A |- _ => eapply (@Decode_nil A) end : Decode.
-Hint Extern 1 (Decode ('VCstr "cons" _ _) _) => 
+Hint Extern 1 (Decode ('VCstr "cons" _ _) _) =>
   match goal with H: Enc ?A |- _ => eapply (@Decode_cons A) end : Decode.
 
 Lemma Decode_None : forall A `{EA:Enc A},
@@ -161,7 +161,7 @@ Tactic Notation "xdecode" :=
 Ltac xenc_side_conditions tt :=
   try match goal with
   | |- Enc _ => typeclasses eauto with typeclass_instances
-  | |- Decode _ _ => xdecode 
+  | |- Decode _ _ => xdecode
   | |- Enc_injective _ => eauto (* TODO: in hint database *)
   end.
 
@@ -259,7 +259,7 @@ Ltac xspec_prove_cont tt :=
 
 Ltac xspec_prove_cont tt :=
   let H := fresh "Spec" in
-  intro H; nrapply H; 
+  intro H; nrapply H;
   xenc_side_conditions tt;
   try clear H.
 
@@ -414,7 +414,7 @@ Lemma xwp_xtriple_handle_gc_lemma : forall F A `{EA:Enc A} H (Q:A->hprop),
   H ==> ^F Q ->
   H ==> ^F (Q \*+ \GC).
 Proof using.
-  introv HF M. applys* structural_conseq. xsimpl. 
+  introv HF M. applys* structural_conseq. xsimpl.
 Qed.
 
 Ltac xwp_xtriple_remove_gc tt :=
@@ -461,7 +461,7 @@ Ltac xwp_fun tt :=
                          | xwp_simpl; xwp_xtriple_handle_gc tt ].
 
 Ltac xwp_fix tt :=
-  applys xwp_lemma_fixs; [ reflexivity | reflexivity | reflexivity 
+  applys xwp_lemma_fixs; [ reflexivity | reflexivity | reflexivity
                          | xwp_simpl; xwp_xtriple_handle_gc tt ].
 
 Ltac xwp_trm tt :=
@@ -476,8 +476,8 @@ Tactic Notation "xwp" :=
 (** [xwp_debug] *)
 
 Ltac xwp_debug_core tt :=
-  first [ applys xwp_lemma_funs  
-        | applys xwp_lemma_fixs 
+  first [ applys xwp_lemma_funs
+        | applys xwp_lemma_fixs
         | fail 1 "Goal does not appear to be of the form [Triple (trm_apps F ts) H Q]" ];
   [ first [ reflexivity | fail 1 "The function applied in the triple cannot be unified with [val_funs xs t]" ]
   | first [ reflexivity | fail 1 "One of the arguments in the triple is not must of the form [trm_val v] for some [v]" ]
@@ -650,7 +650,7 @@ Ltac xlet_xseq_xcast_repeat tt :=
 
   xapp_pre tt;
   applys xapp_find_spec_lemma;
-    [ xspec; 
+    [ xspec;
       let H := fresh "Spec" in
       intro H; eapply H; clear H
     | xapp_select_lemma tt;
@@ -696,8 +696,8 @@ Qed.
 
 (* [xapp_pre tt] automatically performs the necessary
    [xlet], [xseq] and [xcast], then checks that the goal
-   is a [Wpgen_app] goal. 
-  
+   is a [Wpgen_app] goal.
+
    Besides, if the goal is a triple, then it converts it
    to [wp]-style using [xtriple]. This is useful when proving
    a specification by weakening an existing one. *)
@@ -725,7 +725,7 @@ Notation "'__XAPP_FAILED_TO_MATCH_PRECONDITION__'" :=
   (@xapp_hidden _ _).
 
 Ltac xapp_report_error tt :=
-  match goal with |- context [?Q1 \--* protect ?Q2] => 
+  match goal with |- context [?Q1 \--* protect ?Q2] =>
     change (Q1 \--* protect Q2) with (@xapp_hidden _ (Q1 \--* protect Q2)) end.
 
 Ltac xapp_post tt :=
@@ -853,12 +853,12 @@ Ltac xapp_types_for_trms ts :=
   match ts with
   | nil => idtac
   | trms_vals ?vs => xapp_types_for_vals vs
-  | ?t :: ?ts' => 
+  | ?t :: ?ts' =>
       match t with
       | trm_val ?v => xapp_types_for_val v
       | _ => idtac "trm"
       end;
-      idtac "->"; 
+      idtac "->";
       xapp_types_for_trms ts'
   end.
 
@@ -869,7 +869,7 @@ Ltac xapp_types_in_triple ETriple :=
   end.
 
 Ltac xapp_debug_report_instantiated K :=
-  let EtripleS := type of K in 
+  let EtripleS := type of K in
   idtac "=== Type of the specification for that function:";
   xapp_types_in_triple EtripleS;
   idtac "";
@@ -877,13 +877,13 @@ Ltac xapp_debug_report_instantiated K :=
   match goal with |- ?EtripleF => xapp_types_in_triple EtripleF end.
 
 Ltac xapp_debug_report H :=
-  forwards_then H ltac:(fun K => 
+  forwards_then H ltac:(fun K =>
     let X := fresh "SpecInstantiated" in
     generalize K; intros X;
     xapp_debug_report_instantiated X ).
 
 Ltac xspec_with_optional_arg E_or_double_underscore :=
-  match E_or_double_underscore with 
+  match E_or_double_underscore with
   | __ => first [ xspec | fail 2 ]
   | ?E => xspec_lemma_of_args E
   end.

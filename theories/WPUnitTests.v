@@ -45,7 +45,7 @@ Lemma Triple_term_among_arguments : forall (p q:loc) (n m:int) x (* with not typ
     PRE (p ~~> n \* q ~~> m)
     POST (fun (r:int) => p ~~> (n+1) \* q ~~> (m+1)).
 Proof using.
-  intros. try xwp. 
+  intros. try xwp.
   (* [xwp] fails because in [incr_two p x] the argument [x] has type [trm], whereas it should be a value. *)
   (* [xwp_debug] would diagnose this isssue. *)
 Abort.
@@ -73,7 +73,7 @@ Lemma Triple_incorrect_argument_type : forall (p:loc) (n:int),
     POST (fun (r:int) => \[r = n] \* p ~~> (n+1)).
 Proof using.
   intros. xwp. xapp. try xapp.
-  (* [xapp] fails because the call to [incr x] has argument [x] of type [int] 
+  (* [xapp] fails because the call to [incr x] has argument [x] of type [int]
      instead of an argument of type [loc] as expected by [incr]. *)
   (* [xapp_debug] would help diagnose this isssue. *)
 Abort.

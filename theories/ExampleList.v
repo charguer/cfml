@@ -515,12 +515,12 @@ Proof using.
   intros. gen p. induction_wf IH: (@list_sub A) L. intros.
   xwp.
 
-(* DETAILS  
-xapp_pre tt. 
-(* works 
- eapply @xapps_lemma; [ eapply Triple_is_empty | 
+(* DETAILS
+xapp_pre tt.
+(* works
+ eapply @xapps_lemma; [ eapply Triple_is_empty |
  xsimpl_start tt ; xsimpl_step tt ].
- match goal with |- Xsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) => 
+ match goal with |- Xsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) =>
   idtac "here"; match H with
   | ?H1 \* ?H2 => idtac "there"; rewrite (@hstar_assoc H1 H2)
 end end.
@@ -528,10 +528,10 @@ end end.
 Hint Mode Enc + : typeclasses_instances.
 
 (* does not work with erewrite but with rewrite does *)
- eapply @xapps_lemma; [ eapply Triple_is_empty | 
+ eapply @xapps_lemma; [ eapply Triple_is_empty |
  xsimpl_start tt ; xsimpl_step tt ;
 
- match goal with |- Xsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) => 
+ match goal with |- Xsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) =>
   idtac "here"; match H with
   | ?H1 \* ?H2 => idtac "there"; rewrite (@hstar_assoc H1 H2)
 end end ].
@@ -737,7 +737,7 @@ Proof using.
     lets IH': (>> (rm IH) L1' (H \* (p1 ~~> Cons x p1'))).
     { autos*. }
     xapp IH'; clear IH'. (* LATER: xapp (rm IH') *)
-    { intros p3. xwp. xapp (>> __ EA). 
+    { intros p3. xwp. xapp (>> __ EA).
       xchanges <- (MList_cons p1). xapp. xsimpl*. }
     xsimpl*. }
 Qed.

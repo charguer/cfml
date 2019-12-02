@@ -519,12 +519,12 @@ Tactic Notation "rew_Dealloc" :=
 
 Lemma Dealloc_inv : forall k l h,
   Dealloc k l h ->
-  exists vs, k = LibList.length vs 
+  exists vs, k = LibList.length vs
           /\ h = conseqs l vs.
 Proof using.
   Transparent loc.
   intros k l. gen l. induction k; introv N.
-  { rewrite Dealloc_zero_eq in N. exists (@nil val). 
+  { rewrite Dealloc_zero_eq in N. exists (@nil val).
     rewrite conseqs_zero. split~. }
   { rewrite Dealloc_succ_eq in N. lets (v&N2): hexists_inv N.
     lets (h1&h2&R1&R2&R3&R4): hstar_inv N2.
@@ -820,7 +820,7 @@ Lemma hoare_dealloc : forall H l n,
   hoare (val_dealloc n l)
     (Dealloc (abs n) l \* H)
     (fun r => \[r = val_unit] \* H).
-Proof using. 
+Proof using.
   introv N. intros h Hh. destruct Hh as (h1&h2&N1&N2&N3&N4). subst h.
   exists h2 val_unit. split.
   { forwards (vs&Lvs&Hvs): Dealloc_inv N1. applys* eval_dealloc.

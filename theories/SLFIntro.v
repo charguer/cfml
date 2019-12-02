@@ -98,12 +98,12 @@ License: MIT.
 (** Each chapter contains three parts:
     - "the chapter in a rush" that presents the main take-away messages,
     - "detailed contents" with presentation of important technical results,
-    - "optional contents" for those who seek a deeper understanding or find 
+    - "optional contents" for those who seek a deeper understanding or find
        additional exercises.
 
     The course is organized so that:
     - reading only the "in a rush" parts of every chapter should make some sense,
-    - all the "optional contents" parts may be read or skipped, independently 
+    - all the "optional contents" parts may be read or skipped, independently
       for each chapter.
 
 *)
@@ -114,20 +114,20 @@ License: MIT.
 
 (** The first two chapters, "SLFBasic" and "SLFList", describe practical
     proofs using the CFML tool. They import the file [Example.v].
-    The other chapters describe the "fundational" construction of a Separation 
+    The other chapters describe the "fundational" construction of a Separation
     Logic from scratch. They are essentially independent from the CFML tool.
     They just share a few common files ([Fmap.v] for states, [Var.v] for
-    variables, and [SepSimpl.v] for the Separation Logic simplification 
+    variables, and [SepSimpl.v] for the Separation Logic simplification
     tactic).
-    
+
     These fundational chapters introduce the material layer by layer.
     Several chapters import definitions from the previous layer.
-    Other chapters instead import definitions from the files [SLFDirect.v] 
+    Other chapters instead import definitions from the files [SLFDirect.v]
     and [SLFExtra.v], which summarize all the definitions of the course. Which
     definitions are imported should be essentially transparent to the reader.
-    
-    There is one notable exception: the definition of the core operators 
-    of Separation Logic are set [Opaque] in [SLFDirect]. Doing so benefits 
+
+    There is one notable exception: the definition of the core operators
+    of Separation Logic are set [Opaque] in [SLFDirect]. Doing so benefits
     to abstraction: one may no longer "unfold" the core definitions.
     Instead, one must work exclusively using the high-level lemmas that
     characterize the useful properties of the definitions. *)
@@ -142,7 +142,7 @@ License: MIT.
     chapters, [SLFBasic] and [SLFList], are careful to use as few TLC
     tactics as possible, and to explain the ones that are used.
 
-    Note that a few proofs also rely occasionally on lemmas from the 
+    Note that a few proofs also rely occasionally on lemmas from the
     TLC library, for example extensionality properties, or results on lists.
     Such lemmas are commented whenever they are important to the proof.
 *)

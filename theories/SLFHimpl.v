@@ -115,7 +115,7 @@ Qed.
     [(H1 \* H2) ==> (H2 \* H1)] and [(H2 \* H1) ==> (H1 \* H2)].
     Such a proof appears further on. *)
 
-(** Remark: as the proofs suggest, the fact that entailment on [hprop] constitute an 
+(** Remark: as the proofs suggest, the fact that entailment on [hprop] constitute an
     order relation is a direct consequence of the fact that implication on [Prop],
     (that is, [->]) is an order relation on [Prop] (when assuming the propositional
     extensionality axiom). *)
@@ -166,7 +166,7 @@ Qed.
 (* ******************************************************* *)
 (** ** Fundamental properties of Separation Logic operators *)
 
-(** The fundamental properties of Separation Logic operators are described next. 
+(** The fundamental properties of Separation Logic operators are described next.
     Numerous other useful properties are derivable from just these. *)
 
 (** (1) The star operator is associative. *)
@@ -180,7 +180,7 @@ Parameter hstar_comm : forall H1 H2,
    H1 \* H2 = H2 \* H1.
 
 (** (3) The empty heap predicate is a neutral for the star.
-    Because star is commutative, it is equivalent to state that 
+    Because star is commutative, it is equivalent to state that
     [hempty] is a left or a right neutral for [hstar].
     We chose, arbitrarily, to state the left-neutral property. *)
 
@@ -195,7 +195,7 @@ Parameter hstar_hempty_l : forall H,
     To formalize this equality, we first rewrite it using [hexists]
     instead of the notation [\exists]. We get:
       [(hexists (fun x => J x)) \* H  =  hexists (fun x => (J x \* H))].
-    We then recall that [fun x => (J x \* H)] can be written simply as [J \*+ H]. 
+    We then recall that [fun x => (J x \* H)] can be written simply as [J \*+ H].
     These observations lead us to the following statement. *)
 
 Parameter hstar_hexists : forall A (J:A->hprop) H,
@@ -215,7 +215,7 @@ Parameter himpl_frame_l : forall H2 H1 H1',
 (** These properties are shared by essentially all variants of Separation
     Logic, and many generic results can be derived from these facts alone. *)
 
-(** Remark: in technical vocabulary, the star operator together with the empty heap 
+(** Remark: in technical vocabulary, the star operator together with the empty heap
     predicate form a "commutative monoid structure", for which moreover the star
     operator is "regular" with respect to entailment and existentials. *)
 
@@ -252,9 +252,9 @@ Proof using.
 Qed.
 
 (** More generally, a heap predicate of the form [H \* H]
-    is generally suspicious in Separation Logic. In plain 
-    Separation Logic, such a predicate can only be satisfied 
-    if [H] covers no memory cell, that is, if [H] is a pure 
+    is generally suspicious in Separation Logic. In plain
+    Separation Logic, such a predicate can only be satisfied
+    if [H] covers no memory cell, that is, if [H] is a pure
     predicate of the form [\[P]] for some proposition [P]. *)
 
 
@@ -278,15 +278,15 @@ Parameter triple_frame : forall t H Q H',
 
 (** Observe that, stated as such, it is very unlikely for the
     frame rule to be applicable in practice, because the
-    precondition must be exactly of the form [H \* H'] and 
-    the postcondition exactly of the form [Q \*+ H'] where [H'] 
+    precondition must be exactly of the form [H \* H'] and
+    the postcondition exactly of the form [Q \*+ H'] where [H']
     denotes the heap predicate to be framed. For example,
     the frame rule would not apply directly to a conclusion of the
     form [triple t (H' \* H) (Q \*+ H')]
 
     This limitation of the frame rule can be addressed by combining
-    the frame rule with the rule of consequence, as follows. 
-    Observe that the new statement applies to any triple. It is 
+    the frame rule with the rule of consequence, as follows.
+    Observe that the new statement applies to any triple. It is
     the user's responsability to explicitly provide either [H1]
     (the precondition that remains) or [H2] (the part of the
     precondition being framed). *)
@@ -364,7 +364,7 @@ Notation "'hprop''" := (SLFHprop.hprop).
     2. cancel out equal predicates occuring both in the LHS and RHS,
     3. instantiate existential quantifiers (using either evars or
        user-provided hints) and generate subgoals for the pure facts
-       occuring in the RHS. 
+       occuring in the RHS.
 
     These steps are detailed and illustrated next.
 
@@ -530,12 +530,12 @@ Abort.
 (** ** Example of entailment proofs using [xsimpl] *)
 
 Lemma himpl_example_1 : forall (p:loc),
-  p ~~~> 3 ==> 
+  p ~~~> 3 ==>
   \exists (n:int), p ~~~> n.
 Proof using. xsimpl. Qed.
 
 Lemma himpl_example_2 : forall (p q:loc),
-  p ~~~> 3 \* q ~~~> 3 ==> 
+  p ~~~> 3 \* q ~~~> 3 ==>
   \exists (n:int), p ~~~> n \* q ~~~> n.
 Proof using. xsimpl. Qed.
 
@@ -900,7 +900,7 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
-(* INSTRUCTORS: we can ask the full proof as exercise, 
+(* INSTRUCTORS: we can ask the full proof as exercise,
    but then it becomes much harder *)
 
 

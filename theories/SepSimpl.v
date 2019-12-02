@@ -1307,14 +1307,14 @@ Ltac gen_until_mark_with_processing_and_cleaning cont :=
   match goal with H: ?T |- _ =>
   match T with
   | ltac_Mark => clear H
-  | _ => cont H; 
+  | _ => cont H;
          let T := type of H in
          generalize H; clear H;
          (* discard non-dependent hyps that are not of type Prop *)
-         try (match goal with |- _ -> _ => 
-              match type of T with  
+         try (match goal with |- _ -> _ =>
+              match type of T with
               | Prop => idtac
-              | _ => intros _ 
+              | _ => intros _
               end end);
          gen_until_mark_with_processing cont
   end end.
@@ -1326,7 +1326,7 @@ Ltac xsimpl_generalize tt :=
     ltac:(himpl_post_processing_for_hyp);
   xsimpl_post_after_generalize tt.
   (* Note: was
-     [gen_until_mark_with_processing 
+     [gen_until_mark_with_processing
        ltac:(himpl_post_processing_for_hyp)]. *)
 
 Ltac xsimpl_post tt :=
@@ -1639,7 +1639,7 @@ Notation "'__XCHANGE_FAILED_TO_MATCH_PRECONDITION__'" :=
   (@xchange_hidden _ _).
 
 Ltac xchange_report_error tt :=
-  match goal with |- context [?H1 \-* protect ?H2] => 
+  match goal with |- context [?H1 \-* protect ?H2] =>
     change (H1 \-* protect H2) with (@xchange_hidden _ (H1 \-* protect H2)) end.
 
 Ltac xchange_xpull_cont tt :=

@@ -311,8 +311,8 @@ End WPgenSubst.
 
 
 val_of_function t =
-  trm_fun => 
-  trm_fix => 
+  trm_fun =>
+  trm_fix =>
   _ => arbitrary
 
 fun Q => Q (val_of_function (isubst E t))
@@ -517,7 +517,7 @@ Qed.
 Parameter wpgen_sound_seq : forall E t1 t2 Q,
   wpgen E (trm_seq t1 t2) Q ==> wp (isubst E (trm_seq t1 t2)) Q.
 
-    
+
 
 Parameter  : forall E t1 t2,
   (forall Q, wpgen E t1 Q ==> wp (isubst E t1) Q) ->
@@ -526,14 +526,14 @@ Parameter  : forall E t1 t2,
              ==> wp (trm_seq (isubst E t1) (isubst E t2))) Q).
 
 (** To make this proof obligation more readable, let us abstract
-    
+
     - [wpgen E t1] as [F1]
     - [wpgen E t2] as [F2]
     - [isubst E t1] as [t1']
     - [isubst E t2] as [t2']
 
     and observe that [wpgen E (trm_seq t1 t2) Q] is
-    
+
     wpgen E (trm_seq t1 t2) Q
 
     The proof obligation then reformulates as: *)
@@ -679,7 +679,7 @@ End ProgDef.
       | trm_let x t1 t2 => fun Q => wpgen t1 (fun v => wpgen (subst x v t2) Q)
       | trm_var x => fun Q => \[False]
       | trm_app v1 v2 => fun Q => wp t Q
-      | trm_if t0 t1 t2 => fun Q => 
+      | trm_if t0 t1 t2 => fun Q =>
           \exists (b:bool), \[t0 = trm_val (val_bool b)]
             \* (if b then (wpgen t1) Q else (wpgen t2) Q)
       end).
@@ -701,7 +701,7 @@ End ProgDef.
 (* ------------------------------------------------------- *)
 (** *** Introduction of [mkstruct] in the definition of [wpgen] *)
 
-(** Recall from the previous chapter the statement of the 
+(** Recall from the previous chapter the statement of the
     frame rule in [wp]-style. *)
 
 Parameter wp_frame : forall t H Q,
@@ -709,8 +709,8 @@ Parameter wp_frame : forall t H Q,
 
 (** We would like [wpgen] to satisfy the same rule, so that we can
     exploit the frame rule while reasoning about a program using
-    the heap predicate produced by [wpgen]. 
-    
+    the heap predicate produced by [wpgen].
+
     With the definition of [wpgen] set up so far, it is possible
     to prove, for any concrete term [t], that the frame property
     [(wpgen t Q) \* H ==> wpgen t (Q \*+ H)] holds.
@@ -719,16 +719,16 @@ Parameter wp_frame : forall t H Q,
 
     Instead, we are going to tweak the definition of [wpgen] so as to
     produce, at every step of the recursion, a special token to capture
-    the property that "whatever the details of the output predicate 
+    the property that "whatever the details of the output predicate
     produced, it does satisfy the frame property". *)
 
-(** We achieve this magic in three steps. First, we rewrite the 
+(** We achieve this magic in three steps. First, we rewrite the
     prototype of the function [wpgen] so as to make it explicitly
     a function of the postcondition [Q].
 
 [[
     Fixpoint wpgen (t:trm) : (val->hprop)->hprop :=
-      fun (Q:val->hprop) =>   
+      fun (Q:val->hprop) =>
         match t with
         | trm_val v => Q v
         | .. => ..
@@ -736,22 +736,22 @@ Parameter wp_frame : forall t H Q,
 
 ]]
 
-    Second, we introduce a predicate called [mkstruct], and insert 
-    it at the head of the output produced by [wpgen] (and all of 
+    Second, we introduce a predicate called [mkstruct], and insert
+    it at the head of the output produced by [wpgen] (and all of
     its recursive invokation) as follows:
 
 [[
     Fixpoint wpgen (t:trm) : (val->hprop)->hprop :=
       mkstruct (
-        fun (Q:val->hprop) =>   
+        fun (Q:val->hprop) =>
           match t with
           | trm_val v => Q v
           | .. => ..
           end).
 ]]
 
-    The interest of the insertion of [mkstruct] above is that every result 
-    of a computation of [wpgen t] on a concrete term [t] is, by construction, 
+    The interest of the insertion of [mkstruct] above is that every result
+    of a computation of [wpgen t] on a concrete term [t] is, by construction,
     of the form [mkstruct F] for some argument [F].
 
     Third, to enable the function [wpgen] to compute well in Coq,
@@ -767,7 +767,7 @@ Parameter wp_frame : forall t H Q,
         end).
 ]]
 
-    There remains to investigate how [mkstruct] should be defined. 
+    There remains to investigate how [mkstruct] should be defined.
 *)
 
 
@@ -853,7 +853,7 @@ Proof using.
 (* SOLUTION *)
   intros.
   applys xwp_lemma. { reflexivity. }
-  simpl; unfold wpgen_var; simpl. 
+  simpl; unfold wpgen_var; simpl.
   applys xstruct_lemma.
   applys xlet_lemma.
   applys xstruct_lemma.
@@ -989,7 +989,7 @@ Tactic Notation "xapp" :=
    xapp_pre; xapp_using xapp_lemma.
 
 Tactic Notation "xapps" :=
-  xapp_pre; first [ xapp_using xapps_lemma0 
+  xapp_pre; first [ xapp_using xapps_lemma0
                   | xapp_using xapps_lemma1 ].
 
 
@@ -1042,7 +1042,7 @@ Hint Extern 1 (Register_Spec decr) => Provide Triple_decr.
 
 (* /SOLUTION *)
 
-(** 
+(**
 [[
     Hint Extern 1 (Register_Spec decr) => Provide Triple_decr.
 ]]
@@ -1098,7 +1098,7 @@ Lemma Triple_factorec : forall n,
     PRE \[]
     POST (fun (r:int) => \[r = facto n]).
 Proof using.
-  (* Set up a proof by induction on [n] to obtain an induction 
+  (* Set up a proof by induction on [n] to obtain an induction
      hypothesis for the recursive calls, the last one being
      made on [n = 1]. *)
   intros. induction_wf IH: (downto 1) n.
@@ -1109,23 +1109,23 @@ Proof using.
      (and greater than or equal to [1]). *)
   unfolds downto.
   (* Begin the interactive verification proof. *)
-  xwp. 
+  xwp.
   (* Reason about the evaluation of the boolean condition [n <= 1]. *)
-  xapp. 
+  xapp.
   (* Perform a case analysis. *)
   xif.
   (* This gives two branches. *)
   { (* In the "then" branch, [n <= 1]. *)
     intros C.
     (* The return value is [1]. *)
-    xval. xsimpl. 
+    xval. xsimpl.
     (* Check that [1 = facto n] when [n <= 1]. *)
     rewrite facto_init; math. }
   { (* In the "else" branch, [n > 1]. *)
     intros C.
     (* Reason about the evaluation of [n-1] *)
     xapp.
-    (* Reason about the recursive call, implicitly exploiting 
+    (* Reason about the recursive call, implicitly exploiting
        the induction hypothesis [IH] with [n-1]. *)
     xapp.
     (* Justify that the recursive call is indeed made on a smaller
@@ -1134,7 +1134,7 @@ Proof using.
     (* Reason about the multiplication [n * facto(n-1)]. *)
     xapp.
     (* Check that [n * facto (n-1)] matches [facto n]. *)
-    xsimpl. rewrite (@facto_step n); math. }  
+    xsimpl. rewrite (@facto_step n); math. }
 Qed.
 
 (** Let's revisit the proof script without comments, and by skipping
@@ -1145,11 +1145,11 @@ Lemma Triple_factorial' : forall n,
     PRE \[]
     POST (fun (r:int) => \[r = facto n]).
 Proof using.
- intros. induction_wf IH: (downto 1) n. 
+ intros. induction_wf IH: (downto 1) n.
   xwp. xif ;=> C.
   { xval. xsimpl.
     rewrite facto_init; math. }
-  { xapp. xapp. { hnf. math. } xapp. xsimpl. 
+  { xapp. xapp. { hnf. math. } xapp. xsimpl.
     rewrite (@facto_step n); math. }
 Qed.
 
@@ -1200,7 +1200,7 @@ Proof using.
       PRE (I i0)
       POST (fun (_:unit) => I (i0+n))).
   { intros i0.  induction_wf IH: (upto n) i0. unfolds upto.
-    introv Hi0. xwp. xapp. xif; intros C. 
+    introv Hi0. xwp. xapp. xif; intros C.
     { (* Case [n>0] *)
       (* Call to [f] *)
       xapp. { math. } xapp. xapp_debug. simpl. simpls. unfold trms_vals. rew_listx. eapply Spec. unfold trm_val. rew_list. eapply Spec. xapp IH. math.
@@ -1216,7 +1216,7 @@ Qed.
 (**
 [[
   let add_to p n =
-    let f = (fun () -> incr p) in 
+    let f = (fun () -> incr p) in
     repeat f n
 ]]
 *)
@@ -1230,7 +1230,7 @@ Qed.
 [[
   let square n =
     let p = ref 0 in
-    let f = (fun () -> add_to p n) in 
+    let f = (fun () -> add_to p n) in
     repeat f n;
     !p
 ]]
@@ -1240,7 +1240,7 @@ Qed.
 =================================================
 
 
-    - [p ~> MCell n q] to describe a mutable list cell at address [p], with head 
+    - [p ~> MCell n q] to describe a mutable list cell at address [p], with head
       value [n] and tail value [q].
     - [p ~> MList L] to describe a (null-terminated) mutable list, whose elements
       are described by the Coq list [L].
@@ -1254,7 +1254,7 @@ Qed.
 
 
 
-(* exo *) 
+(* exo *)
 
 (**
 [[
@@ -1472,9 +1472,9 @@ POST (fun x : int => (\[x = length nil] \* p ~> MList nil)
 (**
 [[
     let rec mappend p1 p2 =
-      if p1 == null then 
+      if p1 == null then
         p2
-      else if p1.tail == null then  
+      else if p1.tail == null then
         (p1.tail <- p2; p1)
       else
         mappend p1.tail p2
@@ -1541,7 +1541,7 @@ Hint Extern 1 (Register_Spec (val_prim val_neq)) => Provide Triple_neq_loc.
 Definition loc_field (p:loc) (k:field) : loc :=
   (p+k)%nat.
 
-Notation "p `. k" := (loc_field p k) 
+Notation "p `. k" := (loc_field p k)
   (at level 31, format "p `. k") : fields_scope.
 
 Definition val_field (k:field) : val :=
@@ -1549,7 +1549,7 @@ Definition val_field (k:field) : val :=
     val_ptr_add 'p (nat_to_Z k).
 
 (*
-Notation "p ''`.' k" := (trm_app (val_field k) p) 
+Notation "p ''`.' k" := (trm_app (val_field k) p)
   (at level 31, format "p ''`.' k") : trm_scope.
 *)
 
@@ -1682,7 +1682,7 @@ End MtailMinimal.
 
 Lemma Triple_mcons_null : forall (x:int),
   TRIPLE (mcons x null)
-    PRE \[] 
+    PRE \[]
     POST (fun (p:loc) => p ~> MList (x::nil)).
 Proof using.
 (* SOLUTION *)

@@ -4,8 +4,8 @@ Separation Logic Foundations
 
 Chapter: "Extra".
 
-This file provides formalization of additional reasoning rules 
-expressed using Separation Logic triples. 
+This file provides formalization of additional reasoning rules
+expressed using Separation Logic triples.
 
 This file serves as a reference, there is no need to read through it.
 

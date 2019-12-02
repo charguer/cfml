@@ -532,15 +532,15 @@ Fixpoint noduplicates_fields_exec (ks:fields) : bool :=
 Fixpoint consecutive_fields_exec (koffset:nat) (ks:fields) : bool :=
   match ks with
   | nil => true
-  | k::ks => if eq_nat_dec k koffset 
-               then consecutive_fields_exec (S koffset) ks 
+  | k::ks => if eq_nat_dec k koffset
+               then consecutive_fields_exec (S koffset) ks
                else false
   end.
 
 Fixpoint fields_check (ks:fields) (L:Record_fields) : bool :=
   match ks,L with
   | nil, nil => true
-  | k::ks', (f,d)::L' => if eq_nat_dec k f 
+  | k::ks', (f,d)::L' => if eq_nat_dec k f
                            then fields_check ks' L'
                            else false
   | _, _ => false
@@ -560,8 +560,8 @@ Ltac xapp_record_get_find_single_field tt :=
   match goal with
   |- ?H ==> @Wptag (Wpgen_app (trm_apps (trm_val (val_get_field ?f)) (trms_vals ((val_loc ?p)::nil)))) ?A ?EA ?Q =>
       match H with context [ p`.f ~~> ?V ] => idtac end
-  end.  
- 
+  end.
+
 (* Common postprocessing to [xapp_record_get] and [xapp_record_set] *)
 
 Ltac xapp_record_get_set_post tt :=
@@ -570,8 +570,8 @@ Ltac xapp_record_get_set_post tt :=
 Ltac xapp_record_get_grouped tt :=
   applys xapp_record_get; xapp_record_get_set_post tt.
 
-(* Tactic to handle [get_field] using lemma [xapp_record_get] which expects 
-   [p ~> Record ?L], unless the precondition contains [ p`.f ~~> ?V ] in which 
+(* Tactic to handle [get_field] using lemma [xapp_record_get] which expects
+   [p ~> Record ?L], unless the precondition contains [ p`.f ~~> ?V ] in which
    case there is support for the "exploded" mode. *)
 
 Ltac xapp_record_get tt :=
@@ -590,11 +590,11 @@ Ltac xapp_record_set_find_single_field tt :=
   match goal with
   |- ?H ==> @Wptag (Wpgen_app (trm_apps (trm_val (val_set_field ?f)) (trms_vals ((val_loc ?p)::?W::nil)))) ?A ?EA ?Q =>
       match H with context [ p`.f ~~> ?V ] => idtac end
-  end.  
+  end.
 
 Ltac xapp_record_set_grouped tt :=
   applys xapp_record_set; xapp_record_get_set_post tt.
- 
+
 Ltac xapp_record_set tt :=
   first [ xapp_record_set_find_single_field tt; fail 1 (* trigger call to [xapp] *)
         | xapp_record_set_grouped tt ].
@@ -660,7 +660,7 @@ Tactic Notation "xnew" :=
   xnew_core_noarg tt.
 
 (* An implementation of [xnew_post] that can be used to expose fields one by one
-   instead of generating [p ~> Record ?L]. To activate, use: 
+   instead of generating [p ~> Record ?L]. To activate, use:
    [Ltac xnew_post ::= xnew_post_exploded]. *)
 
 Ltac xnew_post_exploded tt :=
@@ -695,7 +695,7 @@ Parameter xapp_record_delete_exploded : forall (Q:unit->hprop) (H:hprop) (ks:fie
   H ==> ^(Wpgen_app (trm_apps (trm_val (val_record_delete ks)) (trms_vals ((val_loc p)::nil)))) Q.
 
 Ltac xapp_record_delete_exploded tt :=
-  applys xapp_record_delete_exploded; 
+  applys xapp_record_delete_exploded;
   [ try reflexivity
   | unfold xapp_to_delete_fields; xsimpl; unfold protect ].
 
@@ -703,7 +703,7 @@ Ltac xapp_record_delete_find_single_field tt :=
   match goal with
   |- ?H ==> @Wptag (Wpgen_app (trm_apps (trm_val (val_record_delete ?ks)) (trms_vals ((val_loc ?p)::nil)))) ?A ?EA ?Q =>
       match H with context [ p`.?f ~~> ?V ] => idtac end
-  end.  
+  end.
 
 Ltac xapp_record_delete tt :=
   first [ xapp_record_delete_find_single_field tt; xapp_record_delete_exploded tt

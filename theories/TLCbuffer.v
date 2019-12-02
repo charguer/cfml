@@ -114,13 +114,13 @@ Lemma max_nonneg : forall n,
   max 0 n = n.
 Proof using. introv M. unfold max. case_if; math. Qed.
 
-Lemma max_l : forall n m, 
-  n >= m -> 
+Lemma max_l : forall n m,
+  n >= m ->
   max n m = n.
 Proof using. introv M. unfold max. case_if; math. Qed.
 
-Lemma max_r : forall n m, 
-  n <= m -> 
+Lemma max_r : forall n m,
+  n <= m ->
   max n m = m.
 Proof using. introv M. unfold max. case_if; math. Qed.
 
@@ -667,7 +667,7 @@ Proof using. intros. destruct l1; destruct l2; auto_false*. Qed.
 (* LibTactics, temporary for Coq < 8.11 *)
 
 Ltac nrapply H :=
-  first 
+  first
   [ notypeclasses refine (H)
   | notypeclasses refine (H _)
   | notypeclasses refine (H _ _)
@@ -695,12 +695,12 @@ From TLC Require Import LibWf.
 Ltac induction_wf_core_then IH E X cont ::=
   let clearX tt :=
     first [ clear X | fail 3 "the variable on which the induction is done appears in the hypotheses" ] in
-  first [ pattern X; 
+  first [ pattern X;
           first [ eapply (@well_founded_ind _ E)
                 | eapply (@well_founded_ind _ (E _))
                 | eapply (@well_founded_ind _ (E _ _))
                 | eapply (@well_founded_ind _ (E _ _ _))
-                | applys well_founded_ind (wf_measure E)  
+                | applys well_founded_ind (wf_measure E)
                 | applys well_founded_ind E ];
           clearX tt;
           match goal with

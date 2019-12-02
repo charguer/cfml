@@ -1155,7 +1155,7 @@ Proof using.
   applys_eq eval_free 2.
   { applys~ Fmap.indom_union_l. }
   { rewrite~ Fmap.remove_union_single_l.
-    intros Dl. applys Fmap.disjoint_inv_not_indom_both D Dl. 
+    intros Dl. applys Fmap.disjoint_inv_not_indom_both D Dl.
     applys Fmap.indom_single. }
 Qed.
 

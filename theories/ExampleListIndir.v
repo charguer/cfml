@@ -174,9 +174,9 @@ Lemma MListTail_null : forall `{EA:Enc A} (L:list A) (q:loc),
 Proof using.
   intros. destruct L; xunfold MListTail.
   { xsimpl*. }
-  { unfold pointer_field, head. rewrite Hfield_eq_fun_Hsingle. 
+  { unfold pointer_field, head. rewrite Hfield_eq_fun_Hsingle.
     xunfold at 1. xunfold at 3.
-    (* math_rewrite ((q+0%nat) = q)%nat. 
+    (* math_rewrite ((q+0%nat) = q)%nat.
     xchange Hsingle_not_null ;=> E. *)
     xsimpl; auto_false*. }
 Qed.

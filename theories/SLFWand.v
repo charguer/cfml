@@ -1118,7 +1118,7 @@ Qed.
        that computes weakest precondition in the next chapter.
 
 
-       
+
 
 (* ------------------------------------------------------- *)
 (** *** 3. The ramified structural rule for [wp] *)
@@ -1225,30 +1225,30 @@ Definition wpgen_fun (Fof:val->formula) : formula := fun Q =>
   \forall vf, \[forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
 
 (*
-   \exists H, H \* \[forall vf, 
+   \exists H, H \* \[forall vf,
                      (forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q') ->
                       H ==> Q vf].
 
 
   Goal:   H0 ==> wpgen (trm_fun x t)
-  unfolds to: 
-      H0 ==> \exists H, H \* \[forall vf, 
+  unfolds to:
+      H0 ==> \exists H, H \* \[forall vf,
                      (forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q') ->
                       H ==> Q vf].
   simplifies to:
 
-      forall vf, 
-      (forall vx H' Q', 
+      forall vf,
+      (forall vx H' Q',
           H' ==> Fof vx Q' ->
           triple (trm_app vf vx) H' Q') ->
       H0 ==> Q vf
 
-  xfun_lemma: 
+  xfun_lemma:
       S vf => specification for the functoin
 
       (forall vf, (forall H' Q', H' ==> Fof vx Q' -> triple (trm_app vf vx) H' Q') -> S vf) ->
       (fun r => H0 \* \[S r]) ===> Q ->
-      H0 ==> wpgen (trm_fun x t) Q 
+      H0 ==> wpgen (trm_fun x t) Q
 
 *)
 
