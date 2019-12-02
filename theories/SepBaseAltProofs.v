@@ -797,7 +797,7 @@ Lemma triple_alloc : forall n,
 Proof using. (* Note: [abs n] currently does not compute in Coq. *)
   introv N Hh.
   forwards~ (l&Dl&Nl): (Fmap.conseq_fresh null h (abs n) val_uninitialized).
-  sets h1': (Fmap.conseq l (abs n) val_uninitialized).
+  match type of Dl with Fmap.disjoint ?hc _ => sets h1': hc end.
   exists (h1' \u h) (val_loc l). splits~.
   { applys (eval_alloc (abs n)); eauto.
     rewrite~ abs_nonneg. }

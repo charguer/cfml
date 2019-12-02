@@ -916,7 +916,7 @@ Qed.
 (** * Consecutive locations and fresh locations *)
 
 (* ---------------------------------------------------------------------- *)
-(** ** Consecutive locations -- TODO: merge *)
+(** ** Consecutive locations *)
 
 Fixpoint conseqs (B:Type) (l:nat) (vs:list B) : fmap nat B :=
   match vs with
@@ -924,13 +924,11 @@ Fixpoint conseqs (B:Type) (l:nat) (vs:list B) : fmap nat B :=
   | v::vs' => (single l v) \+ (conseqs (S l) vs')
   end.
 
-(* TODO: rename *)
-
-Lemma conseqs_zero : forall B (l:nat),
+Lemma conseqs_nil : forall B (l:nat),
   conseqs l (@nil B) = empty.
 Proof using. auto. Qed.
 
-Lemma conseqs_succ : forall B (l:nat) (v:B) (vs:list B),
+Lemma conseqs_cons : forall B (l:nat) (v:B) (vs:list B),
   conseqs l (v::vs) = (single l v) \+ (conseqs (S l) vs).
 Proof using. auto. Qed.
 
@@ -1016,7 +1014,7 @@ Proof using.
 Qed.
 
 Lemma conseq_fresh : forall null h k v,
-  exists l, \# (conseq l k v) h /\ l <> null.
+  exists l, \# (conseqs l (LibList.make k v)) h /\ l <> null.
 Proof using.
   intros null (m&(L&M)) k v.
   unfold disjoint, map_disjoint. simpl.
@@ -1024,7 +1022,7 @@ Proof using.
   exists l. split.
   { intros l'. gen l. induction k; intros.
     { simple~. }
-    { rewrite conseq_succ.
+    { rewrite make_succ. rewrite conseqs_cons.
       destruct (IHk (S l)%nat) as [E|?].
       { intros i N. applys F (S i). applys_eq N 2. math. }
       { simpl. unfold map_union. case_if~.
@@ -1036,11 +1034,11 @@ Qed.
 
 Lemma disjoint_single_conseq : forall B l l' k (v:B),
   (l < l')%nat \/ (l >= l'+k)%nat ->
-  \# (single l v) (conseq l' k v).
+  \# (single l v) (conseqs l' (LibList.make k v)).
 Proof using.
   introv N. gen l'. induction k; intros.
-  { rewrite~ conseq_zero. }
-  { rewrite conseq_succ. rew_disjoint. split.
+  { rewrite make_zero. rewrite~ conseqs_nil. }
+  { rewrite make_succ. rewrite conseqs_cons. rew_disjoint. split.
     { applys disjoint_single_single. destruct N; math. }
     { applys IHk. destruct N. { left; math. } { right; math. } } }
 Qed.

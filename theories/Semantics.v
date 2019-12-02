@@ -1040,7 +1040,7 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       Fmap.indom m l ->
       eval m (val_free (val_loc l)) (Fmap.remove m l) val_unit
   | eval_alloc : forall k n ma mb l,
-      mb = Fmap.conseq l k val_uninitialized -> (* TODO: change *)
+      mb = Fmap.conseqs l (LibList.make k val_uninitialized) ->
       n = nat_to_Z k ->
       l <> null ->
       Fmap.disjoint ma mb -> (* LATER: reformulate using not_indom *)
