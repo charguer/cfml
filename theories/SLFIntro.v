@@ -112,10 +112,19 @@ License: MIT.
 (* ####################################################### *)
 (** * Imports between chapters *)
 
-(** Some chapters import the definitions from the previous chapter.
-    Other chapters restart from a clean slate instead, by importing
-    the definitions from the files [SLFDirect] and [SLFExtra]. Which 
-    definitions are imported should be essentially transparent to the reader. 
+(** The first two chapters, "SLFBasic" and "SLFList", describe practical
+    proofs using the CFML tool. They import the file [Example.v].
+    The other chapters describe the "fundational" construction of a Separation 
+    Logic from scratch. They are essentially independent from the CFML tool.
+    They just share a few common files ([Fmap.v] for states, [Var.v] for
+    variables, and [SepSimpl.v] for the Separation Logic simplification 
+    tactic).
+    
+    These fundational chapters introduce the material layer by layer.
+    Several chapters import definitions from the previous layer.
+    Other chapters instead import definitions from the files [SLFDirect.v] 
+    and [SLFExtra.v], which summarize all the definitions of the course. Which
+    definitions are imported should be essentially transparent to the reader.
     
     There is one notable exception: the definition of the core operators 
     of Separation Logic are set [Opaque] in [SLFDirect]. Doing so benefits 
