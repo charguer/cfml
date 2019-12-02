@@ -488,6 +488,52 @@ Ltac simpl_abs := (* TODO: remove this *)
   end.
 
 
+(* ---------------------------------------------------------------------- *)
+(* ** Auxiliary definitions for [triple_dealloc] *)
+
+Fixpoint Dealloc (k:nat) (l:loc) :=
+  match k with
+  | O => \[]
+  | S k' => \exists v, l ~~~> v \* (Dealloc k' (S l)%nat)
+  end.
+
+Lemma Dealloc_zero_eq : forall l,
+  Dealloc O l = \[].
+Proof using. auto. Qed.
+
+Lemma Dealloc_succ_eq : forall l k,
+  Dealloc (S k) l = \exists v, l ~~~> v \* Dealloc k (S l)%nat.
+Proof using. auto. Qed.
+
+Global Opaque Dealloc.
+
+Hint Rewrite Dealloc_zero_eq Dealloc_succ_eq : rew_Dealloc.
+
+Tactic Notation "rew_Dealloc" :=
+  autorewrite with rew_Dealloc.
+
+(*
+Lemma Dealloc_fmap_conseq : forall l k,
+  l <> null ->
+   (Fmap.conseq l k val_uninitialized)
+  (Delloc k l) h.
+*)
+
+Lemma Dealloc_inv : forall k l h,
+  Dealloc k l h ->
+  (forall l', indom h l' <-> l <= l' <= (l+k)%nat).
+Admitted.
+(* TODO 
+Proof using.
+  Transparent loc.
+  intros k1 k. gen k1. induction k; introv N.
+  {math_rewrite (k1 = 0%nat). rew_Alloc. rew_heap~. }
+  { destruct k1 as [|k1']; rew_nat.
+    { rew_Alloc. rew_heap~. }
+    { rew_Alloc. rewrite (IHk k1'); [|math]. rew_heap~. } }
+Qed.
+*)
+
 
 (* ********************************************************************** *)
 (** * Definition of Hoare triples *)
@@ -754,6 +800,20 @@ Proof using. (* Note: [abs n] currently does not compute in Coq. *)
   { applys~ (eval_alloc (abs n)). rewrite~ abs_nonneg. }
   { apply~ hstar_intro.
     { exists l. applys~ himpl_hstar_hpure_r. applys~ Alloc_fmap_conseq. } }
+Qed.
+
+Lemma hoare_dealloc : forall H l n,
+  n >= 0 ->
+  hoare (val_dealloc n l)
+    (Dealloc (abs n) l \* H)
+    (fun r => \[r = val_unit] \* H).
+Proof using. 
+  introv N. intros h Hh. destruct Hh as (h1&h2&N1&N2&N3&N4). subst h.
+  exists h2 val_unit. split.
+  { applys~ eval_dealloc (abs n).
+    { applys~ Dealloc_inv. }
+    { rewrite~ abs_to_int. } }
+  { rewrite~ hstar_hpure. }
 Qed.
 
 Lemma hoare_unop : forall v H op v1,
@@ -1311,6 +1371,16 @@ Lemma triple_alloc : forall n,
 Proof using.
   intros. applys triple_of_hoare. intros HF.
   esplit; split. { applys~ hoare_alloc. } { xsimpl*. }
+Qed.
+
+Lemma triple_dealloc : forall n l,
+  n >= 0 ->
+  triple (val_dealloc n l)
+    (Dealloc (abs n) l)
+    (fun r => \[r = val_unit]).
+Proof using.
+  intros. applys triple_of_hoare. intros HF.
+  esplit; split. { applys~ hoare_dealloc. } { xsimpl*. }
 Qed.
 
 

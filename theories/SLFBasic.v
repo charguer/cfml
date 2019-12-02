@@ -16,6 +16,9 @@ Generalizable Variables A B.
 Implicit Types n m : int.
 Implicit Types p q : loc.
 
+(** Tweak to make the logic appear linear instead of affine. *)
+Ltac xwp_xtriple_handle_gc ::= xwp_xtriple_remove_gc.
+
 
 (* ####################################################### *)
 (** * The chapter in a rush,
@@ -43,9 +46,6 @@ Implicit Types p q : loc.
 
     All these heap predicates have a type [hprop], whose implementation needs
     not be revealed, but essentially consists of predicate over memory states.
-
-    In a few proof obligations, a special heap predicate written [\GC] may
-    pop up. It should be totally ignored throughout this chapter.
 
     The proofs are carried out using CFML "x-tactics", including:
     - [xwp] to being a proof (in case of failure, try [xwp_debug]),

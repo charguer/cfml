@@ -39,11 +39,14 @@ Global Opaque field loc.
 (* ---------------------------------------------------------------------- *)
 (** Syntax of the source language *)
 
+(** Remark: [ref v] is equivalent to [let p = alloc 1 in set p v; p]. *)
+
 Inductive prim : Type :=
   | val_ref : prim
   | val_get : prim
   | val_set : prim
   | val_alloc : prim
+  | val_dealloc : prim
   | val_neg : prim
   | val_opp : prim
   | val_eq : prim
@@ -1037,7 +1040,12 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       n = nat_to_Z k ->
       l <> null ->
       Fmap.disjoint ma mb -> (* TODO: reformulate using not_indom *)
-      eval ma (val_alloc (val_int n)) (mb \+ ma) (val_loc l).
+      eval ma (val_alloc (val_int n)) (mb \+ ma) (val_loc l)
+  | eval_dealloc : forall k n ma mb l,
+      (forall l', Fmap.indom mb l' <-> l <= l' <= (l+k)%nat) -> (* TODO: abstract better *)
+      n = nat_to_Z k ->
+      Fmap.disjoint ma mb -> (* TODO: reformulate using not_indom *)
+      eval (mb \+ ma) (val_dealloc (val_int n) (val_loc l)) ma val_unit.
 
 End Red.
 

@@ -17,6 +17,12 @@ Implicit Types x n m : int.
 Implicit Types p q : loc.
 Implicit Types L : list int.
 
+(** Tweak to make the logic appear linear instead of affine. *)
+Ltac xwp_xtriple_handle_gc ::= xwp_xtriple_remove_gc.
+
+(** Tweak to make record allocation expose fields individually instead of grouped. *)
+Ltac xnew_post ::= xnew_post_expose_fields. 
+
 
 (* ####################################################### *)
 (** * The chapter in a rush, 
@@ -507,20 +513,14 @@ Proof using.
   intros. gen p. induction_wf IH: list_sub L.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull. 
   { intros x p' L' ->. xapp. xapp. xapp. xapp. xapp. { auto. }
-    xchange <- MList_cons. xsimpl. }
-  { intros ->. xval. xchange <- (MList_nil p). { auto. } xsimpl. }
+    xchange <- MList_cons. }
+  { intros ->. xval. xchange <- (MList_nil p). { auto. } }
   (* /SOLUTION *)
 Qed.
 
 
 (* ******************************************************* *)
 (** *** Allocation of a new cell: [mcell] and [mcons] *)
-
-(** The following command is a tweak to expose fields one by one 
-    when reasoning about record allocation, rather than exposing 
-    a more elaborated construct for representing records. *)
-
-Ltac xnew_post ::= xnew_post_expose_fields. 
 
 (** Next, we consider functions for constructing mutable lists.
     We begin with the function that allocates one cell.
@@ -571,7 +571,7 @@ Lemma Triple_mcons : forall (x:int) (q:loc) (L:list int),
     POST (fun (p:loc) => p ~> MList (x::L)).
 Proof using.
   intros. unfold mcons. xapp. (* invoke [Triple_mcell] *)
-  intros p. xchange <- MList_cons. xsimpl. (* fold back the list *)
+  intros p. xchange <- MList_cons. (* fold back the list *)
 Qed.
 
 Hint Extern 1 (Register_Spec mcons) => Provide Triple_mcons.
@@ -605,7 +605,7 @@ Lemma Triple_mnil :
     POST (fun (p:loc) => p ~> MList nil).
 Proof using.
   (* The proof requires introducing [null ~> MList nil] from nothing. *)
-  xwp. xval. xchange <- (MList_nil null). { auto. } xsimpl.
+  xwp. xval. xchange <- (MList_nil null). { auto. }
 Qed.
 
 Hint Extern 1 (Register_Spec mnil) => Provide Triple_mnil.
@@ -625,7 +625,7 @@ Lemma Triple_mnil' :
     PRE \[] 
     POST (fun (p:loc) => p ~> MList nil).
 Proof using.
-  xwp. xval. xchange MList_nil_intro. xsimpl.
+  xwp. xval. xchange MList_nil_intro.
 Qed.
 
 
@@ -681,6 +681,16 @@ Hint Extern 1 (Register_Spec mcopy) => Provide Triple_mcopy.
 (** This concludes our quick tour of functions on mutable lists.
     Additional functions are presented further in the file:
     [append], and [filter_nonneg]. *)
+
+
+(* ******************************************************* *)
+(** *** Deallocation of a cell: [mfree_cell] *)
+
+
+(* ******************************************************* *)
+(** *** Exercise: deallocation of a list: [mfree_list] *)
+
+(* TODO *)
 
 
 (* ******************************************************* *)
@@ -743,7 +753,7 @@ Proof using.
   (* [ref p] allocates a reference with contents [q]: i.e, [q ~~> p]. *)
   xapp. intros q.
   (* Folding the definition of [Stack] gives [p ~> Stack nil]. *)
-  xchange <- Stack_eq. xsimpl.
+  xchange <- Stack_eq.
 Qed.
 
 Hint Extern 1 (Register_Spec create) => Provide Triple_create.
@@ -786,7 +796,7 @@ Proof using.
   (* The operation [q := p'] updates the reference implementing the queue. *)
   xapp.
   (* The new state [q ~~> p' \* p' ~> MList (x::L')] can be folded into a [Stack]. *)
-  xchange <- Stack_eq. xsimpl.
+  xchange <- Stack_eq.
 Qed.
 
 (* Note: shorter version for the last line: [xchanges <- Stack_eq]. *)
@@ -906,6 +916,7 @@ Proof using.
   xwp. xchange Stack_eq. intros p. xapp. xapp.
   xapp. intros p'. xapp. xval.
   xchange <- Stack_eq. xsimpl. auto.
+skip. (* TODO *)
 Qed.
 
 Hint Extern 1 (Register_Spec pop) => Provide Triple_pop.
@@ -1109,6 +1120,7 @@ Lemma Triple_mlength_acc : forall (p:loc) (L:list int),
 Proof using.
 (* SOLUTION *)
   xwp. xapp. intros a. xapp. xapp. xsimpl. math.
+skip. (* TODO *)
 (* /SOLUTION *)
 Qed.
 
@@ -1139,6 +1151,7 @@ Lemma Triple_clear : forall (q:loc) (L:list int),
 Proof using.
   xwp. xchange Stack_eq. intros p. xapp. intros p'.
   xapp. xchange <- Stack_eq. xsimpl.
+skip. (* TODO *)
 Qed.
 (* /SOLUTION *)
 
@@ -1219,9 +1232,9 @@ Proof using.
   xwp. xchange (MList_if p1). case_if. xpull. intros x q L1' ->.
   xapp. xapp. xif; intros Cq.
   { xchange (MList_if q). case_if. xpull. intros ->.
-    xapp. xchange <- MList_cons. xsimpl. }
+    xapp. xchange <- MList_cons. }
   { xapp. xapp. { auto. } { auto. }
-    xchange <- MList_cons. rew_listx. xsimpl. }
+    rew_listx. xchange <- MList_cons. }
 (* /SOLUTION *)
 Qed.
 
@@ -1342,7 +1355,7 @@ Proof using.
   xwp. xchange Stack_eq. intros p. 
   xapp. intros p0. xapp. intros p1. 
   xapp. xchange <- MList_cons. xapp. intros p2.
-  xapp. xchange <- Stack_eq. xsimpl.
+  xapp. xchange <- Stack_eq.
 Qed.
 
 Hint Extern 1 (Register_Spec push_back) => Provide Triple_push_back.

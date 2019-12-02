@@ -381,6 +381,51 @@ Ltac xwp_simpl :=
   Bool.bool_dec bool_rec bool_rect ] iota zeta.
 
 
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xstructural] -- for internal use *)
+
+Ltac xstructural_core tt :=
+  applys Structural_Mkstruct.
+
+Tactic Notation "xstructural" :=
+  xstructural_core tt.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xcleanup] -- for internal use *)
+
+Ltac xcleanup_core tt :=
+  rew_bool_eq.
+
+Tactic Notation "xcleanup" :=
+  xcleanup_core tt.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xwp_xtriple_handle_gc] -- for internal use *)
+
+(* [xwp_xtriple_handle_gc] is used by [xwp] and [wtriple].
+   It enables removing [\GC] to simulate a linear logic. *)
+
+Lemma xwp_xtriple_handle_gc_lemma : forall F A `{EA:Enc A} H (Q:A->hprop),
+  Structural F ->
+  H ==> ^F Q ->
+  H ==> ^F (Q \*+ \GC).
+Proof using.
+  introv HF M. applys* structural_conseq. xsimpl. 
+Qed.
+
+Ltac xwp_xtriple_remove_gc tt :=
+  applys xwp_xtriple_handle_gc_lemma; [ try xstructural | ].
+
+(* By default, [\GC] is preserved. To remove [\GC], set up the re-binding:
+   [Ltac xwp_xtriple_handle_gc ::= xwp_xtriple_remove_gc.] *)
+
+Ltac xwp_xtriple_handle_gc tt :=
+  idtac.
+
+
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xwp] *)
 
@@ -411,10 +456,12 @@ Proof using.
 Qed.
 
 Ltac xwp_fun tt :=
-  applys xwp_lemma_funs; [ reflexivity | reflexivity | reflexivity | xwp_simpl ].
+  applys xwp_lemma_funs; [ reflexivity | reflexivity | reflexivity
+                         | xwp_simpl; xwp_xtriple_handle_gc tt ].
 
 Ltac xwp_fix tt :=
-  applys xwp_lemma_fixs; [ reflexivity | reflexivity | reflexivity | xwp_simpl ].
+  applys xwp_lemma_fixs; [ reflexivity | reflexivity | reflexivity 
+                         | xwp_simpl; xwp_xtriple_handle_gc tt ].
 
 Ltac xwp_trm tt :=
   fail "not yet implemented".
@@ -461,30 +508,10 @@ Ltac xtriple_core tt :=
   xtriple_pre tt;
   applys xtriple_lemma;
   [ simpl combiner_to_trm; rew_trms_vals; reflexivity
-  | ].
+  | xwp_xtriple_handle_gc tt ].
 
 Tactic Notation "xtriple" :=
   xtriple_core tt.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Tactic [xstructural] -- for internal use *)
-
-Ltac xstructural_core tt :=
-  applys Structural_Mkstruct.
-
-Tactic Notation "xstructural" :=
-  xstructural_core tt.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Tactic [xcleanup] -- for internal use *)
-
-Ltac xcleanup_core tt :=
-  rew_bool_eq.
-
-Tactic Notation "xcleanup" :=
-  xcleanup_core tt.
 
 
 (* ---------------------------------------------------------------------- *)

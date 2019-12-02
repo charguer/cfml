@@ -916,7 +916,7 @@ Qed.
 (** * Consecutive locations and fresh locations *)
 
 (* ---------------------------------------------------------------------- *)
-(** ** Existence of fresh locations *)
+(** ** Existence of fresh consecutive locations *)
 
 Fixpoint conseq (B:Type) (l:nat) (k:nat) (v:B) : fmap nat B :=
   match k with
@@ -936,7 +936,7 @@ Opaque conseq.
 
 
 (* ---------------------------------------------------------------------- *)
-(** ** Existence of fresh locations *)
+(** ** Properties of fresh consecutive locations *)
 
 (** These lemmas are useful to prove:
     [forall h v, exists l, disjoint (single l v) h]. *)

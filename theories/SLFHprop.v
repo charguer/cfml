@@ -77,7 +77,7 @@ Local Coercion string_to_var (x:string) : var := x.
 
     - a type of terms, written [trm],
     - a type of values, written [val],
-    - a type of states, written [state],
+    - a type of states, written [state] (i.e., finite map from location to values),
     - a big-step evaluation judgment, written [eval h1 t h2 v], asserting that,
       starting from state [s1], the evaluation of the term [t] terminates in
       the state [s2] and produces the value [v].
@@ -197,6 +197,22 @@ Definition hsingle (l:loc) (v:val) : hprop :=
   fun (h:heap) => (h = Fmap.single l v).
 
 Notation "l '~~~>' v" := (hsingle l v) (at level 32).
+
+(** Remark: in the course of the proof of [MList_if] in chapter [SLFList],
+    we have exploited the property that no data can be allocated at the
+    [null] location. This invariant can be enforced in either of two manners:
+
+    - The first possibility is to bake this invariant directly into the
+      definition of [hsingle l v], as follows:
+      [fun (h:heap) => (h = Fmap.single l v) /\ (l <> null)].
+    - The second possibility is to enforce this invariant at a deeper level,
+      in the type of [heap], a.k.a. [state], to ensure that a value of that
+      type can never bind the [null] location. 
+
+    For simplicity, we pretend throughout this course that the second approach
+    is used, even though in practice it involves less work to follow the first
+    approach (like the CFML tool does). *)
+(* LATER: check how much more complicated it would be to handle this formally. *)
 
 (** The "separating conjunction", written [H1 \* H2], characterizes a
     state that can be decomposed in two disjoint parts, one that
