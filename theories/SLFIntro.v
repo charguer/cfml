@@ -53,7 +53,8 @@ License: MIT.
                  ramified frame rule.
 
     - [SLFLift]:  presents a technique for writing postconditions that directly
-                  bind a Coq value rather than a value from the deeply embedded language.
+                  bind a Coq value rather than a value from the deeply embedded
+                  language.
 
     - [SLFAffine]: describes how to make the logic affine or partially affine
                    instead of linear.
@@ -102,7 +103,8 @@ License: MIT.
 
     The course is organized so that:
     - reading only the "in a rush" parts of every chapter should make some sense,
-    - all the "optional contents" parts may be independently read or skipped.
+    - all the "optional contents" parts may be read or skipped, independently 
+      for each chapter.
 
 *)
 
@@ -111,15 +113,15 @@ License: MIT.
 (** * Imports between chapters *)
 
 (** Some chapters import the definitions from the previous chapter.
-    Other chapters restart from a clean slate instead, and import
-    the definitions from the files [SLFDirect] and [SLFExtra].
-
-    All definitions and lemmas are compatible, no which imports are
-    used should be totally transparent to the reader. With one notable
-    exception, though: the definition of the core operators of Separation
-    Logic are, at one point, set "Opaque", for the benefits of abstraction.
-    One may no longer "unfold" their definitions, and must work exclusively
-    using the lemmas about the definitions---this is done on purpose. *)
+    Other chapters restart from a clean slate instead, by importing
+    the definitions from the files [SLFDirect] and [SLFExtra]. Which 
+    definitions are imported should be essentially transparent to the reader. 
+    
+    There is one notable exception: the definition of the core operators 
+    of Separation Logic are set [Opaque] in [SLFDirect]. Doing so benefits 
+    to abstraction: one may no longer "unfold" the core definitions.
+    Instead, one must work exclusively using the high-level lemmas that
+    characterize the useful properties of the definitions. *)
 
 
 (* ####################################################### *)
@@ -127,8 +129,12 @@ License: MIT.
 
 (** The proofs are carried out using TLC tactics, which greatly help.
     Most of the tactics used are described in the SF chapter [UseTactics]
-    from the "Programming Language Foundations" course.
+    from the "Programming Language Foundations" course. The first two
+    chapters, [SLFBasic] and [SLFList], are careful to use as few TLC
+    tactics as possible, and to explain the ones that are used.
 
-    The proofs also rely occasionally on lemmas from the TLC library,
-    for example extensionality properties. *)
+    Note that a few proofs also rely occasionally on lemmas from the 
+    TLC library, for example extensionality properties, or results on lists.
+    Such lemmas are commented whenever they are important to the proof.
+*)
 

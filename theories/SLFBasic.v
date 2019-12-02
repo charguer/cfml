@@ -700,6 +700,99 @@ Qed.
 
 
 (* ******************************************************* *)
+(** *** Deallocation in Separation Logic *)
+
+(** Separation Logic tracks allocated data. In its standard setup,
+    Separation Logic enforces that all allocated data be eventually
+    deallocated. (Technically, the logic is said to "linear" as opposed
+    to "affine".) *)
+ 
+(** Let us illustrate what happens if we forget to deallocated some
+    data. To that end, Consider the following program, which computes
+    the successor of a integer [n] by storing it into a reference cell,
+    then incrementing that reference, and finally returning its contents.
+
+[[
+  let succ_using_incr_attempt n =
+    let p = ref n in
+    incr p;
+    !p
+]]
+*)
+
+Definition succ_using_incr_attempt :=
+  VFun 'n :=
+    Let 'p := 'ref 'n in
+    incr 'p ';
+    '! 'p.
+
+(** The operation [succ_using_incr_attempt n] admits an empty
+    precondition, and a postcondition asserting that the final 
+    result is [n+1]. *)
+
+Lemma Triple_succ_using_incr_attempt : forall (n:int),
+  TRIPLE (succ_using_incr_attempt n)
+    PRE \[]
+    POST (fun r => \[r = n+1]).
+Proof using.
+  xwp. xapp. intros p. xapp. xapp. xsimpl. { auto. }
+Abort.
+
+(** In the above script, we gets stuck with the entailment:
+    [p ~~> (n+1) ==> \[]], which indicates that the current state contains
+    a reference, whereas the postcondition describes an empty state. *)
+
+(** We could attempt to patch the specification to account for the leftover
+    reference. *)
+
+Lemma Triple_succ_using_incr_attempt' : forall (n:int),
+  TRIPLE (succ_using_incr_attempt n)
+    PRE \[]
+    POST (fun r => \[r = n+1] \* \exists p, p ~~> (n+1)).
+Proof using.
+  xwp. xapp. intros p. xapp. xapp. xsimpl. { auto. }
+Qed.
+
+(** However, the specification above features a piece of postcondition
+    [\exists p, p ~~> (n+1)] that is of absolutely no use to the caller
+    of the function. Worse, the caller will have its state polluted with
+    [\exists p, p ~~> (n+1)] and will have no way to get rid of it appart
+    from returning it into its own postcondition. *)
+
+(** The right solution is to patch the code, to free the reference once
+    it is no longer needed, as shown below.
+
+[[
+  let succ_using_incr n =
+    let p = ref n in
+    incr p;
+    let x = !p in
+    free p;
+    x
+]]
+*)
+
+Definition succ_using_incr :=
+  VFun 'n :=
+    Let 'p := 'ref 'n in
+    incr 'p ';
+    Let 'x := '! 'p in
+    'free 'p ';
+    'x.
+
+(** This program may now be proved correct with respect to the original   
+    specification. *)
+
+Lemma Triple_succ_using_incr : forall n,
+  TRIPLE (succ_using_incr n)
+    PRE \[]
+    POST (fun r => \[r = n+1]).
+Proof using.
+  xwp. xapp. intros p. xapp. xapp. xapp. xval. xsimpl. auto.
+Qed.
+
+
+(* ******************************************************* *)
 (** *** Axiomatization of the mathematical factorial function *)
 
 (** Throughout the rest of the course, we will see several

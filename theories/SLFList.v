@@ -17,10 +17,10 @@ Implicit Types x n m : int.
 Implicit Types p q : loc.
 Implicit Types L : list int.
 
-(** Tweak to make the logic appear linear instead of affine. *)
+(** Tweak to make the Separation Logic appear linear instead of affine. *)
 Ltac xwp_xtriple_handle_gc ::= xwp_xtriple_remove_gc.
 
-(** Tweak to make record allocation expose fields individually instead of grouped. *)
+(** Tweak for record allocation to expose fields individually instead of grouped. *)
 Ltac xnew_post ::= xnew_post_exploded. 
 
 
@@ -55,7 +55,8 @@ Ltac xnew_post ::= xnew_post_exploded.
     - examples of specifications and proofs for programs manipulating mutable lists, 
     - how to use specify and verify an implementation of imperative stacks 
       implemented as a reference on a linked list, using a representation predicate 
-      of the form [q ~> Stack L].
+      of the form [q ~> Stack L]
+    - how Separation Logic supports reasoning about deallocation.
 
     This chapter exploits a few additional tactics:
     - [xunfold], a CFML tactic for unfolding the definition of [MList],
