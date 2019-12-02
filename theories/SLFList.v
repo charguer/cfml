@@ -24,6 +24,7 @@ Ltac xwp_xtriple_handle_gc ::= xwp_xtriple_remove_gc.
 Ltac xnew_post ::= xnew_post_exploded. 
 
 
+
 (* ####################################################### *)
 (** * The chapter in a rush, 
       nested with exercises as additional contents *)
@@ -686,9 +687,52 @@ Hint Extern 1 (Register_Spec mcopy) => Provide Triple_mcopy.
 (* ******************************************************* *)
 (** *** Deallocation of a cell: [mfree_cell] *)
 
+(** Separation Logic can be set up to enforce that all allocated data 
+    eventually gets properly deallocated. In what follows, we describe
+    a function for deallocating one cell, and a function for deallocating
+    an entire mutable list. *)
+
+(** There is no explicit deallocation in OCaml, which is equipped with 
+    a garbage collector, but let's pretend that there is such a
+    [delete] operation.
+
+    For technical reasons (because our source language is untyped and our
+    formal semantics does not keep track of the size of allocated block), 
+    we require the delete operation to be annotated the names of the fields 
+    of the record to be deleted. Assuming [delete] to exist, we would write:
+
+[[
+    let rec mfree_cell x q =
+      delete (p: {head:_; tail:_})
+]]
+
+    In the embedded language, the [Delete] construct denotes record
+    deallocation.
+*)
+
+Definition mfree_cell : val :=
+  VFun 'p :=
+    Delete`{ head; tail } 'p.
+
+(** The precondition of [mfree_cell 'p] describes the two fields
+    associated with the cell: [p`.head ~~> x] and [p`.tail ~~> q].
+    The postcondition is empty: the fields are destroyed. *)
+
+Lemma Triple_mfree_cell : forall (x:int) (p q:loc),
+  TRIPLE (mfree_cell p)
+    PRE ((p`.head ~~> x) \* (p`.tail ~~> q))
+    POST (fun (r:unit) => \[]).
+Proof using.
+  (* The tactic [xapp] handles the reasoning on the [Delete] construct. *)
+  xwp. xapp. xsimpl.
+Qed.
+
+Hint Extern 1 (Register_Spec mfree_cell) => Provide Triple_mfree_cell.
+
 
 (* ******************************************************* *)
 (** *** Exercise: deallocation of a list: [mfree_list] *)
+
 
 (* TODO *)
 

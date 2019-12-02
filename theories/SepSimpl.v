@@ -1371,14 +1371,15 @@ Ltac xsimpl_lr_cancel_eq_repr_post tt :=
     by exploiting a hint if one is available (see the hint section above)
     to specify the instantiation of the existential. *)
 
+(* Note: need to use [nrapply] instead of [eapply] to correctly handle [\exists (EA:Enc ?A)] *)
 Ltac xsimpl_r_hexists_apply tt :=
   first [
     xsimpl_hint_next ltac:(fun x =>
       match x with
-      | __ => eapply xsimpl_r_hexists
+      | __ => nrapply xsimpl_r_hexists
       | _ => apply (@xsimpl_r_hexists _ x)
       end)
-  | eapply xsimpl_r_hexists ].
+  | nrapply xsimpl_r_hexists ].
 
 (** [xsimpl_hook H] can be customize to handle cancellation of specific
     kind of heap predicates (e.g., [hsingle]). *)
