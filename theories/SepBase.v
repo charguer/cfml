@@ -451,12 +451,12 @@ Tactic Notation "rew_Alloc" :=
 
 Lemma Alloc_fmap_conseq : forall l k,
   l <> null ->
-  (Alloc k l) (Fmap.conseqs l (LibList.make k val_uninitialized)).
+  (Alloc k l) (Fmap.conseq l (LibList.make k val_uninitialized)).
 Proof using.
   Transparent loc null.
   introv N. gen l. induction k; intros; rew_Alloc.
-  { rewrite LibList.make_zero, Fmap.conseqs_nil. applys~ hempty_intro. }
-  { rewrite LibList.make_succ, Fmap.conseqs_cons. applys hstar_intro.
+  { rewrite LibList.make_zero, Fmap.conseq_nil. applys~ hempty_intro. }
+  { rewrite LibList.make_succ, Fmap.conseq_cons. applys hstar_intro.
     { split~. }
     { applys IHk. unfolds loc, null. math. }
     { applys~ Fmap.disjoint_single_conseq. } }
@@ -520,19 +520,19 @@ Tactic Notation "rew_Dealloc" :=
 Lemma Dealloc_inv : forall k l h,
   Dealloc k l h ->
   exists vs, k = LibList.length vs
-          /\ h = conseqs l vs.
+          /\ h = conseq l vs.
 Proof using.
   Transparent loc.
   intros k l. gen l. induction k; introv N.
   { rewrite Dealloc_zero_eq in N. exists (@nil val).
-    rewrite conseqs_nil. split~. }
+    rewrite conseq_nil. split~. }
   { rewrite Dealloc_succ_eq in N. lets (v&N2): hexists_inv N.
     lets (h1&h2&R1&R2&R3&R4): hstar_inv N2.
     lets (R1'&Hl): hsingle_inv R1.
     forwards (vs'&Lvs'&Hvs'): IHk R2.
     exists (v::vs'). split.
     { rew_list~. }
-    { subst h. rewrite~ conseqs_cons. } }
+    { subst h. rewrite~ conseq_cons. } }
 Qed.
 
 

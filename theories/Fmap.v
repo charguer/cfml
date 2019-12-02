@@ -918,38 +918,18 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** ** Consecutive locations *)
 
-Fixpoint conseqs (B:Type) (l:nat) (vs:list B) : fmap nat B :=
+Fixpoint conseq (B:Type) (l:nat) (vs:list B) : fmap nat B :=
   match vs with
   | nil => empty
-  | v::vs' => (single l v) \+ (conseqs (S l) vs')
+  | v::vs' => (single l v) \+ (conseq (S l) vs')
   end.
 
-Lemma conseqs_nil : forall B (l:nat),
-  conseqs l (@nil B) = empty.
+Lemma conseq_nil : forall B (l:nat),
+  conseq l (@nil B) = empty.
 Proof using. auto. Qed.
 
-Lemma conseqs_cons : forall B (l:nat) (v:B) (vs:list B),
-  conseqs l (v::vs) = (single l v) \+ (conseqs (S l) vs).
-Proof using. auto. Qed.
-
-Opaque conseqs.
-
-
-(* ---------------------------------------------------------------------- *)
-(** ** Consecutive locations *)
-
-Fixpoint conseq (B:Type) (l:nat) (k:nat) (v:B) : fmap nat B :=
-  match k with
-  | O => empty
-  | S k' => (single l v) \+ (conseq (S l) k' v)
-  end.
-
-Lemma conseq_zero : forall B (l:nat) (v:B),
-  conseq l O v = empty.
-Proof using. auto. Qed.
-
-Lemma conseq_succ : forall B (l:nat) (k:nat) (v:B),
-  conseq l (S k) v = (single l v) \+ (conseq (S l) k v).
+Lemma conseq_cons : forall B (l:nat) (v:B) (vs:list B),
+  conseq l (v::vs) = (single l v) \+ (conseq (S l) vs).
 Proof using. auto. Qed.
 
 Opaque conseq.
@@ -1014,7 +994,7 @@ Proof using.
 Qed.
 
 Lemma conseq_fresh : forall null h k v,
-  exists l, \# (conseqs l (LibList.make k v)) h /\ l <> null.
+  exists l, \# (conseq l (LibList.make k v)) h /\ l <> null.
 Proof using.
   intros null (m&(L&M)) k v.
   unfold disjoint, map_disjoint. simpl.
@@ -1022,7 +1002,7 @@ Proof using.
   exists l. split.
   { intros l'. gen l. induction k; intros.
     { simple~. }
-    { rewrite make_succ. rewrite conseqs_cons.
+    { rewrite make_succ. rewrite conseq_cons.
       destruct (IHk (S l)%nat) as [E|?].
       { intros i N. applys F (S i). applys_eq N 2. math. }
       { simpl. unfold map_union. case_if~.
@@ -1034,11 +1014,11 @@ Qed.
 
 Lemma disjoint_single_conseq : forall B l l' k (v:B),
   (l < l')%nat \/ (l >= l'+k)%nat ->
-  \# (single l v) (conseqs l' (LibList.make k v)).
+  \# (single l v) (conseq l' (LibList.make k v)).
 Proof using.
   introv N. gen l'. induction k; intros.
-  { rewrite make_zero. rewrite~ conseqs_nil. }
-  { rewrite make_succ. rewrite conseqs_cons. rew_disjoint. split.
+  { rewrite make_zero. rewrite~ conseq_nil. }
+  { rewrite make_succ. rewrite conseq_cons. rew_disjoint. split.
     { applys disjoint_single_single. destruct N; math. }
     { applys IHk. destruct N. { left; math. } { right; math. } } }
 Qed.
