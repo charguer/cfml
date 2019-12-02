@@ -702,7 +702,7 @@ Hint Extern 1 (Register_Spec mcopy) => Provide Triple_mcopy.
     of the record to be deleted. Assuming [delete] to exist, we would write:
 
 [[
-    let rec mfree_cell x q =
+    let mfree_cell p =
       delete (p: {head:_; tail:_})
 ]]
 
@@ -714,7 +714,7 @@ Definition mfree_cell : val :=
   VFun 'p :=
     Delete`{ head; tail } 'p.
 
-(** The precondition of [mfree_cell 'p] describes the two fields
+(** The precondition of [mfree_cell p] describes the two fields
     associated with the cell: [p`.head ~~> x] and [p`.tail ~~> q].
     The postcondition is empty: the fields are destroyed. *)
 
@@ -733,8 +733,49 @@ Hint Extern 1 (Register_Spec mfree_cell) => Provide Triple_mfree_cell.
 (* ******************************************************* *)
 (** *** Exercise: deallocation of a list: [mfree_list] *)
 
+(** The operation [mfree_list] deallocates all the cells in a given list.
+    It can be implemented as the following tail-recursive function.
 
-(* TODO *)
+[[
+    let rec mfree_list p =  
+      if p != null then begin
+        let q = p.tail in
+        mfree_cell p; 
+        mfree_list q
+      end
+]]
+
+*)
+
+Definition mfree_list : val :=
+  VFix 'f 'p :=
+    If_ 'p '<> null Then
+      Let 'q := 'p'.tail in 
+      mfree_cell 'p ';
+      'f 'q
+    End.
+
+(** The precondition of [mfree_list p] requires a full list [p ~> MList L].
+    The postcondition is empty: the entire list is destroyed. *)
+
+(* EX1! (Triple_mfree_list) *)
+(** Verify the function [mfree_list].
+    Hint: follow the pattern of the proof of the function [mlength]. *)
+
+Lemma Triple_mfree_list : forall (p:loc) (L: list int),
+  TRIPLE (mfree_list p)
+    PRE (p ~> MList L)
+    POST (fun (r:unit) => \[]).
+Proof using.
+  (* SOLUTION *)
+  intros. gen p. induction_wf IH: list_sub L. intros.
+  xwp. xchange MList_if. xif; intros C; case_if; xpull. 
+  { intros x p' L' ->. xapp. xapp. xapp. { auto. } xsimpl. }
+  { intros ->. xval. xsimpl. }
+  (* /SOLUTION *)
+Qed.
+
+Hint Extern 1 (Register_Spec mfree_list) => Provide Triple_mfree_list.
 
 
 (* ******************************************************* *)
@@ -929,6 +970,7 @@ Definition pop : val :=
     Let 'p := '!'q in
     Let 'x := mhead 'p in
     'q ':= mtail 'p ';
+    mfree_cell 'p ';
     'x.
 
 (** Again, there are two ways to specify a nonempty stack:
@@ -958,9 +1000,8 @@ Lemma Triple_pop : forall (q:loc) (L:list int),
 Proof using.
   introv HL. destruct L as [|x L']; [contradiction|].
   xwp. xchange Stack_eq. intros p. xapp. xapp.
-  xapp. intros p'. xapp. xval.
+  xapp. intros p'. xapp. xapp. xval.
   xchange <- Stack_eq. xsimpl. auto.
-skip. (* TODO *)
 Qed.
 
 Hint Extern 1 (Register_Spec pop) => Provide Triple_pop.
@@ -1168,20 +1209,21 @@ skip. (* TODO *)
 (* /SOLUTION *)
 Qed.
 
-
 (* ******************************************************* *)
-(** *** Exercise: operation [clear] on stack *)
+(** *** Exercise: operation [delete] on stack *)
 
-(** The function [clear] removes all elements from a mutable stack.
+(** The function [delete] deallocates a stack and its contents.
 
 [[
     let clear q =
-      q := mnil()
+      mfree_list !q;
+      
 ]]
-*)
+
 
 Definition clear : val :=
   VFun 'q :=
+    mfree_list ('!'q) ';
     'q ':= mnil '().
 
 (* EX2! (Triple_clear) *)
@@ -1193,18 +1235,42 @@ Lemma Triple_clear : forall (q:loc) (L:list int),
     PRE (q ~> Stack L)
     POST (fun (r:unit) => q ~> Stack nil).
 Proof using.
-  xwp. xchange Stack_eq. intros p. xapp. intros p'.
-  xapp. xchange <- Stack_eq. xsimpl.
-skip. (* TODO *)
+  xwp. xchange Stack_eq. intros p. xapp. xapp.
+  xapp. intros p'. xapp. xchange <- Stack_eq.
 Qed.
 (* /SOLUTION *)
+*)
 
-(** Remark: the predicate [\GC] plays a role in the above proof.
-    It "absorbs" the linked list that represents the previous
-    contents of the mutable list. *)
-(* LATER: present the function [mfree_cell] and [mfree_list],
-   and disable [\GC]. *)
+(* ******************************************************* *)
+(** *** Exercise: operation [clear] on stack *)
 
+(** The function [clear] removes all elements from a mutable stack.
+
+[[
+    let clear q =
+      mfree_list !q;
+      q := mnil()
+]]
+*)
+
+Definition clear : val :=
+  VFun 'q :=
+    mfree_list ('!'q) ';
+    'q ':= mnil '().
+
+(* EX2! (Triple_clear) *)
+(** Specify and verify the function [clear]. *)
+
+(* SOLUTION *)
+Lemma Triple_clear : forall (q:loc) (L:list int),
+  TRIPLE (clear q)
+    PRE (q ~> Stack L)
+    POST (fun (r:unit) => q ~> Stack nil).
+Proof using.
+  xwp. xchange Stack_eq. intros p. xapp. xapp.
+  xapp. intros p'. xapp. xchange <- Stack_eq.
+Qed.
+(* /SOLUTION *)
 
 
 (* ####################################################### *)
