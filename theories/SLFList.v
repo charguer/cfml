@@ -924,7 +924,7 @@ Hint Extern 1 (Register_Spec pop) => Provide Triple_pop.
 (** *** Exercise: out-of-place append of two mutable lists *)
 
 (** The function [mappend_copy p1 p2] expects two independent lists
-    and constructs a third list whose items are the concatetation
+    and constructs a third list whose items are the concatenation
     of those from the two input lists.
 
 [[
@@ -1053,10 +1053,10 @@ Definition mlength_acc : val :=
     mlength_acc_rec 'a 'p ';
     '! 'a.
 
-(* EX2! (Triple_mlength_acc_rec) *)
+(* EX3? (Triple_mlength_acc_rec) *)
 (** Specify and verify the function [mlength_acc_rec]. 
-    Hint: make sure to generalize the relevant variables in
-    [gen ???. induction_wf IH: list_sub L.], so that your
+    Hint: make sure to generalize the relevant variables in the script
+    pattern [gen ????. induction_wf IH: list_sub L.], so that your
     induction principle is strong enough to complete the proof. *)
 (* SOLUTION *)
 Lemma Triple_mlength_acc_rec : forall (a:loc) (n:int) (p:loc) (L:list int),
@@ -1092,7 +1092,7 @@ Qed.
 
 (* /INSTRUCTORS *)
 
-(* EX2! (Triple_mlength_acc) *)
+(* EX2? (Triple_mlength_acc) *)
 (** Prove that [mlength_acc] satisfies the same specification as [mlength]. *)
 
 Lemma Triple_mlength_acc : forall (p:loc) (L:list int),
@@ -1109,9 +1109,10 @@ Qed.
 (* ******************************************************* *)
 (** *** Exercise: operation [clear] on stack *)
 
-(**
+(** The function [clear] removes all elements from a mutable stack.
+
 [[
-    let rec clear q =
+    let clear q =
       q := mnil()
 ]]
 *)
@@ -1120,57 +1121,25 @@ Definition clear : val :=
   VFun 'q :=
     'q ':= mnil '().
 
-(* EX2! (Triple_ref_greater_abstract) *)
+(* EX2! (Triple_clear) *)
+(** Specify and verify the function [clear]. *)
 
+(* SOLUTION *)
 Lemma Triple_clear : forall (q:loc) (L:list int),
   TRIPLE (clear q)
     PRE (q ~> Stack L)
     POST (fun (r:unit) => q ~> Stack nil).
 Proof using.
-(* SOLUTION *)
-(* /SOLUTION *)
   xwp. xchange Stack_eq. intros p. xapp. intros p'.
   xapp. xchange <- Stack_eq. xsimpl.
 Qed.
-
-Hint Extern 1 (Register_Spec clear) => Provide Triple_clear.
-
-(* Note: [\GC] plays a role here *)
-
-
-
-(* ******************************************************* *)
-(** *** Exercise: push back on stacks *)
-
-(** Note: [L&x] is a notation for [L++x::nil]. *)
-
-(**
-[[
-  let push_back q x =
-    let p2 = mcell x (mnil()) in
-    q := mappend !q p2
-]]
-*)
-
-Definition push_back : val :=
-  VFun 'q 'x :=
-    Let 'p2 := mcell 'x (mnil '()) in
-    'q ':= mappend ('!'q) 'p2.
-
-(* EX2! (Triple_ref_greater_abstract) *)
-
-Lemma Triple_push_back : forall (q:loc) (x:int) (L:list int),
-  TRIPLE (push_back q x)
-    PRE (q ~> Stack L)
-    POST (fun (_:unit) => q ~> Stack (L++x::nil)).
-Proof using.
-(* SOLUTION *)
 (* /SOLUTION *)
-  xwp. xchange Stack_eq. intros p. 
-  xapp. intros p0. xapp. intros p1. 
-  xapp. xchange <- MList_cons. xapp. intros p2.
-  xapp. xchange <- Stack_eq. xsimpl.
-Qed.
+
+(** Remark: the predicate [\GC] plays a role in the above proof.
+    It "absorbs" the linked list that represents the previous
+    contents of the mutable list. *)
+(* LATER: present the function [mfree_cell] and [mfree_list],
+   and disable [\GC]. *)
 
 
 
@@ -1314,7 +1283,6 @@ Qed.
 Hint Extern 1 (Register_Spec mappend) => Provide Triple_mappend.
 
 
-
 (* ******************************************************* *)
 (** *** Exercise: concatenation on stacks *)
 
@@ -1347,4 +1315,41 @@ Proof using.
 Qed.
 
 Hint Extern 1 (Register_Spec concat) => Provide Triple_concat.
+
+
+(* ******************************************************* *)
+(** *** Exercise: push back on stacks *)
+
+(** Note:  *)
+
+(**
+[[
+  let push_back q x =
+    let p2 = mcell x (mnil()) in
+    q := mappend !q p2
+]]
+*)
+
+Definition push_back : val :=
+  VFun 'q 'x :=
+    Let 'p2 := mcell 'x (mnil '()) in
+    'q ':= mappend ('!'q) 'p2.
+
+(* EX2! (Triple_push_back) *)
+(** Specify and verify the function [push_back].
+    Remark: TLC provides the notation [L&x] as short for [L++x::nil]. *)
+
+(* SOLUTION *)
+Lemma Triple_push_back : forall (q:loc) (x:int) (L:list int),
+  TRIPLE (push_back q x)
+    PRE (q ~> Stack L)
+    POST (fun (_:unit) => q ~> Stack (L++x::nil)).
+Proof using.
+  xwp. xchange Stack_eq. intros p. 
+  xapp. intros p0. xapp. intros p1. 
+  xapp. xchange <- MList_cons. xapp. intros p2.
+  xapp. xchange <- Stack_eq. xsimpl.
+Qed.
+(* /SOLUTION *)
+
 
