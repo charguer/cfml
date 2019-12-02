@@ -330,11 +330,12 @@ Qed.
 
 Hint Extern 1 (Register_Spec (val_prim val_set)) => Provide @Triple_set_Decode.
 Hint Extern 1 (Register_Spec (val_prim val_ref)) => Provide @Triple_ref_Decode.
+Hint Extern 1 (Register_Spec (val_prim val_get)) => Provide @Triple_get.
+Hint Extern 1 (Register_Spec (val_prim val_free)) => Provide @Triple_free.
+Hint Extern 1 (Register_Spec (val_prim val_alloc)) => Provide Triple_alloc.
+
 Hint Extern 1 (Register_Spec (val_prim val_eq)) => Provide @Triple_eq_Decode.
 Hint Extern 1 (Register_Spec (val_prim val_neq)) => Provide @Triple_neq_Decode.
-
-Hint Extern 1 (Register_Spec (val_prim val_get)) => Provide @Triple_get.
-Hint Extern 1 (Register_Spec (val_prim val_alloc)) => Provide Triple_alloc.
 Hint Extern 1 (Register_Spec (val_prim val_neg)) => Provide Triple_neg.
 Hint Extern 1 (Register_Spec (val_prim val_lt)) => Provide Triple_lt.
 Hint Extern 1 (Register_Spec (val_prim val_le)) => Provide Triple_le.

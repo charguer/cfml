@@ -931,6 +931,15 @@ Proof using.
   intros. applys Triple_set_strong.
 Qed.
 
+Lemma Triple_free : forall l v,
+  Triple (val_free (val_loc l))
+    (l ~~> v)
+    (fun u => \[]).
+Proof using.
+  introv. unfold Triple, LiftPost.
+  xapply (>> triple_free v). { xsimpl. } { xsimpl* tt. }
+Qed.
+
 Lemma Triple_alloc : forall n,
   n >= 0 ->
   Triple (val_alloc n)

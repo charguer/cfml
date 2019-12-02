@@ -45,6 +45,7 @@ Inductive prim : Type :=
   | val_ref : prim
   | val_get : prim
   | val_set : prim
+  | val_free : prim
   | val_alloc : prim
   | val_dealloc : prim
   | val_neg : prim
@@ -1035,6 +1036,9 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
   | eval_set : forall m l v,
       Fmap.indom m l ->
       eval m (val_set (val_loc l) v) (Fmap.update m l v) val_unit
+  | eval_free : forall m l,
+      Fmap.indom m l ->
+      eval m (val_free (val_loc l)) (Fmap.remove m l) val_unit
   | eval_alloc : forall k n ma mb l,
       mb = Fmap.conseq l k val_uninitialized -> (* TODO: change *)
       n = nat_to_Z k ->
@@ -1142,6 +1146,18 @@ Proof using.
     rewrite~ Fmap.update_single. }
 Qed.
 
+Lemma eval_free_sep : forall s1 s2 v l,
+  s1 = Fmap.union (Fmap.single l v) s2 ->
+  Fmap.disjoint (Fmap.single l v) s2 ->
+  eval s1 (val_free l) s2 val_unit.
+Proof using.
+  introv -> D. forwards Dv: Fmap.indom_single l v.
+  applys_eq eval_free 2.
+  { applys~ Fmap.indom_union_l. }
+  { rewrite~ Fmap.remove_union_single_l.
+    intros Dl. applys Fmap.disjoint_inv_not_indom_both D Dl. 
+    applys Fmap.indom_single. }
+Qed.
 
 (** Generalization of the evaluation context rule for terms
     that might already be values *)
@@ -1482,6 +1498,10 @@ Notation "'Match' t 'With' ''|' c1 ''|' .. ''|' cn 'End'" :=
 
 Notation "'ref t" :=
   (val_ref t)
+  (at level 57) : trm_scope.
+
+Notation "'free t" :=
+  (val_free t)
   (at level 57) : trm_scope.
 
 Notation "'! t" :=

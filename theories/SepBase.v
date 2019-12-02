@@ -788,6 +788,18 @@ Proof using.
     { applys~ Fmap.disjoint_single_set v. } }
 Qed.
 
+Lemma hoare_free : forall H l v,
+  hoare (val_free (val_loc l))
+    ((l ~~~> v) \* H)
+    (fun r => \[r = val_unit] \* H).
+Proof using.
+  intros. intros h Hh. destruct Hh as (h1&h2&N1&N2&N3&N4).
+  lets (E1&X1): hsingle_inv N1.
+  exists h2 val_unit. split.
+  { subst h1. applys* eval_free_sep. }
+  { rewrite* hstar_hpure. }
+Qed.
+
 Lemma hoare_alloc : forall H n,
   n >= 0 ->
   hoare (val_alloc n)
@@ -1357,6 +1369,15 @@ Lemma triple_set' : forall w l v,
     (l ~~~> v)
     (fun r => l ~~~> w).
 Proof using. intros. xapplys* triple_set. Qed.
+
+Lemma triple_free : forall l v,
+  triple (val_free (val_loc l))
+    (l ~~~> v)
+    (fun r => \[r = val_unit]).
+Proof using.
+  intros. applys triple_of_hoare. intros HF.
+  esplit; split. { applys hoare_free. } { xsimpl*. }
+Qed.
 
 Lemma triple_alloc : forall n,
   n >= 0 ->

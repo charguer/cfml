@@ -1132,7 +1132,9 @@ Qed.
    let mlength_acc p =
       let a = ref 0 in
       mlength_acc_rec a p;
-      !a
+      let n = !a in
+      free a;
+      n
 ]]
 *)
 
@@ -1147,7 +1149,9 @@ Definition mlength_acc : val :=
   VFun 'p :=
     Let 'a := 'ref 0 in
     mlength_acc_rec 'a 'p ';
-    '! 'a.
+    Let 'n := '! 'a in
+    'free 'a ';
+    'n.
 
 (* EX3? (Triple_mlength_acc_rec) *)
 (** Specify and verify the function [mlength_acc_rec]. 
@@ -1204,42 +1208,45 @@ Lemma Triple_mlength_acc : forall (p:loc) (L:list int),
     POST (fun (r:int) => \[r = length L] \* p ~> MList L).
 Proof using.
 (* SOLUTION *)
-  xwp. xapp. intros a. xapp. xapp. xsimpl. math.
-skip. (* TODO *)
+  xwp. xapp. intros a. xapp. xapp. xapp. xval. xsimpl. math.
 (* /SOLUTION *)
 Qed.
 
 (* ******************************************************* *)
 (** *** Exercise: operation [delete] on stack *)
 
-(** The function [delete] deallocates a stack and its contents.
+(** The function [delete] deallocates a stack and its contents. 
+    The linked list is deallocated using the function [mfree_list].
+    The reference cell is deallocated using a primitive function 
+    called [free], which does not exist in OCaml, but we assume here
+    to be the deallocation function associated with the allocation
+    function [ref].
 
 [[
-    let clear q =
+    let delete q =
       mfree_list !q;
-      
+      free q
 ]]
+*)
 
-
-Definition clear : val :=
+Definition delete : val :=
   VFun 'q :=
     mfree_list ('!'q) ';
-    'q ':= mnil '().
+    'free 'q.
 
-(* EX2! (Triple_clear) *)
-(** Specify and verify the function [clear]. *)
+(* EX1! (Triple_delete) *)
+(** Specify and verify the function [delete]. *)
 
 (* SOLUTION *)
-Lemma Triple_clear : forall (q:loc) (L:list int),
-  TRIPLE (clear q)
+Lemma Triple_delete : forall (q:loc) (L:list int),
+  TRIPLE (delete q)
     PRE (q ~> Stack L)
-    POST (fun (r:unit) => q ~> Stack nil).
+    POST (fun (r:unit) => \[]).
 Proof using.
-  xwp. xchange Stack_eq. intros p. xapp. xapp.
-  xapp. intros p'. xapp. xchange <- Stack_eq.
+  xwp. xchange Stack_eq. intros p. xapp. xapp. xapp. xsimpl.
 Qed.
 (* /SOLUTION *)
-*)
+
 
 (* ******************************************************* *)
 (** *** Exercise: operation [clear] on stack *)
