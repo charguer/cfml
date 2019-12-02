@@ -690,11 +690,6 @@ Lemma Triple_hforall : forall B (x:B) t (J:B->hprop) `{EA:Enc A} (Q:A->hprop),
   Triple t (hforall J) Q.
 Proof using. intros. applys* local_hforall. Qed.
 
-Lemma Triple_hforall_exists : forall t B (J:B->hprop) `{EA:Enc A} (Q:A->hprop),  (* TODO: needed? *)
-  (exists x, Triple t (J x) Q) ->
-  Triple t (hforall J) Q.
-Proof using. intros. applys~ local_hforall_exists. Qed.
-
 Lemma Triple_hpure : forall t (P:Prop) `{Enc A} H (Q:A->hprop),
   (P -> Triple t H Q) ->
   Triple t (\[P] \* H) Q.
@@ -952,6 +947,15 @@ Lemma Triple_alloc_nat : forall (k:nat),
 Proof using.
   intros. xapplys~ Triple_alloc. { math. }
   { intros. rewrite abs_nat. xsimpl. }
+Qed.
+
+Lemma Triple_dealloc : forall n l,
+  n >= 0 ->
+  Triple (val_dealloc n l)
+    (Dealloc (abs n) l)
+    (fun r => \[r = val_unit]).
+Proof using.
+  introv M. unfold Triple, LiftPost. xapplys* triple_dealloc. auto.
 Qed.
 
 End RulesStateOps.

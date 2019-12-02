@@ -401,6 +401,8 @@ Proof using.
   destruct N as (x&N). applys* M.
 Qed.
 
+(** Remark: a reformulation of the above: *)
+
 Lemma triple_hforall_exists : forall t (A:Type) (J:A->hprop) Q,
   (exists x, triple t (J x) Q) ->
   triple t (hforall J) Q.

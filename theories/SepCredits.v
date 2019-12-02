@@ -818,11 +818,6 @@ Lemma triple_hforall : forall A (x:A) t (J:A->hprop) Q,
   triple t (hforall J) Q.
 Proof using. intros. applys* local_hforall. Qed.
 
-Lemma triple_hforall_exists : forall t A (J:A->hprop) Q, (* TODO: needed?*)
-  (exists x, triple t (J x) Q) ->
-  triple t (hforall J) Q.
-Proof using. intros. applys* local_hforall_exists. Qed.
-
 Lemma triple_hpure : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
