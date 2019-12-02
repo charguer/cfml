@@ -1216,7 +1216,7 @@ Lemma Triple_mappend_aux : forall (p1 p2:loc) (L1 L2:list int),
 Proof using.
 (* SOLUTION *)
   intros. gen p1. induction_wf IH: list_sub L1.
-  xwp. xchange (MList_if p1). case_if. xpull. intros x q L' ->.
+  xwp. xchange (MList_if p1). case_if. xpull. intros x q L1' ->.
   xapp. xapp. xif; intros Cq.
   { xchange (MList_if q). case_if. xpull. intros ->.
     xapp. xchange <- MList_cons. xsimpl. }
@@ -1249,9 +1249,19 @@ Hint Extern 1 (Register_Spec mappend) => Provide Triple_mappend.
 (* ******************************************************* *)
 (** *** Exercise: concatenation on stacks *)
 
-(** 
+(** The operation [concat q1 q2] expects two imperative stacks,
+    and migrate the contents of the second into the first first
+    stacks. The elements from the first stack are placed near the
+    top of the stack, while the elements from the second stack are
+    placed near the bottom. 
+
+    The operation is implemented by exploiting the function [mappend],
+    which performs in-place concatenation of two mutable lists.
+    The operation [concat q1 q2] also reinitialize the contents of [q2]
+    to be empty.
+
 [[
-    let rec concat q1 q2 =
+    let concat q1 q2 =
       q1 := mappend !q1 !q2;
       q2 := mnil ()
 ]]
@@ -1262,15 +1272,15 @@ Definition concat : val :=
     'q1 ':= mappend ('!'q1) ('!'q2) ';
     'q2 ':= mnil '().
 
-(* EX2! (Triple_ref_greater_abstract) *)
+(* EX2! (Triple_concat) *)
+(** Specify and verify the function [concat]. *)
 
+(* SOLUTION *)
 Lemma Triple_concat : forall (q1 q2:loc) (L1 L2:list int),
   TRIPLE (concat q1 q2)
     PRE (q1 ~> Stack L1 \* q2 ~> Stack L2)
     POST (fun (r:unit) => q1 ~> Stack (L1 ++ L2) \* q2 ~> Stack nil).
 Proof using.
-(* SOLUTION *)
-(* /SOLUTION *)
   xwp. do 2 xchange Stack_eq. intros p1 p2. xapp. xapp.
   xapp. intros p1'. xapp.
   xapp. intros p2'. xapp.
@@ -1278,12 +1288,33 @@ Proof using.
 Qed.
 
 Hint Extern 1 (Register_Spec concat) => Provide Triple_concat.
+(* /SOLUTION *)
+
+(* INCLASS *)
+(** Question: what would be the issue for verifying the function [concat]
+    if the second line [q2 := mnil()] was written instead [clear q2]? 
+    How could it be handled if we nevertheless wanted to verify such an
+    alternative code? *)
+(* /INCLASS *)
+
+(* INSTRUCTORS *)
+(** Answer: the precondition of [clear q2] requires [q2 ~> Stack L]
+    for some list [L], yet when reasoning about the second line from
+    the body of [concat], all we have at hand is [q2 ~~> p2] for some
+    pointer [p2] that points to a list that we longer have at hand.
+    The only way out is to prove an alternative, more relaxed 
+    specification for [clear], which accepts a precondition of the
+    form [q ~~> p]. Note that the original specification for [clear] 
+    would be derivable from that relaxed specification. *)
+(* /INSTRUCTORS *)
 
 
 (* ******************************************************* *)
 (** *** Exercise: push back on stacks *)
 
-(** Note:  *)
+(** The operation [push_back q x] adds an item [x] to the bottom
+    of the queue [q]. This operation is also implemented using
+    [mappend], which performs in place concatenation of two lists.  *)
 
 (**
 [[
@@ -1298,7 +1329,7 @@ Definition push_back : val :=
     Let 'p2 := mcell 'x (mnil '()) in
     'q ':= mappend ('!'q) 'p2.
 
-(* EX2! (Triple_push_back) *)
+(* EX2? (Triple_push_back) *)
 (** Specify and verify the function [push_back].
     Remark: TLC provides the notation [L&x] as short for [L++x::nil]. *)
 
@@ -1313,8 +1344,9 @@ Proof using.
   xapp. xchange <- MList_cons. xapp. intros p2.
   xapp. xchange <- Stack_eq. xsimpl.
 Qed.
-(* /SOLUTION *)
 
+Hint Extern 1 (Register_Spec push_back) => Provide Triple_push_back.
+(* /SOLUTION *)
 
 
 (* ******************************************************* *)
@@ -1363,7 +1395,9 @@ Definition mrev : val :=
     generalizing [p1], [p2] and [L1], whose value evolves
     throughout the recursive calls. 
     Hint: use [xchange (MList_if p2)] to exploit the lemma
-    [MList_if] for the second list. *)
+    [MList_if] for the second list.
+    Hint: use [rew_listx] (or [rewrite rev_cons,app_last_l]) to 
+    normalize the expression [rev (x::L2')++L1]. *)
 
 (* SOLUTION *)
 Lemma Triple_mrev_append : forall (p1 p2:loc) (L1 L2:list int),
@@ -1374,7 +1408,7 @@ Proof using.
   intros. gen p1 p2 L1. induction_wf IH: list_sub L2.
   xwp. xchange (MList_if p2). xif; intros C; case_if; xpull.
   { intros ->. xval. rew_listx. xsimpl. }
-  { intros x q L' ->. xapp. xapp.
+  { intros x q L2' ->. xapp. xapp.
     xchange <- MList_cons. xapp. { auto. }
     intros r. rew_listx. xsimpl. }
 Qed.
