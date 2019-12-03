@@ -1194,14 +1194,14 @@ Definition mkstruct (F:formula) : formula :=
 Lemma mkstruct_frame : forall (F:formula) H Q,
   (mkstruct F Q) \* H ==> mkstruct F (Q \*+ H).
 Proof using.
-  intros. unfold mkstruct. xpull ;=> Q' H' M. xsimpl. xchange M.
+  intros. unfold mkstruct. xpull; intros Q' H' M. xsimpl. xchange M.
 Qed.
 
 Lemma mkstruct_conseq : forall (F:formula) Q1 Q2,
   Q1 ===> Q2 ->
   mkstruct F Q1 ==> mkstruct F Q2.
 Proof using.
-  introv WQ. unfold mkstruct. xpull ;=> Q' H' M. xsimpl. xchange M. xchange WQ.
+  introv WQ. unfold mkstruct. xpull; intros Q' H' M. xsimpl. xchange M. xchange WQ.
  Qed.
 
 Lemma mkstruct_erase : forall (F:formula) Q,
@@ -1230,7 +1230,7 @@ Lemma mkstruct_idempotent : forall F,
 Proof using.
   intros. apply fun_ext_1. intros Q. applys himpl_antisym.
   (* SOLUTION *)
-  { unfold mkstruct. xpull ;=> Q1 H1 Q2 H2 M1 M2.
+  { unfold mkstruct. xpull; intros Q1 H1 Q2 H2 M1 M2.
     xsimpl Q2 (H1 \* H2). xchanges* M1. }
   { applys mkstruct_erase. }
 (* /SOLUTION *)
@@ -1376,7 +1376,7 @@ Lemma xwp_lemma : forall v1 v2 x t H Q,
 Proof using.
   introv M1 M2. applys triple_app_fun M1.
   asserts_rewrite (subst x v2 t = isubst ((x,v2)::nil) t).
-  { rewrite isubst_rem. rewrite~ isubst_nil. }
+  { rewrite isubst_rem. rewrite* isubst_nil. }
   rewrite wp_equiv. xchange M2. applys wpgen_sound.
 Qed.
 
@@ -1402,15 +1402,15 @@ Proof using.
   applys xlet_lemma.
   applys xstruct_lemma.
   applys xapp_lemma. { apply triple_get. } { xsimpl. }
-  xpull ;=> ? ->.
+  xpull; intros ? ->.
   applys xstruct_lemma.
   applys xlet_lemma.
   applys xstruct_lemma.
   applys xapp_lemma. { apply triple_add. } { xsimpl. }
-  xpull ;=> ? ->.
+  xpull; intros ? ->.
   applys xstruct_lemma.
   applys xapp_lemma. { apply triple_set. } { xsimpl. }
-  xpull ;=> ? ->.
+  xpull; intros ? ->.
   xsimpl. auto.
 Qed.
 
@@ -1431,22 +1431,22 @@ Proof using.
   applys xlet_lemma.
   applys xstruct_lemma.
   applys xapp_lemma. { apply triple_ref. } { xsimpl. }
-  xpull ;=> ? l ->.
+  xpull; intros ? l ->.
   applys xstruct_lemma.
   applys xseq_lemma.
   applys xstruct_lemma.
   applys xapp_lemma. { apply triple_incr. } { xsimpl. }
-  xpull ;=> ? ->.
+  xpull; intros ? ->.
   applys xstruct_lemma.
   applys xlet_lemma.
   applys xstruct_lemma.
   applys xapp_lemma. { apply triple_get. } { xsimpl. }
-  xpull ;=> ? ->.
+  xpull; intros ? ->.
   applys xstruct_lemma.
   applys xseq_lemma.
   applys xstruct_lemma.
   applys xapp_lemma. { apply triple_free. } { xsimpl. }
-  xpull ;=> ? ->.
+  xpull; intros ? ->.
   applys xstruct_lemma.
   applys xval_lemma.
   xsimpl. auto.
@@ -1617,7 +1617,7 @@ Lemma triple_mysucc_with_xapps : forall (n:int),
     (fun v => \[v = n+1]).
 Proof using.
 (* SOLUTION *)
-  xwp. xapp ;=> ? l ->. xapps. xapps. xapps. xval. xsimpl~.
+  xwp. xapp; intros ? l ->. xapps. xapps. xapps. xval. xsimpl~.
 (* /SOLUTION *)
 Qed.
 
@@ -1892,7 +1892,7 @@ Proof using.
   (* Reveal the definition of [mkstruct] *)
   unfolds mkstruct.
   (* Extract the [Q'] quantified in the definition of [mkstruct] *)
-  xsimpl ;=> Q' H N.
+  xsimpl; intros Q' H N.
   (* Instantiate the assumption on [F] with that [Q'], and exploit it. *)
   lets M': M Q'. xchange M'.
   (* Conclude using the structural rules for [wp]. *)
@@ -1997,7 +1997,7 @@ Lemma xwp_lemma : forall v1 v2 x t1 H Q,
 Proof using.
   introv M1 M2. applys triple_app_fun M1.
   asserts_rewrite (subst x v2 t1 = isubst ((x,v2)::nil) t1).
-  { rewrite isubst_rem. rewrite~ isubst_nil. }
+  { rewrite isubst_rem. rewrite* isubst_nil. }
   rewrite wp_equiv. xchange M2. applys wpgen_sound_induct.
 Qed.
 
@@ -2139,11 +2139,11 @@ Proof using.
   intros. induction t; simpl.
   { fequals. }
   { case_var~. }
-  { fequals. case_var~. { rewrite~ isubst_nil. } }
+  { fequals. case_var~. { rewrite* isubst_nil. } }
   { fequals. case_var; try case_var; simpl; try case_var; try rewrite isubst_nil; auto. }
   { fequals*. }
   { fequals*. }
-  { fequals*. case_var~. { rewrite~ isubst_nil. } }
+  { fequals*. case_var~. { rewrite* isubst_nil. } }
   { fequals*. }
 Qed.
 
@@ -2230,10 +2230,10 @@ Proof using.
   hint ctx_disjoint_rem.
   intros t. induction t; simpl; intros.
   { fequals. }
-  { rename v into x. rewrite~ lookup_app.
+  { rename v into x. rewrite* lookup_app.
     case_eq (lookup x E1); introv K1; case_eq (lookup x E2); introv K2; auto.
-    { simpl. rewrite~ K2. }
-    { simpl. rewrite~ K2. } }
+    { simpl. rewrite* K2. }
+    { simpl. rewrite* K2. } }
   { fequals. rewrite* rem_app. }
   { fequals. do 2 rewrite* rem_app. }
   { fequals*. }
@@ -2249,7 +2249,7 @@ Lemma isubst_app_swap : forall t E1 E2,
   ctx_disjoint E1 E2 ->
   isubst (E1 ++ E2) t = isubst (E2 ++ E1) t.
 Proof using.
-  introv D. applys isubst_ctx_equiv. applys~ ctx_disjoint_equiv_app.
+  introv D. applys isubst_ctx_equiv. applys* ctx_disjoint_equiv_app.
 Qed.
 
 (** We are ready to derive the desired property of [isubst]. *)

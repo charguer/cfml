@@ -38,24 +38,25 @@ Local Coercion string_to_var (x:string) : var := x.
 (* ####################################################### *)
 (** * The chapter in a rush *)
 
-(** This chapter presents the definition of the key heap predicate
-    operators from Separation Logic.
+(** Recall that a heap predicate has type [hprop], which is defined as
+    [state->Prop]. By convention, throughout the course:
 
-    Throughout the course:
-
-    - [H] denotes a heap predicate of type [heap->Prop], which describes a
+    - [H] denotes a heap predicate of type [hprop]; it describes a
       piece of state,
-    - [Q] denotes a postcondition, of type [val->heap->Prop], which describes
-      both a result value and a piece of state.
+    - [Q] denotes a postcondition, of type [val->hprop]; it describes
+      both a result value and a piece of state (observe that [val->hprop]
+      is equivalent to [val->state->Prop]).
 
-    The operators defined in this chapter are:
+    This chapter presents the definition of the key heap predicate
+    operators from Separation Logic:
 
     - [\[]] denotes the empty heap predicate
     - [\[P]] denotes a pure fact
     - [l ~~~> v] denotes a singleton heap
     - [H1 \* H2] denotes the separating conjunction
-    - [Q1 \*+ H2] denotes the separating conjunction extending a postcondition
-    - [\exists x, H] denotes an existential
+    - [Q1 \*+ H2] denotes the separating conjunction
+                   between a postcondition and a heap predicate
+    - [\exists x, H] denotes an existential.
 
    This chapter also introduces the formal definition of triples:
 
@@ -63,8 +64,31 @@ Local Coercion string_to_var (x:string) : var := x.
      a postcondition [Q] that describe the whole memory state in which the
      execution of the term [t] takes place.
    - a Separation Logic triple, written [triple t H Q], features a pre- and
-     a postcondition that only describes a piece of the memory state sufficient
-     for the safe execution of the term [t].
+     a postcondition that describes only the piece of the memory state
+     in which the execution of the term [t] takes place.
+
+   To help distinguish between full states and pieces of state, we let the
+   type [heap] be a synonymous for [state] but with the intention of
+   representing only a piece of state. Throughout the course, we write [s]
+   for a full memory state (of type [state]), and we write [h] for a piece
+   of memory state (of type [heap]). *)
+
+(** This chapter and the following ones exploit a few additional TLC tactics
+   to enable concise proofs.
+
+   - [applys] is an enhanced version of [eapply].
+   - [applys_eq] is a variant of [applys] that enables matching the
+     arguments of the predicate that appears in the goal "up to equality"
+     rather than "up to conversion".
+   - [specializes] is an enhanced version of [specialize].
+   - [lets] and [forwards] are forward-chaining tactics that
+     enable instantiating a lemma.
+
+   What these tactics do should be fairly intuitive where they are used.
+   Note that all exercises can be carried out without using TLC tactics.
+   For details, the chapter [UseTactics.v] from the "Programming Language
+   Foundations" volume explains the behavior of these tactics.
+
 *)
 
 
@@ -86,15 +110,16 @@ Local Coercion string_to_var (x:string) : var := x.
     Check eval : state -> trm -> state -> val -> Prop.
 ]]
 
-    Remark: the corresponding definitions appear in file [SLFDirect.v], and are
-    discussed later in the chapter [SLFRules.v].
+    Remark: the corresponding definitions are described later in the chapter
+    [SLFRules.v].
 *)
 
 (** At this point, we don't need to know the exact grammar of terms and values.
     Let's just give one example to make things concrete. Consider the function:
-      [fun x => if x then 0 else 1].
+    [fun x => if x then 0 else 1].
 
-    In the language that we consider, it can be written in raw syntax as: *)
+    In the language that we consider, it can be written in raw syntax as
+    follows. *)
 
 Definition example_trm : trm :=
   trm_fun "x" (trm_if (trm_var "x") (trm_val (val_int 0)) (trm_val (val_int 1))).
@@ -124,7 +149,7 @@ Definition heap := state.
     A state is a finite map from locations to values.
     [Definition state := fmap loc val.] *)
 
-(** In particular, the [Fmap.v] library exports the following definitions:
+(** In particular, the [Fmap.v] library exports the following definitions.
 
     - [Fmap.empty] denotes the empty state,
     - [Fmap.single l v] denotes a singleton state, that is, a unique cell
@@ -153,7 +178,7 @@ Definition heap := state.
 (* ******************************************************* *)
 (** ** Heap predicates *)
 
-(** In Separation Logic (SL), the state is described using "heap predicates".
+(** In Separation Logic, the state is described using "heap predicates".
     A heap predicate is a predicate over a piece of state.
     Let [hprop] denote the type of heap predicates. *)
 
@@ -285,8 +310,8 @@ Proof using. applys predicate_extensionality. Qed.
 (** ** Type and syntax for postconditions *)
 
 (** A postcondition characterizes both an output value and an output state.
-    In SL, a postcondition is thus a relation of type [val -> state -> Prop],
-    which is equivalent to [val -> hprop].
+    In Separation Logic, a postcondition is thus a relation of type
+    [val -> state -> Prop], which is equivalent to [val -> hprop].
 
     Thereafter, we let [Q] range over postconditions. *)
 
@@ -547,7 +572,7 @@ Lemma hstar_intro : forall H1 H2 h1 h2,
   H2 h2 ->
   Fmap.disjoint h1 h2 ->
   (H1 \* H2) (h1 \u h2).
-Proof using. intros. exists~ h1 h2. Qed.
+Proof using. intros. exists* h1 h2. Qed.
 
 Lemma hexists_intro : forall A (x:A) (J:A->hprop) h,
   J x h ->
@@ -619,7 +644,7 @@ Qed.
 (** * Bonus contents (optional reading) *)
 
 (* ******************************************************* *)
-(** ** Alternative, equivalent definitions for SL triples *)
+(** ** Alternative, equivalent definitions for Separation Logic triples *)
 
 (** We have previously defined [triple] on top of [hoare],
     with the help of the separating conjunction operator, as:

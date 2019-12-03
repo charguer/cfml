@@ -29,7 +29,8 @@ Ltac xwp_xtriple_handle_gc ::= xwp_xtriple_remove_gc.
 
     In this chapter, we will present:
 
-    - "Heap predicates" to describe memory states in Separation Logic.
+    - "Heap predicates", which are used to describe memory states in
+       Separation Logic.
     - "Specification triples", of the form [TRIPLE _ PRE _ POST _].
       Such specification relate a term, a precondition, and a postcondition.
     - "Verification proof obligations", of the form [PRE _ CODE _ POST _].
@@ -42,29 +43,29 @@ Ltac xwp_xtriple_handle_gc ::= xwp_xtriple_remove_gc.
     - Practical verification proofs, using CFML "x-tactics" to demonstrate
       that a given program satisfies a given specification.
 
-    The "heap predicates" used to describe the current memory state include:
+    The "heap predicates" used to describe memory states include:
     - [p ~~> n], which describes a memory cell at location [p] with contents [n],
     - [\[]], which describes an empty state,
     - [\[P]], which asserts that a proposition [P] is true (in an empty state),
     - [H1 \* H2], which describes a state made of two disjoint parts: [H1] and [H2],
     - [\exists x, H], which is used to quantify variables in postconditions.
 
-    All these heap predicates admit the type [hprop], which essentially
-    consists of predicate over memory states, of type [state->Prop].
+    All these heap predicates admit the type [hprop], which consists of predicate
+    over memory states. In other words, [hprop] is defined as [state->Prop].
 
-    The proofs are carried out using CFML "x-tactics". These tactics include:
+    The verification proofs are carried out using CFML "x-tactics", as their
+    name begins with the letter "x". These tactics include:
     - [xwp] or [xtriple] to being a proof (in case of failure, try [xwp_debug]),
     - [xapp] to reason about an application (in case of failure, try [xapp_debug]),
-    - [xval] to reason about a returned value,
-    - [xsimpl] to simplify or prove entailments ([_ ==> _] or [_ ===> _]).
+    - [xval] to reason about a return value,
+    - [xsimpl] to simplify or prove entailments ([_ ==> _] or [_ ===> _]). *)
 
-    In addition, the proof script exploit standard Coq tactics, as well as
-    tactics from the TLC library. The relevant TLC tactics, which will be
-    described further on, are:
+(** In addition to x-tactics, the verification proof scripts exploit standard
+    Coq tactics, as well as tactics from the TLC library. The relevant TLC tactics,
+    which are described when first use, include:
     - [math], which is a variant of [omega] for proving mathematical goals,
     - [induction_wf], which sets up proofs by well-founded induction,
     - [gen], which is a shorthand for [generalize dependent].
-
 
 *)
 
@@ -1165,7 +1166,7 @@ Lemma Triple_repeat_incr_incorrect : forall (p:loc) (n m:int),
     POST (fun (_:unit) => p ~~> (n + m)).
 Proof using.
   intros. revert n. induction_wf IH: (downto 0) m. unfold downto in IH.
-  intros. xwp. xapp. xif ;=> C.
+  intros. xwp. xapp. xif; intros C.
   { (* then branch: [m > 0] *)
     xapp. xapp. xapp. { math. } xsimpl. math. }
   { (* else branch: [m <= 0] *)

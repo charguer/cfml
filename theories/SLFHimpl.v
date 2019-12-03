@@ -33,7 +33,7 @@ Implicit Types Q : val->hprop.
     This entailement relation defines an order relation on heap predicates.
 
     By extension, we define an entailement relation on postconditions,
-    written [Q1 ===> Q2], asserting that for any result value [v],
+    written [Q1 ===> Q2], asserting that, for any result value [v],
     the entailement [Q1 v ==> Q2 v] holds.
 
     For example, the two kind of entailments appear in the statement of
@@ -215,9 +215,10 @@ Parameter himpl_frame_l : forall H2 H1 H1',
 (** These properties are shared by essentially all variants of Separation
     Logic, and many generic results can be derived from these facts alone. *)
 
-(** Remark: in technical vocabulary, the star operator together with the empty heap
-    predicate form a "commutative monoid structure", for which moreover the star
-    operator is "regular" with respect to entailment and existentials. *)
+(** Remark: in technical vocabulary, the star operator together with the
+    empty heap predicate form a "commutative monoid structure", for which
+    moreover the star operator is "regular" with respect to entailment
+    and existentials. *)
 
 
 (* ******************************************************* *)
@@ -389,9 +390,6 @@ Lemma xsimpl_demo_lhs_hpure : forall H1 H2 H3 H4 (n:int),
   H1 \* H2 \* \[n > 0] \* H3 ==> H4.
 Proof using.
   intros. xsimpl. intros Hn.
-  (* variant syntax:
-     intros. xsimpl ;=> HP
-  *)
 Abort.
 
 (** In case the LHS includes a contradiction, the goal is discharged. *)
@@ -735,7 +733,7 @@ Lemma case_study_11' : forall p,
       \exists n, p ~~~> n \* \[n > 0]
   ==> \exists n, \[n > 1] \* p ~~~> (n-1).
 Proof using.
-  intros. xpull ;=> n Hn. xsimpl (n+1).
+  intros. xpull. intros n Hn. xsimpl (n+1).
   math. math_rewrite (n+1-1 = n). xsimpl.
 Qed.
 
@@ -746,7 +744,7 @@ Proof using. xsimpl. Qed.
 
 Lemma case_study_13' : forall p n,
   p ~~~> n \* \[n > 0] \* \[n < 0] ==> p ~~~> n \* p ~~~> n.
-Proof using. intros. xsimpl ;=> Hn1 Hn2. false. math. Qed.
+Proof using. intros. xsimpl. intros Hn1 Hn2. false. math. Qed.
 
 (* /SOLUTION *)
 
@@ -805,8 +803,8 @@ Lemma hstar_hexists' : forall A (J:A->hprop) H,
   (hexists J) \* H = hexists (fun x => (J x) \* H).
 Proof using.
   intros. applys himpl_antisym.
-  { intros h (h1&h2&M1&M2&D&U). destruct M1 as (x&M1). exists~ x h1 h2. }
-  { intros h (x&M). destruct M as (h1&h2&M1&M2&D&U). exists h1 h2. splits~. exists~ x. }
+  { intros h (h1&h2&M1&M2&D&U). destruct M1 as (x&M1). exists* x h1 h2. }
+  { intros h (x&M). destruct M as (h1&h2&M1&M2&D&U). exists h1 h2. splits~. exists* x. }
 Qed.
 
 (** To prove commutativity of star, we need to exploit the fact that

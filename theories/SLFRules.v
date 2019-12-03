@@ -1303,8 +1303,8 @@ Lemma eval_get_sep : forall s s2 l v,
 Proof using.
   introv ->. forwards Dv: Fmap.indom_single l v.
   applys_eq eval_get 1.
-  { applys~ Fmap.indom_union_l. }
-  { rewrite~ Fmap.read_union_l. rewrite~ Fmap.read_single. }
+  { applys* Fmap.indom_union_l. }
+  { rewrite* Fmap.read_union_l. rewrite* Fmap.read_single. }
 Qed.
 
 (** Remark: the acute reader may have noticed that the lemma above
@@ -1407,8 +1407,8 @@ Lemma eval_ref_sep : forall s1 s2 v l,
 Proof using.
   (** It is not needed to follow through this proof. *)
   introv -> D. forwards Dv: Fmap.indom_single l v.
-  rewrite <- Fmap.update_eq_union_single. applys~ eval_ref.
-  { intros N. applys~ Fmap.disjoint_inv_not_indom_both D N. }
+  rewrite <- Fmap.update_eq_union_single. applys* eval_ref.
+  { intros N. applys* Fmap.disjoint_inv_not_indom_both D N. }
 Qed.
 
 (** In order to apply the rules [eval_ref] or [eval_ref_sep], we need
@@ -1443,7 +1443,7 @@ Proof using.
   intros. intros s1 K0.
   (* 2. We claim the disjointness relation
        [Fmap.disjoint (Fmap.single l v) s1]. *)
-  forwards~ (l&D): (single_fresh s1 v).
+  forwards* (l&D): (single_fresh s1 v).
   (* 3. We provide the witnesses for the reduction,
         as dictated by [eval_ref_sep]. *)
   exists ((Fmap.single l v) \u s1) (val_loc l). split.
@@ -1691,9 +1691,9 @@ Proof using.
   (** It is not needed to follow through this proof. *)
   introv -> -> D. forwards Dv: Fmap.indom_single l v1.
   applys_eq eval_set 2.
-  { applys~ Fmap.indom_union_l. }
-  { rewrite~ Fmap.update_union_l. fequals.
-    rewrite~ Fmap.update_single. }
+  { applys* Fmap.indom_union_l. }
+  { rewrite* Fmap.update_union_l. fequals.
+    rewrite* Fmap.update_single. }
 Qed.
 
 (** The proof of the Hoare rule for [set] makes use of the following
@@ -1935,7 +1935,7 @@ Proof using.
   lets (h1&h2&K1&K2&D&U): hstar_inv K. subst h.
   lets N: M h1 (=h2). applys K1.
   applys hoare_conseq N.
-  { intros ? ->. applys~ hstar_intro. }
+  { intros ? ->. applys* hstar_intro. }
   { intros x. applys himpl_frame_r.
     intros ? ->. applys K2. }
 (* /SOLUTION *)

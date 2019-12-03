@@ -118,7 +118,7 @@ Lemma wp_frame : forall t H Q,
 
 Proof using.
   intros. rewrite <- wp_equiv.
-  applys triple_frame. rewrite~ wp_equiv.
+  applys triple_frame. rewrite* wp_equiv.
 Qed.
 
 (** The connection with the frame is not be totally obvious.
@@ -153,7 +153,7 @@ Lemma wp_conseq : forall t Q1 Q2,
   Q1 ===> Q2 ->
   wp t Q1 ==> wp t Q2.
 Proof using.
-  introv M. rewrite <- wp_equiv. applys~ triple_conseq (wp t Q1) M. applys wp_pre.
+  introv M. rewrite <- wp_equiv. applys* triple_conseq (wp t Q1) M. applys wp_pre.
 Qed.
 
 (** The connection with the rule of consequence is, again, not so obvious.
@@ -288,8 +288,8 @@ Lemma wp_seq : forall t1 t2 Q,
   wp t1 (fun v => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
 Proof using.
   intros. rewrite <- wp_equiv. applys triple_seq.
-  { rewrite~ wp_equiv. }
-  { rewrite~ wp_equiv. }
+  { rewrite* wp_equiv. }
+  { rewrite* wp_equiv. }
 Qed.
 
 (* EX2? (triple_seq_from_wp_seq) *)
@@ -364,8 +364,8 @@ Lemma wp_if : forall b t1 t2 Q,
   wp (if b then t1 else t2) Q ==> wp (trm_if b t1 t2) Q.
 Proof using.
   intros. rewrite <- wp_equiv. applys triple_if.
-  { intros ->. rewrite~ wp_equiv. }
-  { intros ->. rewrite~ wp_equiv. }
+  { intros ->. rewrite* wp_equiv. }
+  { intros ->. rewrite* wp_equiv. }
 Qed.
 
 
@@ -386,8 +386,8 @@ Lemma wp_let : forall x t1 t2 Q,
   wp t1 (fun v => wp (subst x v t2) Q) ==> wp (trm_let x t1 t2) Q.
 Proof using.
   intros. rewrite <- wp_equiv. applys triple_let.
-  { rewrite~ wp_equiv. }
-  { intros v. rewrite~ wp_equiv. }
+  { rewrite* wp_equiv. }
+  { intros v. rewrite* wp_equiv. }
 Qed.
 
 
@@ -408,7 +408,7 @@ Lemma wp_app_fun : forall x v1 v2 t1 Q,
   wp (subst x v2 t1) Q ==> wp (trm_app v1 v2) Q.
 Proof using.
   introv EQ1. rewrite <- wp_equiv. applys* triple_app_fun.
-  rewrite~ wp_equiv.
+  rewrite* wp_equiv.
 Qed.
 
 (** A similar rule holds for the application of a recursive function. *)
@@ -628,7 +628,7 @@ Proof using.
   { (* Proof using [wp_conseq_frame_trans] *)
     introv M. applys* wp_conseq_frame_trans M. }
   { (* Proof using [wp_frame] and [wp_conseq_trans] *)
-    introv M. applys~ wp_conseq_trans M. applys* wp_frame. }
+    introv M. applys* wp_conseq_trans M. applys* wp_frame. }
   { (* Proof using [triple_conseq_frame] *)
     introv M. rewrite <- wp_equiv.
     applys triple_conseq_frame (wp t Q1) M.
@@ -662,8 +662,8 @@ Proof using.
     intros. applys himpl_trans wp_if. case_if~. }
   { (* Proof from [triple_if] *)
      intros. rewrite <- wp_equiv. applys triple_if.
-     { intros ->. rewrite~ wp_equiv. }
-     { intros ->. rewrite~ wp_equiv. } }
+     { intros ->. rewrite* wp_equiv. }
+     { intros ->. rewrite* wp_equiv. } }
   (* /SOLUTION *)
 Qed.
 
@@ -735,10 +735,10 @@ Lemma wp_equiv : forall t H Q,
   (triple t H Q) <-> (H ==> wp t Q).
 Proof using.
   unfold wp. iff M.
-  { xsimpl~ H. }
-  { applys~ triple_conseq Q M.
+  { xsimpl* H. }
+  { applys* triple_conseq Q M.
     applys triple_hexists. intros H'.
-    rewrite hstar_comm. applys~ triple_hpure. }
+    rewrite hstar_comm. applys* triple_hpure. }
 Qed.
 
 (** Second, we prove the consequence-frame rule associated with [wp].
@@ -753,7 +753,7 @@ Lemma wp_conseq_frame : forall t H Q1 Q2,
     baked in the definition of [triple]. *)
 
 Proof using.
-  introv M. unfold wp. xpull ;=> H' N. xsimpl (H' \* H).
+  introv M. unfold wp. xpull. intros H' N. xsimpl (H' \* H).
   unfolds triple. intros H''. specializes N (H \* H'').
   applys hoare_conseq N. { xsimpl. } { xchange M. }
 Qed.
