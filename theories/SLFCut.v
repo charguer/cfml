@@ -1788,3 +1788,41 @@ Abort.
 
      Recall also
     that [xchanges] is a shorthand for [xchange] followed with [xsimpl].
+
+
+
+    =========================
+
+
+
+
+Lemma Triple_is_empty : forall (q:loc) (L:list int),
+  TRIPLE (is_empty q)
+    PRE (q ~> Stack L)
+    POST (fun (b:bool) => \[b = isTrue (L = nil)] \* q ~> Stack L).
+
+(** A naive attempt at the proof leaves a final proof obligation
+    [p = null <-> L = nil] with absolutely no hypothesis to prove it. *)
+
+Proof using.
+  xwp. xchange Stack_eq. intros p. xapp. xapp. xchange <- Stack_eq. xsimpl.
+Abort.
+
+
+
+(* INSTRUCTORS *)
+
+(** Remark: the proof script of [Triple_mlength_acc_rec] revisited with
+    some automation. *)
+Lemma Triple_mlength_acc_ind' : forall (a:loc) (n:int) (p:loc) (L:list int),
+  TRIPLE (mlength_acc_rec a p)
+    PRE (a ~~> n \* p ~> MList L)
+    POST (fun (r:unit) => a ~~> (n + length L) \* p ~> MList L).
+Proof using.
+  intros. gen n p. induction_wf IH: list_sub L.
+  xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
+  { intros x q L' ->. xapp. xapp. xapp*. xchange <- MList_cons. xsimpl*. }
+  { intros ->. xval. xchange* <- (MList_nil p). xsimpl*. }
+Qed.
+
+(* /INSTRUCTORS *)

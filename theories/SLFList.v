@@ -69,6 +69,9 @@ Ltac xnew_post ::= xnew_post_exploded.
       [(x::L1)++L2] into [x::(L1++L2)], or [length (x::L)] into [1 + length L],
       and likewise for operations [map] and [filter] on Coq lists.
 
+    Remark: the list operations [++], [map] and [filter] are not those from Coq
+    but instead those from TLC's [LibList] library.
+
 *)
 
 
@@ -521,8 +524,8 @@ Hint Extern 1 (Register_Spec mlength) => Provide Triple_mlength.
 (** *** Exercise: increment through a mutable list *)
 
 (** The function [mlist_incr] expects a linked list of integers
-    and updates the list in place by augmenting every item
-    in the list by one unit.
+    and updates the list in place by augmenting every item in the
+    list by one unit.
 
 [[
     let rec mlist_incr p =
@@ -540,8 +543,8 @@ Definition mlist_incr : val :=
       'f ('p'.tail)
     ) End.
 
-(** The precondition of [mlist_incr] requires a linked list [p ~> MList L].
-    The postcondition asserts that the updated list takes the form [p ~> MList L2],
+(** The precondition of [mlist_incr p] requires a linked list [p ~> MList L].
+    Its postcondition asserts that the updated list takes the form [p ~> MList L2],
     where [L2 = LibList.map (fun x => x+1) L], that is, the result of mapping
     the successor function onto every item from [L].  *)
 
@@ -552,9 +555,9 @@ Lemma Triple_mlist_incr : forall (p:loc) (L:list int),
 
 (* EX2! (Triple_mlist_incr) *)
 (** Prove [Triple_mlist_incr], following the pattern of [Triple_mlength].
-    Hint: it need, you can use the tactic [rew_listx] to rewrite using
-    [LibList.map_nil] and [LibList.map_cons], e.g., for normalizing
-    [LibList.map f (x::l)] into [f x :: LibList.map f l]. *)
+    Hint: it need, you can use the tactic [rew_listx] for normalizing
+    [LibList.map f (x::l)] into [f x :: LibList.map f l].
+    (Alternatively, use lemmas [LibList.map_nil] and [LibList.map_cons].) *)
 
 Proof using.
   (* SOLUTION *)
@@ -580,14 +583,14 @@ Qed.
       { head = x; tail = q }
 ]]
 
-    In the embedded language, the [New] construct denotes record allocation.
-*)
+    In our ad-hoc program syntax, the [New] construct denotes record
+    allocation. *)
 
 Definition mcell : val :=
   VFun 'x 'q :=
     New`{ head := 'x ; tail := 'q }.
 
-(** The precondition of [mcell x q] is empty. The postcondition
+(** The precondition of [mcell x q] is empty. Its postcondition
     asserts that the return value is a location [p] such that
     two fields are allocated: [p`.head ~~> x] and [p`.tail ~~> q]. *)
 
@@ -603,23 +606,24 @@ Qed.
 Hint Extern 1 (Register_Spec mcell) => Provide Triple_mcell.
 
 (** The function [mcons] is an alias for [mcell].
+
     Whereas [mcell] is intended to allocate a fresh cell on its own,
-    [mcons] is intended to extend an existing list by appending
-    to it a fresh cell. *)
+    [mcons] is intended to extend an existing list by appending to it
+    a fresh cell. *)
 
 Definition mcons : val := mcell.
 
 (** The specification of [mcons] thus requires a list [q ~> MList L]
-    in the precondition, and produces a list [p ~> MList (x::L)] in
-    the postcondition. *)
+    in its precondition, and produces a list [p ~> MList (x::L)] in
+    its postcondition. *)
 
 Lemma Triple_mcons : forall (x:int) (q:loc) (L:list int),
   TRIPLE (mcons x q)
     PRE (q ~> MList L)
     POST (fun (p:loc) => p ~> MList (x::L)).
 Proof using.
-  intros. unfold mcons. xapp. (* invoke [Triple_mcell] *)
-  intros p. xchange <- MList_cons. (* fold back the list *)
+  intros. unfold mcons. xtriple. xapp Triple_mcell.
+  intros p. xchange <- MList_cons. (* Fold back the list *)
 Qed.
 
 Hint Extern 1 (Register_Spec mcons) => Provide Triple_mcons.
@@ -641,7 +645,7 @@ Definition mnil : val :=
   VFun 'u :=
     null.
 
-(** The precondition of [mnil] is empty. The postcondition of [mnil]
+(** The precondition of [mnil] is empty. Its postcondition of [mnil]
     asserts that the return value [p] is a pointer such that
     [p ~> MList nil]. Note that, although the postcondition implies
     that [p = null], there is no explicit mention of [null] in the
@@ -658,11 +662,9 @@ Qed.
 
 Hint Extern 1 (Register_Spec mnil) => Provide Triple_mnil.
 
-
 (** Remark: the call to [xchange <- (MList_nil null)] can here
     be replaced by [rewrite MList_nil] or, even better, by a call
-    to [xchange] on a specific lemma capturing the entailement
-    [\[] ==> (null ~> MList nil)], as demonstrated next. *)
+    to [xchange MList_nil_intro], as illustrated below. *)
 
 Lemma MList_nil_intro :
   \[] ==> (null ~> MList nil).
@@ -725,10 +727,6 @@ Proof using.
 Qed.
 
 Hint Extern 1 (Register_Spec mcopy) => Provide Triple_mcopy.
-
-(** This concludes our quick tour of functions on mutable lists.
-    Additional functions are presented further in the file:
-    [append], and [filter_nonneg]. *)
 
 
 (* ******************************************************* *)
@@ -825,35 +823,41 @@ Qed.
 Hint Extern 1 (Register_Spec mfree_list) => Provide Triple_mfree_list.
 
 
+(** This concludes our quick tour of functions on mutable lists.
+    Additional functions are presented further in the file,
+    as exercises. *)
+
+
 (* ******************************************************* *)
 (** *** Representation of a mutable stack *)
 
 (** We now move on to using linked lists for implementing stacks.
-    Thereafter, a stack is represented as a reference on a linked
-    list.
+    Thereafter, a stack is represented as a reference on a mutable
+    linked list.
 
     We first introduce the heap predicate [q ~> Stack L] to describe
-    stacks. For example, the empty stack is represented as a reference
-    whose contents is null, that is, [q ~~> null], while a nonempty
-    stack is represented as a reference whose contents is a pointer
-    on a proper linked list, that is, [(q ~~> p) \* (p ~> MList L)]
-    for some pointer [p].
+    stacks. The empty stack is represented as a reference whose contents
+    is null, that is, [q ~~> null]. A nonempty stack is represented
+    as a reference whose contents is a pointer on a proper linked list,
+    that is, [(q ~~> p) \* (p ~> MList L)], for some pointer [p].
 
-    The definition of [q ~> Stack L], that is [Stack L q], is thus
-    as follows. *)
+    The definition of [q ~> Stack L], equivalent to [Stack L q], is
+    thus as follows. *)
 
 Definition Stack (L:list int) (q:loc) : hprop :=
   \exists p, (q ~~> p) \* (p ~> MList L).
 
-(** The following lemma reformulates the definition of [Stack]
-    as an equality. The tactic [xchange Stack_eq] is handy to
-    unfold the definition of [Stack], while the tactic
-    [xchange <- Stack_eq] performs the reciprocal operation of
-    folding back the definition. Again, the tactic [xunfold]
-    is used to prove the reformulation lemma. *)
+(** The following lemma reformulates the definition of [q ~> Stack L]
+    as an equality. Invoking the tactic [xchange Stack_eq] is handy to
+    unfold the definition of [Stack]. Reciprocally, invoking the tactic
+    [xchange <- Stack_eq] performs the reciprocal operation of folding
+    back the definition. *)
 
 Lemma Stack_eq : forall (q:loc) (L:list int),
   (q ~> Stack L) = (\exists p, (q ~~> p) \* (p ~> MList L)).
+
+(** Again, the tactic [xunfold] is used to prove the reformulation lemma. *)
+
 Proof using. xunfold Stack. auto. Qed.
 
 
@@ -873,7 +877,7 @@ Definition create : val :=
 
 (** The precondition of [create] is empty. Its postcondition asserts
     that the result value is a pointer [q] such that [q ~> Stack nil],
-    i.e. a pointer onto the representation of an empty stack. *)
+    that is, a pointer onto the representation of an empty stack. *)
 
 Lemma Triple_create :
   TRIPLE (create '())
@@ -883,7 +887,7 @@ Proof using.
   xwp.
   (* [mnil()] creates an empty linked list: [p ~> MList nil]. *)
   xapp. intros p.
-  (* [ref p] allocates a reference with contents [q]: i.e, [q ~~> p]. *)
+  (* [ref p] allocates a reference with contents [q], that is, [q ~~> p]. *)
   xapp. intros q.
   (* Folding the definition of [Stack] gives [p ~> Stack nil]. *)
   xchange <- Stack_eq.
@@ -897,6 +901,7 @@ Hint Extern 1 (Register_Spec create) => Provide Triple_create.
 
 (** The operation [push q x] modifies the stack [q] in place by
     inserting the element [x] at the top of the stack.
+
 [[
     let push q x =
       q := mcons x !q
@@ -907,8 +912,8 @@ Definition push : val :=
   VFun 'q 'x :=
     'q ':= mcons 'x ('!'q).
 
-(** The precondition of [push] requires a stack [q ~> Stack L].
-    The postcondition describes the updated stack as [q ~> Stack (x::L)]. *)
+(** The precondition of [push q x] requires a stack [q ~> Stack L].
+    Its postcondition describes the updated stack as [q ~> Stack (x::L)]. *)
 
 Lemma Triple_push : forall (q:loc) (x:int) (L:list int),
   TRIPLE (push q x)
@@ -928,7 +933,8 @@ Proof using.
   xapp. intros p'.
   (* The operation [q := p'] updates the reference implementing the queue. *)
   xapp.
-  (* The new state [q ~~> p' \* p' ~> MList (x::L')] can be folded into a [Stack]. *)
+  (* The new state [q ~~> p' \* p' ~> MList (x::L')] can be folded into
+     a [q ~> Stack (x::L')]. *)
   xchange <- Stack_eq.
 Qed.
 
@@ -938,8 +944,9 @@ Hint Extern 1 (Register_Spec push) => Provide Triple_push.
 (* ******************************************************* *)
 (** *** Operation [is_empty] *)
 
-(** The operation [is_empty p] returns a boolean value indicating
-    whether the stack is empty.
+(** The operation [is_empty q] returns a boolean value indicating
+    whether the stack at address [q] is empty.
+
 [[
     let is_empty q =
       !q == null
@@ -950,10 +957,15 @@ Definition is_empty : val :=
   VFun 'q :=
     '!'q '= null.
 
+(** The precondition of [is_empty q] requires a stack [q ~> Stack L].
+    Its postcondition asserts that the stack is returned unmodified,
+    and that the result is a boolean value [b] such that [b = true]
+    if and only if [L = nil]. *)
+
 Lemma Triple_is_empty : forall (q:loc) (L:list int),
   TRIPLE (is_empty q)
     PRE (q ~> Stack L)
-    POST (fun (b:bool) => \[b = isTrue (L = nil)] \* q ~> Stack L).
+    POST (fun (b:bool) => \[b = true <-> L = nil] \* q ~> Stack L).
 
 (** A naive attempt at the proof leaves a final proof obligation
     [p = null <-> L = nil] with absolutely no hypothesis to prove it. *)
@@ -979,7 +991,7 @@ Qed.
 Lemma Triple_is_empty : forall (q:loc) (L:list int),
   TRIPLE (is_empty q)
     PRE (q ~> Stack L)
-    POST (fun (b:bool) => \[b = isTrue (L = nil)] \* q ~> Stack L).
+    POST (fun (b:bool) => \[b = true <-> L = nil] \* q ~> Stack L).
 
 (** A naive attempt at the proof leaves a final proof obligation
     [p = null <-> L = nil] with absolutely no hypothesis to prove it. *)
@@ -995,18 +1007,24 @@ Proof using.
   auto.
 Qed.
 
+Hint Extern 1 (Register_Spec is_empty) => Provide Triple_is_empty.
+
 
 (* ******************************************************* *)
 (** *** Operation [pop] *)
 
 (** The operation [pop p] applies to a nonempty stack.
     It returns the element at the top of the stack,
-    and removes it from the stack.
+    and removes it from the stack. The implementation takes
+    care of deallocating the top list cell which is no longer
+    needed.
+
 [[
     let pop q =
       let p = !q in
       let x = mhead p in
       q := mtail p;
+      mfree_cell p;
       x
 ]]
 *)
@@ -1024,16 +1042,18 @@ Definition pop : val :=
     with [L <> nil]. In practice, the second presentation turns
     out to be almost always preferable. Indeed, a typical
     programming idiom is:
+
 [[
    while not (Stack.is_empty q) do
       let x = Stack.pop q in
       ...
    done
 ]]
-    where the operation [is_empty] is testing whether [L = nil]
+
+    where the operation [is_empty q] is testing whether [L = nil]
     or [L <> nil]. Thus, at the entrance of the loop body, the
-    information available is [L <> nil], which is thus a natural
-    precondition for [Stack.pop].
+    information available is [L <> nil]. The latter is therefore
+    a natural precondition for [Stack.pop].
 
     For this reason, we formulate the specification of [pop]
     as follows. *)
@@ -1054,8 +1074,7 @@ Hint Extern 1 (Register_Spec pop) => Provide Triple_pop.
 
 (** This concludes our investigation of the representation in
     Separation Logic of a mutable stack. Additional functions
-    are presented further in this file: [clear], [concat],
-    and [push_back]. *)
+    are presented further in this file, as exercises. *)
 
 
 (* ####################################################### *)
@@ -1138,8 +1157,7 @@ Definition mcopy_nonneg : val :=
     using [LibList.filter (<> 0) L] to describe the resulting list.
 
     The tactic [rew_listx] simplifies expressions involving [filter].
-    It invokes the lemmas [LibList.filter_nil] and [LibList.filter_cons]
-    for simplifying [filter f nil] and [filter f (x::L)]. *)
+    Alternatively, use [LibList.filter_nil] and [LibList.filter_cons]. *)
 
 (* SOLUTION *)
 Lemma Triple_mcopy_nonneg : forall (p:loc) (L:list int),
@@ -1165,7 +1183,7 @@ Qed.
 (** The operation [mlength_acc p] computes the length of a list [p]
     by traversing the cells of the list and incrementing a reference
     by one unit at each step. If the reference cell is initialized
-    with zero, then at the end of the traversal, it contains the
+    with zero, then, at the end of the traversal, it contains the
     length of the list.
 
 [[
@@ -1227,23 +1245,6 @@ Hint Extern 1 (Register_Spec mlength_acc_rec) => Provide Triple_mlength_acc_rec.
   Hint Extern 1 (Register_Spec mlength_acc_rec) => Provide Triple_mlength_acc_rec.
 ]]
 *)
-
-(* INSTRUCTORS *)
-
-(** Remark: the proof script of [Triple_mlength_acc_rec] revisited with
-    some automation. *)
-Lemma Triple_mlength_acc_ind' : forall (a:loc) (n:int) (p:loc) (L:list int),
-  TRIPLE (mlength_acc_rec a p)
-    PRE (a ~~> n \* p ~> MList L)
-    POST (fun (r:unit) => a ~~> (n + length L) \* p ~> MList L).
-Proof using.
-  intros. gen n p. induction_wf IH: list_sub L.
-  xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
-  { intros x q L' ->. xapp. xapp. xapp*. xchange <- MList_cons. xsimpl*. }
-  { intros ->. xval. xchange* <- (MList_nil p). xsimpl*. }
-Qed.
-
-(* /INSTRUCTORS *)
 
 (* EX2? (Triple_mlength_acc) *)
 (** Prove that [mlength_acc] satisfies the same specification as [mlength]. *)
@@ -1311,7 +1312,7 @@ Definition clear : val :=
     mfree_list ('!'q) ';
     'q ':= mnil '().
 
-(* EX2! (Triple_clear) *)
+(* EX1! (Triple_clear) *)
 (** Specify and verify the function [clear]. *)
 
 (* SOLUTION *)
@@ -1337,7 +1338,7 @@ Qed.
     independent mutable lists. The operation returns a pointer [p]
     on a list that stores all the items from [p1] followed by all
     the items from [p2]. The operation does not allocate any list
-    cell; Instead, it reuses the cells from the two input lists.
+    cell. Instead, it reuses the cells from the two input lists.
 
     The function [mappend] treats specially the case where [p1]
     is null, by directly returning [p2]. Otherwise, if [p1] is not
@@ -1349,7 +1350,7 @@ Qed.
     points to a list that stores the result of the concatenation
     of the two input lists.
 
-    The implementation is as follows.
+    The two functions are implemented as follows.
 
 [[
     let mappend_aux p1 p2 =
@@ -1381,8 +1382,8 @@ Definition mappend : val :=
 (** [Verify the implementation of [mappend_aux].
     Hint: use [xchange (MList_if p1)] to exploit [MList_if] for
     the first list.
-    Hint: use [rew_listx] (or [rewrite app_cons_l]) to normalize
-    the list expression [(x::L1')++L2]. *)
+    Hint: use [rew_listx] to normalize the list expression [(x::L1')++L2]. 
+    (Alternatively, use [rewrite app_cons_l].)*)
 
 Lemma Triple_mappend_aux : forall (p1 p2:loc) (L1 L2:list int),
   p1 <> null ->
@@ -1426,7 +1427,7 @@ Hint Extern 1 (Register_Spec mappend) => Provide Triple_mappend.
 (** *** Exercise: concatenation on stacks *)
 
 (** The operation [concat q1 q2] expects two imperative stacks,
-    and migrate the contents of the second into the first first
+    and migrates the contents of the second into the first first
     stacks. The elements from the first stack are placed near the
     top of the stack, while the elements from the second stack are
     placed near the bottom.
@@ -1563,17 +1564,19 @@ Definition mrev : val :=
   VFun 'p :=
     mrev_append null 'p.
 
-
 (* EX3! (Triple_ref_greater_abstract) *)
 (** Specify and verify [mrev_append].
+
     Hint: use [gen p1 p2 L1. induction_wf IH: list_sub L2.]
     to set up an induction on the structure of [L2] while
     generalizing [p1], [p2] and [L1], whose value evolves
     throughout the recursive calls.
+
     Hint: use [xchange (MList_if p2)] to exploit the lemma
     [MList_if] for the second list.
-    Hint: use [rew_listx] (or [rewrite rev_cons,app_last_l]) to
-    normalize the expression [rev (x::L2')++L1]. *)
+
+    Hint: use [rew_listx] to normalize the expression [rev (x::L2')++L1]. 
+    (Alternatively, use [rewrite rev_cons,app_last_l].) *)
 
 (* SOLUTION *)
 Lemma Triple_mrev_append : forall (p1 p2:loc) (L1 L2:list int),
@@ -1599,7 +1602,7 @@ Hint Extern 1 (Register_Spec mrev_append) => Provide Triple_mrev_append.
 ]]
 *)
 
-(* EX2! (Triple_mrev) *)
+(* EX1! (Triple_mrev) *)
 (** Verify [mrev]. *)
 
 Lemma Triple_mrev : forall (p:loc) (L:list int),

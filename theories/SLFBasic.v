@@ -931,9 +931,16 @@ Proof using.
   intros Hn. xwp.
   (* We reason about the evaluation of the boolean condition [n <= 1]. *)
   xapp.
-  (* We perform a case analysis. *)
+  (* The result of the evaluation of [n <= 1] in the source program
+     is described by the boolean value [isTrue (n <= 1)], which appears
+     in the [CODE] section after [Ifval]. The operation [isTrue] is
+     provided by the TLC library as a conversion function from [Prop]
+     to [bool]. The use of such a conversion function (which leverages
+     classical logic) greatly simplifies the process of automatically
+     performing substitutions after calls to [xapp]. *)
+  (* We next perform the case analysis on the test [n <= 1]. *)
   xif.
-  (* This gives two branches. *)
+  (* Doing so gives two cases. *)
   { (* In the "then" branch, we can assume [n <= 1]. *)
     intros C.
     (* Here, the return value is [1]. *)
