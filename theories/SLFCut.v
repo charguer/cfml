@@ -1719,3 +1719,49 @@ Proof using. xwp. xappn. xsimpl*. Qed.
 (** The use of such advanced tactics is beyond the scope of this course.
 
     - [fun (r:unit)] can also be written [fun (_:unit)],
+
+
+
+    ============
+
+
+(** Recall the "rule of consequence" property [mkstruct_conseq]: *)
+
+Parameter mkstruct_conseq : forall F Q1 Q2,
+  Q1 ===> Q2 ->
+  mkstruct F Q1 ==> mkstruct F Q2.
+
+(** By the idempotence property [mkstruct_idempotence],
+    [mkstruct F] should be equal to [mkstruct (mkstruct F)].
+    Let's exploit this equality for the second occurence of [mkstruct F]. *)
+
+Parameter mkstruct_conseq_idempotence : forall F Q1 Q2,
+  Q1 ===> Q2 ->
+  mkstruct F Q1 ==> mkstruct (mkstruct F) Q2.
+
+(** Now, let's replace [mkstruct F] with [F']. Doing so results in the
+    statment shown below, which gives a sufficient condition for the
+    statement [mkstruct_conseq_idempotence] to hold. *)
+
+Parameter mkstruct_conseq_idempotence_generalized : forall F' Q1 Q2,
+  Q1 ===> Q2 ->
+  F' Q1 ==> mkstruct F' Q2.
+
+(** We can reformulate the above statement as an introduction rule
+    by merging the hypothesis into the left-hand side of the entailment
+    from the conclusion. We thereby obtain an introduction lemma. *)
+
+Parameter mkstruct_introduction : forall F' Q2,
+  \exists Q1, \[Q1 ===> Q2] \* (F' Q1) ==> mkstruct F' Q2.
+
+(** For this entailment to hold, it is sufficient to define [mkstruct F' Q2]
+    (the right-hand side) as [\exists Q1, \[Q1 ===> Q2] \* (mkstruct F' Q1)]
+    (the left-hand side). *)
+
+Definition mkstruct1 (F:formula) : formula :=
+  fun (Q2:val->hprop) => \exists Q1, F Q1 \* \[Q1 ===> Q2].
+
+Lemma mkstruct1_conseq : forall F Q1 Q2,
+  Q1 ===> Q2 ->
+  mkstruct1 F Q1 ==> mkstruct1 F Q2.
+Proof using. introv M. unfolds mkstruct1. xsimpl. intros Q' N. xchange* N. Qed.

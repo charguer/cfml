@@ -44,9 +44,9 @@ Implicit Types Q : val->hprop.
 
     This chapter presents:
 
-    - the notion of weakest precondition, as captured by [wp]
-    - the reformulation of structural rules in [wp]-style
-    - the reformulation of reasoning rules in [wp]-style
+    - the notion of weakest precondition, as captured by [wp],
+    - the reformulation of structural rules in [wp]-style,
+    - the reformulation of reasoning rules in [wp]-style,
     - (optional) different possible definitions for [wp],
       and alternative ways to derive [wp]-style reasoning rules.
 
