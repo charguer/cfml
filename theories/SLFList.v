@@ -30,40 +30,44 @@ Ltac xnew_post ::= xnew_post_exploded.
       nested with exercises as additional contents *)
 
 (** The previous chapter has introduced the notation for specification
-    triples, the entailements relation, and the grammar for heap predicates,
-    with: [p ~~> n] and [\[]] and [\[P]] and [H1 \* H2] and [\exists x, H].
+    triples, the entailement relations, and the grammar for heap predicates,
+    and CFML's x-tactics for conducting proofs.
 
-    The proofs are carried out using CFML "x-tactics", including:
-    [xwp] and [xapp] and [xval] and [xsimpl], and with help of TLC tactics
-    [math] for mathematical goals, and [induction_wf] and [gen] for inductions.
+    Recall the heap predicates: [p ~~> n] and [\[]] and [\[P]] and [H1 \* H2]
+    and [\exists x, H].
 
-    The present chapter focuses on the specification and verification
-    in Separation Logic of linked lists. Specifically, we consider a
-    representation of lists where each cell consists of a two-cell record,
-    storing a head value and a tail pointer, the empty list being represented
-    by the null value.
+    Recall the x-tactics: [xwp], [xtriple], [xapp], [xval], and [xsimpl].
 
-    To avoid unnecessary complications with polymorphism, we restrict ourselves
-    throughout the chapter to mutable lists that store integer values.
+    Recall the TLC tactics used: [math] for mathematical goals,
+    and [induction_wf] and [gen] for inductions. *)
 
-    This chapter presents:
+(** The present chapter focuses on the specification and verification
+    in Separation Logic of mutable linked lists. Specifically, we consider
+    a representation of linked lists where each cell consists of a two-cell
+    record, storing a head value and a tail pointer. The empty list is
+    represented by the null pointer.
 
-    - a simple technique for representing mutable records such as list cells.
-    - the definition of the "representation predicate" [p ~> MList L] which
-      describes a (null-terminated) mutable list, whose elements are those
-      from the Coq list [L].
-    - examples of specifications and proofs for programs manipulating mutable lists,
-    - how to use specify and verify an implementation of imperative stacks
-      implemented as a reference on a linked list, using a representation predicate
-      of the form [q ~> Stack L]
-    - how Separation Logic supports reasoning about deallocation.
+    To avoid unnecessary complications with polymorphism, we restrict
+    ourselves in this chapter to mutable lists storing integer values.
+
+    The present chapter describes:
+
+    - how to represent mutable records, such as list cells, in Separation Logic;
+    - the definition of the "representation predicate" [p ~> MList L], which
+      describes a null-terminated linked list whose first cell has address [p],
+      and whose integers elements are described by the Coq list [L];
+    - examples of specifications and proofs for programs manipulating mutable lists;
+    - how to specify and verify an implementation of imperative stacks implemented
+      as a reference on a linked list, using a representation predicate of the form
+      [q ~> Stack L].
 
     This chapter exploits a few additional tactics:
-    - [xunfold], a CFML tactic for unfolding the definition of [MList],
-    - [xchange], a CFML tactic to transform the precondition by exploiting
+    - [xunfold] is a CFML tactic for unfolding the definition of [MList],
+    - [xchange] is a CFML tactic to transform the precondition by exploiting
       entailments or equalities,
-    - [rew_listx], a TLC tactic to normalize list expressions, e.g.,
-      [(x::L1)++L2] or [length (x::L)] or [map f (x::L)] or [filter f (x::L)].
+    - [rew_listx] is a TLC tactic to normalize list expressions, such as
+      [(x::L1)++L2] into [x::(L1++L2)], or [length (x::L)] into [1 + length L],
+      and likewise for operations [map] and [filter] on Coq lists.
 
 *)
 
@@ -71,26 +75,24 @@ Ltac xnew_post ::= xnew_post_exploded.
 (* ******************************************************* *)
 (** *** Representation of a list cell as a two-field record *)
 
-(** In the previous chapter, we have only manipulated OCaml-style
-    references, which correspond to a mutable record with a single
-    field, storing the contents of the reference.
+(** In the previous chapter, we have manipulated OCaml-style references,
+    which correspond to a mutable record with a single field, storing
+    the contents of the reference.
 
     A two-field record can be described in Separation Logic as the
     separating conjunction of two cells at consecutive addresses.
-
-    A list cell allocated at address [p], featuring a head value [x]
+    Thus, a list cell allocated at address [p], featuring a head value [x]
     and a tail pointer [q], can be represented as:
     [(p+0) ~~> x \* (p+1) ~~> q].
 
     Throughout this file, to improve clarity, we write:
 
-    - [p`.head] as short for [p+0], where we intend to describe the
-      address of the head field;
-    - [p`.tail] as short for [p+1], where we intend to describe the
-      address of the tail field.
+    - [p`.head] as short for [p+0], to denote the address of the head field;
+    - [p`.tail] as short for [p+1], to denote the address of the tail field.
 
-    Using these notation, the list cell considered can be represented as:
-    [p`.head ~~> x  \*  p`.tail ~~> q], which looks more symmetric.
+    Using these notation, the same list cell can be represented as
+    [p`.head ~~> x  \*  p`.tail ~~> q].
+
 *)
 
 Definition head : field := 0%nat.
@@ -100,17 +102,25 @@ Definition tail : field := 1%nat.
 (* ******************************************************* *)
 (** *** Representation of a mutable list *)
 
-(** Our goal is to define a custom heap predicate, written
-    [MList L p] or, more conveniently [p ~> MList L], to
-    describe a mutable linked lists, that is, a set of list cells with
-    each one pointing to the next until reaching a null tail pointer.
+(** Our goal is to define a heap predicate, written [MList L p] or,
+    equivalently, [p ~> MList L], to describe a mutable linked lists,
+    that is, a set of list cells with each one pointing to the next
+    until reaching a null tail pointer.
 
-    The simple arrow [p ~> R] is just a generic notation for [R p]
-    that increases readability and helps [xsimpl] spotting items
-    that should be identified when simplifying entailments. *)
+    The simple arrow notation, written [p ~> R], is a generic piece
+    of notation for the application [R p]. This arrow notation increases
+    readability in heap predicates, and it is helpful for [xsimpl] to
+    cancel out items when simplifying entailment relations. *)
 
 (** If [p ~> MList L] could be defined as an inductive predicate,
-    its definition would consists of the following two rules:
+    its definition would consists of the two rules shown below:
+
+    - The first rule asserts that the [null] pointer represents the
+      empty list, that is, the list [L] when [L = nil].
+    - The second rule asserts that a non-null pointer [p] represents
+      a list [L] of the form [x::L'], if the head field of [p] contains
+      the value [x] and the tail field of [p] contains some pointer [q],
+      where [q] is the head of a linked list that represents the list [L'].
 
 [[
 
@@ -123,20 +133,15 @@ Definition tail : field := 1%nat.
 
 ]]
 
-    - The [null] pointer represents the empty list, that is, [L = nil].
-    - A non-null pointer [p] represents a list [L] of the form [n::L'],
-      if the head field of [p] contains [n] and the tail field of [p]
-      contains some pointer [q] that is the head of a linked list
-      that represents the list [L'].
-
     For reasons that we won't detail here, the definition of the predicate
     [p ~> MList L] cannot take the form of an inductive predicate in Coq.
-    Fortunately, it can very well be defined as a recursive function.
+    Instead, it needs to be defined as a recursive function.
 
-    A tentative definition would thus be the following, which defines
+    A tentative definition would thus be the one below: it defines
     [MList L p], that is [p ~> MList L], by case analysis on the
-    condition [p = null] (using a classical-logic test [If P then X else Y]
-    where [P] is a proposition of type [Prop]).
+    condition [p = null]. It exploits TLC's classical-logic test
+    written [If P then X else Y], where [P] is a proposition of type [Prop],
+    to perform the case distinction.
 
 [[
     Fixpoint MList (L:list int) (p:loc) : hprop :=
@@ -146,18 +151,18 @@ Definition tail : field := 1%nat.
              \* (p`.head ~~> x) \* (p`.tail ~~> q) \* (MList L' q).
 ]]
 
-    Yet, this definition is rejected by Coq, which does not recorgnize the
-    structural recursion, even though the recursive call is made to a list [L']
-    which is a strict sublist of the argument [L]. *)
+    Yet, this definition is rejected by Coq, because Coq does not recorgnize the
+    structural recursion, even though the recursive call is made with a list [L']
+    being a strict sublist of the argument [L]. *)
 
-(** To circumvent the problem, we present the definition of [MList] using a
+(** The problem can be circumvented by setting up the definition of [MList] as a
     pattern matching on the structure of the list [L]. The logic is as follows:
 
-    - if [L] is [nil], then [p] should be [null]
-    - if [L] decomposes as [n::L'], then the head field of [p] should store
-      the value [n], the tail field of [p] should store some pointer [q]
-      (which is existentially quantified), and [q ~> MList L'] should
-      describe the remaining of the list structure.
+    - if [L] is [nil], then [p] should be [null];
+    - if [L] decomposes as [x::L'], then the head field of [p] should store
+      the value [x], the tail field of [p] should store a pointer [q],
+      and and [q ~> MList L'] should describe the remaining of the list
+      structure. The variable [q] should be existentially quantified.
 *)
 
 Fixpoint MList (L:list int) (p:loc) : hprop :=
@@ -166,14 +171,17 @@ Fixpoint MList (L:list int) (p:loc) : hprop :=
   | x::L' => \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L')
   end.
 
-(** Above, observe the existential quantification of the tail pointer [q]. *)
-
 
 (* ******************************************************* *)
 (** *** Basic properties of the mutable list predicate *)
 
-(** To begin with, we prove two lemmas that will be helpful for manipulating
-    the definition. *)
+(** To begin with, we reformulate the definition of [MList] by stating
+    two lemmas characterizing [p ~> MList L]. These lemmas will be very
+    helpful for folding or unfolding the definition of [MList].
+
+    These lemmas are proved with help of the [xunfold] tactic, which
+    is a variant of [unfold] that provides appropriate support for
+    unfolding the arrow notation ([~>]). *)
 
 Lemma MList_nil : forall p,
   (p ~> MList nil) = \[p = null].
@@ -189,43 +197,50 @@ Proof using. xunfold MList. auto. Qed.
 
 Global Opaque MList.
 
-(** At this stage, we can prove that the definition of [MList] that performs
-    a pattern matching on [L] is equivalent to a characterization of [MList]
-    based on testing test condition [p = null]. *)
+(** At this stage, we can prove that the definition of [MList] that
+    performs a pattern matching on [L] corresponds to the definition
+    of [MList] that we originally intended to write, the one that
+    distinguishes two cases according to the condition [p = null].
+
+    Remark: we prove only one direction of the equivalence; the
+    reciprocal entailement also holds, but it is not needed. *)
 
 Lemma MList_if : forall (p:loc) (L:list int),
   p ~> MList L ==>
-  If p = null
-    then \[L = nil]
-    else \exists x q L', \[L = x::L']
-         \* (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L').
+    If p = null
+      then \[L = nil]
+      else \exists x q L', \[L = x::L']
+           \* (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L').
 Proof using.
-  (* Let's prove this by case analysis on [L]. *)
+  (* Let's prove this result by case analysis on [L]. *)
   intros. destruct L as [|x L'].
-  { (* case [L = nil]. By definition of [MList], we have [p = null]. *)
+  { (* Case [L = nil]. By definition of [MList], we have [p = null]. *)
     xchange MList_nil. intros M.
-    (* we have to justify [L = nil], which is trivial. *)
+    (* We have to justify [L = nil], which is trivial. *)
     case_if. xsimpl. auto. }
-  { (* case [L = x::L']. *)
+  { (* Case [L = x::L']. *)
     xchange MList_cons. intros q. case_if.
-    { (* case [p = null]. Contradiction because nothing can be allocated at
+    { (* Case [p = null]. Contradiction because nothing can be allocated at
          the null location, as captured by lemma [Hfield_not_null]. *)
       subst. xchange Hfield_not_null. }
-    { (* case [p <> null]. The 'else' branch corresponds to the definition
-         of [MList] in the [cons] case, it suffices to instantiate the existentials. *)
+    { (* Case [p <> null]. The 'else' branch corresponds to the definition
+         of [MList] in the [cons] case. It suffices to correctly instantiate
+         the existential quantifiers. *)
       xsimpl. auto. } }
 Qed.
 
 (** The lemma [MList_if] stated above will prove to be very handy for
-    reasoning about list-manipulating programs, whose code generally
-    begins by testing whether the list pointers are null. *)
+    reasoning about list-manipulating programs. Indeed, list-manipulating
+    functions generally begin by testing whether their argument is null.
+
+    We are now ready to verify such list-manipulating functions. *)
 
 
 (* ******************************************************* *)
 (** *** Function [mhead] *)
 
 (** Consider first the function [mhead p], which expects a pointer [p]
-    on a nonempty mutable list and returns the value of the head element.
+    on a nonempty mutable list, and returns the value of its head element.
 
 [[
     let rec mhead p =
@@ -294,8 +309,10 @@ Proof using.
   (* By case analysis on [L], we eliminiate the case [L = nil]. *)
   destruct L as [|x L']. { contradiction. }
   (* Then, the proof script is the same as in the previous lemma.
-     Rather than copy-pasting it, we can invoke [Triple_mhead]. *)
-  xapp. xsimpl. eauto.
+     Rather than copy-pasting it, we can invoke [Triple_mhead].
+     Recall from the previous chapter that the [xtriple] tactic
+     enables to derive a specification from an existing one. *)
+  xtriple. xapp Triple_mhead. xsimpl. eauto.
 Qed.
 
 
@@ -803,11 +820,12 @@ Definition Stack (L:list int) (q:loc) : hprop :=
     as an equality. The tactic [xchange Stack_eq] is handy to
     unfold the definition of [Stack], while the tactic
     [xchange <- Stack_eq] performs the reciprocal operation of
-    folding back the definition. *)
+    folding back the definition. Again, the tactic [xunfold]
+    is used to prove the reformulation lemma. *)
 
 Lemma Stack_eq : forall (q:loc) (L:list int),
   (q ~> Stack L) = (\exists p, (q ~~> p) \* (p ~> MList L)).
-Proof using. xunfold* Stack. Qed.
+Proof using. xunfold Stack. auto. Qed.
 
 
 (* ******************************************************* *)
