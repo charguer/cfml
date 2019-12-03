@@ -1232,7 +1232,7 @@ Proof using.
   intros. apply fun_ext_1. intros Q. applys himpl_antisym.
   (* SOLUTION *)
   { unfold mkstruct. xpull; intros Q1 H1 Q2 H2 M1 M2.
-    xsimpl Q2 (H1 \* H2). xchanges* M1. }
+    xsimpl Q2 (H1 \* H2). xchange M1. applys M2. }
   { applys mkstruct_erase. }
 (* /SOLUTION *)
 Qed.

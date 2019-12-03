@@ -178,7 +178,7 @@ Lemma wp_conseq_trans : forall t H1 H2 Q1 Q2,
     transitivity of entailement. *)
 
 Proof using.
-  introv M WH WQ. xchanges WH. xchanges M. applys wp_conseq WQ.
+  introv M WH WQ. xchange WH. xchange M. applys wp_conseq WQ.
 Qed.
 
 
@@ -604,7 +604,7 @@ Lemma wp_conseq_frame_trans : forall t H H1 H2 Q1 Q,
   H ==> wp t Q.
 Proof using.
   (* SOLUTION *)
-  introv M WH WQ. xchanges WH. xchange M.
+  introv M WH WQ. xchange WH. xchange M.
   applys wp_conseq_trans WQ. applys himpl_refl.
   applys wp_frame.
   (* /SOLUTION *)

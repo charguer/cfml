@@ -320,8 +320,8 @@ Qed.
 (** *** Function [mtail] *)
 
 (** Second, consider the function [mtail], which returns the pointer on the
-    tail of a mutable list. As we are going to see, it is quite interesting
-    from a Separation Logic perspective.
+    tail of a mutable list. As we are going to see, specifying this function
+    is quite interesting from a Separation Logic perspective.
 
 [[
     let rec mtail p =
@@ -340,7 +340,7 @@ Definition mtail : val :=
     two heap predicates describe overlapping pieces of memory.
 
     The following lemma is thus incorrect. If we play the same script
-    as for [Triple_mhead], we end up stuck. *)
+    as for [Triple_mhead], we indeed end up stuck. *)
 
 Lemma Triple_mtail_incorrect : forall (p:loc) (x:int) (L:list int),
   TRIPLE (mtail p)
@@ -348,10 +348,10 @@ Lemma Triple_mtail_incorrect : forall (p:loc) (x:int) (L:list int),
     POST (fun (q:loc) => (p ~> MList (x::L)) \* (q ~> MList L)).
 Proof using.
   xwp. xchange MList_cons. intros q. xapp.
-  (* With [xchange <- MList_cons. xsimpl.]
-     we can satisfy [p ~> MList (x::L)] but not [q ~> MList L]. *)
-  (* With [xsimpl.]
-     we can satisfy [q ~> MList L] but not [p ~> MList (x::L)]. *)
+  (* With the script [xchange <- MList_cons. xsimpl.]
+     we satisfy [p ~> MList (x::L)] but not [q ~> MList L]. *)
+  (* With the script [xsimpl.]
+     we satisfy [q ~> MList L] but not [p ~> MList (x::L)]. *)
 Abort.
 
 (** As suggested by the execution of the above proof script, a valid
@@ -381,7 +381,7 @@ Lemma Triple_mtail_notnil : forall (p:loc) (L:list int),
              \* (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L')).
 Proof using.
   introv HL. destruct L as [|x L']. { contradiction. }
-  xapp. xsimpl. eauto. (* invoking the specification [Triple_mtail]. *)
+  xtriple. xapp Triple_mtail. xsimpl. eauto.
 Qed.
 
 (** In fact, the minimal specification of [mtail] is one that only
@@ -396,12 +396,28 @@ Proof using.
   xwp. xapp. xsimpl. eauto.
 Qed.
 
+(** Is there a "better" specifications among [Triple_mtail],
+    [Triple_mtail_notnil] and [Triple_mtail_minimal]?
+
+    [Triple_mtail_minimal] is only useful for reasoning about
+    invokations of [mtail] on lists whose representation predicate
+    is already unfolded. When, however, the list is represented
+    by a predicate of the form [p ~> MList _], the other two
+    specifications are more appropriate.
+
+    The specification [Triple_mtail] only applies to states that
+    are described in the form [p ~> MList (x::L')]. In contrast,
+    [Triple_mtail_notnil] applies more generally, to any predicate
+    [p ~> MList L], even if [L] is not syntactically of the form
+    [x::L'], as long as [L] can be somehow proved to be nonempty. *)
+
 
 (* ******************************************************* *)
 (** *** Length of a mutable list *)
 
 (** The function [mlength] computes the length of a linked list
-    by recursively traversing through its cells.
+    by recursively traversing through its cells, and counting
+    one unit for each cell.
 
 [[
     let rec mlength p =
@@ -419,7 +435,7 @@ Definition mlength : val :=
 
 (** The precondition of [mlength p] requires the description of the
     linked list that it traverses, that is, [p ~> MList L].
-    The postcondition asserts that the result is equal to [length L],
+    Its postcondition asserts that the result is equal to [length L],
     and that the list predicate [p ~> MList L] is returned unmodified. *)
 
 Lemma Triple_mlength : forall (p:loc) (L:list int),
@@ -428,7 +444,7 @@ Lemma Triple_mlength : forall (p:loc) (L:list int),
     POST (fun (r:int) => \[r = length L] \* p ~> MList L).
 
 (** The proof goes by induction on the length of the list [L].
-    Each time the code traverses a cell, this cell is isolated
+    Each time the function traverses a cell, this cell is isolated
     from the tail of the list. The recursive call is applied to
     the tail, then the original list is restored. *)
 
@@ -443,36 +459,49 @@ Proof using.
   intros. gen p. induction_wf IH: list_sub L. intros.
   (* Once the induction is set up, we are ready to verify the code. *)
   xwp. xapp.
-  (* The critical step is to reformulate [MList] using lemma [MList_if]
+  (* The critical step is to reformulate [MList] using the lemma [MList_if],
      so as to make the case analysis on the condition [p = null] visible. *)
   xchange MList_if.
   (* The [xif] tactics performs the case analysis on the condition [p = null]
      that occurs in the code, while the [case_if] tactic performs the case analysis
      on the (similar) condition [p = null] that occurs in the precondition
      (the condition that was just introduced by [MList_if]. *)
-  xif; intros C; case_if; xpull.
+  xif.
   { (* Case [p = null]. *)
-    intros ->. xval. xchange <- (MList_nil p). { auto. }
-    (* Justify that [length nil = 0] *)
+    intros C.
+    (* We simplify the precondition exploiting [p = null]. *)
+    case_if. xpull. intros ->.
+    (* We reason about the result value, and fold back [p ~> List nil]. *)
+    xval. xchange <- (MList_nil p). { auto. }
+    (* We justify that [length nil = 0]. *)
     xsimpl. rew_listx. math. }
   { (* Case [p <> null]. *)
-     intros x q L' ->. xapp.
-     (* Recursive call, exploit [IH] applied to the sublist [q ~> MList L'].
-        Observe that, during this call, the head cell described by
-        [p`.tail ~~> q \* p`.head ~~> x] remain unchanged---the two fields
-        fields are said to be "framed", in the Separation Logic jargon. *)
-     xapp.
-     (* Justify that [L'] is a sublist of [x::L']. *)
-     { auto. }
-     (* Add one unit to the result of the recursive call. *)
-     xapp.
-     (* Fold back the list into [p ~> MList(x::L')] *)
-     xchange <- MList_cons.
-     (* Justify that [length (x::L') = 1 + length L'] *)
-     xsimpl. rew_listx. math. }
+    intros C.
+    (* We simplify the precondition exploiting [p <> null]. *)
+    case_if. xpull. intros x q L' ->.
+    (* We reason about the read in the tail field. *)
+    xapp.
+    (* For the recursive call, we exploit [IH] applied to the sublist
+       [q ~> MList L']. Observe that, during this call, the head cell described
+       by [p`.tail ~~> q \* p`.head ~~> x] remain unchanged---the two fields
+       fields are said to be "framed", in the Separation Logic jargon. *)
+    xapp.
+    (* We justify that [L'] is a sublist of [x::L']. *)
+    { auto. }
+    (* We reason about the [+ 1] operation. *)
+    xapp.
+    (* We fold back the list into [p ~> MList(x::L')] *)
+    xchange <- MList_cons.
+    (* We justify that [length (x::L') = 1 + length L'] *)
+    xsimpl. rew_listx. math. }
 Qed.
 
-(** Same proof, more concisely. *)
+(** Let us rewrite the same proof, more concisely. This proof script
+    will serve us as template for all the list-manipulating functions
+    verified throughout the rest of this file.
+
+    Recall that the [*] symbol placed after a tactic indicates a call
+    to automation (combination of [eauto] and [math]). *)
 
 Lemma Triple_mlength_concise : forall (p:loc) (L:list int),
   TRIPLE (mlength p)
@@ -481,8 +510,8 @@ Lemma Triple_mlength_concise : forall (p:loc) (L:list int),
 Proof using.
   intros. gen p. induction_wf IH: list_sub L. intros.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
-  { intros ->. xval. xchanges* <- MList_nil. }
-  { intros x q L' ->. xapp. xapp*. xapp. xchanges* <- MList_cons. }
+  { intros ->. xval. xchange* <- (MList_nil p). xsimpl*. }
+  { intros x q L' ->. xapp. xapp*. xapp. xchange <- MList_cons. xsimpl*. }
 Qed.
 
 Hint Extern 1 (Register_Spec mlength) => Provide Triple_mlength.
@@ -690,9 +719,9 @@ Lemma Triple_mcopy : forall (p:loc) (L:list int),
 Proof using.
   intros. gen p. induction_wf IH: list_sub L.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
-  { intros ->. xapp. xsimpl. xchanges* <- MList_nil. }
+  { intros ->. xapp. xsimpl. xchange* <- (MList_nil p). }
   { intros x q L' ->. xapp. xapp. xapp*. intros q'.
-    xapp. intros p'. xchanges <- MList_cons. }
+    xapp. intros p'. xchange <- MList_cons. }
 Qed.
 
 Hint Extern 1 (Register_Spec mcopy) => Provide Triple_mcopy.
@@ -903,8 +932,6 @@ Proof using.
   xchange <- Stack_eq.
 Qed.
 
-(* Note: shorter version for the last line: [xchanges <- Stack_eq]. *)
-
 Hint Extern 1 (Register_Spec push) => Provide Triple_push.
 
 
@@ -943,8 +970,8 @@ Lemma MList_null_iff_nil : forall (p:loc) (L:list int),
   p ~> MList L ==> p ~> MList L \* \[p = null <-> L = nil].
 Proof using.
   intros. xchange MList_if. case_if.
-  { xpull. intros HL. xchanges* <- (MList_nil p). }
-  { xpull. intros x q L' HL'. xchanges* <- MList_cons. }
+  { xpull. intros HL. xchange* <- (MList_nil p). xsimpl*. }
+  { xpull. intros x q L' HL'. xchange <- MList_cons. xsimpl*. }
 Qed.
 
 (** Equipped with this lemma, let's revisit the verification proof of [is_empty]. *)
@@ -1072,9 +1099,9 @@ Lemma Triple_mappend_copy : forall (p1 p2:loc) (L1 L2:list int),
 Proof using.
   intros. gen p1. induction_wf IH: list_sub L1.
   xwp. xapp. xchange (MList_if p1). xif; intros C; case_if; xpull.
-  { intros ->. xapp. xsimpl. xchanges* <- MList_nil. }
+  { intros ->. xapp. xsimpl. xchange* <- (MList_nil p1). }
   { intros x q L' ->. xapp. xapp. { auto. } intros q'.
-    xapp. xapp. intros p'. xchanges <- MList_cons. }
+    xapp. xapp. intros p'. xchange <- MList_cons. xsimpl. }
 Qed.
 (* /SOLUTION *)
 
@@ -1122,7 +1149,7 @@ Lemma Triple_mcopy_nonneg : forall (p:loc) (L:list int),
 Proof using.
   intros. gen p. induction_wf IH: list_sub L. intros.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
-  { intros ->. xapp. xsimpl. xchanges* <- MList_nil. }
+  { intros ->. xapp. xsimpl. xchange* <- (MList_nil p). }
   { intros x q L' ->. xapp. xapp. xapp. { auto. } intros q'.
     xchange <- MList_cons. xapp.
     rew_listx. xif; intros Cx; case_if as Cx'.
@@ -1212,8 +1239,8 @@ Lemma Triple_mlength_acc_ind' : forall (a:loc) (n:int) (p:loc) (L:list int),
 Proof using.
   intros. gen n p. induction_wf IH: list_sub L.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
-  { intros x q L' ->. xapp. xapp. xapp*. xchanges* <- MList_cons. }
-  { intros ->. xval. xchanges* <- (MList_nil p). }
+  { intros x q L' ->. xapp. xapp. xapp*. xchange <- MList_cons. xsimpl*. }
+  { intros ->. xval. xchange* <- (MList_nil p). xsimpl*. }
 Qed.
 
 (* /INSTRUCTORS *)

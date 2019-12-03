@@ -601,18 +601,6 @@ Proof using.
   (* Note that freshly produced items appear to the front *)
 Abort.
 
-(** The tactic [xchanges M] is a shorthand for [xchange M; xsimpl]. *)
-
-Lemma xchanges_demo_base : forall p H1 H2 H3,
-  H1 \* H3 ==> p ~~~> 3 ->
-  H1 \* H2 \* H3 ==> H2 \* \exists (n:int), p ~~~> n.
-Proof using.
-  introv M. dup.
-  (* details: *)
-  { xchange M. xsimpl. }
-  (* shorthand: *)
-  { xchanges M. }
-Abort.
 
 
 (* ******************************************************* *)

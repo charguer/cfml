@@ -1765,3 +1765,26 @@ Lemma mkstruct1_conseq : forall F Q1 Q2,
   Q1 ===> Q2 ->
   mkstruct1 F Q1 ==> mkstruct1 F Q2.
 Proof using. introv M. unfolds mkstruct1. xsimpl. intros Q' N. xchange* N. Qed.
+
+
+=================================================
+
+(** The tactic [xchanges M] is a shorthand for [xchange M; xsimpl]. *)
+
+Lemma xchanges_demo_base : forall p H1 H2 H3,
+  H1 \* H3 ==> p ~~~> 3 ->
+  H1 \* H2 \* H3 ==> H2 \* \exists (n:int), p ~~~> n.
+Proof using.
+  introv M. dup.
+  (* details: *)
+  { xchange M. xsimpl. }
+  (* shorthand: *)
+  { xchanges M. }
+Abort.
+
+
+
+    - [xchanges] is a shorthand for [xchange] followed with [xsimpl],
+
+     Recall also
+    that [xchanges] is a shorthand for [xchange] followed with [xsimpl].
