@@ -1069,7 +1069,8 @@ Abort.
     the output of [wpgen] is human readable and resembles the
     input source code. *)
 
-(* LATER: add an example that shows the lack of support for structural rules. *)
+(* LATER: add an example that shows how bad are things when we
+   lack integreated support for structural rules. *)
 
 End WPgenWithNotation.
 
@@ -1659,7 +1660,6 @@ Tactic Notation "xconseq" constr(Q) :=
   applys xconseq_lemma Q.
 
 (* LATER: add an example use case for xconseq *)
-
 
 (** The tactic [xframe] enables applying the frame rule on a formula
     produced by [wpgen]. The syntax [xframe H] is used to specify

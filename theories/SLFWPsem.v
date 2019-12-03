@@ -248,9 +248,9 @@ Proof using.
   intros. rewrite <- wp_equiv. applys* triple_val.
 Qed.
 
-(** Let us verify that while migrating to the [wp] presentation we have
-    not lost any expressivity, by showing that from [wp_val] we are able
-    to recover [triple_val]. *)
+(** We can verify that, while migrating to the [wp] presentation, we have
+    not lost any expressivity. To that end, we prove that [triple_val] is
+    derivable from [wp_val]. *)
 
 Lemma triple_val_derived_from_wp_val : forall v H Q,
   H ==> Q v ->
@@ -473,8 +473,6 @@ Proof using.
     { applys qimpl_refl. } }
 (* /SOLUTION *)
 Qed.
-
-(* TODO: problem, we give the same proof further in the file. *)
 
 End WpHighLevel.
 
