@@ -66,7 +66,7 @@ Definition Wpsubst (E:ctx) (t:trm) : Formula :=
 (** The [MkStruct] predicate lifts [mkstruct]. *)
 
 Definition MkStruct (F:Formula) : Formula :=
-  fun A `{EA:Enc A} Q => mkstruct (@F A EA) Q.
+  fun A (EA:Enc A) (Q:A->hprop) => mkstruct (@F A EA) Q.
 
 Lemma mkstruct_MkStruct_eq : forall A `{EA:Enc A} (F:Formula),
   mkstruct (@MkStruct F A EA) = (@MkStruct F A EA).

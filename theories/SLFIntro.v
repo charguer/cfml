@@ -47,7 +47,7 @@ License: MIT.
                   and the techniques for obtaining concise verification proofs.
 
 
-    Bonus chapters (NOT YET READY):
+    Bonus chapters (---NOT YET READY---):
 
     - [SLFWand]: introduction of the magic wand operator, and of the
                  ramified frame rule.
@@ -59,7 +59,7 @@ License: MIT.
                   bind a Coq value rather than a value from the deeply embedded
                   language.
 
-    - [SLFRich]:  describes how to handle more advanced language constructs,
+    - [SLFRich]:  describes how to define more advanced language constructs,
                   such as arrays, records, and structures with sharing.
 
 

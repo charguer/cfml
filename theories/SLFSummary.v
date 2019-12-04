@@ -967,7 +967,7 @@ Definition wptag (F:formula) : formula := F.
 
 Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (wptag F) Q)
   (at level 8, H, F, Q at level 0,
-   format "'[v' 'PRE'  H  '/' 'CODE'  F '/' 'POST'  Q ']'") : wp_scope.
+   format "'[v' 'PRE'  H  '/' 'CODE'  F '/' 'POST'  Q ']'").
 
 End Wpgen.
 
@@ -1100,7 +1100,7 @@ Notation "^ F Q" := ((F:Formula) _ _ Q)
 (** The [MkStruct] predicate lifts [mkstruct]. *)
 
 Definition MkStruct (F:Formula) : Formula :=
-  fun A `{EA:Enc A} Q => \exists Q', ^F Q' \* (Q' \--* Q).
+  fun A `{EA:Enc A} (Q:A->hprop) => \exists Q', ^F Q' \* (Q' \--* Q).
 
 (** Lifted characteristic formula generator *)
 
