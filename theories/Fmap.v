@@ -245,6 +245,8 @@ Import NotationForFmapDisjoint.
 Section FmapProp.
 Variables (A B : Type).
 Implicit Types f g h : fmap A B.
+Implicit Types x : A.
+Implicit Types v : B.
 
 (* ---------------------------------------------------------------------- *)
 (* ** Equality *)
@@ -550,17 +552,9 @@ Lemma agree_union_l_inv : forall f1 f2 f3,
      agree f1 f3
   /\ agree f2 f3.
 Proof using.
-  (* --LATER: proofs redundant with others above *)
-  introv M2 M1. split.
-  { intros l v1 v2 E1 E2.
-    specializes M1 l v1 v2 E1. applys~ M2 l v1 v2.
-    unfold union, map_union; simpl. rewrite~ E1. }
-  { intros l v1 v2 E1 E2.
-    specializes M1 l. specializes M2 l.
-    unfolds union, map_union; simpls.
-    cases (fmap_data f1 l). (* --LATER: name b *)
-    { applys eq_trans b. symmetry. applys~ M1. applys~ M2. }
-    { auto. } }
+  introv M1 M2. split.
+  { applys* agree_union_ll_inv. }
+  { applys* agree_union_lr_inv_agree_agree. }
 Qed.
 
 Lemma agree_union_r_inv : forall f1 f2 f3,
@@ -577,61 +571,57 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Domain *)
 
-(* --LATER: consistent renaming *)
-Implicit Types s : fmap A B.
-Implicit Types l : A.
-Implicit Types v : B.
 
-Lemma indom_single : forall l v,
-  indom (single l v) l.
+Lemma indom_single : forall x v,
+  indom (single x v) x.
 Proof using.
   intros. hnf. simpl. case_if. auto_false.
 Qed.
 
-Lemma indom_union_l : forall s1 s2 l,
-  indom s1 l ->
-  indom (union s1 s2) l.
+Lemma indom_union_l : forall h1 h2 x,
+  indom h1 x ->
+  indom (union h1 h2) x.
 Proof using.
   intros. hnf. unfold union, map_union. simpl.
-  case_eq (fmap_data s1 l); auto_false.
+  case_eq (fmap_data h1 x); auto_false.
 Qed.
 
-Lemma indom_union_r : forall s1 s2 l,
-  indom s2 l ->
-  indom (union s1 s2) l.
+Lemma indom_union_r : forall h1 h2 x,
+  indom h2 x ->
+  indom (union h1 h2) x.
 Proof using.
   intros. hnf. unfold union, map_union. simpl.
-  case_eq (fmap_data s1 l); auto_false.
+  case_eq (fmap_data h1 x); auto_false.
 Qed.
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** Disjoint and domain *)
 
-Lemma disjoint_eq_not_indom_both : forall s1 s2,
-  disjoint s1 s2 = (forall l, indom s1 l -> indom s2 l -> False).
+Lemma disjoint_eq_not_indom_both : forall h1 h2,
+  disjoint h1 h2 = (forall x, indom h1 x -> indom h2 x -> False).
 Proof using.
   extens. iff D E.
-  { introv M1 M2. destruct (D l); false*. }
-  { intros l. specializes E l. unfolds indom, map_indom.
+  { introv M1 M2. destruct (D x); false*. }
+  { intros x. specializes E x. unfolds indom, map_indom.
     applys not_not_inv. intros N. rew_logic in N. false*. }
 Qed.
 
-Lemma disjoint_of_not_indom_both : forall s1 s2,
-  (forall l, indom s1 l -> indom s2 l -> False) ->
-  disjoint s1 s2.
+Lemma disjoint_of_not_indom_both : forall h1 h2,
+  (forall x, indom h1 x -> indom h2 x -> False) ->
+  disjoint h1 h2.
 Proof using. introv M. rewrite~ disjoint_eq_not_indom_both. Qed.
 
-Lemma disjoint_inv_not_indom_both : forall s1 s2 l,
-  disjoint s1 s2 ->
-  indom s1 l ->
-  indom s2 l ->
+Lemma disjoint_inv_not_indom_both : forall h1 h2 x,
+  disjoint h1 h2 ->
+  indom h1 x ->
+  indom h2 x ->
   False.
 Proof using. introv. rewrite* disjoint_eq_not_indom_both. Qed.
 
-Lemma disjoint_single_of_not_indom : forall h l v,
-  ~ indom h l ->
-  disjoint (single l v) h.
+Lemma disjoint_single_of_not_indom : forall h x v,
+  ~ indom h x ->
+  disjoint (single x v) h.
 Proof using.
   introv N. unfolds disjoint, map_disjoint. unfolds single, indom, map_indom.
   simpl. rew_logic in N. intros l'. case_if; subst; autos*.
@@ -644,26 +634,26 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Read *)
 
-Lemma read_single : forall {IB:Inhab B} l v,
-  read (single l v) l = v.
+Lemma read_single : forall {IB:Inhab B} x v,
+  read (single x v) x = v.
 Proof using.
   intros. unfold read, single. simpl. case_if~.
 Qed.
 
-Lemma read_union_l : forall {IB:Inhab B} s1 s2 l,
-  indom s1 l ->
-  read (union s1 s2) l = read s1 l.
+Lemma read_union_l : forall {IB:Inhab B} h1 h2 x,
+  indom h1 x ->
+  read (union h1 h2) x = read h1 x.
 Proof using.
   intros. unfold read, union, map_union. simpl.
-  case_eq (fmap_data s1 l); auto_false.
+  case_eq (fmap_data h1 x); auto_false.
 Qed.
 
-Lemma read_union_r : forall {IB:Inhab B} s1 s2 l,
-  ~ indom s1 l ->
-  read (union s1 s2) l = read s2 l.
+Lemma read_union_r : forall {IB:Inhab B} h1 h2 x,
+  ~ indom h1 x ->
+  read (union h1 h2) x = read h2 x.
 Proof using.
   intros. unfold read, union, map_union. simpl.
-  case_eq (fmap_data s1 l).
+  case_eq (fmap_data h1 x).
   { intros v Hv. false H. auto_false. }
   { auto_false. }
 Qed.
@@ -672,36 +662,36 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Update *)
 
-Lemma update_eq_union_single : forall s l v,
-  update s l v = union (single l v) s.
+Lemma update_eq_union_single : forall h x v,
+  update h x v = union (single x v) h.
 Proof using. auto. Qed.
 
-Lemma update_single : forall s l v w,
-  update (single l v) l w = single l w.
+Lemma update_single : forall h x v w,
+  update (single x v) x w = single x w.
 Proof using.
   intros. rewrite update_eq_union_single.
-  applys make_eq. intros x.
+  applys make_eq. intros y.
   unfold map_union, single. simpl. case_if~.
 Qed.
 
-Lemma update_union_l : forall s1 s2 l v,
-  indom s1 l ->
-  update (union s1 s2) l v = union (update s1 l v) s2.
+Lemma update_union_l : forall h1 h2 x v,
+  indom h1 x ->
+  update (union h1 h2) x v = union (update h1 x v) h2.
 Proof using.
   intros. do 2 rewrite update_eq_union_single.
-  applys make_eq. intros x.
+  applys make_eq. intros y.
   unfold map_union, union, map_union. simpl. case_if~.
 Qed.
 
-Lemma update_union_r : forall s1 s2 l v,
-  ~ indom s1 l ->
-  update (union s1 s2) l v = union s1 (update s2 l v).
+Lemma update_union_r : forall h1 h2 x v,
+  ~ indom h1 x ->
+  update (union h1 h2) x v = union h1 (update h2 x v).
 Proof using.
   introv M. asserts IB: (Inhab B). { applys Inhab_of_val v. }
   do 2 rewrite update_eq_union_single.
-  applys make_eq. intros x.
+  applys make_eq. intros y.
   unfold map_union, union, map_union. simpl. case_if~.
-  { subst. case_eq (fmap_data s1 x); auto_false.
+  { subst. case_eq (fmap_data h1 y); auto_false.
     { intros w Hw. false M. auto_false. } }
 Qed.
 
@@ -709,14 +699,13 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Removal *)
 
-Lemma remove_union_single_l : forall s l v,
-  ~ indom s l ->
-  remove (union (single l v) s) l = s.
+Lemma remove_union_single_l : forall h x v,
+  ~ indom h x ->
+  remove (union (single x v) h) x = h.
 Proof using.
-  introv M. applys fmap_extens. intros x.
-  unfold remove, map_remove, union, map_union, single. simpls.
-  case_if. (* --LATER: simplify? *)
-  { destruct s as [f F]. unfolds indom, map_indom. simpls. subst. rew_logic~ in M. }
+  introv M. applys fmap_extens. intros y.
+  unfold remove, map_remove, union, map_union, single. simpls. case_if.
+  { destruct h as [f F]. unfolds indom, map_indom. simpls. subst. rew_logic~ in M. }
   { case_if~. }
 Qed.
 
