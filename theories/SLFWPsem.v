@@ -302,12 +302,10 @@ Lemma triple_seq_from_wp_seq : forall t1 t2 H Q H1,
   triple t1 H (fun v => H1) ->
   triple t2 H1 Q ->
   triple (trm_seq t1 t2) H Q.
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   introv M1 M2. rewrite wp_equiv in *. xchange M1.
   applys himpl_trans wp_seq. applys wp_conseq. intros _. applys M2.
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -464,8 +462,7 @@ Definition wp (t:trm) (Q:val->hprop) : hprop :=
 
 Lemma wp_equiv_wp : forall t H Q,
   (triple t H Q) <-> (H ==> wp t Q).
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   unfold wp. iff M.
   { xsimpl H. apply M. }
   { applys triple_conseq Q M.
@@ -473,8 +470,7 @@ Proof using.
       rewrite hstar_comm. applys triple_hpure.
       intros N. applys N. }
     { applys qimpl_refl. } }
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -572,11 +568,9 @@ Lemma triple_hexists_in_wp : forall t Q A (J:A->hprop),
   (forall x, (J x ==> wp t Q)) ->
   (\exists x, J x) ==> wp t Q.
 
-Proof using.
-  (* SOLUTION *)
+Proof using. (* ADMITTED *)
   introv M. applys himpl_hexists_l M.
-  (* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -608,13 +602,11 @@ Lemma wp_conseq_frame_trans : forall t H H1 H2 Q1 Q,
   H ==> H1 \* H2 ->
   Q1 \*+ H2 ===> Q ->
   H ==> wp t Q.
-Proof using.
-  (* SOLUTION *)
+Proof using. (* ADMITTED *)
   introv M WH WQ. xchange WH. xchange M.
   applys wp_conseq_trans WQ. applys himpl_refl.
   applys wp_frame.
-  (* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -628,8 +620,7 @@ Qed.
 Lemma wp_conseq_frame : forall t H Q1 Q2,
   Q1 \*+ H ===> Q2 ->
   (wp t Q1) \* H ==> (wp t Q2).
-Proof using.
-  (* SOLUTION *)
+Proof using. (* ADMITTED *)
   dup 3.
   { (* Proof using [wp_conseq_frame_trans] *)
     introv M. applys* wp_conseq_frame_trans M. }
@@ -639,8 +630,7 @@ Proof using.
     introv M. rewrite <- wp_equiv.
     applys triple_conseq_frame (wp t Q1) M.
     { rewrite wp_equiv. xsimpl. } { xsimpl. } }
-  (* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -663,8 +653,7 @@ Parameter wp_if' : forall b t1 t2 Q,
 
 Lemma wp_if'' : forall b t1 t2 Q,
   (if b then (wp t1 Q) else (wp t2 Q)) ==> wp (trm_if b t1 t2) Q.
-Proof using.
-  (* SOLUTION *)
+Proof using. (* ADMITTED *)
   dup.
   { (* Proof from [wp_if] *)
     intros. applys himpl_trans wp_if. case_if~. }
@@ -672,8 +661,7 @@ Proof using.
      intros. rewrite <- wp_equiv. applys triple_if.
      { intros ->. rewrite* wp_equiv. }
      { intros ->. rewrite* wp_equiv. } }
-  (* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 

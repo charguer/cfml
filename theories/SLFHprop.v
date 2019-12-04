@@ -624,8 +624,7 @@ Proof using. introv M. hnf in M. eauto. Qed.
 
 Lemma hstar_hpure_iff : forall P H h,
   (\[P] \* H) h <-> (P /\ H h).
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   iff M.
   { hnf in M. destruct M as (h1&h2&M1&M2&D&U).
     hnf in M1. destruct M1 as (M1&HP). subst.
@@ -636,8 +635,7 @@ Proof using.
     { auto. }
     { apply Fmap.disjoint_empty_l. }
     { rewrite Fmap.union_empty_l. auto. } }
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -678,8 +676,7 @@ Definition triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
 
 Lemma triple_iff_triple_lowlevel : forall t H Q,
   triple t H Q <-> triple_lowlevel t H Q.
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   unfold triple, triple_lowlevel, hoare. iff M.
   { introv D P1.
     forwards (h'&v&HR&HQ): M (=h2) (h1 \u h2). { hnf. eauto 8. }
@@ -688,8 +685,7 @@ Proof using.
   { intros H' h. introv (h1&h2&N1&N2&D&U).
     forwards (h1'&v&D'&HR&HQ): M h1 h2; auto. subst.
     exists (h1' \u h2) v. split. { eauto. } { hnf. eauto 8. } }
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -824,13 +820,11 @@ Axiom functional_extensionality' : forall A B (f g:A->B),
 Lemma predicate_extensionality_derived : forall A (P Q:A->Prop),
   (forall x, P x <-> Q x) ->
   P = Q.
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   introv M. applys functional_extensionality.
   intros x. applys propositional_extensionality.
   applys M.
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 

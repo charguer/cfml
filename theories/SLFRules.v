@@ -912,14 +912,12 @@ Lemma triple_div_from_triple_div' : forall n1 n2,
   triple (val_div n1 n2)
     \[]
     (fun r => \[r = val_int (Z.quot n1 n2)]).
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   introv M. applys triple_conseq.
   { applys triple_div. applys M. }
   { xsimpl. }
   { xsimpl. auto. }
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -930,8 +928,7 @@ Lemma triple_div'_from_triple_div : forall n1 n2,
   triple (val_div n1 n2)
     \[n2 <> 0]
     (fun r => \[r = val_int (Z.quot n1 n2)]).
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   intros.
   rewrite <- (hstar_hempty_r \[n2 <> 0]).
   applys triple_hpure. intros M.
@@ -939,8 +936,7 @@ Proof using.
   { applys triple_div. applys M. }
   { xsimpl. }
   { xsimpl. auto. }
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -981,16 +977,14 @@ Lemma triple_let_frame : forall x t1 t2 H H1 H2 Q Q1,
 (* EX2! (rule_conseq) *)
 (** Prove the let-frame rule. *)
 
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   introv M1 WH M2.
   applys triple_conseq WH.
   { applys triple_let.
     { applys triple_frame. applys M1. }
     { applys M2. } }
   { applys qimpl_refl. }
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -1507,11 +1501,9 @@ End Proofs.
 
 Lemma triple_val_minimal : forall v,
   triple (trm_val v) \[] (fun r => \[r = v]).
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   intros. applys triple_val. xsimpl. auto.
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (* EX2! (triple_val_minimal) *)
 (** More interestingly, prove that [triple_val] is derivable
@@ -1520,14 +1512,12 @@ Qed.
 Lemma triple_val' : forall v H Q,
   H ==> Q v ->
   triple (trm_val v) H Q.
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   introv M. applys triple_conseq_frame.
   { applys triple_val_minimal. }
   { xsimpl. }
   { intros r. xsimpl. intros ->. applys M. }
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -1659,12 +1649,10 @@ Lemma hoare_app_fun : forall v1 v2 x t1 H Q,
   v1 = val_fun x t1 ->
   hoare (subst x v2 t1) H Q ->
   hoare (trm_app v1 v2) H Q.
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   introv E M. intros s K0. forwards (s'&v&R1&K1): (rm M) K0.
   exists s' v. splits. { applys eval_app_fun E R1. } { applys K1. }
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -1674,12 +1662,10 @@ Lemma triple_app_fun : forall x v1 v2 t1 H Q,
   v1 = val_fun x t1 ->
   triple (subst x v2 t1) H Q ->
   triple (trm_app v1 v2) H Q.
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   unfold triple. introv E M1. intros H'.
   applys hoare_app_fun E. applys M1.
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -1805,16 +1791,14 @@ Lemma hoare_free : forall H l v,
   hoare (val_free (val_loc l))
     ((l ~~~> v) \* H)
     (fun r => \[r = val_unit] \* H).
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   intros. intros s1 K0.
   destruct K0 as (h1&h2&P1&P2&D&U).
   lets E1: hsingle_inv P1.
   exists h2 val_unit. split.
   { subst h1. applys eval_free_sep U D. }
   { rewrite hstar_hpure. split~. }
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -1827,14 +1811,12 @@ Lemma triple_free : forall l v,
   triple (val_free (val_loc l))
     (l ~~~> v)
     (fun r => \[r = val_unit]).
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   intros. intros H'. applys hoare_conseq.
   { applys hoare_free. }
   { xsimpl. }
   { xsimpl. auto. }
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -1859,12 +1841,10 @@ Lemma triple_of_hoare : forall t H Q,
   (forall H', exists Q', hoare t (H \* H') Q'
                      /\  Q' ===> Q \*+ H') ->
   triple t H Q.
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   introv M. intros H'. lets (Q'&N&WQ): M H'. applys hoare_conseq N.
   { applys himpl_refl. } { applys WQ. }
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -1876,12 +1856,10 @@ Lemma triple_add' : forall n1 n2,
   triple (val_add n1 n2)
     \[]
     (fun r => \[r = val_int (n1 + n2)]).
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   intros. applys triple_of_hoare. intros H'. esplit. split.
   { applys hoare_add. } { xsimpl. auto. }
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -1937,11 +1915,9 @@ Qed.
 Lemma hoare_named_heap : forall t H Q,
   (forall h, H h -> hoare t (= h) Q) ->
   hoare t H Q.
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   introv M. intros h K. applys M K. auto.
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -1958,8 +1934,7 @@ Qed.
 Lemma triple_named_heap : forall t H Q,
   (forall h, H h -> triple t (= h) Q) ->
   triple t H Q.
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   introv M. unfolds triple. intros H'.
   applys hoare_named_heap. intros h K.
   lets (h1&h2&K1&K2&D&U): hstar_inv K. subst h.
@@ -1968,8 +1943,7 @@ Proof using.
   { intros ? ->. applys* hstar_intro. }
   { intros x. applys himpl_frame_r.
     intros ? ->. applys K2. }
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 

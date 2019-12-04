@@ -100,14 +100,12 @@ Lemma himpl_antisym : forall H1 H2,
   (H1 ==> H2) ->
   (H2 ==> H1) ->
   H1 = H2.
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   introv M1 M2. applys hprop_eq.
   intros h. iff N.
   { applys M1. auto. }
   { applys M2. auto. }
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -303,12 +301,10 @@ Lemma triple_conseq_frame : forall H2 H1 Q1 t H Q,
 (* EX1! (triple_conseq_frame) *)
 (** Prove the combined consequence-frame rule. *)
 
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   introv M WH WQ. applys triple_conseq WH WQ.
   applys triple_frame M.
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -769,11 +765,9 @@ End Htactics.
 Lemma himpl_frame_l' : forall H2 H1 H1',
   H1 ==> H1' ->
   (H1 \* H2) ==> (H1' \* H2).
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   introv W (h1&h2&M1&M2&D&U). exists* h1 h2.
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -883,7 +877,7 @@ Proof using.
     { exists* h2 h3. }
     { rewrite* @Fmap.disjoint_union_eq_r. }
     { rewrite* @Fmap.union_assoc in U. } }
-(* SOLUTION *)
+(* ADMITTED *)
   { intros h (h1&h'&M1&M2&D&U). destruct M2 as (h2&h3&M3&M4&D'&U').
     subst h'. rewrite Fmap.disjoint_union_eq_r in D.
     exists (h1 \u h2) h3. splits.
@@ -891,13 +885,9 @@ Proof using.
     { applys M4. }
     { rewrite* @Fmap.disjoint_union_eq_l. }
     { rewrite* @Fmap.union_assoc. } }
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
-
-(* INSTRUCTORS: we can ask the full proof as exercise,
-   but then it becomes much harder *)
 
 
 (* ******************************************************* *)
@@ -936,8 +926,7 @@ Lemma hoare_conseq : forall t H Q H' Q',
   H ==> H' ->
   Q' ===> Q ->
   hoare t H Q.
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   introv M WH WQ. unfold hoare.
   intros s Hs. forwards (s'&v&R&HQ): M s.
   { applys WH. auto. }
@@ -946,8 +935,7 @@ Proof using.
       intros s Ps. lets Ps': WH Ps.
       lets M': M Ps'. destruct M' as (v&s'&R&HQ).
       exists v s'. splits~. applys WQ. auto. *)
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -962,14 +950,12 @@ Lemma rule_conseq' : forall t H Q H' Q',
   H ==> H' ->
   Q' ===> Q ->
   triple t H Q.
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   introv M WH WQ. unfold triple. intros H''.
   applys hoare_conseq M.
   { applys himpl_frame_l. applys WH. }
   { intros x. applys himpl_frame_l. applys WQ. }
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -1023,13 +1009,11 @@ Proof using. introv M. intros h (x&Hh). applys M Hh. Qed.
 Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, triple t (J x) Q) ->
   triple t (hexists J) Q.
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   introv M. unfold triple. intros H'.
   rewrite hstar_hexists. applys hoare_hexists.
   intros v. applys M.
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 

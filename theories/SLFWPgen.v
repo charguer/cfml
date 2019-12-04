@@ -1223,19 +1223,19 @@ Proof using. intros. unfold mkstruct. xsimpl. xsimpl. Qed.
     framing on [H2] is equivalent to framing on [H1 \* H2]). *)
 
 (* EX3! (mkstruct_idempotent) *)
-(** Prove the idempotence of [mkstruct].
+(** Complete the proof of the idempotence of [mkstruct].
     Hint: leverage [xpull] and [xsimpl]. *)
 
 Lemma mkstruct_idempotent : forall F,
   mkstruct (mkstruct F) = mkstruct F.
 Proof using.
   intros. apply fun_ext_1. intros Q. applys himpl_antisym.
-  (* SOLUTION *)
+  (* ADMITTED *)
   { unfold mkstruct. xpull; intros Q1 H1 Q2 H2 M1 M2.
     xsimpl Q2 (H1 \* H2). xchange M1. applys M2. }
   { applys mkstruct_erase. }
-(* /SOLUTION *)
 Qed.
+(* /ADMITTED *)
 
 (** [] *)
 
@@ -1425,8 +1425,7 @@ Lemma triple_mysucc_with_xlemmas : forall (n:int),
   triple (trm_app mysucc n)
     \[]
     (fun v => \[v = n+1]).
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   intros.
   applys xwp_lemma. { reflexivity. }
   simpl; unfold wpgen_var; simpl.
@@ -1453,8 +1452,7 @@ Proof using.
   applys xstruct_lemma.
   applys xval_lemma.
   xsimpl. auto.
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -1531,8 +1529,7 @@ Lemma triple_mysucc_with_xtactics : forall (n:int),
   triple (trm_app mysucc n)
     \[]
     (fun v => \[v = n+1]).
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   xwp.
   xapp triple_ref. intros ? l ->.
   xapp triple_incr. intros ? ->.
@@ -1540,8 +1537,7 @@ Proof using.
   xapp triple_free. intros ? ->.
   xval.
   xsimpl. auto.
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -1622,11 +1618,9 @@ Lemma triple_mysucc_with_xapps : forall (n:int),
   triple (trm_app mysucc n)
     \[]
     (fun v => \[v = n+1]).
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   xwp. xapp; intros ? l ->. xapps. xapps. xapps. xval. xsimpl~.
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -1655,11 +1649,9 @@ Lemma xconseq_lemma : forall Q1 Q2 H F,
   H ==> mkstruct F Q1 ->
   Q1 ===> Q2 ->
   H ==> mkstruct F Q2.
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   introv M WQ. xchange M. applys mkstruct_conseq WQ.
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -1684,13 +1676,11 @@ Lemma xframe_lemma : forall H1 H2 H Q Q1 F,
   H1 ==> mkstruct F Q1 ->
   Q1 \*+ H2 ===> Q ->
   H ==> mkstruct F Q.
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   introv WH M WQ. xchange WH. xchange M.
   lets R: mkstruct_frame F H2 Q1. xchange R.
   applys mkstruct_conseq WQ.
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 

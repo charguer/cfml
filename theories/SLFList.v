@@ -559,15 +559,13 @@ Lemma Triple_mlist_incr : forall (p:loc) (L:list int),
     [LibList.map f (x::l)] into [f x :: LibList.map f l].
     (Alternatively, use lemmas [LibList.map_nil] and [LibList.map_cons].) *)
 
-Proof using.
-  (* SOLUTION *)
+Proof using. (* ADMITTED *)
   intros. gen p. induction_wf IH: list_sub L.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
   { intros x p' L' ->. xapp. xapp. xapp. xapp. xapp. { auto. }
     xchange <- MList_cons. }
   { intros ->. xval. xchange <- (MList_nil p). { auto. } }
-  (* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -813,14 +811,12 @@ Lemma Triple_mfree_list : forall (p:loc) (L: list int),
   TRIPLE (mfree_list p)
     PRE (p ~> MList L)
     POST (fun (r:unit) => \[]).
-Proof using.
-  (* SOLUTION *)
+Proof using. (* ADMITTED *)
   intros. gen p. induction_wf IH: list_sub L. intros.
   xwp. xchange MList_if. xif; intros C; case_if; xpull.
   { intros x p' L' ->. xapp. xapp. xapp. { auto. } xsimpl. }
   { intros ->. xval. xsimpl. }
-  (* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -1264,11 +1260,9 @@ Lemma Triple_mlength_acc : forall (p:loc) (L:list int),
   TRIPLE (mlength_acc p)
     PRE (p ~> MList L)
     POST (fun (r:int) => \[r = length L] \* p ~> MList L).
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   xwp. xapp. intros a. xapp. xapp. xapp. xval. xsimpl. math.
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -1408,8 +1402,7 @@ Lemma Triple_mappend_aux : forall (p1 p2:loc) (L1 L2:list int),
   TRIPLE (mappend_aux p1 p2)
     PRE (p1 ~> MList L1 \* p2 ~> MList L2)
     POST (fun (r:unit) => p1 ~> MList (L1++L2)).
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   intros. gen p1. induction_wf IH: list_sub L1.
   xwp. xchange (MList_if p1). case_if. xpull. intros x q L1' ->.
   xapp. xapp. xif; intros Cq.
@@ -1417,8 +1410,7 @@ Proof using.
     xapp. xchange <- MList_cons. }
   { xapp. xapp. { auto. } { auto. }
     rew_listx. xchange <- MList_cons. }
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -1431,14 +1423,12 @@ Lemma Triple_mappend : forall (p1 p2:loc) (L1 L2:list int),
   TRIPLE (mappend p1 p2)
     PRE (p1 ~> MList L1 \* p2 ~> MList L2)
     POST (fun (p:loc) => p ~> MList (L1++L2)).
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   xwp. xapp. xif; intros C.
   { xchange (MList_if p1). case_if. xpull. intros ->.
     xval. xsimpl. }
   { xapp. { auto. } xval. xsimpl. }
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -1637,11 +1627,9 @@ Lemma Triple_mrev : forall (p:loc) (L:list int),
   TRIPLE (mrev p)
     PRE (p ~> MList L)
     POST (fun (r:loc) => r ~> MList (rev L)).
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   intros. xwp. xchange MList_nil_intro. xapp. rew_listx. xsimpl.
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 

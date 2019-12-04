@@ -293,32 +293,36 @@ Qed.
 
 
 (* ******************************************************* *)
-(** ** Exercise: function [double] *)
+(** ** Exercise: function [quadruple] *)
 
-(** Consider the function [double], which expects an integer [n]
-    and returns its double, that is, the value [2 * n].
+(** Consider the function [quadruple], which expects an integer [n]
+    and returns its quadruple, that is, the value [4 * n].
 
 [[
-  let double n =
-    n + n
+  let quadruple n =
+    n + n + n + n
 ]]
 *)
 
-Definition double : val :=
+Definition quadruple : val :=
   VFun 'n :=
-    'n '+ 'n.
+    Let 'm := 'n '+ 'n in
+    'm '+ 'm.
 
-(* EX1! (Triple_double) *)
-(** Complete the postcondition of [Triple_double] to express that
-    it returns [2*n], then prove the triple. *)
+(* EX1! (Triple_quadruple) *)
+(** Specify and verify the function [quadruple] to express that
+    it returns [4*n].
+    Hint: follow the template of [Triple_example_let]. *)
 
-Lemma Triple_double : forall (n:int),
-  TRIPLE (double n)
+(* SOLUTION *)
+Lemma Triple_quadruple : forall (n:int),
+  TRIPLE (quadruple n)
     PRE \[]
-    POST (fun (r:int) => (* SOLUTION *) \[r = 2 * n] (* /SOLUTION *)).
+    POST (fun (r:int) => \[r = 4 * n]).
 Proof using.
-  (* SOLUTION *) xwp. xapp. xsimpl. math. (* /SOLUTION *)
+  xwp. xapp. xapp. xsimpl. math.
 Qed.
+(* /SOLUTION *)
 
 (** [] *)
 
@@ -328,7 +332,7 @@ Qed.
 
 (** Consider the function [inplace_double], which expects a reference
     on an integer, reads twice in that reference, then updates the
-    reference with the sum of the two values that have been read.
+    reference with the sum of the two values that have been read. *)
 
 [[
   let inplace_double p =
@@ -336,22 +340,23 @@ Qed.
 ]]
 *)
 
-(* EX1! (Triple_inplace_double) *)
-(** Complete the precondition and the postcondition of
-    [Triple_inplace_double] to express that it returns [2*n],
-    then prove the specification. *)
-
 Definition inplace_double : val :=
   VFun 'p :=
     'p ':= ('!'p '+ '!'p).
 
+(* EX1! (Triple_inplace_double) *)
+(** Specify and verify the function [inplace_double].
+    Hint: follow the template of [Triple_incr]. *)
+
+(* SOLUTION *)
 Lemma Triple_inplace_double : forall (p:loc) (n:int),
   TRIPLE (inplace_double p)
-    PRE ((* SOLUTION *) p ~~> n (* /SOLUTION *))
-    POST (fun (_:unit) => (* SOLUTION *) p ~~> (2*n) (* /SOLUTION *)).
+    PRE (p ~~> n)
+    POST (fun (_:unit) => p ~~> (2*n)).
 Proof using.
-  (* SOLUTION *) xwp. xapp. xapp. xapp. xapp. xsimpl. math. (* /SOLUTION *)
+  xwp. xapp. xapp. xapp. xapp. xsimpl. math.
 Qed.
+(* /SOLUTION *)
 
 (** [] *)
 
@@ -741,8 +746,8 @@ Qed.
     Then, derive the new specification from the former one, by
     invoking the tactics [xtriple] and [xapp Triple_ref_greater]. *)
 
-Lemma Triple_ref_greater_abstract : forall (p:loc) (n:int),
 (* SOLUTION *)
+Lemma Triple_ref_greater_abstract : forall (p:loc) (n:int),
   TRIPLE (ref_greater p)
     PRE (p ~~> n)
     POST (fun (q:loc) => \exists m, \[m > n] \* q ~~> m \* p ~~> n).
@@ -1037,14 +1042,12 @@ Lemma Triple_repeat_incr : forall (m n:int) (p:loc),
 (** Prove the function [Triple_repeat_incr].
     Hint: the structure of the proof resembles that of [Triple_factorec']. *)
 
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   intros m. induction_wf IH: (downto 0) m. unfold downto in IH.
   intros n p Hm. xwp. xapp. xif; intros C.
   { xapp. xapp. xapp. { math. } { math. } xsimpl. math. }
   { xval. xsimpl. math. }
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
@@ -1114,15 +1117,13 @@ Lemma Triple_step_transfer : forall p q n m,
     Hint: to set up the induction, follow the pattern from
     [Triple_repeat_incr'] presented just above. *)
 
-Proof using.
-  (* SOLUTION *)
+Proof using. (* ADMITTED *)
   intros q p n m Hm.
   revert n Hm. induction_wf IH: (downto 0) m. unfold downto in IH.
   intros. xwp. xapp. xapp. xif; intros C.
   { xapp. xapp. xapp. { math. } { math. } xsimpl. math. }
   { xval. xsimpl. math. math. }
-  (* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
