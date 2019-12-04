@@ -123,20 +123,13 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Nonempty lists of [n] distinct variables *)
+(* ** List of n fresh variables *)
 
-(** [var_funs n xs] asserts that [xs] consists of [n] distinct variables *)
+(** [var_funs n xs] asserts that [xs] consists of [n] distinct variables,
+    for [n > 0]. *)
 
 Definition var_funs (n:nat) (xs:vars) : Prop :=
      var_distinct xs
-  /\ length xs = n
-  /\ xs <> nil.
-
-(** [var_fixs f n xs] asserts that [f::xs] consists of [n+1]
-    distinct variables. *)
-
-Definition var_fixs (f:var) (n:nat) (xs:vars) : Prop :=
-     var_distinct (f::xs)
   /\ length xs = n
   /\ xs <> nil.
 
@@ -151,24 +144,6 @@ Lemma var_funs_exec_eq : forall (n:nat) xs,
   var_funs_exec n xs = isTrue (var_funs n xs).
 Proof using.
   intros. unfold var_funs_exec, var_funs.
-  rewrite nat_compare_eq.
-  rewrite is_not_nil_eq.
-  rewrite List_length_eq.
-  rewrite var_distinct_exec_eq.
-  extens. rew_istrue. iff*.
-Qed.
-
-(** Computable version of [var_fixs] *)
-
-Definition var_fixs_exec (f:var) (n:nat) (xs:vars) : bool :=
-     nat_compare n (List.length xs)
-  && is_not_nil xs
-  && var_distinct_exec (f::xs).
-
-Lemma var_fixs_exec_eq : forall f (n:nat) xs,
-  var_fixs_exec f n xs = isTrue (var_fixs f n xs).
-Proof using.
-  intros. unfold var_fixs_exec, var_fixs.
   rewrite nat_compare_eq.
   rewrite is_not_nil_eq.
   rewrite List_length_eq.

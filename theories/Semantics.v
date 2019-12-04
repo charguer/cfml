@@ -934,17 +934,10 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
   | eval_let : forall m1 m2 z v1 t2 r,
       eval m1 (subst1 z v1 t2) m2 r ->
       eval m1 (trm_let z v1 t2) m2 r
-  (* --TODO: factorize using [(substn xs vs) (subst1 f v0 t)]
-      and a relatex version of val_fixs that accept a [f:bind] *)
-  | eval_apps_funs : forall m1 m2 xs t3 v0 vs r,
-      v0 = val_funs xs t3 ->
-      var_funs (length vs) xs ->
-      eval m1 (substn xs vs t3) m2 r ->
-      eval m1 (trm_apps v0 vs) m2 r
-  | eval_apps_fixs : forall m1 m2 (f:var) xs t3 v0 vs r,
+  | eval_apps_funs_fixs : forall m1 m2 f xs t3 v0 vs r,
       v0 = val_fixs f xs t3 ->
       var_fixs f (length vs) xs ->
-      eval m1 (substn (f::xs) (v0::vs) t3) m2 r ->
+      eval m1 (substn xs vs (subst1 f v0 t3)) m2 r ->
       eval m1 (trm_apps v0 vs) m2 r
   | eval_while : forall m1 m2 t1 t2 r,
       eval m1 (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) m2 r ->
@@ -1149,6 +1142,24 @@ Lemma eval_match_trm : forall m1 m2 m3 v1 t1 pts r,
   eval m1 (trm_match t1 pts) m3 r.
 Proof using.
   introv M1 M2. applys* eval_evalctx (fun t0 => trm_match t0 pts).
+Qed.
+
+Lemma eval_apps_funs : forall m1 m2 xs t3 v0 vs r,
+  v0 = val_funs xs t3 ->
+  var_funs (length vs) xs ->
+  eval m1 (substn xs vs t3) m2 r ->
+  eval m1 (trm_apps v0 vs) m2 r.
+Proof using.
+  introv Hf Hxs M. applys* eval_apps_funs_fixs.
+Qed.
+
+Lemma eval_apps_fixs : forall m1 m2 (f:bind) xs t3 v0 vs r,
+  v0 = val_fixs f xs t3 ->
+  var_fixs f (length vs) xs ->
+  eval m1 (substn xs vs (subst1 f v0 t3)) m2 r ->
+  eval m1 (trm_apps v0 vs) m2 r.
+Proof using.
+  introv Hf Hxs M. applys* eval_apps_funs_fixs.
 Qed.
 
 Lemma eval_app : forall m1 m2 f x t3 v1 v2 r,

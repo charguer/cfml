@@ -30,6 +30,41 @@ Coercion bind_var : var >-> bind.
 Coercion bind_var' (x:string) : bind := bind_var x.
 
 
+(* ********************************************************************** *)
+(* * List of binders *)
+
+
+(** [var_fixs f n xs] asserts that [f::xs] consists of [n+1]
+    distinct variables. *)
+
+Definition var_fixs (f:bind) (n:nat) (xs:vars) : Prop :=
+     match f with
+     | bind_anon => var_distinct xs
+     | bind_var x => var_distinct (x::xs)
+     end
+  /\ length xs = n
+  /\ xs <> nil.
+
+(** Computable version of [var_fixs] *)
+
+Definition var_fixs_exec (f:bind) (n:nat) (xs:vars) : bool :=
+     nat_compare n (List.length xs)
+  && is_not_nil xs
+  && match f with
+     | bind_anon => var_distinct_exec xs
+     | bind_var x => var_distinct_exec (x::xs)
+     end.
+
+Lemma var_fixs_exec_eq : forall f (n:nat) xs,
+  var_fixs_exec f n xs = isTrue (var_fixs f n xs).
+Proof using.
+  intros. unfold var_fixs_exec, var_fixs.
+  rewrite nat_compare_eq.
+  rewrite is_not_nil_eq.
+  rewrite List_length_eq.
+  destruct f as [|x]; rewrite var_distinct_exec_eq; extens; rew_istrue; iff*.
+Qed.
+
 
 (* ********************************************************************** *)
 (* * Contexts *)
