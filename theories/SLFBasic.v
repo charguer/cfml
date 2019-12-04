@@ -332,7 +332,7 @@ Qed.
 
 (** Consider the function [inplace_double], which expects a reference
     on an integer, reads twice in that reference, then updates the
-    reference with the sum of the two values that have been read. *)
+    reference with the sum of the two values that have been read.
 
 [[
   let inplace_double p =
