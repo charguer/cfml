@@ -109,6 +109,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 (** For example, [himpl_antisym] can be used to establish
     commutativity of separating conjunction: [(H1 \* H2) = (H2 \* H1)]
     by proving that each side entails the other:
@@ -307,6 +309,8 @@ Proof using.
   applys triple_frame M.
 (* /SOLUTION *)
 Qed.
+
+(** [] *)
 
 
 (* ******************************************************* *)
@@ -609,7 +613,7 @@ Abort.
 (** For each entailment relation, indicate (without a Coq proof)
     whether it is true or false. Solutions appear further on. *)
 
-(* WORKINCLASS *)
+(* QUIZ *)
 
 Section CaseStudies.
 Implicit Types p q : loc.
@@ -667,9 +671,9 @@ Parameter case_study_13 : forall p n,
   p ~~~> n \* \[n > 0] \* \[n < 0] ==> p ~~~> n \* p ~~~> n.
 
 
-(* /WORKINCLASS *)
+(* /QUIZ *)
 
-(* SOLUTION *)
+(* INSTRUCTORS *)
 (**
 
 1. True, by commutativity.
@@ -734,7 +738,7 @@ Lemma case_study_13' : forall p n,
   p ~~~> n \* \[n > 0] \* \[n < 0] ==> p ~~~> n \* p ~~~> n.
 Proof using. intros. xsimpl. intros Hn1 Hn2. false. math. Qed.
 
-(* /SOLUTION *)
+(* /INSTRUCTORS *)
 
 End CaseStudies.
 
@@ -771,6 +775,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 (* EX1! (himpl_frame_r) *)
 (** State and prove a symmetric lemma to [himpl_frame_l] called [himpl_frame_r]
     to exploit an entailment on the right-hand-side of a star. *)
@@ -784,6 +790,8 @@ Proof using.
   applys himpl_frame_l. auto.
 Qed.
 (* /SOLUTION *)
+
+(** [] *)
 
 (** The second simplest result is the extrusion property for existentials. *)
 
@@ -886,6 +894,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 (* INSTRUCTORS: we can ask the full proof as exercise,
    but then it becomes much harder *)
 
@@ -939,6 +949,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 (* EX2! (rule_conseq) *)
 (** Prove the consequence rule by leveraging the lemma [hoare_conseq],
     rather than going through the definition of [triple_lowlevel].
@@ -958,6 +970,8 @@ Proof using.
   { intros x. applys himpl_frame_l. applys WQ. }
 (* /SOLUTION *)
 Qed.
+
+(** [] *)
 
 End ProveConsequenceRules.
 
@@ -1016,5 +1030,7 @@ Proof using.
   intros v. applys M.
 (* /SOLUTION *)
 Qed.
+
+(** [] *)
 
 End ProveExtractionRules.

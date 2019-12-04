@@ -309,6 +309,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 
 (* ####################################################### *)
 (** * Additional contents *)
@@ -474,6 +476,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 End WpHighLevel.
 
 
@@ -574,6 +578,8 @@ Proof using.
   (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 (** In other words, in the [wp] presentation, we do not need
     a specific extraction rule for existentials, because the
     extraction rule for entailment already does the job. *)
@@ -610,6 +616,8 @@ Proof using.
   (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 (** The combined structural rule for [wp] can actually be stated
     in a more concise way, as follows. *)
 
@@ -633,6 +641,8 @@ Proof using.
     { rewrite wp_equiv. xsimpl. } { xsimpl. } }
   (* /SOLUTION *)
 Qed.
+
+(** [] *)
 
 
 (* ******************************************************* *)
@@ -664,6 +674,8 @@ Proof using.
      { intros ->. rewrite* wp_equiv. } }
   (* /SOLUTION *)
 Qed.
+
+(** [] *)
 
 
 (* ******************************************************* *)

@@ -1237,6 +1237,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 
 (* ------------------------------------------------------- *)
 (** *** Definition of [wpgen] featuring [mkstruct] *)
@@ -1454,6 +1456,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 End ProofsWithXlemmas.
 
 
@@ -1539,6 +1543,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 End ProofsWithXtactics.
 
 
@@ -1622,6 +1628,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 (** In summary, thanks to [wpgen] and its associated x-tactics,
     we are able to verify concrete programs in Separation Logic
     with concise proof scripts. *)
@@ -1653,6 +1661,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 Tactic Notation "xconseq" :=
   applys xconseq_lemma.
 
@@ -1681,6 +1691,8 @@ Proof using.
   applys mkstruct_conseq WQ.
 (* /SOLUTION *)
 Qed.
+
+(** [] *)
 
 Tactic Notation "xframe" constr(H) :=
   applys xframe_lemma H; [ xsimpl | | ].

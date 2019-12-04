@@ -639,6 +639,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 
 (* ####################################################### *)
 (** * Bonus contents (optional reading) *)
@@ -688,6 +690,8 @@ Proof using.
     exists (h1' \u h2) v. split. { eauto. } { hnf. eauto 8. } }
 (* /SOLUTION *)
 Qed.
+
+(** [] *)
 
 
 (* ******************************************************* *)
@@ -827,6 +831,8 @@ Proof using.
   applys M.
 (* /SOLUTION *)
 Qed.
+
+(** [] *)
 
 
 

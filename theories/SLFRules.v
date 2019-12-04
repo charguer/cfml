@@ -857,6 +857,8 @@ Proof using.
 Qed.
 (* /SOLUTION *)
 
+(** [] *)
+
 End ExamplePrograms.
 
 (** The matter of the next chapter is to introduce additional
@@ -919,6 +921,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 (* EX2! (triple_div'_from_triple_div) *)
 (** Prove [triple_div'] by exploiting [triple_div]. *)
 
@@ -937,6 +941,8 @@ Proof using.
   { xsimpl. auto. }
 (* /SOLUTION *)
 Qed.
+
+(** [] *)
 
 End DivSpec.
 
@@ -985,6 +991,8 @@ Proof using.
   { applys qimpl_refl. }
 (* /SOLUTION *)
 Qed.
+
+(** [] *)
 
 End LetFrame.
 
@@ -1172,6 +1180,8 @@ Proof using.
 Qed.
 (* /SOLUTION *)
 
+(** [] *)
+
 
 (* ******************************************************* *)
 (** ** Proofs for the arithmetic primitive operations *)
@@ -1254,6 +1264,8 @@ Proof using.
   { applys hoare_div N. } { xsimpl. } { xsimpl. auto. }
 Qed.
 (* /SOLUTION *)
+
+(** [] *)
 
 
 (* ******************************************************* *)
@@ -1517,6 +1529,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 
 (* ******************************************************* *)
 (** ** Reasoning rules for recursive functions *)
@@ -1652,6 +1666,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 (* EX2? (triple_app_fun) *)
 
 Lemma triple_app_fun : forall x v1 v2 t1 H Q,
@@ -1664,6 +1680,8 @@ Proof using.
   applys hoare_app_fun E. applys M1.
 (* /SOLUTION *)
 Qed.
+
+(** [] *)
 
 
 (* ------------------------------------------------------- *)
@@ -1798,6 +1816,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 (* EX1? (triple_free) *)
 (** Derive from the Hoare triple for the operation [free]
     the corresponding Separation Logic triple.
@@ -1808,11 +1828,15 @@ Lemma triple_free : forall l v,
     (l ~~~> v)
     (fun r => \[r = val_unit]).
 Proof using.
+(* SOLUTION *)
   intros. intros H'. applys hoare_conseq.
   { applys hoare_free. }
   { xsimpl. }
   { xsimpl. auto. }
+(* /SOLUTION *)
 Qed.
+
+(** [] *)
 
 End Proofs2.
 
@@ -1842,6 +1866,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 (* EX2? (triple_add') *)
 (** Prove that [triple_add] is a consequence of [hoare_add] by
     exploiting [triple_of_hoare]. *)
@@ -1856,6 +1882,8 @@ Proof using.
   { applys hoare_add. } { xsimpl. auto. }
 (* /SOLUTION *)
 Qed.
+
+(** [] *)
 
 End ProofsFactorization.
 
@@ -1915,6 +1943,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 (* EX3? (triple_named_heap) *)
 (** Prove the counterpart of [hoare_named_heap] for Separation
     Logic triples.
@@ -1940,6 +1970,8 @@ Proof using.
     intros ? ->. applys K2. }
 (* /SOLUTION *)
 Qed.
+
+(** [] *)
 
 
 (* ******************************************************* *)

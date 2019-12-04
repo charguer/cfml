@@ -569,6 +569,8 @@ Proof using.
   (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 
 (* ******************************************************* *)
 (** *** Allocation of a new cell: [mcell] and [mcons] *)
@@ -819,6 +821,8 @@ Proof using.
   { intros ->. xval. xsimpl. }
   (* /SOLUTION *)
 Qed.
+
+(** [] *)
 
 Hint Extern 1 (Register_Spec mfree_list) => Provide Triple_mfree_list.
 
@@ -1124,6 +1128,8 @@ Proof using.
 Qed.
 (* /SOLUTION *)
 
+(** [] *)
+
 
 (* ******************************************************* *)
 (** *** Exercise: out-of-place filter on list *)
@@ -1176,6 +1182,8 @@ Proof using.
 Qed.
 (* /SOLUTION *)
 
+(** [] *)
+
 
 (* ******************************************************* *)
 (** *** Exercise: length of a mutable list using a reference *)
@@ -1222,6 +1230,7 @@ Definition mlength_acc : val :=
     Hint: make sure to generalize the relevant variables in the script
     pattern [gen ????. induction_wf IH: list_sub L.], so that your
     induction principle is strong enough to complete the proof. *)
+
 (* SOLUTION *)
 Lemma Triple_mlength_acc_rec : forall (a:loc) (n:int) (p:loc) (L:list int),
   TRIPLE (mlength_acc_rec a p)
@@ -1236,6 +1245,8 @@ Proof using.
     xsimpl. rew_listx. math.  }
 Qed.
 (* /SOLUTION *)
+
+(** [] *)
 
 Hint Extern 1 (Register_Spec mlength_acc_rec) => Provide Triple_mlength_acc_rec.
 
@@ -1258,6 +1269,9 @@ Proof using.
   xwp. xapp. intros a. xapp. xapp. xapp. xval. xsimpl. math.
 (* /SOLUTION *)
 Qed.
+
+(** [] *)
+
 
 (* ******************************************************* *)
 (** *** Exercise: operation [delete] on stack *)
@@ -1294,6 +1308,8 @@ Proof using.
 Qed.
 (* /SOLUTION *)
 
+(** [] *)
+
 
 (* ******************************************************* *)
 (** *** Exercise: operation [clear] on stack *)
@@ -1325,6 +1341,8 @@ Proof using.
   xapp. intros p'. xapp. xchange <- Stack_eq.
 Qed.
 (* /SOLUTION *)
+
+(** [] *)
 
 
 (* ####################################################### *)
@@ -1382,7 +1400,7 @@ Definition mappend : val :=
 (** [Verify the implementation of [mappend_aux].
     Hint: use [xchange (MList_if p1)] to exploit [MList_if] for
     the first list.
-    Hint: use [rew_listx] to normalize the list expression [(x::L1')++L2]. 
+    Hint: use [rew_listx] to normalize the list expression [(x::L1')++L2].
     (Alternatively, use [rewrite app_cons_l].)*)
 
 Lemma Triple_mappend_aux : forall (p1 p2:loc) (L1 L2:list int),
@@ -1402,6 +1420,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 Hint Extern 1 (Register_Spec mappend_aux) => Provide Triple_mappend_aux.
 
 (* EX2! (Triple_mappend) *)
@@ -1419,6 +1439,8 @@ Proof using.
   { xapp. { auto. } xval. xsimpl. }
 (* /SOLUTION *)
 Qed.
+
+(** [] *)
 
 Hint Extern 1 (Register_Spec mappend) => Provide Triple_mappend.
 
@@ -1467,12 +1489,14 @@ Qed.
 Hint Extern 1 (Register_Spec concat) => Provide Triple_concat.
 (* /SOLUTION *)
 
-(* INCLASS *)
+(** [] *)
+
+(* QUIZ *)
 (** Question: what would be the issue for verifying the function [concat]
     if the second line [q2 := mnil()] was written instead [clear q2]?
     How could it be handled if we nevertheless wanted to verify such an
     alternative code? *)
-(* /INCLASS *)
+(* /QUIZ *)
 
 (* INSTRUCTORS *)
 (** Answer: the precondition of [clear q2] requires [q2 ~> Stack L]
@@ -1525,6 +1549,8 @@ Qed.
 Hint Extern 1 (Register_Spec push_back) => Provide Triple_push_back.
 (* /SOLUTION *)
 
+(** [] *)
+
 
 (* ******************************************************* *)
 (** *** Exercise: in-place reversal for mutable lists *)
@@ -1575,7 +1601,7 @@ Definition mrev : val :=
     Hint: use [xchange (MList_if p2)] to exploit the lemma
     [MList_if] for the second list.
 
-    Hint: use [rew_listx] to normalize the expression [rev (x::L2')++L1]. 
+    Hint: use [rew_listx] to normalize the expression [rev (x::L2')++L1].
     (Alternatively, use [rewrite rev_cons,app_last_l].) *)
 
 (* SOLUTION *)
@@ -1594,6 +1620,8 @@ Qed.
 
 Hint Extern 1 (Register_Spec mrev_append) => Provide Triple_mrev_append.
 (* /SOLUTION *)
+
+(** [] *)
 
 (** Make sure to include the following command to enable reasoning
     about the call to [mrev_append] from the proof of [mrev].
@@ -1614,6 +1642,8 @@ Proof using.
   intros. xwp. xchange MList_nil_intro. xapp. rew_listx. xsimpl.
 (* /SOLUTION *)
 Qed.
+
+(** [] *)
 
 Hint Extern 1 (Register_Spec mrev) => Provide Triple_mrev.
 

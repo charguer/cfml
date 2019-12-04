@@ -320,6 +320,8 @@ Proof using.
   (* SOLUTION *) xwp. xapp. xsimpl. math. (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 
 (* ******************************************************* *)
 (** ** Exercise: function [inplace_double] *)
@@ -350,6 +352,8 @@ Lemma Triple_inplace_double : forall (p:loc) (n:int),
 Proof using.
   (* SOLUTION *) xwp. xapp. xapp. xapp. xapp. xsimpl. math. (* /SOLUTION *)
 Qed.
+
+(** [] *)
 
 
 (* ******************************************************* *)
@@ -579,6 +583,8 @@ Proof using.
 Qed.
 (* /SOLUTION *)
 
+(** [] *)
+
 (* EX1! (Triple_transfer_aliased) *)
 (** State and prove a lemma called [Triple_transfer_aliased] specifying
     the behavior of [transfer] when it is applied twice to the same argument.
@@ -593,6 +599,8 @@ Proof using.
   xwp. xapp. xapp. xapp. xapp. xapp. xsimpl.
 Qed.
 (* /SOLUTION *)
+
+(** [] *)
 
 
 (* ******************************************************* *)
@@ -722,6 +730,8 @@ Proof using.
 Qed.
 (* /SOLUTION *)
 
+(** [] *)
+
 (* EX1! (Triple_ref_greater_abstract) *)
 (** State another specification for the function [ref_greater],
     with a postcondition that does not reveal the contents of
@@ -740,6 +750,8 @@ Proof using.
   xtriple. xapp Triple_ref_greater. xsimpl. math.
 Qed.
 (* /SOLUTION *)
+
+(** [] *)
 
 
 (* ******************************************************* *)
@@ -1034,6 +1046,8 @@ Proof using.
 (* /SOLUTION *)
 Qed.
 
+(** [] *)
+
 (** In the previous examples of recursive functions, the induction
     was always performed on the first argument quantified in the
     specification. When the decreasing argument is not the first one,
@@ -1109,6 +1123,8 @@ Proof using.
   { xval. xsimpl. math. math. }
   (* /SOLUTION *)
 Qed.
+
+(** [] *)
 
 
 (* ####################################################### *)
