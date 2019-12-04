@@ -440,7 +440,7 @@ Definition subst1 (z:bind) (v:val) (t:trm) :=
   end.
 
 (** [subst2] is a shorthand that iterates two calls to [subst1]. *)
-(* TODO: deprecate *)
+(* --TODO: deprecate *)
 
 Definition subst2 (z1:bind) (v1:val) (z2:bind) (v2:val) (t:trm) :=
    subst1 z2 v2 (subst1 z1 v1 t).
@@ -848,10 +848,10 @@ Implicit Types G : ctx.
 
 (** Evaluation contexts *)
 
-(* TODO: use first-order eval contexts instead *)
+(* --TODO: use first-order eval contexts instead *)
 
 Inductive evalctx : (trm -> trm) -> Prop :=
-  (* LATER
+  (* --LATER
   | evalctx_compose : forall C1 C2,
       evalctx C1 ->
       evalctx C2 ->
@@ -886,7 +886,7 @@ Proof using.
   { do 2 rewrite isubst_trm_apps_args. simpl; rewrite~ HE. }
 Qed.
 
-(* TODO: LATER use an inductive grammar of evalcxt,
+(* --TODO: --LATER use an inductive grammar of evalcxt,
    plus a applyctx function to perform the substitution,
    so as to be able to define the notion of substitution
    into an evaluation context
@@ -926,7 +926,7 @@ Notation "x `/` y" := (Z.quot x y)
   (at level 69, right associativity) : charac.
 Notation "x `mod` y" := (Z.rem x y)
   (at level 69, no associativity) : charac.
- TODO: check levels for these notations *)
+ --TODO: check levels for these notations *)
 
 (** Evaluation rules for unary operations *)
 
@@ -989,7 +989,7 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
   | eval_let : forall m1 m2 z v1 t2 r,
       eval m1 (subst1 z v1 t2) m2 r ->
       eval m1 (trm_let z v1 t2) m2 r
-  (* LATER: factorize using [subst1 f v0 (substn xs vs) t]
+  (* --LATER: factorize using [subst1 f v0 (substn xs vs) t]
       and a relatex version of var_fixs that accept a [f:bind] *)
   | eval_apps_funs : forall m1 m2 xs t3 v0 vs r,
       v0 = val_funs xs t3 ->
@@ -1043,12 +1043,12 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       mb = Fmap.conseq l (LibList.make k val_uninitialized) ->
       n = nat_to_Z k ->
       l <> null ->
-      Fmap.disjoint ma mb -> (* LATER: reformulate using not_indom *)
+      Fmap.disjoint ma mb -> (* --LATER: reformulate using not_indom *)
       eval ma (val_alloc (val_int n)) (mb \+ ma) (val_loc l)
   | eval_dealloc : forall (n:int) vs ma mb l,
       mb = Fmap.conseq l vs ->
       n = LibList.length vs ->
-      Fmap.disjoint ma mb -> (* LATER: reformulate using not_indom *)
+      Fmap.disjoint ma mb -> (* --LATER: reformulate using not_indom *)
       eval (mb \+ ma) (val_dealloc (val_int n) (val_loc l)) ma val_unit.
 
 End Red.
@@ -1228,7 +1228,7 @@ Proof using.
     { simpls. splits; auto_false. splits*. } }
   { applys* eval_apps_fixs (v2::nil).
     { simpls. splits; auto_false. splits*. simpls. case_var~. } }
-Qed. (* LATER: clean up *)
+Qed. (* --LATER: clean up *)
 
 Lemma eval_app_trm : forall m1 m2 m3 m4 t1 t2 f x t3 v1 v2 r,
   eval m1 t1 m2 v1 ->
@@ -1309,13 +1309,13 @@ Fixpoint trm_size (t:trm) : nat :=
   | trm_var x => 1
   | trm_val v => 1
   | trm_fixs f xs t1 => 1 + trm_size t1
-  | trm_constr id ts => 1 + List.fold_right (fun t acc => (acc + trm_size t)%nat) 0%nat ts (* TODO: list_sum *)
+  | trm_constr id ts => 1 + List.fold_right (fun t acc => (acc + trm_size t)%nat) 0%nat ts (* --TODO: list_sum *)
   | trm_if t0 t1 t2 => 1 + trm_size t0 + trm_size t1 + trm_size t2
   | trm_let x t1 t2 => 1 + trm_size t1 + trm_size t2
-  | trm_apps t0 ts => 1 + trm_size t0 + List.fold_right (fun t acc => (acc + trm_size t)%nat) 0%nat ts (* TODO: list_sum *)
+  | trm_apps t0 ts => 1 + trm_size t0 + List.fold_right (fun t acc => (acc + trm_size t)%nat) 0%nat ts (* --TODO: list_sum *)
   | trm_while t1 t2 => 1 + trm_size t1 + trm_size t2
   | trm_for x t1 t2 t3 => 1 + trm_size t1 + trm_size t2 + trm_size t3
-  | trm_match t0 pts => 1 + trm_size t0 + List.fold_right (fun '(p,t) acc => (acc + trm_size t)%nat) 0%nat pts (* TODO: list_sum+List.map *)
+  | trm_match t0 pts => 1 + trm_size t0 + List.fold_right (fun '(p,t) acc => (acc + trm_size t)%nat) 0%nat pts (* --TODO: list_sum+List.map *)
   | trm_fail => 1
   end.
 
@@ -1368,7 +1368,7 @@ End CoercionsFromStrings.
 (* ---------------------------------------------------------------------- *)
 (** Notation for concrete programs *)
 
-(* LATER VERSION OF COQ
+(* --LATER VERSION OF COQ
 Declare Scope val_scope.
 Declare Scope pat_scope.
 Declare Scope trm_scope.
@@ -1435,7 +1435,7 @@ Notation "'Let' 'Rec' f x1 x2 .. xn ':=' t1 'in' t2" :=
   (at level 69, f, x1, x2, xn at level 0, right associativity,
   format "'[v' '[' 'Let'  'Rec'  f  x1  x2  ..  xn  ':='  t1  'in' ']'  '/'  '[' t2 ']' ']'") : trm_scope.
 
-  (* LATER: the above might need to be fixed. Here is how to test it:
+  (* --LATER: the above might need to be fixed. Here is how to test it:
      Definition test2 := Let Rec 'f 'x 'y := val_unit in val_unit.
      Print test2. *)
 
@@ -1548,7 +1548,7 @@ Notation "t1 '<> t2" :=
   (val_neq t1 t2)
   (at level 58) : trm_scope. *)
 
-(* TODO: conflict with TCL? to resolve *)
+(* --TODO: conflict with TCL? to resolve *)
 
 Notation "t1 '<= t2" :=
   (val_le t1 t2)

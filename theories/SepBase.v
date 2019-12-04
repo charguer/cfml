@@ -55,7 +55,7 @@ Definition heap_empty : heap := Fmap.empty.
 
 Notation "h1 \u h2" := (Fmap.union h1 h2)
   (at level 37, right associativity) : heap_union_scope.
-  (* LATER: could try to introduce [heap_union := Fmap.union] *)
+  (* --LATER: could try to introduce [heap_union := Fmap.union] *)
 
 Local Open Scope heap_union_scope.
 
@@ -484,7 +484,7 @@ Qed.
 
 (** Tactic for helping reasoning about concrete calls to [alloc] *)
 
-Ltac simpl_abs := (* TODO: remove this *)
+Ltac simpl_abs := (* --TODO: remove this *)
   match goal with
   | |- context [ abs 0 ] => change (abs 0) with 0%nat
   | |- context [ abs 1 ] => change (abs 1) with 1%nat
@@ -1076,7 +1076,7 @@ Proof using.
   { applys triple_evalctx (fun t1 => trm_for x t1 (isubst E t2) (isubst (Ctx.rem x E) t3)); eauto. }
   { applys triple_evalctx (fun t2 => trm_for x v1 t2 (isubst (Ctx.rem x E) t3)); eauto. }
   { applys triple_evalctx (fun t0 => trm_match t0 (List.map (fun '(pi,ti) => (pi, isubst (Ctx.rem_vars (patvars pi) E) ti)) pts)); eauto. }
-Qed. (* TODO: why List.map and LibList.map are mixed? Would a grammar of contexts work better? *)
+Qed. (* --TODO: why List.map and LibList.map are mixed? Would a grammar of contexts work better? *)
 
 
 (* ---------------------------------------------------------------------- *)

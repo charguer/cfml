@@ -81,7 +81,7 @@ Qed.
 
 
 (*----------------------*)
-(*-- LATER: move to TLC LibNatExec *)
+(*--LATER: move to TLC LibNatExec *)
 
 Fixpoint nat_compare (x y : nat) :=
   match x, y with
@@ -203,7 +203,7 @@ Definition equiv A B (l1 l2:list(A*B)) :=
 Definition disjoint A B (l1 l2:list(A*B)) :=
   forall x v1 v2, get_opt x l1 = Some v1 -> get_opt x l2 = Some v2 -> False.
 
-(* TODO: equivalent definitions of disjoint using mem *)
+(* --TODO: equivalent definitions of disjoint using mem *)
 
 Section Disjoint.
 Variables (A B : Type).
@@ -416,7 +416,7 @@ Proof using.
   extens ;=> A L1 L2. induction L1; simpl; rew_list; congruence.
 Qed.
 
-Lemma List_rev_eq : forall A, (* LATER: why fails if A is not quantified here? *)
+Lemma List_rev_eq : forall A, (* --LATER: why fails if A is not quantified here? *)
   @List.rev A = @LibList.rev A.
 Proof using.
   extens ;=> L. induction L; simpl; rew_list. { auto. }
@@ -432,7 +432,7 @@ Qed.
 Lemma List_combine_eq : forall A B (L1:list A) (L2:list B),
   length L1 = length L2 ->
   List.combine L1 L2 = LibList.combine L1 L2.
-Proof using. (* LATER: redo proof using list2_ind *)
+Proof using. (* --LATER: redo proof using list2_ind *)
   introv E. gen L2.
   induction L1 as [|x1 L1']; intros; destruct L2 as [|x2 L2']; tryfalse.
   { auto. }
@@ -441,7 +441,7 @@ Qed.
 
 Hint Rewrite LibList.length_map : rew_listx.
 
-(* TODO: replace all List_foo_eq with a rew_list_exec tactic *)
+(* --TODO: replace all List_foo_eq with a rew_list_exec tactic *)
 
 Fixpoint mem_exec A (cmp:A->A->bool) (x:A) (l:list A) : bool :=
   match l with
@@ -647,7 +647,7 @@ Tactic Notation "list2_ind_last" constr(E) :=
 (* ---------------------------------------------------------------------- *)
 (* LibMultiset *)
 
-Tactic Notation "multiset_eq" := (* TODO: move to TLC *)
+Tactic Notation "multiset_eq" := (* --TODO: move to TLC *)
   check_noevar_goal; LibMultiset.permut_simpl.
 
 

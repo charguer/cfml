@@ -318,7 +318,7 @@ Qed.
 
 Hint Resolve Enc_injective_loc Enc_injective_unit Enc_injective_bool
              Enc_injective_int @Enc_injective_option @Enc_injective_list.
-             (* TODO: put in a base? *)
+             (* --TODO: put in a base? *)
 
 (* ** Injectivity of encoders for specific values
       (useful in many cases to avoid the need for an hypothesis
@@ -820,7 +820,7 @@ Proof using.
   { intros b. unfold LiftPost. xtpull ;=> V E.
     asserts E': (V = b). { destruct* V. } clears E. subst V. applys M2. }
   { intros v N. unfold LiftPost. xpull ;=> V ->. false N.
-    rewrite enc_bool_eq. hnfs*. } (* LATER : simplify? *)
+    rewrite enc_bool_eq. hnfs*. } (* --LATER : simplify? *)
 Qed.
 
 Lemma Triple_if_case : forall (b:bool) t1 t2 H A `{EA:Enc A} (Q:A->hprop),
@@ -1006,7 +1006,7 @@ Lemma Triple_eq : forall `{EA:Enc A},
   Triple (val_eq ``v1 ``v2)
     \[]
     (fun (b:bool) => \[b = isTrue (v1 = v2)]).
-Proof using. (* LATER: simplify *)
+Proof using. (* --LATER: simplify *)
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_eq_val. } (* todo: why sapply ? *)
   unfolds. xpull ;=> ? ->. xsimpl*. rewrite~ Enc_injective_eq.
@@ -1018,7 +1018,7 @@ Lemma Triple_eq_l : forall `{EA:Enc A} (v1:A),
   Triple (val_eq ``v1 ``v2)
     \[]
     (fun (b:bool) => \[b = isTrue (v1 = v2)]).
-Proof using. (* LATER: simplify *)
+Proof using. (* --LATER: simplify *)
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_eq_val. } (* todo: why sapply ? *)
   unfolds. xpull ;=> ? ->. xsimpl*. rew_bool_eq. iff. { applys* I. } { subst*. }
@@ -1030,7 +1030,7 @@ Lemma Triple_eq_r : forall `{EA:Enc A} (v2:A),
   Triple (val_eq ``v1 ``v2)
     \[]
     (fun (b:bool) => \[b = isTrue (v1 = v2)]).
-Proof using. (* LATER: simplify *)
+Proof using. (* --LATER: simplify *)
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_eq_val. } (* todo: why sapply ? *)
   unfolds. xpull ;=> ? ->. xsimpl*. rew_bool_eq. iff. { symmetry. applys* I. } { subst*. }
@@ -1048,7 +1048,7 @@ Lemma Triple_neq : forall `{EA:Enc A},
   Triple (val_neq ``v1 ``v2)
     \[]
     (fun (b:bool) => \[b = isTrue (v1 <> v2)]).
-Proof using. (* LATER: simplify *)
+Proof using. (* --LATER: simplify *)
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_neq_val. }
   unfolds. xpull ;=> ? ->. xsimpl*. rewrite* Enc_injective_eq.
@@ -1060,7 +1060,7 @@ Lemma Triple_neq_l : forall `{EA:Enc A} (v1:A),
   Triple (val_neq ``v1 ``v2)
     \[]
     (fun (b:bool) => \[b = isTrue (v1 <> v2)]).
-Proof using. (* LATER: simplify *)
+Proof using. (* --LATER: simplify *)
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_neq_val. } (* todo: why sapply ? *)
   unfolds. xpull ;=> ? ->. xsimpl*. rew_bool_eq. iff R.
@@ -1073,7 +1073,7 @@ Lemma Triple_neq_r : forall `{EA:Enc A} (v2:A),
   Triple (val_neq ``v1 ``v2)
     \[]
     (fun (b:bool) => \[b = isTrue (v1 <> v2)]).
-Proof using. (* LATER: simplify *)
+Proof using. (* --LATER: simplify *)
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_neq_val. } (* todo: why sapply ? *)
   unfolds. xpull ;=> ? ->. xsimpl*. rew_bool_eq. iff R.

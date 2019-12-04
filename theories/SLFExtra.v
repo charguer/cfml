@@ -272,7 +272,7 @@ Proof using.
     applys himpl_hexists_r (neg b). destruct* b. }
 Qed.
 
-(* TODO: what is the [himpl_hor_l] rule,
+(* LATER: what is the [himpl_hor_l] rule,
    appart from unfolding the above definition of [hor]? *)
 
 Lemma himpl_hor_r_r : forall H1 H2,

@@ -140,7 +140,7 @@ Definition one_var A (x:var) (v:A) : ctx A :=
     from each others. *)
 
 Definition combine A (xs:list var) (vs:list A) : ctx A :=
-  List.combine xs vs. (* LATER: use [LibListExec.combine] *)
+  List.combine xs vs. (* --LATER: use [LibListExec.combine] *)
 
 (** [app E1 E2] appends two contexts.
     Binders from [E1] may shadow those from [E2]. *)
@@ -321,7 +321,7 @@ Proof using.
     rewrite cons_eq_ctx_add. rewrite~ IHxs'. }
 Qed.
 
-(* TODO: would it be easier to do everything using [rem_vars']? *)
+(* --TODO: would it be easier to do everything using [rem_vars']? *)
 
 (** [lookup_or_arbitrary] *)
 
@@ -344,7 +344,7 @@ End CtxOps.
 
 End Ctx.
 
-(* LATER: how to place this rewrite base and tactics inside the
+(* --LATER: how to place this rewrite base and tactics inside the
    module and still be able to use it without importing the module? *)
 
 Hint Rewrite Ctx.nil_eq_ctx_empty Ctx.cons_eq_ctx_add Ctx.rem_var_eq_rem : rew_ctx.

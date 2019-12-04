@@ -550,7 +550,7 @@ Lemma agree_union_l_inv : forall f1 f2 f3,
      agree f1 f3
   /\ agree f2 f3.
 Proof using.
-  (* LATER: proofs redundant with others above *)
+  (* --LATER: proofs redundant with others above *)
   introv M2 M1. split.
   { intros l v1 v2 E1 E2.
     specializes M1 l v1 v2 E1. applys~ M2 l v1 v2.
@@ -558,7 +558,7 @@ Proof using.
   { intros l v1 v2 E1 E2.
     specializes M1 l. specializes M2 l.
     unfolds union, map_union; simpls.
-    cases (fmap_data f1 l). (* LATER: name b *)
+    cases (fmap_data f1 l). (* --LATER: name b *)
     { applys eq_trans b. symmetry. applys~ M1. applys~ M2. }
     { auto. } }
 Qed.
@@ -577,7 +577,7 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Domain *)
 
-(* TODO: consistent renaming *)
+(* --LATER: consistent renaming *)
 Implicit Types s : fmap A B.
 Implicit Types l : A.
 Implicit Types v : B.
@@ -715,7 +715,7 @@ Lemma remove_union_single_l : forall s l v,
 Proof using.
   introv M. applys fmap_extens. intros x.
   unfold remove, map_remove, union, map_union, single. simpls.
-  case_if. (* LATER: simplify? *)
+  case_if. (* --LATER: simplify? *)
   { destruct s as [f F]. unfolds indom, map_indom. simpls. subst. rew_logic~ in M. }
   { case_if~. }
 Qed.

@@ -307,7 +307,7 @@ Proof using. intros. apply (Inhab_of_val hempty). Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [himpl] *)
 
-(* TODO: is this lemma really needed? *)
+(* --TODO: is this lemma really needed? *)
 Lemma himpl_forall_trans : forall H1 H2,
   (forall H, H ==> H1 -> H ==> H2) ->
   H1 ==> H2.
@@ -722,7 +722,7 @@ Proof using.
 Qed.
 
 Lemma hstar_hgc_hgc :
-  \GC \* \GC = \GC. (* TODO : can be simplified *)
+  \GC \* \GC = \GC. (* --TODO : can be simplified *)
 Proof using.
   applys himpl_antisym.
   { applys himpl_hgc_r. applys haffine_hstar; applys haffine_hgc. }
@@ -1308,7 +1308,7 @@ Lemma local_hforall_exists : forall F A (J:A->hprop) Q,
 Proof using. introv L (x&M). applys* local_hforall. Qed.
 
 (** Extraction of forall below a star from [mklocal] *)
-(* TODO needed? *)
+(* --TODO needed? *)
 
 Lemma local_hstar_hforall_l : forall F H A (J:A->hprop) Q,
   local F ->
@@ -1317,7 +1317,7 @@ Lemma local_hstar_hforall_l : forall F H A (J:A->hprop) Q,
 Proof using.
   introv L (x&M).
   applys local_conseq_pre; [ auto | | applys hstar_hforall ].
-  (* TODO: fix level for notation \forall and \hstar, so that parentheses show up *)
+  (* --TODO: fix level for notation \forall and \hstar, so that parentheses show up *)
   (* above line same as: xtchanges hstar_hforall. *)
   applys* local_hforall.
 Qed.
@@ -1389,7 +1389,7 @@ Global Opaque local.
 
 (* ********************************************************************** *)
 (** * Definition of the predicate transformer [mklocal] *)
-(* TODO needed? *)
+(* --TODO needed? *)
 
 (** Remark: this section might be specific to old-style characteristic formulae *)
 
@@ -1669,7 +1669,7 @@ Ltac xpostcondition tt :=
   match goal with |- ?E =>
   match get_fun_arg E with (_,?Q) => constr:(Q)
   end end.
-  (* LATER: is this now equivalent to:
+  (* --LATER: is this now equivalent to:
      match goal with |- ?J ?Q => constr:(Q) end. *)
 
 (** [xpostcondition_is_evar tt] returns a boolean indicating

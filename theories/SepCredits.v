@@ -87,7 +87,7 @@ Lemma eval_app_fix_val : forall n m1 m2 v1 v2 f x t r,
 Proof using.
   introv E M. subst. applys equates_5.
   applys* eval_app_arg. math.
-  (* TODO here and above applys_eq 5 eval_app. *)
+  (* --TODO here and above applys_eq 5 eval_app. *)
 Qed.
 
 
@@ -852,7 +852,7 @@ Lemma triple_conseq_frame_hgc : forall H2 H1 Q1 t H Q,
   triple t H Q.
 Proof using. intros. applys* local_conseq_frame_hgc. Qed.
 
-(* TODO: move to SepFunctor? *)
+(* --TODO: move to SepFunctor? *)
 
 Lemma hprop_extract_hfalse : forall H1 H2 h,
   (H1 \* H2) h ->
@@ -888,7 +888,7 @@ Qed.
 Definition is_val_bool (v:val) : Prop :=
   exists b, v = val_bool b.
 
-(* TODO: follow proof pattern from SepBase? *)
+(* --TODO: follow proof pattern from SepBase? *)
 
 Lemma triple_if : forall Q1 t0 t1 t2 H Q,
   triple t0 H Q1 ->

@@ -1302,7 +1302,7 @@ Ltac xsimpl_clean tt :=
   try remove_empty_heaps_left tt;
   try xsimpl_hint_remove tt.
 
-(* LATER: might move to TLC *)
+(* --LATER: might move to TLC *)
 Ltac gen_until_mark_with_processing_and_cleaning cont :=
   match goal with H: ?T |- _ =>
   match T with
@@ -1478,7 +1478,7 @@ Ltac xsimpl_step_r tt :=
   | ?p ~> _ => xsimpl_pick_repr H; apply xsimpl_lr_cancel_eq_repr;
                [ xsimpl_lr_cancel_eq_repr_post tt | ]  (* else continue *)
   | ?x ~> Id ?X => has_no_evar x; apply xsimpl_r_id
-  (* TODO DEPRECATED? | ?x ~> ?T _ => has_no_evar x;
+  (* --TODO DEPRECATED? | ?x ~> ?T _ => has_no_evar x;
                   let M := fresh in assert (M: T = Id); [ reflexivity | clear M ];
                   apply xsimpl_r_id; [ try reflexivity |  ] *)
   | ?x ~> ?T_evar ?X_evar => has_no_evar x; is_evar T_evar; is_evar X_evar;
@@ -1494,7 +1494,7 @@ Ltac xsimpl_step_lr tt :=
        | ?H1 \* \[] =>
          match H1 with
          | ?Hra_evar => is_evar Hra_evar; rew_heap; apply himpl_lr_refl (* else continue *)
-       (*   | ?Hla' => (* unify Hla Hla'; *) apply himpl_lr_refl (* else continue *) TODO: needed? *)
+       (*   | ?Hla' => (* unify Hla Hla'; *) apply himpl_lr_refl (* else continue *) --TODO: needed? *)
          | ?Q1 \--* ?Q2 => is_evar Q2; eapply himpl_lr_qwand_unify
          | \[False] \-* ?H2 => apply xsimpl_lr_hwand_hfalse
          | ?H1 \-* ?H2 => xsimpl_flip_acc_l tt; apply xsimpl_lr_hwand
@@ -1505,7 +1505,7 @@ Ltac xsimpl_step_lr tt :=
              | _ => apply xsimpl_lr_qwand; intro
              end
          | hforall _ => xsimpl_flip_acc_l tt; apply xsimpl_lr_hforall; intro
-                        (* TODO: optimize for iterated \forall bindings *)
+                        (* --TODO: optimize for iterated \forall bindings *)
          end
        | \[] => apply himpl_lr_refl
        | _ => xsimpl_flip_acc_lr tt; apply xsimpl_lr_exit_nogc
@@ -1516,7 +1516,7 @@ Ltac xsimpl_step_lr tt :=
     | ?Hrg' => xsimpl_flip_acc_lr tt; apply xsimpl_lr_exit
   end end.
 
-  (* TODO: handle [?HL (?Hra_evar, (\GC \* ..), \[])] *)
+  (* --TODO: handle [?HL (?Hra_evar, (\GC \* ..), \[])] *)
 
 
 Ltac xsimpl_step tt :=
@@ -1653,7 +1653,7 @@ Ltac xchange_xpull_cont_basic tt := (* version without error reporting *)
 Ltac xchange_xsimpl_cont tt :=
   unfold protect; xsimpl; try solve [ apply himpl_refl ].
 
-  (* TODO DEPRECATED: [instantiate] useful? no longer...*)
+  (* --TODO DEPRECATED: [instantiate] useful? no longer...*)
 
 Ltac xchange_nosimpl_base E modifier :=
   xchange_core E modifier ltac:(idcont).
@@ -1856,7 +1856,7 @@ Proof using.
   { intros. xsimpl0. xsimpl1. xsimpl1. xsimpl1. xsimpl1. xsimpl1.
     xsimpl1. xsimpl1. xsimpl1. xsimpl1. demo. }
   { intros. xsimpl. demo. }
-Abort. (* TODO: coq bug, abort should be required, not qed allowed *)
+Abort. (* --TODO: coq bug, abort should be required, not qed allowed *)
 
 Lemma xsimpl_demo_keep_order : forall H1 H2 H3 H4 H5 H6 H7,
   H1 \* H2 \* H3 \* H4 ==> H5 \* H3 \* H6 \* H7.

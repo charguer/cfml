@@ -57,7 +57,7 @@ Notation "'TRIPLE' t 'PRE' H1 'RET' v 'POST' H2" :=
   (at level 39, t at level 0,
    format "'[v' 'TRIPLE'  t  '/' 'PRE'  H1  '/'  'RET'  v  '/'  'POST'  H2 ']'") : triple_scope.
 
-(* LATER
+(* --LATER
 
 Notation "'`Triple' t 'PRE' H1 'BIND' x1 'RET' v 'POST' H2" :=
   (Triple t H1 (fun r => \exists x1, \[r = v] \* H2))
@@ -115,7 +115,7 @@ Lemma Decode_cons : forall A `{EA:Enc A} (X:A) (L:list A) (x l : val),
   Decode ((x ':: l)%val) (X::L).
 Proof using. introv Dx DL. unfolds. rew_enc. fequals. Qed.
 
-(* LATER: WORK AROUND TYPECLASS RESOLUTION BUG *)
+(* --LATER: WORK AROUND TYPECLASS RESOLUTION BUG *)
 Hint Extern 1 (Decode 'nil%val _) =>
   match goal with H: Enc ?A |- _ => eapply (@Decode_nil A) end : Decode.
 Hint Extern 1 (Decode ('VCstr "cons" _ _) _) =>
@@ -131,7 +131,7 @@ Lemma Decode_Some : forall A `{EA:Enc A} (V:A) (v:val),
 Proof using. intros. unfolds. rew_enc. fequals. Qed.
 
 Hint Resolve @Decode_None @Decode_Some : Decode.
-(* LATER: similar hints needed? *)
+(* --LATER: similar hints needed? *)
 
 
 (* ---------------------------------------------------------------------- *)
@@ -162,7 +162,7 @@ Ltac xenc_side_conditions tt :=
   try match goal with
   | |- Enc _ => typeclasses eauto with typeclass_instances
   | |- Decode _ _ => xdecode
-  | |- Enc_injective _ => eauto (* TODO: in hint database *)
+  | |- Enc_injective _ => eauto (* --TODO: in hint database *)
   end.
 
 
@@ -270,7 +270,7 @@ Ltac xspec_lemma_of_args E :=
   let H := fresh "Spec2" in
   match list_boxer_of E with
   | cons (boxer ltac_wild) ?E' => (* only args provided *)
-     let K := fresh "BaseSpec" in (* TODO: need to clear K at some point... *)
+     let K := fresh "BaseSpec" in (* --TODO: need to clear K at some point... *)
      xspec; intro K;
      lets H: ((boxer K)::E');
      revert H;
@@ -286,7 +286,7 @@ Notation "'Register_Spec' f" := (Register_goal (Triple (trm_apps (trm_val f) _) 
   (at level 69) : xspec_scope.
 
 
-(** Explicit Decoding for polymorphic primitive  -- TODO: move to separate file *)
+(** Explicit Decoding for polymorphic primitive  -- --TODO: move to separate file *)
 
 Lemma Triple_ref_Decode : forall A `{EA:Enc A} (V:A) (v:val),
   Decode v V ->
@@ -753,7 +753,7 @@ Ltac xapp_select_lemma tt :=
   end; [ applys S | clear S ].
 
 Ltac xapp_apply_lemma cont_prove_triple :=
-  (* TODO should remove *) xapp_pre tt;
+  (* --TODO should remove *) xapp_pre tt;
   applys xapp_find_spec_lemma;
     [ cont_prove_triple tt
     | xapp_select_lemma tt; xapp_post tt ].
@@ -1152,6 +1152,6 @@ Proof using. introv M. xchanges M. Qed.
 
 (* ********************************************************************** *)
 
-(* TODO: decode typeclass *)
+(* --TODO: decode typeclass *)
 
-(* LATER: xif automates xapp *)
+(* --LATER: xif automates xapp *)

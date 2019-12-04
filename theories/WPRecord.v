@@ -156,8 +156,8 @@ Fixpoint Record (L:Record_fields) (r:loc) : hprop :=
   | (f, Dyn V)::L' => (r`.f ~~> V) \* (r ~> Record L')
   end.
 
-(* TODO: currently restricted due to [r `. f ~> V] not ensuring [r<>null] *)
-(* TODO: rename *)
+(* --TODO: currently restricted due to [r `. f ~> V] not ensuring [r<>null] *)
+(* --TODO: rename *)
 Lemma hRecord_not_null : forall (r:loc) (L:Record_fields),
   (* L <> nil -> *)
   mem (0%nat:field) (List.map fst L) ->
@@ -210,7 +210,7 @@ Ltac xrecord_eq_core tt :=
 Tactic Notation "xrecord_eq" :=
   xrecord_eq_core tt.
 
-(* LATER: xrecord_eq might need to take care of reordering *)
+(* --LATER: xrecord_eq might need to take care of reordering *)
 
 (** Updating the cancellation tactic. *)
 
@@ -227,7 +227,7 @@ Ltac xsimpl_lr_cancel_eq_repr_post tt ::=
 Section Triple_fields.
 Transparent loc field Hfield.
 
-(* TODO move *)
+(* --TODO move *)
 Lemma Hfield_eq_fun_Hsingle_ext : forall `{EA:Enc A} (V:A) (l:loc) (f:field),
   (l`.f ~~> V) = (((l+f)%nat ~~> V) \* \[l <> null]).
 Proof using. intros. rewrite Hfield_eq_fun_Hsingle. rewrite~ repr_eq. Qed.
@@ -409,7 +409,7 @@ Ltac xspec_record_get_loc v :=
   end.
 
 Ltac xspec_record_get_compute tt :=
-(* TODO   match goal with |- Triple (trm_apps (trm_val (val_get_field ?f)) ((trm_val ?v)::nil)) ?H _ => *)
+(* --TODO   match goal with |- Triple (trm_apps (trm_val (val_get_field ?f)) ((trm_val ?v)::nil)) ?H _ => *)
   match goal with |- Triple (trm_apps (trm_val (val_get_field ?f)) (trms_vals (?v::nil))) ?H _ =>
     let r := xspec_record_get_loc v in
     let L := xspec_record_repr_compute r H in
@@ -466,7 +466,7 @@ Proof using.
   applys Triple_enc_change. xapplys (rm R'). simpl.
   unfold RetypePost, Wptag. xpull ;=> ? ->. unfold H'. xpull.
   unfold Wpgen_cast, Wptag. applys himpl_refl.
-Qed. (* TODO: simplify proof *)
+Qed. (* --TODO: simplify proof *)
 
 Lemma xapp_record_set : forall A1 `{EA1:Enc A1} (W:A1) (Q:unit->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
   H ==> p ~> Record L \* ((
@@ -483,7 +483,7 @@ Proof using.
   forwards R': R; eauto. clear R. specializes R' p.
   applys himpl_Wpgen_app_of_Triple.
   xapplys R'.
-Qed. (* TODO: simplify proof *)
+Qed. (* --TODO: simplify proof *)
 
 
 Global Opaque val_set_field val_get_field.
@@ -493,9 +493,9 @@ Global Opaque val_set_field val_get_field.
 (* ---------------------------------------------------------------------- *)
 (* ** No duplicated fields checker *)
 
-(* LATER: use a more generic noduplicates_exec function *)
+(* --LATER: use a more generic noduplicates_exec function *)
 
-(* TODO: move
+(* --TODO: move
 
 Fixpoint field_fresh_exec (k:field) (ks:fields) : bool :=
   match xs with
@@ -547,7 +547,7 @@ Fixpoint fields_check (ks:fields) (L:Record_fields) : bool :=
   | _, _ => false
   end.
 
-(* TODO: use boolean version of [eq_nat_dec] *)
+(* --TODO: use boolean version of [eq_nat_dec] *)
 
 
 (* ---------------------------------------------------------------------- *)
@@ -612,7 +612,7 @@ Ltac list_boxer_to_dyns E :=
        constr:((Dyn V)::L)
   end.
 
-(* TODO: port the proof from the previous CFML version to the new setting *)
+(* --TODO: port the proof from the previous CFML version to the new setting *)
 Parameter xapp_record_new : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fields) (vs:vals),
   noduplicates_fields_exec ks = true ->
   is_nil ks = false ->
@@ -632,7 +632,7 @@ Ltac xnew_core E :=
   | try reflexivity
   | try reflexivity
   | xsimpl; simpl List.combine; simpl; xsimpl; unfold protect; xnew_post tt ].
-(* TODO:  simpl; xsimpl; might not be needed *)
+(* --TODO:  simpl; xsimpl; might not be needed *)
 
 Tactic Notation "xnew" constr(E) :=
   xnew_core E.
@@ -682,7 +682,7 @@ Ltac xapp_record_delete_grouped tt :=
   fail "not yet implemented: xapp_record_delete_grouped".
 
 
-(* TODO: define delete tactic for [p ~> Record L] *)
+(* --TODO: define delete tactic for [p ~> Record L] *)
 
 Fixpoint xapp_to_delete_fields (p:loc) (ks:fields) :=
   match ks with
@@ -697,10 +697,10 @@ Lemma xapp_to_delete_fields_of_consecutive_fields_exec : forall ks koffset p,
   xapp_to_delete_fields p ks ==> Dealloc (List.length ks) (p+koffset)%nat.
 Proof using.
   intros ks. induction ks as [|k ks']; simpl; introv M.
-  { rewrite Dealloc_zero_eq. (* TODO: rename *) xsimpl. } 
-  { case_if. subst k. rewrite Dealloc_succ_eq. xpull ;=> A EA V. 
+  { rewrite Dealloc_zero_eq. (* --TODO: rename *) xsimpl. }
+  { case_if. subst k. rewrite Dealloc_succ_eq. xpull ;=> A EA V.
     rewrite Hfield_to_hfield. xchange hfield_to_hsingle ;=> N.
-    xsimpl (``V). xchange (>> IHks' M). 
+    xsimpl (``V). xchange (>> IHks' M).
     math_rewrite ((p + S koffset)%nat = S (p + koffset)%nat). xsimpl. }
 Qed.
 
@@ -709,15 +709,15 @@ Lemma xapp_record_delete_exploded : forall (Q:unit->hprop) (H:hprop) (ks:fields)
   H ==> xapp_to_delete_fields p ks \* (protect (Q tt)) ->
   H ==> ^(Wpgen_app (trm_apps (trm_val (val_record_delete ks)) (trms_vals ((val_loc p)::nil)))) Q.
 Proof using.
-  introv Hks M. applys MkStruct_erase. xchange (rm M). 
+  introv Hks M. applys MkStruct_erase. xchange (rm M).
   xchange (>> xapp_to_delete_fields_of_consecutive_fields_exec Hks).
   math_rewrite ((p+0)%nat = p). rewrite <- Triple_eq_himpl_Wp.
   (* xwp *)
   applys xwp_lemma_funs; try reflexivity; simpl.
-  (* xapp *) 
+  (* xapp *)
   xapp Triple_dealloc. { math. }
   (* xsimpl *)
-  rewrite abs_nat. unfold xapp_hidden, protect. xsimpl.  (* TODO avoid *)
+  rewrite abs_nat. unfold xapp_hidden, protect. xsimpl.  (* --TODO avoid *)
 Qed.
 
 Ltac xapp_record_delete_exploded tt :=

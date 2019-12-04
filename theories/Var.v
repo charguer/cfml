@@ -86,7 +86,7 @@ Fixpoint var_fresh (y:var) (xs:vars) : bool :=
   end.
 
 (** [var_distinct xs] asserts that [xs] consists of a list of distinct variables.
-    LATER: use [noduplicates] *)
+    --LATER: use [noduplicates] *)
 
 Fixpoint var_distinct (xs:vars) : Prop :=
   match xs with

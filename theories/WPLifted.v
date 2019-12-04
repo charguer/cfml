@@ -122,7 +122,7 @@ Definition Formula_cast `{Enc A1} (F:(A1->hprop)->hprop) : Formula :=
 
 (** [Wpgen_cast X Q] applies a postcondition [Q] of type [A2->hprop] to a value
     [X] of type [A1], with [X] converted on-the-fly to a value of type [A2]. *)
-(* TODO: is Wpgen_cast not similar to (Wpgen_val `X) *)
+(* --TODO: is Wpgen_cast not similar to (Wpgen_val `X) *)
 
 Definition Wpgen_cast `{Enc A1} (X:A1) A2 (EA2:Enc A2) (Q:A2->hprop) : hprop :=
   \exists (Y:A2), \[enc X = enc Y] \* Q Y.
@@ -233,7 +233,7 @@ Definition Wpgen_while (F1 F2:Formula) : Formula :=
     \forall (R:Formula),
     let F := Wpaux_if F1 (Wpgen_seq F2 R) (Wpgen_val val_unit) in
     \[ structural (@R unit _) /\ (forall Q', ^F Q' ==> ^R Q')] \-* (^R Q))).
-    (* TODO: use a lifted version of structural *)
+    (* --TODO: use a lifted version of structural *)
 
 Definition Wpgen_for_int (n1 n2:int) (F1:int->Formula) : Formula :=
   MkStruct (Formula_cast (fun (Q:unit->hprop) =>
@@ -242,7 +242,7 @@ Definition Wpgen_for_int (n1 n2:int) (F1:int->Formula) : Formula :=
                             else (`Wpgen_val val_unit) in
     \[   (forall i, structural (S i unit _))
       /\ (forall i Q', ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
-     (* TODO: use a lifted version of structural_pred *)
+     (* --TODO: use a lifted version of structural_pred *)
 
 Definition Wpgen_case (F1:Formula) (P:Prop) (F2:Formula) : Formula :=
   MkStruct (fun `{Enc A} Q =>
@@ -409,7 +409,7 @@ Lemma himpl_Wpgen_fail_l : forall `{EA:Enc A} (Q:A->hprop) H,
   ^Wpgen_fail Q ==> H.
 Proof using. intros. unfold Wpgen_fail, MkStruct, mkstruct. xpull. Qed.
 
-(* TODO: use lemma below for all occurences of wpgen_fail *)
+(* --TODO: use lemma below for all occurences of wpgen_fail *)
 Lemma Triple_Wpgen_fail : forall t `{EA:Enc A} (Q Q':A->hprop),
   Triple t (^Wpgen_fail Q) Q'.
 Proof using.
@@ -490,7 +490,7 @@ Proof using.
   remove_MkStruct. applys Triple_if_case.
   apply Triple_of_Wp. case_if. { applys M1. } { applys M2. }
 Qed.
-(* TODO choose version *)
+(* --TODO choose version *)
 
 Lemma Wpgen_sound_if_case' : forall b (F1 F2:Formula) E t1 t2,
   F1 ====> (Wpsubst E t1) ->
@@ -533,7 +533,7 @@ Proof using.
   Opaque Ctx.rem.
   introv M1 M2. intros A EA. applys qimpl_Wp_of_Triple. intros Q.
   remove_MkStruct. xtpull. simpl. applys Triple_let EA1.
-  (* LATER: typeclass should not be resolved arbitrarily to EA if EA1 is not provided *)
+  (* --LATER: typeclass should not be resolved arbitrarily to EA if EA1 is not provided *)
   { rewrite Triple_eq_himpl_Wp. applys* M1. }
   { intros X. rewrite Triple_eq_himpl_Wp.
     unfold Subst1. rewrite <- isubst_add_eq_subst1_isubst. applys* M2. }
@@ -716,7 +716,7 @@ Proof using.
   { simpl. rewrite List_rev_eq. rew_list. applys qimpl_Wp_of_Triple.
     simpl. rewrite List_map_eq.
     intros Q. remove_MkStruct. rewrite map_isubst_trms_vals. applys~ @triple_constr.
-    (* LATER: Triple_constr is not suitable here *) }
+    (* --LATER: Triple_constr is not suitable here *) }
   { specializes IHts' __. { intros t' Ht'. applys* IHwp. }
     applys~ Wpgen_sound_getval (fun t1 => trm_constr id (trms_vals (rev rvs) ++ t1 :: ts')).
     intros v1. fold (Wpaux_constr Wpgen E id). intros A1 EA1.
@@ -849,7 +849,7 @@ Notation "'App' f v1 v2 v3 " :=
   ((Wpgen_app (trm_apps f (trms_vals (v1::v2::v3::nil)))))
   (at level 68, f, v1, v2, v3 at level 0) : wp_scope.
 
-(* TODO: recursive notation for App *)
+(* --TODO: recursive notation for App *)
 
 Notation "'Ifval' b 'Then' F1 'Else' F2" :=
   ((Wpgen_if_case b F1 F2))
