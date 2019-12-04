@@ -1826,3 +1826,35 @@ Proof using.
 Qed.
 
 (* /INSTRUCTORS *)
+
+
+====================
+
+
+
+(** If [p ~> MList L] could be defined as an inductive predicate,
+    its definition would consists of the two rules shown below:
+
+    - The first rule asserts that the [null] pointer represents the
+      empty list, that is, the list [L] when [L = nil].
+    - The second rule asserts that a non-null pointer [p] represents
+      a list [L] of the form [x::L'], if the head field of [p] contains
+      the value [x] and the tail field of [p] contains some pointer [q],
+      where [q] is the head of a linked list that represents the list [L'].
+
+[[
+
+  -----------------
+  null ~> MList nil
+
+  p`.head ~~> x   \*   p`.tail ~~> q    \*   q ~> MList L'
+  --------------------------------------------------------
+                       p ~> MList (x::L')
+
+]]
+
+    For reasons that we won't detail here, the definition of the predicate
+    [p ~> MList L] cannot take the form of an inductive predicate in Coq.
+    Instead, it needs to be defined as a recursive function.
+
+

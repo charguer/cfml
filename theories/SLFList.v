@@ -63,8 +63,12 @@ Ltac xnew_post ::= xnew_post_exploded.
 
     This chapter exploits a few additional tactics:
     - [xunfold] is a CFML tactic for unfolding the definition of [MList],
+    - [xpull] is a CFML tactic to extract existentials and pure facts from
+      the left-hand side of an entailment, or from a precondition of a triple.
     - [xchange] is a CFML tactic to transform the precondition by exploiting
       entailments or equalities,
+    - [case_if] is a TLC tactic to perform a case analysis on the argument
+      of the first visible [if] that appears in the current proof obligation.
     - [rew_listx] is a TLC tactic to normalize list expressions, such as
       [(x::L1)++L2] into [x::(L1++L2)], or [length (x::L)] into [1 + length L],
       and likewise for operations [map] and [filter] on Coq lists.
@@ -102,6 +106,47 @@ Definition head : field := 0%nat.
 Definition tail : field := 1%nat.
 
 
+
+(* ******************************************************* *)
+(** *** Representation of a mutable list of length two *)
+
+(** Consider an example linked list that stores two integers, [8] and [5],
+    in two cells, the first one at location [p1], and the second one at
+    location [p2].
+
+    The representation predicate [p1 ~> MList (8::5::nil)] should thus
+    describe a state featuring the two list cells. The first cell, at 
+    location [p1], stores [8] and its tail pointer points to [p2]. 
+    The second cell, at location [p2], stores [5] and its tail pointer
+    is [null], indicating the end of the list. *)
+
+Definition example_mlist_1 (p1 p2:loc) : hprop :=
+  p1`.head ~~> 8  \*  p1`.tail ~~> p2 \*
+  p2`.head ~~> 5  \*  p2`.tail ~~> null.
+
+(** What we are seeking for is a general definition of [p ~> MList L].
+    This definition should exhibit a regular pattern, so that we can
+    characterize it using a recursive or inductive definition.
+
+    To that end, let us reformulate the above description of the
+    state by quantifying existentially the addresses of all the tail
+    pointers that occur in the list, as follows. *)
+
+Definition example_mlist_2 (p1:loc) : hprop :=
+  \exists (p2:loc), p1`.head ~~> 8  \*  p1`.tail ~~> p2 \*
+  \exists (p3:loc), p2`.head ~~> 5  \*  p2`.tail ~~> p3 \*
+  \[p3 = null].
+
+(** In that formulation, we can spot some regularity. The pattern is:
+[[
+  p ~> MList (x::L') = \exists (q:loc), (p`.head ~~> x) \* (p`.tail ~~> q)
+                                        \* q ~> MList L'
+
+  p ~> MList nil     = \[p = null]
+]]
+
+*)
+
 (* ******************************************************* *)
 (** *** Representation of a mutable list *)
 
@@ -115,51 +160,8 @@ Definition tail : field := 1%nat.
     readability in heap predicates, and it is helpful for [xsimpl] to
     cancel out items when simplifying entailment relations. *)
 
-(** If [p ~> MList L] could be defined as an inductive predicate,
-    its definition would consists of the two rules shown below:
-
-    - The first rule asserts that the [null] pointer represents the
-      empty list, that is, the list [L] when [L = nil].
-    - The second rule asserts that a non-null pointer [p] represents
-      a list [L] of the form [x::L'], if the head field of [p] contains
-      the value [x] and the tail field of [p] contains some pointer [q],
-      where [q] is the head of a linked list that represents the list [L'].
-
-[[
-
-  -----------------
-  null ~> MList nil
-
-  p`.head ~~> x   \*   p`.tail ~~> q    \*   q ~> MList L'
-  --------------------------------------------------------
-                       p ~> MList (x::L')
-
-]]
-
-    For reasons that we won't detail here, the definition of the predicate
-    [p ~> MList L] cannot take the form of an inductive predicate in Coq.
-    Instead, it needs to be defined as a recursive function.
-
-    A tentative definition would thus be the one below: it defines
-    [MList L p], that is [p ~> MList L], by case analysis on the
-    condition [p = null]. It exploits TLC's classical-logic test
-    written [If P then X else Y], where [P] is a proposition of type [Prop],
-    to perform the case distinction.
-
-[[
-    Fixpoint MList (L:list int) (p:loc) : hprop :=
-      If p = null
-        then \[L = nil]
-        else \exists x q L', \[L = x::L']
-             \* (p`.head ~~> x) \* (p`.tail ~~> q) \* (MList L' q).
-]]
-
-    Yet, this definition is rejected by Coq, because Coq does not recorgnize the
-    structural recursion, even though the recursive call is made with a list [L']
-    being a strict sublist of the argument [L]. *)
-
-(** The problem can be circumvented by setting up the definition of [MList] as a
-    pattern matching on the structure of the list [L]. The logic is as follows:
+(** The heap predicate [MList] can be defined recursively over the structure
+    of [L]. The logic is as follows:
 
     - if [L] is [nil], then [p] should be [null];
     - if [L] decomposes as [x::L'], then the head field of [p] should store
@@ -168,21 +170,17 @@ Definition tail : field := 1%nat.
       structure. The variable [q] should be existentially quantified.
 *)
 
-Fixpoint MList (L:list int) (p:loc) : hprop :=
+Fixpoint MList (L:list int) (p:loc) : hprop := (* defines [p ~> MList L] *)
   match L with
   | nil => \[p = null]
   | x::L' => \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L')
   end.
 
-
-(* ******************************************************* *)
-(** *** Basic properties of the mutable list predicate *)
-
-(** To begin with, we reformulate the definition of [MList] by stating
+(** It is useful to reformulate the definition of [MList] by stating
     two lemmas characterizing [p ~> MList L]. These lemmas will be very
     helpful for folding or unfolding the definition of [MList].
 
-    These lemmas are proved with help of the [xunfold] tactic, which
+    These two lemmas are proved with help of the [xunfold] tactic, which
     is a variant of [unfold] that provides appropriate support for
     unfolding the arrow notation ([~>]). *)
 
@@ -200,13 +198,30 @@ Proof using. xunfold MList. auto. Qed.
 
 Global Opaque MList.
 
-(** At this stage, we can prove that the definition of [MList] that
-    performs a pattern matching on [L] corresponds to the definition
-    of [MList] that we originally intended to write, the one that
-    distinguishes two cases according to the condition [p = null].
 
-    Remark: we prove only one direction of the equivalence; the
-    reciprocal entailement also holds, but it is not needed. *)
+(* ******************************************************* *)
+(** *** Alternative characterization of [MList] *)
+
+(** Most functions that manipulate a mutable list begin by testing
+    whether their argument is the [null] pointer, in order to determine
+    whether the list is empty.
+
+    For this reason, it is very useful to reformulate the definition
+    of [p ~> MList L] using a test on the condition [p = null],
+    as opposed to testing the condition [L = nil].
+
+    In a state described by [p ~> MList L], the following is true:
+
+    - if [p = null], then [L = nil];
+    - if [p <> null], then the list [L] must have the form [x::L'], 
+      the head field of [p] contains the value [x], and the tail field
+      of [p] contains some pointer [q] such that [q ~> MList L'] is
+      a respresentation of the tail list.
+
+    This logic is captured by the lemma [MList_if] stated below.
+    The statement exploits TLC's classical-logic test, written
+    [If P then X else Y], where [P] is a proposition of type [Prop],
+    to perform the case distinction on the condition [p = null]. *)
 
 Lemma MList_if : forall (p:loc) (L:list int),
   p ~> MList L ==>
@@ -219,24 +234,58 @@ Proof using.
   intros. destruct L as [|x L'].
   { (* Case [L = nil]. By definition of [MList], we have [p = null]. *)
     xchange MList_nil. intros M.
-    (* We have to justify [L = nil], which is trivial. *)
+    (* We have to justify [L = nil], which is trivial.
+       TLC [case_if] tactic performs a case analysis on the argument
+       of the first visible [if] conditional. *)
     case_if. xsimpl. auto. }
   { (* Case [L = x::L']. *)
+  (* One possibility is to perform a rewrite operation using [MList_cons]
+     on its first occurence. Then using CFML the tactic [xpull] to extract
+     the existential quantifiers out from the precondition:
+     [rewrite MList_cons. xpull. intros q.]
+     A more efficient approach is to use the dedicated CFML tactic [xchange],
+     which is specialized for performing updates in the current state. *)
     xchange MList_cons. intros q. case_if.
     { (* Case [p = null]. Contradiction because nothing can be allocated at
-         the null location, as captured by lemma [Hfield_not_null]. *)
-      subst. xchange Hfield_not_null. }
+         the null location, as captured by lemma [Hfield_not_null], 
+         which states: [(l`.f ~~> V) ==> (l`.f ~~> V) \* \[l <> null]]. *)
+      subst. lets: Hfield_not_null. xchange Hfield_not_null. }
     { (* Case [p <> null]. The 'else' branch corresponds to the definition
          of [MList] in the [cons] case. It suffices to correctly instantiate
          the existential quantifiers. *)
       xsimpl. auto. } }
 Qed.
 
-(** The lemma [MList_if] stated above will prove to be very handy for
-    reasoning about list-manipulating programs. Indeed, list-manipulating
-    functions generally begin by testing whether their argument is null.
+(** Remark: the reciprocal implication to [MList_if] is also true.
+    However, its statement is much less useful, because in practice
+    one may easily exploit the lemmas [MList_nil] and [MList_cons] directly. *)
 
-    We are now ready to verify such list-manipulating functions. *)
+Lemma MList_if_reciprocal : forall (p:loc) (L:list int),
+   (If p = null
+      then \[L = nil]
+      else \exists x q L', \[L = x::L']
+           \* (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L'))
+ ==> p ~> MList L.
+Proof using.
+  intros. case_if.
+  { xpull. intros ->. xchange <- (MList_nil p). { auto. } }
+  { xpull. intros x q L' ->. xchange <- MList_cons. }
+Qed.
+
+(** Remark: one might be tempted to consider the characterization 
+    provided by [MList_if] directly as a definition for [MList], that is:
+
+[[
+    Fixpoint MList (L:list int) (p:loc) : hprop :=
+      If p = null
+        then \[L = nil]
+        else \exists x q L', \[L = x::L']
+             \* (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L').
+]]
+
+    However, this definition is rejected by Coq, because Coq does not 
+    recorgnize the structural recursion, even though the recursive call 
+    is made with a list [L'] being a strict sublist of the argument [L]. *)
 
 
 (* ******************************************************* *)
@@ -268,16 +317,8 @@ Proof using.
   xwp.
   (* In order to read in [p.head], we must make visible in the current
      state the head field, that is [p`.head ~~> x]. We achieve this by
-     unfolding the definition of [MList], using lemma [MList_cons]. *)
-  (* One possibility is to perform a rewrite operation using [MList_cons]
-     on its first occurence. Then using CFML the tactic [xpull] to extract
-     the existential quantifiers out from the precondition:
-[[
-  rewrite MList_cons at 1. xpull. intros q.
-]]
-  *)
-  (* A more efficient approach is to use the dedicated CFML tactic [xchange],
-     which is specialized for performing updates in the current state. *)
+     unfolding the definition of [MList], using lemma [MList_cons].
+     Here [xchange MList_cons] performs [rewrite MList_cons at 1; xpull]. *)
   xchange MList_cons. intros q.
   (* Here, the name [q] introduced comes from the existentially quantified
      variable [q] in the definition of [MList]. *)
