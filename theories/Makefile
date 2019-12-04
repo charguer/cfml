@@ -44,7 +44,7 @@ SRC_EXAMPLES := Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueN
 
 SRC_CF := CFCrashCourse
 
-SRC_SF := SLFIntro SLFDirect SLFExtra SLFBasic SLFList SLFHprop SLFHimpl SubstExec SLFRules SLFWPsem SLFWPgen SLFSummary 
+SRC_SF := SLFPreface SLFDirect SLFExtra SLFBasic SLFList SLFHprop SLFHimpl SubstExec SLFRules SLFWPsem SLFWPgen SLFSummary 
 # SLFWand  
  #  SLFLift SLFRicher SLFExt
 
