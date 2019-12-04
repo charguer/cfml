@@ -440,7 +440,6 @@ Definition subst1 (z:bind) (v:val) (t:trm) :=
   end.
 
 (** [subst2] is a shorthand that iterates two calls to [subst1]. *)
-(* --TODO: deprecate *)
 
 Definition subst2 (z1:bind) (v1:val) (z2:bind) (v2:val) (t:trm) :=
    subst1 z2 v2 (subst1 z1 v1 t).
@@ -491,16 +490,6 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
 
 (** Recall that [one z v] is a shorthand for [add z v empty], and that
     [add] ignores anonymous binders. *)
-
-(** [isubst1 z v t] replaces occurences of binder [z] with [v] in [t]. *)
-
-Definition isubst1 (z:bind) (v:val) (t:trm) :=
-  isubst (Ctx.one z v) t.
-
-(** [isubst2 z1 v1 z2 v2 t] is similar. *)
-
-Definition isubst2 (z1:bind) (v1:val) (z2:bind) (v2:val) (t:trm) :=
-   isubst (Ctx.add z1 v1 (Ctx.one z2 v2)) t.
 
 (** [isubstn xs vs t] is a shorthand for [substs (List.combine xs vs) t].
     It substitutes the values [vs] for the corresponding variables in [xs].
@@ -597,39 +586,6 @@ Proof using.
   { applys~ isubst_cons. }
 Qed.
 
-(** [isubst1] matches [subst1] *)
-
-Lemma isubst1_eq_subst1 : forall z v t,
-  isubst1 z v t = subst1 z v t.
-Proof using.
-  intros. unfold isubst1, Ctx.one.
-  rewrite isubst_add, isubst_empty. auto.
-Qed.
-
-(** Reformulation of the definition of [subst2] *)
-
-Lemma subst2_eq_subst1_subst1 : forall x1 x2 v1 v2 t,
-  subst2 x1 v1 x2 v2 t = subst1 x2 v2 (subst1 x1 v1 t).
-Proof using. auto. Qed.
-
-(** Reformulation of the definition of [isubst2] *)
-
-Lemma isubst2_eq_isubst1_isubst1 : forall x1 x2 v1 v2 t,
-  isubst2 x1 v1 x2 v2 t = isubst1 x2 v2 (isubst1 x1 v1 t).
-Proof using.
-  intros. unfold isubst2. rewrite~ isubst_add.
-  rewrites (>> isubst1_eq_subst1 x1). auto.
-Qed.
-
-(** [isubst2] matches [subst2] *)
-
-Lemma isubst2_eq_subst2 : forall z1 v1 z2 v2 t,
-  isubst2 z1 v1 z2 v2 t = subst2 z1 v1 z2 v2 t.
-Proof using.
-  intros. rewrite isubst2_eq_isubst1_isubst1, subst2_eq_subst1_subst1.
-  do 2 rewrite isubst1_eq_subst1. auto.
-Qed.
-
 (** Distribution of [substn] on [nil] and [cons] lists *)
 
 Lemma substn_nil : forall t,
@@ -661,14 +617,6 @@ Proof using.
   introv E. gen t. list2_ind~ xs vs; intros.
   { rewrite* isubstn_nil. }
   { rewrite* isubstn_cons. }
-Qed.
-
-(** [isubst1 z v t] returns [t] unchanged when [z] is anonymous. *)
-
-Lemma isubst1_anon : forall v t,
-  isubst1 bind_anon v t = t.
-Proof using.
-  intros. unfold isubst1, Ctx.one, Ctx.add. rewrite~ isubst_empty.
 Qed.
 
 (** Substitutions for two distinct variables commute. *)
@@ -848,14 +796,29 @@ Implicit Types G : ctx.
 
 (** Evaluation contexts *)
 
-(* --TODO: use first-order eval contexts instead *)
-
-Inductive evalctx : (trm -> trm) -> Prop :=
-  (* --LATER
+(* LATER: it might be interesting to allow or to prove context composition.
+[[
   | evalctx_compose : forall C1 C2,
       evalctx C1 ->
       evalctx C2 ->
-      evalctx (fun t => C1 (C2 t)) *)
+      evalctx (fun t => C1 (C2 t))
+]]
+*)
+
+(* LATER: the use of Coq functions to describe contexts causes some
+   complications related to unification. It might work better to use
+   first-order contexts, together with an evaluation function for
+   applying a context to its argument. This would allow in particular
+   to define the notion of substitution into an evaluation context:
+[[
+    Lemma isubst_evalctx : forall E C t,
+      evalctx C ->
+        isubst E (evalctx_apply C t)
+      = evalctx_apply (evalctx_subst E C) (isubst E t).
+]]
+*)
+
+Inductive evalctx : (trm -> trm) -> Prop :=
   | evalctx_constr : forall id vs ts,
       evalctx (fun t1 => trm_constr id ((trms_vals vs)++t1::ts))
   | evalctx_let : forall z t2,
@@ -886,20 +849,6 @@ Proof using.
   { do 2 rewrite isubst_trm_apps_args. simpl; rewrite~ HE. }
 Qed.
 
-(* --TODO: --LATER use an inductive grammar of evalcxt,
-   plus a applyctx function to perform the substitution,
-   so as to be able to define the notion of substitution
-   into an evaluation context
-
-    Lemma isubst_evalctx : forall E C t,
-      evalctx C ->
-        isubst E (evalctx_apply C t)
-      = evalctx_apply (evalctx_subst E C) (isubst E t).
-    Proof using.
-      introv HC. inverts HC.
-Qed.
-*)
-
 (** The application of an evaluation context yield not a value *)
 
 Lemma evalctx_not_val : forall C t v,
@@ -920,13 +869,6 @@ Proof using. intros. applys evalctx_apps_arg (@nil val) (@nil trm). Qed.
 Section Red.
 
 Local Open Scope fmap_scope.
-
-(*
-Notation "x `/` y" := (Z.quot x y)
-  (at level 69, right associativity) : charac.
-Notation "x `mod` y" := (Z.rem x y)
-  (at level 69, no associativity) : charac.
- --TODO: check levels for these notations *)
 
 (** Evaluation rules for unary operations *)
 
@@ -968,10 +910,13 @@ Inductive redbinop : prim -> val -> val -> val -> Prop :=
       redbinop val_gt (val_int n1) (val_int n2) (val_bool (isTrue (n1 > n2))).
 
 Inductive eval : state -> trm -> state -> val -> Prop :=
-  (* [eval] for evaluation contexts *)
+  (* [eval] for evaluation contexts;
+     See lemma [eval_evalctx] for a proof that this rule holds
+     in fact also when the context argument is a value, that is,
+     it holds without the assumtion [~ trm_is_val t1]. *)
   | eval_evalctx_not_val : forall t1 m1 m2 m3 C v1 r,
       evalctx C ->
-      ~ trm_is_val t1 -> (* this premise later proved to be optional *)
+      ~ trm_is_val t1 ->
       eval m1 t1 m2 v1 ->
       eval m2 (C v1) m3 r ->
       eval m1 (C t1) m3 r
@@ -989,8 +934,8 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
   | eval_let : forall m1 m2 z v1 t2 r,
       eval m1 (subst1 z v1 t2) m2 r ->
       eval m1 (trm_let z v1 t2) m2 r
-  (* --LATER: factorize using [subst1 f v0 (substn xs vs) t]
-      and a relatex version of var_fixs that accept a [f:bind] *)
+  (* --TODO: factorize using [(substn xs vs) (subst1 f v0 t)]
+      and a relatex version of val_fixs that accept a [f:bind] *)
   | eval_apps_funs : forall m1 m2 xs t3 v0 vs r,
       v0 = val_funs xs t3 ->
       var_funs (length vs) xs ->
@@ -1043,26 +988,24 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       mb = Fmap.conseq l (LibList.make k val_uninitialized) ->
       n = nat_to_Z k ->
       l <> null ->
-      Fmap.disjoint ma mb -> (* --LATER: reformulate using not_indom *)
+      Fmap.disjoint ma mb ->
       eval ma (val_alloc (val_int n)) (mb \+ ma) (val_loc l)
   | eval_dealloc : forall (n:int) vs ma mb l,
       mb = Fmap.conseq l vs ->
       n = LibList.length vs ->
-      Fmap.disjoint ma mb -> (* --LATER: reformulate using not_indom *)
+      Fmap.disjoint ma mb ->
       eval (mb \+ ma) (val_dealloc (val_int n) (val_loc l)) ma val_unit.
 
 End Red.
 
-  (* Note: there is no reduction rule for [trm_fail]. *)
+(* LATER: generalization to support for-loops not in A-normal form:
+[[
 
-  (*  --- TODO
-
-  Remark: alternative for eval_for rules.
-    | eval_for : forall m1 m2 m3 m4 v1 v2 x t1 t2 t3 r,
-        eval m1 (
-          (trm_seq (trm_let x n1 t3) (trm_for x (n1+1) n2 t3))
-          val_unit) m2 r ->
-        eval m1 (trm_for x n1 n2 t3) m2 r
+  | eval_for : forall m1 m2 m3 m4 v1 v2 x t1 t2 t3 r,
+      eval m1 (
+        (trm_seq (trm_let x n1 t3) (trm_for x (n1+1) n2 t3))
+        val_unit) m2 r ->
+      eval m1 (trm_for x n1 n2 t3) m2 r
 
   | eval_for_arg : forall m1 m2 m3 m4 v1 v2 x t1 t2 t3 r,
       (not_is_val t1 \/ not_is_val t2) ->
@@ -1072,12 +1015,12 @@ End Red.
       eval m1 (trm_for x t1 t2 t3) m4 r
 
   Definition trm_is_val (t:trm) : Prop :=
-  match t with
-  | trm_val v => True
-  | _ => False
-  end.
-
-  *)
+    match t with
+    | trm_val v => True
+    | _ => False
+    end.
+]]
+*)
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1089,13 +1032,6 @@ Hint Resolve evalctx_app_arg.
 
 (** Rules for state *)
 
-(*
-Lemma Fmap.update_eq_union
-  m1 = Fmap.single l v ->
-     Fmap.indom m1 l
-  /\ Fmap.update m2 l v = Fmap.union m1 m2.
-*)
-
 Lemma eval_ref_sep : forall s1 s2 v l,
   l <> null ->
   s2 = Fmap.single l v ->
@@ -1106,11 +1042,6 @@ Proof using.
   rewrite <- Fmap.update_eq_union_single. applys~ eval_ref.
   { intros N. applys~ Fmap.disjoint_inv_not_indom_both D N. }
 Qed.
-
-(* m1 = Fmap.single l v ->
-   m = Fmap.union m1 m2 ->
-       Fmap.indom m1 l
-    /\ Fmap.read m1 l = v *)
 
 (* Note: [Fmap.disjoint s1 s2] is not needed, and in fact too
    restrictive, because [Fmap.agree s1 s2] would be sufficient. *)
@@ -1125,11 +1056,6 @@ Proof using.
   { applys~ Fmap.indom_union_l. }
   { rewrite~ Fmap.read_union_l. rewrite~ Fmap.read_single. }
 Qed.
-
-(* m1 = Fmap.single l v ->
-   m = Fmap.union m1 m2 ->
-       Fmap.indom m1 l
-    /\ Fmap.update m l w = Fmap.union (Fmap.single l v) m2 *)
 
 Lemma eval_set_sep : forall s s' h1 h1' h2 l v v',
   s = Fmap.union h1 h2 ->
@@ -1217,6 +1143,14 @@ Proof using.
   applys* eval_evalctx (fun t1 => trm_constr id ((trms_vals vs)++t1::ts)).
 Qed.
 
+Lemma eval_match_trm : forall m1 m2 m3 v1 t1 pts r,
+  eval m1 t1 m2 v1 ->
+  eval m2 (trm_match v1 pts) m3 r ->
+  eval m1 (trm_match t1 pts) m3 r.
+Proof using.
+  introv M1 M2. applys* eval_evalctx (fun t0 => trm_match t0 pts).
+Qed.
+
 Lemma eval_app : forall m1 m2 f x t3 v1 v2 r,
   v1 = val_fix f x t3 ->
   f <> x ->
@@ -1228,7 +1162,7 @@ Proof using.
     { simpls. splits; auto_false. splits*. } }
   { applys* eval_apps_fixs (v2::nil).
     { simpls. splits; auto_false. splits*. simpls. case_var~. } }
-Qed. (* --LATER: clean up *)
+Qed.
 
 Lemma eval_app_trm : forall m1 m2 m3 m4 t1 t2 f x t3 v1 v2 r,
   eval m1 t1 m2 v1 ->
@@ -1240,14 +1174,6 @@ Lemma eval_app_trm : forall m1 m2 m3 m4 t1 t2 f x t3 v1 v2 r,
 Proof using.
   introv M1 M2 EQ N M3. applys* eval_evalctx (fun t1 => trm_apps t1 (t2::nil)).
   applys* eval_evalctx (fun t2 => trm_apps v1 (t2::nil)). applys* eval_app.
-Qed.
-
-Lemma eval_match_trm : forall m1 m2 m3 v1 t1 pts r,
-  eval m1 t1 m2 v1 ->
-  eval m2 (trm_match v1 pts) m3 r ->
-  eval m1 (trm_match t1 pts) m3 r.
-Proof using.
-  introv M1 M2. applys* eval_evalctx (fun t0 => trm_match t0 pts).
 Qed.
 
 Lemma eval_app_fun : forall m1 m2 m3 m4 t1 t2 x t3 v1 v2 r,
@@ -1293,6 +1219,7 @@ Proof using.
   { applys eval_val. }
 Qed.
 
+
 End Derived.
 
 
@@ -1302,20 +1229,22 @@ End Derived.
 (* ---------------------------------------------------------------------- *)
 (** Size of a term, where all values counting for one unit. *)
 
-(** The definition of size can be useful for some tricky inductions *)
+(** The definition of size can be useful for non-structural inductions *)
+
+(* LATER: define and use the [List.sum] function instead of [List.fold_right]. *)
 
 Fixpoint trm_size (t:trm) : nat :=
   match t with
   | trm_var x => 1
   | trm_val v => 1
   | trm_fixs f xs t1 => 1 + trm_size t1
-  | trm_constr id ts => 1 + List.fold_right (fun t acc => (acc + trm_size t)%nat) 0%nat ts (* --TODO: list_sum *)
+  | trm_constr id ts => 1 + List.fold_right (fun t acc => (acc + trm_size t)%nat) 0%nat ts
   | trm_if t0 t1 t2 => 1 + trm_size t0 + trm_size t1 + trm_size t2
   | trm_let x t1 t2 => 1 + trm_size t1 + trm_size t2
-  | trm_apps t0 ts => 1 + trm_size t0 + List.fold_right (fun t acc => (acc + trm_size t)%nat) 0%nat ts (* --TODO: list_sum *)
+  | trm_apps t0 ts => 1 + trm_size t0 + List.fold_right (fun t acc => (acc + trm_size t)%nat) 0%nat ts
   | trm_while t1 t2 => 1 + trm_size t1 + trm_size t2
   | trm_for x t1 t2 t3 => 1 + trm_size t1 + trm_size t2 + trm_size t3
-  | trm_match t0 pts => 1 + trm_size t0 + List.fold_right (fun '(p,t) acc => (acc + trm_size t)%nat) 0%nat pts (* --TODO: list_sum+List.map *)
+  | trm_match t0 pts => 1 + trm_size t0 + List.fold_right (fun '(p,t) acc => (acc + trm_size t)%nat) 0%nat pts
   | trm_fail => 1
   end.
 
@@ -1338,16 +1267,12 @@ Proof using.
     { rew_listx. fequals*. } }
 Qed.
 
-Lemma trm_size_isubst1 : forall t z v,
-  trm_size (isubst1 z v t) = trm_size t.
-Proof using. intros. applys trm_size_isubst. Qed.
-
 (** Hint for induction on size. Proves subgoals of the form
     [measure trm_size t1 t2], when [t1] and [t2] may have some
     structure or involve substitutions. *)
 
 Ltac solve_measure_trm_size tt :=
-  unfold measure in *; simpls; repeat rewrite trm_size_isubst1; math.
+  unfold measure in *; simpls; math.
 
 Hint Extern 1 (measure trm_size _ _) => solve_measure_trm_size tt.
 
@@ -1368,7 +1293,7 @@ End CoercionsFromStrings.
 (* ---------------------------------------------------------------------- *)
 (** Notation for concrete programs *)
 
-(* --LATER VERSION OF COQ
+(* LATER: activate after migration to Coq 8.12
 Declare Scope val_scope.
 Declare Scope pat_scope.
 Declare Scope trm_scope.
@@ -1435,9 +1360,13 @@ Notation "'Let' 'Rec' f x1 x2 .. xn ':=' t1 'in' t2" :=
   (at level 69, f, x1, x2, xn at level 0, right associativity,
   format "'[v' '[' 'Let'  'Rec'  f  x1  x2  ..  xn  ':='  t1  'in' ']'  '/'  '[' t2 ']' ']'") : trm_scope.
 
-  (* --LATER: the above might need to be fixed. Here is how to test it:
-     Definition test2 := Let Rec 'f 'x 'y := val_unit in val_unit.
-     Print test2. *)
+(* LATER: the display associated with the above definition might need to be fixed.
+   Here is how to test the issue:
+[[
+       Definition test2 := Let Rec 'f 'x 'y := val_unit in val_unit.
+       Print test2.
+]]
+*)
 
 Notation "t1 '';' t2" :=
   (trm_seq t1 t2)
@@ -1536,6 +1465,14 @@ Notation "t1 '/ t2" :=
   (val_div t1 t2)
   (at level 57) : trm_scope.
 
+(* LATER
+Notation "x `/` y" := (Z.quot x y)
+  (at level 59, right associativity) : trm_scope.
+
+Notation "x `mod` y" := (Z.rem x y)
+  (at level 59, no associativity) : trm_scope.
+*)
+
 Notation "t1 '= t2" :=
   (val_eq t1 t2)
   (at level 58) : trm_scope.
@@ -1544,11 +1481,11 @@ Notation "t1 '<> t2" :=
   (val_neq t1 t2)
   (at level 58) : trm_scope.
 
-(* Notation "t1 '!= t2" :=
+(* LATER
+Notation "t1 '!= t2" :=
   (val_neq t1 t2)
-  (at level 58) : trm_scope. *)
-
-(* --TODO: conflict with TCL? to resolve *)
+  (at level 58) : trm_scope.
+*)
 
 Notation "t1 '<= t2" :=
   (val_le t1 t2)
