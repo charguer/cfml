@@ -482,16 +482,6 @@ Proof using.
   intros. rewrites (Alloc_split_eq k1 (k1+k2)%nat p); [|math]. rew_nat~.
 Qed.
 
-(** Tactic for helping reasoning about concrete calls to [alloc] *)
-
-Ltac simpl_abs := (* --TODO: remove this *)
-  match goal with
-  | |- context [ abs 0 ] => change (abs 0) with 0%nat
-  | |- context [ abs 1 ] => change (abs 1) with 1%nat
-  | |- context [ abs 2 ] => change (abs 2) with 2%nat
-  | |- context [ abs 3 ] => change (abs 3) with 3%nat
-  end.
-
 
 (* ---------------------------------------------------------------------- *)
 (* ** Auxiliary definitions for [triple_dealloc] *)
@@ -901,19 +891,6 @@ Lemma hoare_of_triple : forall t H Q HF,
 Proof using.
   introv M. applys hoare_conseq. { applys M. } { xsimpl. } { xsimpl. }
 Qed.
-
-(** The extraction rules for [hoare] are not needed in this file, but are useful
-    for alternative proofs of the extraction rules for triples (see [SepBaseAltProof]). *)
-
-Lemma hoare_hexists : forall t A (J:A->state->Prop) Q,
-  (forall x, hoare t (J x) Q) ->
-  hoare t (hexists J) Q.
-Proof using. introv M. intros h (x&K). applys M K. Qed.
-
-Lemma hoare_hpure : forall t P H Q,
-  (P -> hoare t H Q) ->
-  hoare t (\[P] \* H) Q.
-Proof using. introv M. intros h K. rewrite hstar_hpure in K. applys* M. Qed.
 
 
 (* ---------------------------------------------------------------------- *)

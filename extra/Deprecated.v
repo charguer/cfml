@@ -65,3 +65,166 @@ Ltac solve_measure_trm_size tt :=
 =================================
 
 
+
+
+
+(** [mkstruct] can be erased, with transitivity *)
+(* TODO DEPRECATED *)
+
+Lemma mkstruct_erase' : forall H F Q,
+  H ==> F Q ->
+  H ==> mkstruct F Q.
+Proof using.
+  introv M. xchanges M. applys mkstruct_erase.
+Qed.
+
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** List of dynamic values *)
+
+
+(** Notation for lists of dynamic values *)
+
+Notation "``[ ]" :=
+  (@nil dyn) (format "``[ ]") : dyns_scope.
+Notation "``[ x ]" :=
+  (cons (Dyn x) nil) : dyns_scope.
+Notation "``[ x , y , .. , z ]" :=
+  (cons (Dyn x) (cons (Dyn y) .. (cons (Dyn z) nil) ..)) : dyns_scope.
+
+Open Scope dyns_scope.
+Delimit Scope dyns_scope with dyn.
+Bind Scope dyns_scope with dyns.
+
+(* DEPRECATED ?*)
+
+
+
+(* Note: currently not used *)
+Lemma RetypePost_instantiate : forall H A `{EA:Enc A} (V:A) (Q:A->hprop),
+  H ==> Q V ->
+  RetypePost (fun x => \[x = V] \* H) Q.
+Proof using. introv M. applys RetypePost_qimpl. xpull ;=> ? ->. auto. Qed.
+
+
+
+(* ********************************************************************** *)
+(* * Extra -- not needed? *)
+
+Lemma Triple_apps_funs' : forall xs F (Vs:dyns) t1 H A `{EA: Enc A} (Q:A->hprop),
+  F = (val_funs xs t1) ->
+  var_funs (length Vs) xs ->
+  Triple (Substn xs Vs t1) H Q ->
+  Triple (trm_apps F (encs Vs)) H Q.
+Proof using.
+  introv E N M. unfold Triple. applys* triple_apps_funs. rewrite~ length_encs.
+Qed.
+
+Lemma Triple_apps_fixs' : forall xs (f:var) F (Vs:dyns) t1 H A `{EA: Enc A} (Q:A->hprop),
+  F = (val_fixs f xs t1) ->
+  var_fixs f (length Vs) xs ->
+  Triple (Substn (f::xs) ((Dyn F)::Vs) t1) H Q ->
+  Triple (trm_apps F (encs Vs)) H Q.
+Proof using.
+  introv E N M. unfold Triple. applys* triple_apps_fixs. rewrite~ length_encs.
+Qed.
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Decoder function *)
+
+Fixpoint decode (v:val) : dyn :=
+  match v with
+  | val_uninitialized => Dyn val_uninitialized
+  | val_unit => Dyn tt
+  | val_bool b => Dyn b
+  | val_int n => Dyn n
+  | val_loc l => Dyn l
+  | val_prim p => Dyn p
+  | val_fixs f xs t => Dyn (v:func)
+  | val_constr id vs => Dyn (constr id vs)
+     (* Note: universe constraints prevent decoding to
+        [Dyn (Constr id (List.map decode vs))] *)
+  end.
+
+Lemma enc_decode' : forall (v:val),
+  let d := decode v in
+  @enc _ (dyn_enc d) (dyn_value d) = v.
+Proof using.
+  intros. destruct v; auto.
+Qed.
+
+Lemma enc_decode : forall (v:val),
+  enc (decode v) = v.
+Proof using. applys enc_decode'. Qed.
+
+(** Decoders for lists *)
+
+Definition decodes (vs:vals) : dyns :=
+  List.map decode vs.
+
+(** Inverse functions *)
+
+Definition encodes_decodes : forall (vs:vals),
+  encs (decodes vs) = vs.
+Proof using.
+  intros. induction vs.
+  { auto. }
+  { simpl. fequals. applys enc_decode. }
+Qed.
+
+
+
+Lemma Triple_eq_l : forall A `{EA:Enc A} (v1:A),
+  Enc_injective_value v1 ->
+  forall (v2 : A),
+  Triple (val_eq ``v1 ``v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (v1 = v2)]).
+Proof using.
+  introv I. intros.
+  applys (@Triple_enc_change bool). { applys Triple_eq_val. }
+  unfolds. xpull ;=> ? ->. xsimpl*. rew_bool_eq. iff. { applys* I. } { subst*. }
+Qed.
+
+Lemma Triple_eq_r : forall A `{EA:Enc A} (v2:A),
+  Enc_injective_value v2 ->
+  forall (v1 : A),
+  Triple (val_eq ``v1 ``v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (v1 = v2)]).
+Proof using.
+  introv I. intros.
+  applys (@Triple_enc_change bool). { applys Triple_eq_val. }
+  unfolds. xpull ;=> ? ->. xsimpl*. rew_bool_eq. iff. { symmetry. applys* I. } { subst*. }
+Qed.
+
+
+Lemma Triple_neq_l : forall A `{EA:Enc A} (v1:A),
+  Enc_injective_value v1 ->
+  forall (v2 : A),
+  Triple (val_neq ``v1 ``v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (v1 <> v2)]).
+Proof using.
+  introv I. intros.
+  applys (@Triple_enc_change bool). { applys Triple_neq_val. }
+  unfolds. xpull ;=> ? ->. xsimpl*. rew_bool_eq. iff R.
+  { intros N. applys R. subst*. } { intros N. applys R. applys* I. }
+Qed.
+
+Lemma Triple_neq_r : forall A `{EA:Enc A} (v2:A),
+  Enc_injective_value v2 ->
+  forall (v1 : A),
+  Triple (val_neq ``v1 ``v2)
+    \[]
+    (fun (b:bool) => \[b = isTrue (v1 <> v2)]).
+Proof using.
+  introv I. intros.
+  applys (@Triple_enc_change bool). { applys Triple_neq_val. }
+  unfolds. xpull ;=> ? ->. xsimpl*. rew_bool_eq. iff R.
+  { intros N. applys R. subst*. } { intros N. applys R. symmetry. applys* I. }
+Qed.

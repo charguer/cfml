@@ -77,6 +77,18 @@ Qed.
   applys* M.
 *)
 
+(* Alternative proof scripts *)
+
+Lemma hoare_hexists' : forall t A (J:A->state->Prop) Q,
+  (forall x, hoare t (J x) Q) ->
+  hoare t (hexists J) Q.
+Proof using. introv M. intros h (x&K). applys M K. Qed.
+
+Lemma hoare_hpure' : forall t P H Q,
+  (P -> hoare t H Q) ->
+  hoare t (\[P] \* H) Q.
+Proof using. introv M. intros h K. rewrite hstar_hpure in K. applys* M. Qed.
+
 Lemma hoare_hwand_hpure_l : forall t (P:Prop) H Q,
   P ->
   hoare t H Q ->

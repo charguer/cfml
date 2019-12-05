@@ -427,7 +427,7 @@ Proof using.
   (* xapps *)
   applys @xapps_lemma_pure. { applys @Triple_eq_val. } xapp_post tt.
   (* done *)
-  xsimpl. rewrite* @Enc_injective_value_eq_r.
+  xsimpl. rewrite* @Enc_injective_value_eq_r. eauto with Enc_injective.
 Qed.
 
 Lemma Triple_is_empty' : forall `{Enc A} (p:loc) (L:list A),
@@ -437,6 +437,7 @@ Lemma Triple_is_empty' : forall `{Enc A} (p:loc) (L:list A),
 Proof using.
   xwp. xunfold Stack. xlet. xapp. xlet. xval nil.
   xapp @Triple_eq_val. xsimpl. rewrite* @Enc_injective_value_eq_r.
+  eauto with Enc_injective.
 Qed.
 
 

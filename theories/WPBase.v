@@ -182,16 +182,6 @@ Proof using.
   intros. unfold mkstruct. repeat xsimpl.
 Qed.
 
-(** [mkstruct] can be erased, with transitivity *)
-(* TODO DEPRECATED *)
-
-Lemma mkstruct_erase' : forall H F Q,
-  H ==> F Q ->
-  H ==> mkstruct F Q.
-Proof using.
-  introv M. xchanges M. applys mkstruct_erase.
-Qed.
-
 (** [mkstruct] is idempotent, i.e. nested applications
    of [mkstruct] are redundant *)
 
@@ -290,7 +280,7 @@ Qed.
 
 Fixpoint hforall_vars (Hof:ctx->hprop) (G:ctx) (xs:vars) : hprop :=
   match xs with
-  | nil => Hof (List.rev G) (* TODO: Ctx.rev *)
+  | nil => Hof (Ctx.rev G)
   | x::xs' => \forall (X:val), hforall_vars Hof (Ctx.add x X G) xs'
   end.
 
@@ -305,7 +295,7 @@ Proof using.
   { forwards K: N (Ctx.empty:ctx) G. { auto. }
     rewrite Ctx.app_empty_l in K. applys K. }
   clears G. induction xs as [|x xs']; intros G1 G2 EQ.
-  { simpl. rewrite List_rev_eq. forwards~ G2E: (Ctx.dom_eq_nil_inv G2).
+  { simpl. rewrite Ctx.rev_eq. forwards~ G2E: (Ctx.dom_eq_nil_inv G2).
      subst. rewrite~ Ctx.app_empty_r. }
   { simpl. destruct G2 as [| (x',X) G']; tryfalse.
     simpl in EQ. invert EQ ;=> Ex EG2. subst x'.
@@ -426,7 +416,7 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
   | trm_fail => wpgen_fail
   end.
 
-(* Note: for simplicity, no special handling here of trm_seq, unlike in WPLifted. *)
+(* Note: for simplicity, no special handling here of [trm_seq], unlike in [WPLifted]. *)
 
 
 (* ********************************************************************** *)
@@ -767,7 +757,7 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** corollaries of the soundness of [wpgen] *)
+(* ** Corollaries of the soundness of [wpgen] *)
 
 Lemma triple_isubst_wpgen : forall t E Q,
   triple (isubst E t) (wpgen E t Q) Q.
@@ -790,6 +780,9 @@ Qed.
 
 (* ---------------------------------------------------------------------- *)
 (* ** All [wpgen] are trivially [struct] by construction *)
+
+(** This property is just a sanity check, it is not exploited
+    by the CFML framework. *)
 
 Section FmklocalWpgen.
 

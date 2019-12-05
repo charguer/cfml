@@ -1612,7 +1612,7 @@ Open Scope trm_scope.
        'f 'p1 'p2.
   Print val_rev_append.
 
-  Definition val_rev_append2 : val :=
+  Definition val_rev_append_with_App : val :=
   VFix 'f 'p1 'p2 :=
     If_ 'App val_is_empty 'p1 Then '() Else
        Let 'x := 'App val_pop 'p1 in

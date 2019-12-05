@@ -72,85 +72,19 @@ Open Scope triple_scope.
 
 
 (* ********************************************************************** *)
-(* * Tactics for manipulating goals of the form [PRE H CODE F POST Q]. *)
-
+(* * Tactics for decoding. *)
 
 (* ---------------------------------------------------------------------- *)
-(* ** Predicate [Decode] and tactic [xdecode] *)
-
-Definition Decode (v:val) `{EA:Enc A} (V:A) : Prop :=
-  v = ``V.
-
-Lemma Decode_enc : forall `{EA:Enc A} (V:A),
-  Decode (``V) V.
-Proof using. intros. hnfs~. Qed.
-
-Hint Extern 1 (Decode (``_) _) => eapply Decode_enc : Decode.
-
-Lemma Decode_unit :
-  Decode val_unit tt.
-Proof using. intros. hnfs~. Qed.
-
-Lemma Decode_int : forall (n:int),
-  Decode (val_int n) n.
-Proof using. intros. hnfs~. Qed.
-
-Lemma Decode_bool : forall (b:bool),
-  Decode (val_bool b) b.
-Proof using. intros. hnfs~. Qed.
-
-Lemma Decode_loc : forall (l:loc),
-  Decode (val_loc l) l.
-Proof using. intros. hnfs~. Qed.
-
-Hint Resolve Decode_unit Decode_int Decode_bool Decode_loc : Decode.
-
-Lemma Decode_nil : forall A `{EA:Enc A},
-  Decode ('nil%val) (@nil A).
-Proof using. intros. hnfs~. Qed.
-
-Lemma Decode_cons : forall A `{EA:Enc A} (X:A) (L:list A) (x l : val),
-  Decode x X ->
-  Decode l L ->
-  Decode ((x ':: l)%val) (X::L).
-Proof using. introv Dx DL. unfolds. rew_enc. fequals. Qed.
+(* ** Tactic [xdecode] and [xdecodes] *)
 
 (* --LATER: WORK AROUND TYPECLASS RESOLUTION BUG *)
-Hint Extern 1 (Decode 'nil%val _) =>
+Hint Extern 1 (Decode (val_constr "nil" nil) _) =>
   match goal with H: Enc ?A |- _ => eapply (@Decode_nil A) end : Decode.
-Hint Extern 1 (Decode ('VCstr "cons" _ _) _) =>
+Hint Extern 1 (Decode (val_constr "cons" (_::_::nil)) _) =>
   match goal with H: Enc ?A |- _ => eapply (@Decode_cons A) end : Decode.
-
-Lemma Decode_None : forall A `{EA:Enc A},
-  Decode (val_constr "none" nil) (@None A).
-Proof using. intros. hnfs~. Qed.
-
-Lemma Decode_Some : forall A `{EA:Enc A} (V:A) (v:val),
-  Decode v V ->
-  Decode (val_constr "some" (v::nil)) (Some V).
-Proof using. intros. unfolds. rew_enc. fequals. Qed.
 
 Hint Resolve @Decode_None @Decode_Some : Decode.
 (* --LATER: similar hints needed? *)
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Predicate [Decodes] and tactic [xdecodes] *)
-
-Definition Decodes (vs:vals) (Vs:dyns) : Prop :=
-  vs = encs Vs.
-
-Lemma Decodes_nil :
-  Decodes nil nil.
-Proof using. intros. hnfs~. Qed.
-
-Lemma Decodes_cons : forall (v:val) (vs:vals) A (EA:Enc A) (V:A) (Vs:dyns),
-  Decode v V ->
-  Decodes vs Vs ->
-  Decodes (v::vs) ((Dyn V)::Vs).
-Proof using.
-  introv Dv Dvs. unfolds Decodes. simpl. rewrite enc_dyn_make. fequals.
-Qed.
 
 Ltac xdecode_core tt :=
   try solve [ eauto with Decode ].
@@ -162,12 +96,9 @@ Ltac xenc_side_conditions tt :=
   try match goal with
   | |- Enc _ => typeclasses eauto with typeclass_instances
   | |- Decode _ _ => xdecode
-  | |- Enc_injective _ => eauto (* --TODO: in hint database *)
+  | |- Enc_injective _ => eauto with Enc_injective
+  | |- Enc_comparable _ _ => unfold Enc_comparable; eauto with Enc_injective
   end.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Tactic *)
 
 (** [xdecodes] applys to a call of the form [Decodes vs ?Vs].
     It refines [Vs] as a list (of type [dyns]) of the same length as [vs],
@@ -189,6 +120,8 @@ Tactic Notation "xdecodes_debug" :=
   xdecodes_splits tt; try xdecode.
 
 
+(* ********************************************************************** *)
+(* * Tactics for manipulating goals of the form [PRE H CODE F POST Q]. *)
 
 
 (* ---------------------------------------------------------------------- *)
@@ -285,47 +218,6 @@ Ltac xspec_prove_triple_with_args E :=
 Notation "'Register_Spec' f" := (Register_goal (Triple (trm_apps (trm_val f) _) _ _))
   (at level 69) : xspec_scope.
 
-
-(** Explicit Decoding for polymorphic primitive  -- --TODO: move to separate file *)
-
-Lemma Triple_ref_Decode : forall A `{EA:Enc A} (V:A) (v:val),
-  Decode v V ->
-  Triple (val_ref v)
-    \[]
-    (fun l => l ~~> V).
-Proof using. introv Hv. unfolds Decode. subst v. applys Triple_ref. Qed.
-
-Lemma Triple_set_Decode : forall A1 `{EA1:Enc A1} (V1 V2:A1) (l:loc) (v2:val),
-  Decode v2 V2 ->
-  Triple (val_set l v2)
-    (l ~~> V1)
-    (fun (u:unit) => l ~~> V2).
-Proof using.
-  introv Hv2. unfolds Decode. subst v2. applys Triple_set.
-Qed.
-
-Lemma Triple_eq_Decode : forall A `(EA:Enc A) (v1 v2:val) (V1 V2:A),
-  Decode v1 V1 ->
-  Decode v2 V2 ->
-  Enc_injective EA ->
-  Triple (val_eq v1 v2)
-    \[]
-    (fun (b:bool) => \[b = isTrue (V1 = V2)]).
-Proof using.
-  introv D1 D2 I. unfolds Decode. subst v1 v2. applys* Triple_eq.
-Qed.
-
-Lemma Triple_neq_Decode : forall A `(EA:Enc A) (v1 v2:val) (V1 V2:A),
-  Decode v1 V1 ->
-  Decode v2 V2 ->
-  Enc_injective EA ->
-  Triple (val_neq v1 v2)
-    \[]
-    (fun (b:bool) => \[b = isTrue (V1 <> V2)]).
-Proof using.
-  introv D1 D2 I. unfolds Decode. subst v1 v2. applys* Triple_neq.
-Qed.
-
 (* ** Specification of primitives *)
 
 Hint Extern 1 (Register_Spec (val_prim val_set)) => Provide @Triple_set_Decode.
@@ -373,7 +265,7 @@ Ltac xwp_simpl :=
   Wpaux_apps Wpaux_constr Wpaux_var Wpaux_match
   hforall_vars forall_vars
   trm_case trm_to_pat patvars patsubst combiner_to_trm
-  Ctx.app Ctx.empty Ctx.lookup Ctx.add
+  Ctx.app Ctx.empty Ctx.lookup Ctx.add Ctx.rev
   Ctx.rem Ctx.rem_var Ctx.rem_vars isubst
   var_eq eq_var_dec
   string_dec string_rec string_rect

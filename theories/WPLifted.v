@@ -22,7 +22,6 @@ Implicit Types t : trm.
 (* ********************************************************************** *)
 (* * WP generator *)
 
-
 (* ---------------------------------------------------------------------- *)
 (* ** Type of a WP *)
 
@@ -284,7 +283,7 @@ Fixpoint Wpgen (E:ctx) (t:trm) : Formula :=
   | trm_let z t1 t2 =>
      match z with
      | bind_anon => `Wpgen_seq (aux t1) (aux t2)
-     | bind_var x => `Wpgen_let (aux t1) (fun `{EA:Enc A} (X:A) =>
+     | bind_var x => `Wpgen_let (aux t1) (fun A (EA:Enc A) (X:A) =>
                          Wpgen (Ctx.add x (enc X) E) t2)
      end
   | trm_apps t0 ts =>

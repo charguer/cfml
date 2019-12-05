@@ -114,7 +114,7 @@ Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),
     PRE (p ~> Stack L)
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stack L).
 Proof using.
-  xwp. xunfold Stack. xapp. xval. xapp~ @Triple_eq_r. xsimpl*.
+  xwp. xunfold Stack. xapp. xval. xapp~. xsimpl*.
 Qed.
 
 Hint Extern 1 (Register_Spec is_empty) => Provide @Triple_is_empty.

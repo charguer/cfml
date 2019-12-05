@@ -241,7 +241,7 @@ Lemma Hsingle_to_Hfield : forall (l:loc) (f:field) `{EA:Enc A} (V:A),
   ((l+f)%nat ~~> V) ==> (l`.f ~~> V).
 Proof using. introv N. rewrite Hfield_eq_fun_Hsingle_ext. xsimpl~. Qed.
 
-
+(* LATER: eliminate use of notypeclasses refine in coq v8.12 *)
 
 Lemma Triple_get_field : forall (l:loc) f `{EA:Enc A} (V:A),
   TRIPLE ((val_get_field f) l)
@@ -252,7 +252,7 @@ Proof using.
   { intros.
     rewrite Hfield_eq_fun_Hsingle, repr_eq. xtpull ;=> N.
     xwp. xapp @Triple_ptr_add_nat. xapp Triple_get. xsimpl~. }
-  { (* details TEMPORARY *)
+  { (* details *)
     intros.
     (* unfold field *)
     rewrite Hfield_eq_fun_Hsingle, repr_eq. xtpull ;=> N.

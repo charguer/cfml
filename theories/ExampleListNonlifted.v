@@ -149,6 +149,7 @@ Hint Extern 1 (Register_spec val_set_tl) => Provide triple_set_tl.
 (* ---------------------------------------------------------------------- *)
 (** Allocation of list cells *)
 
+(* TODO: use New *)
 Definition val_new_cell :=
   ValFun 'x 'y :=
     Let 'p := val_alloc 2 in
@@ -164,7 +165,8 @@ Lemma triple_alloc_cell :
 Proof using.
   xapply triple_alloc. { math. } { xsimpl. }
   { intros r. xpull ;=> l (E&N). subst.
-    simpl_abs. rew_Alloc. xpull ;=> v1 v2.
+    change (abs 2) with 2%nat. rew_Alloc. 
+    xpull ;=> v1 v2.
     unfold MCell. rewrite hfield_eq_fun_hsingle.
     unfold hd, tl. xsimpl~ l v1 v2.
     math_rewrite (l + 1 = S l)%nat.

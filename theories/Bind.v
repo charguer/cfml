@@ -157,7 +157,8 @@ Fixpoint rem_vars A (xs:list var) (E:ctx A) : ctx A :=
   | x::xs' => rem_vars xs' (rem_var x E)
   end.
 
-  (* alternative *)
+(* Alternative definition to [rem_vars] (not tail-recursive) *)
+
 Fixpoint rem_vars' A (xs:list var) (E:ctx A) : ctx A :=
   match xs with
   | nil => E
@@ -175,7 +176,12 @@ Definition one_var A (x:var) (v:A) : ctx A :=
     from each others. *)
 
 Definition combine A (xs:list var) (vs:list A) : ctx A :=
-  List.combine xs vs. (* --LATER: use [LibListExec.combine] *)
+  List.combine xs vs.
+
+(** [rev E] reverses the order of the bindings in [E]. *)
+
+Definition rev A (E:ctx A) : ctx A :=
+  List.rev E.
 
 (** [app E1 E2] appends two contexts.
     Binders from [E1] may shadow those from [E2]. *)
@@ -187,12 +193,11 @@ Definition app A (E1 E2:ctx A) : ctx A :=
     - [v] is [x] is bound to [v] in [E],
     - [arbitrary] if [x] is not bound in [E]. *)
 
-Definition lookup_or_arbitrary `{Inhab A} (x:var) (E:ctx A) : A :=
+Definition lookup_or_arbitrary A `{Inhab A} (x:var) (E:ctx A) : A :=
   match lookup x E with
   | None => arbitrary
   | Some v => v
   end.
-
 
 
 (* ---------------------------------------------------------------------- *)
@@ -254,6 +259,12 @@ Lemma fresh_inv : forall (x1 x2:var) v E,
   fresh x1 (add x2 v E) ->
   x1 <> x2 /\ fresh x1 E.
 Proof using. introv M. unfolds fresh. simpls. case_var~. Qed.
+
+(** [rev] *)
+
+Lemma rev_eq : forall E,
+  rev E = LibList.rev E.
+Proof using. intros. unfold rev. rewrite~ List_rev_eq. Qed.
 
 (** [rem_var] and [rem] *)
 
@@ -356,7 +367,7 @@ Proof using.
     rewrite cons_eq_ctx_add. rewrite~ IHxs'. }
 Qed.
 
-(* --TODO: would it be easier to do everything using [rem_vars']? *)
+(* LATER: would it be easier to do all proofs using [rem_vars']? *)
 
 (** [lookup_or_arbitrary] *)
 
@@ -379,7 +390,7 @@ End CtxOps.
 
 End Ctx.
 
-(* --LATER: how to place this rewrite base and tactics inside the
+(* LATER: Coq issue: how to place this rewrite base and tactics inside the
    module and still be able to use it without importing the module? *)
 
 Hint Rewrite Ctx.nil_eq_ctx_empty Ctx.cons_eq_ctx_add Ctx.rem_var_eq_rem : rew_ctx.

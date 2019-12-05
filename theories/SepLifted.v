@@ -55,8 +55,9 @@ Open Scope enc_scope.
 Delimit Scope enc_scope with enc.
 
 
-(** TEMPORARY: below is a patch for TLC tactics to prevent undesired
-   eager instantiation of the typeclasses [Enc]. *)
+(* LATER: Below is a patch for TLC tactics to prevent undesired
+   eager instantiation of the typeclasses [Enc].
+   This patch could be presumably removed in v8.12. *)
 
 Ltac app_evar t A cont ::=
   let x := fresh "TEMP" in
@@ -80,7 +81,6 @@ Record dyn := dyn_make {
 
 Arguments dyn_make [dyn_type] {dyn_enc}.
 
-(*Unset Printing Records.*)
 Notation "'Dyn' V" := (dyn_make V)
   (at level 69) : heap_scope.
 
@@ -104,6 +104,10 @@ Definition dyn_to_val (d:dyn) : val :=
 Lemma dyn_to_val_dyn_make : forall A `{EA:Enc A} V,
   dyn_to_val (dyn_make V) = enc V.
 Proof using. auto. Qed.
+
+(** List of [dyns] *)
+
+Definition dyns := list dyn.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -317,8 +321,8 @@ Proof using.
 Qed.
 
 Hint Resolve Enc_injective_loc Enc_injective_unit Enc_injective_bool
-             Enc_injective_int @Enc_injective_option @Enc_injective_list.
-             (* --TODO: put in a base? *)
+             Enc_injective_int @Enc_injective_option @Enc_injective_list
+             : Enc_injective.
 
 (* ** Injectivity of encoders for specific values
       (useful in many cases to avoid the need for an hypothesis
@@ -349,30 +353,33 @@ Proof using.
   intros A EA o E. destruct o; intros; simpls; tryfalse. { auto. }
 Qed.
 
-Hint Resolve @Enc_injective_nil @Enc_injective_none.
+Hint Resolve @Enc_injective_nil @Enc_injective_none : Enc_injective.
 
+(** [Enc_comparable V1 V2] asserts that at least one of [V1]
+    or [V2] satisfies [Enc_injective_value]. In such case,
+    [``V1 = ``V2  <->  V1 = V2] holds. *)
 
-(* ---------------------------------------------------------------------- *)
-(* ** List of dynamic values *)
+Definition Enc_comparable A `{EA:Enc A} (V1 V2:A) : Prop :=
+     Enc_injective EA 
+  \/ Enc_injective_value V1
+  \/ Enc_injective_value V2.
 
-(** List of dyns *)
+Lemma Enc_comparable_inv : forall A `(EA:Enc A) (V1 V2:A),
+  Enc_comparable V1 V2 ->
+  (``V1 = ``V2) = (V1 = V2).
+Proof using.
+  introv [M|[M|M]].
+  { applys (>> Enc_injective_eq V1 V2 M). }  
+  { applys (>> Enc_injective_value_eq_l V1 M). }
+  { applys (>> Enc_injective_value_eq_r V2 M). }
+Qed.
 
-Definition dyns := list dyn.
-
-(** Notation for lists of dynamic values *)
-
-Notation "``[ ]" :=
-  (@nil dyn) (format "``[ ]") : dyns_scope.
-Notation "``[ x ]" :=
-  (cons (Dyn x) nil) : dyns_scope.
-Notation "``[ x , y , .. , z ]" :=
-  (cons (Dyn x) (cons (Dyn y) .. (cons (Dyn z) nil) ..)) : dyns_scope.
-
-Open Scope dyns_scope.
-Delimit Scope dyns_scope with dyn.
-Bind Scope dyns_scope with dyns.
-
-(* DEPRECATED ?*)
+Lemma Enc_comparable_inv_neg : forall A `(EA:Enc A) (V1 V2:A),
+  Enc_comparable V1 V2 ->
+  (``V1 <> ``V2) = (V1 <> V2).
+Proof using.
+  introv M. unfold not. rewrite* (Enc_comparable_inv M).
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -395,50 +402,71 @@ Proof using. intros. induction ds; simpl; rew_list; math. Qed.
 (* * Decoders *)
 
 (* ---------------------------------------------------------------------- *)
-(* ** Decoder *)
+(* ** [Decode] predicate and instances *)
 
-Fixpoint decode (v:val) : dyn :=
-  match v with
-  | val_uninitialized => Dyn val_uninitialized
-  | val_unit => Dyn tt
-  | val_bool b => Dyn b
-  | val_int n => Dyn n
-  | val_loc l => Dyn l
-  | val_prim p => Dyn p
-  | val_fixs f xs t => Dyn (v:func)
-  | val_constr id vs => Dyn (constr id vs)
-     (* Note: universe constraints prevent decoding to
-        [Dyn (Constr id (List.map decode vs))] *)
-  end.
+Definition Decode (v:val) `{EA:Enc A} (V:A) : Prop :=
+  v = ``V.
 
-Lemma enc_decode' : forall (v:val),
-  let d := decode v in
-  @enc _ (dyn_enc d) (dyn_value d) = v.
-Proof using.
-  intros. destruct v; auto.
-Qed.
+Lemma Decode_enc : forall `{EA:Enc A} (V:A),
+  Decode (``V) V.
+Proof using. intros. hnfs~. Qed.
 
-Lemma enc_decode : forall (v:val),
-  enc (decode v) = v.
-Proof using. applys enc_decode'. Qed.
+Hint Extern 1 (Decode (``_) _) => eapply Decode_enc : Decode.
+
+Lemma Decode_unit :
+  Decode val_unit tt.
+Proof using. intros. hnfs~. Qed.
+
+Lemma Decode_int : forall (n:int),
+  Decode (val_int n) n.
+Proof using. intros. hnfs~. Qed.
+
+Lemma Decode_bool : forall (b:bool),
+  Decode (val_bool b) b.
+Proof using. intros. hnfs~. Qed.
+
+Lemma Decode_loc : forall (l:loc),
+  Decode (val_loc l) l.
+Proof using. intros. hnfs~. Qed.
+
+Hint Resolve Decode_unit Decode_int Decode_bool Decode_loc : Decode.
+
+Lemma Decode_nil : forall A `{EA:Enc A},
+  Decode (val_constr "nil" nil) (@nil A).
+Proof using. intros. hnfs~. Qed.
+
+Lemma Decode_cons : forall A `{EA:Enc A} (X:A) (L:list A) (x l : val),
+  Decode x X ->
+  Decode l L ->
+  Decode (val_constr "cons" (x::l::nil)) (X::L).
+Proof using. introv Dx DL. unfolds. rew_enc. fequals. Qed.
+
+Lemma Decode_None : forall A `{EA:Enc A},
+  Decode (val_constr "none" nil) (@None A).
+Proof using. intros. hnfs~. Qed.
+
+Lemma Decode_Some : forall A `{EA:Enc A} (V:A) (v:val),
+  Decode v V ->
+  Decode (val_constr "some" (v::nil)) (Some V).
+Proof using. intros. unfolds. rew_enc. fequals. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Decoder for lists *)
+(* ** Predicate [Decodes] *)
 
-(** Decoders for lists *)
+Definition Decodes (vs:vals) (Vs:dyns) : Prop :=
+  vs = encs Vs.
 
-Definition decodes (vs:vals) : dyns :=
-  List.map decode vs.
+Lemma Decodes_nil :
+  Decodes nil nil.
+Proof using. intros. hnfs~. Qed.
 
-(** Inverse functions *)
-
-Definition encodes_decodes : forall (vs:vals),
-  encs (decodes vs) = vs.
+Lemma Decodes_cons : forall (v:val) (vs:vals) A (EA:Enc A) (V:A) (Vs:dyns),
+  Decode v V ->
+  Decodes vs Vs ->
+  Decodes (v::vs) ((Dyn V)::Vs).
 Proof using.
-  intros. induction vs.
-  { auto. }
-  { simpl. fequals. applys enc_decode. }
+  introv Dv Dvs. unfolds Decodes. simpl. rewrite enc_dyn_make. fequals.
 Qed.
 
 
@@ -584,25 +612,22 @@ Hint Resolve @local_Triple.
     [Q2] of type [A2->hprop]. This predicate is used in the lemmas
     that enable changing the type of the postcondition in a triple. *)
 
-Definition RetypePost `{Enc A1} (Q1:A1->hprop) `{Enc A2} (Q2:A2->hprop) :=
+Definition RetypePost A1 `{Enc A1} (Q1:A1->hprop) `{Enc A2} (Q2:A2->hprop) :=
   forall (X:A1), Q1 X ==> \exists (Y:A2), \[enc X = enc Y] \* Q2 Y.
 
-Lemma RetypePost_refl : forall `{EA:Enc A} (Q:A->hprop),
+(* Note: [RetypePost_refl] is currently not used.
+   It is a special case of [RetypePost_qimpl]. *)
+
+Lemma RetypePost_refl : forall A `{EA:Enc A} (Q:A->hprop),
   RetypePost Q Q.
 Proof using. intros. unfolds. intros X. xsimpl*. Qed.
 
-(* NEEDED TODO RENAME ?*)
-Lemma RetypePost_same : forall `{EA:Enc A} (Q1 Q2:A->hprop),
+(* Note: [RetypePost_qimpl] is currently not used. *)
+
+Lemma RetypePost_qimpl : forall A `{EA:Enc A} (Q1 Q2:A->hprop),
   Q1 ===> Q2 ->
   RetypePost Q1 Q2.
 Proof using. introv M. unfolds. intros X. xchanges* M. Qed.
-
-(* NEEDED ?*)
-Lemma RetypePost_same_subst : forall H `{EA:Enc A} (V:A) (Q:A->hprop),
-  H ==> Q V ->
-  RetypePost (fun x => \[x = V] \* H) Q.
-Proof using. introv M. applys RetypePost_same. xpull ;=> ? ->. auto. Qed.
-
 
 Lemma Triple_enc_change :
   forall A1 A2 (t:trm) (H:hprop) `{EA1:Enc A1} (Q1:A1->hprop) `{EA2:Enc A2} (Q2:A2->hprop),
@@ -618,7 +643,7 @@ Qed.
     of type [val->hprop]  *)
 
 Lemma Triple_enc_val_inv :
-  forall (t:trm) (H:hprop) (Q1:val->hprop) `{EA2:Enc A2} (Q2:A2->hprop),
+  forall (t:trm) (H:hprop) (Q1:val->hprop) A2 `{EA2:Enc A2} (Q2:A2->hprop),
   Triple t H Q1 ->
   (forall (X:val), Q1 X ==> \exists (Y:A2), \[X = enc Y] \* Q2 Y) ->
   Triple t H Q2.
@@ -818,9 +843,9 @@ Lemma Triple_if : forall t0 t1 t2 H (Q1:bool->hprop) A `{EA:Enc A} (Q:A->hprop),
 Proof using.
   introv M1 M2. applys* triple_if.
   { intros b. unfold LiftPost. xtpull ;=> V E.
-    asserts E': (V = b). { destruct* V. } clears E. subst V. applys M2. }
+     rewrite (enc_bool_eq V) in E. inverts E. applys M2. }
   { intros v N. unfold LiftPost. xpull ;=> V ->. false N.
-    rewrite enc_bool_eq. hnfs*. } (* --LATER : simplify? *)
+    rewrite enc_bool_eq. hnfs*. }
 Qed.
 
 Lemma Triple_if_case : forall (b:bool) t1 t2 H A `{EA:Enc A} (Q:A->hprop),
@@ -894,6 +919,13 @@ Lemma Triple_ref : forall A `{EA:Enc A} (V:A),
     (fun l => l ~~> V).
 Proof using. intros. applys_eq triple_ref 1. subst~. Qed.
 
+Lemma Triple_ref_Decode : forall A `{EA:Enc A} (V:A) (v:val),
+  Decode v V ->
+  Triple (val_ref v)
+    \[]
+    (fun l => l ~~> V).
+Proof using. introv Hv. unfolds Decode. subst v. applys Triple_ref. Qed.
+
 Lemma Triple_get : forall A `{EA:Enc A} (V:A) l,
   Triple (val_get ``l)
     (l ~~> V)
@@ -929,6 +961,15 @@ Lemma Triple_set : forall A1 `{EA1:Enc A1} (V1 V2:A1) l,
     (fun u => l ~~> V2).
 Proof using.
   intros. applys Triple_set_strong.
+Qed.
+
+Lemma Triple_set_Decode : forall A1 `{EA1:Enc A1} (V1 V2:A1) (l:loc) (v2:val),
+  Decode v2 V2 ->
+  Triple (val_set l v2)
+    (l ~~> V1)
+    (fun (u:unit) => l ~~> V2).
+Proof using.
+  introv Hv2. unfolds Decode. subst v2. applys Triple_set.
 Qed.
 
 Lemma Triple_free : forall l v,
@@ -1000,40 +1041,26 @@ Lemma Triple_eq_val : forall v1 v2,
     (fun b => \[ b = isTrue (v1 = v2) ]).
 Proof using. intros. unfold Triple, LiftPost. xapplys* triple_eq. Qed.
 
-Lemma Triple_eq : forall `{EA:Enc A},
-  Enc_injective EA ->
-  forall (v1 v2 : A),
-  Triple (val_eq ``v1 ``v2)
+Lemma Triple_eq : forall A `{EA:Enc A} (V1 V2 : A),
+  Enc_comparable V1 V2 ->
+  Triple (val_eq ``V1 ``V2)
     \[]
-    (fun (b:bool) => \[b = isTrue (v1 = v2)]).
-Proof using. (* --LATER: simplify *)
+    (fun (b:bool) => \[b = isTrue (V1 = V2)]).
+Proof using.
   introv I. intros.
-  applys (@Triple_enc_change bool). { sapply Triple_eq_val. } (* todo: why sapply ? *)
-  unfolds. xpull ;=> ? ->. xsimpl*. rewrite~ Enc_injective_eq.
+  applys (@Triple_enc_change bool). { applys Triple_eq_val. }
+  unfolds. xpull ;=> ? ->. xsimpl*. fequals. applys* Enc_comparable_inv.
 Qed.
 
-Lemma Triple_eq_l : forall `{EA:Enc A} (v1:A),
-  Enc_injective_value v1 ->
-  forall (v2 : A),
-  Triple (val_eq ``v1 ``v2)
+Lemma Triple_eq_Decode : forall A `(EA:Enc A) (v1 v2:val) (V1 V2:A),
+  Decode v1 V1 ->
+  Decode v2 V2 ->
+  Enc_comparable V1 V2 ->
+  Triple (val_eq v1 v2)
     \[]
-    (fun (b:bool) => \[b = isTrue (v1 = v2)]).
-Proof using. (* --LATER: simplify *)
-  introv I. intros.
-  applys (@Triple_enc_change bool). { sapply Triple_eq_val. } (* todo: why sapply ? *)
-  unfolds. xpull ;=> ? ->. xsimpl*. rew_bool_eq. iff. { applys* I. } { subst*. }
-Qed.
-
-Lemma Triple_eq_r : forall `{EA:Enc A} (v2:A),
-  Enc_injective_value v2 ->
-  forall (v1 : A),
-  Triple (val_eq ``v1 ``v2)
-    \[]
-    (fun (b:bool) => \[b = isTrue (v1 = v2)]).
-Proof using. (* --LATER: simplify *)
-  introv I. intros.
-  applys (@Triple_enc_change bool). { sapply Triple_eq_val. } (* todo: why sapply ? *)
-  unfolds. xpull ;=> ? ->. xsimpl*. rew_bool_eq. iff. { symmetry. applys* I. } { subst*. }
+    (fun (b:bool) => \[b = isTrue (V1 = V2)]).
+Proof using.
+  introv D1 D2 I. unfolds Decode. subst v1 v2. applys* Triple_eq.
 Qed.
 
 Lemma Triple_neq_val : forall v1 v2,
@@ -1042,42 +1069,27 @@ Lemma Triple_neq_val : forall v1 v2,
     (fun b => \[ b = isTrue (v1 <> v2) ]).
 Proof using. intros. unfold Triple, LiftPost. xapplys* triple_neq. Qed.
 
-Lemma Triple_neq : forall `{EA:Enc A},
-  Enc_injective EA ->
-  forall (v1 v2 : A),
-  Triple (val_neq ``v1 ``v2)
+Lemma Triple_neq : forall A `{EA:Enc A} (V1 V2 : A),
+  Enc_comparable V1 V2 ->
+  Triple (val_neq ``V1 ``V2)
     \[]
-    (fun (b:bool) => \[b = isTrue (v1 <> v2)]).
-Proof using. (* --LATER: simplify *)
+    (fun (b:bool) => \[b = isTrue (V1 <> V2)]).
+Proof using.
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_neq_val. }
-  unfolds. xpull ;=> ? ->. xsimpl*. rewrite* Enc_injective_eq.
+  unfolds. xpull ;=> ? ->. xsimpl. { reflexivity. } fequals.
+  applys* Enc_comparable_inv_neg.
 Qed.
 
-Lemma Triple_neq_l : forall `{EA:Enc A} (v1:A),
-  Enc_injective_value v1 ->
-  forall (v2 : A),
-  Triple (val_neq ``v1 ``v2)
+Lemma Triple_neq_Decode : forall A `(EA:Enc A) (v1 v2:val) (V1 V2:A),
+  Decode v1 V1 ->
+  Decode v2 V2 ->
+  Enc_comparable V1 V2 ->
+  Triple (val_neq v1 v2)
     \[]
-    (fun (b:bool) => \[b = isTrue (v1 <> v2)]).
-Proof using. (* --LATER: simplify *)
-  introv I. intros.
-  applys (@Triple_enc_change bool). { sapply Triple_neq_val. } (* todo: why sapply ? *)
-  unfolds. xpull ;=> ? ->. xsimpl*. rew_bool_eq. iff R.
-  { intros N. applys R. subst*. } { intros N. applys R. applys* I. }
-Qed.
-
-Lemma Triple_neq_r : forall `{EA:Enc A} (v2:A),
-  Enc_injective_value v2 ->
-  forall (v1 : A),
-  Triple (val_neq ``v1 ``v2)
-    \[]
-    (fun (b:bool) => \[b = isTrue (v1 <> v2)]).
-Proof using. (* --LATER: simplify *)
-  introv I. intros.
-  applys (@Triple_enc_change bool). { sapply Triple_neq_val. } (* todo: why sapply ? *)
-  unfolds. xpull ;=> ? ->. xsimpl*. rew_bool_eq. iff R.
-  { intros N. applys R. subst*. } { intros N. applys R. symmetry. applys* I. }
+    (fun (b:bool) => \[b = isTrue (V1 <> V2)]).
+Proof using.
+  introv D1 D2 I. unfolds Decode. subst v1 v2. applys* Triple_neq.
 Qed.
 
 Lemma Triple_add : forall n1 n2,
@@ -1136,26 +1148,3 @@ Lemma Triple_gt : forall n1 n2,
     (fun b => \[b = isTrue (n1 > n2)]).
 Proof using. intros. unfold Triple, LiftPost. xapplys* triple_gt. Qed.
 
-
-
-
-(* ********************************************************************** *)
-(* * Extra -- not needed? *)
-
-Lemma Triple_apps_funs' : forall xs F (Vs:dyns) t1 H A `{EA: Enc A} (Q:A->hprop),
-  F = (val_funs xs t1) ->
-  var_funs (length Vs) xs ->
-  Triple (Substn xs Vs t1) H Q ->
-  Triple (trm_apps F (encs Vs)) H Q.
-Proof using.
-  introv E N M. unfold Triple. applys* triple_apps_funs. rewrite~ length_encs.
-Qed.
-
-Lemma Triple_apps_fixs' : forall xs (f:var) F (Vs:dyns) t1 H A `{EA: Enc A} (Q:A->hprop),
-  F = (val_fixs f xs t1) ->
-  var_fixs f (length Vs) xs ->
-  Triple (Substn (f::xs) ((Dyn F)::Vs) t1) H Q ->
-  Triple (trm_apps F (encs Vs)) H Q.
-Proof using.
-  introv E N M. unfold Triple. applys* triple_apps_fixs. rewrite~ length_encs.
-Qed.

@@ -68,13 +68,12 @@ Note that CoqIDE generally works more smoothly with multithreading turned off:
 ```
 
 
+
 #############################################################
-# SLF course files
+# CFML2.0 source files
 
-The files whose name begins with SLF correspond to the course.
-Read `SLFIntro.v` for a description of what each file contains.
 
-The course depend on 4 auxiliary files.
+## Common files
 
  * The file __TLCbuffer.v__
    contains definitions, lemmas and tactics to be later merged into TLC.
@@ -85,21 +84,14 @@ The course depend on 4 auxiliary files.
  * The file __Fmap.v__
    defines a representation of finite maps, used to represent stores.
 
- * The file __Hsimpl.v__
-   implements the simplification tactic for heap entailment.
-
-
-#############################################################
-# CFML2.0 source files
-
-
-## Common files
-
  * The file __Bind.v__
    defines binders and contexts.
 
  * The file __Semantics.v__
    defines the syntax and semantics of an imperative lambda-calculus.
+
+ * The file __SepSimpl.v__
+   implements the simplification tactic for heap entailment.
 
  * The file __SepFunctor.v__
    contains a functor with derived properties for Separation Logic.
@@ -126,11 +118,52 @@ The course depend on 4 auxiliary files.
    defines weakest precondition style characteristic formulae.
    for lifted Separation Logic.
 
+
+## CFML tooling
+
  * The file __WPTactics.v__
    introduces tactics to conduct practical proofs using these lifted WP.   
 
  * The file __WPRecord.v__
    provides support for reasoning about records.
+
+ * The file __WPLib.v__
+   exports all the tooling
+
+
+## Example proofs
+
+ * The file __Example.v__
+   common header to be included by all example files
+
+ * The file __ExampleListNull.v__
+   formalization of null-terminated lists
+
+ * The file __ExampleList.v__
+   formalization of lists as reference on a sum type
+
+ * The file __ExampleListIndir.v__
+   variant of ExampleList using the address of operator
+
+ * The file __ExampleQueue.v__
+   formalization of a mutable queue as a list segment
+
+ * The file __ExampleStack.v__
+   formalization of a stack as a reference on a pure list,
+   or as a pair of a pure list and a size integer
+
+ * The file __ExampleListOf.v__
+   wrapper for lists that own their elements
+
+ * The file __ExamplePairingHeap.v__
+   formalization of a mutable pairing heaps as trees 
+   with node featuring mutable lists of subtrees
+
+
+## Unit tests
+
+ * The file __WPUnitTests.v__
+   (work-in-progress) file with several tactic demos
 
  * The file __WPExamples.v__
    (work-in-progress) file with examples proofs
@@ -139,8 +172,6 @@ The course depend on 4 auxiliary files.
    (work-in-progress) file a few proofs containing additional details 
    on the working of tactics.
 
-
-## Other files: work in progress.
 
 
 #############################################################

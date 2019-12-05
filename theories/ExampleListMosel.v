@@ -143,6 +143,15 @@ Definition val_new_cell :=
     val_set_tl 'p 'y;;;
     'p.
 
+(* TODO: eliminate *)
+Ltac simpl_abs :=
+  match goal with
+  | |- context [ abs 0 ] => change (abs 0) with 0%nat
+  | |- context [ abs 1 ] => change (abs 1) with 1%nat
+  | |- context [ abs 2 ] => change (abs 2) with 2%nat
+  | |- context [ abs 3 ] => change (abs 3) with 3%nat
+  end.
+
 Lemma triple_alloc_cell :
   triple (val_alloc 2%Z)
     \[]

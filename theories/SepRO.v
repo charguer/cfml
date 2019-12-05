@@ -1343,7 +1343,8 @@ Proof using.
   introv R. hint eval_val. applys* eval_app_trm.
 Qed.
 
-(* TEMPORARY
+(* LATER: derivable let-fix rule
+
 Definition spec_fix (f:var) (x:var) (t1:trm) (F:val) :=
   forall X, triple (subst f F (subst x X t1)) ===> triple (trm_app F X).
 
