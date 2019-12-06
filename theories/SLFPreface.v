@@ -2,11 +2,6 @@
 
 (** *** Warning! Beta release! *)
 
-(** This textbook is in beta release.
-
-    If you intend to use this course as a teacher, please notify
-    Arthur Charguéraud. *)
-
 (** * Welcome *)
 
 (** This electronic book is Volume 5 of the _Software Foundations_
@@ -25,7 +20,7 @@
     The exposition here is intended for a broad range of readers, from
     advanced undergraduates to PhD students and researchers.  *)
 
-(** * Organization of the files *)
+(** * Organization of the chapters *)
 
 (** ** Chapters *)
 
@@ -56,21 +51,6 @@
 
 *)
 
-(** ** Organization of each chapter *)
-
-(** Each chapter contains three parts:
-    - "the chapter in a rush" that presents the main take-away messages,
-    - "detailed contents" with presentation of important technical results,
-    - "optional contents" for those who seek a deeper understanding or find
-       additional exercises.
-
-    The course is organized so that:
-    - reading only the "in a rush" parts of every chapter should make some sense,
-    - all the "optional contents" parts may be read or skipped, independently
-      for each chapter.
-
-*)
-
 (** ** Special chapters *)
 
 (**
@@ -88,8 +68,69 @@
                   to read through it.
 *)
 
+(** * Organization of each chapters *)
+
+(** ** Three levels of reading *)
+
+(** Each chapter contains three parts:
+    - "the chapter in a rush" that presents the main take-away messages,
+    - "detailed contents" with presentation of important technical results,
+    - "optional contents" for those who seek a deeper understanding or find
+       additional exercises.
+
+    The course is organized so that:
+    - reading only the "in a rush" parts of every chapter should make some sense,
+    - all the "optional contents" parts may be read or skipped, independently
+      for each chapter.
+
+*)
+
+(** ** Exercises *)
+
+(** Each chapter includes numerous exercises.  The star rating scheme in
+    use is described in the Preface of Volume 1. *)
+
+
+(** * Practicalities *)
+
+(** ** System Requirements *)
+
+(** The Preface of Volume 1 describes the Coq installation you will
+    need. This edition was built with $(COQVERSION). *)
+
+(** ** Note for CoqIDE users *)
+
+(** CoqIDE works better with its "asynchronous" proof mode disabled.
+    To load all the course files in CoqIDE, use the following command line.
+
+[[
+	coqide -async-proofs off -async-proofs-command-error-resilience off -Q . SLF SLF*.v &
+]]
+
+*)
+
+(** ** TLC: tactics and libraries *)
+
+(** The proofs are carried out using TLC tactics, which greatly help.
+    Most of the tactics used are described in the SF chapter [UseTactics]
+    from the "Programming Language Foundations" course.
+
+    The first two chapters, [SLFBasic] and [SLFList], are careful to use as
+    few TLC tactics as possible, and to explain the ones that are used.
+    In the other chapters, TLC tactics are used in proof scripts for
+    conciseness, however familiarity with these tactics should not be
+    necessary to follow through the proofs. Exercises can be carried out
+    without using TLC tactics.
+
+    Note that a few proofs also rely occasionally on lemmas from the
+    TLC library, for example extensionality properties, or results on lists.
+    Such lemmas are described whenever they are relevant to a proof. *)
 
 (** ** Imports between files *)
+
+(** To simplify the compilation process, copies of the source files from
+    the TLC and the CFML libraries are included in the present folder.
+    There is no need to look at these files. *)
 
 (** The first two chapters, "SLFBasic" and "SLFList", describe practical
     proofs using the CFML tool. They import the file [Example.v].
@@ -111,53 +152,7 @@
     Instead, one must work exclusively using the high-level lemmas that
     characterize the useful properties of the definitions. *)
 
-
-(** ** TLC tactics and libraries *)
-
-(** The proofs are carried out using TLC tactics, which greatly help.
-    Most of the tactics used are described in the SF chapter [UseTactics]
-    from the "Programming Language Foundations" course.
-
-    The first two chapters, [SLFBasic] and [SLFList], are careful to use as
-    few TLC tactics as possible, and to explain the ones that are used.
-    In the other chapters, TLC tactics are used in proof scripts for
-    conciseness, however familiarity with these tactics should not be
-    necessary to follow through the proofs. Exercises can be carried out
-    without using TLC tactics.
-
-    Note that a few proofs also rely occasionally on lemmas from the
-    TLC library, for example extensionality properties, or results on lists.
-    Such lemmas are described whenever they are relevant to a proof. *)
-
-
-(** * Practicalities *)
-
-(** ** System Requirements *)
-
-(** The Preface of Volume 1 describes the Coq installation you will
-    need. This edition was built with $(COQVERSION). *)
-
-(** ** TLC and CFML libraries *)
-
-(** To simplify the compilation process, copies of the source files from
-    the TLC and the CFML libraries are included in the present folder.
-    There is no need to look at these files. *)
-
-(** ** Note for CoqIDE users *)
-
-(** CoqIDE works better with its "asynchronous" proof mode disabled.
-    To load all the course files in CoqIDE, use the following command line.
-
-[[
-	coqide -async-proofs off -async-proofs-command-error-resilience off -Q . SLF SLF*.v &
-]]
-
-*)
-
-(** ** Exercises *)
-
-(** Each chapter includes numerous exercises.  The star rating scheme in
-    use is described in the Preface of Volume 1. *)
+(** * Dissemination *)
 
 (* LATER:
 
@@ -171,7 +166,7 @@
     give you access to a locally modified version of the files, which
     you should use instead of the release version.) *)
 
-(** ** Recommended Citation Format *)
+(** ** Recommended citation format *)
 
 (** If you want to refer to this volume in your own writing, please
     do so as follows:
@@ -189,6 +184,9 @@
 *)
 
 (** ** For instructors and contributors *)
+
+(** If you intend to use this course for teaching, please notify
+    Arthur Charguéraud. *)
 
 (** If you plan to use these materials in your own course, you will
     undoubtedly find things you'd like to change, improve, or add.

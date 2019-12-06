@@ -11,7 +11,6 @@ License: MIT.
 
 Set Implicit Arguments.
 From Sep Require Import SLFWPsem.
-From TLC Require Import LibFix.
 
 Implicit Types f : var.
 Implicit Types b : bool.
@@ -22,6 +21,8 @@ Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
 
 
+(* ####################################################### *)
+(* ####################################################### *)
 (* ####################################################### *)
 (** * The chapter in a rush *)
 
@@ -61,7 +62,7 @@ Implicit Types Q : val->hprop.
 *)
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Summary *)
 
 (** The "chapter in a rush" overview that comes next is fairly short.
@@ -197,10 +198,12 @@ Implicit Types Q : val->hprop.
 
 
 (* ####################################################### *)
+(* ####################################################### *)
+(* ####################################################### *)
 (** * Additional contents *)
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Definition of [wpgen] for term rules *)
 
 (** [wpgen] computes a heap predicate that has the same meaning as [wp].
@@ -248,7 +251,7 @@ Implicit Types Q : val->hprop.
 *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Definition of [wpgen] for values *)
 
 (** Consider first the case of a value [v]. Recall the reasoning
@@ -275,7 +278,7 @@ Parameter wp_val : forall v Q,
 *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Definition of [wpgen] for functions *)
 
 (** Consider the case of a function definition [trm_fun x t].
@@ -310,7 +313,7 @@ Parameter wp_fun : forall x t1 Q,
     does not harm expressivity. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Definition of [wpgen] for sequence *)
 
 (** Recall the [wp] reasoning rule for a sequence [trm_seq t1 t2]: *)
@@ -335,7 +338,7 @@ Parameter wp_seq : forall t1 t2 Q,
 
 *)
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Definition of [wpgen] for let-bindings *)
 
 (** The case of let bindings is similar to that of sequences,
@@ -368,7 +371,7 @@ Parameter wp_let : forall x t1 t2 Q,
     substitutions until the leaves of the recursion. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Definition of [wpgen] for variables *)
 
 (** There are no reasoning rules to establish a triple or a [wp]-entailment
@@ -419,7 +422,7 @@ Proof using. intros. intros h Hh. destruct (hpure_inv Hh). false. Qed.
 (** These two rules are correct, albeit totally useless in practice. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Definition of [wpgen] for function applications *)
 
 (** Consider an application in A-normal form, that is,
@@ -485,7 +488,7 @@ Proof using. intros. intros h Hh. destruct (hpure_inv Hh). false. Qed.
 *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Definition of [wpgen] for conditionals *)
 
 (** The last remaining case is that for conditionals.
@@ -523,7 +526,7 @@ Parameter wp_if : forall (b:bool) t1 t2 Q,
 
 *)
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Summary of the definition of [wpgen] for term rules *)
 
 (** In summary, we have defined:
@@ -549,7 +552,7 @@ Parameter wp_if : forall (b:bool) t1 t2 Q,
     [wpgen (subst x v t2) Q]. Our next step is to fix this recursion issue. *)
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Computating with [wpgen] *)
 
 (** [wpgen] is not structurally recursive because of the substitutions
@@ -565,7 +568,7 @@ Parameter wp_if : forall (b:bool) t1 t2 Q,
     all bindings from E inside the term [t]. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Definition of contexts and operations on them *)
 
 (** The simplest way to define a context [E] is as an association
@@ -636,7 +639,7 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
     complicate proofs. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** [wpgen]: the let-binding case *)
 
 (** When [wpgen] traverses a let-binding, rather than eargerly
@@ -657,7 +660,7 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
 *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** [wpgen]: the variable case *)
 
 (** When [wpgen] reaches a variable, it lookups for a binding
@@ -689,7 +692,7 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
 *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** [wpgen]: the application case *)
 
 (** In the previous definition of [wpgen] with contexts, the argued
@@ -716,7 +719,7 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
 *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** [wpgen]: the function definition case *)
 
 (** Consider the case where [t] is a function definition, for example
@@ -743,7 +746,7 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
 *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** [wpgen]: at last, an executable function *)
 
 Module WpgenExec1.
@@ -809,7 +812,7 @@ Parameter triple_app_fun_from_wpgen : forall v1 v2 x t1 H Q,
   triple (trm_app v1 v2) H Q.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Executing [wpgen] on a concrete program *)
 
 Import ExamplePrograms.
@@ -847,7 +850,7 @@ End WpgenExec1.
 
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Optimizing the readability of [wpgen] output *)
 
 (** To improve there readability, we transform the function is three steps:
@@ -861,7 +864,7 @@ End WpgenExec1.
       auxiliary definitions. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Reability Step 1: moving the function below the branches. *)
 
 (** We change from:
@@ -894,7 +897,7 @@ End WpgenExec1.
 Definition formula : Type := (val->hprop)->hprop.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Reability Steps 2 and 3, illustrated on the case of sequences *)
 
 (** In step 2, we change from:
@@ -945,7 +948,7 @@ Notation "'Seq' F1 ; F2" :=
     respectively. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Reability Step 2: Auxiliary definitions for other constructs *)
 
 (** We generalize the approach illustrated for sequences to every other
@@ -1001,7 +1004,7 @@ Parameter triple_app_fun_from_wpgen : forall v1 v2 x t1 H Q,
 End WpgenExec2.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Reability Step 3: Notation for auxiliary definitions *)
 
 (** We generalize the notation introduced for sequences to every other
@@ -1036,7 +1039,7 @@ Notation "'App' f v1 " :=
   (at level 68, f, v1 at level 0).
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Test of [wpgen] with notation. *)
 
 (** Consider again the example of [incr]. *)
@@ -1075,7 +1078,7 @@ Abort.
 End WPgenWithNotation.
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Extension of [wpgen] to handle structural rules *)
 
 (** The definition of [wpgen] proposed so far integrates the logic of
@@ -1090,7 +1093,7 @@ End WPgenWithNotation.
 *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Introduction of [mkstruct] in the definition of [wpgen] *)
 
 (** Recall from the previous chapter the statement of the
@@ -1141,7 +1144,7 @@ Parameter wp_frame : forall t H Q,
 *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Properties of [mkstruct] *)
 
 Module MkstructProp.
@@ -1177,7 +1180,7 @@ Parameter mkstruct_erase : forall (F:formula) Q,
 End MkstructProp.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Realization of [mkstruct] *)
 
 (** Fortunately, it turns out that there exists a predicate [mkstruct] satisfying
@@ -1240,7 +1243,7 @@ Qed.
 (** [] *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Definition of [wpgen] featuring [mkstruct] *)
 
 (** Our final definition of [wpgen] is the same as before, except with
@@ -1269,7 +1272,7 @@ Parameter triple_app_fun_from_wpgen : forall v1 v2 x t1 H Q,
   triple (trm_app v1 v2) H Q.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Notation for [mkstruct] and test *)
 
 (** To avoid clutter in reading the output of [wpgen],
@@ -1309,6 +1312,8 @@ End WPgenWithMkstruct.
 
 
 (* ####################################################### *)
+(* ####################################################### *)
+(* ####################################################### *)
 (** * Practical proofs using [wpgen] *)
 
 (** The last major step consists in introducing lemmas and
@@ -1316,7 +1321,7 @@ End WPgenWithMkstruct.
     by [wpgen]. *)
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Lemmas for handling [wpgen] goals *)
 
 (** For each term construct, and for [mkstruct], we introduce
@@ -1384,7 +1389,7 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** An example proof *)
 
 Module ProofsWithXlemmas.
@@ -1459,7 +1464,7 @@ Qed. (* /ADMITTED *)
 End ProofsWithXlemmas.
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Making proof scripts more concise *)
 
 (** For each term construct, and for [mkstruct] goals, we introduce
@@ -1544,7 +1549,7 @@ Qed. (* /ADMITTED *)
 End ProofsWithXtactics.
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Further improvements to the [xapp] tactic. *)
 
 (** 1. The pattern [xapp E. intros ? ->.] appears frequently in the above proofs.
@@ -1577,7 +1582,7 @@ Tactic Notation "xapps" :=
   xapp; intros ? ->.
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Demo of a practical proof using x-tactics. *)
 
 Module ProofsWithAdvancedXtactics.
@@ -1632,9 +1637,11 @@ End ProofsWithAdvancedXtactics.
 
 
 (* ####################################################### *)
+(* ####################################################### *)
+(* ####################################################### *)
 (** * Bonus contents (optional reading) *)
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Tactics [xconseq] and [xframe] *)
 
 (** The tactic [xconseq] enables weakening the current postcondition.
@@ -1713,12 +1720,12 @@ Qed.
 End ProofsWithStructuralXtactics.
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Soundness proof for [wpgen] *)
 
 Module WPgenSound.
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Introduction of the predicate [formula_sound] *)
 
 (** The soundness theorem that we aim to establish for [wpgen] is:
@@ -1744,7 +1751,7 @@ Parameter wpgen_sound' : forall E t,
   formula_sound (isubst E t) (wpgen E t).
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Soundness for the case of sequences *)
 
 (** Let us forget about the existence of [mkstruct] for a minute,
@@ -1820,7 +1827,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Soundness of [wpgen] for the other term constructs *)
 
 Lemma wpgen_val_sound : forall v,
@@ -1869,7 +1876,7 @@ Proof using. intros. intros Q. applys himpl_refl. Qed.
     not just when [t] is an application, but for any term [t]. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Soundness of [mkstruct] *)
 
 (** To carry out the soundness proof, we also need to justify
@@ -1902,7 +1909,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Lemmas capturing properties of iterated substitutions *)
 
 (** In the proof of soundness for [wpgen], we need to exploit two
@@ -1928,7 +1935,7 @@ Parameter isubst_rem : forall x v E t,
     They can be found in appendix near the end of this chapter. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Main induction for the soundness proof of [wpgen] *)
 
 (** We prove the soundness of [wpgen E t] by structural induction on [t].
@@ -1966,7 +1973,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Statement of soundness of [wpgen] for closed terms *)
 
 (** For a closed term [t], the context [E] is instantiated as [nil],
@@ -2006,7 +2013,7 @@ Qed.
 End WPgenSound.
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Guessing the definition of [mkstruct] *)
 
 Module MkstructGuess.
@@ -2090,7 +2097,7 @@ Definition mkstruct (F':formula) : formula :=
 End MkstructGuess.
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Proof of properties of iterated substitution *)
 
 Module IsubstProp.

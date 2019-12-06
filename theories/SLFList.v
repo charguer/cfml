@@ -25,9 +25,10 @@ Ltac xnew_post ::= xnew_post_exploded.
 
 
 
-(* ####################################################### *)
-(** * The chapter in a rush,
-      nested with exercises as additional contents *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * The chapter in a rush, nested with exercises as additional contents *)
 
 (** The previous chapter has introduced the notation for specification
     triples, the entailement relations, and the grammar for heap predicates,
@@ -78,9 +79,8 @@ Ltac xnew_post ::= xnew_post_exploded.
 
 *)
 
-
-(* ******************************************************* *)
-(** *** Representation of a list cell as a two-field record *)
+(* ########################################################### *)
+(** ** Representation of a list cell as a two-field record *)
 
 (** In the previous chapter, we have manipulated OCaml-style references,
     which correspond to a mutable record with a single field, storing
@@ -107,16 +107,16 @@ Definition tail : field := 1%nat.
 
 
 
-(* ******************************************************* *)
-(** *** Representation of a mutable list of length two *)
+(* ########################################################### *)
+(** ** Representation of a mutable list of length two *)
 
 (** Consider an example linked list that stores two integers, [8] and [5],
     in two cells, the first one at location [p1], and the second one at
     location [p2].
 
     The representation predicate [p1 ~> MList (8::5::nil)] should thus
-    describe a state featuring the two list cells. The first cell, at 
-    location [p1], stores [8] and its tail pointer points to [p2]. 
+    describe a state featuring the two list cells. The first cell, at
+    location [p1], stores [8] and its tail pointer points to [p2].
     The second cell, at location [p2], stores [5] and its tail pointer
     is [null], indicating the end of the list. *)
 
@@ -147,8 +147,8 @@ Definition example_mlist_2 (p1:loc) : hprop :=
 
 *)
 
-(* ******************************************************* *)
-(** *** Representation of a mutable list *)
+(* ########################################################### *)
+(** ** Representation of a mutable list *)
 
 (** Our goal is to define a heap predicate, written [MList L p] or,
     equivalently, [p ~> MList L], to describe a mutable linked lists,
@@ -199,8 +199,8 @@ Proof using. xunfold MList. auto. Qed.
 Global Opaque MList.
 
 
-(* ******************************************************* *)
-(** *** Alternative characterization of [MList] *)
+(* ########################################################### *)
+(** ** Alternative characterization of [MList] *)
 
 (** Most functions that manipulate a mutable list begin by testing
     whether their argument is the [null] pointer, in order to determine
@@ -213,7 +213,7 @@ Global Opaque MList.
     In a state described by [p ~> MList L], the following is true:
 
     - if [p = null], then [L = nil];
-    - if [p <> null], then the list [L] must have the form [x::L'], 
+    - if [p <> null], then the list [L] must have the form [x::L'],
       the head field of [p] contains the value [x], and the tail field
       of [p] contains some pointer [q] such that [q ~> MList L'] is
       a respresentation of the tail list.
@@ -247,7 +247,7 @@ Proof using.
      which is specialized for performing updates in the current state. *)
     xchange MList_cons. intros q. case_if.
     { (* Case [p = null]. Contradiction because nothing can be allocated at
-         the null location, as captured by lemma [Hfield_not_null], 
+         the null location, as captured by lemma [Hfield_not_null],
          which states: [(l`.f ~~> V) ==> (l`.f ~~> V) \* \[l <> null]]. *)
       subst. lets: Hfield_not_null. xchange Hfield_not_null. }
     { (* Case [p <> null]. The 'else' branch corresponds to the definition
@@ -272,7 +272,7 @@ Proof using.
   { xpull. intros x q L' ->. xchange <- MList_cons. }
 Qed.
 
-(** Remark: one might be tempted to consider the characterization 
+(** Remark: one might be tempted to consider the characterization
     provided by [MList_if] directly as a definition for [MList], that is:
 
 [[
@@ -283,13 +283,13 @@ Qed.
              \* (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L').
 ]]
 
-    However, this definition is rejected by Coq, because Coq does not 
-    recorgnize the structural recursion, even though the recursive call 
+    However, this definition is rejected by Coq, because Coq does not
+    recorgnize the structural recursion, even though the recursive call
     is made with a list [L'] being a strict sublist of the argument [L]. *)
 
 
-(* ******************************************************* *)
-(** *** Function [mhead] *)
+(* ########################################################### *)
+(** ** Function [mhead] *)
 
 (** Consider first the function [mhead p], which expects a pointer [p]
     on a nonempty mutable list, and returns the value of its head element.
@@ -360,8 +360,8 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
-(** *** Function [mtail] *)
+(* ########################################################### *)
+(** ** Function [mtail] *)
 
 (** Second, consider the function [mtail], which returns the pointer on the
     tail of a mutable list. As we are going to see, specifying this function
@@ -456,8 +456,8 @@ Qed.
     [x::L'], as long as [L] can be somehow proved to be nonempty. *)
 
 
-(* ******************************************************* *)
-(** *** Length of a mutable list *)
+(* ########################################################### *)
+(** ** Length of a mutable list *)
 
 (** The function [mlength] computes the length of a linked list
     by recursively traversing through its cells, and counting
@@ -561,8 +561,8 @@ Qed.
 Hint Extern 1 (Register_Spec mlength) => Provide Triple_mlength.
 
 
-(* ******************************************************* *)
-(** *** Exercise: increment through a mutable list *)
+(* ########################################################### *)
+(** ** Exercise: increment through a mutable list *)
 
 (** The function [mlist_incr] expects a linked list of integers
     and updates the list in place by augmenting every item in the
@@ -611,8 +611,8 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 
-(* ******************************************************* *)
-(** *** Allocation of a new cell: [mcell] and [mcons] *)
+(* ########################################################### *)
+(** ** Allocation of a new cell: [mcell] and [mcons] *)
 
 (** Next, we consider functions for constructing mutable lists.
     We begin with the function that allocates one cell.
@@ -670,8 +670,8 @@ Qed.
 Hint Extern 1 (Register_Spec mcons) => Provide Triple_mcons.
 
 
-(* ******************************************************* *)
-(** *** Function [mnil] *)
+(* ########################################################### *)
+(** ** Function [mnil] *)
 
 (** The operation [mnil()] returns the [null] value.
     The intention is to produce a representation for the empty list.
@@ -720,8 +720,8 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
-(** *** List copy *)
+(* ########################################################### *)
+(** ** List copy *)
 
 (** Let's put to practice the function [mnil] and [mcons] for
     verifying a function that constructs an independent copy
@@ -770,8 +770,8 @@ Qed.
 Hint Extern 1 (Register_Spec mcopy) => Provide Triple_mcopy.
 
 
-(* ******************************************************* *)
-(** *** Deallocation of a cell: [mfree_cell] *)
+(* ########################################################### *)
+(** ** Deallocation of a cell: [mfree_cell] *)
 
 (** Separation Logic can be set up to enforce that all allocated data
     eventually gets properly deallocated. In what follows, we describe
@@ -816,8 +816,8 @@ Qed.
 Hint Extern 1 (Register_Spec mfree_cell) => Provide Triple_mfree_cell.
 
 
-(* ******************************************************* *)
-(** *** Exercise: deallocation of a list: [mfree_list] *)
+(* ########################################################### *)
+(** ** Exercise: deallocation of a list: [mfree_list] *)
 
 (** The operation [mfree_list] deallocates all the cells in a given list.
     It can be implemented as the following tail-recursive function.
@@ -869,8 +869,8 @@ Hint Extern 1 (Register_Spec mfree_list) => Provide Triple_mfree_list.
     as exercises. *)
 
 
-(* ******************************************************* *)
-(** *** Representation of a mutable stack *)
+(* ########################################################### *)
+(** ** Representation of a mutable stack *)
 
 (** We now move on to using linked lists for implementing stacks.
     Thereafter, a stack is represented as a reference on a mutable
@@ -902,8 +902,8 @@ Lemma Stack_eq : forall (q:loc) (L:list int),
 Proof using. xunfold Stack. auto. Qed.
 
 
-(* ******************************************************* *)
-(** *** Operation [create] *)
+(* ########################################################### *)
+(** ** Operation [create] *)
 
 (** The operation [create ()] allocates an empty stack.
 [[
@@ -937,8 +937,8 @@ Qed.
 Hint Extern 1 (Register_Spec create) => Provide Triple_create.
 
 
-(* ******************************************************* *)
-(** *** Operation [push] *)
+(* ########################################################### *)
+(** ** Operation [push] *)
 
 (** The operation [push q x] modifies the stack [q] in place by
     inserting the element [x] at the top of the stack.
@@ -982,8 +982,8 @@ Qed.
 Hint Extern 1 (Register_Spec push) => Provide Triple_push.
 
 
-(* ******************************************************* *)
-(** *** Operation [is_empty] *)
+(* ########################################################### *)
+(** ** Operation [is_empty] *)
 
 (** The operation [is_empty q] returns a boolean value indicating
     whether the stack at address [q] is empty.
@@ -1051,8 +1051,8 @@ Qed.
 Hint Extern 1 (Register_Spec is_empty) => Provide Triple_is_empty.
 
 
-(* ******************************************************* *)
-(** *** Operation [pop] *)
+(* ########################################################### *)
+(** ** Operation [pop] *)
 
 (** The operation [pop p] applies to a nonempty stack.
     It returns the element at the top of the stack,
@@ -1118,12 +1118,14 @@ Hint Extern 1 (Register_Spec pop) => Provide Triple_pop.
     are presented further in this file, as exercises. *)
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Additional contents *)
 
 
-(* ******************************************************* *)
-(** *** Exercise: out-of-place append of two mutable lists *)
+(* ########################################################### *)
+(** ** Exercise: out-of-place append of two mutable lists *)
 
 (** The operation [mappend_copy p1 p2] assumes two independent lists
     at location [p1] and [p2], and constructs a third, independent list
@@ -1168,8 +1170,8 @@ Qed.
 (** [] *)
 
 
-(* ******************************************************* *)
-(** *** Exercise: out-of-place filter on list *)
+(* ########################################################### *)
+(** ** Exercise: out-of-place filter on list *)
 
 (** The function [copy_nonneg] expects a list of integers,
     and produces an independent copy of that list from which
@@ -1222,8 +1224,8 @@ Qed.
 (** [] *)
 
 
-(* ******************************************************* *)
-(** *** Exercise: length of a mutable list using a reference *)
+(* ########################################################### *)
+(** ** Exercise: length of a mutable list using a reference *)
 
 (** The operation [mlength_acc p] computes the length of a list [p]
     by traversing the cells of the list and incrementing a reference
@@ -1281,11 +1283,11 @@ Proof using.
   { intros ->. xval. xchange <- (MList_nil p). { auto. }
     xsimpl. rew_listx. math.  }
 Qed.
+
+Hint Extern 1 (Register_Spec mlength_acc_rec) => Provide Triple_mlength_acc_rec.
 (* /SOLUTION *)
 
 (** [] *)
-
-Hint Extern 1 (Register_Spec mlength_acc_rec) => Provide Triple_mlength_acc_rec.
 
 (** Make sure to include the following command to enable reasoning
     about the call to [mrev_append] from the proof of [mrev].
@@ -1308,8 +1310,8 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 
-(* ******************************************************* *)
-(** *** Exercise: operation [delete] on stack *)
+(* ########################################################### *)
+(** ** Exercise: operation [delete] on stack *)
 
 (** The function [delete] deallocates a stack and its contents.
     The linked list is deallocated using the function [mfree_list].
@@ -1346,8 +1348,8 @@ Qed.
 (** [] *)
 
 
-(* ******************************************************* *)
-(** *** Exercise: operation [clear] on stack *)
+(* ########################################################### *)
+(** ** Exercise: operation [clear] on stack *)
 
 (** The function [clear] removes all elements from a mutable stack.
 
@@ -1380,12 +1382,14 @@ Qed.
 (** [] *)
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Optional contents *)
 
 
-(* ******************************************************* *)
-(** *** In-place append on lists *)
+(* ########################################################### *)
+(** ** In-place append on lists *)
 
 (** The operation [mappend p1 p2] performs in-place append of two
     independent mutable lists. The operation returns a pointer [p]
@@ -1432,7 +1436,7 @@ Definition mappend : val :=
     ).
 
 (* EX3! (Triple_mappend_aux) *)
-(** [Verify the implementation of [mappend_aux].
+(** Verify the implementation of [mappend_aux].
     Hint: use [xchange (MList_if p1)] to exploit [MList_if] for
     the first list.
     Hint: use [rew_listx] to normalize the list expression [(x::L1')++L2].
@@ -1476,8 +1480,8 @@ Qed. (* /ADMITTED *)
 Hint Extern 1 (Register_Spec mappend) => Provide Triple_mappend.
 
 
-(* ******************************************************* *)
-(** *** Exercise: concatenation on stacks *)
+(* ########################################################### *)
+(** ** Exercise: concatenation on stacks *)
 
 (** The operation [concat q1 q2] expects two imperative stacks,
     and migrates the contents of the second into the first first
@@ -1541,8 +1545,8 @@ Hint Extern 1 (Register_Spec concat) => Provide Triple_concat.
 (* /INSTRUCTORS *)
 
 
-(* ******************************************************* *)
-(** *** Exercise: push back on stacks *)
+(* ########################################################### *)
+(** ** Exercise: push back on stacks *)
 
 (** The operation [push_back q x] adds an item [x] to the bottom
     of the queue [q]. This operation is also implemented using
@@ -1583,8 +1587,8 @@ Hint Extern 1 (Register_Spec push_back) => Provide Triple_push_back.
 (** [] *)
 
 
-(* ******************************************************* *)
-(** *** Exercise: in-place reversal for mutable lists *)
+(* ########################################################### *)
+(** ** Exercise: in-place reversal for mutable lists *)
 
 (** The operation [mrev p] reverses a list "in place": it does not allocate
     any list cell, but instead reuses the list cells from its input to
@@ -1621,7 +1625,7 @@ Definition mrev : val :=
   VFun 'p :=
     mrev_append null 'p.
 
-(* EX3! (Triple_ref_greater_abstract) *)
+(* EX3! (Triple_mrev_append) *)
 (** Specify and verify [mrev_append].
 
     Hint: use [gen p1 p2 L1. induction_wf IH: list_sub L2.]

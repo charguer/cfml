@@ -19,7 +19,9 @@ Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Chapter in a rush *)
 
 (** In the previous chapter, we have introduced the key heap predicate
@@ -63,7 +65,7 @@ Implicit Types Q : val->hprop.
 *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Definition of entailment *)
 
 (** The "entailement relationship" [H1 ==> H2] asserts that any
@@ -121,7 +123,7 @@ Qed. (* /ADMITTED *)
     extensionality axiom). *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Entailment for postconditions *)
 
 (** The entailment [==>] relates heap predicates. It is used to capture
@@ -163,7 +165,7 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Fundamental properties of Separation Logic operators *)
 
 (** The fundamental properties of Separation Logic operators are described next.
@@ -221,7 +223,7 @@ Parameter himpl_frame_l : forall H2 H1 H1',
     and existentials. *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Contradictions from absurd separating conjunctions *)
 
 (** A heap predicate of the form [(l ~~~> v1) \* (l ~~~> v2)]
@@ -237,11 +239,14 @@ Lemma hstar_hsingle_same_loc : forall (l:loc) (v1 v2:val),
     a location [l] to some value is the singleton set [\{l}], thus
     such a singleton map cannot be disjoint from another singleton
     map that binds the same location [l].
+
 [[
     Check disjoint_single_single_same_inv : forall (l:loc) (v1 v2:val),
       Fmap.disjoint (Fmap.single l v1) (Fmap.single l v2) ->
       False.
-]] *)
+]]
+
+*)
 
 (** Using this lemma, we can prove [hstar_hsingle_same_loc]
     by unfolding the definition of [hstar] to reveal the
@@ -259,7 +264,7 @@ Qed.
     predicate of the form [\[P]] for some proposition [P]. *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Consequence, frame, and their combination *)
 
 (** The rule of consequence in Separation Logic is similar
@@ -309,7 +314,7 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** The extraction rules *)
 
 (** From an entailment [(\[P] \* H) ==> H'], it is useful
@@ -344,7 +349,9 @@ Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
 
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Additional contents *)
 
 Module Htactics.
@@ -352,7 +359,7 @@ Import SLFDirect.
 Notation "'hprop''" := (SLFHprop.hprop).
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** The [xsimpl] tactic *)
 
 (** The Separation Logic setup that we will rely on in subsequent
@@ -374,7 +381,7 @@ Notation "'hprop''" := (SLFHprop.hprop).
 *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** [xsimpl] to extract pure facts and quantifiers in LHS *)
 
 (** The first feature of [xsimpl] is its ability to extract the
@@ -427,7 +434,7 @@ Proof using.
 Abort.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** [xsimpl] to cancel out heap predicates from LHS and RHS *)
 
 (** The second feature of [xsimpl] is its ability to cancel out
@@ -459,7 +466,7 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** [xsimpl] to instantiate pure facts and quantifiers in RHS *)
 
 (** The third feature of [xsimpl] is its ability to instantiate
@@ -524,7 +531,7 @@ Proof using.
 Abort.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Example of entailment proofs using [xsimpl] *)
 
 Lemma himpl_example_1 : forall (p:loc),
@@ -562,7 +569,7 @@ Proof using. intros. xsimpl. intros r. Abort.
 
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** The [xchange] tactic *)
 
 (** The tactic [xchange] is to entailment what [rewrite] is to equality.
@@ -603,17 +610,18 @@ Abort.
 
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Identifying true and false entailments *)
 
-(** For each entailment relation, indicate (without a Coq proof)
-    whether it is true or false. Solutions appear further on. *)
+Section CaseStudies.
+
+Implicit Types p q : loc.
+Implicit Types n m : int.
 
 (* QUIZ *)
 
-Section CaseStudies.
-Implicit Types p q : loc.
-Implicit Types n m : int.
+(** For each entailment relation, indicate (without a Coq proof)
+    whether it is true or false. Solutions appear further on. *)
 
 Parameter case_study_1 : forall p q,
       p ~~~> 3 \* q ~~~> 4
@@ -741,10 +749,12 @@ End CaseStudies.
 End Htactics.
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Bonus contents (optional reading) *)
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Proofs for the Separation Algebra *)
 
 (** We next show the details of the proofs establishing the
@@ -890,7 +900,7 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Proof of the consequence rule. *)
 
 Module ProveConsequenceRules.
@@ -945,7 +955,7 @@ Qed. (* /ADMITTED *)
     Hint: apply lemma [Hoare_conseq] with the appropriate arguments,
     and use lemma [applys himpl_frame_l] to prove the entailments. *)
 
-Lemma rule_conseq' : forall t H Q H' Q',
+Lemma rule_conseq : forall t H Q H' Q',
   triple t H' Q' ->
   H ==> H' ->
   Q' ===> Q ->
@@ -962,7 +972,7 @@ Qed. (* /ADMITTED *)
 End ProveConsequenceRules.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Proof of the extraction rules *)
 
 Module ProveExtractionRules.

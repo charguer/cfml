@@ -17,12 +17,14 @@ From Sep Require Import SLFDirect.
 Generalizable Variables A.
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Source language (extract from [SLFHprop] and [SLFRules]) *)
 
 Module Language.
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Syntax *)
 
 (** The type [var] is an alias for [string].
@@ -120,7 +122,7 @@ Coercion trm_app : trm >-> Funclass.
 *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Semantics *)
 
 Implicit Types v : val.
@@ -189,13 +191,15 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
 End Language.
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Heap predicates (extract from [SLFHprop]) *)
 
 Module Hprop.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Core heap predicates *)
 
 (** The type of heap predicates is named [hprop]. *)
@@ -256,7 +260,7 @@ Notation "'\exists' x1 .. xn , H" :=
    format "'[' '\exists' '/ '  x1  ..  xn , '/ '  H ']'").
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Extensionality *)
 
 (** We'd like to perform simplification by rewriting on heap predicates.
@@ -294,13 +298,15 @@ Proof using. applys predicate_extensionality. Qed.
 End Hprop.
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Entailment (extract from [SLFHimpl]) *)
 
 
 Module Himpl.
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Definition of entailment *)
 
 (** Entailment for heap predicates, written [H1 ==> H2]
@@ -340,7 +346,7 @@ Definition qimpl (Q1 Q2:val->hprop) : Prop :=
 Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55).
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Fundamental properties *)
 
 (** (1) The star operator is associative. *)
@@ -377,7 +383,7 @@ Parameter hstar_hsingle_same_loc : forall (l:loc) (v1 v2:val),
   (l ~~~> v1) \* (l ~~~> v2) ==> \[False].
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** The tactics for entailment *)
 
 (** Recall the demos from the tutorial. *)
@@ -385,13 +391,15 @@ Parameter hstar_hsingle_same_loc : forall (l:loc) (v1 v2:val),
 End Himpl.
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Definition of triples (extract from [SLFHprop]) *)
 
 
 Module Triple.
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Triples *)
 
 (** [hoare t H Q] features pre- and post-conditions describing
@@ -424,13 +432,15 @@ Parameter triple_iff_triple_lowlevel : forall t H Q,
 End Triple.
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Reasoning rules (extract from [SLFRules]) *)
 
 
 Module Rules.
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** The frame rule *)
 
 (** The frame rule *)
@@ -449,7 +459,7 @@ Parameter triple_frame : forall t H Q H',
 *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Other structural rules *)
 
 (** The classic rule of consequence. *)
@@ -480,7 +490,7 @@ Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
   triple t H Q.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Term rules *)
 
 (** Hoare logic rule for sequence:
@@ -524,7 +534,7 @@ Parameter triple_let : forall x t1 t2 H Q Q1,
 (** Plus one similar rule for each other term construct. *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Primitive rules *)
 
 Parameter triple_get : forall v l,
@@ -537,13 +547,15 @@ Parameter triple_get : forall v l,
 End Rules.
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Magic wand (extract from [SLFWand]) *)
 
 Module Wand.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Definition of magic wand *)
 
 (** The following equivalence can be proved to characterizes a
@@ -574,7 +586,7 @@ Definition qwand A (Q1 Q2:A->hprop) : hprop :=
   \forall x, (Q1 x) \-* (Q2 x).
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Ramified frame rule *)
 
 (** Recall combined rule *)
@@ -599,13 +611,15 @@ Parameter triple_ramified_frame : forall H1 Q1 t H Q,
 End Wand.
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Weakest precondition (extract from [SLFWPsem]) *)
 
 Module Wpsem.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Definition of [wp] *)
 
 (** The following equivalence can be proved to characterizes a unique
@@ -620,7 +634,7 @@ Parameter wp_pre : forall t Q,
   triple t (wp t Q) Q.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Benefits *)
 
 (** Extraction rules are no longer needed: *)
@@ -649,7 +663,9 @@ Parameter wp_let : forall x t1 t2 Q,
 End Wpsem.
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Characteristic formula (extract from [SLFWPgen]) *)
 
 Module Wpgen.
@@ -664,7 +680,7 @@ Module Wpgen.
       To distinguish, we call it a characteristic formula. *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** High-level picture *)
 
 (** [wpgen] has the same type as [wp], in other words
@@ -705,7 +721,7 @@ Definition formula := (val->hprop) -> hprop.
 ]]
 *)
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Support for the frame rule and other structural rules *)
 
 Module Wpgen1.
@@ -740,7 +756,7 @@ Lemma mkstruct_erase : forall Q F,
 Proof using. unfolds mkstruct. xsimpl. Qed.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Attempt at a direct implementation *)
 
 Definition wpgen_val (v:val) : formula := fun Q =>
@@ -788,7 +804,7 @@ Definition wpgen_fail : formula := fun Q =>
 *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Implementation with delayed substitution *)
 
 (** Instead of trying to define [wpgen t] to compute [wp t], we define
@@ -854,7 +870,7 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
   end.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Soundness proof *)
 
 (** Soundness theorem: syntactic wp implies semantics wp. *)
@@ -914,7 +930,7 @@ Parameter triple_app_fun_from_wpgen : forall v1 v2 x t1 H Q,
   triple (trm_app v1 v2) H Q.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Notation and tactics *)
 
 (** Notation for [wpgen_seq] *)
@@ -973,13 +989,15 @@ End Wpgen.
 
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Lifting (will be later in [SLFLift] *)
 
 Module Lift.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Motivation *)
 
 (** Compare these two specifications for the function [ref]:
@@ -998,7 +1016,7 @@ Module Lift.
 *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** The encoder typeclass *)
 
 (** [Enc A] holds if the Coq type [A] matches a data type from
@@ -1028,7 +1046,7 @@ Instance Enc_list : forall `{Enc A}, Enc (list A).
 Proof using. Abort. (* details omitted *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Lifted singleton heap predicate *)
 
 (** Recall definition of [hsingle], written [l ~~~> v]. *)
@@ -1046,7 +1064,7 @@ Notation "l '~~>' V" := (l ~> Hsingle V)
   (at level 32, no associativity) : heap_scope.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Lifted triples and rules *)
 
 (** [Triple t H Q] describes a triple where the postcondition [Q] has
@@ -1084,7 +1102,7 @@ Parameter Triple_let : forall z t1 t2 H,
   Triple (trm_let z t1 t2) H Q.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Lifted characteristic formulae *)
 
 (** Type of a lifted formula *)
@@ -1100,7 +1118,7 @@ Notation "^ F Q" := ((F:Formula) _ _ Q)
 (** The [MkStruct] predicate lifts [mkstruct]. *)
 
 Definition MkStruct (F:Formula) : Formula :=
-  fun A `{EA:Enc A} (Q:A->hprop) => \exists Q', ^F Q' \* (Q' \--* Q).
+  fun A (EA:Enc A) (Q:A->hprop) => \exists Q', ^F Q' \* (Q' \--* Q).
 
 (** Lifted characteristic formula generator *)
 

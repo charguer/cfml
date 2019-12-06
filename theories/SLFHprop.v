@@ -13,7 +13,6 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From TLC Require Export LibCore.
 From Sep Require Export SLFExtra.
 
 (** Configuration of Fmap.v *)
@@ -35,7 +34,9 @@ Local Open Scope trm_scope.
 Local Coercion string_to_var (x:string) : var := x.
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * The chapter in a rush *)
 
 (** Recall that a heap predicate has type [hprop], which is defined as
@@ -92,7 +93,7 @@ Local Coercion string_to_var (x:string) : var := x.
 *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Syntax and semantics *)
 
 (** We assume an imperative programming language with a formal semantics.
@@ -132,7 +133,7 @@ Definition example_trm' : trm :=
     If_ "x" Then 0 Else 1.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Description of the state *)
 
 (** By convention, we use the type [state] describes a full state of memory,
@@ -175,7 +176,7 @@ Definition heap := state.
 *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Heap predicates *)
 
 (** In Separation Logic, the state is described using "heap predicates".
@@ -271,7 +272,7 @@ Notation "'\exists' x1 .. xn , H" :=
    format "'[' '\exists' '/ '  x1  ..  xn , '/ '  H ']'").
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Extensionality for heap predicates *)
 
 (** To work in Separation Logic, it is extremely convenient to be able to exploit
@@ -306,7 +307,7 @@ Proof using. applys predicate_extensionality. Qed.
 
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Type and syntax for postconditions *)
 
 (** A postcondition characterizes both an output value and an output state.
@@ -342,7 +343,7 @@ Lemma qprop_eq : forall (Q1 Q2:val->hprop),
 Proof using. applys functional_extensionality. Qed.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Separation Logic triples and the frame rule *)
 
 (** A Separation Logic triple is a generalization of a Hoare triple that integrate
@@ -393,11 +394,13 @@ Proof using.
 Qed.
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Additional contents *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Example of a triple: the increment function *)
 
 (** Assume a function called [incr] that increments the contents
@@ -454,7 +457,7 @@ Parameter triple_incr : forall (p:loc) (n:int),
       is described in a bonus chapter, namely [SLFLift]. *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Example of application of the frame rule *)
 
 (** The frame rule asserts that a triple that is true remains
@@ -500,7 +503,7 @@ Parameter triple_incr_3 : forall (p:loc) (n:int) (H:hprop),
     of the frame rule. *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Power of the frame rule with respect to allocation *)
 
 (** Consider the specification lemma for an allocation operation.
@@ -533,7 +536,7 @@ Parameter triple_ref_with_frame : forall (l':loc) (v':val) (v:val),
     Separation Logic. *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Notation for heap union *)
 
 (** Thereafter, to improve readability of statements in proofs, we introduce
@@ -542,7 +545,7 @@ Parameter triple_ref_with_frame : forall (l':loc) (v':val) (v:val),
 Notation "h1 \u h2" := (Fmap.union h1 h2) (at level 37, right associativity).
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Introduction and inversion lemmas for basic operators *)
 
 (** The following lemmas help getting a better understanding of the meaning
@@ -640,10 +643,12 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Bonus contents (optional reading) *)
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Alternative, equivalent definitions for Separation Logic triples *)
 
 (** We have previously defined [triple] on top of [hoare],
@@ -690,7 +695,7 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Alternative definitions for heap predicates *)
 
 (** In what follows, we discuss alternative, equivalent defininitions for
@@ -752,7 +757,7 @@ Definition hpure' (P:Prop) : hprop :=
 *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Additional explanations for the definition of [\exists] *)
 
 (** The heap predicate [\exists (n:int), l ~~~> (val_int n)] characterizes
@@ -790,7 +795,7 @@ Notation "'exists' x .. y , p" := (ex (fun x => .. (ex (fun y => p)) ..))
    format "'[' 'exists' '/ ' x .. y , '/ ' p ']'").
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Formulation of the extensionality axioms *)
 
 (** To establish extensionality of entailment, we have used

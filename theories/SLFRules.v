@@ -25,7 +25,9 @@ Set Implicit Arguments.
 From Sep Require Export SLFDirect SLFExtra.
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * The chapter in a rush *)
 
 
@@ -63,12 +65,12 @@ From Sep Require Export SLFDirect SLFExtra.
 *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Semantic of terms *)
 
 Module SyntaxAndSemantics.
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Syntax *)
 
 (** The syntax described next captures the "abstract syntax tree"
@@ -142,7 +144,7 @@ Instance Inhab_val : Inhab val.
 Proof using. apply (Inhab_of_val val_unit). Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Substitution *)
 
 (** To describe the evaluation of functions, the semantics of the language
@@ -182,7 +184,7 @@ Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
   end.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Implicit Types and coercions *)
 
 (** To improve the readability of the evaluation rules stated further,
@@ -212,7 +214,7 @@ Coercion trm_val : val >-> trm.
 Coercion trm_app : trm >-> Funclass.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Big-step semantics *)
 
 (** The semantics is presented in big-step style. This presentation makes
@@ -355,7 +357,7 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
 End SyntaxAndSemantics.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Loading of definitions from [SLFDirecŧ] *)
 
 (** Throughout the rest of this file, we rely not on the definitions shown
@@ -379,7 +381,7 @@ Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Rules for terms *)
 
 (** We next present reasoning rule for terms. Most of these Separation Logic
@@ -390,7 +392,7 @@ Implicit Types Q : val->hprop.
     the mutable state. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Reasoning rule for sequences *)
 
 (** Let us begin with the reasoning rule for sequences.
@@ -414,7 +416,7 @@ Parameter triple_seq : forall t1 t2 H Q H1,
   triple (trm_seq t1 t2) H Q.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Reasoning rule for let-bindings *)
 
 (** Next, we present the reasoning rule for let-bindings. Here again,
@@ -450,7 +452,7 @@ Parameter triple_let : forall x t1 t2 H Q Q1,
   triple (trm_let x t1 t2) H Q.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Reasoning rule for conditionals *)
 
 (** The rule for a conditional is, again, exactly like in Hoare logic.
@@ -473,7 +475,7 @@ Parameter triple_if : forall b t1 t2 H Q,
     using Coq's conditional construct is discussed further in this file. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Reasoning rule for values *)
 
 (** The rule for a value [v] can be written as a triple with an
@@ -490,9 +492,11 @@ Parameter triple_if : forall b t1 t2 H Q,
     [H] and [Q]. For this reason, we prever the following rule for
     values.
 
+[[
       H ==> Q v
       ---------
       {H} v {Q}
+]]
 
     It may not be completely obvious at first sight why this alternative
     rule is equivalent to the former. We prove the equivalence further
@@ -505,7 +509,7 @@ Parameter triple_val : forall v H Q,
   triple (trm_val v) H Q.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Reasoning rule for functions *)
 
 (** In addition to the reasoning rule for values, we need reasoning
@@ -555,7 +559,7 @@ Parameter triple_app_fun : forall x v1 v2 t1 H Q,
     straightforward. It is discussed further in this chapter. *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Specification of primitive operations *)
 
 (** Before we can tackle verification of actual programs, there remains
@@ -563,7 +567,7 @@ Parameter triple_app_fun : forall x v1 v2 t1 H Q,
     Let us begin with the arithmetic operations: addition and division. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Specification of arithmetic primitive operations *)
 
 (** Consider a term of the form [val_add n1 n2], which is short for
@@ -605,7 +609,7 @@ Parameter triple_div' : forall n1 n2,
     describing mutable data. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Specification of primitive operations acting on memory *)
 
 (** There remains to describe the specification of operations on the heap. *)
@@ -665,7 +669,7 @@ Parameter triple_free : forall l v,
     (fun r => \[r = val_unit]).
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Review of the structural rules *)
 
 (** Let us review the essential structural rules, which were introduced
@@ -716,7 +720,7 @@ Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
 
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Verification proof in Separation Logic *)
 
 (** We have at hand all the necessary rules for carrying out actual
@@ -729,7 +733,7 @@ Open Scope trm_scope.
 Open Scope val_scope.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Proof of [incr] *)
 
 (** First, we consider the verification of the increment function.
@@ -801,7 +805,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Proof of [mysucc] *)
 
 (** Consider the following function, written in OCaml syntax:
@@ -872,11 +876,13 @@ End ExamplePrograms.
     reasoning rules. *)
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Additional contents *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Alternative specification style for pure preconditions *)
 
 Module DivSpec.
@@ -943,7 +949,7 @@ Qed. (* /ADMITTED *)
 End DivSpec.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** The combined let-frame rule rule *)
 
 Module LetFrame.
@@ -974,7 +980,7 @@ Lemma triple_let_frame : forall x t1 t2 H H1 H2 Q Q1,
   (forall v, triple (subst x v t2) (Q1 v \* H2) Q) ->
   triple (trm_let x t1 t2) H Q.
 
-(* EX2! (rule_conseq) *)
+(* EX2! (triple_let_frame) *)
 (** Prove the let-frame rule. *)
 
 Proof using. (* ADMITTED *)
@@ -991,7 +997,7 @@ Qed. (* /ADMITTED *)
 End LetFrame.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Proofs for the rules for terms *)
 
 Module Proofs.
@@ -1020,7 +1026,7 @@ Module Proofs.
     previous chapter, e.g. to establish [rule_conseq]. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Proof of [triple_val] *)
 
 (** The big-step evaluation rule for values asserts that a value [v]
@@ -1078,7 +1084,7 @@ Qed.
     thereafter provide the witnesses explicitly. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Proof of [triple_seq] *)
 
 (** The big-step evaluation rule for a sequence is given next. *)
@@ -1135,7 +1141,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Proof of [triple_let] *)
 
 (** Recall the big-step evaluation rule for a let-binding. *)
@@ -1177,10 +1183,10 @@ Qed.
 (** [] *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Proofs for the arithmetic primitive operations *)
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Addition *)
 
 (** Recall the evaluation rule for addition. *)
@@ -1220,7 +1226,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Division *)
 
 (** Recall the evaluation rule for division. *)
@@ -1262,7 +1268,7 @@ Qed.
 (** [] *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Proofs for primitive operations operating on the state *)
 
 (** The proofs for establishing the Separation Logic reasoning rules
@@ -1282,7 +1288,7 @@ Qed.
     conjunctions that appear in the targeted Separation Logic triples. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Read in a reference *)
 
 (** The big-step rule for [get l] requires that [l] be in the
@@ -1385,7 +1391,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Allocation of a reference *)
 
 (** Next, we consider the reasoning rule for operation [ref], which
@@ -1481,10 +1487,12 @@ Qed.
 End Proofs.
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Bonus contents (optional reading) *)
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Alternative rule for values *)
 
 (** When discussing the reasoning rule for values, we mention
@@ -1505,6 +1513,8 @@ Proof using. (* ADMITTED *)
   intros. applys triple_val. xsimpl. auto.
 Qed. (* /ADMITTED *)
 
+(** [] *)
+
 (* EX2! (triple_val_minimal) *)
 (** More interestingly, prove that [triple_val] is derivable
     from [triple_val_minimal]. *)
@@ -1522,7 +1532,7 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Reasoning rules for recursive functions *)
 
 (** This reasoning rules for functions immediately generalizes
@@ -1546,12 +1556,12 @@ Parameter triple_app_fix : forall v1 v2 f x t1 H Q,
   triple (trm_app v1 v2) H Q.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** Proof of other term rules *)
 
 Module Proofs2.
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Proof of [triple_fun] and [triple_fix] *)
 
 (** The proofs for [triple_fun] and [triple_fix] are essentially
@@ -1559,7 +1569,7 @@ Module Proofs2.
     here. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Proof of [triple_if] *)
 
 (** The treatment of conditional can be handled in a similar way. *)
@@ -1628,7 +1638,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Proof of [triple_app_fun] *)
 
 (** The reasoning rule for an application asserts that the
@@ -1670,7 +1680,7 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Write in a reference *)
 
 (** The big-step evaluation rule for [set l v] updates the initial
@@ -1761,7 +1771,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Deallocation of a reference *)
 
 (** Last, we consider the reasoning rule for operation [free].
@@ -1823,7 +1833,7 @@ Qed. (* /ADMITTED *)
 End Proofs2.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** Proofs revisited using the [triple_of_hoare] lemma *)
 
 Module ProofsFactorization.
@@ -1866,7 +1876,7 @@ Qed. (* /ADMITTED *)
 End ProofsFactorization.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** Triple for terms with same semantics *)
 
 (** The proofs above can in fact be obtained by invoking a general
@@ -1903,7 +1913,7 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** Rules for naming heaps *)
 
 (* EX1? (hoare_named_heap) *)
@@ -1948,7 +1958,7 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Alternative specification style for result values. *)
 
 Module MatchStyle.

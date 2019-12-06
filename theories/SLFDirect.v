@@ -22,10 +22,12 @@ From Sep Require Export TLCbuffer Var Fmap.
 From Sep Require SepSimpl.
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Imports *)
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Extensionality axioms *)
 
 Module Assumptions.
@@ -43,7 +45,7 @@ Axiom propositional_extensionality : forall (P Q:Prop),
 End Assumptions.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Variables *)
 
 (** The file [Var.v] defines the type [var] as an alias for [string].
@@ -53,7 +55,7 @@ End Assumptions.
     that appear in the goal. *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Finite maps *)
 
 (** The file [Fmap.v] provides a formalization of finite maps, which
@@ -66,10 +68,12 @@ End Assumptions.
     proofs would be extremely tedious and fragile. *)
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Source language *)
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Syntax *)
 
 (** The grammar of the deeply-embedded language includes
@@ -113,7 +117,7 @@ Definition state : Type := fmap loc val.
 Definition heap : Type := state.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Coq tweaks *)
 
 (** [heap_empty] is a handy notation to avoid providing
@@ -145,7 +149,7 @@ Global Instance Inhab_val : Inhab val.
 Proof using. apply (Inhab_of_val val_unit). Qed.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Substitution *)
 
 (** Capture-avoiding substitution, standard definition. *)
@@ -165,7 +169,7 @@ Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
   end.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Coercions *)
 
 (** Coercions to improve conciseness in the statment of evaluation rules. *)
@@ -179,7 +183,7 @@ Coercion trm_var : var >-> trm.
 Coercion trm_app : trm >-> Funclass.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Semantics *)
 
 (** Big-step evaluation judgement, written [eval s t s' v] *)
@@ -229,7 +233,9 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
       eval s (val_free (val_loc l)) (Fmap.remove s l) val_unit.
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Heap predicates *)
 
 (** For technical reasons, to enable sharing the code implementing
@@ -238,7 +244,7 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
 Module SepSimplArgs.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Hprop and entailement *)
 
 (** The type of heap predicates is named [hprop]. *)
@@ -269,7 +275,7 @@ Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Definition of heap predicates *)
 
 (** Core heap predicates, and their associated notations:
@@ -357,10 +363,10 @@ Notation "Q1 \--* Q2" := (qwand Q1 Q2)
 
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Basic properties of Separation Logic operators *)
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Tactic for automation *)
 
 (** [auto] is set up to process goals of the form [h1 = h2] by calling
@@ -381,7 +387,7 @@ Tactic Notation "fmap_disjoint_pre" :=
 Hint Extern 1 (Fmap.disjoint _ _) => fmap_disjoint_pre.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Properties of [himpl] and [qimpl] *)
 
 Lemma himpl_refl : forall H,
@@ -420,7 +426,7 @@ Proof using. intros. unfolds*. Qed.
 Hint Resolve qimpl_refl.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Properties of [hempty] *)
 
 Lemma hempty_intro :
@@ -433,7 +439,7 @@ Lemma hempty_inv : forall h,
 Proof using. auto. Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Properties of [hstar] *)
 
 Lemma hstar_intro : forall H1 H2 h1 h2,
@@ -532,7 +538,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** ***  Properties of [hpure] *)
 
 Lemma hpure_intro : forall P,
@@ -608,7 +614,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Properties of [hexists] *)
 
 Lemma hexists_intro : forall A (x:A) (J:A->hprop) h,
@@ -640,7 +646,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Properties of [hforall] *)
 
 Lemma himpl_hforall_r : forall A (J:A->hprop) H,
@@ -666,7 +672,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Properties of [hwand] *)
 
 Lemma hwand_equiv : forall H0 H1 H2,
@@ -746,7 +752,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Properties of qwand *)
 
 Lemma qwand_equiv : forall H A (Q1 Q2:A->hprop),
@@ -777,7 +783,7 @@ Qed. (* LATER: can this proof be done without [himpl_forall_trans]? *)
 Arguments qwand_specialize [ A ].
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Properties of [htop] *)
 
 Lemma htop_intro : forall h,
@@ -801,7 +807,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Properties of [hsingle] *)
 
 Lemma hsingle_intro : forall l v,
@@ -823,7 +829,7 @@ Qed.
 Arguments hstar_hsingle_same_loc : clear implicits.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** The [xsimpl] tactic *)
 
 (** The definitions and properties above enable us to instantiate
@@ -834,7 +840,7 @@ Arguments hstar_hsingle_same_loc : clear implicits.
     a restriction of [htop] to affine heap predicates. For our purpose,
     it suffices to define [hgc] as an alias for [htop]. *)
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Definition and properties of hgc *)
 
 Definition hgc := htop.
@@ -857,7 +863,7 @@ Lemma hstar_hgc_hgc :
 Proof using. applys hstar_htop_htop. Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Functor instantiation to obtain [xsimpl] *)
 
 End SepSimplArgs.
@@ -880,11 +886,13 @@ Global Opaque hempty hpure hstar hsingle hexists hforall hwand qwand htop hgc ha
 
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Reasoning rules *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Evaluation rules for primitives in Separation style *)
 
 (** These lemmas reformulated the big-step evaluation rule
@@ -939,7 +947,7 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Hoare reasoning rules *)
 
 (** * Definition of (total correctness) Hoare triples. *)
@@ -1135,10 +1143,10 @@ Qed.
 
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Definition of [wp] and reasoning rules *)
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Definition of the weakest-precondition judgment. *)
 
 (** [wp] is defined on top of [hoare] triples. More precisely [wp t Q]
@@ -1150,7 +1158,7 @@ Definition wp (t:trm) := fun (Q:val->hprop) =>
   \exists H, H \* \[forall H', hoare t (H \* H') (Q \*+ H')].
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Structural rule for [wp]. *)
 
 (** The ramified frame rule (with garbage collection) *)
@@ -1183,7 +1191,7 @@ Lemma wp_ramified_frame : forall t Q1 Q2,
 Proof using. intros. applys himpl_trans_r wp_ramified. xsimpl. Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Weakest-precondition style reasoning rules for terms. *)
 
 Lemma wp_val : forall v Q,
@@ -1242,7 +1250,7 @@ Lemma wp_if : forall b t1 t2 Q,
 Proof using. intros. applys himpl_trans wp_if_case. case_if~. Qed.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Definition of SL triple, and proof of equivalence with [wp]. *)
 
 (** Remark: we deliberately choose to state program specifications
@@ -1267,7 +1275,7 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Triple-style specification for primitive functions *)
 
 Lemma triple_add : forall n1 n2,
@@ -1311,7 +1319,9 @@ Proof using.
 Qed.
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * WP generator *)
 
 (** This section defines a "weakest-precondition style characteristic
@@ -1330,7 +1340,7 @@ Qed.
     denotes the iterated substitution of bindings from [E] inside [t]. *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Definition of context as list of bindings *)
 
 (** In order to define a structurally-recursive and relatively
@@ -1433,10 +1443,10 @@ Qed.
 End CtxOps.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Multi-substitution *)
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Definition of multi-substitution *)
 
 (** The specification of the characteristic formula generator is
@@ -1467,7 +1477,7 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
   end.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Properties of multi-substitution *)
 
 (** The goal of this entire section is only to establish [isubst_nil]
@@ -1566,7 +1576,7 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Definition of [wpgen] *)
 
 (** The definition of [wpgen E t] comes next. It depends on
@@ -1574,7 +1584,7 @@ Qed.
     and on auxiliary definitions to handle each term rule. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Definition of [mkstruct] *)
 
 (** Let [formula] denote the type of [wp t] and [wpgen t]. *)
@@ -1604,7 +1614,7 @@ Proof using. unfolds mkstruct. xsimpl. Qed.
 Arguments mkstruct_erase : clear implicits.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Definition of auxiliary definition for [wpgen] *)
 
 (** we state auxiliary definitions for [wpgen], one per term construct.
@@ -1644,7 +1654,7 @@ Definition wpgen_if_trm (F0 F1 F2:formula) : formula :=
   wpgen_let F0 (fun v => mkstruct (wpgen_if v F1 F2)).
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Recursive definition of [wpgen] *)
 
 (** [wpgen E t] is structurally recursive on [t].
@@ -1676,7 +1686,7 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
   end.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Soundness of [wpgen] *)
 
 (** [formula_sound t F] asserts that, for any [Q], the
@@ -1799,7 +1809,9 @@ Proof using.
 Qed.
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Practical proofs *)
 
 (** This last section shows the techniques involved in constructing
@@ -1809,7 +1821,7 @@ Qed.
     It does not cover all constructs, but just a few, to highlight
     the main ideas. (The file [WPTactics] contains more tactics.) *)
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Lemmas for tactics to manipulate [wpgen] formulae *)
 
 Lemma xstruct_lemma : forall F H Q,
@@ -1875,7 +1887,7 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Tactics to manipulate [wpgen] formulae *)
 
 Tactic Notation "xstruct" :=
@@ -1930,7 +1942,7 @@ Tactic Notation "xwp" :=
   xwp_simpl.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Notations for triples and [wpgen] *)
 
 Notation "'TRIPLE' t 'PRE' H 'POST' Q" :=
@@ -1971,7 +1983,7 @@ Notation "'If'' v 'Then' F1 'Else' F2" :=
   (at level 69) : wp_scope.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Notation for concrete terms *)
 
 Notation "'If_' t0 'Then' t1 'Else' t2" :=
@@ -2025,7 +2037,7 @@ Notation "t1 '+ t2" :=
   (at level 68) : trm_scope.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Example proofs *)
 
 Module Demo.
@@ -2038,7 +2050,7 @@ Open Scope wp_scope.
 Open Scope val_scope.
 Open Scope trm_scope.
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Definition and verification of [incr]. *)
 
 (** Here is an implementation of the increment function,
@@ -2076,7 +2088,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Definition and verification of [mysucc]. *)
 
 (** Here is another example, the function:

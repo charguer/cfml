@@ -20,9 +20,10 @@ Implicit Types p q : loc.
 Ltac xwp_xtriple_handle_gc ::= xwp_xtriple_remove_gc.
 
 
-(* ####################################################### *)
-(** * The chapter in a rush,
-      nested with exercises as additional contents *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * The chapter in a rush, nested with exercises as additional contents *)
 
 (** This chapter gives a quick overview of how to state specifications and
     carry out basic proofs in Separation Logic using CFML tactics.
@@ -70,7 +71,7 @@ Ltac xwp_xtriple_handle_gc ::= xwp_xtriple_remove_gc.
 *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** The increment function *)
 
 (** As first example, consider the function [incr], which increments
@@ -213,7 +214,7 @@ Hint Extern 1 (Register_Spec incr) => Provide Triple_incr.
     [Hint] mechanism. *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** A function with a return value *)
 
 (** As second example, we describe a function that performs simple
@@ -292,7 +293,7 @@ Qed.
     that are simple enough that one may use the tactic [xapp] everywhere. *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Exercise: function [quadruple] *)
 
 (** Consider the function [quadruple], which expects an integer [n]
@@ -327,7 +328,7 @@ Qed.
 (** [] *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Exercise: function [inplace_double] *)
 
 (** Consider the function [inplace_double], which expects a reference
@@ -361,7 +362,7 @@ Qed.
 (** [] *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** Increment of two references *)
 
 (** Consider the following function, which expects the addresses
@@ -413,7 +414,7 @@ Qed.
 Hint Extern 1 (Register_Spec incr_two) => Provide Triple_incr_two.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** Aliased arguments *)
 
 (** The specification [Triple_incr_two] correctly describes calls to the
@@ -494,7 +495,7 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** A function that takes two references, and increments one *)
 
 (** Consider the following function, which expects the addresses
@@ -556,7 +557,7 @@ Qed.
     principle, a key modularity feature that we'll come back to later on. *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Exercise: transfer from one reference to another *)
 
 (** Consider the [transfer] function, whose code appears below.
@@ -608,7 +609,7 @@ Qed.
 (** [] *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** Existential quantification in heap predicates *)
 
 (** Assume that the programming language includes a builtin
@@ -704,7 +705,7 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** Exercise: allocate a reference with greater contents *)
 
 (** Consider the following function.
@@ -759,7 +760,7 @@ Qed.
 (** [] *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** Deallocation in Separation Logic *)
 
 (** Separation Logic tracks allocated data. In its standard setup,
@@ -854,7 +855,7 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** Axiomatization of the mathematical factorial function *)
 
 (** Our next example consists of a program that evaluate the
@@ -876,7 +877,7 @@ Parameter facto_step : forall n,
     the value of [facto] on negative arguments. *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** A partial recursive function, without state *)
 
 (** In the rest of the chapter, we will consider recursive
@@ -999,7 +1000,7 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** A recursive function with state *)
 
 (** The example of [factorec] was a warmup: a recursive function without
@@ -1076,7 +1077,7 @@ Proof using.
 Abort.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** Exercise: one-by-one transfer from a reference to another *)
 
 (** Consider the function [step_transfer p q], which repeatedly increment
@@ -1128,10 +1129,12 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Optional contents *)
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** Optimized scripts *)
 
 (** The CFML tool features a number of tricks:
@@ -1161,7 +1164,7 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** Trying to prove incorrect specifications *)
 
 (** Recall the function [repeat_incr p n], which invokes [n]
@@ -1234,7 +1237,7 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** *** Incorrect quantification of existential variables *)
 
 (** Recall the function [ref_random_int n], defined as

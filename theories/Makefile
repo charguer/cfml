@@ -38,13 +38,14 @@ export TLC
 SRC_EXAMPLES := Example ExampleList ExampleListNull ExampleListIndir ExampleQueue ExampleListOf ExampleStack ExamplePairingHeap
 SRC_CORE := TLCbuffer Fmap Var SepSimpl Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics WPRecord $(SRC_EXAMPLES) WPExamples WPExamplesDetails WPLib WPUnitTests 
 
-SRC_MORE := SepBaseAltProofs SepCredits SepRO
+SRC_MORE := SepBaseAltProofs SepCredits SepRO SubstExec
 
 SRC_EXAMPLES := Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleListNull ExampleListIndir ExampleRO 
 
 SRC_CF := CFCrashCourse
 
-SRC_SF := SLFPreface SLFDirect SLFExtra SLFBasic SLFList SLFHprop SLFHimpl SubstExec SLFRules SLFWPsem SLFWPgen SLFSummary 
+SRC_SF := SLFPreface SLFDirect SLFExtra SLFBasic SLFList SLFHprop SLFHimpl SLFRules SLFWPsem SLFWPgen SLFSummary 
+
 # SLFWand  
  #  SLFLift SLFRicher SLFExt
 
@@ -79,5 +80,18 @@ include $(TLC)/Makefile.coq
 all: _CoqProject
 
 
+##############################################################################
+# File transfer
 
-# (** [] *)
+SLF_FILES := $(SRC_SF:=.v)
+
+ifndef SLF_FOLDER
+	SLF_FOLDER := /home/charguer/versions/coq-8.9.1/sfdev/slf
+endif
+
+import_slf:
+	cp $(addprefix $(SLF_FOLDER)/,$(SLF_FILES)) .
+	sed -i -e 's/^From[[:space:]]SLF[[:space:]]Require[[:space:]]Export[[:space:]]LibCore/From TLC Require Export LibCore/' $(SLF_FILES)
+	sed -i -e 's/^From[[:space:]]SLF[[:space:]]/From Sep /' $(SLF_FILES)
+
+

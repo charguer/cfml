@@ -20,8 +20,10 @@ Implicit Types P : Prop.
 Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
 
-
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * The chapter in a rush *)
 
 (** In the previous chapter, we have introduced the notion of
@@ -53,7 +55,7 @@ Implicit Types Q : val->hprop.
 *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Notion of weakest precondition *)
 
 (** We next introduce a function [wp], called "weakest precondition".
@@ -93,14 +95,14 @@ Proof using. introv M. rewrite <- wp_equiv. applys M. Qed.
     the related discussion to the appendix. *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Structural rules in weakest-precondition style *)
 
 (** We next discuss formulations of the frame rule and of the rule
     of consequence in weakest-precondition style. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** The frame rule *)
 
 (** The frame rule for [wp] asserts that [(wp t Q) \* H] entails
@@ -141,7 +143,7 @@ Lemma wp_frame_trans : forall t H1 Q H,
 Proof using. introv M. xchange M. applys* wp_frame. Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** The rule of consequence *)
 
 (** The rule of consequence for [wp] materializes as a covariance
@@ -182,7 +184,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** The extraction rules *)
 
 (** The extraction rules [triple_hpure] and [triple_hexists]
@@ -217,10 +219,10 @@ Proof using. introv M. applys himpl_hstar_hpure_l M. Qed.
 (** A similar reasoning applies to the extraction rule for existentials. *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Reasoning rules for terms, in weakest-precondition style *)
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Rule for values *)
 
 (** Recall the rule [triple_val] which gives a reasoning rule for
@@ -258,7 +260,7 @@ Lemma triple_val_derived_from_wp_val : forall v H Q,
 Proof using. introv M. rewrite wp_equiv. xchange M. applys wp_val. Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Rule for sequence *)
 
 (** Recall the reasoning rule for a sequence [trm_seq t1 t2]. *)
@@ -310,13 +312,15 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Additional contents *)
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Other reasoning rules for terms *)
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Rule for functions *)
 
 (** Recall the reasoning rule for a term [trm_fun x t1],
@@ -339,7 +343,7 @@ Lemma wp_fix : forall f x t Q,
 Proof using. intros. rewrite <- wp_equiv. applys* triple_fix. Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Rule for conditionals *)
 
 (** Recall the reasoning rule for a term [triple_if b t1 t2]. *)
@@ -369,7 +373,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Rule for let-bindings *)
 
 (** Recall the reasoning rule for a term [trm_let x t1 t2]. *)
@@ -391,7 +395,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Rule for function applications *)
 
 (** Recall the reasoning rule for an application [(val_fun x t1) v2]. *)
@@ -414,10 +418,12 @@ Qed.
 (** A similar rule holds for the application of a recursive function. *)
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Bonus contents (optional reading) *)
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** A concrete definition for weakest precondition *)
 
 Module WpHighLevel.
@@ -456,11 +462,11 @@ Definition wp (t:trm) (Q:val->hprop) : hprop :=
     that [wp_high] also statisfies the equivalence
     [triple t H Q <-> H ==> wp Q], which characterizes [wp]. *)
 
-(* EX2! (wp_equiv_wp_high) *)
+(* EX2! (wp_equiv) *)
 (** Prove that the definition [wp_high] statisfies the characteristic
     equivalence for weakest preconditions. *)
 
-Lemma wp_equiv_wp : forall t H Q,
+Lemma wp_equiv : forall t H Q,
   (triple t H Q) <-> (H ==> wp t Q).
 Proof using. (* ADMITTED *)
   unfold wp. iff M.
@@ -477,7 +483,7 @@ Qed. (* /ADMITTED *)
 End WpHighLevel.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** An alternative definition for weakest precondition *)
 
 Module WpLowLevel.
@@ -526,7 +532,7 @@ Qed.
 End WpLowLevel.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Equivalence between all definitions of [wp] *)
 
 (** We next prove that the equivalence [(triple t H Q) <-> (H ==> wp t Q)]
@@ -549,7 +555,7 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Extraction rule for existentials *)
 
 (** Recall the extraction rule for existentials: *)
@@ -579,7 +585,7 @@ Qed. (* /ADMITTED *)
     extraction rule for entailment already does the job. *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Combined structural rule *)
 
 (** Recall the combined consequence-frame rule for [triple]. *)
@@ -635,7 +641,7 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Alternative statement of the rule for conditionals *)
 
 (** We have established the following rule for reasoning
@@ -666,7 +672,7 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 
-(* ******************************************************* *)
+(* ########################################################### *)
 (** ** Definition of [wp] directly from [hoare] *)
 
 (** Let's step back on our construction so far.
