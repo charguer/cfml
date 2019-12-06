@@ -228,3 +228,149 @@ Proof using.
   unfolds. xpull ;=> ? ->. xsimpl*. rew_bool_eq. iff R.
   { intros N. applys R. subst*. } { intros N. applys R. symmetry. applys* I. }
 Qed.
+
+
+=============
+(* DEPRECATED
+Definition Wpgen_val_typed `{EA1:Enc A1} (V:A1) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q => Q V1).
+*)
+
+
+
+(** [Wpgen_cast X Q] applies a postcondition [Q] of type [A2->hprop] to a value
+    [X] of type [A1], with [X] converted on-the-fly to a value of type [A2]. *)
+(* --TODO: is Wpgen_cast not similar to (Wpgen_val `X) *)
+
+Definition Wpgen_cast `{Enc A1} (X:A1) A2 (EA2:Enc A2) (Q:A2->hprop) : hprop :=
+  \exists (Y:A2), \[enc X = enc Y] \* Q Y.
+
+
+
+
+(** [RetypePost Q1 Q2] asserts that [Q1] of type [A1->hprop] entails
+    [Q2] of type [A2->hprop]. This predicate is used in the lemmas
+    that enable changing the type of the postcondition in a triple. *)
+
+Definition RetypePost A1 `{Enc A1} (Q1:A1->hprop) `{Enc A2} (Q2:A2->hprop) :=
+  forall (X:A1), Q1 X ==> \exists (Y:A2), \[enc X = enc Y] \* Q2 Y.
+
+(* Note: [RetypePost_refl] is currently not used.
+   It is a special case of [RetypePost_qimpl]. *)
+
+Lemma RetypePost_refl : forall A `{EA:Enc A} (Q:A->hprop),
+  RetypePost Q Q.
+Proof using. intros. unfolds. intros X. xsimpl*. Qed.
+
+(* Note: [RetypePost_qimpl] is currently not used. *)
+
+Lemma RetypePost_qimpl : forall A `{EA:Enc A} (Q1 Q2:A->hprop),
+  Q1 ===> Q2 ->
+  RetypePost Q1 Q2.
+Proof using. introv M. unfolds. intros X. xchanges* M. Qed.
+
+Lemma Triple_enc_change :
+  forall A1 A2 (t:trm) (H:hprop) `{EA1:Enc A1} (Q1:A1->hprop) `{EA2:Enc A2} (Q2:A2->hprop),
+  Triple t H Q1 ->
+  RetypePost Q1 Q2 ->
+  Triple t H Q2.
+Proof using.
+  introv M N. unfolds Triple. applys~ triple_conseq (rm M).
+  unfold LiftPost. intros v. xpull ;=> V EV. subst. applys N.
+Qed.
+
+
+
+(* DEPRECATED
+Notation "'Match_' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 ''=>' F2" :=
+  (Case v = vp1%val Then F1 Else
+   Wptag (Case v = vp2%val Then F2 Else
+   Wptag (Fail))) (at level 69, v, vp1, vp2 at level 69,
+   format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  ''=>'  '/' F2 ']' ']'")
+  : wp_scope.
+
+Notation "'Match_' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 ] ''=>' F2" :=
+  (Case v = vp1%val Then F1 Else
+   Wptag (Case v = vp2%val [ x21 ] Then F2 Else
+   Wptag (Fail))) (at level 69, v, vp1, vp2 at level 69, x21 ident,
+   format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21 ]  ''=>'  '/' F2 ']' ']'")
+  : wp_scope.
+
+Notation "'Match_' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>' F2" :=
+  (Case v = vp1%val Then F1 Else
+   Wptag (Case v = vp2%val [ x21 x22 ] Then F2 Else
+   Wptag (Fail))) (at level 69, v, vp1, vp2 at level 0, x21 ident, x22 ident,
+   format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
+  : wp_scope.
+
+Notation "'Match_' v 'With' Fof 'End'" :=
+  ((Wpgen_match_val v Fof))
+  (at level 69,
+   format "'[v' 'Match_'  v  'With'  '/' '[' Fof ']' '/'  'End' ']'")
+   : wp_scope.
+
+
+*)
+
+
+(* NEEDED?
+Notation "'Apptrm' t " :=
+  ((Wpgen_app t))
+  (at level 68, t at level 0) : wp_scope.
+*)
+
+
+
+(*
+Notation "'Letval' x ':=' v 'in' F2" :=
+  ((Wpgen_letval_typed v (fun x => F2)))
+  (at level 69, x ident, right associativity,
+  format "'[v' '[' 'Letval'  x  ':='  v  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
+*)
+
+(*
+Notation "'App' f t1 " :=
+  (Wpgen_app (trm_apps f (t1::nil)))
+  (at level 68, f, t1 at level 0) : wp_scope.
+
+Notation "'App' f t1 t2 " :=
+  (Wpgen_app (trm_apps f (t1::t2::nil)))
+  (at level 68, f, t1, t2 at level 0) : wp_scope.
+
+Notation "'App' f t1 t2 t3 " :=
+  (Wpgen_app (trm_apps f (t1::t2::t3::nil)))
+  (at level 68, f, t1, t2, t3 at level 0) : wp_scope.
+*)
+
+-----------------------------------
+
+(*
+Lemma Wpgen_sound_letval_typed : forall v E C `{EA:Enc A} (F2of:A->Formula),
+  (forall V, F2of V ====> Wpsubst E (C ``V)) ->
+  Wpgen_letval_typed v F2of ====> Wp (isubst E (C v)).
+Proof using.
+  introv M. intros A1 EA1. applys qimpl_Wp_of_Triple. intros Q.
+  remove_MkStruct. xtpull ;=> V ->. applys Triple_of_Wp. applys M.
+Qed.
+*)
+
+
+(*
+Definition Wpgen_letval_typed (v:val) `{EA1:Enc A1} (F2of:A1->Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+    \exists (V:A1), \[v = enc V] \* ^(F2of V) Q).
+*)
+
+(*
+Definition Wpaux_getval_typed Wpgen (E:ctx) (t1:trm) `{EA1:Enc A1} (F2of:A1->Formula) : Formula :=
+  match t1 with
+  | trm_val v => `Wpgen_letval_typed v F2of
+  | trm_var x => match Ctx.lookup x E with
+                 | Some v => `Wpgen_letval_typed v F2of
+                 | None => `Wpgen_fail
+                 end
+  | _ => `Wpgen_let_typed (Wpgen E t1) F2of
+  end.
+*)
+
+-----------------------------------

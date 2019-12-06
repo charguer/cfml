@@ -273,7 +273,7 @@ Tactic Notation "rew_enc_dyn" "in" "*" :=
 Definition Enc_injective A (EA:Enc A) :=
   injective enc.
 
-Lemma Enc_injective_eq : forall `{EA:Enc A} (V1 V2:A),
+Lemma Enc_injective_inv : forall `{EA:Enc A} (V1 V2:A),
   Enc_injective EA ->
   (enc V1 = enc V2) = (V1 = V2).
 Proof using. introv E. extens. iff M. { applys~ E. } { subst~. } Qed.
@@ -369,7 +369,7 @@ Lemma Enc_comparable_inv : forall A `(EA:Enc A) (V1 V2:A),
   (``V1 = ``V2) = (V1 = V2).
 Proof using.
   introv [M|[M|M]].
-  { applys (>> Enc_injective_eq V1 V2 M). }  
+  { applys (>> Enc_injective_inv V1 V2 M). }  
   { applys (>> Enc_injective_value_eq_l V1 M). }
   { applys (>> Enc_injective_value_eq_r V2 M). }
 Qed.
@@ -608,31 +608,48 @@ Hint Resolve @local_Triple.
 (* ---------------------------------------------------------------------- *)
 (* ** Lemma for changing the encoder in a triple *)
 
-(** [RetypePost Q1 Q2] asserts that [Q1] of type [A1->hprop] entails
-    [Q2] of type [A2->hprop]. This predicate is used in the lemmas
-    that enable changing the type of the postcondition in a triple. *)
+(** [Post_cast_val Q] turns a postcondition of type [A->hprop] into 
+    the corresponding postcondition at type [val->hprop]. *)
 
-Definition RetypePost A1 `{Enc A1} (Q1:A1->hprop) `{Enc A2} (Q2:A2->hprop) :=
-  forall (X:A1), Q1 X ==> \exists (Y:A2), \[enc X = enc Y] \* Q2 Y.
+Definition Post_cast_val A `{EA:Enc A} (Q:A->hprop) : val->hprop :=
+  fun (v:val) => \exists (V:A), \[v = enc V] \* Q V.
 
-(* Note: [RetypePost_refl] is currently not used.
-   It is a special case of [RetypePost_qimpl]. *)
+(** [Post_cast A' Q] turns a postcondition of type [A->hprop] into 
+    the corresponding postcondition at type [A'->hprop]. *)
 
-Lemma RetypePost_refl : forall A `{EA:Enc A} (Q:A->hprop),
-  RetypePost Q Q.
-Proof using. intros. unfolds. intros X. xsimpl*. Qed.
+Definition Post_cast A2 `{EA2:Enc A2} A1 `{EA1:Enc A1} (Q:A1->hprop) : A2->hprop :=
+  fun (V:A2) => Post_cast_val Q (``V).
 
-(* Note: [RetypePost_qimpl] is currently not used. *)
+Arguments Post_cast A2 {EA2} [A1] {EA1} Q.
 
-Lemma RetypePost_qimpl : forall A `{EA:Enc A} (Q1 Q2:A->hprop),
+(** Properties of [Post_cast] *)
+
+Lemma qimpl_Post_cast_r : forall A `{EA:Enc A} (Q:A->hprop),
+  Q ===> Post_cast A Q.
+Proof using. intros. unfolds Post_cast, Post_cast_val. intros X. xsimpl*. Qed.
+
+Lemma qimpl_Post_cast_l : forall A `{EA:Enc A} (Q:A->hprop),
+  Enc_injective EA ->
+  Post_cast A Q ===> Q.
+Proof using.
+  introv M. unfolds Post_cast, Post_cast_val. intros X. xsimpl*.
+  intros Y EQ. rewrites (>> Enc_injective_inv M) in EQ. subst*. 
+Qed.
+
+Lemma Post_cast_val_weaken : forall A1 `{EA:Enc A1} (Q1 Q2:A1->hprop),
   Q1 ===> Q2 ->
-  RetypePost Q1 Q2.
-Proof using. introv M. unfolds. intros X. xchanges* M. Qed.
+  Post_cast_val Q1 ===> Post_cast_val Q2.
+Proof using. introv M. unfold Post_cast_val. xpull ;=> ? V ->. xchanges* M. Qed.
+
+Lemma Post_cast_weaken : forall A2 `{EA:Enc A2} A1 `{EA:Enc A1} (Q1 Q2:A1->hprop),
+  Q1 ===> Q2 ->
+  Post_cast A2 Q1 ===> Post_cast A2 Q2.
+Proof using. introv M. intros V. applys* Post_cast_val_weaken. Qed.
 
 Lemma Triple_enc_change :
   forall A1 A2 (t:trm) (H:hprop) `{EA1:Enc A1} (Q1:A1->hprop) `{EA2:Enc A2} (Q2:A2->hprop),
   Triple t H Q1 ->
-  RetypePost Q1 Q2 ->
+  Q1 ===> Post_cast A1 Q2 ->
   Triple t H Q2.
 Proof using.
   introv M N. unfolds Triple. applys~ triple_conseq (rm M).
@@ -640,28 +657,26 @@ Proof using.
 Qed.
 
 (** Specialization of [Triple_enc_change] for converting from a postcondition
-    of type [val->hprop]  *)
+    of type [val->hprop] *)
 
-Lemma Triple_enc_val_inv :
+Lemma Triple_enc_change_from_val :
   forall (t:trm) (H:hprop) (Q1:val->hprop) A2 `{EA2:Enc A2} (Q2:A2->hprop),
   Triple t H Q1 ->
-  (forall (X:val), Q1 X ==> \exists (Y:A2), \[X = enc Y] \* Q2 Y) ->
+  Q1 ===> Post_cast_val Q2 ->
   Triple t H Q2.
-Proof using.
-  introv M N. applys* (@Triple_enc_change val).
-Qed.
+Proof using. introv M N. applys* Triple_enc_change M. Qed.
 
 (** Specialization of [Triple_enc_change] for converting to a postcondition
     of type [val->hprop]  *)
 
-Lemma Triple_enc_val :
+Lemma Triple_enc_change_to_val :
   forall A1 `{EA1:Enc A1} (t:trm) (H:hprop) (Q1:A1->hprop) (Q2:val->hprop),
   Triple t H Q1 ->
   (forall (X:A1), Q1 X ==> Q2 (enc X)) ->
   Triple t H Q2.
 Proof using.
-  introv M N. applys* Triple_enc_change.
-  intros X. xchange (N X). xsimpl~.
+  introv M N. applys* Triple_enc_change M. intros X. xchange (N X).
+  unfold Post_cast, Post_cast_val. xsimpl~.
 Qed.
 
 
@@ -1049,7 +1064,8 @@ Lemma Triple_eq : forall A `{EA:Enc A} (V1 V2 : A),
 Proof using.
   introv I. intros.
   applys (@Triple_enc_change bool). { applys Triple_eq_val. }
-  unfolds. xpull ;=> ? ->. xsimpl*. fequals. applys* Enc_comparable_inv.
+  unfold Post_cast, Post_cast_val. xpull ;=> ? ->. 
+  xsimpl*. fequals. applys* Enc_comparable_inv.
 Qed.
 
 Lemma Triple_eq_Decode : forall A `(EA:Enc A) (v1 v2:val) (V1 V2:A),
@@ -1077,8 +1093,8 @@ Lemma Triple_neq : forall A `{EA:Enc A} (V1 V2 : A),
 Proof using.
   introv I. intros.
   applys (@Triple_enc_change bool). { sapply Triple_neq_val. }
-  unfolds. xpull ;=> ? ->. xsimpl. { reflexivity. } fequals.
-  applys* Enc_comparable_inv_neg.
+  unfold Post_cast, Post_cast_val. xpull ;=> ? ->. xsimpl. { reflexivity. }
+  fequals. applys* Enc_comparable_inv_neg.
 Qed.
 
 Lemma Triple_neq_Decode : forall A `(EA:Enc A) (v1 v2:val) (V1 V2:A),

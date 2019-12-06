@@ -464,7 +464,7 @@ Proof using.
   forwards R': R; eauto. clear R. specializes R' p.
   applys himpl_Wpgen_app_of_Triple.
   applys Triple_enc_change. xapplys (rm R'). simpl.
-  unfold RetypePost, Wptag. xpull ;=> ? ->. unfold H'. xpull.
+  unfold Post_cast, Post_cast_val. xpull ;=> ? ->. unfold H'. xpull.
   unfold Wpgen_cast, Wptag. applys himpl_refl.
 Qed. (* --TODO: simplify proof *)
 

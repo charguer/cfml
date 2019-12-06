@@ -117,14 +117,7 @@ Notation "'`' F" :=
 
 Definition Formula_cast `{Enc A1} (F:(A1->hprop)->hprop) : Formula :=
   fun A2 (EA2:Enc A2) (Q:A2->hprop) =>
-    \exists (Q':A1->hprop), F Q' \* \[RetypePost Q' Q].
-
-(** [Wpgen_cast X Q] applies a postcondition [Q] of type [A2->hprop] to a value
-    [X] of type [A1], with [X] converted on-the-fly to a value of type [A2]. *)
-(* --TODO: is Wpgen_cast not similar to (Wpgen_val `X) *)
-
-Definition Wpgen_cast `{Enc A1} (X:A1) A2 (EA2:Enc A2) (Q:A2->hprop) : hprop :=
-  \exists (Y:A2), \[enc X = enc Y] \* Q Y.
+    \exists (Q':A1->hprop), F Q' \* \[Q' ===> Post_cast A1 Q].
 
 
 (* ---------------------------------------------------------------------- *)
@@ -138,13 +131,10 @@ Definition Wpgen_fail : Formula :=
     \[False]).
 
 Definition Wpgen_val (v:val) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
-    \exists (V:A), \[v = enc V] \* Q V).
+  MkStruct (fun A (EA:Enc A) Q => Post_cast_val Q v).
 
-(* DEPRECATED
-Definition Wpgen_val_typed `{EA1:Enc A1} (V:A1) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q => Q V1).
-*)
+Definition Wpgen_cast A1 `{EA1:Enc A1} (V:A1) : Formula :=  
+  fun A2 (EA2:Enc A2) Q => Post_cast A1 Q V.
 
 Definition Wpaux_var (E:ctx) (x:var) : Formula :=
   match Ctx.lookup x E with
@@ -165,12 +155,6 @@ Definition Wpgen_seq (F1 F2:Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
     ^F1 (fun (X:unit) => ^F2 Q)).
 
-(*
-Definition Wpgen_letval_typed (v:val) `{EA1:Enc A1} (F2of:A1->Formula) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
-    \exists (V:A1), \[v = enc V] \* ^(F2of V) Q).
-*)
-
 Definition Wpaux_getval Wpgen (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
   match t1 with
   | trm_val v => F2of v
@@ -180,18 +164,6 @@ Definition Wpaux_getval Wpgen (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
                  end
   | _ => `Wpgen_let (Wpgen E t1) (fun `{EA1:Enc A1} (V1:A1) => F2of (``V1))
   end.
-
-(*
-Definition Wpaux_getval_typed Wpgen (E:ctx) (t1:trm) `{EA1:Enc A1} (F2of:A1->Formula) : Formula :=
-  match t1 with
-  | trm_val v => `Wpgen_letval_typed v F2of
-  | trm_var x => match Ctx.lookup x E with
-                 | Some v => `Wpgen_letval_typed v F2of
-                 | None => `Wpgen_fail
-                 end
-  | _ => `Wpgen_let_typed (Wpgen E t1) F2of
-  end.
-*)
 
 Definition Wpaux_getval_typed Wpgen (E:ctx) (t1:trm) `{EA1:Enc A1} (F2of:A1->Formula) : Formula :=
   match t1 with
@@ -443,23 +415,12 @@ Proof using.
   { intros v. apply Triple_of_Wp. applys M2. }
 Qed.
 
-(*
-Lemma Wpgen_sound_letval_typed : forall v E C `{EA:Enc A} (F2of:A->Formula),
-  (forall V, F2of V ====> Wpsubst E (C ``V)) ->
-  Wpgen_letval_typed v F2of ====> Wp (isubst E (C v)).
-Proof using.
-  introv M. intros A1 EA1. applys qimpl_Wp_of_Triple. intros Q.
-  remove_MkStruct. xtpull ;=> V ->. applys Triple_of_Wp. applys M.
-Qed.
-*)
-
-
 Lemma Wpgen_sound_var : forall x,
   Wpgen_sound (trm_var x).
 Proof using.
   intros. intros E A EA. simpl. applys qimpl_Wp_of_Triple.
   intros Q. unfold Wpaux_var. simpl. destruct (Ctx.lookup x E).
-  { remove_MkStruct. xtpull ;=> V EQ. applys* Triple_val. }
+  { remove_MkStruct. unfold Post_cast_val. xtpull ;=> V EQ. applys* Triple_val. }
   {  applys~ Triple_Wpgen_fail. }
 Qed.
 
@@ -467,7 +428,7 @@ Lemma Wpgen_sound_val : forall v,
   Wpgen_sound (trm_val v).
 Proof using.
   intros. intros E A EA. simpl. applys qimpl_Wp_of_Triple.
-  intros Q. remove_MkStruct. xtpull ;=> V EQ.
+  intros Q. remove_MkStruct. unfold Post_cast_val. xtpull ;=> V EQ.
   simpl. intros. applys* Triple_val.
 Qed.
 
@@ -796,6 +757,10 @@ Notation "'Val' v" :=
   ((Wpgen_val v))
   (at level 69) : wp_scope.
 
+Notation "'Cast' V" :=
+  ((Wpgen_cast V))
+  (at level 69) : wp_scope.
+
 Notation "'Return' F " :=
   (Formula_cast F)
   (at level 68) : wp_scope.
@@ -815,27 +780,6 @@ Notation "'Seq' F1 '; F2" :=
   (at level 68, right associativity,
    format "'[v' 'Seq'  '[' F1 ']' '';' '/'  '[' F2 ']' ']'") : wp_scope.
 
-(*
-Notation "'Letval' x ':=' v 'in' F2" :=
-  ((Wpgen_letval_typed v (fun x => F2)))
-  (at level 69, x ident, right associativity,
-  format "'[v' '[' 'Letval'  x  ':='  v  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
-*)
-
-(*
-Notation "'App' f t1 " :=
-  (Wpgen_app (trm_apps f (t1::nil)))
-  (at level 68, f, t1 at level 0) : wp_scope.
-
-Notation "'App' f t1 t2 " :=
-  (Wpgen_app (trm_apps f (t1::t2::nil)))
-  (at level 68, f, t1, t2 at level 0) : wp_scope.
-
-Notation "'App' f t1 t2 t3 " :=
-  (Wpgen_app (trm_apps f (t1::t2::t3::nil)))
-  (at level 68, f, t1, t2, t3 at level 0) : wp_scope.
-*)
-
 Notation "'App' f v1 " :=
   ((Wpgen_app (trm_apps f (trms_vals (v1::nil)))))
   (at level 68, f, v1 at level 0) : wp_scope.
@@ -848,17 +792,11 @@ Notation "'App' f v1 v2 v3 " :=
   ((Wpgen_app (trm_apps f (trms_vals (v1::v2::v3::nil)))))
   (at level 68, f, v1, v2, v3 at level 0) : wp_scope.
 
-(* --TODO: recursive notation for App *)
+(* TODO: make the notation for App recursively defined *)
 
 Notation "'Ifval' b 'Then' F1 'Else' F2" :=
   ((Wpgen_if_case b F1 F2))
   (at level 69) : wp_scope.
-
-(* DEPRECATED
-Notation "'If' F0 'Then' F1 'Else' F2" :=
-  ((Wpgen_if F0 F1 F2))
-  (at level 69, F0 at level 0) : wp_scope.
-*)
 
 Notation "'While' F1 'Do' F2 'Done'" :=
   ((Wpgen_while F1 F2))
@@ -890,44 +828,4 @@ Notation "'Case' v '=' vp [ x1 x2 ] ''=>' F1 ''|' F2" :=
   (at level 69, v, vp at level 69, x1 ident, x2 ident,
    format "'[v' 'Case'  v  '='  vp  [ x1  x2 ]  ''=>'  '[' '/' F1 ']' '[' '/'  ''|'  F2 ']' ']'")
    : wp_scope.
-
-
-(* DEPRECATED
-Notation "'Match_' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 ''=>' F2" :=
-  (Case v = vp1%val Then F1 Else
-   Wptag (Case v = vp2%val Then F2 Else
-   Wptag (Fail))) (at level 69, v, vp1, vp2 at level 69,
-   format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  ''=>'  '/' F2 ']' ']'")
-  : wp_scope.
-
-Notation "'Match_' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 ] ''=>' F2" :=
-  (Case v = vp1%val Then F1 Else
-   Wptag (Case v = vp2%val [ x21 ] Then F2 Else
-   Wptag (Fail))) (at level 69, v, vp1, vp2 at level 69, x21 ident,
-   format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21 ]  ''=>'  '/' F2 ']' ']'")
-  : wp_scope.
-
-Notation "'Match_' v 'With' ''|' vp1 ''=>' F1 ''|' vp2 [ x21 x22 ] ''=>' F2" :=
-  (Case v = vp1%val Then F1 Else
-   Wptag (Case v = vp2%val [ x21 x22 ] Then F2 Else
-   Wptag (Fail))) (at level 69, v, vp1, vp2 at level 0, x21 ident, x22 ident,
-   format "'[v' 'Match_'  v  'With'  '[' '/' ''|'  vp1  ''=>'  '/' F1 ']'  '[' '/' ''|'  vp2  [ x21  x22 ]  ''=>'  '/' F2 ']' ']'")
-  : wp_scope.
-
-Notation "'Match_' v 'With' Fof 'End'" :=
-  ((Wpgen_match_val v Fof))
-  (at level 69,
-   format "'[v' 'Match_'  v  'With'  '/' '[' Fof ']' '/'  'End' ']'")
-   : wp_scope.
-
-
-*)
-
-
-(* NEEDED?
-Notation "'Apptrm' t " :=
-  ((Wpgen_app t))
-  (at level 68, t at level 0) : wp_scope.
-*)
-
 

@@ -478,7 +478,7 @@ Ltac xcast_pre tt :=
 Lemma xcast_lemma : forall (H:hprop) `{Enc A} (Q:A->hprop) (X:A),
   H ==> Q X ->
   H ==> ^(Wpgen_cast X) Q.
-Proof using. introv M. unfold Wptag, Wpgen_cast. xchanges~ M. Qed.
+Proof using. introv M. unfolds Wpgen_cast. xchange M. applys qimpl_Post_cast_r. Qed.
 
 Ltac xcast_core tt :=
   xcast_pre tt;
@@ -801,20 +801,20 @@ Lemma xval_lemma_decode : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
   Decode v V ->
   H ==> Q V ->
   H ==> ^(Wpgen_val v) Q.
-Proof using. introv E N. subst. applys MkStruct_erase. xsimpl~ V. Qed.
+Proof using. introv E N. subst. applys MkStruct_erase. unfold Post_cast_val. xsimpl~ V. Qed.
 
 Lemma xval_lemma : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
   v = ``V ->
   H ==> Q V ->
   H ==> ^(Wpgen_val v) Q.
-Proof using. introv E N. subst. applys MkStruct_erase. xsimpl~ V. Qed.
+Proof using. introv E N. subst. applys MkStruct_erase. unfold Post_cast_val. xsimpl~ V. Qed.
 
 (* NEEDED? *)
 Lemma xval_lemma_val : forall `{EA:Enc A} (V:A) v H (Q:val->hprop),
   v = ``V ->
   H ==> Q (``V) ->
   H ==> ^(Wpgen_val v) Q.
-Proof using. introv E N. subst. applys MkStruct_erase. xsimpl~ (``V). Qed.
+Proof using. introv E N. subst. applys MkStruct_erase. unfold Post_cast_val. xsimpl~ (``V). Qed.
 
 (* [xval_pre tt] automatically performs the necessary
    [xlet], [xseq] and [xcast], then checks that the goal
@@ -1008,21 +1008,21 @@ Tactic Notation "xfail" "*" :=
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Tactic [xreturn] --- NEEDED? *)
+(* ** Tactic [xreturn] *)
 
-Lemma xreturn_lemma_typed : forall `{Enc A1} (F:(A1->hprop)->hprop) (Q:A1->hprop) H,
+Lemma xreturn_lemma_typed : forall A1 `{Enc A1} (F:(A1->hprop)->hprop) (Q:A1->hprop) H,
   H ==> F Q ->
   H ==> ^(Formula_cast F) Q.
 Proof using.
-  introv M. unfold Formula_cast. xsimpl* Q. applys RetypePost_refl.
+  introv M. unfold Formula_cast. xsimpl* Q. applys qimpl_Post_cast_r.
 Qed.
 
-Lemma xreturn_lemma_val : forall `{Enc A1} (F:(A1->hprop)->hprop) (Q:val->hprop) H,
+Lemma xreturn_lemma_val : forall A1 `{Enc A1} (F:(A1->hprop)->hprop) (Q:val->hprop) H,
   H ==> F (fun (X:A1) => Q (enc X)) ->
   H ==> ^(Formula_cast F) Q.
 Proof using.
-  introv M. unfold Formula_cast. xsimpl* Q.
-  unfold RetypePost. intros X. xsimpl* X.
+  introv M. unfold Formula_cast. xsimpl* (fun X : A1 => Q ``X).
+  unfold Post_cast. intros X. unfold Post_cast_val. xsimpl* X.
 Qed.
 
 
