@@ -20,9 +20,12 @@ Implicit Types L : list int.
 (** Tweak to make the Separation Logic appear linear instead of affine. *)
 Ltac xwp_xtriple_handle_gc ::= xwp_xtriple_remove_gc.
 
-(** Tweak for record allocation to expose fields individually instead of grouped. *)
+(** Tweak for record allocation to expose individual fields. *)
 Ltac xnew_post ::= xnew_post_exploded.
 
+(** Tweak to bind "rew_list" to the normalization tactic for lists. *)
+Tactic Notation "rew_list" :=
+  autorewrite with rew_listx.
 
 
 (* ########################################################### *)
@@ -70,12 +73,12 @@ Ltac xnew_post ::= xnew_post_exploded.
       entailments or equalities,
     - [case_if] is a TLC tactic to perform a case analysis on the argument
       of the first visible [if] that appears in the current proof obligation.
-    - [rew_listx] is a TLC tactic to normalize list expressions, such as
+    - [rew_list] is a TLC tactic to normalize list expressions, such as
       [(x::L1)++L2] into [x::(L1++L2)], or [length (x::L)] into [1 + length L],
       and likewise for operations [map] and [filter] on Coq lists.
 
-    Remark: the list operations [++], [map] and [filter] are not those from Coq
-    but instead those from TLC's [LibList] library.
+    Remark: the list operations [++], [map] and [filter] are not those from
+    the standard Coq library, but instead those from TLC's [LibList] library.
 
 *)
 
@@ -83,18 +86,18 @@ Ltac xnew_post ::= xnew_post_exploded.
 (** ** Representation of a list cell as a two-field record *)
 
 (** In the previous chapter, we have manipulated OCaml-style references,
-    which correspond to a mutable record with a single field, storing
-    the contents of the reference.
+    which correspond to mutable records with a single field.
 
     A two-field record can be described in Separation Logic as the
     separating conjunction of two cells at consecutive addresses.
-    Thus, a list cell allocated at address [p], featuring a head value [x]
-    and a tail pointer [q], can be represented as:
+
+    Concretely, a list cell allocated at address [p], featuring a head
+    value [x] and a tail pointer [q], can be represented as:
     [(p+0) ~~> x \* (p+1) ~~> q].
 
     Throughout this file, to improve clarity, we write:
 
-    - [p`.head] as short for [p+0], to denote the address of the head field;
+    - [p`.head] as short for [p+0], to denote the address of the head field,
     - [p`.tail] as short for [p+1], to denote the address of the tail field.
 
     Using these notation, the same list cell can be represented as
@@ -106,7 +109,6 @@ Definition head : field := 0%nat.
 Definition tail : field := 1%nat.
 
 
-
 (* ########################################################### *)
 (** ** Representation of a mutable list of length two *)
 
@@ -114,11 +116,10 @@ Definition tail : field := 1%nat.
     in two cells, the first one at location [p1], and the second one at
     location [p2].
 
-    The representation predicate [p1 ~> MList (8::5::nil)] should thus
-    describe a state featuring the two list cells. The first cell, at
-    location [p1], stores [8] and its tail pointer points to [p2].
-    The second cell, at location [p2], stores [5] and its tail pointer
-    is [null], indicating the end of the list. *)
+    The first cell, at location [p1], stores [8] and its tail pointer
+    points to [p2]. The second cell, at location [p2], stores [5] and
+    its tail pointer is [null], indicating the end of the list.
+    The corresponding state can be described as: *)
 
 Definition example_mlist_1 (p1 p2:loc) : hprop :=
   p1`.head ~~> 8  \*  p1`.tail ~~> p2 \*
@@ -128,16 +129,19 @@ Definition example_mlist_1 (p1 p2:loc) : hprop :=
     This definition should exhibit a regular pattern, so that we can
     characterize it using a recursive or inductive definition.
 
-    To that end, let us reformulate the above description of the
-    state by quantifying existentially the addresses of all the tail
-    pointers that occur in the list, as follows. *)
+    In particular, for our two-cell list, the heap predicate should
+    take the form [p1 ~> MList (8::5::nil)]. Let us reformulate
+    the statement of [example_mlist_1] to make it exhibit a recursive
+    pattern, and using an existential quantifier to bind the addresses
+    of all the tail pointers that occur in the list. *)
 
 Definition example_mlist_2 (p1:loc) : hprop :=
   \exists (p2:loc), p1`.head ~~> 8  \*  p1`.tail ~~> p2 \*
   \exists (p3:loc), p2`.head ~~> 5  \*  p2`.tail ~~> p3 \*
   \[p3 = null].
 
-(** In that formulation, we can spot some regularity. The pattern is:
+(** In that formulation, we can spot the recursive pattern, which is:
+
 [[
   p ~> MList (x::L') = \exists (q:loc), (p`.head ~~> x) \* (p`.tail ~~> q)
                                         \* q ~> MList L'
@@ -150,10 +154,8 @@ Definition example_mlist_2 (p1:loc) : hprop :=
 (* ########################################################### *)
 (** ** Representation of a mutable list *)
 
-(** Our goal is to define a heap predicate, written [MList L p] or,
-    equivalently, [p ~> MList L], to describe a mutable linked lists,
-    that is, a set of list cells with each one pointing to the next
-    until reaching a null tail pointer.
+(** Our goal is to define a heap predicate, written [p ~> MList L], or
+    equivalently [MList L p], to describe a mutable linked lists.
 
     The simple arrow notation, written [p ~> R], is a generic piece
     of notation for the application [R p]. This arrow notation increases
@@ -166,8 +168,10 @@ Definition example_mlist_2 (p1:loc) : hprop :=
     - if [L] is [nil], then [p] should be [null];
     - if [L] decomposes as [x::L'], then the head field of [p] should store
       the value [x], the tail field of [p] should store a pointer [q],
-      and and [q ~> MList L'] should describe the remaining of the list
-      structure. The variable [q] should be existentially quantified.
+      and [q ~> MList L'] should describe the remaining of the list
+      structure. In this case, the variable [q] is existentially quantified.
+
+    The definition of [MList] is thus formalized as follows.
 *)
 
 Fixpoint MList (L:list int) (p:loc) : hprop := (* defines [p ~> MList L] *)
@@ -178,11 +182,12 @@ Fixpoint MList (L:list int) (p:loc) : hprop := (* defines [p ~> MList L] *)
 
 (** It is useful to reformulate the definition of [MList] by stating
     two lemmas characterizing [p ~> MList L]. These lemmas will be very
-    helpful for folding or unfolding the definition of [MList].
+    handy for folding or unfolding the definition of [MList].
 
     These two lemmas are proved with help of the [xunfold] tactic, which
-    is a variant of [unfold] that provides appropriate support for
-    unfolding the arrow notation ([~>]). *)
+    is a variant of [unfold] that provides appropriate support for unfolding
+    the arrow notation ([~>]). (Indeed, the definition of the arrow is
+    purposely set opaque to prevent unintended simplifications.) *)
 
 Lemma MList_nil : forall p,
   (p ~> MList nil) = \[p = null].
@@ -208,7 +213,7 @@ Global Opaque MList.
 
     For this reason, it is very useful to reformulate the definition
     of [p ~> MList L] using a test on the condition [p = null],
-    as opposed to testing the condition [L = nil].
+    as opposed to using a test on the condition [L = nil].
 
     In a state described by [p ~> MList L], the following is true:
 
@@ -235,7 +240,7 @@ Proof using.
   { (* Case [L = nil]. By definition of [MList], we have [p = null]. *)
     xchange MList_nil. intros M.
     (* We have to justify [L = nil], which is trivial.
-       TLC [case_if] tactic performs a case analysis on the argument
+       The TLC [case_if] tactic performs a case analysis on the argument
        of the first visible [if] conditional. *)
     case_if. xsimpl. auto. }
   { (* Case [L = x::L']. *)
@@ -258,7 +263,8 @@ Qed.
 
 (** Remark: the reciprocal implication to [MList_if] is also true.
     However, its statement is much less useful, because in practice
-    one may easily exploit the lemmas [MList_nil] and [MList_cons] directly. *)
+    one may easily exploit the lemmas [MList_nil] and [MList_cons] directly.
+    We nevertheless state and prove the reciprocal below. *)
 
 Lemma MList_if_reciprocal : forall (p:loc) (L:list int),
    (If p = null
@@ -291,8 +297,8 @@ Qed.
 (* ########################################################### *)
 (** ** Function [mhead] *)
 
-(** Consider first the function [mhead p], which expects a pointer [p]
-    on a nonempty mutable list, and returns the value of its head element.
+(** Consider the function [mhead p], which expects a pointer [p] on a
+    nonempty mutable list, and returns the value of its head element.
 
 [[
     let rec mhead p =
@@ -313,6 +319,10 @@ Lemma Triple_mhead : forall (p:loc) (x:int) (L:list int),
   TRIPLE (mhead p)
     PRE (p ~> MList (x::L))
     POST (fun (r:int) => \[r = x] \* (p ~> MList (x::L))).
+
+(** The proof of this simple function is interesting because it shows
+    how to unfold the definition of [MList], then fold it back. *)
+
 Proof using.
   xwp.
   (* In order to read in [p.head], we must make visible in the current
@@ -328,7 +338,7 @@ Proof using.
      This task is achieved by means of the [xchange <-] tactic, which
      exploits the equality [MList_cons] backwards. *)
   xchange <- MList_cons.
-  (* There remains to check that the final state matches the postcondition. *)
+  (* Finally, we check that the final state matches the postcondition. *)
   xsimpl. auto.
 Qed.
 
@@ -341,7 +351,8 @@ Hint Extern 1 (Register_Spec mhead) => Provide Triple_mhead.
     In that specification, the postcondition asserts that the result value
     [x] is the head of the list [L]. This can be written
     [\[exists L', L = x::L']], or equivalently, [\exists L', \[L = x::L']].
-*)
+    By convention, we prefer using Separation Logic quantifiers in
+    postconditions, as they tend to reduce the number of proof steps. *)
 
 Lemma Triple_mhead_notnil : forall (p:loc) (L:list int),
   L <> nil ->
@@ -355,7 +366,8 @@ Proof using.
   (* Then, the proof script is the same as in the previous lemma.
      Rather than copy-pasting it, we can invoke [Triple_mhead].
      Recall from the previous chapter that the [xtriple] tactic
-     enables to derive a specification from an existing one. *)
+     combined with [xapp] enables to derive a specification from
+     an existing one. *)
   xtriple. xapp Triple_mhead. xsimpl. eauto.
 Qed.
 
@@ -363,9 +375,9 @@ Qed.
 (* ########################################################### *)
 (** ** Function [mtail] *)
 
-(** Second, consider the function [mtail], which returns the pointer on the
-    tail of a mutable list. As we are going to see, specifying this function
-    is quite interesting from a Separation Logic perspective.
+(** Consider the function [mtail], which returns the pointer on the
+    tail of a mutable list. As we are going to see, specifying this
+    function is quite interesting from a Separation Logic perspective.
 
 [[
     let rec mtail p =
@@ -393,16 +405,17 @@ Lemma Triple_mtail_incorrect : forall (p:loc) (x:int) (L:list int),
 Proof using.
   xwp. xchange MList_cons. intros q. xapp.
   (* With the script [xchange <- MList_cons. xsimpl.]
-     we satisfy [p ~> MList (x::L)] but not [q ~> MList L]. *)
+     we can satisfy [p ~> MList (x::L)] but not [q ~> MList L]. *)
   (* With the script [xsimpl.]
-     we satisfy [q ~> MList L] but not [p ~> MList (x::L)]. *)
+     we can satisfy [q ~> MList L] but not [p ~> MList (x::L)]. *)
+  (* There is no way to satisfy both pieces of the postcondition. *)
 Abort.
 
 (** As suggested by the execution of the above proof script, a valid
     postcondition for [mtail] is:
     [p`.tail ~~> q \* p`.head ~~> x \* q ~> MList L]. *)
 
-Lemma Triple_mtail : forall (p:loc) (x:int) (L:list int),
+Lemma Triple_mtail_cons : forall (p:loc) (x:int) (L:list int),
   TRIPLE (mtail p)
     PRE (p ~> MList (x::L))
     POST (fun (q:loc) => (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L)).
@@ -410,14 +423,12 @@ Proof using.
   xwp. xchange MList_cons. intros q. xapp. xsimpl.
 Qed.
 
-Hint Extern 1 (Register_Spec mtail) => Provide Triple_mtail.
-
 (** Again, an equivalent specification can be stated with a precondition
     of the form [p ~> MList L] accompanied with [L <> nil]. In that case,
     the variables [x] and [L'] such that [L = x::L'] are existentially
     quantified in the postcondition. *)
 
-Lemma Triple_mtail_notnil : forall (p:loc) (L:list int),
+Lemma Triple_mtail : forall (p:loc) (L:list int),
   L <> nil ->
   TRIPLE (mtail p)
     PRE (p ~> MList L)
@@ -425,8 +436,10 @@ Lemma Triple_mtail_notnil : forall (p:loc) (L:list int),
              \* (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L')).
 Proof using.
   introv HL. destruct L as [|x L']. { contradiction. }
-  xtriple. xapp Triple_mtail. xsimpl. eauto.
+  xtriple. xapp Triple_mtail_cons. xsimpl. eauto.
 Qed.
+
+Hint Extern 1 (Register_Spec mtail) => Provide Triple_mtail.
 
 (** In fact, the minimal specification of [mtail] is one that only
     mentions the field [p.head] both in the precondition and the
@@ -449,11 +462,14 @@ Qed.
     by a predicate of the form [p ~> MList _], the other two
     specifications are more appropriate.
 
-    The specification [Triple_mtail] only applies to states that
+    The specification [Triple_mtail_cons] only applies to states that
     are described in the form [p ~> MList (x::L')]. In contrast,
-    [Triple_mtail_notnil] applies more generally, to any predicate
+    [Triple_mtail] applies more generally, to any predicate
     [p ~> MList L], even if [L] is not syntactically of the form
-    [x::L'], as long as [L] can be somehow proved to be nonempty. *)
+    [x::L'], as long as [L] can be somehow proved to be nonempty.
+
+    For this reason, a list library would preferably expose
+    the specification [Triple_mtail]. *)
 
 
 (* ########################################################### *)
@@ -518,7 +534,7 @@ Proof using.
     (* We reason about the result value, and fold back [p ~> List nil]. *)
     xval. xchange <- (MList_nil p). { auto. }
     (* We justify that [length nil = 0]. *)
-    xsimpl. rew_listx. math. }
+    xsimpl. rew_list. math. }
   { (* Case [p <> null]. *)
     intros C.
     (* We simplify the precondition exploiting [p <> null]. *)
@@ -537,15 +553,16 @@ Proof using.
     (* We fold back the list into [p ~> MList(x::L')] *)
     xchange <- MList_cons.
     (* We justify that [length (x::L') = 1 + length L'] *)
-    xsimpl. rew_listx. math. }
+    xsimpl. rew_list. math. }
 Qed.
 
 (** Let us rewrite the same proof, more concisely. This proof script
     will serve us as template for all the list-manipulating functions
-    verified throughout the rest of this file.
+    verified throughout the rest of this chapter.
 
     Recall that the [*] symbol placed after a tactic indicates a call
-    to automation (combination of [eauto] and [math]). *)
+    to automation (technically, a combination of the tactics
+    [intuition eauto] and [math]). *)
 
 Lemma Triple_mlength_concise : forall (p:loc) (L:list int),
   TRIPLE (mlength p)
@@ -584,10 +601,11 @@ Definition mlist_incr : val :=
       'f ('p'.tail)
     ) End.
 
-(** The precondition of [mlist_incr p] requires a linked list [p ~> MList L].
-    Its postcondition asserts that the updated list takes the form [p ~> MList L2],
-    where [L2 = LibList.map (fun x => x+1) L], that is, the result of mapping
-    the successor function onto every item from [L].  *)
+(** The precondition of [mlist_incr p] requires a linked list
+    [p ~> MList L]. Its postcondition asserts that the updated list
+    takes the form [p ~> MList L2], where
+    [L2 = LibList.map (fun x => x+1) L], that is, the result of
+    mapping the successor function onto every item from [L].  *)
 
 Lemma Triple_mlist_incr : forall (p:loc) (L:list int),
   TRIPLE (mlist_incr p)
@@ -596,7 +614,7 @@ Lemma Triple_mlist_incr : forall (p:loc) (L:list int),
 
 (* EX2! (Triple_mlist_incr) *)
 (** Prove [Triple_mlist_incr], following the pattern of [Triple_mlength].
-    Hint: it need, you can use the tactic [rew_listx] for normalizing
+    Hint: it need, you can use the tactic [rew_list] for normalizing
     [LibList.map f (x::l)] into [f x :: LibList.map f l].
     (Alternatively, use lemmas [LibList.map_nil] and [LibList.map_cons].) *)
 
@@ -649,8 +667,8 @@ Hint Extern 1 (Register_Spec mcell) => Provide Triple_mcell.
 (** The function [mcons] is an alias for [mcell].
 
     Whereas [mcell] is intended to allocate a fresh cell on its own,
-    [mcons] is intended to extend an existing list by appending to it
-    a fresh cell. *)
+    [mcons] is intended to extend an existing list by appending to
+    it a freshly-allocated cell. *)
 
 Definition mcons : val := mcell.
 
@@ -688,9 +706,7 @@ Definition mnil : val :=
 
 (** The precondition of [mnil] is empty. Its postcondition of [mnil]
     asserts that the return value [p] is a pointer such that
-    [p ~> MList nil]. Note that, although the postcondition implies
-    that [p = null], there is no explicit mention of [null] in the
-    specification---implementation details are not revealed. *)
+    [p ~> MList nil]. *)
 
 Lemma Triple_mnil :
   TRIPLE (mnil '())
@@ -703,9 +719,15 @@ Qed.
 
 Hint Extern 1 (Register_Spec mnil) => Provide Triple_mnil.
 
-(** Remark: the call to [xchange <- (MList_nil null)] can here
-    be replaced by [rewrite MList_nil] or, even better, by a call
-    to [xchange MList_nil_intro], as illustrated below. *)
+(** Observe that the specification [Triple_mnil] does not mention
+    the [null] pointer anywhere. This specification can thus be
+    used to specify the behavior of operations on mutable lists
+    without having to reveal low-level implementation details. *)
+
+(** Remark: in the proof of [Triple_mnil], the call to
+    [xchange <- (MList_nil null)] can be replaced to a simpler
+    tactic invokation: [xchange MList_nil_intro], where
+    [MList_nil_intro] corresponds to the lemma stated next. *)
 
 Lemma MList_nil_intro :
   \[] ==> (null ~> MList nil).
@@ -724,8 +746,8 @@ Qed.
 (** ** List copy *)
 
 (** Let's put to practice the function [mnil] and [mcons] for
-    verifying a function that constructs an independent copy
-    of a given linked list.
+    verifying the function [mcopy], which constructs an independent
+    copy of a given linked list.
 
 [[
     let rec mcopy p =
@@ -779,21 +801,19 @@ Hint Extern 1 (Register_Spec mcopy) => Provide Triple_mcopy.
     an entire mutable list. *)
 
 (** There is no explicit deallocation in OCaml, which is equipped with
-    a garbage collector, but let's pretend that there is such a
-    [delete] operation.
-
-    For technical reasons (because our source language is untyped and our
-    formal semantics does not keep track of the size of allocated block),
-    we require the delete operation to be annotated the names of the fields
-    of the record to be deleted. Assuming [delete] to exist, we would write:
+    a garbage collector, but let's pretend that there is a [delete]
+    operation for deallocating records.
 
 [[
     let mfree_cell p =
-      delete (p: {head:_; tail:_})
+      delete p
 ]]
 
-    In the embedded language, the [Delete] construct denotes record
-    deallocation.
+    For technical reasons (because our source language is untyped and our
+    formal semantics does not keep track of the size of allocated block),
+    we require in our ad-hoc program syntax the delete operation to
+    be annotated with the names of the fields of the record to be deleted,
+    as shown below.
 *)
 
 Definition mfree_cell : val :=
@@ -863,7 +883,6 @@ Qed. (* /ADMITTED *)
 
 Hint Extern 1 (Register_Spec mfree_list) => Provide Triple_mfree_list.
 
-
 (** This concludes our quick tour of functions on mutable lists.
     Additional functions are presented further in the file,
     as exercises. *)
@@ -877,10 +896,13 @@ Hint Extern 1 (Register_Spec mfree_list) => Provide Triple_mfree_list.
     linked list.
 
     We first introduce the heap predicate [q ~> Stack L] to describe
-    stacks. The empty stack is represented as a reference whose contents
-    is null, that is, [q ~~> null]. A nonempty stack is represented
-    as a reference whose contents is a pointer on a proper linked list,
-    that is, [(q ~~> p) \* (p ~> MList L)], for some pointer [p].
+    mutable stacks.
+
+    - An empty stack is represented as a reference whose contents
+      is null, that is, by the heap predicate [q ~~> null].
+    - A nonempty stack is represented as a reference whose contents
+      is a pointer on a proper linked list, that is, by the heap
+      predicate [(q ~~> p) \* (p ~> MList L)], for some pointer [p].
 
     The definition of [q ~> Stack L], equivalent to [Stack L q], is
     thus as follows. *)
@@ -972,7 +994,7 @@ Proof using.
      and tail field [q], and packs this cell together with [p ~> MList L]
      to form [p' ~> MList (x::L)], where [p'] denotes the result of [mcons x p]. *)
   xapp. intros p'.
-  (* The operation [q := p'] updates the reference implementing the queue. *)
+  (* The operation [q := p'] updates the reference implementing the stack. *)
   xapp.
   (* The new state [q ~~> p' \* p' ~> MList (x::L')] can be folded into
      a [q ~> Stack (x::L')]. *)
@@ -1027,16 +1049,13 @@ Proof using.
   { xpull. intros x q L' HL'. xchange <- MList_cons. xsimpl*. }
 Qed.
 
-(** Equipped with this lemma, let's revisit the verification proof of [is_empty]. *)
+(** Equipped with this lemma, let's attempt againt the verification
+    of the function [is_empty]. *)
 
 Lemma Triple_is_empty : forall (q:loc) (L:list int),
   TRIPLE (is_empty q)
     PRE (q ~> Stack L)
     POST (fun (b:bool) => \[b = true <-> L = nil] \* q ~> Stack L).
-
-(** A naive attempt at the proof leaves a final proof obligation
-    [p = null <-> L = nil] with absolutely no hypothesis to prove it. *)
-
 Proof using.
   xwp. xchange Stack_eq. intros p.
   (* At this stage, from [p ~> MList L] we extract the equivalence
@@ -1055,10 +1074,9 @@ Hint Extern 1 (Register_Spec is_empty) => Provide Triple_is_empty.
 (** ** Operation [pop] *)
 
 (** The operation [pop p] applies to a nonempty stack.
-    It returns the element at the top of the stack,
-    and removes it from the stack. The implementation takes
-    care of deallocating the top list cell which is no longer
-    needed.
+    It returns the element at the top of the stack,  and removes it
+    from the stack. Note that the implementation takes care of
+    deallocating the top list cell, which is no longer needed.
 
 [[
     let pop q =
@@ -1081,8 +1099,8 @@ Definition pop : val :=
 (** Again, there are two ways to specify a nonempty stack:
     either using [q ~> Stack (x::L)], or using [q ~> Stack L]
     with [L <> nil]. In practice, the second presentation turns
-    out to be almost always preferable. Indeed, a typical
-    programming idiom is:
+    out to be almost always preferable. The reason is that the
+    typical programming idiom is:
 
 [[
    while not (Stack.is_empty q) do
@@ -1094,20 +1112,26 @@ Definition pop : val :=
     where the operation [is_empty q] is testing whether [L = nil]
     or [L <> nil]. Thus, at the entrance of the loop body, the
     information available is [L <> nil]. The latter is therefore
-    a natural precondition for [Stack.pop].
+    a natural precondition for [Stack.pop], which is the first
+    operation inside the loop body.
 
-    For this reason, we formulate the specification of [pop]
-    as follows. *)
+    Thus, we formulate the specification of [pop] as follows. *)
 
 Lemma Triple_pop : forall (q:loc) (L:list int),
   L <> nil ->
   TRIPLE (pop q)
     PRE (q ~> Stack L)
     POST (fun (x:int) => \exists L', \[L = x::L'] \* q ~> Stack L').
+
+(** The proof begins by deconstructing the list [L] as [x::L'],
+    like it was done in lemma [Triple_mtail]. *)
+
 Proof using.
   introv HL. destruct L as [|x L']; [contradiction|].
   xwp. xchange Stack_eq. intros p. xapp. xapp.
-  xapp. intros p'. xapp. xapp. xval.
+  (* alternative here: [xapp Triple_mtail_cons. intros p'.] *)
+  xapp. { auto. } intros p' ? ? E. inverts E.
+  xapp. xapp. xval.
   xchange <- Stack_eq. xsimpl. auto.
 Qed.
 
@@ -1130,6 +1154,7 @@ Hint Extern 1 (Register_Spec pop) => Provide Triple_pop.
 (** The operation [mappend_copy p1 p2] assumes two independent lists
     at location [p1] and [p2], and constructs a third, independent list
     whose items are the concatenation of those from the two input lists.
+    Observe how the implementation invokes [copy p2] in the base case.
 
 [[
     let rec mappend_copy p1 p2 =
@@ -1201,7 +1226,7 @@ Definition mcopy_nonneg : val :=
 (** Specify and verify the function [mcopy_nonneg],
     using [LibList.filter (<> 0) L] to describe the resulting list.
 
-    The tactic [rew_listx] simplifies expressions involving [filter].
+    The tactic [rew_list] simplifies expressions involving [filter].
     Alternatively, use [LibList.filter_nil] and [LibList.filter_cons]. *)
 
 (* SOLUTION *)
@@ -1215,7 +1240,7 @@ Proof using.
   { intros ->. xapp. xsimpl. xchange* <- (MList_nil p). }
   { intros x q L' ->. xapp. xapp. xapp. { auto. } intros q'.
     xchange <- MList_cons. xapp.
-    rew_listx. xif; intros Cx; case_if as Cx'.
+    rew_list. xif; intros Cx; case_if as Cx'.
     { xval. xsimpl. }
     { xapp. intros p2. xsimpl. } }
 Qed.
@@ -1267,7 +1292,7 @@ Definition mlength_acc : val :=
 (* EX3? (Triple_mlength_acc_rec) *)
 (** Specify and verify the function [mlength_acc_rec].
     Hint: make sure to generalize the relevant variables in the script
-    pattern [gen ????. induction_wf IH: list_sub L.], so that your
+    pattern [gen ? ?. induction_wf IH: list_sub L.], so that your
     induction principle is strong enough to complete the proof. *)
 
 (* SOLUTION *)
@@ -1279,9 +1304,9 @@ Proof using.
   intros. gen n p. induction_wf IH: list_sub L.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
   { intros x q L' ->. xapp. xapp. xapp. { auto. }
-     xchange <- MList_cons. xsimpl. rew_listx. math. }
+     xchange <- MList_cons. xsimpl. rew_list. math. }
   { intros ->. xval. xchange <- (MList_nil p). { auto. }
-    xsimpl. rew_listx. math.  }
+    xsimpl. rew_list. math.  }
 Qed.
 
 Hint Extern 1 (Register_Spec mlength_acc_rec) => Provide Triple_mlength_acc_rec.
@@ -1403,7 +1428,8 @@ Qed.
     which expects pointers [p1] and [p2] on two lists, and traverses
     the first list until reaching its last cell. At that point, it
     sets the tail field of the last cell to point on [p2].
-    Subsequently to a call to [mappend p1 p2], the pointer [p1]
+
+    Subsequently to a call to [mappend_aux p1 p2], the pointer [p1]
     points to a list that stores the result of the concatenation
     of the two input lists.
 
@@ -1439,8 +1465,8 @@ Definition mappend : val :=
 (** Verify the implementation of [mappend_aux].
     Hint: use [xchange (MList_if p1)] to exploit [MList_if] for
     the first list.
-    Hint: use [rew_listx] to normalize the list expression [(x::L1')++L2].
-    (Alternatively, use [rewrite app_cons_l].)*)
+    Hint: use [rew_list] to normalize the list expression
+    [(x::L1')++L2]. (Alternatively, use [rewrite app_cons_l].) *)
 
 Lemma Triple_mappend_aux : forall (p1 p2:loc) (L1 L2:list int),
   p1 <> null ->
@@ -1454,7 +1480,7 @@ Proof using. (* ADMITTED *)
   { xchange (MList_if q). case_if. xpull. intros ->.
     xapp. xchange <- MList_cons. }
   { xapp. xapp. { auto. } { auto. }
-    rew_listx. xchange <- MList_cons. }
+    rew_list. xchange <- MList_cons. }
 Qed. (* /ADMITTED *)
 
 (** [] *)
@@ -1491,8 +1517,8 @@ Hint Extern 1 (Register_Spec mappend) => Provide Triple_mappend.
 
     The operation is implemented by exploiting the function [mappend],
     which performs in-place concatenation of two mutable lists.
-    The operation [concat q1 q2] also reinitialize the contents of [q2]
-    to be empty.
+    The operation [concat q1 q2] also reinitialize the contents
+    of [q2] to be empty.
 
 [[
     let concat q1 q2 =
@@ -1538,10 +1564,11 @@ Hint Extern 1 (Register_Spec concat) => Provide Triple_concat.
     for some list [L], yet when reasoning about the second line from
     the body of [concat], all we have at hand is [q2 ~~> p2] for some
     pointer [p2] that points to a list that we longer have at hand.
-    The only way out is to prove an alternative, more relaxed
+    The only way out is to prove an alternative, more minimalistic
     specification for [clear], which accepts a precondition of the
     form [q ~~> p]. Note that the original specification for [clear]
-    would be derivable from that relaxed specification. *)
+    would be derivable from that minimalistic specification, similarly
+    to how [Triple_mtail] is derivable from [Triple_mtail_minimal]. *)
 (* /INSTRUCTORS *)
 
 
@@ -1549,7 +1576,7 @@ Hint Extern 1 (Register_Spec concat) => Provide Triple_concat.
 (** ** Exercise: push back on stacks *)
 
 (** The operation [push_back q x] adds an item [x] to the bottom
-    of the queue [q]. This operation is also implemented using
+    of the stack [q]. This operation is also implemented using
     [mappend], which performs in place concatenation of two lists.  *)
 
 (**
@@ -1567,7 +1594,7 @@ Definition push_back : val :=
 
 (* EX2? (Triple_push_back) *)
 (** Specify and verify the function [push_back].
-    Remark: TLC provides the notation [L&x] as short for [L++x::nil]. *)
+    Remark: when the TLC is loaded, [L++x::nil] gets displayed as [L&x] . *)
 
 (* SOLUTION *)
 Lemma Triple_push_back : forall (q:loc) (x:int) (L:list int),
@@ -1590,9 +1617,9 @@ Hint Extern 1 (Register_Spec push_back) => Provide Triple_push_back.
 (* ########################################################### *)
 (** ** Exercise: in-place reversal for mutable lists *)
 
-(** The operation [mrev p] reverses a list "in place": it does not allocate
-    any list cell, but instead reuses the list cells from its input to
-    construct the output list.
+(** The operation [mrev p] reverses a list "in place": it does not
+    allocate any list cell, but instead reuses the list cells from
+    its input to construct the output list.
 
     The operation is implemented by means of an auxiliary function:
     [mrev_append p1 p2] constructs the reverse of the list [p2] appended
@@ -1636,7 +1663,7 @@ Definition mrev : val :=
     Hint: use [xchange (MList_if p2)] to exploit the lemma
     [MList_if] for the second list.
 
-    Hint: use [rew_listx] to normalize the expression [rev (x::L2')++L1].
+    Hint: use [rew_list] to normalize the expression [rev (x::L2')++L1].
     (Alternatively, use [rewrite rev_cons,app_last_l].) *)
 
 (* SOLUTION *)
@@ -1647,10 +1674,10 @@ Lemma Triple_mrev_append : forall (p1 p2:loc) (L1 L2:list int),
 Proof using.
   intros. gen p1 p2 L1. induction_wf IH: list_sub L2.
   xwp. xchange (MList_if p2). xif; intros C; case_if; xpull.
-  { intros ->. xval. rew_listx. xsimpl. }
+  { intros ->. xval. rew_list. xsimpl. }
   { intros x q L2' ->. xapp. xapp.
     xchange <- MList_cons. xapp. { auto. }
-    intros r. rew_listx. xsimpl. }
+    intros r. rew_list. xsimpl. }
 Qed.
 
 Hint Extern 1 (Register_Spec mrev_append) => Provide Triple_mrev_append.
@@ -1673,11 +1700,9 @@ Lemma Triple_mrev : forall (p:loc) (L:list int),
     PRE (p ~> MList L)
     POST (fun (r:loc) => r ~> MList (rev L)).
 Proof using. (* ADMITTED *)
-  intros. xwp. xchange MList_nil_intro. xapp. rew_listx. xsimpl.
+  intros. xwp. xchange MList_nil_intro. xapp. rew_list. xsimpl.
 Qed. (* /ADMITTED *)
 
 (** [] *)
 
 Hint Extern 1 (Register_Spec mrev) => Provide Triple_mrev.
-
-
