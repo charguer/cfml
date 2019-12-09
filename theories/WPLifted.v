@@ -784,15 +784,9 @@ Notation "'App' f v1 " :=
   ((Wpgen_app (trm_apps f (trms_vals (v1::nil)))))
   (at level 68, f, v1 at level 0) : wp_scope.
 
-Notation "'App' f v1 v2 " :=
-  ((Wpgen_app (trm_apps f (trms_vals (v1::v2::nil)))))
-  (at level 68, f, v1, v2 at level 0) : wp_scope.
-
-Notation "'App' f v1 v2 v3 " :=
-  ((Wpgen_app (trm_apps f (trms_vals (v1::v2::v3::nil)))))
-  (at level 68, f, v1, v2, v3 at level 0) : wp_scope.
-
-(* TODO: make the notation for App recursively defined *)
+Notation "'App' f v1 .. vn " :=
+  ((Wpgen_app (trm_apps f (trms_vals (cons v1 .. (cons vn nil) ..)))))
+  (at level 68, f, v1, vn at level 0) : wp_scope.
 
 Notation "'Ifval' b 'Then' F1 'Else' F2" :=
   ((Wpgen_if_case b F1 F2))
@@ -809,7 +803,6 @@ Notation "'For' x '=' n1 'To' n2 'Do' F3 'Done'" :=
   (at level 69, x ident,
    format "'[v' 'For'  x  '='  n1  'To'  n2  'Do'  '/' '[' F3 ']' '/'  'Done' ']'")
   : wp_scope.
-
 
 Notation "'Case' v '=' vp ''=>' F1 ''|' F2" :=
   ((Wpgen_case (fun A EA Q => \[v = vp%val] \-* F1 A EA Q) (v <> vp%val) F2))
