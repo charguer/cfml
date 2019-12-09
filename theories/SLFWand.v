@@ -19,7 +19,7 @@ Implicit Types Q : val->hprop.
 
 
 (* ####################################################### *)
-(** * The chapter in a rush *)
+(** * Chapter in a rush *)
 
 (** This chapter introduces additional Separation Logic operators,
     most notably the "magic wand", written [H1 \-* H2].

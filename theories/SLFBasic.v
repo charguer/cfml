@@ -23,7 +23,7 @@ Ltac xwp_xtriple_handle_gc ::= xwp_xtriple_remove_gc.
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
-(** * The chapter in a rush, nested with exercises as additional contents *)
+(** * Chapter in a rush, nested with exercises as additional contents *)
 
 (** This chapter gives a quick overview of how to state specifications and
     carry out basic proofs in Separation Logic using CFML tactics.
@@ -37,7 +37,7 @@ Ltac xwp_xtriple_handle_gc ::= xwp_xtriple_remove_gc.
     - "Verification proof obligations", of the form [PRE _ CODE _ POST _].
       These proof obligations also correspond to specification triples, yet
       they feature the description of the current state as first argument
-      to improve readability of proof obligations.
+      in order to improve readability of proof obligations.
     - "Entailement proof obligations", of the form [_ ==> _] or [_ ===> _].
       Such entailments require proving that a description of a state implies
       another one.
@@ -62,11 +62,12 @@ Ltac xwp_xtriple_handle_gc ::= xwp_xtriple_remove_gc.
     - [xsimpl] to simplify or prove entailments ([_ ==> _] or [_ ===> _]). *)
 
 (** In addition to x-tactics, the verification proof scripts exploit standard
-    Coq tactics, as well as tactics from the TLC library. The relevant TLC tactics,
-    which are described when first use, include:
+    Coq tactics, as well as tactics from the TLC library. The relevant TLC
+    tactics, which are described when first use, include:
     - [math], which is a variant of [omega] for proving mathematical goals,
     - [induction_wf], which sets up proofs by well-founded induction,
-    - [gen], which is a shorthand for [generalize dependent].
+    - [gen], which is a shorthand for [generalize dependent], a tactic
+      also useful to set up induction principles.
 
 *)
 
@@ -84,43 +85,50 @@ Ltac xwp_xtriple_handle_gc ::= xwp_xtriple_remove_gc.
 ]]
 
     The actual CFML tool features a parser able to process OCaml syntax.
-    Yet, throughout this course, to avoid dependency on external tools,
+    Yet, throughout this course, to avoid dependency on an external tool,
     we will input all programs using a custom set of Coq notation for
-    describing imperative programs. There is no need to learn to write
+    describing imperative programs. There is no need to learn how to write
     programs in this funny syntax: the source code for all the programs
-    involved in this course will be provided.
+    involved in this course is provided.
 
-    Below is the code for [incr], which is a value. In the present framework,
-    all values admit the type [val]. The quotes that appear in the source code
-    are used to disambiguate the keywords and variables associated with the
-    source code, from the corresponding Coq keywords and variables.
+    Below is the code for the function [incr]. This function is a value,
+    so it admits, like all values in the CFML framework, the type [val].
+
+    The quotes that appear in the source code are used to disambiguate
+    between the keywords and variables associated with the source code,
+    and those from the corresponding Coq keywords and variables.
     The [VFun] keyword should be read like the [fun] keyword.
+
+    Again, the details of this funny syntax are not important, the reader
+    may blindly trust that it corresponds to the OCaml code shown above.
 *)
 
 Definition incr : val :=
   VFun 'p :=
    'p ':= '! 'p '+ 1.
 
-(** Let [p] be the address in memory of a reference cell, that is,
-    the "location" of a reference cell. [p] admits type [loc].
+(** Let [p] be the address in memory of the reference cell provided as
+    argument to the increment function. In technical vocabulary, [p]
+    is the "location" of a reference cell. In CFML, locations have type
+    [loc], thus the argument [p] of [incr] has type [loc].
 
-    The heap predicate [p ~~> n] describes a memory state in which the
-    contents of the location [p] is the value [n]. In the present
-    example [p] denotes an integer value.
+    In Separation Logic, the "heap predicate" [p ~~> n] describes a memory
+    state in which the contents of the location [p] is the value [n].
+    In the present example, [n] denotes an integer value.
 
     The behavior of the operation [incr p] consists of updating the memory
     state by incrementing the contents of the cell at location [p], so that
-    its new contents is [n+1]. Thus, the subsequent memory state is described
-    by the heap predicate [p ~~> (n+1)].
+    its new contents is [n+1]. Thus, the memory state posterior to the
+    increment operation can be described by the heap predicate [p ~~> (n+1)].
 
-    The result value returned by [incr p] is simply the [unit] value.
-    There is not much to specify about the result value, beyond the fact
-    that it has type [unit].
+    The result value returned by [incr p] is the [unit] value. There is not
+    much to specify about the result value, beyond the fact that it has
+    type [unit]. In the specification of [incr], the notation
+    [fun (r:unit) => ...] indicates that the result has type [unit].
 
-    The specification of [incr p] can be expressed using a
-    "Separation Logic triple" using the custom notation
+    The specification of [incr p], shown below, is expressed using a
+    "Separation Logic triple", stated using the custom notation
     [TRIPLE _ PRE _ POST _], whose compontents are explained next. *)
-
 
 Lemma Triple_incr : forall (p:loc) (n:int),
   TRIPLE (incr p)
@@ -140,18 +148,18 @@ Lemma Triple_incr : forall (p:loc) (n:int),
       both the output value and the output state produced by the call.
       The pattern [fun (r:unit) => _] binds the name [r] to denote the result
       value; here [r] has type unit, reflecting the type of [incr p].
-      The expression [p ~~> (n+1)] describes the output state. *)
+      Finally, the expression [p ~~> (n+1)] describes the output state. *)
 
-(** Remark: we need to write [p ~~> (n+1)] instead of [p ~~> n+1], because the
-    latter would parse as [(p ~~> n) + 1] and therefore fail to type-check. *)
+(** Remark: we have to write [p ~~> (n+1)] using parentheses around [n+1],
+    because [p ~~> n+1] would get parsed as [(p ~~> n) + 1]. *)
 
 (** Our next step is to prove the specification lemma [Triple_incr] which
-    specifies the behavior of [incr]. We conduct the verification proof
-    using CFML tactics.
+    specifies the behavior of the function [incr]. We conduct the
+    verification proof using CFML tactics.
 
     The CFML tooling will transform on-the-fly the code so that all
-    intermediate expressions are named (that is, by putting the code
-    in "A-normal form"). In OCaml syntax, the A-normal could be written:
+    intermediate expressions are named, that is, by putting the code
+    in "A-normal form". In OCaml syntax, the A-normal could be written:
 
 [[
   let incr p =
@@ -162,11 +170,11 @@ Lemma Triple_incr : forall (p:loc) (n:int),
 ]]
 
     The transformation into A-normal form is performed by the tactic [xwp],
-    which begins every CFML verification proof script, and sets up a
-    verification triple that exploits a mechanism of "characteristic formulae".
-    These characteristic formulae can be manipulated using CFML x-tactics
-    without knowledge on how they are constructed. (Details of the construction
-    are the matter of the chapter [SLFWPgen].)
+    which begins every CFML verification proof script. The tactic [xwp]
+    also sets up the goal in the form that is ready for verification using
+    CFML "x-tactics". What happens behind the scene is explained much later
+    in the chapter [SLFWPgen]. For now, we focus on the high-level aspect
+    of the proofs, from an end-user point of view.
 *)
 
 Proof using.
@@ -174,8 +182,8 @@ Proof using.
               displayed using the custom notation [PRE _ CODE _ POST _].
               The [CODE] part does not look very nice, but one should
               be able to somehow recognize the body of [incr]. Indeed,
-              ignorining the details, and after alpha-renaming,
-              it looks like:
+              if we ignorine the details, and perform the relevant
+              alpha-renaming, the [CODE] section reads like:
 [[
               Let m :=
                   Let n := App val_get p in
@@ -183,14 +191,17 @@ Proof using.
                   in
                App val_set p m
 ]]
+              which is similar to the OCaml syntax in A-normal form.
    *)
 
  (*  The remaining of the proof performs some form of symbolic
      execution. One should not attempt to read the full proof
      obligation at each step, but instead only look at the current
-     state (the [PRE] part, which is [p ~~> n]), and at the first
-     line only of the [CODE] part, where one can read the code of
-     the next operation to reason about. *)
+     state, described by the [PRE] part (here, [p ~~> n]), and at
+     the first line only of the [CODE] part, where one can read
+     the code of the next operation to reason about.
+
+     Each function call is handled using the tactic [xapp]. *)
 
   xapp.    (* Reason about the the operation [!p] that reads into [p];
               the read operation returns the value [n]. *)
@@ -199,7 +210,7 @@ Proof using.
               thereby updating the state to [p ~~> (n+1)]. *)
   xsimpl.  (* At this stage, the proof obligation takes the form [_ ==> _],
               which require checking that the final state matches what
-              is claimed in the postcondition. *)
+              is claimed in the postcondition. [xsimpl] takes care of it. *)
 Qed.
 
 (** The command below associates the specification lemma [Triple_incr]
@@ -220,8 +231,8 @@ Hint Extern 1 (Register_Spec incr) => Provide Triple_incr.
 (** As second example, we describe a function that performs simple
     arithmetic computations. The function, whose code appears below,
     expects an integer argument [n], computes [a] as [n+1], then
-    computes [b] as [n-1], then returns [a+b]. The function thus
-    always returns [2*n].
+    computes [b] as [n-1], and finally returns [a+b]. The function
+    thus always returns [2*n].
 
 [[
   let example_let n =
@@ -239,7 +250,7 @@ Definition example_let : val :=
 
 (** We specify this function using the the triple notation, in the form
     [TRIPLE (example_let n) PRE _ POST (fun (r:int) => _ )], where [r]
-    denotes the output value---this time, a value of type [int].
+    denotes the output value. This time, the output value has type [int].
 
     To denote the fact that the input state is empty, we write [\[]]
     in the precondition, that is, after the [PRE] keyword.
@@ -248,7 +259,7 @@ Definition example_let : val :=
     Yet, if we write [fun (r:int) => \[]] as postcondition, we would have
     said nothing about the output value [r] produced by a call [example_let].
     Instead, we would like to specify that the result [r] is equal to [2*n].
-    To that end, we write [fun (r:int) => \[2*n]] after the [POST] keyword. *)
+    To that end, we write [fun (r:int) => \[r = 2*n]] after the [POST] keyword. *)
 
 Lemma Triple_example_let : forall (n:int),
   TRIPLE (example_let n)
@@ -256,10 +267,10 @@ Lemma Triple_example_let : forall (n:int),
     POST (fun (r:int) => \[r = 2*n]).
 
 (** The verification proof script is very similar to the previous one.
-    The x-tactics [xapp] perform symbolic execution of the code.
+    The x-tactics [xapp] performs symbolic execution of the code.
     Ultimately, we need to check that the expression computed,
-    [(n + 1) + (n - 1)] is equal to the specified result, that is, [2*n].
-    We exploit the tactics [xsimpl] and [math] to prove this result. *)
+    [(n + 1) + (n - 1)], is equal to the specified result, that is, [2*n].
+    We exploit the TLC tactics [math] to prove this mathematical result. *)
 
 Proof using.
   xwp. xapp. xapp. xapp. xsimpl. math.
@@ -269,13 +280,13 @@ Qed.
     then substituted [b] with [n-1]. Such eager substitutions generally
     work well for small programs, yet in larger programs doing so can lead
     to exponential blow-ups in the size of the terms being manipulated.
-    To avoid such a blow-up, it may be necessary to preserve explicit
+    To avoid such blow-ups, it may be necessary to preserve explicit
     equalities, such as [a = n+1] and [b = n-1], in the proof context.
 
     In general, it is desirable to let the user control when substitutions
-    should or should not be performed. The [xapp] tactic does perfom the
-    substitution, whereas its variant [xapp_nosubst] instead introduces an
-    explicit equality, as illustrated next. *)
+    should or should not be performed. Where the [xapp] tactic systematically
+    attempts to perfom a substitution, its variant [xapp_nosubst] instead
+    introduces an explicit equality, as illustrated next. *)
 
 Lemma Triple_example_let_with_nosubst : forall (n:int),
   TRIPLE (example_let n)
@@ -289,8 +300,8 @@ Proof using.
   xsimpl. math. (* check that, under these hypotheses, [r = 2 * n]. *)
 Qed.
 
-(** Throughout this chapter and the next one, we only consider programs
-    that are simple enough that one may use the tactic [xapp] everywhere. *)
+(** Throughout the course, we only consider programs that are simple
+    enough that one may use the tactic [xapp] everywhere. *)
 
 
 (* ########################################################### *)
@@ -333,7 +344,7 @@ Qed.
 
 (** Consider the function [inplace_double], which expects a reference
     on an integer, reads twice in that reference, then updates the
-    reference with the sum of the two values that have been read.
+    reference with the sum of the two values that were read.
 
 [[
   let inplace_double p =
@@ -386,23 +397,23 @@ Definition incr_two : val :=
 
     The precondition describes two references cells: [p ~~> n]
     and [q ~~> m]. To assert that the two cells are distinct from
-    each other, we separate the two with the token [\*], which is
-    called "separating conjunction" in Separation Logic, and is
-    also known as the "star" operator. Thus, the precondition
+    each other, we separate their description with the operator [\*].
+    This operator called "separating conjunction" in Separation Logic,
+    and is also known as the "star" operator. Thus, the precondition
     is [(p ~~> n) \* (q ~~> m)], or simply [p ~~> n \* q ~~> m].
 
     The postcondition describes the final state as
     is [p ~~> (n+1) \* q ~~> (m+1)], where the contents of both
-    cells increased by one unit.
+    cells is increased by one unit compared with the precondition.
 
-    The specification triple for [incr_two] is thus: *)
+    The specification triple for [incr_two] is thus as follows. *)
 
 Lemma Triple_incr_two : forall (p q:loc) (n m:int),
   TRIPLE (incr_two p q)
     PRE (p ~~> n \* q ~~> m)
     POST (fun (r:unit) => p ~~> (n+1) \* q ~~> (m+1)).
 
-(** The proof follow the usual pattern. *)
+(** The verification proof follows the usual pattern. *)
 
 Proof using.
   xwp. xapp. xapp. xsimpl.
@@ -419,8 +430,8 @@ Hint Extern 1 (Register_Spec incr_two) => Provide Triple_incr_two.
 
 (** The specification [Triple_incr_two] correctly describes calls to the
     function [incr_two] when providing it with two distinct reference cells.
+    Yet, it says nothing about a call of the form [incr_two p p].
 
-    But it says nothing about a call of the form [incr_two p p].
     Indeed, in Separation Logic, a state described by [p ~~> n] cannot
     be matched against a state described by [p ~~> n \* p ~~> n], because
     the star operator requires its operand to correspond to disjoint pieces
@@ -430,8 +441,8 @@ Hint Extern 1 (Register_Spec incr_two) => Provide Triple_incr_two.
     to reason about a call of the form [incr_two p p], that is, with
     aliased arguments?
 
-    Let's try, by considering the operation [aliased_call p], which does
-    execute such a call. *)
+    Let's find out, by considering the operation [aliased_call p],
+    which does execute such a call. *)
 
 Definition aliased_call : val :=
   VFun 'p :=
@@ -452,7 +463,7 @@ Proof using.
   xwp. xapp.
 Abort.
 
-(** We get stuck with a proof obligation of the form:
+(** In the above proof, we get stuck with a proof obligation of the form:
     [\[] ==> (p ~~> ?m) \* _], which requires showing that
     from an empty state one can extract a reference [p ~~> ?m]
     for some integer [?m].
@@ -469,7 +480,9 @@ Abort.
     It is possible to state and prove an alternative specification for
     the function [incr_two], to cover the case of aliased arguments.
     Its precondition mentions only one reference, [p ~~> n], and its
-    postcondition asserts that its contents gets increased by two units. *)
+    postcondition asserts that its contents gets increased by two units.
+
+    This alternative specification can be stated and proved as follows. *)
 
 Lemma Triple_incr_two_aliased : forall (p:loc) (n:int),
   TRIPLE (incr_two p p)
@@ -479,8 +492,8 @@ Proof using.
   xwp. xapp. xapp. xsimpl. math.
 Qed.
 
-(** By exploiting this specification, we are able to verify the
-    specification of [aliased_call p], which invokes [incr_two p p].
+(** By exploiting the alternative specification, we are able to verify
+    the specification of [aliased_call p], which invokes [incr_two p p].
     In order to indicate to the [xapp] tactic that it should invoke
     the lemma [Triple_incr_two_aliased] and not [Triple_incr_two],
     we pass that lemma as argument to [xapp], by writing
@@ -525,9 +538,8 @@ Qed.
 
 (** Observe, however, that the second reference plays absolutely
     no role in the execution of the function. In fact, we might
-    equally well have described in the precondition and in the
-    postcondition only the first reference, the one that the code
-    manipulates. *)
+    equally well have described in the specification only the
+    existence of the reference that the code manipulates. *)
 
 Lemma Triple_incr_first' : forall (p q:loc) (n:int),
   TRIPLE (incr_first p q)
@@ -537,24 +549,31 @@ Proof using.
   xwp. xapp. xsimpl.
 Qed.
 
-(** Interestingly, the former specification is "derivable" from the latter,
-    as illustrated next. The tactic [xtriple] turns a specification triple
-    of the form [TRIPLE _ PRE _ POST _] into one introduced by
-    [PRE _ CODE _ POST _], enabling it to be processed by [xapp] to
-    exploit a previously-established specification. *)
+(** Interestingly, the specification [Triple_incr_first] which
+    mentions the two references is derivable from the specification
+    [Triple_incr_first'] which mentions only the first reference.
 
-Lemma Triple_incr_first'_derived : forall (p q:loc) (n m:int),
+    The corresponding proof appears next. It leverages the tactic
+    [xtriple], which turns a specification triple of the form
+    [TRIPLE _ PRE _ POST _] into the form [PRE _ CODE _ POST _],
+    enabling the proof obligation to be processed by [xapp].
+
+    Here, we invoke [xapp Triple_incr_first'] to exloit
+    [Triple_incr_first'] for proving [Triple_incr_first]. *)
+
+Lemma Triple_incr_first_derived : forall (p q:loc) (n m:int),
   TRIPLE (incr_first p q)
     PRE (p ~~> n \* q ~~> m)
     POST (fun (r:unit) => p ~~> (n+1) \* q ~~> m).
 Proof using.
-  xtriple. xapp Triple_incr_first. xsimpl.
+  xtriple. xapp Triple_incr_first'. xsimpl.
 Qed.
 
 (** More generally, in Separation Logic, if a specification triple holds,
-    then this specification triple remains valid by adding a same predicate
-    in both the precondition and the postcondition. This is the "frame"
-    principle, a key modularity feature that we'll come back to later on. *)
+    then this specification triple remains valid by adding a same heap
+    predicate in both the precondition and the postcondition. This is
+    the "frame" principle, a key modularity feature that we'll come
+    back to later on in the course. *)
 
 
 (* ########################################################### *)
@@ -572,7 +591,7 @@ Qed.
 Definition transfer : val :=
   VFun 'p 'q :=
    'p ':= ('!'p '+ '!'q) ';
-   'q ':= ``0.
+   'q ':= 0.
 
 (* EX1! (Triple_transfer) *)
 (** State and prove a lemma called [Triple_transfer] specifying
@@ -637,9 +656,8 @@ Parameter Triple_random_int : forall (n:int),
 Hint Extern 1 (Register_Spec random_int) => Provide Triple_random_int.
 
 (** Consider now the following function, which expects an
-    integer [n], then invokes the random number generator
-    with argument [n], places the result into a fresh
-    reference cell, and returns the address of that reference.
+    integer [n], and allocates a reference cell whose contents
+    is a random number less than [n].
 
 [[
   let ref_random_int p =
@@ -673,34 +691,37 @@ Definition ref_random_int : val :=
 
     Yet, this statement does not typecheck because [m] is unbound.
 
-    To fix the issue appropriately, we need to introduce a new
-    Separation Logic operator: the existential quantifier for
-    postconditions (and possibly also preconditions).
-    The syntax is [\exists x, _], with a leading backslash to
-    distinguish it from the Coq's standard existential quantifier. *)
+    To fix the issue, we need to exploit a new Separation Logic operator:
+    the existential quantifier. Its syntax is [\exists x, _].
+    Observe the use of a leading backslash to distinguish from Coq's
+    standard existential quantifier.
+
+    The correct statement of the specification of [ref_random_int]
+    is thus as follows. *)
 
 Lemma Triple_ref_random_int : forall (n:int),
   TRIPLE (ref_random_int n)
     PRE \[]
     POST (fun (p:loc) => \exists m, (p ~~> m) \* \[0 <= m < n]).
 
-(** Let's comment the proof of this lemma step by step. *)
+(** Let's comment the proof of this specification step by step. *)
 
 Proof using.
   xwp.
+  (* We first reason about the call to [random_int@]. *)
   xapp. intros m Hm.
-  (* [m] denotes the result of [random_int n].
+  (* Here, [m] denotes the result of [random_int n].
      This variable is not substituted away because there is no equality
      of the form [m = _], but instead a constraint [Hm: 0 <= m < n]. *)
   xapp. intros q.
-  (* [q] denotes the result of [ref m]. *)
+  (* Here, [q] denotes the result of [ref m]. *)
   (* There remains to justify that the current state
      [q ~~> m] matches the postcondition, which is
      [\exists m0, q ~~> m0 \* \[0 <= m0 < n]].
      The simplification tactic [xsimpl] is able to instantiate [m0] as [m]. *)
   xsimpl.
-  (* There remains to justify the constraint [0 <= m < n], which
-     matches exactly the assumption [Hm] obtained earlier. *)
+  (* There remains to justify the constraint [0 <= m < n].
+     This fact matches exactly the assumption [Hm] obtained earlier. *)
   auto.
 Qed.
 
@@ -741,8 +762,8 @@ Qed.
 (* EX1! (Triple_ref_greater_abstract) *)
 (** State another specification for the function [ref_greater],
     with a postcondition that does not reveal the contents of
-    the freshly reference [q], but instead only asserts that the
-    contents of it is greater than the contents of the argument [p].
+    the freshly reference [q], but instead only asserts that its
+    contents is greater than the contents of [p].
 
     Then, derive the new specification from the former one, by
     invoking the tactics [xtriple] and [xapp Triple_ref_greater]. *)
@@ -800,12 +821,12 @@ Proof using.
   xwp. xapp. intros p. xapp. xapp. xsimpl. { auto. }
 Abort.
 
-(** In the above script, we are stuck with the entailment
+(** In the above proof script, we get stuck with the entailment
     [p ~~> (n+1) ==> \[]], which indicates that the current state contains
     a reference, whereas the postcondition describes an empty state. *)
 
 (** We could attempt to patch the specification to account for the left-over
-    reference. This yields a provable yet ususable specification. *)
+    reference. This yields a provable specification. *)
 
 Lemma Triple_succ_using_incr_attempt' : forall (n:int),
   TRIPLE (succ_using_incr_attempt n)
@@ -815,7 +836,9 @@ Proof using.
   xwp. xapp. intros p. xapp. xapp. xsimpl. { auto. }
 Qed.
 
-(** Indeed, the specification above features a piece of postcondition
+(** While the above specification is provable, it is unusable.
+
+    Indeed, the above specification features a piece of postcondition
     [\exists p, p ~~> (n+1)] that is of absolutely no use to the caller
     of the function. Worse, the caller will have its state polluted with
     [\exists p, p ~~> (n+1)] and will have no way to get rid of it appart
@@ -853,6 +876,13 @@ Lemma Triple_succ_using_incr : forall n,
 Proof using.
   xwp. xapp. intros p. xapp. xapp. xapp. xval. xsimpl. auto.
 Qed.
+
+(** Remark: if we verify programs written in a language equipped
+    with a garbage collector (like, e.g., OCaml), we need to
+    tweak the Separation Logic to account for the fact that some
+    heap predicates can be freely discarded from postconditions.
+    This variant of Separation Logic will be described in a bonus
+    chapter ([SLFAffine]). *)
 
 
 (* ########################################################### *)
@@ -901,13 +931,13 @@ Definition factorec : val :=
 
 (** A call [factorec n] can be specified as follows:
 
-    - the initial state is empty
-    - the final state is empty
+    - the initial state is empty,
+    - the final state is empty,
     - the result value [r] is such that [r = facto n] when [n >= 0].
 
     In case the argument is negative (i.e., [n < 0]), we have two choices:
 
-    - either we explicitly specify that the result is [1] in this case
+    - either we explicitly specify that the result is [1] in this case,
     - or we rule out this possibility by requiring [n >= 0].
 
     Let us follow the second approach, in order to illustrate the
@@ -915,7 +945,8 @@ Definition factorec : val :=
     for expressing the constraint [n >= 0]:
 
     - either we use as precondition [\[n >= 0]],
-    - or we place an asssumption [(n >= 0) -> _] to the front of the triple.
+    - or we place an asssumption [(n >= 0) -> _] to the front of the triple,
+      and use an empty precondition, that is, [\[]].
 
     The two presentations are totally equivalent. By convention, we follow
     the second presentation, which tends to improve the readability of
@@ -935,9 +966,12 @@ Lemma Triple_factorec : forall n,
 
 Proof using.
   (* We set up a proof by induction on [n] to obtain an induction
-     hypothesis for the recursive calls, the last one being
-     made on [n = 1]. The tactic [induction_wf] is provided by the TLC
-     library to assist in setting up well-founded inductions. *)
+     hypothesis for the recursive calls. Recursive calls are made
+     each time on smaller values, and the last recursive call is
+     made on [n = 1]. The well-founded relation [downto 1] captures
+     this recursion pattern. The tactic [induction_wf] is provided
+     by the TLC library to assist in setting up well-founded inductions.
+     It is exploited as follows. *)
   intros n. induction_wf IH: (downto 1) n.
   (* Observe the induction hypothesis [IH]. By unfolding [downto]
      as done in the next step, this hypothesis asserts that the
@@ -984,7 +1018,8 @@ Proof using.
     xsimpl. rewrite (@facto_step n); math. }
 Qed.
 
-(** Let's revisit the proof script without comments. *)
+(** Let's revisit the proof script without comments, to get a better
+    picture of the proof structure. *)
 
 Lemma Triple_factorec' : forall n,
   n >= 0 ->
@@ -1003,9 +1038,8 @@ Qed.
 (* ########################################################### *)
 (** *** A recursive function with state *)
 
-(** The example of [factorec] was a warmup: a recursive function without
-    mutable state. Let's now tackle a recursive function involving mutable
-    state.
+(** The example of [factorec] was a warmup. Let's now tackle a
+    recursive function involving some mutable state.
 
     The function [repeat_incr p m] makes [m] times a call to [incr p].
     Here, [m] is assumed to be a nonnegative value.
@@ -1103,7 +1137,7 @@ Definition step_transfer :=
     End.
 
 (** The specification of [step_transfer] is essentially the same as
-    that of the function [transfer], presented previously, with the
+    that of the function [transfer] presented previously, with the
     only difference that we here assume the contents of [q] to be
     nonnegative. *)
 
@@ -1139,7 +1173,8 @@ Qed. (* /ADMITTED *)
 
 (** The CFML tool features a number of tricks:
     - a call to [intros] in front of an [xwp] is always optional,
-    - a single [xapp] in front of an [xif] is generally optional.
+    - a single [xapp] in front of an [xif] when the argument
+      of the conditional is a simple boolean test.
 
     Moreover, the TLC library offers a number of useful features:
     - writing [*] after a tactic name, such as in [xsimpl*],
@@ -1183,9 +1218,9 @@ Qed.
     [m >= 0]. What if did omit it? Where would we get stuck in the proof?
 
     Clearly, something should break in the proof, because when [m < 0],
-    the call [repeat_incr p m] terminates immediately. Thus, the final
-    state should be like the initial state, that is [p ~~> n], and it
-    should not be [p ~~> (n + m)]. Let us investigate. *)
+    the call [repeat_incr p m] terminates immediately. Thus, when [m < 0]
+    the final state is like the initial state [p ~~> n], and not equal
+    to [p ~~> (n + m)]. Let us investigate how the proof breaks. *)
 
 Lemma Triple_repeat_incr_incorrect : forall (p:loc) (n m:int),
   TRIPLE (repeat_incr p m)
@@ -1194,9 +1229,9 @@ Lemma Triple_repeat_incr_incorrect : forall (p:loc) (n m:int),
 Proof using.
   intros. revert n. induction_wf IH: (downto 0) m. unfold downto in IH.
   intros. xwp. xapp. xif; intros C.
-  { (* then branch: [m > 0] *)
+  { (* In the 'then' branch: [m > 0] *)
     xapp. xapp. xapp. { math. } xsimpl. math. }
-  { (* else branch: [m <= 0] *)
+  { (* In the 'else' branch: [m <= 0] *)
     xval.
     (* Here, we are requested to justify that the current state
        [p ~~> n] matches the postcondition [p ~~> (n + m)], which
@@ -1205,27 +1240,30 @@ Proof using.
     (* When the specification features the assumption [m >= 0],
        we can prove this equality because the fact that we are
        in the else branch means that [m <= 0], thus [m = 0].
-       However, without [m >= 0], the value of [m] could be negative. *)
+       However, without the assumption [m >= 0], the value of
+       [m] could very well be negative. *)
 Abort.
 
 (** Note that there exists a valid specification for [repeat_incr] that
-    does not constraint [m], but instead specifies that the state evolves
-    from [p ~~> n] to [p ~~> (n + max 0 m)]. Formally: *)
+    does not constraint [m], but instead specifies that the state
+    always evolves from [p ~~> n] to [p ~~> (n + max 0 m)]. *)
 
 Lemma Triple_repeat_incr' : forall (p:loc) (n m:int),
   TRIPLE (repeat_incr p m)
     PRE (p ~~> n)
     POST (fun (_:unit) => p ~~> (n + max 0 m)).
 
-(** Let's prove the above specification, which is the most-general
-    specification for the function [repeat_incr].
+(** Let's prove the above specification, which, by the way, is the
+    most-general specification for the function [repeat_incr].
 
     The proof scripts exploits two properties of the [max] function.
 
 [[
-   max_l : forall n m, (n >= m) -> (max n m = n).
-   max_r : forall n m, (n <= m) -> (max n m = m).
+     max_l : forall n m, (n >= m) -> (max n m = n).
+     max_r : forall n m, (n <= m) -> (max n m = m).
 ]]
+
+    It goes as follows.
 *)
 
 Proof using.
@@ -1252,13 +1290,15 @@ Parameter Triple_ref_random_int_incorrect : forall (n:int) (m:int),
     PRE \[]
     POST (fun (p:loc) => (p ~~> m) \* \[0 <= m < n]).
 
-(** What does this specification mean? It is useful? Is it provable?
+(* QUIZ *)
 
-    ...
+(** What does this specification mean? It is useful? Is it provable? *)
 
-    Answer: no function can admit this specification, because it
+(* /QUIZ *)
+
+(** Answer: no function can admit this specification, because it
     could be instantiated, say, with [m=0] to prove that the output
-    reference contains the integer [0]; and also with [m1] to prove
+    reference contains the integer [0]; and also with [m=1] to prove
     that the output reference contains the integer [1]; the two
     instantiations contradict each other. *)
 

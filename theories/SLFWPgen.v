@@ -24,7 +24,7 @@ Implicit Types Q : val->hprop.
 (* ####################################################### *)
 (* ####################################################### *)
 (* ####################################################### *)
-(** * The chapter in a rush *)
+(** * Chapter in a rush *)
 
 (** In the previous chapter, we have introduced a predicate called [wp]
     to describe the weakest precondition of a term [t] with respect to
@@ -1548,6 +1548,7 @@ Qed. (* /ADMITTED *)
 
 End ProofsWithXtactics.
 
+(* LATER: rename [xapp] to [xapp_nosubst] and [xapps] to [xapp]? *)
 
 (* ####################################################### *)
 (** ** Further improvements to the [xapp] tactic. *)

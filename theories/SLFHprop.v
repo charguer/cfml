@@ -37,7 +37,7 @@ Local Coercion string_to_var (x:string) : var := x.
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
-(** * The chapter in a rush *)
+(** * Chapter in a rush *)
 
 (** Recall that a heap predicate has type [hprop], which is defined as
     [state->Prop]. By convention, throughout the course:

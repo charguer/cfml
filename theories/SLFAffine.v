@@ -31,7 +31,7 @@ Implicit Types Q : val->hprop.
 
 
 (* ####################################################### *)
-(** * The chapter in a rush *)
+(** * Chapter in a rush *)
 
 (** This chapter introduces the notion of weakest precondition
     for Separation Logic triples. *)

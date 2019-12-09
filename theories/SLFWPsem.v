@@ -24,7 +24,7 @@ Implicit Types Q : val->hprop.
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
-(** * The chapter in a rush *)
+(** * Chapter in a rush *)
 
 (** In the previous chapter, we have introduced the notion of
     Separation Logic triple, written [triple t H Q].

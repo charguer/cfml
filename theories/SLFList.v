@@ -28,7 +28,7 @@ Ltac xnew_post ::= xnew_post_exploded.
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
-(** * The chapter in a rush, nested with exercises as additional contents *)
+(** * Chapter in a rush, nested with exercises as additional contents *)
 
 (** The previous chapter has introduced the notation for specification
     triples, the entailement relations, and the grammar for heap predicates,
