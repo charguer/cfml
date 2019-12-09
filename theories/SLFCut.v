@@ -1864,3 +1864,28 @@ Qed.
 From SLF (* TLC *) Require Import LibFix.
 
 ===========================
+
+
+
+(** The specification above does not take exactly the same shape as the
+    one presented in chapter [SLFBasic]. Previously, we had written:
+
+[[
+  TRIPLE (trm_app incr p)
+    PRE (p ~~~> n)
+    POST (fun (r:unit) => (p ~~~> (n+1)))
+]]
+
+    There are two main differences:
+
+    - First, [SLFBasic] uses the notation
+      whereas here we directly exploit the predicate [triple], to make
+      the details of the construction better visible.
+    - Second, [SLFBasic] exploits a technique dubbed "lifted
+      postconditions" for allowing the postcondition to bind a value
+      directly at the appropriate type (here, [unit]), whereas here
+      we have to bind a value [v] of type [val], and then asserts that
+      it is equal to [val_unit]. The mechanism for lifting postconditions
+      is described in a bonus chapter, namely [SLFLift]. *)
+
+====================

@@ -121,6 +121,18 @@ Proof using.
   introv M. intros HF. applys hoare_conseq (M (HF \* H')); xsimpl.
 Qed.
 
+(** Details of the frame rule proof. *)
+
+Lemma triple_frame' : forall t H Q H',
+  triple t H Q ->
+  triple t (H \* H') (Q \*+ H').
+Proof using.
+  introv M. unfold triple in *. rename H' into H1. intros H2.
+  applys hoare_conseq. applys M (H1 \* H2).
+  { rewrite hstar_assoc. auto. }
+  { intros v. rewrite hstar_assoc. auto. }
+Qed.
+
 (** Combined and ramified rules *)
 
 Lemma triple_conseq_frame : forall H2 H1 Q1 t H Q,
