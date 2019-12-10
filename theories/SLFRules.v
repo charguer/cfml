@@ -764,23 +764,28 @@ Export SLFProgramSyntax.
 (* ################################################ *)
 (** *** Proof of [incr] *)
 
-(** First, we consider the verification of the increment function.
-
-    The definition of [incr] in OCaml syntax is: [fun p => p := (!p + 1)].
-
-    Recall that for simplicity we assumed programs to be written in
-    "A-normal form", with all intermediate expressions must be named by a "let".
-    In that form, the [incr] function can be expressed in OCaml as follows:
+(** First, we consider the verification of the increment function,
+    which is written in OCaml syntax as:
 
 [[
-   fun p =>
-        let n = !p in
-        let m = n+1 in
-        p := m
+   let incr p =
+      p := !p + 1
 ]]
 
-    Using the construct from our programming language embedded in Coq,
-    the definition of [incr] is written: *)
+    Recall that, for simplicity, we assume programs to be written in
+    "A-normal form", that is, with all intermediate expressions named
+    by a let-binding. Thereafter, we thus consider the following
+    definition for the [incr].
+
+[[
+   let incr p =
+      let n = !p in
+      let m = n+1 in
+      p := m
+]]
+
+    Using the construct from our toy programming language, the definition
+    of [incr] is written as shown below. *)
 
 Definition incr : val :=
   val_fun "p" (
@@ -788,7 +793,8 @@ Definition incr : val :=
     trm_let "m" (val_add "n" 1) (
     val_set "p" "m"))).
 
-(** Alternatively, using fancy notation, the same program can be written: *)
+(** Alternatively, using fancy notation, the same program can be written
+    as shown below. *)
 
 Definition incr' : val :=
   VFun 'p :=
@@ -797,57 +803,67 @@ Definition incr' : val :=
    'p ':= 'm.
 
 (** Recall from the first chapter the specification of the increment function.
-    It assumes a singleton state of the form [p ~~~> n], and make it evolve
-    to [p ~~~> (n+1)]. *)
+    Its precondition requires a singleton state of the form [p ~~~> n].
+    Its postcondition describes a state of the form [p ~~~> (n+1)]. *)
 
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
     (p ~~~> n)
     (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
 
-(** We next show a detailed proof that exploits:
+(** We next show a detailed proof for this specification. It exploits:
 
-    - the structural reasoning rules
-    - the reasoning rules for terms
-    - the specification of the primitive functions
+    - the structural reasoning rules,
+    - the reasoning rules for terms,
+    - the specification of the primitive functions,
     - the [xsimpl] tactic for simplifying entailments.
 *)
 
 Proof using.
+  (* initialize the proof *)
   intros. applys triple_app_fun. { reflexivity. } simpl.
+  (* reason about [let n = ..] *)
   applys triple_let.
+  (* reason about [!p] *)
   { apply triple_get. }
+  (* name [n'] the result of [!p] *)
   intros n'. simpl.
+  (* substitute away the equality [n = n'] *)
   apply triple_hpure. intros ->.
+  (* reason about [let m = ..] *)
   applys triple_let.
+  (* apply the frame rule to put aside [p ~~~> n] *)
   { applys triple_conseq_frame.
+    (* reason about [n+1] in the empty state *)
     { applys triple_add. }
     { xsimpl. }
     { xsimpl. } }
+  (* name [m'] the result of [n+1] *)
   intros m'. simpl.
+  (* substitute away the equality [m = m'] *)
   apply triple_hpure. intros ->.
-  applys triple_conseq_frame.
+  (* reason about [p := m] *)
   { applys triple_set. }
-  { xsimpl. }
-  xsimpl. auto.
 Qed.
 
 
 (* ################################################ *)
 (** *** Proof of [mysucc] *)
 
-(** Consider the following function, written in OCaml syntax:
+(** Recall from [SLFBasic] the function [succ_using_incr].
+
 [[
-     fun n =>
+     let succ_using_incr n =
         let r = ref n in
         incr r;
         let x = !r in
         free r;
         x
 ]]
-    Using the notation for our embedded language, we write: *)
 
-Definition mysucc : val :=
+    This definition is written in the toy language as follows. *)
+
+Definition succ_using_incr : val :=
   VFun 'n :=
     Let 'r := val_ref 'n in
     incr 'r ';
@@ -855,15 +871,21 @@ Definition mysucc : val :=
     val_free 'r ';
     'x.
 
-(* EX3! (triple_incr) *)
-(** Specify and verify the function [mysucc]. *)
+(** Recall the specification of [succ_using_incr]. *)
 
-(* SOLUTION *)
 Lemma triple_mysucc : forall (n:int),
-  triple (trm_app mysucc n)
+  triple (trm_app succ_using_incr n)
     \[]
-    (fun v => \[v = n+1]).
-Proof using.
+    (fun v => \[v = val_int (n+1)]).
+
+(* EX3! (triple_incr) *)
+(** Verify the function [triple_mysucc].
+    Hint: follow the pattern of [triple_incr].
+    Hint: use [applys triple_seq] for reasoning about a sequence.
+    Hint: use [applys triple_val] for reasoning about the final
+    return value, namely [x]. *)
+
+Proof using. (* ADMITTED *)
   intros. applys triple_app_fun. { reflexivity. } simpl.
   applys triple_let.
   { apply triple_ref. }
@@ -886,22 +908,21 @@ Proof using.
     { xsimpl. } }
   applys triple_val.
   xsimpl. auto.
-Qed.
-(* /SOLUTION *)
+Qed. (* ADMITTED *)
 
 (** [] *)
 
 End ExamplePrograms.
 
 (** The matter of the next chapter is to introduce additional
-    technology to streamline the proof process, notably by
+    technology to streamline the proof process, notably by:
+
     - automating the application of the frame rule
     - eliminating the need to manipulate program variables
       and substitutions during the verification proof. *)
 
-(** The rest of this chapter is concerned with alternative
-    statements of the reasoning rules, and the proofs of the
-    reasoning rules. *)
+(** The rest of this chapter is concerned with alternative statements
+    for the reasoning rules, and with the proofs of the reasoning rules. *)
 
 
 (* ########################################################### *)
@@ -931,15 +952,11 @@ Parameter triple_div' : forall n1 n2,
     \[n2 <> 0]
     (fun r => \[r = val_int (Z.quot n1 n2)]).
 
-(** Yet, placing pure preconditions outside of the triples makes
-    it slightly more convient to exploit specifications, so we
-    adopt the style that precondition only contain the description
-    of heap-allocated data structures. *)
-
 (** Let us formally prove that the two presentations are equivalent. *)
 
 (* EX1! (triple_div_from_triple_div') *)
-(** Prove [triple_div] by exploiting [triple_div']. *)
+(** Prove [triple_div] by exploiting [triple_div'].
+    Hint: the key proof step is [applys triple_conseq] *)
 
 Lemma triple_div_from_triple_div' : forall n1 n2,
   n2 <> 0 ->
@@ -948,15 +965,19 @@ Lemma triple_div_from_triple_div' : forall n1 n2,
     (fun r => \[r = val_int (Z.quot n1 n2)]).
 Proof using. (* ADMITTED *)
   introv M. applys triple_conseq.
-  { applys triple_div. applys M. }
-  { xsimpl. }
+  { applys triple_div'. }
+  { xsimpl. auto. }
   { xsimpl. auto. }
 Qed. (* /ADMITTED *)
 
 (** [] *)
 
 (* EX2! (triple_div'_from_triple_div) *)
-(** Prove [triple_div'] by exploiting [triple_div]. *)
+(** Prove [triple_div'] by exploiting [triple_div].
+    Hint: the first key proof step is [applys triple_hpure].
+    Yet some preliminary rewriting is required for this
+    tactic to apply.
+    Hint: the second key proof step is [applys triple_conseq]. *)
 
 Lemma triple_div'_from_triple_div : forall n1 n2,
   triple (val_div n1 n2)
@@ -973,6 +994,11 @@ Proof using. (* ADMITTED *)
 Qed. (* /ADMITTED *)
 
 (** [] *)
+
+(** As we said, placing pure preconditions outside of the triples
+    makes it slightly more convient to exploit specifications.
+    For this reason, we adopt the style that precondition only
+    contain the description of heap-allocated data structures. *)
 
 End DivSpec.
 
@@ -992,7 +1018,7 @@ Parameter triple_let : forall x t1 t2 H Q Q1,
 (** At first sight, it seems that, to reason about [let x = t1 in t2]
     in a state described by precondition [H], we need to first reason
     about [t1] in that same state. Yet, [t1] may well require only a
-    subset of that state to evaluate.
+    subset of the state [H] to evaluate, and not all of [H].
 
     The "let-frame" rule combines the rule for let-bindings with the
     frame rule to make it more explicit that the precondition [H]
@@ -1000,7 +1026,8 @@ Parameter triple_let : forall x t1 t2 H Q Q1,
     needed by [t1], and [H2] denotes the rest of the state. The part
     of the state covered by [H2] remains unmodified during the evaluation
     of [t1], and appears as part of the precondition of [t2].
-    The formal statement follows. *)
+
+    The corresponding statement is as follows. *)
 
 Lemma triple_let_frame : forall x t1 t2 H H1 H2 Q Q1,
   triple t1 H1 Q1 ->
@@ -1032,26 +1059,33 @@ Module Proofs.
 
 (** The proofs for the Separation Logic reasoning rules all follow
     a similar pattern: first establish a corresponding rule for
-    Hoare triples, then generalize it to a Separation Logic triple,
-    following the definition:
-[[
-      Definition triple t H Q :=
-       forall H', hoare t (H \* H') (Q \*+ H').
-]]
+    Hoare triples, then generalize it to a Separation Logic triple.
+
     To establish a reasoning rule w.r.t. a Hoare triple, we reveal
     the definition expressed in terms of the big-step semantics.
+
 [[
       Definition hoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
         forall s, H s ->
         exists s' v, eval s t s' v /\ Q v s'.
 ]]
+
     Concretely, we consider a given initial state [s] satisfying the
     precondition, and we have to provide witnesses for the output
     value [v] and output state [s'] such that the reduction holds and
     the postcondition holds.
 
+    Then, to lift the reasoning rule from Hoare logic to Separation
+    Logic, we reveal the definition of a Separation Logic triple.
+
+[[
+      Definition triple t H Q :=
+       forall H', hoare t (H \* H') (Q \*+ H').
+]]
+
     Recall that we already employed this two-step scheme in the
-    previous chapter, e.g. to establish [rule_conseq]. *)
+    previous chapter, e.g., to establish the consequence rule
+    ([rule_conseq]). *)
 
 
 (* ################################################ *)
@@ -1094,23 +1128,6 @@ Proof using.
   xchange M.
 Qed.
 
-(** Remark: in the proof of [hoare_val], the witnesses [h] and [v] are
-    contrained by the rule [eval_val]. It is thus not needed to provide
-    them explicitly: we can let Coq inference figure them out. *)
-
-Lemma hoare_val' : forall v H Q,
-  H ==> Q v ->
-  hoare (trm_val v) H Q.
-Proof using.
-  introv M. intros h Hh. exists __ __. split.
-  { applys eval_val. }
-  { applys* M. }
-Qed.
-
-(** Nevertheless, considering that these witnesses are just single-letter
-    variables, to improve readability of proofs in this chapter, we will
-    thereafter provide the witnesses explicitly. *)
-
 
 (* ################################################ *)
 (** *** Proof of [triple_seq] *)
@@ -1122,14 +1139,17 @@ Parameter eval_seq : forall s1 s2 s3 t1 t2 v1 v,
   eval s2 t2 s3 v ->
   eval s1 (trm_seq t1 t2) s3 v.
 
-(** The Hoare triple version of the reasoning rule is proved as follows. *)
+(** The Hoare triple version of the reasoning rule is proved as follows.
+    This lemma, called [hoare_seq], has the same statement as [triple_seq],
+    except with occurences of [triple] replaced with [hoare]. *)
 
 Lemma hoare_seq : forall t1 t2 H Q H1,
   hoare t1 H (fun v => H1) ->
   hoare t2 H1 Q ->
   hoare (trm_seq t1 t2) H Q.
 Proof using.
-  (* 1. We unfold the definition of [hoare]. Let [K0] describe the initial state. *)
+  (* 1. We unfold the definition of [hoare].
+  Let [K0] describe the initial state. *)
   introv M1 M2. intros s K0. (* optional: *) unfolds hoare.
   (* 2. We exploit the first hypothesis to obtain information about
         the evaluation of the first subterm [t1].
@@ -1147,7 +1167,7 @@ Proof using.
   { (* 5. We invoke the big-step rule. *)
     applys eval_seq R1 R2. }
   { (* 6. We establish the final postcondition, which is directly
-       inherited from the reasoning on [t2]. *)
+          inherited from the reasoning on [t2]. *)
     apply K2. }
 Qed.
 
@@ -1160,10 +1180,11 @@ Lemma triple_seq : forall t1 t2 H Q H1,
 Proof using.
   (* 1. We unfold the definition of [triple] to reveal a [hoare] judgment. *)
   introv M1 M2. intros H'. (* optional: *) unfolds triple.
-  (* 2. We invoke the reasoning rule [hoare_seq] that we have just established. *)
+  (* 2. We invoke the reasoning rule [hoare_seq] that we have just
+        established. *)
   applys hoare_seq.
   { (* 3. For the hypothesis on the first subterm [t1],
-       we can invoke directly our first hypothesis. *)
+          we can invoke directly our first hypothesis. *)
     applys M1. }
   { applys M2. }
 Qed.
@@ -1181,8 +1202,10 @@ Parameter eval_let : forall s1 s2 s3 x t1 t2 v1 v,
 
 (* EX2! (triple_let) *)
 (** Following the same proof scheme as for [triple_seq], establish
-    the reasoning rule for [triple_let]. Make sure to first state
-    and prove [hoare_let]. *)
+    the reasoning rule for [triple_let], whose statement appears
+    earlier in this file. Make sure to first state and prove the
+    lemma [hoare_let], which has the same statement as [triple_let]
+    yet with occurences of [triple] replaced with [hoare]. *)
 
 (* SOLUTION *)
 Lemma hoare_let : forall x t1 t2 H Q Q1,
@@ -1242,7 +1265,7 @@ Proof using.
     { applys K0. } }
 Qed.
 
-(** Deriving [triple_add] is straightforward. *)
+(** Deriving [triple_add] is then straightforward. *)
 
 Lemma triple_add : forall n1 n2,
   triple (val_add n1 n2)
@@ -1266,7 +1289,8 @@ Parameter eval_div' : forall s n1 n2,
 (* EX2? (triple_div) *)
 (** Following the same proof scheme as for [triple_add], establish
     the reasoning rule for [triple_div]. Make sure to first state
-    and prove [hoare_div]. *)
+    and prove [hoare_div], which is like [triple_div] except with
+    [hoare] instead of [triple]. *)
 
 (* SOLUTION *)
 Lemma hoare_div : forall H n1 n2,
@@ -1313,15 +1337,16 @@ Qed.
 
     The introduction of these disjoint union operations then
     significantly eases the justification of the separating
-    conjunctions that appear in the targeted Separation Logic triples. *)
+    conjunctions that appear in the targeted Separation Logic
+    triples. *)
 
 
 (* ################################################ *)
 (** *** Read in a reference *)
 
 (** The big-step rule for [get l] requires that [l] be in the
-    domain of the current state [s], and returns the result of
-    reading in [s] at location [l]. *)
+    domain of the current state [s], and assers that the output
+    value is the result of reading in [s] at location [l]. *)
 
 Parameter eval_get : forall s l,
   Fmap.indom s l ->
@@ -1338,7 +1363,8 @@ Lemma eval_get_sep : forall s s2 l v,
   eval s (val_get (val_loc l)) s v.
 
 (** The proof of this lemma is of little interest. We show it only to
-   demonstrate that it relies only a basic facts related to finite maps. *)
+    demonstrate that it relies only a few basic facts related to finite
+    maps. *)
 
 Proof using.
   introv ->. forwards Dv: Fmap.indom_single l v.
@@ -1347,37 +1373,30 @@ Proof using.
   { rewrite* Fmap.read_union_l. rewrite* Fmap.read_single. }
 Qed.
 
-(** Remark: the acute reader may have noticed that the lemma above
-    seems to be missing an hypothesis [Fmap.disjoint (Fmap.single l v) s2],
-    or, equivalently, [~ Fmap.indom s2 l]. But in fact, the lemma
-    holds without this assumption. Indeed, the read in [Fmap.union s1 s2]
-    at a location [l] from the domain of [s1] provides the result of
-    reading at [l] in [s1], regardless of whether [s2] rebinds or not
-    the same key [l]. *)
-
-(** Remark: while the formulation of [eval_get] performs a read in a map
-    and requires the type of values to be inhabited to justify this operation,
-    the formulation of [eval_get_sep] does not require the proof of inhabitance. *)
-
 (** Our goal is to establish the triple:
+
 [[
-  triple (val_get l)
-    (l ~~~> v)
-    (fun r => \[r = v] \* (l ~~~> v)).
+    triple (val_get l)
+      (l ~~~> v)
+      (fun r => \[r = v] \* (l ~~~> v)).
 ]]
-    Establishing this lemma will requires us to reason about
-    propositions of the form [(\[P] \* H) h] and [(l ~~~> v) h].
-    To that end, recall from the first chapter the following two
-    lemmas. *)
+
+    Establishing this lemma requires us to reason about propositions
+    of the form [(\[P] \* H) h] and [(l ~~~> v) h]. To that end,
+    recall from the first chapter the following two lemmas.
+    The first one was already used in the proof of [triple_add].
+    The second one in the inversion lemma for the singleton heap
+    predicate. *)
+
+Parameter hstar_hpure_iff' : forall P H h,
+  (\[P] \* H) h <-> (P /\ H h).
 
 Parameter hsingle_inv: forall l v h,
   (l ~~~> v) h ->
   h = Fmap.single l v.
 
-Parameter hstar_hpure_iff' : forall P H h,
-  (\[P] \* H) h <-> (P /\ H h).
-
-(** First, we establish the desired result on the [hoare] judgment. *)
+(** We establish the specification of [get] first w.r.t. to
+    the [hoare] judgment. *)
 
 Lemma hoare_get : forall H v l,
   hoare (val_get l)
@@ -1394,11 +1413,11 @@ Proof using.
           [Fmap.single l v] and the rest of the state [s2]. This is
           obtained by eliminating the star in hypothesis [K0]. *)
     destruct K0 as (s1&s2&P1&P2&D&U).
-    (*    and subsequently inverting [(l ~~~> v) h1]. *)
+    (* 4. Inverting [(l ~~~> v) h1] simplifies the goal. *)
     lets E1: hsingle_inv P1. subst s1.
-    (* 4. At this point, the goal matches exactly [eval_get_sep]. *)
+    (* 5. At this point, the goal matches exactly [eval_get_sep]. *)
     applys eval_get_sep U. }
-  { (* 5. To establish the postcondition, we reuse justify the
+  { (* 6. To establish the postcondition, we reuse justify the
           pure fact \[v = v], and check that the state, which
           has not changed, satisfy the same heap predicate as
           in the precondition. *)
@@ -1459,9 +1478,12 @@ Qed.
 Parameter exists_not_indom : forall s,
    exists l, ~ Fmap.indom s l.
 
-(** For invokation in relation to rule [eval_ref_sep], we actually
-    will exploit the following corollary, which asserts, for any [h],
-    the existence of a location [l] such that the singleton heap
+(** We reformulate the lemma above in a way that better matches
+    the premise of the lemma [eval_ref_sep], which we need to apply
+    for establishing the specification of [ref].
+
+    This reformulation, shown below, asserts that, for any [h],
+    there existence a location [l] such that the singleton heap
     [Fmap.single l v] is disjoint from [h]. *)
 
 Lemma single_fresh : forall h v,
@@ -1490,8 +1512,8 @@ Proof using.
   { (* 4. We exploit [eval_ref_sep], which has exactly the desired shape! *)
     applys eval_ref_sep D. auto. }
   { (* 5. We establish the postcondition
-       [(\exists l, \[r = val_loc l] \* l ~~~> v) \* H]
-       by providing [p] and the relevant pieces of heap. *)
+          [(\exists l, \[r = val_loc l] \* l ~~~> v) \* H]
+          by providing [p] and the relevant pieces of heap. *)
     applys hstar_intro.
     { exists l. rewrite hstar_hpure.
       split. { auto. } { applys hsingle_intro. } }
@@ -1526,14 +1548,17 @@ End Proofs.
 (** When discussing the reasoning rule for values, we mention
     that the rule could be expressed with an empty precondition,
     as shown next:
+
 [[
      ----------------------------
       {\[]} v {fun r => \[r = v]}
 ]]
+
     Let us prove that this rule is equivalent to [triple_val]. *)
 
 (* EX1! (triple_val_minimal) *)
-(** Prove the alternative rule for values derivable from [triple_val]. *)
+(** Prove that the alternative rule for values derivable from
+    [triple_val]. Hint: use the tactic [xsimpl] to conclude the proof. *)
 
 Lemma triple_val_minimal : forall v,
   triple (trm_val v) \[] (fun r => \[r = v]).
@@ -1545,7 +1570,8 @@ Qed. (* /ADMITTED *)
 
 (* EX2! (triple_val_minimal) *)
 (** More interestingly, prove that [triple_val] is derivable
-    from [triple_val_minimal]. *)
+    from [triple_val_minimal]. Hint: you will need to exploit
+    the appropriate structural rule(s). *)
 
 Lemma triple_val' : forall v H Q,
   H ==> Q v ->
@@ -1585,9 +1611,9 @@ Parameter triple_app_fix : forall v1 v2 f x t1 H Q,
 
 
 (* ########################################################### *)
-(** *** Proof of other term rules *)
+(** *** Other proofs of reasoning rules for terms *)
 
-Module Proofs2.
+Module ProofsContinued.
 
 (* ################################################ *)
 (** *** Proof of [triple_fun] and [triple_fix] *)
@@ -1600,12 +1626,17 @@ Module Proofs2.
 (* ################################################ *)
 (** *** Proof of [triple_if] *)
 
-(** The treatment of conditional can be handled in a similar way. *)
+(** Recall the reasoning rule for conditionals. Recall that this
+    rule is stated by factorizing the premises. *)
 
-Parameter eval_if_bool : forall s1 s2 b v t1 t2,
-  (b = true -> eval s1 t1 s2 v) ->
-  (b = false -> eval s1 t2 s2 v) ->
+Lemma eval_if_case : forall s1 s2 b v t1 t2,
+  eval s1 (if b then t1 else t2) s2 v ->
   eval s1 (trm_if b t1 t2) s2 v.
+Proof using.
+  intros. case_if; applys eval_if_case; auto_false.
+Qed.
+
+(** The reasoning rule for conditional w.r.t. Hoare triples is as follows. *)
 
 Lemma hoare_if : forall b t1 t2 H Q,
   (b = true -> hoare t1 H Q) ->
@@ -1619,7 +1650,9 @@ Proof using.
     exists s1' v1. split*. { applys* eval_if_case. } }
 Qed.
 
-Lemma triple_if' : forall b t1 t2 H Q,
+(** The corresponding Separation Logic reasoning rule is as follows. *)
+
+Lemma triple_if : forall b t1 t2 H Q,
   (b = true -> triple t1 H Q) ->
   (b = false -> triple t2 H Q) ->
   triple (trm_if (val_bool b) t1 t2) H Q.
@@ -1631,22 +1664,11 @@ Proof using.
 Qed.
 
 (** Observe that the above proofs contain a fair amount of duplication,
-    due to the symmetry between the [b=true] and [b=false] branches.
-    One way to conveniently factorize the proof arguments is to employ
-    Coq's conditional to express the semantics of a term conditional.
+    due to the symmetry between the [b = true] and [b = false] branches.
 
-    First, we establish a corollary to [eval_if], expressed using a
-    single premise. *)
-
-Lemma eval_if_case : forall s1 s2 b v t1 t2,
-  eval s1 (if b then t1 else t2) s2 v ->
-  eval s1 (trm_if b t1 t2) s2 v.
-Proof using.
-  intros. case_if; applys eval_if_bool; auto_false.
-Qed.
-
-(** Then, we are able to establish the Hoare triple and the Separation
-    Logic triple with much less effort. *)
+    If we state the reasoning rules using Coq's conditional just like
+    it appears in the evaluation rule [eval_if_case], we can better
+    factorize the proof script. *)
 
 Lemma hoare_if_case : forall (b:bool) t1 t2 H Q,
   hoare (if b then t1 else t2) H Q ->
@@ -1682,6 +1704,7 @@ Parameter eval_app_fun : forall s1 s2 v1 v2 x t1 v,
   eval s1 (trm_app v1 v2) s2 v.
 
 (* EX2? (hoare_app_fun) *)
+(** Prove the lemma [hoare_app_fun]. *)
 
 Lemma hoare_app_fun : forall v1 v2 x t1 H Q,
   v1 = val_fun x t1 ->
@@ -1695,6 +1718,7 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 (* EX2? (triple_app_fun) *)
+(** Prove the lemma [triple_app_fun]. *)
 
 Lemma triple_app_fun : forall x v1 v2 t1 H Q,
   v1 = val_fun x t1 ->
@@ -1720,9 +1744,9 @@ Parameter eval_set : forall m l v,
    eval m (val_set (val_loc l) v) (Fmap.update m l v) val_unit.
 
 (** As for [get], we first reformulate this lemma, to replace
-   references to [Fmap.indom] and [Fmap.update] with references
-   to [Fmap.union], [Fmap.single], and [Fmap.disjoint], to
-   prepare for the introduction of separating conjuntions. *)
+    references to [Fmap.indom] and [Fmap.update] with references
+    to [Fmap.union], [Fmap.single], and [Fmap.disjoint], to
+    prepare for the introduction of separating conjuntions. *)
 
 Lemma eval_set_sep : forall s1 s2 h2 l v1 v2,
   s1 = Fmap.union (Fmap.single l v1) h2 ->
@@ -1741,14 +1765,16 @@ Qed.
 (** The proof of the Hoare rule for [set] makes use of the following
     fact (from [Fmap.v]) about [Fmap.disjoint]: when one of its argument is
     a singleton map, the value stored in that singleton map is irrelevant.
+
 [[
     Check Fmap.disjoint_single_set : forall l v1 v2 h2,
       Fmap.disjoint (Fmap.single l v1) h2 ->
       Fmap.disjoint (Fmap.single l v2) h2.
 ]]
+
 *)
 
-(** We willmake use of three lemmas, all introduced in the first chapter:
+(** We will make use of three lemmas, all introduced in the first chapter:
 
     - the lemma [hstar_hpure_iff], already used earlier in this chapter
       to reformulate [(\[P] \* H) h] as [P /\ H h],
@@ -1802,9 +1828,10 @@ Qed.
 (* ################################################ *)
 (** *** Deallocation of a reference *)
 
-(** Last, we consider the reasoning rule for operation [free].
-    We leave this one as exercise.
-    This section may be safely skipped. *)
+(** Optional contents: this section may be safely skipped.
+
+    Last, we consider the reasoning rule for operation [free].
+    We leave this one as exercise. *)
 
 (** Recall the big-step evaluation rule for [free l]. *)
 
@@ -1858,7 +1885,7 @@ Qed. (* /ADMITTED *)
 
 (** [] *)
 
-End Proofs2.
+End ProofsContinued.
 
 
 (* ########################################################### *)
@@ -1907,9 +1934,11 @@ End ProofsFactorization.
 (* ########################################################### *)
 (** *** Triple for terms with same semantics *)
 
-(** The proofs above can in fact be obtained by invoking a general
-    result: if [t2] has the same semantics as [t1], then any triple
-    valid for [t1] is also valid for [t2]. *)
+Module ProofsSameSemantics.
+
+(** A general principle is that if [t1] has the same semantics
+    as [t2] (w.r.t. the big-step evaluation judgment [eval]),
+    then any triple valid for [t1] is also valid for [t2]. *)
 
 Lemma hoare_same_semantics : forall t1 t2 H Q,
   (forall s s' v, eval s t1 s' v -> eval s t2 s' v) ->
@@ -1928,10 +1957,10 @@ Proof using.
   introv E M1. intros H'. applys hoare_same_semantics E. applys M1.
 Qed.
 
-(** Using this general result, we can revisit the proof of
+(** Using this general result, we can revisit, e.g., the proof of
     [triple_app_fun] in a much more succint way. *)
 
-Lemma triple_app_fun' : forall x v1 v2 t1 H Q,
+Lemma triple_app_fun : forall x v1 v2 t1 H Q,
   v1 = val_fun x t1 ->
   triple (subst x v2 t1) H Q ->
   triple (trm_app v1 v2) H Q.
@@ -1940,15 +1969,20 @@ Proof using.
   introv R. applys eval_app_fun E R.
 Qed.
 
+End ProofsSameSemantics.
+
 
 (* ########################################################### *)
 (** *** Rules for naming heaps *)
 
 (* EX1? (hoare_named_heap) *)
-(** Prove that to establish a [hoare t H Q], it is sufficient
-    to establish [hoare t (=h) Q] for any heap [h] satisfying [H].
-    (This reformulation can be useful when one needs to gets his
-    hand on a concrete heap [h].) *)
+(** Prove that the proposition [hoare t H Q] is equivalent to:
+    "for any heap [h] satisfying the precondition [H], the Hoare
+    triple whose precondition requires the input heap to be exactly
+    equal to [h], and whose postcondiiion is [Q] holds".
+
+    Thereafter, we write [= h] for [fun h' => h' = h], that is,
+    the heap predicate that only accepts heaps exactly equal to [h]. *)
 
 Lemma hoare_named_heap : forall t H Q,
   (forall h, H h -> hoare t (= h) Q) ->
@@ -1963,11 +1997,12 @@ Qed. (* /ADMITTED *)
 (** Prove the counterpart of [hoare_named_heap] for Separation
     Logic triples.
 
-    Hint: unfold the definition of [triple], exploit [hstar_inv]
-    and [hstar_intro] to reason about the separating conjunction
-    that appears, and use [hoare_named_heap] and [hoare_conseq]
-    to structure the proof. It is not needed to unfold the
-    definition of [hoare]. *)
+    Hint: you should exploit the lemma [hoare_named_heap], and
+    never unfold the definition of the judgment [hoare]
+
+    Hint: unfold the definition of [triple], exploit [hoare_named_heap],
+    then conclude with help of [hoare_conseq] and by exploiting
+    basic properties of the Separation Logic operators. *)
 
 Lemma triple_named_heap : forall t H Q,
   (forall h, H h -> triple t (= h) Q) ->
@@ -1991,13 +2026,15 @@ Qed. (* /ADMITTED *)
 
 Module MatchStyle.
 
+(** Recall the specification for the function [ref]. *)
+
 Parameter triple_ref : forall v,
   triple (val_ref v)
     \[]
     (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
 
-(** Remark: the postcondition could be equivalently stated using
-    a pattern matching instead of an existential. *)
+(** Its postcondition could be equivalently stated by using, instead
+    of an existential quantifier [\exists], a pattern matching. *)
 
 Parameter triple_ref' : forall v,
   triple (val_ref v)
@@ -2007,7 +2044,8 @@ Parameter triple_ref' : forall v,
               | _ => \[False]
               end).
 
-(** However, this presentation is less readable and would be
-    fairly cumbersome to work with in practice. *)
+(** However, the pattern-matching presentation is less readable and
+    would be fairly cumbersome to work with in practice. Thus, we
+    systematically prefer using existentials. *)
 
 End MatchStyle.

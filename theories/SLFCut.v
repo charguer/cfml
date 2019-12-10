@@ -1914,3 +1914,48 @@ Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
   | trm_let x t1 t2 => trm_let x (aux t1) (if_y_eq x t2 (aux t2))
   | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
   end.
+
+
+
+(** Remark: the rule [triple_app_fun'] reformulates [triple_app_fun]
+    by substituting [v1] away. Although it generalizes less well to
+    the case of recursive function, this statement is slightly more
+    practical for proofs. *)
+
+Parameter triple_app_fun' : forall x v1 v2 t1 H Q,
+  triple (subst x v2 t1) H Q ->
+  triple (trm_app (val_fun x t1) v2) H Q.
+
+
+
+(** Remark: in the proof of [hoare_val], the witnesses [h] and [v] are
+    contrained by the rule [eval_val]. It is thus not needed to provide
+    them explicitly: we can let Coq inference figure them out. *)
+
+Lemma hoare_val' : forall v H Q,
+  H ==> Q v ->
+  hoare (trm_val v) H Q.
+Proof using.
+  introv M. intros h Hh. exists __ __. split.
+  { applys eval_val. }
+  { applys* M. }
+Qed.
+
+(** Nevertheless, considering that these witnesses are just single-letter
+    variables, to improve readability of proofs in this chapter, we will
+    thereafter provide the witnesses explicitly. *)
+
+
+
+(** eval_get_sep =>
+    Remark: the acute reader may have noticed that the lemma above
+    seems to be missing an hypothesis [Fmap.disjoint (Fmap.single l v) s2],
+    or, equivalently, [~ Fmap.indom s2 l]. But in fact, the lemma
+    holds without this assumption. Indeed, the read in [Fmap.union s1 s2]
+    at a location [l] from the domain of [s1] provides the result of
+    reading at [l] in [s1], regardless of whether [s2] rebinds or not
+    the same key [l]. *)
+
+(** Remark: whereas the formulation of [eval_get] performs a read in a map
+    and requires the type of values to be inhabited to justify this operation,
+    the formulation of [eval_get_sep] does not require the proof of inhabitance. *)

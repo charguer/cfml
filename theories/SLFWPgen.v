@@ -1422,12 +1422,12 @@ Proof using.
   xsimpl. auto.
 Qed.
 
-(* EX2! (triple_mysucc_with_xlemmas) *)
-(** Using x-lemmas, verify the proof of [triple_mysucc].
+(* EX2! (triple_succ_using_incr_with_xlemmas) *)
+(** Using x-lemmas, verify the proof of [triple_succ_using_incr].
     (The proof was carried out using triples in chapter [SLFRules].) *)
 
-Lemma triple_mysucc_with_xlemmas : forall (n:int),
-  triple (trm_app mysucc n)
+Lemma triple_succ_using_incr_with_xlemmas : forall (n:int),
+  triple (trm_app succ_using_incr n)
     \[]
     (fun v => \[v = n+1]).
 Proof using. (* ADMITTED *)
@@ -1527,11 +1527,11 @@ Proof using.
   xsimpl. auto.
 Qed.
 
-(* EX2! (triple_mysucc_with_xtactics) *)
-(** Using x-tactics, verify the proof of [mysucc]. *)
+(* EX2! (triple_succ_using_incr_with_xtactics) *)
+(** Using x-tactics, verify the proof of [succ_using_incr]. *)
 
-Lemma triple_mysucc_with_xtactics : forall (n:int),
-  triple (trm_app mysucc n)
+Lemma triple_succ_using_incr_with_xtactics : forall (n:int),
+  triple (trm_app succ_using_incr n)
     \[]
     (fun v => \[v = n+1]).
 Proof using. (* ADMITTED *)
@@ -1612,16 +1612,16 @@ Proof using.
 
 
 (** In order to enable automatically exploiting the specification
-    of [triple] in the verification of [mysucc], which includes a
+    of [triple] in the verification of [succ_using_incr], which includes a
     function call to [triple], we add it to the hint database. *)
 
 Hint Resolve triple_incr : triple.
 
-(* EX2! (triple_mysucc_with_xapps) *)
-(** Using the improved x-tactics, verify the proof of [mysucc]. *)
+(* EX2! (triple_succ_using_incr_with_xapps) *)
+(** Using the improved x-tactics, verify the proof of [succ_using_incr]. *)
 
-Lemma triple_mysucc_with_xapps : forall (n:int),
-  triple (trm_app mysucc n)
+Lemma triple_succ_using_incr_with_xapps : forall (n:int),
+  triple (trm_app succ_using_incr n)
     \[]
     (fun v => \[v = n+1]).
 Proof using. (* ADMITTED *)
