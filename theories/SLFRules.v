@@ -848,7 +848,7 @@ Qed.
 
 
 (* ################################################ *)
-(** *** Proof of [mysucc] *)
+(** *** Proof of [succ_using_incr] *)
 
 (** Recall from [SLFBasic] the function [succ_using_incr].
 
@@ -873,13 +873,13 @@ Definition succ_using_incr : val :=
 
 (** Recall the specification of [succ_using_incr]. *)
 
-Lemma triple_mysucc : forall (n:int),
+Lemma triple_succ_using_incr : forall (n:int),
   triple (trm_app succ_using_incr n)
     \[]
     (fun v => \[v = val_int (n+1)]).
 
-(* EX3! (triple_incr) *)
-(** Verify the function [triple_mysucc].
+(* EX3! (triple_succ_using_incr) *)
+(** Verify the function [triple_succ_using_incr].
     Hint: follow the pattern of [triple_incr].
     Hint: use [applys triple_seq] for reasoning about a sequence.
     Hint: use [applys triple_val] for reasoning about the final
@@ -908,7 +908,7 @@ Proof using. (* ADMITTED *)
     { xsimpl. } }
   applys triple_val.
   xsimpl. auto.
-Qed. (* ADMITTED *)
+Qed. (* /ADMITTED *)
 
 (** [] *)
 
