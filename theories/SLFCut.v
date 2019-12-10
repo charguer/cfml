@@ -1959,3 +1959,7 @@ Qed.
 (** Remark: whereas the formulation of [eval_get] performs a read in a map
     and requires the type of values to be inhabited to justify this operation,
     the formulation of [eval_get_sep] does not require the proof of inhabitance. *)
+
+
+(** These properties are shared by many variants of Separation Logic.
+and many generic results can be derived from these facts alone. *)

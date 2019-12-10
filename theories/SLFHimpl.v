@@ -27,19 +27,19 @@ Implicit Types Q : val->hprop.
 (** In the previous chapter, we have introduced the key heap predicate
     operators, and we have defined the notion of Separation Logic triple.
 
-    In order to be able to state and prove reasoning rules for establishing
-    triples, we first need to introduce the "entailement relation",
-    written [H1 ==> H2], and asserting that any heap satisfying [H1] also
+    Before we can state and prove reasoning rules for establishing triples,
+    we need to introduce the "entailement relation". This relation,
+    written [H1 ==> H2], asserts that any heap that satisfies [H1] also
     satisfies [H2].
 
-    This entailement relation defines an order relation on heap predicates.
-
-    By extension, we define an entailement relation on postconditions,
-    written [Q1 ===> Q2], asserting that, for any result value [v],
+    We also need to extend the entailement relation to postconditions.
+    We write [Q1 ===> Q2] to asserts that, for any result value [v],
     the entailement [Q1 v ==> Q2 v] holds.
 
-    For example, the two kind of entailments appear in the statement of
-    the rule of consequence, similar to that from Hoare logic:
+    The two entailment relations appear in the statement of the rule of
+    consequence, which admits the same statement in Separation Logic
+    as in Hoare logic. It asserts that precondition can be strengthened
+    and postcondition can be weakened in a specification triple.
 
 [[
     Lemma triple_conseq : forall t H Q H' Q',
@@ -50,10 +50,10 @@ Implicit Types Q : val->hprop.
 ]]
 
    This chapter presents:
-   - the definition of the entailment relations,
-   - the fundamental properties of the Separation Logic operators
-     (these properties are expressed either as entailments or as
-     equalities, which denote symmetric entailments),
+   - the formal definition of the entailment relations,
+   - the fundamental properties of the Separation Logic operators:
+     these properties are expressed either as entailments, or as
+     equalities, which denote symmetric entailments,
    - the 4 structural rules of Separation Logic: the rule of consequence,
      the frame rule (which can be combined with the rule of consequence),
      and the extractions rules for pure facts and for quantifiers,
@@ -69,7 +69,8 @@ Implicit Types Q : val->hprop.
 (** ** Definition of entailment *)
 
 (** The "entailement relationship" [H1 ==> H2] asserts that any
-    heap satisfying [H1] also satisfies [H2]. *)
+    heap [h] that satisfies the heap predicate [H1] also satisfies
+    the heap predicate [H2]. *)
 
 Definition himpl (H1 H2:hprop) : Prop :=
   forall (h:heap), H1 h -> H2 h.
@@ -113,37 +114,36 @@ Qed. (* /ADMITTED *)
 
 (** For example, [himpl_antisym] can be used to establish
     commutativity of separating conjunction: [(H1 \* H2) = (H2 \* H1)]
-    by proving that each side entails the other:
+    by proving that each side entails the other side, that is, by proving
     [(H1 \* H2) ==> (H2 \* H1)] and [(H2 \* H1) ==> (H1 \* H2)].
     Such a proof appears further on. *)
 
-(** Remark: as the proofs suggest, the fact that entailment on [hprop] constitute an
-    order relation is a direct consequence of the fact that implication on [Prop],
-    (that is, [->]) is an order relation on [Prop] (when assuming the propositional
-    extensionality axiom). *)
+(** Remark: as the proof scripts show, the fact that entailment on [hprop]
+    constitute an order relation is a direct consequence of the fact that
+    implication on [Prop], that is, [->], is an order relation on [Prop]
+    (when assuming the propositional extensionality axiom). *)
 
 
 (* ########################################################### *)
 (** ** Entailment for postconditions *)
 
 (** The entailment [==>] relates heap predicates. It is used to capture
-    that a precondition is stronger than another one (i.e., that a
-    precondition entails another one). It is similarly interesting to
-    express that a postcondition is stronger than another one.
+    that a precondition "entails" another one. We need a similar
+    judgment to assert that a postcondition "entails" another one.
 
     For that purpose, we introduce [Q1 ===> Q2], which asserts that
-    for any value [v], the heap predicate [Q1 v] entails [Q2 v].
-
-    Equivalently, [Q1 ===> Q2] holds if for any value [v] and any heap [h],
-    the proposition [Q1 v h] implies [Q2 v h]. *)
+    for any value [v], the heap predicate [Q1 v] entails [Q2 v]. *)
 
 Definition qimpl (Q1 Q2:val->hprop) : Prop :=
   forall (v:val), Q1 v ==> Q2 v.
 
 Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55).
 
-(** Entailment on postconditions also forms an order relation: it is reflexive,
-    transitive, and antisymetric. *)
+(** Remark: equivalently, [Q1 ===> Q2] holds if for any value [v] and
+    any heap [h], the proposition [Q1 v h] implies [Q2 v h]. *)
+
+(** Entailment on postconditions also forms an order relation:
+    it is reflexive, transitive, and antisymmetric. *)
 
 Lemma qimpl_refl : forall Q,
   Q ===> Q.
@@ -168,8 +168,8 @@ Qed.
 (* ########################################################### *)
 (** ** Fundamental properties of Separation Logic operators *)
 
-(** The fundamental properties of Separation Logic operators are described next.
-    Numerous other useful properties are derivable from just these. *)
+(** The 5 fundamental properties of Separation Logic operators are
+    described next. Many other properties are derivable from those. *)
 
 (** (1) The star operator is associative. *)
 
@@ -195,32 +195,37 @@ Parameter hstar_hempty_l : forall H,
       when [x] does not occur in [H2].
 
     To formalize this equality, we first rewrite it using [hexists]
-    instead of the notation [\exists]. We get:
-      [(hexists (fun x => J x)) \* H  =  hexists (fun x => (J x \* H))].
-    We then recall that [fun x => (J x \* H)] can be written simply as [J \*+ H].
-    These observations lead us to the following statement. *)
+    instead of the notation [\exists], in the form:
+    [(hexists (fun x => J x)) \* H  =  hexists (fun x => (J x \* H))].
+    The predicate [fun x => (J x \* H)] may then be written simply
+    as [J \*+ H].
+
+    Thus, the extrusion property can be concisely stated as follows. *)
 
 Parameter hstar_hexists : forall A (J:A->hprop) H,
   (hexists J) \* H = hexists (J \*+ H).
 
-(** (5) Star is "regular" with respect to entailment, in the sense that
-    if we have a goal of the form [(H1 \* H2) ==> (H1' \* H2)], then we
-    may "cancel out" the [H2] that appears on both sides.
+(** (5) The star operator is "monotone" with respect to entailment, meaning
+    that if [H1 ==> H1'] then [(H1 \* H2) ==> (H1' \* H2)].
+
+    Viewed the other way around, if we have to prove the entailment relation
+    [(H1 \* H2) ==> (H1' \* H2)], we can "cancel out" [H2] on both sides.
+    In this view, the monotonicity property is a sort of "frame rule for
+    the entailment relation".
 
     Here again, due to commutativity of star, it only suffices to state
-    the left version of the lemma. *)
+    the left version of the monotonicity property. *)
 
 Parameter himpl_frame_l : forall H2 H1 H1',
   H1 ==> H1' ->
   (H1 \* H2) ==> (H1' \* H2).
 
-(** These properties are shared by essentially all variants of Separation
-    Logic, and many generic results can be derived from these facts alone. *)
-
+(* INSTRUCTORS *)
 (** Remark: in technical vocabulary, the star operator together with the
     empty heap predicate form a "commutative monoid structure", for which
-    moreover the star operator is "regular" with respect to entailment
-    and existentials. *)
+    moreover the star operator is "monotone" with respect to entailment
+    and "distributive" with respect to existentials. *)
+(* /INSTRUCTORS *)
 
 
 (* ########################################################### *)
@@ -228,8 +233,8 @@ Parameter himpl_frame_l : forall H2 H1 H1',
 
 (** A heap predicate of the form [(l ~~~> v1) \* (l ~~~> v2)]
     describes two "disjoint" cells that are both "at location [l]".
-    Such a state cannot exist. The contraction is formally captured by
-    the following entailment: *)
+    Such a state cannot exist. The underlying contraction is formally
+    captured by the following entailment relation. *)
 
 Lemma hstar_hsingle_same_loc : forall (l:loc) (v1 v2:val),
   (l ~~~> v1) \* (l ~~~> v2) ==> \[False].
@@ -257,18 +262,18 @@ Proof using.
   subst. applys Fmap.disjoint_single_single_same_inv D.
 Qed.
 
-(** More generally, a heap predicate of the form [H \* H]
-    is generally suspicious in Separation Logic. In plain
-    Separation Logic, such a predicate can only be satisfied
-    if [H] covers no memory cell, that is, if [H] is a pure
-    predicate of the form [\[P]] for some proposition [P]. *)
+(** More generally, a heap predicate of the form [H \* H] is generally
+    suspicious in Separation Logic. In (the simplest variant of) Separation
+    Logic, such a predicate can only be satisfied if [H] covers no memory
+    cell at all, that is, if [H] is a pure predicate of the form [\[P]]
+    for some proposition [P]. *)
 
 
 (* ########################################################### *)
 (** ** Consequence, frame, and their combination *)
 
-(** The rule of consequence in Separation Logic is similar
-    to that in Hoared logic. *)
+(** The rule of consequence in Separation Logic is similar to that
+    in Hoare logic. *)
 
 Parameter triple_conseq : forall t H Q H' Q',
   triple t H' Q' ->
@@ -282,20 +287,18 @@ Parameter triple_frame : forall t H Q H',
   triple t H Q ->
   triple t (H \* H') (Q \*+ H').
 
-(** Observe that, stated as such, it is very unlikely for the
-    frame rule to be applicable in practice, because the
-    precondition must be exactly of the form [H \* H'] and
-    the postcondition exactly of the form [Q \*+ H'] where [H']
-    denotes the heap predicate to be framed. For example,
-    the frame rule would not apply directly to a conclusion of the
-    form [triple t (H' \* H) (Q \*+ H')]
+(** Observe that, stated as such, it is very unlikely for the frame rule
+    to be applicable in practice, because the precondition must be exactly
+    of the form [H \* H'] and the postcondition exactly of the form
+    [Q \*+ H'], for some [H']. For example, the frame rule would not apply
+    to a proof obligation of the form [triple t (H' \* H) (Q \*+ H')],
+    simply because [H' \* H] does not match [H \* H'].
 
-    This limitation of the frame rule can be addressed by combining
-    the frame rule with the rule of consequence, as follows.
-    Observe that the new statement applies to any triple. It is
-    the user's responsability to explicitly provide either [H1]
-    (the precondition that remains) or [H2] (the part of the
-    precondition being framed). *)
+    This limitation of the frame rule can be addressed by combining the frame
+    rule with the rule of consequence into a single rule, called the
+    "consequence-frame rule". This rule, shown below, enables deriving
+    a triple from another triple, without any restriction on the exact
+    shape of the precondition and postcondition of the two triples involved. *)
 
 Lemma triple_conseq_frame : forall H2 H1 Q1 t H Q,
   triple t H1 Q1 ->
@@ -317,36 +320,67 @@ Qed. (* /ADMITTED *)
 (* ########################################################### *)
 (** ** The extraction rules *)
 
-(** From an entailment [(\[P] \* H) ==> H'], it is useful
-    to extract [P] into the context, and turn the goal into:
-    [P -> (H ==> H')].
+(** Consider an entailment of the form [(\[P] \* H) ==> H'].
+    Is is equivalent to [P -> (H ==> H')].
 
-    Likewise, for a goal [triple t (\[P] \* H) Q], it is
-    useful to extract [P] into the context, and turn the goal into:
-    [P -> triple t H Q].
+    Indeed, the former proposition asserts that if a heap [h] satisfies [H]
+    and that [P] is true, then [h] satisfies [H'], while the latter asserts
+    that if [P] is true, then if a heap [h] satisfies [H] it also
+    satisfies [H'].
 
-    The structural rule called [triple_hpure] captures this
-    extraction of the pure facts. *)
+    The "extraction rule for pure facts in the left of an entailment"
+    captures the property that the pure fact [\[P]] can be extracted into
+    the Coq context. It is stated as follows.
+
+[[
+      Lemma himpl_hstar_hpure_l : forall (P:Prop) (H H':hprop),
+        (P -> H ==> H') ->
+        (\[P] \* H) ==> H'.
+]]
+
+*)
+
+(** Likewise, a judgment of the form [triple t (\[P] \* H) Q] is
+    equivalent to [P -> triple t H Q]. The structural rule called
+    [triple_hpure], shown below, captures this extraction of the
+    pure facts out of the precondition of a triple. *)
 
 Parameter triple_hpure : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
 
-(** From an entailment [(\exists x, (J x) ==> H], it is useful
-    to extract [x] into the context, and turn the goal into:
-    [forall x, (J x ==> H)].
+(** Consider an entailment [(\exists x, (J x) ==> H], where [x]
+    has some type [A] and [J] has type [A->hprop].
+    This entailment is equivalent to [forall x, (J x ==> H)].
 
-    Likewise, for a goal [triple t (\exists x, (J x)) Q], it is
-    useful to extract [x] into the context, and turn the goal into:
-    [forall x, triple t (J x) Q].
+    Indeed the former proposition asserts that if a heap [h]
+    satisfies [J x] for some [x], then [h] satisfies [H'], while
+    the latter asserts that if, for some [x], the predicate [h]
+    satisfies [J x], then [h] satisfies [H'].
 
-    The structural rule called [triple_hexists] captures this
-    extraction of the existential quantifier. *)
+    (Observe how the existential quantifier on the left of the
+    entailment becomes an universal quantifier outside of the arrow.)
+
+    The "extraction rule for existentials in the left of an entailment"
+    captures the property that existentials can be extracted into
+    the Coq context. It is stated as follows.
+
+[[
+    Lemma himpl_hexists_l : forall (A:Type) (H:hprop) (J:A->hprop),
+      (forall x, J x ==> H) ->
+      (\exists x, J x) ==> H.
+]]
+
+*)
+
+(** Likewise, a judgment of the form [triple t (\exists x, J x) Q] is
+    equivalent to [forall x, triple t (J x) Q]. The structural rule
+    called [triple_hexists] captures this extraction of an existential
+    quantifier out of the precondition of a triple. *)
 
 Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, triple t (J x) Q) ->
-  triple t (hexists J) Q.
-
+  triple t (\exists x, J x) Q.
 
 
 (* ########################################################### *)
@@ -1004,7 +1038,8 @@ Proof using.
 Qed.
 
 (** Similarly, the extraction rule for existentials for
-    [triple] can be derived from that for [hoare]. *)
+    [triple] can be derived from that for [hoare].
+    Recall that [hexists J] is equivalent to [\exists x, J x]. *)
 
 (* EX2! (triple_hexists) *)
 (** Prove the extraction rule [triple_hexists].
