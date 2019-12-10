@@ -748,7 +748,7 @@ Parameter triple_hpure : forall t (P:Prop) H Q,
 
 Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall (x:A), triple t (J x) Q) ->
-  triple t (hexists J) Q.
+  triple t (\exists (x:A), J x) Q.
 
 
 (* ########################################################### *)

@@ -1963,3 +1963,13 @@ Qed.
 
 (** These properties are shared by many variants of Separation Logic.
 and many generic results can be derived from these facts alone. *)
+
+        Note that [(\exists (u:unit), p ~~~> u) ==> p ~~~> tt] would be true.
+
+
+
+Lemma hoare_conseq : forall t H Q H' Q',
+  (* variant proof script:
+      intros s Ps. lets Ps': WH Ps.
+      lets M': M Ps'. destruct M' as (v&s'&R&HQ).
+      exists v s'. splits~. applys WQ. auto. *)
