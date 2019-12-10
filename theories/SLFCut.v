@@ -1889,3 +1889,28 @@ From SLF (* TLC *) Require Import LibFix.
       is described in a bonus chapter, namely [SLFLift]. *)
 
 ====================
+
+    Remark: although it is technically possible to encode a sequence as a
+    let-binding with a dummy fresh name, we save ourselves trouble with
+    binder-related issues by including a distinct constructor for sequences. *)
+
+===========
+
+
+    The auxiliary function [if_y_eq], which appears in the definition of
+    [subst] shown below, helps performing the factorizing the relevant
+    checks that prevent variable capture. *)
+
+Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
+  let aux t := subst y w t in
+  let if_y_eq x t1 t2 := if var_eq x y then t1 else t2 in
+  match t with
+  | trm_val v => trm_val v
+  | trm_var x => if_y_eq x (trm_val w) t
+  | trm_fun x t1 => trm_fun x (if_y_eq x t1 (aux t1))
+  | trm_fix f x t1 => trm_fix f x (if_y_eq f t1 (if_y_eq x t1 (aux t1)))
+  | trm_app t1 t2 => trm_app (aux t1) (aux t2)
+  | trm_seq t1 t2 => trm_seq  (aux t1) (aux t2)
+  | trm_let x t1 t2 => trm_let x (aux t1) (if_y_eq x t2 (aux t2))
+  | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
+  end.

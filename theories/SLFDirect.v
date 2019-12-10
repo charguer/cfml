@@ -2038,17 +2038,29 @@ Notation "t1 '+ t2" :=
 
 
 (* ########################################################### *)
+(** ** Scopes, coercions and notations for concrete programs *)
+
+Module SLFProgramSyntax.
+
+Export NotationForVariables.
+Close Scope fmap_scope.
+Open Scope string_scope.
+Open Scope val_scope.
+Open Scope trm_scope.
+Open Scope wp_scope.
+Coercion string_to_var (x:string) : var := x.
+
+End SLFProgramSyntax.
+
+
+(* ########################################################### *)
 (** ** Example proofs *)
 
 Module Demo.
+Import SLFProgramSyntax.
 
 (** We let ['x] be a shortname for [("x":var)], as defined in [Var.v].
     And we use all the notation defined above. *)
-
-Import NotationForVariables.
-Open Scope wp_scope.
-Open Scope val_scope.
-Open Scope trm_scope.
 
 (* ################################################ *)
 (** *** Definition and verification of [incr]. *)

@@ -16,11 +16,11 @@ Set Implicit Arguments.
     to those from [SLFHprop.v] and [SLFHimpl.v], yet with one main difference:
     [SLFDirect] makes the definition of Separation Logic operators opaque.
 
-    Thus, one cannot unfold the definition of [hstar], [hpure], [hsingle] etc.
+    As a result, one cannot unfold the definition of [hstar], [hpure], etc.
     To carry out reasoning, one must use the introduction and elimination
-    lemmas (e.g. [hstar_intro], [hstar_elim]). These lemmas enforce abstraction:
-    they ensure that the proofs do not depend on the particular choice of the
-    definitions used for constructing Separation Logic. *)
+    lemmas (e.g. [hstar_intro], [hstar_elim]). These lemmas enforce
+    abstraction: they ensure that the proofs do not depend on the particular
+    choice of the definitions used for constructing Separation Logic. *)
 
 From Sep Require Export SLFDirect SLFExtra.
 
@@ -29,7 +29,6 @@ From Sep Require Export SLFDirect SLFExtra.
 (* ########################################################### *)
 (* ########################################################### *)
 (** * Chapter in a rush *)
-
 
 (** In the previous chapters, we have:
 
@@ -44,17 +43,17 @@ From Sep Require Export SLFDirect SLFExtra.
     These reasoning rules are proved correct with respect to the
     semantics of the programming language in which the programs
     are expressed. Thus, a necessary preliminary step is to present
-    the syntax and the semantics of a (toy) programming language
+    the syntax and the semantics of a (toy) programming language,
     for which we aim to provide Separation Logic reasoning rules.
 
     The present chapter is thus organized as follows:
 
     - definition of the syntax of the language,
     - definition of the semantics of the language,
-    - statements of the reasoning rules associated
-      with each of the term constructions from the language,
+    - statements of the reasoning rules associated with each of
+      the term constructions from the language,
     - specification of the primitive operations of the language,
-      including those associated with memory operations,
+      in particular those associated with memory operations,
     - review of the 4 structural rules introduced in prior chapters,
     - examples of practical verification proofs.
 
@@ -74,21 +73,22 @@ Module SyntaxAndSemantics.
 (** *** Syntax *)
 
 (** The syntax described next captures the "abstract syntax tree"
-    of a programming language. It follows a presentation that distiguishes
-    between closed values and terms. This presentation is intended to simplify
-    the definition and evaluation of the substitution function: because
-    values are always closed (i.e., no free variables in them), the
-    substitution function never needs to traverse through values.
+    of a programming language. It follows a presentation that
+    distiguishes between closed values and terms. This presentation
+    is intended to simplify the definition and evaluation of the
+    substitution function: because values are always closed (i.e.,
+    no free variables in them), the substitution function never
+    needs to traverse through values.
 
     The grammar for values includes unit, boolean, integers,
     locations, functions, recursive functions, and primitive operations.
     For example, [val_int 3] denotes the integer value [3]. The value
     [val_fun x t] denotes the function [fun x => t], and the value
-    [val_fix f x t] denotes the function [fix f x => t], also written
-    [let rec f x = t in f].
+    [val_fix f x t] denotes the function [fix f x => t], which is
+    written [let rec f x = t in f] in OCaml syntax.
 
-    We here only include a few primitive operations (for conciseness):
-    [ref], [get], [set] and [free] for manipulating the heap,
+    For conciseness, we include just a few primitive operations:
+    [ref], [get], [set] and [free] for manipulating the mutable state,
     the operation [add] to illustrate a simple arithmetic operation,
     and the operation [div] to illustrate a partial operation. *)
 
@@ -108,17 +108,7 @@ Inductive val : Type :=
 
 (** The grammar for terms includes values, variables, function definitions,
     recursive function definitions, function applications, sequences,
-    let-bindings, and conditionals.
-
-    Note that [trm_fun] and [trm_fix] denote functions that may feature free
-    variables, unlike [val_fun] and [val_fix] which denote closed values.
-    The intention is that the evaluation of a [trm_fun] in the empty context
-    produces a [val_fun] value. Likewise, a [trm_fix] eventually evaluates to
-    a [val_fix].
-
-    Remark: although it is technically possible to encode a sequence as a
-    let-binding with a dummy fresh name, we save ourselves trouble with
-    binder-related issues by including a distinct constructor for sequences. *)
+    let-bindings, and conditionals. *)
 
 with trm : Type :=
   | trm_val : val -> trm
@@ -130,15 +120,24 @@ with trm : Type :=
   | trm_let : var -> trm -> trm -> trm
   | trm_if : trm -> trm -> trm -> trm.
 
+(** Note that [trm_fun] and [trm_fix] denote functions that may feature free
+    variables, unlike [val_fun] and [val_fix] which denote closed values.
+    The intention is that the evaluation of a [trm_fun] in the empty context
+    produces a [val_fun] value. Likewise, a [trm_fix] eventually evaluates to
+    a [val_fix]. *)
+
 (** The language we consider is an imperative language, with primitive
     functions for manipulating the state. Thus, the statement of the
     evaluation rules involve a memory state. Recall from chapter [SLFHprop]
-    that a state is described a finite map from location to values. *)
+    that a state is described as a finite map from location to values. *)
 
 Definition state := fmap loc val.
 
-(** For technical reasons, to enable reading in a state, we need
-    to justify that the grammar of values is inhabited. *)
+(** For technical reasons related to the internal representation of finite
+    maps, to enable reading in a state, we need to justify that the grammar
+    of values is inhabited. This property is captured by the following
+    command, whose details are not relevant for understanding the rest of
+    the chapter. *)
 
 Instance Inhab_val : Inhab val.
 Proof using. apply (Inhab_of_val val_unit). Qed.
@@ -147,27 +146,34 @@ Proof using. apply (Inhab_of_val val_unit). Qed.
 (* ################################################ *)
 (** *** Substitution *)
 
-(** To describe the evaluation of functions, the semantics of the language
-    includes beta-reduction rules, which involve the substitution function.
+(** The semantics of the evaluation of function is described by means
+    of a substitution function. The substitution function, written
+    [subst y w t], replaces all occurences of a variable [y] with a
+    value [w] inside a term [t].
 
-    The substitution function, written [subst y w t], replaces all
-    occurences of a variable [y] with a value [w] inside a term [t].
-    Its definition exploits the comparison function [var_eq x y],
-    which produces a boolean indicating whether [x] and [y] denote
-    the same variable.
-
-    The subtitution operation is always the identity function on values,
+    The subtitution function is always the identity function on values,
     because our language only considers closed values. In other words,
     we define [subst y w (trm_val v) = (trm_val v)].
 
-    The substitution operation traverses all other language constructs
-    in a structural manner, taking care of avoiding capture when
-    traversing binders. More precisely, [subst y w t] does not recurse
-    below the scope of binders whose name is equal to [y]. For example,
-    [subst y w (trm_let x t1 t2)] is defined as
+    The substitution function, when reaching a variable, performs a
+    comparison between two variables. To that end, it exploits the
+    the comparison function [var_eq x y], which produces a boolean
+    indicating whether [x] and [y] denote the same variable. *)
+
+(** "Optional contents": the remaining of this section describes further
+    details about the substitution function that may be safely skipped
+    over in first reading. *)
+
+(** The substitution operation traverses all other language constructs
+    in a structural manner. It takes care of avoiding "variable capture"
+    when traversing binders: [subst y w t] does not recurse below the
+    scope of binders whose name is equal to [y]. For example, the result
+    of [subst y w (trm_let x t1 t2)] is defined as
     [trm_let x (subst y w t1) (if var_eq x y then t2 else (subst y w t2))].
-    The auxiliary function [if_y_eq], which appears below, helps performing
-    the factorizing the relevant check among the various binding constructs. *)
+
+    The auxiliary function [if_y_eq], which appears in the definition of
+    [subst] shown below, helps performing the factorizing the relevant
+    checks that prevent variable capture. *)
 
 Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
   let aux t := subst y w t in
@@ -190,8 +196,9 @@ Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
 (** To improve the readability of the evaluation rules stated further,
     we take advantage of both implicit types and coercions.
 
-    The implicit types are defined as follows, e.g.,
-    meta-variables named [v], [v1], ... always denote a value. *)
+    The implicit types are defined as shown below. For example, the
+    first command indicates that variables whose name begins with the
+    letter 'b' are, by default, variables of type [bool]. *)
 
 Implicit Types b : bool.
 Implicit Types v r : val.
@@ -218,18 +225,19 @@ Coercion trm_app : trm >-> Funclass.
 (** *** Big-step semantics *)
 
 (** The semantics is presented in big-step style. This presentation makes
-    it easier to establish reasoning rules, because both the big-step
-    judgment and a triple judgment describe complete execution, relating
-    a term with the value that it produces.
+    it slightly easier to establish reasoning rules than with small-step
+    reduction rules, because both the big-step judgment and a triple
+    judgment describe complete execution, relating a term with the value
+    that it produces.
 
     The big-step evaluation judgment, written [eval s t s' v], asserts that,
     starting from state [s], the evaluation of the term [t] terminates in
     a state [s'], producing an output value [v].
 
-    For simplicity, in this chapter, we assume terms to be in "A-normal form":
-    the arguments of applications and of conditionals are restricted to
-    variables and value. Such a requirement does not limit expressiveness,
-    yet it simplifies the statement of evaluation rules.
+    For simplicity, we assume terms to be in "A-normal form": the arguments
+    of applications and of conditionals are restricted to variables and value.
+    Such a requirement does not limit expressiveness, yet it simplifies the
+    statement of the evaluation rules.
 
     For example, if a source program includes a conditional [trm_if t0 t1 t2],
     then it is required that [t0] be either a variable or a value.
@@ -244,7 +252,7 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
 
       A value evaluates to itself.
       A term function evaluates to a value function.
-      Likewise for recursive functions. *)
+      Likewise for a recursive function. *)
 
   | eval_val : forall s v,
       eval s (trm_val v) s v
@@ -293,10 +301,11 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
 
       A conditional in a source program is assumed to be of the form
       [if t0 then t1 else t2], where [t0] is either a variable or a
-      value. If it is a variable, then by the time it reaches an evaluation
-      position, the variable must have been substituted by a value.
-      Thus, the evaluation rule only considers the form [if v0 then t1 else t2].
-      The value [v0] must be a boolean value, otherwise evaluation gets stuck.
+      value. If it is a variable, then by the time it reaches an
+      evaluation position, the variable must have been substituted
+      by a value. Thus, the evaluation rule only considers the form
+      [if v0 then t1 else t2]. The value [v0] must be a boolean value,
+      otherwise evaluation gets stuck.
 
       The term [trm_if (val_bool true) t1 t2] behaves like [t1], whereas
       the term [trm_if (val_bool false) t1 t2] behaves like [t2].
@@ -309,13 +318,17 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
 
   (** 5. [eval] for primitive stateless operations.
 
-      For similar reasons as explained above, the behavior of applied primitive
-      functions only need to be described for the case of value arguments.
-      An arithmetic operation expects integer arguments.
-      The addition of [val_int n1] and [val_int n2] produces [val_int (n1 + n2)].
-      The division operation, on the same arguments, produces the quotient,
-      under the assumption that the dividor [n2] is non-zero.
-      Division by zero leads to a stuck term in our semantics. *)
+      For similar reasons as explained above, the behavior of applied
+      primitive functions only need to be described for the case of value
+      arguments.
+
+      An arithmetic operation expects integer arguments. The addition
+      of [val_int n1] and [val_int n2] produces [val_int (n1 + n2)].
+
+      The division operation, on the same arguments, produces the
+      quotient [n1 / n2], under the assumption that the dividor [n2]
+      is non-zero. In other words, if a program performs a division
+      by zero, then it cannot satisfy the [eval] judgment. *)
 
   | eval_add : forall s n1 n2,
       eval s (val_add (val_int n1) (val_int n2)) s (val_int (n1 + n2))
@@ -360,11 +373,11 @@ End SyntaxAndSemantics.
 (* ################################################ *)
 (** *** Loading of definitions from [SLFDirecŧ] *)
 
-(** Throughout the rest of this file, we rely not on the definitions shown
-    above, but on the definitions from [SLFDirect.v]. The latter are slightly
-    more general, yet completely equivalent to the ones presented above
-    for the purpose of establishing the reasoning rules that we are
-    interested in. *)
+(** Throughout the rest of this file, we rely not on the definitions
+    shown above, but on the definitions from [SLFDirect.v]. The latter
+    are slightly more general, yet completely equivalent to the ones
+    presented above for the purpose of establishing the reasoning rules
+    that we are interested in. *)
 
 (** To reduce the clutter in the statement of lemmas, we associate default
     types to a number of common meta-variables. *)
@@ -379,6 +392,18 @@ Implicit Types h : heap.
 Implicit Types s : state.
 Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
+
+(** The file [SLFDirect] also exports a number of coercions to help with
+    the parsing of base values. For example, [val_loc] is a coercion,
+    thus [val_loc l] can be abbreviated as just [l].
+
+[[
+    Coercion val_loc  : loc >-> val.
+    Coercion val_bool : bool >-> val.
+    Coercion val_int  : int >-> val.
+]]
+
+*)
 
 
 (* ########################################################### *)
@@ -398,15 +423,12 @@ Implicit Types Q : val->hprop.
 (** Let us begin with the reasoning rule for sequences.
     The Separation Logic reasoning rule for a sequence [t1;t2] is
     essentially the same as that from Hoare logic. The rule is:
+
 [[
       {H} t1 {fun v => H1}     {H1} t2 {Q}
       ------------------------------------
               {H} (t1;t2) {Q}
 ]]
-    Remark: the variable [v] denotes the result of the evaluation
-    of [t1]. For well-typed programs, this result would always be [val_unit],
-    but here we consider an untyped language, so we simply treat the
-    result of [t1] as a value irrelevant to the final result.
 
     The Coq statement corresponding to the above rule is: *)
 
@@ -414,6 +436,13 @@ Parameter triple_seq : forall t1 t2 H Q H1,
   triple t1 H (fun v => H1) ->
   triple t2 H1 Q ->
   triple (trm_seq t1 t2) H Q.
+
+(** Remark: the variable [v] denotes the result of the evaluation
+    of [t1]. For well-typed programs, this result would always be
+    [val_unit]. Yet, because we here consider an untyped language,
+    we do not bother adding the constraint [v = val_unit]. Instead,
+    we simply treat the result of [t1] as a value irrelevant to
+    the remaining of the evaluation. *)
 
 
 (* ################################################ *)
@@ -425,6 +454,7 @@ Parameter triple_seq : forall t1 t2 H Q H1,
 
     The reasoning rule for a let binding [let x = t1 in t2] could
     be stated, in informal writing, in the form:
+
 [[
       {H} t1 {Q1}     (forall x, {Q1 x} t2 {Q})
       -----------------------------------------
@@ -436,7 +466,7 @@ Parameter triple_seq : forall t1 t2 H Q H1,
   that denotes a value when quantified as [forall x].
 
   The correct statement involves a substitution from the variable
-  [x] to a value quantified as [forall v].
+  [x] to a value quantified as [forall (v:val)].
 
 [[
       {H} t1 {Q1}     (forall v, {Q1 v} (subst x v t2) {Q})
@@ -471,8 +501,9 @@ Parameter triple_if : forall b t1 t2 H Q,
   (b = false -> triple t2 H Q) ->
   triple (trm_if (val_bool b) t1 t2) H Q.
 
-(** Remark: an alternative presentation of the rule for conditional
-    using Coq's conditional construct is discussed further in this file. *)
+(** Remark: the two premises may be factorized into a single one
+    using Coq's conditional construct. Such an alternative
+    statement is discussed further in this chapter. *)
 
 
 (* ################################################ *)
@@ -538,14 +569,14 @@ Parameter triple_fun : forall x t1 H Q,
 (** Last but not least, we need a reasoning rule to reason about a
     function application. Consider an application [trm_app v1 v2].
     Assume [v1] to be a function, that is, to be of the form
-    [val_fun x t1]. Then, according to the beta-reduction rule,
-    the semantics of [trm_app v1 v2] is the same as that of [subst x v2 t1].
-    On paper, this reasoning rule would thus be written:
+    [val_fun x t1]. Then, according to the beta-reduction rule, the
+    semantics of [trm_app v1 v2] is the same as that of [subst x v2 t1].
+    This reasoning rule is thus:
 
 [[
-        {H} (subst x v2 t1) {Q}
-     -----------------------------
-      {H} ((val_fun x t1) v2) {Q}
+     v1 = val_fun x t1     {H} (subst x v2 t1) {Q}
+     ---------------------------------------------
+      {H} (trm_app v1 v2) {Q}
 ]]
 
    The corresponding Coq statement is as shown below. *)
@@ -564,7 +595,7 @@ Parameter triple_app_fun : forall x v1 v2 t1 H Q,
 
 (** Before we can tackle verification of actual programs, there remains
     to present the specifications for the primitive operations.
-    Let us begin with the arithmetic operations: addition and division. *)
+    Let us begin with basic arithmetic operations: addition and division. *)
 
 
 (* ################################################ *)
@@ -572,30 +603,33 @@ Parameter triple_app_fun : forall x v1 v2 t1 H Q,
 
 (** Consider a term of the form [val_add n1 n2], which is short for
     [trm_app (trm_app (trm_val val_add) (val_int n1)) (val_int n2)].
-    The addition can execute in an empty state, and does not modify
-    the state. It returns the value [val_int (n1+n2)]. In the
-    specification shown below, the precondition is written [\[]]
-    and the postcondition binds a return value [r] specified to be
-    equal to [val_int (n1+n2)]. To improve readability, we write
-    the precondition and the postcondition on separate lines. *)
+    Indeed, recall that [val_int] is declared as a coercion.
+
+    The addition operation may execute in an empty state. It does not
+    modify the state, and returns the value [val_int (n1+n2)].
+
+    In the specification shown below, the precondition is written [\[]]
+    and the postcondition binds a return value [r] of type [val]
+    specified to be equal to [val_int (n1+n2)]. *)
 
 Parameter triple_add : forall n1 n2,
   triple (val_add n1 n2)
     \[]
     (fun r => \[r = val_int (n1 + n2)]).
 
-(** Specification of division [val_div n1 n2] is similar, with the extra
-    requirement that the divisor [n2] must be nonzero. This requirement
-    [n2 <> 0] is a pure fact. This pure fact can be placed inside the
-    precondition, as follows. *)
+(** The specification of the division operation [val_div n1 n2] is similar,
+    yet with the extra requirement that the argument [n2] must be nonzero.
+    This requirement [n2 <> 0] is a pure fact, which can be asserted as
+    part of the precondition, as follows. *)
 
 Parameter triple_div : forall n1 n2,
   triple (val_div n1 n2)
     \[n2 <> 0]
     (fun r => \[r = val_int (Z.quot n1 n2)]).
 
-(** Or, equivalently, it can be pulled outside of the triple judgment,
-    taking the form of a Coq hypothesis, as shown below. *)
+(** Equivalently, the requirement [n2 <> 0] may be asserted as an
+    hypothesis to the front of the triple judgment, in the form of
+    a standard Coq hypothesis, as shown below. *)
 
 Parameter triple_div' : forall n1 n2,
   n2 <> 0 ->
@@ -603,10 +637,10 @@ Parameter triple_div' : forall n1 n2,
     \[]
     (fun r => \[r = val_int (Z.quot n1 n2)]).
 
-(** This latter presentation with the pure facts outside of triples
-    turns out to be more practical to exploit in proofs, hence we
-    always follow this convention, and use the precondition for
-    describing mutable data. *)
+(** This latter presentation with pure facts such as [n2 <> 0] placed
+    to the front of the triple turns out to be more practical to exploit
+    in proofs. Hence, we always follow this style of presentation, and
+    reserve the precondition for describing pieces of mutable state. *)
 
 
 (* ################################################ *)
@@ -650,8 +684,8 @@ Parameter triple_set : forall w l v,
     The fresh cell is then described by the heap predicate [l ~~~> v].
     The evaluation of [val_ref v] produces the value [val_loc l]. Thus,
     if [r] denotes the result value, we have [r = val_loc l] for some [l].
-    Observe how, in the specification shown below, the location [l] is
-    existentially quantified in the postcondition. *)
+    In the corresponding specification shown below, observe how the
+    location [l] is existentially quantified in the postcondition. *)
 
 Parameter triple_ref : forall v,
   triple (val_ref v)
@@ -673,8 +707,8 @@ Parameter triple_free : forall l v,
 (** ** Review of the structural rules *)
 
 (** Let us review the essential structural rules, which were introduced
-    in the previous chapters. Structural rules are involved in the practical
-    verification proofs carried out further in this chapter. *)
+    in the previous chapters. These structural rules are involved in
+    the practical verification proofs carried out further in this chapter. *)
 
 (** The frame rule asserts that the precondition and the postcondition
     can be extended together by an arbitrary heap predicate.
@@ -685,8 +719,8 @@ Parameter triple_frame : forall t H Q H',
   triple t H Q ->
   triple t (H \* H') (Q \*+ H').
 
-(** The consequence rule allows to strengthen the precondition
-    and weaken the postcondition. *)
+(** The consequence rule allows to strengthen the precondition and
+    weaken the postcondition. *)
 
 Parameter triple_conseq : forall t H' Q' H Q,
   triple t H' Q' ->
@@ -695,7 +729,9 @@ Parameter triple_conseq : forall t H' Q' H Q,
   triple t H Q.
 
 (** In practice, it is most convenient to exploit a rule that combines
-    both frame and consequence into a single rule, as stated next. *)
+    both frame and consequence into a single rule, as stated next.
+    (Remark: this "combined structural rule" was proved as an exercise
+    in chapter [SLFHimpl].) *)
 
 Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
   triple t H1 Q1 ->
@@ -703,12 +739,8 @@ Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
   Q1 \*+ H2 ===> Q ->
   triple t H Q.
 
-(** Remark: this "combined structural rule" is proved as
-    an exercise in chapter [SLFHimpl]. *)
-
-(** The two extraction rules enable to extract pure facts and
-    existentially quantified variables, from the precondition
-    into the Coq context. *)
+(** The two extraction rules enable to extract pure facts and existentially
+    quantified variables, from the precondition into the Coq context. *)
 
 Parameter triple_hpure : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
@@ -719,18 +751,14 @@ Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
   triple t (hexists J) Q.
 
 
-
 (* ########################################################### *)
 (** ** Verification proof in Separation Logic *)
 
 (** We have at hand all the necessary rules for carrying out actual
-    verification proofs in Separation Logic. Let's go! *)
+    verification proofs in Separation Logic. Let's do it! *)
 
 Module ExamplePrograms.
-Local Coercion string_to_var (x:string) : var := x.
-Import NotationForVariables.
-Open Scope trm_scope.
-Open Scope val_scope.
+Export SLFProgramSyntax.
 
 
 (* ################################################ *)
