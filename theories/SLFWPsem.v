@@ -94,26 +94,23 @@ Proof using. introv M. rewrite wp_equiv. applys M. Qed.
 
 (** In other words, [wp t Q] is the "smallest" [H] satisfying
     [triple t H Q] with respect to the order on heap predicates
-    induced by the entailment relation [==>].
+    induced by the entailment relation [==>]. *)
 
+(** There are several equivalent ways to define [wp], as we show
+    in the optional contents of this chapter. It turns out that
+    the equivalence [(H ==> wp t Q) <-> (triple t H Q)] fully
+    characterizes the predicate [wp], and that it is all we need
+    to carry out formal reasoning.
 
-*)
-
-(** There are several ways to define [wp]. It turns out that all
-    definitions are provably equivalent. In other words, the
-    equivalence [(H ==> wp t Q) <-> (triple t H Q)] characterizes
-    a unique predicate [wp].
-
-    The details of the possible direct definitions for [wp] are
-    irrelevant to the main focus of this chapter, hence we postpone
-    the related discussion to the appendix. *)
+    For this reason, we postpone to later in this chapter the
+    description of alternative, direct definitions for [wp]. *)
 
 
 (* ########################################################### *)
 (** ** Structural rules in weakest-precondition style *)
 
-(** We next discuss formulations of the frame rule and of the rule
-    of consequence in weakest-precondition style. *)
+(** We next present reformulations of the frame rule and of the rule
+    of consequence in "weakest-precondition style". *)
 
 
 (* ################################################ *)
@@ -122,9 +119,9 @@ Proof using. introv M. rewrite wp_equiv. applys M. Qed.
 (** The frame rule for [wp] asserts that [(wp t Q) \* H] entails
     [wp t (Q \*+ H)]. This statement can be read as follows:
     if you own both a piece of state satisfying [H] and a piece of state
-    in which the execution of [t] produces [Q], then you own a piece
-    of state in which the execution of [t] produces [Q \*+ H], that is,
-    produces both [Q] and [H]. *)
+    in which the execution of [t] produces (a result and an output value
+    satisfying) [Q], then you own a piece of state in which the execution
+    of [t] produces [Q \*+ H], that is, produces both [Q] and [H]. *)
 
 Lemma wp_frame : forall t H Q,
   (wp t Q) \* H ==> wp t (Q \*+ H).
@@ -137,22 +134,23 @@ Proof using.
   applys triple_frame. rewrite* <- wp_equiv.
 Qed.
 
-(** The connection with the frame is not be totally obvious.
+(** The connection with the frame might not be totally obvious.
     Recall the frame rule for triples.
 
 [[
     triple t H1 Q ->
     triple t (H1 \* H) (Q \*+ H)
 ]]
+
     Let us replace the form [triple t H Q] with the form
-    [H ==> wp t Q]. We obtain the following statement: *)
+    [H ==> wp t Q]. We obtain the following statement. *)
 
 Lemma wp_frame_trans : forall t H1 Q H,
   H1 ==> wp t Q ->
   (H1 \* H) ==> wp t (Q \*+ H).
 
-(** If we exploit transitivity to eliminate [H1], we obtain
-    exactly [wp_frame]. *)
+(** If we exploit transitivity of entailment to eliminate [H1], then we
+    obtain exactly [wp_frame], as illustrated by the proof script below. *)
 
 Proof using. introv M. xchange M. applys* wp_frame. Qed.
 
@@ -161,9 +159,9 @@ Proof using. introv M. xchange M. applys* wp_frame. Qed.
 (** *** The rule of consequence *)
 
 (** The rule of consequence for [wp] materializes as a covariance
-    property: asserting that [wp t Q] is covariante in [Q].
-    In other words, if one weakens [Q] then one weakens [wp t Q].
-    Formally: *)
+    property: it asserts that [wp t Q] is covariant in [Q].
+    In other words, if one weakens [Q], then one weakens [wp t Q].
+    The corresponding formal statement appears next. *)
 
 Lemma wp_conseq : forall t Q1 Q2,
   Q1 ===> Q2 ->
@@ -172,8 +170,8 @@ Proof using.
   introv M. rewrite wp_equiv. applys* triple_conseq (wp t Q1) M. applys wp_pre.
 Qed.
 
-(** The connection with the rule of consequence is, again, not so obvious.
-    Recall the rule of consequence.
+(** The connection with the rule of consequence is, again, not
+    totally obvious. Recall the rule of consequence for triples.
 
 [[
     triple t H1 Q1 ->
@@ -181,6 +179,7 @@ Qed.
     Q1 ===> Q2 ->
     triple t H2 Q2
 ]]
+
     Let us replace the form [triple t H Q] with the form [H ==> wp t Q].
     We obtain the following statement: *)
 
@@ -190,8 +189,8 @@ Lemma wp_conseq_trans : forall t H1 H2 Q1 Q2,
   Q1 ===> Q2 ->
   H2 ==> wp t Q2.
 
-(** As we prove, this result is a corrolary [wp_conseq] and
-    transitivity of entailment. *)
+(** If we exploit transitivity of entailment to eliminate [H1] and [H2],
+    then we obtain exactly [wp_conseq], as illustrated below. *)
 
 Proof using.
   introv M WH WQ. xchange WH. xchange M. applys wp_conseq WQ.
@@ -203,8 +202,9 @@ Qed.
 
 (** The extraction rules [triple_hpure] and [triple_hexists]
     have no specific counterpart with the [wp] presentation.
-    Indeed, these extraction rules are already captured by
-    the extraction rules for entailment.
+    Indeed, in a weakest-precondition style presentation, the
+    extraction rules for triples correspond exactly to the
+    extraction rules for entailment.
 
     To see why, consider for example the rule [triple_hpure]. *)
 
@@ -212,7 +212,8 @@ Parameter triple_hpure : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
 
-(** Replacing the form [triple t H Q] with [H ==> wp t Q] yields: *)
+(** Replacing the form [triple t H Q] with [H ==> wp t Q] yields
+    the following statement. *)
 
 Lemma triple_hpure_with_wp : forall t H Q (P:Prop),
   (P -> (H ==> wp t Q)) ->
@@ -220,12 +221,14 @@ Lemma triple_hpure_with_wp : forall t H Q (P:Prop),
 
 (** The above implication is just a special case of the extraction
     lemma for pure facts on the left on an entailment, named
-    [himpl_hstar_hpure_l], which asserts:
+    [himpl_hstar_hpure_l], and whose statement is as follows.
+
 [[
-  (P -> H ==> H') ->
-  (\[P] \* H) ==> H'.
+    (P -> (H ==> H')) ->
+    (\[P] \* H) ==> H'.
 ]]
-    Indeed:
+
+    Instantiating [H'] with [wp t Q] proves [triple_hpure_with_wp].
 *)
 
 Proof using. introv M. applys himpl_hstar_hpure_l M. Qed.
@@ -246,16 +249,17 @@ Parameter triple_val : forall v H Q,
   H ==> Q v ->
   triple (trm_val v) H Q.
 
-(** If we rewrite this rule in [wp] style, we obtain:
+(** If we rewrite this rule in [wp] style, we obtain the rule below.
+
 [[
     H ==> Q v ->
     H ==> wp (trm_val v) Q.
 ]]
+
     By exploiting transitivity of entailment, we can eliminate [H].
     We obtain the following statement, which reads as follows:
     if you own a state satisfying [Q v], then you own a state
-    from which the evaluation of the value [v] satisfies the
-    postcondition [Q].
+    from which the evaluation of the value [v] produces [Q].
 *)
 
 Lemma wp_val : forall v Q,
@@ -264,7 +268,7 @@ Proof using.
   intros. rewrite wp_equiv. applys* triple_val.
 Qed.
 
-(** We can verify that, while migrating to the [wp] presentation, we have
+(** We can verify that, when migrating to the [wp] presentation, we have
     not lost any expressivity. To that end, we prove that [triple_val] is
     derivable from [wp_val]. *)
 
@@ -284,21 +288,23 @@ Parameter triple_seq : forall t1 t2 H Q H1,
   triple t2 H1 Q ->
   triple (trm_seq t1 t2) H Q.
 
-(** Replacing [triple t H Q] with [H ==> wp t Q] throughout the rule gives:
+(** Replacing [triple t H Q] with [H ==> wp t Q] throughout the rule
+    gives the statement below.
 
 [[
       H ==> (wp t1) (fun v => H1) ->
       H1 ==> (wp t2) Q ->
       H ==> wp (trm_seq t1 t2) Q.
 ]]
+
     This entailment holds for any [H] and [H1]. Let us specialize it to
     [H1 := (wp t2) Q] and [H := (wp t1) (fun v => (wp t2) Q)].
 
     This leads us to the following statement, which reads as follows:
-    if you own a state from which the evaluation of [t1]
-    produces a state from which the evaluation of [t2]
-    produces the postcondition [Q], then you own a state from
-    which the evaluation of the sequence [t1;t2] produces [Q]. *)
+    if you own a state from which the evaluation of [t1] produces a
+    state from which the evaluation of [t2] produces the postcondition
+    [Q], then you own a state from which the evaluation of the sequence
+    [t1;t2] produces [Q]. *)
 
 Lemma wp_seq : forall t1 t2 Q,
   wp t1 (fun v => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
@@ -310,7 +316,7 @@ Qed.
 
 (* EX2? (triple_seq_from_wp_seq) *)
 (** Check that [wp_seq] is just as expressive as [triple_seq],
-    by proving that [triple_seq] is derivable from [wp_seqd]
+    by proving that [triple_seq] is derivable from [wp_seq]
     and from the structural rules for [wp] and/or the structural
     rules for [triple]. *)
 
@@ -372,14 +378,19 @@ Parameter triple_if_case : forall b t1 t2 H Q,
     H ==> wp (if b then t1 else t2) Q ->
     H ==> wp (trm_if (val_bool b) t1 t2) Q.
 ]]
+
     which simplifies by transitivity to:
+
 [[
     wp (if b then t1 else t2) Q ==> wp (trm_if (val_bool b) t1 t2) Q.
 ]]
+
+    This statement corresponds to the wp-style reasoning rule
+    for conditionals. The proof appears next.
 *)
 
 Lemma wp_if : forall b t1 t2 Q,
-  wp (if b then t1 else t2) Q ==> wp (trm_if b t1 t2) Q.
+  wp (if b then t1 else t2) Q ==> wp (trm_if (val_bool b) t1 t2) Q.
 Proof using.
   intros. rewrite wp_equiv. applys triple_if.
   { intros ->. rewrite* <- wp_equiv. }
@@ -398,7 +409,8 @@ Parameter triple_let : forall x t1 t2 H Q Q1,
   triple (trm_let x t1 t2) H Q.
 
 (** The rule of [trm_let x t1 t2] is very similar to that for
-    [trm_seq], the only difference being the substitution. *)
+    [trm_seq], the only difference being the substitution of
+    [x] by [v] in [t2], where [v] denotes the result of [t1]. *)
 
 Lemma wp_let : forall x t1 t2 Q,
   wp t1 (fun v => wp (subst x v t2) Q) ==> wp (trm_let x t1 t2) Q.
@@ -449,36 +461,43 @@ Module WpHighLevel.
     satisfying this equivalence. We next present one possible definition.
 
     The idea is to define [wp t Q] as the predicate
-    [\exists H, H \* \[triple t H Q]].  *)
+    [\exists H, H \* \[triple t H Q]], which, reading litterally, is
+    satisfied by "any" heap predicate [H] which is a valid precondition
+    for a triple for the term [t] and the postcondition [Q]. *)
 
 Definition wp (t:trm) (Q:val->hprop) : hprop :=
   \exists (H:hprop), H \* \[triple t H Q].
 
-(** As we argue next, the heap predicate [wp t Q] is entailed by
-    any precondition [H'] that satisfies [triple t H' Q],
-    and [wp t Q] is itself a valid precondition, in the sense that
-    [triple t (wp t Q) Q].
+(** First, let us prove that [wp t Q] is itself a valid precondition,
+    in the sense that [triple t (wp t Q) Q] always holds (as asserted
+    by the lemma [wp_pre]).
 
-    On the one hand, if [H'] is a valid precondition, i.e. such that
-    [triple t H' Q] holds, then it is the case that
-    [H' ==> \exists H, H \* \[triple t H Q]].
-    Indeed, the entailment holds by instantiating [H] as [H'].
+    To establish this fact, we have to prove:
+    [triple t (\exists H, H \* \[triple t H Q]) Q].
 
-    On the other hand [\exists H, H \* \[triple t H Q]] is a valid
-    precondition for [t] with postcondition [Q], that is:
-    [triple t (\exists H, H \* \[triple t H Q]) Q]. To see why,
-    apply the extraction rule for existentials gives:
-    [forall H, triple t (H \* \[triple t H Q]) Q]
-    then apply the extraction rule for pure facts gives:
-    [forall H, (triple t H Q) -> (triple t H Q)], i.e., a tautology.
+    Applying the extraction rule for existentials gives:
+    [forall H, triple t (H \* \[triple t H Q]) Q].
 
-    The above reasoning is formalized next, through the proof
-    that [wp_high] also statisfies the equivalence
-    [triple t H Q <-> H ==> wp Q], which characterizes [wp]. *)
+    Applying the extraction rule for pure facts gives:
+    [forall H, (triple t H Q) -> (triple t H Q)], which is true. *)
+
+(** Second, let us demonstrate that the heap predicate [wp t Q]
+    is entailed by any precondition [H] that satisfies [triple t H Q],
+    as asserted by the lemma [wp_weakest].
+
+    Assume [triple t H Q]. Let us prove [H ==> wp t Q], that is
+    [H ==> \exists H, H \* \[triple t H Q]]. Instantiating the
+    [H] on the right-hand side as the [H] from the left-hand side
+    suffices to satisfy the entailment. *)
+
+(** Recall that the properties [wp_pre] and [wp_weakest] were derivable
+    from the characteristic equivalence [triple t H Q <-> H ==> wp Q].
+    Thus, to formalize the proofs of [wp_pre] and [wp_weakest], all we
+    have to do is to establish that equivalence. *)
 
 (* EX2! (wp_equiv) *)
-(** Prove that the definition [wp_high] statisfies the characteristic
-    equivalence for weakest preconditions. *)
+(** Prove that the definition [wp_high] statisfies the
+    characteristic equivalence for weakest preconditions. *)
 
 Lemma wp_equiv : forall t H Q,
   (H ==> wp t Q) <-> (triple t H Q).
@@ -495,55 +514,6 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 End WpHighLevel.
-
-
-(* ########################################################### *)
-(** ** An alternative definition for weakest precondition *)
-
-Module WpLowLevel.
-
-(** The concrete definition for [wp] given above is expressed
-    in terms of Separation Logic combinators. In constrast to
-    this "high level" definition, there exists a more "low level"
-    definition, expressed directly as a function over heaps.
-
-    In that alternative definition, the heap predicate [wp t Q]
-    is defined as a predicate that holds of a heap [h]
-    if and only if the execution of [t] starting in exactly
-    the heap [h]produces the post-condition [Q].
-
-    Technically, [wp t Q] is defined as [fun h => triple t (=h) Q],
-    where [=h] is a shorthand for [fun h' => (h' = h)].
-    In other words, the precondition [=h] requires the input heap
-    to be exactly [h]. *)
-
-Definition wp (t:trm) (Q:val->hprop) : hprop :=
-  fun (h:heap) => triple t (=h) Q.
-
-(** One can prove that this definition of [wp] also statisfies the
-    characteristic equivalence [H ==> wp Q <-> triple t H Q]. *)
-
-Lemma wp_equiv_wp_low : forall t H Q,
-  (H ==> wp t Q) <-> (triple t H Q).
-
-(** The details of the proofs are given for the reference but are
-    beyond the scope of this course. (The proof exploits the lemma
-    [triple_named_heap] which was established as an exercise in the
-    appendix of the chapter [SLFRules].) *)
-
-Proof using. (* Warning: details beyond the scope of the proof. *)
-  unfold wp. iff M.
-  { applys triple_named_heap. intros h K.
-    applys triple_conseq (=h) Q.
-    { specializes M K. applys M. }
-    { intros ? ->. auto. }
-    { applys qimpl_refl. } }
-  { intros h K. applys triple_conseq M.
-    { intros h' ->. applys K. }
-    { applys qimpl_refl. } }
-Qed.
-
-End WpLowLevel.
 
 
 (* ########################################################### *)
@@ -568,18 +538,84 @@ Proof using.
   { rewrite <- M1. rewrite M2. auto. }
 Qed.
 
+(** Recall that both [wp_pre] and [wp_weakest] are derivable from
+    [wp_equiv]. Let us also that, reciprocally, [wp_equiv] is derivable
+    from the conjunction of [wp_pre] and [wp_weakest].
+
+    In other words, the property of "being the weakest precondition"
+    also uniquely characterizes the definition of [wp]. *)
+
+Lemma wp_from_weakest_pre : forall wp',
+  (forall t Q, triple t (wp' t Q) Q) ->  (* [wp_pre] *)
+  (forall t H Q, triple t H Q -> H ==> wp' t Q) ->  (* [wp_weakest] *)
+  (forall t H Q, H ==> wp' t Q <-> triple t H Q). (* [wp_equiv] *)
+Proof using. 
+  introv M1 M2. iff M.
+  { applys triple_conseq M1 M. auto. }
+  { applys M2. auto. }
+Qed.
+
+
+(* ########################################################### *)
+(** ** An alternative definition for weakest precondition *)
+
+Module WpLowLevel.
+
+(** The concrete definition for [wp] given above is expressed
+    in terms of Separation Logic combinators. In constrast to
+    this "high level" definition, there exists a more "low level"
+    definition, expressed directly as a function over heaps.
+
+    In that alternative definition, the heap predicate [wp t Q]
+    is defined as a predicate that holds of a heap [h]
+    if and only if the execution of [t] starting in exactly
+    the heap [h] produces the post-condition [Q].
+
+    Technically, [wp t Q] can be defined as:
+    [fun (h:heap) => triple t (fun h' => h' = h) Q].
+    In other words, the precondition requires the input heap
+    to be exactly [h]. *)
+
+Definition wp (t:trm) (Q:val->hprop) : hprop :=
+  fun (h:heap) => triple t (fun h' => (h' = h)) Q.
+
+(** One can prove that this definition of [wp] also statisfies the
+    characteristic equivalence [H ==> wp Q <-> triple t H Q]. *)
+
+Lemma wp_equiv_wp_low : forall t H Q,
+  (H ==> wp t Q) <-> (triple t H Q).
+
+(** The details of the proofs are given for the reference but are
+    beyond the scope of this course. Technically, the proof exploits
+    the lemma [triple_named_heap] which was established as an exercise
+    in the appendix of the chapter [SLFRules].) *)
+
+Proof using.
+  unfold wp. iff M.
+  { applys triple_named_heap. intros h K.
+    applys triple_conseq (fun h' => h' = h) Q.
+    { specializes M K. applys M. }
+    { intros ? ->. auto. }
+    { applys qimpl_refl. } }
+  { intros h K. applys triple_conseq M.
+    { intros h' ->. applys K. }
+    { applys qimpl_refl. } }
+Qed.
+
+End WpLowLevel.
+
 
 (* ########################################################### *)
 (** ** Extraction rule for existentials *)
 
-(** Recall the extraction rule for existentials: *)
+(** Recall the extraction rule for existentials. *)
 
 Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, triple t (J x) Q) ->
   triple t (\exists x, J x) Q.
 
 (** Replacing [triple t H Q] with [H ==> wp t Q] yields the
-    following lemma. Prove it. *)
+    lemma stated below. *)
 
 (* EX1? (triple_hexists_in_wp) *)
 (** Prove the extraction rule for existentials in [wp] style. *)
@@ -631,22 +667,27 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 (** The combined structural rule for [wp] can actually be stated
-    in a more concise way, as follows. *)
+    in a more concise way, as follows. The rule reads as follows:
+    if you own a state from which the execution of [t] produces
+    (a result and a state satisfying) [Q1] and you own [H], and
+    if you can trade the combination of [Q1] and [H] against [Q2],
+    the you own a piece of state from which the execution of [t]
+    produces [Q2]. *)
 
 (* EX2! (wp_conseq_frame) *)
 (** Prove the concise version of the combined structural rule
-    in [wp] style. (Many proofs are possible.) *)
+    in [wp] style. Many proofs are possible. *)
 
 Lemma wp_conseq_frame : forall t H Q1 Q2,
   Q1 \*+ H ===> Q2 ->
   (wp t Q1) \* H ==> (wp t Q2).
 Proof using. (* ADMITTED *)
   dup 3.
-  { (* Proof using [wp_conseq_frame_trans] *)
+  { (* Proof using [wp_conseq_frame_trans]. *)
     introv M. applys* wp_conseq_frame_trans M. }
-  { (* Proof using [wp_frame] and [wp_conseq_trans] *)
+  { (* Proof using [wp_frame] and [wp_conseq_trans]. *)
     introv M. applys* wp_conseq_trans M. applys* wp_frame. }
-  { (* Proof using [triple_conseq_frame] *)
+  { (* Proof using [triple_conseq_frame]. *)
     introv M. rewrite wp_equiv.
     applys triple_conseq_frame (wp t Q1) M.
     { rewrite <- wp_equiv. xsimpl. } { xsimpl. } }
@@ -658,8 +699,8 @@ Qed. (* /ADMITTED *)
 (* ########################################################### *)
 (** ** Alternative statement of the rule for conditionals *)
 
-(** We have established the following rule for reasoning
-    about conditionals using [wp]. *)
+(** We have established the following rule for reasoning about
+    conditionals using [wp]. *)
 
 Parameter wp_if' : forall b t1 t2 Q,
   wp (if b then t1 else t2) Q ==> wp (trm_if b t1 t2) Q.
@@ -669,7 +710,7 @@ Parameter wp_if' : forall b t1 t2 Q,
 
 (* EX1? (wp_if'') *)
 (** Prove the alternative statement of rule [wp_if],
-    either from [wp_if] or directly from [triple_if]*)
+    either from [wp_if] or directly from [triple_if]. *)
 
 Lemma wp_if'' : forall b t1 t2 Q,
   (if b then (wp t1 Q) else (wp t2 Q)) ==> wp (trm_if b t1 t2) Q.
@@ -689,7 +730,8 @@ Qed. (* /ADMITTED *)
 (* ########################################################### *)
 (** ** Definition of [wp] directly from [hoare] *)
 
-(** Let's step back on our construction so far.
+(** Let's take a step back and look at our construction of
+    Separation Logic so far.
 
     1. We defined Hoare triples ([hoare]) with respect to the big-step
        judgment ([eval]).
@@ -698,37 +740,34 @@ Qed. (* /ADMITTED *)
        Hoare triples ([hoare]), through the definition:
        \[forall H', hoare t (H \* H') (Q \*+ H')].
 
-    3. We defined Separation Logic weakest-preconditions ([wp]) in terms
-       of Separation Logic triples ([triple]).
+    3. We then defined Separation Logic weakest-preconditions ([wp])
+       in terms of Separation Logic triples ([triple]).
 
-    Through the construction, we established in terms reasoning rules
+    Through the construction, we established reasoning rules, first
     for Hoare triples ([hoare]), then for Separation Logic triples
-    ([triple]), then for weakest-preconditions ([wp]).
+    ([triple]), and finally for weakest-preconditions ([wp]).
 
-    One natural question to raise is whether there is a more direct
+    One question that naturally arises is whether there is a more direct
     route to deriving reasoning rules for weakest preconditions.
-    In other words, can we obtain the same end result through simpler
-    proofs. *)
+    In other words, can we obtain the same end result throught simpler
+    proofs? *)
 
 (** The notion of Hoare triple is a key abstraction that enables conduction
     further proofs without manipulating heaps (of type [heap]) explicitly.
-    Experiments suggest that it is always beneficial to introduce the
-    Hoare logic layer.
+    Experiments suggest that it is beneficial to introduce the Hoare
+    logic layer. In other words, it is counterproductive to try an prove
+    Separation Logic reasoning rules, whether for [triple] or for [wp],
+    directly with respect to the evaluation judgment [eval].
 
     Thus, the only question that remains is whether it would have some
     interest to derive the reasoning rules for weakest preconditions ([wp])
     directly from the the reasoning rules for Hoare triples ([hoare]),
-    that is, to bypass the reasoning rules for Separation Logic triples ([triple]).
+    that is, by bypassing the statement and proofs for the reasoning rules
+    for Separation Logic triples ([triple]).
 
     In what follows, we show that if one cares only for [wp]-style rules,
-    the route to deriving them straight from [hoare]-style rules is indeed
-    quite short. *)
-
-(** Remark: it is technically possible to bypass even the definition of
-    [triple] and specify all functions directly using the predicate [wp],
-    however, using [triple] leads to better readability of specifications,
-    thus it seems preferable to continue using that specification style.
-    (See discussion in chapter [SLFWand], appendix on "Texan triples".) *)
+    then the route to deriving them straight from [hoare]-style rules
+    may indeed be somewhat shorter. *)
 
 Module WpFromHoare.
 
@@ -760,7 +799,8 @@ Proof using.
 Qed.
 
 (** Second, we prove the consequence-frame rule associated with [wp].
-    It is the only structural rule that is needed for weakest preconditions. *)
+    It is the only structural rule that is needed for working with
+    weakest preconditions. *)
 
 Lemma wp_conseq_frame : forall t H Q1 Q2,
   Q1 \*+ H ===> Q2 ->
@@ -841,6 +881,13 @@ Lemma wp_app_fix : forall f x v1 v2 t1 Q,
 Proof using.
   introv EQ1. unfold wp. xsimpl. intros H' M. intros H''. applys* hoare_app_fix.
 Qed.
+
+(** Remark: it is technically possible to bypass even the definition of
+    [triple] and specify all functions directly using the predicate [wp].
+    However, using [triple] leads to better readability of specifications,
+    thus it seems preferable to continue using that style for specifying
+    functions. (See discussion in chapter [SLFWand], appendix on "Texan
+    triples".) *)
 
 End WpFromHoare.
 
