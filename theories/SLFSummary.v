@@ -626,7 +626,7 @@ Module Wpsem.
     function [wp], where [wp t Q] has type [hprop]. *)
 
 Parameter wp_equiv : forall t H Q,
-  (triple t H Q) <-> (H ==> wp t Q).
+  (H ==> wp t Q) <-> (triple t H Q).
 
 (** Corrolary: *)
 

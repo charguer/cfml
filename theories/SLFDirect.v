@@ -1263,15 +1263,15 @@ Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (H':hprop), hoare t (H \* H') (Q \*+ H').
 
 Lemma wp_equiv : forall t H Q,
-  (triple t H Q) <-> (H ==> wp t Q).
+  (H ==> wp t Q) <-> (triple t H Q).
 Proof using.
   unfold wp, triple. iff M.
-  { xsimpl H. apply M. }
   { intros H'. applys hoare_conseq. 2:{ applys himpl_frame_l M. }
      { clear M. rewrite hstar_hexists. applys hoare_hexists. intros H''.
        rewrite (hstar_comm H''). rew_heap. applys hoare_hpure. intros N.
        applys N. }
      { auto. } }
+  { xsimpl H. apply M. }
 Qed.
 
 
@@ -1805,7 +1805,7 @@ Lemma triple_of_wpgen : forall t H Q,
   H ==> wpgen nil t Q ->
   triple t H Q.
 Proof using.
-  introv M. rewrite wp_equiv. xchange M. applys himpl_wpgen_wp.
+  introv M. rewrite <- wp_equiv. xchange M. applys himpl_wpgen_wp.
 Qed.
 
 
@@ -1849,7 +1849,7 @@ Lemma xapp_lemma : forall t Q1 H1 H Q,
   H ==> H1 \* (Q1 \--* protect Q) ->
   H ==> wp t Q.
 Proof using.
-  introv M W. rewrite wp_equiv in M. xchange W. xchange M.
+  introv M W. rewrite <- wp_equiv in M. xchange W. xchange M.
   applys wp_ramified_frame.
 Qed.
 
@@ -1870,7 +1870,7 @@ Lemma xwp_lemma_fun : forall v1 v2 x t H Q,
   H ==> wpgen ((x,v2)::nil) t Q ->
   triple (trm_app v1 v2) H Q.
 Proof using.
-  introv M1 M2. rewrite wp_equiv. xchange M2.
+  introv M1 M2. rewrite <- wp_equiv. xchange M2.
   xchange (>> wpgen_sound ((x,v2)::nil) t Q).
   rewrite <- subst_eq_isubst_one. applys* wp_app_fun.
 Qed.
@@ -1880,7 +1880,7 @@ Lemma xwp_lemma_fix : forall v1 v2 f x t H Q,
   H ==> wpgen ((f,v1)::(x,v2)::nil) t Q ->
   triple (trm_app v1 v2) H Q.
 Proof using.
-  introv M1 M2. rewrite wp_equiv. xchange M2.
+  introv M1 M2. rewrite <- wp_equiv. xchange M2.
   xchange (>> wpgen_sound (((f,v1)::nil) ++ (x,v2)::nil) t Q).
   rewrite isubst_app. do 2 rewrite <- subst_eq_isubst_one.
   applys* wp_app_fix.

@@ -26,10 +26,10 @@ Implicit Types Q : val->hprop.
 (* ########################################################### *)
 (** * Chapter in a rush *)
 
-(** In the previous chapter, we have introduced the notion of
+(** In previous chapters, we have introduced the notion of
     Separation Logic triple, written [triple t H Q].
 
-    In this chapter, we introduce the notion of weakest precondition
+    In this chapter, we introduce the notion of "weakest precondition"
     for Separation Logic triples, written [wp t Q].
 
     The intention is for [wp t Q] to be a heap predicate (of type [hprop])
@@ -38,19 +38,19 @@ Implicit Types Q : val->hprop.
     The benefits of introducing weakest preconditions is two-fold:
 
     - the use of [wp] greatly reduces the number of structural rules
-      required, and reduces accordingly the number of different tactics
-      required for carrying out proofs in practice.
-    - the predicate [wp] will be used in the next chapter to enable a
-      simpler set up of a "characteristic formula generator", the key
-      ingredient of CFML's technology for carrying out proofs in practice.
+      required, and thus reduces accordingly the number of tactics
+      required for carrying out proofs in practice;
+    - the predicate [wp] will serve as guidelines for setting up in the
+      next chapter a "characteristic formula generator", which is the
+      key ingredient at the heart of the implementation of the CFML tool.
 
     This chapter presents:
 
     - the notion of weakest precondition, as captured by [wp],
     - the reformulation of structural rules in [wp]-style,
     - the reformulation of reasoning rules in [wp]-style,
-    - (optional) different possible definitions for [wp],
-      and alternative ways to derive [wp]-style reasoning rules.
+    - (optional) alternative, equivalent definitions for [wp],
+      and alternative proofs for deriving [wp]-style reasoning rules.
 
 *)
 
@@ -59,14 +59,14 @@ Implicit Types Q : val->hprop.
 (** ** Notion of weakest precondition *)
 
 (** We next introduce a function [wp], called "weakest precondition".
-    Given a term [t] and a postcondition [Q], this function computes
-    a heap predicate [wp t Q] such that [triple t H Q] holds if and
-    only if [wp t Q] is weaker than the precondition [H]. Formally: *)
+    Given a term [t] and a postcondition [Q], the expression [wp t Q]
+    denotes a heap predicate [wp t Q] such that, for any heap predicate
+    [H], the entailment [H ==> wp t Q] is equivalen to [triple t H Q]. *)
 
 Parameter wp : trm -> (val->hprop) -> hprop.
 
 Parameter wp_equiv : forall t H Q,
-  (triple t H Q) <-> (H ==> wp t Q).
+  (H ==> wp t Q) <-> (triple t H Q).
 
 (** The [wp t Q] is called "weakest precondition" for two reasons.
     First, because it is a "valid precondition" for the term [t]
@@ -74,7 +74,7 @@ Parameter wp_equiv : forall t H Q,
 
 Lemma wp_pre : forall t Q,
   triple t (wp t Q) Q.
-Proof using. intros. rewrite wp_equiv. applys himpl_refl. Qed.
+Proof using. intros. rewrite <- wp_equiv. applys himpl_refl. Qed.
 
 (** Second, because it is the "weakest" of all valid preconditions
     for the term [t] and the postcondition [Q], in the sense that
@@ -83,7 +83,7 @@ Proof using. intros. rewrite wp_equiv. applys himpl_refl. Qed.
 Lemma wp_weakest : forall t H Q,
   triple t H Q ->
   H ==> wp t Q.
-Proof using. introv M. rewrite <- wp_equiv. applys M. Qed.
+Proof using. introv M. rewrite wp_equiv. applys M. Qed.
 
 (** There are several ways to define [wp]. It turns out that all
     definitions are provably equivalent. In other words, the
@@ -119,8 +119,8 @@ Lemma wp_frame : forall t H Q,
     and the equivalence that characterizes [wp]. *)
 
 Proof using.
-  intros. rewrite <- wp_equiv.
-  applys triple_frame. rewrite* wp_equiv.
+  intros. rewrite wp_equiv.
+  applys triple_frame. rewrite* <- wp_equiv.
 Qed.
 
 (** The connection with the frame is not be totally obvious.
@@ -155,7 +155,7 @@ Lemma wp_conseq : forall t Q1 Q2,
   Q1 ===> Q2 ->
   wp t Q1 ==> wp t Q2.
 Proof using.
-  introv M. rewrite <- wp_equiv. applys* triple_conseq (wp t Q1) M. applys wp_pre.
+  introv M. rewrite wp_equiv. applys* triple_conseq (wp t Q1) M. applys wp_pre.
 Qed.
 
 (** The connection with the rule of consequence is, again, not so obvious.
@@ -247,7 +247,7 @@ Parameter triple_val : forall v H Q,
 Lemma wp_val : forall v Q,
   Q v ==> wp (trm_val v) Q.
 Proof using.
-  intros. rewrite <- wp_equiv. applys* triple_val.
+  intros. rewrite wp_equiv. applys* triple_val.
 Qed.
 
 (** We can verify that, while migrating to the [wp] presentation, we have
@@ -257,7 +257,7 @@ Qed.
 Lemma triple_val_derived_from_wp_val : forall v H Q,
   H ==> Q v ->
   triple (trm_val v) H Q.
-Proof using. introv M. rewrite wp_equiv. xchange M. applys wp_val. Qed.
+Proof using. introv M. rewrite <- wp_equiv. xchange M. applys wp_val. Qed.
 
 
 (* ################################################ *)
@@ -289,9 +289,9 @@ Parameter triple_seq : forall t1 t2 H Q H1,
 Lemma wp_seq : forall t1 t2 Q,
   wp t1 (fun v => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
 Proof using.
-  intros. rewrite <- wp_equiv. applys triple_seq.
-  { rewrite* wp_equiv. }
-  { rewrite* wp_equiv. }
+  intros. rewrite wp_equiv. applys triple_seq.
+  { rewrite* <- wp_equiv. }
+  { rewrite* <- wp_equiv. }
 Qed.
 
 (* EX2? (triple_seq_from_wp_seq) *)
@@ -305,7 +305,7 @@ Lemma triple_seq_from_wp_seq : forall t1 t2 H Q H1,
   triple t2 H1 Q ->
   triple (trm_seq t1 t2) H Q.
 Proof using. (* ADMITTED *)
-  introv M1 M2. rewrite wp_equiv in *. xchange M1.
+  introv M1 M2. rewrite <- wp_equiv in *. xchange M1.
   applys himpl_trans wp_seq. applys wp_conseq. intros _. applys M2.
 Qed. (* /ADMITTED *)
 
@@ -334,13 +334,13 @@ Parameter triple_fun : forall x t1 H Q,
 
 Lemma wp_fun : forall x t Q,
   Q (val_fun x t) ==> wp (trm_fun x t) Q.
-Proof using. intros. rewrite <- wp_equiv. applys* triple_fun. Qed.
+Proof using. intros. rewrite wp_equiv. applys* triple_fun. Qed.
 
 (** A similar rule holds for the evaluation of a recursive function. *)
 
 Lemma wp_fix : forall f x t Q,
   Q (val_fix f x t) ==> wp (trm_fix f x t) Q.
-Proof using. intros. rewrite <- wp_equiv. applys* triple_fix. Qed.
+Proof using. intros. rewrite wp_equiv. applys* triple_fix. Qed.
 
 
 (* ################################################ *)
@@ -367,9 +367,9 @@ Parameter triple_if_case : forall b t1 t2 H Q,
 Lemma wp_if : forall b t1 t2 Q,
   wp (if b then t1 else t2) Q ==> wp (trm_if b t1 t2) Q.
 Proof using.
-  intros. rewrite <- wp_equiv. applys triple_if.
-  { intros ->. rewrite* wp_equiv. }
-  { intros ->. rewrite* wp_equiv. }
+  intros. rewrite wp_equiv. applys triple_if.
+  { intros ->. rewrite* <- wp_equiv. }
+  { intros ->. rewrite* <- wp_equiv. }
 Qed.
 
 
@@ -389,9 +389,9 @@ Parameter triple_let : forall x t1 t2 H Q Q1,
 Lemma wp_let : forall x t1 t2 Q,
   wp t1 (fun v => wp (subst x v t2) Q) ==> wp (trm_let x t1 t2) Q.
 Proof using.
-  intros. rewrite <- wp_equiv. applys triple_let.
-  { rewrite* wp_equiv. }
-  { intros v. rewrite* wp_equiv. }
+  intros. rewrite wp_equiv. applys triple_let.
+  { rewrite* <- wp_equiv. }
+  { intros v. rewrite* <- wp_equiv. }
 Qed.
 
 
@@ -411,8 +411,8 @@ Lemma wp_app_fun : forall x v1 v2 t1 Q,
   v1 = val_fun x t1 ->
   wp (subst x v2 t1) Q ==> wp (trm_app v1 v2) Q.
 Proof using.
-  introv EQ1. rewrite <- wp_equiv. applys* triple_app_fun.
-  rewrite* wp_equiv.
+  introv EQ1. rewrite wp_equiv. applys* triple_app_fun.
+  rewrite* <- wp_equiv.
 Qed.
 
 (** A similar rule holds for the application of a recursive function. *)
@@ -429,7 +429,7 @@ Qed.
 Module WpHighLevel.
 
 (** The lemma [wp_equiv] captures the characteristic property of [wp],
-    that is, [(triple t H Q) <-> (H ==> wp t Q)].
+    that is, [ (H ==> wp t Q) <-> (triple t H Q) ].
 
     However, it does not give evidence that there exists a predicate [wp]
     satisfying this equivalence. We next present one possible definition.
@@ -467,15 +467,15 @@ Definition wp (t:trm) (Q:val->hprop) : hprop :=
     equivalence for weakest preconditions. *)
 
 Lemma wp_equiv : forall t H Q,
-  (triple t H Q) <-> (H ==> wp t Q).
+  (H ==> wp t Q) <-> (triple t H Q).
 Proof using. (* ADMITTED *)
   unfold wp. iff M.
-  { xsimpl H. apply M. }
   { applys triple_conseq Q M.
     { applys triple_hexists. intros H'.
       rewrite hstar_comm. applys triple_hpure.
       intros N. applys N. }
     { applys qimpl_refl. } }
+  { xsimpl H. apply M. }
 Qed. (* /ADMITTED *)
 
 (** [] *)
@@ -507,10 +507,10 @@ Definition wp (t:trm) (Q:val->hprop) : hprop :=
   fun (h:heap) => triple t (=h) Q.
 
 (** One can prove that this definition of [wp] also statisfies the
-    characteristic equivalence [triple t H Q <-> H ==> wp Q]. *)
+    characteristic equivalence [H ==> wp Q <-> triple t H Q]. *)
 
 Lemma wp_equiv_wp_low : forall t H Q,
-  (triple t H Q) <-> (H ==> wp t Q).
+  (H ==> wp t Q) <-> (triple t H Q).
 
 (** The details of the proofs are given for the reference but are
     beyond the scope of this course. (The proof exploits the lemma
@@ -519,13 +519,13 @@ Lemma wp_equiv_wp_low : forall t H Q,
 
 Proof using. (* Warning: details beyond the scope of the proof. *)
   unfold wp. iff M.
-  { intros h K. applys triple_conseq M.
-    { intros h' ->. applys K. }
-    { applys qimpl_refl. } }
   { applys triple_named_heap. intros h K.
     applys triple_conseq (=h) Q.
     { specializes M K. applys M. }
     { intros ? ->. auto. }
+    { applys qimpl_refl. } }
+  { intros h K. applys triple_conseq M.
+    { intros h' ->. applys K. }
     { applys qimpl_refl. } }
 Qed.
 
@@ -633,9 +633,9 @@ Proof using. (* ADMITTED *)
   { (* Proof using [wp_frame] and [wp_conseq_trans] *)
     introv M. applys* wp_conseq_trans M. applys* wp_frame. }
   { (* Proof using [triple_conseq_frame] *)
-    introv M. rewrite <- wp_equiv.
+    introv M. rewrite wp_equiv.
     applys triple_conseq_frame (wp t Q1) M.
-    { rewrite wp_equiv. xsimpl. } { xsimpl. } }
+    { rewrite <- wp_equiv. xsimpl. } { xsimpl. } }
 Qed. (* /ADMITTED *)
 
 (** [] *)
@@ -664,9 +664,9 @@ Proof using. (* ADMITTED *)
   { (* Proof from [wp_if] *)
     intros. applys himpl_trans wp_if. case_if~. }
   { (* Proof from [triple_if] *)
-     intros. rewrite <- wp_equiv. applys triple_if.
-     { intros ->. rewrite* wp_equiv. }
-     { intros ->. rewrite* wp_equiv. } }
+     intros. rewrite wp_equiv. applys triple_if.
+     { intros ->. rewrite* <- wp_equiv. }
+     { intros ->. rewrite* <- wp_equiv. } }
 Qed. (* /ADMITTED *)
 
 (** [] *)
@@ -732,17 +732,17 @@ Definition wp (t:trm) := fun (Q:val->hprop) =>
   \exists H, H \* \[triple t H Q].
 
 (** First, we check the equivalence between [triple t H Q] and [H ==> wp t Q].
-    This proof is the same as [wp_equiv_wp] from the module [WpHighLevel]
+    This proof is the same as [wp_equiv] from the module [WpHighLevel]
     given earlier in this chapter. *)
 
 Lemma wp_equiv : forall t H Q,
-  (triple t H Q) <-> (H ==> wp t Q).
+  (H ==> wp t Q) <-> (triple t H Q).
 Proof using.
   unfold wp. iff M.
-  { xsimpl* H. }
   { applys* triple_conseq Q M.
     applys triple_hexists. intros H'.
     rewrite hstar_comm. applys* triple_hpure. }
+  { xsimpl* H. }
 Qed.
 
 (** Second, we prove the consequence-frame rule associated with [wp].

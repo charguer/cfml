@@ -1018,7 +1018,7 @@ Parameter wp_ref : forall Q v,
 
 Lemma wp_ref_0 : forall v,
   \[] ==> wp (val_ref v) (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
-Proof using. intros. rewrite <- wp_equiv. applys triple_ref. Qed.
+Proof using. intros. rewrite wp_equiv. applys triple_ref. Qed.
 
 (** The statement can be reformulated with the aim of making the RHS of the
     form [wp (val_ref v) Q] for an abstract [Q]. *)
@@ -1065,7 +1065,7 @@ Lemma texan_triple_equiv : forall t H A (Hof:val->A->hprop) (vof:A->val),
       (triple t H (fun r => \exists x, \[r = vof x] \* Hof r x))
   <-> (forall Q, H \* (\forall x, Hof (vof x) x \-* Q (vof x)) ==> wp t Q).
 Proof using.
-  intros. rewrite wp_equiv. iff M.
+  intros. rewrite <- wp_equiv. iff M.
   { intros Q. xchange M. applys wp_ramified_trans.
     xsimpl. intros r x ->. xchanges (hforall_specialize x). }
   { applys himpl_trans M. xsimpl~. }
@@ -1095,7 +1095,7 @@ Parameter triple_incr : forall (p:loc) (n:int),
 Lemma wp_incr : forall (p:loc) (n:int) Q,
   (p ~~~> n) \* (p ~~~> (n+1) \-* Q val_unit) ==> wp (trm_app incr p) Q.
 Proof using.
-  intros. rewrite <- wp_equiv. applys triple_conseq_frame.
+  intros. rewrite wp_equiv. applys triple_conseq_frame.
   { applys triple_incr. } { xsimpl. } { xsimpl ;=> ? ->. auto. }
 Qed.
 (* /SOLUTION *)

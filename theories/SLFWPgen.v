@@ -1371,7 +1371,7 @@ Lemma xapp_lemma : forall t Q1 H1 H2 H Q,
   Q1 \*+ H2 ===> Q ->
   H ==> wp t Q.
 Proof using.
-  introv M WH WQ. rewrite <- wp_equiv. applys* triple_conseq_frame M. Qed.
+  introv M WH WQ. rewrite wp_equiv. applys* triple_conseq_frame M. Qed.
 
 (** [xwp_lemma] is a variant of [wpgen_of_triple] specialized for
     establishing a triple for a function application. The rule reformulates
@@ -1385,7 +1385,7 @@ Proof using.
   introv M1 M2. applys triple_app_fun M1.
   asserts_rewrite (subst x v2 t = isubst ((x,v2)::nil) t).
   { rewrite isubst_rem. rewrite* isubst_nil. }
-  rewrite wp_equiv. xchange M2. applys wpgen_sound.
+  rewrite <- wp_equiv. xchange M2. applys wpgen_sound.
 Qed.
 
 
@@ -1992,7 +1992,7 @@ Qed.
 Lemma triple_of_wpgen : forall t H Q,
   H ==> wpgen nil t Q ->
   triple t H Q.
-Proof using. introv M. rewrite wp_equiv. xchange M. applys wpgen_sound. Qed.
+Proof using. introv M. rewrite <- wp_equiv. xchange M. applys wpgen_sound. Qed.
 
 (** The lemma [xwp_lemma], used by the tactic [xwp], is a variant of
     [wpgen_of_triple] specialized for establishing a triple for a
@@ -2008,7 +2008,7 @@ Proof using.
   introv M1 M2. applys triple_app_fun M1.
   asserts_rewrite (subst x v2 t1 = isubst ((x,v2)::nil) t1).
   { rewrite isubst_rem. rewrite* isubst_nil. }
-  rewrite wp_equiv. xchange M2. applys wpgen_sound_induct.
+  rewrite <- wp_equiv. xchange M2. applys wpgen_sound_induct.
 Qed.
 
 End WPgenSound.
