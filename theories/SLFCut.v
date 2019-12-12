@@ -1973,3 +1973,14 @@ Lemma hoare_conseq : forall t H Q H' Q',
       intros s Ps. lets Ps': WH Ps.
       lets M': M Ps'. destruct M' as (v&s'&R&HQ).
       exists v s'. splits~. applys WQ. auto. *)
+
+=========================
+
+    The predicate [wpgen t Q] enables convenient interactive reasoning
+    about a concrete term [t]. Contrary to [wp t Q], the manipulation of
+    [wpgen t Q]:
+
+    - does not require manipulating the concrete syntax (AST) of the term [t],
+    - does not require manipulating substitutions of the form [subst x v t1],
+    - does not require manual invokation of the reasoning rules such as [wp_seq],
+      because these rules are "pre-applied" in the formula [wpgen t Q].

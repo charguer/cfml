@@ -29,49 +29,59 @@ Implicit Types Q : val->hprop.
 (** In the previous chapter, we have introduced a predicate called [wp]
     to describe the weakest precondition of a term [t] with respect to
     a given postcondition [Q]. The weakest precondition [wp] is defined
-    by the equivalence [H ==> wp t Q] if and only if [triple t H Q].
+    by the equivalence: [H ==> wp t Q] if and only if [triple t H Q].
 
-    This definition gives a "semantics" to [wp], for which reasoning
-    rules can be proved. For example, [wp (trm_seq t1 t2) Q] is
-    entailed by [wp t1 (fun r => wp t2 Q)], as captured by lemma [wp_seq].
+    With respect to this "characterization of the semantics of [wp]",
+    we could prove "wp-style" reasoning rules. For example, the lemma
+    [wp_seq] asserts: [wp t1 (fun r => wp t2 Q) ==> wp (trm_seq t1 t2) Q].
 
-    In this chapter, we introduce a function to "compute" [wpgen t Q]
-    recursively over the structure of the term [t]. For example,
-    [wpgen t Q] is essentially defined as [wpgen t1 (fun r => wpgen t2 Q)].
+    In this chapter, we introduce a function, called [wpgen], to
+    "effectively compute" the weakest precondition of a term.
+    The value of [wpgen t] is defined recursively over the structure
+    of the term [t], and ultimately produces a formula that is logically
+    equivalent to [wp t].
 
-    The intention is for [wpgen t Q] to recursively construct a heap predicate
-    that has the same interpretation [wp t Q], but that can be directly
-    used for interactive reasoning about a concrete term [t].
+    The major difference between [wp] and [wpgen] is that, whereas [wp t]
+    is a predicate that we can reason about by "applying" reasoning rules,
+    [wpgen t] is a predicate that we can reason about simply by "unfolding"
+    its definition. Moreover, [wp] and [wpgen] differs on the way they handle
+    variable substitution. Consider, e.g., a let-binding. The wp-style
+    reasoning rule for a let-binding introduces a substitution of the form
+    [wp (subst x v t2)], which the user must simplify explicitly. On the
+    contrary, when working with [wpgen], all the substitutions get automatically
+    simplified during the initial evaluation of [wpgen] on the source program;
+    the end-user sees none of these substitutions.
 
-    The predicate [wpgen t Q] enables convenient interactive reasoning
-    about a concrete term [t]. Contrary to [wp t Q], the manipulation of
-    [wpgen t Q]:
+    At a high level, the introduction of [wpgen] is a key ingredient to
+    smoothening the user-experience of conducting interactive proofs in
+    Separation Logic. The matter of the present chapter is to show:
 
-    - does not require manipulating the concrete syntax (AST) of the term [t],
-    - does not require manipulating substitutions of the form [subst x v t1],
-    - does not require manual invokation of the reasoning rules such as [wp_seq],
-      because these rules are "pre-applied" in the formula [wpgen t Q].
-
-    The matter of the present chapter is to show:
-
-    - how to define [wpgen t Q] as a recursive function that computes in Coq,
+    - how to define [wpgen t] as a recursive function that computes in Coq,
     - how to integrate support for the frame rule in this recursive definition,
-    - how to carry out practical proofs using [wpgen t Q].
+    - how to carry out practical proofs using [wpgen].
 
     A bonus section explains how to establish the soundness theorem for [wpgen].
+
 *)
 
 
 (* ####################################################### *)
-(** ** Summary *)
+(** ** Chapter in a rush *)
 
 (** The "chapter in a rush" overview that comes next is fairly short.
     It only gives a bird-eye tour of the steps of the construction.
-    All the explanations are provided in the main body of the chapter. *)
+    Detailed explanations are provided in the main body of the chapter. *)
 
-(** At first, [wpgen t Q] is presented as a recursive function
-    that pattern matches on its argument [t] and produces the
-    appropriate heap predicate in each case.
+(** As first approximation, [wpgen t Q] is defined as a recursive function
+    that pattern matches on its argument [t], and produces the appropriate
+    heap predicate in each case. The definitions somewhat mimic those of
+    [wp]. For example, where the rule [wp_let] asserts the entailment,
+    [wp t1 (fun v => wp (subst x v t2) Q) ==> wp (trm_let x t1 t2) Q],
+    the definition of [wpgen] is such that [wpgen (trm_let x t1 t2) Q]
+    is, by definition, equal to [wpgen t1 (fun v => wpgen (subst x v t2) Q)].
+    One special case is that of applications. We define [wpgen (trm_app v1 v2)]
+    as [wp (trm_app v1 v2)], that is, we fall back onto the semantical
+    definition of weakest precondition.
 
 [[
     Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
@@ -84,11 +94,25 @@ Implicit Types Q : val->hprop.
       end.
 ]]
 
-    In a second step, the definition is modified to make it structurally
-    recursive. It is changed to the form [wpgen E t Q], where [E] denotes
-    an association list bindings values to variables. The intention is that
-    [wpgen E t Q] computes the weakest precondition for [isubst E t], which
-    is the result of substituting bindings from [E] inside [t].
+    From there, to obtain the actual definition of [wpgen], we need to
+    refine the above definition in four steps.
+
+    In a first step, we modify the definition in order to make it
+    structurally recursive. Indeed, in the above the recursive call
+    [wpgen (subst x v t2)] is not made to a strict subterm of
+    [trm_let x t1 t2], thus Coq refuse this definition as it stands.
+
+    To fix the issue, we change the definition to the form [wpgen E t Q],
+    where [E] denotes an association list bindings values to variables.
+    The intention is that [wpgen E t Q] computes the weakest precondition
+    for the term obtained by substituting all the bindings from [E] in [t].
+    (This term is described by the operation [isubst E t] in the chapter.)
+
+    The updated definition looks as follows. Observe how, when traversing
+    [trm_let x t1 t2], the context [E] gets extended as [(x,v)::E].
+    Observe also how, when reaching a variable [x], a lookup for [x]
+    into the context [E] is performed for recovering the value that,
+    morally, should have been substituted for [x].
 
 [[
     Fixpoint wpgen (E:ctx) (t:trm) (Q:val->hprop) : hprop :=
@@ -105,9 +129,15 @@ Implicit Types Q : val->hprop.
       end.
 ]]
 
-    In a third step, the argument [Q] is moved below the [match t with].
-    The type of [wpgen E t] is [(val->hprop)->hprop], which is abbreviated
-    as [formula].
+*)
+
+(** In a second step, we slightly tweak the definition so as to make to
+    swap the place where [Q] is taken as argument with the place where
+    the pattern matching on [t] occurs. The idea is to make it obvious
+    that [wpgen E t] can be computed without any knowledge of [Q].
+
+    The type of [wpgen E t] is [(val->hprop)->hprop], a type which we
+    thereafter call [formula].
 
 [[
     Fixpoint wpgen (E:ctx) (t:trm) : formula :=
@@ -118,15 +148,21 @@ Implicit Types Q : val->hprop.
            | Some v => Q v
            | None => \[False]
            end
-      | trm_app v1 v2 => fun (Q:val->hprop) =>  wp (isubst E t) Q
+      | trm_app v1 v2 => fun (Q:val->hprop) => wp (isubst E t) Q
       | trm_let x t1 t2 => fun (Q:val->hprop) =>
                               wpgen E t1 (fun v => wpgen ((x,v)::E) t2 Q)
       ...
       end.
 ]]
 
-    In a fourth step, auxiliary definitions, e.g. [wpgen_val], [wpgen_var],
-    are [wpgen_let] are introduced, to improve the readability of the output.
+*)
+
+(** In a third step, we introduce auxiliary definitions to improve
+    the readability of the output of calls to [wpgen]. For example,
+    we let [wpgen_val v] be a shorthand for [fun (Q:val->hprop) => Q v].
+    Likewise, we let [wpgen_let F1 F2] be a shorthand for
+    [fun (Q:val->hprop) => F1 (fun v => F2 Q)]. Using these auxiliary
+    definitions, the definition of [wpgen] rewrites as follows.
 
 [[
     Fixpoint wpgen (E:ctx) (t:trm) : formula :=
@@ -139,28 +175,24 @@ Implicit Types Q : val->hprop.
       end.
 ]]
 
-    For example, [wpgen_let] is defined as:
+    Each of the auxiliary definitions introduced comes with a custom notation
+    that enables a nice display of the output of [wpgen]. For example, we set
+    up the notation [Let' v := F1 in F2] to stand for [wpgen_let F1 (fun v => F2)].
+    Thanks to this notation, the result of computing [wpgen] on a source term
+    [Let x := t1 in t2] (of type [trm]) will be a formula displayed in the form
+    [Let x := F1 in F2] (of type [formula]).
 
-[[
-    Definition wpgen_let (F1:formula) (F2of:val->formula) : formula := fun Q =>
-      F1 (fun v => F2of v Q).
-]]
+    Thanks to these auxiliary definitions and pieces of notation, the formula
+    that [wpgen] produces as output reads pretty much like the source term
+    provided as input. *)
 
-    And this definition comes with a custom notation:
-
-[[
-    Notation "'Let'' x ':=' F1 'in' F2" :=
-      ((wpgen_let F1 (fun x => F2))).
-]]
-
-    The result of invoking [wpgen] on a let-binding is a formula that displays
-    in the form [Let' x := F1 in F2], where [F1] and [F2] denote the result of
-    [wpgen] for the subterms of that let-binding.
-
-
-    In a fifth step, a predicate [mkstruct] is inserted at the head of the
-    output of [wpgen] (and of all its recursive invokation), to enable capturing
-    the structural rules of the logic.
+(** In a fourth step, we refine the definition of [wpgen] in order to equip
+    it with inherent support for applications of the structural rules of the
+    logic, namely the frame rule and the rule of consequence. To achieve this,
+    we consider a well-crafted predicate called [mkstruct], and insert it
+    at the head of the output of every call to [wpgen], including all its
+    recursive calls. The definition of [wpgen] thus now admits the following
+    structure.
 
 [[
     Fixpoint wpgen (E:ctx) (t:trm) : formula :=
@@ -170,31 +202,22 @@ Implicit Types Q : val->hprop.
                 end).
 ]]
 
-    In a sixth step, tactics are introduced to manipulate the elements from
-    the output of [wpgen]. For example, [xstruct_lemma] enables dropping
-    [mkstruct] when it is not needed, and [xlet_lemma] reveals the definition
-    of [wpgen_let]. These lemmas are exploited by the implementation of the
-    x-tactics, for example [xlet].
+    Without entering the details, the predicate [mkstruct] is a function
+    of type [formula->formula] that captures the essence of the wp-style
+    consequence-frame structural rule. This rule, called [wp_conseq_frame]
+    in the previous chapter, asserts:
+    [Q1 \*+ H ===> Q2  ->  (wp t Q1) \* H ==> (wp t Q2)]. *)
 
-[[
+(** This concludes our little journey towards the definition of [wpgen].
 
-    Lemma xstruct_lemma : forall F H Q,
-      H ==> F Q ->
-      H ==> mkstruct F Q.
+    For conducting proofs in practice, there remains to state lemmas and
+    define tactics to assist the user in the manipulation of the formula
+    produced by [wpgen]. Ultimately, the end-user only manipulates CFML's
+    "x-tactics" (recall the first two chapters), without ever being
+    required to understand how [wpgen] is defined.
 
-    Lemma xlet_lemma : forall H F1 F2of Q,
-      H ==> F1 (fun v => F2of v Q) ->
-      H ==> mkstruct (wpgen_let F1 F2of Q).
-
-    Tactic Notation "xlet" :=
-      applys xstruct_lemma; applys xlet_lemma.
-]]
-
-    The benefits of using the x-tactics is well illustrated by the demo
-    contained in this file. Search for the tag "THE_DEMO" in this file,
-    and contemplate the proof scripts at that location.
-
-*)
+    In other words, the contents of this chapter reveals the details
+    that we work very hard to make completely invisible to the end user. *)
 
 
 (* ####################################################### *)
@@ -1588,8 +1611,6 @@ Tactic Notation "xapps" :=
 
 Module ProofsWithAdvancedXtactics.
 Import ExamplePrograms.
-
-(** "THE_DEMO" begins here. *)
 
 (** The proof script for the verification of [incr] using the
     tactic [xapps] with implicit argument. *)

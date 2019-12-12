@@ -549,7 +549,7 @@ Lemma wp_from_weakest_pre : forall wp',
   (forall t Q, triple t (wp' t Q) Q) ->  (* [wp_pre] *)
   (forall t H Q, triple t H Q -> H ==> wp' t Q) ->  (* [wp_weakest] *)
   (forall t H Q, H ==> wp' t Q <-> triple t H Q). (* [wp_equiv] *)
-Proof using. 
+Proof using.
   introv M1 M2. iff M.
   { applys triple_conseq M1 M. auto. }
   { applys M2. auto. }
