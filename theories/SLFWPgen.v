@@ -64,10 +64,6 @@ Implicit Types Q : val->hprop.
 
 *)
 
-
-(* ####################################################### *)
-(** ** Chapter in a rush *)
-
 (** The "chapter in a rush" overview that comes next is fairly short.
     It only gives a bird-eye tour of the steps of the construction.
     Detailed explanations are provided in the main body of the chapter. *)
@@ -251,14 +247,14 @@ Implicit Types Q : val->hprop.
       end).
 ]]
 
-    Our first target is to figure out how to fill in the dots for each of the
+    Our first goal is to figure out how to fill in the dots for each of the
     term constructors.
 
     The intention that guides us for filling the dot is the soundness theorem
     for [wpgen], which takes the following form:
 
 [[
-    wpgen t Q ==> wp t Q
+      wpgen t Q ==> wp t Q
 ]]
 
     This entailment asserts in particular that, if we are able to establish
@@ -268,8 +264,8 @@ Implicit Types Q : val->hprop.
 
     Remark: the main difference between [wpgen] and a "traditional" weakest
     precondition generator (as the reader might have seen for Hoare logic)
-    is that here we compute the weakest precondition of a raw term,
-    not annotated with any invariant or specification.
+    is that here we compute the weakest precondition of a raw term, that is,
+    a term not annotated with any invariant or specification.
 
 *)
 
@@ -283,8 +279,8 @@ Implicit Types Q : val->hprop.
 Parameter wp_val : forall v Q,
   Q v ==> wp (trm_val v) Q.
 
-(** The soundness theorem for [wpgen] requires us to have:
-    [wpgen (trm_val v) Q ==> wp (trm_val v) Q].
+(** The soundness theorem for [wpgen] requires the entailment
+    [wpgen (trm_val v) Q ==> wp (trm_val v) Q] to hold.
 
     To satisfy this entailment, according to the rule [wp_val],
     it suffices to define [wpgen (trm_val v) Q] as [Q v].
@@ -305,8 +301,8 @@ Parameter wp_val : forall v Q,
 (** *** Definition of [wpgen] for functions *)
 
 (** Consider the case of a function definition [trm_fun x t].
-    Recall that the [wp] reasoning rule for functions is very similar
-    to that for values: *)
+    Recall that the [wp] reasoning rule for functions is very
+    similar to that for values. *)
 
 Parameter wp_fun : forall x t1 Q,
   Q (val_fun x t1) ==> wp (trm_fun x t1) Q.
@@ -328,9 +324,9 @@ Parameter wp_fun : forall x t1 Q,
 (** An important observation is that we here do not attempt to
     to recursively compute [wpgen] over the body of the function.
     This is something that we could do, and that we will see how
-    to achiever further on, but postpone it for now because it is
-    relatively technical. In practice, if the program feature a
-    local function definition, the user can easily request the
+    to achiever further on, yet we postpone it for now because it is
+    relatively technical. In practice, if the program features a
+    local function definition, the user may explicitly request the
     computation of [wpgen] over the body of that function. Thus,
     the fact that we do not recursively traverse functions bodies
     does not harm expressivity. *)
@@ -339,7 +335,7 @@ Parameter wp_fun : forall x t1 Q,
 (* ################################################ *)
 (** *** Definition of [wpgen] for sequence *)
 
-(** Recall the [wp] reasoning rule for a sequence [trm_seq t1 t2]: *)
+(** Recall the [wp] reasoning rule for a sequence [trm_seq t1 t2]. *)
 
 Parameter wp_seq : forall t1 t2 Q,
   wp t1 (fun v => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
@@ -349,7 +345,8 @@ Parameter wp_seq : forall t1 t2 Q,
     similar shape as [wp t1 (fun v => wp t2 Q)].
 
     We therefore define [wpgen (trm_seq t1 t2) Q] as
-    [wpgen t1 (fun r => wpgen t2 Q)]. Concretely:
+    [wpgen t1 (fun v => wpgen t2 Q)]. The definition of [wpgen]
+    thus gets refined as follows:
 
 [[
     Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
@@ -365,7 +362,7 @@ Parameter wp_seq : forall t1 t2 Q,
 (** *** Definition of [wpgen] for let-bindings *)
 
 (** The case of let bindings is similar to that of sequences,
-    yet it involves a substitution. Recall the [wp] rule: *)
+    except that it involves a substitution. Recall the [wp] rule: *)
 
 Parameter wp_let : forall x t1 t2 Q,
   wp t1 (fun v => wp (subst x v t2) Q) ==> wp (trm_let x t1 t2) Q.
@@ -383,39 +380,38 @@ Parameter wp_let : forall x t1 t2 Q,
     One important observation to make at this point is that the
     function [wpgen] is no longer structurally recursive. Indeed,
     while the first recursive call to [wpgen] is invoked on [t1], which
-    is a strict subterm of [t], the second call is invoked on [subst x v t2],
-    which is not a strict subterm of [t].
+    is a strict subterm of [t], the second call is invoked on
+    [subst x v t2], which is not a strict subterm of [t].
 
-    It is possible to  convince Coq that the function [wpgen] nevertheless
-    terminates, or, more simply, to circumvent the problem altogether by
-    casting the function in a form that makes it structurally recursive.
-    Concretely, we will see further on how to add as argument to [wpgen]
-    a substitution context (written [E]) to delay the computation of
-    substitutions until the leaves of the recursion. *)
+    It is technically possible to convince Coq that the function [wpgen]
+    terminates, yet with great effort. Alternatively, we can circumvent
+    the problem altogether by casting the function in a form that makes
+    it structurally recursive. Concretely, we will see further on how to
+    add as argument to [wpgen] a substitution context (written [E]) to
+    delay the computation of substitutions until the leaves of the recursion. *)
 
 
 (* ################################################ *)
 (** *** Definition of [wpgen] for variables *)
 
-(** There are no reasoning rules to establish a triple or a [wp]-entailment
-    for a program variable. In other words, there are no rules to prove
-    [triple (trm_var x) H Q] or prove concludes [H ==> wp (trm_var x) Q].
-    Indeed, [trm_var x] is a stuck term---its execution does not produce
-    an output.
+(** We have seen no reasoning rules for establishing a triple for a program
+    variable, that is, to prove [triple (trm_var x) H Q]. Indeed, [trm_var x]
+    is a stuck term: its execution does not produce an output.
 
     While a source term may contain program variables, all these variables
-    should have been substituted away before the execution reaches them.
-    In the case of the function [wpgen], the variables bound by a "let"
-    get substituted while traversing the let-binding construct.
-    If a free variable is reached by [wpgen], it means that this variable
-    was a dandling free variable, and therefore that the initial source term
-    was invalid.
+    should get substituted away before the execution reaches them.
 
-    Although there are no rules to introduce [wp (trm_var x) Q], we
-    nevertheless have to provide some meaningful definition for
-    [wpgen (trm_var x) Q]. This definition should capture the fact
-    that this case must not happen. The heap predicate [\[False]] captures
-    this intention perfectly.
+    In the case of the function [wpgen], a variable bound by let-binding
+    get substituted while traversing that let-binding construct. Thus,
+    if a free variable is reached by [wpgen], it means that this variable
+    was originally a dandling free variable, and therefore that the initial
+    source term was invalid.
+
+    Although we have presented no reasoning rules for [triple (trm_var x) H Q]
+    nor for [H ==> wp (trm_var x) Q], we nevertheless have to provide some
+    meaningful definition for [wpgen (trm_var x) Q]. This definition should
+    capture the fact that this case must not happen. The heap predicate
+    [\[False]] captures this intention perfectly well.
 
 [[
     Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
@@ -429,20 +425,24 @@ Parameter wp_let : forall x t1 t2 Q,
 
 (** Remark: the definition of \[False] translates the fact that,
     technically, we could have stated a Separation Logic rule
-    for free variables, using [False] as a premise, either as a triple: *)
+    for free variables, using [False] as a premise [\[False]]
+    as precondition. There are three canonical ways of presenting
+    this rule, they are shown next. *)
+
+Lemma wp_var : forall x Q,
+  \[False] ==> wp (trm_var x) Q.
+Proof using. intros. intros h Hh. destruct (hpure_inv Hh). false. Qed.
 
 Lemma triple_var : forall x H Q,
   False ->
   triple (trm_var x) H Q.
 Proof using. intros. false. Qed.
 
-(** or as a [wp]-entailemnt with [\[False]] as precondition: *)
+Lemma triple_var' : forall x Q,
+  triple (trm_var x) \[False] Q.
+Proof using. intros. rewrite <- wp_equiv. applys wp_var. Qed.
 
-Lemma wp_var : forall x Q,
-  \[False] ==> wp (trm_var x) Q.
-Proof using. intros. intros h Hh. destruct (hpure_inv Hh). false. Qed.
-
-(** These two rules are correct, albeit totally useless in practice. *)
+(** All these rules are correct, albeit totally useless. *)
 
 
 (* ################################################ *)
@@ -451,14 +451,15 @@ Proof using. intros. intros h Hh. destruct (hpure_inv Hh). false. Qed.
 (** Consider an application in A-normal form, that is,
     an application of the form [trm_app v1 v2].
 
-    We have [wp]-style rules to reason about the application of
+    We have seen [wp]-style rules to reason about the application of
     a known function, e.g. [trm_app (val_fun x t1) v2].
     However, if [v1] is an abstrat value (e.g., a Coq variable
-    of type [var]), we have no reasoning rule at hand that applies.
+    of type [val]), we have no reasoning rule at hand that applies.
 
     Thus, we will simply define [wpgen (trm_app v1 v2) Q] as
     [wp (trm_app v1 v2) Q]. In other words, to define [wpgen] for
-    a function application, we fall back to the semantic definition of [wp].
+    a function application, we fall back to the semantic definition
+    of [wp]. We thus extend the definition of [wpgen] as follows.
 
 [[
     Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
@@ -470,24 +471,30 @@ Proof using. intros. intros h Hh. destruct (hpure_inv Hh). false. Qed.
 
     As we carry out verification proofs in practice, when reaching
     an application we will face a goal of the form:
+
 [[
     H ==> wpgen (trm_app v1 v2) Q
 ]]
+
     By revealing the definition of [wpgen] on applications, we get:
+
 [[
     H ==> wp (trm_app v1 v2) Q
 ]]
-    Then by exploiting the equivalence with triples, we obtain:
+
+    Then, by exploiting the equivalence with triples, we obtain:
+
 [[
     triple (trm_app v1 v2) H Q
 ]]
-    which can be proved by invoking a specification triple for
-    the function [v1].
 
-    In other words, by falling back to the semantics definition
-    when reaching a function application, we allow the user to choose
-    which specification lemma to exploit for reasoning about this
-    particular function application. *)
+    Such a proof obligation can be discharged by invoking a specification
+    triple for the function [v1].
+
+    In other words, by falling back to the semantics definition when
+    reaching a function application, we allow the user to choose which
+    specification lemma to exploit for reasoning about this particular
+    function application. *)
 
 (** Remark: we assume throughout the course that terms are written
     in A-normal form. Nevertheless, we need to define [wpgen] even
@@ -495,10 +502,11 @@ Proof using. intros. intros h Hh. destruct (hpure_inv Hh). false. Qed.
     to map all these terms to [\[False]]. In the specific case of an
     application of the form [trm_app t1 t2] where [t1] and [t2] are
     not both values, it is still correct to define [wpgen (trm_app t1 t2))
-    as [wp (trm_app t1 t2)]. So, we need not bother checking here
-    that the arguments of [trm_app] are actually values.
+    as [wp (trm_app t1 t2)]. So, we need not bother checking in the
+    definition of [wpgen] that the arguments of [trm_app] are actually
+    values. *)
 
-    Thus, the most concise definition for [wpgen] on applications is:
+(** Thus, the most concise definition for [wpgen] on applications is:
 
 [[
     Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
@@ -514,33 +522,32 @@ Proof using. intros. intros h Hh. destruct (hpure_inv Hh). false. Qed.
 (* ################################################ *)
 (** *** Definition of [wpgen] for conditionals *)
 
-(** The last remaining case is that for conditionals.
-    Recall the [wp]-style reasoning rule stated using
-    a Coq conditional. *)
+(** The last remaining case is that for conditionals. Recall the
+    [wp]-style reasoning rule stated using a Coq conditional. *)
 
 Parameter wp_if : forall (b:bool) t1 t2 Q,
-  (if b then (wp t1 Q) else (wp t2 Q)) ==> wp (trm_if b t1 t2) Q.
+  (if b then (wp t1 Q) else (wp t2 Q)) ==> wp (trm_if (val_bool b) t1 t2) Q.
 
-(** The statement above actually features hidden coercions.
-    The right-hand side of the entailment only applies to a term
-    of the form [trm_if (trm_val (val_bool b)) t1 t2].
+(** We need to define [wpgen] for all conditionals in A-normal form, i.e.,
+    all terms of the form [trm_if (trm_val v0) t1 t2], where [v0] could a
+    value of unknown shape. Typically, a program may feature a conditional
+    [trm_if (trm_var x) t1 t2] that, after substitution for [x], becomes
+    [trm_if (trm_val v) t1 t2], for some abstract [v] of type [val] that
+    we might not yet know to be a boolean value.
 
-    Yet, we need to define [wpgen] for all conditionals in A-normal
-    form, i.e., all terms of the form [trm_if (trm_val v0) t1 t2], where
-    [v0] could a value of unknown shape. Typically, a program may feature
-    a conditional [trm_if (trm_var x) t1 t2] that, after substitution
-    for [x], becomes [trm_if (trm_val v) t1 t2], for some abstract
-    [v] of type [val] that might not yet be know to be a boolean value.
+    Yet, the rule [wp_if] only applies when the first argument of [trm_if]
+    is syntactically a boolean value [b]. To handle this mistmatch, we
+    set up [wpgen] to pattern-match a conditional as [trm_if t0 t1 t2],
+    and then express using a Separation Logic existential quantifier that
+    therey should exist a boolean [b] such that [t0 = trm_val (val_bool b)].
 
-    To handle the problem, we pattern match a conditional as [trm_if t0 t1 t2],
-    and define its [wpgen] as a heap predicate that requires the existence
-    of a boolean [b] such that [t0 = trm_val (val_bool b)].
     This way, we delay the moment at which the argument of the conditional
     needs to be shown to be a boolean value. The formal definition is:
 
 [[
     Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
       match t with
+      ...
       | trm_if t0 t1 t2 =>
           \exists (b:bool), \[t0 = trm_val (val_bool b)]
             \* (if b then (wpgen t1) Q else (wpgen t2) Q)
@@ -572,7 +579,7 @@ Parameter wp_if : forall (b:bool) t1 t2 Q,
 
     As pointed out earlier, this definition is not structurally recursive
     and thus not accepted by Coq, due to the recursive call
-    [wpgen (subst x v t2) Q]. Our next step is to fix this recursion issue. *)
+    [wpgen (subst x v t2) Q]. Our next step is to fix this issue. *)
 
 
 (* ####################################################### *)
@@ -581,6 +588,7 @@ Parameter wp_if : forall (b:bool) t1 t2 Q,
 (** [wpgen] is not structurally recursive because of the substitutions
     that takes places in-between recursive calls. To fix this, we are
     going to delay the substitutions until the leaves of the recursion.
+
     To that end, we introduce a substitution context, written [E], to
     record the substitutions that should have been performed.
 
@@ -601,13 +609,21 @@ Definition ctx : Type := list (var*val).
 
 (** Before we present how the introduction of a context impacts
     the definition of [wpgen], we need to formalize the "iterated
-    substitution" operation, written [isubst E t]. The definition
-    is relatively standard: the substitution traverses the term
-    recursively and, when reaching a variable, performs a lookup
-    in the term [E].
+    substitution" operation. This operation, written [isubst E t],
+    describes the substitution of all the bindings form [E] inside [t].
+
+    The definition of iterated substitution is relatively standard:
+    the function traverses the term recursively and, when reaching
+    a variable, performs a lookup in the term [E]. We need to take
+    care to respect variable shadowing, which we achieve by possibly
+    removing variables from the context when traversing binders.
+
+    Before we show the definition of [isubst], we begin with the
+    presentation of two required auxiliary functions: lookup and
+    removal on association lists.
 
     The definition of the [lookup] operation on association lists
-    is standard. *)
+    is standard. It returns an option on a value. *)
 
 Fixpoint lookup (x:var) (E:ctx) : option val :=
   match E with
@@ -617,10 +633,8 @@ Fixpoint lookup (x:var) (E:ctx) : option val :=
                    else lookup x E1
   end.
 
-(** One additional technicality is the need to respect variable shadowing,
-    which imposes to remove bindings on a variable [x] when entering
-    through the scope of a bound variable named [x]. The removal operation
-    on a context represented as an association list is also standard. *)
+(** The definition of the removal operation, written [rem], is also
+    standard. *)
 
 Fixpoint rem (x:var) (E:ctx) : ctx :=
   match E with
@@ -630,8 +644,10 @@ Fixpoint rem (x:var) (E:ctx) : ctx :=
       if var_eq x y then E1' else (y,v)::E1'
   end.
 
-(* The definition of the operation [isubst] can then be expressed as a
-   recursive function over the term [t]. *)
+(* The definition of the operation [isubst E t] can then be expressed
+   as a recursive function over the term [t]. It invokes [lookup x E]
+   when reaching a variable [x]. It involves [rem x E] when traversing
+   a binding on the name [x]. *)
 
 Fixpoint isubst (E:ctx) (t:trm) : trm :=
   match t with
@@ -656,10 +672,10 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
        trm_if (isubst E t0) (isubst E t1) (isubst E t2)
   end.
 
-(** Remark: it would be also possible to define the substitution by
-    iterating the unary substitution [subst] over the list of bindings
-    from [E], however doing so is much less efficient and would
-    complicate proofs. *)
+(** Remark: it is also possible to define the substitution by iterating
+    the unary substitution [subst] over the list of bindings from [E].
+    However, this alternative approach yields a less efficient function
+    and leads to more complicated proofs. *)
 
 
 (* ################################################ *)
@@ -687,8 +703,8 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
 (** *** [wpgen]: the variable case *)
 
 (** When [wpgen] reaches a variable, it lookups for a binding
-    on the variable [x] inside the context [E]. Concretely, the evaluation
-    of [wpgen E (trm_var x)] triggers a call to [lookup x E].
+    on the variable [x] inside the context [E]. Concretely, the
+    evaluation of [wpgen E (trm_var x)] triggers a call to [lookup x E].
 
     If the context [E] binds the variable [x] to some value [v], then
     the operation [lookup x E] returns [Some v]. In that case,
@@ -728,8 +744,8 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
     which denotes the result of substituting variables from [E] in [t].
 
     When [t] is an application, we thus define [wpgen E t] as the formula
-    [fun Q => wp (isubst E t) Q], or simply [wp (isubst E t)] by eliminating
-    the useless eta-expansion.
+    [fun Q => wp (isubst E t) Q], or simply [wp (isubst E t)], by
+    eliminating the eta-expansion.
 
 [[
   Fixpoint wpgen (t:trm) : formula :=
@@ -754,7 +770,9 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
 
     The weakest precondition for that value is
     [fun Q => Q (val_fun x (isubst (rem x E) t1))].
-    Thus, [wpgen E t] handles functions, and recursive functions, as follows:
+
+    Thus, [wpgen E t] handles functions, and recursive functions,
+    as follows:
 
 [[
   Fixpoint wpgen (E:ctx) (t:trm) : formula :=
@@ -800,7 +818,7 @@ Fixpoint wpgen (E:ctx) (t:trm) (Q:val->hprop) : hprop :=
     new presentation using the form [wpgen E t] has the main benefits
     that it is structurally recursive, thus easy to define in Coq.
     Moreover, it is algorithmically more efficient in general, because
-    it performs substitutions easily rather than eagerly. *)
+    it performs substitutions lazily rather than eagerly. *)
 
 (** Let us state the soundness theorem and its corollary for establishing
     triples for functions. *)
@@ -811,13 +829,14 @@ Parameter wpgen_sound : forall E t Q,
 (** The entailment above asserts in particular that if we can derive
     [triple t H Q] by proving [H ==> wpgen t Q]. *)
 
-(** There is a corrolary of the soundness theorem that is particularly
-    useful for establishing triples for functions. Recall for [SLFRules]: *)
+(** A useful corrolary combines the soundness theorem with the rule
+    [triple_app_fun], which allows establishing triples for functions.
+    Recall the rule [triple_app_fun] from [SLFRules]. *)
 
 Parameter triple_app_fun : forall x v1 v2 t1 H Q,
   v1 = val_fun x t1 ->
   triple (subst x v2 t1) H Q ->
-  triple (v1 v2) H Q.
+  triple (trm_app v1 v2) H Q.
 
 (** If we rewrite the premise [triple (subst x v2 t1) H Q] as a [wp],
     we get [H ==> wp (subst x v2 t1) Q].
@@ -840,8 +859,8 @@ Parameter triple_app_fun_from_wpgen : forall v1 v2 x t1 H Q,
 
 Import ExamplePrograms.
 
-(** Using [triple_app_fun_from_wpgen], we can demonstrate the
-    computation of a [wpgen] on a practical program.
+(** Let us exploit [triple_app_fun_from_wpgen] to demonstrate the
+    computation of [wpgen] on a practical program.
 
     Recall the function [incr] (defined in SLFRules), and its
     specification, whose statement appears below. *)
@@ -863,7 +882,7 @@ Abort.
     operations.
 
     Observe that the goal is nevertheless somewhat hard to relate
-    to the original program...
+    to the original program.
 
     In what follows, we explain how to remedy the situation, and
     set up [wpgen] is such a way that its output is human-readable,
