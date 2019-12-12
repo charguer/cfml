@@ -238,7 +238,7 @@ Implicit Types Q : val->hprop.
     wpgen t Q ==> wp t Q
 ]]
 
-    This entailement asserts in particular that, if we are able to establish
+    This entailment asserts in particular that, if we are able to establish
     a statement of the form [H ==> wpgen t Q], then we can derive from it
     [H ==> wp t Q]. The latter is also equivalent to [triple t H Q].
     Thus, [wpgen] can be viewed as a practical tool to establish triples.
@@ -263,7 +263,7 @@ Parameter wp_val : forall v Q,
 (** The soundness theorem for [wpgen] requires us to have:
     [wpgen (trm_val v) Q ==> wp (trm_val v) Q].
 
-    To satisfy this entailement, according to the rule [wp_val],
+    To satisfy this entailment, according to the rule [wp_val],
     it suffices to define [wpgen (trm_val v) Q] as [Q v].
 
     Concretely, we fill in the first dots as follows:
@@ -785,7 +785,7 @@ Fixpoint wpgen (E:ctx) (t:trm) (Q:val->hprop) : hprop :=
 Parameter wpgen_sound : forall E t Q,
    wpgen E t Q ==> wp (isubst E t) Q.
 
-(** The entailement above asserts in particular that if we can derive
+(** The entailment above asserts in particular that if we can derive
     [triple t H Q] by proving [H ==> wpgen t Q]. *)
 
 (** There is a corrolary of the soundness theorem that is particularly
@@ -1220,7 +1220,7 @@ Proof using. intros. unfold mkstruct. xsimpl. xsimpl. Qed.
 
     Intuitively, idempotence reflects in particular the fact that two nested
     applications of the rule of consequence can always be combined into a
-    single application of that rule (due to the transitivity of entailement)
+    single application of that rule (due to the transitivity of entailment)
     and that, similarly, two nested applications of the frame rule can always
     be combined into a single application of that rule (framing on [H1] then
     framing on [H2] is equivalent to framing on [H1 \* H2]). *)
@@ -1816,7 +1816,7 @@ Proof using.
   intros Q.
   (* Reveal [wpgen_seq F1 F2], which is defined as [F1 (fun v => F2 Q)]. *)
   unfolds wpgen_seq.
-  (* By transitivity of entailement *)
+  (* By transitivity of entailment *)
   applys himpl_trans.
   (* Apply the soundness result for [wp] on sequences:
      [wp t1 (fun v => wp t2 Q) ==> wp (trm_seq t1 t2) Q]. *)
@@ -2086,7 +2086,7 @@ Parameter mkstruct_introduction : forall F' Q2,
 
 (** For this entailment to hold, because entailment is a reflexive relation,
     it is sufficient to define [mkstruct F' Q2], that is, the right-hand side
-    of the entailement, as equal to the contents of the left-hand side. *)
+    of the entailment, as equal to the contents of the left-hand side. *)
 
 Definition mkstruct (F':formula) : formula :=
   fun (Q2:val->hprop) => \exists Q1 H, \[Q1 \*+ H ===> Q2] \* H \* (F' Q1).

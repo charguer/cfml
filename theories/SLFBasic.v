@@ -38,7 +38,7 @@ Ltac xwp_xtriple_handle_gc ::= xwp_xtriple_remove_gc.
       These proof obligations also correspond to specification triples, yet
       they feature the description of the current state as first argument
       in order to improve readability of proof obligations.
-    - "Entailement proof obligations", of the form [_ ==> _] or [_ ===> _].
+    - "Entailment proof obligations", of the form [_ ==> _] or [_ ===> _].
       Such entailments require proving that a description of a state implies
       another one.
     - Practical verification proofs, using CFML "x-tactics" to demonstrate

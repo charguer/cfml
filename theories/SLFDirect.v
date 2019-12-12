@@ -245,7 +245,7 @@ Module SepSimplArgs.
 
 
 (* ########################################################### *)
-(** ** Hprop and entailement *)
+(** ** Hprop and entailment *)
 
 (** The type of heap predicates is named [hprop]. *)
 

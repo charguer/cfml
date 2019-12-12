@@ -61,33 +61,47 @@ Implicit Types Q : val->hprop.
 (** We next introduce a function [wp], called "weakest precondition".
     Given a term [t] and a postcondition [Q], the expression [wp t Q]
     denotes a heap predicate [wp t Q] such that, for any heap predicate
-    [H], the entailment [H ==> wp t Q] is equivalen to [triple t H Q]. *)
+    [H], the entailment [H ==> wp t Q] is equivalent to [triple t H Q].
+
+    The notion of [wp] usually sounds fairly mysterious at first sight.
+    It will make more sense when we describe the properties of [wp]. *)
 
 Parameter wp : trm -> (val->hprop) -> hprop.
 
 Parameter wp_equiv : forall t H Q,
   (H ==> wp t Q) <-> (triple t H Q).
 
-(** The [wp t Q] is called "weakest precondition" for two reasons.
-    First, because it is a "valid precondition" for the term [t]
-    and the postcondition [Q]: *)
+(** The [wp t Q] is called "weakest precondition" for two reasons:
+    because (1) it is a precondition, and (2) it is the weakest one,
+    as we explain next.
+
+    First, [wp t Q] is always a "valid precondition" for a
+    triple associated with the term [t] and the postcondition [Q]. *)
 
 Lemma wp_pre : forall t Q,
   triple t (wp t Q) Q.
 Proof using. intros. rewrite <- wp_equiv. applys himpl_refl. Qed.
 
-(** Second, because it is the "weakest" of all valid preconditions
+(** Second, [wp t Q] is the "weakest" of all valid preconditions
     for the term [t] and the postcondition [Q], in the sense that
-    any other valid precondition [H] entails [wp t Q]. *)
+    any other valid precondition [H], i.e. satisfying [triple t H Q],
+    is such that [H] entails [wp t Q]. *)
 
 Lemma wp_weakest : forall t H Q,
   triple t H Q ->
   H ==> wp t Q.
 Proof using. introv M. rewrite wp_equiv. applys M. Qed.
 
+(** In other words, [wp t Q] is the "smallest" [H] satisfying
+    [triple t H Q] with respect to the order on heap predicates
+    induced by the entailment relation [==>].
+
+
+*)
+
 (** There are several ways to define [wp]. It turns out that all
     definitions are provably equivalent. In other words, the
-    equivalence [(triple t H Q) <-> (H ==> wp t Q)] characterizes
+    equivalence [(H ==> wp t Q) <-> (triple t H Q)] characterizes
     a unique predicate [wp].
 
     The details of the possible direct definitions for [wp] are
@@ -177,7 +191,7 @@ Lemma wp_conseq_trans : forall t H1 H2 Q1 Q2,
   H2 ==> wp t Q2.
 
 (** As we prove, this result is a corrolary [wp_conseq] and
-    transitivity of entailement. *)
+    transitivity of entailment. *)
 
 Proof using.
   introv M WH WQ. xchange WH. xchange M. applys wp_conseq WQ.
@@ -190,7 +204,7 @@ Qed.
 (** The extraction rules [triple_hpure] and [triple_hexists]
     have no specific counterpart with the [wp] presentation.
     Indeed, these extraction rules are already captured by
-    the extraction rules for entailement.
+    the extraction rules for entailment.
 
     To see why, consider for example the rule [triple_hpure]. *)
 
@@ -352,7 +366,7 @@ Parameter triple_if_case : forall b t1 t2 H Q,
   triple (if b then t1 else t2) H Q ->
   triple (trm_if (val_bool b) t1 t2) H Q.
 
-(** Replacing [triple] using [wp] entailements yields:
+(** Replacing [triple] using [wp] entailments yields:
 
 [[
     H ==> wp (if b then t1 else t2) Q ->

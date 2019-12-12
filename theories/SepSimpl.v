@@ -691,7 +691,7 @@ Ltac hstars_pick_lemma i :=
 
 
 (** [Xsimpl (Hla, Hlw, Hlt) (Hra, Hrg, Hrt)] is interepreted as
-    the entailement [Hla \* Hlw \* Hlt ==> Hra \* Hrg \* Hrt] where
+    the entailment [Hla \* Hlw \* Hlt ==> Hra \* Hrg \* Hrt] where
     - [Hla] denotes "cleaned up" items from the left hand side
     - [Hlw] denotes the [H1 \-* H2] and [Q1 \--* Q2] items from the left hand side
     - [Hlt] denotes the remaining items to process  items from the left hand side

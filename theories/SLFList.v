@@ -34,7 +34,7 @@ Tactic Notation "rew_list" :=
 (** * Chapter in a rush, nested with exercises as additional contents *)
 
 (** The previous chapter has introduced the notation for specification
-    triples, the entailement relations, and the grammar for heap predicates,
+    triples, the entailment relations, and the grammar for heap predicates,
     and CFML's x-tactics for conducting proofs.
 
     Recall the heap predicates: [p ~~> n] and [\[]] and [\[P]] and [H1 \* H2]

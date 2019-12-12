@@ -40,9 +40,9 @@
     - [SLFHprop]: definition of the core operators of Separation Logic,
                   of Hoare triples, and of Separation Logic triples.
 
-    - [SLFHimpl]: definition of the entailement relation, statement and proof
+    - [SLFHimpl]: definition of the entailment relation, statement and proof
                   of its fundamental properties, and description of the
-                  simplification tactic for entailement.
+                  simplification tactic for entailment.
 
     - [SLFRules]: statement and proofs of the reasoning rules of Separation Logic,
                   and examples of complete verification proofs.

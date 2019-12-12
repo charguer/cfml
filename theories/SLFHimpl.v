@@ -28,13 +28,13 @@ Implicit Types Q : val->hprop.
     operators, and we have defined the notion of Separation Logic triple.
 
     Before we can state and prove reasoning rules for establishing triples,
-    we need to introduce the "entailement relation". This relation,
+    we need to introduce the "entailment relation". This relation,
     written [H1 ==> H2], asserts that any heap that satisfies [H1] also
     satisfies [H2].
 
-    We also need to extend the entailement relation to postconditions.
+    We also need to extend the entailment relation to postconditions.
     We write [Q1 ===> Q2] to asserts that, for any result value [v],
-    the entailement [Q1 v ==> Q2 v] holds.
+    the entailment [Q1 v ==> Q2 v] holds.
 
     The two entailment relations appear in the statement of the rule of
     consequence, which admits the same statement in Separation Logic
@@ -68,7 +68,7 @@ Implicit Types Q : val->hprop.
 (* ########################################################### *)
 (** ** Definition of entailment *)
 
-(** The "entailement relationship" [H1 ==> H2] asserts that any
+(** The "entailment relationship" [H1 ==> H2] asserts that any
     heap [h] that satisfies the heap predicate [H1] also satisfies
     the heap predicate [H2]. *)
 
@@ -94,7 +94,7 @@ Lemma himpl_trans : forall H2 H1 H3,
 Proof using. introv M1 M2. intros h H1h. eauto. Qed.
 
 (* EX1! (himpl_antisym) *)
-(** Prove the antisymmetry of entailement result shown below
+(** Prove the antisymmetry of entailment result shown below
     using extensionatity for heap predicates, as captured by
     lemma [predicate_extensionality] (or lemma [hprop_eq])
     introduced in the previous chapter ([SLFHprop]). *)
@@ -858,7 +858,7 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 (** The second simplest result is the extrusion property for existentials.
-    To begin with, we exploit the antisymmetry of entailement to turn
+    To begin with, we exploit the antisymmetry of entailment to turn
     the equality into a conjunction of two entailments. Then, it is simply
     a matter of unfolding the definitions of [hexists], [hstar] and [==>]. *)
 
@@ -1043,7 +1043,7 @@ Qed. (* /ADMITTED *)
 
 (** [] *)
 
-(* LATER: the proofs above could be slightly simplified using [xsimpl], 
+(* LATER: the proofs above could be slightly simplified using [xsimpl],
    yet it is not available here. Should we fix this? *)
 
 End ProveConsequenceRules.

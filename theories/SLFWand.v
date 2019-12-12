@@ -569,7 +569,7 @@ Proof using.
   intros. applys himpl_hwand_r. xsimpl. xchange (hwand_cancel H1 H2).
 Qed.
 
-(** Remark: the reciprocal entailement is false. *)
+(** Remark: the reciprocal entailment is false. *)
 
 
 (* ------------------------------------------------------- *)
@@ -1126,7 +1126,7 @@ Qed.
 (** Consider the entailment [Q1 \*+ H ===> Q2]
     that appears in the combined rule [wp_conseq_frame].
 
-    This entailement can be rewritten using the magic wand as:
+    This entailment can be rewritten using the magic wand as:
     [H ==> (Q1 \--* Q2)].
 
     Thus, the conclusion [(wp t Q1) \* H ==> (wp t Q2)]

@@ -704,7 +704,7 @@ Qed.
 (** Consider the entailment [Q1 \*+ H ===> Q2 \*+ \Top]
     that appears in the combined rule [wp_conseq_frame_htop].
 
-    This entailement can be rewritten using the magic wand as:
+    This entailment can be rewritten using the magic wand as:
     [H ==> (Q1 \--* (Q2 \*+ \Top))].
 
     Thus, the conclusion [(wp t Q1) \* H ==> (wp t Q2)]
@@ -974,7 +974,7 @@ End WpgenOverview.
 (* ******************************************************* *)
 
 (** [xtop_lemma] helps exploiting [mkstruct] to augment the postcondition
-    with [\Top]. It proves the entailement:
+    with [\Top]. It proves the entailment:
 [[
     H ==> mkstruct F (Q \*+ \Top) ->
     H ==> mkstruct F Q.
