@@ -182,7 +182,7 @@ Proof using.
               displayed using the custom notation [PRE _ CODE _ POST _].
               The [CODE] part does not look very nice, but one should
               be able to somehow recognize the body of [incr]. Indeed,
-              if we ignorine the details, and perform the relevant
+              if we ignoring the details, and perform the relevant
               alpha-renaming, the [CODE] section reads like:
 [[
               Let m :=
@@ -276,7 +276,7 @@ Proof using.
   xwp. xapp. xapp. xapp. xsimpl. math.
 Qed.
 
-(** In the proof above, we have eargerly substituted [a] with [n+1],
+(** In the proof above, we have eagerly substituted [a] with [n+1],
     then substituted [b] with [n-1]. Such eager substitutions generally
     work well for small programs, yet in larger programs doing so can lead
     to exponential blow-ups in the size of the terms being manipulated.
@@ -285,7 +285,7 @@ Qed.
 
     In general, it is desirable to let the user control when substitutions
     should or should not be performed. Where the [xapp] tactic systematically
-    attempts to perfom a substitution, its variant [xapp_nosubst] instead
+    attempts to perform a substitution, its variant [xapp_nosubst] instead
     introduces an explicit equality, as illustrated next. *)
 
 Lemma Triple_example_let_with_nosubst : forall (n:int),
@@ -391,7 +391,7 @@ Definition incr_two : val :=
     incr 'p ';
     incr 'q.
 
-(** The specificaiton of this function takes the form
+(** The specification of this function takes the form
     [TRIPLE (incr_two p q) PRE _ POST (fun (r:unit) => _ )],
     where [r] denotes the result value of type unit.
 
@@ -631,7 +631,7 @@ Qed.
 (* ########################################################### *)
 (** *** Existential quantification in heap predicates *)
 
-(** Assume that the programming language includes a builtin
+(** Assume that the programming language includes a built-in
     random generator function, which expects an integer [n]
     and outputs an unspecified number between [0] and [n-1]
     inclusive. *)
@@ -689,7 +689,7 @@ Definition ref_random_int : val :=
       POST (fun (p:loc) => (p ~~> m) \* \[0 <= m < n]).
 ]]
 
-    Yet, this statement does not typecheck because [m] is unbound.
+    Yet, this statement does not type-check because [m] is unbound.
 
     To fix the issue, we need to exploit a new Separation Logic operator:
     the existential quantifier. Its syntax is [\exists x, _].
@@ -841,7 +841,7 @@ Qed.
     Indeed, the above specification features a piece of postcondition
     [\exists p, p ~~> (n+1)] that is of absolutely no use to the caller
     of the function. Worse, the caller will have its state polluted with
-    [\exists p, p ~~> (n+1)] and will have no way to get rid of it appart
+    [\exists p, p ~~> (n+1)] and will have no way to get rid of it apart
     from returning it into its own postcondition. *)
 
 (** The right solution is to patch the code, to free the reference once
@@ -945,7 +945,7 @@ Definition factorec : val :=
     for expressing the constraint [n >= 0]:
 
     - either we use as precondition [\[n >= 0]],
-    - or we place an asssumption [(n >= 0) -> _] to the front of the triple,
+    - or we place an assumption [(n >= 0) -> _] to the front of the triple,
       and use an empty precondition, that is, [\[]].
 
     The two presentations are totally equivalent. By convention, we follow
@@ -1307,4 +1307,3 @@ Parameter Triple_ref_random_int_incorrect : forall (n:int) (m:int),
     should be bound in the postcondition, either as the return value
     (like [fun (p:loc) => _], or using a Separation Logic existential
     quantifier (e.g., [\exists m, _]). *)
-

@@ -771,7 +771,7 @@ Qed.
 
 
 (* ******************************************************* *)
-(** ** Conjuction and disjunction operators on [hprop] *)
+(** ** Conjunction and disjunction operators on [hprop] *)
 
 (* ------------------------------------------------------- *)
 (** *** Definition of [hor] *)

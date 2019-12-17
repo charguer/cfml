@@ -357,7 +357,7 @@ Notation "Q \*+ H" := (fun x => hstar (Q x) H) (at level 40).
     and [Q2] are equal, it suffices to show that the heap predicates
     [Q1 v] and [Q2 v] (both of type [hprop]) are equal for any value [v].
 
-    Again, the extensionality property that we need is not builtin in Coq.
+    Again, the extensionality property that we need is not built-in to Coq.
     We need the axiom called "functional extensionality", stated next. *)
 
 Axiom functional_extensionality : forall A B (f g:A->B),
@@ -377,7 +377,7 @@ Proof using. applys functional_extensionality. Qed.
 (** ** Separation Logic triples and the frame rule *)
 
 (** A Separation Logic triple is a generalization of a Hoare triple
-    that integrate builtin support for an essential rule called
+    that integrate built-in support for an essential rule called
     "the frame rule". Before we give the definition of a Separation
     Logic triple, let us first give the definition of a Hoare triple
     and state the much-desired frame rule. *)
@@ -489,10 +489,10 @@ Proof using. reflexivity. Qed.
 (* INSTRUCTORS *)
 (** [p ~~~> n] technically stands for [p ~~~> (val_int n)], where
     [val_int] is a coercion. It is an instance of a predicate of
-    the form [p ~~~> v] for a value [v] of type [val]. In constrast,
-    [p ~~> n] stands for [p ~~~> (enc n)], where [enc] is a typeclass
+    the form [p ~~~> v] for a value [v] of type [val]. In contrast,
+    [p ~~> n] stands for [p ~~~> (enc n)], where [enc] is a type-class
     function that for translating Coq values into the type [val].
-    The typeclass mechanism is more complex than the coercion mechanism,
+    The type-class mechanism is more complex than the coercion mechanism,
     yet much more general, hence its use in the actual CFML tool. *)
 (* /INSTRUCTORS *)
 
@@ -710,7 +710,7 @@ Qed. (* /ADMITTED *)
     of the state, then the evaluation of [t] produces a value [v] in
     a final state made that can be decomposed between a part [h1']
     and [h2] unchanged, in such a way that [v] and [h1'] together
-    satisfy the poscondition [Q]. Formally: *)
+    satisfy the postcondition [Q]. Formally: *)
 
 Definition triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall h1 h2,
@@ -896,4 +896,3 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 End Extensionality.
-

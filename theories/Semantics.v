@@ -1321,7 +1321,7 @@ Delimit Scope trm_scope with trm.
 
 Module NotationForTerms.
 
-(** Note: below, many occurences of [x] have type [bind], and not [var] *)
+(** Note: below, many occurrences of [x] have type [bind], and not [var] *)
 
 Notation "''App' f x1 .. xn" :=
   (trm_apps f (@cons trm x1 .. (@cons trm xn (@nil trm)) ..))

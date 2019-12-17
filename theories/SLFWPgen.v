@@ -329,7 +329,7 @@ Parameter wp_fun : forall x t1 Q,
     local function definition, the user may explicitly request the
     computation of [wpgen] over the body of that function. Thus,
     the fact that we do not recursively traverse functions bodies
-    does not harm expressivity. *)
+    does not harm expressiveness. *)
 
 
 (* ################################################ *)
@@ -536,10 +536,10 @@ Parameter wp_if : forall (b:bool) t1 t2 Q,
     we might not yet know to be a boolean value.
 
     Yet, the rule [wp_if] only applies when the first argument of [trm_if]
-    is syntactically a boolean value [b]. To handle this mistmatch, we
+    is syntactically a boolean value [b]. To handle this mismatch, we
     set up [wpgen] to pattern-match a conditional as [trm_if t0 t1 t2],
     and then express using a Separation Logic existential quantifier that
-    therey should exist a boolean [b] such that [t0 = trm_val (val_bool b)].
+    there should exist a boolean [b] such that [t0 = trm_val (val_bool b)].
 
     This way, we delay the moment at which the argument of the conditional
     needs to be shown to be a boolean value. The formal definition is:
@@ -616,7 +616,7 @@ Definition ctx : Type := list (var*val).
     we traverse the term recursively and, when reaching a variable,
     we perform a lookup in the context [E]. We need to take care
     to respect variable shadowing. To that end, when traversing a
-    binder that binds a variable [x], we remove all occurences of [x]
+    binder that binds a variable [x], we remove all occurrences of [x]
     that might exist in [E].
 
     The formal definition of [isubst] involves two auxiliary functions:
@@ -685,7 +685,7 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
 (* ################################################ *)
 (** *** [wpgen]: the let-binding case *)
 
-(** When [wpgen] traverses a let-binding, rather than eargerly performing
+(** When [wpgen] traverses a let-binding, rather than eagerly performing
     a substitution, it simply extends the current context.
 
     Concretely, a call to [wpgen E (trm_let x t1 t2)] triggers a recursive
@@ -742,12 +742,12 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
     we argued that, in the case where [t] denotes an application, the
     result of [wpgen t Q] should be simply [wp t Q].
 
-    In the definition of [wpgen] with contexts, the intepretation of
+    In the definition of [wpgen] with contexts, the interpretation of
     [wpgen E t] is the weakest precondition of the term [isubst E t]
     (which denotes the result of substituting variables from [E] in [t]).
 
     When [t] is an application, we thus define [wpgen E t] as the
-    formula [fun Q => wp (isubst E t) Q], which simplies to
+    formula [fun Q => wp (isubst E t) Q], which simplifies to
     [wp (isubst E t)] after eliminating the eta-expansion.
 
 [[
@@ -796,7 +796,7 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
 
 Module WpgenExec1.
 
-(** At last, we arrive to a definition of [wpgen] that typechecks in Coq,
+(** At last, we arrive to a definition of [wpgen] that type-checks in Coq,
     and that can be used to effectively compute weakest preconditions in
     Separation Logic. *)
 
@@ -887,7 +887,7 @@ Abort.
     the precondition, [Q] the postcondition, and [body] the body of
     the function [incr].
 
-    Observe the invokations of [wp] on the application of primitive
+    Observe the invocations of [wp] on the application of primitive
     operations.
 
     Observe that the goal is nevertheless somewhat hard to relate
@@ -1046,7 +1046,7 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
 
 (** This definition is, up to unfolding of the new intermediate definitions,
     totally equivalent to the previous one. We will prove the soundness
-    result and its corrolary further on. *)
+    result and its corollary further on. *)
 
 Parameter wpgen_sound : forall E t Q,
    wpgen E t Q ==> wp (isubst E t) Q.
@@ -1182,7 +1182,7 @@ Parameter wp_frame : forall t H Q,
 
 (** We achieve this magic by introducing a predicate called [mkstruct],
     and inserting it at the head of the output produced by [wpgen]
-    (and all of its recursive invokation) as follows:
+    (and all of its recursive invocation) as follows:
 
 [[
     Fixpoint wpgen (E:ctx) (t:trm) : (val->hprop)->hprop :=
@@ -1303,7 +1303,7 @@ Qed.
 
 
 (* ################################################ *)
-(** *** Definition of [wpgen] that includes +[mkstruct] *)
+(** *** Definition of [wpgen] that includes [mkstruct] *)
 
 (** Our final definition of [wpgen] refines the previous one by
     inserting the [mkstruct] predicate to the front of the
@@ -1530,7 +1530,7 @@ End ProofsWithXlemmas.
 (** ** Making proof scripts more concise *)
 
 (** For each x-lemma, we introduce a dedicated tactic to apply
-    that lemma and perform the associated bookkepping. *)
+    that lemma and perform the associated bookkeeping. *)
 
 (** [xstruct] eliminates the leading [mkstruct]. *)
 
@@ -1630,7 +1630,7 @@ End ProofsWithXtactics.
     [fun v => \[v = ..]] or of the form [fun v => \[v = ..] \* ..].
 
     It therefore makes sense to introduce a tactic [xapp E] that,
-    after calling [xapp_nosubst E], attemps to invoke [intros ? ->]. *)
+    after calling [xapp_nosubst E], attempts to invoke [intros ? ->]. *)
 
 Tactic Notation "xapp" constr(E) :=
   xapp_nosubst E; try intros ? ->.
@@ -2141,7 +2141,7 @@ Parameter mkstruct_conseq_frame : forall F Q1 Q2 H,
 
 (** By the idempotence property [mkstruct_idempotence],
     [mkstruct F] should be equal to [mkstruct (mkstruct F)].
-    Let's exploit this equality for the second occurence of [mkstruct F]. *)
+    Let's exploit this equality for the second occurrence of [mkstruct F]. *)
 
 Parameter mkstruct_conseq_idempotence : forall F Q1 Q2 H,
   Q1 \*+ H ===> Q2 ->
@@ -2189,7 +2189,7 @@ Implicit Types E : ctx.
 (** Recall that [isubst E t] denotes the multi-substitution
     in the term [t] of all bindings form the association list [E].
 
-    The soundness proof for [wpgen] and the proof of its corrolary
+    The soundness proof for [wpgen] and the proof of its corollary
     [triple_app_fun_from_wpgen] rely on two key properties of
     iterated substitutions, captured by the lemmas called [isubst_nil]
     and [isubst_rem], which we state and prove next.
@@ -2366,4 +2366,3 @@ Proof using.
 Qed.
 
 End IsubstProp.
-

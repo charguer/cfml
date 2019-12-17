@@ -268,7 +268,7 @@ Proof using.
 Qed.
 
 (** We can verify that, when migrating to the [wp] presentation, we have
-    not lost any expressivity. To that end, we prove that [triple_val] is
+    not lost any expressiveness. To that end, we prove that [triple_val] is
     derivable from [wp_val]. *)
 
 Lemma triple_val_derived_from_wp_val : forall v H Q,
@@ -495,7 +495,7 @@ Definition wp (t:trm) (Q:val->hprop) : hprop :=
     have to do is to establish that equivalence. *)
 
 (* EX2! (wp_equiv) *)
-(** Prove that the definition [wp_high] statisfies the
+(** Prove that the definition [wp_high] satisfies the
     characteristic equivalence for weakest preconditions. *)
 
 Lemma wp_equiv : forall t H Q,
@@ -525,7 +525,7 @@ End WpHighLevel.
     of [wp] we consider: they are all equivalent.
 
     Concretely, assume two predicates [wp1] and [wp2] to both satisfy
-    the caracteristic equivalence. We prove that they are equal. *)
+    the characteristic equivalence. We prove that they are equal. *)
 
 Lemma wp_unique : forall wp1 wp2,
   (forall t H Q, (triple t H Q) <-> (H ==> wp1 t Q)) ->
@@ -561,7 +561,7 @@ Qed.
 Module WpLowLevel.
 
 (** The concrete definition for [wp] given above is expressed
-    in terms of Separation Logic combinators. In constrast to
+    in terms of Separation Logic combinators. In contrast to
     this "high level" definition, there exists a more "low level"
     definition, expressed directly as a function over heaps.
 
@@ -578,7 +578,7 @@ Module WpLowLevel.
 Definition wp (t:trm) (Q:val->hprop) : hprop :=
   fun (h:heap) => triple t (fun h' => (h' = h)) Q.
 
-(** One can prove that this definition of [wp] also statisfies the
+(** One can prove that this definition of [wp] also satisfies the
     characteristic equivalence [H ==> wp Q <-> triple t H Q]. *)
 
 Lemma wp_equiv_wp_low : forall t H Q,
@@ -748,7 +748,7 @@ Qed. (* /ADMITTED *)
 
     One question that naturally arises is whether there is a more direct
     route to deriving reasoning rules for weakest preconditions.
-    In other words, can we obtain the same end result throught simpler
+    In other words, can we obtain the same end result through simpler
     proofs? *)
 
 (** The notion of Hoare triple is a key abstraction that enables conduction
@@ -889,4 +889,3 @@ Qed.
     triples".) *)
 
 End WpFromHoare.
-

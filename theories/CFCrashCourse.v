@@ -628,7 +628,7 @@ Qed.
 (** ** Reversed copy using iter (brown belt) *)
 
 (** Hints:
-    - [xfun] to substitute a function definition in its occurences
+    - [xfun] to substitute a function definition in its occurrences
     - [xapp (>> __ E)] to provide [E] as argument to the specification
       lemma that [xapp] would apply.
     - The proof has a similar pattern to [length_using_iter].

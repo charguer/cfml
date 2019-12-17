@@ -221,7 +221,7 @@ Global Opaque MList.
     - if [p <> null], then the list [L] must have the form [x::L'],
       the head field of [p] contains the value [x], and the tail field
       of [p] contains some pointer [q] such that [q ~> MList L'] is
-      a respresentation of the tail list.
+      a representation of the tail list.
 
     This logic is captured by the lemma [MList_if] stated below.
     The statement exploits TLC's classical-logic test, written
@@ -245,7 +245,7 @@ Proof using.
     case_if. xsimpl. auto. }
   { (* Case [L = x::L']. *)
   (* One possibility is to perform a rewrite operation using [MList_cons]
-     on its first occurence. Then using CFML the tactic [xpull] to extract
+     on its first occurrence. Then using CFML the tactic [xpull] to extract
      the existential quantifiers out from the precondition:
      [rewrite MList_cons. xpull. intros q.]
      A more efficient approach is to use the dedicated CFML tactic [xchange],
@@ -290,7 +290,7 @@ Qed.
 ]]
 
     However, this definition is rejected by Coq, because Coq does not
-    recorgnize the structural recursion, even though the recursive call
+    recognize the structural recursion, even though the recursive call
     is made with a list [L'] being a strict sublist of the argument [L]. *)
 
 
@@ -457,7 +457,7 @@ Qed.
     [Triple_mtail_notnil] and [Triple_mtail_minimal]?
 
     [Triple_mtail_minimal] is only useful for reasoning about
-    invokations of [mtail] on lists whose representation predicate
+    invocations of [mtail] on lists whose representation predicate
     is already unfolded. When, however, the list is represented
     by a predicate of the form [p ~> MList _], the other two
     specifications are more appropriate.

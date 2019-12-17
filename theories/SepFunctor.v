@@ -2051,7 +2051,7 @@ Proof using. introv M. unfold weakestpre. xsimpl~ H. Qed.
 
 
 (** [xunfold at n] unfold the definition of the arrow [~>]
-    at the occurence [n] in the goal. *)
+    at the occurrence [n] in the goal. *)
 
 Definition repr' (A:Type) (S:A->hprop) (x:A) : hprop := S x.
 
@@ -2065,12 +2065,12 @@ Ltac xunfold_at_core n :=
 Tactic Notation "xunfold" "at" constr(n) :=
   xunfold_at_core n.
 
-(** [xunfold E] unfolds all occurences of the representation
+(** [xunfold E] unfolds all occurrences of the representation
     predicate [E].
     Limitation: won't work if E has more than 12 arguments.
 
-    Implementation: converts all occurences of repr to repr',
-    then unfolds these occurences one by one, and considers
+    Implementation: converts all occurrences of repr to repr',
+    then unfolds these occurrences one by one, and considers
     them for unfolding. *)
 
 Ltac xunfold_arg_core E :=
@@ -2108,7 +2108,7 @@ Tactic Notation "xunfold" constr(E) :=
 Tactic Notation "xunfold" "~" constr(E) := xunfold E; auto_tilde.
 Tactic Notation "xunfold" "*" constr(E) := xunfold E; auto_star.
 
-(** [xunfold E] unfolds a specific occurence of the representation
+(** [xunfold E] unfolds a specific occurrence of the representation
     predicate [E]. *)
 
 Ltac xunfold_arg_at_core E n :=

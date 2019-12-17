@@ -148,10 +148,10 @@ Proof using. apply (Inhab_of_val val_unit). Qed.
 
 (** The semantics of the evaluation of function is described by means
     of a substitution function. The substitution function, written
-    [subst y w t], replaces all occurences of a variable [y] with a
+    [subst y w t], replaces all occurrences of a variable [y] with a
     value [w] inside a term [t].
 
-    The subtitution function is always the identity function on values,
+    The substitution function is always the identity function on values,
     because our language only considers closed values. In other words,
     we define [subst y w (trm_val v) = (trm_val v)].
 
@@ -244,7 +244,7 @@ Coercion trm_app : trm >-> Funclass.
     This is not a real restriction, because [trm_if t0 t1 t2] can always be
     encoded as [let x = t0 in if x then t1 else t2].
 
-    The big-step jugdment is inductively defined as follows. *)
+    The big-step judgment is inductively defined as follows. *)
 
 Inductive eval : state -> trm -> state -> val -> Prop :=
 
@@ -336,7 +336,7 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       n2 <> 0 ->
       eval s (val_div (val_int n1) (val_int n2)) s (val_int (Z.quot n1 n2))
 
-  (** 6. [eval] for primitive stateful operations.
+  (** 6. [eval] for primitive operations on memory.
 
       There remains to describe operations that act on the mutable store.
 
@@ -996,7 +996,7 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 (** As we said, placing pure preconditions outside of the triples
-    makes it slightly more convient to exploit specifications.
+    makes it slightly more convenient to exploit specifications.
     For this reason, we adopt the style that precondition only
     contain the description of heap-allocated data structures. *)
 
@@ -1141,7 +1141,7 @@ Parameter eval_seq : forall s1 s2 s3 t1 t2 v1 v,
 
 (** The Hoare triple version of the reasoning rule is proved as follows.
     This lemma, called [hoare_seq], has the same statement as [triple_seq],
-    except with occurences of [triple] replaced with [hoare]. *)
+    except with occurrences of [triple] replaced with [hoare]. *)
 
 Lemma hoare_seq : forall t1 t2 H Q H1,
   hoare t1 H (fun v => H1) ->
@@ -1205,7 +1205,7 @@ Parameter eval_let : forall s1 s2 s3 x t1 t2 v1 v,
     the reasoning rule for [triple_let], whose statement appears
     earlier in this file. Make sure to first state and prove the
     lemma [hoare_let], which has the same statement as [triple_let]
-    yet with occurences of [triple] replaced with [hoare]. *)
+    yet with occurrences of [triple] replaced with [hoare]. *)
 
 (* SOLUTION *)
 Lemma hoare_let : forall x t1 t2 H Q Q1,
@@ -1353,7 +1353,7 @@ Parameter eval_get : forall s l,
   eval s (val_get (val_loc l)) s (Fmap.read s l).
 
 (** We reformulate this rule by isolating from the current state [s]
-    the singleon heap made of the cell at location [l], and let [s2]
+    the singleton heap made of the cell at location [l], and let [s2]
     denote the rest of the heap. When the singleton heap is described
     as [Fmap.single l v], then [v] is the result value returned by
     [get l]. *)
@@ -1600,7 +1600,7 @@ Parameter triple_fix : forall f x t1 H Q,
 
 (** The reasoning rule that corresponds to beta-reduction for
     a recursive function involves two substitutions: a first
-    substitution for recursive occurences of the function,
+    substitution for recursive occurrences of the function,
     followed with a second substitution for the argument
     provided to the call. *)
 
@@ -1746,7 +1746,7 @@ Parameter eval_set : forall m l v,
 (** As for [get], we first reformulate this lemma, to replace
     references to [Fmap.indom] and [Fmap.update] with references
     to [Fmap.union], [Fmap.single], and [Fmap.disjoint], to
-    prepare for the introduction of separating conjuntions. *)
+    prepare for the introduction of separating conjunctions. *)
 
 Lemma eval_set_sep : forall s1 s2 h2 l v1 v2,
   s1 = Fmap.union (Fmap.single l v1) h2 ->
@@ -1979,7 +1979,7 @@ End ProofsSameSemantics.
 (** Prove that the proposition [hoare t H Q] is equivalent to:
     "for any heap [h] satisfying the precondition [H], the Hoare
     triple whose precondition requires the input heap to be exactly
-    equal to [h], and whose postcondiiion is [Q] holds".
+    equal to [h], and whose postcondition is [Q] holds".
 
     Thereafter, we write [= h] for [fun h' => h' = h], that is,
     the heap predicate that only accepts heaps exactly equal to [h]. *)

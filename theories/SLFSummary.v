@@ -128,7 +128,7 @@ Coercion trm_app : trm >-> Funclass.
 Implicit Types v : val.
 
 (** The capture-avoiding substitution (not shown) is defined in a
-    standard way. [subst x v t] replaces all occurences of the variable
+    standard way. [subst x v t] replaces all occurrences of the variable
     [x] with the value [v] inside the term [t]. *)
 
 Parameter subst : forall (x:var) (v:val) (t:trm), trm.

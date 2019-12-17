@@ -95,7 +95,7 @@ Proof using. introv M1 M2. intros h H1h. eauto. Qed.
 
 (* EX1! (himpl_antisym) *)
 (** Prove the antisymmetry of entailment result shown below
-    using extensionatity for heap predicates, as captured by
+    using extensionality for heap predicates, as captured by
     lemma [predicate_extensionality] (or lemma [hprop_eq])
     introduced in the previous chapter ([SLFHprop]). *)
 
@@ -219,7 +219,7 @@ Parameter himpl_frame_l : forall H2 H1 H1',
 
 
 (* EX1? (himpl_frame_lr) *)
-(** The monotonity property of the star operator w.r.t. entailment can
+(** The monotonicity property of the star operator w.r.t. entailment can
     also be stated in a symmetric fashion, as shown next. Prove this result.
     Hint: exploit the transitivity of entailment ([himpl_trans]) and the
     asymmetric monotonicity result ([himpl_frame_l]). *)
@@ -411,8 +411,8 @@ Notation "'hprop''" := (SLFHprop.hprop).
     applies to an entailment and implements a 3-step process:
 
     1. extract pure facts and existential quantifiers from the LHS,
-    2. cancel out equal predicates occuring both in the LHS and RHS,
-    3. generate subgoals for the pure facts occuring in the RHS, and
+    2. cancel out equal predicates occurring both in the LHS and RHS,
+    3. generate subgoals for the pure facts occurring in the RHS, and
        instantiate the existential quantifiers from the RHS
        (using either unification variables or user-provided hints).
 
@@ -476,7 +476,7 @@ Abort.
 (** The second feature of [xsimpl] is its ability to cancel out similar
     heap predicates that occur on both sides of an entailment.
 
-    In the example below, [H2] occurs on both sides, so it is cancelled
+    In the example below, [H2] occurs on both sides, so it is canceled
     out by [xsimpl]. *)
 
 Lemma xsimpl_demo_cancel_one : forall H1 H2 H3 H4 H5 H6 H7,
@@ -487,7 +487,7 @@ Abort.
 
 (** [xsimpl] actually cancels out at once all the heap predicates that it
     can spot appearing on both sides. In the example below, [H2], [H3],
-    and [H4] are cancelled out. *)
+    and [H4] are canceled out. *)
 
 Lemma xsimpl_demo_cancel_many : forall H1 H2 H3 H4 H5,
   H1 \* H2 \* H3 \* H4 ==> H4 \* H3 \* H5 \* H2.
@@ -495,7 +495,7 @@ Proof using.
   intros. xsimpl.
 Abort.
 
-(** If all the pieces of heap predicate get cancelled out, the remaining
+(** If all the pieces of heap predicate get canceled out, the remaining
     proof obligation is [\[] ==> \[]]. In this case, [xsimpl] automatically
     solves the goal by invoking the reflexivity property of entailment. *)
 
@@ -546,7 +546,7 @@ Proof using.
 Abort.
 
 (** The instantiation of the evar [?x] can be observed if there is
-    another occurence of the same variable in the entailment.
+    another occurrence of the same variable in the entailment.
     In the next example, which refines the previous one, observe how
     [n > 0] becomes [3 > 0]. *)
 
@@ -751,7 +751,7 @@ Module CaseStudyAnswers.
     6.  False, because a satisfiable heap predicate does not entail \[False].
     7.  True, because a cell cannot be starred with itself.
     8.  True, because a cell cannot be starred with itself.
-    9.  True, by nstantiating [n] with [3].
+    9.  True, by instantiating [n] with [3].
     10. False, because [n] could be something else than [3].
     11. True, by instantiating [n] in RHS with [n+1] for the [n] of the LHS.
     12. True, by instantiating [n] with [3].
@@ -1120,4 +1120,3 @@ Parameter triple_hexists' : forall t (A:Type) (J:A->hprop) Q,
   triple t (hexists J) Q.
 
 End ProveExtractionRules.
-

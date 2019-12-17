@@ -149,7 +149,7 @@
 (* ########################################################### *)
 (** ** CFML: a practical verification tool *)
 
-(** CFML is a program verification framework based on Separationg
+(** CFML is a program verification framework based on Separation
     Logic and embedded in Coq. The present course presents, among
     other things, the foundations of the CFML tool.
 
@@ -245,4 +245,3 @@
     Foundations_ series has been supported, in part, by the National Science
     Foundation under the NSF Expeditions grant 1521523, _The Science of Deep
     Specification_. *)
-

@@ -253,7 +253,7 @@ Parameter triple_iff_triple_lowlevel : forall t H Q,
 
 
 (** Finally, [xsimpl] provides support for eliminating [\Top] on the RHS.
-    First, if the RHS includes several occurences of [\Top], then they
+    First, if the RHS includes several occurrences of [\Top], then they
     are replaced with a single one. *)
 
 Lemma xsimpl_demo_rhs_htop_compact : forall H1 H2 H3 H4,
