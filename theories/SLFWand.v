@@ -535,6 +535,8 @@ Lemma hwand_hpure_r_intro : forall H1 H2 P,
   H1 ==> (\[P] \-* H2).
 Proof using. introv M. applys himpl_hwand_r. xsimpl. applys M. Qed.
 
+(* TODO \[P1] \-* \[P2]  iff \[P1 -> P2]. *)
+
 
 (* ------------------------------------------------------- *)
 (** *** Interaction of [hwand] with [hstar] *)
