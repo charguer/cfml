@@ -614,7 +614,7 @@ Proof using. introv M. intros h K x. apply~ M. Qed.
 
 Lemma hforall_specialize : forall A (v:A) (J:A->hprop),
   (\forall x, J x) ==> (J v).
-Proof using. intros. intros h K. apply~ K. Qed.
+Proof using. intros. intros h K. apply* K. Qed.
 
 (** The lemma above can equivalently be formulated in the following way. *)
 
@@ -750,7 +750,7 @@ Proof using.
       applys M. applys himpl_refl. }
     { xsimpl. intros H0 M. rewrite Hop. applys M. } }
   { subst. unfolds hwand_characterization, hwand'.
-    intros H0 H1 H2. iff M. { xchange~ M. } { xsimpl~ H0. } }
+    intros H0 H1 H2. iff M. { xchange* M. } { xsimpl~ H0. } }
 Qed.
 
 (** Remark: the right-to-left direction was "too easy" to prove.

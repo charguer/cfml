@@ -67,7 +67,10 @@ Tactic Notation "case_var" :=
   repeat rewrite var_eq_spec in *; repeat case_if.
 
 Tactic Notation "case_var" "~" :=
-  case_var; auto.
+  case_var; auto_tilde.
+
+Tactic Notation "case_var" "*" :=
+  case_var; auto_star.
 
 
 (* ---------------------------------------------------------------------- *)

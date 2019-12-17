@@ -768,7 +768,8 @@ Proof using. intros. applys* local_conseq_frame_hgc. Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Lifting of evaluation context rules *)
 
-(** Not needed? *)
+(** Currently not used *)
+
 Lemma Triple_evalctx : forall C t1 H,
  forall A `{EA:Enc A} (Q:A->hprop) A1 `{EA1:Enc A1} (Q1:A1->hprop),
   evalctx C ->

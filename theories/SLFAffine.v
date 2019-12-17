@@ -747,7 +747,7 @@ Lemma wp_hany_pre : forall t H Q,
   (wp t Q) \* H ==> wp t Q.
 Proof using.
   intros. rewrite <- wp_equiv.
-  applys triple_hany_pre. rewrite~ wp_equiv.
+  applys triple_hany_pre. rewrite* wp_equiv.
 Qed.
 
 (** The garbage collection in postconditions for [wp] asserts
@@ -758,7 +758,7 @@ Lemma wp_hany_post : forall t H Q ,
   wp t (Q \*+ H) ==> wp t Q.
 Proof using.
   intros. rewrite <- wp_equiv.
-  applys triple_hany_post. rewrite~ wp_equiv.
+  applys triple_hany_post. rewrite* wp_equiv.
 Qed.
 
 (** Note, equivalently, the [H] from rules [wp_hany_pre] and
@@ -819,7 +819,7 @@ Lemma triple_htop_pre : forall t H Q,
   triple t H Q ->
   triple t (H \* \Top) Q.
 Proof using.
-  introv M. applys triple_htop_post. applys~ triple_frame.
+  introv M. applys triple_htop_post. applys* triple_frame.
 Qed.
 
 Lemma triple_hany_pre : forall t H H' Q,
@@ -865,7 +865,7 @@ Lemma triple_ramified_frame_htop : forall H1 Q1 t H Q,
   triple t H Q.
 Proof using.
   introv M W. applys triple_conseq_frame_htop (Q1 \--* Q \*+ \Top) M W.
-  { rewrite~ <- qwand_equiv. }
+  { rewrite* <- qwand_equiv. }
 Qed.
 
 Lemma triple_ramified_frame : forall H1 Q1 t H Q,

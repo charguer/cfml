@@ -1984,3 +1984,19 @@ Lemma hoare_conseq : forall t H Q H' Q',
     - does not require manipulating substitutions of the form [subst x v t1],
     - does not require manual invokation of the reasoning rules such as [wp_seq],
       because these rules are "pre-applied" in the formula [wpgen t Q].
+
+=========================
+
+
+(** Remark: if we were providing t
+
+[[
+    xwp.
+    xapp triple_get.
+    xapp triple_add.
+    xapp triple_set.
+    xsimpl~.
+]]
+
+*)
+
