@@ -489,7 +489,7 @@ Qed.
 
 Definition mlength : val :=
   VFix 'f 'p :=
-    If_ 'p '= ``null
+    If_ 'p '= null
       Then 0
       Else 1 '+ 'f ('p'.tail).
 
@@ -1276,7 +1276,7 @@ Qed.
 
 Definition mlength_acc_rec : val :=
   VFix 'f 'a 'p :=
-    If_ 'p '<> ``null Then
+    If_ 'p '<> null Then
       incr 'a ';
       'f 'a ('p'.tail)
    End.
