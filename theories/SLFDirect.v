@@ -414,6 +414,11 @@ Lemma himpl_antisym : forall H1 H2,
   (H1 = H2).
 Proof using. introv M1 M2. applys pred_ext_1. intros h. iff*. Qed.
 
+Lemma hprop_op_comm : forall (op:hprop->hprop->hprop),
+  (forall H1 H2, op H1 H2 ==> op H2 H1) ->
+  (forall H1 H2, op H1 H2 = op H2 H1).
+Proof using. introv M. intros. applys himpl_antisym; applys M. Qed.
+
 Lemma himpl_forall_trans : forall H1 H2,
   (forall H, H ==> H1 -> H ==> H2) ->
   H1 ==> H2.
@@ -457,9 +462,9 @@ Proof using. introv M. applys M. Qed.
 Lemma hstar_comm : forall H1 H2,
    H1 \* H2 = H2 \* H1.
 Proof using.
-  intros H1 H2. unfold hprop, hstar.
-  apply himpl_antisym; intros h (h1&h2&M1&M2&D&U);
-   rewrite~ Fmap.union_comm_of_disjoint in U; exists* h2 h1.
+  applys hprop_op_comm. unfold hprop, hstar. intros H1 H2.
+  intros h (h1&h2&M1&M2&D&U). rewrite~ Fmap.union_comm_of_disjoint in U.
+  exists* h2 h1.
 Qed.
 
 Lemma hstar_assoc : forall H1 H2 H3,
@@ -1189,6 +1194,11 @@ Proof using. intros. applys himpl_trans_r wp_ramified. xsimpl. Qed.
 Lemma wp_ramified_frame : forall t Q1 Q2,
   (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
 Proof using. intros. applys himpl_trans_r wp_ramified. xsimpl. Qed.
+
+Lemma wp_ramified_trans : forall t H Q1 Q2,
+  H ==> (wp t Q1) \* (Q1 \--* Q2) ->
+  H ==> (wp t Q2).
+Proof using. introv M. xchange M. applys wp_ramified. Qed.
 
 
 (* ################################################ *)

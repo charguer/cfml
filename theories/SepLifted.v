@@ -360,7 +360,7 @@ Hint Resolve @Enc_injective_nil @Enc_injective_none : Enc_injective.
     [``V1 = ``V2  <->  V1 = V2] holds. *)
 
 Definition Enc_comparable A `{EA:Enc A} (V1 V2:A) : Prop :=
-     Enc_injective EA 
+     Enc_injective EA
   \/ Enc_injective_value V1
   \/ Enc_injective_value V2.
 
@@ -369,7 +369,7 @@ Lemma Enc_comparable_inv : forall A `(EA:Enc A) (V1 V2:A),
   (``V1 = ``V2) = (V1 = V2).
 Proof using.
   introv [M|[M|M]].
-  { applys (>> Enc_injective_inv V1 V2 M). }  
+  { applys (>> Enc_injective_inv V1 V2 M). }
   { applys (>> Enc_injective_value_eq_l V1 M). }
   { applys (>> Enc_injective_value_eq_r V2 M). }
 Qed.
@@ -608,13 +608,13 @@ Hint Resolve @local_Triple.
 (* ---------------------------------------------------------------------- *)
 (* ** Lemma for changing the encoder in a triple *)
 
-(** [Post_cast_val Q] turns a postcondition of type [A->hprop] into 
+(** [Post_cast_val Q] turns a postcondition of type [A->hprop] into
     the corresponding postcondition at type [val->hprop]. *)
 
 Definition Post_cast_val A `{EA:Enc A} (Q:A->hprop) : val->hprop :=
   fun (v:val) => \exists (V:A), \[v = enc V] \* Q V.
 
-(** [Post_cast A' Q] turns a postcondition of type [A->hprop] into 
+(** [Post_cast A' Q] turns a postcondition of type [A->hprop] into
     the corresponding postcondition at type [A'->hprop]. *)
 
 Definition Post_cast A2 `{EA2:Enc A2} A1 `{EA1:Enc A1} (Q:A1->hprop) : A2->hprop :=
@@ -633,7 +633,7 @@ Lemma qimpl_Post_cast_l : forall A `{EA:Enc A} (Q:A->hprop),
   Post_cast A Q ===> Q.
 Proof using.
   introv M. unfolds Post_cast, Post_cast_val. intros X. xsimpl*.
-  intros Y EQ. rewrites (>> Enc_injective_inv M) in EQ. subst*. 
+  intros Y EQ. rewrites (>> Enc_injective_inv M) in EQ. subst*.
 Qed.
 
 Lemma Post_cast_val_weaken : forall A1 `{EA:Enc A1} (Q1 Q2:A1->hprop),
@@ -1065,7 +1065,7 @@ Lemma Triple_eq : forall A `{EA:Enc A} (V1 V2 : A),
 Proof using.
   introv I. intros.
   applys (@Triple_enc_change bool). { applys Triple_eq_val. }
-  unfold Post_cast, Post_cast_val. xpull ;=> ? ->. 
+  unfold Post_cast, Post_cast_val. xpull ;=> ? ->.
   xsimpl*. fequals. applys* Enc_comparable_inv.
 Qed.
 

@@ -760,6 +760,14 @@ Lemma himpl_hor_r_l : forall H1 H2,
   H2 ==> hor H1 H2.
 Proof using. intros. unfolds hor. exists* false. Qed.
 
+Lemma himpl_hor_l : forall H1 H2 H3,
+  H1 ==> H3 ->
+  H2 ==> H3 ->
+  hor H1 H2 ==> H3.
+Proof using. 
+  introv M1 M2. unfolds hor. applys himpl_hexists_l. intros b. case_if*.
+Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [hand] *)
@@ -786,7 +794,10 @@ Lemma himpl_hand_r : forall H1 H2 H3,
   H1 ==> H2 ->
   H1 ==> H3 ->
   H1 ==> hand H2 H3.
-Proof using. introv M1 M2 Hh. intros b. case_if*. Qed.
+Proof using.
+  introv M1 M. unfold hand. applys himpl_hforall_r. intros b. case_if*. 
+Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 

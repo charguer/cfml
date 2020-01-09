@@ -1664,6 +1664,16 @@ Module ProofsWithAdvancedXtactics.
 Import ExamplePrograms.
 Open Scope wpgen_scope.
 
+(* Variant for the demo *)
+
+Lemma triple_incr' : forall (p:loc) (n:int),
+  triple (trm_app incr p)
+    (p ~~~> n)
+    (fun _ => p ~~~> (n+1)).
+Proof using.
+  xwp. xapp. xapp. xapp. xsimpl.
+Qed.
+
 (** The proof script for the verification of [incr] using the tactic
     [xapps] with implicit argument. *)
 
@@ -1673,7 +1683,7 @@ Lemma triple_incr : forall (p:loc) (n:int),
     (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
 Proof using.
   xwp. xapp. xapp. xapp. xsimpl. auto.
- Qed.
+Qed.
 
 (** In order to enable automatically exploiting the specification
     of [triple] in the verification of [succ_using_incr], which

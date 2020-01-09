@@ -112,16 +112,15 @@ Qed. (* /ADMITTED *)
 
 (** [] *)
 
-(** For example, [himpl_antisym] can be used to establish
-    commutativity of separating conjunction: [(H1 \* H2) = (H2 \* H1)]
-    by proving that each side entails the other side, that is, by proving
-    [(H1 \* H2) ==> (H2 \* H1)] and [(H2 \* H1) ==> (H1 \* H2)].
-    Such a proof appears further on. *)
-
 (** Remark: as the proof scripts show, the fact that entailment on [hprop]
     constitute an order relation is a direct consequence of the fact that
     implication on [Prop], that is, [->], is an order relation on [Prop]
     (when assuming the propositional extensionality axiom). *)
+
+(** The lemma [himpl_antisym] may, for example, be used to establish
+    commutativity of separating conjunction: [(H1 \* H2) = (H2 \* H1)]
+    by proving that each side entails the other side, that is, by proving
+    [(H1 \* H2) ==> (H2 \* H1)] and [(H2 \* H1) ==> (H1 \* H2)]. *)
 
 
 (* ########################################################### *)
@@ -875,6 +874,17 @@ Qed.
     To establish these properties, we need to exploit a few basic facts about
     finite maps. We introduce them as we go along. *)
 
+(** To prove the commutativity of the star operator, i.e. [H1 \* H2 = H2 \* H1],
+    it is sufficient to prove the entailement in one direction, e.g.,
+    [H1 \* H2 ==> H2 \* H1]. Indeed, the other other direction is symmetrical.
+    The symmetry argument is captured by the following lemma, which we will
+    exploit in the proof of [hstar_comm]. *)
+
+Lemma hprop_op_comm : forall (op:hprop->hprop->hprop),
+  (forall H1 H2, op H1 H2 ==> op H2 H1) ->
+  (forall H1 H2, op H1 H2 = op H2 H1).
+Proof using. introv M. intros. applys himpl_antisym; applys M. Qed.
+
 (** To prove commutativity of star, we need to exploit the fact that the union
     of two finite maps with disjoint domains commutes. This fact is captured
     by the following lemma.
@@ -886,17 +896,15 @@ Qed.
 ]]
 
     The commutativity result is then proved as follows. Observe the use of
-    an assertion to factorize the two entailments, which are symmetric.
+    the lemma [hprop_op_comm], which allows establishing the entailment in
+    only one of the two directions.
 *)
 
 Lemma hstar_comm : forall H1 H2,
    H1 \* H2 = H2 \* H1.
 Proof using.
-  asserts F: (forall H1 H2, H1 \* H2 ==> H2 \* H1).
-  { intros. intros h (h1&h2&M1&M2&D&U). exists h2 h1.
-    subst. splits~.
-    { rewrite Fmap.union_comm_of_disjoint; auto. } }
-  intros. applys himpl_antisym. { applys F. } { applys F. }
+  applys hprop_op_comm. intros. intros h (h1&h2&M1&M2&D&U). exists h2 h1.
+  subst. splits~. { rewrite Fmap.union_comm_of_disjoint; auto. }
 Qed.
 
 (** To prove that the empty heap predicate is a neutral for star, we need to
