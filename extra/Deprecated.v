@@ -479,13 +479,13 @@ Tactic Notation "xfun" constr(S) :=
 
 
 Lemma xfun_spec_lemma
-introv M1 M2. applys* xfun_nospec_lemma. 
+introv M1 M2. applys* xfun_nospec_lemma.
 intros vf N. applys M2. applys M1. applys N. Qed.
 
 
 Lemma xfun_nospec_lemma : forall H Q Fof,
-  (forall vf,   
-     (forall vx H' Q', (H' ==> Fof vx Q') -> triple (trm_app vf vx) H' Q') -> 
+  (forall vf,
+     (forall vx H' Q', (H' ==> Fof vx Q') -> triple (trm_app vf vx) H' Q') ->
      (H ==> Q vf)) ->
   H ==> wpgen_fun Fof Q.
 Proof using.
@@ -495,3 +495,153 @@ Qed.
 
 Tactic Notation "xfun" :=
   xseq_xlet_if_needed; xstruct_if_needed; applys xfun_nospec_lemma.
+
+========
+
+
+
+Tactic Notation "xapp" constr(E) :=
+  xapp_pre; applys xapp_lemma E; xsimpl; unfold protect.
+
+Tactic Notation "xapps" constr(E) :=
+  xapp_pre; first
+  [ applys xapps_lemma0 E
+  | applys xapps_lemma1 E ];
+  xsimpl; unfold protect.
+
+Lemma xapps_lemma0 : forall t v H1 H Q,
+  triple t H1 (fun r => \[r = v]) ->
+  H ==> H1 \* (protect (Q v)) ->
+  H ==> wp t Q.
+Proof using. introv M W. applys xapp_lemma M. xchanges W. intros ? ->. auto. Qed.
+
+Lemma xapps_lemma1 : forall t v H1 H2 H Q,
+  triple t H1 (fun r => \[r = v] \* H2) ->
+  H ==> H1 \* (H2 \-* protect (Q v)) ->
+  H ==> wp t Q.
+Proof using. introv M W. applys xapp_lemma M. xchanges W. intros ? ->. auto. Qed.
+
+=============
+
+
+(* ################################################ *)
+(** *** Definition and verification of [incr]. *)
+
+(** Here is an implementation of the increment function,
+    written in A-normal form.
+[[
+   let incr p =
+       let n = !p in
+       let m = n + 1 in
+       p := m
+]]
+*)
+
+Definition incr : val :=
+  VFun 'p :=
+    (Let 'n := '! 'p in
+    Let 'm := 'n '+ 1 in
+    'p ':= 'm).
+
+(** Here is the Separation Logic triple specifying increment.
+    And the proof follows. Note that the script contains explicit
+    references to the specification lemmas of the functions being
+    called (e.g. [triple_get] for the [get] operation). The actual
+    CFML2 setup is able to automatically infer those names. *)
+
+Lemma triple_incr : forall (p:loc) (n:int),
+  TRIPLE (trm_app incr p)
+    PRE (p ~~~> n)
+    POST (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+Proof using.
+  xwp.
+  xapps triple_get.
+  xapps triple_add.
+  xapps triple_set.
+  xsimpl~.
+Qed.
+
+(** We register this specification so that it may be automatically
+    invoked in further examples. *)
+
+Hint Resolve triple_incr : triple.
+
+
+(* ################################################ *)
+(** *** Definition and verification of [mysucc]. *)
+
+(** Here is another example, the function:
+[[
+   let mysucc n =
+      let r = ref n in
+      incr r;
+      let x = !r in
+      free r;
+      x
+]]
+
+  Note that this function has the same behavior as [succ],
+  but its implementation makes use of the [incr] function
+  from above. *)
+
+Definition mysucc : val :=
+  VFun 'n :=
+    Let 'r := val_ref 'n in
+    incr 'r ';
+    Let 'x := '! 'r in
+    val_free 'r ';
+    'x.
+
+Lemma triple_mysucc : forall n,
+  TRIPLE (trm_app mysucc n)
+    PRE \[]
+    POST (fun v => \[v = n+1]).
+Proof using.
+  xwp.
+  xapp triple_ref. intros ? r ->.
+  xapps triple_incr.
+  xapps triple_get.
+  xapps triple_free.
+  xval. xsimpl~.
+Qed.
+
+
+(* ################################################ *)
+(** *** Definition and verification of [myfun]. *)
+
+(** Here is an example of a function involving a local function definition.
+
+[[
+   let myfun p =
+      let f = (fun () => incr p) in
+      f();
+      f()
+]]
+
+*)
+
+Definition myfun : val :=
+  VFun 'p :=
+    Let 'f := (Fun 'u := incr 'p) in
+    'f '() ';
+    'f '().
+
+Lemma triple_myfun : forall (p:loc) (n:int),
+  TRIPLE (trm_app myfun p)
+    PRE (p ~~~> n)
+    POST (fun _ => p ~~~> (n+2)).
+Proof using.
+  xwp.
+  xfun (fun (f:val) => forall (m:int),
+    TRIPLE (f '())
+      PRE (p ~~~> m)
+      POST (fun _ => p ~~~> (m+1))); intros f Hf.
+  { intros. applys Hf. clear Hf. xapp triple_incr. xsimpl. }
+  xapp Hf. intros _.
+  xapp Hf. intros _.
+  math_rewrite (n+1+1=n+2). xsimpl.
+Qed.
+
+End Demo.
+
+==============

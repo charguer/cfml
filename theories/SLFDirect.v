@@ -1851,18 +1851,6 @@ Proof using.
   applys wp_ramified_frame.
 Qed.
 
-Lemma xapps_lemma0 : forall t v H1 H Q,
-  triple t H1 (fun r => \[r = v]) ->
-  H ==> H1 \* (protect (Q v)) ->
-  H ==> wp t Q.
-Proof using. introv M W. applys xapp_lemma M. xchanges W. intros ? ->. auto. Qed.
-
-Lemma xapps_lemma1 : forall t v H1 H2 H Q,
-  triple t H1 (fun r => \[r = v] \* H2) ->
-  H ==> H1 \* (H2 \-* protect (Q v)) ->
-  H ==> wp t Q.
-Proof using. introv M W. applys xapp_lemma M. xchanges W. intros ? ->. auto. Qed.
-
 Lemma xfun_spec_lemma : forall (S:val->Prop) H Q Fof,
   (forall vf,
     (forall vx H' Q', (H' ==> Fof vx Q') -> triple (trm_app vf vx) H' Q') ->
@@ -1875,8 +1863,8 @@ Proof using.
 Qed.
 
 Lemma xfun_nospec_lemma : forall H Q Fof,
-  (forall vf,   
-     (forall vx H' Q', (H' ==> Fof vx Q') -> H' ==> wp (trm_app vf vx) Q') -> 
+  (forall vf,
+     (forall vx H' Q', (H' ==> Fof vx Q') -> H' ==> wp (trm_app vf vx) Q') ->
      (H ==> Q vf)) ->
   H ==> wpgen_fun Fof Q.
 Proof using.
@@ -1931,20 +1919,25 @@ Tactic Notation "xseq_xlet_if_needed" :=
   | wpgen_let ?F1 ?F2of => xlet
   end end.
 
-Tactic Notation "xapp_pre" :=
-  xseq_xlet_if_needed; xstruct_if_needed.
-
-Tactic Notation "xapp" :=
-  xapp_pre; applys xapp_lemma.
+Tactic Notation "xapp_nosubst" constr(E) :=
+  xseq_xlet_if_needed; xstruct_if_needed;
+  applys xapp_lemma E; [ xsimpl; unfold protect ].
 
 Tactic Notation "xapp" constr(E) :=
-  xapp_pre; applys xapp_lemma E; xsimpl; unfold protect.
+  xapp_nosubst E; try intros ? ->.
 
-Tactic Notation "xapps" constr(E) :=
-  xapp_pre; first
-  [ applys xapps_lemma0 E
-  | applys xapps_lemma1 E ];
-  xsimpl; unfold protect.
+Tactic Notation "xapp_nosubst" :=
+  xseq_xlet_if_needed; xstruct_if_needed;
+  applys xapp_lemma; [ solve [ eauto with triple ] | xsimpl; unfold protect ].
+
+Tactic Notation "xapp" :=
+  xapp_nosubst; 
+  try intros ? ->;
+  try match goal with |- val -> _ => intros _ end.
+
+(** Database of hints *)
+
+Hint Resolve triple_get triple_set triple_ref triple_free triple_add : triple.
 
 Tactic Notation "xfun" constr(S) :=
   xseq_xlet_if_needed; xstruct_if_needed; applys xfun_spec_lemma S.
@@ -2129,12 +2122,13 @@ Lemma triple_incr : forall (p:loc) (n:int),
     PRE (p ~~~> n)
     POST (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
 Proof using.
-  xwp.
-  xapps triple_get.
-  xapps triple_add.
-  xapps triple_set.
-  xsimpl~.
+  xwp. xapp. xapp. xapp. xsimpl*.
 Qed.
+
+(** We register this specification so that it may be automatically
+    invoked in further examples. *)
+
+Hint Resolve triple_incr : triple.
 
 
 (* ################################################ *)
@@ -2167,12 +2161,7 @@ Lemma triple_mysucc : forall n,
     PRE \[]
     POST (fun v => \[v = n+1]).
 Proof using.
-  xwp.
-  xapp triple_ref. intros ? r ->.
-  xapps triple_incr.
-  xapps triple_get.
-  xapps triple_free.
-  xval. xsimpl~.
+  xwp. xapp. intros ? r ->. xapp. xapp. xapp. xval. xsimpl*.
 Qed.
 
 
@@ -2206,9 +2195,9 @@ Proof using.
     TRIPLE (f '())
       PRE (p ~~~> m)
       POST (fun _ => p ~~~> (m+1))); intros f Hf.
-  { intros. applys Hf. clear Hf. xapp triple_incr. xsimpl. }
-  xapp Hf. intros _.
-  xapp Hf. intros _.
+  { intros. applys Hf. clear Hf. xapp. xsimpl. }
+  xapp.
+  xapp.
   math_rewrite (n+1+1=n+2). xsimpl.
 Qed.
 
