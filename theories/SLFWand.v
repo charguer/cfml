@@ -488,6 +488,13 @@ Parameter triple_app_fun_from_wpgen : forall vf vx x t1 H' Q',
                      triple (trm_app vf vx) H' Q'
 ]]
 
+    This proposition can be slightly simplified, by using [wp] instead
+    of [triple]. Thus, we actually define [P vf] as:
+
+[[
+    forall vx H', wpgen ((x,vx)::nil) t1 Q' ==> wp (trm_app vf vx) Q'
+]]
+
 *)
 
 (** Overall, the definition of [wpgen E t] is as follows. (The occurence of
@@ -499,8 +506,7 @@ Parameter triple_app_fun_from_wpgen : forall vf vx x t1 H' Q',
     ...
     | trm_fun x t1 => fun Q =>
         let P vf :=
-          (forall vx H' Q', (H' ==> wpgen ((x,vx)::E) t1 Q') ->
-                            triple (trm_app vf vx) H' Q') in
+          (forall vx H', wpgen ((x,vx)::nil) t1 Q' ==> wp (trm_app vf vx) Q') in
         \forall vf, \[P vf] \-* Q vf
     ...
     end.
@@ -523,9 +529,7 @@ Parameter triple_app_fun_from_wpgen : forall vf vx x t1 H' Q',
 *)
 
 Definition wpgen_fun (Fof:val->formula) : formula := fun Q =>
-  \forall vf,
-      \[forall vx H' Q', (H' ==> Fof vx Q') -> triple (trm_app vf vx) H' Q']
-  \-* Q vf.
+  \forall vf, \[forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
 
 (** The soundness lemma for this construct is as follows. *)
 
@@ -535,8 +539,7 @@ Lemma wpgen_fun_sound : forall x t1 Fof,
 Proof using.
   introv M. intros Q. unfolds wpgen_fun. applys himpl_hforall_l (val_fun x t1).
   xchange hwand_hpure_l_intro.
-  { introv N. rewrite <- wp_equiv. applys himpl_trans_r.
-    { applys* wp_app_fun. } { xchanges N. applys* M. } }
+  { intros. applys himpl_trans_r. { applys* wp_app_fun. } { applys* M. } }
   { applys wp_fun. }
 Qed.
 
@@ -557,20 +560,16 @@ Proof using.
   { intros vx. rewrite <- isubst_rem. applys IH. }
 Qed.
 
+(** Like with other auxiliary functions for [wpgen], we introduce a notation 
+    for [wpgen_fun]. Here [Fun' x := F] stands for [wpgen_fun (fun x => F)]. *)
+
+Notation "'Fun'' x ':=' F1" :=
+  ((wpgen_fun (fun x => F1)))
+  (at level 69, x ident, right associativity,
+  format "'[v' '[' 'Fun''  x  ':='  F1  ']' ']'").
+
 (** This completes our presentation of a version of [wpgen] that recursively
     processes the local definition of non-recursive functions. *)
-
-(** Remark: the following variant of [wpgen_fun] enables deriving instances
-    of [wp (trm_app vf vx)] rather than instances of [triple (trm_app vf vx)]. *)
-
-Definition wpgen_fun' (Fof:val->formula) : formula := fun Q =>
-  \forall vf, \[forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
-
-(** This variant is completely equivalent to the previous version, and has the
-    benefits that it is slightly more concise. It requires however a bit more
-    effort for the use to exploit it. That said, when the manipulations of the
-    formulae produced by [wpgen] are performed by x-tactic, then it does not
-    make a difference to the end-user which variant of the definition is used. *)
 
 
 (* ------------------------------------------------------- *)
@@ -601,6 +600,11 @@ Parameter triple_app_fix_from_wpgen : forall vf vx f x t1 H Q,
                      triple (trm_app vf vx) H' Q'
 ]]
 
+    which simplifies to:
+
+[[
+    forall vx H', wpgen ((f,vf)::(x,vx)::nil) t1 Q' ==> wp (trm_app vf vx) Q'
+]]
 *)
 
 (** We thus consider:
@@ -617,9 +621,7 @@ Parameter triple_app_fix_from_wpgen : forall vf vx f x t1 H Q,
     with the definition of [wpgen_fix] as follows. *)
 
 Definition wpgen_fix (Fof:val->val->formula) : formula := fun Q =>
-  \forall vf,
-    \[forall vx H' Q', (H' ==> Fof vf vx Q') -> triple (trm_app vf vx) H' Q']
-  \-* Q vf.
+  \forall vf, \[forall vx Q', Fof vf vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
 
 (** The corresponding soundness lemma for this construct appears next. *)
 
@@ -629,8 +631,7 @@ Lemma wpgen_fix_sound : forall f x t1 Fof,
 Proof using.
   introv M. intros Q. unfolds wpgen_fix. applys himpl_hforall_l (val_fix f x t1).
   xchange hwand_hpure_l_intro.
-  { introv N. rewrite <- wp_equiv. applys himpl_trans_r.
-    { applys* wp_app_fix. } { xchange N. applys* M. } }
+  { intros. applys himpl_trans_r. { applys* wp_app_fix. } { applys* M. } }
   { applys wp_fix. }
 Qed.
 
@@ -648,10 +649,150 @@ Qed.
 (** Again, we refer to the proof of lemma [wpgen_sound] in file [SLFDirect]
     for the full proof of the definition of [wpgen] featuring [wpgen_fix]. *)
 
-(** Remark: here again, an alternative, more concise definition is possible. *)
+(** Also, we introduce the appropriate notation for [wpgen_fix]. Here 
+    [Fix' f x := F] stands for [wpgen_fun (fun f x => F)]. *)
 
-Definition wpgen_fix' (Fof:val->val->formula) : formula := fun Q =>
-  \forall vf, \[forall vx Q', Fof vf vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
+Notation "'Fix'' f x ':=' F1" :=
+  ((wpgen_fix (fun f x => F1)))
+  (at level 69, f ident, x ident, right associativity,
+  format "'[v' '[' 'Fix''  f  x  ':='  F1  ']' ']'").
+
+
+(* ------------------------------------------------------- *)
+(** *** 3. Final definition of [wpgen], with processing a local functions *)
+
+(** The final definition of [wpgen] appears below. *)
+
+Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+  mkstruct match t with
+  | trm_val v => wpgen_val v
+  | trm_var x => wpgen_var E x
+  | trm_fun x t1 => wpgen_fun (fun v => wpgen ((x,v)::E) t1)
+  | trm_fix f x t1 => wpgen_fix (fun vf v => wpgen ((f,vf)::(x,v)::E) t1)
+  | trm_if t0 t1 t2 => wpgen_if t0 (wpgen E t1) (wpgen E t2)
+  | trm_seq t1 t2 => wpgen_seq (wpgen E t1) (wpgen E t2)
+  | trm_let x t1 t2 => wpgen_let (wpgen E t1) (fun v => wpgen ((x,v)::E) t2)
+  | trm_app t1 t2 => wp (isubst E t)
+  end.
+
+(** The full soundness proof appears in file [SLFDirect], lemma [wpgen_sound]. *)
+
+(** In the example that follows, we assume all the set up from [SLFWPgen] to
+    be reproduced with the above definition of [wpgen], like it is formalized 
+    in [SLFDirect]. *)
+
+(** One interesting new feature is the [xfun] tactic, which helps the user
+    process a local function definition in the course of a verification script.
+    The tactic [xfun] can be invoked either with or without providing a 
+    specification for the local function. *)
+
+(** First, consider the case where [xfun] is called with an argument describing
+    the specification of the local function, typically in the form 
+    [xfun (fun (f:val) => forall ..., TRIPLE (f ..) PRE .. POST ..)].
+
+    The tactic [xfun S] generates two subgoals. The first one requires the
+    user to establish the specification [S] for the function whose body admits
+    the weakest precondition [Fof]. The second one requires the user to prove
+    that the rest of the program is correct, in a context where the local 
+    function can be assumed to satisfy the specification [S]. *)
+
+Lemma xfun_spec_lemma : forall (S:val->Prop) H Q Fof,
+  (forall vf,
+    (forall vx H' Q', (H' ==> Fof vx Q') -> triple (trm_app vf vx) H' Q') ->
+    S vf) ->
+  (forall vf, S vf -> (H ==> Q vf)) ->
+  H ==> wpgen_fun Fof Q.
+Proof using.
+  introv M1 M2. unfold wpgen_fun. xsimpl. intros vf N.
+  applys M2. applys M1. introv K. rewrite <- wp_equiv. xchange K. applys N.
+Qed.
+
+Tactic Notation "xfun" constr(S) :=
+  xseq_xlet_if_needed; xstruct_if_needed; applys xfun_spec_lemma S.
+
+(** Second, assume [xfun] is called without argument, on a goal of the form
+    [H ==> wpgen_fun Fof Q]. In this case, the tactic simply makes available 
+    an hypothesis about the local function which the user may subsequently 
+    exploit for reasoning about a call to that function, just like if the
+    code of the function was inlined at its call site. The use of [xfun]
+    without argument is usually relevant only for local functions that are
+    invoked exactly once (as it is often the case for functions passed to
+    higher-order iterators). *)
+
+Lemma xfun_nospec_lemma : forall H Q Fof,
+  (forall vf,   
+     (forall vx H' Q', (H' ==> Fof vx Q') -> H' ==> wp (trm_app vf vx) Q') -> 
+     (H ==> Q vf)) ->
+  H ==> wpgen_fun Fof Q.
+Proof using.
+  introv M. unfold wpgen_fun. xsimpl. intros vf N. applys M.
+  introv K. xchange K. applys N.
+Qed.
+
+Tactic Notation "xfun" :=
+  xseq_xlet_if_needed; xstruct_if_needed; applys xfun_nospec_lemma.
+
+
+(* ------------------------------------------------------- *)
+(** *** 4. Example computation of [wpgen] in presence of a local function *)
+
+Import Demo.
+
+(** Consider the following example program, which involves a local function 
+    definition.
+
+[[
+   let myfun p =
+      let f = (fun () => incr p) in
+      f();
+      f()
+]]
+
+*)
+
+Definition myfun : val :=
+  VFun 'p :=
+    Let 'f := (Fun 'u := incr 'p) in
+    'f '() ';
+    'f '().
+
+(** We first illustrate the use of [xfun] with a specification.
+    Here, the function [f] is specified as incrementing the reference [p]. *)
+
+Lemma triple_myfun : forall (p:loc) (n:int),
+  TRIPLE (trm_app myfun p)
+    PRE (p ~~~> n)
+    POST (fun _ => p ~~~> (n+2)).
+Proof using.
+  xwp.
+  xfun (fun (f:val) => forall (m:int),
+    TRIPLE (f '())
+      PRE (p ~~~> m)
+      POST (fun _ => p ~~~> (m+1))); intros f Hf.
+  { intros. applys Hf. clear Hf. xapp triple_incr. xsimpl. }
+  xapp Hf. intros _.
+  xapp Hf. intros _.
+  math_rewrite (n+1+1=n+2). xsimpl.
+Qed.
+
+(** We next illustrate the use of [xfun] without a specification.
+    Here, there are two calls to the function. Thus, we need to 
+    reason twice about the behavior of the increment function, 
+    which appears in the body of the function [f]. *)
+
+Lemma triple_myfun' : forall (p:loc) (n:int),
+  TRIPLE (trm_app myfun p)
+    PRE (p ~~~> n)
+    POST (fun _ => p ~~~> (n+2)).
+Proof using.
+  xwp.
+  xfun. intros f Hf.
+  xapp_pre. apply Hf.
+  xapp triple_incr. intros ? ->.
+  xapp_pre. apply Hf.
+  xapp triple_incr. intros ? ->.
+  math_rewrite (n+1+1=n+2). xsimpl.
+Qed.
 
 End WPgenRec.
 

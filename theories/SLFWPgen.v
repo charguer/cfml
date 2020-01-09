@@ -1664,7 +1664,7 @@ Module ProofsWithAdvancedXtactics.
 Import ExamplePrograms.
 Open Scope wpgen_scope.
 
-(* Variant for the demo *)
+(* DEMO : proof script of [incr] for the demo *)
 
 Lemma triple_incr' : forall (p:loc) (n:int),
   triple (trm_app incr p)

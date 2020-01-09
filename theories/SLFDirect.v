@@ -1657,8 +1657,8 @@ Definition wpgen_seq (F1 F2:formula) : formula := fun Q =>
 Definition wpgen_let (F1:formula) (F2of:val->formula) : formula := fun Q =>
   F1 (fun v => F2of v Q).
 
-Definition wpgen_if (v:val) (F1 F2:formula) : formula := fun Q =>
-  \exists (b:bool), \[v = val_bool b] \* (if b then F1 Q else F2 Q).
+Definition wpgen_if (t:trm) (F1 F2:formula) : formula := fun Q =>
+  \exists (b:bool), \[t = trm_val (val_bool b)] \* (if b then F1 Q else F2 Q).
 
 Definition wpgen_if_trm (F0 F1 F2:formula) : formula :=
   wpgen_let F0 (fun v => mkstruct (wpgen_if v F1 F2)).
@@ -1674,25 +1674,14 @@ Definition wpgen_if_trm (F0 F1 F2:formula) : formula :=
 
 Fixpoint wpgen (E:ctx) (t:trm) : formula :=
   mkstruct match t with
-  | trm_val v =>
-       wpgen_val v
-  | trm_var x =>
-       wpgen_var E x
-  | trm_fun x t1 =>
-       wpgen_fun (fun v => wpgen ((x,v)::E) t1)
-  | trm_fix f x t1 =>
-       wpgen_fix (fun vf v => wpgen ((f,vf)::(x,v)::E) t1)
-  | trm_if t0 t1 t2 =>
-      match isubst E t0 with
-      | trm_val v0 => wpgen_if v0 (wpgen E t1) (wpgen E t2)
-      | _ => wpgen_fail
-      end
-  | trm_seq t1 t2 =>
-       wpgen_seq (wpgen E t1) (wpgen E t2)
-  | trm_let x t1 t2 =>
-       wpgen_let (wpgen E t1) (fun v => wpgen ((x,v)::E) t2)
-  | trm_app t1 t2 =>
-       wp (isubst E t)
+  | trm_val v => wpgen_val v
+  | trm_var x => wpgen_var E x
+  | trm_fun x t1 => wpgen_fun (fun v => wpgen ((x,v)::E) t1)
+  | trm_fix f x t1 => wpgen_fix (fun vf v => wpgen ((f,vf)::(x,v)::E) t1)
+  | trm_if t0 t1 t2 => wpgen_if (isubst E t0) (wpgen E t1) (wpgen E t2)
+  | trm_seq t1 t2 => wpgen_seq (wpgen E t1) (wpgen E t2)
+  | trm_let x t1 t2 => wpgen_let (wpgen E t1) (fun v => wpgen ((x,v)::E) t2)
+  | trm_app t1 t2 => wp (isubst E t)
   end.
 
 
@@ -1771,10 +1760,10 @@ Proof using.
   applys himpl_trans S1. applys wp_conseq. intros v. applys S2.
 Qed.
 
-Lemma wpgen_if_sound : forall F1 F2 v0 t1 t2,
+Lemma wpgen_if_sound : forall F1 F2 t0 t1 t2,
   formula_sound t1 F1 ->
   formula_sound t2 F2 ->
-  formula_sound (trm_if v0 t1 t2) (wpgen_if v0 F1 F2).
+  formula_sound (trm_if t0 t1 t2) (wpgen_if t0 F1 F2).
 Proof using.
   introv S1 S2. intros Q. unfold wpgen_if. xpull. intros b ->.
   applys himpl_trans wp_if. case_if. { applys S1. } { applys S2. }
@@ -1799,8 +1788,7 @@ Proof using.
   { applys* wpgen_seq_sound. }
   { rename v into x. applys* wpgen_let_sound.
     { intros v. rewrite* <- isubst_rem. } }
-  { case_eq (isubst E t1); simpl; intros; try applys wpgen_fail_sound.
-    { applys* wpgen_if_sound. } }
+  { applys* wpgen_if_sound. }
 Qed.
 
 Lemma himpl_wpgen_wp : forall t Q,
@@ -1875,17 +1863,25 @@ Lemma xapps_lemma1 : forall t v H1 H2 H Q,
   H ==> wp t Q.
 Proof using. introv M W. applys xapp_lemma M. xchanges W. intros ? ->. auto. Qed.
 
-Lemma xfun_lemma : forall (S:val->Prop) H Q Fof,
+Lemma xfun_spec_lemma : forall (S:val->Prop) H Q Fof,
   (forall vf,
-       ((forall vx H' Q', (H' ==> Fof vx Q') -> triple (trm_app vf vx) H' Q') ->
-        S vf)
-    /\ (S vf ->
-        H ==> Q vf)) ->
+    (forall vx H' Q', (H' ==> Fof vx Q') -> triple (trm_app vf vx) H' Q') ->
+    S vf) ->
+  (forall vf, S vf -> (H ==> Q vf)) ->
   H ==> wpgen_fun Fof Q.
 Proof using.
-  introv M. unfold wpgen_fun. xsimpl. intros vf N.
-  lets (M1&M2): M vf. applys M2. applys M1.
-  introv K. rewrite <- wp_equiv. xchange K. applys N.
+  introv M1 M2. unfold wpgen_fun. xsimpl. intros vf N.
+  applys M2. applys M1. introv K. rewrite <- wp_equiv. xchange K. applys N.
+Qed.
+
+Lemma xfun_nospec_lemma : forall H Q Fof,
+  (forall vf,   
+     (forall vx H' Q', (H' ==> Fof vx Q') -> H' ==> wp (trm_app vf vx) Q') -> 
+     (H ==> Q vf)) ->
+  H ==> wpgen_fun Fof Q.
+Proof using.
+  introv M. unfold wpgen_fun. xsimpl. intros vf N. applys M.
+  introv K. xchange K. applys N.
 Qed.
 
 Lemma xwp_lemma_fun : forall v1 v2 x t H Q,
@@ -1951,11 +1947,10 @@ Tactic Notation "xapps" constr(E) :=
   xsimpl; unfold protect.
 
 Tactic Notation "xfun" constr(S) :=
-  let varf := match S with fun varf => _ => varf end in
-  xseq_xlet_if_needed; xstruct_if_needed; applys xfun_lemma S;
-  let f := fresh varf in
-  let Hf := fresh "H" f in
-  intros f; split; intros Hf.
+  xseq_xlet_if_needed; xstruct_if_needed; applys xfun_spec_lemma S.
+
+Tactic Notation "xfun" :=
+  xseq_xlet_if_needed; xstruct_if_needed; applys xfun_nospec_lemma.
 
 Ltac xwp_simpl := (* variant of [simpl] to compute well on [wp] *)
   cbn beta delta [
@@ -2099,7 +2094,7 @@ End SLFProgramSyntax.
 (** ** Example proofs *)
 
 Module Demo.
-Import SLFProgramSyntax.
+Export SLFProgramSyntax.
 
 (** We let ['x] be a shortname for [("x":var)], as defined in [Var.v].
     And we use all the notation defined above. *)
@@ -2184,15 +2179,15 @@ Qed.
 (* ################################################ *)
 (** *** Definition and verification of [myfun]. *)
 
-(** Here is another example, the function:
+(** Here is an example of a function involving a local function definition.
+
 [[
-   let myfun n =
-      let r = ref n in
-      let f = (fun u => incr r) in
+   let myfun p =
+      let f = (fun () => incr p) in
       f();
-      f();
-      !r
+      f()
 ]]
+
 *)
 
 Definition myfun : val :=
@@ -2210,7 +2205,7 @@ Proof using.
   xfun (fun (f:val) => forall (m:int),
     TRIPLE (f '())
       PRE (p ~~~> m)
-      POST (fun _ => p ~~~> (m+1))).
+      POST (fun _ => p ~~~> (m+1))); intros f Hf.
   { intros. applys Hf. clear Hf. xapp triple_incr. xsimpl. }
   xapp Hf. intros _.
   xapp Hf. intros _.

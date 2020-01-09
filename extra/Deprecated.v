@@ -429,3 +429,69 @@ Ltac xsimpl_core tt ::=
 
 
 è-----------------------
+
+
+(** The soundness lemma for this construct is as follows. *)
+
+Lemma wpgen_fun_sound : forall x t1 Fof,
+  (forall vx, formula_sound (subst x vx t1) (Fof vx)) ->
+  formula_sound (trm_fun x t1) (wpgen_fun Fof).
+Proof using.
+  introv M. intros Q. unfolds wpgen_fun. applys himpl_hforall_l (val_fun x t1).
+  xchange hwand_hpure_l_intro.
+  { introv N. rewrite <- wp_equiv. applys himpl_trans_r.
+    { applys* wp_app_fun. } { xchanges N. applys* M. } }
+  { applys wp_fun. }
+Qed.
+
+[[
+    forall vx H' Q', (H' ==> wpgen ((f,vf)::(x,vx)::nil) t1 Q') ->
+                     triple (trm_app vf vx) H' Q'
+]]
+
+*)
+
+
+
+(** Remark: the following variant of [wpgen_fun] enables deriving instances
+    of [wp (trm_app vf vx)] rather than instances of [triple (trm_app vf vx)]. *)
+
+Definition wpgen_fun' (Fof:val->formula) : formula := fun Q =>
+  \forall vf, \[forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
+
+(** This variant is completely equivalent to the previous version, and has the
+    benefits that it is slightly more concise. It requires however a bit more
+    effort for the use to exploit it. That said, when the manipulations of the
+    formulae produced by [wpgen] are performed by x-tactic, then it does not
+    make a difference to the end-user which variant of the definition is used. *)
+
+
+
+
+Tactic Notation "xfun" constr(S) :=
+  let varf := match S with fun varf => _ => varf end in
+  let f := fresh varf in
+  let Hf := fresh "H" f in
+  xseq_xlet_if_needed; xstruct_if_needed; applys xfun_lemma S; intros f Hf.
+
+
+===========
+
+
+Lemma xfun_spec_lemma
+introv M1 M2. applys* xfun_nospec_lemma. 
+intros vf N. applys M2. applys M1. applys N. Qed.
+
+
+Lemma xfun_nospec_lemma : forall H Q Fof,
+  (forall vf,   
+     (forall vx H' Q', (H' ==> Fof vx Q') -> triple (trm_app vf vx) H' Q') -> 
+     (H ==> Q vf)) ->
+  H ==> wpgen_fun Fof Q.
+Proof using.
+  introv M. unfold wpgen_fun. xsimpl. intros vf N. applys M.
+  introv K. rewrite <- wp_equiv. xchange K. applys N.
+Qed.
+
+Tactic Notation "xfun" :=
+  xseq_xlet_if_needed; xstruct_if_needed; applys xfun_nospec_lemma.
