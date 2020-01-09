@@ -2100,6 +2100,23 @@ Proof using.
   rewrite <- wp_equiv. xchange M2. applys wpgen_sound_induct.
 Qed.
 
+(** The lemma [triple_app_fix_from_wpgen] is a variant of the above
+    lemma suited for recursive functions. Remark: the proof exploits a
+    lemma called [isubst_rem_2] which is an immediate generalization of
+    the lemma [isubst_rem]. The proof of [isubst_rem_2] appears near
+    the bottom of this file. *)
+
+Lemma triple_app_fix_from_wpgen : forall v1 v2 f x t1 H Q,
+  v1 = val_fix f x t1 ->
+  H ==> wpgen ((f,v1)::(x,v2)::nil) t1 Q ->
+  triple (trm_app v1 v2) H Q.
+Proof using.
+  introv M1 M2. applys triple_app_fix M1.
+  asserts_rewrite (subst x v2 (subst f v1 t1) = isubst ((f,v1)::(x,v2)::nil) t1).
+  { rewrite isubst_rem_2. rewrite* isubst_nil. }
+  rewrite <- wp_equiv. xchange M2. applys wpgen_sound_induct.
+Qed.
+
 End WPgenSound.
 
 
@@ -2373,6 +2390,17 @@ Proof using.
     { rewrite lookup_rem. case_var*. } }
   { intros y v1 v2 K1 K2. simpls. case_var.
     { subst. rewrite lookup_rem in K1. case_var*. } }
+Qed.
+
+(** We also prove the variant lemma which is useful for handling recursive functions. *)
+
+Lemma isubst_rem_2 : forall f x vf vx E t,
+  isubst ((f,vf)::(x,vx)::E) t = subst x vx (subst f vf (isubst (rem x (rem f E)) t)).
+Proof using.
+  intros. do 2 rewrite subst_eq_isubst_one. do 2 rewrite <- isubst_app.
+  rewrite isubst_app_swap.
+  { applys isubst_ctx_equiv. intros y. rew_list. simpl. do 2 rewrite lookup_rem. case_var*. }
+  { intros y v1 v2 K1 K2. simpls. do 2 rewrite lookup_rem in K1. case_var. }
 Qed.
 
 End IsubstProp.

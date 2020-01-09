@@ -1171,7 +1171,7 @@ Definition wp (t:trm) := fun (Q:val->hprop) =>
 Lemma wp_ramified : forall Q1 Q2 t,
   (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
 Proof using.
-  intros. unfold wp. xpull ;=> H M.
+  intros. unfold wp. xpull. intros H M.
   xsimpl (H \* (Q1 \--* Q2)). intros H'.
   applys hoare_conseq M; xsimpl.
 Qed.
@@ -1719,7 +1719,7 @@ Lemma mkstruct_sound : forall t F,
   formula_sound t F ->
   formula_sound t (mkstruct F).
 Proof using.
-  introv M. intros Q. unfold mkstruct. xsimpl ;=> Q'.
+  introv M. intros Q. unfold mkstruct. xsimpl. intros Q'.
   lets N: M Q'. xchange N. applys wp_ramified.
 Qed.
 
@@ -1875,6 +1875,19 @@ Lemma xapps_lemma1 : forall t v H1 H2 H Q,
   H ==> wp t Q.
 Proof using. introv M W. applys xapp_lemma M. xchanges W. intros ? ->. auto. Qed.
 
+Lemma xfun_lemma : forall (S:val->Prop) H Q Fof,
+  (forall vf,
+       ((forall vx H' Q', (H' ==> Fof vx Q') -> triple (trm_app vf vx) H' Q') ->
+        S vf)
+    /\ (S vf ->
+        H ==> Q vf)) ->
+  H ==> wpgen_fun Fof Q.
+Proof using.
+  introv M. unfold wpgen_fun. xsimpl. intros vf N.
+  lets (M1&M2): M vf. applys M2. applys M1.
+  introv K. rewrite <- wp_equiv. xchange K. applys N.
+Qed.
+
 Lemma xwp_lemma_fun : forall v1 v2 x t H Q,
   v1 = val_fun x t ->
   H ==> wpgen ((x,v2)::nil) t Q ->
@@ -1937,6 +1950,13 @@ Tactic Notation "xapps" constr(E) :=
   | applys xapps_lemma1 E ];
   xsimpl; unfold protect.
 
+Tactic Notation "xfun" constr(S) :=
+  let varf := match S with fun varf => _ => varf end in
+  xseq_xlet_if_needed; xstruct_if_needed; applys xfun_lemma S;
+  let f := fresh varf in
+  let Hf := fresh "H" f in
+  intros f; split; intros Hf.
+
 Ltac xwp_simpl := (* variant of [simpl] to compute well on [wp] *)
   cbn beta delta [
      wpgen wpgen_var isubst lookup var_eq
@@ -1992,6 +2012,16 @@ Notation "'If'' v 'Then' F1 'Else' F2" :=
   ((wpgen_if v F1 F2))
   (at level 69) : wp_scope.
 
+Notation "'Fun'' x ':=' F1" :=
+  ((wpgen_fun (fun x => F1)))
+  (at level 69, x ident, right associativity,
+  format "'[v' '[' 'Fun''  x  ':='  F1  ']' ']'") : wp_scope.
+
+Notation "'Fix'' f x ':=' F1" :=
+  ((wpgen_fix (fun f x => F1)))
+  (at level 69, f ident, x ident, right associativity,
+  format "'[v' '[' 'Fix''  f  x  ':='  F1  ']' ']'") : wp_scope.
+
 
 (* ########################################################### *)
 (** ** Notation for concrete terms *)
@@ -2045,6 +2075,8 @@ Notation "t1 ':= t2" :=
 Notation "t1 '+ t2" :=
   (val_add t1 t2)
   (at level 68) : trm_scope.
+
+Notation "'()" := val_unit : trm_scope.
 
 
 (* ########################################################### *)
@@ -2141,11 +2173,48 @@ Lemma triple_mysucc : forall n,
     POST (fun v => \[v = n+1]).
 Proof using.
   xwp.
-  xapp triple_ref ;=> ? l ->.
+  xapp triple_ref. intros ? r ->.
   xapps triple_incr.
   xapps triple_get.
   xapps triple_free.
   xval. xsimpl~.
+Qed.
+
+
+(* ################################################ *)
+(** *** Definition and verification of [myfun]. *)
+
+(** Here is another example, the function:
+[[
+   let myfun n =
+      let r = ref n in
+      let f = (fun u => incr r) in
+      f();
+      f();
+      !r
+]]
+*)
+
+Definition myfun : val :=
+  VFun 'p :=
+    Let 'f := (Fun 'u := incr 'p) in
+    'f '() ';
+    'f '().
+
+Lemma triple_myfun : forall (p:loc) (n:int),
+  TRIPLE (trm_app myfun p)
+    PRE (p ~~~> n)
+    POST (fun _ => p ~~~> (n+2)).
+Proof using.
+  xwp.
+  xfun (fun (f:val) => forall (m:int),
+    TRIPLE (f '())
+      PRE (p ~~~> m)
+      POST (fun _ => p ~~~> (m+1))).
+  { intros. applys Hf. clear Hf. xapp triple_incr. xsimpl. }
+  xapp Hf. intros _.
+  xapp Hf. intros _.
+  math_rewrite (n+1+1=n+2). xsimpl.
 Qed.
 
 End Demo.

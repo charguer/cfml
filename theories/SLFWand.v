@@ -46,7 +46,7 @@ Module WandDef.
     As a counterpart to this addition operator, we introduce
     a subtraction operator, called "magic wand", and written [H1 \-* H2].
     Think of it as [ -H1 + H2]. Note however, that whereas a subtraction
-    is defined for all arguments, for the magic wand operator it only makes 
+    is defined for all arguments, for the magic wand operator it only makes
     sense to subtract [H1] from [H2] when the heap described by [H1]
     is a subset of the heap described by [H2]. In other words, [H1 \-* H2]
     specifies a heap that cannot possibly exist when [H1] is not somehow
@@ -83,9 +83,9 @@ Notation "H1 \-* H2" := (hwand H1 H2) (at level 43, right associativity).
 Parameter hwand_eq_hwand' :
   hwand = hwand'.
 
-(** In practice, we prefer using the definition [hwand] because its 
-    properties can be established with help of the tactic [xsimpl], 
-    conducting all the reasoning at the level of [hprop] and avoiding 
+(** In practice, we prefer using the definition [hwand] because its
+    properties can be established with help of the tactic [xsimpl],
+    conducting all the reasoning at the level of [hprop] and avoiding
    the need to work with explicit heaps (of type [heap]). *)
 
 
@@ -93,7 +93,7 @@ Parameter hwand_eq_hwand' :
 (** ** Characteristic property of the magic wand *)
 
 (** The definition of [hwand] is not easy to make sense of at first.
-    To better grasp its meaning, we detail introduction and 
+    To better grasp its meaning, we detail introduction and
     elimination lemmas for it. *)
 
 (** The operator [H1 \-* H2] is uniquely defined by the followig
@@ -318,7 +318,7 @@ End WandDef.
 (* ******************************************************* *)
 (** ** Automation with [xsimpl] for [hwand] expressions *)
 
-(** Throughout the rest of the chapter, we assume that the tactic [xsimpl] 
+(** Throughout the rest of the chapter, we assume that the tactic [xsimpl]
     is extended with support for the magic wand. The definition of magic
     wand used is the same as the one defined abov (technically, it comes
     from [SepFunctor.v]). *)
@@ -371,85 +371,161 @@ End XsimplDemo.
 (* ####################################################### *)
 (** * Additional contents *)
 
-
 (* ******************************************************* *)
-(** ** Recursive computation *)
+(** ** Evaluation of [wpgen] recursively in locally-defined functions *)
 
-(** As mentioned in the section on the treatment of function definitions,
-    it is possible to recursively invoke [wpgen] on the body of local
-    function definitions. We next explain how. *)
+Module WPgenRec.
+Implicit Types vx vf : val.
 
-Implicit Types vf vx : val.
+(** In the chapter [SLFWPgen], the definition of [wpgen t Q] considered
+    does not recursive inside the body of functions that occur inside [t].
+    Instead, it treats such locally-defined functions like values.
+    In essence, the definition of [wpgen] considered was as follows.
+
+[[
+    Fixpoint wpgen (t:trm) (Q:val->hprop) : hprop :=
+      match t with
+      | trm_val v      => Q v
+      | trm_fun x t1   => Q (val_fun x t1)
+      | trm_fix f x t1 => Q (val_fix f x t1)
+      ...
+      end.
+]]
+
+*)
+
+(** Doing so is not a major limitation, because it is always possible
+    for the user to manually invoke [wpgen] once again for each locally-
+    defined function, during the verification proof.
+
+    Yet, it is much more satisfying and practical to set up [wpgen] so
+    that it recursively computes the weakest precondition of the
+    local functions that it encounters during its evaluation. *)
+
+(** In what follows, we show how such a version of [wpgen] can be set up
+    with help of the magic wand operator. We begin with the case of
+    non-recursive functions of the form [trm_fun x t1], then generalize
+    the definition to the slightly more complex case of recursive functions
+    of the form [trm_fix f x t1].
+
+    The new definition of [wpgen] will take the following form, for
+    well-suited definitions of [wpgen_fun] and [wpgen_fix] yet to be
+    introduced. In the code snippet below, [vx] denotes a value to
+    which the function may be applied, and [vf] denotes the value
+    associated with the function itself, this value being used in particular
+    in the case of recursive calls.
+
+[[
+    Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+      mkstruct match t with
+      ...
+      | trm_fun x t1 => wpgen_fun (fun vx => wpgen ((x,vx)::E) t1)
+      | trm_fix f x t1 => wpgen_fix (fun vf vx => wpgen ((f,vf)::(x,vx)::E) t1)
+      ...
+      end.
+]]
+
+*)
+
 
 (* ------------------------------------------------------- *)
 (** *** 1. Treatment of non-recursive functions *)
 
-(** The definition of [wpgen] is modified so that [wpgen (trm x t1)]
-    is no longer expressed in terms of [t1], but rather in terms of
-    the formula produced by recursively computing [wpgen] on [t1].
+(** Our first task is to provide a definition for [wpgen (trm_fun x t1) Q],
+    in terms of [wpgen t1].
 
-    Recall that [wpgen (trm_fun x t1) Q] was previously defined as
-    [wpgen_val (val_fun x t1) Q], that is, as [Q (val_fun x t1)].
-    Here, we'd like to eliminate the reference to the code [t1].
-    Let us introduce [vf], a variable that stands for [val_fun x t1],
-    and reformulae the heap predicate [wpgen (trm_fun x t1) Q] from
-    [Q (val_fun x t1)] to  [\forall vf, \[P vf] \-* (Q vf)], where
-    [P vf] denotes some proposition that characterizes the function
-    [val_fun x t1] in terms of its weakest precondition.
+    For now, let us assume the context [E] to be empty, and let us ignore
+    the predicate [mkstruct].
 
-    The proposition [P vf] characterizes the function [vf] extensionally:
-    it provides an hypothesis sufficient for reasoning about an application
-    of the function [vf] to any argument [vx]. In other words, it provides
-    a [wp] for [trm_app vf vx]. This [wp] is expressed in terms of the
-    [wpgen] for [t1]. Concretely, [P vf] is defined as:
-    [forall vx Q', (wpgen ((x,v)::E) t1) Q' ==> wp (trm_app vf vx) Q']. *)
+    Let [vf] denote the function [val_fun x t1], which the term [trm_fun x t1]
+    evaluates to. The heap predicate [wpgen (trm_fun x t1) Q] should
+    assert that that the postcondition [Q] holds of the result value [vf],
+    that is [Q vf] should hold.
 
-(** Similarly to what is done for other constructs, we introduce an auxiliary
-    function called [wpgen_fun] to isolate the logic of the definition from
-    the recursive call on [t1]. The function of [wpgen] becomes:
+    Rather than specifying that [vf] is equal to [val_fun x t1] as we were
+    doing previously, we would like to specify that [vf] denotes a function
+    whose body admits [wpgen t1] as weakest precondition. This information
+    no longer exposes the syntax of the term [t1], and is neverthess sufficient
+    for the user to carry out reasoning about the function [vf].
+
+    To achieve this, we define the heap predicate [wpgen (trm_fun x t1) Q] to
+    be of the form [\forall vf, \[P vf] \-* Q vf] for a carefully-crafed predicate
+    [P] that we will detail afterwards.
+
+    The universal quantification on [vf] is intended to hide away from the
+    user the fact that [vf] actually denotes [val_fun x t1]. It would not be
+    incorrect to replace [\forall vf, ...] with [let vf := val_fun x t1 in ...],
+    yet we are purposely trying to abstract away from the syntax of [t1].
+
+    In the heap predicate [\forall vf, \[P vf] \-* Q vf], the magic wand featuring
+    a left-hand side of the form [\[P vf]] is intended to provide to the user the
+    knowledge of the weakest precondition of the body [t1] of the function, in such
+    a way that the user is able to derive the specification that he wishes to
+    establish for the local function.
+
+    In other words, the proposition [P vf] should enable the user establishing
+    properties of applications of the form [trm_app vf vx], where [vf] denotes
+    the function and [vx] denotes an argument to which the function is applied.
+
+    To figure out the details of the statement of [P], it is useful to recall
+    from [SLFWPgen] the statement of the lemma [triple_app_fun_from_wpgen]
+    which we used for reasoning about top-level functions. Up to minor
+    alpha-renaming, it is as shown below. It enables establishing a triple
+    for an application [trm_app vf vx] with precondition [H'] and postcondition
+    [Q'] from the premise [H' ==> wgen ((x,vx)::nil) t1 Q']. *)
+
+Parameter triple_app_fun_from_wpgen : forall vf vx x t1 H' Q',
+  vf = val_fun x t1 ->
+  H' ==> wpgen ((x,vx)::nil) t1 Q' ->
+  triple (trm_app vf vx) H' Q'.
+
+(** It therefore makes sense, in our definition of the predicate
+    [wpgen (trm_fun x t1) Q], which we said would take the form
+    [\forall vf, \[P vf] \-* Q vf], to define [P vf] as:
+
+[[
+    forall vx H' Q', (H' ==> wpgen ((x,vx)::nil) t1 Q') ->
+                     triple (trm_app vf vx) H' Q'
+]]
+
+*)
+
+(** Overall, the definition of [wpgen E t] is as follows. (The occurence of
+    [nil] is replaced with [E] to account for the case of a nonempty context.)
 
 [[
   Fixpoint wpgen (E:ctx) (t:trm) : formula :=
     mkstruct match t with
-    | ..
-    | trm_fun x t1 =>
-        wpgen_fun (fun v => wpgen ((x,v)::E) t1)
-    | ..
-    end
+    ...
+    | trm_fun x t1 => fun Q =>
+        let P vf :=
+          (forall vx H' Q', (H' ==> wpgen ((x,vx)::E) t1 Q') ->
+                            triple (trm_app vf vx) H' Q') in
+        \forall vf, \[P vf] \-* Q vf
+    ...
+    end.
 ]]
 
-   The definition of [wpgen_fun] appears next. *)
+*)
 
-Definition wpgen_fun (Fof:val->formula) : formula := fun Q =>
-  \forall vf, \[forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
+(** The actual definition of [wpgen] exploits an intermediate definition,
+    called [wpgen_fun] and defined below.
 
-(*
-   \exists H, H \* \[forall vf,
-                     (forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q') ->
-                      H ==> Q vf].
-
-
-  Goal:   H0 ==> wpgen (trm_fun x t)
-  unfolds to:
-      H0 ==> \exists H, H \* \[forall vf,
-                     (forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q') ->
-                      H ==> Q vf].
-  simplifies to:
-
-      forall vf,
-      (forall vx H' Q',
-          H' ==> Fof vx Q' ->
-          triple (trm_app vf vx) H' Q') ->
-      H0 ==> Q vf
-
-  xfun_lemma:
-      S vf => specification for the functoin
-
-      (forall vf, (forall H' Q', H' ==> Fof vx Q' -> triple (trm_app vf vx) H' Q') -> S vf) ->
-      (fun r => H0 \* \[S r]) ===> Q ->
-      H0 ==> wpgen (trm_fun x t) Q
+[[
+    Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+      mkstruct match t with
+      ...
+      | trm_fun x t1 => wpgen_fun (fun vx => wpgen ((x,vx)::E) t1)
+      ...
+      end.
+]]
 
 *)
+
+Definition wpgen_fun (Fof:val->formula) : formula := fun Q =>
+  \forall vf,
+      \[forall vx H' Q', (H' ==> Fof vx Q') -> triple (trm_app vf vx) H' Q']
+  \-* Q vf.
 
 (** The soundness lemma for this construct is as follows. *)
 
@@ -459,53 +535,91 @@ Lemma wpgen_fun_sound : forall x t1 Fof,
 Proof using.
   introv M. intros Q. unfolds wpgen_fun. applys himpl_hforall_l (val_fun x t1).
   xchange hwand_hpure_l_intro.
-  { intros. applys himpl_trans_r. { applys* wp_app_fun. } { applys* M. } }
+  { introv N. rewrite <- wp_equiv. applys himpl_trans_r.
+    { applys* wp_app_fun. } { xchanges N. applys* M. } }
   { applys wp_fun. }
 Qed.
 
 (** When we carry out the proof of soundness for the presented of [wpgen]
-    suggested above (this proof may be found in file [SLFDirect.v]), we
-    obtain the following proof obligation, whose proof exploits [wpgen_fun_sound]
-    and exploits the same substitution lemma as for the let-binding case. *)
+    featuring [wpgen_fun], we obtain the following proof obligation.
+    (This proof obligation appears in lemma [wpgen_sound] in file [SLFDirect.v].) *)
 
 Lemma wpgen_fun_proof_obligation : forall E x t1,
   (forall E, formula_sound (isubst E t1) (wpgen E t1)) ->
   formula_sound (trm_fun x (isubst (rem x E) t1)) (wpgen_fun (fun v => wpgen ((x,v)::E) t1)).
+
+(** The proof exploits the lemma [wpgen_fun_sound] that we just established,
+    as well as a substitution lemma, the same as the one used to justify the
+    soundness of the [wpgen] of a let-binding. *)
+
 Proof using.
   introv IH. applys wpgen_fun_sound.
   { intros vx. rewrite <- isubst_rem. applys IH. }
 Qed.
 
-(** The proof of lemma [wpgen_sound] in file [SLFDirect] shows how the above
-    proof obligation appears in the proof of soundness for [wpgen], when this
-    function employs the definition of [wpgen_fun] presented above. *)
+(** This completes our presentation of a version of [wpgen] that recursively
+    processes the local definition of non-recursive functions. *)
+
+(** Remark: the following variant of [wpgen_fun] enables deriving instances
+    of [wp (trm_app vf vx)] rather than instances of [triple (trm_app vf vx)]. *)
+
+Definition wpgen_fun' (Fof:val->formula) : formula := fun Q =>
+  \forall vf, \[forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
+
+(** This variant is completely equivalent to the previous version, and has the
+    benefits that it is slightly more concise. It requires however a bit more
+    effort for the use to exploit it. That said, when the manipulations of the
+    formulae produced by [wpgen] are performed by x-tactic, then it does not
+    make a difference to the end-user which variant of the definition is used. *)
 
 
 (* ------------------------------------------------------- *)
 (** *** 2. Treatment of recursive functions *)
 
-(** The discussion above generalizes almost directly to recursive functions.
-    To compute [wpgen] of [trm_fix f x t1] in a context [E], the recursive
-    call to [wpgen] extends the context [E] with two bindings, one for [f]
-    and one for [x].
+(** The formula produced by [wpgen] for a recursive function [trm_fix f x t1]
+    is almost the same as for a non-recursive function, the main difference being
+    that we need to add a binding in the context to associated the name [f] of the
+    recursive function with the value [vf] that corresponds to the recursive function.
+
+    Here again, the heap predicate [wpgen (trm_fun x t1) Q] will be of the
+    form [\forall vf, \[P vf] \-* Q vf].
+
+    To figure out the details of the statement of [P], recall from [SLFWPgen]
+    the statement of [triple_app_fix_from_wpgen], which is useful for reasoning
+    about top-level recursive functions. Up to minor alpha-renaming, the lemma
+    statement is as shown below. *)
+
+Parameter triple_app_fix_from_wpgen : forall vf vx f x t1 H Q,
+  vf = val_fix f x t1 ->
+  H ==> wpgen ((f,vf)::(x,vx)::nil) t1 Q ->
+  triple (trm_app vf vx) H Q.
+
+(** It therefore makes sense to define [P vf] as:
 
 [[
-  Fixpoint wpgen (E:ctx) (t:trm) : formula :=
-    mkstruct match t with
-    | ..
-    | trm_fun x t1 =>
-        wpgen_fix (fun vf v => wpgen ((f,vf)::(x,v)::E) t1)
-    | ..
-    end
+    forall vx H' Q', (H' ==> wpgen ((f,vf)::(x,vx)::nil) t1 Q') ->
+                     triple (trm_app vf vx) H' Q'
 ]]
 
-   The auxiliary function [wpgen_fix] is defined as follows.
-   Observe how [vf] now occurs not only in [trm_app vf vx], but also
-   in the formula [Fof vf vx] which describes the behavior of the
-   recursive function. *)
+*)
+
+(** We thus consider:
+
+[[
+    Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+      mkstruct match t with
+      | ..
+      | trm_fun x t1 => wpgen_fix (fun vf v => wpgen ((f,vf)::(x,v)::E) t1)
+      | ..
+      end
+]]
+
+    with the definition of [wpgen_fix] as follows. *)
 
 Definition wpgen_fix (Fof:val->val->formula) : formula := fun Q =>
-  \forall vf, \[forall vx Q', Fof vf vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
+  \forall vf,
+    \[forall vx H' Q', (H' ==> Fof vf vx Q') -> triple (trm_app vf vx) H' Q']
+  \-* Q vf.
 
 (** The corresponding soundness lemma for this construct appears next. *)
 
@@ -515,20 +629,12 @@ Lemma wpgen_fix_sound : forall f x t1 Fof,
 Proof using.
   introv M. intros Q. unfolds wpgen_fix. applys himpl_hforall_l (val_fix f x t1).
   xchange hwand_hpure_l_intro.
-  { intros. applys himpl_trans_r. { applys* wp_app_fix. } { applys* M. } }
+  { introv N. rewrite <- wp_equiv. applys himpl_trans_r.
+    { applys* wp_app_fix. } { xchange N. applys* M. } }
   { applys wp_fix. }
 Qed.
 
-(** When we carry out the proof of soundness (again, details for this proof
-    may be found in file [SLFDirect.v]), we obtain a proof obligation for
-    which we need a little generalization of [isubst_rem], called [isubst_rem_2]
-    and stated next. (Its proof appears in [SLFDirect.v].) *)
-
-Parameter isubst_rem_2 : forall f x vf vx E t,
-    isubst ((f,vf)::(x,vx)::E) t
-  = subst x vx (subst f vf (isubst (rem x (rem f E)) t)).
-
-(** The proof of soundness is otherwise similar to that of non-recursive functions. *)
+(** The proof of soundness of [wpgen] involves the following proof obligation. *)
 
 Lemma wpgen_fix_proof_obligation : forall E f x t1,
   (forall E, formula_sound (isubst E t1) (wpgen E t1)) ->
@@ -541,6 +647,13 @@ Qed.
 
 (** Again, we refer to the proof of lemma [wpgen_sound] in file [SLFDirect]
     for the full proof of the definition of [wpgen] featuring [wpgen_fix]. *)
+
+(** Remark: here again, an alternative, more concise definition is possible. *)
+
+Definition wpgen_fix' (Fof:val->val->formula) : formula := fun Q =>
+  \forall vf, \[forall vx Q', Fof vf vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
+
+End WPgenRec.
 
 
 (* ******************************************************* *)
@@ -1152,7 +1265,7 @@ Lemma wp_incr : forall (p:loc) (n:int) Q,
   (p ~~~> n) \* (p ~~~> (n+1) \-* Q val_unit) ==> wp (trm_app incr p) Q.
 Proof using.
   intros. rewrite wp_equiv. applys triple_conseq_frame.
-  { applys triple_incr. } { xsimpl. } { xsimpl ;=> ? ->. auto. }
+  { applys triple_incr. } { xsimpl. } { xsimpl. intros ? ->. auto. }
 Qed. (* /ADMITTED *)
 
 (** [] *)
@@ -1181,7 +1294,7 @@ Import WandDef.
 Lemma wp_ramified : forall t Q1 Q2,
   (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
 Proof using.
-  intros. unfold wp. xpull ;=> H M.
+  intros. unfold wp. xpull. intros H M.
   xsimpl (H \* (Q1 \--* Q2)). intros H'.
   applys hoare_conseq M. { xsimpl. }
   intros r. xchange (qwand_specialize r). xsimpl.
@@ -1247,7 +1360,7 @@ Lemma himpl_hor_l : forall H1 H2 H3,
   H1 ==> H3 ->
   H2 ==> H3 ->
   hor H1 H2 ==> H3.
-Proof using. 
+Proof using.
   introv M1 M2. unfolds hor. applys himpl_hexists_l. intros b. case_if*.
 Qed.
 

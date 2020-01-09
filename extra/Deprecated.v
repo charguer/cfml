@@ -374,3 +374,58 @@ Definition Wpaux_getval_typed Wpgen (E:ctx) (t1:trm) `{EA1:Enc A1} (F2of:A1->For
 *)
 
 -----------------------------------
+
+
+
+
+   \exists H, H \* \[forall vf,
+                     (forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q') ->
+                      H ==> Q vf].
+
+
+  Goal:   H0 ==> wpgen (trm_fun x t)
+  unfolds to:
+      H0 ==> \exists H, H \* \[forall vf,
+                     (forall vx Q', Fof vx Q' ==> wp (trm_app vf vx) Q') ->
+                      H ==> Q vf].
+  simplifies to:
+
+      forall vf,
+      (forall vx H' Q',
+          H' ==> Fof vx Q' ->
+          triple (trm_app vf vx) H' Q') ->
+      H0 ==> Q vf
+
+  xfun_lemma:
+      S vf => specification for the functoin
+
+      (forall vf, (forall H' Q', H' ==> Fof vx Q' -> triple (trm_app vf vx) H' Q') -> S vf) ->
+      (fun r => H0 \* \[S r]) ===> Q ->
+      H0 ==> wpgen (trm_fun x t) Q
+-------------------
+
+
+Definition hsingle' (v:val) (p:loc) := hsingle p v.
+
+Lemma hsingle_as_repr : forall (p:loc) (v:val),
+  hsingle p v = (p ~> hsingle' v).
+Proof using. auto. Qed.
+
+Hint Rewrite hsingle_as_repr : hsingle_as_repr.
+Hint Rewrite <- hsingle_as_repr : hsingle_as_repr_back.
+
+(*
+Ltac xsimpl_core tt ::=
+  autorewrite with hsingle_as_repr;
+  xsimpl_start tt;
+  repeat (xsimpl_step tt);
+  xsimpl_post tt;
+  autorewrite with hsingle_as_repr_back.
+*)
+
+
+
+
+
+
+è-----------------------
