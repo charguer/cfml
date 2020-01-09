@@ -1900,7 +1900,7 @@ Qed.
 Tactic Notation "xstruct" :=
   applys xstruct_lemma.
 
-Tactic Notation "xstruct_if_needed" :=
+Tactic Notation "xstruct_if_needed" := (* internal *)
   try match goal with |- ?H ==> mkstruct ?F ?Q => xstruct end.
 
 Tactic Notation "xval" :=
@@ -1912,28 +1912,41 @@ Tactic Notation "xlet" :=
 Tactic Notation "xseq" :=
   xstruct_if_needed; applys xseq_lemma.
 
-Tactic Notation "xseq_xlet_if_needed" :=
+Tactic Notation "xseq_xlet_if_needed" := (* internal *)
   try match goal with |- ?H ==> mkstruct ?F ?Q =>
   match F with
   | wpgen_seq ?F1 ?F2 => xseq
   | wpgen_let ?F1 ?F2of => xlet
   end end.
 
+Tactic Notation "xapp_try_clear_unit_result" := (* internal *)
+  try match goal with |- val -> _ => intros _ end.
+
+Lemma xapp_simpl_lemma : forall F H Q, (* used by [xapp_simpl] *)
+  H ==> F Q ->
+  H ==> F Q \* (Q \--* protect Q).
+Proof using. introv M. xchange M. unfold protect. xsimpl. Qed.
+
+Tactic Notation "xapp_simpl" := (* internal *)
+  first [ applys xapp_simpl_lemma (* to handle spec coming from [xfun] *)
+        | xsimpl; unfold protect; xapp_try_clear_unit_result ].
+
 Tactic Notation "xapp_nosubst" constr(E) :=
   xseq_xlet_if_needed; xstruct_if_needed;
-  applys xapp_lemma E; [ xsimpl; unfold protect ].
-
-Tactic Notation "xapp" constr(E) :=
-  xapp_nosubst E; try intros ? ->.
-
+  applys xapp_lemma E; xapp_simpl.
+ 
 Tactic Notation "xapp_nosubst" :=
   xseq_xlet_if_needed; xstruct_if_needed;
-  applys xapp_lemma; [ solve [ eauto with triple ] | xsimpl; unfold protect ].
+  applys xapp_lemma; [ solve [ eauto with triple ] | xapp_simpl ].
+
+Tactic Notation "xapp_try_subst" := (* internal *)
+  try match goal with |- forall _ (_:_=_), _ => try intros ? -> end.
+
+Tactic Notation "xapp" constr(E) :=
+  xapp_nosubst E; xapp_try_subst.
 
 Tactic Notation "xapp" :=
-  xapp_nosubst; 
-  try intros ? ->;
-  try match goal with |- val -> _ => intros _ end.
+  xapp_nosubst; xapp_try_subst.
 
 (** Database of hints *)
 

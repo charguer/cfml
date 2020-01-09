@@ -721,12 +721,12 @@ Tactic Notation "xfun" constr(S) :=
 
 Lemma xfun_nospec_lemma : forall H Q Fof,
   (forall vf,   
-     (forall vx H' Q', (H' ==> Fof vx Q') -> H' ==> wp (trm_app vf vx) Q') -> 
+     (forall vx H' Q', (H' ==> Fof vx Q') -> triple (trm_app vf vx) H' Q') -> 
      (H ==> Q vf)) ->
   H ==> wpgen_fun Fof Q.
 Proof using.
   introv M. unfold wpgen_fun. xsimpl. intros vf N. applys M.
-  introv K. xchange K. applys N.
+  introv K. rewrite <- wp_equiv. xchange K. applys N.
 Qed.
 
 Tactic Notation "xfun" :=
@@ -769,9 +769,9 @@ Proof using.
     TRIPLE (f '())
       PRE (p ~~~> m)
       POST (fun _ => p ~~~> (m+1))); intros f Hf.
-  { intros. applys Hf. clear Hf. xapp triple_incr. xsimpl. }
-  xapp Hf. intros _.
-  xapp Hf. intros _.
+  { intros. applys Hf. clear Hf. xapp. (* exploits [triple_incr] *) xsimpl. }
+  xapp. (* exploits [Hf]. *)
+  xapp. (* exploits [Hf]. *)
   math_rewrite (n+1+1=n+2). xsimpl.
 Qed.
 
@@ -786,11 +786,11 @@ Lemma triple_myfun' : forall (p:loc) (n:int),
     POST (fun _ => p ~~~> (n+2)).
 Proof using.
   xwp.
-  xfun. intros f Hf.
-  xapp_pre. apply Hf.
-  xapp triple_incr. intros ? ->.
-  xapp_pre. apply Hf.
-  xapp triple_incr. intros ? ->.
+  xfun; intros f Hf.
+  xapp. (* exploits [Hf] *)
+  xapp. (* exploits [triple_incr] *)
+  xapp. (* exploits [Hf] *)
+  xapp. (* exploits [triple_incr] *)
   math_rewrite (n+1+1=n+2). xsimpl.
 Qed.
 
