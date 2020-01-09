@@ -44,24 +44,57 @@ Module WandDef.
     Think of it as [H1 + H2].
 
     As a counterpart to this addition operator, we introduce
-    a subtraction operator, written [H1 \-* H2].
-    Think of it as [ -H1 + H2].
+    a subtraction operator, called "magic wand", and written [H1 \-* H2].
+    Think of it as [ -H1 + H2]. Note however, that whereas a subtraction
+    is defined for all arguments, for the magic wand operator it only makes 
+    sense to subtract [H1] from [H2] when the heap described by [H1]
+    is a subset of the heap described by [H2]. In other words, [H1 \-* H2]
+    specifies a heap that cannot possibly exist when [H1] is not somehow
+    a subset of [H2].
 
     A heap [h] satisfies [H1 \-* H2] if and only if, when we augment
     it with a disjoint heap [h'] satisfying [H1], we recover [H2].
     Think of it as [(-H1 + H2) + H1] simplifying to [H2].
 
-    The definition of [hwand] follows. *)
+    The operator [hwand] can be defined as follows. *)
+
+Definition hwand' (H1 H2:hprop) : hprop :=
+  fun h => forall h', Fmap.disjoint h h' -> H1 h' -> H2 (h \u h').
+
+(** Another possible definition of [H1 \-* H2] can be stated
+    without refering to heaps at all, by reusing the basic
+    Separation Logic operators that we have already introduced.
+    [H1 \-* H2] denotes some heap, described as [H0], such
+    that [H0] augmented with [H1] yields [H2].
+
+    In the alternative definition of [hwand] shown below,
+    the heap [H0] is existentially quantified using [\exists],
+    and the entailment assertion is described as the pure heap
+    predicate [\[ H0 \* H1 ==> H2 ]]. *)
 
 Definition hwand (H1 H2:hprop) : hprop :=
-  fun h => forall h', Fmap.disjoint h h' -> H1 h' -> H2 (h \u h').
+  \exists H0, H0 \* \[ (H0 \* H1) ==> H2].
 
 Notation "H1 \-* H2" := (hwand H1 H2) (at level 43, right associativity).
 
+(** As we prove further in this file, we can prove that [hwand']
+    defines the same operator as [hwand]. *)
+
+Parameter hwand_eq_hwand' :
+  hwand = hwand'.
+
+(** In practice, we prefer using the definition [hwand] because its 
+    properties can be established with help of the tactic [xsimpl], 
+    conducting all the reasoning at the level of [hprop] and avoiding 
+   the need to work with explicit heaps (of type [heap]). *)
+
+
+(* ******************************************************* *)
+(** ** Characteristic property of the magic wand *)
+
 (** The definition of [hwand] is not easy to make sense of at first.
-    To better grasp its meaning, we next present two alternative
-    definitions of [hwand], and detail its introduction and elimination
-    lemmas. *)
+    To better grasp its meaning, we detail introduction and 
+    elimination lemmas for it. *)
 
 (** The operator [H1 \-* H2] is uniquely defined by the followig
     equivalence. In other words, any operator that satisfies this
@@ -104,33 +137,6 @@ Proof using.
 Qed.
 
 Arguments hwand_cancel : clear implicits.
-
-(** Another possible definition of [H1 \-* H2] can be stated
-    without refering to heaps at all, by reusing the basic
-    Separation Logic operators that we have already introduced.
-    [H1 \-* H2] denotes some heap, described as [H0], such
-    that [H0] augmented with [H1] yields [H2].
-
-    In the alternative definition of [hwand] shown below,
-    the heap [H0] is existentially quantified using [\exists],
-    and the entailment assertion is described as the pure heap
-    predicate [\[ H0 \* H1 ==> H2 ]]. *)
-
-Definition hwand' (H1 H2:hprop) : hprop :=
-  \exists H0, H0 \* \[ (H0 \* H1) ==> H2].
-
-(** As we prove further in this file, we can prove that [hwand']
-    defines the same operator as [hwand]. *)
-
-Parameter hwand_eq_hwand' :
-  hwand = hwand'.
-
-(** In practice, file [SLFDirect] relies on the definition [hwand'],
-    which has the benefit that all properties of [hwand] can be
-    established with help of the tactic [xsimpl]. In other words,
-    we reduce the amount of work by conducting all the reasoning
-    at the level of [hprop] and avoiding the need to work with
-    explicit heaps (of type [heap]). *)
 
 
 (* ******************************************************* *)
@@ -688,7 +694,6 @@ Lemma hwand_trans_elim : forall H1 H2 H3,
   (H1 \-* H2) \* (H2 \-* H3) ==> (H1 \-* H3).
 Proof using.
   intros. applys himpl_hwand_r. xchange (hwand_cancel H1 H2).
-  xchange (hwand_cancel H2 H3).
 Qed.
 
 (** The predicate [H \-* H] holds of the empty heap.
@@ -740,7 +745,7 @@ Qed.
 Lemma hwand_hempty_l : forall H,
   (\[] \-* H) = H.
 Proof using.
-  intros. rewrite hwand_eq_hwand'. unfold hwand'. xsimpl.
+  intros. unfold hwand. xsimpl.
   { intros H0 M. xchange M. }
   { xsimpl. }
 Qed.
@@ -753,7 +758,7 @@ Lemma hwand_hpure_l_intro : forall P H,
   P ->
   (\[P] \-* H) ==> H.
 Proof using.
-  introv HP. rewrite hwand_eq_hwand'. unfold hwand'. xsimpl.
+  introv HP. unfold hwand. xsimpl.
   intros H0 M. xchange M. applys HP.
 Qed.
    (* Note: here is an alterntive proof w.r.t. [hwand]:
@@ -778,8 +783,8 @@ Lemma himpl_hwand_hpure_lr : forall (P1 P2:Prop),
   \[P1 -> P2] ==> (\[P1] \-* \[P2]).
 Proof using.
 (* ADMITTED *)
-  intros. rewrite hwand_eq_hwand'. unfold hwand'.
-  xpull. intros M. xsimpl \[P1->P2]. { applys M. } xsimpl. auto.
+  intros. unfold hwand. xpull. intros M.
+  xsimpl \[P1->P2]. { applys M. } xsimpl. auto.
 Qed. (* /ADMITTED *)
 
 (** [] *)
@@ -972,15 +977,15 @@ Lemma hwand_eq_hwand'_details :
   hwand = hwand'.
 Proof using.
   apply pred_ext_3. intros H1 H2 h. unfold hwand, hwand'. iff M.
-  { exists (=h). rewrite hstar_comm. rewrite hstar_hpure. split.
-    { intros h3 K3. destruct K3 as (h1&h2&K1&K2&D&U).
-      subst h1 h3. applys M D K2. }
-    { auto. } }
   { intros h1 D K1. destruct M as (H0&M).
     destruct M as (h0&h2&K0&K2&D'&U).
     lets (N&E): hpure_inv (rm K2). subst h h2.
     rewrite Fmap.union_empty_r in *.
     applys N. applys hstar_intro K0 K1 D. }
+  { exists (=h). rewrite hstar_comm. rewrite hstar_hpure. split.
+    { intros h3 K3. destruct K3 as (h1&h2&K1&K2&D&U).
+      subst h1 h3. applys M D K2. }
+    { auto. } }
 Qed.
 
 (** According to definition (3), an operator [op] is a magic wand
@@ -991,18 +996,18 @@ Definition hwand_characterization (op:hprop->hprop->hprop) :=
   forall H0 H1 H2, (H0 ==> op H1 H2) <-> (H0 \* H1 ==> H2).
 
 (** We prove that an operator [op] satisfies [hwand_characterization]
-    if and only if it is equal to [hwand']. *)
+    if and only if it is equal to [hwand]. *)
 
-Lemma hwand_characterization_iff_eq_hwand' : forall op,
-  hwand_characterization op <-> op = hwand'.
+Lemma hwand_characterization_iff_eq_hwand : forall op,
+  hwand_characterization op <-> op = hwand.
 Proof using.
   iff Hop.
   { apply fun_ext_2. intros H1 H2.
-    unfolds hwand_characterization, hwand'. apply himpl_antisym.
+    unfolds hwand_characterization, hwand. apply himpl_antisym.
     { lets (M&_): (Hop (op H1 H2) H1 H2). xsimpl (op H1 H2).
       applys M. applys himpl_refl. }
     { xsimpl. intros H0 M. rewrite Hop. applys M. } }
-  { subst. unfolds hwand_characterization, hwand'.
+  { subst. unfolds hwand_characterization, hwand.
     intros H0 H1 H2. iff M. { xchange* M. } { xsimpl~ H0. } }
 Qed.
 
@@ -1010,10 +1015,10 @@ Qed.
     It's because [xsimpl] is doing all the work for us.
     Here is a detailed proof not using [xsimpl]. *)
 
-Lemma hwand_characterization_hwand'_details : forall H0 H1 H2,
-  (H0 ==> hwand' H1 H2) <-> (H0 \* H1 ==> H2).
+Lemma hwand_characterization_hwand_details : forall H0 H1 H2,
+  (H0 ==> hwand H1 H2) <-> (H0 \* H1 ==> H2).
 Proof using.
-  intros. unfold hwand'. iff M.
+  intros. unfold hwand. iff M.
   { applys himpl_trans. applys himpl_frame_l M.
     rewrite hstar_hexists. applys himpl_hexists_l. intros H3.
     rewrite (hstar_comm H3). rewrite hstar_assoc.
@@ -1023,7 +1028,6 @@ Proof using.
 Qed.
 
 End WandProperties.
-
 
 
 (* ########################################################### *)
