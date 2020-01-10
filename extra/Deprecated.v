@@ -655,3 +655,55 @@ End Demo.
     \forall v, (Q1 v) \-* (Q2 v).
 
     ============
+
+
+
+(** For a further comparison between the consequence-frame rule
+    and the ramified frame rule, consider the following example.
+
+    Assume we want to frame the specification [triple_ref] with [l' ~~~> v'],
+    that is, add this predicate to both the precondition and the postcondition.
+    First, let's do it with the consequence-frame rule. *)
+
+Lemma triple_ref_with_consequence_frame : forall (l':loc) (v':val) (v:val),
+  triple (val_ref v)
+    (l' ~~~> v')
+    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v \* l' ~~~> v').
+Proof using.
+  intros. applys triple_conseq_frame.
+  (* observe the evar [?H2] in second and third goals *)
+  { applys triple_ref. }
+  { xsimpl. (* instantiates the evar [H2] *) }
+  { xsimpl. auto. }
+Qed.
+
+(** Now, let's carry out the same proof using the ramified frame rule. *)
+
+Lemma triple_ref_with_ramified_frame : forall (l':loc) (v':val) (v:val),
+  triple (val_ref v)
+    (l' ~~~> v')
+    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v \* l' ~~~> v').
+Proof using.
+  intros. applys triple_ramified_frame.
+  { applys triple_ref. }
+  { rewrite hstar_hempty_l. rewrite qwand_equiv.
+    (* Remark: the first two steps above will be automatically
+       carried out by [xsimpl], in subsequent chapters. *)
+    (* Here, we read the same state as in the previous proof. *)
+    xsimpl. auto. }
+Qed.
+
+(** Again, observe how we have been able to complete the same proof
+    without involving any evar. *)
+
+===========
+
+
+    The tactic [xsimpl] provides dedicated support for
+    simplifying expressions involving magic wand. So,
+    in most proofs, it is not required to manually manipulate
+    the lemmas capturing properties of the magic wand.
+    Nevertheless, there are a few situations where [xsimpl]
+    won't automatically perform the desired manipulation.
+    In such cases, the tactic [xchange] proves very useful.=
+ ======

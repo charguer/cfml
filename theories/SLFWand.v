@@ -586,7 +586,10 @@ Definition wpgen_fun (Fof:val->formula) : formula := fun Q =>
 
 (** The soundness lemma for this construct follows from the wp-style
     reasoning rule for applications, called [wp_app_fun], introduced in
-    chapter [SLFWPsem]. *)
+    chapter [SLFWPsem]. It is not needed to follow at this stage through
+    the details of the proof, which involves lemmas about [\forall]
+    and about [\-*] that are stated and proved only further on in this
+    chapter. *)
 
 Lemma wpgen_fun_sound : forall x t1 Fof,
   (forall vx, formula_sound (subst x vx t1) (Fof vx)) ->
@@ -677,7 +680,8 @@ Parameter triple_app_fix_from_wpgen : forall vf vx f x t1 H' Q',
 Definition wpgen_fix (Fof:val->val->formula) : formula := fun Q =>
   \forall vf, \[forall vx Q', Fof vf vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
 
-(** The soundness lemma for [wpgen_fix] is very similar to that of [wpgen_fun]. *)
+(** The soundness lemma for [wpgen_fix] is very similar to that of [wpgen_fun].
+    Again, it is not needed to follow through the details of this proof. *)
 
 Lemma wpgen_fix_sound : forall f x t1 Fof,
   (forall vf vx, formula_sound (subst x vx (subst f vf t1)) (Fof vf vx)) ->
@@ -874,10 +878,17 @@ End WPgenRec.
 (* ******************************************************* *)
 (** ** Benefits of the ramified rule over the consequence-frame rule *)
 
+(** Earlier on, we sketched an argument claiming that the consequence-
+    frame rule is not very well suited for carrying out proofs in
+    practice, due to issues with working with evars for instantiating
+    the heap predicate [H2] in the rule. Let us come back to this point
+    and describe the issue in depth on a concrete example, and show
+    how the ramified frame rule smoothly handles that same example. *)
+
 Module WandBenefits.
 Import WandDef.
 
-(** Recall the consequence-frame rule *)
+(** Recall the consequence-frame rule. *)
 
 Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
   triple t H1 Q1 ->
@@ -892,44 +903,47 @@ Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
     fact that the tactic [xsimpl], when applied to [H ==> H1 \* H2],
     will correctly instantiate [H2].
 
-    This approach works, but is relatively fragile, as evars may get
-    instantiated in undesired ways. Moreover, evars depend on the context
-    at the time of their creation, and they must be instantiated with
-    values from that context. Yet, for example, if [H] contains existential
-    quantifiers at the moment of applying the consequence-frame rule,
-    then extracting those quantifiers after the rule is applied makes
-    it almost impossible to instantiate [H2] correctly.
-
-    To illustrate the problem on a concrete example, recall the
-    specification of [ref]. *)
+    This approach works in simple cases, but fails in particular in
+    the case where [H] contains an existential quantifier.
+    For a concrete example, consider the specification of the
+    function [ref], which allocates a reference. *)
 
 Parameter triple_ref : forall (v:val),
   triple (val_ref v)
     \[]
     (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v).
 
-(** Assume that wish to derive the following triple, which
-    extends both the precondition and the postcondition with
-    [\exists l' v', l' ~~~> v']. *)
+(** Assume that wish to derive the following triple, which extends
+    both the precondition and the postcondition of the above specification
+    [triple_ref] with the heap predicate [\exists l' v', l' ~~~> v'].
+    This predicate describes the existence of some, totally unspecified,
+    reference cell. It is a bit artificial but illustrates well the issue. *)
 
-Lemma triple_ref_with_nonempty_pre : forall (v:val),
+Lemma triple_ref_extended : forall (v:val),
   triple (val_ref v)
     (\exists l' v', l' ~~~> v')
     (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v \*
               \exists l' v', l' ~~~> v').
+
+(** Let us prove that this specification is derivable from the
+    original one, namely [triple_ref]. *)
+
 Proof using.
   intros. applys triple_conseq_frame.
-  (* observe the evar [?H2] in second and third goals *)
+  (* observe the evar [?H2] that appears in the second and third subgoals *)
   { applys triple_ref. }
   { (* here, [?H2] should be in theory instantiated with the RHS.
        but [xsimpl] strategy is to first extract the quantifiers
-       from the LHS. After that, the instantiation of [H2] fails. *)
+       from the LHS. After that, the instantiation of [?H2] fails,
+       because the LHS contains variables that are not defined in
+       the scope of the evar [?H2] at the time it was introduced. *)
     xsimpl.
 Abort.
 
-(** Now, let us apply the ramified frame rule for the same goal. *)
+(** Now, let us apply the ramified frame rule to carry out the same
+    proof, and observe how the problem does not show up. *)
 
-Lemma triple_ref_with_nonempty_pre' : forall (v:val),
+Lemma triple_ref_extended' : forall (v:val),
   triple (val_ref v)
     (\exists l' v', l' ~~~> v')
     (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v \*
@@ -937,46 +951,13 @@ Lemma triple_ref_with_nonempty_pre' : forall (v:val),
 Proof using.
   intros. applys triple_ramified_frame.
   { applys triple_ref. }
-  { xsimpl. intros l' v'. rewrite qwand_equiv. xsimpl. auto. }
+  { xsimpl.
+    (* Here again, [xsimpl] strategy works on the LHS, and pulls out
+       the existentially quantified variables. But it works here
+       because the remaining of the reasoning takes place in the
+       same subgoal, in the scope of the extended Coq context. *)
+    intros l' v'. rewrite qwand_equiv. xsimpl. auto. }
 Qed.
-
-(** For a further comparison between the consequence-frame rule
-    and the ramified frame rule, consider the following example.
-
-    Assume we want to frame the specification [triple_ref] with [l' ~~~> v'],
-    that is, add this predicate to both the precondition and the postcondition.
-    First, let's do it with the consequence-frame rule. *)
-
-Lemma triple_ref_with_consequence_frame : forall (l':loc) (v':val) (v:val),
-  triple (val_ref v)
-    (l' ~~~> v')
-    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v \* l' ~~~> v').
-Proof using.
-  intros. applys triple_conseq_frame.
-  (* observe the evar [?H2] in second and third goals *)
-  { applys triple_ref. }
-  { xsimpl. (* instantiates the evar [H2] *) }
-  { xsimpl. auto. }
-Qed.
-
-(** Now, let's carry out the same proof using the ramified frame rule. *)
-
-Lemma triple_ref_with_ramified_frame : forall (l':loc) (v':val) (v:val),
-  triple (val_ref v)
-    (l' ~~~> v')
-    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v \* l' ~~~> v').
-Proof using.
-  intros. applys triple_ramified_frame.
-  { applys triple_ref. }
-  { rewrite hstar_hempty_l. rewrite qwand_equiv.
-    (* Remark: the first two steps above will be automatically
-       carried out by [xsimpl], in subsequent chapters. *)
-    (* Here, we read the same state as in the previous proof. *)
-    xsimpl. auto. }
-Qed.
-
-(** Again, observe how we have been able to complete the same proof
-    without involving any evar. *)
 
 End WandBenefits.
 
@@ -988,22 +969,20 @@ Module WandProperties.
 Import WandDef.
 
 (** We next present the most important properties of [H1 \-* H2].
-    The tactic [xsimpl] provides dedicated support for
-    simplifying expressions involving magic wand. So,
-    in most proofs, it is not required to manually manipulate
-    the lemmas capturing properties of the magic wand.
-    Nevertheless, there are a few situations where [xsimpl]
-    won't automatically perform the desired manipulation.
-    In such cases, the tactic [xchange] proves very useful.
 
-    In what follows, [xsimpl] and [xchange] do not simplify
-    expressions involving magic wands. *)
+    Thereafter, the tactic [xsimpl] is accessible, but in a form
+    that does not recognize the magic wand.
+
+    The actual tactic would trivially solve many of these lemmas,
+    but this would be cheating because the implementation of [xsimpl]
+    relies on several of these lemmas. *)
+
 
 (* ------------------------------------------------------- *)
 (** *** Structural properties of [hwand] *)
 
-(** [H1 \-* H2] is covariant in [H2], and contravariant in [H1]
-    (like an implication). *)
+(** The operator [H1 \-* H2] is contravariant in [H1] and covariant
+    in [H2], similarly to the implication operator [->]. *)
 
 Lemma hwand_himpl : forall H1 H1' H2 H2',
   H1' ==> H1 ->
@@ -1025,7 +1004,7 @@ Proof using.
 Qed.
 
 (** The predicate [H \-* H] holds of the empty heap.
-    Intuitively [(-H + H)] can be replaced with zero. *)
+    Intuitively [(-H + H)] simplifies to [0]. *)
 
 Lemma himpl_hempty_hwand_same : forall H,
   \[] ==> (H \-* H).
@@ -1050,14 +1029,14 @@ Proof using.
 Qed.
 
 (** More generally, one has to be suspicious of any entailment
-    that introduces wands out of nowhere.
+    that introduces wands "out of nowhere".
 
     The entailment [hwand_trans_elim]:
     [(H1 \-* H2) \* (H2 \-* H3) ==> (H1 \-* H3)]
     is correct because, intuitively, the left-hand-side captures
-    that [H1 <= H2] and that [H1 <= H3] (for some vaguely-defined
-    notion of [<=]), from which one derive [H1 <= H3] and justify
-    that the right-hand-side makes sense.
+    that [H1 <= H2] and that [H1 <= H3] for some vaguely-defined
+    notion of [<=] as "being a subset of". From that, we can derive
+    [H1 <= H3], and justify that the right-hand-side makes sense.
 
     On the contrary, the reciprocal entailment
     [(H1 \-* H3) ==> (H1 \-* H2) \* (H2 \-* H3)]
@@ -1068,7 +1047,7 @@ Qed.
 (* ------------------------------------------------------- *)
 (** *** Interaction of [hwand] with [hempty] and [hpure] *)
 
-(** [\[] \-* H] is equivalent to [H]. *)
+(** The heap predicate [\[] \-* H] is equivalent to [H]. *)
 
 Lemma hwand_hempty_l : forall H,
   (\[] \-* H) = H.
@@ -1078,7 +1057,12 @@ Proof using.
   { xsimpl. }
 Qed.
 
-(** Assume that [\[P] \-* H] holds of a heap.
+(** The lemma above shows that the empty predicate [\[]] can
+    be removed from the LHS of a magic wand. More generally,
+    a pure predicate [\[P]] can be removed from the LHS of
+    a magic wand, as long as it is true.
+
+    Concretely, assume that [\[P] \-* H] holds of a heap.
     To show that [H] holds of this same heap, it suffices
     ot justify that the proposition [P] is true. Formally: *)
 
@@ -1096,8 +1080,9 @@ Qed.
     { applys hpure_intro HP. }
     { rewrite Fmap.union_empty_r in M. applys M. } *)
 
-(** [\[P] \-* H] can be proved of a heap if [H] can be proved
-   of this heap under the assumption [P]. Formally: *)
+(** Reciprocally, to prove that a heap satisfies [\[P] \-* H],
+    we suffices to prove that it satisfies [H] under the assumption
+    that [P] is true. Formally: *)
 
 Lemma hwand_hpure_r_intro : forall H1 H2 P,
   (P -> H1 ==> H2) ->
@@ -1121,13 +1106,18 @@ Qed. (* /ADMITTED *)
 (* ------------------------------------------------------- *)
 (** *** Interaction of [hwand] with [hstar] *)
 
-(** The heap predicates [(H1 \* H2) \-* H3] and [H1 \-* (H2 \-* H3)]
+(** An interesting property is that arguments on the LHS of a magic
+    wand can equivalently be "curried" or "uncurried", just like a
+    function of type "(A * B) -> C" is equivalent to a function of
+    type "A -> B -> C".
+
+    The heap predicates [(H1 \* H2) \-* H3] and [H1 \-* (H2 \-* H3)]
     and [H2 \-* (H1 \-* H3)] are all equivalent. Intuitively, they all
     describe the predicate [H3] with the missing pieces [H1] and [H2].
 
     The equivalence between the uncurried form [(H1 \* H2) \-* H3]
     and the curried form [H1 \-* (H2 \-* H3)] is formalized by the
-    lemma shown below. The third form [H2 \-* (H1 \-* H3)] follows
+    lemma shown below. The third form, [H2 \-* (H1 \-* H3)], follows
     from the commutativity property [H1 \* H2 = H2 \* H1]. *)
 
 Lemma hwand_curry_eq : forall H1 H2 H3,
@@ -1140,10 +1130,15 @@ Proof using.
     xchange (hwand_cancel H2 H3). }
 Qed.
 
-(** If a heap satisfies [H1 \-* H2] and another heap
-    satisfies [H3], then their disjoint union satisfies
-    [H1 \-* (H2 \* H3)]. In both views, if [H1] is provided,
-    then both [H2] and [H3] can be obtained. *)
+(** Another interesting property is that the RHS of a magic wand
+    can absorb resources that the magic wand is starred with.
+
+    Concretely, from [(H1 \-* H2) \* H3], one can get the predicate
+    [H3] to be absorbed by the [H2] in the magic wand, yielding
+    [H1 \-* (H2 \* H3)].
+
+    One way to read this: "if you own [H3] and, when given [H1]
+    you own [H2], then, when given [H1], you own both [H2] and [H3]." *)
 
 Lemma hstar_hwand : forall H1 H2 H3,
   (H1 \-* H2) \* H3 ==> H1 \-* (H2 \* H3).
@@ -1151,11 +1146,10 @@ Proof using.
   intros. applys himpl_hwand_r. xsimpl. xchange (hwand_cancel H1 H2).
 Qed.
 
-(** Remark: the reciprocal entailment is false. *)
-
-
-(* ------------------------------------------------------- *)
-(** *** Exercises on [hwand] *)
+(** Remark: the reciprocal entailment is false: it is not possible
+    to extract a heap predicate out of the LHS of an entailment,
+    because this heap predicate might not exist if it is mentioned
+    in the RHS of the magic wand. *)
 
 (* EX1! (himpl_hwand_hstar_same_r) *)
 (** Prove that [H1] entails [H2 \-* (H2 \* H1)]. *)
@@ -1185,7 +1179,8 @@ Qed. (* /ADMITTED *)
 (* ******************************************************* *)
 (** ** Properties of [hforall] *)
 
-(** To prove that a heap satisfies [\forall x, J x], one must
+(** The introduction rule for [\forall] appears below.
+    To prove that a heap satisfies [\forall x, J x], one must
     show that, for any [x], this heap satisfies [J x]. *)
 
 Lemma himpl_hforall_r : forall A (J:A->hprop) H,
@@ -1193,14 +1188,16 @@ Lemma himpl_hforall_r : forall A (J:A->hprop) H,
   H ==> (\forall x, J x).
 Proof using. introv M. intros h K x. apply~ M. Qed.
 
-(** Assuming a heap satisfies [\forall x, J x], one can derive
+(** The elimination rule for [\forall] appears below.
+    Assuming a heap satisfies [\forall x, J x], one can derive
     that the same heap satisfies [J v] for any desired value [v]. *)
 
 Lemma hforall_specialize : forall A (v:A) (J:A->hprop),
   (\forall x, J x) ==> (J v).
 Proof using. intros. intros h K. apply* K. Qed.
 
-(** The lemma above can equivalently be formulated in the following way. *)
+(** The lemma above can equivalently be formulated in the following way,
+    which makes it easier to apply in some cases. *)
 
 Lemma himpl_hforall_l : forall A (v:A) (J:A->hprop) H,
   J v ==> H ->
@@ -1211,11 +1208,9 @@ Proof using. introv M. applys himpl_trans M. applys hforall_specialize. Qed.
 (* ******************************************************* *)
 (** ** Properties of [qwand] *)
 
-(* ------------------------------------------------------- *)
-(** *** Main properties of [qwand] *)
-
-(** We first state the introduction and elimination lemmas
-    analogous to [himpl_hwand_r], [himpl_hwand_r_inv], and [hwand_cancel]. *)
+(** The introduction and elimination lemmas for [qwand] correspond
+    to the right-to-left and left-to-right directions of the equivalence
+    lemma [qwand_equiv]. *)
 
 Lemma himpl_qwand_r : forall H Q1 Q2,
   (Q1 \*+ H) ===> Q2 ->
@@ -1227,8 +1222,8 @@ Lemma himpl_qwand_r_inv : forall H Q1 Q2,
   (Q1 \*+ H) ===> Q2.
 Proof using. introv M. rewrite* <- qwand_equiv. Qed.
 
-(** Like [hwand], [qwand] is covariant in its second argument,
-    and contravariant in its first argument. *)
+(** Like for [hwand], the operator [Q1 \--* Q2] is contravariant in [Q1]
+    and covariant in [Q2]. *)
 
 Lemma qwand_himpl : forall Q1 Q1' Q2 Q2',
   Q1' ===> Q1 ->
@@ -1240,20 +1235,14 @@ Proof using.
   applys hwand_himpl. { applys M1. } { applys M2. }
 Qed.
 
-(** If a heap satisfies [Q1 \--* Q2] and another heap
-    satisfies [H], then their disjoint union satisfies
-    [Q1 \--* (Q2 \*+ H)]. In both views, if [Q1] is provided,
-    then both [Q2] and [H] can be obtained. *)
+(** Like for [hwand], the operator [Q1 \--* Q2] can absorb in its RHS
+    resources to which it is starred. *)
 
 Lemma hstar_qwand : forall Q1 Q2 H,
   (Q1 \--* Q2) \* H ==> Q1 \--* (Q2 \*+ H).
 Proof using.
   intros. applys himpl_qwand_r. xchange (@qwand_cancel Q1).
 Qed.
-
-
-(* ------------------------------------------------------- *)
-(** *** Exercices on [qwand] *)
 
 (* EX1! (himpl_qwand_hstar_same_r) *)
 (** Prove that [H] entails [Q \--* (Q \*+ H)]. *)
@@ -1288,11 +1277,14 @@ Qed. (* /ADMITTED *)
 (** In what follows we prove the equivalence between the three
     characterizations of [hwand H1 H2] that we have presented:
 
-    1. [fun h => forall h', Fmap.disjoint h h' -> H1 h' -> H2 (h \u h')]
+    1. The definition expressed directly in terms of heaps:
+       [fun h => forall h', Fmap.disjoint h h' -> H1 h' -> H2 (h \u h')]
 
-    2. [\exists H0, H0 \* \[ (H0 \* H1) ==> H2]]
+    2. The definition expressed in terms of existing operators:
+       [\exists H0, H0 \* \[ (H0 \* H1) ==> H2]]
 
-    3. [forall H0 H1 H2, (H0 ==> hwand H1 H2) <-> (H0 \* H1 ==> H2)].
+    3. The characterization via an equivalence:
+       [forall H0 H1 H2, (H0 ==> hwand H1 H2) <-> (H0 \* H1 ==> H2)].
 
     To prove the 3-way equivalence, we first prove the equivalence
     between (1) and (2), then prove the equivalence between (2) and (3).
@@ -1301,7 +1293,7 @@ Qed. (* /ADMITTED *)
 (** Let us first prove that [hwand] is equivalent to [hwand'],
     i.e., that (1) and (2) are equivalent definitions. *)
 
-Lemma hwand_eq_hwand'_details :
+Lemma hwand_eq_hwand' :
   hwand = hwand'.
 Proof using.
   apply pred_ext_3. intros H1 H2 h. unfold hwand, hwand'. iff M.
@@ -1329,24 +1321,24 @@ Definition hwand_characterization (op:hprop->hprop->hprop) :=
 Lemma hwand_characterization_iff_eq_hwand : forall op,
   hwand_characterization op <-> op = hwand.
 Proof using.
-  iff Hop.
+  iff K.
   { apply fun_ext_2. intros H1 H2.
     unfolds hwand_characterization, hwand. apply himpl_antisym.
-    { lets (M&_): (Hop (op H1 H2) H1 H2). xsimpl (op H1 H2).
+    { lets (M&_): (K (op H1 H2) H1 H2). xsimpl (op H1 H2).
       applys M. applys himpl_refl. }
-    { xsimpl. intros H0 M. rewrite Hop. applys M. } }
+    { xsimpl. intros H0 M. rewrite K. applys M. } }
   { subst. unfolds hwand_characterization, hwand.
     intros H0 H1 H2. iff M. { xchange* M. } { xsimpl~ H0. } }
 Qed.
 
-(** Remark: the right-to-left direction was "too easy" to prove.
-    It's because [xsimpl] is doing all the work for us.
-    Here is a detailed proof not using [xsimpl]. *)
+(** Remark: in the proof above, the right-to-left direction was
+    somewhat "too easy" to prove, because [xsimpl] is doing all
+    the work for us. Here is a detailed proof not using [xsimpl]. *)
 
-Lemma hwand_characterization_hwand_details : forall H0 H1 H2,
-  (H0 ==> hwand H1 H2) <-> (H0 \* H1 ==> H2).
+Lemma hwand_satisfies_hwand_characterization :
+  hwand_characterization hwand.
 Proof using.
-  intros. unfold hwand. iff M.
+  intros H0 H1 H2. unfold hwand. iff M.
   { applys himpl_trans. applys himpl_frame_l M.
     rewrite hstar_hexists. applys himpl_hexists_l. intros H3.
     rewrite (hstar_comm H3). rewrite hstar_assoc.
@@ -1581,7 +1573,7 @@ Proof using.
   { intros h K. destruct K. { exists* true. } { exists* false. } }
 Qed. (* /ADMITTED *)
 
-(** [] *)0
+(** [] *)
 
 (** The introduction and elimination rules for [hor] are as follows.
 
