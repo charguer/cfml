@@ -2211,7 +2211,7 @@ Proof using.
   { intros. applys Hf. clear Hf. xapp. xsimpl. }
   xapp.
   xapp.
-  math_rewrite (n+1+1=n+2). xsimpl.
+  replace (n+1+1) with (n+2); [|math]. xsimpl.
 Qed.
 
 End Demo.
