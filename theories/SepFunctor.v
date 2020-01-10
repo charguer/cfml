@@ -764,7 +764,7 @@ Lemma himpl_hor_l : forall H1 H2 H3,
   H1 ==> H3 ->
   H2 ==> H3 ->
   hor H1 H2 ==> H3.
-Proof using. 
+Proof using.
   introv M1 M2. unfolds hor. applys himpl_hexists_l. intros b. case_if*.
 Qed.
 
@@ -791,11 +791,11 @@ Lemma himpl_hand_l_l : forall H1 H2,
 Proof using. intros. unfolds hand. applys* himpl_hforall_l false. Qed.
 
 Lemma himpl_hand_r : forall H1 H2 H3,
-  H1 ==> H2 ->
-  H1 ==> H3 ->
-  H1 ==> hand H2 H3.
+  H3 ==> H1 ->
+  H3 ==> H2 ->
+  H3 ==> hand H1 H2.
 Proof using.
-  introv M1 M. unfold hand. applys himpl_hforall_r. intros b. case_if*. 
+  introv M1 M. unfold hand. applys himpl_hforall_r. intros b. case_if*.
 Qed.
 
 

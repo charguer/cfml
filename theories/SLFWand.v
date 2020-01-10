@@ -39,6 +39,12 @@ Implicit Types Q : val->hprop.
     - statement of the ramified frame rule in weakest-precondition style
     - generalized definition of [wpgen] that recurses in local functions.
 
+    The addition and bonus section includes further discussion, including:
+    - statement and proofs of additional properties of the magic wand,
+    - "Texan triples", which express function specifications using the
+      magic wand instead of using triples,
+    - other additional Separation Logic operators: disjunction and conjunction.
+
 *)
 
 
@@ -1500,15 +1506,14 @@ End TexanTriples.
 Module WpFromHoare.
 Import WandDef.
 
-(** In the first part of this chapter, we proved the rule [wp_ramified]
-    from the combined consequence-frame rule for triples.
-
-    Recall from the last section of the chapter [SLFWPsem] that it can
+(** Recall from the last section of the chapter [SLFWPsem] that it can
     be interesting to define [wp]-style rules directly from the [hoare]
     rules, so as to bypass the statements and proofs of rules for triples.
 
-    In that vein, let us establish the rule [wp_ramified] directly
-    from the Hoare logic rules. *)
+    In the first part of this chapter, we proved that the rule
+    [wp_ramified] is derivable from the consequence-frame rule for triples.
+    Let us know show show to prove the rule [wp_ramified] directly
+    from the rules of Hoare logic. *)
 
 Lemma wp_ramified : forall t Q1 Q2,
   (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
@@ -1526,27 +1531,40 @@ End WpFromHoare.
 (* ******************************************************* *)
 (** ** Conjunction and disjunction operators on [hprop] *)
 
+(** The (non-separating) conjunction and the disjunction are two
+    other Separation Logic operators. The are not so useful in
+    practice, because they can be trivially encoded using Coq
+    conditional construct, or using Coq pattern matching.
+
+    Nevertheless, these two operators can show useful in some
+    contexts. *)
+
 Module ConjDisj.
 Import WandDef.
+
 
 (* ------------------------------------------------------- *)
 (** *** Definition of [hor] *)
 
-(** For some advanced applications, it is useful to lift the
-    disjunction operation [P1 \/ P2] from [Prop] to [hprop].
+(** The heap predicate [hor H1 H2] lifts the disjunction operator
+    [P1 \/ P2] from [Prop] to [hprop].
 
-    The heap predicate [hor H1 H2] describes a heap that
-    satisfies [H1] or [H2] (possibly both).
+    Concretely, the heap predicate [hor H1 H2] describes a heap
+    that satisfies [H1] or satifies [H2] (possibly both).
 
-    An obvious definition for it is: *)
+    The heap predicate [hor] admits a direct definition as a
+    function over heaps. *)
 
 Definition hor' (H1 H2 : hprop) : hprop :=
   fun h => H1 h \/ H2 h.
 
-(** An alternative definition leverages [\exists] to quantify
-    over a boolean indicating whether [H1] or [H2] should hold.
-    The benefits of this definition is that the proof of its
-    properties can be established without manipulating heaps. *)
+(** An alternative definition leverages the [\exists] quantifier.
+    The definition, shown below, reads as follows: "there exists
+    an unspecified boolean value [b] such that if [b] is true
+    then [H1] holds, else if [b] is false then [H2] holds".
+
+    The benefits of this definition is that the proof of its properties
+    can be established without manipulating heaps explicitly. *)
 
 Definition hor (H1 H2 : hprop) : hprop :=
   \exists (b:bool), if b then H1 else H2.
@@ -1563,9 +1581,18 @@ Proof using.
   { intros h K. destruct K. { exists* true. } { exists* false. } }
 Qed. (* /ADMITTED *)
 
-(** [] *)
+(** [] *)0
 
-(** The introduction and elimination rules for [hor] are as follows. *)
+(** The introduction and elimination rules for [hor] are as follows.
+
+    - If [H1] holds, then "[H1] or [H2]" holds.
+    - Symmetrically, if [H2] holds, then "[H1] or [H2]" holds.
+    - Reciprocally, if "[H1] or [H2]" holds, then one can perform a case
+      analysis on whether it is [H1] or [H2] that holds. Concretely, to
+      show that "[H1] or [H2]" entails [H3], one must show both that
+      [H1] entails [H3] and that [H2] entails [H3].
+
+*)
 
 Lemma himpl_hor_r_r : forall H1 H2,
   H1 ==> hor H1 H2.
@@ -1593,7 +1620,7 @@ Proof using. intros. case_if*. Qed.
 
 (* EX2! (hor_comm) *)
 (** Prove that [hor] is a symmetric operator.
-    Hint: exploit [hprop_op_comm] (from chapter [SLFHimpl]) and [if_neg]. *)
+    Hint: exploit [if_neg] and [hprop_op_comm] (from chapter [SLFHimpl]). *)
 
 Lemma hor_comm : forall H1 H2,
   hor H1 H2 = hor H2 H1.
@@ -1609,22 +1636,22 @@ Qed. (* /ADMITTED *)
 (* ------------------------------------------------------- *)
 (** *** Definition of [hand] *)
 
-(** Likewise, we lift the conjunction operation [P1 /\ P2] from
-    [Prop] to [hprop].
+(** The heap predicate [hand H1 H2] lifts the disjunction operator
+    [P1 /\ P2] from [Prop] to [hprop].
 
-    The heap predicate [hand H1 H2], called the "non-separating
-    conjunction", describes a heap that satisfies both [H1] and [H2]
-    at the same time.
+    Concretely, the heap predicate [hand H1 H2] describes a heap
+    that satisfies [H1] and at the same time satifies [H2].
 
-    An obvious definition for it is: *)
+    The heap predicate [hand] admits a direct definition as a
+    function over heaps. *)
 
 Definition hand' (H1 H2 : hprop) : hprop :=
   fun h => H1 h /\ H2 h.
 
-(** An alternative definition leverages [\forall] to
-    non-deterministically quantify over a boolean indicating
-    whether [H1] or [H2] should hold. This the quantification
-    is over all booleans, both must hold. *)
+(** An alternative definition leverages the [\forall] quantifier.
+    The definition, shown below, reads as follows: "for any
+    boolean value [b], if [b] is true then [H1] should hold, and
+    if [b] is false then [H2] should hold". *)
 
 Definition hand (H1 H2 : hprop) : hprop :=
   \forall (b:bool), if b then H1 else H2.
@@ -1644,7 +1671,14 @@ Qed. (* /ADMITTED *)
 
 (** [] *)
 
-(** The introduction and elimination rules for [hand] are as follows. *)
+(** The introduction and elimination rules for [hand] are as follows.
+
+    - If "[H1] and [H2]" holds, then in particular [H1] holds.
+    - Symmetrically, if "[H1] and [H2]" holds, then in particular [H2] holds.
+    - Reciprocally, to prove that a heap predicate [H3] entails
+      "[H1] and [H2]", one must prove that [H3] entails [H1], and that
+      [H3] satisfies [H2].
+*)
 
 Lemma himpl_hand_l_r : forall H1 H2,
   hand H1 H2 ==> H1.
@@ -1655,13 +1689,14 @@ Lemma himpl_hand_l_l : forall H1 H2,
 Proof using. intros. unfolds hand. applys* himpl_hforall_l false. Qed.
 
 Lemma himpl_hand_r : forall H1 H2 H3,
-  H1 ==> H2 ->
-  H1 ==> H3 ->
-  H1 ==> hand H2 H3.
+  H3 ==> H1 ->
+  H3 ==> H2 ->
+  H3 ==> hand H1 H2.
 Proof using. introv M1 M2 Hh. intros b. case_if*. Qed.
 
 (* EX1! (hand_comm) *)
-(** Prove that [hand] is a symmetric operator. *)
+(** Prove that [hand] is a symmetric operator.
+    Hint: use [if_neg] and [hprop_op_comm]. *)
 
 Lemma hand_comm : forall H1 H2,
   hand H1 H2 = hand H2 H1.
@@ -1681,13 +1716,10 @@ End ConjDisj.
 
 Module SummaryHprop.
 
-(** The core operators are defined as function over heaps. *)
+(** The core operators are defined as functions over heaps. *)
 
   Definition hempty : hprop :=
     fun h => (h = Fmap.empty).
-
-  Definition hpure (P:Prop) : hprop :=
-    fun h => (h = Fmap.empty) /\ P.
 
   Definition hsingle (l:loc) (v:val) : hprop :=
     fun h => (h = Fmap.single l v).
@@ -1704,13 +1736,16 @@ Module SummaryHprop.
   Definition hforall (A : Type) (J : A -> hprop) : hprop :=
     fun h => forall x, J x h.
 
-(** The remaining operators can be defined either as function over
-    heaps, or as derived definition expressed in terms of the core
+(** The remaining operators can be defined either as functions over
+    heaps, or as derived definitions expressed in terms of the core
     operators defined above. *)
 
 (** Direct definition for the remaining operators. *)
 
 Module ReaminingOperatorsDirect.
+
+  Definition hpure (P:Prop) : hprop :=
+    fun h => (h = Fmap.empty) /\ P.
 
   Definition hwand (H1 H2:hprop) : hprop :=
     fun h => forall h', Fmap.disjoint h h' -> H1 h' -> H2 (h \u h').
