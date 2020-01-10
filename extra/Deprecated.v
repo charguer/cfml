@@ -1,3 +1,4 @@
+
 (** Reformulation of the definition of [subst2] *)
 
 Lemma subst2_eq_subst1_subst1 : forall x1 x2 v1 v2 t,
@@ -645,3 +646,12 @@ Qed.
 End Demo.
 
 ==============
+
+
+  Definition qwand (Q1 Q2:val->hprop) : hprop :=
+    fun h => forall v h', Fmap.disjoint h h' -> Q1 v h' -> Q2 v (h \u h').
+
+  Definition qwand A (Q1 Q2:A->hprop) : hprop :=
+    \forall v, (Q1 v) \-* (Q2 v).
+
+    ============

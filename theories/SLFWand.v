@@ -34,8 +34,12 @@ Implicit Types Q : val->hprop.
 
     This chapter is organized as follows:
     - definition and properties of the magic wand operator
+    - generalization of the magic wand to postconditions
     - statement and benefits of the ramified frame rule
-    - generalized definition of [wpgen] that recurses in local functions. *)
+    - statement of the ramified frame rule in weakest-precondition style
+    - generalized definition of [wpgen] that recurses in local functions.
+
+*)
 
 
 (* ******************************************************* *)
@@ -190,25 +194,26 @@ Notation "'\forall' x1 .. xn , H" :=
    format "'[' '\forall' '/ '  x1  ..  xn , '/ '  H ']'") : heap_scope.
 
 (** We are now read to formally define [Q1 \--* Q2], a notation that stands
-    for [qwand Q1 Q2], and that is defined as [\forall x, (Q1 x) \-* (Q2 x)]. *)
+    for [qwand Q1 Q2], and that is defined as [\forall v, (Q1 v) \-* (Q2 v)]. *)
 
-Definition qwand A (Q1 Q2:A->hprop) : hprop :=
-  \forall x, (Q1 x) \-* (Q2 x).
+Definition qwand (Q1 Q2:val->hprop) : hprop :=
+  \forall v, (Q1 v) \-* (Q2 v).
 
 Notation "Q1 \--* Q2" := (qwand Q1 Q2) (at level 43).
 
 (** As a sanity check of our definition, let us prove that [Q1 \--* Q2]
-    indeed entails [(Q1 x) \-* (Q2 x)] for any [x]. *)
+    indeed entails [(Q1 v) \-* (Q2 v)] for any value [v]. *)
 
-Lemma qwand_specialize : forall A (x:A) (Q1 Q2:A->hprop),
-  (Q1 \--* Q2) ==> (Q1 x \-* Q2 x).
+Lemma qwand_specialize : forall (v:val) (Q1 Q2:val->hprop),
+  (Q1 \--* Q2) ==> (Q1 v \-* Q2 v).
 Proof using. intros. unfold qwand. intros h K. applys K. Qed.
 
 (** The operator [qwand] satisfies many properties similar to those
     of [hwand]. We state these properties further in the chapter.
 
-    For now, we just state the two most important rules: the
-    characterization rule, and the cancellation rule. *)
+    For now, we just state the two most important rules: the equivalence
+    rule which captures both the introduction and the elimination rule,
+    and the cancellation rule. *)
 
 Lemma qwand_equiv : forall H Q1 Q2,
   H ==> (Q1 \--* Q2)  <->  (Q1 \*+ H) ===> Q2.
@@ -228,7 +233,8 @@ Proof using. intros. rewrite <- qwand_equiv. applys qimpl_refl. Qed.
 (* ******************************************************* *)
 (** ** Frame expressed with [hwand]: the ramified frame rule *)
 
-(** Recall the consequence-frame rule *)
+(** Recall the consequence-frame rule, which is pervasively used
+    for example by the tactic x-app for reasonnig about applications. *)
 
 Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
   triple t H1 Q1 ->
@@ -236,40 +242,49 @@ Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
   Q1 \*+ H2 ===> Q ->
   triple t H Q.
 
-(** This rule suffers from practical issues, which we discuss in
-    details further in this chapter. In short, the main problem is
-    that one needs to either provide a value for, or to introduce a
-    unification variable (evar) for [H2]. The problem would disappear
-    if we make use of the magic wand to eliminate the need to quantify
-    [H2] altogether.
+(** This rule suffers from a practical issue, which we illustrate in
+    details on a concrete example further on. For now, let us just
+    attempt to describe the issue at a high-level.
 
-    [Q1 \*+ H2 ===> Q] is equivalent to [H2 ==> (Q1 \--* Q)].
-    By substituting away, we can merge the two entailments
-    [H ==> H1 \* H2] and [H2 ==> (Q1 \--* Q)] into a single one:
+    In short, the problem stems from the fact that we need to instantiate
+    [H2] for applying the rule. Providing [H2] by hand is not practical,
+    we need to infer it. The value of [H2] can be computed as the subtraction
+    of [H] minus [H1]. The resulting value may then exploited in the last
+    premise for constructing [Q1 \*+ H2]. This transfer of information via [H2]
+    from  one subgoal to another can be obtained by introducing an "evar" (Coq
+    unification variable) for [H2]. However this approach does not work
+    well in the cases where [H] contains existential quantifiers. Indeed,
+    such existential quantifiers are typically first extracted out of the
+    entailment [H ==> H1 \* H2] by the tactic [xsimpl]. However, these
+    existentially quantified variables are not in the scope of [H2], hence
+    the instantiation of the evar associated with [H2] fails. *)
+
+(** The "ramified frame rule" exploits the magic wand operator to circumvent
+    the problem, by merging the two premises [H ==> H1 \* H2] and
+    [Q1 \*+ H2 ===> Q] into a single premise that no longer mentions [H2].
+
+    This replacement premise is [H ==> H1 \* (Q1 \--* Q)]. To understand where
+    it comes from, observe first that the second premise [Q1 \*+ H2 ===> Q]
+    is equivalent to [H2 ==> (Q1 \--* Q)]. By replacing [H2] with [Q1 \--* Q]
+    inside the first premise [H ==> H1 \* H2], we obtain the new premise
     [H ==> H1 \* (Q1 \--* Q)].
 
-    The resulting rule is called the "ramified frame rule". *)
+    Let us state and prove "ramified frame rule". *)
 
 Lemma triple_ramified_frame : forall H1 Q1 t H Q,
   triple t H1 Q1 ->
   H ==> H1 \* (Q1 \--* Q) ->
   triple t H Q.
-
-(** As we prove next, the ramified frame rule has exactly the same
-    expressive power as the consequence-frame rule.
-
-    First, let us prove that it is derivable.
-    To that end, we instantiate [H2] as [Q1 \--* Q]. *)
-
 Proof using.
   introv M W. applys triple_conseq_frame (Q1 \--* Q) M.
   { applys W. } { applys qwand_cancel. }
 Qed.
 
-(** Reciprocally, we prove that consequence-frame is derivable from
-    the ramified frame rule. *)
+(** Reciprocally, we can prove that the ramified frame rule entails
+    the consequence-frame rule. Hence, the ramified frame rule has
+    the same expressive power as the consequence-frame rule. *)
 
-Lemma triple_conseq_frame' : forall H2 H1 Q1 t H Q,
+Lemma triple_conseq_frame_of_ramified_frame : forall H2 H1 Q1 t H Q,
   triple t H1 Q1 ->
   H ==> H1 \* H2 ->
   Q1 \*+ H2 ===> Q ->
@@ -283,19 +298,29 @@ Qed.
 (* ******************************************************* *)
 (** ** Ramified frame rule in weakest-precondition style *)
 
-(** The ramified-frame rule for [triple] also has a counterpart for [wp].
-    In what follows, we present a concise rule, called [wp_ramified], that
-    subsumes all other structural rules of Separation Logic. *)
+(** The ramified frame rule, which we have just stated for triples,
+    has a counterpart in weakest-precondition style ([wp]).
 
-(** Recall from chapter [SLFWPsem] the rule [wp_conseq_frame], which
-    combines the consequence rule and the frame rule for [wp]. *)
+    In what follows, we present the "wp ramified rule" [wp_ramified].
+    This rule admits a concise statement and subsumes all other
+    structural rules of Separation Logic. Its statement is as follows.
+
+[[
+    (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
+]]
+
+*)
+
+(** To see where this statement comes from, recall from the chapter
+    [SLFWPsem] the rule named [wp_conseq_frame], which combines
+    the consequence rule and the frame rule for [wp]. *)
 
 Parameter wp_conseq_frame : forall t H Q1 Q2,
   Q1 \*+ H ===> Q2 ->
   (wp t Q1) \* H ==> (wp t Q2).
 
 (** Let us reformulate this rule using a magic wand. The premise
-    [Q1 \*+ H ===> Q2] can be rewriten as [H ==> (Q1 \--* Q2)].
+    [Q1 \*+ H ===> Q2] can be rewritten as [H ==> (Q1 \--* Q2)].
     By replacing [H] with [Q1 \--* Q2] in the conclusion of
     [wp_conseq_frame], we obtain the ramified rule for [wp]. *)
 
@@ -314,15 +339,16 @@ Lemma wp_conseq_frame_of_wp_ramified : forall t H Q1 Q2,
   (wp t Q1) \* H ==> (wp t Q2).
 Proof using.
 (* ADMITTED *)
-  introv M. applys himpl_trans; [| applys wp_ramified Q1 ].
-  apply himpl_frame_r. rewrite qwand_equiv. applys M.
+  introv M. applys himpl_trans (wp t Q1 \* (Q1 \--* Q2)).
+  { apply himpl_frame_r. rewrite qwand_equiv. applys M. }
+  { applys wp_ramified. }
 Qed. (* /ADMITTED *)
 
 (* [] *)
 
-(** The following reformulation of [wp_ramified] is more practical
-    to exploit in practice, because it applies to any goal of the
-    form [H ==> wp t Q]. *)
+(** The following reformulation of [wp_ramified] is slightly more
+    practical to exploit in practice, because it applies to any goal
+    of the form [H ==> wp t Q]. *)
 
 Lemma wp_ramified_trans : forall t H Q1 Q2,
   H ==> (wp t Q1) \* (Q1 \--* Q2) ->
@@ -335,24 +361,24 @@ End WandDef.
 (* ******************************************************* *)
 (** ** Automation with [xsimpl] for [hwand] expressions *)
 
-(** Throughout the rest of the chapter, we assume that the tactic [xsimpl]
-    is extended with support for the magic wand. The definition of magic
-    wand used is the same as the one defined abov (technically, it comes
-    from [SepFunctor.v]). *)
+(** We can extend the tactic [xsimpl] to recognize the magic wand,
+    and automatically perform a number of obvious simplifications. *)
 
 Module XsimplDemo.
 
 (** [xsimpl] is able to spot magic wand that cancel out.
-    For example, [H2 \-* H3] can be simplified with [H2]
-    to leave only [H3]. *)
+    For example, if an iterated separating conjunction includes
+    both [H2 \-* H3] and [H2], the two can be merged to leave
+    just [H3]. *)
 
 Lemma xsimpl_demo_hwand_cancel : forall H1 H2 H3 H4 H5,
   H1 \* (H2 \-* H3) \* H4 \* H2 ==> H5.
 Proof using. intros. xsimpl. Abort.
 
-(** [xsimpl] is able to simplified uncurried magic wands
-    of the form [(H1 \* H2 \* H3) \-* H4] against a fragment,
-    e.g., [H2], leaving in this case [(H1 \* H3) \-* H4]. *)
+(** [xsimpl] is able to simplified uncurried magic wands.
+    For example, if an iterated separating conjunction includes
+    [(H1 \* H2 \* H3) \-* H4] and [H2], the two can be merged
+    to leave just [(H1 \* H3) \-* H4]. *)
 
 Lemma xsimpl_demo_hwand_cancel_partial : forall H1 H2 H3 H4 H5 H6,
   ((H1 \* H2 \* H3) \-* H4) \* H5 \* H2 ==> H6.
@@ -368,17 +394,17 @@ Lemma xsimpl_demo_himpl_hwand_r : forall H1 H2 H3 H4 H5,
   H1 \* H2 ==> H1 \* (H3 \-* (H4 \* H5)).
 Proof using. intros. xsimpl. Abort.
 
-(** [xsimpl] iterates the simplifications it is able to perform
-    until it no obvious simplification remain. *)
+(** [xsimpl] can iterate a number of magic-wand related simplifications. *)
 
 Lemma xsimpl_demo_hwand_iter : forall H1 H2 H3 H4 H5,
   H1 \* H2 \* ((H1 \* H3) \-* (H4 \-* H5)) \* H4 ==> ((H2 \-* H3) \-* H5).
 Proof using. intros. xsimpl. Qed.
 
-(** [xsimpl] is also able to deal with [qwand]. In particular,
-    it can cancel out [Q1 \--* Q2] against [Q1 v], leaving [Q2 v]. *)
+(** [xsimpl] is also able to deal with magic wand for postconditions.
+    In particular, it is able to merge [Q1 \--* Q2] with [Q1 v],
+    leaving [Q2 v]. *)
 
-Lemma xsimpl_demo_qwand_cancel : forall A (v:A) (Q1 Q2:A->hprop) H1 H2,
+Lemma xsimpl_demo_qwand_cancel : forall v (Q1 Q2:val->hprop) H1 H2,
   (Q1 \--* Q2) \* H1 \* (Q1 v) ==> H2.
 Proof using. intros. xsimpl. Abort.
 
@@ -1654,9 +1680,6 @@ Module ReaminingOperatorsDirect.
   Definition hwand (H1 H2:hprop) : hprop :=
     fun h => forall h', Fmap.disjoint h h' -> H1 h' -> H2 (h \u h').
 
-  Definition qwand A (Q1 Q2:A->hprop) : hprop :=
-    fun h => forall x h', Fmap.disjoint h h' -> Q1 x h' -> Q2 x (h \u h').
-
   Definition hor (H1 H2 : hprop) : hprop :=
     fun h => H1 h \/ H2 h.
 
@@ -1675,9 +1698,6 @@ Module ReaminingOperatorsDerived.
 
   Definition hwand (H1 H2 : hprop) : hprop :=
     \exists H0, H0 \* \[ (H0 \* H1) ==> H2].
-
-  Definition qwand A (Q1 Q2:A->hprop) : hprop :=
-    \forall x, (Q1 x) \-* (Q2 x).
 
   Definition hand (H1 H2 : hprop) : hprop :=
     \forall (b:bool), if b then H1 else H2.
