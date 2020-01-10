@@ -862,7 +862,6 @@ Qed.
 End WPgenRec.
 
 
-
 (* ####################################################### *)
 (** * Additional contents *)
 
@@ -1369,7 +1368,7 @@ Implicit Types v : val.
 (** *** 1. Example of Texan triples *)
 
 (** In this section, we show that specification triples can be presented
-    in a different (yet equivalent) style using weakest preconditions. *)
+    in a different style using weakest preconditions. *)
 
 (** Consider for example the specification triple for allocation. *)
 
@@ -1378,7 +1377,8 @@ Parameter triple_ref : forall v,
     \[]
     (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v).
 
-(** This specification can be equivalently reformulated in the form: *)
+(** This specification can be equivalently reformulated in the following
+    form. *)
 
 Parameter wp_ref : forall Q v,
   \[] \* (\forall l, l ~~~> v \-* Q (val_loc l)) ==> wp (val_ref v) Q.
@@ -1393,30 +1393,34 @@ Parameter wp_ref : forall Q v,
     into a "texan triple" (i.e., the wp-based specification). *)
 
 (** By replacing [triple t H Q] with [H ==> wp t Q], the specification
-    gets reformulated as: *)
+    [triple_ref] can be reformulated as follows. *)
 
 Lemma wp_ref_0 : forall v,
   \[] ==> wp (val_ref v) (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
 Proof using. intros. rewrite wp_equiv. applys triple_ref. Qed.
 
-(** The statement can be reformulated with the aim of making the RHS of the
-    form [wp (val_ref v) Q] for an abstract [Q]. *)
+(** We wish to cast the RHS in the form [wp (val_ref v) Q] for an abstract
+    variable [Q]. To that end, we reformulate the above statement by including
+    a magic wand relating the current postcondition, which is
+    [(fun r => \exists l, \[r = val_loc l] \* l ~~~> v)], and [Q]. *)
 
 Lemma wp_ref_1 : forall Q v,
   ((fun r => \exists l, \[r = val_loc l] \* l ~~~> v) \--* Q) ==> wp (val_ref v) Q.
 Proof using. intros. xchange (wp_ref_0 v). applys wp_ramified. Qed.
 
-(** This statement can be further reformulated by quantifying [r] with a [\forall],
-    which essentially amounts to unfolding the definition of [\--*]. *)
+(** This statement can be made slightly more readable by unfolding the
+    definition of [\--*], as shown next. *)
 
 Lemma wp_ref_2 : forall Q v,
   (\forall r, (\exists l, \[r = val_loc l] \* l ~~~> v) \-* Q r) ==> wp (val_ref v) Q.
 Proof using. intros. applys himpl_trans wp_ref_1. xsimpl. Qed.
 
-(** The point is that now we may eliminate [r]: *)
+(** Interestingly, the variable [r], which is equal to [val_loc l],
+    can now be substituted away, further increasing readability.
+    We obtain the specificaiton of [val_ref] in "Texan triple style". *)
 
 Lemma wp_ref_3 : forall Q v,
-  (\forall l, l ~~~> v \-* Q (val_loc l)) ==> wp (val_ref v) Q.
+  (\forall l, (l ~~~> v) \-* Q (val_loc l)) ==> wp (val_ref v) Q.
 Proof using.
   intros. applys himpl_trans wp_ref_2.
   xsimpl. intros ? l ->. xchange (hforall_specialize l).
@@ -1428,17 +1432,21 @@ Qed.
 
 (** In practice, specification triples can (pretty much) all be casted
     in the form: [triple t H (fun r => exists x1 x2, \[r = v] \* H'].
-    The value [v] may depend on the [xi].
+
+    Above, the value [v] may depend on the [xi].
     The heap predicate [H'] may depend on [r] and the [xi].
     The number of existentials [xi] may vary, possibly be zero.
-    The equality \[r = v] may degenerate to \[r = r] if no pure fact
-    is needed about [r].
+    The equality \[r = v] may be removed if no pure fact is needed about [r].
 
-    A triple of the above form may be reformulated as:
+    A specification triple of the form
+    [triple t H (fun r => exists x1 x2, \[r = v] \* H']
+    can be be reformulated as the Texan triple:
     [(\forall x1 x2, H \-* Q v) ==> wp t Q].
 
-    We next formalize this result for the case of a single [xi] variable,
-    making it explicit that [H] and [v] may depend on it. *)
+    We next formalize the equivalence between the two presentations, for
+    the specific case where the specification involves a single auxiliary
+    variable, called [x1]. The statement below makes it explicit that
+    [H] and [v] may depend on [x1]. *)
 
 Lemma texan_triple_equiv : forall t H A (Hof:val->A->hprop) (vof:A->val),
       (triple t H (fun r => \exists x, \[r = vof x] \* Hof r x))
@@ -1454,9 +1462,10 @@ Qed.
 (* ------------------------------------------------------- *)
 (** *** 3. Exercise *)
 
-(** Recall the function [incr] and its specification. *)
+(** Let us put to practice the use of a Texan triple on a different example.
+    Recall the function [incr] and its specification (from [SLFHprop.v]). *)
 
-Parameter incr : val. (** Code omitted, may be found in [SLFHprop.v]. *)
+Parameter incr : val.
 
 Parameter triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
@@ -1464,11 +1473,11 @@ Parameter triple_incr : forall (p:loc) (n:int),
     (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
 
 (* EX2! (wp_incr) *)
-(** State a Texan triple for [incr] as a lemma [wp_incr],
+(** State a Texan triple for [incr] as a lemma called [wp_incr],
     then prove this lemma from [triple_incr].
 
     Hint: the proof is a bit easier by first turning the [wp] into a [triple]
-    and then reasoning about triples, compared than working on the [wp] form. *)
+    and then reasoning about triples, compared to working on the [wp] form. *)
 
 (* ADMITTED *)
 Lemma wp_incr : forall (p:loc) (n:int) Q,
@@ -1480,7 +1489,7 @@ Qed. (* /ADMITTED *)
 
 (** [] *)
 
-(** Remark: texan triples are used in Iris. *)
+(** Remark: Texan triples are used in Iris. *)
 
 End TexanTriples.
 
