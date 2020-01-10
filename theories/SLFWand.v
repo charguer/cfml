@@ -21,113 +21,125 @@ Implicit Types Q : val->hprop.
 (* ####################################################### *)
 (** * Chapter in a rush *)
 
-(** This chapter introduces additional Separation Logic operators,
-    most notably the "magic wand", written [H1 \-* H2].
+(** This chapter introduces an additional Separation Logic operator,
+    called the "magic wand", and written [H1 \-* H2].
 
-    Magic wand does not only have a cool name, and it is not only
-    a fascinating operator for logicians; it turns out that the
-    magic wand is a key ingredient to streamlining the process of
-    practical program verification in Separation Logic.
+    This operator is useful in particular to formulate a variant of the
+    consequence-frame rule, called the "ramified frame rule", which is
+    more concise and more practical than the consequence-frame rule.
 
-    In this chapter, we first introduce the new operators, then
-    explain how they can be used to reformulate the frame rule
-    and give a different presentation to Separation Logic triples. *)
+    The magic wand can also be used to refine the definition of [wpgen]
+    so that it recursively computes the weakest precondition of the
+    local function definitions that appear inside a term.
 
-Module WandDef.
+    This chapter is organized as follows:
+    - definition and properties of the magic wand operator
+    - statement and benefits of the ramified frame rule
+    - generalized definition of [wpgen] that recurses in local functions. *)
+
+
+(* ******************************************************* *)
+(** ** Intuition for the magic wand *)
+
+(** The magic wand operation [H1 \-* H2], to be read "H1 wand H2",
+    defines a heap predicate such that, if we were to add [H1] to it,
+    we would obtain [H2]. Formally, the following entailment holds:
+
+[[
+      H1 \* (H1 \-* H2) ==> H2.
+]]
+
+    Intuitively, if one can think of the star [H1 \* H2] as the addition
+    [H1 + H2], then one can think of [H1 \-* H2] as the subtraction
+    [-H1 + H2]. The above entailemnt captures the fact that
+    [(-H1 + H2) + H1] simplifies to [H2].
+
+    Note however, that the operation [H1 \-* H2] only makes sense if [H1]
+    describes a piece of heap that "can" be subtracted from [H2]. Otherwise,
+    the predicate [H1 \-* H2] characterizes a heap that cannot possibly exist.
+    Informally speaking, [H1] must somehow be a subset of [H2] for the
+    subtraction [-H1 + H2] to make sense. *)
 
 
 (* ******************************************************* *)
 (** ** Definition of the magic wand *)
 
-(** At a high level, [H1 \* H2] describes the "addition" of a
-    heap satisfying [H1] with a heap satisfying [H2].
-    Think of it as [H1 + H2].
+Module WandDef.
 
-    As a counterpart to this addition operator, we introduce
-    a subtraction operator, called "magic wand", and written [H1 \-* H2].
-    Think of it as [ -H1 + H2]. Note however, that whereas a subtraction
-    is defined for all arguments, for the magic wand operator it only makes
-    sense to subtract [H1] from [H2] when the heap described by [H1]
-    is a subset of the heap described by [H2]. In other words, [H1 \-* H2]
-    specifies a heap that cannot possibly exist when [H1] is not somehow
-    a subset of [H2].
+(** Technically, [H1 \-* H2] holds of a heap [h] if, for any heap
+    [h'] disjoint from [h] and that satisfies [H1], the union
+    of [h] and [h'] satisfies [H2].
 
-    A heap [h] satisfies [H1 \-* H2] if and only if, when we augment
-    it with a disjoint heap [h'] satisfying [H1], we recover [H2].
-    Think of it as [(-H1 + H2) + H1] simplifying to [H2].
-
-    The operator [hwand] can be defined as follows. *)
+    The operator [hwand], which implements the notation [H1 \-* H2],
+    may thus be defined as follows. *)
 
 Definition hwand' (H1 H2:hprop) : hprop :=
   fun h => forall h', Fmap.disjoint h h' -> H1 h' -> H2 (h \u h').
 
-(** Another possible definition of [H1 \-* H2] can be stated
-    without refering to heaps at all, by reusing the basic
-    Separation Logic operators that we have already introduced.
-    [H1 \-* H2] denotes some heap, described as [H0], such
-    that [H0] augmented with [H1] yields [H2].
+(** The definition above is perfectly fine, however it is more practical
+    to use an alternative, equivalent definition of [hwand], expressed
+    in terms of previously-introduced Separation Logic operators.
 
-    In the alternative definition of [hwand] shown below,
-    the heap [H0] is existentially quantified using [\exists],
-    and the entailment assertion is described as the pure heap
-    predicate [\[ H0 \* H1 ==> H2 ]]. *)
+    The alternative definition asserts that [H1 \-* H2] corresponds to
+    some heap predicate, called [H0], such that [H0] starred with [H1]
+    yields [H2]. In other words, [H0] is such that [\[ H0 \* H1 ==> H2 ]].
+    In the definition of [hwand] shown below, observe how [H0] is
+    existentially quantified. *)
 
 Definition hwand (H1 H2:hprop) : hprop :=
   \exists H0, H0 \* \[ (H0 \* H1) ==> H2].
 
 Notation "H1 \-* H2" := (hwand H1 H2) (at level 43, right associativity).
 
-(** As we prove further in this file, we can prove that [hwand']
-    defines the same operator as [hwand]. *)
+(** As we establish further in this file, one can prove that [hwand]
+    and [hwand'] define the same operator.
 
-Parameter hwand_eq_hwand' :
-  hwand = hwand'.
-
-(** In practice, we prefer using the definition [hwand] because its
-    properties can be established with help of the tactic [xsimpl],
-    conducting all the reasoning at the level of [hprop] and avoiding
-   the need to work with explicit heaps (of type [heap]). *)
+    The reason we prefer taking [hwand] as definition rather than [hwand']
+    is that it enables us to establish all the properties of the magic wand
+    by exploiting the tactic [xsimpl], conducting all the reasoning at the
+    level of [hprop] rather than having to work with explicit heaps of type
+    [heap]. *)
 
 
 (* ******************************************************* *)
 (** ** Characteristic property of the magic wand *)
 
-(** The definition of [hwand] is not easy to make sense of at first.
-    To better grasp its meaning, we detail introduction and
-    elimination lemmas for it. *)
+(** The magic wand is not so easy to make sense of, at first. Reading
+    its introduction and elimination rules may help further appreciate
+    its meaning.
 
-(** The operator [H1 \-* H2] is uniquely defined by the followig
-    equivalence. In other words, any operator that satisfies this
-    equivalence for all arguments is provably equal to the definition
-    of [hwand] given above. (We proof this fact further in the chapter.) *)
+    The operator [H1 \-* H2] satisfies the following equivalence. *)
 
 Parameter hwand_equiv : forall H0 H1 H2,
   (H0 ==> H1 \-* H2) <-> (H0 \* H1 ==> H2).
 
-(** The right-to-left direction is an introduction rule: it tells
-    what needs to be proved to introduce a magic wand [H1 \-* H2]
-    when starting from a state described by [H0]. What needs to
-    be proved is that [H0], if augmented with [H1], yields [H2]. *)
+(** In fact, the magic wand is uniquely defined by the above equivalence.
+    In other words, as we prove further on, any operator that satisfies
+    the above equivalence for all arguments is equal to [hwand]. *)
+
+(** The right-to-left direction of the equivalence is an introduction rule:
+    it tells what needs to be proved for constructing a magic wand [H1 \-* H2]
+    from a state [H0]. What needs to be proved to establish [H0 ==> (H1 \-* H2)]
+    is that [H0], when starred with [H1], yields [H2]. *)
 
 Lemma himpl_hwand_r : forall H0 H1 H2,
   (H0 \* H1) ==> H2 ->
   H0 ==> (H1 \-* H2).
 Proof using. introv M. applys hwand_equiv. applys M. Qed.
 
-(** The left-to-right direction is an elimination rule: it tells
-    what can be deduced from [H0 ==> (H1 \-* H2)]. What can be
-    deduced is that if [H0] is augmented with [H1], then [H2]
-    can be recovered. *)
+(** The left-to-right direction of the equivalence is an elimination rule:
+    it tells what can be deduced from an entailment [H0 ==> (H1 \-* H2)].
+    What can be deduced from this entailement is that if [H0] is starred
+    with [H1], then [H2] can be recovered. *)
 
 Lemma himpl_hwand_r_inv : forall H0 H1 H2,
   H0 ==> (H1 \-* H2) ->
   (H0 \* H1) ==> H2.
 Proof using. introv M. applys hwand_equiv. applys M. Qed.
 
-(** This elimination rule can be equivalently reformulated in the
-    following form, which makes it perhaps even clearer that
-    [H1 \-* H2], when augmented with [H1], yields [H2].
-    Think of it as [H1 + (-H1 + H2)] simplifying to [H2]. *)
+(** This elimination rule can be equivalently reformulated in the following
+    form, which makes clearer that [H1 \-* H2], when starred with [H1],
+    yields [H2]. *)
 
 Lemma hwand_cancel : forall H1 H2,
   H1 \* (H1 \-* H2) ==> H2.
@@ -142,27 +154,32 @@ Arguments hwand_cancel : clear implicits.
 (* ******************************************************* *)
 (** ** Magic wand for postconditions *)
 
-(** For entailment, written [H1 ==> H2], we introduced its extension
-    to postconditions, written [Q1 ===> Q2], and defined as
-    [forall x, (Q1 x) ==> (Q2 x)].
+(** In what follows, we generalize the magic wand to operator on postconditions,
+    introducing a heap predicate of the form [Q1 \--* Q2].
 
-    Likewise, for magic wand, written [H1 \-* H2], we introduce
-    its extension to postconditions, written [Q1 \--* Q2], and
-    defined (in first approximation) as [forall x, (Q1 x) \-* (Q2 x)].
+    Recall that the entailment for postconditions, written [Q1 ===> Q2],
+    generalizes the entailement for heap predicates, written [H1 ==> H2],
+    by quantifying universally on all values: [forall v, (Q1 v) ==> (Q2 v)].
 
-    Like [H1 \-* H2], the expression [Q1 \--* Q2] should denote a heap
-    predicate, of type [hprop]. Thus, writing [forall x, (Q1 x) \-* (Q2 x)]
-    makes no sense, because [forall] applies to propositions of type [Prop],
-    and not to heap predicates of type [hprop].
+    Intuitively, the magic wand for postconditions, written [Q1 \--* Q2]
+    similarly generalized the magic wand for heap predicates, written [H1 \-* H2],
+    by quantifying universally on all values: [forall v, (Q1 v) \-* (Q2 v)].
 
-    In order to define [Q1 \--* Q2], we thus need to introduce the
-    operation [\forall], which lifts the universal quantifier from
-    [Prop] to [hprop]. In other words, [\forall] is to [forall]
-    what [\exists] is to [exists].
+    There is a glitch, however. The expression [(Q1 v) \-* (Q2 v)] is a heap
+    predicate of type [hprop], and not a proposition of type [Prop], thus we
+    cannot apply the universal quantifier [forall]. Moreover, we wish the
+    resulting expression [Q1 \--* Q2] to also be a heap predicate.
 
-    The definition of [\forall x, H], a notation for [hforall (fun x => H)],
-    follows exactly the same pattern as that of [\exists x, H], with only
-    the [exists] quantifier being replaced with a [forall] in the definition. *)
+    What we need is a universal quantifier for heap predicates. This quantifier,
+    written [\forall], is the counterpart of the existential quantifier [\exists]
+    for heap predicates. Using [\forall], we can define [Q1 \--* Q2] as the
+    heap predicate [\forall v, (Q1 v) \-* (Q2 v)]. *)
+
+(** Let us first formalize the definition of the universal quantifier on [hprop].
+    Technically, a heap predicate of the form [\forall x, H] stands for
+    [hforall (fun x => H)], where the definition of [hforall] follows the
+    exact same pattern as for [hexists]. The definition shown below is somewhat
+    technical, details may be safely skipped over. *)
 
 Definition hforall (A : Type) (J : A -> hprop) : hprop :=
   fun h => forall x, J x h.
@@ -173,7 +190,7 @@ Notation "'\forall' x1 .. xn , H" :=
    format "'[' '\forall' '/ '  x1  ..  xn , '/ '  H ']'") : heap_scope.
 
 (** We are now read to formally define [Q1 \--* Q2], a notation that stands
-    for [qwand Q1 Q2], and which is defined as [\forall x, (Q1 x) \-* (Q2 x)]. *)
+    for [qwand Q1 Q2], and that is defined as [\forall x, (Q1 x) \-* (Q2 x)]. *)
 
 Definition qwand A (Q1 Q2:A->hprop) : hprop :=
   \forall x, (Q1 x) \-* (Q2 x).
@@ -560,7 +577,7 @@ Proof using.
   { intros vx. rewrite <- isubst_rem. applys IH. }
 Qed.
 
-(** Like with other auxiliary functions for [wpgen], we introduce a notation 
+(** Like with other auxiliary functions for [wpgen], we introduce a notation
     for [wpgen_fun]. Here [Fun' x := F] stands for [wpgen_fun (fun x => F)]. *)
 
 Notation "'Fun'' x ':=' F1" :=
@@ -649,7 +666,7 @@ Qed.
 (** Again, we refer to the proof of lemma [wpgen_sound] in file [SLFDirect]
     for the full proof of the definition of [wpgen] featuring [wpgen_fix]. *)
 
-(** Also, we introduce the appropriate notation for [wpgen_fix]. Here 
+(** Also, we introduce the appropriate notation for [wpgen_fix]. Here
     [Fix' f x := F] stands for [wpgen_fun (fun f x => F)]. *)
 
 Notation "'Fix'' f x ':=' F1" :=
@@ -678,22 +695,22 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
 (** The full soundness proof appears in file [SLFDirect], lemma [wpgen_sound]. *)
 
 (** In the example that follows, we assume all the set up from [SLFWPgen] to
-    be reproduced with the above definition of [wpgen], like it is formalized 
+    be reproduced with the above definition of [wpgen], like it is formalized
     in [SLFDirect]. *)
 
 (** One interesting new feature is the [xfun] tactic, which helps the user
     process a local function definition in the course of a verification script.
-    The tactic [xfun] can be invoked either with or without providing a 
+    The tactic [xfun] can be invoked either with or without providing a
     specification for the local function. *)
 
 (** First, consider the case where [xfun] is called with an argument describing
-    the specification of the local function, typically in the form 
+    the specification of the local function, typically in the form
     [xfun (fun (f:val) => forall ..., TRIPLE (f ..) PRE .. POST ..)].
 
     The tactic [xfun S] generates two subgoals. The first one requires the
     user to establish the specification [S] for the function whose body admits
     the weakest precondition [Fof]. The second one requires the user to prove
-    that the rest of the program is correct, in a context where the local 
+    that the rest of the program is correct, in a context where the local
     function can be assumed to satisfy the specification [S]. *)
 
 Lemma xfun_spec_lemma : forall (S:val->Prop) H Q Fof,
@@ -711,8 +728,8 @@ Tactic Notation "xfun" constr(S) :=
   xseq_xlet_if_needed; xstruct_if_needed; applys xfun_spec_lemma S.
 
 (** Second, assume [xfun] is called without argument, on a goal of the form
-    [H ==> wpgen_fun Fof Q]. In this case, the tactic simply makes available 
-    an hypothesis about the local function which the user may subsequently 
+    [H ==> wpgen_fun Fof Q]. In this case, the tactic simply makes available
+    an hypothesis about the local function which the user may subsequently
     exploit for reasoning about a call to that function, just like if the
     code of the function was inlined at its call site. The use of [xfun]
     without argument is usually relevant only for local functions that are
@@ -720,8 +737,8 @@ Tactic Notation "xfun" constr(S) :=
     higher-order iterators). *)
 
 Lemma xfun_nospec_lemma : forall H Q Fof,
-  (forall vf,   
-     (forall vx H' Q', (H' ==> Fof vx Q') -> triple (trm_app vf vx) H' Q') -> 
+  (forall vf,
+     (forall vx H' Q', (H' ==> Fof vx Q') -> triple (trm_app vf vx) H' Q') ->
      (H ==> Q vf)) ->
   H ==> wpgen_fun Fof Q.
 Proof using.
@@ -738,7 +755,7 @@ Tactic Notation "xfun" :=
 
 Import Demo.
 
-(** Consider the following example program, which involves a local function 
+(** Consider the following example program, which involves a local function
     definition.
 
 [[
@@ -776,8 +793,8 @@ Proof using.
 Qed.
 
 (** We next illustrate the use of [xfun] without a specification.
-    Here, there are two calls to the function. Thus, we need to 
-    reason twice about the behavior of the increment function, 
+    Here, there are two calls to the function. Thus, we need to
+    reason twice about the behavior of the increment function,
     which appears in the body of the function [f]. *)
 
 Lemma triple_myfun' : forall (p:loc) (n:int),
