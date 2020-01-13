@@ -707,3 +707,33 @@ Qed.
     won't automatically perform the desired manipulation.
     In such cases, the tactic [xchange] proves very useful.=
  ======
+
+
+
+
+(* EX3! (Triple_mappend_aux') *)
+(** The specification of [mappend_aux] can be equivalently stated
+    using the premise [L1 <> nil] instead of [p1 <> null].
+    Complete the proof below to reflect this change. *)
+
+Lemma Triple_mappend_aux' : forall (p1 p2:loc) (L1 L2:list int),
+  L1 <> nil ->
+  TRIPLE (mappend_aux p1 p2)
+    PRE (p1 ~> MList L1 \* p2 ~> MList L2)
+    POST (fun (_:unit) => p1 ~> MList (L1++L2)).
+Proof using. (* ADMITTED *)
+  introv N. gen N p1. induction_wf IH: list_sub L1.
+  xwp. destruct L1 as [|x L1']; tryfalse.
+  rewrite MList_cons. xpull. intros q.
+  xapp. xapp. xif; intros Cq.
+  { xchange (MList_if q). case_if. xpull. intros ->.
+    xapp. xchange <- MList_cons. }
+  { xchange (MList_null_iff_nil q). intros HQ.
+    xapp. xapp. { auto. }
+    rew_list. xchange <- MList_cons. }
+Qed. (* /ADMITTED *)
+
+
+
+
+===========

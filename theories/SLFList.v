@@ -294,6 +294,22 @@ Qed.
     is made with a list [L'] being a strict sublist of the argument [L]. *)
 
 
+(* EX1! (MList_null_iff_nil) *)
+(** Prove the following lemma, which asserts that in a predicate 
+    [p ~> MList L], the pointer [p] is null iff the list [L] is empty. *)
+
+Lemma MList_null_iff_nil : forall (p:loc) (L:list int),
+  (p ~> MList L) ==> (p ~> MList L) \* \[p = null <-> L = nil].
+Proof using.
+(* ADMITTED *)
+  intros. xchange MList_if. case_if; xpull.
+  { intros ->. rewrite MList_nil. xsimpl*. }
+  { intros x q L' ->. rewrite MList_cons. xsimpl*. }
+Qed. (* /ADMITTED *)
+
+(** [] *)
+
+
 (* ########################################################### *)
 (** ** Function [mhead] *)
 
@@ -1039,15 +1055,15 @@ Abort.
 
 (** What is needed here is a lemma asserting that whenever [p ~> MList L]
     is valid, it is the case that [p = null <-> L = nil]. This result
-    is captured by the following entailment, which can be used by [xchange]. *)
+    is captured by the lemma [MList_null_iff_nil], proved earlier as an
+    exercise.
 
-Lemma MList_null_iff_nil : forall (p:loc) (L:list int),
-  p ~> MList L ==> p ~> MList L \* \[p = null <-> L = nil].
-Proof using.
-  intros. xchange MList_if. case_if.
-  { xpull. intros HL. xchange* <- (MList_nil p). xsimpl*. }
-  { xpull. intros x q L' HL'. xchange <- MList_cons. xsimpl*. }
-Qed.
+[[
+    Lemma MList_null_iff_nil : forall (p:loc) (L:list int),
+      p ~> MList L ==> p ~> MList L \* \[p = null <-> L = nil].
+]]
+
+    This lemma can be used by [xchange]. *)
 
 (** Equipped with this lemma, let's attempt againt the verification
     of the function [is_empty]. *)
@@ -1474,7 +1490,7 @@ Lemma Triple_mappend_aux : forall (p1 p2:loc) (L1 L2:list int),
     PRE (p1 ~> MList L1 \* p2 ~> MList L2)
     POST (fun (r:unit) => p1 ~> MList (L1++L2)).
 Proof using. (* ADMITTED *)
-  intros. gen p1. induction_wf IH: list_sub L1.
+  introv N. gen p1. induction_wf IH: list_sub L1.
   xwp. xchange (MList_if p1). case_if. xpull. intros x q L1' ->.
   xapp. xapp. xif; intros Cq.
   { xchange (MList_if q). case_if. xpull. intros ->.
