@@ -586,12 +586,6 @@ Parameter triple_app_fun : forall x v1 v2 t1 H Q,
   triple (subst x v2 t1) H Q ->
   triple (trm_app v1 v2) H Q.
 
-(** Alternative statement, easier to apply in proofs *)
-
-Parameter triple_app_fun' : forall x v2 t1 H Q,
-  triple (subst x v2 t1) H Q ->
-  triple (trm_app (val_fun x t1) v2) H Q.
-
 (** The generalization to the application of recursive functions is
     straightforward. It is discussed further in this chapter. *)
 
@@ -796,7 +790,7 @@ Export SLFProgramSyntax.
 Definition incr : val :=
   val_fun "p" (
     trm_let "n" (val_get "p") (
-    trm_let "m" (val_add "n" 1) (
+    trm_let "m" (val_add "n" (val_int 1)) (
     val_set "p" "m"))).
 
 (** Alternatively, using fancy notation, the same program can be written
@@ -807,42 +801,6 @@ Definition incr' : val :=
     Let 'n := '! 'p in
     Let 'm := 'n '+ 1 in
    'p ':= 'm.
-
-(** DEMO: Verification proof for the demo *)
-
-Lemma triple_incr_demo : forall (p:loc) (n:int),
-  triple (trm_app incr p)
-    (p ~~~> n)
-    (fun _ => p ~~~> (n+1)).
-Proof using.
-  (* initialize the proof *)
-  intros. applys triple_app_fun'. simpl.
-  (* reason about [let n = ..] *)
-  applys triple_let.
-  (* reason about [!p] *)
-  { apply triple_get. }
-  (* name [n'] the result of [!p] *)
-  intros n'. simpl.
-  (* substitute away the equality [n = n'] *)
-  apply triple_hpure. intros ->.
-  (* reason about [let m = ..] *)
-  applys triple_let.
-  (* apply the frame rule to put aside [p ~~~> n] *)
-  { applys triple_conseq_frame.
-    (* reason about [n+1] in the empty state *)
-    { applys triple_add. }
-    { xsimpl. }
-    { xsimpl. } }
-  (* name [m'] the result of [n+1] *)
-  intros m'. simpl.
-  (* substitute away the equality [m = m'] *)
-  apply triple_hpure. intros ->.
-  (* reason about [p := m] *)
-  applys triple_conseq.
-  { applys triple_set. }
-  { xsimpl. }
-  { xsimpl. }
-Qed.
 
 (** Recall from the first chapter the specification of the increment function.
     Its precondition requires a singleton state of the form [p ~~~> n].

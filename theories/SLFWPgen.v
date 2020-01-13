@@ -1664,16 +1664,6 @@ Module ProofsWithAdvancedXtactics.
 Import ExamplePrograms.
 Open Scope wpgen_scope.
 
-(* DEMO : proof script of [incr] for the demo *)
-
-Lemma triple_incr' : forall (p:loc) (n:int),
-  triple (trm_app incr p)
-    (p ~~~> n)
-    (fun _ => p ~~~> (n+1)).
-Proof using.
-  xwp. xapp. xapp. xapp. xsimpl.
-Qed.
-
 (** The proof script for the verification of [incr] using the tactic
     [xapps] with implicit argument. *)
 

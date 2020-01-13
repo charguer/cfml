@@ -214,6 +214,11 @@ Proof using.
   applys hoare_app_fun E. applys M1.
 Qed.
 
+Lemma triple_app_fun_direct : forall x v2 t1 H Q,
+  triple (subst x v2 t1) H Q ->
+  triple (trm_app (val_fun x t1) v2) H Q.
+Proof using. introv M. applys* triple_app_fun. Qed.
+
 Lemma triple_app_fix : forall v1 v2 f x t1 H Q,
   v1 = val_fix f x t1 ->
   triple (subst x v2 (subst f v1 t1)) H Q ->
@@ -222,6 +227,11 @@ Proof using.
   unfold triple. introv E M1. intros H'.
   applys hoare_app_fix E. applys M1.
 Qed.
+
+Lemma triple_app_fix_direct : forall v2 f x t1 H Q,
+  triple (subst x v2 (subst f (val_fix f x t1) t1)) H Q ->
+  triple (trm_app (val_fix f x t1) v2) H Q.
+Proof using. introv M. applys* triple_app_fix. Qed.
 
 
 (* ########################################################### *)
