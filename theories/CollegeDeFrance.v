@@ -1,5 +1,5 @@
 Set Implicit Arguments.
-From Sep Require SLFRules SLFWPgen SLFList. 
+From Sep Require SLFRules SLFWPgen SLFList.
 
 
 (* ########################################################### *)
@@ -105,10 +105,13 @@ Import Example SLFList.
 
 Module ListDef.
 
-Fixpoint MList (L:list int) (p:loc) : hprop := (* defines [p ~> MList L] *)
+(* Définition de [p ~> MList L] *)
+
+Fixpoint MList (L:list int) (p:loc) : hprop :=
   match L with
   | nil => \[p = null]
-  | x::L' => \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L')
+  | x::L' => \exists q, (p`.head ~~> x) \* (p`.tail ~~> q)
+                     \* (q ~> MList L')
   end.
 
 Lemma MList_nil : forall p,
@@ -125,7 +128,8 @@ Parameter MList_if : forall (p:loc) (L:list int),
   = (If p = null
       then \[L = nil]
       else \exists x q L', \[L = x::L']
-           \* (p`.head ~~> x) \* (p`.tail ~~> q) \* (q ~> MList L')).
+           \* (p`.head ~~> x) \* (p`.tail ~~> q)
+           \* (q ~> MList L')).
 (* Proof in [SLFList.v] *)
 
 End ListDef.
@@ -156,7 +160,8 @@ Lemma Triple_mappend : forall (p1 p2:loc) (L1 L2:list int),
     POST (fun (_:unit) => p1 ~> MList (L1++L2)).
 Proof using.
   intros. gen p1. induction_wf IH: list_sub L1.
-  xwp. xchange (MList_if p1). case_if. xpull. intros x q L1' ->.
+  xwp. xchange (MList_if p1).
+  case_if. xpull. intros x q L1' ->.
   xapp. xapp. xif; intros Cq.
   { xchange (MList_if q). case_if. xpull. intros ->.
     xapp. xchange <- MList_cons. }
