@@ -8,14 +8,7 @@ From Sep Require SLFRules SLFWPgen SLFList.
 Module ProveIncr.
 Import SLFRules SLFProgramSyntax SLFExtra.
 
-(** Fonction incrément, en OCaml.
-
-[[
-   let incr p =
-      p := !p + 1
-]]
-
-    Idem, en nommant les calculs intermédiaires.
+(** Fonction d'incrémentation d'une référence, en OCaml.
 
 [[
    let incr p =
@@ -30,9 +23,12 @@ Import SLFRules SLFProgramSyntax SLFExtra.
 
 Definition incr : val :=
   val_fun "p" (
-    trm_let "n" (val_get "p") (
-    trm_let "m" (val_add "n" (val_int 1)) (
-    val_set "p" "m"))).
+    trm_let "n" (trm_app val_get (trm_var "p")) (
+    trm_let "m" (trm_app (trm_app val_add
+                             (trm_var "n")) (val_int 1)) (
+    trm_app (trm_app val_set (trm_var "p")) (trm_var "m")))).
+
+(* TOdO TRM APP *)
 
 (** Idem, dans des notations Coq pour le langage embarqué. *)
 
@@ -40,7 +36,7 @@ Definition incr' : val :=
   VFun 'p :=
     Let 'n := '! 'p in
     Let 'm := 'n '+ 1 in
-   'p ':= 'm.
+    'p ':= 'm.
 
 (** Spécification et vérification de la fonction [incr] *)
 
@@ -67,7 +63,9 @@ Proof using.
   { applys triple_conseq_frame.
     (* raisonnons sur [n+1] dans l'état vide *)
     { applys triple_add. }
+    (* simplifions l'implication *)
     { xsimpl. }
+    (* on en déduit la postcondition  *)
     { xsimpl. } }
   (* nommons [m'] le résultat de [n+1] *)
   intros m'. simpl.
@@ -154,7 +152,7 @@ Import Example SLFList.
 
 Module ListDef.
 
-(** Définition de [p ~> MList L] *)
+(** Définition de [MList L p], noté [p ~> MList L] *)
 
 Fixpoint MList (L:list int) (p:loc) : hprop :=
   match L with
@@ -163,11 +161,7 @@ Fixpoint MList (L:list int) (p:loc) : hprop :=
                      \* (q ~> MList L')
   end.
 
-(** Lemmes pour déplier ou replier la définition *)
-
-Lemma MList_nil : forall p,
-  (p ~> MList nil) = \[p = null].
-Proof using. xunfold MList. auto. Qed.
+(** Reformulation utile pour replier la définition *)
 
 Lemma MList_cons : forall p x L',
   p ~> MList (x::L') =
@@ -192,15 +186,15 @@ Import SLFList.
 (** Fonction de concaténation
 
 [[
-    let mappend p1 p2 =
+    let rec append p1 p2 =
       if p1.tail == null
         then p1.tail <- p2
-        else mappend p1.tail p2
+        else append p1.tail p2
 ]]
 
 *)
 
-Definition mappend : val :=
+Definition append : val :=
   VFix 'f 'p1 'p2 :=
     If_ 'p1'.tail '= null
       Then Set 'p1'.tail ':= 'p2
@@ -209,20 +203,31 @@ Definition mappend : val :=
 (** Notation [TRIPLE t PRE H POST Q] pour [Triple t H Q].
     Notation [PRE H CODE F POST Q]   pour [H ==> F Q].    *)
 
-Lemma Triple_mappend : forall (p1 p2:loc) (L1 L2:list int),
-  p1 <> null -> (* equivalent to [L1 <> nil] *)
-  TRIPLE (mappend p1 p2)
+Lemma Triple_append : forall (L1 L2:list int) (p1 p2:loc),
+  p1 <> null ->
+  TRIPLE (append p1 p2)
     PRE (p1 ~> MList L1 \* p2 ~> MList L2)
     POST (fun (_:unit) => p1 ~> MList (L1++L2)).
 Proof using.
-  introv N. gen p1. induction_wf IH: list_sub L1. xwp.
+  intros L1. induction_wf IH: list_sub L1. introv N. xwp.
   xchange (MList_if p1). case_if. xpull. intros x q L1' ->.
   xapp. xapp. xif; intros Cq.
   { xchange (MList_if q). case_if. xpull. intros ->.
     xapp. xchange <- MList_cons. }
   { xapp. xapp. { auto. } { auto. }
-    rew_list. xchange <- MList_cons. }
+    xchange <- MList_cons. }
 Qed.
 
-
 End ProveAppend.
+
+
+
+
+
+
+
+
+
+
+
+
