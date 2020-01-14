@@ -92,12 +92,12 @@ Definition hwand' (H1 H2:hprop) : hprop :=
 
     The alternative definition asserts that [H1 \-* H2] corresponds to
     some heap predicate, called [H0], such that [H0] starred with [H1]
-    yields [H2]. In other words, [H0] is such that [\[ H0 \* H1 ==> H2 ]].
+    yields [H2]. In other words, [H0] is such that [(H1 \* H0) ==> H2].
     In the definition of [hwand] shown below, observe how [H0] is
     existentially quantified. *)
 
 Definition hwand (H1 H2:hprop) : hprop :=
-  \exists H0, H0 \* \[ (H0 \* H1) ==> H2].
+  \exists H0, H0 \* \[ H1 \* H0 ==> H2 ].
 
 Notation "H1 \-* H2" := (hwand H1 H2) (at level 43, right associativity).
 
@@ -120,8 +120,13 @@ Notation "H1 \-* H2" := (hwand H1 H2) (at level 43, right associativity).
 
     The operator [H1 \-* H2] satisfies the following equivalence. *)
 
-Parameter hwand_equiv : forall H0 H1 H2,
-  (H0 ==> H1 \-* H2) <-> (H0 \* H1 ==> H2).
+Lemma hwand_equiv : forall H0 H1 H2,
+  (H0 ==> H1 \-* H2) <-> (H1 \* H0 ==> H2).
+Proof using.
+  unfold hwand. iff M.
+  { xchange M. intros H N. xchange N. }
+  { xsimpl H0. xchange M. }
+Qed.
 
 (** In fact, the magic wand is uniquely defined by the above equivalence.
     In other words, as we prove further on, any operator that satisfies
@@ -133,7 +138,7 @@ Parameter hwand_equiv : forall H0 H1 H2,
     is that [H0], when starred with [H1], yields [H2]. *)
 
 Lemma himpl_hwand_r : forall H0 H1 H2,
-  (H0 \* H1) ==> H2 ->
+  (H1 \* H0) ==> H2 ->
   H0 ==> (H1 \-* H2).
 Proof using. introv M. applys hwand_equiv. applys M. Qed.
 
@@ -144,7 +149,7 @@ Proof using. introv M. applys hwand_equiv. applys M. Qed.
 
 Lemma himpl_hwand_r_inv : forall H0 H1 H2,
   H0 ==> (H1 \-* H2) ->
-  (H0 \* H1) ==> H2.
+  (H1 \* H0) ==> H2.
 Proof using. introv M. applys hwand_equiv. applys M. Qed.
 
 (** This elimination rule can be equivalently reformulated in the following
@@ -153,10 +158,7 @@ Proof using. introv M. applys hwand_equiv. applys M. Qed.
 
 Lemma hwand_cancel : forall H1 H2,
   H1 \* (H1 \-* H2) ==> H2.
-Proof using.
-  intros. rewrite hstar_comm.
-  applys himpl_hwand_r_inv. applys himpl_refl.
-Qed.
+Proof using. intros. applys himpl_hwand_r_inv. applys himpl_refl. Qed.
 
 Arguments hwand_cancel : clear implicits.
 
@@ -167,73 +169,41 @@ Arguments hwand_cancel : clear implicits.
 (** In what follows, we generalize the magic wand to operator on postconditions,
     introducing a heap predicate of the form [Q1 \--* Q2].
 
-    Recall that the entailment for postconditions, written [Q1 ===> Q2],
-    generalizes the entailement for heap predicates, written [H1 ==> H2],
-    by quantifying universally on all values: [forall v, (Q1 v) ==> (Q2 v)].
-
-    Intuitively, the magic wand for postconditions, written [Q1 \--* Q2]
-    similarly generalized the magic wand for heap predicates, written [H1 \-* H2],
-    by quantifying universally on all values: [forall v, (Q1 v) \-* (Q2 v)].
-
-    There is a glitch, however. The expression [(Q1 v) \-* (Q2 v)] is a heap
-    predicate of type [hprop], and not a proposition of type [Prop], thus we
-    cannot apply the universal quantifier [forall]. Moreover, we wish the
-    resulting expression [Q1 \--* Q2] to also be a heap predicate.
-
-    What we need is a universal quantifier for heap predicates. This quantifier,
-    written [\forall], is the counterpart of the existential quantifier [\exists]
-    for heap predicates. Using [\forall], we can define [Q1 \--* Q2] as the
-    heap predicate [\forall v, (Q1 v) \-* (Q2 v)]. *)
-
-(** Let us first formalize the definition of the universal quantifier on [hprop].
-    Technically, a heap predicate of the form [\forall x, H] stands for
-    [hforall (fun x => H)], where the definition of [hforall] follows the
-    exact same pattern as for [hexists]. The definition shown below is somewhat
-    technical, details may be safely skipped over. *)
-
-Definition hforall (A : Type) (J : A -> hprop) : hprop :=
-  fun h => forall x, J x h.
-
-Notation "'\forall' x1 .. xn , H" :=
-  (hforall (fun x1 => .. (hforall (fun xn => H)) ..))
-  (at level 39, x1 binder, H at level 50, right associativity,
-   format "'[' '\forall' '/ '  x1  ..  xn , '/ '  H ']'") : heap_scope.
-
-(** We are now read to formally define [Q1 \--* Q2], a notation that stands
-    for [qwand Q1 Q2], and that is defined as [\forall v, (Q1 v) \-* (Q2 v)]. *)
+    The definition follows exactly the same pattern as [hwand]: it quantifies
+    some heap predicate [H0] such that [H0] starred with [Q1] yields [Q2]. *)
 
 Definition qwand (Q1 Q2:val->hprop) : hprop :=
-  \forall v, (Q1 v) \-* (Q2 v).
+  \exists H0, H0 \* \[ Q1 \*+ H0 ===> Q2 ].
 
 Notation "Q1 \--* Q2" := (qwand Q1 Q2) (at level 43).
 
-(** As a sanity check of our definition, let us prove that [Q1 \--* Q2]
-    indeed entails [(Q1 v) \-* (Q2 v)] for any value [v]. *)
-
-Lemma qwand_specialize : forall (v:val) (Q1 Q2:val->hprop),
-  (Q1 \--* Q2) ==> (Q1 v \-* Q2 v).
-Proof using. intros. unfold qwand. intros h K. applys K. Qed.
-
-(** The operator [qwand] satisfies many properties similar to those
-    of [hwand]. We state these properties further in the chapter.
-
-    For now, we just state the two most important rules: the equivalence
-    rule which captures both the introduction and the elimination rule,
-    and the cancellation rule. *)
+(** The operator [qwand] satisfies essentially the same properties as [hwand].
+    Let us being with the associated equivalence rule, which captures both
+    the introduction and the elimination rule. *)
 
 Lemma qwand_equiv : forall H Q1 Q2,
   H ==> (Q1 \--* Q2)  <->  (Q1 \*+ H) ===> Q2.
 Proof using.
-  intros. iff M.
-  { intros x. xchange M. xchange (qwand_specialize x).
-    xchange (hwand_cancel (Q1 x)). }
-  { applys himpl_hforall_r. intros x. applys himpl_hwand_r.
-    xchange (M x). }
+  unfold qwand. iff M.
+  { intros v. xchange M. intros H4 N. xchange N. }
+  { xsimpl H. xchange M. }
 Qed.
+
+(** The cancellation rule follows. *)
 
 Lemma qwand_cancel : forall Q1 Q2,
   Q1 \*+ (Q1 \--* Q2) ===> Q2.
 Proof using. intros. rewrite <- qwand_equiv. applys qimpl_refl. Qed.
+
+(** An interesting property of [qwand] is the fact that we can specialize
+    [Q1 \--* Q2] to [(Q1 v) \-* (Q2 v)], for any value [v]. *)
+
+Lemma qwand_specialize : forall (v:val) (Q1 Q2:val->hprop),
+  (Q1 \--* Q2) ==> (Q1 v \-* Q2 v).
+Proof using.
+  intros. unfold qwand, hwand. xpull. intros H0 M.
+  xsimpl H0. xchange M.
+Qed.
 
 
 (* ******************************************************* *)
@@ -875,6 +845,7 @@ End WPgenRec.
 (* ####################################################### *)
 (** * Additional contents *)
 
+
 (* ******************************************************* *)
 (** ** Benefits of the ramified rule over the consequence-frame rule *)
 
@@ -1001,6 +972,7 @@ Lemma hwand_trans_elim : forall H1 H2 H3,
   (H1 \-* H2) \* (H2 \-* H3) ==> (H1 \-* H3).
 Proof using.
   intros. applys himpl_hwand_r. xchange (hwand_cancel H1 H2).
+  xchange (hwand_cancel H2 H3).
 Qed.
 
 (** The predicate [H \-* H] holds of the empty heap.
@@ -1176,8 +1148,104 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Bonus contents (optional reading) *)
+
 (* ******************************************************* *)
-(** ** Properties of [hforall] *)
+(** ** Equivalence between alternative definitions of the magic wand *)
+
+(** In what follows we prove the equivalence between the three
+    characterizations of [hwand H1 H2] that we have presented:
+
+    1. The definition [hwand'], expressed directly in terms of heaps:
+       [fun h => forall h', Fmap.disjoint h h' -> H1 h' -> H2 (h \u h')]
+
+    2. The definition [hwand], expressed in terms of existing operators:
+       [\exists H0, H0 \* \[ (H1 \* H0) ==> H2]]
+
+    3. The characterization via the equivalence [hwand_equiv]:
+       [forall H0 H1 H2, (H0 ==> H1 \-* H2) <-> (H1 \* H0 ==> H2)].
+
+    To prove the 3-way equivalence, we first prove the equivalence
+    between (1) and (2), then prove the equivalence between (2) and (3).
+*)
+
+(** Let us first prove that [hwand] is equivalent to [hwand'],
+    i.e., that (1) and (2) are equivalent definitions. *)
+
+Lemma hwand_eq_hwand' :
+  hwand = hwand'.
+Proof using.
+  apply pred_ext_3. intros H1 H2 h. unfold hwand, hwand'. iff M.
+  { intros h1 D K1. destruct M as (H0&M).
+    destruct M as (h0&h2&K0&K2&D'&U).
+    lets (N&E): hpure_inv (rm K2). subst h h2.
+    rewrite Fmap.union_empty_r in *.
+    applys N. rewrite hstar_comm. applys hstar_intro K0 K1 D. }
+  { exists (=h). rewrite hstar_comm. rewrite hstar_hpure. split.
+    { intros h3 K3. rewrite hstar_comm in K3.
+      destruct K3 as (h1&h2&K1&K2&D&U). subst h1 h3. applys M D K2. }
+    { auto. } }
+Qed.
+
+(** According to definition (3), an operator [op] is a magic wand
+   if and only if, for any [H0], [H1], [H2], it satisfies the
+   equivalence [(H0 ==> op H1 H2) <-> (H0 \* H1 ==> H2)]. Formally: *)
+
+Definition hwand_characterization (op:hprop->hprop->hprop) :=
+  forall H0 H1 H2, (H0 ==> op H1 H2) <-> (H1 \* H0 ==> H2).
+
+(** We prove that an operator [op] satisfies [hwand_characterization]
+    if and only if it is equal to [hwand]. *)
+
+Lemma hwand_characterization_iff_eq_hwand : forall op,
+  hwand_characterization op <-> op = hwand.
+Proof using.
+  iff K.
+  { apply fun_ext_2. intros H1 H2.
+    unfolds hwand_characterization, hwand. apply himpl_antisym.
+    { lets (M&_): (K (op H1 H2) H1 H2). xsimpl (op H1 H2).
+      applys M. applys himpl_refl. }
+    { xsimpl. intros H0 M. rewrite K. applys M. } }
+  { subst. unfolds hwand_characterization. apply hwand_equiv. }
+Qed.
+
+End WandProperties.
+
+
+(* ******************************************************* *)
+(** ** Operator [hforall] *)
+
+Module NewQwand.
+Export WandDef.
+
+(** In the beginning of this chapter, we defined [qwand] following the pattern
+    of [hwand], as [ \exists H0, H0 \* \[ Q1 \*+ H0 ==> Q2 ] ].
+    An alternative approach consists of defining [qwand] in terms of [hwand],
+    as we explain next.
+
+    This alternative definition involves the universal quantifier for heap
+    predicates, written [\forall x, H]. This universal quantifier is the
+    counterpart of the existential quantifier [\exists x, H].
+
+    Using the [\forall] quantifier, we will be able to define [Q1 \--* Q2]
+    as the heap  predicate [\forall v, (Q1 v) \-* (Q2 v)]. *)
+
+(** Let us first formalize the definition of the universal quantifier on [hprop].
+    Technically, a heap predicate of the form [\forall x, H] stands for
+    [hforall (fun x => H)], where the definition of [hforall] follows the
+    exact same pattern as for [hexists]. The definition shown below is somewhat
+    technical, details may be safely skipped over. *)
+
+Definition hforall (A : Type) (J : A -> hprop) : hprop :=
+  fun h => forall x, J x h.
+
+Notation "'\forall' x1 .. xn , H" :=
+  (hforall (fun x1 => .. (hforall (fun xn => H)) ..))
+  (at level 39, x1 binder, H at level 50, right associativity,
+   format "'[' '\forall' '/ '  x1  ..  xn , '/ '  H ']'") : heap_scope.
 
 (** The introduction rule for [\forall] appears below.
     To prove that a heap satisfies [\forall x, J x], one must
@@ -1206,23 +1274,65 @@ Proof using. introv M. applys himpl_trans M. applys hforall_specialize. Qed.
 
 
 (* ******************************************************* *)
-(** ** Properties of [qwand] *)
+(** ** Alternative definition of [qwand] *)
 
-(** The introduction and elimination lemmas for [qwand] correspond
-    to the right-to-left and left-to-right directions of the equivalence
-    lemma [qwand_equiv]. *)
+(** We are now read to state the alternative definition of [Q1 \--* Q2],
+    as the heap  predicate [\forall v, (Q1 v) \-* (Q2 v)]. *)
 
-Lemma himpl_qwand_r : forall H Q1 Q2,
-  (Q1 \*+ H) ===> Q2 ->
-  H ==> (Q1 \--* Q2).
-Proof using. introv M. rewrite* qwand_equiv. Qed.
+Definition qwand (Q1 Q2:val->hprop) : hprop :=
+  \forall v, (Q1 v) \-* (Q2 v).
 
-Lemma himpl_qwand_r_inv : forall H Q1 Q2,
-  H ==> (Q1 \--* Q2) ->
-  (Q1 \*+ H) ===> Q2.
-Proof using. introv M. rewrite* <- qwand_equiv. Qed.
+Notation "Q1 \--* Q2" := (qwand Q1 Q2) (at level 43).
 
-(** Like for [hwand], the operator [Q1 \--* Q2] is contravariant in [Q1]
+(** Let us establish the properties of the new definition of [qwand],
+    through direct proofs, i.e., not reusing the properties of [qwand'].
+
+    We begin by the specialization lemma, which asserts that [Q1 \--* Q2] 
+    can be specialized to [(Q1 v) \-* (Q2 v)] for any value [v]. This
+    result is now a direct consequence of the corresponding specialization
+    property of [\forall]. *)
+
+Lemma qwand_specialize : forall (v:val) (Q1 Q2:val->hprop),
+  (Q1 \--* Q2) ==> (Q1 v \-* Q2 v).
+Proof using.
+  intros. unfold qwand. applys himpl_hforall_l v. xsimpl.
+Qed.
+
+(** We next prove the equivalence rule. *)
+
+Lemma qwand_equiv : forall H Q1 Q2,
+  H ==> (Q1 \--* Q2)  <->  (Q1 \*+ H) ===> Q2.
+Proof using.
+  intros. iff M.
+  { intros x. xchange M. xchange (qwand_specialize x).
+    xchange (hwand_cancel (Q1 x)). }
+  { applys himpl_hforall_r. intros x. applys himpl_hwand_r.
+    xchange (M x). }
+Qed.
+
+(** The cancellation rule follows. *)
+
+Lemma qwand_cancel : forall Q1 Q2,
+  Q1 \*+ (Q1 \--* Q2) ===> Q2.
+Proof using. intros. rewrite <- qwand_equiv. applys qimpl_refl. Qed.
+
+(** Let us also prove that [qwand] is equivalent to the previous version 
+    of [qwand], which we rename [qwand']. *)
+
+Definition qwand' (Q1 Q2:val->hprop) : hprop :=
+  \exists H0, H0 \* \[ Q1 \*+ H0 ===> Q2 ].
+
+Lemma qwand_eq_qwand' :
+  qwand = qwand'.
+Proof using.
+  unfold qwand, qwand'. applys fun_ext_2. intros Q1 Q2. 
+  applys himpl_antisym.
+  { xsimpl (Q1 \--* Q2). applys qwand_cancel. }
+  { xpull ;=> H M. applys himpl_hforall_r. intros v.
+    rewrite hwand_equiv. xchange M. }
+Qed.
+
+(** Like [H1 \-* H2], the operation [Q1 \--* Q2] is contravariant in [Q1]
     and covariant in [Q2]. *)
 
 Lemma qwand_himpl : forall Q1 Q1' Q2 Q2',
@@ -1230,18 +1340,18 @@ Lemma qwand_himpl : forall Q1 Q1' Q2 Q2',
   Q2 ===> Q2' ->
   (Q1 \--* Q2) ==> (Q1' \--* Q2').
 Proof using.
-  introv M1 M2. applys himpl_qwand_r. intros x.
-  xchange (qwand_specialize x). applys himpl_hwand_r_inv.
-  applys hwand_himpl. { applys M1. } { applys M2. }
+  introv M1 M2. rewrite qwand_equiv. intros x.
+  xchange (qwand_specialize x). xchange M1.
+  xchange (hwand_cancel (Q1 x)). xchange M2.
 Qed.
 
-(** Like for [hwand], the operator [Q1 \--* Q2] can absorb in its RHS
+(** Like [H1 \-* H2], the operation [Q1 \--* Q2] can absorb in its RHS
     resources to which it is starred. *)
 
 Lemma hstar_qwand : forall Q1 Q2 H,
   (Q1 \--* Q2) \* H ==> Q1 \--* (Q2 \*+ H).
 Proof using.
-  intros. applys himpl_qwand_r. xchange (@qwand_cancel Q1).
+  intros. rewrite qwand_equiv. xchange (@qwand_cancel Q1).
 Qed.
 
 (* EX1! (himpl_qwand_hstar_same_r) *)
@@ -1251,114 +1361,94 @@ Lemma himpl_qwand_hstar_same_r : forall H Q,
   H ==> Q \--* (Q \*+ H).
 Proof using.
 (* ADMITTED *)
-  intros. applys himpl_qwand_r. xsimpl.
+  intros. rewrite qwand_equiv. xsimpl.
 Qed. (* /ADMITTED *)
 
 (** [] *)
 
-(* EX2! (qwand_cancel_part) *)
+(* EX2? (qwand_cancel_part) *)
 (** Prove that [H \* ((Q1 \*+ H) \--* Q2)] simplifies to [Q1 \--* Q2]. *)
 
 Lemma qwand_cancel_part : forall H Q1 Q2,
   H \* ((Q1 \*+ H) \--* Q2) ==> (Q1 \--* Q2).
 Proof using.
 (* ADMITTED *)
-  intros. applys himpl_qwand_r. intros x.
+  intros. rewrite qwand_equiv. intros x.
   xchange (qwand_specialize x).
   xchange (hwand_cancel (Q1 x \* H)).
 Qed. (* /ADMITTED *)
 
 (** [] *)
 
+(* EX2? (himpl_hwand_hpure_lr) *)
+(** Prove that [\[P1 -> P2]] entails [\[P1] \-* \[P2]]. *)
+
+Lemma himpl_hwand_hpure_lr : forall (P1 P2:Prop),
+  \[P1 -> P2] ==> (\[P1] \-* \[P2]).
+Proof using.
+(* ADMITTED *)
+  intros. unfold hwand. xpull. intros M.
+  xsimpl \[P1->P2]. { applys M. } xsimpl. auto.
+Qed. (* /ADMITTED *)
+
+(** [] *)
 
 (* ******************************************************* *)
-(** ** Equivalence between the definitions of magic wand *)
+(** ** Simplified definition of [mkstruct] *)
 
-(** In what follows we prove the equivalence between the three
-    characterizations of [hwand H1 H2] that we have presented:
+(** The definition of [mkstruct] can be simplified using the magic
+    wand operator for postconditions.
 
-    1. The definition expressed directly in terms of heaps:
-       [fun h => forall h', Fmap.disjoint h h' -> H1 h' -> H2 (h \u h')]
+    Recall the definition of [mkstruct] from chapter [SLFWPgen]. *)
 
-    2. The definition expressed in terms of existing operators:
-       [\exists H0, H0 \* \[ (H0 \* H1) ==> H2]]
+Definition mkstruct' (F:formula) : formula :=
+  fun (Q:val->hprop) => \exists Q1 H, F Q1 \* H \* \[Q1 \*+ H ===> Q].
 
-    3. The characterization via an equivalence:
-       [forall H0 H1 H2, (H0 ==> hwand H1 H2) <-> (H0 \* H1 ==> H2)].
+(** Observe that the fragment [\exists H, H \* \[Q1 \*+ H ===> Q]
+    is equivalent to [Q1 \--* Q]. This observation leads to the following
+    more concise reformulation of the definition of [mkstruct]. *)
 
-    To prove the 3-way equivalence, we first prove the equivalence
-    between (1) and (2), then prove the equivalence between (2) and (3).
-*)
+Definition mkstruct (F:formula) : formula :=
+  fun Q => \exists Q1, F Q1 \* (Q1 \--* Q).
 
-(** Let us first prove that [hwand] is equivalent to [hwand'],
-    i.e., that (1) and (2) are equivalent definitions. *)
+(** Let us prove, for this revised definition, that [mkstruct] satisfies
+    the three required properties (recall [SLFWPgen]): [mkstruct_erase],
+    [mkstruct_frame], and [mkstruct_conseq]. In these proofs, we assume
+    the revised definition of [qwand] expressed in terms of [hwand]
+    and [hforall]. *)
 
-Lemma hwand_eq_hwand' :
-  hwand = hwand'.
-Proof using.
-  apply pred_ext_3. intros H1 H2 h. unfold hwand, hwand'. iff M.
-  { intros h1 D K1. destruct M as (H0&M).
-    destruct M as (h0&h2&K0&K2&D'&U).
-    lets (N&E): hpure_inv (rm K2). subst h h2.
-    rewrite Fmap.union_empty_r in *.
-    applys N. applys hstar_intro K0 K1 D. }
-  { exists (=h). rewrite hstar_comm. rewrite hstar_hpure. split.
-    { intros h3 K3. destruct K3 as (h1&h2&K1&K2&D&U).
-      subst h1 h3. applys M D K2. }
-    { auto. } }
+Lemma mkstruct_erase : forall (F:formula) Q,
+  F Q ==> mkstruct F Q.
+Proof using. 
+  intros. unfold mkstruct. xsimpl Q. rewrite qwand_equiv. xsimpl. 
 Qed.
 
-(** According to definition (3), an operator [op] is a magic wand
-   if and only if, for any [H0], [H1], [H2], it satisfies the
-   equivalence [(H0 ==> op H1 H2) <-> (H0 \* H1 ==> H2)]. Formally: *)
-
-Definition hwand_characterization (op:hprop->hprop->hprop) :=
-  forall H0 H1 H2, (H0 ==> op H1 H2) <-> (H0 \* H1 ==> H2).
-
-(** We prove that an operator [op] satisfies [hwand_characterization]
-    if and only if it is equal to [hwand]. *)
-
-Lemma hwand_characterization_iff_eq_hwand : forall op,
-  hwand_characterization op <-> op = hwand.
+Lemma mkstruct_conseq : forall (F:formula) Q1 Q2,
+  Q1 ===> Q2 ->
+  mkstruct F Q1 ==> mkstruct F Q2.
 Proof using.
-  iff K.
-  { apply fun_ext_2. intros H1 H2.
-    unfolds hwand_characterization, hwand. apply himpl_antisym.
-    { lets (M&_): (K (op H1 H2) H1 H2). xsimpl (op H1 H2).
-      applys M. applys himpl_refl. }
-    { xsimpl. intros H0 M. rewrite K. applys M. } }
-  { subst. unfolds hwand_characterization, hwand.
-    intros H0 H1 H2. iff M. { xchange* M. } { xsimpl~ H0. } }
+  introv WQ. unfold mkstruct. xpull. intros Q'. xsimpl Q'.
+  rewrite qwand_equiv. xchange qwand_cancel. xchange WQ.
 Qed.
 
-(** Remark: in the proof above, the right-to-left direction was
-    somewhat "too easy" to prove, because [xsimpl] is doing all
-    the work for us. Here is a detailed proof not using [xsimpl]. *)
-
-Lemma hwand_satisfies_hwand_characterization :
-  hwand_characterization hwand.
+Lemma mkstruct_frame : forall (F:formula) H Q,
+  (mkstruct F Q) \* H ==> mkstruct F (Q \*+ H).
 Proof using.
-  intros H0 H1 H2. unfold hwand. iff M.
-  { applys himpl_trans. applys himpl_frame_l M.
-    rewrite hstar_hexists. applys himpl_hexists_l. intros H3.
-    rewrite (hstar_comm H3). rewrite hstar_assoc.
-    applys himpl_hstar_hpure_l. intros N. applys N. }
-  { applys himpl_hexists_r H0. rewrite hstar_comm.
-    applys himpl_hstar_hpure_r. applys M. applys himpl_refl. }
+  intros. unfold mkstruct. xpull. intros Q'. xsimpl Q'.
+  rewrite qwand_equiv. xchange qwand_cancel.
 Qed.
 
-End WandProperties.
+End NewQwand.
 
-
-(* ########################################################### *)
-(* ########################################################### *)
-(* ########################################################### *)
-(** * Bonus contents (optional reading) *)
 
 (* ******************************************************* *)
 (** ** Texan triples *)
 
 Module TexanTriples.
+
+(** In this section, we assume a version of [xsimpl] that handles
+    the magic wand. Note that [hforall] and other operators are
+    set "Opaque", their definitions cannot be unfolded. *)
 
 Implicit Types v : val.
 
@@ -1420,8 +1510,8 @@ Proof using. intros. applys himpl_trans wp_ref_1. xsimpl. Qed.
 Lemma wp_ref_3 : forall Q v,
   (\forall l, (l ~~~> v) \-* Q (val_loc l)) ==> wp (val_ref v) Q.
 Proof using.
-  intros. applys himpl_trans wp_ref_2.
-  xsimpl. intros ? l ->. xchange (hforall_specialize l).
+  intros. applys himpl_trans wp_ref_2. xsimpl. intros ? l ->.
+  xchange (hforall_specialize l).
 Qed.
 
 
@@ -1452,7 +1542,8 @@ Lemma texan_triple_equiv : forall t H A (Hof:val->A->hprop) (vof:A->val),
 Proof using.
   intros. rewrite <- wp_equiv. iff M.
   { intros Q. xchange M. applys wp_ramified_trans.
-    xsimpl. intros r x ->. xchanges (hforall_specialize x). }
+    xsimpl. intros r x ->.
+    xchange (hforall_specialize x). }
   { applys himpl_trans M. xsimpl~. }
 Qed.
 
@@ -1496,7 +1587,7 @@ End TexanTriples.
 (** ** Direct proof of [wp_ramified] directly from Hoare triples *)
 
 Module WpFromHoare.
-Import WandDef.
+Import NewQwand.
 
 (** Recall from the last section of the chapter [SLFWPsem] that it can
     be interesting to define [wp]-style rules directly from the [hoare]
@@ -1532,8 +1623,7 @@ End WpFromHoare.
     contexts. *)
 
 Module ConjDisj.
-Import WandDef.
-
+Import NewQwand.
 
 (* ------------------------------------------------------- *)
 (** *** Definition of [hor] *)
@@ -1742,6 +1832,9 @@ Module ReaminingOperatorsDirect.
   Definition hwand (H1 H2:hprop) : hprop :=
     fun h => forall h', Fmap.disjoint h h' -> H1 h' -> H2 (h \u h').
 
+  Definition qwand (Q1 Q2:val->hprop) : hprop :=
+    fun h => forall v h', Fmap.disjoint h h' -> Q1 v h' -> Q2 v (h \u h').
+
   Definition hor (H1 H2 : hprop) : hprop :=
     fun h => H1 h \/ H2 h.
 
@@ -1759,7 +1852,13 @@ Module ReaminingOperatorsDerived.
     \exists (p:P), \[].
 
   Definition hwand (H1 H2 : hprop) : hprop :=
-    \exists H0, H0 \* \[ (H0 \* H1) ==> H2].
+    \exists H0, H0 \* \[ (H1 \* H0) ==> H2 ].
+
+  Definition qwand (Q1 Q2 : val->hprop) : hprop :=
+    \forall v, (Q1 v) \-* (Q2 v).
+
+  Definition qwand' (Q1 Q2 : val->hprop) : hprop := (* alternative *)
+    \exists H0, H0 \* \[ (Q1 \*+ H0) ===> Q2].
 
   Definition hand (H1 H2 : hprop) : hprop :=
     \forall (b:bool), if b then H1 else H2.

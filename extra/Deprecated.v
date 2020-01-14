@@ -737,3 +737,173 @@ Qed. (* /ADMITTED *)
 
 
 ===========
+
+
+(** Remark: in the proof above, the right-to-left direction was
+    somewhat "too easy" to prove, because [xsimpl] is doing all
+    the work for us. Here is a detailed proof not using [xsimpl]. *)
+...
+Lemma hwand_satisfies_hwand_characterization :
+  hwand_characterization hwand.
+Proof using.
+  intros H0 H1 H2. unfold hwand. iff M.
+  { applys himpl_trans. applys himpl_frame_l M.
+    rewrite hstar_hexists. applys himpl_hexists_l. intros H3.
+    rewrite (hstar_comm H3). rewrite hstar_assoc.
+    applys himpl_hstar_hpure_l. intros N. applys N. }
+  { applys himpl_hexists_r H0. rewrite hstar_comm.
+    applys himpl_hstar_hpure_r. applys M. applys himpl_refl. }
+Qed.
+
+===================
+
+
+
+
+(** The introduction and elimination lemmas for [qwand] correspond
+    to the right-to-left and left-to-right directions of the equivalence
+    rule [qwand_equiv]. *)
+
+(*
+TODO : without them ? ..
+*)
+
+Lemma himpl_qwand_r : forall H Q1 Q2,
+  (Q1 \*+ H) ===> Q2 ->
+  H ==> (Q1 \--* Q2).
+Proof using. introv M. rewrite* qwand_equiv. Qed.
+
+Lemma himpl_qwand_r_inv : forall H Q1 Q2,
+  H ==> (Q1 \--* Q2) ->
+  (Q1 \*+ H) ===> Q2.
+Proof using. introv M. rewrite* <- qwand_equiv. Qed.
+
+
+
+
+==========
+
+(** Finally, let us restate the ramified frame rule for [wp] and
+    [wp_ramified] and its corollary [wp_ramified_trans] using the
+    new definition of [qwand]. *)
+
+Lemma wp_ramified : forall t Q1 Q2,
+  (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
+Proof using. intros. applys wp_conseq_frame. applys qwand_cancel. Qed.
+
+Lemma wp_ramified_trans : forall t H Q1 Q2,
+  H ==> (wp t Q1) \* (Q1 \--* Q2) ->
+  H ==> (wp t Q2).
+Proof using. introv M. xchange M. applys wp_ramified. Qed.
+
+
+6----------------------
+
+
+(* ******************************************************* *)
+(** ** Texan triples *)
+
+Module TexanTriples.
+Import NewQwand.
+
+Implicit Types v : val.
+
+(* ------------------------------------------------------- *)
+(** *** 1. Example of Texan triples *)
+
+(** In this section, we show that specification triples can be presented
+    in a different style using weakest preconditions. *)
+
+(** Consider for example the specification triple for allocation. *)
+
+Parameter triple_ref : forall v,
+  triple (val_ref v)
+    \[]
+    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v).
+
+(** This specification can be equivalently reformulated in the following
+    form. *)
+
+Parameter wp_ref : forall Q v,
+  \[] \* (\forall l, l ~~~> v \-* Q (val_loc l)) ==> wp (val_ref v) Q.
+
+(** Above, we purposely left the empty heap predicate to the front to
+    indicate where the precondition, if it were not empty, would go in
+    the reformulation. *)
+
+(** In what follows, we describe the chain of transformation that can take us
+    from the triple form to the wp form, and establish the reciprocal.
+    We then formalize the general pattern for translating a triple
+    into a "texan triple" (i.e., the wp-based specification). *)
+
+(** By replacing [triple t H Q] with [H ==> wp t Q], the specification
+    [triple_ref] can be reformulated as follows. *)
+
+Lemma wp_ref_0 : forall v,
+  \[] ==> wp (val_ref v) (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
+Proof using. intros. rewrite wp_equiv. applys triple_ref. Qed.
+
+(** We wish to cast the RHS in the form [wp (val_ref v) Q] for an abstract
+    variable [Q]. To that end, we reformulate the above statement by including
+    a magic wand relating the current postcondition, which is
+    [(fun r => \exists l, \[r = val_loc l] \* l ~~~> v)], and [Q]. *)
+
+Lemma wp_ref_1 : forall Q v,
+  ((fun r => \exists l, \[r = val_loc l] \* l ~~~> v) \--* Q) ==> wp (val_ref v) Q.
+Proof using. intros. xchange (wp_ref_0 v). applys wp_ramified. Qed.
+
+(** This statement can be made slightly more readable by unfolding the
+    definition of [\--*], as shown next. *)
+
+Lemma wp_ref_2 : forall Q v,
+  (\forall r, (\exists l, \[r = val_loc l] \* l ~~~> v) \-* Q r) ==> wp (val_ref v) Q.
+Proof using. intros. applys himpl_trans wp_ref_1. xsimpl. Qed.
+
+(** Interestingly, the variable [r], which is equal to [val_loc l],
+    can now be substituted away, further increasing readability.
+    We obtain the specificaiton of [val_ref] in "Texan triple style". *)
+
+Lemma wp_ref_3 : forall Q v,
+  (\forall l, (l ~~~> v) \-* Q (val_loc l)) ==> wp (val_ref v) Q.
+Proof using.
+  intros. applys himpl_trans wp_ref_2.
+  applys himpl_hforall_r. intros v'.
+  rewrite hwand_equiv. xsimpl. intros l ->.
+  xchange (hforall_specialize l).
+  xchange (hwand_cancel (l ~~~> v)).
+Qed.
+
+
+(* ------------------------------------------------------- *)
+(** *** 2. The general pattern *)
+
+(** In practice, specification triples can (pretty much) all be casted
+    in the form: [triple t H (fun r => exists x1 x2, \[r = v] \* H'].
+
+    Above, the value [v] may depend on the [xi].
+    The heap predicate [H'] may depend on [r] and the [xi].
+    The number of existentials [xi] may vary, possibly be zero.
+    The equality \[r = v] may be removed if no pure fact is needed about [r].
+
+    A specification triple of the form
+    [triple t H (fun r => exists x1 x2, \[r = v] \* H']
+    can be be reformulated as the Texan triple:
+    [(\forall x1 x2, H \-* Q v) ==> wp t Q].
+
+    We next formalize the equivalence between the two presentations, for
+    the specific case where the specification involves a single auxiliary
+    variable, called [x1]. The statement below makes it explicit that
+    [H] and [v] may depend on [x1]. *)
+
+Lemma texan_triple_equiv : forall t H A (Hof:val->A->hprop) (vof:A->val),
+      (triple t H (fun r => \exists x, \[r = vof x] \* Hof r x))
+  <-> (forall Q, H \* (\forall x, Hof (vof x) x \-* Q (vof x)) ==> wp t Q).
+Proof using.
+  intros. rewrite <- wp_equiv. iff M.
+  { intros Q. xchange M. applys wp_ramified_trans.
+    xsimpl. rewrite qwand_equiv. xsimpl. intros r x ->.
+    xchange (hforall_specialize x).
+    xchange (hwand_cancel (Hof (vof x) x)). }
+  { applys himpl_trans M. xsimpl~. }
+Qed.
+
