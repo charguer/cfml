@@ -1572,13 +1572,14 @@ Parameter triple_incr : forall (p:loc) (n:int),
     Hint: the proof is a bit easier by first turning the [wp] into a [triple]
     and then reasoning about triples, compared to working on the [wp] form. *)
 
-(* ADMITTED *)
+(* SOLUTION *)
 Lemma wp_incr : forall (p:loc) (n:int) Q,
   (p ~~~> n) \* (p ~~~> (n+1) \-* Q val_unit) ==> wp (trm_app incr p) Q.
 Proof using.
   intros. rewrite wp_equiv. applys triple_conseq_frame.
   { applys triple_incr. } { xsimpl. } { xsimpl. intros ? ->. auto. }
-Qed. (* /ADMITTED *)
+Qed.
+(* /SOLUTION *)
 
 (** [] *)
 
