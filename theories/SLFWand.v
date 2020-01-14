@@ -19,6 +19,8 @@ Implicit Types Q : val->hprop.
 
 
 (* ####################################################### *)
+(* ####################################################### *)
+(* ####################################################### *)
 (** * Chapter in a rush *)
 
 (** This chapter introduces an additional Separation Logic operator,
@@ -48,7 +50,7 @@ Implicit Types Q : val->hprop.
 *)
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Intuition for the magic wand *)
 
 (** The magic wand operation [H1 \-* H2], to be read "H1 wand H2",
@@ -61,7 +63,7 @@ Implicit Types Q : val->hprop.
 
     Intuitively, if one can think of the star [H1 \* H2] as the addition
     [H1 + H2], then one can think of [H1 \-* H2] as the subtraction
-    [-H1 + H2]. The above entailemnt captures the fact that
+    [-H1 + H2]. The above entailment captures the fact that
     [(-H1 + H2) + H1] simplifies to [H2].
 
     Note however, that the operation [H1 \-* H2] only makes sense if [H1]
@@ -71,7 +73,7 @@ Implicit Types Q : val->hprop.
     subtraction [-H1 + H2] to make sense. *)
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Definition of the magic wand *)
 
 Module WandDef.
@@ -111,7 +113,7 @@ Notation "H1 \-* H2" := (hwand H1 H2) (at level 43, right associativity).
     [heap]. *)
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Characteristic property of the magic wand *)
 
 (** The magic wand is not so easy to make sense of, at first. Reading
@@ -144,7 +146,7 @@ Proof using. introv M. applys hwand_equiv. applys M. Qed.
 
 (** The left-to-right direction of the equivalence is an elimination rule:
     it tells what can be deduced from an entailment [H0 ==> (H1 \-* H2)].
-    What can be deduced from this entailement is that if [H0] is starred
+    What can be deduced from this entailment is that if [H0] is starred
     with [H1], then [H2] can be recovered. *)
 
 Lemma himpl_hwand_r_inv : forall H0 H1 H2,
@@ -163,7 +165,7 @@ Proof using. intros. applys himpl_hwand_r_inv. applys himpl_refl. Qed.
 Arguments hwand_cancel : clear implicits.
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Magic wand for postconditions *)
 
 (** In what follows, we generalize the magic wand to operator on postconditions,
@@ -206,11 +208,11 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Frame expressed with [hwand]: the ramified frame rule *)
 
 (** Recall the consequence-frame rule, which is pervasively used
-    for example by the tactic x-app for reasonnig about applications. *)
+    for example by the tactic x-app for reasoning about applications. *)
 
 Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
   triple t H1 Q1 ->
@@ -271,7 +273,7 @@ Proof using.
 Qed.
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Ramified frame rule in weakest-precondition style *)
 
 (** The ramified frame rule, which we have just stated for triples,
@@ -334,7 +336,7 @@ Proof using. introv M. xchange M. applys wp_ramified. Qed.
 End WandDef.
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Automation with [xsimpl] for [hwand] expressions *)
 
 (** We can extend the tactic [xsimpl] to recognize the magic wand,
@@ -387,7 +389,7 @@ Proof using. intros. xsimpl. Abort.
 End XsimplDemo.
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Evaluation of [wpgen] recursively in locally-defined functions *)
 
 Module WPgenRec.
@@ -423,7 +425,7 @@ Implicit Types vx vf : val.
     We begin with the case of non-recursive functions of the form [trm_fun x t1],
     then generalize the definition to the slightly more complex case
     of recursive functions of the form [trm_fix f x t1]. In both case,
-    the function [wpgen] will get recursively invokved on the body [t1]
+    the function [wpgen] will get recursively invoked on the body [t1]
     of the function, in a context extended with the appropriate bindings.
 
     The new definition of [wpgen] will take the shape shown below, for
@@ -446,7 +448,7 @@ Implicit Types vx vf : val.
 *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** 1. Treatment of non-recursive functions *)
 
 (** For simplicity, let us assume for now the context [E] to be empty,
@@ -462,11 +464,11 @@ Implicit Types vx vf : val.
     Rather than specifying that [vf] is equal to [val_fun x t1] as we were
     doing previously, we would like to specify that [vf] denotes a function
     whose body admits [wpgen t1] as weakest precondition. This information
-    no longer exposes the syntax of the term [t1], and is neverthess sufficient
+    no longer exposes the syntax of the term [t1], and is nevertheless sufficient
     for the user to reason about the behavior of the function [vf].
 
     To that end, we define the heap predicate [wpgen (trm_fun x t1) Q] to
-    be of the form [\forall vf, \[P vf] \-* Q vf] for a carefully-crafed
+    be of the form [\forall vf, \[P vf] \-* Q vf] for a carefully-crafted
     predicate [P], defined further on, that describes the behavior of the
     function by means of its weakest precondition.
 
@@ -601,7 +603,7 @@ Notation "'Fun'' x ':=' F1" :=
     processes the local definition of non-recursive functions. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** 2. Treatment of recursive functions *)
 
 (** The formula produced by [wpgen] for a recursive function [trm_fix f x t1]
@@ -685,7 +687,7 @@ Notation "'Fix'' f x ':=' F1" :=
   format "'[v' '[' 'Fix''  f  x  ':='  F1  ']' ']'").
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** 3. Final definition of [wpgen], with processing a local functions *)
 
 (** The final definition of [wpgen] appears below. *)
@@ -765,7 +767,7 @@ Tactic Notation "xfun" :=
 (** Remark: similarly to [xfun], one could devise a [xfix] tactic. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** 4. Example computation of [wpgen] in presence of a local function *)
 
 Import Demo.
@@ -843,10 +845,12 @@ End WPgenRec.
 
 
 (* ####################################################### *)
+(* ####################################################### *)
+(* ####################################################### *)
 (** * Additional contents *)
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Benefits of the ramified rule over the consequence-frame rule *)
 
 (** Earlier on, we sketched an argument claiming that the consequence-
@@ -933,7 +937,7 @@ Qed.
 End WandBenefits.
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Properties of [hwand] *)
 
 Module WandProperties.
@@ -949,7 +953,7 @@ Import WandDef.
     relies on several of these lemmas. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Structural properties of [hwand] *)
 
 (** The operator [H1 \-* H2] is contravariant in [H1] and covariant
@@ -983,7 +987,7 @@ Lemma himpl_hempty_hwand_same : forall H,
 Proof using. intros. apply himpl_hwand_r. xsimpl. Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Tempting yet false properties for [hwand] *)
 
 (** The reciprocal entailment to the elimination lemma,
@@ -1016,7 +1020,7 @@ Qed.
     to justify [H1 <= H2] nor [H2 <= H3]. *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Interaction of [hwand] with [hempty] and [hpure] *)
 
 (** The heap predicate [\[] \-* H] is equivalent to [H]. *)
@@ -1075,7 +1079,7 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Interaction of [hwand] with [hstar] *)
 
 (** An interesting property is that arguments on the LHS of a magic
@@ -1153,7 +1157,7 @@ Qed. (* /ADMITTED *)
 (* ########################################################### *)
 (** * Bonus contents (optional reading) *)
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Equivalence between alternative definitions of the magic wand *)
 
 (** In what follows we prove the equivalence between the three
@@ -1215,7 +1219,7 @@ Qed.
 End WandProperties.
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Operator [hforall] *)
 
 Module NewQwand.
@@ -1273,7 +1277,7 @@ Lemma himpl_hforall_l : forall A (v:A) (J:A->hprop) H,
 Proof using. introv M. applys himpl_trans M. applys hforall_specialize. Qed.
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Alternative definition of [qwand] *)
 
 (** We are now read to state the alternative definition of [Q1 \--* Q2],
@@ -1287,7 +1291,7 @@ Notation "Q1 \--* Q2" := (qwand Q1 Q2) (at level 43).
 (** Let us establish the properties of the new definition of [qwand],
     through direct proofs, i.e., not reusing the properties of [qwand'].
 
-    We begin by the specialization lemma, which asserts that [Q1 \--* Q2] 
+    We begin by the specialization lemma, which asserts that [Q1 \--* Q2]
     can be specialized to [(Q1 v) \-* (Q2 v)] for any value [v]. This
     result is now a direct consequence of the corresponding specialization
     property of [\forall]. *)
@@ -1316,7 +1320,7 @@ Lemma qwand_cancel : forall Q1 Q2,
   Q1 \*+ (Q1 \--* Q2) ===> Q2.
 Proof using. intros. rewrite <- qwand_equiv. applys qimpl_refl. Qed.
 
-(** Let us also prove that [qwand] is equivalent to the previous version 
+(** Let us also prove that [qwand] is equivalent to the previous version
     of [qwand], which we rename [qwand']. *)
 
 Definition qwand' (Q1 Q2:val->hprop) : hprop :=
@@ -1325,7 +1329,7 @@ Definition qwand' (Q1 Q2:val->hprop) : hprop :=
 Lemma qwand_eq_qwand' :
   qwand = qwand'.
 Proof using.
-  unfold qwand, qwand'. applys fun_ext_2. intros Q1 Q2. 
+  unfold qwand, qwand'. applys fun_ext_2. intros Q1 Q2.
   applys himpl_antisym.
   { xsimpl (Q1 \--* Q2). applys qwand_cancel. }
   { xpull ;=> H M. applys himpl_hforall_r. intros v.
@@ -1393,7 +1397,7 @@ Qed. (* /ADMITTED *)
 
 (** [] *)
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Simplified definition of [mkstruct] *)
 
 (** The definition of [mkstruct] can be simplified using the magic
@@ -1419,8 +1423,8 @@ Definition mkstruct (F:formula) : formula :=
 
 Lemma mkstruct_erase : forall (F:formula) Q,
   F Q ==> mkstruct F Q.
-Proof using. 
-  intros. unfold mkstruct. xsimpl Q. rewrite qwand_equiv. xsimpl. 
+Proof using.
+  intros. unfold mkstruct. xsimpl Q. rewrite qwand_equiv. xsimpl.
 Qed.
 
 Lemma mkstruct_conseq : forall (F:formula) Q1 Q2,
@@ -1441,7 +1445,7 @@ Qed.
 End NewQwand.
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Texan triples *)
 
 Module TexanTriples.
@@ -1452,7 +1456,7 @@ Module TexanTriples.
 
 Implicit Types v : val.
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** 1. Example of Texan triples *)
 
 (** In this section, we show that specification triples can be presented
@@ -1515,7 +1519,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** 2. The general pattern *)
 
 (** In practice, specification triples can (pretty much) all be casted
@@ -1548,7 +1552,7 @@ Proof using.
 Qed.
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** 3. Exercise *)
 
 (** Let us put to practice the use of a Texan triple on a different example.
@@ -1583,7 +1587,7 @@ Qed. (* /ADMITTED *)
 End TexanTriples.
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Direct proof of [wp_ramified] directly from Hoare triples *)
 
 Module WpFromHoare.
@@ -1611,7 +1615,7 @@ Qed.
 End WpFromHoare.
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Conjunction and disjunction operators on [hprop] *)
 
 (** The (non-separating) conjunction and the disjunction are two
@@ -1625,7 +1629,7 @@ End WpFromHoare.
 Module ConjDisj.
 Import NewQwand.
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Definition of [hor] *)
 
 (** The heap predicate [hor H1 H2] lifts the disjunction operator
@@ -1715,7 +1719,7 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 
-(* ------------------------------------------------------- *)
+(* ################################################ *)
 (** *** Definition of [hand] *)
 
 (** The heap predicate [hand H1 H2] lifts the disjunction operator
@@ -1793,7 +1797,7 @@ Qed. (* /ADMITTED *)
 End ConjDisj.
 
 
-(* ******************************************************* *)
+(* ####################################################### *)
 (** ** Summary of all Separation Logic operators *)
 
 Module SummaryHprop.
@@ -1868,10 +1872,9 @@ Module ReaminingOperatorsDerived.
 
 End ReaminingOperatorsDerived.
 
-(** In pratice, it saves a lot of effort to use the derived definitions,
+(** In practice, it saves a lot of effort to use the derived definitions,
     because using derived definitions all the properties of these definitions
     can be established with the help of the [xsimpl] tactic, through reasoning
     taking place exclusively at the level of [hprop]. *)
 
 End SummaryHprop.
-

@@ -38,7 +38,13 @@ Implicit Types Q : val->hprop.
 
 
 (* ******************************************************* *)
-(** ** Notion of weakest precondition *)
+(** ** Motivation:  *)
+
+(** deallocation implicit, example succ *)
+
+
+(* ******************************************************* *)
+(** ** Top *)
 
 
 
@@ -63,6 +69,106 @@ Lemma htop_inv : forall h, (* Note: this lemma is of no practical interest. *)
   True.
 Proof using. intros. auto. Qed.
 
+
+(* ******************************************************* *)
+(** ** GC *)
+
+Definition heap_affine (h:heap) := True.
+
+(** Affinity is defined in the standard way *)
+
+Definition haffine (H : hprop) : Prop :=
+  forall h, H h -> heap_affine h.
+
+Lemma haffine_any : forall H,
+  haffine H.
+Proof using. introv M. hnfs*. Qed.
+
+
+Lemma haffine_hexists : forall A (J:A->hprop),
+  haffine_post J ->
+  haffine (hexists J).
+Proof using. introv F1 (x&Hx). applys* F1. Qed.
+
+Lemma haffine_hforall : forall A `{Inhab A} (J:A->hprop),
+  haffine_post J ->
+  haffine (hforall J).
+Proof using. introv IA F1 Hx. applys* F1 arbitrary. Qed.
+
+Lemma haffine_hpure : forall P,
+  haffine \[P].
+Proof using.
+  intros. applys* haffine_hexists. intros HP. applys* haffine_hempty.
+Qed.
+
+Lemma haffine_hgc :
+  haffine \GC.
+Proof using.
+  applys haffine_hexists. intros H h Hh. rewrite hstar_hpure in Hh.
+  destruct Hh as [M N]. applys* M.
+Qed.
+
+
+
+(* ---------------------------------------------------------------------- *)
+(** Properties of hgc *)
+
+Lemma hgc_eq :
+  \GC = (\exists H, \[haffine H] \* H).
+Proof using. auto. Qed.
+
+Lemma hgc_of_heap_affine : forall h,
+  heap_affine h ->
+  \GC h.
+Proof using.
+  intros. rewrite hgc_eq. exists (=h).
+  rewrite hstar_hpure. split~. { introv ->. auto. }
+Qed.
+
+Lemma himpl_hgc_r : forall H,
+  haffine H ->
+  H ==> \GC.
+Proof using.
+  introv M. rewrite hgc_eq. applys himpl_hexists_r H.
+  applys~ himpl_hstar_hpure_r.
+  (* low-level: [intros h K. applys hgc_of_heap_affine. applys M K. *)
+Qed.
+
+Lemma hempty_himpl_hgc :
+  \[] ==> \GC.
+Proof using. applys himpl_hgc_r. applys haffine_hempty. Qed.
+
+Lemma himpl_same_hstar_hgc_r : forall H,  (* needed? *)
+  H ==> H \* \GC.
+Proof using.
+  intros. (* himpl_frame_r *)
+  rewrite hstar_comm. rewrite <- (hstar_hempty_l H) at 1.
+  applys himpl_frame_l. applys himpl_hgc_r. applys haffine_hempty.
+Qed.
+
+Lemma himpl_hstar_hgc_r : forall H H', (* needed? *)
+  H ==> H' ->
+  H ==> H' \* \GC.
+Proof using.
+  introv M. applys himpl_trans (rm M). applys himpl_same_hstar_hgc_r.
+Qed.
+
+Lemma hstar_hgc_hgc :
+  \GC \* \GC = \GC. (* --TODO : can be simplified *)
+Proof using.
+  applys himpl_antisym.
+  { applys himpl_hgc_r. applys haffine_hstar; applys haffine_hgc. }
+  { rewrite <- hstar_hempty_l at 1. applys himpl_frame_l. applys hempty_himpl_hgc. }
+Qed.
+
+Lemma hgc_eq_htop_of_haffine_any :
+  (forall H, haffine H) ->
+  \GC = \Top.
+Proof using.
+  introv M. applys himpl_antisym.
+  { applys himpl_htop_r. }
+  { applys himpl_hgc_r. applys M. }
+Qed.
 
 
 (* ******************************************************* *)
