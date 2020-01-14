@@ -54,6 +54,9 @@
                   preconditions, and description of the construction of a set up
                   that leads to concise verification proofs.
 
+    - [SLFWand]:  introduction of the magic wand, of the ramified frame rule,
+                  and recursive computation of weakest precondition inside functions.
+
 *)
 
 (* ########################################################### *)
