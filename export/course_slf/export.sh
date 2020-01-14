@@ -5,6 +5,7 @@
 
 SOURCE=~/versions/coq-8.9.1/sfdev/slf/full
 TARGET=slf
+SOURCE_COLLEGE=../../theories/CollegeDeFrance.v
 
 CP="cp -u"
 
@@ -19,7 +20,7 @@ mkdir -p ${TARGET}
 ##############################################################################
 # Import local files
 
-cp README.md ${TARGET}
+${CP} README.md ${TARGET}
 
 
 ##############################################################################
@@ -27,24 +28,31 @@ cp README.md ${TARGET}
 
 ${CP} -R ${SOURCE}/common ${TARGET}
 
-${CP} *.v *.html *.gif _CoqProject Makefile LICENSE ${TARGET}
+${CP} ${SOURCE}/*.v ${SOURCE}/*.html ${SOURCE}/*.gif ${SOURCE}/_CoqProject ${SOURCE}/Makefile ${SOURCE}/LICENSE ${TARGET}
 
-for i in ${CFML_IMPORTS} ; do
-   ${CFML_FOLDER}/$i ${THEORIES_TARGET} ;
-done
+
+##############################################################################
+# Tweaks
+
+# bypass index
+${CP} ${TARGET}/toc.html ${TARGET}/index.html
+
+# add college de France seminar
+${CP} ${SOURCE_COLLEGE} ${TARGET}
+sed -i -e 's/^From[[:space:]]Sep[[:space:]]/From SLF (* Sep *) /' ${TARGET}/CollegeDeFrance.v
 
 
 ##############################################################################
 # Create archive
 
-echo "Creating $TARGET.tar.gz with contents:"
-tar ${TAROPTIONS} -cvzf $TARGET.tar.gz $TARGET
+echo "Creating $TARGET.tar.gz"
+tar ${TAROPTIONS} -czf $TARGET.tar.gz $TARGET
 
 
 ##############################################################################
 # Test archive
 
-exit
 cd ${TARGET}
 make -j8
-coqide -async-proofs off -async-proofs-command-error-resilience off CollegeDeFrance.v
+chromium-browser index.html &
+coqide -async-proofs off -async-proofs-command-error-resilience off -Q . SLF CollegeDeFrance.v
