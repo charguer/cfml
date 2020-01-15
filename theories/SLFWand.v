@@ -26,26 +26,28 @@ Implicit Types Q : val->hprop.
 (** This chapter introduces an additional Separation Logic operator,
     called the "magic wand", and written [H1 \-* H2].
 
-    This operator is useful in particular to formulate a variant of the
-    consequence-frame rule, called the "ramified frame rule", which is
-    more concise and more practical than the consequence-frame rule.
-
-    The magic wand can also be used to refine the definition of [wpgen]
-    so that it recursively computes the weakest precondition of the
-    local function definitions that appear inside a term.
+    This operator has multiple use:
+    - it helps reformulate the consequence-frame rule in an improved manner,
+      through a rule called the "ramified frame rule",
+    - it helps stating the weakest-preconditions of a number of
+      languages constructs in a concise manner,
+    - it can be useful to state specification for certain data structures.
 
     This chapter is organized as follows:
-    - definition and properties of the magic wand operator
-    - generalization of the magic wand to postconditions
-    - statement and benefits of the ramified frame rule
-    - statement of the ramified frame rule in weakest-precondition style
+    - definition and properties of the magic wand operator,
+    - generalization of the magic wand to postconditions,
+    - statement and benefits of the ramified frame rule,
+    - statement of the ramified frame rule in weakest-precondition style,
     - generalized definition of [wpgen] that recurses in local functions.
 
     The addition and bonus section includes further discussion, including:
+    - presentation of alternative, equivalent definitions of the magic wand,
     - statement and proofs of additional properties of the magic wand,
+    - a revised definition of [mkstruct] using the magic wand.
     - "Texan triples", which express function specifications using the
       magic wand instead of using triples,
-    - other additional Separation Logic operators: disjunction and conjunction.
+    - two other operators, disjunction and non-separating conjunction,
+      so as to complete the presentation of all Separation Logic operators.
 
 *)
 
@@ -54,8 +56,8 @@ Implicit Types Q : val->hprop.
 (** ** Intuition for the magic wand *)
 
 (** The magic wand operation [H1 \-* H2], to be read "H1 wand H2",
-    defines a heap predicate such that, if we were to add [H1] to it,
-    we would obtain [H2]. Formally, the following entailment holds:
+    defines a heap predicate such that, if we extend it with [H1],
+    we obtain [H2]. Formally, the following entailment holds:
 
 [[
       H1 \* (H1 \-* H2) ==> H2.
@@ -63,10 +65,10 @@ Implicit Types Q : val->hprop.
 
     Intuitively, if one can think of the star [H1 \* H2] as the addition
     [H1 + H2], then one can think of [H1 \-* H2] as the subtraction
-    [-H1 + H2]. The above entailment captures the fact that
-    [(-H1 + H2) + H1] simplifies to [H2].
+    [-H1 + H2]. The entailment stated above essentially captures the idea
+    that [(-H1 + H2) + H1] simplifies to [H2].
 
-    Note however, that the operation [H1 \-* H2] only makes sense if [H1]
+    Note, however, that the operation [H1 \-* H2] only makes sense if [H1]
     describes a piece of heap that "can" be subtracted from [H2]. Otherwise,
     the predicate [H1 \-* H2] characterizes a heap that cannot possibly exist.
     Informally speaking, [H1] must somehow be a subset of [H2] for the
@@ -120,7 +122,9 @@ Notation "H1 \-* H2" := (hwand H1 H2) (at level 43, right associativity).
     its introduction and elimination rules may help further appreciate
     its meaning.
 
-    The operator [H1 \-* H2] satisfies the following equivalence. *)
+    The operator [H1 \-* H2] satisfies the following equivalence.
+    Informally speaking, think of [H0 = -H1+H2] and [H1+H0 = H2]
+    being equivalent. *)
 
 Lemma hwand_equiv : forall H0 H1 H2,
   (H0 ==> H1 \-* H2) <-> (H1 \* H0 ==> H2).
@@ -130,9 +134,10 @@ Proof using.
   { xsimpl H0. xchange M. }
 Qed.
 
-(** In fact, the magic wand is uniquely defined by the above equivalence.
-    In other words, as we prove further on, any operator that satisfies
-    the above equivalence for all arguments is equal to [hwand]. *)
+(** It turns out that the magic wand operator is uniquely defined by the
+    equivalence [(H0 ==> H1 \-* H2) <-> (H1 \* H0 ==> H2)].
+    In other words, as we establish further on, any operator that satisfies
+    the above equivalence for all arguments is provably equal to [hwand]. *)
 
 (** The right-to-left direction of the equivalence is an introduction rule:
     it tells what needs to be proved for constructing a magic wand [H1 \-* H2]
@@ -169,7 +174,9 @@ Arguments hwand_cancel : clear implicits.
 (** ** Magic wand for postconditions *)
 
 (** In what follows, we generalize the magic wand to operator on postconditions,
-    introducing a heap predicate of the form [Q1 \--* Q2].
+    introducing a heap predicate of the form [Q1 \--* Q2], of type [hprop].
+    Note that the entailment between two postconditions produces a heap predicate,
+    and not a postcondition.
 
     The definition follows exactly the same pattern as [hwand]: it quantifies
     some heap predicate [H0] such that [H0] starred with [Q1] yields [Q2]. *)
@@ -180,7 +187,7 @@ Definition qwand (Q1 Q2:val->hprop) : hprop :=
 Notation "Q1 \--* Q2" := (qwand Q1 Q2) (at level 43).
 
 (** The operator [qwand] satisfies essentially the same properties as [hwand].
-    Let us being with the associated equivalence rule, which captures both
+    Let us begin with the associated equivalence rule, which captures both
     the introduction and the elimination rule. *)
 
 Lemma qwand_equiv : forall H Q1 Q2,
@@ -212,7 +219,7 @@ Qed.
 (** ** Frame expressed with [hwand]: the ramified frame rule *)
 
 (** Recall the consequence-frame rule, which is pervasively used
-    for example by the tactic x-app for reasoning about applications. *)
+    for example by the tactic [xapp] for reasoning about applications. *)
 
 Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
   triple t H1 Q1 ->
@@ -225,17 +232,17 @@ Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
     attempt to describe the issue at a high-level.
 
     In short, the problem stems from the fact that we need to instantiate
-    [H2] for applying the rule. Providing [H2] by hand is not practical,
+    [H2] for applying the rule. Providing [H2] by hand is not practical, thus
     we need to infer it. The value of [H2] can be computed as the subtraction
     of [H] minus [H1]. The resulting value may then exploited in the last
     premise for constructing [Q1 \*+ H2]. This transfer of information via [H2]
-    from  one subgoal to another can be obtained by introducing an "evar" (Coq
+    from one subgoal to another can be obtained by introducing an "evar" (Coq
     unification variable) for [H2]. However this approach does not work
     well in the cases where [H] contains existential quantifiers. Indeed,
     such existential quantifiers are typically first extracted out of the
     entailment [H ==> H1 \* H2] by the tactic [xsimpl]. However, these
     existentially quantified variables are not in the scope of [H2], hence
-    the instantiation of the evar associated with [H2] fails. *)
+    the instantiation of the evar associated with [H2] typically fails. *)
 
 (** The "ramified frame rule" exploits the magic wand operator to circumvent
     the problem, by merging the two premises [H ==> H1 \* H2] and
@@ -247,7 +254,8 @@ Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
     inside the first premise [H ==> H1 \* H2], we obtain the new premise
     [H ==> H1 \* (Q1 \--* Q)].
 
-    Let us state and prove "ramified frame rule". *)
+    This merging of the two entailments leads us to the statement of the
+    "ramified frame rule" shown below. *)
 
 Lemma triple_ramified_frame : forall H1 Q1 t H Q,
   triple t H1 Q1 ->
@@ -277,9 +285,9 @@ Qed.
 (** ** Ramified frame rule in weakest-precondition style *)
 
 (** The ramified frame rule, which we have just stated for triples,
-    has a counterpart in weakest-precondition style ([wp]).
+    features a counterpart expressed in weakest-precondition style ([wp]).
 
-    In what follows, we present the "wp ramified rule" [wp_ramified].
+    In what follows, we present the "wp ramified rule", named [wp_ramified].
     This rule admits a concise statement and subsumes all other
     structural rules of Separation Logic. Its statement is as follows.
 
@@ -315,8 +323,7 @@ Proof using. intros. applys wp_conseq_frame. applys qwand_cancel. Qed.
 Lemma wp_conseq_frame_of_wp_ramified : forall t H Q1 Q2,
   Q1 \*+ H ===> Q2 ->
   (wp t Q1) \* H ==> (wp t Q2).
-Proof using.
-(* ADMITTED *)
+Proof using. (* ADMITTED *)
   introv M. applys himpl_trans (wp t Q1 \* (Q1 \--* Q2)).
   { apply himpl_frame_r. rewrite qwand_equiv. applys M. }
   { applys wp_ramified. }
@@ -324,9 +331,9 @@ Qed. (* /ADMITTED *)
 
 (* [] *)
 
-(** The following reformulation of [wp_ramified] is slightly more
-    practical to exploit in practice, because it applies to any goal
-    of the form [H ==> wp t Q]. *)
+(** The following reformulation of [wp_ramified] can be more practical
+    to exploit in practice, because it applies to any goal of the form
+    [H ==> wp t Q]. *)
 
 Lemma wp_ramified_trans : forall t H Q1 Q2,
   H ==> (wp t Q1) \* (Q1 \--* Q2) ->
@@ -339,15 +346,17 @@ End WandDef.
 (* ####################################################### *)
 (** ** Automation with [xsimpl] for [hwand] expressions *)
 
-(** We can extend the tactic [xsimpl] to recognize the magic wand,
-    and automatically perform a number of obvious simplifications. *)
+(** One can extend the tactic [xsimpl] to recognize the magic wand,
+    and automatically perform a number of obvious simplifications.
+    This extension is implemented in the file [SepSimpl], which
+    exports the tactic [xsimpl] illustrated in this section. *)
 
 Module XsimplDemo.
 
-(** [xsimpl] is able to spot magic wand that cancel out.
+(** [xsimpl] is able to spot a magic wand that cancels out.
     For example, if an iterated separating conjunction includes
-    both [H2 \-* H3] and [H2], the two can be merged to leave
-    just [H3]. *)
+    both [H2 \-* H3] and [H2], then these two heap predicates can
+    be merged, leaving just [H3]. *)
 
 Lemma xsimpl_demo_hwand_cancel : forall H1 H2 H3 H4 H5,
   H1 \* (H2 \-* H3) \* H4 \* H2 ==> H5.
@@ -355,30 +364,30 @@ Proof using. intros. xsimpl. Abort.
 
 (** [xsimpl] is able to simplified uncurried magic wands.
     For example, if an iterated separating conjunction includes
-    [(H1 \* H2 \* H3) \-* H4] and [H2], the two can be merged
-    to leave just [(H1 \* H3) \-* H4]. *)
+    [(H1 \* H2 \* H3) \-* H4] and [H2], the two predicates can be
+    merged, leaving [(H1 \* H3) \-* H4]. *)
 
 Lemma xsimpl_demo_hwand_cancel_partial : forall H1 H2 H3 H4 H5 H6,
   ((H1 \* H2 \* H3) \-* H4) \* H5 \* H2 ==> H6.
 Proof using. intros. xsimpl. Abort.
 
-(** [xsimpl] automatically applies the [himpl_hwand_r] when
-    the right-hand-side, after prior simplification, reduces
-    to just a magic wand. In the example below, [H1] is first
-    cancelled out from both sides, then [H3] is moved from
-    the RHS to the LHS. *)
+(** [xsimpl] automatically applies the introduction rule [himpl_hwand_r]
+    when the right-hand-side, after prior simplification, reduces to
+    just a magic wand. In the example below, [H1] is first cancelled out
+    from both sides, then [H3] is moved from the RHS to the LHS. *)
 
 Lemma xsimpl_demo_himpl_hwand_r : forall H1 H2 H3 H4 H5,
   H1 \* H2 ==> H1 \* (H3 \-* (H4 \* H5)).
 Proof using. intros. xsimpl. Abort.
 
-(** [xsimpl] can iterate a number of magic-wand related simplifications. *)
+(** [xsimpl] can iterate a number of simplifications involving
+    different magic wands. *)
 
 Lemma xsimpl_demo_hwand_iter : forall H1 H2 H3 H4 H5,
   H1 \* H2 \* ((H1 \* H3) \-* (H4 \-* H5)) \* H4 ==> ((H2 \-* H3) \-* H5).
 Proof using. intros. xsimpl. Qed.
 
-(** [xsimpl] is also able to deal with magic wand for postconditions.
+(** [xsimpl] is also able to deal with the magic wand for postconditions.
     In particular, it is able to merge [Q1 \--* Q2] with [Q1 v],
     leaving [Q2 v]. *)
 
@@ -416,7 +425,7 @@ Implicit Types vx vf : val.
     it is always possible for the user to manually invoke [wpgen]
     for each locally-defined function, during the verification proof.
 
-    Nevertheless, it would be much more satisfying and more practical
+    Nevertheless, it is much more satisfying and much more practical
     to set up [wpgen] so that it recursively computes the weakest
     precondition of all the local functions that it encounters during
     its evaluation.
@@ -424,7 +433,7 @@ Implicit Types vx vf : val.
     In what follows, we show how such a version of [wpgen] can be set up.
     We begin with the case of non-recursive functions of the form [trm_fun x t1],
     then generalize the definition to the slightly more complex case
-    of recursive functions of the form [trm_fix f x t1]. In both case,
+    of recursive functions of the form [trm_fix f x t1]. In both cases,
     the function [wpgen] will get recursively invoked on the body [t1]
     of the function, in a context extended with the appropriate bindings.
 
@@ -451,15 +460,15 @@ Implicit Types vx vf : val.
 (* ################################################ *)
 (** *** 1. Treatment of non-recursive functions *)
 
-(** For simplicity, let us assume for now the context [E] to be empty,
-    and let us ignore the presence of the predicate [mkstruct].
+(** For simplicity, let us assume for now the substitution context [E] to be
+    empty, and let us ignore the presence of the predicate [mkstruct].
     Our goal task is to provide a definition for [wpgen (trm_fun x t1) Q],
     expressed in terms of [wpgen t1].
 
     Let [vf] denote the function [val_fun x t1], which the term [trm_fun x t1]
     evaluates to. The heap predicate [wpgen (trm_fun x t1) Q] should
     assert that that the postcondition [Q] holds of the result value [vf],
-    that is, [Q vf] should hold.
+    i.e., that [Q vf] should hold.
 
     Rather than specifying that [vf] is equal to [val_fun x t1] as we were
     doing previously, we would like to specify that [vf] denotes a function
@@ -469,8 +478,8 @@ Implicit Types vx vf : val.
 
     To that end, we define the heap predicate [wpgen (trm_fun x t1) Q] to
     be of the form [\forall vf, \[P vf] \-* Q vf] for a carefully-crafted
-    predicate [P], defined further on, that describes the behavior of the
-    function by means of its weakest precondition.
+    predicate [P] that describes the behavior of the function by means of its
+    weakest precondition. [P] is defined further on.
 
     The universal quantification on [vf] is intended to hide away from the
     user the fact that [vf] actually denotes [val_fun x t1]. It would be
@@ -491,7 +500,7 @@ Implicit Types vx vf : val.
     To figure out the details of the statement of [P], it is useful to recall
     from chapter [SLFWPgen] the statement of the lemma [triple_app_fun_from_wpgen],
     which we used for reasoning about top-level functions. Its statement appears
-    below (variables were renamed to better match the current context). *)
+    below---variables were renamed to better match the current context. *)
 
 Parameter triple_app_fun_from_wpgen : forall vf vx x t1 H' Q',
   vf = val_fun x t1 ->
@@ -512,7 +521,7 @@ Parameter triple_app_fun_from_wpgen : forall vf vx x t1 H' Q',
 ]]
 
     This proposition can be slightly simplified, by using [wp] instead
-    of [triple], allowing to eliminate [H']. We actually define [P vf] as:
+    of [triple], allowing to eliminate [H']. We thus define [P vf] as:
 
 [[
     forall vx H', wpgen ((x,vx)::nil) t1 Q' ==> wp (trm_app vf vx) Q'
@@ -559,9 +568,9 @@ Definition wpgen_fun (Fof:val->formula) : formula := fun Q =>
 (** The soundness lemma for this construct follows from the wp-style
     reasoning rule for applications, called [wp_app_fun], introduced in
     chapter [SLFWPsem]. It is not needed to follow at this stage through
-    the details of the proof, which involves lemmas about [\forall]
+    the details of the proof. (The proof involves lemmas about [\forall]
     and about [\-*] that are stated and proved only further on in this
-    chapter. *)
+    chapter.) *)
 
 Lemma wpgen_fun_sound : forall x t1 Fof,
   (forall vx, formula_sound (subst x vx t1) (Fof vx)) ->
@@ -579,7 +588,8 @@ Qed.
 
 Lemma wpgen_fun_proof_obligation : forall E x t1,
   (forall E, formula_sound (isubst E t1) (wpgen E t1)) ->
-  formula_sound (trm_fun x (isubst (rem x E) t1)) (wpgen_fun (fun v => wpgen ((x,v)::E) t1)).
+  formula_sound (trm_fun x (isubst (rem x E) t1))
+                (wpgen_fun (fun v => wpgen ((x,v)::E) t1)).
 
 (** The proof exploits the lemma [wpgen_fun_sound] that we just established,
     as well as a substitution lemma, the same as the one used to justify the
@@ -589,18 +599,6 @@ Proof using.
   introv IH. applys wpgen_fun_sound.
   { intros vx. rewrite <- isubst_rem. applys IH. }
 Qed.
-
-(** Like for other auxiliary functions associated with [wpgen], we introduce
-    a custom notation for [wpgen_fun]. Here, we let [Fun' x := F] stand for
-    [wpgen_fun (fun x => F)]. *)
-
-Notation "'Fun'' x ':=' F1" :=
-  ((wpgen_fun (fun x => F1)))
-  (at level 69, x ident, right associativity,
-  format "'[v' '[' 'Fun''  x  ':='  F1  ']' ']'").
-
-(** This completes our presentation of a version of [wpgen] that recursively
-    processes the local definition of non-recursive functions. *)
 
 
 (* ################################################ *)
@@ -686,6 +684,9 @@ Notation "'Fix'' f x ':=' F1" :=
   (at level 69, f ident, x ident, right associativity,
   format "'[v' '[' 'Fix''  f  x  ':='  F1  ']' ']'").
 
+(** Remark: similarly to [xfun], one could devise a [xfix] tactic.
+    We omit the details. *)
+
 
 (* ################################################ *)
 (** *** 3. Final definition of [wpgen], with processing a local functions *)
@@ -706,17 +707,28 @@ Fixpoint wpgen (E:ctx) (t:trm) : formula :=
 
 (** The full soundness proof appears in file [SLFDirect], lemma [wpgen_sound]. *)
 
-(** In the example that follows, we assume all the set up from [SLFWPgen] to
-    be reproduced with the above definition of [wpgen]. This set up is formalized
-    in full in the file [SLFDirect]. *)
 
-(** One interesting new feature is the [xfun] tactic, which helps the user
-    process a local function definition in the course of a verification script.
+(* ################################################ *)
+(** *** 4. Notation and tactic to handle [wpgen_fun] and [wpgen_fix] *)
+
+(** Like for other auxiliary functions associated with [wpgen], we introduce
+    a custom notation for [wpgen_fun]. Here, we let [Fun' x := F] stand for
+    [wpgen_fun (fun x => F)]. *)
+
+Notation "'Fun'' x ':=' F1" :=
+  ((wpgen_fun (fun x => F1)))
+  (at level 69, x ident, right associativity,
+  format "'[v' '[' 'Fun''  x  ':='  F1  ']' ']'").
+
+(** Also, like for other language constructs, we introduce a custom tactic
+    for [wpgen_fun]. It is called [xfun], and helps the user to process a
+    local function definition in the course of a verification script.
+
     The tactic [xfun] can be invoked either with or without providing a
     specification for the local function. *)
 
-(** First, consider the case where [xfun] is called with an argument describing
-    the specification of the local function, typically in the form
+(** First, we describe the tactic [xfun S], where [S] describes the
+    specification of the local function. A typical call is of the form
     [xfun (fun (f:val) => forall ..., TRIPLE (f ..) PRE .. POST ..)].
 
     The tactic [xfun S] generates two subgoals. The first one requires the
@@ -742,8 +754,8 @@ Qed.
 Tactic Notation "xfun" constr(S) :=
   xseq_xlet_if_needed; xstruct_if_needed; applys xfun_spec_lemma S.
 
-(** Second, assume [xfun] is called without argument, on a goal of the form
-    [H ==> wpgen_fun Fof Q]. In this case, the tactic simply makes available
+(** Second, we describe the tactic [xfun] without argument. It applies to a goal
+    of the form [H ==> wpgen_fun Fof Q]. The tactic [xfun] simply makes available
     an hypothesis about the local function. The user may subsequently exploit
     this hypothesis for reasoning about a call to that function, just like
     if the code of the function was inlined at its call site. The use of [xfun]
@@ -764,11 +776,20 @@ Qed.
 Tactic Notation "xfun" :=
   xseq_xlet_if_needed; xstruct_if_needed; applys xfun_nospec_lemma.
 
-(** Remark: similarly to [xfun], one could devise a [xfix] tactic. *)
+(** A generalization of [xfun] that handles recursive functions may be defined
+    following exactly the same pattern. *)
+
+(** This completes our presentation of a version of [wpgen] that recursively
+    processes the local definition of non-recursive functions. An practical
+    example is presented next. *)
 
 
 (* ################################################ *)
-(** *** 4. Example computation of [wpgen] in presence of a local function *)
+(** *** 5. Example computation of [wpgen] in presence of a local function *)
+
+(** In the example that follows, we assume all the set up from [SLFWPgen] to
+    be reproduced with the definition of [wpgen] that leverages [wpgen_fun]
+    and [wpgen_fix]. This set up is formalized in full in the file [SLFDirect]. *)
 
 Import Demo.
 
@@ -946,11 +967,11 @@ Import WandDef.
 (** We next present the most important properties of [H1 \-* H2].
 
     Thereafter, the tactic [xsimpl] is accessible, but in a form
-    that does not recognize the magic wand.
+    that does not provide support for the magic wand.
 
     The actual tactic would trivially solve many of these lemmas,
-    but this would be cheating because the implementation of [xsimpl]
-    relies on several of these lemmas. *)
+    but using it would be cheating because the implementation of
+    [xsimpl] relies on several of these lemmas. *)
 
 
 (* ################################################ *)
@@ -980,7 +1001,7 @@ Proof using.
 Qed.
 
 (** The predicate [H \-* H] holds of the empty heap.
-    Intuitively [(-H + H)] simplifies to [0]. *)
+    Intuitively, one can rewrite [0] as [-H + H]. *)
 
 Lemma himpl_hempty_hwand_same : forall H,
   \[] ==> (H \-* H).
@@ -990,8 +1011,27 @@ Proof using. intros. apply himpl_hwand_r. xsimpl. Qed.
 (* ################################################ *)
 (** *** Tempting yet false properties for [hwand] *)
 
-(** The reciprocal entailment to the elimination lemma,
-    that is, [H2 ==> H1 \* (H1 \-* H2)] does not hold.
+(** The reciprocal entailement [(H \-* H) ==> \[]] is false, however.
+    For a counterexample, instantiate [H] as [fun h => True], or,
+    equivalently, [\exists H', H']. A singleton heap does satisfy
+    [H \-* H], although it clearly does not satisfy the empty
+    predicate [\[]]. *)
+
+Lemma himpl_hwand_same_hempty_counterexample : forall p v,
+  let H := (\exists H', H') in
+  (p ~~~> v) ==> (H \-* H).
+Proof using. intros. subst H. rewrite hwand_equiv. xsimpl. Qed.
+
+(** In technical terms, [H \-* H] characterizes the empty heap only
+    in the case where [H] is "precise", that is, when it describes
+    a heap of a specific shape. In the above counterexample, [H] is
+    clearly not precise, because it is satisfied by heaps of any shape.
+    The notion of "preciseness" can be defined formally, yet it is
+    out of the scope of this course. *)
+
+(** As another tempting yet false property of the magic wand,
+    consider the reciprocal entailment to the cancellation lemma,
+    that is, [H2 ==> H1 \* (H1 \-* H2)]. It does not hold in general.
 
     As counter-example, consider [H2 = \[]] and [H1 = \[False]].
     We can prove that the empty heap does not satisfies
@@ -1034,10 +1074,10 @@ Proof using.
 Qed.
 
 (** The lemma above shows that the empty predicate [\[]] can
-    be removed from the LHS of a magic wand. More generally,
-    a pure predicate [\[P]] can be removed from the LHS of
-    a magic wand, as long as it is true.
+    be removed from the LHS of a magic wand.
 
+    More generally, a pure predicate [\[P]] can be removed from
+    the LHS of a magic wand, as long as it is true.
     Concretely, assume that [\[P] \-* H] holds of a heap.
     To show that [H] holds of this same heap, it suffices
     ot justify that the proposition [P] is true. Formally: *)
@@ -1049,29 +1089,22 @@ Proof using.
   introv HP. unfold hwand. xsimpl.
   intros H0 M. xchange M. applys HP.
 Qed.
-   (* Note: here is an alterntive proof w.r.t. [hwand]:
-    introv HP. unfold hwand. intros h K.
-    forwards M: K (Fmap.empty:heap).
-    { apply Fmap.disjoint_empty_r. }
-    { applys hpure_intro HP. }
-    { rewrite Fmap.union_empty_r in M. applys M. } *)
 
 (** Reciprocally, to prove that a heap satisfies [\[P] \-* H],
-    we suffices to prove that it satisfies [H] under the assumption
-    that [P] is true. Formally: *)
+    it suffices to prove that this heap satisfies [H] under the
+    assumption that [P] is true. Formally: *)
 
 Lemma hwand_hpure_r_intro : forall H1 H2 P,
   (P -> H1 ==> H2) ->
   H1 ==> (\[P] \-* H2).
 Proof using. introv M. applys himpl_hwand_r. xsimpl. applys M. Qed.
 
-(* EX1! (himpl_hwand_hpure_lr) *)
+(* EX2? (himpl_hwand_hpure_lr) *)
 (** Prove that [\[P1 -> P2]] entails [\[P1] \-* \[P2]]. *)
 
 Lemma himpl_hwand_hpure_lr : forall (P1 P2:Prop),
   \[P1 -> P2] ==> (\[P1] \-* \[P2]).
-Proof using.
-(* ADMITTED *)
+Proof using. (* ADMITTED *)
   intros. unfold hwand. xpull. intros M.
   xsimpl \[P1->P2]. { applys M. } xsimpl. auto.
 Qed. (* /ADMITTED *)
@@ -1123,8 +1156,8 @@ Proof using.
 Qed.
 
 (** Remark: the reciprocal entailment is false: it is not possible
-    to extract a heap predicate out of the LHS of an entailment,
-    because this heap predicate might not exist if it is mentioned
+    to extract a heap predicate out of the LHS of an entailment.
+    Indeed, that heap predicate might not exist if it is mentioned
     in the RHS of the magic wand. *)
 
 (* EX1! (himpl_hwand_hstar_same_r) *)
@@ -1132,8 +1165,7 @@ Qed.
 
 Lemma himpl_hwand_hstar_same_r : forall H1 H2,
   H1 ==> (H2 \-* (H2 \* H1)).
-Proof using.
-(* ADMITTED *)
+Proof using. (* ADMITTED *)
   intros. applys himpl_hwand_r. xsimpl.
 Qed. (* /ADMITTED *)
 
@@ -1144,8 +1176,7 @@ Qed. (* /ADMITTED *)
 
 Lemma hwand_cancel_part : forall H1 H2 H3,
   H1 \* ((H1 \* H2) \-* H3) ==> (H2 \-* H3).
-Proof using.
-(* ADMITTED *)
+Proof using. (* ADMITTED *)
   intros. applys himpl_hwand_r. xchange (hwand_cancel (H1 \* H2)).
 Qed. (* /ADMITTED *)
 
@@ -1176,8 +1207,7 @@ Qed. (* /ADMITTED *)
     between (1) and (2), then prove the equivalence between (2) and (3).
 *)
 
-(** Let us first prove that [hwand] is equivalent to [hwand'],
-    i.e., that (1) and (2) are equivalent definitions. *)
+(** Let us first prove that (1) and (2) are equivalent. *)
 
 Lemma hwand_eq_hwand' :
   hwand = hwand'.
@@ -1194,7 +1224,7 @@ Proof using.
     { auto. } }
 Qed.
 
-(** According to definition (3), an operator [op] is a magic wand
+(** According to definition (3), an operator [op] denotes a magic wand
    if and only if, for any [H0], [H1], [H2], it satisfies the
    equivalence [(H0 ==> op H1 H2) <-> (H0 \* H1 ==> H2)]. Formally: *)
 
@@ -1202,7 +1232,8 @@ Definition hwand_characterization (op:hprop->hprop->hprop) :=
   forall H0 H1 H2, (H0 ==> op H1 H2) <-> (H1 \* H0 ==> H2).
 
 (** We prove that an operator [op] satisfies [hwand_characterization]
-    if and only if it is equal to [hwand]. *)
+    if and only if it is equal to [hwand]. This result shows that the
+    definitions (2) and (3) are equivalent. *)
 
 Lemma hwand_characterization_iff_eq_hwand : forall op,
   hwand_characterization op <-> op = hwand.
@@ -1227,21 +1258,20 @@ Export WandDef.
 
 (** In the beginning of this chapter, we defined [qwand] following the pattern
     of [hwand], as [ \exists H0, H0 \* \[ Q1 \*+ H0 ==> Q2 ] ].
-    An alternative approach consists of defining [qwand] in terms of [hwand],
-    as we explain next.
+    An alternative approach consists of defining [qwand] in terms of [hwand].
 
     This alternative definition involves the universal quantifier for heap
-    predicates, written [\forall x, H]. This universal quantifier is the
+    predicates, written [\forall x, H]. The universal quantifier is the
     counterpart of the existential quantifier [\exists x, H].
 
-    Using the [\forall] quantifier, we will be able to define [Q1 \--* Q2]
-    as the heap  predicate [\forall v, (Q1 v) \-* (Q2 v)]. *)
+    Using the [\forall] quantifier, we may define [Q1 \--* Q2] as the heap
+    predicate [\forall v, (Q1 v) \-* (Q2 v)]. *)
 
 (** Let us first formalize the definition of the universal quantifier on [hprop].
     Technically, a heap predicate of the form [\forall x, H] stands for
     [hforall (fun x => H)], where the definition of [hforall] follows the
     exact same pattern as for [hexists]. The definition shown below is somewhat
-    technical, details may be safely skipped over. *)
+    technical---details may be safely skipped over. *)
 
 Definition hforall (A : Type) (J : A -> hprop) : hprop :=
   fun h => forall x, J x h.
@@ -1251,24 +1281,24 @@ Notation "'\forall' x1 .. xn , H" :=
   (at level 39, x1 binder, H at level 50, right associativity,
    format "'[' '\forall' '/ '  x1  ..  xn , '/ '  H ']'") : heap_scope.
 
-(** The introduction rule for [\forall] appears below.
-    To prove that a heap satisfies [\forall x, J x], one must
-    show that, for any [x], this heap satisfies [J x]. *)
+(** The introduction rule for [\forall] appears below. To prove that a heap
+    satisfies [\forall x, J x], one must  show that, for any [x], this heap
+    satisfies [J x]. *)
 
 Lemma himpl_hforall_r : forall A (J:A->hprop) H,
   (forall x, H ==> J x) ->
   H ==> (\forall x, J x).
 Proof using. introv M. intros h K x. apply~ M. Qed.
 
-(** The elimination rule for [\forall] appears below.
-    Assuming a heap satisfies [\forall x, J x], one can derive
-    that the same heap satisfies [J v] for any desired value [v]. *)
+(** The elimination rule for [\forall] appears below. Assuming a heap
+    satisfies [\forall x, J x], one can derive that the same heap
+    satisfies [J v] for any desired value [v]. *)
 
 Lemma hforall_specialize : forall A (v:A) (J:A->hprop),
   (\forall x, J x) ==> (J v).
 Proof using. intros. intros h K. apply* K. Qed.
 
-(** The lemma above can equivalently be formulated in the following way,
+(** This last lemma can equivalently be formulated in the following way,
     which makes it easier to apply in some cases. *)
 
 Lemma himpl_hforall_l : forall A (v:A) (J:A->hprop) H,
@@ -1281,19 +1311,18 @@ Proof using. introv M. applys himpl_trans M. applys hforall_specialize. Qed.
 (** ** Alternative definition of [qwand] *)
 
 (** We are now read to state the alternative definition of [Q1 \--* Q2],
-    as the heap  predicate [\forall v, (Q1 v) \-* (Q2 v)]. *)
+    as the heap predicate [\forall v, (Q1 v) \-* (Q2 v)]. *)
 
 Definition qwand (Q1 Q2:val->hprop) : hprop :=
   \forall v, (Q1 v) \-* (Q2 v).
 
 Notation "Q1 \--* Q2" := (qwand Q1 Q2) (at level 43).
 
-(** Let us establish the properties of the new definition of [qwand],
-    through direct proofs, i.e., not reusing the properties of [qwand'].
+(** Let us establish the properties of the new definition of [qwand].
 
     We begin by the specialization lemma, which asserts that [Q1 \--* Q2]
     can be specialized to [(Q1 v) \-* (Q2 v)] for any value [v]. This
-    result is now a direct consequence of the corresponding specialization
+    result is a direct consequence of the corresponding specialization
     property of [\forall]. *)
 
 Lemma qwand_specialize : forall (v:val) (Q1 Q2:val->hprop),
@@ -1321,7 +1350,7 @@ Lemma qwand_cancel : forall Q1 Q2,
 Proof using. intros. rewrite <- qwand_equiv. applys qimpl_refl. Qed.
 
 (** Let us also prove that [qwand] is equivalent to the previous version
-    of [qwand], which we rename [qwand']. *)
+    of [qwand], which we rename here [qwand']. *)
 
 Definition qwand' (Q1 Q2:val->hprop) : hprop :=
   \exists H0, H0 \* \[ Q1 \*+ H0 ===> Q2 ].
@@ -1363,8 +1392,7 @@ Qed.
 
 Lemma himpl_qwand_hstar_same_r : forall H Q,
   H ==> Q \--* (Q \*+ H).
-Proof using.
-(* ADMITTED *)
+Proof using. (* ADMITTED *)
   intros. rewrite qwand_equiv. xsimpl.
 Qed. (* /ADMITTED *)
 
@@ -1375,8 +1403,7 @@ Qed. (* /ADMITTED *)
 
 Lemma qwand_cancel_part : forall H Q1 Q2,
   H \* ((Q1 \*+ H) \--* Q2) ==> (Q1 \--* Q2).
-Proof using.
-(* ADMITTED *)
+Proof using. (* ADMITTED *)
   intros. rewrite qwand_equiv. intros x.
   xchange (qwand_specialize x).
   xchange (hwand_cancel (Q1 x \* H)).
@@ -1384,18 +1411,6 @@ Qed. (* /ADMITTED *)
 
 (** [] *)
 
-(* EX2? (himpl_hwand_hpure_lr) *)
-(** Prove that [\[P1 -> P2]] entails [\[P1] \-* \[P2]]. *)
-
-Lemma himpl_hwand_hpure_lr : forall (P1 P2:Prop),
-  \[P1 -> P2] ==> (\[P1] \-* \[P2]).
-Proof using.
-(* ADMITTED *)
-  intros. unfold hwand. xpull. intros M.
-  xsimpl \[P1->P2]. { applys M. } xsimpl. auto.
-Qed. (* /ADMITTED *)
-
-(** [] *)
 
 (* ####################################################### *)
 (** ** Simplified definition of [mkstruct] *)
@@ -1480,7 +1495,7 @@ Parameter wp_ref : forall Q v,
     the reformulation. *)
 
 (** In what follows, we describe the chain of transformation that can take us
-    from the triple form to the wp form, and establish the reciprocal.
+    from the triple form to the [wp] form, and establish the reciprocal.
     We then formalize the general pattern for translating a triple
     into a "texan triple" (i.e., the wp-based specification). *)
 
@@ -1501,7 +1516,7 @@ Lemma wp_ref_1 : forall Q v,
 Proof using. intros. xchange (wp_ref_0 v). applys wp_ramified. Qed.
 
 (** This statement can be made slightly more readable by unfolding the
-    definition of [\--*], as shown next. *)
+    definition of the magic wand for postconditions, as shown next. *)
 
 Lemma wp_ref_2 : forall Q v,
   (\forall r, (\exists l, \[r = val_loc l] \* l ~~~> v) \-* Q r) ==> wp (val_ref v) Q.
@@ -1524,21 +1539,22 @@ Qed.
 
 (** In practice, specification triples can (pretty much) all be casted
     in the form: [triple t H (fun r => exists x1 x2, \[r = v] \* H'].
+    In such a specification:
 
-    Above, the value [v] may depend on the [xi].
-    The heap predicate [H'] may depend on [r] and the [xi].
-    The number of existentials [xi] may vary, possibly be zero.
-    The equality \[r = v] may be removed if no pure fact is needed about [r].
+    - the value [v] may depend on the [xi],
+    - the heap predicate [H'] may depend on [r] and the [xi],
+    - the number of existentials [xi] may vary, possibly be zero,
+    - the equality \[r = v] may be removed if no pure fact is needed about [r].
 
-    A specification triple of the form
+    Such a specification triple of the form
     [triple t H (fun r => exists x1 x2, \[r = v] \* H']
     can be be reformulated as the Texan triple:
     [(\forall x1 x2, H \-* Q v) ==> wp t Q].
 
     We next formalize the equivalence between the two presentations, for
     the specific case where the specification involves a single auxiliary
-    variable, called [x1]. The statement below makes it explicit that
-    [H] and [v] may depend on [x1]. *)
+    variable, called [x]. The statement below makes it explicit that
+    (v] may depend on [x], and that [H] may depend on [r] and [x]. *)
 
 Lemma texan_triple_equiv : forall t H A (Hof:val->A->hprop) (vof:A->val),
       (triple t H (fun r => \exists x, \[r = vof x] \* Hof r x))
@@ -1561,7 +1577,7 @@ Qed.
 Parameter incr : val.
 
 Parameter triple_incr : forall (p:loc) (n:int),
-  triple (trm_app incr p)
+  triple (incr p)
     (p ~~~> n)
     (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
 
@@ -1574,7 +1590,7 @@ Parameter triple_incr : forall (p:loc) (n:int),
 
 (* SOLUTION *)
 Lemma wp_incr : forall (p:loc) (n:int) Q,
-  (p ~~~> n) \* (p ~~~> (n+1) \-* Q val_unit) ==> wp (trm_app incr p) Q.
+  (p ~~~> n) \* (p ~~~> (n+1) \-* Q val_unit) ==> wp (incr p) Q.
 Proof using.
   intros. rewrite wp_equiv. applys triple_conseq_frame.
   { applys triple_incr. } { xsimpl. } { xsimpl. intros ? ->. auto. }
@@ -1582,8 +1598,6 @@ Qed.
 (* /SOLUTION *)
 
 (** [] *)
-
-(** Remark: Texan triples are used in Iris. *)
 
 End TexanTriples.
 
@@ -1619,16 +1633,16 @@ End WpFromHoare.
 (* ####################################################### *)
 (** ** Conjunction and disjunction operators on [hprop] *)
 
-(** The (non-separating) conjunction and the disjunction are two
+(** The disjunction and the (non-separating) conjunction are two
     other Separation Logic operators. The are not so useful in
     practice, because they can be trivially encoded using Coq
     conditional construct, or using Coq pattern matching.
-
-    Nevertheless, these two operators can show useful in some
-    contexts. *)
+    Nevertheless, these two operators can prove useful in specific
+    contexts. We present them also for the sake of completeness. *)
 
 Module ConjDisj.
 Import NewQwand.
+
 
 (* ################################################ *)
 (** *** Definition of [hor] *)
@@ -1661,8 +1675,7 @@ Definition hor (H1 H2 : hprop) : hprop :=
 
 Lemma hor_eq_hor' :
   hor = hor'.
-Proof using.
-(* ADMITTED *)
+Proof using. (* ADMITTED *)
   applys fun_ext_2. intros H1 H2. unfold hor, hor'. applys himpl_antisym.
   { xsimpl. intros b h K. destruct b. { left*. } { right*. } }
   { intros h K. destruct K. { exists* true. } { exists* false. } }
@@ -1711,8 +1724,7 @@ Proof using. intros. case_if*. Qed.
 
 Lemma hor_comm : forall H1 H2,
   hor H1 H2 = hor H2 H1.
-Proof using.
-(* ADMITTED *)
+Proof using. (* ADMITTED *)
   applys hprop_op_comm. intros. unfold hor.
   xpull. intros b. rewrite if_neg. xsimpl.
 Qed. (* /ADMITTED *)
@@ -1748,8 +1760,7 @@ Definition hand (H1 H2 : hprop) : hprop :=
 
 Lemma hand_eq_hand' :
   hand = hand'.
-Proof using.
-(* ADMITTED *)
+Proof using. (* ADMITTED *)
   applys fun_ext_2. intros H1 H2. unfold hand, hand', hforall.
   applys himpl_antisym.
   { intros h N. split. { applys N true. } { applys N false. } }
@@ -1787,8 +1798,7 @@ Proof using. introv M1 M2 Hh. intros b. case_if*. Qed.
 
 Lemma hand_comm : forall H1 H2,
   hand H1 H2 = hand H2 H1.
-Proof using.
-(* ADMITTED *)
+Proof using. (* ADMITTED *)
   applys hprop_op_comm. intros. unfold hand, hforall. intros h K b.
   rewrite if_neg. applys K.
 Qed. (* /ADMITTED *)

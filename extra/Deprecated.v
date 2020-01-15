@@ -907,3 +907,14 @@ Proof using.
   { applys himpl_trans M. xsimpl~. }
 Qed.
 
+
+==========
+
+
+hwand_hpure_l_intro
+   (* Note: here is an alterantive proof w.r.t. [hwand]:
+    introv HP. unfold hwand. intros h K.
+    forwards M: K (Fmap.empty:heap).
+    { apply Fmap.disjoint_empty_r. }
+    { applys hpure_intro HP. }
+    { rewrite Fmap.union_empty_r in M. applys M. } *)
