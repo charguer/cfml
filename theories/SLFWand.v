@@ -1279,7 +1279,7 @@ Definition hforall (A : Type) (J : A -> hprop) : hprop :=
 Notation "'\forall' x1 .. xn , H" :=
   (hforall (fun x1 => .. (hforall (fun xn => H)) ..))
   (at level 39, x1 binder, H at level 50, right associativity,
-   format "'[' '\forall' '/ '  x1  ..  xn , '/ '  H ']'") : heap_scope.
+   format "'[' '\forall' '/ '  x1  ..  xn , '/ '  H ']'").
 
 (** The introduction rule for [\forall] appears below. To prove that a heap
     satisfies [\forall x, J x], one must  show that, for any [x], this heap
@@ -1316,7 +1316,9 @@ Proof using. introv M. applys himpl_trans M. applys hforall_specialize. Qed.
 Definition qwand (Q1 Q2:val->hprop) : hprop :=
   \forall v, (Q1 v) \-* (Q2 v).
 
-Notation "Q1 \--* Q2" := (qwand Q1 Q2) (at level 43).
+Notation "Q1 \--* Q2" := (qwand Q1 Q2) (at level 43) : qwand_scope.
+
+Open Scope qwand_scope.
 
 (** Let us establish the properties of the new definition of [qwand].
 

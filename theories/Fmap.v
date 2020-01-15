@@ -571,7 +571,6 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Domain *)
 
-
 Lemma indom_single : forall x v,
   indom (single x v) x.
 Proof using.
