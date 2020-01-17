@@ -28,8 +28,6 @@ Definition incr : val :=
                              (trm_var "n")) (val_int 1)) (
     trm_app (trm_app val_set (trm_var "p")) (trm_var "m")))).
 
-(* TOdO TRM APP *)
-
 (** Idem, dans des notations Coq pour le langage embarqué. *)
 
 Definition incr' : val :=
@@ -46,7 +44,7 @@ Lemma triple_incr : forall (p:loc) (n:int),
     (fun _ => p ~~~> (n+1)).
 
 Proof using.
-  intros. 
+  intros.
   (* déroulons le corps de la fonction *)
   applys triple_app_fun_direct. simpl.
   (* raisonnons sur [let n = ..] *)

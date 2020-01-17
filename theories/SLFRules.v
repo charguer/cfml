@@ -789,18 +789,25 @@ Export SLFProgramSyntax.
 
 Definition incr : val :=
   val_fun "p" (
-    trm_let "n" (val_get "p") (
-    trm_let "m" (val_add "n" (val_int 1)) (
-    val_set "p" "m"))).
+    trm_let "n" (trm_app val_get (trm_var "p")) (
+    trm_let "m" (trm_app (trm_app val_add
+                             (trm_var "n")) (val_int 1)) (
+    trm_app (trm_app val_set (trm_var "p")) (trm_var "m")))).
 
-(** Alternatively, using fancy notation, the same program can be written
-    as shown below. *)
+(** Alternatively, using notation and coercions, the same program can be
+    written as shown below. *)
 
 Definition incr' : val :=
   VFun 'p :=
     Let 'n := '! 'p in
     Let 'm := 'n '+ 1 in
    'p ':= 'm.
+
+(** Let us check that the two definitions are indeed the same. *)
+
+Lemma incr_eq_incr' :
+  incr = incr'.
+Proof using. reflexivity. Qed.
 
 (** Recall from the first chapter the specification of the increment function.
     Its precondition requires a singleton state of the form [p ~~~> n].
