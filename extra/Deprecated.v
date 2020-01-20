@@ -918,3 +918,22 @@ hwand_hpure_l_intro
     { apply Fmap.disjoint_empty_r. }
     { applys hpure_intro HP. }
     { rewrite Fmap.union_empty_r in M. applys M. } *)
+
+
+
+==========
+
+
+Lemma mkstruct_ramified : forall Q1 Q2 F,
+  (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
+Proof using. unfold mkstruct. xsimpl. Qed.
+
+The statement, shown below, asserts that:
+
+    1. [wp t Q1] can absorb any heap predicate [H] with which it
+      is starred, changing it to [wp t (Q1 \*+ H)].
+
+    2. [wp t Q1] can be weakened to [wp t Q2] when [Q1 ===> Q2].
+
+    3. [wp t (Q1 \*+ H)] can be simplified to [wp t Q1] if one
+      wants to discard [H] from the postcondition.

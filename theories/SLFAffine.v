@@ -461,45 +461,18 @@ Qed.
 (* ########################################################### *)
 (** ** Garbage collection rules in WP style *)
 
-Lemma wp_ramified : forall Q1 Q2 t,
-  (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
+(** In weakest precondition style, the garbage collection rule [triple_hgc_post]
+    translates to the following statement. *)
+
+Lemma wp_hgc_post : forall t H Q,
+  wp t (Q \*+ \GC) ==> wp t Q.
 Proof using.
-  intros. unfold wp. xpull ;=> H M.
-  xsimpl (H \* (Q1 \--* Q2 \*+ \Top)). intros H'.
-  applys hoare_conseq M; xsimpl.
+  intros. rewrite <- wp_equiv.
+  applys triple_hany_post. rewrite* wp_equiv.
 Qed.
 
-Lemma wp_hany_pre : forall t H Q,
-  (wp t Q) \* H ==> wp t Q.
-Proof using. intros. applys himpl_trans_r wp_ramified. xsimpl. Qed.
-
-Lemma wp_hany_post : forall t H Q ,
-  wp t (Q \*+ H) ==> wp t Q.
-Proof using. intros. applys himpl_trans_r wp_ramified. xsimpl. Qed.
-
-
-Lemma wp_conseq_frame_htop : forall t H Q1 Q2,
-  Q1 \*+ H ===> Q2 \*+ \Top ->
-  (wp t Q1) \* H ==> (wp t Q2).
-Proof using.
-  introv M. rewrite <- wp_equiv.
-  applys triple_conseq_frame_htop (wp t Q1) M.
-  { rewrite wp_equiv. xsimpl. } { xsimpl. }
-Qed.
-
-(** The above statement asserts that:
-
-    1. [wp t Q1] can absorb any heap predicate [H] with which it
-      is starred, changing it to [wp t (Q1 \*+ H)].
-
-    2. [wp t Q1] can be weakened to [wp t Q2] when [Q1 ===> Q2].
-
-    3. [wp t (Q1 \*+ H)] can be simplified to [wp t Q1] if one
-      wants to discard [H] from the postcondition. *)
-
-(** The garbage collection in precondition for [wp] asserts that
-    [wp] can absorb and discard any desired heap predicate [H]
-    that sits next to it (i.e., that it is starred with). *)
+(** Likewise, the wp-style presentation of the rule [triple_hgc_pre] takes the
+    following form. *)
 
 Lemma wp_hany_pre : forall t H Q,
   (wp t Q) \* H ==> wp t Q.
@@ -508,19 +481,19 @@ Proof using.
   applys triple_hany_pre. rewrite* wp_equiv.
 Qed.
 
-(** The garbage collection in postconditions for [wp] asserts
-    that [wp] can absorb and discard any desired heap predicate
-    [H] that appears in its postcondition. *)
+(** The revised presentation of the wp-style ramified frame rule includes an
+    extra [\GC] predicate. *)
 
-Lemma wp_hany_post : forall t H Q ,
-  wp t (Q \*+ H) ==> wp t Q.
+Lemma wp_ramified : forall Q1 Q2 t,
+  (wp t Q1) \* (Q1 \--* (Q2 \*+ \GC)) ==> (wp t Q2).
+
+(** For a change, let us present below a direct proof for this lemma, which does
+    not depend on structural rules for triples. *)
 Proof using.
-  intros. rewrite <- wp_equiv.
-  applys triple_hany_post. rewrite* wp_equiv.
+  intros. unfold wp. xpull ;=> H M.
+  xsimpl (H \* (Q1 \--* Q2 \*+ \GC)). intros H'.
+  applys hoare_conseq M; xsimpl.
 Qed.
-
-(** Note, equivalently, the [H] from rules [wp_hany_pre] and
-   [wp_hand_post] may be replaced with [\Top]. *)
 
 
 (* ########################################################### *)
@@ -584,21 +557,6 @@ Proof using. (* ADMITTED *)
 Qed. (* /ADMITTED *)
 
 (* [] *)
-
-(** The following variant of [triple_haffine_pre] is better suited for
-    proofs in practice, as it allows using [xsimpl] to separate between
-    the part of the precondition to be kept and the part to be discarded. *)
-
-Lemma triple_hany_pre_trans : forall H1 H2 t H Q,
-  triple t H1 Q ->
-  H ==> H1 \* H2 ->
-  triple t H Q.
-Proof using.
-  introv M WH. applys triple_conseq (H1 \* H2) Q.
-  { applys triple_hany_pre. auto. }
-  { applys WH. }
-  { applys qimpl_refl. }
-Qed.
 
 (** EX1! (triple_conseq_frame_htop)
     Prove that combined structural rule [triple_conseq_frame_htop], which
@@ -881,27 +839,74 @@ Qed. (* /ADMITTED *)
 End ReasoningRules.
 
 
-
 (* ########################################################### *)
-(** ** [mkstruct] and [xgc] tactic *)
+(** ** Revised definition of [mkstruct] *)
 
-(** [mkstruct] revisited *)
+(** Recall the definition [mkstruct], as stated in the file [SLFWand].
+
+[[
+    Definition mkstruct (F:formula) : formula :=
+      fun Q => \exists Q', (F Q') \* (Q' \--* Q).
+]]
+
+    This definition can be generalized to handle not just the consequence
+    and the frame rule, but also the garbage collection rule.
+
+    To that end, we augment [mkstruct] with an additional [\GC], as follows. *)
 
 Definition mkstruct (F:formula) : formula :=
   fun Q => \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
 
-Lemma mkstruct_ramified : forall Q1 Q2 F,
-  (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
-Proof using. unfold mkstruct. xsimpl. Qed.
+(** Let us prove that this revised definition of [mkstruct] does sastisfy
+    the [wp]-style statement of the garbage collection rule, which is stated
+    in a way similar to [wp_hgc_post]. *)
+
+Lemma mkstruct_hgc : forall Q F,
+  mkstruct F (Q \*+ \GC) ==> mkstruct F Q.
+
+(** Besides, let us prove that the revised definition of [mkstruct] still
+    satisfies the three required properties. *)
+
+Lemma mkstruct_erase : forall (F:formula) Q,
+  F Q ==> mkstruct F Q.
+Proof using.
+  intros. unfold mkstruct. xsimpl Q. rewrite qwand_equiv. xsimpl.
+Qed.
+
+Lemma mkstruct_conseq : forall (F:formula) Q1 Q2,
+  Q1 ===> Q2 ->
+  mkstruct F Q1 ==> mkstruct F Q2.
+Proof using.
+  introv WQ. unfold mkstruct. xpull. intros Q'. xsimpl Q'.
+  rewrite qwand_equiv. xchange qwand_cancel. xchange WQ.
+Qed.
+
+Lemma mkstruct_frame : forall (F:formula) H Q,
+  (mkstruct F Q) \* H ==> mkstruct F (Q \*+ H).
+Proof using.
+  intros. unfold mkstruct. xpull. intros Q'. xsimpl Q'.
+  rewrite qwand_equiv. xchange qwand_cancel.
+Qed.
 
 
-(** [xtop_lemma] helps exploiting [mkstruct] to augment the postcondition
-    with [\Top]. It proves the entailment:
-[[
-    H ==> mkstruct F (Q \*+ \Top) ->
-    H ==> mkstruct F Q.
-]]
-*)
+(* ########################################################### *)
+(** ** The [xgc] tactic *)
+
+(** The following variant of [triple_haffine_pre] is better suited for
+    proofs in practice, as it allows using [xsimpl] to separate between
+    the part of the precondition to be kept and the part to be discarded. *)
+
+Lemma triple_hany_pre_trans : forall H1 H2 t H Q,
+  triple t H1 Q ->
+  H ==> H1 \* H2 ->
+  triple t H Q.
+Proof using.
+  introv M WH. applys triple_conseq (H1 \* H2) Q.
+  { applys triple_hany_pre. auto. }
+  { applys WH. }
+  { applys qimpl_refl. }
+Qed.
+
 
 Lemma xtop_lemma : forall H Q F,
   H ==> mkstruct F (Q \*+ \Top) ->
