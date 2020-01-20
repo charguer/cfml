@@ -1934,7 +1934,7 @@ Tactic Notation "xapp_simpl" := (* internal *)
 Tactic Notation "xapp_nosubst" constr(E) :=
   xseq_xlet_if_needed; xstruct_if_needed;
   applys xapp_lemma E; xapp_simpl.
- 
+
 Tactic Notation "xapp_nosubst" :=
   xseq_xlet_if_needed; xstruct_if_needed;
   applys xapp_lemma; [ solve [ eauto with triple ] | xapp_simpl ].

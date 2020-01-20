@@ -421,7 +421,7 @@ Notation "'hprop''" := (SLFHprop.hprop).
     performs the first step. We will also illustrate its usage. *)
 
 
-(* ########################################################### *)
+(* ################################################ *)
 (** *** [xsimpl] to extract pure facts and quantifiers in LHS *)
 
 (** The first feature of [xsimpl] is its ability to extract the
@@ -469,7 +469,7 @@ Proof using.
 Abort.
 
 
-(* ########################################################### *)
+(* ################################################ *)
 (** *** [xsimpl] to cancel out heap predicates from LHS and RHS *)
 
 (** The second feature of [xsimpl] is its ability to cancel out similar
@@ -505,7 +505,7 @@ Proof using.
 Qed.
 
 
-(* ########################################################### *)
+(* ################################################ *)
 (** *** [xsimpl] to instantiate pure facts and quantifiers in RHS *)
 
 (** The third feature of [xsimpl] is its ability to extract pure facts
@@ -581,7 +581,7 @@ Proof using.
 Abort.
 
 
-(* ########################################################### *)
+(* ################################################ *)
 (** *** [xsimpl] on entailments between postconditions *)
 
 (** The tactic [xsimpl] also applies on goals of the form [Q1 ===> Q2].
@@ -594,8 +594,8 @@ Lemma qimpl_example_1 : forall (Q1 Q2:val->hprop) (H2 H3:hprop),
 Proof using. intros. xsimpl. intros r. Abort.
 
 
-(* ########################################################### *)
-(** ** Example of entailment proofs using [xsimpl] *)
+(* ################################################ *)
+(** *** Example of entailment proofs using [xsimpl] *)
 
 Lemma himpl_example_1 : forall (p:loc),
   p ~~~> 3 ==>

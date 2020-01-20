@@ -1,6 +1,6 @@
 (** * Preface *)
 
-(** *** Warning! Beta release! *)
+(** Warning! Beta release! *)
 
 (* ########################################################### *)
 (** * Welcome *)

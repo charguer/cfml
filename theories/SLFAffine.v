@@ -21,26 +21,98 @@ Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
 
 
-(** The definition of [triple] presented above can be used as such for
-    dealing with languages that feature explicit deallocation. However,
-    for a programming language equipped with a garbage collector, we need
-    one additional tweak, to account for the fact that a postcondition may
-    freely forget about pieces of heaps that become no longer relevant.
-    The required modification is motivated and explained next. *)
-
-
-
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Chapter in a rush *)
 
-(** This chapter introduces the notion of weakest precondition
-    for Separation Logic triples. *)
+(** The Separation Logic framework that we have constructed is well-suited
+    for a language with explicit deallocation, but cannot be used as such for
+    a language equipped with a garbage collector. As we pointed out in the
+    chapter [SLFBasic], there is no rule in Separation Logic that allows
+    discarding a heap predicate from the precondition or the postcondition.
+
+    In this chapter, we explain how to generalize the Separation Logic
+    framework to support a "garbage collection rule", which one may invoke
+    in the logic to discard predicates describing allocated data, thereby
+    reflecting on the action of the garbage collector. The resulting
+    framework is said to describe an "affine" logic, as opposed to a "linear"
+    logic.
+
+    This chapter is organized as follows:
+
+    - first, we recall the example demonstrating the need for a new rule,
+    - second, we present the statement of the "garbage collection rule",
+    - third, we show how to refine the definition of Separation Logic
+      triples, so as to accomodate the new rule.
+
+    Although in the present course we consider a language for which it is
+    desirable that any heap predicate can be discarded, we will present
+    general definitions allowing to fine-tune which heap predicates can
+    be discarded and which cannot be discarded by the user. We will argue
+    why such a fine-tuning may be interesting. *)
 
 
-(* ******************************************************* *)
-(** ** Motivation:  *)
+(* ########################################################### *)
+(** ** Motivation for the garbage collection rule *)
 
-(** deallocation implicit, example succ *)
+(** Let us recall the example of the function [succ_using_incr_attempt]
+    from chapter [SLFBasic]. This function allocates a reference with
+    contents [n], then increments that reference, and finally returning
+    its contents, that is, [n+1].
+
+[[
+    let succ_using_incr_attempt n =
+      let p = ref n in
+      incr p;
+      !p
+]]
+
+*)
+
+Definition succ_using_incr_attempt :=
+  VFun 'n :=
+    Let 'p := 'ref 'n in
+    incr 'p ';
+    '! 'p.
+
+(** In the framework developed so far, the heap predicate describing the
+    reference cell allocated by the function cannot be discarded by the
+    user, because the code does not feature a deallocation operation.
+    As a result, the user is forced to include in the postcondition the
+    description of a left-over reference. *)
+
+Lemma Triple_succ_using_incr_attempt' : forall (n:int),
+  TRIPLE (succ_using_incr_attempt n)
+    PRE \[]
+    POST (fun r => \[r = n+1] \* \exists p, (p ~~> (n+1))).
+Proof using.
+  xwp. xapp. intros p. xapp. xapp. xsimpl. { auto. }
+Qed.
+
+(** This situation is desirable in a programming language with explicit
+    deallocation, because it ensures that the code written by the programmer
+    is not missing any deallocation operation. However, it is ill-suited for
+    a programming language equipped with a garbage collector that performs
+    deallocation automatically.
+
+    In this chapter, we present an "affine" version of Separation Logic,
+    where the above function [succ_using_incr_attempt] admits the postcondition
+    [fun r => \[r = n+1]], and needs not mention the left-over reference. *)
+
+
+
+
+
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Additional contents *)
+
+
+
+
+
 
 
 (* ******************************************************* *)

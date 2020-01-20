@@ -80,8 +80,8 @@ Ltac xwp_xtriple_handle_gc ::= xwp_xtriple_remove_gc.
     In OCaml syntax, this function is defined as:
 
 [[
-  let incr p =
-    p := !p + 1
+    let incr p =
+      p := !p + 1
 ]]
 
     The actual CFML tool features a parser able to process OCaml syntax.
@@ -162,11 +162,11 @@ Lemma Triple_incr : forall (p:loc) (n:int),
     in "A-normal form". In OCaml syntax, the A-normal could be written:
 
 [[
-  let incr p =
-    let m =
-      let n = !p in
-      n + 1 in
-    p := m
+    let incr p =
+      let m =
+        let n = !p in
+        n + 1 in
+      p := m
 ]]
 
     The transformation into A-normal form is performed by the tactic [xwp],
@@ -226,7 +226,7 @@ Hint Extern 1 (Register_Spec incr) => Provide Triple_incr.
 
 
 (* ########################################################### *)
-(** *** A function with a return value *)
+(** ** A function with a return value *)
 
 (** As second example, we describe a function that performs simple
     arithmetic computations. The function, whose code appears below,
@@ -235,10 +235,10 @@ Hint Extern 1 (Register_Spec incr) => Provide Triple_incr.
     thus always returns [2*n].
 
 [[
-  let example_let n =
-    let a = n + 1 in
-    let b = n - 1 in
-    a + b
+    let example_let n =
+      let a = n + 1 in
+      let b = n - 1 in
+      a + b
 ]]
 *)
 
@@ -311,8 +311,8 @@ Qed.
     and returns its quadruple, that is, the value [4 * n].
 
 [[
-  let quadruple n =
-    n + n + n + n
+    let quadruple n =
+      n + n + n + n
 ]]
 *)
 
@@ -347,8 +347,8 @@ Qed.
     reference with the sum of the two values that were read.
 
 [[
-  let inplace_double p =
-    p := !p + !p
+    let inplace_double p =
+      p := !p + !p
 ]]
 *)
 
@@ -374,15 +374,15 @@ Qed.
 
 
 (* ########################################################### *)
-(** *** Increment of two references *)
+(** ** Increment of two references *)
 
 (** Consider the following function, which expects the addresses
     of two reference cells, and increments both of them.
 
 [[
-  let incr_two p q =
-    incr p;
-    incr q
+    let incr_two p q =
+      incr p;
+      incr q
 ]]
 *)
 
@@ -426,7 +426,7 @@ Hint Extern 1 (Register_Spec incr_two) => Provide Triple_incr_two.
 
 
 (* ########################################################### *)
-(** *** Aliased arguments *)
+(** ** Aliased arguments *)
 
 (** The specification [Triple_incr_two] correctly describes calls to the
     function [incr_two] when providing it with two distinct reference cells.
@@ -509,14 +509,14 @@ Qed.
 
 
 (* ########################################################### *)
-(** *** A function that takes two references, and increments one *)
+(** ** A function that takes two references, and increments one *)
 
 (** Consider the following function, which expects the addresses
     of two reference cells, and increments only the first one.
 
 [[
-  let incr_first p q =
-    incr p
+    let incr_first p q =
+      incr p
 ]]
 *)
 
@@ -582,9 +582,9 @@ Qed.
 (** Consider the [transfer] function, whose code appears below.
 
 [[
-  let transfer p q =
-    p := !p + !q;
-    q := 0
+    let transfer p q =
+      p := !p + !q;
+      q := 0
 ]]
 *)
 
@@ -660,8 +660,8 @@ Hint Extern 1 (Register_Spec random_int) => Provide Triple_random_int.
     is a random number less than [n].
 
 [[
-  let ref_random_int p =
-    ref (random_int n)
+    let ref_random_int p =
+      ref (random_int n)
 ]]
 *)
 
@@ -683,10 +683,10 @@ Definition ref_random_int : val :=
     Doing so, we would obtain:
 
 [[
-  Lemma Triple_ref_random_int : forall (n:int),
-   TRIPLE (ref_random_int n)
-      PRE \[]
-      POST (fun (p:loc) => (p ~~> m) \* \[0 <= m < n]).
+    Lemma Triple_ref_random_int : forall (n:int),
+     TRIPLE (ref_random_int n)
+        PRE \[]
+        POST (fun (p:loc) => (p ~~> m) \* \[0 <= m < n]).
 ]]
 
     Yet, this statement does not type-check because [m] is unbound.
@@ -727,12 +727,12 @@ Qed.
 
 
 (* ########################################################### *)
-(** *** Exercise: allocate a reference with greater contents *)
+(** ** Exercise: allocate a reference with greater contents *)
 
 (** Consider the following function.
 [[
-  let ref_greater p =
-    ref (!p + 1)
+    let ref_greater p =
+      ref (!p + 1)
 ]]
 *)
 
@@ -782,7 +782,7 @@ Qed.
 
 
 (* ########################################################### *)
-(** *** Deallocation in Separation Logic *)
+(** ** Deallocation in Separation Logic *)
 
 (** Separation Logic tracks allocated data. In its standard setup,
     Separation Logic enforces that all allocated data be eventually
@@ -795,10 +795,10 @@ Qed.
     then incrementing that reference, and finally returning its contents.
 
 [[
-  let succ_using_incr_attempt n =
-    let p = ref n in
-    incr p;
-    !p
+    let succ_using_incr_attempt n =
+      let p = ref n in
+      incr p;
+      !p
 ]]
 *)
 
@@ -848,12 +848,12 @@ Qed.
     it is no longer needed, as shown below.
 
 [[
-  let succ_using_incr n =
-    let p = ref n in
-    incr p;
-    let x = !p in
-    free p;
-    x
+    let succ_using_incr n =
+      let p = ref n in
+      incr p;
+      let x = !p in
+      free p;
+      x
 ]]
 *)
 
@@ -886,7 +886,7 @@ Qed.
 
 
 (* ########################################################### *)
-(** *** Axiomatization of the mathematical factorial function *)
+(** ** Axiomatization of the mathematical factorial function *)
 
 (** Our next example consists of a program that evaluate the
     factorial function. To specify this function, we consider
@@ -908,7 +908,7 @@ Parameter facto_step : forall n,
 
 
 (* ########################################################### *)
-(** *** A partial recursive function, without state *)
+(** ** A partial recursive function, without state *)
 
 (** In the rest of the chapter, we will consider recursive
     functions that manipulate the state. To gently introduce
@@ -919,8 +919,8 @@ Parameter facto_step : forall n,
     The function [factorec] computes the factorial of its argument.
 
 [[
-  let rec factorec n =
-    if n <= 1 then 1 else n * factorec (n-1)
+    let rec factorec n =
+      if n <= 1 then 1 else n * factorec (n-1)
 ]]
 
 *)
@@ -1036,7 +1036,7 @@ Qed.
 
 
 (* ########################################################### *)
-(** *** A recursive function with state *)
+(** ** A recursive function with state *)
 
 (** The example of [factorec] was a warmup. Let's now tackle a
     recursive function involving some mutable state.
@@ -1045,11 +1045,11 @@ Qed.
     Here, [m] is assumed to be a nonnegative value.
 
 [[
-  let rec repeat_incr p m =
-    if m > 0 then (
-      incr p;
-      repeat_incr p (m-1)
-    )
+    let rec repeat_incr p m =
+      if m > 0 then (
+        incr p;
+        repeat_incr p (m-1)
+      )
 ]]
 *)
 
@@ -1112,19 +1112,19 @@ Abort.
 
 
 (* ########################################################### *)
-(** *** Exercise: one-by-one transfer from a reference to another *)
+(** ** Exercise: one-by-one transfer from a reference to another *)
 
 (** Consider the function [step_transfer p q], which repeatedly increment
     a reference [p] and decrement a reference [q], until the contents
     of [q] reaches zero.
 
 [[
-  let rec step_transfer p q =
-    if !q > 0 then (
-      incr p;
-      decr q;
-      step_transfer p q
-    )
+    let rec step_transfer p q =
+      if !q > 0 then (
+        incr p;
+        decr q;
+        step_transfer p q
+      )
 ]]
 *)
 
@@ -1169,7 +1169,7 @@ Qed. (* /ADMITTED *)
 (** * Optional contents *)
 
 (* ########################################################### *)
-(** *** Optimized scripts *)
+(** ** Optimized scripts *)
 
 (** The CFML tool features a number of tricks:
     - a call to [intros] in front of an [xwp] is always optional,
@@ -1200,17 +1200,17 @@ Qed.
 
 
 (* ########################################################### *)
-(** *** Trying to prove incorrect specifications *)
+(** ** Trying to prove incorrect specifications *)
 
 (** Recall the function [repeat_incr p n], which invokes [n]
     times [incr p].
 
 [[
-  let rec repeat_incr p m =
-    if m > 0 then (
-      incr p;
-      repeat_incr p (m-1)
-    )
+    let rec repeat_incr p m =
+      if m > 0 then (
+        incr p;
+        repeat_incr p (m-1)
+      )
 ]]
 *)
 
@@ -1276,7 +1276,7 @@ Qed.
 
 
 (* ########################################################### *)
-(** *** Incorrect quantification of existential variables *)
+(** ** Incorrect quantification of existential variables *)
 
 (** Recall the function [ref_random_int n], defined as
     [ref (random_int n)].
