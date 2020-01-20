@@ -59,10 +59,12 @@ Implicit Types Q : val->hprop.
 (** Let us recall the example of the function [succ_using_incr_attempt]
     from chapter [SLFBasic]. This function allocates a reference with
     contents [n], then increments that reference, and finally returning
-    its contents, that is, [n+1].
+    its contents, that is, [n+1]. Let us revisit this example, with
+    this time the intention of establishing for it a postcondition that
+    does not leak the existence of a left-over reference cell.
 
 [[
-    let succ_using_incr_attempt n =
+    let succ_using_incr n =
       let p = ref n in
       incr p;
       !p
@@ -70,7 +72,7 @@ Implicit Types Q : val->hprop.
 
 *)
 
-Definition succ_using_incr_attempt :=
+Definition succ_using_incr :=
   VFun 'n :=
     Let 'p := 'ref 'n in
     incr 'p ';
@@ -82,8 +84,8 @@ Definition succ_using_incr_attempt :=
     As a result, the user is forced to include in the postcondition the
     description of a left-over reference. *)
 
-Lemma Triple_succ_using_incr_attempt' : forall (n:int),
-  TRIPLE (succ_using_incr_attempt n)
+Lemma Triple_succ_using_incr : forall (n:int),
+  TRIPLE (succ_using_incr n)
     PRE \[]
     POST (fun r => \[r = n+1] \* \exists p, (p ~~> (n+1))).
 Proof using.
@@ -91,17 +93,215 @@ Proof using.
 Qed.
 
 (** This situation is desirable in a programming language with explicit
-    deallocation, because it ensures that the code written by the programmer
-    is not missing any deallocation operation. However, it is ill-suited for
-    a programming language equipped with a garbage collector that performs
-    deallocation automatically.
+    deallocation, because it ensures that the code written by the
+    programmer is not missing any deallocation operation. However, it is
+    ill-suited for a programming language equipped with a garbage collector
+    that performs deallocation automatically.
 
     In this chapter, we present an "affine" version of Separation Logic,
-    where the above function [succ_using_incr_attempt] admits the postcondition
-    [fun r => \[r = n+1]], and needs not mention the left-over reference. *)
+    where the above function [succ_using_incr_attempt] admits the
+    postcondition [fun r => \[r = n+1]], and needs not mention the
+    left-over reference. *)
 
 
+(* ########################################################### *)
+(** ** Statement of the garbage collection rule *)
 
+(** There are several ways to state a "garbage collection rule" and its
+    corrolaries. We present them next. *)
+
+(** The most direct presentation of the "garbage collection rule" allows
+    one to freely discard any piece of state from the postcondition.
+
+    More precisely, this rule, named [triple_hany_post], asserts that an
+    arbitrary heap predicate [H'] can be dropped from the postcondition. *)
+
+Parameter triple_hany_post : forall t H' Q,
+  triple t H (Q \*+ H') ->
+  triple t H Q.
+
+(** A symmetric rule, named [triple_hany_pre], asserts that an arbitrary
+    heap predicate [H'] can be dropped from the precondition. *)
+
+Parameter triple_hany_pre : forall t H H' Q,
+  triple t H Q ->
+  triple t (H \* H') Q.
+
+(** As we prove further on, the rule [triple_hany_pre] can be derived from
+    [triple_hany_post] using the frame rule, but not vice-versa. Thus, we
+    thereafter focus on the more general rule [triple_hany_post], which
+    operates on the postcondition. *)
+
+(** Let us show that, using this rule [triple_hany_post], we can derive
+    the desired specification for the motivating example from the
+    specification that mentions the left-over postcondition. *)
+
+Lemma Triple_succ_using_incr' : forall (n:int),
+  TRIPLE (succ_using_incr n)
+    PRE \[]
+    POST (fun r => \[r = n+1]).
+Proof using.
+  intros. applys triple_hany_post. applys Triple_succ_using_incr.
+Qed.
+
+
+(* ########################################################### *)
+(** ** Fine-grained control on collectable predicates *)
+
+(** As suggested in the introduction, it may be useful to constraint
+    the garbage collection rule so that it can be used to discard
+    only certain types of heap predicates, but not all. For example,
+    even in a programming language featuring a garbage collector,
+    it may be useful to ensure that every file handle opened eventually
+    gets closed, or that every lock acquired eventually gets released.
+    File handles and locks are example of resources that may be
+    described in Separation Logic, yet should not be freely discarded.
+
+    As another example, consider the extension of Separation Logic with
+    "time credits", which are used for complexity analysis. In such a
+    setting, it is desirable to throw away a positive number of credits
+    to reflect for over-approximations, however it must be ruled out to
+    throw away negative number of credits, as this would compromise
+    the soundness of the framework. *)
+
+(** To constraint the garbage collection rule and allow fine-tuning
+    of which heap predicates may be thrown away, we introduce the notion
+    of "affine predicates", captured by a judgment written [haffine H].
+    The idea is that only predicates satisyfing [haffine] may get freely
+    discarded. *)
+
+Parameter haffine : hprop -> Prop.
+
+Parameter triple_haffine_post : forall t H' Q,
+  haffine H' ->
+  triple t H (Q \*+ H') ->
+  triple t H Q.
+
+(** The variant of the garbage collection rule that operates on the
+    precondition is constrained in a similar way. *)
+
+Parameter triple_haffine_pre : forall t H H' Q,
+  haffine H' ->
+  triple t H Q ->
+  triple t (H \* H') Q.
+
+(** In the toy language that we consider, every predicate may be
+    discarded, thus [haffine H] can be defined to be always true,
+    using the following definition.
+
+[[
+    Definition haffine (H:hprop) := True.
+]]
+
+    In what follows, we purposely leave the definition of [haffine]
+    abstract for the sake of generality.
+*)
+
+
+(* ########################################################### *)
+(** ** The garbage collection heap predicate *)
+
+(** We now introduce a new heap predicate that is very handy for
+    describing "pieces of heap to be garbage collected". We will
+    use it to reformulate the garbage collection rule is a more
+    concise and more usable way.
+
+    This heap predicate is named [hgc] and is written [\GC].
+    We define it as "some heap predicate [H] that satisfies [haffine]",
+    as formalized next. *)
+
+Definition hgc : hprop :=
+  \exists H, H \* \[haffine H].
+
+Notation "\GC" := (hgc).
+
+(** Using the predicate [\GC], we can reformulate the constrained
+    garbage collection rule [triple_haffine_post] as follows. *)
+
+Parameter triple_htop_post : forall t H Q,
+  triple t H (Q \*+ \GC) ->
+  triple t H Q.
+
+(** Not only is this rule more concise, it also has the benefits
+    that the piece of heap discarded, previously described by [H']
+    no longer needs to be provided upfront at the moment of applying
+    the rule. It may be provided later on in the reasoning, by
+    instantiating the existential quantifier carried into the
+    definition of the [\GC] predicate, a.k.a., [hgc]. This process
+    of exploiting the [\GC] predicate is captured by the following
+    lemma, which asserts that any affine heap predicate entails [\GC]. *)
+
+Lemma himpl_hgc_r : forall H,
+  haffine H ->
+  H ==> \GC.
+Proof using.
+  introv M. unfold hgc. applys himpl_hexists_r H.
+  applys* himpl_hstar_hpure_r.
+Qed.
+
+(** The tactic [xsimpl] is extended with specific support for the
+    predicate [\GC]. In particular, [xsimpl] simplifies goals of the
+    form [H ==> \GC] by turning them into [haffine H] using the above
+    lemma. The tactic then tries to discharge [haffine H] by means that
+    depend on the choice of the definition of [haffine]. *)
+
+
+(* ########################################################### *)
+(** ** Exploiting the garbage collection in proofs *)
+
+(** In a verification proof, there are two ways to discard heap
+    predicates that are no longer needed:
+
+    - either by invoking [triple_haffine_pre] to remove a specific
+      predicate from the current state, i.e., the precondition;
+    - or by invoking [triple_htop_post] to add a [\GC] into the
+      current postcondition and allow subsequent removal of any
+      predicate that may be left-over in the final entailment
+      justifying that the final state satisfies the postcondition.
+
+    Eager removal of predicates from the current state is never
+    necessary: one can be lazy and postpone the application of
+    the garbage collection rule until the last step of reasoning.
+
+    To that end, it suffices to anticipate, right from the beginning
+    of the verification proof, the possibility of discarding heap
+    predicates from the final state, when proving that it entails
+    the postcondition. Concretely, it suffices to apply the rule
+    [triple_htop_post] as very first step of the proof to extend
+    the postcondition with a [\GC] predicate, which will be used
+    to "capture" all the garbage left-over at the end of the proof.
+
+    We implement this strategy once-and-forall by integrating directly
+    the rule [triple_htop_post] into the tactic [xwp], which sets up
+    the verification proof by computing the characteristic formula.
+    To that end, we generalize the lemma [xwp_lemma], which the tactic
+    [xwp] applies. Its original statement is as follows. *)
+
+Parameter xwp_lemma : forall v1 v2 x t1 H Q,
+  v1 = val_fun x t1 ->
+  H ==> wpgen ((x,v2)::nil) t1 Q ->
+  triple (trm_app v1 v2) H Q.
+
+(** Its generalized form extends the postcondition to which the formula
+    computed by [wpgen] is applied from [Q] to [Q \*+ \GC], as shown below. *)
+
+Lemma xwp_lemma' : forall v1 v2 x t1 H Q,
+  v1 = val_fun x t1 ->
+  H ==> wpgen ((x,v2)::nil) t1 (Q \*+ \GC) ->
+  triple (trm_app v1 v2) H Q.
+Proof using. introv E M. applys triple_htop_post. applys* xwp_lemma. Qed.
+
+(** Using the updated version of [xwp], the proof of [succ_using_incr]
+    works out very smoothly, the left-over reference being automatically
+    absorbed into the [\GC] predicate by [xsimpl]. *)
+
+Lemma Triple_succ_using_incr : forall (n:int),
+  TRIPLE (succ_using_incr n)
+    PRE \[]
+    POST (fun r => \[r = n+1]).
+Proof using.
+  xwp. xapp. intros p. xapp. xapp. xsimpl. { auto. }
+Qed.
 
 
 (* ########################################################### *)
