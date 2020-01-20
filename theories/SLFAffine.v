@@ -185,17 +185,32 @@ Parameter triple_haffine_pre : forall t H H' Q,
   triple t H Q ->
   triple t (H \* H') Q.
 
-(** In the toy language that we consider, every predicate may be
-    discarded, thus [haffine H] can be defined to be always true,
-    using the following definition.
+(** The definition of [haffine] should be set up in such a way that
+    this predicate distributes in the expected way on each of the
+    Separation Logic operators, as captured by the following lemma. *)
 
-[[
-    Definition haffine (H:hprop) := True.
-]]
+Parameter haffine_hempty :
+  haffine \[].
 
-    In what follows, we purposely leave the definition of [haffine]
-    abstract for the sake of generality.
-*)
+Parameter haffine_hpure : forall P,
+  haffine \[P].
+
+Parameter haffine_hstar : forall H1 H2,
+  haffine H1 ->
+  haffine H2 ->
+  haffine (H1 \* H2).
+
+Parameter haffine_hexists : forall A (J:A->hprop),
+  (forall x, haffine (J x)) ->
+  haffine (\exists x, (J x)).
+
+Parameter haffine_hforall : forall A `{Inhab A} (J:A->hprop),
+  (forall x, haffine (J x)) ->
+  haffine (\forall x, (J x)).
+
+(** We will present further on a template for defining [haffine] in
+    a way that guarantees by construction that all these properties
+    indeed hold. *)
 
 
 (* ########################################################### *)
@@ -305,422 +320,209 @@ Qed.
 
 
 (* ########################################################### *)
+(** ** Fully-affine and fully-linear instantiations *)
+
+(** In the toy language that we consider, every predicate may be
+    discarded, thus [haffine H] can be defined to be always true,
+    using the following definition. In that case, [\GC] becomes
+    equivalent to [htop], the predicate that holds of any heap. *)
+
+Module FullyAffineLogic.
+
+  Definition haffine (H:hprop) := True.
+
+  Definition htop (h:heap) := True.
+
+  Lemma hgc_eq_htop : \GC = htop.
+  Proof using.
+    unfold hgc, htop. applys himpl_antisym.
+    { intros h. xsimpl. }
+    { intros h. xsimpl (=h). }
+  Qed.
+
+End FullyAffineLogic.
+
+(** On the contrary, one can stick to a "linear" Separation Logic
+    and enforce that no heap predicate can be discarded simply
+    by definining [haffine] to only be satisfied by the empty
+    heap predicate. In that case, [\GC] becomes equivalent to [\[]]. *)
+
+Module FullyLinearLogic.
+
+  Definition haffine (H:hprop) := (H = \[]).
+
+  Lemma hgc_eq_hempty : \GC = \[].
+  Proof using.
+    unfold hgc. applys himpl_antisym.
+    { xsimpl. }
+    { xsimpl. }
+  Qed.
+
+End FullyLinearLogic.
+
+(** In what follows, we purposely leave the definition of [haffine]
+    abstract for the sake of generality. *)
+
+
 (* ########################################################### *)
-(* ########################################################### *)
-(** * Additional contents *)
+(** ** Refined definition of Separation Logic triples *)
 
+(** In what follows, we explain how to refine the notion of Separation
+    Logic triple so as to accomodate the garbage collection rule.
 
-
-
-
-
-
-(* ******************************************************* *)
-(** ** Top *)
-
-
-
-(** The "top" heap predicate, written [\Top], holds of any heap predicate.
-    It plays a useful role for denoting pieces of state that needs to be
-    discarded, reflecting in the logic the action of the garbage collector. *)
-
-Definition htop : hprop :=
-  fun (h:heap) => True.
-
-Notation "\Top" := (htop).
-
-
-
-Lemma htop_intro : forall h,
-  \Top h.
-Proof using. intros. hnf. auto. Qed.
-
-
-Lemma htop_inv : forall h, (* Note: this lemma is of no practical interest. *)
-  \Top h ->
-  True.
-Proof using. intros. auto. Qed.
-
-
-(* ******************************************************* *)
-(** ** GC *)
-
-Definition heap_affine (h:heap) := True.
-
-(** Affinity is defined in the standard way *)
-
-Definition haffine (H : hprop) : Prop :=
-  forall h, H h -> heap_affine h.
-
-Lemma haffine_any : forall H,
-  haffine H.
-Proof using. introv M. hnfs*. Qed.
-
-
-Lemma haffine_hexists : forall A (J:A->hprop),
-  haffine_post J ->
-  haffine (hexists J).
-Proof using. introv F1 (x&Hx). applys* F1. Qed.
-
-Lemma haffine_hforall : forall A `{Inhab A} (J:A->hprop),
-  haffine_post J ->
-  haffine (hforall J).
-Proof using. introv IA F1 Hx. applys* F1 arbitrary. Qed.
-
-Lemma haffine_hpure : forall P,
-  haffine \[P].
-Proof using.
-  intros. applys* haffine_hexists. intros HP. applys* haffine_hempty.
-Qed.
-
-Lemma haffine_hgc :
-  haffine \GC.
-Proof using.
-  applys haffine_hexists. intros H h Hh. rewrite hstar_hpure in Hh.
-  destruct Hh as [M N]. applys* M.
-Qed.
-
-
-
-(* ---------------------------------------------------------------------- *)
-(** Properties of hgc *)
-
-Lemma hgc_eq :
-  \GC = (\exists H, \[haffine H] \* H).
-Proof using. auto. Qed.
-
-Lemma hgc_of_heap_affine : forall h,
-  heap_affine h ->
-  \GC h.
-Proof using.
-  intros. rewrite hgc_eq. exists (=h).
-  rewrite hstar_hpure. split~. { introv ->. auto. }
-Qed.
-
-Lemma himpl_hgc_r : forall H,
-  haffine H ->
-  H ==> \GC.
-Proof using.
-  introv M. rewrite hgc_eq. applys himpl_hexists_r H.
-  applys~ himpl_hstar_hpure_r.
-  (* low-level: [intros h K. applys hgc_of_heap_affine. applys M K. *)
-Qed.
-
-Lemma hempty_himpl_hgc :
-  \[] ==> \GC.
-Proof using. applys himpl_hgc_r. applys haffine_hempty. Qed.
-
-Lemma himpl_same_hstar_hgc_r : forall H,  (* needed? *)
-  H ==> H \* \GC.
-Proof using.
-  intros. (* himpl_frame_r *)
-  rewrite hstar_comm. rewrite <- (hstar_hempty_l H) at 1.
-  applys himpl_frame_l. applys himpl_hgc_r. applys haffine_hempty.
-Qed.
-
-Lemma himpl_hstar_hgc_r : forall H H', (* needed? *)
-  H ==> H' ->
-  H ==> H' \* \GC.
-Proof using.
-  introv M. applys himpl_trans (rm M). applys himpl_same_hstar_hgc_r.
-Qed.
-
-Lemma hstar_hgc_hgc :
-  \GC \* \GC = \GC. (* --TODO : can be simplified *)
-Proof using.
-  applys himpl_antisym.
-  { applys himpl_hgc_r. applys haffine_hstar; applys haffine_hgc. }
-  { rewrite <- hstar_hempty_l at 1. applys himpl_frame_l. applys hempty_himpl_hgc. }
-Qed.
-
-Lemma hgc_eq_htop_of_haffine_any :
-  (forall H, haffine H) ->
-  \GC = \Top.
-Proof using.
-  introv M. applys himpl_antisym.
-  { applys himpl_htop_r. }
-  { applys himpl_hgc_r. applys M. }
-Qed.
-
-
-(* ******************************************************* *)
-(** ** Separation Logic triples and the garbage collection rule *)
-
-(** To conduct verification proofs in a language equipped with a garbage
-    collector, we need to be able to discard pieces of states when they
-    become useless. Concretely, we need the rule shown below to hold.
-    The [\Top] predicate captures any (un)desired piece of state. *)
-
-Parameter triple_htop_post' : forall t H Q,
-  triple t H (Q \*+ \Top) ->
-  triple t H Q.
-
-(** Above, recall that [\Top] is defined as [fun h => True]. Thus, for
-    some value [v], the heap predicate [(Q \*+ \Top) v] holds of any state
-    that decomposes as a disjoint union of the form [h1 \u h2], such that
-    [Q v h1] holds. In other words, [(Q \*+ \Top) v] holds of any state
-    that contains a sub-state [h1] such that [Q v h1] holds. *)
-
-(** The definition [triple1] provided earlier does not allow deriving the
-    rule [triple_htop_post']. However, we can tweak slightly the definition
-    to enable it. Concretely, in the definition of [triple1], we augment the
-    postcondition of the underlying Hoare triple with an extra [\Top].
-    Intuitively, this added [\Top] captures any piece of state that we do not
-    wish to mention explicitly in the postcondition.
-
-    The updated definition, called [triple], is as follows. *)
-
-Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
-  forall (H':hprop), hoare t (H \* H') (Q \*+ H' \*+ \Top).
-
-(** From there, we can prove that the desired rule for discarding pieces
-    of postconditions holds. We can also prove that the frame rule still holds
-    for the modified definition. The proof of these two results is studied further. *)
-
-Parameter triple_htop_post : forall t H Q,
-  triple t H (Q \*+ \Top) ->
-  triple t H Q.
-
-Parameter triple_frame : forall t H Q H',
-  triple t H Q ->
-  triple t (H \* H') (Q \*+ H').
-
-(** Remark: it may also be useful to set up finer-grained versions of Separation Logic,
-    where only certain types of heap predicates  can be discarded, but not all. Technically,
-    only "affine" predicates may be discarded. Such a set up is discussed in the chapter
-    [SLFRich.v]. *)
-
-
-
-(** The top heap predicate [\Top] is equivalent to [\exists H, H],
-    which is a heap predicate that also characterizes any state.
-    Again, because we need [hexists] anyway, we prefer in practice
-    to define [\Top] in terms of [hexists], as done in the definition
-    of [htop'] shown below. *)
-
-Lemma htop_eq_hexists_hprop :
-  \Top = (\exists (H:hprop), H).
-Proof using.
-  unfold htop, hexists. apply hprop_eq. intros h. iff Hh.
-  { exists (=h). auto. }
-  { auto. }
-Qed.
-
-Definition htop' : hprop :=
-  \exists (H:hprop), H.
-
-(** In summary, in subsequent chapters, we assume the following definitions:
+    Recall the definition of triple for a linear logic.
 
 [[
-
-  Definition htop : hprop :=
-    \exists (H:hprop), H.
+    Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+      forall (H':hprop), hoare t (H \* H') (Q \*+ H').
 ]]
-*)
 
+    The garbage collection rule [triple_htop_post] asserts that
+    postconditions may be freely extended with the [\GC] predicate.
+    To support this rule, it suffices to modify the definition of
+    [triple] to include the predicate [\GC] in the postcondition
+    of the underlying Hoare triple, as follows. *)
 
+Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall (H':hprop), hoare t (H \* H') (Q \*+ H' \*+ \GC).
 
+(** Again, keep in mind that this definition of [triple] is strictly
+    more general than the previous one. Indeed, as explained earlier on,
+    by instantiating [haffine] as the predicate [fun (H:hprop) => \[]],
+    the predicate [\GC] becomes equivalent to the empty predicate [\[]].
+    In that case, [\GC] can be replaced with [\[]], which simplifies away;
+    we thus recover exactly the previous definition of [triple]. *)
 
-(* ******************************************************* *)
-(** ** Establishing properties of [triple]: exercises. *)
+(** For the refined definition of [triple] using [\GC], one can prove that:
 
-(* EX1! (triple_frame) *)
-(** Prove the frame rule for the actual definition of [triple].
-    Take inspiration from the proof of [SL_frame_rule]. *)
+    - all the existing reasoning rules for linear triples remain sound;
+    - the rule [triple_htop_post] is sound;
+    - the rule [triple_haffine_hpost] and [triple_haffine_hpre] can
+      be derived from [triple_htop_post] and the other structural rules.
 
-Lemma triple_frame' : forall t H Q H',
-  triple t H Q ->
-  triple t (H \* H') (Q \*+ H').
+    The proofs appear further on in this chapter.
+
+    One fundamental property that appears necessary in many of the proof
+    is the following lemma, which asserts that two occurences of [\GC]
+    can always be merged into one. *)
+
+Lemma hstar_hgc_hgc :
+  \GC \* \GC = \GC.
 Proof using.
-(* SOLUTION *)
-  introv M. unfold triple in *. rename H' into H1. intros H2.
-  specializes M (H1 \* H2). applys_eq M 1 2.
-  { rewrite hstar_assoc. auto. }
-  { applys qprop_eq. intros v.
-    repeat rewrite hstar_assoc. auto. }
-(* /SOLUTION *)
+  unfold hgc. applys himpl_antisym.
+  { xsimpl. }
+  { xpull. intros H1 H2. xsimpl (H1 \* H2). }
 Qed.
 
-(** The other main property to establish is [triple_htop_post].
+(** Let us conclude this first part of the chapter with the proof of
+    the garbage collection rule. *)
 
-    The proof expoits associativity and commutativity of the star
-    operator, as well as a property asserting that [\Top \* \Top]
-    simplifies to [\Top]: both heap predicate can be used
-    to describe arbitrary heaps. These properties are assumed here;
-    they are proved in the next chapter ([SLFHimpl]). *)
+(* EX2! (triple_htop_post_proof) *)
+(** Prove [triple_htop_post] with respect to the refined definition of
+    [triple]. *)
 
-Parameter hstar_assoc' : forall H1 H2 H3,
-  (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
-
-Parameter hstar_comm : forall H1 H2,
-  H1 \* H2 = H2 \* H1.
-
-Parameter hstar_htop_htop :
-  \Top \* \Top = \Top.
-
-(* EX3! (triple_htop_post'') *)
-(** Prove lemma [triple_htop_post], by unfolding the definition of [triple]
-    to reveal [hoare]. Note, however, that your proof should not attempt to
-    unfold the definition of a [hoare] triple. *)
-
-Lemma triple_htop_post'' : forall t H Q,
-  triple t H (Q \*+ \Top) ->
+Lemma triple_htop_post_proof : forall t H Q,
+  triple t H (Q \*+ \GC) ->
   triple t H Q.
-Proof using.
-(* SOLUTION *)
+Proof using. (* ADMITTED *)
   introv M. unfold triple in *. intros H2.
   specializes M H2. applys_eq M 1.
   { applys qprop_eq. intros v. repeat rewrite hstar_assoc.
     rewrite (hstar_comm H2).
     rewrite <- (hstar_assoc \Top \Top).
     rewrite hstar_htop_htop. auto. }
-(* /SOLUTION *)
-Qed.
+Qed. (* /ADMITTED *)
 
 
+(** The principle of the ramified-frame rule immediately generalizes
+    to handle the consequence-frame-top rule, which is like the
+    consequence-frame rule but with premise [Q1 \*+ H2 ===> Q \*+ \Top]. *)
 
-(** Recall the final definition of [triple], as:
-    [forall (H':hprop), hoare (H \* H') t (Q \*+ H' \*+ \Top)].
-
-    This definition can also be reformulated directly in terms of union
-    of heaps. All we need to do is introduce an additional piece of
-    state to describe the part covered by new [\Top] predicate.
-
-    In order to describe disjointness of the 3 pieces of heap that
-    describe the final state, we first introduce an auxiliary definition:
-    [Fmap.disjoint_3 h1 h2 h3] asserts that the three arguments denote
-    pairwise disjoint heaps. *)
-
-Definition fmap_disjoint_3 (h1 h2 h3:heap) : Prop :=
-     Fmap.disjoint h1 h2
-  /\ Fmap.disjoint h2 h3
-  /\ Fmap.disjoint h1 h3.
-
-(** We then generalize the result heap from [h1' \u h2] to
-    [h1' \u h2 \u h3'], where [h3'] denotes the piece of the
-    final state that is described by the [\Top] heap predicate
-    that appears in the definition of [triple]. *)
-
-Definition triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
-  forall h1 h2,
-  Fmap.disjoint h1 h2 ->
-  H h1 ->
-  exists v h1' h3',
-       fmap_disjoint_3 h1' h2 h3'
-    /\ eval (h1 \u h2) t (h1' \u h2 \u h3') v
-    /\ Q v h1'.
-
-(** One can prove the equivalence of [triple] and [triple_lowlevel]
-    following a similar proof pattern as previously. The proof is a bit
-    more technical and requires additional tactic support to deal with
-    the tedious disjointness conditions, so we omit the details here. *)
-
-Parameter triple_iff_triple_lowlevel : forall t H Q,
-  triple t H Q <-> triple_lowlevel t H Q.
-
-(* INSTRUCTORS *)
-(** The proof of the above lemma is included in the file [SepBase.v] from CFML2. *)
-(* /INSTRUCTORS *)
-
-
-
-(* ******************************************************* *)
-(** ** The [xsimpl] tactic *)
-
-    4. Eliminate any redundant [\Top] from the RHS.
-
-
-(** Finally, [xsimpl] provides support for eliminating [\Top] on the RHS.
-    First, if the RHS includes several occurrences of [\Top], then they
-    are replaced with a single one. *)
-
-Lemma xsimpl_demo_rhs_htop_compact : forall H1 H2 H3 H4,
-  H1 \* H2 ==> H3 \* \Top \* H4 \* \Top.
-Proof using.
-  intros. xsimpl.
-Abort.
-
-(** Second, if after cancellations the RHS consists of exactly
-   [\Top] and nothing else, then the goal is discharged. *)
-
-Lemma xsimpl_demo_rhs_htop : forall H1 H2 H3,
-  H1 \* H2 \* H3 ==> H3 \* \Top \* H2 \* \Top.
-Proof using.
-  intros. xsimpl.
-Abort.
-
-
-
-Lemma himpl_example_3 : forall (p q:loc),
-  p ~~~> 3 \* q ~~~> 3 ==>
-  p ~~~> 3 \* \Top.
-Proof using. xsimpl. Qed.
-
-
-   Note: [q ~~~> 4 \* p ~~~> 3 ==> p ~~~> 3 \* \Top] would be true.
-
-
-(* ******************************************************* *)
-(** ** Combined structural rules *)
-
-
-(** The "combined structural rule" generalizes the rule above
-    by also integrating the garbage collection rule. *)
-
-Lemma triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
+Lemma triple_ramified_frame_top : forall H1 Q1 t H Q,
   triple t H1 Q1 ->
-  H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \Top ->
+  H ==> H1 \* (Q1 \--* (Q \*+ \Top)) ->
   triple t H Q.
-
-(* EX1! (triple_conseq_frame_htop) *)
-(** Prove the combined structural rule.
-    Hint: recall lemma [triple_htop_post]. *)
-
 Proof using.
-(* SOLUTION *)
-  introv M WH WQ. applys triple_htop_post.
-  applys~ triple_conseq_frame M WH WQ.
-(* /SOLUTION *)
+  introv M W. applys triple_conseq_frame_htop (Q1 \--* (Q \*+ \Top)) M.
+  { applys W. } { applys qwand_cancel. }
 Qed.
 
 
+(* ########################################################### *)
+(** ** Garbage collection rules in WP style *)
 
-
-
-(* ******************************************************* *)
-(** ** Entailment lemmas for [\Top] *)
-
-(* EX1! (himpl_htop_r) *)
-(** Prove that any heap predicate entails [\Top] *)
-
-Lemma himpl_htop_r : forall H,
-  H ==> \Top.
+Lemma wp_ramified : forall Q1 Q2 t,
+  (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
 Proof using.
-(* SOLUTION *)
-  intros. intros h Hh.
-  applys htop_intro. (* hnf; auto. *)
-(* /SOLUTION *)
+  intros. unfold wp. xpull ;=> H M.
+  xsimpl (H \* (Q1 \--* Q2 \*+ \Top)). intros H'.
+  applys hoare_conseq M; xsimpl.
 Qed.
 
-(* EX2! (hstar_htop_htop) *)
-(** Prove that [\Top \* \Top] is equivalent to [\Top] *)
+Lemma wp_hany_pre : forall t H Q,
+  (wp t Q) \* H ==> wp t Q.
+Proof using. intros. applys himpl_trans_r wp_ramified. xsimpl. Qed.
 
-Lemma hstar_htop_htop :
-  \Top \* \Top = \Top.
+Lemma wp_hany_post : forall t H Q ,
+  wp t (Q \*+ H) ==> wp t Q.
+Proof using. intros. applys himpl_trans_r wp_ramified. xsimpl. Qed.
+
+
+Lemma wp_conseq_frame_htop : forall t H Q1 Q2,
+  Q1 \*+ H ===> Q2 \*+ \Top ->
+  (wp t Q1) \* H ==> (wp t Q2).
 Proof using.
-(* SOLUTION *)
-  applys himpl_antisym.
-  { applys himpl_htop_r. }
-  { rewrite <- hstar_hempty_l at 1. applys himpl_frame_l.
-    applys himpl_htop_r. }
-(* /SOLUTION *)
+  introv M. rewrite <- wp_equiv.
+  applys triple_conseq_frame_htop (wp t Q1) M.
+  { rewrite wp_equiv. xsimpl. } { xsimpl. }
 Qed.
 
+(** The above statement asserts that:
+
+    1. [wp t Q1] can absorb any heap predicate [H] with which it
+      is starred, changing it to [wp t (Q1 \*+ H)].
+
+    2. [wp t Q1] can be weakened to [wp t Q2] when [Q1 ===> Q2].
+
+    3. [wp t (Q1 \*+ H)] can be simplified to [wp t Q1] if one
+      wants to discard [H] from the postcondition. *)
+
+(** The garbage collection in precondition for [wp] asserts that
+    [wp] can absorb and discard any desired heap predicate [H]
+    that sits next to it (i.e., that it is starred with). *)
+
+Lemma wp_hany_pre : forall t H Q,
+  (wp t Q) \* H ==> wp t Q.
+Proof using.
+  intros. rewrite <- wp_equiv.
+  applys triple_hany_pre. rewrite* wp_equiv.
+Qed.
+
+(** The garbage collection in postconditions for [wp] asserts
+    that [wp] can absorb and discard any desired heap predicate
+    [H] that appears in its postcondition. *)
+
+Lemma wp_hany_post : forall t H Q ,
+  wp t (Q \*+ H) ==> wp t Q.
+Proof using.
+  intros. rewrite <- wp_equiv.
+  applys triple_hany_post. rewrite* wp_equiv.
+Qed.
+
+(** Note, equivalently, the [H] from rules [wp_hany_pre] and
+   [wp_hand_post] may be replaced with [\Top]. *)
 
 
-(* ******************************************************* *)
-(** ** Variants for the garbage collection rule *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Additional contents *)
+
+
+(* ########################################################### *)
+(** ** Proof of derived rules *)
+
+(* the rule [triple_haffine_hpost] and [triple_haffine_hpre] *)
 
 (** Recall the lemma [triple_htop_post] from the previous chapter. *)
 
@@ -838,44 +640,107 @@ Qed.
     postcondition of [t] can be simulated by discarding a heap predicate
     from the precondition of [x]. *)
 
+(** The "combined structural rule" generalizes the rule above
+    by also integrating the garbage collection rule. *)
 
-
-
-(* ******************************************************* *)
-(** ** Strucutral rules *)
-
-
-(** The garbage collection rules enable to discard any desired
-    piece of heap from the precondition or the postcondition.
-    Recall that the first rule is derivable from the second one.
-    Moreover, it is equivalent to state these two rules by writing
-    [H'] instead of [\Top]. *)
-
-Parameter triple_htop_pre : forall t H Q,
-  triple t H Q ->
-  triple t (H \* \Top) Q.
-
-Parameter triple_htop_post : forall t H Q,
-  triple t H (Q \*+ \Top) ->
-  triple t H Q.
-
-
-
-
-
-(** Recall from the previous chapter the combined structural
-    rule [triple_conseq_frame_htop], which generalizes the rule
-    [triple_conseq_frame] with the possibility to discard
-    undesired heap predicate. This rule will be handy at
-    some point in the exercise that follows. *)
-
-Parameter triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
+Lemma triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
   triple t H1 Q1 ->
   H ==> H1 \* H2 ->
   Q1 \*+ H2 ===> Q \*+ \Top ->
   triple t H Q.
 
+(* EX1! (triple_conseq_frame_htop) *)
+(** Prove the combined structural rule.
+    Hint: recall lemma [triple_htop_post]. *)
 
+Proof using.
+(* SOLUTION *)
+  introv M WH WQ. applys triple_htop_post.
+  applys~ triple_conseq_frame M WH WQ.
+(* /SOLUTION *)
+Qed.
+
+
+
+(* ########################################################### *)
+(** ** Construction template for [haffine] *)
+
+Definition heap_affine (h:heap) := True.
+
+Definition haffine (H : hprop) : Prop :=
+  forall h, H h -> heap_affine h.
+
+(** Properties of haffine *)
+
+Parameter haffine_hempty :
+  haffine \[].
+
+Lemma haffine_hpure : forall P,
+  haffine \[P].
+Proof using.
+  intros. applys* haffine_hexists. intros HP. applys* haffine_hempty.
+Qed.
+
+Parameter haffine_hstar : forall H1 H2,
+  haffine H1 ->
+  haffine H2 ->
+  haffine (H1 \* H2).
+
+(** Affinity for postconditions *)
+
+Definition haffine_post (A:Type) (J:A->hprop) : Prop :=
+  forall x, haffine (J x).
+
+
+Parameter haffine_hexists : forall A (J:A->hprop),
+  (forall x, haffine (J x)) ->
+  haffine (\exists x, (J x)).
+
+Parameter haffine_hforall : forall A `{Inhab A} (J:A->hprop),
+  (forall x, haffine (J x)) ->
+  haffine (\forall x, (J x)).
+
+Lemma haffine_hexists : forall A (J:A->hprop),
+  haffine_post J ->
+  haffine (hexists J).
+Proof using. introv F1 (x&Hx). applys* F1. Qed.
+
+Lemma haffine_hforall : forall A `{Inhab A} (J:A->hprop),
+  haffine_post J ->
+  haffine (hforall J).
+Proof using. introv IA F1 Hx. applys* F1 arbitrary. Qed.
+
+(** *)
+
+Lemma haffine_hgc :
+  haffine \GC.
+Proof using.
+  applys haffine_hexists. intros H h Hh. rewrite hstar_hpure in Hh.
+  destruct Hh as [M N]. applys* M.
+Qed.
+
+
+
+(* ########################################################### *)
+(** ** Proof of the standard rules *)
+
+(** *)
+(* EX1! (triple_frame) *)
+(** Prove the frame rule for the actual definition of [triple].
+    Take inspiration from the proof of [SL_frame_rule]. *)
+
+Lemma triple_frame' : forall t H Q H',
+  triple t H Q ->
+  triple t (H \* H') (Q \*+ H').
+Proof using.
+(* SOLUTION *)
+  introv M. unfold triple in *. rename H' into H1. intros H2.
+  specializes M (H1 \* H2). applys_eq M 1 2.
+  { rewrite hstar_assoc. auto. }
+  { applys qprop_eq. intros v.
+    repeat rewrite hstar_assoc. auto. }
+(* /SOLUTION *)
+Qed.
 
 
 Lemma triple_seq : forall t1 t2 H Q H1,
@@ -906,450 +771,87 @@ Qed.
 
 
 
+(* ########################################################### *)
+(** ** Properties of [hgc] *)
 
-
-(** [wp] is defined on top of [hoare] triples. More precisely [wp t Q]
-    is a heap predicate such that [H ==> wp t Q] if and
-    only if [SL_triple t H Q], where [SL_triple t H Q]
-    is defined as [forall H', hoare t (H \* H') (Q \*+ H' \*+ \Top)]. *)
-
-Definition wp (t:trm) := fun (Q:val->hprop) =>
-  \exists H, H \* \[forall H', hoare t (H \* H') (Q \*+ H' \*+ \Top)].
-
-
-
-Lemma wp_ramified : forall Q1 Q2 t,
-  (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
+Lemma hgc_of_heap_affine : forall h,
+  heap_affine h ->
+  \GC h.
 Proof using.
-  intros. unfold wp. xpull ;=> H M.
-  xsimpl (H \* (Q1 \--* Q2 \*+ \Top)). intros H'.
-  applys hoare_conseq M; xsimpl.
+  intros. rewrite hgc_eq. exists (=h).
+  rewrite hstar_hpure. split~. { introv ->. auto. }
+Qed.
+
+Lemma himpl_hgc_r : forall H,
+  haffine H ->
+  H ==> \GC.
+Proof using.
+  introv M. rewrite hgc_eq. applys himpl_hexists_r H.
+  applys~ himpl_hstar_hpure_r.
+  (* low-level: [intros h K. applys hgc_of_heap_affine. applys M K. *)
+Qed.
+
+Lemma hempty_himpl_hgc :
+  \[] ==> \GC.
+Proof using. applys himpl_hgc_r. applys haffine_hempty. Qed.
+
+Lemma himpl_same_hstar_hgc_r : forall H,  (* needed? *)
+  H ==> H \* \GC.
+Proof using.
+  intros. (* himpl_frame_r *)
+  rewrite hstar_comm. rewrite <- (hstar_hempty_l H) at 1.
+  applys himpl_frame_l. applys himpl_hgc_r. applys haffine_hempty.
+Qed.
+
+Lemma himpl_hstar_hgc_r : forall H H', (* needed? *)
+  H ==> H' ->
+  H ==> H' \* \GC.
+Proof using.
+  introv M. applys himpl_trans (rm M). applys himpl_same_hstar_hgc_r.
 Qed.
 
 
-Lemma wp_hany_pre : forall t H Q,
-  (wp t Q) \* H ==> wp t Q.
-Proof using. intros. applys himpl_trans_r wp_ramified. xsimpl. Qed.
+(* ******************************************************* *)
+(** ** The [xsimpl] tactic *)
 
-Lemma wp_hany_post : forall t H Q ,
-  wp t (Q \*+ H) ==> wp t Q.
-Proof using. intros. applys himpl_trans_r wp_ramified. xsimpl. Qed.
+(** Finally, [xsimpl] provides support for eliminating [\Top] on the RHS.
+    First, if the RHS includes several occurrences of [\Top], then they
+    are replaced with a single one. *)
+
+Lemma xsimpl_demo_rhs_htop_compact : forall H1 H2 H3 H4,
+  H1 \* H2 ==> H3 \* \GC \* H4 \* \GC.
+Proof using.
+  intros. xsimpl.
+Abort.
+
+(** Second, if after cancellations the RHS consists of exactly
+   [\Top] and nothing else, then the goal is discharged. *)
+
+Lemma xsimpl_demo_rhs_htop : forall H1 H2 H3,
+  H1 \* H2 \* H3 ==> H3 \* \GC \* H2 \* \GC.
+Proof using.
+  intros. xsimpl.
+Abort.
+
+Lemma himpl_example_3 : forall (p q:loc),
+  p ~~~> 3 \* q ~~~> 3 ==>
+  p ~~~> 3 \* \GC.
+Proof using. xsimpl. Qed.
 
 
-Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
-  forall (H':hprop), hoare t (H \* H') (Q \*+ H' \*+ \Top).
 
+(* ******************************************************* *)
+(** ** [mkstruct] and [xgc] tactic *)
+
+(** [mkstruct] revisited *)
 
 Definition mkstruct (F:formula) : formula :=
   fun Q => \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
-
 
 Lemma mkstruct_ramified : forall Q1 Q2 F,
   (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
 Proof using. unfold mkstruct. xsimpl. Qed.
 
-
-
-
-Lemma xcf_lemma_fun : forall v1 v2 x t H Q,
-  v1 = val_fun x t ->
-  H ==> wpgen ((x,v2)::nil) t (Q \*+ \Top) ->
-  triple (trm_app v1 v2) H Q.
-Proof using.
-  introv M1 M2. rewrite wp_equiv.
-  applys himpl_trans; [| applys (>> wp_hany_post \Top)].
-  xchange M2.
-  xchange (>> wpgen_sound ((x,v2)::nil) t (Q \*+ \Top)).
-  rewrite <- subst_eq_isubst_one. applys* wp_app_fun.
-Qed.
-
-Lemma xcf_lemma_fix : forall v1 v2 f x t H Q,
-  v1 = val_fix f x t ->
-  H ==> wpgen ((f,v1)::(x,v2)::nil) t (Q \*+ \Top) ->
-  triple (trm_app v1 v2) H Q.
-Proof using.
-  introv M1 M2. rewrite wp_equiv. xchange M2.
-  applys himpl_trans; [| applys (>> wp_hany_post \Top)].
-  xchange (>> wpgen_sound (((f,v1)::nil) ++ (x,v2)::nil) t (Q \*+ \Top)).
-  rewrite isubst_app. do 2 rewrite <- subst_eq_isubst_one.
-  applys* wp_app_fix.
-Qed.
-
-
-
-
-(* ******************************************************* *)
-(** ** wand *)
-
-(** The principle of the ramified-frame rule immediately generalizes
-    to handle the consequence-frame-top rule, which is like the
-    consequence-frame rule but with premise [Q1 \*+ H2 ===> Q \*+ \Top]. *)
-
-Lemma triple_ramified_frame_top : forall H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* (Q \*+ \Top)) ->
-  triple t H Q.
-Proof using.
-  introv M W. applys triple_conseq_frame_htop (Q1 \--* (Q \*+ \Top)) M.
-  { applys W. } { applys qwand_cancel. }
-Qed.
-
-
-
-
-(** The reciprocal entailment to the above lemma, that is
-    [(H \-* H) ==> \[]], does not hold.
-
-    For example, [\Top \-* \Top] is a heap predicate that
-    holds of any heap, and not just of the empty heap. *)
-
-Lemma not_hwand_self_himpl_hempty : exists H,
-  ~ ((H \-* H) ==> \[]).
-Proof using.
-  exists \Top. intros M.
-  lets (h&N): (@Fmap.exists_not_empty val). { typeclass. }
-  forwards K: M h. { hnf. intros h' D K'. applys htop_intro. }
-  false* (hempty_inv K).
-Qed.
-
-
-(*derived*)
-Definition htop : hprop :=
-  \exists (H:hprop), H.
-
-
-
-
-(* ------------------------------------------------------- *)
-(** *** 2. Combined structural rule for [wp] *)
-
-(** Recall the combined consequence-frame-htop rule for [triple]. *)
-
-Parameter triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \Top ->
-  triple t H Q.
-
-(** Let us reformulate this rule using [wp]:
-
-[[
-    H1 ==> wp t Q1 ->
-    H ==> H1 \* H2 ->
-    Q1 \*+ H2 ===> Q \*+ \Top ->
-    H ==> wp t Q.
-]]
-
-   The beove statement can be simplified by substituting [H]
-   with [H1 \* H2], then substituting [H1] with [wp t Q1].
-   We obtain:
-
-[[
-    Q1 \*+ H2 ===> Q \*+ \Top ->
-    (wp t Q1) \* H2 ==> wp t Q.
-]]
-   After renaming [H2] into [H] and [Q] into [Q2], we arrive at
-   the combined rule for [wp]:
-*)
-
-Lemma wp_conseq_frame_htop : forall t H Q1 Q2,
-  Q1 \*+ H ===> Q2 \*+ \Top ->
-  (wp t Q1) \* H ==> (wp t Q2).
-Proof using.
-  introv M. rewrite <- wp_equiv.
-  applys triple_conseq_frame_htop (wp t Q1) M.
-  { rewrite wp_equiv. xsimpl. } { xsimpl. }
-Qed.
-
-(** The above statement asserts that:
-
-    1. [wp t Q1] can absorb any heap predicate [H] with which it
-      is starred, changing it to [wp t (Q1 \*+ H)].
-
-    2. [wp t Q1] can be weakened to [wp t Q2] when [Q1 ===> Q2].
-
-    3. [wp t (Q1 \*+ H)] can be simplified to [wp t Q1] if one
-      wants to discard [H] from the postcondition. *)
-
-(** Further in this chapter, we present specializations of
-    this rule, e.g., to invoke only the [frame] rule, or only the
-    garbage collection rule. *)
-
-
-(* ------------------------------------------------------- *)
-(** *** 3. The ramified structural rule for [wp] *)
-
-(** Consider the entailment [Q1 \*+ H ===> Q2 \*+ \Top]
-    that appears in the combined rule [wp_conseq_frame_htop].
-
-    This entailment can be rewritten using the magic wand as:
-    [H ==> (Q1 \--* (Q2 \*+ \Top))].
-
-    Thus, the conclusion [(wp t Q1) \* H ==> (wp t Q2)]
-    can be reformulated as
-    [(wp t Q1) \* (Q1 \--* (Q2 \*+ \Top)) ==> (wp t Q2)].
-
-    The "ramified combined structural rule" for [wp], shown below,
-    captures in a single line all the structural properties of [wp]. *)
-
-Lemma wp_ramified : forall t Q1 Q2,
-  (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
-Proof using. intros. applys wp_conseq_frame_htop. xsimpl. Qed.
-
-(** The following specialization is useful to apply only frame. *)
-
-Lemma wp_ramified_frame : forall t Q1 Q2,
-  (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
-Proof using. intros. applys wp_conseq_frame_htop. xsimpl. Qed.
-
-(** The following reformulation is handy to apply on any goal
-    of the form [H ==> wp t Q]. *)
-
-Lemma wp_ramified_trans : forall t H Q1 Q2,
-  H ==> (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ->
-  H ==> (wp t Q2).
-Proof using. introv M. xchange M. applys wp_ramified. Qed.
-
-
-
-
-
-(* ------------------------------------------------------- *)
-
-
-(** The garbage collection in precondition for [wp] asserts that
-    [wp] can absorb and discard any desired heap predicate [H]
-    that sits next to it (i.e., that it is starred with). *)
-
-Lemma wp_hany_pre : forall t H Q,
-  (wp t Q) \* H ==> wp t Q.
-Proof using.
-  intros. rewrite <- wp_equiv.
-  applys triple_hany_pre. rewrite* wp_equiv.
-Qed.
-
-(** The garbage collection in postconditions for [wp] asserts
-    that [wp] can absorb and discard any desired heap predicate
-    [H] that appears in its postcondition. *)
-
-Lemma wp_hany_post : forall t H Q ,
-  wp t (Q \*+ H) ==> wp t Q.
-Proof using.
-  intros. rewrite <- wp_equiv.
-  applys triple_hany_post. rewrite* wp_equiv.
-Qed.
-
-(** Note, equivalently, the [H] from rules [wp_hany_pre] and
-   [wp_hand_post] may be replaced with [\Top]. *)
-
-
-
-
-(* ******************************************************* *)
-(** ** Motivation for direct definitions for [wp] rules *)
-
-(** In our construction, we have proved reasoning rules for
-    [hoare], derived reasoning rules for [triple], then used
-    the latter for proving the soundness of [wp].
-
-    Yet, if our goal was only to prove properties [wp], we wouldn't
-    need any result on [triple]. How would the reasoning rules be
-    stated and proved if we were to directly state and prove [wp]
-    properties from [hoare]? Let us investigate. *)
-
-(** We assume [wp] to be defined [wp] to be defined directly in terms
-    of [hoare], following the definition of [wp_high] from above. *)
-
-Parameter wp_def : forall t Q,
-  wp t Q = \exists H, H \* \[forall H', hoare t (H \* H') (Q \*+ H' \*+ \Top)].
-
-(** We first establish the (most-general) structural rule for [wp],
-    directly with respect to the [hoare] judgment. *)
-
-Lemma wp_ramified' : forall t Q1 Q2,
-  (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
-Proof using.
-  intros. do 2 rewrite wp_def. xpull ;=> H M.
-  xsimpl (H \* (Q1 \--* Q2 \*+ \Top)). intros H'.
-  applys hoare_conseq M; xsimpl.
-Qed.
-
-(** We next establish [wp] reasoning rules for each term construct.
-
-    To guide us towards the appropriate statements, we start from the
-    rule for [triple], and reformulate it using the equivalence
-    [triple t H Q <-> H ==> (wp t Q)]. *)
-
-
-
-
-(* ******************************************************* *)
-(** Garbage rules *)
-
-Lemma triple_htop_post : forall t H Q,
-  triple t H (Q \*+ \Top) ->
-  triple t H Q.
-Proof using.
-  introv M. intros HF. applys hoare_conseq (M HF); xsimpl.
-Qed.
-
-Lemma triple_htop_pre : forall t H Q,
-  triple t H Q ->
-  triple t (H \* \Top) Q.
-Proof using.
-  introv M. applys triple_htop_post. applys* triple_frame.
-Qed.
-
-Lemma triple_hany_pre : forall t H H' Q,
-  triple t H Q ->
-  triple t (H \* H') Q.
-Proof using.
-  introv M. applys triple_conseq (triple_htop_pre M); xsimpl.
-Qed.
-
-Lemma triple_hany_post : forall t H H' Q,
-  triple t H (Q \*+ H') ->
-  triple t H Q.
-Proof using.
-  introv M. applys triple_htop_post. applys triple_conseq M; xsimpl.
-Qed.
-
-
-
-(** Combined and ramified rules *)
-
-Lemma triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \Top ->
-  triple t H Q.
-Proof using.
-  introv M WH WQ. applys triple_htop_post.
-  applys triple_conseq WH WQ. applys triple_frame M.
-Qed.
-
-Lemma triple_conseq_frame : forall H2 H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q ->
-  triple t H Q.
-Proof using.
-  introv M WH WQ. applys triple_conseq_frame_htop M WH. xchanges WQ.
-Qed.
-
-Lemma triple_ramified_frame_htop : forall H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* (Q \*+ \Top)) ->
-  triple t H Q.
-Proof using.
-  introv M W. applys triple_conseq_frame_htop (Q1 \--* Q \*+ \Top) M W.
-  { rewrite* <- qwand_equiv. }
-Qed.
-
-Lemma triple_ramified_frame : forall H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* Q) ->
-  triple t H Q.
-Proof using.
-  introv M W. applys triple_ramified_frame_htop M. xchanges W.
-Qed.
-
-
-
-
-
-(* ******************************************************* *)
-
-
-
-(** The principle of the ramified-frame rule immediately generalizes
-    to handle the consequence-frame-top rule, which is like the
-    consequence-frame rule but with premise [Q1 \*+ H2 ===> Q \*+ \Top]. *)
-
-Lemma triple_ramified_frame_top : forall H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* (Q \*+ \Top)) ->
-  triple t H Q.
-Proof using.
-  introv M W. applys triple_conseq_frame (Q1 \--* (Q \*+ \Top)) M.
-  { applys W. } { applys qwand_cancel. }
-Qed.
-
-
-(* ******************************************************* *)
-
-Definition htop : hprop :=
-  fun h => True.
-
-Notation "\Top" := (htop).
-
-Definition hgc : hprop := htop.
-
-(** In general, [Definition hgc := fun h => heap_affine h],
-    where [heap_affine] is a predicate that characterizes which pieces
-    of heap are garbaged collected, as opposed to those that need to be
-    deallocated explicitly (e.g. file handles, or heap-allocated data in C). *)
-
-Notation "\GC" := (hgc).
-
-
-(* ******************************************************* *)
-
-
-(** [triple1 t H Q] features pre- and post-conditions describing
-    only a piece of state. [H'] denotes the framed part. *)
-
-Definition triple1 (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
-  forall (H':hprop), hoare t (H \* H') (Q \*+ H').
-
-(** [triple t H Q] adds a [\Top] to make the logic affine as
-    opposed to linear: resources can be freely thrown away. *)
-
-Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
-  forall (H':hprop), hoare t (H \* H') (Q \*+ H' \*+ \Top).
-
-(** An alternative, equivalent definition of SL triples. *)
-
-Definition fmap_disjoint_3 (h1 h2 h3:heap) : Prop :=
-     Fmap.disjoint h1 h2
-  /\ Fmap.disjoint h2 h3
-  /\ Fmap.disjoint h1 h3.
-
-Definition triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
-  forall h1 h2,
-  Fmap.disjoint h1 h2 ->
-  H h1 ->
-  exists v h1' h3',
-       fmap_disjoint_3 h1' h2 h3'
-    /\ eval (h1 \u h2) t (h1' \u h2 \u h3') v
-    /\ Q v h1'.
-
-Parameter triple_iff_triple_lowlevel : forall t H Q,
-  triple t H Q <-> triple_lowlevel t H Q.
-
-
-(* ******************************************************* *)
-
-
-(** Recall from the previous chapter that the ramified rule for [wp],
-    stated below, captures in a single line all the structural properties
-    of Separation Logic. *)
-
-Parameter wp_ramified : forall t Q1 Q2,
-  (wp t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wp t Q2).
-
-(** If [wpgen] were to satisfy this same property like [wp], then it would
-    also capture the expressive power of all the structural rules of
-    Separation Logic. In other words, we would like to have: *)
-
-Parameter wpgen_ramified : forall t Q1 Q2,
-  (wpgen t Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (wpgen t Q2).
-
-End WpgenOverview.
-
-
-
-(* ******************************************************* *)
 
 (** [xtop_lemma] helps exploiting [mkstruct] to augment the postcondition
     with [\Top]. It proves the entailment:
@@ -1372,170 +874,61 @@ Qed.
 
 
 
-(* ******************************************************* *)
-
-
 (** [xtop] involves [xtop_lemma], exploiting the leading [mkstruct]. *)
 
 Tactic Notation "xtop" :=
   applys xtop_lemma.
 
 
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Bonus contents (optional reading) *)
 
-(* ####################################################### *)
-(** * Appendix: details on the definition of [mkstruct] *)
 
-(** Recall the definition of [mkstruct].
-[[
-    Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
-      \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
-]]
+(* ########################################################### *)
+(** ** Low-level definition of refined triples *)
 
-    Let us first explain in more details why this definition satisfies
-    the required properties, namely [mkstruct_erase] and [mkstruct_ramified],
-    whose proofs were trivialized by [xsimpl].
+(** Recall the final definition of [triple], as:
+    [forall (H':hprop), hoare (H \* H') t (Q \*+ H' \*+ \GC)].
 
-    For the lemma [mkstruct_erase], we want to prove [F Q ==> mkstruct F Q].
-    This is equivalent to [F Q ==> \exists Q', F Q' \* (Q' \--* Q \*+ \Top)].
-    Taking [Q'] to be [Q] and cancelling [F Q] from both sides leaves
-    [\[] ==> Q \--* (Q \*+ \Top)], which is equivalent to [Q ==> Q \*+ \Top].
+    This definition can also be reformulated directly in terms of union
+    of heaps. All we need to do is introduce an additional piece of
+    state to describe the part covered by new [\Top] predicate.
 
-    For the lemma [mkstruct_ramified], we want to prove
-    [(mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2)],
-    which is equivalent to
-    [\exists Q', F Q' \* (Q' \--* Q1 \*+ \Top) \* (Q1 \--* Q2 \*+ \Top) ==>
-     \exists Q', F Q' \* (Q' \--* Q2 \*+ \Top)].
-    By instantiatiating the LHS [Q'] with the value of the RHS [Q'], and
-    cancelling [F Q'] form both sides, the entailment simplifies to:
-    [(Q' \--* Q1 \*+ \Top) \* (Q1 \--* Q2 \*+ \Top) ==> (Q' \--* Q2 \*+ \Top)].
-    The wand [Q1 \--* (Q2 \*+ \Top)] is equal to [(Q1 \*+ \Top) \--* (Q2 \*+ \Top)]
-    (because both are equal to [(Q1 \*+ \Top) \--* (Q2 \*+ \Top \*+ \Top))]).
-    Thus, the goal reformulates as
-    [Q' \--* (Q1 \*+ \Top)) \* ((Q1 \*+ \Top) \--* (Q2 \*+ \Top)) ==>
-     Q' \--* (Q2 \*+ \Top)].
-    We conclude by cancelling out [Q1 \*+ \Top] accross the two magic wands
-    from the LHS---recall the lemma [hwand_trans_elim] from [SLFHwand]. *)
+    In order to describe disjointness of the 3 pieces of heap that
+    describe the final state, we first introduce an auxiliary definition:
+    [Fmap.disjoint_3 h1 h2 h3] asserts that the three arguments denote
+    pairwise disjoint heaps. *)
 
-(** Let us now explain how, to a goal of the form [H ==> mkstruct F Q],
-    one can apply the structural rules of Separation Logic.
-    Consider for example the ramified frame rule. *)
+Definition fmap_disjoint_3 (h1 h2 h3:heap) : Prop :=
+     Fmap.disjoint h1 h2
+  /\ Fmap.disjoint h2 h3
+  /\ Fmap.disjoint h1 h3.
 
-Parameter triple_ramified_frame : forall H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* Q) ->
-  triple t H Q.
+(** We then generalize the result heap from [h1' \u h2] to
+    [h1' \u h2 \u h3'], where [h3'] denotes the piece of the
+    final state that is described by the [\GC] heap predicate
+    that appears in the definition of [triple]. *)
 
-(** Let us reformulate this lemma in weakest-precondition style,
-    then prove it. *)
+Definition triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall h1 h2,
+  Fmap.disjoint h1 h2 ->
+  H h1 ->
+  exists v h1' h3',
+       fmap_disjoint_3 h1' h2 h3'
+    /\ heap_affine h3'
+    /\ eval (h1 \u h2) t (h1' \u h2 \u h3') v
+    /\ Q v h1'.
 
-Lemma himpl_mkstruct_conseq_frame : forall H Q H1 Q1 F,
-  H1 ==> mkstruct F Q1 ->
-  H ==> H1 \* (Q1 \--* Q) ->
-  H ==> mkstruct F Q.
-Proof using.
-  introv M W. xchange W. xchange M.
-  lets N: mkstruct_ramified Q1 Q F. xchanges N.
-Qed.
+(** One can prove the equivalence of [triple] and [triple_lowlevel]
+    following a similar proof pattern as previously. The proof is a bit
+    more technical and requires additional tactic support to deal with
+    the tedious disjointness conditions, so we omit the details here. *)
 
-(** An interesting property of [mkstruct] is its idempotence:
-    [mkstruct (mkstruct F) = mkstruct F].
-    Concretely, applying this predicate transformer more than
-    once does not increase expressiveness. *)
-
-(* EX3! (mkstruct_idempotent) *)
-(** Prove the idempotence of [mkstruct]. Hint: use [xsimpl]. *)
-
-Lemma mkstruct_idempotent : forall F,
-  mkstruct (mkstruct F) = mkstruct F.
-Proof using.
-  (* SOLUTION *)
-  intros. apply fun_ext_1. intros Q.
-  unfold mkstruct. xsimpl.
-  (* [xsimpl] first invokes [applys himpl_antisym].
-     The right-to-left entailment is exactly [mkstruct_erase].
-     The left-to-right entailment amounts to proving:
-     [F Q2 \* (Q2 \--* (Q1 \*+ \Top) \* (Q1 \--* (Q \*+ \Top))
-      ==> \exists Q', F Q' \* (Q' \--* (Q \*+ \Top))]
-     To conclude the proof, instantiate [Q'] as [Q2] and cancel
-     out [Q1 \*+ \Top] (like done earlier in this section). *)
-(* /SOLUTION *)
-Qed.
+Parameter triple_iff_triple_lowlevel : forall t H Q,
+  triple t H Q <-> triple_lowlevel t H Q.
 
 
 
-----------------------------------------------
-(* TODO integrate
-Module MkstructAlt.
-
-Definition mkstruct (F:formula) : formula := fun (Q:val->hprop) =>
-  \exists Q' H', F Q' \* H' \* \[Q' \*+ H' ===> Q \*+ \Top].
-
-Lemma mkstruct_erase : forall Q F,
-  F Q ==> mkstruct F Q.
-Proof using. unfolds mkstruct. intros. xsimpl \[] Q. xsimpl. Qed.
-
-Lemma mkstruct_ramified : forall Q1 Q2 F,
-  (mkstruct F Q1) \* (Q1 \--* Q2 \*+ \Top) ==> (mkstruct F Q2).
-Proof using.
-  unfold mkstruct. intros. xpull ;=> Q' H' M.
-  applys himpl_hexists_r Q'.
-  applys himpl_hexists_r (H' \* (Q1 \--* Q2 \*+ \Top)).
-  rew_heap.
-  applys himpl_frame_r.
-  applys himpl_frame_r.
-  xsimpl. xchange M. intros x. xsimpl.
-Qed.
-
-Definition equiv_mkstruct :
-  mkstruct = Top.mkstruct.
-Proof using.
-  intros. apply fun_ext_2 ;=> F Q. unfold mkstruct, Top.mkstruct.
-  applys himpl_antisym.
-  { xpull ;=> Q' H' M. xsimpl Q'. xchanges M. }
-  { xpull ;=> Q'. xsimpl Q'. xsimpl. }
-Qed.
-
-End MkstructAlt.
- *)
-
-
-
-----------------------------------------------
-
-
-(** Two garbage collection rules allow throwing away. *)
-
-Parameter triple_htop_pre : forall t H Q,
-  triple t H Q ->
-  triple t (H \* \Top) Q.
-
-Parameter triple_htop_post : forall t H Q,
-  triple t H (Q \*+ \Top) ->
-  triple t H Q.
-
-
-(** And its generalization "consequence + frame + top". *)
-
-Parameter triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \Top ->
-  triple t H Q.
-
-
-
-(** Generalization with \Top *)
-
-Parameter triple_ramified_frame_htop : forall H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* (Q \*+ \Top)) ->
-  triple t H Q.
-
-
-
-
-----------------------------------------------
-
-Definition MkStruct (F:Formula) : Formula :=
-  fun A `{EA:Enc A} Q => \exists Q', ^F Q' \* (Q' \--* (Q \*+ \Top)).
 
