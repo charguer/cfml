@@ -10,6 +10,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
+From Sep Require SLFRules.
 From Sep Require Export SLFDirect.
 
 Implicit Types f : var.
@@ -144,12 +145,12 @@ Parameter triple_hany_pre : forall t H H' Q,
   triple t H Q ->
   triple t (H \* H') Q.
 
-(** As we prove further on, the rule [triple_hany_pre] can be derived from
-    [triple_hany_post] using the frame rule, but not vice-versa. Thus, we
-    thereafter focus on the more general rule [triple_hany_post], which
-    operates on the postcondition. *)
+(** The rule [triple_hany_pre] is derivable from [triple_hany_post], by
+    a simple application of the frame rule. Reciprocally, [triple_hany_post]
+    is derivable from [triple_hany_post], however the proof is more involved
+    (it appears in the bonus section). *)
 
-(** Let us show that, using this rule [triple_hany_post], we can derive
+(** Let us show that, using the rule [triple_hany_post], we can derive
     the desired specification for the motivating example from the
     specification that mentions the left-over postcondition. *)
 
@@ -1357,77 +1358,35 @@ End LowLevel.
 (** ** Pre and post rules *)
 
 Module FromPreToPostGC.
+Import SLFRules ProofsSameSemantics.
 
-
-From Sep Require Import SLFExtra.
-
-Parameter triple_let : forall z t1 t2 H Q Q1,
-  triple t1 H Q1 ->
-  (forall (X:val), triple (subst z X t2) (Q1 X) Q) ->
-  triple (trm_let z t1 t2) H Q.
+(** Let us prove that the rule [triple_hgc_post] is derivable from
+    [triple_hgc_pre]. *)
 
 Parameter triple_hgc_pre : forall t H Q,
   triple t H Q ->
   triple t (H \* \GC) Q.
 
-Definition trm_equiv (t1 t2:trm) : Prop :=
-  forall s s' v, eval s t1 s' v <-> eval s t2 s' v.
-
-Lemma temp : forall (t:trm) (x:var),
-  trm_equiv t (trm_let x t x).
-Proof using.
-  intros. intros s s' v. iff M.
-  { applys eval_let M. simpl. rewrite var_eq_spec. case_if. applys eval_val. }
-  { inverts M as. introv M1 M2. simpls. rewrite var_eq_spec in M2. case_if.
-    inverts M2. auto. }
-Qed.
-
-Lemma temp0 : forall (t1 t2:trm) H Q,
-  trm_equiv t1 t2 ->
-  hoare t1 H Q <-> hoare t2 H Q.
-Proof using.
-  introv E. unfolds hoare, trm_equiv.
-  iff M.
-  { intros h K. forwards* (h'&v&R&K'): M h. exists h' v. rewrite* <- E. } 
-  { intros h K. forwards* (h'&v&R&K'): M h. exists h' v. rewrite* E. }
-Qed.
-
-Lemma temp2 : forall (t1 t2:trm) H Q,
-  trm_equiv t1 t2 ->
-  triple t1 H Q <-> triple t2 H Q.
-Proof using.
-  introv E. unfolds triple. iff M.
-  { intros H'. rewrite* <- temp0. }
-  { intros H'. rewrite* temp0. }
-Qed.
-
-
-Lemma triple_hgc_post' : forall t H Q,
+Lemma triple_hgc_post : forall t H Q,
   triple t H (Q \*+ \GC) ->
   triple t H Q.
+
+(** The key idea of the proof is that a term [t] admits the same behavior
+    as [let x = t in x]. Thus, to simulate garbage collection of a predicate
+    from the postcondition of [t], one can invoke the garbage collection 
+    rule on the precondition of the variable [x] that appears at the end
+    of [let x = t in x]. 
+
+    To formalize this idea, recall from [SLFRules] the lemma
+    [trm_equiv_eta_expansion] which asserts the equivalence of
+    [t] and [let x = t in x], and recall the lemma [triple_trm_equiv],
+    which asserts that two equivalent terms satisfy the same triples. *)
+
 Proof using.
-  introv M. lets E: temp t "x".
-  forwards K: temp2 E. rewrite K. clear K.
-  applys triple_let.
-  { applys M. } 
+  introv M. lets E: trm_equiv_eta_expansion t "x".
+  applys triple_trm_equiv E. applys triple_let.
+  { applys M. }
   { intros v. simpl. applys triple_hgc_pre. applys triple_val. auto. }
 Qed.
-
-(** Remark: the lemmas that enable discarding pieces of precondition
-    (e.g., [triple_htop_pre]) are derivable from those that enable
-    discarding pices of postconditions (e.g., [triple_htop_post]),
-    but not the other way around.
-
-    Advanced remark: the above remark can be mitigated. If we expose
-    that [triple t H Q <-> triple t' H Q] holds whenever [t] and [t']
-    are observationally equivalent with respect to the semantics
-    defined by [eval], and if we are able to prove that [let x = t in x]
-    is observationally equivalent to [t] for some fresh variable x,
-    then it is possible to prove that [triple_htop_post] is derivable
-    from [triple_htop_pre]. Indeed, the postcondition of [t] can be viewed
-    as the precondition of the [x] occuring in the right-hand side of the
-    term [let x = t in x]. Thus, discarding a heap predicate from the
-    postcondition of [t] can be simulated by discarding a heap predicate
-    from the precondition of [x]. *)
 
 End FromPreToPostGC.

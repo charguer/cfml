@@ -1029,3 +1029,46 @@ Qed.
     However, this would be somewhat cheating, because the entire point of a
     direct definition in terms of heap is to not depend on the definition of
     [hstar] nor of other Separation Logic operators such as [\GC].
+
+    =========
+
+    the same Hoare triples and
+
+Lemma hoare_trm_equiv : forall t1 t2 H Q,
+  trm_equiv t1 t2 ->
+  hoare t1 H Q <-> hoare t2 H Q.
+Proof using.
+  introv E. unfolds trm_equiv. iff M.
+  { applys hoare_same_eval M. applys E. }
+  { applys hoare_same_eval M. applys E. }
+Qed.
+
+
+
+
+
+Lemma trm_equiv_hoare : forall (t1 t2:trm) H Q,
+  trm_equiv t1 t2 ->
+  hoare t1 H Q <-> hoare t2 H Q.
+Proof using.
+  introv E. unfolds hoare, trm_equiv. iff M.
+  { intros h K. forwards* (h'&v&R&K'): M h. exists h' v. rewrite* <- E. }
+  { intros h K. forwards* (h'&v&R&K'): M h. exists h' v. rewrite* E. }
+Qed.
+
+(** Two terms that are equivalent satisfy the same Separation Logic triples.
+    Indeed, the definition of a Separation Logic triple directly depends on
+    the notion of Hoare triple. *)
+
+Lemma trm_equiv_triple : forall (t1 t2:trm) H Q,
+  trm_equiv t1 t2 ->
+  triple t1 H Q <-> triple t2 H Q.
+Proof using.
+  introv E. unfolds triple. iff M.
+  { intros H'. rewrite* <- trm_equiv_hoare. }
+  { intros H'. rewrite* trm_equiv_hoare. }
+Qed.
+
+Another example is
+    if [t1] is a while loop, it enables applying reasoning rules that handles
+    in a specific way the post-treatment described by [t2].

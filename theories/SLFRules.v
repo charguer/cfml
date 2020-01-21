@@ -1945,9 +1945,42 @@ Module ProofsSameSemantics.
 
 (** A general principle is that if [t1] has the same semantics
     as [t2] (w.r.t. the big-step evaluation judgment [eval]),
-    then any triple valid for [t1] is also valid for [t2]. *)
+    then [t1] and [t2] satisfy the same triples.
 
-Lemma hoare_same_semantics : forall t1 t2 H Q,
+    Let us formalize this principle. *)
+
+(** Two (closed) terms are semantically equivalent, written
+    [trm_equiv t1 t2], if two terms, when evaluated in the same
+    state, produce the same output. *)
+
+Definition trm_equiv (t1 t2:trm) : Prop :=
+  forall s s' v, eval s t1 s' v <-> eval s t2 s' v.
+
+(** For example, a term [t] and a term [let x = t in x] denote
+    equivalent programs. *)
+
+Lemma trm_equiv_eta_expansion : forall (t:trm) (x:var),
+  trm_equiv t (trm_let x t x).
+Proof using.
+  intros. intros s s' v. iff M.
+  { applys eval_let M.
+    simpl. rewrite var_eq_spec. case_if.
+    applys eval_val. }
+  { inverts M as. introv M1 M2.
+    simpl in M2. rewrite var_eq_spec in M2. case_if.
+    inverts M2. auto. }
+Qed.
+
+(** Two terms that are equivalent satisfy the same Separation Logic
+    triples (and the same Hoare triples).
+
+    Indeed, the definition of a Separation Logic triple directly depends 
+    on the notion of Hoare triple, and the latter directly depends
+    on the semantics captured by the predicate [eval]. 
+
+    Let us formalize the result in three steps. *)
+
+Lemma hoare_same_eval : forall t1 t2 H Q,
   (forall s s' v, eval s t1 s' v -> eval s t2 s' v) ->
   hoare t1 H Q ->
   hoare t2 H Q.
@@ -1956,25 +1989,56 @@ Proof using.
   exists s' v. split. { applys E R1. } { applys K1. }
 Qed.
 
-Lemma triple_same_semantics : forall t1 t2 H Q,
+Lemma triple_same_eval : forall t1 t2 H Q,
   (forall s s' v, eval s t1 s' v -> eval s t2 s' v) ->
   triple t1 H Q ->
   triple t2 H Q.
 Proof using.
-  introv E M1. intros H'. applys hoare_same_semantics E. applys M1.
+  introv E M1. intros H'. applys hoare_same_eval E. applys M1.
 Qed.
 
-(** Using this general result, we can revisit, e.g., the proof of
-    [triple_app_fun] in a much more succint way. *)
+Lemma triple_trm_equiv : forall t1 t2 H Q,
+  trm_equiv t1 t2 ->
+  triple t1 H Q <-> triple t2 H Q.
+Proof using.
+  introv E. unfolds trm_equiv. iff M.
+  { applys triple_same_eval M. applys E. }
+  { applys triple_same_eval M. applys E. }
+Qed.
+
+(** The reasoning rule [triple_same_eval] has a number of practical applications.
+
+    One, show below, is to revisit the proof of [triple_app_fun] in a
+    much more succint way, by arguing that [trm_app (val_fun x t1)] and
+    [subst x v2 t1] are equivalent terms, hence they admit the same behavior. *)
 
 Lemma triple_app_fun : forall x v1 v2 t1 H Q,
   v1 = val_fun x t1 ->
   triple (subst x v2 t1) H Q ->
   triple (trm_app v1 v2) H Q.
 Proof using.
-  introv E M1. applys triple_same_semantics M1.
+  introv E M1. applys triple_same_eval M1.
   introv R. applys eval_app_fun E R.
 Qed.
+
+(** Another application is the following rule, which allows to modify the
+    parenthesis structure of a sequence, from [t1; (t2; t3)] to [(t1;t2); t3]. *)
+
+Lemma triple_trm_seq_assoc : forall t1 t2 t3 H Q,
+  triple (trm_seq (trm_seq t1 t2) t3) H Q ->
+  triple (trm_seq t1 (trm_seq t2 t3)) H Q.
+Proof using.
+  introv M. applys triple_same_eval M. clear M.
+  introv R. inverts R as. introv R1 R3. inverts R1 as. introv R1 R2.
+  applys eval_seq R1. applys eval_seq R2 R3.
+Qed.
+
+(** Such a change in the parenthesis structure of a sequence can be helfpul
+    to apply the frame rule around [t1;t2], for example. *)
+
+(** Another useful application of the lemma [triple_same_eval] appears in
+    chapter [SLFAffine], for proving the equivalence of two versions of the
+    garbage collection rule. *)
 
 End ProofsSameSemantics.
 
