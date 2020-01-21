@@ -1115,6 +1115,17 @@ End NewTriples.
 Module XaffineXsimplTactics.
 Import SLFDirect.
 
+(** To present the tactics, let us import the definitions from [SLFDirect]
+    but assume that the definition of [mkstruct] is like the one presented
+    in this file, that is, including the [\GC] when defining [mkstruct F]
+    as [fun Q => \exists Q', F Q' \* (Q' \--* (Q \*+ \GC)). 
+
+    As argued above, with this definition, [mkstruct] satisfies the
+    following garbage collection rule. *)
+
+Parameter mkstruct_hgc : forall Q F,
+  mkstruct F (Q \*+ \GC) ==> mkstruct F Q.
+
 (** The tactic [xaffine] applys to a goal of the form [haffine H].
     The tactic simplifies the goal using all the distributivity rules
     associated with [haffine]. Ultimately, it invokes [eauto with haffine],
@@ -1178,7 +1189,10 @@ Lemma xgc_lemma: forall H1 H2 H F Q,
   H2 ==> mkstruct F Q ->
   H ==> mkstruct F Q.
 Proof using.
-  introv K WH M. xchange WH. xchange M. applys* mkstruct_haffine_pre.
+  introv K WH M. xchange WH. xchange M. 
+  applys himpl_trans mkstruct_frame. 
+  applys himpl_trans mkstruct_hgc.
+  applys mkstruct_conseq. xsimpl.
 Qed.
 
 Tactic Notation "xgc" constr(H) :=

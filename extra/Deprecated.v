@@ -989,3 +989,23 @@ Tactic Notation "xaffine" :=
     end
   | |- forall _, haffine _ => intro; solve [ .. ]
   end.
+
+==========
+
+
+Lemma mkstruct_hgc_post : forall Q F,
+  mkstruct F (Q \*+ \GC) ==> mkstruct F Q.
+Proof using.
+  intros. unfolds mkstruct. xpull. intros Q'.
+  set (X := hgc) at 3. replace X with (\GC \* \GC).
+  { xsimpl. } { subst X. apply hstar_hgc_hgc. }
+Qed.
+
+Lemma mkstruct_haffine_pre : forall H Q F,
+  haffine H -> (* here, [True] *)
+  (mkstruct F Q) \* H ==> mkstruct F Q.
+Proof using.
+  introv K. applys himpl_trans. 2:{ applys mkstruct_hgc_post. }
+  applys himpl_trans. { applys mkstruct_frame. }
+  applys mkstruct_conseq. xsimpl.
+Qed.

@@ -1639,25 +1639,14 @@ Lemma mkstruct_conseq : forall F Q1 Q2,
   Q1 ===> Q2 ->
   mkstruct F Q1 ==> mkstruct F Q2.
 Proof using.
-  introv WQ. unfolds mkstruct. xpull. intros Q. xsimpl Q. xchange WQ.
+  introv WQ. unfolds mkstruct. xpull. intros Q. xsimpl Q. xchanges WQ.
 Qed.
 
-(*
-Lemma mkstruct_haffine_post : forall Q F,
-  mkstruct F (Q \*+ \GC) ==> mkstruct F Q.
+Lemma mkstruct_frame : forall F H Q,
+  (mkstruct F Q) \* H ==> mkstruct F (Q \*+ H).
 Proof using.
-  intros. unfolds mkstruct. xpull. intros Q'.
-  xsimpl Q'. \*+ \qGC).
-  xsimpl. 
+  intros. unfold mkstruct. xpull. intros Q'. xsimpl Q'.
 Qed.
-
-Lemma mkstruct_haffine_pre : forall H Q F,
-  (mkstruct F Q) \* H ==> mkstruct F Q.
-Proof using.
-
-Qed.
-
-*)
 
 
 (* ################################################ *)
