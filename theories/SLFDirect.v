@@ -650,6 +650,16 @@ Qed.
 (* ################################################ *)
 (** *** Properties of [hforall] *)
 
+Lemma hforall_intro : forall A (J:A->hprop) h,
+  (forall x, J x h) ->
+  (hforall J) h.
+Proof using. introv M. applys* M. Qed.
+
+Lemma hforall_inv : forall A (J:A->hprop) h,
+  (hforall J) h ->
+  forall x, J x h.
+Proof using. introv M. applys* M. Qed.
+
 Lemma himpl_hforall_r : forall A (J:A->hprop) H,
   (forall x, H ==> J x) ->
   H ==> (hforall J).
@@ -1063,10 +1073,10 @@ Proof using.
   exists h2' v2. splits~. { applys~ eval_seq R1 R2. }
 Qed.
 
-Lemma hoare_let : forall z t1 t2 H Q Q1,
+Lemma hoare_let : forall x t1 t2 H Q Q1,
   hoare t1 H Q1 ->
-  (forall v, hoare (subst z v t2) (Q1 v) Q) ->
-  hoare (trm_let z t1 t2) H Q.
+  (forall v, hoare (subst x v t2) (Q1 v) Q) ->
+  hoare (trm_let x t1 t2) H Q.
 Proof using.
   introv M1 M2 Hh.
   forwards* (h1'&v1&R1&K1): (rm M1).

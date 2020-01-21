@@ -1281,18 +1281,30 @@ Notation "'\forall' x1 .. xn , H" :=
   (at level 39, x1 binder, H at level 50, right associativity,
    format "'[' '\forall' '/ '  x1  ..  xn , '/ '  H ']'").
 
-(** The introduction rule for [\forall] appears below. To prove that a heap
-    satisfies [\forall x, J x], one must  show that, for any [x], this heap
-    satisfies [J x]. *)
+(** The introduction and elimination rule for [hforall] are as follows. *)
+
+Lemma hforall_intro : forall A (J:A->hprop) h,
+  (forall x, J x h) ->
+  (hforall J) h.
+Proof using. introv M. applys* M. Qed.
+
+Lemma hforall_inv : forall A (J:A->hprop) h,
+  (hforall J) h ->
+  forall x, J x h.
+Proof using. introv M. applys* M. Qed.
+
+(** The introduction rule in an entailement for [\forall] appears below.
+    To prove that a heap satisfies [\forall x, J x], one must show that,
+     for any [x], this heap satisfies [J x]. *)
 
 Lemma himpl_hforall_r : forall A (J:A->hprop) H,
   (forall x, H ==> J x) ->
   H ==> (\forall x, J x).
 Proof using. introv M. intros h K x. apply~ M. Qed.
 
-(** The elimination rule for [\forall] appears below. Assuming a heap
-    satisfies [\forall x, J x], one can derive that the same heap
-    satisfies [J v] for any desired value [v]. *)
+(** The elimination rule in an entailment for [\forall] appears below.
+    Assuming a heap satisfies [\forall x, J x], one can derive that the
+    same heap satisfies [J v] for any desired value [v]. *)
 
 Lemma hforall_specialize : forall A (v:A) (J:A->hprop),
   (\forall x, J x) ==> (J v).

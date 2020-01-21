@@ -188,10 +188,10 @@ Proof using.
   { applys hoare_conseq M2; xsimpl. }
 Qed.
 
-Lemma triple_let : forall z t1 t2 H Q Q1,
+Lemma triple_let : forall x t1 t2 H Q Q1,
   triple t1 H Q1 ->
-  (forall (X:val), triple (subst z X t2) (Q1 X) Q) ->
-  triple (trm_let z t1 t2) H Q.
+  (forall (X:val), triple (subst x X t2) (Q1 X) Q) ->
+  triple (trm_let x t1 t2) H Q.
 Proof using.
   introv M1 M2. intros HF. applys hoare_let.
   { applys M1. }

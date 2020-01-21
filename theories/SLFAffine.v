@@ -397,7 +397,8 @@ End MotivatingExampleWithTactic.
 
 Module FullyAffineLogic.
 
-  Definition haffine (H:hprop) := True.
+  Definition haffine (H:hprop) := 
+    True.
 
   Lemma haffine_hany : forall (H:hprop), 
     haffine H.
@@ -419,12 +420,14 @@ End FullyAffineLogic.
 
 (** On the contrary, one can stick to a "linear" Separation Logic
     and enforce that no heap predicate can be discarded simply
-    by definining [haffine] to only be satisfied by the empty
-    heap predicate. In that case, [\GC] becomes equivalent to [\[]]. *)
+    by definining [haffine] to only be satisfied by heap predicates
+    that characterize the empty heap. In that case, [\GC] becomes
+    equivalent to [\[]]. *)
 
 Module FullyLinearLogic.
 
-  Definition haffine (H:hprop) := (H = \[]).
+  Definition haffine (H:hprop) := 
+    (H ==> \[]).
 
   Lemma haffine_hempty :
     haffine \[].
@@ -436,13 +439,16 @@ Module FullyLinearLogic.
   Lemma hgc_eq_hempty : hgc = hempty.
   Proof using.
     unfold hgc, haffine. applys himpl_antisym.
-    { xpull. intros ? ->. auto. }
+    { xpull. intros H M. auto. }
     { xsimpl \[]. auto. }
   Qed.
 
 End FullyLinearLogic.
 
-(** In what follows, we purposely leave the definition of [haffine]
+(** We'll come back later on in more details on these two extreme
+    specializations of the [haffine] predicate. 
+
+    In what follows, we purposely leave the definition of [haffine]
     abstract for the sake of generality. *)
 
 
@@ -739,58 +745,6 @@ Proof using.
   { xsimpl. } { xchange hstar_hgc_hgc. xsimpl. }
 Qed.
 
-End NewTriples.
-
-
-(* ########################################################### *)
-(** ** Pre and post rules *)
-
-Module FromPreToPostGC.
-
-Parameter triple_hgc_pre : forall t H H' Q,
-  triple t H Q ->
-  triple t (H \* \GC) Q.
-
-Definition trm_equiv (t1 t2:trm) : Prop :=
-  forall s s' v, eval s t1 s' v <-> eval s t2 s' v.
-
-Parameter temp : forall (t:trm), exists (x:var),
-  trm_equiv t (trm_let x t x).
-
-Parameter temp2 : forall (t1 t2:trm) H Q,
-  trm_equiv t1 t2 ->
-  triple t1 H Q <-> triple t2 H Q
-
-Lemma triple_hgc_post' : forall t H Q,
-  triple t H (Q \*+ \GC) ->
-  triple t H Q.
-Proof using.
-  lets (x&E): temp t.
-  rewrite (temp2 E).
-  applys triple_let.
-  { applys triple_hgc_pre. }
-  applys M.
-Qed;
-
-(** Remark: the lemmas that enable discarding pieces of precondition
-    (e.g., [triple_htop_pre]) are derivable from those that enable
-    discarding pices of postconditions (e.g., [triple_htop_post]),
-    but not the other way around.
-
-    Advanced remark: the above remark can be mitigated. If we expose
-    that [triple t H Q <-> triple t' H Q] holds whenever [t] and [t']
-    are observationally equivalent with respect to the semantics
-    defined by [eval], and if we are able to prove that [let x = t in x]
-    is observationally equivalent to [t] for some fresh variable x,
-    then it is possible to prove that [triple_htop_post] is derivable
-    from [triple_htop_pre]. Indeed, the postcondition of [t] can be viewed
-    as the precondition of the [x] occuring in the right-hand side of the
-    term [let x = t in x]. Thus, discarding a heap predicate from the
-    postcondition of [t] can be simulated by discarding a heap predicate
-    from the precondition of [x]. *)
-
-End FromPreToPostGC.
-
 
 (* ########################################################### *)
 (** ** Construction template for [haffine] *)
@@ -846,7 +800,7 @@ Definition haffine_post (A:Type) (J:A->hprop) : Prop :=
 Lemma haffine_hempty :
   haffine \[].
 Proof using.
-  introv K. applys heap_affine_empty.
+  introv K. lets E: hempty_inv K. subst. applys heap_affine_empty.
 Qed.
 
 Lemma haffine_hstar : forall H1 H2,
@@ -854,7 +808,8 @@ Lemma haffine_hstar : forall H1 H2,
   haffine H2 ->
   haffine (H1 \* H2).
 Proof using.
-  introv M1 M2 K. applys* heap_affine_star.
+  introv M1 M2 K. lets (h1&h2&K1&K2&D&U): hstar_inv K.
+  subst. applys* heap_affine_union.
 Qed.
 
 (** Recall the distribution rules over quantifiers.
@@ -880,15 +835,15 @@ Proof using. introv F1 (x&Hx). applys* F1. Qed.
 Lemma haffine_hforall : forall A `{Inhab A} (J:A->hprop),
   haffine_post J ->
   haffine (hforall J).
-Proof using. introv IA F1 Hx. applys* F1 arbitrary. Qed.
+Proof using. introv IA F1 Hx. lets N: hforall_inv Hx. applys* F1 arbitrary. Qed.
 
 (** Two other facts are useful. First, pure heap predicates are affine. *)
 
 Lemma haffine_hpure : forall P,
   haffine \[P].
 Proof using.
-  intros. rewrite hpure_eq_hexists_empty.
-  applys* haffine_hexists. intros HP. applys* haffine_hempty.
+  intros. intros h K. lets (HP&M): hpure_inv K. 
+  subst. applys heap_affine_empty.
 Qed.
 
 (** Second, [haffine] distributes over [\[P] \* H] by providing the
@@ -898,54 +853,111 @@ Lemma haffine_hstar_hpure : forall P H,
   (P -> haffine H) ->
   haffine (\[P] \* H).
 Proof using.
-  intros M h K. rewrite hstar_hpure. ..
+  introv M. intros h K. rewrite hstar_hpure in K. applys* M.
 Qed.
 
-Section IntroElimLemmas.
-Transparent hexists.
+(** Consider a definition of [\GC] based on the definition of
+    [haffine] derived from [heap_affine] as done above. *)
 
-(* EX2! (hgc_intro) *)
-(** Prove the following introduction lemma for [\GC].
-    Hint: unfold the definition [hgc] then unfold that of the
-    [hexists] that is revealed.  *)
+Section GCProp.
+
+Definition hgc : hprop :=
+  \exists H, \[haffine H] \* H.
+
+Notation "\GC" := (hgc).
+
+(** For this definition of [haffine], we can state introduction and
+    elimination lemmas for [\GC] expressed in terms of [heap_affine]. *)
 
 Lemma hgc_intro : forall h,
   heap_affine h ->
   \GC h.
-Proof using. (* ADMITTED *)
-  unfold hgc, hexists. introv K. exists (=h).
-  rewrite hstar_hpure. split~. { introv ->. auto. }
-Qed. (* /ADMITTED *)
+Proof using.
+  unfold hgc. intros h K. applys hexists_intro (=h).
+  rewrite hstar_hpure. split. { introv ->. auto. } { auto. }
+Qed.
 
-(* [] *)
-
-(* EX2! (hgc_inv) *)
+(* EX2? (hgc_inv) *)
 (** Prove the reciprocal elimination lemma for [\GC]. *)
 
 Lemma hgc_inv : forall h,
   \GC h ->
   heap_affine h.
 Proof using. (* ADMITTED *)
-  unfold hgc, hexists. introv (x&K).
-  rewrite hstar_hpure in K. auto.
+  unfold hgc. intros h M. lets (H&K): hexists_inv M.
+  rewrite hstar_hpure in K. destruct K as (K&Hh).
+  unfold haffine in K. applys K. auto.
 Qed. (* /ADMITTED *)
 
 (* [] *)
 
-End IntroElimLemmas.
+End GCProp.
 
-(** In what follows, we show how to check the two required properties
-    of [heap_affine] in case its definition is set up to spin a
-    fully-linear logic. *)
 
-Module FullyLinearHaffineProp.
+(* ########################################################### *)
+(** ** Definition of [haffine] for a fully-affine logic *)
+
+Module FullyAffineHaffine.
+
+(** To set up a fully-affine logic, we make all heaps satisfy [heap_affine]. *)
+
+Definition heap_affine (h:heap) :=
+  True.
+
+(** It is trivial to check that [heap_affine] satisfies the required properties. *)
+
+Lemma heap_affine_empty :
+  heap_affine Fmap.empty.
+Proof using. unfold heap_affine. auto. Qed.
+
+Lemma heap_affine_union : forall h1 h2,
+  heap_affine h1 ->
+  heap_affine h2 ->
+  Fmap.disjoint h1 h2 ->
+  heap_affine (Fmap.union h1 h2).
+Proof using. unfold heap_affine. auto. Qed.
+
+(** The generic construction of [haffine] provides a predicate that holds
+    of any heap predicate. *)
+
+Definition haffine (H:hprop) : Prop :=
+  forall h, H h -> heap_affine h.
+
+Lemma haffine_hany : forall (H:hprop),
+  haffine H.
+Proof using. unfold haffine, heap_affine. auto. Qed.
+
+(** This associated generic construction of [haffine] is equivalent to the direct
+    definition of [haffine] as [fun (H:hprop) => True] presented earlier on. *)
+
+Definition haffine' (H:hprop) := 
+  True.
+
+Lemma haffine_eq_haffine' : 
+  haffine = haffine'.
+Proof using. 
+  apply pred_ext_1. intros H. unfold haffine, haffine', heap_affine. autos*.
+Qed.
+
+End FullyAffineHaffine.
+
+
+(* ########################################################### *)
+(** ** Definition of [haffine] for a fully-linear logic *)
+
+Module FullyLinearHaffine.
+
+(** To set up a fully-linear logic, we make only empty heaps satisfy 
+    [heap_affine]. *)
 
 Definition heap_affine (h:heap) :=
   h = Fmap.empty.
 
+(** It is not hard to check that [heap_affine] satisfies the required properties. *)
+
 Lemma heap_affine_empty :
   heap_affine Fmap.empty.
-Proof using. auto. Qed.
+Proof using. unfold heap_affine. auto. Qed.
 
 Lemma heap_affine_union : forall h1 h2,
   heap_affine h1 ->
@@ -953,10 +965,29 @@ Lemma heap_affine_union : forall h1 h2,
   Fmap.disjoint h1 h2 ->
   heap_affine (Fmap.union h1 h2).
 Proof using. 
-  introv K1 K2 D. unfolds heap_affine. subst. rewrite Fmap.union_empty_r.
+  introv K1 K2 D. unfolds heap_affine. subst. rewrite* Fmap.union_empty_r.
 Qed.
 
-End FullyLinearHaffineProp.
+(** The associated generic construction of [haffine] provides a predicate that 
+    holds only of the empty heap predicate. It is thus equivalent to the
+    previously-presented definition of [haffine] for a fully-linear logic
+    defined as [fun H => (H ==> \[])]. *)
+
+Definition haffine (H:hprop) : Prop :=
+  forall h, H h -> heap_affine h.
+
+Definition haffine' (H:hprop) := 
+  H ==> \[].
+
+Lemma haffine_eq_haffine' : 
+  haffine = haffine'.
+Proof using. 
+  apply pred_ext_1. intros H. unfold haffine, haffine', heap_affine. iff M.
+  { intros h Hh. rewrite* M. applys hempty_intro. }
+  { intros h K. lets N: M K. applys hempty_inv N. }
+Qed.
+
+End FullyLinearHaffine.
 
 End HaffineDef.
 
@@ -1189,6 +1220,8 @@ Abort.
 
 End XgcTactics.
 
+End NewTriples.
+
 
 (* ########################################################### *)
 (* ########################################################### *)
@@ -1272,3 +1305,84 @@ Parameter triple_iff_triple_lowlevel : forall t H Q,
   triple t H Q <-> triple_lowlevel t H Q.
 
 End LowLevel.
+
+
+
+(* ########################################################### *)
+(** ** Pre and post rules *)
+
+Module FromPreToPostGC.
+
+
+From Sep Require Import SLFExtra.
+
+Parameter triple_let : forall z t1 t2 H Q Q1,
+  triple t1 H Q1 ->
+  (forall (X:val), triple (subst z X t2) (Q1 X) Q) ->
+  triple (trm_let z t1 t2) H Q.
+
+Parameter triple_hgc_pre : forall t H Q,
+  triple t H Q ->
+  triple t (H \* \GC) Q.
+
+Definition trm_equiv (t1 t2:trm) : Prop :=
+  forall s s' v, eval s t1 s' v <-> eval s t2 s' v.
+
+Lemma temp : forall (t:trm) (x:var),
+  trm_equiv t (trm_let x t x).
+Proof using.
+  intros. intros s s' v. iff M.
+  { applys eval_let M. simpl. rewrite var_eq_spec. case_if. applys eval_val. }
+  { inverts M as. introv M1 M2. simpls. rewrite var_eq_spec in M2. case_if.
+    inverts M2. auto. }
+Qed.
+
+Lemma temp0 : forall (t1 t2:trm) H Q,
+  trm_equiv t1 t2 ->
+  hoare t1 H Q <-> hoare t2 H Q.
+Proof using.
+  introv E. unfolds hoare, trm_equiv.
+  iff M.
+  { intros h K. forwards* (h'&v&R&K'): M h. exists h' v. rewrite* <- E. } 
+  { intros h K. forwards* (h'&v&R&K'): M h. exists h' v. rewrite* E. }
+Qed.
+
+Lemma temp2 : forall (t1 t2:trm) H Q,
+  trm_equiv t1 t2 ->
+  triple t1 H Q <-> triple t2 H Q.
+Proof using.
+  introv E. unfolds triple. iff M.
+  { intros H'. rewrite* <- temp0. }
+  { intros H'. rewrite* temp0. }
+Qed.
+
+
+Lemma triple_hgc_post' : forall t H Q,
+  triple t H (Q \*+ \GC) ->
+  triple t H Q.
+Proof using.
+  introv M. lets E: temp t "x".
+  forwards K: temp2 E. rewrite K. clear K.
+  applys triple_let.
+  { applys M. } 
+  { intros v. simpl. applys triple_hgc_pre. applys triple_val. auto. }
+Qed.
+
+(** Remark: the lemmas that enable discarding pieces of precondition
+    (e.g., [triple_htop_pre]) are derivable from those that enable
+    discarding pices of postconditions (e.g., [triple_htop_post]),
+    but not the other way around.
+
+    Advanced remark: the above remark can be mitigated. If we expose
+    that [triple t H Q <-> triple t' H Q] holds whenever [t] and [t']
+    are observationally equivalent with respect to the semantics
+    defined by [eval], and if we are able to prove that [let x = t in x]
+    is observationally equivalent to [t] for some fresh variable x,
+    then it is possible to prove that [triple_htop_post] is derivable
+    from [triple_htop_pre]. Indeed, the postcondition of [t] can be viewed
+    as the precondition of the [x] occuring in the right-hand side of the
+    term [let x = t in x]. Thus, discarding a heap predicate from the
+    postcondition of [t] can be simulated by discarding a heap predicate
+    from the precondition of [x]. *)
+
+End FromPreToPostGC.

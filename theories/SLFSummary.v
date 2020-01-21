@@ -1100,11 +1100,11 @@ Parameter Triple_seq : forall t1 t2 H,
 (** Lifted rule for let bindings: [Q1] now has type [A1->hprop]
     for some encodable type [A1] *)
 
-Parameter Triple_let : forall z t1 t2 H,
+Parameter Triple_let : forall x t1 t2 H,
   forall A `{EA:Enc A} (Q:A->hprop) A1 `{EA1:Enc A1} (Q1:A1->hprop),
   Triple t1 H Q1 ->
-  (forall (X:A1), Triple (subst z (enc X) t2) (Q1 X) Q) ->
-  Triple (trm_let z t1 t2) H Q.
+  (forall (X:A1), Triple (subst x (enc X) t2) (Q1 X) Q) ->
+  Triple (trm_let x t1 t2) H Q.
 
 
 (* ########################################################### *)
