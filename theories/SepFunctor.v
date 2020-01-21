@@ -21,7 +21,7 @@ The functor also provides:
 - [rew_heap] normalizes heap predicate expressions
 - [xpull] extracts existentials and pure facts from LHS of entailments
 - [xsimpl] simplifies heap entailments (it calls [xpull] first)
-- [hxsimpl] uses [xsimpl] to solves goal of the form [X: H h, ... |- H' h]
+- [xsimplh] uses [xsimpl] to solves goal of the form [X: H h, ... |- H' h]
 - [xchange] performs transitivity steps in entailments, modulo frame
 
 - [xtpull] extracts existentials and pure facts from preconditions.
@@ -963,19 +963,21 @@ Ltac remove_empty_heaps_formula tt :=
 (* ** Tactic [haffine] simplifies a goal [haffine H] using structural
       rules. It may be extended to support custom extensions. *)
 
-Ltac haffine_custom tt :=
+Create HintDb haffine.
+
+Ltac xaffine_custom tt :=
   eauto with haffine.
 
 (* example extension:
 
-  Ltac haffine_custom tt ::=
+  Ltac xaffine_custom tt ::=
     repeat match goal with
     | |- haffine (hcredits _) => apply affine_credits; auto with zarith
     end.
 
 *)
 
-Ltac haffine_step tt :=
+Ltac xaffine_step tt :=
   match goal with
   | |- haffine_post (_) => intros ? (* todo: interesting to have? *)
   | |- haffine ?H =>
@@ -986,26 +988,26 @@ Ltac haffine_step tt :=
     | (hgc) => apply haffine_hgc
     | (hexists _) => apply haffine_hexists
     | (hforall _) => apply haffine_hforall
-    | ?H' => haffine_custom tt
+    | ?H' => xaffine_custom tt
     | _ => try assumption
     end
   end.
 
-Ltac haffine_core tt ::=
-  repeat (haffine_step tt).
+Ltac xaffine_core tt ::=
+  repeat (xaffine_step tt).
 
-Tactic Notation "haffine" :=
-  haffine_core tt.
-Tactic Notation "haffine" "~" :=
-  haffine; auto_tilde tt.
-Tactic Notation "haffine" "*" :=
-  haffine; auto_star tt.
+Tactic Notation "xaffine" :=
+  xaffine_core tt.
+Tactic Notation "xaffine" "~" :=
+  xaffine; auto_tilde tt.
+Tactic Notation "xaffine" "*" :=
+  xaffine; auto_star tt.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Tactic [hxsimpl] to prove [H h] from [H' h] *)
+(* ** Tactic [xsimplh] to prove [H h] from [H' h] *)
 
-(** [hxsimpl] applies to a goal of the form [H h].
+(** [xsimplh] applies to a goal of the form [H h].
    It looks up for an hypothesis of the form [H' h],
    where [H'] is a heap predicate (whose type is syntactically [hprop]).
    It then turns the goal into [H ==> H'], and calls [xsimpl].
@@ -1016,15 +1018,15 @@ Tactic Notation "haffine" "*" :=
    never appear explicitly in such a proof, all the reasoning being
    conducted at the level of heap predicates. *)
 
-Ltac hxsimpl_core tt :=
+Ltac xsimplh_core tt :=
   match goal with N: ?H ?h |- _ ?h =>
     match type of H with hprop =>
     applys himpl_inv N; clear N; xsimpl
   end end.
 
-Tactic Notation "hxsimpl" := hxsimpl_core tt.
-Tactic Notation "hxsimpl" "~" := hxsimpl; auto_tilde.
-Tactic Notation "hxsimpl" "*" := hxsimpl; auto_star.
+Tactic Notation "xsimplh" := xsimplh_core tt.
+Tactic Notation "xsimplh" "~" := xsimplh; auto_tilde.
+Tactic Notation "xsimplh" "*" := xsimplh; auto_star.
 
 
 (* ********************************************************************** *)

@@ -407,13 +407,13 @@ Ltac remove_empty_heaps_right tt :=
 (* * Tactic [xsimpl] for heap entailments *)
 
 (* ---------------------------------------------------------------------- *)
-(* [haffine] placeholder *)
+(* [xaffine] placeholder *)
 
-Ltac haffine_core tt := (* to be generalized lated *)
+Ltac xaffine_core tt := (* to be generalized lated *)
   try solve [ assumption | apply haffine_hempty ].
 
-Tactic Notation "haffine" :=
-  haffine_core tt.
+Tactic Notation "xaffine" :=
+  xaffine_core tt.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -988,12 +988,12 @@ Proof using. xsimpl_r_start' M. Qed.
 Lemma xsimpl_r_htop_replace_hgc : forall Hra Hrg Hrt HL,
   Xsimpl HL (Hra, (\Top \* Hrg), Hrt) ->
   Xsimpl HL (Hra, (\GC \* Hrg), (\Top \* Hrt)).
-Proof using. xsimpl_r_start' M. applys himpl_hgc_r. haffine. Qed.
+Proof using. xsimpl_r_start' M. applys himpl_hgc_r. xaffine. Qed.
 
 Lemma xsimpl_r_hgc_drop : forall Hra Hrg Hrt HL,
   Xsimpl HL (Hra, Hrg, Hrt) ->
   Xsimpl HL (Hra, Hrg, (\GC \* Hrt)).
-Proof using. xsimpl_r_start' M. applys himpl_hgc_r. haffine. Qed.
+Proof using. xsimpl_r_start' M. applys himpl_hgc_r. xaffine. Qed.
 
 Lemma xsimpl_r_htop_drop : forall Hra Hrg Hrt HL,
   Xsimpl HL (Hra, Hrg, Hrt) ->
@@ -1294,7 +1294,7 @@ Ltac xsimpl_handle_false_subgoals tt :=
 (* DEPRECATED
 Ltac xsimpl_handle_haffine_subgoals tt :=
   match goal with |- haffine _ =>
-    try solve [ haffine ] end.
+    try solve [ xaffine ] end.
 *)
 
 Ltac xsimpl_clean tt :=
@@ -1512,7 +1512,7 @@ Ltac xsimpl_step_lr tt :=
        end
     | (\Top \* _) => apply himpl_lr_htop
     | (\GC \* _) => apply himpl_lr_hgc;
-                    [ try remove_empty_heaps_haffine tt; try solve [ haffine ] | ]
+                    [ try remove_empty_heaps_haffine tt; try solve [ xaffine ] | ]
     | ?Hrg' => xsimpl_flip_acc_lr tt; apply xsimpl_lr_exit
   end end.
 
@@ -2032,7 +2032,7 @@ Proof using. intros. xsimpl. Abort.
 
 Lemma xsimpl_demo_gc_3 : forall H1 H2,
   H1 \* H2 \* \GC \* \GC ==> H2 \* \GC \* \GC \* \GC.
-Proof using. intros. xsimpl. haffine. Abort.
+Proof using. intros. xsimpl. xaffine. Abort.
 
 Lemma xsimpl_demo_gc_4 : forall H1 H2,
   H1 \* H2 \* \GC  ==> H2 \* \GC \* \Top \* \Top \* \GC.

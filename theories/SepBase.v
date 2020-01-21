@@ -414,7 +414,7 @@ Ltac xsimpl_hook H ::=
 
 (* ** Configure [haffine] to make it aware of [haffine_any] *)
 
-Ltac haffine_custom tt ::=
+Ltac xaffine_custom tt ::=
   apply haffine_any.
 
 
@@ -750,7 +750,7 @@ Proof using.
   sets h1': (Fmap.single l v).
   exists (h1' \u h) (val_loc l). splits~.
   { applys~ eval_ref_sep. }
-  { apply~ hstar_intro. { exists l. hxsimpl~. } }
+  { apply~ hstar_intro. { exists l. xsimplh~. } }
 Qed.
 
 Lemma hoare_get : forall H v l,
@@ -761,7 +761,7 @@ Proof using.
   intros. intros h Hh. exists h v. splits~.
   { destruct Hh as (h1&h2&(N1a&N1b)&N2&N3&N4).
     subst h. applys* eval_get_sep. }
-  { hxsimpl~. }
+  { xsimplh~. }
 Qed.
 
 Lemma hoare_set : forall H w l v,
@@ -826,7 +826,7 @@ Lemma hoare_unop : forall v H op v1,
 Proof using.
   introv R. intros h Hh. exists h v. splits.
   { applys* eval_unop. }
-  { hxsimpl~. }
+  { xsimplh~. }
 Qed.
 
 Lemma hoare_binop : forall v H op v1 v2,
@@ -837,7 +837,7 @@ Lemma hoare_binop : forall v H op v1 v2,
 Proof using.
   introv R. intros h Hh. exists h v. splits.
   { applys* eval_binop. }
-  { hxsimpl~. }
+  { xsimplh~. }
 Qed.
 
 End HoarePrimitives.

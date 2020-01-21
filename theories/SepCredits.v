@@ -872,7 +872,7 @@ Lemma triple_val : forall v H Q,
 Proof using.
   introv M. intros HF h N. exists 0%nat h v. splits~.
   { applys eval_val. }
-  { hxsimpl. xchanges M. }
+  { xsimplh. xchanges M. }
 Qed.
 
 Lemma triple_fix : forall f x t1 H Q,
@@ -881,7 +881,7 @@ Lemma triple_fix : forall f x t1 H Q,
 Proof using.
   introv M. intros HF h N. exists___. splits.
   { applys eval_fix. }
-  { hxsimpl. xchanges M. }
+  { xsimplh. xchanges M. }
   { math. }
 Qed.
 
@@ -928,7 +928,7 @@ Proof using.
   forwards* (n2&h2'&v2&R2&K2&C2): (rm M2) (\GC \* HF) h1'.
   exists (n1+n2)%nat h2' v2. splits~.
   { applys~ eval_let R2. }
-  { rewrite <- hstar_hgc_hgc. hxsimpl. }
+  { rewrite <- hstar_hgc_hgc. xsimplh. }
   { math. }
 Qed.
 
@@ -975,7 +975,7 @@ Proof using.
   { applys~ eval_ref_sep. }
   { exists (m1',0) h. split.
     { exists l. applys~ himpl_hstar_hpure_r. unfold m1'. hnfs~. }
-    { splits~. hxsimpl~. } }
+    { splits~. xsimplh~. } }
 Qed.
 
 Lemma triple_get : forall v l,
@@ -988,7 +988,7 @@ Proof using.
   forwards (E1&E2): heap_eq_forward (rm N4). simpls.
   exists 0%nat h v. splits~.
   { applys* eval_get_sep. }
-  { rew_heap. rewrite hstar_hpure. split~. hxsimpl~. }
+  { rew_heap. rewrite hstar_hpure. split~. xsimplh~. }
 Qed.
 
 Lemma triple_set : forall w l v,
@@ -1004,7 +1004,7 @@ Proof using.
   { rew_heap. rewrite hstar_hpure. split~.
     { exists (m1',0) h2. splits~.
       { hnfs~. }
-      { hxsimpl~. }
+      { xsimplh~. }
       { unfold m1'. unfolds heap_disjoint. rewrite N1a in N3.
         applys~ Fmap.disjoint_single_set v. } } }
    { simpls. rewrite N1b in E2. unfolds credits_zero. math. }
@@ -1138,8 +1138,8 @@ Lemma triple_conseq : forall t H' Q' H Q,
   triple t H Q.
 Proof using.
   introv MH M MQ. intros HF h N.
-  forwards (n&h'&v&R&K&C): (rm M) HF h. { hxsimpl~. }
-  exists n h' v. splits~. { hxsimpl. xchanges~ (MQ v). }
+  forwards (n&h'&v&R&K&C): (rm M) HF h. { xsimplh~. }
+  exists n h' v. splits~. { xsimplh. xchanges~ (MQ v). }
 Qed.
 
 Lemma triple_frame : forall t H Q H',
@@ -1147,8 +1147,8 @@ Lemma triple_frame : forall t H Q H',
   triple t (H \* H') (Q \*+ H').
 Proof using.
   introv M. intros HF h N. rewrite hstar_assoc in N.
-  forwards (n&h'&v&R&K&C): (rm M) (H' \* HF) h. { hxsimpl~. }
-  exists n h' v. splits~. { hxsimpl~. }
+  forwards (n&h'&v&R&K&C): (rm M) (H' \* HF) h. { xsimplh~. }
+  exists n h' v. splits~. { xsimplh~. }
 Qed.
 
 Lemma triple_hgc_post : forall t H Q,
@@ -1156,7 +1156,7 @@ Lemma triple_hgc_post : forall t H Q,
   triple t H Q.
 Proof using.
   introv M. intros HF h N. forwards* (n&h'&v&R&K&C): (rm M) HF h.
-  exists n h' v. splits~. { rewrite <- hstar_hgc_hgc. hxsimpl. }
+  exists n h' v. splits~. { rewrite <- hstar_hgc_hgc. xsimplh. }
 Qed.
 
 Lemma triple_hgc_pre : forall t H Q,
