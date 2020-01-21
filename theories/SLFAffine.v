@@ -1261,6 +1261,15 @@ End XaffineXsimplTactics.
 (** ** Low-level definition of refined triples *)
 
 Module LowLevel.
+Import NewTriples HaffineDef.
+
+(* TODO *)
+Notation "\GC" := (hgc).
+
+(** Consider the updated definition of [triple] introduced in this chapter. *)
+
+Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall (H':hprop), hoare t (H \* H') (Q \*+ H' \*+ \GC).
 
 (** In chapter [SLFHprop], we presented an alternative definition for
     Separation Logic triples, called [triple_lowlevel], expressed directly
@@ -1278,36 +1287,27 @@ Module LowLevel.
 ]]
 
     In what follows, we explain how to generalize this definition to match
-    our revised definition of [triple].
-
-    One could simply reproduce the definition above and replace the last
-    conclusion, stated on the last line, with:
-
-[[
-        (Q \*+ \GC) v h1'
-]]
-
-    as this would match the fact that our definition of triples evolved from
-    [forall (H':hprop), hoare (H \* H') t (Q \*+ H')] to
-    [forall (H':hprop), hoare (H \* H') t (Q \*+ H' \*+ \GC)].
-
-    However, this would be somewhat cheating, because the entire point of a
-    direct definition in terms of heap is to not depend on the definition of
-    [hstar] nor of other Separation Logic operators such as [\GC].
+    our revised definition of [triple], and obtain a direct definition 
+    expressed in terms of heap, that does not depend on the definition of
+    [hstar] nor that of [\GC].
 
     Let us aim instead for a direct definition, entirely expressed in terms
     of union of heaps. To that end, we need to introduce an additional piece of
     state to describe the piece of the final heap covered by the [\GC] predicate.
 
     We will need to describe the disjointness of the 3 pieces of heap that
-    describe the final state. To that end, we first introduce the auxiliary
-    definition [Fmap.disjoint_3 h1 h2 h3], which asserts that the three arguments
-    denote pairwise disjoint heaps. *)
+    describe the final state. To that end, we exploit the auxiliary definition 
+    [Fmap.disjoint_3 h1 h2 h3], which asserts that the three arguments denote
+    pairwise disjoint heaps. It is defined in the module [Fmap] as follows.
 
-Definition fmap_disjoint_3 (h1 h2 h3:heap) : Prop :=
-     Fmap.disjoint h1 h2
-  /\ Fmap.disjoint h2 h3
-  /\ Fmap.disjoint h1 h3.
+[[ 
+    Definition disjoint_3 (h1 h2 h3:heap) : Prop :=
+         disjoint h1 h2
+      /\ disjoint h2 h3
+      /\ disjoint h1 h3.
+]]
+
+*)
 
 (** We then formulate [triple_lowlevel] using a final state of the from
     [h1' \u h2 \u h3'] instead of just [h1' \u h2]. There, [h3'] denotes
@@ -1318,8 +1318,8 @@ Definition triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall h1 h2,
   Fmap.disjoint h1 h2 ->
   H h1 ->
-  exists v h1' h3',
-       fmap_disjoint_3 h1' h2 h3'
+  exists h1' h3' v,
+       Fmap.disjoint_3 h1' h2 h3'
     /\ heap_affine h3'
     /\ eval (h1 \u h2) t (h1' \u h2 \u h3') v
     /\ Q v h1'.
@@ -1329,11 +1329,28 @@ Definition triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
     more technical and requires additional tactic support to deal with
     the tedious disjointness conditions, so we omit the details here. *)
 
-Parameter triple_iff_triple_lowlevel : forall t H Q,
-  triple t H Q <-> triple_lowlevel t H Q.
+Lemma triple_eq_triple_lowlevel : 
+  triple = triple_lowlevel.
+Proof using.
+  applys pred_ext_3. intros t H Q.
+  unfold triple, triple_lowlevel, hoare. iff M.
+  { introv D P1.
+    forwards~ (h'&v&R1&R2): M (=h2) (h1 \u h2). { apply~ hstar_intro. }
+    destruct R2 as (h2'&h1''&N0&N1&N2&N3).
+    destruct N0 as (h1'&h3'&T0&T1&T2&T3). subst.
+    exists h1' h1'' v. splits~.
+    { rew_disjoint. auto. }
+    { applys hgc_inv N1. }
+    { applys_eq~ R1 2 4. } }
+  { introv (h1&h2&N1&N2&D&U).
+    forwards~ (h1'&h3'&v&R1&R2&R3&R4): M h1 h2.
+    exists (h1' \u h3' \u h2) v. splits~.
+    { applys_eq~ R3 2 4. }
+    { subst. rewrite hstar_assoc. apply~ hstar_intro.
+      rewrite hstar_comm. applys~ hstar_intro. applys~ hgc_intro. } }
+Qed.
 
 End LowLevel.
-
 
 
 (* ########################################################### *)

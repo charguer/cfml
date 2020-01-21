@@ -1009,3 +1009,23 @@ Proof using.
   applys himpl_trans. { applys mkstruct_frame. }
   applys mkstruct_conseq. xsimpl.
 Qed.
+
+
+======
+
+
+
+    One could simply reproduce the definition above and replace the last
+    conclusion, stated on the last line, with:
+
+[[
+        (Q \*+ \GC) v h1'
+]]
+
+    as this would match the fact that our definition of triples evolved from
+    [forall (H':hprop), hoare (H \* H') t (Q \*+ H')] to
+    [forall (H':hprop), hoare (H \* H') t (Q \*+ H' \*+ \GC)].
+
+    However, this would be somewhat cheating, because the entire point of a
+    direct definition in terms of heap is to not depend on the definition of
+    [hstar] nor of other Separation Logic operators such as [\GC].
