@@ -867,13 +867,13 @@ Lemma mkstruct_hgc : forall Q F,
 (** Besides, let us prove that the revised definition of [mkstruct] still
     satisfies the three required properties. *)
 
-Lemma mkstruct_erase : forall (F:formula) Q,
+Lemma mkstruct_erase : forall F Q,
   F Q ==> mkstruct F Q.
 Proof using.
   intros. unfold mkstruct. xsimpl Q. rewrite qwand_equiv. xsimpl.
 Qed.
 
-Lemma mkstruct_conseq : forall (F:formula) Q1 Q2,
+Lemma mkstruct_conseq : forall F Q1 Q2,
   Q1 ===> Q2 ->
   mkstruct F Q1 ==> mkstruct F Q2.
 Proof using.
@@ -881,7 +881,7 @@ Proof using.
   rewrite qwand_equiv. xchange qwand_cancel. xchange WQ.
 Qed.
 
-Lemma mkstruct_frame : forall (F:formula) H Q,
+Lemma mkstruct_frame : forall F H Q,
   (mkstruct F Q) \* H ==> mkstruct F (Q \*+ H).
 Proof using.
   intros. unfold mkstruct. xpull. intros Q'. xsimpl Q'.
@@ -889,78 +889,136 @@ Proof using.
 Qed.
 
 
+
 (* ########################################################### *)
-(** ** The [xgc] tactic *)
+(** ** Tactic [xaffine], and behavior of [xsimpl] on [\GC] *)
 
-(** The following variant of [triple_haffine_pre] is better suited for
-    proofs in practice, as it allows using [xsimpl] to separate between
-    the part of the precondition to be kept and the part to be discarded. *)
+(** The tactic [xaffine] applys to a goal of the form [haffine H].
+    The tactic simplifies the goal using all the distributivity rules
+    associated with [haffine]. Ultimately, it invokes [eauto with haffine],
+    which can leverage knowledge specific to the definition of [haffine]
+    from the Separation Logic set up at hand. *)
 
-Lemma triple_hany_pre_trans : forall H1 H2 t H Q,
-  triple t H1 Q ->
+Tactic Notation "xaffine" :=
+  repeat match goal with |- haffine ?H =>
+    match H with
+    | (hempty) => apply haffine_hempty
+    | (hpure _) => apply haffine_hpure
+    | (hstar _ _) => apply haffine_hstar
+    | (hexists _) => apply haffine_hexists
+    | (hforall _) => apply haffine_hforall
+    | (hgc) => apply haffine_hgc
+    | _ => eauto with haffine
+    end
+  end.
+
+Lemma xaffine_demo : forall H1 H2 (J:val->hprop) F Q,
+  haffine H1 ->
+  haffine_post J ->
+  haffine (H1 \* \exists x, (J x) \* H2).
+Proof using. introv K1 KJ. xaffine. (* remains [haffine H2] *) Abort.
+
+(** The tactic [xsimpl] is extended with support for simplifying goals
+    of the form [H ==> \GC] into [haffine H], using lemma [himpl_hgc_r].
+    In addition, [xsimpl] invokes the tactic [xaffine] to simplify
+    [haffine H]. *)
+
+Lemma xsimpl_demo_hgc_simpl : forall H1 H2,
+  haffine H1 ->
+  H1 \* H2 ==> H2 \* \GC.
+Proof using. introv K1. xsimpl. Abort.
+
+(** Another feature of [xsimpl] is that it is able to collapse several
+    occurences of [\GC] into one. *)
+
+Lemma xsimpl_demo_hgc_collapse : forall H1 H2 H3,
+  H1 \* H2 \* H3 ==> H3 \* \GC \* H2 \* \GC.
+Proof using. intros. xsimpl. Abort.
+
+
+(* ########################################################### *)
+(** ** The garbage collection tactics *)
+
+Module XgcTactics.
+
+(** The tactic [xgc H] removes [H] from the precondition (i.e. from the
+    current state), in the course of a proof exploiting a formula produced
+    by [wpgen].
+
+    More precisely, the tactic invokes the following variant of the rule
+    [triple_haffine_pre], which allows to leverage [xsimpl] for computing
+    the heap predicate [H2] that remains after a predicate [H1] is removed
+    from a precondition [H], through the entailment [H ==> H1 \* H2]. *)
+
+Lemma xgc_lemma: forall H1 H2 H F Q,
+  haffine H1 ->
   H ==> H1 \* H2 ->
-  triple t H Q.
+  H2 ==> mkstruct F Q ->
+  H ==> mkstruct F Q.
 Proof using.
-  introv M WH. applys triple_conseq (H1 \* H2) Q.
-  { applys triple_hany_pre. auto. }
+  introv K WH M. applys triple_conseq (H1 \* H2) Q.
   { applys WH. }
+  { applys triple_hany_pre. auto. }
   { applys qimpl_refl. }
 Qed.
 
+Tactic Notation "xgc" constr(H) :=
+  eapply (@xgc_lemma H); [ haffine | xsimpl | ].
 
-Lemma xtop_lemma : forall H Q F,
-  H ==> mkstruct F (Q \*+ \Top) ->
+Lemma xgc_demo : forall H1 H2 H3 F Q,
+  haffine H1 ->
+  (H1 \* H2 \* H3) ==> mkstruct F Q.
+Proof using. intros. xgc H2. Abort.
+
+(** In what follows, let us assume to simplify the demos that all
+    heap predicates are affine, i.e. that the logic is fully affine. *)
+
+Parameter haffine_hany :
+  forall (H:hprop), haffine H.
+
+Hint Resolve haffine_hany : haffine.
+
+(** The tactic [xgc_keep H] is a variant of [xgc] that enables to discard
+    everything but [H] from the precondition.
+
+    The implementation of the tactic leverages the same lemma [xgc_lemma],
+    only providing [H2] instead of [H1]. *)
+
+Tactic Notation "xgc_keep" constr(H) :=
+  eapply (@xgc_lemma _ H); [ haffine | xsimpl | ].
+
+Lemma xgc_keep_demo : forall H1 H2 H3 F Q,
+  (H1 \* H2 \* H3) ==> mkstruct F Q.
+Proof using.
+  intros. xgc_keep H2.
+  (* [haffine H1] and [haffine H3] are discharged by the tactic [xaffine]
+     which ultimately invokes the lemma [haffine_hany]. *)
+Abort.
+
+(** The tactic [xgc_post] simply extends the postcondition with a [\GC],
+    to enable subsequent garbage collection in the final entailment. *)
+
+Lemma xgc_post_lemma : forall H Q F,
+  H ==> mkstruct F (Q \*+ \GC) ->
   H ==> mkstruct F Q.
 Proof using.
   introv M. xchange M.
   lets N: mkstruct_ramified (Q \*+ \Top) Q F. xchanges N.
 Qed.
 
-(** Other lemmas for structural rules, not shown here, can be similarly
-    devised. *)
+Tactic Notation "xgc_post" :=
+  apply xgc_post_lemma.
 
-
-
-(** [xtop] involves [xtop_lemma], exploiting the leading [mkstruct]. *)
-
-Tactic Notation "xtop" :=
-  applys xtop_lemma.
-
-
-
-(* ########################################################### *)
-(** ** Tactic [haffine], and behavior of [xsimpl] *)
-
-TODO
-
-(** descr of [haffine] *)
-
-
-(** Finally, [xsimpl] provides support for eliminating [\Top] on the RHS.
-    First, if the RHS includes several occurrences of [\Top], then they
-    are replaced with a single one. *)
-
-Lemma xsimpl_demo_rhs_htop_compact : forall H1 H2 H3 H4,
-  H1 \* H2 ==> H3 \* \GC \* H4 \* \GC.
+Lemma xgc_keep_demo : forall H1 H2 H3 F Q,
+  H1 ==> mkstruct F Q ->
+  (H1 \* H2 \* H3) ==> mkstruct F Q.
 Proof using.
-  intros. xsimpl.
+  introv M. xgc_post. xchange M. xsimpl.
+  (* Again, [haffine H1] and [haffine H3] are discharged using [haffine_hany]. *)
+  (* Check out how the end proof fails without the call to [xgc_post]. *)
 Abort.
 
-(** Second, if after cancellations the RHS consists of exactly
-   [\Top] and nothing else, then the goal is discharged. *)
-
- Lemma xsimpl_demo_rhs_htop : forall H1 H2 H3,
-  H1 \* H2 \* H3 ==> H3 \* \GC \* H2 \* \GC.
-Proof using.
-  intros. xsimpl.
-Abort.
-
-Lemma himpl_example_3 : forall (p q:loc),
-  p ~~~> 3 \* q ~~~> 3 ==>
-  p ~~~> 3 \* \GC.
-Proof using. xsimpl. Qed.
-
-
+End XgcTactics.
 
 
 (* ########################################################### *)

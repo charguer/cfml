@@ -1438,13 +1438,13 @@ Definition mkstruct (F:formula) : formula :=
     the revised definition of [qwand] expressed in terms of [hwand]
     and [hforall]. *)
 
-Lemma mkstruct_erase : forall (F:formula) Q,
+Lemma mkstruct_erase : forall F Q,
   F Q ==> mkstruct F Q.
 Proof using.
   intros. unfold mkstruct. xsimpl Q. rewrite qwand_equiv. xsimpl.
 Qed.
 
-Lemma mkstruct_conseq : forall (F:formula) Q1 Q2,
+Lemma mkstruct_conseq : forall F Q1 Q2,
   Q1 ===> Q2 ->
   mkstruct F Q1 ==> mkstruct F Q2.
 Proof using.
@@ -1452,7 +1452,7 @@ Proof using.
   rewrite qwand_equiv. xchange qwand_cancel. xchange WQ.
 Qed.
 
-Lemma mkstruct_frame : forall (F:formula) H Q,
+Lemma mkstruct_frame : forall F H Q,
   (mkstruct F Q) \* H ==> mkstruct F (Q \*+ H).
 Proof using.
   intros. unfold mkstruct. xpull. intros Q'. xsimpl Q'.

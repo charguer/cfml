@@ -964,7 +964,7 @@ Ltac remove_empty_heaps_formula tt :=
       rules. It may be extended to support custom extensions. *)
 
 Ltac haffine_custom tt :=
-  fail.
+  eauto with haffine.
 
 (* example extension:
 

@@ -1254,20 +1254,20 @@ Definition mkstruct (F:formula) : formula :=
     [mkstruct_conseq], and [mkstruct_erase]. Let us establish these properties
     for the definition considered. (Proof details can be skipped over.) *)
 
-Lemma mkstruct_frame : forall (F:formula) H Q,
+Lemma mkstruct_frame : forall F H Q,
   (mkstruct F Q) \* H ==> mkstruct F (Q \*+ H).
 Proof using.
   intros. unfold mkstruct. xpull; intros Q' H' M. xsimpl. xchange M.
 Qed.
 
-Lemma mkstruct_conseq : forall (F:formula) Q1 Q2,
+Lemma mkstruct_conseq : forall F Q1 Q2,
   Q1 ===> Q2 ->
   mkstruct F Q1 ==> mkstruct F Q2.
 Proof using.
   introv WQ. unfold mkstruct. xpull; intros Q' H' M. xsimpl. xchange M. xchange WQ.
  Qed.
 
-Lemma mkstruct_erase : forall (F:formula) Q,
+Lemma mkstruct_erase : forall F Q,
   F Q ==> mkstruct F Q.
 Proof using. intros. unfold mkstruct. xsimpl. xsimpl. Qed.
 

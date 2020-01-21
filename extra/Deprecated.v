@@ -937,3 +937,23 @@ The statement, shown below, asserts that:
 
     3. [wp t (Q1 \*+ H)] can be simplified to [wp t Q1] if one
       wants to discard [H] from the postcondition.
+
+
+=========
+
+    More precisely, the tactic invokes the following variant of the rule
+    [triple_haffine_pre], which allows to leverage [xsimpl] for computing
+    the heap predicate [H2] that remains after a predicate [H1] is removed
+    from a precondition [H], through the entailment [H ==> H1 \* H2]. *)
+
+Lemma triple_haffine_pre_trans : forall H1 H2 t H Q,
+  haffine H1 ->
+  H ==> H1 \* H2 ->
+  triple t H1 Q ->
+  triple t H Q.
+Proof using.
+  introv K WH M. applys triple_conseq (H1 \* H2) Q.
+  { applys WH. }
+  { applys triple_hany_pre. auto. }
+  { applys qimpl_refl. }
+Qed.
