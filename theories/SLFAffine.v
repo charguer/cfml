@@ -788,14 +788,8 @@ Parameter heap_affine_union : forall h1 h2,
 Definition haffine (H:hprop) : Prop :=
   forall h, H h -> heap_affine h.
 
-(** Let us extend the notion of affinity to postconditions. The predicate
-    [haffine_post J] asserts that [haffine] holds of [J x] for any [x]. *)
-
-Definition haffine_post (A:Type) (J:A->hprop) : Prop :=
-  forall x, haffine (J x).
-
-(** From this definition and the two properties assumed of [heap_affine], we can
-    derive all the desired distribution rules. *)
+(** From the above definition and the two properties assumed of [heap_affine], 
+    we can derive all the desired distribution rules. *)
 
 Lemma haffine_hempty :
   haffine \[].
@@ -811,6 +805,12 @@ Proof using.
   introv M1 M2 K. lets (h1&h2&K1&K2&D&U): hstar_inv K.
   subst. applys* heap_affine_union.
 Qed.
+
+(** Let us extend the notion of affinity to postconditions. The predicate
+    [haffine_post J] asserts that [haffine] holds of [J x] for any [x]. *)
+
+Definition haffine_post (A:Type) (J:A->hprop) : Prop :=
+  forall x, haffine (J x).
 
 (** Recall the distribution rules over quantifiers.
 
@@ -1002,39 +1002,24 @@ Module TermRules.
     following essentially the same proofs as for the original Separation
     Logic triples. The main difference is that one sometimes needs to invoke
     the lemma [hstar_hgc_hgc] for collapsing two [\GC] into a single one.
-    In what follows, we present one representative example of such proofs.
-    with the reasoning rule for sequences. *)
 
-(* EX2! (triple_seq) *)
-(** Prove the rule for sequences for the definition of [triple] that includes [\GC].
-    Hint: take inspiration from the proof of [triple_seq] from chapter [SLFRules]. *)
+    In what follows, we present just one representative example of such proofs,
+    namely the reasoning rule for sequences. *)
+
+(** The rule for sequences follows a similar proof from that of lemma [triple_seq]
+    in chapter [SLFRules]. Only we exploit [hstar_hgc_hgc] to collapse the two 
+    [\GC] predicates associated with the two subterms into just one [\GC] predicate. *)
 
 Lemma triple_seq : forall t1 t2 H Q H1,
   triple t1 H (fun v => H1) ->
   triple t2 H1 Q ->
   triple (trm_seq t1 t2) H Q.
-Proof using. (* ADMITTED *)
-  (* 1. We unfold the definition of [triple] to reveal a [hoare] judgment. *)
-  introv M1 M2. intros H'. (* optional: *) unfolds triple.
-  (* 2. We invoke the reasoning rule [hoare_seq] that we have just established. *)
+Proof using.
+  introv M1 M2. intros H'. unfolds triple.
   applys hoare_seq.
-  { (* 3. For the hypothesis on the first subterm [t1],
-          we can invoke directly our first hypothesis. *)
-    applys M1. }
-    ...
-  { (* 4. For the hypothesis on the first subterm [t2],
-          we need a little more work to exploit our second hypothesis.
-          Indeed, the precondition features an extra [\Top].
-          To handle it, we need to instantiate [M2] with [H' \* \Top],
-          then collapse the two [\Top] that appear into a single one.
-          We could begin the proof script with:
-          [specializes M2 (H' \* \Top). rewrite <- hstar_assoc in M2.]
-          However, it is simpler to directly invoke the consequence rule,
-          and let [xsimpl] do all the tedious work for us. *)
-    applys hoare_conseq. { applys M2. } { xsimpl. } { xsimpl. } }
-Qed. (* /ADMITTED *)
-
-(* [] *)
+  { applys M1. }
+  { applys hoare_conseq. { applys M2. } { xsimpl. } { xchanges hstar_hgc_hgc. } }
+Qed.
 
 End TermRules.
 
@@ -1055,7 +1040,7 @@ End TermRules.
     To that end, we augment [mkstruct] with an additional [\GC], as follows. *)
 
 Definition mkstruct (F:formula) : formula :=
-  fun Q => \exists Q', F Q' \* (Q' \--* (Q \*+ \Top)).
+  fun Q => \exists Q', F Q' \* (Q' \--* (Q \*+ \GC)).
 
 (** Let us prove that this revised definition of [mkstruct] does sastisfy
     the [wp]-style statement of the garbage collection rule, which is stated
@@ -1063,41 +1048,80 @@ Definition mkstruct (F:formula) : formula :=
 
 Lemma mkstruct_hgc : forall Q F,
   mkstruct F (Q \*+ \GC) ==> mkstruct F Q.
+Proof using.
+  intros. unfold mkstruct. set (X := hgc) at 3. replace X with (\GC \* \GC).
+  { xsimpl. } { subst X. apply hstar_hgc_hgc. }
+Qed.
 
 (** Besides, let us prove that the revised definition of [mkstruct] still
-    satisfies the three required properties. *)
+    satisfies the three required properties. 
+
+    The proofs shown below exploit a version of [xsimpl] that handles the magic
+    wand but provides no built-in support for the [\GC] predicate. *)
 
 Lemma mkstruct_erase : forall F Q,
   F Q ==> mkstruct F Q.
 Proof using.
-  intros. unfold mkstruct. xsimpl Q. rewrite qwand_equiv. xsimpl.
+  intros. unfold mkstruct. xsimpl Q. apply himpl_hgc_r. apply haffine_hempty.
 Qed.
 
 Lemma mkstruct_conseq : forall F Q1 Q2,
   Q1 ===> Q2 ->
   mkstruct F Q1 ==> mkstruct F Q2.
 Proof using.
-  introv WQ. unfold mkstruct. xpull. intros Q'. xsimpl Q'.
-  rewrite qwand_equiv. xchange qwand_cancel. xchange WQ.
+  introv WQ. unfold mkstruct. xpull. intros Q'. xsimpl Q'. xchange WQ.
 Qed.
 
 Lemma mkstruct_frame : forall F H Q,
   (mkstruct F Q) \* H ==> mkstruct F (Q \*+ H).
 Proof using.
   intros. unfold mkstruct. xpull. intros Q'. xsimpl Q'.
-  rewrite qwand_equiv. xchange qwand_cancel.
 Qed.
 
+(** EX2? (mkstruct_haffine_post)
+    Prove the reformulation of [triple_haffine_post] adapted to [mkstruct],
+    for discarding an affine piece of postcondition. *)
+
+Lemma mkstruct_haffine_post : forall H Q F,
+  haffine H ->
+  mkstruct F (Q \*+ H) ==> mkstruct F Q.
+Proof using. (* ADMITTED *)
+  introv K. applys himpl_trans. 2: { applys mkstruct_hgc. }
+  applys mkstruct_conseq. xsimpl. applys himpl_hgc_r K.
+Qed. (* /ADMITTED *)
+
+(* [] *)
+
+(** EX2? (mkstruct_haffine_pre)
+    Prove the reformulation of [triple_haffine_pre] adapted to [mkstruct],
+    for discarding an affine piece of postcondition. *)
+
+Lemma mkstruct_haffine_pre : forall H Q F,
+  haffine H ->
+  (mkstruct F Q) \* H ==> mkstruct F Q.
+Proof using. (* ADMITTED *)
+  introv K. applys himpl_trans. { applys mkstruct_frame. }
+  { applys mkstruct_haffine_post K. }
+Qed. (* /ADMITTED *)
+
+(* [] *)
+
+End NewTriples.
 
 
 (* ########################################################### *)
 (** ** Tactic [xaffine], and behavior of [xsimpl] on [\GC] *)
+
+Module XaffineXsimplTactics.
+Import SLFDirect.
 
 (** The tactic [xaffine] applys to a goal of the form [haffine H].
     The tactic simplifies the goal using all the distributivity rules
     associated with [haffine]. Ultimately, it invokes [eauto with haffine],
     which can leverage knowledge specific to the definition of [haffine]
     from the Separation Logic set up at hand. *)
+
+Create HintDb haffine.
 
 Tactic Notation "xaffine" :=
   repeat match goal with |- haffine ?H =>
@@ -1112,10 +1136,10 @@ Tactic Notation "xaffine" :=
     end
   end.
 
-Lemma xaffine_demo : forall H1 H2 (J:val->hprop) F Q,
+Lemma xaffine_demo : forall H1 H2 H3,
   haffine H1 ->
-  haffine_post J ->
-  haffine (H1 \* \exists x, (J x) \* H2).
+  haffine H3 ->
+  haffine (H1 \* H2 \* H3).
 Proof using. introv K1 KJ. xaffine. (* remains [haffine H2] *) Abort.
 
 (** The tactic [xsimpl] is extended with support for simplifying goals
@@ -1126,20 +1150,18 @@ Proof using. introv K1 KJ. xaffine. (* remains [haffine H2] *) Abort.
 Lemma xsimpl_demo_hgc_simpl : forall H1 H2,
   haffine H1 ->
   H1 \* H2 ==> H2 \* \GC.
-Proof using. introv K1. xsimpl. Abort.
+Proof using. introv K1. xsimpl. (* clears the goal *) Abort.
 
 (** Another feature of [xsimpl] is that it is able to collapse several
     occurences of [\GC] into one. *)
 
 Lemma xsimpl_demo_hgc_collapse : forall H1 H2 H3,
   H1 \* H2 \* H3 ==> H3 \* \GC \* H2 \* \GC.
-Proof using. intros. xsimpl. Abort.
+Proof using. intros. xsimpl. (* leaves only one [\GC] *) Abort.
 
 
 (* ########################################################### *)
 (** ** The garbage collection tactics *)
-
-Module XgcTactics.
 
 (** The tactic [xgc H] removes [H] from the precondition (i.e. from the
     current state), in the course of a proof exploiting a formula produced
@@ -1156,19 +1178,16 @@ Lemma xgc_lemma: forall H1 H2 H F Q,
   H2 ==> mkstruct F Q ->
   H ==> mkstruct F Q.
 Proof using.
-  introv K WH M. applys triple_conseq (H1 \* H2) Q.
-  { applys WH. }
-  { applys triple_hany_pre. auto. }
-  { applys qimpl_refl. }
+  introv K WH M. xchange WH. xchange M. applys* mkstruct_haffine_pre.
 Qed.
 
 Tactic Notation "xgc" constr(H) :=
-  eapply (@xgc_lemma H); [ haffine | xsimpl | ].
+  eapply (@xgc_lemma H); [ xaffine | xsimpl | ].
 
 Lemma xgc_demo : forall H1 H2 H3 F Q,
-  haffine H1 ->
+  haffine H2 ->
   (H1 \* H2 \* H3) ==> mkstruct F Q.
-Proof using. intros. xgc H2. Abort.
+Proof using. intros. xgc H2. (* clears [H2] *) Abort.
 
 (** In what follows, let us assume to simplify the demos that all
     heap predicates are affine, i.e. that the logic is fully affine. *)
@@ -1185,7 +1204,7 @@ Hint Resolve haffine_hany : haffine.
     only providing [H2] instead of [H1]. *)
 
 Tactic Notation "xgc_keep" constr(H) :=
-  eapply (@xgc_lemma _ H); [ haffine | xsimpl | ].
+  eapply (@xgc_lemma _ H); [ xaffine | xsimpl | ].
 
 Lemma xgc_keep_demo : forall H1 H2 H3 F Q,
   (H1 \* H2 \* H3) ==> mkstruct F Q.
@@ -1201,26 +1220,21 @@ Abort.
 Lemma xgc_post_lemma : forall H Q F,
   H ==> mkstruct F (Q \*+ \GC) ->
   H ==> mkstruct F Q.
-Proof using.
-  introv M. xchange M.
-  lets N: mkstruct_ramified (Q \*+ \Top) Q F. xchanges N.
-Qed.
+Proof using. introv M. xchange M. applys mkstruct_hgc. Qed.
 
 Tactic Notation "xgc_post" :=
   apply xgc_post_lemma.
 
 Lemma xgc_keep_demo : forall H1 H2 H3 F Q,
-  H1 ==> mkstruct F Q ->
-  (H1 \* H2 \* H3) ==> mkstruct F Q.
+  H1 ==> mkstruct F (Q \*+ H2 \*+ H3) ->
+  H1 ==> mkstruct F Q.
 Proof using.
-  introv M. xgc_post. xchange M. xsimpl.
-  (* Again, [haffine H1] and [haffine H3] are discharged using [haffine_hany]. *)
+  introv M. xgc_post. xchange M. applys mkstruct_conseq. xsimpl.
   (* Check out how the end proof fails without the call to [xgc_post]. *)
+  (* Above, [haffine H1] and [haffine H3] are discharged using [haffine_hany]. *)
 Abort.
 
-End XgcTactics.
-
-End NewTriples.
+End XaffineXsimplTactics.
 
 
 (* ########################################################### *)

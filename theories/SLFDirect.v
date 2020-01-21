@@ -855,6 +855,7 @@ Arguments hstar_hsingle_same_loc : clear implicits.
     a restriction of [htop] to affine heap predicates. For our purpose,
     it suffices to define [hgc] as an alias for [htop]. *)
 
+
 (* ################################################ *)
 (** *** Definition and properties of hgc *)
 
@@ -862,7 +863,8 @@ Definition hgc := htop.
 
 Notation "\GC" := (hgc).
 
-Definition haffine := fun H => True.
+Definition haffine (H:hprop) :=
+  True.
 
 Lemma haffine_hempty :
   haffine \[].
@@ -1632,6 +1634,30 @@ Lemma mkstruct_erase : forall Q F,
 Proof using. unfolds mkstruct. xsimpl. Qed.
 
 Arguments mkstruct_erase : clear implicits.
+
+Lemma mkstruct_conseq : forall F Q1 Q2,
+  Q1 ===> Q2 ->
+  mkstruct F Q1 ==> mkstruct F Q2.
+Proof using.
+  introv WQ. unfolds mkstruct. xpull. intros Q. xsimpl Q. xchange WQ.
+Qed.
+
+(*
+Lemma mkstruct_haffine_post : forall Q F,
+  mkstruct F (Q \*+ \GC) ==> mkstruct F Q.
+Proof using.
+  intros. unfolds mkstruct. xpull. intros Q'.
+  xsimpl Q'. \*+ \qGC).
+  xsimpl. 
+Qed.
+
+Lemma mkstruct_haffine_pre : forall H Q F,
+  (mkstruct F Q) \* H ==> mkstruct F Q.
+Proof using.
+
+Qed.
+
+*)
 
 
 (* ################################################ *)

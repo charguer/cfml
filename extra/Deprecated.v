@@ -972,3 +972,20 @@ Proof using.
   applys haffine_hexists. intros H h Hh. rewrite hstar_hpure in Hh.
   destruct Hh as [M N]. applys* M.
 Qed.
+
+=========
+
+Tactic Notation "xaffine" :=
+  repeat match goal with
+  | |- haffine ?H =>
+    match H with
+    | (hempty) => apply haffine_hempty
+    | (hpure _) => apply haffine_hpure
+    | (hstar _ _) => apply haffine_hstar
+    | (hexists _) => apply haffine_hexists
+    | (hforall _) => apply haffine_hforall
+    | (hgc) => apply haffine_hgc
+    | _ => eauto with haffine
+    end
+  | |- forall _, haffine _ => intro; solve [ .. ]
+  end.
