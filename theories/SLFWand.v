@@ -791,7 +791,7 @@ Tactic Notation "xfun" :=
     be reproduced with the definition of [wpgen] that leverages [wpgen_fun]
     and [wpgen_fix]. This set up is formalized in full in the file [SLFDirect]. *)
 
-Import Demo.
+Import DemoPrograms.
 
 (** Consider the following example program, which involves a local function
     definition, then two successive calls to that local function.

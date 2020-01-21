@@ -423,7 +423,7 @@ Proof using.
   (* [M] matches the goal up to rewriting for associativity. *)
   applys_eq M 1 2.
   { rewrite hstar_assoc. auto. }
-  { applys qprop_eq. intros v. rewrite hstar_assoc. auto. }
+  { applys functional_extensionality. intros v. rewrite hstar_assoc. auto. }
 Qed.
 
 (* INSTRUCTORS *)
@@ -531,7 +531,7 @@ Proof using.
   lets N: triple_frame (q ~~~> m) M.
   applys_eq N 1 2.
   { auto. }
-  { apply qprop_eq. intros v. rewrite hstar_assoc. auto. }
+  { apply functional_extensionality. intros v. rewrite hstar_assoc. auto. }
 Qed.
 
 (** Here, we have framed on [q ~~~> m], but we could similarly

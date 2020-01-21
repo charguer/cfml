@@ -295,6 +295,11 @@ Lemma hprop_eq : forall H1 H2,
   H1 = H2.
 Proof using. applys predicate_extensionality. Qed.
 
+Lemma qprop_eq : forall (Q1 Q2:val->hprop),
+  (forall (v:val), Q1 v = Q2 v) ->
+  Q1 = Q2.
+Proof using. applys functional_extensionality. Qed.
+
 End Hprop.
 
 

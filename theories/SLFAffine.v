@@ -56,6 +56,9 @@ Implicit Types Q : val->hprop.
 (* ########################################################### *)
 (** ** Motivation for the garbage collection rule *)
 
+Module MotivatingExample.
+Export DemoPrograms.
+
 (** Let us recall the example of the function [succ_using_incr_attempt]
     from chapter [SLFBasic]. This function allocates a reference with
     contents [n], then increments that reference, and finally returning
@@ -87,10 +90,22 @@ Definition succ_using_incr :=
 Lemma Triple_succ_using_incr : forall (n:int),
   TRIPLE (succ_using_incr n)
     PRE \[]
-    POST (fun r => \[r = n+1] \* \exists p, (p ~~> (n+1))).
+    POST (fun r => \[r = n+1] \* \exists p, (p ~~~> (n+1))).
 Proof using.
-  xwp. xapp. intros p. xapp. xapp. xsimpl. { auto. }
+  xwp. xapp. intros ? p ->. xapp. xapp. xsimpl. auto.
 Qed.
+
+(** If we try to prove a specification that does not mention the left-over
+    reference, we get stuck with a proof obligation of the form 
+    [p ~~~> (n+1) ==> \[]]. *)
+
+Lemma Triple_succ_using_incr' : forall (n:int),
+  TRIPLE (succ_using_incr n)
+    PRE \[]
+    POST (fun r => \[r = n+1]).
+Proof using.
+  xwp. xapp. intros ? p ->. xapp. xapp. xsimpl. { auto. } (* stuck here *)
+Abort.
 
 (** This situation is desirable in a programming language with explicit
     deallocation, because it ensures that the code written by the
@@ -102,6 +117,8 @@ Qed.
     where the above function [succ_using_incr_attempt] admits the
     postcondition [fun r => \[r = n+1]], and needs not mention the
     left-over reference. *)
+
+End MotivatingExample.
 
 
 (* ########################################################### *)
@@ -116,7 +133,7 @@ Qed.
     More precisely, this rule, named [triple_hany_post], asserts that an
     arbitrary heap predicate [H'] can be dropped from the postcondition. *)
 
-Parameter triple_hany_post : forall t H' Q,
+Parameter triple_hany_post : forall t H H' Q,
   triple t H (Q \*+ H') ->
   triple t H Q.
 
@@ -136,6 +153,9 @@ Parameter triple_hany_pre : forall t H H' Q,
     the desired specification for the motivating example from the
     specification that mentions the left-over postcondition. *)
 
+Module MotivatingExampleSolved.
+Export MotivatingExample.
+
 Lemma Triple_succ_using_incr' : forall (n:int),
   TRIPLE (succ_using_incr n)
     PRE \[]
@@ -143,6 +163,8 @@ Lemma Triple_succ_using_incr' : forall (n:int),
 Proof using.
   intros. applys triple_hany_post. applys Triple_succ_using_incr.
 Qed.
+
+End MotivatingExampleSolved.
 
 
 (* ########################################################### *)
@@ -172,7 +194,7 @@ Qed.
 
 Parameter haffine : hprop -> Prop.
 
-Parameter triple_haffine_post : forall t H' Q,
+Parameter triple_haffine_post : forall t H H' Q,
   haffine H' ->
   triple t H (Q \*+ H') ->
   triple t H Q.
@@ -226,7 +248,7 @@ Parameter haffine_hforall : forall A `{Inhab A} (J:A->hprop),
     as formalized next. *)
 
 Definition hgc : hprop :=
-  \exists H, H \* \[haffine H].
+  \exists H, \[haffine H] \* H.
 
 Notation "\GC" := (hgc).
 
@@ -313,19 +335,38 @@ Lemma xwp_lemma' : forall v1 v2 x t1 H Q,
   v1 = val_fun x t1 ->
   H ==> wpgen ((x,v2)::nil) t1 (Q \*+ \GC) ->
   triple (trm_app v1 v2) H Q.
-Proof using. introv E M. applys triple_htop_post. applys* xwp_lemma. Qed.
+Proof using. introv E M. applys triple_hgc_post. applys* xwp_lemma. Qed.
+
+(** Let us update the tactic [xwp] to exploit the above lemma. *)
+
+Tactic Notation "xwp" :=
+  intros; applys xwp_lemma';
+  [ reflexivity | simpl; unfold wpgen_var; simpl ].
 
 (** Using the updated version of [xwp], the proof of [succ_using_incr]
-    works out very smoothly, the left-over reference being automatically
-    absorbed into the [\GC] predicate by [xsimpl]. *)
+    in a fully-affine logic works out very smoothly, the left-over
+    reference being automatically absorbed into the [\GC] predicate 
+    by [xsimpl]. *)
+
+Module MotivatingExampleWithTactic.
+Export MotivatingExample.
+
+(* Assume a fully-affine logic. *)
+
+Parameter haffine_hany : forall (H:hprop),
+  haffine H.
 
 Lemma Triple_succ_using_incr : forall (n:int),
   TRIPLE (succ_using_incr n)
     PRE \[]
     POST (fun r => \[r = n+1]).
 Proof using.
-  xwp. xapp. intros p. xapp. xapp. xsimpl. { auto. }
+  xwp. xapp. intros ? r ->. xapp. xapp. xsimpl. { auto. }
+  applys himpl_hgc_r. applys haffine_hany.
+  (* We will show further how to automate the work from the last line. *)
 Qed.
+
+End MotivatingExampleWithTactic.
 
 
 (* ########################################################### *)
@@ -340,13 +381,20 @@ Module FullyAffineLogic.
 
   Definition haffine (H:hprop) := True.
 
+  Lemma haffine_hany : forall (H:hprop), 
+    haffine H.
+  Proof using. unfold haffine. auto. Qed.
+
+  Definition hgc : hprop :=
+    \exists H, \[haffine H] \* H.
+
   Definition htop (h:heap) := True.
 
-  Lemma hgc_eq_htop : \GC = htop.
+  Lemma hgc_eq_htop : hgc = htop.
   Proof using.
-    unfold hgc, htop. applys himpl_antisym.
-    { intros h. xsimpl. }
-    { intros h. xsimpl (=h). }
+    unfold hgc, haffine, htop. applys himpl_antisym.
+    { intros h M. auto. }
+    { intros h M. applys hexists_intro (=h). rewrite hstar_hpure. auto. }
   Qed.
 
 End FullyAffineLogic.
@@ -360,11 +408,18 @@ Module FullyLinearLogic.
 
   Definition haffine (H:hprop) := (H = \[]).
 
-  Lemma hgc_eq_hempty : \GC = \[].
+  Lemma haffine_hempty :
+    haffine \[].
+  Proof using. unfold haffine. auto. Qed.
+
+  Definition hgc : hprop :=
+    \exists H, \[haffine H] \* H.
+
+  Lemma hgc_eq_hempty : hgc = hempty.
   Proof using.
-    unfold hgc. applys himpl_antisym.
-    { xsimpl. }
-    { xsimpl. }
+    unfold hgc, haffine. applys himpl_antisym.
+    { xpull. intros ? ->. auto. }
+    { xsimpl \[]. auto. }
   Qed.
 
 End FullyLinearLogic.
@@ -375,6 +430,8 @@ End FullyLinearLogic.
 
 (* ########################################################### *)
 (** ** Refined definition of Separation Logic triples *)
+
+Module NewTriples.
 
 (** In what follows, we explain how to refine the notion of Separation
     Logic triple so as to accomodate the garbage collection rule.
@@ -409,7 +466,7 @@ Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
     - the rule [triple_haffine_hpost] and [triple_haffine_hpre] can
       be derived from [triple_htop_post] and the other structural rules.
 
-    The proofs appear further on in this chapter.
+    The proofs appear scattered through the remaining of this chapter.
 
     One fundamental property that appears necessary in many of the proof
     is the following lemma, which asserts that two occurences of [\GC]
@@ -419,81 +476,101 @@ Lemma hstar_hgc_hgc :
   \GC \* \GC = \GC.
 Proof using.
   unfold hgc. applys himpl_antisym.
-  { xsimpl. }
-  { xpull. intros H1 H2. xsimpl (H1 \* H2). }
+  { xpull. intros H1 K1 H2 K2. xsimpl (H1 \* H2). applys* haffine_hstar. }
+  { xpull. intros H K. xsimpl H \[]. auto. applys haffine_hempty. }
 Qed.
 
-(** Let us conclude this first part of the chapter with the proof of
-    the garbage collection rule. *)
+(** Let us establish the soundness of the garbage collection rule. *)
 
-(* EX2! (triple_htop_post_proof) *)
+(* EX2! (triple_hgc_post') *)
 (** Prove [triple_htop_post] with respect to the refined definition of
-    [triple]. *)
+    [triple]. 
+    Hint: exploit [hoare_conseq] then exploit [hstar_hgc_hgc] using 
+    tactic [xchange]. *)
 
-Lemma triple_htop_post_proof : forall t H Q,
+Lemma triple_hgc_post : forall t H Q,
   triple t H (Q \*+ \GC) ->
   triple t H Q.
 Proof using. (* ADMITTED *)
-  introv M. unfold triple in *. intros H2.
-  specializes M H2. applys_eq M 1.
-  { applys qprop_eq. intros v. repeat rewrite hstar_assoc.
-    rewrite (hstar_comm H2).
-    rewrite <- (hstar_assoc \Top \Top).
-    rewrite hstar_htop_htop. auto. }
+  introv M. unfold triple in *. intros H'.
+  applys hoare_conseq M. { xsimpl. }
+  { intros r. xchange hstar_hgc_hgc. xsimpl. }
 Qed. (* /ADMITTED *)
 
 (* [] *)
 
-(** The principle of the ramified-frame rule immediately generalizes
-    to handle the consequence-frame-top rule, which is like the
-    consequence-frame rule but with premise [Q1 \*+ H2 ===> Q \*+ \Top]. *)
+(** Let us update the soundness proof for the other structural rules. *)
 
-Lemma triple_ramified_frame_top : forall H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* (Q \*+ \Top)) ->
+(* [] *)
+
+(* EX2? (triple_frame) *)
+(** Prove the frame rule for the definition of [triple] that includes [\GC].
+    Hint: unfold the definition of [triple] but not that of [hoare],
+    then exploit lemma [hoare_conseq] and conclude using the tactic [xsimpl]. *)
+
+Lemma triple_frame : forall t H Q H',
+  triple t H Q ->
+  triple t (H \* H') (Q \*+ H').
+Proof using. (* ADMITTED *)
+  introv M. unfold triple in *. rename H' into H1. intros H2.
+  applys hoare_conseq (M (H1 \* H2)). { xsimpl. } { xsimpl. }
+Qed. (* /ADMITTED *)
+
+(* [] *)
+
+(* EX2? (triple_conseq) *)
+(** Prove the frame rule for the definition of [triple] that includes [\GC].
+    Hint: follow the same approach as in the proof of [triple_frame],
+    and leverage the tactic [xchange] to conclude. *)
+
+Lemma triple_conseq : forall t H' Q' H Q,
+  triple t H' Q' ->
+  H ==> H' ->
+  Q' ===> Q ->
   triple t H Q.
-Proof using.
-  introv M W. applys triple_conseq_frame_htop (Q1 \--* (Q \*+ \Top)) M.
+Proof using. (* ADMITTED *)
+  introv M WH WQ. unfold triple in *. rename H' into H1. intros H2.
+  applys hoare_conseq (M H2). { xchange WH. } { xchanges WQ. }
+Qed. (* /ADMITTED *)
+
+(* [] *)
+
+(** EX1? (triple_conseq_frame_hgc)
+    Prove that combined structural rule, which extends 
+    [triple_conseq_frame] with the garbage collection rule,
+    replacing [Q1 \*+ H2 ===> Q] with [Q1 \*+ H2 ===> Q \*+ \GC].
+    Hint: invoke [triple_conseq], [triple_frame] and [triple_hgc_post]
+    in the appropriate order. *)
+
+Lemma triple_conseq_frame_hgc : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q \*+ \GC ->
+  triple t H Q.
+Proof using. (* ADMITTED *)
+  introv M WH WQ. applys triple_hgc_post.
+  applys triple_conseq WH WQ.
+  applys triple_frame M.
+Qed. (* /ADMITTED *)
+
+(* [] *)
+
+(** EX1? (triple_ramified_frame_hgc)
+    Prove the following generalization of the ramified frame rule 
+    that includes the garbage collection rule. 
+    Hint: it is a corrolary of [triple_conseq_frame_hgc]. Take inspiration
+    from the proof of [triple_ramified_frame] in chapter [SLFWand]. *)
+
+Lemma triple_ramified_frame_hgc : forall H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* (Q \*+ \GC)) ->
+  triple t H Q.
+Proof using. (* ADMITTED *)
+  introv M W. applys triple_conseq_frame_hgc (Q1 \--* (Q \*+ \GC)) M.
   { applys W. } { applys qwand_cancel. }
-Qed.
+Qed. (* /ADMITTED *)
 
-
-(* ########################################################### *)
-(** ** Garbage collection rules in WP style *)
-
-(** In weakest precondition style, the garbage collection rule [triple_hgc_post]
-    translates to the following statement. *)
-
-Lemma wp_hgc_post : forall t H Q,
-  wp t (Q \*+ \GC) ==> wp t Q.
-Proof using.
-  intros. rewrite <- wp_equiv.
-  applys triple_hany_post. rewrite* wp_equiv.
-Qed.
-
-(** Likewise, the wp-style presentation of the rule [triple_hgc_pre] takes the
-    following form. *)
-
-Lemma wp_hany_pre : forall t H Q,
-  (wp t Q) \* H ==> wp t Q.
-Proof using.
-  intros. rewrite <- wp_equiv.
-  applys triple_hany_pre. rewrite* wp_equiv.
-Qed.
-
-(** The revised presentation of the wp-style ramified frame rule includes an
-    extra [\GC] predicate. *)
-
-Lemma wp_ramified : forall Q1 Q2 t,
-  (wp t Q1) \* (Q1 \--* (Q2 \*+ \GC)) ==> (wp t Q2).
-
-(** For a change, let us present below a direct proof for this lemma, which does
-    not depend on structural rules for triples. *)
-Proof using.
-  intros. unfold wp. xpull ;=> H M.
-  xsimpl (H \* (Q1 \--* Q2 \*+ \GC)). intros H'.
-  applys hoare_conseq M; xsimpl.
-Qed.
+(* [] *)
 
 
 (* ########################################################### *)
@@ -502,7 +579,7 @@ Qed.
 (** * Additional contents *)
 
 (* ########################################################### *)
-(** ** Proof of derived rules *)
+(** ** Variants of the garbage collection rule *)
 
 Module DerivedGCRules.
 
@@ -558,23 +635,50 @@ Qed. (* /ADMITTED *)
 
 (* [] *)
 
-(** EX1! (triple_conseq_frame_htop)
-    Prove that combined structural rule [triple_conseq_frame_htop], which
-    extends [triple_conseq_frame] with the garbage collection rule. *)
-
-Lemma triple_conseq_frame_htop : forall H2 H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \Top ->
-  triple t H Q.
-Proof using. (* ADMITTED *)
-  introv M WH WQ. applys triple_htop_post.
-  applys~ triple_conseq_frame M WH WQ.
-Qed. (* /ADMITTED *)
-
-(* [] *)
-
 End DerivedGCRules.
+
+
+(* ########################################################### *)
+(** ** Garbage collection rules in WP style *)
+
+(** In weakest precondition style, the garbage collection rule [triple_hgc_post]
+    translates to the following statement. *)
+
+Lemma wp_hgc_post : forall t H Q,
+  wp t (Q \*+ \GC) ==> wp t Q.
+Proof using.
+  intros. rewrite <- wp_equiv.
+  applys triple_hgc_post. rewrite* wp_equiv.
+Qed.
+
+(** Likewise, the wp-style presentation of the rule [triple_hgc_pre] takes the
+    following form. *)
+
+Lemma wp_hany_pre : forall t H Q,
+  (wp t Q) \* H ==> wp t Q.
+Proof using.
+  intros. rewrite <- wp_equiv.
+  applys triple_hany_pre. rewrite* wp_equiv.
+Qed.
+
+(** The revised presentation of the wp-style ramified frame rule includes an
+    extra [\GC] predicate. *)
+
+Lemma wp_ramified : forall Q1 Q2 t,
+  (wp t Q1) \* (Q1 \--* (Q2 \*+ \GC)) ==> (wp t Q2).
+
+(** For a change, let us present below a direct proof for this lemma, which does
+    not depend on structural rules for triples. *)
+Proof using.
+  intros. unfold wp. xpull ;=> H M.
+  xsimpl (H \* (Q1 \--* Q2 \*+ \GC)). intros H'.
+  applys hoare_conseq M; xsimpl.
+Qed.
+
+
+End NewTriples.
+
+
 
 
 (* ########################################################### *)
@@ -737,7 +841,6 @@ Proof using.
   destruct Hh as [M N]. applys* M.
 Qed.
 
-
 Section IntroElimLemmas.
 Transparent hexists.
 
@@ -771,39 +874,45 @@ Qed. (* /ADMITTED *)
 
 End IntroElimLemmas.
 
+(** In what follows, we show how to check the two required properties
+    of [heap_affine] in case its definition is set up to spin a
+    fully-linear logic. *)
+
+Module FullyLinearHaffineProp.
+
+Definition heap_affine (h:heap) :=
+  h = Fmap.empty.
+
+Lemma heap_affine_empty :
+  heap_affine Fmap.empty.
+Proof using. auto. Qed.
+
+Lemma heap_affine_union : forall h1 h2,
+  heap_affine h1 ->
+  heap_affine h2 ->
+  Fmap.disjoint h1 h2 ->
+  heap_affine (Fmap.union h1 h2).
+Proof using. 
+  introv K1 K2 D. unfolds heap_affine. subst. rewrite Fmap.union_empty_r.
+Qed.
+
+End FullyLinearHaffineProp.
+
 End HaffineDef.
 
 
 (* ########################################################### *)
-(** ** Proof of the standard rules *)
+(** ** Proof of the reasoning rules for terms *)
 
-Module ReasoningRules.
+Module TermRules.
 
 (** The standard reasoning rules of Separation Logic can be derived for the
     revised notion of Separation Logic triple, the one which includes [\GC],
     following essentially the same proofs as for the original Separation
     Logic triples. The main difference is that one sometimes needs to invoke
     the lemma [hstar_hgc_hgc] for collapsing two [\GC] into a single one.
-
-    In what follows, we present two representative examples of such proofs.
-    One for the frame rule, and one for the reasoning rule for sequences. *)
-
-(* EX2! (triple_frame) *)
-(** Prove the frame rule for the definition of [triple] that includes [\GC].
-    Hint: take inspiration from the proof of [triple_frame] from chapter [SLFHprop]. *)
-
-Lemma triple_frame : forall t H Q H',
-  triple t H Q ->
-  triple t (H \* H') (Q \*+ H').
-Proof using. (* ADMITTED *)
-  introv M. unfold triple in *. rename H' into H1. intros H2.
-  specializes M (H1 \* H2). applys_eq M 1 2.
-  { rewrite hstar_assoc. auto. }
-  { applys qprop_eq. intros v.
-    repeat rewrite hstar_assoc. auto. }
-Qed. (* /ADMITTED *)
-
-(* [] *)
+    In what follows, we present one representative example of such proofs.
+    with the reasoning rule for sequences. *)
 
 (* EX2! (triple_seq) *)
 (** Prove the rule for sequences for the definition of [triple] that includes [\GC].
@@ -836,7 +945,7 @@ Qed. (* /ADMITTED *)
 
 (* [] *)
 
-End ReasoningRules.
+End TermRules.
 
 
 (* ########################################################### *)

@@ -1259,7 +1259,8 @@ Ltac xsimpl_handle_qimpl tt :=
   | |- @qimpl _ _ _ => let r := fresh "r" in intros r
   | |- himpl _ ?H2 => is_evar H2; apply himpl_refl
   | |- himpl _ _ => idtac
-  | |- eq _ _ => applys himpl_antisym
+  | |- @eq hprop _ _ => applys himpl_antisym
+  | |- @eq (_ -> hprop) _ _ => applys fun_ext_1; applys himpl_antisym
   | _ => fail 1 "not a goal for xsimpl/xpull"
   end.
 

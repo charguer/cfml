@@ -30,8 +30,6 @@ From Sep Require SepSimpl.
 (* ########################################################### *)
 (** ** Extensionality axioms *)
 
-Module Assumptions.
-
 (** These standard extensionality axioms come from TLC's LibAxiom.v file. *)
 
 Axiom functional_extensionality : forall A B (f g:A->B),
@@ -41,8 +39,6 @@ Axiom functional_extensionality : forall A B (f g:A->B),
 Axiom propositional_extensionality : forall (P Q:Prop),
   (P <-> Q) ->
   P = Q.
-
-End Assumptions.
 
 
 (* ########################################################### *)
@@ -769,6 +765,10 @@ Proof using.
     applys himpl_hforall_l x. rewrite hstar_comm. applys hwand_cancel. }
   { applys himpl_hforall_r. intros x. rewrite hwand_equiv. rewrite* hstar_comm. }
 Qed.
+
+Lemma qwand_cancel : forall Q1 Q2,
+  Q1 \*+ (Q1 \--* Q2) ===> Q2.
+Proof using. intros. rewrite <- qwand_equiv. applys qimpl_refl. Qed.
 
 Lemma himpl_qwand_r : forall A (Q1 Q2:A->hprop) H,
   Q1 \*+ H ===> Q2 ->
@@ -1968,8 +1968,8 @@ Ltac xwp_simpl := (* variant of [simpl] to compute well on [wp] *)
 
 Tactic Notation "xwp" :=
   intros;
-  first [ applys xwp_lemma_fun; [ reflexivity | idtac]
-        | applys xwp_lemma_fix; [ reflexivity | idtac] ];
+  first [ applys xwp_lemma_fun; [ reflexivity | ]
+        | applys xwp_lemma_fix; [ reflexivity | ] ];
   xwp_simpl.
 
 
@@ -2099,7 +2099,7 @@ End SLFProgramSyntax.
 (* ########################################################### *)
 (** ** Example proofs *)
 
-Module Demo.
+Module DemoPrograms.
 Export SLFProgramSyntax.
 
 (** We let ['x] be a shortname for [("x":var)], as defined in [Var.v].
@@ -2214,4 +2214,4 @@ Proof using.
   replace (n+1+1) with (n+2); [|math]. xsimpl.
 Qed.
 
-End Demo.
+End DemoPrograms.
