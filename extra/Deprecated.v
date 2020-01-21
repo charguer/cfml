@@ -957,3 +957,18 @@ Proof using.
   { applys triple_hany_pre. auto. }
   { applys qimpl_refl. }
 Qed.
+
+=========
+
+
+
+(** Second, the heap predicate [\GC] it itself affine. Indeed, recall
+    that [\GC] denotes some heap [H] such that [haffine H] holds.
+    Thus, by essence, it corresponds to a affine heap predicate. *)
+
+Lemma haffine_hgc :
+  haffine \GC.
+Proof using.
+  applys haffine_hexists. intros H h Hh. rewrite hstar_hpure in Hh.
+  destruct Hh as [M N]. applys* M.
+Qed.

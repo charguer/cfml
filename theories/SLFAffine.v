@@ -230,6 +230,14 @@ Parameter haffine_hforall : forall A `{Inhab A} (J:A->hprop),
   (forall x, haffine (J x)) ->
   haffine (\forall x, (J x)).
 
+(** In addition, [haffine] distributes on the heap predicate [\[P] \* H] 
+    by providing the hypothesis [P], because if a heap [h] satifies 
+    [\[P] \* H] then it must be the case that the proposition [P] is true. *)
+
+Parameter haffine_hstar_hpure : forall P H,
+  (P -> haffine H) ->
+  haffine (\[P] \* H).
+
 (** We will present further on a template for defining [haffine] in
     a way that guarantees by construction that all these properties
     indeed hold. *)
@@ -251,6 +259,16 @@ Definition hgc : hprop :=
   \exists H, \[haffine H] \* H.
 
 Notation "\GC" := (hgc).
+
+(** Observe that the heap predicate [\GC] is itself affine.
+    Indeed, [\GC] denotes some heap [H] such that [haffine H] holds.
+    Thus, by essence, it denotes an affine heap predicate. *)
+
+Lemma haffine_hgc :
+  haffine \GC.
+Proof using.
+  applys haffine_hexists. intros H. applys haffine_hstar_hpure. auto.
+Qed.
 
 (** Using the predicate [\GC], we can reformulate the constrained
     garbage collection rule [triple_haffine_post] as follows. *)
@@ -572,6 +590,24 @@ Qed. (* /ADMITTED *)
 
 (* [] *)
 
+(** The extraction rules remain valid as well. *)
+
+Lemma triple_hpure : forall t (P:Prop) H Q,
+  (P -> triple t H Q) ->
+  triple t (\[P] \* H) Q.
+Proof using.
+  introv M. unfolds triple. intros H'.
+  rewrite hstar_assoc. applys* hoare_hpure.
+Qed.
+
+Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
+  (forall x, triple t (J x) Q) ->
+  triple t (\exists x, J x) Q.
+Proof using.
+  introv M. unfolds triple. intros H'.
+  rewrite hstar_hexists. applys* hoare_hexists.
+Qed.
+
 
 (* ########################################################### *)
 (* ########################################################### *)
@@ -581,7 +617,7 @@ Qed. (* /ADMITTED *)
 (* ########################################################### *)
 (** ** Variants of the garbage collection rule *)
 
-Module DerivedGCRules.
+Module Export DerivedGCRules.
 
 (** Recall the main garbage collection rule, namely [triple_hgc_post]. *)
 
@@ -596,18 +632,18 @@ Parameter triple_hgc_post : forall t H Q,
     Prove that [triple_haffine_post] is derivable from [triple_hgc_post].
     Hint: unfold the definition of [\GC] using [unfold hgc]. *)
 
-Lemma triple_haffine_post : forall t H' Q,
+Lemma triple_haffine_post : forall t H H' Q,
   haffine H' ->
   triple t H (Q \*+ H') ->
   triple t H Q.
 Proof using. (* ADMITTED *)
   introv K M. applys triple_hgc_post. applys triple_conseq M.
-  { xsimpl. } { xsimpl. }
+  { xsimpl. } { xsimpl. applys himpl_hgc_r K. }
 Qed. (* /ADMITTED *)
 
 (* [] *)
 
-(** EX2? (triple_hgc_post')
+(** EX1? (triple_hgc_post')
     Reciprocally, prove that [triple_hgc_post] is derivable from
     [triple_haffine_post]. *)
 
@@ -620,7 +656,7 @@ Qed. (* /ADMITTED *)
 
 (* [] *)
 
-(** EX2! (triple_haffine_pre)
+(** EX1? (triple_haffine_pre)
     Prove that [triple_haffine_pre] is derivable from [triple_hgc_post].
     Hint: exploit the other structural rules of Separation Logic. *)
 
@@ -629,8 +665,7 @@ Lemma triple_haffine_pre : forall t H H' Q,
   triple t H Q ->
   triple t (H \* H') Q.
 Proof using. (* ADMITTED *)
-  introv K M. applys triple_haffine_post. applys triple_conseq_frame M.
-  { xsimpl. } { xsimpl. }
+  introv K M. applys triple_haffine_post K. applys triple_frame M.
 Qed. (* /ADMITTED *)
 
 (* [] *)
@@ -641,44 +676,70 @@ End DerivedGCRules.
 (* ########################################################### *)
 (** ** Garbage collection rules in WP style *)
 
+(** Let us update the definition of [wp] to use the new definition
+    of [triple]. *)
+
+Definition wp (t:trm) (Q:val->hprop) : hprop :=
+  \exists (H:hprop), H \* \[triple t H Q].
+
+(** Recall the characteristic equivalence of [wp]. *)
+
+Lemma wp_equiv : forall t H Q,
+  (H ==> wp t Q) <-> (triple t H Q).
+Proof using.
+  unfold wp. iff M.
+  { applys* triple_conseq Q M.
+    applys triple_hexists. intros H'.
+    rewrite hstar_comm. applys* triple_hpure. }
+  { xsimpl* H. }
+Qed.
+
 (** In weakest precondition style, the garbage collection rule [triple_hgc_post]
-    translates to the following statement. *)
+    translates into the entailment [wp t (Q \*+ \GC) ==> wp t Q]. *)
+
+(** EX1? (wp_hgc_post)
+    Prove the garbage collection in wp-style.
+    Hint: exploit [wp_equiv] and [triple_hgc_post]. *)
 
 Lemma wp_hgc_post : forall t H Q,
   wp t (Q \*+ \GC) ==> wp t Q.
-Proof using.
-  intros. rewrite <- wp_equiv.
-  applys triple_hgc_post. rewrite* wp_equiv.
-Qed.
+Proof using. (* ADMITTED *)
+  intros. rewrite wp_equiv.
+  applys triple_hgc_post. rewrite* <- wp_equiv.
+Qed. (* /ADMITTED *)
+
+(* [] *)
 
 (** Likewise, the wp-style presentation of the rule [triple_hgc_pre] takes the
     following form. *)
 
 Lemma wp_hany_pre : forall t H Q,
+  haffine H ->
   (wp t Q) \* H ==> wp t Q.
 Proof using.
-  intros. rewrite <- wp_equiv.
-  applys triple_hany_pre. rewrite* wp_equiv.
+  introv K. rewrite wp_equiv. applys triple_haffine_pre.
+  { applys K. } { rewrite* <- wp_equiv. }
 Qed.
 
 (** The revised presentation of the wp-style ramified frame rule includes an
-    extra [\GC] predicate. *)
+    extra [\GC] predicate. This rule captures at once all the structural
+    properties of Separation Logic, including the garbage collection rule. *)
 
 Lemma wp_ramified : forall Q1 Q2 t,
   (wp t Q1) \* (Q1 \--* (Q2 \*+ \GC)) ==> (wp t Q2).
 
-(** For a change, let us present below a direct proof for this lemma, which does
-    not depend on structural rules for triples. *)
+(** For a change, let us present below a direct proof for this lemma, 
+    that is, not reusing the structural rules associated with triples. *)
+
 Proof using.
-  intros. unfold wp. xpull ;=> H M.
-  xsimpl (H \* (Q1 \--* Q2 \*+ \GC)). intros H'.
-  applys hoare_conseq M; xsimpl.
+  intros. unfold wp. xpull ;=> H M. 
+  xsimpl (H \* (Q1 \--* Q2 \*+ \GC)).
+  unfolds triple. intros H'.
+  applys hoare_conseq (M ((Q1 \--* Q2 \*+ \GC) \* H')).
+  { xsimpl. } { xchange hstar_hgc_hgc. xsimpl. }
 Qed.
 
-
 End NewTriples.
-
-
 
 
 (* ########################################################### *)
@@ -830,15 +891,14 @@ Proof using.
   applys* haffine_hexists. intros HP. applys* haffine_hempty.
 Qed.
 
-(** Second, the heap predicate [\GC] it itself affine. Indeed, recall
-    that [\GC] denotes some heap [H] such that [haffine H] holds.
-    Thus, by essence, it corresponds to a affine heap predicate. *)
+(** Second, [haffine] distributes over [\[P] \* H] by providing the
+    proposition [P] as hypothesis. *)
 
-Lemma haffine_hgc :
-  haffine \GC.
+Lemma haffine_hstar_hpure : forall P H,
+  (P -> haffine H) ->
+  haffine (\[P] \* H).
 Proof using.
-  applys haffine_hexists. intros H h Hh. rewrite hstar_hpure in Hh.
-  destruct Hh as [M N]. applys* M.
+  intros M h K. rewrite hstar_hpure. ..
 Qed.
 
 Section IntroElimLemmas.
