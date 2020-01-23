@@ -857,18 +857,23 @@ Arguments hstar_hsingle_same_loc : clear implicits.
 
 
 (* ################################################ *)
-(** *** Definition and properties of hgc *)
-
-Definition hgc := htop.
-
-Notation "\GC" := (hgc).
+(** *** Definition and properties of [haffine] and [hgc] *)
 
 Definition haffine (H:hprop) :=
   True.
 
 Lemma haffine_hempty :
   haffine \[].
-Proof using. hnfs*. Qed.
+Proof using. unfolds* haffine. Qed.
+
+Lemma haffine_hany : forall (H:hprop), 
+  haffine H.
+Proof using. unfold haffine. auto. Qed.
+
+Definition hgc := (* equivalent to [\exists H, \[haffine H] \* H] *)
+  htop.
+
+Notation "\GC" := (hgc).
 
 Lemma himpl_hgc_r : forall H,
   haffine H ->
@@ -899,7 +904,8 @@ Export SepSimplArgs.
 
 (** From now on, all operators have opaque definitions *)
 
-Global Opaque hempty hpure hstar hsingle hexists hforall hwand qwand htop hgc haffine.
+Global Opaque hempty hpure hstar hsingle hexists hforall  
+              hwand qwand htop hgc haffine.
 
 
 

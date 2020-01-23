@@ -26,7 +26,6 @@ Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
 
 
-
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
@@ -362,4 +361,42 @@ Lemma triple_hand_r : forall t H1 H2 Q,
   triple t H2 Q ->
   triple t (hand H1 H2) Q.
 Proof using. introv M1. unfold hand. applys~ triple_hforall false. Qed.
+
+
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Properties of [haffine] *)
+
+Lemma haffine_hempty :
+  haffine \[].
+Proof using. intros. applys haffine_hany. Qed.
+
+Lemma haffine_hpure : forall P,
+  haffine \[P].
+Proof using. intros. applys haffine_hany. Qed.
+
+Lemma haffine_hstar : forall H1 H2,
+  haffine H1 ->
+  haffine H2 ->
+  haffine (H1 \* H2).
+Proof using. intros. applys haffine_hany. Qed.
+
+Lemma haffine_hexists : forall A (J:A->hprop),
+  (forall x, haffine (J x)) ->
+  haffine (\exists x, (J x)).
+Proof using. intros. applys haffine_hany. Qed.
+
+Lemma haffine_hforall : forall A `{Inhab A} (J:A->hprop),
+  (forall x, haffine (J x)) ->
+  haffine (\forall x, (J x)).
+Proof using. intros. applys haffine_hany. Qed.
+
+Lemma haffine_hstar_hpure : forall (P:Prop) H,
+  (P -> haffine H) ->
+  haffine (\[P] \* H).
+Proof using. intros. applys haffine_hany. Qed.
+
+
+
 
