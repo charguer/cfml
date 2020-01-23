@@ -2006,6 +2006,14 @@ Proof using.
   applys* wp_app_fix.
 Qed.
 
+Lemma xtriple_lemma : forall t H (Q:val->hprop),
+  H ==> mkstruct (wp t) Q ->
+  triple t H Q.
+Proof using. 
+  introv M. rewrite <- wp_equiv. xchange M. unfold mkstruct.
+  xpull. intros Q'. applys wp_ramified_frame. 
+Qed.
+
 
 (* ########################################################### *)
 (** ** Tactics to manipulate [wpgen] formulae *)
@@ -2108,6 +2116,9 @@ Tactic Notation "xwp" :=
   first [ applys xwp_lemma_fun; [ reflexivity | ]
         | applys xwp_lemma_fix; [ reflexivity | ] ];
   xwp_simpl.
+
+Tactic Notation "xtriple" :=
+  intros; applys xtriple_lemma.
 
 
 (* ########################################################### *)

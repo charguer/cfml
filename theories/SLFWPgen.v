@@ -1663,7 +1663,10 @@ Tactic Notation "xapp" constr(E) :=
 Hint Resolve triple_get triple_set triple_ref triple_free triple_add : triple.
 
 (** The argument-free variants [xapp_subst] and [xapp] are implemented
-    by invoking [eauto with triple] to retrieve the relevant specification. *)
+    by invoking [eauto with triple] to retrieve the relevant specification.
+    (The definition from [SLFDirect] is slightly more powerful, in that
+    it is also able to pick up an induction hypothesis from the context
+    for instantiating the triple.) *)
 
 Tactic Notation "xapp_nosubst" :=
   xseq_xlet_if_needed; xstruct_if_needed;

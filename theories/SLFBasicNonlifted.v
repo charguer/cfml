@@ -549,10 +549,7 @@ Lemma triple_incr_first_derived : forall (p q:loc) (n m:int),
     PRE (p ~~~> n \* q ~~~> m)
     POST (fun _ => p ~~~> (n+1) \* q ~~~> m).
 Proof using.
-  (* TODO: xtriple
-  xtriple. xapp Triple_incr_first'. xsimpl.
-  *)
-  skip.
+  xtriple. xapp triple_incr_first'. xsimpl.
 Qed.
 
 (** More generally, in Separation Logic, if a specification triple holds,
@@ -764,19 +761,13 @@ Qed.
     Then, derive the new specification from the former one, by
     invoking the tactics [xtriple] and [xapp Triple_ref_greater]. *)
 
-From Sep Require Import SLFExtra.
 (* SOLUTION *)
 Lemma triple_ref_greater_abstract : forall (p:loc) (n:int),
   TRIPLE (ref_greater p)
     PRE (p ~~~> n)
     POST (fun r => \exists q m, \[r = val_loc q] \* \[m > n] \* q ~~~> m \* p ~~~> n).
 Proof using.
-  (* TODO
-  xtriple. *)
-  intros. applys triple_conseq_frame triple_ref_greater.
-  xsimpl.
-  xpull. intros ? q ->. xsimpl. auto. math.
-  (* xapp Triple_ref_greater. xsimpl. math. *)
+  xtriple. xapp triple_ref_greater. xsimpl. { auto. } { math. }
 Qed.
 (* /SOLUTION *)
 
