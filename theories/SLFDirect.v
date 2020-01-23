@@ -2050,11 +2050,20 @@ Tactic Notation "xapp_simpl" := (* internal *)
 
 Tactic Notation "xapp_nosubst" constr(E) :=
   xseq_xlet_if_needed; xstruct_if_needed;
-  applys xapp_lemma E; xapp_simpl.
+  forwards_then E ltac:(fun K => applys xapp_lemma K; xapp_simpl).
+  (* if [E] were already an instantiated lemma, then it would suffices
+     to call [applys xapp_lemma E; xapp_simpl]. But in the general case, 
+     we need to instantiate [E] using the TLC tactic [forward_then] *)
+
+Tactic Notation "xapp_apply_spec" := (* internal *)
+  (* finds out the specification triple, from the hint data base [triple]
+     or in the context by looking for an induction hypothesis. *)
+  first [ solve [ eauto with triple ] 
+        | match goal with H: _ |- _ => eapply H end ].
 
 Tactic Notation "xapp_nosubst" :=
   xseq_xlet_if_needed; xstruct_if_needed;
-  applys xapp_lemma; [ solve [ eauto with triple ] | xapp_simpl ].
+  applys xapp_lemma; [ xapp_apply_spec | xapp_simpl ].
 
 (** [xapp_try_subst] checks if the goal is of the form:
     - either [forall (r:val), (r = ...) -> ...]

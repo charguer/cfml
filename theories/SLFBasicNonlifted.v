@@ -1012,20 +1012,13 @@ Proof using.
     xapp.
     (* We reason about the recursive call, implicitly exploiting
        the induction hypothesis [IH] with [n-1]. *)
-  xlet.
-
-  xstruct_if_needed.
-  applys xapp_lemma. applys IH. math. math. (* TODO *)
-  xsimpl. unfold protect.
-  intros ? ->.
-
-    (* TODO xapp. *)
+    xapp.
     (* We justify that the recursive call is indeed made on a smaller
        argument than the current one, that is, [n]. *)
-    (* { math. }
+    { math. }
     (* We justify that the recursive call is made to a nonnegative argument,
        as required by the specification. *)
-    { math. } *)
+    { math. }
     (* We reason about the multiplication [n * facto(n-1)]. *)
     xapp.
     (* We check that [n * facto (n-1)] matches [facto n]. *)
@@ -1044,8 +1037,8 @@ Proof using.
   intros n. induction_wf IH: (downto 1) n. unfold downto in IH.
   intros Hn. xwp. xapp. xif; intros C.
   { xval. xsimpl. rewrite facto_init; math. }
-  { xapp. (* TODO xapp. { math. } { math. } xapp. xsimpl.
-    rewrite (@facto_step n); math. *) skip. }
+  { xapp. xapp. { math. } { math. } xapp. xsimpl.
+    rewrite (@facto_step n); math. }
 Qed.
 
 
@@ -1097,7 +1090,7 @@ Lemma triple_repeat_incr : forall (m n:int) (p:loc),
 Proof using. (* ADMITTED *)
   intros m. induction_wf IH: (downto 0) m. unfold downto in IH.
   intros n p Hm. xwp. xapp. xif; intros C.
-  { xapp. xapp. (* TODO xapp. { math. } { math. } xsimpl. math. } *) skip. }
+  { xapp. xapp. xapp. { math. } { math. } xsimpl. math. }
   { xval. xsimpl. math. }
 Qed. (* /ADMITTED *)
 
@@ -1174,7 +1167,7 @@ Proof using. (* ADMITTED *)
   intros q p n m Hm.
   revert n Hm. induction_wf IH: (downto 0) m. unfold downto in IH.
   intros. xwp. xapp. xapp. xif; intros C.
-  { xapp. xapp. (* TODO  xapp. { math. } { math. } xsimpl. math. } *) skip. }
+  { xapp. xapp. xapp. { math. } { math. } xsimpl. math. }
   { xval. xsimpl. { math. } { math. } }
 Qed. (* /ADMITTED *)
 
@@ -1413,8 +1406,5 @@ Proof using.
   xapp. xapp. xif; intros Cq.
   { xchange (MList_if q). case_if. xpull. intros ->.
     xapp. xchange <- MList_cons. }
-  { xstruct. applys xapp_lemma. (* xapp. *)
-    applys* IH. (* intros ->; false. *) xsimpl. unfold protect.
-    (* xapp. { auto. } { auto. } *)
-    xchange <- MList_cons. }
+  { xapp. xchange <- MList_cons. }
 Qed.
