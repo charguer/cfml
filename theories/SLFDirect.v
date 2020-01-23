@@ -1910,6 +1910,12 @@ Lemma xseq_lemma : forall H F1 F2 Q,
   H ==> wpgen_seq F1 F2 Q.
 Proof using. introv M. xchange M. Qed.
 
+Lemma xif_lemma : forall b H F1 F2 Q,
+  (b = true -> H ==> F1 Q) ->
+  (b = false -> H ==> F2 Q) ->
+  H ==> (wpgen_if b F1 F2) Q.
+Proof using. introv M1 M2. unfold wpgen_if. xsimpl* b. case_if*. Qed.
+
 Lemma xapp_lemma : forall t Q1 H1 H Q,
   triple t H1 Q1 ->
   H ==> H1 \* (Q1 \--* protect Q) ->
@@ -1987,6 +1993,10 @@ Tactic Notation "xseq_xlet_if_needed" := (* internal *)
   | wpgen_let ?F1 ?F2of => xlet
   end end.
 
+Tactic Notation "xif" :=
+  xseq_xlet_if_needed; xstruct_if_needed;
+  applys xif_lemma; rew_bool_eq.
+
 Tactic Notation "xapp_try_clear_unit_result" := (* internal *)
   try match goal with |- val -> _ => intros _ end.
 
@@ -2007,8 +2017,19 @@ Tactic Notation "xapp_nosubst" :=
   xseq_xlet_if_needed; xstruct_if_needed;
   applys xapp_lemma; [ solve [ eauto with triple ] | xapp_simpl ].
 
+(** [xapp_try_subst] checks if the goal is of the form:
+    - either [forall (r:val), (r = ...) -> ...]
+    - or [forall (r:val), forall x, (r = ...) -> ...]
+
+    in which case it substitutes [r] away.
+*)
+
 Tactic Notation "xapp_try_subst" := (* internal *)
-  try match goal with |- forall _ (_:_=_), _ => try intros ? -> end.
+  try match goal with
+  | |- forall (r:val), (r = _) -> _ => intros ? -> 
+  | |- forall (r:val), forall x, (r = _) -> _ =>
+      let y := fresh x in intros ? y ->; revert y
+  end.
 
 Tactic Notation "xapp" constr(E) :=
   xapp_nosubst E; xapp_try_subst.
@@ -2247,7 +2268,7 @@ Lemma triple_mysucc : forall n,
     PRE \[]
     POST (fun v => \[v = n+1]).
 Proof using.
-  xwp. xapp. intros ? r ->. xapp. xapp. xapp. xval. xsimpl*.
+  xwp. xapp. intros r. xapp. xapp. xapp. xval. xsimpl*.
 Qed.
 
 

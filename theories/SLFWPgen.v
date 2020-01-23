@@ -1629,11 +1629,27 @@ End ProofsWithXtactics.
     the specification [E] features a postcondition of the form
     [fun v => \[v = ..]] or of the form [fun v => \[v = ..] \* ..].
 
+    Likewise, the pattern [xapp_nosubst E. intros ? l ->.] appears 
+    frequently. This pattern is typically useful whenever the
+    specification [E] features a postcondition of the form
+    [fun v => \exists p, \[v = ..] \* ... ].
+
     It therefore makes sense to introduce a tactic [xapp E] that,
-    after calling [xapp_nosubst E], attempts to invoke [intros ? ->]. *)
+    after calling [xapp_nosubst E], attempts to invoke [intros ? ->]
+    or [intros ? x ->; revert x]. In the latter case, to ensure that
+    the name [x] that we use does not modify the existing name of the
+    bound variable, we play some Ltac hacks, captured by the tactic
+    [xapp_try_subst]. *)
+
+Tactic Notation "xapp_try_subst" := (* for internal use only *)
+  try match goal with
+  | |- forall (r:val), (r = _) -> _ => intros ? -> 
+  | |- forall (r:val), forall x, (r = _) -> _ =>
+      let y := fresh x in intros ? y ->; revert y
+  end.
 
 Tactic Notation "xapp" constr(E) :=
-  xapp_nosubst E; try intros ? ->.
+  xapp_nosubst E; xapp_try_subst.
 
 (** Explicitly providing arguments to [xapp_nosubst] or [xapp]
     is very tedious. To avoid that effort, we can set up the tactics
@@ -1654,7 +1670,7 @@ Tactic Notation "xapp_nosubst" :=
   applys xapp_lemma; [ solve [ eauto with triple ] | xsimpl | xpull ].
 
 Tactic Notation "xapp" :=
-  xapp_nosubst; try intros ? ->.
+  xapp_nosubst; xapp_try_subst.
 
 
 (* ####################################################### *)
@@ -1690,7 +1706,7 @@ Lemma triple_succ_using_incr_with_xapps : forall (n:int),
     \[]
     (fun v => \[v = n+1]).
 Proof using. (* ADMITTED *)
-  xwp. xapp. intros ? l ->. xapp. xapp. xapp. xval. xsimpl. auto.
+  xwp. xapp. intros l. xapp. xapp. xapp. xval. xsimpl. auto.
 Qed. (* /ADMITTED *)
 
 (** [] *)

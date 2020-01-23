@@ -702,11 +702,11 @@ Lemma triple_ref_random_int : forall (n:int),
 Proof using.
   xwp.
   (* We first reason about the call to [random_int@]. *)
-  xapp. intros ? m -> Hm.
+  xapp. intros m Hm.
   (* Here, [m] denotes the result of [random_int n].
      This variable is not substituted away because there is no equality
      of the form [m = _], but instead a constraint [Hm: 0 <= m < n]. *)
-  xapp. intros ? q ->.
+  xapp. intros q.
   (* Here, [q] denotes the result of [ref m]. *)
   (* There remains to justify that the current state
      [q ~~~> m] matches the postcondition, which is
@@ -751,7 +751,7 @@ Lemma triple_ref_greater : forall (p:loc) (n:int),
     PRE (p ~~~> n)
     POST (fun r => \exists q, \[r = val_loc q] \* p ~~~> n \* q ~~~> (n+1)).
 Proof using.
-  xwp. xapp. xapp. xapp. intros ? q ->. xsimpl. auto.
+  xwp. xapp. xapp. xapp. intros q. xsimpl. auto.
 Qed.
 (* /SOLUTION *)
 
@@ -822,7 +822,7 @@ Lemma triple_succ_using_incr_attempt : forall (n:int),
     PRE \[]
     POST (fun r => \[r = n+1]).
 Proof using.
-  xwp. xapp. intros ? p ->. xapp. xapp. xsimpl. { auto. }
+  xwp. xapp. intros p. xapp. xapp. xsimpl. { auto. }
 Abort.
 
 (** In the above proof script, we get stuck with the entailment
@@ -837,7 +837,7 @@ Lemma triple_succ_using_incr_attempt' : forall (n:int),
     PRE \[]
     POST (fun r => \[r = n+1] \* \exists p, (p ~~~> (n+1))).
 Proof using.
-  xwp. xapp. intros ? p ->. xapp. xapp. xsimpl. { auto. }
+  xwp. xapp. intros p. xapp. xapp. xsimpl. { auto. }
 Qed.
 
 (** While the above specification is provable, it is unusable.
@@ -878,17 +878,7 @@ Lemma triple_succ_using_incr : forall n,
     PRE \[]
     POST (fun r => \[r = n+1]).
 Proof using.
-  xwp. xapp.
-
-  let x := fresh in intros x;
-  match goal with |- forall v, _ =>
-  let u := fresh v in
-  let E := fresh in intros u E;
-  match type of E with x = _ => subst x end; revert u end.
-
-(*  intros ? p ->. TODO: automate this pattern *)
-  intros p.
-  xapp. xapp. xapp. xval. xsimpl. auto.
+  xwp. xapp. intros p. xapp. xapp. xapp. xval. xsimpl. auto.
 Qed.
 
 (** Remark: if we verify programs written in a language equipped
@@ -972,30 +962,6 @@ Definition factorec : val :=
     specifications and the conciseness of proof scripts.
 
     The specification of [factorec] is thus stated as follows. *)
-
-
-Lemma xifval_lemma : forall (b:bool) H (Q:val->hprop) (F1 F2:formula),
-  (b = true -> H ==> F1 Q) ->
-  (b = false -> H ==> F2 Q) ->
-  H ==> (wpgen_if b F1 F2) Q.
-Admitted.
-
-Lemma xifval_lemma_isTrue : forall (P:Prop) H (Q:val->hprop) (F1 F2:formula),
-  (P -> H ==> F1 Q) ->
-  (~ P -> H ==> F2 Q) ->
-  H ==> (wpgen_if (isTrue P) F1 F2) Q.
-Admitted.
-
-Ltac xif_core tt :=
-  xstruct_if_needed;
-  first [ applys @xifval_lemma_isTrue
-        | applys @xifval_lemma ];
-  rew_bool_eq.
-
-Tactic Notation "xif" :=
-  xif_core tt.
-
-
 
 Lemma triple_factorec : forall n,
   n >= 0 ->

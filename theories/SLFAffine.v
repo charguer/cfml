@@ -102,7 +102,7 @@ Lemma Triple_succ_using_incr : forall (n:int),
     PRE \[]
     POST (fun r => \[r = n+1] \* \exists p, (p ~~~> (n+1))).
 Proof using.
-  xwp. xapp. intros ? p ->. xapp. xapp. xsimpl. auto.
+  xwp. xapp. intros p. xapp. xapp. xsimpl. auto.
 Qed.
 
 (** If we try to prove a specification that does not mention the left-over
@@ -114,7 +114,7 @@ Lemma Triple_succ_using_incr' : forall (n:int),
     PRE \[]
     POST (fun r => \[r = n+1]).
 Proof using.
-  xwp. xapp. intros ? p ->. xapp. xapp. xsimpl. { auto. } (* stuck here *)
+  xwp. xapp. intros p. xapp. xapp. xsimpl. { auto. } (* stuck here *)
 Abort.
 
 (** This situation is desirable in a programming language with explicit
@@ -404,7 +404,7 @@ Lemma Triple_succ_using_incr : forall (n:int),
     PRE \[]
     POST (fun r => \[r = n+1]).
 Proof using.
-  xwp. xapp. intros ? r ->. xapp. xapp. xsimpl. { auto. }
+  xwp. xapp. intros r. xapp. xapp. xsimpl. { auto. }
   (* There remains to absorb the left-over reference into the [\GC] predicate *)
   applys himpl_hgc_r. applys haffine_hany.
 Qed.
