@@ -77,6 +77,8 @@ Axiom propositional_extensionality : forall (P Q:Prop),
 
 Definition loc : Type := nat.
 
+Definition null : loc := 0%nat.
+
 Inductive val : Type :=
   | val_unit : val
   | val_bool : bool -> val
@@ -293,7 +295,7 @@ Definition hempty : hprop :=
   fun h => (h = Fmap.empty).
 
 Definition hsingle (l:loc) (v:val) : hprop :=
-  fun h => (h = Fmap.single l v).
+  fun h => (h = Fmap.single l v /\ l <> null).
 
 Definition hstar (H1 H2 : hprop) : hprop :=
   fun h => exists h1 h2, H1 h1
@@ -826,12 +828,13 @@ Qed.
 (** *** Properties of [hsingle] *)
 
 Lemma hsingle_intro : forall l v,
+  l <> null ->
   (l ~~~> v) (Fmap.single l v).
-Proof using. intros. hnfs*. Qed.
+Proof using. introv N. hnfs*. Qed.
 
 Lemma hsingle_inv: forall l v h,
   (l ~~~> v) h ->
-  h = Fmap.single l v.
+  h = Fmap.single l v /\ l <> null.
 Proof using. auto. Qed.
 
 Lemma hstar_hsingle_same_loc : forall l v1 v2,
@@ -1120,7 +1123,7 @@ Lemma hoare_ref : forall H v,
     (fun r => (\exists l, \[r = val_loc l] \* l ~~~> v) \* H).
 Proof using.
   intros. intros s1 K0.
-  forwards~ (l&D&_): (Fmap.single_fresh 0%nat s1 v).
+  forwards~ (l&D&N): (Fmap.single_fresh 0%nat s1 v).
   exists (Fmap.union (Fmap.single l v) s1) (val_loc l). split.
   { applys~ eval_ref_sep D. }
   { applys~ hstar_intro.
@@ -1134,7 +1137,7 @@ Lemma hoare_get : forall H v l,
 Proof using.
   intros. intros s K0. exists s v. split.
   { destruct K0 as (s1&s2&P1&P2&D&U).
-    lets E1: hsingle_inv P1. subst s1.
+    lets (E1&N): hsingle_inv P1. subst s1.
     applys eval_get_sep U. }
   { rewrite~ hstar_hpure. }
 Qed.
@@ -1146,12 +1149,12 @@ Lemma hoare_set : forall H w l v,
 Proof using.
   intros. intros s1 K0.
   destruct K0 as (h1&h2&P1&P2&D&U).
-  lets E1: hsingle_inv P1.
+  lets (E1&N): hsingle_inv P1.
   exists (Fmap.union (Fmap.single l w) h2) val_unit. split.
   { subst h1. applys eval_set_sep U D. auto. }
   { rewrite hstar_hpure. split~.
     { applys~ hstar_intro.
-      { applys hsingle_intro. }
+      { applys~ hsingle_intro. }
       { subst h1. applys Fmap.disjoint_single_set D. } } }
 Qed.
 
@@ -1162,7 +1165,7 @@ Lemma hoare_free : forall H l v,
 Proof using.
   intros. intros s1 K0.
   destruct K0 as (h1&h2&P1&P2&D&U).
-  lets E1: hsingle_inv P1.
+  lets (E1&N): hsingle_inv P1.
   exists h2 val_unit. split.
   { subst h1. applys eval_free_sep U D. }
   { rewrite hstar_hpure. split~. }

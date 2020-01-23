@@ -266,7 +266,7 @@ Lemma hstar_hsingle_same_loc : forall (l:loc) (v1 v2:val),
     contradiction on the disjointness assumption. *)
 
 Proof using.
-  intros. unfold hsingle. intros h (h1&h2&E1&E2&D&E). false.
+  intros. unfold hsingle. intros h (h1&h2&(E1&N1)&(E2&N2)&D&E). false.
   subst. applys Fmap.disjoint_single_single_same_inv D.
 Qed.
 

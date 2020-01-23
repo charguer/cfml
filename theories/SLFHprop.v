@@ -242,30 +242,17 @@ Definition hpure (P:Prop) : hprop :=
 
 Notation "\[ P ]" := (hpure P) (at level 0, format "\[ P ]").
 
-(** The singleton heap predicate, written [l ~~> v], characterizes a
+(** The singleton heap predicate, written [l ~~~> v], characterizes a
     state with a single allocated cell, at location [l], storing the
-    value [v]. *)
+    value [v]. Additionnally, this heap predicate carries the information
+    that [l] is not the [null] location. (Another possibility would be to
+    refine the type of [heap] as a finite map whose domain does not include
+    the [null] location, however this route involves a greater amount of work.) *)
 
 Definition hsingle (l:loc) (v:val) : hprop :=
-  fun (h:heap) => (h = Fmap.single l v).
+  fun (h:heap) => (h = Fmap.single l v /\ l <> null).
 
 Notation "l '~~~>' v" := (hsingle l v) (at level 32).
-
-(** Remark: in the course of the proof of [MList_if] in chapter [SLFList],
-    we have exploited the property that no data can be allocated at the
-    [null] location. This invariant can be enforced in either of two manners:
-
-    - The first possibility is to bake this invariant directly into the
-      definition of [hsingle l v], as follows:
-      [fun (h:heap) => (h = Fmap.single l v) /\ (l <> null)].
-    - The second possibility is to enforce this invariant at a deeper level,
-      in the type of [heap], a.k.a. [state], to ensure that a value of that
-      type can never bind the [null] location.
-
-    For simplicity, we will ignore throughout the rest of this course
-    the requirement that allocated locations are not null. *)
-
-(* LATER: check how much more complicated it would be to handle this formally. *)
 
 (** The "separating conjunction", written [H1 \* H2], characterizes a
     state that can be decomposed in two disjoint parts, one that
@@ -615,8 +602,9 @@ Lemma hpure_intro : forall P,
 Proof using. introv M. hnf. auto. Qed.
 
 Lemma hsingle_intro : forall l v,
+  l <> null ->
   (l ~~~> v) (Fmap.single l v).
-Proof using. intros. hnf. auto. Qed.
+Proof using. introv N. hnf. auto. Qed.
 
 Lemma hstar_intro : forall H1 H2 h1 h2,
   H1 h1 ->
@@ -645,7 +633,7 @@ Proof using. introv M. hnf in M. autos*. Qed.
 
 Lemma hsingle_inv: forall l v h,
   (l ~~~> v) h ->
-  h = Fmap.single l v.
+  h = Fmap.single l v /\ l <> null.
 Proof using. introv M. hnf in M. auto. Qed.
 
 Lemma hstar_inv : forall H1 H2 h,
@@ -896,3 +884,4 @@ Qed. (* /ADMITTED *)
 (** [] *)
 
 End Extensionality.
+

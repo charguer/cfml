@@ -1134,3 +1134,23 @@ Proof using. intros. applys haffine_hany. Qed.
 Lemma xsimpl_demo_hgc_collapse : forall H1 H2 H3 H4 H5,
   H1 \* H2 \* H3 ==> H4 \* \GC \* H5 \* \GC.
 Proof using. intros. xsimpl. (* leaves only one [\GC] *) Abort.
+
+
+)================
+
+
+(** Remark: in the course of the proof of [MList_if] in chapter [SLFList],
+    we have exploited the property that no data can be allocated at the
+    [null] location. This invariant can be enforced in either of two manners:
+
+    - The first possibility is to bake this invariant directly into the
+      definition of [hsingle l v], as follows:
+      [fun (h:heap) => (h = Fmap.single l v) /\ (l <> null)].
+    - The second possibility is to enforce this invariant at a deeper level,
+      in the type of [heap], a.k.a. [state], to ensure that a value of that
+      type can never bind the [null] location.
+
+    For simplicity, we will ignore throughout the rest of this course
+    the requirement that allocated locations are not null. *)
+
+(* LATER: check how much more complicated it would be to handle this formally. *)

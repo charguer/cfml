@@ -1480,25 +1480,25 @@ Qed.
 (** In order to apply the rules [eval_ref] or [eval_ref_sep], we need
     to be able to synthetize fresh locations. The following lemma
     (from [Fmap.v]) captures the existence, for any state [s], of
-    a location [l] not already bound in [s]. *)
+    a non-null location [l] not already bound in [s]. *)
 
 Parameter exists_not_indom : forall s,
-   exists l, ~ Fmap.indom s l.
+   exists l, ~ Fmap.indom s l /\ l <> null.
 
 (** We reformulate the lemma above in a way that better matches
     the premise of the lemma [eval_ref_sep], which we need to apply
     for establishing the specification of [ref].
 
     This reformulation, shown below, asserts that, for any [h],
-    there existence a location [l] such that the singleton heap
-    [Fmap.single l v] is disjoint from [h]. *)
+    there existence a non-null location [l] such that the singleton 
+    heap [Fmap.single l v] is disjoint from [h]. *)
 
 Lemma single_fresh : forall h v,
-  exists l, Fmap.disjoint (Fmap.single l v) h.
+  exists l, Fmap.disjoint (Fmap.single l v) h /\ l <> null.
 Proof using.
   (** It is not needed to follow through this proof. *)
-  intros. forwards (l&F): exists_not_indom h.
-  exists l. applys* Fmap.disjoint_single_of_not_indom.
+  intros. forwards (l&F&N): exists_not_indom h.
+  exists l. split*. applys* Fmap.disjoint_single_of_not_indom.
 Qed.
 
 (** The proof of the Hoare triple for [ref] is as follows. *)
@@ -1512,7 +1512,7 @@ Proof using.
   intros. intros s1 K0.
   (* 2. We claim the disjointness relation
        [Fmap.disjoint (Fmap.single l v) s1]. *)
-  forwards* (l&D): (single_fresh s1 v).
+  forwards* (l&D&N): (single_fresh s1 v).
   (* 3. We provide the witnesses for the reduction,
         as dictated by [eval_ref_sep]. *)
   exists ((Fmap.single l v) \u s1) (val_loc l). split.
@@ -1523,7 +1523,7 @@ Proof using.
           by providing [p] and the relevant pieces of heap. *)
     applys hstar_intro.
     { exists l. rewrite hstar_hpure.
-      split. { auto. } { applys hsingle_intro. } }
+      split. { auto. } { applys~ hsingle_intro. } }
     { applys K0. }
     { applys D. } }
 Qed.
@@ -1800,7 +1800,7 @@ Proof using.
   (* 2. We decompose the star from the precondition. *)
   destruct K0 as (h1&h2&P1&P2&D&U).
   (* 3. We also decompose the singleton heap predicate from it. *)
-  lets E1: hsingle_inv P1.
+  lets (E1&N): hsingle_inv P1.
   (* 4. We provide the witnesses as guided by [eval_set_sep]. *)
   exists ((Fmap.single l w) \u h2) val_unit. split.
   { (* 5. The evaluation subgoal matches the statement of [eval_set_sep]. *)
@@ -1811,7 +1811,7 @@ Proof using.
     { (* 7. Then establish the star. *)
       applys hstar_intro.
       { (* 8. We establish the heap predicate [l ~~~> w] *)
-        applys hsingle_intro. }
+        applys hsingle_intro. auto. }
       { applys P2. }
       { (* 9. Finally, we justify disjointness using the lemma
               [Fmap.disjoint_single_set] introduced earlier. *)
@@ -1866,7 +1866,7 @@ Lemma hoare_free : forall H l v,
 Proof using. (* ADMITTED *)
   intros. intros s1 K0.
   destruct K0 as (h1&h2&P1&P2&D&U).
-  lets E1: hsingle_inv P1.
+  lets (E1&N): hsingle_inv P1.
   exists h2 val_unit. split.
   { subst h1. applys eval_free_sep U D. }
   { rewrite hstar_hpure. split~. }
