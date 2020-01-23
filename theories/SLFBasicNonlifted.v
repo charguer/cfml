@@ -13,9 +13,6 @@ Set Implicit Arguments.
 From Sep Require Import SLFDirect SLFExtra.
 Import SLFProgramSyntax DemoPrograms ExtraDemoPrograms.
 
-Ltac math_0 ::= (* improve the [math] tactic to handle the [val_int] coercion *)
-  try match goal with |- val_int _ = val_int _ => fequal end.
-
 Implicit Types n m : int.
 Implicit Types p q : loc.
 
@@ -322,6 +319,7 @@ Qed.
 (* ########################################################### *)
 (** ** Exercise: function [inplace_double] *)
 
+
 (** Consider the function [inplace_double], which expects a reference
     on an integer, reads twice in that reference, then updates the
     reference with the sum of the two values that were read.
@@ -350,7 +348,7 @@ Lemma triple_inplace_double : forall (p:loc) (n:int),
     PRE (p ~~~> n)
     POST (fun _ => p ~~~> (2*n)).
 Proof using.
-  xwp. xapp. xapp. xapp. xsimpl. (* TODO *) skip. (* math. *)
+  xwp. xapp. xapp. xapp. xsimpl. math.
 Qed.
 (* /SOLUTION *)
 
@@ -474,7 +472,7 @@ Lemma triple_incr_two_aliased : forall (p:loc) (n:int),
     PRE (p ~~~> n)
     POST (fun _ => p ~~~> (n+2)).
 Proof using.
-  xwp. xapp. xapp. xsimpl. skip. (* TODO  math. *)
+  xwp. xapp. xapp. xsimpl. math.
 Qed.
 
 (** By exploiting the alternative specification, we are able to verify
@@ -579,7 +577,7 @@ Qed.
 Definition transfer : val :=
   VFun 'p 'q :=
    Let 'n := '!'p in
-   Let 'm := '!'p in
+   Let 'm := '!'q in
    Let 's := 'n '+ 'm in
    'p ':= 's ';
    'q ':= 0.
@@ -595,7 +593,7 @@ Lemma triple_transfer : forall (p q:loc) (n m:int),
     PRE (p ~~~> n \* q ~~~> m)
     POST (fun _ => p ~~~> (n + m) \* q ~~~> 0).
 Proof using.
-  xwp. xapp. xapp. xapp. xapp. xapp. xsimpl. skip. (* TODO *)
+  xwp. xapp. xapp. xapp. xapp. xapp. xsimpl.
 Qed.
 (* /SOLUTION *)
 
@@ -1100,7 +1098,7 @@ Proof using. (* ADMITTED *)
   intros m. induction_wf IH: (downto 0) m. unfold downto in IH.
   intros n p Hm. xwp. xapp. xif; intros C.
   { xapp. xapp. (* TODO xapp. { math. } { math. } xsimpl. math. } *) skip. }
-  { xval. xsimpl. skip. (* TODO math. *) }
+  { xval. xsimpl. math. }
 Qed. (* /ADMITTED *)
 
 (** [] *)
@@ -1177,7 +1175,7 @@ Proof using. (* ADMITTED *)
   revert n Hm. induction_wf IH: (downto 0) m. unfold downto in IH.
   intros. xwp. xapp. xapp. xif; intros C.
   { xapp. xapp. (* TODO  xapp. { math. } { math. } xsimpl. math. } *) skip. }
-  { xval. xsimpl. (* TODO  math. math. *) skip. }
+  { xval. xsimpl. { math. } { math. } }
 Qed. (* /ADMITTED *)
 
 (** [] *)

@@ -904,17 +904,56 @@ Proof using. applys hstar_htop_htop. Qed.
 
 End SepSimplArgs.
 
-(** We are now ready to instantiate the functor. *)
+(** We are now ready to instantiate the functor, and open the
+    contents of the module [SepHsimplArgs], essentially pretending
+    that we inlined here its contents. *)
 
 Module Export HS := SepSimpl.XsimplSetup(SepSimplArgs).
+
+Export SepSimplArgs.
+
+(** At this point, the tactic [xsimpl] is defined.
+    There remains to customize the tactic so that it recognizes
+    the predicate [p ~~~> v] in a special way when performing
+    simplifications. *)
+
+(*  Internal hack: (the comment only makes sense in the context of [SepSimpl]).
+    [xsimpl_pick_hsingle H] applies to a goal of the form
+    [Xsimpl (Hla, Hlw, Hlt) HR], where [Hla] is of the form
+    [H1 \* .. \* Hn \* \[]], and where [H] is of the form [p ~~~> v]
+    It searches for [p ~~~> v'] among the [Hi]. If it finds it, it
+    moves this [Hi] to the front, just before [H1]. Else, it fails. *)
+
+Ltac xsimpl_pick_hsingle H :=
+  match H with hsingle ?p ?v =>
+    xsimpl_pick_st ltac:(fun H' =>
+      match H' with (hsingle p ?v') =>
+        constr:(true) end)
+  end.
+
+(** Internal hack: 
+    The following instantiation of the [xsimpl] hook enables the tactic 
+    to simplify [p ~~~> v] against [p ~~~> v'] by generating the 
+    side-condition [v = v']. *)
+
+Ltac xsimpl_hook H ::=
+  match H with
+  | hsingle _ _ => xsimpl_pick_hsingle H; apply xsimpl_lr_cancel_eq;
+                   [ xsimpl_lr_cancel_eq_repr_post tt | ]  
+  end.
 
 (** At this point, the tactic [xsimpl] is available.
     See the file [SLFHimpl.v] for demos of its usage. *)
 
-(** And we open the module [SepHsimplArgs], essentially pretending
-    that it was never created. *)
+(** One last hack is to improve the [math] tactic so that it is able
+    to handle the [val_int] coercion in goals and hypotheses of the
+     form [val_int ?n = val_int ?m]. *)
 
-Export SepSimplArgs.
+Ltac math_0 ::= 
+  try match goal with
+  | |- val_int _ = val_int _ => fequal 
+  | H: val_int _ = val_int _ |- _ => inverts H
+  end.
 
 (** From now on, all operators have opaque definitions *)
 

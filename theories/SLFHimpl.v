@@ -792,7 +792,7 @@ Lemma case_study_11 : forall p,
   ==> \exists n, \[n > 1] \* p ~~~> (n-1).
 Proof using.
   intros. xpull. intros n Hn. xsimpl (n+1).
-  math. math_rewrite (n+1-1 = n). xsimpl.
+  math. math.
 Qed.
 
 Lemma case_study_12 : forall p q,
