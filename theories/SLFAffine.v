@@ -1318,13 +1318,55 @@ End XGC.
 
 
 (* ########################################################### *)
+(** ** Pre and post rules *)
+
+Module FromPreToPostGC.
+Import SLFRules ProofsSameSemantics.
+
+(** Earlier on, we proved that [triple_hgc_pre] is derivable from 
+    [triple_hgc_post], through a simple application of the frame rule.
+
+    We wrote that, reciprocally, the rule [triple_hgc_post] is derivable
+    from [triple_hgc_pre], yet with a slightly more involved proof.
+    Let us present this proof.
+
+    In other word, assume [triple_hgc_pre], and let us prove [triple_hgc_post]. *)
+
+Parameter triple_hgc_pre : forall t H Q,
+  triple t H Q ->
+  triple t (H \* \GC) Q.
+
+Lemma triple_hgc_post : forall t H Q,
+  triple t H (Q \*+ \GC) ->
+  triple t H Q.
+
+(** The key idea of the proof is that a term [t] admits the same behavior
+    as [let x = t in x]. Thus, to simulate garbage collection of a predicate
+    from the postcondition of [t], one can invoke the garbage collection 
+    rule on the precondition of the variable [x] that appears at the end
+    of [let x = t in x]. 
+
+    To formalize this idea, recall from [SLFRules] the lemma
+    [trm_equiv_eta_expansion] which asserts the equivalence of
+    [t] and [let x = t in x], and recall the lemma [triple_trm_equiv],
+    which asserts that two equivalent terms satisfy the same triples. *)
+
+Proof using.
+  introv M. lets E: trm_equiv_eta_expansion t "x".
+  applys triple_trm_equiv E. applys triple_let.
+  { applys M. }
+  { intros v. simpl. applys triple_hgc_pre. applys triple_val. auto. }
+Qed.
+
+End FromPreToPostGC.
+
+
+(* ########################################################### *)
 (** ** Low-level definition of refined triples *)
 
 Module LowLevel.
 Import NewTriples HaffineDef.
-
-(* TODO *)
-Notation "\GC" := (hgc).
+Notation "\GC" := hgc. (* correctly rebind the notation *)
 
 (** Consider the updated definition of [triple] introduced in this chapter. *)
 
@@ -1347,7 +1389,7 @@ Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
 ]]
 
     In what follows, we explain how to generalize this definition to match
-    our revised definition of [triple], and obtain a direct definition 
+    our revised definition of [triple], and thereby obtain a direct definition 
     expressed in terms of heap, that does not depend on the definition of
     [hstar] nor that of [\GC].
 
@@ -1385,9 +1427,7 @@ Definition triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
     /\ Q v h1'.
 
 (** One can prove the equivalence of [triple] and [triple_lowlevel]
-    following a similar proof pattern as previously. The proof is a bit
-    more technical and requires additional tactic support to deal with
-    the tedious disjointness conditions, so we omit the details here. *)
+    following a similar proof pattern as previously. *)
 
 Lemma triple_eq_triple_lowlevel : 
   triple = triple_lowlevel.
@@ -1395,57 +1435,21 @@ Proof using.
   applys pred_ext_3. intros t H Q.
   unfold triple, triple_lowlevel, hoare. iff M.
   { introv D P1.
-    forwards~ (h'&v&R1&R2): M (=h2) (h1 \u h2). { apply~ hstar_intro. }
+    forwards~ (h'&v&R1&R2): M (=h2) (h1 \u h2). { apply* hstar_intro. }
     destruct R2 as (h2'&h1''&N0&N1&N2&N3).
     destruct N0 as (h1'&h3'&T0&T1&T2&T3). subst.
-    exists h1' h1'' v. splits~.
+    exists h1' h1'' v. splits*.
     { rew_disjoint. auto. }
     { applys hgc_inv N1. }
-    { applys_eq~ R1 2 4. } }
+    { applys_eq* R1 2 4. } }
   { introv (h1&h2&N1&N2&D&U).
     forwards~ (h1'&h3'&v&R1&R2&R3&R4): M h1 h2.
-    exists (h1' \u h3' \u h2) v. splits~.
-    { applys_eq~ R3 2 4. }
-    { subst. rewrite hstar_assoc. apply~ hstar_intro.
-      rewrite hstar_comm. applys~ hstar_intro. applys~ hgc_intro. } }
+    exists (h1' \u h3' \u h2) v. splits*.
+    { applys_eq* R3 2 4. }
+    { subst. rewrite hstar_assoc. apply* hstar_intro.
+      rewrite hstar_comm. applys* hstar_intro. applys* hgc_intro. } }
 Qed.
 
 End LowLevel.
 
 
-(* ########################################################### *)
-(** ** Pre and post rules *)
-
-Module FromPreToPostGC.
-Import SLFRules ProofsSameSemantics.
-
-(** Let us prove that the rule [triple_hgc_post] is derivable from
-    [triple_hgc_pre]. *)
-
-Parameter triple_hgc_pre : forall t H Q,
-  triple t H Q ->
-  triple t (H \* \GC) Q.
-
-Lemma triple_hgc_post : forall t H Q,
-  triple t H (Q \*+ \GC) ->
-  triple t H Q.
-
-(** The key idea of the proof is that a term [t] admits the same behavior
-    as [let x = t in x]. Thus, to simulate garbage collection of a predicate
-    from the postcondition of [t], one can invoke the garbage collection 
-    rule on the precondition of the variable [x] that appears at the end
-    of [let x = t in x]. 
-
-    To formalize this idea, recall from [SLFRules] the lemma
-    [trm_equiv_eta_expansion] which asserts the equivalence of
-    [t] and [let x = t in x], and recall the lemma [triple_trm_equiv],
-    which asserts that two equivalent terms satisfy the same triples. *)
-
-Proof using.
-  introv M. lets E: trm_equiv_eta_expansion t "x".
-  applys triple_trm_equiv E. applys triple_let.
-  { applys M. }
-  { intros v. simpl. applys triple_hgc_pre. applys triple_val. auto. }
-Qed.
-
-End FromPreToPostGC.
