@@ -812,7 +812,6 @@ Proof using.
 Qed.
 
 
-
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
@@ -1166,8 +1165,7 @@ End NewTriples.
 (* ########################################################### *)
 (** ** The tactic [xaffine], and behavior of [xsimpl] on [\GC] *)
 
-Module XaffineXsimplTactics.
-Import SLFDirect.
+Module Xaffine.
 
 (** The tactic [xaffine] applys to a goal of the form [haffine H].
     The tactic simplifies the goal using all the distributivity rules
@@ -1177,7 +1175,7 @@ Import SLFDirect.
 
 Create HintDb haffine.
 
-Tactic Notation "xaffine" :=
+Tactic Notation "xaffine" := 
   repeat match goal with |- haffine ?H =>
     match H with
     | (hempty) => apply haffine_hempty
@@ -1196,33 +1194,50 @@ Lemma xaffine_demo : forall H1 H2 H3,
   haffine (H1 \* H2 \* H3).
 Proof using. introv K1 KJ. xaffine. (* remains [haffine H2] *) Abort.
 
+End Xaffine.
+
+Module XsimplExtended.
+Import SLFDirect SLFExtra.
+(* INSTRUCTORS *)
+(** Warning: [Import SLFDirect SLFExtra] is suprizingly not
+   equivalent to [Import SLFExtra], even though [SLFExtra]
+   includes [Export SLFDirect]. *)
+(* /INSTRUCTORS *)
+
 (** The tactic [xsimpl] is extended with support for simplifying goals
     of the form [H ==> \GC] into [haffine H], using lemma [himpl_hgc_r].
-    In addition, [xsimpl] invokes the tactic [xaffine] to simplify
-    [haffine H]. *)
+    For example, [xsimpl] can simplify the goal [H1 \* H2 ==> H2 \* \GC]
+    into just [haffine H1]. *)
 
-Lemma xsimpl_demo_hgc_simpl : forall H1 H2,
+Lemma xsimpl_xgc_demo : forall H1 H2,
+  H1 \* H2 ==> H2 \* \GC.
+Proof using. intros. xsimpl. Abort.
+
+(** In addition, [xsimpl] invokes the tactic [xaffine] to simplify
+    side-conditions of the form [haffine H]. For example, [xsimpl] 
+    can prove the following lemma. *)
+
+Lemma xsimpl_xaffine_demo : forall H1 H2,
   haffine H1 ->
   H1 \* H2 ==> H2 \* \GC.
-Proof using. introv K1. xsimpl. (* clears the goal *) Abort.
+Proof using. introv K1. xsimpl. Qed.
 
-(** Another feature of [xsimpl] is that it is able to collapse several
-    occurences of [\GC] into one. *)
-
-Lemma xsimpl_demo_hgc_collapse : forall H1 H2 H3,
-  H1 \* H2 \* H3 ==> H3 \* \GC \* H2 \* \GC.
-Proof using. intros. xsimpl. (* leaves only one [\GC] *) Abort.
+End XsimplExtended.
 
 
 (* ########################################################### *)
 (** ** The garbage collection tactics *)
 
-(** To present the tactics, let us import the definitions from [SLFDirect]
-    but assume that the definition of [mkstruct] is like the one presented
-    in this file, that is, including the [\GC] when defining [mkstruct F]
+Module XGC.
+Import SLFDirect SLFExtra.
+
+(** To present the garbage collection tactics [xgc], [xc_keep] and 
+    [xgc_post], we import the definitions from [SLFDirect] but assume
+    that the definition of [mkstruct] is like the one presented in 
+    this file, that is, including the [\GC] when defining [mkstruct F]
     as [fun Q => \exists Q', F Q' \* (Q' \--* (Q \*+ \GC)). 
 
-    As argued above, with this definition, [mkstruct] satisfies the
+    As argued earlier on, with this definition, [mkstruct] satisfies the
     following garbage collection rule. *)
 
 Parameter mkstruct_hgc : forall Q F,
@@ -1238,32 +1253,24 @@ Parameter mkstruct_hgc : forall Q F,
     from a precondition [H], through the entailment [H ==> H1 \* H2]. *)
 
 Lemma xgc_lemma: forall H1 H2 H F Q,
-  haffine H1 ->
   H ==> H1 \* H2 ->
+  haffine H1 ->
   H2 ==> mkstruct F Q ->
   H ==> mkstruct F Q.
 Proof using.
-  introv K WH M. xchange WH. xchange M. 
+  introv WH K M. xchange WH. xchange M. 
   applys himpl_trans mkstruct_frame. 
   applys himpl_trans mkstruct_hgc.
   applys mkstruct_conseq. xsimpl.
 Qed.
 
 Tactic Notation "xgc" constr(H) :=
-  eapply (@xgc_lemma H); [ xaffine | xsimpl | ].
+  eapply (@xgc_lemma H); [ xsimpl | xaffine | ].
 
 Lemma xgc_demo : forall H1 H2 H3 F Q,
   haffine H2 ->
   (H1 \* H2 \* H3) ==> mkstruct F Q.
-Proof using. intros. xgc H2. (* clears [H2] *) Abort.
-
-(** In what follows, let us assume to simplify the demos that all
-    heap predicates are affine, i.e. that the logic is fully affine. *)
-
-Parameter haffine_hany :
-  forall (H:hprop), haffine H.
-
-Hint Resolve haffine_hany : haffine.
+Proof using. introv K2. xgc H2. (* clears [H2] *) Abort.
 
 (** The tactic [xgc_keep H] is a variant of [xgc] that enables to discard
     everything but [H] from the precondition.
@@ -1272,15 +1279,13 @@ Hint Resolve haffine_hany : haffine.
     only providing [H2] instead of [H1]. *)
 
 Tactic Notation "xgc_keep" constr(H) :=
-  eapply (@xgc_lemma _ H); [ xaffine | xsimpl | ].
+  eapply (@xgc_lemma _ H); [ xsimpl | xaffine | ].
 
 Lemma xgc_keep_demo : forall H1 H2 H3 F Q,
+  haffine H1 ->
+  haffine H3 ->
   (H1 \* H2 \* H3) ==> mkstruct F Q.
-Proof using.
-  intros. xgc_keep H2.
-  (* [haffine H1] and [haffine H3] are discharged by the tactic [xaffine]
-     which ultimately invokes the lemma [haffine_hany]. *)
-Abort.
+Proof using. introv K1 K3. xgc_keep H2. Abort.
 
 (** The tactic [xgc_post] simply extends the postcondition with a [\GC],
     to enable subsequent garbage collection in the final entailment. *)
@@ -1294,15 +1299,16 @@ Tactic Notation "xgc_post" :=
   apply xgc_post_lemma.
 
 Lemma xgc_keep_demo : forall H1 H2 H3 F Q,
+  haffine H1 ->
+  haffine H3 ->
   H1 ==> mkstruct F (Q \*+ H2 \*+ H3) ->
   H1 ==> mkstruct F Q.
 Proof using.
-  introv M. xgc_post. xchange M. applys mkstruct_conseq. xsimpl.
+  introv K1 K3 M. xgc_post. xchange M. applys mkstruct_conseq. xsimpl.
   (* Check out how the end proof fails without the call to [xgc_post]. *)
-  (* Above, [haffine H1] and [haffine H3] are discharged using [haffine_hany]. *)
 Abort.
 
-End XaffineXsimplTactics.
+End XGC.
 
 
 (* ########################################################### *)

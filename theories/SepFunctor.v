@@ -960,7 +960,7 @@ Ltac remove_empty_heaps_formula tt :=
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Tactic [haffine] simplifies a goal [haffine H] using structural
+(* ** The tactic [xaffine] simplifies a goal [haffine H] using structural
       rules. It may be extended to support custom extensions. *)
 
 Create HintDb haffine.
@@ -993,7 +993,7 @@ Ltac xaffine_step tt :=
     end
   end.
 
-Ltac xaffine_core tt ::=
+Ltac xaffine_core tt ::= (* updates definition from [SepSimpl] *)
   repeat (xaffine_step tt).
 
 Tactic Notation "xaffine" :=

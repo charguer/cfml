@@ -363,6 +363,7 @@ Lemma triple_hand_r : forall t H1 H2 Q,
 Proof using. introv M1. unfold hand. applys~ triple_hforall false. Qed.
 
 
+
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
@@ -397,6 +398,19 @@ Lemma haffine_hstar_hpure : forall (P:Prop) H,
   haffine (\[P] \* H).
 Proof using. intros. applys haffine_hany. Qed.
 
+Lemma haffine_hgc :
+  haffine \GC.
+Proof using. intros. applys haffine_hany. Qed.
 
-
-
+Ltac xaffine_core tt ::= (* configure [xaffine] *)
+  repeat match goal with |- haffine ?H =>
+    match H with
+    | (hempty) => apply haffine_hempty
+    | (hpure _) => apply haffine_hpure
+    | (hstar _ _) => apply haffine_hstar
+    | (hexists _) => apply haffine_hexists
+    | (hforall _) => apply haffine_hforall
+    | (hgc) => apply haffine_hgc
+    | _ => eauto with haffine
+    end
+  end.

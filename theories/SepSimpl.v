@@ -1513,7 +1513,7 @@ Ltac xsimpl_step_lr tt :=
        end
     | (\Top \* _) => apply himpl_lr_htop
     | (\GC \* _) => apply himpl_lr_hgc;
-                    [ try remove_empty_heaps_haffine tt; try solve [ xaffine ] | ]
+                    [ try remove_empty_heaps_haffine tt; xaffine | ]
     | ?Hrg' => xsimpl_flip_acc_lr tt; apply xsimpl_lr_exit
   end end.
 

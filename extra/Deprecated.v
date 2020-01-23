@@ -1082,3 +1082,55 @@ Another example is
     form [H ==> \GC] by turning them into [haffine H], using the lemma
     above. How to discharge the side-condition [haffine H] then depends
     on the exact instantiation of this predicate [haffine]. *)
+
+=======
+
+
+
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Properties of [haffine] *)
+
+Lemma haffine_hempty :
+  haffine \[].
+Proof using. intros. applys haffine_hany. Qed.
+
+Lemma haffine_hpure : forall P,
+  haffine \[P].
+Proof using. intros. applys haffine_hany. Qed.
+
+Lemma haffine_hstar : forall H1 H2,
+  haffine H1 ->
+  haffine H2 ->
+  haffine (H1 \* H2).
+Proof using. intros. applys haffine_hany. Qed.
+
+Lemma haffine_hexists : forall A (J:A->hprop),
+  (forall x, haffine (J x)) ->
+  haffine (\exists x, (J x)).
+Proof using. intros. applys haffine_hany. Qed.
+
+Lemma haffine_hforall : forall A `{Inhab A} (J:A->hprop),
+  (forall x, haffine (J x)) ->
+  haffine (\forall x, (J x)).
+Proof using. intros. applys haffine_hany. Qed.
+
+Lemma haffine_hstar_hpure : forall (P:Prop) H,
+  (P -> haffine H) ->
+  haffine (\[P] \* H).
+Proof using. intros. applys haffine_hany. Qed.
+
+Lemma haffine_hgc :
+  haffine \GC.
+Proof using. intros. applys haffine_hany. Qed.
+
+
+
+
+(** Another feature of [xsimpl] is that it is able to collapse several
+    occurences of [\GC] into one. *)
+
+Lemma xsimpl_demo_hgc_collapse : forall H1 H2 H3 H4 H5,
+  H1 \* H2 \* H3 ==> H4 \* \GC \* H5 \* \GC.
+Proof using. intros. xsimpl. (* leaves only one [\GC] *) Abort.

@@ -862,18 +862,22 @@ Arguments hstar_hsingle_same_loc : clear implicits.
 Definition haffine (H:hprop) :=
   True.
 
-Lemma haffine_hempty :
-  haffine \[].
-Proof using. unfolds* haffine. Qed.
-
 Lemma haffine_hany : forall (H:hprop), 
   haffine H.
 Proof using. unfold haffine. auto. Qed.
+
+Lemma haffine_hempty :
+  haffine \[].
+Proof using. applys haffine_hany. Qed.
 
 Definition hgc := (* equivalent to [\exists H, \[haffine H] \* H] *)
   htop.
 
 Notation "\GC" := (hgc).
+
+Lemma haffine_hgc :
+  haffine \GC.
+Proof using. applys haffine_hany. Qed.
 
 Lemma himpl_hgc_r : forall H,
   haffine H ->
