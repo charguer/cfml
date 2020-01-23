@@ -230,6 +230,13 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
       Fmap.indom s l ->
       eval s (val_free (val_loc l)) (Fmap.remove s l) val_unit.
 
+(** [eval_like t1 t2] asserts that [t2] evaluates like [t1].
+    In particular, this relation hold whenever [t2] reduces 
+    in small-step to [t1]. *)
+
+Definition eval_like (t1 t2:trm) : Prop :=
+  forall s s' v, eval s t1 s' v -> eval s t2 s' v.
+
 
 (* ########################################################### *)
 (* ########################################################### *)
@@ -865,7 +872,7 @@ Arguments hstar_hsingle_same_loc : clear implicits.
 Definition haffine (H:hprop) :=
   True.
 
-Lemma haffine_hany : forall (H:hprop), 
+Lemma haffine_hany : forall (H:hprop),
   haffine H.
 Proof using. unfold haffine. auto. Qed.
 
@@ -911,7 +918,7 @@ Export SepSimplArgs.
 
 (** From now on, all operators have opaque definitions *)
 
-Global Opaque hempty hpure hstar hsingle hexists hforall  
+Global Opaque hempty hpure hstar hsingle hexists hforall
               hwand qwand htop hgc haffine.
 
 
@@ -1032,6 +1039,15 @@ Qed.
 (** Reasoning rules for [hoare] triples.
     These rules follow directly from the big-step evaluation rules. *)
 
+Lemma hoare_eval_like : forall t1 t2 H Q,
+  eval_like t1 t2 ->
+  hoare t1 H Q ->
+  hoare t2 H Q.
+Proof using.
+  introv E M1 K0. forwards (s'&v&R1&K1): M1 K0.
+  exists s' v. split. { applys E R1. } { applys K1. }
+Qed.
+
 Lemma hoare_val : forall v H Q,
   H ==> Q v ->
   hoare (trm_val v) H Q.
@@ -1064,6 +1080,8 @@ Lemma hoare_app_fun : forall v1 v2 x t1 H Q,
   hoare (subst x v2 t1) H Q ->
   hoare (trm_app v1 v2) H Q.
 Proof using.
+  (* this lemma can be bypassed using [wp_eval_like] *)
+  (* this lemma can also be proved using [hoare_eval_like] *)
   introv E M. intros s K0. forwards (s'&v&R1&K1): (rm M) K0.
   exists s' v. splits. { applys eval_app_fun E R1. } { applys K1. }
 Qed.
@@ -1073,6 +1091,8 @@ Lemma hoare_app_fix : forall v1 v2 f x t1 H Q,
   hoare (subst x v2 (subst f v1 t1)) H Q ->
   hoare (trm_app v1 v2) H Q.
 Proof using.
+  (* this lemma can be bypassed using [wp_eval_like] *)
+  (* this lemma can also be proved using [hoare_eval_like] *)
   introv E M. intros s K0. forwards (s'&v&R1&K1): (rm M) K0.
   exists s' v. splits. { applys eval_app_fix E R1. } { applys K1. }
 Qed.
@@ -1229,6 +1249,14 @@ Proof using. introv M. xchange M. applys wp_ramified. Qed.
 (* ################################################ *)
 (** *** Weakest-precondition style reasoning rules for terms. *)
 
+Lemma wp_eval_like : forall t1 t2 Q,
+  eval_like t1 t2 ->
+  wp t1 Q ==> wp t2 Q.
+Proof using.
+  introv E. unfold wp. xpull. intros H M. xsimpl H.
+  intros H'. applys hoare_eval_like E M.
+Qed.
+
 Lemma wp_val : forall v Q,
   Q v ==> wp (trm_val v) Q.
 Proof using. intros. unfold wp. xsimpl; intros H'. applys hoare_val. xsimpl. Qed.
@@ -1245,11 +1273,13 @@ Lemma wp_app_fun : forall x v1 v2 t1 Q,
   v1 = val_fun x t1 ->
   wp (subst x v2 t1) Q ==> wp (trm_app v1 v2) Q.
 Proof using. introv EQ1. unfold wp. xsimpl; intros. applys* hoare_app_fun. Qed.
+(* variant: introv EQ1. applys wp_eval_like. introv R. applys* eval_app_fun. *)
 
 Lemma wp_app_fix : forall f x v1 v2 t1 Q,
   v1 = val_fix f x t1 ->
   wp (subst x v2 (subst f v1 t1)) Q ==> wp (trm_app v1 v2) Q.
 Proof using. introv EQ1. unfold wp. xsimpl; intros. applys* hoare_app_fix. Qed.
+(* variant: introv EQ1. applys wp_eval_like. introv R. applys* eval_app_fix. *)
 
 Lemma wp_seq : forall t1 t2 Q,
   wp t1 (fun r => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
@@ -2103,6 +2133,10 @@ Notation "'ref t" :=
   (val_ref t)
   (at level 67) : trm_scope.
 
+Notation "'free t" :=
+  (val_free t)
+  (at level 67) : trm_scope.
+
 Notation "'! t" :=
   (val_get t)
   (at level 67) : trm_scope.
@@ -2113,7 +2147,7 @@ Notation "t1 ':= t2" :=
 
 Notation "t1 '+ t2" :=
   (val_add t1 t2)
-  (at level 68) : trm_scope.
+  (at level 58) : trm_scope.
 
 Notation "'()" := val_unit : trm_scope.
 

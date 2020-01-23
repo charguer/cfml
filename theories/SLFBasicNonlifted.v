@@ -125,7 +125,7 @@ Definition incr : val :=
     increment operation can be described by the heap predicate [p ~~~> (n+1)].
 
     The result value returned by [incr p] is the unit value, which does not
-    carry any useful information. In the specification of [incr], the 
+    carry any useful information. In the specification of [incr], the
     postcondition is of the form [fun _ => ...] to indicate that there is
     no need to bind a name for the result value.
 
@@ -233,21 +233,6 @@ Hint Resolve triple_incr : triple.
 
 (* ########################################################### *)
 (** ** A function with a return value *)
-
-(* TODO *)
-Parameter val_sub : val.
-
-Notation "t1 '- t2" :=
-  (val_sub t1 t2)
-  (at level 68) : trm_scope.
-
-Lemma triple_sub : forall n1 n2,
-  triple (val_sub n1 n2)
-    \[]
-    (fun r => \[r = val_int (n1 - n2)]).
-Admitted.
-
-Hint Resolve triple_sub : triple.
 
 (** As second example, we describe a function that performs simple
     arithmetic computations. The function, whose code appears below,
@@ -373,39 +358,6 @@ Qed.
 
 (* ########################################################### *)
 (** ** Increment of two references *)
-
-(* TODO *)
-
-Notation "'VFun' x1 x2 ':=' t" :=
-  (val_fun x1 (val_fun x2 t))
-  (at level 69, x1, x2 at level 0, format "'VFun'  x1  x2  ':='  t") : val_scope.
-
-Notation "'VFix' f x1 x2 ':=' t" :=
-  (val_fix f x1 (val_fun x2 t))
-  (at level 69, f, x1, x2 at level 0, format "'VFix'  f  x1  x2  ':='  t") : val_scope.
-
-
-Lemma xwp_lemma_fun2 : forall v0 v1 v2 x1 x2 t H Q,
-  v0 = val_fun x1 (val_fun x2 t) ->
-  H ==> wpgen ((x1,v1)::(x2,v2)::nil) t Q ->
-  triple (trm_app v0 v1 v2) H Q.
-Admitted.
-
-Lemma xwp_lemma_fix2 : forall f v0 v1 v2 x1 x2 t H Q,
-  v0 = val_fix f x1 (val_fun x2 t) ->
-  H ==> wpgen ((f,v0)::(x1,v1)::(x2,v2)::nil) t Q ->
-  triple (trm_app v0 v1 v2) H Q.
-Admitted.
-
-Tactic Notation "xwp" :=
-  intros;
-  first [ applys xwp_lemma_fun; [ reflexivity | ]
-        | applys xwp_lemma_fix; [ reflexivity | ]
-        | applys xwp_lemma_fun2; [ reflexivity | ]
-        | applys xwp_lemma_fix2; [ reflexivity | ] ];
-  xwp_simpl.
-
-
 
 (** Consider the following function, which expects the addresses
     of two reference cells, and increments both of them.
@@ -598,7 +550,7 @@ Lemma triple_incr_first_derived : forall (p q:loc) (n m:int),
     PRE (p ~~~> n \* q ~~~> m)
     POST (fun _ => p ~~~> (n+1) \* q ~~~> m).
 Proof using.
-  (* TODO: xtriple 
+  (* TODO: xtriple
   xtriple. xapp Triple_incr_first'. xsimpl.
   *)
   skip.
@@ -820,7 +772,7 @@ Lemma triple_ref_greater_abstract : forall (p:loc) (n:int),
     PRE (p ~~~> n)
     POST (fun r => \exists q m, \[r = val_loc q] \* \[m > n] \* q ~~~> m \* p ~~~> n).
 Proof using.
-  (* TODO 
+  (* TODO
   xtriple. *)
   intros. applys triple_conseq_frame triple_ref_greater.
   xsimpl.
@@ -908,11 +860,6 @@ Qed.
 ]]
 *)
 
-(* TODO *)
-Notation "'free t" :=
-  (val_free t)
-  (at level 67) : trm_scope.
-
 Definition succ_using_incr :=
   VFun 'n :=
     Let 'p := 'ref 'n in
@@ -931,14 +878,14 @@ Lemma triple_succ_using_incr : forall n,
     POST (fun r => \[r = n+1]).
 Proof using.
   xwp. xapp.
-  
+
   let x := fresh in intros x;
   match goal with |- forall v, _ =>
   let u := fresh v in
   let E := fresh in intros u E;
   match type of E with x = _ => subst x end; revert u end.
 
-(*  intros ? p ->. TODO: automate this pattern *) 
+(*  intros ? p ->. TODO: automate this pattern *)
   intros p.
   xapp. xapp. xapp. xval. xsimpl. auto.
 Qed.
@@ -1026,7 +973,7 @@ Definition factorec : val :=
   VFix 'f 'n :=
     Let 'b := 'n '<= 1 in
     If_ 'b
-      Then 1 
+      Then 1
       Else Let 'p := 'n '- 1 in
            Let 's := 'f 'p in
            'n '* 's.
@@ -1070,7 +1017,7 @@ Lemma xifval_lemma_isTrue : forall (P:Prop) H (Q:val->hprop) (F1 F2:formula),
 Admitted.
 
 Ltac xif_core tt :=
-  xstruct_if_needed; 
+  xstruct_if_needed;
   first [ applys @xifval_lemma_isTrue
         | applys @xifval_lemma ];
   rew_bool_eq.
@@ -1132,16 +1079,16 @@ Proof using.
     (* We reason about the recursive call, implicitly exploiting
        the induction hypothesis [IH] with [n-1]. *)
   xlet.
-  
+
   xstruct_if_needed.
   applys xapp_lemma. applys IH. math. math. (* TODO *)
   xsimpl. unfold protect.
   intros ? ->.
-  
+
     (* TODO xapp. *)
     (* We justify that the recursive call is indeed made on a smaller
        argument than the current one, that is, [n]. *)
-    (* { math. } 
+    (* { math. }
     (* We justify that the recursive call is made to a nonnegative argument,
        as required by the specification. *)
     { math. } *)
@@ -1476,7 +1423,7 @@ Parameter Triple_ref_random_int_incorrect : forall (n:int) (m:int),
 (* ########################################################### *)
 (** ** Preuve de la concaténation de listes *)
 
-Definition field : Type := nat. 
+Definition field : Type := nat.
 Definition head : field := 0%nat.
 Definition tail : field := 1%nat.
 
@@ -1547,7 +1494,7 @@ Lemma triple_eq : forall v1 v2,
   triple (val_eq v1 v2)
     \[]
     (fun r => \[r = val_bool (isTrue (v1 = v2))]).
-Admitted. 
+Admitted.
 
 Hint Resolve triple_eq : triple.
 

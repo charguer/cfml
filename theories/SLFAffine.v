@@ -1347,13 +1347,13 @@ Lemma triple_hgc_post : forall t H Q,
     of [let x = t in x].
 
     To formalize this idea, recall from [SLFRules] the lemma
-    [trm_equiv_eta_expansion] which asserts the equivalence of
-    [t] and [let x = t in x], and recall the lemma [triple_trm_equiv],
+    [eval_like_eta_expansion] which asserts the equivalence of
+    [t] and [let x = t in x], and recall the lemma [triple_eval_like],
     which asserts that two equivalent terms satisfy the same triples. *)
 
 Proof using.
-  introv M. lets E: trm_equiv_eta_expansion t "x".
-  applys triple_trm_equiv E. applys triple_let.
+  introv M. lets E: eval_like_eta_expansion t "x".
+  applys triple_eval_like E. applys triple_let.
   { applys M. }
   { intros v. simpl. applys triple_hgc_pre. applys triple_val. auto. }
 Qed.

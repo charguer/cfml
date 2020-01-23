@@ -1154,3 +1154,10 @@ Proof using. intros. xsimpl. (* leaves only one [\GC] *) Abort.
     the requirement that allocated locations are not null. *)
 
 (* LATER: check how much more complicated it would be to handle this formally. *)
+============
+
+
+(** Remark: what is tricky in the above proof is that we do not exploit
+    the fact that [let x = t in x] small-step reduces to [t], but we
+    exploit the fact that the evaluation rules used to prove a behavior
+    for [let x = t in x] can be used to establish the same behavior for [t]. *)

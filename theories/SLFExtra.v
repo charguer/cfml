@@ -156,6 +156,14 @@ Qed.
 (* ########################################################### *)
 (** ** Rules for terms *)
 
+Lemma triple_eval_like : forall t1 t2 H Q,
+  eval_like t1 t2 ->
+  triple t1 H Q ->
+  triple t2 H Q.
+Proof using.
+  introv E M1. intros H'. applys hoare_eval_like E. applys M1.
+Qed.
+
 Lemma triple_val : forall v H Q,
   H ==> Q v ->
   triple (trm_val v) H Q.
@@ -209,6 +217,7 @@ Lemma triple_app_fun : forall x v1 v2 t1 H Q,
   triple (subst x v2 t1) H Q ->
   triple (trm_app v1 v2) H Q.
 Proof using.
+  (* can also be proved using [triple_eval_like] *)
   unfold triple. introv E M1. intros H'.
   applys hoare_app_fun E. applys M1.
 Qed.
@@ -223,6 +232,7 @@ Lemma triple_app_fix : forall v1 v2 f x t1 H Q,
   triple (subst x v2 (subst f v1 t1)) H Q ->
   triple (trm_app v1 v2) H Q.
 Proof using.
+  (* can also be proved using [triple_eval_like] *)
   unfold triple. introv E M1. intros H'.
   applys hoare_app_fix E. applys M1.
 Qed.
@@ -414,3 +424,466 @@ Ltac xaffine_core tt ::= (* configure [xaffine] *)
     | _ => eauto with haffine
     end
   end.
+
+
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Additional primitive operations *)
+
+(* ################################################ *)
+(** ** Syntax *)
+
+(** Grammar of additional primitive operations,
+    in addition to [val_add] and [val_div]. *)
+
+Inductive prim : Type :=
+(*| val_add : prim
+  | val_div : prim *)
+  | val_neg : prim
+  | val_opp : prim
+  | val_eq : prim
+  | val_neq : prim
+  | val_sub : prim
+  | val_mul : prim
+  | val_mod : prim
+  | val_le : prim
+  | val_lt : prim
+  | val_ge : prim
+  | val_gt : prim
+  | val_ptr_add : prim.
+
+(** Let us assume that the inductive definition of values is extended
+    with a injection [val_prim], for including at once all the primitive
+    operations listed above. *)
+
+Parameter val_prim : prim -> val.
+
+Coercion val_prim : prim >-> val.
+
+(** Notation for the primitive operations *)
+
+Notation "'not t" :=
+  (val_neg t)
+  (at level 57) : trm_scope.
+
+Notation "'- t" :=
+  (val_add t)
+  (at level 57) : trm_scope.
+
+Notation "t1 '- t2" :=
+  (val_sub t1 t2)
+  (at level 58) : trm_scope.
+
+Notation "t1 '* t2" :=
+  (val_mul t1 t2)
+  (at level 57) : trm_scope.
+
+Notation "t1 '/ t2" :=
+  (val_div t1 t2)
+  (at level 57) : trm_scope.
+
+Notation "t1 'mod t2" :=
+  (val_div t1 t2)
+  (at level 57) : trm_scope.
+
+Notation "t1 '= t2" :=
+  (val_eq t1 t2)
+  (at level 58) : trm_scope.
+
+Notation "t1 '<> t2" :=
+  (val_neq t1 t2)
+  (at level 58) : trm_scope.
+
+Notation "t1 '<= t2" :=
+  (val_le t1 t2)
+  (at level 60) : trm_scope.
+
+Notation "t1 '< t2" :=
+  (val_lt t1 t2)
+  (at level 60) : trm_scope.
+
+Notation "t1 '>= t2" :=
+  (val_ge t1 t2)
+  (at level 60) : trm_scope.
+
+Notation "t1 '> t2" :=
+  (val_gt t1 t2)
+  (at level 60) : trm_scope.
+
+(* already in SLFDirect:
+Notation "t1 '+ t2" :=
+  (val_add t1 t2)
+  (at level 58) : trm_scope.
+*)
+
+(* ################################################ *)
+(** ** Semantics *)
+
+(** Evaluation rules for unary operations are captured by the predicate
+    [redupop op v1 v2], which asserts that [op v1] evaluates to [v2]. *)
+
+Inductive redunop : prim -> val -> val -> Prop :=
+  | redunop_neg : forall b1,
+      redunop val_neg (val_bool b1) (val_bool (neg b1))
+  | redunop_opp : forall n1,
+      redunop val_opp (val_int n1) (val_int (- n1)).
+
+(** Evaluation rules for binary operations are captured by the predicate
+    [redupop op v1 v2 v3], which asserts that [op v1 v2] evaluates to [v3]. *)
+
+Inductive redbinop : val -> val -> val -> val -> Prop :=
+  | redbinop_ptr_add : forall l' l n,
+      (l':nat) = (l:nat) + n :> int ->
+      redbinop val_ptr_add (val_loc l) (val_int n) (val_loc l')
+  | redbinop_eq : forall v1 v2,
+      redbinop val_eq v1 v2 (val_bool (isTrue (v1 = v2)))
+  | redbinop_neq : forall v1 v2,
+      redbinop val_neq v1 v2 (val_bool (isTrue (v1 <> v2)))
+  | redbinop_add : forall n1 n2,
+      redbinop val_add (val_int n1) (val_int n2) (val_int (n1 + n2))
+  | redbinop_sub : forall n1 n2,
+      redbinop val_sub (val_int n1) (val_int n2) (val_int (n1 - n2))
+  | redbinop_mul : forall n1 n2,
+      redbinop val_mul (val_int n1) (val_int n2) (val_int (n1 * n2))
+  | redbinop_div : forall n1 n2,
+      n2 <> 0 ->
+      redbinop val_div (val_int n1) (val_int n2) (val_int (Z.quot n1 n2))
+  | redbinop_mod : forall n1 n2,
+      n2 <> 0 ->
+      redbinop val_mod (val_int n1) (val_int n2) (val_int (Z.rem n1 n2))
+  | redbinop_le : forall n1 n2,
+      redbinop val_le (val_int n1) (val_int n2) (val_bool (isTrue (n1 <= n2)))
+  | redbinop_lt : forall n1 n2,
+      redbinop val_lt (val_int n1) (val_int n2) (val_bool (isTrue (n1 < n2)))
+  | redbinop_ge : forall n1 n2,
+      redbinop val_ge (val_int n1) (val_int n2) (val_bool (isTrue (n1 >= n2)))
+  | redbinop_gt : forall n1 n2,
+      redbinop val_gt (val_int n1) (val_int n2) (val_bool (isTrue (n1 > n2))).
+
+(** Let us assume that the inductive definition of the big-step judgment [eval]
+    is extended with two constructors, [eval_unop] and [eval_binop], to include
+    the behavior of the unary and binary operators. *)
+
+Parameter eval_unop : forall op m v1 v,
+  redunop op v1 v ->
+  eval m (op v1) m v.
+
+Parameter eval_binop : forall op m v1 v2 v,
+  redbinop op v1 v2 v ->
+  eval m (op v1 v2) m v.
+
+
+(* ################################################ *)
+(** ** Specification of [unop] and [binop] in general *)
+
+(** Hoare specifications *)
+
+Lemma hoare_unop : forall v H op v1,
+  redunop op v1 v ->
+  hoare (op v1)
+    H
+    (fun r => \[r = v] \* H).
+Proof using.
+  introv R. intros h Hh. exists h v. splits.
+  { applys* eval_unop. }
+  { himpl_fold. xsimpl*. }
+Qed.
+
+Lemma hoare_binop : forall v H op v1 v2,
+  redbinop op v1 v2 v ->
+  hoare (op v1 v2)
+    H
+    (fun r => \[r = v] \* H).
+Proof using.
+  introv R. intros h Hh. exists h v. splits.
+  { applys* eval_binop. }
+  { himpl_fold. xsimpl*. }
+Qed.
+
+(** Separation Logic specifications *)
+
+Lemma triple_unop : forall v op v1,
+  redunop op v1 v ->
+  triple (op v1) \[] (fun r => \[r = v]).
+Proof using.
+  introv R. unfold triple. intros H'.
+  applys* hoare_conseq hoare_unop. xsimpl*.
+Qed.
+
+Lemma triple_binop : forall v op v1 v2,
+  redbinop op v1 v2 v ->
+  triple (op v1 v2) \[] (fun r => \[r = v]).
+Proof using.
+  introv R. unfold triple. intros H'.
+  applys* hoare_conseq hoare_binop. xsimpl*.
+Qed.
+
+
+(* ################################################ *)
+(** ** Specification of primitive operations *)
+
+Lemma triple_neg : forall (b1:bool),
+  triple (val_neg b1)
+    \[]
+    (fun r => \[r = val_bool (neg b1)]).
+Proof using. intros. applys* triple_unop. applys* redunop_neg. Qed.
+
+Lemma triple_opp : forall n1,
+  triple (val_opp n1)
+    \[]
+    (fun r => \[r = val_int (- n1)]).
+Proof using. intros. applys* triple_unop. applys* redunop_opp. Qed.
+
+Lemma triple_eq : forall v1 v2,
+  triple (val_eq v1 v2)
+    \[]
+    (fun r => \[r = isTrue (v1 = v2)]).
+Proof using. intros. applys* triple_binop. applys redbinop_eq. Qed.
+
+Lemma triple_neq : forall v1 v2,
+  triple (val_neq v1 v2)
+    \[]
+    (fun r => \[r = isTrue (v1 <> v2)]).
+Proof using. intros. applys* triple_binop. applys redbinop_neq. Qed.
+
+Lemma triple_sub : forall n1 n2,
+  triple (val_sub n1 n2)
+    \[]
+    (fun r => \[r = val_int (n1 - n2)]).
+Proof using. intros. applys* triple_binop. applys* redbinop_sub. Qed.
+
+Lemma triple_mul : forall n1 n2,
+  triple (val_mul n1 n2)
+    \[]
+    (fun r => \[r = val_int (n1 * n2)]).
+Proof using. intros. applys* triple_binop. applys* redbinop_mul. Qed.
+
+Lemma triple_mod : forall n1 n2,
+  n2 <> 0 ->
+  triple (val_mod n1 n2)
+    \[]
+    (fun r => \[r = val_int (Z.rem n1 n2)]).
+Proof using. intros. applys* triple_binop. applys* redbinop_mod. Qed.
+
+Lemma triple_le : forall n1 n2,
+  triple (val_le n1 n2)
+    \[]
+    (fun r => \[r = isTrue (n1 <= n2)]).
+Proof using. intros. applys* triple_binop. applys* redbinop_le. Qed.
+
+Lemma triple_lt : forall n1 n2,
+  triple (val_lt n1 n2)
+    \[]
+    (fun r => \[r = isTrue (n1 < n2)]).
+Proof using. intros. applys* triple_binop. applys* redbinop_lt. Qed.
+
+Lemma triple_ge : forall n1 n2,
+  triple (val_ge n1 n2)
+    \[]
+    (fun r => \[r = isTrue (n1 >= n2)]).
+Proof using. intros. applys* triple_binop. applys* redbinop_ge. Qed.
+
+Lemma triple_gt : forall n1 n2,
+  triple (val_gt n1 n2)
+    \[]
+    (fun r => \[r = isTrue (n1 > n2)]).
+Proof using. intros. applys* triple_binop. applys* redbinop_gt. Qed.
+
+Lemma triple_ptr_add : forall l n,
+  l + n >= 0 ->
+  triple (val_ptr_add l n)
+    \[]
+    (fun r => \[r = val_loc (abs (l + n))]).
+Proof using.
+  intros. applys* triple_binop. applys* redbinop_ptr_add.
+  { rewrite~ abs_nonneg. }
+Qed.
+
+Lemma triple_ptr_add_nat : forall l (f:nat),
+  triple (val_ptr_add l f)
+    \[]
+    (fun r => \[r = val_loc (l+f)%nat]).
+Proof using.
+  intros. applys triple_conseq triple_ptr_add. { math. } { xsimpl. }
+  { xsimpl. intros. subst. fequals.
+    applys eq_nat_of_eq_int. rewrite abs_nonneg; math. }
+Qed.
+
+Hint Resolve triple_neg triple_opp triple_eq triple_neq
+   triple_sub triple_mul triple_mod triple_le triple_lt
+   triple_ge triple_gt triple_ptr_add triple_ptr_add_nat : triple.
+
+(* Already in SLFDirect:
+
+Lemma triple_add : forall n1 n2,
+  triple (val_add n1 n2)
+    \[]
+    (fun r => \[r = val_int (n1 + n2)]).
+Proof using. intros. applys* triple_binop. applys* redbinop_add. Qed.
+
+Lemma triple_div : forall n1 n2,
+  n2 <> 0 ->
+  triple (val_div n1 n2)
+    \[]
+    (fun r => \[r = val_int (Z.quot n1 n2)]).
+Proof using. intros. applys* triple_binop. applys* redbinop_div. Qed.
+
+*)
+
+
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Treatment of functions of two arguments *)
+
+(** CFML provides a generic treatment of uncurried n-ary functions.
+    Here, for the sake of the demos presented in chapter [SLFBasic],
+    we provide support for functions of arity 2, in addition to the
+    support of functions of arity 1 provided by the other [SLF*] files.
+
+    In other words, the definitions below should be viewed as a hackish
+    solution to handle functions of arity 2, it should not be viewed as
+    the general solution to handle multiple arguments. For details on
+    a better solution, check out the implemented of the CFML tool. *)
+
+(* ################################################ *)
+(** ** Syntax for functions of two arguments *)
+
+Notation "'VFun' x1 x2 ':=' t" :=
+  (val_fun x1 (trm_fun x2 t))
+  (at level 69, x1, x2 at level 0, format "'VFun'  x1  x2  ':='  t") : val_scope.
+
+Notation "'VFix' f x1 x2 ':=' t" :=
+  (val_fix f x1 (trm_fun x2 t))
+  (at level 69, f, x1, x2 at level 0, format "'VFix'  f  x1  x2  ':='  t") : val_scope.
+
+
+(** A useful substitution lemma *)
+
+Lemma isubst_rem_3 : forall f x1 x2 vf vx1 vx2 E t,
+     isubst ((f,vf)::(x1,vx1)::(x2,vx2)::E) t
+   = subst x2 vx2 (subst x1 vx1 (subst f vf (isubst (rem x2 (rem x1 (rem f E))) t))).
+Proof using.
+  intros. do 3 rewrite subst_eq_isubst_one. do 3 rewrite <- isubst_app.
+  rewrite isubst_app_swap.
+  { applys isubst_ctx_equiv. intros y. rew_list. simpl. do 3 rewrite lookup_rem. case_var~. }
+  { intros y v1 v2 K1 K2. simpls. do 3 rewrite lookup_rem in K1. case_var. }
+Qed.
+
+
+(* ################################################ *)
+(** ** Semantics of functions of two arguments *)
+
+Definition trm_is_val (t:trm) : Prop :=
+  match t with trm_val v => True | _ => False end.
+
+Parameter eval_app_arg : forall s1 s2 s3 s4 t1 t2 v1 v2 r,
+  (~ trm_is_val t1 \/ ~ trm_is_val t2) ->
+  eval s1 t1 s2 v1 ->
+  eval s2 t2 s3 v2 ->
+  eval s3 (trm_app v1 v2) s4 r ->
+  eval s1 (trm_app t1 t2) s4 r.
+
+(** [eval_like] judgment for applications to two arguments. *)
+
+Lemma eval_like_app_fun2 : forall v0 v1 v2 x1 x2 t1,
+  v0 = val_fun x1 (trm_fun x2 t1) ->
+  x1 <> x2 ->
+  eval_like (subst x2 v2 (subst x1 v1 t1)) (v0 v1 v2).
+Proof using.
+  introv E N. introv R. applys* eval_app_arg.
+  { applys eval_app_fun E. simpl. rewrite var_eq_spec. case_if. applys eval_fun. }
+  { applys* eval_val. }
+  { applys* eval_app_fun. }
+Qed.
+
+Lemma eval_like_app_fix2 : forall v0 v1 v2 f x1 x2 t1,
+  v0 = val_fix f x1 (trm_fun x2 t1) ->
+  x1 <> x2 ->
+  f <> x2 ->
+  eval_like (subst x2 v2 (subst x1 v1 (subst f v0 t1))) (v0 v1 v2).
+Proof using.
+  introv E N1 N2. introv R. applys* eval_app_arg.
+  { applys eval_app_fix E. simpl. do 2 (rewrite var_eq_spec; case_if). applys eval_fun. }
+  { applys* eval_val. }
+  { applys* eval_app_fun. }
+Qed.
+
+(** Triples for applications to two arguments. *)
+
+Lemma triple_app_fun2 : forall v0 v1 v2 x1 x2 t1 H Q,
+  v0 = val_fun x1 (trm_fun x2 t1) ->
+  x1 <> x2 ->
+  triple (subst x2 v2 (subst x1 v1 t1)) H Q ->
+  triple (trm_app v0 v1 v2) H Q.
+Proof using.
+  introv E N M1. applys triple_eval_like M1. applys* eval_like_app_fun2.
+Qed.
+
+Lemma triple_app_fix2 : forall f x1 x2 v0 v1 v2 t1 H Q,
+  v0 = val_fix f x1 (trm_fun x2 t1) ->
+  x1 <> x2 ->
+  f <> x2 ->
+  triple (subst x2 v2 (subst x1 v1 (subst f v0 t1))) H Q ->
+  triple (trm_app v0 v1 v2) H Q.
+Proof using.
+  introv E N1 N2 M1. applys triple_eval_like M1. applys* eval_like_app_fix2.
+Qed.
+
+(** WP for applications to two arguments. *)
+
+Lemma wp_app_fun2 : forall x1 x2 v0 v1 v2 t1 Q,
+  v0 = val_fun x1 (trm_fun x2 t1) ->
+  x1 <> x2 ->
+  wp (subst x2 v2 (subst x1 v1 t1)) Q ==> wp (trm_app v0 v1 v2) Q.
+Proof using. introv EQ1 N. applys wp_eval_like. applys* eval_like_app_fun2. Qed.
+
+Lemma wp_app_fix2 : forall f x1 x2 v0 v1 v2 t1 Q,
+  v0 = val_fix f x1 (trm_fun x2 t1) ->
+  x1 <> x2 ->
+  f <> x2 ->
+  wp (subst x2 v2 (subst x1 v1 (subst f v0 t1))) Q ==> wp (trm_app v0 v1 v2) Q.
+Proof using. introv EQ1 N1 N2. applys wp_eval_like. applys* eval_like_app_fix2. Qed.
+
+
+(* ################################################ *)
+(** ** Extension of [xwp] *)
+
+Lemma xwp_lemma_fun2 : forall v0 v1 v2 x1 x2 t H Q,
+  v0 = val_fun x1 (trm_fun x2 t) ->
+  var_eq x1 x2 = false ->
+  H ==> wpgen ((x1,v1)::(x2,v2)::nil) t Q ->
+  triple (trm_app v0 v1 v2) H Q.
+Proof using.
+  introv M1 N M2. rewrite var_eq_spec in N. rew_bool_eq in *.
+  rewrite <- wp_equiv. xchange M2.
+  xchange (>> wpgen_sound (((x1,v1)::nil) ++ ((x2,v2)::nil)) t Q).
+  rewrite isubst_app. do 2 rewrite <- subst_eq_isubst_one.
+  applys* wp_app_fun2.
+Qed.
+
+Lemma xwp_lemma_fix2 : forall f v0 v1 v2 x1 x2 t H Q,
+  v0 = val_fix f x1 (trm_fun x2 t) ->
+  var_eq x1 x2 = false ->
+  var_eq f x2 = false ->
+  H ==> wpgen ((f,v0)::(x1,v1)::(x2,v2)::nil) t Q ->
+  triple (trm_app v0 v1 v2) H Q.
+Proof using.
+  introv M1 N1 N2 M2. rewrite var_eq_spec in N1,N2. rew_bool_eq in *.
+  rewrite <- wp_equiv. xchange M2.
+  xchange (>> wpgen_sound (((f,v0)::nil) ++ ((x1,v1)::nil) ++ ((x2,v2)::nil)) t Q).
+  do 2 rewrite isubst_app. do 3 rewrite <- subst_eq_isubst_one.
+  applys* wp_app_fix2.
+Qed.
+
+(** Generalization of [xwp] to handle functions of arity 2 *)
+
+Tactic Notation "xwp" :=
+  intros;
+  first [ applys xwp_lemma_fun; [ reflexivity | ]
+        | applys xwp_lemma_fix; [ reflexivity | ]
+        | applys xwp_lemma_fun2; [ reflexivity | reflexivity | ]
+        | applys xwp_lemma_fix2; [ reflexivity | reflexivity | reflexivity | ] ];
+  xwp_simpl.
+

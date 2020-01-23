@@ -1490,7 +1490,7 @@ Parameter exists_not_indom : forall s,
     for establishing the specification of [ref].
 
     This reformulation, shown below, asserts that, for any [h],
-    there existence a non-null location [l] such that the singleton 
+    there existence a non-null location [l] such that the singleton
     heap [Fmap.single l v] is disjoint from [h]. *)
 
 Lemma single_fresh : forall h v,
@@ -1956,32 +1956,60 @@ Module ProofsSameSemantics.
 Definition trm_equiv (t1 t2:trm) : Prop :=
   forall s s' v, eval s t1 s' v <-> eval s t2 s' v.
 
-(** For example, a term [t] and a term [let x = t in x] denote
-    equivalent programs. *)
-
-Lemma trm_equiv_eta_expansion : forall (t:trm) (x:var),
-  trm_equiv t (trm_let x t x).
-Proof using.
-  intros. intros s s' v. iff M.
-  { applys eval_let M.
-    simpl. rewrite var_eq_spec. case_if.
-    applys eval_val. }
-  { inverts M as. introv M1 M2.
-    simpl in M2. rewrite var_eq_spec in M2. case_if.
-    inverts M2. auto. }
-Qed.
-
 (** Two terms that are equivalent satisfy the same Separation Logic
     triples (and the same Hoare triples).
 
-    Indeed, the definition of a Separation Logic triple directly depends 
+    Indeed, the definition of a Separation Logic triple directly depends
     on the notion of Hoare triple, and the latter directly depends
-    on the semantics captured by the predicate [eval]. 
+    on the semantics captured by the predicate [eval].
 
     Let us formalize the result in three steps. *)
 
-Lemma hoare_same_eval : forall t1 t2 H Q,
-  (forall s s' v, eval s t1 s' v -> eval s t2 s' v) ->
+(** [eval_like t1 t2] asserts that [t2] evaluates like [t1].
+    In particular, this relation hold whenever [t2] reduces
+    in small-step to [t1]. *)
+
+Definition eval_like (t1 t2:trm) : Prop :=
+  forall s s' v, eval s t1 s' v -> eval s t2 s' v.
+
+(** For example [eval_like t (trm_let x t x)] holds, reflecting the 
+    fact that [let x = t in x] reduces in small-step to [t]. *)
+
+Lemma eval_like_eta_reduction : forall (t:trm) (x:var),
+  eval_like t (trm_let x t x).
+Proof using.
+  introv R. applys eval_let R.
+  simpl. rewrite var_eq_spec. case_if. applys eval_val.
+Qed.
+
+(** It turns out that the symmetric relation [eval_like (trm_let x t x) t]
+    also holds: the term [t] does not exhibit more behaviors than those
+    of [let x = t in x]. *)
+
+Lemma eval_like_eta_expansion : forall (t:trm) (x:var),
+  eval_like (trm_let x t x) t.
+Proof using.
+  introv R. inverts R as. introv R1 R2.
+  simpl in R2. rewrite var_eq_spec in R2. case_if.
+  inverts R2. auto.
+Qed.
+
+(** We deduce that a term [t] denotes a program equivalent to
+    the program [let x = t in x]. *)
+
+Lemma trm_equiv_eta : forall (t:trm) (x:var),
+  trm_equiv t (trm_let x t x).
+Proof using.
+  intros. intros s s' v. iff M.
+  { applys eval_like_eta_reduction M. } 
+  { applys eval_like_eta_expansion M. }
+Qed.
+
+(** If [eval_like t1 t2], then any triple that holds for [t1]
+    also holds for [t2]. *)
+
+Lemma hoare_eval_like : forall t1 t2 H Q,
+  eval_like t1 t2 ->
   hoare t1 H Q ->
   hoare t2 H Q.
 Proof using.
@@ -1989,24 +2017,27 @@ Proof using.
   exists s' v. split. { applys E R1. } { applys K1. }
 Qed.
 
-Lemma triple_same_eval : forall t1 t2 H Q,
-  (forall s s' v, eval s t1 s' v -> eval s t2 s' v) ->
+Lemma triple_eval_like : forall t1 t2 H Q,
+  eval_like t1 t2 ->
   triple t1 H Q ->
   triple t2 H Q.
 Proof using.
-  introv E M1. intros H'. applys hoare_same_eval E. applys M1.
+  introv E M1. intros H'. applys hoare_eval_like E. applys M1.
 Qed.
+
+(** It follows that if two terms are equivalent, then they admit
+    the same triples. *)
 
 Lemma triple_trm_equiv : forall t1 t2 H Q,
   trm_equiv t1 t2 ->
   triple t1 H Q <-> triple t2 H Q.
 Proof using.
   introv E. unfolds trm_equiv. iff M.
-  { applys triple_same_eval M. applys E. }
-  { applys triple_same_eval M. applys E. }
+  { applys triple_eval_like M. introv R. applys* E. }
+  { applys triple_eval_like M. introv R. applys* E. }
 Qed.
 
-(** The reasoning rule [triple_same_eval] has a number of practical applications.
+(** The reasoning rule [triple_eval_like] has a number of practical applications.
 
     One, show below, is to revisit the proof of [triple_app_fun] in a
     much more succint way, by arguing that [trm_app (val_fun x t1)] and
@@ -2017,7 +2048,7 @@ Lemma triple_app_fun : forall x v1 v2 t1 H Q,
   triple (subst x v2 t1) H Q ->
   triple (trm_app v1 v2) H Q.
 Proof using.
-  introv E M1. applys triple_same_eval M1.
+  introv E M1. applys triple_eval_like M1.
   introv R. applys eval_app_fun E R.
 Qed.
 
@@ -2028,7 +2059,7 @@ Lemma triple_trm_seq_assoc : forall t1 t2 t3 H Q,
   triple (trm_seq (trm_seq t1 t2) t3) H Q ->
   triple (trm_seq t1 (trm_seq t2 t3)) H Q.
 Proof using.
-  introv M. applys triple_same_eval M. clear M.
+  introv M. applys triple_eval_like M. clear M.
   introv R. inverts R as. introv R1 R3. inverts R1 as. introv R1 R2.
   applys eval_seq R1. applys eval_seq R2 R3.
 Qed.
@@ -2036,7 +2067,7 @@ Qed.
 (** Such a change in the parenthesis structure of a sequence can be helfpul
     to apply the frame rule around [t1;t2], for example. *)
 
-(** Another useful application of the lemma [triple_same_eval] appears in
+(** Another useful application of the lemma [triple_eval_like] appears in
     chapter [SLFAffine], for proving the equivalence of two versions of the
     garbage collection rule. *)
 
