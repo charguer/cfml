@@ -1072,3 +1072,13 @@ Qed.
 Another example is
     if [t1] is a while loop, it enables applying reasoning rules that handles
     in a specific way the post-treatment described by [t2].
+
+
+    =========
+
+
+(** The tactic [xsimpl] can be extended with specific support for the
+    predicate [\GC]. In particular, [xsimpl] can simplify goals of the
+    form [H ==> \GC] by turning them into [haffine H], using the lemma
+    above. How to discharge the side-condition [haffine H] then depends
+    on the exact instantiation of this predicate [haffine]. *)
