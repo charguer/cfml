@@ -759,7 +759,28 @@ Notation "'VFix' f x1 x2 ':=' t" :=
   (at level 69, f, x1, x2 at level 0, format "'VFix'  f  x1  x2  ':='  t") : val_scope.
 
 
-(** A useful substitution lemma *)
+(* ################################################ *)
+(** ** Semantics of functions of two arguments *)
+
+(** The predicate [trm_is_val t] asserts that [t] is a value.
+    Reciprocally, [~ trm_is_val t] asserts that [t] is not a value. *)
+
+Definition trm_is_val (t:trm) : Prop :=
+  match t with trm_val v => True | _ => False end.
+
+(** Let us assume the following rule for evaluating applications 
+    that are not in A-normal form, that is, not of the form [trm_app v1 v2].
+    In the general case of [trm_app t1 t2], we need to evaluate the arguments
+    to values before we can proceed, as captured by the following rule. *)
+
+Parameter eval_app_arg : forall s1 s2 s3 s4 t1 t2 v1 v2 r,
+  (~ trm_is_val t1 \/ ~ trm_is_val t2) ->
+  eval s1 t1 s2 v1 ->
+  eval s2 t2 s3 v2 ->
+  eval s3 (trm_app v1 v2) s4 r ->
+  eval s1 (trm_app t1 t2) s4 r.
+
+(** A useful substitution lemma, generalizing [isubst_rem] and [isubst_rem_2]. *)
 
 Lemma isubst_rem_3 : forall f x1 x2 vf vx1 vx2 E t,
      isubst ((f,vf)::(x1,vx1)::(x2,vx2)::E) t
@@ -773,17 +794,7 @@ Qed.
 
 
 (* ################################################ *)
-(** ** Semantics of functions of two arguments *)
-
-Definition trm_is_val (t:trm) : Prop :=
-  match t with trm_val v => True | _ => False end.
-
-Parameter eval_app_arg : forall s1 s2 s3 s4 t1 t2 v1 v2 r,
-  (~ trm_is_val t1 \/ ~ trm_is_val t2) ->
-  eval s1 t1 s2 v1 ->
-  eval s2 t2 s3 v2 ->
-  eval s3 (trm_app v1 v2) s4 r ->
-  eval s1 (trm_app t1 t2) s4 r.
+(** ** Reasoning rules for applications of functions of two arguments *)
 
 (** [eval_like] judgment for applications to two arguments. *)
 
@@ -848,7 +859,7 @@ Proof using. introv EQ1 N1 N2. applys wp_eval_like. applys* eval_like_app_fix2. 
 
 
 (* ################################################ *)
-(** ** Extension of [xwp] *)
+(** ** Generaliation of [xwp] to handle functions of two arguments *)
 
 Lemma xwp_lemma_fun2 : forall v0 v1 v2 x1 x2 t H Q,
   v0 = val_fun x1 (trm_fun x2 t) ->
@@ -887,3 +898,42 @@ Tactic Notation "xwp" :=
         | applys xwp_lemma_fix2; [ reflexivity | reflexivity | reflexivity | ] ];
   xwp_simpl.
 
+
+
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Extra demo programs *)
+
+Module ExtraDemoPrograms.
+Export SLFProgramSyntax.
+
+(* ########################################################### *)
+(** ** The decrement function *)
+
+(*
+[[
+   let decr p =
+       let n = !p in
+       let m = n - 1 in
+       p := m
+]]
+*)
+
+Definition decr : val :=
+  VFun 'p :=
+    Let 'n := '! 'p in
+    Let 'm := 'n '- 1 in
+    'p ':= 'm.
+
+Lemma triple_decr : forall (p:loc) (n:int),
+  TRIPLE (trm_app decr p)
+    PRE (p ~~~> n)
+    POST (fun v => \[v = val_unit] \* (p ~~~> (n-1))).
+Proof using.
+  xwp. xapp. xapp. xapp. xsimpl*.
+Qed.
+
+Hint Resolve triple_decr : triple.
+
+End ExtraDemoPrograms.

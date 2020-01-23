@@ -10,8 +10,9 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require Import SLFDirect.
-Import SLFProgramSyntax.
+From Sep Require Import SLFDirect SLFExtra.
+Import SLFProgramSyntax DemoPrograms ExtraDemoPrograms.
+
 Ltac math_0 ::= (* improve the [math] tactic to handle the [val_int] coercion *)
   try match goal with |- val_int _ = val_int _ => fequal end.
 
@@ -938,37 +939,6 @@ Parameter facto_step : forall n,
 
 *)
 
-Parameter val_le : val.
-
-Notation "t1 '<= t2" :=
-  (val_le t1 t2)
-  (at level 68) : trm_scope.
-
-Lemma triple_le : forall n1 n2,
-  triple (val_le n1 n2)
-    \[]
-    (fun r => \[r = val_bool (isTrue (n1 <= n2))]).
-Admitted.
-
-Hint Resolve triple_le : triple.
-
-
-Parameter val_mul : val.
-
-Notation "t1 '* t2" :=
-  (val_mul t1 t2)
-  (at level 68) : trm_scope.
-
-Lemma triple_mul : forall n1 n2,
-  triple (val_mul n1 n2)
-    \[]
-    (fun r => \[r = n1 * n2]).
-Admitted.
-
-Hint Resolve triple_mul : triple.
-
-
-
 Definition factorec : val :=
   VFix 'f 'n :=
     Let 'b := 'n '<= 1 in
@@ -1118,23 +1088,6 @@ Qed.
 (* ########################################################### *)
 (** ** A recursive function with state *)
 
-(* TODO *)
-
-Parameter val_gt : val.
-
-Notation "t1 '> t2" :=
-  (val_gt t1 t2)
-  (at level 68) : trm_scope.
-
-Lemma triple_gt : forall n1 n2,
-  triple (val_gt n1 n2)
-    \[]
-    (fun r => \[r = val_bool (isTrue (n1 > n2))]).
-Admitted.
-
-Hint Resolve triple_gt : triple.
-
-
 (** The example of [factorec] was a warmup. Let's now tackle a
     recursive function involving some mutable state.
 
@@ -1209,40 +1162,6 @@ Proof using.
   (* Finally, re-introduce the generalized hypotheses. *)
   intros.
 Abort.
-
-
-(* ########################################################### *)
-(** ** Exercise: one-by-one transfer from a reference to another *)
-
-(* TODO *)
-
-(*
-[[
-   let decr p =
-       let n = !p in
-       let m = n - 1 in
-       p := m
-]]
-*)
-
-Definition decr : val :=
-  VFun 'p :=
-    Let 'n := '! 'p in
-    Let 'm := 'n '- 1 in
-    'p ':= 'm.
-
-Lemma triple_decr : forall (p:loc) (n:int),
-  TRIPLE (trm_app decr p)
-    PRE (p ~~~> n)
-    POST (fun v => \[v = val_unit] \* (p ~~~> (n-1))).
-Proof using.
-  xwp. xapp. xapp. xapp. xsimpl*.
-Qed.
-
-(** We register this specification so that it may be automatically
-    invoked in further examples. *)
-
-Hint Resolve triple_decr : triple.
 
 
 
@@ -1484,22 +1403,6 @@ Notation "'Set' t1 ''.' f '':=' t2" :=
   (at level 65, t1 at level 0, f at level 0, format "'Set' t1 ''.' f  '':=' t2") : trm_scope.
 
 
-Parameter val_eq : val.
-
-Notation "t1 '= t2" :=
-  (val_eq t1 t2)
-  (at level 68) : trm_scope.
-
-Lemma triple_eq : forall v1 v2,
-  triple (val_eq v1 v2)
-    \[]
-    (fun r => \[r = val_bool (isTrue (v1 = v2))]).
-Admitted.
-
-Hint Resolve triple_eq : triple.
-
-
-
 Parameter triple_get_field : forall (l:loc) f (V:val),
   TRIPLE ((val_get_field f) l)
     PRE (l`.f ~~> V)
@@ -1547,7 +1450,7 @@ Proof using.
   { xchange (MList_if q). case_if. xpull. intros ->.
     xapp. xchange <- MList_cons. }
   { xstruct. applys xapp_lemma. (* xapp. *)
-    applys* IH. intros ->; false. xsimpl. unfold protect.
+    applys* IH. (* intros ->; false. *) xsimpl. unfold protect.
     (* xapp. { auto. } { auto. } *)
     xchange <- MList_cons. }
 Qed.
