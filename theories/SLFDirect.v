@@ -2148,6 +2148,7 @@ Export SLFProgramSyntax.
 
 (** Here is an implementation of the increment function,
     written in A-normal form.
+
 [[
    let incr p =
        let n = !p in
@@ -2158,9 +2159,9 @@ Export SLFProgramSyntax.
 
 Definition incr : val :=
   VFun 'p :=
-    (Let 'n := '! 'p in
+    Let 'n := '! 'p in
     Let 'm := 'n '+ 1 in
-    'p ':= 'm).
+    'p ':= 'm.
 
 (** Here is the Separation Logic triple specifying increment.
     And the proof follows. Note that the script contains explicit

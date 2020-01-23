@@ -471,7 +471,7 @@ Proof using. reflexivity. Qed.
       for the sake of clarity.
 
     The motivation for these differences is beyond the scope of this
-    course. Details are provided in the bonus chapter [SLFLift]. *)
+    course. Details are provided in the  chapter [SLFLift]. *)
 
 (* INSTRUCTORS *)
 (** [p ~~~> n] technically stands for [p ~~~> (val_int n)], where

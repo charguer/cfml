@@ -1033,7 +1033,7 @@ Proof using.
   applys~ himpl_frame_lr. applys himpl_trans M. hstars_simpl.
 Qed.
 
-(* NOTE NEEDED? *)
+(* NOT NEEDED? *)
 Lemma xsimpl_lr_cancel_eq : forall H1 H2 Hla Hlw Hlt Hra Hrg Hrt,
   (H1 = H2) ->
   Xsimpl (Hla, Hlw, Hlt) (Hra, Hrg, Hrt) ->
