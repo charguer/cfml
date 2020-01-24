@@ -22,41 +22,42 @@ Implicit Types p q : loc.
 (* ########################################################### *)
 (** * Chapter in a rush, nested with exercises as additional contents *)
 
-(** This chapter gives a quick overview of how to state specifications and
-    carry out basic proofs in Separation Logic using the framework whose
-    construction is presented throughout this course.
+(** This chapter gives an overview of how to state specifications and carry
+    out proofs in Separation Logic, using the framework whose construction
+    is presented throughout this course.
 
-    In this chapter, we will present:
+    This chapter introduces:
 
     - "Heap predicates", which are used to describe memory states in
       Separation Logic.
-    - "Specification triples", of the form [triple t H Q].
-      Such specification relate a term, a precondition, and a postcondition.
-    - "Entailment proof obligations", of the form [_ ==> _] or [_ ===> _].
-      Such entailments require proving that a description of a state implies
-      another one.
-    - "Verification proof obligations", of the form [PRE H CODE F POST Q].
+    - "Specification triples", of the form [triple t H Q], which relate
+      a term [t], a precondition [H], and a postcondition [Q].
+    - "Entailment proof obligations", of the form [H ==> H'] or [Q ===> Q'],
+      which assert that a pre- or post-condition is weaker than another one.
+    - "Verification proof obligations", of the form [PRE H CODE F POST Q],
+      which internally leverage a form of weakest-precondition.
     - Verification tactics, called "x-tactics", which are specialized tactics
       for carrying out the verification proofs.
 
     The "heap predicates" used to describe memory states include:
     - [p ~~~> n], which describes a memory cell at location [p] with contents [n],
     - [\[]], which describes an empty state,
-    - [\[P]], which asserts that a proposition [P] is true (in an empty state),
+    - [\[P]], which also describes an empty state, and moreover asserts that
+      the proposition [P] is true,
     - [H1 \* H2], which describes a state made of two disjoint parts: [H1] and [H2],
     - [\exists x, H], which is used to quantify variables in postconditions.
 
     All these heap predicates admit the type [hprop], which consists of predicate
-    over memory states. In other words, [hprop] is defined as [state->Prop].
+    over memory states. Technically, [hprop] is defined as [state->Prop].
 
     The verification proofs are carried out using x-tactics, identified by the
     leading "x" letter in their name. These tactics include:
-    - [xwp] or [xtriple] to being a proof,
+    - [xwp] or [xtriple] to begin a proof,
     - [xapp] to reason about an application,
     - [xval] to reason about a return value,
-    - [xsimpl] to simplify or prove entailments ([_ ==> _] or [_ ===> _]). *)
+    - [xsimpl] to simplify or prove entailments ([H ==> H'] or [Q ===> Q']).
 
-(** In addition to x-tactics, the verification proof scripts exploit standard
+    In addition to x-tactics, the verification proof scripts exploit standard
     Coq tactics, as well as tactics from the TLC library. The relevant TLC
     tactics, which are described when first use, include:
     - [math], which is a variant of [omega] for proving mathematical goals,
@@ -64,11 +65,11 @@ Implicit Types p q : loc.
     - [gen], which is a shorthand for [generalize dependent], a tactic
       also useful to set up induction principles.
 
-   For simplicity, we assume all programs to be written in A-normal form,
-   that is, with all intermediate expressions being named by a let-binding.
-   Every example program is first informally presented in OCaml syntax, then
-   is formally defined in Coq using an ad-hoc notation system, featuring
-   variable names and operators all prefixed by a quote symbol.
+    For simplicity, we assume all programs to be written in A-normal form,
+    that is, with all intermediate expressions being named by a let-binding.
+    Every example program is first informally presented in OCaml syntax, then
+    is formally defined in Coq using an ad-hoc notation system, featuring
+    variable names and operators all prefixed by a quote symbol.
 *)
 
 
@@ -86,22 +87,21 @@ Implicit Types p q : loc.
        p := m
 ]]
 
-    We input this program using a custom set of Coq notation for describing
-    imperative programs. There is no need to learn how to write programs in
-    this funny syntax: the source code for all the programs involved in this
-    course is provided.
+    We describe this program to Coq using a custom set of notation for the
+    syntax of imperative programs. There is no need to learn how to write
+    programs in this ad-hoc syntax: the source code is provided for all the
+    programs involved in this course.
 
-    Below is the definition for the function [incr]. This function is a value,
-    so it admits, like all values in the CFML framework, the type [val].
+    The definition for the function [incr] appears below. This function is a
+    value, so it admits, like all values in the framework, the type [val].
 
     The quotes that appear in the source code are used to disambiguate
     between the keywords and variables associated with the source code,
     and those from the corresponding Coq keywords and variables.
     The [VFun] keyword should be read like the [fun] keyword from OCaml.
 
-    Again, the details of this funny syntax are not important, the reader
-    may blindly trust that it corresponds to the OCaml code shown above.
-*)
+    Again, the reader may blindly trust that it corresponds to the OCaml
+    code shown above. *)
 
 Definition incr : val :=
   VFun 'p :=
@@ -121,8 +121,8 @@ Lemma triple_incr : forall (p:loc) (n:int),
 
 (** Above, [p] denotes the address in memory of the reference cell provided
     as argument to the increment function. In technical vocabulary, [p]
-    is the "location" of a reference cell. All locations have type
-    [loc], thus the argument [p] of [incr] has type [loc].
+    is the "location" of a reference cell. All locations have type [loc],
+    thus the argument [p] of [incr] has type [loc].
 
     In Separation Logic, the "heap predicate" [p ~~~> n] describes a memory
     state in which the contents of the location [p] is the value [n].
@@ -1274,7 +1274,7 @@ Lemma triple_repeat_incr' : forall (p:loc) (n m:int),
 Proof using.
   intros. gen n. induction_wf IH: (downto 0) m.
   xwp. xapp. xif; intros C.
-  { xapp. xapp. xapp. { math. }  
+  { xapp. xapp. xapp. { math. }
     xsimpl. repeat rewrite max_r; math. }
   { xval. xsimpl. rewrite max_l; math. }
 Qed.
