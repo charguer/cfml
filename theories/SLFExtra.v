@@ -468,7 +468,7 @@ Notation "'not t" :=
   (at level 57) : trm_scope.
 
 Notation "'- t" :=
-  (val_add t)
+  (val_opp t)
   (at level 57) : trm_scope.
 
 Notation "t1 '- t2" :=
@@ -768,7 +768,7 @@ Notation "'VFix' f x1 x2 ':=' t" :=
 Definition trm_is_val (t:trm) : Prop :=
   match t with trm_val v => True | _ => False end.
 
-(** Let us assume the following rule for evaluating applications 
+(** Let us assume the following rule for evaluating applications
     that are not in A-normal form, that is, not of the form [trm_app v1 v2].
     In the general case of [trm_app t1 t2], we need to evaluate the arguments
     to values before we can proceed, as captured by the following rule. *)
@@ -927,9 +927,9 @@ Definition decr : val :=
     'p ':= 'm.
 
 Lemma triple_decr : forall (p:loc) (n:int),
-  TRIPLE (trm_app decr p)
-    PRE (p ~~~> n)
-    POST (fun v => \[v = val_unit] \* (p ~~~> (n-1))).
+  triple (trm_app decr p)
+    (p ~~~> n)
+    (fun v => \[v = val_unit] \* (p ~~~> (n-1))).
 Proof using.
   xwp. xapp. xapp. xapp. xsimpl*.
 Qed.

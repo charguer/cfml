@@ -1457,7 +1457,7 @@ Notation "'not t" :=
   (at level 57) : trm_scope.
 
 Notation "'- t" :=
-  (val_add t)
+  (val_opp t)
   (at level 57) : trm_scope.
 
 Notation "t1 '+ t2" :=

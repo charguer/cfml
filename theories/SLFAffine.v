@@ -97,10 +97,10 @@ Definition succ_using_incr :=
     left-over reference with a heap predicate, e.g., [\exists p, p ~~~> (n+1)],
     or [\exists p m, p ~~~> m]. *)
 
-Lemma Triple_succ_using_incr : forall (n:int),
-  TRIPLE (succ_using_incr n)
-    PRE \[]
-    POST (fun r => \[r = n+1] \* \exists p, (p ~~~> (n+1))).
+Lemma triple_succ_using_incr : forall (n:int),
+  triple (succ_using_incr n)
+    \[]
+    (fun r => \[r = n+1] \* \exists p, (p ~~~> (n+1))).
 Proof using.
   xwp. xapp. intros p. xapp. xapp. xsimpl. auto.
 Qed.
@@ -109,10 +109,10 @@ Qed.
     reference, then we get stuck with a proof obligation of the form
     [p ~~~> (n+1) ==> \[]]. *)
 
-Lemma Triple_succ_using_incr' : forall (n:int),
-  TRIPLE (succ_using_incr n)
-    PRE \[]
-    POST (fun r => \[r = n+1]).
+Lemma triple_succ_using_incr' : forall (n:int),
+  triple (succ_using_incr n)
+    \[]
+    (fun r => \[r = n+1]).
 Proof using.
   xwp. xapp. intros p. xapp. xapp. xsimpl. { auto. } (* stuck here *)
 Abort.
@@ -154,12 +154,12 @@ Parameter triple_hany_post : forall t H H' Q,
 Module MotivatingExampleSolved.
 Export MotivatingExample.
 
-Lemma Triple_succ_using_incr' : forall (n:int),
-  TRIPLE (succ_using_incr n)
-    PRE \[]
-    POST (fun r => \[r = n+1]).
+Lemma triple_succ_using_incr' : forall (n:int),
+  triple (succ_using_incr n)
+    \[]
+    (fun r => \[r = n+1]).
 Proof using.
-  intros. applys triple_hany_post. applys Triple_succ_using_incr.
+  intros. applys triple_hany_post. applys triple_succ_using_incr.
 Qed.
 
 End MotivatingExampleSolved.
@@ -399,10 +399,10 @@ Parameter haffine_hany : forall (H:hprop),
 (** Observe in the proof below the [\GC] introduced in the postcondition
     by the call to [xwp]. *)
 
-Lemma Triple_succ_using_incr : forall (n:int),
-  TRIPLE (succ_using_incr n)
-    PRE \[]
-    POST (fun r => \[r = n+1]).
+Lemma triple_succ_using_incr : forall (n:int),
+  triple (succ_using_incr n)
+    \[]
+    (fun r => \[r = n+1]).
 Proof using.
   xwp. xapp. intros r. xapp. xapp. xsimpl. { auto. }
   (* There remains to absorb the left-over reference into the [\GC] predicate *)

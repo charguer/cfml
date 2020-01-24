@@ -451,14 +451,14 @@ Proof using. reflexivity. Qed.
     Recall from the first chapter ([SLFBasic]) the specification of [incr]:
 
 [[
-    Parameter Triple_incr : forall (p:loc) (n:int),
-      TRIPLE (trm_app incr p)
-        PRE (p ~~> n)
-        POST (fun (v:unit) => p ~~> (n+1)).
+    Parameter triple_incr : forall (p:loc) (n:int),
+      triple (trm_app incr p)
+        (p ~~> n)
+        (fun _ => p ~~> (n+1)).
 ]]
 
     The specification that we will write in this chapter (and the
-    following ones) will differ in three ways from the one above.
+    following ones) will differ in two ways from the one above.
 
     - First, the heap predicates will now be written [p ~~~> n],
       instead of [p ~~> n], for technical reasons that we won't
@@ -466,9 +466,6 @@ Proof using. reflexivity. Qed.
     - Second, the postcondition will now be of the form
       [fun (v:val) => \[v = val_unit] \* ...] instead of
       [fun (v:unit) => ...], for similar reasons.
-    - Third, we won't use the notation [TRIPLE _ PRE _ POST _],
-      but rather stick to applying the [triple] predicate directly,
-      for the sake of clarity.
 
     The motivation for these differences is beyond the scope of this
     course. Details are provided in the  chapter [SLFLift]. *)

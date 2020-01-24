@@ -729,7 +729,7 @@ Notation "'Fun'' x ':=' F1" :=
 
 (** First, we describe the tactic [xfun S], where [S] describes the
     specification of the local function. A typical call is of the form
-    [xfun (fun (f:val) => forall ..., TRIPLE (f ..) PRE .. POST ..)].
+    [xfun (fun (f:val) => forall ..., triple (f ..) .. ..)].
 
     The tactic [xfun S] generates two subgoals. The first one requires the
     user to establish the specification [S] for the function whose body admits
@@ -819,15 +819,15 @@ Definition myfun : val :=
     as argument to [xfun] at the moment of the definition of [f]. *)
 
 Lemma triple_myfun : forall (p:loc) (n:int),
-  TRIPLE (trm_app myfun p)
-    PRE (p ~~~> n)
-    POST (fun _ => p ~~~> (n+2)).
+  triple (trm_app myfun p)
+    (p ~~~> n)
+    (fun _ => p ~~~> (n+2)).
 Proof using.
   xwp.
   xfun (fun (f:val) => forall (m:int),
-    TRIPLE (f '())
-      PRE (p ~~~> m)
-      POST (fun _ => p ~~~> (m+1))); intros f Hf.
+    triple (f '())
+      (p ~~~> m)
+      (fun _ => p ~~~> (m+1))); intros f Hf.
   { intros. applys Hf. clear Hf. xapp. (* exploits [triple_incr] *) xsimpl. }
   xapp. (* exploits [Hf]. *)
   xapp. (* exploits [Hf]. *)
@@ -849,9 +849,9 @@ Qed.
     function. *)
 
 Lemma triple_myfun' : forall (p:loc) (n:int),
-  TRIPLE (trm_app myfun p)
-    PRE (p ~~~> n)
-    POST (fun _ => p ~~~> (n+2)).
+  triple (trm_app myfun p)
+    (p ~~~> n)
+    (fun _ => p ~~~> (n+2)).
 Proof using.
   xwp.
   xfun; intros f Hf.

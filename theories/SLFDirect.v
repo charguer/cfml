@@ -2153,9 +2153,13 @@ Notation "'Seq' F1 ;;; F2" :=
   (at level 68, right associativity,
    format "'[v' 'Seq'  '[' F1 ']'  ;;;  '/'  '[' F2 ']' ']'") : wp_scope.
 
-Notation "'App' f v1 " :=
+Notation "'App' f v1" :=
   ((wp (trm_app f v1)))
   (at level 68, f, v1 at level 0) : wp_scope.
+
+Notation "'App' f v1 v2" :=
+  ((wp (trm_app (trm_app f v1) v2)))
+  (at level 68, f, v1, v2 at level 0) : wp_scope.
 
 Notation "'If'' v 'Then' F1 'Else' F2" :=
   ((wpgen_if v F1 F2))
