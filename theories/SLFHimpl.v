@@ -237,12 +237,30 @@ Qed. (* /ADMITTED *)
 
 
 (* ########################################################### *)
-(** ** Contradictions from absurd separating conjunctions *)
+(** ** Extracting information from heap predicates *)
 
-(** A heap predicate of the form [(l ~~~> v1) \* (l ~~~> v2)]
-    describes two "disjoint" cells that are both "at location [l]".
-    Such a state cannot exist. The underlying contraction is formally
-    captured by the following entailment relation. *)
+(** We next present two examples showing how entailments can be used to
+    state lemmas allowing to extract information from particular heap
+    predicates. *)
+
+(** As first example, we show that from a singleton predicate [l ~~~> v],
+    one can extract the information [l <> null]. *)
+
+Lemma hsingle_not_null : forall l v,
+  (l ~~~> v) ==> (l ~~~> v) \* \[l <> null].
+Proof using.
+  introv. intros h Hh. lets (K&N): hsingle_inv Hh.
+  rewrite hstar_comm. rewrite hstar_hpure_iff. split.
+  { auto. } { subst h. applys hsingle_intro. auto. }
+Qed.
+
+(** As second example, we show that from a heap predicate of the form
+    [(l ~~~> v1) \* (l ~~~> v2)] describes two "disjoint" cells that
+    are both "at location [l]", one can extract a contradiction.
+
+    Indeed, such a state cannot exist. The underlying contraction is
+    formally captured by the following entailment relation, which
+    concludes [False]. *)
 
 Lemma hstar_hsingle_same_loc : forall (l:loc) (v1 v2:val),
   (l ~~~> v1) \* (l ~~~> v2) ==> \[False].

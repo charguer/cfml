@@ -1972,7 +1972,7 @@ Definition trm_equiv (t1 t2:trm) : Prop :=
 Definition eval_like (t1 t2:trm) : Prop :=
   forall s s' v, eval s t1 s' v -> eval s t2 s' v.
 
-(** For example [eval_like t (trm_let x t x)] holds, reflecting the 
+(** For example [eval_like t (trm_let x t x)] holds, reflecting the
     fact that [let x = t in x] reduces in small-step to [t]. *)
 
 Lemma eval_like_eta_reduction : forall (t:trm) (x:var),
@@ -2001,7 +2001,7 @@ Lemma trm_equiv_eta : forall (t:trm) (x:var),
   trm_equiv t (trm_let x t x).
 Proof using.
   intros. intros s s' v. iff M.
-  { applys eval_like_eta_reduction M. } 
+  { applys eval_like_eta_reduction M. }
   { applys eval_like_eta_expansion M. }
 Qed.
 

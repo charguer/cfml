@@ -29,18 +29,15 @@ Implicit Types p q : loc.
     In this chapter, we will present:
 
     - "Heap predicates", which are used to describe memory states in
-       Separation Logic.
-    - "Specification triples", of the form [triple _ _ _].
+      Separation Logic.
+    - "Specification triples", of the form [triple t H Q].
       Such specification relate a term, a precondition, and a postcondition.
-    - "Verification proof obligations", of the form [_ CODE _ _].
-      These proof obligations also correspond to specification triples, yet
-      they feature the description of the current state as first argument
-      in order to improve readability of proof obligations.
     - "Entailment proof obligations", of the form [_ ==> _] or [_ ===> _].
       Such entailments require proving that a description of a state implies
       another one.
-    - Practical verification proofs, using specialized tactics, called
-      "x-tactics", to prove that a program satisfies a particular specification.
+    - "Verification proof obligations", of the form [PRE H CODE F POST Q].
+    - Verification tactics, called "x-tactics", which are specialized tactics
+      for carrying out the verification proofs.
 
     The "heap predicates" used to describe memory states include:
     - [p ~~~> n], which describes a memory cell at location [p] with contents [n],
@@ -162,7 +159,7 @@ Lemma triple_incr : forall (p:loc) (n:int),
 
 Proof using.
   xwp.     (* Begin the verification proof. The proof obligation is
-              displayed using the custom notation [_ CODE _ _].
+              displayed using the custom notation [PRE H CODE F POST Q].
               The [CODE] part does not look very nice, but one should
               be able to somehow recognize the body of [incr]. Indeed,
               if we ignoring the details, and perform the alpha-renaming
@@ -200,6 +197,15 @@ Qed.
     is able to automatically invoke the lemma [triple_incr]. *)
 
 Hint Resolve triple_incr : triple.
+
+(** Remark: the proof framework can be used without any knowledge about
+    the implementation of the notation [PRE H CODE F POST Q] nor about
+    the implementation of the x-tactics.
+
+    A reader with prior knowledge in program verification might
+    nevertheless be interested to know that [PRE H CODE F POST Q]
+    is defined as the [H ==> F Q], where [F] is a form of weakest-
+    precondition that describes the behavior of the code. *)
 
 
 (* ########################################################### *)
@@ -745,7 +751,10 @@ Definition succ_using_incr :=
 
 (** This program may now be proved correct with respect to the intended
     specification. Observe in particular the last call to [xapp] below,
-    which corresponds to the [free] operation. *)
+    which corresponds to the [free] operation.
+
+    The final result is the value of the variable [x]. To reason about it,
+    we exploit the tactic [xval], as illustrated below. *)
 
 Lemma triple_succ_using_incr : forall n,
   triple (succ_using_incr n)
@@ -765,7 +774,7 @@ Qed.
 (* ########################################################### *)
 (** ** Axiomatization of the mathematical factorial function *)
 
-(** Our next example consists of a program that evaluate the
+(** Our next example consists of a program that evaluates the
     factorial function. To specify this function, we consider
     a Coq axiomatization of the mathematical factorial function,
     which is called [facto]. *)
@@ -787,11 +796,10 @@ Parameter facto_step : forall n,
 (* ########################################################### *)
 (** ** A partial recursive function, without state *)
 
-(** In the rest of the chapter, we will consider recursive
-    functions that manipulate the state. To gently introduce
-    the necessary technique for reasoning about recursive
-    functions, we first consider a recursive function that does
-    not involve any mutable state.
+(** In the rest of the chapter, we will consider recursive functions
+    that manipulate the state. To gently introduce the necessary techniques
+    for reasoning about recursive functions, we first consider a recursive
+    function that does not involve any mutable state.
 
     The function [factorec] computes the factorial of its argument.
 
@@ -800,6 +808,7 @@ Parameter facto_step : forall n,
       if n <= 1 then 1 else n * factorec (n-1)
 ]]
 
+    The corresonding code in A-normal form is slightly more verbose.
 *)
 
 Definition factorec : val :=
@@ -807,15 +816,15 @@ Definition factorec : val :=
     Let 'b := 'n '<= 1 in
     If_ 'b
       Then 1
-      Else Let 'p := 'n '- 1 in
-           Let 's := 'f 'p in
-           'n '* 's.
+      Else Let 'x := 'n '- 1 in
+           Let 'y := 'f 'x in
+           'n '* 'y.
 
 (** A call [factorec n] can be specified as follows:
 
     - the initial state is empty,
     - the final state is empty,
-    - the result value [r] is such that [r = facto n] when [n >= 0].
+    - the result value [r] is such that [r = facto n], when [n >= 0].
 
     In case the argument is negative (i.e., [n < 0]), we have two choices:
 
@@ -900,7 +909,7 @@ Proof using.
     xsimpl. rewrite (@facto_step n); math. }
 Qed.
 
-(** Let's revisit the proof script without comments, to get a better
+(** Let's revisit the proof script without comments, to get a global
     picture of the proof structure. *)
 
 Lemma triple_factorec' : forall n,
@@ -920,8 +929,8 @@ Qed.
 (* ########################################################### *)
 (** ** A recursive function with state *)
 
-(** The example of [factorec] was a warmup. Let's now tackle a
-    recursive function involving some mutable state.
+(** The example of [factorec] was a warmup. Let's now tackle a recursive
+    function involving some mutable state.
 
     The function [repeat_incr p m] makes [m] times a call to [incr p].
     Here, [m] is assumed to be a nonnegative value.
@@ -930,8 +939,7 @@ Qed.
     let rec repeat_incr p m =
       if m > 0 then (
         incr p;
-        let s = m - 1 in
-        repeat_incr p s
+        repeat_incr p (m - 1)
       )
 ]]
 *)
@@ -941,8 +949,8 @@ Definition repeat_incr : val :=
     Let 'b := 'm '> 0 in
     If_ 'b Then
       incr 'p ';
-      Let 's := 'm '- 1 in
-      'f 'p 's
+      Let 'x := 'm '- 1 in
+      'f 'p 'x
     End.
 
 (** The specification for [repeat_incr p] requires that the initial
@@ -996,7 +1004,8 @@ Proof using.
 Abort.
 
 
-
+(* ########################################################### *)
+(** ** A recursive function involving two references *)
 
 (** Consider the function [step_transfer p q], which repeatedly increment
     a reference [p] and decrement a reference [q], until the contents
@@ -1035,8 +1044,8 @@ Lemma triple_step_transfer : forall p q n m,
 
 (* EX2! (triple_step_transfer) *)
 (** Verify the function [step_transfer].
-    Hint: to set up the induction, follow the pattern from
-    [triple_repeat_incr'] presented just above. *)
+    Hint: to set up the induction, follow the pattern shown in
+    the proof of [triple_repeat_incr']. *)
 
 Proof using. (* ADMITTED *)
   intros q p n m Hm.
@@ -1050,14 +1059,154 @@ Qed. (* /ADMITTED *)
 
 
 (* ########################################################### *)
+(** ** Formalization of the list representation predicate *)
+
+(** A mutable list cell is a two-cell record, featuring a head field and a
+    tail field. We define the field indices as follows. *)
+
+Definition head : field := 0%nat.
+Definition tail : field := 1%nat.
+
+(** A mutable list consists of a chain of cells, terminated by [null].
+
+    The heap predicate [MList L p] describes a list whose head cell is
+    at location [p], and whose elements are described by the list [L].
+
+    This predicate is defined recursively on the structure of [L]:
+
+    - if [L] is empty, then [p] is the null pointer,
+    - if [L] is of the form [x::L'], then the head field of [p]
+      contains [x], and the tail field of [p] contains a pointer
+      [q] such that [MList L' q] describes the tail of the list.
+
+*)
+
+Fixpoint MList (L:list val) (p:loc) : hprop :=
+  match L with
+  | nil => \[p = null]
+  | x::L' => \exists q, (p`.head ~~> x) \* (p`.tail ~~> q)
+                     \* (MList L' q)
+  end.
+
+(** The following reformulations of the definition are helpful in proofs,
+    allowing to fold or unfold the definition using a tactic called
+    [xchange]. *)
+
+Lemma MList_nil : forall p,
+  (p ~> MList nil) = \[p = null].
+Proof using. auto. Qed.
+
+Lemma MList_cons : forall p x L',
+  p ~> MList (x::L') =
+  \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* MList L' q.
+Proof using.  auto. Qed.
+
+(** Another characterization of [MList L p] is useful for proofs. Whereas
+    the original definition is by case analysis on whether [L] is empty,
+    the alternative one is by case analysis on whether [p] is null:
+
+    - if [p] is null, then [L] is empty,
+    - otherwise, [L] decomposes as [x::L'], the head field of [p] contains [x],
+      and the tail field of [p] contains a pointer [q] such that [MList L' q]
+      describes the tail of the list.
+
+    The lemma below is stated using an entailment. The reciprocal entailment
+    is also true, but we do not need it so we do not bother proving it here.
+*)
+
+Lemma MList_if : forall (p:loc) (L:list val),
+      (MList L p)
+  ==> (If p = null
+      then \[L = nil]
+      else \exists x q L', \[L = x::L']
+           \* (p`.head ~~> x) \* (p`.tail ~~> q)
+           \* (MList L' q)).
+Proof using.
+  (* Let's prove this result by case analysis on [L]. *)
+  intros. destruct L as [|x L'].
+  { (* Case [L = nil]. By definition of [MList], we have [p = null]. *)
+    xchange MList_nil. intros M.
+    (* We have to justify [L = nil], which is trivial.
+       The TLC [case_if] tactic performs a case analysis on the argument
+       of the first visible [if] conditional. *)
+    case_if. xsimpl. auto. }
+  { (* Case [L = x::L']. *)
+  (* One possibility is to perform a rewrite operation using [MList_cons]
+     on its first occurrence. Then using CFML the tactic [xpull] to extract
+     the existential quantifiers out from the precondition:
+     [rewrite MList_cons. xpull. intros q.]
+     A more efficient approach is to use the dedicated CFML tactic [xchange],
+     which is specialized for performing updates in the current state. *)
+    xchange MList_cons. intros q. case_if.
+    { (* Case [p = null]. Contradiction because nothing can be allocated at
+         the null location, as captured by lemma [Hfield_not_null],
+         which states: [(l`.f ~~> V) ==> (l`.f ~~> V) \* \[l <> null]]. *)
+      subst. lets: hfield_not_null. xchange hfield_not_null. }
+    { (* Case [p <> null]. The 'else' branch corresponds to the definition
+         of [MList] in the [cons] case. It suffices to correctly instantiate
+         the existential quantifiers. *)
+      xsimpl. auto. } }
+Qed.
+
+
+(* ########################################################### *)
+(** ** In-place concatenation of two mutable lists *)
+
+(** The following function expects a nonempty list [p1] and a list [p2],
+    and updates [p1] in place so that its tail gets extended by the
+    cells from [p2].
+
+[[
+    let rec append p1 p2 =
+      if p1.tail == null
+        then p1.tail <- p2
+        else append p1.tail p2
+]]
+
+*)
+
+Definition append : val :=
+  VFix 'f 'p1 'p2 :=
+    Let 'q1 := 'p1'.tail in
+    Let 'b := ('q1 '= null) in
+    If_ 'b
+      Then Set 'p1'.tail ':= 'p2
+      Else 'f 'q1 'p2.
+
+(** The append function is specified and verified as follows. *)
+
+Lemma Triple_append : forall (L1 L2:list val) (p1 p2:loc),
+  p1 <> null ->
+  triple (append p1 p2)
+    (MList L1 p1 \* MList L2 p2)
+    (fun _ => MList (L1++L2) p1).
+Proof using.
+  (* The induction principle provides an hypothesis for the tail of [L1],
+      i.e., for the list [L1'] such that the relation [list_sub L1' L1] holds. *)
+  introv K. gen p1. induction_wf IH: (@list_sub val) L1. introv N. xwp.
+  (* To begin the proof, we reveal the head cell of [p1].
+     We let [q1] denote the tail of [p1], and [L1'] the tail of [L1]. *)
+  xchange (MList_if p1). case_if. xpull. intros x q1 L1' ->.
+  (* We then reason about the case analysis. *)
+  xapp. xapp. xif; intros Cq1.
+  { (* If [q1'] is null, then [L1'] is empty. *)
+    xchange (MList_if q1). case_if. xpull. intros ->.
+    (* In this case, we set the pointer, then we fold back the head cell. *)
+    xapp. xchange <- MList_cons. }
+  { (* If [q1'] is not null, we reason about the recursive call using
+       the induction hypothesis, then we fold back the head cell. *)
+    xapp. xchange <- MList_cons. }
+Qed.
+
+
+(* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
 (** * Bonus contents (optional reading) *)
 
 (* ########################################################### *)
-(** ** Trying to prove incorrect specifications *)
+(** ** Trying to prove incorrect specifications (optional) *)
 
-(* TODO
 (** Recall the function [repeat_incr p n], which invokes [n]
     times [incr p].
 
@@ -1065,8 +1214,7 @@ Qed. (* /ADMITTED *)
     let rec repeat_incr p m =
       if m > 0 then (
         incr p;
-        let s = m - 1 in
-        repeat_incr p s
+        repeat_incr p (m - 1)
       )
 ]]
 *)
@@ -1108,7 +1256,7 @@ Abort.
 Lemma triple_repeat_incr' : forall (p:loc) (n m:int),
   triple (repeat_incr p m)
     (p ~~~> n)
-    (fun (_:unit) => p ~~~> (n + max 0 m)).
+    (fun _ => p ~~~> (n + max 0 m)).
 
 (** Let's prove the above specification, which, by the way, is the
     most-general specification for the function [repeat_incr].
@@ -1124,124 +1272,9 @@ Lemma triple_repeat_incr' : forall (p:loc) (n m:int),
 *)
 
 Proof using.
-  intros. gen n. induction_wf IH: (downto 0) m. unfold downto.
+  intros. gen n. induction_wf IH: (downto 0) m.
   xwp. xapp. xif; intros C.
-  { xapp. xapp. xapp. { math. }
+  { xapp. xapp. xapp. { math. }  
     xsimpl. repeat rewrite max_r; math. }
   { xval. xsimpl. rewrite max_l; math. }
-Qed.
-*)
-
-
-
-(* ########################################################### *)
-(** ** Preuve de la concaténation de listes *)
-
-Definition field : Type := nat.
-Definition head : field := 0%nat.
-Definition tail : field := 1%nat.
-
-
-Definition hfield (l:loc) (k:field) (v:val) : hprop :=
-  (l+k)%nat ~~~> v \* \[ l <> null ].
-
-Notation "l `. k '~~>' v" := (hfield l k v)
-  (at level 32, k at level 0, no associativity,
-   format "l `. k  '~~>'  v") : heap_scope.
-
-
-(** Définition de [MList L p] *)
-
-Fixpoint MList (L:list int) (p:loc) : hprop :=
-  match L with
-  | nil => \[p = null]
-  | x::L' => \exists q, (p`.head ~~> x) \* (p`.tail ~~> q)
-                     \* (MList L' q)
-  end.
-
-(** Reformulation utile pour replier la définition *)
-
-Lemma MList_cons : forall p x L',
-  p ~> MList (x::L') =
-  \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* MList L' q.
-Proof using.  auto. Qed.
-
-(** Lemme pour l'analyse par cas selon [p = null] *)
-
-Parameter MList_if : forall (p:loc) (L:list int),
-    (MList L p)
-  = (If p = null
-      then \[L = nil]
-      else \exists x q L', \[L = x::L']
-           \* (p`.head ~~> x) \* (p`.tail ~~> q)
-           \* (MList L' q)).
-(* Proof in [SLFList.v] *)
-
-
-Parameter val_ptr_add : val.
-
-Definition val_get_field (k:field) : val :=
-  VFun 'p :=
-    Let 'q := val_ptr_add 'p (nat_to_Z k) in
-    val_get 'q.
-
-Definition val_set_field (k:field) : val :=
-  VFun 'p 'v :=
-    Let 'q := val_ptr_add 'p (nat_to_Z k) in
-    val_set 'q 'v.
-Notation "t1 ''.' f" :=
-  (val_get_field f t1)
-  (at level 56, f at level 0, format "t1 ''.' f" ) : trm_scope.
-
-Notation "'Set' t1 ''.' f '':=' t2" :=
-  (val_set_field f t1 t2)
-  (at level 65, t1 at level 0, f at level 0, format "'Set' t1 ''.' f  '':=' t2") : trm_scope.
-
-
-Parameter triple_get_field : forall (l:loc) f (V:val),
-  triple ((val_get_field f) l)
-    (l`.f ~~> V)
-    (fun r => \[r = V] \* (l`.f ~~> V)).
-Parameter triple_set_field : forall (V1:val) (l:loc) f (V2:val),
-  triple ((val_set_field f) l V2)
-    (l`.f ~~> V1)
-    (fun _ => l`.f ~~> V2).
-Hint Resolve triple_get_field triple_set_field : triple.
-
-
-
-(** Fonction de concaténation
-
-[[
-    let rec append p1 p2 =
-      if p1.tail == null
-        then p1.tail <- p2
-        else append p1.tail p2
-]]
-
-*)
-
-Definition append : val :=
-  VFix 'f 'p1 'p2 :=
-    Let 'q1 := 'p1'.tail in
-    Let 'b := ('q1 '= null) in
-    If_ 'b
-      Then Set 'p1'.tail ':= 'p2
-      Else 'f 'q1 'p2.
-
-(** Notation [PRE H CODE F POST Q] pour [H ==> F Q].    *)
-
-Lemma Triple_append : forall (L1 L2:list int) (p1 p2:loc),
-  p1 <> null ->
-  triple (append p1 p2)
-    (MList L1 p1 \* MList L2 p2)
-    (fun _ => MList (L1++L2) p1).
-Proof using.
-  introv K. gen p1. induction_wf IH: (@list_sub int) L1. introv N. xwp.
-  xchange (MList_if p1). case_if. xpull. intros x q L1' ->.
-  (* TODO: extend xapp for field access *)
-  xapp. xapp. xif; intros Cq.
-  { xchange (MList_if q). case_if. xpull. intros ->.
-    xapp. xchange <- MList_cons. }
-  { xapp. xchange <- MList_cons. }
 Qed.

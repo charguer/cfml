@@ -295,7 +295,7 @@ Qed.
 
 
 (* EX1! (MList_null_iff_nil) *)
-(** Prove the following lemma, which asserts that in a predicate 
+(** Prove the following lemma, which asserts that in a predicate
     [p ~> MList L], the pointer [p] is null iff the list [L] is empty. *)
 
 Lemma MList_null_iff_nil : forall (p:loc) (L:list int),

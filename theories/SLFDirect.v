@@ -231,7 +231,7 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
       eval s (val_free (val_loc l)) (Fmap.remove s l) val_unit.
 
 (** [eval_like t1 t2] asserts that [t2] evaluates like [t1].
-    In particular, this relation hold whenever [t2] reduces 
+    In particular, this relation hold whenever [t2] reduces
     in small-step to [t1]. *)
 
 Definition eval_like (t1 t2:trm) : Prop :=
@@ -844,6 +844,13 @@ Lemma hsingle_inv: forall l v h,
   h = Fmap.single l v /\ l <> null.
 Proof using. auto. Qed.
 
+Lemma hsingle_not_null : forall l v,
+  (l ~~~> v) ==> (l ~~~> v) \* \[l <> null].
+Proof using.
+  introv. intros h (K&N). rewrite hstar_comm, hstar_hpure.
+  split*. subst. applys* hsingle_intro.
+Qed.
+
 Lemma hstar_hsingle_same_loc : forall l v1 v2,
   (l ~~~> v1) \* (l ~~~> v2) ==> \[False].
 Proof using.
@@ -931,15 +938,15 @@ Ltac xsimpl_pick_hsingle H :=
         constr:(true) end)
   end.
 
-(** Internal hack: 
-    The following instantiation of the [xsimpl] hook enables the tactic 
-    to simplify [p ~~~> v] against [p ~~~> v'] by generating the 
+(** Internal hack:
+    The following instantiation of the [xsimpl] hook enables the tactic
+    to simplify [p ~~~> v] against [p ~~~> v'] by generating the
     side-condition [v = v']. *)
 
 Ltac xsimpl_hook H ::=
   match H with
   | hsingle _ _ => xsimpl_pick_hsingle H; apply xsimpl_lr_cancel_eq;
-                   [ xsimpl_lr_cancel_eq_repr_post tt | ]  
+                   [ xsimpl_lr_cancel_eq_repr_post tt | ]
   end.
 
 (** At this point, the tactic [xsimpl] is available.
@@ -947,11 +954,14 @@ Ltac xsimpl_hook H ::=
 
 (** One last hack is to improve the [math] tactic so that it is able
     to handle the [val_int] coercion in goals and hypotheses of the
-     form [val_int ?n = val_int ?m]. *)
+     form [val_int ?n = val_int ?m], and so that it is able to process
+     the well-founded relations [dowto] and [upto] for induction on
+     integers. *)
 
-Ltac math_0 ::= 
+Ltac math_0 ::=
+  unfolds downto, upto;
   try match goal with
-  | |- val_int _ = val_int _ => fequal 
+  | |- val_int _ = val_int _ => fequal
   | H: val_int _ = val_int _ |- _ => inverts H
   end.
 
@@ -2009,9 +2019,9 @@ Qed.
 Lemma xtriple_lemma : forall t H (Q:val->hprop),
   H ==> mkstruct (wp t) Q ->
   triple t H Q.
-Proof using. 
+Proof using.
   introv M. rewrite <- wp_equiv. xchange M. unfold mkstruct.
-  xpull. intros Q'. applys wp_ramified_frame. 
+  xpull. intros Q'. applys wp_ramified_frame.
 Qed.
 
 
@@ -2060,13 +2070,13 @@ Tactic Notation "xapp_nosubst" constr(E) :=
   xseq_xlet_if_needed; xstruct_if_needed;
   forwards_then E ltac:(fun K => applys xapp_lemma K; xapp_simpl).
   (* if [E] were already an instantiated lemma, then it would suffices
-     to call [applys xapp_lemma E; xapp_simpl]. But in the general case, 
+     to call [applys xapp_lemma E; xapp_simpl]. But in the general case,
      we need to instantiate [E] using the TLC tactic [forward_then] *)
 
 Tactic Notation "xapp_apply_spec" := (* internal *)
   (* finds out the specification triple, from the hint data base [triple]
      or in the context by looking for an induction hypothesis. *)
-  first [ solve [ eauto with triple ] 
+  first [ solve [ eauto with triple ]
         | match goal with H: _ |- _ => eapply H end ].
 
 Tactic Notation "xapp_nosubst" :=
@@ -2082,7 +2092,7 @@ Tactic Notation "xapp_nosubst" :=
 
 Tactic Notation "xapp_try_subst" := (* internal *)
   try match goal with
-  | |- forall (r:val), (r = _) -> _ => intros ? -> 
+  | |- forall (r:val), (r = _) -> _ => intros ? ->
   | |- forall (r:val), forall x, (r = _) -> _ =>
       let y := fresh x in intros ? y ->; revert y
   end.

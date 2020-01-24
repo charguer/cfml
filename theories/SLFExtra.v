@@ -899,6 +899,90 @@ Tactic Notation "xwp" :=
   xwp_simpl.
 
 
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Treatment of records *)
+
+(* ########################################################### *)
+(** ** Definition of record fields *)
+
+Definition field : Type := nat.
+
+Definition hfield (l:loc) (k:field) (v:val) : hprop :=
+  (l+k)%nat ~~~> v \* \[ l <> null ].
+
+Notation "l `. k '~~>' v" := (hfield l k v)
+  (at level 32, k at level 0, no associativity,
+   format "l `. k  '~~>'  v") : heap_scope.
+
+(* TODO: remove one *)
+Notation "l `. k '~~~>' v" := (hfield l k v)
+  (at level 32, k at level 0, no associativity,
+   format "l `. k  '~~~>'  v") : heap_scope.
+
+Lemma hfield_not_null : forall l k v,
+  (l`.k ~~~> v) ==> (l`.k ~~~> v) \* \[l <> null].
+Proof using.
+  intros. subst. unfold hfield. xchanges~ hsingle_not_null.
+Qed.
+
+
+(* ########################################################### *)
+(** ** Definition of record operations *)
+
+Module Export FieldAccessDef.
+Import SLFProgramSyntax.
+
+Definition val_get_field (k:field) : val :=
+  VFun 'p :=
+    Let 'q := val_ptr_add 'p (nat_to_Z k) in
+    val_get 'q.
+
+Definition val_set_field (k:field) : val :=
+  VFun 'p 'v :=
+    Let 'q := val_ptr_add 'p (nat_to_Z k) in
+    val_set 'q 'v.
+
+End FieldAccessDef.
+
+Notation "t1 ''.' f" :=
+  (val_get_field f t1)
+  (at level 56, f at level 0, format "t1 ''.' f" ) : trm_scope.
+
+Notation "'Set' t1 ''.' f '':=' t2" :=
+  (val_set_field f t1 t2)
+  (at level 65, t1 at level 0, f at level 0, format "'Set' t1 ''.' f  '':=' t2") : trm_scope.
+
+
+(* ########################################################### *)
+(** ** Specification of record operations *)
+
+Module Export FieldAccessSpec.
+Open Scope wp_scope.
+
+Lemma triple_get_field : forall l f v,
+  triple ((val_get_field f) l)
+    (l`.f ~~> v)
+    (fun r => \[r = v] \* (l`.f ~~> v)).
+Proof using.
+  xwp. xapp. unfold hfield. xpull. intros N. xapp. xsimpl*.
+Qed.
+
+Lemma triple_set_field : forall v1 l f v2,
+  triple ((val_set_field f) l v2)
+    (l`.f ~~> v1)
+    (fun _ => l`.f ~~> v2).
+Proof using.
+  xwp. xapp. unfold hfield. xpull. intros N. xapp. xsimpl*.
+Qed.
+
+End FieldAccessSpec.
+
+Global Opaque hfield.
+
+Hint Resolve triple_get_field triple_set_field : triple.
+
 
 (* ########################################################### *)
 (* ########################################################### *)
