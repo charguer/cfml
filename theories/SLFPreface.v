@@ -31,11 +31,8 @@
 
     - [SLFPreface]: the present introduction.
 
-    - [SLFBasic]: examples of specifications and verification proofs, using
-                  basic imperative programs.
-
-    - [SLFList]:  specification and verification proofs for mutable lists
-                  and mutable stacks.
+    - [SLFBasic]: introduction to Separation Logic through practical examples
+                  of specifications and verification proofs, on basic programs.
 
     - [SLFHprop]: definition of the core operators of Separation Logic,
                   of Hoare triples, and of Separation Logic triples.
