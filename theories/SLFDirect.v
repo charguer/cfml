@@ -288,7 +288,7 @@ Implicit Types Q : val->hprop.
     - [\[]] denotes the empty heap predicate
     - [\[P]] denotes a pure fact
     - [\Top] denotes the true heap predicate (affine)
-    - [l ~~~> v] denotes a singleton heap
+    - [l ~~> v] denotes a singleton heap
     - [H1 \* H2] denotes the separating conjunction
     - [Q1 \*+ H2] denotes the separating conjunction extending a postcondition
     - [\exists x, H] denotes an existential
@@ -319,7 +319,7 @@ Definition hforall (A : Type) (J : A -> hprop) : hprop :=
 Notation "\[]" := (hempty)
   (at level 0) : heap_scope.
 
-Notation "l '~~~>' v" := (hsingle l v) (at level 32) : heap_scope.
+Notation "l '~~>' v" := (hsingle l v) (at level 32) : heap_scope.
 
 Notation "H1 '\*' H2" := (hstar H1 H2)
   (at level 41, right associativity) : heap_scope.
@@ -836,23 +836,23 @@ Qed.
 
 Lemma hsingle_intro : forall l v,
   l <> null ->
-  (l ~~~> v) (Fmap.single l v).
+  (l ~~> v) (Fmap.single l v).
 Proof using. introv N. hnfs*. Qed.
 
 Lemma hsingle_inv: forall l v h,
-  (l ~~~> v) h ->
+  (l ~~> v) h ->
   h = Fmap.single l v /\ l <> null.
 Proof using. auto. Qed.
 
 Lemma hsingle_not_null : forall l v,
-  (l ~~~> v) ==> (l ~~~> v) \* \[l <> null].
+  (l ~~> v) ==> (l ~~> v) \* \[l <> null].
 Proof using.
   introv. intros h (K&N). rewrite hstar_comm, hstar_hpure.
   split*. subst. applys* hsingle_intro.
 Qed.
 
 Lemma hstar_hsingle_same_loc : forall l v1 v2,
-  (l ~~~> v1) \* (l ~~~> v2) ==> \[False].
+  (l ~~> v1) \* (l ~~> v2) ==> \[False].
 Proof using.
   intros. unfold hsingle. intros h (h1&h2&E1&E2&D&E). false.
   subst. applys* Fmap.disjoint_single_single_same_inv.
@@ -921,14 +921,14 @@ Export SepSimplArgs.
 
 (** At this point, the tactic [xsimpl] is defined.
     There remains to customize the tactic so that it recognizes
-    the predicate [p ~~~> v] in a special way when performing
+    the predicate [p ~~> v] in a special way when performing
     simplifications. *)
 
 (*  Internal hack: (the comment only makes sense in the context of [SepSimpl]).
     [xsimpl_pick_hsingle H] applies to a goal of the form
     [Xsimpl (Hla, Hlw, Hlt) HR], where [Hla] is of the form
-    [H1 \* .. \* Hn \* \[]], and where [H] is of the form [p ~~~> v]
-    It searches for [p ~~~> v'] among the [Hi]. If it finds it, it
+    [H1 \* .. \* Hn \* \[]], and where [H] is of the form [p ~~> v]
+    It searches for [p ~~> v'] among the [Hi]. If it finds it, it
     moves this [Hi] to the front, just before [H1]. Else, it fails. *)
 
 Ltac xsimpl_pick_hsingle H :=
@@ -940,7 +940,7 @@ Ltac xsimpl_pick_hsingle H :=
 
 (** Internal hack:
     The following instantiation of the [xsimpl] hook enables the tactic
-    to simplify [p ~~~> v] against [p ~~~> v'] by generating the
+    to simplify [p ~~> v] against [p ~~> v'] by generating the
     side-condition [v = v']. *)
 
 Ltac xsimpl_hook H ::=
@@ -1189,7 +1189,7 @@ Qed.
 Lemma hoare_ref : forall H v,
   hoare (val_ref v)
     H
-    (fun r => (\exists l, \[r = val_loc l] \* l ~~~> v) \* H).
+    (fun r => (\exists l, \[r = val_loc l] \* l ~~> v) \* H).
 Proof using.
   intros. intros s1 K0.
   forwards~ (l&D&N): (Fmap.single_fresh 0%nat s1 v).
@@ -1201,8 +1201,8 @@ Qed.
 
 Lemma hoare_get : forall H v l,
   hoare (val_get l)
-    ((l ~~~> v) \* H)
-    (fun r => \[r = v] \* (l ~~~> v) \* H).
+    ((l ~~> v) \* H)
+    (fun r => \[r = v] \* (l ~~> v) \* H).
 Proof using.
   intros. intros s K0. exists s v. split.
   { destruct K0 as (s1&s2&P1&P2&D&U).
@@ -1213,8 +1213,8 @@ Qed.
 
 Lemma hoare_set : forall H w l v,
   hoare (val_set (val_loc l) w)
-    ((l ~~~> v) \* H)
-    (fun r => \[r = val_unit] \* (l ~~~> w) \* H).
+    ((l ~~> v) \* H)
+    (fun r => \[r = val_unit] \* (l ~~> w) \* H).
 Proof using.
   intros. intros s1 K0.
   destruct K0 as (h1&h2&P1&P2&D&U).
@@ -1229,7 +1229,7 @@ Qed.
 
 Lemma hoare_free : forall H l v,
   hoare (val_free (val_loc l))
-    ((l ~~~> v) \* H)
+    ((l ~~> v) \* H)
     (fun r => \[r = val_unit] \* H).
 Proof using.
   intros. intros s1 K0.
@@ -1403,30 +1403,30 @@ Qed.
 Lemma triple_ref : forall v,
   triple (val_ref v)
     \[]
-    (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
+    (fun r => \exists l, \[r = val_loc l] \* l ~~> v).
 Proof using.
   intros. unfold triple. intros H'. applys hoare_conseq hoare_ref; xsimpl~.
 Qed.
 
 Lemma triple_get : forall v l,
   triple (val_get l)
-    (l ~~~> v)
-    (fun r => \[r = v] \* (l ~~~> v)).
+    (l ~~> v)
+    (fun r => \[r = v] \* (l ~~> v)).
 Proof using.
   intros. unfold triple. intros H'. applys hoare_conseq hoare_get; xsimpl~.
 Qed.
 
 Lemma triple_set : forall w l v,
   triple (val_set (val_loc l) w)
-    (l ~~~> v)
-    (fun r => \[r = val_unit] \* l ~~~> w).
+    (l ~~> v)
+    (fun r => \[r = val_unit] \* l ~~> w).
 Proof using.
   intros. unfold triple. intros H'. applys hoare_conseq hoare_set; xsimpl~.
 Qed.
 
 Lemma triple_free : forall l v,
   triple (val_free (val_loc l))
-    (l ~~~> v)
+    (l ~~> v)
     (fun r => \[r = val_unit]).
 Proof using.
   intros. unfold triple. intros H'. applys hoare_conseq hoare_free; xsimpl~.
@@ -2299,8 +2299,8 @@ Definition incr : val :=
 
 Lemma triple_incr : forall (p:loc) (n:int),
   TRIPLE (trm_app incr p)
-    PRE (p ~~~> n)
-    POST (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+    PRE (p ~~> n)
+    POST (fun v => \[v = val_unit] \* (p ~~> (n+1))).
 Proof using.
   xwp. xapp. xapp. xapp. xsimpl*.
 Qed.
@@ -2367,14 +2367,14 @@ Definition myfun : val :=
 
 Lemma triple_myfun : forall (p:loc) (n:int),
   TRIPLE (trm_app myfun p)
-    PRE (p ~~~> n)
-    POST (fun _ => p ~~~> (n+2)).
+    PRE (p ~~> n)
+    POST (fun _ => p ~~> (n+2)).
 Proof using.
   xwp.
   xfun (fun (f:val) => forall (m:int),
     TRIPLE (f '())
-      PRE (p ~~~> m)
-      POST (fun _ => p ~~~> (m+1))); intros f Hf.
+      PRE (p ~~> m)
+      POST (fun _ => p ~~> (m+1))); intros f Hf.
   { intros. applys Hf. clear Hf. xapp. xsimpl. }
   xapp.
   xapp.

@@ -94,20 +94,20 @@ Definition succ_using_incr :=
     reference cell allocated by the function cannot be discarded, because
     the code considered does not include a deallocation operation. Thus,
     we are forced to include in the postcondition the description of a
-    left-over reference with a heap predicate, e.g., [\exists p, p ~~~> (n+1)],
-    or [\exists p m, p ~~~> m]. *)
+    left-over reference with a heap predicate, e.g., [\exists p, p ~~> (n+1)],
+    or [\exists p m, p ~~> m]. *)
 
 Lemma triple_succ_using_incr : forall (n:int),
   triple (succ_using_incr n)
     \[]
-    (fun r => \[r = n+1] \* \exists p, (p ~~~> (n+1))).
+    (fun r => \[r = n+1] \* \exists p, (p ~~> (n+1))).
 Proof using.
   xwp. xapp. intros p. xapp. xapp. xsimpl. auto.
 Qed.
 
 (** If we try to prove a specification that does not mention the left-over
     reference, then we get stuck with a proof obligation of the form
-    [p ~~~> (n+1) ==> \[]]. *)
+    [p ~~> (n+1) ==> \[]]. *)
 
 Lemma triple_succ_using_incr' : forall (n:int),
   triple (succ_using_incr n)

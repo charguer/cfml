@@ -40,7 +40,7 @@ Implicit Types p q : loc.
       for carrying out the verification proofs.
 
     The "heap predicates" used to describe memory states include:
-    - [p ~~~> n], which describes a memory cell at location [p] with contents [n],
+    - [p ~~> n], which describes a memory cell at location [p] with contents [n],
     - [\[]], which describes an empty state,
     - [\[P]], which also describes an empty state, and moreover asserts that
       the proposition [P] is true,
@@ -116,22 +116,22 @@ Definition incr : val :=
 
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (incr p)
-    (p ~~~> n)
-    (fun _ => (p ~~~> (n+1))).
+    (p ~~> n)
+    (fun _ => (p ~~> (n+1))).
 
 (** Above, [p] denotes the address in memory of the reference cell provided
     as argument to the increment function. In technical vocabulary, [p]
     is the "location" of a reference cell. All locations have type [loc],
     thus the argument [p] of [incr] has type [loc].
 
-    In Separation Logic, the "heap predicate" [p ~~~> n] describes a memory
+    In Separation Logic, the "heap predicate" [p ~~> n] describes a memory
     state in which the contents of the location [p] is the value [n].
     In the present example, [n] denotes an integer value.
 
     The behavior of the operation [incr p] consists of updating the memory
     state by incrementing the contents of the cell at location [p], so that
     its new contents is [n+1]. Thus, the memory state posterior to the
-    increment operation can be described by the heap predicate [p ~~~> (n+1)].
+    increment operation can be described by the heap predicate [p ~~> (n+1)].
 
     The result value returned by [incr p] is the unit value, which does not
     carry any useful information. In the specification of [incr], the
@@ -144,14 +144,14 @@ Lemma triple_incr : forall (p:loc) (n:int),
       (here, [n]) used to describe the input state.
     - The application of the predicate [triple] to the function application
       [incr p], which is the term being specified by the triple.
-    - The precondition describing the input state, here [p ~~~> n].
+    - The precondition describing the input state, here [p ~~> n].
     - The postcondition describing both the output value and the output state.
       The general pattern is [fun r => H'], where [r] denotes the name of
       the result, and [H'] describes the final state. Here, the final
-      state is described by [p ~~~> (n+1)]. *)
+      state is described by [p ~~> (n+1)]. *)
 
-(** Remark: we have to write [p ~~~> (n+1)] using parentheses around [n+1],
-    because [p ~~~> n+1] would get parsed as [(p ~~~> n) + 1]. *)
+(** Remark: we have to write [p ~~> (n+1)] using parentheses around [n+1],
+    because [p ~~> n+1] would get parsed as [(p ~~> n) + 1]. *)
 
 (** Our next step is to prove the specification lemma [triple_incr] which
     specifies the behavior of the function [incr]. We conduct the
@@ -175,7 +175,7 @@ Proof using.
  (*  The remaining of the proof performs some form of symbolic
      execution. One should not attempt to read the full proof
      obligation at each step, but instead only look at the current
-     state, described by the [PRE] part (here, [p ~~~> n]), and at
+     state, described by the [PRE] part (here, [p ~~> n]), and at
      the first line only of the [CODE] part, where one can read
      the code of the next operation to reason about.
 
@@ -185,7 +185,7 @@ Proof using.
               the read operation returns the value [n]. *)
   xapp.    (* Reason about the addition operation [n+1]. *)
   xapp.    (* Reason about the update operation [p := n+1],
-              thereby updating the state to [p ~~~> (n+1)]. *)
+              thereby updating the state to [p ~~> (n+1)]. *)
   xsimpl.  (* At this stage, the proof obligation takes the form [_ ==> _],
               which require checking that the final state matches what
               is claimed in the postcondition. [xsimpl] takes care of it. *)
@@ -326,8 +326,8 @@ Definition inplace_double : val :=
 (* SOLUTION *)
 Lemma triple_inplace_double : forall (p:loc) (n:int),
   triple (inplace_double p)
-    (p ~~~> n)
-    (fun _ => p ~~~> (2*n)).
+    (p ~~> n)
+    (fun _ => p ~~> (2*n)).
 Proof using.
   xwp. xapp. xapp. xapp. xsimpl. math.
 Qed.
@@ -358,23 +358,23 @@ Definition incr_two : val :=
     [triple (incr_two p q) H (fun _ => H')],
     where [r] denotes the result value of type unit.
 
-    The precondition describes two references cells: [p ~~~> n]
-    and [q ~~~> m]. To assert that the two cells are distinct from
+    The precondition describes two references cells: [p ~~> n]
+    and [q ~~> m]. To assert that the two cells are distinct from
     each other, we separate their description with the operator [\*].
     This operator called "separating conjunction" in Separation Logic,
     and is also known as the "star" operator. Thus, the precondition
-    is [(p ~~~> n) \* (q ~~~> m)], or simply [p ~~~> n \* q ~~~> m].
+    is [(p ~~> n) \* (q ~~> m)], or simply [p ~~> n \* q ~~> m].
 
     The postcondition describes the final state as
-    is [p ~~~> (n+1) \* q ~~~> (m+1)], where the contents of both
+    is [p ~~> (n+1) \* q ~~> (m+1)], where the contents of both
     cells is increased by one unit compared with the precondition.
 
     The specification triple for [incr_two] is thus as follows. *)
 
 Lemma triple_incr_two : forall (p q:loc) (n m:int),
   triple (incr_two p q)
-    (p ~~~> n \* q ~~~> m)
-    (fun _ => p ~~~> (n+1) \* q ~~~> (m+1)).
+    (p ~~> n \* q ~~> m)
+    (fun _ => p ~~> (n+1) \* q ~~> (m+1)).
 
 (** The verification proof follows the usual pattern. *)
 
@@ -395,8 +395,8 @@ Hint Resolve triple_incr_two : triple.
     function [incr_two] when providing it with two distinct reference cells.
     Yet, it says nothing about a call of the form [incr_two p p].
 
-    Indeed, in Separation Logic, a state described by [p ~~~> n] cannot
-    be matched against a state described by [p ~~~> n \* p ~~~> n], because
+    Indeed, in Separation Logic, a state described by [p ~~> n] cannot
+    be matched against a state described by [p ~~> n \* p ~~> n], because
     the star operator requires its operand to correspond to disjoint pieces
     of state.
 
@@ -416,8 +416,8 @@ Definition aliased_call : val :=
 
 Lemma triple_aliased_call : forall (p:loc) (n:int),
   triple (aliased_call p)
-    (p ~~~> n)
-    (fun _ => p ~~~> (n+2)).
+    (p ~~> n)
+    (fun _ => p ~~> (n+2)).
 
 (** If we attempt the proof, we get stuck. Observe how [xapp] reports its
     failure to make progress. *)
@@ -427,30 +427,30 @@ Proof using.
 Abort.
 
 (** In the above proof, we get stuck with a proof obligation of the form:
-    [\[] ==> (p ~~~> ?m) \* _], which requires showing that
-    from an empty state one can extract a reference [p ~~~> ?m]
+    [\[] ==> (p ~~> ?m) \* _], which requires showing that
+    from an empty state one can extract a reference [p ~~> ?m]
     for some integer [?m].
 
-    What happened is that when matching the current state [p ~~~> n]
-    against [p ~~~> ?n \* p ~~~> ?m] (which corresponds to the precondition
+    What happened is that when matching the current state [p ~~> n]
+    against [p ~~> ?n \* p ~~> ?m] (which corresponds to the precondition
     of [triple_incr_two] with [q = p]), the internal simplification tactic
-    was able to cancel out [p ~~~> n] in both expressions, but then got
-    stuck with matching the empty state against [p ~~~> ?m]. *)
+    was able to cancel out [p ~~> n] in both expressions, but then got
+    stuck with matching the empty state against [p ~~> ?m]. *)
 
 (** The issue here is that the specification [triple_incr_two] is
     specialized for the case of non-aliased references.
 
     It is possible to state and prove an alternative specification for
     the function [incr_two], to cover the case of aliased arguments.
-    Its precondition mentions only one reference, [p ~~~> n], and its
+    Its precondition mentions only one reference, [p ~~> n], and its
     postcondition asserts that its contents gets increased by two units.
 
     This alternative specification can be stated and proved as follows. *)
 
 Lemma triple_incr_two_aliased : forall (p:loc) (n:int),
   triple (incr_two p p)
-    (p ~~~> n)
-    (fun _ => p ~~~> (n+2)).
+    (p ~~> n)
+    (fun _ => p ~~> (n+2)).
 Proof using.
   xwp. xapp. xapp. xsimpl. math.
 Qed.
@@ -463,8 +463,8 @@ Qed.
 
 Lemma triple_aliased_call : forall (p:loc) (n:int),
   triple (aliased_call p)
-    (p ~~~> n)
-    (fun _ => p ~~~> (n+2)).
+    (p ~~> n)
+    (fun _ => p ~~> (n+2)).
 Proof using.
   xwp. xapp triple_incr_two_aliased. xsimpl.
 Qed.
@@ -487,13 +487,13 @@ Definition incr_first : val :=
     incr 'p.
 
 (** We can specify this function by describing its input state
-    as [p ~~~> n \* q ~~~> m], and describing its output state
-    as [p ~~~> (n+1) \* q ~~~> m]. Formally: *)
+    as [p ~~> n \* q ~~> m], and describing its output state
+    as [p ~~> (n+1) \* q ~~> m]. Formally: *)
 
 Lemma triple_incr_first : forall (p q:loc) (n m:int),
   triple (incr_first p q)
-    (p ~~~> n \* q ~~~> m)
-    (fun _ => p ~~~> (n+1) \* q ~~~> m).
+    (p ~~> n \* q ~~> m)
+    (fun _ => p ~~> (n+1) \* q ~~> m).
 Proof using.
   xwp. xapp. xsimpl.
 Qed.
@@ -505,8 +505,8 @@ Qed.
 
 Lemma triple_incr_first' : forall (p q:loc) (n:int),
   triple (incr_first p q)
-    (p ~~~> n)
-    (fun _ => p ~~~> (n+1)).
+    (p ~~> n)
+    (fun _ => p ~~> (n+1)).
 Proof using.
   xwp. xapp. xsimpl.
 Qed.
@@ -525,8 +525,8 @@ Qed.
 
 Lemma triple_incr_first_derived : forall (p q:loc) (n m:int),
   triple (incr_first p q)
-    (p ~~~> n \* q ~~~> m)
-    (fun _ => p ~~~> (n+1) \* q ~~~> m).
+    (p ~~> n \* q ~~> m)
+    (fun _ => p ~~> (n+1) \* q ~~> m).
 Proof using.
   xtriple. xapp triple_incr_first'. xsimpl.
 Qed.
@@ -566,8 +566,8 @@ Definition transfer : val :=
 (* SOLUTION *)
 Lemma triple_transfer : forall (p q:loc) (n m:int),
   triple (transfer p q)
-    (p ~~~> n \* q ~~~> m)
-    (fun _ => p ~~~> (n + m) \* q ~~~> 0).
+    (p ~~> n \* q ~~> m)
+    (fun _ => p ~~> (n + m) \* q ~~> 0).
 Proof using.
   xwp. xapp. xapp. xapp. xapp. xapp. xsimpl.
 Qed.
@@ -583,8 +583,8 @@ Qed.
 (* SOLUTION *)
 Lemma triple_transfer_aliased : forall (p:loc) (n:int),
   triple (transfer p p)
-    (p ~~~> n)
-    (fun _ => p ~~~> 0).
+    (p ~~> n)
+    (fun _ => p ~~> 0).
 Proof using.
   xwp. xapp. xapp. xapp. xapp. xapp. xsimpl.
 Qed.
@@ -612,8 +612,8 @@ Definition ref_greater : val :=
     'ref 'm.
 
 (** The precondition of [ref_greater] asserts the existence of a cell
-    [p ~~~> n]. The postcondition of [ref_greater] asserts the existence
-    of two cells, [p ~~~> n] and [q ~~~> (n+1)], where [q] denotes the
+    [p ~~> n]. The postcondition of [ref_greater] asserts the existence
+    of two cells, [p ~~> n] and [q ~~> (n+1)], where [q] denotes the
     location returned by the function.
 
     The postcondition of a triple must be of type [val->hprop]. Thus,
@@ -632,8 +632,8 @@ Definition ref_greater : val :=
 
 Lemma triple_ref_greater : forall (p:loc) (n:int),
   triple (ref_greater p)
-    (p ~~~> n)
-    (fun r => \exists q, \[r = val_loc q] \* p ~~~> n \* q ~~~> (n+1)).
+    (p ~~> n)
+    (fun r => \exists q, \[r = val_loc q] \* p ~~> n \* q ~~> (n+1)).
 Proof using.
   xwp. xapp. xapp. xapp. intros q. xsimpl. auto.
 Qed.
@@ -655,8 +655,8 @@ Qed.
 (* SOLUTION *)
 Lemma triple_ref_greater_abstract : forall (p:loc) (n:int),
   triple (ref_greater p)
-    (p ~~~> n)
-    (fun r => \exists q m, \[r = val_loc q] \* \[m > n] \* q ~~~> m \* p ~~~> n).
+    (p ~~> n)
+    (fun r => \exists q m, \[r = val_loc q] \* \[m > n] \* q ~~> m \* p ~~> n).
 Proof using.
   xtriple. xapp triple_ref_greater. xsimpl. { auto. } { math. }
 Qed.
@@ -706,7 +706,7 @@ Proof using.
 Abort.
 
 (** In the above proof script, we get stuck with the entailment
-    [p ~~~> (n+1) ==> \[]], which indicates that the current state contains
+    [p ~~> (n+1) ==> \[]], which indicates that the current state contains
     a reference, whereas the postcondition describes an empty state. *)
 
 (** We could attempt to patch the specification to account for the left-over
@@ -715,7 +715,7 @@ Abort.
 Lemma triple_succ_using_incr_attempt' : forall (n:int),
   triple (succ_using_incr_attempt n)
     \[]
-    (fun r => \[r = n+1] \* \exists p, (p ~~~> (n+1))).
+    (fun r => \[r = n+1] \* \exists p, (p ~~> (n+1))).
 Proof using.
   xwp. xapp. intros p. xapp. xapp. xsimpl. { auto. }
 Qed.
@@ -723,9 +723,9 @@ Qed.
 (** While the above specification is provable, it is not quite usable.
 
     Indeed, the above specification features a piece of postcondition
-    [\exists p, p ~~~> (n+1)] that is of absolutely no use to the caller
+    [\exists p, p ~~> (n+1)] that is of absolutely no use to the caller
     of the function. Worse, the caller will have its state polluted with
-    [\exists p, p ~~~> (n+1)] and will have no way to get rid of it apart
+    [\exists p, p ~~> (n+1)] and will have no way to get rid of it apart
     from returning it into its own postcondition. *)
 
 (** The right solution is to patch the code, to free the reference once
@@ -955,16 +955,16 @@ Definition repeat_incr : val :=
 
 (** The specification for [repeat_incr p] requires that the initial
     state contains a reference [p] with some integer contents [n],
-    that is, [p ~~~> n]. Its postcondition asserts that the resulting
-    state is [p ~~~> (n+m)], which is the result after incrementing
+    that is, [p ~~> n]. Its postcondition asserts that the resulting
+    state is [p ~~> (n+m)], which is the result after incrementing
     [m] times the reference [p]. Observe that this postcondition is
     only valid under the assumption that [m >= 0]. *)
 
 Lemma triple_repeat_incr : forall (m n:int) (p:loc),
   m >= 0 ->
   triple (repeat_incr p m)
-    (p ~~~> n)
-    (fun _ => p ~~~> (n + m)).
+    (p ~~> n)
+    (fun _ => p ~~> (n + m)).
 
 (* EX2! (triple_repeat_incr) *)
 (** Prove the function [triple_repeat_incr].
@@ -990,8 +990,8 @@ Qed. (* /ADMITTED *)
 Lemma triple_repeat_incr' : forall (p:loc) (n m:int),
   m >= 0 ->
   triple (repeat_incr p m)
-    (p ~~~> n)
-    (fun _ => p ~~~> (n + m)).
+    (p ~~> n)
+    (fun _ => p ~~> (n + m)).
 Proof using.
   (* First, introduces all variables and hypotheses. *)
   intros n m Hm.
@@ -1039,8 +1039,8 @@ Definition step_transfer :=
 Lemma triple_step_transfer : forall p q n m,
   m >= 0 ->
   triple (step_transfer p q)
-    (p ~~~> n \* q ~~~> m)
-    (fun _ => p ~~~> (n + m) \* q ~~~> 0).
+    (p ~~> n \* q ~~> m)
+    (fun _ => p ~~> (n + m) \* q ~~> 0).
 
 (* EX2! (triple_step_transfer) *)
 (** Verify the function [step_transfer].
@@ -1224,13 +1224,13 @@ Qed.
 
     Clearly, something should break in the proof, because when [m < 0],
     the call [repeat_incr p m] terminates immediately. Thus, when [m < 0]
-    the final state is like the initial state [p ~~~> n], and not equal
-    to [p ~~~> (n + m)]. Let us investigate how the proof breaks. *)
+    the final state is like the initial state [p ~~> n], and not equal
+    to [p ~~> (n + m)]. Let us investigate how the proof breaks. *)
 
 Lemma triple_repeat_incr_incorrect : forall (p:loc) (n m:int),
   triple (repeat_incr p m)
-    (p ~~~> n)
-    (fun _ => p ~~~> (n + m)).
+    (p ~~> n)
+    (fun _ => p ~~> (n + m)).
 Proof using.
   intros. revert n. induction_wf IH: (downto 0) m. unfold downto in IH.
   intros. xwp. xapp. xif; intros C.
@@ -1239,7 +1239,7 @@ Proof using.
   { (* In the 'else' branch: [m <= 0] *)
     xval.
     (* Here, we are requested to justify that the current state
-       [p ~~~> n] matches the postcondition [p ~~~> (n + m)], which
+       [p ~~> n] matches the postcondition [p ~~> (n + m)], which
        amounts to proving [n = n + m]. *)
     xsimpl.
     (* When the specification features the assumption [m >= 0],
@@ -1251,12 +1251,12 @@ Abort.
 
 (** Note that there exists a valid specification for [repeat_incr] that
     does not constraint [m], but instead specifies that the state
-    always evolves from [p ~~~> n] to [p ~~~> (n + max 0 m)]. *)
+    always evolves from [p ~~> n] to [p ~~> (n + max 0 m)]. *)
 
 Lemma triple_repeat_incr' : forall (p:loc) (n m:int),
   triple (repeat_incr p m)
-    (p ~~~> n)
-    (fun _ => p ~~~> (n + max 0 m)).
+    (p ~~> n)
+    (fun _ => p ~~> (n + max 0 m)).
 
 (** Let's prove the above specification, which, by the way, is the
     most-general specification for the function [repeat_incr].

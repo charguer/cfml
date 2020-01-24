@@ -652,14 +652,14 @@ Parameter triple_div' : forall n1 n2,
     A call of the form [val_get v'] executes safely if [v'] is of the
     form [val_loc l] for some location [l], in a state that features
     a memory cell at location [l], storing some contents [v]. Such a state
-    is described as [l ~~~> v]. The read operation returns a value [r]
+    is described as [l ~~> v]. The read operation returns a value [r]
     such that [r = v], and the memory state of the operation remains
     unchanged. The specification of [val_get] is thus expressed as follows. *)
 
 Parameter triple_get : forall v l,
   triple (val_get (val_loc l))
-    (l ~~~> v)
-    (fun r => \[r = v] \* (l ~~~> v)).
+    (l ~~> v)
+    (fun r => \[r = v] \* (l ~~> v)).
 
 (** Remark: [val_loc] is registered as a coercion, so [val_get (val_loc l)]
     could be written simply as [val_get l], where [l] has type [loc].
@@ -667,21 +667,21 @@ Parameter triple_get : forall v l,
 
 (** Recall that [val_set] denotes the operation for writing a memory cell.
     A call of the form [val_set v' w] executes safely if [v'] is of the
-    form [val_loc l] for some location [l], in a state [l ~~~> v].
-    The write operation updates this state to [l ~~~> w], and returns
+    form [val_loc l] for some location [l], in a state [l ~~> v].
+    The write operation updates this state to [l ~~> w], and returns
     the unit value. In other words, it returns a value [r] such that
     [r = val_unit]. Hence, [val_set] is specified as follows. *)
 
 Parameter triple_set : forall w l v,
   triple (val_set (val_loc l) w)
-    (l ~~~> v)
-    (fun r => \[r = val_unit] \* l ~~~> w).
+    (l ~~> v)
+    (fun r => \[r = val_unit] \* l ~~> w).
 
 (** Recall that [val_ref] denotes the operation for allocating a cell
     with a given contents. A call to [val_ref v] does not depend on
     the contents of the existing state. It extends the state with a fresh
     singleton cell, at some location [l], assigning it [v] as contents.
-    The fresh cell is then described by the heap predicate [l ~~~> v].
+    The fresh cell is then described by the heap predicate [l ~~> v].
     The evaluation of [val_ref v] produces the value [val_loc l]. Thus,
     if [r] denotes the result value, we have [r = val_loc l] for some [l].
     In the corresponding specification shown below, observe how the
@@ -690,16 +690,16 @@ Parameter triple_set : forall w l v,
 Parameter triple_ref : forall v,
   triple (val_ref v)
     \[]
-    (fun (r:val) => \exists (l:loc), \[r = val_loc l] \* l ~~~> v).
+    (fun (r:val) => \exists (l:loc), \[r = val_loc l] \* l ~~> v).
 
 (** Recall that [val_free] denotes the operation for deallocating a cell
     at a given address. A call of the form [val_free l] executes safely
-    in a state [l ~~~> v]. The operation leaves an empty state, and
+    in a state [l ~~> v]. The operation leaves an empty state, and
     asserts that the return value, named [r], is equal to unit. *)
 
 Parameter triple_free : forall l v,
   triple (val_free (val_loc l))
-    (l ~~~> v)
+    (l ~~> v)
     (fun r => \[r = val_unit]).
 
 
@@ -810,13 +810,13 @@ Lemma incr_eq_incr' :
 Proof using. reflexivity. Qed.
 
 (** Recall from the first chapter the specification of the increment function.
-    Its precondition requires a singleton state of the form [p ~~~> n].
-    Its postcondition describes a state of the form [p ~~~> (n+1)]. *)
+    Its precondition requires a singleton state of the form [p ~~> n].
+    Its postcondition describes a state of the form [p ~~> (n+1)]. *)
 
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
-    (p ~~~> n)
-    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+    (p ~~> n)
+    (fun v => \[v = val_unit] \* (p ~~> (n+1))).
 
 (** We next show a detailed proof for this specification. It exploits:
 
@@ -839,7 +839,7 @@ Proof using.
   apply triple_hpure. intros ->.
   (* reason about [let m = ..] *)
   applys triple_let.
-  (* apply the frame rule to put aside [p ~~~> n] *)
+  (* apply the frame rule to put aside [p ~~> n] *)
   { applys triple_conseq_frame.
     (* reason about [n+1] in the empty state *)
     { applys triple_add. }
@@ -1384,12 +1384,12 @@ Qed.
 
 [[
     triple (val_get l)
-      (l ~~~> v)
-      (fun r => \[r = v] \* (l ~~~> v)).
+      (l ~~> v)
+      (fun r => \[r = v] \* (l ~~> v)).
 ]]
 
     Establishing this lemma requires us to reason about propositions
-    of the form [(\[P] \* H) h] and [(l ~~~> v) h]. To that end,
+    of the form [(\[P] \* H) h] and [(l ~~> v) h]. To that end,
     recall from the first chapter the following two lemmas.
     The first one was already used in the proof of [triple_add].
     The second one in the inversion lemma for the singleton heap
@@ -1399,7 +1399,7 @@ Parameter hstar_hpure_iff' : forall P H h,
   (\[P] \* H) h <-> (P /\ H h).
 
 Parameter hsingle_inv: forall l v h,
-  (l ~~~> v) h ->
+  (l ~~> v) h ->
   h = Fmap.single l v.
 
 (** We establish the specification of [get] first w.r.t. to
@@ -1407,8 +1407,8 @@ Parameter hsingle_inv: forall l v h,
 
 Lemma hoare_get : forall H v l,
   hoare (val_get l)
-    ((l ~~~> v) \* H)
-    (fun r => \[r = v] \* (l ~~~> v) \* H).
+    ((l ~~> v) \* H)
+    (fun r => \[r = v] \* (l ~~> v) \* H).
 Proof using.
   (* 1. We unfold the definition of [hoare]. *)
   intros. intros s K0.
@@ -1420,7 +1420,7 @@ Proof using.
           [Fmap.single l v] and the rest of the state [s2]. This is
           obtained by eliminating the star in hypothesis [K0]. *)
     destruct K0 as (s1&s2&P1&P2&D&U).
-    (* 4. Inverting [(l ~~~> v) h1] simplifies the goal. *)
+    (* 4. Inverting [(l ~~> v) h1] simplifies the goal. *)
     lets E1: hsingle_inv P1. subst s1.
     (* 5. At this point, the goal matches exactly [eval_get_sep]. *)
     applys eval_get_sep U. }
@@ -1435,8 +1435,8 @@ Qed.
 
 Lemma triple_get : forall v l,
   triple (val_get l)
-    (l ~~~> v)
-    (fun r => \[r = v] \* (l ~~~> v)).
+    (l ~~> v)
+    (fun r => \[r = v] \* (l ~~> v)).
 Proof using.
   intros. intros H'. applys hoare_conseq.
   { applys hoare_get. }
@@ -1506,7 +1506,7 @@ Qed.
 Lemma hoare_ref : forall H v,
   hoare (val_ref v)
     H
-    (fun r => (\exists l, \[r = val_loc l] \* l ~~~> v) \* H).
+    (fun r => (\exists l, \[r = val_loc l] \* l ~~> v) \* H).
 Proof using.
   (* 1. We unfold the definition of [hoare]. *)
   intros. intros s1 K0.
@@ -1519,7 +1519,7 @@ Proof using.
   { (* 4. We exploit [eval_ref_sep], which has exactly the desired shape! *)
     applys eval_ref_sep D. auto. }
   { (* 5. We establish the postcondition
-          [(\exists l, \[r = val_loc l] \* l ~~~> v) \* H]
+          [(\exists l, \[r = val_loc l] \* l ~~> v) \* H]
           by providing [p] and the relevant pieces of heap. *)
     applys hstar_intro.
     { exists l. rewrite hstar_hpure.
@@ -1533,7 +1533,7 @@ Qed.
 Lemma triple_ref : forall v,
   triple (val_ref v)
     \[]
-    (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
+    (fun r => \exists l, \[r = val_loc l] \* l ~~> v).
 Proof using.
   intros. intros H'. applys hoare_conseq.
   { applys hoare_ref. }
@@ -1785,15 +1785,15 @@ Qed.
 
     - the lemma [hstar_hpure_iff], already used earlier in this chapter
       to reformulate [(\[P] \* H) h] as [P /\ H h],
-    - the lemma [hsingle_intro], to prove [(l ~~~> v) (Fmap.single l v)],
+    - the lemma [hsingle_intro], to prove [(l ~~> v) (Fmap.single l v)],
     - and the lemma [hstar_intro], to prove [(H1 \* H2) (h1 \u h2)]. *)
 
 (** Let's now dive in the proof of the Hoare triple for [set]. *)
 
 Lemma hoare_set : forall H w l v,
   hoare (val_set (val_loc l) w)
-    ((l ~~~> v) \* H)
-    (fun r => \[r = val_unit] \* (l ~~~> w) \* H).
+    ((l ~~> v) \* H)
+    (fun r => \[r = val_unit] \* (l ~~> w) \* H).
 Proof using.
   (* 1. We unfold the definition of [hoare]. *)
   intros. intros s1 K0.
@@ -1810,7 +1810,7 @@ Proof using.
     { auto. }
     { (* 7. Then establish the star. *)
       applys hstar_intro.
-      { (* 8. We establish the heap predicate [l ~~~> w] *)
+      { (* 8. We establish the heap predicate [l ~~> w] *)
         applys hsingle_intro. auto. }
       { applys P2. }
       { (* 9. Finally, we justify disjointness using the lemma
@@ -1822,8 +1822,8 @@ Qed.
 
 Lemma triple_set : forall w l v,
   triple (val_set (val_loc l) w)
-    (l ~~~> v)
-    (fun r => \[r = val_unit] \* l ~~~> w).
+    (l ~~> v)
+    (fun r => \[r = val_unit] \* l ~~> w).
 Proof using.
   intros. intros H'. applys hoare_conseq.
   { applys hoare_set. }
@@ -1861,7 +1861,7 @@ Parameter eval_free_sep : forall s1 s2 v l,
 
 Lemma hoare_free : forall H l v,
   hoare (val_free (val_loc l))
-    ((l ~~~> v) \* H)
+    ((l ~~> v) \* H)
     (fun r => \[r = val_unit] \* H).
 Proof using. (* ADMITTED *)
   intros. intros s1 K0.
@@ -1881,7 +1881,7 @@ Qed. (* /ADMITTED *)
 
 Lemma triple_free : forall l v,
   triple (val_free (val_loc l))
-    (l ~~~> v)
+    (l ~~> v)
     (fun r => \[r = val_unit]).
 Proof using. (* ADMITTED *)
   intros. intros H'. applys hoare_conseq.
@@ -2133,7 +2133,7 @@ Module MatchStyle.
 Parameter triple_ref : forall v,
   triple (val_ref v)
     \[]
-    (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
+    (fun r => \exists l, \[r = val_loc l] \* l ~~> v).
 
 (** Its postcondition could be equivalently stated by using, instead
     of an existential quantifier [\exists], a pattern matching. *)
@@ -2142,7 +2142,7 @@ Parameter triple_ref' : forall v,
   triple (val_ref v)
     \[]
     (fun r => match r with
-              | val_loc l => (l ~~~> v)
+              | val_loc l => (l ~~> v)
               | _ => \[False]
               end).
 

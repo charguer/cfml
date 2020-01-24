@@ -876,8 +876,8 @@ Import ExamplePrograms.
 
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
-    (p ~~~> n)
-    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+    (p ~~> n)
+    (fun v => \[v = val_unit] \* (p ~~> (n+1))).
 Proof using.
   intros. applys triple_app_fun_from_wpgen. { reflexivity. }
   simpl. (* Read the goal here... *)
@@ -1107,8 +1107,8 @@ Open Scope wpgen_scope.
 
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
-    (p ~~~> n)
-    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+    (p ~~> n)
+    (fun v => \[v = val_unit] \* (p ~~> (n+1))).
 Proof using.
   intros. applys triple_app_fun_from_wpgen. { reflexivity. }
   simpl. (* Read the goal here... It is of the form [H ==> F Q],
@@ -1351,8 +1351,8 @@ Open Scope wpgen_scope.
 
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
-    (p ~~~> n)
-    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+    (p ~~> n)
+    (fun v => \[v = val_unit] \* (p ~~> (n+1))).
 Proof using.
   intros. applys triple_app_fun_from_wpgen. { reflexivity. }
   simpl.
@@ -1459,8 +1459,8 @@ Open Scope wpgen_scope.
 
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
-    (p ~~~> n)
-    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+    (p ~~> n)
+    (fun v => \[v = val_unit] \* (p ~~> (n+1))).
 Proof using.
   intros.
   applys xwp_lemma. { reflexivity. }
@@ -1586,8 +1586,8 @@ Open Scope wpgen_scope.
 
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
-    (p ~~~> n)
-    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+    (p ~~> n)
+    (fun v => \[v = val_unit] \* (p ~~> (n+1))).
 Proof using.
   xwp.
   xapp_nosubst triple_get. intros ? ->.
@@ -1629,7 +1629,7 @@ End ProofsWithXtactics.
     the specification [E] features a postcondition of the form
     [fun v => \[v = ..]] or of the form [fun v => \[v = ..] \* ..].
 
-    Likewise, the pattern [xapp_nosubst E. intros ? l ->.] appears 
+    Likewise, the pattern [xapp_nosubst E. intros ? l ->.] appears
     frequently. This pattern is typically useful whenever the
     specification [E] features a postcondition of the form
     [fun v => \exists p, \[v = ..] \* ... ].
@@ -1643,7 +1643,7 @@ End ProofsWithXtactics.
 
 Tactic Notation "xapp_try_subst" := (* for internal use only *)
   try match goal with
-  | |- forall (r:val), (r = _) -> _ => intros ? -> 
+  | |- forall (r:val), (r = _) -> _ => intros ? ->
   | |- forall (r:val), forall x, (r = _) -> _ =>
       let y := fresh x in intros ? y ->; revert y
   end.
@@ -1688,8 +1688,8 @@ Open Scope wpgen_scope.
 
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
-    (p ~~~> n)
-    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+    (p ~~> n)
+    (fun v => \[v = val_unit] \* (p ~~> (n+1))).
 Proof using.
   xwp. xapp. xapp. xapp. xsimpl. auto.
 Qed.
@@ -1794,16 +1794,16 @@ Open Scope wpgen_scope.
 
 Lemma triple_incr_frame : forall (p q:loc) (n m:int),
   triple (trm_app incr p)
-    (p ~~~> n \* q ~~~> m)
-    (fun v => \[v = val_unit] \* (p ~~~> (n+1)) \* (q ~~~> m)).
+    (p ~~> n \* q ~~> m)
+    (fun v => \[v = val_unit] \* (p ~~> (n+1)) \* (q ~~> m)).
 Proof using.
   xwp.
-  (* Instead of calling [xapp], let's put aside [q ~~~> m] and focus on [p ~~~> n]. *)
-  xframe (p ~~~> n). (* equivalent to [xframe_out (q ~~~> m)]. *)
-  (* Then we can work in a smaller state that mentions only [p ~~~> n]. *)
+  (* Instead of calling [xapp], let's put aside [q ~~> m] and focus on [p ~~> n]. *)
+  xframe (p ~~> n). (* equivalent to [xframe_out (q ~~> m)]. *)
+  (* Then we can work in a smaller state that mentions only [p ~~> n]. *)
   xapp. xapp. xapp.
   (* Finally we check the check that the current state augmented with
-     the framed predicate [q ~~~> m] matches with the claimed postcondition. *)
+     the framed predicate [q ~~> m] matches with the claimed postcondition. *)
   xsimpl. auto.
 Qed.
 

@@ -243,11 +243,11 @@ Qed. (* /ADMITTED *)
     state lemmas allowing to extract information from particular heap
     predicates. *)
 
-(** As first example, we show that from a singleton predicate [l ~~~> v],
+(** As first example, we show that from a singleton predicate [l ~~> v],
     one can extract the information [l <> null]. *)
 
 Lemma hsingle_not_null : forall l v,
-  (l ~~~> v) ==> (l ~~~> v) \* \[l <> null].
+  (l ~~> v) ==> (l ~~> v) \* \[l <> null].
 Proof using.
   introv. intros h Hh. lets (K&N): hsingle_inv Hh.
   rewrite hstar_comm. rewrite hstar_hpure_iff. split.
@@ -255,7 +255,7 @@ Proof using.
 Qed.
 
 (** As second example, we show that from a heap predicate of the form
-    [(l ~~~> v1) \* (l ~~~> v2)] describes two "disjoint" cells that
+    [(l ~~> v1) \* (l ~~> v2)] describes two "disjoint" cells that
     are both "at location [l]", one can extract a contradiction.
 
     Indeed, such a state cannot exist. The underlying contraction is
@@ -263,7 +263,7 @@ Qed.
     concludes [False]. *)
 
 Lemma hstar_hsingle_same_loc : forall (l:loc) (v1 v2:val),
-  (l ~~~> v1) \* (l ~~~> v2) ==> \[False].
+  (l ~~> v1) \* (l ~~> v2) ==> \[False].
 
 (** The proof of this result exploits a result on finite maps.
     Essentially, the domain of a single singleton map that binds
@@ -470,7 +470,7 @@ Qed.
     entailment relation, as illustrated through the following example. *)
 
 Lemma xsimpl_demo_lhs_hexists : forall H1 H2 H3 H4 (p:loc),
-  H1 \* \exists (n:int), (p ~~~> n \* H2) \* H3 ==> H4.
+  H1 \* \exists (n:int), (p ~~> n \* H2) \* H3 ==> H4.
 Proof using.
   intros. xsimpl. intros n.
 Abort.
@@ -479,7 +479,7 @@ Abort.
     all the pure facts and quantifiers from the LHS, as illustrated next. *)
 
 Lemma xsimpl_demo_lhs_several : forall H1 H2 H3 H4 (p q:loc),
-  H1 \* \exists (n:int), (p ~~~> n \* \[n > 0] \* H2) \* \[p <> q] \* H3 ==> H4.
+  H1 \* \exists (n:int), (p ~~> n \* \[n > 0] \* H2) \* \[p <> q] \* H3 ==> H4.
 Proof using.
   intros.
   xsimpl. (* or [xpull] *)
@@ -542,10 +542,10 @@ Abort.
 (** When it encounters an existential quantifier in the RHS, the [xsimpl]
     tactic introduces a unification variable denoted by a question mark,
     that is, an "evar", in Coq terminology. In the example below, the [xsimpl]
-    tactic turns [\exists n, .. p ~~~> n ..] into [.. p ~~~> ?x ..]. *)
+    tactic turns [\exists n, .. p ~~> n ..] into [.. p ~~> ?x ..]. *)
 
 Lemma xsimpl_demo_rhs_hexists : forall H1 H2 H3 H4 (p:loc),
-  H1 ==> H2 \* \exists (n:int), (p ~~~> n \* H3) \* H4.
+  H1 ==> H2 \* \exists (n:int), (p ~~> n \* H3) \* H4.
 Proof using.
   intros. xsimpl.
 Abort.
@@ -553,11 +553,11 @@ Abort.
 (** The "eval" often gets subsequently instantiated as a result of
     a cancellation step. For example, in the example below, [xsimpl]
     instantiates the existentially-quantified variable [n] as [?x],
-    then cancels out [p ~~~> ?x] from the LHS against [p ~~~> 3] on
+    then cancels out [p ~~> ?x] from the LHS against [p ~~> 3] on
     the right-hand-side, thereby unifying [?x] with [3]. *)
 
 Lemma xsimpl_demo_rhs_hexists_unify : forall H1 H2 H3 H4 (p:loc),
-  H1 \* (p ~~~> 3) ==> H2 \* \exists (n:int), (p ~~~> n \* H3) \* H4.
+  H1 \* (p ~~> 3) ==> H2 \* \exists (n:int), (p ~~> n \* H3) \* H4.
 Proof using.
   intros. xsimpl.
 Abort.
@@ -568,7 +568,7 @@ Abort.
     [n > 0] becomes [3 > 0]. *)
 
 Lemma xsimpl_demo_rhs_hexists_unify_view : forall H1 H2 H4 (p:loc),
-  H1 \* (p ~~~> 3) ==> H2 \* \exists (n:int), (p ~~~> n \* \[n > 0]) \* H4.
+  H1 \* (p ~~> 3) ==> H2 \* \exists (n:int), (p ~~> n \* \[n > 0]) \* H4.
 Proof using.
   intros. xsimpl.
 Abort.
@@ -580,7 +580,7 @@ Abort.
     or [xsimpl (>> v1 .. vn)] in the case [n > 3]. *)
 
 Lemma xsimpl_demo_rhs_hints : forall H1 (p q:loc),
-  H1 ==> \exists (n m:int), (p ~~~> n \* q ~~~> m).
+  H1 ==> \exists (n m:int), (p ~~> n \* q ~~> m).
 Proof using.
   intros. xsimpl 3 4.
 Abort.
@@ -593,7 +593,7 @@ Abort.
     as an unresolved evar. *)
 
 Lemma xsimpl_demo_rhs_hints_evar : forall H1 (p q:loc),
-  H1 ==> \exists (n m:int), (p ~~~> n \* q ~~~> m).
+  H1 ==> \exists (n m:int), (p ~~> n \* q ~~> m).
 Proof using.
   intros. xsimpl __ 4.
 Abort.
@@ -616,18 +616,18 @@ Proof using. intros. xsimpl. intros r. Abort.
 (** *** Example of entailment proofs using [xsimpl] *)
 
 Lemma himpl_example_1 : forall (p:loc),
-  p ~~~> 3 ==>
-  \exists (n:int), p ~~~> n.
+  p ~~> 3 ==>
+  \exists (n:int), p ~~> n.
 Proof using. xsimpl. Qed.
 
 Lemma himpl_example_2 : forall (p q:loc),
-  p ~~~> 3 \* q ~~~> 3 ==>
-  \exists (n:int), p ~~~> n \* q ~~~> n.
+  p ~~> 3 \* q ~~> 3 ==>
+  \exists (n:int), p ~~> n \* q ~~> n.
 Proof using. xsimpl. Qed.
 
 Lemma himpl_example_4 : forall (p:loc),
-  \exists (n:int), p ~~~> n ==>
-  \exists (m:int), p ~~~> (m + 1).
+  \exists (n:int), p ~~> n ==>
+  \exists (m:int), p ~~> (m + 1).
 Proof using.
   intros. (* observe that [xsimpl] here does not work well. *)
   xpull. intros n. xsimpl (n-1).
@@ -701,55 +701,55 @@ Implicit Types n m : int.
     whether it is true or false. Solutions appear further on. *)
 
 Parameter case_study_1 : forall p q,
-      p ~~~> 3 \* q ~~~> 4
-  ==> q ~~~> 4 \* p ~~~> 3.
+      p ~~> 3 \* q ~~> 4
+  ==> q ~~> 4 \* p ~~> 3.
 
 Parameter case_study_2 : forall p q,
-      p ~~~> 3
-  ==> q ~~~> 4 \* p ~~~> 3.
+      p ~~> 3
+  ==> q ~~> 4 \* p ~~> 3.
 
 Parameter case_study_3 : forall p q,
-      q ~~~> 4 \* p ~~~> 3
-  ==> p ~~~> 4.
+      q ~~> 4 \* p ~~> 3
+  ==> p ~~> 4.
 
 Parameter case_study_4 : forall p q,
-      q ~~~> 4 \* p ~~~> 3
-  ==> p ~~~> 3.
+      q ~~> 4 \* p ~~> 3
+  ==> p ~~> 3.
 
 Parameter case_study_5 : forall p q,
-      \[False] \* p ~~~> 3
-  ==> p ~~~> 4 \* q ~~~> 4.
+      \[False] \* p ~~> 3
+  ==> p ~~> 4 \* q ~~> 4.
 
 Parameter case_study_6 : forall p q,
-      p ~~~> 3 \* q ~~~> 4
+      p ~~> 3 \* q ~~> 4
   ==> \[False].
 
 Parameter case_study_7 : forall p,
-      p ~~~> 3 \* p ~~~> 4
+      p ~~> 3 \* p ~~> 4
   ==> \[False].
 
 Parameter case_study_8 : forall p,
-      p ~~~> 3 \* p ~~~> 3
+      p ~~> 3 \* p ~~> 3
   ==> \[False].
 
 Parameter case_study_9 : forall p,
-      p ~~~> 3
-  ==> \exists n, p ~~~> n.
+      p ~~> 3
+  ==> \exists n, p ~~> n.
 
 Parameter case_study_10 : forall p,
-      exists n, p ~~~> n
-  ==> p ~~~> 3.
+      exists n, p ~~> n
+  ==> p ~~> 3.
 
 Parameter case_study_11 : forall p,
-      \exists n, p ~~~> n \* \[n > 0]
-  ==> \exists n, \[n > 1] \* p ~~~> (n-1).
+      \exists n, p ~~> n \* \[n > 0]
+  ==> \exists n, \[n > 1] \* p ~~> (n-1).
 
 Parameter case_study_12 : forall p q,
-      p ~~~> 3 \* q ~~~> 3
-  ==> \exists n, p ~~~> n \* q ~~~> n.
+      p ~~> 3 \* q ~~> 3
+  ==> \exists n, p ~~> n \* q ~~> n.
 
 Parameter case_study_13 : forall p n,
-  p ~~~> n \* \[n > 0] \* \[n < 0] ==> p ~~~> n \* p ~~~> n.
+  p ~~> n \* \[n > 0] \* \[n < 0] ==> p ~~> n \* p ~~> n.
 
 (* /QUIZ *)
 
@@ -781,45 +781,45 @@ Implicit Types p q : loc.
 Implicit Types n m : int.
 
 Lemma case_study_1 : forall p q,
-      p ~~~> 3 \* q ~~~> 4
-  ==> q ~~~> 4 \* p ~~~> 3.
+      p ~~> 3 \* q ~~> 4
+  ==> q ~~> 4 \* p ~~> 3.
 Proof using. xsimpl. Qed.
 
 Lemma case_study_5 : forall p q,
-      \[False] \* p ~~~> 3
-  ==> p ~~~> 4 \* q ~~~> 4.
+      \[False] \* p ~~> 3
+  ==> p ~~> 4 \* q ~~> 4.
 Proof using. xsimpl. Qed.
 
 Lemma case_study_7 : forall p,
-      p ~~~> 3 \* p ~~~> 4
+      p ~~> 3 \* p ~~> 4
   ==> \[False].
 Proof using. intros. xchange (hstar_hsingle_same_loc p). Qed.
 
 Lemma case_study_8 : forall p,
-      p ~~~> 3 \* p ~~~> 3
+      p ~~> 3 \* p ~~> 3
   ==> \[False].
 Proof using. intros. xchange (hstar_hsingle_same_loc p). Qed.
 
 Lemma case_study_9 : forall p,
-      p ~~~> 3
-  ==> \exists n, p ~~~> n.
+      p ~~> 3
+  ==> \exists n, p ~~> n.
 Proof using. xsimpl. Qed.
 
 Lemma case_study_11 : forall p,
-      \exists n, p ~~~> n \* \[n > 0]
-  ==> \exists n, \[n > 1] \* p ~~~> (n-1).
+      \exists n, p ~~> n \* \[n > 0]
+  ==> \exists n, \[n > 1] \* p ~~> (n-1).
 Proof using.
   intros. xpull. intros n Hn. xsimpl (n+1).
   math. math.
 Qed.
 
 Lemma case_study_12 : forall p q,
-      p ~~~> 3 \* q ~~~> 3
-  ==> \exists n, p ~~~> n \* q ~~~> n.
+      p ~~> 3 \* q ~~> 3
+  ==> \exists n, p ~~> n \* q ~~> n.
 Proof using. xsimpl. Qed.
 
 Lemma case_study_13 : forall p n,
-  p ~~~> n \* \[n > 0] \* \[n < 0] ==> p ~~~> n \* p ~~~> n.
+  p ~~> n \* \[n > 0] \* \[n < 0] ==> p ~~> n \* p ~~> n.
 Proof using. intros. xsimpl. intros Hn1 Hn2. false. math. Qed.
 
 End CaseStudyAnswers.

@@ -213,7 +213,7 @@ Implicit Type H : hprop.
 
     - [\[]] denotes the empty heap predicate
     - [\[P]] denotes a pure fact
-    - [l ~~~> v] denotes a singleton heap
+    - [l ~~> v] denotes a singleton heap
     - [H1 \* H2] denotes the separating conjunction
     - [Q1 \*+ H2] denotes the separating conjunction extending a postcondition
     - [\exists x, H] denotes an existential
@@ -234,7 +234,7 @@ Notation "\[ P ]" := (hpure P) (at level 0, format "\[ P ]").
 Definition hsingle (l:loc) (v:val) : hprop :=
   fun h => (h = Fmap.single l v).
 
-Notation "l '~~~>' v" := (hsingle l v) (at level 32).
+Notation "l '~~>' v" := (hsingle l v) (at level 32).
 
 
 Definition hstar (H1 H2 : hprop) : hprop :=
@@ -385,7 +385,7 @@ Parameter himpl_frame_l : forall H2 H1 H1',
 (** (+) Only one cell can be allocated at a given address. *)
 
 Parameter hstar_hsingle_same_loc : forall (l:loc) (v1 v2:val),
-  (l ~~~> v1) \* (l ~~~> v2) ==> \[False].
+  (l ~~> v1) \* (l ~~> v2) ==> \[False].
 
 
 (* ########################################################### *)
@@ -544,8 +544,8 @@ Parameter triple_let : forall x t1 t2 H Q Q1,
 
 Parameter triple_get : forall v l,
   triple (val_get (val_loc l))
-    (l ~~~> v)
-    (fun x => \[x = v] \* (l ~~~> v)).
+    (l ~~> v)
+    (fun x => \[x = v] \* (l ~~> v)).
 
 (** Plus one rule for each other primitive operation. *)
 
@@ -1010,7 +1010,7 @@ Module Lift.
 [[
   triple (val_ref v)
     \[]
-    (fun (r:val) => \exists (p:loc), \[r = val_loc p] \* p ~~~> v).
+    (fun (r:val) => \exists (p:loc), \[r = val_loc p] \* p ~~> v).
 
   Triple (val_ref v)
     \[]
@@ -1054,7 +1054,7 @@ Proof using. Abort. (* details omitted *)
 (* ########################################################### *)
 (** ** Lifted singleton heap predicate *)
 
-(** Recall definition of [hsingle], written [l ~~~> v]. *)
+(** Recall definition of [hsingle], written [l ~~> v]. *)
 
 Definition hsingle (l:loc) (v:val) : hprop :=
   fun h => (h = Fmap.single l v).
@@ -1065,7 +1065,7 @@ Definition hsingle (l:loc) (v:val) : hprop :=
 Definition Hsingle `{EA:Enc A} (V:A) (l:loc) : hprop :=
   hsingle l (enc V).
 
-Notation "l '~~>' V" := (l ~> Hsingle V)
+Notation "l '`~~>' V" := (l ~> Hsingle V)
   (at level 32, no associativity) : heap_scope.
 
 
@@ -1087,7 +1087,7 @@ Definition Triple (t:trm) `{EA:Enc A} (H:hprop) (Q:A->hprop) : Prop :=
 Parameter Triple_ref : forall A `{EA:Enc A} (V:A),
   Triple (val_ref ``V)
     \[]
-    (fun (p:loc) => p ~~> V).
+    (fun (p:loc) => p `~~> V).
 
 (** Lifted rule for sequence: [Q1] now has type [unit->hprop] *)
 

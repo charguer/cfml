@@ -257,30 +257,30 @@ Qed.
 Lemma triple_ref : forall v,
   triple (val_ref v)
     \[]
-    (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
+    (fun r => \exists l, \[r = val_loc l] \* l ~~> v).
 Proof using.
   intros. intros HF. applys hoare_conseq hoare_ref; xsimpl~.
 Qed.
 
 Lemma triple_get : forall v l,
   triple (val_get (val_loc l))
-    (l ~~~> v)
-    (fun x => \[x = v] \* (l ~~~> v)).
+    (l ~~> v)
+    (fun x => \[x = v] \* (l ~~> v)).
 Proof using.
   intros. intros HF. applys hoare_conseq hoare_get; xsimpl~.
 Qed.
 
 Lemma triple_set : forall w l v,
   triple (val_set (val_loc l) w)
-    (l ~~~> v)
-    (fun r => \[r = val_unit] \* l ~~~> w).
+    (l ~~> v)
+    (fun r => \[r = val_unit] \* l ~~> w).
 Proof using.
   intros. intros HF. applys hoare_conseq hoare_set; xsimpl~.
 Qed.
 
 Lemma triple_free : forall l v,
   triple (val_free (val_loc l))
-    (l ~~~> v)
+    (l ~~> v)
     (fun r => \[r = val_unit]).
 Proof using.
   intros. intros HF. applys hoare_conseq hoare_free; xsimpl~.
@@ -910,19 +910,14 @@ Tactic Notation "xwp" :=
 Definition field : Type := nat.
 
 Definition hfield (l:loc) (k:field) (v:val) : hprop :=
-  (l+k)%nat ~~~> v \* \[ l <> null ].
+  (l+k)%nat ~~> v \* \[ l <> null ].
 
 Notation "l `. k '~~>' v" := (hfield l k v)
   (at level 32, k at level 0, no associativity,
    format "l `. k  '~~>'  v") : heap_scope.
 
-(* TODO: remove one *)
-Notation "l `. k '~~~>' v" := (hfield l k v)
-  (at level 32, k at level 0, no associativity,
-   format "l `. k  '~~~>'  v") : heap_scope.
-
 Lemma hfield_not_null : forall l k v,
-  (l`.k ~~~> v) ==> (l`.k ~~~> v) \* \[l <> null].
+  (l`.k ~~> v) ==> (l`.k ~~> v) \* \[l <> null].
 Proof using.
   intros. subst. unfold hfield. xchanges~ hsingle_not_null.
 Qed.
@@ -1012,8 +1007,8 @@ Definition decr : val :=
 
 Lemma triple_decr : forall (p:loc) (n:int),
   triple (trm_app decr p)
-    (p ~~~> n)
-    (fun v => \[v = val_unit] \* (p ~~~> (n-1))).
+    (p ~~> n)
+    (fun v => \[v = val_unit] \* (p ~~> (n-1))).
 Proof using.
   xwp. xapp. xapp. xapp. xsimpl*.
 Qed.

@@ -40,8 +40,8 @@ Definition incr' : val :=
 
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
-    (p ~~~> n)
-    (fun _ => p ~~~> (n+1)).
+    (p ~~> n)
+    (fun _ => p ~~> (n+1)).
 
 Proof using.
   intros.
@@ -57,7 +57,7 @@ Proof using.
   apply triple_hpure. intros ->.
   (* raisonnons sur [let m = ..] *)
   applys triple_let.
-  (* mettons de côté [p ~~~> n] *)
+  (* mettons de côté [p ~~> n] *)
   { applys triple_conseq_frame.
     (* raisonnons sur [n+1] dans l'état vide *)
     { applys triple_add. }
@@ -108,8 +108,8 @@ Open Scope wpgen_scope.
 
 Lemma triple_incr' : forall (p:loc) (n:int),
   triple (trm_app incr p)
-    (p ~~~> n)
-    (fun _ => p ~~~> (n+1)).
+    (p ~~> n)
+    (fun _ => p ~~> (n+1)).
 Proof using.
   xwp. xapp. xapp. xapp. xsimpl.
 Qed.

@@ -78,7 +78,7 @@ Local Coercion string_to_var (x:string) : var := x.
 
     - [\[]] denotes the empty heap predicate,
     - [\[P]] denotes a pure fact,
-    - [l ~~~> v] denotes a singleton heap,
+    - [l ~~> v] denotes a singleton heap,
     - [H1 \* H2] denotes the separating conjunction,
     - [Q1 \*+ H2] denotes the separating conjunction,
                    between a postcondition and a heap predicate,
@@ -242,7 +242,7 @@ Definition hpure (P:Prop) : hprop :=
 
 Notation "\[ P ]" := (hpure P) (at level 0, format "\[ P ]").
 
-(** The singleton heap predicate, written [l ~~~> v], characterizes a
+(** The singleton heap predicate, written [l ~~> v], characterizes a
     state with a single allocated cell, at location [l], storing the
     value [v]. Additionnally, this heap predicate carries the information
     that [l] is not the [null] location. (Another possibility would be to
@@ -252,7 +252,7 @@ Notation "\[ P ]" := (hpure P) (at level 0, format "\[ P ]").
 Definition hsingle (l:loc) (v:val) : hprop :=
   fun (h:heap) => (h = Fmap.single l v /\ l <> null).
 
-Notation "l '~~~>' v" := (hsingle l v) (at level 32).
+Notation "l '~~>' v" := (hsingle l v) (at level 32).
 
 (** The "separating conjunction", written [H1 \* H2], characterizes a
     state that can be decomposed in two disjoint parts, one that
@@ -460,7 +460,7 @@ Proof using. reflexivity. Qed.
     The specification that we will write in this chapter (and the
     following ones) will differ in two ways from the one above.
 
-    - First, the heap predicates will now be written [p ~~~> n],
+    - First, the heap predicates will now be written [p ~~> n],
       instead of [p ~~> n], for technical reasons that we won't
       detail here.
     - Second, the postcondition will now be of the form
@@ -471,10 +471,10 @@ Proof using. reflexivity. Qed.
     course. Details are provided in the  chapter [SLFLift]. *)
 
 (* INSTRUCTORS *)
-(** [p ~~~> n] technically stands for [p ~~~> (val_int n)], where
+(** [p ~~> n] technically stands for [p ~~> (val_int n)], where
     [val_int] is a coercion. It is an instance of a predicate of
-    the form [p ~~~> v] for a value [v] of type [val]. In contrast,
-    [p ~~> n] stands for [p ~~~> (enc n)], where [enc] is a type-class
+    the form [p ~~> v] for a value [v] of type [val]. In contrast,
+    [p ~~> n] stands for [p ~~> (enc n)], where [enc] is a type-class
     function that for translating Coq values into the type [val].
     The type-class mechanism is more complex than the coercion mechanism,
     yet much more general, hence its use in the actual CFML tool. *)
@@ -485,8 +485,8 @@ Proof using. reflexivity. Qed.
 
 Parameter triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
-    (p ~~~> n)
-    (fun (v:val) => \[v = val_unit] \* (p ~~~> (n+1))).
+    (p ~~> n)
+    (fun (v:val) => \[v = val_unit] \* (p ~~> (n+1))).
 
 
 (* ########################################################### *)
@@ -503,29 +503,29 @@ Parameter triple_incr : forall (p:loc) (n:int),
 
 Lemma triple_incr_2 : forall (p q:loc) (n m:int),
   triple (incr p)
-    ((p ~~~> n) \* (q ~~~> m))
-    (fun v => \[v = val_unit] \* (p ~~~> (n+1)) \* (q ~~~> m)).
+    ((p ~~> n) \* (q ~~> m))
+    (fun v => \[v = val_unit] \* (p ~~> (n+1)) \* (q ~~> m)).
 
 (** The above specification lemma is derivable from the specification
     lemma [triple_incr] by applying the frame rule to augment
-    both the precondition and the postcondition with [q ~~~> m]. *)
+    both the precondition and the postcondition with [q ~~> m]. *)
 
 Proof using.
   intros. lets M: triple_incr p n.
-  lets N: triple_frame (q ~~~> m) M.
+  lets N: triple_frame (q ~~> m) M.
   applys_eq N 1 2.
   { auto. }
   { apply functional_extensionality. intros v. rewrite hstar_assoc. auto. }
 Qed.
 
-(** Here, we have framed on [q ~~~> m], but we could similarly
+(** Here, we have framed on [q ~~> m], but we could similarly
    frame on any heap predicate [H], as captured by the following
    specification lemma. *)
 
 Parameter triple_incr_3 : forall (p:loc) (n:int) (H:hprop),
   triple (incr p)
-    ((p ~~~> n) \* H)
-    (fun v => \[v = val_unit] \* (p ~~~> (n+1)) \* H).
+    ((p ~~> n) \* H)
+    (fun v => \[v = val_unit] \* (p ~~> (n+1)) \* H).
 
 (** Remark: in practice, we always prefer writing
     "small-footprint specifications", such as [triple_incr],
@@ -546,15 +546,15 @@ Parameter triple_incr_3 : forall (p:loc) (n:int) (H:hprop),
 Parameter triple_ref : forall (v:val),
   triple (val_ref v)
     \[]
-    (fun (r:val) => \exists (l:loc), \[r = val_loc l] \* l ~~~> v).
+    (fun (r:val) => \exists (l:loc), \[r = val_loc l] \* l ~~> v).
 
 (** Applying the frame rule to the above specification, and to
-    another memory cell, say [l' ~~~> v'], we obtain: *)
+    another memory cell, say [l' ~~> v'], we obtain: *)
 
 Parameter triple_ref_with_frame : forall (l':loc) (v':val) (v:val),
   triple (val_ref v)
-    (l' ~~~> v')
-    (fun (r:val) => \exists (l:loc), \[r = val_loc l] \* l ~~~> v \* l' ~~~> v').
+    (l' ~~> v')
+    (fun (r:val) => \exists (l:loc), \[r = val_loc l] \* l ~~> v \* l' ~~> v').
 
 (** This derived specification captures the fact that the newly
     allocated cell at address [l] is distinct from the previously
@@ -600,7 +600,7 @@ Proof using. introv M. hnf. auto. Qed.
 
 Lemma hsingle_intro : forall l v,
   l <> null ->
-  (l ~~~> v) (Fmap.single l v).
+  (l ~~> v) (Fmap.single l v).
 Proof using. introv N. hnf. auto. Qed.
 
 Lemma hstar_intro : forall H1 H2 h1 h2,
@@ -629,7 +629,7 @@ Lemma hpure_inv : forall P h,
 Proof using. introv M. hnf in M. autos*. Qed.
 
 Lemma hsingle_inv: forall l v h,
-  (l ~~~> v) h ->
+  (l ~~> v) h ->
   h = Fmap.single l v /\ l <> null.
 Proof using. introv M. hnf in M. auto. Qed.
 
@@ -797,14 +797,14 @@ Definition hpure' (P:Prop) : hprop :=
 (* ########################################################### *)
 (** ** Additional explanations for the definition of [\exists] *)
 
-(** The heap predicate [\exists (n:int), l ~~~> (val_int n)]
+(** The heap predicate [\exists (n:int), l ~~> (val_int n)]
     characterizes a state that contains a single memory cell,
     at address [l], storing the integer value [n], for "some"
     (unspecified) integer [n].
 
 [[
   Parameter (l:loc).
-  Check (\exists (n:int), l ~~~> (val_int n)) : hprop.
+  Check (\exists (n:int), l ~~> (val_int n)) : hprop.
 ]]
 
     The type of [\exists], which operates on [hprop], is very similar

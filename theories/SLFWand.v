@@ -820,14 +820,14 @@ Definition myfun : val :=
 
 Lemma triple_myfun : forall (p:loc) (n:int),
   triple (trm_app myfun p)
-    (p ~~~> n)
-    (fun _ => p ~~~> (n+2)).
+    (p ~~> n)
+    (fun _ => p ~~> (n+2)).
 Proof using.
   xwp.
   xfun (fun (f:val) => forall (m:int),
     triple (f '())
-      (p ~~~> m)
-      (fun _ => p ~~~> (m+1))); intros f Hf.
+      (p ~~> m)
+      (fun _ => p ~~> (m+1))); intros f Hf.
   { intros. applys Hf. clear Hf. xapp. (* exploits [triple_incr] *) xsimpl. }
   xapp. (* exploits [Hf]. *)
   xapp. (* exploits [Hf]. *)
@@ -850,8 +850,8 @@ Qed.
 
 Lemma triple_myfun' : forall (p:loc) (n:int),
   triple (trm_app myfun p)
-    (p ~~~> n)
-    (fun _ => p ~~~> (n+2)).
+    (p ~~> n)
+    (fun _ => p ~~> (n+2)).
 Proof using.
   xwp.
   xfun; intros f Hf.
@@ -907,19 +907,19 @@ Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
 Parameter triple_ref : forall (v:val),
   triple (val_ref v)
     \[]
-    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v).
+    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~> v).
 
 (** Assume that wish to derive the following triple, which extends
     both the precondition and the postcondition of the above specification
-    [triple_ref] with the heap predicate [\exists l' v', l' ~~~> v'].
+    [triple_ref] with the heap predicate [\exists l' v', l' ~~> v'].
     This predicate describes the existence of some, totally unspecified,
     reference cell. It is a bit artificial but illustrates well the issue. *)
 
 Lemma triple_ref_extended : forall (v:val),
   triple (val_ref v)
-    (\exists l' v', l' ~~~> v')
-    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v \*
-              \exists l' v', l' ~~~> v').
+    (\exists l' v', l' ~~> v')
+    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~> v \*
+              \exists l' v', l' ~~> v').
 
 (** Let us prove that this specification is derivable from the
     original one, namely [triple_ref]. *)
@@ -941,9 +941,9 @@ Abort.
 
 Lemma triple_ref_extended' : forall (v:val),
   triple (val_ref v)
-    (\exists l' v', l' ~~~> v')
-    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v \*
-              \exists l' v', l' ~~~> v').
+    (\exists l' v', l' ~~> v')
+    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~> v \*
+              \exists l' v', l' ~~> v').
 Proof using.
   intros. applys triple_ramified_frame.
   { applys triple_ref. }
@@ -1019,7 +1019,7 @@ Proof using. intros. apply himpl_hwand_r. xsimpl. Qed.
 
 Lemma himpl_hwand_same_hempty_counterexample : forall p v,
   let H := (\exists H', H') in
-  (p ~~~> v) ==> (H \-* H).
+  (p ~~> v) ==> (H \-* H).
 Proof using. intros. subst H. rewrite hwand_equiv. xsimpl. Qed.
 
 (** In technical terms, [H \-* H] characterizes the empty heap only
@@ -1496,13 +1496,13 @@ Implicit Types v : val.
 Parameter triple_ref : forall v,
   triple (val_ref v)
     \[]
-    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~~> v).
+    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~> v).
 
 (** This specification can be equivalently reformulated in the following
     form. *)
 
 Parameter wp_ref : forall Q v,
-  \[] \* (\forall l, l ~~~> v \-* Q (val_loc l)) ==> wp (val_ref v) Q.
+  \[] \* (\forall l, l ~~> v \-* Q (val_loc l)) ==> wp (val_ref v) Q.
 
 (** Above, we purposely left the empty heap predicate to the front to
     indicate where the precondition, if it were not empty, would go in
@@ -1517,23 +1517,23 @@ Parameter wp_ref : forall Q v,
     [triple_ref] can be reformulated as follows. *)
 
 Lemma wp_ref_0 : forall v,
-  \[] ==> wp (val_ref v) (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
+  \[] ==> wp (val_ref v) (fun r => \exists l, \[r = val_loc l] \* l ~~> v).
 Proof using. intros. rewrite wp_equiv. applys triple_ref. Qed.
 
 (** We wish to cast the RHS in the form [wp (val_ref v) Q] for an abstract
     variable [Q]. To that end, we reformulate the above statement by including
     a magic wand relating the current postcondition, which is
-    [(fun r => \exists l, \[r = val_loc l] \* l ~~~> v)], and [Q]. *)
+    [(fun r => \exists l, \[r = val_loc l] \* l ~~> v)], and [Q]. *)
 
 Lemma wp_ref_1 : forall Q v,
-  ((fun r => \exists l, \[r = val_loc l] \* l ~~~> v) \--* Q) ==> wp (val_ref v) Q.
+  ((fun r => \exists l, \[r = val_loc l] \* l ~~> v) \--* Q) ==> wp (val_ref v) Q.
 Proof using. intros. xchange (wp_ref_0 v). applys wp_ramified. Qed.
 
 (** This statement can be made slightly more readable by unfolding the
     definition of the magic wand for postconditions, as shown next. *)
 
 Lemma wp_ref_2 : forall Q v,
-  (\forall r, (\exists l, \[r = val_loc l] \* l ~~~> v) \-* Q r) ==> wp (val_ref v) Q.
+  (\forall r, (\exists l, \[r = val_loc l] \* l ~~> v) \-* Q r) ==> wp (val_ref v) Q.
 Proof using. intros. applys himpl_trans wp_ref_1. xsimpl. Qed.
 
 (** Interestingly, the variable [r], which is equal to [val_loc l],
@@ -1541,7 +1541,7 @@ Proof using. intros. applys himpl_trans wp_ref_1. xsimpl. Qed.
     We obtain the specificaiton of [val_ref] in "Texan triple style". *)
 
 Lemma wp_ref_3 : forall Q v,
-  (\forall l, (l ~~~> v) \-* Q (val_loc l)) ==> wp (val_ref v) Q.
+  (\forall l, (l ~~> v) \-* Q (val_loc l)) ==> wp (val_ref v) Q.
 Proof using.
   intros. applys himpl_trans wp_ref_2. xsimpl. intros ? l ->.
   xchange (hforall_specialize l).
@@ -1592,8 +1592,8 @@ Parameter incr : val.
 
 Parameter triple_incr : forall (p:loc) (n:int),
   triple (incr p)
-    (p ~~~> n)
-    (fun v => \[v = val_unit] \* (p ~~~> (n+1))).
+    (p ~~> n)
+    (fun v => \[v = val_unit] \* (p ~~> (n+1))).
 
 (* EX2! (wp_incr) *)
 (** State a Texan triple for [incr] as a lemma called [wp_incr],
@@ -1604,7 +1604,7 @@ Parameter triple_incr : forall (p:loc) (n:int),
 
 (* SOLUTION *)
 Lemma wp_incr : forall (p:loc) (n:int) Q,
-  (p ~~~> n) \* (p ~~~> (n+1) \-* Q val_unit) ==> wp (incr p) Q.
+  (p ~~> n) \* (p ~~> (n+1) \-* Q val_unit) ==> wp (incr p) Q.
 Proof using.
   intros. rewrite wp_equiv. applys triple_conseq_frame.
   { applys triple_incr. } { xsimpl. } { xsimpl. intros ? ->. auto. }
