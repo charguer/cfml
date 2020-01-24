@@ -943,7 +943,8 @@ Section GCIntroElim.
 Definition hgc : hprop :=
   \exists H, \[haffine H] \* H.
 
-Notation "\GC" := (hgc).
+Notation "\GC" := (hgc) : hgc_scope.
+Open Scope hgc_scope.
 
 (** The introduction lemmas asserts that [\GC h] holds when [h]
     satisfies [heap_affine]. *)
@@ -1366,7 +1367,8 @@ End FromPreToPostGC.
 
 Module LowLevel.
 Import NewTriples HaffineDef.
-Notation "\GC" := hgc. (* correctly rebind the notation *)
+Notation "\GC" := hgc : gc_scope. (* correctly rebind the notation *)
+Open Scope gc_scope.
 
 (** Consider the updated definition of [triple] introduced in this chapter. *)
 

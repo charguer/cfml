@@ -67,7 +67,9 @@ PWD := $(shell pwd)
 
 V := $(addprefix $(PWD)/,$(SRC:=.v))
 
-COQFLAGS:=-w -notation-overridden,-implicits-in-term,-redundant-canonical-projection,-several-object-files
+COQFLAGS:=-w -implicits-in-term,-redundant-canonical-projection,-several-object-files
+
+# -notation-overridden,
 
 COQINCLUDE := \
   -Q $(TLC) TLC \

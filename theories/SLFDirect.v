@@ -890,7 +890,7 @@ Proof using. applys haffine_hany. Qed.
 Definition hgc := (* equivalent to [\exists H, \[haffine H] \* H] *)
   htop.
 
-Notation "\GC" := (hgc).
+Notation "\GC" := (hgc) : heap_scope.
 
 Lemma haffine_hgc :
   haffine \GC.
