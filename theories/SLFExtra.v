@@ -865,7 +865,7 @@ Lemma xwp_lemma_fun2 : forall v0 v1 v2 x1 x2 t H Q,
   v0 = val_fun x1 (trm_fun x2 t) ->
   var_eq x1 x2 = false ->
   H ==> wpgen ((x1,v1)::(x2,v2)::nil) t Q ->
-  triple (trm_app v0 v1 v2) H Q.
+  triple (v0 v1 v2) H Q.
 Proof using.
   introv M1 N M2. rewrite var_eq_spec in N. rew_bool_eq in *.
   rewrite <- wp_equiv. xchange M2.
@@ -879,7 +879,7 @@ Lemma xwp_lemma_fix2 : forall f v0 v1 v2 x1 x2 t H Q,
   var_eq x1 x2 = false ->
   var_eq f x2 = false ->
   H ==> wpgen ((f,v0)::(x1,v1)::(x2,v2)::nil) t Q ->
-  triple (trm_app v0 v1 v2) H Q.
+  triple (v0 v1 v2) H Q.
 Proof using.
   introv M1 N1 N2 M2. rewrite var_eq_spec in N1,N2. rew_bool_eq in *.
   rewrite <- wp_equiv. xchange M2.
