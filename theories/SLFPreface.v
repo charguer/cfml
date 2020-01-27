@@ -21,6 +21,102 @@
     The exposition here is intended for a broad range of readers, from
     advanced undergraduates to PhD students and researchers.  *)
 
+
+(* ########################################################### *)
+(** * About Separation Logic *)
+
+(** Separation Logic is a "program logic": it enables one to establish
+    that a program satisfies its specification.
+
+    Specifications are expressed using triples, of the form [{H} t {Q}].
+    Whereas in Hoare logic the precondition [H] and the postcondition
+    [Q] describe the whole of the memory state, in Separation Logic,
+    [H] and [Q] describe only a fragment of the memory state. This fragment
+    includes the resources necessary to the execution of [t].
+
+    Central to Separation Logic is the frame rule, which is key to the
+    modularity of the verification proofs. Its statement is as follows.
+
+[[
+         { H } t { Q }
+    -------------------------
+     { H * H' } t { Q * H' }
+]]
+
+    The above rule asserts that if a term [t] executes correctly with the
+    resources [H] and produces [Q], then the term [t] admits the same
+    behavior in a larger memory state, described by the union of [H]
+    with a disjoint union [H'], producing the postcondition [Q] extended
+    with that same resource [H'] unmodified.
+
+    Separation Logic can be exploited in three kind of tools.
+
+    - Automated proofs: the user provides only the code, and the tool
+      locates sources of potential bugs. A good automated tool provides
+      feedback that, most of time, is relevant.
+    - Semi-automated proofs: the user provides not just the code,
+      but also specifications and invariants; the tool then leverages
+      automated solvers (e.g., SMT solvers) to discharge proof obligations.
+    - Interactive proofs: the user provides not just the code and its
+      specifications, but also a detailed proof script justifying the
+      correctness of the code; such proofs are developed interactively
+      using a proof assistant such as Coq.
+
+    The present course focuses on the third approach, that is, the integration
+    of Separation Logic in an interactive proof assistant. This approach
+    has been successfully put to practice throughout the world, using
+    various proof assistants (Coq, Isabelle/HOL, HOL), targeting different
+    languages (Assembly, C, SML, OCaml, Rust...), for verifying various
+    kind of programs, ranging from low-level operating system kernels
+    to high-level data structures and algorithms.
+
+    The benefits of exploiting Separation Logic in a proof assistant
+    include at least four major points:
+
+    - higher-order logic provides virtually-unlimited expressiveness
+      that enables formulating arbitrarily-complex specifications and
+      invariants;
+    - a proof assistant provides a unified framework to prove both
+      the implementation details of the code and the underlying
+      mathematical results form, e.g., results from  theory or graph
+      theory;
+    - proof scripts may be easily maintained to reflect on a change
+      to the source code;
+    - the fact that Separation Logic is formalized in the proof
+      assistant provides high confidence in the correctness of the tool.
+
+    Pretty much all the tools that leverage Separation Logic in a proof
+    assistant are constructed following the same schema:
+
+    - A formalization of the syntax and semantics of the source language
+      (This is called a "deep embedding" of the programming language).
+    - A definition of Separation Logic predicates as predicates from
+      higher-order logic. (This is called a "shallow embedding" of the
+      program logic.)
+    - A definition of Separation Logic triples as a predicate, the
+      statements of the reasoning rules as lemmas, and the proof of
+      these reasoning rules with respect to the semantics.
+    - An infrastructure that consists of lemmas, tactics and notation,
+      allowing for verification proof to be carried out through
+      relatively concise proof scripts.
+
+    The purpose of this course is to explain how to set up such as
+    construction. To that end, we consider in this course:
+
+    - a minimalistic imperative programming language: a lambda-calculus
+      with references (mini-ML), which admits a simple semantics and avoids
+      in particular the need to distinguish between stack variables and
+      heap-allocated variables;
+    - the simplest possible variant of Separation Logic.
+
+    For this mini-ML language and this core Separation Logic, we present
+    in full the construction of a Separation Logic framework, up to the
+    presentation of a concise verification proof script for a function
+    that performs in-place concatenation of two mutable linked lists.
+
+*)
+
+
 (* ########################################################### *)
 (** * Organization of the chapters *)
 
@@ -63,6 +159,11 @@
 (** ** Special chapters *)
 
 (**
+    - [SLFSummary]:This file contains the material for a one-hour talk that
+                   introduces, at a high level, the most important ideas from the
+                   course. This material is accompanied by LaTeX-generated slides
+                   to be found in the file [SLFSummary.pdf].
+
     - [SLFDirect]: This file provides the minimal set of definitions and lemmas
                    required to build a practical program verification tool,
                    without detour. This file is mostly self-contained; it depends
@@ -76,6 +177,7 @@
                    in the main course chapters but that are not included in the
                    file [SLFDirect]. Again, this file serves as a reference, and
                    does not contain further explanations.
+
 *)
 
 (* ########################################################### *)
