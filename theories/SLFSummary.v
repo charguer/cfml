@@ -13,7 +13,8 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require Import SLFDirect.
+From Sep Require SLFRules SLFWPgen SLFList.
+From Sep Require SLFExtra.
 Generalizable Variables A.
 
 
@@ -23,6 +24,7 @@ Generalizable Variables A.
 (** * Source language (extract from [SLFHprop] and [SLFRules]) *)
 
 Module Language.
+Import SLFDirect.
 
 (* ########################################################### *)
 (** ** Syntax *)
@@ -197,6 +199,7 @@ End Language.
 (** * Heap predicates (extract from [SLFHprop]) *)
 
 Module Hprop.
+Import SLFDirect.
 
 
 (* ########################################################### *)
@@ -310,6 +313,8 @@ End Hprop.
 
 
 Module Himpl.
+Import SLFDirect.
+
 
 (* ########################################################### *)
 (** ** Definition of entailment *)
@@ -403,6 +408,8 @@ End Himpl.
 
 
 Module Triple.
+Import SLFDirect.
+
 
 (* ########################################################### *)
 (** ** Triples *)
@@ -444,6 +451,8 @@ End Triple.
 
 
 Module Rules.
+Import SLFDirect.
+
 
 (* ########################################################### *)
 (** ** The frame rule *)
@@ -553,12 +562,96 @@ End Rules.
 
 
 (* ########################################################### *)
+(** ** Example of a verification proof "by hand" *)
+
+Module ProveIncr.
+Import SLFRules SLFProgramSyntax SLFExtra.
+
+(** Fonction d'incrémentation d'une référence, en OCaml.
+
+[[
+   let incr p =
+      let n = !p in
+      let m = n+1 in
+      p := m
+]]
+
+*)
+
+(** Même fonction, exprimée dans le langage embarqué. *)
+
+Definition incr : val :=
+  val_fun "p" (
+    trm_let "n" (trm_app val_get (trm_var "p")) (
+    trm_let "m" (trm_app (trm_app val_add
+                             (trm_var "n")) (val_int 1)) (
+    trm_app (trm_app val_set (trm_var "p")) (trm_var "m")))).
+
+(** Idem, dans des notations Coq pour le langage embarqué. *)
+
+Definition incr' : val :=
+  VFun 'p :=
+    Let 'n := '! 'p in
+    Let 'm := 'n '+ 1 in
+    'p ':= 'm.
+
+(** Spécification et vérification de la fonction [incr] *)
+
+Lemma triple_incr : forall (p:loc) (n:int),
+  triple (trm_app incr p)
+    (p ~~> n)
+    (fun _ => p ~~> (n+1)).
+
+(** We next show a detailed proof for this specification. It exploits:
+
+    - the structural reasoning rules,
+    - the reasoning rules for terms,
+    - the specification of the primitive functions,
+    - the [xsimpl] tactic for simplifying entailments.
+*)
+
+Proof using.
+  intros.
+  (* unfolding the body of the function *)
+  applys triple_app_fun_direct. simpl.
+  (* reason about [let n = ..] *)
+  applys triple_let.
+  (* reason about [!p] *)
+  { apply triple_get. }
+  (* name [n'] the result of [!p] *)
+  intros n'. simpl.
+  (* substitute away the equality [n = n'] *)
+  apply triple_hpure. intros ->.
+  (* reason about [let m = ..] *)
+  applys triple_let.
+  (* apply the frame rule to put aside [p ~~> n] *)
+  { applys triple_conseq_frame.
+    (* reason about [n+1] in the empty state *)
+    { applys triple_add. }
+    (* simplify the entailment *)
+    { xsimpl. }
+    (* check the postcondition *)
+    { xsimpl. } }
+  (* name [m'] the result of [n+1] *)
+  intros m'. simpl.
+  (* substitute away the equality [m = m'] *)
+  apply triple_hpure. intros ->.
+  (* reason about [p := m] *)
+  applys triple_conseq.
+  { applys triple_set. }
+  { xsimpl. }
+  { xsimpl. }
+Qed.
+
+
+
+(* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
 (** * Magic wand (extract from [SLFWand]) *)
 
 Module Wand.
-
+Import SLFDirect.
 
 (* ########################################################### *)
 (** ** Definition of magic wand *)
@@ -622,6 +715,7 @@ End Wand.
 (** * Weakest precondition (extract from [SLFWPsem]) *)
 
 Module Wpsem.
+Import SLFDirect.
 
 
 (* ########################################################### *)
@@ -674,7 +768,7 @@ End Wpsem.
 (** * Characteristic formula (extract from [SLFWPgen]) *)
 
 Module Wpgen.
-
+Import SLFDirect.
 
 (** Distinguish:
     - a semantic weakest precondition, i.e. predicate [wp].
@@ -730,6 +824,7 @@ Definition formula := (val->hprop) -> hprop.
 (** ** Support for the frame rule and other structural rules *)
 
 Module Wpgen1.
+Import SLFDirect.
 
 (** What we want to define: *)
 
@@ -995,167 +1090,96 @@ End Wpgen.
 
 
 (* ########################################################### *)
+(** ** Verification of the increment function, using x-tactics *)
+
+Import SLFWPgen.
+Open Scope wpgen_scope.
+
+
+Lemma triple_incr' : forall (p:loc) (n:int),
+  triple (trm_app incr p)
+    (p ~~> n)
+    (fun _ => p ~~> (n+1)).
+Proof using.
+  xwp. xapp. xapp. xapp. xsimpl.
+Qed.
+
+End ProveIncr.
+
+
 (* ########################################################### *)
-(* ########################################################### *)
-(** * Lifting (will be later in [SLFLift] *)
+(** ** Verification of in-place concatenation of two mutable lists *)
 
-Module Lift.
+Module ProveAppend.
+Import Example SLFList.
 
+Module ListDef.
 
-(* ########################################################### *)
-(** ** Motivation *)
+(** Définition de [MList L p], noté [p ~> MList L] *)
 
-(** Compare these two specifications for the function [ref]:
+Fixpoint MList (L:list int) (p:loc) : hprop :=
+  match L with
+  | nil => \[p = null]
+  | x::L' => \exists q, (p`.head ~~> x) \* (p`.tail ~~> q)
+                     \* (q ~> MList L')
+  end.
+
+(** Reformulation utile pour replier la définition *)
+
+Lemma MList_cons : forall p x L',
+  p ~> MList (x::L') =
+  \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* q ~> MList L'.
+Proof using. xunfold MList. auto. Qed.
+
+(** Lemme pour l'analyse par cas selon [p = null] *)
+
+Parameter MList_if : forall (p:loc) (L:list int),
+    (p ~> MList L)
+  = (If p = null
+      then \[L = nil]
+      else \exists x q L', \[L = x::L']
+           \* (p`.head ~~> x) \* (p`.tail ~~> q)
+           \* (q ~> MList L')).
+(* Proof in [SLFList.v] *)
+
+End ListDef.
+
+Import SLFList.
+
+(** Fonction de concaténation
 
 [[
-  triple (val_ref v)
-    \[]
-    (fun (r:val) => \exists (p:loc), \[r = val_loc p] \* p ~~> v).
-
-  Triple (val_ref v)
-    \[]
-    (fun (p:loc) => p ~~> v).
+    let rec append p1 p2 =
+      if p1.tail == null
+        then p1.tail <- p2
+        else append p1.tail p2
 ]]
 
-  Clearly, the second one is desirable. Let's see how to derive it.
 *)
 
+Definition append : val :=
+  VFix 'f 'p1 'p2 :=
+    If_ 'p1'.tail '= null
+      Then Set 'p1'.tail ':= 'p2
+      Else 'f ('p1'.tail) 'p2.
 
-(* ########################################################### *)
-(** ** The encoder typeclass *)
+(** Notation [TRIPLE t PRE H POST Q] pour [Triple t H Q].
+    Notation [PRE H CODE F POST Q]   pour [H ==> F Q].    *)
 
-(** [Enc A] holds if the Coq type [A] matches a data type from
-    the imperative programming language embedded in Coq.
+Lemma Triple_append : forall (L1 L2:list int) (p1 p2:loc),
+  p1 <> null ->
+  TRIPLE (append p1 p2)
+    PRE (p1 ~> MList L1 \* p2 ~> MList L2)
+    POST (fun (_:unit) => p1 ~> MList (L1++L2)).
+Proof using.
+  intros L1. induction_wf IH: list_sub L1. introv N. xwp.
+  xchange (MList_if p1). case_if. xpull. intros x q L1' ->.
+  xapp. xapp. xif; intros Cq.
+  { xchange (MList_if q). case_if. xpull. intros ->.
+    xapp. xchange <- MList_cons. }
+  { xapp. xapp. { auto. } { auto. }
+    xchange <- MList_cons. }
+Qed.
 
-    [enc V] encodes a value [V] of type [A] to a value of type [val]. *)
-
-Class Enc (A:Type) : Type :=
-  make_Enc { enc : A -> val }.
-
-(** Notation [``V] for [enc V] *)
-
-Notation "`` V" := (enc V) (at level 8, format "`` V").
-
-(** Example instances *)
-
-Instance Enc_int : Enc int.
-Proof using. constructor. applys val_int. Defined.
-
-Instance Enc_unit : Enc unit.
-Proof using. constructor. intros. applys val_unit. Defined.
-
-Instance Enc_loc : Enc loc.
-Proof using. constructor. applys val_loc. Defined.
-
-Instance Enc_list : forall `{Enc A}, Enc (list A).
-Proof using. Abort. (* details omitted *)
-
-
-(* ########################################################### *)
-(** ** Lifted singleton heap predicate *)
-
-(** Recall definition of [hsingle], written [l ~~> v]. *)
-
-Definition hsingle (l:loc) (v:val) : hprop :=
-  fun h => (h = Fmap.single l v).
-
-(** Singleton: [l ~~> V] describes a singleton heap at location [l]
-    whose contents is the encoding of [V]. *)
-
-Definition Hsingle `{EA:Enc A} (V:A) (l:loc) : hprop :=
-  hsingle l (enc V).
-
-Notation "l '`~~>' V" := (l ~> Hsingle V)
-  (at level 32, no associativity) : heap_scope.
-
-
-(* ########################################################### *)
-(** ** Lifted triples and rules *)
-
-(** [Triple t H Q] describes a triple where the postcondition [Q] has
-    type [A->hprop] for some encodable type [A].
-
-    [Triple t H Q] captures the fact that [t] evaluates to a value [v]
-    which is the encoding of a value [V] for which the postcondition
-    [Q] holds. *)
-
-Definition Triple (t:trm) `{EA:Enc A} (H:hprop) (Q:A->hprop) : Prop :=
-  triple t H (fun v => \exists V, \[v = enc V] \* Q V).
-
-(** Lifted rule for [ref] *)
-
-Parameter Triple_ref : forall A `{EA:Enc A} (V:A),
-  Triple (val_ref ``V)
-    \[]
-    (fun (p:loc) => p `~~> V).
-
-(** Lifted rule for sequence: [Q1] now has type [unit->hprop] *)
-
-Parameter Triple_seq : forall t1 t2 H,
-  forall A `{EA:Enc A} (Q:A->hprop) (Q1:unit->hprop),
-  Triple t1 H Q1 ->
-  Triple t2 (Q1 tt) Q ->
-  Triple (trm_seq t1 t2) H Q.
-
-(** Lifted rule for let bindings: [Q1] now has type [A1->hprop]
-    for some encodable type [A1] *)
-
-Parameter Triple_let : forall x t1 t2 H,
-  forall A `{EA:Enc A} (Q:A->hprop) A1 `{EA1:Enc A1} (Q1:A1->hprop),
-  Triple t1 H Q1 ->
-  (forall (X:A1), Triple (subst x (enc X) t2) (Q1 X) Q) ->
-  Triple (trm_let x t1 t2) H Q.
-
-
-(* ########################################################### *)
-(** ** Lifted characteristic formulae *)
-
-(** Type of a lifted formula *)
-
-Definition Formula := forall A (EA:Enc A), (A -> hprop) -> hprop.
-
-(** Notation [^F Q] as a shorthand for [F _ _ Q], which is same as
-    [F A EA Q] where [Q] has type [A->hprop] and [EA:Enc A]. *)
-
-Notation "^ F Q" := ((F:Formula) _ _ Q)
-  (at level 45, F at level 0, Q at level 0, format "^ F  Q").
-
-(** The [MkStruct] predicate lifts [mkstruct]. *)
-
-Definition MkStruct (F:Formula) : Formula :=
-  fun A (EA:Enc A) (Q:A->hprop) => \exists Q', ^F Q' \* (Q' \--* Q).
-
-(** Lifted characteristic formula generator *)
-
-Definition Wpgen_seq (F1 F2:Formula) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
-    ^F1 (fun (X:unit) => ^F2 Q)).
-
-Definition Wpgen_let (F1:Formula) (F2of:forall `{EA1:Enc A1}, A1->Formula) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
-    \exists (A1:Type) (EA1:Enc A1), ^F1 (fun (X:A1) => ^(F2of X) Q)).
-
-(*
-[[
-Fixpoint Wpgen (E:ctx) (t:trm) : Formula :=
-  MkStruct
-  match t with
-  ..
-  | trm_seq t1 t2 => Wpgen_seq (Wpgen E t1) (Wpgen E t2)
-  | trm_let x t1 t2 => Wpgen_let (Wpgen E t1) (fun A (EA:Enc A) (X:A) =>
-                         Wpgen ((x, enc X)::E) t2)
-  ...
-  end
-]]
-*)
-
-Parameter Wpgen : forall (E:ctx) (t:trm), Formula.
-
-(** Soundness theorem *)
-
-Parameter Triple_of_Wpgen : forall (t:trm) H `{EA:Enc A} (Q:A->hprop),
-  H ==> ^(Wpgen nil t) Q ->
-  Triple t H Q.
-
-End Lift.
+End ProveAppend.
 

@@ -38,7 +38,7 @@ export TLC
 SRC_EXAMPLES := Example ExampleList ExampleListNull ExampleListIndir ExampleQueue ExampleListOf ExampleStack ExamplePairingHeap
 SRC_CORE := TLCbuffer Fmap Var SepSimpl Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics WPRecord $(SRC_EXAMPLES) WPExamples WPExamplesDetails WPLib WPUnitTests 
 
-SRC_MORE := SepBaseAltProofs SepCredits SepRO SubstExec CollegeDeFrance
+SRC_MORE := SepBaseAltProofs SepCredits SepRO SubstExec 
 
 SRC_EXAMPLES := Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleListNull ExampleListIndir ExampleRO 
 

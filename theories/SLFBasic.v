@@ -158,7 +158,7 @@ Lemma triple_incr : forall (p:loc) (n:int),
     verification proof using x-tactics. *)
 
 Proof using.
-  xwp.     (* Begin the verification proof. The proof obligation is
+  xwp.     (* [xwp] begins the verification proof. The proof obligation is
               displayed using the custom notation [PRE H CODE F POST Q].
               The [CODE] part does not look very nice, but one should
               be able to somehow recognize the body of [incr]. Indeed,
@@ -182,7 +182,7 @@ Proof using.
      Each function call is handled using the tactic [xapp]. *)
 
   xapp.    (* Reason about the operation [!p] that reads into [p];
-              the read operation returns the value [n]. *)
+              this read operation returns the value [n]. *)
   xapp.    (* Reason about the addition operation [n+1]. *)
   xapp.    (* Reason about the update operation [p := n+1],
               thereby updating the state to [p ~~> (n+1)]. *)
