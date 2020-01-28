@@ -32,7 +32,7 @@ Import SLFDirect.
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
-(** * Source language (extract from [SLFHprop] and [SLFRules]) *)
+(** * Formalization of the syntax and semantics of the language *)
 
 
 (* ########################################################### *)
@@ -231,49 +231,59 @@ End Semantics.
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
-(** * Heap predicates (extract from [SLFHprop]) *)
+(** * Formalization of Separation Logic predicates *)
 
 Module Hprop.
 Import SLFDirect.
 
 
 (* ########################################################### *)
-(** ** Core heap predicates *)
+(** ** Core Separation Logic predicates *)
 
-(** The type of heap predicates is named [hprop]. *)
+(** Separation Logic predicates are called "heap predicates".
+    They are represented by the type [hprop], which is defined as
+    predicate over states (technically, over pieces of state). *)
 
-Definition hprop := heap -> Prop.
+Definition hprop : Type := state -> Prop.
 
-Implicit Type h : heap.
+(** Thereafter, we let [H] range over heap predicates, and we let
+    [h] range over pieces of state. *)
+
 Implicit Type H : hprop.
+Implicit Type h : state.
 
-(** The core heap predicates are defined next:
+(** The 5 most important heap predicates are defined next. *)
 
-    - [\[]] denotes the empty heap predicate
-    - [\[P]] denotes a pure fact
-    - [l ~~> v] denotes a singleton heap
-    - [H1 \* H2] denotes the separating conjunction
-    - [Q1 \*+ H2] denotes the separating conjunction extending a postcondition
-    - [\exists x, H] denotes an existential
-*)
+(** The empty heap predicate, written [\[]], characterizes an empty
+    sate. *)
 
 Definition hempty : hprop :=
   fun h => (h = Fmap.empty).
 
 Notation "\[]" := (hempty) (at level 0).
 
+(** The pure heap predicate, written [[\P]], also characterizes an
+    empty state, but moreover asserts that the proposition [P] is
+    true. We will see example usage of this predicate further on. *)
 
 Definition hpure (P:Prop) : hprop :=
   fun h => (h = Fmap.empty) /\ P.
 
 Notation "\[ P ]" := (hpure P) (at level 0, format "\[ P ]").
 
+(** The singleton heap predicate, written [l ~~> v], characterizes
+    a singleton state, that is, a state made of a single memory cell,
+    at location [l], and with contents [v]. *)
 
 Definition hsingle (l:loc) (v:val) : hprop :=
   fun h => (h = Fmap.single l v).
 
 Notation "l '~~>' v" := (hsingle l v) (at level 32).
 
+(** The key Separation Logic operator is the star, a.k.a, separating
+    conjunction, written [H1 \* H2]. This predicate characterizes a
+    heap [h] that decomposes as the union of two disjoints parts:
+    one that satisfies [H1], and one that satisfies [H2]. *)
 
 Definition hstar (H1 H2 : hprop) : hprop :=
   fun h => exists h1 h2, H1 h1
@@ -283,11 +293,12 @@ Definition hstar (H1 H2 : hprop) : hprop :=
 
 Notation "H1 '\*' H2" := (hstar H1 H2) (at level 41, right associativity).
 
-
-Notation "Q \*+ H" := (fun x => (Q x) \* H) (at level 40).
-
-
-(** [(\exists x, H) h] is defined as [exists x, (H h)]. *)
+(** Finally, the existential quantifier, written [\exists x, H], lifts
+    the existential quantifier on propositions into an existential
+    quantifier on predicates. The reader may skip over the technical details
+    of the corresponding definition, and simply read [\exists] as the casual
+    existential quantifier, simply taking into account that it operates over
+    the type [hprop] instead of [Prop]. *)
 
 Definition hexists A (J:A->hprop) : hprop :=
   fun h => exists x, J x h.
@@ -299,70 +310,19 @@ Notation "'\exists' x1 .. xn , H" :=
 
 
 (* ########################################################### *)
-(** ** Extensionality *)
+(** ** Order relation on heap predicates: entailment *)
 
-(** We'd like to perform simplification by rewriting on heap predicates.
-    For example, be able to exploit associativity. *)
-
-Parameter hstar_assoc : forall H1 H2 H3,
-  (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
-
-(** The file [LibAxioms] from the TLC library includes the axioms of
-    functional extensionality and propositional extensionality.
-    These axioms are essential to proving equalities between
-    heap predicates, and between postconditions. *)
-
-Axiom functional_extensionality : forall A B (f g:A->B),
-  (forall x, f x = g x) ->
-  f = g.
-
-Axiom propositional_extensionality : forall (P Q:Prop),
-  (P <-> Q) ->
-  P = Q.
-
-Lemma predicate_extensionality : forall A (P Q:A->Prop),
-  (forall x, P x <-> Q x) ->
-  P = Q.
-Proof using.
-  introv M. applys functional_extensionality.
-  intros. applys* propositional_extensionality.
-Qed.
-
-Lemma hprop_eq : forall H1 H2,
-  (forall h, H1 h <-> H2 h) ->
-  H1 = H2.
-Proof using. applys predicate_extensionality. Qed.
-
-Lemma qprop_eq : forall (Q1 Q2:val->hprop),
-  (forall (v:val), Q1 v = Q2 v) ->
-  Q1 = Q2.
-Proof using. applys functional_extensionality. Qed.
-
-End Hprop.
-
-
-(* ########################################################### *)
-(* ########################################################### *)
-(* ########################################################### *)
-(** * Entailment (extract from [SLFHimpl]) *)
-
-
-Module Himpl.
-Import SLFDirect.
-
-
-(* ########################################################### *)
-(** ** Definition of entailment *)
-
-(** Entailment for heap predicates, written [H1 ==> H2]
-    (the entailment is linear, although our triples will be affine). *)
+(** The entailment relation, written [H1 ==> H2], asserts that the heap
+    predicate [H2] is weaker than the heap predicate [H1], in the sense
+    that any heap [h] satisfying [H1] also satisfies [H2]. *)
 
 Definition himpl (H1 H2:hprop) : Prop :=
   forall h, H1 h -> H2 h.
 
 Notation "H1 ==> H2" := (himpl H1 H2) (at level 55).
 
-(** Entailment is an order relation. *)
+(** The entailment relation defines an order on the set of heap predicates.
+    It is reflexive, transitive, and antisymmetric. *)
 
 Parameter himpl_refl : forall H,
   H ==> H.
@@ -372,27 +332,33 @@ Parameter himpl_trans : forall H2 H1 H3,
   (H2 ==> H3) ->
   (H1 ==> H3).
 
-Lemma himpl_antisym : forall H1 H2,
+Parameter himpl_antisym : forall H1 H2,
   (H1 ==> H2) ->
   (H2 ==> H1) ->
   H1 = H2.
-Proof using.
-  introv M1 M2. applys Hprop.hprop_eq.
-  intros h. iff N.
-  { applys M1. auto. }
-  { applys M2. auto. }
-Qed.
 
-(** Entailment between postconditions, written [Q1 ===> Q2] *)
+(** The antisymmetry property asserts an equality between two predicates.
+    It is a direct consequence of a principle called "predicate
+    extensionality", which asserts that if two predicates yields equivalent
+    propositions when applied to any argument, then these two predicates
+    can be considered equal in the logic. The principle of predicate
+    extensionality comes builtin in several proof assistant. In Coq, it may
+    be safely added as an axiom. *)
 
-Definition qimpl (Q1 Q2:val->hprop) : Prop :=
-  forall (v:val), Q1 v ==> Q2 v.
+Axiom predicate_extensionality : forall A (P Q:A->Prop),
+  (forall x, P x <-> Q x) ->
+  P = Q.
 
-Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55).
+(** The ability to write equalities between heap predicates is essential
+    to concisely state and efficiently exploit the properties of the
+    Separation Logic operators. These properties are presented next. *)
 
 
 (* ########################################################### *)
-(** ** Fundamental properties *)
+(** ** Fundamental properties of the Separation Logic operators *)
+
+(** There are five fundamental properties from which almost every other
+    useful properties can be derived. *)
 
 (** (1) The star operator is associative. *)
 
@@ -410,22 +376,75 @@ Parameter hstar_hempty_l : forall H,
   \[] \* H = H.
 
 (** (4) Existentials can be "extruded" out of stars, that is:
-      [(\exists x, H1) \* H2  =  \exists x, (H1 \* H2)].
-      when [x] does not occur in [H2]. *)
+    [(\exists x, H1) \* H2  =  \exists x, (H1 \* H2)].
+    when [x] does not occur in [H2]. *)
 
 Parameter hstar_hexists : forall A (J:A->hprop) H,
-  (hexists J) \* H = hexists (J \*+ H).
+    (\exists x, J x) \* H
+  = \exists x, (J x \* H).
 
-(** (5) Star is "regular" with respect to entailment. *)
+(** (5) The star operator is monotone with respect to entailment.
+    This rule can be read as follows: if you have to prove an
+    entailment from [H1 \* H2] to [H1' \* H2], you can cancel out
+    [H2] on both sides, then there remains to prove that [H1]
+    entails [H1']. *)
 
 Parameter himpl_frame_l : forall H2 H1 H1',
   H1 ==> H1' ->
   (H1 \* H2) ==> (H1' \* H2).
 
-(** (+) Only one cell can be allocated at a given address. *)
+End Hprop.
 
-Parameter hstar_hsingle_same_loc : forall (l:loc) (v1 v2:val),
-  (l ~~> v1) \* (l ~~> v2) ==> \[False].
+
+(* ########################################################### *)
+(** ** Description of postconditions *)
+
+Module Qprop.
+
+(** A precondition [H] describes an input state. It has type [state]
+    to [Prop]. *)
+
+Implicit Types H : state -> Prop. (* [= hprop] *)
+
+(** A postcondition [Q] describes not just an output state, but also an
+    output value. It is thus a binary relation, of type [val] to [state]
+    to [Prop]. *)
+
+Implicit Types Q : val -> state -> Prop. (* [= val->hprop] *)
+
+(** It is useful to generalize the star operator and the entailment
+    relation to operate over postconditions. *)
+
+(** The operation [Q \*+ H] denotes the extension of a postcondition
+    with a heap predicate [H]. *)
+
+Notation "Q \*+ H" := (fun x => (Q x) \* H) (at level 40).
+
+(** The entailment relation [Q1 ===> Q2] denotes the entailment between
+    two postconditions, asserting that [Q1 v] entails [Q2 v] for any
+    result value [v]. *)
+
+Definition qimpl (Q1 Q2:val->hprop) : Prop :=
+  forall (v:val), Q1 v ==> Q2 v.
+
+Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55).
+
+(** The generalization of these two operators to postconditions is
+    necessary to formally state reasoning rules in a concise way.
+    That said, in first approximation, one may read [\*+] as [\*]
+    and read [===>] as [==>], to get the intuition for the rules. *)
+
+End Qprop.
+
+
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Entailment (extract from [SLFHimpl]) *)
+
+
+Module Himpl.
+Import SLFDirect.
 
 
 (* ########################################################### *)

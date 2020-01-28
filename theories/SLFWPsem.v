@@ -696,20 +696,22 @@ Qed. (* /ADMITTED *)
 (* ########################################################### *)
 (** ** Alternative statement of the rule for conditionals *)
 
+Module WpIfAlt.
+
 (** We have established the following rule for reasoning about
     conditionals using [wp]. *)
 
-Parameter wp_if' : forall b t1 t2 Q,
+Parameter wp_if : forall b t1 t2 Q,
   wp (if b then t1 else t2) Q ==> wp (trm_if b t1 t2) Q.
 
 (** Equivalently, the rule may be stated with the conditional around
     the calls to [wp t1 Q] and [wp t2 Q]. *)
 
-(* EX1? (wp_if'') *)
+(* EX1? (wp_if') *)
 (** Prove the alternative statement of rule [wp_if],
     either from [wp_if] or directly from [triple_if]. *)
 
-Lemma wp_if'' : forall b t1 t2 Q,
+Lemma wp_if' : forall b t1 t2 Q,
   (if b then (wp t1 Q) else (wp t2 Q)) ==> wp (trm_if b t1 t2) Q.
 Proof using. (* ADMITTED *)
   dup.
@@ -721,6 +723,8 @@ Proof using. (* ADMITTED *)
 Qed. (* /ADMITTED *)
 
 (** [] *)
+
+End WpIfAlt.
 
 
 (* ########################################################### *)
