@@ -1987,12 +1987,12 @@ Qed.
 
 Lemma xfun_nospec_lemma : forall H Q Fof,
   (forall vf,
-     (forall vx H' Q', (H' ==> Fof vx Q') -> H' ==> wp (trm_app vf vx) Q') ->
+     (forall vx H' Q', (H' ==> Fof vx Q') -> triple (trm_app vf vx) H' Q') ->
      (H ==> Q vf)) ->
   H ==> wpgen_fun Fof Q.
 Proof using.
   introv M. unfold wpgen_fun. xsimpl. intros vf N. applys M.
-  introv K. xchange K. applys N.
+  introv K. rewrite <- wp_equiv. xchange K. applys N.
 Qed.
 
 Lemma xwp_lemma_fun : forall v1 v2 x t H Q,
@@ -2119,7 +2119,8 @@ Ltac xwp_simpl := (* variant of [simpl] to compute well on [wp] *)
      eq_var_dec string_dec string_rec string_rect
      sumbool_rec sumbool_rect
      Ascii.ascii_dec Ascii.ascii_rec Ascii.ascii_rect
-     Bool.bool_dec bool_rec bool_rect ] iota zeta.
+     Bool.bool_dec bool_rec bool_rect ] iota zeta;
+  simpl.
 
 Tactic Notation "xwp" :=
   intros;

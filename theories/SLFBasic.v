@@ -55,6 +55,7 @@ Implicit Types p q : loc.
     - [xwp] or [xtriple] to begin a proof,
     - [xapp] to reason about an application,
     - [xval] to reason about a return value,
+    - [xif] to reason about a conditional,
     - [xsimpl] to simplify or prove entailments ([H ==> H'] or [Q ===> Q']).
 
     In addition to x-tactics, the verification proof scripts exploit standard
@@ -1393,22 +1394,13 @@ Definition cps_append_aux : val :=
       Then 'k 'p2
       Else 
         Let 'q1 := 'p1'.tail in
-        Let 'g := (Fun 'r := (Set 'p1'.tail ':= 'r '; 'k 'p1)) in
-        'f 'q1 'p2 'g.
+        Let 'k2 := (Fun 'r := (Set 'p1'.tail ':= 'r '; 'k 'p1)) in
+        'f 'q1 'p2 'k2.
 
 Definition cps_append : val :=
   VFun 'p1 'p2 :=
     Let 'f := (Fun 'r := 'r) in
     cps_append_aux 'p1 'p2 'f.
-
-(* TODO *)
-Ltac xwp_simpl ::= (* variant of [simpl] to compute well on [wp] *)
-  cbn beta delta [
-     wpgen wpgen_var isubst lookup var_eq
-     eq_var_dec string_dec string_rec string_rect
-     sumbool_rec sumbool_rect
-     Ascii.ascii_dec Ascii.ascii_rec Ascii.ascii_rect
-     Bool.bool_dec bool_rec bool_rect ] iota zeta; simpl.
 
 Lemma triple_cps_append_aux : forall H Q (L1 L2:list val) (p1 p2:loc) (k:val),
   (forall (p3:loc), triple (k p3) (p3 ~> MList (L1 ++ L2) \* H) Q) ->
@@ -1422,8 +1414,7 @@ Proof using.
   { intros x L1' p1' ->. xapp. xfun. intros f Hf. 
     xapp (>> IH (H \* p1`.tail ~~> L1' \* p1`.head ~~> x) L1').
     { auto. }
-    { intros p3.  (* TODO xtriple. xapp Hf. *) rewrite <- wp_equiv. applys Hf.
-      xapp. xapp. xchanges <- MList_cons. }
+    { intros p3. xtriple. xapp. xapp. xapp. xchanges <- MList_cons. }
     { xsimpl. } }
 Qed.
 
@@ -1437,12 +1428,11 @@ Proof using.
   xwp. xfun. intros f Hf.
   set (Q := fun r => \exists p3, \[r = val_loc p3] \* p3 ~> MList (L1++L2)).
   xapp (@triple_cps_append_aux \[] Q).
-  { intros p3. (* TODO xtriple. xapp Hf. *) rewrite <- wp_equiv. applys Hf.
-    xval. unfold Q. xsimpl*. }
+  { intros p3. xtriple. xapp. xval. unfold Q. xsimpl*. }
   { xsimpl. }
 Qed.
 
-(** This concludes the formal verification of Reynolds's proof challenge. *)
+(** This concludes the formal verification of Reynolds's verification challenge. *)
 
 
 (* ########################################################### *)
