@@ -286,7 +286,7 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
       eval s1 t1 s2 v1 ->
       eval s2 (subst x v1 t2) s3 r ->
       eval s1 (trm_let x t1 t2) s3 r
-  | eval_if_case : forall s1 s2 b v t1 t2,
+  | eval_if : forall s1 s2 b v t1 t2,
       eval s1 (if b then t1 else t2) s2 v ->
       eval s1 (trm_if (val_bool b) t1 t2) s2 v
   | eval_unop : forall op m v1 v,
@@ -1247,12 +1247,12 @@ Proof using.
   exists h2' v2. splits~. { applys~ eval_let R2. }
 Qed.
 
-Lemma hoare_if_case : forall (b:bool) t1 t2 H Q,
+Lemma hoare_if : forall (b:bool) t1 t2 H Q,
   hoare (if b then t1 else t2) H Q ->
   hoare (trm_if b t1 t2) H Q.
 Proof using.
   introv M1. intros h Hh. forwards* (h1'&v1&R1&K1): (rm M1).
-  exists h1' v1. splits~. { applys* eval_if_case. }
+  exists h1' v1. splits~. { applys* eval_if. }
 Qed.
 
 Lemma hoare_add : forall H n1 n2,
@@ -1431,16 +1431,16 @@ Proof using.
   applys hoare_hpure; intros M2. applys hoare_conseq M2; xsimpl.
 Qed.
 
-Lemma wp_if_case : forall b t1 t2 Q,
+Lemma wp_if : forall b t1 t2 Q,
   wp (if b then t1 else t2) Q ==> wp (trm_if b t1 t2) Q.
 Proof using.
   intros. repeat unfold wp. xsimpl; intros H M H'.
-  applys hoare_if_case. applys M.
+  applys hoare_if. applys M.
 Qed.
 
-Lemma wp_if : forall b t1 t2 Q,
+Lemma wp_if_case : forall b t1 t2 Q,
   (if b then wp t1 Q else wp t2 Q) ==> wp (trm_if b t1 t2) Q.
-Proof using. intros. applys himpl_trans wp_if_case. case_if~. Qed.
+Proof using. intros. applys himpl_trans wp_if. case_if~. Qed.
 
 
 (* ########################################################### *)

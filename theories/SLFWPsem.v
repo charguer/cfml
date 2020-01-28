@@ -367,7 +367,7 @@ Proof using. intros. rewrite wp_equiv. applys* triple_fix. Qed.
 
 (** Recall the reasoning rule for a term [triple_if b t1 t2]. *)
 
-Parameter triple_if_case : forall b t1 t2 H Q,
+Parameter triple_if : forall b t1 t2 H Q,
   triple (if b then t1 else t2) H Q ->
   triple (trm_if (val_bool b) t1 t2) H Q.
 
@@ -391,9 +391,7 @@ Parameter triple_if_case : forall b t1 t2 H Q,
 Lemma wp_if : forall b t1 t2 Q,
   wp (if b then t1 else t2) Q ==> wp (trm_if (val_bool b) t1 t2) Q.
 Proof using.
-  intros. rewrite wp_equiv. applys triple_if.
-  { intros ->. rewrite* <- wp_equiv. }
-  { intros ->. rewrite* <- wp_equiv. }
+  intros. rewrite wp_equiv. applys triple_if. rewrite* <- wp_equiv.
 Qed.
 
 
@@ -719,8 +717,7 @@ Proof using. (* ADMITTED *)
     intros. applys himpl_trans wp_if. case_if~. }
   { (* Proof from [triple_if] *)
      intros. rewrite wp_equiv. applys triple_if.
-     { intros ->. rewrite* <- wp_equiv. }
-     { intros ->. rewrite* <- wp_equiv. } }
+     case_if; rewrite* <- wp_equiv. }
 Qed. (* /ADMITTED *)
 
 (** [] *)
@@ -843,7 +840,7 @@ Lemma wp_if : forall b t1 t2 Q,
   wp (if b then t1 else t2) Q ==> wp (trm_if b t1 t2) Q.
 Proof using.
   intros. unfold wp. xsimpl. intros H M H'.
-  applys hoare_if_case. applys M.
+  applys hoare_if. applys M.
 Qed.
 
 Lemma wp_seq : forall t1 t2 Q,

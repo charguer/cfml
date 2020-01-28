@@ -1205,11 +1205,6 @@ Lemma eval_ptr_add_nat : forall m l (f : nat),
   eval m (val_ptr_add (val_loc l) (val_int f)) m (val_loc (l+f)%nat).
 Proof using. intros. applys* eval_binop. applys* evalbinop_ptr_add. math. Qed.
 
-Lemma eval_if_case : forall m1 m2 b r t1 t2,
-  eval m1 (if b then t1 else t2) m2 r ->
-  eval m1 (trm_if b t1 t2) m2 r.
-Proof using. introv M1. applys* eval_if. Qed.
-
 Lemma eval_for_le : forall m1 m2 m3 x n1 n2 t3 v1 r,
   n1 <= n2 ->
   eval m1 (subst1 x n1 t3) m2 v1 ->
@@ -1229,7 +1224,6 @@ Proof using.
   { false; math. }
   { applys eval_val. }
 Qed.
-
 
 End Derived.
 

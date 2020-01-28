@@ -16,7 +16,7 @@ License: CC-by.
 *)
 
 Set Implicit Arguments.
-From Sep Require SLFExtra SLFRules SLFWPgen.
+From Sep Require SLFExtra SLFRules SLFWPgen SLFBasic.
 Import SLFDirect.
 
 
@@ -96,7 +96,7 @@ End Language.
 (** ** Parsing of concrete programs *)
 
 Module Parsing.
-Import SLFProgramSyntax.
+Import SLFExtra SLFBasic SLFProgramSyntax.
 
 (** Consider the following program, which computes the length of a C-style
     mutable list. If the pointer [p] is null, it returns zero, else it
@@ -118,6 +118,7 @@ Definition mlength : val :=
      trm_if (trm_app (trm_app val_eq (trm_var "p")) (val_loc null))
             (val_int 0)
             (trm_app (trm_app val_add (val_int 1)) (trm_app (trm_var "f")
+             (trm_app (val_get_field tail) (trm_var "p"))))).
 
 (** Obviously, we do not wish to manually write programs in this form.
 
@@ -129,7 +130,7 @@ Definition mlength : val :=
     the syntax that we consider features quote symbols everywhere to
     distinguish between Coq keywords and program keywords, as shown below. *)
 
-Definition mlength : val :=
+Definition mlength' : val :=
   VFix 'f 'p :=
     If_ 'p '= null
       Then 0
@@ -145,6 +146,8 @@ End Parsing.
 (** ** Semantics *)
 
 Module Semantics.
+Implicit Types t : trm.
+Implicit Types v : val.
 
 (** The semantics of an imperative programming language involves a
     description of a memory state. A memory state is described as a finite
@@ -207,7 +210,7 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       eval s1 t1 s2 v1 ->
       eval s2 t2 s3 v ->
       eval s1 (trm_seq t1 t2) s3 v
-  | eval_if_case : forall s1 s2 b v t1 t2,
+  | eval_if : forall s1 s2 b v t1 t2,
       eval s1 (if (b:bool) then t1 else t2) s2 v ->
       eval s1 (trm_if (val_bool b) t1 t2) s2 v
   | eval_add : forall s n1 n2,

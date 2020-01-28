@@ -1269,12 +1269,12 @@ Proof using.
   { specializes M P1. applys~ on_rw_sub_base. }
 Qed.
 
-Lemma triple_if_case : forall (b:bool) t1 t2 H Q,
+Lemma triple_if : forall (b:bool) t1 t2 H Q,
   triple (if b then t1 else t2) H Q ->
   triple (trm_if b t1 t2) H Q.
 Proof using.
   introv M. intros h1 h2 D N. forwards* (h'&v'&(N1&N2&N3&N4)): (rm M) h1.
-  exists h' v'. splits~. { applys~ eval_if_case. }
+  exists h' v'. splits~. { applys~ eval_if. }
 Qed.
 
 Lemma triple_let : forall z t1 t2 H1 H2 Q Q1,

@@ -312,7 +312,7 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       This behavior is described by a single rule, leveraging Coq's "if"
       constructor to factor out the two cases. *)
 
-  | eval_if_case : forall s1 s2 b v t1 t2,
+  | eval_if : forall s1 s2 b v t1 t2,
       eval s1 (if b then t1 else t2) s2 v ->
       eval s1 (trm_if (val_bool b) t1 t2) s2 v
 
@@ -496,7 +496,7 @@ Parameter triple_let : forall x t1 t2 H Q Q1,
   The corresponding Coq statement appears next.
 *)
 
-Parameter triple_if : forall b t1 t2 H Q,
+Parameter triple_if_case : forall b t1 t2 H Q,
   (b = true -> triple t1 H Q) ->
   (b = false -> triple t2 H Q) ->
   triple (trm_if (val_bool b) t1 t2) H Q.
@@ -1636,36 +1636,36 @@ Module ProofsContinued.
 (** Recall the reasoning rule for conditionals. Recall that this
     rule is stated by factorizing the premises. *)
 
-Lemma eval_if_case : forall s1 s2 b v t1 t2,
+Lemma eval_if : forall s1 s2 b v t1 t2,
   eval s1 (if b then t1 else t2) s2 v ->
   eval s1 (trm_if b t1 t2) s2 v.
 Proof using.
-  intros. case_if; applys eval_if_case; auto_false.
+  intros. case_if; applys eval_if; auto_false.
 Qed.
 
 (** The reasoning rule for conditional w.r.t. Hoare triples is as follows. *)
 
-Lemma hoare_if : forall b t1 t2 H Q,
+Lemma hoare_if_case : forall b t1 t2 H Q,
   (b = true -> hoare t1 H Q) ->
   (b = false -> hoare t2 H Q) ->
   hoare (trm_if b t1 t2) H Q.
 Proof using.
   introv M1 M2. intros s K0. destruct b.
   { forwards* (s1'&v1&R1&K1): (rm M1) K0.
-    exists s1' v1. split*. { applys* eval_if_case. } }
+    exists s1' v1. split*. { applys* eval_if. } }
   { forwards* (s1'&v1&R1&K1): (rm M2) K0.
-    exists s1' v1. split*. { applys* eval_if_case. } }
+    exists s1' v1. split*. { applys* eval_if. } }
 Qed.
 
 (** The corresponding Separation Logic reasoning rule is as follows. *)
 
-Lemma triple_if : forall b t1 t2 H Q,
+Lemma triple_if_case : forall b t1 t2 H Q,
   (b = true -> triple t1 H Q) ->
   (b = false -> triple t2 H Q) ->
   triple (trm_if (val_bool b) t1 t2) H Q.
 Proof using.
   unfold triple. introv M1 M2. intros H'.
-  applys hoare_if; intros Eb.
+  applys hoare_if_case; intros Eb.
   { applys* M1. }
   { applys* M2. }
 Qed.
@@ -1674,24 +1674,23 @@ Qed.
     due to the symmetry between the [b = true] and [b = false] branches.
 
     If we state the reasoning rules using Coq's conditional just like
-    it appears in the evaluation rule [eval_if_case], we can better
-    factorize the proof script. *)
+    it appears in the evaluation rule [eval_if], we can better factorize
+    the proof script. *)
 
-Lemma hoare_if_case : forall (b:bool) t1 t2 H Q,
+Lemma hoare_if : forall (b:bool) t1 t2 H Q,
   hoare (if b then t1 else t2) H Q ->
   hoare (trm_if b t1 t2) H Q.
 Proof using.
   introv M1. intros s K0.
   forwards (s'&v&R1&K1): (rm M1) K0.
-  exists s' v. split. { applys eval_if_case R1. } { applys K1. }
+  exists s' v. split. { applys eval_if R1. } { applys K1. }
 Qed.
 
-Lemma triple_if_case : forall b t1 t2 H Q,
+Lemma triple_if : forall b t1 t2 H Q,
   triple (if b then t1 else t2) H Q ->
   triple (trm_if (val_bool b) t1 t2) H Q.
 Proof using.
-  unfold triple. introv M1. intros H'.
-  applys hoare_if_case. applys M1.
+  unfold triple. introv M1. intros H'. applys hoare_if. applys M1.
 Qed.
 
 

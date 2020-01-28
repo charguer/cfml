@@ -651,7 +651,7 @@ Lemma hoare_seq : forall t1 t2 H Q H1,
   hoare (trm_seq t1 t2) H Q.
 Proof using. introv M1 M2. applys* hoare_let. Qed.
 
-Lemma hoare_if_case : forall (b:bool) t1 t2 H Q,
+Lemma hoare_if : forall (b:bool) t1 t2 H Q,
   hoare (if b then t1 else t2) H Q ->
   hoare (trm_if b t1 t2) H Q.
 Proof using.
@@ -1108,11 +1108,11 @@ Proof using.
   introv M1 M2. applys* triple_let. (* BIND intros. rewrite* subst1_anon. *)
 Qed.
 
-Lemma triple_if_case : forall (b:bool) t1 t2 H Q,
+Lemma triple_if : forall (b:bool) t1 t2 H Q,
   triple (if b then t1 else t2) H Q ->
   triple (trm_if b t1 t2) H Q.
 Proof using.
-  introv M1. intros HF. applys hoare_if_case. applys M1.
+  introv M1. intros HF. applys hoare_if. applys M1.
 Qed.
 
 Lemma triple_if_bool : forall (b:bool) t1 t2 H Q,
@@ -1120,7 +1120,7 @@ Lemma triple_if_bool : forall (b:bool) t1 t2 H Q,
   (b = false -> triple t2 H Q) ->
   triple (trm_if b t1 t2) H Q.
 Proof using.
-  introv M1 M2. applys triple_if_case. case_if*.
+  introv M1 M2. applys triple_if. case_if*.
 Qed.
 
 Lemma triple_if_trm : forall Q1 t0 t1 t2 H Q,
@@ -1132,7 +1132,7 @@ Proof using.
   { intros v. applys* hoare_of_triple. }
 Qed.
 
-Lemma triple_if : forall Q1 t0 t1 t2 H Q, (* not very useful *)
+Lemma triple_if_trm' : forall Q1 t0 t1 t2 H Q, (* not very useful *)
   triple t0 H Q1 ->
   (forall (b:bool), triple (if b then t1 else t2) (Q1 b) Q) ->
   (forall v, ~ is_val_bool v -> (Q1 v) ==> \[False]) ->
@@ -1140,7 +1140,7 @@ Lemma triple_if : forall Q1 t0 t1 t2 H Q, (* not very useful *)
 Proof using.
   introv M1 M2 M3. applys* triple_if_trm.
   { intros v. tests C: (is_val_bool v).
-    { destruct C as (b&E). subst. applys* triple_if_case. }
+    { destruct C as (b&E). subst. applys* triple_if. }
     { xtchange* M3. xtpull ;=>. false. } }
 Qed.
 

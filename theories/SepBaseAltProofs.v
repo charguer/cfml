@@ -17,7 +17,7 @@ Import SepBase.
 
 Lemma qwand_specialize : forall A (x:A) (Q1 Q2:A->hprop),
   (Q1 \--* Q2) ==> (Q1 x \-* Q2 x).
-Proof using. 
+Proof using.
   intros. applys himpl_forall_trans. intros H M.
   rewrite qwand_equiv in M. specializes M x.
   rewrite hwand_equiv. rewrite~ hstar_comm.
@@ -952,15 +952,14 @@ Qed.
 
 (** A rule of conditionals with case analysis already done *)
 
-Lemma triple_if' : forall Q1 t0 t1 t2 H Q,
+Lemma triple_if_case' : forall Q1 t0 t1 t2 H Q,
   triple t0 H Q1 ->
   triple t1 (Q1 true) Q ->
   triple t2 (Q1 false) Q ->
   (forall v, ~ is_val_bool v -> (Q1 v) ==> \[False]) ->
   triple (trm_if t0 t1 t2) H Q.
 Proof using.
-  introv M1 M2 M3 M4. applys* triple_if.
-  { intros b. case_if*. }
+  introv M1 M2 M3 M4. applys* triple_if. { intros b. case_if*. }
 Qed.
 
 (** A direct proof for [triple_if_bool] *)
@@ -975,10 +974,10 @@ Proof using.
   destruct b.
   { forwards* (h'&v'&R&K): (rm M1) h.
     exists h' v'. splits~.
-    { applys* eval_if_case. } }
+    { applys* eval_if. } }
   { forwards* (h'&v'&R&K): (rm M2) h.
     exists h' v'. splits~.
-    { applys* eval_if_case. } }
+    { applys* eval_if. } }
 Qed.
 
 (** A rule for unary function application -- DEPRECATED

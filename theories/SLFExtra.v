@@ -205,11 +205,11 @@ Proof using.
   { intros v. applys hoare_conseq M2; xsimpl. }
 Qed.
 
-Lemma triple_if_case : forall (b:bool) t1 t2 H Q,
+Lemma triple_if : forall (b:bool) t1 t2 H Q,
   triple (if b then t1 else t2) H Q ->
   triple (trm_if b t1 t2) H Q.
 Proof using.
-  introv M1. intros HF. applys hoare_if_case. applys M1.
+  introv M1. intros HF. applys hoare_if. applys M1.
 Qed.
 
 Lemma triple_app_fun : forall x v1 v2 t1 H Q,

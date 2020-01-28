@@ -852,23 +852,23 @@ Proof using.
     destruct V. applys M2. }
 Qed.
 
-Lemma Triple_if : forall t0 t1 t2 H (Q1:bool->hprop) A `{EA:Enc A} (Q:A->hprop),
+Lemma Triple_if_trm : forall t0 t1 t2 H (Q1:bool->hprop) A `{EA:Enc A} (Q:A->hprop),
   Triple t0 H Q1 ->
   (forall (b:bool), Triple (if b then t1 else t2) (Q1 b) Q) ->
   Triple (trm_if t0 t1 t2) H Q.
 Proof using.
-  introv M1 M2. applys* triple_if.
+  introv M1 M2. applys* triple_if_trm'.
   { intros b. unfold LiftPost. xtpull ;=> V E.
-     rewrite (enc_bool_eq V) in E. inverts E. applys M2. }
+     rewrite (enc_bool_eq V) in E. inverts E. applys* M2. }
   { intros v N. unfold LiftPost. xpull ;=> V ->. false N.
     rewrite enc_bool_eq. hnfs*. }
 Qed.
 
-Lemma Triple_if_case : forall (b:bool) t1 t2 H A `{EA:Enc A} (Q:A->hprop),
+Lemma Triple_if : forall (b:bool) t1 t2 H A `{EA:Enc A} (Q:A->hprop),
   Triple (if b then t1 else t2) H Q ->
   Triple (trm_if b t1 t2) H Q.
 Proof using.
-  introv M1. applys triple_if_case. { applys M1. }
+  introv M1. applys triple_if. { applys M1. }
 Qed.
 
 Lemma Triple_apps_funs : forall xs F vs t1 H A `{EA: Enc A} (Q:A->hprop),
