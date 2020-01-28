@@ -819,7 +819,7 @@ Proof using.
 Qed.
 
 Lemma hoare_unop : forall v H op v1,
-  redunop op v1 v ->
+  evalunop op v1 v ->
   hoare (op v1)
     H
     (fun r => \[r = v] \* H).
@@ -830,7 +830,7 @@ Proof using.
 Qed.
 
 Lemma hoare_binop : forall v H op v1 v2,
-  redbinop op v1 v2 v ->
+  evalbinop op v1 v2 v ->
   hoare (op v1 v2)
     H
     (fun r => \[r = v] \* H).
@@ -1381,7 +1381,7 @@ Qed.
 (* ** SL rules for other primitive functions *)
 
 Lemma triple_unop : forall v op v1,
-  redunop op v1 v ->
+  evalunop op v1 v ->
   triple (op v1) \[] (fun r => \[r = v]).
 Proof using.
   introv R. applys triple_of_hoare. intros HF.
@@ -1392,16 +1392,16 @@ Lemma triple_neg : forall (b1:bool),
   triple (val_neg b1)
     \[]
     (fun r => \[r = val_bool (neg b1)]).
-Proof using. intros. applys* triple_unop. applys* redunop_neg. Qed.
+Proof using. intros. applys* triple_unop. applys* evalunop_neg. Qed.
 
 Lemma triple_opp : forall n1,
   triple (val_opp n1)
     \[]
     (fun r => \[r = val_int (- n1)]).
-Proof using. intros. applys* triple_unop. applys* redunop_opp. Qed.
+Proof using. intros. applys* triple_unop. applys* evalunop_opp. Qed.
 
 Lemma triple_binop : forall v op v1 v2,
-  redbinop op v1 v2 v ->
+  evalbinop op v1 v2 v ->
   triple (op v1 v2) \[] (fun r => \[r = v]).
 Proof using.
   introv R. applys triple_of_hoare. intros HF.
@@ -1412,69 +1412,69 @@ Lemma triple_eq : forall v1 v2,
   triple (val_eq v1 v2)
     \[]
     (fun r => \[r = isTrue (v1 = v2)]).
-Proof using. intros. applys* triple_binop. applys redbinop_eq. Qed.
+Proof using. intros. applys* triple_binop. applys evalbinop_eq. Qed.
 
 Lemma triple_neq : forall v1 v2,
   triple (val_neq v1 v2)
     \[]
     (fun r => \[r = isTrue (v1 <> v2)]).
-Proof using. intros. applys* triple_binop. applys redbinop_neq. Qed.
+Proof using. intros. applys* triple_binop. applys evalbinop_neq. Qed.
 
 Lemma triple_add : forall n1 n2,
   triple (val_add n1 n2)
     \[]
     (fun r => \[r = val_int (n1 + n2)]).
-Proof using. intros. applys* triple_binop. applys* redbinop_add. Qed.
+Proof using. intros. applys* triple_binop. applys* evalbinop_add. Qed.
 
 Lemma triple_sub : forall n1 n2,
   triple (val_sub n1 n2)
     \[]
     (fun r => \[r = val_int (n1 - n2)]).
-Proof using. intros. applys* triple_binop. applys* redbinop_sub. Qed.
+Proof using. intros. applys* triple_binop. applys* evalbinop_sub. Qed.
 
 Lemma triple_mul : forall n1 n2,
   triple (val_mul n1 n2)
     \[]
     (fun r => \[r = val_int (n1 * n2)]).
-Proof using. intros. applys* triple_binop. applys* redbinop_mul. Qed.
+Proof using. intros. applys* triple_binop. applys* evalbinop_mul. Qed.
 
 Lemma triple_div : forall n1 n2,
   n2 <> 0 ->
   triple (val_div n1 n2)
     \[]
     (fun r => \[r = val_int (Z.quot n1 n2)]).
-Proof using. intros. applys* triple_binop. applys* redbinop_div. Qed.
+Proof using. intros. applys* triple_binop. applys* evalbinop_div. Qed.
 
 Lemma triple_mod : forall n1 n2,
   n2 <> 0 ->
   triple (val_mod n1 n2)
     \[]
     (fun r => \[r = val_int (Z.rem n1 n2)]).
-Proof using. intros. applys* triple_binop. applys* redbinop_mod. Qed.
+Proof using. intros. applys* triple_binop. applys* evalbinop_mod. Qed.
 
 Lemma triple_le : forall n1 n2,
   triple (val_le n1 n2)
     \[]
     (fun r => \[r = isTrue (n1 <= n2)]).
-Proof using. intros. applys* triple_binop. applys* redbinop_le. Qed.
+Proof using. intros. applys* triple_binop. applys* evalbinop_le. Qed.
 
 Lemma triple_lt : forall n1 n2,
   triple (val_lt n1 n2)
     \[]
     (fun r => \[r = isTrue (n1 < n2)]).
-Proof using. intros. applys* triple_binop. applys* redbinop_lt. Qed.
+Proof using. intros. applys* triple_binop. applys* evalbinop_lt. Qed.
 
 Lemma triple_ge : forall n1 n2,
   triple (val_ge n1 n2)
     \[]
     (fun r => \[r = isTrue (n1 >= n2)]).
-Proof using. intros. applys* triple_binop. applys* redbinop_ge. Qed.
+Proof using. intros. applys* triple_binop. applys* evalbinop_ge. Qed.
 
 Lemma triple_gt : forall n1 n2,
   triple (val_gt n1 n2)
     \[]
     (fun r => \[r = isTrue (n1 > n2)]).
-Proof using. intros. applys* triple_binop. applys* redbinop_gt. Qed.
+Proof using. intros. applys* triple_binop. applys* evalbinop_gt. Qed.
 
 Lemma triple_ptr_add : forall l n,
   l + n >= 0 ->
@@ -1482,7 +1482,7 @@ Lemma triple_ptr_add : forall l n,
     \[]
     (fun r => \[r = val_loc (abs (l + n))]).
 Proof using.
-  intros. applys* triple_binop. applys* redbinop_ptr_add.
+  intros. applys* triple_binop. applys* evalbinop_ptr_add.
   { rewrite~ abs_nonneg. }
 Qed.
 

@@ -1212,15 +1212,15 @@ Qed.
 (** The following program was proposed in the original article on
     Separation Logic by John Reynolds as a challenge for verification.
 
-    Just like the previous program, it performs in-place concatenation 
+    Just like the previous program, it performs in-place concatenation
     of two lists. It differs in that it uses an auxiliary higher-order
     function to perform the work. Also, the code returns a pointer onto
     the head cell of the resulting list, to also work in case the first
     list is empty.
-    
+
     The code is like a puzzle: it takes a good drawing and several minutes
-    to figure out how it works. Observe in particular how the recursive 
-    call is invoked as part of the continuation. *) 
+    to figure out how it works. Observe in particular how the recursive
+    call is invoked as part of the continuation. *)
 
 (**
 [[
@@ -1239,7 +1239,7 @@ Definition cps_append_aux : val :=
     Let 'b := ('p1 '= null) in
     If_ 'b
       Then 'k 'p2
-      Else 
+      Else
         Let 'q1 := 'p1'.tail in
         Let 'k2 := (Fun 'r := (Set 'p1'.tail ':= 'r '; 'k 'p1)) in
         'f 'q1 'p2 'k2.
@@ -1258,7 +1258,7 @@ Proof using.
   introv Hk. gen H p1 p2 L2 k. induction_wf IH: (@list_sub val) L1.
   xwp. xapp. xchange (MList_if p1). xif; intros C; case_if; xpull.
   { intros ->. xapp. xsimpl*. }
-  { intros x L1' p1' ->. xapp. xfun. intros f Hf. 
+  { intros x L1' p1' ->. xapp. xfun. intros f Hf.
     xapp (>> IH (H \* p1`.tail ~~> L1' \* p1`.head ~~> x) L1').
     { auto. }
     { intros p3. xtriple. xapp. xapp. xapp. xchanges <- MList_cons. }

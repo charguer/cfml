@@ -434,34 +434,7 @@ Ltac xaffine_core tt ::= (* configure [xaffine] *)
 (* ################################################ *)
 (** ** Syntax *)
 
-(** Grammar of additional primitive operations,
-    in addition to [val_add] and [val_div]. *)
-
-Inductive prim : Type :=
-(*| val_add : prim
-  | val_div : prim *)
-  | val_neg : prim
-  | val_opp : prim
-  | val_eq : prim
-  | val_neq : prim
-  | val_sub : prim
-  | val_mul : prim
-  | val_mod : prim
-  | val_le : prim
-  | val_lt : prim
-  | val_ge : prim
-  | val_gt : prim
-  | val_ptr_add : prim.
-
-(** Let us assume that the inductive definition of values is extended
-    with a injection [val_prim], for including at once all the primitive
-    operations listed above. *)
-
-Parameter val_prim : prim -> val.
-
-Coercion val_prim : prim >-> val.
-
-(** Notation for the primitive operations *)
+(** Notation for the additional primitive operations. *)
 
 Notation "'not t" :=
   (val_neg t)
@@ -511,68 +484,6 @@ Notation "t1 '> t2" :=
   (val_gt t1 t2)
   (at level 60) : trm_scope.
 
-(* already in SLFDirect:
-Notation "t1 '+ t2" :=
-  (val_add t1 t2)
-  (at level 58) : trm_scope.
-*)
-
-(* ################################################ *)
-(** ** Semantics *)
-
-(** Evaluation rules for unary operations are captured by the predicate
-    [redupop op v1 v2], which asserts that [op v1] evaluates to [v2]. *)
-
-Inductive redunop : prim -> val -> val -> Prop :=
-  | redunop_neg : forall b1,
-      redunop val_neg (val_bool b1) (val_bool (neg b1))
-  | redunop_opp : forall n1,
-      redunop val_opp (val_int n1) (val_int (- n1)).
-
-(** Evaluation rules for binary operations are captured by the predicate
-    [redupop op v1 v2 v3], which asserts that [op v1 v2] evaluates to [v3]. *)
-
-Inductive redbinop : val -> val -> val -> val -> Prop :=
-  | redbinop_ptr_add : forall l' l n,
-      (l':nat) = (l:nat) + n :> int ->
-      redbinop val_ptr_add (val_loc l) (val_int n) (val_loc l')
-  | redbinop_eq : forall v1 v2,
-      redbinop val_eq v1 v2 (val_bool (isTrue (v1 = v2)))
-  | redbinop_neq : forall v1 v2,
-      redbinop val_neq v1 v2 (val_bool (isTrue (v1 <> v2)))
-  | redbinop_add : forall n1 n2,
-      redbinop val_add (val_int n1) (val_int n2) (val_int (n1 + n2))
-  | redbinop_sub : forall n1 n2,
-      redbinop val_sub (val_int n1) (val_int n2) (val_int (n1 - n2))
-  | redbinop_mul : forall n1 n2,
-      redbinop val_mul (val_int n1) (val_int n2) (val_int (n1 * n2))
-  | redbinop_div : forall n1 n2,
-      n2 <> 0 ->
-      redbinop val_div (val_int n1) (val_int n2) (val_int (Z.quot n1 n2))
-  | redbinop_mod : forall n1 n2,
-      n2 <> 0 ->
-      redbinop val_mod (val_int n1) (val_int n2) (val_int (Z.rem n1 n2))
-  | redbinop_le : forall n1 n2,
-      redbinop val_le (val_int n1) (val_int n2) (val_bool (isTrue (n1 <= n2)))
-  | redbinop_lt : forall n1 n2,
-      redbinop val_lt (val_int n1) (val_int n2) (val_bool (isTrue (n1 < n2)))
-  | redbinop_ge : forall n1 n2,
-      redbinop val_ge (val_int n1) (val_int n2) (val_bool (isTrue (n1 >= n2)))
-  | redbinop_gt : forall n1 n2,
-      redbinop val_gt (val_int n1) (val_int n2) (val_bool (isTrue (n1 > n2))).
-
-(** Let us assume that the inductive definition of the big-step judgment [eval]
-    is extended with two constructors, [eval_unop] and [eval_binop], to include
-    the behavior of the unary and binary operators. *)
-
-Parameter eval_unop : forall op m v1 v,
-  redunop op v1 v ->
-  eval m (op v1) m v.
-
-Parameter eval_binop : forall op m v1 v2 v,
-  redbinop op v1 v2 v ->
-  eval m (op v1 v2) m v.
-
 
 (* ################################################ *)
 (** ** Specification of [unop] and [binop] in general *)
@@ -580,7 +491,7 @@ Parameter eval_binop : forall op m v1 v2 v,
 (** Hoare specifications *)
 
 Lemma hoare_unop : forall v H op v1,
-  redunop op v1 v ->
+  evalunop op v1 v ->
   hoare (op v1)
     H
     (fun r => \[r = v] \* H).
@@ -591,7 +502,7 @@ Proof using.
 Qed.
 
 Lemma hoare_binop : forall v H op v1 v2,
-  redbinop op v1 v2 v ->
+  evalbinop op v1 v2 v ->
   hoare (op v1 v2)
     H
     (fun r => \[r = v] \* H).
@@ -604,7 +515,7 @@ Qed.
 (** Separation Logic specifications *)
 
 Lemma triple_unop : forall v op v1,
-  redunop op v1 v ->
+  evalunop op v1 v ->
   triple (op v1) \[] (fun r => \[r = v]).
 Proof using.
   introv R. unfold triple. intros H'.
@@ -612,7 +523,7 @@ Proof using.
 Qed.
 
 Lemma triple_binop : forall v op v1 v2,
-  redbinop op v1 v2 v ->
+  evalbinop op v1 v2 v ->
   triple (op v1 v2) \[] (fun r => \[r = v]).
 Proof using.
   introv R. unfold triple. intros H'.
@@ -623,72 +534,74 @@ Qed.
 (* ################################################ *)
 (** ** Specification of primitive operations *)
 
+(** Remark: [triple_add] and [triple_div] are proved in [SLFDirect]. *)
+
 Lemma triple_neg : forall (b1:bool),
   triple (val_neg b1)
     \[]
     (fun r => \[r = val_bool (neg b1)]).
-Proof using. intros. applys* triple_unop. applys* redunop_neg. Qed.
+Proof using. intros. applys* triple_unop. applys* evalunop_neg. Qed.
 
 Lemma triple_opp : forall n1,
   triple (val_opp n1)
     \[]
     (fun r => \[r = val_int (- n1)]).
-Proof using. intros. applys* triple_unop. applys* redunop_opp. Qed.
+Proof using. intros. applys* triple_unop. applys* evalunop_opp. Qed.
 
 Lemma triple_eq : forall v1 v2,
   triple (val_eq v1 v2)
     \[]
     (fun r => \[r = isTrue (v1 = v2)]).
-Proof using. intros. applys* triple_binop. applys redbinop_eq. Qed.
+Proof using. intros. applys* triple_binop. applys evalbinop_eq. Qed.
 
 Lemma triple_neq : forall v1 v2,
   triple (val_neq v1 v2)
     \[]
     (fun r => \[r = isTrue (v1 <> v2)]).
-Proof using. intros. applys* triple_binop. applys redbinop_neq. Qed.
+Proof using. intros. applys* triple_binop. applys evalbinop_neq. Qed.
 
 Lemma triple_sub : forall n1 n2,
   triple (val_sub n1 n2)
     \[]
     (fun r => \[r = val_int (n1 - n2)]).
-Proof using. intros. applys* triple_binop. applys* redbinop_sub. Qed.
+Proof using. intros. applys* triple_binop. applys* evalbinop_sub. Qed.
 
 Lemma triple_mul : forall n1 n2,
   triple (val_mul n1 n2)
     \[]
     (fun r => \[r = val_int (n1 * n2)]).
-Proof using. intros. applys* triple_binop. applys* redbinop_mul. Qed.
+Proof using. intros. applys* triple_binop. applys* evalbinop_mul. Qed.
 
 Lemma triple_mod : forall n1 n2,
   n2 <> 0 ->
   triple (val_mod n1 n2)
     \[]
     (fun r => \[r = val_int (Z.rem n1 n2)]).
-Proof using. intros. applys* triple_binop. applys* redbinop_mod. Qed.
+Proof using. intros. applys* triple_binop. applys* evalbinop_mod. Qed.
 
 Lemma triple_le : forall n1 n2,
   triple (val_le n1 n2)
     \[]
     (fun r => \[r = isTrue (n1 <= n2)]).
-Proof using. intros. applys* triple_binop. applys* redbinop_le. Qed.
+Proof using. intros. applys* triple_binop. applys* evalbinop_le. Qed.
 
 Lemma triple_lt : forall n1 n2,
   triple (val_lt n1 n2)
     \[]
     (fun r => \[r = isTrue (n1 < n2)]).
-Proof using. intros. applys* triple_binop. applys* redbinop_lt. Qed.
+Proof using. intros. applys* triple_binop. applys* evalbinop_lt. Qed.
 
 Lemma triple_ge : forall n1 n2,
   triple (val_ge n1 n2)
     \[]
     (fun r => \[r = isTrue (n1 >= n2)]).
-Proof using. intros. applys* triple_binop. applys* redbinop_ge. Qed.
+Proof using. intros. applys* triple_binop. applys* evalbinop_ge. Qed.
 
 Lemma triple_gt : forall n1 n2,
   triple (val_gt n1 n2)
     \[]
     (fun r => \[r = isTrue (n1 > n2)]).
-Proof using. intros. applys* triple_binop. applys* redbinop_gt. Qed.
+Proof using. intros. applys* triple_binop. applys* evalbinop_gt. Qed.
 
 Lemma triple_ptr_add : forall l n,
   l + n >= 0 ->
@@ -696,7 +609,7 @@ Lemma triple_ptr_add : forall l n,
     \[]
     (fun r => \[r = val_loc (abs (l + n))]).
 Proof using.
-  intros. applys* triple_binop. applys* redbinop_ptr_add.
+  intros. applys* triple_binop. applys* evalbinop_ptr_add.
   { rewrite~ abs_nonneg. }
 Qed.
 
@@ -714,23 +627,6 @@ Hint Resolve triple_neg triple_opp triple_eq triple_neq
    triple_sub triple_mul triple_mod triple_le triple_lt
    triple_ge triple_gt triple_ptr_add triple_ptr_add_nat : triple.
 
-(* Already in SLFDirect:
-
-Lemma triple_add : forall n1 n2,
-  triple (val_add n1 n2)
-    \[]
-    (fun r => \[r = val_int (n1 + n2)]).
-Proof using. intros. applys* triple_binop. applys* redbinop_add. Qed.
-
-Lemma triple_div : forall n1 n2,
-  n2 <> 0 ->
-  triple (val_div n1 n2)
-    \[]
-    (fun r => \[r = val_int (Z.quot n1 n2)]).
-Proof using. intros. applys* triple_binop. applys* redbinop_div. Qed.
-
-*)
-
 
 (* ########################################################### *)
 (* ########################################################### *)
@@ -741,7 +637,7 @@ Proof using. intros. applys* triple_binop. applys* redbinop_div. Qed.
     support functions of several arguments: curried functions, n-ary
     functions, or functions expecting a tuple as argument.
 
-    For simplicity, we here follow the approach based on curried 
+    For simplicity, we here follow the approach based on curried
     function, specialized for arity 2 and 3. It is possible to state
     arity-generic definitions and lemmas, but the definitions become
     much more technical.
@@ -771,25 +667,7 @@ Notation "'VFix' f x1 x2 x3 ':=' t" :=
 
 
 (* ################################################ *)
-(** ** Semantics of functions of 2 or 3 arguments *)
-
-(** The predicate [trm_is_val t] asserts that [t] is a value.
-    Reciprocally, [~ trm_is_val t] asserts that [t] is not a value. *)
-
-Definition trm_is_val (t:trm) : Prop :=
-  match t with trm_val v => True | _ => False end.
-
-(** Let us assume the following rule for evaluating applications
-    that are not in A-normal form, that is, not of the form [trm_app v1 v2].
-    In the general case of [trm_app t1 t2], we need to evaluate the arguments
-    to values before we can proceed, as captured by the following rule. *)
-
-Parameter eval_app_arg : forall s1 s2 s3 s4 t1 t2 v1 v2 r,
-  (~ trm_is_val t1 \/ ~ trm_is_val t2) ->
-  eval s1 t1 s2 v1 ->
-  eval s2 t2 s3 v2 ->
-  eval s3 (trm_app v1 v2) s4 r ->
-  eval s1 (trm_app t1 t2) s4 r.
+(** ** Evaluation rules for applications to 2 or 3 arguments. *)
 
 (** Useful substitution lemmas, generalizing [isubst_rem] and [isubst_rem_2]. *)
 
@@ -812,10 +690,6 @@ Proof using.
   { applys isubst_ctx_equiv. intros y. rew_list. simpl. do 4 rewrite lookup_rem. case_var~. }
   { intros y v1 v2 K1 K2. simpls. do 4 rewrite lookup_rem in K1. case_var. }
 Qed.
-
-
-(* ################################################ *)
-(** ** Evaluation rules for applications to 2 or 3 arguments. *)
 
 (** [eval_like] judgment for applications to several arguments. *)
 
@@ -854,7 +728,7 @@ Qed.
 
 Lemma eval_like_app_fix3 : forall v0 v1 v2 v3 f x1 x2 x3 t1,
   v0 = val_fix f x1 (trm_fun x2 (trm_fun x3 t1)) ->
-  (x1 <> x2 /\ f <> x2 /\ f <> x3 /\ x1 <> x3 /\ x2 <> x3) -> 
+  (x1 <> x2 /\ f <> x2 /\ f <> x3 /\ x1 <> x3 /\ x2 <> x3) ->
   eval_like (subst x3 v3 (subst x2 v2 (subst x1 v1 (subst f v0 t1)))) (v0 v1 v2 v3).
 Proof using.
   introv E (N1&N2&N3&N4&N5). introv R. applys* eval_app_arg.
@@ -862,6 +736,7 @@ Proof using.
   { applys eval_val. }
   { applys* eval_app_fun. }
 Qed.
+
 
 (* ################################################ *)
 (** ** Reasoning rules for applications to 2 or 3 arguments *)
@@ -965,7 +840,7 @@ Tactic Notation "xwp" :=
 (* ################################################ *)
 (** ** Bonus: Triples for applications to several arguments *)
 
-(** Triples for applications to 2 arguments. 
+(** Triples for applications to 2 arguments.
     Similar rules can be stated and proved for 3 arguments.
     These rules are not needed for the verification framework. *)
 

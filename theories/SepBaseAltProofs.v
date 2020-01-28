@@ -830,7 +830,7 @@ Lemma triple_eq : forall v1 v2,
     (fun r => \[r = isTrue (v1 = v2)]).
 Proof using.
   introv Hh. exists___. splits.
-  { applys* eval_binop. applys* redbinop_eq. }
+  { applys* eval_binop. applys* evalbinop_eq. }
   { xsimplh~. }
 Qed.
 
@@ -840,7 +840,7 @@ Lemma triple_add : forall n1 n2,
     (fun r => \[r = val_int (n1 + n2)]).
 Proof using.
   introv Hh. exists___. splits.
-  { applys* eval_binop. applys* redbinop_add. }
+  { applys* eval_binop. applys* evalbinop_add. }
   { xsimplh*. }
 Qed.
 
@@ -850,7 +850,7 @@ Lemma triple_sub : forall n1 n2,
     (fun r => \[r = val_int (n1 - n2)]).
 Proof using.
   introv Hh. exists___. splits.
-  { applys* eval_binop. applys* redbinop_sub. }
+  { applys* eval_binop. applys* evalbinop_sub. }
   { xsimplh*. }
 Qed.
 
@@ -863,7 +863,7 @@ Lemma triple_ptr_add : forall l n,
     (fun r => \[r = val_loc (abs (l + n))]).
 Proof using.
   introv N Hh. exists___. splits.
-  { applys* eval_binop. applys* redbinop_ptr_add (abs (l + n)). rewrite~ abs_nonneg. }
+  { applys* eval_binop. applys* evalbinop_ptr_add (abs (l + n)). rewrite~ abs_nonneg. }
   { xsimplh*. }
 Qed.
 
@@ -885,7 +885,7 @@ Lemma triple_ptr_add_nat' : forall l (f:nat),
     (fun r => \[r = val_loc (l+f)%nat]).
 Proof using.
   introv Hh. exists___. splits.
-  { applys* eval_binop. applys* redbinop_ptr_add_nat. }
+  { applys* eval_binop. applys* evalbinop_ptr_add_nat. }
   { xsimplh*. }
 Qed.
 

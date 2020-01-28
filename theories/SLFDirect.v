@@ -72,8 +72,34 @@ Axiom propositional_extensionality : forall (P Q:Prop),
 (* ########################################################### *)
 (** ** Syntax *)
 
-(** The grammar of the deeply-embedded language includes
-    terms and values. Values include locations and primitive functions. *)
+(** The grammar of the deeply-embedded language includes terms and
+    values. Values include basic values such as [int] and [bool],
+    locations (memory addresses, represented by natural numbers),
+    and primitive operations. *)
+
+(** The grammar of primitive operations includes many operations.
+    In this file, we will only focus on addition and division.
+    Other operations are specified in the file [SLFExtra.v]. *)
+
+Inductive prim : Type :=
+  | val_ref : prim
+  | val_get : prim
+  | val_set : prim
+  | val_free : prim
+  | val_neg : prim
+  | val_opp : prim
+  | val_eq : prim
+  | val_add : prim
+  | val_neq : prim
+  | val_sub : prim
+  | val_mul : prim
+  | val_div : prim
+  | val_mod : prim
+  | val_le : prim
+  | val_lt : prim
+  | val_ge : prim
+  | val_gt : prim
+  | val_ptr_add : prim.
 
 Definition loc : Type := nat.
 
@@ -84,14 +110,9 @@ Inductive val : Type :=
   | val_bool : bool -> val
   | val_int : int -> val
   | val_loc : loc -> val
+  | val_prim : prim -> val
   | val_fun : var -> trm -> val
   | val_fix : var -> var -> trm -> val
-  | val_ref : val
-  | val_get : val
-  | val_set : val
-  | val_free : val
-  | val_add : val
-  | val_div : val
 
 with trm : Type :=
   | trm_val : val -> trm
@@ -175,6 +196,7 @@ Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
 Coercion val_bool : bool >-> val.
 Coercion val_int : Z >-> val.
 Coercion val_loc : loc >-> val.
+Coercion val_prim : prim >-> val.
 
 Coercion trm_val : val >-> trm.
 Coercion trm_var : var >-> trm.
@@ -183,6 +205,55 @@ Coercion trm_app : trm >-> Funclass.
 
 (* ########################################################### *)
 (** ** Semantics *)
+
+(** Evaluation rules for unary operations are captured by the predicate
+    [redupop op v1 v2], which asserts that [op v1] evaluates to [v2]. *)
+
+Inductive evalunop : prim -> val -> val -> Prop :=
+  | evalunop_neg : forall b1,
+      evalunop val_neg (val_bool b1) (val_bool (neg b1))
+  | evalunop_opp : forall n1,
+      evalunop val_opp (val_int n1) (val_int (- n1)).
+
+(** Evaluation rules for binary operations are captured by the predicate
+    [redupop op v1 v2 v3], which asserts that [op v1 v2] evaluates to [v3]. *)
+
+Inductive evalbinop : val -> val -> val -> val -> Prop :=
+  | evalbinop_ptr_add : forall l' l n,
+      (l':nat) = (l:nat) + n :> int ->
+      evalbinop val_ptr_add (val_loc l) (val_int n) (val_loc l')
+  | evalbinop_eq : forall v1 v2,
+      evalbinop val_eq v1 v2 (val_bool (isTrue (v1 = v2)))
+  | evalbinop_neq : forall v1 v2,
+      evalbinop val_neq v1 v2 (val_bool (isTrue (v1 <> v2)))
+  | evalbinop_add : forall n1 n2,
+      evalbinop val_add (val_int n1) (val_int n2) (val_int (n1 + n2))
+  | evalbinop_sub : forall n1 n2,
+      evalbinop val_sub (val_int n1) (val_int n2) (val_int (n1 - n2))
+  | evalbinop_mul : forall n1 n2,
+      evalbinop val_mul (val_int n1) (val_int n2) (val_int (n1 * n2))
+  | evalbinop_div : forall n1 n2,
+      n2 <> 0 ->
+      evalbinop val_div (val_int n1) (val_int n2) (val_int (Z.quot n1 n2))
+  | evalbinop_mod : forall n1 n2,
+      n2 <> 0 ->
+      evalbinop val_mod (val_int n1) (val_int n2) (val_int (Z.rem n1 n2))
+  | evalbinop_le : forall n1 n2,
+      evalbinop val_le (val_int n1) (val_int n2) (val_bool (isTrue (n1 <= n2)))
+  | evalbinop_lt : forall n1 n2,
+      evalbinop val_lt (val_int n1) (val_int n2) (val_bool (isTrue (n1 < n2)))
+  | evalbinop_ge : forall n1 n2,
+      evalbinop val_ge (val_int n1) (val_int n2) (val_bool (isTrue (n1 >= n2)))
+  | evalbinop_gt : forall n1 n2,
+      evalbinop val_gt (val_int n1) (val_int n2) (val_bool (isTrue (n1 > n2))).
+
+(** The predicate [trm_is_val t] asserts that [t] is a value.
+    The evaluation rule [eval_app_arg], useful in particular to evaluate
+    curried functions applied to several arguments, involves premises of
+    the form [~ trm_is_val t1], asserting [t1] is not already a value. *)
+
+Definition trm_is_val (t:trm) : Prop :=
+  match t with trm_val v => True | _ => False end.
 
 (** Big-step evaluation judgement, written [eval s t s' v] *)
 
@@ -193,6 +264,12 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
       eval s (trm_fun x t1) s (val_fun x t1)
   | eval_fix : forall s f x t1,
       eval s (trm_fix f x t1) s (val_fix f x t1)
+  | eval_app_arg : forall s1 s2 s3 s4 t1 t2 v1 v2 r,
+      (~ trm_is_val t1 \/ ~ trm_is_val t2) ->
+      eval s1 t1 s2 v1 ->
+      eval s2 t2 s3 v2 ->
+      eval s3 (trm_app v1 v2) s4 r ->
+      eval s1 (trm_app t1 t2) s4 r
   | eval_app_fun : forall s1 s2 v1 v2 x t1 v,
       v1 = val_fun x t1 ->
       eval s1 (subst x v2 t1) s2 v ->
@@ -212,11 +289,12 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
   | eval_if_case : forall s1 s2 b v t1 t2,
       eval s1 (if b then t1 else t2) s2 v ->
       eval s1 (trm_if (val_bool b) t1 t2) s2 v
-  | eval_add : forall s n1 n2,
-      eval s (val_add (val_int n1) (val_int n2)) s (val_int (n1 + n2))
-  | eval_div : forall s n1 n2,
-      n2 <> 0 ->
-      eval s (val_div (val_int n1) (val_int n2)) s (val_int (Z.quot n1 n2))
+  | eval_unop : forall op m v1 v,
+      evalunop op v1 v ->
+      eval m (op v1) m v
+  | eval_binop : forall op m v1 v2 v,
+      evalbinop op v1 v2 v ->
+      eval m (op v1 v2) m v
   | eval_ref : forall s v l,
       ~ Fmap.indom s l ->
       eval s (val_ref v) (Fmap.update s l v) (val_loc l)
@@ -229,6 +307,17 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
   | eval_free : forall s l,
       Fmap.indom s l ->
       eval s (val_free (val_loc l)) (Fmap.remove s l) val_unit.
+
+(** Specialized evaluation rules for addition and division. *)
+
+Lemma eval_add : forall s n1 n2,
+  eval s (val_add (val_int n1) (val_int n2)) s (val_int (n1 + n2)).
+Proof using. intros. applys eval_binop. applys evalbinop_add. Qed.
+
+Lemma eval_div : forall s n1 n2,
+  n2 <> 0 ->
+  eval s (val_div (val_int n1) (val_int n2)) s (val_int (Z.quot n1 n2)).
+Proof using. intros. applys eval_binop. applys* evalbinop_div. Qed.
 
 (** [eval_like t1 t2] asserts that [t2] evaluates like [t1].
     In particular, this relation hold whenever [t2] reduces

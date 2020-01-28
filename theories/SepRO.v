@@ -1431,7 +1431,7 @@ Lemma triple_add : forall (n1 n2:int),
 Proof using.
   intros. intros h1 h2 D E.
   exists h1 (n1+n2). splits~.
-  { applys* eval_binop. applys* redbinop_add. }
+  { applys* eval_binop. applys* evalbinop_add. }
   { exists heap_empty h1. splits~.
     { applys~ heap_compat_empty_l. }
     { heap_eq. }

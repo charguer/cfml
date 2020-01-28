@@ -1,3 +1,4 @@
+
 (**
 
 Summary of the techniques involved in the implementation of CFML.
@@ -13,7 +14,7 @@ License: MIT.
 *)
 
 Set Implicit Arguments.
-From Sep Require SLFRules SLFWPgen SLFList.
+From Sep Require SLFRules SLFWPgen.
 From Sep Require SLFExtra.
 Generalizable Variables A.
 
@@ -1095,7 +1096,6 @@ End Wpgen.
 Import SLFWPgen.
 Open Scope wpgen_scope.
 
-
 Lemma triple_incr' : forall (p:loc) (n:int),
   triple (trm_app incr p)
     (p ~~> n)
@@ -1111,42 +1111,69 @@ End ProveIncr.
 (** ** Verification of in-place concatenation of two mutable lists *)
 
 Module ProveAppend.
-Import Example SLFList.
+Import SLFExtra SLFProgramSyntax.
+Implicit Types p q : loc.
 
-Module ListDef.
+(** A mutable list cell is a two-cell record, featuring a head field and a
+    tail field. We define the field indices as follows. *)
 
-(** Définition de [MList L p], noté [p ~> MList L] *)
+Definition head : field := 0%nat.
+Definition tail : field := 1%nat.
 
-Fixpoint MList (L:list int) (p:loc) : hprop :=
+(** A mutable list consists of a chain of cells, terminated by [null].
+
+    The heap predicate [MList L p] describes a list whose head cell is
+    at location [p], and whose elements are described by the list [L].
+
+    This predicate is defined recursively on the structure of [L]:
+
+    - if [L] is empty, then [p] is the null pointer,
+    - if [L] is of the form [x::L'], then the head field of [p]
+      contains [x], and the tail field of [p] contains a pointer
+      [q] such that [MList L' q] describes the tail of the list.
+
+*)
+
+Fixpoint MList (L:list val) (p:loc) : hprop :=
   match L with
   | nil => \[p = null]
   | x::L' => \exists q, (p`.head ~~> x) \* (p`.tail ~~> q)
-                     \* (q ~> MList L')
+                     \* (MList L' q)
   end.
 
-(** Reformulation utile pour replier la définition *)
+(** The following reformulations of the definition are helpful in proofs. *)
 
 Lemma MList_cons : forall p x L',
   p ~> MList (x::L') =
-  \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* q ~> MList L'.
-Proof using. xunfold MList. auto. Qed.
+  \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* MList L' q.
+Proof using.  auto. Qed.
 
-(** Lemme pour l'analyse par cas selon [p = null] *)
+(** Another characterization of [MList L p] is useful for proofs. Whereas
+    the original definition is by case analysis on whether [L] is empty,
+    the alternative one is by case analysis on whether [p] is null:
 
-Parameter MList_if : forall (p:loc) (L:list int),
-    (p ~> MList L)
-  = (If p = null
+    - if [p] is null, then [L] is empty,
+    - otherwise, [L] decomposes as [x::L'], the head field of [p] contains [x],
+      and the tail field of [p] contains a pointer [q] such that [MList L' q]
+      describes the tail of the list.
+
+    The lemma below is stated using an entailment. The reciprocal entailment
+    is also true, but we do not need it so we do not bother proving it here.
+*)
+
+Parameter MList_if : forall (p:loc) (L:list val),
+      (MList L p)
+  ==> (If p = null
       then \[L = nil]
       else \exists x q L', \[L = x::L']
            \* (p`.head ~~> x) \* (p`.tail ~~> q)
-           \* (q ~> MList L')).
-(* Proof in [SLFList.v] *)
+           \* (MList L' q)).
+(* Proof in [SLFBasic]. *)
 
-End ListDef.
 
-Import SLFList.
-
-(** Fonction de concaténation
+(** The following function expects a nonempty list [p1] and a list [p2],
+    and updates [p1] in place so that its tail gets extended by the
+    cells from [p2].
 
 [[
     let rec append p1 p2 =
@@ -1159,27 +1186,37 @@ Import SLFList.
 
 Definition append : val :=
   VFix 'f 'p1 'p2 :=
-    If_ 'p1'.tail '= null
+    Let 'q1 := 'p1'.tail in
+    Let 'b := ('q1 '= null) in
+    If_ 'b
       Then Set 'p1'.tail ':= 'p2
-      Else 'f ('p1'.tail) 'p2.
+      Else 'f 'q1 'p2.
 
-(** Notation [TRIPLE t PRE H POST Q] pour [Triple t H Q].
-    Notation [PRE H CODE F POST Q]   pour [H ==> F Q].    *)
+(** The append function is specified and verified as follows. *)
 
-Lemma Triple_append : forall (L1 L2:list int) (p1 p2:loc),
+Lemma Triple_append : forall (L1 L2:list val) (p1 p2:loc),
   p1 <> null ->
-  TRIPLE (append p1 p2)
-    PRE (p1 ~> MList L1 \* p2 ~> MList L2)
-    POST (fun (_:unit) => p1 ~> MList (L1++L2)).
+  triple (append p1 p2)
+    (MList L1 p1 \* MList L2 p2)
+    (fun _ => MList (L1++L2) p1).
 Proof using.
-  intros L1. induction_wf IH: list_sub L1. introv N. xwp.
-  xchange (MList_if p1). case_if. xpull. intros x q L1' ->.
-  xapp. xapp. xif; intros Cq.
-  { xchange (MList_if q). case_if. xpull. intros ->.
+  (* The induction principle provides an hypothesis for the tail of [L1],
+      i.e., for the list [L1'] such that the relation [list_sub L1' L1] holds. *)
+  introv K. gen p1. induction_wf IH: (@list_sub val) L1. introv N. xwp.
+  (* To begin the proof, we reveal the head cell of [p1].
+     We let [q1] denote the tail of [p1], and [L1'] the tail of [L1]. *)
+  xchange (MList_if p1). case_if. xpull. intros x q1 L1' ->.
+  (* We then reason about the case analysis. *)
+  xapp. xapp. xif; intros Cq1.
+  { (* If [q1'] is null, then [L1'] is empty. *)
+    xchange (MList_if q1). case_if. xpull. intros ->.
+    (* In this case, we set the pointer, then we fold back the head cell. *)
     xapp. xchange <- MList_cons. }
-  { xapp. xapp. { auto. } { auto. }
-    xchange <- MList_cons. }
+  { (* If [q1'] is not null, we reason about the recursive call using
+       the induction hypothesis, then we fold back the head cell. *)
+    xapp. xchange <- MList_cons. }
 Qed.
 
 End ProveAppend.
+
 

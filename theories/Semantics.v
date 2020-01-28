@@ -872,42 +872,42 @@ Local Open Scope fmap_scope.
 
 (** Evaluation rules for unary operations *)
 
-Inductive redunop : prim -> val -> val -> Prop :=
-  | redunop_neg : forall b1,
-      redunop val_neg (val_bool b1) (val_bool (neg b1))
-  | redunop_opp : forall n1,
-      redunop val_opp (val_int n1) (val_int (- n1)).
+Inductive evalunop : prim -> val -> val -> Prop :=
+  | evalunop_neg : forall b1,
+      evalunop val_neg (val_bool b1) (val_bool (neg b1))
+  | evalunop_opp : forall n1,
+      evalunop val_opp (val_int n1) (val_int (- n1)).
 
 (** Evaluation rules for binary operations *)
 
-Inductive redbinop : prim -> val -> val -> val -> Prop :=
-  | redbinop_ptr_add : forall l' l n,
+Inductive evalbinop : prim -> val -> val -> val -> Prop :=
+  | evalbinop_ptr_add : forall l' l n,
       (l':nat) = (l:nat) + n :> int ->
-      redbinop val_ptr_add (val_loc l) (val_int n) (val_loc l')
-  | redbinop_eq : forall v1 v2,
-      redbinop val_eq v1 v2 (val_bool (isTrue (v1 = v2)))
-  | redbinop_neq : forall v1 v2,
-      redbinop val_neq v1 v2 (val_bool (isTrue (v1 <> v2)))
-  | redbinop_add : forall n1 n2,
-      redbinop val_add (val_int n1) (val_int n2) (val_int (n1 + n2))
-  | redbinop_sub : forall n1 n2,
-      redbinop val_sub (val_int n1) (val_int n2) (val_int (n1 - n2))
-  | redbinop_mul : forall n1 n2,
-      redbinop val_mul (val_int n1) (val_int n2) (val_int (n1 * n2))
-  | redbinop_div : forall n1 n2,
+      evalbinop val_ptr_add (val_loc l) (val_int n) (val_loc l')
+  | evalbinop_eq : forall v1 v2,
+      evalbinop val_eq v1 v2 (val_bool (isTrue (v1 = v2)))
+  | evalbinop_neq : forall v1 v2,
+      evalbinop val_neq v1 v2 (val_bool (isTrue (v1 <> v2)))
+  | evalbinop_add : forall n1 n2,
+      evalbinop val_add (val_int n1) (val_int n2) (val_int (n1 + n2))
+  | evalbinop_sub : forall n1 n2,
+      evalbinop val_sub (val_int n1) (val_int n2) (val_int (n1 - n2))
+  | evalbinop_mul : forall n1 n2,
+      evalbinop val_mul (val_int n1) (val_int n2) (val_int (n1 * n2))
+  | evalbinop_div : forall n1 n2,
       n2 <> 0 ->
-      redbinop val_div (val_int n1) (val_int n2) (val_int (Z.quot n1 n2))
-  | redbinop_mod : forall n1 n2,
+      evalbinop val_div (val_int n1) (val_int n2) (val_int (Z.quot n1 n2))
+  | evalbinop_mod : forall n1 n2,
       n2 <> 0 ->
-      redbinop val_mod (val_int n1) (val_int n2) (val_int (Z.rem n1 n2))
-  | redbinop_le : forall n1 n2,
-      redbinop val_le (val_int n1) (val_int n2) (val_bool (isTrue (n1 <= n2)))
-  | redbinop_lt : forall n1 n2,
-      redbinop val_lt (val_int n1) (val_int n2) (val_bool (isTrue (n1 < n2)))
-  | redbinop_ge : forall n1 n2,
-      redbinop val_ge (val_int n1) (val_int n2) (val_bool (isTrue (n1 >= n2)))
-  | redbinop_gt : forall n1 n2,
-      redbinop val_gt (val_int n1) (val_int n2) (val_bool (isTrue (n1 > n2))).
+      evalbinop val_mod (val_int n1) (val_int n2) (val_int (Z.rem n1 n2))
+  | evalbinop_le : forall n1 n2,
+      evalbinop val_le (val_int n1) (val_int n2) (val_bool (isTrue (n1 <= n2)))
+  | evalbinop_lt : forall n1 n2,
+      evalbinop val_lt (val_int n1) (val_int n2) (val_bool (isTrue (n1 < n2)))
+  | evalbinop_ge : forall n1 n2,
+      evalbinop val_ge (val_int n1) (val_int n2) (val_bool (isTrue (n1 >= n2)))
+  | evalbinop_gt : forall n1 n2,
+      evalbinop val_gt (val_int n1) (val_int n2) (val_bool (isTrue (n1 > n2))).
 
 Inductive eval : state -> trm -> state -> val -> Prop :=
   (* [eval] for evaluation contexts;
@@ -959,10 +959,10 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       eval m1 (trm_match v ((p,t1)::pts)) m2 r
   (* [eval] for applied primitives *)
   | eval_unop : forall op m v1 v,
-      redunop op v1 v ->
+      evalunop op v1 v ->
       eval m (op v1) m v
   | eval_binop : forall op m v1 v2 v,
-      redbinop op v1 v2 v ->
+      evalbinop op v1 v2 v ->
       eval m (op v1 v2) m v
   | eval_ref : forall m v l,
       ~ Fmap.indom m l ->
@@ -1203,7 +1203,7 @@ Proof using. introv M1 M2. applys* eval_let_trm. Qed.
 
 Lemma eval_ptr_add_nat : forall m l (f : nat),
   eval m (val_ptr_add (val_loc l) (val_int f)) m (val_loc (l+f)%nat).
-Proof using. intros. applys* eval_binop. applys* redbinop_ptr_add. math. Qed.
+Proof using. intros. applys* eval_binop. applys* evalbinop_ptr_add. math. Qed.
 
 Lemma eval_if_case : forall m1 m2 b r t1 t2,
   eval m1 (if b then t1 else t2) m2 r ->
