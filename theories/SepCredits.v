@@ -23,7 +23,7 @@ This file contains:
 - statement and proofs of SL reasoning rules.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

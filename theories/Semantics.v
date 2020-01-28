@@ -7,7 +7,7 @@ encoded using pointer arithmetics, and using the [alloc] operation
 which allocates at once a requested number of consecutive memory cells.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

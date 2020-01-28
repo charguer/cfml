@@ -5,7 +5,7 @@ illustrating the direct use of triples on one example, and conducting
 other proofs using characteristic formulae.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

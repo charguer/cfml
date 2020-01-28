@@ -3,7 +3,7 @@
 This file formalizes mutable list examples in CFML 2.0.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

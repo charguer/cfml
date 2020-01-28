@@ -4,7 +4,7 @@ This file provides examples of the verification of a mutable queue,
 using CFML 2.0.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

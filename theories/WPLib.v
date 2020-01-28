@@ -4,7 +4,7 @@ This file provides functions and their proofs for common operations
 (using weakest-precondition based proofs, in lifted Separation Logic).
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

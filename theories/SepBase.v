@@ -10,7 +10,7 @@ This file formalizes standard Separation Logic. It contains:
 - bonuses: an alternative definition of triples, and derived rules.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

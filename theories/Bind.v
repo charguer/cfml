@@ -3,7 +3,7 @@
 This file describes the representation of binders and contexts.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

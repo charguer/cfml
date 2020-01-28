@@ -4,7 +4,7 @@ This file formalizes mutable queues in plain Separation Logic,
 using characteristic formulae.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

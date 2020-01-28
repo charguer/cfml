@@ -5,7 +5,7 @@ characteristic formula in weakest-precondition form, in lifted
 Separation Logic, as defined in [WPLifted.v].
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

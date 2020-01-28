@@ -5,7 +5,7 @@ illustrating the direct use of triples on one example, and conducting
 other proofs using characteristic formulae.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 
@@ -165,7 +165,7 @@ Lemma triple_alloc_cell :
 Proof using.
   xapply triple_alloc. { math. } { xsimpl. }
   { intros r. xpull ;=> l (E&N). subst.
-    change (abs 2) with 2%nat. rew_Alloc. 
+    change (abs 2) with 2%nat. rew_Alloc.
     xpull ;=> v1 v2.
     unfold MCell. rewrite hfield_eq_fun_hsingle.
     unfold hd, tl. xsimpl~ l v1 v2.

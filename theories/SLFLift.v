@@ -12,7 +12,7 @@ This relation is exploited to more concisely specify return values and
 values that are stored in the heap.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

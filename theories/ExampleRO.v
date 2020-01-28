@@ -3,7 +3,7 @@
 This file formalizes example in Separation Logic with read-only predicates
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

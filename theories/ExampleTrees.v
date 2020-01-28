@@ -4,7 +4,7 @@ This file formalizes mutable trees examples in lifted Separation Logic,
 using lifted characteristic formulae.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

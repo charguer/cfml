@@ -14,7 +14,7 @@ It provides the following tactics:
 - [rew_heap] normalizes heap predicate expressions
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

@@ -3,7 +3,7 @@
 This file contains a computable definition for [subst].
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

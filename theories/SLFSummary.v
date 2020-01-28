@@ -1,15 +1,17 @@
-
 (**
 
-Summary of the techniques involved in the implementation of CFML.
+This file provides the Coq definitions associated with a 1-hour talk
+that gives an overview of the contents of the course.
 
-This file contains excerpts from the file SLFDirect.v.
+The corresponding slides appear in the file [SLFSummary.pdf].
 
-It is intended as support for a technical presentation of the
-implementation of CFML.
+Many definitions from this file are only sketched or assumed without
+proofs. All the corresponding definitions are formalized and proofs
+in the file [SLFDirect.v]. Detailed explanations may be found
+throughout the other course files [SLF*.v], listed in [SLFPreface.v].
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by.
 
 *)
 
@@ -22,10 +24,20 @@ Generalizable Variables A.
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
+(** * Motivation for Separation Logic in a proof assistant *)
+
+(** To begin with, please read the section titled "About Separation Logic"
+    from the file [SLFPreface.v]. *)
+
+
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Source language (extract from [SLFHprop] and [SLFRules]) *)
 
 Module Language.
 Import SLFDirect.
+
 
 (* ########################################################### *)
 (** ** Syntax *)

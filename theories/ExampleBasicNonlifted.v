@@ -4,7 +4,7 @@ This file formalizes basic examples in plain Separation Logic,
 both using triples directly and using characteristic formulae.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

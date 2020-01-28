@@ -4,7 +4,7 @@ This file formalizes characteristic formulae in weakest-precondition form
 for lifted Separation Logic.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 
@@ -133,7 +133,7 @@ Definition Wpgen_fail : Formula :=
 Definition Wpgen_val (v:val) : Formula :=
   MkStruct (fun A (EA:Enc A) Q => Post_cast_val Q v).
 
-Definition Wpgen_cast A1 `{EA1:Enc A1} (V:A1) : Formula :=  
+Definition Wpgen_cast A1 `{EA1:Enc A1} (V:A1) : Formula :=
   fun A2 (EA2:Enc A2) Q => Post_cast A1 Q V.
 
 Definition Wpaux_var (E:ctx) (x:var) : Formula :=

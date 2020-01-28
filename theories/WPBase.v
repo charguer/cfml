@@ -4,7 +4,7 @@ This file formalizes characteristic formulae in weakest-precondition form
 for plain Separation Logic.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

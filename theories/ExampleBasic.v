@@ -4,7 +4,7 @@ This file formalizes basic examples in lifted Separation Logic,
 both using lifted characteristic formulae.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

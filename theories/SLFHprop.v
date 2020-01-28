@@ -8,7 +8,7 @@ This chapter introduces heap predicates, Separation Logic triples,
 and the frame rule.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

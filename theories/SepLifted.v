@@ -9,7 +9,7 @@ using encoding functions, called encoders, realized using
 typeclasses. Decoders implement the inverse functions to encoders.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

@@ -6,7 +6,7 @@ provides lemmas and tactics for reasoning about
 operations on the store (read, write, union).
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

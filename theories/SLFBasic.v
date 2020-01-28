@@ -5,7 +5,7 @@ Separation Logic Foundations
 Chapter: "Basic".
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

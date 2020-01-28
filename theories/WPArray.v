@@ -4,7 +4,7 @@ This file formalizes basic examples from standard Separation Logic,
 as described in Arthur Charguéraud's lecture notes.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

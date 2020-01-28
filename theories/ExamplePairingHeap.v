@@ -8,7 +8,7 @@ More information about pairing heaps:
   https://www.cise.ufl.edu/~sahni/dsaaj/enrich/c13/pairing.htm
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

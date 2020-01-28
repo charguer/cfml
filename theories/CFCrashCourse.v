@@ -5,7 +5,7 @@ Crash course on using CFML2.
 Covers basic functions and mutable lists.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

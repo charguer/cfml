@@ -10,7 +10,7 @@ expressed using Separation Logic triples.
 This file serves as a reference, there is no need to read through it.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

@@ -6,7 +6,7 @@ records.
 Disclaimer: notation currently support records with up to 5 fields.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

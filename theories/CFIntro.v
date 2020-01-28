@@ -5,7 +5,7 @@ Separation Logic: Verification with Characteristic Formulae
 Chapter: "Intro".
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

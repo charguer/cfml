@@ -4,7 +4,7 @@ This file contains temporary definitions that will eventually
 get merged into the various files from the TLC library.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

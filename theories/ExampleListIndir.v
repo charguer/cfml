@@ -5,7 +5,7 @@ using a representation of lists as a reference on
 either null or on a two-cell record.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

@@ -4,7 +4,7 @@ This file formalizes mutable list examples in CFML 2.0.
 using a representation of lists as either null or a two-cell record.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

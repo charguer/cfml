@@ -43,7 +43,7 @@ The functor also provides:
 - [xlocal] automatically discharges goals of the form [local F].
 
 Author: Arthur Charguéraud, with contributions from Jacques-Henri Jourdan.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 

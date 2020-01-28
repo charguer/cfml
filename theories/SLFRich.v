@@ -11,7 +11,7 @@ terms that are not in A-normal form, and support for linear (non-affine)
 resources.
 
 Author: Arthur Charguéraud.
-License: MIT.
+License: CC-by 4.0.
 
 *)
 
