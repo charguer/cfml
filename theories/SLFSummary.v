@@ -747,9 +747,13 @@ End ProveIncr.
     The formula built by the "characteristic formula generator" applied
     to a term [t] is a predicate from higher-order logic that thus depends
     only on the source code of [t], and not on its specifications. This
-    formula is thus "characteristic" of the source term [t].
+    formula is thus "characteristic" of the source term [t]. *)
 
-    The characteristic formula generator is implemented as a Coq function
+
+(* ########################################################### *)
+(** ** Oveview of the characteristic formula generator *)
+
+(** The characteristic formula generator is implemented as a Coq function
     named [wpgen]. To define this function, two specific challenges have
     to be addressed.
 
@@ -783,73 +787,232 @@ End ProveIncr.
 
     In what follows, we begin with the definition of the notion of "semantic
     weakest precondition". We then present the definition of [wpgen] through
-    a series of refinements, introducing the key ingredients one at a time.
-
-*)
-
-
-Module Wpsem.
+    a series of refinements, introducing the key ingredients one at a time. *)
 
 
 (* ########################################################### *)
-(** ** Definition of [wp] *)
+(** ** Definition of semantic weakest precondition *)
 
-(** The following equivalence can be proved to characterizes a unique
-    function [wp], where [wp t Q] has type [hprop]. *)
+Module Wpsem.
 
-Parameter wp_equiv : forall t H Q,
-  (H ==> wp t Q) <-> (triple t H Q).
+(** The weakest precondition for a term [t] with respect to a postcondition
+    [Q] is written [wp t Q]. It consists of a heap predicate, of type [hprop].
 
-(** Corrolary: *)
+[[
+    Definition wp (t:trm) (Q:val->hprop) : hprop := ...
+]]
+
+    The predicate [wp t Q] is called "weakest precondition" for a combination
+    of two reasons.
+
+    First, it is a valid precondition of a triple for the term [t] with
+    postcondition [Q]. *)
 
 Parameter wp_pre : forall t Q,
   triple t (wp t Q) Q.
 
+(** Second, it is the weakest precondition [H] such that [triple t H Q] holds,
+    in the sense that any [H] satisfying this triple entails [wp t Q]. *)
+
+Parameter wp_weakest : forall t H Q,
+  triple t H Q ->
+  H ==> wp t Q.
+
+(** An alternative, equivalent characterization of [wp] is captured by the
+    following equivalence, which asserts that [H] entails [wp t Q] if and
+    only if [triple t H Q] holds. *)
+
+Parameter wp_equiv : forall t H Q,
+  (H ==> wp t Q) <-> (triple t H Q).
+
+(** These two axiomatizations proposed above characterize without ambiguity
+    the weakest precondition predicate [wp]. However, they do not guarantee
+    the existence of such a predicate [wp]. To remedy the problem, let us
+    present a third, equivalent characterization of [wp], as a direct
+    definition expressed using the operators of Separation Logic. *)
+
+Definition wp (t:trm) (Q:val->hprop) : hprop :=
+  \exists (H:hprop), H \* \[triple t H Q].
+
+(** At this stage, the details of the definition do not matter much.
+    All that matters is that [wp] is well-defined and that one can prove
+    that this last definition satisfies the properties associated with
+    the other two characterizations. *)
+
 
 (* ########################################################### *)
-(** ** Benefits *)
+(** ** Separation Logic in weakest precondition style *)
 
-(** Extraction rules are no longer needed: *)
-
-Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
-  (forall x, triple t (J x) Q) ->
-  triple t (\exists x, J x) Q.
-
-(** Reformulation of the combined structural rule *)
-
-Parameter wp_conseq_frame : forall t H Q1 Q2,
-  Q1 \*+ H ===> Q2 ->
-  (wp t Q1) \* H ==> (wp t Q2).
-
-(** Reformulation of the reasoning rules for terms *)
+(** Using the predicate [wp], we can reformulate the reasoning rule
+    for sequences as shown below. This rule reads as follows:
+   "If I have at hand the resources for executing [t1] and producing
+    a postcondition from which I can execute [t2] and produce [Q],
+    then I have the resources for executing the sequence [t1 ; t2]
+    and produce [Q]". *)
 
 Parameter wp_seq : forall t1 t2 Q,
   wp t1 (fun v => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
 
-Parameter wp_let : forall x t1 t2 Q,
-  wp t1 (fun v => wp (subst x v t2) Q) ==> wp (trm_let x t1 t2) Q.
+(** Using [wp], the consequence rule reformulates as a monotony
+    property (a.k.a., covariance property) of the [wp] predicate.
+    The corresponding statement, shown below, reads as follows:
+    "If I have at hand the resources for executing [t] and producing
+    [Q1], and besides I know that [Q1] entails [Q2], then I have at
+    hand the resouces for executing [t] and producing [Q2]". *)
 
-(** In the current design, we use triples to state specifications,
-    but technically we could use [wp] for that purpose as well. *)
+Parameter wp_conseq : forall t Q1 Q2,
+  Q1 ===> Q2 ->
+  wp t Q1 ==> wp t Q2.
+
+(** Using [wp], the frame rule reformulates as an "absorption rule"
+    for the star. The corresponding statement, shown below, reads
+    as follows: "If I have on one hand the resources for executing [t]
+    and producing [Q], and I have in my other hand the resource [H],
+    then I have in my hands the resouces for executing [t] and
+    producing both [Q] and [H]". *)
+
+Parameter wp_frame : forall t H Q,
+  (wp t Q) \* H ==> wp t (Q \*+ H).
+
+(** Remark: in the [wp] presentation, no extraction rule is needed,
+    because the extraction rules are subsumed by the corresponding
+    rules on entailment. For example, recall the extraction rule for
+    pure facts: *)
+
+Parameter triple_hpure : forall t (P:Prop) H Q,
+  (P  ->  triple t H Q) ->
+  triple t (\[P] \* H) Q.
+
+(** This rule, when writing [triple t H Q] in the form [H ==> wp t Q],
+    becomes a special instance of the rule for extracting pure facts
+    out of the right-hand side of an entailment: *)
+
+Parameter himpl_hstar_hpure_l : forall (P:Prop) H H',
+  (P  ->  H ==> H') ->
+  (\[P] \* H) ==> H'.
 
 End Wpsem.
 
 
 (* ########################################################### *)
-(* ########################################################### *)
-(* ########################################################### *)
-(** * Characteristic formula (extract from [SLFWPgen]) *)
+(** ** Definition of the characteristic formula generator (1/5) *)
 
 Module Wpgen.
-Import SLFDirect.
 
-(** Distinguish:
-    - a semantic weakest precondition, i.e. predicate [wp].
-    - a syntactic weakest precondition computed from an
-      program annotated with its invariants (e.g., as in Why3).
-    - a syntactic weakest precondition for un-annotated code,
-      as the function [wpgen] presented next.
-      To distinguish, we call it a characteristic formula. *)
+(*
+
+[[
+    Fixpoint wpgen (E:ctx) (t:trm) (Q:val->hprop) : hprop :=
+      match t with
+      | trm_val v => Q v
+      | trm_var x =>
+           match lookup x E with
+           | Some v => Q v
+           | None => \[False]
+           end
+      | trm_app v1 v2 => wp (isubst E t) Q
+      | trm_let x t1 t2 => wpgen E t1 (fun v => wpgen ((x,v)::E) t2 Q)
+      ...
+      end.
+]]
+
+*)
+
+(** In a second step, we slightly tweak the definition so as to make to
+    swap the place where [Q] is taken as argument with the place where
+    the pattern matching on [t] occurs. The idea is to make it obvious
+    that [wpgen E t] can be computed without any knowledge of [Q].
+
+    The type of [wpgen E t] is [(val->hprop)->hprop], a type which we
+    thereafter call [formula].
+
+[[
+    Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+      match t with
+      | trm_val v =>  fun (Q:val->hprop) => Q v
+      | trm_var x =>  fun (Q:val->hprop) =>
+           match lookup x E with
+           | Some v => Q v
+           | None => \[False]
+           end
+      | trm_app v1 v2 => fun (Q:val->hprop) => wp (isubst E t) Q
+      | trm_let x t1 t2 => fun (Q:val->hprop) =>
+                              wpgen E t1 (fun v => wpgen ((x,v)::E) t2 Q)
+      ...
+      end.
+]]
+
+*)
+
+(** In a third step, we introduce auxiliary definitions to improve
+    the readability of the output of calls to [wpgen]. For example,
+    we let [wpgen_val v] be a shorthand for [fun (Q:val->hprop) => Q v].
+    Likewise, we let [wpgen_let F1 F2] be a shorthand for
+    [fun (Q:val->hprop) => F1 (fun v => F2 Q)]. Using these auxiliary
+    definitions, the definition of [wpgen] rewrites as follows.
+
+[[
+    Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+      match t with
+      | trm_val v => wpgen_val v
+      | trm_var x => wpgen_var E x
+      | trm_app t1 t2 => wp (isubst E t)
+      | trm_let x t1 t2 => wpgen_let (wpgen E t1) (fun v => wpgen ((x,v)::E) t2)
+      ...
+      end.
+]]
+
+    Each of the auxiliary definitions introduced comes with a custom notation
+    that enables a nice display of the output of [wpgen]. For example, we set
+    up the notation [Let' v := F1 in F2] to stand for [wpgen_let F1 (fun v => F2)].
+    Thanks to this notation, the result of computing [wpgen] on a source term
+    [Let x := t1 in t2] (of type [trm]) will be a formula displayed in the form
+    [Let x := F1 in F2] (of type [formula]).
+
+    Thanks to these auxiliary definitions and pieces of notation, the formula
+    that [wpgen] produces as output reads pretty much like the source term
+    provided as input. *)
+
+(** In a fourth step, we refine the definition of [wpgen] in order to equip
+    it with inherent support for applications of the structural rules of the
+    logic, namely the frame rule and the rule of consequence. To achieve this,
+    we consider a well-crafted predicate called [mkstruct], and insert it
+    at the head of the output of every call to [wpgen], including all its
+    recursive calls. The definition of [wpgen] thus now admits the following
+    structure.
+
+[[
+    Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+      mkstruct (match t with
+                | trm_val v => ...
+                | ...
+                end).
+]]
+
+    Without entering the details, the predicate [mkstruct] is a function
+    of type [formula->formula] that captures the essence of the wp-style
+    consequence-frame structural rule. This rule, called [wp_conseq_frame]
+    in the previous chapter, asserts:
+    [Q1 \*+ H ===> Q2  ->  (wp t Q1) \* H ==> (wp t Q2)]. *)
+
+(** This concludes our little journey towards the definition of [wpgen].
+
+    For conducting proofs in practice, there remains to state lemmas and
+    define tactics to assist the user in the manipulation of the formula
+    produced by [wpgen]. Ultimately, the end-user only manipulates CFML's
+    "x-tactics" (recall the first two chapters), without ever being
+    required to understand how [wpgen] is defined.
+
+    In other words, the contents of this chapter reveals the details
+    that we work very hard to make completely invisible to the end user. *)
+
+
+
+
+
+
+
+
 
 
 (* ########################################################### *)
