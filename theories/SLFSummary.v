@@ -42,20 +42,31 @@ Import SLFDirect.
 (* ########################################################### *)
 (** ** Syntax *)
 
-(** The type [var] is an alias for [string].
+(** We consider a ML-style programming language. Programs are represented as
+    terms of type [trm], and terms evaluate to values of type [val].
 
-    The library [Var.v] provides the boolean function [var_eq x y] to compare
-    two variables. It provides the tactic [case_var] to perform case analysis on
-    expressions of the form [if var_eq x y then .. else ..] that appear in the goal. *)
+    Let us describe the grammar of terms and values, which correspond to
+    what is called a "deep embedding of the programming language".
 
-Definition var := string.
+    The grammar of values includes:
 
-(** Locations are implemented as natural numbers. *)
+    - basic values, such as [unit], [bool], or [int],
+    - locations, of type [loc], representing memory addresses as natural numbers,
+    - (closed) functions (written [fun]), and recursive functions (written [fix]),
+    - primitive operations, either for manipulating the memory state, or for
+      performing arithmetic operations.
+
+    The grammar of terms includes:
+
+    - closed values (i.e., values without free variables in them),
+    - variables, of type [var], represented as [strings],
+    - function definitions, which may include free variables in the source code,
+    - control structures: conditions, sequence, let-bindings,
+    - and function application. *)
+
+Definition var : Type := string.
 
 Definition loc : Type := nat.
-
-(** The grammar of the deeply-embedded language includes terms and values.
-    Values include locations and primitive functions. *)
 
 Inductive val : Type :=
   | val_unit : val
@@ -80,7 +91,63 @@ with trm : Type :=
   | trm_let : var -> trm -> trm -> trm
   | trm_if : trm -> trm -> trm -> trm.
 
-(** The state consists of a finite map from location to values.
+
+(* ########################################################### *)
+(** ** Parsing of concrete programs *)
+
+Module Parsing.
+Import SLFProgramSyntax.
+
+(** Consider the following program, which computes the length of a C-style
+    mutable list. If the pointer [p] is null, it returns zero, else it
+    returns one plus the length of the tail. In pseudo-Caml, this reads:
+
+[[
+    let rec mlength p =
+      if p == null
+        then 0
+        else 1 + mlength p.tail
+]]
+
+    The corresponding Coq definition using the grammar that we just defined
+    is as follows. *)
+
+
+Definition mlength : val :=
+  val_fix "f" "p" (
+     trm_if (trm_app (trm_app val_eq (trm_var "p")) (val_loc null))
+            (val_int 0)
+            (trm_app (trm_app val_add (val_int 1)) (trm_app (trm_var "f")
+
+(** Obviously, we do not wish to manually write programs in this form.
+
+    One possibility is to use an external tool, namely a parser, to read
+    the pseudo-code above, and generate the Coq definition.
+
+    Another possibility is to exploit Coq notation and coercions facilities
+    for writing the program using an ad-hoc program syntax. For example,
+    the syntax that we consider features quote symbols everywhere to
+    distinguish between Coq keywords and program keywords, as shown below. *)
+
+Definition mlength : val :=
+  VFix 'f 'p :=
+    If_ 'p '= null
+      Then 0
+      Else 1 '+ 'f ('p'.tail).
+
+(** The result is arguably not very pretty, yet very convenient because it
+    enables presenting demos without a dependency on an external parser. *)
+
+End Parsing.
+
+
+(* ########################################################### *)
+(** ** Semantics *)
+
+
+(** An imperative programming language
+
+The state consists of a finite map from location to values.
     (See further for additional information about finite maps.)
     Records and arrays are represented as sets of consecutive cells. *)
 
@@ -117,28 +184,6 @@ Definition heap : Type := state.
 Global Instance Inhab_val : Inhab val.
 Proof using. apply (Inhab_of_val val_unit). Qed.
 
-(** Example term *)
-
-Definition example_trm : trm :=
-  trm_fun "x" (trm_if (trm_var "x") (trm_val (val_int 0)) (trm_val (val_int 1))).
-
-(** Coercions to improve conciseness in the statment of evaluation rules. *)
-
-Coercion trm_val : val >-> trm.
-Coercion val_int : Z >-> val.
-Coercion trm_app : trm >-> Funclass.
-
-(** With notation, can write:
-[[
-  Definition example_trm' : trm :=
-    Fun 'x :=
-      If_ 'x Then 0 Else 1.
-]]
-*)
-
-
-(* ########################################################### *)
-(** ** Semantics *)
 
 Implicit Types v : val.
 
