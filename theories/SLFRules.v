@@ -835,7 +835,7 @@ Proof using.
   { apply triple_get. }
   (* name [n'] the result of [!p] *)
   intros n'. simpl.
-  (* substitute away the equality [n = n'] *)
+  (* substitute away the equality [n' = n] *)
   apply triple_hpure. intros ->.
   (* reason about [let m = ..] *)
   applys triple_let.
@@ -847,7 +847,7 @@ Proof using.
     { xsimpl. } }
   (* name [m'] the result of [n+1] *)
   intros m'. simpl.
-  (* substitute away the equality [m = m'] *)
+  (* substitute away the equality [m' = m] *)
   apply triple_hpure. intros ->.
   (* reason about [p := m] *)
   { applys triple_set. }

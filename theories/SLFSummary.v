@@ -271,14 +271,14 @@ Definition hpure (P:Prop) : hprop :=
 
 Notation "\[ P ]" := (hpure P) (at level 0, format "\[ P ]").
 
-(** The singleton heap predicate, written [l ~~> v], characterizes
+(** The singleton heap predicate, written [p ~~> v], characterizes
     a singleton state, that is, a state made of a single memory cell,
-    at location [l], and with contents [v]. *)
+    at location [p], and with contents [v]. *)
 
-Definition hsingle (l:loc) (v:val) : hprop :=
-  fun h => (h = Fmap.single l v).
+Definition hsingle (p:loc) (v:val) : hprop :=
+  fun h => (h = Fmap.single p v).
 
-Notation "l '~~>' v" := (hsingle l v) (at level 32).
+Notation "p '~~>' v" := (hsingle p v) (at level 32).
 
 (** The key Separation Logic operator is the star, a.k.a, separating
     conjunction, written [H1 \* H2]. This predicate characterizes a
@@ -440,97 +440,74 @@ End Qprop.
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
-(** * Entailment (extract from [SLFHimpl]) *)
-
-
-Module Himpl.
-Import SLFDirect.
-
-
-(* ########################################################### *)
-(** ** The tactics for entailment *)
-
-(** Recall the demos from the tutorial. *)
-
-End Himpl.
-
-
-(* ########################################################### *)
-(* ########################################################### *)
-(* ########################################################### *)
-(** * Definition of triples (extract from [SLFHprop]) *)
-
-
-Module Triple.
-Import SLFDirect.
+(** * Definition of triples, statements and proofs of reasoning rules *)
 
 
 (* ########################################################### *)
 (** ** Triples *)
 
-(** [hoare t H Q] features pre- and post-conditions describing
-    the full state. Usually written [{H} t {Q}] on paper. *)
+Module Triple.
+Import DemoPrograms.
+
+(** A Hoare triple, written [hoare t H Q], describes the behavior of
+    a term [t] using a precondition [H] and a postcondition [Q] that
+    describe the whole memory state.
+
+    In total correctness, such a triple asserts that, for any initial
+    state [s] satisfying the precondition, there exists a final state
+    [s'] and an output value [v] such that the term [t] evaluates to
+    [s'] and [v], and such that [v] and [s'] together satisfy the
+    postcondition. *)
 
 Definition hoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (s:state), H s ->
   exists (s':state) (v:val), eval s t s' v /\ Q v s'.
 
-(** [triple1 t H Q] features pre- and post-conditions describing
-    only a piece of state. [H'] denotes the framed part. *)
+(** A Separation Logic triple, written [triple t H Q], describes the
+    behavior of a term [t] using a precondition [H] and a postcondition
+    [Q] that describe only a fragemnt of the memory state.
+
+    The notion of Separation Logic triple can be derived from that of
+    a Hoare triple by quantifying over the "rest of the state", described
+    by a heap predicate [H']. This predicate [H'] appears universally
+    quantified in the definition shown below. *)
 
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (H':hprop), hoare t (H \* H') (Q \*+ H').
 
-(** An alternative, equivalent definition of SL triples. *)
+(** For example, using a Separation Logic triple, one may specify
+    the operation [incr p], with a precondition that describes a
+    singleton heap [p ~~> n], and a postcondition that describes
+    a result value that we ignore (it is [unit]), and a state
+    described by [p ~~> (n+1)]. *)
 
-Definition triple_lowlevel (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
-  forall h1 h2,
-  Fmap.disjoint h1 h2 ->
-  H h1 ->
-  exists v h1',
-       Fmap.disjoint h1' h2
-    /\ eval (h1 \u h2) t (h1' \u h2) v
-    /\ Q v h1'.
+Parameter triple_incr : forall (p:loc) (n:int),
+  triple (incr p)
+    (p ~~> n)
+    (fun _ => p ~~> (n+1)).
 
-Parameter triple_iff_triple_lowlevel : forall t H Q,
-  triple t H Q <-> triple_lowlevel t H Q.
+(** To establish Separation Logic triples, the program logic includes
+    three kind of rules:
+
+    - structural rules, which do not depend on the programming language,
+    - one rule for each language construct,
+    - one rule for each primitive operation.
+
+    We next present these three kind of rules. *)
 
 End Triple.
 
 
 (* ########################################################### *)
-(* ########################################################### *)
-(* ########################################################### *)
-(** * Reasoning rules (extract from [SLFRules]) *)
-
+(** ** Structural rues*)
 
 Module Rules.
-Import SLFDirect.
 
+(** The rule of consequence is like in Hoare logic. It asserts that one
+    may strengthen the precondition, or weaken the postcondition.
 
-(* ########################################################### *)
-(** ** The frame rule *)
-
-(** The frame rule *)
-
-Parameter triple_frame : forall t H Q H',
-  triple t H Q ->
-  triple t (H \* H') (Q \*+ H').
-
-(**
-[[
-  (forall H0, hoare t (H \* H0) (Q \*+ H0)) ->
-  (forall H1, hoare t (H \* H' \* H1) (Q \*+ H' \*+ H1)).
-
-  Take [H0 := H' \* H1] and the result holds up to associativity.
-]]
-*)
-
-
-(* ########################################################### *)
-(** ** Other structural rules *)
-
-(** The classic rule of consequence. *)
+    Observe the use of an entailment between postconditions in the
+    third premise. *)
 
 Parameter triple_conseq : forall t H' Q' H Q,
   triple t H' Q' ->
@@ -538,79 +515,126 @@ Parameter triple_conseq : forall t H' Q' H Q,
   Q' ===> Q ->
   triple t H Q.
 
-(** Two extraction rules allow to extract pure facts and existentials
-    out of preconditions. *)
+(** The frame rule is specific to Separation Logic. It asserts that the
+    precondition and the postcondition may be extended using the star
+    with an arbitrary heap predicate.
 
-Parameter triple_hpure : forall t (P:Prop) H Q,
+    Observe the use of the star operator for postconditions [\*+] in
+    the conclusion. *)
+
+Parameter triple_frame : forall t H Q H',
+  triple t H Q ->
+  triple t (H \* H') (Q \*+ H').
+
+(** In addition, two extraction rules are also useful for extracting
+    pure facts and existential quantifiers out of preconditions.
+    We'll show further on an example use case. *)
+
+Parameter triple_hpure : forall (P:Prop) t H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
 
-Parameter triple_hexists : forall t (A:Type) (J:A->hprop) Q,
+Parameter triple_hexists : forall (A:Type) (J:A->hprop) t Q,
   (forall (x:A), triple t (J x) Q) ->
-  triple t (hexists J) Q.
-
-(** The structural rule can be factorized. Here is "consequence + frame". *)
-
-Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q ->
-  triple t H Q.
+  triple t (\exists x, J x) Q.
 
 
 (* ########################################################### *)
-(** ** Term rules *)
+(** ** Reasoning rules for terms, e.g., the rule for sequences *)
 
-(** Hoare logic rule for sequence:
+(** The Hoare logic rule for sequences can be used to establish a
+    Hoare triple for a sequence [t1 ; t2]. To apply it, one needs
+    to provide a heap predicate [H'] that describes the state between
+    the evaluation of [t1] and that of [t2].
+
 [[
-      {H} t1 {fun v => H1}     {H1} t2 {Q}
+      {H} t1 {fun v => H'}     {H'} t2 {Q}
       ------------------------------------
               {H} (t1;t2) {Q}
 ]]
 
-In SL:
-*)
+    Remark: the value [v] below denotes the return value of [t1],
+    which is ignored in the semantics.
 
-Parameter triple_seq : forall t1 t2 H Q H1,
-  triple t1 H (fun v => H1) ->
-  triple t2 H1 Q ->
+    The corresponding Coq statement is as follows. *)
+
+Parameter hoare_seq : forall t1 t2 H Q H',
+  hoare t1 H (fun v => H') ->
+  hoare t2 H' Q ->
+  hoare (trm_seq t1 t2) H Q.
+
+(** The Separation Logic rule for sequence admits a similar statement,
+    only using the [triple] instead of [hoare]. *)
+
+Parameter triple_seq : forall t1 t2 H Q H',
+  triple t1 H (fun v => H') ->
+  triple t2 H' Q ->
   triple (trm_seq t1 t2) H Q.
 
-(** Informal Hoare logic rule for let-binding:
-[[
-      {H} t1 {Q1}     (forall x, {Q1 x} t2 {Q})
-      -----------------------------------------
-            {H} (let x = t1 in t2) {Q}
-]]
+(** The Separation Logic rule can be proved as a direct consequence of
+    its Hoare Logic counterpart. *)
 
-
-  Formal Hoare logic rule for let-binding:
-[[
-      {H} t1 {Q1}     (forall v, {Q1 v} (subst x v t2) {Q})
-      -----------------------------------------------------
-                {H} (let x = t1 in t2) {Q}
-]]
-
-  In SL:
-*)
-
-Parameter triple_let : forall x t1 t2 H Q Q1,
-  triple t1 H Q1 ->
-  (forall v, triple (subst x v t2) (Q1 v) Q) ->
-  triple (trm_let x t1 t2) H Q.
-
-(** Plus one similar rule for each other term construct. *)
+(** For every other language construct, we have a reasoning rule in
+    Separation Logic that mimics its counterpart in Hoare Logic.
+    For details, we refer to [SLFRules.v]. *)
 
 
 (* ########################################################### *)
-(** ** Primitive rules *)
+(** ** Rules specifying primitive operations *)
 
-Parameter triple_get : forall v l,
-  triple (val_get (val_loc l))
-    (l ~~> v)
-    (fun x => \[x = v] \* (l ~~> v)).
+Implicit Types p : loc.
+Implicit Types v : val.
 
-(** Plus one rule for each other primitive operation. *)
+(** There remains to describe the rules specifying the behavior of the
+    primitive operations of the language. We focus here on the primitive
+    operations that act on the memory state. *)
+
+(** The read operation assumes a singleton state described by [p ~~> v].
+    It produces as result a value [r], specified in the postcondition to
+    be equal to [v] by the pure predicate [\[r = v]]. The state remains
+    unchanged, as specified by the second part of the postcondition [p ~~> v]. *)
+
+Parameter triple_get : forall v p,
+  triple (val_get p)
+    (p ~~> v)
+    (fun r => \[r = v] \* (p ~~> v)).
+
+(** Consider now a write operation that updates a location [p] with a new
+    contents [v]. The precondition, like for a read, requires the location
+    [p] to be allocated, with some contents [v'], described by [p ~~> v'].
+    The postcondition describes the final state as [p ~~> v], reflecting the
+    update to the contents. Note that the postcondition needs not bind a name,
+    because the result value is [unit]. *)
+
+Parameter triple_set : forall p v v',
+  triple (val_set p v)
+    (p ~~> v')
+    (fun _ => p ~~> v).
+
+(** Consider the operation that allocates a new cell with contents [v].
+    The precondition consists of the empty heap predicate [\[]], reflecting
+    the fact that this allocation operation can be executed in an empty state.
+    The postcondition asserts that the result value [r] is of the form
+    [val_loc p], for some location [p], such that [p ~~> v] describes the
+    final state.
+
+    Observe how the location [p] is existentially quantified in the
+    postcondition. *)
+
+Parameter triple_ref : forall v,
+  triple (val_ref v)
+    \[]
+    (fun r => \exists p, \[r = val_loc p] \* p ~~> v).
+
+(** Consider the free operation that deallocates the cell at a location [p].
+    The precondition [p ~~> v] asserts that the cell is currently allocated,
+    with some contents [v]. The postcondition is empty, reflecting for the
+    fact that the cell is no longer accessible. *)
+
+Parameter triple_free : forall p v,
+  triple (val_free p)
+    (p ~~> v)
+    (fun _ => \[]).
 
 End Rules.
 
@@ -621,18 +645,23 @@ End Rules.
 Module ProveIncr.
 Import SLFRules SLFProgramSyntax SLFExtra.
 
-(** Fonction d'incrémentation d'une référence, en OCaml.
+(** The rules presented so far suffice to carry out verification proofs.
+
+    To illustrate this claim, consider the increment function, which
+    augments by one unit the contents of a cell with integer contents.
+
+    In OCaml syntax, this function is written:
 
 [[
-   let incr p =
-      let n = !p in
-      let m = n+1 in
-      p := m
+     let incr p =
+        let n = !p in
+        let m = n+1 in
+        p := m
 ]]
 
 *)
 
-(** Même fonction, exprimée dans le langage embarqué. *)
+(** The same function can be defined in the embedded language as follows. *)
 
 Definition incr : val :=
   val_fun "p" (
@@ -641,7 +670,7 @@ Definition incr : val :=
                              (trm_var "n")) (val_int 1)) (
     trm_app (trm_app val_set (trm_var "p")) (trm_var "m")))).
 
-(** Idem, dans des notations Coq pour le langage embarqué. *)
+(** Alternatively, it may be written using notations and coercions. *)
 
 Definition incr' : val :=
   VFun 'p :=
@@ -649,10 +678,16 @@ Definition incr' : val :=
     Let 'm := 'n '+ 1 in
     'p ':= 'm.
 
-(** Spécification et vérification de la fonction [incr] *)
+(** Let us check that the two definitions are indeed equivalent. *)
+
+Lemma incr_eq_incr' : incr = incr'.
+Proof using. reflexivity. Qed.
+
+(** The specification of the function [incr] was presented previously,
+    as an illustration of a Separation Logic triple. *)
 
 Lemma triple_incr : forall (p:loc) (n:int),
-  triple (trm_app incr p)
+  triple (incr p)
     (p ~~> n)
     (fun _ => p ~~> (n+1)).
 
@@ -661,12 +696,13 @@ Lemma triple_incr : forall (p:loc) (n:int),
     - the structural reasoning rules,
     - the reasoning rules for terms,
     - the specification of the primitive functions,
-    - the [xsimpl] tactic for simplifying entailments.
+    - the [xsimpl] tactic, which provides some degree of automation
+      for simplifying entailments.
 *)
 
 Proof using.
   intros.
-  (* unfolding the body of the function *)
+  (* unfold the body of the function *)
   applys triple_app_fun_direct. simpl.
   (* reason about [let n = ..] *)
   applys triple_let.
@@ -674,7 +710,7 @@ Proof using.
   { apply triple_get. }
   (* name [n'] the result of [!p] *)
   intros n'. simpl.
-  (* substitute away the equality [n = n'] *)
+  (* substitute away the equality [n' = n] *)
   apply triple_hpure. intros ->.
   (* reason about [let m = ..] *)
   applys triple_let.
@@ -688,7 +724,7 @@ Proof using.
     { xsimpl. } }
   (* name [m'] the result of [n+1] *)
   intros m'. simpl.
-  (* substitute away the equality [m = m'] *)
+  (* substitute away the equality [m' = m] *)
   apply triple_hpure. intros ->.
   (* reason about [p := m] *)
   applys triple_conseq.
@@ -696,6 +732,20 @@ Proof using.
   { xsimpl. }
   { xsimpl. }
 Qed.
+
+(** This proof script shows that a practical verification proof can
+    be conducted by applying the reasoning rule of the logic.
+
+    At the same time, it appears that manually invoking the rules
+    in such a way is fairly verbose.
+
+    To enhance the user experience and allow for more concise proof
+    scripts, we need to set up additional infrastructure.
+
+    Developing such an infrastructure is the matter of the remaining
+    of this presentation. *)
+
+End ProveIncr.
 
 
 
@@ -1146,18 +1196,22 @@ End Wpgen.
 (* ########################################################### *)
 (** ** Verification of the increment function, using x-tactics *)
 
+Module ProveIncrWithTactics.
+
+Import DemoPrograms.
+
 Import SLFWPgen.
 Open Scope wpgen_scope.
 
 Lemma triple_incr' : forall (p:loc) (n:int),
-  triple (trm_app incr p)
+  triple (incr p)
     (p ~~> n)
     (fun _ => p ~~> (n+1)).
 Proof using.
   xwp. xapp. xapp. xapp. xsimpl.
 Qed.
 
-End ProveIncr.
+End ProveIncrWithTactics.
 
 
 (* ########################################################### *)
