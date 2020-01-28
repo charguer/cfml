@@ -190,40 +190,12 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
 
   | eval_get : forall s l,
       Fmap.indom s l ->
-      eval s (val_get (val_loc l)) s (Fmap.read s l)
+      eval s (val_get (val_loc l)) s (Fmap.read s l).
 
-  (* Other rules are standard. See [SLFRules] for details. *)
+  (** ... *)
 
-  | eval_fun : forall s x t1,
-      eval s (trm_fun x t1) s (val_fun x t1)
-  | eval_fix : forall s f x t1,
-      eval s (trm_fix f x t1) s (val_fix f x t1)
-  | eval_app_fun : forall s1 s2 v1 v2 x t1 v,
-      v1 = val_fun x t1 ->
-      eval s1 (subst x v2 t1) s2 v ->
-      eval s1 (trm_app v1 v2) s2 v
-  | eval_app_fix : forall s1 s2 v1 v2 f x t1 v,
-      v1 = val_fix f x t1 ->
-      eval s1 (subst x v2 (subst f v1 t1)) s2 v ->
-      eval s1 (trm_app v1 v2) s2 v
-  | eval_seq : forall s1 s2 s3 t1 t2 v1 v,
-      eval s1 t1 s2 v1 ->
-      eval s2 t2 s3 v ->
-      eval s1 (trm_seq t1 t2) s3 v
-  | eval_if : forall s1 s2 b v t1 t2,
-      eval s1 (if (b:bool) then t1 else t2) s2 v ->
-      eval s1 (trm_if (val_bool b) t1 t2) s2 v
-  | eval_add : forall s n1 n2,
-      eval s (val_add (val_int n1) (val_int n2)) s (val_int (n1 + n2))
-  | eval_ref : forall s v l,
-      ~ Fmap.indom s l ->
-      eval s (val_ref v) (Fmap.update s l v) (val_loc l)
-  | eval_set : forall s l v,
-      Fmap.indom s l ->
-      eval s (val_set (val_loc l) v) (Fmap.update s l v) val_unit
-  | eval_free : forall s l,
-      Fmap.indom s l ->
-      eval s (val_free (val_loc l)) (Fmap.remove s l) val_unit.
+  (** The other evaluation rules are standard. We omit them here.
+     Details may be found in [SLFRules.v]. *)
 
 End Semantics.
 
@@ -748,78 +720,75 @@ Qed.
 End ProveIncr.
 
 
-
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
-(** * Magic wand (extract from [SLFWand]) *)
-
-Module Wand.
-Import SLFDirect.
+(** * Infrastructure for more concise proof scripts *)
 
 (* ########################################################### *)
-(** ** Definition of magic wand *)
+(** ** Notion of characteristic formula *)
 
-(** The following equivalence can be proved to characterizes a
-    unique heap predicate [H1 \-* H2]. *)
+(** In Hoare logic, the "weakest precondition calculus" computes,
+    given a term [t] and a postcondition [Q], the weakest heap predicate
+    [H] (weakest in the sense of the entailment relation [==>]) such that
+    the Hoare triple [hoare t H Q] holds.
 
-Parameter hwand_equiv : forall H0 H1 H2,
-  (H0 ==> (H1 \-* H2)) <-> ((H0 \* H1) ==> H2).
+    Traditionnaly, a weakest precondition calculus operates on a term
+    [t] annotated with function specification and invariants (e.g.,
+    loop invariants).
 
-(** Corrolaries *)
+    The framework that presented next builds upon a variant of the
+    weakest precondition calculus, called "characteristic formula".
+    This technique targets Separation Logic, and in particular it is
+    able to smoothly integrate support for the frame rule. In addition,
+    it targets unannotated code, that is, plain source code without
+    any specification not annotation.
 
-Parameter hwand_cancel : forall H1 H2,
-  H1 \* (H1 \-* H2) ==> H2.
+    The formula built by the "characteristic formula generator" applied
+    to a term [t] is a predicate from higher-order logic that thus depends
+    only on the source code of [t], and not on its specifications. This
+    formula is thus "characteristic" of the source term [t].
 
-(** Remark: there are several possibilities to define the magic wand,
-    all are equivalent to the characterization by equivalence. *)
+    The characteristic formula generator is implemented as a Coq function
+    named [wpgen]. To define this function, two specific challenges have
+    to be addressed.
 
-Definition hwand1 (H1 H2:hprop) : hprop :=
-  fun h => forall h', Fmap.disjoint h h' -> H1 h' -> H2 (h \u h').
+    - First, [wpgen] should be a function that is recognized by Coq as
+      structurally recursive, and that computes well within Coq.
+    - Second, the output of [wpgen], i.e., the formulae that it produces,
+      should be human readable. Indeed, the formulae are intended to be used
+      in interactive proofs guided by the user.
 
-Definition hwand2 (H1 H2 : hprop) : hprop :=
-  \exists H0, H0 \* \[(H0 \* H1) ==> H2].
+    Before diving into the details, let us describe at a high level the
+    key ingredients of the generator.
 
-(** For postconditions, written [Q1 \--* Q2].
-    It is defined using the heap predicate [\forall x, H], which is
-    the analogous of [\exists x, H] but for the universal quantifier. *)
+    - To cope with the lack of annotations in the source term, in
+      particular for handling the case of function applications,
+      [wpgen] leverages the notion of "semantic weakest precondition",
+      a notion defined further on.
+    - To acccomodate for the frame rule, which is not syntax directed,
+      [wpgen] integrates a predicate named [mkstruct] that is introduced
+      at every node of the characteristic formula. This predicate may
+      be used to invoke the frame rule if the user wishes to, otherwise
+      it may be freely discarded from the formula.
+    - To appear as a structurally-recursive function, [wpgen] does not
+      compute substitution eagerly using [subst], but instead delay the
+      substitutions by accumulating them in a context provided as extra
+      argument to [wpgen].
+    - To ensure a human-readable output, the definition of [wpgen] features
+      auxiliary definitions, with a set of corresponding notation that
+      enable to display the characteristic formula of a term [t] in a way
+      that reads almost exactly like the source code of [t]. This feature
+      will be illustrated through a demo.
 
-Definition qwand A (Q1 Q2:A->hprop) : hprop :=
-  \forall x, (Q1 x) \-* (Q2 x).
+    In what follows, we begin with the definition of the notion of "semantic
+    weakest precondition". We then present the definition of [wpgen] through
+    a series of refinements, introducing the key ingredients one at a time.
 
+*)
 
-(* ########################################################### *)
-(** ** Ramified frame rule *)
-
-(** Recall combined rule *)
-
-Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q ->
-  triple t H Q.
-
-(** New formulation using the magic wand to eliminate [H2]. *)
-
-Parameter triple_ramified_frame : forall H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* Q) ->
-  triple t H Q.
-
-(** Note: [H1 \* H2 ==> H1 \* (Q1 \--* Q)] simplifies to
-          [H2 ==> (Q1 \--* Q)] which simplifies to
-          [Q1 \*+ H2 ===> Q]. *)
-
-End Wand.
-
-
-(* ########################################################### *)
-(* ########################################################### *)
-(* ########################################################### *)
-(** * Weakest precondition (extract from [SLFWPsem]) *)
 
 Module Wpsem.
-Import SLFDirect.
 
 
 (* ########################################################### *)
@@ -1190,6 +1159,73 @@ Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (wptag F) Q)
    format "'[v' 'PRE'  H  '/' 'CODE'  F '/' 'POST'  Q ']'").
 
 End Wpgen.
+
+
+
+
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Magic wand (extract from [SLFWand]) *)
+
+Module Wand.
+Import SLFDirect.
+
+
+(* ########################################################### *)
+(** ** Definition of magic wand *)
+
+(** The following equivalence can be proved to characterizes a
+    unique heap predicate [H1 \-* H2]. *)
+
+Parameter hwand_equiv : forall H0 H1 H2,
+  (H0 ==> (H1 \-* H2)) <-> ((H0 \* H1) ==> H2).
+
+(** Corrolaries *)
+
+Parameter hwand_cancel : forall H1 H2,
+  H1 \* (H1 \-* H2) ==> H2.
+
+(** Remark: there are several possibilities to define the magic wand,
+    all are equivalent to the characterization by equivalence. *)
+
+Definition hwand1 (H1 H2:hprop) : hprop :=
+  fun h => forall h', Fmap.disjoint h h' -> H1 h' -> H2 (h \u h').
+
+Definition hwand2 (H1 H2 : hprop) : hprop :=
+  \exists H0, H0 \* \[(H0 \* H1) ==> H2].
+
+(** For postconditions, written [Q1 \--* Q2].
+    It is defined using the heap predicate [\forall x, H], which is
+    the analogous of [\exists x, H] but for the universal quantifier. *)
+
+Definition qwand A (Q1 Q2:A->hprop) : hprop :=
+  \forall x, (Q1 x) \-* (Q2 x).
+
+
+(* ########################################################### *)
+(** ** Ramified frame rule *)
+
+(** Recall combined rule *)
+
+Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q ->
+  triple t H Q.
+
+(** New formulation using the magic wand to eliminate [H2]. *)
+
+Parameter triple_ramified_frame : forall H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* Q) ->
+  triple t H Q.
+
+(** Note: [H1 \* H2 ==> H1 \* (Q1 \--* Q)] simplifies to
+          [H2 ==> (Q1 \--* Q)] which simplifies to
+          [Q1 \*+ H2 ===> Q]. *)
+
+End Wand.
 
 
 
