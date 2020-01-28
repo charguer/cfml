@@ -640,8 +640,7 @@ Lemma hstar_htop_htop :
 Proof using.
   applys himpl_antisym.
   { applys himpl_htop_r. }
-  { applys himpl_forall_trans. intros H M. applys himpl_trans M.
-    rewrite <- (hstar_hempty_r \Top) at 1. applys himpl_frame_r.
+  { rewrite <- (hstar_hempty_r \Top) at 1. applys himpl_frame_r.
     applys himpl_htop_r. }
 Qed.
 

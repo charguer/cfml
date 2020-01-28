@@ -131,8 +131,7 @@ Local Coercion string_to_var (x:string) : var := x.
     Check eval : state -> trm -> state -> val -> Prop.
 ]]
 
-    Remark: the corresponding definitions are described later in the chapter
-    [SLFRules].
+    Remark: the corresponding definitions are described in the chapter [SLFRules].
 *)
 
 (** At this point, we don't need to know the exact grammar of terms and values.

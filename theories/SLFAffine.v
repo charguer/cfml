@@ -307,7 +307,7 @@ Parameter triple_hgc_post : forall t H Q,
 (** Not only is this rule more concise than [triple_haffine_post], it
     also has the benefits that the piece of heap discarded, previously
     described by [H'], no longer needs to be provided upfront at the
-    moment of applying the rule. It may be provided later on in the
+    moment of applying the rule. It may be provided further on in the
     reasoning, for example in an entailment, by instantiating the
     existential quantifier carried into the definition of [\GC]. *)
 

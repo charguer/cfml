@@ -3,6 +3,29 @@ Set Implicit Arguments.
 From Sep Require SepBase SepLifted.
 Generalizable Variables A.
 
+
+
+
+(* ********************************************************************** *)
+(* * Alternative proofs for properties of operators *)
+
+Module SepBaseAltWand.
+Import SepBase.
+
+(** Alternative proof for [qwand_specialize], without unfolding
+    the definition of [qwand], instead exploiting [qwand_equiv]. *)
+
+Lemma qwand_specialize : forall A (x:A) (Q1 Q2:A->hprop),
+  (Q1 \--* Q2) ==> (Q1 x \-* Q2 x).
+Proof using. 
+  intros. applys himpl_forall_trans. intros H M.
+  rewrite qwand_equiv in M. specializes M x.
+  rewrite hwand_equiv. rewrite~ hstar_comm.
+Qed.
+
+End SepBaseAltWand.
+
+
 (* ********************************************************************** *)
 (* * Alternative proofs for SepBase structural rules *)
 

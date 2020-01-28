@@ -513,11 +513,6 @@ Lemma hprop_op_comm : forall (op:hprop->hprop->hprop),
   (forall H1 H2, op H1 H2 = op H2 H1).
 Proof using. introv M. intros. applys himpl_antisym; applys M. Qed.
 
-Lemma himpl_forall_trans : forall H1 H2,
-  (forall H, H ==> H1 -> H ==> H2) ->
-  H1 ==> H2.
-Proof using. introv M. applys~ M. Qed.
-
 Lemma qimpl_refl : forall A (Q:A->hprop),
   Q ===> Q.
 Proof using. intros. unfolds*. Qed.
@@ -650,7 +645,6 @@ Lemma hpure_inv : forall P h,
   P /\ h = heap_empty.
 Proof using. introv (p&M). split~. Qed.
 
-(* LATER: rename to hstar_hpure_l and add symmetric _r lemma *)
 Lemma hstar_hpure : forall P H h,
   (\[P] \* H) h = (P /\ H h).
 Proof using.
@@ -874,7 +868,7 @@ Proof using.
   { applys himpl_hforall_r. intros x. rewrite hwand_equiv. rewrite* hstar_comm. }
 Qed.
 
-Lemma qwand_cancel : forall Q1 Q2,
+Lemma qwand_cancel : forall A (Q1 Q2:A->hprop),
   Q1 \*+ (Q1 \--* Q2) ===> Q2.
 Proof using. intros. rewrite <- qwand_equiv. applys qimpl_refl. Qed.
 
@@ -887,11 +881,7 @@ Arguments himpl_qwand_r [A].
 
 Lemma qwand_specialize : forall A (x:A) (Q1 Q2:A->hprop),
   (Q1 \--* Q2) ==> (Q1 x \-* Q2 x).
-Proof using.
-  intros. applys himpl_forall_trans. intros H M.
-  rewrite qwand_equiv in M. specializes M x.
-  rewrite hwand_equiv. rewrite~ hstar_comm.
-Qed. (* LATER: can this proof be done without [himpl_forall_trans]? *)
+Proof using. intros. applys* himpl_hforall_l x. Qed.
 
 Arguments qwand_specialize [ A ].
 

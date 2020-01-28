@@ -1069,9 +1069,6 @@ Qed. (* /ADMITTED *)
 
 (** [] *)
 
-(* LATER: the proofs above could be slightly simplified using [xsimpl],
-   yet it is not available here. Should we fix this? *)
-
 End ProveConsequenceRules.
 
 

@@ -1553,7 +1553,7 @@ Tactic Notation "xseq" :=
   xstruct_if_needed; applys xseq_lemma.
 
 (** [xapp_nosubst] applys [xapp_lemma], after calling [xseq] or [xlet]
-    if applicable. (We will later define [xapp] as an enhanced version
+    if applicable. (We will subsequently define [xapp] as an enhanced version
     of [xapp_nosusbt] that is able to automatically perform substitutions. *)
 
 Tactic Notation "xseq_xlet_if_needed" :=

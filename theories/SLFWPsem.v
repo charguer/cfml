@@ -101,7 +101,7 @@ Proof using. introv M. rewrite wp_equiv. applys M. Qed.
     characterizes the predicate [wp], and that it is all we need
     to carry out formal reasoning.
 
-    For this reason, we postpone to later in this chapter the
+    For this reason, we postpone to further on in this chapter the
     description of alternative, direct definitions for [wp]. *)
 
 

@@ -1283,7 +1283,7 @@ Qed.
 
 
 (* ########################################################### *)
-(** ** Trying to prove incorrect specifications (optional) *)
+(** ** Trying to prove incorrect specifications *)
 
 (** Recall the function [repeat_incr p n], which invokes [n]
     times [incr p].

@@ -309,9 +309,6 @@ Proof using.
     applys himpl_hexists_r (neg b). destruct* b. }
 Qed.
 
-(* TODO: what is the [himpl_hor_l] rule,
-   appart from unfolding the above definition of [hor]? *)
-
 Lemma himpl_hor_r_r : forall H1 H2,
   H1 ==> hor H1 H2.
 Proof using. intros. unfolds hor. exists* true. Qed.
@@ -319,6 +316,14 @@ Proof using. intros. unfolds hor. exists* true. Qed.
 Lemma himpl_hor_r_l : forall H1 H2,
   H2 ==> hor H1 H2.
 Proof using. intros. unfolds hor. exists* false. Qed.
+
+Lemma himpl_hor_l : forall H1 H2 H3,
+  H1 ==> H3 ->
+  H2 ==> H3 ->
+  hor H1 H2 ==> H3.
+Proof using.
+  introv M1 M2. unfolds hor. applys himpl_hexists_l. intros b. case_if*.
+Qed.
 
 Lemma triple_hor : forall t H1 H2 Q,
   triple t H1 Q ->
@@ -950,6 +955,7 @@ Hint Resolve triple_get_field triple_set_field : triple.
 
 Module ExtraDemoPrograms.
 Export SLFProgramSyntax.
+
 
 (* ########################################################### *)
 (** ** The decrement function *)
