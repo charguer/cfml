@@ -16,9 +16,8 @@ License: CC-by.
 *)
 
 Set Implicit Arguments.
-From Sep Require SLFRules SLFWPgen.
-From Sep Require SLFExtra.
-Generalizable Variables A.
+From Sep Require SLFExtra SLFRules SLFWPgen.
+Import SLFDirect.
 
 
 (* ########################################################### *)
@@ -35,12 +34,11 @@ Generalizable Variables A.
 (* ########################################################### *)
 (** * Source language (extract from [SLFHprop] and [SLFRules]) *)
 
-Module Language.
-Import SLFDirect.
-
 
 (* ########################################################### *)
 (** ** Syntax *)
+
+Module Language.
 
 (** We consider a ML-style programming language. Programs are represented as
     terms of type [trm], and terms evaluate to values of type [val].
@@ -90,6 +88,8 @@ with trm : Type :=
   | trm_seq : trm -> trm -> trm
   | trm_let : var -> trm -> trm -> trm
   | trm_if : trm -> trm -> trm -> trm.
+
+End Language.
 
 
 (* ########################################################### *)
@@ -144,48 +144,15 @@ End Parsing.
 (* ########################################################### *)
 (** ** Semantics *)
 
+Module Semantics.
 
-(** An imperative programming language
-
-The state consists of a finite map from location to values.
-    (See further for additional information about finite maps.)
-    Records and arrays are represented as sets of consecutive cells. *)
+(** The semantics of an imperative programming language involves a
+    description of a memory state. A memory state is described as a finite
+    map location to values. *)
 
 Definition state : Type := fmap loc val.
 
-(** The type [heap], a.k.a. [state]. By convention, the "state"
-    refers to the full memory state, while the "heap" potentially
-    refers to only a fraction of the memory state. *)
-
-Definition heap : Type := state.
-
-(** The file [Fmap.v] provides a formalization of finite maps, which
-    are then used to represent heaps in the semantics.
-
-    Finiteness of maps is essential because to justify that allocation
-    yields a fresh reference, one must be able to argue for the
-    existence of a location fresh from existing heaps. From the
-    finiteness of heaps and the infinite number of variables, we
-    can conclude that fresh locations always exist.
-
-    The implementation details of [fmap] need not be revealed. *)
-
-(*
-[[
-    Check Fmap.empty : heap.
-    Check Fmap.single : loc -> val -> heap.
-    Check Fmap.union : heap -> heap -> heap.
-    Check Fmap.disjoint : heap -> heap -> Prop.
-]]
-*)
-
-(** [Fmap] operations require [val] to be inhabited. *)
-
-Global Instance Inhab_val : Inhab val.
-Proof using. apply (Inhab_of_val val_unit). Qed.
-
-
-Implicit Types v : val.
+(** Remark: the file [Fmap.v] provides a formalization of finite maps. *)
 
 (** The capture-avoiding substitution (not shown) is defined in a
     standard way. [subst x v t] replaces all occurrences of the variable
@@ -193,21 +160,41 @@ Implicit Types v : val.
 
 Parameter subst : forall (x:var) (v:val) (t:trm), trm.
 
-(** Big-step evaluation judgement, written [eval s t s' v] *)
+(** The big-step evaluation judgement, written [eval s t s' v], asserts
+    that from the initial state [s], the evaluation of the term [t]
+    terminates in a final state [s'], and produces the result [v]. *)
 
 Inductive eval : state -> trm -> state -> val -> Prop :=
 
-  (* [eval] for values and function definitions *)
+  (** A value evaluates to itself. *)
 
   | eval_val : forall s v,
       eval s (trm_val v) s v
+
+  (** To evaluate a let-binding [let x = t1 in t2] in a state [s1],
+      first evaluate [t1], which produces a state [s2] and a value
+      [v1], then evaluate the result of substituting [v1] for [x] in [t2]
+      to obtain the final result. *)
+
+  | eval_let : forall s1 s2 s3 x t1 t2 v1 r,
+      eval s1 t1 s2 v1 ->
+      eval s2 (subst x v1 t2) s3 r ->
+      eval s1 (trm_let x t1 t2) s3 r
+
+  (** To evaluate a read operation at a location [l], first check that
+      [l] indeed belongs to the domain of the state [s], then return
+      the value bound to [l] in the state [s]. *)
+
+  | eval_get : forall s l,
+      Fmap.indom s l ->
+      eval s (val_get (val_loc l)) s (Fmap.read s l)
+
+  (* Other rules are standard. See [SLFRules] for details. *)
+
   | eval_fun : forall s x t1,
       eval s (trm_fun x t1) s (val_fun x t1)
   | eval_fix : forall s f x t1,
       eval s (trm_fix f x t1) s (val_fix f x t1)
-
-  (* [eval] for function applications *)
-
   | eval_app_fun : forall s1 s2 v1 v2 x t1 v,
       v1 = val_fun x t1 ->
       eval s1 (subst x v2 t1) s2 v ->
@@ -216,31 +203,18 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       v1 = val_fix f x t1 ->
       eval s1 (subst x v2 (subst f v1 t1)) s2 v ->
       eval s1 (trm_app v1 v2) s2 v
-
-  (* [eval] for structural constructs *)
-
   | eval_seq : forall s1 s2 s3 t1 t2 v1 v,
       eval s1 t1 s2 v1 ->
       eval s2 t2 s3 v ->
       eval s1 (trm_seq t1 t2) s3 v
-  | eval_let : forall s1 s2 s3 x t1 t2 v1 r,
-      eval s1 t1 s2 v1 ->
-      eval s2 (subst x v1 t2) s3 r ->
-      eval s1 (trm_let x t1 t2) s3 r
   | eval_if_case : forall s1 s2 b v t1 t2,
       eval s1 (if (b:bool) then t1 else t2) s2 v ->
       eval s1 (trm_if (val_bool b) t1 t2) s2 v
-
-  (* [eval] for primitive operations *)
-
   | eval_add : forall s n1 n2,
       eval s (val_add (val_int n1) (val_int n2)) s (val_int (n1 + n2))
   | eval_ref : forall s v l,
       ~ Fmap.indom s l ->
       eval s (val_ref v) (Fmap.update s l v) (val_loc l)
-  | eval_get : forall s l,
-      Fmap.indom s l ->
-      eval s (val_get (val_loc l)) s (Fmap.read s l)
   | eval_set : forall s l v,
       Fmap.indom s l ->
       eval s (val_set (val_loc l) v) (Fmap.update s l v) val_unit
@@ -248,7 +222,7 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       Fmap.indom s l ->
       eval s (val_free (val_loc l)) (Fmap.remove s l) val_unit.
 
-End Language.
+End Semantics.
 
 
 (* ########################################################### *)
