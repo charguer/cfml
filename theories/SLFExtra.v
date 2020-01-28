@@ -735,20 +735,23 @@ Proof using. intros. applys* triple_binop. applys* redbinop_div. Qed.
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
-(** * Treatment of functions of two arguments *)
+(** * Treatment of functions of 2 and 3 arguments *)
 
-(** CFML provides a generic treatment of uncurried n-ary functions.
-    Here, for the sake of the demos presented in chapter [SLFBasic],
-    we provide support for functions of arity 2, in addition to the
-    support of functions of arity 1 provided by the other [SLF*] files.
+(** As explained in chapter [SLFStruct], there are different ways to
+    support functions of several arguments: curried functions, n-ary
+    functions, or functions expecting a tuple as argument.
 
-    In other words, the definitions below should be viewed as a hackish
-    solution to handle functions of arity 2, it should not be viewed as
-    the general solution to handle multiple arguments. For details on
-    a better solution, check out the implemented of the CFML tool. *)
+    For simplicity, we here follow the approach based on curried 
+    function, specialized for arity 2 and 3. It is possible to state
+    arity-generic definitions and lemmas, but the definitions become
+    much more technical.
+
+    From an engineering point of view, it is easier and more efficient
+    to follow the approach using n-ary functions, as the CFML tool does. *)
+
 
 (* ################################################ *)
-(** ** Syntax for functions of two arguments *)
+(** ** Syntax for functions of 2 or 3 arguments *)
 
 Notation "'VFun' x1 x2 ':=' t" :=
   (val_fun x1 (trm_fun x2 t))
@@ -758,9 +761,17 @@ Notation "'VFix' f x1 x2 ':=' t" :=
   (val_fix f x1 (trm_fun x2 t))
   (at level 69, f, x1, x2 at level 0, format "'VFix'  f  x1  x2  ':='  t") : val_scope.
 
+Notation "'VFun' f x1 x2 x3 ':=' t" :=
+  (val_fun f x1 (trm_fun x2 (trm_fun x3 t)))
+  (at level 69, f, x1, x2, x3 at level 0, format "'VFun'  f  x1  x2  x3  ':='  t") : val_scope.
+
+Notation "'VFix' f x1 x2 x3 ':=' t" :=
+  (val_fix f x1 (trm_fun x2 (trm_fun x3 t)))
+  (at level 69, f, x1, x2, x3 at level 0, format "'VFix'  f  x1  x2  x3  ':='  t") : val_scope.
+
 
 (* ################################################ *)
-(** ** Semantics of functions of two arguments *)
+(** ** Semantics of functions of 2 or 3 arguments *)
 
 (** The predicate [trm_is_val t] asserts that [t] is a value.
     Reciprocally, [~ trm_is_val t] asserts that [t] is not a value. *)
@@ -780,7 +791,7 @@ Parameter eval_app_arg : forall s1 s2 s3 s4 t1 t2 v1 v2 r,
   eval s3 (trm_app v1 v2) s4 r ->
   eval s1 (trm_app t1 t2) s4 r.
 
-(** A useful substitution lemma, generalizing [isubst_rem] and [isubst_rem_2]. *)
+(** Useful substitution lemmas, generalizing [isubst_rem] and [isubst_rem_2]. *)
 
 Lemma isubst_rem_3 : forall f x1 x2 vf vx1 vx2 E t,
      isubst ((f,vf)::(x1,vx1)::(x2,vx2)::E) t
@@ -792,11 +803,21 @@ Proof using.
   { intros y v1 v2 K1 K2. simpls. do 3 rewrite lookup_rem in K1. case_var. }
 Qed.
 
+Lemma isubst_rem_4 : forall f x1 x2 x3 vf vx1 vx2 vx3 E t,
+     isubst ((f,vf)::(x1,vx1)::(x2,vx2)::(x3,vx3)::E) t
+   = subst x3 vx3 (subst x2 vx2 (subst x1 vx1 (subst f vf (isubst (rem x3 (rem x2 (rem x1 (rem f E)))) t)))).
+Proof using.
+  intros. do 4 rewrite subst_eq_isubst_one. do 4 rewrite <- isubst_app.
+  rewrite isubst_app_swap.
+  { applys isubst_ctx_equiv. intros y. rew_list. simpl. do 4 rewrite lookup_rem. case_var~. }
+  { intros y v1 v2 K1 K2. simpls. do 4 rewrite lookup_rem in K1. case_var. }
+Qed.
+
 
 (* ################################################ *)
-(** ** Reasoning rules for applications of functions of two arguments *)
+(** ** Evaluation rules for applications to 2 or 3 arguments. *)
 
-(** [eval_like] judgment for applications to two arguments. *)
+(** [eval_like] judgment for applications to several arguments. *)
 
 Lemma eval_like_app_fun2 : forall v0 v1 v2 x1 x2 t1,
   v0 = val_fun x1 (trm_fun x2 t1) ->
@@ -811,38 +832,41 @@ Qed.
 
 Lemma eval_like_app_fix2 : forall v0 v1 v2 f x1 x2 t1,
   v0 = val_fix f x1 (trm_fun x2 t1) ->
-  x1 <> x2 ->
-  f <> x2 ->
+  (x1 <> x2 /\ f <> x2) ->
   eval_like (subst x2 v2 (subst x1 v1 (subst f v0 t1))) (v0 v1 v2).
 Proof using.
-  introv E N1 N2. introv R. applys* eval_app_arg.
+  introv E (N1&N2). introv R. applys* eval_app_arg.
   { applys eval_app_fix E. simpl. do 2 (rewrite var_eq_spec; case_if). applys eval_fun. }
   { applys* eval_val. }
   { applys* eval_app_fun. }
 Qed.
 
-(** Triples for applications to two arguments. *)
-
-Lemma triple_app_fun2 : forall v0 v1 v2 x1 x2 t1 H Q,
-  v0 = val_fun x1 (trm_fun x2 t1) ->
-  x1 <> x2 ->
-  triple (subst x2 v2 (subst x1 v1 t1)) H Q ->
-  triple (trm_app v0 v1 v2) H Q.
+Lemma eval_like_app_fun3 : forall v0 v1 v2 v3 x1 x2 x3 t1,
+  v0 = val_fun x1 (trm_fun x2 (trm_fun x3 t1)) ->
+  (x1 <> x2  /\ x1 <> x3 /\ x2 <> x3) ->
+  eval_like (subst x3 v3 (subst x2 v2 (subst x1 v1 t1))) (v0 v1 v2 v3).
 Proof using.
-  introv E N M1. applys triple_eval_like M1. applys* eval_like_app_fun2.
+  introv E (N1&N2&N3). introv R. applys* eval_app_arg.
+  { applys* eval_like_app_fun2 E. simpl. do 2 (rewrite var_eq_spec; case_if). applys eval_fun. }
+  { applys eval_val. }
+  { applys* eval_app_fun. }
 Qed.
 
-Lemma triple_app_fix2 : forall f x1 x2 v0 v1 v2 t1 H Q,
-  v0 = val_fix f x1 (trm_fun x2 t1) ->
-  x1 <> x2 ->
-  f <> x2 ->
-  triple (subst x2 v2 (subst x1 v1 (subst f v0 t1))) H Q ->
-  triple (trm_app v0 v1 v2) H Q.
+Lemma eval_like_app_fix3 : forall v0 v1 v2 v3 f x1 x2 x3 t1,
+  v0 = val_fix f x1 (trm_fun x2 (trm_fun x3 t1)) ->
+  (x1 <> x2 /\ f <> x2 /\ f <> x3 /\ x1 <> x3 /\ x2 <> x3) -> 
+  eval_like (subst x3 v3 (subst x2 v2 (subst x1 v1 (subst f v0 t1)))) (v0 v1 v2 v3).
 Proof using.
-  introv E N1 N2 M1. applys triple_eval_like M1. applys* eval_like_app_fix2.
+  introv E (N1&N2&N3&N4&N5). introv R. applys* eval_app_arg.
+  { applys* eval_like_app_fix2 E. simpl. do 3 (rewrite var_eq_spec; case_if). applys eval_fun. }
+  { applys eval_val. }
+  { applys* eval_app_fun. }
 Qed.
 
-(** WP for applications to two arguments. *)
+(* ################################################ *)
+(** ** Reasoning rules for applications to 2 or 3 arguments *)
+
+(** Weakest preconditions for applications to several arguments. *)
 
 Lemma wp_app_fun2 : forall x1 x2 v0 v1 v2 t1 Q,
   v0 = val_fun x1 (trm_fun x2 t1) ->
@@ -852,10 +876,21 @@ Proof using. introv EQ1 N. applys wp_eval_like. applys* eval_like_app_fun2. Qed.
 
 Lemma wp_app_fix2 : forall f x1 x2 v0 v1 v2 t1 Q,
   v0 = val_fix f x1 (trm_fun x2 t1) ->
-  x1 <> x2 ->
-  f <> x2 ->
+  (x1 <> x2 /\ f <> x2) ->
   wp (subst x2 v2 (subst x1 v1 (subst f v0 t1))) Q ==> wp (trm_app v0 v1 v2) Q.
-Proof using. introv EQ1 N1 N2. applys wp_eval_like. applys* eval_like_app_fix2. Qed.
+Proof using. introv EQ1 N. applys wp_eval_like. applys* eval_like_app_fix2. Qed.
+
+Lemma wp_app_fun3 : forall x1 x2 x3 v0 v1 v2 v3 t1 Q,
+  v0 = val_fun x1 (trm_fun x2 (trm_fun x3 t1)) ->
+  (x1 <> x2 /\ x1 <> x3 /\ x2 <> x3) ->
+  wp (subst x3 v3 (subst x2 v2 (subst x1 v1 t1))) Q ==> wp (trm_app v0 v1 v2 v3) Q.
+Proof using. introv EQ1 N. applys wp_eval_like. applys* eval_like_app_fun3. Qed.
+
+Lemma wp_app_fix3 : forall f x1 x2 x3 v0 v1 v2 v3 t1 Q,
+  v0 = val_fix f x1 (trm_fun x2 (trm_fun x3 t1)) ->
+  (x1 <> x2 /\ f <> x2 /\ f <> x3 /\ x1 <> x3 /\ x2 <> x3) ->
+  wp (subst x3 v3 (subst x2 v2 (subst x1 v1 (subst f v0 t1)))) Q ==> wp (trm_app v0 v1 v2 v3) Q.
+Proof using. introv EQ1 N. applys wp_eval_like. applys* eval_like_app_fix3. Qed.
 
 
 (* ################################################ *)
@@ -876,16 +911,42 @@ Qed.
 
 Lemma xwp_lemma_fix2 : forall f v0 v1 v2 x1 x2 t H Q,
   v0 = val_fix f x1 (trm_fun x2 t) ->
-  var_eq x1 x2 = false ->
-  var_eq f x2 = false ->
+  (var_eq x1 x2 = false /\ var_eq f x2 = false) ->
   H ==> wpgen ((f,v0)::(x1,v1)::(x2,v2)::nil) t Q ->
   triple (v0 v1 v2) H Q.
 Proof using.
-  introv M1 N1 N2 M2. rewrite var_eq_spec in N1,N2. rew_bool_eq in *.
+  introv M1 N M2. repeat rewrite var_eq_spec in N. rew_bool_eq in *.
   rewrite <- wp_equiv. xchange M2.
   xchange (>> wpgen_sound (((f,v0)::nil) ++ ((x1,v1)::nil) ++ ((x2,v2)::nil)) t Q).
   do 2 rewrite isubst_app. do 3 rewrite <- subst_eq_isubst_one.
   applys* wp_app_fix2.
+Qed.
+
+Lemma xwp_lemma_fun3 : forall v0 v1 v2 v3 x1 x2 x3 t H Q,
+  v0 = val_fun x1 (trm_fun x2 (trm_fun x3 t)) ->
+  (var_eq x1 x2 = false /\ var_eq x1 x3 = false /\ var_eq x2 x3 = false) ->
+  H ==> wpgen ((x1,v1)::(x2,v2)::(x3,v3)::nil) t Q ->
+  triple (v0 v1 v2 v3) H Q.
+Proof using.
+  introv M1 N M2. repeat rewrite var_eq_spec in N. rew_bool_eq in *.
+  rewrite <- wp_equiv. xchange M2.
+  xchange (>> wpgen_sound (((x1,v1)::nil) ++ ((x2,v2)::nil) ++ ((x3,v3)::nil)) t Q).
+  do 2 rewrite isubst_app. do 3 rewrite <- subst_eq_isubst_one.
+  applys* wp_app_fun3.
+Qed.
+
+Lemma xwp_lemma_fix3 : forall f v0 v1 v2 v3 x1 x2 x3 t H Q,
+  v0 = val_fix f x1 (trm_fun x2 (trm_fun x3 t)) ->
+  (   var_eq x1 x2 = false /\ var_eq f x2 = false /\ var_eq f x3 = false
+   /\ var_eq x1 x3 = false /\ var_eq x2 x3 = false) ->
+  H ==> wpgen ((f,v0)::(x1,v1)::(x2,v2)::(x3,v3)::nil) t Q ->
+  triple (v0 v1 v2 v3) H Q.
+Proof using.
+  introv M1 N M2. repeat rewrite var_eq_spec in N. rew_bool_eq in *.
+  rewrite <- wp_equiv. xchange M2.
+  xchange (>> wpgen_sound (((f,v0)::nil) ++ ((x1,v1)::nil) ++ ((x2,v2)::nil) ++ ((x3,v3)::nil)) t Q).
+  do 3 rewrite isubst_app. do 4 rewrite <- subst_eq_isubst_one.
+  applys* wp_app_fix3.
 Qed.
 
 (** Generalization of [xwp] to handle functions of arity 2 *)
@@ -895,8 +956,36 @@ Tactic Notation "xwp" :=
   first [ applys xwp_lemma_fun; [ reflexivity | ]
         | applys xwp_lemma_fix; [ reflexivity | ]
         | applys xwp_lemma_fun2; [ reflexivity | reflexivity | ]
-        | applys xwp_lemma_fix2; [ reflexivity | reflexivity | reflexivity | ] ];
+        | applys xwp_lemma_fix2; [ reflexivity | splits; reflexivity | ]
+        | applys xwp_lemma_fun3; [ reflexivity | splits; reflexivity | ]
+        | applys xwp_lemma_fix3; [ reflexivity | splits; reflexivity | ] ];
   xwp_simpl.
+
+
+(* ################################################ *)
+(** ** Bonus: Triples for applications to several arguments *)
+
+(** Triples for applications to 2 arguments. 
+    Similar rules can be stated and proved for 3 arguments.
+    These rules are not needed for the verification framework. *)
+
+Lemma triple_app_fun2 : forall v0 v1 v2 x1 x2 t1 H Q,
+  v0 = val_fun x1 (trm_fun x2 t1) ->
+  x1 <> x2 ->
+  triple (subst x2 v2 (subst x1 v1 t1)) H Q ->
+  triple (trm_app v0 v1 v2) H Q.
+Proof using.
+  introv E N M1. applys triple_eval_like M1. applys* eval_like_app_fun2.
+Qed.
+
+Lemma triple_app_fix2 : forall f x1 x2 v0 v1 v2 t1 H Q,
+  v0 = val_fix f x1 (trm_fun x2 t1) ->
+  (x1 <> x2 /\ f <> x2) ->
+  triple (subst x2 v2 (subst x1 v1 (subst f v0 t1))) H Q ->
+  triple (trm_app v0 v1 v2) H Q.
+Proof using.
+  introv E N M1. applys triple_eval_like M1. applys* eval_like_app_fix2.
+Qed.
 
 
 (* ########################################################### *)
