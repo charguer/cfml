@@ -1107,12 +1107,132 @@ Definition mkstruct (F:formula) : formula :=
 (* ########################################################### *)
 (** ** Soundness of the characteristic formula generator *)
 
+(** By integrating the predicate [mkstruct] into [wpgen], we reach the last
+    refinement of the definition of the characteristic formula generator.
+
+    Once the generator is defined, it is not hard to prove its soundness,
+    because the generator merely mimics the wp-style reasoning rules.
+
+    The soudness theorem asserts that the formulae computed by [wpgen]
+    entail the semantic weakest precondition [wp]. This result applied
+    to a closed term [t], hence the context [E] is instantiated as [nil]. *)
+
+Parameter wp_of_wpgen : forall t Q,
+  wpgen nil t Q ==> wp t Q.
+
+(** For another way to interpret the soundness theorem, recall the
+    equivalence that characterizes [wp]. *)
+
+Parameter wp_equiv :
+  (H ==> wp t Q) <-> (triple t H Q).
+
+(** By exploiting this equivalence, the soundness theorem reformulates as
+    shown below: to establish a triple of the form [triple t H Q], it
+    suffices to prove that [H] entails the result of [wpgen] applied to
+    [t] and [Q], in the empty context. *)
+
+Parameter triple_of_wpgen : forall t H Q,
+  H ==> wpgen nil t Q ->
+  triple t H Q.
+
+(** The result above is the one that is invoked to begin the proof that
+    a particular term satisfies its specification. It introduces the
+    [wpgen] function, which may be evaluated using the Coq tactic [simpl]. *)
+
 End Wpgen.
+
+
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Technical zoom: the magic wand *)
+
+(** In this short overview, we are not going to look in detail at
+    the implementation of the various tactics that help processing
+    the characteristic formulae in proofs.
+
+    We will only focus on one particular ingredient that is very
+    helpful for setting up these tactics: the "magic wand". *)
+
+
+(* ########################################################### *)
+(** ** Definition of magic wand *)
+
+(** The magic wand is a heap predicate combinator, written [H1 \-* H2],
+    formalized as [hwand H1 H2].
+
+[[
+    Definition hwand (H1 H2:hprop) : hprop := ...
+]]
+
+    The predicate "H1 wand H2" describes a heap predicate such that,
+    if we augment it with [H1], we obtain [H2]. This intuition is
+    captured by the following simplification lemma. *)
+
+Parameter hwand_elim : H1 \* (H1 \-* H2)  ==> H2.
+
+(** There are several ways to define the magic wand. One possible
+    definition is the following: it describes some predicate [H0],
+    such that, if we star it with [H1], we obtain [H2]. *)
+
+Definition hwand (H1 H2:hprop) : hprop :=
+   \exists H0, H0 \* \[ H1 \* H0 ==> H2].
+
+(** It is useful to generalize the magic wand to postconditions,
+    through a predicate written [Q1 \--* Q2]. Again, there are
+    several possible definitions. Here is one that is a simple
+    generalization of the previous one. *)
+
+Definition qwand (Q1 Q2:val->hprop) : hprop :=
+   \exists H0, H0 \* \[ Q1 \*+ H0 ===> Q2].
+
+
+(* ########################################################### *)
+(** ** Structural rules revisited with the magic wand *)
+
+(** Without the magic wand, the rule that combines the consequence rule
+    and the frame rule is stated as follows. *)
+
+Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q ->
+  triple t H Q.
+
+(** One caveat with this rule is that it requires instantiating [H2],
+    the part of the heap being "framed out". Providing [H2] by hand
+    in the proofs would be way too tedious. Setting up a tactic that
+    computes [H2] as the difference between [H] and [H1] (as suggested
+    by the second premise) would work well in the simples cases, however
+    it becomes very tricky to implement when [H] contains existential
+    quantifiers. Indeed, one has to figure out which quantifiers should
+    go into [H1], and which one should go into [H2]. *)
+
+(** With the magic wand, we can bypass the problem altogether by
+    eliminating [H2]. To that end, consider the third premise. It
+    asserts that [H2] is such that, when added to [Q1], yields [Q].
+    Thus [H2] may be expressed as [Q1 \--* Q], the magic wand between
+    [Q1] and [Q].
+
+    Substituting [H2] with [Q1 \--* Q leads to a more concise and more
+    practical reasoning rule, called the "ramified frame rule". *)
+
+Parameter triple_ramified_frame : forall H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* Q) ->
+  triple t H Q.
+
+(** .. *)
+
+Parameter wp_ramified :
+  (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
+
+
+
 
 (* ============
 
-(** This concludes our little journey towards the definition of [wpgen].
-
+(*
     For conducting proofs in practice, there remains to state lemmas and
     define tactics to assist the user in the manipulation of the formula
     produced by [wpgen]. Ultimately, the end-user only manipulates CFML's
@@ -1122,164 +1242,7 @@ End Wpgen.
     In other words, the contents of this chapter reveals the details
     that we work very hard to make completely invisible to the end user. *)
 
-(* ########################################################### *)
-(** ** Soundness proof *)
 
-(** Soundness theorem: syntactic wp implies semantics wp. *)
-
-Parameter wp_of_wpgen : forall t Q,
-  wpgen nil t Q ==> wp t Q.
-
-(** Corrolary: to prove a triple, use the characteristic formula. *)
-
-Parameter triple_of_wpgen : forall t H Q,
-  H ==> wpgen nil t Q ->
-  triple t H Q.
-
-(** Statement of the soundness result:
-    [formula_sound (isubst E t) (wpgen E t)] *)
-
-Definition formula_sound (t:trm) (F:formula) : Prop :=
-  forall Q, F Q ==> wp t Q.
-
-(** Example soundness lemma, for [wpgen_seq] *)
-
-Lemma wpgen_seq_sound : forall F1 F2 t1 t2,
-  formula_sound t1 F1 ->
-  formula_sound t2 F2 ->
-  formula_sound (trm_seq t1 t2) (wpgen_seq F1 F2).
-Proof using.
-  introv S1 S2. intros Q. unfolds wpgen_seq. applys himpl_trans wp_seq.
-  applys himpl_trans S1. applys wp_conseq. intros v. applys S2.
-Qed.
-
-(** Soundness of [mkstruct] *)
-
-Lemma mkstruct_sound : forall t F,
-  formula_sound t F ->
-  formula_sound t (mkstruct F).
-Proof using.
-  introv M. intros Q. unfold mkstruct. xsimpl ;=> Q'.
-  lets N: M Q'. xchange N. applys wp_ramified.
-Qed.
-
-(** Soundness theorem *)
-
-Parameter wpgen_sound : forall E t,
-  formula_sound (isubst E t) (wpgen E t).
-
-(** Corollary, to derive triples *)
-
-Parameter triple_of_wpgen' : forall t H Q,
-  H ==> wpgen nil t Q ->
-  triple t H Q.
-
-(** Corollary, to derive triples for function applications *)
-
-Parameter triple_app_fun_from_wpgen : forall v1 v2 x t1 H Q,
-  v1 = val_fun x t1 ->
-  H ==> wpgen ((x,v2)::nil) t1 Q ->
-  triple (trm_app v1 v2) H Q.
-
-
-(* ########################################################### *)
-(** ** Notation and tactics *)
-
-(** Notation for [wpgen_seq] *)
-
-Notation "'Seq' F1 ; F2" :=
-  ((wpgen_seq F1 F2))
-  (at level 68, right associativity,
-   format "'[v' 'Seq'  '[' F1 ']'  ;  '/'  '[' F2 ']' ']'") : wp_scope.
-
-(** The tactic [xseq] applies to goal of the form [(Seq F1 ; F2) Q] *)
-
-Parameter xseq_lemma : forall H F1 F2 Q,
-  H ==> F1 (fun v => F2 Q) ->
-  H ==> mkstruct (wpgen_seq F1 F2) Q.
-
-Tactic Notation "xseq" :=
-   applys xseq_lemma.
-
-(** The tactic [xapp] leverages the following lemma.
-    Assume the current state [H] decomposes as [H1 \* H2].
-    Then, the premise becomes [H1 \* H2 ==> H1 \* (Q1 \--* Q)]
-    which simplifies to [H2 ==> Q1 \--* Q], which in turns
-    is equivalent to [Q1 \*+ H2 ==> Q]. In other words,
-    [Q] is equal to [Q1] augmented with "[H] minus [H1]",
-    which corresponds to the framed part. *)
-
-Parameter xapp_lemma : forall t Q1 H1 H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* Q) ->
-  H ==> wp t Q.
-
-(** The tag trick (displayed as [`F] in CFML) *)
-
-Definition wptag (F:formula) : formula := F.
-
-(** Integration:
-[[
-  Fixpoint wpgen (E:ctx) (t:trm) : formula :=
-    wptag (mkstruct (match t with ... end))
-]]
-*)
-
-(** Notation for goals involving tagged formulae in the form
-[[
-    PRE H
-    CODE F
-    POST Q
-]]
-*)
-
-Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (wptag F) Q)
-  (at level 8, H, F, Q at level 0,
-   format "'[v' 'PRE'  H  '/' 'CODE'  F '/' 'POST'  Q ']'").
-
-End Wpgen.
-
-
-
-
-(* ########################################################### *)
-(* ########################################################### *)
-(* ########################################################### *)
-(** * Magic wand (extract from [SLFWand]) *)
-
-Module Wand.
-Import SLFDirect.
-
-
-(* ########################################################### *)
-(** ** Definition of magic wand *)
-
-(** The following equivalence can be proved to characterizes a
-    unique heap predicate [H1 \-* H2]. *)
-
-Parameter hwand_equiv : forall H0 H1 H2,
-  (H0 ==> (H1 \-* H2)) <-> ((H0 \* H1) ==> H2).
-
-(** Corrolaries *)
-
-Parameter hwand_cancel : forall H1 H2,
-  H1 \* (H1 \-* H2) ==> H2.
-
-(** Remark: there are several possibilities to define the magic wand,
-    all are equivalent to the characterization by equivalence. *)
-
-Definition hwand1 (H1 H2:hprop) : hprop :=
-  fun h => forall h', Fmap.disjoint h h' -> H1 h' -> H2 (h \u h').
-
-Definition hwand2 (H1 H2 : hprop) : hprop :=
-  \exists H0, H0 \* \[(H0 \* H1) ==> H2].
-
-(** For postconditions, written [Q1 \--* Q2].
-    It is defined using the heap predicate [\forall x, H], which is
-    the analogous of [\exists x, H] but for the universal quantifier. *)
-
-Definition qwand A (Q1 Q2:A->hprop) : hprop :=
-  \forall x, (Q1 x) \-* (Q2 x).
 
 
 (* ########################################################### *)
@@ -1287,18 +1250,8 @@ Definition qwand A (Q1 Q2:A->hprop) : hprop :=
 
 (** Recall combined rule *)
 
-Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q ->
-  triple t H Q.
-
 (** New formulation using the magic wand to eliminate [H2]. *)
 
-Parameter triple_ramified_frame : forall H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* Q) ->
-  triple t H Q.
 
 (** Note: [H1 \* H2 ==> H1 \* (Q1 \--* Q)] simplifies to
           [H2 ==> (Q1 \--* Q)] which simplifies to
