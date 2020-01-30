@@ -5,7 +5,6 @@
 
 SOURCE=~/versions/coq-8.9.1/sfdev/slf/full
 TARGET=slf
-SOURCE_COLLEGE=../../theories/CollegeDeFrance.v
 
 CP="cp -u"
 
@@ -37,9 +36,6 @@ ${CP} ${SOURCE}/*.v ${SOURCE}/*.html ${SOURCE}/*.gif ${SOURCE}/_CoqProject ${SOU
 # bypass index
 ${CP} ${TARGET}/toc.html ${TARGET}/index.html
 
-# add college de France seminar
-${CP} ${SOURCE_COLLEGE} ${TARGET}
-sed -i -e 's/^From[[:space:]]Sep[[:space:]]/From SLF (* Sep *) /' ${TARGET}/CollegeDeFrance.v
 
 
 ##############################################################################
@@ -55,4 +51,4 @@ tar ${TAROPTIONS} -czf $TARGET.tar.gz $TARGET
 cd ${TARGET}
 make -j8
 chromium-browser index.html &
-coqide -async-proofs off -async-proofs-command-error-resilience off -Q . SLF CollegeDeFrance.v
+coqide -async-proofs off -async-proofs-command-error-resilience off -Q . SLF SLFPreface.v SLFSummary.v

@@ -86,6 +86,8 @@ Inductive prim : Type :=
   | val_get : prim
   | val_set : prim
   | val_free : prim
+  | val_alloc : prim
+  | val_dealloc : prim
   | val_neg : prim
   | val_opp : prim
   | val_eq : prim
@@ -106,6 +108,7 @@ Definition loc : Type := nat.
 Definition null : loc := 0%nat.
 
 Inductive val : Type :=
+  | val_uninitialized : val
   | val_unit : val
   | val_bool : bool -> val
   | val_int : int -> val
@@ -306,7 +309,18 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
       eval s (val_set (val_loc l) v) (Fmap.update s l v) val_unit
   | eval_free : forall s l,
       Fmap.indom s l ->
-      eval s (val_free (val_loc l)) (Fmap.remove s l) val_unit.
+      eval s (val_free (val_loc l)) (Fmap.remove s l) val_unit
+  | eval_alloc : forall k n ma mb l,
+      mb = Fmap.conseq l (LibList.make k val_uninitialized) ->
+      n = nat_to_Z k ->
+      l <> null ->
+      Fmap.disjoint ma mb ->
+      eval ma (val_alloc (val_int n)) (mb \+ ma) (val_loc l)
+  | eval_dealloc : forall (n:int) vs ma mb l,
+      mb = Fmap.conseq l vs ->
+      n = LibList.length vs ->
+      Fmap.disjoint ma mb ->
+      eval (mb \+ ma) (val_dealloc (val_int n) (val_loc l)) ma val_unit.
 
 (** Specialized evaluation rules for addition and division. *)
 

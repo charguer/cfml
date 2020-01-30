@@ -1149,20 +1149,14 @@ Lemma triple_apps_funs : forall xs F (Vs:vals) t1 H Q,
   var_funs (length Vs) xs ->
   triple (substn xs Vs t1) H Q ->
   triple (trm_apps F Vs) H Q.
-Proof using.
-  introv E N M. intros H' h Hf. forwards (h'&v&R&K): (rm M) Hf.
-  exists h' v. splits~. { subst. applys* eval_apps_funs. }
-Qed.
+Proof using. introv E N M. intros HF. applys* hoare_apps_funs. Qed.
 
 Lemma triple_apps_fixs : forall xs (f:var) F (Vs:vals) t1 H Q,
   F = (val_fixs f xs t1) ->
   var_fixs f (length Vs) xs ->
   triple (substn (f::xs) (F::Vs) t1) H Q ->
   triple (trm_apps F Vs) H Q.
-Proof using.
-  introv E N M. intros H' h Hf. forwards (h'&v&R&K): (rm M) Hf.
-  exists h' v. splits~. { subst. applys* eval_apps_fixs. }
-Qed.
+Proof using. introv E N M. intros HF. applys* hoare_apps_fixs. Qed.
 
 
 (* ---------------------------------------------------------------------- *)

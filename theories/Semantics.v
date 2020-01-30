@@ -502,20 +502,20 @@ Definition isubstn (xs:vars) (vs:vals) (t:trm) : trm :=
 (* ---------------------------------------------------------------------- *)
 (** Distribution of [subst] over n-ary functions *)
 
-Lemma subst_trm_fixs : forall y w f xs t,
-  var_fresh y (f::xs) ->
-  subst1 y w (trm_fixs f xs t) = trm_fixs f xs (subst1 y w t).
-Proof using.
-  introv N. simpls. case_var.
-  { false* var_fresh_mem_inv. }
-  { auto. }
-Qed.
-
 Lemma subst_trm_funs : forall y w xs t,
   var_fresh y xs ->
   subst1 y w (trm_funs xs t) = trm_funs xs (subst1 y w t).
 Proof using.
   introv N. simpls. repeat case_if.
+  { false* var_fresh_mem_inv. }
+  { auto. }
+Qed.
+
+Lemma subst_trm_fixs : forall y w f xs t,
+  var_fresh y (f::xs) ->
+  subst1 y w (trm_fixs f xs t) = trm_fixs f xs (subst1 y w t).
+Proof using.
+  introv N. simpls. case_var.
   { false* var_fresh_mem_inv. }
   { auto. }
 Qed.

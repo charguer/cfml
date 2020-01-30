@@ -1161,3 +1161,23 @@ Proof using. intros. xsimpl. (* leaves only one [\GC] *) Abort.
     the fact that [let x = t in x] small-step reduces to [t], but we
     exploit the fact that the evaluation rules used to prove a behavior
     for [let x = t in x] can be used to establish the same behavior for [t]. *)
+
+
+============
+
+
+(* ####################################################### *)
+(** ** Safe deallocation of allocated blocks *)
+
+block n p
+
+abstract
+
+state = fmap loc val + list of ranges
+
+alloc => block n p * cells n p
+
+free => block n p * cells n p
+
+
+

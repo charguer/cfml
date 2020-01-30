@@ -1142,7 +1142,7 @@ Proof using.
     { (* Case [p = null]. Contradiction because nothing can be allocated at
          the null location, as captured by lemma [Hfield_not_null],
          which states: [(l`.f ~~> V) ==> (l`.f ~~> V) \* \[l <> null]]. *)
-      subst. lets: hfield_not_null. xchange hfield_not_null. }
+      subst. xchange hfield_not_null. }
     { (* Case [p <> null]. The 'else' branch corresponds to the definition
          of [MList] in the [cons] case. It suffices to correctly instantiate
          the existential quantifiers. *)
