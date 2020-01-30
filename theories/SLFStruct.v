@@ -24,11 +24,39 @@ Implicit Types Q : val->hprop.
 (* ####################################################### *)
 (** * Chapter in a rush *)
 
-(** This chapter introduces
+(** This chapter introduces support for reasoning about
 
-    - records
-    - arrays
-    - n-ary functions
+    - mutable records,
+    - mutable arrays,
+    - n-ary functions (i.e., functions of several arguments).
+
+    To allocate records and arrays, we introduce a new primitive operation,
+    named [val_alloc], that allocates at once a set of memory cells with
+    consecutive addresses.
+
+    For example, applying [val_alloc] to the integer value [3] would return
+    a pointer [p] together with the ownership of three cells: one at
+    location [p], one at location [p+1], and one atlocation [p+2].
+
+    These three allocated cells are assigned as contents a special value,
+    named [val_uninitialized], to reflect for the fact that their contents
+    has never been set.
+
+    This allocation model that exposes pointer arithmetics provides a way
+    to model both records and arrays with minimal extension to the semantics
+    of the programming language that we consider for the course.
+
+    Regarding n-ary functions, that is, there are three possible approaches:
+
+    - native n-ary functions, e.g., [function(x, y) { t } ] in C syntax.
+    - curried functions, e.g., [fun x => fun y => t] in OCaml syntax.
+    - tupled functions, e.g., [fun (x,y) => t] in OCaml syntax.
+
+    In this chapter, we present reasoning rules for curried functions,
+    again because this choice requires minimal extension to the syntax and
+    semantics of our language. We discuss in the bonus section the treatment
+    of native n-ary functions, which is the most practical solution from an
+    engineering point of view.
 
 *)
 
@@ -36,20 +64,72 @@ Implicit Types Q : val->hprop.
 (* ####################################################### *)
 (** ** Semantics of the allocation of consecutive cells *)
 
-val_uninitialized
+(** The operation [val_alloc n] allocates [n] consecutive cells,
+    where [n] is a nonnegative integer. Let [p] denote the pointer
+    returned. The allocated cells have addresses in the range from
+    [p] inclusive to [p+n] exclusive.
 
-=> restriction on read is possible
+    To formally describe this range of locations, let [k] denote the
+    natural number (of type [nat]) that corresponds to the nonnegative
+    integer [n].
 
-Fixpoint nat_seq p k =
+    The list [nat_seq k p] describes the list of locations from [p]
+    inclusive to [p+k] exclusive. The definition is recursive on [k].
+    Recall that [O] denotes zero and [S] denotes the successor on [nat]. *)
+
+Fixpoint nat_seq (k:nat) (p:nat) : nat :=
   match k with
+  | O => []
+  | S k' => p :: (nat_seq k' (S p))
+  end.
 
-Fixpoint hfold_list F L =
+(** Assume the special value [val_uninitialized] to be part of the
+    grammar of values, i.e., to be a constructor from the type [val].
+
+    Let us now define a heap predicate [hcells k p] that describes
+    the ownership of [k] consecutive cells, starting from location [p],
+    and whose contents is [val_uninitialized]. The definition is,
+    again, recursive on [k]. *)
+
+Fixpoint hcells' (k:nat) (p:loc) : hprop :=
+  match k with
+  | O => \[]
+  | S k' => (p ~~> val_uninitialized) \* (hcells k' (S p))
+  end.
+
+(** The definition above can be recognized as an instance of a "fold"
+    pattern, applied to the "Separation Logic commutative monoid" made
+    of the star operator [\*] and its neutral element [\[]], and
+    applied to the list of locations [seq k p].
+
+    Indeed, if we let [F] denote [fun q => q ~~> val_uninitialized]
+    and let [L] denote [seq k p], then [hcells' k p] is equivalent to
+    [hfold_list' F L], for the function [hfold_list'] defined below. *)
+
+Fixpoint hfold_list' A (F:A->hprop) (L:list A) : hprop :=
   match L with
+  | [] => \[]
+  | x::L' => (F x) \* (hfold_list' F L')
+  end.
 
-Definition hcells n p =
-  hfold_list (fun q => q ~~> val_uninitialized) (seq p k).
+(** The above function happens to be a particular instance of
+    [List.fold_right]. Thus, rather than defining [hfold_list] as a
+    recursive function, let us reuse the fold operation on lists. *)
 
-Implicit Types n : int
+Definition hfold_list A (F:A->hprop) (L:list A) : hprop :=
+  LibList.fold_right (fun acc x => F x \* acc) \[] L.
+
+(** Using [hfold_list], the heap predicate [hcells k p] that describes
+    a set of [k] consecutive cells with uninitialized contents,
+    starting at location [p]. *)
+
+Definition hcells (k:nat) (p:loc) : hprop :=
+  hfold_list (fun q => q ~~> val_uninitialized) (seq k p).
+
+(** Remark: the function [hfold_list] provides a general "fold of the
+    separation logic monoid over a list of values" that will prove useful
+    later on also for other purposes. *)
+
 
 
 (* ####################################################### *)
