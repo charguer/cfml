@@ -114,6 +114,12 @@
     presentation of a concise verification proof script for a function
     that performs in-place concatenation of two mutable linked lists.
 
+    The list of chapters appear below. Before diving into the details,
+    the reader might be interested in a 1-hour, high-level tour of the
+    key ingredients of the verification framework, described in the Coq
+    file [SLFSummary.v], and accompanied with LaTeX slides to be found
+    in the file [SLFSummary.pdf].
+
 *)
 
 
@@ -127,31 +133,34 @@
 
     - [SLFPreface]: the present introduction.
 
-    - [SLFBasic]: introduction to Separation Logic through practical examples
-                  of specifications and verification proofs, on basic programs.
+    - [SLFBasic]:  introduction to Separation Logic through practical examples
+                   of specifications and verification proofs, on basic programs.
 
-    - [SLFHprop]: definition of the core operators of Separation Logic,
-                  of Hoare triples, and of Separation Logic triples.
+    - [SLFHprop]:  definition of the core operators of Separation Logic,
+                   of Hoare triples, and of Separation Logic triples.
 
-    - [SLFHimpl]: definition of the entailment relation, statement and proof
-                  of its fundamental properties, and description of the
-                  simplification tactic for entailment.
+    - [SLFHimpl]:  definition of the entailment relation, statement and proof
+                   of its fundamental properties, and description of the
+                   simplification tactic for entailment.
 
-    - [SLFRules]: statement and proofs of the reasoning rules of Separation Logic,
-                  and examples of complete verification proofs.
+    - [SLFRules]:  statement and proofs of the reasoning rules of Separation Logic,
+                   and examples of complete verification proofs.
 
-    - [SLFWPsem]: definition of the semantic notion of weakest precondition,
-                  and statement of reasoning rules in weakest-precondition style.
+    - [SLFWPsem]:  definition of the semantic notion of weakest precondition,
+                   and statement of reasoning rules in weakest-precondition style.
 
-    - [SLFWPgen]: presentation of a function that effectively computes weakest
-                  preconditions, and description of the construction of a set up
-                  that leads to concise verification proofs.
+    - [SLFWPgen]:  presentation of a function that effectively computes weakest
+                   preconditions, and description of the construction of a set up
+                   that leads to concise verification proofs.
 
-    - [SLFWand]:  introduction of the magic wand, of the ramified frame rule,
-                  and recursive computation of weakest precondition inside functions.
+    - [SLFWand]:   introduction of the magic wand, of the ramified frame rule,
+                   and recursive computation of weakest precondition inside functions.
 
-    - [SLFAffine]:description of a generalized Separation Logic that supports the
-                  ability to freely discard certain types of heap predicates.
+    - [SLFAffine]: description of a generalized Separation Logic that supports the
+                   ability to freely discard certain types of heap predicates.
+
+    - [SLFStruct]: representation predicate for records and arrays, and support
+                   for n-ary functions.
 
 *)
 

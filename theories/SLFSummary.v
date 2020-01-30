@@ -1402,3 +1402,17 @@ Qed.
 
 End ProveAppend.
 
+
+
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Conclusion *)
+
+(** This concludes the overview of the framework.
+
+    Details are developed the chapters of the course.
+
+    The chapters are listed in the file [SLFPreface.v].
+
+*)
