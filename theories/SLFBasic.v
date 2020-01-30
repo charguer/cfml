@@ -1140,9 +1140,9 @@ Proof using.
      which is specialized for performing updates in the current state. *)
     xchange MList_cons. intros q. case_if.
     { (* Case [p = null]. Contradiction because nothing can be allocated at
-         the null location, as captured by lemma [Hfield_not_null],
-         which states: [(l`.f ~~> V) ==> (l`.f ~~> V) \* \[l <> null]]. *)
-      subst. xchange hfield_not_null. }
+         the null location, as captured by lemma [hfield_not_null],
+         which states: [(p`.f ~~> v) ==> (p`.f ~~> v) \* \[p <> null]]. *)
+      xchange hfield_not_null. }
     { (* Case [p <> null]. The 'else' branch corresponds to the definition
          of [MList] in the [cons] case. It suffices to correctly instantiate
          the existential quantifiers. *)

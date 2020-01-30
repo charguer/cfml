@@ -16,7 +16,6 @@ Implicit Types h : heap.
 Implicit Types P : Prop.
 Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
-
 (*
 
 (* ####################################################### *)
@@ -64,10 +63,10 @@ Implicit Types Q : val->hprop.
 (* ####################################################### *)
 (** ** Semantics of the allocation of consecutive cells *)
 
-(** The operation [val_alloc n] allocates [n] consecutive cells,
-    where [n] is a nonnegative integer. Let [p] denote the pointer
-    returned. The allocated cells have addresses in the range from
-    [p] inclusive to [p+n] exclusive.
+(** The operation [val_alloc n] allocates [n] consecutive cells, where
+    [n] is a nonnegative integer. Let [p] denote the pointer returned.
+    The allocated cells have addresses in the range from [p] inclusive
+    to [p+n] exclusive.
 
     To formally describe this range of locations, let [k] denote the
     natural number (of type [nat]) that corresponds to the nonnegative
@@ -131,125 +130,165 @@ Definition hcells (k:nat) (p:loc) : hprop :=
     later on also for other purposes. *)
 
 
-
 (* ####################################################### *)
-(** ** Specification of the allocation of consecutive cells *)
+(** ** Specification of the allocation/deallocation of consecutive cells *)
 
-Lemma triple_alloc : forall n,
+(** Let us specify the behavior of the allocation function using a
+    triple. We first state a specification with an argument of type [nat],
+    then reformulate the specification with an argument of type [int].
+
+    Consider a natural number [k]. Thanks to coercions, it may also be
+    viewed as an integer value of type [val].
+
+    The operation [val_alloc k] admits an empty precondition. Its
+    postcondition asserts that the return value [r] is of the form
+    [val_loc p] for some location [p], and that the final state satisfies
+    the heap predicate [hcells k p]. Recall that this predicate describes
+    [k] cells at consecutive addresses from location [p], with uninitialized
+    contents. *)
+
+Parameter triple_alloc_nat : forall (k:nat),
+  triple (val_alloc k)
+    \[]
+    (fun r => \exists p, \[r = val_loc p] \* hcells k p).
+
+(** We next generalize this specification so that it can handle applications
+    of the form [val_alloc n], where [n] is of type [int], and can be proved
+    to be nonnegative. (Such a formulation avoids the need to exhibit the
+    natural number that corresponds to the value [n].)
+
+    The new specification, shown below, features the premise [n >= 0]. Its
+    postcondition involves the predicate [hcells (abs n) p], where [abs]
+    converts a nonnegative [int] value into the corresponding [nat] value. *)
+
+Lemma triple_alloc : forall (n:int),
   n >= 0 ->
   triple (val_alloc n)
     \[]
-    (fun r => \exists l, \[r = val_loc l /\ l <> null] \* Alloc (abs n) l).
+    (fun r => \exists p, \[r = val_loc p] \* hcells (abs n) p).
 Proof using.
-  intros. applys triple_of_hoare. intros HF.
-  esplit; split. { applys~ hoare_alloc. } { xsimpl*. }
+  introv N. applys triple_conseq.
+  { applys triple_alloc_nat. }
+  { xsimpl. }
+  { xsimpl. rewrite* abs_nonneg. }
 Qed.
 
-Lemma triple_dealloc : forall n l,
+(** The deallocation function is symmetrical. The operation
+    [val_dealloc n p] takes as precondition [n] consecutive cells
+    starting at location [p], and admits the empty postcondition. *)
+
+Parameter triple_dealloc : forall (n:int) (p:loc),
   n >= 0 ->
-  triple (val_dealloc n l)
-    (Dealloc (abs n) l)
-    (fun r => \[r = val_unit]).
-Proof using.
-  intros. applys triple_of_hoare. intros HF.
-  esplit; split. { applys~ hoare_dealloc. } { xsimpl*. }
-Qed.
-
-
-Fixpoint Alloc (k:nat) (l:loc) : hprop :=
-  match k with
-  | O => \[]
-  | S k' => l ~~~> val_uninitialized \* (Alloc k' (S l)%nat)
-  end.
-
-Lemma Alloc_zero_eq : forall l,
-  Alloc O l = \[].
-Proof using. auto. Qed.
-
-Lemma Alloc_succ_eq : forall l k,
-  Alloc (S k) l = l ~~~> val_uninitialized \* Alloc k (S l)%nat.
-Proof using. auto. Qed.
-
-Global Opaque Alloc.
-
-Hint Rewrite Alloc_zero_eq Alloc_succ_eq : rew_Alloc.
-
-Tactic Notation "rew_Alloc" :=
-  autorewrite with rew_Alloc.
-
-Lemma Alloc_split_eq : forall k1 (k:nat) p,
-  (k1 <= k)%nat ->
-  Alloc k p = Alloc k1 p \* Alloc (k-k1)%nat (p + k1)%nat.
-Proof using.
-  Transparent loc field. unfold field.
-  intros k1 k. gen k1. induction k; introv N.
-  {math_rewrite (k1 = 0%nat). rew_Alloc. rew_heap~. }
-  { destruct k1 as [|k1']; rew_nat.
-    { rew_Alloc. rew_heap~. }
-    { rew_Alloc. rewrite (IHk k1'); [|math]. rew_heap~. } }
-Qed.
-
-Arguments Alloc_split_eq : clear implicits.
-
-Lemma Alloc_split_inv : forall k1 k2 p,
-  Alloc k1 p \* Alloc k2 (p + k1)%nat ==> Alloc (k1+k2)%nat p.
-Proof using.
-  intros. rewrites (Alloc_split_eq k1 (k1+k2)%nat p); [|math]. rew_nat~.
-Qed.
-
-
+  triple (val_dealloc n p)
+    (hcells (abs n) p)
+    (fun _ => \[]).
 
 
 (* ########################################################### *)
 (** ** Definition of record fields *)
 
+(** A record can be represented as a set of fields stored in consecutive
+    addresses.
+
+    For example, consider a mutable list cell allocated at location [p].
+    It consists of a record with a [head] field storing a value [x], and
+    a tail field storing a value [q]. This list cell an be represented by
+    the heap predicate [(p ~~> x) \* ((p+1) ~~> q)].
+
+    If we define [head := 0] and [tail := 1], the same heap predicate can
+    be written [((p+head) ~~> x) \* ((p+tail) ~~> q)].
+
+    To better suggest that we are talking about record fields, and also to
+    abstract away from the details of pointer arithmetics, we introduce the
+    notation [p`.k ~~> v] to denote [(p+k) ~~> v]. Here, [k] denotes by
+    convention a field name, where field names correspond to a natural
+    numbers.
+
+    It is convenient in verification proofs to be able to assume that
+    whenever we write [p`.k ~~> v], we refer to a location [p] that is
+    not null. For an example, see the use of the lemma [hfield_not_null]
+    inside the proof of the lemma [MList_if] in file [SLFBasic.v].
+
+    To enable justifying this lemma [hfield_not_null], whose statement
+    appears below, we bake in the definition of [p`.k ~~> v] the fact that
+    [p] is not null, using the assertion [\[p <> null]]. *)
+
 Definition field : Type := nat.
 
-Definition hfield (l:loc) (k:field) (v:val) : hprop :=
-  (l+k)%nat ~~> v \* \[ l <> null ].
+Definition hfield (p:loc) (k:field) (v:val) : hprop :=
+  (p+k)%nat ~~> v \* \[p <> null].
 
-Notation "l `. k '~~>' v" := (hfield l k v)
+Notation "p `. k '~~>' v" := (hfield p k v)
   (at level 32, k at level 0, no associativity,
-   format "l `. k  '~~>'  v") : heap_scope.
+   format "p `. k  '~~>'  v") : heap_scope.
 
-Lemma hfield_not_null : forall l k v,
-  (l`.k ~~> v) ==> (l`.k ~~> v) \* \[l <> null].
+(** The lemma [hfield_not_null] asserts that the heap predicate [p`.k ~~> v]
+    always ensures [p <> null]. *)
+
+Lemma hfield_not_null : forall p k v,
+  (p`.k ~~> v) ==> (l`.k ~~> v) \* \[p <> null].
 Proof using.
   intros. subst. unfold hfield. xchanges~ hsingle_not_null.
 Qed.
 
-
-
-
-(* ########################################################### *)
-(** ** Specification of record operations *)
-
-
-Parameter triple_get_field : forall l f v,
-  triple ((val_get_field f) l)
-    (l`.f ~~> v)
-    (fun r => \[r = v] \* (l`.f ~~> v)).
-
-Parameter triple_set_field : forall v1 l f v2,
-  triple ((val_set_field f) l v2)
-    (l`.f ~~> v1)
-    (fun _ => l`.f ~~> v2).
-
-Hint Resolve triple_get_field triple_set_field : triple.
-
-
-
-
-(* ####################################################### *)
-(** ** Representation predicate for a record *)
-
+(** We can allocate a fresh mutable list cell by invoking the primitive
+    operation [val_alloc] with argument [2]. Let us prove that the result,
+    described by [hcell 2 p], can be also be viewed as the heap predicate
+    [(p`.head ~~> x) \* (p`.tail ~~> q)], which describes the two fields
+    of the record.
+*)
 
 Definition head : field := 0%nat.
 Definition tail : field := 1%nat.
 
+Lemma triple_alloc :
+  triple (val_alloc 2%nat)
+    \[]
+    (fun r => \exists p, \[r = val_loc p] \* (p`.head ~~> x) \* (p`.tail ~~> q)).
+Proof using.
+  introv N. applys triple_conseq.
+  { applys triple_alloc_nat. }
+  { xsimpl. }
+  { xsimpl. } (* execute [unfold hcell. simpl.] to see the details. *)
+Qed.
 
-Definition MCell (x:val) (q:loc) (p:loc) : hprop :=
-  (p`.head ~~> x) \* (p`.tail ~~> q).
+(** For reading and writing in record fields, we introduce the operations
+    [val_get_field] and [val_set_field]. As we show further in this chapter,
+    these functions can be defined in terms of the operations [val_get]
+    and [val_set], if we assume available a pointer addition operation.
+    For the moment, let us simply axiomatize these operations, and state
+    their specifications.
+
+    The expression [val_get_field] has type [field -> val]. Given a field
+    name [f] (of type [field], which is defined as [nat]), the expression
+    [val_get_field f] denotes a value of type [val] that can be applied to
+    an argument [p]. The specification of [val_get_field f p] follows the
+    pattern of the specification of [val_get]. The precondition and the
+    postcondition describe a field [p`.k ~~> v], and the result value [r]
+    is specified to be equal to [v].
+*)
+
+Parameter val_get_field : field -> val.
+
+Parameter triple_get_field : forall p k v,
+  triple (val_get_field k p)
+    (p`.k ~~> v)
+    (fun r => \[r = v] \* (p`.k ~~> v)).
+
+(** Likewise for [val_set_field], the operation that writes into a record
+    field. *)
+
+Parameter val_set_field : field -> val.
+
+Parameter triple_set_field : forall v p k v',
+  triple (val_set_field p k v)
+    (p`.k ~~> v')
+    (fun _ => p`.k ~~> v).
+
+(** We register these specifications so that they may be exploited by the
+    tactic [xapp]. *)
+
+Hint Resolve triple_get_field triple_set_field : triple.
 
 
 
@@ -585,6 +624,26 @@ Hint Extern 1 (Register_Spec mfree_list) => Provide Triple_mfree_list.
 (* ####################################################### *)
 (** ** Local reasoning on arrays *)
 
+Lemma Alloc_split_eq : forall k1 (k:nat) p,
+  (k1 <= k)%nat ->
+  Alloc k p = Alloc k1 p \* Alloc (k-k1)%nat (p + k1)%nat.
+Proof using.
+  Transparent loc field. unfold field.
+  intros k1 k. gen k1. induction k; introv N.
+  {math_rewrite (k1 = 0%nat). rew_Alloc. rew_heap~. }
+  { destruct k1 as [|k1']; rew_nat.
+    { rew_Alloc. rew_heap~. }
+    { rew_Alloc. rewrite (IHk k1'); [|math]. rew_heap~. } }
+Qed.
+
+Arguments Alloc_split_eq : clear implicits.
+
+Lemma Alloc_split_inv : forall k1 k2 p,
+  Alloc k1 p \* Alloc k2 (p + k1)%nat ==> Alloc (k1+k2)%nat p.
+Proof using.
+  intros. rewrites (Alloc_split_eq k1 (k1+k2)%nat p); [|math]. rew_nat~.
+Qed.
+
 Lemma Array_nil_eq : forall p,
   Array nil p = \[].
 Proof using. auto. Qed.
@@ -671,6 +730,34 @@ Proof using.
     { applys~ Fmap.disjoint_single_conseq. } }
 Qed.
 
+Lemma triple_alloc : forall (k:nat),
+  triple (val_alloc k)
+    \[]
+    (fun r => \exists l, \[r = val_loc l /\ l <> null] \* hcells k l).
+Proof using.
+  intros. applys triple_of_hoare. intros HF.
+  esplit; split. { applys~ hoare_alloc. } { xsimpl*. }
+Qed.
+
+Lemma triple_alloc : forall n,
+  n >= 0 ->
+  triple (val_alloc n)
+    \[]
+    (fun r => \exists l, \[r = val_loc l /\ l <> null] \* Alloc (abs n) l).
+Proof using.
+  intros. applys triple_of_hoare. intros HF.
+  esplit; split. { applys~ hoare_alloc. } { xsimpl*. }
+Qed.
+
+Lemma triple_dealloc : forall n l,
+  n >= 0 ->
+  triple (val_dealloc n l)
+    (Dealloc (abs n) l)
+    (fun r => \[r = val_unit]).
+Proof using.
+  intros. applys triple_of_hoare. intros HF.
+  esplit; split. { applys~ hoare_dealloc. } { xsimpl*. }
+Qed.
 
 
 
@@ -988,6 +1075,31 @@ Fixpoint combiner_to_trm (c:combiner) : trm :=
   end.
 
 Coercion combiner_to_trm : combiner >-> trm.
+
+
+
+=========
+
+Fixpoint Alloc (k:nat) (l:loc) : hprop :=
+  match k with
+  | O => \[]
+  | S k' => l ~~~> val_uninitialized \* (Alloc k' (S l)%nat)
+  end.
+
+Lemma Alloc_zero_eq : forall l,
+  Alloc O l = \[].
+Proof using. auto. Qed.
+
+Lemma Alloc_succ_eq : forall l k,
+  Alloc (S k) l = l ~~~> val_uninitialized \* Alloc k (S l)%nat.
+Proof using. auto. Qed.
+
+Global Opaque Alloc.
+
+Hint Rewrite Alloc_zero_eq Alloc_succ_eq : rew_Alloc.
+
+Tactic Notation "rew_Alloc" :=
+  autorewrite with rew_Alloc.
 
 
 
