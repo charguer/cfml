@@ -1123,7 +1123,7 @@ Parameter wp_of_wpgen : forall t Q,
 (** For another way to interpret the soundness theorem, recall the
     equivalence that characterizes [wp]. *)
 
-Parameter wp_equiv :
+Parameter wp_equiv : forall t H Q,
   (H ==> wp t Q) <-> (triple t H Q).
 
 (** By exploiting this equivalence, the soundness theorem reformulates as
@@ -1169,7 +1169,8 @@ End Wpgen.
     if we augment it with [H1], we obtain [H2]. This intuition is
     captured by the following simplification lemma. *)
 
-Parameter hwand_elim : H1 \* (H1 \-* H2)  ==> H2.
+Parameter hwand_elim : forall H1 H2,
+  H1 \* (H1 \-* H2)  ==> H2.
 
 (** There are several ways to define the magic wand. One possible
     definition is the following: it describes some predicate [H0],
@@ -1222,56 +1223,60 @@ Parameter triple_ramified_frame : forall H1 Q1 t H Q,
   H ==> H1 \* (Q1 \--* Q) ->
   triple t H Q.
 
-(** .. *)
+(** The idea of the ramified frame rule can also be adapted to the
+    weakest-precondition style presentation. The resulting rule, shown
+    below, reads as follows: "If I have at in one hand the resources
+    for executing [t] and producing [Q1], and I have in the other hand
+    a resource such that, when adding [Q1] to it I recover [Q2], then
+    I have in my hands the resources for executing [t] and producing
+    [Q2] directly." *)
 
-Parameter wp_ramified :
+Parameter wp_ramified : forall t Q1 Q2,
   (wp t Q1) \* (Q1 \--* Q2) ==> (wp t Q2).
 
-
-
-
-(* ============
-
-(*
-    For conducting proofs in practice, there remains to state lemmas and
-    define tactics to assist the user in the manipulation of the formula
-    produced by [wpgen]. Ultimately, the end-user only manipulates CFML's
-    "x-tactics" (recall the first two chapters), without ever being
-    required to understand how [wpgen] is defined.
-
-    In other words, the contents of this chapter reveals the details
-    that we work very hard to make completely invisible to the end user. *)
-
-
+(** This rule alone captures, in a very concise statement, all the
+    structural properties of Separation Logic. *)
 
 
 (* ########################################################### *)
-(** ** Ramified frame rule *)
-
-(** Recall combined rule *)
-
-(** New formulation using the magic wand to eliminate [H2]. *)
-
-
-(** Note: [H1 \* H2 ==> H1 \* (Q1 \--* Q)] simplifies to
-          [H2 ==> (Q1 \--* Q)] which simplifies to
-          [Q1 \*+ H2 ===> Q]. *)
-
-End Wand.
-
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Demo: proofs using the infrastructure *)
 
 
 (* ########################################################### *)
 (** ** Verification of the increment function, using x-tactics *)
 
+(** The framework provides tactics for conduction verification proofs.
+    These tactics enable manipulating characteristic formulae without
+    knowledge or understanding of how these formulae are constructure.
+    In other words, they provide an abstract layer that hides away the
+    implementation details from the end user.
+
+    These tactics can be easily recognized because their name begins
+    with the letter "x". Hence they are called "x-tactics".
+
+    Let us revisit the proof of the function [incr] using [x-tactics].
+
+    - [xwp] introduces the characteristic formua.
+    - [xapp] reasons about an application; the application may be
+      part of a let-binding or a sequence.
+    - [xsimpl] simplifies entailments, as already mentioned earlier.
+
+    Observe the conciseness of the proof script:
+    [xwp. xapp. xapp. xapp. xsimpl.]
+*)
+
 Module ProveIncrWithTactics.
+Import SLFExtra SLFProgramSyntax.
 
-Import DemoPrograms.
+Definition incr : val :=
+  VFun 'p :=
+    Let 'n := '! 'p in
+    Let 'm := 'n '+ 1 in
+    'p ':= 'm.
 
-Import SLFWPgen.
-Open Scope wpgen_scope.
-
-Lemma triple_incr' : forall (p:loc) (n:int),
+Lemma triple_incr : forall (p:loc) (n:int),
   triple (incr p)
     (p ~~> n)
     (fun _ => p ~~> (n+1)).
@@ -1283,7 +1288,7 @@ End ProveIncrWithTactics.
 
 
 (* ########################################################### *)
-(** ** Verification of in-place concatenation of two mutable lists *)
+(** ** Formalization of mutable lists *)
 
 Module ProveAppend.
 Import SLFExtra SLFProgramSyntax.
@@ -1346,6 +1351,9 @@ Parameter MList_if : forall (p:loc) (L:list val),
 (* Proof in [SLFBasic]. *)
 
 
+(* ########################################################### *)
+(** ** Verification of in-place concatenation of two mutable lists *)
+
 (** The following function expects a nonempty list [p1] and a list [p2],
     and updates [p1] in place so that its tail gets extended by the
     cells from [p2].
@@ -1394,6 +1402,3 @@ Qed.
 
 End ProveAppend.
 
-
-
-*)
