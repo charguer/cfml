@@ -10,13 +10,15 @@ License: CC-by 4.0.
 *)
 
 Set Implicit Arguments.
-From Sep Require Import SLFDirect SLFExtra.
+From Sep Require Import SLFExtra.
 
-Implicit Types h : heap.
 Implicit Types P : Prop.
 Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
-(*
+Implicit Type p : loc.
+Implicit Type k : field.
+Implicit Type v : val.
+
 
 (* ####################################################### *)
 (* ####################################################### *)
@@ -61,77 +63,88 @@ Implicit Types Q : val->hprop.
 
 
 (* ####################################################### *)
-(** ** Semantics of the allocation of consecutive cells *)
+(** ** Representation of an array as a set of consecutive cells *)
+
+(** An array of length [k] allocated at location [p] can be represented
+    as a set of [k] consecutive cells starting from location [p]. In other
+    words, the array cells have addresses from [p] inclusive to [p+k]
+    inclusive. Just like records, arrays can be allocated using the
+    [val_alloc] primitive operation, and read and write operations on
+    array cells can be derived. *)
+
+(** The contents of an array of length [k] can be represented by a list
+    of values of length [k].
+
+    The heap predicate [harray L p] represents an array allocated at
+    location [p] and whose elements are described by the list [L].
+
+    This predicate could be defined by induction on the list, as follows.
+*)
+
+Fixpoint harray (L:list val) (p:loc) : hprop :=
+  match L with
+  | nil => \[]
+  | x::L' => (p ~~> x) \* (harray L' (S p))
+  end.
+
+(* TODO Remark: *)
+
+Lemma harray_nil : forall p,
+  harray nil p = \[].
+Proof using. auto. Qed.
+
+Lemma harray_cons : forall p x L,
+  harray (x::L) p = ((p ~~> x) \* harray L (S p)).
+Proof using. auto. Qed.
 
 (** The operation [val_alloc n] allocates [n] consecutive cells, where
     [n] is a nonnegative integer. Let [p] denote the pointer returned.
     The allocated cells have addresses in the range from [p] inclusive
     to [p+n] exclusive.
 
-    To formally describe this range of locations, let [k] denote the
-    natural number (of type [nat]) that corresponds to the nonnegative
-    integer [n].
-
-    The list [nat_seq k p] describes the list of locations from [p]
-    inclusive to [p+k] exclusive. The definition is recursive on [k].
-    Recall that [O] denotes zero and [S] denotes the successor on [nat]. *)
-
-Fixpoint nat_seq (k:nat) (p:nat) : nat :=
-  match k with
-  | O => []
-  | S k' => p :: (nat_seq k' (S p))
-  end.
-
-(** Assume the special value [val_uninitialized] to be part of the
+    Assume the special value [val_uninitialized] to be part of the
     grammar of values, i.e., to be a constructor from the type [val].
 
     Let us now define a heap predicate [hcells k p] that describes
     the ownership of [k] consecutive cells, starting from location [p],
-    and whose contents is [val_uninitialized]. The definition is,
-    again, recursive on [k]. *)
+    and whose contents is [val_uninitialized].
 
-Fixpoint hcells' (k:nat) (p:loc) : hprop :=
-  match k with
-  | O => \[]
-  | S k' => (p ~~> val_uninitialized) \* (hcells k' (S p))
-  end.
-
-(** The definition above can be recognized as an instance of a "fold"
-    pattern, applied to the "Separation Logic commutative monoid" made
-    of the star operator [\*] and its neutral element [\[]], and
-    applied to the list of locations [seq k p].
-
-    Indeed, if we let [F] denote [fun q => q ~~> val_uninitialized]
-    and let [L] denote [seq k p], then [hcells' k p] is equivalent to
-    [hfold_list' F L], for the function [hfold_list'] defined below. *)
-
-Fixpoint hfold_list' A (F:A->hprop) (L:list A) : hprop :=
-  match L with
-  | [] => \[]
-  | x::L' => (F x) \* (hfold_list' F L')
-  end.
-
-(** The above function happens to be a particular instance of
-    [List.fold_right]. Thus, rather than defining [hfold_list] as a
-    recursive function, let us reuse the fold operation on lists. *)
-
-Definition hfold_list A (F:A->hprop) (L:list A) : hprop :=
-  LibList.fold_right (fun acc x => F x \* acc) \[] L.
-
-(** Using [hfold_list], the heap predicate [hcells k p] that describes
-    a set of [k] consecutive cells with uninitialized contents,
-    starting at location [p]. *)
+    We define [hcells] by applying [harray] to a list made of [k]
+    occurences of the value [val_uninitialized]. This list is described
+    by [LibList.make k val_uninitialized]. *)
 
 Definition hcells (k:nat) (p:loc) : hprop :=
-  hfold_list (fun q => q ~~> val_uninitialized) (seq k p).
+  harray (LibList.make k val_uninitialized) p.
 
-(** Remark: the function [hfold_list] provides a general "fold of the
-    separation logic monoid over a list of values" that will prove useful
-    later on also for other purposes. *)
+
+Lemma harray_not_null : forall p L,
+  L <> nil -> 
+  harray L p ==> harray L p \* \[p <> null].
+Proof using.
+  introv N. destruct L as [|x L']; tryfalse. simpl.
+  xchanges* hsingle_not_null.
+Qed.
+
+(* TODO *)
+Lemma length_pos_inv_not_nil : forall A (l : list A),
+  (length l > 0%nat) ->
+  l <> nil.
+Admitted.
+
+
+Lemma hcells_not_null : forall p k,
+  k > 0%nat -> 
+  hcells k p ==> hcells k p \* \[p <> null].
+Proof using.
+  introv N. unfold hcells. xchanges* harray_not_null.
+  applys length_pos_inv_not_nil. rewrite* length_make.
+Qed.
+
+(* TODO: rename hcells? *)
 
 
 (* ####################################################### *)
-(** ** Specification of the allocation/deallocation of consecutive cells *)
+(** ** Specification of the allocation of consecutive cells *)
 
 (** Let us specify the behavior of the allocation function using a
     triple. We first state a specification with an argument of type [nat],
@@ -167,10 +180,29 @@ Lemma triple_alloc : forall (n:int),
     \[]
     (fun r => \exists p, \[r = val_loc p] \* hcells (abs n) p).
 Proof using.
-  introv N. applys triple_conseq.
+  introv N. rewrite <- (@abs_nonneg n) at 1; [|auto]. applys triple_conseq. 
   { applys triple_alloc_nat. }
   { xsimpl. }
-  { xsimpl. rewrite* abs_nonneg. }
+  { xsimpl*. }
+Qed.
+
+(** The specification of the allocation function can be specialized to
+    allocate arrays. To that end, we reformulate the postcondition of
+    [val_alloc n] so that it exhibits a predicate of the form [harray L p],
+    where [L] is of length [n]. We can specify that the values in [L]
+    are all equal to [val_unspecified], or we can just as well drop this
+    information, thereby quantifying over a list [L] of unspecified contents. *)
+
+Lemma triple_alloc_array : forall n,
+  n >= 0 ->
+  triple (val_alloc n)
+    \[]
+    (fun r => \exists p L, \[r = val_loc p] \* \[n = length L] \* harray L p).
+Proof using.
+  introv N. applys triple_conseq.
+  { applys* triple_alloc. }
+  { xsimpl. }
+  { xpull. intros ? p ->. xsimpl*. rewrite length_make. rewrite* abs_nonneg. }
 Qed.
 
 (** The deallocation function is symmetrical. The operation
@@ -226,31 +258,32 @@ Notation "p `. k '~~>' v" := (hfield p k v)
     always ensures [p <> null]. *)
 
 Lemma hfield_not_null : forall p k v,
-  (p`.k ~~> v) ==> (l`.k ~~> v) \* \[p <> null].
-Proof using.
-  intros. subst. unfold hfield. xchanges~ hsingle_not_null.
-Qed.
+  (p`.k ~~> v) ==> (p`.k ~~> v) \* \[p <> null].
+Proof using. intros. unfold hfield. xsimpl*. Qed.
 
 (** We can allocate a fresh mutable list cell by invoking the primitive
     operation [val_alloc] with argument [2]. Let us prove that the result,
     described by [hcell 2 p], can be also be viewed as the heap predicate
-    [(p`.head ~~> x) \* (p`.tail ~~> q)], which describes the two fields
-    of the record.
+    [(p`.head ~~> val_uninitialized) \* (p`.tail ~~> val_uninitialized)], 
+    which describes the two fields of the record, with uninitialized contents.
 *)
 
 Definition head : field := 0%nat.
 Definition tail : field := 1%nat.
 
-Lemma triple_alloc :
+Lemma triple_alloc_mcell :
   triple (val_alloc 2%nat)
     \[]
-    (fun r => \exists p, \[r = val_loc p] \* (p`.head ~~> x) \* (p`.tail ~~> q)).
+    (fun r => \exists p, \[r = val_loc p] \* (p`.head ~~> val_uninitialized) 
+                                          \* (p`.tail ~~> val_uninitialized)).
 Proof using.
-  introv N. applys triple_conseq.
+  applys triple_conseq.
   { applys triple_alloc_nat. }
   { xsimpl. }
-  { xsimpl. } (* execute [unfold hcell. simpl.] to see the details. *)
-Qed.
+  { xpull. intros ? p ->. unfold hcells, harray, head, tail, hfield; simpl.
+    xchange (@hsingle_not_null p). intros N.
+    xsimpl* p. math_rewrite (p+0 = p)%nat. math_rewrite (p+1 = S p)%nat. auto. }
+Qed. (* TODO: simplify *)
 
 (** For reading and writing in record fields, we introduce the operations
     [val_get_field] and [val_set_field]. As we show further in this chapter,
@@ -281,7 +314,7 @@ Parameter triple_get_field : forall p k v,
 Parameter val_set_field : field -> val.
 
 Parameter triple_set_field : forall v p k v',
-  triple (val_set_field p k v)
+  triple (val_set_field k p v)
     (p`.k ~~> v')
     (fun _ => p`.k ~~> v).
 
@@ -292,52 +325,7 @@ Hint Resolve triple_get_field triple_set_field : triple.
 
 
 
-(* ####################################################### *)
-(** ** Representation predicate for an array *)
-
-
-(* ---------------------------------------------------------------------- *)
-(** Representation *)
-
-Fixpoint Array (L:list val) (p:loc) : hprop :=
-  match L with
-  | nil => \[]
-  | x::L' => (p ~~~> x) \* (Array L' (S p))
-  end.
-
-Global Opaque Array.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Array allocation *)
-
-Lemma Array_of_Alloc : forall k l,
-  Alloc k l ==>
-  \exists (L : list val), \[length L = k] \* Array L l.
-Proof using.
-  intros. gen l. induction k; intros.
-  { rew_Alloc. xsimpl (@nil val). rew_list~. }
-  { rew_Alloc. xpull ;=> v. xchange IHk. xpull ;=> L E.
-    xsimpl (v::L).
-    { rewrite Array_cons_eq. xsimpl~. }
-    { rew_list. math. } }
-Qed.
-
-Lemma triple_alloc_array : forall n,
-  n >= 0 ->
-  triple (val_alloc n)
-    \[]
-    (fun r => \exists (p:loc) (L:list val), \[r = val_loc p] \*
-              \[length L = n :> int] \* Array L p).
-Proof using.
-  introv N. xapp. math.
-  intros r. xpull ;=> l (E&Nl). subst r.
-  xchange Array_of_Alloc. xpull ;=> L HL.
-  xsimpl~. rewrite HL. rewrite~ abs_nonneg.
-Qed.
-
-
-
+(*
 
 (* ########################################################### *)
 (* ########################################################### *)
@@ -698,6 +686,45 @@ parallel calls remark
 (* ########################################################### *)
 (* ########################################################### *)
 (** * Bonus contents (optional reading) *)
+
+
+
+(* ########################################################### *)
+(** ** Iterated star operation *)
+
+
+(** The definition above can be recognized as an instance of an
+    "indexed fold" operation, applied to the "Separation Logic
+    commutative monoid" made of the star operator [\*] and its
+    neutral element [\[]], and applied to the list [L].
+
+    On paper, we would write the "big star" operator, with subscript
+    "[x] at index [i] in [L]", applied to the expression [(p+i) ~~> x].
+
+    In Coq, we can formalize this using a recursive function as follows. *)
+
+Fixpoint hfoldi_list A (F:nat->A->hprop) (L:list A) (i:nat) : hprop :=
+  match L with
+  | nil => \[]
+  | x::L' => (F i x) \* (hfoldi_list F L' (S i))
+  end.
+
+Definition harray (L:list val) (p:loc) : hprop :=
+  hfoldi_list (fun q x => q ~~> x) L p.
+
+
+(* TODO Remark: *)
+
+Fixpoint list_foldi A B (F:nat->A->B->B) (L:list A) (i:nat) (b:B) : B :=
+  match L with
+  | nil => b
+  | x::L' => F i x (list_foldi F L' (S i) b)
+  end.
+
+Definition harray'' (L:list val) (p:loc) : hprop :=
+  list_foldi (fun q x acc => q ~~> x \* acc) L p \[].
+
+
 
 
 (* ########################################################### *)
@@ -1103,4 +1130,81 @@ Tactic Notation "rew_Alloc" :=
 
 
 
+Lemma harray_of_hcells : forall (k:nat) (p:loc),
+  hcells k l ==>
+  \exists (L:list val), \[k = length L] \* harray L p.
+Proof using. auto. Qed.
+
+(* ####################################################### *)
+(** ** Semantics of the allocation of consecutive cells *)
+
+(** The operation [val_alloc n] allocates [n] consecutive cells, where
+    [n] is a nonnegative integer. Let [p] denote the pointer returned.
+    The allocated cells have addresses in the range from [p] inclusive
+    to [p+n] exclusive.
+
+    To formally describe this range of locations, let [k] denote the
+    natural number (of type [nat]) that corresponds to the nonnegative
+    integer [n].
+
+    The list [nat_seq k p] describes the list of locations from [p]
+    inclusive to [p+k] exclusive. The definition is recursive on [k].
+    Recall that [O] denotes zero and [S] denotes the successor on [nat]. *)
+
+Fixpoint nat_seq (k:nat) (p:nat) : nat :=
+  match k with
+  | O => []
+  | S k' => p :: (nat_seq k' (S p))
+  end.
+
+(** Assume the special value [val_uninitialized] to be part of the
+    grammar of values, i.e., to be a constructor from the type [val].
+
+    Let us now define a heap predicate [hcells k p] that describes
+    the ownership of [k] consecutive cells, starting from location [p],
+    and whose contents is [val_uninitialized]. The definition is,
+    again, recursive on [k]. *)
+
+Fixpoint hcells' (k:nat) (p:loc) : hprop :=
+  match k with
+  | O => \[]
+  | S k' => (p ~~> val_uninitialized) \* (hcells k' (S p))
+  end.
+
+(** The definition above can be recognized as an instance of a "fold"
+    pattern, applied to the "Separation Logic commutative monoid" made
+    of the star operator [\*] and its neutral element [\[]], and
+    applied to the list of locations [seq k p].
+
+    Indeed, if we let [F] denote [fun q => q ~~> val_uninitialized]
+    and let [L] denote [seq k p], then [hcells' k p] is equivalent to
+    [hfold_list' F L], for the function [hfold_list'] defined below. *)
+
+Fixpoint hfold_list' A (F:A->hprop) (L:list A) : hprop :=
+  match L with
+  | [] => \[]
+  | x::L' => (F x) \* (hfold_list' F L')
+  end.
+
+(** The above function happens to be a particular instance of
+    [List.fold_right]. Thus, rather than defining [hfold_list] as a
+    recursive function, let us reuse the fold operation on lists. *)
+
+Definition hfold_list A (F:A->hprop) (L:list A) : hprop :=
+  LibList.fold_right (fun acc x => F x \* acc) \[] L.
+
+(** Using [hfold_list], the heap predicate [hcells k p] that describes
+    a set of [k] consecutive cells with uninitialized contents,
+    starting at location [p]. *)
+
+Definition hcells (k:nat) (p:loc) : hprop :=
+  hfold_list (fun q => q ~~> val_uninitialized) (seq k p).
+
+(** Remark: the function [hfold_list] provides a general "fold of the
+    separation logic monoid over a list of values" that will prove useful
+    later on also for other purposes. *)
+
+
+
 *)
+
