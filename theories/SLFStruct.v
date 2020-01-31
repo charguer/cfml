@@ -191,13 +191,22 @@ Qed.
 (** The deallocation operation [val_dealloc n p] deallocates [n] 
     consecutive cells starting from the location [p]. It admits the
     precondition [harray L p], where [L] can be any list of length [n],
-    and its postcondition is empty. *)
+    and its postcondition is empty.*)
 
-Parameter triple_dealloc : forall (n:int) (p:loc) (L:list val),
+Parameter triple_dealloc : forall (L:list val) (n:int) (p:loc),
   n = length L ->
   triple (val_dealloc n p)
     (harray L p)
     (fun _ => \[]).
+
+(* TODO
+Lemma triple_dealloc_hcells : forall (L:list val) (n:int) (p:loc),
+  n = length L ->
+  triple (val_dealloc n p)
+    (hcells L p)
+    (fun _ => \[]).
+Admitted.
+*)
 
 (** Remark: in the C programming language, the argument [n] needs not be
     provided, because the system keeps track of the size of allocated blocks.
@@ -267,6 +276,10 @@ Global Opaque hfield.
 
 End Cells.
 
+
+(* ########################################################### *)
+(** ** Allocation and deallocation of record fields *)
+
 (** We can allocate a fresh mutable list cell by invoking the primitive
     operation [val_alloc] with argument [2]. Let us prove that the result,
     described by [hcell 2 p], can be also be viewed as the heap predicate
@@ -288,6 +301,22 @@ Proof using.
   xpull. intros N. xsimpl p; auto.
   do 2 rewrite hfield_eq. xsimpl; auto.
 Qed.
+
+(** Reciprocally, we can deallocate a mutable list cell at location [p]
+    by invoking the primitive operation [val_dealloc] with argument [2].
+    The precondition describes the two fields [p`.head ~~> x] and 
+    [p`.tail ~~> q]. The postcondition is empty: the fields are lost. *)
+
+Lemma triple_dealloc_cell : forall (x:val) (p q:loc),
+  triple (val_dealloc 2%nat p)
+    ((p`.head ~~> x) \* (p`.tail ~~> q))
+    (fun _ => \[]).
+Proof using.
+  xtriple. xchange (@hfield_not_null p). intros N. (* TODO @ *)
+  xapp (@triple_dealloc 2%nat p (x::(val_loc q)::nil)). (* TODO *)  auto.
+  xsimpl. unfold harray, hcells. do 2 rewrite hfield_eq. xsimpl. auto. 
+Qed.
+(* TODO: simplify *)
 
 
 (* ########################################################### *)
@@ -379,6 +408,8 @@ Proof using.
 Qed.
 
 
+
+
 (*
 
 (* ########################################################### *)
@@ -436,38 +467,6 @@ Lemma MList_cons : forall p x L',
   \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* MList L' q.
 Proof using.  auto. Qed.
 
-
-(** Next, we consider functions for constructing mutable lists.
-    We begin with the function that allocates one cell.
-    The function [mcell] takes as arguments the values to be
-    stored in the head and the tail fields of the new cell.
-
-[[
-    let rec mcell x q =
-      { head = x; tail = q }
-]]
-
-    In our ad-hoc program syntax, the [New] construct denotes record
-    allocation. *)
-
-Definition mcell : val :=
-  VFun 'x 'q :=
-    New`{ head := 'x ; tail := 'q }.
-
-(** The precondition of [mcell x q] is empty. Its postcondition
-    asserts that the return value is a location [p] such that
-    two fields are allocated: [p`.head ~~> x] and [p`.tail ~~> q]. *)
-
-Lemma Triple_mcell : forall (x:int) (q:loc),
-  TRIPLE (mcell x q)
-    PRE \[]
-    POST (fun (p:loc) => (p`.head ~~> x) \* (p`.tail ~~> q)).
-Proof using.
-  (* The tactic [xapp] handles the reasoning on the [New] construct. *)
-  xwp. xapp. xsimpl.
-Qed.
-
-Hint Extern 1 (Register_Spec mcell) => Provide Triple_mcell.
 
 (** The function [mcons] is an alias for [mcell].
 
@@ -619,28 +618,6 @@ Hint Extern 1 (Register_Spec mcopy) => Provide Triple_mcopy.
     be annotated with the names of the fields of the record to be deleted,
     as shown below.
 *)
-
-Definition mfree_cell : val :=
-  VFun 'p :=
-    val_dealloc 2 'p.
-
-Notation "'Delete' n" := (val_dealloc n) : trm_scope.
-
-(** The precondition of [mfree_cell p] describes the two fields
-    associated with the cell: [p`.head ~~> x] and [p`.tail ~~> q].
-    The postcondition is empty: the fields are destroyed. *)
-
-Lemma Triple_mfree_cell : forall (x:int) (p q:loc),
-  TRIPLE (mfree_cell p)
-    PRE ((p`.head ~~> x) \* (p`.tail ~~> q))
-    POST (fun (r:unit) => \[]).
-Proof using.
-  (* The tactic [xapp] handles the reasoning on the [Delete] construct. *)
-  xwp. xapp. xsimpl.
-Qed.
-
-Hint Extern 1 (Register_Spec mfree_cell) => Provide Triple_mfree_cell.
-
 
 (** The operation [mfree_list] deallocates all the cells in a given list.
     It can be implemented as the following tail-recursive function.
