@@ -38,14 +38,18 @@ Implicit Type v : val.
     For example, applying [val_alloc] to the integer value [3] would return
     a pointer [p] together with the ownership of three cells: one at
     location [p], one at location [p+1], and one atlocation [p+2].
-
-    These three allocated cells are assigned as contents a special value,
-    named [val_uninitialized], to reflect for the fact that their contents
-    has never been set.
-
     This allocation model that exposes pointer arithmetics provides a way
     to model both records and arrays with minimal extension to the semantics
     of the programming language that we consider for the course.
+
+    The cells allocated using [val_alloc] are assigned as contents a special
+    value, named [val_uninit], to reflect for the fact that their contents has
+    never been set. Remark: in OCaml, one must provide an initialization 
+    value explicitly, so there is no such thing as [val_uninit]; in JavaScript,
+    [val_uninit] is called [undefined]; in Java, arrays are initialized with
+    zeros; in C, uninitialized data should not be read---we could implement 
+    this policy in our languageby restricting the evaluation rule for the read 
+    operation, adding a premise of the form [v <> val_uninit] to the rule.
 
     Regarding n-ary functions, that is, there are three possible approaches:
 
@@ -63,7 +67,9 @@ Implicit Type v : val.
 
 
 (* ####################################################### *)
-(** ** Representation of an array as a set of consecutive cells *)
+(** ** Representation of a set of consecutive cells *)
+
+Module Cells.
 
 (** An array of length [k] allocated at location [p] can be represented
     as a set of [k] consecutive cells starting from location [p]. In other
@@ -75,72 +81,51 @@ Implicit Type v : val.
 (** The contents of an array of length [k] can be represented by a list
     of values of length [k].
 
-    The heap predicate [harray L p] represents an array allocated at
-    location [p] and whose elements are described by the list [L].
+    The heap predicate [hcells L p] represents a consecutive set of cells
+    starting at location [p] and whose elements are described by the list [L].
 
-    This predicate could be defined by induction on the list, as follows.
+    This predicate can be defined by induction on the list [L], with the
+    pointer being incremented by one unit at each cell, as follows.
 *)
 
-Fixpoint harray (L:list val) (p:loc) : hprop :=
+Fixpoint hcells (L:list val) (p:loc) : hprop :=
   match L with
   | nil => \[]
-  | x::L' => (p ~~> x) \* (harray L' (S p))
+  | x::L' => (p ~~> x) \* (hcells L' (S p))
   end.
 
-(* TODO Remark: *)
+(** Given a heap predicate [hcells L p], one can deduce that [p] is not
+    null, but only if the list [L] is not empty. In order to avoid in
+    proofs the need to treat specially the case empty arrays, it is
+    convenient to pack together with [hcells L p] the information [p <> null],
+    reflecting the fact that no data can be allocated at the null location,
+    not even an empty array.
 
-Lemma harray_nil : forall p,
-  harray nil p = \[].
-Proof using. auto. Qed.
+    The heap predicate [harray L p] packs together [hcells L p] with the
+    information that [p] is not null.
+*)
 
-Lemma harray_cons : forall p x L,
-  harray (x::L) p = ((p ~~> x) \* harray L (S p)).
-Proof using. auto. Qed.
+Definition harray (L:list val) (p:loc) : hprop :=
+  hcells L p \* \[p <> null].
 
-(** The operation [val_alloc n] allocates [n] consecutive cells, where
-    [n] is a nonnegative integer. Let [p] denote the pointer returned.
-    The allocated cells have addresses in the range from [p] inclusive
-    to [p+n] exclusive.
+(** The operation [val_alloc k] allocates [k] consecutive cells. Let [p] 
+    denote the pointer returned. The allocated cells have addresses in 
+    the range from [p] inclusive to [p+k] exclusive. These cells have for
+    contents is the special value [val_uninit], which we assume to be part
+    of the grammar of values. *)
 
-    Assume the special value [val_uninitialized] to be part of the
-    grammar of values, i.e., to be a constructor from the type [val].
+Parameter val_uninit : val.
 
-    Let us now define a heap predicate [hcells k p] that describes
-    the ownership of [k] consecutive cells, starting from location [p],
-    and whose contents is [val_uninitialized].
+(** The heap produced by [val_alloc k] can be described by [harray L p],
+    for a list [L] that consists of [k] occurences of the value [val_uninit]. 
+    Such a list is formally described by [LibList.make k val_uninit]. 
 
-    We define [hcells] by applying [harray] to a list made of [k]
-    occurences of the value [val_uninitialized]. This list is described
-    by [LibList.make k val_uninitialized]. *)
+    We introduce the heap predicate [harray_uninit k p] to denote the
+    specialization of [harray] to that list. This predicate will appear
+    in the postcondition of [val_alloc], as explained in the next section. *)
 
-Definition hcells (k:nat) (p:loc) : hprop :=
-  harray (LibList.make k val_uninitialized) p.
-
-
-Lemma harray_not_null : forall p L,
-  L <> nil -> 
-  harray L p ==> harray L p \* \[p <> null].
-Proof using.
-  introv N. destruct L as [|x L']; tryfalse. simpl.
-  xchanges* hsingle_not_null.
-Qed.
-
-(* TODO *)
-Lemma length_pos_inv_not_nil : forall A (l : list A),
-  (length l > 0%nat) ->
-  l <> nil.
-Admitted.
-
-
-Lemma hcells_not_null : forall p k,
-  k > 0%nat -> 
-  hcells k p ==> hcells k p \* \[p <> null].
-Proof using.
-  introv N. unfold hcells. xchanges* harray_not_null.
-  applys length_pos_inv_not_nil. rewrite* length_make.
-Qed.
-
-(* TODO: rename hcells? *)
+Definition harray_uninit (k:nat) (p:loc) : hprop :=
+  harray (LibList.make k val_uninit) p.
 
 
 (* ####################################################### *)
@@ -153,17 +138,17 @@ Qed.
     Consider a natural number [k]. Thanks to coercions, it may also be
     viewed as an integer value of type [val].
 
-    The operation [val_alloc k] admits an empty precondition. Its
+    The operation [val_alloc k] admits an empty precondition. Its 
     postcondition asserts that the return value [r] is of the form
-    [val_loc p] for some location [p], and that the final state satisfies
-    the heap predicate [hcells k p]. Recall that this predicate describes
-    [k] cells at consecutive addresses from location [p], with uninitialized
-    contents. *)
+    [val_loc p] for some location [p], and that the final state 
+    satisfies the heap predicate [harray_uninit k p]. Recall that this
+    predicate describes [k] cells at consecutive addresses starting from
+    location [p], with uninitialized contents. *)
 
 Parameter triple_alloc_nat : forall (k:nat),
   triple (val_alloc k)
     \[]
-    (fun r => \exists p, \[r = val_loc p] \* hcells k p).
+    (fun r => \exists p, \[r = val_loc p] \* harray_uninit k p).
 
 (** We next generalize this specification so that it can handle applications
     of the form [val_alloc n], where [n] is of type [int], and can be proved
@@ -178,20 +163,19 @@ Lemma triple_alloc : forall (n:int),
   n >= 0 ->
   triple (val_alloc n)
     \[]
-    (fun r => \exists p, \[r = val_loc p] \* hcells (abs n) p).
+    (fun r => \exists p, \[r = val_loc p] \* harray_uninit (abs n) p).
 Proof using.
-  introv N. rewrite <- (@abs_nonneg n) at 1; [|auto]. applys triple_conseq. 
-  { applys triple_alloc_nat. }
-  { xsimpl. }
-  { xsimpl*. }
+  introv N. rewrite <- (@abs_nonneg n) at 1; [|auto].
+  xtriple. xapp triple_alloc_nat. xsimpl*.
 Qed.
 
 (** The specification of the allocation function can be specialized to
     allocate arrays. To that end, we reformulate the postcondition of
     [val_alloc n] so that it exhibits a predicate of the form [harray L p],
-    where [L] is of length [n]. We can specify that the values in [L]
-    are all equal to [val_unspecified], or we can just as well drop this
-    information, thereby quantifying over a list [L] of unspecified contents. *)
+    where [L] is of length [n]. We could specify that the values in [L]
+    are all equal to [val_uninit], but for most applications it suffices
+    to drop this information, and simply quantifying over an abstract list
+    [L] of length [n]. *)
 
 Lemma triple_alloc_array : forall n,
   n >= 0 ->
@@ -199,21 +183,28 @@ Lemma triple_alloc_array : forall n,
     \[]
     (fun r => \exists p L, \[r = val_loc p] \* \[n = length L] \* harray L p).
 Proof using.
-  introv N. applys triple_conseq.
-  { applys* triple_alloc. }
-  { xsimpl. }
-  { xpull. intros ? p ->. xsimpl*. rewrite length_make. rewrite* abs_nonneg. }
+  introv N. xtriple. xapp triple_alloc. { auto. }
+  { xpull. intros p. unfold harray_uninit. xsimpl*.
+    { rewrite length_make. rewrite* abs_nonneg. } }
 Qed.
 
-(** The deallocation function is symmetrical. The operation
-    [val_dealloc n p] takes as precondition [n] consecutive cells
-    starting at location [p], and admits the empty postcondition. *)
+(** The deallocation operation [val_dealloc n p] deallocates [n] 
+    consecutive cells starting from the location [p]. It admits the
+    precondition [harray L p], where [L] can be any list of length [n],
+    and its postcondition is empty. *)
 
-Parameter triple_dealloc : forall (n:int) (p:loc),
-  n >= 0 ->
+Parameter triple_dealloc : forall (n:int) (p:loc) (L:list val),
+  n = length L ->
   triple (val_dealloc n p)
-    (hcells (abs n) p)
+    (harray L p)
     (fun _ => \[]).
+
+(** Remark: in the C programming language, the argument [n] needs not be
+    provided, because the system keeps track of the size of allocated blocks.
+    One aspect that our simple semantics does not take into account is that
+    in C one can invoke the deallocation function on pointers that were
+    produced by the allocation function. We discuss further in this chapter
+    a possible refinement of the specification to enforce this policy. *)
 
 
 (* ########################################################### *)
@@ -243,16 +234,19 @@ Parameter triple_dealloc : forall (n:int) (p:loc),
 
     To enable justifying this lemma [hfield_not_null], whose statement
     appears below, we bake in the definition of [p`.k ~~> v] the fact that
-    [p] is not null, using the assertion [\[p <> null]]. *)
+    [p] is not null, using the assertion [\[p <> null]].
+
+    In the definition of [hfield] shown below, note that we write [k+p]
+    instead of [p+k] to enable smoother simplications via the [simpl] tactic. *)
 
 Definition field : Type := nat.
 
 Definition hfield (p:loc) (k:field) (v:val) : hprop :=
-  (p+k)%nat ~~> v \* \[p <> null].
+  (k+p)%nat ~~> v \* \[p <> null].
 
 Notation "p `. k '~~>' v" := (hfield p k v)
   (at level 32, k at level 0, no associativity,
-   format "p `. k  '~~>'  v") : heap_scope.
+   format "p `. k  '~~>'  v").
 
 (** The lemma [hfield_not_null] asserts that the heap predicate [p`.k ~~> v]
     always ensures [p <> null]. *)
@@ -261,12 +255,24 @@ Lemma hfield_not_null : forall p k v,
   (p`.k ~~> v) ==> (p`.k ~~> v) \* \[p <> null].
 Proof using. intros. unfold hfield. xsimpl*. Qed.
 
+(** To prevent undesirable simplifications, we set the definition [hfield] 
+    to be opaque, and we provide a lemma for unfolding its definition where
+    necessary. *)
+
+Lemma hfield_eq : forall l k v,
+  hfield l k v = ((k+l)%nat ~~> v \* \[l <> null]).
+Proof using. auto. Qed.
+
+Global Opaque hfield.
+
+End Cells.
+
 (** We can allocate a fresh mutable list cell by invoking the primitive
     operation [val_alloc] with argument [2]. Let us prove that the result,
     described by [hcell 2 p], can be also be viewed as the heap predicate
-    [(p`.head ~~> val_uninitialized) \* (p`.tail ~~> val_uninitialized)], 
-    which describes the two fields of the record, with uninitialized contents.
-*)
+    [(p`.head ~~> val_uninit) \* (p`.tail ~~> val_uninit)], 
+    which describes the two fields of the record, with uninitialized 
+    contents. *)
 
 Definition head : field := 0%nat.
 Definition tail : field := 1%nat.
@@ -274,16 +280,18 @@ Definition tail : field := 1%nat.
 Lemma triple_alloc_mcell :
   triple (val_alloc 2%nat)
     \[]
-    (fun r => \exists p, \[r = val_loc p] \* (p`.head ~~> val_uninitialized) 
-                                          \* (p`.tail ~~> val_uninitialized)).
+    (fun r => \exists p, \[r = val_loc p] \* (p`.head ~~> val_uninit) 
+                                          \* (p`.tail ~~> val_uninit)).
 Proof using.
-  applys triple_conseq.
-  { applys triple_alloc_nat. }
-  { xsimpl. }
-  { xpull. intros ? p ->. unfold hcells, harray, head, tail, hfield; simpl.
-    xchange (@hsingle_not_null p). intros N.
-    xsimpl* p. math_rewrite (p+0 = p)%nat. math_rewrite (p+1 = S p)%nat. auto. }
-Qed. (* TODO: simplify *)
+  xtriple. xapp triple_alloc_nat. xpull. intros p.
+  unfold harray_uninit, harray. simpl.
+  xpull. intros N. xsimpl p; auto.
+  do 2 rewrite hfield_eq. xsimpl; auto.
+Qed.
+
+
+(* ########################################################### *)
+(** ** Reading and writing in record fields *)
 
 (** For reading and writing in record fields, we introduce the operations
     [val_get_field] and [val_set_field]. As we show further in this chapter,
@@ -300,6 +308,8 @@ Qed. (* TODO: simplify *)
     postcondition describe a field [p`.k ~~> v], and the result value [r]
     is specified to be equal to [v].
 *)
+
+Module FieldAccesses.
 
 Parameter val_get_field : field -> val.
 
@@ -318,11 +328,55 @@ Parameter triple_set_field : forall v p k v',
     (p`.k ~~> v')
     (fun _ => p`.k ~~> v).
 
+(** We introduce the syntax [t'.f] for reading from a field using 
+    [val_get_field], and [Set t1'.f := t2] for writing into a field
+    using [val_set_field]. *)
+
+Notation "t1 ''.' f" :=
+  (val_get_field f t1)
+  (at level 56, f at level 0, format "t1 ''.' f" ).
+
+Notation "'Set' t1 ''.' f '':=' t2" :=
+  (val_set_field f t1 t2)
+  (at level 65, t1 at level 0, f at level 0, format "'Set' t1 ''.' f  '':=' t2").
+
 (** We register these specifications so that they may be exploited by the
     tactic [xapp]. *)
 
 Hint Resolve triple_get_field triple_set_field : triple.
 
+End FieldAccesses.
+
+(** Consider the function [mcell x q], which allocates a fresh mutable
+    list cell with [x] as head and [q] as tail.
+
+[[
+    let mcell x q =
+      { head = x; tail = q }
+]]
+
+    In our programming language, the creation of such a record can
+    encoded by allocating of a 2-cell record, and setting its two fields. *)
+
+Import SLFProgramSyntax.
+
+Definition mcell : val :=
+  VFun 'x 'q :=
+    Let 'p := val_alloc 2%nat in
+    Set 'p'.head ':= 'x ';
+    Set 'p'.tail ':= 'q ';
+    'p.
+
+(** The specification of [mcell x q] appears next. Its precondition is empty. 
+    Its postcondition describes the two fields [p`.head ~~> x] and [p`.tail ~~> q]. *)
+
+Lemma triple_mcell : forall (x:val) (q:loc),
+  triple (mcell x q)
+    \[]
+    (fun r => \exists p, \[r = val_loc p] \* (p`.head ~~> x) \* (p`.tail ~~> q)).
+Proof using.
+  xwp. xapp triple_alloc_mcell. intros p. xapp. xapp. xval. xsimpl*.
+Qed.
 
 
 (*
@@ -331,6 +385,34 @@ Hint Resolve triple_get_field triple_set_field : triple.
 (* ########################################################### *)
 (* ########################################################### *)
 (** * Additional contents *)
+
+
+
+(* ####################################################### *)
+(** ** Not null information *)
+
+Lemma harray_not_null : forall p L,
+  L <> nil -> 
+  harray L p ==> harray L p \* \[p <> null].
+Proof using.
+  introv N. destruct L as [|x L']; tryfalse. simpl.
+  xchanges* hsingle_not_null.
+Qed.
+
+(* TODO *)
+Lemma length_pos_inv_not_nil : forall A (l : list A),
+  (length l > 0%nat) ->
+  l <> nil.
+Admitted.
+
+
+Lemma hcells_not_null : forall p k,
+  k > 0%nat -> 
+  hcells k p ==> hcells k p \* \[p <> null].
+Proof using.
+  introv N. unfold hcells. xchanges* harray_not_null.
+  applys length_pos_inv_not_nil. rewrite* length_make.
+Qed.
 
 
 (* ####################################################### *)
@@ -612,6 +694,16 @@ Hint Extern 1 (Register_Spec mfree_list) => Provide Triple_mfree_list.
 (* ####################################################### *)
 (** ** Local reasoning on arrays *)
 
+(* TODO Remark: *)
+
+Lemma harray_nil : forall p,
+  harray nil p = \[].
+Proof using. auto. Qed.
+
+Lemma harray_cons : forall p x L,
+  harray (x::L) p = ((p ~~> x) \* harray L (S p)).
+Proof using. auto. Qed.
+
 Lemma Alloc_split_eq : forall k1 (k:nat) p,
   (k1 <= k)%nat ->
   Alloc k p = Alloc k1 p \* Alloc (k-k1)%nat (p + k1)%nat.
@@ -732,7 +824,7 @@ Definition harray'' (L:list val) (p:loc) : hprop :=
 
 
   | eval_alloc : forall k n ma mb l,
-      mb = Fmap.conseq l (LibList.make k val_uninitialized) ->
+      mb = Fmap.conseq l (LibList.make k val_uninit) ->
       n = nat_to_Z k ->
       l <> null ->
       Fmap.disjoint ma mb ->
@@ -746,7 +838,7 @@ Definition harray'' (L:list val) (p:loc) : hprop :=
 
 Lemma Alloc_fmap_conseq : forall l k,
   l <> null ->
-  (Alloc k l) (Fmap.conseq l (LibList.make k val_uninitialized)).
+  (Alloc k l) (Fmap.conseq l (LibList.make k val_uninit)).
 Proof using.
   Transparent loc null.
   introv N. gen l. induction k; intros; rew_Alloc.
@@ -803,13 +895,6 @@ Definition val_set_field (k:field) : val :=
 
 End FieldAccessDef.
 
-Notation "t1 ''.' f" :=
-  (val_get_field f t1)
-  (at level 56, f at level 0, format "t1 ''.' f" ) : trm_scope.
-
-Notation "'Set' t1 ''.' f '':=' t2" :=
-  (val_set_field f t1 t2)
-  (at level 65, t1 at level 0, f at level 0, format "'Set' t1 ''.' f  '':=' t2") : trm_scope.
 
 Lemma triple_get_field : forall l f v,
   triple ((val_get_field f) l)
@@ -1110,7 +1195,7 @@ Coercion combiner_to_trm : combiner >-> trm.
 Fixpoint Alloc (k:nat) (l:loc) : hprop :=
   match k with
   | O => \[]
-  | S k' => l ~~~> val_uninitialized \* (Alloc k' (S l)%nat)
+  | S k' => l ~~~> val_uninit \* (Alloc k' (S l)%nat)
   end.
 
 Lemma Alloc_zero_eq : forall l,
@@ -1118,7 +1203,7 @@ Lemma Alloc_zero_eq : forall l,
 Proof using. auto. Qed.
 
 Lemma Alloc_succ_eq : forall l k,
-  Alloc (S k) l = l ~~~> val_uninitialized \* Alloc k (S l)%nat.
+  Alloc (S k) l = l ~~~> val_uninit \* Alloc k (S l)%nat.
 Proof using. auto. Qed.
 
 Global Opaque Alloc.
@@ -1157,18 +1242,18 @@ Fixpoint nat_seq (k:nat) (p:nat) : nat :=
   | S k' => p :: (nat_seq k' (S p))
   end.
 
-(** Assume the special value [val_uninitialized] to be part of the
+(** Assume the special value [val_uninit] to be part of the
     grammar of values, i.e., to be a constructor from the type [val].
 
     Let us now define a heap predicate [hcells k p] that describes
     the ownership of [k] consecutive cells, starting from location [p],
-    and whose contents is [val_uninitialized]. The definition is,
+    and whose contents is [val_uninit]. The definition is,
     again, recursive on [k]. *)
 
 Fixpoint hcells' (k:nat) (p:loc) : hprop :=
   match k with
   | O => \[]
-  | S k' => (p ~~> val_uninitialized) \* (hcells k' (S p))
+  | S k' => (p ~~> val_uninit) \* (hcells k' (S p))
   end.
 
 (** The definition above can be recognized as an instance of a "fold"
@@ -1176,7 +1261,7 @@ Fixpoint hcells' (k:nat) (p:loc) : hprop :=
     of the star operator [\*] and its neutral element [\[]], and
     applied to the list of locations [seq k p].
 
-    Indeed, if we let [F] denote [fun q => q ~~> val_uninitialized]
+    Indeed, if we let [F] denote [fun q => q ~~> val_uninit]
     and let [L] denote [seq k p], then [hcells' k p] is equivalent to
     [hfold_list' F L], for the function [hfold_list'] defined below. *)
 
@@ -1198,7 +1283,7 @@ Definition hfold_list A (F:A->hprop) (L:list A) : hprop :=
     starting at location [p]. *)
 
 Definition hcells (k:nat) (p:loc) : hprop :=
-  hfold_list (fun q => q ~~> val_uninitialized) (seq k p).
+  hfold_list (fun q => q ~~> val_uninit) (seq k p).
 
 (** Remark: the function [hfold_list] provides a general "fold of the
     separation logic monoid over a list of values" that will prove useful

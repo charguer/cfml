@@ -108,7 +108,7 @@ Definition loc : Type := nat.
 Definition null : loc := 0%nat.
 
 Inductive val : Type :=
-  | val_uninitialized : val
+  | val_uninit : val (* uninitialized data allocated using [val_alloc] *)
   | val_unit : val
   | val_bool : bool -> val
   | val_int : int -> val
@@ -311,7 +311,7 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
       Fmap.indom s l ->
       eval s (val_free (val_loc l)) (Fmap.remove s l) val_unit
   | eval_alloc : forall k n ma mb l,
-      mb = Fmap.conseq l (LibList.make k val_uninitialized) ->
+      mb = Fmap.conseq l (LibList.make k val_uninit) ->
       n = nat_to_Z k ->
       l <> null ->
       Fmap.disjoint ma mb ->
@@ -2161,7 +2161,7 @@ Tactic Notation "xapp_simpl" := (* internal *)
 
 Tactic Notation "xapp_nosubst" constr(E) :=
   xseq_xlet_if_needed; xstruct_if_needed;
-  forwards_then E ltac:(fun K => applys xapp_lemma K; xapp_simpl).
+  forwards_nounfold_then E ltac:(fun K => applys xapp_lemma K; xapp_simpl).
   (* if [E] were already an instantiated lemma, then it would suffices
      to call [applys xapp_lemma E; xapp_simpl]. But in the general case,
      we need to instantiate [E] using the TLC tactic [forward_then] *)

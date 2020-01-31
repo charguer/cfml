@@ -871,6 +871,63 @@ Qed.
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
+(** * Treatment of arrays *)
+
+Fixpoint hcells (L:list val) (p:loc) : hprop :=
+  match L with
+  | nil => \[]
+  | x::L' => (p ~~> x) \* (hcells L' (S p))
+  end.
+
+Definition harray (L:list val) (p:loc) : hprop :=
+  hcells L p \* \[p <> null].
+
+Definition harray_uninit (k:nat) (p:loc) : hprop :=
+  harray (LibList.make k val_uninit) p.
+
+(** Allocation *)
+
+(* TODO *)
+
+Parameter triple_alloc_nat : forall (k:nat),
+  triple (val_alloc k)
+    \[]
+    (fun r => \exists p, \[r = val_loc p] \* harray_uninit k p).
+
+Lemma triple_alloc : forall (n:int),
+  n >= 0 ->
+  triple (val_alloc n)
+    \[]
+    (fun r => \exists p, \[r = val_loc p] \* harray_uninit (abs n) p).
+Proof using.
+  introv N. rewrite <- (@abs_nonneg n) at 1; [|auto].
+  xtriple. xapp triple_alloc_nat. xsimpl*.
+Qed.
+
+Lemma triple_alloc_array : forall n,
+  n >= 0 ->
+  triple (val_alloc n)
+    \[]
+    (fun r => \exists p L, \[r = val_loc p] \* \[n = length L] \* harray L p).
+Proof using.
+  introv N. xtriple. xapp triple_alloc. { auto. }
+  { xpull. intros p. unfold harray_uninit. xsimpl*.
+    { rewrite length_make. rewrite* abs_nonneg. } }
+Qed.
+
+(** Deallocation *)
+(* TODO *)
+
+Parameter triple_dealloc : forall (n:int) (p:loc) (L:list val),
+  n = length L ->
+  triple (val_dealloc n p)
+    (harray L p)
+    (fun _ => \[]).
+
+
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Treatment of records *)
 
 (* ########################################################### *)
@@ -879,11 +936,15 @@ Qed.
 Definition field : Type := nat.
 
 Definition hfield (l:loc) (k:field) (v:val) : hprop :=
-  (l+k)%nat ~~> v \* \[ l <> null ].
+  (k+l)%nat ~~> v \* \[ l <> null ].
 
 Notation "l `. k '~~>' v" := (hfield l k v)
   (at level 32, k at level 0, no associativity,
    format "l `. k  '~~>'  v") : heap_scope.
+
+Lemma hfield_eq : forall l k v,
+  hfield l k v = ((k+l)%nat ~~> v \* \[l <> null]).
+Proof using. auto. Qed.
 
 Lemma hfield_not_null : forall l k v,
   (l`.k ~~> v) ==> (l`.k ~~> v) \* \[l <> null].
@@ -930,7 +991,8 @@ Lemma triple_get_field : forall l f v,
     (l`.f ~~> v)
     (fun r => \[r = v] \* (l`.f ~~> v)).
 Proof using.
-  xwp. xapp. unfold hfield. xpull. intros N. xapp. xsimpl*.
+  xwp. xapp. math_rewrite ((l + f = f + l)%nat).
+  unfold hfield. xpull. intros N. xapp. xsimpl*.
 Qed.
 
 Lemma triple_set_field : forall v1 l f v2,
@@ -938,7 +1000,8 @@ Lemma triple_set_field : forall v1 l f v2,
     (l`.f ~~> v1)
     (fun _ => l`.f ~~> v2).
 Proof using.
-  xwp. xapp. unfold hfield. xpull. intros N. xapp. xsimpl*.
+  xwp. xapp. math_rewrite ((l + f = f + l)%nat).
+  unfold hfield. xpull. intros N. xapp. xsimpl*.
 Qed.
 
 End FieldAccessSpec.
