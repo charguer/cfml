@@ -108,6 +108,11 @@ Fixpoint hcells (L:list val) (p:loc) : hprop :=
 Definition harray (L:list val) (p:loc) : hprop :=
   hcells L p \* \[p <> null].
 
+Lemma harray_not_null : forall p L,
+  L <> nil -> 
+  harray L p ==> harray L p \* \[p <> null].
+Proof using. introv N. unfold harray. xsimpl*. Qed.
+
 (** The operation [val_alloc k] allocates [k] consecutive cells. Let [p] 
     denote the pointer returned. The allocated cells have addresses in 
     the range from [p] inclusive to [p+k] exclusive. These cells have for
@@ -616,41 +621,14 @@ Qed.
 (** * Additional contents *)
 
 
-
-
-(*
-
-(* ####################################################### *)
-(** ** Not null information *)
-
-Lemma harray_not_null : forall p L,
-  L <> nil -> 
-  harray L p ==> harray L p \* \[p <> null].
-Proof using.
-  introv N. destruct L as [|x L']; tryfalse. simpl.
-  xchanges* hsingle_not_null.
-Qed.
-
-(* TODO *)
-Lemma length_pos_inv_not_nil : forall A (l : list A),
-  (length l > 0%nat) ->
-  l <> nil.
-Admitted.
-
-
-Lemma hcells_not_null : forall p k,
-  k > 0%nat -> 
-  hcells k p ==> hcells k p \* \[p <> null].
-Proof using.
-  introv N. unfold hcells. xchanges* harray_not_null.
-  applys length_pos_inv_not_nil. rewrite* length_make.
-Qed.
+Implicit Types x : val.
+Implicit Types q : loc.
 
 
 (* ####################################################### *)
 (** ** Proof of operation on list cells *)
 
-(** *)
+(** Recall from [SLFBasic] the definition of [MList]. *)
 
 Fixpoint MList (L:list val) (p:loc) : hprop :=
   match L with
@@ -660,39 +638,13 @@ Fixpoint MList (L:list val) (p:loc) : hprop :=
   end.
 
 Lemma MList_nil : forall p,
-  (p ~> MList nil) = \[p = null].
+  (MList nil p) = \[p = null].
 Proof using. auto. Qed.
 
 Lemma MList_cons : forall p x L',
-  p ~> MList (x::L') =
+  MList (x::L') p =
   \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* MList L' q.
 Proof using.  auto. Qed.
-
-
-(** The function [mcons] is an alias for [mcell].
-
-    Whereas [mcell] is intended to allocate a fresh cell on its own,
-    [mcons] is intended to extend an existing list by appending to
-    it a freshly-allocated cell. *)
-
-Definition mcons : val := mcell.
-
-(** The specification of [mcons] thus requires a list [q ~> MList L]
-    in its precondition, and produces a list [p ~> MList (x::L)] in
-    its postcondition. *)
-
-Lemma Triple_mcons : forall (x:int) (q:loc) (L:list int),
-  TRIPLE (mcons x q)
-    PRE (q ~> MList L)
-    POST (fun (p:loc) => p ~> MList (x::L)).
-Proof using.
-  intros. unfold mcons. xtriple. xapp Triple_mcell.
-  intros p. xchange <- MList_cons. (* Fold back the list *)
-Qed.
-
-Hint Extern 1 (Register_Spec mcons) => Provide Triple_mcons.
-
-
 
 
 (** The operation [mnil()] returns the [null] value.
@@ -712,18 +664,17 @@ Definition mnil : val :=
     asserts that the return value [p] is a pointer such that
     [p ~> MList nil]. *)
 
-Lemma Triple_mnil :
-  TRIPLE (mnil '())
-    PRE \[]
-    POST (fun (p:loc) => p ~> MList nil).
+Lemma triple_mnil :
+  triple (mnil '())
+    \[]
+    (fun r => \exists p, \[r = val_loc p] \* MList nil p).
 Proof using.
   (* The proof requires introducing [null ~> MList nil] from nothing. *)
-  xwp. xval. xchange <- (MList_nil null). { auto. }
+  xwp. xval. xchange <- (MList_nil null). { auto. } xsimpl*.
 Qed.
 
-Hint Extern 1 (Register_Spec mnil) => Provide Triple_mnil.
 
-(** Observe that the specification [Triple_mnil] does not mention
+(** Observe that the specification [triple_mnil] does not mention
     the [null] pointer anywhere. This specification can thus be
     used to specify the behavior of operations on mutable lists
     without having to reveal low-level implementation details. *)
@@ -734,15 +685,61 @@ Hint Extern 1 (Register_Spec mnil) => Provide Triple_mnil.
     [MList_nil_intro] corresponds to the lemma stated next. *)
 
 Lemma MList_nil_intro :
-  \[] ==> (null ~> MList nil).
-Proof using. intros. xchange <- (MList_nil null). auto. Qed.
+  \[] ==> (MList nil null).
+Proof using. intros. rewrite* MList_nil. xsimpl*. Qed.
 
 Lemma Triple_mnil' :
-  TRIPLE (mnil '())
-    PRE \[]
-    POST (fun (p:loc) => p ~> MList nil).
+  triple (mnil '())
+    \[]
+    (fun r => \exists p, \[r = val_loc p] \* MList nil p).
 Proof using.
-  xwp. xval. xchange MList_nil_intro.
+  xwp. xval. xchange MList_nil_intro. xsimpl*.
+Qed.
+
+
+
+(** The function [mcons] is an alias for [mcell].
+
+    Whereas [mcell] is intended to allocate a fresh cell on its own,
+    [mcons] is intended to extend an existing list by appending to
+    it a freshly-allocated cell. *)
+
+Definition mcons : val := 
+  mcell.
+
+(** The specification of [mcons] thus requires a list [q ~> MList L]
+    in its precondition, and produces a list [p ~> MList (x::L)] in
+    its postcondition. *)
+
+Lemma triple_mcons : forall x q L,
+  triple (mcons x q)
+    (MList L q)
+    (fun r => \exists p, \[r = val_loc p] \* MList (x::L) p).
+Proof using.
+  intros. xtriple. xapp triple_mcell.
+  intros p. xchange <- MList_cons. xsimpl*. (* fold back the list *)
+Qed.
+
+
+Hint Resolve triple_mnil triple_mcons : triple.
+
+
+
+
+
+Lemma MList_if : forall (p:loc) (L:list val),
+      (MList L p)
+  ==> (If p = null
+      then \[L = nil]
+      else \exists x q L', \[L = x::L']
+           \* (p`.head ~~> x) \* (p`.tail ~~> q)
+           \* (MList L' q)).
+Proof using.
+  intros. destruct L as [|x L'].
+  { xchange MList_nil. intros M. case_if. xsimpl. auto. }
+  { xchange MList_cons. intros q. case_if.
+    { xchange hfield_not_null. }
+    { xsimpl. auto. } }
 Qed.
 
 
@@ -764,9 +761,14 @@ Qed.
 
 Definition mcopy : val :=
   VFix 'f 'p :=
-    If_ 'p  '= null
+    Let 'b := ('p  '= null) in
+    If_ 'b
       Then mnil '()
-      Else mcons ('p'.head) ('f ('p'.tail)).
+      Else 
+        Let 'x := 'p'.head in
+        Let 'q := 'p'.tail in
+        Let 'q2 := 'f 'q in
+        mcons 'x 'q2.
 
 (** The precondition of [mcopy] requires a linked list [p ~> MList L].
     Its postcondition asserts that the function returns a pointer [p']
@@ -774,10 +776,10 @@ Definition mcopy : val :=
     [p ~> MList L]. The two lists are totally disjoint and independent,
     as captured by the separating conjunction symbol (the star). *)
 
-Lemma Triple_mcopy : forall (p:loc) (L:list int),
-  TRIPLE (mcopy p)
-    PRE (p ~> MList L)
-    POST (fun (p':loc) => (p ~> MList L) \* (p' ~> MList L)).
+Lemma triple_mcopy : forall p L,
+  triple (mcopy p)
+    (MList L p)  
+    (fun r => \exists p', \[r = val_loc p'] \* (MList L p) \* (MList L p')).
 
 (** The proof script is very similar in structure to the previous ones.
     While playing the script, try to spot the places where:
@@ -787,17 +789,29 @@ Lemma Triple_mcopy : forall (p:loc) (L:list int),
     - [mcons] produces a list of the form [p' ~> MList (x::L')]. *)
 
 Proof using.
-  intros. gen p. induction_wf IH: list_sub L.
+  intros. gen p. induction_wf IH: (@list_sub val) L. (* TODO: arg to list_sub *)
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
-  { intros ->. xapp. xsimpl. xchange* <- (MList_nil p). }
-  { intros x q L' ->. xapp. xapp. xapp*. intros q'.
-    xapp. intros p'. xchange <- MList_cons. }
+  { intros ->. xapp. xsimpl*. subst. applys MList_nil_intro. }
+  { intros x q L' ->. xapp. xapp. xapp. intros q'.
+    xapp. intros p'. xchange <- MList_cons. xsimpl*. }
 Qed.
 
-Hint Extern 1 (Register_Spec mcopy) => Provide Triple_mcopy.
+
 
 (* ########################################################### *)
 (** ** Deallocation of a cell: [mfree_cell] *)
+
+Definition mfree_cell : val :=
+  VFun 'p :=  (* TODO: rename VFun *)
+    val_dealloc 2%nat 'p.
+
+Lemma triple_mfree_cell : forall (x:val) (p q:loc),
+  triple (mfree_cell p)
+    ((p`.head ~~> x) \* (p`.tail ~~> q))
+    (fun _ => \[]).
+Proof using. xwp. xapp triple_dealloc_cell. xsimpl. Qed.
+
+Hint Resolve triple_mfree_cell : triple.
 
 (** Separation Logic can be set up to enforce that all allocated data
     eventually gets properly deallocated. In what follows, we describe
@@ -836,7 +850,8 @@ Hint Extern 1 (Register_Spec mcopy) => Provide Triple_mcopy.
 
 Definition mfree_list : val :=
   VFix 'f 'p :=
-    If_ 'p '<> null Then
+    Let 'b := ('p '<> null) in
+    If_ 'b Then
       Let 'q := 'p'.tail in
       mfree_cell 'p ';
       'f 'q
@@ -849,26 +864,20 @@ Definition mfree_list : val :=
 (** Verify the function [mfree_list].
     Hint: follow the pattern of the proof of the function [mlength]. *)
 
-Lemma Triple_mfree_list : forall (p:loc) (L: list int),
-  TRIPLE (mfree_list p)
-    PRE (p ~> MList L)
-    POST (fun (r:unit) => \[]).
+Lemma triple_mfree_list : forall p L,
+  triple (mfree_list p)
+    (MList L p)
+    (fun _ => \[]).
 Proof using. (* ADMITTED *)
-  intros. gen p. induction_wf IH: list_sub L. intros.
-  xwp. xchange MList_if. xif; intros C; case_if; xpull.
-  { intros x p' L' ->. xapp. xapp. xapp. { auto. } xsimpl. }
+  intros. gen p. induction_wf IH: (@list_sub val) L. intros. (* TODO: val *)
+  xwp. xchange MList_if. xapp. xif; intros C; case_if; xpull.
+  { intros x p' L' ->. xapp. xapp. xapp. xsimpl. }
   { intros ->. xval. xsimpl. }
 Qed. (* /ADMITTED *)
 
 (** [] *)
 
-Hint Extern 1 (Register_Spec mfree_list) => Provide Triple_mfree_list.
-
-(** This concludes our quick tour of functions on mutable lists.
-    Additional functions are presented further in the file,
-    as exercises. *)
-
-
+(*
 
 
 (* ########################################################### *)
@@ -1407,7 +1416,4 @@ Definition hcells (k:nat) (p:loc) : hprop :=
 
 *)
 
-
-
-*)
 
