@@ -408,9 +408,207 @@ Proof using.
 Qed.
 
 
+(* ####################################################### *)
+(** ** Local reasoning on arrays *)
+
+(** Consider the function [array_incr], which increments all the cells of
+    an array of integer by one unit.
+
+    An efficient, parallel version of this function can be implemented using
+    a divide-and-conquer approach: if the array has length more than [1],
+    then split in two parts and make a recursive call on each of the two parts.
+    The two recursive calls can be safely executed in parallel, because they
+    act over disjoint pieces of the array. Our programming language does not
+    enable us to express this form of parallelism, yet it would be possible
+    to do so using a simple extension based on the "fork-join" parallel construct.
+
+[[
+    let rec array_incr n p =
+      if n = 1 then incr p
+      else if n > 1 then 
+        let m = n/2 in
+        array_incr x m;
+        array_incr x (n-m) (p+m)
+]]
+
+    Our concern here is to show how the description of an array can be split
+    in two parts in the course of a recursive function. *)
+
+(** The description of an array, that is, a set of consecutive cells, 
+    can be split in two parts, at an arbitrary index. Concretely, if
+    we have [harray (L1++L2) p], then we can separate the left part
+    [harray L1 p] from the right part [harray L2 q], where the address
+    [q] is equal to [p + length L1]. Reciprocally, the two parts can
+    be merged back into the original form at any time. *)
+
+Lemma hcells_concat_eq : forall p L1 L2,
+  hcells (L1++L2) p = (hcells L1 p \* hcells L2 (length L1 + p)%nat).
+Proof using.
+  intros. gen p. induction L1; intros; rew_list; simpl.
+  { xsimpl. } 
+  { rewrite IHL1. math_rewrite (length L1 + S p = S (length L1 + p))%nat.
+    xsimpl. } 
+Qed.
+
+Lemma harray_concat_eq : forall p L1 L2,
+  harray (L1++L2) p = (harray L1 p \* harray L2 (length L1 + p)%nat).
+Proof using.
+  intros. unfold harray, null, loc. rewrite hcells_concat_eq. 
+  applys himpl_antisym; xsimpl*. math.
+Qed.
+
+(** To deal with the base cases, the following two lemmas are helpul. *)
+
+Lemma hcells_nil_eq : forall p,
+  hcells nil p = \[].
+Proof using. auto. Qed.
+
+Lemma hcells_one_eq : forall p x,
+  hcells (x::nil) p = (p ~~> x).
+Proof using. intros. simpl. xsimpl*. Qed.
+
+Lemma harray_nil_eq : forall p,
+  harray nil p = \[p <> null].
+Proof using. intros. unfold harray. rewrite hcells_nil_eq. xsimpl*. Qed.
+
+Lemma harray_one_eq : forall p x,
+  harray (x::nil) p = (p ~~> x).
+Proof using.
+  intros. unfold harray. rewrite hcells_one_eq. applys himpl_antisym.
+  { xsimpl. } { xchanges hsingle_not_null. }
+Qed.
+
+(** Let us put this lemma to practice on our example program. *)
+
+Import DemoPrograms.
+
+Definition array_incr : val :=
+  VFix 'f 'n 'p :=
+    Let 'b1 := ('n '= 1) in
+    If_ 'b1 Then incr 'p Else
+    Let 'b2 := ('n '> 1) in
+    If_ 'b2 Then
+      Let 'm := 'n '/ 2 in
+      Let 'n2 := ('n '- 'm) in
+      Let 'p2 := (val_ptr_add 'p 'm) in
+      'f 'm 'p ';
+      'f 'n2 'p2
+    End.
+
+Definition vals_of_ints (L:list int) : list val :=
+  LibList.map val_int L.
+
+Lemma length_one_inv : forall A (L:list A),
+  length L = 1%nat ->
+  exists x, L = x::nil.
+Proof using.
+  introv N. destruct L as [|x [|]]; rew_list in *; tryfalse. eauto.
+Qed.
+
+Lemma length_zero_inv : forall A (L:list A),
+  length L = 0%nat ->
+  L = nil.
+Proof using.
+  introv N. destruct L as [|]; rew_list in *; tryfalse. eauto.
+Qed.
+
+Lemma range_split : forall n,
+  n > 1 ->
+  0 < Z.quot n 2 < n.
+Admitted. (* TODO *)
+
+Parameter triple_div : forall n1 n2 : int,
+  triple (val_div n1 n2)
+    \[n2 <> 0]
+    (fun r => \[r = val_int (Z.quot n1 n2)]).
+
+Hint Resolve triple_div : triple.
+
+Definition harray_int (L:list int) (p:loc) : hprop :=
+  harray (LibList.map val_int L) p.
+
+Lemma harray_int_nil_eq : forall p,
+  harray_int nil p = \[p <> null].
+Proof using. intros. unfold harray_int. rew_listx. rewrite* harray_nil_eq. Qed.
+
+Lemma harray_int_one_eq : forall p n,
+  harray_int (n::nil) p = (p ~~> (val_int n)).
+Proof using. intros. unfold harray_int. rew_listx. rewrite* harray_one_eq. Qed.
+
+Lemma harray_int_concat_eq : forall p L1 L2,
+  harray_int (L1++L2) p = (harray_int L1 p \* harray_int L2 (length L1 + p)%nat).
+Proof using. intros. unfold harray_int. rew_listx. rewrite* harray_concat_eq. rew_listx*. Qed.
+
+Import LibListZ.
+Open Scope liblist_scope.
+Lemma take_app_drop_spec_nonneg : forall A (n:int) (l:list A),
+  0 <= n <= length l ->
+  exists f r,
+      l = f ++ r
+   /\ length f = n
+   /\ length r = length l - n.
+Proof using. 
+  introv M. exists (take n l) (drop n l).
+  forwards* (R&_): take_app_drop_spec n l.
+Qed.
 
 
-(*
+Lemma triple_array_incr : forall (n:int) L p,
+  n = LibListZ.length L ->
+  triple (array_incr n p)
+    (harray_int L p)
+    (fun _ => harray_int (LibList.map (fun x => x + 1) L) p).
+Proof using.
+  intros n. induction_wf IH: (wf_downto 0) n.
+  introv E. xwp. xapp. xif; intros C1.
+  { forwards (x&Hx): length_one_inv L. math. (* TODO math *) subst.
+    rewrite harray_int_one_eq. xapp. rewrite <- harray_one_eq. xsimpl. }
+  { asserts C1': (n <> 1). { intros N. applys C1. fequals. } clear C1. (* TODO cleanup *)
+    xapp. xif; intros C2.
+    { forwards R: range_split n. { math. }
+      xapp. { math. } sets m: (Z.quot n 2).
+      xapp. xapp triple_ptr_add. { math. } 
+      forwards (L1&L2&EL&LL1&LL2): take_app_drop_spec_nonneg m L. { math. }
+      rewrite EL. rewrite harray_int_concat_eq.
+      xapp (>> IH L1). { math. } { math. }
+      rew_listx. asserts_rewrite (abs (p + m) = (LibList.length L1 + p)%nat).
+      { apply eq_nat_of_eq_int. rewrite abs_nonneg; math. }
+      xapp (>> IH L2). { math. } { math. }
+      rewrite harray_int_concat_eq. rew_listx. xsimpl. }
+    { asserts En: (n = 0). { math. }
+      forwards HL: (length_zero_inv L). { math. }
+      xval. subst. do 2 rewrite harray_int_nil_eq. xsimpl*. } }
+Qed.
+
+Lemma triple_array_incr' : forall (n:int) L p,
+  n = LibListZ.length L ->
+  triple (array_incr n p)
+    (harray (vals_of_ints L) p)
+    (fun _ => harray (vals_of_ints (LibList.map (fun x => x + 1) L)) p).
+Proof using.
+  intros n. induction_wf IH: (wf_downto 0) n.
+  introv E. xwp. xapp. xif; intros C1.
+  { forwards (x&Hx): length_one_inv L. math. (* TODO math *) subst.
+    unfold vals_of_ints. rew_listx. rewrite harray_one_eq. xapp.
+    rewrite <- harray_one_eq. xsimpl. }
+  { asserts C1': (n <> 1). { intros N. applys C1. fequals. } clear C1. (* TODO cleanup *)
+    xapp. xif; intros C2.
+    { forwards R: range_split n. { math. }
+      xapp. { math. } sets m: (Z.quot n 2).
+      xapp. xapp triple_ptr_add. { math. } 
+      forwards (L1&L2&EL&LL1&LL2): take_app_drop_spec_nonneg m L. { math. }
+      rewrite EL. unfold vals_of_ints. rew_listx. rewrite harray_concat_eq.
+      xapp (>> IH L1). { math. } { math. }
+      rew_listx. asserts_rewrite (abs (p + m) = (LibList.length L1 + p)%nat).
+      { apply eq_nat_of_eq_int. rewrite abs_nonneg; math. }
+      xapp (>> IH L2). { math. } { math. }
+      rewrite harray_concat_eq. rew_listx. unfold vals_of_ints. xsimpl. }
+    { asserts En: (n = 0). { math. }
+      forwards HL: (length_zero_inv L). { math. }
+      xval. subst. unfold vals_of_ints; rew_listx. xsimpl. } }
+Qed.
+
+
 
 (* ########################################################### *)
 (* ########################################################### *)
@@ -418,6 +616,9 @@ Qed.
 (** * Additional contents *)
 
 
+
+
+(*
 
 (* ####################################################### *)
 (** ** Not null information *)
@@ -668,87 +869,6 @@ Hint Extern 1 (Register_Spec mfree_list) => Provide Triple_mfree_list.
     as exercises. *)
 
 
-(* ####################################################### *)
-(** ** Local reasoning on arrays *)
-
-(* TODO Remark: *)
-
-Lemma harray_nil : forall p,
-  harray nil p = \[].
-Proof using. auto. Qed.
-
-Lemma harray_cons : forall p x L,
-  harray (x::L) p = ((p ~~> x) \* harray L (S p)).
-Proof using. auto. Qed.
-
-Lemma Alloc_split_eq : forall k1 (k:nat) p,
-  (k1 <= k)%nat ->
-  Alloc k p = Alloc k1 p \* Alloc (k-k1)%nat (p + k1)%nat.
-Proof using.
-  Transparent loc field. unfold field.
-  intros k1 k. gen k1. induction k; introv N.
-  {math_rewrite (k1 = 0%nat). rew_Alloc. rew_heap~. }
-  { destruct k1 as [|k1']; rew_nat.
-    { rew_Alloc. rew_heap~. }
-    { rew_Alloc. rewrite (IHk k1'); [|math]. rew_heap~. } }
-Qed.
-
-Arguments Alloc_split_eq : clear implicits.
-
-Lemma Alloc_split_inv : forall k1 k2 p,
-  Alloc k1 p \* Alloc k2 (p + k1)%nat ==> Alloc (k1+k2)%nat p.
-Proof using.
-  intros. rewrites (Alloc_split_eq k1 (k1+k2)%nat p); [|math]. rew_nat~.
-Qed.
-
-Lemma Array_nil_eq : forall p,
-  Array nil p = \[].
-Proof using. auto. Qed.
-
-Lemma Array_cons_eq : forall p x L,
-  Array (x::L) p = (p ~~~> x) \* Array L (S p).
-Proof using. auto. Qed.
-
-Lemma Array_one_eq : forall p x,
-  Array (x::nil) p = (p ~~~> x).
-Proof using. intros. rewrite Array_cons_eq, Array_nil_eq. rew_heap~. Qed.
-
-Lemma Array_concat_eq : forall p L1 L2,
-  Array (L1++L2) p = Array L1 p \* Array L2 (p + length L1)%nat.
-Proof using.
-  Transparent loc.
-  intros. gen p. induction L1; intros; rew_list.
-  { rewrite Array_nil_eq. rew_heap. fequals. unfold loc; math. }
-  { do 2 rewrite Array_cons_eq. rewrite IHL1. rew_heap. do 3 fequals.
-    unfold loc; math. }
-Qed.
-
-Lemma Array_last_eq : forall p x L,
-  Array (L&x) p = Array L p \* ((p + length L)%nat ~~~> x).
-Proof using. intros. rewrite Array_concat_eq. rewrite~ Array_one_eq. Qed.
-
-Lemma Array_middle_eq : forall n p L,
-  0 <= n < length L ->
-  Array L p = \exists L1 x L2, \[L = L1++x::L2] \* \[length L1 = n :> int] \*
-    Array L1 p \* (abs(p+n) ~~~> x) \* Array L2 (p + length L1 + 1)%nat.
-Proof using.
-  (* LATER: simplify the Z/nat math, by using a result from LibListZ directly *)
-  introv N. applys himpl_antisym.
-  { forwards (L1&x&L2&E&HM): list_middle_inv (abs n) L.
-    asserts (N1&N2): (0 <= abs n /\ (abs n < length L)%Z).
-    { split; rewrite abs_nonneg; math. } math.
-    lets M': eq_int_of_eq_nat HM. rewrite abs_nonneg in M'; [|math].
-    xsimpl~ (>> L1 x L2). subst L. rewrite Array_concat_eq, Array_cons_eq.
-    rew_nat. xsimpl. rewrite HM. rewrite~ abs_nat_plus_nonneg. math. }
-  { xpull ;=> L1 x L2 HM E. subst n.
-    subst L. rewrite Array_concat_eq, Array_cons_eq.
-    rew_nat. xsimpl. applys_eq himpl_refl 1. fequals.
-    rewrite abs_nat_plus_nonneg; [|math]. rewrite~ abs_nat. }
-Qed.
-
-function count
-
-parallel calls remark
 
 
 (* ########################################################### *)
@@ -1265,6 +1385,27 @@ Definition hcells (k:nat) (p:loc) : hprop :=
 (** Remark: the function [hfold_list] provides a general "fold of the
     separation logic monoid over a list of values" that will prove useful
     later on also for other purposes. *)
+
+(** Consider the function [count], which counts the number of occurences
+    of a integer [x] in an array of [n] integers, at location [p].
+
+    An efficient, parallel version of this function can be implemented using
+    a divide-and-conquer approach: if the array has length more than [1],
+    then split in two parts, make a recursive call on each part, then sum up
+    the results. The two recursive calls can be safely executed in parallel,
+    
+     *)
+
+[[
+    let rec count x n p =
+      if n = 0 then 0 else
+      if n = 1 then (if !p = x then 1 else 0)
+      else 
+        let m = n/2 in
+        count x m + count x (n-m) (p+m)
+]]
+
+*)
 
 
 
