@@ -59,9 +59,9 @@ Implicit Type v : val.
 
     In this chapter, we present reasoning rules for curried functions,
     again because this choice requires minimal extension to the syntax and
-    semantics of our language. We discuss in the bonus section the treatment
-    of native n-ary functions, which is the most practical solution from an
-    engineering point of view.
+    semantics of our language. (In constrast, CFML is based on n-ary native
+    n-ary functions, which are more practical and more efficient from an
+    engineering perspective.)
 
 *)
 
@@ -662,6 +662,90 @@ Proof using.
       forwards HL: (length_zero_inv L). { math. }
       xval. subst. do 2 rewrite harray_int_nil_eq. xsimpl*. } }
 Qed.
+
+
+(* ####################################################### *)
+(** ** Curried functions of several arguments *)
+
+Module CurriedFun.
+
+(** We next give a quick presentation of the notation, lemmas and
+    tactics involved in the manipulation of functions of several
+    arguments. We focus here on the particular case of recursive
+    functions with two arguments, to illustrate the principles.
+
+    The lemmas for other arities can be found in the file [SLFExtra].
+    One may attempt to generalize these definitions to handle
+    arbitrary arities. Yet, to obtain an arity-generic treatment of
+    functions, it is much simpler to work with primitive n-ary functions
+    (i.e., functions that expects a list of variables, and that may be
+    applied to a list of values). The treatment of these n-ary functions
+    is beyond the scope of (the current version of) the course.
+
+    So, let us focus on curried recursive functions of arity two.
+
+    [val_fix f x1 (trm_fun x2 t)] describes a value that corresponds to
+    a recursive function [t] that expects two arguments [x1] and [x2].
+    Observe that the inner function, the one that expects [x2], is not
+    recursive, and that it is not a value but a term, because it may
+    refer to the variable [x1] bound outside of it.
+
+    We introduce the notation [VFix f x1 x2 := t] to generalize
+    [VFix f x := t] to the case of functions of two arguments. *)
+
+Notation "'VFix' f x1 x2 ':=' t" :=
+  (val_fix f x1 (trm_fun x2 t))
+  (at level 69, f, x1, x2 at level 0,
+  format "'VFix'  f  x1  x2  ':='  t").
+
+(** An application of a function of two arguments takes the form
+    [f v1 v2], which is actually parsed as [trm_app (trm_app f v1) v2].
+
+    This expression is an application of a term to a value, and not of
+    a value to a value. Thus, this expression cannot be evaluated using
+    the rule [eval_app_fun]. We need a distinct rule for first evaluating
+    the arguments of a function application to values, before we can
+    evaluate the application of a value to a value.
+
+    The rule [eval_app_arg] serves that purpose. To state it, we first
+    need to characterize whether a term is a value or not, using the
+    predicate [trm_is_val t] defined next. *)
+
+Definition trm_is_val (t:trm) : Prop :=
+  match t with trm_val v => True | _ => False end.
+
+(** The statement of [eval_app_arg] then takes the following form.
+    For an expression [trm_app t1 t2] where either [t1] or [t2] is
+    not a value, it enables reducing both [t1] and [t2] to values,
+    leaving a premise of the form [trm_app v1 v2], which is subject
+    to the rule [eval_app_fun] for evaluating functions. *)
+
+Parameter eval_app_arg : forall s1 s2 s3 s4 t1 t2 v1 v2 r,
+  (~ trm_is_val t1 \/ ~ trm_is_val t2) ->
+  eval s1 t1 s2 v1 ->
+  eval s2 t2 s3 v2 ->
+  eval s3 (trm_app v1 v2) s4 r ->
+  eval s1 (trm_app t1 t2) s4 r
+
+(** Using this rule, we can establish an evaluation rule for the
+    term [v0 v1 v2]. There, [v0] is a recursive function of two
+    arguments named [x1] and [x2], the values [v1] and [v2] denote
+    the corresponding arguments, and [f] denotes the name of the
+    function available for making recursive calls from the body [t1].
+
+    The key idea is that the behavior of [v0 v1 v2] is similar to
+    that of the term [subst x2 v2 (subst x1 v1 (subst f v0 t1))]. *)
+
+Parameter triple_app_fix2 : forall f x1 x2 v0 v1 v2 t1 H Q,
+  v0 = val_fix f x1 (trm_fun x2 t1) ->
+  (x1 <> x2 /\ f <> x2) ->
+  triple (subst x2 v2 (subst x1 v1 (subst f v0 t1))) H Q ->
+  triple (v0 v1 v2) H Q.
+
+(** The bonus section contains additional information on how to
+    extend the [xwp] tactic to exploit this evaluation rule. *)
+
+End CurriedFun.
 
 
 (* ########################################################### *)
@@ -1294,259 +1378,86 @@ End GroupedFields.
 
 
 (* ####################################################### *)
-(** ** Treatment of uncurried functions *)
+(** ** Grouped representation of record fields *)
 
-  | trm_fixs : var -> list var -> trm -> trm
-  | trm_apps : trm -> list trm -> trm
+Module CurriedFunXwp.
 
+(** We next explain how to generalize the tactic [xwp] to handle
+    recursive functions of two arguments. (For other arities, we
+    refer to the file [SLFExtra.v].)
 
-Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
-  let aux t :=
-    subst y w t in
-  let aux_no_captures xs t :=
-    If LibList.mem y xs then t else aux t in
-  match t with
-  | trm_fixs f xs t1 => trm_fixs f xs (If f = y then t1 else
-                                        aux_no_captures xs t1)
-  | trm_apps t0 ts => trm_apps (aux t0) (List.map aux ts)
-  ...
- end.
+    As we said earlier, the key idea is that the behavior of [v0 v1 v2]
+    is similar to that of the term [subst x2 v2 (subst x1 v1 (subst f v0 t1))].
 
+    We state this property using the predicate [eval_like], introduced
+    in the chapter [SLFRules]. *)
 
-Lemma subst_trm_fixs : forall y w f xs t,
-  var_fresh y (f::xs) ->
-  subst1 y w (trm_fixs f xs t) = trm_fixs f xs (subst1 y w t).
+Lemma eval_like_app_fix2 : forall v0 v1 v2 f x1 x2 t1,
+  v0 = val_fix f x1 (trm_fun x2 t1) ->
+  (x1 <> x2 /\ f <> x2) ->
+  eval_like (subst x2 v2 (subst x1 v1 (subst f v0 t1))) (v0 v1 v2).
 Proof using.
-  introv N. simpls. case_var.
-  { false* var_fresh_mem_inv. }
-  { auto. }
+  introv E (N1&N2). introv R. applys* eval_app_arg.
+  { applys eval_app_fix E. simpl. do 2 (rewrite var_eq_spec; case_if).
+    applys eval_fun. }
+  { applys* eval_val. }
+  { applys* eval_app_fun. }
 Qed.
 
+(** From this result, we can easily prove the specification triple
+    presented earlier on for applications of the form [v0 v1 v2]. *)
 
-  | eval_fixs : forall m f xs t1,
-      xs <> nil ->
-      eval m (trm_fixs f xs t1) m (val_fixs f xs t1)
-
-  | eval_apps_fixs : forall m1 m2 f xs t3 v0 vs r,
-      v0 = val_fixs f xs t3 ->
-      var_fixs f (length vs) xs ->
-      eval m1 (substn xs vs (subst1 f v0 t3)) m2 r ->
-      eval m1 (trm_apps v0 vs) m2 r
-
-
-Fixpoint var_distinct (xs:vars) : Prop :=
-  match xs with
-  | nil => True
-  | x::xs' => var_fresh x xs' /\ var_distinct xs'
-  end.
-
-Fixpoint var_fresh (y:var) (xs:vars) : bool :=
-  match xs with
-  | nil => true
-  | x::xs' => if var_eq x y then false else var_fresh y xs'
-  end.
-
-
-(** [noduplicates L] asserts that [L] does not contain any
-    duplicated item. *)
-
-Inductive noduplicates A : list A -> Prop :=
-  | noduplicates_nil : noduplicates nil
-  | noduplicates_cons : forall x l,
-      ~ (mem x l) ->
-      noduplicates l ->
-      noduplicates (x::l).
-
-
-
-Definition var_fixs (f:var) (n:nat) (xs:vars) : Prop :=
-     var_distinct (f::xs)
-  /\ length xs = n
-  /\ xs <> nil.
-
-Definition var_fixs_exec (f:bind) (n:nat) (xs:vars) : bool := ..
-
-Lemma var_fixs_exec_eq : forall f (n:nat) xs,
-  var_fixs_exec f n xs = isTrue (var_fixs f n xs).
-
-
-Lemma triple_apps_fixs : forall xs (f:var) F (Vs:vals) t1 H Q,
-  F = (val_fixs f xs t1) ->
-  var_fixs f (length Vs) xs ->
-  triple (substn (f::xs) (F::Vs) t1) H Q ->
-  triple (trm_apps F Vs) H Q.
+Lemma triple_app_fix2 : forall f x1 x2 v0 v1 v2 t1 H Q,
+  v0 = val_fix f x1 (trm_fun x2 t1) ->
+  (x1 <> x2 /\ f <> x2) ->
+  triple (subst x2 v2 (subst x1 v1 (subst f v0 t1))) H Q ->
+  triple (v0 v1 v2) H Q.
 Proof using.
-  introv E N M. intros H' h Hf. forwards (h'&v&R&K): (rm M) Hf.
-  exists h' v. splits~. { subst. applys* eval_apps_fixs. }
+  introv E N M1. applys triple_eval_like M1. applys* eval_like_app_fix2.
 Qed.
 
+(** We can exploit the same result to esablish the corresponding
+    weakest-precondition style version of the reasoning rule. *)
 
-Fixpoint trms_to_vals_rec (acc:vals) (ts:trms) : option vals :=
-  match ts with
-  | nil => Some (List.rev acc)
-  | trm_val v :: ts' => trms_to_vals_rec (v::acc) ts'
-  | _ => None
-  end.
+Lemma wp_app_fix2 : forall f x1 x2 v0 v1 v2 t1 Q,
+  v0 = val_fix f x1 (trm_fun x2 t1) ->
+  (x1 <> x2 /\ f <> x2) ->
+  wp (subst x2 v2 (subst x1 v1 (subst f v0 t1))) Q ==> wp (trm_app v0 v1 v2) Q.
+Proof using. introv EQ1 N. applys wp_eval_like. applys* eval_like_app_fix2. Qed.
 
-Definition trms_to_vals (ts:trms) : option vals :=
-  trms_to_vals_rec nil ts.
+(** We can then reformulate this wp-style rule in a way that suits
+    the needs of the [xwp] tactic, using a conclusion expressed
+    using a [triple], and using a premise expressed using [wpgen].
+    Observe the substitution context, which is instantiated as
+    [(f,v0)::(x1,v1)::(x2,v2)::nil]. Note also how the side-conditions
+    expressing the fact that the variables are distinct are stated
+    using a comparison function for variables that computes in Coq. *)
 
+Lemma xwp_lemma_fix2 : forall f v0 v1 v2 x1 x2 t H Q,
+  v0 = val_fix f x1 (trm_fun x2 t) ->
+  (var_eq x1 x2 = false /\ var_eq f x2 = false) ->
+  H ==> wpgen ((f,v0)::(x1,v1)::(x2,v2)::nil) t Q ->
+  triple (v0 v1 v2) H Q.
+Proof using.
+  introv M1 N M2. repeat rewrite var_eq_spec in N. rew_bool_eq in *.
+  rewrite <- wp_equiv. xchange M2.
+  xchange (>> wpgen_sound (((f,v0)::nil) ++ ((x1,v1)::nil) ++ ((x2,v2)::nil)) t Q).
+  do 2 rewrite isubst_app. do 3 rewrite <- subst_eq_isubst_one.
+  applys* wp_app_fix2.
+Qed.
 
-Lemma xwp_lemma_fixs : forall F f vs ts xs t H Q,
-  F = val_fixs f xs t ->
-  trms_to_vals ts = Some vs ->
-  var_fixs_exec f (length vs) xs ->
-  H ==> (wpgen (combine (f::xs) (F::vs)) t) Q ->
-  triple (trm_apps F ts) H Q.
+(** Finally, we can generalize the [xwp] tactic by integrating in
+    its implementation an attempt to invoke the above lemma. *)
 
+Tactic Notation "xwp" :=
+  intros;
+  first [ applys xwp_lemma_fun; [ reflexivity | ]
+        | applys xwp_lemma_fix; [ reflexivity | ]
+        | applys xwp_lemma_fix2; [ reflexivity | splits; reflexivity | ] ];
+  xwp_simpl.
 
-(* ####################################################### *)
-(** ** Coercion for uncurried functions *)
+(** The generalized version of [xwp] following this line is
+    formalized in the file [SLFExtra.v] and was put to practice
+    in several examples from the chapter [SLFBasic]. *)
 
-Coercion trm_to_pat : trm >-> pat.
-
-(** Parsing facility: coercions for turning [t1 t2 t3]
-    into [trm_apps t1 (t2::t3::nil)] *)
-
-Inductive combiner :=
-  | combiner_nil : trm -> trm -> combiner
-  | combiner_cons : combiner -> trm -> combiner.
-
-Coercion combiner_nil : trm >-> Funclass.
-Coercion combiner_cons : combiner >-> Funclass.
-
-Fixpoint combiner_to_trm (c:combiner) : trm :=
-  match c with
-  | combiner_nil t1 t2 => trm_apps t1 (t2::nil)
-  | combiner_cons c1 t2 =>
-      match combiner_to_trm c1 with
-      | trm_apps t1 ts => trm_apps t1 (List.app ts (t2::nil))
-      | t1 => trm_apps t1 (t2::nil)
-      end
-  end.
-
-Coercion combiner_to_trm : combiner >-> trm.
-
-
-
-=========
-
-Fixpoint Alloc (k:nat) (l:loc) : hprop :=
-  match k with
-  | O => \[]
-  | S k' => l ~~~> val_uninit \* (Alloc k' (S l)%nat)
-  end.
-
-Lemma Alloc_zero_eq : forall l,
-  Alloc O l = \[].
-Proof using. auto. Qed.
-
-Lemma Alloc_succ_eq : forall l k,
-  Alloc (S k) l = l ~~~> val_uninit \* Alloc k (S l)%nat.
-Proof using. auto. Qed.
-
-Global Opaque Alloc.
-
-Hint Rewrite Alloc_zero_eq Alloc_succ_eq : rew_Alloc.
-
-Tactic Notation "rew_Alloc" :=
-  autorewrite with rew_Alloc.
-
-
-
-Lemma harray_of_hcells : forall (k:nat) (p:loc),
-  hcells k l ==>
-  \exists (L:list val), \[k = length L] \* harray L p.
-Proof using. auto. Qed.
-
-(* ####################################################### *)
-(** ** Semantics of the allocation of consecutive cells *)
-
-(** The operation [val_alloc n] allocates [n] consecutive cells, where
-    [n] is a nonnegative integer. Let [p] denote the pointer returned.
-    The allocated cells have addresses in the range from [p] inclusive
-    to [p+n] exclusive.
-
-    To formally describe this range of locations, let [k] denote the
-    natural number (of type [nat]) that corresponds to the nonnegative
-    integer [n].
-
-    The list [nat_seq k p] describes the list of locations from [p]
-    inclusive to [p+k] exclusive. The definition is recursive on [k].
-    Recall that [O] denotes zero and [S] denotes the successor on [nat]. *)
-
-Fixpoint nat_seq (k:nat) (p:nat) : nat :=
-  match k with
-  | O => []
-  | S k' => p :: (nat_seq k' (S p))
-  end.
-
-(** Assume the special value [val_uninit] to be part of the
-    grammar of values, i.e., to be a constructor from the type [val].
-
-    Let us now define a heap predicate [hcells k p] that describes
-    the ownership of [k] consecutive cells, starting from location [p],
-    and whose contents is [val_uninit]. The definition is,
-    again, recursive on [k]. *)
-
-Fixpoint hcells' (k:nat) (p:loc) : hprop :=
-  match k with
-  | O => \[]
-  | S k' => (p ~~> val_uninit) \* (hcells k' (S p))
-  end.
-
-(** The definition above can be recognized as an instance of a "fold"
-    pattern, applied to the "Separation Logic commutative monoid" made
-    of the star operator [\*] and its neutral element [\[]], and
-    applied to the list of locations [seq k p].
-
-    Indeed, if we let [F] denote [fun q => q ~~> val_uninit]
-    and let [L] denote [seq k p], then [hcells' k p] is equivalent to
-    [hfold_list' F L], for the function [hfold_list'] defined below. *)
-
-Fixpoint hfold_list' A (F:A->hprop) (L:list A) : hprop :=
-  match L with
-  | [] => \[]
-  | x::L' => (F x) \* (hfold_list' F L')
-  end.
-
-(** The above function happens to be a particular instance of
-    [List.fold_right]. Thus, rather than defining [hfold_list] as a
-    recursive function, let us reuse the fold operation on lists. *)
-
-Definition hfold_list A (F:A->hprop) (L:list A) : hprop :=
-  LibList.fold_right (fun acc x => F x \* acc) \[] L.
-
-(** Using [hfold_list], the heap predicate [hcells k p] that describes
-    a set of [k] consecutive cells with uninitialized contents,
-    starting at location [p]. *)
-
-Definition hcells (k:nat) (p:loc) : hprop :=
-  hfold_list (fun q => q ~~> val_uninit) (seq k p).
-
-(** Remark: the function [hfold_list] provides a general "fold of the
-    separation logic monoid over a list of values" that will prove useful
-    later on also for other purposes. *)
-
-(** Consider the function [count], which counts the number of occurences
-    of a integer [x] in an array of [n] integers, at location [p].
-
-    An efficient, parallel version of this function can be implemented using
-    a divide-and-conquer approach: if the array has length more than [1],
-    then split in two parts, make a recursive call on each part, then sum up
-    the results. The two recursive calls can be safely executed in parallel,
-
-     *)
-
-[[
-    let rec count x n p =
-      if n = 0 then 0 else
-      if n = 1 then (if !p = x then 1 else 0)
-      else
-        let m = n/2 in
-        count x m + count x (n-m) (p+m)
-]]
-
-*)
-
-
+End CurriedFunXwp.

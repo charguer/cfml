@@ -674,28 +674,6 @@ Notation "'VFix' f x1 x2 x3 ':=' t" :=
 (* ################################################ *)
 (** ** Evaluation rules for applications to 2 or 3 arguments. *)
 
-(** Useful substitution lemmas, generalizing [isubst_rem] and [isubst_rem_2]. *)
-
-Lemma isubst_rem_3 : forall f x1 x2 vf vx1 vx2 E t,
-     isubst ((f,vf)::(x1,vx1)::(x2,vx2)::E) t
-   = subst x2 vx2 (subst x1 vx1 (subst f vf (isubst (rem x2 (rem x1 (rem f E))) t))).
-Proof using.
-  intros. do 3 rewrite subst_eq_isubst_one. do 3 rewrite <- isubst_app.
-  rewrite isubst_app_swap.
-  { applys isubst_ctx_equiv. intros y. rew_list. simpl. do 3 rewrite lookup_rem. case_var~. }
-  { intros y v1 v2 K1 K2. simpls. do 3 rewrite lookup_rem in K1. case_var. }
-Qed.
-
-Lemma isubst_rem_4 : forall f x1 x2 x3 vf vx1 vx2 vx3 E t,
-     isubst ((f,vf)::(x1,vx1)::(x2,vx2)::(x3,vx3)::E) t
-   = subst x3 vx3 (subst x2 vx2 (subst x1 vx1 (subst f vf (isubst (rem x3 (rem x2 (rem x1 (rem f E)))) t)))).
-Proof using.
-  intros. do 4 rewrite subst_eq_isubst_one. do 4 rewrite <- isubst_app.
-  rewrite isubst_app_swap.
-  { applys isubst_ctx_equiv. intros y. rew_list. simpl. do 4 rewrite lookup_rem. case_var~. }
-  { intros y v1 v2 K1 K2. simpls. do 4 rewrite lookup_rem in K1. case_var. }
-Qed.
-
 (** [eval_like] judgment for applications to several arguments. *)
 
 Lemma eval_like_app_fun2 : forall v0 v1 v2 x1 x2 t1,
@@ -853,7 +831,7 @@ Lemma triple_app_fun2 : forall v0 v1 v2 x1 x2 t1 H Q,
   v0 = val_fun x1 (trm_fun x2 t1) ->
   x1 <> x2 ->
   triple (subst x2 v2 (subst x1 v1 t1)) H Q ->
-  triple (trm_app v0 v1 v2) H Q.
+  triple (v0 v1 v2) H Q.
 Proof using.
   introv E N M1. applys triple_eval_like M1. applys* eval_like_app_fun2.
 Qed.
@@ -862,7 +840,7 @@ Lemma triple_app_fix2 : forall f x1 x2 v0 v1 v2 t1 H Q,
   v0 = val_fix f x1 (trm_fun x2 t1) ->
   (x1 <> x2 /\ f <> x2) ->
   triple (subst x2 v2 (subst x1 v1 (subst f v0 t1))) H Q ->
-  triple (trm_app v0 v1 v2) H Q.
+  triple (v0 v1 v2) H Q.
 Proof using.
   introv E N M1. applys triple_eval_like M1. applys* eval_like_app_fix2.
 Qed.

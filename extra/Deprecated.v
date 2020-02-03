@@ -1322,3 +1322,172 @@ Proof using.
       xval. subst. unfold vals_of_ints; rew_listx. xsimpl. } }
 Qed.
 
+
+========================
+
+
+(* ####################################################### *)
+(** ** Treatment of uncurried functions *)
+
+(*
+  | trm_fixs : var -> list var -> trm -> trm
+  | trm_apps : trm -> list trm -> trm
+
+
+Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
+  let aux t :=
+    subst y w t in
+  let aux_no_captures xs t :=
+    If LibList.mem y xs then t else aux t in
+  match t with
+  | trm_fixs f xs t1 => trm_fixs f xs (If f = y then t1 else
+                                        aux_no_captures xs t1)
+  | trm_apps t0 ts => trm_apps (aux t0) (List.map aux ts)
+  ...
+ end.
+
+
+Lemma subst_trm_fixs : forall y w f xs t,
+  var_fresh y (f::xs) ->
+  subst1 y w (trm_fixs f xs t) = trm_fixs f xs (subst1 y w t).
+Proof using.
+  introv N. simpls. case_var.
+  { false* var_fresh_mem_inv. }
+  { auto. }
+Qed.
+
+
+  | eval_fixs : forall m f xs t1,
+      xs <> nil ->
+      eval m (trm_fixs f xs t1) m (val_fixs f xs t1)
+
+  | eval_apps_fixs : forall m1 m2 f xs t3 v0 vs r,
+      v0 = val_fixs f xs t3 ->
+      var_fixs f (length vs) xs ->
+      eval m1 (substn xs vs (subst1 f v0 t3)) m2 r ->
+      eval m1 (trm_apps v0 vs) m2 r
+
+
+Fixpoint var_distinct (xs:vars) : Prop :=
+  match xs with
+  | nil => True
+  | x::xs' => var_fresh x xs' /\ var_distinct xs'
+  end.
+
+Fixpoint var_fresh (y:var) (xs:vars) : bool :=
+  match xs with
+  | nil => true
+  | x::xs' => if var_eq x y then false else var_fresh y xs'
+  end.
+
+
+(** [noduplicates L] asserts that [L] does not contain any
+    duplicated item. *)
+
+Inductive noduplicates A : list A -> Prop :=
+  | noduplicates_nil : noduplicates nil
+  | noduplicates_cons : forall x l,
+      ~ (mem x l) ->
+      noduplicates l ->
+      noduplicates (x::l).
+
+
+
+Definition var_fixs (f:var) (n:nat) (xs:vars) : Prop :=
+     var_distinct (f::xs)
+  /\ length xs = n
+  /\ xs <> nil.
+
+Definition var_fixs_exec (f:bind) (n:nat) (xs:vars) : bool := ..
+
+Lemma var_fixs_exec_eq : forall f (n:nat) xs,
+  var_fixs_exec f n xs = isTrue (var_fixs f n xs).
+
+
+Lemma triple_apps_fixs : forall xs (f:var) F (Vs:vals) t1 H Q,
+  F = (val_fixs f xs t1) ->
+  var_fixs f (length Vs) xs ->
+  triple (substn (f::xs) (F::Vs) t1) H Q ->
+  triple (trm_apps F Vs) H Q.
+Proof using.
+  introv E N M. intros H' h Hf. forwards (h'&v&R&K): (rm M) Hf.
+  exists h' v. splits~. { subst. applys* eval_apps_fixs. }
+Qed.
+
+
+Fixpoint trms_to_vals_rec (acc:vals) (ts:trms) : option vals :=
+  match ts with
+  | nil => Some (List.rev acc)
+  | trm_val v :: ts' => trms_to_vals_rec (v::acc) ts'
+  | _ => None
+  end.
+
+Definition trms_to_vals (ts:trms) : option vals :=
+  trms_to_vals_rec nil ts.
+
+
+Lemma xwp_lemma_fixs : forall F f vs ts xs t H Q,
+  F = val_fixs f xs t ->
+  trms_to_vals ts = Some vs ->
+  var_fixs_exec f (length vs) xs ->
+  H ==> (wpgen (combine (f::xs) (F::vs)) t) Q ->
+  triple (trm_apps F ts) H Q.
+
+
+(* ####################################################### *)
+(** ** Coercion for uncurried functions *)
+
+Coercion trm_to_pat : trm >-> pat.
+
+(** Parsing facility: coercions for turning [t1 t2 t3]
+    into [trm_apps t1 (t2::t3::nil)] *)
+
+Inductive combiner :=
+  | combiner_nil : trm -> trm -> combiner
+  | combiner_cons : combiner -> trm -> combiner.
+
+Coercion combiner_nil : trm >-> Funclass.
+Coercion combiner_cons : combiner >-> Funclass.
+
+Fixpoint combiner_to_trm (c:combiner) : trm :=
+  match c with
+  | combiner_nil t1 t2 => trm_apps t1 (t2::nil)
+  | combiner_cons c1 t2 =>
+      match combiner_to_trm c1 with
+      | trm_apps t1 ts => trm_apps t1 (List.app ts (t2::nil))
+      | t1 => trm_apps t1 (t2::nil)
+      end
+  end.
+
+Coercion combiner_to_trm : combiner >-> trm.
+
+We discuss in the bonus section the treatment
+    of native n-ary functions, which is the most practical solution from an
+    engineering point of view.
+=====================
+
+
+
+
+(** Useful substitution lemmas, generalizing [isubst_rem] and [isubst_rem_2]. *)
+
+Lemma isubst_rem_3 : forall f x1 x2 vf vx1 vx2 E t,
+     isubst ((f,vf)::(x1,vx1)::(x2,vx2)::E) t
+   = subst x2 vx2 (subst x1 vx1 (subst f vf (isubst (rem x2 (rem x1 (rem f E))) t))).
+Proof using.
+  intros. do 3 rewrite subst_eq_isubst_one. do 3 rewrite <- isubst_app.
+  rewrite isubst_app_swap.
+  { applys isubst_ctx_equiv. intros y. rew_list. simpl. do 3 rewrite lookup_rem. case_var~. }
+  { intros y v1 v2 K1 K2. simpls. do 3 rewrite lookup_rem in K1. case_var. }
+Qed.
+
+Lemma isubst_rem_4 : forall f x1 x2 x3 vf vx1 vx2 vx3 E t,
+     isubst ((f,vf)::(x1,vx1)::(x2,vx2)::(x3,vx3)::E) t
+   = subst x3 vx3 (subst x2 vx2 (subst x1 vx1 (subst f vf (isubst (rem x3 (rem x2 (rem x1 (rem f E)))) t)))).
+Proof using.
+  intros. do 4 rewrite subst_eq_isubst_one. do 4 rewrite <- isubst_app.
+  rewrite isubst_app_swap.
+  { applys isubst_ctx_equiv. intros y. rew_list. simpl. do 4 rewrite lookup_rem. case_var~. }
+  { intros y v1 v2 K1 K2. simpls. do 4 rewrite lookup_rem in K1. case_var. }
+Qed.
+
