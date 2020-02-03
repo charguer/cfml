@@ -1576,7 +1576,6 @@ End CurriedFunXwp.
 (* ####################################################### *)
 (** ** Primitive n-ary functions *)
 
-(*
 Module PrimitiveNaryFun.
 
 (** In the grammar of terms and values, we include n-ary 
@@ -1586,27 +1585,76 @@ Parameter val_fixs : var -> list var -> trm -> val.
 Parameter trm_fixs : var -> list var -> trm -> trm.
 Parameter trm_apps : trm -> list trm -> trm.
 
-(** The evaluation rule for functions. *)
+(** Through the rest of this section, we manipuate *)
+
+(** The evaluation rules are updated accordingly. A n-ary function
+    from the grammar of terms evaluates to the corresponding n-ary
+    function from the grammar of values. For technical reasons, we
+    need to ensure that the program is well-formed and that the list
+    of arguments to the function is nonempty. Indeed, a function of 
+    zero arguments is not considered a function in our language.
+    (Otherwise, such a function [f] would beta-reduce to its body 
+    as soon as it is defined, because it waits for no arguments.) *)
 
 Parameter eval_fixs : forall m f xs t1,
-      xs <> nil ->
-      eval m (trm_fixs f xs t1) m (val_fixs f xs t1)
+  xs <> nil ->
+  eval m (trm_fixs f xs t1) m (val_fixs f xs t1).
 
-(** And for applications. *)
+(* TODO: recall why this is needed *)
+
+(** A n-ary application of a function to values takes the form
+    [trm_apps (trm_val v0) (trm_val v1 :: .. :: trm_val vn :: nil)].
+
+    To describe the result of the evaluation of this application,
+    it is useful to involve the list [vs] made of the arguments viewed
+    as values, that is, the list [v1 :: ... vn :: nil]. 
+
+    The n-ary application can then be written 
+    [trm_apps (trm_val v0) (trms_vals vs)], where the operation [trms_vals]
+    converts *)
+
+(*
+Definition trms_vals (vs:list val) : list trm :=
+  LibList.map trm_val vs.
+ (trm_apps v0 (trms_vals vs)).
 
 
-Fixpoint substn (xs:vars) (vs:vals) (t:trm) : trm :=
+
+(** To evaluate a n-ary application, we need to perform a n-ary 
+    substitution.  The operation [substn xs vs t] replaces the 
+    variables [xs] with the values [vs] inside the [t]. It is defined
+    recursively. *)
+
+Fixpoint substn (xs:list var) (vs:list val) (t:trm) : trm :=
   match xs,vs with
   | x::xs', v::vs' => substn xs' vs' (subst x v t)
   | _,_ => t
   end.
 
+(** The evaluation rule carefully enfoces the fact that the lists [xs]  
+    and [vs] have the same lengths, that the variables [xs] are distinct
+    from each other and also distinct from the name [f] associated with
+    the function. 
+    
+    The predicate [var_fixs f xs n] captures all these invariants, where
+    [n] denotes the number of arguments the function [val_fun f xs t] is
+    being applied to. *)
+
+Definition var_fixs (f:var) (xs:vars) (n:nat) : Prop :=
+     LibList.noduplicates (f::xs)
+  /\ length xs = n
+  /\ xs <> nil.
+
+(* TODO: swap order of var_fixs and var_funs everywhere *)
+
 
 Parameter eval_apps_fixs : forall m1 m2 f xs t3 v0 vs r,
-      v0 = val_fixs f xs t3 ->
-      var_fixs f (length vs) xs ->
-      eval m1 (substn xs vs (subst1 f v0 t3)) m2 r ->
-      eval m1 (trm_apps v0 vs) m2 r
+  v0 = val_fixs f xs t3 ->
+  var_fixs f xs (LibList.length vs) ->
+  eval m1 (substn xs vs (subst f v0 t3)) m2 r ->
+  eval m1 (trm_apps v0 (trms_vals vs)) m2 r.
+
+
 
 Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
   let aux t :=
@@ -1624,6 +1672,9 @@ Lemma subst_trm_fixs : forall y w f xs t,
   subst1 y w (trm_fixs f xs t) = trm_fixs f xs (subst1 y w t).
 Proof using.
 
+Definition trms_to_vals (ts:list trm) : option (list val) :=
+  trms_to_vals_rec nil ts.
+
 Definition var_fixs (f:var) (n:nat) (xs:vars) : Prop :=
      var_distinct (f::xs)
   /\ length xs = n
@@ -1640,8 +1691,7 @@ Fixpoint trms_to_vals_rec (acc:vals) (ts:trms) : option vals :=
   | _ => None
   end.
 
-Definition trms_to_vals (ts:trms) : option vals :=
-  trms_to_vals_rec nil ts.
+
 
 
 Lemma xwp_lemma_fixs : forall F f vs ts xs t H Q,
@@ -1651,7 +1701,7 @@ Lemma xwp_lemma_fixs : forall F f vs ts xs t H Q,
   H ==> (wpgen (combine (f::xs) (F::vs)) t) Q ->
   triple (trm_apps F ts) H Q.
 
+*)
+
 End PrimitiveNaryFun.
 
-
-*)
