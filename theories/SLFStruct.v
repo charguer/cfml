@@ -44,11 +44,11 @@ Implicit Type v : val.
 
     The cells allocated using [val_alloc] are assigned as contents a special
     value, named [val_uninit], to reflect for the fact that their contents has
-    never been set. Remark: in OCaml, one must provide an initialization 
+    never been set. Remark: in OCaml, one must provide an initialization
     value explicitly, so there is no such thing as [val_uninit]; in JavaScript,
     [val_uninit] is called [undefined]; in Java, arrays are initialized with
-    zeros; in C, uninitialized data should not be read---we could implement 
-    this policy in our languageby restricting the evaluation rule for the read 
+    zeros; in C, uninitialized data should not be read---we could implement
+    this policy in our languageby restricting the evaluation rule for the read
     operation, adding a premise of the form [v <> val_uninit] to the rule.
 
     Regarding n-ary functions, that is, there are three possible approaches:
@@ -109,12 +109,12 @@ Definition harray (L:list val) (p:loc) : hprop :=
   hcells L p \* \[p <> null].
 
 Lemma harray_not_null : forall p L,
-  L <> nil -> 
+  L <> nil ->
   harray L p ==> harray L p \* \[p <> null].
 Proof using. introv N. unfold harray. xsimpl*. Qed.
 
-(** The operation [val_alloc k] allocates [k] consecutive cells. Let [p] 
-    denote the pointer returned. The allocated cells have addresses in 
+(** The operation [val_alloc k] allocates [k] consecutive cells. Let [p]
+    denote the pointer returned. The allocated cells have addresses in
     the range from [p] inclusive to [p+k] exclusive. These cells have for
     contents is the special value [val_uninit], which we assume to be part
     of the grammar of values. *)
@@ -122,8 +122,8 @@ Proof using. introv N. unfold harray. xsimpl*. Qed.
 Parameter val_uninit : val.
 
 (** The heap produced by [val_alloc k] can be described by [harray L p],
-    for a list [L] that consists of [k] occurences of the value [val_uninit]. 
-    Such a list is formally described by [LibList.make k val_uninit]. 
+    for a list [L] that consists of [k] occurences of the value [val_uninit].
+    Such a list is formally described by [LibList.make k val_uninit].
 
     We introduce the heap predicate [harray_uninit k p] to denote the
     specialization of [harray] to that list. This predicate will appear
@@ -143,9 +143,9 @@ Definition harray_uninit (k:nat) (p:loc) : hprop :=
     Consider a natural number [k]. Thanks to coercions, it may also be
     viewed as an integer value of type [val].
 
-    The operation [val_alloc k] admits an empty precondition. Its 
+    The operation [val_alloc k] admits an empty precondition. Its
     postcondition asserts that the return value [r] is of the form
-    [val_loc p] for some location [p], and that the final state 
+    [val_loc p] for some location [p], and that the final state
     satisfies the heap predicate [harray_uninit k p]. Recall that this
     predicate describes [k] cells at consecutive addresses starting from
     location [p], with uninitialized contents. *)
@@ -193,7 +193,7 @@ Proof using.
     { rewrite length_make. rewrite* abs_nonneg. } }
 Qed.
 
-(** The deallocation operation [val_dealloc n p] deallocates [n] 
+(** The deallocation operation [val_dealloc n p] deallocates [n]
     consecutive cells starting from the location [p]. It admits the
     precondition [harray L p], where [L] can be any list of length [n],
     and its postcondition is empty.*)
@@ -269,7 +269,7 @@ Lemma hfield_not_null : forall p k v,
   (p`.k ~~> v) ==> (p`.k ~~> v) \* \[p <> null].
 Proof using. intros. unfold hfield. xsimpl*. Qed.
 
-(** To prevent undesirable simplifications, we set the definition [hfield] 
+(** To prevent undesirable simplifications, we set the definition [hfield]
     to be opaque, and we provide a lemma for unfolding its definition where
     necessary. *)
 
@@ -288,8 +288,8 @@ End Cells.
 (** We can allocate a fresh mutable list cell by invoking the primitive
     operation [val_alloc] with argument [2]. Let us prove that the result,
     described by [hcell 2 p], can be also be viewed as the heap predicate
-    [(p`.head ~~> val_uninit) \* (p`.tail ~~> val_uninit)], 
-    which describes the two fields of the record, with uninitialized 
+    [(p`.head ~~> val_uninit) \* (p`.tail ~~> val_uninit)],
+    which describes the two fields of the record, with uninitialized
     contents. *)
 
 Definition head : field := 0%nat.
@@ -298,7 +298,7 @@ Definition tail : field := 1%nat.
 Lemma triple_alloc_mcell :
   triple (val_alloc 2%nat)
     \[]
-    (fun r => \exists p, \[r = val_loc p] \* (p`.head ~~> val_uninit) 
+    (fun r => \exists p, \[r = val_loc p] \* (p`.head ~~> val_uninit)
                                           \* (p`.tail ~~> val_uninit)).
 Proof using.
   xtriple. xapp triple_alloc_nat. xpull. intros p.
@@ -309,7 +309,7 @@ Qed.
 
 (** Reciprocally, we can deallocate a mutable list cell at location [p]
     by invoking the primitive operation [val_dealloc] with argument [2].
-    The precondition describes the two fields [p`.head ~~> x] and 
+    The precondition describes the two fields [p`.head ~~> x] and
     [p`.tail ~~> q]. The postcondition is empty: the fields are lost. *)
 
 Lemma triple_dealloc_cell : forall (x:val) (p q:loc),
@@ -319,7 +319,7 @@ Lemma triple_dealloc_cell : forall (x:val) (p q:loc),
 Proof using.
   xtriple. xchange (@hfield_not_null p). intros N. (* TODO @ *)
   xapp (@triple_dealloc 2%nat p (x::(val_loc q)::nil)). (* TODO *)  auto.
-  xsimpl. unfold harray, hcells. do 2 rewrite hfield_eq. xsimpl. auto. 
+  xsimpl. unfold harray, hcells. do 2 rewrite hfield_eq. xsimpl. auto.
 Qed.
 (* TODO: simplify *)
 
@@ -362,7 +362,7 @@ Parameter triple_set_field : forall v p k v',
     (p`.k ~~> v')
     (fun _ => p`.k ~~> v).
 
-(** We introduce the syntax [t'.f] for reading from a field using 
+(** We introduce the syntax [t'.f] for reading from a field using
     [val_get_field], and [Set t1'.f := t2] for writing into a field
     using [val_set_field]. *)
 
@@ -401,7 +401,7 @@ Definition mcell : val :=
     Set 'p'.tail ':= 'q ';
     'p.
 
-(** The specification of [mcell x q] appears next. Its precondition is empty. 
+(** The specification of [mcell x q] appears next. Its precondition is empty.
     Its postcondition describes the two fields [p`.head ~~> x] and [p`.tail ~~> q]. *)
 
 Lemma triple_mcell : forall (x:val) (q:loc),
@@ -430,7 +430,7 @@ Qed.
 [[
     let rec array_incr n p =
       if n = 1 then incr p
-      else if n > 1 then 
+      else if n > 1 then
         let m = n/2 in
         array_incr x m;
         array_incr x (n-m) (p+m)
@@ -439,7 +439,7 @@ Qed.
     Our concern here is to show how the description of an array can be split
     in two parts in the course of a recursive function. *)
 
-(** The description of an array, that is, a set of consecutive cells, 
+(** The description of an array, that is, a set of consecutive cells,
     can be split in two parts, at an arbitrary index. Concretely, if
     we have [harray (L1++L2) p], then we can separate the left part
     [harray L1 p] from the right part [harray L2 q], where the address
@@ -450,15 +450,15 @@ Lemma hcells_concat_eq : forall p L1 L2,
   hcells (L1++L2) p = (hcells L1 p \* hcells L2 (length L1 + p)%nat).
 Proof using.
   intros. gen p. induction L1; intros; rew_list; simpl.
-  { xsimpl. } 
+  { xsimpl. }
   { rewrite IHL1. math_rewrite (length L1 + S p = S (length L1 + p))%nat.
-    xsimpl. } 
+    xsimpl. }
 Qed.
 
 Lemma harray_concat_eq : forall p L1 L2,
   harray (L1++L2) p = (harray L1 p \* harray L2 (length L1 + p)%nat).
 Proof using.
-  intros. unfold harray, null, loc. rewrite hcells_concat_eq. 
+  intros. unfold harray, null, loc. rewrite hcells_concat_eq.
   applys himpl_antisym; xsimpl*. math.
 Qed.
 
@@ -552,7 +552,7 @@ Lemma take_app_drop_spec_nonneg : forall A (n:int) (l:list A),
       l = f ++ r
    /\ length f = n
    /\ length r = length l - n.
-Proof using. 
+Proof using.
   introv M. exists (take n l) (drop n l).
   forwards* (R&_): take_app_drop_spec n l.
 Qed.
@@ -572,7 +572,7 @@ Proof using.
     xapp. xif; intros C2.
     { forwards R: range_split n. { math. }
       xapp. { math. } sets m: (Z.quot n 2).
-      xapp. xapp triple_ptr_add. { math. } 
+      xapp. xapp triple_ptr_add. { math. }
       forwards (L1&L2&EL&LL1&LL2): take_app_drop_spec_nonneg m L. { math. }
       rewrite EL. rewrite harray_int_concat_eq.
       xapp (>> IH L1). { math. } { math. }
@@ -600,7 +600,7 @@ Proof using.
     xapp. xif; intros C2.
     { forwards R: range_split n. { math. }
       xapp. { math. } sets m: (Z.quot n 2).
-      xapp. xapp triple_ptr_add. { math. } 
+      xapp. xapp triple_ptr_add. { math. }
       forwards (L1&L2&EL&LL1&LL2): take_app_drop_spec_nonneg m L. { math. }
       rewrite EL. unfold vals_of_ints. rew_listx. rewrite harray_concat_eq.
       xapp (>> IH L1). { math. } { math. }
@@ -704,7 +704,7 @@ Qed.
     [mcons] is intended to extend an existing list by appending to
     it a freshly-allocated cell. *)
 
-Definition mcons : val := 
+Definition mcons : val :=
   mcell.
 
 (** The specification of [mcons] thus requires a list [q ~> MList L]
@@ -764,7 +764,7 @@ Definition mcopy : val :=
     Let 'b := ('p  '= null) in
     If_ 'b
       Then mnil '()
-      Else 
+      Else
         Let 'x := 'p'.head in
         Let 'q := 'p'.tail in
         Let 'q2 := 'f 'q in
@@ -778,7 +778,7 @@ Definition mcopy : val :=
 
 Lemma triple_mcopy : forall p L,
   triple (mcopy p)
-    (MList L p)  
+    (MList L p)
     (fun r => \exists p', \[r = val_loc p'] \* (MList L p) \* (MList L p')).
 
 (** The proof script is very similar in structure to the previous ones.
@@ -1402,14 +1402,14 @@ Definition hcells (k:nat) (p:loc) : hprop :=
     a divide-and-conquer approach: if the array has length more than [1],
     then split in two parts, make a recursive call on each part, then sum up
     the results. The two recursive calls can be safely executed in parallel,
-    
+
      *)
 
 [[
     let rec count x n p =
       if n = 0 then 0 else
       if n = 1 then (if !p = x then 1 else 0)
-      else 
+      else
         let m = n/2 in
         count x m + count x (n-m) (p+m)
 ]]

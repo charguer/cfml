@@ -1181,3 +1181,73 @@ free => block n p * cells n p
 
 
 
+
+
+(* --------------------------------------------------------------------- *)
+(** Valid domains *)
+
+(** A domain is valid if it is finite and does not include the null location. *)
+
+Definition map_valid (V:Type) (f:map V) : Prop :=
+  map_finite f /\ f null = None.
+
+Lemma map_union_valid : forall f1 f2,
+  map_valid f1 ->
+  map_valid f2 ->
+  map_valid (map_union f1 f2).
+Proof using.
+  introv [F1 N1] [F2 N2]. split.
+  { applys* map_union_finite. }
+  { unfold map_union. rewrite* N1. }
+Qed.
+
+Definition map_remove_valid : forall x f,
+  map_valid f ->
+  map_valid (map_remove f x).
+Proof using.
+  introv [F N]. split.
+  { applys* map_remove_finite. }
+  { unfold map_remove. case_if*. }
+Qed.
+Inductive memory (V:Type) : Type := make {
+  memory_data :> map V;
+  memory_valid : map_valid memory_data; }.
+
+
+
+
+
+    In what follows, we present the key ideas involved in the definition of
+    the type [state]. Details are outside of the scope of this course; they
+    may be found in the file [State.v]. *)
+
+Module State.
+
+(** A state is represented as a finite map from locations to values. *)
+
+(** The underlying map is represented as a Coq function from [loc] to
+    [val]. *)
+
+  Definition map : Type :=
+    loc -> option val.
+
+(** A map [f] has a valid domain if its domain is finite, in the sense that
+    there exists a list [L] that contains all the locations from the domain,
+    i.e., all the locations [l] such that [f l <> None]. *)
+
+  Definition map_finite (f:map) : Prop :=
+    exists (L:list loc), forall (l:loc), f l <> None -> mem l L.
+
+(** A [state] is a dependent pair made of a [map] and a proof that this
+    map is valid, i.e., that it satisfies the predicate [map_valid]. *)
+
+  Inductive state : Type := {
+    state_data : map;
+    state_finite : map_finite state_data; }.
+
+(** A more complete, more generic presentation of the construction can be
+    found in the file [State.v], but it is not required to understand the
+    details to follow this course on Separation Logic. *)
+
+End State.
+

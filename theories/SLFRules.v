@@ -126,12 +126,20 @@ with trm : Type :=
     produces a [val_fun] value. Likewise, a [trm_fix] eventually evaluates to
     a [val_fix]. *)
 
+
+(* ################################################ *)
+(** *** State *)
+
 (** The language we consider is an imperative language, with primitive
     functions for manipulating the state. Thus, the statement of the
-    evaluation rules involve a memory state. Recall from chapter [SLFHprop]
-    that a state is described as a finite map from location to values. *)
+    evaluation rules involve a memory state. 
 
-Definition state := fmap loc val.
+    Recall from [SLFHprop] that a state is represented as a finite map 
+    from location to values. Finite maps are presented using the type
+    [fmap]. Details of the construction of finite maps are beyond the 
+    scope of this course; details may be found in the the file [Fmap.v]. *)
+
+Definition state : Type := fmap loc val.
 
 (** For technical reasons related to the internal representation of finite
     maps, to enable reading in a state, we need to justify that the grammar

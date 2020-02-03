@@ -2261,10 +2261,14 @@ Qed.
     and we prove an auxiliary lemma that describes the
     result of a lookup on a context from which a binding
     has been removed. It is defined in file [Var.v] as:
+
 [[
     Tactic Notation "case_var" :=
       repeat rewrite var_eq_spec in *; repeat case_if.
 ]]
+
+    The tactic [case_var*] is a shorthand for [case_var]
+    followed with automation (essentially, [eauto]).
 *)
 
 (** On key auxiliary lemma relates [subst] and [isubst]. *)

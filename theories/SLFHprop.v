@@ -158,18 +158,12 @@ Definition example_val' : trm :=
 (** Locations, of type [loc], denote the addresses of allocated objects.
     Locations are a particular kind of values.
 
-    A state is a finite map from locations to values.
+    A state is a finite map from locations to values. The file [Fmap.v]
+    provides a self-contained formalization of finite maps, but we do
+    need to know about the details. *)
 
-    The file [Fmap] provides a self-contained formalization of
-    finite maps, and of the associated operations on maps useful
-    in Separation Logic reasoning. The file [SLFules] includes
-    the following definition of [state].
-
-[[
-    Definition state : Type := fmap loc val.
-]]
-*)
-
+Definition state : Type := fmap loc val.
+  
 (** By convention, we use the type [state] describes a full state of memory,
     and introduce the type [heap] to describe just a piece of state. *)
 
