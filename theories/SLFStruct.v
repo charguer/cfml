@@ -84,8 +84,11 @@ Module Cells.
     The heap predicate [hcells L p] represents a consecutive set of cells
     starting at location [p] and whose elements are described by the list [L].
 
-    This predicate can be defined by induction on the list [L], with the
-    pointer being incremented by one unit at each cell, as follows.
+    On paper, we could write something along the lines of:
+    [\bigstar_{x at index i in L} { (p+i) ~~> x }].
+
+    In Coq, we can define this predicate by induction on the list [L], with
+    the pointer being incremented by one unit at each cell, as follows.
 *)
 
 Fixpoint hcells (L:list val) (p:loc) : hprop :=
@@ -414,7 +417,80 @@ Qed.
 
 
 (* ####################################################### *)
-(** ** Local reasoning on arrays *)
+(** ** Reasoning about arrays *)
+
+(** Array operations *)
+
+Import LibListZ.
+
+Hint Extern 1 (Register_spec val_array_get) => Provide triple_array_get.
+
+(** [val_array_get p i] *)
+
+Parameter val_array_get : val.
+
+Notation "'Array'' p `[ i ]" := (trm_app (trm_app (trm_val val_array_get) p) i)
+  (at level 69, p at level 0, no associativity,
+   format "'Array''  p `[ i ]") : charac.
+
+Lemma triple_array_get : forall p i L,
+  index L i ->
+  triple (val_array_get p i)
+    (harray L p)
+    (fun r => \[r = L[i]] \* harray L p).
+
+(** [val_array_set p i v] *)
+
+Notation "'Array'' p `[ i ] `<- x" := (trm_app (trm_app (trm_app (trm_val val_array_set) p) i) x)
+  (at level 69, p at level 0, no associativity,
+   format "'Array''  p `[ i ]  `<-  x") : charac.
+
+Hint Extern 1 (Register_spec val_array_set) => Provide triple_array_set.
+
+Lemma triple_array_set : forall p i v L,
+  index L i ->
+  triple (val_array_set p i v)
+    (harray L p)
+    (fun r => \[r = val_unit] \* harray (L[i:=v]) p).
+
+(** Example program
+
+[[
+    let rec array_incr p n =
+      if n > 0 then begin
+        p.(n-1) <- p.(n-1) + 1;
+        array_incr p (n-1)
+      end
+]]
+*)
+
+Definition array_incr : val :=
+  VFix 'f 'p 'n :=
+    Let 'b := ('n '> 0) in
+    If_ 'b Then
+      Let 'i := 'n '- 1 in
+      Let 'x := val_array_get p 'i in
+      Let 'y := 'x '+ 1 in
+      val_array_set 'p 'i 'y ';
+      'f 'p 'i
+    End.
+
+Definition harray_int (L:list int) (p:loc) : hprop :=
+  harray (LibList.map val_int L) p.
+
+Lemma triple_array_incr : forall (n:int) L p,
+  n = LibListZ.length L ->
+  triple (array_incr p n)
+    (harray_int L p)
+    (fun _ => harray_int (LibList.map (fun x => x + 1) L) p).
+Proof using.
+  introv K. gen n. induction_wf IH: (@list_sub val) L. introv N. xwp.
+  ..
+Qed.
+
+
+(* ####################################################### *)
+(** ** Local reasoning with arrays *)
 
 (** Consider the function [array_incr], which increments all the cells of
     an array of integer by one unit.
@@ -428,12 +504,12 @@ Qed.
     to do so using a simple extension based on the "fork-join" parallel construct.
 
 [[
-    let rec array_incr n p =
+    let rec array_incr_par n p =
       if n = 1 then incr p
       else if n > 1 then
         let m = n/2 in
-        array_incr x m;
-        array_incr x (n-m) (p+m)
+        array_incr_par x m;
+        array_incr_par x (n-m) (p+m)
 ]]
 
     Our concern here is to show how the description of an array can be split
@@ -485,10 +561,12 @@ Qed.
 
 (** Let us put this lemma to practice on our example program. *)
 
+(* TODO explain val_ptr_add and its spec *)
+
 Import DemoPrograms.
 
-Definition array_incr : val :=
-  VFix 'f 'n 'p :=
+Definition array_incr_par : val :=
+  VFix 'f 'p 'n :=
     Let 'b1 := ('n '= 1) in
     If_ 'b1 Then incr 'p Else
     Let 'b2 := ('n '> 1) in
@@ -496,8 +574,8 @@ Definition array_incr : val :=
       Let 'm := 'n '/ 2 in
       Let 'n2 := ('n '- 'm) in
       Let 'p2 := (val_ptr_add 'p 'm) in
-      'f 'm 'p ';
-      'f 'n2 'p2
+      'f 'p 'm ';
+      'f 'p2 'n2
     End.
 
 Definition vals_of_ints (L:list int) : list val :=
@@ -560,7 +638,7 @@ Qed.
 
 Lemma triple_array_incr : forall (n:int) L p,
   n = LibListZ.length L ->
-  triple (array_incr n p)
+  triple (array_incr_par p n)
     (harray_int L p)
     (fun _ => harray_int (LibList.map (fun x => x + 1) L) p).
 Proof using.
@@ -584,35 +662,6 @@ Proof using.
       forwards HL: (length_zero_inv L). { math. }
       xval. subst. do 2 rewrite harray_int_nil_eq. xsimpl*. } }
 Qed.
-
-Lemma triple_array_incr' : forall (n:int) L p,
-  n = LibListZ.length L ->
-  triple (array_incr n p)
-    (harray (vals_of_ints L) p)
-    (fun _ => harray (vals_of_ints (LibList.map (fun x => x + 1) L)) p).
-Proof using.
-  intros n. induction_wf IH: (wf_downto 0) n.
-  introv E. xwp. xapp. xif; intros C1.
-  { forwards (x&Hx): length_one_inv L. math. (* TODO math *) subst.
-    unfold vals_of_ints. rew_listx. rewrite harray_one_eq. xapp.
-    rewrite <- harray_one_eq. xsimpl. }
-  { asserts C1': (n <> 1). { intros N. applys C1. fequals. } clear C1. (* TODO cleanup *)
-    xapp. xif; intros C2.
-    { forwards R: range_split n. { math. }
-      xapp. { math. } sets m: (Z.quot n 2).
-      xapp. xapp triple_ptr_add. { math. }
-      forwards (L1&L2&EL&LL1&LL2): take_app_drop_spec_nonneg m L. { math. }
-      rewrite EL. unfold vals_of_ints. rew_listx. rewrite harray_concat_eq.
-      xapp (>> IH L1). { math. } { math. }
-      rew_listx. asserts_rewrite (abs (p + m) = (LibList.length L1 + p)%nat).
-      { apply eq_nat_of_eq_int. rewrite abs_nonneg; math. }
-      xapp (>> IH L2). { math. } { math. }
-      rewrite harray_concat_eq. rew_listx. unfold vals_of_ints. xsimpl. }
-    { asserts En: (n = 0). { math. }
-      forwards HL: (length_zero_inv L). { math. }
-      xval. subst. unfold vals_of_ints; rew_listx. xsimpl. } }
-Qed.
-
 
 
 (* ########################################################### *)
@@ -869,62 +918,71 @@ Qed. (* /ADMITTED *)
 (** * Bonus contents (optional reading) *)
 
 
-
 (* ########################################################### *)
-(** ** Iterated star operation *)
+(** ** Semantics of the allocation and deallocation operations *)
 
+Module AllocSpec.
 
-(** The definition above can be recognized as an instance of an
-    "indexed fold" operation, applied to the "Separation Logic
-    commutative monoid" made of the star operator [\*] and its
-    neutral element [\[]], and applied to the list [L].
+(** Earlier in this chapter, we have axiomatized the specification
+    of the allocation function through the lemma [triple_alloc_nat]. *)
 
-    On paper, we would write the "big star" operator, with subscript
-    "[x] at index [i] in [L]", applied to the expression [(p+i) ~~> x].
+Parameter triple_alloc_nat' : forall (k:nat),
+  triple (val_alloc k)
+    \[]
+    (fun r => \exists p, \[r = val_loc p] \* harray_uninit k p).
 
-    In Coq, we can formalize this using a recursive function as follows. *)
+(* TODO: rename l for p everywhere in the semantics *)
 
-Fixpoint hfoldi_list A (F:nat->A->hprop) (L:list A) (i:nat) : hprop :=
-  match L with
-  | nil => \[]
-  | x::L' => (F i x) \* (hfoldi_list F L' (S i))
-  end.
+(** Like for other operations, this specification can be proved
+    correct with respect to the semantics of the programming
+    language. The allocation operation [val_alloc n] can be
+    described as extending the state with a range of fresh
+    consecutive cells.
 
-Definition harray (L:list val) (p:loc) : hprop :=
-  hfoldi_list (fun q x => q ~~> x) L p.
+    The evaluation rule below describes the behavior of [val_alloc].
+    We write [LibList.make k val_uninit] for a list that repeats
+    [k] times the value [val_uninit]. We write [Fmap.conseq p L]
+    for a heap made of consecutive cells, starting at location [p],
+    whose contents are described by the elements from the list [L].
+    This heap is named [mb], and it extends the existing heap,
+    which is named [ma]. *)
 
+Parameter eval_alloc : forall k n ma mb p,
+  mb = Fmap.conseq p (LibList.make k val_uninit) ->
+  n = nat_to_Z k ->
+  p <> null ->
+  Fmap.disjoint ma mb ->
+  eval ma (val_alloc (val_int n)) (mb \+ ma) (val_loc p).
 
-(* TODO Remark: *)
+(** As usual, we first derive a Hoare logic statement, then the
+    corresponding Separation Logic judgment. *)
 
-Fixpoint list_foldi A B (F:nat->A->B->B) (L:list A) (i:nat) (b:B) : B :=
-  match L with
-  | nil => b
-  | x::L' => F i x (list_foldi F L' (S i) b)
-  end.
+Lemma hoare_alloc_nat : forall (k:nat) H,
+  triple (val_alloc k)
+    H
+    (fun r => \exists p, \[r = val_loc p] \* harray_uninit k p \* H).
+Proof using.
+  introv N. intros h Hh.
+  forwards~ (l&Dl&Nl): (Fmap.conseq_fresh null h (abs n) val_uninitialized).
+  match type of Dl with Fmap.disjoint ?hc _ => sets h1': hc end.
+  exists (h1' \u h) (val_loc l). splits~.
+  { applys~ (eval_alloc (abs n)). rewrite~ abs_nonneg. }
+  { apply~ hstar_intro.
+    { exists l. applys~ himpl_hstar_hpure_r. applys~ Alloc_fmap_conseq. } }
+Qed.
 
-Definition harray'' (L:list val) (p:loc) : hprop :=
-  list_foldi (fun q x acc => q ~~> x \* acc) L p \[].
+Lemma triple_alloc_nat : forall (k:nat),
+  triple (val_alloc k)
+    \[]
+    (fun r => \exists p, \[r = val_loc p] \* harray_uninit k p).
+Proof using.
+  intros. intros H'. applys hoare_conseq.
+  { applys hoare_alloc_nat. }
+  { xsimpl. }
+  { xsimpl. auto. }
+Qed.
 
-
-
-
-(* ########################################################### *)
-(** ** Semantics of the allocation operations *)
-
-
-  | eval_alloc : forall k n ma mb l,
-      mb = Fmap.conseq l (LibList.make k val_uninit) ->
-      n = nat_to_Z k ->
-      l <> null ->
-      Fmap.disjoint ma mb ->
-      eval ma (val_alloc (val_int n)) (mb \+ ma) (val_loc l)
-  | eval_dealloc : forall n vs ma mb l,
-      mb = Fmap.conseq l vs ->
-      n = LibList.length vs ->
-      Fmap.disjoint ma mb ->
-      eval (mb \+ ma) (val_dealloc (val_int n) (val_loc l)) ma val_unit.
-
-
+(*
 Lemma Alloc_fmap_conseq : forall l k,
   l <> null ->
   (Alloc k l) (Fmap.conseq l (LibList.make k val_uninit)).
@@ -937,53 +995,78 @@ Proof using.
     { applys IHk. unfolds loc, null. math. }
     { applys~ Fmap.disjoint_single_conseq. } }
 Qed.
+*)
 
-Lemma triple_alloc : forall (k:nat),
-  triple (val_alloc k)
-    \[]
-    (fun r => \exists l, \[r = val_loc l /\ l <> null] \* hcells k l).
+(** Similarly, we can formalize the behavior and the specification of
+    the deallocation operation [val_dealloc n p].
+
+    This time, the initial state is of the union of a heap [mb],
+    describing the  part to be deallocated, and a disjoint heap [ma],
+    describing the part of the state that remains. The heap [mb]
+    must correspond to [n] consecutive cells, starting at location [p]. *)
+
+Parameter eval_dealloc : forall n vs ma mb p,
+  mb = Fmap.conseq p vs ->
+  n = LibList.length vs ->
+  Fmap.disjoint ma mb ->
+  eval (mb \+ ma) (val_dealloc (val_int n) (val_loc p)) ma val_unit.
+
+(** The specification as Hoare and Separation Logic triples are then
+    derive in a similar fashion as for allocation. *)
+
+Lemma hoare_dealloc : forall H p n,
+  n = length L ->
+  hoare (val_dealloc n p)
+    (harray L p \* H)
+    (fun _ => H).
 Proof using.
-  intros. applys triple_of_hoare. intros HF.
-  esplit; split. { applys~ hoare_alloc. } { xsimpl*. }
+  introv N. intros h Hh. destruct Hh as (h1&h2&N1&N2&N3&N4). subst h.
+  exists h2 val_unit. split.
+  { forwards (vs&Lvs&Hvs): Dealloc_inv N1. applys* eval_dealloc.
+    { rewrite <- Lvs. rewrite~ abs_to_int. } }
+  { rewrite~ hstar_hpure. }
 Qed.
 
-Lemma triple_alloc : forall n,
-  n >= 0 ->
-  triple (val_alloc n)
-    \[]
-    (fun r => \exists l, \[r = val_loc l /\ l <> null] \* Alloc (abs n) l).
+Lemma triple_dealloc : forall (L:list val) (n:int) (p:loc),
+  n = length L ->
+  triple (val_dealloc n p)
+    (harray L p)
+    (fun _ => \[]).
 Proof using.
-  intros. applys triple_of_hoare. intros HF.
-  esplit; split. { applys~ hoare_alloc. } { xsimpl*. }
+  intros. intros H'. applys hoare_conseq.
+  { applys hoare_alloc_nat. }
+  { xsimpl. }
+  { xsimpl. auto. }
 Qed.
 
-Lemma triple_dealloc : forall n l,
-  n >= 0 ->
-  triple (val_dealloc n l)
-    (Dealloc (abs n) l)
-    (fun r => \[r = val_unit]).
-Proof using.
-  intros. applys triple_of_hoare. intros HF.
-  esplit; split. { applys~ hoare_dealloc. } { xsimpl*. }
-Qed.
-
+End AllocSpec.
 
 
 (* ########################################################### *)
 (** ** Definition of record operations using pointer arithmetics *)
+
+Definition FieldOps.
+
+(** Most real-world programming languages include primitive operations
+    for reading and writing in record fields. Yet, in a simple language
+    like ours, records can be represented in arrays of consecutive cells,
+    and field accesses can be encoded with help of pointer arithmetic.
+    It is interesting to see how one may formally reason about this kind
+    of encoding. *)
+
+(** For example, the read operation on record fields can be implemented
+    within our language, as the combination of a pointer addition and
+    a read operation. More precisely, reading in [p`.f] using
+    [val_get_field] is like reading at address [p+f] using [val_get],
+    where [p+f] is computed by invoking [val_ptr_add p k]. *)
 
 Definition val_get_field (k:field) : val :=
   VFun 'p :=
     Let 'q := val_ptr_add 'p (nat_to_Z k) in
     val_get 'q.
 
-Definition val_set_field (k:field) : val :=
-  VFun 'p 'v :=
-    Let 'q := val_ptr_add 'p (nat_to_Z k) in
-    val_set 'q 'v.
-
-End FieldAccessDef.
-
+(** The specification of [val_get_field] can be established just like
+    for any other function. *)
 
 Lemma triple_get_field : forall l f v,
   triple ((val_get_field f) l)
@@ -993,6 +1076,14 @@ Proof using.
   xwp. xapp. unfold hfield. xpull. intros N. xapp. xsimpl*.
 Qed.
 
+(** A similar construction applies to the write operation on record
+    fields. *)
+
+Definition val_set_field (k:field) : val :=
+  VFun 'p 'v :=
+    Let 'q := val_ptr_add 'p (nat_to_Z k) in
+    val_set 'q 'v.
+
 Lemma triple_set_field : forall v1 l f v2,
   triple ((val_set_field f) l v2)
     (l`.f ~~> v1)
@@ -1001,20 +1092,18 @@ Proof using.
   xwp. xapp. unfold hfield. xpull. intros N. xapp. xsimpl*.
 Qed.
 
+End FieldOps.
+
 
 (* ########################################################### *)
 (** ** Definition of array operations using pointer arithmetics *)
 
+Module ArrayOps.
 
-(* -------------------------------------------------------------------------- *)
-(** Accesses *)
+(** In a very similar way, the read and write operations on array cells
+    can be encoded using pointer arithmetic. *)
 
-Import LibListZ.
-Implicit Types i ofs len : int.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Array get *)
+(** Consider first a read operation, written [val_array_get p i]. *)
 
 Definition val_array_get : val :=
   ValFun 'p 'i :=
@@ -1035,15 +1124,7 @@ Proof using.
   xsimpl; auto. { subst. rewrite~ read_middle. }
 Qed.
 
-Hint Extern 1 (Register_spec val_array_get) => Provide triple_array_get.
-
-Notation "'Array'' p `[ i ]" := (trm_app (trm_app (trm_val val_array_get) p) i)
-  (at level 69, p at level 0, no associativity,
-   format "'Array''  p `[ i ]") : charac.
-
-
-(* ---------------------------------------------------------------------- *)
-(** Array set *)
+(** Consider now a write operation, written [val_array_set p i v]. *)
 
 Definition val_array_set : val :=
   ValFun 'p 'i 'x :=
@@ -1066,24 +1147,15 @@ Proof using.
   xsimpl; auto. { subst. rewrite~ update_middle. rew_list~. }
 Qed.
 
-Hint Extern 1 (Register_spec val_array_set) => Provide triple_array_set.
-
-Notation "'Array'' p `[ i ] `<- x" := (trm_app (trm_app (trm_app (trm_val val_array_set) p) i) x)
-  (at level 69, p at level 0, no associativity,
-   format "'Array''  p `[ i ]  `<-  x") : charac.
+End ArrayOps.
 
 
-(* ---------------------------------------------------------------------- *)
-(** Array make *)
 
-Definition val_array_make : val :=
-  ValFun 'n 'v :=
-    Let 'p := val_alloc 'n in
-    Let 'b := 'n '- 1 in
-    For 'i := 0 To 'b Do
-      Array' 'p`['i] `<- 'v
-    Done;;;
-    'p.
+
+
+
+
+
 
 (* ####################################################### *)
 (** ** Grouped representation of record fields *)

@@ -1251,3 +1251,74 @@ Module State.
 
 End State.
 
+
+
+
+(* ########################################################### *)
+(** ** Iterated star operation *)
+
+
+(** The definition above can be recognized as an instance of an
+    "indexed fold" operation, applied to the "Separation Logic
+    commutative monoid" made of the star operator [\*] and its
+    neutral element [\[]], and applied to the list [L].
+
+    On paper, we would write the "big star" operator, with subscript
+    "[x] at index [i] in [L]", applied to the expression [(p+i) ~~> x].
+
+    In Coq, we can formalize this using a recursive function as follows. *)
+
+Fixpoint hfoldi_list A (F:nat->A->hprop) (L:list A) (i:nat) : hprop :=
+  match L with
+  | nil => \[]
+  | x::L' => (F i x) \* (hfoldi_list F L' (S i))
+  end.
+
+Definition harray (L:list val) (p:loc) : hprop :=
+  hfoldi_list (fun q x => q ~~> x) L p.
+
+
+(* TODO Remark: *)
+
+Fixpoint list_foldi A B (F:nat->A->B->B) (L:list A) (i:nat) (b:B) : B :=
+  match L with
+  | nil => b
+  | x::L' => F i x (list_foldi F L' (S i) b)
+  end.
+
+Definition harray'' (L:list val) (p:loc) : hprop :=
+  list_foldi (fun q x acc => q ~~> x \* acc) L p \[].
+
+
+
+=========
+
+
+Lemma triple_array_incr' : forall (n:int) L p,
+  n = LibListZ.length L ->
+  triple (array_incr_par p n)
+    (harray (vals_of_ints L) p)
+    (fun _ => harray (vals_of_ints (LibList.map (fun x => x + 1) L)) p).
+Proof using.
+  intros n. induction_wf IH: (wf_downto 0) n.
+  introv E. xwp. xapp. xif; intros C1.
+  { forwards (x&Hx): length_one_inv L. math. (* TODO math *) subst.
+    unfold vals_of_ints. rew_listx. rewrite harray_one_eq. xapp.
+    rewrite <- harray_one_eq. xsimpl. }
+  { asserts C1': (n <> 1). { intros N. applys C1. fequals. } clear C1. (* TODO cleanup *)
+    xapp. xif; intros C2.
+    { forwards R: range_split n. { math. }
+      xapp. { math. } sets m: (Z.quot n 2).
+      xapp. xapp triple_ptr_add. { math. }
+      forwards (L1&L2&EL&LL1&LL2): take_app_drop_spec_nonneg m L. { math. }
+      rewrite EL. unfold vals_of_ints. rew_listx. rewrite harray_concat_eq.
+      xapp (>> IH L1). { math. } { math. }
+      rew_listx. asserts_rewrite (abs (p + m) = (LibList.length L1 + p)%nat).
+      { apply eq_nat_of_eq_int. rewrite abs_nonneg; math. }
+      xapp (>> IH L2). { math. } { math. }
+      rewrite harray_concat_eq. rew_listx. unfold vals_of_ints. xsimpl. }
+    { asserts En: (n = 0). { math. }
+      forwards HL: (length_zero_inv L). { math. }
+      xval. subst. unfold vals_of_ints; rew_listx. xsimpl. } }
+Qed.
+

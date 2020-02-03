@@ -132,11 +132,11 @@ with trm : Type :=
 
 (** The language we consider is an imperative language, with primitive
     functions for manipulating the state. Thus, the statement of the
-    evaluation rules involve a memory state. 
+    evaluation rules involve a memory state.
 
-    Recall from [SLFHprop] that a state is represented as a finite map 
+    Recall from [SLFHprop] that a state is represented as a finite map
     from location to values. Finite maps are presented using the type
-    [fmap]. Details of the construction of finite maps are beyond the 
+    [fmap]. Details of the construction of finite maps are beyond the
     scope of this course; details may be found in the the file [Fmap.v]. *)
 
 Definition state : Type := fmap loc val.
