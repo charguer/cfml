@@ -21,6 +21,7 @@ From Sep Require Export SLFDirect.
 
 Implicit Types n : int.
 Implicit Types v w : val.
+Implicit Types a : nat.
 Implicit Types l : loc.
 Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
@@ -608,24 +609,26 @@ Lemma triple_gt : forall n1 n2,
     (fun r => \[r = isTrue (n1 > n2)]).
 Proof using. intros. applys* triple_binop. applys* evalbinop_gt. Qed.
 
-Lemma triple_ptr_add : forall l n,
-  l + n >= 0 ->
+Lemma triple_ptr_add : forall a l n,
+  l = loc_addr a ->
+  n >= 0 ->
   triple (val_ptr_add l n)
     \[]
-    (fun r => \[r = val_loc (abs (l + n))]).
+    (fun r => \[r = val_loc (a + abs n)%nat]).
 Proof using.
-  intros. applys* triple_binop. applys* evalbinop_ptr_add.
-  { rewrite~ abs_nonneg. }
+  introv -> N. applys* triple_binop. applys* evalbinop_ptr_add.
+  { rew_maths. rewrite~ abs_nonneg. }
 Qed.
 
-Lemma triple_ptr_add_nat : forall l (f:nat),
-  triple (val_ptr_add l f)
+Lemma triple_ptr_add_nat : forall (a:nat) (k:nat),
+  triple (val_ptr_add (val_loc a) k)
     \[]
-    (fun r => \[r = val_loc (l+f)%nat]).
+    (fun r => \[r = val_loc (a+k)%nat]).
 Proof using.
-  intros. applys triple_conseq triple_ptr_add. { math. } { xsimpl. }
-  { xsimpl. intros. subst. fequals.
-    applys eq_nat_of_eq_int. rewrite abs_nonneg; math. }
+  intros. applys* triple_conseq triple_ptr_add. { math. }
+  { xsimpl. intros. subst. fequals. fequals.
+    applys eq_nat_of_eq_int. rew_maths.
+    rewrite abs_nonneg; math. } 
 Qed.
 
 Hint Resolve triple_neg triple_opp triple_eq triple_neq
@@ -873,14 +876,17 @@ Qed.
 (* ########################################################### *)
 (** * Treatment of arrays *)
 
-Fixpoint hcells (L:list val) (p:loc) : hprop :=
+Fixpoint hcells (L:list val) (a:nat) : hprop :=
   match L with
   | nil => \[]
-  | x::L' => (p ~~> x) \* (hcells L' (S p))
+  | x::L' => (a ~~> x) \* (hcells L' (S a))
   end.
 
 Definition harray (L:list val) (p:loc) : hprop :=
-  hcells L p \* \[p <> null].
+  match p with
+  | loc_null => \[False]
+  | loc_addr a => hcells L a
+  end.
 
 Definition harray_uninit (k:nat) (p:loc) : hprop :=
   harray (LibList.make k val_uninit) p.
@@ -936,18 +942,23 @@ Parameter triple_dealloc : forall (n:int) (p:loc) (L:list val),
 Definition field : Type := nat.
 
 Definition hfield (l:loc) (k:field) (v:val) : hprop :=
-  (k+l)%nat ~~> v \* \[ l <> null ].
+  match l with
+  | loc_null => \[False]
+  | loc_addr a => (k+a)%nat ~~> v
+  end.
 
 Notation "l `. k '~~>' v" := (hfield l k v)
   (at level 32, k at level 0, no associativity,
    format "l `. k  '~~>'  v") : heap_scope.
 
+(*
 Lemma hfield_eq : forall l k v,
   hfield l k v = ((k+l)%nat ~~> v \* \[l <> null]).
 Proof using. auto. Qed.
+*)
 
 Lemma hfield_not_null : forall l k v,
-  (l`.k ~~> v) ==> (l`.k ~~> v) \* \[l <> null].
+  (l`.k ~~> v) ==> (l`.k ~~> v) \* \[l <> loc_null].
 Proof using.
   intros. subst. unfold hfield. xchanges~ hsingle_not_null.
 Qed.
