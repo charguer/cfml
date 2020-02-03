@@ -1578,11 +1578,16 @@ End CurriedFunXwp.
 
 Module PrimitiveNaryFun.
 
-(** In the grammar of terms and values, we include n-ary 
+(** We next present an alternative treatment to functions of
+    several arguments.
+
+    In the grammar of terms and values, we include n-ary 
     functions and n-ary applications. *)
 
 Parameter val_fixs : var -> list var -> trm -> val.
+
 Parameter trm_fixs : var -> list var -> trm -> trm.
+
 Parameter trm_apps : trm -> list trm -> trm.
 
 (** Through the rest of this section, we manipuate *)
