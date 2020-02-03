@@ -103,9 +103,11 @@ Inductive prim : Type :=
   | val_gt : prim
   | val_ptr_add : prim.
 
-Definition loc : Type := nat.
+Inductive loc : Type :=
+  | loc_null : loc
+  | loc_addr : nat -> loc.
 
-Definition null : loc := 0%nat.
+Notation "'null'" := loc_null : val_scope.
 
 Inductive val : Type :=
   | val_uninit : val (* uninitialized data allocated using [val_alloc] *)
@@ -130,7 +132,7 @@ with trm : Type :=
 (** The state consists of a finite map from location to values.
     Records and arrays are represented as sets of consecutive cells. *)
 
-Definition state : Type := fmap loc val.
+Definition state : Type := fmap nat val.
 
 (** The type [heap], a.k.a. [state]. By convention, the "state"
     refers to the full memory state, while the "heap" potentially
@@ -145,7 +147,7 @@ Definition heap : Type := state.
 (** [heap_empty] is a handy notation to avoid providing
     type arguments to [Fmap.empty] *)
 
-Notation "'heap_empty'" := (@Fmap.empty loc val)
+Notation "'heap_empty'" := (@Fmap.empty nat val)
   (at level 0).
 
 (** [h1 \u h2] is an optional notation for union of two heaps;
@@ -158,6 +160,7 @@ Notation "h1 \u h2" := (Fmap.union h1 h2)
 
 Implicit Types f : var.
 Implicit Types b : bool.
+Implicit Types a : nat.
 Implicit Types l : loc.
 Implicit Types n : int.
 Implicit Types v w r vf vx : val.
@@ -196,6 +199,7 @@ Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
 
 (** Coercions to improve conciseness in the statment of evaluation rules. *)
 
+Coercion loc_addr : nat >-> loc.
 Coercion val_bool : bool >-> val.
 Coercion val_int : Z >-> val.
 Coercion val_loc : loc >-> val.
@@ -222,9 +226,9 @@ Inductive evalunop : prim -> val -> val -> Prop :=
     [redupop op v1 v2 v3], which asserts that [op v1 v2] evaluates to [v3]. *)
 
 Inductive evalbinop : val -> val -> val -> val -> Prop :=
-  | evalbinop_ptr_add : forall l' l n,
-      (l':nat) = (l:nat) + n :> int ->
-      evalbinop val_ptr_add (val_loc l) (val_int n) (val_loc l')
+  | evalbinop_ptr_add : forall a' a n,
+      a' = a + n :> int ->
+      evalbinop val_ptr_add (val_loc a) (val_int n) (val_loc a')
   | evalbinop_eq : forall v1 v2,
       evalbinop val_eq v1 v2 (val_bool (isTrue (v1 = v2)))
   | evalbinop_neq : forall v1 v2,
@@ -298,29 +302,28 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
   | eval_binop : forall op m v1 v2 v,
       evalbinop op v1 v2 v ->
       eval m (op v1 v2) m v
-  | eval_ref : forall s v l,
-      ~ Fmap.indom s l ->
-      eval s (val_ref v) (Fmap.update s l v) (val_loc l)
-  | eval_get : forall s l,
-      Fmap.indom s l ->
-      eval s (val_get (val_loc l)) s (Fmap.read s l)
-  | eval_set : forall s l v,
-      Fmap.indom s l ->
-      eval s (val_set (val_loc l) v) (Fmap.update s l v) val_unit
-  | eval_free : forall s l,
-      Fmap.indom s l ->
-      eval s (val_free (val_loc l)) (Fmap.remove s l) val_unit
-  | eval_alloc : forall k n ma mb l,
-      mb = Fmap.conseq l (LibList.make k val_uninit) ->
+  | eval_ref : forall s v a,
+      ~ Fmap.indom s a ->
+      eval s (val_ref v) (Fmap.update s a v) (val_loc a)
+  | eval_get : forall s a,
+      Fmap.indom s a ->
+      eval s (val_get (val_loc a)) s (Fmap.read s a)
+  | eval_set : forall s a v,
+      Fmap.indom s a ->
+      eval s (val_set (val_loc a) v) (Fmap.update s a v) val_unit
+  | eval_free : forall s a,
+      Fmap.indom s a ->
+      eval s (val_free (val_loc a)) (Fmap.remove s a) val_unit
+  | eval_alloc : forall k n ma mb a,
+      mb = Fmap.conseq a (LibList.make k val_uninit) ->
       n = nat_to_Z k ->
-      l <> null ->
       Fmap.disjoint ma mb ->
-      eval ma (val_alloc (val_int n)) (mb \+ ma) (val_loc l)
-  | eval_dealloc : forall (n:int) vs ma mb l,
-      mb = Fmap.conseq l vs ->
+      eval ma (val_alloc (val_int n)) (mb \+ ma) (val_loc a)
+  | eval_dealloc : forall (n:int) vs ma mb a,
+      mb = Fmap.conseq a vs ->
       n = LibList.length vs ->
       Fmap.disjoint ma mb ->
-      eval (mb \+ ma) (val_dealloc (val_int n) (val_loc l)) ma val_unit.
+      eval (mb \+ ma) (val_dealloc (val_int n) (val_loc a)) ma val_unit.
 
 (** Specialized evaluation rules for addition and division. *)
 
@@ -405,7 +408,10 @@ Definition hempty : hprop :=
   fun h => (h = Fmap.empty).
 
 Definition hsingle (l:loc) (v:val) : hprop :=
-  fun h => (h = Fmap.single l v /\ l <> null).
+  fun h => match l with
+           | loc_null => False
+           | loc_addr a => h = Fmap.single a v
+           end.
 
 Definition hstar (H1 H2 : hprop) : hprop :=
   fun h => exists h1 h2, H1 h1
@@ -927,28 +933,40 @@ Qed.
 (* ################################################ *)
 (** *** Properties of [hsingle] *)
 
-Lemma hsingle_intro : forall l v,
-  l <> null ->
-  (l ~~> v) (Fmap.single l v).
-Proof using. introv N. hnfs*. Qed.
+Lemma hsingle_intro : forall a v,
+  (a ~~> v) (Fmap.single a v).
+Proof using. intros. hnfs*. Qed.
 
 Lemma hsingle_inv: forall l v h,
   (l ~~> v) h ->
-  h = Fmap.single l v /\ l <> null.
-Proof using. auto. Qed.
+  exists a, l = loc_addr a /\ h = Fmap.single a v.
+Proof using.
+  introv N. unfolds hsingle. destruct l as [|a]. 
+  { false. } { autos*. }
+Qed.
+
+Lemma hsingle_null_eq : forall v,
+  (loc_null ~~> v) = \[False].
+Proof using.
+  intros. applys himpl_antisym.
+  { intros h N. lets (a&E&_): hsingle_inv N. inverts E. }
+  { intros h N. lets (E&_): hpure_inv N. false. }
+Qed.
 
 Lemma hsingle_not_null : forall l v,
-  (l ~~> v) ==> (l ~~> v) \* \[l <> null].
+  (l ~~> v) ==> (l ~~> v) \* \[l <> loc_null].
 Proof using.
-  introv. intros h (K&N). rewrite hstar_comm, hstar_hpure.
-  split*. subst. applys* hsingle_intro.
+  introv N. rewrite hstar_comm, hstar_hpure.
+  unfolds hsingle. destruct l as [|a]. 
+  { false. } { split; auto_false. }
 Qed.
 
 Lemma hstar_hsingle_same_loc : forall l v1 v2,
   (l ~~> v1) \* (l ~~> v2) ==> \[False].
 Proof using.
   intros. unfold hsingle. intros h (h1&h2&E1&E2&D&E). false.
-  subst. applys* Fmap.disjoint_single_single_same_inv.
+  destruct l as [|a]. { false. }
+  { subst. applys* Fmap.disjoint_single_single_same_inv. }
 Qed.
 
 Arguments hstar_hsingle_same_loc : clear implicits.
@@ -1079,45 +1097,45 @@ Global Opaque hempty hpure hstar hsingle hexists hforall
     by using disjoint unions as much as possible.
     It is not needed to follow through these proofs. *)
 
-Lemma eval_ref_sep : forall s1 s2 v l,
-  s2 = Fmap.single l v ->
+Lemma eval_ref_sep : forall s1 s2 v a,
+  s2 = Fmap.single a v ->
   Fmap.disjoint s2 s1 ->
-  eval s1 (val_ref v) (Fmap.union s2 s1) (val_loc l).
+  eval s1 (val_ref v) (Fmap.union s2 s1) (val_loc a).
 Proof using.
-  introv -> D. forwards Dv: Fmap.indom_single l v.
+  introv -> D. forwards Dv: Fmap.indom_single a v.
   rewrite <- Fmap.update_eq_union_single. applys~ eval_ref.
   { intros N. applys~ Fmap.disjoint_inv_not_indom_both D N. }
 Qed.
 
-Lemma eval_get_sep : forall s s2 l v,
-  s = Fmap.union (Fmap.single l v) s2 ->
-  eval s (val_get (val_loc l)) s v.
+Lemma eval_get_sep : forall s s2 a v,
+  s = Fmap.union (Fmap.single a v) s2 ->
+  eval s (val_get (val_loc a)) s v.
 Proof using.
-  introv ->. forwards Dv: Fmap.indom_single l v.
+  introv ->. forwards Dv: Fmap.indom_single a v.
   applys_eq eval_get 1.
   { applys~ Fmap.indom_union_l. }
   { rewrite~ Fmap.read_union_l. rewrite~ Fmap.read_single. }
 Qed.
 
-Lemma eval_set_sep : forall s1 s2 h2 l v1 v2,
-  s1 = Fmap.union (Fmap.single l v1) h2 ->
-  s2 = Fmap.union (Fmap.single l v2) h2 ->
-  Fmap.disjoint (Fmap.single l v1) h2 ->
-  eval s1 (val_set (val_loc l) v2) s2 val_unit.
+Lemma eval_set_sep : forall s1 s2 h2 a v1 v2,
+  s1 = Fmap.union (Fmap.single a v1) h2 ->
+  s2 = Fmap.union (Fmap.single a v2) h2 ->
+  Fmap.disjoint (Fmap.single a v1) h2 ->
+  eval s1 (val_set (val_loc a) v2) s2 val_unit.
 Proof using.
-  introv -> -> D. forwards Dv: Fmap.indom_single l v1.
+  introv -> -> D. forwards Dv: Fmap.indom_single a v1.
   applys_eq eval_set 2.
   { applys~ Fmap.indom_union_l. }
   { rewrite~ Fmap.update_union_l. fequals.
     rewrite~ Fmap.update_single. }
 Qed.
 
-Lemma eval_free_sep : forall s1 s2 v l,
-  s1 = Fmap.union (Fmap.single l v) s2 ->
-  Fmap.disjoint (Fmap.single l v) s2 ->
-  eval s1 (val_free l) s2 val_unit.
+Lemma eval_free_sep : forall s1 s2 v a,
+  s1 = Fmap.union (Fmap.single a v) s2 ->
+  Fmap.disjoint (Fmap.single a v) s2 ->
+  eval s1 (val_free (val_loc a)) s2 val_unit.
 Proof using.
-  introv -> D. forwards Dv: Fmap.indom_single l v.
+  introv -> D. forwards Dv: Fmap.indom_single a v.
   applys_eq eval_free 2.
   { applys~ Fmap.indom_union_l. }
   { rewrite~ Fmap.remove_union_single_l.
@@ -1299,7 +1317,7 @@ Lemma hoare_get : forall H v l,
 Proof using.
   intros. intros s K0. exists s v. split.
   { destruct K0 as (s1&s2&P1&P2&D&U).
-    lets (E1&N): hsingle_inv P1. subst s1.
+    lets (a&E1&N): hsingle_inv P1. subst l s1.
     applys eval_get_sep U. }
   { rewrite~ hstar_hpure. }
 Qed.
@@ -1311,8 +1329,8 @@ Lemma hoare_set : forall H w l v,
 Proof using.
   intros. intros s1 K0.
   destruct K0 as (h1&h2&P1&P2&D&U).
-  lets (E1&N): hsingle_inv P1.
-  exists (Fmap.union (Fmap.single l w) h2) val_unit. split.
+  lets (a&E1&N): hsingle_inv P1. subst l.
+  exists (Fmap.union (Fmap.single a w) h2) val_unit. split.
   { subst h1. applys eval_set_sep U D. auto. }
   { rewrite hstar_hpure. split~.
     { applys~ hstar_intro.
@@ -1327,12 +1345,11 @@ Lemma hoare_free : forall H l v,
 Proof using.
   intros. intros s1 K0.
   destruct K0 as (h1&h2&P1&P2&D&U).
-  lets (E1&N): hsingle_inv P1.
+  lets (a&E1&N): hsingle_inv P1. subst l.
   exists h2 val_unit. split.
   { subst h1. applys eval_free_sep U D. }
   { rewrite hstar_hpure. split~. }
 Qed.
-
 
 
 (* ########################################################### *)
