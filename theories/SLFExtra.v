@@ -863,6 +863,21 @@ Definition harray (L:list val) (p:loc) : hprop :=
 Definition harray_uninit (k:nat) (p:loc) : hprop :=
   harray (LibList.make k val_uninit) p.
 
+Fixpoint hcells_any (k:nat) (p:loc) : hprop :=
+  match k with
+  | O => \[]
+  | S k' => (\exists v, p ~~> v) \* (hcells_any k' (S p))
+  end.
+
+Lemma himpl_hcells_any_hcells : forall k p,
+  hcells_any k p ==> \exists L, \[length L = k] \* hcells L p.
+Proof using.
+  intros. gen p. induction k as [|k']; simpl; intros.
+  { xsimpl (@nil val). { auto. } { simpl. xsimpl. } }
+  { xpull. intros v. xchange IHk'. intros L' EL'.
+    xsimpl (v::L'). { rew_list. math. } { simpl. xsimpl. } }
+Qed.
+
 (** Allocation *)
 
 (* TODO *)
@@ -894,13 +909,33 @@ Proof using.
 Qed.
 
 (** Deallocation *)
+
 (* TODO *)
 
-Parameter triple_dealloc : forall (n:int) (p:loc) (L:list val),
+Parameter triple_dealloc_hcells : forall (L:list val) (n:int) (p:loc),
+  n = length L ->
+  triple (val_dealloc n p)
+    (hcells L p)
+    (fun _ => \[]).
+
+Lemma triple_dealloc_harray : forall (L:list val) (n:int) (p:loc),
   n = length L ->
   triple (val_dealloc n p)
     (harray L p)
     (fun _ => \[]).
+Proof using.
+  introv E. xtriple. unfold harray. xapp triple_dealloc_hcells.
+  { auto. } { xsimpl. }
+Qed.
+
+Lemma triple_dealloc_hcells_any : forall (k:nat) (p:loc),
+  triple (val_dealloc k p)
+    (hcells_any k p)
+    (fun _ => \[]).
+Proof using.
+  intros. xtriple. xchange himpl_hcells_any_hcells. intros L EL.
+  xapp triple_dealloc_hcells. { auto. } { xsimpl. }
+Qed.
 
 
 (* ########################################################### *)
@@ -929,6 +964,8 @@ Lemma hfield_not_null : forall l k v,
 Proof using.
   intros. subst. unfold hfield. xchanges~ hsingle_not_null.
 Qed.
+
+Arguments  hfield_not_null : clear implicits.
 
 
 (* ########################################################### *)

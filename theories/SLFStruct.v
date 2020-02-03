@@ -59,9 +59,9 @@ Implicit Type v : val.
 
     In this chapter, we present reasoning rules for curried functions,
     again because this choice requires minimal extension to the syntax and
-    semantics of our language. (In constrast, CFML is based on n-ary native
-    n-ary functions, which are more practical and more efficient from an
-    engineering perspective.)
+    semantics of our language. We discuss in the bonus section the treatment
+    of native n-ary functions, which is the most practical solution from an
+    engineering point of view.
 
 *)
 
@@ -196,25 +196,20 @@ Proof using.
     { rewrite length_make. rewrite* abs_nonneg. } }
 Qed.
 
+
+(* ####################################################### *)
+(** ** Specification of the deallocation of consecutive cells *)
+
 (** The deallocation operation [val_dealloc n p] deallocates [n]
     consecutive cells starting from the location [p]. It admits the
     precondition [harray L p], where [L] can be any list of length [n],
-    and its postcondition is empty.*)
+    and its postcondition is empty. *)
 
-Parameter triple_dealloc : forall (L:list val) (n:int) (p:loc),
+Parameter triple_dealloc_harray : forall (L:list val) (n:int) (p:loc),
   n = length L ->
   triple (val_dealloc n p)
     (harray L p)
     (fun _ => \[]).
-
-(* TODO
-Lemma triple_dealloc_hcells : forall (L:list val) (n:int) (p:loc),
-  n = length L ->
-  triple (val_dealloc n p)
-    (hcells L p)
-    (fun _ => \[]).
-Admitted.
-*)
 
 (** Remark: in the C programming language, the argument [n] needs not be
     provided, because the system keeps track of the size of allocated blocks.
@@ -222,6 +217,59 @@ Admitted.
     in C one can invoke the deallocation function on pointers that were
     produced by the allocation function. We discuss further in this chapter
     a possible refinement of the specification to enforce this policy. *)
+
+(** Above, the precondition [harray L p] is stronger than it needs to be.
+    It would suffices to take [hcells L p] in the precondition. Depending
+    on the use case, it may be easier for the user to not carry around the
+    information that [p <> null]. *)
+
+Parameter triple_dealloc_hcells : forall (L:list val) (n:int) (p:loc),
+  n = length L ->
+  triple (val_dealloc n p)
+    (hcells L p)
+    (fun _ => \[]).
+
+(** This second specification is still somewhat inconvenient for practical
+    proofs. The reason is that it requires explicitly providing the list
+    describing the contents of the deallocated cells. (An example illustrating
+    the issue is given further on, in lemma [triple_dealloc_mcell].)
+
+    We therefore consider an alternative deallocation rule that avoids the
+    quantification over thie list [L]. It is based on a new heap predicate,
+    written [hcells_any k p], which describes the contents of [k] cells,
+    each of which with an arbitrary contents described through an existential
+    quantifier. *)
+
+Fixpoint hcells_any (k:nat) (p:loc) : hprop :=
+  match k with
+  | O => \[]
+  | S k' => (\exists v, p ~~> v) \* (hcells_any k' (S p))
+  end.
+
+(** We can prove that the predicate [hcells_any k p] entails [hcells L p]
+    for some list [L]. The list [L] is obtained by gathering the [k] existentially
+    quantified values that appear recursively in the definition of [hcells_any]. *)
+
+Lemma himpl_hcells_any_hcells : forall k p,
+  hcells_any k p ==> \exists L, \[length L = k] \* hcells L p.
+Proof using.
+  intros. gen p. induction k as [|k']; simpl; intros.
+  { xsimpl (@nil val). { auto. } { simpl. xsimpl. } }
+  { xpull. intros v. xchange IHk'. intros L' EL'.
+    xsimpl (v::L'). { rew_list. math. } { simpl. xsimpl. } }
+Qed.
+
+(** The specification of the operation [val_dealloc k] can then be reformulated 
+    using a precondition of the forme [harray_any k p]. *)
+
+Lemma triple_dealloc_hcells_any : forall (k:nat) (p:loc),
+  triple (val_dealloc k p)
+    (hcells_any k p)
+    (fun _ => \[]).
+Proof using.
+  intros. xtriple. xchange himpl_hcells_any_hcells. intros L EL. 
+  xapp triple_dealloc_hcells. { auto. } { xsimpl. }
+Qed.
 
 
 (* ########################################################### *)
@@ -244,19 +292,22 @@ Admitted.
     convention a field name, where field names correspond to a natural
     numbers.
 
-    It is convenient in verification proofs to be able to assume that
+    In first approximation, the definition is shown below, where we write [k+p]
+    instead of [p+k] to enable smoother simplications via the [simpl] tactic. *)
+
+Definition field : Type := nat.
+
+Definition hfield' (p:loc) (k:field) (v:val) : hprop :=
+  (k+p)%nat ~~> v.
+
+(** It is convenient in verification proofs to be able to assume that
     whenever we write [p`.k ~~> v], we refer to a location [p] that is
     not null. For an example, see the use of the lemma [hfield_not_null]
     inside the proof of the lemma [MList_if] in file [SLFBasic.v].
 
     To enable justifying this lemma [hfield_not_null], whose statement
     appears below, we bake in the definition of [p`.k ~~> v] the fact that
-    [p] is not null, using the assertion [\[p <> null]].
-
-    In the definition of [hfield] shown below, note that we write [k+p]
-    instead of [p+k] to enable smoother simplications via the [simpl] tactic. *)
-
-Definition field : Type := nat.
+    [p] is not null, using the assertion [\[p <> null]]. *)
 
 Definition hfield (p:loc) (k:field) (v:val) : hprop :=
   (k+p)%nat ~~> v \* \[p <> null].
@@ -310,21 +361,29 @@ Proof using.
   do 2 rewrite hfield_eq. xsimpl; auto.
 Qed.
 
+(* TODO: fix p+f to f+p *)
+
 (** Reciprocally, we can deallocate a mutable list cell at location [p]
     by invoking the primitive operation [val_dealloc] with argument [2].
     The precondition describes the two fields [p`.head ~~> x] and
     [p`.tail ~~> q]. The postcondition is empty: the fields are lost. *)
 
-Lemma triple_dealloc_cell : forall (x:val) (p q:loc),
+Lemma triple_dealloc_mcell : forall (x:val) (p q:loc),
   triple (val_dealloc 2%nat p)
     ((p`.head ~~> x) \* (p`.tail ~~> q))
     (fun _ => \[]).
+
+(** For the proof, we exploit the rule [triple_dealloc_hcells_any].
+    If we used instead the rule  [triple_dealloc_hcells], we would have
+    to provide explicitly the list of the contents of the cells, by invoking
+    [xapp (@triple_dealloc_hcells (x::(val_loc q)::nil))]. Instead,
+    thanks to [hcells_any], the existentially-quantified associated with each
+    of the cells get automatically inferred by [xsimpl]. *)
+
 Proof using.
-  xtriple. xchange (@hfield_not_null p). intros N. (* TODO @ *)
-  xapp (@triple_dealloc 2%nat p (x::(val_loc q)::nil)). (* TODO *)  auto.
-  xsimpl. unfold harray, hcells. do 2 rewrite hfield_eq. xsimpl. auto.
+  xtriple. xapp triple_dealloc_hcells_any.
+  unfold hcells_any. do 2 rewrite hfield_eq. xsimpl.
 Qed.
-(* TODO: simplify *)
 
 
 (* ########################################################### *)
@@ -952,7 +1011,7 @@ Lemma triple_mfree_cell : forall (x:val) (p q:loc),
   triple (mfree_cell p)
     ((p`.head ~~> x) \* (p`.tail ~~> q))
     (fun _ => \[]).
-Proof using. xwp. xapp triple_dealloc_cell. xsimpl. Qed.
+Proof using. xwp. xapp triple_dealloc_mcell. xsimpl. Qed.
 
 Hint Resolve triple_mfree_cell : triple.
 
@@ -1428,7 +1487,7 @@ End GroupedFields.
 
 
 (* ####################################################### *)
-(** ** Grouped representation of record fields *)
+(** ** Curried n-ary functions *)
 
 Module CurriedFunXwp.
 Implicit Types f : var.
@@ -1512,3 +1571,87 @@ Tactic Notation "xwp" :=
     in several examples from the chapter [SLFBasic]. *)
 
 End CurriedFunXwp.
+
+
+(* ####################################################### *)
+(** ** Primitive n-ary functions *)
+
+(*
+Module PrimitiveNaryFun.
+
+(** In the grammar of terms and values, we include n-ary 
+    functions and n-ary applications. *)
+
+Parameter val_fixs : var -> list var -> trm -> val.
+Parameter trm_fixs : var -> list var -> trm -> trm.
+Parameter trm_apps : trm -> list trm -> trm.
+
+(** The evaluation rule for functions. *)
+
+Parameter eval_fixs : forall m f xs t1,
+      xs <> nil ->
+      eval m (trm_fixs f xs t1) m (val_fixs f xs t1)
+
+(** And for applications. *)
+
+
+Fixpoint substn (xs:vars) (vs:vals) (t:trm) : trm :=
+  match xs,vs with
+  | x::xs', v::vs' => substn xs' vs' (subst x v t)
+  | _,_ => t
+  end.
+
+
+Parameter eval_apps_fixs : forall m1 m2 f xs t3 v0 vs r,
+      v0 = val_fixs f xs t3 ->
+      var_fixs f (length vs) xs ->
+      eval m1 (substn xs vs (subst1 f v0 t3)) m2 r ->
+      eval m1 (trm_apps v0 vs) m2 r
+
+Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
+  let aux t :=
+    subst y w t in
+  let aux_no_captures xs t :=
+    If LibList.mem y xs then t else aux t in
+  match t with
+  | trm_fixs f xs t1 => trm_fixs f xs (If f = y then t1 else
+                                        aux_no_captures xs t1)
+  | trm_apps t0 ts => trm_apps (aux t0) (List.map aux ts)
+  ...
+ end.
+Lemma subst_trm_fixs : forall y w f xs t,
+  var_fresh y (f::xs) ->
+  subst1 y w (trm_fixs f xs t) = trm_fixs f xs (subst1 y w t).
+Proof using.
+
+Definition var_fixs (f:var) (n:nat) (xs:vars) : Prop :=
+     var_distinct (f::xs)
+  /\ length xs = n
+  /\ xs <> nil.
+Lemma triple_apps_fixs : forall xs (f:var) F (Vs:vals) t1 H Q,
+  F = (val_fixs f xs t1) ->
+  var_fixs f (length Vs) xs ->
+  triple (substn (f::xs) (F::Vs) t1) H Q ->
+  triple (trm_apps F Vs) H Q.
+Fixpoint trms_to_vals_rec (acc:vals) (ts:trms) : option vals :=
+  match ts with
+  | nil => Some (List.rev acc)
+  | trm_val v :: ts' => trms_to_vals_rec (v::acc) ts'
+  | _ => None
+  end.
+
+Definition trms_to_vals (ts:trms) : option vals :=
+  trms_to_vals_rec nil ts.
+
+
+Lemma xwp_lemma_fixs : forall F f vs ts xs t H Q,
+  F = val_fixs f xs t ->
+  trms_to_vals ts = Some vs ->
+  var_fixs_exec f (length vs) xs ->
+  H ==> (wpgen (combine (f::xs) (F::vs)) t) Q ->
+  triple (trm_apps F ts) H Q.
+
+End PrimitiveNaryFun.
+
+
+*)
