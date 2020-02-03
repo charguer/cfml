@@ -620,13 +620,12 @@ Qed.
 (* ########################################################### *)
 (** * Additional contents *)
 
-
 Implicit Types x : val.
 Implicit Types q : loc.
 
 
 (* ####################################################### *)
-(** ** Proof of operation on list cells *)
+(** ** High-level specifications for the allocation of list cells *)
 
 (** Recall from [SLFBasic] the definition of [MList]. *)
 
@@ -647,8 +646,10 @@ Lemma MList_cons : forall p x L',
 Proof using.  auto. Qed.
 
 
-(** The operation [mnil()] returns the [null] value.
-    The intention is to produce a representation for the empty list.
+(** The operation [mnil()] returns the [null] value, which is
+    a representation for the empty list [nil]. Thus, [mnil]
+    can be specified using a postcondition asserting it produces
+    [MList nil p], where [p] denotes the location returned.
 
 [[
     let rec mnil () =
@@ -662,33 +663,15 @@ Definition mnil : val :=
 
 (** The precondition of [mnil] is empty. Its postcondition of [mnil]
     asserts that the return value [p] is a pointer such that
-    [p ~> MList nil]. *)
-
-Lemma triple_mnil :
-  triple (mnil '())
-    \[]
-    (fun r => \exists p, \[r = val_loc p] \* MList nil p).
-Proof using.
-  (* The proof requires introducing [null ~> MList nil] from nothing. *)
-  xwp. xval. xchange <- (MList_nil null). { auto. } xsimpl*.
-Qed.
-
-
-(** Observe that the specification [triple_mnil] does not mention
-    the [null] pointer anywhere. This specification can thus be
-    used to specify the behavior of operations on mutable lists
-    without having to reveal low-level implementation details. *)
-
-(** Remark: in the proof of [Triple_mnil], the call to
-    [xchange <- (MList_nil null)] can be replaced to a simpler
-    tactic invokation: [xchange MList_nil_intro], where
-    [MList_nil_intro] corresponds to the lemma stated next. *)
+    [MList nil p]. Because [p] is [null], the proof requires us to
+    introduce [null ~> MList nil] out of thin air. For this task, we
+    can use the following specialization of the lemma [MList_nil]. *)
 
 Lemma MList_nil_intro :
   \[] ==> (MList nil null).
 Proof using. intros. rewrite* MList_nil. xsimpl*. Qed.
 
-Lemma Triple_mnil' :
+Lemma triple_mnil :
   triple (mnil '())
     \[]
     (fun r => \exists p, \[r = val_loc p] \* MList nil p).
@@ -696,20 +679,24 @@ Proof using.
   xwp. xval. xchange MList_nil_intro. xsimpl*.
 Qed.
 
+(** Remark: the tactic [xchange MList_nil_intro] can also be
+    replaced with [xchange <- (MList_nil null)], if one wishes
+    to save the need to state the lemma [xchange MList_nil_intro]. *)
 
+(** Observe that the specification [triple_mnil] does not mention
+    the [null] pointer anywhere. This specification can thus be
+    used to specify the behavior of operations on mutable lists
+    without having to reveal low-level implementation details. *)
 
-(** The function [mcons] is an alias for [mcell].
-
-    Whereas [mcell] is intended to allocate a fresh cell on its own,
-    [mcons] is intended to extend an existing list by appending to
-    it a freshly-allocated cell. *)
+(** The function [mcons] is an alias for [mcell]. Whereas [mcell]
+    is intended to allocate a fresh cell on its own, [mcons] is
+    intended to extend an existing list by appending to it a
+    freshly-allocated cell. The specification of [mcons] requires
+    a list [q ~> MList L] in its precondition, and produces a list
+    [p ~> MList (x::L)] in its postcondition. *)
 
 Definition mcons : val :=
   mcell.
-
-(** The specification of [mcons] thus requires a list [q ~> MList L]
-    in its precondition, and produces a list [p ~> MList (x::L)] in
-    its postcondition. *)
 
 Lemma triple_mcons : forall x q L,
   triple (mcons x q)
@@ -720,20 +707,24 @@ Proof using.
   intros p. xchange <- MList_cons. xsimpl*. (* fold back the list *)
 Qed.
 
-
 Hint Resolve triple_mnil triple_mcons : triple.
 
 
+(* ########################################################### *)
+(** ** Case analysis and list copy *)
 
-
+(** Recall from chapter [SLFBasic] the lemma [MList_if], which
+    reformulates the definition of [MList L p] using a case analysis
+    on whether the pointer [p] is null, instead of on whether the
+    list [L] is empty. *)
 
 Lemma MList_if : forall (p:loc) (L:list val),
       (MList L p)
   ==> (If p = null
-      then \[L = nil]
-      else \exists x q L', \[L = x::L']
-           \* (p`.head ~~> x) \* (p`.tail ~~> q)
-           \* (MList L' q)).
+        then \[L = nil]
+        else \exists x q L', \[L = x::L']
+             \* (p`.head ~~> x) \* (p`.tail ~~> q)
+             \* (MList L' q)).
 Proof using.
   intros. destruct L as [|x L'].
   { xchange MList_nil. intros M. case_if. xsimpl. auto. }
@@ -742,14 +733,12 @@ Proof using.
     { xsimpl. auto. } }
 Qed.
 
+(** Consider the function [mcopy], which constructs an independent
+    copy of a given mutable linked list.
 
-
-(* ########################################################### *)
-(** ** List copy *)
-
-(** Let's put to practice the function [mnil] and [mcons] for
-    verifying the function [mcopy], which constructs an independent
-    copy of a given linked list.
+    We'll thereby put to practice the lemma [MList_if] as well as
+    the allocation functions [mnil] and [mcons] for verifying the
+    function [mcopy]
 
 [[
     let rec mcopy p =
@@ -761,7 +750,7 @@ Qed.
 
 Definition mcopy : val :=
   VFix 'f 'p :=
-    Let 'b := ('p  '= null) in
+    Let 'b := ('p '= null) in
     If_ 'b
       Then mnil '()
       Else
@@ -786,7 +775,9 @@ Lemma triple_mcopy : forall p L,
 
     - [mnil] produces an empty list of the form [p' ~> MList nil],
     - the recursive call produces a list of the form [q' ~> MList L'],
-    - [mcons] produces a list of the form [p' ~> MList (x::L')]. *)
+    - [mcons] produces a list of the form [p' ~> MList (x::L')].
+
+*)
 
 Proof using.
   intros. gen p. induction_wf IH: (@list_sub val) L. (* TODO: arg to list_sub *)
@@ -797,13 +788,25 @@ Proof using.
 Qed.
 
 
-
 (* ########################################################### *)
 (** ** Deallocation of a cell: [mfree_cell] *)
 
+(** Recall that our Separation Logic set up enforces that all allocated
+    data eventually gets properly deallocated. In what follows, we describe
+    a function for deallocating one cell, then a function for deallocating
+    an entire mutable list. *)
+
+(* TODO: rename VFun *)
+
+(** The operation [mfree_cell p] deallocates the two fields associated
+    with the cell at location [p]. *)
+
 Definition mfree_cell : val :=
-  VFun 'p :=  (* TODO: rename VFun *)
+  VFun 'p :=
     val_dealloc 2%nat 'p.
+
+(** The precondition of this operation thus requires the two fields
+    [p`.head ~~> x] and [p`.tail ~~> q], and the postcondition is empty. *)
 
 Lemma triple_mfree_cell : forall (x:val) (p q:loc),
   triple (mfree_cell p)
@@ -813,29 +816,9 @@ Proof using. xwp. xapp triple_dealloc_cell. xsimpl. Qed.
 
 Hint Resolve triple_mfree_cell : triple.
 
-(** Separation Logic can be set up to enforce that all allocated data
-    eventually gets properly deallocated. In what follows, we describe
-    a function for deallocating one cell, and a function for deallocating
-    an entire mutable list. *)
-
-(** There is no explicit deallocation in OCaml, which is equipped with
-    a garbage collector, but let's pretend that there is a [delete]
-    operation for deallocating records.
-
-[[
-    let mfree_cell p =
-      delete p
-]]
-
-    For technical reasons (because our source language is untyped and our
-    formal semantics does not keep track of the size of allocated block),
-    we require in our ad-hoc program syntax the delete operation to
-    be annotated with the names of the fields of the record to be deleted,
-    as shown below.
-*)
-
 (** The operation [mfree_list] deallocates all the cells in a given list.
-    It can be implemented as the following tail-recursive function.
+    It is implemented as a recursive function that invokes [mfree_cell]
+    on every cell that it traverses.
 
 [[
     let rec mfree_list p =
