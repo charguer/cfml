@@ -419,11 +419,12 @@ Qed.
 (* ####################################################### *)
 (** ** Reasoning about arrays *)
 
+Module Arrays.
+
 (** Array operations *)
 
 Import LibListZ.
-
-Hint Extern 1 (Register_spec val_array_get) => Provide triple_array_get.
+Implicit Types L : list val.
 
 (** [val_array_get p i] *)
 
@@ -434,24 +435,26 @@ Notation "'Array'' p `[ i ]" := (trm_app (trm_app (trm_val val_array_get) p) i)
    format "'Array''  p `[ i ]") : charac.
 
 Lemma triple_array_get : forall p i L,
-  index L i ->
+  0 <= i < length L ->
   triple (val_array_get p i)
     (harray L p)
     (fun r => \[r = L[i]] \* harray L p).
+Admitted.
 
 (** [val_array_set p i v] *)
+
+Parameter val_array_set : val.
 
 Notation "'Array'' p `[ i ] `<- x" := (trm_app (trm_app (trm_app (trm_val val_array_set) p) i) x)
   (at level 69, p at level 0, no associativity,
    format "'Array''  p `[ i ]  `<-  x") : charac.
 
-Hint Extern 1 (Register_spec val_array_set) => Provide triple_array_set.
-
 Lemma triple_array_set : forall p i v L,
-  index L i ->
+  0 <= i < length L ->
   triple (val_array_set p i v)
     (harray L p)
     (fun r => \[r = val_unit] \* harray (L[i:=v]) p).
+Admitted.
 
 (** Example program
 
@@ -469,7 +472,7 @@ Definition array_incr : val :=
     Let 'b := ('n '> 0) in
     If_ 'b Then
       Let 'i := 'n '- 1 in
-      Let 'x := val_array_get p 'i in
+      Let 'x := val_array_get 'p 'i in
       Let 'y := 'x '+ 1 in
       val_array_set 'p 'i 'y ';
       'f 'p 'i
@@ -478,15 +481,17 @@ Definition array_incr : val :=
 Definition harray_int (L:list int) (p:loc) : hprop :=
   harray (LibList.map val_int L) p.
 
-Lemma triple_array_incr : forall (n:int) L p,
+Lemma triple_array_incr : forall (n:int) (L:list int) p,
   n = LibListZ.length L ->
   triple (array_incr p n)
     (harray_int L p)
     (fun _ => harray_int (LibList.map (fun x => x + 1) L) p).
 Proof using.
-  introv K. gen n. induction_wf IH: (@list_sub val) L. introv N. xwp.
-  ..
+  introv K. gen n. induction_wf IH: (@list_sub int) L. introv N. xwp.
+  skip. (* tODO *)
 Qed.
+
+End Arrays.
 
 
 (* ####################################################### *)
@@ -725,7 +730,7 @@ Parameter eval_app_arg : forall s1 s2 s3 s4 t1 t2 v1 v2 r,
   eval s1 t1 s2 v1 ->
   eval s2 t2 s3 v2 ->
   eval s3 (trm_app v1 v2) s4 r ->
-  eval s1 (trm_app t1 t2) s4 r
+  eval s1 (trm_app t1 t2) s4 r.
 
 (** Using this rule, we can establish an evaluation rule for the
     term [v0 v1 v2]. There, [v0] is a recursive function of two
@@ -753,12 +758,14 @@ End CurriedFun.
 (* ########################################################### *)
 (** * Additional contents *)
 
-Implicit Types x : val.
-Implicit Types q : loc.
-
 
 (* ####################################################### *)
 (** ** High-level specifications for the allocation of list cells *)
+
+Module Lists.
+
+Implicit Types x : val.
+Implicit Types q : loc.
 
 (** Recall from [SLFBasic] the definition of [MList]. *)
 
@@ -993,7 +1000,7 @@ Qed. (* /ADMITTED *)
 
 (** [] *)
 
-(*
+End Lists.
 
 
 (* ########################################################### *)
@@ -1036,7 +1043,7 @@ Parameter eval_alloc : forall k n ma mb p,
   n = nat_to_Z k ->
   p <> null ->
   Fmap.disjoint ma mb ->
-  eval ma (val_alloc (val_int n)) (mb \+ ma) (val_loc p).
+  eval ma (val_alloc (val_int n)) (Fmap.union mb ma) (val_loc p).
 
 (** As usual, we first derive a Hoare logic statement, then the
     corresponding Separation Logic judgment. *)
@@ -1046,6 +1053,7 @@ Lemma hoare_alloc_nat : forall (k:nat) H,
     H
     (fun r => \exists p, \[r = val_loc p] \* harray_uninit k p \* H).
 Proof using.
+(*
   introv N. intros h Hh.
   forwards~ (l&Dl&Nl): (Fmap.conseq_fresh null h (abs n) val_uninitialized).
   match type of Dl with Fmap.disjoint ?hc _ => sets h1': hc end.
@@ -1054,6 +1062,8 @@ Proof using.
   { apply~ hstar_intro.
     { exists l. applys~ himpl_hstar_hpure_r. applys~ Alloc_fmap_conseq. } }
 Qed.
+*)
+Admitted.
 
 Lemma triple_alloc_nat : forall (k:nat),
   triple (val_alloc k)
@@ -1061,9 +1071,7 @@ Lemma triple_alloc_nat : forall (k:nat),
     (fun r => \exists p, \[r = val_loc p] \* harray_uninit k p).
 Proof using.
   intros. intros H'. applys hoare_conseq.
-  { applys hoare_alloc_nat. }
-  { xsimpl. }
-  { xsimpl. auto. }
+  { applys hoare_alloc_nat H'. } { xsimpl. } { xsimpl*. }
 Qed.
 
 (*
@@ -1093,23 +1101,26 @@ Parameter eval_dealloc : forall n vs ma mb p,
   mb = Fmap.conseq p vs ->
   n = LibList.length vs ->
   Fmap.disjoint ma mb ->
-  eval (mb \+ ma) (val_dealloc (val_int n) (val_loc p)) ma val_unit.
+  eval (Fmap.union mb ma) (val_dealloc (val_int n) (val_loc p)) ma val_unit.
 
 (** The specification as Hoare and Separation Logic triples are then
     derive in a similar fashion as for allocation. *)
 
-Lemma hoare_dealloc : forall H p n,
+Lemma hoare_dealloc : forall H L p n,
   n = length L ->
   hoare (val_dealloc n p)
     (harray L p \* H)
     (fun _ => H).
 Proof using.
+(*
   introv N. intros h Hh. destruct Hh as (h1&h2&N1&N2&N3&N4). subst h.
   exists h2 val_unit. split.
   { forwards (vs&Lvs&Hvs): Dealloc_inv N1. applys* eval_dealloc.
     { rewrite <- Lvs. rewrite~ abs_to_int. } }
   { rewrite~ hstar_hpure. }
 Qed.
+*)
+Admitted.
 
 Lemma triple_dealloc : forall (L:list val) (n:int) (p:loc),
   n = length L ->
@@ -1117,10 +1128,8 @@ Lemma triple_dealloc : forall (L:list val) (n:int) (p:loc),
     (harray L p)
     (fun _ => \[]).
 Proof using.
-  intros. intros H'. applys hoare_conseq.
-  { applys hoare_alloc_nat. }
-  { xsimpl. }
-  { xsimpl. auto. }
+  introv E. intros H'. applys hoare_conseq.
+  { applys hoare_dealloc H' E. } { xsimpl. } { xsimpl. }
 Qed.
 
 End AllocSpec.
@@ -1129,7 +1138,8 @@ End AllocSpec.
 (* ########################################################### *)
 (** ** Definition of record operations using pointer arithmetics *)
 
-Definition FieldOps.
+Module FieldOps.
+Transparent hfield.
 
 (** Most real-world programming languages include primitive operations
     for reading and writing in record fields. Yet, in a simple language
@@ -1152,13 +1162,13 @@ Definition val_get_field (k:field) : val :=
 (** The specification of [val_get_field] can be established just like
     for any other function. *)
 
-Lemma triple_get_field : forall l f v,
-  triple ((val_get_field f) l)
-    (l`.f ~~> v)
-    (fun r => \[r = v] \* (l`.f ~~> v)).
-Proof using.
+Lemma triple_get_field : forall p f v,
+  triple ((val_get_field f) p)
+    (p`.f ~~> v)
+    (fun r => \[r = v] \* (p`.f ~~> v)).
+Proof using.  
   xwp. xapp. unfold hfield. xpull. intros N. xapp. xsimpl*.
-Qed.
+Admitted. (* TODO *)
 
 (** A similar construction applies to the write operation on record
     fields. *)
@@ -1168,13 +1178,13 @@ Definition val_set_field (k:field) : val :=
     Let 'q := val_ptr_add 'p (nat_to_Z k) in
     val_set 'q 'v.
 
-Lemma triple_set_field : forall v1 l f v2,
-  triple ((val_set_field f) l v2)
-    (l`.f ~~> v1)
-    (fun _ => l`.f ~~> v2).
+Lemma triple_set_field : forall v1 p f v2,
+  triple ((val_set_field f) p v2)
+    (p`.f ~~> v1)
+    (fun _ => p`.f ~~> v2).
 Proof using.
   xwp. xapp. unfold hfield. xpull. intros N. xapp. xsimpl*.
-Qed.
+Admitted. (* TODO *)
 
 End FieldOps.
 
@@ -1190,16 +1200,18 @@ Module ArrayOps.
 (** Consider first a read operation, written [val_array_get p i]. *)
 
 Definition val_array_get : val :=
-  ValFun 'p 'i :=
+  VFun 'p 'i :=
     Let 'n := val_ptr_add 'p 'i in
     val_get 'n.
 
 Lemma triple_array_get : forall p i L,
-  index L i ->
+  0 <= i < length L ->
   triple (val_array_get p i)
-    (Array L p)
-    (fun r => \[r = L[i]] \* Array L p).
-Proof using.
+    (harray L p)
+    (fun r => \[r = L[i]] \* harray L p).
+Proof using. (* TODO: read op on array *)
+Admitted.
+(*
   introv N. rewrite index_eq_inbound in N.
   xcf. xapps. { math. }
   rewrites (>> Array_middle_eq i). { math. }
@@ -1207,20 +1219,28 @@ Proof using.
   xapp. xpull ;=> r. intro_subst.
   xsimpl; auto. { subst. rewrite~ read_middle. }
 Qed.
+*)
 
 (** Consider now a write operation, written [val_array_set p i v]. *)
 
+
+Notation "'VFun' x1 x2 x3 ':=' t" :=
+  (val_fun x1 (trm_fun x2 (trm_fun x3 t)))
+  (at level 69, x1, x2, x3 at level 0, format "'VFun'  x1  x2  x3  ':='  t") : val_scope.
+
+
 Definition val_array_set : val :=
-  ValFun 'p 'i 'x :=
+  VFun 'p 'i 'x :=
     Let 'n := val_ptr_add 'p 'i in
     val_set 'n 'x.
 
 Lemma triple_array_set : forall p i v L,
-  index L i ->
+  0 <= i < length L ->
   triple (val_array_set p i v)
-    (Array L p)
-    (fun r => \[r = val_unit] \* Array (L[i:=v]) p).
+    (harray L p)
+    (fun r => \[r = val_unit] \* harray (L[i:=v]) p).
 Proof using.
+(*
   introv N. rewrite index_eq_inbound in N.
   xcf. xapps. { math. }
   rewrites (>> Array_middle_eq i). { math. }
@@ -1230,6 +1250,8 @@ Proof using.
    { rewrite <- length_eq in *. rew_array. math. }
   xsimpl; auto. { subst. rewrite~ update_middle. rew_list~. }
 Qed.
+*)
+Admitted.
 
 End ArrayOps.
 
@@ -1237,7 +1259,7 @@ End ArrayOps.
 (* ####################################################### *)
 (** ** Grouped representation of record fields *)
 
-Moduled GroupedFields.
+Module GroupedFields.
 
 (** In our presentation of record fields, one has to write the
     fields one by one, for example a list cell takes the form:
@@ -1290,13 +1312,34 @@ Fixpoint hrecord (L:hrecord_fields) (r:loc) : hprop :=
   | (f,v)::L' => (r`.f ~~> v) \* (r ~> hrecord L')
   end.
 
+(** To use [hrecord] in practice, let us introduce record-style
+    notation for list of pairs of fields and values. 
+    Setting up an arity-generic notation is quite tricky,
+    let us simply support up to 3 fields for now. *)
+
+Notation "`{ f1 := v1 }" :=
+  ((f1,(v1:val))::nil)
+  (at level 0, f1 at level 0)
+  : val_scope.
+
+Notation "`{ f1 := v1 ; f2 := v2 }" :=
+  ((f1,(v1:val))::(f2,(v2:val))::nil)
+  (at level 0, f1, f2 at level 0)
+  : val_scope.
+
+Notation "`{ f1 := v1 ; f2 := v2 ; f3 := v3 }" :=
+  ((f1,(v1:val))::(f2,(v2:val))::(f3,(v3:val))::nil)
+  (at level 0, f1, f2, f3 at level 0)
+  : val_scope.
+
 (** For example, the definition of the representation predicate
-    [MList] can be revisited using the heap predicate [hrecord]. *)
+    [MList] can be revisited using the heap predicate [hrecord],
+    applied to a list with the [head] and the [tail] fields.. *)
 
 Fixpoint MList (L:list val) (p:loc) : hprop :=
   match L with
   | nil => \[p = null]
-  | x::L' => \exists p', (hrecord { head := x; tail := p'} p)
+  | x::L' => \exists p', (hrecord `{ head := x; tail := p'} p)
                       \* (MList L' p')
   end.
 
@@ -1314,7 +1357,7 @@ Parameter triple_get_field : forall p k v,
 
 Definition field_eq_dec := Nat.eq_dec. (* TODO: nat_eq in bool *)
 
-Fixpoint hrecord_lookup (k:field) (L:list val) : option val :=
+Fixpoint hrecord_lookup (k:field) (L:hrecord_fields) : option val :=
   match L with
   | nil => None
   | (f,v)::L' => if field_eq_dec k f
@@ -1322,37 +1365,42 @@ Fixpoint hrecord_lookup (k:field) (L:list val) : option val :=
                    else hrecord_lookup k L'
   end.
 
-Lemma triple_get_field_hrecord : forall p k v,
+Lemma triple_get_field_hrecord : forall L p k v,
   hrecord_lookup k L = Some v ->
   triple (val_get_field k p)
     (hrecord L p)
     (fun r => \[r = v] \* hrecord L p).
 Proof using.
+(*
   induction L.
   None => false
   Some => neq => frame
           eq => frame + apply
-Qed.
+Qed.*)
+Admitted.
 
 (** Another presentation *)
 
-Lemma triple_get_field_hrecord : forall p k v,
+Lemma triple_get_field_hrecord' : forall p L k v,
   match hrecord_lookup k L with
   | None => True
   | Some v =>
       triple (val_get_field k p)
         (hrecord L p)
-        (fun r => \[r = v] \* hrecord L p).
+        (fun r => \[r = v] \* hrecord L p)
   end.
 Proof using.
+Admitted.
+(*
   induction L.
   None => false
   Some => neq => frame
           eq => frame + apply
 Qed.
+*)
 
-
-Fixpoint hrecord_udpate (k:field) (v':val) (L:list val) : option (list val) :=
+Fixpoint hrecord_udpate (k:field) (v':val) (L:hrecord_fields)  
+                        : option hrecord_fields :=
   match L with
   | nil => None
   | (f,v)::L' => if field_eq_dec k f
@@ -1361,18 +1409,20 @@ Fixpoint hrecord_udpate (k:field) (v':val) (L:list val) : option (list val) :=
   end.
 
 (* exo *)
-Lemma triple_get_field_hrecord : forall p k v v',
-  hrecord_lookup k L = Some L' ->
+Lemma triple_set_field_hrecord : forall (L L':hrecord_fields) p k v v',
+  hrecord_udpate k v' L = Some L' ->
   triple (val_set_field k p v')
     (hrecord L p)
     (fun _ => hrecord L' p).
 Proof using.
+Admitted.
+(*
   induction L.
   None => false
   Some => neq => frame
           eq => frame + apply
 Qed.
-
+*)
 
 End GroupedFields.
 
@@ -1381,6 +1431,7 @@ End GroupedFields.
 (** ** Grouped representation of record fields *)
 
 Module CurriedFunXwp.
+Implicit Types f : var.
 
 (** We next explain how to generalize the tactic [xwp] to handle
     recursive functions of two arguments. (For other arities, we

@@ -662,9 +662,9 @@ Notation "'VFix' f x1 x2 ':=' t" :=
   (val_fix f x1 (trm_fun x2 t))
   (at level 69, f, x1, x2 at level 0, format "'VFix'  f  x1  x2  ':='  t") : val_scope.
 
-Notation "'VFun' f x1 x2 x3 ':=' t" :=
-  (val_fun f x1 (trm_fun x2 (trm_fun x3 t)))
-  (at level 69, f, x1, x2, x3 at level 0, format "'VFun'  f  x1  x2  x3  ':='  t") : val_scope.
+Notation "'VFun' x1 x2 x3 ':=' t" :=
+  (val_fun x1 (trm_fun x2 (trm_fun x3 t)))
+  (at level 69, x1, x2, x3 at level 0, format "'VFun'  x1  x2  x3  ':='  t") : val_scope.
 
 Notation "'VFix' f x1 x2 x3 ':=' t" :=
   (val_fix f x1 (trm_fun x2 (trm_fun x3 t)))
