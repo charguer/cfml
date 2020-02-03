@@ -808,10 +808,10 @@ Definition mcopy : val :=
         Let 'q2 := 'f 'q in
         mcons 'x 'q2.
 
-(** The precondition of [mcopy] requires a linked list [p ~> MList L].
+(** The precondition of [mcopy] requires a linked list [MList L p].
     Its postcondition asserts that the function returns a pointer [p']
-    and a list [p' ~> MList L], in addition to the original list
-    [p ~> MList L]. The two lists are totally disjoint and independent,
+    and a list [MList L p'], in addition to the original list
+    [MList L p]. The two lists are totally disjoint and independent,
     as captured by the separating conjunction symbol (the star). *)
 
 Lemma triple_mcopy : forall p L,
@@ -822,9 +822,9 @@ Lemma triple_mcopy : forall p L,
 (** The proof script is very similar in structure to the previous ones.
     While playing the script, try to spot the places where:
 
-    - [mnil] produces an empty list of the form [p' ~> MList nil],
-    - the recursive call produces a list of the form [q' ~> MList L'],
-    - [mcons] produces a list of the form [p' ~> MList (x::L')].
+    - [mnil] produces an empty list of the form [MList nil p'],
+    - the recursive call produces a list of the form [MList L' q'],
+    - [mcons] produces a list of the form [MList (x::L') p'].
 
 *)
 
@@ -1150,69 +1150,147 @@ Qed.
 End ArrayOps.
 
 
-
-
-
-
-
-
-
 (* ####################################################### *)
 (** ** Grouped representation of record fields *)
 
+Moduled GroupedFields.
 
-(** Representation predicate [r ~> Record L], where [L]
-    is an association list from fields to values. *)
+(** In our presentation of record fields, one has to write the
+    fields one by one, for example a list cell takes the form:
+    [p`.head ~~> x \* p`.tail ~~> q].
 
-Definition Record_field : Type := field * dyn.
-Definition Record_fields : Type := list Record_field.
+    It may be convenient to exploit a more compact description
+    that factorizes the location [p]. The same list cell may be
+    described as [hrecord `{ head := x; tail := p'} p].
 
-Bind Scope fields_scope with Record_fields.
+    This factorized form has at least two practical benefits:
 
-Fixpoint Record (L:Record_fields) (r:loc) : hprop :=
+    - it is shorter when the location [p] is not a very short
+      identifier;
+    - it significantly decreases the number of star-separated
+      items in the heap predicates, thereby increasing the speed
+      of proof processing.
+
+    It what follows, we present the generic definition of
+    [p ~> Record L], and suggest how the specification of
+    the record field operations are set up.
+*)
+
+(** Recall that a field identifier corresponds to an offset,
+    represented as a natural number. *)
+
+Definition field : Type := nat.
+
+(** A record field is described as the pair of a a field and
+    a value stored at this field. *)
+
+Definition hrecord_field : Type := (field * val).
+
+(** A record consists is made of a list of record fields. *)
+
+Definition hrecord_fields : Type := list hrecord_field.
+
+(** The heap predicate [hrecord L p] asserts that at location [p]
+    one fields the list of fields [L], where [L] has type
+    [hrecord_fields], that is [list (field * val)].
+
+    This predicate is defined by recursion on the list [L].
+    If [L] is empty, it describes the empty heap predicate.
+    Otherwise, a first field, at offset [f] and with contents [v],
+    is describes by the predicate [p`.f ~~> v], then the remaining
+    fields are described recursively. *)
+
+Fixpoint hrecord (L:hrecord_fields) (r:loc) : hprop :=
   match L with
   | nil => \[]
-  | (f, Dyn V)::L' => (r`.f ~~> V) \* (r ~> Record L')
+  | (f,v)::L' => (r`.f ~~> v) \* (r ~> hrecord L')
   end.
 
-(* --TODO: currently restricted due to [r `. f ~> V] not ensuring [r<>null] *)
-(* --TODO: rename *)
-Lemma hRecord_not_null : forall (r:loc) (L:Record_fields),
-  (* L <> nil -> *)
-  mem (0%nat:field) (List.map fst L) ->
-  (r ~> Record L) ==> (r ~> Record L) \* \[r <> null].
+(** For example, the definition of the representation predicate
+    [MList] can be revisited using the heap predicate [hrecord]. *)
+
+Fixpoint MList (L:list val) (p:loc) : hprop :=
+  match L with
+  | nil => \[p = null]
+  | x::L' => \exists p', (hrecord { head := x; tail := p'} p)
+                      \* (MList L' p')
+  end.
+
+(** There remains to explain how to access the fields. Recall the
+    specification of the operation [val_get_field] for reading in
+    a field standing by itself. *)
+
+Parameter triple_get_field : forall p k v,
+  triple (val_get_field k p)
+    (p`.k ~~> v)
+    (fun r => \[r = v] \* (p`.k ~~> v)).
+
+(** Let us derive from this specification another one that operates
+    on the heap predicate [hrecord L p]. *)
+
+Definition field_eq_dec := Nat.eq_dec. (* TODO: nat_eq in bool *)
+
+Fixpoint hrecord_lookup (k:field) (L:list val) : option val :=
+  match L with
+  | nil => None
+  | (f,v)::L' => if field_eq_dec k f
+                   then Some v
+                   else hrecord_lookup k L'
+  end.
+
+Lemma triple_get_field_hrecord : forall p k v,
+  hrecord_lookup k L = Some v ->
+  triple (val_get_field k p)
+    (hrecord L p)
+    (fun r => \[r = v] \* hrecord L p).
 Proof using.
-  introv M. induction L as [|(f,[A EA v]) L'].
-  { inverts M. }
-  { xunfold Record. inverts M.
-    { xchange~ (Hfield_not_null r). xsimpl~. }
-    { xchange~ IHL'. xsimpl~. } }
+  induction L.
+  None => false
+  Some => neq => frame
+          eq => frame + apply
 Qed.
 
-(** Lemmas for unfolding the definition *)
+(** Another presentation *)
 
-Lemma Record_nil : forall p,
-  p ~> Record nil = \[].
-Proof using. auto. Qed.
-
-Lemma Record_cons : forall p x (V:dyn) L,
-  (p ~> Record ((x, V)::L)) =
-  (p`.x ~~> ``V \* p ~> Record L).
-Proof using. intros. destruct~ V. Qed.
-
-Hint Rewrite Record_nil Record_cons enc_dyn_make : Record_to_HField.
-
-
-Local Open Scope heap_scope_ext.
-
-Lemma Record_not_null : forall (r:loc) (L:Record_fields),
-  L <> nil ->
-  (r ~> Record L) ==+> \[r <> null].
+Lemma triple_get_field_hrecord : forall p k v,
+  match hrecord_lookup k L with
+  | None => True
+  | Some v =>
+      triple (val_get_field k p)
+        (hrecord L p)
+        (fun r => \[r = v] \* hrecord L p).
+  end.
 Proof using.
-  intros. destruct L as [|(f,v) L']. { false. }
-  rewrite Record_cons. xchanges~ Hfield_not_null.
+  induction L.
+  None => false
+  Some => neq => frame
+          eq => frame + apply
 Qed.
 
+
+Fixpoint hrecord_udpate (k:field) (v':val) (L:list val) : option (list val) :=
+  match L with
+  | nil => None
+  | (f,v)::L' => if field_eq_dec k f
+                   then Some ((f,v')::L)
+                   else hrecord_udpate k v' L'
+  end.
+
+(* exo *)
+Lemma triple_get_field_hrecord : forall p k v v',
+  hrecord_lookup k L = Some L' ->
+  triple (val_set_field k p v')
+    (hrecord L p)
+    (fun _ => hrecord L' p).
+Proof using.
+  induction L.
+  None => false
+  Some => neq => frame
+          eq => frame + apply
+Qed.
+
+
+End GroupedFields.
 
 
 (* ####################################################### *)
