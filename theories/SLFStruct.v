@@ -408,15 +408,12 @@ End Arrays.
     abstract away from the details of pointer arithmetics, we introduce the
     notation [p`.k ~~> v] to denote [(p+k) ~~> v]. Here, [k] denotes by
     convention a field name, where field names correspond to a natural
-    numbers.
-
-    In first approximation, the definition is shown below, where we write [k+p]
-    instead of [p+k] to enable smoother simplications via the [simpl] tactic. *)
+    numbers. In first approximation, the definition is shown below. *)
 
 Definition field : Type := nat.
 
 Definition hfield' (p:loc) (k:field) (v:val) : hprop :=
-  (k+p)%nat ~~> v.
+  (p+k)%nat ~~> v.
 
 (** It is convenient in verification proofs to be able to assume that
     whenever we write [p`.k ~~> v], we refer to a location [p] that is
@@ -428,7 +425,7 @@ Definition hfield' (p:loc) (k:field) (v:val) : hprop :=
     [p] is not null, using the assertion [\[p <> null]]. *)
 
 Definition hfield (p:loc) (k:field) (v:val) : hprop :=
-  (k+p)%nat ~~> v \* \[p <> null].
+  (p+k)%nat ~~> v \* \[p <> null].
 
 Notation "p `. k '~~>' v" := (hfield p k v)
   (at level 32, k at level 0, no associativity,
@@ -442,12 +439,13 @@ Lemma hfield_not_null : forall p k v,
 Proof using. intros. unfold hfield. xsimpl*. Qed.
 
 (** To prevent undesirable simplifications, we set the definition [hfield]
-    to be opaque, and we provide a lemma for unfolding its definition where
-    necessary. *)
+    to be opaque. Then, we provide a lemma for unfolding its definition.
+    We replace the addition [p+k] with the addition [k+p], because the later
+    simplifies better in Coq when [k] is a constant. *)
 
-Lemma hfield_eq : forall l k v,
-  hfield l k v = ((k+l)%nat ~~> v \* \[l <> null]).
-Proof using. auto. Qed.
+Lemma hfield_eq : forall p k v,
+  hfield p k v = ((k+p)%nat ~~> v \* \[p <> null]).
+Proof using. intros. math_rewrite (k+p = p+k)%nat. auto. Qed.
 
 Global Opaque hfield.
 
@@ -1633,7 +1631,7 @@ Lemma triple_get_field : forall p f v,
     (fun r => \[r = v] \* (p`.f ~~> v)).
 Proof using.
   xwp. xapp. unfold hfield. xpull. intros N. xapp. xsimpl*.
-Admitted. (* TODO *)
+Qed.
 
 (** A similar construction applies to the write operation on record
     fields. *)
@@ -1649,6 +1647,6 @@ Lemma triple_set_field : forall v1 p f v2,
     (fun _ => p`.f ~~> v2).
 Proof using.
   xwp. xapp. unfold hfield. xpull. intros N. xapp. xsimpl*.
-Admitted. (* TODO *)
+Qed.
 
 End FieldOps.

@@ -949,15 +949,15 @@ Qed.
 Definition field : Type := nat.
 
 Definition hfield (l:loc) (k:field) (v:val) : hprop :=
-  (k+l)%nat ~~> v \* \[ l <> null ].
+  (l+k)%nat ~~> v \* \[ l <> null ].
 
 Notation "l `. k '~~>' v" := (hfield l k v)
   (at level 32, k at level 0, no associativity,
    format "l `. k  '~~>'  v") : heap_scope.
 
-Lemma hfield_eq : forall l k v,
-  hfield l k v = ((k+l)%nat ~~> v \* \[l <> null]).
-Proof using. auto. Qed.
+Lemma hfield_eq : forall p k v,
+  hfield p k v = ((k+p)%nat ~~> v \* \[p <> null]).
+Proof using. intros. math_rewrite (k+p = p+k)%nat. auto. Qed.
 
 Lemma hfield_not_null : forall l k v,
   (l`.k ~~> v) ==> (l`.k ~~> v) \* \[l <> null].
@@ -1007,7 +1007,7 @@ Lemma triple_get_field : forall l f v,
     (fun r => \[r = v] \* (l`.f ~~> v)).
 Proof using.
   xwp. xapp. math_rewrite ((l + f = f + l)%nat).
-  unfold hfield. xpull. intros N. xapp. xsimpl*.
+  rewrite hfield_eq. xpull. intros N. xapp. xsimpl*.
 Qed.
 
 Lemma triple_set_field : forall v1 l f v2,
@@ -1016,7 +1016,7 @@ Lemma triple_set_field : forall v1 l f v2,
     (fun _ => l`.f ~~> v2).
 Proof using.
   xwp. xapp. math_rewrite ((l + f = f + l)%nat).
-  unfold hfield. xpull. intros N. xapp. xsimpl*.
+  do 2 rewrite hfield_eq. xpull. intros N. xapp. xsimpl*.
 Qed.
 
 End FieldAccessSpec.
