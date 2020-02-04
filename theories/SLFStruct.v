@@ -10,7 +10,7 @@ License: CC-by 4.0.
 *)
 
 Set Implicit Arguments.
-From Sep Require Import SLFExtra.
+From Sep Require Import SLFExtra TLCbuffer.
 
 Implicit Types P : Prop.
 Implicit Types H : hprop.
@@ -21,7 +21,6 @@ Implicit Type i n : int.
 Implicit Type v : val.
 Implicit Type L : list val.
 
-(* TODO: induction_wf IH: (@list_sub val) L. *)
 (* TODO: rename VFun *)
 (* TODO : limitation of xapp for lemmas with premises... *)
 
@@ -301,7 +300,6 @@ Qed.
 (** ** Specification of array access operations *)
 
 Module Arrays.
-Import LibListZ.
 
 (** The operation [val_array_get p i] returns the contents of the [i]-th
     cell of the array at location [p]. *)
@@ -704,7 +702,7 @@ Lemma triple_mcopy : forall L p,
 *)
 
 Proof using.
-  intros. gen p. induction_wf IH: (@list_sub val) L. (* TODO: arg to list_sub *)
+  intros. gen p. induction_wf IH: list_sub L.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
   { intros ->. xapp. xsimpl*. subst. applys MList_nil_intro. }
   { intros x q L' ->. xapp. xapp. xapp. intros q'.
@@ -774,7 +772,7 @@ Lemma triple_mfree_list : forall L p,
     (MList L p)
     (fun _ => \[]).
 Proof using. (* ADMITTED *)
-  intros. gen p. induction_wf IH: (@list_sub val) L. intros.
+  intros. gen p. induction_wf IH: list_sub L. intros.
   xwp. xchange MList_if. xapp. xif; intros C; case_if; xpull.
   { intros x p' L' ->. xapp. xapp. xapp. xsimpl. }
   { intros ->. xval. xsimpl. }

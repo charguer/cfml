@@ -746,5 +746,5 @@ Ltac induction_wf_core_then IH E X cont ::=
           end ].
 
 
-
 Global Arguments list_sub [A].
+
