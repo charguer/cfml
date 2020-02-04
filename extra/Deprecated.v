@@ -1503,3 +1503,17 @@ Qed.
       ~ List.In y (f::xs) ->
       subst y w (trm_fixs f xs t) = trm_fixs f xs (subst y w t).
 ]]
+Lemma MList_if : forall (p:loc) (L:list val),
+      (MList L p)
+  ==> (If p = null
+        then \[L = nil]
+        else \exists x q L', \[L = x::L']
+             \* (p`.head ~~> x) \* (p`.tail ~~> q)
+             \* (MList L' q)).
+Proof using.
+  intros. destruct L as [|x L'].
+  { xchange MList_nil. intros M. case_if. xsimpl. auto. }
+  { xchange MList_cons. intros q. case_if.
+    { xchange hfield_not_null. }
+    { xsimpl. auto. } }
+Qed.

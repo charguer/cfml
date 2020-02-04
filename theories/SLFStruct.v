@@ -19,6 +19,9 @@ Implicit Type p : loc.
 Implicit Type k : field.
 Implicit Type v : val.
 
+(* TODO: rename VFun *)
+(* TODO: fix p+f to f+p *)
+(* TODO explain val_ptr_add and its spec *)
 
 (* ####################################################### *)
 (* ####################################################### *)
@@ -259,7 +262,7 @@ Proof using.
     xsimpl (v::L'). { rew_list. math. } { simpl. xsimpl. } }
 Qed.
 
-(** The specification of the operation [val_dealloc k] can then be reformulated 
+(** The specification of the operation [val_dealloc k] can then be reformulated
     using a precondition of the forme [harray_any k p]. *)
 
 Lemma triple_dealloc_hcells_any : forall (k:nat) (p:loc),
@@ -267,212 +270,10 @@ Lemma triple_dealloc_hcells_any : forall (k:nat) (p:loc),
     (hcells_any k p)
     (fun _ => \[]).
 Proof using.
-  intros. xtriple. xchange himpl_hcells_any_hcells. intros L EL. 
+  intros. xtriple. xchange himpl_hcells_any_hcells. intros L EL.
   xapp triple_dealloc_hcells. { auto. } { xsimpl. }
 Qed.
 
-
-(* ########################################################### *)
-(** ** Definition of record fields *)
-
-(** A record can be represented as a set of fields stored in consecutive
-    addresses.
-
-    For example, consider a mutable list cell allocated at location [p].
-    It consists of a record with a [head] field storing a value [x], and
-    a tail field storing a value [q]. This list cell an be represented by
-    the heap predicate [(p ~~> x) \* ((p+1) ~~> q)].
-
-    If we define [head := 0] and [tail := 1], the same heap predicate can
-    be written [((p+head) ~~> x) \* ((p+tail) ~~> q)].
-
-    To better suggest that we are talking about record fields, and also to
-    abstract away from the details of pointer arithmetics, we introduce the
-    notation [p`.k ~~> v] to denote [(p+k) ~~> v]. Here, [k] denotes by
-    convention a field name, where field names correspond to a natural
-    numbers.
-
-    In first approximation, the definition is shown below, where we write [k+p]
-    instead of [p+k] to enable smoother simplications via the [simpl] tactic. *)
-
-Definition field : Type := nat.
-
-Definition hfield' (p:loc) (k:field) (v:val) : hprop :=
-  (k+p)%nat ~~> v.
-
-(** It is convenient in verification proofs to be able to assume that
-    whenever we write [p`.k ~~> v], we refer to a location [p] that is
-    not null. For an example, see the use of the lemma [hfield_not_null]
-    inside the proof of the lemma [MList_if] in file [SLFBasic.v].
-
-    To enable justifying this lemma [hfield_not_null], whose statement
-    appears below, we bake in the definition of [p`.k ~~> v] the fact that
-    [p] is not null, using the assertion [\[p <> null]]. *)
-
-Definition hfield (p:loc) (k:field) (v:val) : hprop :=
-  (k+p)%nat ~~> v \* \[p <> null].
-
-Notation "p `. k '~~>' v" := (hfield p k v)
-  (at level 32, k at level 0, no associativity,
-   format "p `. k  '~~>'  v").
-
-(** The lemma [hfield_not_null] asserts that the heap predicate [p`.k ~~> v]
-    always ensures [p <> null]. *)
-
-Lemma hfield_not_null : forall p k v,
-  (p`.k ~~> v) ==> (p`.k ~~> v) \* \[p <> null].
-Proof using. intros. unfold hfield. xsimpl*. Qed.
-
-(** To prevent undesirable simplifications, we set the definition [hfield]
-    to be opaque, and we provide a lemma for unfolding its definition where
-    necessary. *)
-
-Lemma hfield_eq : forall l k v,
-  hfield l k v = ((k+l)%nat ~~> v \* \[l <> null]).
-Proof using. auto. Qed.
-
-Global Opaque hfield.
-
-End Cells.
-
-
-(* ########################################################### *)
-(** ** Allocation and deallocation of record fields *)
-
-(** We can allocate a fresh mutable list cell by invoking the primitive
-    operation [val_alloc] with argument [2]. Let us prove that the result,
-    described by [hcell 2 p], can be also be viewed as the heap predicate
-    [(p`.head ~~> val_uninit) \* (p`.tail ~~> val_uninit)],
-    which describes the two fields of the record, with uninitialized
-    contents. *)
-
-Definition head : field := 0%nat.
-Definition tail : field := 1%nat.
-
-Lemma triple_alloc_mcell :
-  triple (val_alloc 2%nat)
-    \[]
-    (fun r => \exists p, \[r = val_loc p] \* (p`.head ~~> val_uninit)
-                                          \* (p`.tail ~~> val_uninit)).
-Proof using.
-  xtriple. xapp triple_alloc_nat. xpull. intros p.
-  unfold harray_uninit, harray. simpl.
-  xpull. intros N. xsimpl p; auto.
-  do 2 rewrite hfield_eq. xsimpl; auto.
-Qed.
-
-(* TODO: fix p+f to f+p *)
-
-(** Reciprocally, we can deallocate a mutable list cell at location [p]
-    by invoking the primitive operation [val_dealloc] with argument [2].
-    The precondition describes the two fields [p`.head ~~> x] and
-    [p`.tail ~~> q]. The postcondition is empty: the fields are lost. *)
-
-Lemma triple_dealloc_mcell : forall (x:val) (p q:loc),
-  triple (val_dealloc 2%nat p)
-    ((p`.head ~~> x) \* (p`.tail ~~> q))
-    (fun _ => \[]).
-
-(** For the proof, we exploit the rule [triple_dealloc_hcells_any].
-    If we used instead the rule  [triple_dealloc_hcells], we would have
-    to provide explicitly the list of the contents of the cells, by invoking
-    [xapp (@triple_dealloc_hcells (x::(val_loc q)::nil))]. Instead,
-    thanks to [hcells_any], the existentially-quantified associated with each
-    of the cells get automatically inferred by [xsimpl]. *)
-
-Proof using.
-  xtriple. xapp triple_dealloc_hcells_any.
-  unfold hcells_any. do 2 rewrite hfield_eq. xsimpl.
-Qed.
-
-
-(* ########################################################### *)
-(** ** Reading and writing in record fields *)
-
-(** For reading and writing in record fields, we introduce the operations
-    [val_get_field] and [val_set_field]. As we show further in this chapter,
-    these functions can be defined in terms of the operations [val_get]
-    and [val_set], if we assume available a pointer addition operation.
-    For the moment, let us simply axiomatize these operations, and state
-    their specifications.
-
-    The expression [val_get_field] has type [field -> val]. Given a field
-    name [f] (of type [field], which is defined as [nat]), the expression
-    [val_get_field f] denotes a value of type [val] that can be applied to
-    an argument [p]. The specification of [val_get_field f p] follows the
-    pattern of the specification of [val_get]. The precondition and the
-    postcondition describe a field [p`.k ~~> v], and the result value [r]
-    is specified to be equal to [v].
-*)
-
-Module FieldAccesses.
-
-Parameter val_get_field : field -> val.
-
-Parameter triple_get_field : forall p k v,
-  triple (val_get_field k p)
-    (p`.k ~~> v)
-    (fun r => \[r = v] \* (p`.k ~~> v)).
-
-(** Likewise for [val_set_field], the operation that writes into a record
-    field. *)
-
-Parameter val_set_field : field -> val.
-
-Parameter triple_set_field : forall v p k v',
-  triple (val_set_field k p v)
-    (p`.k ~~> v')
-    (fun _ => p`.k ~~> v).
-
-(** We introduce the syntax [t'.f] for reading from a field using
-    [val_get_field], and [Set t1'.f := t2] for writing into a field
-    using [val_set_field]. *)
-
-Notation "t1 ''.' f" :=
-  (val_get_field f t1)
-  (at level 56, f at level 0, format "t1 ''.' f" ).
-
-Notation "'Set' t1 ''.' f '':=' t2" :=
-  (val_set_field f t1 t2)
-  (at level 65, t1 at level 0, f at level 0, format "'Set' t1 ''.' f  '':=' t2").
-
-(** We register these specifications so that they may be exploited by the
-    tactic [xapp]. *)
-
-Hint Resolve triple_get_field triple_set_field : triple.
-
-End FieldAccesses.
-
-(** Consider the function [mcell x q], which allocates a fresh mutable
-    list cell with [x] as head and [q] as tail.
-
-[[
-    let mcell x q =
-      { head = x; tail = q }
-]]
-
-    In our programming language, the creation of such a record can
-    encoded by allocating of a 2-cell record, and setting its two fields. *)
-
-Import SLFProgramSyntax.
-
-Definition mcell : val :=
-  VFun 'x 'q :=
-    Let 'p := val_alloc 2%nat in
-    Set 'p'.head ':= 'x ';
-    Set 'p'.tail ':= 'q ';
-    'p.
-
-(** The specification of [mcell x q] appears next. Its precondition is empty.
-    Its postcondition describes the two fields [p`.head ~~> x] and [p`.tail ~~> q]. *)
-
-Lemma triple_mcell : forall (x:val) (q:loc),
-  triple (mcell x q)
-    \[]
-    (fun r => \exists p, \[r = val_loc p] \* (p`.head ~~> x) \* (p`.tail ~~> q)).
-Proof using.
-  xwp. xapp triple_alloc_mcell. intros p. xapp. xapp. xval. xsimpl*.
-Qed.
 
 
 (* ####################################################### *)
@@ -525,6 +326,8 @@ Admitted.
       end
 ]]
 *)
+
+Import SLFProgramSyntax. (* TODO *)
 
 Definition array_incr : val :=
   VFix 'f 'p 'n :=
@@ -624,8 +427,6 @@ Proof using.
 Qed.
 
 (** Let us put this lemma to practice on our example program. *)
-
-(* TODO explain val_ptr_add and its spec *)
 
 Import DemoPrograms.
 
@@ -728,88 +529,208 @@ Proof using.
 Qed.
 
 
-(* ####################################################### *)
-(** ** Curried functions of several arguments *)
+(* ########################################################### *)
+(** ** Representation of a record field *)
 
-Module CurriedFun.
+(** A record can be represented as a set of fields stored in consecutive
+    addresses.
 
-(** We next give a quick presentation of the notation, lemmas and
-    tactics involved in the manipulation of functions of several
-    arguments. We focus here on the particular case of recursive
-    functions with two arguments, to illustrate the principles.
+    For example, consider a mutable list cell allocated at location [p].
+    It consists of a record with a [head] field storing a value [x], and
+    a tail field storing a value [q]. This list cell an be represented by
+    the heap predicate [(p ~~> x) \* ((p+1) ~~> q)].
 
-    The lemmas for other arities can be found in the file [SLFExtra].
-    One may attempt to generalize these definitions to handle
-    arbitrary arities. Yet, to obtain an arity-generic treatment of
-    functions, it is much simpler to work with primitive n-ary functions
-    (i.e., functions that expects a list of variables, and that may be
-    applied to a list of values). The treatment of these n-ary functions
-    is beyond the scope of (the current version of) the course.
+    If we define [head := 0] and [tail := 1], the same heap predicate can
+    be written [((p+head) ~~> x) \* ((p+tail) ~~> q)].
 
-    So, let us focus on curried recursive functions of arity two.
+    To better suggest that we are talking about record fields, and also to
+    abstract away from the details of pointer arithmetics, we introduce the
+    notation [p`.k ~~> v] to denote [(p+k) ~~> v]. Here, [k] denotes by
+    convention a field name, where field names correspond to a natural
+    numbers.
 
-    [val_fix f x1 (trm_fun x2 t)] describes a value that corresponds to
-    a recursive function [t] that expects two arguments [x1] and [x2].
-    Observe that the inner function, the one that expects [x2], is not
-    recursive, and that it is not a value but a term, because it may
-    refer to the variable [x1] bound outside of it.
+    In first approximation, the definition is shown below, where we write [k+p]
+    instead of [p+k] to enable smoother simplications via the [simpl] tactic. *)
 
-    We introduce the notation [VFix f x1 x2 := t] to generalize
-    [VFix f x := t] to the case of functions of two arguments. *)
+Definition field : Type := nat.
 
-Notation "'VFix' f x1 x2 ':=' t" :=
-  (val_fix f x1 (trm_fun x2 t))
-  (at level 69, f, x1, x2 at level 0,
-  format "'VFix'  f  x1  x2  ':='  t").
+Definition hfield' (p:loc) (k:field) (v:val) : hprop :=
+  (k+p)%nat ~~> v.
 
-(** An application of a function of two arguments takes the form
-    [f v1 v2], which is actually parsed as [trm_app (trm_app f v1) v2].
+(** It is convenient in verification proofs to be able to assume that
+    whenever we write [p`.k ~~> v], we refer to a location [p] that is
+    not null. For an example, see the use of the lemma [hfield_not_null]
+    inside the proof of the lemma [MList_if] in file [SLFBasic.v].
 
-    This expression is an application of a term to a value, and not of
-    a value to a value. Thus, this expression cannot be evaluated using
-    the rule [eval_app_fun]. We need a distinct rule for first evaluating
-    the arguments of a function application to values, before we can
-    evaluate the application of a value to a value.
+    To enable justifying this lemma [hfield_not_null], whose statement
+    appears below, we bake in the definition of [p`.k ~~> v] the fact that
+    [p] is not null, using the assertion [\[p <> null]]. *)
 
-    The rule [eval_app_arg] serves that purpose. To state it, we first
-    need to characterize whether a term is a value or not, using the
-    predicate [trm_is_val t] defined next. *)
+Definition hfield (p:loc) (k:field) (v:val) : hprop :=
+  (k+p)%nat ~~> v \* \[p <> null].
 
-Definition trm_is_val (t:trm) : Prop :=
-  match t with trm_val v => True | _ => False end.
+Notation "p `. k '~~>' v" := (hfield p k v)
+  (at level 32, k at level 0, no associativity,
+   format "p `. k  '~~>'  v").
 
-(** The statement of [eval_app_arg] then takes the following form.
-    For an expression [trm_app t1 t2] where either [t1] or [t2] is
-    not a value, it enables reducing both [t1] and [t2] to values,
-    leaving a premise of the form [trm_app v1 v2], which is subject
-    to the rule [eval_app_fun] for evaluating functions. *)
+(** The lemma [hfield_not_null] asserts that the heap predicate [p`.k ~~> v]
+    always ensures [p <> null]. *)
 
-Parameter eval_app_arg : forall s1 s2 s3 s4 t1 t2 v1 v2 r,
-  (~ trm_is_val t1 \/ ~ trm_is_val t2) ->
-  eval s1 t1 s2 v1 ->
-  eval s2 t2 s3 v2 ->
-  eval s3 (trm_app v1 v2) s4 r ->
-  eval s1 (trm_app t1 t2) s4 r.
+Lemma hfield_not_null : forall p k v,
+  (p`.k ~~> v) ==> (p`.k ~~> v) \* \[p <> null].
+Proof using. intros. unfold hfield. xsimpl*. Qed.
 
-(** Using this rule, we can establish an evaluation rule for the
-    term [v0 v1 v2]. There, [v0] is a recursive function of two
-    arguments named [x1] and [x2], the values [v1] and [v2] denote
-    the corresponding arguments, and [f] denotes the name of the
-    function available for making recursive calls from the body [t1].
+(** To prevent undesirable simplifications, we set the definition [hfield]
+    to be opaque, and we provide a lemma for unfolding its definition where
+    necessary. *)
 
-    The key idea is that the behavior of [v0 v1 v2] is similar to
-    that of the term [subst x2 v2 (subst x1 v1 (subst f v0 t1))]. *)
+Lemma hfield_eq : forall l k v,
+  hfield l k v = ((k+l)%nat ~~> v \* \[l <> null]).
+Proof using. auto. Qed.
 
-Parameter triple_app_fix2 : forall f x1 x2 v0 v1 v2 t1 H Q,
-  v0 = val_fix f x1 (trm_fun x2 t1) ->
-  (x1 <> x2 /\ f <> x2) ->
-  triple (subst x2 v2 (subst x1 v1 (subst f v0 t1))) H Q ->
-  triple (v0 v1 v2) H Q.
+Global Opaque hfield.
 
-(** The bonus section contains additional information on how to
-    extend the [xwp] tactic to exploit this evaluation rule. *)
+End Cells.
 
-End CurriedFun.
+
+(* ########################################################### *)
+(** ** Allocation and deallocation of record fields *)
+
+(** We can allocate a fresh mutable list cell by invoking the primitive
+    operation [val_alloc] with argument [2]. Let us prove that the result,
+    described by [hcell 2 p], can be also be viewed as the heap predicate
+    [(p`.head ~~> val_uninit) \* (p`.tail ~~> val_uninit)],
+    which describes the two fields of the record, with uninitialized
+    contents. *)
+
+Definition head : field := 0%nat.
+Definition tail : field := 1%nat.
+
+Lemma triple_alloc_mcell :
+  triple (val_alloc 2%nat)
+    \[]
+    (fun r => \exists p, \[r = val_loc p] \* (p`.head ~~> val_uninit)
+                                          \* (p`.tail ~~> val_uninit)).
+Proof using.
+  xtriple. xapp triple_alloc_nat. xpull. intros p.
+  unfold harray_uninit, harray. simpl.
+  xpull. intros N. xsimpl p; auto.
+  do 2 rewrite hfield_eq. xsimpl; auto.
+Qed.
+
+(** Reciprocally, we can deallocate a mutable list cell at location [p]
+    by invoking the primitive operation [val_dealloc] with argument [2].
+    The precondition describes the two fields [p`.head ~~> x] and
+    [p`.tail ~~> q]. The postcondition is empty: the fields are lost. *)
+
+Lemma triple_dealloc_mcell : forall (x:val) (p q:loc),
+  triple (val_dealloc 2%nat p)
+    ((p`.head ~~> x) \* (p`.tail ~~> q))
+    (fun _ => \[]).
+
+(** For the proof, we exploit the rule [triple_dealloc_hcells_any].
+    If we used instead the rule  [triple_dealloc_hcells], we would have
+    to provide explicitly the list of the contents of the cells, by invoking
+    [xapp (@triple_dealloc_hcells (x::(val_loc q)::nil))]. Instead,
+    thanks to [hcells_any], the existentially-quantified associated with each
+    of the cells get automatically inferred by [xsimpl]. *)
+
+Proof using.
+  xtriple. xapp triple_dealloc_hcells_any.
+  unfold hcells_any. do 2 rewrite hfield_eq. xsimpl.
+Qed.
+
+
+(* ########################################################### *)
+(** ** Reading and writing in record fields *)
+
+(** For reading and writing in record fields, we introduce the operations
+    [val_get_field] and [val_set_field]. As we show in the bonus section
+    of this chapter, these functions can be defined in terms of the
+    operations [val_get] and [val_set], if we assume available a pointer
+    addition operation.
+
+    For the moment, let us simply axiomatize these operations, and state
+    their specifications.
+
+    The expression [val_get_field] has type [field -> val]. Given a field
+    name [f] (of type [field], which is defined as [nat]), the expression
+    [val_get_field f] denotes a value of type [val] that can be applied to
+    an argument [p]. The specification of [val_get_field f p] follows the
+    pattern of the specification of [val_get]. The precondition and the
+    postcondition describe a field [p`.k ~~> v], and the result value [r]
+    is specified to be equal to [v].
+*)
+
+Module FieldAccesses.
+
+Parameter val_get_field : field -> val.
+
+Parameter triple_get_field : forall p k v,
+  triple (val_get_field k p)
+    (p`.k ~~> v)
+    (fun r => \[r = v] \* (p`.k ~~> v)).
+
+(** Likewise for [val_set_field], the operation that writes into a record
+    field. *)
+
+Parameter val_set_field : field -> val.
+
+Parameter triple_set_field : forall v p k v',
+  triple (val_set_field k p v)
+    (p`.k ~~> v')
+    (fun _ => p`.k ~~> v).
+
+(** We introduce the syntax [t'.f] for reading from a field using
+    [val_get_field], and [Set t1'.f := t2] for writing into a field
+    using [val_set_field]. *)
+
+Notation "t1 ''.' f" :=
+  (val_get_field f t1)
+  (at level 56, f at level 0, format "t1 ''.' f" ).
+
+Notation "'Set' t1 ''.' f '':=' t2" :=
+  (val_set_field f t1 t2)
+  (at level 65, t1 at level 0, f at level 0, format "'Set' t1 ''.' f  '':=' t2").
+
+(** We register these specifications so that they may be exploited by the
+    tactic [xapp]. *)
+
+Hint Resolve triple_get_field triple_set_field : triple.
+
+End FieldAccesses.
+
+(** Consider the function [mcell x q], which allocates a fresh mutable
+    list cell with [x] as head and [q] as tail.
+
+[[
+    let mcell x q =
+      { head = x; tail = q }
+]]
+
+    In our programming language, the creation of such a record can
+    encoded by allocating of a 2-cell record, and setting its two fields. *)
+
+Import SLFProgramSyntax. (* TODO *)
+
+Definition mcell : val :=
+  VFun 'x 'q :=
+    Let 'p := val_alloc 2%nat in
+    Set 'p'.head ':= 'x ';
+    Set 'p'.tail ':= 'q ';
+    'p.
+
+(** The specification of [mcell x q] appears next. Its precondition is empty.
+    Its postcondition describes the two fields [p`.head ~~> x] and [p`.tail ~~> q]. *)
+
+Lemma triple_mcell : forall (x:val) (q:loc),
+  triple (mcell x q)
+    \[]
+    (fun r => \exists p, \[r = val_loc p] \* (p`.head ~~> x) \* (p`.tail ~~> q)).
+Proof using.
+  xwp. xapp triple_alloc_mcell. intros p. xapp. xapp. xval. xsimpl*.
+Qed.
+
 
 
 (* ########################################################### *)
@@ -817,9 +738,8 @@ End CurriedFun.
 (* ########################################################### *)
 (** * Additional contents *)
 
-
 (* ####################################################### *)
-(** ** High-level specifications for the allocation of list cells *)
+(** ** Allocation of records: example of list cells *)
 
 Module Lists.
 
@@ -887,12 +807,12 @@ Qed.
     used to specify the behavior of operations on mutable lists
     without having to reveal low-level implementation details. *)
 
-(** The function [mcons] is an alias for [mcell]. Whereas [mcell]
-    is intended to allocate a fresh cell on its own, [mcons] is
-    intended to extend an existing list by appending to it a
-    freshly-allocated cell. The specification of [mcons] requires
-    a list [q ~> MList L] in its precondition, and produces a list
-    [p ~> MList (x::L)] in its postcondition. *)
+(** The function [mcons] is an alias for [mcell]. Whereas [mcell x q]
+    is intended to allocate a fresh cell on its own, [mcons x q] is
+    intended to extend an existing list [MList L q] by appending to it
+    a freshly-allocated cell. The specification of [mcons] requires
+    a list [MList L q] in its precondition, and produces a list
+    [MList (x::L) p] in its postcondition. *)
 
 Definition mcons : val :=
   mcell.
@@ -908,29 +828,9 @@ Qed.
 
 Hint Resolve triple_mnil triple_mcons : triple.
 
-
-(* ########################################################### *)
-(** ** Case analysis and list copy *)
-
-(** Recall from chapter [SLFBasic] the lemma [MList_if], which
-    reformulates the definition of [MList L p] using a case analysis
-    on whether the pointer [p] is null, instead of on whether the
-    list [L] is empty. *)
-
-Lemma MList_if : forall (p:loc) (L:list val),
-      (MList L p)
-  ==> (If p = null
-        then \[L = nil]
-        else \exists x q L', \[L = x::L']
-             \* (p`.head ~~> x) \* (p`.tail ~~> q)
-             \* (MList L' q)).
-Proof using.
-  intros. destruct L as [|x L'].
-  { xchange MList_nil. intros M. case_if. xsimpl. auto. }
-  { xchange MList_cons. intros q. case_if.
-    { xchange hfield_not_null. }
-    { xsimpl. auto. } }
-Qed.
+(** In the remaining of this section, we present an example program
+    that uses the functions [mnil] and [mcons] for allocating an
+    entire list. *)
 
 (** Consider the function [mcopy], which constructs an independent
     copy of a given mutable linked list.
@@ -957,6 +857,19 @@ Definition mcopy : val :=
         Let 'q := 'p'.tail in
         Let 'q2 := 'f 'q in
         mcons 'x 'q2.
+
+(** For the proof, recall from chapter [SLFBasic] the lemma [MList_if],
+    which reformulates the definition of [MList L p] using a case analysis
+    on whether the pointer [p] is null, instead of on whether the
+    list [L] is empty. *)
+
+Parameter MList_if : forall (p:loc) (L:list val),
+      (MList L p)
+  ==> (If p = null
+        then \[L = nil]
+        else \exists x q L', \[L = x::L']
+             \* (p`.head ~~> x) \* (p`.tail ~~> q)
+             \* (MList L' q)).
 
 (** The precondition of [mcopy] requires a linked list [MList L p].
     Its postcondition asserts that the function returns a pointer [p']
@@ -988,14 +901,12 @@ Qed.
 
 
 (* ########################################################### *)
-(** ** Deallocation of a cell: [mfree_cell] *)
+(** ** Deallocation of records: example of list cells *)
 
 (** Recall that our Separation Logic set up enforces that all allocated
     data eventually gets properly deallocated. In what follows, we describe
     a function for deallocating one cell, then a function for deallocating
     an entire mutable list. *)
-
-(* TODO: rename VFun *)
 
 (** The operation [mfree_cell p] deallocates the two fields associated
     with the cell at location [p]. *)
@@ -1062,259 +973,6 @@ Qed. (* /ADMITTED *)
 End Lists.
 
 
-(* ########################################################### *)
-(* ########################################################### *)
-(* ########################################################### *)
-(** * Bonus contents (optional reading) *)
-
-
-(* ########################################################### *)
-(** ** Semantics of the allocation and deallocation operations *)
-
-Module AllocSpec.
-
-(** Earlier in this chapter, we have axiomatized the specification
-    of the allocation function through the lemma [triple_alloc_nat]. *)
-
-Parameter triple_alloc_nat' : forall (k:nat),
-  triple (val_alloc k)
-    \[]
-    (fun r => \exists p, \[r = val_loc p] \* harray_uninit k p).
-
-(* TODO: rename l for p everywhere in the semantics *)
-
-(** Like for other operations, this specification can be proved
-    correct with respect to the semantics of the programming
-    language. The allocation operation [val_alloc n] can be
-    described as extending the state with a range of fresh
-    consecutive cells.
-
-    The evaluation rule below describes the behavior of [val_alloc].
-    We write [LibList.make k val_uninit] for a list that repeats
-    [k] times the value [val_uninit]. We write [Fmap.conseq p L]
-    for a heap made of consecutive cells, starting at location [p],
-    whose contents are described by the elements from the list [L].
-    This heap is named [mb], and it extends the existing heap,
-    which is named [ma]. *)
-
-Parameter eval_alloc : forall k n ma mb p,
-  mb = Fmap.conseq p (LibList.make k val_uninit) ->
-  n = nat_to_Z k ->
-  p <> null ->
-  Fmap.disjoint ma mb ->
-  eval ma (val_alloc (val_int n)) (Fmap.union mb ma) (val_loc p).
-
-(** As usual, we first derive a Hoare logic statement, then the
-    corresponding Separation Logic judgment. *)
-
-Lemma hoare_alloc_nat : forall (k:nat) H,
-  triple (val_alloc k)
-    H
-    (fun r => \exists p, \[r = val_loc p] \* harray_uninit k p \* H).
-Proof using.
-(*
-  introv N. intros h Hh.
-  forwards~ (l&Dl&Nl): (Fmap.conseq_fresh null h (abs n) val_uninitialized).
-  match type of Dl with Fmap.disjoint ?hc _ => sets h1': hc end.
-  exists (h1' \u h) (val_loc l). splits~.
-  { applys~ (eval_alloc (abs n)). rewrite~ abs_nonneg. }
-  { apply~ hstar_intro.
-    { exists l. applys~ himpl_hstar_hpure_r. applys~ Alloc_fmap_conseq. } }
-Qed.
-*)
-Admitted.
-
-Lemma triple_alloc_nat : forall (k:nat),
-  triple (val_alloc k)
-    \[]
-    (fun r => \exists p, \[r = val_loc p] \* harray_uninit k p).
-Proof using.
-  intros. intros H'. applys hoare_conseq.
-  { applys hoare_alloc_nat H'. } { xsimpl. } { xsimpl*. }
-Qed.
-
-(*
-Lemma Alloc_fmap_conseq : forall l k,
-  l <> null ->
-  (Alloc k l) (Fmap.conseq l (LibList.make k val_uninit)).
-Proof using.
-  Transparent loc null.
-  introv N. gen l. induction k; intros; rew_Alloc.
-  { rewrite LibList.make_zero, Fmap.conseq_nil. applys~ hempty_intro. }
-  { rewrite LibList.make_succ, Fmap.conseq_cons. applys hstar_intro.
-    { split~. }
-    { applys IHk. unfolds loc, null. math. }
-    { applys~ Fmap.disjoint_single_conseq. } }
-Qed.
-*)
-
-(** Similarly, we can formalize the behavior and the specification of
-    the deallocation operation [val_dealloc n p].
-
-    This time, the initial state is of the union of a heap [mb],
-    describing the  part to be deallocated, and a disjoint heap [ma],
-    describing the part of the state that remains. The heap [mb]
-    must correspond to [n] consecutive cells, starting at location [p]. *)
-
-Parameter eval_dealloc : forall n vs ma mb p,
-  mb = Fmap.conseq p vs ->
-  n = LibList.length vs ->
-  Fmap.disjoint ma mb ->
-  eval (Fmap.union mb ma) (val_dealloc (val_int n) (val_loc p)) ma val_unit.
-
-(** The specification as Hoare and Separation Logic triples are then
-    derive in a similar fashion as for allocation. *)
-
-Lemma hoare_dealloc : forall H L p n,
-  n = length L ->
-  hoare (val_dealloc n p)
-    (harray L p \* H)
-    (fun _ => H).
-Proof using.
-(*
-  introv N. intros h Hh. destruct Hh as (h1&h2&N1&N2&N3&N4). subst h.
-  exists h2 val_unit. split.
-  { forwards (vs&Lvs&Hvs): Dealloc_inv N1. applys* eval_dealloc.
-    { rewrite <- Lvs. rewrite~ abs_to_int. } }
-  { rewrite~ hstar_hpure. }
-Qed.
-*)
-Admitted.
-
-Lemma triple_dealloc : forall (L:list val) (n:int) (p:loc),
-  n = length L ->
-  triple (val_dealloc n p)
-    (harray L p)
-    (fun _ => \[]).
-Proof using.
-  introv E. intros H'. applys hoare_conseq.
-  { applys hoare_dealloc H' E. } { xsimpl. } { xsimpl. }
-Qed.
-
-End AllocSpec.
-
-
-(* ########################################################### *)
-(** ** Definition of record operations using pointer arithmetics *)
-
-Module FieldOps.
-Transparent hfield.
-
-(** Most real-world programming languages include primitive operations
-    for reading and writing in record fields. Yet, in a simple language
-    like ours, records can be represented in arrays of consecutive cells,
-    and field accesses can be encoded with help of pointer arithmetic.
-    It is interesting to see how one may formally reason about this kind
-    of encoding. *)
-
-(** For example, the read operation on record fields can be implemented
-    within our language, as the combination of a pointer addition and
-    a read operation. More precisely, reading in [p`.f] using
-    [val_get_field] is like reading at address [p+f] using [val_get],
-    where [p+f] is computed by invoking [val_ptr_add p k]. *)
-
-Definition val_get_field (k:field) : val :=
-  VFun 'p :=
-    Let 'q := val_ptr_add 'p (nat_to_Z k) in
-    val_get 'q.
-
-(** The specification of [val_get_field] can be established just like
-    for any other function. *)
-
-Lemma triple_get_field : forall p f v,
-  triple ((val_get_field f) p)
-    (p`.f ~~> v)
-    (fun r => \[r = v] \* (p`.f ~~> v)).
-Proof using.  
-  xwp. xapp. unfold hfield. xpull. intros N. xapp. xsimpl*.
-Admitted. (* TODO *)
-
-(** A similar construction applies to the write operation on record
-    fields. *)
-
-Definition val_set_field (k:field) : val :=
-  VFun 'p 'v :=
-    Let 'q := val_ptr_add 'p (nat_to_Z k) in
-    val_set 'q 'v.
-
-Lemma triple_set_field : forall v1 p f v2,
-  triple ((val_set_field f) p v2)
-    (p`.f ~~> v1)
-    (fun _ => p`.f ~~> v2).
-Proof using.
-  xwp. xapp. unfold hfield. xpull. intros N. xapp. xsimpl*.
-Admitted. (* TODO *)
-
-End FieldOps.
-
-
-(* ########################################################### *)
-(** ** Definition of array operations using pointer arithmetics *)
-
-Module ArrayOps.
-
-(** In a very similar way, the read and write operations on array cells
-    can be encoded using pointer arithmetic. *)
-
-(** Consider first a read operation, written [val_array_get p i]. *)
-
-Definition val_array_get : val :=
-  VFun 'p 'i :=
-    Let 'n := val_ptr_add 'p 'i in
-    val_get 'n.
-
-Lemma triple_array_get : forall p i L,
-  0 <= i < length L ->
-  triple (val_array_get p i)
-    (harray L p)
-    (fun r => \[r = L[i]] \* harray L p).
-Proof using. (* TODO: read op on array *)
-Admitted.
-(*
-  introv N. rewrite index_eq_inbound in N.
-  xcf. xapps. { math. }
-  rewrites (>> Array_middle_eq i). { math. }
-  xtpull ;=> L1 x L2 EL HL.
-  xapp. xpull ;=> r. intro_subst.
-  xsimpl; auto. { subst. rewrite~ read_middle. }
-Qed.
-*)
-
-(** Consider now a write operation, written [val_array_set p i v]. *)
-
-
-Notation "'VFun' x1 x2 x3 ':=' t" :=
-  (val_fun x1 (trm_fun x2 (trm_fun x3 t)))
-  (at level 69, x1, x2, x3 at level 0, format "'VFun'  x1  x2  x3  ':='  t") : val_scope.
-
-
-Definition val_array_set : val :=
-  VFun 'p 'i 'x :=
-    Let 'n := val_ptr_add 'p 'i in
-    val_set 'n 'x.
-
-Lemma triple_array_set : forall p i v L,
-  0 <= i < length L ->
-  triple (val_array_set p i v)
-    (harray L p)
-    (fun r => \[r = val_unit] \* harray (L[i:=v]) p).
-Proof using.
-(*
-  introv N. rewrite index_eq_inbound in N.
-  xcf. xapps. { math. }
-  rewrites (>> Array_middle_eq i). { math. }
-  xtpull ;=> L1 x L2 EL HL.
-  xapp triple_set. xpull ;=> r. intro_subst.
-  rewrites (>> Array_middle_eq i (L[i := v])).
-   { rewrite <- length_eq in *. rew_array. math. }
-  xsimpl; auto. { subst. rewrite~ update_middle. rew_list~. }
-Qed.
-*)
-Admitted.
-
-End ArrayOps.
-
-
 (* ####################################################### *)
 (** ** Grouped representation of record fields *)
 
@@ -1372,7 +1030,7 @@ Fixpoint hrecord (L:hrecord_fields) (r:loc) : hprop :=
   end.
 
 (** To use [hrecord] in practice, let us introduce record-style
-    notation for list of pairs of fields and values. 
+    notation for list of pairs of fields and values.
     Setting up an arity-generic notation is quite tricky,
     let us simply support up to 3 fields for now. *)
 
@@ -1458,7 +1116,7 @@ Admitted.
 Qed.
 *)
 
-Fixpoint hrecord_udpate (k:field) (v':val) (L:hrecord_fields)  
+Fixpoint hrecord_udpate (k:field) (v':val) (L:hrecord_fields)
                         : option hrecord_fields :=
   match L with
   | nil => None
@@ -1487,18 +1145,77 @@ End GroupedFields.
 
 
 (* ####################################################### *)
-(** ** Curried n-ary functions *)
+(** ** Curried functions of several arguments *)
 
-Module CurriedFunXwp.
+Module CurriedFun.
 Implicit Types f : var.
 
-(** We next explain how to generalize the tactic [xwp] to handle
-    recursive functions of two arguments. (For other arities, we
-    refer to the file [SLFExtra.v].)
+(** We next give a quick presentation of the notation, lemmas and
+    tactics involved in the manipulation of functions of several
+    arguments. We focus here on the particular case of recursive
+    functions with two arguments, to illustrate the principles.
 
-    As we said earlier, the key idea is that the behavior of [v0 v1 v2]
-    is similar to that of the term [subst x2 v2 (subst x1 v1 (subst f v0 t1))].
+    The lemmas for other arities can be found in the file [SLFExtra].
+    One may attempt to generalize these definitions to handle
+    arbitrary arities. Yet, to obtain an arity-generic treatment of
+    functions, it is much simpler to work with primitive n-ary functions
+    (i.e., functions that expects a list of variables, and that may be
+    applied to a list of values). The treatment of these n-ary functions
+    is beyond the scope of (the current version of) the course.
 
+    So, let us focus on curried recursive functions of arity two.
+
+    [val_fix f x1 (trm_fun x2 t)] describes a value that corresponds to
+    a recursive function [t] that expects two arguments [x1] and [x2].
+    Observe that the inner function, the one that expects [x2], is not
+    recursive, and that it is not a value but a term, because it may
+    refer to the variable [x1] bound outside of it.
+
+    We introduce the notation [VFix f x1 x2 := t] to generalize
+    [VFix f x := t] to the case of functions of two arguments. *)
+
+Notation "'VFix' f x1 x2 ':=' t" :=
+  (val_fix f x1 (trm_fun x2 t))
+  (at level 69, f, x1, x2 at level 0,
+  format "'VFix'  f  x1  x2  ':='  t").
+
+(** An application of a function of two arguments takes the form
+    [f v1 v2], which is actually parsed as [trm_app (trm_app f v1) v2].
+
+    This expression is an application of a term to a value, and not of
+    a value to a value. Thus, this expression cannot be evaluated using
+    the rule [eval_app_fun]. We need a distinct rule for first evaluating
+    the arguments of a function application to values, before we can
+    evaluate the application of a value to a value.
+
+    The rule [eval_app_arg] serves that purpose. To state it, we first
+    need to characterize whether a term is a value or not, using the
+    predicate [trm_is_val t] defined next. *)
+
+Definition trm_is_val (t:trm) : Prop :=
+  match t with trm_val v => True | _ => False end.
+
+(** The statement of [eval_app_arg] then takes the following form.
+    For an expression [trm_app t1 t2] where either [t1] or [t2] is
+    not a value, it enables reducing both [t1] and [t2] to values,
+    leaving a premise of the form [trm_app v1 v2], which is subject
+    to the rule [eval_app_fun] for evaluating functions. *)
+
+Parameter eval_app_arg : forall s1 s2 s3 s4 t1 t2 v1 v2 r,
+  (~ trm_is_val t1 \/ ~ trm_is_val t2) ->
+  eval s1 t1 s2 v1 ->
+  eval s2 t2 s3 v2 ->
+  eval s3 (trm_app v1 v2) s4 r ->
+  eval s1 (trm_app t1 t2) s4 r.
+
+(** Using this rule, we can establish an evaluation rule for the
+    term [v0 v1 v2]. There, [v0] is a recursive function of two
+    arguments named [x1] and [x2], the values [v1] and [v2] denote
+    the corresponding arguments, and [f] denotes the name of the
+    function available for making recursive calls from the body [t1].
+
+    The key idea is that the behavior of [v0 v1 v2] is similar to
+    that of the term [subst x2 v2 (subst x1 v1 (subst f v0 t1))].
     We state this property using the predicate [eval_like], introduced
     in the chapter [SLFRules]. *)
 
@@ -1515,7 +1232,7 @@ Proof using.
 Qed.
 
 (** From this result, we can easily prove the specification triple
-    presented earlier on for applications of the form [v0 v1 v2]. *)
+    for applications of the form [v0 v1 v2]. *)
 
 Lemma triple_app_fix2 : forall f x1 x2 v0 v1 v2 t1 H Q,
   v0 = val_fix f x1 (trm_fun x2 t1) ->
@@ -1542,6 +1259,8 @@ Proof using. introv EQ1 N. applys wp_eval_like. applys* eval_like_app_fix2. Qed.
     [(f,v0)::(x1,v1)::(x2,v2)::nil]. Note also how the side-conditions
     expressing the fact that the variables are distinct are stated
     using a comparison function for variables that computes in Coq. *)
+
+Open Scope liblist_scope. (* TODO *)
 
 Lemma xwp_lemma_fix2 : forall f v0 v1 v2 x1 x2 t H Q,
   v0 = val_fix f x1 (trm_fun x2 t) ->
@@ -1570,24 +1289,23 @@ Tactic Notation "xwp" :=
     formalized in the file [SLFExtra.v] and was put to practice
     in several examples from the chapter [SLFBasic]. *)
 
-End CurriedFunXwp.
+End CurriedFun.
 
 
 (* ####################################################### *)
 (** ** Primitive n-ary functions *)
 
-
 (* TODO: swap order of var_fixs and var_funs everywhere *)
 
 Module PrimitiveNaryFun.
 
-(** We next present an alternative treatment to functions of several 
-    arguments. The idea is to represent arguments using lists. 
+(** We next present an alternative treatment to functions of several
+    arguments. The idea is to represent arguments using lists.
 
-    On the one hand, the manipulation of lists adds a little bit of 
+    On the one hand, the manipulation of lists adds a little bit of
     boilerplate. On the other hand, when using this representation, all
     the definitions and lemmas are inherently arity-generic, that is, they
-    work for any number of arguments. 
+    work for any number of arguments.
 
     We introduce the following short names for the lists types involved:
     [vars], [vals] and [trms]. These names are not only useful to improve
@@ -1602,7 +1320,7 @@ Implicit Types xs : vars.
 Implicit Types vs : vals.
 Implicit Types ts : trms.
 
-(** We assume the grammar of terms and values to include primitive n-ary 
+(** We assume the grammar of terms and values to include primitive n-ary
     functions and n-ary applications, featuring list of arguments. Thereafter,
     for conciseness, we describe only the case of recursive functions. *)
 
@@ -1615,7 +1333,7 @@ Parameter trm_apps : trm -> trms -> trm.
 (** The substitution function is a bit tricky to update for dealing with
     list of variables. A definition along the following lines works well.
     On the one hand, it prevents variables capture. On the other hand,
-    it traverses recursively the list of arguments, in a way that is 
+    it traverses recursively the list of arguments, in a way that is
     recognized as structurally recursive.
 
 [[
@@ -1637,9 +1355,9 @@ Parameter trm_apps : trm -> trms -> trm.
     from the grammar of terms evaluates to the corresponding n-ary
     function from the grammar of values. For technical reasons, we
     need to ensure that the program is well-formed and that the list
-    of arguments to the function is nonempty. Indeed, a function of 
+    of arguments to the function is nonempty. Indeed, a function of
     zero arguments is not considered a function in our language.
-    (Otherwise, such a function [f] would beta-reduce to its body 
+    (Otherwise, such a function [f] would beta-reduce to its body
     as soon as it is defined, because it waits for no arguments.) *)
 
 Parameter eval_fixs : forall m f xs t1,
@@ -1649,16 +1367,16 @@ Parameter eval_fixs : forall m f xs t1,
 (** A n-ary application of a function to values takes the form
     [trm_apps (trm_val v0) ((trm_val v1):: .. ::(trm_val vn)::nil)].
     If the function [v0] is defined as [val_fixs f xs t1], where [xs]
-    denotes the list [x1::x2::...::xn::nil], then the beta-reduction 
-    of the function application triggers the evaluation of the 
+    denotes the list [x1::x2::...::xn::nil], then the beta-reduction
+    of the function application triggers the evaluation of the
     substitution [subst xn vn (... (subst x1 v1 (subst f v0 t1)) ...)].
-  
+
     To describe the evaluation rule in an arity-generic way, we need to
     introduce the list [vs] made of the values provided as arguments,
-    that is, the list [v1::v2::..::vn::nil]. 
+    that is, the list [v1::v2::..::vn::nil].
 
-    With this list [vs], the n-ary application can then be written as the 
-    term [trm_apps (trm_val v0) (trms_vals vs)], where the operation 
+    With this list [vs], the n-ary application can then be written as the
+    term [trm_apps (trm_val v0) (trms_vals vs)], where the operation
     [trms_vals] a list of terms into a list of values. *)
 
 Coercion trms_vals (vs:vals) : trms :=
@@ -1670,7 +1388,7 @@ Coercion trms_vals (vs:vals) : trms :=
 
 (** To describe the iterated substitution
     [subst xn vn (... (subst x1 v1 (subst f v0 t1)) ...)], we introduce
-    the operation [substn xs vs t], which substitutes the variables [xs] 
+    the operation [substn xs vs t], which substitutes the variables [xs]
     with the values [vs] inside the [t]. It is defined recursively. *)
 
 Fixpoint substn (xs:list var) (vs:list val) (t:trm) : trm :=
@@ -1679,14 +1397,14 @@ Fixpoint substn (xs:list var) (vs:list val) (t:trm) : trm :=
   | _,_ => t
   end.
 
-(** This substitution operation is well-behaved only if the list [xs] 
+(** This substitution operation is well-behaved only if the list [xs]
     and the list [vs] have the same lengths. It is also desirable for
     reasoning about the evaluation rule to guarantee that the list of
     variables [xs] contains variables distinct from each others and
     distinct from [f], and that the list [xs] is not empty.
-   
-    To formally capture all these invariants, we introduce the predicate 
-    [var_fixs f xs n], [n] denotes the number of arguments the function 
+
+    To formally capture all these invariants, we introduce the predicate
+    [var_fixs f xs n], [n] denotes the number of arguments the function
     is being applied to (i.e., the length of the list [vs]). *)
 
 Definition var_fixs (f:var) (xs:vars) (n:nat) : Prop :=
@@ -1695,8 +1413,8 @@ Definition var_fixs (f:var) (xs:vars) (n:nat) : Prop :=
   /\ xs <> nil.
 
 (** The evaluation of a recursive function [v0] defined as [val_fixs f xs t1]
-    on a list of arguments [vs] triggers the evaluation of the term 
-    [substn xs vs (subst f v0 t1)], same as [substn (f::xs) (v0::vs) t1]. 
+    on a list of arguments [vs] triggers the evaluation of the term
+    [substn xs vs (subst f v0 t1)], same as [substn (f::xs) (v0::vs) t1].
     The evaluation rule is stated as follows, using the predicate [var_fixs]
     to enforce the appropriate invariants on the variable names. *)
 
@@ -1714,16 +1432,16 @@ Lemma triple_apps_fixs : forall v0 vs f xs t1 H Q,
   triple (substn (f::xs) (v0::vs) t1) H Q ->
   triple (trm_apps v0 vs) H Q.
 Proof using.
-  introv E N M. applys triple_eval_like M. 
+  introv E N M. applys triple_eval_like M.
   introv R. applys* eval_apps_fixs.
 Qed.
 
-(** The statement of the above lemma applies only to terms that are 
+(** The statement of the above lemma applies only to terms that are
     of the form [trm_apps (trm_val v0) (trms_vals vs)]. Yet, in practice,
-    goals are generally of the form 
+    goals are generally of the form
     [trm_apps (trm_val v0) ((trm_val v1):: .. :: (trm_val vn)::nil)].
     The two forms are convertible, yet Coq is not able to synthetize
-    the list [vs] by unification. 
+    the list [vs] by unification.
 
     Fortunately, it is possible to reformulate the lemma using an auxiliary
     conversion function named [trms_to_vals], whose evaluation by Coq's
@@ -1732,7 +1450,7 @@ Qed.
 Fixpoint trms_to_vals (ts:trms) : option vals :=
   match ts with
   | nil => Some nil
-  | (trm_val v)::ts' => 
+  | (trm_val v)::ts' =>
       match trms_to_vals ts' with
       | None => None
       | Some vs' => Some (v::vs')
@@ -1752,7 +1470,7 @@ Qed.
 
 Lemma demo_trms_to_vals : forall v1 v2 v3,
   exists vs,
-     trms_to_vals ((trm_val v1)::(trm_val v2)::(trm_val v3)::nil) = Some vs 
+     trms_to_vals ((trm_val v1)::(trm_val v2)::(trm_val v3)::nil) = Some vs
   /\ vs = vs.
 Proof using. intros. esplit. split. simpl. eauto. (* [vs] was inferred. *) Abort.
 
@@ -1771,7 +1489,7 @@ Proof using.
 Qed.
 
 (** To set up the tactic [xwp] to handle n-ary applications, we reformulate
-    the lemma above by making two changes. 
+    the lemma above by making two changes.
 
     The first change is to replace the predicate [var_fixs] which checks
     the well-formedness properties of the list of variables [xs] by an
@@ -1786,7 +1504,7 @@ Parameter var_fixs_exec : var -> vars -> nat -> bool.
     the triple for the evaluation of the body of the function. The
     substitution [substn (f::xs) (v0::vs)] then gets described by the
     substitution context [List.combine (f::xs) (v0::vs)], which describes
-    a list of pairs of type [list (var * val)]. 
+    a list of pairs of type [list (var * val)].
 
     The statement of the lemma for [xwp] is as follows. We omit the proof
     details---they may be found in the implementation of the CFML tool. *)
@@ -1800,3 +1518,288 @@ Parameter xwp_lemma_fixs : forall v0 ts vs f xs t1 H Q,
 
 End PrimitiveNaryFun.
 
+
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Bonus contents (optional reading) *)
+
+(* ########################################################### *)
+(** ** Formalization of allocation and deallocation operations *)
+
+Module AllocSpec.
+
+(** Earlier in this chapter, we have axiomatized the specification
+    of the allocation function through the lemma [triple_alloc_nat]. *)
+
+Parameter triple_alloc_nat' : forall (k:nat),
+  triple (val_alloc k)
+    \[]
+    (fun r => \exists p, \[r = val_loc p] \* harray_uninit k p).
+
+(* TODO: rename l for p everywhere in the semantics *)
+
+(** Like for other operations, this specification can be proved
+    correct with respect to the semantics of the programming
+    language. The allocation operation [val_alloc n] can be
+    described as extending the state with a range of fresh
+    consecutive cells.
+
+    The evaluation rule below describes the behavior of [val_alloc].
+    We write [LibList.make k val_uninit] for a list that repeats
+    [k] times the value [val_uninit]. We write [Fmap.conseq p L]
+    for a heap made of consecutive cells, starting at location [p],
+    whose contents are described by the elements from the list [L].
+    This heap is named [mb], and it extends the existing heap,
+    which is named [ma]. *)
+
+Parameter eval_alloc : forall k n ma mb p,
+  mb = Fmap.conseq p (LibList.make k val_uninit) ->
+  n = nat_to_Z k ->
+  p <> null ->
+  Fmap.disjoint ma mb ->
+  eval ma (val_alloc (val_int n)) (Fmap.union mb ma) (val_loc p).
+
+(** As usual, we first derive a Hoare logic statement, then the
+    corresponding Separation Logic judgment. *)
+
+Lemma hoare_alloc_nat : forall (k:nat) H,
+  triple (val_alloc k)
+    H
+    (fun r => \exists p, \[r = val_loc p] \* harray_uninit k p \* H).
+Proof using.
+(*
+  introv N. intros h Hh.
+  forwards~ (l&Dl&Nl): (Fmap.conseq_fresh null h (abs n) val_uninitialized).
+  match type of Dl with Fmap.disjoint ?hc _ => sets h1': hc end.
+  exists (h1' \u h) (val_loc l). splits~.
+  { applys~ (eval_alloc (abs n)). rewrite~ abs_nonneg. }
+  { apply~ hstar_intro.
+    { exists l. applys~ himpl_hstar_hpure_r. applys~ Alloc_fmap_conseq. } }
+Qed.
+*)
+Admitted.
+
+Lemma triple_alloc_nat : forall (k:nat),
+  triple (val_alloc k)
+    \[]
+    (fun r => \exists p, \[r = val_loc p] \* harray_uninit k p).
+Proof using.
+  intros. intros H'. applys hoare_conseq.
+  { applys hoare_alloc_nat H'. } { xsimpl. } { xsimpl*. }
+Qed.
+
+(** Similarly, we can formalize the behavior and the specification of
+    the deallocation operation [val_dealloc n p].
+
+    This time, the initial state is of the union of a heap [mb],
+    describing the  part to be deallocated, and a disjoint heap [ma],
+    describing the part of the state that remains. The heap [mb]
+    must correspond to [n] consecutive cells, starting at location [p]. *)
+
+Parameter eval_dealloc : forall n vs ma mb p,
+  mb = Fmap.conseq p vs ->
+  n = LibList.length vs ->
+  Fmap.disjoint ma mb ->
+  eval (Fmap.union mb ma) (val_dealloc (val_int n) (val_loc p)) ma val_unit.
+
+(** The specification as Hoare and Separation Logic triples are then
+    derive in a similar fashion as for allocation. *)
+
+Lemma hoare_dealloc : forall H L p (n:int), (* TODO: n : int *)
+  n = length L ->
+  hoare (val_dealloc n p)
+    (harray L p \* H)
+    (fun _ => H).
+Proof using.
+(*
+  introv N. intros h Hh. destruct Hh as (h1&h2&N1&N2&N3&N4). subst h.
+  exists h2 val_unit. split.
+  { forwards (vs&Lvs&Hvs): Dealloc_inv N1. applys* eval_dealloc.
+    { rewrite <- Lvs. rewrite~ abs_to_int. } }
+  { rewrite~ hstar_hpure. }
+Qed.
+*)
+Admitted.
+
+Lemma triple_dealloc : forall (L:list val) (n:int) (p:loc),
+  n = length L ->
+  triple (val_dealloc n p)
+    (harray L p)
+    (fun _ => \[]).
+Proof using.
+  introv E. intros H'. applys hoare_conseq.
+  { applys hoare_dealloc H' E. } { xsimpl. } { xsimpl. }
+Qed.
+
+End AllocSpec.
+
+
+
+(* ########################################################### *)
+(** ** Specification of pointer arithmetic *)
+
+Module PointerAdd.
+
+(** Pointer arithmetic can be useful in particular to define access
+    operations an arrays and on records in terms of the primitive
+    operations [val_get] and [val_set]. Let us describe the semantics
+    and specification of the operation that adds on offset to a pointer.
+
+    The operation [val_ptr p n] applies to a pointer [p] and an integer [n].
+    The integer [n] may be negative, as long as [p+n] corresponds to a
+    valid location, i.e., [p+n] must be nonnegative. *)
+
+Parameter eval_ptr_add : forall p' p n s,
+  (p':int) = p + n ->
+  eval s (val_ptr_add (val_loc p) (val_int n)) s (val_loc p').
+
+Lemma triple_ptr_add : forall p n,
+  p + n >= 0 ->
+  triple (val_ptr_add p n)
+    \[]
+    (fun r => \[r = val_loc (abs (p + n))]).
+Proof using.
+  intros. applys* triple_binop. applys* evalbinop_ptr_add.
+  { rewrite~ abs_nonneg. }
+Qed.
+
+(** The following lemma specializes the specification for the case
+    where the argument [n] is equal to a natural number [k]. This
+    reformulation avoids the [abs] function, and is more practical for
+    the encodings that we consider further in the subsequent sections. *)
+
+Lemma triple_ptr_add_nat : forall p (k:nat),
+  triple (val_ptr_add p k)
+    \[]
+    (fun r => \[r = val_loc (p+k)%nat]).
+Proof using.
+  intros. applys triple_conseq triple_ptr_add. { math. } { xsimpl. }
+  { xsimpl. intros. subst. fequals.
+    applys eq_nat_of_eq_int. rewrite abs_nonneg; math. }
+Qed.
+
+End PointerAdd.
+
+
+(* ########################################################### *)
+(** ** Definition of array operations using pointer arithmetics *)
+
+Module ArrayOps.
+
+(** Most real-world programming languages include primitive operations
+    for reading and writing in array cells. Yet, in a simple language
+    like ours, array cells can be accessed by means of pointer arithmetic.
+    It is interesting to see how one may formally reason about this kind
+    of encoding. *)
+
+(** For example, the read operation in the [i]-th cell of an array at
+    location [p] can be implemented within our language, as the application
+    of the operation [val_get] to the address [p+i], computed by invoking
+    [val_ptr_add p i]. *)
+
+(** Consider the read operation in an array, written [val_array_get p i]. *)
+
+Definition val_array_get : val :=
+  VFun 'p 'i :=
+    Let 'n := val_ptr_add 'p 'i in
+    val_get 'n.
+
+Parameter list_get : list val -> int -> val.
+
+Lemma triple_array_get : forall p i L,
+  0 <= i < length L ->
+  triple (val_array_get p i)
+    (harray L p)
+    (fun r => \[r = list_get L i] \* harray L p).
+Proof using. (* TODO: read op on array *)
+Admitted.
+(*
+  introv N. rewrite index_eq_inbound in N.
+  xcf. xapps. { math. }
+  rewrites (>> Array_middle_eq i). { math. }
+  xtpull ;=> L1 x L2 EL HL.
+  xapp. xpull ;=> r. intro_subst.
+  xsimpl; auto. { subst. rewrite~ read_middle. }
+Qed.
+*)
+
+(** Consider now a write operation, written [val_array_set p i v]. *)
+
+Definition val_array_set : val :=
+  VFun 'p 'i 'x :=
+    Let 'n := val_ptr_add 'p 'i in
+    val_set 'n 'x.
+
+Parameter list_update : list val -> int -> val -> list val.
+
+Lemma triple_array_set : forall p i v L,
+  0 <= i < length L ->
+  triple (val_array_set p i v)
+    (harray L p)
+    (fun r => \[r = val_unit] \* harray (list_update L i v) p).
+Proof using.
+(*
+  introv N. rewrite index_eq_inbound in N.
+  xcf. xapps. { math. }
+  rewrites (>> Array_middle_eq i). { math. }
+  xtpull ;=> L1 x L2 EL HL.
+  xapp triple_set. xpull ;=> r. intro_subst.
+  rewrites (>> Array_middle_eq i (L[i := v])).
+   { rewrite <- length_eq in *. rew_array. math. }
+  xsimpl; auto. { subst. rewrite~ update_middle. rew_list~. }
+Qed.
+*)
+Admitted.
+
+End ArrayOps.
+
+
+(* ########################################################### *)
+(** ** Definition of record operations using pointer arithmetics *)
+
+Module FieldOps.
+Transparent hfield.
+
+(** The read and write operations on record cells can also be encoded
+    using pointer arithmetic. *)
+
+(** For example, the read operation on record fields can be implemented
+    within our language, as the combination of a pointer addition and
+    a read operation. More precisely, reading in [p`.f] using
+    [val_get_field] is like reading at address [p+f] using [val_get],
+    where [p+f] is computed by invoking [val_ptr_add p k]. *)
+
+Definition val_get_field (k:field) : val :=
+  VFun 'p :=
+    Let 'q := val_ptr_add 'p (nat_to_Z k) in
+    val_get 'q.
+
+(** The specification of [val_get_field] can be established just like
+    for any other function. *)
+
+Lemma triple_get_field : forall p f v,
+  triple ((val_get_field f) p)
+    (p`.f ~~> v)
+    (fun r => \[r = v] \* (p`.f ~~> v)).
+Proof using.
+  xwp. xapp. unfold hfield. xpull. intros N. xapp. xsimpl*.
+Admitted. (* TODO *)
+
+(** A similar construction applies to the write operation on record
+    fields. *)
+
+Definition val_set_field (k:field) : val :=
+  VFun 'p 'v :=
+    Let 'q := val_ptr_add 'p (nat_to_Z k) in
+    val_set 'q 'v.
+
+Lemma triple_set_field : forall v1 p f v2,
+  triple ((val_set_field f) p v2)
+    (p`.f ~~> v1)
+    (fun _ => p`.f ~~> v2).
+Proof using.
+  xwp. xapp. unfold hfield. xpull. intros N. xapp. xsimpl*.
+Admitted. (* TODO *)
+
+End FieldOps.
