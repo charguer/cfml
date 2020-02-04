@@ -34,10 +34,10 @@ Coercion bind_var' (x:string) : bind := bind_var x.
 (* * List of binders *)
 
 
-(** [var_fixs f n xs] asserts that [f::xs] consists of [n+1]
+(** [var_fixs f xs n] asserts that [f::xs] consists of [n+1]
     distinct variables. *)
 
-Definition var_fixs (f:bind) (n:nat) (xs:vars) : Prop :=
+Definition var_fixs (f:bind) (xs:vars) (n:nat) : Prop :=
      match f with
      | bind_anon => var_distinct xs
      | bind_var x => var_distinct (x::xs)
@@ -47,7 +47,7 @@ Definition var_fixs (f:bind) (n:nat) (xs:vars) : Prop :=
 
 (** Computable version of [var_fixs] *)
 
-Definition var_fixs_exec (f:bind) (n:nat) (xs:vars) : bool :=
+Definition var_fixs_exec (f:bind) (xs:vars) (n:nat) : bool :=
      nat_compare n (List.length xs)
   && is_not_nil xs
   && match f with
@@ -55,8 +55,8 @@ Definition var_fixs_exec (f:bind) (n:nat) (xs:vars) : bool :=
      | bind_var x => var_distinct_exec (x::xs)
      end.
 
-Lemma var_fixs_exec_eq : forall f (n:nat) xs,
-  var_fixs_exec f n xs = isTrue (var_fixs f n xs).
+Lemma var_fixs_exec_eq : forall f xs (n:nat),
+  var_fixs_exec f xs n = isTrue (var_fixs f xs n).
 Proof using.
   intros. unfold var_fixs_exec, var_fixs.
   rewrite nat_compare_eq.

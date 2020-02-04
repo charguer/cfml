@@ -325,7 +325,7 @@ Ltac xwp_xtriple_handle_gc tt :=
 Lemma xwp_lemma_funs : forall F vs ts xs t `{EA:Enc A} H (Q:A->hprop),
   F = val_funs xs t ->
   trms_to_vals ts = Some vs ->
-  var_funs_exec (length vs) xs ->
+  var_funs_exec xs (length vs) ->
   H ==> ^(Wpgen (combine xs vs) t) (Q \*+ \GC) ->
   Triple (trm_apps F ts) H Q.
 Proof using.
@@ -338,7 +338,7 @@ Qed.
 Lemma xwp_lemma_fixs : forall F (f:var) vs ts xs t `{EA:Enc A} H (Q:A->hprop),
   F = val_fixs f xs t ->
   trms_to_vals ts = Some vs ->
-  var_fixs_exec f (length vs) xs ->
+  var_fixs_exec f xs (length vs) ->
   H ==> ^(Wpgen (combine (f::xs) (F::vs)) t) (Q \*+ \GC) ->
   Triple (trm_apps F ts) H Q.
 Proof using.

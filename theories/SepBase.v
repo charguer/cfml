@@ -670,7 +670,7 @@ Qed.
 
 Lemma hoare_apps_funs : forall xs F vs t1 H Q,
   F = (val_funs xs t1) ->
-  var_funs (length vs) xs ->
+  var_funs xs (length vs) ->
   hoare (substn xs vs t1) H Q ->
   hoare (trm_apps F vs) H Q.
 Proof using.
@@ -680,7 +680,7 @@ Qed.
 
 Lemma hoare_apps_fixs : forall xs (f:var) F vs t1 H Q,
   F = (val_fixs f xs t1) ->
-  var_fixs f (length vs) xs ->
+  var_fixs f xs (length vs) ->
   hoare (substn (f::xs) (F::vs) t1) H Q ->
   hoare (trm_apps F vs) H Q.
 Proof using.
@@ -1146,14 +1146,14 @@ Qed.
 
 Lemma triple_apps_funs : forall xs F (Vs:vals) t1 H Q,
   F = (val_funs xs t1) ->
-  var_funs (length Vs) xs ->
+  var_funs xs (length Vs) ->
   triple (substn xs Vs t1) H Q ->
   triple (trm_apps F Vs) H Q.
 Proof using. introv E N M. intros HF. applys* hoare_apps_funs. Qed.
 
 Lemma triple_apps_fixs : forall xs (f:var) F (Vs:vals) t1 H Q,
   F = (val_fixs f xs t1) ->
-  var_fixs f (length Vs) xs ->
+  var_fixs f xs (length Vs) ->
   triple (substn (f::xs) (F::Vs) t1) H Q ->
   triple (trm_apps F Vs) H Q.
 Proof using. introv E N M. intros HF. applys* hoare_apps_fixs. Qed.

@@ -128,23 +128,23 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** List of n fresh variables *)
 
-(** [var_funs n xs] asserts that [xs] consists of [n] distinct variables,
+(** [var_funs xs n] asserts that [xs] consists of [n] distinct variables,
     for [n > 0]. *)
 
-Definition var_funs (n:nat) (xs:vars) : Prop :=
+Definition var_funs (xs:vars) (n:nat) : Prop :=
      var_distinct xs
   /\ length xs = n
   /\ xs <> nil.
 
 (** Computable version of [var_funs] *)
 
-Definition var_funs_exec (n:nat) (xs:vars) : bool :=
+Definition var_funs_exec (xs:vars) (n:nat) : bool :=
      nat_compare n (List.length xs)
   && is_not_nil xs
   && var_distinct_exec xs.
 
 Lemma var_funs_exec_eq : forall (n:nat) xs,
-  var_funs_exec n xs = isTrue (var_funs n xs).
+  var_funs_exec xs n = isTrue (var_funs xs n).
 Proof using.
   intros. unfold var_funs_exec, var_funs.
   rewrite nat_compare_eq.
@@ -233,7 +233,7 @@ Qed.
 
 Lemma var_funs_var_seq : forall start nb,
   (nb > 0%nat)%nat ->
-  var_funs nb (var_seq start nb).
+  var_funs (var_seq start nb) nb.
 Proof using.
   introv E. splits.
   { applys var_distinct_var_seq. }

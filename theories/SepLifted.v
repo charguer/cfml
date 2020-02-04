@@ -873,7 +873,7 @@ Qed.
 
 Lemma Triple_apps_funs : forall xs F vs t1 H A `{EA: Enc A} (Q:A->hprop),
   F = (val_funs xs t1) ->
-  var_funs (length vs) xs ->
+  var_funs xs (length vs) ->
   Triple (substn xs vs t1) H Q ->
   Triple (trm_apps F vs) H Q.
 Proof using.
@@ -882,7 +882,7 @@ Qed.
 
 Lemma Triple_apps_fixs : forall xs (f:var) F vs t1 H A `{EA: Enc A} (Q:A->hprop),
   F = (val_fixs f xs t1) ->
-  var_fixs f (length vs) xs ->
+  var_fixs f xs (length vs) ->
   Triple (substn (f::xs) (F::vs) t1) H Q ->
   Triple (trm_apps F vs) H Q.
 Proof using.

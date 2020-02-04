@@ -24,7 +24,7 @@ Implicit Types v : val.
 
 Lemma triple_apps_funs : forall xs F (Vs:vals) t1 H Q,
   F = (val_funs xs t1) ->
-  var_funs (length Vs) xs ->
+  var_funs xs (length Vs) ->
   triple (substn xs Vs t1) H Q ->
   triple (trm_apps F Vs) H Q.
 Proof using.
@@ -34,7 +34,8 @@ Proof using.
 Qed.
 
 Lemma var_funs_exec_elim : forall (n:nat) xs,
-  var_funs_exec n xs -> (var_funs n xs).
+  var_funs_exec xs n ->
+  var_funs n xs.
 Proof using. introv M. rewrite var_funs_exec_eq in M. rew_istrue~ in M. Qed.
 
 Hint Resolve var_funs_exec_elim.

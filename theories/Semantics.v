@@ -936,7 +936,7 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       eval m1 (trm_let z v1 t2) m2 r
   | eval_apps_funs_fixs : forall m1 m2 f xs t3 v0 vs r,
       v0 = val_fixs f xs t3 ->
-      var_fixs f (length vs) xs ->
+      var_fixs f xs (length vs) ->
       eval m1 (substn xs vs (subst1 f v0 t3)) m2 r ->
       eval m1 (trm_apps v0 vs) m2 r
   | eval_while : forall m1 m2 t1 t2 r,
@@ -1146,7 +1146,7 @@ Qed.
 
 Lemma eval_apps_funs : forall m1 m2 xs t3 v0 vs r,
   v0 = val_funs xs t3 ->
-  var_funs (length vs) xs ->
+  var_funs xs (length vs) ->
   eval m1 (substn xs vs t3) m2 r ->
   eval m1 (trm_apps v0 vs) m2 r.
 Proof using.
@@ -1155,7 +1155,7 @@ Qed.
 
 Lemma eval_apps_fixs : forall m1 m2 (f:bind) xs t3 v0 vs r,
   v0 = val_fixs f xs t3 ->
-  var_fixs f (length vs) xs ->
+  var_fixs f xs (length vs) ->
   eval m1 (substn xs vs (subst1 f v0 t3)) m2 r ->
   eval m1 (trm_apps v0 vs) m2 r.
 Proof using.

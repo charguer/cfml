@@ -24,7 +24,6 @@ Implicit Type L : list val.
 (* TODO: induction_wf IH: (@list_sub val) L. *)
 (* TODO: rename VFun *)
 (* TODO : limitation of xapp for lemmas with premises... *)
-(* TODO: swap order of var_fixs and var_funs everywhere *)
 
 
 
@@ -134,7 +133,7 @@ Proof using. introv N. unfold harray. xsimpl*. Qed.
 Parameter harray_concat_eq : forall p L1 L2,
   harray (L1++L2) p = (harray L1 p \* harray L2 (length L1 + p)%nat).
 
-(** The proof of this lemma appears may be found in the bonus section of 
+(** The proof of this lemma appears may be found in the bonus section of
     this chapter. *)
 
 (** Remark: this "splitting lemma for arrays" is useful to carry out local
@@ -304,7 +303,7 @@ Qed.
 Module Arrays.
 Import LibListZ.
 
-(** The operation [val_array_get p i] returns the contents of the [i]-th 
+(** The operation [val_array_get p i] returns the contents of the [i]-th
     cell of the array at location [p]. *)
 
 Parameter val_array_get : val.
@@ -313,7 +312,7 @@ Parameter val_array_get : val.
     describes the array in the form [harray L p], with a premise that
     requires the index [i] to be in the valid range, that is, between
     zero (inclusive) and the length of [L] (exclusive). The postcondition
-    asserts that the result value is [nth (abs i) L], and mentions 
+    asserts that the result value is [nth (abs i) L], and mentions
     the unmodified array, still described by [harray L p]. *)
 
 Parameter triple_array_get : forall L p i,
@@ -322,12 +321,12 @@ Parameter triple_array_get : forall L p i,
     (harray L p)
     (fun r => \[r = LibList.nth (abs i) L] \* harray L p).
 
-(** The operation [val_array_set p i v] updates the contents of the [i]-th 
+(** The operation [val_array_set p i v] updates the contents of the [i]-th
     cell of the array at location [p]. *)
 
 Parameter val_array_set : val.
 
-(** Again, for stating the specification, we axiomatize the corresponding 
+(** Again, for stating the specification, we axiomatize the corresponding
     operation on lists: [list_update L i v] describes the update to the
     list [L] by replacing the value at index [i] with the value [v]. *)
 
@@ -905,7 +904,7 @@ Lemma triple_get_field_hrecord : forall kvs p k v,
 Proof using.
   intros L. induction L as [| [f v] L']; simpl; introv E.
   { inverts E. }
-  { case_if. 
+  { case_if.
     { inverts E. subst f. applys triple_conseq_frame.
       { applys triple_get_field. } { xsimpl. } { xsimpl*. } }
     { applys triple_conseq_frame. { applys IHL' E. } { xsimpl. } { xsimpl*. } } }
@@ -936,7 +935,7 @@ Lemma triple_set_field_hrecord : forall kvs kvs' k p w,
 Proof using.
   intros kvs. induction kvs as [| [f v] kvs']; simpl; introv E.
   { inverts E. }
-  { case_if. 
+  { case_if.
     { inverts E. subst f. applys triple_conseq_frame.
       { applys triple_set_field. } { xsimpl. } { xsimpl*. } }
     { cases (hrecord_udpate k w kvs') as C2; tryfalse. inverts E.
@@ -1360,13 +1359,13 @@ Parameter eval_alloc : forall k n ma mb p,
 
 (** To verify the specification of allocation, the crux of the proof
     is to establish the lemma [harray_uninit_intro], which establishes
-    that the heap built by [Fmap.conseq] in the rule [eval_alloc] 
+    that the heap built by [Fmap.conseq] in the rule [eval_alloc]
     satisfies the predicate [harray_uninit] that appears in the
-    postcondition of [triple_alloc_nat]. 
-  
+    postcondition of [triple_alloc_nat].
+
     This lemma itself relies on an introduction lemma for [hcells],
     asserting that [Fmap.conseq p L] satisfies [hcells L p].
-    
+
     The two lemmas involved are stated and proved below. It is not
     needed to follow through the proof details. *)
 
@@ -1388,7 +1387,7 @@ Lemma harray_uninit_intro : forall p k,
   p <> null ->
   harray_uninit k p (Fmap.conseq p (LibList.make k val_uninit)).
 Proof using.
-  introv N. unfold harray_uninit, harray. 
+  introv N. unfold harray_uninit, harray.
   rewrite hstar_comm. rewrite hstar_hpure. split.
   { auto. } { applys* hcells_intro. }
 Qed.
@@ -1435,9 +1434,9 @@ Parameter eval_dealloc : forall n vs ma mb p,
   eval (Fmap.union mb ma) (val_dealloc (val_int n) (val_loc p)) ma val_unit.
 
 (** To verify the specification of deallocation, the crux of the proof
-    is to establish that if a heap satisfies [hcells L p], then this 
+    is to establish that if a heap satisfies [hcells L p], then this
     heap is described by [Fmap.conseq p L].
-  
+
     This technical lemma is stated as follows. The proof is by induction
     on the list [L]. (No need to follow throught the proof details.) *)
 
@@ -1484,7 +1483,7 @@ Lemma triple_dealloc_harray : forall L n p,
     (harray L p)
     (fun _ => \[]).
 Proof using.
-  introv E. xtriple. unfold harray. xpull. intros N. 
+  introv E. xtriple. unfold harray. xpull. intros N.
   xapp triple_dealloc_hcells. { auto. } { xsimpl. }
 Qed.
 
@@ -1645,15 +1644,15 @@ Import SLFProgramSyntax.
 
 (** For example, an array operation on the [i]-th cell of an array at
     location [p] can be implemented within our language, as the application
-    of a read or write operation at the address [p+i]. 
+    of a read or write operation at the address [p+i].
 
     In order to reason about the read or write operation on a specific
     cell, we need to isolate this cell from the other cells of the array.
-    Then, after the operation, we need to fold back to the view on the 
+    Then, after the operation, we need to fold back to the view on the
     entire array.
 
     The isolation process is captured in a general way by the following
-    "focus lemma". It reads as follows. Assume [harray L p] to initially    
+    "focus lemma". It reads as follows. Assume [harray L p] to initially
     describe the full array. The, the [k]-th cell can be isolated as a
     predicate [(p+k) ~~> v], where [v] denotes the [k]-th item of [L],
     that is [LibList.nth k L].
@@ -1727,7 +1726,7 @@ Lemma triple_array_get : forall p i L,
   triple (val_array_get p i)
     (harray L p)
     (fun r => \[r = LibList.nth (abs i) L] \* harray L p).
-Proof using. 
+Proof using.
   introv N. xwp. xapp triple_ptr_add. { math. }
   xchange (@harray_focus (abs i) p L). { applys* abs_lt_length. }
   sets v: (LibList.nth (abs i) L).
@@ -1736,7 +1735,7 @@ Proof using.
   rewrite update_nth_same. xsimpl*. { applys* abs_lt_length. }
 Qed.
 
-(** Consider now a write operation, written [val_array_set p i v]. 
+(** Consider now a write operation, written [val_array_set p i v].
     We can define it as [val_set (val_ptr_add p i) v], then prove its
     specification expressed in terms of [LibList.update (abs i) v L]. *)
 
@@ -1750,7 +1749,7 @@ Lemma triple_array_set : forall p i v L,
   triple (val_array_set p i v)
     (harray L p)
     (fun _ => harray (LibList.update (abs i) v L) p).
-Proof using. 
+Proof using.
   introv N. xwp. xapp triple_ptr_add. { math. }
   xchange (@harray_focus (abs i) p L). { applys* abs_lt_length. }
   rewrite abs_nat_plus_nonneg; [|math].
