@@ -318,10 +318,6 @@ Parameter triple_array_get : forall L p i,
 
 Parameter val_array_set : val.
 
-(** Again, for stating the specification, we axiomatize the corresponding
-    operation on lists: [list_update L i v] describes the update to the
-    list [L] by replacing the value at index [i] with the value [v]. *)
-
 (** The specification of [val_array_set] admits the same precondition as
     [val_array_get], with [harray L p] and the constraint [0 <= i < length L].
     Its postcondition describes the updated array using a predicate of the
@@ -342,9 +338,12 @@ End Arrays.
 (** ** Representation of a record field *)
 
 (** A record can be represented as a set of fields stored in consecutive
-    addresses.
+    addresses. The field names thus correspond to offsets, represented as
+    natural numbers. We let [field] denote the type of field names. *)
 
-    For example, consider a mutable list cell allocated at location [p].
+Definition field : Type := nat.
+
+(** For example, consider a mutable list cell allocated at location [p].
     It consists of a record with a [head] field storing a value [x], and
     a tail field storing a value [q]. This list cell an be represented by
     the heap predicate [(p ~~> x) \* ((p+1) ~~> q)].
@@ -356,21 +355,19 @@ End Arrays.
     abstract away from the details of pointer arithmetics, we introduce the
     notation [p`.k ~~> v] to denote [(p+k) ~~> v]. Here, [k] denotes by
     convention a field name, where field names correspond to a natural
-    numbers. In first approximation, the definition is shown below. *)
-
-Definition field : Type := nat.
+    numbers. In first approximation, the definition is as shown below. *)
 
 Definition hfield' (p:loc) (k:field) (v:val) : hprop :=
   (p+k)%nat ~~> v.
 
 (** It is convenient in verification proofs to be able to assume that
     whenever we write [p`.k ~~> v], we refer to a location [p] that is
-    not null. For an example, see the use of the lemma [hfield_not_null]
-    inside the proof of the lemma [MList_if] in file [SLFBasic.v].
+    not null. (For an example, see the use of the lemma [hfield_not_null]
+    inside the proof of the lemma [MList_if] in file [SLFBasic.v].)
 
     To enable justifying this lemma [hfield_not_null], whose statement
-    appears below, we bake in the definition of [p`.k ~~> v] the fact that
-    [p] is not null, using the assertion [\[p <> null]]. *)
+    appears further below, we bake in the definition of [p`.k ~~> v] the
+    fact that [p] is not null, using the pure assertion [\[p <> null]]. *)
 
 Definition hfield (p:loc) (k:field) (v:val) : hprop :=
   (p+k)%nat ~~> v \* \[p <> null].
@@ -387,9 +384,10 @@ Lemma hfield_not_null : forall p k v,
 Proof using. intros. unfold hfield. xsimpl*. Qed.
 
 (** To prevent undesirable simplifications, we set the definition [hfield]
-    to be opaque. Then, we provide a lemma for unfolding its definition.
-    We replace the addition [p+k] with the addition [k+p], because the later
-    simplifies better in Coq when [k] is a constant. *)
+    to be opaque. Still, it is useful in places to be able to unfold the
+    definition. To that end, we state a lemma for unfolding the definition.
+    In its statement, we replace the addition [p+k] with the addition [k+p],
+    because the later simplifies better in Coq when [k] is a constant. *)
 
 Lemma hfield_eq : forall p k v,
   hfield p k v = ((k+p)%nat ~~> v \* \[p <> null]).
@@ -434,18 +432,17 @@ Lemma triple_dealloc_mcell : forall x q p,
   triple (val_dealloc 2%nat p)
     ((p`.head ~~> x) \* (p`.tail ~~> q))
     (fun _ => \[]).
-
-(** For the proof, we exploit the rule [triple_dealloc_hcells_any].
-    If we used instead the rule  [triple_dealloc_hcells], we would have
-    to provide explicitly the list of the contents of the cells, by invoking
-    [xapp (@triple_dealloc_hcells (x::(val_loc q)::nil))]. Instead,
-    thanks to [hcells_any], the existentially-quantified associated with each
-    of the cells get automatically inferred by [xsimpl]. *)
-
 Proof using.
   xtriple. xapp triple_dealloc_hcells_any.
   unfold hcells_any. do 2 rewrite hfield_eq. xsimpl.
 Qed.
+
+(** Remark: in the proof above, we exploit the rule [triple_dealloc_hcells_any].
+    If we used instead the rule [triple_dealloc_hcells], we would have
+    to provide explicitly the list of the contents of the cells, by invoking
+    [xapp (@triple_dealloc_hcells (x::(val_loc q)::nil))]. Instead,
+    thanks to [hcells_any], the existentially-quantified associated with each
+    of the cells get automatically inferred by [xsimpl]. *)
 
 
 (* ########################################################### *)
@@ -453,9 +450,8 @@ Qed.
 
 (** For reading and writing in record fields, we introduce the operations
     [val_get_field] and [val_set_field]. As we show in the bonus section
-    of this chapter, these functions can be defined in terms of the
-    operations [val_get] and [val_set], if we assume available a pointer
-    addition operation.
+    of this chapter, these functions can be defined in terms of the operations
+    [val_get] and [val_set], if we assume available a pointer addition operation.
 
     For the moment, let us simply axiomatize these operations, and state
     their specifications.
@@ -463,11 +459,12 @@ Qed.
     The expression [val_get_field] has type [field -> val]. Given a field
     name [f] (of type [field], which is defined as [nat]), the expression
     [val_get_field f] denotes a value of type [val] that can be applied to
-    an argument [p]. The specification of [val_get_field f p] follows the
-    pattern of the specification of [val_get]. The precondition and the
-    postcondition describe a field [p`.k ~~> v], and the result value [r]
-    is specified to be equal to [v].
-*)
+    an argument [p].
+
+    The specification of [val_get_field f p] follows the pattern of the
+    specification of [val_get]. The precondition and the postcondition
+    describe a field [p`.k ~~> v], and the result value [r] is specified
+    to be equal to [v]. *)
 
 Module FieldAccesses.
 
@@ -500,8 +497,8 @@ Notation "'Set' t1 ''.' f '':=' t2" :=
   (val_set_field f t1 t2)
   (at level 65, t1 at level 0, f at level 0, format "'Set' t1 ''.' f  '':=' t2").
 
-(** We register these specifications so that they may be exploited by the
-    tactic [xapp]. *)
+(** We register the specifications of these operations so that they may be
+    exploited automatically by the tactic [xapp]. *)
 
 Hint Resolve triple_get_field triple_set_field : triple.
 
