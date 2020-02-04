@@ -1000,15 +1000,15 @@ Proof using.
   { intro_subst. applys~ F 0%nat. rew_nat. auto. }
 Qed.
 
-Lemma disjoint_single_conseq : forall B l l' k (v:B),
-  (l < l')%nat \/ (l >= l'+k)%nat ->
-  \# (single l v) (conseq l' (LibList.make k v)).
+Lemma disjoint_single_conseq : forall B l l' L (v:B),
+  (l < l')%nat \/ (l >= l'+length L)%nat ->
+  \# (single l v) (conseq l' L).
 Proof using.
-  introv N. gen l'. induction k; intros.
-  { rewrite make_zero. rewrite~ conseq_nil. }
-  { rewrite make_succ. rewrite conseq_cons. rew_disjoint. split.
+  introv N. gen l'. induction L as [|L']; intros.
+  { rewrite~ conseq_nil. }
+  { rew_list in N. rewrite conseq_cons. rew_disjoint. split.
     { applys disjoint_single_single. destruct N; math. }
-    { applys IHk. destruct N. { left; math. } { right; math. } } }
+    { applys IHL. destruct N. { left. math. } { right. math. } } }
 Qed.
 
 

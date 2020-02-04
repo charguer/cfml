@@ -18,53 +18,12 @@ Implicit Types Q : val->hprop.
 Implicit Type p : loc.
 Implicit Type k : field.
 Implicit Type v : val.
+Implicit Type L : list val.
 
 (* TODO: rename VFun *)
-(* TODO: fix p+f to f+p *)
-(* TODO explain val_ptr_add and its spec *)
-
 (* TODO : limitation of xapp for lemmas with premises... *)
 
-Lemma length_zero_inv : forall A (L:list A),
-  length L = 0%nat ->
-  L = nil.
-Proof using.
-  introv N. destruct L as [|]; rew_list in *; tryfalse. eauto.
-Qed.
 
-Lemma length_one_inv : forall A (L:list A),
-  length L = 1%nat ->
-  exists x, L = x::nil.
-Proof using.
-  introv N. destruct L as [|x [|]]; rew_list in *; tryfalse. eauto.
-Qed.
-
-Opaque LibList.update.
-
-Lemma update_cons_case : forall (n:nat) A (v:A) (x:A) (l:list A),
-  LibList.update n v (x::l) = (If n = 0%nat then v::l else x::(LibList.update (n-1) v l)).
-Admitted.
-
-Lemma range_split : forall n,
-  n > 1 ->
-  0 < Z.quot n 2 < n.
-Admitted. (* TODO *)
-
-Parameter update_nth_same : forall A `{Inhab A} (n:nat) (l:list A),
-  n < length l ->
-  LibList.update n (nth n l) l = l.
-
-Import Fmap. Open Scope fmap_scope.
-Lemma disjoint_single_conseq : forall B l l' L (v:B),
-  (l < l')%nat \/ (l >= l'+length L)%nat ->
-  Fmap.disjoint (single l v) (conseq l' L). (* TODO \# *)
-Proof using.
-  introv N. gen l'. induction L as [|L']; intros.
-  { rewrite~ conseq_nil. }
-  { rew_list in N. rewrite conseq_cons. rew_disjoint. split.
-    { applys disjoint_single_single. destruct N; math. }
-    { applys IHL. destruct N. { left. math. } { right. math. } } }
-Qed.
 
 
 
@@ -343,7 +302,6 @@ Qed.
 
 Module Arrays.
 Import LibListZ.
-Implicit Types L : list val. (* TODO *)
 
 (** The operation [val_array_get p i] returns the contents of the [i]-th 
     cell of the array at location [p]. *)
@@ -1428,7 +1386,7 @@ Proof using.
   { applys hstar_intro.
     { applys* hsingle_intro. }
     { applys IHL. unfolds loc, null. math. }
-    { applys disjoint_single_conseq. left. math. } }
+    { applys Fmap.disjoint_single_conseq. left. math. } }
 Qed.
 
 Lemma harray_uninit_intro : forall k p,

@@ -1,3 +1,8 @@
+Lemma range_split : forall n,
+  n > 1 ->
+  0 < Z.quot n 2 < n.
+Admitted. (* TODO *)
+
 
 (* ####################################################### *)
 (** ** Local reasoning with arrays *)

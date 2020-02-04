@@ -363,6 +363,42 @@ Hint Resolve list_sub_wf : wf.
 
 
 
+Lemma length_zero_inv : forall A (L:list A),
+  length L = 0%nat ->
+  L = nil.
+Proof using.
+  introv N. destruct L as [|]; rew_list in *; tryfalse. eauto.
+Qed.
+
+Lemma length_one_inv : forall A (L:list A),
+  length L = 1%nat ->
+  exists x, L = x::nil.
+Proof using.
+  introv N. destruct L as [|x [|]]; rew_list in *; tryfalse. eauto.
+Qed.
+
+Lemma update_cons_case : forall (n:nat) A (v:A) (x:A) (l:list A),
+  LibList.update n v (x::l) = (If n = 0%nat then v::l else x::(LibList.update (n-1) v l)).
+Proof using.
+  intros. destruct n as [|n']; case_if.
+  { applys update_zero. }
+  { rewrite update_cons. fequals_rec. math. }
+Qed.
+
+Lemma update_nth_same : forall A `{Inhab A} (n:nat) (l:list A),
+  n < length l ->
+  LibList.update n (LibList.nth n l) l = l.
+Proof using.
+  introv E. gen n. induction l as [|x l']; intros.
+  { rewrite length_nil in E. false. math. }
+  { rewrite length_cons in E. rewrite update_cons_case.
+    destruct n as [|n']; case_if.
+    { subst. rewrite* nth_zero. }
+    { fequals. rewrite nth_cons. math_rewrite (S n' - 1 = n')%nat.
+      rewrite* IHl'. math. } }
+Qed.
+
+Global Opaque LibList.update.
 
 
 (*----------------------*)
