@@ -27,22 +27,23 @@ Implicit Type L : list val.
 (* ####################################################### *)
 (** * Chapter in a rush *)
 
-(** This chapter introduces support for reasoning about
+(** This chapter introduces support for reasoning about:
 
     - mutable records,
     - mutable arrays,
     - n-ary functions (i.e., functions of several arguments).
 
-    To allocate records and arrays, we introduce a new primitive operation,
-    named [val_alloc], that allocates at once a set of memory cells with
-    consecutive addresses.
+    To allocate records and arrays, we introduce two new primitive operations,
+    named [val_alloc] and [val_dealloc], for allocating and deallocating
+    at once a range of consecutive memory cells.
 
     For example, applying [val_alloc] to the integer value [3] would return
     a pointer [p] together with the ownership of three cells: one at
     location [p], one at location [p+1], and one atlocation [p+2].
-    This allocation model that exposes pointer arithmetics provides a way
+
+    This allocation model, which exposes pointer arithmetics, provides a way
     to model both records and arrays with minimal extension to the semantics
-    of the programming language that we consider for the course.
+    of the programming language that we have considered sor far in the course.
 
     The cells allocated using [val_alloc] are assigned as contents a special
     value, named [val_uninit], to reflect for the fact that their contents has
@@ -50,22 +51,20 @@ Implicit Type L : list val.
     value explicitly, so there is no such thing as [val_uninit]; in JavaScript,
     [val_uninit] is called [undefined]; in Java, arrays are initialized with
     zeros; in C, uninitialized data should not be read---we could implement
-    this policy in our languageby restricting the evaluation rule for the read
+    this policy in our language by restricting the evaluation rule for the read
     operation, adding a premise of the form [v <> val_uninit] to the rule.
 
-    Regarding n-ary functions, that is, there are three possible approaches:
+    Regarding n-ary functions, that is, functions with several arguments
+    there are essentially three possible approaches:
 
-    - native n-ary functions, e.g., [function(x, y) { t } ] in C syntax.
-    - curried functions, e.g., [fun x => fun y => t] in OCaml syntax.
+    - native n-ary functions, e.g., [function(x, y) { t } ] in C syntax;
+    - curried functions, e.g., [fun x => fun y => t] in OCaml syntax;
     - tupled functions, e.g., [fun (x,y) => t] in OCaml syntax.
 
-    In this chapter, we present reasoning rules for curried functions,
-    again because this choice requires minimal extension to the syntax and
-    semantics of our language. We discuss in the bonus section the treatment
-    of native n-ary functions, which is the most practical solution from an
-    engineering point of view.
-
-*)
+    In this chapter, we present reasoning rules for curried functions and
+    for native n-ary functions. The former requires minimal extension to the
+    syntax and semantics of our language. The latter corresponds to the most
+    practical solution from an engineering perspective. *)
 
 
 (* ####################################################### *)
@@ -74,14 +73,12 @@ Implicit Type L : list val.
 Module Cells.
 
 (** An array of length [k] allocated at location [p] can be represented
-    as a set of [k] consecutive cells starting from location [p]. In other
+    as a range of [k] consecutive cells starting from location [p]. In other
     words, the array cells have addresses from [p] inclusive to [p+k]
-    inclusive. Just like records, arrays can be allocated using the
-    [val_alloc] primitive operation, and read and write operations on
-    array cells can be derived. *)
+    exclusive.
 
-(** The contents of an array of length [k] can be represented by a list
-    of values of length [k].
+    The contents of an array of length [k] can be represented by a list
+    of values of length [k]. This idea is formalized by the predicate [hcells].
 
     The heap predicate [hcells L p] represents a consecutive set of cells
     starting at location [p] and whose elements are described by the list [L].
@@ -102,12 +99,12 @@ Fixpoint hcells (L:list val) (p:loc) : hprop :=
 (** Given a heap predicate [hcells L p], one can deduce that [p] is not
     null, but only if the list [L] is not empty. In order to avoid in
     proofs the need to treat specially the case empty arrays, it is
-    convenient to pack together with [hcells L p] the information [p <> null],
+    convenient to pack together with [hcells L p] the fact [p] is not null,
     reflecting the fact that no data can be allocated at the null location,
     not even an empty array.
 
     The heap predicate [harray L p] packs together [hcells L p] with the
-    information that [p] is not null.
+    information [p <> null].
 *)
 
 Definition harray (L:list val) (p:loc) : hprop :=
@@ -128,13 +125,13 @@ Proof using. introv N. unfold harray. xsimpl*. Qed.
 Parameter harray_concat_eq : forall p L1 L2,
   harray (L1++L2) p = (harray L1 p \* harray L2 (length L1 + p)%nat).
 
-(** The proof of this lemma appears may be found in the bonus section of
-    this chapter. *)
-
-(** Remark: this "splitting lemma for arrays" is useful to carry out local
+(** This "splitting lemma for arrays" is useful to carry out local
     reasoning on arrays, by focusing on the segment of the array involved
     in each recursive call, and obtaining for free the fact that the
-    cells outside of the segment remain unmodified. *)
+    cells outside of the segment remain unmodified.
+
+    The proof of the splitting lemma appears appears in the bonus section
+    of this chapter. *)
 
 
 (* ####################################################### *)
@@ -153,8 +150,7 @@ Parameter val_uninit : val.
     Such a list is formally described by [LibList.make k val_uninit].
 
     We introduce the heap predicate [harray_uninit k p] to denote the
-    specialization of [harray] to that list. This predicate will appear
-    in the postcondition of [val_alloc], as explained in the next section. *)
+    specialization of [harray] to that list [LibList.make k val_uninit]. *)
 
 Definition harray_uninit (k:nat) (p:loc) : hprop :=
   harray (LibList.make k val_uninit) p.
@@ -179,9 +175,9 @@ Parameter triple_alloc_nat : forall k,
     (fun r => \exists p, \[r = val_loc p] \* harray_uninit k p).
 
 (** We next generalize this specification so that it can handle applications
-    of the form [val_alloc n], where [n] is of type [int], and can be proved
-    to be nonnegative. (Such a formulation avoids the need to exhibit the
-    natural number that corresponds to the value [n].)
+    of the form [val_alloc n], where [n] is a nonnegative integer. Such a
+    presentation avoids the need to exhibit the natural number that corresponds
+    to the value [n].
 
     The new specification, shown below, features the premise [n >= 0]. Its
     postcondition involves the predicate [hcells (abs n) p], where [abs]
@@ -197,13 +193,10 @@ Proof using.
   xtriple. xapp triple_alloc_nat. xsimpl*.
 Qed.
 
-(** The specification of the allocation function can be specialized to
-    allocate arrays. To that end, we reformulate the postcondition of
-    [val_alloc n] so that it exhibits a predicate of the form [harray L p],
-    where [L] is of length [n]. We could specify that the values in [L]
-    are all equal to [val_uninit], but for most applications it suffices
-    to drop this information, and simply quantifying over an abstract list
-    [L] of length [n]. *)
+(** The specification above turns out to be often unncessarily precise.
+    For most applications, it is sufficient for the postcondition to
+    describe the array as [harray L p] for some unspecified list [L]
+    of length [n]. This weaker specification is stated and proved next. *)
 
 Lemma triple_alloc_array : forall n,
   n >= 0 ->
@@ -234,14 +227,16 @@ Parameter triple_dealloc_harray : forall L n p,
 (** Remark: in the C programming language, the argument [n] needs not be
     provided, because the system keeps track of the size of allocated blocks.
     One aspect that our simple semantics does not take into account is that
-    in C one can invoke the deallocation function on pointers that were
-    produced by the allocation function. We discuss further in this chapter
-    a possible refinement of the specification to enforce this policy. *)
+    in C one can invoke the deallocation function only on pointers that were
+    produced by the allocation function. Extensions to the heap model and to
+    the Separation Logic can be devised to enforce this policy, yet they are
+    beyond the scope of this course. *)
 
-(** Above, the precondition [harray L p] is stronger than it needs to be.
-    It would suffices to take [hcells L p] in the precondition. Depending
-    on the use case, it may be easier for the user to not carry around the
-    information that [p <> null]. *)
+(** In the specification of deallocation presented above, the precondition
+    [harray L p] is stronger than it needs to be. Indeed, it would suffices
+    to require [hcells L p] in the precondition. Depending on the use case,
+    it may be easier for the user to not carry around the fact [p <> null],
+    which is embedded with [harray L p]. *)
 
 Parameter triple_dealloc_hcells : forall L n p,
   n = length L ->
@@ -249,9 +244,9 @@ Parameter triple_dealloc_hcells : forall L n p,
     (hcells L p)
     (fun _ => \[]).
 
-(** This second specification is still somewhat inconvenient for practical
-    proofs. The reason is that it requires explicitly providing the list
-    describing the contents of the deallocated cells. (An example illustrating
+(** The two above specifications are somewhat inconvenient for proofs in
+    practice because they require explicitly providing the list describing
+    the contents of the deallocated cells. (An example illustrating
     the issue is given further on, in lemma [triple_dealloc_mcell].)
 
     We therefore consider an alternative deallocation rule that avoids the
@@ -267,8 +262,9 @@ Fixpoint hcells_any (k:nat) (p:loc) : hprop :=
   end.
 
 (** We can prove that the predicate [hcells_any k p] entails [hcells L p]
-    for some list [L]. The list [L] is obtained by gathering the [k] existentially
-    quantified values that appear recursively in the definition of [hcells_any]. *)
+    for some list [L] of length [k]. This list [L] is obtained by gathering
+    the [k] existentially-quantified values that appear recursively in the
+    definition of [hcells_any]. *)
 
 Lemma himpl_hcells_any_hcells : forall p k,
   hcells_any k p ==> \exists L, \[length L = k] \* hcells L p.
@@ -279,8 +275,10 @@ Proof using.
     xsimpl (v::L'). { rew_list. math. } { simpl. xsimpl. } }
 Qed.
 
-(** The specification of the operation [val_dealloc k] can then be reformulated
-    using a precondition of the forme [harray_any k p]. *)
+(** The specification of the operation [val_dealloc k] can then be
+    reformulated using a precondition of the forme [harray_any k p].
+    We illustrate its use further, in the verification proof for a
+    function that deallocates a list cell ([triple_dealloc_mcell]). *)
 
 Lemma triple_dealloc_hcells_any : forall p k,
   triple (val_dealloc k p)
