@@ -1538,3 +1538,76 @@ Admitted.
           eq => frame + apply
 Qed.
 *)
+
+(** Most real-world programming languages include primitive operations
+    for reading and writing in array cells. Yet, in a simple language
+    like ours, array cells can be accessed by means of pointer arithmetic.
+    It is interesting to see how one may formally reason about this kind
+    of encoding. *)
+
+
+
+Parameter hstar_hwand : forall H1 H2 H3,
+  (H1 \-* H2) \* H3 ==> H1 \-* (H2 \* H3).
+
+
+Lemma hcells_focus_read : forall p (k:nat) v L, (* TODO *)
+  k < length L ->
+  v = LibList.nth k L ->
+  hcells L p = ((p+k)%nat ~~> v)\* (((p+k)%nat ~~> v) \-* hcells L p).
+Proof using.
+  introv Hk E. gen k p. induction L as [|x L']; rew_list; intros.
+  { false. math. }
+  { simpl. rewrite nth_cons_case in E. case_if.
+    { subst. math_rewrite (p + 0 = p)%nat. xsimpl. }
+    { applys himpl_antisym; [| xsimpl ].
+      forwards R: IHL' (k-1)%nat E (S p). { math. }
+      math_rewrite (S p + (k - 1) = p + k)%nat in R.
+      rewrite R at 1. rewrite hstar_comm_assoc. applys himpl_frame_r.
+      rewrite hstar_comm.
+      rewrite (@hstar_comm (p ~~> x) (hcells L' (S p))).
+      applys hstar_hwand. (* TODO: automate *) } }
+Qed.
+
+Definition lock (H:hprop) := H.
+
+Lemma harray_focus_read : forall p (k:nat) v L, (* TODO *)
+  k < length L ->
+  v = LibList.nth k L ->
+  harray L p = ((p+k)%nat ~~> v)\* lock (((p+k)%nat ~~> v) \-* harray L p).
+Proof using.
+  introv Hk E. unfold harray. rewrite* (@hcells_focus_read p k v L).
+Admitted.
+
+Lemma triple_array_get : forall p i L,
+  0 <= i < length L ->
+  triple (val_array_get p i)
+    (harray L p)
+    (fun r => \[r = LibList.nth (abs i) L] \* harray L p).
+Proof using.
+  introv N. xwp. xapp triple_ptr_add. { math. }
+  sets v: (LibList.nth (abs i) L).
+  xchange (@harray_focus_read p (abs i) v). { skip. (* TODO *) } eauto.
+  asserts_rewrite (abs (p + i) = p + abs i)%nat. skip. (*TODO *)
+  (* xsimpl simplifies the wand! *)
+  xapp triple_get. unfold lock. xsimpl*.
+Qed.
+
+
+Lemma hcells_focus : forall (k:nat) p L,
+  k < length L ->
+  hcells L p ==>
+       ((p+k)%nat ~~> LibList.nth k L)
+    \* (\forall w, ((p+k)%nat ~~> w) \-* hcells (LibList.update k w L) p).
+Proof using.
+  introv E. gen k p. induction L as [|x L']; rew_list; intros.
+  { false. math. }
+  { simpl. rewrite nth_cons_case. case_if.
+    { subst. math_rewrite (p + 0 = p)%nat. xsimpl. intros y.
+      rewrite update_zero. (* TODO: rew_listx *) xsimpl.
+      simpl. xsimpl. }
+    { forwards R: IHL' (k-1)%nat (S p). { math. }
+      math_rewrite (S p + (k - 1) = p + k)%nat in R.
+      xchange R. xsimpl. intros w. xchange (hforall_specialize w).
+      rewrite update_cons_pos; [|math]. simpl. xsimpl. } }
+Qed.

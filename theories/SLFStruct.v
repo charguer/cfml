@@ -39,11 +39,20 @@ Proof using.
   introv N. destruct L as [|x [|]]; rew_list in *; tryfalse. eauto.
 Qed.
 
+Opaque LibList.update.
+
+Lemma update_cons_case : forall (n:nat) A (v:A) (x:A) (l:list A),
+  LibList.update n v (x::l) = (If n = 0%nat then v::l else x::(LibList.update (n-1) v l)).
+Admitted.
 
 Lemma range_split : forall n,
   n > 1 ->
   0 < Z.quot n 2 < n.
 Admitted. (* TODO *)
+
+Parameter update_nth_same : forall A `{Inhab A} (n:nat) (l:list A),
+  n < length l ->
+  LibList.update n (nth n l) l = l.
 
 
 (* ####################################################### *)
@@ -147,25 +156,13 @@ Proof using. introv N. unfold harray. xsimpl*. Qed.
     we have [harray (L1++L2) p], then we can separate the left part
     [harray L1 p] from the right part [harray L2 q], where the address
     [q] is equal to [p + length L1]. Reciprocally, the two parts can
-    be merged back into the original form at any time. 
+    be merged back into the original form at any time. *)
 
-    Note that the same property is true of the heap predicate [hcells]. *)
-
-Lemma hcells_concat_eq : forall p L1 L2,
-  hcells (L1++L2) p = (hcells L1 p \* hcells L2 (length L1 + p)%nat).
-Proof using.
-  intros. gen p. induction L1; intros; rew_list; simpl.
-  { xsimpl. }
-  { rewrite IHL1. math_rewrite (length L1 + S p = S (length L1 + p))%nat.
-    xsimpl. }
-Qed.
-
-Lemma harray_concat_eq : forall p L1 L2,
+Parameter harray_concat_eq : forall p L1 L2,
   harray (L1++L2) p = (harray L1 p \* harray L2 (length L1 + p)%nat).
-Proof using.
-  intros. unfold harray, null, loc. rewrite hcells_concat_eq.
-  applys himpl_antisym; xsimpl*. math.
-Qed.
+
+(** The proof of this lemma appears may be found in the bonus section of 
+    this chapter. *)
 
 (** Remark: this "splitting lemma for arrays" is useful to carry out local
     reasoning on arrays, by focusing on the segment of the array involved
@@ -341,27 +338,18 @@ Implicit Types L : list val. (* TODO *)
 
 Parameter val_array_get : val.
 
-(** The specification of this operation involves the operation [list_get L i]
-    that returns the [i]-th element of a list of values. The TLC library
-    [LibListZ] provides a general-purpose formalization of this definition,
-    yet its presentation relies on typeclasses, whic are uncessarily complex
-    for our purposes here. To avoid this complexity, let us simply axiomatize
-    the operation. *)
-
-Parameter list_get : list val -> int -> val.
-
 (** The specification of [val_array_get] is as follows. The precondition
     describes the array in the form [harray L p], with a premise that
     requires the index [i] to be in the valid range, that is, between
     zero (inclusive) and the length of [L] (exclusive). The postcondition
-    asserts that the result value is [list_get L i], and mentions the
-    unmodified array, still described by [harray L p]. *)
+    asserts that the result value is [nth (abs i) L], and mentions 
+    the unmodified array, still described by [harray L p]. *)
 
 Parameter triple_array_get : forall p i L,
   0 <= i < length L ->
   triple (val_array_get p i)
     (harray L p)
-    (fun r => \[r = list_get L i] \* harray L p).
+    (fun r => \[r = LibList.nth (abs i) L] \* harray L p).
 
 (** The operation [val_array_set p i v] updates the contents of the [i]-th 
     cell of the array at location [p]. *)
@@ -372,18 +360,16 @@ Parameter val_array_set : val.
     operation on lists: [list_update L i v] describes the update to the
     list [L] by replacing the value at index [i] with the value [v]. *)
 
-Parameter list_update : list val -> int -> val -> list val.
-
 (** The specification of [val_array_set] admits the same precondition as
     [val_array_get], with [harray L p] and the constraint [0 <= i < length L].
     Its postcondition describes the updated array using a predicate of the
-    form [harray L' p], where [L'] corresponds to [list_update L i v]. *)
+    form [harray L' p], where [L'] corresponds to [update (abs i) v L]. *)
 
 Parameter triple_array_set : forall p i v L,
   0 <= i < length L ->
   triple (val_array_set p i v)
     (harray L p)
-    (fun _ => harray (list_update L i v) p).
+    (fun _ => harray (LibList.update (abs i) v L) p).
 
 Hint Resolve triple_array_get triple_array_set : triple.
 
@@ -1530,86 +1516,16 @@ End PointerAdd.
 
 
 (* ########################################################### *)
-(** ** Definition of array operations using pointer arithmetics *)
-
-Module ArrayOps.
-
-(** Most real-world programming languages include primitive operations
-    for reading and writing in array cells. Yet, in a simple language
-    like ours, array cells can be accessed by means of pointer arithmetic.
-    It is interesting to see how one may formally reason about this kind
-    of encoding. *)
-
-(** For example, the read operation in the [i]-th cell of an array at
-    location [p] can be implemented within our language, as the application
-    of the operation [val_get] to the address [p+i], computed by invoking
-    [val_ptr_add p i]. *)
-
-(** Consider the read operation in an array, written [val_array_get p i]. *)
-
-Definition val_array_get : val :=
-  VFun 'p 'i :=
-    Let 'n := val_ptr_add 'p 'i in
-    val_get 'n.
-
-Parameter list_get : list val -> int -> val.
-
-Lemma triple_array_get : forall p i L,
-  0 <= i < length L ->
-  triple (val_array_get p i)
-    (harray L p)
-    (fun r => \[r = list_get L i] \* harray L p).
-Proof using. (* TODO: read op on array *)
-Admitted.
-(*
-  introv N. rewrite index_eq_inbound in N.
-  xcf. xapps. { math. }
-  rewrites (>> Array_middle_eq i). { math. }
-  xtpull ;=> L1 x L2 EL HL.
-  xapp. xpull ;=> r. intro_subst.
-  xsimpl; auto. { subst. rewrite~ read_middle. }
-Qed.
-*)
-
-(** Consider now a write operation, written [val_array_set p i v]. *)
-
-Definition val_array_set : val :=
-  VFun 'p 'i 'x :=
-    Let 'n := val_ptr_add 'p 'i in
-    val_set 'n 'x.
-
-Parameter list_update : list val -> int -> val -> list val.
-
-Lemma triple_array_set : forall p i v L,
-  0 <= i < length L ->
-  triple (val_array_set p i v)
-    (harray L p)
-    (fun r => \[r = val_unit] \* harray (list_update L i v) p).
-Proof using.
-(*
-  introv N. rewrite index_eq_inbound in N.
-  xcf. xapps. { math. }
-  rewrites (>> Array_middle_eq i). { math. }
-  xtpull ;=> L1 x L2 EL HL.
-  xapp triple_set. xpull ;=> r. intro_subst.
-  rewrites (>> Array_middle_eq i (L[i := v])).
-   { rewrite <- length_eq in *. rew_array. math. }
-  xsimpl; auto. { subst. rewrite~ update_middle. rew_list~. }
-Qed.
-*)
-Admitted.
-
-End ArrayOps.
-
-
-(* ########################################################### *)
 (** ** Definition of record operations using pointer arithmetics *)
 
 Module FieldOps.
 Transparent hfield.
 
-(** The read and write operations on record cells can also be encoded
-    using pointer arithmetic. *)
+(** Most real-world programming languages include primitive operations
+    for reading and writing in record cells. Yet, in a simple language
+    like ours, record cells can be accessed by means of pointer arithmetic.
+    It is interesting to see how one may formally reason about this kind
+    of encoding. *)
 
 (** For example, the read operation on record fields can be implemented
     within our language, as the combination of a pointer addition and
@@ -1650,3 +1566,172 @@ Proof using.
 Qed.
 
 End FieldOps.
+
+
+(* ########################################################### *)
+(** ** Definition of array operations using pointer arithmetics *)
+
+(** Lemmas for distributing [hcells] over a [nil], over a [cons],
+    and over a list concatenation. *)
+
+Lemma hcells_nil_eq : forall p,
+  hcells nil p = \[].
+Proof using. auto. Qed.
+
+Lemma hcells_cons_eq : forall p x L,
+  hcells (x::L) p = (p ~~> x) \* hcells L (S p).
+Proof using. intros. simpl. xsimpl*. Qed.
+
+Lemma hcells_concat_eq : forall p L1 L2,
+  hcells (L1++L2) p = (hcells L1 p \* hcells L2 (length L1 + p)%nat).
+Proof using.
+  intros. gen p. induction L1; intros; rew_list; simpl.
+  { xsimpl. }
+  { rewrite IHL1. math_rewrite (length L1 + S p = S (length L1 + p))%nat.
+    xsimpl. }
+Qed.
+
+(** Similar lemmas for [harray]. *)
+
+Lemma harray_nil_eq : forall p,
+  harray nil p = \[p <> null].
+Proof using. intros. unfold harray. rewrite hcells_nil_eq. xsimpl*. Qed.
+
+Lemma harray_cons_eq : forall p x L,
+  harray (x::L) p = (p ~~> x) \* harray L (S p).
+Proof using.
+  intros. unfold harray. applys himpl_antisym.
+  { rewrite hcells_cons_eq. xsimpl. unfolds loc, null. intros. math. }
+  { xchange hsingle_not_null. intros N. rewrite hcells_cons_eq. xsimpl*. }
+(* TODO *)
+Qed.
+
+Lemma harray_concat_eq : forall p L1 L2,
+  harray (L1++L2) p = (harray L1 p \* harray L2 (length L1 + p)%nat).
+Proof using.
+  intros. unfold harray, null, loc. rewrite hcells_concat_eq.
+  applys himpl_antisym; xsimpl*. math.
+Qed.
+
+
+(* ########################################################### *)
+(** ** Definition of array operations using pointer arithmetics *)
+
+Module ArrayOps.
+
+(** For example, an array operation on the [i]-th cell of an array at
+    location [p] can be implemented within our language, as the application
+    of a read or write operation at the address [p+i]. 
+
+    In order to reason about the read or write operation on a specific
+    cell, we need to isolate this cell from the other cells of the array.
+    Then, after the operation, we need to fold back to the view on the 
+    entire array.
+
+    The isolation process is captured in a general way by the following
+    "focus lemma". It reads as follows. Assume [harray L p] to initially    
+    describe the full array. The, the [k]-th cell can be isolated as a
+    predicate [(p+k) ~~> v], where [v] denotes the [k]-th item of [L],
+    that is [LibList.nth k L].
+
+    What remains can be described using the magic wand operator as
+    [((p+k) ~~> v) \-* (harray L p)], which captures the idea that when
+    providing back the cell at location [p+k], one would regain the
+    ownership of the full array. *)
+
+Parameter harray_focus_read : forall (k:nat) p v L, (* TODO *)
+  k < length L ->
+  v = LibList.nth k L ->
+  harray L p ==>
+       ((p+k)%nat ~~> v)
+    \* ((p+k)%nat ~~> v \-* harray L p).
+
+(** The above focus lemma works for read operations but falls short for
+    a write operation, because it imposes the array to be put back in
+    its original form. It does not take into account the possibility
+    to fold back the array with a modified contents for the cell at [p+k].
+
+    This observation leads us to generalize the magic wand describing
+    the rest of the array into the form:
+    [\forall w, ((p+k)%nat ~~> w) \-* harray (LibList.update k w L) p],
+    which indicates that for any new contents [w], the array can be folded
+    back into [harray L' p], where [L'] denotes the update of the list [L]
+    with [w] at location [k] (instead of [v]).
+
+    We state and prove this general focus lemma as follows. *)
+
+Lemma harray_focus : forall (k:nat) p L,
+  k < length L ->
+  harray L p ==>
+       ((p+k)%nat ~~> LibList.nth k L)
+    \* (\forall w, ((p+k)%nat ~~> w) \-* harray (LibList.update k w L) p).
+Proof using.
+  introv E. gen k p. induction L as [|x L']; rew_list; intros.
+  { false. math. }
+  { simpl. rewrite nth_cons_case. case_if.
+    { subst. math_rewrite (p + 0 = p)%nat.
+       rewrite harray_cons_eq. xsimpl. intros w.
+       rewrite LibList.update_zero. rewrite harray_cons_eq. xsimpl*. }
+    { rewrite harray_cons_eq.
+      forwards R: IHL' (k-1)%nat (S p). { math. }
+      math_rewrite (S p + (k - 1) = p + k)%nat in R. xchange R.
+      xsimpl. intros w. xchange (hforall_specialize w).
+      rewrite update_cons_pos; [|math]. rewrite harray_cons_eq. xsimpl. } }
+Qed.
+
+(** In the proofs below, the following mathematical lemma is useful to
+    verify that indices remain in the bounds. *)
+
+Lemma abs_lt_length : forall i (L:list val), (* TODO *)
+  0 <= i < nat_to_Z (length L) ->
+  (abs i < length L).
+Proof using.
+  introv N. apply lt_nat_of_lt_int. rewrite abs_nonneg; math.
+Qed.
+
+(** Consider the read operation in an array, written [val_array_get p i].
+    We can define it as [val_get (val_ptr_add p i)], then prove its
+    specification expressed in terms of [LibList.nth (abs i) L]. *)
+
+Definition val_array_get : val :=
+  VFun 'p 'i :=
+    Let 'n := val_ptr_add 'p 'i in
+    val_get 'n.
+
+Lemma triple_array_get : forall p i L,
+  0 <= i < length L ->
+  triple (val_array_get p i)
+    (harray L p)
+    (fun r => \[r = LibList.nth (abs i) L] \* harray L p).
+Proof using. 
+  introv N. xwp. xapp triple_ptr_add. { math. }
+  xchange (@harray_focus (abs i) p L). { applys* abs_lt_length. }
+  sets v: (LibList.nth (abs i) L).
+  rewrite abs_nat_plus_nonneg; [|math].
+  xapp triple_get. xchange (hforall_specialize v). subst v.
+  rewrite update_nth_same. xsimpl*. { applys* abs_lt_length. }
+Qed.
+
+(** Consider now a write operation, written [val_array_set p i v]. 
+    We can define it as [val_set (val_ptr_add p i) v], then prove its
+    specification expressed in terms of [LibList.update (abs i) v L]. *)
+
+Definition val_array_set : val :=
+  VFun 'p 'i 'x :=
+    Let 'n := val_ptr_add 'p 'i in
+    val_set 'n 'x.
+
+Lemma triple_array_set : forall p i v L,
+  0 <= i < length L ->
+  triple (val_array_set p i v)
+    (harray L p)
+    (fun _ => harray (LibList.update (abs i) v L) p).
+Proof using. 
+  introv N. xwp. xapp triple_ptr_add. { math. }
+  xchange (@harray_focus (abs i) p L). { applys* abs_lt_length. }
+  rewrite abs_nat_plus_nonneg; [|math].
+  xapp triple_set. xchange (hforall_specialize v).
+Qed.
+
+End ArrayOps.
+
