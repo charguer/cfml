@@ -1576,23 +1576,64 @@ End CurriedFunXwp.
 (* ####################################################### *)
 (** ** Primitive n-ary functions *)
 
+
+(* TODO: swap order of var_fixs and var_funs everywhere *)
+
 Module PrimitiveNaryFun.
 
-(** We next present an alternative treatment to functions of
-    several arguments.
+(** We next present an alternative treatment to functions of several 
+    arguments. The idea is to represent arguments using lists. 
 
-    In the grammar of terms and values, we include n-ary 
-    functions and n-ary applications. *)
+    On the one hand, the manipulation of lists adds a little bit of 
+    boilerplate. On the other hand, when using this representation, all
+    the definitions and lemmas are inherently arity-generic, that is, they
+    work for any number of arguments. 
 
-Parameter val_fixs : var -> list var -> trm -> val.
+    We introduce the following short names for the lists types involved:
+    [vars], [vals] and [trms]. These names are not only useful to improve
+    conciseness, they also enable the set up of useful coercions, as we
+    will detail shortly afterwards. *)
 
-Parameter trm_fixs : var -> list var -> trm -> trm.
+Definition vars : Type := list var.
+Definition vals : Type := list val.
+Definition trms : Type := list trm.
 
-Parameter trm_apps : trm -> list trm -> trm.
+Implicit Types xs : vars.
+Implicit Types vs : vals.
+Implicit Types ts : trms.
 
-(** Through the rest of this section, we manipuate *)
+(** We assume the grammar of terms and values to include primitive n-ary 
+    functions and n-ary applications, featuring list of arguments. Thereafter,
+    for conciseness, we describe only the case of recursive functions. *)
 
-(** The evaluation rules are updated accordingly. A n-ary function
+Parameter val_fixs : var -> vars -> trm -> val.
+
+Parameter trm_fixs : var -> vars -> trm -> trm.
+
+Parameter trm_apps : trm -> trms -> trm.
+
+(** The substitution function is a bit tricky to update for dealing with
+    list of variables. A definition along the following lines works well.
+    On the one hand, it prevents variables capture. On the other hand,
+    it traverses recursively the list of arguments, in a way that is 
+    recognized as structurally recursive.
+
+[[
+    Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
+      let aux t := (subst y w t) in
+      let aux_no_captures xs t := (If List.In y xs then t else aux t) in
+      match t with
+      | trm_fixs f xs t1 => trm_fixs f xs (If f = y then t1 else
+                                            aux_no_captures xs t1)
+      | trm_apps t0 ts => trm_apps (aux t0) (List.map aux ts)
+      ...
+     end.
+]]
+
+    For additional details, we refer to the implementation of CFML.
+*)
+
+(** The evaluation rules need to be updated accordingly. A n-ary function
     from the grammar of terms evaluates to the corresponding n-ary
     function from the grammar of values. For technical reasons, we
     need to ensure that the program is well-formed and that the list
@@ -1605,30 +1646,32 @@ Parameter eval_fixs : forall m f xs t1,
   xs <> nil ->
   eval m (trm_fixs f xs t1) m (val_fixs f xs t1).
 
-(* TODO: recall why this is needed *)
-
 (** A n-ary application of a function to values takes the form
-    [trm_apps (trm_val v0) (trm_val v1 :: .. :: trm_val vn :: nil)].
+    [trm_apps (trm_val v0) ((trm_val v1):: .. ::(trm_val vn)::nil)].
+    If the function [v0] is defined as [val_fixs f xs t1], where [xs]
+    denotes the list [x1::x2::...::xn::nil], then the beta-reduction 
+    of the function application triggers the evaluation of the 
+    substitution [subst xn vn (... (subst x1 v1 (subst f v0 t1)) ...)].
+  
+    To describe the evaluation rule in an arity-generic way, we need to
+    introduce the list [vs] made of the values provided as arguments,
+    that is, the list [v1::v2::..::vn::nil]. 
 
-    To describe the result of the evaluation of this application,
-    it is useful to involve the list [vs] made of the arguments viewed
-    as values, that is, the list [v1 :: ... vn :: nil]. 
+    With this list [vs], the n-ary application can then be written as the 
+    term [trm_apps (trm_val v0) (trms_vals vs)], where the operation 
+    [trms_vals] a list of terms into a list of values. *)
 
-    The n-ary application can then be written 
-    [trm_apps (trm_val v0) (trms_vals vs)], where the operation [trms_vals]
-    converts *)
-
-(*
-Definition trms_vals (vs:list val) : list trm :=
+Coercion trms_vals (vs:vals) : trms :=
   LibList.map trm_val vs.
- (trm_apps v0 (trms_vals vs)).
 
+(** Note that we declare the operation [trms_vals] as a coercion, just
+    like [trm_val] is a coercion. Doing so enables us to write a n-ary
+    application in the form [v0 vs]. *)
 
-
-(** To evaluate a n-ary application, we need to perform a n-ary 
-    substitution.  The operation [substn xs vs t] replaces the 
-    variables [xs] with the values [vs] inside the [t]. It is defined
-    recursively. *)
+(** To describe the iterated substitution
+    [subst xn vn (... (subst x1 v1 (subst f v0 t1)) ...)], we introduce
+    the operation [substn xs vs t], which substitutes the variables [xs] 
+    with the values [vs] inside the [t]. It is defined recursively. *)
 
 Fixpoint substn (xs:list var) (vs:list val) (t:trm) : trm :=
   match xs,vs with
@@ -1636,77 +1679,124 @@ Fixpoint substn (xs:list var) (vs:list val) (t:trm) : trm :=
   | _,_ => t
   end.
 
-(** The evaluation rule carefully enfoces the fact that the lists [xs]  
-    and [vs] have the same lengths, that the variables [xs] are distinct
-    from each other and also distinct from the name [f] associated with
-    the function. 
-    
-    The predicate [var_fixs f xs n] captures all these invariants, where
-    [n] denotes the number of arguments the function [val_fun f xs t] is
-    being applied to. *)
+(** This substitution operation is well-behaved only if the list [xs] 
+    and the list [vs] have the same lengths. It is also desirable for
+    reasoning about the evaluation rule to guarantee that the list of
+    variables [xs] contains variables distinct from each others and
+    distinct from [f], and that the list [xs] is not empty.
+   
+    To formally capture all these invariants, we introduce the predicate 
+    [var_fixs f xs n], [n] denotes the number of arguments the function 
+    is being applied to (i.e., the length of the list [vs]). *)
 
 Definition var_fixs (f:var) (xs:vars) (n:nat) : Prop :=
      LibList.noduplicates (f::xs)
   /\ length xs = n
   /\ xs <> nil.
 
-(* TODO: swap order of var_fixs and var_funs everywhere *)
+(** The evaluation of a recursive function [v0] defined as [val_fixs f xs t1]
+    on a list of arguments [vs] triggers the evaluation of the term 
+    [substn xs vs (subst f v0 t1)], same as [substn (f::xs) (v0::vs) t1]. 
+    The evaluation rule is stated as follows, using the predicate [var_fixs]
+    to enforce the appropriate invariants on the variable names. *)
 
-
-Parameter eval_apps_fixs : forall m1 m2 f xs t3 v0 vs r,
-  v0 = val_fixs f xs t3 ->
+Parameter eval_apps_fixs : forall v0 vs f xs t1 s1 s2 r,
+  v0 = val_fixs f xs t1 ->
   var_fixs f xs (LibList.length vs) ->
-  eval m1 (substn xs vs (subst f v0 t3)) m2 r ->
-  eval m1 (trm_apps v0 (trms_vals vs)) m2 r.
+  eval s1 (substn xs vs (subst f v0 t1)) s2 r ->
+  eval s1 (trm_apps v0 (trms_vals vs)) s2 r.
 
+(** The corresponding reasoning rule has a somewhat similar statement. *)
 
-
-Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
-  let aux t :=
-    subst y w t in
-  let aux_no_captures xs t :=
-    If LibList.mem y xs then t else aux t in
-  match t with
-  | trm_fixs f xs t1 => trm_fixs f xs (If f = y then t1 else
-                                        aux_no_captures xs t1)
-  | trm_apps t0 ts => trm_apps (aux t0) (List.map aux ts)
-  ...
- end.
-Lemma subst_trm_fixs : forall y w f xs t,
-  var_fresh y (f::xs) ->
-  subst1 y w (trm_fixs f xs t) = trm_fixs f xs (subst1 y w t).
+Lemma triple_apps_fixs : forall v0 vs f xs t1 H Q,
+  v0 = val_fixs f xs t1 ->
+  var_fixs f xs (LibList.length vs)->
+  triple (substn (f::xs) (v0::vs) t1) H Q ->
+  triple (trm_apps v0 vs) H Q.
 Proof using.
+  introv E N M. applys triple_eval_like M. 
+  introv R. applys* eval_apps_fixs.
+Qed.
 
-Definition trms_to_vals (ts:list trm) : option (list val) :=
-  trms_to_vals_rec nil ts.
+(** The statement of the above lemma applies only to terms that are 
+    of the form [trm_apps (trm_val v0) (trms_vals vs)]. Yet, in practice,
+    goals are generally of the form 
+    [trm_apps (trm_val v0) ((trm_val v1):: .. :: (trm_val vn)::nil)].
+    The two forms are convertible, yet Coq is not able to synthetize
+    the list [vs] by unification. 
 
-Definition var_fixs (f:var) (n:nat) (xs:vars) : Prop :=
-     var_distinct (f::xs)
-  /\ length xs = n
-  /\ xs <> nil.
-Lemma triple_apps_fixs : forall xs (f:var) F (Vs:vals) t1 H Q,
-  F = (val_fixs f xs t1) ->
-  var_fixs f (length Vs) xs ->
-  triple (substn (f::xs) (F::Vs) t1) H Q ->
-  triple (trm_apps F Vs) H Q.
-Fixpoint trms_to_vals_rec (acc:vals) (ts:trms) : option vals :=
+    Fortunately, it is possible to reformulate the lemma using an auxiliary
+    conversion function named [trms_to_vals], whose evaluation by Coq's
+    unification process is able to synthetize the list [vs]. *)
+
+Fixpoint trms_to_vals (ts:trms) : option vals :=
   match ts with
-  | nil => Some (List.rev acc)
-  | trm_val v :: ts' => trms_to_vals_rec (v::acc) ts'
+  | nil => Some nil
+  | (trm_val v)::ts' => 
+      match trms_to_vals ts' with
+      | None => None
+      | Some vs' => Some (v::vs')
+      end
   | _ => None
   end.
 
-
-
-
-Lemma xwp_lemma_fixs : forall F f vs ts xs t H Q,
-  F = val_fixs f xs t ->
+Lemma trms_to_vals_spec : forall ts vs,
   trms_to_vals ts = Some vs ->
-  var_fixs_exec f (length vs) xs ->
-  H ==> (wpgen (combine (f::xs) (F::vs)) t) Q ->
-  triple (trm_apps F ts) H Q.
+  ts = trms_vals vs.
+Proof using.
+  intros ts. induction ts as [|t ts']; simpl; introv E.
+  { inverts E. auto. }
+  { destruct t; inverts E as E. cases (trms_to_vals ts') as C; inverts E.
+    rename v0 into vs'. rewrite* (IHts' vs'). }
+Qed.
 
-*)
+Lemma demo_trms_to_vals : forall v1 v2 v3,
+  exists vs,
+     trms_to_vals ((trm_val v1)::(trm_val v2)::(trm_val v3)::nil) = Some vs 
+  /\ vs = vs.
+Proof using. intros. esplit. split. simpl. eauto. (* [vs] was inferred. *) Abort.
+
+(** Using [trms_to_vals], we can reformulate [triple_apps_fixs'] in such
+    a way that the rule can be smoothly applied on practical goals. *)
+
+Lemma triple_apps_fixs' : forall v0 ts vs f xs t1 H Q,
+  v0 = val_fixs f xs t1 ->
+  trms_to_vals ts = Some vs ->
+  var_fixs f xs (LibList.length vs)->
+  triple (substn (f::xs) (v0::vs) t1) H Q ->
+  triple (trm_apps v0 ts) H Q.
+Proof using.
+  introv E T N M. rewrites (@trms_to_vals_spec _ _ T).
+  applys* triple_apps_fixs.
+Qed.
+
+(** To set up the tactic [xwp] to handle n-ary applications, we reformulate
+    the lemma above by making two changes. 
+
+    The first change is to replace the predicate [var_fixs] which checks
+    the well-formedness properties of the list of variables [xs] by an
+    executable version of this predicate, with a result in [bool]. This way,
+    the tactic [reflexivity] can prove all the desired facts, when the lemma
+    in invoked on a concrete function. We omit the details, and simply
+    state the type of the boolean function [var_fixs_exec]. *)
+
+Parameter var_fixs_exec : var -> vars -> nat -> bool.
+
+(** The second change is to introduce the [wpgen] function in place of
+    the triple for the evaluation of the body of the function. The
+    substitution [substn (f::xs) (v0::vs)] then gets described by the
+    substitution context [List.combine (f::xs) (v0::vs)], which describes
+    a list of pairs of type [list (var * val)]. 
+
+    The statement of the lemma for [xwp] is as follows. We omit the proof
+    details---they may be found in the implementation of the CFML tool. *)
+
+Parameter xwp_lemma_fixs : forall v0 ts vs f xs t1 H Q,
+  v0 = val_fixs f xs t1 ->
+  trms_to_vals ts = Some vs ->
+  var_fixs_exec f xs (LibList.length vs) ->
+  H ==> (wpgen (combine (f::xs) (v0::vs)) t1) Q ->
+  triple (trm_apps v0 ts) H Q.
 
 End PrimitiveNaryFun.
 

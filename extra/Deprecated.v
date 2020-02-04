@@ -1491,3 +1491,15 @@ Proof using.
   { intros y v1 v2 K1 K2. simpls. do 4 rewrite lookup_rem in K1. case_var. }
 Qed.
 
+
+
+
+    Reasoning about this substitution function requires a few auxiliary
+    lemmas, for example to distribute the substitution function when the
+    variable involved are suffic
+
+[[
+    Lemma subst_trm_fixs : forall y w f xs t,
+      ~ List.In y (f::xs) ->
+      subst y w (trm_fixs f xs t) = trm_fixs f xs (subst y w t).
+]]
