@@ -54,6 +54,19 @@ Parameter update_nth_same : forall A `{Inhab A} (n:nat) (l:list A),
   n < length l ->
   LibList.update n (nth n l) l = l.
 
+Import Fmap. Open Scope fmap_scope.
+Lemma disjoint_single_conseq : forall B l l' L (v:B),
+  (l < l')%nat \/ (l >= l'+length L)%nat ->
+  Fmap.disjoint (single l v) (conseq l' L). (* TODO \# *)
+Proof using.
+  introv N. gen l'. induction L as [|L']; intros.
+  { rewrite~ conseq_nil. }
+  { rew_list in N. rewrite conseq_cons. rew_disjoint. split.
+    { applys disjoint_single_single. destruct N; math. }
+    { applys IHL. destruct N. { left. math. } { right. math. } } }
+Qed.
+
+
 
 (* ####################################################### *)
 (* ####################################################### *)
@@ -323,7 +336,6 @@ Proof using.
   intros. xtriple. xchange himpl_hcells_any_hcells. intros L EL.
   xapp triple_dealloc_hcells. { auto. } { xsimpl. }
 Qed.
-
 
 
 (* ####################################################### *)
@@ -917,7 +929,7 @@ Parameter triple_get_field : forall p k v,
 (** Let us derive from this specification another one that operates
     on the heap predicate [hrecord L p]. *)
 
-Definition field_eq_dec := Nat.eq_dec. (* TODO: nat_eq in bool *)
+Definition field_eq_dec := Nat.eq_dec. (* TODO : nat_eq in bool *)
 
 Fixpoint hrecord_lookup (k:field) (L:hrecord_fields) : option val :=
   match L with
@@ -1393,25 +1405,58 @@ Parameter eval_alloc : forall k n ma mb p,
   Fmap.disjoint ma mb ->
   eval ma (val_alloc (val_int n)) (Fmap.union mb ma) (val_loc p).
 
-(** As usual, we first derive a Hoare logic statement, then the
+(** To verify the specification of allocation, the crux of the proof
+    is to establish the lemma [harray_uninit_intro], which establishes
+    that the heap built by [Fmap.conseq] in the rule [eval_alloc] 
+    satisfies the predicate [harray_uninit] that appears in the
+    postcondition of [triple_alloc_nat]. 
+  
+    This lemma itself relies on an introduction lemma for [hcells],
+    asserting that [Fmap.conseq p L] satisfies [hcells L p].
+    
+    The two lemmas involved are stated and proved below. It is not
+    needed to follow through the proof details. *)
+
+(* TODO fix order of L and p. *)
+
+Lemma hcells_intro : forall L p,
+  p <> null ->
+  hcells L p (Fmap.conseq p L).
+Proof using.
+  intros L. induction L as [|L']; introv N; simpl.
+  { applys hempty_intro. }
+  { applys hstar_intro.
+    { applys* hsingle_intro. }
+    { applys IHL. unfolds loc, null. math. }
+    { applys disjoint_single_conseq. left. math. } }
+Qed.
+
+Lemma harray_uninit_intro : forall k p,
+  p <> null ->
+  harray_uninit k p (Fmap.conseq p (LibList.make k val_uninit)).
+Proof using.
+  introv N. unfold harray_uninit, harray. 
+  rewrite hstar_comm. rewrite hstar_hpure. split.
+  { auto. } { applys* hcells_intro. }
+Qed.
+
+(** Using this lemma, we can prove the specification of [val_alloc].
+    As usual, we first derive a Hoare logic statement, then the
     corresponding Separation Logic judgment. *)
 
 Lemma hoare_alloc_nat : forall (k:nat) H,
-  triple (val_alloc k)
+  hoare (val_alloc k)
     H
     (fun r => \exists p, \[r = val_loc p] \* harray_uninit k p \* H).
 Proof using.
-(*
-  introv N. intros h Hh.
-  forwards~ (l&Dl&Nl): (Fmap.conseq_fresh null h (abs n) val_uninitialized).
-  match type of Dl with Fmap.disjoint ?hc _ => sets h1': hc end.
-  exists (h1' \u h) (val_loc l). splits~.
-  { applys~ (eval_alloc (abs n)). rewrite~ abs_nonneg. }
-  { apply~ hstar_intro.
-    { exists l. applys~ himpl_hstar_hpure_r. applys~ Alloc_fmap_conseq. } }
+  intros. intros h Hh.
+  forwards~ (p&Dp&Np): (Fmap.conseq_fresh null h k val_uninit).
+  match type of Dp with Fmap.disjoint ?hc _ => sets h1': hc end.
+  exists (h1' \u h) (val_loc p). split.
+  { applys~ (eval_alloc k). }
+  { applys hexists_intro p. rewrite hstar_hpure. split*.
+    { applys* hstar_intro. applys* harray_uninit_intro. } }
 Qed.
-*)
-Admitted.
 
 Lemma triple_alloc_nat : forall (k:nat),
   triple (val_alloc k)
@@ -1430,43 +1475,67 @@ Qed.
     describing the part of the state that remains. The heap [mb]
     must correspond to [n] consecutive cells, starting at location [p]. *)
 
-Parameter eval_dealloc : forall n vs ma mb p,
+Parameter eval_dealloc : forall (n:int) vs ma mb p, (* TODO: n : int *)
   mb = Fmap.conseq p vs ->
   n = LibList.length vs ->
   Fmap.disjoint ma mb ->
   eval (Fmap.union mb ma) (val_dealloc (val_int n) (val_loc p)) ma val_unit.
 
-(** The specification as Hoare and Separation Logic triples are then
-    derive in a similar fashion as for allocation. *)
+(** To verify the specification of deallocation, the crux of the proof
+    is to establish that if a heap satisfies [hcells L p], then this 
+    heap is described by [Fmap.conseq p L].
+  
+    This technical lemma is stated as follows. The proof is by induction
+    on the list [L]. (No need to follow throught the proof details.) *)
 
-Lemma hoare_dealloc : forall H L p (n:int), (* TODO: n : int *)
+Lemma hcells_inv : forall p L h,
+  hcells L p h ->
+  h = Fmap.conseq p L.
+Proof using.
+  introv N. gen p h. induction L as [|x L']; simpl; intros.
+  { applys hempty_inv N. }
+  { lets (h1&h2&N1&N2&N3&->): hstar_inv N. fequal.
+    { applys hsingle_inv N1. }
+    { applys IHL' N2. } }
+Qed.
+
+(** Using this lemma, we can prove the specification of [val_dealloc]. *)
+
+Lemma hoare_dealloc_hcells : forall H L p (n:int), (* TODO: n : int *)
   n = length L ->
   hoare (val_dealloc n p)
-    (harray L p \* H)
+    (hcells L p \* H)
     (fun _ => H).
 Proof using.
-(*
   introv N. intros h Hh. destruct Hh as (h1&h2&N1&N2&N3&N4). subst h.
-  exists h2 val_unit. split.
-  { forwards (vs&Lvs&Hvs): Dealloc_inv N1. applys* eval_dealloc.
-    { rewrite <- Lvs. rewrite~ abs_to_int. } }
-  { rewrite~ hstar_hpure. }
+  exists h2 val_unit. split; [|auto].
+  applys* (@eval_dealloc n L). applys hcells_inv N1.
 Qed.
-*)
-Admitted.
 
-Lemma triple_dealloc : forall (L:list val) (n:int) (p:loc),
+Lemma triple_dealloc_hcells : forall (L:list val) (n:int) (p:loc),
+  n = length L ->
+  triple (val_dealloc n p)
+    (hcells L p)
+    (fun _ => \[]).
+Proof using.
+  introv E. intros H'. applys hoare_conseq.
+  { applys hoare_dealloc_hcells H' E. } { xsimpl. } { xsimpl. }
+Qed.
+
+(** It is straightforward to derive the alternative specification
+    stated using [harray L p] in place of [hcells L p]. *)
+
+Lemma triple_dealloc_harray : forall (L:list val) (n:int) (p:loc),
   n = length L ->
   triple (val_dealloc n p)
     (harray L p)
     (fun _ => \[]).
 Proof using.
-  introv E. intros H'. applys hoare_conseq.
-  { applys hoare_dealloc H' E. } { xsimpl. } { xsimpl. }
+  introv E. xtriple. unfold harray. xpull. intros N. 
+  xapp triple_dealloc_hcells. { auto. } { xsimpl. }
 Qed.
 
 End AllocSpec.
-
 
 
 (* ########################################################### *)
