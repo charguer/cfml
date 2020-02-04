@@ -949,58 +949,46 @@ Lemma triple_get_field_hrecord : forall L p k v,
     (hrecord L p)
     (fun r => \[r = v] \* hrecord L p).
 Proof using.
-(*
-  induction L.
-  None => false
-  Some => neq => frame
-          eq => frame + apply
-Qed.*)
-Admitted.
-
-(** Another presentation *)
-
-Lemma triple_get_field_hrecord' : forall p L k v,
-  match hrecord_lookup k L with
-  | None => True
-  | Some v =>
-      triple (val_get_field k p)
-        (hrecord L p)
-        (fun r => \[r = v] \* hrecord L p)
-  end.
-Proof using.
-Admitted.
-(*
-  induction L.
-  None => false
-  Some => neq => frame
-          eq => frame + apply
+  intros L. induction L as [| [f v] L']; simpl; introv E.
+  { inverts E. }
+  { case_if. 
+    { inverts E. subst f. applys triple_conseq_frame.
+      { applys triple_get_field. } { xsimpl. } { xsimpl*. } }
+    { applys triple_conseq_frame. { applys IHL' E. } { xsimpl. } { xsimpl*. } } }
 Qed.
-*)
 
-Fixpoint hrecord_udpate (k:field) (v':val) (L:hrecord_fields)
+(** Likewise, we can specify [val_set_field] in terms of the heap
+    predicate [hrecord]. To that end, we introduce an auxiliary
+    function for computing the updated list of fields following an
+    write operation. *)
+
+Fixpoint hrecord_udpate (k:field) (w:val) (L:hrecord_fields)
                         : option hrecord_fields :=
   match L with
   | nil => None
   | (f,v)::L' => if field_eq_dec k f
-                   then Some ((f,v')::L)
-                   else hrecord_udpate k v' L'
+                   then Some ((f,w)::L')
+                   else match hrecord_udpate k w L' with
+                        | None => None
+                        | Some LR => Some ((f,v)::LR)
+                        end
   end.
 
-(* exo *)
-Lemma triple_set_field_hrecord : forall (L L':hrecord_fields) p k v v',
-  hrecord_udpate k v' L = Some L' ->
-  triple (val_set_field k p v')
+Lemma triple_set_field_hrecord : forall (L L':hrecord_fields) p k w,
+  hrecord_udpate k w L = Some L' ->
+  triple (val_set_field k p w)
     (hrecord L p)
     (fun _ => hrecord L' p).
 Proof using.
-Admitted.
-(*
-  induction L.
-  None => false
-  Some => neq => frame
-          eq => frame + apply
+  intros L. induction L as [| [f v] L']; simpl; introv E.
+  { inverts E. }
+  { case_if. 
+    { inverts E. subst f. applys triple_conseq_frame.
+      { applys triple_set_field. } { xsimpl. } { xsimpl*. } }
+    { cases (hrecord_udpate k w L') as C2; tryfalse. inverts E.
+      applys triple_conseq_frame. { applys IHL' C2. }
+      { xsimpl. } { simpl. xsimpl*. } } }
 Qed.
-*)
 
 End GroupedFields.
 

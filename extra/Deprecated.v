@@ -1518,3 +1518,23 @@ Proof using.
     { xsimpl. auto. } }
 Qed.
 
+
+(** Another presentation *)
+
+Lemma triple_get_field_hrecord' : forall p L k v,
+  match hrecord_lookup k L with
+  | None => True
+  | Some v =>
+      triple (val_get_field k p)
+        (hrecord L p)
+        (fun r => \[r = v] \* hrecord L p)
+  end.
+Proof using.
+Admitted.
+(*
+  induction L.
+  None => false
+  Some => neq => frame
+          eq => frame + apply
+Qed.
+*)

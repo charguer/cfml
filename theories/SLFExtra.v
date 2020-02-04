@@ -992,7 +992,7 @@ Notation "t1 ''.' f" :=
 
 Notation "'Set' t1 ''.' f '':=' t2" :=
   (val_set_field f t1 t2)
-  (at level 65, t1 at level 0, f at level 0, format "'Set' t1 ''.' f  '':=' t2") : trm_scope.
+  (at level 65, t1 at level 0, f at level 0, format "'Set'  t1 ''.' f  '':='  t2") : trm_scope.
 
 
 (* ########################################################### *)
