@@ -2196,6 +2196,9 @@ Tactic Notation "xapp" constr(E) :=
 Tactic Notation "xapp" :=
   xapp_nosubst; xapp_try_subst.
 
+Tactic Notation "xapp_debug" :=
+  xseq_xlet_if_needed; xstruct_if_needed; applys xapp_lemma.
+
 (** Database of hints *)
 
 Hint Resolve triple_get triple_set triple_ref triple_free triple_add : triple.
