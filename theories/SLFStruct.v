@@ -21,9 +21,6 @@ Implicit Type i n : int.
 Implicit Type v : val.
 Implicit Type L : list val.
 
-(* TODO : limitation of xapp for lemmas with premises... *)
-
-
 
 (* ####################################################### *)
 (* ####################################################### *)

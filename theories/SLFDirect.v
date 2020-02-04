@@ -2168,7 +2168,9 @@ Tactic Notation "xapp_nosubst" constr(E) :=
 
 Tactic Notation "xapp_apply_spec" := (* internal *)
   (* finds out the specification triple, from the hint data base [triple]
-     or in the context by looking for an induction hypothesis. *)
+     or in the context by looking for an induction hypothesis.
+     DISCLAIMER (explained in SLFWPgen): this approach does not work
+     for specifications that feature a premise that [eauto] cannot solve. *)
   first [ solve [ eauto with triple ]
         | match goal with H: _ |- _ => eapply H end ].
 

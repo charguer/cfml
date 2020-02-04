@@ -1664,9 +1664,18 @@ Hint Resolve triple_get triple_set triple_ref triple_free triple_add : triple.
 
 (** The argument-free variants [xapp_subst] and [xapp] are implemented
     by invoking [eauto with triple] to retrieve the relevant specification.
-    (The definition from [SLFDirect] is slightly more powerful, in that
+
+    The definition from [SLFDirect] is slightly more powerful, in that
     it is also able to pick up an induction hypothesis from the context
-    for instantiating the triple.) *)
+    for instantiating the triple.
+
+    DISCLAIMER: the tactic [xapp] that leverages the [triple] database
+    is not able to automatically apply specifications that feature a
+    premise that [eauto] cannot solve. To exploit such specifications,
+    one need to provide the specification explicitly (using [xapp E]),
+    or to exploit a more complex hint mechanism (as done in CFML).
+    (Remark: a poor-man's workaround consists in moving all the premises
+    inside the precondition, however doing so harms readability.) *)
 
 Tactic Notation "xapp_nosubst" :=
   xseq_xlet_if_needed; xstruct_if_needed;
