@@ -28,7 +28,7 @@ Proof using. introv M1 M2. applys* himpl_trans. Qed.
 (** If-val test *)
 
 Definition example_ifval : val :=
-  VFun 'u :=
+  Fun 'u :=
     If_ true Then 0 Else 1.
 
 Lemma Triple_example_ifval :
@@ -46,11 +46,11 @@ Qed.
 (** Incr *)
 
 Definition val_incr : val :=
-  VFun 'p :=
+  Fun 'p :=
    'p ':= ((val_get 'p) '+ 1).
 
 (* VARIANT:
-  VFun 'p :=
+  Fun 'p :=
     Let 'n := val_get 'p in
    'p ':= ('n '+ 1).
 *)
@@ -98,7 +98,7 @@ Hint Extern 1 (Register_Spec (val_incr)) => Provide Triple_incr.
 (* * Let *)
 
 Definition xlet_test : val :=
-  VFun 'x :=
+  Fun 'x :=
      Let 'p := 3 in
      'p.
 
@@ -136,7 +136,7 @@ Definition Point (x y:int) (p:loc) : hprop :=
 
 
 Definition val_move_X : val :=
-  VFun 'p :=
+  Fun 'p :=
    Set 'p'.X ':= ('p'.X '+ 1) ';
    Set 'p'.K ':= ('p'.K '+ 1).
 
@@ -205,7 +205,7 @@ Qed.
 (** Length *)
 
 Definition val_mlist_length : val :=
-  VFix 'f 'p :=
+  Fix 'f 'p :=
     Let 'v := val_get 'p in
     Match 'v With
     '| 'Cstr "nil" '=> 0
@@ -254,7 +254,7 @@ Module Basic.
 (** Negation *)
 
 Definition val_myneg :=
-  VFun 'b :=
+  Fun 'b :=
     If_ 'b '= true Then false Else true.
 
 Lemma Triple_decr : forall (b:bool),
@@ -280,7 +280,7 @@ Abort.
 (** Disequality test  -- DEPRECATED
 
 Definition val_myneq :=
-  VFun 'm 'n :=
+  Fun 'm 'n :=
     val_myneg ('m '= 'n).
 
 Lemma Triple_myneq : forall (v1 v2:val),
@@ -302,7 +302,7 @@ Qed.
 (** Swap *)
 
 Definition val_swap :=
-  VFun 'p 'q :=
+  Fun 'p 'q :=
     Let 'x := val_get 'p in
     Let 'y := val_get 'q in
     val_set 'p 'y ;;;
@@ -329,7 +329,7 @@ Qed.
 (** Succ using incr *)
 
 Definition val_succ_using_incr :=
-  VFun 'n :=
+  Fun 'n :=
     Let 'p := val_ref 'n in
     val_incr 'p ;;;
     Let 'x := val_get 'p in
@@ -350,7 +350,7 @@ Qed.
 (** Basic let-binding example *)
 
 Definition val_example_let :=
-  VFun 'n :=
+  Fun 'n :=
     Let 'a := 'n '+ 1 in
     Let 'b := 'n '- 1 in
     'a '+ 'b.
@@ -375,7 +375,7 @@ Qed.
 *)
 
 Definition val_example_one_ref :=
-  VFun 'n :=
+  Fun 'n :=
     Let 'k := 'n '+ 1 in
     Let 'i := 'ref 'k in
     val_incr 'i ;;;
@@ -404,7 +404,7 @@ Qed.
 *)
 
 Definition val_example_two_ref :=
-  VFun 'n :=
+  Fun 'n :=
     Let 'i := 'ref 0 in
     Let 'r := 'ref 'n in
     val_decr 'r ;;;

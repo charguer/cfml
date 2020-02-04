@@ -30,17 +30,17 @@ Implicit Types l : loc.
 (* ** Record operations: get, set, alloc, init *)
 
 Definition val_get_field (k:field) : val :=
-  VFun 'p :=
+  Fun 'p :=
     Let 'q := val_ptr_add 'p (nat_to_Z k) in
     val_get 'q.
 
 Definition val_set_field (k:field) : val :=
-  VFun 'p 'v :=
+  Fun 'p 'v :=
     Let 'q := val_ptr_add 'p (nat_to_Z k) in
     val_set 'q 'v.
 
 Definition val_record_alloc (ks:fields) : val :=
-  VFun 'u :=
+  Fun 'u :=
     val_alloc (1 + List.fold_right Nat.max 0%nat ks)%nat.
 
 Definition val_record_init (ks:fields) : val :=
@@ -57,7 +57,7 @@ Definition val_record_init (ks:fields) : val :=
 
 (* Delete a list of record fields, given in the same order as allocation *)
 Definition val_record_delete (ks:fields) : val :=
-  VFun 'p :=
+  Fun 'p :=
     val_dealloc (val_int (List.length ks)) 'p.
 
 (** Notation for record operations *)

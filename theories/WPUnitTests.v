@@ -26,7 +26,7 @@ Open Scope trm_scope.
 Module Troubleshooting.
 
 Definition incr_two : val :=
-  VFun 'p 'q :=
+  Fun 'p 'q :=
     incr 'p ';
     incr 'q.
 
@@ -62,7 +62,7 @@ Proof using.
 Abort.
 
 Definition incr_get_error : val :=
-  VFun 'p :=
+  Fun 'p :=
     Let 'x := '! 'p in
     incr 'x '; (* ['x] instead of ['p] *)
     'x.
@@ -79,7 +79,7 @@ Proof using.
 Abort.
 
 Definition call_incr_get_error : val :=
-  VFun 'p :=
+  Fun 'p :=
     incr_get_error 'p.
 
 Lemma Triple_unregistered_specification : forall (p:loc) (n:int),

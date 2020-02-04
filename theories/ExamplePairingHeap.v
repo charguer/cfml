@@ -376,15 +376,15 @@ Definition value : field := 0%nat.
 Definition sub : field := 1%nat.
 
 Definition create : val :=
-  VFun 'u :=
+  Fun 'u :=
     val_ref null.
 
 Definition is_empty : val :=
-  VFun 'p :=
+  Fun 'p :=
     '!'p '= null.
 
 Definition merge : val :=
-  VFun 'q1 'q2 :=
+  Fun 'q1 'q2 :=
 		If_ ('q1'.value '< 'q2'.value) Then (
 			MList.push ('q1'.sub) 'q2 ';
 			'q1
@@ -394,7 +394,7 @@ Definition merge : val :=
 		).
 
 Definition insert : val :=
-  VFun 'p 'x :=
+  Fun 'p 'x :=
     Let 'q1 := '!'p in
     Let 'q2 := New`{ value := 'x; sub := MList.create '() } in
     If_ 'q1 '= null
@@ -402,7 +402,7 @@ Definition insert : val :=
       Else 'p ':= merge 'q1 'q2.
 
 Definition merge_pairs : val :=
-  VFix 'f 'l :=
+  Fix 'f 'l :=
     Let 'q1 := MList.pop 'l in
     If_ MList.is_empty 'l Then 'q1 Else
     Let 'q2 := MList.pop 'l in
@@ -411,7 +411,7 @@ Definition merge_pairs : val :=
     merge 'q ('f 'l).
 
 Definition pop_min : val :=
-  VFun 'p :=
+  Fun 'p :=
     Let 'q := '!'p in
     Let 'x := 'q'.value in
     (If_ MList.is_empty ('q'.sub)
@@ -576,7 +576,7 @@ Qed.
 Hint Extern 1 (Register_Spec (is_empty)) => Provide @Triple_is_empty.
 (**
 Definition merge : val :=
-  VFun 'q1 'q2 :=
+  Fun 'q1 'q2 :=
 		If_ ('q1'.value '< 'q2'.value) Then (
 			MList.push ('q1'.sub) 'q2 ';
 			'q1
@@ -620,7 +620,7 @@ Qed.
 Hint Extern 1 (Register_Spec (insert)) => Provide @Triple_insert.
 (**
 Definition merge_pairs : val :=
-  VFix 'f 'l :=
+  Fix 'f 'l :=
     Let 'q1 := MList.pop 'l in
     If_ MList.is_empty 'l Then 'q1 Else
     Let 'q2 := MList.pop 'l in

@@ -131,7 +131,7 @@ Definition mlength : val :=
     distinguish between Coq keywords and program keywords, as shown below. *)
 
 Definition mlength' : val :=
-  VFix 'f 'p :=
+  Fix 'f 'p :=
     If_ 'p '= null
       Then 0
       Else 1 '+ 'f ('p'.tail).
@@ -645,7 +645,7 @@ Definition incr : val :=
 (** Alternatively, it may be written using notations and coercions. *)
 
 Definition incr' : val :=
-  VFun 'p :=
+  Fun 'p :=
     Let 'n := '! 'p in
     Let 'm := 'n '+ 1 in
     'p ':= 'm.
@@ -1271,7 +1271,7 @@ Module ProveIncrWithTactics.
 Import SLFExtra SLFProgramSyntax.
 
 Definition incr : val :=
-  VFun 'p :=
+  Fun 'p :=
     Let 'n := '! 'p in
     Let 'm := 'n '+ 1 in
     'p ':= 'm.
@@ -1368,7 +1368,7 @@ Parameter MList_if : forall (p:loc) (L:list val),
 *)
 
 Definition append : val :=
-  VFix 'f 'p1 'p2 :=
+  Fix 'f 'p1 'p2 :=
     Let 'q1 := 'p1'.tail in
     Let 'b := ('q1 '= null) in
     If_ 'b

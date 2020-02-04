@@ -26,11 +26,11 @@ Module Basic.
 (** Incr *)
 
 Definition val_incr : val :=
-  VFun 'p :=
+  Fun 'p :=
    'p ':= ((val_get 'p) '+ 1).
 
 (* VARIANT:
-  VFun 'p :=
+  Fun 'p :=
     Let 'n := val_get 'p in
    'p ':= ('n '+ 1).
 *)
@@ -99,7 +99,7 @@ Definition Point (x y:int) (p:loc) : hprop :=
 
 
 Definition val_move_X : val :=
-  VFun 'p :=
+  Fun 'p :=
    Set 'p'.X ':= ('p'.X '+ 1) ';
    Set 'p'.K ':= ('p'.K '+ 1).
 
@@ -195,7 +195,7 @@ Module TestMatch.
 (* ** Case without variables *)
 
 Definition val_test1 : val :=
-  VFun 'p :=
+  Fun 'p :=
     Match 'p With pat_unit '=> 'Fail End.
 
 Lemma Triple_test1 : forall (p:loc),
@@ -211,7 +211,7 @@ Abort.
 (* ** Case with 1 variable *)
 
 Definition val_test2 : val :=
-  VFun 'p :=
+  Fun 'p :=
     Match 'p With 'x '=> 'x End.
 
 Lemma Triple_test2 : forall (p:loc),
@@ -228,7 +228,7 @@ Abort.
 
 
 Definition val_test0 : val :=
-  VFun 'p :=
+  Fun 'p :=
     Match 'p With
     '| pat_unit '=> 'Fail
     '| pat_unit '=> 'p
@@ -286,7 +286,7 @@ Qed.
 (** Length *)
 
 Definition val_mlist_length : val :=
-  VFix 'f 'p :=
+  Fix 'f 'p :=
     Let 'v := val_get 'p in
     Match 'v With
     '| 'Cstr "nil" '=> 0
@@ -376,19 +376,19 @@ End MList.
 Module Stack.
 
 Definition val_is_empty : val :=
-  VFun 'p :=
+  Fun 'p :=
     val_get 'p '= 'nil.
 
 Definition val_empty : val :=
-  VFun 'u :=
+  Fun 'u :=
    val_ref 'nil.
 
 Definition val_push : val :=
-  VFun 'p 'x :=
+  Fun 'p 'x :=
    'p ':= ('x ':: (val_get 'p)).
 
 Definition val_pop : val :=
-  VFun 'p :=
+  Fun 'p :=
    (Let 'q := val_get 'p in
    Match 'q With
    '| 'nil '=> 'Fail
@@ -396,7 +396,7 @@ Definition val_pop : val :=
    End).
 
 Definition val_rev_append : val :=
-  VFix 'f 'p1 'p2 :=
+  Fix 'f 'p1 'p2 :=
     If_ val_is_empty 'p1 Then '() Else
        Let 'x := val_pop 'p1 in
        val_push 'p2 'x ';

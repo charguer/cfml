@@ -23,7 +23,7 @@ Open Scope trm_scope.
 (** Increment function *)
 
 Definition incr : val :=
-  VFun 'p :=
+  Fun 'p :=
    'p ':= (('! 'p) '+ 1).
 
 Lemma Triple_incr : forall (p:loc) (n:int),
@@ -41,7 +41,7 @@ Hint Extern 1 (Register_Spec incr) => Provide Triple_incr.
 (** Decrement function *)
 
 Definition decr : val :=
-  VFun 'p :=
+  Fun 'p :=
    'p ':= (('! 'p) '- 1).
 
 Lemma Triple_decr : forall (p:loc) (n:int),
@@ -59,7 +59,7 @@ Hint Extern 1 (Register_Spec decr) => Provide Triple_decr.
 (** Decrement function *)
 
 Definition list_concat : val :=
-  VFix 'f 'l1 'l2 :=
+  Fix 'f 'l1 'l2 :=
    Match 'l1 With
    '| 'nil '=> 'l2
    '| 'x ':: 'r '=> 'x ':: ('f 'r 'l2)

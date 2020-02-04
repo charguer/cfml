@@ -97,14 +97,14 @@ Ltac xwp_xtriple_handle_gc ::= xwp_xtriple_remove_gc.
     The quotes that appear in the source code are used to disambiguate
     between the keywords and variables associated with the source code,
     and those from the corresponding Coq keywords and variables.
-    The [VFun] keyword should be read like the [fun] keyword.
+    The [Fun] keyword should be read like the [fun] keyword.
 
     Again, the details of this funny syntax are not important, the reader
     may blindly trust that it corresponds to the OCaml code shown above.
 *)
 
 Definition incr : val :=
-  VFun 'p :=
+  Fun 'p :=
    'p ':= '! 'p '+ 1.
 
 (** Let [p] be the address in memory of the reference cell provided as
@@ -243,7 +243,7 @@ Hint Extern 1 (Register_Spec incr) => Provide Triple_incr.
 *)
 
 Definition example_let : val :=
-  VFun 'n :=
+  Fun 'n :=
     Let 'a := 'n '+ 1 in
     Let 'b := 'n '- 1 in
     'a '+ 'b.
@@ -317,7 +317,7 @@ Qed.
 *)
 
 Definition quadruple : val :=
-  VFun 'n :=
+  Fun 'n :=
     Let 'm := 'n '+ 'n in
     'm '+ 'm.
 
@@ -353,7 +353,7 @@ Qed.
 *)
 
 Definition inplace_double : val :=
-  VFun 'p :=
+  Fun 'p :=
     'p ':= ('!'p '+ '!'p).
 
 (* EX1! (Triple_inplace_double) *)
@@ -387,7 +387,7 @@ Qed.
 *)
 
 Definition incr_two : val :=
-  VFun 'p 'q :=
+  Fun 'p 'q :=
     incr 'p ';
     incr 'q.
 
@@ -445,7 +445,7 @@ Hint Extern 1 (Register_Spec incr_two) => Provide Triple_incr_two.
     which does execute such a call. *)
 
 Definition aliased_call : val :=
-  VFun 'p :=
+  Fun 'p :=
     incr_two 'p 'p.
 
 (** A call to [aliased_call p] should increase the contents of [p] by [2].
@@ -521,7 +521,7 @@ Qed.
 *)
 
 Definition incr_first : val :=
-  VFun 'p 'q :=
+  Fun 'p 'q :=
     incr 'p.
 
 (** We can specify this function by describing its input state
@@ -589,7 +589,7 @@ Qed.
 *)
 
 Definition transfer : val :=
-  VFun 'p 'q :=
+  Fun 'p 'q :=
    'p ':= ('!'p '+ '!'q) ';
    'q ':= 0.
 
@@ -666,7 +666,7 @@ Hint Extern 1 (Register_Spec random_int) => Provide Triple_random_int.
 *)
 
 Definition ref_random_int : val :=
-  VFun 'n :=
+  Fun 'n :=
     'ref (random_int 'n).
 
 (** How can we specify the function [ref_random_int]?
@@ -737,7 +737,7 @@ Qed.
 *)
 
 Definition ref_greater : val :=
-  VFun 'p :=
+  Fun 'p :=
     'ref ('!'p '+ 1).
 
 (* EX1! (Triple_ref_greater) *)
@@ -803,7 +803,7 @@ Qed.
 *)
 
 Definition succ_using_incr_attempt :=
-  VFun 'n :=
+  Fun 'n :=
     Let 'p := 'ref 'n in
     incr 'p ';
     '! 'p.
@@ -858,7 +858,7 @@ Qed.
 *)
 
 Definition succ_using_incr :=
-  VFun 'n :=
+  Fun 'n :=
     Let 'p := 'ref 'n in
     incr 'p ';
     Let 'x := '! 'p in
@@ -926,7 +926,7 @@ Parameter facto_step : forall n,
 *)
 
 Definition factorec : val :=
-  VFix 'f 'n :=
+  Fix 'f 'n :=
     If_ 'n '<= 1 Then 1 Else 'n '* 'f ('n '- 1).
 
 (** A call [factorec n] can be specified as follows:
@@ -1054,7 +1054,7 @@ Qed.
 *)
 
 Definition repeat_incr : val :=
-  VFix 'f 'p 'm :=
+  Fix 'f 'p 'm :=
     If_ 'm '> 0 Then
       incr 'p ';
       'f 'p ('m '- 1)
@@ -1129,7 +1129,7 @@ Abort.
 *)
 
 Definition step_transfer :=
-  VFix 'f 'p 'q :=
+  Fix 'f 'p 'q :=
     If_ '! 'q '> 0 Then
       incr 'p ';
       decr 'q ';

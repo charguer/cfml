@@ -37,7 +37,7 @@ Module Basics.
 *)
 
 Definition example_let :=
-  VFun 'n :=
+  Fun 'n :=
     Let 'a := 'n '+ 1 in
     Let 'b := 'n '- 1 in
     'a '+ 'b.
@@ -68,7 +68,7 @@ Qed.
 *)
 
 Definition incr : val :=
-  VFun 'p :=
+  Fun 'p :=
    'p ':= '! 'p '+ 1.
 
 Lemma Triple_incr : forall (p:loc) (n:int),
@@ -95,7 +95,7 @@ Hint Extern 1 (Register_Spec (incr)) => Provide Triple_incr.
 *)
 
 Definition succ_using_incr :=
-  VFun 'n :=
+  Fun 'n :=
     Let 'p := 'ref 'n in
     incr 'p ';
     '! 'p.
@@ -124,7 +124,7 @@ Qed.
 *)
 
 Definition incr_one_of_two : val :=
-  VFun 'p 'q :=
+  Fun 'p 'q :=
     incr 'p.
 
 Lemma Triple_incr_one_of_two :
@@ -149,7 +149,7 @@ Qed.
 *)
 
 Definition incr_and_ref : val :=
-  VFun 'p :=
+  Fun 'p :=
     incr 'p ';
     'ref ('! 'p).
 
@@ -187,7 +187,7 @@ Qed.
 *)
 
 Definition repeat_incr :=
-  VFix 'f 'p 'm :=
+  Fix 'f 'p 'm :=
     If_ 'm '> 0 Then
       incr 'p ';
       'f 'p ('m '- 1)
@@ -398,7 +398,7 @@ Module ExoBasic.
 *)
 
 Definition double :=
-  VFun 'n :=
+  Fun 'n :=
     'n '+ 'n.
 
 Lemma Triple_double : forall n,
@@ -421,7 +421,7 @@ Qed.
 *)
 
 Definition inplace_double :=
-  VFun 'p :=
+  Fun 'p :=
     'p ':= ('!'p '+ '!'p).
 
 Lemma Triple_inplace_double : forall p n,
@@ -445,7 +445,7 @@ Qed.
 *)
 
 Definition decr_and_incr :=
-  VFun 'p 'q :=
+  Fun 'p 'q :=
     decr 'p ';
     incr 'q.
 
@@ -474,7 +474,7 @@ Qed.
 *)
 
 Definition transfer :=
-  VFix 'f 'p 'q :=
+  Fix 'f 'p 'q :=
     If_ '! 'p '> 0 Then
       decr 'p ';
       incr 'q ';
@@ -539,7 +539,7 @@ Import ExampleList.MList.
 *)
 
 Definition mk_one : val :=
-  VFun 'x :=
+  Fun 'x :=
      mk_cons 'x (create '()).
 
 Lemma Triple_mk_one : forall A `{EA:Enc A} (x:A),
@@ -574,7 +574,7 @@ Hint Extern 1 (Register_Spec (mk_one)) => Provide @Triple_mk_one.
 *)
 
 Definition push_back : val :=
-  VFun 'p 'x :=
+  Fun 'p 'x :=
     inplace_append 'p (mk_one 'x).
 
 Lemma Triple_push_back : forall `{EA:Enc A} (L:list A) (x:A) (p:loc),
@@ -603,7 +603,7 @@ Qed.
 *)
 
 Definition push_back' : val :=
-  VFix 'f 'p 'x :=
+  Fix 'f 'p 'x :=
     If_ is_empty 'p
       Then set_cons 'p 'x (create '())
       Else 'f (tail 'p) 'x.
@@ -644,9 +644,9 @@ Qed.
 *)
 
 Definition reversed_copy : val :=
-  VFun 'p :=
+  Fun 'p :=
     Let 'q := create '() in
-    iter (Fun 'x := push 'q 'x) 'p ';
+    iter (Fun_ 'x := push 'q 'x) 'p ';
     'q.
 
 Lemma Triple_reversed_copy : forall A `{EA:Enc A} (L:list A) (p:loc),

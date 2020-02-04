@@ -311,7 +311,7 @@ End SegProperties.
 (* ** Node allocation *)
 
 Definition mk_cell :=
-  VFun 'x 'q :=
+  Fun 'x 'q :=
     New`{ head := 'x; tail := 'q }.
 
 Lemma Triple_mk_cell : forall `{EA:Enc A} (x:A) (q:loc),
@@ -336,7 +336,7 @@ Hint Extern 1 (Register_Spec mk_cell) => Provide Triple_mk_cell.
 *)
 
 Definition mlength : val :=
-  VFix 'f 'p :=
+  Fix 'f 'p :=
     If_ 'p '= null
       Then 0
       Else 1 '+ 'f ('p'.tail).
@@ -369,7 +369,7 @@ Hint Extern 1 (Register_Spec mlength) => Provide Triple_mlength.
 *)
 
 Definition copy : val :=
-  VFix 'f 'p :=
+  Fix 'f 'p :=
     If_ 'p  '= null
       Then null
       Else mk_cell ('p'.head) ('f ('p'.tail)).

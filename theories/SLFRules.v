@@ -806,7 +806,7 @@ Definition incr : val :=
     written as shown below. *)
 
 Definition incr' : val :=
-  VFun 'p :=
+  Fun 'p :=
     Let 'n := '! 'p in
     Let 'm := 'n '+ 1 in
    'p ':= 'm.
@@ -879,7 +879,7 @@ Qed.
     This definition is written in the toy language as follows. *)
 
 Definition succ_using_incr : val :=
-  VFun 'n :=
+  Fun 'n :=
     Let 'r := val_ref 'n in
     incr 'r ';
     Let 'x := '! 'r in

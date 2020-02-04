@@ -32,7 +32,7 @@ Notation "l `. k" := (pointer_field l k)
 
 
 Definition val_field (k:field) : val :=
-  VFun 'p :=
+  Fun 'p :=
     val_ptr_add 'p (nat_to_Z k).
 
 Notation "l ``. k" := (val_field k l)
@@ -275,7 +275,7 @@ Hint Extern 1 (Register_Spec (mk_node)) => Provide @Triple_mk_node.
 *)
 
 Definition push : val :=
-  VFun 'p 'x :=
+  Fun 'p 'x :=
     'p ':= mk_node 'x ('!'p).
 
 Lemma Triple_push : forall `{EA:Enc A} (L:list A) (p:loc) (x:A),
@@ -309,7 +309,7 @@ Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
 *)
 
 Definition mlength : val :=
-  VFix 'f 'p :=
+  Fix 'f 'p :=
     Let 'q := '! 'p in
     If_ 'q '= null
       Then 0
@@ -343,7 +343,7 @@ Qed.
 *)
 
 Definition copy_node :=
-  VFix 'f 'q :=
+  Fix 'f 'q :=
     If_ val_eq 'q null
       Then null
       Else mk_node ('q'.head) ('f ('q'.tail)).
@@ -377,7 +377,7 @@ Hint Extern 1 (Register_Spec copy_node) => Provide Triple_copy_node.
 *)
 
 Definition copy_list :=
-  VFun 'p 'p2 :=
+  Fun 'p 'p2 :=
     'p2 ':= copy_node ('! 'p).
 
 Lemma Triple_copy_list : forall p p2 `{EA:Enc A} (L:list A),

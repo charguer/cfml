@@ -58,19 +58,19 @@ Module Stack.
 (** ** Embedded syntax *)
 
 Definition create : val :=
-  VFun 'u :=
+  Fun 'u :=
    val_ref 'nil.
 
 Definition is_empty : val :=
-  VFun 'p :=
+  Fun 'p :=
     val_get 'p '= 'nil.
 
 Definition push : val :=
-  VFun 'p 'x :=
+  Fun 'p 'x :=
    'p ':= ('x ':: (val_get 'p)).
 
 Definition pop : val :=
-  VFun 'p :=
+  Fun 'p :=
    Let 'q := val_get 'p in
    Match 'q With
    '| 'nil '=> 'Fail
@@ -78,7 +78,7 @@ Definition pop : val :=
    End.
 
 Definition rev_append : val :=
-  VFix 'f 'p1 'p2 :=
+  Fix 'f 'p1 'p2 :=
     If_ 'not (is_empty 'p1) Then
        Let 'x := pop 'p1 in
        push 'p2 'x ';
@@ -215,20 +215,20 @@ Definition data : field := 0%nat.
 Definition size : field := 1%nat.
 
 Definition create : val :=
-  VFun 'u :=
+  Fun 'u :=
     New`{ data := ('nil%val); size := 0 }.
 
 Definition is_empty : val :=
-  VFun 'p :=
+  Fun 'p :=
     'p'.size '= 0.
 
 Definition push : val :=
-  VFun 'p 'x :=
+  Fun 'p 'x :=
    Set 'p'.data ':= 'x ':: 'p'.data ';
    Set 'p'.size ':= 'p'.size '+ 1.
 
 Definition pop : val :=
-  VFun 'p :=
+  Fun 'p :=
    Let 'q := 'p'.data in
    Match 'q With (* LATER: allow inline *)
    '| 'nil '=> 'Fail
@@ -332,7 +332,7 @@ Import ExampleStack.Stackn.
 *)
 
 Definition clear :=
-  VFun 'p :=
+  Fun 'p :=
     Set 'p'.data ':= ``nil ';
     Set 'p'.size ':= ``0.
 
@@ -360,7 +360,7 @@ Hint Extern 1 (Register_Spec (clear)) => Provide @Triple_clear.
 *)
 
 Definition concat :=
-  VFun 'p1 'p2 :=
+  Fun 'p1 'p2 :=
     Set 'p1'.data ':= 'p1'.data '++ 'p2'.data ';
     Set 'p1'.size ':= 'p1'.size '+ 'p2'.size ';
     clear 'p2.

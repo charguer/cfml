@@ -186,7 +186,7 @@ Qed.
 *)
 
 Definition is_empty : val :=
-  VFun 'p :=
+  Fun 'p :=
     Match '! 'p With
     '| 'Cstr "Nil" '=> true
     '| 'Cstr "Cons" 'x 'q '=> false
@@ -226,7 +226,7 @@ Hint Extern 1 (Register_Spec (is_empty)) => Provide @Triple_is_empty.
 *)
 
 Definition head : val :=
-  VFun 'p :=
+  Fun 'p :=
     Match '! 'p With
     '| 'Cstr "Cons" 'x 'q '=> 'x
     End.
@@ -244,7 +244,7 @@ Qed.
 Hint Extern 1 (Register_Spec (head)) => Provide @Triple_head.
 
 Definition tail : val :=
-  VFun 'p :=
+  Fun 'p :=
     Match '! 'p With
     '| 'Cstr "Cons" 'x 'q '=> 'q
     End.
@@ -277,7 +277,7 @@ Hint Extern 1 (Register_Spec (tail)) => Provide @Triple_tail.
 *)
 
 Definition create : val :=
-  VFun 'u :=
+  Fun 'u :=
     val_ref ('Cstr "Nil").
 
 Lemma Triple_create : forall A `{EA:Enc A},
@@ -291,7 +291,7 @@ Qed.
 Hint Extern 1 (Register_Spec (create)) => Provide @Triple_create.
 
 Definition mk_cons : val :=
-  VFun 'x 'q :=
+  Fun 'x 'q :=
     val_ref ('Cstr "Cons" 'x 'q).
 
 Lemma Triple_mk_cons : forall A `{EA:Enc A} (L:list A) (x:A) (q:loc),
@@ -326,7 +326,7 @@ Hint Extern 1 (Register_Spec (mk_cons)) => Provide @Triple_mk_cons.
 *)
 
 Definition set_nil : val :=
-  VFun 'p :=
+  Fun 'p :=
     'p ':= 'Cstr "Nil".
 
 Lemma Triple_set_nil : forall p (v:val),
@@ -340,7 +340,7 @@ Qed.
 Hint Extern 1 (Register_Spec (set_nil)) => Provide @Triple_set_nil.
 
 Definition set_cons : val :=
-  VFun 'p 'x 'q :=
+  Fun 'p 'x 'q :=
     'p ':= 'Cstr "Cons" 'x 'q.
 
 Lemma Triple_set_cons : forall A `{EA:Enc A} p (v:val) (x:A) q,
@@ -354,7 +354,7 @@ Qed.
 Hint Extern 1 (Register_Spec (set_cons)) => Provide @Triple_set_cons.
 
 Definition set_head : val :=
-  VFun 'p 'x2 :=
+  Fun 'p 'x2 :=
     Match '! 'p With
     '| 'Cstr "Cons" 'x1 'q '=> 'p ':= ('Cstr "Cons" 'x2 'q)
     End.
@@ -373,7 +373,7 @@ Qed.
 Hint Extern 1 (Register_Spec (set_head)) => Provide @Triple_set_head.
 
 Definition set_tail : val :=
-  VFun 'p 'q2 :=
+  Fun 'p 'q2 :=
     Match '! 'p With
     '| 'Cstr "Cons" 'x 'q '=> 'p ':= ('Cstr "Cons" 'x 'q2)
     End.
@@ -403,7 +403,7 @@ Hint Extern 1 (Register_Spec (set_tail)) => Provide @Triple_set_tail.
 *)
 
 Definition push : val :=
-  VFun 'p 'x :=
+  Fun 'p 'x :=
     set_cons 'p 'x (val_ref ('!'p)).
 
 Lemma Triple_push : forall `{EA:Enc A} (L:list A) (p:loc) (x:A),
@@ -432,7 +432,7 @@ Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
 *)
 
 Definition pop : val :=
-  VFun 'p  :=
+  Fun 'p  :=
     Let 'x := head 'p in
     ('p ':= '! (tail 'p)) ';
     'x.
@@ -469,7 +469,7 @@ Hint Extern 1 (Register_Spec (pop)) => Provide @Triple_pop.
 *)
 
 Definition mlength : val :=
-  VFix 'f 'p :=
+  Fix 'f 'p :=
     If_ is_empty 'p
       Then 0
       Else 1 '+ 'f (tail 'p).
@@ -502,7 +502,7 @@ Hint Extern 1 (Register_Spec (mlength)) => Provide @Triple_mlength.
 *)
 
 Definition copy : val :=
-  VFix 'f 'p :=
+  Fix 'f 'p :=
     If_ is_empty 'p
       Then create '()
       Else mk_cons (head 'p) ('f (tail 'p)).
@@ -564,7 +564,7 @@ Hint Extern 1 (Register_Spec (copy)) => Provide @Triple_copy.
 *)
 
 Definition iter : val :=
-  VFix 'g 'f 'p :=
+  Fix 'g 'f 'p :=
     If_ 'not (is_empty 'p) Then
       'f (head 'p) ';
       'g 'f (tail 'p)
@@ -610,9 +610,9 @@ Hint Extern 1 (Register_Spec (iter)) => Provide @Triple_iter.
 *)
 
 Definition length_using_iter : val :=
-  VFun 'p :=
+  Fun 'p :=
     Let 'n := val_ref ``0 in
-    iter (Fun 'x := incr 'n) 'p ';
+    iter (Fun_ 'x := incr 'n) 'p ';
     '! 'n.
 
 Lemma Triple_mlist_length_using_iter : forall A `{EA:Enc A} (L:list A) (p:loc),
@@ -640,7 +640,7 @@ Qed.
 *)
 
 Definition nondestructive_append : val :=
-  VFix 'f 'p1 'p2 :=
+  Fix 'f 'p1 'p2 :=
     If_ is_empty 'p1
       Then copy 'p2
       Else mk_cons (head 'p1) ('f (tail 'p1) 'p2).
@@ -680,7 +680,7 @@ Hint Extern 1 (Register_Spec (nondestructive_append)) => Provide @Triple_nondest
 *)
 
 Definition inplace_append : val :=
-  VFix 'f 'p1 'p2 :=
+  Fix 'f 'p1 'p2 :=
     If_ is_empty 'p1
       Then 'p1 ':= '! 'p2
       Else 'f (tail 'p1) 'p2.
@@ -710,14 +710,14 @@ Hint Extern 1 (Register_Spec (inplace_append)) => Provide @Triple_inplace_append
 *)
 
 Definition cps_append_aux : val :=
-  VFix 'f 'p1 'p2 'k :=
+  Fix 'f 'p1 'p2 'k :=
     If_ is_empty 'p1
       Then 'k 'p2
-      Else 'f (tail 'p1) 'p2 (Fun 'r := (set_tail 'p1 'r '; 'k 'p1)).
+      Else 'f (tail 'p1) 'p2 (Fun_ 'r := (set_tail 'p1 'r '; 'k 'p1)).
 
 Definition cps_append : val :=
-  VFun 'p1 'p2 :=
-    cps_append_aux 'p1 'p2 (Fun 'r := 'r).
+  Fun 'p1 'p2 :=
+    cps_append_aux 'p1 'p2 (Fun_ 'r := 'r).
 
 Lemma Triple_cps_append_aux : forall A `{EA:Enc A} (L1 L2:list A) (p1 p2:loc) (k:func),
   forall `{EB: Enc B} (H:hprop) (Q:B->hprop),
@@ -778,9 +778,9 @@ Qed.
 *)
 
 Definition length_using_iter' : val :=
-  VFun 'p :=
+  Fun 'p :=
     Let 'n := val_ref ``0 in
-    iter (Fun 'x := ('n ':= ('!'n '+ 1))) 'p ';
+    iter (Fun_ 'x := ('n ':= ('!'n '+ 1))) 'p ';
     '! 'n.
 
 Lemma Triple_mlist_length_using_iter' : forall A `{EA:Enc A} (L:list A) (p:loc),
@@ -858,7 +858,7 @@ Qed.
 *)
 
 Definition pop_back : val :=
-  VFix 'f 'p :=
+  Fix 'f 'p :=
     If_ is_empty (tail 'p) Then (
       Let 'x := head 'p in
       set_nil 'p ';

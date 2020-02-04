@@ -654,21 +654,21 @@ Hint Resolve triple_neg triple_opp triple_eq triple_neq
 (* ################################################ *)
 (** ** Syntax for functions of 2 or 3 arguments *)
 
-Notation "'VFun' x1 x2 ':=' t" :=
+Notation "'Fun' x1 x2 ':=' t" :=
   (val_fun x1 (trm_fun x2 t))
-  (at level 69, x1, x2 at level 0, format "'VFun'  x1  x2  ':='  t") : val_scope.
+  (at level 69, x1, x2 at level 0, format "'Fun'  x1  x2  ':='  t") : val_scope.
 
-Notation "'VFix' f x1 x2 ':=' t" :=
+Notation "'Fix' f x1 x2 ':=' t" :=
   (val_fix f x1 (trm_fun x2 t))
-  (at level 69, f, x1, x2 at level 0, format "'VFix'  f  x1  x2  ':='  t") : val_scope.
+  (at level 69, f, x1, x2 at level 0, format "'Fix'  f  x1  x2  ':='  t") : val_scope.
 
-Notation "'VFun' x1 x2 x3 ':=' t" :=
+Notation "'Fun' x1 x2 x3 ':=' t" :=
   (val_fun x1 (trm_fun x2 (trm_fun x3 t)))
-  (at level 69, x1, x2, x3 at level 0, format "'VFun'  x1  x2  x3  ':='  t") : val_scope.
+  (at level 69, x1, x2, x3 at level 0, format "'Fun'  x1  x2  x3  ':='  t") : val_scope.
 
-Notation "'VFix' f x1 x2 x3 ':=' t" :=
+Notation "'Fix' f x1 x2 x3 ':=' t" :=
   (val_fix f x1 (trm_fun x2 (trm_fun x3 t)))
-  (at level 69, f, x1, x2, x3 at level 0, format "'VFix'  f  x1  x2  x3  ':='  t") : val_scope.
+  (at level 69, f, x1, x2, x3 at level 0, format "'Fix'  f  x1  x2  x3  ':='  t") : val_scope.
 
 
 (* ################################################ *)
@@ -975,12 +975,12 @@ Module Export FieldAccessDef.
 Import SLFProgramSyntax.
 
 Definition val_get_field (k:field) : val :=
-  VFun 'p :=
+  Fun 'p :=
     Let 'q := val_ptr_add 'p (nat_to_Z k) in
     val_get 'q.
 
 Definition val_set_field (k:field) : val :=
-  VFun 'p 'v :=
+  Fun 'p 'v :=
     Let 'q := val_ptr_add 'p (nat_to_Z k) in
     val_set 'q 'v.
 
@@ -1048,7 +1048,7 @@ Export SLFProgramSyntax.
 *)
 
 Definition decr : val :=
-  VFun 'p :=
+  Fun 'p :=
     Let 'n := '! 'p in
     Let 'm := 'n '- 1 in
     'p ':= 'm.

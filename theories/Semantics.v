@@ -1378,21 +1378,21 @@ Notation "t1 '';' t2" :=
   (at level 68, right associativity,
    format "'[v' '[' t1 ']'  '';'  '/'  '[' t2 ']' ']'") : trm_scope.
 
-Notation "'VFix' f x1 .. xn ':=' t" :=
-  (val_fixs f (cons x1 .. (cons xn nil) ..) t)
-  (at level 69, f, x1, xn at level 0, format "'VFix'  f  x1  ..  xn  ':='  t") : val_scope.
-
 Notation "'Fix' f x1 .. xn ':=' t" :=
-  (trm_fixs f (cons x1 .. (cons xn nil) ..) t)
-  (at level 69, f, x1, xn at level 0) : trm_scope.
+  (val_fixs f (cons x1 .. (cons xn nil) ..) t)
+  (at level 69, f, x1, xn at level 0, format "'Fix'  f  x1  ..  xn  ':='  t") : val_scope.
 
-Notation "'VFun' x1 .. xn ':=' t" :=
-  (val_funs (cons x1 .. (cons xn nil) ..) t)
-  (at level 69, x1, xn at level 0, format "'VFun'  x1  ..  xn  ':='  t") : val_scope.
+Notation "'Fix_' f x1 .. xn ':=' t" :=
+  (trm_fixs f (cons x1 .. (cons xn nil) ..) t)
+  (at level 69, f, x1, xn at level 0, format "'Fix_'  f  x1  ..  xn  ':='  t") : trm_scope.
 
 Notation "'Fun' x1 .. xn ':=' t" :=
+  (val_funs (cons x1 .. (cons xn nil) ..) t)
+  (at level 69, x1, xn at level 0, format "'Fun'  x1  ..  xn  ':='  t") : val_scope.
+
+Notation "'Fun_' x1 .. xn ':=' t" :=
   (trm_funs (cons x1 .. (cons xn nil) ..) t)
-  (at level 69, x1, xn at level 0, format "'Fun'  x1  ..  xn  ':='  t") : trm_scope.
+  (at level 69, x1, xn at level 0, format "'Fun_'  x1  ..  xn  ':='  t") : trm_scope.
 
 Notation "'LetFun' f x1 .. xn ':=' t1 'in' t2" :=
   (trm_let f (trm_funs (cons x1 .. (cons xn nil) ..) t1) t2)
@@ -1579,7 +1579,7 @@ Open Scope trm_scope.
   Print test_vf1.
   Definition test_vf3 : val := (val_funs ('x::'y::'z::nil) val_unit).
   Print test_vf3.
-  Definition test_f3 : trm := Fun 'x 'y 'z := val_unit.
+  Definition test_f3 : trm := Fun_ 'x 'y 'z := val_unit.
   Print test_f3.
   Definition test_lf1 := LetFix 'f 'x1 := val_unit in val_unit.
   Print test_lf1.
@@ -1588,7 +1588,7 @@ Open Scope trm_scope.
 
 
   Definition val_mlist_length : val :=
-  VFix 'f 'p :=
+  Fix 'f 'p :=
     Let 'v := val_get 'p in
     Match 'v With
     '| 'Cstr "nil" '=> 0
@@ -1599,7 +1599,7 @@ Open Scope trm_scope.
   Parameter val_is_empty val_push val_pop : val.
 
   Definition val_rev_append : val :=
-  VFix 'f 'p1 'p2 :=
+  Fix 'f 'p1 'p2 :=
     If_ val_is_empty 'p1 Then '() Else
        Let 'x := val_pop 'p1 in
        val_push 'p2 'x ';
@@ -1607,7 +1607,7 @@ Open Scope trm_scope.
   Print val_rev_append.
 
   Definition val_rev_append_with_App : val :=
-  VFix 'f 'p1 'p2 :=
+  Fix 'f 'p1 'p2 :=
     If_ 'App val_is_empty 'p1 Then '() Else
        Let 'x := 'App val_pop 'p1 in
        'App val_push 'p2 'x ';

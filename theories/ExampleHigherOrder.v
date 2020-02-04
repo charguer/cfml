@@ -188,7 +188,7 @@ Qed.
 Definition val_mkcounter : val :=
   ValFun 'u :=
     Let 'p := val_ref 0 in
-    (Fun 'v := val_incr 'p ;;; val_get 'p).
+    (Fun_ 'v := val_incr 'p ;;; val_get 'p).
 
 
 (* ---------------------------------------------------------------------- *)

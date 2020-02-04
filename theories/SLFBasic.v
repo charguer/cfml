@@ -99,13 +99,13 @@ Implicit Types p q : loc.
     The quotes that appear in the source code are used to disambiguate
     between the keywords and variables associated with the source code,
     and those from the corresponding Coq keywords and variables.
-    The [VFun] keyword should be read like the [fun] keyword from OCaml.
+    The [Fun] keyword should be read like the [fun] keyword from OCaml.
 
     Again, the reader may blindly trust that it corresponds to the OCaml
     code shown above. *)
 
 Definition incr : val :=
-  VFun 'p :=
+  Fun 'p :=
     Let 'n := '! 'p in
     Let 'm := 'n '+ 1 in
     'p ':= 'm.
@@ -227,7 +227,7 @@ Hint Resolve triple_incr : triple.
 *)
 
 Definition example_let : val :=
-  VFun 'n :=
+  Fun 'n :=
     Let 'a := 'n '+ 1 in
     Let 'b := 'n '- 1 in
     'a '+ 'b.
@@ -277,7 +277,7 @@ Qed.
 *)
 
 Definition quadruple : val :=
-  VFun 'n :=
+  Fun 'n :=
     Let 'm := 'n '+ 'n in
     'm '+ 'm.
 
@@ -315,7 +315,7 @@ Qed.
 *)
 
 Definition inplace_double : val :=
-  VFun 'p :=
+  Fun 'p :=
     Let 'n := '!'p in
     Let 'm := 'n '+ 'n in
     'p ':= 'm.
@@ -351,7 +351,7 @@ Qed.
 *)
 
 Definition incr_two : val :=
-  VFun 'p 'q :=
+  Fun 'p 'q :=
     incr 'p ';
     incr 'q.
 
@@ -409,7 +409,7 @@ Hint Resolve triple_incr_two : triple.
     which does execute such a call. *)
 
 Definition aliased_call : val :=
-  VFun 'p :=
+  Fun 'p :=
     incr_two 'p 'p.
 
 (** A call to [aliased_call p] should increase the contents of [p] by [2].
@@ -484,7 +484,7 @@ Qed.
 *)
 
 Definition incr_first : val :=
-  VFun 'p 'q :=
+  Fun 'p 'q :=
     incr 'p.
 
 (** We can specify this function by describing its input state
@@ -552,7 +552,7 @@ Qed.
 *)
 
 Definition transfer : val :=
-  VFun 'p 'q :=
+  Fun 'p 'q :=
    Let 'n := '!'p in
    Let 'm := '!'q in
    Let 's := 'n '+ 'm in
@@ -607,7 +607,7 @@ Qed.
 *)
 
 Definition ref_greater : val :=
-  VFun 'p :=
+  Fun 'p :=
     Let 'n := '!'p in
     Let 'm := 'n '+ 1 in
     'ref 'm.
@@ -688,7 +688,7 @@ Qed.
 *)
 
 Definition succ_using_incr_attempt :=
-  VFun 'n :=
+  Fun 'n :=
     Let 'p := 'ref 'n in
     incr 'p ';
     '! 'p.
@@ -743,7 +743,7 @@ Qed.
 *)
 
 Definition succ_using_incr :=
-  VFun 'n :=
+  Fun 'n :=
     Let 'p := 'ref 'n in
     incr 'p ';
     Let 'x := '! 'p in
@@ -813,7 +813,7 @@ Parameter facto_step : forall n,
 *)
 
 Definition factorec : val :=
-  VFix 'f 'n :=
+  Fix 'f 'n :=
     Let 'b := 'n '<= 1 in
     If_ 'b
       Then 1
@@ -946,7 +946,7 @@ Qed.
 *)
 
 Definition repeat_incr : val :=
-  VFix 'f 'p 'm :=
+  Fix 'f 'p 'm :=
     Let 'b := 'm '> 0 in
     If_ 'b Then
       incr 'p ';
@@ -1023,7 +1023,7 @@ Abort.
 *)
 
 Definition step_transfer :=
-  VFix 'f 'p 'q :=
+  Fix 'f 'p 'q :=
     Let 'm := '!'q in
     Let 'b := 'm '> 0 in
     If_ 'b Then
@@ -1167,7 +1167,7 @@ Qed.
 *)
 
 Definition append : val :=
-  VFix 'f 'p1 'p2 :=
+  Fix 'f 'p1 'p2 :=
     Let 'q1 := 'p1'.tail in
     Let 'b := ('q1 '= null) in
     If_ 'b
@@ -1235,18 +1235,18 @@ Qed.
 *)
 
 Definition cps_append_aux : val :=
-  VFix 'f 'p1 'p2 'k :=
+  Fix 'f 'p1 'p2 'k :=
     Let 'b := ('p1 '= null) in
     If_ 'b
       Then 'k 'p2
       Else
         Let 'q1 := 'p1'.tail in
-        Let 'k2 := (Fun 'r := (Set 'p1'.tail ':= 'r '; 'k 'p1)) in
+        Let 'k2 := (Fun_ 'r := (Set 'p1'.tail ':= 'r '; 'k 'p1)) in
         'f 'q1 'p2 'k2.
 
 Definition cps_append : val :=
-  VFun 'p1 'p2 :=
-    Let 'f := (Fun 'r := 'r) in
+  Fun 'p1 'p2 :=
+    Let 'f := (Fun_ 'r := 'r) in
     cps_append_aux 'p1 'p2 'f.
 
 Lemma triple_cps_append_aux : forall H Q (L1 L2:list val) (p1 p2:loc) (k:val),

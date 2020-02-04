@@ -2304,21 +2304,21 @@ Notation "t1 '';' t2" :=
   (at level 68, right associativity,
    format "'[v' '[' t1 ']'  '';'  '/'  '[' t2 ']' ']'") : trm_scope.
 
-Notation "'VFix' f x1 ':=' t" :=
-  (val_fix f x1 t)
-  (at level 69, f, x1 at level 0, format "'VFix'  f  x1  ':='  t") : val_scope.
-
 Notation "'Fix' f x1 ':=' t" :=
-  (trm_fix f x1 t)
-  (at level 69, f, x1 at level 0) : trm_scope.
+  (val_fix f x1 t)
+  (at level 69, f, x1 at level 0, format "'Fix'  f  x1  ':='  t") : val_scope.
 
-Notation "'VFun' x1 ':=' t" :=
-  (val_fun x1 t)
-  (at level 69, x1 at level 0, format "'VFun'  x1  ':='  t") : val_scope.
+Notation "'Fix_' f x1 ':=' t" :=
+  (trm_fix f x1 t)
+  (at level 69, f, x1 at level 0, format "'Fix_'  f  x1  ':='  t") : trm_scope.
 
 Notation "'Fun' x1 ':=' t" :=
+  (val_fun x1 t)
+  (at level 69, x1 at level 0, format "'Fun'  x1  ':='  t") : val_scope.
+
+Notation "'Fun_' x1 ':=' t" :=
   (trm_fun x1 t)
-  (at level 69, x1 at level 0, format "'Fun'  x1  ':='  t") : trm_scope.
+  (at level 69, x1 at level 0, format "'Fun_'  x1  ':='  t") : trm_scope.
 
 Notation "'ref t" :=
   (val_ref t)
@@ -2383,7 +2383,7 @@ Export SLFProgramSyntax.
 *)
 
 Definition incr : val :=
-  VFun 'p :=
+  Fun 'p :=
     Let 'n := '! 'p in
     Let 'm := 'n '+ 1 in
     'p ':= 'm.
@@ -2426,7 +2426,7 @@ Hint Resolve triple_incr : triple.
   from above. *)
 
 Definition mysucc : val :=
-  VFun 'n :=
+  Fun 'n :=
     Let 'r := val_ref 'n in
     incr 'r ';
     Let 'x := '! 'r in
@@ -2457,8 +2457,8 @@ Qed.
 *)
 
 Definition myfun : val :=
-  VFun 'p :=
-    Let 'f := (Fun 'u := incr 'p) in
+  Fun 'p :=
+    Let 'f := (Fun_ 'u := incr 'p) in
     'f '() ';
     'f '().
 

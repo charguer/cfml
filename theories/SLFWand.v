@@ -806,8 +806,8 @@ Import DemoPrograms.
 *)
 
 Definition myfun : val :=
-  VFun 'p :=
-    Let 'f := (Fun 'u := incr 'p) in
+  Fun 'p :=
+    Let 'f := (Fun_ 'u := incr 'p) in
     'f '() ';
     'f '().
 

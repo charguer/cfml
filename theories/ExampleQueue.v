@@ -61,7 +61,7 @@ Proof using. intros. xunfold~ MQueue. Qed.
 *)
 
 Definition is_empty :=
-  VFun 'p :=
+  Fun 'p :=
     'p'.head '= 'p'.tail.
 
 Lemma Triple_is_empty : forall `{EA:Enc A} (L:list A) p,
@@ -90,7 +90,7 @@ Hint Extern 1 (Register_Spec is_empty) => Provide Triple_is_empty.
 *)
 
 Definition create :=
-  VFun 'd :=
+  Fun 'd :=
     Let 'c := mk_cell 'd null in
     mk_cell 'c 'c.
 
@@ -118,7 +118,7 @@ Hint Extern 1 (Register_Spec create) => Provide Triple_create.
 *)
 
 Definition push_front :=
-  VFun 'p 'x :=
+  Fun 'p 'x :=
     Set 'p'.head ':= mk_cell 'x ('p'.head).
 
 Lemma Triple_push_front : forall `{EA:Enc A} p L (x:A),
@@ -149,7 +149,7 @@ Hint Extern 1 (Register_Spec push_front) => Provide Triple_push_front.
 *)
 
 Definition pop_front :=
-  VFun 'p :=
+  Fun 'p :=
     Let 'f := 'p'.head in
     Let 'x := 'f'.head in
     Set 'p'.head ':= ('f'.tail) '; (* TODO: pb without parenthesis *)
@@ -187,7 +187,7 @@ Hint Extern 1 (Register_Spec pop_front) => Provide Triple_pop_front.
 *)
 
 Definition push_back :=
-  VFun 'p 'x :=
+  Fun 'p 'x :=
     Let 'b := 'p'.tail in
     Let 'c := mk_cell ('b'.head) null in
     Set 'b'.head ':= 'x ';
@@ -230,7 +230,7 @@ Hint Extern 1 (Register_Spec push_back) => Provide Triple_push_back.
 *)
 
 Definition transfer :=
-  VFun 'p1 'p2 :=
+  Fun 'p1 'p2 :=
     If_ 'not (is_empty 'p2) Then
        Let 'b1 := 'p1'.tail in
        Let 'f2 := 'p2'.head in

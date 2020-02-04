@@ -506,8 +506,8 @@ Hint Extern 1 (Register_spec val_union) => Provide triple_union.
 
   let val_create =
     Vars N, I in
-    Fun N :=
-      val_array_init (Fun I := I) N.
+    Fun_ N :=
+      val_array_init (Fun_ I := I) N.
 
 Parameter val_create : val.
 

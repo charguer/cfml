@@ -148,7 +148,7 @@ Definition example_val : val :=
     somewhat more readable way, as follows. *)
 
 Definition example_val' : trm :=
-  VFun "x" :=
+  Fun "x" :=
     If_ "x" Then 0 Else 1.
 
 
@@ -163,7 +163,7 @@ Definition example_val' : trm :=
     need to know about the details. *)
 
 Definition state : Type := fmap loc val.
-  
+
 (** By convention, we use the type [state] describes a full state of memory,
     and introduce the type [heap] to describe just a piece of state. *)
 

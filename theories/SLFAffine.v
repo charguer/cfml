@@ -85,7 +85,7 @@ Export DemoPrograms.
 *)
 
 Definition succ_using_incr :=
-  VFun 'n :=
+  Fun 'n :=
     Let 'p := 'ref 'n in
     incr 'p ';
     '! 'p.

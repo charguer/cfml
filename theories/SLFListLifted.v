@@ -323,7 +323,7 @@ Qed. (* /ADMITTED *)
 *)
 
 Definition mhead : val :=
-  VFun 'p :=
+  Fun 'p :=
     'p'.head.
 
 (** One way to capture in the specification that the list should be
@@ -402,7 +402,7 @@ Qed.
 *)
 
 Definition mtail : val :=
-  VFun 'p :=
+  Fun 'p :=
    'p'.tail.
 
 (** In a context [p ~> MList (x::L)], a call to [mtail p] returns
@@ -504,7 +504,7 @@ Qed.
 *)
 
 Definition mlength : val :=
-  VFix 'f 'p :=
+  Fix 'f 'p :=
     If_ 'p '= null
       Then 0
       Else 1 '+ 'f ('p'.tail).
@@ -611,7 +611,7 @@ Hint Extern 1 (Register_Spec mlength) => Provide Triple_mlength.
 *)
 
 Definition mlist_incr : val :=
-  VFix 'f 'p :=
+  Fix 'f 'p :=
     If_ 'p '<> null Then (
       Set 'p'.head ':= 'p'.head '+ 1 ';
       'f ('p'.tail)
@@ -662,7 +662,7 @@ Qed. (* /ADMITTED *)
     allocation. *)
 
 Definition mcell : val :=
-  VFun 'x 'q :=
+  Fun 'x 'q :=
     New`{ head := 'x ; tail := 'q }.
 
 (** The precondition of [mcell x q] is empty. Its postcondition
@@ -717,7 +717,7 @@ Hint Extern 1 (Register_Spec mcons) => Provide Triple_mcons.
 *)
 
 Definition mnil : val :=
-  VFun 'u :=
+  Fun 'u :=
     null.
 
 (** The precondition of [mnil] is empty. Its postcondition of [mnil]
@@ -774,7 +774,7 @@ Qed.
 *)
 
 Definition mcopy : val :=
-  VFix 'f 'p :=
+  Fix 'f 'p :=
     If_ 'p  '= null
       Then mnil '()
       Else mcons ('p'.head) ('f ('p'.tail)).
@@ -833,7 +833,7 @@ Hint Extern 1 (Register_Spec mcopy) => Provide Triple_mcopy.
 *)
 
 Definition mfree_cell : val :=
-  VFun 'p :=
+  Fun 'p :=
     Delete`{ head; tail } 'p.
 
 (** The precondition of [mfree_cell p] describes the two fields
@@ -870,7 +870,7 @@ Hint Extern 1 (Register_Spec mfree_cell) => Provide Triple_mfree_cell.
 *)
 
 Definition mfree_list : val :=
-  VFix 'f 'p :=
+  Fix 'f 'p :=
     If_ 'p '<> null Then
       Let 'q := 'p'.tail in
       mfree_cell 'p ';
@@ -951,7 +951,7 @@ Proof using. xunfold Stack. auto. Qed.
 *)
 
 Definition create : val :=
-  VFun 'u :=
+  Fun 'u :=
     'ref (mnil '()).
 
 (** The precondition of [create] is empty. Its postcondition asserts
@@ -988,7 +988,7 @@ Hint Extern 1 (Register_Spec create) => Provide Triple_create.
 *)
 
 Definition push : val :=
-  VFun 'q 'x :=
+  Fun 'q 'x :=
     'q ':= mcons 'x ('!'q).
 
 (** The precondition of [push q x] requires a stack [q ~> Stack L].
@@ -1033,7 +1033,7 @@ Hint Extern 1 (Register_Spec push) => Provide Triple_push.
 *)
 
 Definition is_empty : val :=
-  VFun 'q :=
+  Fun 'q :=
     '!'q '= null.
 
 (** The precondition of [is_empty q] requires a stack [q ~> Stack L].
@@ -1105,7 +1105,7 @@ Hint Extern 1 (Register_Spec is_empty) => Provide Triple_is_empty.
 *)
 
 Definition pop : val :=
-  VFun 'q :=
+  Fun 'q :=
     Let 'p := '!'q in
     Let 'x := mhead 'p in
     'q ':= mtail 'p ';
@@ -1182,7 +1182,7 @@ Hint Extern 1 (Register_Spec pop) => Provide Triple_pop.
 *)
 
 Definition mappend_copy : val :=
-  VFix 'f 'p1 'p2 :=
+  Fix 'f 'p1 'p2 :=
     If_ 'p1 '= null Then mcopy 'p2 Else (
       Let 'p := 'f ('p1'.tail) 'p2 in
       mcons ('p1'.head) 'p
@@ -1231,7 +1231,7 @@ Qed.
 *)
 
 Definition mcopy_nonneg : val :=
-  VFix 'f 'p :=
+  Fix 'f 'p :=
     If_ 'p '= null Then mnil '() Else (
       Let 'x := 'p'.head in
       Let 'q2 := 'f ('p'.tail) in
@@ -1291,14 +1291,14 @@ Qed.
 *)
 
 Definition mlength_acc_rec : val :=
-  VFix 'f 'a 'p :=
+  Fix 'f 'a 'p :=
     If_ 'p '<> null Then
       incr 'a ';
       'f 'a ('p'.tail)
    End.
 
 Definition mlength_acc : val :=
-  VFun 'p :=
+  Fun 'p :=
     Let 'a := 'ref 0 in
     mlength_acc_rec 'a 'p ';
     Let 'n := '! 'a in
@@ -1369,7 +1369,7 @@ Qed. (* /ADMITTED *)
 *)
 
 Definition delete : val :=
-  VFun 'q :=
+  Fun 'q :=
     mfree_list ('!'q) ';
     'free 'q.
 
@@ -1402,7 +1402,7 @@ Qed.
 *)
 
 Definition clear : val :=
-  VFun 'q :=
+  Fun 'q :=
     mfree_list ('!'q) ';
     'q ':= mnil '().
 
@@ -1465,13 +1465,13 @@ Qed.
 *)
 
 Definition mappend_aux : val :=
-  VFix 'f 'p1 'p2 :=
+  Fix 'f 'p1 'p2 :=
     If_ 'p1'.tail '= null
       Then Set 'p1'.tail ':= 'p2
       Else 'f ('p1'.tail) 'p2.
 
 Definition mappend : val :=
-  VFun 'p1 'p2 :=
+  Fun 'p1 'p2 :=
     If_ 'p1 '= null Then 'p2 Else (
       mappend_aux 'p1 'p2 ';
       'p1
@@ -1544,7 +1544,7 @@ Hint Extern 1 (Register_Spec mappend) => Provide Triple_mappend.
 *)
 
 Definition concat : val :=
-  VFun 'q1 'q2 :=
+  Fun 'q1 'q2 :=
     'q1 ':= mappend ('!'q1) ('!'q2) ';
     'q2 ':= mnil '().
 
@@ -1604,7 +1604,7 @@ Hint Extern 1 (Register_Spec concat) => Provide Triple_concat.
 *)
 
 Definition push_back : val :=
-  VFun 'q 'x :=
+  Fun 'q 'x :=
     Let 'p2 := mcell 'x (mnil '()) in
     'q ':= mappend ('!'q) 'p2.
 
@@ -1657,7 +1657,7 @@ Hint Extern 1 (Register_Spec push_back) => Provide Triple_push_back.
 *)
 
 Definition mrev_append : val :=
-  VFix 'f 'p1 'p2 :=
+  Fix 'f 'p1 'p2 :=
     If_ 'p2 '= null Then 'p1 Else (
       Let 'q := 'p2'.tail in
       Set 'p2'.tail ':= 'p1 ';
@@ -1665,7 +1665,7 @@ Definition mrev_append : val :=
     ).
 
 Definition mrev : val :=
-  VFun 'p :=
+  Fun 'p :=
     mrev_append null 'p.
 
 (* EX3! (Triple_mrev_append) *)

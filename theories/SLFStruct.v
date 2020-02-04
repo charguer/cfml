@@ -21,7 +21,6 @@ Implicit Type i n : int.
 Implicit Type v : val.
 Implicit Type L : list val.
 
-(* TODO: rename VFun *)
 (* TODO : limitation of xapp for lemmas with premises... *)
 
 
@@ -556,7 +555,7 @@ Proof using.  auto. Qed.
     encoded by allocating of a 2-cell record, and setting its two fields. *)
 
 Definition mcell : val :=
-  VFun 'x 'q :=
+  Fun 'x 'q :=
     Let 'p := val_alloc 2%nat in
     Set 'p'.head ':= 'x ';
     Set 'p'.tail ':= 'q ';
@@ -606,7 +605,7 @@ Hint Resolve triple_mcons : triple.
 *)
 
 Definition mnil : val :=
-  VFun 'u :=
+  Fun 'u :=
     null.
 
 (** The precondition of [mnil] is empty. Its postcondition of [mnil]
@@ -658,7 +657,7 @@ Hint Resolve triple_mnil : triple.
 *)
 
 Definition mcopy : val :=
-  VFix 'f 'p :=
+  Fix 'f 'p :=
     Let 'b := ('p '= null) in
     If_ 'b
       Then mnil '()
@@ -722,7 +721,7 @@ Qed.
     with the cell at location [p]. *)
 
 Definition mfree_cell : val :=
-  VFun 'p :=
+  Fun 'p :=
     val_dealloc 2%nat 'p.
 
 (** The precondition of this operation thus requires the two fields
@@ -752,7 +751,7 @@ Hint Resolve triple_mfree_cell : triple.
 *)
 
 Definition mfree_list : val :=
-  VFix 'f 'p :=
+  Fix 'f 'p :=
     Let 'b := ('p '<> null) in
     If_ 'b Then
       Let 'q := 'p'.tail in
@@ -972,8 +971,8 @@ Implicit Types f : var.
     recursive, and that it is not a value but a term, because it may
     refer to the variable [x1] bound outside of it.
 
-    We introduce the notation [VFix f x1 x2 := t] to generalize
-    [VFix f x := t] to the case of functions of two arguments. *)
+    We introduce the notation [Fix f x1 x2 := t] to generalize
+    [Fix f x := t] to the case of functions of two arguments. *)
 
 Notation "'VFix' f x1 x2 ':=' t" :=
   (val_fix f x1 (trm_fun x2 t))
@@ -1554,7 +1553,7 @@ Transparent hfield.
     where [p+f] is computed by invoking [val_ptr_add p k]. *)
 
 Definition val_get_field (k:field) : val :=
-  VFun 'p :=
+  Fun 'p :=
     Let 'q := val_ptr_add 'p (nat_to_Z k) in
     val_get 'q.
 
@@ -1573,7 +1572,7 @@ Qed.
     fields. *)
 
 Definition val_set_field (k:field) : val :=
-  VFun 'p 'v :=
+  Fun 'p 'v :=
     Let 'q := val_ptr_add 'p (nat_to_Z k) in
     val_set 'q 'v.
 
@@ -1715,7 +1714,7 @@ Qed.
     specification expressed in terms of [LibList.nth (abs i) L]. *)
 
 Definition val_array_get : val :=
-  VFun 'p 'i :=
+  Fun 'p 'i :=
     Let 'n := val_ptr_add 'p 'i in
     val_get 'n.
 
@@ -1738,7 +1737,7 @@ Qed.
     specification expressed in terms of [LibList.update (abs i) v L]. *)
 
 Definition val_array_set : val :=
-  VFun 'p 'i 'x :=
+  Fun 'p 'i 'x :=
     Let 'n := val_ptr_add 'p 'i in
     val_set 'n 'x.
 
