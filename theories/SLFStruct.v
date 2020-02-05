@@ -986,10 +986,10 @@ Implicit Types f : var.
     We introduce the notation [Fix f x1 x2 := t] to generalize the notation
     [Fix f x := t] to the case of a recursive function of two arguments. *)
 
-Notation "'VFix' f x1 x2 ':=' t" :=
+Notation "'Fix' f x1 x2 ':=' t" :=
   (val_fix f x1 (trm_fun x2 t))
   (at level 69, f, x1, x2 at level 0,
-  format "'VFix'  f  x1  x2  ':='  t").
+  format "'Fix'  f  x1  x2  ':='  t").
 
 (** An application of a function of two arguments takes the form
     [f v1 v2], which is actually parsed as [trm_app (trm_app f v1) v2].
@@ -1820,14 +1820,11 @@ Qed.
     arrays encoded using pointer arithmetic.
 
     In the proofs below, the following mathematical lemma is useful to
-    verify that indices remain in the bounds. *)
+    verify that indices remain in the bounds. It is proved in [SLFExtra]. *)
 
-Lemma abs_lt_length : forall i L,
-  0 <= i < nat_to_Z (length L) ->
-  (abs i < length L).
-Proof using.
-  introv N. apply lt_nat_of_lt_int. rewrite abs_nonneg; math.
-Qed.
+Parameter abs_lt_inbound : forall i k,
+  0 <= i < nat_to_Z k ->
+  (abs i < k).
 
 (** Consider the read operation in an array, written [val_array_get p i].
     We can define it as [val_get (val_ptr_add p i)], then prove its
@@ -1845,11 +1842,11 @@ Lemma triple_array_get : forall p i L,
     (fun r => \[r = LibList.nth (abs i) L] \* harray L p).
 Proof using.
   introv N. xwp. xapp triple_ptr_add. { math. }
-  xchange (@harray_focus (abs i) p L). { applys* abs_lt_length. }
+  xchange (@harray_focus (abs i) p L). { applys* abs_lt_inbound. }
   sets v: (LibList.nth (abs i) L).
   rewrite abs_nat_plus_nonneg; [|math].
   xapp triple_get. xchange (hforall_specialize v). subst v.
-  rewrite update_nth_same. xsimpl*. { applys* abs_lt_length. }
+  rewrite update_nth_same. xsimpl*. { applys* abs_lt_inbound. }
 Qed.
 
 (** Consider now a write operation, written [val_array_set p i v].
@@ -1868,7 +1865,7 @@ Lemma triple_array_set : forall p i v L,
     (fun _ => harray (LibList.update (abs i) v L) p).
 Proof using.
   introv N. xwp. xapp triple_ptr_add. { math. }
-  xchange (@harray_focus (abs i) p L). { applys* abs_lt_length. }
+  xchange (@harray_focus (abs i) p L). { applys* abs_lt_inbound. }
   rewrite abs_nat_plus_nonneg; [|math].
   xapp triple_set. xchange (hforall_specialize v).
 Qed.
