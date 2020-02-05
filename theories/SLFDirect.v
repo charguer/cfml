@@ -251,7 +251,7 @@ Inductive evalbinop : val -> val -> val -> val -> Prop :=
       evalbinop val_gt (val_int n1) (val_int n2) (val_bool (isTrue (n1 > n2))).
 
 (** The predicate [trm_is_val t] asserts that [t] is a value.
-    The evaluation rule [eval_app_arg], useful in particular to evaluate
+    The evaluation rule [eval_app_args], useful in particular to evaluate
     curried functions applied to several arguments, involves premises of
     the form [~ trm_is_val t1], asserting [t1] is not already a value. *)
 
@@ -267,7 +267,7 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
       eval s (trm_fun x t1) s (val_fun x t1)
   | eval_fix : forall s f x t1,
       eval s (trm_fix f x t1) s (val_fix f x t1)
-  | eval_app_arg : forall s1 s2 s3 s4 t1 t2 v1 v2 r,
+  | eval_app_args : forall s1 s2 s3 s4 t1 t2 v1 v2 r,
       (~ trm_is_val t1 \/ ~ trm_is_val t2) ->
       eval s1 t1 s2 v1 ->
       eval s2 t2 s3 v2 ->

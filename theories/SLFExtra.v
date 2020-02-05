@@ -681,7 +681,7 @@ Lemma eval_like_app_fun2 : forall v0 v1 v2 x1 x2 t1,
   x1 <> x2 ->
   eval_like (subst x2 v2 (subst x1 v1 t1)) (v0 v1 v2).
 Proof using.
-  introv E N. introv R. applys* eval_app_arg.
+  introv E N. introv R. applys* eval_app_args.
   { applys eval_app_fun E. simpl. rewrite var_eq_spec. case_if. applys eval_fun. }
   { applys* eval_val. }
   { applys* eval_app_fun. }
@@ -692,7 +692,7 @@ Lemma eval_like_app_fix2 : forall v0 v1 v2 f x1 x2 t1,
   (x1 <> x2 /\ f <> x2) ->
   eval_like (subst x2 v2 (subst x1 v1 (subst f v0 t1))) (v0 v1 v2).
 Proof using.
-  introv E (N1&N2). introv R. applys* eval_app_arg.
+  introv E (N1&N2). introv R. applys* eval_app_args.
   { applys eval_app_fix E. simpl. do 2 (rewrite var_eq_spec; case_if). applys eval_fun. }
   { applys* eval_val. }
   { applys* eval_app_fun. }
@@ -703,7 +703,7 @@ Lemma eval_like_app_fun3 : forall v0 v1 v2 v3 x1 x2 x3 t1,
   (x1 <> x2  /\ x1 <> x3 /\ x2 <> x3) ->
   eval_like (subst x3 v3 (subst x2 v2 (subst x1 v1 t1))) (v0 v1 v2 v3).
 Proof using.
-  introv E (N1&N2&N3). introv R. applys* eval_app_arg.
+  introv E (N1&N2&N3). introv R. applys* eval_app_args.
   { applys* eval_like_app_fun2 E. simpl. do 2 (rewrite var_eq_spec; case_if). applys eval_fun. }
   { applys eval_val. }
   { applys* eval_app_fun. }
@@ -714,7 +714,7 @@ Lemma eval_like_app_fix3 : forall v0 v1 v2 v3 f x1 x2 x3 t1,
   (x1 <> x2 /\ f <> x2 /\ f <> x3 /\ x1 <> x3 /\ x2 <> x3) ->
   eval_like (subst x3 v3 (subst x2 v2 (subst x1 v1 (subst f v0 t1)))) (v0 v1 v2 v3).
 Proof using.
-  introv E (N1&N2&N3&N4&N5). introv R. applys* eval_app_arg.
+  introv E (N1&N2&N3&N4&N5). introv R. applys* eval_app_args.
   { applys* eval_like_app_fix2 E. simpl. do 3 (rewrite var_eq_spec; case_if). applys eval_fun. }
   { applys eval_val. }
   { applys* eval_app_fun. }

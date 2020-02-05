@@ -965,28 +965,27 @@ Open Scope liblist_scope.
 Implicit Types f : var.
 
 (** We next give a quick presentation of the notation, lemmas and
-    tactics involved in the manipulation of functions of several
-    arguments. We focus here on the particular case of recursive
-    functions with two arguments, to illustrate the principles.
+    tactics involved in the manipulation of curried functions of 
+    several arguments. 
 
-    The lemmas for other arities can be found in the file [SLFExtra].
-    One may attempt to generalize these definitions to handle
-    arbitrary arities. Yet, to obtain an arity-generic treatment of
-    functions, it is much simpler to work with primitive n-ary functions
-    (i.e., functions that expects a list of variables, and that may be
-    applied to a list of values). The treatment of these n-ary functions
-    is beyond the scope of (the current version of) the course.
+    We focus here on the particular case of recursive functions with 2
+    arguments, to illustrate the principles. Set up for non-recursive and
+    recursive functions of arity 2 and 3 can be found in the file [SLFExtra].
+    One may attempt to generalize these definitions to handle arbitrary 
+    arities. Yet, to obtain an arity-generic treatment of functions, it is
+    much simpler to work with primitive n-ary functions, whose treatment is
+    presented further on.
 
-    So, let us focus on curried recursive functions of arity two.
+    Consider a curried recursive functions that expects two arguments.
+    [val_fix f x1 (trm_fun x2 t)] describes such a function, where [f]
+    denotes the name of the function for recursive calls, [x1] and [x2]
+    denote the arguments, and [t] denotes the body. Observe that the
+    inner function, the one that expects [x2], is not recursive, and that
+    it is not a value but a term (because it may refer to the variable [x1] 
+    bound outside of it).
 
-    [val_fix f x1 (trm_fun x2 t)] describes a value that corresponds to
-    a recursive function [t] that expects two arguments [x1] and [x2].
-    Observe that the inner function, the one that expects [x2], is not
-    recursive, and that it is not a value but a term, because it may
-    refer to the variable [x1] bound outside of it.
-
-    We introduce the notation [Fix f x1 x2 := t] to generalize
-    [Fix f x := t] to the case of functions of two arguments. *)
+    We introduce the notation [Fix f x1 x2 := t] to generalize the notation
+    [Fix f x := t] to the case of a recursive function of two arguments. *)
 
 Notation "'VFix' f x1 x2 ':=' t" :=
   (val_fix f x1 (trm_fun x2 t))
@@ -1002,20 +1001,20 @@ Notation "'VFix' f x1 x2 ':=' t" :=
     the arguments of a function application to values, before we can
     evaluate the application of a value to a value.
 
-    The rule [eval_app_arg] serves that purpose. To state it, we first
+    The rule [eval_app_args] serves that purpose. To state it, we first
     need to characterize whether a term is a value or not, using the
     predicate [trm_is_val t] defined next. *)
 
 Definition trm_is_val (t:trm) : Prop :=
   match t with trm_val v => True | _ => False end.
 
-(** The statement of [eval_app_arg] then takes the following form.
+(** The statement of [eval_app_args] then takes the following form.
     For an expression [trm_app t1 t2] where either [t1] or [t2] is
     not a value, it enables reducing both [t1] and [t2] to values,
     leaving a premise of the form [trm_app v1 v2], which is subject
     to the rule [eval_app_fun] for evaluating functions. *)
 
-Parameter eval_app_arg : forall s1 s2 s3 s4 t1 t2 v1 v2 r,
+Parameter eval_app_args : forall s1 s2 s3 s4 t1 t2 v1 v2 r,
   (~ trm_is_val t1 \/ ~ trm_is_val t2) ->
   eval s1 t1 s2 v1 ->
   eval s2 t2 s3 v2 ->
@@ -1038,7 +1037,7 @@ Lemma eval_like_app_fix2 : forall v0 v1 v2 f x1 x2 t1,
   (x1 <> x2 /\ f <> x2) ->
   eval_like (subst x2 v2 (subst x1 v1 (subst f v0 t1))) (v0 v1 v2).
 Proof using.
-  introv E (N1&N2). introv R. applys* eval_app_arg.
+  introv E (N1&N2). introv R. applys* eval_app_args.
   { applys eval_app_fix E. simpl. do 2 (rewrite var_eq_spec; case_if).
     applys eval_fun. }
   { applys* eval_val. }
@@ -1114,13 +1113,13 @@ Module PrimitiveNaryFun.
 
     On the one hand, the manipulation of lists adds a little bit of
     boilerplate. On the other hand, when using this representation, all
-    the definitions and lemmas are inherently arity-generic, that is, they
-    work for any number of arguments.
+    the definitions and lemmas are inherently arity-generic, that is, 
+    they work for any number of arguments.
 
-    We introduce the following short names for the lists types involved:
-    [vars], [vals] and [trms]. These names are not only useful to improve
-    conciseness, they also enable the set up of useful coercions, as we
-    will detail shortly afterwards. *)
+    We introduce the short names [vars], [vals] and [trms] to denote lists
+    of variables, lists of values, and lists of terms, respectively.  
+    These names are not only useful to improve conciseness, they also enable
+    the set up of useful coercions, as we will detail shortly afterwards. *)
 
 Definition vars : Type := list var.
 Definition vals : Type := list val.
@@ -1131,8 +1130,9 @@ Implicit Types vs : vals.
 Implicit Types ts : trms.
 
 (** We assume the grammar of terms and values to include primitive n-ary
-    functions and n-ary applications, featuring list of arguments. Thereafter,
-    for conciseness, we describe only the case of recursive functions. *)
+    functions and n-ary applications, featuring list of arguments. 
+    Thereafter, for conciseness, we omit non-recursive functions, and
+    focus on the treatment of the more-general recursive functions. *)
 
 Parameter val_fixs : var -> vars -> trm -> val.
 Parameter trm_fixs : var -> vars -> trm -> trm.
@@ -1172,7 +1172,7 @@ Parameter eval_fixs : forall m f xs t1,
   xs <> nil ->
   eval m (trm_fixs f xs t1) m (val_fixs f xs t1).
 
-(** A n-ary application of a function to values takes the form
+(** The application of a n-ary function to values takes the form
     [trm_apps (trm_val v0) ((trm_val v1):: .. ::(trm_val vn)::nil)].
     If the function [v0] is defined as [val_fixs f xs t1], where [xs]
     denotes the list [x1::x2::...::xn::nil], then the beta-reduction
@@ -1185,7 +1185,8 @@ Parameter eval_fixs : forall m f xs t1,
 
     With this list [vs], the n-ary application can then be written as the
     term [trm_apps (trm_val v0) (trms_vals vs)], where the operation
-    [trms_vals] a list of terms into a list of values. *)
+    [trms_vals] converts a list of values into a list of terms by
+    applying the constructor [trm_val] to every value from the list. *)
 
 Coercion trms_vals (vs:vals) : trms :=
   LibList.map trm_val vs.
@@ -1197,7 +1198,9 @@ Coercion trms_vals (vs:vals) : trms :=
 (** To describe the iterated substitution
     [subst xn vn (... (subst x1 v1 (subst f v0 t1)) ...)], we introduce
     the operation [substn xs vs t], which substitutes the variables [xs]
-    with the values [vs] inside the [t]. It is defined recursively. *)
+    with the values [vs] inside the [t]. It is defined recursively, 
+    by iterating calls to the function [subst] for substituting the
+    variables one by one. *)
 
 Fixpoint substn (xs:list var) (vs:list val) (t:trm) : trm :=
   match xs,vs with
@@ -1208,12 +1211,13 @@ Fixpoint substn (xs:list var) (vs:list val) (t:trm) : trm :=
 (** This substitution operation is well-behaved only if the list [xs]
     and the list [vs] have the same lengths. It is also desirable for
     reasoning about the evaluation rule to guarantee that the list of
-    variables [xs] contains variables distinct from each others and
-    distinct from [f], and that the list [xs] is not empty.
+    variables [xs] contains variables that are distinct from each others 
+    and distinct from [f], and to guarantee that the list [xs] is not empty.
 
     To formally capture all these invariants, we introduce the predicate
-    [var_fixs f xs n], [n] denotes the number of arguments the function
-    is being applied to (i.e., the length of the list [vs]). *)
+    [var_fixs f xs n], where [n] denotes the number of arguments the 
+    function is being applied to. Typically, [n] is equal to the length
+    of the list of arguments [vs]). *)
 
 Definition var_fixs (f:var) (xs:vars) (n:nat) : Prop :=
      LibList.noduplicates (f::xs)
@@ -1229,7 +1233,7 @@ Definition var_fixs (f:var) (xs:vars) (n:nat) : Prop :=
 Parameter eval_apps_fixs : forall v0 vs f xs t1 s1 s2 r,
   v0 = val_fixs f xs t1 ->
   var_fixs f xs (LibList.length vs) ->
-  eval s1 (substn xs vs (subst f v0 t1)) s2 r ->
+  eval s1 (substn (f::xs) (v0::vs) t1) s2 r ->
   eval s1 (trm_apps v0 (trms_vals vs)) s2 r.
 
 (** The corresponding reasoning rule has a somewhat similar statement. *)
@@ -1248,12 +1252,18 @@ Qed.
     of the form [trm_apps (trm_val v0) (trms_vals vs)]. Yet, in practice,
     goals are generally of the form
     [trm_apps (trm_val v0) ((trm_val v1):: .. :: (trm_val vn)::nil)].
-    The two forms are convertible, yet Coq is not able to synthetize
-    the list [vs] by unification.
+    The two forms are convertible, yet in general Coq is not able to 
+    synthetize the list [vs] during the unification process.
 
     Fortunately, it is possible to reformulate the lemma using an auxiliary
     conversion function named [trms_to_vals], whose evaluation by Coq's
-    unification process is able to synthetize the list [vs]. *)
+    unification process is able to synthetize the list [vs].
+
+    The operation [trms_to_vals ts], if all the terms in [ts] are of the
+    form [trm_val vi], returns a list of values [vs] such that [ts] is
+    equal to [trms_vals vs]. Otherwise, the operation returns [None]. 
+    The definition and specification of the operation [trms_to_vals]
+    are as follows. *)
 
 Fixpoint trms_to_vals (ts:trms) : option vals :=
   match ts with
@@ -1280,7 +1290,10 @@ Lemma demo_trms_to_vals : forall v1 v2 v3,
   exists vs,
      trms_to_vals ((trm_val v1)::(trm_val v2)::(trm_val v3)::nil) = Some vs
   /\ vs = vs.
-Proof using. intros. esplit. split. simpl. eauto. (* [vs] was inferred. *) Abort.
+Proof using.
+  (* activate the display of coercions to play this demo *)
+  intros. esplit. split. simpl. eauto. (* [vs] was inferred. *) 
+Abort.
 
 (** Using [trms_to_vals], we can reformulate [triple_apps_fixs'] in such
     a way that the rule can be smoothly applied on practical goals. *)
@@ -1348,12 +1361,16 @@ Inductive trm : Type :=
   | trm_val : val -> trm
   | trm_apps : trm -> list trm -> trm.
 
-(** We introduce the data type [apps] to represent syntactic function
-    applications. The application of a term to a term, that is, [t1 t2],
-    gets interpreted via a [Funclass] coercion as [apps_init t1 t2],
-    which is an expression of type [apps]. The application of an object of
-    type [apps] to a term, that is [a1 t2], gets interpreted via another
-    [Funclass] coercion as [apps_next a1 t2]. *)
+(** We introduce the data type [apps] to represent the syntax tree
+    associated with iterated applications of terms to terms. 
+
+    - The application of a term to a term, that is, [t1 t2], gets interpreted 
+      via a [Funclass] coercion as [apps_init t1 t2], which is an expression 
+      of type [apps]. 
+    - The application of an object of type [apps] to a term, that is [a1 t2], 
+      gets interpreted via another [Funclass] coercion as [apps_next a1 t2]. 
+
+*)
 
 Inductive apps : Type :=
   | apps_init : trm -> trm -> apps
@@ -1365,19 +1382,14 @@ Coercion apps_next : apps >-> Funclass.
 (** For example, the expression [f x y z] gets parsed by Coq as
     [apps_next (apps_next (apps_init f x) y) z]. From there, the
     desired term [trm_apps f (x::y::z::nil)] can be computed by a
-    Coq function that process the structure of the [apps] expression.
+    Coq function, called [apps_to_trm], that process the syntax tree
+    of the [apps] expression.
 
     - In the base case, [apps_init t1 t2] describes the application
       of a function to one argument: [trm_apps t1 (t2::nil)].
-    - Next, if an apps structure [a] describes a term [trm_apps f ts],
-      then [apps_next a t] describes the term [trm_apps f (ts++t::nil)],
-      that is, an application to one more argument. 
-
-    The recursive function [apps_to_trm] implements this computation.
-    It is declared as a coercion from [apps] to [trm], so that any
-    iterated application can be interpreted as the corresponding
-    [trm_apps] term. (Coq raises an "ambiguous coercion path" warning,
-    but it may be safely ignored.) *)
+    - Next, if an apps structure [a1] describes a term [trm_apps t0 ts],
+      then [apps_next a1 t2] describes the term [trm_apps t0 (ts++t2::nil)],
+      that is, an application to one more argument. *)
 
 Fixpoint apps_to_trm (a:apps) : trm :=
   match a with
@@ -1388,6 +1400,11 @@ Fixpoint apps_to_trm (a:apps) : trm :=
       | t0 => trm_apps t0 (t2::nil)
       end
   end.
+
+(** The function [apps_to_trm] is declared as a coercion from [apps]
+    to [trm], so that any iterated application can be interpreted as
+    the corresponding [trm_apps] term. (Coq raises an "ambiguous coercion
+    path" warning, but this warning may be safely ignored here.) *)
 
 Coercion apps_to_trm : apps >-> trm.
 
