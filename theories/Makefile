@@ -36,7 +36,10 @@ export TLC
 
 
 SRC_EXAMPLES := Example ExampleList ExampleListNull ExampleListIndir ExampleQueue ExampleListOf ExampleStack ExamplePairingHeap
-SRC_CORE := TLCbuffer Fmap Var SepSimpl Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics WPRecord $(SRC_EXAMPLES) WPExamples WPExamplesDetails WPLib WPUnitTests 
+
+SRC_COMMON := TLCbuffer Fmap Var SepSimpl
+
+SRC_CFML := Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics WPRecord $(SRC_EXAMPLES) WPExamples WPExamplesDetails WPLib WPUnitTests 
 
 SRC_MORE := SepBaseAltProofs SepCredits SepRO SubstExec 
 
@@ -50,7 +53,7 @@ SRC_SF := SLFPreface SLFDirect SLFExtra SLFSummary SLFBasic SLFHprop SLFHimpl SL
 
 SRC_MOSEL := SepMoselFunctor SepBaseMosel SepROMosel ExampleROMosel ExampleListMosel
 
-SRC := $(SRC_CORE) $(SRC_CF) $(SRC_SF) $(SRC_MORE)
+SRC := $(SRC_COMMON) $(SRC_CFML) $(SRC_CF) $(SRC_SF) $(SRC_MORE)
 # $(SRC_EXAMPLES)  $(SRC_MOSEL)
 
 # using the variable SRC_FORCE, one can modify the compilation targets and/or their order.
@@ -58,6 +61,11 @@ SRC := $(SRC_CORE) $(SRC_CF) $(SRC_SF) $(SRC_MORE)
 ifdef SRC_FORCE 
 	SRC := $(SRC_FORCE)
 endif
+
+ifdef SLF
+   SRC := $(SRC_COMMON) $(SRC_SF)
+endif
+
 
 
 ##############################################################################
@@ -67,7 +75,11 @@ PWD := $(shell pwd)
 
 V := $(addprefix $(PWD)/,$(SRC:=.v))
 
-COQFLAGS:=-w -implicits-in-term,-redundant-canonical-projection,-several-object-files
+ifdef SLF
+   COQFLAGS:=
+else
+   COQFLAGS:=-w -implicits-in-term,-redundant-canonical-projection,-several-object-files
+endif
 
 # -notation-overridden,
 
