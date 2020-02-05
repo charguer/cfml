@@ -517,7 +517,9 @@ Module Lists.
 Import SLFProgramSyntax.
 Implicit Types x : val.
 
-(** Recall from [SLFBasic] the definition of [MList]. *)
+(** In what follows, we illustrate how the allocation of records 
+    fits in the context of a bigger program, namely one that manipulates
+    mutable lists. Recall from [SLFBasic] the definition of [MList]. *)
 
 Fixpoint MList (L:list val) (p:loc) : hprop :=
   match L with
@@ -536,7 +538,7 @@ Lemma MList_cons : forall p x L',
 Proof using.  auto. Qed.
 
 (** Consider the function [mcell x q], which allocates a fresh mutable
-    list cell with [x] as head and [q] as tail.
+    list cell and sets [x] in the head field and [q] in the tail field.
 
 [[
     let mcell x q =
@@ -544,7 +546,8 @@ Proof using.  auto. Qed.
 ]]
 
     In our programming language, the creation of such a record can
-    encoded by allocating of a 2-cell record, and setting its two fields. *)
+    encoded by allocating of a 2-cell record, and one write operation
+    for each field. *)
 
 Definition mcell : val :=
   Fun 'x 'q :=
@@ -585,10 +588,10 @@ Qed.
 
 Hint Resolve triple_mcons : triple.
 
-(** The operation [mnil()] returns the [null] value, which is
-    a representation for the empty list [nil]. Thus, [mnil]
-    can be specified using a postcondition asserting it produces
-    [MList nil p], where [p] denotes the location returned.
+(** The operation [mnil()] returns the [null] value, which is a
+    representation for the empty list [nil]. Thus, [mnil] can be
+    specified using a postcondition asserting it produces [MList nil p], 
+    where [p] denotes the location returned.
 
 [[
     let rec mnil () =
@@ -603,8 +606,9 @@ Definition mnil : val :=
 (** The precondition of [mnil] is empty. Its postcondition of [mnil]
     asserts that the return value [p] is a pointer such that
     [MList nil p]. Because [p] is [null], the proof requires us to
-    introduce [null ~> MList nil] out of thin air. For this task, we
-    can use the following specialization of the lemma [MList_nil]. *)
+    introduce [MList nil null] out of thin air. For this task, it is
+    helpful to exploit a specialization of the lemma [MList_nil],
+    called [MList_nil_intro]. *)
 
 Lemma MList_nil_intro :
   \[] ==> (MList nil null).
@@ -625,20 +629,15 @@ Hint Resolve triple_mnil : triple.
     to save the need to state the lemma [xchange MList_nil_intro]. *)
 
 (** Observe that the specification [triple_mnil] does not mention
-    the [null] pointer anywhere. This specification can thus be
+    the [null] pointer anywhere. This specification may thus be
     used to specify the behavior of operations on mutable lists
-    without having to reveal low-level implementation details. *)
+    without having to reveal low-level implementation details that
+    involve the [null] pointer. *)
 
 (** In the remaining of this section, we present an example program
     that uses the functions [mnil] and [mcons] for allocating an
-    entire list. *)
-
-(** Consider the function [mcopy], which constructs an independent
-    copy of a given mutable linked list.
-
-    We'll thereby put to practice the lemma [MList_if] as well as
-    the allocation functions [mnil] and [mcons] for verifying the
-    function [mcopy]
+    entire list. More precisely, we consider the function [mcopy], 
+    which constructs an independent copy of a given mutable linked list.
 
 [[
     let rec mcopy p =
@@ -660,9 +659,9 @@ Definition mcopy : val :=
         mcons 'x 'q2.
 
 (** For the proof, recall from chapter [SLFBasic] the lemma [MList_if],
-    which reformulates the definition of [MList L p] using a case analysis
-    on whether the pointer [p] is null, instead of on whether the
-    list [L] is empty. *)
+    which reformulates the definition of [MList L p] using a case 
+    analysis on whether the pointer [p] is null, instead of on whether 
+    the list [L] is empty. *)
 
 Parameter MList_if : forall p L,
       (MList L p)
@@ -674,9 +673,9 @@ Parameter MList_if : forall p L,
 
 (** The precondition of [mcopy] requires a linked list [MList L p].
     Its postcondition asserts that the function returns a pointer [p']
-    and a list [MList L p'], in addition to the original list
-    [MList L p]. The two lists are totally disjoint and independent,
-    as captured by the separating conjunction symbol (the star). *)
+    and a list [MList L p'], in addition to the original list [MList L p].
+    The two lists are totally disjoint and independent, as captured by
+    the separating conjunction symbol (the star). *)
 
 Lemma triple_mcopy : forall L p,
   triple (mcopy p)
@@ -716,8 +715,8 @@ Definition mfree_cell : val :=
   Fun 'p :=
     val_dealloc 2%nat 'p.
 
-(** The precondition of this operation thus requires the two fields
-    [p`.head ~~> x] and [p`.tail ~~> q], and the postcondition is empty. *)
+(** The precondition of this operation requires the two fields, namely
+    [p`.head ~~> x] and [p`.tail ~~> q]. The postcondition is empty. *)
 
 Lemma triple_mfree_cell : forall x q p,
   triple (mfree_cell p)
@@ -754,7 +753,7 @@ Definition mfree_list : val :=
 (** The precondition of [mfree_list p] requires a full list [p ~> MList L].
     The postcondition is empty: the entire list is destroyed. *)
 
-(* EX1! (Triple_mfree_list) *)
+(* EX2! (Triple_mfree_list) *)
 (** Verify the function [mfree_list].
     Hint: follow the pattern of the proof of the function [mlength]. *)
 
@@ -783,22 +782,22 @@ Module GroupedFields.
     fields one by one, for example a list cell takes the form:
     [p`.head ~~> x \* p`.tail ~~> q].
 
-    It may be convenient to exploit a more compact description
-    that factorizes the location [p]. The same list cell may be
-    described as [hrecord `{ head := x; tail := p'} p].
+    When verifying larger programs, it is convenient to exploit
+    a more compact description of records, one that factorizes 
+    the fields associated with a same location [p]. The syntax
+    for a list cell is [hrecord `{ head := x; tail := p'} p].
 
     This factorized form has at least two practical benefits:
 
-    - it is shorter when the location [p] is not a very short
-      identifier;
+    - it yields a more concise statement whenever the location [p] 
+      is not a very short identifier;
     - it significantly decreases the number of star-separated
       items in the heap predicates, thereby increasing the speed
       of proof processing.
 
-    It what follows, we present the generic definition of
-    [p ~> Record L], and suggest how the specification of
-    the record field operations are set up.
-*)
+    It what follows, we introduce a generic representation predicate
+    for records, written [hecord kvs p], where [kvs] denotes a list
+    of pairs, each pair being made of a field name and a value. *)
 
 (** Recall that a field identifier corresponds to an offset,
     represented as a natural number. *)
@@ -810,32 +809,19 @@ Definition field : Type := nat.
 
 Definition hrecord_field : Type := (field * val).
 
-(** A record consists is made of a list of record fields. *)
+(** A record consists of a list of record fields. We let the
+    meta-variable [kvs] denote such lists. *)
 
 Definition hrecord_fields : Type := list hrecord_field.
 
 Implicit Types kvs : hrecord_fields.
 
-(** The heap predicate [hrecord L p] asserts that at location [p]
-    one fields the list of fields [L], where [L] has type
-    [hrecord_fields], that is [list (field * val)].
-
-    This predicate is defined by recursion on the list [L].
-    If [L] is empty, it describes the empty heap predicate.
-    Otherwise, a first field, at offset [f] and with contents [v],
-    is describes by the predicate [p`.f ~~> v], then the remaining
-    fields are described recursively. *)
-
-Fixpoint hrecord (kvs:hrecord_fields) (r:loc) : hprop :=
-  match kvs with
-  | nil => \[]
-  | (k,v)::kvs' => (r`.k ~~> v) \* (r ~> hrecord kvs')
-  end.
-
-(** To use [hrecord] in practice, let us introduce record-style
-    notation for list of pairs of fields and values.
-    Setting up an arity-generic notation is quite tricky,
-    let us simply support up to 3 fields for now. *)
+(** To improve readability for concrete records, it is useful to
+    introduce record-style notation for list of pairs of fields 
+    and values. Setting up an arity-generic notation is quite tricky,
+    so let us simply support up to 3 fields for now. For example, 
+    [`{head := x; tail := q}] stands for [(head,x)::(tail,q)::nil]].
+*)
 
 Notation "`{ k1 := v1 }" :=
   ((k1,(v1:val))::nil)
@@ -854,20 +840,38 @@ Notation "`{ k1 := v1 ; k2 := v2 ; k3 := v3 }" :=
 
 Open Scope val_scope.
 
+(** The heap predicate [hrecord kvs p] asserts that at location [p]
+    one fields the list of fields [kvs], where [kvs] has type
+    [hrecord_fields], that is [list (field * val)].
+
+    This predicate is defined by recursion on the list of fields [kvs].
+    If [kvs] is empty, the predicate describes the empty heap predicate.
+    Otherwise, it describes a first field, at offset [f] and with contents
+    [v], as the predicate [p`.f ~~> v], and it describes the remaining
+    fields recursively. *)
+
+Fixpoint hrecord (kvs:hrecord_fields) (r:loc) : hprop :=
+  match kvs with
+  | nil => \[]
+  | (k,v)::kvs' => (r`.k ~~> v) \* (r ~> hrecord kvs')
+  end.
+
 (** For example, the definition of the representation predicate
     [MList] can be revisited using the heap predicate [hrecord],
-    applied to a list with the [head] and the [tail] fields.. *)
+    applied to a list with the [head] and the [tail] fields. *)
 
 Fixpoint MList (L:list val) (p:loc) : hprop :=
   match L with
   | nil => \[p = null]
-  | x::L' => \exists p', (hrecord `{ head := x; tail := p'} p)
-                      \* (MList L' p')
+  | x::L' => \exists q, (hrecord `{ head := x; tail := q} p)
+                      \* (MList L' q)
   end.
 
-(** There remains to explain how to access the fields. Recall the
-    specification of the operation [val_get_field] for reading in
-    a field standing by itself. *)
+(** There remains to explain how to reason about accesses to record 
+    fields when the fields are described using the predicate [hrecord]. 
+
+    Recall the specification of the operation [val_get_field] for 
+    reading in a field standing by itself. *)
 
 Parameter triple_get_field : forall p k v,
   triple (val_get_field k p)
@@ -875,15 +879,25 @@ Parameter triple_get_field : forall p k v,
     (fun r => \[r = v] \* (p`.k ~~> v)).
 
 (** Let us derive from this specification another one that operates
-    on the heap predicate [hrecord kvs p]. *)
+    on the heap predicate [hrecord kvs p]. To that end, we introduce
+    a function called [hrecord_lookup] for extracting the value [v] 
+    associated with a field [k] in a list of record fields [kvs]. 
+
+    Because we cannot presume that the field [k] actually occurs in [kvs], 
+    the return type of [hrecord_lookup k kvs] is [option val]. *)
 
 Fixpoint hrecord_lookup (k:field) (kvs:hrecord_fields) : option val :=
   match kvs with
   | nil => None
-  | (f,v)::kvs' => if Nat.eq_dec k f
-                   then Some v
+  | (ki,vi)::kvs' => if Nat.eq_dec k ki
+                   then Some vi
                    else hrecord_lookup k kvs'
   end.
+
+(** Now, under the assumption that [hrecord_lookup k kvs] provides
+    some value [v], the read operation [val_get_field k p] returns
+    exactly that value [v]. The corresponding specification appears
+    below. *)
 
 Lemma triple_get_field_hrecord : forall kvs p k v,
   hrecord_lookup k kvs = Some v ->
@@ -891,43 +905,51 @@ Lemma triple_get_field_hrecord : forall kvs p k v,
     (hrecord kvs p)
     (fun r => \[r = v] \* hrecord kvs p).
 Proof using.
-  intros L. induction L as [| [f v] L']; simpl; introv E.
+  intros L. induction L as [| [ki vi] L']; simpl; introv E.
   { inverts E. }
   { case_if.
-    { inverts E. subst f. applys triple_conseq_frame.
+    { inverts E. subst ki. applys triple_conseq_frame.
       { applys triple_get_field. } { xsimpl. } { xsimpl*. } }
     { applys triple_conseq_frame. { applys IHL' E. } { xsimpl. } { xsimpl*. } } }
 Qed.
 
 (** Likewise, we can specify [val_set_field] in terms of the heap
     predicate [hrecord]. To that end, we introduce an auxiliary
-    function for computing the updated list of fields following an
-    write operation. *)
+    function called [hrecord_update] for computing the updated list
+    of fields following an write operation. [hrecord_update k w kvs]
+    replaces the contents of the field named [k] with the value [w].
+    It returns some description [kvs'] of the record fields, provided the 
+    update operation succeeded, i.e., provided that the field [k] on which
+    the update is to be performed actually occurs in the list [kvs]. *)
 
-Fixpoint hrecord_udpate (k:field) (w:val) (kvs:hrecord_fields)
+Fixpoint hrecord_udpate (k:field) (v:val) (kvs:hrecord_fields)
                         : option hrecord_fields :=
   match kvs with
   | nil => None
-  | (f,v)::kvs' => if Nat.eq_dec k f
-                   then Some ((f,w)::kvs')
-                   else match hrecord_udpate k w kvs' with
+  | (ki,vi)::kvs' => if Nat.eq_dec k ki
+                   then Some ((k,v)::kvs')
+                   else match hrecord_udpate k v kvs' with
                         | None => None
-                        | Some LR => Some ((f,v)::LR)
+                        | Some LR => Some ((ki,vi)::LR)
                         end
   end.
 
-Lemma triple_set_field_hrecord : forall kvs kvs' k p w,
-  hrecord_udpate k w kvs = Some kvs' ->
-  triple (val_set_field k p w)
+(** The specification of the write operation [val_set_field k p v]
+    describes an update of the state from [hrecord kvs p] to [hrecord kvs' p],
+    where [kvs'] is the result of [hrecord_update k v kvs]. *)
+
+Lemma triple_set_field_hrecord : forall kvs kvs' k p v,
+  hrecord_udpate k v kvs = Some kvs' ->
+  triple (val_set_field k p v)
     (hrecord kvs p)
     (fun _ => hrecord kvs' p).
 Proof using.
-  intros kvs. induction kvs as [| [f v] kvs']; simpl; introv E.
+  intros kvs. induction kvs as [| [ki vi] kvs']; simpl; introv E.
   { inverts E. }
   { case_if.
-    { inverts E. subst f. applys triple_conseq_frame.
+    { inverts E. subst ki. applys triple_conseq_frame.
       { applys triple_set_field. } { xsimpl. } { xsimpl*. } }
-    { cases (hrecord_udpate k w kvs') as C2; tryfalse. inverts E.
+    { cases (hrecord_udpate k v kvs') as C2; tryfalse. inverts E.
       applys triple_conseq_frame. { applys IHkvs' C2. }
       { xsimpl. } { simpl. xsimpl*. } } }
 Qed.
