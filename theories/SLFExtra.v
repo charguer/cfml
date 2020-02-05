@@ -1001,21 +1001,21 @@ Notation "'Set' t1 ''.' f '':=' t2" :=
 Module Export FieldAccessSpec.
 Open Scope wp_scope.
 
-Lemma triple_get_field : forall p f v,
-  triple ((val_get_field f) p)
-    (p`.f ~~> v)
-    (fun r => \[r = v] \* (p`.f ~~> v)).
+Lemma triple_get_field : forall p k v,
+  triple ((val_get_field k) p)
+    (p`.k ~~> v)
+    (fun r => \[r = v] \* (p`.k ~~> v)).
 Proof using.
-  xwp. xapp. math_rewrite ((p + f = f + p)%nat).
+  xwp. xapp. math_rewrite ((p + k = k + p)%nat).
   rewrite hfield_eq. xpull. intros N. xapp. xsimpl*.
 Qed.
 
-Lemma triple_set_field : forall v1 p f v2,
-  triple ((val_set_field f) p v2)
-    (p`.f ~~> v1)
-    (fun _ => p`.f ~~> v2).
+Lemma triple_set_field : forall v1 p k v2,
+  triple ((val_set_field k) p v2)
+    (p`.k ~~> v1)
+    (fun _ => p`.k ~~> v2).
 Proof using.
-  xwp. xapp. math_rewrite ((p + f = f + p)%nat).
+  xwp. xapp. math_rewrite ((p + k = k + p)%nat).
   do 2 rewrite hfield_eq. xpull. intros N. xapp. xsimpl*.
 Qed.
 

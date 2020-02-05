@@ -456,11 +456,11 @@ Qed.
     their specifications.
 
     The expression [val_get_field] has type [field -> val]. Given a field
-    name [f] (of type [field], which is defined as [nat]), the expression
-    [val_get_field f] denotes a value of type [val] that can be applied to
+    name [k] (of type [field], which is defined as [nat]), the expression
+    [val_get_field k] denotes a value of type [val] that can be applied to
     an argument [p].
 
-    The specification of [val_get_field f p] follows the pattern of the
+    The specification of [val_get_field k p] follows the pattern of the
     specification of [val_get]. The precondition and the postcondition
     describe a field [p`.k ~~> v], and the result value [r] is specified
     to be equal to [v]. *)
@@ -484,17 +484,17 @@ Parameter triple_set_field : forall v p k v',
     (p`.k ~~> v')
     (fun _ => p`.k ~~> v).
 
-(** We introduce the syntax [t'.f] for reading from a field using
-    [val_get_field], and [Set t1'.f := t2] for writing into a field
+(** We introduce the syntax [t'.k] for reading from a field using
+    [val_get_field], and [Set t1'.k := t2] for writing into a field
     using [val_set_field]. *)
 
-Notation "t1 ''.' f" :=
-  (val_get_field f t1)
-  (at level 56, f at level 0, format "t1 ''.' f" ).
+Notation "t1 ''.' k" :=
+  (val_get_field k t1)
+  (at level 56, k at level 0, format "t1 ''.' k" ).
 
-Notation "'Set' t1 ''.' f '':=' t2" :=
-  (val_set_field f t1 t2)
-  (at level 65, t1 at level 0, f at level 0, format "'Set' t1 ''.' f  '':=' t2").
+Notation "'Set' t1 ''.' k '':=' t2" :=
+  (val_set_field k t1 t2)
+  (at level 65, t1 at level 0, k at level 0, format "'Set' t1 ''.' k  '':=' t2").
 
 (** We register the specifications of these operations so that they may be
     exploited automatically by the tactic [xapp]. *)
@@ -845,8 +845,8 @@ Open Scope val_scope.
 
     This predicate is defined by recursion on the list of fields [kvs].
     If [kvs] is empty, the predicate describes the empty heap predicate.
-    Otherwise, it describes a first field, at offset [f] and with contents
-    [v], as the predicate [p`.f ~~> v], and it describes the remaining
+    Otherwise, it describes a first field, at offset [k] and with contents
+    [v], as the predicate [p`.k ~~> v], and it describes the remaining
     fields recursively. *)
 
 Fixpoint hrecord (kvs:hrecord_fields) (r:loc) : hprop :=
@@ -1668,10 +1668,10 @@ Definition val_get_field (k:field) : val :=
 (** The specification of [val_get_field] can be proved with respect
     to the specifications of [val_ptr_add] and that of [val_get]. *)
 
-Lemma triple_get_field : forall p f v,
-  triple ((val_get_field f) p)
-    (p`.f ~~> v)
-    (fun r => \[r = v] \* (p`.f ~~> v)).
+Lemma triple_get_field : forall p k v,
+  triple ((val_get_field k) p)
+    (p`.k ~~> v)
+    (fun r => \[r = v] \* (p`.k ~~> v)).
 Proof using.
   xwp. xapp. unfold hfield. xpull. intros N. xapp. xsimpl*.
 Qed.
@@ -1684,10 +1684,10 @@ Definition val_set_field (k:field) : val :=
     Let 'q := val_ptr_add 'p (nat_to_Z k) in
     val_set 'q 'v.
 
-Lemma triple_set_field : forall v1 p f v2,
-  triple ((val_set_field f) p v2)
-    (p`.f ~~> v1)
-    (fun _ => p`.f ~~> v2).
+Lemma triple_set_field : forall v1 p k v2,
+  triple ((val_set_field k) p v2)
+    (p`.k ~~> v1)
+    (fun _ => p`.k ~~> v2).
 Proof using.
   xwp. xapp. unfold hfield. xpull. intros N. xapp. xsimpl*.
 Qed.

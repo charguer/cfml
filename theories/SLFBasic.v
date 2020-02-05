@@ -1191,7 +1191,7 @@ Proof using.
     xchange MList_cons. intros q. case_if.
     { (* Case [p = null]. Contradiction because nothing can be allocated at
          the null location, as captured by lemma [hfield_not_null],
-         which states: [(p`.f ~~> v) ==> (p`.f ~~> v) \* \[p <> null]]. *)
+         which states: [(p`.k ~~> v) ==> (p`.k ~~> v) \* \[p <> null]]. *)
       xchange hfield_not_null. }
     { (* Case [p <> null]. The 'else' branch corresponds to the definition
          of [MList] in the [cons] case. It suffices to correctly instantiate
