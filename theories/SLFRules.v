@@ -126,6 +126,17 @@ with trm : Type :=
     produces a [val_fun] value. Likewise, a [trm_fix] eventually evaluates to
     a [val_fix]. *)
 
+(** Several value constructors are declared as coercions, to enable more
+    concise statements. For example, [val_loc] is declared as a coercion,
+    so that a location [p] of type [loc] can be viewed as the value
+    [val_loc p] where an expression of type [val] is expected. Likewise,
+    a boolean [b] may be viewed as the value [val_bool b], and an integer
+    [n] may be viewed as the value [val_int n]. *)
+
+Coercion val_loc  : loc >-> val.
+Coercion val_bool : bool >-> val.
+Coercion val_int  : int >-> val.
+
 
 (* ################################################ *)
 (** *** State *)
@@ -221,12 +232,18 @@ Coercion trm_val : val >-> trm.
 
 (** Second, we declare [trm_app] as a "Funclass" coercion. This piece
     of magic enables us to write [t1 t2] as a shorthand for [trm_app t1 t2].
-    Thanks to this coercion, we may write [val_get (val_loc l)]
-    to mean [trm_app (val_get (val_loc l))]. Applications can even
-    be iterated, for example we may write [val_set (val_loc l) v]
-    to mean [trm_app (trm_app (val_set (val_loc l)) v]. *)
+    The idea of associating [trm_app] as the "Funclass" coercion for the
+    type [trm] is that if a term [t1] of type [trm] is applied like a
+    function to an argument, then [t1] should be interpreted as [trm_app t1]. *)
 
 Coercion trm_app : trm >-> Funclass.
+
+(** Interestingly, the "Funclass" coercion for [trm_app] can be iterated.
+    The expression [t1 t2 t3] is parsed by Coq as [(t1 t2) t3]. The first
+    application [t1 t2] is interpreted as [trm_app t1 t2]. This expression,
+    which itself has type [trm], is applied to [t3]. Hence, it is interpreted
+    as [trm_app (trm_app t1 t2) t3], which indeed corresponds to a function
+    applied to two arguments. *)
 
 
 (* ################################################ *)
@@ -400,18 +417,6 @@ Implicit Types h : heap.
 Implicit Types s : state.
 Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
-
-(** The file [SLFDirect] also exports a number of coercions to help with
-    the parsing of base values. For example, [val_loc] is a coercion,
-    thus [val_loc l] can be abbreviated as just [l].
-
-[[
-    Coercion val_loc  : loc >-> val.
-    Coercion val_bool : bool >-> val.
-    Coercion val_int  : int >-> val.
-]]
-
-*)
 
 
 (* ########################################################### *)

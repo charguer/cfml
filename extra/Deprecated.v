@@ -1611,3 +1611,18 @@ Proof using.
       xchange R. xsimpl. intros w. xchange (hforall_specialize w).
       rewrite update_cons_pos; [|math]. simpl. xsimpl. } }
 Qed.
+
+
+
+
+Fixpoint get_fun_and_args (a:apps) : trm * list trm :=
+  match a with
+  | apps_init t1 t2 => (t1, (t2::nil))
+  | apps_next a1 t2 =>
+      let (t0,ts) := get_fun_and_args a1 in
+      (t0,t2::ts)
+  end.
+
+Coercion apps_to_trm (a:apps) : trm :=
+  let (t0,ts) := get_fun_and_args a in
+  trm_apps t0 ts.

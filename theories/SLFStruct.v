@@ -1302,6 +1302,83 @@ Parameter xwp_lemma_fixs : forall v0 ts vs f xs t1 H Q,
   H ==> (wpgen (combine (f::xs) (v0::vs)) t1) Q ->
   triple (trm_apps v0 ts) H Q.
 
+(** One last practical details is the set up of the coercion for writing
+    function applications in a concise way. With n-ary functions, the
+    application of a function [f] to two arguments [x] and [y] takes the
+    form [trm_apps f (x::y::nil)]. This syntax is fairly verbose in
+    comparison with the syntax [f x y], which we were able to set up by
+    declaring [trm_app] as a [Funclass] coercion (recall chapter [SLFRules]).
+
+    If we simply declare [trm_apps] as a [Funclass] coercion, we can write
+    [f (x::y::nil)] to denote the application, but we still have to write
+    the list constructors explicitly.
+
+    Fortunately, there is a trick to get the expression [f x y] to be
+    interpreted by Coq as [trm_apps f (x::y::nil)], a trick that works
+    for any number of arguments. The trick is described next. *)
+
+Module NarySyntax.
+
+(** To illustrate the construction, let us consider a simplified grammar
+    of terms that includes the constructor [trm_apps] for n-ary applications. *)
+
+Inductive trm : Type :=
+  | trm_val : val -> trm
+  | trm_apps : trm -> list trm -> trm.
+
+(** We introduce the data type [apps] to represent syntactic function
+    applications. The application of a term to a term, that is, [t1 t2],
+    gets interpreted via a [Funclass] coercion as [apps_init t1 t2],
+    which is an expression of type [apps]. The application of an object of
+    type [apps] to a term, that is [a1 t2], gets interpreted via another
+    [Funclass] coercion as [apps_next a1 t2]. *)
+
+Inductive apps : Type :=
+  | apps_init : trm -> trm -> apps
+  | apps_next : apps -> trm -> apps.
+
+Coercion apps_init : trm >-> Funclass.
+Coercion apps_next : apps >-> Funclass.
+
+(** For example, the expression [f x y z] gets parsed by Coq as
+    [apps_next (apps_next (apps_init f x) y) z]. From there, the
+    desired term [trm_apps f (x::y::z::nil)] can be computed by a
+    Coq function that process the structure of the [apps] expression.
+
+    - In the base case, [apps_init t1 t2] describes the application
+      of a function to one argument: [trm_apps t1 (t2::nil)].
+    - Next, if an apps structure [a] describes a term [trm_apps f ts],
+      then [apps_next a t] describes the term [trm_apps f (ts++t::nil)],
+      that is, an application to one more argument. 
+
+    The recursive function [apps_to_trm] implements this computation.
+    It is declared as a coercion from [apps] to [trm], so that any
+    iterated application can be interpreted as the corresponding
+    [trm_apps] term. (Coq raises an "ambiguous coercion path" warning,
+    but it may be safely ignored.) *)
+
+Fixpoint apps_to_trm (a:apps) : trm :=
+  match a with
+  | apps_init t1 t2 => trm_apps t1 (t2::nil)
+  | apps_next a1 t2 =>
+      match apps_to_trm a1 with
+      | trm_apps t0 ts => trm_apps t0 (List.app ts (t2::nil))
+      | t0 => trm_apps t0 (t2::nil)
+      end
+  end.
+
+Coercion apps_to_trm : apps >-> trm.
+
+(** The following demo shows how the term [f x y z] is parsed as
+    [apps_to_trm (apps_next (apps_next (apps_init f x) y) z)], which
+    then simplifies by [simpl] to [trm_apps f (x::y::z::nil)]. *) 
+
+Lemma apps_demo : forall (f x y z:trm),
+  (f x y z : trm) = trm_apps f (x::y::z::nil).
+Proof using. intros. (* activate display of coercions *) simpl. Abort.
+
+End NarySyntax.
+
 End PrimitiveNaryFun.
 
 
