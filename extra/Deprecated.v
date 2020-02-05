@@ -1626,3 +1626,36 @@ Fixpoint get_fun_and_args (a:apps) : trm * list trm :=
 Coercion apps_to_trm (a:apps) : trm :=
   let (t0,ts) := get_fun_and_args a in
   trm_apps t0 ts.
+
+  (** A specification lemma for [incr] takes the form [triple (incr p) H Q].
+    Recall from the first chapter ([SLFBasic]) the specification of [incr]:
+
+[[
+    Parameter triple_incr : forall (p:loc) (n:int),
+      triple (trm_app incr p)
+        (p ~~> n)
+        (fun _ => p ~~> (n+1)).
+]]
+
+    The specification that we will write in this chapter (and the
+    following ones) will differ in two ways from the one above.
+
+    - First, the heap predicates will now be written [p ~~> n],
+      instead of [p ~~> n], for technical reasons that we won't
+      detail here.
+    - Second, the postcondition will now be of the form
+      [fun (v:val) => \[v = val_unit] \* ...] instead of
+      [fun (v:unit) => ...], for similar reasons.
+
+    The motivation for these differences is beyond the scope of this
+    course. Details are provided in the  chapter [SLFLift]. *)
+
+(* INSTRUCTORS *)
+(** [p ~~> n] technically stands for [p ~~> (val_int n)], where
+    [val_int] is a coercion. It is an instance of a predicate of
+    the form [p ~~> v] for a value [v] of type [val]. In contrast,
+    [p ~~> n] stands for [p ~~> (enc n)], where [enc] is a type-class
+    function that for translating Coq values into the type [val].
+    The type-class mechanism is more complex than the coercion mechanism,
+    yet much more general, hence its use in the actual CFML tool. *)
+(* /INSTRUCTORS *)

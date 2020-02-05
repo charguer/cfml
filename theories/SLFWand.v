@@ -907,7 +907,7 @@ Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
 Parameter triple_ref : forall (v:val),
   triple (val_ref v)
     \[]
-    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~> v).
+    (funloc l => l ~~> v).
 
 (** Assume that wish to derive the following triple, which extends
     both the precondition and the postcondition of the above specification
@@ -918,8 +918,7 @@ Parameter triple_ref : forall (v:val),
 Lemma triple_ref_extended : forall (v:val),
   triple (val_ref v)
     (\exists l' v', l' ~~> v')
-    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~> v \*
-              \exists l' v', l' ~~> v').
+    (funloc l => l ~~> v \* \exists l' v', l' ~~> v').
 
 (** Let us prove that this specification is derivable from the
     original one, namely [triple_ref]. *)
@@ -942,8 +941,7 @@ Abort.
 Lemma triple_ref_extended' : forall (v:val),
   triple (val_ref v)
     (\exists l' v', l' ~~> v')
-    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~> v \*
-              \exists l' v', l' ~~> v').
+    (funloc l => l ~~> v \* \exists l' v', l' ~~> v').
 Proof using.
   intros. applys triple_ramified_frame.
   { applys triple_ref. }
@@ -1496,7 +1494,7 @@ Implicit Types v : val.
 Parameter triple_ref : forall v,
   triple (val_ref v)
     \[]
-    (fun r => \exists (l:loc), \[r = val_loc l] \* l ~~> v).
+    (funloc l => l ~~> v).
 
 (** This specification can be equivalently reformulated in the following
     form. *)
@@ -1517,16 +1515,16 @@ Parameter wp_ref : forall Q v,
     [triple_ref] can be reformulated as follows. *)
 
 Lemma wp_ref_0 : forall v,
-  \[] ==> wp (val_ref v) (fun r => \exists l, \[r = val_loc l] \* l ~~> v).
+  \[] ==> wp (val_ref v) (funloc l => l ~~> v).
 Proof using. intros. rewrite wp_equiv. applys triple_ref. Qed.
 
 (** We wish to cast the RHS in the form [wp (val_ref v) Q] for an abstract
     variable [Q]. To that end, we reformulate the above statement by including
     a magic wand relating the current postcondition, which is
-    [(fun r => \exists l, \[r = val_loc l] \* l ~~> v)], and [Q]. *)
+    [(funloc l => l ~~> v)], and [Q]. *)
 
 Lemma wp_ref_1 : forall Q v,
-  ((fun r => \exists l, \[r = val_loc l] \* l ~~> v) \--* Q) ==> wp (val_ref v) Q.
+  ((funloc l => l ~~> v) \--* Q) ==> wp (val_ref v) Q.
 Proof using. intros. xchange (wp_ref_0 v). applys wp_ramified. Qed.
 
 (** This statement can be made slightly more readable by unfolding the

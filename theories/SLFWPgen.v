@@ -877,7 +877,7 @@ Import ExamplePrograms.
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
     (p ~~> n)
-    (fun v => \[v = val_unit] \* (p ~~> (n+1))).
+    (fun _ => p ~~> (n+1)).
 Proof using.
   intros. applys triple_app_fun_from_wpgen. { reflexivity. }
   simpl. (* Read the goal here... *)
@@ -1108,7 +1108,7 @@ Open Scope wpgen_scope.
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
     (p ~~> n)
-    (fun v => \[v = val_unit] \* (p ~~> (n+1))).
+    (fun _ => p ~~> (n+1)).
 Proof using.
   intros. applys triple_app_fun_from_wpgen. { reflexivity. }
   simpl. (* Read the goal here... It is of the form [H ==> F Q],
@@ -1352,7 +1352,7 @@ Open Scope wpgen_scope.
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
     (p ~~> n)
-    (fun v => \[v = val_unit] \* (p ~~> (n+1))).
+    (fun _ => p ~~> (n+1)).
 Proof using.
   intros. applys triple_app_fun_from_wpgen. { reflexivity. }
   simpl.
@@ -1460,7 +1460,7 @@ Open Scope wpgen_scope.
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
     (p ~~> n)
-    (fun v => \[v = val_unit] \* (p ~~> (n+1))).
+    (fun _ => p ~~> (n+1)).
 Proof using.
   intros.
   applys xwp_lemma. { reflexivity. }
@@ -1480,8 +1480,7 @@ Proof using.
   xpull; intros ? ->.
   applys xstruct_lemma.
   applys xapp_lemma. { apply triple_set. } { xsimpl. }
-  xpull; intros ? ->.
-  xsimpl. auto.
+  xsimpl.
 Qed.
 
 (* EX2! (triple_succ_using_incr_with_xlemmas) *)
@@ -1505,7 +1504,7 @@ Proof using. (* ADMITTED *)
   applys xseq_lemma.
   applys xstruct_lemma.
   applys xapp_lemma. { apply triple_incr. } { xsimpl. }
-  xpull; intros ? ->.
+  intros ?.
   applys xstruct_lemma.
   applys xlet_lemma.
   applys xstruct_lemma.
@@ -1515,7 +1514,7 @@ Proof using. (* ADMITTED *)
   applys xseq_lemma.
   applys xstruct_lemma.
   applys xapp_lemma. { apply triple_free. } { xsimpl. }
-  xpull; intros ? ->.
+  intros ?.
   applys xstruct_lemma.
   applys xval_lemma.
   xsimpl. auto.
@@ -1587,13 +1586,13 @@ Open Scope wpgen_scope.
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
     (p ~~> n)
-    (fun v => \[v = val_unit] \* (p ~~> (n+1))).
+    (fun _ => p ~~> (n+1)).
 Proof using.
   xwp.
   xapp_nosubst triple_get. intros ? ->.
   xapp_nosubst triple_add. intros ? ->.
-  xapp_nosubst triple_set. intros ? ->.
-  xsimpl. auto.
+  xapp_nosubst triple_set.
+  xsimpl.
 Qed.
 
 (* EX2! (triple_succ_using_incr_with_xtactics) *)
@@ -1606,11 +1605,10 @@ Lemma triple_succ_using_incr_with_xtactics : forall (n:int),
 Proof using. (* ADMITTED *)
   xwp.
   xapp_nosubst triple_ref. intros ? l ->.
-  xapp_nosubst triple_incr. intros ? ->.
+  xapp_nosubst triple_incr.
   xapp_nosubst triple_get. intros ? ->.
-  xapp_nosubst triple_free. intros ? ->.
-  xval.
-  xsimpl. auto.
+  xapp_nosubst triple_free.
+  xval. xsimpl. auto.
 Qed. (* /ADMITTED *)
 
 (** [] *)
@@ -1698,9 +1696,9 @@ Open Scope wpgen_scope.
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
     (p ~~> n)
-    (fun v => \[v = val_unit] \* (p ~~> (n+1))).
+    (fun _ => p ~~> (n+1)).
 Proof using.
-  xwp. xapp. xapp. xapp. xsimpl. auto.
+  xwp. xapp. xapp. xapp. xsimpl.
 Qed.
 
 (** In order to enable automatically exploiting the specification
@@ -1804,7 +1802,7 @@ Open Scope wpgen_scope.
 Lemma triple_incr_frame : forall (p q:loc) (n m:int),
   triple (trm_app incr p)
     (p ~~> n \* q ~~> m)
-    (fun v => \[v = val_unit] \* (p ~~> (n+1)) \* (q ~~> m)).
+    (fun _ => (p ~~> (n+1)) \* (q ~~> m)).
 Proof using.
   xwp.
   (* Instead of calling [xapp], let's put aside [q ~~> m] and focus on [p ~~> n]. *)
@@ -1813,7 +1811,7 @@ Proof using.
   xapp. xapp. xapp.
   (* Finally we check the check that the current state augmented with
      the framed predicate [q ~~> m] matches with the claimed postcondition. *)
-  xsimpl. auto.
+  xsimpl.
 Qed.
 
 End ProofsWithStructuralXtactics.

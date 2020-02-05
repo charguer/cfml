@@ -595,9 +595,69 @@ Qed.
 
 
 (* ########################################################### *)
+(** ** Specification of allocation *)
+
+(** Consider the operation ['ref v] (a notation for [val_ref v]),
+    which allocates a memory cell with contents [v]. How can we
+    specify this operation using a triple?
+
+    The precondition of this triple should be the empty heap predicate,
+    written [\[]], because the allocation can execute in an empty state.
+
+    The postcondition should assert that the output value is a pointer
+    [p], such that the final state is described by [p ~~> v].
+
+    It would be tempting to write the postcondition [fun p => p ~~> v].
+    Yet, the triple would be ill-typed, because the postcondition of a
+    triple must be of type [val->hprop], and [p] is an address of type [loc].
+
+    Instead, we need to write the postcondition in the form [fun (r:val) => H'],
+    where [r] denotes the result value, and somehow we need to assert
+    that [r] is a value of the form [val_loc p], for some location [p],
+    where [val_loc] is the constructor that injects locations into the
+    grammar of program values.
+
+    To formally quantify the variable, we use an existential quantifier
+    for heap predicates, written [\exists]. The correct postcondition for
+    ['ref v] is [fun (r:val) => \exists (p:loc), \[r = val_loc p] \* (p ~~> v)].
+
+    The complete statement of the specification appears below. *)
+
+Parameter triple_ref : forall (v:val),
+  triple ('ref v)
+    \[]
+    (fun r => \exists p, \[r = val_loc p] \* p ~~> v).
+
+(** The pattern [fun r => \exists p, \[r = val_loc p] \* H)] occurs
+    whenever a function returns a pointer. Thus, this pattern appears
+    pervasively. To improve conciseness, we introduce a specific
+    notation for this pattern, shorthening it to [funloc p => H]. *)
+
+Notation "'funloc' p '=>' H" :=
+  (fun r => \exists p, \[r = val_loc p] \* H)
+  (at level 200, p ident, format "'funloc'  p  '=>'  H").
+
+Parameter triple_ref' : forall (v:val),
+  triple ('ref v)
+    \[]
+    (funloc p => p ~~> v).
+
+(** Remark: CFML features a technique that generalizes the notation
+    [funloc] to all return types, by leveraging type-classes. Yet,
+    the use of type-classes involves a number of technicalities that
+    we wish to avoid in this course. For that reason, we employ only
+    the [funloc] notation, and use existential quantifiers explicitly
+    for other types. *)
+
+
+(* ########################################################### *)
 (** ** Exercise: allocate a reference with greater contents *)
 
-(** Consider the following function.
+(** Consider the following function, which takes as argument the
+    address [p] of a memory cell with contents [n], allocates a
+    fresh memory cell with contents [n+1], then returns the address
+    of that fresh cell.
+
 [[
     let ref_greater p =
       let n = !p in
@@ -615,26 +675,16 @@ Definition ref_greater : val :=
 (** The precondition of [ref_greater] asserts the existence of a cell
     [p ~~> n]. The postcondition of [ref_greater] asserts the existence
     of two cells, [p ~~> n] and [q ~~> (n+1)], where [q] denotes the
-    location returned by the function.
-
-    The postcondition of a triple must be of type [val->hprop]. Thus,
-    we need to write the postcondition in the form [fun (r:val) => H'],
-    where [r] denotes the result value, and somehow we need to assert
-    that [r] is a value of the form [val_loc q], for some location [q],
-    where [val_loc] is a coercion from locations to program values.
-
-    To formally relate [r] and [q], we write the postcondition in the
-    form [fun (r:val) => \exists (q:loc), \[r = val_loc q] \* ...].
-    The existential quantifier [\exists] quantifies the variable [q]
-    as part of a heap predicate. The bracket [\[r = val_loc q]] specifies
-    the relation between [r] and [q].
+    location returned by the function. The postcondition is thus written
+    [funloc q => p ~~> n \* q ~~> (n+1)], which is a shorthand for
+    [fun (r:val) => \exists (q:loc), \[r = val_loc q] \* p ~~> n \* q ~~> (n+1)].
 
     The complete specification of [ref_greater] is thus as follows. *)
 
 Lemma triple_ref_greater : forall (p:loc) (n:int),
   triple (ref_greater p)
     (p ~~> n)
-    (fun r => \exists q, \[r = val_loc q] \* p ~~> n \* q ~~> (n+1)).
+    (funloc q => p ~~> n \* q ~~> (n+1)).
 Proof using.
   xwp. xapp. xapp. xapp. intros q. xsimpl. auto.
 Qed.
@@ -657,7 +707,7 @@ Qed.
 Lemma triple_ref_greater_abstract : forall (p:loc) (n:int),
   triple (ref_greater p)
     (p ~~> n)
-    (fun r => \exists q m, \[r = val_loc q] \* \[m > n] \* q ~~> m \* p ~~> n).
+    (funloc q => \exists m, \[m > n] \* q ~~> m \* p ~~> n).
 Proof using.
   xtriple. xapp triple_ref_greater. xsimpl. { auto. } { math. }
 Qed.
@@ -1250,9 +1300,9 @@ Definition cps_append : val :=
     cps_append_aux 'p1 'p2 'f.
 
 Lemma triple_cps_append_aux : forall H Q (L1 L2:list val) (p1 p2:loc) (k:val),
-  (forall (p3:loc), triple (k p3) (p3 ~> MList (L1 ++ L2) \* H) Q) ->
+  (forall (p3:loc), triple (k p3) (MList (L1 ++ L2) p3 \* H) Q) ->
   triple (cps_append_aux p1 p2 k)
-    (p1 ~> MList L1 \* p2 ~> MList L2 \* H)
+    (MList L1 p1 \* MList L2 p2 \* H)
     Q.
 Proof using.
   introv Hk. gen H p1 p2 L2 k. induction_wf IH: (@list_sub val) L1.
@@ -1270,10 +1320,10 @@ Hint Resolve triple_cps_append_aux : triple.
 Lemma Triple_cps_append : forall (L1 L2:list val) (p1 p2:loc),
   triple (cps_append p1 p2)
     (MList L1 p1 \* MList L2 p2)
-    (fun r => \exists p3, \[r = val_loc p3] \* p3 ~> MList (L1++L2)).
+    (funloc p3 => MList (L1++L2) p3).
 Proof using.
   xwp. xfun. intros f Hf.
-  set (Q := fun r => \exists p3, \[r = val_loc p3] \* p3 ~> MList (L1++L2)).
+  set (Q := funloc p3 => MList (L1++L2) p3).
   xapp (@triple_cps_append_aux \[] Q).
   { intros p3. xtriple. xapp. xval. unfold Q. xsimpl*. }
   { xsimpl. }

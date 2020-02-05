@@ -1324,7 +1324,7 @@ Fixpoint MList (L:list val) (p:loc) : hprop :=
 (** The following reformulations of the definition are helpful in proofs. *)
 
 Lemma MList_cons : forall p x L',
-  p ~> MList (x::L') =
+  MList (x::L') p =
   \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* MList L' q.
 Proof using.  auto. Qed.
 

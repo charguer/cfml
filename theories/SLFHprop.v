@@ -413,77 +413,42 @@ Qed.
 
 
 (* ########################################################### *)
-(* ########################################################### *)
-(* ########################################################### *)
-(** * Additional contents *)
-
-
-(* ########################################################### *)
 (** ** Example of a triple: the increment function *)
 
-(** Assume a function called [incr] that increments the contents
-    of a memory cell. *)
+(** Recall the function [incr] introduced in the chapter [SLFBasic]. *)
 
 Parameter incr : val.
 
-(** An application of [incr] is technically a term of the form
-    [trm_app (trm_val incr) (trm_val (val_loc p))], where
-    [trm_val] injects values in the grammar of terms, and
+(** An application of this function, written [incr p], is technically
+    a term of the form [trm_app (trm_val incr) (trm_val (val_loc p))],
+    where [trm_val] injects values in the grammar of terms, and
     [val_loc] injects locations in the grammar of locations.
 
-    That said, because [trm_app], [trm_val], and [val_loc]
-    are registered as coercions, an application of [incr] to a
-    location [p] may be abbreviated as just [incr p]. *)
+    The abbreviation [incr p] parses correctly because [trm_app],
+    [trm_val], and [val_loc] are registered as coercions. Let us
+    check this claim with Coq. *)
 
 Lemma incr_applied : forall (p:loc) (n:int),
     trm_app (trm_val incr) (trm_val (val_loc p))
   = incr p.
 Proof using. reflexivity. Qed.
 
-(** A specification lemma for [incr] takes the form [triple (incr p) H Q].
-    Recall from the first chapter ([SLFBasic]) the specification of [incr]:
-
-[[
-    Parameter triple_incr : forall (p:loc) (n:int),
-      triple (trm_app incr p)
-        (p ~~> n)
-        (fun _ => p ~~> (n+1)).
-]]
-
-    The specification that we will write in this chapter (and the
-    following ones) will differ in two ways from the one above.
-
-    - First, the heap predicates will now be written [p ~~> n],
-      instead of [p ~~> n], for technical reasons that we won't
-      detail here.
-    - Second, the postcondition will now be of the form
-      [fun (v:val) => \[v = val_unit] \* ...] instead of
-      [fun (v:unit) => ...], for similar reasons.
-
-    The motivation for these differences is beyond the scope of this
-    course. Details are provided in the  chapter [SLFLift]. *)
-
-(* INSTRUCTORS *)
-(** [p ~~> n] technically stands for [p ~~> (val_int n)], where
-    [val_int] is a coercion. It is an instance of a predicate of
-    the form [p ~~> v] for a value [v] of type [val]. In contrast,
-    [p ~~> n] stands for [p ~~> (enc n)], where [enc] is a type-class
-    function that for translating Coq values into the type [val].
-    The type-class mechanism is more complex than the coercion mechanism,
-    yet much more general, hence its use in the actual CFML tool. *)
-(* /INSTRUCTORS *)
-
-(** Taking for granted these three differences in presentation, the
-    specification of [incr] is stated as shown below. *)
+(** The operation [incr p] is specified using a triple as shown
+    below. *)
 
 Parameter triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
     (p ~~> n)
-    (fun (v:val) => \[v = val_unit] \* (p ~~> (n+1))).
+    (fun r => p ~~> (n+1)).
 
 
 (* ########################################################### *)
-(** ** Example of applications of the frame rule *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Additional contents *)
+
+(* ########################################################### *)
+(** ** Example applications of the frame rule *)
 
 (** The frame rule asserts that a triple remains true in any
     extended heap.
@@ -497,7 +462,7 @@ Parameter triple_incr : forall (p:loc) (n:int),
 Lemma triple_incr_2 : forall (p q:loc) (n m:int),
   triple (incr p)
     ((p ~~> n) \* (q ~~> m))
-    (fun v => \[v = val_unit] \* (p ~~> (n+1)) \* (q ~~> m)).
+    (fun _ => (p ~~> (n+1)) \* (q ~~> m)).
 
 (** The above specification lemma is derivable from the specification
     lemma [triple_incr] by applying the frame rule to augment
@@ -508,7 +473,7 @@ Proof using.
   lets N: triple_frame (q ~~> m) M.
   applys_eq N 1 2.
   { auto. }
-  { apply functional_extensionality. intros v. rewrite hstar_assoc. auto. }
+  { apply functional_extensionality. intros v. auto. }
 Qed.
 
 (** Here, we have framed on [q ~~> m], but we could similarly
@@ -518,7 +483,7 @@ Qed.
 Parameter triple_incr_3 : forall (p:loc) (n:int) (H:hprop),
   triple (incr p)
     ((p ~~> n) \* H)
-    (fun v => \[v = val_unit] \* (p ~~> (n+1)) \* H).
+    (fun _ => (p ~~> (n+1)) \* H).
 
 (** Remark: in practice, we always prefer writing
     "small-footprint specifications", such as [triple_incr],
@@ -539,7 +504,7 @@ Parameter triple_incr_3 : forall (p:loc) (n:int) (H:hprop),
 Parameter triple_ref : forall (v:val),
   triple (val_ref v)
     \[]
-    (fun (r:val) => \exists (l:loc), \[r = val_loc l] \* l ~~> v).
+    (funloc l => l ~~> v).
 
 (** Applying the frame rule to the above specification, and to
     another memory cell, say [l' ~~> v'], we obtain: *)
@@ -547,7 +512,7 @@ Parameter triple_ref : forall (v:val),
 Parameter triple_ref_with_frame : forall (l':loc) (v':val) (v:val),
   triple (val_ref v)
     (l' ~~> v')
-    (fun (r:val) => \exists (l:loc), \[r = val_loc l] \* l ~~> v \* l' ~~> v').
+    (funloc l => l ~~> v \* l' ~~> v').
 
 (** This derived specification captures the fact that the newly
     allocated cell at address [l] is distinct from the previously

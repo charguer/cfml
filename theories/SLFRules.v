@@ -682,13 +682,13 @@ Parameter triple_get : forall v l,
     A call of the form [val_set v' w] executes safely if [v'] is of the
     form [val_loc l] for some location [l], in a state [l ~~> v].
     The write operation updates this state to [l ~~> w], and returns
-    the unit value. In other words, it returns a value [r] such that
-    [r = val_unit]. Hence, [val_set] is specified as follows. *)
+    the unit value, which can be ignored. Hence, [val_set] is specified
+    as follows. *)
 
 Parameter triple_set : forall w l v,
   triple (val_set (val_loc l) w)
     (l ~~> v)
-    (fun r => \[r = val_unit] \* l ~~> w).
+    (fun _ => l ~~> w).
 
 (** Recall that [val_ref] denotes the operation for allocating a cell
     with a given contents. A call to [val_ref v] does not depend on
@@ -705,6 +705,15 @@ Parameter triple_ref : forall v,
     \[]
     (fun (r:val) => \exists (l:loc), \[r = val_loc l] \* l ~~> v).
 
+(** Using the notation [funloc p => H] as a shorthand for
+    [fun (r:val) => \exists (p:loc), \[r = val_loc p] \* H],
+    the specification for [val_ref] becomes more concise. *)
+
+Parameter triple_ref' : forall v,
+  triple (val_ref v)
+    \[]
+    (funloc l => l ~~> v).
+
 (** Recall that [val_free] denotes the operation for deallocating a cell
     at a given address. A call of the form [val_free l] executes safely
     in a state [l ~~> v]. The operation leaves an empty state, and
@@ -713,7 +722,7 @@ Parameter triple_ref : forall v,
 Parameter triple_free : forall l v,
   triple (val_free (val_loc l))
     (l ~~> v)
-    (fun r => \[r = val_unit]).
+    (fun _ => \[]).
 
 
 (* ########################################################### *)
@@ -829,7 +838,7 @@ Proof using. reflexivity. Qed.
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
     (p ~~> n)
-    (fun v => \[v = val_unit] \* (p ~~> (n+1))).
+    (fun _ => p ~~> (n+1)).
 
 (** We next show a detailed proof for this specification. It exploits:
 
@@ -1546,7 +1555,7 @@ Qed.
 Lemma triple_ref : forall v,
   triple (val_ref v)
     \[]
-    (fun r => \exists l, \[r = val_loc l] \* l ~~> v).
+    (funloc l => l ~~> v).
 Proof using.
   intros. intros H'. applys hoare_conseq.
   { applys hoare_ref. }
@@ -1805,7 +1814,7 @@ Qed.
 Lemma hoare_set : forall H w l v,
   hoare (val_set (val_loc l) w)
     ((l ~~> v) \* H)
-    (fun r => \[r = val_unit] \* (l ~~> w) \* H).
+    (fun _ => (l ~~> w) \* H).
 Proof using.
   (* 1. We unfold the definition of [hoare]. *)
   intros. intros s1 K0.
@@ -1817,17 +1826,14 @@ Proof using.
   exists ((Fmap.single l w) \u h2) val_unit. split.
   { (* 5. The evaluation subgoal matches the statement of [eval_set_sep]. *)
     subst h1. applys eval_set_sep U D. auto. }
-  { (* 6. To establish the postcondition, we first isolate the pure fact. *)
-    rewrite hstar_hpure. split.
-    { auto. }
-    { (* 7. Then establish the star. *)
-      applys hstar_intro.
-      { (* 8. We establish the heap predicate [l ~~> w] *)
-        applys hsingle_intro. auto. }
-      { applys P2. }
-      { (* 9. Finally, we justify disjointness using the lemma
-              [Fmap.disjoint_single_set] introduced earlier. *)
-        subst h1. applys Fmap.disjoint_single_set D. } } }
+  { (* 7. Then establish the star. *)
+    applys hstar_intro.
+    { (* 8. We establish the heap predicate [l ~~> w] *)
+      applys hsingle_intro. auto. }
+    { applys P2. }
+    { (* 9. Finally, we justify disjointness using the lemma
+            [Fmap.disjoint_single_set] introduced earlier. *)
+      subst h1. applys Fmap.disjoint_single_set D. } }
 Qed.
 
 (** We then derive the Separation Logic triple as usual. *)
@@ -1835,12 +1841,12 @@ Qed.
 Lemma triple_set : forall w l v,
   triple (val_set (val_loc l) w)
     (l ~~> v)
-    (fun r => \[r = val_unit] \* l ~~> w).
+    (fun _ => l ~~> w).
 Proof using.
   intros. intros H'. applys hoare_conseq.
   { applys hoare_set. }
   { xsimpl. }
-  { xsimpl. auto. }
+  { xsimpl. }
 Qed.
 
 
@@ -1874,14 +1880,14 @@ Parameter eval_free_sep : forall s1 s2 v l,
 Lemma hoare_free : forall H l v,
   hoare (val_free (val_loc l))
     ((l ~~> v) \* H)
-    (fun r => \[r = val_unit] \* H).
+    (fun _ =>  H).
 Proof using. (* ADMITTED *)
   intros. intros s1 K0.
   destruct K0 as (h1&h2&P1&P2&D&U).
   lets (E1&N): hsingle_inv P1.
   exists h2 val_unit. split.
   { subst h1. applys eval_free_sep U D. }
-  { rewrite hstar_hpure. split~. }
+  { auto. }
 Qed. (* /ADMITTED *)
 
 (** [] *)
@@ -1894,12 +1900,12 @@ Qed. (* /ADMITTED *)
 Lemma triple_free : forall l v,
   triple (val_free (val_loc l))
     (l ~~> v)
-    (fun r => \[r = val_unit]).
+    (fun _ => \[]).
 Proof using. (* ADMITTED *)
   intros. intros H'. applys hoare_conseq.
   { applys hoare_free. }
   { xsimpl. }
-  { xsimpl. auto. }
+  { xsimpl. }
 Qed. (* /ADMITTED *)
 
 (** [] *)

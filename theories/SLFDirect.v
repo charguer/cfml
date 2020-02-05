@@ -365,16 +365,16 @@ Definition hprop := heap -> Prop.
 Definition himpl (H1 H2:hprop) : Prop :=
   forall h, H1 h -> H2 h.
 
-Notation "H1 ==> H2" := (himpl H1 H2) (at level 55) : heap_scope.
+Notation "H1 ==> H2" := (himpl H1 H2) (at level 55) : hprop_scope.
 
-Open Scope heap_scope.
+Open Scope hprop_scope.
 
 (** Entailment between postconditions, written [Q1 ===> Q2] *)
 
 Definition qimpl A (Q1 Q2:A->hprop) : Prop :=
   forall (v:A), Q1 v ==> Q2 v.
 
-Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55) : heap_scope.
+Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55) : hprop_scope.
 
 (** Implicit types for meta-variables. *)
 
@@ -420,22 +420,22 @@ Definition hforall (A : Type) (J : A -> hprop) : hprop :=
   fun h => forall x, J x h.
 
 Notation "\[]" := (hempty)
-  (at level 0) : heap_scope.
+  (at level 0) : hprop_scope.
 
-Notation "l '~~>' v" := (hsingle l v) (at level 32) : heap_scope.
+Notation "l '~~>' v" := (hsingle l v) (at level 32) : hprop_scope.
 
 Notation "H1 '\*' H2" := (hstar H1 H2)
-  (at level 41, right associativity) : heap_scope.
+  (at level 41, right associativity) : hprop_scope.
 
 Notation "'\exists' x1 .. xn , H" :=
   (hexists (fun x1 => .. (hexists (fun xn => H)) ..))
   (at level 39, x1 binder, H at level 50, right associativity,
-   format "'[' '\exists' '/ '  x1  ..  xn , '/ '  H ']'") : heap_scope.
+   format "'[' '\exists' '/ '  x1  ..  xn , '/ '  H ']'") : hprop_scope.
 
 Notation "'\forall' x1 .. xn , H" :=
   (hforall (fun x1 => .. (hforall (fun xn => H)) ..))
   (at level 39, x1 binder, H at level 50, right associativity,
-   format "'[' '\forall' '/ '  x1  ..  xn , '/ '  H ']'") : heap_scope.
+   format "'[' '\forall' '/ '  x1  ..  xn , '/ '  H ']'") : hprop_scope.
 
 (** Derived heap predicates.
 
@@ -456,18 +456,18 @@ Definition qwand A (Q1 Q2:A->hprop) : hprop :=
   \forall x, hwand (Q1 x) (Q2 x).
 
 Notation "\[ P ]" := (hpure P)
-  (at level 0, format "\[ P ]") : heap_scope.
+  (at level 0, format "\[ P ]") : hprop_scope.
 
-Notation "\Top" := (htop) : heap_scope.
+Notation "\Top" := (htop) : hprop_scope.
 
 Notation "Q \*+ H" := (fun x => hstar (Q x) H)
-  (at level 40) : heap_scope.
+  (at level 40) : hprop_scope.
 
 Notation "H1 \-* H2" := (hwand H1 H2)
-  (at level 43, right associativity) : heap_scope.
+  (at level 43, right associativity) : hprop_scope.
 
 Notation "Q1 \--* Q2" := (qwand Q1 Q2)
-  (at level 43) : heap_scope.
+  (at level 43) : hprop_scope.
 
 
 
@@ -983,7 +983,7 @@ Proof using. applys haffine_hany. Qed.
 Definition hgc := (* equivalent to [\exists H, \[haffine H] \* H] *)
   htop.
 
-Notation "\GC" := (hgc) : heap_scope.
+Notation "\GC" := (hgc) : hprop_scope.
 
 Lemma haffine_hgc :
   haffine \GC.
@@ -1334,7 +1334,6 @@ Proof using.
 Qed.
 
 
-
 (* ########################################################### *)
 (** ** Definition of [wp] and reasoning rules *)
 
@@ -1483,6 +1482,17 @@ Qed.
 
 
 (* ########################################################### *)
+(** ** Notation for postconditions of functions that return a pointer. *)
+
+(** [funloc p => H] is short for
+    [fun (r:val) => \exists (p:loc), \[r = val_loc p] \* H)]. *)
+
+Notation "'funloc' p '=>' H" :=
+  (fun r => \exists p, \[r = val_loc p] \* H)
+  (at level 200, p ident, format "'funloc'  p  '=>'  H") : hprop_scope.
+
+
+(* ########################################################### *)
 (** ** Triple-style specification for primitive functions *)
 
 Lemma triple_add : forall n1 n2,
@@ -1496,7 +1506,7 @@ Qed.
 Lemma triple_ref : forall v,
   triple (val_ref v)
     \[]
-    (fun r => \exists l, \[r = val_loc l] \* l ~~> v).
+    (funloc l => l ~~> v).
 Proof using.
   intros. unfold triple. intros H'. applys hoare_conseq hoare_ref; xsimpl~.
 Qed.
@@ -1512,7 +1522,7 @@ Qed.
 Lemma triple_set : forall w l v,
   triple (val_set (val_loc l) w)
     (l ~~> v)
-    (fun r => \[r = val_unit] \* l ~~> w).
+    (fun _ => l ~~> w).
 Proof using.
   intros. unfold triple. intros H'. applys hoare_conseq hoare_set; xsimpl~.
 Qed.
@@ -1520,7 +1530,7 @@ Qed.
 Lemma triple_free : forall l v,
   triple (val_free (val_loc l))
     (l ~~> v)
-    (fun r => \[r = val_unit]).
+    (fun _ => \[]).
 Proof using.
   intros. unfold triple. intros H'. applys hoare_conseq hoare_free; xsimpl~.
 Qed.
@@ -2399,7 +2409,7 @@ Definition incr : val :=
 Lemma triple_incr : forall (p:loc) (n:int),
   TRIPLE (trm_app incr p)
     PRE (p ~~> n)
-    POST (fun v => \[v = val_unit] \* (p ~~> (n+1))).
+    POST (fun _ => (p ~~> (n+1))).
 Proof using.
   xwp. xapp. xapp. xapp. xsimpl*.
 Qed.

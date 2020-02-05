@@ -257,7 +257,7 @@ Qed.
 Lemma triple_ref : forall v,
   triple (val_ref v)
     \[]
-    (fun r => \exists l, \[r = val_loc l] \* l ~~> v).
+    (funloc l => l ~~> v).
 Proof using.
   intros. intros HF. applys hoare_conseq hoare_ref; xsimpl~.
 Qed.
@@ -273,7 +273,7 @@ Qed.
 Lemma triple_set : forall w l v,
   triple (val_set (val_loc l) w)
     (l ~~> v)
-    (fun r => \[r = val_unit] \* l ~~> w).
+    (fun _ => l ~~> w).
 Proof using.
   intros. intros HF. applys hoare_conseq hoare_set; xsimpl~.
 Qed.
@@ -281,7 +281,7 @@ Qed.
 Lemma triple_free : forall l v,
   triple (val_free (val_loc l))
     (l ~~> v)
-    (fun r => \[r = val_unit]).
+    (fun _ => \[]).
 Proof using.
   intros. intros HF. applys hoare_conseq hoare_free; xsimpl~.
 Qed.
@@ -885,13 +885,13 @@ Qed.
 Parameter triple_alloc_nat : forall (k:nat),
   triple (val_alloc k)
     \[]
-    (fun r => \exists p, \[r = val_loc p] \* harray_uninit k p).
+    (funloc p => harray_uninit k p).
 
 Lemma triple_alloc : forall (n:int),
   n >= 0 ->
   triple (val_alloc n)
     \[]
-    (fun r => \exists p, \[r = val_loc p] \* harray_uninit (abs n) p).
+    (funloc p => harray_uninit (abs n) p).
 Proof using.
   introv N. rewrite <- (@abs_nonneg n) at 1; [|auto].
   xtriple. xapp triple_alloc_nat. xsimpl*.
@@ -901,7 +901,7 @@ Lemma triple_alloc_array : forall n,
   n >= 0 ->
   triple (val_alloc n)
     \[]
-    (fun r => \exists p L, \[r = val_loc p] \* \[n = length L] \* harray L p).
+    (funloc p => \exists L, \[n = length L] \* harray L p).
 Proof using.
   introv N. xtriple. xapp triple_alloc. { auto. }
   { xpull. intros p. unfold harray_uninit. xsimpl*.
@@ -953,7 +953,7 @@ Definition hfield (l:loc) (k:field) (v:val) : hprop :=
 
 Notation "l `. k '~~>' v" := (hfield l k v)
   (at level 32, k at level 0, no associativity,
-   format "l `. k  '~~>'  v") : heap_scope.
+   format "l `. k  '~~>'  v") : hprop_scope.
 
 Lemma hfield_eq : forall p k v,
   hfield p k v = ((k+p)%nat ~~> v \* \[p <> null]).
@@ -1056,7 +1056,7 @@ Definition decr : val :=
 Lemma triple_decr : forall (p:loc) (n:int),
   triple (trm_app decr p)
     (p ~~> n)
-    (fun v => \[v = val_unit] \* (p ~~> (n-1))).
+    (fun _ => p ~~> (n-1)).
 Proof using.
   xwp. xapp. xapp. xapp. xsimpl*.
 Qed.
