@@ -311,13 +311,13 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
       Fmap.indom s l ->
       eval s (val_free (val_loc l)) (Fmap.remove s l) val_unit
   | eval_alloc : forall k n ma mb l,
-      mb = Fmap.conseq l (LibList.make k val_uninit) ->
+      mb = Fmap.conseq (LibList.make k val_uninit) l ->
       n = nat_to_Z k ->
       l <> null ->
       Fmap.disjoint ma mb ->
       eval ma (val_alloc (val_int n)) (mb \+ ma) (val_loc l)
   | eval_dealloc : forall (n:int) vs ma mb l,
-      mb = Fmap.conseq l vs ->
+      mb = Fmap.conseq vs l ->
       n = LibList.length vs ->
       Fmap.disjoint ma mb ->
       eval (mb \+ ma) (val_dealloc (val_int n) (val_loc l)) ma val_unit.

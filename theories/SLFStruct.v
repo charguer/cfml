@@ -1439,24 +1439,21 @@ Parameter triple_alloc_nat' : forall k,
     \[]
     (fun r => \exists p, \[r = val_loc p] \* harray_uninit k p).
 
-(* TODO: rename l for p everywhere in the semantics *)
+(** Like for other operations, this specification can be proved correct
+    with respect to the semantics of the programming language.
 
-(** Like for other operations, this specification can be proved
-    correct with respect to the semantics of the programming
-    language. The allocation operation [val_alloc n] can be
-    described as extending the state with a range of fresh
-    consecutive cells.
+    The allocation operation [val_alloc n] can be described as extending
+    the state with a range of fresh consecutive cells. The corresponding
+    evaluation rule appears below.
 
-    The evaluation rule below describes the behavior of [val_alloc].
-    We write [LibList.make k val_uninit] for a list that repeats
-    [k] times the value [val_uninit]. We write [Fmap.conseq p L]
-    for a heap made of consecutive cells, starting at location [p],
-    whose contents are described by the elements from the list [L].
-    This heap is named [mb], and it extends the existing heap,
-    which is named [ma]. *)
+    In this rule, we write [LibList.make k val_uninit] for a list that 
+    repeats [k] times the value [val_uninit]. We write [Fmap.conseq L p] 
+    for a heap made of consecutive cells, starting at location [p], and
+    whose contents are described by the elements from the list [L]. This 
+    heap is named [mb], and it extends the existing heap, which is named [ma]. *)
 
 Parameter eval_alloc : forall k n ma mb p,
-  mb = Fmap.conseq p (LibList.make k val_uninit) ->
+  mb = Fmap.conseq (LibList.make k val_uninit) p ->
   n = nat_to_Z k ->
   p <> null ->
   Fmap.disjoint ma mb ->
@@ -1474,11 +1471,9 @@ Parameter eval_alloc : forall k n ma mb p,
     The two lemmas involved are stated and proved below. It is not
     needed to follow through the proof details. *)
 
-(* TODO fix order of L and p. *)
-
 Lemma hcells_intro : forall L p,
   p <> null ->
-  hcells L p (Fmap.conseq p L).
+  hcells L p (Fmap.conseq L p).
 Proof using.
   intros L. induction L as [|L']; introv N; simpl.
   { applys hempty_intro. }
@@ -1490,14 +1485,14 @@ Qed.
 
 Lemma harray_uninit_intro : forall p k,
   p <> null ->
-  harray_uninit k p (Fmap.conseq p (LibList.make k val_uninit)).
+  harray_uninit k p (Fmap.conseq (LibList.make k val_uninit) p).
 Proof using.
   introv N. unfold harray_uninit, harray.
   rewrite hstar_comm. rewrite hstar_hpure. split.
   { auto. } { applys* hcells_intro. }
 Qed.
 
-(** Using this lemma, we can prove the specification of [val_alloc].
+(** Using the lemma above, we can prove the specification of [val_alloc].
     As usual, we first derive a Hoare logic statement, then the
     corresponding Separation Logic judgment. *)
 
@@ -1527,27 +1522,29 @@ Qed.
 (** Similarly, we can formalize the behavior and the specification of
     the deallocation operation [val_dealloc n p].
 
-    This time, the initial state is of the union of a heap [mb],
-    describing the part to be deallocated, and a disjoint heap [ma],
-    describing the part of the state that remains. The heap [mb]
-    must correspond to [n] consecutive cells, starting at location [p]. *)
+    This time, the initial state is of the union of a heap [mb], describing
+    the part to be deallocated, and a disjoint heap [ma], describing the
+    part of the state that remains. The heap [mb] must correspond to [n] 
+    consecutive cells, starting at location [p]. This heap is described by
+    [Fmap.conseq vs p], for a list of values [vs]. *)
 
 Parameter eval_dealloc : forall n vs ma mb p,
-  mb = Fmap.conseq p vs ->
+  mb = Fmap.conseq vs p ->
   n = LibList.length vs ->
   Fmap.disjoint ma mb ->
   eval (Fmap.union mb ma) (val_dealloc (val_int n) (val_loc p)) ma val_unit.
 
 (** To verify the specification of deallocation, the crux of the proof
     is to establish that if a heap satisfies [hcells L p], then this
-    heap is described by [Fmap.conseq p L].
+    heap is described by [Fmap.conseq L p].
 
-    This technical lemma is stated as follows. The proof is by induction
-    on the list [L]. (No need to follow throught the proof details.) *)
+    This inversion lemma, reciprocal to [hcells_intro], is stated as
+    follows. The proof is by induction on the list [L]. (It is not
+    needed to follow throught the proof details.) *)
 
 Lemma hcells_inv : forall p L h,
   hcells L p h ->
-  h = Fmap.conseq p L.
+  h = Fmap.conseq L p.
 Proof using.
   introv N. gen p h. induction L as [|x L']; simpl; intros.
   { applys hempty_inv N. }
@@ -1556,7 +1553,8 @@ Proof using.
     { applys IHL' N2. } }
 Qed.
 
-(** Using this lemma, we can prove the specification of [val_dealloc]. *)
+(** Using this lemma, we can prove the specification of [val_dealloc],
+    first for Hoare triples, then for Separation Logic triples. *)
 
 Lemma hoare_dealloc_hcells : forall H L p n,
   n = length L ->
@@ -1579,7 +1577,7 @@ Proof using.
   { applys hoare_dealloc_hcells H' E. } { xsimpl. } { xsimpl. }
 Qed.
 
-(** It is straightforward to derive the alternative specification
+(** It is then straightforward to derive the alternative specification
     stated using [harray L p] in place of [hcells L p]. *)
 
 Lemma triple_dealloc_harray : forall L n p,
@@ -1607,11 +1605,14 @@ Module PointerAdd.
 
     The operation [val_ptr p n] applies to a pointer [p] and an integer [n].
     The integer [n] may be negative, as long as [p+n] corresponds to a
-    valid location, i.e., [p+n] must be nonnegative. *)
+    valid location, i.e., [p+n] must be nonnegative. The evaluation rule
+    for pointer addition is stated as follows. *)
 
 Parameter eval_ptr_add : forall p' p n s,
   (p':int) = p + n ->
   eval s (val_ptr_add (val_loc p) (val_int n)) s (val_loc p').
+
+(** The specification directly reformulates the evaluation rule. *)
 
 Lemma triple_ptr_add : forall p n,
   p + n >= 0 ->
@@ -1642,31 +1643,31 @@ End PointerAdd.
 
 
 (* ########################################################### *)
-(** ** Definition of record operations using pointer arithmetics *)
+(** ** Definition of record operations using pointer arithmetic *)
 
 Module FieldOps.
 Import SLFProgramSyntax.
 Transparent hfield.
 
 (** Most real-world programming languages include primitive operations
-    for reading and writing in record cells. Yet, in a simple language
-    like ours, record cells can be accessed by means of pointer arithmetic.
-    It is interesting to see how one may formally reason about this kind
-    of encoding. *)
+    for reading and writing in record cells. Yet, in our simple language,
+    record cells can be accessed by means of pointer arithmetic. It is
+    interesting to see how one may formally reason about this kind of
+    encoding. *)
 
 (** For example, the read operation on record fields can be implemented
     within our language, as the combination of a pointer addition and
-    a read operation. More precisely, reading in [p`.f] using
-    [val_get_field] is like reading at address [p+f] using [val_get],
-    where [p+f] is computed by invoking [val_ptr_add p k]. *)
+    a read operation. More precisely, reading in [p`.f] using [val_get_field] 
+    is like reading in the cell at address [p+f] using [val_get], where [p+f] 
+    is computed by invoking [val_ptr_add p k]. *)
 
 Definition val_get_field (k:field) : val :=
   Fun 'p :=
     Let 'q := val_ptr_add 'p (nat_to_Z k) in
     val_get 'q.
 
-(** The specification of [val_get_field] can be established just like
-    for any other function. *)
+(** The specification of [val_get_field] can be proved with respect
+    to the specifications of [val_ptr_add] and that of [val_get]. *)
 
 Lemma triple_get_field : forall p f v,
   triple ((val_get_field f) p)
@@ -1696,10 +1697,16 @@ End FieldOps.
 
 
 (* ########################################################### *)
-(** ** Definition of array operations using pointer arithmetics *)
+(** ** Properties of the [hcells] and [harray] predicates *)
 
-(** Lemmas for distributing [hcells] over a [nil], over a [cons],
-    and over a list concatenation. *)
+(** Before we describe the encoding of array operations using pointer
+    arithmetic, we need to establish a few properties of the representation
+    predicate [harray]. These properties describe the distribution of
+    the predicate [harray L p] in the case where [L] is [nil], or is a
+    [cons], or is a concatenation.
+  
+    Because [harray] is defined in terms of [hcells], we first state
+    and prove the corresponding lemmas for [hcells]. *)
 
 Lemma hcells_nil_eq : forall p,
   hcells nil p = \[].
@@ -1729,8 +1736,7 @@ Lemma harray_cons_eq : forall p x L,
 Proof using.
   intros. unfold harray. applys himpl_antisym.
   { rewrite hcells_cons_eq. xsimpl. unfolds loc, null. intros. math. }
-  { xchange hsingle_not_null. intros N. rewrite hcells_cons_eq. xsimpl*. }
-(* TODO *)
+  { xchange hsingle_not_null. intros N1 N2. rewrite hcells_cons_eq. xsimpl*. }
 Qed.
 
 Lemma harray_concat_eq : forall p L1 L2,
@@ -1742,12 +1748,13 @@ Qed.
 
 
 (* ########################################################### *)
-(** ** Definition of array operations using pointer arithmetics *)
+(** ** Definition of array operations using pointer arithmetic *)
 
 Module ArrayOps.
 Import SLFProgramSyntax.
 
-(** For example, an array operation on the [i]-th cell of an array at
+(** As we show, array operations can be encoded using pointer arithmetic.
+    For example, an array operation on the [i]-th cell of an array at
     location [p] can be implemented within our language, as the application
     of a read or write operation at the address [p+i].
 
@@ -1758,12 +1765,12 @@ Import SLFProgramSyntax.
 
     The isolation process is captured in a general way by the following
     "focus lemma". It reads as follows. Assume [harray L p] to initially
-    describe the full array. The, the [k]-th cell can be isolated as a
+    describe the full array. Then, the [k]-th cell can be isolated as a
     predicate [(p+k) ~~> v], where [v] denotes the [k]-th item of [L],
     that is [LibList.nth k L].
 
-    What remains can be described using the magic wand operator as
-    [((p+k) ~~> v) \-* (harray L p)], which captures the idea that when
+    What remains of the heap can be described using the magic wand operator 
+    as [((p+k) ~~> v) \-* (harray L p)], which captures the idea that when
     providing back the cell at location [p+k], one would regain the
     ownership of the full array. *)
 
@@ -1774,19 +1781,22 @@ Parameter harray_focus_read : forall k p v L,
        ((p+k)%nat ~~> v)
     \* ((p+k)%nat ~~> v \-* harray L p).
 
-(** The above focus lemma works for read operations but falls short for
-    a write operation, because it imposes the array to be put back in
+(** The above lemma works for read operations but falls short for a
+    write operation, because it imposes the array to be put back in
     its original form. It does not take into account the possibility
     to fold back the array with a modified contents for the cell at [p+k].
 
-    This observation leads us to generalize the magic wand describing
+    This observation leads us to generalize the magic wand that describes
     the rest of the array into the form:
-    [\forall w, ((p+k)%nat ~~> w) \-* harray (LibList.update k w L) p],
-    which indicates that for any new contents [w], the array can be folded
-    back into [harray L' p], where [L'] denotes the update of the list [L]
-    with [w] at location [k] (instead of [v]).
+    [\forall w, ((p+k)%nat ~~> w) \-* harray (LibList.update k w L) p].
+    This predicate indicates that, for any new contents [w], the array can 
+    be folded back into [harray L' p], where [L'] denotes the update of 
+    the list [L] with [w] at location [k] (instead of [v]).
 
-    We state and prove this general focus lemma as follows. *)
+    Note that this form is strictly more general than the previous one,
+    because [w] may be instantiated as [v] in case the array is unmodified.
+
+    We state and prove the more general focus lemma as follows. *)
 
 Lemma harray_focus : forall k p L,
   k < length L ->
@@ -1807,7 +1817,10 @@ Proof using.
       rewrite update_cons_pos; [|math]. rewrite harray_cons_eq. xsimpl. } }
 Qed.
 
-(** In the proofs below, the following mathematical lemma is useful to
+(** Using the focus lemma, we are able to verify the operations on
+    arrays encoded using pointer arithmetic.
+
+    In the proofs below, the following mathematical lemma is useful to
     verify that indices remain in the bounds. *)
 
 Lemma abs_lt_length : forall i L,

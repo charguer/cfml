@@ -906,18 +906,18 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** ** Consecutive locations *)
 
-Fixpoint conseq (B:Type) (l:nat) (vs:list B) : fmap nat B :=
+Fixpoint conseq (B:Type) (vs:list B) (l:nat) : fmap nat B :=
   match vs with
   | nil => empty
-  | v::vs' => (single l v) \+ (conseq (S l) vs')
+  | v::vs' => (single l v) \+ (conseq vs' (S l))
   end.
 
 Lemma conseq_nil : forall B (l:nat),
-  conseq l (@nil B) = empty.
+  conseq (@nil B) l = empty.
 Proof using. auto. Qed.
 
 Lemma conseq_cons : forall B (l:nat) (v:B) (vs:list B),
-  conseq l (v::vs) = (single l v) \+ (conseq (S l) vs).
+  conseq (v::vs) l = (single l v) \+ (conseq vs (S l)).
 Proof using. auto. Qed.
 
 Opaque conseq.
@@ -982,7 +982,7 @@ Proof using.
 Qed.
 
 Lemma conseq_fresh : forall null h k v,
-  exists l, \# (conseq l (LibList.make k v)) h /\ l <> null.
+  exists l, \# (conseq (LibList.make k v) l) h /\ l <> null.
 Proof using.
   intros null (m&(L&M)) k v.
   unfold disjoint, map_disjoint. simpl.
@@ -1002,7 +1002,7 @@ Qed.
 
 Lemma disjoint_single_conseq : forall B l l' L (v:B),
   (l < l')%nat \/ (l >= l'+length L)%nat ->
-  \# (single l v) (conseq l' L).
+  \# (single l v) (conseq L l').
 Proof using.
   introv N. gen l'. induction L as [|L']; intros.
   { rewrite~ conseq_nil. }

@@ -133,9 +133,9 @@ with trm : Type :=
     a boolean [b] may be viewed as the value [val_bool b], and an integer
     [n] may be viewed as the value [val_int n]. *)
 
-Coercion val_loc  : loc >-> val.
+Coercion val_loc : loc >-> val.
 Coercion val_bool : bool >-> val.
-Coercion val_int  : int >-> val.
+Coercion val_int : Z >-> val.
 
 
 (* ################################################ *)
