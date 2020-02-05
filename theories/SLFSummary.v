@@ -184,13 +184,13 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       eval s2 (subst x v1 t2) s3 r ->
       eval s1 (trm_let x t1 t2) s3 r
 
-  (** To evaluate a read operation at a location [l], first check that
-      [l] indeed belongs to the domain of the state [s], then return
-      the value bound to [l] in the state [s]. *)
+  (** To evaluate a read operation at a location [p], first check that
+      [p] indeed belongs to the domain of the state [s], then return
+      the value bound to [p] in the state [s]. *)
 
-  | eval_get : forall s l,
-      Fmap.indom s l ->
-      eval s (val_get (val_loc l)) s (Fmap.read s l).
+  | eval_get : forall s p,
+      Fmap.indom s p ->
+      eval s (val_get (val_loc p)) s (Fmap.read s p).
 
   (** ... *)
 

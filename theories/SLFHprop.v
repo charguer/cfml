@@ -78,7 +78,7 @@ Local Coercion string_to_var (x:string) : var := x.
 
     - [\[]] denotes the empty heap predicate,
     - [\[P]] denotes a pure fact,
-    - [l ~~> v] denotes a singleton heap,
+    - [p ~~> v] denotes a singleton heap,
     - [H1 \* H2] denotes the separating conjunction,
     - [Q1 \*+ H2] denotes the separating conjunction,
                    between a postcondition and a heap predicate,
@@ -172,8 +172,8 @@ Definition heap : Type := state.
 (** In particular, the library [Fmap.v] exports the following definitions.
 
     - [Fmap.empty] denotes the empty state,
-    - [Fmap.single l v] denotes a singleton state, that is, a unique cell
-      at location [l] with contents [v],
+    - [Fmap.single p v] denotes a singleton state, that is, a unique cell
+      at location [p] with contents [v],
     - [Fmap.union h1 h2] denotes the union of the two states [h1] and [h2].
     - [Fmap.disjoint h1 h2] asserts that [h1] and [h2] have disjoint domains.
 
@@ -235,17 +235,17 @@ Definition hpure (P:Prop) : hprop :=
 
 Notation "\[ P ]" := (hpure P) (at level 0, format "\[ P ]").
 
-(** The singleton heap predicate, written [l ~~> v], characterizes a
-    state with a single allocated cell, at location [l], storing the
+(** The singleton heap predicate, written [p ~~> v], characterizes a
+    state with a single allocated cell, at location [p], storing the
     value [v]. Additionnally, this heap predicate carries the information
-    that [l] is not the [null] location. (Another possibility would be to
+    that [p] is not the [null] location. (Another possibility would be to
     refine the type of [heap] as a finite map whose domain does not include
     the [null] location, however this route involves a greater amount of work.) *)
 
-Definition hsingle (l:loc) (v:val) : hprop :=
-  fun (h:heap) => (h = Fmap.single l v /\ l <> null).
+Definition hsingle (p:loc) (v:val) : hprop :=
+  fun (h:heap) => (h = Fmap.single p v /\ p <> null).
 
-Notation "l '~~>' v" := (hsingle l v) (at level 32).
+Notation "l '~~>' v" := (hsingle p v) (at level 32).
 
 (** The "separating conjunction", written [H1 \* H2], characterizes a
     state that can be decomposed in two disjoint parts, one that
@@ -498,13 +498,13 @@ Parameter triple_incr_3 : forall (p:loc) (n:int) (H:hprop),
 
 (** Consider the specification lemma for an allocation operation.
     This rule states that, starting from the empty heap, one
-    obtains a single memory cell at some location [l] with
+    obtains a single memory cell at some location [p] with
     contents [v].*)
 
 Parameter triple_ref : forall (v:val),
   triple (val_ref v)
     \[]
-    (funloc l => l ~~> v).
+    (funloc p => p ~~> v).
 
 (** Applying the frame rule to the above specification, and to
     another memory cell, say [l' ~~> v'], we obtain: *)
@@ -512,10 +512,10 @@ Parameter triple_ref : forall (v:val),
 Parameter triple_ref_with_frame : forall (l':loc) (v':val) (v:val),
   triple (val_ref v)
     (l' ~~> v')
-    (funloc l => l ~~> v \* l' ~~> v').
+    (funloc p => p ~~> v \* l' ~~> v').
 
 (** This derived specification captures the fact that the newly
-    allocated cell at address [l] is distinct from the previously
+    allocated cell at address [p] is distinct from the previously
     allocated cell at address [l'].
 
     More generally, through the frame rule, we can derive that
@@ -556,9 +556,9 @@ Lemma hpure_intro : forall P,
   \[P] Fmap.empty.
 Proof using. introv M. hnf. auto. Qed.
 
-Lemma hsingle_intro : forall l v,
-  l <> null ->
-  (l ~~> v) (Fmap.single l v).
+Lemma hsingle_intro : forall p v,
+  p <> null ->
+  (p ~~> v) (Fmap.single p v).
 Proof using. introv N. hnf. auto. Qed.
 
 Lemma hstar_intro : forall H1 H2 h1 h2,
@@ -586,9 +586,9 @@ Lemma hpure_inv : forall P h,
   P /\ h = Fmap.empty.
 Proof using. introv M. hnf in M. autos*. Qed.
 
-Lemma hsingle_inv: forall l v h,
-  (l ~~> v) h ->
-  h = Fmap.single l v /\ l <> null.
+Lemma hsingle_inv: forall p v h,
+  (p ~~> v) h ->
+  h = Fmap.single p v /\ p <> null.
 Proof using. introv M. hnf in M. auto. Qed.
 
 Lemma hstar_inv : forall H1 H2 h,
@@ -755,14 +755,14 @@ Definition hpure' (P:Prop) : hprop :=
 (* ########################################################### *)
 (** ** Additional explanations for the definition of [\exists] *)
 
-(** The heap predicate [\exists (n:int), l ~~> (val_int n)]
+(** The heap predicate [\exists (n:int), p ~~> (val_int n)]
     characterizes a state that contains a single memory cell,
-    at address [l], storing the integer value [n], for "some"
+    at address [p], storing the integer value [n], for "some"
     (unspecified) integer [n].
 
 [[
-  Parameter (l:loc).
-  Check (\exists (n:int), l ~~> (val_int n)) : hprop.
+  Parameter (p:loc).
+  Check (\exists (n:int), p ~~> (val_int n)) : hprop.
 ]]
 
     The type of [\exists], which operates on [hprop], is very similar

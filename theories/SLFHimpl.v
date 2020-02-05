@@ -243,11 +243,11 @@ Qed. (* /ADMITTED *)
     state lemmas allowing to extract information from particular heap
     predicates. *)
 
-(** As first example, we show that from a singleton predicate [l ~~> v],
-    one can extract the information [l <> null]. *)
+(** As first example, we show that from a singleton predicate [p ~~> v],
+    one can extract the information [p <> null]. *)
 
-Lemma hsingle_not_null : forall l v,
-  (l ~~> v) ==> (l ~~> v) \* \[l <> null].
+Lemma hsingle_not_null : forall p v,
+  (p ~~> v) ==> (p ~~> v) \* \[p <> null].
 Proof using.
   introv. intros h Hh. lets (K&N): hsingle_inv Hh.
   rewrite hstar_comm. rewrite hstar_hpure_iff. split.
@@ -255,25 +255,25 @@ Proof using.
 Qed.
 
 (** As second example, we show that from a heap predicate of the form
-    [(l ~~> v1) \* (l ~~> v2)] describes two "disjoint" cells that
-    are both "at location [l]", one can extract a contradiction.
+    [(p ~~> v1) \* (p ~~> v2)] describes two "disjoint" cells that
+    are both "at location [p]", one can extract a contradiction.
 
     Indeed, such a state cannot exist. The underlying contraction is
     formally captured by the following entailment relation, which
     concludes [False]. *)
 
-Lemma hstar_hsingle_same_loc : forall (l:loc) (v1 v2:val),
-  (l ~~> v1) \* (l ~~> v2) ==> \[False].
+Lemma hstar_hsingle_same_loc : forall (p:loc) (v1 v2:val),
+  (p ~~> v1) \* (p ~~> v2) ==> \[False].
 
 (** The proof of this result exploits a result on finite maps.
     Essentially, the domain of a single singleton map that binds
-    a location [l] to some value is the singleton set [\{l}], thus
+    a location [p] to some value is the singleton set [\{p}], thus
     such a singleton map cannot be disjoint from another singleton
-    map that binds the same location [l].
+    map that binds the same location [p].
 
 [[
-    Check disjoint_single_single_same_inv : forall (l:loc) (v1 v2:val),
-      Fmap.disjoint (Fmap.single l v1) (Fmap.single l v2) ->
+    Check disjoint_single_single_same_inv : forall (p:loc) (v1 v2:val),
+      Fmap.disjoint (Fmap.single p v1) (Fmap.single p v2) ->
       False.
 ]]
 

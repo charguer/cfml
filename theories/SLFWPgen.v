@@ -1499,7 +1499,7 @@ Proof using. (* ADMITTED *)
   applys xlet_lemma.
   applys xstruct_lemma.
   applys xapp_lemma. { apply triple_ref. } { xsimpl. }
-  xpull; intros ? l ->.
+  xpull; intros ? p ->.
   applys xstruct_lemma.
   applys xseq_lemma.
   applys xstruct_lemma.
@@ -1604,7 +1604,7 @@ Lemma triple_succ_using_incr_with_xtactics : forall (n:int),
     (fun v => \[v = n+1]).
 Proof using. (* ADMITTED *)
   xwp.
-  xapp_nosubst triple_ref. intros ? l ->.
+  xapp_nosubst triple_ref. intros ? p ->.
   xapp_nosubst triple_incr.
   xapp_nosubst triple_get. intros ? ->.
   xapp_nosubst triple_free.
@@ -1627,7 +1627,7 @@ End ProofsWithXtactics.
     the specification [E] features a postcondition of the form
     [fun v => \[v = ..]] or of the form [fun v => \[v = ..] \* ..].
 
-    Likewise, the pattern [xapp_nosubst E. intros ? l ->.] appears
+    Likewise, the pattern [xapp_nosubst E. intros ? p ->.] appears
     frequently. This pattern is typically useful whenever the
     specification [E] features a postcondition of the form
     [fun v => \exists p, \[v = ..] \* ... ].
@@ -1716,7 +1716,7 @@ Lemma triple_succ_using_incr_with_xapps : forall (n:int),
     \[]
     (fun v => \[v = n+1]).
 Proof using. (* ADMITTED *)
-  xwp. xapp. intros l. xapp. xapp. xapp. xval. xsimpl. auto.
+  xwp. xapp. intros p. xapp. xapp. xapp. xval. xsimpl. auto.
 Qed. (* /ADMITTED *)
 
 (** [] *)

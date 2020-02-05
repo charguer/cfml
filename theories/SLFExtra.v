@@ -21,7 +21,7 @@ From Sep Require Export SLFDirect.
 
 Implicit Types n : int.
 Implicit Types v w : val.
-Implicit Types l : loc.
+Implicit Types p : loc.
 Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
 
@@ -257,30 +257,30 @@ Qed.
 Lemma triple_ref : forall v,
   triple (val_ref v)
     \[]
-    (funloc l => l ~~> v).
+    (funloc p => p ~~> v).
 Proof using.
   intros. intros HF. applys hoare_conseq hoare_ref; xsimpl~.
 Qed.
 
-Lemma triple_get : forall v l,
-  triple (val_get (val_loc l))
-    (l ~~> v)
-    (fun x => \[x = v] \* (l ~~> v)).
+Lemma triple_get : forall v p,
+  triple (val_get (val_loc p))
+    (p ~~> v)
+    (fun x => \[x = v] \* (p ~~> v)).
 Proof using.
   intros. intros HF. applys hoare_conseq hoare_get; xsimpl~.
 Qed.
 
-Lemma triple_set : forall w l v,
-  triple (val_set (val_loc l) w)
-    (l ~~> v)
-    (fun _ => l ~~> w).
+Lemma triple_set : forall w p v,
+  triple (val_set (val_loc p) w)
+    (p ~~> v)
+    (fun _ => p ~~> w).
 Proof using.
   intros. intros HF. applys hoare_conseq hoare_set; xsimpl~.
 Qed.
 
-Lemma triple_free : forall l v,
-  triple (val_free (val_loc l))
-    (l ~~> v)
+Lemma triple_free : forall p v,
+  triple (val_free (val_loc p))
+    (p ~~> v)
     (fun _ => \[]).
 Proof using.
   intros. intros HF. applys hoare_conseq hoare_free; xsimpl~.
@@ -608,18 +608,18 @@ Lemma triple_gt : forall n1 n2,
     (fun r => \[r = isTrue (n1 > n2)]).
 Proof using. intros. applys* triple_binop. applys* evalbinop_gt. Qed.
 
-Lemma triple_ptr_add : forall l n,
-  l + n >= 0 ->
-  triple (val_ptr_add l n)
+Lemma triple_ptr_add : forall p n,
+  p + n >= 0 ->
+  triple (val_ptr_add p n)
     \[]
-    (fun r => \[r = val_loc (abs (l + n))]).
+    (fun r => \[r = val_loc (abs (p + n))]).
 Proof using.
   intros. applys* triple_binop. applys* evalbinop_ptr_add.
   { rewrite~ abs_nonneg. }
 Qed.
 
-Lemma triple_ptr_add_nat : forall l (f:nat),
-  triple (val_ptr_add l f)
+Lemma triple_ptr_add_nat : forall p (f:nat),
+  triple (val_ptr_add p f)
     \[]
     (fun r => \[r = val_loc (l+f)%nat]).
 Proof using.
@@ -948,10 +948,10 @@ Qed.
 
 Definition field : Type := nat.
 
-Definition hfield (l:loc) (k:field) (v:val) : hprop :=
-  (l+k)%nat ~~> v \* \[ l <> null ].
+Definition hfield (p:loc) (k:field) (v:val) : hprop :=
+  (l+k)%nat ~~> v \* \[ p <> null ].
 
-Notation "l `. k '~~>' v" := (hfield l k v)
+Notation "l `. k '~~>' v" := (hfield p k v)
   (at level 32, k at level 0, no associativity,
    format "l `. k  '~~>'  v") : hprop_scope.
 
@@ -959,8 +959,8 @@ Lemma hfield_eq : forall p k v,
   hfield p k v = ((k+p)%nat ~~> v \* \[p <> null]).
 Proof using. intros. math_rewrite (k+p = p+k)%nat. auto. Qed.
 
-Lemma hfield_not_null : forall l k v,
-  (l`.k ~~> v) ==> (l`.k ~~> v) \* \[l <> null].
+Lemma hfield_not_null : forall p k v,
+  (l`.k ~~> v) ==> (l`.k ~~> v) \* \[p <> null].
 Proof using.
   intros. subst. unfold hfield. xchanges~ hsingle_not_null.
 Qed.
@@ -1001,21 +1001,21 @@ Notation "'Set' t1 ''.' f '':=' t2" :=
 Module Export FieldAccessSpec.
 Open Scope wp_scope.
 
-Lemma triple_get_field : forall l f v,
-  triple ((val_get_field f) l)
+Lemma triple_get_field : forall p f v,
+  triple ((val_get_field f) p)
     (l`.f ~~> v)
     (fun r => \[r = v] \* (l`.f ~~> v)).
 Proof using.
-  xwp. xapp. math_rewrite ((l + f = f + l)%nat).
+  xwp. xapp. math_rewrite ((p + f = f + p)%nat).
   rewrite hfield_eq. xpull. intros N. xapp. xsimpl*.
 Qed.
 
-Lemma triple_set_field : forall v1 l f v2,
-  triple ((val_set_field f) l v2)
+Lemma triple_set_field : forall v1 p f v2,
+  triple ((val_set_field f) p v2)
     (l`.f ~~> v1)
     (fun _ => l`.f ~~> v2).
 Proof using.
-  xwp. xapp. math_rewrite ((l + f = f + l)%nat).
+  xwp. xapp. math_rewrite ((p + f = f + p)%nat).
   do 2 rewrite hfield_eq. xpull. intros N. xapp. xsimpl*.
 Qed.
 

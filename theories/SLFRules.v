@@ -366,31 +366,31 @@ Inductive eval : state -> trm -> state -> val -> Prop :=
       There remains to describe operations that act on the mutable store.
 
       [val_ref v] allocates a fresh cell with contents [v]. The operation
-      returns the location, written [l], of the new cell. This location
+      returns the location, written [p], of the new cell. This location
       must not be previously in the domain of the store [s].
 
-      [val_get (val_loc l)] reads the value in the store [s] at location [l].
+      [val_get (val_loc p)] reads the value in the store [s] at location [p].
       The location must be bound to a value in the store, else evaluation
       is stuck.
 
-      [val_set (val_loc l) v] updates the store at a location [l] assumed to
+      [val_set (val_loc p) v] updates the store at a location [p] assumed to
       be bound in the store [s]. The operation modifies the store and returns
       the unit value.
 
-      [val_free (val_loc l)] deallocates the cell at location [l]. *)
+      [val_free (val_loc p)] deallocates the cell at location [p]. *)
 
-  | eval_ref : forall s v l,
-      ~ Fmap.indom s l ->
-      eval s (val_ref v) (Fmap.update s l v) (val_loc l)
-  | eval_get : forall s l,
-      Fmap.indom s l ->
-      eval s (val_get (val_loc l)) s (Fmap.read s l)
-  | eval_set : forall s l v,
-      Fmap.indom s l ->
-      eval s (val_set (val_loc l) v) (Fmap.update s l v) val_unit
-  | eval_free : forall s l,
-      Fmap.indom s l ->
-      eval s (val_free (val_loc l)) (Fmap.remove s l) val_unit.
+  | eval_ref : forall s v p,
+      ~ Fmap.indom s p ->
+      eval s (val_ref v) (Fmap.update s p v) (val_loc p)
+  | eval_get : forall s p,
+      Fmap.indom s p ->
+      eval s (val_get (val_loc p)) s (Fmap.read s p)
+  | eval_set : forall s p v,
+      Fmap.indom s p ->
+      eval s (val_set (val_loc p) v) (Fmap.update s p v) val_unit
+  | eval_free : forall s p,
+      Fmap.indom s p ->
+      eval s (val_free (val_loc p)) (Fmap.remove s p) val_unit.
 
 End SyntaxAndSemantics.
 
@@ -409,7 +409,7 @@ End SyntaxAndSemantics.
 
 Implicit Types x f : var.
 Implicit Types b : bool.
-Implicit Types l : loc.
+Implicit Types p : loc.
 Implicit Types n : int.
 Implicit Types v w r : val.
 Implicit Types t : trm.
@@ -663,47 +663,47 @@ Parameter triple_div' : forall n1 n2,
 
 (** Recall that [val_get] denotes the operation for reading a memory cell.
     A call of the form [val_get v'] executes safely if [v'] is of the
-    form [val_loc l] for some location [l], in a state that features
-    a memory cell at location [l], storing some contents [v]. Such a state
-    is described as [l ~~> v]. The read operation returns a value [r]
+    form [val_loc p] for some location [p], in a state that features
+    a memory cell at location [p], storing some contents [v]. Such a state
+    is described as [p ~~> v]. The read operation returns a value [r]
     such that [r = v], and the memory state of the operation remains
     unchanged. The specification of [val_get] is thus expressed as follows. *)
 
-Parameter triple_get : forall v l,
-  triple (val_get (val_loc l))
-    (l ~~> v)
-    (fun r => \[r = v] \* (l ~~> v)).
+Parameter triple_get : forall v p,
+  triple (val_get (val_loc p))
+    (p ~~> v)
+    (fun r => \[r = v] \* (p ~~> v)).
 
-(** Remark: [val_loc] is registered as a coercion, so [val_get (val_loc l)]
-    could be written simply as [val_get l], where [l] has type [loc].
+(** Remark: [val_loc] is registered as a coercion, so [val_get (val_loc p)]
+    could be written simply as [val_get p], where [p] has type [loc].
     We here chose to write [val_loc] explicitly for clarity. *)
 
 (** Recall that [val_set] denotes the operation for writing a memory cell.
     A call of the form [val_set v' w] executes safely if [v'] is of the
-    form [val_loc l] for some location [l], in a state [l ~~> v].
-    The write operation updates this state to [l ~~> w], and returns
+    form [val_loc p] for some location [p], in a state [p ~~> v].
+    The write operation updates this state to [p ~~> w], and returns
     the unit value, which can be ignored. Hence, [val_set] is specified
     as follows. *)
 
-Parameter triple_set : forall w l v,
-  triple (val_set (val_loc l) w)
-    (l ~~> v)
-    (fun _ => l ~~> w).
+Parameter triple_set : forall w p v,
+  triple (val_set (val_loc p) w)
+    (p ~~> v)
+    (fun _ => p ~~> w).
 
 (** Recall that [val_ref] denotes the operation for allocating a cell
     with a given contents. A call to [val_ref v] does not depend on
     the contents of the existing state. It extends the state with a fresh
-    singleton cell, at some location [l], assigning it [v] as contents.
-    The fresh cell is then described by the heap predicate [l ~~> v].
-    The evaluation of [val_ref v] produces the value [val_loc l]. Thus,
-    if [r] denotes the result value, we have [r = val_loc l] for some [l].
+    singleton cell, at some location [p], assigning it [v] as contents.
+    The fresh cell is then described by the heap predicate [p ~~> v].
+    The evaluation of [val_ref v] produces the value [val_loc p]. Thus,
+    if [r] denotes the result value, we have [r = val_loc p] for some [p].
     In the corresponding specification shown below, observe how the
-    location [l] is existentially quantified in the postcondition. *)
+    location [p] is existentially quantified in the postcondition. *)
 
 Parameter triple_ref : forall v,
   triple (val_ref v)
     \[]
-    (fun (r:val) => \exists (l:loc), \[r = val_loc l] \* l ~~> v).
+    (fun (r:val) => \exists (p:loc), \[r = val_loc p] \* p ~~> v).
 
 (** Using the notation [funloc p => H] as a shorthand for
     [fun (r:val) => \exists (p:loc), \[r = val_loc p] \* H],
@@ -712,16 +712,16 @@ Parameter triple_ref : forall v,
 Parameter triple_ref' : forall v,
   triple (val_ref v)
     \[]
-    (funloc l => l ~~> v).
+    (funloc p => p ~~> v).
 
 (** Recall that [val_free] denotes the operation for deallocating a cell
-    at a given address. A call of the form [val_free l] executes safely
-    in a state [l ~~> v]. The operation leaves an empty state, and
+    at a given address. A call of the form [val_free p] executes safely
+    in a state [p ~~> v]. The operation leaves an empty state, and
     asserts that the return value, named [r], is equal to unit. *)
 
-Parameter triple_free : forall l v,
-  triple (val_free (val_loc l))
-    (l ~~> v)
+Parameter triple_free : forall p v,
+  triple (val_free (val_loc p))
+    (p ~~> v)
     (fun _ => \[]).
 
 
@@ -919,7 +919,7 @@ Proof using. (* ADMITTED *)
   applys triple_let.
   { apply triple_ref. }
   intros r. simpl.
-  apply triple_hexists. intros l.
+  apply triple_hexists. intros p.
   apply triple_hpure. intros ->.
   applys triple_seq.
   { applys triple_conseq_frame.
@@ -1373,30 +1373,30 @@ Qed.
 (* ################################################ *)
 (** *** Read in a reference *)
 
-(** The big-step rule for [get l] requires that [l] be in the
+(** The big-step rule for [get p] requires that [p] be in the
     domain of the current state [s], and assers that the output
-    value is the result of reading in [s] at location [l]. *)
+    value is the result of reading in [s] at location [p]. *)
 
-Parameter eval_get : forall s l,
-  Fmap.indom s l ->
-  eval s (val_get (val_loc l)) s (Fmap.read s l).
+Parameter eval_get : forall s p,
+  Fmap.indom s p ->
+  eval s (val_get (val_loc p)) s (Fmap.read s p).
 
 (** We reformulate this rule by isolating from the current state [s]
-    the singleton heap made of the cell at location [l], and let [s2]
+    the singleton heap made of the cell at location [p], and let [s2]
     denote the rest of the heap. When the singleton heap is described
-    as [Fmap.single l v], then [v] is the result value returned by
-    [get l]. *)
+    as [Fmap.single p v], then [v] is the result value returned by
+    [get p]. *)
 
-Lemma eval_get_sep : forall s s2 l v,
-  s = Fmap.union (Fmap.single l v) s2 ->
-  eval s (val_get (val_loc l)) s v.
+Lemma eval_get_sep : forall s s2 p v,
+  s = Fmap.union (Fmap.single p v) s2 ->
+  eval s (val_get (val_loc p)) s v.
 
 (** The proof of this lemma is of little interest. We show it only to
     demonstrate that it relies only a few basic facts related to finite
     maps. *)
 
 Proof using.
-  introv ->. forwards Dv: Fmap.indom_single l v.
+  introv ->. forwards Dv: Fmap.indom_single p v.
   applys_eq eval_get 1.
   { applys* Fmap.indom_union_l. }
   { rewrite* Fmap.read_union_l. rewrite* Fmap.read_single. }
@@ -1405,13 +1405,13 @@ Qed.
 (** Our goal is to establish the triple:
 
 [[
-    triple (val_get l)
-      (l ~~> v)
-      (fun r => \[r = v] \* (l ~~> v)).
+    triple (val_get p)
+      (p ~~> v)
+      (fun r => \[r = v] \* (p ~~> v)).
 ]]
 
     Establishing this lemma requires us to reason about propositions
-    of the form [(\[P] \* H) h] and [(l ~~> v) h]. To that end,
+    of the form [(\[P] \* H) h] and [(p ~~> v) h]. To that end,
     recall from the first chapter the following two lemmas.
     The first one was already used in the proof of [triple_add].
     The second one in the inversion lemma for the singleton heap
@@ -1420,17 +1420,17 @@ Qed.
 Parameter hstar_hpure_iff' : forall P H h,
   (\[P] \* H) h <-> (P /\ H h).
 
-Parameter hsingle_inv: forall l v h,
-  (l ~~> v) h ->
-  h = Fmap.single l v.
+Parameter hsingle_inv: forall p v h,
+  (p ~~> v) h ->
+  h = Fmap.single p v.
 
 (** We establish the specification of [get] first w.r.t. to
     the [hoare] judgment. *)
 
-Lemma hoare_get : forall H v l,
-  hoare (val_get l)
-    ((l ~~> v) \* H)
-    (fun r => \[r = v] \* (l ~~> v) \* H).
+Lemma hoare_get : forall H v p,
+  hoare (val_get p)
+    ((p ~~> v) \* H)
+    (fun r => \[r = v] \* (p ~~> v) \* H).
 Proof using.
   (* 1. We unfold the definition of [hoare]. *)
   intros. intros s K0.
@@ -1439,10 +1439,10 @@ Proof using.
   exists s v. split.
   { (* 3. To justify the reduction using [eval_get_sep], we need to
           argue that the state [s] decomposes as a singleton heap
-          [Fmap.single l v] and the rest of the state [s2]. This is
+          [Fmap.single p v] and the rest of the state [s2]. This is
           obtained by eliminating the star in hypothesis [K0]. *)
     destruct K0 as (s1&s2&P1&P2&D&U).
-    (* 4. Inverting [(l ~~> v) h1] simplifies the goal. *)
+    (* 4. Inverting [(p ~~> v) h1] simplifies the goal. *)
     lets E1: hsingle_inv P1. subst s1.
     (* 5. At this point, the goal matches exactly [eval_get_sep]. *)
     applys eval_get_sep U. }
@@ -1455,10 +1455,10 @@ Qed.
 
 (** Deriving the Separation Logic triple follows the usual pattern. *)
 
-Lemma triple_get : forall v l,
-  triple (val_get l)
-    (l ~~> v)
-    (fun r => \[r = v] \* (l ~~> v)).
+Lemma triple_get : forall v p,
+  triple (val_get p)
+    (p ~~> v)
+    (fun r => \[r = v] \* (p ~~> v)).
 Proof using.
   intros. intros H'. applys hoare_conseq.
   { applys hoare_get. }
@@ -1475,26 +1475,26 @@ Qed.
     [get] and [set]. *)
 
 (** The big-step evaluation rule for [ref v] extends the initial
-    state [s] with an extra binding from [l] to [v], for some
-    fresh location [l]. *)
+    state [s] with an extra binding from [p] to [v], for some
+    fresh location [p]. *)
 
-Parameter eval_ref : forall s v l,
-  ~ Fmap.indom s l ->
-  eval s (val_ref v) (Fmap.update s l v) (val_loc l).
+Parameter eval_ref : forall s v p,
+  ~ Fmap.indom s p ->
+  eval s (val_ref v) (Fmap.update s p v) (val_loc p).
 
 (** Let us reformulate [eval_ref] to replace references to [Fmap.indom]
     and [Fmap.update] with references to [Fmap.single] and [Fmap.disjoint].
     Concretely, [ref v] extends the state from [s1] to [s1 \u s2],
-    where [s2] denotes the singleton heap [Fmap.single l v], and with
+    where [s2] denotes the singleton heap [Fmap.single p v], and with
     the requirement that [Fmap.disjoint s2 s1], to capture freshness. *)
 
-Lemma eval_ref_sep : forall s1 s2 v l,
-  s2 = Fmap.single l v ->
+Lemma eval_ref_sep : forall s1 s2 v p,
+  s2 = Fmap.single p v ->
   Fmap.disjoint s2 s1 ->
-  eval s1 (val_ref v) (Fmap.union s2 s1) (val_loc l).
+  eval s1 (val_ref v) (Fmap.union s2 s1) (val_loc p).
 Proof using.
   (** It is not needed to follow through this proof. *)
-  introv -> D. forwards Dv: Fmap.indom_single l v.
+  introv -> D. forwards Dv: Fmap.indom_single p v.
   rewrite <- Fmap.update_eq_union_single. applys* eval_ref.
   { intros N. applys* Fmap.disjoint_inv_not_indom_both D N. }
 Qed.
@@ -1502,25 +1502,25 @@ Qed.
 (** In order to apply the rules [eval_ref] or [eval_ref_sep], we need
     to be able to synthetize fresh locations. The following lemma
     (from [Fmap.v]) captures the existence, for any state [s], of
-    a non-null location [l] not already bound in [s]. *)
+    a non-null location [p] not already bound in [s]. *)
 
 Parameter exists_not_indom : forall s,
-   exists l, ~ Fmap.indom s l /\ l <> null.
+   exists p, ~ Fmap.indom s p /\ p <> null.
 
 (** We reformulate the lemma above in a way that better matches
     the premise of the lemma [eval_ref_sep], which we need to apply
     for establishing the specification of [ref].
 
     This reformulation, shown below, asserts that, for any [h],
-    there existence a non-null location [l] such that the singleton
-    heap [Fmap.single l v] is disjoint from [h]. *)
+    there existence a non-null location [p] such that the singleton
+    heap [Fmap.single p v] is disjoint from [h]. *)
 
 Lemma single_fresh : forall h v,
-  exists l, Fmap.disjoint (Fmap.single l v) h /\ l <> null.
+  exists p, Fmap.disjoint (Fmap.single p v) h /\ p <> null.
 Proof using.
   (** It is not needed to follow through this proof. *)
   intros. forwards (l&F&N): exists_not_indom h.
-  exists l. split*. applys* Fmap.disjoint_single_of_not_indom.
+  exists p. split*. applys* Fmap.disjoint_single_of_not_indom.
 Qed.
 
 (** The proof of the Hoare triple for [ref] is as follows. *)
@@ -1528,23 +1528,23 @@ Qed.
 Lemma hoare_ref : forall H v,
   hoare (val_ref v)
     H
-    (fun r => (\exists l, \[r = val_loc l] \* l ~~> v) \* H).
+    (fun r => (\exists p, \[r = val_loc p] \* p ~~> v) \* H).
 Proof using.
   (* 1. We unfold the definition of [hoare]. *)
   intros. intros s1 K0.
   (* 2. We claim the disjointness relation
-       [Fmap.disjoint (Fmap.single l v) s1]. *)
+       [Fmap.disjoint (Fmap.single p v) s1]. *)
   forwards* (l&D&N): (single_fresh s1 v).
   (* 3. We provide the witnesses for the reduction,
         as dictated by [eval_ref_sep]. *)
-  exists ((Fmap.single l v) \u s1) (val_loc l). split.
+  exists ((Fmap.single p v) \u s1) (val_loc p). split.
   { (* 4. We exploit [eval_ref_sep], which has exactly the desired shape! *)
     applys eval_ref_sep D. auto. }
   { (* 5. We establish the postcondition
-          [(\exists l, \[r = val_loc l] \* l ~~> v) \* H]
+          [(\exists p, \[r = val_loc p] \* p ~~> v) \* H]
           by providing [p] and the relevant pieces of heap. *)
     applys hstar_intro.
-    { exists l. rewrite hstar_hpure.
+    { exists p. rewrite hstar_hpure.
       split. { auto. } { applys~ hsingle_intro. } }
     { applys K0. }
     { applys D. } }
@@ -1555,7 +1555,7 @@ Qed.
 Lemma triple_ref : forall v,
   triple (val_ref v)
     \[]
-    (funloc l => l ~~> v).
+    (funloc p => p ~~> v).
 Proof using.
   intros. intros H'. applys hoare_conseq.
   { applys hoare_ref. }
@@ -1763,27 +1763,27 @@ Qed. (* /ADMITTED *)
 (* ################################################ *)
 (** *** Write in a reference *)
 
-(** The big-step evaluation rule for [set l v] updates the initial
-    state [s] by re-binding the location [l] to the value [v].
-    The location [l] must already belong to the domain of [s]. *)
+(** The big-step evaluation rule for [set p v] updates the initial
+    state [s] by re-binding the location [p] to the value [v].
+    The location [p] must already belong to the domain of [s]. *)
 
-Parameter eval_set : forall m l v,
-   Fmap.indom m l ->
-   eval m (val_set (val_loc l) v) (Fmap.update m l v) val_unit.
+Parameter eval_set : forall m p v,
+   Fmap.indom m p ->
+   eval m (val_set (val_loc p) v) (Fmap.update m p v) val_unit.
 
 (** As for [get], we first reformulate this lemma, to replace
     references to [Fmap.indom] and [Fmap.update] with references
     to [Fmap.union], [Fmap.single], and [Fmap.disjoint], to
     prepare for the introduction of separating conjunctions. *)
 
-Lemma eval_set_sep : forall s1 s2 h2 l v1 v2,
-  s1 = Fmap.union (Fmap.single l v1) h2 ->
-  s2 = Fmap.union (Fmap.single l v2) h2 ->
-  Fmap.disjoint (Fmap.single l v1) h2 ->
-  eval s1 (val_set (val_loc l) v2) s2 val_unit.
+Lemma eval_set_sep : forall s1 s2 h2 p v1 v2,
+  s1 = Fmap.union (Fmap.single p v1) h2 ->
+  s2 = Fmap.union (Fmap.single p v2) h2 ->
+  Fmap.disjoint (Fmap.single p v1) h2 ->
+  eval s1 (val_set (val_loc p) v2) s2 val_unit.
 Proof using.
   (** It is not needed to follow through this proof. *)
-  introv -> -> D. forwards Dv: Fmap.indom_single l v1.
+  introv -> -> D. forwards Dv: Fmap.indom_single p v1.
   applys_eq eval_set 2.
   { applys* Fmap.indom_union_l. }
   { rewrite* Fmap.update_union_l. fequals.
@@ -1795,9 +1795,9 @@ Qed.
     a singleton map, the value stored in that singleton map is irrelevant.
 
 [[
-    Check Fmap.disjoint_single_set : forall l v1 v2 h2,
-      Fmap.disjoint (Fmap.single l v1) h2 ->
-      Fmap.disjoint (Fmap.single l v2) h2.
+    Check Fmap.disjoint_single_set : forall p v1 v2 h2,
+      Fmap.disjoint (Fmap.single p v1) h2 ->
+      Fmap.disjoint (Fmap.single p v2) h2.
 ]]
 
 *)
@@ -1806,15 +1806,15 @@ Qed.
 
     - the lemma [hstar_hpure_iff], already used earlier in this chapter
       to reformulate [(\[P] \* H) h] as [P /\ H h],
-    - the lemma [hsingle_intro], to prove [(l ~~> v) (Fmap.single l v)],
+    - the lemma [hsingle_intro], to prove [(p ~~> v) (Fmap.single p v)],
     - and the lemma [hstar_intro], to prove [(H1 \* H2) (h1 \u h2)]. *)
 
 (** Let's now dive in the proof of the Hoare triple for [set]. *)
 
-Lemma hoare_set : forall H w l v,
-  hoare (val_set (val_loc l) w)
-    ((l ~~> v) \* H)
-    (fun _ => (l ~~> w) \* H).
+Lemma hoare_set : forall H w p v,
+  hoare (val_set (val_loc p) w)
+    ((p ~~> v) \* H)
+    (fun _ => (p ~~> w) \* H).
 Proof using.
   (* 1. We unfold the definition of [hoare]. *)
   intros. intros s1 K0.
@@ -1823,12 +1823,12 @@ Proof using.
   (* 3. We also decompose the singleton heap predicate from it. *)
   lets (E1&N): hsingle_inv P1.
   (* 4. We provide the witnesses as guided by [eval_set_sep]. *)
-  exists ((Fmap.single l w) \u h2) val_unit. split.
+  exists ((Fmap.single p w) \u h2) val_unit. split.
   { (* 5. The evaluation subgoal matches the statement of [eval_set_sep]. *)
     subst h1. applys eval_set_sep U D. auto. }
   { (* 7. Then establish the star. *)
     applys hstar_intro.
-    { (* 8. We establish the heap predicate [l ~~> w] *)
+    { (* 8. We establish the heap predicate [p ~~> w] *)
       applys hsingle_intro. auto. }
     { applys P2. }
     { (* 9. Finally, we justify disjointness using the lemma
@@ -1838,10 +1838,10 @@ Qed.
 
 (** We then derive the Separation Logic triple as usual. *)
 
-Lemma triple_set : forall w l v,
-  triple (val_set (val_loc l) w)
-    (l ~~> v)
-    (fun _ => l ~~> w).
+Lemma triple_set : forall w p v,
+  triple (val_set (val_loc p) w)
+    (p ~~> v)
+    (fun _ => p ~~> w).
 Proof using.
   intros. intros H'. applys hoare_conseq.
   { applys hoare_set. }
@@ -1858,28 +1858,28 @@ Qed.
     Last, we consider the reasoning rule for operation [free].
     We leave this one as exercise. *)
 
-(** Recall the big-step evaluation rule for [free l]. *)
+(** Recall the big-step evaluation rule for [free p]. *)
 
-Parameter eval_free : forall s l,
-  Fmap.indom s l ->
-  eval s (val_set (val_loc l)) (Fmap.remove s l) val_unit.
+Parameter eval_free : forall s p,
+  Fmap.indom s p ->
+  eval s (val_set (val_loc p)) (Fmap.remove s p) val_unit.
 
 (** Let us reformulate [eval_free] to replace references to [Fmap.indom]
     and [Fmap.remove] with references to [Fmap.single] and [Fmap.union]
     and [Fmap.disjoint]. The details are not essential, thus omitted. *)
 
-Parameter eval_free_sep : forall s1 s2 v l,
-  s1 = Fmap.union (Fmap.single l v) s2 ->
-  Fmap.disjoint (Fmap.single l v) s2 ->
-  eval s1 (val_free l) s2 val_unit.
+Parameter eval_free_sep : forall s1 s2 v p,
+  s1 = Fmap.union (Fmap.single p v) s2 ->
+  Fmap.disjoint (Fmap.single p v) s2 ->
+  eval s1 (val_free p) s2 val_unit.
 
 (* EX3? (hoare_free) *)
 (** Prove the Hoare triple for the operation [free].
     Hint: adapt the proof of lemma [hoare_set]. *)
 
-Lemma hoare_free : forall H l v,
-  hoare (val_free (val_loc l))
-    ((l ~~> v) \* H)
+Lemma hoare_free : forall H p v,
+  hoare (val_free (val_loc p))
+    ((p ~~> v) \* H)
     (fun _ =>  H).
 Proof using. (* ADMITTED *)
   intros. intros s1 K0.
@@ -1897,9 +1897,9 @@ Qed. (* /ADMITTED *)
     the corresponding Separation Logic triple.
     Hint: adapt the proof of lemma [triple_set]. *)
 
-Lemma triple_free : forall l v,
-  triple (val_free (val_loc l))
-    (l ~~> v)
+Lemma triple_free : forall p v,
+  triple (val_free (val_loc p))
+    (p ~~> v)
     (fun _ => \[]).
 Proof using. (* ADMITTED *)
   intros. intros H'. applys hoare_conseq.
@@ -2151,7 +2151,7 @@ Module MatchStyle.
 Parameter triple_ref : forall v,
   triple (val_ref v)
     \[]
-    (fun r => \exists l, \[r = val_loc l] \* l ~~> v).
+    (fun r => \exists p, \[r = val_loc p] \* p ~~> v).
 
 (** Its postcondition could be equivalently stated by using, instead
     of an existential quantifier [\exists], a pattern matching. *)
@@ -2160,7 +2160,7 @@ Parameter triple_ref' : forall v,
   triple (val_ref v)
     \[]
     (fun r => match r with
-              | val_loc l => (l ~~> v)
+              | val_loc p => (p ~~> v)
               | _ => \[False]
               end).
 

@@ -907,7 +907,7 @@ Parameter triple_conseq_frame : forall H2 H1 Q1 t H Q,
 Parameter triple_ref : forall (v:val),
   triple (val_ref v)
     \[]
-    (funloc l => l ~~> v).
+    (funloc p => p ~~> v).
 
 (** Assume that wish to derive the following triple, which extends
     both the precondition and the postcondition of the above specification
@@ -918,7 +918,7 @@ Parameter triple_ref : forall (v:val),
 Lemma triple_ref_extended : forall (v:val),
   triple (val_ref v)
     (\exists l' v', l' ~~> v')
-    (funloc l => l ~~> v \* \exists l' v', l' ~~> v').
+    (funloc p => p ~~> v \* \exists l' v', l' ~~> v').
 
 (** Let us prove that this specification is derivable from the
     original one, namely [triple_ref]. *)
@@ -941,7 +941,7 @@ Abort.
 Lemma triple_ref_extended' : forall (v:val),
   triple (val_ref v)
     (\exists l' v', l' ~~> v')
-    (funloc l => l ~~> v \* \exists l' v', l' ~~> v').
+    (funloc p => p ~~> v \* \exists l' v', l' ~~> v').
 Proof using.
   intros. applys triple_ramified_frame.
   { applys triple_ref. }
@@ -1494,13 +1494,13 @@ Implicit Types v : val.
 Parameter triple_ref : forall v,
   triple (val_ref v)
     \[]
-    (funloc l => l ~~> v).
+    (funloc p => p ~~> v).
 
 (** This specification can be equivalently reformulated in the following
     form. *)
 
 Parameter wp_ref : forall Q v,
-  \[] \* (\forall l, l ~~> v \-* Q (val_loc l)) ==> wp (val_ref v) Q.
+  \[] \* (\forall p, p ~~> v \-* Q (val_loc p)) ==> wp (val_ref v) Q.
 
 (** Above, we purposely left the empty heap predicate to the front to
     indicate where the precondition, if it were not empty, would go in
@@ -1515,34 +1515,34 @@ Parameter wp_ref : forall Q v,
     [triple_ref] can be reformulated as follows. *)
 
 Lemma wp_ref_0 : forall v,
-  \[] ==> wp (val_ref v) (funloc l => l ~~> v).
+  \[] ==> wp (val_ref v) (funloc p => p ~~> v).
 Proof using. intros. rewrite wp_equiv. applys triple_ref. Qed.
 
 (** We wish to cast the RHS in the form [wp (val_ref v) Q] for an abstract
     variable [Q]. To that end, we reformulate the above statement by including
     a magic wand relating the current postcondition, which is
-    [(funloc l => l ~~> v)], and [Q]. *)
+    [(funloc p => p ~~> v)], and [Q]. *)
 
 Lemma wp_ref_1 : forall Q v,
-  ((funloc l => l ~~> v) \--* Q) ==> wp (val_ref v) Q.
+  ((funloc p => p ~~> v) \--* Q) ==> wp (val_ref v) Q.
 Proof using. intros. xchange (wp_ref_0 v). applys wp_ramified. Qed.
 
 (** This statement can be made slightly more readable by unfolding the
     definition of the magic wand for postconditions, as shown next. *)
 
 Lemma wp_ref_2 : forall Q v,
-  (\forall r, (\exists l, \[r = val_loc l] \* l ~~> v) \-* Q r) ==> wp (val_ref v) Q.
+  (\forall r, (\exists p, \[r = val_loc p] \* p ~~> v) \-* Q r) ==> wp (val_ref v) Q.
 Proof using. intros. applys himpl_trans wp_ref_1. xsimpl. Qed.
 
-(** Interestingly, the variable [r], which is equal to [val_loc l],
+(** Interestingly, the variable [r], which is equal to [val_loc p],
     can now be substituted away, further increasing readability.
     We obtain the specificaiton of [val_ref] in "Texan triple style". *)
 
 Lemma wp_ref_3 : forall Q v,
-  (\forall l, (l ~~> v) \-* Q (val_loc l)) ==> wp (val_ref v) Q.
+  (\forall p, (p ~~> v) \-* Q (val_loc p)) ==> wp (val_ref v) Q.
 Proof using.
-  intros. applys himpl_trans wp_ref_2. xsimpl. intros ? l ->.
-  xchange (hforall_specialize l).
+  intros. applys himpl_trans wp_ref_2. xsimpl. intros ? p ->.
+  xchange (hforall_specialize p).
 Qed.
 
 
@@ -1830,8 +1830,8 @@ Module SummaryHprop.
   Definition hempty : hprop :=
     fun h => (h = Fmap.empty).
 
-  Definition hsingle (l:loc) (v:val) : hprop :=
-    fun h => (h = Fmap.single l v).
+  Definition hsingle (p:loc) (v:val) : hprop :=
+    fun h => (h = Fmap.single p v).
 
   Definition hstar (H1 H2 : hprop) : hprop :=
     fun h => exists h1 h2, H1 h1
