@@ -621,7 +621,7 @@ Qed.
 Lemma triple_ptr_add_nat : forall p (f:nat),
   triple (val_ptr_add p f)
     \[]
-    (fun r => \[r = val_loc (l+f)%nat]).
+    (fun r => \[r = val_loc (p+f)%nat]).
 Proof using.
   intros. applys triple_conseq triple_ptr_add. { math. } { xsimpl. }
   { xsimpl. intros. subst. fequals.
@@ -949,18 +949,18 @@ Qed.
 Definition field : Type := nat.
 
 Definition hfield (p:loc) (k:field) (v:val) : hprop :=
-  (l+k)%nat ~~> v \* \[ p <> null ].
+  (p+k)%nat ~~> v \* \[ p <> null ].
 
-Notation "l `. k '~~>' v" := (hfield p k v)
+Notation "p `. k '~~>' v" := (hfield p k v)
   (at level 32, k at level 0, no associativity,
-   format "l `. k  '~~>'  v") : hprop_scope.
+   format "p `. k  '~~>'  v") : hprop_scope.
 
 Lemma hfield_eq : forall p k v,
   hfield p k v = ((k+p)%nat ~~> v \* \[p <> null]).
 Proof using. intros. math_rewrite (k+p = p+k)%nat. auto. Qed.
 
 Lemma hfield_not_null : forall p k v,
-  (l`.k ~~> v) ==> (l`.k ~~> v) \* \[p <> null].
+  (p`.k ~~> v) ==> (p`.k ~~> v) \* \[p <> null].
 Proof using.
   intros. subst. unfold hfield. xchanges~ hsingle_not_null.
 Qed.
@@ -1003,8 +1003,8 @@ Open Scope wp_scope.
 
 Lemma triple_get_field : forall p f v,
   triple ((val_get_field f) p)
-    (l`.f ~~> v)
-    (fun r => \[r = v] \* (l`.f ~~> v)).
+    (p`.f ~~> v)
+    (fun r => \[r = v] \* (p`.f ~~> v)).
 Proof using.
   xwp. xapp. math_rewrite ((p + f = f + p)%nat).
   rewrite hfield_eq. xpull. intros N. xapp. xsimpl*.
@@ -1012,8 +1012,8 @@ Qed.
 
 Lemma triple_set_field : forall v1 p f v2,
   triple ((val_set_field f) p v2)
-    (l`.f ~~> v1)
-    (fun _ => l`.f ~~> v2).
+    (p`.f ~~> v1)
+    (fun _ => p`.f ~~> v2).
 Proof using.
   xwp. xapp. math_rewrite ((p + f = f + p)%nat).
   do 2 rewrite hfield_eq. xpull. intros N. xapp. xsimpl*.

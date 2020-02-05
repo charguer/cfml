@@ -245,7 +245,7 @@ Notation "\[ P ]" := (hpure P) (at level 0, format "\[ P ]").
 Definition hsingle (p:loc) (v:val) : hprop :=
   fun (h:heap) => (h = Fmap.single p v /\ p <> null).
 
-Notation "l '~~>' v" := (hsingle p v) (at level 32).
+Notation "p '~~>' v" := (hsingle p v) (at level 32).
 
 (** The "separating conjunction", written [H1 \* H2], characterizes a
     state that can be decomposed in two disjoint parts, one that

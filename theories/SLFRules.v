@@ -1519,7 +1519,7 @@ Lemma single_fresh : forall h v,
   exists p, Fmap.disjoint (Fmap.single p v) h /\ p <> null.
 Proof using.
   (** It is not needed to follow through this proof. *)
-  intros. forwards (l&F&N): exists_not_indom h.
+  intros. forwards (p&F&N): exists_not_indom h.
   exists p. split*. applys* Fmap.disjoint_single_of_not_indom.
 Qed.
 
@@ -1534,7 +1534,7 @@ Proof using.
   intros. intros s1 K0.
   (* 2. We claim the disjointness relation
        [Fmap.disjoint (Fmap.single p v) s1]. *)
-  forwards* (l&D&N): (single_fresh s1 v).
+  forwards* (p&D&N): (single_fresh s1 v).
   (* 3. We provide the witnesses for the reduction,
         as dictated by [eval_ref_sep]. *)
   exists ((Fmap.single p v) \u s1) (val_loc p). split.

@@ -222,9 +222,9 @@ Inductive evalunop : prim -> val -> val -> Prop :=
     [redupop op v1 v2 v3], which asserts that [op v1 v2] evaluates to [v3]. *)
 
 Inductive evalbinop : val -> val -> val -> val -> Prop :=
-  | evalbinop_ptr_add : forall l' p n,
-      (l':nat) = (p:nat) + n :> int ->
-      evalbinop val_ptr_add (val_loc p) (val_int n) (val_loc l')
+  | evalbinop_ptr_add : forall p1 p2 n,
+      (p2:int) = p1 + n ->
+      evalbinop val_ptr_add (val_loc p1) (val_int n) (val_loc p2)
   | evalbinop_eq : forall v1 v2,
       evalbinop val_eq v1 v2 (val_bool (isTrue (v1 = v2)))
   | evalbinop_neq : forall v1 v2,
@@ -422,7 +422,7 @@ Definition hforall (A : Type) (J : A -> hprop) : hprop :=
 Notation "\[]" := (hempty)
   (at level 0) : hprop_scope.
 
-Notation "l '~~>' v" := (hsingle p v) (at level 32) : hprop_scope.
+Notation "p '~~>' v" := (hsingle p v) (at level 32) : hprop_scope.
 
 Notation "H1 '\*' H2" := (hstar H1 H2)
   (at level 41, right associativity) : hprop_scope.
@@ -1285,7 +1285,7 @@ Lemma hoare_ref : forall H v,
     (fun r => (\exists p, \[r = val_loc p] \* p ~~> v) \* H).
 Proof using.
   intros. intros s1 K0.
-  forwards~ (l&D&N): (Fmap.single_fresh 0%nat s1 v).
+  forwards~ (p&D&N): (Fmap.single_fresh 0%nat s1 v).
   exists (Fmap.union (Fmap.single p v) s1) (val_loc p). split.
   { applys~ eval_ref_sep D. }
   { applys~ hstar_intro.

@@ -1607,9 +1607,9 @@ Module PointerAdd.
     valid location, i.e., [p+n] must be nonnegative. The evaluation rule
     for pointer addition is stated as follows. *)
 
-Parameter eval_ptr_add : forall p' p n s,
-  (p':int) = p + n ->
-  eval s (val_ptr_add (val_loc p) (val_int n)) s (val_loc p').
+Parameter eval_ptr_add : forall p1 p2 n s,
+  (p2:int) = p1 + n ->
+  eval s (val_ptr_add (val_loc p1) (val_int n)) s (val_loc p2).
 
 (** The specification directly reformulates the evaluation rule. *)
 
