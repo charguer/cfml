@@ -1,3 +1,21 @@
+
+Declare Scope fmap_scope.
+
+Hint in core, remove once section_open/module_open for databases.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (* Ctx.rev LATER: use [LibListExec.rev] *)
 idem for combine
 

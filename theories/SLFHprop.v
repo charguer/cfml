@@ -27,16 +27,6 @@ Arguments Fmap.union_assoc {A} {B}.
 Arguments Fmap.disjoint_union_eq_l {A} {B}.
 Arguments Fmap.disjoint_union_eq_r {A} {B}.
 
-(** Tweak to enable the parsing of concrete programs in the toy language
-    defined by [SLFDirect]. *)
-(*
-Local Close Scope fmap_scope.
-Local Open Scope string_scope.
-Local Open Scope val_scope.
-Local Open Scope trm_scope.
-Local Coercion string_to_var (x:string) : var := x.
-*)
-
 
 (* ########################################################### *)
 (* ########################################################### *)

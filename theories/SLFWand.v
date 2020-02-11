@@ -1581,7 +1581,68 @@ Qed.
 
 
 (* ################################################ *)
-(** *** 3. Exercise *)
+(** *** 3. Other examples *)
+
+Section WpSpecRef.
+Implicit Types p : loc.
+Implicit Types w : val.
+
+(** The wp-style specification of [ref], [get] and [set] follow. *)
+
+Lemma wp_get : forall v p Q,
+  (p ~~> v) \* (p ~~> v \-* Q v) ==> wp (val_get p) Q.
+Proof using.
+  intros. rewrite wp_equiv. applys triple_conseq_frame.
+  { applys triple_get. } { applys himpl_refl. } { xsimpl. intros ? ->. auto. }
+Qed.
+
+Lemma wp_set : forall v w p Q,
+  (p ~~> v) \* (\forall r, p ~~> w \-* Q r) ==> wp (val_set p w) Q.
+Proof using.
+  intros. rewrite wp_equiv. applys triple_conseq_frame.
+  { applys triple_set. } { applys himpl_refl. }
+  { intros r. xchange (hforall_specialize r). }
+Qed.
+
+Lemma wp_free : forall v w p Q,
+  (p ~~> v) \* (\forall r, Q r) ==> wp (val_free p) Q.
+Proof using.
+  intros. rewrite wp_equiv. applys triple_conseq_frame.
+  { applys triple_free. } { applys himpl_refl. }
+  { intros r. xchange (hforall_specialize r). }
+Qed.
+
+(** Alternatively, we can advertise that [set] and [free] output the unit value. *)
+
+Parameter triple_set' : forall w p v,
+  triple (val_set p w)
+    (p ~~> v)
+    (fun r => \[r = val_unit] \* p ~~> w).
+
+Parameter triple_free' : forall p v,
+  triple (val_free p)
+    (p ~~> v)
+    (fun r => \[r = val_unit]).
+
+Lemma wp_set' : forall v w p Q,
+  (p ~~> v) \* (p ~~> w \-* Q val_unit) ==> wp (val_set p w) Q.
+Proof using.
+  intros. rewrite wp_equiv. applys triple_conseq_frame.
+  { applys triple_set'. } { applys himpl_refl. } { xsimpl. intros ? ->. auto. }
+Qed.
+
+Lemma wp_free' : forall v w p Q,
+  (p ~~> v) \* (Q val_unit) ==> wp (val_free p) Q.
+Proof using.
+  intros. rewrite wp_equiv. applys triple_conseq_frame.
+  { applys triple_free'. } { applys himpl_refl. } { xsimpl. intros ? ->. auto. }
+Qed.
+
+End WpSpecRef.
+
+
+(* ################################################ *)
+(** *** 4. Exercise *)
 
 (** Let us put to practice the use of a Texan triple on a different example.
     Recall the function [incr] and its specification (from [SLFHprop.v]). *)
