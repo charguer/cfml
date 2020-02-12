@@ -1075,24 +1075,22 @@ Qed.
     be removed from the LHS of a magic wand.
 
     More generally, a pure predicate [\[P]] can be removed from
-    the LHS of a magic wand, as long as it is true.
-    Concretely, assume that [\[P] \-* H] holds of a heap.
-    To show that [H] holds of this same heap, it suffices
-    ot justify that the proposition [P] is true. Formally: *)
+    the LHS of a magic wand, as long as [P] is true. Formally: *)
 
-Lemma hwand_hpure_l_intro : forall P H,
+Lemma hwand_hpure_l : forall P H,
   P ->
-  (\[P] \-* H) ==> H.
+  (\[P] \-* H) = H.
 Proof using.
   introv HP. unfold hwand. xsimpl.
-  intros H0 M. xchange M. applys HP.
+  { intros H0 M. xchange M. applys HP. }
+  { xpull. auto. }
 Qed.
 
 (** Reciprocally, to prove that a heap satisfies [\[P] \-* H],
     it suffices to prove that this heap satisfies [H] under the
     assumption that [P] is true. Formally: *)
 
-Lemma hwand_hpure_r_intro : forall H1 H2 P,
+Lemma himpl_hwand_hpure_r : forall H1 H2 P,
   (P -> H1 ==> H2) ->
   H1 ==> (\[P] \-* H2).
 Proof using. introv M. applys himpl_hwand_r. xsimpl. applys M. Qed.
@@ -1201,8 +1199,12 @@ Qed. (* /ADMITTED *)
     3. The characterization via the equivalence [hwand_equiv]:
        [forall H0 H1 H2, (H0 ==> H1 \-* H2) <-> (H1 \* H0 ==> H2)].
 
-    To prove the 3-way equivalence, we first prove the equivalence
-    between (1) and (2), then prove the equivalence between (2) and (3).
+    4. The characterization via the pair of the introduction rule
+       [himpl_hwand_r] and the elimination rule [hwand_cancel].
+
+    To prove the 4-way equivalence, we first prove the equivalence
+    between (1) and (2), then prove the equivalence between (2) and (3),
+    and finally the equivalence between (3) and (4).
 *)
 
 (** Let us first prove that (1) and (2) are equivalent. *)
@@ -1244,6 +1246,23 @@ Proof using.
     { xsimpl. intros H0 M. rewrite K. applys M. } }
   { subst. unfolds hwand_characterization. apply hwand_equiv. }
 Qed.
+
+(** Last, we prove (3) and (4) equivalent. *)
+
+Lemma hwand_characterization_iff_intro_elim_rules : forall op,
+  hwand_characterization op <-> 
+  (    (forall H0 H1 H2, (H1 \* H0 ==> H2) -> (H0 ==> op H1 H2))
+    /\ (forall H1 H2, (H1 \* (op H1 H2) ==> H2))).
+Proof using.
+  unfold hwand_characterization. iff K.
+  { split. 
+    { introv M. apply <- K. apply M. }
+    { intros. apply K. auto. } }
+  { destruct K as (K1&K2). intros. split.
+    { introv M. xchange M. rewrite hstar_comm. applys K2. }
+    { introv M. applys K1. applys M. } }
+Qed.
+
 
 End WandProperties.
 

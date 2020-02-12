@@ -437,19 +437,21 @@ Lemma haffine_hany : forall (H:hprop),
 Proof using. unfold haffine. auto. Qed.
 
 (** The definition of [\GC] that corresponds to this choice of [haffine]
-    is equivalent to [htop], the predicate that holds of any heap. *)
+    is equivalent to [htop], the predicate that holds of any heap. 
+    The predicate [htop] can be defined as [fun h => True] or, equivalently,
+    as [\exists H, H]. *)
 
 Definition hgc : hprop :=
   \exists H, \[haffine H] \* H.
 
-Definition htop (h:heap) :=
-  True.
+Definition htop : hprop :=
+  \exists H, H.
 
 Lemma hgc_eq_htop : hgc = htop.
 Proof using.
   unfold hgc, haffine, htop. applys himpl_antisym.
-  { intros h M. auto. }
-  { intros h M. applys hexists_intro (=h). rewrite hstar_hpure. auto. }
+  { xsimpl. }
+  { xsimpl. auto. }
 Qed.
 
 End FullyAffineLogic.

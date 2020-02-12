@@ -1275,8 +1275,8 @@ Qed.
 (**
 [[
     let rec cps_append_aux p1 p2 k =
-      if p1 = null
-        then k p1
+      if p1 == null
+        then k p2
         else cps_append_aux p1.tail p2 (fun r => (p1.tail <- r); k p1)
 
     let cps_append p1 p2 =
