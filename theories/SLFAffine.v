@@ -975,6 +975,21 @@ Qed. (* /ADMITTED *)
 
 (* [] *)
 
+(** Together, the introduction and the elimination rule justify
+    the fact that [hgc] could equivalently have been defined as 
+    [fun h => heap_affine h]. *)
+
+Definition hgc' : hprop :=
+  fun h => heap_affine h.
+
+Lemma hgc_eq_hgc' :
+  hgc = hgc'.
+Proof using.
+  intros. applys himpl_antisym.
+  { intros h M. applys* hgc_inv. }
+  { intros h M. applys* hgc_intro. }
+Qed.
+
 End GCIntroElim.
 
 
