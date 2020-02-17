@@ -189,7 +189,7 @@ Qed.
 Lemma triple_while_inv : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) t1 t2,
   let Q := (fun r => \exists Y, I false Y) in
   wf R ->
-  (forall t b X, 
+  (forall t b X,
     (forall b' Y, R Y X -> triple t (I b' Y) Q) ->
     triple (trm_if t1 (trm_seq t2 t) val_unit) (I b X) Q) ->
   triple (trm_while t1 t2) (\exists b X, I b X) Q.
@@ -246,14 +246,14 @@ Lemma wp_while_inv_conseq : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) t1
 Proof using.
   introv WR. sets H: (\exists b X, I b X). xpull. intros M.
   rewrite wp_equiv. applys triple_while_inv WR.
-  introv N. rewrite <- wp_equiv. applys M. 
+  introv N. rewrite <- wp_equiv. applys M.
   introv HR. rewrite wp_equiv. applys N HR.
 Qed.
 
-(* 
-[[ 
+(*
+[[
    mkstruct_sound:
-     (forall Q, F Q ==> wp t Q) 
+     (forall Q, F Q ==> wp t Q)
      (forall Q, mkstruct F Q ==> wp t Q)
 ]]
 *)
@@ -264,7 +264,7 @@ Close Scope wp_scope.
 Lemma wp_eq_mkstruct_wp : forall t,
   wp t = mkstruct (wp t).
 Proof using.
-  intros. applys fun_ext_1. intros Q. applys himpl_antisym. 
+  intros. applys fun_ext_1. intros Q. applys himpl_antisym.
   { applys mkstruct_erase. }
   { lets R: mkstruct_sound. unfolds formula_sound. applys R. xsimpl. }
 Qed.
@@ -276,8 +276,8 @@ Definition wpgen_if_trm (F0 F1 F2:formula) : formula :=
 
 Definition wpgen_while (F1 F2:formula) : formula := fun Q =>
   \forall R,
-     \[forall Q',    mkstruct (wpgen_if_trm F1 (mkstruct (wpgen_seq F2 (mkstruct R))) (mkstruct (wpgen_val val_unit))) Q' 
-                 ==> mkstruct R Q'] 
+     \[forall Q',    mkstruct (wpgen_if_trm F1 (mkstruct (wpgen_seq F2 (mkstruct R))) (mkstruct (wpgen_val val_unit))) Q'
+                 ==> mkstruct R Q']
   \-* (mkstruct R Q).
 
 Parameter wpgen_while_eq : forall E t1 t2,
@@ -371,7 +371,7 @@ Proof using.
   applys himpl_trans'.
   { applys wpgen_if_trm_sound.
     { applys S1. }
-    { applys mkstruct_sound. applys wpgen_seq_sound. 
+    { applys mkstruct_sound. applys wpgen_seq_sound.
       { applys S2. }
       { applys mkstruct_sound. applys wp_sound. } }
     { applys mkstruct_sound. applys wpgen_val_sound. } }
@@ -389,13 +389,13 @@ Proof using.
   introv S1 S2. intros Q. unfolds wpgen_while.
   applys himpl_hforall_l (wp (trm_while t1 t2)).
   applys himpl_trans'. rewrite (wp_eq_mkstruct_wp (trm_while t1 t2)). applys himpl_refl. (* TODO *)
-  applys himpl_hwand_hpure_l. intros 
+  applys himpl_hwand_hpure_l. intros
   applys mkstruct_himpl_wp. intros Q'.
   applys himpl_trans'. { applys wp_while. }
   applys himpl_trans'.
   { applys wpgen_if_trm_sound.
     { applys S1. }
-    { applys mkstruct_sound. applys wpgen_seq_sound. 
+    { applys mkstruct_sound. applys wpgen_seq_sound.
       { applys S2. }
       { applys mkstruct_sound. applys wp_sound. } }
     { applys mkstruct_sound. applys wpgen_val_sound. } }
@@ -440,7 +440,7 @@ Notation "'While' t1 'Do' t2 'Done'" :=
 
 
 
-(** The following function 
+(** The following function
 
 [[
     let mlength_loop p =
@@ -448,7 +448,7 @@ Notation "'While' t1 'Do' t2 'Done'" :=
       let r = ref p in
       while !p != null do
         incr a;
-        r = !p.tail;
+        r := !p.tail;
       done;
       let n = !a in
       free a;
@@ -496,7 +496,7 @@ Lemma mkstruct_erase_conseq_frame : forall F H Q1 Q2,
   F Q1 \* H ==> mkstruct F Q2.
 Proof using.
   introv WQ.
-lets: mkstruct_frame. 
+lets: mkstruct_frame.
  applys himpl_trans'. applys mkstruct_conseq WQ. xchange mkstruct_erase.
 Qed.
 
@@ -541,26 +541,26 @@ Proof using.
   xwp. xapp. intros a. xapp. intros r.
   xseq. rewrite wpgen_while_eq. xwp_simpl.
   (* xwhile TODO *)
-  applys himpl_trans; [ | applys mkstruct_conseq].  
+  applys himpl_trans; [ | applys mkstruct_conseq].
   xstruct. unfold wpgen_while. xsimpl. intros R HR.
   asserts KR: (forall n,     r ~~> p \* a ~~> n \* MList L p
-                         ==> `R (fun _ => \exists z, r ~~> z \* a ~~> (length L + n) \* MList L p)).
-  { gen p. induction_wf IH: list_sub L. intros. 
+                         ==> `R (fun _ =>  r ~~> null \* a ~~> (length L + n) \* MList L p)).
+  { gen p. induction_wf IH: list_sub L. intros.
     applys himpl_trans HR. clear HR.
     unfold wpgen_if_trm. xlet. (* TODO xif_trm *)
     xapp. xapp. xchange MList_if. xif; intros C; case_if.
     { xpull. intros x q L' ->. xseq. xapp. xapp. xapp. xapp.
       (* recursive call, framing the head cell: *)
       applys mkstruct_apply. applys (IH L'). { auto. } xsimpl. unfold protect.
-      intros _ z. xchange <- MList_cons. xsimpl. { rew_list. math. }
+      intros _. xchange <- MList_cons. xsimpl. { rew_list. math. }
         (* Close Scope wp_scope. *)
         (* eapply mkstruct_ramified_trans_protect. xsimpl. unfold protect.
         rewrite qwand_equiv. intros _. xchange <- MList_cons. xsimpl. rew_list. math.  *)
     }
-    { xpull. intros ->. xval. xsimpl. subst. xchange MList_nil_intro. }
+    { xpull. intros ->. xval. xsimpl. auto. subst. xchange MList_nil_intro. }
   }
   { applys KR. }
-  xpull. intros _ q. xapp. xapp. xapp. xval. xsimpl. math. 
+  xpull. xapp. xapp. xapp. xval. xsimpl. math.
 Qed.
 
 End DemoLoopFrame.
@@ -599,11 +599,11 @@ Proof using.
   rewrite hstar_hpure in N. destruct N as (->&K').
   dup. (* Duplicate the proof obligation to cover two cases *)
   (* Case assertions are enabled *)
-  { exists s' val_unit. split. 
+  { exists s' val_unit. split.
     { applys eval_assert_enabled R. }
     { applys K'. } }
   (* Case assertions are disabled *)
-  { exists s val_unit. split. 
+  { exists s val_unit. split.
     { applys eval_assert_disabled. }
     { applys K. } }
 Qed.
@@ -612,7 +612,7 @@ Lemma triple_assert : forall t H,
   triple t H (fun r => \[r = true] \* H) ->
   triple (val_assert t) H (fun _ => H).
 Proof using.
-  introv M. intros H'. specializes M H'. applys hoare_assert. 
+  introv M. intros H'. specializes M H'. applys hoare_assert.
   applys hoare_conseq M. { xsimpl. } { xsimpl. auto. }
 Qed.
 
