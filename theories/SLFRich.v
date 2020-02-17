@@ -579,11 +579,11 @@ Module Assertions.
 
 Parameter val_assert : prim.
 
-Parameter eval_assert : forall s t s',
+Parameter eval_assert_enabled : forall s t s',
   eval s t s' (val_bool true) ->
   eval s (val_assert t) s' val_unit.
 
-Parameter eval_assert_ignore : forall s t,
+Parameter eval_assert_disabled : forall s t,
   eval s (val_assert t) s val_unit.
 
 Parameter eval_assert_both : forall s t s' v, (* too restrictive *)
@@ -597,9 +597,15 @@ Lemma hoare_assert : forall t H,
 Proof using.
   introv M. intros s K. forwards (s'&v&R&N): M K.
   rewrite hstar_hpure in N. destruct N as (->&K').
-  exists s' val_unit. split. 
-  { applys eval_assert R. }
-  { applys K'. }
+  dup. (* Duplicate the proof obligation to cover two cases *)
+  (* Case assertions are enabled *)
+  { exists s' val_unit. split. 
+    { applys eval_assert_enabled R. }
+    { applys K'. } }
+  (* Case assertions are disabled *)
+  { exists s val_unit. split. 
+    { applys eval_assert_disabled. }
+    { applys K. } }
 Qed.
 
 Lemma triple_assert : forall t H,
