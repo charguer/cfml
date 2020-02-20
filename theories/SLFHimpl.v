@@ -1142,4 +1142,62 @@ Parameter triple_hexists' : forall t (A:Type) (J:A->hprop) Q,
   (forall x, triple t (J x) Q) ->
   triple t (hexists J) Q.
 
+(** Remark: in chapter [SLFHprop], we observed that [\[P]] can be
+    encoded as [\exists (p:P), \[]]. When this encoding is used,
+    the rule [triple_hpure] turns out to be a particular instance
+    of the rule [triple_hexists], as we prove next. *)
+
+Parameter hpure_encoding : forall P,
+  \[P] = (\exists (p:P), \[]).
+
+Lemma triple_hpure_from_triple_hexists : forall t (P:Prop) H Q,
+  (P -> triple t H Q) ->
+  triple t (\[P] \* H) Q.
+Proof using.
+  introv M. rewrite hpure_encoding.
+  rewrite hstar_hexists. (* disable notation printing to see the effect *)
+  applys triple_hexists. (* [forall (p:P), ...] is the same as [P -> ...] *)
+  rewrite hstar_hempty_l. applys M.
+Qed.
+
 End ProveExtractionRules.
+
+
+(* ########################################################### *)
+(** ** Alternative structural rule for existentials *)
+
+Module AlternativeExistentialRule.
+
+(** Traditional papers on Separation Logic do not include [triple_hexists],
+    but instead a rule called [triple_hexists2] that includes an existential
+    quantifier both in the precondition and the postcondition.
+
+    As we show next, in the presence of the consequence rule,
+    the two rules are equivalent.
+
+    The formulation of [triple_hexists] is not only more concise, it is
+    also better suited for practical applications. *)
+
+Lemma triple_hexists2 : forall A (Hof:A->hprop) (Qof:A->val->hprop) t,
+  (forall x, triple t (Hof x) (Qof x)) ->
+  triple t (\exists x, Hof x) (fun v => \exists x, Qof x v).
+Proof using.
+  introv M. 
+  applys triple_hexists. intros x.
+  applys triple_conseq (M x).
+  { applys himpl_refl. }
+  { intros v. applys himpl_hexists_r x. applys himpl_refl. }
+Qed.
+
+Lemma triple_hexists_of_triple_hexists2 : forall t (A:Type) (Hof:A->hprop) Q,
+  (forall x, triple t (Hof x) Q) ->
+  triple t (\exists x, Hof x) Q.
+Proof using.
+  introv M. applys triple_conseq (\exists x, Hof x) (fun (v:val) => \exists (x:A), Q v).
+  { applys triple_hexists2. intros x. applys M. }
+  { applys himpl_refl. }
+  { intros v. applys himpl_hexists_l. intros _. applys himpl_refl. }
+Qed.
+
+End AlternativeExistentialRule.
+

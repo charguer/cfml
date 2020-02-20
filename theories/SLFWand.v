@@ -1335,6 +1335,19 @@ Lemma himpl_hforall_l : forall A (v:A) (J:A->hprop) H,
   (\forall x, J x) ==> H.
 Proof using. introv M. applys himpl_trans M. applys hforall_specialize. Qed.
 
+(** Universal quantifers that appear in the precondition of a triple
+    may be specialized, just like those in the left-hand side of an
+    entailment. *)
+
+Lemma triple_hforall : forall A (v:A) t (J:A->hprop) Q,
+  triple t (J v) Q ->
+  triple t (\forall x, J x) Q.
+Proof.
+  introv M. applys triple_conseq M.
+  { applys hforall_specialize. } 
+  { applys qimpl_refl. } 
+Qed.
+
 
 (* ####################################################### *)
 (** ** Alternative definition of [qwand] *)
