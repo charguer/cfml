@@ -2093,55 +2093,6 @@ End ProofsSameSemantics.
 
 
 (* ########################################################### *)
-(** *** Rules for naming heaps *)
-
-(* EX1? (hoare_named_heap) *)
-(** Prove that the proposition [hoare t H Q] is equivalent to:
-    "for any heap [h] satisfying the precondition [H], the Hoare
-    triple whose precondition requires the input heap to be exactly
-    equal to [h], and whose postcondition is [Q] holds".
-
-    Thereafter, we write [= h] for [fun h' => h' = h], that is,
-    the heap predicate that only accepts heaps exactly equal to [h]. *)
-
-Lemma hoare_named_heap : forall t H Q,
-  (forall h, H h -> hoare t (= h) Q) ->
-  hoare t H Q.
-Proof using. (* ADMITTED *)
-  introv M. intros h K. applys M K. auto.
-Qed. (* /ADMITTED *)
-
-(** [] *)
-
-(* EX3? (triple_named_heap) *)
-(** Prove the counterpart of [hoare_named_heap] for Separation
-    Logic triples.
-
-    Hint: you should exploit the lemma [hoare_named_heap], and
-    never unfold the definition of the judgment [hoare]
-
-    Hint: unfold the definition of [triple], exploit [hoare_named_heap],
-    then conclude with help of [hoare_conseq] and by exploiting
-    basic properties of the Separation Logic operators. *)
-
-Lemma triple_named_heap : forall t H Q,
-  (forall h, H h -> triple t (= h) Q) ->
-  triple t H Q.
-Proof using. (* ADMITTED *)
-  introv M. unfolds triple. intros H'.
-  applys hoare_named_heap. intros h K.
-  lets (h1&h2&K1&K2&D&U): hstar_inv K. subst h.
-  lets N: M h1 (=h2). applys K1.
-  applys hoare_conseq N.
-  { intros ? ->. applys* hstar_intro. }
-  { intros x. applys himpl_frame_r.
-    intros ? ->. applys K2. }
-Qed. (* /ADMITTED *)
-
-(** [] *)
-
-
-(* ########################################################### *)
 (** ** Alternative specification style for result values. *)
 
 Module MatchStyle.

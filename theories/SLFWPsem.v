@@ -585,7 +585,7 @@ Lemma wp_equiv_wp_low : forall t H Q,
 (** The details of the proofs are given for the reference but are
     beyond the scope of this course. Technically, the proof exploits
     the lemma [triple_named_heap] which was established as an exercise
-    in the appendix of the chapter [SLFRules].) *)
+    in the appendix of the chapter [SLFHimpl].) *)
 
 Proof using.
   unfold wp. iff M.

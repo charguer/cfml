@@ -1073,7 +1073,26 @@ End ProveConsequenceRules.
 
 
 (* ########################################################### *)
-(** ** Proof of the extraction rules *)
+(** ** Proof of the extraction rules for entailments *)
+
+Lemma himpl_hexists_l : forall (A:Type) (H:hprop) (J:A->hprop),
+  (forall x, J x ==> H) ->
+  (\exists x, J x) ==> H.
+Proof using.
+  introv M. intros h K. destruct K as (x&K). applys M x. applys K.
+Qed.
+
+Lemma himpl_hstar_hpure_l : forall (P:Prop) (H H':hprop),
+  (P -> H ==> H') ->
+  (\[P] \* H) ==> H'.
+Proof using.
+  introv M. intros h K. rewrite hstar_hpure_iff in K.
+  destruct K as (K1&K2). applys M. applys K1. applys K2.
+Qed.
+
+
+(* ########################################################### *)
+(** ** Proof of the extraction rules for triples *)
 
 Module ProveExtractionRules.
 
@@ -1161,6 +1180,69 @@ Proof using.
 Qed.
 
 End ProveExtractionRules.
+
+
+(* ########################################################### *)
+(** *** Rules for naming heaps *)
+
+(** Thereafter, we write [= h] for [fun h' => h' = h], that is,
+    the heap predicate that only accepts heaps exactly equal to [h]. *)
+
+(* EX2? (hexists_named_eq) *)
+(** Prove that a heap predicate [H] is equivalent to the heap 
+    predicate which asserts that the heap is, for a heap [h]
+    such that [H h], exactly equal to [H]. 
+
+    Hint: use [hstar_hpure_iff] and [hexists_intro], as well as
+    the extraction rules [himpl_exists_l] and [himpl_hstar_hpure_l]. *)
+
+Lemma hexists_named_eq : forall H,
+  H = (\exists h, \[H h] \* (= h)).
+Proof using. (* ADMITTED *)
+  intros. apply himpl_antisym.
+  { intros h K. applys hexists_intro h.
+    rewrite hstar_hpure_iff. auto. }
+  { applys himpl_hexists_l. intros h.
+    applys himpl_hstar_hpure_l. intros K. 
+    intros h' E. subst. auto. }
+Qed. (* /ADMITTED *)
+
+(** [] *)
+
+(* EX1? (hoare_named_heap) *)
+(** Prove that the proposition [hoare t H Q] is equivalent to:
+    for any heap [h] satisfying the precondition [H], the Hoare
+    triple whose precondition requires the input heap to be exactly
+    equal to [h], and whose postcondition is [Q] holds. *)
+
+Lemma hoare_named_heap : forall t H Q,
+  (forall h, H h -> hoare t (= h) Q) ->
+  hoare t H Q.
+Proof using. (* ADMITTED *)
+  introv M. intros h K. applys M K. auto.
+Qed. (* /ADMITTED *)
+
+(** [] *)
+
+(* EX3? (triple_named_heap) *)
+(** Prove the counterpart of [hoare_named_heap] for Separation
+    Logic triples.
+
+    It is possible to exploit the lemma [hoare_named_heap], yet
+    there exists a simpler, more direct proof that exploits
+    the lemma [hexists_name_eq], which is stated above. *)
+
+Lemma triple_named_heap : forall t H Q,
+  (forall h, H h -> triple t (= h) Q) ->
+  triple t H Q.
+Proof using. (* ADMITTED *)
+  introv M. rewrite (hexists_named_eq H).
+  applys triple_hexists. intros h.
+  applys triple_hpure. intros K.
+  applys M. auto.
+Qed. (* /ADMITTED *)
+
+(** [] *)
 
 
 (* ########################################################### *)

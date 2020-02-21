@@ -1659,3 +1659,31 @@ Coercion apps_to_trm (a:apps) : trm :=
     The type-class mechanism is more complex than the coercion mechanism,
     yet much more general, hence its use in the actual CFML tool. *)
 (* /INSTRUCTORS *)
+
+
+
+
+(* EX3? (triple_named_heap) *)
+(** Prove the counterpart of [hoare_named_heap] for Separation
+    Logic triples.
+
+    Hint: you should exploit the lemma [hoare_named_heap], and
+    never unfold the definition of the judgment [hoare]
+
+    Hint: unfold the definition of [triple], exploit [hoare_named_heap],
+    then conclude with help of [hoare_conseq] and by exploiting
+    basic properties of the Separation Logic operators. *)
+
+Lemma triple_named_heap : forall t H Q,
+  (forall h, H h -> triple t (= h) Q) ->
+  triple t H Q.
+Proof using. (* ADMITTED *)
+  introv M. unfolds triple. intros H'.
+  applys hoare_named_heap. intros h K.
+  lets (h1&h2&K1&K2&D&U): hstar_inv K. subst h.
+  lets N: M h1 (=h2). applys K1.
+  applys hoare_conseq N.
+  { intros ? ->. applys* hstar_intro. }
+  { intros x. applys himpl_frame_r.
+    intros ? ->. applys K2. }
+Qed. (* /ADMITTED *)

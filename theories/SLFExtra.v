@@ -64,43 +64,6 @@ End Hoare.
 (* ########################################################### *)
 (** ** Structural rules *)
 
-(** Extraction rules *)
-
-Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
-  (forall x, triple t (J x) Q) ->
-  triple t (hexists J) Q.
-Proof using.
-  introv M. intros HF. rewrite hstar_hexists.
-  applys hoare_hexists. intros. applys* M.
-Qed.
-
-Lemma triple_hforall : forall A (x:A) t (J:A->hprop) Q,
-  triple t (J x) Q ->
-  triple t (hforall J) Q.
-Proof using.
-  introv M. intros HF.
-  forwards* N: hoare_hforall (fun x => J x \* HF).
-  applys* hoare_conseq. applys himpl_trans. applys hstar_hforall.
-  applys* himpl_hforall_l.
-Qed.
-
-Lemma triple_hpure : forall t (P:Prop) H Q,
-  (P -> triple t H Q) ->
-  triple t (\[P] \* H) Q.
-Proof using.
-  introv M. intros HF. rewrite hstar_assoc.
-  applys hoare_hpure. intros. applys* M.
-Qed.
-
-Lemma triple_hwand_hpure_l : forall t (P:Prop) H Q,
-  P ->
-  triple t H Q ->
-  triple t (\[P] \-* H) Q.
-Proof using.
-  introv HP M. intros HF. applys* hoare_conseq M.
-  xsimpl. applys hwand_hpure_l_intro HP.
-Qed.
-
 (** Consequence and frame rule *)
 
 Lemma triple_conseq : forall t H' Q' H Q,
@@ -133,6 +96,39 @@ Proof using.
   { intros v. rewrite hstar_assoc. auto. }
 Qed.
 
+(** Extraction rules *)
+
+Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
+  (forall x, triple t (J x) Q) ->
+  triple t (hexists J) Q.
+Proof using.
+  introv M. intros HF. rewrite hstar_hexists.
+  applys hoare_hexists. intros. applys* M.
+Qed.
+
+Lemma triple_hpure : forall t (P:Prop) H Q,
+  (P -> triple t H Q) ->
+  triple t (\[P] \* H) Q.
+Proof using.
+  introv M. intros HF. rewrite hstar_assoc.
+  applys hoare_hpure. intros. applys* M.
+Qed. (* Note: can also be proved from [triple_hexists] *)
+
+Lemma triple_hforall : forall A (x:A) t (J:A->hprop) Q,
+  triple t (J x) Q ->
+  triple t (hforall J) Q.
+Proof using.
+  introv M. applys* triple_conseq M. applys hforall_specialize.
+Qed.
+
+Lemma triple_hwand_hpure_l : forall t (P:Prop) H Q,
+  P ->
+  triple t H Q ->
+  triple t (\[P] \-* H) Q.
+Proof using.
+  introv HP M. applys* triple_conseq M. applys* hwand_hpure_l_intro.
+Qed.
+
 (** Combined and ramified rules *)
 
 Lemma triple_conseq_frame : forall H2 H1 Q1 t H Q,
@@ -151,6 +147,26 @@ Lemma triple_ramified_frame : forall H1 Q1 t H Q,
 Proof using.
   introv M W. applys triple_conseq_frame (Q1 \--* Q) M W.
   { rewrite~ <- qwand_equiv. }
+Qed.
+
+(** Named heaps *)
+
+Lemma hexists_named_eq : forall H,
+  H = (\exists h, \[H h] \* (= h)).
+Proof using.
+  intros. apply himpl_antisym.
+  { intros h K. applys hexists_intro h.
+    rewrite* hstar_hpure. }
+  { xpull. intros h K. intros ? ->. auto. }
+Qed.
+
+Lemma triple_named_heap : forall t H Q,
+  (forall h, H h -> triple t (= h) Q) ->
+  triple t H Q.
+Proof using.
+  introv M. rewrite (hexists_named_eq H).
+  applys triple_hexists. intros h.
+  applys* triple_hpure.
 Qed.
 
 
