@@ -581,7 +581,7 @@ Proof using.
 Qed.
 
 Lemma hstar_hempty_l : forall H,
-  hempty \* H = H.
+  \[] \* H = H.
 Proof using.
   intros. applys himpl_antisym; intros h.
   { intros (h1&h2&M1&M2&D&U). forwards E: hempty_inv M1. subst.
