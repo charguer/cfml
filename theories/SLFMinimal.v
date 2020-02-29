@@ -196,11 +196,11 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
   | eval_if : forall s1 s2 b v t1 t2,
       eval s1 (if b then t1 else t2) s2 v ->
       eval s1 (trm_if (val_bool b) t1 t2) s2 v
-  | eval_add : forall op m n1 n2,
+  | eval_add : forall m n1 n2,
       eval m (val_add (val_int n1) (val_int n2)) m (val_int (n1 + n2))
-  | eval_div : forall op m v1 v2 v,
+  | eval_div : forall m n1 n2,
        n2 <> 0 ->
-     eval m (val_add (val_int n1) (val_int n2)) m (val_int (Z.quot n1 n2))
+     eval m (val_div (val_int n1) (val_int n2)) m (val_int (Z.quot n1 n2))
   | eval_ref : forall s v p,
       ~ Fmap.indom s p ->
       eval s (val_ref v) (Fmap.update s p v) (val_loc p)
@@ -221,7 +221,7 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
 (** * Heap predicates *)
 
 (** For technical reasons, to enable sharing the code implementing
-    the tactic [xsimpl], we wrap the definitions inside a module. *)
+    the tactic [xmysimpl], we wrap the definitions inside a module. *)
 
 Module SepSimplArgs.
 
@@ -327,8 +327,6 @@ Definition qwand A (Q1 Q2:A->hprop) : hprop :=
 
 Notation "\[ P ]" := (hpure P)
   (at level 0, format "\[ P ]") : hprop_scope.
-
-Notation "\Top" := (htop) : hprop_scope.
 
 Notation "Q \*+ H" := (fun x => hstar (Q x) H)
   (at level 40) : hprop_scope.
@@ -797,7 +795,9 @@ Lemma haffine_hempty :
 Proof using. applys haffine_hany. Qed.
 
 Definition hgc := (* equivalent to [\exists H, \[haffine H] \* H] *)
-  htop.
+  \exists H, H.
+
+Definition htop := hgc.
 
 Notation "\GC" := (hgc) : hprop_scope.
 
@@ -808,17 +808,41 @@ Proof using. applys haffine_hany. Qed.
 Lemma himpl_hgc_r : forall H,
   haffine H ->
   H ==> \GC.
-Proof using. introv M. applys himpl_htop_r. Qed.
+Proof using. introv M. Admitted.
 
 Lemma hstar_hgc_hgc :
   \GC \* \GC = \GC.
-Proof using. applys hstar_htop_htop. Qed.
+Proof using. Admitted.
 
 
 (* ################################################ *)
 (** *** Functor instantiation to obtain [xsimpl] *)
 
+Notation "\Top" := (htop) : hprop_scope.
+
+Lemma htop_intro : forall h,
+  \Top h.
+Proof using. intros. exists~ (=h). Qed.
+
+Lemma himpl_htop_r : forall H,
+  H ==> \Top.
+Proof using. intros. intros h Hh. applys* htop_intro. Qed.
+
+Lemma htop_eq :
+  \Top = (\exists H, H).
+Proof using. auto. Qed.
+
+Lemma hstar_htop_htop :
+  \Top \* \Top = \Top.
+Proof using.
+  applys himpl_antisym.
+  { applys himpl_htop_r. }
+  { rewrite <- hstar_hempty_r at 1. applys himpl_frame_r. applys himpl_htop_r. }
+Qed.
+
+
 End SepSimplArgs.
+
 
 (** We are now ready to instantiate the functor, and open the
     contents of the module [SepHsimplArgs], essentially pretending
@@ -885,6 +909,18 @@ Global Opaque hempty hpure hstar hsingle hexists hforall
 (* ########################################################### *)
 (* ########################################################### *)
 (** * Reasoning rules *)
+
+
+Ltac xmysimpl_core :=
+  try match goal with |- _ = _ :> val -> hprop => intros ? end;
+  repeat rewrite hstar_assoc;
+  repeat first [ apply himpl_frame_r
+               | apply himpl_frame_l 
+               | match goal with |- ?H = ?H => apply himpl_refl end ].
+
+Tactic Notation "xmysimpl" := xmysimpl_core.
+
+Tactic Notation "xmysimpl" "*" := xmysimpl; auto_star.
 
 
 (* ########################################################### *)
@@ -1062,8 +1098,8 @@ Lemma hoare_div : forall H n1 n2,
     H
     (fun r => \[r = val_int (Z.quot n1 n2)] \* H).
 Proof using.
-  intros. intros s K0. exists s (val_int (Z.quot n1 n2)). split.
-  { applys eval_add. }
+  introv N. intros s K0. exists s (val_int (Z.quot n1 n2)). split.
+  { applys eval_div N. }
   { rewrite~ hstar_hpure. }
 Qed.
 
@@ -1095,30 +1131,29 @@ Qed.
 Lemma hoare_set : forall H w p v,
   hoare (val_set (val_loc p) w)
     ((p ~~> v) \* H)
-    (fun r => \[r = val_unit] \* (p ~~> w) \* H).
+    (fun r => (p ~~> w) \* H).
 Proof using.
   intros. intros s1 K0.
   destruct K0 as (h1&h2&P1&P2&D&U).
   lets (E1&N): hsingle_inv P1.
   exists (Fmap.union (Fmap.single p w) h2) val_unit. split.
   { subst h1. applys eval_set_sep U D. auto. }
-  { rewrite hstar_hpure. split~.
-    { applys~ hstar_intro.
-      { applys~ hsingle_intro. }
-      { subst h1. applys Fmap.disjoint_single_set D. } } }
+  { applys~ hstar_intro.
+    { applys~ hsingle_intro. }
+    { subst h1. applys Fmap.disjoint_single_set D. } }
 Qed.
 
 Lemma hoare_free : forall H p v,
   hoare (val_free (val_loc p))
     ((p ~~> v) \* H)
-    (fun r => \[r = val_unit] \* H).
+    (fun r => H).
 Proof using.
   intros. intros s1 K0.
   destruct K0 as (h1&h2&P1&P2&D&U).
   lets (E1&N): hsingle_inv P1.
   exists h2 val_unit. split.
   { subst h1. applys eval_free_sep U D. }
-  { rewrite hstar_hpure. split~. }
+  { auto. }
 Qed.
 
 
@@ -1160,11 +1195,25 @@ Proof using.
   { intros x. xchanges (MQ x). }
 Qed.
 
+Hint Rewrite hstar_assoc hstar_hempty_l hstar_hempty_r : hstar.
+
+Ltac xmysimpl_core ::=
+  try match goal with |- _ ===> _ => intros ? end;
+  autorewrite with hstar;
+  repeat first [ apply himpl_frame_r
+               | apply himpl_frame_l 
+               | rewrite hstar_comm; apply himpl_frame_r
+               | rewrite hstar_comm; apply himpl_frame_l
+               | match goal with |- ?H ==> ?H => apply himpl_refl end
+               | match goal with |- ?H ==> ?H' => is_evar H'; apply himpl_refl end ].
+
+
 Lemma triple_frame : forall t H Q H',
   triple t H Q ->
   triple t (H \* H') (Q \*+ H').
 Proof using.
-  introv M. intros HF. applys hoare_conseq (M (HF \* H')); xsimpl.
+  introv M. intros HF.
+  applys hoare_conseq (M (HF \* H')); xmysimpl.
 Qed.
 
 Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
@@ -1188,7 +1237,9 @@ Lemma triple_ramified_frame : forall H1 Q1 t H Q,
   H ==> H1 \* (Q1 \--* Q) ->
   triple t H Q.
 Proof using.
-  introv M W. applys triple_conseq_frame (Q1 \--* Q) M W.
+  introv M W. applys triple_conseq. 
+  applys triple_frame (Q1 \--* Q) M.
+  { applys W. }
   { rewrite~ <- qwand_equiv. }
 Qed.
 
@@ -1217,7 +1268,7 @@ Lemma triple_let : forall x t1 t2 H Q Q1,
 Proof using.
   introv M1 M2. intros HF. applys hoare_let.
   { applys M1. }
-  { intros v. applys hoare_conseq M2; xsimpl. }
+  { intros v. applys hoare_conseq M2; xmysimpl. }
 Qed.
 
 Lemma triple_if : forall (b:bool) t1 t2 H Q,
@@ -1244,7 +1295,7 @@ Lemma triple_add : forall n1 n2,
     \[]
     (fun r => \[r = val_int (n1 + n2)]).
 Proof using.
-  intros. intros H'. applys hoare_conseq hoare_add; xsimpl~.
+  intros. intros H'. applys hoare_conseq hoare_add; xmysimpl*.
 Qed.
 
 Lemma triple_div : forall n1 n2,
@@ -1253,7 +1304,7 @@ Lemma triple_div : forall n1 n2,
     \[]
     (fun r => \[r = val_int (Z.quot n1 n2)]).
 Proof using.
-  intros. intros H'. applys hoare_conseq hoare_div; xsimpl~.
+  intros. intros H'. applys* hoare_conseq hoare_div; xmysimpl*.
 Qed.
 
 Lemma triple_ref : forall v,
@@ -1261,7 +1312,7 @@ Lemma triple_ref : forall v,
     \[]
     (funloc p => p ~~> v).
 Proof using.
-  intros. intros HF. applys hoare_conseq hoare_ref; xsimpl~.
+  intros. intros HF. applys hoare_conseq hoare_ref; xmysimpl*.
 Qed.
 
 Lemma triple_get : forall v p,
@@ -1269,7 +1320,7 @@ Lemma triple_get : forall v p,
     (p ~~> v)
     (fun x => \[x = v] \* (p ~~> v)).
 Proof using.
-  intros. intros HF. applys hoare_conseq hoare_get; xsimpl~.
+  intros. intros HF. applys hoare_conseq hoare_get; xmysimpl*.
 Qed.
 
 Lemma triple_set : forall w p v,
@@ -1277,7 +1328,7 @@ Lemma triple_set : forall w p v,
     (p ~~> v)
     (fun _ => p ~~> w).
 Proof using.
-  intros. intros HF. applys hoare_conseq hoare_set; xsimpl~.
+  intros. intros HF. applys hoare_conseq hoare_set; xmysimpl*.
 Qed.
 
 Lemma triple_free : forall p v,
@@ -1285,6 +1336,6 @@ Lemma triple_free : forall p v,
     (p ~~> v)
     (fun _ => \[]).
 Proof using.
-  intros. intros HF. applys hoare_conseq hoare_free; xsimpl~.
+  intros. intros HF. applys hoare_conseq hoare_free; xmysimpl*.
 Qed.
 
