@@ -1687,3 +1687,61 @@ Proof using. (* ADMITTED *)
   { intros x. applys himpl_frame_r.
     intros ? ->. applys K2. }
 Qed. (* /ADMITTED *)
+
+
+(** Let us first prove that (1) and (2) are equivalent. *)
+
+Lemma hwand_eq_hwand' :
+  hwand = hwand'.
+Proof using.
+  apply pred_ext_3. intros H1 H2 h. unfold hwand, hwand'. iff M.
+  { intros h1 D K1. destruct M as (H0&M).
+    destruct M as (h0&h2&K0&K2&D'&U).
+    lets (N&E): hpure_inv (rm K2). subst h h2.
+    rewrite Fmap.union_empty_r in *.
+    applys N. rewrite hstar_comm. applys hstar_intro K0 K1 D. }
+  { exists (=h). rewrite hstar_comm. rewrite hstar_hpure. split.
+    { intros h3 K3. rewrite hstar_comm in K3.
+      destruct K3 as (h1&h2&K1&K2&D&U). subst h1 h3. applys M D K2. }
+    { auto. } }
+Qed.
+
+(** According to definition (3), an operator [op] denotes a magic wand
+   if and only if, for any [H0], [H1], [H2], it satisfies the
+   equivalence [(H0 ==> op H1 H2) <-> (H0 \* H1 ==> H2)]. Formally: *)
+
+Definition hwand_characterization (op:hprop->hprop->hprop) :=
+  forall H0 H1 H2, (H0 ==> op H1 H2) <-> (H1 \* H0 ==> H2).
+
+(** We prove that an operator [op] satisfies [hwand_characterization]
+    if and only if it is equal to [hwand]. This result shows that the
+    definitions (2) and (3) are equivalent. *)
+
+Lemma hwand_characterization_iff_eq_hwand : forall op,
+  hwand_characterization op <-> op = hwand.
+Proof using.
+  iff K.
+  { apply fun_ext_2. intros H1 H2.
+    unfolds hwand_characterization, hwand. apply himpl_antisym.
+    { lets (M&_): (K (op H1 H2) H1 H2). xsimpl (op H1 H2).
+      applys M. applys himpl_refl. }
+    { xsimpl. intros H0 M. rewrite K. applys M. } }
+  { subst. unfolds hwand_characterization. apply hwand_equiv. }
+Qed.
+
+(** Last, we prove (3) and (4) equivalent. *)
+
+Lemma hwand_characterization_iff_intro_elim_rules : forall op,
+  hwand_characterization op <-> 
+  (    (forall H0 H1 H2, (H1 \* H0 ==> H2) -> (H0 ==> op H1 H2))
+    /\ (forall H1 H2, (H1 \* (op H1 H2) ==> H2))).
+Proof using.
+  unfold hwand_characterization. iff K.
+  { split. 
+    { introv M. apply <- K. apply M. }
+    { intros. apply K. auto. } }
+  { destruct K as (K1&K2). intros. split.
+    { introv M. xchange M. rewrite hstar_comm. applys K2. }
+    { introv M. applys K1. applys M. } }
+Qed.
+

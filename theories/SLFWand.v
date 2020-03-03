@@ -1178,6 +1178,8 @@ Qed. (* /ADMITTED *)
 
 (** [] *)
 
+End WandProperties.
+
 
 (* ########################################################### *)
 (* ########################################################### *)
@@ -1186,6 +1188,9 @@ Qed. (* /ADMITTED *)
 
 (* ####################################################### *)
 (** ** Equivalence between alternative definitions of the magic wand *)
+
+Module HwandEquiv.
+Implicit Type op : hprop->hprop->hprop.
 
 (** In what follows we prove the equivalence between the three
     characterizations of [hwand H1 H2] that we have presented:
@@ -1207,64 +1212,66 @@ Qed. (* /ADMITTED *)
     and finally the equivalence between (3) and (4).
 *)
 
-(** Let us first prove that (1) and (2) are equivalent. *)
+Definition hwand_characterization_1 (op:hprop->hprop->hprop) :=
+  op = (fun H1 H2 => (fun h => forall h', Fmap.disjoint h h' -> H1 h' -> H2 (h \u h'))).
 
-Lemma hwand_eq_hwand' :
-  hwand = hwand'.
+Definition hwand_characterization_2 (op:hprop->hprop->hprop) :=
+  op = (fun H1 H2 => \exists H0, H0 \* \[ H1 \* H0 ==> H2 ]).
+
+Definition hwand_characterization_3 (op:hprop->hprop->hprop) :=
+  forall H0 H1 H2, (H0 ==> op H1 H2) <-> (H1 \* H0 ==> H2).
+
+Definition hwand_characterization_4 (op:hprop->hprop->hprop) :=
+     (forall H0 H1 H2, (H1 \* H0 ==> H2) -> (H0 ==> op H1 H2))
+  /\ (forall H1 H2, (H1 \* (op H1 H2) ==> H2)).
+
+Lemma hwand_characterization_1_eq_2 :
+  hwand_characterization_1 = hwand_characterization_2.
 Proof using.
-  apply pred_ext_3. intros H1 H2 h. unfold hwand, hwand'. iff M.
+  applys pred_ext_1. intros op.
+  unfold hwand_characterization_1, hwand_characterization_2.
+  asserts K: (forall A B, A = B -> (op = A <-> op = B)). 
+  { intros. iff; subst*. } apply K; clear K.
+  apply pred_ext_3. intros H1 H2 h. iff M.
+  { exists (=h). rewrite hstar_comm. rewrite hstar_hpure. split.
+    { intros h3 K3. rewrite hstar_comm in K3.
+      destruct K3 as (h1&h2&K1&K2&D&U). subst h1 h3. applys M D K2. }
+    { auto. } }
   { intros h1 D K1. destruct M as (H0&M).
     destruct M as (h0&h2&K0&K2&D'&U).
     lets (N&E): hpure_inv (rm K2). subst h h2.
     rewrite Fmap.union_empty_r in *.
     applys N. rewrite hstar_comm. applys hstar_intro K0 K1 D. }
-  { exists (=h). rewrite hstar_comm. rewrite hstar_hpure. split.
-    { intros h3 K3. rewrite hstar_comm in K3.
-      destruct K3 as (h1&h2&K1&K2&D&U). subst h1 h3. applys M D K2. }
-    { auto. } }
 Qed.
 
-(** According to definition (3), an operator [op] denotes a magic wand
-   if and only if, for any [H0], [H1], [H2], it satisfies the
-   equivalence [(H0 ==> op H1 H2) <-> (H0 \* H1 ==> H2)]. Formally: *)
-
-Definition hwand_characterization (op:hprop->hprop->hprop) :=
-  forall H0 H1 H2, (H0 ==> op H1 H2) <-> (H1 \* H0 ==> H2).
-
-(** We prove that an operator [op] satisfies [hwand_characterization]
-    if and only if it is equal to [hwand]. This result shows that the
-    definitions (2) and (3) are equivalent. *)
-
-Lemma hwand_characterization_iff_eq_hwand : forall op,
-  hwand_characterization op <-> op = hwand.
+Lemma hwand_characterization_2_eq_3 :
+  hwand_characterization_2 = hwand_characterization_3.
 Proof using.
-  iff K.
-  { apply fun_ext_2. intros H1 H2.
-    unfolds hwand_characterization, hwand. apply himpl_antisym.
+  applys pred_ext_1. intros op. 
+  unfold hwand_characterization_2, hwand_characterization_3. iff K.
+  { subst. intros. (* apply hwand_equiv. *) iff M.
+    { xchange M. intros H3 N. xchange N. }
+    { xsimpl H0. xchange M. } }
+  { apply fun_ext_2. intros H1 H2. apply himpl_antisym.
     { lets (M&_): (K (op H1 H2) H1 H2). xsimpl (op H1 H2).
       applys M. applys himpl_refl. }
     { xsimpl. intros H0 M. rewrite K. applys M. } }
-  { subst. unfolds hwand_characterization. apply hwand_equiv. }
 Qed.
 
-(** Last, we prove (3) and (4) equivalent. *)
-
-Lemma hwand_characterization_iff_intro_elim_rules : forall op,
-  hwand_characterization op <-> 
-  (    (forall H0 H1 H2, (H1 \* H0 ==> H2) -> (H0 ==> op H1 H2))
-    /\ (forall H1 H2, (H1 \* (op H1 H2) ==> H2))).
+Lemma hwand_characterization_3_eq_4 :
+  hwand_characterization_3 = hwand_characterization_4.
 Proof using.
-  unfold hwand_characterization. iff K.
+  applys pred_ext_1. intros op. 
+  unfold hwand_characterization_3, hwand_characterization_4. iff K.
   { split. 
     { introv M. apply <- K. apply M. }
     { intros. apply K. auto. } }
   { destruct K as (K1&K2). intros. split.
-    { introv M. xchange M. rewrite hstar_comm. applys K2. }
+    { introv M. xchange M. xchange (K2 H1 H2). }
     { introv M. applys K1. applys M. } }
 Qed.
 
-
-End WandProperties.
+End HwandEquiv.
 
 
 (* ####################################################### *)
@@ -1393,22 +1400,6 @@ Lemma qwand_cancel : forall Q1 Q2,
   Q1 \*+ (Q1 \--* Q2) ===> Q2.
 Proof using. intros. rewrite <- qwand_equiv. applys qimpl_refl. Qed.
 
-(** Let us also prove that [qwand] is equivalent to the previous version
-    of [qwand], which we rename here [qwand']. *)
-
-Definition qwand' (Q1 Q2:val->hprop) : hprop :=
-  \exists H0, H0 \* \[ Q1 \*+ H0 ===> Q2 ].
-
-Lemma qwand_eq_qwand' :
-  qwand = qwand'.
-Proof using.
-  unfold qwand, qwand'. applys fun_ext_2. intros Q1 Q2.
-  applys himpl_antisym.
-  { xsimpl (Q1 \--* Q2). applys qwand_cancel. }
-  { xpull ;=> H M. applys himpl_hforall_r. intros v.
-    rewrite hwand_equiv. xchange M. }
-Qed.
-
 (** Like [H1 \-* H2], the operation [Q1 \--* Q2] is contravariant in [Q1]
     and covariant in [Q2]. *)
 
@@ -1454,6 +1445,113 @@ Proof using. (* ADMITTED *)
 Qed. (* /ADMITTED *)
 
 (** [] *)
+
+
+
+(* ####################################################### *)
+(** ** Equivalence between alternative definitions of the magic wand *)
+
+Module QwandEquiv.
+Implicit Type op : (val->hprop)->(val->hprop)->hprop.
+
+(** In what follows we prove the equivalence between five equivalent
+    characterizations of [qwand H1 H2]:
+
+    1. The definition expressed directly in terms of heaps:
+       [fun h => forall v h', Fmap.disjoint h h' -> Q1 v h' -> Q2 v (h \u h')]
+
+    2. The definition [qwand], expressed in terms of existing operators:
+       [\exists H0, H0 \* \[ (Q1 \*+ H0) ===> Q2]]
+
+    3. The definition expressed using the universal quantifier:
+       [\forall v, (Q1 v) \-* (Q2 v)]
+
+    4. The characterization via the equivalence [hwand_equiv]:
+       [forall H0 H1 H2, (H0 ==> H1 \-* H2) <-> (H1 \* H0 ==> H2)].
+
+    5. The characterization via the pair of the introduction rule
+       [himpl_qwand_r] and the elimination rule [qwand_cancel].
+
+    The proof are essentially identical to the equivalence proofs for [hwand],
+    except for definition (3), which is specific to [qwand].
+*)
+
+Definition qwand_characterization_1 op :=
+  op = (fun Q1 Q2 => (fun h => forall v h', Fmap.disjoint h h' -> Q1 v h' -> Q2 v (h \u h'))).
+
+Definition qwand_characterization_2 op :=
+  op = (fun Q1 Q2 => \exists H0, H0 \* \[ Q1 \*+ H0 ===> Q2 ]).
+
+Definition qwand_characterization_3 op :=
+  op = (fun Q1 Q2 => \forall v, (Q1 v) \-* (Q2 v)).
+
+Definition qwand_characterization_4 op :=
+  forall H0 Q1 Q2, (H0 ==> op Q1 Q2) <-> (Q1 \*+ H0 ===> Q2).
+
+Definition qwand_characterization_5 op :=
+     (forall H0 Q1 Q2, (Q1 \*+ H0 ===> Q2) -> (H0 ==> op Q1 Q2))
+  /\ (forall Q1 Q2, (Q1 \*+ (op Q1 Q2) ===> Q2)).
+
+Lemma hwand_characterization_1_eq_2 :
+  qwand_characterization_1 = qwand_characterization_2.
+Proof using.
+  applys pred_ext_1. intros op.
+  unfold qwand_characterization_1, qwand_characterization_2.
+  asserts K: (forall A B, A = B -> (op = A <-> op = B)). 
+  { intros. iff; subst*. } apply K; clear K.
+  apply pred_ext_3. intros Q1 Q2 h. iff M.
+  { exists (=h). rewrite hstar_comm. rewrite hstar_hpure. split.
+    { intros v h3 K3. rewrite hstar_comm in K3.
+      destruct K3 as (h1&h2&K1&K2&D&U). subst h1 h3. applys M D K2. }
+    { auto. } }
+  { intros v h1 D K1. destruct M as (H0&M).
+    destruct M as (h0&h2&K0&K2&D'&U).
+    lets (N&E): hpure_inv (rm K2). subst h h2.
+    rewrite Fmap.union_empty_r in *.
+    applys N. rewrite hstar_comm. applys hstar_intro K0 K1 D. }
+Qed.
+
+Lemma qwand_characterization_2_eq_3 :
+  qwand_characterization_2 = qwand_characterization_3.
+Proof using.
+  applys pred_ext_1. intros op. 
+  unfold qwand_characterization_2, qwand_characterization_3.
+  asserts K: (forall A B, A = B -> (op = A <-> op = B)).  
+  { intros. iff; subst*. } apply K; clear K.
+  apply fun_ext_2. intros Q1 Q2. apply himpl_antisym.
+  { xpull. intros H0 M. applys himpl_hforall_r. intros v.
+    rewrite hwand_equiv. xchange M. }
+  { xsimpl (qwand Q1 Q2). applys qwand_cancel. }
+Qed.
+
+Lemma qwand_characterization_2_eq_4 :
+  qwand_characterization_2 = qwand_characterization_4.
+Proof using.
+  applys pred_ext_1. intros op. 
+  unfold qwand_characterization_2, qwand_characterization_4. iff K.
+  { subst. intros. iff M.
+    { xchange M. intros v H3 N. xchange N. }
+    { xsimpl H0. xchange M. } }
+  { apply fun_ext_2. intros H1 H2. apply himpl_antisym.
+    { lets (M&_): (K (op H1 H2) H1 H2). xsimpl (op H1 H2).
+      applys M. applys himpl_refl. }
+    { xsimpl. intros H0 M. rewrite K. applys M. } }
+Qed.
+
+Lemma qwand_characterization_4_eq_5 :
+  qwand_characterization_4 = qwand_characterization_5.
+Proof using.
+  applys pred_ext_1. intros op. 
+  unfold qwand_characterization_4, qwand_characterization_5. iff K.
+  { split. 
+    { introv M. apply <- K. apply M. }
+    { intros. apply K. auto. } }
+  { destruct K as (K1&K2). intros. split.
+    { introv M. xchange M. xchange (K2 Q1 Q2). }
+    { introv M. applys K1. applys M. } }
+Qed.
+
+End QwandEquiv.
 
 
 (* ####################################################### *)
