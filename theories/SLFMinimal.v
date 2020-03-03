@@ -79,7 +79,7 @@ Coercion trm_app : trm >-> Funclass.
 (** The type of values is inhabited (useful for finite map operations). *)
 
 Global Instance Inhab_val : Inhab val.
-Proof using. apply (Inhab_of_val val_unit). Qed.
+Proof. apply (Inhab_of_val val_unit). Qed.
 
 (** A heap, a.k.a. state, consists of a finite map from location to values.
     Finite maps are formalized in the file [Fmap.v]. (We purposely do not use
@@ -162,14 +162,14 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
 Hint Rewrite union_assoc union_empty_l union_empty_r : fmap.
 Hint Extern 1 (_ = _ :> heap) => subst; autorewrite with fmap.
 
-(** For goals asserting disjointness between heaps, i.e., of the form 
+(** For goals asserting disjointness between heaps, i.e., of the form
     [Fmap.disjoint h1 h2], we set up automation to perform simplifications:
-    substitution, exploit distributivity of the disjointness predicate over 
+    substitution, exploit distributivity of the disjointness predicate over
     unions of heaps, and exploit disjointness with empty heaps. *)
 
 Hint Resolve Fmap.disjoint_empty_l Fmap.disjoint_empty_r.
 Hint Rewrite disjoint_union_eq_l disjoint_union_eq_r : disjoint.
-Hint Extern 1 (Fmap.disjoint _ _) => 
+Hint Extern 1 (Fmap.disjoint _ _) =>
   subst; autorewrite with rew_disjoint in *; jauto_set.
   (* [jauto_set] destructs conjunctions in hypotheses. *)
 
@@ -287,19 +287,19 @@ Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55) : hprop_scope.
 
 Lemma himpl_refl : forall H,
   H ==> H.
-Proof using. introv M. auto. Qed.
+Proof. introv M. auto. Qed.
 
 Lemma himpl_trans : forall H2 H1 H3,
   (H1 ==> H2) ->
   (H2 ==> H3) ->
   (H1 ==> H3).
-Proof using. introv M1 M2. unfolds* himpl. Qed.
+Proof. introv M1 M2. unfolds* himpl. Qed.
 
 Lemma himpl_antisym : forall H1 H2,
   (H1 ==> H2) ->
   (H2 ==> H1) ->
   (H1 = H2).
-Proof using. introv M1 M2. applys pred_ext_1. intros h. iff*. Qed.
+Proof. introv M1 M2. applys pred_ext_1. intros h. iff*. Qed.
 
 Hint Resolve himpl_refl.
 Hint Unfold qimpl.
@@ -314,21 +314,21 @@ Lemma hstar_intro : forall H1 H2 h1 h2,
   H2 h2 ->
   Fmap.disjoint h1 h2 ->
   (H1 \* H2) (Fmap.union h1 h2).
-Proof using. intros. exists* h1 h2. Qed.
+Proof. intros. exists* h1 h2. Qed.
 
 Lemma hstar_comm : forall H1 H2,
    H1 \* H2 = H2 \* H1.
-Proof using.
+Proof.
   unfold hprop, hstar. intros H1 H2. applys himpl_antisym.
-  { intros h (h1&h2&M1&M2&D&U). 
+  { intros h (h1&h2&M1&M2&D&U).
     rewrite* Fmap.union_comm_of_disjoint in U. exists* h2 h1. }
-  { intros h (h1&h2&M1&M2&D&U). 
+  { intros h (h1&h2&M1&M2&D&U).
     rewrite* Fmap.union_comm_of_disjoint in U. exists* h2 h1. }
 Qed.
 
 Lemma hstar_assoc : forall H1 H2 H3,
   (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
-Proof using.
+Proof.
   intros H1 H2 H3. applys himpl_antisym; intros h.
   { intros (h'&h3&(h1&h2&M3&M4&D'&U')&M2&D&U). subst h'.
     exists h1 (h2 \+ h3). splits*. { applys* hstar_intro. } }
@@ -338,7 +338,7 @@ Qed.
 
 Lemma hstar_hempty_l : forall H,
   \[] \* H = H.
-Proof using.
+Proof.
   intros. applys himpl_antisym; intros h.
   { intros (h1&h2&M1&M2&D&U). hnf in M1. subst. rewrite* Fmap.union_empty_l. }
   { intros M. exists (@Fmap.empty loc val) h. splits*. { hnfs*. } }
@@ -346,7 +346,7 @@ Qed.
 
 Lemma hstar_hexists : forall A (J:A->hprop) H,
   (hexists J) \* H = hexists (fun x => (J x) \* H).
-Proof using.
+Proof.
   intros. applys himpl_antisym; intros h.
   { intros (h1&h2&(x&M1)&M2&D&U). exists* x h1 h2. }
   { intros (x&(h1&h2&M1&M2&D&U)). exists h1 h2. splits*. { exists* x. } }
@@ -354,27 +354,27 @@ Qed.
 
 Lemma hstar_hforall : forall H A (J:A->hprop),
   (hforall J) \* H ==> hforall (J \*+ H).
-Proof using.
+Proof.
   intros. intros h M. destruct M as (h1&h2&M1&M2&D&U). intros x. exists* h1 h2.
 Qed.
 
 Lemma himpl_frame_l : forall H2 H1 H1',
   H1 ==> H1' ->
   (H1 \* H2) ==> (H1' \* H2).
-Proof using. introv W (h1&h2&?). exists* h1 h2. Qed.
+Proof. introv W (h1&h2&?). exists* h1 h2. Qed.
 
 (** Additional, symmetric results, useful for tactics *)
- 
+
 Lemma hstar_hempty_r : forall H,
   H \* \[] = H.
-Proof using.
+Proof.
   applys neutral_r_of_comm_neutral_l. applys* hstar_comm. applys* hstar_hempty_l.
 Qed.
 
 Lemma himpl_frame_r : forall H1 H2 H2',
   H2 ==> H2' ->
   (H1 \* H2) ==> (H1 \* H2').
-Proof using.
+Proof.
   introv M. do 2 rewrite (@hstar_comm H1). applys* himpl_frame_l.
 Qed.
 
@@ -385,7 +385,7 @@ Qed.
 (* Internal lemma, useful for proofs *)
 Lemma hstar_hpure : forall P H h,
   (\[P] \* H) h = (P /\ H h).
-Proof using.
+Proof.
   intros. apply prop_ext. unfold hpure.
   rewrite hstar_hexists. rewrite* hstar_hempty_l.
   iff (p&M) (p&M). { split*. } { exists* p. }
@@ -395,12 +395,12 @@ Lemma himpl_hstar_hpure_r : forall P H H',
   P ->
   (H ==> H') ->
   H ==> (\[P] \* H').
-Proof using. introv HP W. intros h K. rewrite* hstar_hpure. Qed.
+Proof. introv HP W. intros h K. rewrite* hstar_hpure. Qed.
 
 Lemma himpl_hstar_hpure_l : forall P H H',
   (P -> H ==> H') ->
   (\[P] \* H) ==> H'.
-Proof using. introv W Hh. rewrite hstar_hpure in Hh. applys* W. Qed.
+Proof. introv W Hh. rewrite hstar_hpure in Hh. applys* W. Qed.
 
 
 (* ################################################ *)
@@ -409,17 +409,17 @@ Proof using. introv W Hh. rewrite hstar_hpure in Hh. applys* W. Qed.
 Lemma himpl_hexists_l : forall A H (J:A->hprop),
   (forall x, J x ==> H) ->
   (hexists J) ==> H.
-Proof using. introv W. intros h (x&Hh). applys* W. Qed.
+Proof. introv W. intros h (x&Hh). applys* W. Qed.
 
 Lemma himpl_hexists_r : forall A (x:A) H J,
   (H ==> J x) ->
   H ==> (hexists J).
-Proof using. introv W. intros h. exists x. apply* W. Qed.
+Proof. introv W. intros h. exists x. apply* W. Qed.
 
 Lemma himpl_hexists : forall A (J1 J2:A->hprop),
   J1 ===> J2 ->
   hexists J1 ==> hexists J2.
-Proof using.
+Proof.
   introv W. applys himpl_hexists_l. intros x. applys himpl_hexists_r W.
 Qed.
 
@@ -430,17 +430,17 @@ Qed.
 Lemma himpl_hforall_r : forall A (J:A->hprop) H,
   (forall x, H ==> J x) ->
   H ==> (hforall J).
-Proof using. introv M. intros h Hh x. apply* M. Qed.
+Proof. introv M. intros h Hh x. apply* M. Qed.
 
 Lemma himpl_hforall_l : forall A x (J:A->hprop) H,
   (J x ==> H) ->
   (hforall J) ==> H.
-Proof using. introv M. intros h Hh. apply* M. Qed.
+Proof. introv M. intros h Hh. apply* M. Qed.
 
 Lemma himpl_hforall : forall A (J1 J2:A->hprop),
   J1 ===> J2 ->
   hforall J1 ==> hforall J2.
-Proof using.
+Proof.
   introv W. applys himpl_hforall_r. intros x. applys himpl_hforall_l W.
 Qed.
 
@@ -450,13 +450,13 @@ Qed.
 
 Lemma hsingle_not_null : forall p v,
   (p ~~> v) ==> (p ~~> v) \* \[p <> null].
-Proof using.
+Proof.
   introv. intros h (K&N). rewrite hstar_comm, hstar_hpure. split*. hnfs*.
 Qed.
 
 Lemma hstar_hsingle_same_loc : forall p v1 v2,
   (p ~~> v1) \* (p ~~> v2) ==> \[False].
-Proof using.
+Proof.
   intros. unfold hsingle. intros h (h1&h2&E1&E2&D&E). false.
   subst. applys* Fmap.disjoint_single_single_same_inv.
 Qed.
@@ -477,9 +477,8 @@ Tactic Notation "xsimpl" :=
   | |- _ \* ?H ==> _ \* ?H => apply himpl_frame_l
   | |- _ \* ?H ==> ?H \* _ => rewrite hstar_comm; apply himpl_frame_r
   | |- ?H \* _ ==> _ \* ?H => rewrite hstar_comm; apply himpl_frame_l
-  | |- ?H ==> ?H => apply himpl_refl 
-  | |- ?H ==> ?H' => is_evar H'; apply himpl_refl 
-  end.
+  | |- ?H ==> ?H => apply himpl_refl
+  | |- ?H ==> ?H' => is_evar H'; apply himpl_refl end.
 
 Tactic Notation "xsimpl" "*" := xsimpl; auto_star.
 
@@ -490,12 +489,12 @@ Lemma xchange_lemma : forall H1 H1',
   H ==> H1 \* H2 ->
   H1' \* H2 ==> H' ->
   H ==> H'.
-Proof using.
+Proof.
   introv M1 M2 M3. applys himpl_trans M2. applys himpl_trans M3.
   applys himpl_frame_l. applys M1.
 Qed.
 
-Tactic Notation "xchange" constr(M) := 
+Tactic Notation "xchange" constr(M) :=
   forwards_nounfold_then M ltac:(fun K =>
     eapply xchange_lemma; [ eapply K | xsimpl | ]).
 
@@ -507,21 +506,21 @@ Lemma himpl_inv : forall H1 H2 h,
   (H1 ==> H2) ->
   (H1 h) ->
   (H2 h).
-Proof using. auto. Qed.
+Proof. auto. Qed.
 
-Tactic Notation "himpl_fold" := 
+Tactic Notation "himpl_fold" :=
   match goal with N: ?H ?h |- _ ?h => applys himpl_inv N; clear N end.
 
 
 (* ########################################################### *)
-(** ** Reformulation of the evaluation rules for heap manipulation 
+(** ** Reformulation of the evaluation rules for heap manipulation
        primitive using disjoint heaps. *)
 
 Lemma eval_ref_sep : forall s1 s2 v p,
   s2 = Fmap.single p v ->
   Fmap.disjoint s2 s1 ->
   eval s1 (val_ref v) (Fmap.union s2 s1) (val_loc p).
-Proof using.
+Proof.
   introv -> D. forwards Dv: Fmap.indom_single p v.
   rewrite <- Fmap.update_eq_union_single. applys* eval_ref.
   { intros N. applys* Fmap.disjoint_inv_not_indom_both D N. }
@@ -530,7 +529,7 @@ Qed.
 Lemma eval_get_sep : forall s s2 p v,
   s = Fmap.union (Fmap.single p v) s2 ->
   eval s (val_get (val_loc p)) s v.
-Proof using.
+Proof.
   introv ->. forwards Dv: Fmap.indom_single p v. applys_eq eval_get 1.
   { applys* Fmap.indom_union_l. }
   { rewrite* Fmap.read_union_l. rewrite* Fmap.read_single. }
@@ -541,7 +540,7 @@ Lemma eval_set_sep : forall s1 s2 h2 p v1 v2,
   s2 = Fmap.union (Fmap.single p v2) h2 ->
   Fmap.disjoint (Fmap.single p v1) h2 ->
   eval s1 (val_set (val_loc p) v2) s2 val_unit.
-Proof using.
+Proof.
   introv -> -> D. forwards Dv: Fmap.indom_single p v1. applys_eq eval_set 2.
   { applys* Fmap.indom_union_l. }
   { rewrite* Fmap.update_union_l. fequals. rewrite* Fmap.update_single. }
@@ -551,10 +550,10 @@ Lemma eval_free_sep : forall s1 s2 v p,
   s1 = Fmap.union (Fmap.single p v) s2 ->
   Fmap.disjoint (Fmap.single p v) s2 ->
   eval s1 (val_free p) s2 val_unit.
-Proof using.
+Proof.
   introv -> D. forwards Dv: Fmap.indom_single p v. applys_eq eval_free 2.
   { applys* Fmap.indom_union_l. }
-  { rewrite* Fmap.remove_union_single_l. intros Dl. 
+  { rewrite* Fmap.remove_union_single_l. intros Dl.
     applys Fmap.disjoint_inv_not_indom_both D Dl. applys Fmap.indom_single. }
 Qed.
 
@@ -574,7 +573,7 @@ Lemma hoare_conseq : forall t H' Q' H Q,
   H ==> H' ->
   Q' ===> Q ->
   hoare t H Q.
-Proof using.
+Proof.
   introv M MH MQ HF. forwards (h'&v&R&K): M h. { himpl_fold. autos*. }
   exists h' v. splits*. { himpl_fold. autos*. }
 Qed.
@@ -582,12 +581,12 @@ Qed.
 Lemma hoare_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, hoare t (J x) Q) ->
   hoare t (hexists J) Q.
-Proof using. introv M. intros h (x&Hh). applys M Hh. Qed.
+Proof. introv M. intros h (x&Hh). applys M Hh. Qed.
 
 Lemma hoare_hpure : forall t (P:Prop) H Q,
   (P -> hoare t H Q) ->
   hoare t (\[P] \* H) Q.
-Proof using.
+Proof.
   introv M. intros h (h1&h2&(M1&HP)&M2&D&U). hnf in HP. subst.
   rewrite Fmap.union_empty_l. applys* M.
 Qed.
@@ -597,7 +596,7 @@ Qed.
 Lemma hoare_val : forall v H Q,
   H ==> Q v ->
   hoare (trm_val v) H Q.
-Proof using.
+Proof.
   introv M. intros h K. exists h v. splits.
   { applys eval_val. }
   { himpl_fold. autos*. }
@@ -606,7 +605,7 @@ Qed.
 Lemma hoare_fix : forall f x t1 H Q,
   H ==> Q (val_fix f x t1) ->
   hoare (trm_fix f x t1) H Q.
-Proof using.
+Proof.
   introv M. intros h K. exists h (val_fix f x t1). splits.
   { applys* eval_fix. }
   { himpl_fold. autos*. }
@@ -616,7 +615,7 @@ Lemma hoare_app : forall v1 v2 f x t1 H Q,
   v1 = val_fix f x t1 ->
   hoare (subst x v2 (subst f v1 t1)) H Q ->
   hoare (trm_app v1 v2) H Q.
-Proof using.
+Proof.
   introv E M. intros s K0. forwards (s'&v&R1&K1): (rm M) K0.
   exists s' v. splits. { applys eval_app E R1. } { applys K1. }
 Qed.
@@ -625,7 +624,7 @@ Lemma hoare_let : forall x t1 t2 H Q Q1,
   hoare t1 H Q1 ->
   (forall v, hoare (subst x v t2) (Q1 v) Q) ->
   hoare (trm_let x t1 t2) H Q.
-Proof using.
+Proof.
   introv M1 M2 Hh. forwards* (h1'&v1&R1&K1): (rm M1).
   forwards* (h2'&v2&R2&K2): (rm M2).
   exists h2' v2. splits*. { applys* eval_let. }
@@ -634,7 +633,7 @@ Qed.
 Lemma hoare_if : forall (b:bool) t1 t2 H Q,
   hoare (if b then t1 else t2) H Q ->
   hoare (trm_if b t1 t2) H Q.
-Proof using.
+Proof.
   introv M1. intros h Hh. forwards* (h1'&v1&R1&K1): (rm M1).
   exists h1' v1. splits*. { applys* eval_if. }
 Qed.
@@ -643,7 +642,7 @@ Lemma hoare_add : forall H n1 n2,
   hoare (val_add n1 n2)
     H
     (fun r => \[r = val_int (n1 + n2)] \* H).
-Proof using.
+Proof.
   intros. intros s K0. exists s (val_int (n1 + n2)). split.
   { applys eval_add. }
   { rewrite* hstar_hpure. }
@@ -654,7 +653,7 @@ Lemma hoare_div : forall H n1 n2,
   hoare (val_div n1 n2)
     H
     (fun r => \[r = val_int (Z.quot n1 n2)] \* H).
-Proof using.
+Proof.
   introv N. intros s K0. exists s (val_int (Z.quot n1 n2)). split.
   { applys eval_div N. }
   { rewrite* hstar_hpure. }
@@ -664,7 +663,7 @@ Lemma hoare_ref : forall H v,
   hoare (val_ref v)
     H
     (fun r => (\exists p, \[r = val_loc p] \* p ~~> v) \* H).
-Proof using.
+Proof.
   intros. intros s1 K0. forwards* (p&D&N): (Fmap.single_fresh 0%nat s1 v).
   exists (Fmap.union (Fmap.single p v) s1) (val_loc p). split.
   { applys* eval_ref_sep D. }
@@ -676,7 +675,7 @@ Lemma hoare_get : forall H v p,
   hoare (val_get p)
     ((p ~~> v) \* H)
     (fun r => \[r = v] \* (p ~~> v) \* H).
-Proof using.
+Proof.
   intros. intros s K0. exists s v. split.
   { destruct K0 as (s1&s2&(->&N)&P2&D&U). applys eval_get_sep U. }
   { rewrite* hstar_hpure. }
@@ -686,7 +685,7 @@ Lemma hoare_set : forall H w p v,
   hoare (val_set (val_loc p) w)
     ((p ~~> v) \* H)
     (fun r => (p ~~> w) \* H).
-Proof using.
+Proof.
   intros. intros s1 (h1&h2&(E1&N)&P2&D&U).
   exists (Fmap.union (Fmap.single p w) h2) val_unit. split.
   { subst h1. applys eval_set_sep U D. auto. }
@@ -699,7 +698,7 @@ Lemma hoare_free : forall H p v,
   hoare (val_free (val_loc p))
     ((p ~~> v) \* H)
     (fun r => H).
-Proof using.
+Proof.
   intros. intros s1 (h1&h2&(E1&N)&P2&D&U). exists h2 val_unit. split.
   { subst h1. applys eval_free_sep U D. }
   { auto. }
@@ -725,7 +724,7 @@ Lemma triple_conseq : forall t H' Q' H Q,
   H ==> H' ->
   Q' ===> Q ->
   triple t H Q.
-Proof using.
+Proof.
   introv M MH MQ. intros HF. applys hoare_conseq M.
   { xchange MH. xsimpl. }
   { intros x. xchange (MQ x). xsimpl. }
@@ -734,14 +733,14 @@ Qed.
 Lemma triple_frame : forall t H Q H',
   triple t H Q ->
   triple t (H \* H') (Q \*+ H').
-Proof using.
+Proof.
   introv M. intros HF. applys hoare_conseq (M (HF \* H')); xsimpl.
 Qed.
 
 Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, triple t (J x) Q) ->
   triple t (hexists J) Q.
-Proof using.
+Proof.
   introv M. intros HF. rewrite hstar_hexists.
   applys hoare_hexists. intros. applys* M.
 Qed.
@@ -749,7 +748,7 @@ Qed.
 Lemma triple_hpure : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
-Proof using.
+Proof.
   introv M. intros HF. rewrite hstar_assoc.
   applys hoare_hpure. intros. applys* M.
 Qed.
@@ -759,14 +758,14 @@ Qed.
 Lemma triple_val : forall v H Q,
   H ==> Q v ->
   triple (trm_val v) H Q.
-Proof using.
+Proof.
   introv M. intros HF. applys hoare_val. { xchange M. xsimpl. }
 Qed.
 
 Lemma triple_fix : forall f x t1 H Q,
   H ==> Q (val_fix f x t1) ->
   triple (trm_fix f x t1) H Q.
-Proof using.
+Proof.
   introv M. intros HF. applys hoare_fix. { xchange M. xsimpl. }
 Qed.
 
@@ -774,7 +773,7 @@ Lemma triple_let : forall x t1 t2 H Q Q1,
   triple t1 H Q1 ->
   (forall (X:val), triple (subst x X t2) (Q1 X) Q) ->
   triple (trm_let x t1 t2) H Q.
-Proof using.
+Proof.
   introv M1 M2. intros HF. applys hoare_let.
   { applys M1. }
   { intros v. applys hoare_conseq M2; xsimpl. }
@@ -783,7 +782,7 @@ Qed.
 Lemma triple_if : forall (b:bool) t1 t2 H Q,
   triple (if b then t1 else t2) H Q ->
   triple (trm_if b t1 t2) H Q.
-Proof using.
+Proof.
   introv M1. intros HF. applys hoare_if. applys M1.
 Qed.
 
@@ -791,7 +790,7 @@ Lemma triple_app : forall v1 v2 f x t1 H Q,
   v1 = val_fix f x t1 ->
   triple (subst x v2 (subst f v1 t1)) H Q ->
   triple (trm_app v1 v2) H Q.
-Proof using.
+Proof.
   introv E M1. intros H'. applys hoare_app E. applys M1.
 Qed.
 
@@ -801,48 +800,36 @@ Lemma triple_add : forall n1 n2,
   triple (val_add n1 n2)
     \[]
     (fun r => \[r = val_int (n1 + n2)]).
-Proof using.
-  intros. intros H'. applys hoare_conseq hoare_add; xsimpl*.
-Qed.
+Proof. intros. intros H'. applys hoare_conseq hoare_add; xsimpl*. Qed.
 
 Lemma triple_div : forall n1 n2,
   n2 <> 0 ->
   triple (val_div n1 n2)
     \[]
     (fun r => \[r = val_int (Z.quot n1 n2)]).
-Proof using.
-  intros. intros H'. applys* hoare_conseq hoare_div; xsimpl*.
-Qed.
+Proof. intros. intros H'. applys* hoare_conseq hoare_div; xsimpl*. Qed.
 
 Lemma triple_ref : forall v,
   triple (val_ref v)
     \[]
     (fun r => \exists p, \[r = val_loc p] \* p ~~> v).
-Proof using.
-  intros. intros HF. applys hoare_conseq hoare_ref; xsimpl*.
-Qed.
+Proof. intros. intros HF. applys hoare_conseq hoare_ref; xsimpl*. Qed.
 
 Lemma triple_get : forall v p,
   triple (val_get (val_loc p))
     (p ~~> v)
     (fun x => \[x = v] \* (p ~~> v)).
-Proof using.
-  intros. intros HF. applys hoare_conseq hoare_get; xsimpl*.
-Qed.
+Proof. intros. intros HF. applys hoare_conseq hoare_get; xsimpl*. Qed.
 
 Lemma triple_set : forall w p v,
   triple (val_set (val_loc p) w)
     (p ~~> v)
     (fun _ => p ~~> w).
-Proof using.
-  intros. intros HF. applys hoare_conseq hoare_set; xsimpl*.
-Qed.
+Proof. intros. intros HF. applys hoare_conseq hoare_set; xsimpl*. Qed.
 
 Lemma triple_free : forall p v,
   triple (val_free (val_loc p))
     (p ~~> v)
     (fun _ => \[]).
-Proof using.
-  intros. intros HF. applys hoare_conseq hoare_free; xsimpl*.
-Qed.
+Proof. intros. intros HF. applys hoare_conseq hoare_free; xsimpl*. Qed.
 
