@@ -1,4 +1,138 @@
 
+    - [H1 \-* H2] denotes a magic wand between heap predicates
+    - [Q1 \--* Q2] denotes a magic wand between postconditions
+
+
+
+
+Definition hwand (H1 H2 : hprop) : hprop :=
+  \exists H0, H0 \* hpure ((H0 \* H1) ==> H2).
+
+Definition qwand A (Q1 Q2:A->hprop) : hprop :=
+  \forall x, hwand (Q1 x) (Q2 x).
+
+
+Notation "H1 \-* H2" := (hwand H1 H2)
+  (at level 43, right associativity) : hprop_scope.
+
+Notation "Q1 \--* Q2" := (qwand Q1 Q2)
+  (at level 43) : hprop_scope.
+
+
+
+
+(* ################################################ *)
+(** *** Properties of [hwand] *)
+
+Lemma hwand_equiv : forall H0 H1 H2,
+  (H0 ==> H1 \-* H2) <-> (H0 \* H1 ==> H2).
+Proof using.
+  unfold hwand. iff M.
+  { applys himpl_hstar_trans_l (rm M).
+    rewrite hstar_hexists. applys himpl_hexists_l. intros H.
+    rewrite (hstar_comm H). rewrite hstar_assoc.
+    applys~ himpl_hstar_hpure_l. }
+  { applys himpl_hexists_r H0.
+    rewrite <- (hstar_hempty_r H0) at 1.
+    applys himpl_frame_r. applys himpl_hempty_hpure M. }
+Qed.
+
+Lemma himpl_hwand_r : forall H1 H2 H3,
+  H1 \* H2 ==> H3 ->
+  H1 ==> (H2 \-* H3).
+Proof using. introv M. rewrite~ hwand_equiv. Qed.
+
+Lemma himpl_hwand_r_inv : forall H1 H2 H3,
+  H1 ==> (H2 \-* H3) ->
+  H1 \* H2 ==> H3.
+Proof using. introv M. rewrite~ <- hwand_equiv. Qed.
+
+Lemma hwand_cancel : forall H1 H2,
+  H1 \* (H1 \-* H2) ==> H2.
+Proof using. intros. rewrite hstar_comm. rewrite~ <- hwand_equiv. Qed.
+
+Arguments hwand_cancel : clear implicits.
+
+Lemma himpl_hempty_hwand_same : forall H,
+  \[] ==> (H \-* H).
+Proof using. intros. rewrite hwand_equiv. rewrite~ hstar_hempty_l. Qed.
+
+Lemma hwand_hempty_l : forall H,
+  (\[] \-* H) = H.
+Proof using.
+  intros. applys himpl_antisym.
+  { rewrite <- hstar_hempty_l at 1. applys hwand_cancel. }
+  { rewrite hwand_equiv. rewrite~ hstar_hempty_r. }
+Qed.
+
+Lemma hwand_hpure_l_intro : forall (P:Prop) H,
+  P ->
+  \[P] \-* H ==> H.
+Proof using.
+  introv HP. rewrite <- hstar_hempty_l at 1.
+  forwards~ K: himpl_hempty_hpure P.
+  applys himpl_hstar_trans_l K. applys hwand_cancel.
+Qed.
+
+Arguments hwand_hpure_l_intro : clear implicits.
+
+Lemma hwand_curry : forall H1 H2 H3,
+  (H1 \* H2) \-* H3 ==> H1 \-* (H2 \-* H3).
+Proof using.
+  intros. do 2 rewrite hwand_equiv.
+  rewrite hstar_assoc. rewrite hstar_comm. applys hwand_cancel.
+Qed.
+
+Lemma hwand_uncurry : forall H1 H2 H3,
+  H1 \-* (H2 \-* H3) ==> (H1 \* H2) \-* H3.
+Proof using.
+  intros. rewrite hwand_equiv. rewrite <- (hstar_comm (H1 \* H2)).
+  rewrite (@hstar_comm H1). rewrite hstar_assoc.
+  applys himpl_hstar_trans_r.
+  { applys hwand_cancel. } { applys hwand_cancel. }
+Qed.
+
+Lemma hwand_curry_eq : forall H1 H2 H3,
+  (H1 \* H2) \-* H3 = H1 \-* (H2 \-* H3).
+Proof using.
+  intros. applys himpl_antisym.
+  { applys hwand_curry. }
+  { applys hwand_uncurry. }
+Qed.
+
+
+(* ################################################ *)
+(** *** Properties of qwand *)
+
+Lemma qwand_equiv : forall H A (Q1 Q2:A->hprop),
+  H ==> (Q1 \--* Q2) <-> (Q1 \*+ H) ===> Q2.
+Proof using.
+  unfold qwand. iff M.
+  { intros x. rewrite hstar_comm. applys himpl_hstar_trans_l (rm M).
+    applys himpl_trans. applys hstar_hforall. simpl.
+    applys himpl_hforall_l x. rewrite hstar_comm. applys hwand_cancel. }
+  { applys himpl_hforall_r. intros x. rewrite hwand_equiv. rewrite* hstar_comm. }
+Qed.
+
+Lemma qwand_cancel : forall A (Q1 Q2:A->hprop),
+  Q1 \*+ (Q1 \--* Q2) ===> Q2.
+Proof using. intros. rewrite <- qwand_equiv. applys qimpl_refl. Qed.
+
+Lemma himpl_qwand_r : forall A (Q1 Q2:A->hprop) H,
+  Q1 \*+ H ===> Q2 ->
+  H ==> (Q1 \--* Q2).
+Proof using. introv M. rewrite~ qwand_equiv. Qed.
+
+Arguments himpl_qwand_r [A].
+
+Lemma qwand_specialize : forall A (x:A) (Q1 Q2:A->hprop),
+  (Q1 \--* Q2) ==> (Q1 x \-* Q2 x).
+Proof using. intros. applys* himpl_hforall_l x. Qed.
+
+Arguments qwand_specialize [ A ].
+
+
+
 (* ########################################################### *)
 (** ** Definition of [wp] and reasoning rules *)
 
@@ -134,3 +268,166 @@ Proof using.
 Qed.
 
 
+
+Lemma triple_ramified_frame : forall H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* Q) ->
+  triple t H Q.
+Proof using.
+  introv M W. applys triple_conseq. 
+  applys triple_frame (Q1 \--* Q) M.
+  { applys W. }
+  { rewrite* <- qwand_equiv. }
+Qed.
+
+
+
+
+
+
+
+
+
+
+Lemma himpl_frame_lr : forall H1 H1' H2 H2',
+  H1 ==> H1' ->
+  H2 ==> H2' ->
+  (H1 \* H2) ==> (H1' \* H2').
+Proof using.
+  introv M1 M2. applys himpl_trans. applys~ himpl_frame_l M1. applys~ himpl_frame_r.
+Qed.
+
+
+
+(* ########################################################### *)
+(** ** The [xsimpl] tactic *)
+
+(** The definitions and properties above enable us to instantiate
+    the [xsimpl] tactic, which implements powerful simplifications
+    for Separation Logic entailments.
+
+    For technical reasons, we need to provide a definition for [hgc],
+    a restriction of [htop] to affine heap predicates. For our purpose,
+    it suffices to define [hgc] as an alias for [htop]. *)
+
+
+(* ################################################ *)
+(** *** Definition and properties of [haffine] and [hgc] *)
+
+Definition haffine (H:hprop) :=
+  True.
+
+Lemma haffine_hany : forall (H:hprop),
+  haffine H.
+Proof using. unfold haffine. auto. Qed.
+
+Lemma haffine_hempty :
+  haffine \[].
+Proof using. applys haffine_hany. Qed.
+
+Definition hgc := (* equivalent to [\exists H, \[haffine H] \* H] *)
+  \exists H, H.
+
+Definition htop := hgc.
+
+Notation "\GC" := (hgc) : hprop_scope.
+
+Lemma haffine_hgc :
+  haffine \GC.
+Proof using. applys haffine_hany. Qed.
+
+Lemma himpl_hgc_r : forall H,
+  haffine H ->
+  H ==> \GC.
+Proof using. introv M. Admitted.
+
+Lemma hstar_hgc_hgc :
+  \GC \* \GC = \GC.
+Proof using. Admitted.
+
+
+(* ################################################ *)
+(** *** Functor instantiation to obtain [xsimpl] *)
+
+Notation "\Top" := (htop) : hprop_scope.
+
+Lemma htop_intro : forall h,
+  \Top h.
+Proof using. intros. exists~ (=h). Qed.
+
+Lemma himpl_htop_r : forall H,
+  H ==> \Top.
+Proof using. intros. intros h Hh. applys* htop_intro. Qed.
+
+Lemma htop_eq :
+  \Top = (\exists H, H).
+Proof using. auto. Qed.
+
+Lemma hstar_htop_htop :
+  \Top \* \Top = \Top.
+Proof using.
+  applys himpl_antisym.
+  { applys himpl_htop_r. }
+  { rewrite <- hstar_hempty_r at 1. applys himpl_frame_r. applys himpl_htop_r. }
+Qed.
+
+
+End SepSimplArgs.
+
+
+(** We are now ready to instantiate the functor, and open the
+    contents of the module [SepHsimplArgs], essentially pretending
+    that we inlined here its contents. *)
+
+Module Export HS := SepSimpl.XsimplSetup(SepSimplArgs).
+
+Export SepSimplArgs.
+
+(** At this point, the tactic [xsimpl] is defined.
+    There remains to customize the tactic so that it recognizes
+    the predicate [p ~~> v] in a special way when performing
+    simplifications. *)
+
+(*  Internal hack: (the comment only makes sense in the context of [SepSimpl]).
+    [xsimpl_pick_hsingle H] applies to a goal of the form
+    [Xsimpl (Hla, Hlw, Hlt) HR], where [Hla] is of the form
+    [H1 \* .. \* Hn \* \[]], and where [H] is of the form [p ~~> v]
+    It searches for [p ~~> v'] among the [Hi]. If it finds it, it
+    moves this [Hi] to the front, just before [H1]. Else, it fails. *)
+
+Ltac xsimpl_pick_hsingle H :=
+  match H with hsingle ?p ?v =>
+    xsimpl_pick_st ltac:(fun H' =>
+      match H' with (hsingle p ?v') =>
+        constr:(true) end)
+  end.
+
+(** Internal hack:
+    The following instantiation of the [xsimpl] hook enables the tactic
+    to simplify [p ~~> v] against [p ~~> v'] by generating the
+    side-condition [v = v']. *)
+
+Ltac xsimpl_hook H ::=
+  match H with
+  | hsingle _ _ => xsimpl_pick_hsingle H; apply xsimpl_lr_cancel_eq;
+                   [ xsimpl_lr_cancel_eq_repr_post tt | ]
+  end.
+
+(** At this point, the tactic [xsimpl] is available.
+    See the file [SLFHimpl.v] for demos of its usage. *)
+
+(** One last hack is to improve the [math] tactic so that it is able
+    to handle the [val_int] coercion in goals and hypotheses of the
+     form [val_int ?n = val_int ?m], and so that it is able to process
+     the well-founded relations [dowto] and [upto] for induction on
+     integers. *)
+
+Ltac math_0 ::=
+  unfolds downto, upto;
+  try match goal with
+  | |- val_int _ = val_int _ => fequal
+  | H: val_int _ = val_int _ |- _ => inverts H
+  end.
+
+
+    Global Opaque          hwand qwand htop hgc haffine.

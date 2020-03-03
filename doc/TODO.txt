@@ -1,4 +1,14 @@
 
+from Lemma hstar_hexists_l :
+
+Lemma hstar_hexists : forall A (J:A->hprop) H,
+  (hexists J) \* H = hexists (fun x => (J x) \* H).
+Proof using.
+  intros.
+Qed.
+
+
+
 Declare Scope fmap_scope.
 
 Hint in core, remove once section_open/module_open for databases.

@@ -1745,3 +1745,17 @@ Proof using.
     { introv M. applys K1. applys M. } }
 Qed.
 
+
+
+
+Lemma hstar_hpure : forall P H h,
+  (\[P] \* H) h = (P /\ H h).
+Proof using.
+  intros. apply prop_ext. unfold hpure. iff M. 
+  { destruct M as (h1&h2&(p&M0)&M1&M2&D). hnf in M0. subst. split~. 
+    rewrite* Fmap.union_empty_l. }
+  { destruct M as (p&M0). exists (hea_emptyp.
+
+  rewrite hstar_hexists. rewrite* hstar_hempty_l.
+  { split~. } { exists* p. }
+Qed.
