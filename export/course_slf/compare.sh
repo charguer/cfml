@@ -8,5 +8,5 @@ SLF_FOLDER=~/versions/coq-8.9.1/sfdev/slf
 
 for i in ${SLF_FILES} ; do
   echo "=========================${i}=============================="
-  diff ${CFML_FOLDER}/${i} ${SLF_FOLDER}/${i} | sed -e '/^.[[:space:]]From[[:space:]].*$/d'
+  diff ${SLF_FOLDER}/${i} ${CFML_FOLDER}/${i}  | sed -e '/^.[[:space:]]From[[:space:]].*$/d'
 done
