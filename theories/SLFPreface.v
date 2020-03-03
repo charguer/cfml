@@ -129,7 +129,7 @@
 (* ########################################################### *)
 (** ** Chapters *)
 
-(** The "Separation Logic Foundations" course includes the following chapters.
+(** The "Foundations of Separation Logic" course includes the following chapters.
 
     - [SLFPreface]: the present introduction.
 
@@ -170,6 +170,9 @@
 (** ** Special chapters *)
 
 (**
+    - [SLFMinimal]:This file contains a minimal proof of soundness of Separation
+                   Logic for sequential programs.
+
     - [SLFSummary]:This file contains the material for a one-hour talk that
                    introduces, at a high level, the most important ideas from the
                    course. This material is accompanied by LaTeX-generated slides

@@ -379,8 +379,8 @@ Proof.
 Qed.
 
 
-(* ################################################ *)
-(** *** Properties of [hpure] *)
+(* ########################################################### *)
+(** ** Properties of [hpure] *)
 
 (* Internal lemma, useful for proofs *)
 Lemma hstar_hpure : forall P H h,
@@ -403,8 +403,8 @@ Lemma himpl_hstar_hpure_l : forall P H H',
 Proof. introv W Hh. rewrite hstar_hpure in Hh. applys* W. Qed.
 
 
-(* ################################################ *)
-(** *** Properties of [hexists] *)
+(* ########################################################### *)
+(** ** Properties of [hexists] *)
 
 Lemma himpl_hexists_l : forall A H (J:A->hprop),
   (forall x, J x ==> H) ->
@@ -424,8 +424,8 @@ Proof.
 Qed.
 
 
-(* ################################################ *)
-(** *** Properties of [hforall] *)
+(* ########################################################### *)
+(** ** Properties of [hforall] *)
 
 Lemma himpl_hforall_r : forall A (J:A->hprop) H,
   (forall x, H ==> J x) ->
@@ -445,8 +445,8 @@ Proof.
 Qed.
 
 
-(* ################################################ *)
-(** *** Properties of [hsingle] *)
+(* ########################################################### *)
+(** ** Properties of [hsingle] *)
 
 Lemma hsingle_not_null : forall p v,
   (p ~~> v) ==> (p ~~> v) \* \[p <> null].
@@ -463,7 +463,7 @@ Qed.
 
 
 (* ########################################################### *)
-(** * Minimal tactics for simplifying and rewriting entailments *)
+(** ** Minimal tactics for simplifying and rewriting entailments *)
 
 (** [xsimpl] performs immediate simplifications to entailments. *)
 
@@ -559,14 +559,20 @@ Qed.
 
 
 (* ########################################################### *)
-(** ** Hoare logic *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Hoare logic *)
 
-(** * Definition of total correctness Hoare triples. *)
+
+(* ########################################################### *)
+(** ** Definition of total correctness Hoare triples. *)
 
 Definition hoare (t:trm) (H:hprop) (Q:val->hprop) :=
   forall h, H h -> exists h' v, eval h t h' v /\ Q v h'.
 
-(** Structural rules for Hoare triples. *)
+
+(* ########################################################### *)
+(** ** Structural rules for Hoare triples. *)
 
 Lemma hoare_conseq : forall t H' Q' H Q,
   hoare t H' Q' ->
@@ -591,7 +597,9 @@ Proof.
   rewrite Fmap.union_empty_l. applys* M.
 Qed.
 
-(** Reasoning rules for terms, for Hoare triples *)
+
+(* ########################################################### *)
+(** ** Reasoning rules for terms, for Hoare triples. *)
 
 Lemma hoare_val : forall v H Q,
   H ==> Q v ->
@@ -637,6 +645,10 @@ Proof.
   introv M1. intros h Hh. forwards* (h1'&v1&R1&K1): (rm M1).
   exists h1' v1. splits*. { applys* eval_if. }
 Qed.
+
+
+(* ########################################################### *)
+(** ** Reasoning rules for primitive functions, for Hoare triples. *)
 
 Lemma hoare_add : forall H n1 n2,
   hoare (val_add n1 n2)
@@ -710,14 +722,19 @@ Global Opaque hempty hpure hstar hsingle hexists hforall.
 
 
 (* ########################################################### *)
-(** ** Separation Logic *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Hoare logic *)
 
-(** Definition of Separation Logic triples *)
+(* ########################################################### *)
+(** ** Definition of Separation Logic triples *)
 
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall (H':hprop), hoare t (H \* H') (Q \*+ H').
 
-(** Structural rules *)
+
+(* ########################################################### *)
+(** ** Structural rules *)
 
 Lemma triple_conseq : forall t H' Q' H Q,
   triple t H' Q' ->
@@ -753,7 +770,9 @@ Proof.
   applys hoare_hpure. intros. applys* M.
 Qed.
 
-(** Reasoning rules for terms *)
+
+(* ########################################################### *)
+(** ** Reasoning rules for terms *)
 
 Lemma triple_val : forall v H Q,
   H ==> Q v ->
@@ -794,7 +813,9 @@ Proof.
   introv E M1. intros H'. applys hoare_app E. applys M1.
 Qed.
 
-(** Specification of primitive operations *)
+
+(* ########################################################### *)
+(** ** Specification of primitive operations *)
 
 Lemma triple_add : forall n1 n2,
   triple (val_add n1 n2)
