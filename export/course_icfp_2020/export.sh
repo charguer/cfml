@@ -22,6 +22,8 @@ mkdir -p ${TARGET}
 
 ${CP} README.md ${TARGET}
 
+
+echo "Copy appendix"
 ${CP} ${PDF} ${TARGET}
 
 
