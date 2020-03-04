@@ -1,6 +1,6 @@
 (**
 
-Separation Logic Foundations
+Foundations of Separation Logic
 
 Chapter: "Himpl".
 
@@ -1189,9 +1189,9 @@ End ProveExtractionRules.
     the heap predicate that only accepts heaps exactly equal to [h]. *)
 
 (* EX2? (hexists_named_eq) *)
-(** Prove that a heap predicate [H] is equivalent to the heap 
+(** Prove that a heap predicate [H] is equivalent to the heap
     predicate which asserts that the heap is, for a heap [h]
-    such that [H h], exactly equal to [H]. 
+    such that [H h], exactly equal to [H].
 
     Hint: use [hstar_hpure_iff] and [hexists_intro], as well as
     the extraction rules [himpl_exists_l] and [himpl_hstar_hpure_l]. *)
@@ -1203,7 +1203,7 @@ Proof using. (* ADMITTED *)
   { intros h K. applys hexists_intro h.
     rewrite hstar_hpure_iff. auto. }
   { applys himpl_hexists_l. intros h.
-    applys himpl_hstar_hpure_l. intros K. 
+    applys himpl_hstar_hpure_l. intros K.
     intros h' E. subst. auto. }
 Qed. (* /ADMITTED *)
 
@@ -1264,7 +1264,7 @@ Lemma triple_hexists2 : forall A (Hof:A->hprop) (Qof:A->val->hprop) t,
   (forall x, triple t (Hof x) (Qof x)) ->
   triple t (\exists x, Hof x) (fun v => \exists x, Qof x v).
 Proof using.
-  introv M. 
+  introv M.
   applys triple_hexists. intros x.
   applys triple_conseq (M x).
   { applys himpl_refl. }

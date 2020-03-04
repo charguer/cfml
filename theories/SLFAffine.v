@@ -1,6 +1,6 @@
 (**
 
-Separation Logic Foundations
+Foundations of Separation Logic
 
 Chapter: "Affine".
 
@@ -437,7 +437,7 @@ Lemma haffine_hany : forall (H:hprop),
 Proof using. unfold haffine. auto. Qed.
 
 (** The definition of [\GC] that corresponds to this choice of [haffine]
-    is equivalent to [htop], the predicate that holds of any heap. 
+    is equivalent to [htop], the predicate that holds of any heap.
     The predicate [htop] can be defined as [fun h => True] or, equivalently,
     as [\exists H, H]. *)
 
@@ -976,7 +976,7 @@ Qed. (* /ADMITTED *)
 (* [] *)
 
 (** Together, the introduction and the elimination rule justify
-    the fact that [hgc] could equivalently have been defined as 
+    the fact that [hgc] could equivalently have been defined as
     [fun h => heap_affine h]. *)
 
 Definition hgc' : hprop :=

@@ -45,6 +45,13 @@ for i in ${FILES}; do
    sed -i'' 's/Arthur\ Charguéraud/Anonymous/g;s/Chargueraud/Anonymous/g;' $i;
 done
 
+# fix star symbol
+FILES=`ls ${TARGET}/*.html`
+for i in ${FILES}; do
+   sed -i'' 's/×/*/g;' $i;
+done
+
+
 
 ##############################################################################
 # Create archive
@@ -59,4 +66,4 @@ tar ${TAROPTIONS} -czf $TARGET.tar.gz $TARGET
 cd ${TARGET}
 make -j8
 chromium-browser index.html &
-coqide -async-proofs off -async-proofs-command-error-resilience off -Q . SLF SLFPreface.v SLFSummary.v
+coqide -async-proofs off -async-proofs-command-error-resilience off -Q . SLF SLFMinimal.v

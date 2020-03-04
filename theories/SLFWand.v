@@ -1,6 +1,6 @@
 (**
 
-Separation Logic Foundations
+Foundations of Separation Logic
 
 Chapter: "Wand".
 
@@ -1230,7 +1230,7 @@ Lemma hwand_characterization_1_eq_2 :
 Proof using.
   applys pred_ext_1. intros op.
   unfold hwand_characterization_1, hwand_characterization_2.
-  asserts K: (forall A B, A = B -> (op = A <-> op = B)). 
+  asserts K: (forall A B, A = B -> (op = A <-> op = B)).
   { intros. iff; subst*. } apply K; clear K.
   apply pred_ext_3. intros H1 H2 h. iff M.
   { exists (=h). rewrite hstar_comm. rewrite hstar_hpure. split.
@@ -1247,7 +1247,7 @@ Qed.
 Lemma hwand_characterization_2_eq_3 :
   hwand_characterization_2 = hwand_characterization_3.
 Proof using.
-  applys pred_ext_1. intros op. 
+  applys pred_ext_1. intros op.
   unfold hwand_characterization_2, hwand_characterization_3. iff K.
   { subst. intros. (* apply hwand_equiv. *) iff M.
     { xchange M. intros H3 N. xchange N. }
@@ -1261,9 +1261,9 @@ Qed.
 Lemma hwand_characterization_3_eq_4 :
   hwand_characterization_3 = hwand_characterization_4.
 Proof using.
-  applys pred_ext_1. intros op. 
+  applys pred_ext_1. intros op.
   unfold hwand_characterization_3, hwand_characterization_4. iff K.
-  { split. 
+  { split.
     { introv M. apply <- K. apply M. }
     { intros. apply K. auto. } }
   { destruct K as (K1&K2). intros. split.
@@ -1351,8 +1351,8 @@ Lemma triple_hforall : forall A (v:A) t (J:A->hprop) Q,
   triple t (\forall x, J x) Q.
 Proof.
   introv M. applys triple_conseq M.
-  { applys hforall_specialize. } 
-  { applys qimpl_refl. } 
+  { applys hforall_specialize. }
+  { applys qimpl_refl. }
 Qed.
 
 
@@ -1497,7 +1497,7 @@ Lemma hwand_characterization_1_eq_2 :
 Proof using.
   applys pred_ext_1. intros op.
   unfold qwand_characterization_1, qwand_characterization_2.
-  asserts K: (forall A B, A = B -> (op = A <-> op = B)). 
+  asserts K: (forall A B, A = B -> (op = A <-> op = B)).
   { intros. iff; subst*. } apply K; clear K.
   apply pred_ext_3. intros Q1 Q2 h. iff M.
   { exists (=h). rewrite hstar_comm. rewrite hstar_hpure. split.
@@ -1514,9 +1514,9 @@ Qed.
 Lemma qwand_characterization_2_eq_3 :
   qwand_characterization_2 = qwand_characterization_3.
 Proof using.
-  applys pred_ext_1. intros op. 
+  applys pred_ext_1. intros op.
   unfold qwand_characterization_2, qwand_characterization_3.
-  asserts K: (forall A B, A = B -> (op = A <-> op = B)).  
+  asserts K: (forall A B, A = B -> (op = A <-> op = B)).
   { intros. iff; subst*. } apply K; clear K.
   apply fun_ext_2. intros Q1 Q2. apply himpl_antisym.
   { xpull. intros H0 M. applys himpl_hforall_r. intros v.
@@ -1527,7 +1527,7 @@ Qed.
 Lemma qwand_characterization_2_eq_4 :
   qwand_characterization_2 = qwand_characterization_4.
 Proof using.
-  applys pred_ext_1. intros op. 
+  applys pred_ext_1. intros op.
   unfold qwand_characterization_2, qwand_characterization_4. iff K.
   { subst. intros. iff M.
     { xchange M. intros v H3 N. xchange N. }
@@ -1541,9 +1541,9 @@ Qed.
 Lemma qwand_characterization_4_eq_5 :
   qwand_characterization_4 = qwand_characterization_5.
 Proof using.
-  applys pred_ext_1. intros op. 
+  applys pred_ext_1. intros op.
   unfold qwand_characterization_4, qwand_characterization_5. iff K.
-  { split. 
+  { split.
     { introv M. apply <- K. apply M. }
     { intros. apply K. auto. } }
   { destruct K as (K1&K2). intros. split.

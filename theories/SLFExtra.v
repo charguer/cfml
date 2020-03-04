@@ -1,6 +1,6 @@
 (**
 
-Separation Logic Foundations
+Foundations of Separation Logic
 
 Chapter: "Extra".
 

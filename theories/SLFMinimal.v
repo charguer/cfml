@@ -1,6 +1,6 @@
 (**
 
-Separation Logic Foundations
+Foundations of Separation Logic
 
 Chapter: "Minimal".
 
@@ -301,8 +301,11 @@ Lemma himpl_antisym : forall H1 H2,
   (H1 = H2).
 Proof. introv M1 M2. applys pred_ext_1. intros h. iff*. Qed.
 
-Hint Resolve himpl_refl.
-Hint Unfold qimpl.
+Lemma qimpl_refl : forall Q,
+  Q ===> Q.
+Proof. intros Q v. applys himpl_refl. Qed.
+
+Hint Resolve himpl_refl qimpl_refl.
 
 
 (* ########################################################### *)
@@ -470,9 +473,9 @@ Qed.
 Hint Rewrite hstar_assoc hstar_hempty_l hstar_hempty_r : hstar.
 
 Tactic Notation "xsimpl" :=
+  try solve [ apply qimpl_refl ];
   try match goal with |- _ ===> _ => intros ? end;
-  autorewrite with hstar;
-  repeat match goal with
+  autorewrite with hstar; repeat match goal with
   | |- ?H \* _ ==> ?H \* _ => apply himpl_frame_r
   | |- _ \* ?H ==> _ \* ?H => apply himpl_frame_l
   | |- _ \* ?H ==> ?H \* _ => rewrite hstar_comm; apply himpl_frame_r
@@ -853,4 +856,47 @@ Lemma triple_free : forall p v,
     (p ~~> v)
     (fun _ => \[]).
 Proof. intros. intros HF. applys hoare_conseq hoare_free; xsimpl*. Qed.
+
+
+
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Bonus: example proof *)
+
+(** See the chapter [SLFRules] for comments on this proof.
+ 
+[[
+   let incr p =
+      let n = !p in
+      let m = n+1 in
+      p := m
+]]
+
+*)
+
+Open Scope string_scope.
+
+Definition incr : val := (* here using low-level syntax *)
+  val_fix "f" "p" (
+    trm_let "n" (trm_app val_get (trm_var "p")) (
+    trm_let "m" (trm_app (trm_app val_add
+                             (trm_var "n")) (val_int 1)) (
+    trm_app (trm_app val_set (trm_var "p")) (trm_var "m")))).
+
+Lemma triple_incr : forall (p:loc) (n:int),
+  triple (trm_app incr p)
+    (p ~~> n)
+    (fun _ => p ~~> (n+1)).
+Proof using.
+  intros. applys triple_app. { reflexivity. } simpl.
+  applys triple_let. { apply triple_get. }
+  intros n'. simpl. apply triple_hpure. intros ->.
+  applys triple_let. { applys triple_conseq. 
+    { applys triple_frame. applys triple_add. }
+    { xsimpl. }
+    { xsimpl. } }
+  intros m'. simpl. apply triple_hpure. intros ->.
+  { applys triple_set. }
+Qed.
 

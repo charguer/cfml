@@ -28,10 +28,18 @@
 
 
 
+Remark: the chapters SLFBasic, SLFSummary, and SLFWPgen describe an
+effective weakest-precondition generator that is not covered by the
+submitted paper.
+
+Remark: a number of lemmas have been given shorter names in the paper
+than in the Coq development, thus some names do not match perfectly.
+
+
 #############################################################
 # Other files
 
-  - Files SLF*.v (except SLFBasic, SLFSummary, and SLFWPgen, which are not covered by the paper)
+  - Files SLF*.v
     Contents of the course
 
   - index.html
@@ -62,8 +70,13 @@ The theories should compile with any version of Coq from 8.8 to 8.11.
 #############################################################
 # Interactive session
 
+To load SLFMinimal.v in CoqIDE, use the command:
 
-To play the files in CoqIDE, execute the following command:
+```
+   coqide -async-proofs off -async-proofs-command-error-resilience off -Q . SLF SLFMinimal.v
+```
+
+To load all the course files:
 
 ```
    coqide -async-proofs off -async-proofs-command-error-resilience off -Q . SLF SLF*.v
@@ -71,9 +84,3 @@ To play the files in CoqIDE, execute the following command:
 
 Remark: the options provided to CoqIDE makes its use much smoother.
 
-
-To load SLFMinimal.v in CoqIDE, use the command:
-
-```
-   coqide -async-proofs off -async-proofs-command-error-resilience off -Q . SLF SLFMinimal.v
-```

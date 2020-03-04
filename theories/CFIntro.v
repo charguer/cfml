@@ -12,7 +12,7 @@ License: CC-by 4.0.
 (* ####################################################### *)
 (** * Structure *)
 
-(** The "Separation Logic Foundations" course includes the following chapters,
+(** The "Foundations of Separation Logic" course includes the following chapters,
     one file per chapter.
 
 
