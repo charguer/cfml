@@ -101,7 +101,8 @@ Inductive prim : Type :=
   | val_lt : prim
   | val_ge : prim
   | val_gt : prim
-  | val_ptr_add : prim.
+  | val_ptr_add : prim
+  | val_get_header : prim.
 
 Definition loc : Type := nat.
 
@@ -340,7 +341,11 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
       mb = Fmap.conseq (hval_header k :: vs) p ->
       k = LibList.length vs ->
       Fmap.disjoint ma mb ->
-      eval (mb \+ ma) (val_dealloc (val_loc p)) ma val_unit.
+      eval (mb \+ ma) (val_dealloc (val_loc p)) ma val_unit
+  | eval_get_header : forall s p k,
+      Fmap.indom s p ->
+      Fmap.read s p = hval_header k ->
+      eval s (val_get_header (val_loc p)) s (val_int k).
 
 Arguments eval_alloc : clear implicits.
 
