@@ -114,11 +114,24 @@
     presentation of a concise verification proof script for a function
     that performs in-place concatenation of two mutable linked lists.
 
-    The list of chapters appear below. Before diving into the details,
-    the reader might be interested in a 1-hour, high-level tour of the
-    key ingredients of the verification framework, described in the Coq
-    file [SLFSummary.v], and accompanied with LaTeX slides to be found
-    in the file [SLFSummary.pdf].
+*)
+
+(* ########################################################### *)
+(** ** Summaries for the course *)
+
+(** Before diving into the Coq files, the reader might be interested in
+    reading high-level summaries of the contents of the course:
+
+    - [SLFSummary.v] contains material for a 1-hour summary of the key
+      ingredients involved in the course.
+
+    - [SLFSummary.pdf] contains LaTeX-formatted slides presenting the
+      most important definitions from [SLFSummary.v].
+
+    - [SeqSepLogic.pdf] is a LaTeX-formatted paper that gives a summary
+      of the definitions involved in the course, but not covering the
+      chapters [SLFBasic] and [SLFWPgen], which involve the characteristic
+      formula generator.
 
 *)
 
@@ -170,6 +183,7 @@
 (** ** Special chapters *)
 
 (**
+
     - [SLFMinimal]:This file contains a minimal proof of soundness of Separation
                    Logic for sequential programs.
 
