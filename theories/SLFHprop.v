@@ -148,11 +148,15 @@ Definition example_val' : trm :=
 (** Locations, of type [loc], denote the addresses of allocated objects.
     Locations are a particular kind of values.
 
-    A state is a finite map from locations to values. The file [Fmap.v]
-    provides a self-contained formalization of finite maps, but we do
-    need to know about the details. *)
+    A state is a finite map from locations to values. Technically, it is
+    a finite map from locations to "heap values", of type [hval], which extend 
+    values with the special "uninitialized value" and the "header values", 
+    which are used for describing allocated blocks.
 
-Definition state : Type := fmap loc val.
+    The file [Fmap.v] provides a self-contained formalization of finite maps, 
+    but we do need to know about the details. *)
+
+Definition state : Type := fmap loc hval.
 
 (** By convention, we use the type [state] describes a full state of memory,
     and introduce the type [heap] to describe just a piece of state. *)
@@ -227,13 +231,11 @@ Notation "\[ P ]" := (hpure P) (at level 0, format "\[ P ]").
 
 (** The singleton heap predicate, written [p ~~> v], characterizes a
     state with a single allocated cell, at location [p], storing the
-    value [v]. Additionnally, this heap predicate carries the information
-    that [p] is not the [null] location. (Another possibility would be to
-    refine the type of [heap] as a finite map whose domain does not include
-    the [null] location, however this route involves a greater amount of work.) *)
+    value [v], or, technically [hval_val v], which denotes the value  
+    [v] viewed as a heap values. *)
 
 Definition hsingle (p:loc) (v:val) : hprop :=
-  fun (h:heap) => (h = Fmap.single p v /\ p <> null).
+  fun (h:heap) => (h = Fmap.single p (hval_val v)).
 
 Notation "p '~~>' v" := (hsingle p v) (at level 32).
 
@@ -533,6 +535,7 @@ Notation "h1 \u h2" := (Fmap.union h1 h2) (at level 37, right associativity).
     introduction lemma and one inversion lemma. *)
 
 Implicit Types P : Prop.
+Implicit Types w : hval.
 
 (** The introduction lemmas show how to prove goals of the form [H h],
     for various forms of the heap predicate [H]. *)
@@ -547,9 +550,8 @@ Lemma hpure_intro : forall P,
 Proof using. introv M. hnf. auto. Qed.
 
 Lemma hsingle_intro : forall p v,
-  p <> null ->
-  (p ~~> v) (Fmap.single p v).
-Proof using. introv N. hnf. auto. Qed.
+  (p ~~> v) (Fmap.single p (hval_val v)).
+Proof using. intros. hnf. auto. Qed.
 
 Lemma hstar_intro : forall H1 H2 h1 h2,
   H1 h1 ->
@@ -578,7 +580,7 @@ Proof using. introv M. hnf in M. autos*. Qed.
 
 Lemma hsingle_inv: forall p v h,
   (p ~~> v) h ->
-  h = Fmap.single p v /\ p <> null.
+  h = Fmap.single p (hval_val v).
 Proof using. introv M. hnf in M. auto. Qed.
 
 Lemma hstar_inv : forall H1 H2 h,

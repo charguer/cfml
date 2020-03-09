@@ -2021,8 +2021,8 @@ Module SummaryHprop.
   Definition hempty : hprop :=
     fun h => (h = Fmap.empty).
 
-  Definition hsingle (p:loc) (v:val) : hprop :=
-    fun h => (h = Fmap.single p v).
+  Definition hsingle (p:loc) (w:hval) : hprop :=
+    fun h => (h = Fmap.single p w).
 
   Definition hstar (H1 H2 : hprop) : hprop :=
     fun h => exists h1 h2, H1 h1

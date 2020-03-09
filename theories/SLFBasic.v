@@ -1126,9 +1126,10 @@ Definition tail : field := 1%nat.
     This predicate is defined recursively on the structure of [L]:
 
     - if [L] is empty, then [p] is the null pointer,
-    - if [L] is of the form [x::L'], then the head field of [p]
-      contains [x], and the tail field of [p] contains a pointer
-      [q] such that [MList L' q] describes the tail of the list.
+    - if [L] is of the form [x::L'], then [p] is not null, and the
+      head field of [p] contains [x], and the tail field of [p] 
+      contains a pointer [q] such that [MList L' q] describes the 
+      tail of the list.
 
 *)
 
@@ -1168,10 +1169,9 @@ Proof using.  auto. Qed.
 Lemma MList_if : forall (p:loc) (L:list val),
       (MList L p)
   ==> (If p = null
-      then \[L = nil]
-      else \exists x q L', \[L = x::L']
-           \* (p`.head ~~> x) \* (p`.tail ~~> q)
-           \* (MList L' q)).
+        then \[L = nil]
+        else \exists x q L', \[L = x::L']
+             \* (p`.head ~~> x) \* (p`.tail ~~> q) \* (MList L' q)).
 Proof using.
   (* Let's prove this result by case analysis on [L]. *)
   intros. destruct L as [|x L'].

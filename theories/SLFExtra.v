@@ -872,9 +872,6 @@ Qed.
 (* ########################################################### *)
 (** ** Predicate [hcells] *)
 
-Definition header (k:nat) (p:loc) : hprop :=
-  p ~~> hval_header k \* \[p <> null].
-
 Definition hvals : Type := list hval.
 
 Fixpoint hcells (L:hvals) (p:loc) : hprop :=
@@ -945,6 +942,25 @@ Arguments hcells_focus : clear implicits.
 
 (* ########################################################### *)
 (** ** Predicate [harray] *)
+
+Definition header (k:nat) (p:loc) : hprop :=
+  p ~~> hval_header k \* \[p <> null].
+
+Lemma header_intro : forall k p,
+  p <> null ->
+  (header k p) (Fmap.single p (hval_header k)).
+Proof using.
+  introv N. unfolds header. rewrite hstar_comm, hstar_hpure.
+  split*. applys hsingle_intro. 
+Qed.
+
+Lemma header_inv : forall k p h,
+  (header k p) h ->
+  h = Fmap.single p (hval_header k) /\ p <> null.
+Proof using.
+  introv M. unfolds header. rewrite hstar_comm, hstar_hpure in M.
+  destruct M as (N&M). lets E: hsingle_inv M. split*.
+Qed.
 
 Definition harray (L:hvals) (p:loc) : hprop :=
   header (length L) p \* hcells L (S p).
@@ -1026,24 +1042,20 @@ Qed.
 (* ########################################################### *)
 (** ** Specification of [val_alloc] *)
 
-Arguments eval_alloc : clear implicits.
-
 Lemma hoare_alloc_nat : forall H k,
   hoare (val_alloc k)
     H
     (funloc p => harray_uninit k p \* H).
 Proof using.
- Admitted.
-(*
   intros. intros h Hh.
-  forwards~ (p&Dp&Np): (Fmap.conseq_fresh null h k hval_uninit).
+  forwards~ (p&Dp&Np): (Fmap.conseq_fresh null h 
+                         (hval_header k :: LibList.make k hval_uninit)).
   match type of Dp with Fmap.disjoint ?hc _ => sets h1': hc end.
   exists (h1' \u h) (val_loc p). split.
   { applys~ (eval_alloc k). }
   { applys hexists_intro p. rewrite hstar_hpure. split*.
     { applys* hstar_intro. applys* harray_uninit_intro. } }
 Qed.
-*)
 
 Lemma triple_alloc_nat : forall k,
   triple (val_alloc k)
@@ -1079,46 +1091,38 @@ Qed.
 (* ########################################################### *)
 (** ** Specification of [val_dealloc] *)
 
-Lemma hoare_dealloc : forall H L p n,
-  n = length L ->
-  hoare (val_dealloc n p)
+Lemma hoare_dealloc : forall H L p,
+  hoare (val_dealloc p)
     (harray L p \* H)
     (fun _ => H).
-Admitted.
-(*
 Proof using.
-  introv N. intros h Hh. destruct Hh as (h1&h2&N1&N2&N3&N4). subst h.
-  exists h2 val_unit. split; [|auto].
-  applys* (@eval_dealloc n L). applys hcells_inv N1.
+  intros. intros h Hh. destruct Hh as (h1&h2&N1&N2&N3&N4).
+  unfolds harray. destruct N1 as (h11&h12&N5&N6&N7&N8). 
+  lets (E11&Np): header_inv N5. lets E12: hcells_inv N6. subst h h1 h11 h12.
+  exists h2 val_unit. split; [|auto]. applys* eval_dealloc.
 Qed.
-*)
 
-Lemma triple_dealloc : forall L n p,
-  n = length L ->
-  triple (val_dealloc n p)
+Lemma triple_dealloc : forall L p,
+  triple (val_dealloc p)
     (harray L p)
     (fun _ => \[]).
 Proof using.
-  introv E. intros H'. applys hoare_conseq.
-  { applys hoare_dealloc H' E. } { xsimpl. } { xsimpl. }
+  intros. intros H'. applys hoare_conseq.
+  { applys hoare_dealloc H'. } { xsimpl. } { xsimpl. }
 Qed.
 
 Lemma triple_dealloc_any : forall p k,
-  triple (val_dealloc k p)
+  triple (val_dealloc p)
     (harray_any k p)
     (fun _ => \[]).
 Proof using.
   intros. xtriple. xchange himpl_harray_any_harray. intros L EL.
-  xapp triple_dealloc. { auto. } { xsimpl. }
+  xapp triple_dealloc. { xsimpl. }
 Qed.
 
 
 (* ########################################################### *)
 (** ** Encoding of [val_array_get] and [val_array_set] *)
-
-
-Global Instance Inhab_val : Inhab val.
-Proof using. apply (Inhab_of_val val_unit). Qed.
 
 Module Export ArrayAccessDef.
 Import SLFProgramSyntax.

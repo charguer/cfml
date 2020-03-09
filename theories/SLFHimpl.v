@@ -239,22 +239,9 @@ Qed. (* /ADMITTED *)
 (* ########################################################### *)
 (** ** Extracting information from heap predicates *)
 
-(** We next present two examples showing how entailments can be used to
+(** We next present an example showing how entailments can be used to
     state lemmas allowing to extract information from particular heap
-    predicates. *)
-
-(** As first example, we show that from a singleton predicate [p ~~> v],
-    one can extract the information [p <> null]. *)
-
-Lemma hsingle_not_null : forall p v,
-  (p ~~> v) ==> (p ~~> v) \* \[p <> null].
-Proof using.
-  introv. intros h Hh. lets (K&N): hsingle_inv Hh.
-  rewrite hstar_comm. rewrite hstar_hpure_iff. split.
-  { auto. } { subst h. applys hsingle_intro. auto. }
-Qed.
-
-(** As second example, we show that from a heap predicate of the form
+    predicates. We show that from a heap predicate of the form
     [(p ~~> v1) \* (p ~~> v2)] describes two "disjoint" cells that
     are both "at location [p]", one can extract a contradiction.
 
@@ -284,7 +271,7 @@ Lemma hstar_hsingle_same_loc : forall (p:loc) (v1 v2:val),
     contradiction on the disjointness assumption. *)
 
 Proof using.
-  intros. unfold hsingle. intros h (h1&h2&(E1&N1)&(E2&N2)&D&E). false.
+  intros. unfold hsingle. intros h (h1&h2&E1&E2&D&E). false.
   subst. applys Fmap.disjoint_single_single_same_inv D.
 Qed.
 

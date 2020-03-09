@@ -981,17 +981,16 @@ Proof using.
   exists l. split~. applys* disjoint_single_of_not_indom.
 Qed.
 
-Lemma conseq_fresh : forall null h k v,
-  exists l, \# (conseq (LibList.make k v) l) h /\ l <> null.
+Lemma conseq_fresh : forall null h vs,
+  exists l, \# (conseq vs l) h /\ l <> null.
 Proof using.
-  intros null (m&(L&M)) k v.
+  intros null (m&(L&M)) vs.
   unfold disjoint, map_disjoint. simpl.
   lets (l&F): (loc_fresh_nat_ge (null::L)).
   exists l. split.
-  { intros l'. gen l. induction k; intros.
+  { intros l'. gen l. induction vs as [|v vs']; intros.
     { simple~. }
-    { rewrite make_succ. rewrite conseq_cons.
-      destruct (IHk (S l)%nat) as [E|?].
+    { rewrite conseq_cons. destruct (IHvs' (S l)%nat) as [E|?].
       { intros i N. applys F (S i). applys_eq N 2. math. }
       { simpl. unfold map_union. case_if~.
         { subst. right. applys not_not_inv. intros H. applys F 0%nat.

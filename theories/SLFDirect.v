@@ -181,7 +181,10 @@ Implicit Types t : trm.
 Implicit Types h : heap.
 Implicit Types s : state.
 
-(** The type of values is inhabited. *)
+(** The types of values and heap values are inhabited. *)
+
+Global Instance Inhab_val : Inhab val.
+Proof using. apply (Inhab_of_val val_unit). Qed.
 
 Global Instance Inhab_hval : Inhab hval.
 Proof using. apply (Inhab_of_val hval_uninit). Qed.
@@ -338,6 +341,8 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
       k = LibList.length vs ->
       Fmap.disjoint ma mb ->
       eval (mb \+ ma) (val_dealloc (val_loc p)) ma val_unit.
+
+Arguments eval_alloc : clear implicits.
 
 (** Specialized evaluation rules for addition and division. *)
 

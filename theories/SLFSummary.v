@@ -245,10 +245,12 @@ Notation "\[ P ]" := (hpure P) (at level 0, format "\[ P ]").
 
 (** The singleton heap predicate, written [p ~~> v], characterizes
     a singleton state, that is, a state made of a single memory cell,
-    at location [p], and with contents [v]. *)
+    at location [p], and with contents [v]. 
+    (Technically, the value is not restricted to a regular value,
+    but it might also be an uninitialized value or a block header.) *)
 
-Definition hsingle (p:loc) (v:val) : hprop :=
-  fun h => (h = Fmap.single p v).
+Definition hsingle (p:loc) (w:hval) : hprop :=
+  fun h => (h = Fmap.single p w).
 
 Notation "p '~~>' v" := (hsingle p v) (at level 32).
 

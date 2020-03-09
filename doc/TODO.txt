@@ -1,3 +1,5 @@
+LATER: replace congruence with auto in SLFRich
+    { xpull. intros ->. xval. xsimpl. { congruence. }
 
 
 (* ####################################################### *)
