@@ -1,7 +1,5 @@
 (** * Preface *)
 
-(** Warning! Beta release! *)
-
 (* ########################################################### *)
 (** * Welcome *)
 
@@ -173,13 +171,13 @@
     - [SLFWand]:   introduction of the magic wand, of the ramified frame rule,
                    and recursive computation of weakest precondition inside functions.
 
+    - [SLFAffine]: description of a generalized Separation Logic that supports the
+                   ability to freely discard certain types of heap predicates.
+
     - [SLFStruct]: representation predicate for records and arrays.
 
     - [SLFRich]:   treatment of additional language constructs, including loops,
                    assertions, and n-ary functions.
-
-    - [SLFAffine]: description of a generalized Separation Logic that supports the
-                   ability to freely discard certain types of heap predicates.
 
 *)
 
