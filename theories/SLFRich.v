@@ -24,11 +24,14 @@ Implicit Types b : bool.
 Implicit Types L : list val.
 
 
-(* ####################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
 (** * Chapter in a rush *)
 
 (** This chapter introduces support for additional language constructs:
-    - while-loops and for-loops,
+    - if-statements that are not in A-normal form (needed for loops)
+    - while-loops,
     - assertions,
     - n-ary functions.
 
@@ -59,66 +62,51 @@ Implicit Types L : list val.
 
 
 (* ####################################################### *)
-(** ** If with a term as condition *)
+(** ** Semantics of conditionals not in administrative normal form *)
 
-Parameter eval_if_trm : forall s1 s2 s3 v b t0 t1 t2,
-  eval s1 t0 s2 (val_bool b) ->
-  eval s2 (if b then t1 else t2) s3 v ->
-  eval s1 (trm_if t0 t1 t2) s3 v.
+(** To state reasoning for loops in a concise manner, it is useful to generalize
+    the construct [if b then t1 else t2] to the form [if t0 then t1 else t2]. *)
 
-Parameter eval_if_trm' : forall s1 s2 s3 v0 v t0 t1 t2,
+(** Let us assume the following evaluation rules, which generalize [eval_if],
+    performing the evaluation of [t0] into a value [v0] before evaluating
+    [if v0 then t1 else t2]. *)
+
+Parameter eval_if_trm : forall s1 s2 s3 v0 v t0 t1 t2,
   eval s1 t0 s2 v0 ->
   eval s2 (trm_if v0 t1 t2) s3 v ->
   eval s1 (trm_if t0 t1 t2) s3 v.
 
-Lemma hoare_if_trm' : forall Q' t0 t1 t2 H Q,
+(** Associated with this evaluation rule is a Hoare-logic rule, and a Separation
+    Logic rule, generalizing [hoare_if] and [triple_if]. *)
+
+Lemma hoare_if_trm : forall Q' t0 t1 t2 H Q,
   hoare t0 H Q' ->
   (forall v, hoare (trm_if v t1 t2) (Q' v) Q) ->
   hoare (trm_if t0 t1 t2) H Q.
 Proof using.
   introv M1 M2. intros s1 K1. lets (s2&v0&R2&K2): M1 K1.
   forwards (s3&v&R3&K3): M2 K2. exists s3 v. splits.
-  { applys eval_if_trm' R2 R3. }
+  { applys eval_if_trm R2 R3. }
   { applys K3. }
 Qed.
 
-Lemma triple_if_trm' : forall Q' t0 t1 t2 H Q,
+Lemma triple_if_trm : forall Q' t0 t1 t2 H Q,
   triple t0 H Q' ->
   (forall v, triple (trm_if v t1 t2) (Q' v) Q) ->
   triple (trm_if t0 t1 t2) H Q.
 Proof using.
-  introv M1 M2. intros HF. applys hoare_if_trm' (Q' \*+ HF).
+  introv M1 M2. intros HF. applys hoare_if_trm (Q' \*+ HF).
   { applys hoare_conseq. applys M1 HF. { xsimpl. } { xsimpl. } }
   { intros v. applys M2. }
 Qed.
 
-Lemma hoare_if_trm : forall (Q':bool->hprop) t0 t1 t2 H Q,
-  hoare t0 H (fun r => \exists b, \[r = b] \* Q' b) ->
-  (forall b, hoare (if b then t1 else t2) (Q' b) Q) ->
-  hoare (trm_if t0 t1 t2) H Q.
-Proof using.
-  introv M1 M2. intros s1 K1. lets (s2&v0&R2&K2'): M1 K1.
-  lets (b'&K2): hexists_inv K2'. rewrite hstar_hpure in K2.
-  destruct K2 as (->&K2).
-  forwards (s3&v&R&K): M2 K2. exists s3 v. splits.
-  { applys eval_if_trm R2 R. }
-  { applys K. }
-Qed.
+(** Likewise, there is a counterpart in weakest-precondition form, generalizing
+    the rule [wp_if]. *)
 
-Lemma triple_if_trm : forall (Q':bool->hprop) t0 t1 t2 H Q,
-  triple t0 H (fun r => \exists b, \[r = b] \* Q' b) ->
-  (forall b, triple (if b then t1 else t2) (Q' b) Q) ->
-  triple (trm_if t0 t1 t2) H Q.
-Proof using.
-  introv M1 M2. intros HF. applys hoare_if_trm (fun b => Q' b \* HF).
-  { applys hoare_conseq. applys M1 HF. { xsimpl. } { xsimpl. auto. } }
-  { intros v. applys M2. }
-Qed.
-
-Lemma wp_if_trm' : forall t0 t1 t2 Q,
+Lemma wp_if_trm : forall t0 t1 t2 Q,
   wp t0 (fun v => wp (trm_if v t1 t2) Q) ==> wp (trm_if t0 t1 t2) Q.
 Proof using.
-  intros. unfold wp. xsimpl; intros H M H'. applys hoare_if_trm'.
+  intros. unfold wp. xsimpl; intros H M H'. applys hoare_if_trm.
   { applys M. }
   { intros v. simpl. rewrite hstar_hexists. applys hoare_hexists. intros HF.
     rewrite (hstar_comm HF). rewrite hstar_assoc. applys hoare_hpure.
@@ -126,21 +114,31 @@ Proof using.
 Qed.
 
 
-
 (* ####################################################### *)
-(** ** Limitation of loop invariants in Separation Logic *)
-
-
-(* ####################################################### *)
-(** ** Separation-Logic-friendly reasoning rule for while-loops *)
+(** ** Semantics and basic evaluation rules for while-loops *)
 
 Module WhileLoops.
 
+(** Assume a construct [while t1 do t2], written [trm_while t1 t2] in the
+    grammar of terms. *)
+
 Parameter trm_while : trm -> trm -> trm.
+
+Notation "'While' t1 'Do' t2 'Done'" :=
+  (trm_while t1 t2)
+  (at level 69, t2 at level 68,
+   format "'[v' 'While'  t1  'Do'  '/' '[' t2 ']' '/'  'Done' ']'")
+   : trm_scope.
+
+(** The semantics of this construct can be described in terms of the one-step
+    unfolding of the loop, as [if t1 then (t2; while t1 do t2) else ()]. *)
 
 Parameter eval_while : forall s1 s2 t1 t2 v,
   eval s1 (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) s2 v ->
   eval s1 (trm_while t1 t2) s2 v.
+
+(** This evaluation rule is associated with reasoning rules, in Hoare logic,
+    in Separation Logic, and in weakest-precondition style. *)
 
 Lemma hoare_while : forall t1 t2 H Q,
   hoare (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) H Q ->
@@ -157,6 +155,58 @@ Proof using.
   introv M. intros H'. apply hoare_while. applys* M.
 Qed.
 
+Lemma wp_while : forall t1 t2 Q,
+      wp (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) Q
+  ==> wp (trm_while t1 t2) Q.
+Proof using.
+  intros. repeat unfold wp. xsimpl; intros H M H'.
+  applys hoare_while. applys M.
+Qed.
+
+
+(* ####################################################### *)
+(** ** Separation-Logic-friendly reasoning rule for while-loops *)
+
+(** One may be tempted to introduce a rule an invariant-based reasoning
+    rule for while loops. An example such rule appears below.
+    An invariant [I] describes the state at the entry and exit point
+    of the loop. This invariant is actually of the form [I b X], where
+    the boolean value [b] is [false] to indicate that the loop has terminated,
+    and where the value [X] belongs to a type [A] used to expressed the
+    decreasing measure that justify the termination of the loop. *)
+
+Lemma triple_while_inv_not_framable' : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) t1 t2,
+  wf R ->
+  (forall b X, triple t1 (I b X) (fun r => \exists b', \[r = b'] \* I b' X)) ->
+  (forall b X, triple t2 (I b X) (fun _ => \exists b' Y, \[R Y X] \* I b' Y)) ->
+  triple (trm_while t1 t2) (\exists b X, I b X) (fun r => \exists Y, I false Y).
+Proof using.
+  introv WR M1 M2. applys triple_hexists. intros b. applys triple_hexists. intros X.
+  gen b. induction_wf IH: WR X. intros. applys triple_while.
+  applys triple_if_trm (fun (r:val) => \exists b', \[r = b'] \* I b' X).
+  { applys M1. }
+  { intros v. applys triple_hexists. intros b'. applys triple_hpure. intros ->.
+    applys triple_if. case_if.
+    { applys triple_seq.
+      { applys M2. }
+      { applys triple_hexists. intros b''. applys triple_hexists. intros Y.
+        applys triple_hpure. intros HR. applys IH HR. } }
+    { applys triple_val. xsimpl. } }
+Qed.
+
+(** The above rule is correct yet limited, because it precludes the possibility
+    to apply the frame rule "over the remaining iterations of the loop".
+
+    This possibility can be exploited by carrying a proof by induction and
+    invoking the rule [triple_while], which unfolds the loop body. In that
+    scheme, the frame rule can be applied to the term [while t1 do t2] that
+    occurs in the [if t1 then (t2; (while t1 do t2)) else ()]. *)
+
+(** We can reduce the noise associated with applying the rule [triple_while]
+    by assigning a name, say [t], to denote the term [while t1 do t2].
+    The correpsonding rule, shown below, asserts that [t] admits the same
+    behavior as the term [if t1 then (t2; t) else ()]. *)
+
 Lemma triple_while_abstract : forall t1 t2 H Q,
   (forall t,
      (forall H' Q', triple (trm_if t1 (trm_seq t2 t) val_unit) H' Q' ->
@@ -167,24 +217,12 @@ Proof using.
   introv M. applys M. introv K. applys triple_while. applys K.
 Qed.
 
-
-Lemma triple_while_inv_not_framable : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) t1 t2,
-  wf R ->
-  (forall b X, triple t1 (I b X) (fun r => \exists b', \[r = b'] \* I b' X)) ->
-  (forall b X, triple t2 (I b X) (fun _ => \exists b' Y, \[R Y X] \* I b' Y)) ->
-  triple (trm_while t1 t2) (\exists b X, I b X) (fun r => \exists Y, I false Y).
-Proof using.
-  introv WR M1 M2. applys triple_hexists. intros b. applys triple_hexists. intros X.
-  gen b. induction_wf IH: WR X. intros. applys triple_while.
-  applys triple_if_trm (fun b' => I b' X).
-  { applys M1. }
-  { intros b'. case_if.
-    { applys triple_seq.
-      { applys M2. }
-      { applys triple_hexists. intros b''. applys triple_hexists. intros Y.
-        applys triple_hpure. intros HR. applys IH HR. } }
-    { applys triple_val. xsimpl. } }
-Qed.
+(** The proof scheme that consists of setting up an induction then applying
+    the reasoning rule [triple_while_abstract] can be factored into the
+    following lemma, which is stated using an invariant that appears only
+    in the precondition. The postcondition is an abstract [Q]. With this
+    presentation, it remains possible to invoke the frame rule over the
+    "remaining iterations" of the loop. *)
 
 Lemma triple_while_inv : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) t1 t2,
   let Q := (fun r => \exists Y, I false Y) in
@@ -199,6 +237,13 @@ Proof using.
   applys M. intros b' Y HR'. applys IH HR'.
 Qed.
 
+(** The rule [triple_while_inv] admits a constrained precondition of the form
+    [(\exists b X, I b X)]. To exploit it, it almost always needs to be combined
+    with the frame rule and the rule of consequence.
+
+    The rule [triple_while_inv_conseq_frame] bakes in frame and consequence
+    into the statement of [triple_while_inv]. *)
+
 Lemma triple_while_inv_conseq_frame : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) H' t1 t2 H Q,
   let Q' := (fun r => \exists Y, I false Y) in
   wf R ->
@@ -206,34 +251,15 @@ Lemma triple_while_inv_conseq_frame : forall (A:Type) (I:bool->A->hprop) (R:A->A
   (forall t b X,
       (forall b' Y, R Y X -> triple t (I b' Y) Q') ->
       triple (trm_if t1 (trm_seq t2 t) val_unit) (I b X) Q') ->
-  Q' \*+ H' ===> Q (* add [\*+ \GC] for affine logic *) ->
+  Q' \*+ H' ===> Q ->
   triple (trm_while t1 t2) H Q.
 Proof using.
   introv WR WH M WQ. applys triple_conseq_frame WH WQ.
   applys triple_while_inv WR M.
 Qed.
 
-
-Parameter triple_conseq_frame_hgc : forall H2 H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \GC ->
-  triple t H Q.
-
-Lemma triple_while_inv_conseq_frame_gc : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) H' t1 t2 H Q,
-  let Q' := (fun r => \exists Y, I false Y) in
-  wf R ->
-  (H ==> (\exists b X, I b X) \* H') ->
-  (forall t b X,
-      (forall b' Y, R Y X -> triple t (I b' Y) Q') ->
-      triple (trm_if t1 (trm_seq t2 t) val_unit) (I b X) Q') ->
-  Q' \*+ H' ===> Q \*+ \GC ->
-  triple (trm_while t1 t2) H Q.
-Proof using.
-  introv WR WH M WQ. applys triple_conseq_frame_hgc WH WQ.
-  applys triple_while_inv WR M.
-Qed.
-
+(** The following rule corresponds to the weakest-precondition style reformulation
+    of the above. *)
 
 Lemma wp_while_inv_conseq : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) t1 t2,
   let Q := (fun r => \exists Y, I false Y) in
@@ -250,93 +276,69 @@ Proof using.
   introv HR. rewrite wp_equiv. applys N HR.
 Qed.
 
-(*
-[[
-   mkstruct_sound:
-     (forall Q, F Q ==> wp t Q)
-     (forall Q, mkstruct F Q ==> wp t Q)
-]]
-*)
 
-Close Scope wp_scope.
+(* ########################################################### *)
+(** ** Reasoning rule for loops in an affine logic *)
 
+(** Recall from [SLFAffine] the combined structural rule that includes
+    the affine top predicate [\GC]. *)
 
-Lemma wp_eq_mkstruct_wp : forall t,
-  wp t = mkstruct (wp t).
+Parameter triple_conseq_frame_hgc : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q \*+ \GC ->
+  triple t H Q.
+
+(** In that setting, it is useful to integrate [\GC] into the rule
+    [triple_while_inv_conseq_frame], to allow discarding the garbage
+    produced by the loop iterations and not described in the final
+    postcondition. *)
+
+Lemma triple_while_inv_conseq_frame_gc : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) H' t1 t2 H Q,
+  let Q' := (fun r => \exists Y, I false Y) in
+  wf R ->
+  (H ==> (\exists b X, I b X) \* H') ->
+  (forall t b X,
+      (forall b' Y, R Y X -> triple t (I b' Y) Q') ->
+      triple (trm_if t1 (trm_seq t2 t) val_unit) (I b X) Q') ->
+  Q' \*+ H' ===> Q \*+ \GC ->
+  triple (trm_while t1 t2) H Q.
 Proof using.
-  intros. applys fun_ext_1. intros Q. applys himpl_antisym.
-  { applys mkstruct_erase. }
-  { lets R: mkstruct_sound. unfolds formula_sound. applys R. xsimpl. }
+  introv WR WH M WQ. applys triple_conseq_frame_hgc WH WQ.
+  applys triple_while_inv WR M.
 Qed.
 
 
+(* ####################################################### *)
+(** ** Treatment of generalized conditionals and loops in [wpgen] *)
+
+Close Scope wp_scope.
+
+(** The formula generator [wpgen] may be extended to take into account
+    the generalized form [if t0 then t1 else t2]. The corresponding formula is
+    [wpgen_let (aux t0) (fun v => mkstruct (wpgen_if v (aux t1) (aux t2))],
+    where [wpgen_let] is used to compute the [wpgen] of the argument of the
+    conditional, and where [wpgen_if] is used to compute the [wpgen] of a
+    conditional with a argument already evaluated to a value.
+
+    This pattern is captured by the auxiliary definition [wpgen_if_trm].
+
+[[
+    Fixpoint wpgen (E:ctx) (t:trm) : hprop :=
+      mkstruct match t with
+      ...
+      | trm_if t0 t1 t2 => wpgen_if_trm (wpgen t0) (wpgen t1) (wpgen t2)
+      ...
+]]
+
+    where [wpgen_if_trm] is defined as shown below.
+*)
 
 Definition wpgen_if_trm (F0 F1 F2:formula) : formula :=
   wpgen_let F0 (fun v => mkstruct (wpgen_if v F1 F2)).
 
-Definition wpgen_while (F1 F2:formula) : formula := fun Q =>
-  \forall R,
-     \[forall Q',    mkstruct (wpgen_if_trm F1 (mkstruct (wpgen_seq F2 (mkstruct R))) (mkstruct (wpgen_val val_unit))) Q'
-                 ==> mkstruct R Q']
-  \-* (mkstruct R Q).
-
-Parameter wpgen_while_eq : forall E t1 t2,
-  wpgen E (trm_while t1 t2) = mkstruct (wpgen_while (wpgen E t1) (wpgen E t2)).
-
-Lemma wp_while : forall t1 t2 Q,
-      wp (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) Q
-  ==> wp (trm_while t1 t2) Q.
-Proof using.
-  intros. repeat unfold wp. xsimpl; intros H M H'.
-  applys hoare_while. applys M.
-Qed.
-
-Lemma mkstruct_monotone : forall F1 F2 Q,
-  (forall Q, F1 Q ==> F2 Q) ->
-  mkstruct F1 Q ==> mkstruct F2 Q.
-Proof using.
-  introv WF. unfolds mkstruct. xpull. intros Q'. xchange WF. xsimpl Q'.
-Qed.
-
-
-Lemma mkstruct_monotone_conseq : forall F1 F2 Q1 Q2,
-  (forall Q', F1 Q' ==> F2 Q') ->
-  Q1 ===> Q2 ->
-  mkstruct F1 Q1 ==> mkstruct F2 Q2.
-Proof using.
-  introv WF WQ. unfolds mkstruct. xpull. intros Q'. xchange WF. xsimpl Q'. xchange WQ.
-Qed.
-
-Section Hwand.
-
-Transparent hwand.
-(* TODO: move to extra *)
-Lemma hwand_hpure_l : forall P H,
-  P ->
-  (\[P] \-* H) = H.
-Proof using.
-  introv HP. unfold hwand. xsimpl.
-  { intros H0 M. xchange M. applys HP. }
-  { xpull. auto. }
-Qed.
-
-Lemma himpl_hwand_hpure_r : forall H1 H2 P,
-  (P -> H1 ==> H2) ->
-  H1 ==> (\[P] \-* H2).
-Proof using. introv M. applys himpl_hwand_r. xsimpl. applys M. Qed.
-
-Lemma himpl_hwand_hpure_l : forall (P:Prop) H,
-  P ->
-  \[P] \-* H ==> H.
-Proof using. introv HP. rewrite* hwand_hpure_l. Qed.
-
-End Hwand.
-
-Lemma mkstruct_himpl_wp : forall F t,
-  (forall Q, F Q ==> wp t Q) ->
-  (forall Q, mkstruct F Q ==> wp t Q).
-Proof using. introv M. applys mkstruct_sound. hnfs*. Qed.
-
+(** The soundness of this extension of [wpgen] is captured by the
+    following lemma. *)
 
 Lemma wpgen_if_trm_sound : forall F0 F1 F2 t0 t1 t2,
   formula_sound t0 F0 ->
@@ -345,10 +347,49 @@ Lemma wpgen_if_trm_sound : forall F0 F1 F2 t0 t1 t2,
   formula_sound (trm_if t0 t1 t2) (wpgen_if_trm F0 F1 F2).
 Proof using.
   introv S0 S1 S2. unfold wpgen_if_trm. intros Q. unfold wpgen_let.
-  applys himpl_trans S0. applys himpl_trans; [ | applys wp_if_trm' ].
-  applys wp_conseq. intros v.
-  applys mkstruct_himpl_wp. intros Q'. applys wpgen_if_sound S1 S2.
+  applys himpl_trans S0. applys himpl_trans; [ | applys wp_if_trm ].
+  applys wp_conseq. intros v. applys mkstruct_sound.
+  intros Q'. applys wpgen_if_sound S1 S2.
 Qed.
+
+(** To handle while loops in [wpgen], we introduce the auxiliary
+    definition [wpgen_while].
+
+[[
+    Fixpoint wpgen (E:ctx) (t:trm) : hprop :=
+      mkstruct match t with
+      ...
+      | trm_while t1 t2 => wpgen_while (wpgen t1) (wpgen t2)
+      ...
+]]
+
+  The definition of [wpgen_while] quantifies over an abstract formula [R],
+  while denotes the behavior of the while loop. The weakest precondition
+  for the loop w.r.t. postcondition [Q] is described as [R Q], or, more
+  precisely [mkstruct R Q], to keep track of the fact that [R] denotes a
+  formula on which one may apply any structural reasoning rule.
+
+  To establish that [mkstruct R Q] is entailed by the heap predicate that
+  describes the current state, the user is provided with an assumption:
+  the fact that [mkstruct R Q'] can be proved from the weakest precondition
+  of the term [if t1 then (t2; t3) else ()], where the weakest precondition
+  of [t3], which denotes the recursive call to the loop, is described by [R]. *)
+
+Definition wpgen_while (F1 F2:formula) : formula := fun Q =>
+  \forall R,
+     \[forall Q',    mkstruct (wpgen_if_trm F1 (mkstruct (wpgen_seq F2 (mkstruct R))) (mkstruct (wpgen_val val_unit))) Q'
+                 ==> mkstruct R Q']
+  \-* (mkstruct R Q).
+
+(** Let us axiomatize the fact that [wpgen] is generalized to handle the new
+    term construct [trm_while t1 t2]. *)
+
+Parameter wpgen_while_eq : forall E t1 t2,
+  wpgen E (trm_while t1 t2) = mkstruct (wpgen_while (wpgen E t1) (wpgen E t2)).
+
+(** To carry out the proof of soundness of [wpgen_while], a reformulation of
+    the transitivity lemma for entailment with the two premises swapped is
+    particularly useful. *)
 
 Lemma himpl_trans' : forall H2 H1 H3,
   H2 ==> H3 ->
@@ -356,6 +397,7 @@ Lemma himpl_trans' : forall H2 H1 H3,
   H1 ==> H3.
 Proof using. introv M1 M2. applys* himpl_trans M2 M1. Qed.
 
+(** The soundness proof goes as follows. *)
 
 Lemma wpgen_while_sound : forall t1 t2 F1 F2,
   formula_sound t1 F1 ->
@@ -364,8 +406,8 @@ Lemma wpgen_while_sound : forall t1 t2 F1 F2,
 Proof using.
   introv S1 S2. intros Q. unfolds wpgen_while.
   applys himpl_hforall_l (wp (trm_while t1 t2)).
-  applys himpl_trans'. rewrite (wp_eq_mkstruct_wp (trm_while t1 t2)). applys himpl_refl. (* TODO *)
-  applys himpl_hwand_hpure_l. intros Q'.
+  applys himpl_trans'. rewrite <- (mkstruct_wp (trm_while t1 t2)). applys himpl_refl. (* TODO *)
+  rewrite hwand_hpure_l. { auto. } intros Q'.
   applys mkstruct_monotone. intros Q''.
   applys himpl_trans'. { applys wp_while. }
   applys himpl_trans'.
@@ -378,41 +420,12 @@ Proof using.
   { auto. }
 Qed.
 
-(*
+(** The associated piece of notation for displaying characteristic formulae
+    are defined as follows. *)
 
-
-Lemma wpgen_while_sound : forall t1 t2 F1 F2,
-  formula_sound t1 F1 ->
-  formula_sound t2 F2 ->
-  formula_sound (trm_while t1 t2) (wpgen_while F1 F2).
-Proof using.
-  introv S1 S2. intros Q. unfolds wpgen_while.
-  applys himpl_hforall_l (wp (trm_while t1 t2)).
-  applys himpl_trans'. rewrite (wp_eq_mkstruct_wp (trm_while t1 t2)). applys himpl_refl. (* TODO *)
-  applys himpl_hwand_hpure_l. intros
-  applys mkstruct_himpl_wp. intros Q'.
-  applys himpl_trans'. { applys wp_while. }
-  applys himpl_trans'.
-  { applys wpgen_if_trm_sound.
-    { applys S1. }
-    { applys mkstruct_sound. applys wpgen_seq_sound.
-      { applys S2. }
-      { applys mkstruct_sound. applys wp_sound. } }
-    { applys mkstruct_sound. applys wpgen_val_sound. } }
-  { auto. }
-Qed.
-
-*)
-
-
-(*
-Lemma wpgen_while_proof_obligation : forall Q E t1 t2,
-  mkstruct (wpgen_while (wpgen E t1) (wpgen E t2)) Q ==> wp (trm_while (isubst E t1) (isubst E t2)) Q.
-Proof using.
-  intros. lets:wpgen_while_eq.  rewrite <- wpgen_while_eq.
-  applys himpl_trans'. applys wpgen_while_sound. unfolds formula_sound. lets: wpgen_sound.
-Admitted.
-*)
+Notation "'If_trm' F0 'Then' F1 'Else' F2" :=
+  ((wpgen_if_trm F0 F1 F2))
+  (at level 69) : wp_scope.
 
 Notation "'While' F1 'Do' F2 'Done'" :=
   ((wpgen_while F1 F2))
@@ -420,27 +433,31 @@ Notation "'While' F1 'Do' F2 'Done'" :=
    format "'[v' 'While'  F1  'Do'  '/' '[' F2 ']' '/'  'Done' ']'")
    : wpgen_scope.
 
-Notation "'If_trm' F0 'Then' F1 'Else' F2" :=
-  ((wpgen_if_trm F0 F1 F2))
-  (at level 69) : wp_scope.
+(** We next demonstrate the use of [wpgen_while] in an example proof.
+    In that proof, the following lemma is useful to exploit the induction
+    hypothesis using the ramified frame rule. *)
 
+Lemma mkstruct_apply : forall H1 H2 F Q1 Q2,
+  H1 ==> mkstruct F Q1 ->
+  H2 ==> H1 \* (Q1 \--* protect Q2) ->
+  H2 ==> mkstruct F Q2.
+Proof using.
+  introv M1 M2. xchange M2. xchange M1. applys mkstruct_ramified.
+Qed.
+
+Tactic Notation "xapply" constr(E) :=
+  applys mkstruct_apply; [ applys E | xsimpl; unfold protect ].
 
 
 (* ########################################################### *)
-(** ** Frame during loop iterations *)
+(** ** Example of the application of frame during loop iterations *)
 
 Section DemoLoopFrame.
 Import SLFProgramSyntax SLFBasic.
+Opaque MList.
 
-Notation "'While' t1 'Do' t2 'Done'" :=
-  (trm_while t1 t2)
-  (at level 69, t2 at level 68,
-   format "'[v' 'While'  t1  'Do'  '/' '[' t2 ']' '/'  'Done' ']'")
-   : trm_scope.
-
-
-
-(** The following function
+(** Consider the following function, which computes the length of a list
+    using a while loop and a reference to count the cells that are traversed.
 
 [[
     let mlength_loop p =
@@ -473,65 +490,7 @@ Definition mlength_loop : val :=
     'free 'r ';
     'n.
 
-(** The append function is specified and verified as follows. *)
-
-Lemma MList_nil_intro :
-  \[] ==> (MList nil null).
-Proof using. intros. rewrite* MList_nil. xsimpl*. Qed.
-
-Opaque MList.
-
-Lemma mkstruct_erase_conseq : forall F Q1 Q2,
-  Q1 ===> Q2 ->
-  F Q1 ==> mkstruct F Q2.
-Proof using.
-  introv WQ. applys himpl_trans'. applys mkstruct_conseq WQ. xchange mkstruct_erase.
-Qed.
-
-(*
-Close Scope wp_scope.
-
-Lemma mkstruct_erase_conseq_frame : forall F H Q1 Q2,
-  Q1 \*+ H ===> Q2 ->
-  F Q1 \* H ==> mkstruct F Q2.
-Proof using.
-  introv WQ.
-lets: mkstruct_frame.
- applys himpl_trans'. applys mkstruct_conseq WQ. xchange mkstruct_erase.
-Qed.
-
-
-Lemma mkstruct_ramified : forall Q1 Q2 F,
-  (mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2).
-Proof using. unfold mkstruct. xsimpl. Qed.
-*)
-
-Lemma mkstruct_ramified_trans_protect : forall F H Q1 Q2,
-  H ==> mkstruct F Q1 \* protect (Q1 \--* Q2) ->
-  H ==> mkstruct F Q2.
-Proof using. introv M. xchange M. applys mkstruct_ramified. Qed.
-
-Lemma mkstruct_ramified_trans : forall F H Q1 Q2,
-  H ==> mkstruct F Q1 \* (Q1 \--* Q2) ->
-  H ==> mkstruct F Q2.
-Proof using. introv M. xchange M. applys mkstruct_ramified. Qed.
-
-Lemma mkstruct_cancel : forall H2 F H Q1 Q2,
-  H ==> mkstruct F Q1 \* H2 ->
-  Q1 \*+ H2 ===> Q2 ->
-  H ==> mkstruct F Q2.
-Proof using.
-  introv M1 M2. xchange M1. rewrite <- qwand_equiv in M2.
-  xchange M2. xchange mkstruct_ramified.
-Qed.
-
-Lemma mkstruct_apply : forall H1 H2 F Q1 Q2,
-  H1 ==> mkstruct F Q1 ->
-  H2 ==> H1 \* (Q1 \--* protect Q2) ->
-  H2 ==> mkstruct F Q2.
-Proof using.
-  introv M1 M2. xchange M2. xchange M1. applys mkstruct_ramified.
-Qed.
+(** This function is specified and verified as follows. *)
 
 Lemma Triple_mlength_loop : forall L p,
   triple (mlength_loop p)
@@ -546,19 +505,14 @@ Proof using.
   asserts KR: (forall n,     r ~~> p \* a ~~> n \* MList L p
                          ==> `R (fun _ =>  r ~~> null \* a ~~> (length L + n) \* MList L p)).
   { gen p. induction_wf IH: list_sub L. intros.
-    applys himpl_trans HR. clear HR.
-    unfold wpgen_if_trm. xlet. (* TODO xif_trm *)
+    applys himpl_trans HR. clear HR. xlet.
     xapp. xapp. xchange MList_if. xif; intros C; case_if.
     { xpull. intros x q L' ->. xseq. xapp. xapp. xapp. xapp.
-      (* recursive call, framing the head cell: *)
-      applys mkstruct_apply. applys (IH L'). { auto. } xsimpl. unfold protect.
-      intros _. xchange <- MList_cons. xsimpl. { rew_list. math. }
-        (* Close Scope wp_scope. *)
-        (* eapply mkstruct_ramified_trans_protect. xsimpl. unfold protect.
-        rewrite qwand_equiv. intros _. xchange <- MList_cons. xsimpl. rew_list. math.  *)
-    }
-    { xpull. intros ->. xval. xsimpl. auto. subst. xchange MList_nil_intro. }
-  }
+      (* Here takes place the recursive call, with frame on the head cell: *)
+      xapply (IH L'). { auto. } intros _. 
+      xchange <- MList_cons. xsimpl. { rew_list. math. }  }
+    { xpull. intros ->. xval. xsimpl. auto. subst.
+      xchange* <- (MList_nil null). } }
   { applys KR. }
   xpull. xapp. xapp. xapp. xval. xsimpl. math.
 Qed.
@@ -566,10 +520,6 @@ Qed.
 End DemoLoopFrame.
 
 End WhileLoops.
-
-
-(* ####################################################### *)
-(** ** Reasoning rule for for-loops *)
 
 
 (* ####################################################### *)

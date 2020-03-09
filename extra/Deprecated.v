@@ -1794,3 +1794,174 @@ Proof using.
 Qed.
 
 Arguments hwand_hpure_l_intro : clear implicits.
+
+=========
+
+
+
+Parameter eval_if_trm : forall s1 s2 s3 v b t0 t1 t2,
+  eval s1 t0 s2 (val_bool b) ->
+  eval s2 (if b then t1 else t2) s3 v ->
+  eval s1 (trm_if t0 t1 t2) s3 v.
+
+
+Lemma hoare_if_trm : forall (Q':bool->hprop) t0 t1 t2 H Q,
+  hoare t0 H (fun r => \exists b, \[r = b] \* Q' b) ->
+  (forall b, hoare (if b then t1 else t2) (Q' b) Q) ->
+  hoare (trm_if t0 t1 t2) H Q.
+Proof using.
+  introv M1 M2. intros s1 K1. lets (s2&v0&R2&K2'): M1 K1.
+  lets (b'&K2): hexists_inv K2'. rewrite hstar_hpure in K2.
+  destruct K2 as (->&K2).
+  forwards (s3&v&R&K): M2 K2. exists s3 v. splits.
+  { applys eval_if_trm R2 R. }
+  { applys K. }
+Qed.
+
+
+
+Lemma triple_if_trm : forall (Q':bool->hprop) t0 t1 t2 H Q,
+  triple t0 H (fun r => \exists b, \[r = b] \* Q' b) ->
+  (forall b, triple (if b then t1 else t2) (Q' b) Q) ->
+  triple (trm_if t0 t1 t2) H Q.
+Proof using.
+  introv M1 M2. intros HF. applys hoare_if_trm (fun b => Q' b \* HF).
+  { applys hoare_conseq. applys M1 HF. { xsimpl. } { xsimpl. auto. } }
+  { intros v. applys M2. }
+Qed.
+
+Lemma triple_while_inv_not_framable : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) t1 t2,
+  wf R ->
+  (forall b X, triple t1 (I b X) (fun r => \exists b', \[r = b'] \* I b' X)) ->
+  (forall b X, triple t2 (I b X) (fun _ => \exists b' Y, \[R Y X] \* I b' Y)) ->
+  triple (trm_while t1 t2) (\exists b X, I b X) (fun r => \exists Y, I false Y).
+Proof using.
+  introv WR M1 M2. applys triple_hexists. intros b. applys triple_hexists. intros X.
+  gen b. induction_wf IH: WR X. intros. applys triple_while.
+  applys triple_if_trm (fun b' => I b' X).
+  { applys M1. }
+  { intros b'. case_if.
+    { applys triple_seq.
+      { applys M2. }
+      { applys triple_hexists. intros b''. applys triple_hexists. intros Y.
+        applys triple_hpure. intros HR. applys IH HR. } }
+    { applys triple_val. xsimpl. } }
+Qed.
+
+Transparent hwand.
+(* TODO: move to extra *)
+Lemma hwand_hpure_l : forall P H,
+  P ->
+  (\[P] \-* H) = H.
+Proof using.
+  introv HP. unfold hwand. xsimpl.
+  { intros H0 M. xchange M. applys HP. }
+  { xpull. auto. }
+Qed.
+
+
+
+Lemma himpl_hwand_hpure_l : forall (P:Prop) H,
+  P ->
+  \[P] \-* H ==> H.
+Proof using. introv HP. rewrite* hwand_hpure_l. Qed.
+
+Lemma mkstruct_monotone_conseq : forall F1 F2 Q1 Q2,
+  (forall Q', F1 Q' ==> F2 Q') ->
+  Q1 ===> Q2 ->
+  mkstruct F1 Q1 ==> mkstruct F2 Q2.
+Proof using.
+  introv WF WQ. unfolds mkstruct. xpull. intros Q'. xchange WF. xsimpl Q'. xchange WQ.
+Qed.
+
+
+
+(*
+
+
+Lemma wpgen_while_sound : forall t1 t2 F1 F2,
+  formula_sound t1 F1 ->
+  formula_sound t2 F2 ->
+  formula_sound (trm_while t1 t2) (wpgen_while F1 F2).
+Proof using.
+  introv S1 S2. intros Q. unfolds wpgen_while.
+  applys himpl_hforall_l (wp (trm_while t1 t2)).
+  applys himpl_trans'. rewrite (wp_eq_mkstruct_wp (trm_while t1 t2)). applys himpl_refl. (* TODO *)
+  applys himpl_hwand_hpure_l. intros
+  applys mkstruct_himpl_wp. intros Q'.
+  applys himpl_trans'. { applys wp_while. }
+  applys himpl_trans'.
+  { applys wpgen_if_trm_sound.
+    { applys S1. }
+    { applys mkstruct_sound. applys wpgen_seq_sound.
+      { applys S2. }
+      { applys mkstruct_sound. applys wp_sound. } }
+    { applys mkstruct_sound. applys wpgen_val_sound. } }
+  { auto. }
+Qed.
+
+*)
+
+
+(*
+Lemma wpgen_while_proof_obligation : forall Q E t1 t2,
+  mkstruct (wpgen_while (wpgen E t1) (wpgen E t2)) Q ==> wp (trm_while (isubst E t1) (isubst E t2)) Q.
+Proof using.
+  intros. lets:wpgen_while_eq.  rewrite <- wpgen_while_eq.
+  applys himpl_trans'. applys wpgen_while_sound. unfolds formula_sound. lets: wpgen_sound.
+Admitted.
+*)
+
+
+Lemma mkstruct_ramified_trans_protect : forall F H Q1 Q2,
+  H ==> mkstruct F Q1 \* protect (Q1 \--* Q2) ->
+  H ==> mkstruct F Q2.
+Proof using. introv M. xchange M. applys mkstruct_ramified. Qed.
+
+Lemma mkstruct_ramified_trans : forall F H Q1 Q2,
+  H ==> mkstruct F Q1 \* (Q1 \--* Q2) ->
+  H ==> mkstruct F Q2.
+Proof using. introv M. xchange M. applys mkstruct_ramified. Qed.
+
+Lemma mkstruct_cancel : forall H2 F H Q1 Q2,
+  H ==> mkstruct F Q1 \* H2 ->
+  Q1 \*+ H2 ===> Q2 ->
+  H ==> mkstruct F Q2.
+Proof using.
+  introv M1 M2. xchange M1. rewrite <- qwand_equiv in M2.
+  xchange M2. xchange mkstruct_ramified.
+Qed.
+
+
+Lemma mkstruct_erase_conseq : forall F Q1 Q2,
+  Q1 ===> Q2 ->
+  F Q1 ==> mkstruct F Q2.
+Proof using.
+  introv WQ. applys himpl_trans'. applys mkstruct_conseq WQ. xchange mkstruct_erase.
+Qed.
+
+(*
+Close Scope wp_scope.
+
+Lemma mkstruct_erase_conseq_frame : forall F H Q1 Q2,
+  Q1 \*+ H ===> Q2 ->
+  F Q1 \* H ==> mkstruct F Q2.
+Proof using.
+  introv WQ.
+lets: mkstruct_frame.
+ applys himpl_trans'. applys mkstruct_conseq WQ. xchange mkstruct_erase.
+Qed.
+
+
+Lemma mkstruct_ramified : forall Q1 Q2 F,
+  (mkstruct F Q1) \* (Q1 \--* Q2) ==> (mkstruct F Q2).
+Proof using. unfold mkstruct. xsimpl. Qed.
+*)
+
+
+
+
+    Lemma mkstruct_himpl_wp : forall F t,
+      (forall Q, F Q ==> wp t Q) ->
+      (forall Q, mkstruct F Q ==> wp t Q).
+    Proof using. introv M. applys mkstruct_sound. hnfs*. Qed.

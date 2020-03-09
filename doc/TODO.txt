@@ -1,4 +1,10 @@
 
+
+(* ####################################################### *)
+(** ** Limitation of loop invariants in Separation Logic *)
+
+
+
 from Lemma hstar_hexists_l :
 
 Lemma hstar_hexists : forall A (J:A->hprop) H,
@@ -202,3 +208,5 @@ xapp (>> __ EA). (* LATER: resolve typeclass better *)
 
 
 * List segments : related to mlist
+
+

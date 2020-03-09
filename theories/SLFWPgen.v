@@ -1234,6 +1234,14 @@ Parameter mkstruct_conseq : forall (F:formula) Q1 Q2,
 Parameter mkstruct_erase : forall (F:formula) Q,
   F Q ==> mkstruct F Q.
 
+(** Moreover, [mkstruct] should be monotone with respect to the formula:
+    if [F1] is stronger than [F2], then [mkstruct F1] should be stronger
+    then [mkstruct F2]. *)
+
+Parameter mkstruct_monotone : forall F1 F2 Q,
+  (forall Q, F1 Q ==> F2 Q) ->
+  mkstruct F1 Q ==> mkstruct F2 Q.
+
 End MkstructProp.
 
 
@@ -1241,7 +1249,7 @@ End MkstructProp.
 (** *** Realization of [mkstruct] *)
 
 (** Fortunately, it turns out that there exists a predicate [mkstruct]
-    satisfying the three required properties. To begin with, let us just
+    satisfying the four required properties. To begin with, let us just
     pull out of our hat a definition of [mkstruct] that works. *)
 
 Definition mkstruct (F:formula) : formula :=
@@ -1271,7 +1279,15 @@ Lemma mkstruct_erase : forall F Q,
   F Q ==> mkstruct F Q.
 Proof using. intros. unfold mkstruct. xsimpl. xsimpl. Qed.
 
-(** Remark: an interesting property of [mkstruct] is its idempotence
+Lemma mkstruct_monotone : forall F1 F2 Q,
+  (forall Q, F1 Q ==> F2 Q) ->
+  mkstruct F1 Q ==> mkstruct F2 Q.
+Proof using.
+  introv WF. unfolds mkstruct. xpull. intros Q' H M.
+  xchange WF. xsimpl Q'. applys M.
+Qed.
+
+(** An interesting property of [mkstruct] is its idempotence
     property, that is, it is such that [mkstruct (mkstruct F) = mkstruct F].
 
     Idempotence asserts that applying the predicate [mkstruct] more than
@@ -2010,6 +2026,19 @@ Proof using.
   lets M': M Q'. xchange M'.
   (* Conclude using the structural rules for [wp]. *)
   applys wp_conseq_frame. applys N.
+Qed.
+
+(** An interesting corrolary of this results is that [mkstruct] has no effect
+    on a formula of the form [wp t]. Intuitively, such a formula already 
+    satisfies all the structural reasoning rules, hence adding [mkstruct]
+    to it does not increase its expressivity. *)
+
+Lemma mkstruct_wp : forall t,
+  mkstruct (wp t) = (wp t).
+Proof using.
+  intros. applys fun_ext_1. intros Q. applys himpl_antisym.
+  { applys mkstruct_sound. applys wp_sound. }
+  { applys mkstruct_erase. }
 Qed.
 
 

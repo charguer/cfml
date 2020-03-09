@@ -1843,6 +1843,13 @@ Proof using.
   intros. unfold mkstruct. xpull. intros Q'. xsimpl Q'.
 Qed.
 
+Lemma mkstruct_monotone : forall F1 F2 Q,
+  (forall Q, F1 Q ==> F2 Q) ->
+  mkstruct F1 Q ==> mkstruct F2 Q.
+Proof using.
+  introv WF. unfolds mkstruct. xpull. intros Q'. xchange WF. xsimpl Q'.
+Qed.
+
 
 (* ################################################ *)
 (** *** Definition of auxiliary definition for [wpgen] *)
@@ -1930,6 +1937,14 @@ Lemma mkstruct_sound : forall t F,
 Proof using.
   introv M. intros Q. unfold mkstruct. xsimpl. intros Q'.
   lets N: M Q'. xchange N. applys wp_ramified.
+Qed.
+
+Lemma mkstruct_wp : forall t,
+  mkstruct (wp t) = (wp t).
+Proof using.
+  intros. applys fun_ext_1. intros Q. applys himpl_antisym.
+  { applys mkstruct_sound. applys wp_sound. }
+  { applys mkstruct_erase. }
 Qed.
 
 (** One soundness lemma for each term construct. *)
