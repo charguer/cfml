@@ -280,6 +280,8 @@ Qed.
 (* ########################################################### *)
 (** ** Reasoning rule for loops in an affine logic *)
 
+Module LoopRuleAffine.
+
 (** Recall from [SLFAffine] the combined structural rule that includes
     the affine top predicate [\GC]. *)
 
@@ -294,7 +296,7 @@ Parameter triple_conseq_frame_hgc : forall H2 H1 Q1 t H Q,
     produced by the loop iterations and not described in the final
     postcondition. *)
 
-Lemma triple_while_inv_conseq_frame_gc : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) H' t1 t2 H Q,
+Lemma triple_while_inv_conseq_frame_hgc : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) H' t1 t2 H Q,
   let Q' := (fun r => \exists Y, I false Y) in
   wf R ->
   (H ==> (\exists b X, I b X) \* H') ->
@@ -307,6 +309,8 @@ Proof using.
   introv WR WH M WQ. applys triple_conseq_frame_hgc WH WQ.
   applys triple_while_inv WR M.
 Qed.
+
+End LoopRuleAffine.
 
 
 (* ####################################################### *)
@@ -420,6 +424,10 @@ Proof using.
   { auto. }
 Qed.
 
+
+(* ########################################################### *)
+(** ** Notation and tactics for manipulating loops *)
+
 (** The associated piece of notation for displaying characteristic formulae
     are defined as follows. *)
 
@@ -433,9 +441,9 @@ Notation "'While' F1 'Do' F2 'Done'" :=
    format "'[v' 'While'  F1  'Do'  '/' '[' F2 ']' '/'  'Done' ']'")
    : wpgen_scope.
 
-(** We next demonstrate the use of [wpgen_while] in an example proof.
-    In that proof, the following lemma is useful to exploit the induction
-    hypothesis using the ramified frame rule. *)
+(** The tactic [xapply] is useful for applying an assumption of the form
+    [H ==> mkstruct R Q] to a goal of the form [H' ==> mkstruct R Q'],
+    with the ramified frame rule relating [H], [H'], [Q] and [Q']. *)
 
 Lemma mkstruct_apply : forall H1 H2 F Q1 Q2,
   H1 ==> mkstruct F Q1 ->
@@ -447,6 +455,22 @@ Qed.
 
 Tactic Notation "xapply" constr(E) :=
   applys mkstruct_apply; [ applys E | xsimpl; unfold protect ].
+
+(** The tactic [xwhile] is useful for reasoning about a while-loop. *)
+
+Lemma xwhile_lemma : forall F1 F2 H Q,
+  (forall R,    
+    (forall Q', mkstruct (wpgen_if_trm F1 (mkstruct (wpgen_seq F2 (mkstruct R))) (mkstruct (wpgen_val val_unit))) Q'
+                ==> mkstruct R Q')
+     -> H ==> mkstruct R Q) ->
+  H ==> mkstruct (wpgen_while F1 F2) Q.
+Proof using.
+  introv M. applys himpl_trans'. applys mkstruct_erase. 
+  unfold wpgen_while. xsimpl. intros R N. applys M. applys N.
+Qed.
+
+Tactic Notation "xwhile" :=
+  xseq_xlet_if_needed; applys xwhile_lemma.
 
 
 (* ########################################################### *)
@@ -498,10 +522,9 @@ Lemma Triple_mlength_loop : forall L p,
     (fun r => \[r = length L] \* MList L p).
 Proof using.
   xwp. xapp. intros a. xapp. intros r.
-  xseq. rewrite wpgen_while_eq. xwp_simpl.
-  (* xwhile TODO *)
-  applys himpl_trans; [ | applys mkstruct_conseq].
-  xstruct. unfold wpgen_while. xsimpl. intros R HR.
+  (* Here we pretend that [xwpgen] includes support for loops: *)
+  rewrite wpgen_while_eq. xwp_simpl. 
+  xwhile. intros R HR. (* Here we state the induction principle *)
   asserts KR: (forall n,     r ~~> p \* a ~~> n \* MList L p
                          ==> `R (fun _ =>  r ~~> null \* a ~~> (length L + n) \* MList L p)).
   { gen p. induction_wf IH: list_sub L. intros.
@@ -511,10 +534,8 @@ Proof using.
       (* Here takes place the recursive call, with frame on the head cell: *)
       xapply (IH L'). { auto. } intros _. 
       xchange <- MList_cons. xsimpl. { rew_list. math. }  }
-    { xpull. intros ->. xval. xsimpl. auto. subst.
-      xchange* <- (MList_nil null). } }
-  { applys KR. }
-  xpull. xapp. xapp. xapp. xval. xsimpl. math.
+    { xpull. intros ->. xval. xsimpl. auto. subst. xchange* <- (MList_nil null). } }
+  xapply KR. xpull. xapp. xapp. xapp. xval. xsimpl. math.
 Qed.
 
 End DemoLoopFrame.

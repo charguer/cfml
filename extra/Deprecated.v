@@ -1965,3 +1965,21 @@ Proof using. unfold mkstruct. xsimpl. Qed.
       (forall Q, F Q ==> wp t Q) ->
       (forall Q, mkstruct F Q ==> wp t Q).
     Proof using. introv M. applys mkstruct_sound. hnfs*. Qed.
+
+
+
+Lemma mkstruct_sound : forall t F,
+  formula_sound t F ->
+  formula_sound t (mkstruct F).
+Proof using.
+  introv M. intros Q. unfold mkstruct. xsimpl. intros Q'.
+  lets N: M Q'. xchange N. applys wp_ramified.
+Qed.
+
+Lemma mkstruct_wp : forall t,
+  mkstruct (wp t) = (wp t).
+Proof using.
+  intros. applys fun_ext_1. intros Q. applys himpl_antisym.
+  { applys mkstruct_sound. applys wp_sound. }
+  { applys mkstruct_erase. }
+Qed.

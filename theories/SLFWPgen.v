@@ -1287,7 +1287,20 @@ Proof using.
   xchange WF. xsimpl Q'. applys M.
 Qed.
 
-(** An interesting property of [mkstruct] is its idempotence
+(** An interesting property of [mkstruct] is it has no effect on a
+    formula of the form [wp t]. Intuitively, such a formula already 
+    satisfies all the structural reasoning rules, hence adding
+    [mkstruct] to it does not increase its expressive power. *)
+
+Lemma mkstruct_wp : forall t,
+  mkstruct (wp t) = (wp t).
+Proof using.
+  intros. applys fun_ext_1. intros Q. applys himpl_antisym.
+  { unfold mkstruct. xpull. intros H Q' M. applys wp_conseq_frame M. }
+  { applys mkstruct_erase. }
+Qed.
+
+(** Another interesting property of [mkstruct] is its idempotence
     property, that is, it is such that [mkstruct (mkstruct F) = mkstruct F].
 
     Idempotence asserts that applying the predicate [mkstruct] more than
@@ -2009,9 +2022,23 @@ Proof using. intros. intros Q. applys himpl_refl. Qed.
     definition of [wpgen].
 
     Our goal is to show that if the formula [F] is a valid weakest
-    precondition for [t], then so is [mkstruct F]. Formally: *)
+    precondition for [t], then so is [mkstruct F]. One way to prove
+    this result is to exploit the fact that, when a formula [F] is of
+    the form [wp t], applying [mkstruct] does not alter its meaning
+    (recall lemma [mkstruct_wp]). *)
 
 Lemma mkstruct_sound : forall t F,
+  formula_sound t F ->
+  formula_sound t (mkstruct F).
+Proof using.
+  introv M. unfolds formula_sound. intros Q.
+  rewrite <- mkstruct_wp. applys mkstruct_monotone. applys M.
+Qed.
+
+(** Another, lower-level proof for the same result reveals the definition
+    of [mkstruct] and exploits the consequence-frame rule for [wp]. *)
+
+Lemma mkstruct_sound' : forall t F,
   formula_sound t F ->
   formula_sound t (mkstruct F).
 Proof using.
@@ -2026,19 +2053,6 @@ Proof using.
   lets M': M Q'. xchange M'.
   (* Conclude using the structural rules for [wp]. *)
   applys wp_conseq_frame. applys N.
-Qed.
-
-(** An interesting corrolary of this results is that [mkstruct] has no effect
-    on a formula of the form [wp t]. Intuitively, such a formula already 
-    satisfies all the structural reasoning rules, hence adding [mkstruct]
-    to it does not increase its expressivity. *)
-
-Lemma mkstruct_wp : forall t,
-  mkstruct (wp t) = (wp t).
-Proof using.
-  intros. applys fun_ext_1. intros Q. applys himpl_antisym.
-  { applys mkstruct_sound. applys wp_sound. }
-  { applys mkstruct_erase. }
 Qed.
 
 

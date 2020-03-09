@@ -1931,20 +1931,20 @@ Proof using. intros. intros Q. applys himpl_refl. Qed.
 
 (** One soundness lemma for [mkstruct]. *)
 
-Lemma mkstruct_sound : forall t F,
-  formula_sound t F ->
-  formula_sound t (mkstruct F).
-Proof using.
-  introv M. intros Q. unfold mkstruct. xsimpl. intros Q'.
-  lets N: M Q'. xchange N. applys wp_ramified.
-Qed.
-
 Lemma mkstruct_wp : forall t,
   mkstruct (wp t) = (wp t).
 Proof using.
   intros. applys fun_ext_1. intros Q. applys himpl_antisym.
-  { applys mkstruct_sound. applys wp_sound. }
+  { unfold mkstruct. xpull. intros Q'. applys wp_ramified. }
   { applys mkstruct_erase. }
+Qed.
+
+Lemma mkstruct_sound : forall t F,
+  formula_sound t F ->
+  formula_sound t (mkstruct F).
+Proof using.
+  introv M. unfolds formula_sound. intros Q'.
+  rewrite <- mkstruct_wp'. applys* mkstruct_monotone M.
 Qed.
 
 (** One soundness lemma for each term construct. *)
