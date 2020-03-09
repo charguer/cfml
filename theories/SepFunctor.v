@@ -552,16 +552,18 @@ Proof using.
   { rewrite hwand_equiv. rewrite~ hstar_hempty_r. }
 Qed.
 
-Lemma hwand_hpure_l_intro : forall (P:Prop) H,
+Lemma hwand_hpure_l : forall P H,
   P ->
-  \[P] \-* H ==> H.
+  (\[P] \-* H) = H.
 Proof using.
-  introv HP. rewrite <- (hstar_hempty_l (\[P] \-* H)).
-  forwards~ K: himpl_hempty_hpure P.
-  applys* himpl_hstar_trans_l K. applys hwand_cancel.
+  introv HP. applys himpl_antisym.
+  { lets K: hwand_cancel \[P] H. applys himpl_trans K.
+    applys* himpl_hstar_hpure_r. }
+  { rewrite hwand_equiv. rewrite hstar_comm. 
+    applys* himpl_hstar_hpure_l. }
 Qed.
 
-Arguments hwand_hpure_l_intro : clear implicits.
+Arguments hwand_hpure_l : clear implicits.
 
 Lemma hwand_curry : forall H1 H2 H3,
   (H1 \* H2) \-* H3 ==> H1 \-* (H2 \-* H3).
@@ -1391,7 +1393,7 @@ Lemma local_hwand_hpure_l : forall F (P:Prop) H Q,
   F H Q ->
   F (\[P] \-* H) Q.
 Proof using.
-  introv L HP M. applys~ local_elim_conseq_pre. xchanges~ hwand_hpure_l_intro.
+  introv L HP M. applys~ local_elim_conseq_pre. xchanges~ hwand_hpure_l.
 Qed.
 
 End IsLocal.

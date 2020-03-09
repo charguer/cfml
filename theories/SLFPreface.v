@@ -100,8 +100,9 @@
       allowing for verification proof to be carried out through
       relatively concise proof scripts.
 
-    The purpose of this course is to explain how to set up such as
-    construction. To that end, we consider in this course:
+    The purpose of this course is to explain how to set up such a
+    construction of Separation Logic for sequential programs.
+    To that end, we consider in this course:
 
     - a minimalistic imperative programming language: a lambda-calculus
       with references (mini-ML), which admits a simple semantics and avoids
@@ -122,16 +123,19 @@
 (** Before diving into the Coq files, the reader might be interested in
     reading high-level summaries of the contents of the course:
 
-    - [SLFSummary.v] contains material for a 1-hour summary of the key
-      ingredients involved in the course.
+    - [SLFSummary.v]    contains material for a 1-hour summary of the key
+                        ingredients involved in the course.
 
-    - [SLFSummary.pdf] contains LaTeX-formatted slides presenting the
-      most important definitions from [SLFSummary.v].
+    - [SLFSummary.pdf]  contains LaTeX-formatted slides presenting the
+                        most important definitions from [SLFSummary.v].
 
     - [SeqSepLogic.pdf] is a LaTeX-formatted paper that gives a summary
-      of the definitions involved in the course, but not covering the
-      chapters [SLFBasic] and [SLFWPgen], which involve the characteristic
-      formula generator.
+                        of the definitions involved in the course, but not
+                        covering the chapters [SLFBasic] and [SLFWPgen],
+                        which involve the characteristic formula generator.
+
+    - [SLFMinimal.v]    contains a minimal proof of soundness of Separation
+                        Logic for sequential programs.
 
 *)
 
@@ -183,14 +187,6 @@
 (** ** Special chapters *)
 
 (**
-
-    - [SLFMinimal]:This file contains a minimal proof of soundness of Separation
-                   Logic for sequential programs.
-
-    - [SLFSummary]:This file contains the material for a one-hour talk that
-                   introduces, at a high level, the most important ideas from the
-                   course. This material is accompanied by LaTeX-generated slides
-                   to be found in the file [SLFSummary.pdf].
 
     - [SLFDirect]: This file provides the minimal set of definitions and lemmas
                    required to build a practical program verification tool,

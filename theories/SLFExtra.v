@@ -41,16 +41,16 @@ Section Hoare.
 Lemma hoare_hforall : forall t (A:Type) (J:A->hprop) Q,
   (exists x, hoare t (J x) Q) ->
   hoare t (hforall J) Q.
-Proof using. introv (x&M) Hh. applys M. applys* himpl_hforall_l. Qed.
+Proof using.
+  introv (x&M) Hh. applys* hoare_conseq (hforall J) Q M.
+  applys* himpl_hforall_l.
+Qed.
 
 Lemma hoare_hwand_hpure_l : forall t (P:Prop) H Q,
   P ->
   hoare t H Q ->
   hoare t (\[P] \-* H) Q.
-Proof using.
-  introv HP M Hh. lets (N&_): hwand_equiv (\[P] \-* H) \[P] H.
-  forwards~ N': N h. rewrite hstar_comm. rewrite~ hstar_hpure.
-Qed.
+Proof using. introv HP M. rewrite* hwand_hpure_l. Qed.
 
 End Hoare.
 
@@ -126,7 +126,7 @@ Lemma triple_hwand_hpure_l : forall t (P:Prop) H Q,
   triple t H Q ->
   triple t (\[P] \-* H) Q.
 Proof using.
-  introv HP M. applys* triple_conseq M. applys* hwand_hpure_l_intro.
+  introv HP M. applys* triple_conseq M. rewrite* hwand_hpure_l.
 Qed.
 
 (** Combined and ramified rules *)

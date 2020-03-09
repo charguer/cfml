@@ -833,16 +833,16 @@ Proof using.
   { rewrite hwand_equiv. rewrite~ hstar_hempty_r. }
 Qed.
 
-Lemma hwand_hpure_l_intro : forall (P:Prop) H,
+Lemma hwand_hpure_l : forall P H,
   P ->
-  \[P] \-* H ==> H.
+  (\[P] \-* H) = H.
 Proof using.
-  introv HP. rewrite <- hstar_hempty_l at 1.
-  forwards~ K: himpl_hempty_hpure P.
-  applys himpl_hstar_trans_l K. applys hwand_cancel.
+  introv HP. applys himpl_antisym.
+  { lets K: hwand_cancel \[P] H. applys himpl_trans K.
+    applys* himpl_hstar_hpure_r. }
+  { rewrite hwand_equiv. rewrite hstar_comm.
+    applys* himpl_hstar_hpure_l. }
 Qed.
-
-Arguments hwand_hpure_l_intro : clear implicits.
 
 Lemma hwand_curry : forall H1 H2 H3,
   (H1 \* H2) \-* H3 ==> H1 \-* (H2 \-* H3).
@@ -1947,7 +1947,7 @@ Lemma wpgen_fun_sound : forall x t1 Fof,
   formula_sound (trm_fun x t1) (wpgen_fun Fof).
 Proof using.
   introv M. intros Q. unfolds wpgen_fun. applys himpl_hforall_l (val_fun x t1).
-  xchange hwand_hpure_l_intro.
+  xchange hwand_hpure_l.
   { intros. applys himpl_trans_r. { applys* wp_app_fun. } { applys* M. } }
   { applys wp_fun. }
 Qed.
@@ -1957,7 +1957,7 @@ Lemma wpgen_fix_sound : forall f x t1 Fof,
   formula_sound (trm_fix f x t1) (wpgen_fix Fof).
 Proof using.
   introv M. intros Q. unfolds wpgen_fix. applys himpl_hforall_l (val_fix f x t1).
-  xchange hwand_hpure_l_intro.
+  xchange hwand_hpure_l.
   { intros. applys himpl_trans_r. { applys* wp_app_fix. } { applys* M. } }
   { applys wp_fix. }
 Qed.

@@ -274,7 +274,7 @@ Lemma triple_ramified_frame : forall H1 Q1 t H Q,
   H ==> H1 \* (Q1 \--* Q) ->
   triple t H Q.
 Proof using.
-  introv M W. applys triple_conseq. 
+  introv M W. applys triple_conseq.
   applys triple_frame (Q1 \--* Q) M.
   { applys W. }
   { rewrite* <- qwand_equiv. }

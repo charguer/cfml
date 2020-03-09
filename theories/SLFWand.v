@@ -577,7 +577,7 @@ Lemma wpgen_fun_sound : forall x t1 Fof,
   formula_sound (trm_fun x t1) (wpgen_fun Fof).
 Proof using.
   introv M. intros Q. unfolds wpgen_fun. applys himpl_hforall_l (val_fun x t1).
-  xchange hwand_hpure_l_intro.
+  xchange hwand_hpure_l.
   { intros. applys himpl_trans_r. { applys* wp_app_fun. } { applys* M. } }
   { applys wp_fun. }
 Qed.
@@ -658,7 +658,7 @@ Lemma wpgen_fix_sound : forall f x t1 Fof,
   formula_sound (trm_fix f x t1) (wpgen_fix Fof).
 Proof using.
   introv M. intros Q. unfolds wpgen_fix. applys himpl_hforall_l (val_fix f x t1).
-  xchange hwand_hpure_l_intro.
+  xchange hwand_hpure_l.
   { intros. applys himpl_trans_r. { applys* wp_app_fix. } { applys* M. } }
   { applys wp_fix. }
 Qed.

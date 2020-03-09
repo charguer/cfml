@@ -194,13 +194,6 @@ Parameter hwand_curry_eq : forall H1 H2 H3,
 Parameter hwand_hempty_l : forall H,
   (\[] \-* H) = H.
 
-   (* currently only needed for demo *)
-Parameter hwand_hpure_l_intro : forall (P:Prop) H,
-  P ->
-  \[P] \-* H ==> H.
-
-Arguments hwand_hpure_l_intro : clear implicits.
-
 (** Properties of qwand *)
 
 Parameter qwand_equiv : forall H A (Q1 Q2:A->hprop),
@@ -2061,17 +2054,6 @@ Proof using.
   { xchange_nosimpl M. xsimpl. unfold protect. xsimpl. }
   { xchange M. xsimpl. }
   { xchanges M. }
-Qed.
-
-Lemma xchange_demo_hwand_hpure : forall (P:Prop) H1 H2 H3,
-  P ->
-  H1 \* H3 ==> H2 ->
-  (\[P] \-* H1) \* H3 ==> H2.
-Proof using.
-  introv HP M1. dup 3.
-  { xchange (hwand_hpure_l_intro P H1). auto. xchange M1. }
-  { xchange hwand_hpure_l_intro. auto. xchange M1. }
-  { xchange hwand_hpure_l_intro, M1. auto. }
 Qed.
 
 Lemma xchange_demo_4 : forall A (Q1 Q2:A->hprop) H,

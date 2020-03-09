@@ -1732,12 +1732,12 @@ Qed.
 (** Last, we prove (3) and (4) equivalent. *)
 
 Lemma hwand_characterization_iff_intro_elim_rules : forall op,
-  hwand_characterization op <-> 
+  hwand_characterization op <->
   (    (forall H0 H1 H2, (H1 \* H0 ==> H2) -> (H0 ==> op H1 H2))
     /\ (forall H1 H2, (H1 \* (op H1 H2) ==> H2))).
 Proof using.
   unfold hwand_characterization. iff K.
-  { split. 
+  { split.
     { introv M. apply <- K. apply M. }
     { intros. apply K. auto. } }
   { destruct K as (K1&K2). intros. split.
@@ -1751,11 +1751,46 @@ Qed.
 Lemma hstar_hpure : forall P H h,
   (\[P] \* H) h = (P /\ H h).
 Proof using.
-  intros. apply prop_ext. unfold hpure. iff M. 
-  { destruct M as (h1&h2&(p&M0)&M1&M2&D). hnf in M0. subst. split~. 
+  intros. apply prop_ext. unfold hpure. iff M.
+  { destruct M as (h1&h2&(p&M0)&M1&M2&D). hnf in M0. subst. split~.
     rewrite* Fmap.union_empty_l. }
   { destruct M as (p&M0). exists (hea_emptyp.
 
   rewrite hstar_hexists. rewrite* hstar_hempty_l.
   { split~. } { exists* p. }
 Qed.
+
+
+
+
+
+   (* currently only needed for demo *)
+Parameter hwand_hpure_l_intro : forall (P:Prop) H,
+  P ->
+  \[P] \-* H ==> H.
+
+Arguments hwand_hpure_l_intro : clear implicits.
+
+Lemma xchange_demo_hwand_hpure : forall (P:Prop) H1 H2 H3,
+  P ->
+  H1 \* H3 ==> H2 ->
+  (\[P] \-* H1) \* H3 ==> H2.
+Proof using.
+  introv HP M1. dup 3.
+  { xchange (hwand_hpure_l_intro P H1). auto. xchange M1. }
+  { xchange hwand_hpure_l_intro. auto. xchange M1. }
+  { xchange hwand_hpure_l_intro, M1. auto. }
+Qed.
+
+
+
+Lemma hwand_hpure_l_intro : forall (P:Prop) H,
+  P ->
+  \[P] \-* H ==> H.
+Proof using.
+  introv HP. rewrite <- hstar_hempty_l at 1.
+  forwards~ K: himpl_hempty_hpure P.
+  applys himpl_hstar_trans_l K. applys hwand_cancel.
+Qed.
+
+Arguments hwand_hpure_l_intro : clear implicits.
