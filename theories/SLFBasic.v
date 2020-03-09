@@ -1135,8 +1135,8 @@ Definition tail : field := 1%nat.
 Fixpoint MList (L:list val) (p:loc) : hprop :=
   match L with
   | nil => \[p = null]
-  | x::L' => \exists q, (p`.head ~~> x) \* (p`.tail ~~> q)
-                     \* (MList L' q)
+  | x::L' => \[p <> null] \* 
+             \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* (MList L' q)
   end.
 
 (** The following reformulations of the definition are helpful in proofs,
@@ -1149,7 +1149,7 @@ Proof using. auto. Qed.
 
 Lemma MList_cons : forall p x L',
   MList (x::L') p =
-  \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* MList L' q.
+  \[p <> null] \* \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* MList L' q.
 Proof using.  auto. Qed.
 
 (** Another characterization of [MList L p] is useful for proofs. Whereas
@@ -1188,15 +1188,13 @@ Proof using.
      [rewrite MList_cons. xpull. intros q.]
      A more efficient approach is to use the dedicated CFML tactic [xchange],
      which is specialized for performing updates in the current state. *)
-    xchange MList_cons. intros q. case_if.
-    { (* Case [p = null]. Contradiction because nothing can be allocated at
-         the null location, as captured by lemma [hfield_not_null],
-         which states: [(p`.k ~~> v) ==> (p`.k ~~> v) \* \[p <> null]]. *)
-      xchange hfield_not_null. }
-    { (* Case [p <> null]. The 'else' branch corresponds to the definition
-         of [MList] in the [cons] case. It suffices to correctly instantiate
-         the existential quantifiers. *)
-      xsimpl. auto. } }
+    xchange MList_cons.
+    (* At this point, we know that [p <> null]. *)
+    intros N q. case_if.
+    (* The 'else' branch corresponds to the definition of [MList] in 
+       the [cons] case. It suffices to correctly instantiate the
+       existential quantifiers. *)
+     xsimpl. auto. }
 Qed.
 
 
@@ -1243,10 +1241,10 @@ Proof using.
   { (* If [q1'] is null, then [L1'] is empty. *)
     xchange (MList_if q1). case_if. xpull. intros ->.
     (* In this case, we set the pointer, then we fold back the head cell. *)
-    xapp. xchange <- MList_cons. }
+    xapp. xchange <- MList_cons. auto. }
   { (* If [q1'] is not null, we reason about the recursive call using
        the induction hypothesis, then we fold back the head cell. *)
-    xapp. xchange <- MList_cons. }
+    xapp. xchange <- MList_cons. auto. }
 Qed.
 
 
@@ -1311,7 +1309,7 @@ Proof using.
   { intros x L1' p1' ->. xapp. xfun. intros f Hf.
     xapp (>> IH (H \* p1`.tail ~~> L1' \* p1`.head ~~> x) L1').
     { auto. }
-    { intros p3. xtriple. xapp. xapp. xapp. xchanges <- MList_cons. }
+    { intros p3. xtriple. xapp. xapp. xapp. xchanges* <- MList_cons. }
     { xsimpl. } }
 Qed.
 

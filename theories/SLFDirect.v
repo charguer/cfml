@@ -422,7 +422,7 @@ Definition hempty : hprop :=
   fun h => (h = heap_empty).
 
 Definition hsingle (p:loc) (w:hval) : hprop :=
-  fun h => (h = Fmap.single p w /\ p <> null).
+  fun h => (h = Fmap.single p w).
 
 Definition hstar (H1 H2 : hprop) : hprop :=
   fun h => exists h1 h2, H1 h1
@@ -945,21 +945,13 @@ Qed.
 (** *** Properties of [hsingle] *)
 
 Lemma hsingle_intro : forall p w,
-  p <> null ->
   (p ~~> w) (Fmap.single p w).
-Proof using. introv N. hnfs*. Qed.
+Proof using. intros. hnfs*. Qed.
 
 Lemma hsingle_inv: forall p w h,
   (p ~~> w) h ->
-  h = Fmap.single p w /\ p <> null.
+  h = Fmap.single p w.
 Proof using. auto. Qed.
-
-Lemma hsingle_not_null : forall p w,
-  (p ~~> w) ==> (p ~~> w) \* \[p <> null].
-Proof using.
-  introv. intros h (K&N). rewrite hstar_comm, hstar_hpure.
-  split*. subst. applys* hsingle_intro.
-Qed.
 
 Lemma hstar_hsingle_same_loc : forall p w1 w2,
   (p ~~> w1) \* (p ~~> w2) ==> \[False].
@@ -1070,7 +1062,9 @@ Ltac xsimpl_hook H ::=
 
 Ltac math_0 ::=
   unfolds downto, upto;
-  try match goal with
+  repeat match goal with
+  | |- hval_val _ = hval_val _ => fequal
+  | H: hval_val _ = hval_val _ |- _ => inverts H
   | |- val_int _ = val_int _ => fequal
   | H: val_int _ = val_int _ |- _ => inverts H
   end.
@@ -1316,8 +1310,7 @@ Lemma hoare_get : forall H v p,
 Proof using.
   intros. intros s K0. exists s v. split.
   { destruct K0 as (s1&s2&P1&P2&D&U).
-    lets (E1&N): hsingle_inv P1. subst s1.
-    applys eval_get_sep U. }
+    lets E1: hsingle_inv P1. subst s1. applys eval_get_sep U. }
   { rewrite~ hstar_hpure. }
 Qed.
 
@@ -1328,7 +1321,7 @@ Lemma hoare_set : forall H w p v,
 Proof using.
   intros. intros s1 K0.
   destruct K0 as (h1&h2&P1&P2&D&U).
-  lets (E1&N): hsingle_inv P1.
+  lets E1: hsingle_inv P1.
   exists (Fmap.union (Fmap.single p (hval_val v)) h2) val_unit. split.
   { subst h1. applys eval_set_sep U D. auto. }
   { rewrite hstar_hpure. split~.
@@ -1344,7 +1337,7 @@ Lemma hoare_free : forall H p v,
 Proof using.
   intros. intros s1 K0.
   destruct K0 as (h1&h2&P1&P2&D&U).
-  lets (E1&N): hsingle_inv P1.
+  lets E1: hsingle_inv P1.
   exists h2 val_unit. split.
   { subst h1. applys eval_free_sep U D. }
   { rewrite hstar_hpure. split~. }

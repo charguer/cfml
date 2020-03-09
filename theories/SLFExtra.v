@@ -1199,23 +1199,15 @@ End ArrayAccessDef.
 Definition field : Type := nat.
 
 Definition hfield (p:loc) (k:field) (v:val) : hprop :=
-  (p+k)%nat ~~> v \* \[p <> null].
+  (p+k)%nat ~~> v.
 
 Notation "p `. k '~~>' v" := (hfield p k v)
   (at level 32, k at level 0, no associativity,
    format "p `. k  '~~>'  v") : hprop_scope.
 
 Lemma hfield_eq : forall p k v,
-  hfield p k v = ((k+p)%nat ~~> v \* \[p <> null]).
+  hfield p k v = ((k+p)%nat ~~> v).
 Proof using. intros. math_rewrite (k+p = p+k)%nat. auto. Qed.
-
-Lemma hfield_not_null : forall p k v,
-  (p`.k ~~> v) ==> (p`.k ~~> v) \* \[p <> null].
-Proof using.
-  intros. subst. unfold hfield. xchanges~ hsingle_not_null.
-Qed.
-
-Arguments hfield_not_null : clear implicits.
 
 
 (* ########################################################### *)
@@ -1235,7 +1227,7 @@ Lemma triple_get_field : forall p k v,
     (p`.k ~~> v)
     (fun r => \[r = v] \* (p`.k ~~> v)).
 Proof using.
-  xwp. xapp. unfold hfield. xpull. intros N. xapp. xsimpl*.
+  xwp. xapp. unfold hfield. xapp. xsimpl*.
 Qed.
 
 Definition val_set_field (k:field) : val :=
@@ -1248,7 +1240,7 @@ Lemma triple_set_field : forall v1 p k v2,
     (p`.k ~~> v1)
     (fun _ => p`.k ~~> v2).
 Proof using.
-  xwp. xapp. unfold hfield. xpull. intros N. xapp. xsimpl*.
+  xwp. xapp. unfold hfield. xapp. xsimpl*.
 Qed.
 
 Notation "t1 ''.' f" :=
