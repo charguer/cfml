@@ -30,9 +30,9 @@ Implicit Types L : list val.
 (** * Chapter in a rush *)
 
 (** This chapter introduces support for additional language constructs:
+    - assertions,
     - if-statements that are not in A-normal form (needed for loops)
     - while-loops,
-    - assertions,
     - n-ary functions.
 
     Regarding loops, we explain why conventional-style reasoning rules
@@ -59,6 +59,75 @@ Implicit Types L : list val.
     practical solution from an engineering perspective.
 
 *)
+
+
+(* ####################################################### *)
+(** ** Reasoning rule for assertions *)
+
+Module Assertions.
+
+(** Assume an additional primitive operation, allowing to write terms
+    of the form [assert t], to dynamically check at runtime that the
+    term [t] produce the boolean value [true]. *)
+
+Parameter val_assert : prim.
+
+(** The reasoning rule for assertions should ensure that:
+    (1) the body of the assertion always evaluates to [true],
+    (2) the program remains correct if the assertion is not evaluated. 
+
+    Formally, the program should be correct whichever of the following
+    two evaluation rules is used. *)
+
+Parameter eval_assert_enabled : forall s t s',
+  eval s t s' (val_bool true) ->
+  eval s (val_assert t) s' val_unit.
+
+Parameter eval_assert_disabled : forall s t,
+  eval s (val_assert t) s val_unit.
+
+(** Note that it might be tempting to consider a single evaluation rule 
+    that forces assertions to perform no side effects. *)
+
+Parameter eval_assert_no_effect : forall s t v, (* too restrictive *)
+  eval s t s (val_bool true) ->
+  eval s (val_assert t) s val_unit.
+
+(** Yet, such a rule would be overly restrictive. There are useful examples 
+    of assertions that do modify the heap, such as [assert (find x = find y)]
+    in the context of a Union-Find data structure. *)
+
+(** It is possible to state a reasoning rule for [val_assert t] that 
+    is correct with respect to both evaluation rule for assertions,
+    i.e. with respect to both [eval_assert_enabled] and to 
+    [eval_assert_disabled]. *)
+
+Lemma hoare_assert : forall t H,
+  hoare t H (fun r => \[r = true] \* H) ->
+  hoare (val_assert t) H (fun _ => H).
+Proof using.
+  introv M. intros s K. forwards (s'&v&R&N): M K.
+  rewrite hstar_hpure in N. destruct N as (->&K').
+  dup. (* Duplicate the proof obligation to cover two cases *)
+  (* Case assertions are enabled *)
+  { exists s' val_unit. split.
+    { applys eval_assert_enabled R. }
+    { applys K'. } }
+  (* Case assertions are disabled *)
+  { exists s val_unit. split.
+    { applys eval_assert_disabled. }
+    { applys K. } }
+Qed.
+
+Lemma triple_assert : forall t H,
+  triple t H (fun r => \[r = true] \* H) ->
+  triple (val_assert t) H (fun _ => H).
+Proof using.
+  introv M. intros H'. specializes M H'. applys hoare_assert.
+  applys hoare_conseq M. { xsimpl. } { xsimpl. auto. }
+Qed.
+
+End Assertions.
 
 
 (* ####################################################### *)
@@ -543,51 +612,11 @@ End DemoLoopFrame.
 End WhileLoops.
 
 
-(* ####################################################### *)
-(** ** Reasoning rule for assertions *)
 
-Module Assertions.
-
-Parameter val_assert : prim.
-
-Parameter eval_assert_enabled : forall s t s',
-  eval s t s' (val_bool true) ->
-  eval s (val_assert t) s' val_unit.
-
-Parameter eval_assert_disabled : forall s t,
-  eval s (val_assert t) s val_unit.
-
-Parameter eval_assert_both : forall s t s' v, (* too restrictive *)
-  eval s t s' v ->
-  eval s val_unit s' v ->
-  eval s (val_assert t) s' v.
-
-Lemma hoare_assert : forall t H,
-  hoare t H (fun r => \[r = true] \* H) ->
-  hoare (val_assert t) H (fun _ => H).
-Proof using.
-  introv M. intros s K. forwards (s'&v&R&N): M K.
-  rewrite hstar_hpure in N. destruct N as (->&K').
-  dup. (* Duplicate the proof obligation to cover two cases *)
-  (* Case assertions are enabled *)
-  { exists s' val_unit. split.
-    { applys eval_assert_enabled R. }
-    { applys K'. } }
-  (* Case assertions are disabled *)
-  { exists s val_unit. split.
-    { applys eval_assert_disabled. }
-    { applys K. } }
-Qed.
-
-Lemma triple_assert : forall t H,
-  triple t H (fun r => \[r = true] \* H) ->
-  triple (val_assert t) H (fun _ => H).
-Proof using.
-  introv M. intros H'. specializes M H'. applys hoare_assert.
-  applys hoare_conseq M. { xsimpl. } { xsimpl. auto. }
-Qed.
-
-End Assertions.
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Additional contents *)
 
 
 (* ####################################################### *)
