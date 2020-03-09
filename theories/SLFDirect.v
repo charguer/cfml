@@ -1944,7 +1944,7 @@ Lemma mkstruct_sound : forall t F,
   formula_sound t (mkstruct F).
 Proof using.
   introv M. unfolds formula_sound. intros Q'.
-  rewrite <- mkstruct_wp'. applys* mkstruct_monotone M.
+  rewrite <- mkstruct_wp. applys* mkstruct_monotone M.
 Qed.
 
 (** One soundness lemma for each term construct. *)
