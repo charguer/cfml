@@ -1001,16 +1001,6 @@ Qed.
 
 
 (* ########################################################### *)
-(** ** Predicates on list of values *)
-
-Definition vals : Type := list val.
-
-Coercion vals_to_hvals (L:vals) : hvals := 
-  LibList.map hval_val L.
-
-
-
-(* ########################################################### *)
 (** ** Predicate [hcells_any] *)
 
 Fixpoint hcells_any (k:nat) (p:loc) : hprop :=
@@ -1135,17 +1125,20 @@ Proof using.
   introv N. apply lt_nat_of_lt_int. rewrite abs_nonneg; math.
 Qed.
 
+Lemma succ_int_plus_abs : forall p i,
+  i >= 0 ->
+  (S (p + abs i) = abs (nat_to_Z p + (i + 1)))%nat.
+Proof using.
+  introv N. rewrite abs_nat_plus_nonneg; [|math].
+  math_rewrite (i+1 = 1 + i).
+  rewrite <- succ_abs_eq_abs_one_plus; math.
+Qed.
+
 Definition val_array_get : val :=
   Fun 'p 'i :=
     Let 'j := 'i '+ 1 in
     Let 'n := val_ptr_add 'p 'j in
     val_get 'n.
-
-Lemma length_vals_to_hvals : forall L,
-  length (vals_to_hvals L) = length L.
-Proof using. intros. unfold vals_to_hvals. rewrite* LibList.length_map. Qed.
-
-Hint Rewrite length_vals_to_hvals : rew_listx.
 
 Lemma triple_array_get : forall p i v (L:hvals),
   0 <= i < length L ->
@@ -1157,16 +1150,12 @@ Proof using.
   introv N E. xwp. xapp. xapp triple_ptr_add. { math. }
   xchange (@harray_focus (abs i) p L).
   { rew_listx. applys* abs_lt_inbound. }
-  sets w: (LibList.nth (abs i) L).
-  rewrite abs_nat_plus_nonneg; [|math].
-  math_rewrite (S (p + abs i) = p + abs (i + 1))%nat.
-  { skip. } (* TODO *)
+  sets w: (LibList.nth (abs i) L). rewrite succ_int_plus_abs; [|math].
   xapp triple_get. { applys E. } 
   xchange (hforall_specialize w). subst w.
   rewrite update_nth_same. rewrite <- E. xsimpl*. 
   { rew_listx. applys* abs_lt_inbound. }
 Qed. 
-(* TODO *)
 
 Definition val_array_set : val :=
   Fun 'p 'i 'x :=
@@ -1182,14 +1171,26 @@ Lemma triple_array_set : forall p i v L,
 Proof using.
   introv N. xwp. xapp. xapp triple_ptr_add. { math. }
   xchange (@harray_focus (abs i) p L). { applys* abs_lt_inbound. }
-  rewrite abs_nat_plus_nonneg; [|math].
-  math_rewrite (S (p + abs i) = p + abs (i + 1))%nat.
-  { skip. } (* TODO *)
+  rewrite succ_int_plus_abs; [|math].
   xapp triple_set. xchange (hforall_specialize (hval_val v)).
 Qed.
 
 End ArrayAccessDef.
 
+
+(* ########################################################### *)
+(** ** Predicates on list of values *)
+
+Definition vals : Type := list val.
+
+Coercion vals_to_hvals (L:vals) : hvals := 
+  LibList.map hval_val L.
+
+Lemma length_vals_to_hvals : forall L,
+  length (vals_to_hvals L) = length L.
+Proof using. intros. unfold vals_to_hvals. rewrite* LibList.length_map. Qed.
+
+Hint Rewrite length_vals_to_hvals : rew_listx.
 
 
 (* ########################################################### *)

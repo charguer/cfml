@@ -582,7 +582,7 @@ Parameter triple_fun : forall x t1 H Q,
 (** Last but not least, we need a reasoning rule to reason about a
     function application. Consider an application [trm_app v1 v2].
     Assume [v1] to be a function, that is, to be of the form
-    [val_fun x t1]. Then, according to the beta-reduction rule, the
+(*     [val_fun x t1]. Then, according to the beta-reduction rule, the *)
     semantics of [trm_app v1 v2] is the same as that of [subst x v2 t1].
     This reasoning rule is thus:
 
@@ -1367,7 +1367,22 @@ Qed.
     The introduction of these disjoint union operations then
     significantly eases the justification of the separating
     conjunctions that appear in the targeted Separation Logic
-    triples. *)
+    triples. 
+
+    In this section, the constructor [hval_val] appears. This 
+    constructor converts a "value" into a "heap value". For the
+    purpose, of this file, the two notion are identical. Yet,
+    to allow for generalization to the semantics of allocation by
+    blocks, we need to assume that states are finite maps from
+    location to heap values. Heap values, of type [hval], can be
+    assumed to be defined by the following inductive data type.
+
+[[
+    Inductive hval : Type :=
+      | hval_val : val -> hval.
+]]
+
+*)
 
 
 (* ################################################ *)
