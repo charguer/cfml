@@ -11,7 +11,8 @@ License: CC-by 4.0.
 
 Set Implicit Arguments.
 (*
-From TLC Require Import LibTactics LibLogic LibList LibReflect.
+From TLC Require Import LibTactics LibLogic LibList.
+From TLC Require Import LibReflect.
 From TLC Require LibListZ LibWf LibMultiset LibInt.
 *)
 From TLC Require Import LibInt.

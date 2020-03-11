@@ -1112,6 +1112,12 @@ Qed. (* /ADMITTED *)
 (* ########################################################### *)
 (** ** Formalization of the list representation predicate *)
 
+(** This section assumes a language with records, allocated as blocks
+    of consecutive cells. *)
+
+Module ExampleLists.
+Export Blocks.
+
 (** A mutable list cell is a two-cell record, featuring a head field and a
     tail field. We define the field indices as follows. *)
 
@@ -1248,6 +1254,7 @@ Proof using.
 Qed.
 
 
+
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
@@ -1328,6 +1335,8 @@ Proof using.
 Qed.
 
 (** This concludes the formal verification of Reynolds's verification challenge. *)
+
+End ExampleLists.
 
 
 (* ########################################################### *)

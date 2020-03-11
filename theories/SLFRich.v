@@ -546,7 +546,7 @@ Tactic Notation "xwhile" :=
 (** ** Example of the application of frame during loop iterations *)
 
 Section DemoLoopFrame.
-Import SLFProgramSyntax SLFBasic.
+Import SLFProgramSyntax SLFBasic ExampleLists.
 Opaque MList.
 
 (** Consider the following function, which computes the length of a list
