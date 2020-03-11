@@ -843,7 +843,10 @@ Lemma triple_get : forall v p,
   triple (val_get (val_loc p))
     (p ~~> v)
     (fun x => \[x = v] \* (p ~~> v)).
-Proof. intros. intros HF. applys hoare_conseq hoare_get; xsimpl*. Qed.
+(* COQBUG in v8.10, therefore using an alternative proof.
+   Proof. intros. intros HF. applys hoare_conseq hoare_get; xsimpl*. Qed.
+*)
+Proof. intros. intros HF. applys hoare_conseq hoare_get. xsimpl*. xsimpl*. Qed.
 
 Lemma triple_set : forall w p v,
   triple (val_set (val_loc p) w)
