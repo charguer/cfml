@@ -2158,3 +2158,51 @@ Proof using.
   rewrite hstar_comm, hstar_hpure. autos*.
 Qed.
 *)
+
+
+
+
+(** The two above specifications are somewhat inconvenient for proofs in
+    practice because they require explicitly providing the list describing
+    the contents of the deallocated cells. (An example illustrating
+    the issue is given further on, in lemma [triple_dealloc_mcell].)
+
+    We therefore consider an alternative deallocation rule that avoids the
+    quantification over thie list [L]. It is based on a new heap predicate,
+    written [hcells_any k p], which describes the contents of [k] cells,
+    each of which with an arbitrary contents described through an existential
+    quantifier. *)
+
+Fixpoint hcells_any (k:nat) (p:loc) : hprop :=
+  match k with
+  | O => \[]
+  | S k' => (\exists v, p ~~> v) \* (hcells_any k' (S p))
+  end.
+
+(** We can prove that the predicate [hcells_any k p] entails [hcells L p]
+    for some list [L] of length [k]. This list [L] is obtained by gathering
+    the [k] existentially-quantified values that appear recursively in the
+    definition of [hcells_any]. *)
+
+Lemma himpl_hcells_any_hcells : forall p k,
+  hcells_any k p ==> \exists L, \[length L = k] \* hcells L p.
+Proof using.
+  intros. gen p. induction k as [|k']; simpl; intros.
+  { xsimpl (@nil val). { auto. } { simpl. xsimpl. } }
+  { xpull. intros v. xchange IHk'. intros L' EL'.
+    xsimpl (v::L'). { rew_list. math. } { simpl. xsimpl. } }
+Qed.
+
+(** The specification of the operation [val_dealloc k] can then be
+    reformulated using a precondition of the forme [harray_any k p].
+    We illustrate its use further, in the verification proof for a
+    function that deallocates a list cell ([triple_dealloc_mcell]). *)
+
+Lemma triple_dealloc_hcells_any : forall p k,
+  triple (val_dealloc k p)
+    (hcells_any k p)
+    (fun _ => \[]).
+Proof using.
+  intros. xtriple. xchange himpl_hcells_any_hcells. intros L EL.
+  xapp triple_dealloc_hcells. { auto. } { xsimpl. }
+Qed.

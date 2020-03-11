@@ -903,10 +903,10 @@ Parameter val_uninit_neq_header :
 (* Would be free if constructors were part of the inductive definition of [val] *)
 
 (** New primitive operations:
-    
+
     - [val_get_header p] to read a header, e.g., to get the length of an array,
-    - [val_alloc k] to allocate a block of [k] consecutive cells, 
-    - [val_dealloc p] to deallocate the block at location [p]. 
+    - [val_alloc k] to allocate a block of [k] consecutive cells,
+    - [val_dealloc p] to deallocate the block at location [p].
 
 *)
 
@@ -956,8 +956,8 @@ Parameter eval_set' : forall s p v,
 (** Predicate [hheader k p] describes a header at location [p]
     with contents [k], describing a block of [k] cells to the right
     of the header cell. *)
- 
-Definition hheader (k:nat) (p:loc) : hprop :=
+
+  Definition hheader (k:nat) (p:loc) : hprop :=
   fun h => (h = Fmap.single p (val_header k)) /\ (p <> null).
 
 Lemma hheader_intro : forall p k,
@@ -1455,9 +1455,9 @@ End FieldAccessDef.
 Global Opaque hfield.
 
 (** For the course in [SLFBasic], we simplify the specification and
-    exploit the invariant that [val_header] should never occur in 
-    user's code, hence it is never possible for a header value to 
-    appear inside program terms during the execution, hence the 
+    exploit the invariant that [val_header] should never occur in
+    user's code, hence it is never possible for a header value to
+    appear inside program terms during the execution, hence the
     side-condition [val_not_header v2] is always satisfied. *)
 
 Parameter triple_set_field_simplified : forall v1 p k v2,
