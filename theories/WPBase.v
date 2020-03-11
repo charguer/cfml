@@ -11,6 +11,7 @@ License: CC-by 4.0.
 
 Set Implicit Arguments.
 From Sep Require Export SepBase.
+Import LibListExec.RewListExec.
 Open Scope heap_scope.
 
 Implicit Types v : val.
@@ -269,7 +270,7 @@ Proof using.
   { forwards~ K: N (Ctx.empty:ctx). }
   { clears M1. induction xs as [|x xs']; intros G1 HG1.
     { simpl. forwards~ K: HG1 (Ctx.empty:ctx). rewrite Ctx.app_empty_r in K.
-      rewrite~ List_rev_eq. }
+      rew_list_exec. auto. }
     { simpl. intros X. rew_ctx. applys IHxs'.
       intros G2 HG2. rewrite <- Ctx.app_rev_add. applys HG1.
       rewrite Ctx.dom_add. fequals. } }
@@ -626,10 +627,9 @@ Proof using.
   cuts M: (forall rvs,
     wpaux_apps wpgen E v0 rvs ts ===>
     wp (trm_apps v0 ((trms_vals (LibList.rev rvs))++(LibList.map (isubst E) ts)))).
-  { unfold wpsubst. simpl. rewrite List_map_eq. applys M. }
+  { unfold wpsubst. simpl. rew_list_exec. applys M. }
   induction ts as [|t ts']; intros.
-  { simpl. rewrite List_rev_eq. rew_list.
-    apply~ mkstruct_erase_l. applys structural_wp. }
+  { simpl. rew_list_exec. rew_list. apply~ mkstruct_erase_l. applys structural_wp. }
   { specializes IHts' __. { intros t' Ht'. applys* IHts. }
     unfold wpaux_apps. fold (wpaux_apps wpgen E v0). rew_listx.
     forwards~ M: wpgen_sound_getval E (fun t1 => trm_apps v0 (trms_vals (rev rvs) ++ t1 :: ts')).
@@ -724,16 +724,16 @@ Proof using.
     ===> wpsubst E (trm_constr id ((trms_vals (LibList.rev rvs))++ts))).
   { applys M. }
   induction ts as [|t ts']; intros.
-  { simpl. rewrite List_rev_eq. rew_list. applys qimpl_wp_of_triple.
-    simpl. rewrite List_map_eq.
+  { simpl. rew_list_exec. rew_list. applys qimpl_wp_of_triple.
+    simpl. rew_list_exec.
     intros Q. remove_mkstruct. rewrite map_isubst_trms_vals. applys~ triple_constr. }
   { specializes IHts' __. { intros t' Ht'. applys* IHwp. }
     applys~ wpgen_sound_getval (fun t1 => trm_constr id (trms_vals (rev rvs) ++ t1 :: ts')).
     intros v1. fold (wpgen_constr wpgen E id).
     applys qimpl_wp_of_triple. intros Q. rewrite isubst_trm_constr_args.
     apply triple_of_wp.
-    forwards M: IHts' (v1::rvs). unfold trms_vals in *. rew_listx~ in M.
-    unfold wpsubst in M. rewrite isubst_trm_constr_args in M. apply M. }
+    forwards M: IHts' (v1::rvs). xchange M. rewrite app_trms_vals_rev_cons.
+    unfold wpsubst. rewrite* isubst_trm_constr_args. }
 Qed.
 
 (** Putting it all together *)

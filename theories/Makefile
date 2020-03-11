@@ -35,15 +35,18 @@ export TLC
 # List of files
 
 
-SRC_EXAMPLES := Example ExampleList ExampleListNull ExampleListIndir ExampleQueue ExampleListOf ExampleStack ExamplePairingHeap
+SRC_EXAMPLES := Example ExampleQueue ExampleList ExampleListIndir   ExampleListNull  ExampleListOf ExampleStack ExamplePairingHeap
 
 SRC_COMMON := TLCbuffer Fmap Var SepSimpl
 
-SRC_CFML := Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics WPRecord $(SRC_EXAMPLES) WPExamples WPExamplesDetails WPLib WPUnitTests 
+SRC_CFML := Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics 
+
+SRC_CFML_PLUS := WPRecord WPExamples WPExamplesDetails WPLib WPUnitTests 
+# $(SRC_EXAMPLES)
 
 SRC_MORE := SepBaseAltProofs SepCredits SepRO SubstExec 
 
-SRC_EXAMPLES := Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleListNull ExampleListIndir ExampleRO 
+# SRC_EXAMPLES := Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleListNull ExampleListIndir ExampleRO 
 
 SRC_CF := CFCrashCourse
 
@@ -54,8 +57,9 @@ SRC_SF := SLFPreface SLFDirect SLFExtra SLFSummary SLFMinimal SLFBasic SLFHprop 
 
 SRC_MOSEL := SepMoselFunctor SepBaseMosel SepROMosel ExampleROMosel ExampleListMosel
 
-SRC := $(SRC_COMMON) $(SRC_CFML) $(SRC_CF) $(SRC_SF) $(SRC_MORE)
-# $(SRC_EXAMPLES)  $(SRC_MOSEL)
+SRC := $(SRC_COMMON) $(SRC_CFML)  $(SRC_SF) $(SRC_MORE) $(SRC_CFML_PLUS) 
+# $(SRC_EXAMPLES) 
+# $(SRC_CF)  $(SRC_MOSEL)
 
 # using the variable SRC_FORCE, one can modify the compilation targets and/or their order.
 
@@ -76,10 +80,12 @@ PWD := $(shell pwd)
 
 V := $(addprefix $(PWD)/,$(SRC:=.v))
 
-ifdef SLF
-   COQFLAGS:=
-else
-   COQFLAGS:=-w -implicits-in-term,-redundant-canonical-projection,-several-object-files
+ifndef COQFLAGS
+	ifdef SLF
+		COQFLAGS:=
+	else
+		COQFLAGS:=-w -implicits-in-term,-redundant-canonical-projection,-several-object-files
+	endif
 endif
 
 # -notation-overridden,

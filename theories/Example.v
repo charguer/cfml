@@ -11,7 +11,8 @@ License: CC-by 4.0.
 Set Implicit Arguments.
 Generalizable Variables A B.
 
-From TLC Require Import LibCore.
+From TLC Require Import LibCore. 
+From TLC Require Export LibListZ.
 From Sep Require Export WPLib.
 
 Export NotationForVariables NotationForTerms.

@@ -85,7 +85,7 @@ Definition heap_compat (h1 h2 : heap) : Prop :=
 Program Definition heap_union (h1 h2 : heap) : heap :=
   If (heap_compat h1 h2) then (h1^f \+ h2^f, h1^r \+ h2^r) else arbitrary.
 Next Obligation.
-  destruct H. fmap_disjoint.
+  match goal with H: heap_compat _ _ |- _ => destruct H end. fmap_disjoint.
 Qed.
 
 Notation "h1 \u h2" := (heap_union h1 h2)

@@ -8,6 +8,7 @@ License: CC-by 4.0.
 *)
 
 Set Implicit Arguments.
+From TLC Require LibListExec.
 From TLC Require Export LibString LibList LibCore.
 From Sep Require Import Fmap TLCbuffer.
 Open Scope string_scope.
@@ -139,17 +140,17 @@ Definition var_funs (xs:vars) (n:nat) : Prop :=
 (** Computable version of [var_funs] *)
 
 Definition var_funs_exec (xs:vars) (n:nat) : bool :=
-     nat_compare n (List.length xs)
-  && is_not_nil xs
+     LibNat.beq n (LibListExec.length xs)
+  && LibListExec.is_not_nil xs
   && var_distinct_exec xs.
 
 Lemma var_funs_exec_eq : forall (n:nat) xs,
   var_funs_exec xs n = isTrue (var_funs xs n).
 Proof using.
   intros. unfold var_funs_exec, var_funs.
-  rewrite nat_compare_eq.
-  rewrite is_not_nil_eq.
-  rewrite List_length_eq.
+  rewrite LibNat.beq_eq.
+  rewrite LibListExec.is_not_nil_eq.
+  rewrite LibListExec.length_eq.
   rewrite var_distinct_exec_eq.
   extens. rew_istrue. iff*.
 Qed.

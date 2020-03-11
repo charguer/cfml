@@ -8,6 +8,7 @@ License: CC-by 4.0.
 *)
 
 Set Implicit Arguments.
+From TLC Require LibListExec.
 From TLC Require Export LibString LibList LibCore.
 From Sep Require Import Fmap TLCbuffer.
 From Sep Require Export Var.
@@ -48,8 +49,8 @@ Definition var_fixs (f:bind) (xs:vars) (n:nat) : Prop :=
 (** Computable version of [var_fixs] *)
 
 Definition var_fixs_exec (f:bind) (xs:vars) (n:nat) : bool :=
-     nat_compare n (List.length xs)
-  && is_not_nil xs
+     LibNat.beq n (LibListExec.length xs)
+  && LibListExec.is_not_nil xs
   && match f with
      | bind_anon => var_distinct_exec xs
      | bind_var x => var_distinct_exec (x::xs)
@@ -59,9 +60,9 @@ Lemma var_fixs_exec_eq : forall f xs (n:nat),
   var_fixs_exec f xs n = isTrue (var_fixs f xs n).
 Proof using.
   intros. unfold var_fixs_exec, var_fixs.
-  rewrite nat_compare_eq.
-  rewrite is_not_nil_eq.
-  rewrite List_length_eq.
+  rewrite LibNat.beq_eq.
+  rewrite LibListExec.is_not_nil_eq.
+  rewrite LibListExec.length_eq.
   destruct f as [|x]; rewrite var_distinct_exec_eq; extens; rew_istrue; iff*.
 Qed.
 
@@ -176,18 +177,18 @@ Definition one_var A (x:var) (v:A) : ctx A :=
     from each others. *)
 
 Definition combine A (xs:list var) (vs:list A) : ctx A :=
-  List.combine xs vs.
+  LibListExec.combine xs vs.
 
 (** [rev E] reverses the order of the bindings in [E]. *)
 
 Definition rev A (E:ctx A) : ctx A :=
-  List.rev E.
+  LibListExec.rev E.
 
 (** [app E1 E2] appends two contexts.
     Binders from [E1] may shadow those from [E2]. *)
 
 Definition app A (E1 E2:ctx A) : ctx A :=
-  List.app E1 E2.
+  LibListExec.app E1 E2.
 
 (** [lookup_or_arbitrary x E] returns
     - [v] is [x] is bound to [v] in [E],
@@ -238,11 +239,11 @@ Proof using. auto. Qed.
 
 Lemma app_empty_l : forall E,
   app empty E = E.
-Proof using. intros. unfold app, empty. rewrite List_app_eq. rew_list~. Qed.
+Proof using. intros. unfold app, empty. rewrite LibListExec.app_eq. rew_list~. Qed.
 
 Lemma app_empty_r : forall E,
   app E empty = E.
-Proof using. intros. unfold app, empty. rewrite List_app_eq. rew_list~. Qed.
+Proof using. intros. unfold app, empty. rewrite LibListExec.app_eq. rew_list~. Qed.
 
 Lemma app_rev_add : forall E1 E2 x X,
    app (LibList.rev E1) (add x X E2)
@@ -250,7 +251,7 @@ Lemma app_rev_add : forall E1 E2 x X,
 Proof using.
   intros. unfolds app. unfolds add.
   destruct x as [|x]. auto.
-  rewrite List_app_eq. rew_list~.
+  rewrite LibListExec.app_eq. rew_list~.
 Qed.
 
 (** [fresh] *)
@@ -264,7 +265,7 @@ Proof using. introv M. unfolds fresh. simpls. case_var~. Qed.
 
 Lemma rev_eq : forall E,
   rev E = LibList.rev E.
-Proof using. intros. unfold rev. rewrite~ List_rev_eq. Qed.
+Proof using. intros. unfold rev. rewrite~ LibListExec.rev_eq. Qed.
 
 (** [rem_var] and [rem] *)
 
@@ -363,7 +364,7 @@ Lemma rem_vars_add_not_mem : forall x v xs E,
 Proof using.
   introv M. gen E. induction xs as [|y xs']; intros.
   { auto. }
-  { simpl. lets (N&M'): not_mem_inv (rm M). case_var.
+  { simpl. lets (N&M'): not_mem_cons_inv (rm M). case_var.
     rewrite cons_eq_ctx_add. rewrite~ IHxs'. }
 Qed.
 

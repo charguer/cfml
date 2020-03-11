@@ -1379,24 +1379,24 @@ Abort.
     does not constraint [m], but instead specifies that the state
     always evolves from [p ~~> n] to [p ~~> (n + max 0 m)]. *)
 
+(** The proof scripts exploits two properties of the [max] function. *)
+
+Lemma max_l : forall n m,
+  n >= m ->
+  max n m = n.
+Proof using. introv M. unfold max. case_if; math. Qed.
+
+Lemma max_r : forall n m,
+  n <= m ->
+  max n m = m.
+Proof using. introv M. unfold max. case_if; math. Qed.
+
+(** Let's prove most-general specification for the function [repeat_incr]. *)
+
 Lemma triple_repeat_incr' : forall (p:loc) (n m:int),
   triple (repeat_incr p m)
     (p ~~> n)
     (fun _ => p ~~> (n + max 0 m)).
-
-(** Let's prove the above specification, which, by the way, is the
-    most-general specification for the function [repeat_incr].
-
-    The proof scripts exploits two properties of the [max] function.
-
-[[
-     max_l : forall n m, (n >= m) -> (max n m = n).
-     max_r : forall n m, (n <= m) -> (max n m = m).
-]]
-
-    It goes as follows.
-*)
-
 Proof using.
   intros. gen n. induction_wf IH: (downto 0) m.
   xwp. xapp. xif; intros C.

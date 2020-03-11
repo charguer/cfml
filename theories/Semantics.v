@@ -15,6 +15,7 @@ Set Implicit Arguments.
 From TLC Require Export LibString LibList LibCore.
 From Sep Require Export Bind TLCbuffer.
 From Sep Require Import Fmap.
+Import LibListExec.RewListExec.
 Open Scope string_scope.
 
 
@@ -201,7 +202,7 @@ Tactic Notation "rew_trm" "in" "*" := autorewrite with rew_trm in *.
 (** Parsing facility: coercions from list of values to list of terms *)
 
 Coercion trms_vals (vs:vals) : list trm :=
-  LibList.map trm_val vs.
+  LibListExec.map trm_val vs.
 
 Lemma trms_vals_fold_start : forall v,
   (trm_val v)::nil = trms_vals (v::nil).
@@ -220,7 +221,7 @@ Import LibList.
 
 Lemma app_trms_vals_rev_cons : forall v vs ts,
   trms_vals (rev (v::vs)) ++ ts = trms_vals (rev vs) ++ trm_val v :: ts.
-Proof using. intros. unfold trms_vals. rew_listx~. Qed.
+Proof using. intros. unfold trms_vals. rew_list_exec. rew_listx~. Qed.
 
 (** Parsing facility: coercions for constructors *)
 
@@ -242,7 +243,7 @@ Coercion trm_var : var >-> trm.
 Fixpoint trm_to_pat (t:trm) : pat :=
   match t with
   | trm_var x => pat_var (x:var)
-  | trm_constr id ts => pat_constr id (List.map trm_to_pat ts)
+  | trm_constr id ts => pat_constr id (LibListExec.map trm_to_pat ts)
   | trm_val (val_unit) => pat_unit
   | trm_val (val_bool b) => pat_bool b
   | trm_val (val_int n) => pat_int n
@@ -294,14 +295,14 @@ Proof using.
   intros ts. induction ts as [|t ts']; simpl; introv E.
   { inverts E. rew_list~. }
   { destruct t; inverts E as E. forwards IH: IHts' E.
-    rewrite List_rev_eq in *. unfold trms_vals in *.
-    rew_listx~ in IH. }
+    rewrite LibListExec.rev_eq in *. unfold trms_vals in *.
+    rew_list_exec in *. rew_listx~ in IH. }
 Qed.
 
 Lemma trms_to_vals_spec : forall ts vs,
   trms_to_vals ts = Some vs ->
   ts = trms_vals vs.
-Proof using. intros. applys* trms_to_vals_rec_spec (@nil val). Qed.
+Proof using. intros. rewrites* <- (>> trms_to_vals_rec_spec ts vs (@nil val)). Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -416,13 +417,13 @@ Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
   | trm_var x => If x = y then trm_val w else t
   | trm_fixs f xs t1 => trm_fixs f xs (If f = y then t1 else
                                         aux_no_captures xs t1)
-  | trm_constr id ts => trm_constr id (List.map aux ts)
+  | trm_constr id ts => trm_constr id (LibListExec.map aux ts)
   | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
   | trm_let z t1 t2 => trm_let z (aux t1) (aux_no_capture z t2)
-  | trm_apps t0 ts => trm_apps (aux t0) (List.map aux ts)
+  | trm_apps t0 ts => trm_apps (aux t0) (LibListExec.map aux ts)
   | trm_while t1 t2 => trm_while (aux t1) (aux t2)
   | trm_for x t1 t2 t3 => trm_for x (aux t1) (aux t2) (aux_no_capture x t3)
-  | trm_match t0 pts => trm_match (aux t0) (List.map (fun '(pi,ti) =>
+  | trm_match t0 pts => trm_match (aux t0) (LibListExec.map (fun '(pi,ti) =>
        (pi, aux_no_captures (patvars pi) ti)) pts)
   | trm_fail => trm_fail
   end.
@@ -477,13 +478,13 @@ Fixpoint isubst (E:ctx) (t:trm) : trm :=
                  | Some v => v
                  end
   | trm_fixs f xs t1 => trm_fixs f xs (isubst (Ctx.rem_vars xs (Ctx.rem f E)) t1)
-  | trm_constr id ts => trm_constr id (List.map aux ts)
+  | trm_constr id ts => trm_constr id (LibListExec.map aux ts)
   | trm_if t0 t1 t2 => trm_if (aux t0) (aux t1) (aux t2)
   | trm_let z t1 t2 => trm_let z (aux t1) (isubst (Ctx.rem z E) t2)
-  | trm_apps t0 ts => trm_apps (aux t0) (List.map aux ts)
+  | trm_apps t0 ts => trm_apps (aux t0) (LibListExec.map aux ts)
   | trm_while t1 t2 => trm_while (aux t1) (aux t2)
   | trm_for x t1 t2 t3 => trm_for x (aux t1) (aux t2) (isubst (Ctx.rem x E) t3)
-  | trm_match t0 pts => trm_match (aux t0) (List.map (fun '(pi,ti) =>
+  | trm_match t0 pts => trm_match (aux t0) (LibListExec.map (fun '(pi,ti) =>
        (pi, isubst (Ctx.rem_vars (patvars pi) E) ti)) pts)
   | trm_fail => trm_fail
   end.
@@ -532,13 +533,13 @@ Proof using.
   intros. induction t using trm_induct; simpl;
    try solve [ repeat rewrite Ctx.rem_empty; fequals* ].
   { rew_ctx. rewrite Ctx.rem_empty. rewrite Ctx.rem_vars_nil. rewrite~ IHt. }
-  { rewrite List_map_eq. fequals. induction l as [|t' l'].
+  { rew_list_exec. fequals. induction l as [|t' l'].
     { auto. }
     { rew_listx. fequals*. } }
-  { rewrite List_map_eq. fequals. induction l as [|t' l'].
+  { rew_list_exec. fequals. induction l as [|t' l'].
     { auto. }
     { rew_listx. fequals*. } }
-  { rewrite List_map_eq. fequals. induction pts as [|[pi ti] l'].
+  { rew_list_exec. fequals. induction pts as [|[pi ti] l'].
     { auto. }
     { rew_listx. rewrite Ctx.rem_vars_nil. fequals*. fequals*. } }
 Qed.
@@ -560,19 +561,19 @@ Proof using.
     { rewrite~ Ctx.rem_add_neq. case_if.
       { rewrite~ Ctx.rem_vars_add_mem. }
       { rewrite~ Ctx.rem_vars_add_not_mem. } } }
-  { rename H into IH. repeat rewrite List_map_eq. rew_ctx. fequals.
+  { rename H into IH. rew_list_exec. rew_ctx. fequals.
     induction l as [|t' l'].
     { auto. }
     { rew_listx. rewrite* IHl'. fequals*. } }
   { rew_ctx. fequals. case_if.
     { subst. rewrite* Ctx.rem_add_same. }
     { rewrite* Ctx.rem_add_neq. } }
-  { rename H into IH. repeat rewrite List_map_eq. rew_ctx. fequals.
+  { rename H into IH. rew_list_exec. rew_ctx. fequals.
     induction l as [|t' l'].
     { auto. }
     { rew_listx. rewrite* IHl'. fequals*. } }
   { rew_ctx. fequals. case_var~. }
-  { rew_ctx. fequals. rewrite List_map_eq. rewrite map_map. applys map_congr.
+  { rew_ctx. fequals. rew_list_exec. rewrite map_map. applys map_congr.
     intros [pi ti] Mi. fequals. case_if.
     { rewrite~ Ctx.rem_vars_add_mem. }
     { rewrite* Ctx.rem_vars_add_not_mem. } }
@@ -628,14 +629,13 @@ Proof using.
   introv N. induction t using trm_induct; simpl; try solve [ fequals;
   repeat case_if; simpl; repeat case_if; auto ].
   { repeat case_if; simpl; repeat case_if~. }
-  { fequals. repeat rewrite List_map_eq. induction l as [|t' l'].
+  { fequals. rew_list_exec. induction l as [|t' l'].
     { auto. }
     { rew_listx. fequals*. } }
-  { fequals. repeat rewrite List_map_eq. induction l as [|t' l'].
+  { fequals. rew_list_exec. induction l as [|t' l'].
     { auto. }
     { rew_listx. fequals*. } }
-  { fequals. repeat rewrite List_map_eq.
-    repeat rewrite map_map. applys map_congr.
+  { fequals. rew_list_exec. repeat rewrite map_map. applys map_congr.
     intros [pi ti] Mi. fequals. repeat case_if; eauto. }
 Qed.
 
@@ -647,14 +647,13 @@ Lemma subst_subst_same : forall x v1 v2 t,
 Proof using.
   intros. induction t using trm_induct; simpl; try solve [ fequals;
   repeat case_if; simpl; repeat case_if; auto ].
-  { fequals. repeat rewrite List_map_eq. induction l as [|t' l'].
+  { fequals. rew_list_exec. induction l as [|t' l'].
     { auto. }
     { rew_listx. fequals*. } }
-  { fequals. repeat rewrite List_map_eq. induction l as [|t' l'].
+  { fequals. rew_list_exec. induction l as [|t' l'].
     { auto. }
     { rew_listx. fequals*. } }
-  { fequals. repeat rewrite List_map_eq.
-    repeat rewrite map_map. applys map_congr.
+  { fequals. rew_list_exec. repeat rewrite map_map. applys map_congr.
     intros [pi ti] Mi. fequals. repeat case_if; eauto. }
 Qed.
 
@@ -734,7 +733,7 @@ Lemma isubst_trm_constr_args : forall E id vs t ts,
   isubst E (trm_constr id (trms_vals vs ++ t :: ts)) =
   trm_constr id (trms_vals vs ++ isubst E t :: LibList.map (isubst E) ts).
 Proof using.
-  intros. simpl. fequals. rewrite List_map_eq. rew_listx.
+  intros. simpl. fequals. rew_list_exec. rew_listx.
   rewrite map_isubst_trms_vals. fequals.
 Qed.
 
@@ -742,7 +741,7 @@ Lemma isubst_trm_apps_app : forall E t0 vs ts,
   isubst E (trm_apps t0 (trms_vals vs ++ ts)) =
   trm_apps (isubst E t0) (trms_vals vs ++ LibList.map (isubst E) ts).
 Proof using.
-  intros. simpl. fequals. rewrite List_map_eq. rew_listx.
+  intros. simpl. fequals. rew_list_exec. rew_listx.
   rewrite map_isubst_trms_vals. fequals.
 Qed.
 
@@ -1258,16 +1257,13 @@ Lemma trm_size_isubst : forall t E,
 Proof using.
   intros t. induction t using trm_induct; intros; simpl; repeat case_if; auto.
   { destruct~ (Ctx.lookup v E). }
-  { repeat rewrite List_fold_right_eq. repeat rewrite List_map_eq.
-    fequals. induction l as [|t' l'].
+  { rew_list_exec. fequals. induction l as [|t' l'].
     { auto. }
     { rew_listx. fequals*. } }
-  { repeat rewrite List_fold_right_eq. repeat rewrite List_map_eq.
-    fequals. fequals. induction l as [|t' l'].
+  { rew_list_exec. fequals. fequals. induction l as [|t' l'].
     { auto. }
     { rew_listx. fequals*. } }
-  { repeat rewrite List_fold_right_eq. repeat rewrite List_map_eq.
-    fequals. fequals. induction pts as [|[pi ti] pts'].
+  { rew_list_exec. fequals. fequals. induction pts as [|[pi ti] pts'].
     { auto. }
     { rew_listx. fequals*. } }
 Qed.

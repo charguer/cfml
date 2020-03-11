@@ -817,7 +817,7 @@ Qed.
 
 Lemma Triple_constr : forall id vs H (Q:tyconstr->hprop),
   H ==> Q (constr id vs) ->
-  Triple (trm_constr id (LibList.map trm_val vs)) H Q.
+  Triple (trm_constr id (trms_vals vs)) H Q.
 Proof using. introv M. applys triple_constr. unfold LiftPost. xchanges* M. Qed.
 
 Lemma Triple_constr_trm : forall id ts t1 vs H,

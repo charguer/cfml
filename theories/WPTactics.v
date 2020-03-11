@@ -13,6 +13,7 @@ License: CC-by 4.0.
 
 Set Implicit Arguments.
 From Sep Require Export WPLifted.
+Import LibListExec.RewListExec.
 Open Scope heap_scope.
 Generalizable Variables A B.
 
@@ -259,14 +260,14 @@ Arguments bool_rect P /.
 
 Ltac xwp_simpl :=
   cbn beta delta [
-  LibList.combine
-  List.rev Datatypes.app List.fold_right List.map
+  LibListExec.app LibListExec.combine LibListExec.rev LibListExec.fold_right LibListExec.map
+  Datatypes.app List.combine List.rev List.fold_right List.map
   Wpgen Wpaux_getval Wpaux_getval_typed
   Wpaux_apps Wpaux_constr Wpaux_var Wpaux_match
   hforall_vars forall_vars
   trm_case trm_to_pat patvars patsubst combiner_to_trm
   Ctx.app Ctx.empty Ctx.lookup Ctx.add Ctx.rev
-  Ctx.rem Ctx.rem_var Ctx.rem_vars isubst
+  Ctx.rem Ctx.rem_var Ctx.rem_vars Ctx.combine isubst
   var_eq eq_var_dec
   string_dec string_rec string_rect
   sumbool_rec sumbool_rect
@@ -326,12 +327,12 @@ Lemma xwp_lemma_funs : forall F vs ts xs t `{EA:Enc A} H (Q:A->hprop),
   F = val_funs xs t ->
   trms_to_vals ts = Some vs ->
   var_funs_exec xs (length vs) ->
-  H ==> ^(Wpgen (combine xs vs) t) (Q \*+ \GC) ->
+  H ==> ^(Wpgen (LibListExec.combine xs vs) t) (Q \*+ \GC) ->
   Triple (trm_apps F ts) H Q.
 Proof using.
   introv HF Hvs Hxs M. applys Triple_hgc_post. lets ->: trms_to_vals_spec Hvs.
   rewrite var_funs_exec_eq in Hxs. rew_istrue in Hxs. lets (_&Lxs&_): Hxs.
-  applys* Triple_apps_funs. rewrite~ <- isubstn_eq_substn.
+  rew_list_exec in M; auto. applys* Triple_apps_funs. rewrite~ <- isubstn_eq_substn.
   applys* Triple_isubst_of_Wpgen.
 Qed.
 
@@ -339,11 +340,12 @@ Lemma xwp_lemma_fixs : forall F (f:var) vs ts xs t `{EA:Enc A} H (Q:A->hprop),
   F = val_fixs f xs t ->
   trms_to_vals ts = Some vs ->
   var_fixs_exec f xs (length vs) ->
-  H ==> ^(Wpgen (combine (f::xs) (F::vs)) t) (Q \*+ \GC) ->
+  H ==> ^(Wpgen (LibListExec.combine (f::xs) (F::vs)) t) (Q \*+ \GC) ->
   Triple (trm_apps F ts) H Q.
 Proof using.
   introv HF Hvs Hxs M. applys Triple_hgc_post. lets ->: trms_to_vals_spec Hvs.
   rewrite var_fixs_exec_eq in Hxs. rew_istrue in Hxs. lets (_&Lxs&_): Hxs.
+  rew_list_exec in M; [| rew_list; auto ].
   applys* Triple_apps_fixs. rewrite <- isubstn_eq_substn; [|rew_list~].
   applys* Triple_isubst_of_Wpgen.
 Qed.

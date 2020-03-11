@@ -2463,7 +2463,7 @@ Proof using.
   intros. do 2 rewrite subst_eq_isubst_one. do 2 rewrite <- isubst_app.
   rewrite isubst_app_swap.
   { applys isubst_ctx_equiv. intros y. rew_list. simpl. do 2 rewrite lookup_rem. case_var*. }
-  { intros y v1 v2 K1 K2. simpls. do 2 rewrite lookup_rem in K1. case_var. }
+  { intros y v1 v2 K1 K2. rew_listx in *. simpls. do 2 rewrite lookup_rem in K1. case_var. }
 Qed.
 
 End IsubstProp.

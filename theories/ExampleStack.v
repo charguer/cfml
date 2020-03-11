@@ -272,7 +272,7 @@ Lemma Triple_is_empty : forall A `{Enc A} (p:loc) (L:list A),
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stackn L).
 Proof using.
   xwp. xunfold Stackn. xapp. xapp~. xsimpl.
-  rewrite* LibListZ_length_zero_eq_eq_nil.
+  rewrite* LibListZ.length_zero_eq_eq_nil.
 Qed.
 
 Lemma Triple_push : forall A `{Enc A} (p:loc) (x:A) (L:list A),

@@ -11,6 +11,7 @@ License: CC-by 4.0.
 
 Set Implicit Arguments.
 From Sep Require Export WPBase SepLifted.
+Import LibListExec.RewListExec.
 Open Scope heap_scope.
 Generalizable Variables A.
 
@@ -178,7 +179,7 @@ Definition Wpaux_getval_typed Wpgen (E:ctx) (t1:trm) `{EA1:Enc A1} (F2of:A1->For
 Definition Wpaux_constr Wpgen (E:ctx) (id:idconstr) : list val -> list trm -> Formula :=
   fix mk (rvs : list val) (ts : list trm) : Formula :=
     match ts with
-    | nil => `Wpgen_val (val_constr id (List.rev rvs))
+    | nil => `Wpgen_val (val_constr id (LibListExec.rev rvs))
     | t1::ts' => Wpaux_getval Wpgen E t1 (fun v1 => mk (v1::rvs) ts')
     end.
 
@@ -188,7 +189,7 @@ Definition Wpgen_app (t:trm) : Formula :=
 Definition Wpaux_apps Wpgen (E:ctx) (v0:func) : list val -> list trm -> Formula :=
   (fix mk (rvs : list val) (ts : list trm) : Formula :=
     match ts with
-    | nil => `Wpgen_app (trm_apps v0 (trms_vals (List.rev rvs)))
+    | nil => `Wpgen_app (trm_apps v0 (trms_vals (LibListExec.rev rvs)))
     | t1::ts' => Wpaux_getval Wpgen E t1 (fun v1 => mk (v1::rvs) ts')
     end).
 
@@ -566,9 +567,9 @@ Proof using.
   cuts M: (forall rvs,
     Wpaux_apps Wpgen E v0 rvs ts ====>
     Wp (trm_apps v0 ((trms_vals (LibList.rev rvs))++(LibList.map (isubst E) ts)))).
-  { unfold Wpsubst. simpl. rewrite List_map_eq. applys M. }
+  { unfold Wpsubst. simpl. rew_list_exec. applys M. }
   induction ts as [|t ts']; intros.
-  { simpl. rewrite List_rev_eq. rew_list.
+  { simpl. rew_list_exec. rew_list.
     apply~ mkstruct_erase_l. applys Structural_Wp. }
   { specializes IHts' __. { intros t' Ht'. applys* IHts. }
     unfold Wpaux_apps. fold (Wpaux_apps Wpgen E v0). rew_listx.
@@ -673,8 +674,8 @@ Proof using.
     ====> Wpsubst E (trm_constr id ((trms_vals (LibList.rev rvs))++ts))).
   { applys M. }
   induction ts as [|t ts']; intros.
-  { simpl. rewrite List_rev_eq. rew_list. applys qimpl_Wp_of_Triple.
-    simpl. rewrite List_map_eq.
+  { simpl. rew_list_exec. rew_list. applys qimpl_Wp_of_Triple.
+    simpl. rew_list_exec.
     intros Q. remove_MkStruct. rewrite map_isubst_trms_vals. applys~ @triple_constr.
     (* --LATER: Triple_constr is not suitable here *) }
   { specializes IHts' __. { intros t' Ht'. applys* IHwp. }
@@ -682,8 +683,8 @@ Proof using.
     intros v1. fold (Wpaux_constr Wpgen E id). intros A1 EA1.
     applys qimpl_Wp_of_Triple. intros Q. rewrite isubst_trm_constr_args.
     apply Triple_of_Wp.
-    forwards M: IHts' (v1::rvs). unfold trms_vals in *. rew_listx~ in M.
-    unfold Wpsubst in M. rewrite isubst_trm_constr_args in M. apply M. }
+    forwards M: IHts' (v1::rvs). xchange M. rewrite app_trms_vals_rev_cons.
+    unfold Wpsubst. rewrite* isubst_trm_constr_args. }
 Qed.
 
 (** Putting it all together *)

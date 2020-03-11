@@ -615,7 +615,7 @@ Ltac list_boxer_to_dyns E :=
 (* --TODO: port the proof from the previous CFML version to the new setting *)
 Parameter xapp_record_new : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fields) (vs:vals),
   noduplicates_fields_exec ks = true ->
-  is_nil ks = false ->
+  LibListExec.is_nil ks = false ->
   List.length ks = List.length Vs ->
   vs = encs Vs ->
   (fun p => p ~> Record (List.combine ks Vs)) \*+ H ===> (protect Q) ->
@@ -639,7 +639,7 @@ Tactic Notation "xnew" constr(E) :=
 
 Lemma xapp_record_new_noarg : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fields) (vs:vals),
   noduplicates_fields_exec ks = true ->
-  is_nil ks = false ->
+  LibListExec.is_nil ks = false ->
   Decodes vs Vs ->
   List.length ks = List.length Vs ->
   (fun p => p ~> Record (List.combine ks Vs)) \*+ H ===> (protect Q) ->
