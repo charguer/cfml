@@ -57,7 +57,8 @@ SRC_SF := SLFPreface SLFDirect SLFExtra SLFSummary SLFMinimal SLFBasic SLFHprop 
 
 SRC_MOSEL := SepMoselFunctor SepBaseMosel SepROMosel ExampleROMosel ExampleListMosel
 
-SRC := $(SRC_COMMON) $(SRC_CFML)  $(SRC_SF) $(SRC_MORE) $(SRC_CFML_PLUS) 
+SRC := $(SRC_COMMON) $(SRC_CFML)  $(SRC_SF) $(SRC_MORE)
+# $(SRC_CFML_PLUS) 
 # $(SRC_EXAMPLES) 
 # $(SRC_CF)  $(SRC_MOSEL)
 
