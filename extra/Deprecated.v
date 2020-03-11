@@ -2006,3 +2006,155 @@ Proof using.
   intros. applys triple_hpure. intros N.
   unfold triple. intros H'. applys* hoare_conseq hoare_set; xsimpl~.
 Qed.
+
+
+
+
+(* ########################################################### *)
+(** ** Updated specifications for [val_get] and [val_set] *)
+
+(*
+
+(** Updated get and set *)
+
+Lemma hoare_get : forall H v p,
+  hoare (val_get p)
+    ((p ~~> v) \* H)
+    (fun r => \[r = v] \* (p ~~> v) \* H).
+Proof using.
+  intros. intros s K0. exists s v. split.
+  { destruct K0 as (s1&s2&P1&P2&D&U).
+    lets (E1&N): hsingle_inv P1. subst s1. applys eval_get_sep U. }
+  { rewrite~ hstar_hpure. }
+Qed.
+
+Lemma hoare_set : forall H w p v,
+  val_not_header v ->
+  hoare (val_set (val_loc p) v)
+    ((p ~~> w) \* H)
+    (fun r => \[r = val_unit] \* (p ~~> v) \* H).
+Proof using.
+  introv N'. intros s1 K0.
+  destruct K0 as (h1&h2&P1&P2&D&U).
+  lets (E1&N): hsingle_inv P1.
+  exists (Fmap.union (Fmap.single p v) h2) val_unit. split.
+  { subst h1. applys eval_set_sep U D. auto. }
+  { rewrite hstar_hpure. split~.
+    { applys~ hstar_intro.
+      { applys~ hsingle_intro. }
+      { subst h1. applys Fmap.disjoint_single_set D. } } }
+Qed.
+
+Lemma triple_get : forall v p,
+  triple (val_get p)
+    (p ~~> v)
+    (fun r => \[r = v] \* (p ~~> v)).
+Proof using.
+  intros. unfold triple. intros H'. applys hoare_conseq hoare_get; xsimpl~.
+Qed.
+
+Lemma triple_set : forall w p v,
+  val_not_header v ->
+  triple (val_set (val_loc p) v)
+    (p ~~> w)
+    (fun _ => p ~~> v).
+Proof using.
+  introv R. unfold triple. intros H'. applys* hoare_conseq hoare_set; xsimpl~.
+Qed.
+
+Lemma triple_set' : forall w p v,
+  triple (val_set (val_loc p) v)
+    (\[val_not_header v] \* p ~~> w)
+    (fun _ => p ~~> v).
+Proof using. intros. applys triple_hpure. intros N. applys* triple_set. Qed.
+
+(* Hint Resolve triple_get triple_set' : triple. *)
+
+*)
+
+
+(*
+Definition hsingle (p:loc) (v:val) : hprop :=
+  fun h => (h = Fmap.single p v) /\ val_not_header v.
+
+Notation "p '~~>' v" := (hsingle p v) (at level 32) : hprop_scope_new.
+
+Local Open Scope hprop_scope_new.
+
+(** Properties of [hsingle]. *)
+
+Lemma hsingle_intro : forall p v,
+  val_not_header v ->
+  (p ~~> v) (Fmap.single p v).
+Proof using. intros. hnfs*. Qed.
+
+Lemma hsingle_inv: forall p v h,
+  (p ~~> v) h ->
+  h = Fmap.single p v /\ val_not_header v.
+Proof using. auto. Qed.
+
+Lemma hsingle_not_header : forall p v,
+  (p ~~> v) ==> (p ~~> v) \* \[val_not_header v].
+Proof using.
+  intros. unfold hsingle. intros h M.
+  rewrite hstar_comm, hstar_hpure. autos*.
+Qed.
+
+*)
+
+
+(** Updated get and set *)
+
+Lemma hoare_get : forall H v p,
+  hoare (val_get p)
+    ((p ~~> v) \* H)
+    (fun r => \[r = v] \* (p ~~> v) \* H).
+Proof using.
+  intros. intros s K0. exists s v. split.
+  { destruct K0 as (s1&s2&P1&P2&D&U).
+    lets (E1&N): hsingle_inv P1. subst s1. applys eval_get_sep U. }
+  { rewrite~ hstar_hpure. }
+Qed.
+
+Lemma triple_get : forall v p,
+  triple (val_get p)
+    (p ~~> v)
+    (fun r => \[r = v] \* (p ~~> v)).
+Proof using.
+  intros. unfold triple. intros H'. applys hoare_conseq hoare_get; xsimpl~.
+Qed.
+
+
+
+
+
+(* ########################################################### *)
+(** ** Updated predicate [hsingle] *)
+
+(*
+Definition hsingle (p:loc) (v:val) : hprop :=
+  fun h => (h = Fmap.single p v) /\ val_not_header v.
+
+Notation "p '~~>' v" := (hsingle p v) (at level 32) : hprop_scope_new.
+
+Local Open Scope hprop_scope_new.
+
+(** Properties of [hsingle]. *)
+
+Lemma hsingle_intro : forall p v,
+  val_not_header v ->
+  (p ~~> v) (Fmap.single p v).
+Proof using. intros. hnfs*. Qed.
+
+Lemma hsingle_inv: forall p v h,
+  (p ~~> v) h ->
+  h = Fmap.single p v /\ val_not_header v.
+Proof using. auto. Qed.
+
+Lemma hsingle_not_header : forall p v,
+  (p ~~> v) ==> (p ~~> v) \* \[val_not_header v].
+Proof using.
+  intros. unfold hsingle. intros h M.
+  rewrite hstar_comm, hstar_hpure. autos*.
+Qed.
+*)

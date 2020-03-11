@@ -936,40 +936,18 @@ Parameter eval_get_header : forall s p k,
 
 Arguments eval_alloc : clear implicits.
 
-
-(* ########################################################### *)
-(** ** Updated predicate [hsingle] *)
-
 (** The definition of [hsingle] is refined to ensure that it does not
     describe headers. *)
 
 Definition val_not_header (v:val) : Prop :=
   forall k, v <> val_header k.
 
-Definition hsingle (p:loc) (v:val) : hprop :=
-  fun h => (h = Fmap.single p v) /\ val_not_header v.
+(** Updated version of [eval_set] *)
 
-Notation "p '~~>' v" := (hsingle p v) (at level 32) : hprop_scope_new.
-Local Open Scope hprop_scope_new.
-
-(** Properties of [hsingle]. *)
-
-Lemma hsingle_intro : forall p v,
+Parameter eval_set' : forall s p v,
+  Fmap.indom s p ->
   val_not_header v ->
-  (p ~~> v) (Fmap.single p v).
-Proof using. intros. hnfs*. Qed.
-
-Lemma hsingle_inv: forall p v h,
-  (p ~~> v) h ->
-  h = Fmap.single p v /\ val_not_header v.
-Proof using. auto. Qed.
-
-Lemma hsingle_not_header : forall p v,
-  (p ~~> v) ==> (p ~~> v) \* \[val_not_header v].
-Proof using.
-  intros. unfold hsingle. intros h M.
-  rewrite hstar_comm, hstar_hpure. autos*.
-Qed.
+  eval s (val_set (val_loc p) v) (Fmap.update s p v) val_unit.
 
 
 (* ########################################################### *)
@@ -1152,22 +1130,24 @@ Qed.
 
 
 (* ########################################################### *)
-(** ** Updated specifications for [val_get] and [val_set] *)
+(** ** Updated specifications for [val_set] *)
 
-(** Updated get and set *)
-
-Lemma hoare_get : forall H v p,
-  hoare (val_get p)
-    ((p ~~> v) \* H)
-    (fun r => \[r = v] \* (p ~~> v) \* H).
+Lemma eval_set_sep' : forall s1 s2 h2 p w v,
+  val_not_header v ->
+  s1 = Fmap.union (Fmap.single p w) h2 ->
+  s2 = Fmap.union (Fmap.single p v) h2 ->
+  Fmap.disjoint (Fmap.single p w) h2 ->
+  eval s1 (val_set (val_loc p) v) s2 val_unit.
 Proof using.
-  intros. intros s K0. exists s v. split.
-  { destruct K0 as (s1&s2&P1&P2&D&U).
-    lets (E1&N): hsingle_inv P1. subst s1. applys eval_get_sep U. }
-  { rewrite~ hstar_hpure. }
+  introv N -> -> D. forwards Dv: Fmap.indom_single p w.
+  applys_eq eval_set' 2.
+  { applys~ Fmap.indom_union_l. }
+  { applys N. }
+  { rewrite~ Fmap.update_union_l. fequals.
+    rewrite~ Fmap.update_single. }
 Qed.
 
-Lemma hoare_set : forall H w p v,
+Lemma hoare_set' : forall H w p v,
   val_not_header v ->
   hoare (val_set (val_loc p) v)
     ((p ~~> w) \* H)
@@ -1175,21 +1155,13 @@ Lemma hoare_set : forall H w p v,
 Proof using.
   introv N'. intros s1 K0.
   destruct K0 as (h1&h2&P1&P2&D&U).
-  lets (E1&N): hsingle_inv P1.
+  lets N: hsingle_inv P1.
   exists (Fmap.union (Fmap.single p v) h2) val_unit. split.
-  { subst h1. applys eval_set_sep U D. auto. }
+  { subst h1. applys eval_set_sep' U D. auto. auto. }
   { rewrite hstar_hpure. split~.
     { applys~ hstar_intro.
       { applys~ hsingle_intro. }
       { subst h1. applys Fmap.disjoint_single_set D. } } }
-Qed.
-
-Lemma triple_get : forall v p,
-  triple (val_get p)
-    (p ~~> v)
-    (fun r => \[r = v] \* (p ~~> v)).
-Proof using.
-  intros. unfold triple. intros H'. applys hoare_conseq hoare_get; xsimpl~.
 Qed.
 
 Lemma triple_set : forall w p v,
@@ -1198,7 +1170,7 @@ Lemma triple_set : forall w p v,
     (p ~~> w)
     (fun _ => p ~~> v).
 Proof using.
-  introv R. unfold triple. intros H'. applys* hoare_conseq hoare_set; xsimpl~.
+  introv R. unfold triple. intros H'. applys* hoare_conseq hoare_set'; xsimpl~.
 Qed.
 
 Lemma triple_set' : forall w p v,
@@ -1207,7 +1179,7 @@ Lemma triple_set' : forall w p v,
     (fun _ => p ~~> v).
 Proof using. intros. applys triple_hpure. intros N. applys* triple_set. Qed.
 
-(* Hint Resolve triple_get triple_set' : triple. *)
+(* Hint Resolve triple_set' : triple. *)
 
 
 (* ########################################################### *)
@@ -1429,7 +1401,7 @@ Proof using. intros. math_rewrite (k+p = p+k)%nat. auto. Qed.
 
 
 (* ########################################################### *)
-(** ** Definition of record operations *)
+(** ** Definition of record operations, simple version *)
 
 Module Export FieldAccessDef.
 Import SLFProgramSyntax.
