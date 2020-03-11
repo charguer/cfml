@@ -1983,3 +1983,16 @@ Proof using.
   { applys mkstruct_sound. applys wp_sound. }
   { applys mkstruct_erase. }
 Qed.
+
+
+Lemma triple_alloc_array : forall n,
+  n >= 0 ->
+  triple (val_alloc n)
+    \[]
+    (funloc p => \exists L, \[n = length L] \* harray L p).
+    (* LATER: need to assert that [L] does not contain [val_header] *)
+Proof using.
+  introv N. xtriple. xapp triple_alloc. { auto. }
+  { xpull. intros p. unfold harray_uninit. xsimpl*.
+    { rewrite length_make. rewrite* abs_nonneg. } }
+Qed.
