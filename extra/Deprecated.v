@@ -1996,3 +1996,13 @@ Proof using.
   { xpull. intros p. unfold harray_uninit. xsimpl*.
     { rewrite length_make. rewrite* abs_nonneg. } }
 Qed.
+
+
+Lemma triple_set : forall w p v,
+  triple (val_set (val_loc p) v)
+    (\[val_not_header v] \* p ~~> w)
+    (fun _ => p ~~> v).
+Proof using.
+  intros. applys triple_hpure. intros N.
+  unfold triple. intros H'. applys* hoare_conseq hoare_set; xsimpl~.
+Qed.

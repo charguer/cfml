@@ -834,7 +834,196 @@ Qed.
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
-(** * Treatment of arrays *)
+(** * Extra demo programs *)
+
+Module ExtraDemoPrograms.
+Export SLFProgramSyntax.
+
+
+(* ########################################################### *)
+(** ** The decrement function *)
+
+(*
+[[
+   let decr p =
+       let n = !p in
+       let m = n - 1 in
+       p := m
+]]
+*)
+
+Definition decr : val :=
+  Fun 'p :=
+    Let 'n := '! 'p in
+    Let 'm := 'n '- 1 in
+    'p ':= 'm.
+
+Lemma triple_decr : forall (p:loc) (n:int),
+  triple (trm_app decr p)
+    (p ~~> n)
+    (fun _ => p ~~> (n-1)).
+Proof using.
+  xwp. xapp. xapp. xapp. xsimpl*.
+Qed.
+
+Hint Resolve triple_decr : triple.
+
+End ExtraDemoPrograms.
+
+
+
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Treatment of arrays and records *)
+
+Module Blocks.
+
+(** The language is assumed to not include [val_ref] and [val_free],
+    but instead include primitive [val_alloc] and [val_dealloc] for
+    allocating blocks of cells.
+
+    The grammar of values is extended with two constructors:
+
+    - [val_uninit] describes the contents of an uninitialized cell.
+    - [val_header k] describes the contents of a header block for an
+      array or a record.
+*)
+
+Parameter val_uninit : val.
+Parameter val_header : nat -> val.
+
+Parameter val_uninit_neq_header :
+  forall k, val_uninit <> val_header k.
+(* Would be free if constructors were part of the inductive definition of [val] *)
+
+Parameter val_get_header : prim.
+Parameter val_alloc : prim.
+Parameter val_dealloc : prim.
+
+(** Semantics of allocation, deallocation, and reading of headers *)
+
+Parameter eval_alloc : forall k n ma mb p,
+      mb = Fmap.conseq (val_header k :: LibList.make k val_uninit) p ->
+      n = nat_to_Z k ->
+      p <> null ->
+      Fmap.disjoint ma mb ->
+      eval ma (val_alloc (val_int n)) (mb \+ ma) (val_loc p).
+
+Parameter eval_dealloc : forall k vs ma mb p,
+      mb = Fmap.conseq (val_header k :: vs) p ->
+      k = LibList.length vs ->
+      Fmap.disjoint ma mb ->
+      eval (mb \+ ma) (val_dealloc (val_loc p)) ma val_unit.
+
+Parameter eval_get_header : forall s p k,
+      Fmap.indom s p ->
+      (val_header k) = Fmap.read s p ->
+      eval s (val_get_header (val_loc p)) s (val_int k).
+
+Arguments eval_alloc : clear implicits.
+
+
+(** The definition of [hsingle] is refined to ensure that it does not
+    describe headers. *)
+
+Definition val_not_header (v:val) : Prop :=
+  forall k, v <> val_header k.
+
+Definition hsingle (p:loc) (v:val) : hprop :=
+  fun h => (h = Fmap.single p v) /\ val_not_header v.
+
+Notation "p '~~>' v" := (hsingle p v) (at level 32) : hprop_scope.
+
+(** Updated proofs for the specification of [val_get] and [val_set],
+    which remain unchanged. *)
+
+Lemma hsingle_intro : forall p v,
+  val_not_header v ->
+  (p ~~> v) (Fmap.single p v).
+Proof using. intros. hnfs*. Qed.
+
+Lemma hsingle_inv: forall p v h,
+  (p ~~> v) h ->
+  h = Fmap.single p v /\ val_not_header v.
+Proof using. auto. Qed.
+
+Lemma hsingle_not_header : forall p v,
+  (p ~~> v) ==> (p ~~> v) \* \[val_not_header v].
+Proof using.
+  intros. unfold hsingle. intros h M.
+  rewrite hstar_comm, hstar_hpure. autos*.
+Qed.
+
+(** Updated get and set *)
+
+Lemma hoare_get : forall H v p,
+  hoare (val_get p)
+    ((p ~~> v) \* H)
+    (fun r => \[r = v] \* (p ~~> v) \* H).
+Proof using.
+  intros. intros s K0. exists s v. split.
+  { destruct K0 as (s1&s2&P1&P2&D&U).
+    lets (E1&N): hsingle_inv P1. subst s1. applys eval_get_sep U. }
+  { rewrite~ hstar_hpure. }
+Qed.
+
+Lemma hoare_set : forall H w p v,
+  val_not_header v ->
+  hoare (val_set (val_loc p) v)
+    ((p ~~> w) \* H)
+    (fun r => \[r = val_unit] \* (p ~~> v) \* H).
+Proof using.
+  introv N'. intros s1 K0.
+  destruct K0 as (h1&h2&P1&P2&D&U).
+  lets (E1&N): hsingle_inv P1.
+  exists (Fmap.union (Fmap.single p v) h2) val_unit. split.
+  { subst h1. applys eval_set_sep U D. auto. }
+  { rewrite hstar_hpure. split~.
+    { applys~ hstar_intro.
+      { applys~ hsingle_intro. }
+      { subst h1. applys Fmap.disjoint_single_set D. } } }
+Qed.
+
+Lemma triple_get : forall v p,
+  triple (val_get p)
+    (p ~~> v)
+    (fun r => \[r = v] \* (p ~~> v)).
+Proof using.
+  intros. unfold triple. intros H'. applys hoare_conseq hoare_get; xsimpl~.
+Qed.
+
+Lemma triple_set : forall w p v,
+  val_not_header v ->
+  triple (val_set (val_loc p) v)
+    (p ~~> w)
+    (fun _ => p ~~> v).
+Proof using.
+  introv R. unfold triple. intros H'. applys* hoare_conseq hoare_set; xsimpl~.
+Qed.
+
+(** Specific predicate for describing headers *)
+
+Definition hheader (k:nat) (p:loc) : hprop :=
+  fun h => (h = Fmap.single p (val_header k)) /\ (p <> null).
+
+Lemma hheader_intro : forall p k,
+  p <> null ->
+  (hheader k p) (Fmap.single p (val_header k)).
+Proof using. intros. hnfs*. Qed.
+
+Lemma hheader_inv: forall h p k,
+  (hheader k p) h ->
+  h = Fmap.single p (val_header k) /\ p <> null.
+Proof using. auto. Qed.
+
+Lemma hheader_not_null : forall p k,
+  hheader k p ==> hheader k p \* \[p <> null].
+Proof using.
+  intros. intros h (N&M). rewrite hstar_comm, hstar_hpure.
+  split~. split~.
+Qed.
+
 
 (* ########################################################### *)
 (** ** Predicate [hcells] *)
@@ -849,13 +1038,14 @@ Fixpoint hcells (L:vals) (p:loc) : hprop :=
 
 Lemma hcells_intro : forall L p,
   p <> null ->
+  (LibList.Forall val_not_header L) ->
   hcells L p (Fmap.conseq L p).
 Proof using.
-  intros L. induction L as [|L']; introv N; simpl.
+  intros L. induction L as [|v L']; introv N R; simpl.
   { applys hempty_intro. }
-  { applys hstar_intro.
+  { rew_listx in R. destruct R as (Nv&R'). applys hstar_intro.
     { applys* hsingle_intro. }
-    { applys IHL. unfolds loc, null. math. }
+    { applys* IHL'. }
     { applys Fmap.disjoint_single_conseq. left. math. } }
 Qed.
 
@@ -908,41 +1098,14 @@ Arguments hcells_focus : clear implicits.
 
 
 (* ########################################################### *)
-(** ** Predicate [header] *)
-
-Definition header (k:nat) (p:loc) : hprop :=
-  p ~~> val_header k \* \[p <> null].
-
-Lemma header_eq : forall k p,
-  header k p = (p ~~> val_header k \* \[p <> null]).
-Proof using. auto. Qed.
-
-Lemma header_intro : forall k p,
-  p <> null ->
-  (header k p) (Fmap.single p (val_header k)).
-Proof using.
-  introv N. unfolds header. rewrite hstar_comm, hstar_hpure.
-  split*. applys hsingle_intro.
-Qed.
-
-Lemma header_inv : forall k p h,
-  (header k p) h ->
-  h = Fmap.single p (val_header k) /\ p <> null.
-Proof using.
-  introv M. unfolds header. rewrite hstar_comm, hstar_hpure in M.
-  destruct M as (N&M). lets E: hsingle_inv M. split*.
-Qed.
-
-
-(* ########################################################### *)
 (** ** Predicate [harray] *)
 
 Definition harray (L:vals) (p:loc) : hprop :=
-  header (length L) p \* hcells L (S p).
+  hheader (length L) p \* hcells L (S p).
 
 Lemma harray_not_null : forall p L,
   harray L p ==> harray L p \* \[p <> null].
-Proof using. intros. unfold harray, header. xsimpl*. Qed.
+Proof using. intros. unfold harray. xchanges* hheader_not_null. Qed.
 
 Lemma harray_focus : forall k p L,
   k < length L ->
@@ -962,45 +1125,29 @@ Qed.
 Definition harray_uninit (k:nat) (p:loc) : hprop :=
   harray (LibList.make k val_uninit) p.
 
+Section Make.
+Context (A:Type) {IA:Inhab A}.
+
+Lemma Forall_make : forall (n:nat) (v:A) (P:A->Prop),
+  P v ->
+  LibList.Forall P (LibList.make n v).
+Proof using.
+  introv N. induction n as [|n'].
+  { rewrite make_zero. applys Forall_nil. }
+  { rewrite make_succ. applys* Forall_cons. }
+Qed.
+End Make.
+
 Lemma harray_uninit_intro : forall p k,
   p <> null ->
   harray_uninit k p (Fmap.conseq (val_header k :: LibList.make k val_uninit) p).
 Proof using.
   introv N. unfold harray_uninit, harray. rewrite conseq_cons.
   applys hstar_intro.
-  { unfold header. rewrite hstar_comm, hstar_hpure. split*.
-    rewrite LibList.length_make. applys* hsingle_intro. }
-  { applys* hcells_intro. }
+  { rewrite LibList.length_make. applys* hheader_intro. }
+  { applys* hcells_intro. applys Forall_make.
+    introv R. inverts R. applys* val_uninit_neq_header. }
   { applys disjoint_single_conseq. left*. }
-Qed.
-
-
-(* ########################################################### *)
-(** ** Predicate [hcells_any] *)
-
-Fixpoint hcells_any (k:nat) (p:loc) : hprop :=
-  match k with
-  | O => \[]
-  | S k' => (\exists w, p ~~> w) \* (hcells_any k' (S p))
-  end.
-
-Definition harray_any (k:nat) (p:loc) : hprop :=
-  header k p \* hcells_any k (S p).
-
-Lemma himpl_hcells_any_hcells : forall p k,
-  hcells_any k p ==> \exists L, \[length L = k] \* hcells L p.
-Proof using.
-  intros. gen p. induction k as [|k']; simpl; intros.
-  { xsimpl (@nil val). { auto. } { simpl. xsimpl. } }
-  { xpull. intros w. xchange IHk'. intros L' EL'.
-    xsimpl (w::L'). { rew_list. math. } { simpl. xsimpl. } }
-Qed.
-
-Lemma himpl_harray_any_harray : forall p k,
-  harray_any k p ==> \exists L, \[length L = k] \* harray L p.
-Proof using.
-  intros. unfold harray, harray_any.
-  xchange himpl_hcells_any_hcells. intros L EL. subst k. xsimpl*.
 Qed.
 
 
@@ -1044,6 +1191,37 @@ Qed.
 Hint Resolve triple_alloc : triple.
 
 
+
+(* ########################################################### *)
+(** ** Predicate [hcells_any] *)
+
+Fixpoint hcells_any (k:nat) (p:loc) : hprop :=
+  match k with
+  | O => \[]
+  | S k' => (\exists w, p ~~> w) \* (hcells_any k' (S p))
+  end.
+
+Definition harray_any (k:nat) (p:loc) : hprop :=
+  hheader k p \* hcells_any k (S p).
+
+Lemma himpl_hcells_any_hcells : forall p k,
+  hcells_any k p ==> \exists L, \[length L = k] \* hcells L p.
+Proof using.
+  intros. gen p. induction k as [|k']; simpl; intros.
+  { xsimpl (@nil val). { auto. } { simpl. xsimpl. } }
+  { xpull. intros w. xchange IHk'. intros L' EL'.
+    xsimpl (w::L'). { rew_list. math. } { simpl. xsimpl. } }
+Qed.
+
+Lemma himpl_harray_any_harray : forall p k,
+  harray_any k p ==> \exists L, \[length L = k] \* harray L p.
+Proof using.
+  intros. unfold harray, harray_any.
+  xchange himpl_hcells_any_hcells. intros L EL. subst k. xsimpl*.
+Qed.
+
+
+
 (* ########################################################### *)
 (** ** Specification of [val_dealloc] *)
 
@@ -1054,7 +1232,7 @@ Lemma hoare_dealloc : forall H L p,
 Proof using.
   intros. intros h Hh. destruct Hh as (h1&h2&N1&N2&N3&N4).
   unfolds harray. destruct N1 as (h11&h12&N5&N6&N7&N8).
-  lets (E11&Np): header_inv N5. lets E12: hcells_inv N6. subst h h1 h11 h12.
+  lets (E11&Np): hheader_inv N5. lets E12: hcells_inv N6. subst h h1 h11 h12.
   exists h2 val_unit. split; [|auto]. applys* eval_dealloc.
 Qed.
 
@@ -1080,17 +1258,38 @@ Hint Resolve triple_dealloc : triple.
 
 
 (* ########################################################### *)
-(** ** Specification of [header_to_int] *)
+(** ** Specification of [get_header] *)
 
-Lemma triple_header_to_int : forall k,
-  triple (val_header_to_int (val_header k))
-    \[]
-    (fun r => \[r = (k:int)]).
+Lemma eval_get_header_sep : forall s s2 p k,
+  s = Fmap.union (Fmap.single p (val_header k)) s2 ->
+  eval s (val_get_header (val_loc p)) s (val_int k).
 Proof using.
-  intros. applys* triple_unop. applys* evalunop_header_to_int.
+  introv ->. forwards Dv: Fmap.indom_single p (val_header k).
+  applys eval_get_header.
+  { applys~ Fmap.indom_union_l. }
+  { rewrite~ Fmap.read_union_l. rewrite~ Fmap.read_single. }
 Qed.
 
-Hint Resolve triple_header_to_int : triple.
+Lemma hoare_get_header : forall H k p,
+  hoare (val_get_header p)
+    ((hheader k p) \* H)
+    (fun r => \[r = val_int k] \* (hheader k p) \* H).
+Proof using.
+  intros. intros s K0. exists s (val_int k). split.
+  { destruct K0 as (s1&s2&P1&P2&D&U).
+    lets (E1&N): hheader_inv P1. subst s1. applys eval_get_header_sep U. }
+  { rewrite~ hstar_hpure. }
+Qed.
+
+Lemma triple_get_header : forall k p,
+  triple (val_get_header p)
+    (hheader k p)
+    (fun r => \[r = val_int k] \* hheader k p).
+Proof using.
+  intros. unfold triple. intros H'. applys hoare_conseq hoare_get_header; xsimpl~.
+Qed.
+
+Hint Resolve triple_get_header : triple.
 
 
 (* ########################################################### *)
@@ -1116,21 +1315,6 @@ Proof using.
   introv N. rewrite abs_nat_plus_nonneg; [|math].
   math_rewrite (i+1 = 1 + i).
   rewrite <- succ_abs_eq_abs_one_plus; math.
-Qed.
-
-(** Length *)
-
-Definition val_get_header : val :=
-  Fun 'p :=
-    Let 'v := val_get 'p in
-    val_header_to_int 'v.
-
-Lemma triple_get_header : forall k p,
-  triple (val_get_header p)
-    (header k p)
-    (fun r => \[r = val_int k] \* header k p).
-Proof using.
-  xwp. xchange header_eq. intros N. xapp. xapp. xchanges* <- header_eq.
 Qed.
 
 (** Length *)
@@ -1167,7 +1351,7 @@ Proof using.
   sets w: (LibList.nth (abs i) L). rewrite succ_int_plus_abs; [|math].
   xapp triple_get. xchange (hforall_specialize w). subst w.
   rewrite update_nth_same. rewrite <- E. xsimpl*.
-  { rew_listx. applys* abs_lt_inbound. } }
+  { rew_listx. applys* abs_lt_inbound. }
 Qed.
 
 (** Set *)
@@ -1180,19 +1364,18 @@ Definition val_array_set : val :=
 
 Lemma triple_array_set : forall p i v L,
   0 <= i < length L ->
+  val_not_header v ->
   triple (val_array_set p i v)
     (harray L p)
     (fun _ => harray (LibList.update (abs i) v L) p).
 Proof using.
-  introv N. xwp. xapp. xapp triple_ptr_add. { math. }
+  introv R N. xwp. xpull. xapp. xapp triple_ptr_add. { math. }
   xchange (@harray_focus (abs i) p L). { applys* abs_lt_inbound. }
   rewrite succ_int_plus_abs; [|math].
-  xapp triple_set. skip. (* TODO *)
-  xchange (hforall_specialize v).
+  xapp triple_set. auto. xchange (hforall_specialize v).
 Qed.
 
 End ArrayAccessDef.
-
 
 
 (* ########################################################### *)
@@ -1234,7 +1417,7 @@ Lemma triple_get_field : forall p k v,
     (p`.k ~~> v)
     (fun r => \[r = v] \* (p`.k ~~> v)).
 Proof using.
-  xwp. xapp. unfold hfield. xapp. xsimpl*.
+  xwp. xapp. unfold hfield. xapp triple_get. xsimpl*.
 Qed.
 
 Definition val_set_field (k:field) : val :=
@@ -1243,11 +1426,12 @@ Definition val_set_field (k:field) : val :=
     val_set 'q 'v.
 
 Lemma triple_set_field : forall v1 p k v2,
+  val_not_header v2 ->
   triple ((val_set_field k) p v2)
     (p`.k ~~> v1)
     (fun _ => p`.k ~~> v2).
 Proof using.
-  xwp. xapp. unfold hfield. xapp. skip. (* TODO *) xsimpl*.
+  introv N. xwp. xapp. unfold hfield. xapp triple_set. auto. xsimpl*.
 Qed.
 
 Notation "t1 ''.' f" :=
@@ -1265,41 +1449,4 @@ Global Opaque hfield.
 Hint Resolve triple_get_field triple_set_field : triple.
 
 
-(* ########################################################### *)
-(* ########################################################### *)
-(* ########################################################### *)
-(** * Extra demo programs *)
-
-Module ExtraDemoPrograms.
-Export SLFProgramSyntax.
-
-
-(* ########################################################### *)
-(** ** The decrement function *)
-
-(*
-[[
-   let decr p =
-       let n = !p in
-       let m = n - 1 in
-       p := m
-]]
-*)
-
-Definition decr : val :=
-  Fun 'p :=
-    Let 'n := '! 'p in
-    Let 'm := 'n '- 1 in
-    'p ':= 'm.
-
-Lemma triple_decr : forall (p:loc) (n:int),
-  triple (trm_app decr p)
-    (p ~~> n)
-    (fun _ => p ~~> (n-1)).
-Proof using.
-  xwp. xapp. xapp. xapp. auto. xsimpl*.
-Qed.
-
-Hint Resolve triple_decr : triple.
-
-End ExtraDemoPrograms.
+End Blocks.

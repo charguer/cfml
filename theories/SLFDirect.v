@@ -86,8 +86,6 @@ Inductive prim : Type :=
   | val_get : prim
   | val_set : prim
   | val_free : prim
-  | val_alloc : prim
-  | val_dealloc : prim
   | val_neg : prim
   | val_opp : prim
   | val_eq : prim
@@ -101,17 +99,13 @@ Inductive prim : Type :=
   | val_lt : prim
   | val_ge : prim
   | val_gt : prim
-  | val_ptr_add : prim
-  | val_header_to_int : prim.
+  | val_ptr_add : prim.
 
 Definition loc : Type := nat.
 
 Definition null : loc := 0%nat.
 
-(** The grammar of values includes two special values:
-    [val_uninit] describes the contents of an uninitialized cell;
-    [val_header k] describes the contents of a header block for an
-    array or a record. *)
+(** The grammar of values includes two special values. *)
 
 Inductive val : Type :=
   | val_unit : val
@@ -121,8 +115,6 @@ Inductive val : Type :=
   | val_prim : prim -> val
   | val_fun : var -> trm -> val
   | val_fix : var -> var -> trm -> val
-  | val_uninit : val
-  | val_header : nat -> val
 
 with trm : Type :=
   | trm_val : val -> trm
@@ -224,9 +216,7 @@ Inductive evalunop : prim -> val -> val -> Prop :=
   | evalunop_neg : forall b1,
       evalunop val_neg (val_bool b1) (val_bool (neg b1))
   | evalunop_opp : forall n1,
-      evalunop val_opp (val_int n1) (val_int (- n1))
-  | evalunop_header_to_int : forall k,
-      evalunop val_header_to_int (val_header k) (val_int k).
+      evalunop val_opp (val_int n1) (val_int (- n1)).
 
 (** Evaluation rules for binary operations are captured by the predicate
     [redupop op v1 v2 v3], which asserts that [op v1 v2] evaluates to [v3]. *)
@@ -267,13 +257,6 @@ Inductive evalbinop : val -> val -> val -> val -> Prop :=
 
 Definition trm_is_val (t:trm) : Prop :=
   match t with trm_val v => True | _ => False end.
-
-(** The predicate [val_is_header v] asserts that [v] is a header value.
-    The evaluation [eval_set] prevents overwriting a cell that corresponds
-    to the header of a block. *)
-
-Definition val_is_header (v:val) : Prop :=
-  match v with val_header k => True | _ => False end.
 
 (** Big-step evaluation judgement, written [eval s t s' v] *)
 
@@ -324,24 +307,10 @@ Inductive eval : heap -> trm -> heap -> val -> Prop :=
       eval s (val_get (val_loc p)) s v
   | eval_set : forall s p v,
       Fmap.indom s p ->
-      ~ val_is_header (Fmap.read s p) ->
       eval s (val_set (val_loc p) v) (Fmap.update s p v) val_unit
   | eval_free : forall s p,
       Fmap.indom s p ->
-      eval s (val_free (val_loc p)) (Fmap.remove s p) val_unit
-  | eval_alloc : forall k n ma mb p,
-      mb = Fmap.conseq (val_header k :: LibList.make k val_uninit) p ->
-      n = nat_to_Z k ->
-      p <> null ->
-      Fmap.disjoint ma mb ->
-      eval ma (val_alloc (val_int n)) (mb \+ ma) (val_loc p)
-  | eval_dealloc : forall k vs ma mb p,
-      mb = Fmap.conseq (val_header k :: vs) p ->
-      k = LibList.length vs ->
-      Fmap.disjoint ma mb ->
-      eval (mb \+ ma) (val_dealloc (val_loc p)) ma val_unit.
-
-Arguments eval_alloc : clear implicits.
+      eval s (val_free (val_loc p)) (Fmap.remove s p) val_unit.
 
 (** Specialized evaluation rules for addition and division. *)
 
@@ -948,13 +917,13 @@ Qed.
 (* ################################################ *)
 (** *** Properties of [hsingle] *)
 
-Lemma hsingle_intro : forall p w,
-  (p ~~> w) (Fmap.single p w).
+Lemma hsingle_intro : forall p v,
+  (p ~~> v) (Fmap.single p v).
 Proof using. intros. hnfs*. Qed.
 
-Lemma hsingle_inv: forall p w h,
-  (p ~~> w) h ->
-  h = Fmap.single p w.
+Lemma hsingle_inv: forall p v h,
+  (p ~~> v) h ->
+  h = Fmap.single p v.
 Proof using. auto. Qed.
 
 Lemma hstar_hsingle_same_loc : forall p w1 w2,
@@ -1113,16 +1082,14 @@ Proof using.
 Qed.
 
 Lemma eval_set_sep : forall s1 s2 h2 p w v,
-  ~ val_is_header w ->
   s1 = Fmap.union (Fmap.single p w) h2 ->
   s2 = Fmap.union (Fmap.single p v) h2 ->
   Fmap.disjoint (Fmap.single p w) h2 ->
   eval s1 (val_set (val_loc p) v) s2 val_unit.
 Proof using.
-  introv N -> -> D. forwards Dv: Fmap.indom_single p w.
+  introv -> -> D. forwards Dv: Fmap.indom_single p w.
   applys_eq eval_set 2.
   { applys~ Fmap.indom_union_l. }
-  { rewrite~ Fmap.read_union_l. rewrite~ Fmap.read_single. }
   { rewrite~ Fmap.update_union_l. fequals.
     rewrite~ Fmap.update_single. }
 Qed.
@@ -1319,16 +1286,15 @@ Proof using.
 Qed.
 
 Lemma hoare_set : forall H w p v,
-  ~ val_is_header w ->
   hoare (val_set (val_loc p) v)
     ((p ~~> w) \* H)
     (fun r => \[r = val_unit] \* (p ~~> v) \* H).
 Proof using.
-  introv N. intros s1 K0.
+  intros. intros s1 K0.
   destruct K0 as (h1&h2&P1&P2&D&U).
   lets E1: hsingle_inv P1.
   exists (Fmap.union (Fmap.single p v) h2) val_unit. split.
-  { subst h1. applys eval_set_sep N U D. auto. }
+  { subst h1. applys eval_set_sep U D. auto. }
   { rewrite hstar_hpure. split~.
     { applys~ hstar_intro.
       { applys~ hsingle_intro. }
@@ -1536,11 +1502,10 @@ Qed.
 
 Lemma triple_set : forall w p v,
   triple (val_set (val_loc p) v)
-    (\[~ val_is_header w] \* p ~~> w)
+    (p ~~> w)
     (fun _ => p ~~> v).
 Proof using.
-  intros. unfold triple. intros H'. rewrite hstar_assoc. applys hoare_hpure.
-  intros N. applys* hoare_conseq hoare_set. xsimpl~.
+  intros. unfold triple. intros H'. applys hoare_conseq hoare_set; xsimpl~.
 Qed.
 
 Lemma triple_free : forall p v,
@@ -2444,7 +2409,7 @@ Lemma triple_incr : forall (p:loc) (n:int),
     PRE (p ~~> n)
     POST (fun _ => (p ~~> (n+1))).
 Proof using.
-  xwp. xapp. xapp. xapp. auto. xsimpl*.
+  xwp. xapp. xapp. xapp. xsimpl*.
 Qed.
 
 (** We register this specification so that it may be automatically
