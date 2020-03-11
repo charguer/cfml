@@ -447,6 +447,7 @@ Proof using.
   unfold head, tail. do 2 rewrite hfield_eq. xsimpl; auto.
 Qed.
 
+
 (** Reciprocally, we can deallocate a mutable list cell at location [p]
     by invoking the primitive operation [val_dealloc] with argument [2].
     The precondition describes the two fields [p`.head ~~> x] and
@@ -540,7 +541,7 @@ Notation "'Set' t1 ''.' k '':=' t2" :=
 (** We register the specifications of these operations so that they may be
     exploited automatically by the tactic [xapp]. *)
 
-Hint Resolve triple_get_field triple_set_field : triple.
+(* Hint Resolve triple_get_field triple_set_field : triple. *)
 
 End FieldAccesses.
 
@@ -760,6 +761,12 @@ Proof using.
   applys* triple_conseq_frame triple_get_field_hfields; xsimpl*.
 Qed.
 
+Lemma triple_get_field_hrecord' : forall kvs p k v,
+  triple (val_get_field k p)
+    (p ~~~> kvs \* \[hfields_lookup k kvs = Some v])
+    (fun r => \[r = v] \* p ~~~> kvs).
+Admitted.
+
 Lemma triple_set_field_hrecord : forall kvs kvs' k p v,
   hfields_update k v kvs = Some kvs' ->
   triple (val_set_field k p v)
@@ -770,6 +777,87 @@ Proof using.
   applys* triple_conseq_frame triple_set_field_hfields; xsimpl*.
   rewrites* (>> length_hfields_update M).
 Qed.
+
+
+Lemma xapp_set_field_lemma : forall H k p v Q,
+  H ==> \exists kvs, (p ~~~> kvs) \* 
+     match hfields_update k v kvs with
+     | None => \[False] 
+     | Some kvs' => ((fun _ => p ~~~> kvs') \--* protect Q) end ->
+  H ==> wp (val_set_field k p v) Q.
+Proof using.
+  introv N. xchange N. intros kvs. cases (hfields_update k v kvs).
+  { rewrite wp_equiv. applys* triple_conseq_frame triple_set_field_hrecord.
+    xsimpl. intros r. xchange (qwand_specialize r). }
+  { xpull. }
+Qed.
+
+Lemma xapp_get_field_lemma : forall H k p Q,
+  H ==> \exists kvs, (p ~~~> kvs) \* 
+     match hfields_lookup k kvs with
+     | None => \[False] 
+     | Some v => ((fun r => \[r = v] \* p ~~~> kvs) \--* protect Q) end ->
+  H ==> wp (val_get_field k p) Q.
+Proof using.
+  introv N. xchange N. intros kvs. cases (hfields_lookup k kvs).
+  { rewrite wp_equiv. applys* triple_conseq_frame triple_get_field_hrecord.
+    xsimpl. intros r ->. xchange (qwand_specialize v). rewrite* hwand_hpure_l. }
+  { xpull. }
+Qed.
+
+
+Tactic Notation "xapp_nosubst" constr(E) :=
+  xseq_xlet_if_needed; xstruct_if_needed;
+  forwards_nounfold_then E ltac:(fun K => applys xapp_lemma K; xapp_simpl).
+  (* if [E] were already an instantiated lemma, then it would suffices
+     to call [applys xapp_lemma E; xapp_simpl]. But in the general case,
+     we need to instantiate [E] using the TLC tactic [forward_then] *)
+
+Tactic Notation "xapp_apply_spec" := (* internal *)
+  (* finds out the specification triple, from the hint data base [triple]
+     or in the context by looking for an induction hypothesis.
+     DISCLAIMER (explained in SLFWPgen): this approach does not work
+     for specifications that feature a premise that [eauto] cannot solve. *)
+  first [ solve [ eauto with triple ]
+        | match goal with H: _ |- _ => eapply H end ].
+
+Tactic Notation "xapp_nosubst" :=
+  xseq_xlet_if_needed; xstruct_if_needed;
+  first [ applys xapp_lemma; [ xapp_apply_spec | xapp_simpl ]
+        | applys xapp_set_field_lemma; xsimpl; simpl; xapp_simpl
+        | applys xapp_get_field_lemma; xsimpl; simpl; xapp_simpl ].
+
+(** [xapp_try_subst] checks if the goal is of the form:
+    - either [forall (r:val), (r = ...) -> ...]
+    - or [forall (r:val), forall x, (r = ...) -> ...]
+
+    in which case it substitutes [r] away.
+*)
+
+Tactic Notation "xapp_try_subst" := (* internal *)
+  try match goal with
+  | |- forall (r:val), (r = _) -> _ => intros ? ->
+  | |- forall (r:val), forall x, (r = _) -> _ =>
+      let y := fresh x in intros ? y ->; revert y
+  end.
+
+Tactic Notation "xapp" constr(E) :=
+  xapp_nosubst E; xapp_try_subst.
+
+
+Tactic Notation "xapp" :=
+  xapp_nosubst; xapp_try_subst.
+
+Lemma triple_alloc_mcell' :
+  triple (val_alloc 2%nat)
+    \[]
+    (funloc p => p ~~~> `{ head := val_uninit ; tail := val_uninit }).
+Proof using.
+  xtriple. xapp triple_alloc_mcell. intros p.
+  unfold hrecord, hfields. rew_list. simpl. xsimpl*.
+Qed.
+
+Opaque hfields.
 
 End GroupedFields.
 
@@ -829,13 +917,19 @@ Definition mcell : val :=
 (** The specification of [mcell x q] appears next. Its precondition is empty.
     Its postcondition describes the two fields [p`.head ~~> x] and [p`.tail ~~> q]. *)
 
+Open Scope val_scope.
+
+Notation "`{ k1 := v1 ; k2 := v2 }" :=
+  ((k1,v1)::(k2,v2)::nil)
+  (at level 0, k1, k2 at level 0, only printing)
+  : val_scope.
+
 Lemma triple_mcell : forall x q,
   triple (mcell x q)
     \[]
     (funloc p => p ~~~> `{ head := x ; tail := q }).
 Proof using.
-  xwp. xapp triple_alloc_mcell. intros p. xapp. xapp. xval.
-  unfold hrecord. rew_list. simpl. xsimpl*.
+  xwp. xapp triple_alloc_mcell'. intros p. xapp. xapp. xval. xsimpl*.
 Qed. 
 
 (** The function [mcons] is an alias for [mcell]. Whereas [mcell x q]
@@ -962,13 +1056,14 @@ Lemma triple_mcopy : forall L p,
 
 *)
 
+
+Opaque MList.
+
 Proof using.
   intros. gen p. induction_wf IH: list_sub L.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
   { intros ->. xapp. xsimpl*. subst. applys MList_nil_intro. }
-  { intros x q L' ->. xapp triple_get_field_hrecord. reflexivity. (* TODO eauto does not solve it! *)
-    xapp triple_get_field_hrecord. reflexivity. (* TODO *)
-    xapp. intros q'.
+  { intros x q L' ->. xapp. xapp. xapp. intros q'.
     xapp. intros p'. xchange <- MList_cons. xsimpl*. }
 Qed.
 
@@ -1030,6 +1125,8 @@ Definition mfree_list : val :=
 (** Verify the function [mfree_list].
     Hint: follow the pattern of the proof of the function [mlength]. *)
 
+Hint Resolve triple_mfree_cell : triple.
+
 Lemma triple_mfree_list : forall L p,
   triple (mfree_list p)
     (MList L p)
@@ -1037,8 +1134,7 @@ Lemma triple_mfree_list : forall L p,
 Proof using. (* ADMITTED *)
   intros. gen p. induction_wf IH: list_sub L. intros.
   xwp. xchange MList_if. xapp. xif; intros C; case_if; xpull.
-  { intros x p' L' ->. xapp triple_get_field_hrecord. reflexivity.
-    xapp triple_mfree_cell. xapp. xsimpl. }
+  { intros x p' L' ->. xapp. xapp triple_mfree_cell. (* TODO: auto ? *) xapp. xsimpl. }
   { intros ->. xval. xsimpl. }
 Qed. (* /ADMITTED *)
 
