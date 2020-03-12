@@ -50,8 +50,6 @@ Implicit Type L : list val.
 (* ####################################################### *)
 (** ** Representation of a set of consecutive cells *)
 
-Module Specs.
-
 (** The cells from an array of length [k] can be represented as a range of [k]
     consecutive cells, starting at some location [p]. In other words, the
     array cells have addresses from [p] inclusive to [p+k] exclusive.
@@ -268,68 +266,353 @@ Hint Resolve triple_array_get triple_array_set triple_array_length : triple.
 
 
 (* ########################################################### *)
-(** ** Representation of a record field *)
+(** ** Representation of individual records fields *)
 
-(** A record can be represented as a set of fields stored in consecutive
-    addresses. The field names thus correspond to offsets, represented as
-    natural numbers. We let [field] denote the type of field names. *)
+(** A record can be represented just like an array, with the field names
+    corresponding to offsets in that array.
+
+    We let [field] denote the type of field names, an alias for [nat]. *)
 
 Definition field : Type := nat.
 
 (** For example, consider a mutable list cell allocated at location [p].
-    It consists of a record with a [head] field storing a value [x], and
-    a tail field storing a value [q]. This list cell an be represented by
-    the heap predicate [(p ~~> x) \* ((p+1) ~~> q)].
+    It is represented in memory as:
 
-    If we define [head := 0] and [tail := 1], the same heap predicate can
-    be written [((p+head) ~~> x) \* ((p+tail) ~~> q)].
+    - a header at location [p], storing the number of fields, that is,
+      the value [2];
+    - a cell at location [p+1], storing the contents of the head field,
+    - a cell at location [p+2], storing the contents of the tail field.
 
-    To better suggest that we are talking about record fields, and also to
-    abstract away from the details of pointer arithmetics, we introduce the
-    notation [p`.k ~~> v] to denote [(p+k) ~~> v]. Here, [k] denotes by
-    convention a field name, where field names correspond to a natural
-    numbers. In first approximation, the definition is as shown below. *)
+    Concretely, the record can be represented by the heap predicate:
+    [(hheader 2 p) \* ((p+1) ~~> x) \* ((p+2) ~~> q)]. *)
+
+(** To avoid exposing pointer arithmetic to the end-user, let us introduce
+    the "record field" notation [p`.k ~~> v] to denote [(p+1+k) ~~> v].
+    For example, with the definition of the field offsets [head := 0]
+    and [tail := 1], the same record as before can be represented as:
+    [(hheader 2 p) \* (p`.head ~~> x) \* (p`.tail ~~> q)]. *)
 
 Definition hfield' (p:loc) (k:field) (v:val) : hprop :=
-  (p+k)%nat ~~> v.
-
-(** It is convenient in verification proofs to be able to assume that
-    whenever we write [p`.k ~~> v], we refer to a location [p] that is
-    not null. (For an example, see the use of the lemma [hfield_not_null]
-    inside the proof of the lemma [MList_if] in file [SLFBasic.v].)
-
-    To enable justifying this lemma [hfield_not_null], whose statement
-    appears further below, we bake in the definition of [p`.k ~~> v] the
-    fact that [p] is not null, using the pure assertion [\[p <> null]]. *)
-
-Definition hfield (p:loc) (k:field) (v:val) : hprop :=
-  (p+k)%nat ~~> v \* \[p <> null].
+  (p+1+k)%nat ~~> v.
 
 Notation "p `. k '~~>' v" := (hfield p k v)
   (at level 32, k at level 0, no associativity,
    format "p `. k  '~~>'  v").
 
-(** The lemma [hfield_not_null] asserts that the heap predicate [p`.k ~~> v]
-    always ensures [p <> null]. *)
-
-Lemma hfield_not_null : forall p k v,
-  (p`.k ~~> v) ==> (p`.k ~~> v) \* \[p <> null].
-Proof using. intros. unfold hfield. xsimpl*. Qed.
-
 (** To prevent undesirable simplifications, we set the definition [hfield]
     to be opaque. Still, it is useful in places to be able to unfold the
     definition. To that end, we state a lemma for unfolding the definition.
-    In its statement, we replace the addition [p+k] with the addition [k+p],
+    In its statement, we replace the addition [p+1+k] with the addition [k+S p],
     because the later simplifies better in Coq when [k] is a constant. *)
 
 Lemma hfield_eq : forall p k v,
-  hfield p k v = ((k+p)%nat ~~> v \* \[p <> null]).
+  hfield p k v = ((k+S p)%nat ~~> v \* \[p <> null]).
 Proof using. intros. math_rewrite (k+p = p+k)%nat. auto. Qed.
 
 Global Opaque hfield.
 
 
-End Specs.
+(* ########################################################### *)
+(** ** Representation of records *)
+
+(** Describing, e.g., a list cell record in the form
+    [(hheader 2 p) \* (p`.head ~~> x) \* (p`.tail ~~> q)]
+    in particularly verbose and cumbersome to manipulate.
+
+    To improve the situation, we next introduce generic representation
+    predicate for records that allows to describe the same list cell
+    much more concisely, as [p ~~~>`{ head := x; tail := q }].
+
+    It what follows, we show how to implement this notation by introducing
+    the heap predicates [hfields] and [hrecords], and rpesent the
+    specification of record operations with respect to those predicates. *)
+
+(** A record field is described as the pair of a field and a value
+    stored in this field. *)
+
+Definition hrecord_field : Type := (field * val).
+
+(** A record consists of of a list of fields. *)
+
+Definition hrecord_fields : Type := list hrecord_field.
+
+(** We let the meta-variable [kvs] denote such lists. *)
+
+Implicit Types kvs : hrecord_fields.
+
+(** A list cell with head field [x] and tail field [q] is represented
+    by the list [(head,x)::(tail,q)::nil]. To support the syntax
+    [`{ head := x; tail := q }], we introduce the following notation. *)
+
+Notation "`{ k1 := v1 }" :=
+  ((k1,(v1:val))::nil)
+  (at level 0, k1 at level 0)
+  : val_scope.
+
+Notation "`{ k1 := v1 ; k2 := v2 }" :=
+  ((k1,(v1:val))::(k2,(v2:val))::nil)
+  (at level 0, k1, k2 at level 0)
+  : val_scope.
+
+Notation "`{ k1 := v1 ; k2 := v2 ; k3 := v3 }" :=
+  ((k1,(v1:val))::(k2,(v2:val))::(k3,(v3:val))::nil)
+  (at level 0, k1, k2, k3 at level 0)
+  : val_scope.
+
+Notation "`{ k1 := v1 }" :=
+  ((k1,v1)::nil)
+  (at level 0, k1 at level 0, only printing)
+  : val_scope.
+
+Notation "`{ k1 := v1 ; k2 := v2 }" :=
+  ((k1,v1)::(k2,v2)::nil)
+  (at level 0, k1, k2 at level 0, only printing)
+  : val_scope.
+
+Notation "`{ k1 := v1 ; k2 := v2 ; k3 := v3 }" :=
+  ((k1,v1)::(k2,v2)::(k3,v3)::nil)
+  (at level 0, k1, k2, k3 at level 0, only printing)
+  : val_scope.
+
+Open Scope val_scope.
+
+(** The heap predicate [hfields kvs p] asserts that at location [p]
+    one finds the representation of the fields described by the list [kvs].
+    This predicate is defined recursively on the list [kvs].
+    If [kvs] is empty, the predicate describes the empty heap predicate.
+    Otherwise, it describes a first field, at offset [k] and with contents
+    [v], as the predicate [p`.k ~~> v], and it describes the remaining
+    fields recursively. *)
+
+Fixpoint hfields (kvs:hrecord_fields) (p:loc) : hprop :=
+  match kvs with
+  | nil => \[]
+  | (k,v)::kvs' => (p`.k ~~> v) \* (hfields kvs' p)
+  end.
+
+(** The heap predicate [hrecord kvs p] describes a record: it covers
+    not just all the fields of the record, but also the header.
+    The cells are described by [hfields kvs p], and the header is
+    described by [hheader k p], where [k] denotes the length of [kvs]. *)
+
+Definition hrecord (kvs:hrecord_fields) (p:loc) : hprop :=
+  hheader (length kvs) p \* hfields kvs p.
+
+(** We introduce the notation [p ~~~> kvs] for [hrecord kvs p],
+    allowing to write, e.g., [p ~~~>`{ head := x; tail := q }]. *)
+
+Notation "p '~~~>' kvs" := (hrecord kvs p)
+  (at level 32) : hprop_scope.
+
+(** For example, the definition of the representation predicate [MList]
+    can be revisited using the heap predicate for records. *)
+
+Fixpoint MList (L:list val) (p:loc) : hprop :=
+  match L with
+  | nil => \[p = null]
+  | x::L' => \exists q, (p ~~~>`{ head := x; tail := q}) \* (MList L' q)
+  end.
+
+
+(* ########################################################### *)
+(** ** Read in record fields *)
+
+(** The read operation is described by an expression of the form
+    [val_get_field k p], where [k] denotes a field name, and where [p]
+    denotes the location of a record. Technically, [val_get_field k]
+    is a value, and this value is applied to the pointer [p]. Hence,
+    [val_get_field] has type [field -> val]. *)
+
+Parameter val_get_field : field -> val.
+
+(** The read operation [val_get_field k p] can be abbreviated as [p'.k]. *)
+
+Notation "t1 ''.' k" :=
+  (val_get_field k t1)
+  (at level 56, k at level 0, format "t1 ''.' k" ).
+
+(** The operation [val_get_field k p] can be specified at three levels.
+    First, its small-footprint specification operates at the level of
+    a single field, described by [p`.k ~~> v]. The specification is
+    very similar to that of [val_get]: the return value is exactly [v]. *)
+
+Parameter triple_get_field : forall p k v,
+  triple (val_get_field k p)
+    (p`.k ~~> v)
+    (fun r => \[r = v] \* (p`.k ~~> v)).
+
+(** Second, this operation can be specified with respect to a list of
+    fields, described in the form [hfields kvs p]. To that end, we introduce
+    a function called [hfields_lookup] for extracting the value [v]
+    associated with a field [k] in a list of record fields [kvs].
+    The opeation [hfields_lookup k kvs] returns a result of type [option val],
+    because we cannot presume that the field [k] occurs in [kvs], even though
+    it is always the case in practice. *)
+
+Fixpoint hfields_lookup (k:field) (kvs:hrecord_fields) : option val :=
+  match kvs with
+  | nil => None
+  | (ki,vi)::kvs' => if Nat.eq_dec k ki
+                       then Some vi
+                       else hfields_lookup k kvs'
+  end.
+
+(** Under the assumption that [hfields_lookup k kvs] returns [Some v],
+    the read operation [val_get_field k p] is specified to return [v].
+    The corresponding specification appears below. *)
+
+Parameter triple_get_field_hfields : forall kvs p k v,
+  hfields_lookup k kvs = Some v ->
+  triple (val_get_field k p)
+    (hfields kvs p)
+    (fun r => \[r = v] \* hfields kvs p).
+
+(** Third and last, the read operation can be specified with respect
+    to the predicate [hrecord kvs p], describing the full record, including
+    its header. The specification is similar to the previous one. *)
+
+Parameter triple_get_field_hrecord : forall kvs p k v,
+  hfields_lookup k kvs = Some v ->
+  triple (val_get_field k p)
+    (hrecord kvs p)
+    (fun r => \[r = v] \* hrecord kvs p).
+
+
+(* ########################################################### *)
+(** ** Write in record fields *)
+
+(** The write operation is described by an expression of the form
+    [val_get_field k p v], where [k] denotes a field name, and where [p]
+    denotes the location of a record, and [v] is the new value for the field. *)
+
+Parameter val_set_field : field -> val.
+
+(** The write operation [val_get_field k p v] can be abbreviated as
+    [Set p'.k ':= v]. *)
+
+Notation "'Set' t1 ''.' k '':=' t2" :=
+  (val_set_field k t1 t2)
+  (at level 65, t1 at level 0, k at level 0, format "'Set' t1 ''.' k  '':=' t2").
+
+(** Like for the read operation, the write operation can be specified at three
+    levels. First, at the level of an individual field. *)
+
+Parameter triple_set_field : forall v p k v',
+  triple (val_set_field k p v)
+    (p`.k ~~> v')
+    (fun _ => p`.k ~~> v).
+
+(** Then, at the level of [hfields] and [hrecord]. To that end, we
+    introduce an auxiliary function called [hrecord_update] for computing
+    the updated list of fields following an write operation.
+    Concretely, [hrecord_update k w kvs] replaces the contents of the field named
+    [k] with the value [w]. It returns some description [kvs'] of the record fields,
+    provided the update operation succeeded, i.e., provided that the field [k]
+    on which the update is to be performed actually occurs in the list [kvs]. *)
+
+Fixpoint hfields_update (k:field) (v:val) (kvs:hrecord_fields)
+                        : option hrecord_fields :=
+  match kvs with
+  | nil => None
+  | (ki,vi)::kvs' => if Nat.eq_dec k ki
+                   then Some ((k,v)::kvs')
+                   else match hfields_update k v kvs' with
+                        | None => None
+                        | Some LR => Some ((ki,vi)::LR)
+                        end
+  end.
+
+(** The specification in terms of [hfields] is as follows. *)
+
+Parameter triple_set_field_hfields : forall kvs kvs' k p v,
+  hfields_update k v kvs = Some kvs' ->
+  triple (val_set_field k p v)
+    (hfields kvs p)
+    (fun _ => hfields kvs' p).
+
+(** The specification in terms of [hrecord] is similar. *)
+
+Parameter triple_set_field_hrecord : forall kvs kvs' k p v,
+  hfields_update k v kvs = Some kvs' ->
+  triple (val_set_field k p v)
+    (hrecord kvs p)
+    (fun _ => hrecord kvs' p).
+
+
+
+
+
+
+
+
+Lemma triple_set_field_hfields : forall kvs kvs' k p v,
+  hfields_update k v kvs = Some kvs' ->
+  triple (val_set_field k p v)
+    (hfields kvs p)
+    (fun _ => hfields kvs' p).
+Proof using.
+  intros kvs. induction kvs as [| [ki vi] kvs']; simpl; introv E.
+  { inverts E. }
+  { case_if.
+    { inverts E. subst ki. applys triple_conseq_frame.
+      { applys triple_set_field. } { xsimpl. } { xsimpl*. } }
+    { cases (hfields_update k v kvs') as C2; tryfalse. inverts E.
+      applys triple_conseq_frame. { applys IHkvs' C2. }
+      { xsimpl. } { simpl. xsimpl*. } } }
+Qed.
+
+
+Lemma triple_get_field_hrecord : forall kvs p k v,
+  hfields_lookup k kvs = Some v ->
+  triple (val_get_field k p)
+    (p ~~~> kvs)
+    (fun r => \[r = v] \* p ~~~> kvs).
+Proof using.
+  introv M. unfold hrecord.
+  applys* triple_conseq_frame triple_get_field_hfields; xsimpl*.
+Qed.
+
+
+
+
+
+(** There remains to explain how to reason about accesses to record
+    fields when the fields are described using the predicate [hrecord].
+
+    Recall the specification of the operation [val_get_field] for
+    reading in a field standing by itself. *)
+
+Lemma triple_get_field_hfields : forall kvs p k v,
+  hfields_lookup k kvs = Some v ->
+  triple (val_get_field k p)
+    (hfields kvs p)
+    (fun r => \[r = v] \* hfields kvs p).
+Proof using.
+  intros L. induction L as [| [ki vi] L']; simpl; introv E.
+  { inverts E. }
+  { case_if.
+    { inverts E. subst ki. applys triple_conseq_frame.
+      { applys triple_get_field. } { xsimpl. } { xsimpl*. } }
+    { applys triple_conseq_frame. { applys IHL' E. } { xsimpl. } { xsimpl*. } } }
+Qed.
+
+
+
+Lemma length_hfields_update : forall kvs kvs' k v,
+  hfields_update k v kvs = Some kvs' ->
+  length kvs' = length kvs.
+Proof using.
+  intros kvs. induction kvs as [|[ki vi] kvs1]; simpl; introv E.
+  { introv _ H. inverts H. }
+  { case_if.
+    { inverts E. rew_list*. }
+    { cases (hfields_update k v kvs1).
+      { inverts E. rew_list*. }
+      { inverts E. } } }
+Qed.
+
+
+
 
 (* ########################################################### *)
 (** ** Allocation and deallocation of record fields *)
@@ -412,11 +695,6 @@ Qed.
     For the moment, let us simply axiomatize these operations, and state
     their specifications.
 
-    The expression [val_get_field] has type [field -> val]. Given a field
-    name [k] (of type [field], which is defined as [nat]), the expression
-    [val_get_field k] denotes a value of type [val] that can be applied to
-    an argument [p].
-
     The specification of [val_get_field k p] follows the pattern of the
     specification of [val_get]. The precondition and the postcondition
     describe a field [p`.k ~~> v], and the result value [r] is specified
@@ -424,34 +702,14 @@ Qed.
 
 Module FieldAccesses.
 
-Parameter val_get_field : field -> val.
-
-Parameter triple_get_field : forall p k v,
-  triple (val_get_field k p)
-    (p`.k ~~> v)
-    (fun r => \[r = v] \* (p`.k ~~> v)).
-
 (** Likewise for [val_set_field], the operation that writes into a record
     field. *)
 
-Parameter val_set_field : field -> val.
-
-Parameter triple_set_field : forall v p k v',
-  triple (val_set_field k p v)
-    (p`.k ~~> v')
-    (fun _ => p`.k ~~> v).
 
 (** We introduce the syntax [t'.k] for reading from a field using
     [val_get_field], and [Set t1'.k := t2] for writing into a field
     using [val_set_field]. *)
 
-Notation "t1 ''.' k" :=
-  (val_get_field k t1)
-  (at level 56, k at level 0, format "t1 ''.' k" ).
-
-Notation "'Set' t1 ''.' k '':=' t2" :=
-  (val_set_field k t1 t2)
-  (at level 65, t1 at level 0, k at level 0, format "'Set' t1 ''.' k  '':=' t2").
 
 (** We register the specifications of these operations so that they may be
     exploited automatically by the tactic [xapp]. *)
@@ -468,213 +726,12 @@ End FieldAccesses.
 Module GroupedFields.
 Export FieldAccesses.
 
-(** In our presentation of record fields, one has to write the
-    fields one by one, for example a list cell takes the form:
-    [p`.head ~~> x \* p`.tail ~~> q].
 
-    When verifying larger programs, it is convenient to exploit
-    a more compact description of records, one that factorizes
-    the fields associated with a same location [p]. The syntax
-    for a list cell is [hrecord `{ head := x; tail := p'} p].
-
-    This factorized form has at least two practical benefits:
-
-    - it yields a more concise statement whenever the location [p]
-      is not a very short identifier;
-    - it significantly decreases the number of star-separated
-      items in the heap predicates, thereby increasing the speed
-      of proof processing.
-
-    It what follows, we introduce a generic representation predicate
-    for records, written [hecord kvs p], where [kvs] denotes a list
-    of pairs, each pair being made of a field name and a value. *)
-
-(** Recall that a field identifier corresponds to an offset,
-    represented as a natural number. *)
-
-Definition field : Type := nat.
-
-(** A record field is described as the pair of a a field and
-    a value stored at this field. *)
-
-Definition hrecord_field : Type := (field * val).
-
-(** A record consists of a list of record fields. We let the
-    meta-variable [kvs] denote such lists. *)
-
-Definition hrecord_fields : Type := list hrecord_field.
-
-Implicit Types kvs : hrecord_fields.
-
-(** To improve readability for concrete records, it is useful to
-    introduce record-style notation for list of pairs of fields
-    and values. Setting up an arity-generic notation is quite tricky,
-    so let us simply support up to 3 fields for now. For example,
-    [`{head := x; tail := q}] stands for [(head,x)::(tail,q)::nil]].
-*)
-
-Notation "`{ k1 := v1 }" :=
-  ((k1,(v1:val))::nil)
-  (at level 0, k1 at level 0)
-  : val_scope.
-
-Notation "`{ k1 := v1 ; k2 := v2 }" :=
-  ((k1,(v1:val))::(k2,(v2:val))::nil)
-  (at level 0, k1, k2 at level 0)
-  : val_scope.
-
-Notation "`{ k1 := v1 ; k2 := v2 ; k3 := v3 }" :=
-  ((k1,(v1:val))::(k2,(v2:val))::(k3,(v3:val))::nil)
-  (at level 0, k1, k2, k3 at level 0)
-  : val_scope.
-
-Open Scope val_scope.
-
-(** The heap predicate [hrecord_part kvs p] asserts that at location [p]
-    one fields the list of fields [kvs], where [kvs] has type
-    [hrecord_fields], that is [list (field * val)].
-
-    This predicate is defined by recursion on the list of fields [kvs].
-    If [kvs] is empty, the predicate describes the empty heap predicate.
-    Otherwise, it describes a first field, at offset [k] and with contents
-    [v], as the predicate [p`.k ~~> v], and it describes the remaining
-    fields recursively. *)
-
-Fixpoint hfields (kvs:hrecord_fields) (p:loc) : hprop :=
-  match kvs with
-  | nil => \[]
-  | (k,v)::kvs' => (p`.k ~~> v) \* (hfields kvs' p)
-  end.
-
-(** For example, the definition of the representation predicate
-    [MList] can be revisited using the heap predicate [hrecord],
-    applied to a list with the [head] and the [tail] fields. *)
-
-Fixpoint MList (L:list val) (p:loc) : hprop :=
-  match L with
-  | nil => \[p = null]
-  | x::L' => \exists q, (hfields `{ head := x; tail := q} p)
-                      \* (MList L' q)
-  end.
-
-(** There remains to explain how to reason about accesses to record
-    fields when the fields are described using the predicate [hrecord].
-
-    Recall the specification of the operation [val_get_field] for
-    reading in a field standing by itself. *)
-
-Parameter triple_get_field : forall p k v,
-  triple (val_get_field k p)
-    (p`.k ~~> v)
-    (fun r => \[r = v] \* (p`.k ~~> v)).
-
-(** Let us derive from this specification another one that operates
-    on the heap predicate [hrecord kvs p]. To that end, we introduce
-    a function called [hfields_lookup] for extracting the value [v]
-    associated with a field [k] in a list of record fields [kvs].
-
-    Because we cannot presume that the field [k] actually occurs in [kvs],
-    the return type of [hfields_lookup k kvs] is [option val]. *)
-
-Fixpoint hfields_lookup (k:field) (kvs:hrecord_fields) : option val :=
-  match kvs with
-  | nil => None
-  | (ki,vi)::kvs' => if Nat.eq_dec k ki
-                   then Some vi
-                   else hfields_lookup k kvs'
-  end.
-
-(** Now, under the assumption that [hfields_lookup k kvs] provides
-    some value [v], the read operation [val_get_field k p] returns
-    exactly that value [v]. The corresponding specification appears
-    below. *)
-
-Lemma triple_get_field_hfields : forall kvs p k v,
-  hfields_lookup k kvs = Some v ->
-  triple (val_get_field k p)
-    (hfields kvs p)
-    (fun r => \[r = v] \* hfields kvs p).
-Proof using.
-  intros L. induction L as [| [ki vi] L']; simpl; introv E.
-  { inverts E. }
-  { case_if.
-    { inverts E. subst ki. applys triple_conseq_frame.
-      { applys triple_get_field. } { xsimpl. } { xsimpl*. } }
-    { applys triple_conseq_frame. { applys IHL' E. } { xsimpl. } { xsimpl*. } } }
-Qed.
-
-
-(** Likewise, we can specify [val_set_field] in terms of the heap
-    predicate [hrecord]. To that end, we introduce an auxiliary
-    function called [hrecord_update] for computing the updated list
-    of fields following an write operation. [hrecord_update k w kvs]
-    replaces the contents of the field named [k] with the value [w].
-    It returns some description [kvs'] of the record fields, provided the
-    update operation succeeded, i.e., provided that the field [k] on which
-    the update is to be performed actually occurs in the list [kvs]. *)
-
-Fixpoint hfields_update (k:field) (v:val) (kvs:hrecord_fields)
-                        : option hrecord_fields :=
-  match kvs with
-  | nil => None
-  | (ki,vi)::kvs' => if Nat.eq_dec k ki
-                   then Some ((k,v)::kvs')
-                   else match hfields_update k v kvs' with
-                        | None => None
-                        | Some LR => Some ((ki,vi)::LR)
-                        end
-  end.
-
-Lemma length_hfields_update : forall kvs kvs' k v,
-  hfields_update k v kvs = Some kvs' ->
-  length kvs' = length kvs.
-Proof using.
-  intros kvs. induction kvs as [|[ki vi] kvs1]; simpl; introv E.
-  { introv _ H. inverts H. }
-  { case_if.
-    { inverts E. rew_list*. }
-    { cases (hfields_update k v kvs1).
-      { inverts E. rew_list*. }
-      { inverts E. } } }
-Qed.
 
 (** The specification of the write operation [val_set_field k p v]
     describes an update of the state from [hrecord kvs p] to [hrecord kvs' p],
     where [kvs'] is the result of [hrecord_update k v kvs]. *)
 
-Lemma triple_set_field_hfields : forall kvs kvs' k p v,
-  hfields_update k v kvs = Some kvs' ->
-  triple (val_set_field k p v)
-    (hfields kvs p)
-    (fun _ => hfields kvs' p).
-Proof using.
-  intros kvs. induction kvs as [| [ki vi] kvs']; simpl; introv E.
-  { inverts E. }
-  { case_if.
-    { inverts E. subst ki. applys triple_conseq_frame.
-      { applys triple_set_field. } { xsimpl. } { xsimpl*. } }
-    { cases (hfields_update k v kvs') as C2; tryfalse. inverts E.
-      applys triple_conseq_frame. { applys IHkvs' C2. }
-      { xsimpl. } { simpl. xsimpl*. } } }
-Qed.
-
-
-Definition hrecord (kvs:hrecord_fields) (p:loc) : hprop :=
-  hheader (length kvs) p \* hfields kvs p.
-
-Notation "p '~~~>' kvs" := (hrecord kvs p)
-  (at level 32) : hprop_scope.
-
-
-Lemma triple_get_field_hrecord : forall kvs p k v,
-  hfields_lookup k kvs = Some v ->
-  triple (val_get_field k p)
-    (p ~~~> kvs)
-    (fun r => \[r = v] \* p ~~~> kvs).
-Proof using.
-  introv M. unfold hrecord.
-  applys* triple_conseq_frame triple_get_field_hfields; xsimpl*.
-Qed.
 
 Lemma triple_get_field_hrecord' : forall kvs p k v,
   triple (val_get_field k p)
@@ -881,10 +938,6 @@ Definition mcell : val :=
 
 Open Scope val_scope.
 
-Notation "`{ k1 := v1 ; k2 := v2 }" :=
-  ((k1,v1)::(k2,v2)::nil)
-  (at level 0, k1, k2 at level 0, only printing)
-  : val_scope.
 
 Lemma triple_mcell : forall x q,
   triple (mcell x q)
