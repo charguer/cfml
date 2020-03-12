@@ -417,7 +417,7 @@ Fixpoint hfields (kvs:hrecord_fields) (p:loc) : hprop :=
     [all_fields nb kvs]. *)
 
 Definition all_fields (nb:nat) (kvs:hrecord_fields) : Prop :=
-  forall k, 0 <= k < nb <-> mem_assoc k kvs.
+  forall (k:field), 0 <= k < nb <-> mem_assoc k kvs.
 
 Definition hrecord (kvs:hrecord_fields) (p:loc) : hprop :=
   \exists nb, hheader nb p \* hfields kvs p \* \[all_fields nb kvs].
@@ -1232,6 +1232,9 @@ Qed.
 (* ########################################################### *)
 (** ** Specification of the [length] operation to read the header *)
 
+(** To establish [triple_length], we follow the same proof pattern
+    as for [triple_get]. *)
+
 Lemma eval_length_sep : forall s s2 p k,
   s = Fmap.union (Fmap.single p (val_header k)) s2 ->
   eval s (val_length (val_loc p)) s (val_int k).
@@ -1265,7 +1268,7 @@ Hint Resolve triple_length : triple.
 
 
 (* ########################################################### *)
-(** ** Definition of array operations using pointer arithmetic *)
+(** ** Encoding of array operations using pointer arithmetic *)
 
 Module Export ArrayAccessDef.
 Import SLFProgramSyntax.
@@ -1289,9 +1292,15 @@ Proof using.
   rewrite <- succ_abs_eq_abs_one_plus; math.
 Qed.
 
-(** Length *)
+(** Length operation on an array *)
 
 Definition val_array_length : val := val_length.
+
+Lemma triple_array_length_header : forall k p,
+  triple (val_array_length p)
+    (hheader k p)
+    (fun r => \[r = k] \* hheader k p).
+Proof using. intros. applys triple_length. Qed.
 
 Lemma triple_array_length : forall L p,
   triple (val_array_length p)
@@ -1302,7 +1311,7 @@ Proof using.
   { xsimpl. } { xsimpl. auto. }
 Qed.
 
-(** Get *)
+(** Get operation on an array *)
 
 Definition val_array_get : val :=
   Fun 'p 'i :=
@@ -1326,7 +1335,7 @@ Proof using.
   { rew_listx. applys* abs_lt_inbound. }
 Qed.
 
-(** Set *)
+(** Set operation on an array *)
 
 Definition val_array_set : val :=
   Fun 'p 'i 'x :=
@@ -1349,51 +1358,154 @@ Qed.
 End ArrayAccessDef.
 
 
-
-
-(*
 (* ########################################################### *)
+(** ** Encoding of record operations using pointer arithmetic  *)
 
+Module Export FieldAccessDef.
+Import SLFProgramSyntax.
 
+(** Get operation on a field *)
 
+Definition val_get_field (k:field) : val :=
+  Fun 'p :=
+    Let 'q := val_ptr_add 'p (nat_to_Z (k+1)) in
+    val_get 'q.
 
+Notation "t1 ''.' f" :=
+  (val_get_field f t1)
+  (at level 56, f at level 0, format "t1 ''.' f" ) : trm_scope.
 
-
-
-Parameter harray_eq_hrecord : forall p kvs,
-  hrecord kvs p = \exists L, harray L p.
-
-
-Lemma triple_dealloc_hrecord' : forall kvs p,
-  triple (val_dealloc p)
-    (hrecord kvs p)
-    (fun _ => \[]).
+Lemma triple_get_field : forall p k v,
+  triple ((val_get_field k) p)
+    (p`.k ~~> v)
+    (fun r => \[r = v] \* (p`.k ~~> v)).
 Proof using.
-  intros. xtriple. xchange harray_eq_hrecord. intros L.
-  xapp triple_dealloc. xsimpl.
+  xwp. xapp triple_ptr_add_nat. unfold hfield.
+  math_rewrite (p+1+k = p+(k+1))%nat.
+  xapp triple_get. xsimpl*.
+Qed.
+
+(** Set operation on a field *)
+
+Definition val_set_field (k:field) : val :=
+  Fun 'p 'v :=
+    Let 'q := val_ptr_add 'p (nat_to_Z (k+1)) in
+    val_set 'q 'v.
+
+Lemma triple_set_field : forall v1 p k v2,
+  triple ((val_set_field k) p v2)
+    (p`.k ~~> v1)
+    (fun _ => p`.k ~~> v2).
+Proof using.
+  intros. xwp. xapp triple_ptr_add_nat. unfold hfield.
+  math_rewrite (p+1+k = p+(k+1))%nat.
+  xapp triple_set. xsimpl*.
+Qed.
+
+Notation "'Set' t1 ''.' f '':=' t2" :=
+  (val_set_field f t1 t2)
+  (at level 65, t1 at level 0, f at level 0, format "'Set'  t1 ''.' f  '':='  t2") : trm_scope.
+
+End FieldAccessDef.
+
+Global Opaque hfield.
+
+
+(* ########################################################### *)
+(** ** Specification of record operations w.r.t. [hfields] and [hrecord] *)
+
+(** Get operation on a list of fields *)
+
+Lemma triple_get_field_hfields : forall kvs p k v,
+  hfields_lookup k kvs = Some v ->
+  triple (val_get_field k p)
+    (hfields kvs p)
+    (fun r => \[r = v] \* hfields kvs p).
+Proof using.
+  intros L. induction L as [| [ki vi] L']; simpl; introv E.
+  { inverts E. }
+  { case_if.
+    { inverts E. subst ki. applys triple_conseq_frame.
+      { applys triple_get_field. } { xsimpl. } { xsimpl*. } }
+    { applys triple_conseq_frame. { applys IHL' E. } { xsimpl. } { xsimpl*. } } }
+Qed.
+
+(** Get operation on a record *)
+
+Lemma triple_get_field_hrecord : forall kvs p k v,
+  hfields_lookup k kvs = Some v ->
+  triple (val_get_field k p)
+    (p ~~~> kvs)
+    (fun r => \[r = v] \* p ~~~> kvs).
+Proof using.
+  introv M. xtriple. unfold hrecord. xpull. intros nb Hnb.
+  xapp (>> triple_get_field_hfields M). xsimpl*.
+Qed.
+
+(** Set operation on a list of fields *)
+
+Lemma triple_set_field_hfields : forall kvs kvs' k p v,
+  hfields_update k v kvs = Some kvs' ->
+  triple (val_set_field k p v)
+    (hfields kvs p)
+    (fun _ => hfields kvs' p).
+Proof using.
+  intros kvs. induction kvs as [| [ki vi] kvs']; simpl; introv E.
+  { inverts E. }
+  { case_if.
+    { inverts E. subst ki. applys triple_conseq_frame.
+      { applys triple_set_field. } { xsimpl. } { xsimpl*. } }
+    { cases (hfields_update k v kvs') as C2; tryfalse. inverts E.
+      applys triple_conseq_frame. { applys IHkvs' C2. }
+      { xsimpl. } { simpl. xsimpl*. } } }
+Qed.
+
+(** Auxiliary lemma about [hfields_update] preserving fields. *)
+
+Lemma hfields_update_preserves_fields : forall kvs kvs' k v,
+  hfields_update k v kvs = Some kvs' ->
+  LibList.map fst kvs' = LibList.map fst kvs.
+Proof using.
+  intros kvs. induction kvs as [|[ki vi] kvs1]; simpl; introv E.
+  { introv _ H. inverts H. }
+  { case_if.
+    { inverts E. rew_listx*. subst. fequals. }
+    { cases (hfields_update k v kvs1).
+      { inverts E. rew_listx. fequals*. }
+      { inverts E. } } }
+Qed.
+
+Lemma hfields_update_preserves_all_fields : forall kvs kvs' nb k v,
+  hfields_update k v kvs = Some kvs' ->
+  all_fields nb kvs = all_fields nb kvs'.
+Proof using.
+  introv M. unfold all_fields, mem_assoc. extens.
+  lets R: (>> hfields_update_preserves_fields M).
+  iff N; intros k'. { rewrite* R. } { rewrite* <- R. }
+Qed.
+
+(** Set operation on a record *)
+
+Lemma triple_set_field_hrecord : forall kvs kvs' k p v,
+  hfields_update k v kvs = Some kvs' ->
+  triple (val_set_field k p v)
+    (p ~~~> kvs)
+    (fun _ => p ~~~> kvs').
+Proof using.
+  introv M. xtriple. unfold hrecord. xpull. intros nb Hnb.
+  xapp (>> triple_set_field_hfields M). xsimpl.
+  rewrites* <- (>> hfields_update_preserves_all_fields nb M).
 Qed.
 
 
+(* ########################################################### *)
+(** ** Specification of record allocation and deallocation *)
 
-Parameter harray_uninit_eq_hrecord : forall p (nb:nat),
-  harray (LibList.make nb val_uninit) p =
-  hrecord (LibList.map (fun k => (k,val_uninit)) (nat_seq 0 nb)) p.
-
-
-Lemma triple_alloc_hrecord' : forall ks,
-  ks = nat_seq 0 (LibListExec.length ks) ->
-  triple (val_alloc_record ks)
-    \[]
-    (funloc p => hrecord (LibListExec.map (fun k => (k,val_uninit)) ks) p).
-Proof using.
-  introv E. xtriple. xapp triple_alloc_nat. intros p.
-  xsimpl p. { auto. } rewrite E. rewrite length_nat_seq.
-  rewrite LibListExec.map_eq. xchange harray_uninit_eq_hrecord.
-Qed.
+(*
+Import LibListExec.RewListExec.*)
 
 
 (*
-Import LibListExec.RewListExec.
 
 
  (* TODO: rewrite lemmas for nat_seq *)
@@ -1421,217 +1533,45 @@ Qed.
 Qed.
 *)
 
-
-
-(* ########################################################### *)
-
-
-
-Lemma triple_set_field_hfields : forall kvs kvs' k p v,
-  hfields_update k v kvs = Some kvs' ->
-  triple (val_set_field k p v)
-    (hfields kvs p)
-    (fun _ => hfields kvs' p).
-Proof using.
-  intros kvs. induction kvs as [| [ki vi] kvs']; simpl; introv E.
-  { inverts E. }
-  { case_if.
-    { inverts E. subst ki. applys triple_conseq_frame.
-      { applys triple_set_field. } { xsimpl. } { xsimpl*. } }
-    { cases (hfields_update k v kvs') as C2; tryfalse. inverts E.
-      applys triple_conseq_frame. { applys IHkvs' C2. }
-      { xsimpl. } { simpl. xsimpl*. } } }
-Qed.
-
-
-Lemma triple_get_field_hrecord : forall kvs p k v,
-  hfields_lookup k kvs = Some v ->
-  triple (val_get_field k p)
-    (p ~~~> kvs)
-    (fun r => \[r = v] \* p ~~~> kvs).
-Proof using.
-  introv M. unfold hrecord.
-  applys* triple_conseq_frame triple_get_field_hfields; xsimpl*.
-Qed.
-
-
-
-
-
-(** There remains to explain how to reason about accesses to record
-    fields when the fields are described using the predicate [hrecord].
-
-    Recall the specification of the operation [val_get_field] for
-    reading in a field standing by itself. *)
-
-Lemma triple_get_field_hfields : forall kvs p k v,
-  hfields_lookup k kvs = Some v ->
-  triple (val_get_field k p)
-    (hfields kvs p)
-    (fun r => \[r = v] \* hfields kvs p).
-Proof using.
-  intros L. induction L as [| [ki vi] L']; simpl; introv E.
-  { inverts E. }
-  { case_if.
-    { inverts E. subst ki. applys triple_conseq_frame.
-      { applys triple_get_field. } { xsimpl. } { xsimpl*. } }
-    { applys triple_conseq_frame. { applys IHL' E. } { xsimpl. } { xsimpl*. } } }
-Qed.
-
-
-
-Lemma length_hfields_update : forall kvs kvs' k v,
-  hfields_update k v kvs = Some kvs' ->
-  length kvs' = length kvs.
-Proof using.
-  intros kvs. induction kvs as [|[ki vi] kvs1]; simpl; introv E.
-  { introv _ H. inverts H. }
-  { case_if.
-    { inverts E. rew_list*. }
-    { cases (hfields_update k v kvs1).
-      { inverts E. rew_list*. }
-      { inverts E. } } }
-Qed.
-
-
-
-
-
-(* ####################################################### *)
-(** ** Grouped representation of record fields *)
-
-Module GroupedFields.
-Export FieldAccesses.
-
-
-
-(** The specification of the write operation [val_set_field k p v]
-    describes an update of the state from [hrecord kvs p] to [hrecord kvs' p],
-    where [kvs'] is the result of [hrecord_update k v kvs]. *)
-
-
-Lemma triple_get_field_hrecord' : forall kvs p k v,
-  triple (val_get_field k p)
-    (p ~~~> kvs \* \[hfields_lookup k kvs = Some v])
-    (fun r => \[r = v] \* p ~~~> kvs).
-Admitted.
-
-Lemma triple_set_field_hrecord : forall kvs kvs' k p v,
-  hfields_update k v kvs = Some kvs' ->
-  triple (val_set_field k p v)
-    (p ~~~> kvs)
-    (fun _ => p ~~~> kvs').
-Proof using.
-  introv M. unfold hrecord.
-  applys* triple_conseq_frame triple_set_field_hfields; xsimpl*.
-  rewrites* (>> length_hfields_update M).
-Qed.
-
-
-
-Lemma triple_alloc_mcell' :
-  triple (val_alloc 2%nat)
-    \[]
-    (funloc p => p ~~~> `{ head := val_uninit ; tail := val_uninit }).
-Proof using.
-  xtriple. xapp triple_alloc_mcell. intros p.
-  unfold hrecord, hfields. rew_list. simpl. xsimpl*.
-Qed.
-
-Opaque hfields.
-
-End GroupedFields.
-
-
-
-
-
-(** To prevent undesirable simplifications, we set the definition [hfield]
-    to be opaque. Still, it is useful in places to be able to unfold the
-    definition. To that end, we state a lemma for unfolding the definition.
-    In its statement, we replace the addition [p+1+k] with the addition [k+S p],
-    because the later simplifies better in Coq when [k] is a constant. *)
-
-Lemma hfield_eq : forall p k v,
-  hfield p k v = ((k+S p)%nat ~~> v \* \[p <> null]).
-Proof using. intros. math_rewrite (k+S p = p+1+k)%nat. auto. Qed.
-
-Global Opaque hfield.
-
-
-
-
-
-
-
 (*
 
+(** Conversion lemma from [hrecord] view to [harray] view. *)
 
+Parameter harray_eq_hrecord : forall p kvs,
+  hrecord kvs p = \exists L, harray L p.
 
+(** Record deallocation *)
 
-
-
-
-(* ########################################################### *)
-(** ** Definition of record operations using pointer arithmetic *)
-
-Module FieldOps.
-Import SLFProgramSyntax.
-Transparent hfield.
-
-(** Most real-world programming languages include primitive operations
-    for reading and writing in record cells. Yet, in our simple language,
-    record cells can be accessed by means of pointer arithmetic. It is
-    interesting to see how one may formally reason about this kind of
-    encoding. *)
-
-(** For example, the read operation on record fields can be implemented
-    within our language, as the combination of a pointer addition and
-    a read operation. More precisely, reading in [p`.f] using [val_get_field]
-    is like reading in the cell at address [p+f] using [val_get], where [p+f]
-    is computed by invoking [val_ptr_add p k]. *)
-
-Definition val_get_field (k:field) : val :=
-  Fun 'p :=
-    Let 'q := val_ptr_add 'p (nat_to_Z k) in
-    val_get 'q.
-
-(** The specification of [val_get_field] can be proved with respect
-    to the specifications of [val_ptr_add] and that of [val_get]. *)
-
-Lemma triple_get_field : forall p k v,
-  triple ((val_get_field k) p)
-    (p`.k ~~> v)
-    (fun r => \[r = v] \* (p`.k ~~> v)).
+Lemma triple_dealloc_hrecord : forall kvs p,
+  triple (val_dealloc p)
+    (hrecord kvs p)
+    (fun _ => \[]).
 Proof using.
-  xwp. xapp. unfold hfield. xpull. intros N. xapp. xsimpl*.
+  intros. xtriple. xchange harray_eq_hrecord. intros L.
+  xapp triple_dealloc. xsimpl.
 Qed.
 
-(** A similar construction applies to the write operation on record
-    fields. *)
+(** Conversion lemma from [harray] view to [hrecord] view,
+    for an array of uninitialized values. *)
 
-Definition val_set_field (k:field) : val :=
-  Fun 'p 'v :=
-    Let 'q := val_ptr_add 'p (nat_to_Z k) in
-    val_set 'q 'v.
+Parameter harray_uninit_eq_hrecord : forall p (nb:nat),
+  harray (LibList.make nb val_uninit) p =
+  hrecord (LibList.map (fun k => (k,val_uninit)) (nat_seq 0 nb)) p.
 
-Lemma triple_set_field : forall v1 p k v2,
-  triple ((val_set_field k) p v2)
-    (p`.k ~~> v1)
-    (fun _ => p`.k ~~> v2).
+(** Record allocation *)
+
+Lemma triple_alloc_hrecord : forall ks,
+  ks = nat_seq 0 (LibListExec.length ks) ->
+  triple (val_alloc_record ks)
+    \[]
+    (funloc p => hrecord (LibListExec.map (fun k => (k,val_uninit)) ks) p).
 Proof using.
-  xwp. xapp. unfold hfield. xpull. intros N. xapp. xsimpl*.
+  introv E. xtriple. xapp triple_alloc_nat. intros p.
+  xsimpl p. { auto. } rewrite E. rewrite length_nat_seq.
+  rewrite LibListExec.map_eq. xchange harray_uninit_eq_hrecord.
 Qed.
 
-End FieldOps.
-
-
-
-
-
-
-
-*)
 *)
 
 
+End Realization.

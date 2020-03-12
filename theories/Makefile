@@ -50,8 +50,7 @@ SRC_MORE := SepBaseAltProofs SepCredits SepRO SubstExec
 
 SRC_CF := CFCrashCourse
 
-SRC_SF := SLFPreface SLFDirect SLFExtra SLFSummary SLFMinimal SLFBasic SLFHprop SLFHimpl SLFRules SLFWPsem SLFWPgen SLFWand SLFAffine SLFRich 
-#SLFStruct 
+SRC_SF := SLFPreface SLFDirect SLFExtra SLFSummary SLFMinimal SLFBasic SLFHprop SLFHimpl SLFRules SLFWPsem SLFWPgen SLFWand SLFAffine SLFRich SLFStruct 
 
 # SLFLift SLFRicher SLFExt
 

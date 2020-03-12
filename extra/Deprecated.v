@@ -2206,3 +2206,34 @@ Proof using.
   intros. xtriple. xchange himpl_hcells_any_hcells. intros L EL.
   xapp triple_dealloc_hcells. { auto. } { xsimpl. }
 Qed.
+
+
+
+
+
+(** To prevent undesirable simplifications, we set the definition [hfield]
+    to be opaque. Still, it is useful in places to be able to unfold the
+    definition. To that end, we state a lemma for unfolding the definition.
+    In its statement, we replace the addition [p+1+k] with the addition [k+S p],
+    because the later simplifies better in Coq when [k] is a constant. *)
+
+Lemma hfield_eq : forall p k v,
+  hfield p k v = ((k+S p)%nat ~~> v \* \[p <> null]).
+Proof using. intros. math_rewrite (k+S p = p+1+k)%nat. auto. Qed.
+
+Global Opaque hfield.
+
+
+
+Lemma length_hfields_update : forall kvs kvs' k v,
+  hfields_update k v kvs = Some kvs' ->
+  length kvs' = length kvs.
+Proof using.
+  intros kvs. induction kvs as [|[ki vi] kvs1]; simpl; introv E.
+  { introv _ H. inverts H. }
+  { case_if.
+    { inverts E. rew_list*. }
+    { cases (hfields_update k v kvs1).
+      { inverts E. rew_list*. }
+      { inverts E. } } }
+Qed.
