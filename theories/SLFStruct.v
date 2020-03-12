@@ -28,6 +28,18 @@ Implicit Types nb : nat.
 Definition mem_assoc A B (x:A) (l:list (A*B)) : Prop :=
   LibList.mem x (LibList.map fst l).
 
+Hint Rewrite length_make make_zero make_succ : rew_listx.
+
+
+Lemma conseq_cons' : forall B (l:nat) (v:B) (vs:list B),
+  conseq (v::vs) l = (single l v) \+ (conseq vs (l+1)).
+Proof using. intros. math_rewrite (l+1 = S l)%nat. applys conseq_cons. Qed.
+
+Hint Rewrite conseq_nil conseq_cons' : rew_conseq.
+
+
+(* TODO: hstar_hpure_r *)
+
 
 (* ####################################################### *)
 (* ####################################################### *)
@@ -77,7 +89,7 @@ Definition mem_assoc A B (x:A) (l:list (A*B)) : Prop :=
 Fixpoint hcells (L:list val) (p:loc) : hprop :=
   match L with
   | nil => \[]
-  | x::L' => (p ~~> x) \* (hcells L' (S p))
+  | x::L' => (p ~~> x) \* (hcells L' (p+1)%nat)
   end.
 
 (** The description of an array, that is, a set of consecutive cells,
@@ -154,7 +166,8 @@ Parameter val_uninit : val.
 
 (** More precisely, the postcondition of [val_alloc k] is of the form
    [funloc p => harray L p], where the list [L] is defined as the
-   repetition of [k] times the value [val_uninit]. *)
+   repetition of [k] times the value [val_uninit]. This list is
+   written [LibList.make k val_uninit]. *)
 
 Parameter triple_alloc_nat : forall k,
   triple (val_alloc k)
@@ -851,21 +864,29 @@ Parameter val_header : nat -> val.
     by the evaluation of [val_alloc], and they should never leak
     in program terms. *)
 
-(** The allocation and deallocation primitive operations are 
-    specified as follows. *)
+(** The operation [val_alloc k] is specified as shown below. Starting from
+    a state [ma], it produces a state [mb \u ma] (the union of [mb]
+    and [ma]), where [mb] consists of consecutive of [k+1] consecutive
+    cells, the head cell storing the special value [val_header k], and
+    the [k] following cells storing the special value [val_uninit]. *)
 
 Parameter eval_alloc : forall k n ma mb p,
   mb = Fmap.conseq (val_header k :: LibList.make k val_uninit) p ->
   n = nat_to_Z k ->
   p <> null ->
   Fmap.disjoint ma mb ->
-  eval ma (val_alloc (val_int n)) (mb \+ ma) (val_loc p).
+  eval ma (val_alloc (val_int n)) (mb \u ma) (val_loc p).
+
+(** The operation [val_dealloc p] is specified as shown below. Starting from
+    a state [mb \u ma], where [mb] consists of consecutive of [k+1] consecutive
+    cells, the head cell storing the special value [val_header k], the
+    operation produces the state [ma]. *)
 
 Parameter eval_dealloc : forall k vs ma mb p,
   mb = Fmap.conseq (val_header k :: vs) p ->
   k = LibList.length vs ->
   Fmap.disjoint ma mb ->
-  eval (mb \+ ma) (val_dealloc (val_loc p)) ma val_unit.
+  eval (mb \u ma) (val_dealloc (val_loc p)) ma val_unit.
 
 Arguments eval_alloc : clear implicits.
 Arguments eval_dealloc : clear implicits.
@@ -899,7 +920,6 @@ Parameter eval_length : forall s p k,
   eval s (val_length (val_loc p)) s (val_int k).
 
 
-
 (* ####################################################### *)
 (** ** Realization of [hheader]  *)
 
@@ -907,14 +927,78 @@ Parameter eval_length : forall s p k,
     whose contents is the special value [val_header k], and with
     the invariant that [p] is not null. *)
 
-Definition hheader (k:nat) (p:loc) : hprop :=
-  p ~~> (val_header k) \* \[p <> null].
+Parameter hheader_def :
+  hheader = (fun (k:nat) (p:loc) => p ~~> (val_header k) \* \[p <> null]).
 
 (** The extraction of the information [p <> null] is straightforward. *)
 
 Lemma hheader_not_null : forall p k,
   hheader k p ==> hheader k p \* \[p <> null].
-Proof using. intros. unfold hheader. xsimpl*. Qed.
+Proof using. intros. rewrite hheader_def. xsimpl*. Qed.
+
+(** The definition of [hheader] is meant to show that one can prove
+    all the specifications axiomatized so far. However, this definition
+    should not be revealed to the end user. In other words, it should
+    be made "strongly opaque". (This can be achieved by means of a
+    functor in Coq.) Otherwise, the user could exploit the [val_set]
+    operation to update the contents of a header field, replacing
+    [p ~~> (val_header k)] with [p ~~> v] for another value [v],
+    thereby compromising the invariants of the memory model. *)
+
+
+(* ####################################################### *)
+(** ** Introduction and inversion lemmas for [hcells] and [harray] *)
+
+(** The following lemmas are used to establish the specifications
+    for allocation and deallocation. *)
+
+Lemma hcells_intro : forall L p,
+  (hcells L p) (Fmap.conseq L p).
+Proof using.
+  intros L. induction L as [|L']; intros; autorewrite with rew_conseq.
+  { applys hempty_intro. }
+  { applys hstar_intro.
+    { applys* hsingle_intro. }
+    { applys IHL. }
+    { applys Fmap.disjoint_single_conseq. left. math. } }
+Qed.
+
+Lemma hcells_inv : forall p L h,
+  hcells L p h ->
+  h = Fmap.conseq L p.
+Proof using.
+  introv N. gen p h. induction L as [|x L'];
+   intros; autorewrite with rew_conseq; simpls.
+  { applys hempty_inv N. }
+  { lets (h1&h2&N1&N2&N3&->): hstar_inv N. fequal.
+    { applys hsingle_inv N1. }
+    { applys IHL' N2. } }
+Qed.
+
+Lemma harray_intro : forall k p L,
+  k = length L ->
+  p <> null ->
+  (harray L p) (Fmap.conseq (val_header k :: L) p).
+Proof using.
+  introv E n. unfold harray. rewrite hheader_def.
+  autorewrite with rew_conseq.
+  rewrite hstar_assoc, hstar_comm, hstar_assoc, hstar_hpure. 
+  split*. rewrite hstar_comm. applys hstar_intro.
+  { subst k. applys* hsingle_intro. }
+  { applys hcells_intro. }
+  { applys disjoint_single_conseq. left. math. }
+Qed.
+
+Lemma harray_inv : forall p L h,
+  (harray L p) h ->
+  h = (Fmap.conseq (val_header (length L) :: L) p) /\ p <> null.
+Proof using.
+  introv N. unfolds harray. rewrite hheader_def in N.
+  lets (h1&h2&N1&N2&N3&->): hstar_inv (rm N).
+  rewrite hstar_comm, hstar_hpure in N1. destruct N1 as (N&N1).
+  lets N1': hsingle_inv (rm N1). lets N2': hcells_inv (rm N2).
+  rewrite conseq_cons'. subst. splits*.
+Qed.
 
 
 
@@ -961,26 +1045,80 @@ Proof using.
 Qed.
 
 
+(* ########################################################### *)
+(** ** Proving the specification of allocation and deallocation *)
+
+(** Let us first establish [triple_alloc_nat]. *)
+
+Lemma hoare_alloc_nat : forall H k,
+  hoare (val_alloc k)
+    H
+    (funloc p => harray (LibList.make k val_uninit) p \* H).
+Proof using.
+  intros. intros h Hh. sets L: (LibList.make k val_uninit).
+  sets L': (val_header k :: L).
+  forwards~ (p&Dp&Np): (Fmap.conseq_fresh null h L').
+  exists ((Fmap.conseq L' p) \u h) (val_loc p). split.
+  { applys~ (eval_alloc k). }
+  { applys hexists_intro p. rewrite hstar_hpure. split*.
+    { applys* hstar_intro. applys* harray_intro.
+      subst L. rew_listx*. } }
+Qed.
+
+Lemma triple_alloc_nat : forall k,
+  triple (val_alloc k)
+    \[]
+    (funloc p => harray (LibList.make k val_uninit) p).
+Proof using.
+  intros. intros H'. applys hoare_conseq.
+  { applys hoare_alloc_nat H'. } { xsimpl. } { xsimpl*. }
+Qed.
+
+(** The two corroralies to [triple_alloc_nat] follow. *)
+
+Lemma triple_alloc : forall n,
+  n >= 0 ->
+  triple (val_alloc n)
+    \[]
+    (funloc p => harray (LibList.make (abs n) val_uninit) p).
+Proof using.
+  introv N. rewrite <- (@abs_nonneg n) at 1; [|auto].
+  xtriple. xapp triple_alloc_nat. xsimpl*.
+Qed.
+
+Lemma triple_alloc_array : forall n,
+  n >= 0 ->
+  triple (val_alloc n)
+    \[]
+    (funloc p => \exists L, \[n = length L] \* harray L p).
+Proof using.
+  introv N. xtriple. xapp triple_alloc. { auto. }
+  { xpull. intros p. xsimpl*. { rewrite length_make. rewrite* abs_nonneg. } }
+Qed.
+
+(** Finally, we establish [triple_dealloc]. *)
+
+Lemma hoare_dealloc : forall H L p,
+  hoare (val_dealloc p)
+    (harray L p \* H)
+    (fun _ => H).
+Proof using.
+  intros. intros h Hh. destruct Hh as (h1&h2&N1&N2&N3&N4). subst h.
+  exists h2 val_unit. split; [|auto].
+  applys* eval_dealloc L. applys harray_inv N1.
+Qed.
+
+Lemma triple_dealloc : forall L p,
+  triple (val_dealloc p)
+    (harray L p)
+    (fun _ => \[]).
+Proof using.
+  intros. intros H'. applys hoare_conseq.
+  { applys hoare_dealloc H'. } { xsimpl. } { xsimpl. }
+Qed.
 
 
 
-
-Parameter val_uninit_neq_header :
-  forall k, val_uninit <> val_header k.
-(* Would be free if constructors were part of the inductive definition of [val] *)
-
-
-
-
-
-
-
-
-
-
-
-Parameter harray_not_null : forall p L,
-  harray L p ==> harray L p \* \[p <> null].
 
 
 (*
@@ -1027,7 +1165,7 @@ Qed.
 (*
 Import LibListExec.RewListExec.
 
-Hint Rewrite length_make make_zero make_succ : rew_listx.
+
  (* TODO: rewrite lemmas for nat_seq *)
 
 Lemma hcells_uninit_eq_hfields : forall (i nb:nat) p,
@@ -1206,31 +1344,6 @@ Global Opaque hfield.
 
 
 
-Lemma triple_alloc : forall n,
-  n >= 0 ->
-  triple (val_alloc n)
-    \[]
-    (funloc p => harray (LibList.make (abs n) val_uninit) p).
-Proof using.
-  introv N. rewrite <- (@abs_nonneg n) at 1; [|auto].
-  xtriple. xapp triple_alloc_nat. xsimpl*.
-Qed.
-
-(** The specification above turns out to be often unncessarily precise.
-    For most applications, it is sufficient for the postcondition to
-    describe the array as [harray L p] for some unspecified list [L]
-    of length [n]. This weaker specification is stated and proved next. *)
-
-Lemma triple_alloc_array : forall n,
-  n >= 0 ->
-  triple (val_alloc n)
-    \[]
-    (funloc p => \exists L, \[n = length L] \* harray L p).
-Proof using.
-  introv N. xtriple. xapp triple_alloc. { auto. }
-  { xpull. intros p. unfold harray_uninit. xsimpl*.
-    { rewrite length_make. rewrite* abs_nonneg. } }
-Qed.
 
 
 
@@ -1238,171 +1351,6 @@ Qed.
 
 
 
-(* ########################################################### *)
-(** ** Formalization of allocation and deallocation operations *)
-
-Module AllocSpec.
-
-(** Earlier in this chapter, we have axiomatized the specification
-    of the allocation function through the lemma [triple_alloc_nat]. *)
-
-Parameter triple_alloc_nat' : forall k,
-  triple (val_alloc k)
-    \[]
-    (funloc p => harray_uninit k p).
-
-(** Like for other operations, this specification can be proved correct
-    with respect to the semantics of the programming language.
-
-    The allocation operation [val_alloc n] can be described as extending
-    the state with a range of fresh consecutive cells. The corresponding
-    evaluation rule appears below.
-
-    In this rule, we write [LibList.make k val_uninit] for a list that
-    repeats [k] times the value [val_uninit]. We write [Fmap.conseq L p]
-    for a heap made of consecutive cells, starting at location [p], and
-    whose contents are described by the elements from the list [L]. This
-    heap is named [mb], and it extends the existing heap, which is named [ma]. *)
-
-Parameter eval_alloc : forall k n ma mb p,
-  mb = Fmap.conseq (LibList.make k val_uninit) p ->
-  n = nat_to_Z k ->
-  p <> null ->
-  Fmap.disjoint ma mb ->
-  eval ma (val_alloc (val_int n)) (Fmap.union mb ma) (val_loc p).
-
-(** To verify the specification of allocation, the crux of the proof
-    is to establish the lemma [harray_uninit_intro], which establishes
-    that the heap built by [Fmap.conseq] in the rule [eval_alloc]
-    satisfies the predicate [harray_uninit] that appears in the
-    postcondition of [triple_alloc_nat].
-
-    This lemma itself relies on an introduction lemma for [hcells],
-    asserting that [Fmap.conseq p L] satisfies [hcells L p].
-
-    The two lemmas involved are stated and proved below. It is not
-    needed to follow through the proof details. *)
-
-Lemma hcells_intro : forall L p,
-  p <> null ->
-  hcells L p (Fmap.conseq L p).
-Proof using.
-  intros L. induction L as [|L']; introv N; simpl.
-  { applys hempty_intro. }
-  { applys hstar_intro.
-    { applys* hsingle_intro. }
-    { applys IHL. unfolds loc, null. math. }
-    { applys Fmap.disjoint_single_conseq. left. math. } }
-Qed.
-
-Lemma harray_uninit_intro : forall p k,
-  p <> null ->
-  harray_uninit k p (Fmap.conseq (LibList.make k val_uninit) p).
-Proof using.
-  introv N. unfold harray_uninit, harray.
-  rewrite hstar_comm. rewrite hstar_hpure. split.
-  { auto. } { applys* hcells_intro. }
-Qed.
-
-(** Using the lemma above, we can prove the specification of [val_alloc].
-    As usual, we first derive a Hoare logic statement, then the
-    corresponding Separation Logic judgment. *)
-
-Lemma hoare_alloc_nat : forall H k,
-  hoare (val_alloc k)
-    H
-    (funloc p => harray_uninit k p \* H).
-Proof using.
-  intros. intros h Hh.
-  forwards~ (p&Dp&Np): (Fmap.conseq_fresh null h k val_uninit).
-  match type of Dp with Fmap.disjoint ?hc _ => sets h1': hc end.
-  exists (h1' \u h) (val_loc p). split.
-  { applys~ (eval_alloc k). }
-  { applys hexists_intro p. rewrite hstar_hpure. split*.
-    { applys* hstar_intro. applys* harray_uninit_intro. } }
-Qed.
-
-Lemma triple_alloc_nat : forall k,
-  triple (val_alloc k)
-    \[]
-    (funloc p => harray_uninit k p).
-Proof using.
-  intros. intros H'. applys hoare_conseq.
-  { applys hoare_alloc_nat H'. } { xsimpl. } { xsimpl*. }
-Qed.
-
-(** Similarly, we can formalize the behavior and the specification of
-    the deallocation operation [val_dealloc n p].
-
-    This time, the initial state is of the union of a heap [mb], describing
-    the part to be deallocated, and a disjoint heap [ma], describing the
-    part of the state that remains. The heap [mb] must correspond to [n]
-    consecutive cells, starting at location [p]. This heap is described by
-    [Fmap.conseq vs p], for a list of values [vs]. *)
-
-Parameter eval_dealloc : forall n vs ma mb p,
-  mb = Fmap.conseq vs p ->
-  n = LibList.length vs ->
-  Fmap.disjoint ma mb ->
-  eval (Fmap.union mb ma) (val_dealloc (val_int n) (val_loc p)) ma val_unit.
-
-(** To verify the specification of deallocation, the crux of the proof
-    is to establish that if a heap satisfies [hcells L p], then this
-    heap is described by [Fmap.conseq L p].
-
-    This inversion lemma, reciprocal to [hcells_intro], is stated as
-    follows. The proof is by induction on the list [L]. (It is not
-    needed to follow throught the proof details.) *)
-
-Lemma hcells_inv : forall p L h,
-  hcells L p h ->
-  h = Fmap.conseq L p.
-Proof using.
-  introv N. gen p h. induction L as [|x L']; simpl; intros.
-  { applys hempty_inv N. }
-  { lets (h1&h2&N1&N2&N3&->): hstar_inv N. fequal.
-    { applys hsingle_inv N1. }
-    { applys IHL' N2. } }
-Qed.
-
-(** Using this lemma, we can prove the specification of [val_dealloc],
-    first for Hoare triples, then for Separation Logic triples. *)
-
-Lemma hoare_dealloc_hcells : forall H L p n,
-  n = length L ->
-  hoare (val_dealloc n p)
-    (hcells L p \* H)
-    (fun _ => H).
-Proof using.
-  introv N. intros h Hh. destruct Hh as (h1&h2&N1&N2&N3&N4). subst h.
-  exists h2 val_unit. split; [|auto].
-  applys* (@eval_dealloc n L). applys hcells_inv N1.
-Qed.
-
-Lemma triple_dealloc_hcells : forall L n p,
-  n = length L ->
-  triple (val_dealloc n p)
-    (hcells L p)
-    (fun _ => \[]).
-Proof using.
-  introv E. intros H'. applys hoare_conseq.
-  { applys hoare_dealloc_hcells H' E. } { xsimpl. } { xsimpl. }
-Qed.
-
-(** It is then straightforward to derive the alternative specification
-    stated using [harray L p] in place of [hcells L p]. *)
-
-Lemma triple_dealloc_harray : forall L n p,
-  n = length L ->
-  triple (val_dealloc n p)
-    (harray L p)
-    (fun _ => \[]).
-Proof using.
-  introv E. xtriple. unfold harray. xpull. intros N.
-  xapp triple_dealloc_hcells. { auto. } { xsimpl. }
-Qed.
-
-End AllocSpec.
 
 
 
