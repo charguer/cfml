@@ -122,7 +122,7 @@ Parameter hheader : forall (k:nat) (p:loc), hprop.
     header cell at location [p]. *)
 
 Definition harray (L:list val) (p:loc) : hprop :=
-  hheader (length L) p \* hcells L (p+1).
+  hheader (length L) p \* hcells L (p+1)%nat.
 
 
 (* ####################################################### *)
@@ -283,7 +283,7 @@ Definition field : Type := nat.
     and [tail := 1], the same record as before can be represented as:
     [(hheader 2 p) \* (p`.head ~~> x) \* (p`.tail ~~> q)]. *)
 
-Definition hfield' (p:loc) (k:field) (v:val) : hprop :=
+Definition hfield (p:loc) (k:field) (v:val) : hprop :=
   (p+1+k)%nat ~~> v.
 
 Notation "p `. k '~~>' v" := (hfield p k v)
@@ -385,6 +385,9 @@ Notation "p '~~~>' kvs" := (hrecord kvs p)
 
 (** For example, the definition of the representation predicate [MList]
     can be revisited using the heap predicate for records. *)
+
+Definition head : field := 0%nat.
+Definition tail : field := 1%nat.
 
 Fixpoint MList (L:list val) (p:loc) : hprop :=
   match L with
@@ -528,44 +531,84 @@ Parameter triple_set_field_hrecord : forall kvs kvs' k p v,
     terms of representation predicate [hrecord], which describes a
     full record in terms of the list of its fields. *)
 
+Import LibListExec.RewListExec.
+
+Hint Rewrite length_make make_zero make_succ : rew_listx.
+ (* TODO: rewrite lemmas for nat_seq *)
+
+Lemma hcells_to_hfields : forall (i nb:nat) p,
+  hcells (LibList.make nb val_uninit) (i+(p+1))%nat ==>
+  hfields (LibList.map (fun k => (k,val_uninit)) (nat_seq i nb)) p.
+Proof using.
+  intros. gen i p. induction nb as [|nb']; intros; simpl nat_seq; rew_listx.
+  { xsimpl. }
+  { simpl. unfold hfield. math_rewrite (i+(p+1) = p+1+i)%nat. xsimpl.
+    math_rewrite (S (p+1+i) = ((S i)+(p+1)))%nat. applys IHnb'. }
+Qed.
+
+Lemma harray_to_hrecord : forall p (nb:nat),
+  harray (LibList.make nb val_uninit) p ==>
+  hrecord (LibList.map (fun k => (k,val_uninit)) (nat_seq 0 nb)) p.
+Proof using.
+  intros. unfold harray, hrecord.
+  rew_list_exec. rew_listx. rewrite length_nat_seq. xsimpl.
+  applys (@hcells_to_hfields 0%nat).
+Qed.
+
 (** Deallocation of a record at location [p] is the simplest.
     The specification of this operation simply requires as precondition
     the full record description, in the form [hrecord kvs p], and yields
     the empty postcondition. *)
 
-Parameter triple_dealloc_hrecord : forall L p,
+Parameter triple_dealloc_hrecord : forall kvs p,
   triple (val_dealloc p)
     (hrecord kvs p)
     (fun _ => \[]).
 
 (** Allocation is a bit trickier, because one needs to introduce the
     fields names for the record to be allocated. These fields names
-    may be described by a list of field names of type [list field],
-    thereafter written [ks].
+    may be described by a list of field names of type [list field].
+    This list, written [ks], should be equivalent to a list of
+    consecutive natural numbers [0 :: 1 :: ... :: n-1], where [n] 
+    denotes the number of fields. The interest of introducing the list
+    [ks] is to provide readable names in place of numbers.
 
     The operation [val_alloc_record ks] is implemented by invoking
     [val_alloc] on the length of [ks]. *)
 
-Definition val_alloc_record (ks:list field) : val :=
+Definition val_alloc_record (ks:list field) : trm :=
   val_alloc (length ks).
 
 (** The specification of [val_alloc_record ks] involves an empty
     precondition and a postcondition of the form [hrecord kvs p],
     where the list [kvs] maps the fields names from [ks] to the
-    value [val_uninit]. *)
+    value [val_uninit]. The premise expressed in terms of [nat_seq]
+    ensures that the list [ks] contains consecutive offsets starting
+    from zero. *)
 
 Lemma triple_alloc_hrecord : forall ks,
+  ks = nat_seq 0 (LibListExec.length ks) ->
   triple (val_alloc_record ks)
     \[]
     (funloc p => hrecord (LibListExec.map (fun k => (k,val_uninit)) ks) p).
+Proof using.
+  introv E. applys triple_conseq_frame triple_alloc_nat. { xsimpl. }
+  { intros r. xpull. intros p ->. xsimpl p. { auto. }
+    rewrite E. rew_list_exec. rewrite length_nat_seq.
+    applys harray_to_hrecord. }
+Qed.
 
 (** For example, the allocation of a list cell is specified as follows. *)
 
 Lemma triple_alloc_mcell :
-  triple (val_alloc_hrecord (head::tail::nil))
+  triple (val_alloc_record (head::tail::nil))
     \[]
     (funloc p => p ~~~> `{ head := val_uninit ; tail := val_uninit }).
-Proof using. applys triple_alloc_hrecord. Qed.
+Proof using. applys* triple_alloc_hrecord. Qed.
+
+
+(* ########################################################### *)
+(** ** Combined record allocation and initialization *)
 
 (** It is often useful to allocate a record and immediately initialize
     its fields. To that end, we introduce the operation [val_new_record],
@@ -573,9 +616,12 @@ Proof using. applys triple_alloc_hrecord. Qed.
     This operation can be defined in an arity-generic way, yet to begin
     with let us present its specifialization to the arity 2. *)
 
+Module RecordInit.
+Import SLFProgramSyntax.
+
 Definition val_new_record_2 (k1:field) (k2:field) : val :=
   Fun 'x1 'x2 :=
-    Let 'p := val_alloc 2%nat in
+    Let 'p := val_alloc_record (k1::k2::nil) in
     Set 'p'.k1 ':= 'x1 ';
     Set 'p'.k2 ':= 'x2 ';
     'p.
@@ -590,12 +636,17 @@ Notation "'New' `{ k1 := v1 ; k2 := v2 }" :=
 
 (** This operation is specified as follows. *)
 
-Lemma triple_new_record_2 : forall v1 v2,
+Lemma triple_new_record_2 : forall k1 k2 v1 v2,
+  k1 = 0%nat ->
+  k2 = 1%nat ->
   triple (New `{ k1 := v1; k2 := v2 })
     \[]
     (funloc p => p ~~~> `{ k1 := v1 ; k2 := v2 }).
 Proof using.
-  xwp. xapp triple_alloc_hrecord. intros p. xapp. xapp. xval. xsimpl*.
+  introv -> ->. xwp. xapp triple_alloc_hrecord. { auto. } intros p. simpl.
+  xapp triple_set_field_hrecord. { reflexivity. }
+  xapp triple_set_field_hrecord. { reflexivity. }
+  xval. xsimpl*.
 Qed.
 
 (** For example, the operation [mcell x q] allocates a list cell with
@@ -604,15 +655,13 @@ Qed.
 Definition mcell : val :=
   val_new_record_2 head tail.
 
-Lemma triple_mcell : forall x q,
+Lemma triple_mcell : forall (x q:val),
   triple (mcell x q)
     \[]
     (funloc p => p ~~~> `{ head := x ; tail := q }).
-Proof using. intros. applys triple_new_record_2. Qed.
+Proof using. intros. applys* triple_new_record_2. Qed.
 
-
-
-
+End RecordInit.
 
 
 (* ########################################################### *)
@@ -890,6 +939,14 @@ Qed.
 Opaque hfields.
 
 End GroupedFields.
+
+(** The tactic [xapp] is refined to automatically invoke the lemmas
+    [triple_get_field_hrecord] and [triple_set_field_hrecord]
+*)
+
+Ltac xapp_nosubst_for_records tt ::=
+  first [ applys xapp_set_field_lemma; xsimpl; simpl; xapp_simpl
+        | applys xapp_get_field_lemma; xsimpl; simpl; xapp_simpl ].
 
 
 
