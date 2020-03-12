@@ -957,7 +957,7 @@ Parameter eval_set' : forall s p v,
     with contents [k], describing a block of [k] cells to the right
     of the header cell. *)
 
-  Definition hheader (k:nat) (p:loc) : hprop :=
+Definition hheader (k:nat) (p:loc) : hprop :=
   fun h => (h = Fmap.single p (val_header k)) /\ (p <> null).
 
 Lemma hheader_intro : forall p k,

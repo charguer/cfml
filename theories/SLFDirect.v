@@ -2182,9 +2182,13 @@ Tactic Notation "xapp_apply_spec" := (* internal *)
   first [ solve [ eauto with triple ]
         | match goal with H: _ |- _ => eapply H end ].
 
+Ltac xapp_nosubst_for_records tt := (* internal, refined in SLFStruct *)
+ fail. 
+
 Tactic Notation "xapp_nosubst" :=
   xseq_xlet_if_needed; xstruct_if_needed;
-  applys xapp_lemma; [ xapp_apply_spec | xapp_simpl ].
+  first [ applys xapp_lemma; [ xapp_apply_spec | xapp_simpl ]
+        | xapp_nosubst_for_records tt ].
 
 (** [xapp_try_subst] checks if the goal is of the form:
     - either [forall (r:val), (r = ...) -> ...]
