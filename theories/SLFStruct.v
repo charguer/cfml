@@ -153,31 +153,22 @@ Parameter triple_alloc_nat : forall k,
     Hence, the following lemma, which specifies [val_alloc n] for [n >= 0],
     is more handy to use. *)
 
-Lemma triple_alloc : forall n,
+Parameter triple_alloc : forall n,
   n >= 0 ->
   triple (val_alloc n)
     \[]
     (funloc p => harray (LibList.make (abs n) val_uninit) p).
-Proof using.
-  introv N. rewrite <- (@abs_nonneg n) at 1; [|auto].
-  xtriple. xapp triple_alloc_nat. xsimpl*.
-Qed.
 
 (** The specification above turns out to be often unncessarily precise.
     For most applications, it is sufficient for the postcondition to
     describe the array as [harray L p] for some unspecified list [L]
     of length [n]. This weaker specification is stated and proved next. *)
 
-Lemma triple_alloc_array : forall n,
+Parameter triple_alloc_array : forall n,
   n >= 0 ->
   triple (val_alloc n)
     \[]
     (funloc p => \exists L, \[n = length L] \* harray L p).
-Proof using.
-  introv N. xtriple. xapp triple_alloc. { auto. }
-  { xpull. intros p. unfold harray_uninit. xsimpl*.
-    { rewrite length_make. rewrite* abs_nonneg. } }
-Qed.
 
 
 (* ####################################################### *)
@@ -298,18 +289,6 @@ Definition hfield' (p:loc) (k:field) (v:val) : hprop :=
 Notation "p `. k '~~>' v" := (hfield p k v)
   (at level 32, k at level 0, no associativity,
    format "p `. k  '~~>'  v").
-
-(** To prevent undesirable simplifications, we set the definition [hfield]
-    to be opaque. Still, it is useful in places to be able to unfold the
-    definition. To that end, we state a lemma for unfolding the definition.
-    In its statement, we replace the addition [p+1+k] with the addition [k+S p],
-    because the later simplifies better in Coq when [k] is a constant. *)
-
-Lemma hfield_eq : forall p k v,
-  hfield p k v = ((k+S p)%nat ~~> v \* \[p <> null]).
-Proof using. intros. math_rewrite (k+p = p+k)%nat. auto. Qed.
-
-Global Opaque hfield.
 
 
 (* ########################################################### *)
@@ -539,7 +518,124 @@ Parameter triple_set_field_hrecord : forall kvs kvs' k p v,
     (fun _ => hrecord kvs' p).
 
 
+(* ########################################################### *)
+(** ** Allocation and deallocation of records *)
 
+(** Because records are internally described like arrays, records may
+    be allocated and deallocated using the operations [val_alloc] and
+    [val_dealloc], just like for arrays. That said, it is useful to
+    express derived specifications for these two operations stated in
+    terms of representation predicate [hrecord], which describes a
+    full record in terms of the list of its fields. *)
+
+(** Deallocation of a record at location [p] is the simplest.
+    The specification of this operation simply requires as precondition
+    the full record description, in the form [hrecord kvs p], and yields
+    the empty postcondition. *)
+
+Parameter triple_dealloc_hrecord : forall L p,
+  triple (val_dealloc p)
+    (hrecord kvs p)
+    (fun _ => \[]).
+
+(** Allocation is a bit trickier, because one needs to introduce the
+    fields names for the record to be allocated. These fields names
+    may be described by a list of field names of type [list field],
+    thereafter written [ks].
+
+    The operation [val_alloc_record ks] is implemented by invoking
+    [val_alloc] on the length of [ks]. *)
+
+Definition val_alloc_record (ks:list field) : val :=
+  val_alloc (length ks).
+
+(** The specification of [val_alloc_record ks] involves an empty
+    precondition and a postcondition of the form [hrecord kvs p],
+    where the list [kvs] maps the fields names from [ks] to the
+    value [val_uninit]. *)
+
+Lemma triple_alloc_hrecord : forall ks,
+  triple (val_alloc_record ks)
+    \[]
+    (funloc p => hrecord (LibListExec.map (fun k => (k,val_uninit)) ks) p).
+
+(** For example, the allocation of a list cell is specified as follows. *)
+
+Lemma triple_alloc_mcell :
+  triple (val_alloc_hrecord (head::tail::nil))
+    \[]
+    (funloc p => p ~~~> `{ head := val_uninit ; tail := val_uninit }).
+Proof using. applys triple_alloc_hrecord. Qed.
+
+(** It is often useful to allocate a record and immediately initialize
+    its fields. To that end, we introduce the operation [val_new_record],
+    which applies to a list of fields and to values for these fields.
+    This operation can be defined in an arity-generic way, yet to begin
+    with let us present its specifialization to the arity 2. *)
+
+Definition val_new_record_2 (k1:field) (k2:field) : val :=
+  Fun 'x1 'x2 :=
+    Let 'p := val_alloc 2%nat in
+    Set 'p'.k1 ':= 'x1 ';
+    Set 'p'.k2 ':= 'x2 ';
+    'p.
+
+(** To improve readability, we introduce notation to allow writing, e.g.,
+    [New`{ head := x; tail := q }] for the allocation and initialization
+    of a list cell. *)
+
+Notation "'New' `{ k1 := v1 ; k2 := v2 }" :=
+  (val_new_record_2 k1 k2 v1 v2)
+  (at level 65, k1, k2 at level 0) : trm_scope.
+
+(** This operation is specified as follows. *)
+
+Lemma triple_new_record_2 : forall v1 v2,
+  triple (New `{ k1 := v1; k2 := v2 })
+    \[]
+    (funloc p => p ~~~> `{ k1 := v1 ; k2 := v2 }).
+Proof using.
+  xwp. xapp triple_alloc_hrecord. intros p. xapp. xapp. xval. xsimpl*.
+Qed.
+
+(** For example, the operation [mcell x q] allocates a list cell with
+    head value [x] and tail pointer [q]. *)
+
+Definition mcell : val :=
+  val_new_record_2 head tail.
+
+Lemma triple_mcell : forall x q,
+  triple (mcell x q)
+    \[]
+    (funloc p => p ~~~> `{ head := x ; tail := q }).
+Proof using. intros. applys triple_new_record_2. Qed.
+
+
+
+
+
+
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Additional contents *)
+
+(*
+
+
+
+(* ########################################################### *)
+
+
+Lemma triple_alloc_array : forall n,
+  n >= 0 ->
+  triple (val_alloc n)
+    \[]
+    (funloc p => \exists L, \[n = length L] \* harray L p).
+Parameter triple_dealloc : forall L p,
+  triple (val_dealloc p)
+    (harray L p)
+    (fun _ => \[]).
 
 
 
@@ -798,11 +894,47 @@ End GroupedFields.
 
 
 
-(* ########################################################### *)
-(* ########################################################### *)
-(* ########################################################### *)
-(** * Additional contents *)
 
+(** To prevent undesirable simplifications, we set the definition [hfield]
+    to be opaque. Still, it is useful in places to be able to unfold the
+    definition. To that end, we state a lemma for unfolding the definition.
+    In its statement, we replace the addition [p+1+k] with the addition [k+S p],
+    because the later simplifies better in Coq when [k] is a constant. *)
+
+Lemma hfield_eq : forall p k v,
+  hfield p k v = ((k+S p)%nat ~~> v \* \[p <> null]).
+Proof using. intros. math_rewrite (k+S p = p+1+k)%nat. auto. Qed.
+
+Global Opaque hfield.
+
+
+
+
+Lemma triple_alloc : forall n,
+  n >= 0 ->
+  triple (val_alloc n)
+    \[]
+    (funloc p => harray (LibList.make (abs n) val_uninit) p).
+Proof using.
+  introv N. rewrite <- (@abs_nonneg n) at 1; [|auto].
+  xtriple. xapp triple_alloc_nat. xsimpl*.
+Qed.
+
+(** The specification above turns out to be often unncessarily precise.
+    For most applications, it is sufficient for the postcondition to
+    describe the array as [harray L p] for some unspecified list [L]
+    of length [n]. This weaker specification is stated and proved next. *)
+
+Lemma triple_alloc_array : forall n,
+  n >= 0 ->
+  triple (val_alloc n)
+    \[]
+    (funloc p => \exists L, \[n = length L] \* harray L p).
+Proof using.
+  introv N. xtriple. xapp triple_alloc. { auto. }
+  { xpull. intros p. unfold harray_uninit. xsimpl*.
+    { rewrite length_make. rewrite* abs_nonneg. } }
+Qed.
 
 (* ########################################################### *)
 (** ** Updated source language *)
@@ -1629,4 +1761,5 @@ Qed.
 End ArrayOps.
 
 
+*)
 *)
