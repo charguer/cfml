@@ -183,6 +183,13 @@ Parameter triple_alloc_array : forall n,
     \[]
     (funloc p => \exists L, \[n = length L] \* harray L p).
 
+(** Remark: in OCaml, one must provide an initialization value explicitly, 
+    so there is no such thing as [val_uninit]; in JavaScript, [val_uninit] 
+    is called [undefined]; in Java, arrays are initialized with zeros; 
+    in C, uninitialized data should not be read---we could implement
+    this policy in our language by restricting the evaluation rule for the read
+    operation, adding a premise of the form [v <> val_uninit] to that rule. *)
+
 
 (* ####################################################### *)
 (** ** Specification of the deallocation *)
@@ -813,9 +820,174 @@ End ListDealloc.
 
 
 
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Bonus contents (optional reading) *)
+
+
+Module Realization.
+
+(* ########################################################### *)
+(** ** Refined source language *)
+
+(** The aim of this bonus section is to show how to establish
+    the specifications presented in this chapter.
+
+    To that end, we consider a refined language. We replace the
+    primitive operations [val_ref] and [val_free] with the 
+    operations [val_alloc] and [val_dealloc], which operates on
+    block. Note that a reference cell can be encoded as a record
+    with a single field, as done in the OCaml language. *)
+
+(** We represent header blocks explicitly in the memory state,
+    by using a special value, written [val_header k], where [k] 
+    denotes the length of the block that follows the header. *)
+
+Parameter val_header : nat -> val.
+
+(** Note that values of the form [val_header k] should never be
+    introduced by source terms. They are only introduced in heaps
+    by the evaluation of [val_alloc], and they should never leak
+    in program terms. *)
+
+(** The allocation and deallocation primitive operations are 
+    specified as follows. *)
+
+Parameter eval_alloc : forall k n ma mb p,
+  mb = Fmap.conseq (val_header k :: LibList.make k val_uninit) p ->
+  n = nat_to_Z k ->
+  p <> null ->
+  Fmap.disjoint ma mb ->
+  eval ma (val_alloc (val_int n)) (mb \+ ma) (val_loc p).
+
+Parameter eval_dealloc : forall k vs ma mb p,
+  mb = Fmap.conseq (val_header k :: vs) p ->
+  k = LibList.length vs ->
+  Fmap.disjoint ma mb ->
+  eval (mb \+ ma) (val_dealloc (val_loc p)) ma val_unit.
+
+Arguments eval_alloc : clear implicits.
+Arguments eval_dealloc : clear implicits.
+
+(** Rather than extending the language with primitive operations
+    for reading and writing in array cells and record fields,
+    we simply include a pointer arithmetic operation, called 
+    [val_ptr_add], and use it to encode all other access operations. *)
+
+Parameter val_ptr_add : prim.
+
+(** The operation [val_ptr p n] applies to a pointer [p] and an integer [n].
+    The integer [n] may be negative, as long as [p+n] corresponds to a
+    valid location, i.e., [p+n] must be nonnegative. The evaluation rule
+    for pointer addition is stated as follows. *)
+
+Parameter eval_ptr_add : forall p1 p2 n s,
+  (p2:int) = p1 + n ->
+  eval s (val_ptr_add (val_loc p1) (val_int n)) s (val_loc p2).
+
+(** To implement the [val_array_length] function, which reads the
+    length of an array by inspecting the header field, we provide
+    a specific primitive operation, called [val_length] in the
+    semantics. *)
+
+Parameter val_length : prim.
+
+Parameter eval_length : forall s p k,
+  Fmap.indom s p ->
+  (val_header k) = Fmap.read s p ->
+  eval s (val_length (val_loc p)) s (val_int k).
+
+
+
+(* ####################################################### *)
+(** ** Realization of [hheader]  *)
+
+(** The heap predicate [hheader k p] describes a cell at location
+    whose contents is the special value [val_header k], and with
+    the invariant that [p] is not null. *)
+
+Definition hheader (k:nat) (p:loc) : hprop :=
+  p ~~> (val_header k) \* \[p <> null].
+
+(** The extraction of the information [p <> null] is straightforward. *)
+
+Lemma hheader_not_null : forall p k,
+  hheader k p ==> hheader k p \* \[p <> null].
+Proof using. intros. unfold hheader. xsimpl*. Qed.
+
+
+
+(* ####################################################### *)
+(** ** Specification of pointer arithmetic *)
+
+(** The specification of [val_ptr_add] directly reformulates the 
+    evaluation rule. It is established following the usual pattern. *)
+
+Lemma hoare_ptr_add : forall p n H,
+  p + n >= 0 ->
+  hoare (val_ptr_add p n)
+    H
+    (fun r => \[r = val_loc (abs (p + n))] \* H).
+Proof using.
+  introv N. intros s K0. exists s (val_loc (abs (p + n))). split.
+  { applys eval_ptr_add. rewrite abs_nonneg; math. }
+  { himpl_fold. xsimpl*. }
+Qed.
+
+Lemma triple_ptr_add : forall p n,
+  p + n >= 0 ->
+  triple (val_ptr_add p n)
+    \[]
+    (fun r => \[r = val_loc (abs (p + n))]).
+Proof using.
+  introv N. unfold triple. intros H'.
+  applys* hoare_conseq hoare_ptr_add; xsimpl*.
+Qed.
+
+(** The following lemma specializes the specification for the case
+    where the argument [n] is equal to a natural number [k]. This
+    reformulation avoids the [abs] function, and is more practical for
+    the encodings that we consider further in the subsequent sections. *)
+
+Lemma triple_ptr_add_nat : forall p k,
+  triple (val_ptr_add p k)
+    \[]
+    (fun r => \[r = val_loc (p+k)%nat]).
+Proof using.
+  intros. applys triple_conseq triple_ptr_add. { math. } { xsimpl. }
+  { xsimpl. intros. subst. fequals.
+    applys eq_nat_of_eq_int. rewrite abs_nonneg; math. }
+Qed.
+
+
+
+
+
+
+Parameter val_uninit_neq_header :
+  forall k, val_uninit <> val_header k.
+(* Would be free if constructors were part of the inductive definition of [val] *)
+
+
+
+
+
+
+
+
+
+
+
+Parameter harray_not_null : forall p L,
+  harray L p ==> harray L p \* \[p <> null].
+
 
 (*
 (* ########################################################### *)
+
+
+
 
 
 
@@ -1060,97 +1232,11 @@ Proof using.
     { rewrite length_make. rewrite* abs_nonneg. } }
 Qed.
 
-(* ########################################################### *)
-(** ** Updated source language *)
-
-
-    For example, applying [val_alloc] to the integer value [3] would return
-    a pointer [p] together with the ownership of three cells: one at
-    location [p], one at location [p+1], and one atlocation [p+2].
-
-    This allocation model, which exposes pointer arithmetics, provides a way
-    to model both records and arrays with minimal extension to the semantics
-    of the programming language that we have considered sor far in the course.
-
-    The cells allocated using [val_alloc] are assigned as contents a special
-    value, named [val_uninit], to reflect for the fact that their contents has
-    never been set. Remark: in OCaml, one must provide an initialization
-    value explicitly, so there is no such thing as [val_uninit]; in JavaScript,
-    [val_uninit] is called [undefined]; in Java, arrays are initialized with
-    zeros; in C, uninitialized data should not be read---we could implement
-    this policy in our language by restricting the evaluation rule for the read
-    operation, adding a premise of the form [v <> val_uninit] to the rule.
-
-
-(** The language is assumed to not include [val_ref] and [val_free],
-    but instead include primitive [val_alloc] and [val_dealloc] for
-    allocating blocks of cells.
-
-    The grammar of values is extended with two constructors:
-
-    - [val_uninit] describes the contents of an uninitialized cell.
-    - [val_header k] describes the contents of a header block for an
-      array or a record.
-
-*)
-
-Parameter val_uninit : val.
-Parameter val_header : nat -> val.
-
-Parameter val_uninit_neq_header :
-  forall k, val_uninit <> val_header k.
-(* Would be free if constructors were part of the inductive definition of [val] *)
-
-(** New primitive operations:
-
-    - [val_get_header p] to read a header, e.g., to get the length of an array,
-    - [val_alloc k] to allocate a block of [k] consecutive cells,
-    - [val_dealloc p] to deallocate the block at location [p].
-
-*)
-
-Parameter val_get_header : prim.
-Parameter val_alloc : prim.
-Parameter val_dealloc : prim.
-
-(** Semantics of allocation, deallocation, and reading of headers *)
-
-Parameter eval_alloc : forall k n ma mb p,
-  mb = Fmap.conseq (val_header k :: LibList.make k val_uninit) p ->
-  n = nat_to_Z k ->
-  p <> null ->
-  Fmap.disjoint ma mb ->
-  eval ma (val_alloc (val_int n)) (mb \+ ma) (val_loc p).
-
-Parameter eval_dealloc : forall k vs ma mb p,
-  mb = Fmap.conseq (val_header k :: vs) p ->
-  k = LibList.length vs ->
-  Fmap.disjoint ma mb ->
-  eval (mb \+ ma) (val_dealloc (val_loc p)) ma val_unit.
-
-Parameter eval_get_header : forall s p k,
-  Fmap.indom s p ->
-  (val_header k) = Fmap.read s p ->
-  eval s (val_get_header (val_loc p)) s (val_int k).
-
-Arguments eval_alloc : clear implicits.
-
-
-
-Definition hheader (k:nat) (p:loc) : hprop :=
-  fun h => (h = Fmap.single p (val_header k)) /\ (p <> null).
-
-Parameter harray_not_null : forall p L,
-  harray L p ==> harray L p \* \[p <> null].
-
 
 
 (*
 
-(* ########################################################### *)
-(* ########################################################### *)
-(* ########################################################### *)
-(** * Bonus contents (optional reading) *)
+
 
 (* ########################################################### *)
 (** ** Formalization of allocation and deallocation operations *)
@@ -1319,53 +1405,6 @@ Qed.
 End AllocSpec.
 
 
-(* ########################################################### *)
-(** ** Specification of pointer arithmetic *)
-
-Module PointerAdd.
-
-(** Pointer arithmetic can be useful in particular to define access
-    operations an arrays and on records in terms of the primitive
-    operations [val_get] and [val_set]. Let us describe the semantics
-    and specification of the operation that adds on offset to a pointer.
-
-    The operation [val_ptr p n] applies to a pointer [p] and an integer [n].
-    The integer [n] may be negative, as long as [p+n] corresponds to a
-    valid location, i.e., [p+n] must be nonnegative. The evaluation rule
-    for pointer addition is stated as follows. *)
-
-Parameter eval_ptr_add : forall p1 p2 n s,
-  (p2:int) = p1 + n ->
-  eval s (val_ptr_add (val_loc p1) (val_int n)) s (val_loc p2).
-
-(** The specification directly reformulates the evaluation rule. *)
-
-Lemma triple_ptr_add : forall p n,
-  p + n >= 0 ->
-  triple (val_ptr_add p n)
-    \[]
-    (fun r => \[r = val_loc (abs (p + n))]).
-Proof using.
-  intros. applys* triple_binop. applys* evalbinop_ptr_add.
-  { rewrite~ abs_nonneg. }
-Qed.
-
-(** The following lemma specializes the specification for the case
-    where the argument [n] is equal to a natural number [k]. This
-    reformulation avoids the [abs] function, and is more practical for
-    the encodings that we consider further in the subsequent sections. *)
-
-Lemma triple_ptr_add_nat : forall p k,
-  triple (val_ptr_add p k)
-    \[]
-    (fun r => \[r = val_loc (p+k)%nat]).
-Proof using.
-  intros. applys triple_conseq triple_ptr_add. { math. } { xsimpl. }
-  { xsimpl. intros. subst. fequals.
-    applys eq_nat_of_eq_int. rewrite abs_nonneg; math. }
-Qed.
-
-End PointerAdd.
 
 
 (* ########################################################### *)

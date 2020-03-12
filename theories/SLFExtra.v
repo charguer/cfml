@@ -904,13 +904,13 @@ Parameter val_uninit_neq_header :
 
 (** New primitive operations:
 
-    - [val_get_header p] to read a header, e.g., to get the length of an array,
+    - [val_length p] to read a header, e.g., to get the length of an array,
     - [val_alloc k] to allocate a block of [k] consecutive cells,
     - [val_dealloc p] to deallocate the block at location [p].
 
 *)
 
-Parameter val_get_header : prim.
+Parameter val_length : prim.
 Parameter val_alloc : prim.
 Parameter val_dealloc : prim.
 
@@ -929,10 +929,10 @@ Parameter eval_dealloc : forall k vs ma mb p,
   Fmap.disjoint ma mb ->
   eval (mb \+ ma) (val_dealloc (val_loc p)) ma val_unit.
 
-Parameter eval_get_header : forall s p k,
+Parameter eval_length : forall s p k,
   Fmap.indom s p ->
   (val_header k) = Fmap.read s p ->
-  eval s (val_get_header (val_loc p)) s (val_int k).
+  eval s (val_length (val_loc p)) s (val_int k).
 
 Arguments eval_alloc : clear implicits.
 
@@ -1258,42 +1258,42 @@ Hint Resolve triple_dealloc : triple.
 
 
 (* ########################################################### *)
-(** ** Specification of [get_header] *)
+(** ** Specification of [length] *)
 
-Lemma eval_get_header_sep : forall s s2 p k,
+Lemma eval_length_sep : forall s s2 p k,
   s = Fmap.union (Fmap.single p (val_header k)) s2 ->
-  eval s (val_get_header (val_loc p)) s (val_int k).
+  eval s (val_length (val_loc p)) s (val_int k).
 Proof using.
   introv ->. forwards Dv: Fmap.indom_single p (val_header k).
-  applys eval_get_header.
+  applys eval_length.
   { applys~ Fmap.indom_union_l. }
   { rewrite~ Fmap.read_union_l. rewrite~ Fmap.read_single. }
 Qed.
 
-Lemma hoare_get_header : forall H k p,
-  hoare (val_get_header p)
+Lemma hoare_length : forall H k p,
+  hoare (val_length p)
     ((hheader k p) \* H)
     (fun r => \[r = val_int k] \* (hheader k p) \* H).
 Proof using.
   intros. intros s K0. exists s (val_int k). split.
   { destruct K0 as (s1&s2&P1&P2&D&U).
-    lets (E1&N): hheader_inv P1. subst s1. applys eval_get_header_sep U. }
+    lets (E1&N): hheader_inv P1. subst s1. applys eval_length_sep U. }
   { rewrite~ hstar_hpure. }
 Qed.
 
-Lemma triple_get_header : forall k p,
-  triple (val_get_header p)
+Lemma triple_length : forall k p,
+  triple (val_length p)
     (hheader k p)
     (fun r => \[r = val_int k] \* hheader k p).
 Proof using.
-  intros. unfold triple. intros H'. applys hoare_conseq hoare_get_header; xsimpl~.
+  intros. unfold triple. intros H'. applys hoare_conseq hoare_length; xsimpl~.
 Qed.
 
-Hint Resolve triple_get_header : triple.
+Hint Resolve triple_length : triple.
 
 
 (* ########################################################### *)
-(** ** Encoding of [val_array_length], [val_array_get] and [val_array_set] *)
+(** ** Encoding of [val_array_get] and [val_array_set] *)
 
 Module Export ArrayAccessDef.
 Import SLFProgramSyntax.
@@ -1319,14 +1319,14 @@ Qed.
 
 (** Length *)
 
-Definition val_array_length : val := val_get_header.
+Definition val_array_length : val := val_length.
 
 Lemma triple_array_length : forall L p,
   triple (val_array_length p)
     (harray L p)
     (fun r => \[r = length L] \* harray L p).
 Proof using.
-  intros. unfold harray. applys triple_conseq_frame triple_get_header.
+  intros. unfold harray. applys triple_conseq_frame triple_length.
   { xsimpl. } { xsimpl. auto. }
 Qed.
 
