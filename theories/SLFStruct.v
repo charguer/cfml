@@ -20,6 +20,13 @@ Implicit Type k : nat.
 Implicit Type i n : int.
 Implicit Type v : val.
 Implicit Type L : list val.
+Implicit Types nb : nat.
+
+
+(* TODO *)
+
+Definition mem_assoc A B (x:A) (l:list (A*B)) : Prop :=
+  LibList.mem x (LibList.map fst l).
 
 
 (* ####################################################### *)
@@ -113,6 +120,12 @@ Parameter hcells_concat_eq : forall p L1 L2,
    its definition abstract. *)
 
 Parameter hheader : forall (k:nat) (p:loc), hprop.
+
+(** The heap predicate [hheader k p] should capture the information 
+    that [p] is not null---blocks cannot be allocated at the null location. *)
+
+Parameter hheader_not_null : forall p k,
+  hheader k p ==> hheader k p \* \[p <> null].
 
 (** An array is described by the predicate [harray L p], where the list
     [L] describes the contents of the cells. This heap predicate covers
@@ -372,10 +385,26 @@ Fixpoint hfields (kvs:hrecord_fields) (p:loc) : hprop :=
 (** The heap predicate [hrecord kvs p] describes a record: it covers
     not just all the fields of the record, but also the header.
     The cells are described by [hfields kvs p], and the header is
-    described by [hheader k p], where [k] denotes the length of [kvs]. *)
+    described by [hheader nb p], where [nb] should be such that the
+    keys in the list [kvs] are between [0] inclusive and [nb] exclusive.
+    This latter property is captured by the auxiliary predicate
+    [all_fields nb kvs]. *)
+
+Definition all_fields (nb:nat) (kvs:hrecord_fields) : Prop :=
+  forall k, 0 <= k < nb <-> mem_assoc k kvs.
 
 Definition hrecord (kvs:hrecord_fields) (p:loc) : hprop :=
-  hheader (length kvs) p \* hfields kvs p.
+  \exists nb, hheader nb p \* hfields kvs p \* \[all_fields nb kvs].
+
+(** The heap predicate [hrecord kvs p] captures in particular the 
+    invariant that the location [p] is not null. *)
+
+Lemma hrecord_not_null : forall p kvs,
+  hrecord kvs p ==> hrecord kvs p \* \[p <> null].
+Proof using.
+  intros. unfold hrecord. xpull. intros nb M.
+  xchanges* hheader_not_null.
+Qed.
 
 (** We introduce the notation [p ~~~> kvs] for [hrecord kvs p],
     allowing to write, e.g., [p ~~~>`{ head := x; tail := q }]. *)
@@ -397,7 +426,7 @@ Fixpoint MList (L:list val) (p:loc) : hprop :=
 
 
 (* ########################################################### *)
-(** ** Read in record fields *)
+(** ** Reading in record fields *)
 
 (** The read operation is described by an expression of the form
     [val_get_field k p], where [k] denotes a field name, and where [p]
@@ -461,7 +490,7 @@ Parameter triple_get_field_hrecord : forall kvs p k v,
 
 
 (* ########################################################### *)
-(** ** Write in record fields *)
+(** ** Writing in record fields *)
 
 (** The write operation is described by an expression of the form
     [val_get_field k p v], where [k] denotes a field name, and where [p]
@@ -531,39 +560,34 @@ Parameter triple_set_field_hrecord : forall kvs kvs' k p v,
     terms of representation predicate [hrecord], which describes a
     full record in terms of the list of its fields. *)
 
-Import LibListExec.RewListExec.
+(** Deallocation of a record, written [val_dealloc_record p] is the simplest.
+    This operation is implemented simply as [val_dealloc p]. *)
 
-Hint Rewrite length_make make_zero make_succ : rew_listx.
- (* TODO: rewrite lemmas for nat_seq *)
+Definition val_dealloc_record : val := val_dealloc.
 
-Lemma hcells_to_hfields : forall (i nb:nat) p,
-  hcells (LibList.make nb val_uninit) (i+(p+1))%nat ==>
-  hfields (LibList.map (fun k => (k,val_uninit)) (nat_seq i nb)) p.
-Proof using.
-  intros. gen i p. induction nb as [|nb']; intros; simpl nat_seq; rew_listx.
-  { xsimpl. }
-  { simpl. unfold hfield. math_rewrite (i+(p+1) = p+1+i)%nat. xsimpl.
-    math_rewrite (S (p+1+i) = ((S i)+(p+1)))%nat. applys IHnb'. }
-Qed.
-
-Lemma harray_to_hrecord : forall p (nb:nat),
-  harray (LibList.make nb val_uninit) p ==>
-  hrecord (LibList.map (fun k => (k,val_uninit)) (nat_seq 0 nb)) p.
-Proof using.
-  intros. unfold harray, hrecord.
-  rew_list_exec. rew_listx. rewrite length_nat_seq. xsimpl.
-  applys (@hcells_to_hfields 0%nat).
-Qed.
-
-(** Deallocation of a record at location [p] is the simplest.
-    The specification of this operation simply requires as precondition
+(** The specification of this operation simply requires as precondition
     the full record description, in the form [hrecord kvs p], and yields
     the empty postcondition. *)
 
-Parameter triple_dealloc_hrecord : forall kvs p,
-  triple (val_dealloc p)
+Parameter triple_dealloc_record : forall kvs p,
+  triple (val_dealloc_record p)
     (hrecord kvs p)
     (fun _ => \[]).
+
+(** To improve readability, we introduce the notation [Delete p]
+    for record deallocation. *)
+
+Notation "'Delete' p" := (val_dealloc_record p)
+  (at level 65) : trm_scope.
+
+(** For example, this lemma can be used to reason about deallocation
+    of a list cell. *)
+
+Lemma triple_dealloc_mcell : forall p x q,
+  triple (val_dealloc_record p)
+    (p ~~~> `{ head := x ; tail := q })
+    (fun _ => \[]).
+Proof using. intros. applys* triple_dealloc_record. Qed.
 
 (** Allocation is a bit trickier, because one needs to introduce the
     fields names for the record to be allocated. These fields names
@@ -586,17 +610,13 @@ Definition val_alloc_record (ks:list field) : trm :=
     ensures that the list [ks] contains consecutive offsets starting
     from zero. *)
 
-Lemma triple_alloc_hrecord : forall ks,
+Parameter triple_alloc_record : forall ks,
   ks = nat_seq 0 (LibListExec.length ks) ->
   triple (val_alloc_record ks)
     \[]
     (funloc p => hrecord (LibListExec.map (fun k => (k,val_uninit)) ks) p).
-Proof using.
-  introv E. applys triple_conseq_frame triple_alloc_nat. { xsimpl. }
-  { intros r. xpull. intros p ->. xsimpl p. { auto. }
-    rewrite E. rew_list_exec. rewrite length_nat_seq.
-    applys harray_to_hrecord. }
-Qed.
+
+Hint Resolve triple_alloc_record triple_dealloc_record : triple.
 
 (** For example, the allocation of a list cell is specified as follows. *)
 
@@ -604,7 +624,8 @@ Lemma triple_alloc_mcell :
   triple (val_alloc_record (head::tail::nil))
     \[]
     (funloc p => p ~~~> `{ head := val_uninit ; tail := val_uninit }).
-Proof using. applys* triple_alloc_hrecord. Qed.
+Proof using. applys* triple_alloc_record. Qed.
+
 
 
 (* ########################################################### *)
@@ -643,7 +664,7 @@ Lemma triple_new_record_2 : forall k1 k2 v1 v2,
     \[]
     (funloc p => p ~~~> `{ k1 := v1 ; k2 := v2 }).
 Proof using.
-  introv -> ->. xwp. xapp triple_alloc_hrecord. { auto. } intros p. simpl.
+  introv -> ->. xwp. xapp triple_alloc_record. { auto. } intros p. simpl.
   xapp triple_set_field_hrecord. { reflexivity. }
   xapp triple_set_field_hrecord. { reflexivity. }
   xval. xsimpl*.
@@ -669,7 +690,196 @@ End RecordInit.
 (* ########################################################### *)
 (** * Additional contents *)
 
+(* ########################################################### *)
+(** ** Extending [xapp] to support record access operations *)
+
+(** The tactic [xapp] can be refined to automatically invoke the 
+    lemmas [triple_get_field_hrecord] and [triple_set_field_hrecord],
+    which involve preconditions of the form
+    [hfields_lookup k kvs = Some v] and
+    [hfields_update k v kvs = Some ks'], respectively. 
+
+    The auxiliary lemmas reformulate the specification triples in
+    weakest-precondition form. The premise takes the form
+    [H ==> \exists kvs, (hrecord kvs p) \* match ... with Some .. => ..].
+    This presentation enables using [xsimpl] to extract the description
+    of the record, named [kvs], before evaluating the [lookup] or
+    [update] function for producing the suitable postcondition. *)
+
+Lemma xapp_get_field_lemma : forall H k p Q,
+  H ==> \exists kvs, (hrecord kvs p) \*
+     match hfields_lookup k kvs with
+     | None => \[False]
+     | Some v => ((fun r => \[r = v] \* hrecord kvs p) \--* protect Q) end ->
+  H ==> wp (val_get_field k p) Q.
+Proof using.
+  introv N. xchange N. intros kvs. cases (hfields_lookup k kvs).
+  { rewrite wp_equiv. applys* triple_conseq_frame triple_get_field_hrecord.
+    xsimpl. intros r ->. xchange (qwand_specialize v). rewrite* hwand_hpure_l. }
+  { xpull. }
+Qed.
+
+Lemma xapp_set_field_lemma : forall H k p v Q,
+  H ==> \exists kvs, (hrecord kvs p) \*
+     match hfields_update k v kvs with
+     | None => \[False]
+     | Some kvs' => ((fun _ => hrecord kvs' p) \--* protect Q) end ->
+  H ==> wp (val_set_field k p v) Q.
+Proof using.
+  introv N. xchange N. intros kvs. cases (hfields_update k v kvs).
+  { rewrite wp_equiv. applys* triple_conseq_frame triple_set_field_hrecord.
+    xsimpl. intros r. xchange (qwand_specialize r). }
+  { xpull. }
+Qed.
+
+Ltac xapp_nosubst_for_records tt ::=
+  first [ applys xapp_set_field_lemma; xsimpl; simpl; xapp_simpl
+        | applys xapp_get_field_lemma; xsimpl; simpl; xapp_simpl ].
+
+
+(* ####################################################### *)
+(** ** Deallocation function for lists *)
+
+(** Recall that our Separation Logic set up enforces that all allocated
+    data eventually gets properly deallocated. In what follows, we describe
+    a function for deallocating an entire mutable list. *)
+
+Module ListDealloc.
+Import SLFProgramSyntax RecordInit.
+
+(** Recall the statement of [MList_if], which reformulates the
+    definition of [MList] using a case analysis on [p = null]. *)
+
+Lemma MList_if : forall (p:loc) (L:list val),
+      (MList L p)
+  ==> (If p = null
+        then \[L = nil]
+        else \exists x q L', \[L = x::L']
+             \* (p ~~~> `{ head := x ; tail := q }) \* (MList L' q)).
+Proof using.
+  intros. destruct L as [|x L']; simpl.
+  { xpull. intros M. case_if. xsimpl*. }
+  { xpull. intros q. xchange hrecord_not_null. intros N.
+    case_if. xsimpl*. }
+Qed.
+
+Opaque MList.
+
+(** The operation [mfree_list] deallocates all the cells in a given list.
+    It is implemented as a recursive function that invokes [mfree_cell]
+    on every cell that it traverses.
+
+[[
+    let rec mfree_list p =
+      if p != null then begin
+        let q = p.tail in
+        delete p;
+        mfree_list q
+      end
+]]
+
+*)
+
+Definition mfree_list : val :=
+  Fix 'f 'p :=
+    Let 'b := ('p '<> null) in
+    If_ 'b Then
+      Let 'q := 'p'.tail in
+      Delete 'p ';
+      'f 'q
+    End.
+
+(** The precondition of [mfree_list p] requires a full list [p ~> MList L].
+    The postcondition is empty: the entire list is destroyed. *)
+
+(* EX2! (Triple_mfree_list) *)
+(** Verify the function [mfree_list].
+    Hint: follow the pattern of the proof of the function [mlength]. *)
+
+Lemma triple_mfree_list : forall L p,
+  triple (mfree_list p)
+    (MList L p)
+    (fun _ => \[]).
+Proof using. (* ADMITTED *)
+  intros. gen p. induction_wf IH: list_sub L. intros.
+  xwp. xchange MList_if. xapp. xif; intros C; case_if; xpull.
+  { intros x p' L' ->. xapp. xapp. xapp. xsimpl. }
+  { intros ->. xval. xsimpl. }
+Qed. (* /ADMITTED *)
+
+(** [] *)
+
+End ListDealloc.
+
+
+
+
 (*
+(* ########################################################### *)
+
+
+
+
+Parameter harray_eq_hrecord : forall p kvs,
+  hrecord kvs p = \exists L, harray L p.
+
+
+Lemma triple_dealloc_hrecord' : forall kvs p,
+  triple (val_dealloc p)
+    (hrecord kvs p)
+    (fun _ => \[]).
+Proof using.
+  intros. xtriple. xchange harray_eq_hrecord. intros L.
+  xapp triple_dealloc. xsimpl.
+Qed.
+
+
+
+Parameter harray_uninit_eq_hrecord : forall p (nb:nat),
+  harray (LibList.make nb val_uninit) p =
+  hrecord (LibList.map (fun k => (k,val_uninit)) (nat_seq 0 nb)) p.
+
+
+Lemma triple_alloc_hrecord' : forall ks,
+  ks = nat_seq 0 (LibListExec.length ks) ->
+  triple (val_alloc_record ks)
+    \[]
+    (funloc p => hrecord (LibListExec.map (fun k => (k,val_uninit)) ks) p).
+Proof using.
+  introv E. xtriple. xapp triple_alloc_nat. intros p.
+  xsimpl p. { auto. } rewrite E. rewrite length_nat_seq.
+  rewrite LibListExec.map_eq. xchange harray_uninit_eq_hrecord.
+Qed.
+
+
+(*
+Import LibListExec.RewListExec.
+
+Hint Rewrite length_make make_zero make_succ : rew_listx.
+ (* TODO: rewrite lemmas for nat_seq *)
+
+Lemma hcells_uninit_eq_hfields : forall (i nb:nat) p,
+  hcells (LibList.make nb val_uninit) (i+(p+1))%nat =
+  hfields (LibList.map (fun k => (k,val_uninit)) (nat_seq i nb)) p.
+Proof using.
+  intros. gen i p. induction nb as [|nb']; intros; simpl nat_seq; rew_listx.
+  { xsimpl. }
+  { simpl. unfold hfield. math_rewrite (i+(p+1) = p+1+i)%nat. fequals.
+    math_rewrite (S (p+1+i) = ((S i)+(p+1)))%nat. applys IHnb'. }
+Qed.
+
+Lemma harray_uninit_eq_hrecord : forall p (nb:nat),
+  harray (LibList.make nb val_uninit) p =
+  hrecord (LibList.map (fun k => (k,val_uninit)) (nat_seq 0 nb)) p.
+Proof using.
+  intros. unfold harray, hrecord.
+  rew_list_exec. rew_listx. rewrite length_nat_seq. fequals.
+  applys (@hcells_uninit_eq_hfields 0%nat).
+Qed.
+
+
+Qed.
+*)
 
 
 
@@ -759,111 +969,6 @@ Qed.
 
 
 
-(* ########################################################### *)
-(** ** Allocation and deallocation of record fields *)
-
-(** We can allocate a fresh mutable list cell by invoking the primitive
-    operation [val_alloc] with argument [2]. Let us prove that the result,
-    described by [hcell 2 p], can be also be viewed as the heap predicate
-    [(p`.head ~~> val_uninit) \* (p`.tail ~~> val_uninit)],
-    which describes the two fields of the record, with uninitialized
-    contents. *)
-
-Definition head : field := 1%nat.
-Definition tail : field := 2%nat.
-
-Hint Rewrite LibList.make_zero LibList.make_succ : rew_listx.
-
-Parameter hheader_not_null : forall p k,
-  hheader k p ==> hheader k p \* \[p <> null].
-
-
-Lemma triple_alloc_mcell :
-  triple (val_alloc 2%nat)
-    \[]
-    (funloc p => (hheader 2 p) \* (p`.head ~~> val_uninit) \* (p`.tail ~~> val_uninit)).
-Proof using.
-  xtriple. xapp triple_alloc_nat. intros p.
-  unfold harray_uninit. unfold harray.
-  xchange hheader_not_null. intros N. xsimpl p. auto.
-  rew_listx. unfolds hcells.
-  unfold head, tail. do 2 rewrite hfield_eq. xsimpl; auto.
-Qed.
-
-
-(** Reciprocally, we can deallocate a mutable list cell at location [p]
-    by invoking the primitive operation [val_dealloc] with argument [2].
-    The precondition describes the two fields [p`.head ~~> x] and
-    [p`.tail ~~> q]. The postcondition is empty: the fields are lost. *)
-
-Fixpoint hcells_any (k:nat) (p:loc) : hprop :=
-  match k with
-  | O => \[]
-  | S k' => (\exists v, p ~~> v) \* (hcells_any k' (S p))
-  end.
-
-Definition harray_any (k:nat) (p:loc) : hprop :=
-  hheader k p \* hcells_any k (S p).
-
-
-Parameter triple_dealloc_hcells_any : forall p k,
-  triple (val_dealloc k p)
-    (harray_any k p)
-    (fun _ => \[]).
-
-
-Lemma triple_dealloc_mcell : forall x q p,
-  triple (val_dealloc 2%nat p)
-    ((hheader 2 p) \* (p`.head ~~> x) \* (p`.tail ~~> q))
-    (fun _ => \[]).
-Proof using.
-  xtriple. xapp triple_dealloc_hcells_any.
-  unfold harray_any, hcells_any. do 2 rewrite hfield_eq. xsimpl.
-Qed.
-
-(** Remark: in the proof above, we exploit the rule [triple_dealloc_hcells_any].
-    If we used instead the rule [triple_dealloc_hcells], we would have
-    to provide explicitly the list of the contents of the cells, by invoking
-    [xapp (@triple_dealloc_hcells (x::(val_loc q)::nil))]. Instead,
-    thanks to [hcells_any], the existentially-quantified associated with each
-    of the cells get automatically inferred by [xsimpl]. *)
-
-
-(* ########################################################### *)
-(** ** Reading and writing in record fields *)
-
-(** For reading and writing in record fields, we introduce the operations
-    [val_get_field] and [val_set_field]. As we show in the bonus section
-    of this chapter, these functions can be defined in terms of the operations
-    [val_get] and [val_set], if we assume available a pointer addition operation.
-
-    For the moment, let us simply axiomatize these operations, and state
-    their specifications.
-
-    The specification of [val_get_field k p] follows the pattern of the
-    specification of [val_get]. The precondition and the postcondition
-    describe a field [p`.k ~~> v], and the result value [r] is specified
-    to be equal to [v]. *)
-
-Module FieldAccesses.
-
-(** Likewise for [val_set_field], the operation that writes into a record
-    field. *)
-
-
-(** We introduce the syntax [t'.k] for reading from a field using
-    [val_get_field], and [Set t1'.k := t2] for writing into a field
-    using [val_set_field]. *)
-
-
-(** We register the specifications of these operations so that they may be
-    exploited automatically by the tactic [xapp]. *)
-
-(* Hint Resolve triple_get_field triple_set_field : triple. *)
-
-End FieldAccesses.
-
-
 
 (* ####################################################### *)
 (** ** Grouped representation of record fields *)
@@ -896,36 +1001,6 @@ Proof using.
 Qed.
 
 
-Lemma xapp_set_field_lemma : forall H k p v Q,
-  H ==> \exists kvs, (p ~~~> kvs) \*
-     match hfields_update k v kvs with
-     | None => \[False]
-     | Some kvs' => ((fun _ => p ~~~> kvs') \--* protect Q) end ->
-  H ==> wp (val_set_field k p v) Q.
-Proof using.
-  introv N. xchange N. intros kvs. cases (hfields_update k v kvs).
-  { rewrite wp_equiv. applys* triple_conseq_frame triple_set_field_hrecord.
-    xsimpl. intros r. xchange (qwand_specialize r). }
-  { xpull. }
-Qed.
-
-Lemma xapp_get_field_lemma : forall H k p Q,
-  H ==> \exists kvs, (p ~~~> kvs) \*
-     match hfields_lookup k kvs with
-     | None => \[False]
-     | Some v => ((fun r => \[r = v] \* p ~~~> kvs) \--* protect Q) end ->
-  H ==> wp (val_get_field k p) Q.
-Proof using.
-  introv N. xchange N. intros kvs. cases (hfields_lookup k kvs).
-  { rewrite wp_equiv. applys* triple_conseq_frame triple_get_field_hrecord.
-    xsimpl. intros r ->. xchange (qwand_specialize v). rewrite* hwand_hpure_l. }
-  { xpull. }
-Qed.
-
-Ltac xapp_nosubst_for_records tt ::=
-  first [ applys xapp_set_field_lemma; xsimpl; simpl; xapp_simpl
-        | applys xapp_get_field_lemma; xsimpl; simpl; xapp_simpl ].
-
 
 Lemma triple_alloc_mcell' :
   triple (val_alloc 2%nat)
@@ -939,14 +1014,6 @@ Qed.
 Opaque hfields.
 
 End GroupedFields.
-
-(** The tactic [xapp] is refined to automatically invoke the lemmas
-    [triple_get_field_hrecord] and [triple_set_field_hrecord]
-*)
-
-Ltac xapp_nosubst_for_records tt ::=
-  first [ applys xapp_set_field_lemma; xsimpl; simpl; xapp_simpl
-        | applys xapp_get_field_lemma; xsimpl; simpl; xapp_simpl ].
 
 
 
@@ -1075,276 +1142,6 @@ Definition hheader (k:nat) (p:loc) : hprop :=
 
 Parameter harray_not_null : forall p L,
   harray L p ==> harray L p \* \[p <> null].
-
-
-(* ####################################################### *)
-(** ** Allocation of records: example of list cells *)
-
-Module Lists.
-Import SLFProgramSyntax GroupedFields.
-Implicit Types x : val.
-
-(** In what follows, we illustrate how the allocation of records
-    fits in the context of a bigger program, namely one that manipulates
-    mutable lists. Recall from [SLFBasic] the definition of [MList]. *)
-
-Fixpoint MList (L:list val) (p:loc) : hprop :=
-  match L with
-  | nil => \[p = null]
-  | x::L' => \exists q, (p ~~~> `{ head := x ; tail := q }) \* (MList L' q)
-  end.
-
-Lemma MList_nil : forall p,
-  (MList nil p) = \[p = null].
-Proof using. auto. Qed.
-
-Lemma MList_cons : forall p x L',
-  MList (x::L') p =
-  \exists q, (p ~~~> `{ head := x ; tail := q }) \* MList L' q.
-Proof using.  auto. Qed.
-
-(** Consider the function [mcell x q], which allocates a fresh mutable
-    list cell and sets [x] in the head field and [q] in the tail field.
-
-[[
-    let mcell x q =
-      { head = x; tail = q }
-]]
-
-    In our programming language, the creation of such a record can
-    encoded by allocating of a 2-cell record, and one write operation
-    for each field. *)
-
-Definition mcell : val :=
-  Fun 'x 'q :=
-    Let 'p := val_alloc 2%nat in
-    Set 'p'.head ':= 'x ';
-    Set 'p'.tail ':= 'q ';
-    'p.
-
-(** The specification of [mcell x q] appears next. Its precondition is empty.
-    Its postcondition describes the two fields [p`.head ~~> x] and [p`.tail ~~> q]. *)
-
-Open Scope val_scope.
-
-
-Lemma triple_mcell : forall x q,
-  triple (mcell x q)
-    \[]
-    (funloc p => p ~~~> `{ head := x ; tail := q }).
-Proof using.
-  xwp. xapp triple_alloc_mcell'. intros p. xapp. xapp. xval. xsimpl*.
-Qed.
-
-(** The function [mcons] is an alias for [mcell]. Whereas [mcell x q]
-    is intended to allocate a fresh cell on its own, [mcons x q] is
-    intended to extend an existing list [MList L q] by appending to it
-    a freshly-allocated cell. The specification of [mcons] requires
-    a list [MList L q] in its precondition, and produces a list
-    [MList (x::L) p] in its postcondition. *)
-
-Definition mcons : val :=
-  mcell.
-
-Lemma triple_mcons : forall L x q,
-  triple (mcons x q)
-    (MList L q)
-    (funloc p => MList (x::L) p).
-Proof using.
-  intros. xtriple. xapp triple_mcell.
-  intros p. xchange <- MList_cons. xsimpl*. (* fold back the list *)
-Qed.
-
-Hint Resolve triple_mcons : triple.
-
-(** The operation [mnil()] returns the [null] value, which is a
-    representation for the empty list [nil]. Thus, [mnil] can be
-    specified using a postcondition asserting it produces [MList nil p],
-    where [p] denotes the location returned.
-
-[[
-    let rec mnil () =
-      null
-]]
-*)
-
-Definition mnil : val :=
-  Fun 'u :=
-    null.
-
-(** The precondition of [mnil] is empty. Its postcondition of [mnil]
-    asserts that the return value [p] is a pointer such that
-    [MList nil p]. Because [p] is [null], the proof requires us to
-    introduce [MList nil null] out of thin air. For this task, it is
-    helpful to exploit a specialization of the lemma [MList_nil],
-    called [MList_nil_intro]. *)
-
-Lemma MList_nil_intro :
-  \[] ==> (MList nil null).
-Proof using. intros. rewrite* MList_nil. xsimpl*. Qed.
-
-Lemma triple_mnil :
-  triple (mnil '())
-    \[]
-    (funloc p => MList nil p).
-Proof using.
-  xwp. xval. xchange MList_nil_intro. xsimpl*.
-Qed.
-
-Hint Resolve triple_mnil : triple.
-
-(** Remark: the tactic [xchange MList_nil_intro] can also be
-    replaced with [xchange <- (MList_nil null)], if one wishes
-    to save the need to state the lemma [xchange MList_nil_intro]. *)
-
-(** Observe that the specification [triple_mnil] does not mention
-    the [null] pointer anywhere. This specification may thus be
-    used to specify the behavior of operations on mutable lists
-    without having to reveal low-level implementation details that
-    involve the [null] pointer. *)
-
-(** In the remaining of this section, we present an example program
-    that uses the functions [mnil] and [mcons] for allocating an
-    entire list. More precisely, we consider the function [mcopy],
-    which constructs an independent copy of a given mutable linked list.
-
-[[
-    let rec mcopy p =
-      if p == null
-        then mnil ()
-        else mcons (p.head) (mcopy p.tail)
-]]
-*)
-
-Definition mcopy : val :=
-  Fix 'f 'p :=
-    Let 'b := ('p '= null) in
-    If_ 'b
-      Then mnil '()
-      Else
-        Let 'x := 'p'.head in
-        Let 'q := 'p'.tail in
-        Let 'q2 := 'f 'q in
-        mcons 'x 'q2.
-
-(** For the proof, recall from chapter [SLFBasic] the lemma [MList_if],
-    which reformulates the definition of [MList L p] using a case
-    analysis on whether the pointer [p] is null, instead of on whether
-    the list [L] is empty. *)
-
-Parameter MList_if : forall p L,
-      (MList L p)
-  ==> (If p = null
-        then \[L = nil]
-        else \exists x q L', \[L = x::L']
-             \* p ~~~> `{ head := x ; tail := q }
-             \* (MList L' q)).
-
-(** The precondition of [mcopy] requires a linked list [MList L p].
-    Its postcondition asserts that the function returns a pointer [p']
-    and a list [MList L p'], in addition to the original list [MList L p].
-    The two lists are totally disjoint and independent, as captured by
-    the separating conjunction symbol (the star). *)
-
-Lemma triple_mcopy : forall L p,
-  triple (mcopy p)
-    (MList L p)
-    (funloc p' => (MList L p) \* (MList L p')).
-
-(** The proof script is very similar in structure to the previous ones.
-    While playing the script, try to spot the places where:
-
-    - [mnil] produces an empty list of the form [MList nil p'],
-    - the recursive call produces a list of the form [MList L' q'],
-    - [mcons] produces a list of the form [MList (x::L') p'].
-
-*)
-
-
-Opaque MList.
-
-Proof using.
-  intros. gen p. induction_wf IH: list_sub L.
-  xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
-  { intros ->. xapp. xsimpl*. subst. applys MList_nil_intro. }
-  { intros x q L' ->. xapp. xapp. xapp. intros q'.
-    xapp. intros p'. xchange <- MList_cons. xsimpl*. }
-Qed.
-
-
-(* ########################################################### *)
-(** ** Deallocation of records: example of list cells *)
-
-(** Recall that our Separation Logic set up enforces that all allocated
-    data eventually gets properly deallocated. In what follows, we describe
-    a function for deallocating one cell, then a function for deallocating
-    an entire mutable list. *)
-
-(** The operation [mfree_cell p] deallocates the two fields associated
-    with the cell at location [p]. *)
-
-Definition mfree_cell : val :=
-  Fun 'p :=
-    val_dealloc 2%nat 'p.
-
-(** The precondition of this operation requires the two fields, namely
-    [p`.head ~~> x] and [p`.tail ~~> q]. The postcondition is empty. *)
-
-Lemma triple_mfree_cell : forall x q p,
-  triple (mfree_cell p)
-    (p ~~~> `{ head := x ; tail := q })
-    (fun _ => \[]).
-Proof using. xwp. xapp triple_dealloc_mcell. unfold hrecord. rew_list. simple. xsimpl. Qed.
-
-Hint Resolve triple_mfree_cell : triple.
-
-(** The operation [mfree_list] deallocates all the cells in a given list.
-    It is implemented as a recursive function that invokes [mfree_cell]
-    on every cell that it traverses.
-
-[[
-    let rec mfree_list p =
-      if p != null then begin
-        let q = p.tail in
-        mfree_cell p;
-        mfree_list q
-      end
-]]
-
-*)
-
-Definition mfree_list : val :=
-  Fix 'f 'p :=
-    Let 'b := ('p '<> null) in
-    If_ 'b Then
-      Let 'q := 'p'.tail in
-      mfree_cell 'p ';
-      'f 'q
-    End.
-
-(** The precondition of [mfree_list p] requires a full list [p ~> MList L].
-    The postcondition is empty: the entire list is destroyed. *)
-
-(* EX2! (Triple_mfree_list) *)
-(** Verify the function [mfree_list].
-    Hint: follow the pattern of the proof of the function [mlength]. *)
-
-Hint Resolve triple_mfree_cell : triple.
-
-Lemma triple_mfree_list : forall L p,
-  triple (mfree_list p)
-    (MList L p)
-    (fun _ => \[]).
-Proof using. (* ADMITTED *)
-  intros. gen p. induction_wf IH: list_sub L. intros.
-  xwp. xchange MList_if. xapp. xif; intros C; case_if; xpull.
-  { intros x p' L' ->. xapp. xapp triple_mfree_cell. (* TODO: auto ? *) xapp. xsimpl. }
-  { intros ->. xval. xsimpl. }
-Qed. (* /ADMITTED *)
-
-(** [] *)
-
-End Lists.
 
 
 
@@ -1820,3 +1617,11 @@ End ArrayOps.
 
 *)
 *)
+
+Lemma hheader_not_null : forall p k,
+  hheader k p ==> hheader k p \* \[p <> null].
+Proof using.
+  intros. intros h (N&M). rewrite hstar_comm, hstar_hpure.
+  split~. split~.
+Qed.
+

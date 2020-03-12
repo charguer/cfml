@@ -1261,6 +1261,156 @@ Qed.
 (** * Bonus contents (optional reading) *)
 
 
+
+(* ####################################################### *)
+(** ** Smart constructors for lists *)
+
+(* TODO
+
+(** Recall the properties of [MList], which are reformulated using the
+    hrecord notation [p ~~~> kvs]. *)
+
+Lemma MList_nil : forall p,
+  (MList nil p) = \[p = null].
+Proof using. auto. Qed.
+
+Lemma MList_cons : forall p x L',
+  MList (x::L') p =
+  \exists q, (p ~~~> `{ head := x ; tail := q }) \* MList L' q.
+Proof using.  auto. Qed.
+
+Lemma MList_if : forall (p:loc) (L:list val),
+      (MList L p)
+  ==> (If p = null
+        then \[L = nil]
+        else \exists x q L', \[L = x::L']
+             \* (p ~~~> `{ head := x ; tail := q }) \* (MList L' q)).
+Proof using.
+  intros. destruct L as [|x L'].
+  { xchange MList_nil. intros M. case_if. xsimpl*. }
+  { xchange MList_cons. intros q. xchange hrecord_not_null. intros N.
+    case_if. xsimpl*. }
+Qed.
+
+Opaque MList.
+
+
+Parameter triple_mcell : forall (x q:val),
+  triple (mcell x q)
+    \[]
+    (funloc p => p ~~~> `{ head := x ; tail := q }).
+
+(** The function [mcons] is an alias for [mcell]. Whereas [mcell x q]
+    is intended to allocate a fresh cell on its own, [mcons x q] is
+    intended to extend an existing list [MList L q] by appending to it
+    a freshly-allocated cell. The specification of [mcons] requires
+    a list [MList L q] in its precondition, and produces a list
+    [MList (x::L) p] in its postcondition. *)
+
+Definition mcons : val :=
+  mcell.
+
+Lemma triple_mcons : forall L x q,
+  triple (mcons x q)
+    (MList L q)
+    (funloc p => MList (x::L) p).
+Proof using.
+  intros. xtriple. xapp triple_mcell.
+  intros p. xchange <- MList_cons. xsimpl*.
+Qed.
+
+Hint Resolve triple_mcons : triple.
+
+(** The operation [mnil()] returns the [null] value, which is a
+    representation for the empty list [nil]. Thus, [mnil] can be
+    specified using a postcondition asserting it produces [MList nil p],
+    where [p] denotes the location returned.
+
+[[
+    let rec mnil () =
+      null
+]]
+*)
+
+Definition mnil : val :=
+  Fun 'u :=
+    null.
+
+Lemma triple_mnil :
+  triple (mnil '())
+    \[]
+    (funloc p => MList nil p).
+Proof using. xwp. xval. xchanges* <- (MList_nil null). Qed.
+
+Hint Resolve triple_mnil : triple.
+
+(** Observe that the specification [triple_mnil] does not mention
+    the [null] pointer anywhere. This specification may thus be
+    used to specify the behavior of operations on mutable lists
+    without having to reveal low-level implementation details that
+    involve the [null] pointer. *)
+
+
+(* ####################################################### *)
+(** ** Copy function for lists *)
+
+(** The function [mcopy] takes a mutable linked list and builds
+    an independent copy of it.
+
+    This program illustrates the use the of functions [mnil] and 
+    [mcons].
+
+[[
+    let rec mcopy p =
+      if p == null
+        then mnil ()
+        else mcons (p.head) (mcopy p.tail)
+]]
+*)
+
+Definition mcopy : val :=
+  Fix 'f 'p :=
+    Let 'b := ('p '= null) in
+    If_ 'b
+      Then mnil '()
+      Else
+        Let 'x := 'p'.head in
+        Let 'q := 'p'.tail in
+        Let 'q2 := 'f 'q in
+        mcons 'x 'q2.
+
+(** The precondition of [mcopy] requires a linked list [MList L p].
+    Its postcondition asserts that the function returns a pointer [p']
+    and a list [MList L p'], in addition to the original list [MList L p].
+    The two lists are totally disjoint and independent, as captured by
+    the separating conjunction symbol (the star). *)
+
+Lemma triple_mcopy : forall L p,
+  triple (mcopy p)
+    (MList L p)
+    (funloc p' => (MList L p) \* (MList L p')).
+
+(** The proof script is very similar in structure to the previous ones.
+    While playing the script, try to spot the places where:
+
+    - [mnil] produces an empty list of the form [MList nil p'],
+    - the recursive call produces a list of the form [MList L' q'],
+    - [mcons] produces a list of the form [MList (x::L') p'].
+
+*)
+
+Proof using.
+  intros. gen p. induction_wf IH: list_sub L.
+  xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
+  { intros ->. xapp. xsimpl*. xchanges* <- (MList_nil p). }
+  { intros x q L' ->. xapp. xapp. xapp. intros q'.
+    xapp. intros p'. xchange <- MList_cons. xsimpl*. }
+Qed.
+
+
+*)
+
+
 (* ########################################################### *)
 (** ** A continuation-passing style in-place concatenation function *)
 
