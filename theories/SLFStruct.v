@@ -20,7 +20,7 @@ Implicit Type k : nat.
 Implicit Type i n : int.
 Implicit Type v : val.
 Implicit Type L : list val.
-Implicit Types nb : nat.
+Implicit Types z : nat. 
 
 
 (* TODO *)
@@ -42,9 +42,9 @@ Hint Rewrite LibList.update_zero : rew_listx.
 (* TODO: hstar_hpure_r *)
 
 
-Parameter abs_lt_inbound : forall i k,
-  0 <= i < nat_to_Z k ->
-  (abs i < k).
+Lemma nat_seq_succ : forall o k,
+  nat_seq o (1+k) = o :: (nat_seq (o+1) k).
+Proof using. intros. simpl. fequals_rec. math. Qed.
 
 
 (* ####################################################### *)
@@ -411,16 +411,28 @@ Fixpoint hfields (kvs:hrecord_fields) (p:loc) : hprop :=
 (** The heap predicate [hrecord kvs p] describes a record: it covers
     not just all the fields of the record, but also the header.
     The cells are described by [hfields kvs p], and the header is
-    described by [hheader nb p], where [nb] should be such that the
+    described by [hheader z p], where [nb] should be such that the
     keys in the list [kvs] are between [0] inclusive and [nb] exclusive.
-    This latter property is captured by the auxiliary predicate
-    [all_fields nb kvs]. *)
+    
+    A permissive definition of [hrecord kvs p] would allow the fields
+    from the list [kvs] to be permuted arbitrarily. Yet, to avoid
+    complications related to permutations, we make in this course the
+    simplifying assumptions that fields are always listed in the order
+    of their associated offsets. 
 
-Definition all_fields (nb:nat) (kvs:hrecord_fields) : Prop :=
-  forall (k:field), 0 <= k < nb <-> mem_assoc k kvs.
+    The auxiliary predicate [maps_all_fields z kvs] asserts that the
+    keys from the list [kvs] correspond exactly to the sequence made
+    of the first [nb] natural numbers, that is, [0; 1; ...; nb-1]. *)
+
+Definition maps_all_fields (nb:nat) (kvs:hrecord_fields) : Prop :=
+  LibList.map fst kvs = nat_seq 0 nb.
+
+(** The predicate [hrecord kvs p] exploits [maps_all_fields z kvs]
+    to relate the value [nb] stored in the header with the fields
+    [kvs] described by the predicate [hfields]. *)
 
 Definition hrecord (kvs:hrecord_fields) (p:loc) : hprop :=
-  \exists nb, hheader nb p \* hfields kvs p \* \[all_fields nb kvs].
+  \exists z, hheader z p \* hfields kvs p \* \[maps_all_fields z kvs].
 
 (** The heap predicate [hrecord kvs p] captures in particular the 
     invariant that the location [p] is not null. *)
@@ -428,7 +440,7 @@ Definition hrecord (kvs:hrecord_fields) (p:loc) : hprop :=
 Lemma hrecord_not_null : forall p kvs,
   hrecord kvs p ==> hrecord kvs p \* \[p <> null].
 Proof using.
-  intros. unfold hrecord. xpull. intros nb M.
+  intros. unfold hrecord. xpull. intros z M.
   xchanges* hheader_not_null.
 Qed.
 
@@ -1408,8 +1420,6 @@ Notation "'Set' t1 ''.' f '':=' t2" :=
 
 End FieldAccessDef.
 
-Global Opaque hfield.
-
 
 (* ########################################################### *)
 (** ** Specification of record operations w.r.t. [hfields] and [hrecord] *)
@@ -1438,7 +1448,7 @@ Lemma triple_get_field_hrecord : forall kvs p k v,
     (p ~~~> kvs)
     (fun r => \[r = v] \* p ~~~> kvs).
 Proof using.
-  introv M. xtriple. unfold hrecord. xpull. intros nb Hnb.
+  introv M. xtriple. unfold hrecord. xpull. intros z Hz.
   xapp (>> triple_get_field_hfields M). xsimpl*.
 Qed.
 
@@ -1475,13 +1485,12 @@ Proof using.
       { inverts E. } } }
 Qed.
 
-Lemma hfields_update_preserves_all_fields : forall kvs kvs' nb k v,
+Lemma hfields_update_preserves_maps_all_fields : forall kvs kvs' z k v,
   hfields_update k v kvs = Some kvs' ->
-  all_fields nb kvs = all_fields nb kvs'.
+  maps_all_fields z kvs = maps_all_fields z kvs'.
 Proof using.
-  introv M. unfold all_fields, mem_assoc. extens.
-  lets R: (>> hfields_update_preserves_fields M).
-  iff N; intros k'. { rewrite* R. } { rewrite* <- R. }
+  introv M. unfold maps_all_fields, mem_assoc. extens.
+  rewrites* (>> hfields_update_preserves_fields M).
 Qed.
 
 (** Set operation on a record *)
@@ -1492,9 +1501,9 @@ Lemma triple_set_field_hrecord : forall kvs kvs' k p v,
     (p ~~~> kvs)
     (fun _ => p ~~~> kvs').
 Proof using.
-  introv M. xtriple. unfold hrecord. xpull. intros nb Hnb.
+  introv M. xtriple. unfold hrecord. xpull. intros z Hz.
   xapp (>> triple_set_field_hfields M). xsimpl.
-  rewrites* <- (>> hfields_update_preserves_all_fields nb M).
+  rewrites* <- (>> hfields_update_preserves_maps_all_fields z M).
 Qed.
 
 
@@ -1511,17 +1520,17 @@ Import LibListExec.RewListExec.*)
  (* TODO: rewrite lemmas for nat_seq *)
 
 Lemma hcells_uninit_eq_hfields : forall (i nb:nat) p,
-  hcells (LibList.make nb val_uninit) (i+(p+1))%nat =
+  hcells (LibList.make z val_uninit) (i+(p+1))%nat =
   hfields (LibList.map (fun k => (k,val_uninit)) (nat_seq i nb)) p.
 Proof using.
-  intros. gen i p. induction nb as [|nb']; intros; simpl nat_seq; rew_listx.
+  intros. gen i p. induction z as [|nb']; intros; simpl nat_seq; rew_listx.
   { xsimpl. }
   { simpl. unfold hfield. math_rewrite (i+(p+1) = p+1+i)%nat. fequals.
-    math_rewrite (S (p+1+i) = ((S i)+(p+1)))%nat. applys IHnb'. }
+    math_rewrite (S (p+1+i) = ((S i)+(p+1)))%nat. applys IHz'. }
 Qed.
 
 Lemma harray_uninit_eq_hrecord : forall p (nb:nat),
-  harray (LibList.make nb val_uninit) p =
+  harray (LibList.make z val_uninit) p =
   hrecord (LibList.map (fun k => (k,val_uninit)) (nat_seq 0 nb)) p.
 Proof using.
   intros. unfold harray, hrecord.
@@ -1533,12 +1542,48 @@ Qed.
 Qed.
 *)
 
-(*
+(** Conversion lemma between [hfields] and [hcells] view. 
+    The lemma [hfields_eq_hcells] asserts the equality between
+    [hfields kvs p] and [hcells L (p+1)] under a suitable 
+    relation between the list of values [L] and the description
+    of the fields [kvs].
+
+    The induction is a bit tricky to set up. *)
+
+Lemma hfields_eq_hcells_ind : forall L p kvs o,
+  LibList.map fst kvs = nat_seq o (length L) ->
+  L = LibList.map snd kvs ->
+  hfields kvs p = hcells L (p+1+o)%nat.
+Proof using.
+  intros L. induction L as [|v L']; introv M E; rew_listx in *;
+   destruct kvs as [|[k v'] kvs']; tryfalse; rew_listx in *.
+  { auto. }
+  { rewrite nat_seq_succ in M. simpls. inverts M as M'.
+    inverts E as E'. unfold hfield. fequals.
+    math_rewrite (p+1+o+1=p+1+(o+1))%nat. applys* IHL'. }
+Qed.
+
+Lemma hfields_eq_hcells : forall z L p kvs,
+  maps_all_fields z kvs ->
+  z = length L ->
+  L = LibList.map snd kvs ->
+  hfields kvs p = hcells L (p+1)%nat.
+Proof using.
+  introv M HL E. subst z. rewrites (>> hfields_eq_hcells_ind M E).
+  fequals. unfold loc. math.
+Qed.
 
 (** Conversion lemma from [hrecord] view to [harray] view. *)
 
-Parameter harray_eq_hrecord : forall p kvs,
-  hrecord kvs p = \exists L, harray L p.
+Lemma hrecord_himpl_harray : forall p kvs,
+  hrecord kvs p ==> harray (LibList.map snd kvs) p.
+Proof using.
+  intros. unfolds hrecord, harray. xpull. intros z M.
+  asserts Hz: (z = length kvs).
+  { lets E: length_nat_seq 0%nat z. rewrite <- M in E. rew_listx* in *. }
+  xchange* (>> hfields_eq_hcells p M). { rew_listx*. }
+  xsimpl. rew_listx. rewrite* Hz.
+Qed.
 
 (** Record deallocation *)
 
@@ -1547,16 +1592,29 @@ Lemma triple_dealloc_hrecord : forall kvs p,
     (hrecord kvs p)
     (fun _ => \[]).
 Proof using.
-  intros. xtriple. xchange harray_eq_hrecord. intros L.
+  intros. xtriple. xchange hrecord_himpl_harray.
   xapp triple_dealloc. xsimpl.
 Qed.
 
 (** Conversion lemma from [harray] view to [hrecord] view,
     for an array of uninitialized values. *)
 
-Parameter harray_uninit_eq_hrecord : forall p (nb:nat),
-  harray (LibList.make nb val_uninit) p =
-  hrecord (LibList.map (fun k => (k,val_uninit)) (nat_seq 0 nb)) p.
+Lemma harray_uninit_himpl_hrecord : forall p z,
+  harray (LibList.make z val_uninit) p ==>
+  hrecord (LibList.map (fun k => (k,val_uninit)) (nat_seq 0 z)) p.
+Proof using.
+  intros. unfolds hrecord, harray. rew_listx.
+  sets kvs: ((LibList.map (fun k => (k,val_uninit)) (nat_seq 0 z))). 
+  asserts (M1&M2): (LibList.map fst kvs = nat_seq 0 z
+                 /\ LibList.map snd kvs = LibList.make z val_uninit).
+  { subst kvs. generalize 0%nat as o.
+    induction z as [|z']; intros; simpl; rew_listx; simpl.  
+    { auto. } 
+    { forwards* (N1&N2): IHz' (S o). split; fequals*. } }
+  xsimpl z.
+  { applys M1. } 
+  { rewrites* <- (>> hfields_eq_hcells M1). rew_listx*. }
+Qed.
 
 (** Record allocation *)
 
@@ -1568,10 +1626,7 @@ Lemma triple_alloc_hrecord : forall ks,
 Proof using.
   introv E. xtriple. xapp triple_alloc_nat. intros p.
   xsimpl p. { auto. } rewrite E. rewrite length_nat_seq.
-  rewrite LibListExec.map_eq. xchange harray_uninit_eq_hrecord.
+  rewrite LibListExec.map_eq. xchange harray_uninit_himpl_hrecord.
 Qed.
-
-*)
-
 
 End Realization.

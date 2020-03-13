@@ -2237,3 +2237,16 @@ Proof using.
       { inverts E. rew_list*. }
       { inverts E. } } }
 Qed.
+
+
+Lemma hrecord_eq_harray : forall p kvs L,
+  L = LibList.map snd kvs ->
+  hrecord kvs p = harray L p.
+Proof using.
+  intros. unfolds hrecord, harray. applys himpl_antisym.
+  { xpull. intros z M. asserts Hz: (z = length kvs).
+    { lets E: length_nat_seq 0%nat z. rewrite <- M in E. rew_listx* in *. }
+    xchange* (>> hfields_eq_hcells p M). { rew_listx*. }
+    subst. rew_listx. xsimpl. }
+  { xsimpl.
+Qed.
