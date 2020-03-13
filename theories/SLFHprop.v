@@ -148,9 +148,9 @@ Definition example_val' : trm :=
 (** Locations, of type [loc], denote the addresses of allocated objects.
     Locations are a particular kind of values.
 
-    A state is a finite map from locations to values. 
+    A state is a finite map from locations to values.
 
-    The file [Fmap.v] provides a self-contained formalization of finite maps, 
+    The file [Fmap.v] provides a self-contained formalization of finite maps,
     but we do need to know about the details. *)
 
 Definition state : Type := fmap loc val.
@@ -589,25 +589,27 @@ Lemma hexists_inv : forall A (J:A->hprop) h,
   exists x, J x h.
 Proof using. introv M. hnf in M. eauto. Qed.
 
-(* EX3! (hstar_hpure_iff) *)
+(* EX3! (hstar_hpure_l) *)
 
 (** Prove that a heap [h] satisfies [\[P] \* H] if and only if
     [P] is true and [h] it satisfies [H]. The proof requires
     two lemmas on finite maps from [Fmap.v]:
 
 [[
-  Lemma Fmap.union_empty_l : forall h,
-    Fmap.empty \u h = h.
+    Lemma Fmap.union_empty_l : forall h,
+      Fmap.empty \u h = h.
 
-  Lemma Fmap.disjoint_empty_l : forall h,
-    Fmap.disjoint Fmap.empty h.
+    Lemma Fmap.disjoint_empty_l : forall h,
+      Fmap.disjoint Fmap.empty h.
 ]]
+
+    Hint: begin the proof by appyling [propositional_extensionality].
 *)
 
-Lemma hstar_hpure_iff : forall P H h,
-  (\[P] \* H) h <-> (P /\ H h).
+Lemma hstar_hpure_l : forall P H h,
+  (\[P] \* H) h = (P /\ H h).
 Proof using. (* ADMITTED *)
-  iff M.
+  intros. applys propositional_extensionality. iff M.
   { hnf in M. destruct M as (h1&h2&M1&M2&D&U).
     hnf in M1. destruct M1 as (M1&HP). subst.
     rewrite Fmap.union_empty_l. auto. }

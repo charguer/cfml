@@ -386,7 +386,7 @@ Qed.
 (** ** Properties of [hpure] *)
 
 (* Internal lemma, useful for proofs *)
-Lemma hstar_hpure : forall P H h,
+Lemma hstar_hpure_l : forall P H h,
   (\[P] \* H) h = (P /\ H h).
 Proof.
   intros. apply prop_ext. unfold hpure.
@@ -398,12 +398,12 @@ Lemma himpl_hstar_hpure_r : forall P H H',
   P ->
   (H ==> H') ->
   H ==> (\[P] \* H').
-Proof. introv HP W. intros h K. rewrite* hstar_hpure. Qed.
+Proof. introv HP W. intros h K. rewrite* hstar_hpure_l. Qed.
 
 Lemma himpl_hstar_hpure_l : forall P H H',
   (P -> H ==> H') ->
   (\[P] \* H) ==> H'.
-Proof. introv W Hh. rewrite hstar_hpure in Hh. applys* W. Qed.
+Proof. introv W Hh. rewrite hstar_hpure_l in Hh. applys* W. Qed.
 
 
 (* ########################################################### *)
@@ -454,7 +454,7 @@ Qed.
 Lemma hsingle_not_null : forall p v,
   (p ~~> v) ==> (p ~~> v) \* \[p <> null].
 Proof.
-  introv. intros h (K&N). rewrite hstar_comm, hstar_hpure. split*. hnfs*.
+  introv. intros h (K&N). rewrite hstar_comm, hstar_hpure_l. split*. hnfs*.
 Qed.
 
 Lemma hstar_hsingle_same_loc : forall p v1 v2,
@@ -660,7 +660,7 @@ Lemma hoare_add : forall H n1 n2,
 Proof.
   intros. intros s K0. exists s (val_int (n1 + n2)). split.
   { applys eval_add. }
-  { rewrite* hstar_hpure. }
+  { rewrite* hstar_hpure_l. }
 Qed.
 
 Lemma hoare_div : forall H n1 n2,
@@ -671,7 +671,7 @@ Lemma hoare_div : forall H n1 n2,
 Proof.
   introv N. intros s K0. exists s (val_int (Z.quot n1 n2)). split.
   { applys eval_div N. }
-  { rewrite* hstar_hpure. }
+  { rewrite* hstar_hpure_l. }
 Qed.
 
 Lemma hoare_ref : forall H v,
@@ -683,7 +683,7 @@ Proof.
   exists (Fmap.union (Fmap.single p v) s1) (val_loc p). split.
   { applys* eval_ref_sep D. }
   { applys* hstar_intro.
-    { exists p. rewrite* hstar_hpure. split*. { hnfs*. } } }
+    { exists p. rewrite* hstar_hpure_l. split*. { hnfs*. } } }
 Qed.
 
 Lemma hoare_get : forall H v p,
@@ -693,7 +693,7 @@ Lemma hoare_get : forall H v p,
 Proof.
   intros. intros s K0. exists s v. split.
   { destruct K0 as (s1&s2&(->&N)&P2&D&U). applys eval_get_sep U. }
-  { rewrite* hstar_hpure. }
+  { rewrite* hstar_hpure_l. }
 Qed.
 
 Lemma hoare_set : forall H w p v,
@@ -868,7 +868,7 @@ Proof. intros. intros HF. applys hoare_conseq hoare_free; xsimpl*. Qed.
 (** * Bonus: example proof *)
 
 (** See the chapter [SLFRules] for comments on this proof.
- 
+
 [[
    let incr p =
       let n = !p in
@@ -895,7 +895,7 @@ Proof using.
   intros. applys triple_app. { reflexivity. } simpl.
   applys triple_let. { apply triple_get. }
   intros n'. simpl. apply triple_hpure. intros ->.
-  applys triple_let. { applys triple_conseq. 
+  applys triple_let. { applys triple_conseq.
     { applys triple_frame. applys triple_add. }
     { xsimpl. }
     { xsimpl. } }

@@ -156,7 +156,7 @@ Lemma hexists_named_eq : forall H,
 Proof using.
   intros. apply himpl_antisym.
   { intros h K. applys hexists_intro h.
-    rewrite* hstar_hpure. }
+    rewrite* hstar_hpure_l. }
   { xpull. intros h K. intros ? ->. auto. }
 Qed.
 
@@ -973,7 +973,7 @@ Proof using. auto. Qed.
 Lemma hheader_not_null : forall p k,
   hheader k p ==> hheader k p \* \[p <> null].
 Proof using.
-  intros. intros h (N&M). rewrite hstar_comm, hstar_hpure.
+  intros. intros h (N&M). rewrite hstar_hpure_r.
   split~. split~.
 Qed.
 
@@ -997,9 +997,9 @@ Lemma hcells_intro : forall L p,
   (LibList.Forall val_not_header L) ->
   hcells L p (Fmap.conseq L p).
 Proof using.
-  intros L. induction L as [|v L']; introv N R; simpl.
+  intros L. induction L as [|v L']; introv N R; simpl; rew_listx in *.
   { applys hempty_intro. }
-  { rew_listx in R. destruct R as (Nv&R'). applys hstar_intro.
+  { destruct R as (Nv&R'). applys hstar_intro.
     { applys* hsingle_intro. }
     { applys* IHL'. }
     { applys Fmap.disjoint_single_conseq. left. math. } }
@@ -1009,7 +1009,7 @@ Lemma hcells_inv : forall p L h,
   hcells L p h ->
   h = Fmap.conseq L p.
 Proof using.
-  introv N. gen p h. induction L as [|x L']; simpl; intros.
+  introv N. gen p h. induction L as [|x L']; simpl; intros; rew_listx in *.
   { applys hempty_inv N. }
   { lets (h1&h2&N1&N2&N3&->): hstar_inv N. fequal.
     { applys hsingle_inv N1. }
@@ -1158,7 +1158,7 @@ Proof using.
   lets N: hsingle_inv P1.
   exists (Fmap.union (Fmap.single p v) h2) val_unit. split.
   { subst h1. applys eval_set_sep' U D. auto. auto. }
-  { rewrite hstar_hpure. split~.
+  { rewrite hstar_hpure_l. split~.
     { applys~ hstar_intro.
       { applys~ hsingle_intro. }
       { subst h1. applys Fmap.disjoint_single_set D. } } }
@@ -1196,7 +1196,7 @@ Proof using.
   match type of Dp with Fmap.disjoint ?hc _ => sets h1': hc end.
   exists (h1' \u h) (val_loc p). split.
   { applys~ (eval_alloc k). }
-  { applys hexists_intro p. rewrite hstar_hpure. split*.
+  { applys hexists_intro p. rewrite hstar_hpure_l. split*.
     { applys* hstar_intro. applys* harray_uninit_intro. } }
 Qed.
 
@@ -1234,6 +1234,7 @@ Proof using.
   unfolds harray. destruct N1 as (h11&h12&N5&N6&N7&N8).
   lets (E11&Np): hheader_inv N5. lets E12: hcells_inv N6. subst h h1 h11 h12.
   exists h2 val_unit. split; [|auto]. applys* eval_dealloc.
+  rewrite* conseq_cons.
 Qed.
 
 Lemma triple_dealloc : forall L p,
@@ -1278,7 +1279,7 @@ Proof using.
   intros. intros s K0. exists s (val_int k). split.
   { destruct K0 as (s1&s2&P1&P2&D&U).
     lets (E1&N): hheader_inv P1. subst s1. applys eval_length_sep U. }
-  { rewrite~ hstar_hpure. }
+  { rewrite~ hstar_hpure_l. }
 Qed.
 
 Lemma triple_length : forall k p,

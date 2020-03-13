@@ -1277,8 +1277,8 @@ Parameter eval_add : forall s n1 n2,
 (** In the proof, we will need to use the following result,
     established in the first chapter. *)
 
-Parameter hstar_hpure_iff : forall P H h,
-  (\[P] \* H) h <-> (P /\ H h).
+Parameter hstar_hpure_l : forall P H h,
+  (\[P] \* H) h = (P /\ H h).
 
 (** As usual, we first establish a Hoare triple. *)
 
@@ -1289,7 +1289,7 @@ Lemma hoare_add : forall H n1 n2,
 Proof using.
   intros. intros s K0. exists s (val_int (n1 + n2)). split.
   { applys eval_add. }
-  { rewrite hstar_hpure_iff. split.
+  { rewrite hstar_hpure_l. split.
     { auto. }
     { applys K0. } }
 Qed.
@@ -1330,7 +1330,7 @@ Lemma hoare_div : forall H n1 n2,
 Proof using.
   introv N. intros s K0. exists s (val_int (Z.quot n1 n2)). split.
   { applys eval_div N. }
-  { rewrite hstar_hpure_iff. split.
+  { rewrite hstar_hpure_l. split.
     { auto. }
     { applys K0. } }
 Qed.
@@ -1367,9 +1367,9 @@ Qed.
     The introduction of these disjoint union operations then
     significantly eases the justification of the separating
     conjunctions that appear in the targeted Separation Logic
-    triples. 
+    triples.
 
-    In this section, the constructor [hval_val] appears. This 
+    In this section, the constructor [hval_val] appears. This
     constructor converts a "value" into a "heap value". For the
     purpose, of this file, the two notion are identical. Yet,
     to allow for generalization to the semantics of allocation by
@@ -1433,8 +1433,8 @@ Qed.
     The second one in the inversion lemma for the singleton heap
     predicate. *)
 
-Parameter hstar_hpure_iff' : forall P H h,
-  (\[P] \* H) h <-> (P /\ H h).
+Parameter hstar_hpure_l' : forall P H h,
+  (\[P] \* H) h = (P /\ H h).
 
 Parameter hsingle_inv: forall p v h,
   (p ~~> v) h ->
@@ -1466,7 +1466,7 @@ Proof using.
           pure fact \[v = v], and check that the state, which
           has not changed, satisfy the same heap predicate as
           in the precondition. *)
-    rewrite hstar_hpure. auto. }
+    rewrite hstar_hpure_l. auto. }
 Qed.
 
 (** Deriving the Separation Logic triple follows the usual pattern. *)
@@ -1560,7 +1560,7 @@ Proof using.
           [(\exists p, \[r = val_loc p] \* p ~~> v) \* H]
           by providing [p] and the relevant pieces of heap. *)
     applys hstar_intro.
-    { exists p. rewrite hstar_hpure.
+    { exists p. rewrite hstar_hpure_l.
       split. { auto. } { applys~ hsingle_intro. } }
     { applys K0. }
     { applys D. } }
@@ -1820,7 +1820,7 @@ Qed.
 
 (** We will make use of three lemmas, all introduced in the first chapter:
 
-    - the lemma [hstar_hpure_iff], already used earlier in this chapter
+    - the lemma [hstar_hpure_l], already used earlier in this chapter
       to reformulate [(\[P] \* H) h] as [P /\ H h],
     - the lemma [hsingle_intro], to prove [(p ~~> v) (Fmap.single p v)],
     - and the lemma [hstar_intro], to prove [(H1 \* H2) (h1 \u h2)]. *)

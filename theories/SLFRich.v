@@ -74,7 +74,7 @@ Parameter val_assert : prim.
 
 (** The reasoning rule for assertions should ensure that:
     (1) the body of the assertion always evaluates to [true],
-    (2) the program remains correct if the assertion is not evaluated. 
+    (2) the program remains correct if the assertion is not evaluated.
 
     Formally, the program should be correct whichever of the following
     two evaluation rules is used. *)
@@ -86,20 +86,20 @@ Parameter eval_assert_enabled : forall s t s',
 Parameter eval_assert_disabled : forall s t,
   eval s (val_assert t) s val_unit.
 
-(** Note that it might be tempting to consider a single evaluation rule 
+(** Note that it might be tempting to consider a single evaluation rule
     that forces assertions to perform no side effects. *)
 
 Parameter eval_assert_no_effect : forall s t v, (* too restrictive *)
   eval s t s (val_bool true) ->
   eval s (val_assert t) s val_unit.
 
-(** Yet, such a rule would be overly restrictive. There are useful examples 
+(** Yet, such a rule would be overly restrictive. There are useful examples
     of assertions that do modify the heap, such as [assert (find x = find y)]
     in the context of a Union-Find data structure. *)
 
-(** It is possible to state a reasoning rule for [val_assert t] that 
+(** It is possible to state a reasoning rule for [val_assert t] that
     is correct with respect to both evaluation rule for assertions,
-    i.e. with respect to both [eval_assert_enabled] and to 
+    i.e. with respect to both [eval_assert_enabled] and to
     [eval_assert_disabled]. *)
 
 Lemma hoare_assert : forall t H,
@@ -107,7 +107,7 @@ Lemma hoare_assert : forall t H,
   hoare (val_assert t) H (fun _ => H).
 Proof using.
   introv M. intros s K. forwards (s'&v&R&N): M K.
-  rewrite hstar_hpure in N. destruct N as (->&K').
+  rewrite hstar_hpure_l in N. destruct N as (->&K').
   dup. (* Duplicate the proof obligation to cover two cases *)
   (* Case assertions are enabled *)
   { exists s' val_unit. split.
@@ -528,13 +528,13 @@ Tactic Notation "xapply" constr(E) :=
 (** The tactic [xwhile] is useful for reasoning about a while-loop. *)
 
 Lemma xwhile_lemma : forall F1 F2 H Q,
-  (forall R,    
+  (forall R,
     (forall Q', mkstruct (wpgen_if_trm F1 (mkstruct (wpgen_seq F2 (mkstruct R))) (mkstruct (wpgen_val val_unit))) Q'
                 ==> mkstruct R Q')
      -> H ==> mkstruct R Q) ->
   H ==> mkstruct (wpgen_while F1 F2) Q.
 Proof using.
-  introv M. applys himpl_trans'. applys mkstruct_erase. 
+  introv M. applys himpl_trans'. applys mkstruct_erase.
   unfold wpgen_while. xsimpl. intros R N. applys M. applys N.
 Qed.
 
@@ -592,7 +592,7 @@ Lemma Triple_mlength_loop : forall L p,
 Proof using.
   xwp. xapp. intros a. xapp. intros r.
   (* Here we pretend that [xwpgen] includes support for loops: *)
-  rewrite wpgen_while_eq. xwp_simpl. 
+  rewrite wpgen_while_eq. xwp_simpl.
   xwhile. intros R HR. (* Here we state the induction principle *)
   asserts KR: (forall n,     r ~~> p \* a ~~> n \* MList L p
                          ==> `R (fun _ =>  r ~~> null \* a ~~> (length L + n) \* MList L p)).
@@ -601,9 +601,9 @@ Proof using.
     xapp. xapp. xchange MList_if. xif; intros C; case_if.
     { xpull. intros x q L' ->. xseq. xapp. xapp. xapp. xapp.
       (* Here takes place the recursive call, with frame on the head cell: *)
-      xapply (IH L'). { auto. } intros _. 
+      xapply (IH L'). { auto. } intros _.
       xchange <- MList_cons. { auto. } { xsimpl. rew_list. math. }  }
-    { xpull. intros ->. xval. xsimpl. { congruence. } 
+    { xpull. intros ->. xval. xsimpl. { congruence. }
       subst. xchange* <- (MList_nil null). } }
   xapply KR. xpull. xapp. xapp. xapp. xval. xsimpl. math.
 Qed.

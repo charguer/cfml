@@ -204,7 +204,7 @@ Parameter triple_hany_pre : forall t H H' Q,
     number of credits, otherwise soundness would be compromised. *)
 
 (** The idea is to restrict the discard rules so that only predicates
-    satisyfing a predicate called [haffine] may get discarded. The two 
+    satisyfing a predicate called [haffine] may get discarded. The two
     discard rules will thus feature an extra premise requiring [haffine H'],
     where [H'] denotes the heap predicate being discarded. *)
 
@@ -244,7 +244,7 @@ End Preview.
 
 Parameter heap_affine : heap -> Prop.
 
-(** This predicate [heap_affine] is assumed to satisfy two properties: 
+(** This predicate [heap_affine] is assumed to satisfy two properties:
     it holds of the empty heap, and it is stable by (disjoint) union of heaps. *)
 
 Parameter heap_affine_empty :
@@ -262,13 +262,13 @@ Parameter heap_affine_union : forall h1 h2,
 Definition haffine (H:hprop) : Prop :=
   forall h, H h -> heap_affine h.
 
-(** The predicate [haffine] distributes in a natural way on each of the 
+(** The predicate [haffine] distributes in a natural way on each of the
     operators of Separation Logic: the combination of affine heap predicates
     yields affine heap predicates. In particular:
 
     - [\[]] and [\[P]], which describes empty heaps, can always be discarded;
     - [H1 \* H2] can be discarded if both [H1] and [H2] can be discarded;
-    - [\exists x, H] and [\forall x, H] can be discarded if [H] can be 
+    - [\exists x, H] and [\forall x, H] can be discarded if [H] can be
       discarded for any [x].
 
 *)
@@ -313,10 +313,10 @@ Proof using. introv IA F1 Hx. lets N: hforall_inv Hx. applys* F1 arbitrary. Qed.
     under the hypothesis [P]. Indeed, if a heap [h] satisfies [\[P] \* H],
     then it must be the case that the proposition [P] is true. Formally: *)
 
-Lemma haffine_hstar_hpure : forall P H,
+Lemma haffine_hstar_hpure_l : forall P H,
   (P -> haffine H) ->
   haffine (\[P] \* H).
-Proof using. introv M. intros h K. rewrite hstar_hpure in K. applys* M. Qed.
+Proof using. introv M. intros h K. rewrite hstar_hpure_l in K. applys* M. Qed.
 
 
 (* ########################################################### *)
@@ -325,7 +325,7 @@ Proof using. introv M. intros h K. rewrite hstar_hpure in K. applys* M. Qed.
 (** We next introduce a new heap predicate, called "affine top" and
     written [\GC], that is very handy for describing "the possibility
     to discard a heap predicate". We use this predicate to reformulate the
-    discard rules in a more concise and more usable manner. 
+    discard rules in a more concise and more usable manner.
 
     This predicate is written [\GC] and named [hgc] in the formalization.
     It holds of any affine heap.
@@ -353,7 +353,7 @@ Lemma hgc_intro : forall h,
   \GC h.
 Proof using. (* ADMITTED *)
   unfold hgc. intros h K. applys hexists_intro (=h).
-  rewrite hstar_hpure. split. { intros h' E. subst. auto. } { auto. }
+  rewrite hstar_hpure_l. split. { intros h' E. subst. auto. } { auto. }
 Qed. (* /ADMITTED *)
 
 (* [] *)
@@ -368,7 +368,7 @@ Lemma hgc_inv : forall h,
   heap_affine h.
 Proof using. (* ADMITTED *)
   unfold hgc. intros h M. lets (H&K): hexists_inv M.
-  rewrite hstar_hpure in K. destruct K as (K&Hh).
+  rewrite hstar_hpure_l in K. destruct K as (K&Hh).
   unfold haffine in K. applys K. auto.
 Qed. (* /ADMITTED *)
 
@@ -412,7 +412,7 @@ Qed.
 Lemma haffine_hgc :
   haffine \GC.
 Proof using.
-  applys haffine_hexists. intros H. applys haffine_hstar_hpure. auto.
+  applys haffine_hexists. intros H. applys haffine_hstar_hpure_l. auto.
 Qed.
 
 (** The process of exploiting the [\GC] to "absorb" affine heap predicates
@@ -451,10 +451,10 @@ Parameter triple_hgc_post : forall t H Q,
 
 Module FullyAffineLogic.
 
-(** To set up a fully-affine logic, we consider a definition of  
+(** To set up a fully-affine logic, we consider a definition of
     [heap_affine] that holds of any heap. *)
 
-Parameter heap_affine_def : forall h, 
+Parameter heap_affine_def : forall h,
   heap_affine h = True.
 
 (** It is trivial to check that [heap_affine] satisfies the required
@@ -476,9 +476,9 @@ Proof using. intros. rewrite* heap_affine_def. Qed.
 Lemma haffine_equiv : forall H,
   (haffine H) <-> True.
 Proof using.
-  intros. iff M. 
+  intros. iff M.
   { auto. }
-  { unfold haffine. intros. rewrite* heap_affine_def. } 
+  { unfold haffine. intros. rewrite* heap_affine_def. }
 Qed.
 
 (** With that instantiation, the affine top predicate [\GC] is equivalent
@@ -503,10 +503,10 @@ End FullyAffineLogic.
 
 Module FullyLinearLogic.
 
-(** To set up a fully-affine logic, we consider a definition of  
+(** To set up a fully-affine logic, we consider a definition of
     [heap_affine] that holds only of empty heaps. *)
 
-Parameter heap_affine_def : forall h, 
+Parameter heap_affine_def : forall h,
   heap_affine h = (h = Fmap.empty).
 
 (** Again, it is not hard to check that [heap_affine] satisfies the
@@ -522,7 +522,7 @@ Lemma heap_affine_union : forall h1 h2,
   Fmap.disjoint h1 h2 ->
   heap_affine (Fmap.union h1 h2).
 Proof using.
-  introv K1 K2 D. rewrite heap_affine_def in *. 
+  introv K1 K2 D. rewrite heap_affine_def in *.
   subst. rewrite* Fmap.union_empty_r.
 Qed.
 
@@ -1207,7 +1207,7 @@ Module HaffineQuantifiers.
 
     They can be reformulated in a more concise way, as explained next. *)
 
-(** First, to smoothly handle the distribution on the quantifiers, let us 
+(** First, to smoothly handle the distribution on the quantifiers, let us
     extend the notion of "affinity" to postconditions. The predicate
     [haffine_post J] asserts that [haffine] holds of [J x] for any [x]. *)
 

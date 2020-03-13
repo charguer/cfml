@@ -372,7 +372,7 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** Properties of [hpure] *)
 
-Lemma hstar_hpure : forall P H h,
+Lemma hstar_hpure_l : forall P H h,
   (\[P] \* H) h = (P /\ H h).
 Proof using.
   intros. extens. unfold hpure.
@@ -380,6 +380,15 @@ Proof using.
   rewrite* hstar_hempty_l.
   iff (p&M) (p&M). { split~. } { exists~ p. }
 Qed.
+
+Lemma hstar_hpure_r : forall P H h,
+  (H \* \[P]) h = (H h /\ P).
+Proof using.
+  intros. rewrite hstar_comm. rewrite hstar_hpure_l. apply* prop_ext.
+Qed.
+
+(* backward compatibility *)
+Definition hstar_hpure := hstar_hpure_l.
 
   (* corollary only used for the SL course *)
 Lemma hstar_hpure_iff : forall P H h,
@@ -559,7 +568,7 @@ Proof using.
   introv HP. applys himpl_antisym.
   { lets K: hwand_cancel \[P] H. applys himpl_trans K.
     applys* himpl_hstar_hpure_r. }
-  { rewrite hwand_equiv. rewrite hstar_comm. 
+  { rewrite hwand_equiv. rewrite hstar_comm.
     applys* himpl_hstar_hpure_l. }
 Qed.
 

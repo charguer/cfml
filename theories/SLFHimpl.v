@@ -1073,7 +1073,7 @@ Lemma himpl_hstar_hpure_l : forall (P:Prop) (H H':hprop),
   (P -> H ==> H') ->
   (\[P] \* H) ==> H'.
 Proof using.
-  introv M. intros h K. rewrite hstar_hpure_iff in K.
+  introv M. intros h K. rewrite hstar_hpure_l in K.
   destruct K as (K1&K2). applys M. applys K1. applys K2.
 Qed.
 
@@ -1180,7 +1180,7 @@ End ProveExtractionRules.
     predicate which asserts that the heap is, for a heap [h]
     such that [H h], exactly equal to [H].
 
-    Hint: use [hstar_hpure_iff] and [hexists_intro], as well as
+    Hint: use [hstar_hpure_l] and [hexists_intro], as well as
     the extraction rules [himpl_exists_l] and [himpl_hstar_hpure_l]. *)
 
 Lemma hexists_named_eq : forall H,
@@ -1188,7 +1188,7 @@ Lemma hexists_named_eq : forall H,
 Proof using. (* ADMITTED *)
   intros. apply himpl_antisym.
   { intros h K. applys hexists_intro h.
-    rewrite hstar_hpure_iff. auto. }
+    rewrite hstar_hpure_l. auto. }
   { applys himpl_hexists_l. intros h.
     applys himpl_hstar_hpure_l. intros K.
     intros h' E. subst. auto. }

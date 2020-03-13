@@ -1046,7 +1046,7 @@ Lemma not_himpl_hwand_r_inv_reciprocal : exists H1 H2,
   ~ (H2 ==> H1 \* (H1 \-* H2)).
 Proof using.
   exists \[False] \[]. intros N. forwards K: N (Fmap.empty:heap).
-  applys hempty_intro. rewrite hstar_hpure in K. destruct K. auto.
+  applys hempty_intro. rewrite hstar_hpure_l in K. destruct K. auto.
 Qed.
 
 (** More generally, one has to be suspicious of any entailment
@@ -1240,10 +1240,10 @@ Proof using.
   asserts K: (forall A B, A = B -> (op = A <-> op = B)).
   { intros. iff; subst*. } apply K; clear K.
   apply pred_ext_3. intros H1 H2 h. iff M.
-  { exists (=h). rewrite hstar_comm. rewrite hstar_hpure. split.
+  { exists (=h). rewrite hstar_hpure_r. split.
+    { auto. }
     { intros h3 K3. rewrite hstar_comm in K3.
-      destruct K3 as (h1&h2&K1&K2&D&U). subst h1 h3. applys M D K2. }
-    { auto. } }
+      destruct K3 as (h1&h2&K1&K2&D&U). subst h1 h3. applys M D K2. } }
   { intros h1 D K1. destruct M as (H0&M).
     destruct M as (h0&h2&K0&K2&D'&U).
     lets (N&E): hpure_inv (rm K2). subst h h2.
@@ -1507,10 +1507,10 @@ Proof using.
   asserts K: (forall A B, A = B -> (op = A <-> op = B)).
   { intros. iff; subst*. } apply K; clear K.
   apply pred_ext_3. intros Q1 Q2 h. iff M.
-  { exists (=h). rewrite hstar_comm. rewrite hstar_hpure. split.
+  { exists (=h). rewrite hstar_hpure_r. split.
+    { auto. }
     { intros v h3 K3. rewrite hstar_comm in K3.
-      destruct K3 as (h1&h2&K1&K2&D&U). subst h1 h3. applys M D K2. }
-    { auto. } }
+      destruct K3 as (h1&h2&K1&K2&D&U). subst h1 h3. applys M D K2. } }
   { intros v h1 D K1. destruct M as (H0&M).
     destruct M as (h0&h2&K0&K2&D'&U).
     lets (N&E): hpure_inv (rm K2). subst h h2.

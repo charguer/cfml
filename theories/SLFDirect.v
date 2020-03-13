@@ -649,7 +649,7 @@ Lemma hpure_inv : forall P h,
   P /\ h = heap_empty.
 Proof using. introv (p&M). split~. Qed.
 
-Lemma hstar_hpure : forall P H h,
+Lemma hstar_hpure_l : forall P H h,
   (\[P] \* H) h = (P /\ H h).
 Proof using.
   intros. apply prop_ext. unfold hpure.
@@ -657,21 +657,23 @@ Proof using.
   iff (p&M) (p&M). { split~. } { exists~ p. }
 Qed.
 
-Lemma hstar_hpure_iff : forall P H h,
-  (\[P] \* H) h <-> (P /\ H h).
-Proof using. intros. rewrite* hstar_hpure. Qed.
+Lemma hstar_hpure_r : forall P H h,
+  (H \* \[P]) h = (H h /\ P).
+Proof using.
+  intros. rewrite hstar_comm. rewrite hstar_hpure_l. apply* prop_ext.
+Qed.
 
 Lemma himpl_hstar_hpure_r : forall P H H',
   P ->
   (H ==> H') ->
   H ==> (\[P] \* H').
-Proof using. introv HP W. intros h K. rewrite* hstar_hpure. Qed.
+Proof using. introv HP W. intros h K. rewrite* hstar_hpure_l. Qed.
 
 Lemma hpure_inv_hempty : forall P h,
   \[P] h ->
   P /\ \[] h.
 Proof using.
-  introv M. rewrite <- hstar_hpure. rewrite~ hstar_hempty_r.
+  introv M. rewrite <- hstar_hpure_l. rewrite~ hstar_hempty_r.
 Qed.
 
 Lemma hpure_intro_hempty : forall P h,
@@ -679,8 +681,7 @@ Lemma hpure_intro_hempty : forall P h,
   P ->
   \[P] h.
 Proof using.
-  introv M N. rewrite <- (hstar_hempty_l \[P]).
-  rewrite hstar_comm. rewrite~ hstar_hpure.
+  introv M N. rewrite <- (hstar_hempty_l \[P]). rewrite~ hstar_hpure_r.
 Qed.
 
 Lemma himpl_hempty_hpure : forall P,
@@ -692,7 +693,7 @@ Lemma himpl_hstar_hpure_l : forall P H H',
   (P -> H ==> H') ->
   (\[P] \* H) ==> H'.
 Proof using.
-  introv W Hh. rewrite hstar_hpure in Hh. applys* W.
+  introv W Hh. rewrite hstar_hpure_l in Hh. applys* W.
 Qed.
 
 Lemma hempty_eq_hpure_true :
@@ -706,7 +707,7 @@ Qed.
 Lemma hfalse_hstar_any : forall H,
   \[False] \* H = \[False].
 Proof using.
-  intros. applys himpl_antisym; intros h; rewrite hstar_hpure; intros M.
+  intros. applys himpl_antisym; intros h; rewrite hstar_hpure_l; intros M.
   { false*. } { lets: hpure_inv_hempty M. false*. }
 Qed.
 
@@ -1258,7 +1259,7 @@ Lemma hoare_add : forall H n1 n2,
 Proof using.
   intros. intros s K0. exists s (val_int (n1 + n2)). split.
   { applys eval_add. }
-  { rewrite~ hstar_hpure_iff. }
+  { rewrite~ hstar_hpure_l. }
 Qed.
 
 Lemma hoare_ref : forall H v,
@@ -1271,7 +1272,7 @@ Proof using.
   exists (Fmap.union (Fmap.single p v) s1) (val_loc p). split.
   { applys~ eval_ref_sep D. }
   { applys~ hstar_intro.
-    { exists p. rewrite~ hstar_hpure. split~. { applys~ hsingle_intro. } } }
+    { exists p. rewrite~ hstar_hpure_l. split~. { applys~ hsingle_intro. } } }
 Qed.
 
 Lemma hoare_get : forall H v p,
@@ -1282,7 +1283,7 @@ Proof using.
   intros. intros s K0. exists s v. split.
   { destruct K0 as (s1&s2&P1&P2&D&U).
     lets E1: hsingle_inv P1. subst s1. applys eval_get_sep U. }
-  { rewrite~ hstar_hpure. }
+  { rewrite~ hstar_hpure_l. }
 Qed.
 
 Lemma hoare_set : forall H w p v,
@@ -1295,7 +1296,7 @@ Proof using.
   lets E1: hsingle_inv P1.
   exists (Fmap.union (Fmap.single p v) h2) val_unit. split.
   { subst h1. applys eval_set_sep U D. auto. }
-  { rewrite hstar_hpure. split~.
+  { rewrite hstar_hpure_l. split~.
     { applys~ hstar_intro.
       { applys~ hsingle_intro. }
       { subst h1. applys Fmap.disjoint_single_set D. } } }
@@ -1311,7 +1312,7 @@ Proof using.
   lets E1: hsingle_inv P1.
   exists h2 val_unit. split.
   { subst h1. applys eval_free_sep U D. }
-  { rewrite hstar_hpure. split~. }
+  { rewrite hstar_hpure_l. split~. }
 Qed.
 
 
@@ -2183,7 +2184,7 @@ Tactic Notation "xapp_apply_spec" := (* internal *)
         | match goal with H: _ |- _ => eapply H end ].
 
 Ltac xapp_nosubst_for_records tt := (* internal, refined in SLFStruct *)
- fail. 
+ fail.
 
 Tactic Notation "xapp_nosubst" :=
   xseq_xlet_if_needed; xstruct_if_needed;

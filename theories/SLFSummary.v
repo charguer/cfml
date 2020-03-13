@@ -888,7 +888,7 @@ Parameter triple_hpure : forall t (P:Prop) H Q,
     out of the right-hand side of an entailment: *)
 
 Parameter himpl_hstar_hpure_l : forall (P:Prop) H H',
-  (P  ->  H ==> H') ->
+  (P -> (H ==> H')) ->
   (\[P] \* H) ==> H'.
 
 End Wpsem.

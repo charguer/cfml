@@ -860,11 +860,11 @@ Proof using.
   intros. applys local_intro. intros H Q M H'.
   applys hoare_named_heap. intros h (h1&h2&N1&N2&N3&N4).
   lets (H1&H2&Q1&M0): (rm M) (rm N1).
-  rewrite <- hstar_assoc, hstar_comm, hstar_hpure in M0.
-  destruct M0 as ((M1&M2)&M3).
-  applys hoare_conseq (M1 (H2 \* H')).
+  rewrite <- hstar_assoc, hstar_hpure_r in M0.
+  destruct M0 as (M1&M2&M3).
+  applys hoare_conseq (M2 (H2 \* H')).
   { subst. rewrite <- hstar_assoc. intros h ->. apply~ hstar_intro. }
-  { intros x. xchanges (M2 x). }
+  { intros x. xchanges (M3 x). }
 Qed.
 
 Hint Resolve local_triple.
