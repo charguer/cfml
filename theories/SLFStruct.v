@@ -856,24 +856,25 @@ End ListDealloc.
 (* ########################################################### *)
 (** * Bonus contents (optional reading) *)
 
+(** The aim of this bonus section is to show how to establish
+    the specifications presented in this chapter.
+
+    To that end, we consider an extended language, featuring the
+    operations [val_alloc] and [val_dealloc], which operates on
+    blocks of cells. *)
 
 Module Realization.
+
 
 (* ########################################################### *)
 (** ** Refined source language *)
 
-(** The aim of this bonus section is to show how to establish
-    the specifications presented in this chapter.
+(** We assume that every allocated block features a "header cell",
+    represented explicitly in the memory state.
 
-    To that end, we consider a refined language. We replace the
-    primitive operations [val_ref] and [val_free] with the
-    operations [val_alloc] and [val_dealloc], which operates on
-    block. Note that a reference cell can be encoded as a record
-    with a single field, as done in the OCaml language. *)
-
-(** We represent header blocks explicitly in the memory state,
-    by using a special value, written [val_header k], where [k]
-    denotes the length of the block that follows the header. *)
+    To describe this header cell, we introduce a special value,
+    written [val_header k], where [k] denotes the length of the block
+    that follows the header. *)
 
 Parameter val_header : nat -> val.
 
@@ -883,52 +884,53 @@ Parameter val_header : nat -> val.
     in program terms. *)
 
 (** The operation [val_alloc k] is specified as shown below. Starting from
-    a state [ma], it produces a state [mb \u ma] (the union of [mb]
-    and [ma]), where [mb] consists of consecutive of [k+1] consecutive
-    cells, the head cell storing the special value [val_header k], and
-    the [k] following cells storing the special value [val_uninit]. *)
+    a state [sa], it produces a state [sb \u sa] (i.e., the union of [sb]
+    and [sa]), where [sb] consists of consecutive of [k+1] consecutive
+    cells. The head cell stores the special value [val_header k], while
+    the [k] following cells store the special value [val_uninit], describing
+    uninitialized cells. *)
 
-Parameter eval_alloc : forall k n ma mb p,
-  mb = Fmap.conseq (val_header k :: LibList.make k val_uninit) p ->
+Parameter eval_alloc : forall k n sa sb p,
+  sb = Fmap.conseq (val_header k :: LibList.make k val_uninit) p ->
   n = nat_to_Z k ->
   p <> null ->
-  Fmap.disjoint ma mb ->
-  eval ma (val_alloc (val_int n)) (mb \u ma) (val_loc p).
+  Fmap.disjoint sa sb ->
+  eval sa (val_alloc (val_int n)) (sb \u sa) (val_loc p).
 
-(** The operation [val_dealloc p] is specified as shown below. Starting from
-    a state [mb \u ma], where [mb] consists of consecutive of [k+1] consecutive
-    cells, the head cell storing the special value [val_header k], the
-    operation produces the state [ma]. *)
+(** The operation [val_dealloc p] is specified as shown below. Assume a
+    a state of the form [sb \u sa], where [sb] consists of consecutive of
+    [k+1] consecutive cells. Assume the first of these cells to store the
+    special value [val_header k]. Then, the deallocation operation removes
+    the block described by [sb], and leaves the state [sa]. *)
 
-Parameter eval_dealloc : forall k vs ma mb p,
-  mb = Fmap.conseq (val_header k :: vs) p ->
+Parameter eval_dealloc : forall k vs sa sb p,
+  sb = Fmap.conseq (val_header k :: vs) p ->
   k = LibList.length vs ->
-  Fmap.disjoint ma mb ->
-  eval (mb \u ma) (val_dealloc (val_loc p)) ma val_unit.
-
-Arguments eval_alloc : clear implicits.
-Arguments eval_dealloc : clear implicits.
+  Fmap.disjoint sa sb ->
+  eval (sb \u sa) (val_dealloc (val_loc p)) sa val_unit.
 
 (** Rather than extending the language with primitive operations
     for reading and writing in array cells and record fields,
-    we simply include a pointer arithmetic operation, called
+    we simply include a pointer arithmetic operation, named
     [val_ptr_add], and use it to encode all other access operations. *)
 
 Parameter val_ptr_add : prim.
 
-(** The operation [val_ptr p n] applies to a pointer [p] and an integer [n].
-    The integer [n] may be negative, as long as [p+n] corresponds to a
-    valid location, i.e., [p+n] must be nonnegative. The evaluation rule
-    for pointer addition is stated as follows. *)
+(** The operation [val_ptr p n] applies to a pointer [p] and an integer [n],
+    and returns the address [p+n]. *)
 
 Parameter eval_ptr_add : forall p1 p2 n s,
   (p2:int) = p1 + n ->
   eval s (val_ptr_add (val_loc p1) (val_int n)) s (val_loc p2).
 
-(** To implement the [val_array_length] function, which reads the
-    length of an array by inspecting the header field, we provide
-    a specific primitive operation, called [val_length] in the
-    semantics. *)
+(** Remark: the specification above allows the integer [n] to be negative,
+    as long as [p+n] is nonnegative. That said, thereafter we only apply
+    [eval_ptr_add] to nonnegative arguments. *)
+
+(** We also introduce the primitive operation [val_length p], which returns
+    the number stored in the header block at address [p]. This operation is
+    useful to implement the function [val_array_length], which reads the
+    length of an array. *)
 
 Parameter val_length : prim.
 
@@ -943,12 +945,15 @@ Parameter eval_length : forall s p k,
 
 (** The heap predicate [hheader k p] describes a cell at location
     whose contents is the special value [val_header k], and with
-    the invariant that [p] is not null. *)
+    the invariant that [p] is not null.
+
+    [hheader k p] is defined as [p ~~> (val_header k) \* \[p <> null]]. *)
 
 Parameter hheader_def :
   hheader = (fun (k:nat) (p:loc) => p ~~> (val_header k) \* \[p <> null]).
 
-(** Auxiliary lemmas to introduce and eliminate the definition. *)
+(** Like other heap predicates, the definition of [hheader] is associated
+    with an introduction and an elimination lemma. *)
 
 Lemma hheader_intro : forall p k,
   p <> null ->
@@ -966,27 +971,31 @@ Proof using.
   split*.
 Qed.
 
-(** The extraction of the information [p <> null] is straightforward. *)
+(** The heap predicate [hheader k p] captures the invariant [p <> null]. *)
 
 Lemma hheader_not_null : forall p k,
   hheader k p ==> hheader k p \* \[p <> null].
 Proof using. intros. rewrite hheader_def. xsimpl*. Qed.
 
-(** The definition of [hheader] is meant to show that one can prove
-    all the specifications axiomatized so far. However, this definition
-    should not be revealed to the end user. In other words, it should
-    be made "strongly opaque". (This can be achieved by means of a
-    functor in Coq.) Otherwise, the user could exploit the [val_set]
-    operation to update the contents of a header field, replacing
-    [p ~~> (val_header k)] with [p ~~> v] for another value [v],
-    thereby compromising the invariants of the memory model. *)
+(** The definition of [hheader] is meant to show that one can prove all
+    the specifications axiomatized so far. Note, however, that this
+    definition should not be revealed to the end user. In other words,
+    it should be made "strongly opaque". (Technically, this could be
+    achieved by means  of a functor in Coq.)
+
+    Otherwise, the user could exploit the [val_set] operation to update
+    the contents of a header field, replacing [p ~~> (val_header k)]
+    with [p ~~> v] for another value [v], thereby compromising the
+    invariants of the memory model. *)
 
 
 (* ####################################################### *)
-(** ** Introduction and inversion lemmas for [hcells] and [harray] *)
+(** ** Introduction and elimination lemmas for [hcells] and [harray] *)
 
-(** The following lemmas are used to establish the specifications
-    for allocation and deallocation. *)
+(** The heap predicates [hcells] and [harray] have their introduction
+    and elimination lemmas stated as follows. These lemmas are useful
+    for establishing the specifications of the allocation and of the
+    deallocation operations. *)
 
 Lemma hcells_intro : forall L p,
   (hcells L p) (Fmap.conseq L p).
@@ -1036,7 +1045,8 @@ Qed.
 (* ########################################################### *)
 (** ** Proving the specification of allocation and deallocation *)
 
-(** Let us first establish [triple_alloc_nat]. *)
+(** Following the usual pattern, we first establish a reasoning rule
+    for allocation at the level of Hoare logic. *)
 
 Lemma hoare_alloc_nat : forall H k,
   hoare (val_alloc k)
@@ -1047,11 +1057,13 @@ Proof using.
   sets L': (val_header k :: L).
   forwards~ (p&Dp&Np): (Fmap.conseq_fresh null h L').
   exists ((Fmap.conseq L' p) \u h) (val_loc p). split.
-  { applys~ (eval_alloc k). }
+  { applys~ (@eval_alloc k). }
   { applys hexists_intro p. rewrite hstar_hpure_l. split*.
     { applys* hstar_intro. applys* harray_intro.
       subst L. rew_listx*. } }
 Qed.
+
+(** We then derive the Separation Logic reasoning rule. *)
 
 Lemma triple_alloc_nat : forall k,
   triple (val_alloc k)
@@ -1062,7 +1074,8 @@ Proof using.
   { applys hoare_alloc_nat H'. } { xsimpl. } { xsimpl*. }
 Qed.
 
-(** The two corroralies to [triple_alloc_nat] follow. *)
+(** The two corollaries to [triple_alloc_nat] follow. The first one
+    applies to an integer argument, as opposed to a natural number. *)
 
 Lemma triple_alloc : forall n,
   n >= 0 ->
@@ -1074,6 +1087,9 @@ Proof using.
   xtriple. xapp triple_alloc_nat. xsimpl*.
 Qed.
 
+(** The second corollary weakens the postcondition by not specifying
+    the contents of the allocated cells. *)
+
 Lemma triple_alloc_array : forall n,
   n >= 0 ->
   triple (val_alloc n)
@@ -1084,7 +1100,8 @@ Proof using.
   { xpull. intros p. xsimpl*. { rewrite length_make. rewrite* abs_nonneg. } }
 Qed.
 
-(** Finally, we establish [triple_dealloc]. *)
+(** We also establish the specification of deallocation, first w.r.t.
+    Hoare triples, then w.r.t. Separation Logic triples. *)
 
 Lemma hoare_dealloc : forall H L p,
   hoare (val_dealloc p)
@@ -1146,13 +1163,10 @@ Qed.
 
     What remains of the heap can be described using the magic wand operator
     as [((p+k) ~~> v) \-* (hcells L p)], which captures the idea that when
-    providing back the cell at location [p+k], one would regain the
-    ownership of the original segment. *)
+    providing back the cell at location [p+k], one regains the ownership of
+    the original segment. *)
 
-(** The following statement describes a focus lemma, however it is limited
-    to the case of read operations. Indeed, it imposes the cell [(p+k) ~~> v]
-    to be merged back into the array segment, without modification to the
-    value [v] that it contained originally. *)
+(** The following statement describes a focus lemma. *)
 
 Parameter hcells_focus_read : forall k p v L,
   k < length L ->
@@ -1161,10 +1175,14 @@ Parameter hcells_focus_read : forall k p v L,
        ((p+k)%nat ~~> v)
     \* ((p+k)%nat ~~> v \-* hcells L p).
 
-(** This focus lemma can be generalized into a form that takes into account the
-    possibility of folding back the array segment with a modified contents for
-    the cell at [p+k], described by [(p+k) ~~> w], for any value [w].
-    The segment then gets described as [update k w L]. *)
+(** The above lemma is, however, limited to read operations. Indeed, it imposes
+    the cell [(p+k) ~~> v] to be merged back into the array segment, without
+    modification to the original contents [v].
+
+    The lemma can be generalized into a form that takes into account the
+    possibility of folding back the array segment with a modified contents
+    for the cell at [p+k], described by [(p+k) ~~> w], for any value [w].
+    The updated segment gets described as [update k w L]. *)
 
 Lemma hcells_focus : forall k p L,
   k < length L ->
@@ -1205,7 +1223,8 @@ Qed.
     record operations by accessing cells at specific offsets.
 
     The specification of [val_ptr_add] directly reformulates the
-    evaluation rule. It is established following the usual pattern. *)
+    evaluation rule. It is established following the usual pattern
+    for primitive operations. *)
 
 Lemma hoare_ptr_add : forall p n H,
   p + n >= 0 ->
