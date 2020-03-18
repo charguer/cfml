@@ -920,7 +920,7 @@ Parameter val_get_field : field -> val.
 
 Notation "t1 ''.' k" :=
   (val_get_field k t1)
-  (at level 56, k at level 0, format "t1 ''.' k" ).
+  (at level 56, k at level 0, format "t1 ''.' k" ) : trm_scope.
 
 (** Specification *)
 
@@ -949,7 +949,8 @@ Parameter val_set_field : field -> val.
 
 Notation "'Set' t1 ''.' k '':=' t2" :=
   (val_set_field k t1 t2)
-  (at level 65, t1 at level 0, k at level 0, format "'Set' t1 ''.' k  '':=' t2").
+  (at level 65, t1 at level 0, k at level 0, format "'Set' t1 ''.' k  '':=' t2")
+  : trm_scope.
 
 (** Specification *)
 

@@ -1137,6 +1137,8 @@ Definition tail : field := 1%nat.
       contains a pointer [q] such that [MList L' q] describes the
       tail of the list.
 
+    The heap predicate [p ~~~>`{ head := x; tail := q}] describes the
+    list cell.
 *)
 
 Fixpoint MList (L:list val) (p:loc) : hprop :=

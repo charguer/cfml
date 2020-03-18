@@ -33,7 +33,7 @@ Implicit Types L : list val.
     - assertions,
     - if-statements that are not in A-normal form (needed for loops)
     - while-loops,
-    - n-ary functions.
+    - n-ary functions (bonus contents).
 
     Regarding loops, we explain why conventional-style reasoning rules
     based on loop invariants are limited in that they prevent useful
@@ -52,11 +52,6 @@ Implicit Types L : list val.
     - native n-ary functions, e.g., [function(x, y) { t } ] in C syntax;
     - curried functions, e.g., [fun x => fun y => t] in OCaml syntax;
     - tupled functions, e.g., [fun (x,y) => t] in OCaml syntax.
-
-    In this chapter, we present reasoning rules for curried functions and
-    for native n-ary functions. The former requires minimal extension to the
-    syntax and semantics of our language. The latter corresponds to the most
-    practical solution from an engineering perspective.
 
 *)
 

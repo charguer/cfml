@@ -29,23 +29,24 @@ Implicit Types z : nat.
 (* ####################################################### *)
 (** * Chapter in a rush *)
 
-(** This chapter introduces support for reasoning about mutable records
-    and mutable arrays,
+(** This chapter introduces support for reasoning about arrays and records.
 
-    To allocate records and arrays, we introduce two new primitive operations,
-    named [val_alloc] and [val_dealloc], for allocating and deallocating
-    at once a range of consecutive memory cells.
+    In the first part of this chapter, we present the representation predicates
+    for these structures, and present the statement of the specifications
+    associated with operations on arrays and records.
 
-    In the first part of this chapter, we present the specification of
-    the operations on arrays and records. In the second part of this chapter,
-    we show how these operations can be implemented with heap of pointer
-    arithmetic operations, and specified with respect to a memory model
-    that exposes a particular representation of headers for allocated blocks.
+    In the second part of this chapter, we show how these specifications can
+    be realized, with respect to a memory model that exposes a representation
+    of headers for allocated blocks. More precisely, we show how to implement
+    array and record operations using a pointer arithmetic primitive operation,
+    and we establish the correctness of the specifications with respect to
+    the semantics of the allocatin, deallocation, and pointer arithmetic
+    operations.
 
-    This memory model is somewhat artificial, in the sense that it does not
-    perfectly match the memory model of an existing language----it is somewhere
-    between the memory model of C and that of OCaml. Nevertheless, this
-    memory model has the benefits of its simplicity, and it suffices to
+    The memory model that we consider is somewhat artificial, in the sense that
+    it does not  perfectly match the memory model of an existing language----it
+    lies somewhere  between the memory model of C and that of OCaml. Nevertheless,
+    this memory model has the benefits of its simplicity, and it suffices to
     illustrate formal proofs involving block headers and pointer arithmetics. *)
 
 
@@ -56,17 +57,15 @@ Implicit Types z : nat.
     consecutive cells, starting at some location [p]. In other words, the
     array cells have addresses from [p] inclusive to [p+k] exclusive.
 
-    The contents of an array of length [k] can be represented by a list
-    of values of length [k]. This idea is formalized by the predicate [hcells].
-
     The heap predicate [hcells L p] represents a consecutive set of cells
     starting at location [p] and whose elements are described by the list [L].
+    The length of the list [L] corresponds to the length of the array.
 
     On paper, we could write something along the lines of:
     [\bigstar_{x at index i in L} { (p+i) ~~> x }].
 
-    In Coq, we can define this predicate by induction on the list [L], with
-    the pointer being incremented by one unit at each cell, as follows.
+    In Coq, we define the predicate [hcells L p] by recursion on the list [L],
+    with the pointer [p] incremented by one unit at each cell, as follows.
 *)
 
 Fixpoint hcells (L:list val) (p:loc) : hprop :=
@@ -85,10 +84,13 @@ Fixpoint hcells (L:list val) (p:loc) : hprop :=
 Parameter hcells_concat_eq : forall p L1 L2,
   hcells (L1++L2) p = (hcells L1 p \* hcells L2 (length L1 + p)%nat).
 
-(** This "splitting lemma for arrays" is useful to carry out local
-    reasoning on arrays, by focusing on the segment of the array involved
-    in each recursive call, and obtaining for free the fact that the
-    cells outside of the segment remain unmodified. *)
+(** This "splitting lemma for arrays" is useful for carrying out local
+    reasoning on arrays. For example, in the recursive quicksort algorithm,
+    the specification requires a description of the segment to be sorted;
+    the representation of this segment is splitted so that subsegments
+    can be provided for reasoning about the recursive calls. One therey
+    obtains for free the fact that the cells outside of the targeted
+    segment remain unmodified. *)
 
 
 (* ####################################################### *)
@@ -106,18 +108,17 @@ Parameter hcells_concat_eq : forall p L1 L2,
       on the address of an allocated block, deallocating the full block
       at once.
 
-   In this course, we follow the OCaml view, with phyiscal headers.
-   However, the definitions could be easily adapted to follow the C view.
+   In this course, we follow the OCaml view, with physical headers.
 
    The predicate [hheader k p] asserts the existence of an allocated
    block at location [p], such that the contents of the block is made
-   of [k] cells (not counting the header cell). For the moment, we leave
+   of [k] cells, not counting the header cell. For the moment, we leave
    its definition abstract. *)
 
 Parameter hheader : forall (k:nat) (p:loc), hprop.
 
-(** The heap predicate [hheader k p] should capture the information
-    that [p] is not null---blocks cannot be allocated at the null location. *)
+(** The heap predicate [hheader k p] should capture the information that [p]
+    is not null. Indeed blocks cannot be allocated at the null location. *)
 
 Parameter hheader_not_null : forall p k,
   hheader k p ==> hheader k p \* \[p <> null].
@@ -126,8 +127,9 @@ Parameter hheader_not_null : forall p k,
     [L] describes the contents of the cells. This heap predicate covers
     both the header, which describes a block of length equal to [length L],
     and the contents of the cells, described by [hcells L (p+1)].
-    Indeed, [p+1] is the first cell of the array, located next to the
-    header cell at location [p]. *)
+
+    Note that [p+1] corresponds to the address of the first cell of the array,
+    located immediately past the header cell that sits at location [p]. *)
 
 Definition harray (L:list val) (p:loc) : hprop :=
   hheader (length L) p \* hcells L (p+1)%nat.
@@ -143,14 +145,15 @@ Parameter val_alloc : prim.
 
 (** The operation [val_alloc k] is specified as producing an array
     whose cells contain the special "uninitialized value", written
-    [val_uninit]. *)
+    [val_uninit]. We assume [val_uninit] to be part of the grammar
+    of values. *)
 
 Parameter val_uninit : val.
 
 (** More precisely, the postcondition of [val_alloc k] is of the form
    [funloc p => harray L p], where the list [L] is defined as the
-   repetition of [k] times the value [val_uninit]. This list is
-   written [LibList.make k val_uninit]. *)
+   repetition of [k] times the value [val_uninit]. This list is written
+   [LibList.make k val_uninit]. *)
 
 Parameter triple_alloc_nat : forall k,
   triple (val_alloc k)
@@ -158,7 +161,7 @@ Parameter triple_alloc_nat : forall k,
     (funloc p => harray (LibList.make k val_uninit) p).
 
 (** In practice, the operation [val_alloc] is applied to a non-negative
-    integer, that may not necessarily be syntactically a natural number.
+    integer, which might not necessarily be syntactically a natural number.
     Hence, the following lemma, which specifies [val_alloc n] for [n >= 0],
     is more handy to use. *)
 
@@ -182,9 +185,10 @@ Parameter triple_alloc_array : forall n,
 (** Remark: in OCaml, one must provide an initialization value explicitly,
     so there is no such thing as [val_uninit]; in JavaScript, [val_uninit]
     is called [undefined]; in Java, arrays are initialized with zeros;
-    in C, uninitialized data should not be read---we could implement
-    this policy in our language by restricting the evaluation rule for the read
-    operation, adding a premise of the form [v <> val_uninit] to that rule. *)
+    in C, uninitialized data should not be read. In that language, one would
+    typically implement this policy by restricting the evaluation rule for
+    the read operation, adding a premise of the form [v <> val_uninit] to
+    ensure that uninitialized values cannot be read. *)
 
 
 (* ####################################################### *)
@@ -204,8 +208,7 @@ Parameter triple_dealloc : forall L p,
     (fun _ => \[]).
 
 (** Observe that the [harray L p] predicate includes a header of the form
-    [hheader k p], ensuring that the corresponding allocated block is
-    deallocated exactly once. *)
+    [hheader k p], ensuring that a block can be deallocated only once. *)
 
 
 (* ####################################################### *)
@@ -252,7 +255,7 @@ Parameter val_array_length : val.
 
 (** There are two useful specifications for [val_array_length]. The first
     one operates with the heap predicate [harray L p]. The return value is
-    then the length of the list [L]. *)
+    the length of the list [L]. *)
 
 Parameter triple_array_length : forall L p,
   triple (val_array_length p)
@@ -293,8 +296,9 @@ Definition field : Type := nat.
     Concretely, the record can be represented by the heap predicate:
     [(hheader 2 p) \* ((p+1) ~~> x) \* ((p+2) ~~> q)]. *)
 
-(** To avoid exposing pointer arithmetic to the end-user, let us introduce
+(** To avoid exposing pointer arithmetic to the end-user, we introduce
     the "record field" notation [p`.k ~~> v] to denote [(p+1+k) ~~> v].
+
     For example, with the definition of the field offsets [head := 0]
     and [tail := 1], the same record as before can be represented as:
     [(hheader 2 p) \* (p`.head ~~> x) \* (p`.tail ~~> q)]. *)
@@ -319,8 +323,8 @@ Notation "p `. k '~~>' v" := (hfield p k v)
     much more concisely, as [p ~~~>`{ head := x; tail := q }].
 
     It what follows, we show how to implement this notation by introducing
-    the heap predicates [hfields] and [hrecords], and rpesent the
-    specification of record operations with respect to those predicates. *)
+    the heap predicates [hfields] and [hrecords]. We then represent the
+    specifications of record operations with respect to those predicates. *)
 
 (** A record field is described as the pair of a field and a value
     stored in this field. *)
@@ -371,9 +375,10 @@ Notation "`{ k1 := v1 ; k2 := v2 ; k3 := v3 }" :=
 
 Open Scope val_scope.
 
-(** The heap predicate [hfields kvs p] asserts that at location [p]
+(** The heap predicate [hfields kvs p] asserts that, at location [p],
     one finds the representation of the fields described by the list [kvs].
-    This predicate is defined recursively on the list [kvs].
+
+    The predicate [hfields kvs p] is defined recursively on the list [kvs].
     If [kvs] is empty, the predicate describes the empty heap predicate.
     Otherwise, it describes a first field, at offset [k] and with contents
     [v], as the predicate [p`.k ~~> v], and it describes the remaining
@@ -387,6 +392,7 @@ Fixpoint hfields (kvs:hrecord_fields) (p:loc) : hprop :=
 
 (** The heap predicate [hrecord kvs p] describes a record: it covers
     not just all the fields of the record, but also the header.
+
     The cells are described by [hfields kvs p], and the header is
     described by [hheader z p], where [nb] should be such that the
     keys in the list [kvs] are between [0] inclusive and [nb] exclusive.
@@ -398,15 +404,15 @@ Fixpoint hfields (kvs:hrecord_fields) (p:loc) : hprop :=
     of their associated offsets.
 
     The auxiliary predicate [maps_all_fields z kvs] asserts that the
-    keys from the list [kvs] correspond exactly to the sequence made
-    of the first [nb] natural numbers, that is, [0; 1; ...; nb-1]. *)
+    keys from the association list [kvs] correspond exactly to the sequence
+    made of the first [nb] natural numbers, that is, [0; 1; ...; nb-1]. *)
 
 Definition maps_all_fields (nb:nat) (kvs:hrecord_fields) : Prop :=
   LibList.map fst kvs = nat_seq 0 nb.
 
 (** The predicate [hrecord kvs p] exploits [maps_all_fields z kvs]
-    to relate the value [nb] stored in the header with the fields
-    [kvs] described by the predicate [hfields]. *)
+    to relate the value [nb] stored in the header with the association
+    list [kvs] that describes the contents of the fields. *)
 
 Definition hrecord (kvs:hrecord_fields) (p:loc) : hprop :=
   \exists z, hheader z p \* hfields kvs p \* \[maps_all_fields z kvs].
@@ -427,8 +433,12 @@ Qed.
 Notation "p '~~~>' kvs" := (hrecord kvs p)
   (at level 32) : hprop_scope.
 
-(** For example, recall the definition of the representation predicate
-    [MList] introduced in [SLFBasic]. *)
+
+(* ########################################################### *)
+(** ** Example with mutable linked lists *)
+
+(** Recall the definition of the representation predicate [MList],
+    which was introduced in [SLFBasic]. *)
 
 Definition head : field := 0%nat.
 Definition tail : field := 1%nat.
@@ -438,6 +448,27 @@ Fixpoint MList (L:list val) (p:loc) : hprop :=
   | nil => \[p = null]
   | x::L' => \exists q, (p ~~~>`{ head := x; tail := q}) \* (MList L' q)
   end.
+
+(** Recall the statement of the lemma [MList_if], which reformulates
+    the definition of [MList] with a case analysis on [p = null].
+
+    Observe the use of the lemma [hrecrod_not_null] to exploit the
+    fact that a record cannot be allocated at the [null] location. *)
+
+Lemma MList_if : forall (p:loc) (L:list val),
+      (MList L p)
+  ==> (If p = null
+        then \[L = nil]
+        else \exists x q L', \[L = x::L']
+             \* (p ~~~> `{ head := x ; tail := q }) \* (MList L' q)).
+Proof using.
+  intros. destruct L as [|x L']; simpl.
+  { xpull. intros M. case_if. xsimpl*. }
+  { xpull. intros q. xchange hrecord_not_null. intros N.
+    case_if. xsimpl*. }
+Qed.
+
+Opaque MList.
 
 
 (* ########################################################### *)
@@ -451,16 +482,17 @@ Fixpoint MList (L:list val) (p:loc) : hprop :=
 
 Parameter val_get_field : field -> val.
 
-(** The read operation [val_get_field k p] can be abbreviated as [p'.k]. *)
+(** The read operation [val_get_field k p] is abbreviated as [p'.k]. *)
 
 Notation "t1 ''.' k" :=
   (val_get_field k t1)
   (at level 56, k at level 0, format "t1 ''.' k" ).
 
 (** The operation [val_get_field k p] can be specified at three levels.
+
     First, its small-footprint specification operates at the level of
     a single field, described by [p`.k ~~> v]. The specification is
-    very similar to that of [val_get]: the return value is exactly [v]. *)
+    very similar to that of [val_get]. The return value is exactly [v]. *)
 
 Parameter triple_get_field : forall p k v,
   triple (val_get_field k p)
@@ -471,7 +503,8 @@ Parameter triple_get_field : forall p k v,
     fields, described in the form [hfields kvs p]. To that end, we introduce
     a function called [hfields_lookup] for extracting the value [v]
     associated with a field [k] in a list of record fields [kvs].
-    The opeation [hfields_lookup k kvs] returns a result of type [option val],
+
+    The operation [hfields_lookup k kvs] returns a result of type [option val],
     because we cannot presume that the field [k] occurs in [kvs], even though
     it is always the case in practice. *)
 
@@ -513,7 +546,7 @@ Parameter triple_get_field_hrecord : forall kvs p k v,
 
 Parameter val_set_field : field -> val.
 
-(** The write operation [val_get_field k p v] can be abbreviated as
+(** The write operation [val_get_field k p v] is abbreviated as
     [Set p'.k ':= v]. *)
 
 Notation "'Set' t1 ''.' k '':=' t2" :=
@@ -541,11 +574,11 @@ Fixpoint hfields_update (k:field) (v:val) (kvs:hrecord_fields)
   match kvs with
   | nil => None
   | (ki,vi)::kvs' => if Nat.eq_dec k ki
-                   then Some ((k,v)::kvs')
-                   else match hfields_update k v kvs' with
-                        | None => None
-                        | Some LR => Some ((ki,vi)::LR)
-                        end
+                       then Some ((k,v)::kvs')
+                       else match hfields_update k v kvs' with
+                            | None => None
+                            | Some LR => Some ((ki,vi)::LR)
+                            end
   end.
 
 (** The specification in terms of [hfields] is as follows. *)
@@ -566,7 +599,7 @@ Parameter triple_set_field_hrecord : forall kvs kvs' k p v,
 
 
 (* ########################################################### *)
-(** ** Allocation and deallocation of records *)
+(** ** Allocation of records *)
 
 (** Because records are internally described like arrays, records may
     be allocated and deallocated using the operations [val_alloc] and
@@ -575,38 +608,10 @@ Parameter triple_set_field_hrecord : forall kvs kvs' k p v,
     terms of representation predicate [hrecord], which describes a
     full record in terms of the list of its fields. *)
 
-(** Deallocation of a record, written [val_dealloc_record p] is the simplest.
-    This operation is implemented simply as [val_dealloc p]. *)
+(** For allocation, one needs to provide, at some point, the fields names
+    for the record being allocated. These fields names may be described
+    by a list of field names of type [list field].
 
-Definition val_dealloc_record : val := val_dealloc.
-
-(** The specification of this operation simply requires as precondition
-    the full record description, in the form [hrecord kvs p], and yields
-    the empty postcondition. *)
-
-Parameter triple_dealloc_record : forall kvs p,
-  triple (val_dealloc_record p)
-    (hrecord kvs p)
-    (fun _ => \[]).
-
-(** To improve readability, we introduce the notation [Delete p]
-    for record deallocation. *)
-
-Notation "'Delete' p" := (val_dealloc_record p)
-  (at level 65) : trm_scope.
-
-(** For example, this lemma can be used to reason about deallocation
-    of a list cell. *)
-
-Lemma triple_dealloc_mcell : forall p x q,
-  triple (val_dealloc_record p)
-    (p ~~~> `{ head := x ; tail := q })
-    (fun _ => \[]).
-Proof using. intros. applys* triple_dealloc_record. Qed.
-
-(** Allocation is a bit trickier, because one needs to introduce the
-    fields names for the record to be allocated. These fields names
-    may be described by a list of field names of type [list field].
     This list, written [ks], should be equivalent to a list of
     consecutive natural numbers [0 :: 1 :: ... :: n-1], where [n]
     denotes the number of fields. The interest of introducing the list
@@ -631,7 +636,7 @@ Parameter triple_alloc_record : forall ks,
     \[]
     (funloc p => hrecord (LibListExec.map (fun k => (k,val_uninit)) ks) p).
 
-Hint Resolve triple_alloc_record triple_dealloc_record : triple.
+Hint Resolve triple_alloc_record : triple.
 
 (** For example, the allocation of a list cell is specified as follows. *)
 
@@ -642,6 +647,40 @@ Lemma triple_alloc_mcell :
 Proof using. applys* triple_alloc_record. Qed.
 
 
+(* ########################################################### *)
+(** ** Deallocation of records *)
+
+(** Deallocation of a record, written [val_dealloc_record p] is the simplest.
+    This operation is implemented simply as [val_dealloc p]. *)
+
+Definition val_dealloc_record : val := val_dealloc.
+
+(** The specification of this operation simply requires as precondition
+    the full record description, in the form [hrecord kvs p], and yields
+    the empty postcondition. *)
+
+Parameter triple_dealloc_record : forall kvs p,
+  triple (val_dealloc_record p)
+    (hrecord kvs p)
+    (fun _ => \[]).
+
+Hint Resolve triple_dealloc_record : triple.
+
+(** To improve readability, we introduce the notation [Delete p]
+    for record deallocation. *)
+
+Notation "'Delete' p" := (val_dealloc_record p)
+  (at level 65) : trm_scope.
+
+(** For example, the following corollary to [triple_dealloc_record] may be
+    used to reason about the deallocation of a list cell. *)
+
+Lemma triple_dealloc_mcell : forall p x q,
+  triple (val_dealloc_record p)
+    (p ~~~> `{ head := x ; tail := q })
+    (fun _ => \[]).
+Proof using. intros. applys* triple_dealloc_record. Qed.
+
 
 (* ########################################################### *)
 (** ** Combined record allocation and initialization *)
@@ -649,8 +688,9 @@ Proof using. applys* triple_alloc_record. Qed.
 (** It is often useful to allocate a record and immediately initialize
     its fields. To that end, we introduce the operation [val_new_record],
     which applies to a list of fields and to values for these fields.
-    This operation can be defined in an arity-generic way, yet to begin
-    with let us present its specifialization to the arity 2. *)
+
+    This operation can be defined in an arity-generic way, yet, to avoid
+    technicalities, we only present its specialization for arity 2. *)
 
 Module RecordInit.
 Import SLFProgramSyntax.
@@ -717,6 +757,7 @@ End RecordInit.
     The auxiliary lemmas reformulate the specification triples in
     weakest-precondition form. The premise takes the form
     [H ==> \exists kvs, (hrecord kvs p) \* match ... with Some .. => ..].
+
     This presentation enables using [xsimpl] to extract the description
     of the record, named [kvs], before evaluating the [lookup] or
     [update] function for producing the suitable postcondition. *)
@@ -756,29 +797,11 @@ Ltac xapp_nosubst_for_records tt ::=
 (** ** Deallocation function for lists *)
 
 (** Recall that our Separation Logic set up enforces that all allocated
-    data eventually gets properly deallocated. In what follows, we describe
-    a function for deallocating an entire mutable list. *)
+    data eventually gets properly deallocated. In what follows, we present
+    a function for recursively deallocating an entire mutable list. *)
 
 Module ListDealloc.
 Import SLFProgramSyntax RecordInit.
-
-(** Recall the statement of [MList_if], which reformulates the
-    definition of [MList] using a case analysis on [p = null]. *)
-
-Lemma MList_if : forall (p:loc) (L:list val),
-      (MList L p)
-  ==> (If p = null
-        then \[L = nil]
-        else \exists x q L', \[L = x::L']
-             \* (p ~~~> `{ head := x ; tail := q }) \* (MList L' q)).
-Proof using.
-  intros. destruct L as [|x L']; simpl.
-  { xpull. intros M. case_if. xsimpl*. }
-  { xpull. intros q. xchange hrecord_not_null. intros N.
-    case_if. xsimpl*. }
-Qed.
-
-Opaque MList.
 
 (** The operation [mfree_list] deallocates all the cells in a given list.
     It is implemented as a recursive function that invokes [mfree_cell]
@@ -804,7 +827,7 @@ Definition mfree_list : val :=
       'f 'q
     End.
 
-(** The precondition of [mfree_list p] requires a full list [p ~> MList L].
+(** The precondition of [mfree_list p] requires a full list [MList L p].
     The postcondition is empty: the entire list is destroyed. *)
 
 (* EX2! (Triple_mfree_list) *)
