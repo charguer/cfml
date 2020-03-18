@@ -41,8 +41,8 @@ SRC_COMMON := TLCbuffer Fmap Var SepSimpl
 
 SRC_CFML := Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics 
 
-SRC_CFML_PLUS := WPRecord WPExamples WPExamplesDetails WPLib WPUnitTests 
-# $(SRC_EXAMPLES)
+SRC_CFML_PLUS := WPRecord WPLib 
+# $(SRC_EXAMPLES) WPExamples WPExamplesDetails WPUnitTests 
 
 SRC_MORE := SepBaseAltProofs SepCredits SepRO SubstExec 
 
@@ -50,14 +50,14 @@ SRC_MORE := SepBaseAltProofs SepCredits SepRO SubstExec
 
 SRC_CF := CFCrashCourse
 
-SRC_SF := SLFPreface SLFDirect SLFExtra SLFSummary SLFMinimal SLFBasic SLFHprop SLFHimpl SLFRules SLFWPsem SLFWPgen SLFWand SLFAffine SLFRich 
-#SLFStruct 
+SRC_SF := SLFPreface SLFDirect SLFExtra SLFSummary SLFMinimal SLFBasic SLFHprop SLFHimpl SLFRules SLFWPsem SLFWPgen SLFWand SLFAffine SLFRich SLFStruct 
 
 # SLFLift SLFRicher SLFExt
 
 SRC_MOSEL := SepMoselFunctor SepBaseMosel SepROMosel ExampleROMosel ExampleListMosel
 
-SRC := $(SRC_COMMON) $(SRC_CFML)  $(SRC_SF) $(SRC_MORE) $(SRC_CFML_PLUS) 
+SRC := $(SRC_COMMON) $(SRC_CFML)  $(SRC_SF) $(SRC_MORE)
+# $(SRC_CFML_PLUS) 
 # $(SRC_EXAMPLES) 
 # $(SRC_CF)  $(SRC_MOSEL)
 

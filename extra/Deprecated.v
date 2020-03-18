@@ -1983,3 +1983,270 @@ Proof using.
   { applys mkstruct_sound. applys wp_sound. }
   { applys mkstruct_erase. }
 Qed.
+
+
+Lemma triple_alloc_array : forall n,
+  n >= 0 ->
+  triple (val_alloc n)
+    \[]
+    (funloc p => \exists L, \[n = length L] \* harray L p).
+    (* LATER: need to assert that [L] does not contain [val_header] *)
+Proof using.
+  introv N. xtriple. xapp triple_alloc. { auto. }
+  { xpull. intros p. unfold harray_uninit. xsimpl*.
+    { rewrite length_make. rewrite* abs_nonneg. } }
+Qed.
+
+
+Lemma triple_set : forall w p v,
+  triple (val_set (val_loc p) v)
+    (\[val_not_header v] \* p ~~> w)
+    (fun _ => p ~~> v).
+Proof using.
+  intros. applys triple_hpure. intros N.
+  unfold triple. intros H'. applys* hoare_conseq hoare_set; xsimpl~.
+Qed.
+
+
+
+
+(* ########################################################### *)
+(** ** Updated specifications for [val_get] and [val_set] *)
+
+(*
+
+(** Updated get and set *)
+
+Lemma hoare_get : forall H v p,
+  hoare (val_get p)
+    ((p ~~> v) \* H)
+    (fun r => \[r = v] \* (p ~~> v) \* H).
+Proof using.
+  intros. intros s K0. exists s v. split.
+  { destruct K0 as (s1&s2&P1&P2&D&U).
+    lets (E1&N): hsingle_inv P1. subst s1. applys eval_get_sep U. }
+  { rewrite~ hstar_hpure. }
+Qed.
+
+Lemma hoare_set : forall H w p v,
+  val_not_header v ->
+  hoare (val_set (val_loc p) v)
+    ((p ~~> w) \* H)
+    (fun r => \[r = val_unit] \* (p ~~> v) \* H).
+Proof using.
+  introv N'. intros s1 K0.
+  destruct K0 as (h1&h2&P1&P2&D&U).
+  lets (E1&N): hsingle_inv P1.
+  exists (Fmap.union (Fmap.single p v) h2) val_unit. split.
+  { subst h1. applys eval_set_sep U D. auto. }
+  { rewrite hstar_hpure. split~.
+    { applys~ hstar_intro.
+      { applys~ hsingle_intro. }
+      { subst h1. applys Fmap.disjoint_single_set D. } } }
+Qed.
+
+Lemma triple_get : forall v p,
+  triple (val_get p)
+    (p ~~> v)
+    (fun r => \[r = v] \* (p ~~> v)).
+Proof using.
+  intros. unfold triple. intros H'. applys hoare_conseq hoare_get; xsimpl~.
+Qed.
+
+Lemma triple_set : forall w p v,
+  val_not_header v ->
+  triple (val_set (val_loc p) v)
+    (p ~~> w)
+    (fun _ => p ~~> v).
+Proof using.
+  introv R. unfold triple. intros H'. applys* hoare_conseq hoare_set; xsimpl~.
+Qed.
+
+Lemma triple_set' : forall w p v,
+  triple (val_set (val_loc p) v)
+    (\[val_not_header v] \* p ~~> w)
+    (fun _ => p ~~> v).
+Proof using. intros. applys triple_hpure. intros N. applys* triple_set. Qed.
+
+(* Hint Resolve triple_get triple_set' : triple. *)
+
+*)
+
+
+(*
+Definition hsingle (p:loc) (v:val) : hprop :=
+  fun h => (h = Fmap.single p v) /\ val_not_header v.
+
+Notation "p '~~>' v" := (hsingle p v) (at level 32) : hprop_scope_new.
+
+Local Open Scope hprop_scope_new.
+
+(** Properties of [hsingle]. *)
+
+Lemma hsingle_intro : forall p v,
+  val_not_header v ->
+  (p ~~> v) (Fmap.single p v).
+Proof using. intros. hnfs*. Qed.
+
+Lemma hsingle_inv: forall p v h,
+  (p ~~> v) h ->
+  h = Fmap.single p v /\ val_not_header v.
+Proof using. auto. Qed.
+
+Lemma hsingle_not_header : forall p v,
+  (p ~~> v) ==> (p ~~> v) \* \[val_not_header v].
+Proof using.
+  intros. unfold hsingle. intros h M.
+  rewrite hstar_comm, hstar_hpure. autos*.
+Qed.
+
+*)
+
+
+(** Updated get and set *)
+
+Lemma hoare_get : forall H v p,
+  hoare (val_get p)
+    ((p ~~> v) \* H)
+    (fun r => \[r = v] \* (p ~~> v) \* H).
+Proof using.
+  intros. intros s K0. exists s v. split.
+  { destruct K0 as (s1&s2&P1&P2&D&U).
+    lets (E1&N): hsingle_inv P1. subst s1. applys eval_get_sep U. }
+  { rewrite~ hstar_hpure. }
+Qed.
+
+Lemma triple_get : forall v p,
+  triple (val_get p)
+    (p ~~> v)
+    (fun r => \[r = v] \* (p ~~> v)).
+Proof using.
+  intros. unfold triple. intros H'. applys hoare_conseq hoare_get; xsimpl~.
+Qed.
+
+
+
+
+
+(* ########################################################### *)
+(** ** Updated predicate [hsingle] *)
+
+(*
+Definition hsingle (p:loc) (v:val) : hprop :=
+  fun h => (h = Fmap.single p v) /\ val_not_header v.
+
+Notation "p '~~>' v" := (hsingle p v) (at level 32) : hprop_scope_new.
+
+Local Open Scope hprop_scope_new.
+
+(** Properties of [hsingle]. *)
+
+Lemma hsingle_intro : forall p v,
+  val_not_header v ->
+  (p ~~> v) (Fmap.single p v).
+Proof using. intros. hnfs*. Qed.
+
+Lemma hsingle_inv: forall p v h,
+  (p ~~> v) h ->
+  h = Fmap.single p v /\ val_not_header v.
+Proof using. auto. Qed.
+
+Lemma hsingle_not_header : forall p v,
+  (p ~~> v) ==> (p ~~> v) \* \[val_not_header v].
+Proof using.
+  intros. unfold hsingle. intros h M.
+  rewrite hstar_comm, hstar_hpure. autos*.
+Qed.
+*)
+
+
+
+
+(** The two above specifications are somewhat inconvenient for proofs in
+    practice because they require explicitly providing the list describing
+    the contents of the deallocated cells. (An example illustrating
+    the issue is given further on, in lemma [triple_dealloc_mcell].)
+
+    We therefore consider an alternative deallocation rule that avoids the
+    quantification over thie list [L]. It is based on a new heap predicate,
+    written [hcells_any k p], which describes the contents of [k] cells,
+    each of which with an arbitrary contents described through an existential
+    quantifier. *)
+
+Fixpoint hcells_any (k:nat) (p:loc) : hprop :=
+  match k with
+  | O => \[]
+  | S k' => (\exists v, p ~~> v) \* (hcells_any k' (S p))
+  end.
+
+(** We can prove that the predicate [hcells_any k p] entails [hcells L p]
+    for some list [L] of length [k]. This list [L] is obtained by gathering
+    the [k] existentially-quantified values that appear recursively in the
+    definition of [hcells_any]. *)
+
+Lemma himpl_hcells_any_hcells : forall p k,
+  hcells_any k p ==> \exists L, \[length L = k] \* hcells L p.
+Proof using.
+  intros. gen p. induction k as [|k']; simpl; intros.
+  { xsimpl (@nil val). { auto. } { simpl. xsimpl. } }
+  { xpull. intros v. xchange IHk'. intros L' EL'.
+    xsimpl (v::L'). { rew_list. math. } { simpl. xsimpl. } }
+Qed.
+
+(** The specification of the operation [val_dealloc k] can then be
+    reformulated using a precondition of the forme [harray_any k p].
+    We illustrate its use further, in the verification proof for a
+    function that deallocates a list cell ([triple_dealloc_mcell]). *)
+
+Lemma triple_dealloc_hcells_any : forall p k,
+  triple (val_dealloc k p)
+    (hcells_any k p)
+    (fun _ => \[]).
+Proof using.
+  intros. xtriple. xchange himpl_hcells_any_hcells. intros L EL.
+  xapp triple_dealloc_hcells. { auto. } { xsimpl. }
+Qed.
+
+
+
+
+
+(** To prevent undesirable simplifications, we set the definition [hfield]
+    to be opaque. Still, it is useful in places to be able to unfold the
+    definition. To that end, we state a lemma for unfolding the definition.
+    In its statement, we replace the addition [p+1+k] with the addition [k+S p],
+    because the later simplifies better in Coq when [k] is a constant. *)
+
+Lemma hfield_eq : forall p k v,
+  hfield p k v = ((k+S p)%nat ~~> v \* \[p <> null]).
+Proof using. intros. math_rewrite (k+S p = p+1+k)%nat. auto. Qed.
+
+Global Opaque hfield.
+
+
+
+Lemma length_hfields_update : forall kvs kvs' k v,
+  hfields_update k v kvs = Some kvs' ->
+  length kvs' = length kvs.
+Proof using.
+  intros kvs. induction kvs as [|[ki vi] kvs1]; simpl; introv E.
+  { introv _ H. inverts H. }
+  { case_if.
+    { inverts E. rew_list*. }
+    { cases (hfields_update k v kvs1).
+      { inverts E. rew_list*. }
+      { inverts E. } } }
+Qed.
+
+
+Lemma hrecord_eq_harray : forall p kvs L,
+  L = LibList.map snd kvs ->
+  hrecord kvs p = harray L p.
+Proof using.
+  intros. unfolds hrecord, harray. applys himpl_antisym.
+  { xpull. intros z M. asserts Hz: (z = length kvs).
+    { lets E: length_nat_seq 0%nat z. rewrite <- M in E. rew_listx* in *. }
+    xchange* (>> hfields_eq_hcells p M). { rew_listx*. }
+    subst. rew_listx. xsimpl. }
+  { xsimpl.
+Qed.

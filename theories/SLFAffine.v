@@ -203,17 +203,14 @@ Parameter triple_hany_pre : forall t H H' Q,
     the logic must forbid discarding predicates that capture a negative
     number of credits, otherwise soundness would be compromised. *)
 
-(** To constraint the discard rule and allow fine-tuning of which heap
-    predicates may be thrown away, we introduce the notion of "affine
-    heap predicates", captured by a judgment written [haffine H].
-    For now, we leave this predicate abstract. *)
+(** The idea is to restrict the discard rules so that only predicates
+    satisyfing a predicate called [haffine] may get discarded. The two
+    discard rules will thus feature an extra premise requiring [haffine H'],
+    where [H'] denotes the heap predicate being discarded. *)
+
+Module Preview.
 
 Parameter haffine : hprop -> Prop.
-
-(** The idea is to restrict the discard rules so that only predicates
-    satisyfing [haffine] may get discarded. The two garbage collection
-    rules are therefore updated with an extra premise requiring [haffine H'],
-    where [H'] denotes the heap predicate being discarded. *)
 
 Parameter triple_haffine_post : forall t H H' Q,
   haffine H' ->
@@ -225,40 +222,88 @@ Parameter triple_haffine_pre : forall t H H' Q,
   triple t H Q ->
   triple t (H \* H') Q.
 
-(** The exact definition of [haffine] depends on the programming language
-    and the variant of the Separation Logic targeted. We will present two
-    example instantiations of [haffine] further on.
+End Preview.
 
-    In any case, the definition of [haffine] should be set up in such a way
-    that this predicate distributes in a natural way on each of the operators
-    of Separation Logic, as captured by the following lemmas, which asserts
-    that:
+(** To constraint the discard rule and allow fine-tuning of which heap
+    predicates may be thrown away, we introduce the notions of "affine
+    heap" and of "affine heap predicates", captured by the judgments
+    [heap_affine h] and [haffine H], respectively.
+
+    The definition of [heap_affine h] is left abstract for the moment.
+    We will show two extreme instantiations: one that leads to a logic
+    where all predicates are affine (i.e. can be freely discarded),
+    one one that leads to a logic where all predicates are linear
+    (i.e. none can be freely discarded, like in our previous set up). *)
+
+
+(* ########################################################### *)
+(** ** Definition of [heap_affine] and of [haffine] *)
+
+(** Concretely, the notion of "affine heap" is characterize by the abstract
+    predicate named [heap_affine], which is a predicate over heaps. *)
+
+Parameter heap_affine : heap -> Prop.
+
+(** This predicate [heap_affine] is assumed to satisfy two properties:
+    it holds of the empty heap, and it is stable by (disjoint) union of heaps. *)
+
+Parameter heap_affine_empty :
+  heap_affine Fmap.empty.
+
+Parameter heap_affine_union : forall h1 h2,
+  heap_affine h1 ->
+  heap_affine h2 ->
+  Fmap.disjoint h1 h2 ->
+  heap_affine (Fmap.union h1 h2).
+
+(** The predicate [haffine H] captures the notion of "affine heap predicate".
+    A heap predicate is affine iff it only holds of affine heaps. *)
+
+Definition haffine (H:hprop) : Prop :=
+  forall h, H h -> heap_affine h.
+
+(** The predicate [haffine] distributes in a natural way on each of the
+    operators of Separation Logic: the combination of affine heap predicates
+    yields affine heap predicates. In particular:
 
     - [\[]] and [\[P]], which describes empty heaps, can always be discarded;
     - [H1 \* H2] can be discarded if both [H1] and [H2] can be discarded;
-    - [\exists x, H] and [\forall x, H] can be discarded if [H] can be discarded
-      for any value of [x].
+    - [\exists x, H] and [\forall x, H] can be discarded if [H] can be
+      discarded for any [x].
 
 *)
 
-Parameter haffine_hempty :
+Lemma haffine_hempty :
   haffine \[].
+Proof using.
+  introv K. lets E: hempty_inv K. subst. applys heap_affine_empty.
+Qed.
 
-Parameter haffine_hpure : forall P,
+Lemma haffine_hpure : forall P,
   haffine \[P].
+Proof using.
+  intros. intros h K. lets (HP&M): hpure_inv K.
+  subst. applys heap_affine_empty.
+Qed.
 
-Parameter haffine_hstar : forall H1 H2,
+Lemma haffine_hstar : forall H1 H2,
   haffine H1 ->
   haffine H2 ->
   haffine (H1 \* H2).
+Proof using.
+  introv M1 M2 K. lets (h1&h2&K1&K2&D&U): hstar_inv K.
+  subst. applys* heap_affine_union.
+Qed.
 
-Parameter haffine_hexists : forall A (J:A->hprop),
+Lemma haffine_hexists : forall A (J:A->hprop),
   (forall x, haffine (J x)) ->
   haffine (\exists x, (J x)).
+Proof using. introv F1 (x&Hx). applys* F1. Qed.
 
-Parameter haffine_hforall : forall A `{Inhab A} (J:A->hprop),
+Lemma haffine_hforall : forall A `{Inhab A} (J:A->hprop),
   (forall x, haffine (J x)) ->
   haffine (\forall x, (J x)).
+Proof using. introv IA F1 Hx. lets N: hforall_inv Hx. applys* F1 arbitrary. Qed.
 
 (** Remark: in the last rule above, that the type [A] must be inhabited
     for this rule to make sense. In practice, the [\forall] quantifier
@@ -268,34 +313,126 @@ Parameter haffine_hforall : forall A `{Inhab A} (J:A->hprop),
     under the hypothesis [P]. Indeed, if a heap [h] satisfies [\[P] \* H],
     then it must be the case that the proposition [P] is true. Formally: *)
 
-Parameter haffine_hstar_hpure : forall P H,
+Lemma haffine_hstar_hpure_l : forall P H,
   (P -> haffine H) ->
   haffine (\[P] \* H).
-
-(** We will present further in this chapter a general template for
-    defining [haffine] in a way that guarantees by construction that
-    all the aforementioned properties hold. *)
+Proof using. introv M. intros h K. rewrite hstar_hpure_l in K. applys* M. Qed.
 
 
 (* ########################################################### *)
-(** ** The affine top heap predicate *)
+(** ** Definition of the "affine top" heap predicates *)
 
 (** We next introduce a new heap predicate, called "affine top" and
     written [\GC], that is very handy for describing "the possibility
     to discard a heap predicate". We use this predicate to reformulate the
-    garbage collection rule in a more concise and more usable manner.
+    discard rules in a more concise and more usable manner.
 
-    The heap predicate written [\GC] is named [hgc] in the formalization.
-    We define it as "some heap predicate [H] that satisfies [haffine]",
-    as formalized next. *)
+    This predicate is written [\GC] and named [hgc] in the formalization.
+    It holds of any affine heap.
+
+    It can be equivalently defined as [fun h => heap_affine h], or as
+    [exists H, \[haffine H] \* H]. The latter formulation is expressed
+    in terms of existing Separation Logic operators, hence it is easier
+    to manipulate in proofs using the [xsimpl] tactic. *)
 
 Definition hgc : hprop :=
   \exists H, \[haffine H] \* H.
 
-Notation "\GC" := (hgc).
+Notation "\GC" := (hgc) : hgc_scope.
+
+Open Scope hgc_scope.
+
+(** The introduction lemmas asserts that [\GC h] holds when [h]
+    satisfies [heap_affine]. *)
+
+(* EX1! (triple_frame) *)
+(** Prove that the affine heap predicate holds of any affine heap. *)
+
+Lemma hgc_intro : forall h,
+  heap_affine h ->
+  \GC h.
+Proof using. (* ADMITTED *)
+  unfold hgc. intros h K. applys hexists_intro (=h).
+  rewrite hstar_hpure_l. split. { intros h' E. subst. auto. } { auto. }
+Qed. (* /ADMITTED *)
+
+(* [] *)
+
+(** The elimination lemma asserts the reciprocal. *)
+
+(* EX1? (hgc_inv) *)
+(** Prove the elimination lemma for [\GC] expressed using [heap_affine]. *)
+
+Lemma hgc_inv : forall h,
+  \GC h ->
+  heap_affine h.
+Proof using. (* ADMITTED *)
+  unfold hgc. intros h M. lets (H&K): hexists_inv M.
+  rewrite hstar_hpure_l in K. destruct K as (K&Hh).
+  unfold haffine in K. applys K. auto.
+Qed. (* /ADMITTED *)
+
+(* [] *)
+
+(** Together, the introduction and the elimination rule justify
+    the fact that [hgc] could equivalently have been defined as
+    [fun h => heap_affine h]. *)
+
+Definition hgc' : hprop :=
+  fun h => heap_affine h.
+
+Lemma hgc_eq_hgc' :
+  hgc = hgc'.
+Proof using.
+  intros. applys himpl_antisym.
+  { intros h M. applys* hgc_inv. }
+  { intros h M. applys* hgc_intro. }
+Qed.
+
+
+(* ########################################################### *)
+(** ** Properties of the [\GC] predicate *)
+
+(** One fundamental property that appears necessary in many of the
+    soundness proofs is the following lemma, which asserts that two
+    occurences of [\GC] can be collapsed into just one. *)
+
+Lemma hstar_hgc_hgc :
+  (\GC \* \GC) = \GC.
+Proof using.
+  unfold hgc. applys himpl_antisym.
+  { xpull. intros H1 K1 H2 K2. xsimpl (H1 \* H2). applys* haffine_hstar. }
+  { xpull. intros H K. xsimpl H \[]. auto. applys haffine_hempty. }
+Qed.
+
+(** Another useful property is that the heap predicate [\GC] itself
+    satisifes [haffine]. Indeed, [\GC] denotes some heap [H] such that
+   [H] is affine; Thus, by essence, it denotes an affine heap predicate. *)
+
+Lemma haffine_hgc :
+  haffine \GC.
+Proof using.
+  applys haffine_hexists. intros H. applys haffine_hstar_hpure_l. auto.
+Qed.
+
+(** The process of exploiting the [\GC] to "absorb" affine heap predicates
+    is captured by the following lemma, which asserts that a heap predicate
+    [H] entails [\GC] whenever [H] is affine. *)
+
+Lemma himpl_hgc_r : forall H,
+  haffine H ->
+  H ==> \GC.
+Proof using. introv M. intros h K. applys hgc_intro. applys M K. Qed.
+
+(** In particular, the empty heap predicate [\[]] entails [\GC], because the
+    empty heap predicate is affine (recall lemma [haffine_hempty]). *)
+
+Lemma hempty_himpl_hgc :
+  \[] ==> \GC.
+Proof using. applys himpl_hgc_r. applys haffine_hempty. Qed.
 
 (** Using the predicate [\GC], we can reformulate the constrained
-    garbage collection rule [triple_haffine_post] as follows. *)
+    discard rule [triple_haffine_post] as follows. *)
 
 Parameter triple_hgc_post : forall t H Q,
   triple t H (Q \*+ \GC) ->
@@ -308,179 +445,109 @@ Parameter triple_hgc_post : forall t H Q,
     reasoning, for example in an entailment, by instantiating the
     existential quantifier carried into the definition of [\GC]. *)
 
-(** The process of exploiting the [\GC] to "absorb" affine heap predicates
-    is captured by the following lemma, which asserts that a heap predicate
-    [H] entails [\GC] whenever [H] is affine. *)
-
-Lemma himpl_hgc_r : forall H,
-  haffine H ->
-  H ==> \GC.
-Proof using.
-  introv M. unfold hgc. applys himpl_hexists_r H.
-  applys* himpl_hstar_hpure_r.
-Qed.
-
-(** In particular, the empty heap predicate [\[]] entails [\GC], because the
-    empty heap predicate is affine (recall lemma [haffine_hempty]). *)
-
-Lemma hempty_himpl_hgc :
-  \[] ==> \GC.
-Proof using. applys himpl_hgc_r. applys haffine_hempty. Qed.
-
 
 (* ########################################################### *)
-(** ** Exploiting the discard rule in proofs *)
-
-(** In a practical verification proof, there are two useful ways to
-    discard heap predicates that are no longer needed:
-
-    - either by invoking [triple_haffine_pre] to remove a specific
-      predicate from the current state, i.e., the precondition;
-    - or by invoking [triple_htop_post] to add a [\GC] into the
-      current postcondition and allow subsequent removal of any
-      predicate that may be left-over in the final entailment
-      justifying that the final state satisfies the postcondition.
-
-    Eager removal of predicates from the current state is never
-    necessary: one can always be lazy and postpone the application
-    of the discard rule until the last step of reasoning.
-
-    In practical, it usually suffices to anticipate, right from the
-    beginning of the verification proof, the possibility of discarding
-    heap predicates from the final state.
-
-    To that end, we apply the rule [triple_htop_post] as very first
-    step of the proof to extend the postcondition with a [\GC] predicate,
-    which will be used to absorb all the garbage left-over at the end
-    of the proof.
-
-    We implement this strategy in a systematic manner by integrating
-    directly the rule [triple_htop_post] into the tactic [xwp], which
-    sets up the verification proof by computing the characteristic formula.
-    To that end, we generalize the lemma [xwp_lemma], which the tactic
-    [xwp] applies. Its original statement is as follows. *)
-
-Parameter xwp_lemma : forall v1 v2 x t1 H Q,
-  v1 = val_fun x t1 ->
-  H ==> wpgen ((x,v2)::nil) t1 Q ->
-  triple (trm_app v1 v2) H Q.
-
-(** Its generalized form extends the postcondition to which the formula
-    computed by [wpgen] is applied from [Q] to [Q \*+ \GC], as shown below. *)
-
-Lemma xwp_lemma' : forall v1 v2 x t1 H Q,
-  v1 = val_fun x t1 ->
-  H ==> wpgen ((x,v2)::nil) t1 (Q \*+ \GC) ->
-  triple (trm_app v1 v2) H Q.
-Proof using. introv E M. applys triple_hgc_post. applys* xwp_lemma. Qed.
-
-(** Let us update the tactic [xwp] to exploit the lemma [xwp_lemma']
-    instead of [xwp_lemma]. *)
-
-Tactic Notation "xwp" :=
-  intros; applys xwp_lemma';
-  [ reflexivity | simpl; unfold wpgen_var; simpl ].
-
-(** Using the updated version of [xwp], let us revisite the proof of our
-    motivating  example [succ_using_incr] in a fully-affine logic, i.e.,
-    a logical where any predicate  can be discarded. *)
-
-Module MotivatingExampleWithUpdatedXwp.
-Export MotivatingExample.
-
-(** Assume a fully-affine logic. *)
-
-Parameter haffine_hany : forall (H:hprop),
-  haffine H.
-
-(** Observe in the proof below the [\GC] introduced in the postcondition
-    by the call to [xwp]. *)
-
-Lemma triple_succ_using_incr : forall (n:int),
-  triple (succ_using_incr n)
-    \[]
-    (fun r => \[r = n+1]).
-Proof using.
-  xwp. xapp. intros r. xapp. xapp. xsimpl. { auto. }
-  (* There remains to absorb the left-over reference into the [\GC] predicate *)
-  applys himpl_hgc_r. applys haffine_hany.
-Qed.
-
-(** We will show further on how to automate the work from the last line
-    of the proof above, by setting up [xsimpl] to automatically resolve
-    goals of the form [H ==> \GC]. *)
-
-End MotivatingExampleWithUpdatedXwp.
-
-
-(* ########################################################### *)
-(** ** Fully-affine instantiation of [haffine] *)
+(** ** Instantiation of [heap_affine] for a fully-affine logic *)
 
 Module FullyAffineLogic.
 
-(** In the toy language that we consider, every predicate may be
-    discarded, thus [haffine H] can be defined to be always true,
-    leading to a "fully-affine" logic. *)
+(** To set up a fully-affine logic, we consider a definition of
+    [heap_affine] that holds of any heap. *)
 
-(** The fully-affine instantiation of [haffine] is defined as follows. *)
+Parameter heap_affine_def : forall h,
+  heap_affine h = True.
 
-Definition haffine (H:hprop) :=
-  True.
+(** It is trivial to check that [heap_affine] satisfies the required
+    distribution properties on the empty heap and the union of heaps. *)
 
-(** In other words, [haffine H] is always true. *)
+Lemma heap_affine_empty :
+  heap_affine Fmap.empty.
+Proof using. rewrite* heap_affine_def. Qed.
 
-Lemma haffine_hany : forall (H:hprop),
-  haffine H.
-Proof using. unfold haffine. auto. Qed.
+Lemma heap_affine_union : forall h1 h2,
+  heap_affine h1 ->
+  heap_affine h2 ->
+  Fmap.disjoint h1 h2 ->
+  heap_affine (Fmap.union h1 h2).
+Proof using. intros. rewrite* heap_affine_def. Qed.
 
-(** The definition of [\GC] that corresponds to this choice of [haffine]
-    is equivalent to [htop], the predicate that holds of any heap.
-    The predicate [htop] can be defined as [fun h => True] or, equivalently,
+(** With that instantiation, [haffine] holds of any heap predicate. *)
+
+Lemma haffine_equiv : forall H,
+  (haffine H) <-> True.
+Proof using.
+  intros. iff M.
+  { auto. }
+  { unfold haffine. intros. rewrite* heap_affine_def. }
+Qed.
+
+(** With that instantiation, the affine top predicate [\GC] is equivalent
+    to the top predicate [htop], defined as [fun h => True] or, equivalently,
     as [\exists H, H]. *)
-
-Definition hgc : hprop :=
-  \exists H, \[haffine H] \* H.
 
 Definition htop : hprop :=
   \exists H, H.
 
 Lemma hgc_eq_htop : hgc = htop.
 Proof using.
-  unfold hgc, haffine, htop. applys himpl_antisym.
+  unfold hgc, htop. applys himpl_antisym.
   { xsimpl. }
-  { xsimpl. auto. }
+  { xsimpl. intros. rewrite* haffine_equiv. }
 Qed.
 
 End FullyAffineLogic.
 
 
 (* ########################################################### *)
-(** ** Fully-linear instantiations of [haffine] *)
+(** ** Instantiation of [heap_affine] for a fully-linear logic *)
 
 Module FullyLinearLogic.
 
-(** At the other hand of the spectrum, one can stick to a "linear"
-    Separation Logic, like we had before, by disallowing to discard
-    heap predicates that describe allocated data. *)
+(** To set up a fully-affine logic, we consider a definition of
+    [heap_affine] that holds only of empty heaps. *)
 
-(** The fully-linear instantiation of [haffine] asserts that only
-    predicates characterizing the empty heap can be discarded.
-    The definition can be formalized as follows. *)
+Parameter heap_affine_def : forall h,
+  heap_affine h = (h = Fmap.empty).
 
-Definition haffine (H:hprop) :=
-  H ==> \[].
+(** Again, it is not hard to check that [heap_affine] satisfies the
+    required distributivity properties. *)
 
-(** The definition of [\GC] that corresponds to this choice of [haffine]
-    if equivalent to the empty heap predicate, that is, [\[]]. *)
+Lemma heap_affine_empty :
+  heap_affine Fmap.empty.
+Proof using. rewrite* heap_affine_def. Qed.
 
-Definition hgc : hprop :=
-  \exists H, \[haffine H] \* H.
+Lemma heap_affine_union : forall h1 h2,
+  heap_affine h1 ->
+  heap_affine h2 ->
+  Fmap.disjoint h1 h2 ->
+  heap_affine (Fmap.union h1 h2).
+Proof using.
+  introv K1 K2 D. rewrite heap_affine_def in *.
+  subst. rewrite* Fmap.union_empty_r.
+Qed.
+
+(** The predicate [haffine H] is equivalent to [H ==> \[]],
+    that is, it characterizes heap predicates that hold of the
+    empty heap. *)
+
+Lemma haffine_equiv : forall H,
+  haffine H <-> (H ==> \[]).
+Proof using.
+  intros. unfold haffine. iff M.
+  { intros h K. specializes M K. rewrite heap_affine_def in M.
+    subst. applys hempty_intro. }
+  { intros h K. specializes M K. rewrite heap_affine_def.
+    applys hempty_inv M. }
+Qed.
+
+(** With that instantiation, the affine top predicate [\GC] is equivalent
+    to the empty heap predicate [hempty]. *)
 
 Lemma hgc_eq_hempty : hgc = hempty.
 Proof using.
-  unfold hgc, haffine. applys himpl_antisym.
-  { xpull. intros H M. auto. }
-  { xsimpl \[]. auto. }
+  unfold hgc. applys himpl_antisym.
+  { xpull. introv N. rewrite* haffine_equiv in N. }
+  { xsimpl \[]. applys haffine_hempty. }
 Qed.
 
 End FullyLinearLogic.
@@ -527,31 +594,6 @@ Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
       and [triple_haffine_hpre] can be proved sound.
 
 *)
-
-(* ########################################################### *)
-(** ** Properties of the [\GC] predicate *)
-
-(** One fundamental property that appears necessary in many of the
-    soundness proofs is the following lemma, which asserts that two
-    occurences of [\GC] can be collapsed into just one. *)
-
-Lemma hstar_hgc_hgc :
-  (\GC \* \GC) = \GC.
-Proof using.
-  unfold hgc. applys himpl_antisym.
-  { xpull. intros H1 K1 H2 K2. xsimpl (H1 \* H2). applys* haffine_hstar. }
-  { xpull. intros H K. xsimpl H \[]. auto. applys haffine_hempty. }
-Qed.
-
-(** Another useful property is that the heap predicate [\GC] itself
-    satisifes [haffine]. Indeed, [\GC] denotes some heap [H] such that
-   [H] is affine; Thus, by essence, it denotes an affine heap predicate. *)
-
-Lemma haffine_hgc :
-  haffine \GC.
-Proof using.
-  applys haffine_hexists. intros H. applys haffine_hstar_hpure. auto.
-Qed.
 
 
 (* ########################################################### *)
@@ -631,7 +673,6 @@ Proof using.
   { applys hoare_conseq. { applys M2. } { xsimpl. }
     { xchanges hstar_hgc_hgc. } }
 Qed.
-
 
 
 (* ########################################################### *)
@@ -810,288 +851,99 @@ Qed.
 
 
 (* ########################################################### *)
+(** ** Exploiting the discard rule in proofs *)
+
+(** In a practical verification proof, there are two useful ways to
+    discard heap predicates that are no longer needed:
+
+    - either by invoking [triple_haffine_pre] to remove a specific
+      predicate from the current state, i.e., the precondition;
+    - or by invoking [triple_htop_post] to add a [\GC] into the
+      current postcondition and allow subsequent removal of any
+      predicate that may be left-over in the final entailment
+      justifying that the final state satisfies the postcondition.
+
+    Eager removal of predicates from the current state is never
+    necessary: one can always be lazy and postpone the application
+    of the discard rule until the last step of reasoning.
+
+    In practical, it usually suffices to anticipate, right from the
+    beginning of the verification proof, the possibility of discarding
+    heap predicates from the final state.
+
+    To that end, we apply the rule [triple_htop_post] as very first
+    step of the proof to extend the postcondition with a [\GC] predicate,
+    which will be used to absorb all the garbage left-over at the end
+    of the proof.
+
+    We implement this strategy in a systematic manner by integrating
+    directly the rule [triple_htop_post] into the tactic [xwp], which
+    sets up the verification proof by computing the characteristic formula.
+    To that end, we generalize the lemma [xwp_lemma], which the tactic
+    [xwp] applies. Its original statement is as follows. *)
+
+Parameter xwp_lemma : forall v1 v2 x t1 H Q,
+  v1 = val_fun x t1 ->
+  H ==> wpgen ((x,v2)::nil) t1 Q ->
+  triple (trm_app v1 v2) H Q.
+
+(** Its generalized form extends the postcondition to which the formula
+    computed by [wpgen] is applied from [Q] to [Q \*+ \GC], as shown below. *)
+
+Lemma xwp_lemma' : forall v1 v2 x t1 H Q,
+  v1 = val_fun x t1 ->
+  H ==> wpgen ((x,v2)::nil) t1 (Q \*+ \GC) ->
+  triple (trm_app v1 v2) H Q.
+Proof using. introv E M. applys triple_hgc_post. applys* xwp_lemma. Qed.
+
+(** Let us update the tactic [xwp] to exploit the lemma [xwp_lemma']
+    instead of [xwp_lemma]. *)
+
+Tactic Notation "xwp" :=
+  intros; applys xwp_lemma';
+  [ reflexivity | simpl; unfold wpgen_var; simpl ].
+
+
+(* ########################################################### *)
+(** ** Example proof involving discarded heap predicates *)
+
+(** Using the updated version of [xwp], let us revisite the proof of our
+    motivating example [succ_using_incr] in a fully-affine logic, i.e.,
+    a logical where any predicate  can be discarded. *)
+
+Module MotivatingExampleWithUpdatedXwp.
+Export MotivatingExample.
+
+(** Assume a fully-affine logic. *)
+
+Parameter haffine_hany : forall (H:hprop),
+  haffine H.
+
+(** Observe in the proof below the [\GC] introduced in the postcondition
+    by the call to [xwp]. *)
+
+Lemma triple_succ_using_incr : forall (n:int),
+  triple (succ_using_incr n)
+    \[]
+    (fun r => \[r = n+1]).
+Proof using.
+  xwp. xapp. intros r. xapp. xapp. xsimpl. { auto. }
+  (* There remains to absorb the left-over reference into the [\GC] predicate *)
+  applys himpl_hgc_r. applys haffine_hany.
+Qed.
+
+(** We will show further on how to automate the work from the last line
+    of the proof above, by setting up [xsimpl] to automatically resolve
+    goals of the form [H ==> \GC]. *)
+
+End MotivatingExampleWithUpdatedXwp.
+
+
+
+(* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
 (** * Additional contents *)
-
-
-(* ########################################################### *)
-(** ** Construction template for [haffine] *)
-
-Module HaffineDef.
-
-(** As explained when introducing the predicate [haffine], the
-    definition of this predicate should distribute in an intuitive
-    manner over the operators of Separation Logic. For example,
-    [haffine H1] and [haffine H2] should imply [haffine (H1 \* H2)].
-
-    An easy way to obtain a well-behaved definition of [haffine] is
-    to first define the notion of "affine heap", written [heap_affine h],
-    and then derive the notion of "affine heap predicate", written [haffine H].
-    The latter is defined as the set of heap predicates that characterize only
-    affine heaps, that is, the predicates [H] satisfying the implication
-    [forall h, H h -> heap_affine h].
-
-    The notion of "affine heap" is characterize by the abstract predicate
-    named [heap_affine], which is a predicate over heaps. *)
-
-Parameter heap_affine : heap -> Prop.
-
-(** As we detail further on, to obtain a fully-affine logic, instantiate
-    [heap_affine h] as [True]; and to obtain a fully-linear logic,
-    instantiate [heap_affine h] as [h = Fmap.empty]. *)
-
-(** Let us assume that the definition of [heap_affine] is such that it
-    holds of the empty heap and that is stable by (disjoint) union of heaps.
-    From these two properties alone, we will be able to establish all the
-    required properties of [haffine]. *)
-
-Parameter heap_affine_empty :
-  heap_affine Fmap.empty.
-
-Parameter heap_affine_union : forall h1 h2,
-  heap_affine h1 ->
-  heap_affine h2 ->
-  Fmap.disjoint h1 h2 ->
-  heap_affine (Fmap.union h1 h2).
-
-(** The predicate [haffine H], which captures the notion of "affine heap
-    predicate", is then derived from the predicate [heap_affine]. *)
-
-Definition haffine (H:hprop) : Prop :=
-  forall h, H h -> heap_affine h.
-
-(** Let us establish all the desired distribution rules for [haffine]. *)
-
-Lemma haffine_hempty :
-  haffine \[].
-Proof using.
-  introv K. lets E: hempty_inv K. subst. applys heap_affine_empty.
-Qed.
-
-Lemma haffine_hpure : forall P,
-  haffine \[P].
-Proof using.
-  intros. intros h K. lets (HP&M): hpure_inv K.
-  subst. applys heap_affine_empty.
-Qed.
-
-Lemma haffine_hstar : forall H1 H2,
-  haffine H1 ->
-  haffine H2 ->
-  haffine (H1 \* H2).
-Proof using.
-  introv M1 M2 K. lets (h1&h2&K1&K2&D&U): hstar_inv K.
-  subst. applys* heap_affine_union.
-Qed.
-
-(** To smoothly handle the distribution on the quantifiers, let us first
-    extend the notion of "affinity" to postconditions. The predicate
-    [haffine_post J] asserts that [haffine] holds of [J x] for any [x]. *)
-
-Definition haffine_post (A:Type) (J:A->hprop) : Prop :=
-  forall x, haffine (J x).
-
-(** Recall the distribution rules for [haffine] over quantifiers.
-
-[[
-    Parameter haffine_hexists : forall A (J:A->hprop),
-      (forall x, haffine (J x)) ->
-      haffine (\exists x, (J x)).
-
-    Parameter haffine_hforall : forall A `{Inhab A} (J:A->hprop),
-      (forall x, haffine (J x)) ->
-      haffine (\forall x, (J x)).
-]]
-
-  The can be reformulated in a more concise way using [haffine_post].
-*)
-
-Lemma haffine_hexists : forall A (J:A->hprop),
-  haffine_post J ->
-  haffine (hexists J).
-Proof using. introv F1 (x&Hx). applys* F1. Qed.
-
-Lemma haffine_hforall : forall A `{Inhab A} (J:A->hprop),
-  haffine_post J ->
-  haffine (hforall J).
-Proof using. introv IA F1 Hx. lets N: hforall_inv Hx. applys* F1 arbitrary. Qed.
-
-(** Remark: in the proof above, observe how the assumption is invoked on an
-    arbitrary value of type [A]. Hence the need to required the type [A]
-    to be inhabited. *)
-
-(** The last distribution rule is for simplifying [haffine (\[P] \* H)]. *)
-
-Lemma haffine_hstar_hpure : forall P H,
-  (P -> haffine H) ->
-  haffine (\[P] \* H).
-Proof using.
-  introv M. intros h K. rewrite hstar_hpure in K. applys* M.
-Qed.
-
-(** Consider now a definition of [\GC] based on a definition of
-    [haffine] derived from a predicate [heap_affine] as shown above.
-    Then, this predicate [\GC] do satisfy introduction and elimination
-    lemmas expressed in terms of [heap_affine]. *)
-
-Section GCIntroElim.
-
-Definition hgc : hprop :=
-  \exists H, \[haffine H] \* H.
-
-Notation "\GC" := (hgc) : hgc_scope.
-Open Scope hgc_scope.
-
-(** The introduction lemmas asserts that [\GC h] holds when [h]
-    satisfies [heap_affine]. *)
-
-(* EX1! (triple_frame) *)
-(** Prove that the affine heap predicate holds of any affine heap. *)
-
-Lemma hgc_intro : forall h,
-  heap_affine h ->
-  \GC h.
-Proof using. (* ADMITTED *)
-  unfold hgc. intros h K. applys hexists_intro (=h).
-  rewrite hstar_hpure. split. { intros h' E. subst. auto. } { auto. }
-Qed. (* /ADMITTED *)
-
-(* [] *)
-
-(** The elimination lemma asserts the reciprocal. *)
-
-(* EX1? (hgc_inv) *)
-(** Prove the elimination lemma for [\GC] expressed using [heap_affine]. *)
-
-Lemma hgc_inv : forall h,
-  \GC h ->
-  heap_affine h.
-Proof using. (* ADMITTED *)
-  unfold hgc. intros h M. lets (H&K): hexists_inv M.
-  rewrite hstar_hpure in K. destruct K as (K&Hh).
-  unfold haffine in K. applys K. auto.
-Qed. (* /ADMITTED *)
-
-(* [] *)
-
-(** Together, the introduction and the elimination rule justify
-    the fact that [hgc] could equivalently have been defined as
-    [fun h => heap_affine h]. *)
-
-Definition hgc' : hprop :=
-  fun h => heap_affine h.
-
-Lemma hgc_eq_hgc' :
-  hgc = hgc'.
-Proof using.
-  intros. applys himpl_antisym.
-  { intros h M. applys* hgc_inv. }
-  { intros h M. applys* hgc_intro. }
-Qed.
-
-End GCIntroElim.
-
-
-(* ########################################################### *)
-(** ** Definition of [heap_affine] for a fully-affine logic *)
-
-Module FullyAffineHaffine.
-
-(** To set up a fully-affine logic, we make all heaps satisfy [heap_affine]. *)
-
-Definition heap_affine (h:heap) :=
-  True.
-
-(** It is trivial to check that [heap_affine] satisfies the required
-    distribution properties on the empty heap and the union of heaps. *)
-
-Lemma heap_affine_empty :
-  heap_affine Fmap.empty.
-Proof using. unfold heap_affine. auto. Qed.
-
-Lemma heap_affine_union : forall h1 h2,
-  heap_affine h1 ->
-  heap_affine h2 ->
-  Fmap.disjoint h1 h2 ->
-  heap_affine (Fmap.union h1 h2).
-Proof using. unfold heap_affine. auto. Qed.
-
-(** The generic construction of [haffine] provides a predicate that holds
-    of any heap predicate. *)
-
-Definition haffine (H:hprop) : Prop :=
-  forall h, H h -> heap_affine h.
-
-Lemma haffine_hany : forall (H:hprop),
-  haffine H.
-Proof using. unfold haffine, heap_affine. auto. Qed.
-
-(** This associated generic construction of [haffine] is equivalent to
-    the direct definition of [haffine] as [fun (H:hprop) => True]
-    presented earlier on. *)
-
-Definition haffine' (H:hprop) :=
-  True.
-
-Lemma haffine_eq_haffine' :
-  haffine = haffine'.
-Proof using.
-  apply pred_ext_1. intros H. unfold haffine, haffine', heap_affine. autos*.
-Qed.
-
-End FullyAffineHaffine.
-
-
-(* ########################################################### *)
-(** ** Definition of [heap_affine] for a fully-linear logic *)
-
-Module FullyLinearHaffine.
-
-(** To set up a fully-linear logic, we make only empty heaps satisfy
-    [heap_affine]. *)
-
-Definition heap_affine (h:heap) :=
-  h = Fmap.empty.
-
-(** Again, it is not hard to check that [heap_affine] satisfies the
-    required distributivity properties. *)
-
-Lemma heap_affine_empty :
-  heap_affine Fmap.empty.
-Proof using. unfold heap_affine. auto. Qed.
-
-Lemma heap_affine_union : forall h1 h2,
-  heap_affine h1 ->
-  heap_affine h2 ->
-  Fmap.disjoint h1 h2 ->
-  heap_affine (Fmap.union h1 h2).
-Proof using.
-  introv K1 K2 D. unfolds heap_affine. subst. rewrite* Fmap.union_empty_r.
-Qed.
-
-(** The associated generic construction of [haffine] provides a predicate
-    that holds only of the empty heap predicate. It is thus equivalent to
-    the previously-presented definition of [haffine] for a fully-linear
-    logic, defined as [fun H => (H ==> \[])]. *)
-
-Definition haffine (H:hprop) : Prop :=
-  forall h, H h -> heap_affine h.
-
-Definition haffine' (H:hprop) :=
-  H ==> \[].
-
-Lemma haffine_eq_haffine' :
-  haffine = haffine'.
-Proof using.
-  apply pred_ext_1. intros H. unfold haffine, haffine', heap_affine. iff M.
-  { intros h Hh. rewrite* M. applys hempty_intro. }
-  { intros h K. lets N: M K. applys hempty_inv N. }
-Qed.
-
-End FullyLinearHaffine.
-
-End HaffineDef.
 
 
 (* ########################################################### *)
@@ -1336,6 +1188,48 @@ End XGC.
 
 
 (* ########################################################### *)
+(** ** Alternative statement for distribution of [haffine] on quantifiers *)
+
+Module HaffineQuantifiers.
+
+(** Recall the lemmas [haffine_hexists] and [haffine_hforall].
+
+[[
+    Lemma haffine_hexists : forall A (J:A->hprop),
+      (forall x, haffine (J x)) ->
+      haffine (\exists x, (J x)).
+
+    Lemma haffine_hforall : forall A `{Inhab A} (J:A->hprop),
+      (forall x, haffine (J x)) ->
+      haffine (\forall x, (J x)).
+]]
+
+
+    They can be reformulated in a more concise way, as explained next. *)
+
+(** First, to smoothly handle the distribution on the quantifiers, let us
+    extend the notion of "affinity" to postconditions. The predicate
+    [haffine_post J] asserts that [haffine] holds of [J x] for any [x]. *)
+
+Definition haffine_post (A:Type) (J:A->hprop) : Prop :=
+  forall x, haffine (J x).
+
+(** The rules then reformulate as follows. *)
+
+Lemma haffine_hexists : forall A (J:A->hprop),
+  haffine_post J ->
+  haffine (hexists J).
+Proof using. introv F1 (x&Hx). applys* F1. Qed.
+
+Lemma haffine_hforall : forall A `{Inhab A} (J:A->hprop),
+  haffine_post J ->
+  haffine (hforall J).
+Proof using. introv IA F1 Hx. lets N: hforall_inv Hx. applys* F1 arbitrary. Qed.
+
+End HaffineQuantifiers.
+
+
+(* ########################################################### *)
 (** ** Pre and post rules *)
 
 Module FromPreToPostGC.
@@ -1360,8 +1254,8 @@ Lemma triple_hgc_post : forall t H Q,
 
 (** The key idea of the proof is that a term [t] admits the same behavior
     as [let x = t in x]. Thus, to simulate discarding a predicate from
-    the postcondition of [t], one can invoke the garbage collection rule
-    on the precondition of the variable [x] that appears at the end of
+    the postcondition of [t], one can invoke the discard rule on the
+    precondition of the variable [x] that appears at the end of
     [let x = t in x].
 
     To formalize this idea, recall from [SLFRules] the lemma
@@ -1383,9 +1277,7 @@ End FromPreToPostGC.
 (** ** Low-level definition of refined triples *)
 
 Module LowLevel.
-Import NewTriples HaffineDef.
-Notation "\GC" := hgc : gc_scope. (* correctly rebind the notation *)
-Open Scope gc_scope.
+Import NewTriples.
 
 (** Consider the updated definition of [triple] introduced in this chapter. *)
 

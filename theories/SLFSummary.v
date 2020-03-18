@@ -99,7 +99,7 @@ End Language.
 (** ** Parsing of concrete programs *)
 
 Module Parsing.
-Import SLFExtra SLFBasic SLFProgramSyntax.
+Import SLFExtra SLFBasic SLFProgramSyntax ExampleLists.
 
 (** Consider the following program, which computes the length of a C-style
     mutable list. If the pointer [p] is null, it returns zero, else it
@@ -248,12 +248,10 @@ Notation "\[ P ]" := (hpure P) (at level 0, format "\[ P ]").
 
 (** The singleton heap predicate, written [p ~~> v], characterizes
     a singleton state, that is, a state made of a single memory cell,
-    at location [p], and with contents [v].
-    (Technically, the value is not restricted to a regular value,
-    but it might also be an uninitialized value or a block header.) *)
+    at location [p], and with contents [v]. *)
 
-Definition hsingle (p:loc) (w:hval) : hprop :=
-  fun h => (h = Fmap.single p w).
+Definition hsingle (p:loc) (v:val) : hprop :=
+  fun h => (h = Fmap.single p v).
 
 Notation "p '~~>' v" := (hsingle p v) (at level 32).
 
@@ -893,7 +891,7 @@ Parameter triple_hpure : forall t (P:Prop) H Q,
     out of the right-hand side of an entailment: *)
 
 Parameter himpl_hstar_hpure_l : forall (P:Prop) H H',
-  (P  ->  H ==> H') ->
+  (P -> (H ==> H')) ->
   (\[P] \* H) ==> H'.
 
 End Wpsem.
@@ -1296,7 +1294,7 @@ End ProveIncrWithTactics.
 (** ** Formalization of mutable lists *)
 
 Module ProveAppend.
-Import SLFExtra SLFProgramSyntax.
+Import SLFExtra SLFProgramSyntax Blocks.
 Implicit Types p q : loc.
 
 (** A mutable list cell is a two-cell record, featuring a head field and a

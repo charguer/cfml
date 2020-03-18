@@ -148,15 +148,12 @@ Definition example_val' : trm :=
 (** Locations, of type [loc], denote the addresses of allocated objects.
     Locations are a particular kind of values.
 
-    A state is a finite map from locations to values. Technically, it is
-    a finite map from locations to "heap values", of type [hval], which extend
-    values with the special "uninitialized value" and the "header values",
-    which are used for describing allocated blocks.
+    A state is a finite map from locations to values.
 
     The file [Fmap.v] provides a self-contained formalization of finite maps,
     but we do need to know about the details. *)
 
-Definition state : Type := fmap loc hval.
+Definition state : Type := fmap loc val.
 
 (** By convention, we use the type [state] describes a full state of memory,
     and introduce the type [heap] to describe just a piece of state. *)
@@ -231,11 +228,10 @@ Notation "\[ P ]" := (hpure P) (at level 0, format "\[ P ]").
 
 (** The singleton heap predicate, written [p ~~> v], characterizes a
     state with a single allocated cell, at location [p], storing the
-    value [v], or, technically [hval_val v], which denotes the value
-    [v] viewed as a heap values. *)
+    value [v]. *)
 
 Definition hsingle (p:loc) (v:val) : hprop :=
-  fun (h:heap) => (h = Fmap.single p (hval_val v)).
+  fun (h:heap) => (h = Fmap.single p v).
 
 Notation "p '~~>' v" := (hsingle p v) (at level 32).
 
@@ -535,7 +531,7 @@ Notation "h1 \u h2" := (Fmap.union h1 h2) (at level 37, right associativity).
     introduction lemma and one inversion lemma. *)
 
 Implicit Types P : Prop.
-Implicit Types w : hval.
+Implicit Types v : val.
 
 (** The introduction lemmas show how to prove goals of the form [H h],
     for various forms of the heap predicate [H]. *)
@@ -550,7 +546,7 @@ Lemma hpure_intro : forall P,
 Proof using. introv M. hnf. auto. Qed.
 
 Lemma hsingle_intro : forall p v,
-  (p ~~> v) (Fmap.single p (hval_val v)).
+  (p ~~> v) (Fmap.single p v).
 Proof using. intros. hnf. auto. Qed.
 
 Lemma hstar_intro : forall H1 H2 h1 h2,
@@ -580,7 +576,7 @@ Proof using. introv M. hnf in M. autos*. Qed.
 
 Lemma hsingle_inv: forall p v h,
   (p ~~> v) h ->
-  h = Fmap.single p (hval_val v).
+  h = Fmap.single p v.
 Proof using. introv M. hnf in M. auto. Qed.
 
 Lemma hstar_inv : forall H1 H2 h,
@@ -593,25 +589,27 @@ Lemma hexists_inv : forall A (J:A->hprop) h,
   exists x, J x h.
 Proof using. introv M. hnf in M. eauto. Qed.
 
-(* EX3! (hstar_hpure_iff) *)
+(* EX3! (hstar_hpure_l) *)
 
 (** Prove that a heap [h] satisfies [\[P] \* H] if and only if
     [P] is true and [h] it satisfies [H]. The proof requires
     two lemmas on finite maps from [Fmap.v]:
 
 [[
-  Lemma Fmap.union_empty_l : forall h,
-    Fmap.empty \u h = h.
+    Lemma Fmap.union_empty_l : forall h,
+      Fmap.empty \u h = h.
 
-  Lemma Fmap.disjoint_empty_l : forall h,
-    Fmap.disjoint Fmap.empty h.
+    Lemma Fmap.disjoint_empty_l : forall h,
+      Fmap.disjoint Fmap.empty h.
 ]]
+
+    Hint: begin the proof by appyling [propositional_extensionality].
 *)
 
-Lemma hstar_hpure_iff : forall P H h,
-  (\[P] \* H) h <-> (P /\ H h).
+Lemma hstar_hpure_l : forall P H h,
+  (\[P] \* H) h = (P /\ H h).
 Proof using. (* ADMITTED *)
-  iff M.
+  intros. applys propositional_extensionality. iff M.
   { hnf in M. destruct M as (h1&h2&M1&M2&D&U).
     hnf in M1. destruct M1 as (M1&HP). subst.
     rewrite Fmap.union_empty_l. auto. }

@@ -920,7 +920,13 @@ Lemma conseq_cons : forall B (l:nat) (v:B) (vs:list B),
   conseq (v::vs) l = (single l v) \+ (conseq vs (S l)).
 Proof using. auto. Qed.
 
-Opaque conseq.
+Lemma conseq_cons' : forall B (l:nat) (v:B) (vs:list B),
+  conseq (v::vs) l = (single l v) \+ (conseq vs (l+1)).
+Proof using. intros. math_rewrite (l+1 = S l)%nat. applys conseq_cons. Qed.
+
+Global Opaque conseq.
+
+Hint Rewrite conseq_nil conseq_cons : rew_listx.
 
 
 (* ---------------------------------------------------------------------- *)

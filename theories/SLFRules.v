@@ -1277,8 +1277,8 @@ Parameter eval_add : forall s n1 n2,
 (** In the proof, we will need to use the following result,
     established in the first chapter. *)
 
-Parameter hstar_hpure_iff : forall P H h,
-  (\[P] \* H) h <-> (P /\ H h).
+Parameter hstar_hpure_l : forall P H h,
+  (\[P] \* H) h = (P /\ H h).
 
 (** As usual, we first establish a Hoare triple. *)
 
@@ -1289,7 +1289,7 @@ Lemma hoare_add : forall H n1 n2,
 Proof using.
   intros. intros s K0. exists s (val_int (n1 + n2)). split.
   { applys eval_add. }
-  { rewrite hstar_hpure_iff. split.
+  { rewrite hstar_hpure_l. split.
     { auto. }
     { applys K0. } }
 Qed.
@@ -1330,7 +1330,7 @@ Lemma hoare_div : forall H n1 n2,
 Proof using.
   introv N. intros s K0. exists s (val_int (Z.quot n1 n2)). split.
   { applys eval_div N. }
-  { rewrite hstar_hpure_iff. split.
+  { rewrite hstar_hpure_l. split.
     { auto. }
     { applys K0. } }
 Qed.
@@ -1367,9 +1367,9 @@ Qed.
     The introduction of these disjoint union operations then
     significantly eases the justification of the separating
     conjunctions that appear in the targeted Separation Logic
-    triples. 
+    triples.
 
-    In this section, the constructor [hval_val] appears. This 
+    In this section, the constructor [hval_val] appears. This
     constructor converts a "value" into a "heap value". For the
     purpose, of this file, the two notion are identical. Yet,
     to allow for generalization to the semantics of allocation by
@@ -1394,7 +1394,7 @@ Qed.
 
 Parameter eval_get : forall v s p,
   Fmap.indom s p ->
-  Fmap.read s p = hval_val v ->
+  Fmap.read s p = v ->
   eval s (val_get (val_loc p)) s v.
 
 (** We reformulate this rule by isolating from the current state [s]
@@ -1404,7 +1404,7 @@ Parameter eval_get : forall v s p,
     [get p]. *)
 
 Lemma eval_get_sep : forall s s2 p v,
-  s = Fmap.union (Fmap.single p (hval_val v)) s2 ->
+  s = Fmap.union (Fmap.single p v) s2 ->
   eval s (val_get (val_loc p)) s v.
 
 (** The proof of this lemma is of little interest. We show it only to
@@ -1412,7 +1412,7 @@ Lemma eval_get_sep : forall s s2 p v,
     maps. *)
 
 Proof using.
-  introv ->. forwards Dv: Fmap.indom_single p (hval_val v).
+  introv ->. forwards Dv: Fmap.indom_single p v.
   applys eval_get.
   { applys* Fmap.indom_union_l. }
   { rewrite* Fmap.read_union_l. rewrite* Fmap.read_single. }
@@ -1433,12 +1433,12 @@ Qed.
     The second one in the inversion lemma for the singleton heap
     predicate. *)
 
-Parameter hstar_hpure_iff' : forall P H h,
-  (\[P] \* H) h <-> (P /\ H h).
+Parameter hstar_hpure_l' : forall P H h,
+  (\[P] \* H) h = (P /\ H h).
 
 Parameter hsingle_inv: forall p v h,
   (p ~~> v) h ->
-  h = Fmap.single p (hval_val v).
+  h = Fmap.single p v.
 
 (** We establish the specification of [get] first w.r.t. to
     the [hoare] judgment. *)
@@ -1466,7 +1466,7 @@ Proof using.
           pure fact \[v = v], and check that the state, which
           has not changed, satisfy the same heap predicate as
           in the precondition. *)
-    rewrite hstar_hpure. auto. }
+    rewrite hstar_hpure_l. auto. }
 Qed.
 
 (** Deriving the Separation Logic triple follows the usual pattern. *)
@@ -1505,12 +1505,12 @@ Parameter eval_ref : forall s v p,
     the requirement that [Fmap.disjoint s2 s1], to capture freshness. *)
 
 Lemma eval_ref_sep : forall s1 s2 v p,
-  s2 = Fmap.single p (hval_val v) ->
+  s2 = Fmap.single p v ->
   Fmap.disjoint s2 s1 ->
   eval s1 (val_ref v) (Fmap.union s2 s1) (val_loc p).
 Proof using.
   (** It is not needed to follow through this proof. *)
-  introv -> D. forwards Dv: Fmap.indom_single p (hval_val v).
+  introv -> D. forwards Dv: Fmap.indom_single p v.
   rewrite <- Fmap.update_eq_union_single. applys* eval_ref.
   { intros N. applys* Fmap.disjoint_inv_not_indom_both D N. }
 Qed.
@@ -1532,7 +1532,7 @@ Parameter exists_not_indom : forall s,
     heap [Fmap.single p v] is disjoint from [h]. *)
 
 Lemma single_fresh : forall h v,
-  exists p, Fmap.disjoint (Fmap.single p (hval_val v)) h.
+  exists p, Fmap.disjoint (Fmap.single p v) h.
 Proof using.
   (** It is not needed to follow through this proof. *)
   intros. forwards (p&F&N): exists_not_indom h.
@@ -1553,14 +1553,14 @@ Proof using.
   forwards* (p&D): (single_fresh s1 v).
   (* 3. We provide the witnesses for the reduction,
         as dictated by [eval_ref_sep]. *)
-  exists ((Fmap.single p (hval_val v)) \u s1) (val_loc p). split.
+  exists ((Fmap.single p v) \u s1) (val_loc p). split.
   { (* 4. We exploit [eval_ref_sep], which has exactly the desired shape! *)
     applys eval_ref_sep D. auto. }
   { (* 5. We establish the postcondition
           [(\exists p, \[r = val_loc p] \* p ~~> v) \* H]
           by providing [p] and the relevant pieces of heap. *)
     applys hstar_intro.
-    { exists p. rewrite hstar_hpure.
+    { exists p. rewrite hstar_hpure_l.
       split. { auto. } { applys~ hsingle_intro. } }
     { applys K0. }
     { applys D. } }
@@ -1793,13 +1793,13 @@ Parameter eval_set : forall m p v,
     prepare for the introduction of separating conjunctions. *)
 
 Lemma eval_set_sep : forall s1 s2 h2 p v1 v2,
-  s1 = Fmap.union (Fmap.single p (hval_val v1)) h2 ->
-  s2 = Fmap.union (Fmap.single p (hval_val v2)) h2 ->
-  Fmap.disjoint (Fmap.single p (hval_val v1)) h2 ->
+  s1 = Fmap.union (Fmap.single p v1) h2 ->
+  s2 = Fmap.union (Fmap.single p v2) h2 ->
+  Fmap.disjoint (Fmap.single p v1) h2 ->
   eval s1 (val_set (val_loc p) v2) s2 val_unit.
 Proof using.
   (** It is not needed to follow through this proof. *)
-  introv -> -> D. forwards Dv: Fmap.indom_single p (hval_val v1).
+  introv -> -> D. forwards Dv: Fmap.indom_single p v1.
   applys_eq eval_set 2.
   { applys* Fmap.indom_union_l. }
   { rewrite* Fmap.update_union_l. fequals.
@@ -1820,7 +1820,7 @@ Qed.
 
 (** We will make use of three lemmas, all introduced in the first chapter:
 
-    - the lemma [hstar_hpure_iff], already used earlier in this chapter
+    - the lemma [hstar_hpure_l], already used earlier in this chapter
       to reformulate [(\[P] \* H) h] as [P /\ H h],
     - the lemma [hsingle_intro], to prove [(p ~~> v) (Fmap.single p v)],
     - and the lemma [hstar_intro], to prove [(H1 \* H2) (h1 \u h2)]. *)
@@ -1839,7 +1839,7 @@ Proof using.
   (* 3. We also decompose the singleton heap predicate from it. *)
   lets E1: hsingle_inv P1.
   (* 4. We provide the witnesses as guided by [eval_set_sep]. *)
-  exists ((Fmap.single p (hval_val v)) \u h2) val_unit. split.
+  exists ((Fmap.single p v) \u h2) val_unit. split.
   { (* 5. The evaluation subgoal matches the statement of [eval_set_sep]. *)
     subst h1. applys eval_set_sep U D. auto. }
   { (* 7. Then establish the star. *)
@@ -1885,8 +1885,8 @@ Parameter eval_free : forall s p,
     and [Fmap.disjoint]. The details are not essential, thus omitted. *)
 
 Parameter eval_free_sep : forall s1 s2 v p,
-  s1 = Fmap.union (Fmap.single p (hval_val v)) s2 ->
-  Fmap.disjoint (Fmap.single p (hval_val v)) s2 ->
+  s1 = Fmap.union (Fmap.single p v) s2 ->
+  Fmap.disjoint (Fmap.single p v) s2 ->
   eval s1 (val_free p) s2 val_unit.
 
 (* EX3? (hoare_free) *)
