@@ -945,7 +945,7 @@ Lemma triple_let_val : forall z v1 t2 H Q,
   triple (trm_let z (trm_val v1) t2) H Q.
 Proof using.
   introv M. forwards~ M': (rm M).
-  applys_eq~ (>> triple_let H (fun x => \[x = v1] \* H)) 2.
+  applys_eq~ (>> triple_let H Q (fun x => \[x = v1] \* H)).
   { applys triple_val. xsimpl~. }
   { intros X. applys triple_hpure. intro_subst. applys M'. }
 Qed.

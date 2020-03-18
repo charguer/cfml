@@ -159,7 +159,7 @@ Lemma merge_lemma : forall x1 x2 ns1 ns2 Es1 Es2,
   x1 <= x2 ->
   inv (Node x1 (Node x2 ns1 :: ns2)) ('{x1} \u '{x2} \u list_union Es1 \u list_union Es2).
 Proof using.
-  introv Is1 Is2 Ks1 Ks2 L. applys_eq inv_Node 1. constructor.
+  introv Is1 Is2 Ks1 Ks2 L. applys_eq inv_Node. constructor.
   { applys* inv_Node. }
   { eauto. }
   { constructors.
@@ -263,8 +263,8 @@ Proof using.
   (destruct n1 as [x1 ns1]; inverts I1 as; intros Is1 Ks1);
   (destruct n2 as [x2 ns2]; inverts I2 as; intros Is2 Ks2).
   rename Es into Es1, Es0 into Es2. case_if.
-  { applys_eq* merge_lemma 1. }
-  { applys_eq* merge_lemma 1. }
+  { applys_eq* merge_lemma. }
+  { applys_eq* merge_lemma. }
 Qed.
 
 Lemma insert_spec : forall x h E,
@@ -273,7 +273,7 @@ Lemma insert_spec : forall x h E,
 Proof using.
   introv I. unfold insert.
   destruct h as [n|].
-  { inverts I as I. constructor. applys_eq (>> merge_spec I) 1.
+  { inverts I as I. constructor. applys_eq (>> merge_spec I).
     { applys* inv_Node. } { autos*. } }
   { inverts I. constructor. applys* inv_Node. }
 Qed.
@@ -286,11 +286,11 @@ Proof using.
   intros ns. induction_wf IH: (@list_sub node) ns; introv N Is.
   destruct ns as [|n1 ns']; tryfalse. inverts Is as I1 Is.
   destruct ns' as [|n2 ns'']; simpl.
-  { inverts Is. rename y into E. applys_eq* I1 1. }
+  { inverts Is. rename y into E. applys_eq* I1. }
   { inverts Is as I2 Is. rename r0 into Es, y0 into E2.
     rewrite is_nil_eq. case_if as C.
-    { subst ns''. inverts Is. applys merge_spec. { applys I1. } { applys_eq* I2 1. } }
-    { applys_eq merge_spec 1.
+    { subst ns''. inverts Is. applys merge_spec. { applys I1. } { applys_eq* I2. } }
+    { applys_eq merge_spec.
       { applys* merge_spec. }
       { applys* IH. }
       { autos*. } } }

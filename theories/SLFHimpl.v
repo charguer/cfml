@@ -620,7 +620,7 @@ Proof using.
   xpull. intros n. xsimpl (n-1).
   replace (n-1+1) with n. { auto. } { math. }
   (* variant for the last line:
-  applys_eq himpl_refl 2. fequal. math. *)
+  applys_eq himpl_refl. fequal. math. *)
 Qed.
 
 Lemma himpl_example_5 : forall (H:hprop),

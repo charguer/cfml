@@ -1800,10 +1800,10 @@ Lemma eval_set_sep : forall s1 s2 h2 p v1 v2,
 Proof using.
   (** It is not needed to follow through this proof. *)
   introv -> -> D. forwards Dv: Fmap.indom_single p v1.
-  applys_eq eval_set 2.
-  { applys* Fmap.indom_union_l. }
+  applys_eq eval_set.
   { rewrite* Fmap.update_union_l. fequals.
     rewrite* Fmap.update_single. }
+  { applys* Fmap.indom_union_l. }
 Qed.
 
 (** The proof of the Hoare rule for [set] makes use of the following

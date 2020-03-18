@@ -1089,10 +1089,10 @@ Lemma eval_set_sep : forall s1 s2 h2 p w v,
   eval s1 (val_set (val_loc p) v) s2 val_unit.
 Proof using.
   introv -> -> D. forwards Dv: Fmap.indom_single p w.
-  applys_eq eval_set 2.
-  { applys~ Fmap.indom_union_l. }
+  applys_eq eval_set.
   { rewrite~ Fmap.update_union_l. fequals.
     rewrite~ Fmap.update_single. }
+  { applys~ Fmap.indom_union_l. }
 Qed.
 
 Lemma eval_free_sep : forall s1 s2 v p,
@@ -1101,11 +1101,11 @@ Lemma eval_free_sep : forall s1 s2 v p,
   eval s1 (val_free p) s2 val_unit.
 Proof using.
   introv -> D. forwards Dv: Fmap.indom_single p v.
-  applys_eq eval_free 2.
-  { applys~ Fmap.indom_union_l. }
+  applys_eq eval_free.
   { rewrite~ Fmap.remove_union_single_l.
     intros Dl. applys Fmap.disjoint_inv_not_indom_both D Dl.
     applys Fmap.indom_single. }
+  { applys~ Fmap.indom_union_l. }
 Qed.
 
 

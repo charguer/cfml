@@ -1103,11 +1103,11 @@ Lemma eval_set_sep' : forall s1 s2 h2 p w v,
   eval s1 (val_set (val_loc p) v) s2 val_unit.
 Proof using.
   introv N -> -> D. forwards Dv: Fmap.indom_single p w.
-  applys_eq eval_set' 2.
-  { applys~ Fmap.indom_union_l. }
-  { applys N. }
+  applys_eq eval_set'.
   { rewrite~ Fmap.update_union_l. fequals.
     rewrite~ Fmap.update_single. }
+  { applys~ Fmap.indom_union_l. }
+  { applys N. }
 Qed.
 
 Lemma hoare_set' : forall H w p v,

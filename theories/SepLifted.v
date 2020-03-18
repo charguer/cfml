@@ -933,7 +933,7 @@ Lemma Triple_ref : forall A `{EA:Enc A} (V:A),
   Triple (val_ref ``V)
     \[]
     (fun l => l ~~> V).
-Proof using. intros. applys_eq triple_ref 1. subst~. Qed.
+Proof using. intros. applys_eq~ triple_ref. Qed.
 
 Lemma Triple_ref_Decode : forall A `{EA:Enc A} (V:A) (v:val),
   Decode v V ->

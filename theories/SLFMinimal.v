@@ -533,9 +533,9 @@ Lemma eval_get_sep : forall s s2 p v,
   s = Fmap.union (Fmap.single p v) s2 ->
   eval s (val_get (val_loc p)) s v.
 Proof.
-  introv ->. forwards Dv: Fmap.indom_single p v. applys_eq eval_get 1.
-  { applys* Fmap.indom_union_l. }
+  introv ->. forwards Dv: Fmap.indom_single p v. applys_eq eval_get.
   { rewrite* Fmap.read_union_l. rewrite* Fmap.read_single. }
+  { applys* Fmap.indom_union_l. }
 Qed.
 
 Lemma eval_set_sep : forall s1 s2 h2 p v1 v2,
@@ -544,9 +544,9 @@ Lemma eval_set_sep : forall s1 s2 h2 p v1 v2,
   Fmap.disjoint (Fmap.single p v1) h2 ->
   eval s1 (val_set (val_loc p) v2) s2 val_unit.
 Proof.
-  introv -> -> D. forwards Dv: Fmap.indom_single p v1. applys_eq eval_set 2.
-  { applys* Fmap.indom_union_l. }
+  introv -> -> D. forwards Dv: Fmap.indom_single p v1. applys_eq eval_set.
   { rewrite* Fmap.update_union_l. fequals. rewrite* Fmap.update_single. }
+  { applys* Fmap.indom_union_l. }
 Qed.
 
 Lemma eval_free_sep : forall s1 s2 v p,
@@ -554,10 +554,10 @@ Lemma eval_free_sep : forall s1 s2 v p,
   Fmap.disjoint (Fmap.single p v) s2 ->
   eval s1 (val_free p) s2 val_unit.
 Proof.
-  introv -> D. forwards Dv: Fmap.indom_single p v. applys_eq eval_free 2.
-  { applys* Fmap.indom_union_l. }
+  introv -> D. forwards Dv: Fmap.indom_single p v. applys_eq eval_free.
   { rewrite* Fmap.remove_union_single_l. intros Dl.
     applys Fmap.disjoint_inv_not_indom_both D Dl. applys Fmap.indom_single. }
+  { applys* Fmap.indom_union_l. }
 Qed.
 
 
