@@ -867,7 +867,11 @@ Qed.
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
-(** * Treatment of arrays *)
+(** * Specification of operations on arrays and records *)
+
+(** The chapter [SLFStruct] shows how to these specifications
+    may be realized. *)
+
 
 (* ########################################################### *)
 (** ** Predicate [hcells] *)
@@ -951,7 +955,7 @@ Lemma header_intro : forall k p,
   (header k p) (Fmap.single p (hval_header k)).
 Proof using.
   introv N. unfolds header. rewrite hstar_comm, hstar_hpure.
-  split*. applys hsingle_intro. 
+  split*. applys hsingle_intro.
 Qed.
 
 Lemma header_inv : forall k p h,
@@ -992,9 +996,9 @@ Lemma harray_uninit_intro : forall p k,
   harray_uninit k p (Fmap.conseq (hval_header k :: LibList.make k hval_uninit) p).
 Proof using.
   introv N. unfold harray_uninit, harray. rewrite conseq_cons.
-  applys hstar_intro. 
+  applys hstar_intro.
   { unfold header. rewrite hstar_comm, hstar_hpure. split*.
-    rewrite LibList.length_make. applys* hsingle_intro. } 
+    rewrite LibList.length_make. applys* hsingle_intro. }
   { applys* hcells_intro. }
   { applys disjoint_single_conseq. left*. }
 Qed.
@@ -1010,7 +1014,7 @@ Fixpoint hcells_any (k:nat) (p:loc) : hprop :=
   end.
 
 Definition harray_any (k:nat) (p:loc) : hprop :=
-  header k p \* hcells_any k (S p). 
+  header k p \* hcells_any k (S p).
 
 Lemma himpl_hcells_any_hcells : forall p k,
   hcells_any k p ==> \exists L, \[length L = k] \* hcells L p.
@@ -1038,7 +1042,7 @@ Lemma hoare_alloc_nat : forall H k,
     (funloc p => harray_uninit k p \* H).
 Proof using.
   intros. intros h Hh.
-  forwards~ (p&Dp&Np): (Fmap.conseq_fresh null h 
+  forwards~ (p&Dp&Np): (Fmap.conseq_fresh null h
                          (hval_header k :: LibList.make k hval_uninit)).
   match type of Dp with Fmap.disjoint ?hc _ => sets h1': hc end.
   exists (h1' \u h) (val_loc p). split.
@@ -1087,7 +1091,7 @@ Lemma hoare_dealloc : forall H L p,
     (fun _ => H).
 Proof using.
   intros. intros h Hh. destruct Hh as (h1&h2&N1&N2&N3&N4).
-  unfolds harray. destruct N1 as (h11&h12&N5&N6&N7&N8). 
+  unfolds harray. destruct N1 as (h11&h12&N5&N6&N7&N8).
   lets (E11&Np): header_inv N5. lets E12: hcells_inv N6. subst h h1 h11 h12.
   exists h2 val_unit. split; [|auto]. applys* eval_dealloc.
 Qed.
@@ -1204,11 +1208,11 @@ Proof using.
   xchange (@harray_focus (abs i) p L).
   { rew_listx. applys* abs_lt_inbound. }
   sets w: (LibList.nth (abs i) L). rewrite succ_int_plus_abs; [|math].
-  xapp triple_get. { applys E. } 
+  xapp triple_get. { applys E. }
   xchange (hforall_specialize w). subst w.
-  rewrite update_nth_same. rewrite <- E. xsimpl*. 
+  rewrite update_nth_same. rewrite <- E. xsimpl*.
   { rew_listx. applys* abs_lt_inbound. }
-Qed. 
+Qed.
 
 Definition val_array_set : val :=
   Fun 'p 'i 'x :=
@@ -1236,7 +1240,7 @@ End ArrayAccessDef.
 
 Definition vals : Type := list val.
 
-Coercion vals_to_hvals (L:vals) : hvals := 
+Coercion vals_to_hvals (L:vals) : hvals :=
   LibList.map hval_val L.
 
 Lemma length_vals_to_hvals : forall L,
@@ -1352,5 +1356,77 @@ Proof using.
 Qed.
 
 Hint Resolve triple_decr : triple.
+
+
+(* ################################################ *)
+(** *** Definition and verification of [mysucc]. *)
+
+(** Here is another example, the function:
+[[
+   let mysucc n =
+      let r = ref n in
+      incr r;
+      let x = !r in
+      free r;
+      x
+]]
+
+  Note that this function has the same behavior as [succ],
+  but its implementation makes use of the [incr] function
+  from above. *)
+
+Definition mysucc : val :=
+  Fun 'n :=
+    Let 'r := val_ref 'n in
+    incr 'r ';
+    Let 'x := '! 'r in
+    val_free 'r ';
+    'x.
+
+Lemma triple_mysucc : forall n,
+  TRIPLE (trm_app mysucc n)
+    PRE \[]
+    POST (fun v => \[v = n+1]).
+Proof using.
+  xwp. xapp. intros r. xapp. xapp. xapp. xval. xsimpl*.
+Qed.
+
+
+(* ################################################ *)
+(** *** Definition and verification of [myfun]. *)
+
+(** Here is an example of a function involving a local function definition.
+
+[[
+   let myfun p =
+      let f = (fun () => incr p) in
+      f();
+      f()
+]]
+
+*)
+
+Definition myfun : val :=
+  Fun 'p :=
+    Let 'f := (Fun_ 'u := incr 'p) in
+    'f '() ';
+    'f '().
+
+Lemma triple_myfun : forall (p:loc) (n:int),
+  TRIPLE (trm_app myfun p)
+    PRE (p ~~> n)
+    POST (fun _ => p ~~> (n+2)).
+Proof using.
+  xwp.
+  xfun (fun (f:val) => forall (m:int),
+    TRIPLE (f '())
+      PRE (p ~~> m)
+      POST (fun _ => p ~~> (m+1))); intros f Hf.
+  { intros. applys Hf. clear Hf. xapp. xsimpl. }
+  xapp.
+  xapp.
+  replace (n+1+1) with (n+2); [|math]. xsimpl.
+Qed.
+
 
 End ExtraDemoPrograms.

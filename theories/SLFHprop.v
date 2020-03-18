@@ -149,11 +149,11 @@ Definition example_val' : trm :=
     Locations are a particular kind of values.
 
     A state is a finite map from locations to values. Technically, it is
-    a finite map from locations to "heap values", of type [hval], which extend 
-    values with the special "uninitialized value" and the "header values", 
+    a finite map from locations to "heap values", of type [hval], which extend
+    values with the special "uninitialized value" and the "header values",
     which are used for describing allocated blocks.
 
-    The file [Fmap.v] provides a self-contained formalization of finite maps, 
+    The file [Fmap.v] provides a self-contained formalization of finite maps,
     but we do need to know about the details. *)
 
 Definition state : Type := fmap loc hval.
@@ -231,7 +231,7 @@ Notation "\[ P ]" := (hpure P) (at level 0, format "\[ P ]").
 
 (** The singleton heap predicate, written [p ~~> v], characterizes a
     state with a single allocated cell, at location [p], storing the
-    value [v], or, technically [hval_val v], which denotes the value  
+    value [v], or, technically [hval_val v], which denotes the value
     [v] viewed as a heap values. *)
 
 Definition hsingle (p:loc) (v:val) : hprop :=

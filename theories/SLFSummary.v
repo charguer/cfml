@@ -25,8 +25,8 @@ Import SLFDirect.
 (* ########################################################### *)
 (** * Motivation for Separation Logic in a proof assistant *)
 
-(** To begin with, please read the section titled "About Separation Logic"
-    from the file [SLFPreface.v]. *)
+(** Make sure to first read the section entitled "About Separation Logic"
+    near the top of the preface, in file [SLFPreface.v]. *)
 
 
 (* ########################################################### *)
@@ -40,8 +40,9 @@ Import SLFDirect.
 
 Module Language.
 
-(** We consider a ML-style programming language. Programs are represented as
-    terms of type [trm], and terms evaluate to values of type [val].
+(** We consider a lambda-calculus style programming language. Programs are
+    represented as terms of type [trm], and terms evaluate to values of
+    type [val].
 
     Let us describe the grammar of terms and values, which correspond to
     what is called a "deep embedding of the programming language".
@@ -60,7 +61,9 @@ Module Language.
     - variables, of type [var], represented as [strings],
     - function definitions, which may include free variables in the source code,
     - control structures: conditions, sequence, let-bindings,
-    - and function application. *)
+    - and function application.
+
+*)
 
 Definition var : Type := string.
 
@@ -245,7 +248,7 @@ Notation "\[ P ]" := (hpure P) (at level 0, format "\[ P ]").
 
 (** The singleton heap predicate, written [p ~~> v], characterizes
     a singleton state, that is, a state made of a single memory cell,
-    at location [p], and with contents [v]. 
+    at location [p], and with contents [v].
     (Technically, the value is not restricted to a regular value,
     but it might also be an uninitialized value or a block header.) *)
 

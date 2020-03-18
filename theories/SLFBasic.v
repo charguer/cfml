@@ -78,8 +78,8 @@ Implicit Types p q : loc.
 (** ** The increment function *)
 
 (** As first example, consider the function [incr], which increments
-    the contents of a mutable cell that stores an integer.
-    In OCaml syntax, this function is defined as:
+    the contents of a mutable cell that stores an integer. In OCaml
+    syntax, this function is defined as:
 
 [[
    let incr p =
@@ -1127,8 +1127,8 @@ Definition tail : field := 1%nat.
 
     - if [L] is empty, then [p] is the null pointer,
     - if [L] is of the form [x::L'], then [p] is not null, and the
-      head field of [p] contains [x], and the tail field of [p] 
-      contains a pointer [q] such that [MList L' q] describes the 
+      head field of [p] contains [x], and the tail field of [p]
+      contains a pointer [q] such that [MList L' q] describes the
       tail of the list.
 
 *)
@@ -1136,7 +1136,7 @@ Definition tail : field := 1%nat.
 Fixpoint MList (L:list val) (p:loc) : hprop :=
   match L with
   | nil => \[p = null]
-  | x::L' => \[p <> null] \* 
+  | x::L' => \[p <> null] \*
              \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* (MList L' q)
   end.
 
@@ -1191,7 +1191,7 @@ Proof using.
     xchange MList_cons.
     (* At this point, we know that [p <> null]. *)
     intros N q. case_if.
-    (* The 'else' branch corresponds to the definition of [MList] in 
+    (* The 'else' branch corresponds to the definition of [MList] in
        the [cons] case. It suffices to correctly instantiate the
        existential quantifiers. *)
      xsimpl. auto. }
