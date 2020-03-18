@@ -327,7 +327,7 @@ Notation "p `. k '~~>' v" := (hfield p k v)
 
 Definition hrecord_field : Type := (field * val).
 
-(** A record consists of of a list of fields. *)
+(** A record consists of a list of fields. *)
 
 Definition hrecord_fields : Type := list hrecord_field.
 
@@ -427,8 +427,8 @@ Qed.
 Notation "p '~~~>' kvs" := (hrecord kvs p)
   (at level 32) : hprop_scope.
 
-(** For example, the definition of the representation predicate [MList]
-    can be revisited using the heap predicate for records. *)
+(** For example, recall the definition of the representation predicate
+    [MList] introduced in [SLFBasic]. *)
 
 Definition head : field := 0%nat.
 Definition tail : field := 1%nat.
@@ -508,7 +508,7 @@ Parameter triple_get_field_hrecord : forall kvs p k v,
 (** ** Writing in record fields *)
 
 (** The write operation is described by an expression of the form
-    [val_get_field k p v], where [k] denotes a field name, and where [p]
+    [val_set_field k p v], where [k] denotes a field name, and where [p]
     denotes the location of a record, and [v] is the new value for the field. *)
 
 Parameter val_set_field : field -> val.

@@ -1294,7 +1294,7 @@ End ProveIncrWithTactics.
 (** ** Formalization of mutable lists *)
 
 Module ProveAppend.
-Import SLFExtra SLFProgramSyntax Blocks.
+Import SLFExtra SLFProgramSyntax HRecord.
 Implicit Types p q : loc.
 
 (** A mutable list cell is a two-cell record, featuring a head field and a
@@ -1320,7 +1320,7 @@ Definition tail : field := 1%nat.
 Fixpoint MList (L:list val) (p:loc) : hprop :=
   match L with
   | nil => \[p = null]
-  | x::L' => \exists q, (p`.head ~~> x) \* (p`.tail ~~> q)
+  | x::L' => \exists q, (p ~~~>`{ head := x; tail := q})
                      \* (MList L' q)
   end.
 
@@ -1328,7 +1328,7 @@ Fixpoint MList (L:list val) (p:loc) : hprop :=
 
 Lemma MList_cons : forall p x L',
   MList (x::L') p =
-  \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* MList L' q.
+  \exists q, (p ~~~>`{ head := x; tail := q}) \* MList L' q.
 Proof using.  auto. Qed.
 
 (** Another characterization of [MList L p] is useful for proofs. Whereas
@@ -1349,7 +1349,7 @@ Parameter MList_if : forall (p:loc) (L:list val),
   ==> (If p = null
       then \[L = nil]
       else \exists x q L', \[L = x::L']
-           \* (p`.head ~~> x) \* (p`.tail ~~> q)
+           \* (p ~~~>`{ head := x; tail := q})
            \* (MList L' q)).
 (* Proof in [SLFBasic]. *)
 

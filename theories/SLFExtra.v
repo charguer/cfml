@@ -835,602 +835,229 @@ Qed.
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
-(** * Treatment of arrays and records *)
+(** * Specification of record operations *)
 
 (** The chapter [SLFStruct] shows how to these specifications
     may be realized. *)
 
-Module Blocks.
+Module HRecord.
 
 
 (* ########################################################### *)
-(** ** Updated source language *)
+(** ** Representation of records *)
 
-(** The language is assumed to not include [val_ref] and [val_free],
-    but instead include primitive [val_alloc] and [val_dealloc] for
-    allocating blocks of cells.
-
-    The grammar of values is extended with two constructors:
-
-    - [val_uninit] describes the contents of an uninitialized cell.
-    - [val_header k] describes the contents of a header block for an
-      array or a record.
-
-*)
-
-Parameter val_uninit : val.
-Parameter val_header : nat -> val.
-
-Parameter val_uninit_neq_header :
-  forall k, val_uninit <> val_header k.
-(* Would be free if constructors were part of the inductive definition of [val] *)
-
-(** New primitive operations:
-
-    - [val_length p] to read a header, e.g., to get the length of an array,
-    - [val_alloc k] to allocate a block of [k] consecutive cells,
-    - [val_dealloc p] to deallocate the block at location [p].
-
-*)
-
-Parameter val_length : prim.
-Parameter val_alloc : prim.
-Parameter val_dealloc : prim.
-
-(** Semantics of allocation, deallocation, and reading of headers *)
-
-Parameter eval_alloc : forall k n ma mb p,
-  mb = Fmap.conseq (val_header k :: LibList.make k val_uninit) p ->
-  n = nat_to_Z k ->
-  p <> null ->
-  Fmap.disjoint ma mb ->
-  eval ma (val_alloc (val_int n)) (mb \+ ma) (val_loc p).
-
-Parameter eval_dealloc : forall k vs ma mb p,
-  mb = Fmap.conseq (val_header k :: vs) p ->
-  k = LibList.length vs ->
-  Fmap.disjoint ma mb ->
-  eval (mb \+ ma) (val_dealloc (val_loc p)) ma val_unit.
-
-Parameter eval_length : forall s p k,
-  Fmap.indom s p ->
-  (val_header k) = Fmap.read s p ->
-  eval s (val_length (val_loc p)) s (val_int k).
-
-Arguments eval_alloc : clear implicits.
-
-(** The definition of [hsingle] is refined to ensure that it does not
-    describe headers. *)
-
-Definition val_not_header (v:val) : Prop :=
-  forall k, v <> val_header k.
-
-(** Updated version of [eval_set] *)
-
-Parameter eval_set' : forall s p v,
-  Fmap.indom s p ->
-  val_not_header v ->
-  eval s (val_set (val_loc p) v) (Fmap.update s p v) val_unit.
-
-
-(* ########################################################### *)
-(** ** Predicate [hheader] *)
-
-(** Predicate [hheader k p] describes a header at location [p]
-    with contents [k], describing a block of [k] cells to the right
-    of the header cell. *)
-
-Definition hheader (k:nat) (p:loc) : hprop :=
-  fun h => (h = Fmap.single p (val_header k)) /\ (p <> null).
-
-Lemma hheader_intro : forall p k,
-  p <> null ->
-  (hheader k p) (Fmap.single p (val_header k)).
-Proof using. intros. hnfs*. Qed.
-
-Lemma hheader_inv: forall h p k,
-  (hheader k p) h ->
-  h = Fmap.single p (val_header k) /\ p <> null.
-Proof using. auto. Qed.
-
-Lemma hheader_not_null : forall p k,
-  hheader k p ==> hheader k p \* \[p <> null].
-Proof using.
-  intros. intros h (N&M). rewrite hstar_hpure_r.
-  split~. split~.
-Qed.
-
-
-(* ########################################################### *)
-(** ** Predicate [hcells] *)
-
-(** [hcells L p] describes the contents of the cells starting
-    at location [p]. *)
-
-Definition vals : Type := list val.
-
-Fixpoint hcells (L:vals) (p:loc) : hprop :=
-  match L with
-  | nil => \[]
-  | w::L' => (p ~~> w) \* (hcells L' (S p))
-  end.
-
-Lemma hcells_intro : forall L p,
-  p <> null ->
-  (LibList.Forall val_not_header L) ->
-  hcells L p (Fmap.conseq L p).
-Proof using.
-  intros L. induction L as [|v L']; introv N R; simpl; rew_listx in *.
-  { applys hempty_intro. }
-  { destruct R as (Nv&R'). applys hstar_intro.
-    { applys* hsingle_intro. }
-    { applys* IHL'. }
-    { applys Fmap.disjoint_single_conseq. left. math. } }
-Qed.
-
-Lemma hcells_inv : forall p L h,
-  hcells L p h ->
-  h = Fmap.conseq L p.
-Proof using.
-  introv N. gen p h. induction L as [|x L']; simpl; intros; rew_listx in *.
-  { applys hempty_inv N. }
-  { lets (h1&h2&N1&N2&N3&->): hstar_inv N. fequal.
-    { applys hsingle_inv N1. }
-    { applys IHL' N2. } }
-Qed.
-
-Lemma hcells_nil_eq : forall p,
-  hcells nil p = \[].
-Proof using. auto. Qed.
-
-Lemma hcells_cons_eq : forall p w L,
-  hcells (w::L) p = (p ~~> w) \* hcells L (S p).
-Proof using. intros. simpl. xsimpl*. Qed.
-
-Lemma hcells_concat_eq : forall p L1 L2,
-  hcells (L1++L2) p = (hcells L1 p \* hcells L2 (length L1 + p)%nat).
-Proof using.
-  intros. gen p. induction L1; intros; rew_list; simpl.
-  { xsimpl. }
-  { rewrite IHL1. math_rewrite (length L1 + S p = S (length L1 + p))%nat.
-    xsimpl. }
-Qed.
-
-Lemma hcells_focus : forall k p (L:vals),
-  k < length L ->
-  hcells L p ==>
-       ((p+k)%nat ~~> LibList.nth k L)
-    \* (\forall w, ((p+k)%nat ~~> w) \-* hcells (LibList.update k w L) p).
-Proof using.
-  introv E. gen k p. induction L as [|w L']; rew_list; intros.
-  { false. math. }
-  { simpl. rewrite nth_cons_case. case_if.
-    { subst. math_rewrite (p + 0 = p)%nat. xsimpl. intros w'.
-       rewrite LibList.update_zero. rewrite hcells_cons_eq. xsimpl*. }
-    { forwards R: IHL' (k-1)%nat (S p). { math. }
-      math_rewrite (S p + (k - 1) = p + k)%nat in R. xchange R.
-      xsimpl. intros w'. xchange (hforall_specialize w').
-      rewrite update_cons_pos; [|math]. rewrite hcells_cons_eq. xsimpl. } }
-Qed.
-
-Arguments hcells_focus : clear implicits.
-
-
-(* ########################################################### *)
-(** ** Predicate [harray] *)
-
-(** [harray L p] describes an array allocated at address [p],
-    covering both its header and its cells. *)
-
-Definition harray (L:vals) (p:loc) : hprop :=
-  hheader (length L) p \* hcells L (S p).
-
-Lemma harray_not_null : forall p L,
-  harray L p ==> harray L p \* \[p <> null].
-Proof using. intros. unfold harray. xchanges* hheader_not_null. Qed.
-
-Lemma harray_focus : forall k p L,
-  k < length L ->
-  harray L p ==>
-       ((S p+k)%nat ~~> LibList.nth k L)
-    \* (\forall w, ((S p+k)%nat ~~> w) \-* harray (LibList.update k w L) p).
-Proof using.
-  introv E. unfold harray. xchange* (hcells_focus k).
-  xsimpl. intros w. xchange (hforall_specialize w).
-  rewrite LibList.length_update. xsimpl.
-Qed.
-
-
-(* ########################################################### *)
-(** ** Predicate [harray_uninit] *)
-
-(** [harray_uninit k p] describes an array at location [p],
-    of length [k], filled with the value [val_uninit]. *)
-
-Definition harray_uninit (k:nat) (p:loc) : hprop :=
-  harray (LibList.make k val_uninit) p.
-
-Lemma harray_uninit_intro : forall p k,
-  p <> null ->
-  harray_uninit k p (Fmap.conseq (val_header k :: LibList.make k val_uninit) p).
-Proof using.
-  introv N. unfold harray_uninit, harray. rewrite conseq_cons.
-  applys hstar_intro.
-  { rewrite LibList.length_make. applys* hheader_intro. }
-  { applys* hcells_intro. applys Forall_make.
-    introv R. inverts R. applys* val_uninit_neq_header. }
-  { applys disjoint_single_conseq. left*. }
-Qed.
-
-
-(* ########################################################### *)
-(** ** Predicate [hcells_any] *)
-
-Fixpoint hcells_any (k:nat) (p:loc) : hprop :=
-  match k with
-  | O => \[]
-  | S k' => (\exists w, p ~~> w) \* (hcells_any k' (S p))
-  end.
-
-Definition harray_any (k:nat) (p:loc) : hprop :=
-  hheader k p \* hcells_any k (S p).
-
-Lemma himpl_hcells_any_hcells : forall p k,
-  hcells_any k p ==> \exists L, \[length L = k] \* hcells L p.
-Proof using.
-  intros. gen p. induction k as [|k']; simpl; intros.
-  { xsimpl (@nil val). { auto. } { simpl. xsimpl. } }
-  { xpull. intros w. xchange IHk'. intros L' EL'.
-    xsimpl (w::L'). { rew_list. math. } { simpl. xsimpl. } }
-Qed.
-
-Lemma himpl_harray_any_harray : forall p k,
-  harray_any k p ==> \exists L, \[length L = k] \* harray L p.
-Proof using.
-  intros. unfold harray, harray_any.
-  xchange himpl_hcells_any_hcells. intros L EL. subst k. xsimpl*.
-Qed.
-
-
-(* ########################################################### *)
-(** ** Updated specifications for [val_set] *)
-
-Lemma eval_set_sep' : forall s1 s2 h2 p w v,
-  val_not_header v ->
-  s1 = Fmap.union (Fmap.single p w) h2 ->
-  s2 = Fmap.union (Fmap.single p v) h2 ->
-  Fmap.disjoint (Fmap.single p w) h2 ->
-  eval s1 (val_set (val_loc p) v) s2 val_unit.
-Proof using.
-  introv N -> -> D. forwards Dv: Fmap.indom_single p w.
-  applys_eq eval_set'.
-  { rewrite~ Fmap.update_union_l. fequals.
-    rewrite~ Fmap.update_single. }
-  { applys~ Fmap.indom_union_l. }
-  { applys N. }
-Qed.
-
-Lemma hoare_set' : forall H w p v,
-  val_not_header v ->
-  hoare (val_set (val_loc p) v)
-    ((p ~~> w) \* H)
-    (fun r => \[r = val_unit] \* (p ~~> v) \* H).
-Proof using.
-  introv N'. intros s1 K0.
-  destruct K0 as (h1&h2&P1&P2&D&U).
-  lets N: hsingle_inv P1.
-  exists (Fmap.union (Fmap.single p v) h2) val_unit. split.
-  { subst h1. applys eval_set_sep' U D. auto. auto. }
-  { rewrite hstar_hpure_l. split~.
-    { applys~ hstar_intro.
-      { applys~ hsingle_intro. }
-      { subst h1. applys Fmap.disjoint_single_set D. } } }
-Qed.
-
-Lemma triple_set : forall w p v,
-  val_not_header v ->
-  triple (val_set (val_loc p) v)
-    (p ~~> w)
-    (fun _ => p ~~> v).
-Proof using.
-  introv R. unfold triple. intros H'. applys* hoare_conseq hoare_set'; xsimpl~.
-Qed.
-
-Lemma triple_set' : forall w p v,
-  triple (val_set (val_loc p) v)
-    (\[val_not_header v] \* p ~~> w)
-    (fun _ => p ~~> v).
-Proof using. intros. applys triple_hpure. intros N. applys* triple_set. Qed.
-
-(* Hint Resolve triple_set' : triple. *)
-
-
-(* ########################################################### *)
-(** ** Specification of [val_alloc] *)
-
-Lemma hoare_alloc_nat : forall H k,
-  hoare (val_alloc k)
-    H
-    (funloc p => harray_uninit k p \* H).
-Proof using.
-  intros. intros h Hh.
-  forwards~ (p&Dp&Np): (Fmap.conseq_fresh null h
-                         (val_header k :: LibList.make k val_uninit)).
-  match type of Dp with Fmap.disjoint ?hc _ => sets h1': hc end.
-  exists (h1' \u h) (val_loc p). split.
-  { applys~ (eval_alloc k). }
-  { applys hexists_intro p. rewrite hstar_hpure_l. split*.
-    { applys* hstar_intro. applys* harray_uninit_intro. } }
-Qed.
-
-Lemma triple_alloc_nat : forall k,
-  triple (val_alloc k)
-    \[]
-    (funloc p => harray_uninit k p).
-Proof using.
-  intros. intros H'. applys hoare_conseq.
-  { applys hoare_alloc_nat H'. } { xsimpl. } { xsimpl*. }
-Qed.
-
-Lemma triple_alloc : forall n,
-  n >= 0 ->
-  triple (val_alloc n)
-    \[]
-    (funloc p => harray_uninit (abs n) p).
-Proof using.
-  introv N. rewrite <- (@abs_nonneg n) at 1; [|auto].
-  xtriple. xapp triple_alloc_nat. xsimpl*.
-Qed.
-
-Hint Resolve triple_alloc : triple.
-
-
-(* ########################################################### *)
-(** ** Specification of [val_dealloc] *)
-
-Lemma hoare_dealloc : forall H L p,
-  hoare (val_dealloc p)
-    (harray L p \* H)
-    (fun _ => H).
-Proof using.
-  intros. intros h Hh. destruct Hh as (h1&h2&N1&N2&N3&N4).
-  unfolds harray. destruct N1 as (h11&h12&N5&N6&N7&N8).
-  lets (E11&Np): hheader_inv N5. lets E12: hcells_inv N6. subst h h1 h11 h12.
-  exists h2 val_unit. split; [|auto]. applys* eval_dealloc.
-  rewrite* conseq_cons.
-Qed.
-
-Lemma triple_dealloc : forall L p,
-  triple (val_dealloc p)
-    (harray L p)
-    (fun _ => \[]).
-Proof using.
-  intros. intros H'. applys hoare_conseq.
-  { applys hoare_dealloc H'. } { xsimpl. } { xsimpl. }
-Qed.
-
-Lemma triple_dealloc_any : forall p k,
-  triple (val_dealloc p)
-    (harray_any k p)
-    (fun _ => \[]).
-Proof using.
-  intros. xtriple. xchange himpl_harray_any_harray. intros L EL.
-  xapp triple_dealloc. { xsimpl. }
-Qed.
-
-Hint Resolve triple_dealloc : triple.
-
-
-(* ########################################################### *)
-(** ** Specification of [length] *)
-
-Lemma eval_length_sep : forall s s2 p k,
-  s = Fmap.union (Fmap.single p (val_header k)) s2 ->
-  eval s (val_length (val_loc p)) s (val_int k).
-Proof using.
-  introv ->. forwards Dv: Fmap.indom_single p (val_header k).
-  applys eval_length.
-  { applys~ Fmap.indom_union_l. }
-  { rewrite~ Fmap.read_union_l. rewrite~ Fmap.read_single. }
-Qed.
-
-Lemma hoare_length : forall H k p,
-  hoare (val_length p)
-    ((hheader k p) \* H)
-    (fun r => \[r = val_int k] \* (hheader k p) \* H).
-Proof using.
-  intros. intros s K0. exists s (val_int k). split.
-  { destruct K0 as (s1&s2&P1&P2&D&U).
-    lets (E1&N): hheader_inv P1. subst s1. applys eval_length_sep U. }
-  { rewrite~ hstar_hpure_l. }
-Qed.
-
-Lemma triple_length : forall k p,
-  triple (val_length p)
-    (hheader k p)
-    (fun r => \[r = val_int k] \* hheader k p).
-Proof using.
-  intros. unfold triple. intros H'. applys hoare_conseq hoare_length; xsimpl~.
-Qed.
-
-Hint Resolve triple_length : triple.
-
-
-(* ########################################################### *)
-(** ** Encoding of [val_array_get] and [val_array_set] *)
-
-Module Export ArrayAccessDef.
-Import SLFProgramSyntax.
-Open Scope wp_scope.
-
-(** Auxiliary lemmas *)
-
-Lemma abs_lt_inbound : forall i k,
-  0 <= i < nat_to_Z k ->
-  (abs i < k).
-Proof using.
-  introv N. apply lt_nat_of_lt_int. rewrite abs_nonneg; math.
-Qed.
-
-Lemma succ_int_plus_abs : forall p i,
-  i >= 0 ->
-  (S (p + abs i) = abs (nat_to_Z p + (i + 1)))%nat.
-Proof using.
-  introv N. rewrite abs_nat_plus_nonneg; [|math].
-  math_rewrite (i+1 = 1 + i).
-  rewrite <- succ_abs_eq_abs_one_plus; math.
-Qed.
-
-(** Length *)
-
-Definition val_array_length : val := val_length.
-
-Lemma triple_array_length : forall L p,
-  triple (val_array_length p)
-    (harray L p)
-    (fun r => \[r = length L] \* harray L p).
-Proof using.
-  intros. unfold harray. applys triple_conseq_frame triple_length.
-  { xsimpl. } { xsimpl. auto. }
-Qed.
-
-(** Get *)
-
-Definition val_array_get : val :=
-  Fun 'p 'i :=
-    Let 'j := 'i '+ 1 in
-    Let 'n := val_ptr_add 'p 'j in
-    val_get 'n.
-
-Lemma triple_array_get : forall p i v (L:vals),
-  0 <= i < length L ->
-  LibList.nth (abs i) L = v ->
-  triple (val_array_get p i)
-    (harray L p)
-    (fun r => \[r = v] \* harray L p).
-Proof using.
-  introv N E. xwp. xapp. xapp triple_ptr_add. { math. }
-  xchange (@harray_focus (abs i) p L).
-  { rew_listx. applys* abs_lt_inbound. }
-  sets w: (LibList.nth (abs i) L). rewrite succ_int_plus_abs; [|math].
-  xapp triple_get. xchange (hforall_specialize w). subst w.
-  rewrite update_nth_same. rewrite <- E. xsimpl*.
-  { rew_listx. applys* abs_lt_inbound. }
-Qed.
-
-(** Set *)
-
-Definition val_array_set : val :=
-  Fun 'p 'i 'x :=
-    Let 'j := 'i '+ 1 in
-    Let 'n := val_ptr_add 'p 'j in
-    val_set 'n 'x.
-
-Lemma triple_array_set : forall p i v L,
-  0 <= i < length L ->
-  val_not_header v ->
-  triple (val_array_set p i v)
-    (harray L p)
-    (fun _ => harray (LibList.update (abs i) v L) p).
-Proof using.
-  introv R N. xwp. xpull. xapp. xapp triple_ptr_add. { math. }
-  xchange (@harray_focus (abs i) p L). { applys* abs_lt_inbound. }
-  rewrite succ_int_plus_abs; [|math].
-  xapp triple_set. auto. xchange (hforall_specialize v).
-Qed.
-
-End ArrayAccessDef.
-
-
-(* ########################################################### *)
-(* ########################################################### *)
-(** * Treatment of records *)
-
-(* ########################################################### *)
-(** ** Definition of record fields *)
+(** A field name is implemented as a natural number *)
 
 Definition field : Type := nat.
 
-Definition hfield (p:loc) (k:field) (v:val) : hprop :=
-  (p+k)%nat ~~> v.
+(** A record field is described as the pair of a field and a value
+    stored in this field. *)
 
-Notation "p `. k '~~>' v" := (hfield p k v)
-  (at level 32, k at level 0, no associativity,
-   format "p `. k  '~~>'  v") : hprop_scope.
+Definition hrecord_field : Type := (field * val).
 
-Lemma hfield_eq : forall p k v,
-  hfield p k v = ((k+p)%nat ~~> v).
-Proof using. intros. math_rewrite (k+p = p+k)%nat. auto. Qed.
+(** A record consists of a list of fields. *)
+
+Definition hrecord_fields : Type := list hrecord_field.
+
+Implicit Types kvs : hrecord_fields.
+
+(** Record fields syntax, e.g., [`{ head := x; tail := q }]. *)
+
+Notation "`{ k1 := v1 }" :=
+  ((k1,(v1:val))::nil)
+  (at level 0, k1 at level 0)
+  : val_scope.
+
+Notation "`{ k1 := v1 ; k2 := v2 }" :=
+  ((k1,(v1:val))::(k2,(v2:val))::nil)
+  (at level 0, k1, k2 at level 0)
+  : val_scope.
+
+Notation "`{ k1 := v1 ; k2 := v2 ; k3 := v3 }" :=
+  ((k1,(v1:val))::(k2,(v2:val))::(k3,(v3:val))::nil)
+  (at level 0, k1, k2, k3 at level 0)
+  : val_scope.
+
+Notation "`{ k1 := v1 }" :=
+  ((k1,v1)::nil)
+  (at level 0, k1 at level 0, only printing)
+  : val_scope.
+
+Notation "`{ k1 := v1 ; k2 := v2 }" :=
+  ((k1,v1)::(k2,v2)::nil)
+  (at level 0, k1, k2 at level 0, only printing)
+  : val_scope.
+
+Notation "`{ k1 := v1 ; k2 := v2 ; k3 := v3 }" :=
+  ((k1,v1)::(k2,v2)::(k3,v3)::nil)
+  (at level 0, k1, k2, k3 at level 0, only printing)
+  : val_scope.
+
+Open Scope val_scope.
+
+(** [hrecord kvs p], written [p ~~~> kvs], describes a record
+    at location [p] with fields described by the list [kvs]. *)
+
+Parameter hrecord : forall (kvs:hrecord_fields) (p:loc), hprop.
+
+Notation "p '~~~>' kvs" := (hrecord kvs p)
+  (at level 32) : hprop_scope.
+
+(** The heap predicate [hrecord kvs p] captures in particular the
+    invariant that the location [p] is not null. *)
+
+Parameter hrecord_not_null : forall p kvs,
+  hrecord kvs p ==> hrecord kvs p \* \[p <> null].
 
 
 (* ########################################################### *)
-(** ** Definition of record operations, simple version *)
+(** ** Read operation on record fields *)
 
-Module Export FieldAccessDef.
-Import SLFProgramSyntax.
-Open Scope wp_scope.
+(** [val_get_field k p], written [p'.k], reads field [k] from
+    the record at location [p]. *)
 
-Definition val_get_field (k:field) : val :=
-  Fun 'p :=
-    Let 'q := val_ptr_add 'p (nat_to_Z k) in
-    val_get 'q.
+Parameter val_get_field : field -> val.
 
-Lemma triple_get_field : forall p k v,
-  triple ((val_get_field k) p)
-    (p`.k ~~> v)
-    (fun r => \[r = v] \* (p`.k ~~> v)).
-Proof using.
-  xwp. xapp. unfold hfield. xapp triple_get. xsimpl*.
-Qed.
+Notation "t1 ''.' k" :=
+  (val_get_field k t1)
+  (at level 56, k at level 0, format "t1 ''.' k" ).
 
-Definition val_set_field (k:field) : val :=
-  Fun 'p 'v :=
-    Let 'q := val_ptr_add 'p (nat_to_Z k) in
-    val_set 'q 'v.
+(** Specification *)
 
-Lemma triple_set_field : forall v1 p k v2,
-  val_not_header v2 ->
-  triple ((val_set_field k) p v2)
-    (p`.k ~~> v1)
-    (fun _ => p`.k ~~> v2).
-Proof using.
-  introv N. xwp. xapp. unfold hfield. xapp triple_set. auto. xsimpl*.
-Qed.
+Fixpoint hfields_lookup (k:field) (kvs:hrecord_fields) : option val :=
+  match kvs with
+  | nil => None
+  | (ki,vi)::kvs' => if Nat.eq_dec k ki
+                       then Some vi
+                       else hfields_lookup k kvs'
+  end.
 
-Lemma triple_set_field' : forall v1 p k v2,
-  triple ((val_set_field k) p v2)
-    (\[val_not_header v2] \* p`.k ~~> v1)
-    (fun _ => p`.k ~~> v2).
-Proof using.
-  intros. applys triple_hpure. intros N. applys* triple_set_field.
-Qed.
+Parameter triple_get_field_hrecord : forall kvs p k v,
+  hfields_lookup k kvs = Some v ->
+  triple (val_get_field k p)
+    (hrecord kvs p)
+    (fun r => \[r = v] \* hrecord kvs p).
 
-Notation "t1 ''.' f" :=
-  (val_get_field f t1)
-  (at level 56, f at level 0, format "t1 ''.' f" ) : trm_scope.
 
-Notation "'Set' t1 ''.' f '':=' t2" :=
-  (val_set_field f t1 t2)
-  (at level 65, t1 at level 0, f at level 0, format "'Set'  t1 ''.' f  '':='  t2") : trm_scope.
+(* ########################################################### *)
+(** ** Write operation on record fields *)
 
-End FieldAccessDef.
+(** [val_set_field k p v], written [Set p'.k ':= v], update the contents
+    of the field [k] from the record at location [p], with the value [v]. *)
 
-Global Opaque hfield.
+Parameter val_set_field : field -> val.
 
-(** For the course in [SLFBasic], we simplify the specification and
-    exploit the invariant that [val_header] should never occur in
-    user's code, hence it is never possible for a header value to
-    appear inside program terms during the execution, hence the
-    side-condition [val_not_header v2] is always satisfied. *)
+Notation "'Set' t1 ''.' k '':=' t2" :=
+  (val_set_field k t1 t2)
+  (at level 65, t1 at level 0, k at level 0, format "'Set' t1 ''.' k  '':=' t2").
 
-Parameter triple_set_field_simplified : forall v1 p k v2,
-  triple ((val_set_field k) p v2)
-    (p`.k ~~> v1)
-    (fun _ => p`.k ~~> v2).
+(** Specification *)
 
-Hint Resolve triple_get_field triple_set_field_simplified : triple.
+Fixpoint hfields_update (k:field) (v:val) (kvs:hrecord_fields)
+                        : option hrecord_fields :=
+  match kvs with
+  | nil => None
+  | (ki,vi)::kvs' => if Nat.eq_dec k ki
+                   then Some ((k,v)::kvs')
+                   else match hfields_update k v kvs' with
+                        | None => None
+                        | Some LR => Some ((ki,vi)::LR)
+                        end
+  end.
 
-End Blocks.
+(** The specification in terms of [hrecord] is similar. *)
+
+Parameter triple_set_field_hrecord : forall kvs kvs' k p v,
+  hfields_update k v kvs = Some kvs' ->
+  triple (val_set_field k p v)
+    (hrecord kvs p)
+    (fun _ => hrecord kvs' p).
+
+
+(* ########################################################### *)
+(** ** Allocation of records *)
+
+(** [val_alloc_record ks] allocates a record with fields [ks],
+    storing uninitialized contents. *)
+
+Parameter val_alloc_record : forall (ks:list field), trm.
+
+Parameter val_uninit : val.
+
+Parameter triple_alloc_record : forall ks,
+  ks = nat_seq 0 (LibListExec.length ks) ->
+  triple (val_alloc_record ks)
+    \[]
+    (funloc p => hrecord (LibListExec.map (fun k => (k,val_uninit)) ks) p).
+
+(** [val_new_record_2 k1 k2 v1 v2], written [New`{ k1 := v1 ; k2 := v2 }],
+    allocates a record with two fields and initialize the fields. *)
+
+(** An arity-generic version of the definition of allocation combined with
+    initialization is beyond the scope of this course. *)
+
+Parameter val_new_record_2 : forall (k1:field) (k2:field), val.
+
+Notation "'New' `{ k1 := v1 ; k2 := v2 }" :=
+  (val_new_record_2 k1 k2 v1 v2)
+  (at level 65, k1, k2 at level 0) : trm_scope.
+
+Open Scope trm_scope.
+
+Parameter triple_new_record_2 : forall k1 k2 v1 v2,
+  k1 = 0%nat ->
+  k2 = 1%nat ->
+  triple (New `{ k1 := v1; k2 := v2 })
+    \[]
+    (funloc p => p ~~~> `{ k1 := v1 ; k2 := v2 }).
+
+Hint Resolve val_new_record_2 : triple.
+
+
+(* ########################################################### *)
+(** ** Deallocation of records *)
+
+(** [val_dealloc_record p], written [Delete p], deallocates the
+    record at location [p]. *)
+
+Parameter val_dealloc_record : val.
+
+Notation "'Delete' p" := (val_dealloc_record p)
+  (at level 65) : trm_scope.
+
+Parameter triple_dealloc_record : forall kvs p,
+  triple (val_dealloc_record p)
+    (hrecord kvs p)
+    (fun _ => \[]).
+
+Hint Resolve triple_dealloc_record : triple.
+
+
+(* ########################################################### *)
+(** ** Extending [xapp] to support record access operations *)
+
+(** The tactic [xapp] is refined to automatically invoke the
+    lemmas [triple_get_field_hrecord] and [triple_set_field_hrecord]. *)
+
+Parameter xapp_get_field_lemma : forall H k p Q,
+  H ==> \exists kvs, (hrecord kvs p) \*
+     match hfields_lookup k kvs with
+     | None => \[False]
+     | Some v => ((fun r => \[r = v] \* hrecord kvs p) \--* protect Q) end ->
+  H ==> wp (val_get_field k p) Q.
+
+Parameter xapp_set_field_lemma : forall H k p v Q,
+  H ==> \exists kvs, (hrecord kvs p) \*
+     match hfields_update k v kvs with
+     | None => \[False]
+     | Some kvs' => ((fun _ => hrecord kvs' p) \--* protect Q) end ->
+  H ==> wp (val_set_field k p v) Q.
+
+Ltac xapp_nosubst_for_records tt ::=
+  first [ applys xapp_set_field_lemma; xsimpl; simpl; xapp_simpl
+        | applys xapp_get_field_lemma; xsimpl; simpl; xapp_simpl ].
+
+End HRecord.
 
 
 (* ########################################################### *)

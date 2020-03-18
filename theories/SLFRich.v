@@ -602,7 +602,7 @@ Proof using.
     { xpull. intros x q L' ->. xseq. xapp. xapp. xapp. xapp.
       (* Here takes place the recursive call, with frame on the head cell: *)
       xapply (IH L'). { auto. } intros _.
-      xchange <- MList_cons. { auto. } { xsimpl. rew_list. math. }  }
+      xchange <- MList_cons. { xsimpl. rew_list. math. }  }
     { xpull. intros ->. xval. xsimpl. { congruence. }
       subst. xchange* <- (MList_nil null). } }
   xapply KR. xpull. xapp. xapp. xapp. xval. xsimpl. math.

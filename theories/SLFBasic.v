@@ -1116,7 +1116,7 @@ Qed. (* /ADMITTED *)
     of consecutive cells. *)
 
 Module ExampleLists.
-Export Blocks.
+Export HRecord.
 
 (** A mutable list cell is a two-cell record, featuring a head field and a
     tail field. We define the field indices as follows. *)
@@ -1142,8 +1142,7 @@ Definition tail : field := 1%nat.
 Fixpoint MList (L:list val) (p:loc) : hprop :=
   match L with
   | nil => \[p = null]
-  | x::L' => \[p <> null] \*
-             \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* (MList L' q)
+  | x::L' => \exists q, (p ~~~>`{ head := x; tail := q}) \* (MList L' q)
   end.
 
 (** The following reformulations of the definition are helpful in proofs,
@@ -1156,7 +1155,7 @@ Proof using. auto. Qed.
 
 Lemma MList_cons : forall p x L',
   MList (x::L') p =
-  \[p <> null] \* \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* MList L' q.
+  \exists q, (p ~~~>`{ head := x; tail := q}) \* (MList L' q).
 Proof using.  auto. Qed.
 
 (** Another characterization of [MList L p] is useful for proofs. Whereas
@@ -1177,7 +1176,7 @@ Lemma MList_if : forall (p:loc) (L:list val),
   ==> (If p = null
         then \[L = nil]
         else \exists x q L', \[L = x::L']
-             \* (p`.head ~~> x) \* (p`.tail ~~> q) \* (MList L' q)).
+             \* (p ~~~>`{ head := x; tail := q}) \* (MList L' q)).
 Proof using.
   (* Let's prove this result by case analysis on [L]. *)
   intros. destruct L as [|x L'].
@@ -1194,9 +1193,9 @@ Proof using.
      [rewrite MList_cons. xpull. intros q.]
      A more efficient approach is to use the dedicated CFML tactic [xchange],
      which is specialized for performing updates in the current state. *)
-    xchange MList_cons.
+    xchange MList_cons. intros q.
     (* At this point, we know that [p <> null]. *)
-    intros N q. case_if.
+    xchange hrecord_not_null. intros N. case_if.
     (* The 'else' branch corresponds to the definition of [MList] in
        the [cons] case. It suffices to correctly instantiate the
        existential quantifiers. *)
@@ -1247,10 +1246,10 @@ Proof using.
   { (* If [q1'] is null, then [L1'] is empty. *)
     xchange (MList_if q1). case_if. xpull. intros ->.
     (* In this case, we set the pointer, then we fold back the head cell. *)
-    xapp. xchange <- MList_cons. auto. }
+    xapp. xchange <- MList_cons. }
   { (* If [q1'] is not null, we reason about the recursive call using
        the induction hypothesis, then we fold back the head cell. *)
-    xapp. xchange <- MList_cons. auto. }
+    xapp. xchange <- MList_cons. }
 Qed.
 
 
@@ -1357,7 +1356,7 @@ Hint Resolve triple_mnil : triple.
 (** The function [mcopy] takes a mutable linked list and builds
     an independent copy of it.
 
-    This program illustrates the use the of functions [mnil] and 
+    This program illustrates the use the of functions [mnil] and
     [mcons].
 
 [[
@@ -1463,10 +1462,10 @@ Proof using.
   introv Hk. gen H p1 p2 L2 k. induction_wf IH: (@list_sub val) L1.
   xwp. xapp. xchange (MList_if p1). xif; intros C; case_if; xpull.
   { intros ->. xapp. xsimpl*. }
-  { intros x L1' p1' ->. xapp. xfun. intros f Hf.
-    xapp (>> IH (H \* p1`.tail ~~> L1' \* p1`.head ~~> x) L1').
+  { intros x p1' L1' ->. xapp. xfun. intros f Hf.
+    xapp (>> IH (H \* p1 ~~~> `{ head := x ; tail := p1' }) p1').
     { auto. }
-    { intros p3. xtriple. xapp. xapp. xapp. xchanges* <- MList_cons. }
+    { intros p3. xtriple. xapp. xapp. xapp. xchanges <- MList_cons. }
     { xsimpl. } }
 Qed.
 
