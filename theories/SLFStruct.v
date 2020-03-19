@@ -627,7 +627,11 @@ Definition val_alloc_record (ks:list field) : trm :=
     where the list [kvs] maps the fields names from [ks] to the
     value [val_uninit]. The premise expressed in terms of [nat_seq]
     ensures that the list [ks] contains consecutive offsets starting
-    from zero. *)
+    from zero.
+
+    In the statement below, [LibListExec.length] is a variant of
+    [LibList.length] that computes in Coq (using [simpl] or [reflexivity]).
+    Likewise for [LibListExec.map], which is equivalent to [LibList.map]. *)
 
 Parameter triple_alloc_record : forall ks,
   ks = nat_seq 0 (LibListExec.length ks) ->

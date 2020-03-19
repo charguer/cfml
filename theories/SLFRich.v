@@ -825,7 +825,8 @@ End CurriedFun.
 Module PrimitiveNaryFun.
 
 (** We next present an alternative treatment to functions of several
-    arguments. The idea is to represent arguments using lists.
+    arguments. The idea is to represent function arguments using lists.
+    The verification tool CFML is implemented following this approach.
 
     On the one hand, the manipulation of lists adds a little bit of
     boilerplate. On the other hand, when using this representation, all
@@ -834,8 +835,9 @@ Module PrimitiveNaryFun.
 
     We introduce the short names [vars], [vals] and [trms] to denote lists
     of variables, lists of values, and lists of terms, respectively.
+
     These names are not only useful to improve conciseness, they also enable
-    the set up of useful coercions, as we will detail shortly afterwards. *)
+    the set up of useful coercions, as illustrated further on. *)
 
 Definition vars : Type := list var.
 Definition vals : Type := list val.
@@ -846,19 +848,19 @@ Implicit Types vs : vals.
 Implicit Types ts : trms.
 
 (** We assume the grammar of terms and values to include primitive n-ary
-    functions and n-ary applications, featuring list of arguments.
-    Thereafter, for conciseness, we omit non-recursive functions, and
-    focus on the treatment of the more-general recursive functions. *)
+    functions and primitive n-ary applications, featuring list of arguments.
+
+    Thereafter, for conciseness, we focus on the treatment of recursive
+    functions, and do not describe the simpler case of non-recursive
+    functions. *)
 
 Parameter val_fixs : var -> vars -> trm -> val.
 Parameter trm_fixs : var -> vars -> trm -> trm.
 Parameter trm_apps : trm -> trms -> trm.
 
 (** The substitution function is a bit tricky to update for dealing with
-    list of variables. A definition along the following lines works well.
-    On the one hand, it prevents variables capture. On the other hand,
-    it traverses recursively the list of arguments, in a way that is
-    recognized as structurally recursive.
+    list of variables. A definition along the following lines computes well,
+    and is recognized as structurally recursive by Coq.
 
 [[
     Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
@@ -872,28 +874,29 @@ Parameter trm_apps : trm -> trms -> trm.
      end.
 ]]
 
-    For additional details, we refer to the implementation of CFML.
 *)
 
-(** The evaluation rules need to be updated accordingly. A n-ary function
-    from the grammar of terms evaluates to the corresponding n-ary
-    function from the grammar of values. For technical reasons, we
-    need to ensure that the program is well-formed and that the list
-    of arguments to the function is nonempty. Indeed, a function of
-    zero arguments is not considered a function in our language.
-    (Otherwise, such a function [f] would beta-reduce to its body
-    as soon as it is defined, because it waits for no arguments.) *)
+(** The evaluation rules also need to be updated to handle list of
+    arguments. A n-ary function from the grammar of terms evaluates to
+    the corresponding n-ary function from the grammar of values. *)
 
 Parameter eval_fixs : forall m f xs t1,
   xs <> nil ->
   eval m (trm_fixs f xs t1) m (val_fixs f xs t1).
 
+(** Note that, for technical reasons, we need to ensure that list of
+    arguments is nonempty. Indeed, a function with zero arguments
+    would beta-reduce to its body as soon as it is defined, because
+    it is not waiting for any argument, resulting in an infinite
+    sequence of reductions. *)
+
 (** The application of a n-ary function to values takes the form
     [trm_apps (trm_val v0) ((trm_val v1):: .. ::(trm_val vn)::nil)].
+
     If the function [v0] is defined as [val_fixs f xs t1], where [xs]
     denotes the list [x1::x2::...::xn::nil], then the beta-reduction
     of the function application triggers the evaluation of the
-    substitution [subst xn vn (... (subst x1 v1 (subst f v0 t1)) ...)].
+    term [subst xn vn (... (subst x1 v1 (subst f v0 t1)) ...)].
 
     To describe the evaluation rule in an arity-generic way, we need to
     introduce the list [vs] made of the values provided as arguments,
@@ -925,7 +928,7 @@ Fixpoint substn (xs:list var) (vs:list val) (t:trm) : trm :=
   end.
 
 (** This substitution operation is well-behaved only if the list [xs]
-    and the list [vs] have the same lengths. It is also desirable for
+    and the list [vs] have the same lengths. It is also needed for
     reasoning about the evaluation rule to guarantee that the list of
     variables [xs] contains variables that are distinct from each others
     and distinct from [f], and to guarantee that the list [xs] is not empty.
@@ -952,7 +955,7 @@ Parameter eval_apps_fixs : forall v0 vs f xs t1 s1 s2 r,
   eval s1 (substn (f::xs) (v0::vs) t1) s2 r ->
   eval s1 (trm_apps v0 (trms_vals vs)) s2 r.
 
-(** The corresponding reasoning rule has a somewhat similar statement. *)
+(** The corresponding reasoning rule admits a somewhat similar statement. *)
 
 Lemma triple_apps_fixs : forall v0 vs f xs t1 H Q,
   v0 = val_fixs f xs t1 ->
@@ -968,7 +971,8 @@ Qed.
     of the form [trm_apps (trm_val v0) (trms_vals vs)]. Yet, in practice,
     goals are generally of the form
     [trm_apps (trm_val v0) ((trm_val v1):: .. :: (trm_val vn)::nil)].
-    The two forms are convertible, yet in general Coq is not able to
+
+    The two forms are convertible. Yet, in most cases, Coq is not able to
     synthetize the list [vs] during the unification process.
 
     Fortunately, it is possible to reformulate the lemma using an auxiliary
@@ -992,6 +996,10 @@ Fixpoint trms_to_vals (ts:trms) : option vals :=
   | _ => None
   end.
 
+(** The specification of the function [trms_to_vals] asserts that if
+    [trms_to_vals ts] produces some list of values [vs], then [ts] is
+    equal to [trms_vals vs]. *)
+
 Lemma trms_to_vals_spec : forall ts vs,
   trms_to_vals ts = Some vs ->
   ts = trms_vals vs.
@@ -1002,17 +1010,20 @@ Proof using.
     rename v0 into vs'. rewrite* (IHts' vs'). }
 Qed.
 
+(** Here is a demo showing how [trms_to_vals] computes in practice. *)
+
 Lemma demo_trms_to_vals : forall v1 v2 v3,
   exists vs,
      trms_to_vals ((trm_val v1)::(trm_val v2)::(trm_val v3)::nil) = Some vs
   /\ vs = vs.
 Proof using.
-  (* activate the display of coercions to play this demo *)
-  intros. esplit. split. simpl. eauto. (* [vs] was inferred. *)
+  (* Activate the display of coercions to play this demo *)
+  intros. esplit. split. simpl. eauto. (* Observe how [vs] is inferred. *)
 Abort.
 
-(** Using [trms_to_vals], we can reformulate [triple_apps_fixs'] in such
-    a way that the rule can be smoothly applied on practical goals. *)
+(** Using [trms_to_vals], we can reformulate the rule [triple_apps_fixs]
+    in such a way that the rule can be smoothly applied on goals of the
+    form [trm_apps (trm_val v0) ((trm_val v1):: .. :: (trm_val vn)::nil)]. *)
 
 Lemma triple_apps_fixs' : forall v0 ts vs f xs t1 H Q,
   v0 = val_fixs f xs t1 ->
@@ -1025,10 +1036,11 @@ Proof using.
   applys* triple_apps_fixs.
 Qed.
 
-(** To set up the tactic [xwp] to handle n-ary applications, we reformulate
-    the lemma above by making two changes.
+(** Finally, let us show how to integrate the rule [triple_apps_fixs'] into
+    the tactic [xwp]. To that end, we reformulate the rule by making two
+    small changes.
 
-    The first change is to replace the predicate [var_fixs] which checks
+    The first change consists of replacing the predicate [var_fixs] which checks
     the well-formedness properties of the list of variables [xs] by an
     executable version of this predicate, with a result in [bool]. This way,
     the tactic [reflexivity] can prove all the desired facts, when the lemma
@@ -1037,14 +1049,13 @@ Qed.
 
 Parameter var_fixs_exec : var -> vars -> nat -> bool.
 
-(** The second change is to introduce the [wpgen] function in place of
-    the triple for the evaluation of the body of the function. The
-    substitution [substn (f::xs) (v0::vs)] then gets described by the
-    substitution context [List.combine (f::xs) (v0::vs)], which describes
-    a list of pairs of type [list (var * val)].
+(** The second change consists of introducing the [wpgen] function for
+    reasoning about the body of the function. Concretely, the substitution
+    [substn (f::xs) (v0::vs)] is described by the substitution context
+    [List.combine (f::xs) (v0::vs)].
 
     The statement of the lemma for [xwp] is as follows. We omit the proof
-    details---they may be found in the implementation of the CFML tool. *)
+    details. (They may be found in the implementation of the CFML tool.) *)
 
 Parameter xwp_lemma_fixs : forall v0 ts vs f xs t1 H Q,
   v0 = val_fixs f xs t1 ->
@@ -1053,32 +1064,48 @@ Parameter xwp_lemma_fixs : forall v0 ts vs f xs t1 H Q,
   H ==> (wpgen (combine (f::xs) (v0::vs)) t1) Q ->
   triple (trm_apps v0 ts) H Q.
 
-(** One last practical details is the set up of the coercion for writing
-    function applications in a concise way. With n-ary functions, the
-    application of a function [f] to two arguments [x] and [y] takes the
-    form [trm_apps f (x::y::nil)]. This syntax is fairly verbose in
-    comparison with the syntax [f x y], which we were able to set up by
-    declaring [trm_app] as a [Funclass] coercion (recall chapter [SLFRules]).
 
-    If we simply declare [trm_apps] as a [Funclass] coercion, we can write
-    [f (x::y::nil)] to denote the application, but we still have to write
-    the list constructors explicitly.
+(* ####################################################### *)
+(** ** A coercion for parsing primitive n-ary applications *)
 
-    Fortunately, there is a trick to get the expression [f x y] to be
-    interpreted by Coq as [trm_apps f (x::y::nil)], a trick that works
-    for any number of arguments. The trick is described next. *)
+(** One last practical detail for working with primitive n-ary functions
+    in a smooth way consists of improving the parsing of applications.
+
+    Writing an application in the form [trm_apps f (x::y::nil)] to denote
+    teh application of a function [f] to two arguments [x] and [y] is
+    fairly verbose, in comparison with the syntax [f x y], which we were able
+    to set up by declaring [trm_app] as a [Funclass] coercion---recall chapter
+    [SLFRules].
+
+    If we simply declare [trm_apps] as a [Funclass] coercion, then we can
+    write [f (x::y::nil)] in place of [trm_apps f (x::y::nil)], however we
+    still need to write the arguments in the form [x::y::nil].
+
+    Fortunately, there is a trick that allows the expression [f x y] to be
+    interpreted by Coq as [trm_apps f (x::y::nil)]. This trick is arity-generic:
+    it works for any number of arguments. It is described next. *)
 
 Module NarySyntax.
 
-(** To illustrate the construction, let us consider a simplified grammar
-    of terms that includes the constructor [trm_apps] for n-ary applications. *)
+(** To explain the working of our coercion trick, let us consider a simplified
+    grammar of terms, including only the constructor [trm_apps] for n-ary
+    applications, and the construct [trm_val] for values.  *)
 
 Inductive trm : Type :=
   | trm_val : val -> trm
   | trm_apps : trm -> list trm -> trm.
 
-(** We introduce the data type [apps] to represent the syntax tree
-    associated with iterated applications of terms to terms.
+(** We introduce the data type [apps], featuring two constructors named
+    [apps_init] and [apps_next], to represent the syntax tree. *)
+
+Inductive apps : Type :=
+  | apps_init : trm -> trm -> apps
+  | apps_next : apps -> trm -> apps.
+
+(** For example, the term [trm_apps f (x::y::z::nil)] is represented
+    as the expression [apps_next (apps_next (apps_init f x) y) z].
+
+    Internally, the parsing proceeds as follows.
 
     - The application of a term to a term, that is, [t1 t2], gets interpreted
       via a [Funclass] coercion as [apps_init t1 t2], which is an expression
@@ -1088,24 +1115,20 @@ Inductive trm : Type :=
 
 *)
 
-Inductive apps : Type :=
-  | apps_init : trm -> trm -> apps
-  | apps_next : apps -> trm -> apps.
-
 Coercion apps_init : trm >-> Funclass.
 Coercion apps_next : apps >-> Funclass.
 
-(** For example, the expression [f x y z] gets parsed by Coq as
-    [apps_next (apps_next (apps_init f x) y) z]. From there, the
-    desired term [trm_apps f (x::y::z::nil)] can be computed by a
-    Coq function, called [apps_to_trm], that process the syntax tree
-    of the [apps] expression.
+(** From a term of the form [apps_next (apps_next (apps_init f x) y) z],
+    the corresponding application [trm_apps f (x::y::z::nil)] can be computed
+    by a Coq function, called [apps_to_trm], that processes the syntax tree
+    of the [apps] expression. This function is implemented recursively.
 
     - In the base case, [apps_init t1 t2] describes the application
       of a function to one argument: [trm_apps t1 (t2::nil)].
-    - Next, if an apps structure [a1] describes a term [trm_apps t0 ts],
-      then [apps_next a1 t2] describes the term [trm_apps t0 (ts++t2::nil)],
-      that is, an application to one more argument. *)
+    - In the "next" case, if an apps structure [a1] describes a term
+      [trm_apps t0 ts], then [apps_next a1 t2] describes the term
+      [trm_apps t0 (ts++t2::nil)], that is, an application to one more
+      argument. *)
 
 Fixpoint apps_to_trm (a:apps) : trm :=
   match a with
@@ -1119,8 +1142,8 @@ Fixpoint apps_to_trm (a:apps) : trm :=
 
 (** The function [apps_to_trm] is declared as a coercion from [apps]
     to [trm], so that any iterated application can be interpreted as
-    the corresponding [trm_apps] term. (Coq raises an "ambiguous coercion
-    path" warning, but this warning may be safely ignored here.) *)
+    the corresponding [trm_apps] term. Coq raises an "ambiguous coercion
+    path" warning, but this warning may be safely ignored here. *)
 
 Coercion apps_to_trm : apps >-> trm.
 
@@ -1135,5 +1158,4 @@ Proof using. intros. (* activate display of coercions *) simpl. Abort.
 End NarySyntax.
 
 End PrimitiveNaryFun.
-
 
