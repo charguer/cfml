@@ -65,8 +65,7 @@ Implicit Types z : nat.
     [\bigstar_{x at index i in L} { (p+i) ~~> x }].
 
     In Coq, we define the predicate [hcells L p] by recursion on the list [L],
-    with the pointer [p] incremented by one unit at each cell, as follows.
-*)
+    with the pointer [p] incremented by one unit at each cell, as follows. *)
 
 Fixpoint hcells (L:list val) (p:loc) : hprop :=
   match L with
@@ -653,7 +652,8 @@ Proof using. applys* triple_alloc_record. Qed.
 (** Deallocation of a record, written [val_dealloc_record p] is the simplest.
     This operation is implemented simply as [val_dealloc p]. *)
 
-Definition val_dealloc_record : val := val_dealloc.
+Definition val_dealloc_record : val :=
+  val_dealloc.
 
 (** The specification of this operation simply requires as precondition
     the full record description, in the form [hrecord kvs p], and yields
@@ -1304,11 +1304,15 @@ Hint Resolve triple_length : triple.
 (* ########################################################### *)
 (** ** Encoding of array operations using pointer arithmetic *)
 
+(** An access to the [i]-th cell of an array at location [p] can be encoded
+    as an access to the cell at location [p+i+1]. *)
+
 Module Export ArrayAccessDef.
 Import SLFProgramSyntax.
 Open Scope wp_scope.
 
-(** Auxiliary arithmetic lemmas involved in the proofs. *)
+(** Let's first state and prove two auxiliary arithmetic lemmas that
+    are needed in the proofs below. *)
 
 Lemma abs_lt_inbound : forall i k,
   0 <= i < nat_to_Z k ->
@@ -1326,8 +1330,8 @@ Proof using.
   rewrite <- succ_abs_eq_abs_one_plus; math.
 Qed.
 
-(** Length operation on an array, written [val_array_length p],
-    and encoded as [val_length p], where [val_length] is the
+(** The length operation on an array, written [val_array_length p],
+    is encoded as [val_length p], where [val_length] is the
     primitive operation for reading the contents of a header. *)
 
 Definition val_array_length : val := val_length.
@@ -1347,8 +1351,8 @@ Proof using.
   { xsimpl. } { xsimpl. auto. }
 Qed.
 
-(** Get operation on an array, written [val_array_get p i],
-    and encoded as [val_get (p+i+1)]. *)
+(** The get operation on an array, written [val_array_get p i],
+    is encoded as [val_get (p+i+1)]. *)
 
 Definition val_array_get : val :=
   Fun 'p 'i :=
@@ -1372,14 +1376,14 @@ Proof using.
   { rew_listx. applys* abs_lt_inbound. }
 Qed.
 
-(** Set operation on an array, written [val_array_set p i v],
-    and encoded as [val_set (p+i+1) v]. *)
+(** The set operation on an array, written [val_array_set p i v],
+    is encoded as [val_set (p+i+1) v]. *)
 
 Definition val_array_set : val :=
-  Fun 'p 'i 'x :=
+  Fun 'p 'i 'v :=
     Let 'j := 'i '+ 1 in
     Let 'n := val_ptr_add 'p 'j in
-    val_set 'n 'x.
+    val_set 'n 'v.
 
 Lemma triple_array_set : forall p i v L,
   0 <= i < length L ->
@@ -1399,11 +1403,14 @@ End ArrayAccessDef.
 (* ########################################################### *)
 (** ** Encoding of record operations using pointer arithmetic  *)
 
+(** An access to the [k]-th field of a record at location [p] can be
+    encoded as an access to the cell at location [p+k+1]. *)
+
 Module Export FieldAccessDef.
 Import SLFProgramSyntax.
 
-(** Get operation on a field, written [p'.k],
-    and encoded as [val_get (p+k+1)]. *)
+(** The get operation on a field, written [p'.k],
+    is encoded as [val_get (p+k+1)]. *)
 
 Definition val_get_field (k:field) : val :=
   Fun 'p :=
@@ -1424,8 +1431,8 @@ Proof using.
   xapp triple_get. xsimpl*.
 Qed.
 
-(** Set operation on a field, written [Set p'.k := v],
-    and encoded as [val_set (p+k+1) v]. *)
+(** The set operation on a field, written [Set p'.k := v],
+    is encoded as [val_set (p+k+1) v]. *)
 
 Definition val_set_field (k:field) : val :=
   Fun 'p 'v :=
@@ -1451,6 +1458,13 @@ End FieldAccessDef.
 
 (* ########################################################### *)
 (** ** Specification of record operations w.r.t. [hfields] and [hrecord] *)
+
+(** The specifications [triple_get_field] and [triple_set_field]
+    established above correspond to small-footprint specifications,
+    with preconditions mentioning a single field. Corollaries to these
+    specifications can be established with preconditions mentioning a
+    list of fields (predicate [hfields]), or a full record (predicate
+    [hrecord]). *)
 
 (** Get operation on a list of fields *)
 
@@ -1498,7 +1512,8 @@ Proof using.
       { xsimpl. } { simpl. xsimpl*. } } }
 Qed.
 
-(** Auxiliary lemma about [hfields_update] preserving fields. *)
+(** Auxiliary lemma about [hfields_update], showing that the update
+    operation preserves the names of the fields. *)
 
 Lemma hfields_update_preserves_fields : forall kvs kvs' k v,
   hfields_update k v kvs = Some kvs' ->
@@ -1538,13 +1553,29 @@ Qed.
 (* ########################################################### *)
 (** ** Specification of record allocation and deallocation *)
 
-(** Conversion lemma between [hfields] and [hcells] view.
-    The lemma [hfields_eq_hcells] asserts the equality between
-    [hfields kvs p] and [hcells L (p+1)] under a suitable
-    relation between the list of values [L] and the description
-    of the fields [kvs].
+(** Recall that record allocation, written [val_alloc_record ks],
+    is encoded as [val_alloc (length ks)], and that record deallocation,
+    written [val_dealloc_record p], is encoded as [val_dealloc p].
 
-    The induction is a bit tricky to set up. *)
+    The operations [val_alloc] and [val_dealloc] have already been
+    specified, via lemmas [triple_alloc] and [triple_dealloc].
+
+    In this section, we show that the specifications for [val_alloc_record]
+    and [val_dealloc_record] can be derived from those.
+
+    The proofs are not completely trivial because we need to convert
+    between the view of a list of consecutive cells, as captured by
+    the predicate [hcells], and the view of a list of fields, as captured
+    by the predicate [hfields].
+
+    To that end, the lemma [hfields_eq_hcells] asserts the equality
+    between [hfields kvs p] and [hcells L (p+1)] under a suitable relation
+    between the list of values [L] and the description of the fields [kvs]:
+    the values from the association list [kvs] must correspond to the list [L],
+    and the keys from the association list [kvs] must correspond to the
+    [length L] first natural numbers.
+
+    The proof is carried out by induction, on the following statement. *)
 
 Lemma hfields_eq_hcells_ind : forall L p kvs o,
   LibList.map fst kvs = nat_seq o (length L) ->
@@ -1560,6 +1591,9 @@ Proof using.
     math_rewrite* (o+1=S o)%nat. }
 Qed.
 
+(** The statement of the lemma [hfields_eq_hcells] involves the predicate
+    [maps_all_fields], which appears in the definition of [hrecord]. *)
+
 Lemma hfields_eq_hcells : forall z L p kvs,
   maps_all_fields z kvs ->
   z = length L ->
@@ -1570,8 +1604,42 @@ Proof using.
   fequals. unfold loc. math.
 Qed.
 
-(** Conversion lemma from [hrecord] view to [harray] view,
-    used to justify the specification of record deallocation. *)
+(** The following lemma converts from the [harray] view to the [hrecord]
+    view, for an array of uninitialized values. *)
+
+Lemma harray_uninit_himpl_hrecord : forall p z,
+  harray (LibList.make z val_uninit) p ==>
+  hrecord (LibList.map (fun k => (k,val_uninit)) (nat_seq 0 z)) p.
+Proof using.
+  intros. unfolds hrecord, harray. rew_listx.
+  sets kvs: ((LibList.map (fun k => (k,val_uninit)) (nat_seq 0 z))).
+  asserts (M1&M2): (LibList.map fst kvs = nat_seq 0 z
+                 /\ LibList.map snd kvs = LibList.make z val_uninit).
+  { subst kvs. generalize 0%nat as o.
+    induction z as [|z']; intros; simpl; rew_listx; simpl.
+    { auto. }
+    { forwards* (N1&N2): IHz' (S o). split; fequals*. } }
+  xsimpl z.
+  { applys M1. }
+  { rewrites* <- (>> hfields_eq_hcells M1). rew_listx*. }
+Qed.
+
+(** Exploiting the above lemma, we derive the specification of record
+    allocation. *)
+
+Lemma triple_alloc_hrecord : forall ks,
+  ks = nat_seq 0 (LibListExec.length ks) ->
+  triple (val_alloc_record ks)
+    \[]
+    (funloc p => hrecord (LibListExec.map (fun k => (k,val_uninit)) ks) p).
+Proof using.
+  introv E. xtriple. xapp triple_alloc_nat. intros p.
+  xsimpl p. { auto. } rewrite E. rewrite length_nat_seq.
+  rewrite LibListExec.map_eq. xchange harray_uninit_himpl_hrecord.
+Qed.
+
+(** The following lemma converts in the other direction, from the [hrecord]
+    view to the [harray] view.*)
 
 Lemma hrecord_himpl_harray : forall p kvs,
   hrecord kvs p ==> harray (LibList.map snd kvs) p.
@@ -1583,7 +1651,8 @@ Proof using.
   xsimpl. rew_listx. rewrite* Hz.
 Qed.
 
-(** Record deallocation *)
+(** Exploiting the above lemma, we derive the specification of record
+    deallocation. *)
 
 Lemma triple_dealloc_hrecord : forall kvs p,
   triple (val_dealloc p)

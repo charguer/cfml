@@ -978,16 +978,16 @@ Parameter triple_set_field_hrecord : forall kvs kvs' k p v,
 (* ########################################################### *)
 (** ** Allocation of records *)
 
-(** [val_alloc_record ks] allocates a record with fields [ks],
+(** [val_alloc_hrecord ks] allocates a record with fields [ks],
     storing uninitialized contents. *)
 
-Parameter val_alloc_record : forall (ks:list field), trm.
+Parameter val_alloc_hrecord : forall (ks:list field), trm.
 
 Parameter val_uninit : val.
 
-Parameter triple_alloc_record : forall ks,
+Parameter triple_alloc_hrecord : forall ks,
   ks = nat_seq 0 (LibListExec.length ks) ->
-  triple (val_alloc_record ks)
+  triple (val_alloc_hrecord ks)
     \[]
     (funloc p => hrecord (LibListExec.map (fun k => (k,val_uninit)) ks) p).
 
@@ -997,41 +997,41 @@ Parameter triple_alloc_record : forall ks,
 (** An arity-generic version of the definition of allocation combined with
     initialization is beyond the scope of this course. *)
 
-Parameter val_new_record_2 : forall (k1:field) (k2:field), val.
+Parameter val_new_hrecord_2 : forall (k1:field) (k2:field), val.
 
 Notation "'New' `{ k1 := v1 ; k2 := v2 }" :=
-  (val_new_record_2 k1 k2 v1 v2)
+  (val_new_hrecord_2 k1 k2 v1 v2)
   (at level 65, k1, k2 at level 0) : trm_scope.
 
 Open Scope trm_scope.
 
-Parameter triple_new_record_2 : forall k1 k2 v1 v2,
+Parameter triple_new_hrecord_2 : forall k1 k2 v1 v2,
   k1 = 0%nat ->
   k2 = 1%nat ->
   triple (New `{ k1 := v1; k2 := v2 })
     \[]
     (funloc p => p ~~~> `{ k1 := v1 ; k2 := v2 }).
 
-Hint Resolve val_new_record_2 : triple.
+Hint Resolve val_new_hrecord_2 : triple.
 
 
 (* ########################################################### *)
 (** ** Deallocation of records *)
 
-(** [val_dealloc_record p], written [Delete p], deallocates the
+(** [val_dealloc_hrecord p], written [Delete p], deallocates the
     record at location [p]. *)
 
-Parameter val_dealloc_record : val.
+Parameter val_dealloc_hrecord : val.
 
-Notation "'Delete' p" := (val_dealloc_record p)
+Notation "'Delete' p" := (val_dealloc_hrecord p)
   (at level 65) : trm_scope.
 
-Parameter triple_dealloc_record : forall kvs p,
-  triple (val_dealloc_record p)
+Parameter triple_dealloc_hrecord : forall kvs p,
+  triple (val_dealloc_hrecord p)
     (hrecord kvs p)
     (fun _ => \[]).
 
-Hint Resolve triple_dealloc_record : triple.
+Hint Resolve triple_dealloc_hrecord : triple.
 
 
 (* ########################################################### *)
