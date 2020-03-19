@@ -35,25 +35,27 @@ Implicit Types L : list val.
     - while-loops,
     - n-ary functions (bonus contents).
 
-    Regarding loops, we explain why conventional-style reasoning rules
-    based on loop invariants are limited in that they prevent useful
-    applications of the frame rule. We present alternative reasoning rules
-    compatible with the frame rule, and demonstrate their benefits on
-    practical examples.
-
     Regarding assertions, we present a reasoning rule such that:
     - assertions may be expressed in terms of mutable data, and possibly
       to perform local side-effects, and
     - the program remains correct whether assertions are executed or not.
 
-    Regarding n-ary functions, that is, functions with several arguments
+    Regarding loops, we explain why traditional Hoare-style reasoning rules
+    based on loop invariants are limited, in that they prevent useful
+    applications of the frame rule. We present alternative reasoning rules
+    compatible with the frame rule, and demonstrate their benefits on
+    practical examples.
+
+    Regarding n-ary functions, that is, functions with several arguments,
     there are essentially three possible approaches:
 
     - native n-ary functions, e.g., [function(x, y) { t } ] in C syntax;
     - curried functions, e.g., [fun x => fun y => t] in OCaml syntax;
     - tupled functions, e.g., [fun (x,y) => t] in OCaml syntax.
 
-*)
+    In this chapter, we describe the first two approaches. The third
+    approach (tupled functions) involves algebraic data types, which
+    are beyond the scope of this course. *)
 
 
 (* ####################################################### *)
@@ -62,17 +64,26 @@ Implicit Types L : list val.
 Module Assertions.
 
 (** Assume an additional primitive operation, allowing to write terms
-    of the form [assert t], to dynamically check at runtime that the
-    term [t] produce the boolean value [true]. *)
+    of the form [val_assert t], to dynamically check at runtime that the
+    term [t] produce the boolean value [true], equivalently to the
+    OCaml expression [assert(t)]. *)
 
 Parameter val_assert : prim.
 
 (** The reasoning rule for assertions should ensure that:
-    (1) the body of the assertion always evaluates to [true],
-    (2) the program remains correct if the assertion is not evaluated.
+
+    - the body of the assertion always evaluates to [true],
+    - the program remains correct if the assertion is not evaluated.
 
     Formally, the program should be correct whichever of the following
-    two evaluation rules is used. *)
+    two evaluation rules is used:
+
+    - [eval_assert_enabled] evaluates the body of the assertion, and
+      checks that the ouput value is [true],
+    - [eval_assert_disabled] does not evaluate the body assertion,
+      that is, it completely ignores the assertion.
+
+*)
 
 Parameter eval_assert_enabled : forall s t s',
   eval s t s' (val_bool true) ->
@@ -81,21 +92,28 @@ Parameter eval_assert_enabled : forall s t s',
 Parameter eval_assert_disabled : forall s t,
   eval s (val_assert t) s val_unit.
 
-(** Note that it might be tempting to consider a single evaluation rule
-    that forces assertions to perform no side effects. *)
+(** Note that it might be tempting to consider a "unifying" evaluation rule
+    that evaluates the body of the assertion, checks that the result is [true],
+    and, moreover, imposes that the assertion does not modify the state. *)
 
-Parameter eval_assert_no_effect : forall s t v, (* too restrictive *)
+Parameter eval_assert_no_effect : forall s t v,
   eval s t s (val_bool true) ->
   eval s (val_assert t) s val_unit.
 
-(** Yet, such a rule would be overly restrictive. There are useful examples
-    of assertions that do modify the heap, such as [assert (find x = find y)]
-    in the context of a Union-Find data structure. *)
+(** Yet, such a rule would be overly restrictive, for two reasons. First, it
+    might be useful for an assertion to allocate local data for evaluating
+    a particular property. Second, there are useful examples of assertions
+    that do modify existing cells from the heap. For example, an assertion
+    that appears in real programs is [assert (find x = find y)], where the
+    [find] operation finds the representative of a node from a Union-Find
+    data structure. *)
 
 (** It is possible to state a reasoning rule for [val_assert t] that
-    is correct with respect to both evaluation rule for assertions,
-    i.e. with respect to both [eval_assert_enabled] and to
-    [eval_assert_disabled]. *)
+    is correct both with respect to [eval_assert_enabled] and with
+    respect to [eval_assert_disabled].
+
+    As usual for primitive operation, we first establish a rule for
+    Hoare triples, then deduce a rule for Separation Logic triples. *)
 
 Lemma hoare_assert : forall t H,
   hoare t H (fun r => \[r = true] \* H) ->
@@ -103,12 +121,13 @@ Lemma hoare_assert : forall t H,
 Proof using.
   introv M. intros s K. forwards (s'&v&R&N): M K.
   rewrite hstar_hpure_l in N. destruct N as (->&K').
-  dup. (* Duplicate the proof obligation to cover two cases *)
-  (* Case assertions are enabled *)
+  (* Let us duplicate the proof obligation to cover the two cases. *)
+  dup.
+  (* Case of assertions being enabled *)
   { exists s' val_unit. split.
     { applys eval_assert_enabled R. }
     { applys K'. } }
-  (* Case assertions are disabled *)
+  (* Case of assertions being disabled *)
   { exists s val_unit. split.
     { applys eval_assert_disabled. }
     { applys K. } }
@@ -128,20 +147,23 @@ End Assertions.
 (* ####################################################### *)
 (** ** Semantics of conditionals not in administrative normal form *)
 
-(** To state reasoning for loops in a concise manner, it is useful to generalize
-    the construct [if b then t1 else t2] to the form [if t0 then t1 else t2]. *)
+(** To state reasoning rule for while-loops in a concise manner, it is useful
+    to generalize the construct [if b then t1 else t2] to the form
+    [if t0 then t1 else t2]. *)
 
-(** Let us assume the following evaluation rules, which generalize [eval_if],
-    performing the evaluation of [t0] into a value [v0] before evaluating
-    [if v0 then t1 else t2]. *)
+(** To specify the behavior of a term of the form [if t0 then t1 else t2],
+    let us assume the evaluation rule shown below. This rule generalizes
+    the rule [eval_if]. It first evaluates [t0] into a value [v0], then it
+    evaluates the term [if v0 then t1 else t2]. *)
 
 Parameter eval_if_trm : forall s1 s2 s3 v0 v t0 t1 t2,
   eval s1 t0 s2 v0 ->
   eval s2 (trm_if v0 t1 t2) s3 v ->
   eval s1 (trm_if t0 t1 t2) s3 v.
 
-(** Associated with this evaluation rule is a Hoare-logic rule, and a Separation
-    Logic rule, generalizing [hoare_if] and [triple_if]. *)
+(** With respect to this evaluation rule [eval_if_trm], we can prove a
+    correpsonding reasoning rule. We first state it in Hoare-logic, then
+    in Separation Logic, following the usual proof pattern. *)
 
 Lemma hoare_if_trm : forall Q' t0 t1 t2 H Q,
   hoare t0 H Q' ->
@@ -164,8 +186,8 @@ Proof using.
   { intros v. applys M2. }
 Qed.
 
-(** Likewise, there is a counterpart in weakest-precondition form, generalizing
-    the rule [wp_if]. *)
+(** The reasoning rule can also be reformulated in weakest-precondition form.
+    The rule below generalizes the rule [wp_if]. *)
 
 Lemma wp_if_trm : forall t0 t1 t2 Q,
   wp t0 (fun v => wp (trm_if v t1 t2) Q) ==> wp (trm_if t0 t1 t2) Q.
@@ -183,8 +205,10 @@ Qed.
 
 Module WhileLoops.
 
-(** Assume a construct [while t1 do t2], written [trm_while t1 t2] in the
-    grammar of terms. *)
+(** Assume the grammar of term to be extended with a loop construct
+    [trm_while t1 t2], corresponding to the OCaml expression
+    [while t1 do t2], and written [While t1 Do t2 Done] in our
+    example programs. *)
 
 Parameter trm_while : trm -> trm -> trm.
 
@@ -194,15 +218,26 @@ Notation "'While' t1 'Do' t2 'Done'" :=
    format "'[v' 'While'  t1  'Do'  '/' '[' t2 ']' '/'  'Done' ']'")
    : trm_scope.
 
-(** The semantics of this construct can be described in terms of the one-step
-    unfolding of the loop, as [if t1 then (t2; while t1 do t2) else ()]. *)
+(** The semantics of this loop construct can be described in terms of the
+    one-step unfolding of the loop: [while t1 do t2] is a term that
+    behaves exactly like the term [if t1 then (t2; while t1 do t2) else ()]. *)
 
 Parameter eval_while : forall s1 s2 t1 t2 v,
   eval s1 (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) s2 v ->
   eval s1 (trm_while t1 t2) s2 v.
 
-(** This evaluation rule is associated with reasoning rules, in Hoare logic,
-    in Separation Logic, and in weakest-precondition style. *)
+(** This evaluation rule translates directly into a reasoning rule:
+    to prove a triple for the term [while t1 do t2], it suffices to
+    prove a triple for the term [if t1 then (t2; while t1 do t2) else ()].
+
+    There is a catch in that reasoning principle, namely the fact that
+    the loop [while t1 do t2] appears again inside the term
+    [if t1 then (t2; while t1 do t2) else ()]. Nevertheless, this is not
+    a problem if the user is carrying out a proof by induction. In that
+    case, an induction hypothesis about the behavior of [while t1 do t2]
+    is available. We show an example proof further on.
+
+    For the moment, let us state the reasoning rules. *)
 
 Lemma hoare_while : forall t1 t2 H Q,
   hoare (trm_if t1 (trm_seq t2 (trm_while t1 t2)) val_unit) H Q ->
@@ -232,14 +267,22 @@ Qed.
 (** ** Separation-Logic-friendly reasoning rule for while-loops *)
 
 (** One may be tempted to introduce a rule an invariant-based reasoning
-    rule for while loops. An example such rule appears below.
+    rule for while loops. Traditional invariant-based rules from Hoare
+    logic usually admit a relatively simple statement, because they only
+    target partial correctness, and because the termination condition
+    is restricted to a simple expression that does not alter the state.
+
+    In our set up, targeting total correctness and a construct of the
+    form [trm_while t1 t2], the invariant-based reasoning rule takes can
+    be stated as shown below.
+
     An invariant [I] describes the state at the entry and exit point
     of the loop. This invariant is actually of the form [I b X], where
     the boolean value [b] is [false] to indicate that the loop has terminated,
     and where the value [X] belongs to a type [A] used to expressed the
     decreasing measure that justify the termination of the loop. *)
 
-Lemma triple_while_inv_not_framable' : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) t1 t2,
+Lemma triple_while_inv_not_framable : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) t1 t2,
   wf R ->
   (forall b X, triple t1 (I b X) (fun r => \exists b', \[r = b'] \* I b' X)) ->
   (forall b X, triple t2 (I b X) (fun _ => \exists b' Y, \[R Y X] \* I b' Y)) ->
@@ -285,8 +328,8 @@ Qed.
     the reasoning rule [triple_while_abstract] can be factored into the
     following lemma, which is stated using an invariant that appears only
     in the precondition. The postcondition is an abstract [Q]. With this
-    presentation, it remains possible to invoke the frame rule over the
-    "remaining iterations" of the loop. *)
+    presentation, the rule features an "invariant", yet it remains possible
+    to invoke the frame rule over the "remaining iterations" of the loop. *)
 
 Lemma triple_while_inv : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) t1 t2,
   let Q := (fun r => \exists Y, I false Y) in
@@ -302,11 +345,11 @@ Proof using.
 Qed.
 
 (** The rule [triple_while_inv] admits a constrained precondition of the form
-    [(\exists b X, I b X)]. To exploit it, it almost always needs to be combined
-    with the frame rule and the rule of consequence.
+    [(\exists b X, I b X)]. To exploit this rule, one almost always needs
+    to first invoke the consequence-frame rule.
 
-    The rule [triple_while_inv_conseq_frame] bakes in frame and consequence
-    into the statement of [triple_while_inv]. *)
+    The rule [triple_while_inv_conseq_frame], shown below, conveniently bakes in
+    frame and consequence rules into the statement of [triple_while_inv]. *)
 
 Lemma triple_while_inv_conseq_frame : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) H' t1 t2 H Q,
   let Q' := (fun r => \exists Y, I false Y) in
@@ -322,8 +365,7 @@ Proof using.
   applys triple_while_inv WR M.
 Qed.
 
-(** The following rule corresponds to the weakest-precondition style reformulation
-    of the above. *)
+(** The above rule can be equivalently reformulated ine weakest-precondition style. *)
 
 Lemma wp_while_inv_conseq : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) t1 t2,
   let Q := (fun r => \exists Y, I false Y) in
@@ -342,39 +384,9 @@ Qed.
 
 
 (* ########################################################### *)
-(** ** Reasoning rule for loops in an affine logic *)
-
-Module LoopRuleAffine.
-
-(** Recall from [SLFAffine] the combined structural rule that includes
-    the affine top predicate [\GC]. *)
-
-Parameter triple_conseq_frame_hgc : forall H2 H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* H2 ->
-  Q1 \*+ H2 ===> Q \*+ \GC ->
-  triple t H Q.
-
-(** In that setting, it is useful to integrate [\GC] into the rule
-    [triple_while_inv_conseq_frame], to allow discarding the garbage
-    produced by the loop iterations and not described in the final
-    postcondition. *)
-
-Lemma triple_while_inv_conseq_frame_hgc : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) H' t1 t2 H Q,
-  let Q' := (fun r => \exists Y, I false Y) in
-  wf R ->
-  (H ==> (\exists b X, I b X) \* H') ->
-  (forall t b X,
-      (forall b' Y, R Y X -> triple t (I b' Y) Q') ->
-      triple (trm_if t1 (trm_seq t2 t) val_unit) (I b X) Q') ->
-  Q' \*+ H' ===> Q \*+ \GC ->
-  triple (trm_while t1 t2) H Q.
-Proof using.
-  introv WR WH M WQ. applys triple_conseq_frame_hgc WH WQ.
-  applys triple_while_inv WR M.
-Qed.
-
-End LoopRuleAffine.
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Additional contents *)
 
 
 (* ####################################################### *)
@@ -431,23 +443,24 @@ Qed.
       ...
 ]]
 
-  The definition of [wpgen_while] quantifies over an abstract formula [R],
+  The definition of [wpgen_while] quantifies over an abstract formula [F],
   while denotes the behavior of the while loop. The weakest precondition
-  for the loop w.r.t. postcondition [Q] is described as [R Q], or, more
-  precisely [mkstruct R Q], to keep track of the fact that [R] denotes a
+  for the loop w.r.t. postcondition [Q] is described as [F Q], or, more
+  precisely [mkstruct F Q], to keep track of the fact that [F] denotes a
   formula on which one may apply any structural reasoning rule.
 
-  To establish that [mkstruct R Q] is entailed by the heap predicate that
+  To establish that [mkstruct F Q] is entailed by the heap predicate that
   describes the current state, the user is provided with an assumption:
-  the fact that [mkstruct R Q'] can be proved from the weakest precondition
+  the fact that [mkstruct F Q'] can be proved from the weakest precondition
   of the term [if t1 then (t2; t3) else ()], where the weakest precondition
-  of [t3], which denotes the recursive call to the loop, is described by [R]. *)
+  of [t3], which denotes the recursive call to the loop, is described by [F]. *)
 
 Definition wpgen_while (F1 F2:formula) : formula := fun Q =>
-  \forall R,
-     \[forall Q',    mkstruct (wpgen_if_trm F1 (mkstruct (wpgen_seq F2 (mkstruct R))) (mkstruct (wpgen_val val_unit))) Q'
-                 ==> mkstruct R Q']
-  \-* (mkstruct R Q).
+  \forall F,
+     \[forall Q',    mkstruct (wpgen_if_trm F1 (mkstruct (wpgen_seq F2 (mkstruct F)))
+                                               (mkstruct (wpgen_val val_unit))) Q'
+                 ==> mkstruct F Q']
+  \-* (mkstruct F Q).
 
 (** Let us axiomatize the fact that [wpgen] is generalized to handle the new
     term construct [trm_while t1 t2]. *)
@@ -465,7 +478,8 @@ Lemma himpl_trans' : forall H2 H1 H3,
   H1 ==> H3.
 Proof using. introv M1 M2. applys* himpl_trans M2 M1. Qed.
 
-(** The soundness proof goes as follows. *)
+(** The soundness proof of [wpgen] with respect to the treatment of
+    while-loops goes as follows. *)
 
 Lemma wpgen_while_sound : forall t1 t2 F1 F2,
   formula_sound t1 F1 ->
@@ -490,7 +504,7 @@ Qed.
 
 
 (* ########################################################### *)
-(** ** Notation and tactics for manipulating loops *)
+(** ** Notation and tactics for manipulating while-loops *)
 
 (** The associated piece of notation for displaying characteristic formulae
     are defined as follows. *)
@@ -506,8 +520,9 @@ Notation "'While' F1 'Do' F2 'Done'" :=
    : wpgen_scope.
 
 (** The tactic [xapply] is useful for applying an assumption of the form
-    [H ==> mkstruct R Q] to a goal of the form [H' ==> mkstruct R Q'],
-    with the ramified frame rule relating [H], [H'], [Q] and [Q']. *)
+    [H ==> mkstruct F Q] to a goal of the form [H' ==> mkstruct F Q'],
+    with the ramified frame rule relating [H], [H'], [Q] and [Q'].
+    In essence, [xapply] applies an hypothesis "modulo consequence-frame". *)
 
 Lemma mkstruct_apply : forall H1 H2 F Q1 Q2,
   H1 ==> mkstruct F Q1 ->
@@ -520,17 +535,18 @@ Qed.
 Tactic Notation "xapply" constr(E) :=
   applys mkstruct_apply; [ applys E | xsimpl; unfold protect ].
 
-(** The tactic [xwhile] is useful for reasoning about a while-loop. *)
+(** The tactic [xwhile] is useful for reasoning about a while-loop.
+    In essence, the tactic [while] applies the reasoning rule [wp_while]. *)
 
 Lemma xwhile_lemma : forall F1 F2 H Q,
-  (forall R,
-    (forall Q', mkstruct (wpgen_if_trm F1 (mkstruct (wpgen_seq F2 (mkstruct R))) (mkstruct (wpgen_val val_unit))) Q'
-                ==> mkstruct R Q')
-     -> H ==> mkstruct R Q) ->
+  (forall F,
+    (forall Q', mkstruct (wpgen_if_trm F1 (mkstruct (wpgen_seq F2 (mkstruct F))) (mkstruct (wpgen_val val_unit))) Q'
+                ==> mkstruct F Q')
+     -> H ==> mkstruct F Q) ->
   H ==> mkstruct (wpgen_while F1 F2) Q.
 Proof using.
   introv M. applys himpl_trans'. applys mkstruct_erase.
-  unfold wpgen_while. xsimpl. intros R N. applys M. applys N.
+  unfold wpgen_while. xsimpl. intros F N. applys M. applys N.
 Qed.
 
 Tactic Notation "xwhile" :=
@@ -544,8 +560,9 @@ Section DemoLoopFrame.
 Import SLFProgramSyntax SLFBasic ExampleLists.
 Opaque MList.
 
-(** Consider the following function, which computes the length of a list
-    using a while loop and a reference to count the cells that are traversed.
+(** Consider the following function, which computes the length of a linked
+    list with head at location [p], using a while loop and a reference named
+    [a] to count the number of cells being traversed.
 
 [[
     let mlength_loop p =
@@ -586,33 +603,72 @@ Lemma Triple_mlength_loop : forall L p,
     (fun r => \[r = length L] \* MList L p).
 Proof using.
   xwp. xapp. intros a. xapp. intros r.
-  (* Here we pretend that [xwpgen] includes support for loops: *)
+  (* We pretend that [xwpgen] includes support for loops: *)
   rewrite wpgen_while_eq. xwp_simpl.
-  xwhile. intros R HR. (* Here we state the induction principle *)
-  asserts KR: (forall n,     r ~~> p \* a ~~> n \* MList L p
-                         ==> `R (fun _ =>  r ~~> null \* a ~~> (length L + n) \* MList L p)).
-  { gen p. induction_wf IH: list_sub L. intros.
-    applys himpl_trans HR. clear HR. xlet.
+  (* We call the [xwhile] tactic to handle the loop.
+     The formula [F] then denotes "the behavior of the loop". *)
+  xwhile. intros F HF.
+  (* We next state the induction principle for the loop, in the
+     form [I p n ==> F Q], where [I p n] denotes the loop invariant,
+     and [Q] describes the final output of the loop. *)
+  asserts KF: (forall p n,    r ~~> p \* a ~~> n \* MList L p
+                         ==> `F (fun _ =>  r ~~> null \* a ~~> (length L + n) \* MList L p)).
+  { (* We carry out a proof by induction on the length of the list [L]. *)
+    induction_wf IH: list_sub L. intros.
+    applys himpl_trans HF. clear HF. xlet.
     xapp. xapp. xchange MList_if. xif; intros C; case_if.
     { xpull. intros x q L' ->. xseq. xapp. xapp. xapp. xapp.
-      (* Here takes place the recursive call, with frame on the head cell: *)
+      (* At this point, we reason about the recursive call.
+         We use the tactic [xapply] to apply the induction
+         hypothesis modulo the frame rule. Here, the head cell
+         of the list is framed out over the scope of the recursive
+         call, which operates only on the tail of the list. *)
       xapply (IH L'). { auto. } intros _.
       xchange <- MList_cons. { xsimpl. rew_list. math. }  }
     { xpull. intros ->. xval. xsimpl. { congruence. }
       subst. xchange* <- (MList_nil null). } }
-  xapply KR. xpull. xapp. xapp. xapp. xval. xsimpl. math.
+  xapply KF. xpull. xapp. xapp. xapp. xval. xsimpl. math.
 Qed.
 
 End DemoLoopFrame.
 
+
+(* ########################################################### *)
+(** ** Reasoning rule for loops in an affine logic *)
+
+Module LoopRuleAffine.
+
+(** Recall from [SLFAffine] the combined structural rule that includes
+    the affine top predicate [\GC]. *)
+
+Parameter triple_conseq_frame_hgc : forall H2 H1 Q1 t H Q,
+  triple t H1 Q1 ->
+  H ==> H1 \* H2 ->
+  Q1 \*+ H2 ===> Q \*+ \GC ->
+  triple t H Q.
+
+(** In that setting, it is useful to integrate [\GC] into the rule
+    [triple_while_inv_conseq_frame], to allow discarding the data
+    allocated by the loop iterations but not described in the final
+    postcondition. *)
+
+Lemma triple_while_inv_conseq_frame_hgc : forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop) H' t1 t2 H Q,
+  let Q' := (fun r => \exists Y, I false Y) in
+  wf R ->
+  (H ==> (\exists b X, I b X) \* H') ->
+  (forall t b X,
+      (forall b' Y, R Y X -> triple t (I b' Y) Q') ->
+      triple (trm_if t1 (trm_seq t2 t) val_unit) (I b X) Q') ->
+  Q' \*+ H' ===> Q \*+ \GC ->
+  triple (trm_while t1 t2) H Q.
+Proof using.
+  introv WR WH M WQ. applys triple_conseq_frame_hgc WH WQ.
+  applys triple_while_inv WR M.
+Qed.
+
+End LoopRuleAffine.
+
 End WhileLoops.
-
-
-
-(* ########################################################### *)
-(* ########################################################### *)
-(* ########################################################### *)
-(** * Additional contents *)
 
 
 (* ####################################################### *)
@@ -627,14 +683,15 @@ Implicit Types f : var.
     several arguments.
 
     We focus here on the particular case of recursive functions with 2
-    arguments, to illustrate the principles. Set up for non-recursive and
-    recursive functions of arity 2 and 3 can be found in the file [SLFExtra].
-    One may attempt to generalize these definitions to handle arbitrary
-    arities. Yet, to obtain an arity-generic treatment of functions, it is
-    much simpler to work with primitive n-ary functions, whose treatment is
-    presented further on.
+    arguments, to illustrate the principles at play. Set up for non-recursive
+    and recursive functions of arity 2 and 3 can be found in the file [SLFExtra].
 
-    Consider a curried recursive functions that expects two arguments.
+    One may attempt to generalize these definitions to handle arbitrary
+    arities. Yet, to obtain an arity-generic treatment of functions, it
+    appears simpler to work with primitive n-ary functions, whose treatment
+    is presented in the next section.
+
+    Consider a curried recursive functions that expects two arguments:
     [val_fix f x1 (trm_fun x2 t)] describes such a function, where [f]
     denotes the name of the function for recursive calls, [x1] and [x2]
     denote the arguments, and [t] denotes the body. Observe that the
@@ -642,22 +699,22 @@ Implicit Types f : var.
     it is not a value but a term (because it may refer to the variable [x1]
     bound outside of it).
 
-    We introduce the notation [Fix f x1 x2 := t] to generalize the notation
-    [Fix f x := t] to the case of a recursive function of two arguments. *)
+    We introduce the notation [Fix f x1 x2 := t] for such a recursive
+    function with two arguments. *)
 
 Notation "'Fix' f x1 x2 ':=' t" :=
   (val_fix f x1 (trm_fun x2 t))
   (at level 69, f, x1, x2 at level 0,
   format "'Fix'  f  x1  x2  ':='  t").
 
-(** An application of a function of two arguments takes the form
+(** An application of a function with two arguments takes the form
     [f v1 v2], which is actually parsed as [trm_app (trm_app f v1) v2].
 
     This expression is an application of a term to a value, and not of
     a value to a value. Thus, this expression cannot be evaluated using
-    the rule [eval_app_fun]. We need a distinct rule for first evaluating
-    the arguments of a function application to values, before we can
-    evaluate the application of a value to a value.
+    the rule [eval_app_fun]. We therefore need a distinct rule for first
+    evaluating the arguments of a function application to values, before
+    we can evaluate the application of a value to a value.
 
     The rule [eval_app_args] serves that purpose. To state it, we first
     need to characterize whether a term is a value or not, using the
@@ -666,11 +723,11 @@ Notation "'Fix' f x1 x2 ':=' t" :=
 Definition trm_is_val (t:trm) : Prop :=
   match t with trm_val v => True | _ => False end.
 
-(** The statement of [eval_app_args] then takes the following form.
-    For an expression [trm_app t1 t2] where either [t1] or [t2] is
+(** The statement of [eval_app_args] is as shown below. For an expression
+    of the form [trm_app t1 t2], where either [t1] or [t2] is
     not a value, it enables reducing both [t1] and [t2] to values,
-    leaving a premise of the form [trm_app v1 v2], which is subject
-    to the rule [eval_app_fun] for evaluating functions. *)
+    leaving a premise describing the evaluation of a term of the form
+    [trm_app v1 v2], for which the rule [eval_app_fun] applies. *)
 
 Parameter eval_app_args : forall s1 s2 s3 s4 t1 t2 v1 v2 r,
   (~ trm_is_val t1 \/ ~ trm_is_val t2) ->
@@ -679,11 +736,11 @@ Parameter eval_app_args : forall s1 s2 s3 s4 t1 t2 v1 v2 r,
   eval s3 (trm_app v1 v2) s4 r ->
   eval s1 (trm_app t1 t2) s4 r.
 
-(** Using this rule, we can establish an evaluation rule for the
-    term [v0 v1 v2]. There, [v0] is a recursive function of two
+(** Using the above rule, we can establish an evaluation rule for the
+    term [v0 v1 v2]. There, [v0] denotes a recursive function of two
     arguments named [x1] and [x2], the values [v1] and [v2] denote
-    the corresponding arguments, and [f] denotes the name of the
-    function available for making recursive calls from the body [t1].
+    the two arguments, and [f] denotes the name of the function available
+    for making recursive calls from the body [t1].
 
     The key idea is that the behavior of [v0 v1 v2] is similar to
     that of the term [subst x2 v2 (subst x1 v1 (subst f v0 t1))].
@@ -702,8 +759,8 @@ Proof using.
   { applys* eval_app_fun. }
 Qed.
 
-(** From this result, we can easily prove the specification triple
-    for applications of the form [v0 v1 v2]. *)
+(** We next derive the specification triple for applications of
+    the form [v0 v1 v2]. *)
 
 Lemma triple_app_fix2 : forall f x1 x2 v0 v1 v2 t1 H Q,
   v0 = val_fix f x1 (trm_fun x2 t1) ->
@@ -714,8 +771,8 @@ Proof using.
   introv E N M1. applys triple_eval_like M1. applys* eval_like_app_fix2.
 Qed.
 
-(** We can exploit the same result to esablish the corresponding
-    weakest-precondition style version of the reasoning rule. *)
+(** The reasoning rule above can be reformulated in weakest-precondition
+    style. *)
 
 Lemma wp_app_fix2 : forall f x1 x2 v0 v1 v2 t1 Q,
   v0 = val_fix f x1 (trm_fun x2 t1) ->
@@ -723,13 +780,16 @@ Lemma wp_app_fix2 : forall f x1 x2 v0 v1 v2 t1 Q,
   wp (subst x2 v2 (subst x1 v1 (subst f v0 t1))) Q ==> wp (trm_app v0 v1 v2) Q.
 Proof using. introv EQ1 N. applys wp_eval_like. applys* eval_like_app_fix2. Qed.
 
-(** We can then reformulate this wp-style rule in a way that suits
-    the needs of the [xwp] tactic, using a conclusion expressed
-    using a [triple], and using a premise expressed using [wpgen].
-    Observe the substitution context, which is instantiated as
-    [(f,v0)::(x1,v1)::(x2,v2)::nil]. Note also how the side-conditions
-    expressing the fact that the variables are distinct are stated
-    using a comparison function for variables that computes in Coq. *)
+(** Finally, it is useful to extend the tactic [xwp], so that it exploits
+    the rule [wp_app_fix2] in the same way as it exploits [wp_app_fix].
+
+    To that end, we state a lemma featuring a conclusion expressed
+    as a [triple], and a premise expressed using [wpgen]. Observe the
+    substitution context associated with [wpgen]: it is instantiated as
+    [(f,v0)::(x1,v1)::(x2,v2)::nil], so as to perform the relevant
+    substitutions. Note also how the side-condition expressing the freshness
+    conditions on the variables, using a comparison function for variables
+    that computes in Coq. *)
 
 Lemma xwp_lemma_fix2 : forall f v0 v1 v2 x1 x2 t H Q,
   v0 = val_fix f x1 (trm_fun x2 t) ->
@@ -744,8 +804,7 @@ Proof using.
   applys* wp_app_fix2.
 Qed.
 
-(** Finally, we can generalize the [xwp] tactic by integrating in
-    its implementation an attempt to invoke the above lemma. *)
+(** The lemma gets integrated into the implementation of [xwp] as follows. *)
 
 Tactic Notation "xwp" :=
   intros;
@@ -754,8 +813,7 @@ Tactic Notation "xwp" :=
         | applys xwp_lemma_fix2; [ reflexivity | splits; reflexivity | ] ];
   xwp_simpl.
 
-(** The generalized version of [xwp] following this line is
-    formalized in the file [SLFExtra.v] and was put to practice
+(** This tactic [xwp] also appears in the file [SLFExtra.v]. It is exploited
     in several examples from the chapter [SLFBasic]. *)
 
 End CurriedFun.
