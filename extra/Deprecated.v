@@ -2250,3 +2250,11 @@ Proof using.
     subst. rew_listx. xsimpl. }
   { xsimpl.
 Qed.
+
+
+Lemma triple_mcons : forall (x q:val),
+  triple (mcons x q)
+    \[]
+    (funloc p => p ~~~> `{ head := x ; tail := q }).
+Hint Resolve triple_new_hrecord_2 : triple.
+Proof using. intros. xtriple. unfold mcons. xapp. xsimpl*. applys* triple_new_hrecord_2. Qed.

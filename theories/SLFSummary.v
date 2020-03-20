@@ -17,7 +17,7 @@ License: CC-by.
 
 Set Implicit Arguments.
 From Sep Require SLFExtra SLFRules SLFWPgen SLFBasic.
-Import SLFDirect.
+Import SLFDirect SLFExtra.HRecord.
 
 
 (* ########################################################### *)

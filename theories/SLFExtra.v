@@ -842,7 +842,6 @@ Qed.
 
 Module HRecord.
 
-
 (* ########################################################### *)
 (** ** Representation of records *)
 

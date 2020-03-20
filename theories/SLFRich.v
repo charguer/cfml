@@ -468,16 +468,6 @@ Definition wpgen_while (F1 F2:formula) : formula := fun Q =>
 Parameter wpgen_while_eq : forall E t1 t2,
   wpgen E (trm_while t1 t2) = mkstruct (wpgen_while (wpgen E t1) (wpgen E t2)).
 
-(** To carry out the proof of soundness of [wpgen_while], a reformulation of
-    the transitivity lemma for entailment with the two premises swapped is
-    particularly useful. *)
-
-Lemma himpl_trans' : forall H2 H1 H3,
-  H2 ==> H3 ->
-  H1 ==> H2 ->
-  H1 ==> H3.
-Proof using. introv M1 M2. applys* himpl_trans M2 M1. Qed.
-
 (** The soundness proof of [wpgen] with respect to the treatment of
     while-loops goes as follows. *)
 
@@ -488,12 +478,12 @@ Lemma wpgen_while_sound : forall t1 t2 F1 F2,
 Proof using.
   introv S1 S2. intros Q. unfolds wpgen_while.
   applys himpl_hforall_l (wp (trm_while t1 t2)).
-  applys himpl_trans'. rewrite <- (mkstruct_wp (trm_while t1 t2)). applys himpl_refl. (* TODO *)
+  applys himpl_trans. 2:{ rewrite* <- mkstruct_wp. }
   rewrite hwand_hpure_l. { auto. } intros Q'.
   applys mkstruct_monotone. intros Q''.
-  applys himpl_trans'. { applys wp_while. }
-  applys himpl_trans'.
-  { applys wpgen_if_trm_sound.
+  applys himpl_trans. 2:{ applys wp_while. }
+  applys himpl_trans.
+  2:{ applys wpgen_if_trm_sound.
     { applys S1. }
     { applys mkstruct_sound. applys wpgen_seq_sound.
       { applys S2. }
@@ -540,12 +530,13 @@ Tactic Notation "xapply" constr(E) :=
 
 Lemma xwhile_lemma : forall F1 F2 H Q,
   (forall F,
-    (forall Q', mkstruct (wpgen_if_trm F1 (mkstruct (wpgen_seq F2 (mkstruct F))) (mkstruct (wpgen_val val_unit))) Q'
+    (forall Q', mkstruct (wpgen_if_trm F1 (mkstruct (wpgen_seq F2 (mkstruct F))) 
+                                          (mkstruct (wpgen_val val_unit))) Q'
                 ==> mkstruct F Q')
      -> H ==> mkstruct F Q) ->
   H ==> mkstruct (wpgen_while F1 F2) Q.
 Proof using.
-  introv M. applys himpl_trans'. applys mkstruct_erase.
+  introv M. applys himpl_trans. 2:{ applys mkstruct_erase. }
   unfold wpgen_while. xsimpl. intros F N. applys M. applys N.
 Qed.
 
@@ -557,7 +548,7 @@ Tactic Notation "xwhile" :=
 (** ** Example of the application of frame during loop iterations *)
 
 Section DemoLoopFrame.
-Import SLFProgramSyntax SLFBasic ExampleLists.
+Import SLFProgramSyntax SLFBasic ExampleLists HRecord.
 Opaque MList.
 
 (** Consider the following function, which computes the length of a linked
@@ -611,8 +602,9 @@ Proof using.
   (* We next state the induction principle for the loop, in the
      form [I p n ==> F Q], where [I p n] denotes the loop invariant,
      and [Q] describes the final output of the loop. *)
-  asserts KF: (forall p n,    r ~~> p \* a ~~> n \* MList L p
-                         ==> `F (fun _ =>  r ~~> null \* a ~~> (length L + n) \* MList L p)).
+  asserts KF: (forall p n,    
+         r ~~> p \* a ~~> n \* MList L p
+     ==> mkstruct F (fun _ =>  r ~~> null \* a ~~> (length L + n) \* MList L p)).
   { (* We carry out a proof by induction on the length of the list [L]. *)
     induction_wf IH: list_sub L. intros.
     applys himpl_trans HF. clear HF. xlet.

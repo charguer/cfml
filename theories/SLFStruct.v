@@ -616,13 +616,13 @@ Parameter triple_set_field_hrecord : forall kvs kvs' k p v,
     denotes the number of fields. The interest of introducing the list
     [ks] is to provide readable names in place of numbers.
 
-    The operation [val_alloc_record ks] is implemented by invoking
+    The operation [val_alloc_hrecord ks] is implemented by invoking
     [val_alloc] on the length of [ks]. *)
 
-Definition val_alloc_record (ks:list field) : trm :=
+Definition val_alloc_hrecord (ks:list field) : trm :=
   val_alloc (length ks).
 
-(** The specification of [val_alloc_record ks] involves an empty
+(** The specification of [val_alloc_hrecord ks] involves an empty
     precondition and a postcondition of the form [hrecord kvs p],
     where the list [kvs] maps the fields names from [ks] to the
     value [val_uninit]. The premise expressed in terms of [nat_seq]
@@ -633,64 +633,64 @@ Definition val_alloc_record (ks:list field) : trm :=
     [LibList.length] that computes in Coq (using [simpl] or [reflexivity]).
     Likewise for [LibListExec.map], which is equivalent to [LibList.map]. *)
 
-Parameter triple_alloc_record : forall ks,
+Parameter triple_alloc_hrecord : forall ks,
   ks = nat_seq 0 (LibListExec.length ks) ->
-  triple (val_alloc_record ks)
+  triple (val_alloc_hrecord ks)
     \[]
     (funloc p => hrecord (LibListExec.map (fun k => (k,val_uninit)) ks) p).
 
-Hint Resolve triple_alloc_record : triple.
+Hint Resolve triple_alloc_hrecord : triple.
 
 (** For example, the allocation of a list cell is specified as follows. *)
 
-Lemma triple_alloc_mcell :
-  triple (val_alloc_record (head::tail::nil))
+Lemma triple_alloc_mcons :
+  triple (val_alloc_hrecord (head::tail::nil))
     \[]
     (funloc p => p ~~~> `{ head := val_uninit ; tail := val_uninit }).
-Proof using. applys* triple_alloc_record. Qed.
+Proof using. applys* triple_alloc_hrecord. Qed.
 
 
 (* ########################################################### *)
 (** ** Deallocation of records *)
 
-(** Deallocation of a record, written [val_dealloc_record p] is the simplest.
+(** Deallocation of a record, written [val_dealloc_hrecord p] is the simplest.
     This operation is implemented simply as [val_dealloc p]. *)
 
-Definition val_dealloc_record : val :=
+Definition val_dealloc_hrecord : val :=
   val_dealloc.
 
 (** The specification of this operation simply requires as precondition
     the full record description, in the form [hrecord kvs p], and yields
     the empty postcondition. *)
 
-Parameter triple_dealloc_record : forall kvs p,
-  triple (val_dealloc_record p)
+Parameter triple_dealloc_hrecord : forall kvs p,
+  triple (val_dealloc_hrecord p)
     (hrecord kvs p)
     (fun _ => \[]).
 
-Hint Resolve triple_dealloc_record : triple.
+Hint Resolve triple_dealloc_hrecord : triple.
 
 (** To improve readability, we introduce the notation [Delete p]
     for record deallocation. *)
 
-Notation "'Delete' p" := (val_dealloc_record p)
+Notation "'Delete' p" := (val_dealloc_hrecord p)
   (at level 65) : trm_scope.
 
-(** For example, the following corollary to [triple_dealloc_record] may be
+(** For example, the following corollary to [triple_dealloc_hrecord] may be
     used to reason about the deallocation of a list cell. *)
 
-Lemma triple_dealloc_mcell : forall p x q,
-  triple (val_dealloc_record p)
+Lemma triple_dealloc_mcons : forall p x q,
+  triple (val_dealloc_hrecord p)
     (p ~~~> `{ head := x ; tail := q })
     (fun _ => \[]).
-Proof using. intros. applys* triple_dealloc_record. Qed.
+Proof using. intros. applys* triple_dealloc_hrecord. Qed.
 
 
 (* ########################################################### *)
 (** ** Combined record allocation and initialization *)
 
 (** It is often useful to allocate a record and immediately initialize
-    its fields. To that end, we introduce the operation [val_new_record],
+    its fields. To that end, we introduce the operation [val_new_hrecord],
     which applies to a list of fields and to values for these fields.
 
     This operation can be defined in an arity-generic way, yet, to avoid
@@ -699,9 +699,9 @@ Proof using. intros. applys* triple_dealloc_record. Qed.
 Module RecordInit.
 Import SLFProgramSyntax.
 
-Definition val_new_record_2 (k1:field) (k2:field) : val :=
+Definition val_new_hrecord_2 (k1:field) (k2:field) : val :=
   Fun 'x1 'x2 :=
-    Let 'p := val_alloc_record (k1::k2::nil) in
+    Let 'p := val_alloc_hrecord (k1::k2::nil) in
     Set 'p'.k1 ':= 'x1 ';
     Set 'p'.k2 ':= 'x2 ';
     'p.
@@ -711,35 +711,35 @@ Definition val_new_record_2 (k1:field) (k2:field) : val :=
     of a list cell. *)
 
 Notation "'New' `{ k1 := v1 ; k2 := v2 }" :=
-  (val_new_record_2 k1 k2 v1 v2)
+  (val_new_hrecord_2 k1 k2 v1 v2)
   (at level 65, k1, k2 at level 0) : trm_scope.
 
 (** This operation is specified as follows. *)
 
-Lemma triple_new_record_2 : forall k1 k2 v1 v2,
+Lemma triple_new_hrecord_2 : forall k1 k2 v1 v2,
   k1 = 0%nat ->
   k2 = 1%nat ->
   triple (New `{ k1 := v1; k2 := v2 })
     \[]
     (funloc p => p ~~~> `{ k1 := v1 ; k2 := v2 }).
 Proof using.
-  introv -> ->. xwp. xapp triple_alloc_record. { auto. } intros p. simpl.
+  introv -> ->. xwp. xapp triple_alloc_hrecord. { auto. } intros p. simpl.
   xapp triple_set_field_hrecord. { reflexivity. }
   xapp triple_set_field_hrecord. { reflexivity. }
   xval. xsimpl*.
 Qed.
 
-(** For example, the operation [mcell x q] allocates a list cell with
+(** For example, the operation [mcons x q] allocates a list cell with
     head value [x] and tail pointer [q]. *)
 
-Definition mcell : val :=
-  val_new_record_2 head tail.
+Definition mcons : val :=
+  val_new_hrecord_2 head tail.
 
-Lemma triple_mcell : forall (x q:val),
-  triple (mcell x q)
+Lemma triple_mcons : forall (x q:val),
+  triple (mcons x q)
     \[]
     (funloc p => p ~~~> `{ head := x ; tail := q }).
-Proof using. intros. applys* triple_new_record_2. Qed.
+Proof using. intros. applys* triple_new_hrecord_2. Qed.
 
 End RecordInit.
 
@@ -1557,15 +1557,15 @@ Qed.
 (* ########################################################### *)
 (** ** Specification of record allocation and deallocation *)
 
-(** Recall that record allocation, written [val_alloc_record ks],
+(** Recall that record allocation, written [val_alloc_hrecord ks],
     is encoded as [val_alloc (length ks)], and that record deallocation,
-    written [val_dealloc_record p], is encoded as [val_dealloc p].
+    written [val_dealloc_hrecord p], is encoded as [val_dealloc p].
 
     The operations [val_alloc] and [val_dealloc] have already been
     specified, via lemmas [triple_alloc] and [triple_dealloc].
 
-    In this section, we show that the specifications for [val_alloc_record]
-    and [val_dealloc_record] can be derived from those.
+    In this section, we show that the specifications for [val_alloc_hrecord]
+    and [val_dealloc_hrecord] can be derived from those.
 
     The proofs are not completely trivial because we need to convert
     between the view of a list of consecutive cells, as captured by
@@ -1633,7 +1633,7 @@ Qed.
 
 Lemma triple_alloc_hrecord : forall ks,
   ks = nat_seq 0 (LibListExec.length ks) ->
-  triple (val_alloc_record ks)
+  triple (val_alloc_hrecord ks)
     \[]
     (funloc p => hrecord (LibListExec.map (fun k => (k,val_uninit)) ks) p).
 Proof using.

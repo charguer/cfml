@@ -11,7 +11,7 @@ License: CC-by 4.0.
 
 Set Implicit Arguments.
 From Sep Require Import SLFDirect SLFExtra.
-Import SLFProgramSyntax DemoPrograms ExtraDemoPrograms.
+Import SLFProgramSyntax DemoPrograms ExtraDemoPrograms HRecord.
 
 Implicit Types n m : int.
 Implicit Types p q : loc.
@@ -1116,7 +1116,6 @@ Qed. (* /ADMITTED *)
     of consecutive cells. *)
 
 Module ExampleLists.
-Export HRecord.
 
 (** A mutable list cell is a two-cell record, featuring a head field and a
     tail field. We define the field indices as follows. *)
@@ -1204,6 +1203,8 @@ Proof using.
      xsimpl. auto. }
 Qed.
 
+Opaque MList.
+
 
 (* ########################################################### *)
 (** ** In-place concatenation of two mutable lists *)
@@ -1262,70 +1263,18 @@ Qed.
 (** * Bonus contents (optional reading) *)
 
 
-
 (* ####################################################### *)
-(** ** Smart constructors for lists *)
+(** ** Smart constructors for linked lists *)
 
-(* TODO
+Implicit Types x : val.
 
-(** Recall the properties of [MList], which are reformulated using the
-    hrecord notation [p ~~~> kvs]. *)
+(** This section introduces two smart constructors for linked lists,
+    called [mnil] and [mcons].
 
-Lemma MList_nil : forall p,
-  (MList nil p) = \[p = null].
-Proof using. auto. Qed.
-
-Lemma MList_cons : forall p x L',
-  MList (x::L') p =
-  \exists q, (p ~~~> `{ head := x ; tail := q }) \* MList L' q.
-Proof using.  auto. Qed.
-
-Lemma MList_if : forall (p:loc) (L:list val),
-      (MList L p)
-  ==> (If p = null
-        then \[L = nil]
-        else \exists x q L', \[L = x::L']
-             \* (p ~~~> `{ head := x ; tail := q }) \* (MList L' q)).
-Proof using.
-  intros. destruct L as [|x L'].
-  { xchange MList_nil. intros M. case_if. xsimpl*. }
-  { xchange MList_cons. intros q. xchange hrecord_not_null. intros N.
-    case_if. xsimpl*. }
-Qed.
-
-Opaque MList.
-
-
-Parameter triple_mcell : forall (x q:val),
-  triple (mcell x q)
-    \[]
-    (funloc p => p ~~~> `{ head := x ; tail := q }).
-
-(** The function [mcons] is an alias for [mcell]. Whereas [mcell x q]
-    is intended to allocate a fresh cell on its own, [mcons x q] is
-    intended to extend an existing list [MList L q] by appending to it
-    a freshly-allocated cell. The specification of [mcons] requires
-    a list [MList L q] in its precondition, and produces a list
-    [MList (x::L) p] in its postcondition. *)
-
-Definition mcons : val :=
-  mcell.
-
-Lemma triple_mcons : forall L x q,
-  triple (mcons x q)
-    (MList L q)
-    (funloc p => MList (x::L) p).
-Proof using.
-  intros. xtriple. xapp triple_mcell.
-  intros p. xchange <- MList_cons. xsimpl*.
-Qed.
-
-Hint Resolve triple_mcons : triple.
-
-(** The operation [mnil()] returns the [null] value, which is a
-    representation for the empty list [nil]. Thus, [mnil] can be
-    specified using a postcondition asserting it produces [MList nil p],
-    where [p] denotes the location returned.
+    The operation [mnil()] is intended to create an empty list.
+    Its implementation simply returns the value [null]. Its 
+    specification asserts that the return value is a pointer [p]
+    such that [MList nil p] holds.
 
 [[
     let rec mnil () =
@@ -1350,6 +1299,42 @@ Hint Resolve triple_mnil : triple.
     used to specify the behavior of operations on mutable lists
     without having to reveal low-level implementation details that
     involve the [null] pointer. *)
+
+(** The operation [mcons x q] is intended to allocate a fresh list cell,
+    with [x] in the head field and [q] in the tail field. The implementation
+    of this operation allocates and initializes a fresh record made of  
+    two fields, using an operation called [val_new_hrecord_2], which we 
+    here view as a primitive. (The chapter [SLFStruct] describes an encoding
+    of this function in terms of the allocation and write operations. *)
+
+Definition mcons : val := 
+  val_new_hrecord_2 head tail.
+
+(** The operation [mcons] admits two specifications: one that describes only
+    the fresh record allocated, and one that combines it with a list
+    representation of the form [Mlist q L] to produce as postcondition
+    an extended list of the form [Mlist p (x::L)]. 
+
+    The first specification is as follows. *)
+
+Lemma triple_mcons : forall x q,
+  triple (mcons x q)
+    \[]
+    (funloc p => p ~~~> `{ head := x ; tail := q }).
+Proof using. intros. applys* triple_new_hrecord_2. Qed.
+
+(** The second specification is derived from the first. *)
+
+Lemma triple_mcons' : forall L x q,
+  triple (mcons x q)
+    (MList L q)
+    (funloc p => MList (x::L) p).
+Proof using.
+  intros. xtriple. xapp triple_mcons.
+  intros p. xchange <- MList_cons. xsimpl*.
+Qed.
+
+Hint Resolve triple_mcons' : triple.
 
 
 (* ####################################################### *)
@@ -1403,13 +1388,10 @@ Lemma triple_mcopy : forall L p,
 Proof using.
   intros. gen p. induction_wf IH: list_sub L.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
-  { intros ->. xapp. xsimpl*. xchanges* <- (MList_nil p). }
+  { intros ->. xapp. xsimpl*. subst. xchange* <- MList_nil. }
   { intros x q L' ->. xapp. xapp. xapp. intros q'.
     xapp. intros p'. xchange <- MList_cons. xsimpl*. }
 Qed.
-
-
-*)
 
 
 (* ########################################################### *)
