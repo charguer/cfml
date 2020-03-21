@@ -36,6 +36,11 @@ ${CP} ${SOURCE}/*.v ${SOURCE}/*.html ${SOURCE}/*.gif ${SOURCE}/_CoqProject ${SOU
 # bypass index
 ${CP} ${TARGET}/toc.html ${TARGET}/index.html
 
+# fix star symbol
+FILES=`ls ${TARGET}/*.html`
+for i in ${FILES}; do
+   sed -i'' 's/×/*/g;' $i;
+done
 
 
 ##############################################################################
