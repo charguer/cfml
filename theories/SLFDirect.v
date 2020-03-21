@@ -2246,8 +2246,7 @@ Tactic Notation "xtriple" :=
 
 Notation "'TRIPLE' t 'PRE' H 'POST' Q" :=
   (triple t H Q)
-  (at level 39, t at level 0, only parsing,
-  format "'[v' 'TRIPLE'  t  '/' 'PRE'  H  '/' 'POST'  Q ']'") : wp_scope.
+  (at level 39, t at level 0, only parsing) : wp_scope.
 
 Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (mkstruct F) Q)
   (at level 8, H, F, Q at level 0,
