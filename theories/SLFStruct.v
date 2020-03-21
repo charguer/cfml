@@ -40,7 +40,7 @@ Implicit Types z : nat.
     of headers for allocated blocks. More precisely, we show how to implement
     array and record operations using a pointer arithmetic primitive operation,
     and we establish the correctness of the specifications with respect to
-    the semantics of the allocatin, deallocation, and pointer arithmetic
+    the semantics of the allocation, deallocation, and pointer arithmetic
     operations.
 
     The memory model that we consider is somewhat artificial, in the sense that
@@ -86,8 +86,8 @@ Parameter hcells_concat_eq : forall p L1 L2,
 (** This "splitting lemma for arrays" is useful for carrying out local
     reasoning on arrays. For example, in the recursive quicksort algorithm,
     the specification requires a description of the segment to be sorted;
-    the representation of this segment is splitted so that subsegments
-    can be provided for reasoning about the recursive calls. One therey
+    the representation of this segment is split so that subsegments
+    can be provided for reasoning about the recursive calls. One thereby
     obtains for free the fact that the cells outside of the targeted
     segment remain unmodified. *)
 
@@ -170,7 +170,7 @@ Parameter triple_alloc : forall n,
     \[]
     (funloc p => harray (LibList.make (abs n) val_uninit) p).
 
-(** The specification above turns out to be often unncessarily precise.
+(** The specification above turns out to be often unnecessarily precise.
     For most applications, it is sufficient for the postcondition to
     describe the array as [harray L p] for some unspecified list [L]
     of length [n]. This weaker specification is stated and proved next. *)
@@ -545,7 +545,7 @@ Parameter val_set_field : field -> val.
 
 Notation "'Set' t1 ''.' k '':=' t2" :=
   (val_set_field k t1 t2)
-  (at level 65, t1 at level 0, k at level 0, format "'Set' t1 ''.' k  '':=' t2") 
+  (at level 65, t1 at level 0, k at level 0, format "'Set' t1 ''.' k  '':=' t2")
   : trm_scope_ext.
 
 (** Like for the read operation, the write operation can be specified at three

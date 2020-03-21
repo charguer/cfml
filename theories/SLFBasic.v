@@ -633,7 +633,7 @@ Parameter triple_ref : forall (v:val),
 (** The pattern [fun r => \exists p, \[r = val_loc p] \* H)] occurs
     whenever a function returns a pointer. Thus, this pattern appears
     pervasively. To improve conciseness, we introduce a specific
-    notation for this pattern, shorthening it to [funloc p => H]. *)
+    notation for this pattern, shortening it to [funloc p => H]. *)
 
 Notation "'funloc' p '=>' H" :=
   (fun r => \exists p, \[r = val_loc p] \* H)
@@ -728,7 +728,7 @@ Qed.
     deallocated. Technically, the logic is said to "linear" as opposed
     to "affine". *)
 
-(** Let us illustrate what happens ig we forget to deallocate a reference.
+(** Let us illustrate what happens if we forget to deallocate a reference.
 
     To that end, consider the following program, which computes
     the successor of a integer [n] by storing it into a reference cell,
@@ -1559,7 +1559,6 @@ Proof using.
   { xsimpl. }
 Qed.
 
-(** This concludes the formal verification of Reynolds's verification challenge. *)
+(** This concludes the formal verification of Reynolds' verification challenge. *)
 
 End ExampleLists.
-

@@ -79,7 +79,7 @@ Parameter val_assert : prim.
     two evaluation rules is used:
 
     - [eval_assert_enabled] evaluates the body of the assertion, and
-      checks that the ouput value is [true],
+      checks that the output value is [true],
     - [eval_assert_disabled] does not evaluate the body assertion,
       that is, it completely ignores the assertion.
 
@@ -965,11 +965,11 @@ Qed.
     [trm_apps (trm_val v0) ((trm_val v1):: .. :: (trm_val vn)::nil)].
 
     The two forms are convertible. Yet, in most cases, Coq is not able to
-    synthetize the list [vs] during the unification process.
+    synthesize the list [vs] during the unification process.
 
     Fortunately, it is possible to reformulate the lemma using an auxiliary
     conversion function named [trms_to_vals], whose evaluation by Coq's
-    unification process is able to synthetize the list [vs].
+    unification process is able to synthesize the list [vs].
 
     The operation [trms_to_vals ts], if all the terms in [ts] are of the
     form [trm_val vi], returns a list of values [vs] such that [ts] is
@@ -1150,4 +1150,3 @@ Proof using. intros. (* activate display of coercions *) simpl. Abort.
 End NarySyntax.
 
 End PrimitiveNaryFun.
-
