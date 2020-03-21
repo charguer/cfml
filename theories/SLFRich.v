@@ -530,7 +530,7 @@ Tactic Notation "xapply" constr(E) :=
 
 Lemma xwhile_lemma : forall F1 F2 H Q,
   (forall F,
-    (forall Q', mkstruct (wpgen_if_trm F1 (mkstruct (wpgen_seq F2 (mkstruct F))) 
+    (forall Q', mkstruct (wpgen_if_trm F1 (mkstruct (wpgen_seq F2 (mkstruct F)))
                                           (mkstruct (wpgen_val val_unit))) Q'
                 ==> mkstruct F Q')
      -> H ==> mkstruct F Q) ->
@@ -548,7 +548,7 @@ Tactic Notation "xwhile" :=
 (** ** Example of the application of frame during loop iterations *)
 
 Section DemoLoopFrame.
-Import SLFProgramSyntax SLFBasic ExampleLists HRecord.
+Import SLFProgramSyntax SLFBasic ExampleLists.
 Opaque MList.
 
 (** Consider the following function, which computes the length of a linked
@@ -602,7 +602,7 @@ Proof using.
   (* We next state the induction principle for the loop, in the
      form [I p n ==> F Q], where [I p n] denotes the loop invariant,
      and [Q] describes the final output of the loop. *)
-  asserts KF: (forall p n,    
+  asserts KF: (forall p n,
          r ~~> p \* a ~~> n \* MList L p
      ==> mkstruct F (fun _ =>  r ~~> null \* a ~~> (length L + n) \* MList L p)).
   { (* We carry out a proof by induction on the length of the list [L]. *)

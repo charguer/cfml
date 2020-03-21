@@ -17,7 +17,7 @@ License: CC-by.
 
 Set Implicit Arguments.
 From Sep Require SLFExtra SLFRules SLFWPgen SLFBasic.
-Import SLFDirect SLFExtra.HRecord.
+Import SLFDirect.
 
 
 (* ########################################################### *)
@@ -1294,7 +1294,7 @@ End ProveIncrWithTactics.
 (** ** Formalization of mutable lists *)
 
 Module ProveAppend.
-Import SLFExtra SLFProgramSyntax HRecord.
+Import SLFExtra SLFProgramSyntax.
 Implicit Types p q : loc.
 
 (** A mutable list cell is a two-cell record, featuring a head field and a

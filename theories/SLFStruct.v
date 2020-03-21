@@ -344,33 +344,27 @@ Implicit Types kvs : hrecord_fields.
 
 Notation "`{ k1 := v1 }" :=
   ((k1,(v1:val))::nil)
-  (at level 0, k1 at level 0)
-  : val_scope.
+  (at level 0, k1 at level 0).
 
 Notation "`{ k1 := v1 ; k2 := v2 }" :=
   ((k1,(v1:val))::(k2,(v2:val))::nil)
-  (at level 0, k1, k2 at level 0)
-  : val_scope.
+  (at level 0, k1, k2 at level 0).
 
 Notation "`{ k1 := v1 ; k2 := v2 ; k3 := v3 }" :=
   ((k1,(v1:val))::(k2,(v2:val))::(k3,(v3:val))::nil)
-  (at level 0, k1, k2, k3 at level 0)
-  : val_scope.
+  (at level 0, k1, k2, k3 at level 0).
 
 Notation "`{ k1 := v1 }" :=
   ((k1,v1)::nil)
-  (at level 0, k1 at level 0, only printing)
-  : val_scope.
+  (at level 0, k1 at level 0, only printing).
 
 Notation "`{ k1 := v1 ; k2 := v2 }" :=
   ((k1,v1)::(k2,v2)::nil)
-  (at level 0, k1, k2 at level 0, only printing)
-  : val_scope.
+  (at level 0, k1, k2 at level 0, only printing).
 
 Notation "`{ k1 := v1 ; k2 := v2 ; k3 := v3 }" :=
   ((k1,v1)::(k2,v2)::(k3,v3)::nil)
-  (at level 0, k1, k2, k3 at level 0, only printing)
-  : val_scope.
+  (at level 0, k1, k2, k3 at level 0, only printing).
 
 Open Scope val_scope.
 
@@ -430,7 +424,7 @@ Qed.
     allowing to write, e.g., [p ~~~>`{ head := x; tail := q }]. *)
 
 Notation "p '~~~>' kvs" := (hrecord kvs p)
-  (at level 32) : hprop_scope.
+  (at level 32).
 
 
 (* ########################################################### *)
@@ -485,7 +479,8 @@ Parameter val_get_field : field -> val.
 
 Notation "t1 ''.' k" :=
   (val_get_field k t1)
-  (at level 56, k at level 0, format "t1 ''.' k" ).
+  (at level 56, k at level 0, format "t1 ''.' k" )
+  : trm_scope_ext.
 
 (** The operation [val_get_field k p] can be specified at three levels.
 
@@ -550,7 +545,8 @@ Parameter val_set_field : field -> val.
 
 Notation "'Set' t1 ''.' k '':=' t2" :=
   (val_set_field k t1 t2)
-  (at level 65, t1 at level 0, k at level 0, format "'Set' t1 ''.' k  '':=' t2").
+  (at level 65, t1 at level 0, k at level 0, format "'Set' t1 ''.' k  '':=' t2") 
+  : trm_scope_ext.
 
 (** Like for the read operation, the write operation can be specified at three
     levels. First, at the level of an individual field. *)
@@ -653,8 +649,8 @@ Proof using. applys* triple_alloc_hrecord. Qed.
 (* ########################################################### *)
 (** ** Deallocation of records *)
 
-(** Deallocation of a record, written [val_dealloc_hrecord p] is the simplest.
-    This operation is implemented simply as [val_dealloc p]. *)
+(** Deallocation of a record, written [val_dealloc_hrecord p], is
+    implemented as [val_dealloc p]. *)
 
 Definition val_dealloc_hrecord : val :=
   val_dealloc.
@@ -674,7 +670,7 @@ Hint Resolve triple_dealloc_hrecord : triple.
     for record deallocation. *)
 
 Notation "'Delete' p" := (val_dealloc_hrecord p)
-  (at level 65) : trm_scope.
+  (at level 65) : trm_scope_ext.
 
 (** For example, the following corollary to [triple_dealloc_hrecord] may be
     used to reason about the deallocation of a list cell. *)
@@ -698,6 +694,7 @@ Proof using. intros. applys* triple_dealloc_hrecord. Qed.
 
 Module RecordInit.
 Import SLFProgramSyntax.
+Open Scope trm_scope_ext.
 
 Definition val_new_hrecord_2 (k1:field) (k2:field) : val :=
   Fun 'x1 'x2 :=
@@ -712,7 +709,7 @@ Definition val_new_hrecord_2 (k1:field) (k2:field) : val :=
 
 Notation "'New' `{ k1 := v1 ; k2 := v2 }" :=
   (val_new_hrecord_2 k1 k2 v1 v2)
-  (at level 65, k1, k2 at level 0) : trm_scope.
+  (at level 65, k1, k2 at level 0) : trm_scope_ext.
 
 (** This operation is specified as follows. *)
 
@@ -806,6 +803,7 @@ Ltac xapp_nosubst_for_records tt ::=
 
 Module ListDealloc.
 Import SLFProgramSyntax RecordInit.
+Open Scope trm_scope_ext.
 
 (** The operation [mfree_list] deallocates all the cells in a given list.
     It is implemented as a recursive function that invokes [mfree_cell]
@@ -1423,7 +1421,7 @@ Definition val_get_field (k:field) : val :=
 
 Notation "t1 ''.' f" :=
   (val_get_field f t1)
-  (at level 56, f at level 0, format "t1 ''.' f" ) : trm_scope.
+  (at level 56, f at level 0, format "t1 ''.' f" ).
 
 Lemma triple_get_field : forall p k v,
   triple ((val_get_field k) p)
@@ -1455,7 +1453,7 @@ Qed.
 
 Notation "'Set' t1 ''.' f '':=' t2" :=
   (val_set_field f t1 t2)
-  (at level 65, t1 at level 0, f at level 0, format "'Set'  t1 ''.' f  '':='  t2") : trm_scope.
+  (at level 65, t1 at level 0, f at level 0, format "'Set'  t1 ''.' f  '':='  t2").
 
 End FieldAccessDef.
 

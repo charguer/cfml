@@ -11,7 +11,7 @@ License: CC-by 4.0.
 
 Set Implicit Arguments.
 From Sep Require Import SLFDirect SLFExtra.
-Import SLFProgramSyntax DemoPrograms ExtraDemoPrograms HRecord.
+Import SLFProgramSyntax DemoPrograms ExtraDemoPrograms.
 
 Implicit Types n m : int.
 Implicit Types p q : loc.
@@ -1272,7 +1272,7 @@ Implicit Types x : val.
     called [mnil] and [mcons].
 
     The operation [mnil()] is intended to create an empty list.
-    Its implementation simply returns the value [null]. Its 
+    Its implementation simply returns the value [null]. Its
     specification asserts that the return value is a pointer [p]
     such that [MList nil p] holds.
 
@@ -1302,18 +1302,18 @@ Hint Resolve triple_mnil : triple.
 
 (** The operation [mcons x q] is intended to allocate a fresh list cell,
     with [x] in the head field and [q] in the tail field. The implementation
-    of this operation allocates and initializes a fresh record made of  
-    two fields, using an operation called [val_new_hrecord_2], which we 
+    of this operation allocates and initializes a fresh record made of
+    two fields, using an operation called [val_new_hrecord_2], which we
     here view as a primitive. (The chapter [SLFStruct] describes an encoding
     of this function in terms of the allocation and write operations. *)
 
-Definition mcons : val := 
+Definition mcons : val :=
   val_new_hrecord_2 head tail.
 
 (** The operation [mcons] admits two specifications: one that describes only
     the fresh record allocated, and one that combines it with a list
     representation of the form [Mlist q L] to produce as postcondition
-    an extended list of the form [Mlist p (x::L)]. 
+    an extended list of the form [Mlist p (x::L)].
 
     The first specification is as follows. *)
 

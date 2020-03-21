@@ -840,8 +840,6 @@ Qed.
 (** The chapter [SLFStruct] shows how to these specifications
     may be realized. *)
 
-Module HRecord.
-
 (* ########################################################### *)
 (** ** Representation of records *)
 
@@ -1057,7 +1055,6 @@ Ltac xapp_nosubst_for_records tt ::=
   first [ applys xapp_set_field_lemma; xsimpl; simpl; xapp_simpl
         | applys xapp_get_field_lemma; xsimpl; simpl; xapp_simpl ].
 
-End HRecord.
 
 
 (* ########################################################### *)
