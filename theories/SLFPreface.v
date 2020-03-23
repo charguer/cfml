@@ -39,14 +39,14 @@
 [[
          { H } t { Q }
     -------------------------
-     { H * H' } t { Q * H' }
+     { H \* H' } t { Q \* H' }
 ]]
 
     The above rule asserts that if a term [t] executes correctly with the
     resources [H] and produces [Q], then the term [t] admits the same
     behavior in a larger memory state, described by the union of [H]
     with a disjoint resource [H'], producing the postcondition [Q]
-    extended with that same resource [H'], unmodified. The star symbol
+    extended with that same resource [H'], unmodified. The [\*] symbol
     involved in the rule is called the "separating conjunction".
 
     Separation Logic can be exploited in three kind of tools.

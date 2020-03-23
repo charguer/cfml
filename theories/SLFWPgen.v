@@ -1288,7 +1288,7 @@ Proof using.
 Qed.
 
 (** An interesting property of [mkstruct] is it has no effect on a
-    formula of the form [wp t]. Intuitively, such a formula already 
+    formula of the form [wp t]. Intuitively, such a formula already
     satisfies all the structural reasoning rules, hence adding
     [mkstruct] to it does not increase its expressive power. *)
 
