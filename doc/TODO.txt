@@ -1,3 +1,5 @@
+extend course with partial correctness triples.
+
 LATER: replace congruence with auto in SLFRich
     { xpull. intros ->. xval. xsimpl. { congruence. }
 

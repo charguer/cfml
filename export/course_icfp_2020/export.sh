@@ -3,7 +3,7 @@
 ##############################################################################
 # Configuration
 
-PDF=~/work/sep/paper_with_appendix.pdf
+PDF=~/work/sep/main_with_appendix.pdf
 SOURCE=~/versions/coq-8.9.1/sfdev/slf/full
 TARGET=slf
 
@@ -24,7 +24,7 @@ ${CP} README.md ${TARGET}
 
 
 echo "Copy appendix"
-${CP} ${PDF} ${TARGET}
+${CP} ${PDF} ${TARGET}/paper_with_appendix.pdf
 
 
 ##############################################################################
