@@ -3,13 +3,14 @@
 (* ########################################################### *)
 (** * Welcome *)
 
-(** This electronic book is Volume 5 of the _Software Foundations_
+(** This electronic book is Volume XX of the _Software Foundations_
     series, which presents the mathematical underpinnings of reliable
     software.
 
     In this volume, you will learn about the foundations of Separation
     Logic, which is a practical approach for the modular verification
-    of imperative programs.
+    of imperative programs. This course focuses on sequential programs
+    only---it does not cover Concurrent Separation Logic.
 
     You are assumed to understand the material in Software Foundations
     Volume 1 (Logic Foundations), and the two chapters on Hoare Logic
@@ -29,8 +30,8 @@
     Specifications are expressed using triples, of the form [{H} t {Q}].
     Whereas in Hoare logic the precondition [H] and the postcondition
     [Q] describe the whole of the memory state, in Separation Logic,
-    [H] and [Q] describe only a fragment of the memory state. This fragment
-    includes the resources necessary to the execution of [t].
+    [H] and [Q] describe only a fragment of the memory state. This
+    fragment includes the resources necessary to the execution of [t].
 
     Central to Separation Logic is the frame rule, which is key to the
     modularity of the verification proofs. Its statement is as follows.
@@ -38,14 +39,15 @@
 [[
          { H } t { Q }
     -------------------------
-     { H * H' } t { Q * H' }
+     { H \* H' } t { Q \* H' }
 ]]
 
     The above rule asserts that if a term [t] executes correctly with the
     resources [H] and produces [Q], then the term [t] admits the same
     behavior in a larger memory state, described by the union of [H]
-    with a disjoint union [H'], producing the postcondition [Q] extended
-    with that same resource [H'] unmodified.
+    with a disjoint resource [H'], producing the postcondition [Q]
+    extended with that same resource [H'], unmodified. The [\*] symbol
+    involved in the rule is called the "separating conjunction".
 
     Separation Logic can be exploited in three kind of tools.
 
@@ -64,19 +66,19 @@
     of Separation Logic in an interactive proof assistant. This approach
     has been successfully put to practice throughout the world, using
     various proof assistants (Coq, Isabelle/HOL, HOL), targeting different
-    languages (Assembly, C, SML, OCaml, Rust...), for verifying various
+    languages (Assembly, C, SML, OCaml, Rust...), and for verifying various
     kind of programs, ranging from low-level operating system kernels
     to high-level data structures and algorithms.
 
-    The benefits of exploiting Separation Logic in a proof assistant
-    include at least four major points:
+    Exploiting Separation Logic in a proof assistant includes at least
+    four major benefits:
 
     - higher-order logic provides virtually-unlimited expressiveness
       that enables formulating arbitrarily-complex specifications and
       invariants;
     - a proof assistant provides a unified framework to prove both
       the implementation details of the code and the underlying
-      mathematical results form, e.g., results from  theory or graph
+      mathematical results form, e.g., results from theory or graph
       theory;
     - proof scripts may be easily maintained to reflect on a change
       to the source code;
@@ -87,31 +89,31 @@
     assistant are constructed following the same schema:
 
     - A formalization of the syntax and semantics of the source language
-      (This is called a "deep embedding" of the programming language).
+      This is called a "deep embedding" of the programming language.
     - A definition of Separation Logic predicates as predicates from
-      higher-order logic. (This is called a "shallow embedding" of the
-      program logic.)
+      higher-order logic. This is called a "shallow embedding" of the
+      program logic.
     - A definition of Separation Logic triples as a predicate, the
       statements of the reasoning rules as lemmas, and the proof of
       these reasoning rules with respect to the semantics.
     - An infrastructure that consists of lemmas, tactics and notation,
-      allowing for verification proof to be carried out through
-      relatively concise proof scripts.
+      allowing for verification proof to be carried out through relatively
+      concise proof scripts.
 
-    The purpose of this course is to explain how to set up such a
-    construction of Separation Logic for sequential programs.
-    To that end, we consider in this course:
+    The purpose of this course is to explain how to set up such a construction
+    of Separation Logic for sequential programs, embedded in Coq. To that end,
+    we consider in this course:
 
-    - a minimalistic imperative programming language: a lambda-calculus
-      with references (mini-ML), which admits a simple semantics and avoids
+    - A minimalistic imperative programming language: a lambda-calculus
+      with references. This language admits a simple semantics and avoids
       in particular the need to distinguish between stack variables and
-      heap-allocated variables;
-    - the simplest possible variant of Separation Logic.
+      heap-allocated variables.
+    - The simplest possible variant of Separation Logic.
 
-    For this mini-ML language and this core Separation Logic, we present
-    in full the construction of a Separation Logic framework, up to the
-    presentation of a concise verification proof script for a function
-    that performs in-place concatenation of two mutable linked lists.
+    For this core language and this core Separation Logic, we present
+    in full the construction of a Separation Logic framework, all the
+    way to presenting concise proof scripts for verifying programs
+    manipulating linked lists.
 
 *)
 
@@ -119,21 +121,24 @@
 (** ** Summaries for the course *)
 
 (** Before diving into the Coq files, the reader might be interested in
-    reading high-level summaries of the contents of the course:
-
-    - [SLFSummary.v]    contains material for a 1-hour summary of the key
-                        ingredients involved in the course.
-
-    - [SLFSummary.pdf]  contains LaTeX-formatted slides presenting the
-                        most important definitions from [SLFSummary.v].
+    material summarizing the contents of the course:
 
     - [SeqSepLogic.pdf] is a LaTeX-formatted paper that gives a summary
-                        of the definitions involved in the course, but not
-                        covering the chapters [SLFBasic] and [SLFWPgen],
-                        which involve the characteristic formula generator.
+                        of most of the definitions involved in the course,
+                        yet not covering the chapters [SLFBasic] and [SLFWPgen],
+                        which involve a weakest precondition generator.
+
+    - [SLFSummary.pdf]  contains LaTeX-formatted slides presenting the
+                        most important definitions.
+
+    - [SLFSummary.v]    contains Coq material, aimed to give a 1-hour tour
+                        of the key ingredients involved in the course.
 
     - [SLFMinimal.v]    contains a minimal proof of soundness of Separation
-                        Logic for sequential programs.
+                        Logic for sequential programs. It is aimed to argue for
+                        the simplicity of the soundness proof of Separation
+                        Logic when set up with the definitions considered in
+                        this course.
 
 *)
 
@@ -149,7 +154,8 @@
     - [SLFPreface]: the present introduction.
 
     - [SLFBasic]:  introduction to Separation Logic through practical examples
-                   of specifications and verification proofs, on basic programs.
+                   of specifications and verification proofs, on basic programs;
+                   this chapter is helpful for motivating Separation Logic.
 
     - [SLFHprop]:  definition of the core operators of Separation Logic,
                    of Hoare triples, and of Separation Logic triples.
@@ -174,7 +180,8 @@
     - [SLFAffine]: description of a generalized Separation Logic that supports the
                    ability to freely discard certain types of heap predicates.
 
-    - [SLFStruct]: representation predicate for records and arrays.
+    - [SLFStruct]: specification of array and record operations, and realization
+                   of these operations using pointer arithmetic.
 
     - [SLFRich]:   treatment of additional language constructs, including loops,
                    assertions, and n-ary functions.
@@ -210,14 +217,15 @@
 
 (** Each chapter contains three parts:
     - the "chapter in a rush" part, which presents the main take-away messages,
-    - the "detailed contents" part, with presentation of important technical results,
-    - the "optional contents" part, intended for those who seek a deeper understanding,
-      or wish so work on additional exercises.
+    - the "detailed contents" part, which presents important technical results,
+    - the "optional contents" part, intended for those who seek a deeper
+      understanding, including in particular discussion of alternative definitions.
 
-    The course is organized so that:
+    The course is organized in such a way that:
     - reading only the "in a rush" parts of every chapter should make sense,
-    - all the "optional contents" parts are independent: they may be read,
-      partially read, or skipped, without consequences on the other chapters.
+    - all the "optional contents" parts are essentially independent: up to a few
+      exceptions, these parts may be read, partially read, or skipped, without
+      consequences on the understanding of the other chapters.
 
     For the first two chapters, the "detailed contents" material consists of
     exercises that are interleaved with the "chapter in a rush" material.
@@ -257,9 +265,10 @@
 (** ** TLC: tactics and libraries *)
 
 (** The proofs are carried out using tactics from the TLC library.
-    These tactics greatly help. Most of the tactics used are described
-    in the chapter [UseTactics] from the "Programming Language Foundations"
-    (PLF) course.
+    These tactics are very useful. Most of the tactics used in this
+    course are described in the chapter [UseTactics] from the
+    "Programming Language Foundations" (PLF) course. They are also
+    briefly introduced in the present course.
 
     The first two chapters, [SLFBasic] and [SLFList], are careful to use as
     few TLC tactics as possible, and to explain the ones that are used.
@@ -274,38 +283,14 @@
 
 
 (* ########################################################### *)
-(** ** CFML: a practical verification tool *)
-
-(** CFML is a program verification framework based on Separation
-    Logic and embedded in Coq. The present course presents, among
-    other things, the foundations of the CFML tool.
-
-    The first two chapters, [SLFBasic] and [SLFList], present
-    verification proofs that are conducted using CFML.
-
-    The other chapters build a mini-CFML from scratch, and present
-    practical verification proofs based on that mini-CFML. *)
-
-
-(* ########################################################### *)
 (** ** Imports between files *)
 
 (** To simplify the compilation process, copies of the source files from
-    the TLC and the CFML libraries are included in the present folder.
-    There is no need to look at these files. *)
+    the TLC libraries are included in the present folder. There is no need
+    to look at these files, which are named [Lib*.v].
 
-(** The first two chapters, [SLFBasic] and [SLFList], leverage the
-    CFML tool, by importing the CFML library file [Example.v].
-
-    The other chapters are independent from the CFML library. They only
-    exploit a few generic library files ([Var.v] for variables, [Fmap.v]
-    for finite maps, and [SepSimpl.v] for the hi-tech Separation Logic
-    simplification tactic). *)
-
-(** The chapters introduce Separation Logic definitions and lemmas
-    layer by layer.
-
-    Several chapters import definitions from the previous layer.
+    The chapters introduce Separation Logic definitions and lemmas
+    layer by layer. Several chapters import definitions from the previous layer.
     Other chapters instead import definitions from the files [SLFDirect.v]
     and [SLFExtra.v], which summarize all the definitions of the course.
     Which definitions are imported should be essentially transparent to
@@ -317,20 +302,18 @@
     Instead, one must work exclusively using the high-level lemmas that
     characterize the useful properties of the definitions. *)
 
+
 (* ########################################################### *)
 (** * Dissemination *)
 
-(* LATER:
-
-    Downloading the Coq Files
-
-    A tar file containing the full sources for the "release version"
+(** A tar file containing the full sources for the "release version"
     of this book (as a collection of Coq scripts and HTML files) is
-    available at https://softwarefoundations.cis.upenn.edu.
+    available at http://arthur.chargueraud.org/teach/verif
 
     (If you are using the book as part of a class, your teacher may
     give you access to a locally modified version of the files, which
     you should use instead of the release version.) *)
+
 
 (* ########################################################### *)
 (** ** Recommended citation format *)
@@ -349,6 +332,7 @@
    }
 ]]
 *)
+
 
 (* ########################################################### *)
 (** ** For instructors and contributors *)

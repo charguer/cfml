@@ -171,7 +171,7 @@ Hint Resolve Fmap.disjoint_empty_l Fmap.disjoint_empty_r.
 Hint Rewrite disjoint_union_eq_l disjoint_union_eq_r : disjoint.
 Hint Extern 1 (Fmap.disjoint _ _) =>
   subst; autorewrite with rew_disjoint in *; jauto_set.
-  (* [jauto_set] destructs conjunctions in hypotheses. *)
+  (* Note: [jauto_set] destructs conjunctions and existentials. *)
 
 
 (* ########################################################### *)
@@ -261,7 +261,6 @@ Notation "'\forall' x1 .. xn , H" :=
   (hforall (fun x1 => .. (hforall (fun xn => H)) ..))
   (at level 39, x1 binder, H at level 50, right associativity,
    format "'[' '\forall' '/ '  x1  ..  xn , '/ '  H ']'") : hprop_scope.
-
 
 
 (* ########################################################### *)
@@ -533,9 +532,9 @@ Lemma eval_get_sep : forall s s2 p v,
   s = Fmap.union (Fmap.single p v) s2 ->
   eval s (val_get (val_loc p)) s v.
 Proof.
-  introv ->. forwards Dv: Fmap.indom_single p v. applys_eq eval_get 1.
-  { applys* Fmap.indom_union_l. }
+  introv ->. forwards Dv: Fmap.indom_single p v. applys_eq eval_get.
   { rewrite* Fmap.read_union_l. rewrite* Fmap.read_single. }
+  { applys* Fmap.indom_union_l. }
 Qed.
 
 Lemma eval_set_sep : forall s1 s2 h2 p v1 v2,
@@ -544,9 +543,9 @@ Lemma eval_set_sep : forall s1 s2 h2 p v1 v2,
   Fmap.disjoint (Fmap.single p v1) h2 ->
   eval s1 (val_set (val_loc p) v2) s2 val_unit.
 Proof.
-  introv -> -> D. forwards Dv: Fmap.indom_single p v1. applys_eq eval_set 2.
-  { applys* Fmap.indom_union_l. }
+  introv -> -> D. forwards Dv: Fmap.indom_single p v1. applys_eq eval_set.
   { rewrite* Fmap.update_union_l. fequals. rewrite* Fmap.update_single. }
+  { applys* Fmap.indom_union_l. }
 Qed.
 
 Lemma eval_free_sep : forall s1 s2 v p,
@@ -554,10 +553,10 @@ Lemma eval_free_sep : forall s1 s2 v p,
   Fmap.disjoint (Fmap.single p v) s2 ->
   eval s1 (val_free p) s2 val_unit.
 Proof.
-  introv -> D. forwards Dv: Fmap.indom_single p v. applys_eq eval_free 2.
-  { applys* Fmap.indom_union_l. }
+  introv -> D. forwards Dv: Fmap.indom_single p v. applys_eq eval_free.
   { rewrite* Fmap.remove_union_single_l. intros Dl.
     applys Fmap.disjoint_inv_not_indom_both D Dl. applys Fmap.indom_single. }
+  { applys* Fmap.indom_union_l. }
 Qed.
 
 
@@ -880,17 +879,25 @@ Proof. intros. intros HF. applys hoare_conseq hoare_free; xsimpl*. Qed.
 
 Open Scope string_scope.
 
-Definition incr : val := (* here using low-level syntax *)
+(** Definition of the [incr] function, using low-level syntax *)
+
+Definition incr : val :=
   val_fix "f" "p" (
     trm_let "n" (trm_app val_get (trm_var "p")) (
     trm_let "m" (trm_app (trm_app val_add
                              (trm_var "n")) (val_int 1)) (
     trm_app (trm_app val_set (trm_var "p")) (trm_var "m")))).
 
+(** Specification of [incr] *)
+
 Lemma triple_incr : forall (p:loc) (n:int),
   triple (trm_app incr p)
     (p ~~> n)
     (fun _ => p ~~> (n+1)).
+
+(** Verification of [incr], using the reasoning rules directly,
+    as opposed to using custom tactics. *)
+
 Proof using.
   intros. applys triple_app. { reflexivity. } simpl.
   applys triple_let. { apply triple_get. }

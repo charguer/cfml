@@ -84,7 +84,7 @@ Proof using.
     rew_nat. xsimpl. rewrite HM. rewrite~ abs_nat_plus_nonneg. math. }
   { xpull ;=> L1 x L2 HM E. subst n.
     subst L. rewrite Array_concat_eq, Array_cons_eq.
-    rew_nat. xsimpl. applys_eq himpl_refl 1. fequals.
+    rew_nat. xsimpl. applys_eq himpl_refl. fequals.
     rewrite abs_nat_plus_nonneg; [|math]. rewrite~ abs_nat. }
 Qed.
 
@@ -212,7 +212,7 @@ Proof using.
     intros S LS EF M. subst EF. simpl in M.
     cuts G: (forall i L', i >= 0 -> length L' = n-i ->
        S i (Array ((make i v)++L') p) (fun r => (Array (make n v) p))).
-    { applys_eq (>> G L) 2. math. math. rewrite make_zero. rew_list~. }
+    { applys_eq (>> G L). math. math. rewrite make_zero. rew_list~. }
     intros i. induction_wf IH: (upto n) i. intros L' Ei EL'.
     applys (rm M). case_if.
     { xseq. (* later: remove *)

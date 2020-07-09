@@ -85,11 +85,8 @@ Lemma eval_app_fix_val : forall n m1 m2 v1 v2 f x t r,
   eval n m1 (subst2 f v1 x v2 t) m2 r ->
   eval (n+1) m1 (trm_app v1 v2) m2 r.
 Proof using.
-  introv E M. subst. applys equates_5.
-  applys* eval_app_arg. math.
-  (* --TODO here and above applys_eq 5 eval_app. *)
+  introv E M. subst. applys_eq* eval_app_arg. math.
 Qed.
-
 
 Lemma eval_ref_sep : forall s1 s2 v l,
   l <> null ->
@@ -109,9 +106,9 @@ Lemma eval_get_sep : forall s s1 s2 l v,
   eval 0 s (val_get (val_loc l)) s v.
 Proof using.
   introv -> D ->. forwards Dv: Fmap.indom_single l v.
-  applys_eq eval_get 1.
-  { applys~ Fmap.indom_union_l. }
+  applys_eq eval_get.
   { rewrite~ Fmap.read_union_l. rewrite~ Fmap.read_single. }
+  { applys~ Fmap.indom_union_l. }
 Qed.
 
 Lemma eval_set_sep : forall s s' h1 h1' h2 l v v',
@@ -123,10 +120,10 @@ Lemma eval_set_sep : forall s s' h1 h1' h2 l v v',
   eval 0 s (val_set (val_loc l) v') s' val_unit.
 Proof using.
   introv -> -> D -> ->. forwards Dv: Fmap.indom_single l v.
-  applys_eq eval_set 2.
-  { applys~ Fmap.indom_union_l. }
+  applys_eq eval_set.
   { rewrite~ Fmap.update_union_l. fequals.
     rewrite~ Fmap.update_single. }
+  { applys~ Fmap.indom_union_l. }
 Qed.
 
 End Redn.
@@ -937,7 +934,7 @@ Lemma triple_let_val : forall z v1 t2 H Q,
   triple (trm_let z (trm_val v1) t2) H Q.
 Proof using.
   introv M. forwards~ M': (rm M).
-  applys_eq~ (>> triple_let H (fun x => \[x = v1] \* H)) 2.
+  applys_eq (>> triple_let H Q (fun x => \[x = v1] \* H)).
   { applys triple_val. xsimpl~. }
   { intros X. applys triple_hpure. intro_subst. applys M'. }
 Qed.
@@ -956,7 +953,7 @@ Proof using.
   destruct h1 as [n1 c1]. simpls. subst. simpls.
   lets~ (n&h'&v&R&K&C): (rm M) HF h2.
   exists (n+1)%nat h' v. splits~.
-  { applys* eval_app_fix_val. applys_eq R 2 4; try fmap_eq. }
+  { applys* eval_app_fix_val. applys_eq R; try fmap_eq. }
   { math. }
 Qed.
 
@@ -1033,9 +1030,9 @@ Proof using.
   unfold triple, triple'. iff M.
   { introv P1. forwards~ (n&h'&v&R1&R2&R3): M H' (m,c).
     exists n (h'^s) (h'^c) v. splits~.
-    applys_eq R2 1. applys~ heap_eq. }
+    applys_eq R2. applys~ heap_eq. }
   { introv P1. forwards (n&m'&c'&v&R1&R2&R3): M H' (h^s) (h^c).
-    { applys_eq P1 1. applys~ heap_eq. }
+    { applys_eq P1. applys~ heap_eq. }
     exists n (m',c') v. splits~. }
 Qed.
 
@@ -1071,14 +1068,14 @@ Proof using.
     splits~.
     { subst. rew_disjoint; simpls; rew_disjoint. destruct N2.
      splits~. }
-    { applys_eq R1 2 4; try fmap_eq. }
+    { applys_eq R1; try fmap_eq. }
     { lets P: hgc_heap_inv T1. simpls. math. } }
   { introv (h1&h2&N1&N2&D&U).
     forwards~ (n&m1'&m3'&c1'&v&R1&R2&R3&R4): M (h1^s) (h1^c) (h2^s).
-    { applys_eq N1 1. applys~ heap_eq. }
+    { applys_eq N1. applys~ heap_eq. }
     lets (?&?): heap_eq_forward (rm U). simpls.
     exists n (m1' \+ m3' \+ h2^s) (c-n) v. splits~.
-    { applys_eq R2 2 4; try fmap_eq. }
+    { applys_eq R2; try fmap_eq. }
     { exists (m1',c1') (m3' \+ h2^s, (h2^c + h1^c - n - c1')). splits~.
       { exists (m3',(h1^c - n - c1')) h2. splits~.
         { applys hgc_intro. simpl. math. }

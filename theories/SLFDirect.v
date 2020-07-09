@@ -1089,10 +1089,10 @@ Lemma eval_set_sep : forall s1 s2 h2 p w v,
   eval s1 (val_set (val_loc p) v) s2 val_unit.
 Proof using.
   introv -> -> D. forwards Dv: Fmap.indom_single p w.
-  applys_eq eval_set 2.
-  { applys~ Fmap.indom_union_l. }
+  applys_eq eval_set.
   { rewrite~ Fmap.update_union_l. fequals.
     rewrite~ Fmap.update_single. }
+  { applys~ Fmap.indom_union_l. }
 Qed.
 
 Lemma eval_free_sep : forall s1 s2 v p,
@@ -1101,11 +1101,11 @@ Lemma eval_free_sep : forall s1 s2 v p,
   eval s1 (val_free p) s2 val_unit.
 Proof using.
   introv -> D. forwards Dv: Fmap.indom_single p v.
-  applys_eq eval_free 2.
-  { applys~ Fmap.indom_union_l. }
+  applys_eq eval_free.
   { rewrite~ Fmap.remove_union_single_l.
     intros Dl. applys Fmap.disjoint_inv_not_indom_both D Dl.
     applys Fmap.indom_single. }
+  { applys~ Fmap.indom_union_l. }
 Qed.
 
 
@@ -1944,22 +1944,20 @@ Lemma wpgen_fun_sound : forall x t1 Fof,
   formula_sound (trm_fun x t1) (wpgen_fun Fof).
 Proof using.
   introv M. intros Q. unfolds wpgen_fun. applys himpl_hforall_l (val_fun x t1).
-Admitted. (* TODO
   xchange hwand_hpure_l.
   { intros. applys himpl_trans_r. { applys* wp_app_fun. } { applys* M. } }
   { applys wp_fun. }
-Qed. *)
+Qed.
 
 Lemma wpgen_fix_sound : forall f x t1 Fof,
   (forall vf vx, formula_sound (subst x vx (subst f vf t1)) (Fof vf vx)) ->
   formula_sound (trm_fix f x t1) (wpgen_fix Fof).
 Proof using.
   introv M. intros Q. unfolds wpgen_fix. applys himpl_hforall_l (val_fix f x t1).
-Admitted.  (* TODO
   xchange hwand_hpure_l.
   { intros. applys himpl_trans_r. { applys* wp_app_fix. } { applys* M. } }
   { applys wp_fix. }
-Qed. *)
+Qed.
 
 Lemma wpgen_seq_sound : forall F1 F2 t1 t2,
   formula_sound t1 F1 ->
@@ -2248,8 +2246,7 @@ Tactic Notation "xtriple" :=
 
 Notation "'TRIPLE' t 'PRE' H 'POST' Q" :=
   (triple t H Q)
-  (at level 39, t at level 0, only parsing,
-  format "'[v' 'TRIPLE'  t  '/' 'PRE'  H  '/' 'POST'  Q ']'") : wp_scope.
+  (at level 39, t at level 0, only parsing) : wp_scope.
 
 Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (mkstruct F) Q)
   (at level 8, H, F, Q at level 0,
@@ -2421,76 +2418,5 @@ Qed.
     invoked in further examples. *)
 
 Hint Resolve triple_incr : triple.
-
-
-(* ################################################ *)
-(** *** Definition and verification of [mysucc]. *)
-
-(** Here is another example, the function:
-[[
-   let mysucc n =
-      let r = ref n in
-      incr r;
-      let x = !r in
-      free r;
-      x
-]]
-
-  Note that this function has the same behavior as [succ],
-  but its implementation makes use of the [incr] function
-  from above. *)
-
-Definition mysucc : val :=
-  Fun 'n :=
-    Let 'r := val_ref 'n in
-    incr 'r ';
-    Let 'x := '! 'r in
-    val_free 'r ';
-    'x.
-
-Lemma triple_mysucc : forall n,
-  TRIPLE (trm_app mysucc n)
-    PRE \[]
-    POST (fun v => \[v = n+1]).
-Proof using.
-  xwp. xapp. intros r. xapp. xapp. xapp. xval. xsimpl*.
-Qed.
-
-
-(* ################################################ *)
-(** *** Definition and verification of [myfun]. *)
-
-(** Here is an example of a function involving a local function definition.
-
-[[
-   let myfun p =
-      let f = (fun () => incr p) in
-      f();
-      f()
-]]
-
-*)
-
-Definition myfun : val :=
-  Fun 'p :=
-    Let 'f := (Fun_ 'u := incr 'p) in
-    'f '() ';
-    'f '().
-
-Lemma triple_myfun : forall (p:loc) (n:int),
-  TRIPLE (trm_app myfun p)
-    PRE (p ~~> n)
-    POST (fun _ => p ~~> (n+2)).
-Proof using.
-  xwp.
-  xfun (fun (f:val) => forall (m:int),
-    TRIPLE (f '())
-      PRE (p ~~> m)
-      POST (fun _ => p ~~> (m+1))); intros f Hf.
-  { intros. applys Hf. clear Hf. xapp. xsimpl. }
-  xapp.
-  xapp.
-  replace (n+1+1) with (n+2); [|math]. xsimpl.
-Qed.
 
 End DemoPrograms.

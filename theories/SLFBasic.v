@@ -22,11 +22,11 @@ Implicit Types p q : loc.
 (* ########################################################### *)
 (** * Chapter in a rush, nested with exercises as additional contents *)
 
-(** This chapter gives an overview of how to state specifications and carry
-    out proofs in Separation Logic, using the framework whose construction
-    is presented throughout this course.
+(** This chapter gives an overview of how the key features of Separation
+    Logic, and presents through a series of example a practical verification
+    framework, whose construction is presented throughout this course.
 
-    This chapter introduces:
+    This chapter introduces the following notions:
 
     - "Heap predicates", which are used to describe memory states in
       Separation Logic.
@@ -36,10 +36,11 @@ Implicit Types p q : loc.
       which assert that a pre- or post-condition is weaker than another one.
     - "Verification proof obligations", of the form [PRE H CODE F POST Q],
       which internally leverage a form of weakest-precondition.
-    - Verification tactics, called "x-tactics", which are specialized tactics
+    - Custom proof tactics, called "x-tactics", which are specialized tactics
       for carrying out the verification proofs.
 
-    The "heap predicates" used to describe memory states include:
+    The "heap predicates" used to describe memory states are presented
+    throughout the chapter. They include:
     - [p ~~> n], which describes a memory cell at location [p] with contents [n],
     - [\[]], which describes an empty state,
     - [\[P]], which also describes an empty state, and moreover asserts that
@@ -50,17 +51,17 @@ Implicit Types p q : loc.
     All these heap predicates admit the type [hprop], which consists of predicate
     over memory states. Technically, [hprop] is defined as [state->Prop].
 
-    The verification proofs are carried out using x-tactics, identified by the
-    leading "x" letter in their name. These tactics include:
+    The verification of practical programs is carried out using x-tactics,
+    identified by the leading "x" letter in their name. These tactics include:
     - [xwp] or [xtriple] to begin a proof,
     - [xapp] to reason about an application,
     - [xval] to reason about a return value,
     - [xif] to reason about a conditional,
     - [xsimpl] to simplify or prove entailments ([H ==> H'] or [Q ===> Q']).
 
-    In addition to x-tactics, the verification proof scripts exploit standard
-    Coq tactics, as well as tactics from the TLC library. The relevant TLC
-    tactics, which are described when first use, include:
+    In addition to x-tactics, the proof scripts exploit standard Coq tactics,
+    as well as tactics from the TLC library. The relevant TLC tactics, which
+    are described when first use, include:
     - [math], which is a variant of [omega] for proving mathematical goals,
     - [induction_wf], which sets up proofs by well-founded induction,
     - [gen], which is a shorthand for [generalize dependent], a tactic
@@ -68,18 +69,17 @@ Implicit Types p q : loc.
 
     For simplicity, we assume all programs to be written in A-normal form,
     that is, with all intermediate expressions being named by a let-binding.
-    Every example program is first informally presented in OCaml syntax, then
-    is formally defined in Coq using an ad-hoc notation system, featuring
-    variable names and operators all prefixed by a quote symbol.
-*)
+    For each program, we first show its code using OCaml-style syntax, then
+    formally define the code in Coq using an ad-hoc notation system,
+    featuring variable names and operators all prefixed by a quote symbol. *)
 
 
 (* ########################################################### *)
 (** ** The increment function *)
 
 (** As first example, consider the function [incr], which increments
-    the contents of a mutable cell that stores an integer.
-    In OCaml syntax, this function is defined as:
+    the contents of a mutable cell that stores an integer. In OCaml
+    syntax, this function is defined as:
 
 [[
    let incr p =
@@ -88,27 +88,27 @@ Implicit Types p q : loc.
        p := m
 ]]
 
-    We describe this program to Coq using a custom set of notation for the
+    We describe this program in Coq using a custom set of notation for the
     syntax of imperative programs. There is no need to learn how to write
-    programs in this ad-hoc syntax: the source code is provided for all the
+    programs in this ad-hoc syntax: source code is provided for all the
     programs involved in this course.
 
     The definition for the function [incr] appears below. This function is a
-    value, so it admits, like all values in the framework, the type [val].
-
-    The quotes that appear in the source code are used to disambiguate
-    between the keywords and variables associated with the source code,
-    and those from the corresponding Coq keywords and variables.
-    The [Fun] keyword should be read like the [fun] keyword from OCaml.
-
-    Again, the reader may blindly trust that it corresponds to the OCaml
-    code shown above. *)
+    value, so it admits, like all values in our framework, the type [val]. *)
 
 Definition incr : val :=
   Fun 'p :=
     Let 'n := '! 'p in
     Let 'm := 'n '+ 1 in
     'p ':= 'm.
+
+(** The quotes that appear in the source code are used to disambiguate
+    between the keywords and variables associated with the source code,
+    and those from the corresponding Coq keywords and variables.
+    The [Fun] keyword should be read like the [fun] keyword from OCaml.
+
+    The reader may blindly trust that it corresponds to the OCaml code
+    shown previously. *)
 
 (** The specification of [incr p], shown below, is expressed using a
     "Separation Logic triple". A triple is formally expressed by a proposition
@@ -141,11 +141,12 @@ Lemma triple_incr : forall (p:loc) (n:int),
 
 (** The general pattern of a specification thus includes:
 
-    - Quantification of the arguments (here [p]) and of the "ghost variables"
-      (here, [n]) used to describe the input state.
+    - Quantification of the arguments of the functions---here, the variable [p].
+    - Quantification of the "ghost variables" used to describe the input
+      state---here, the variable [n].
     - The application of the predicate [triple] to the function application
       [incr p], which is the term being specified by the triple.
-    - The precondition describing the input state, here [p ~~> n].
+    - The precondition describing the input state---here, the predicate [p ~~> n].
     - The postcondition describing both the output value and the output state.
       The general pattern is [fun r => H'], where [r] denotes the name of
       the result, and [H'] describes the final state. Here, the final
@@ -182,18 +183,19 @@ Proof using.
 
      Each function call is handled using the tactic [xapp]. *)
 
-  xapp.    (* Reason about the operation [!p] that reads into [p];
+  xapp.    (* We reason about the operation [!p] that reads into [p];
               this read operation returns the value [n]. *)
-  xapp.    (* Reason about the addition operation [n+1]. *)
-  xapp.    (* Reason about the update operation [p := n+1],
+  xapp.    (* We reason about the addition operation [n+1]. *)
+  xapp.    (* We reason about the update operation [p := n+1],
               thereby updating the state to [p ~~> (n+1)]. *)
   xsimpl.  (* At this stage, the proof obligation takes the form [_ ==> _],
               which require checking that the final state matches what
-              is claimed in the postcondition. [xsimpl] takes care of it. *)
+              is claimed in the postcondition. We discharge it using
+              the tactic [xsimpl]. *)
 Qed.
 
 (** The command below associates the specification lemma [triple_incr]
-    with the function [incr] in a database, so that if we subsequently
+    with the function [incr] in a hint database, so that if we subsequently
     verify a program that features a call to [incr], the [xapp] tactic
     is able to automatically invoke the lemma [triple_incr]. *)
 
@@ -205,8 +207,8 @@ Hint Resolve triple_incr : triple.
 
     A reader with prior knowledge in program verification might
     nevertheless be interested to know that [PRE H CODE F POST Q]
-    is defined as the [H ==> F Q], where [F] is a form of weakest-
-    precondition that describes the behavior of the code. *)
+    is defined as the entailment [H ==> F Q], where [F] is a form of
+    weakest-precondition that describes the behavior of the code. *)
 
 
 (* ########################################################### *)
@@ -240,7 +242,7 @@ Definition example_let : val :=
     in the precondition.
 
     To denote the fact that the output state is empty, we could use [\[]].
-    Yet, if we writ just [fun r => \[]] as postcondition, we would have
+    Yet, if we write just [fun r => \[]] as postcondition, we would have
     said nothing about the output value [r] produced by a call [example_let].
     Instead, we would like to specify that the result [r] is equal to [2*n].
     To that end, we write the postcondition [fun r => \[r = 2*n]], which
@@ -512,9 +514,9 @@ Proof using.
   xwp. xapp. xsimpl.
 Qed.
 
-(** Interestingly, the specification [triple_incr_first] which
-    mentions the two references is derivable from the specification
-    [triple_incr_first'] which mentions only the first reference.
+(** Interestingly, the specification [triple_incr_first], which
+    mentions the two references, is derivable from the specification
+    [triple_incr_first'], which mentions only the first reference.
 
     The corresponding proof appears next. It leverages the tactic
     [xtriple], which turns a specification triple of the form
@@ -597,9 +599,8 @@ Qed.
 (* ########################################################### *)
 (** ** Specification of allocation *)
 
-(** Consider the operation ['ref v] (a notation for [val_ref v]),
-    which allocates a memory cell with contents [v]. How can we
-    specify this operation using a triple?
+(** Consider the operation [ref v], which allocates a memory cell with
+    contents [v]. How can we specify this operation using a triple?
 
     The precondition of this triple should be the empty heap predicate,
     written [\[]], because the allocation can execute in an empty state.
@@ -619,9 +620,10 @@ Qed.
 
     To formally quantify the variable, we use an existential quantifier
     for heap predicates, written [\exists]. The correct postcondition for
-    ['ref v] is [fun (r:val) => \exists (p:loc), \[r = val_loc p] \* (p ~~> v)].
+    [ref v] is [fun (r:val) => \exists (p:loc), \[r = val_loc p] \* (p ~~> v)].
 
-    The complete statement of the specification appears below. *)
+    The complete statement of the specification appears below. Note that the
+    primitive operation [ref v] is written ['ref v] in the Coq syntax. *)
 
 Parameter triple_ref : forall (v:val),
   triple ('ref v)
@@ -631,21 +633,24 @@ Parameter triple_ref : forall (v:val),
 (** The pattern [fun r => \exists p, \[r = val_loc p] \* H)] occurs
     whenever a function returns a pointer. Thus, this pattern appears
     pervasively. To improve conciseness, we introduce a specific
-    notation for this pattern, shorthening it to [funloc p => H]. *)
+    notation for this pattern, shortening it to [funloc p => H]. *)
 
 Notation "'funloc' p '=>' H" :=
   (fun r => \exists p, \[r = val_loc p] \* H)
   (at level 200, p ident, format "'funloc'  p  '=>'  H").
+
+(** Using this notation, the specification [triple_ref] can be reformulated
+    more concisely, as follows. *)
 
 Parameter triple_ref' : forall (v:val),
   triple ('ref v)
     \[]
     (funloc p => p ~~> v).
 
-(** Remark: CFML features a technique that generalizes the notation
-    [funloc] to all return types, by leveraging type-classes. Yet,
-    the use of type-classes involves a number of technicalities that
-    we wish to avoid in this course. For that reason, we employ only
+(** Remark: the CFML tool features a technique that generalizes the
+    notation [funloc] to all return types, by leveraging type-classes.
+    Yet, the use of type-classes involves a number of technicalities
+    that we wish to avoid in this course. For that reason, we employ only
     the [funloc] notation, and use existential quantifiers explicitly
     for other types. *)
 
@@ -691,14 +696,13 @@ Qed.
 
 (** [] *)
 
-(* EX1! (triple_ref_greater_abstract) *)
+(* EX2! (triple_ref_greater_abstract) *)
 (** State another specification for the function [ref_greater],
     called [triple_ref_greater_abstract], with a postcondition that
     does not reveal the contents of the freshly reference [q], but
     instead only asserts that its contents is greater than the contents
-    of [p].
-
-    Hint: introduce a variable [m] such that [m > n].
+    of [p]. To that end, introduce in the postcondition an existentially-
+    quantified variable called [m], and specified to satisfy [m > n].
 
     Then, derive the new specification from the former one, following
     the proof pattern employed in the proof of [triple_incr_first_derived]. *)
@@ -719,12 +723,13 @@ Qed.
 (* ########################################################### *)
 (** ** Deallocation in Separation Logic *)
 
-(** Separation Logic tracks allocated data. In its standard setup,
+(** Separation Logic tracks allocated data. In its simplest form,
     Separation Logic enforces that all allocated data be eventually
     deallocated. Technically, the logic is said to "linear" as opposed
     to "affine". *)
 
-(** Let us illustrate what happens when we forget to deallocate data.
+(** Let us illustrate what happens if we forget to deallocate a reference.
+
     To that end, consider the following program, which computes
     the successor of a integer [n] by storing it into a reference cell,
     then incrementing that reference, and finally returning its contents.
@@ -780,7 +785,10 @@ Qed.
     from returning it into its own postcondition. *)
 
 (** The right solution is to patch the code, to free the reference once
-    it is no longer needed, as shown below.
+    it is no longer needed, as shown below. We assume the source language
+    to include a deallocation operation written [free p]. This operation
+    does not exist in OCaml, but let us nevertheless continue using OCaml
+    syntax for writing programs.
 
 [[
     let succ_using_incr n =
@@ -825,10 +833,9 @@ Qed.
 (* ########################################################### *)
 (** ** Axiomatization of the mathematical factorial function *)
 
-(** Our next example consists of a program that evaluates the
-    factorial function. To specify this function, we consider
-    a Coq axiomatization of the mathematical factorial function,
-    which is called [facto]. *)
+(** Our next example consists of a program that evaluates the factorial
+    function. To specify this function, we consider a Coq axiomatization
+    of the mathematical factorial function, named [facto]. *)
 
 Parameter facto : int -> int.
 
@@ -840,15 +847,15 @@ Parameter facto_step : forall n,
   n > 1 ->
   facto n = n * (facto (n-1)).
 
-(** Remark: throught this axiomatization, we purposely do not specify
+(** Note that, throught this axiomatization, we purposely do not specify
     the value of [facto] on negative arguments. *)
 
 
 (* ########################################################### *)
 (** ** A partial recursive function, without state *)
 
-(** In the rest of the chapter, we will consider recursive functions
-    that manipulate the state. To gently introduce the necessary techniques
+(** In the rest of the chapter, we consider recursive functions that
+     manipulate the state. To gently introduce the necessary techniques
     for reasoning about recursive functions, we first consider a recursive
     function that does not involve any mutable state.
 
@@ -883,15 +890,16 @@ Definition factorec : val :=
     - or we rule out this possibility by requiring [n >= 0].
 
     Let us follow the second approach, in order to illustrate the
-    specification of partial functions. There are yet two possibilities
-    for expressing the constraint [n >= 0]:
+    specification of partial functions.
+
+    There are two possibilities for expressing the constraint [n >= 0]:
 
     - either we use as precondition [\[n >= 0]],
     - or we place an assumption [(n >= 0) -> _] to the front of the triple,
       and use an empty precondition, that is, [\[]].
 
     The two presentations are totally equivalent. By convention, we follow
-    the second presentation, which tends to improve the readability of
+    the second presentation, which tends to improve both the readability of
     specifications and the conciseness of proof scripts.
 
     The specification of [factorec] is thus stated as follows. *)
@@ -981,7 +989,7 @@ Qed.
 (** ** A recursive function with state *)
 
 (** The example of [factorec] was a warmup. Let's now tackle a recursive
-    function involving some mutable state.
+    function involving mutable state.
 
     The function [repeat_incr p m] makes [m] times a call to [incr p].
     Here, [m] is assumed to be a nonnegative value.
@@ -1056,6 +1064,70 @@ Abort.
 
 
 (* ########################################################### *)
+(** ** Trying to prove incorrect specifications *)
+
+(** We established for [repeat_incr p n] a specification with the constraint
+    [m >= 0]. What if did omit it? Where would we get stuck in the proof?
+
+    Clearly, something should break in the proof, because when [m < 0],
+    the call [repeat_incr p m] terminates immediately. Thus, when [m < 0]
+    the final state is like the initial state [p ~~> n], and not equal
+    to [p ~~> (n + m)]. Let us investigate how the proof breaks. *)
+
+Lemma triple_repeat_incr_incorrect : forall (p:loc) (n m:int),
+  triple (repeat_incr p m)
+    (p ~~> n)
+    (fun _ => p ~~> (n + m)).
+Proof using.
+  intros. revert n. induction_wf IH: (downto 0) m. unfold downto in IH.
+  intros. xwp. xapp. xif; intros C.
+  { (* In the 'then' branch: [m > 0] *)
+    xapp. xapp. xapp. { math. } xsimpl. math. }
+  { (* In the 'else' branch: [m <= 0] *)
+    xval.
+    (* Here, we are requested to justify that the current state
+       [p ~~> n] matches the postcondition [p ~~> (n + m)], which
+       amounts to proving [n = n + m]. *)
+    xsimpl.
+    (* When the specification features the assumption [m >= 0],
+       we can prove this equality because the fact that we are
+       in the else branch means that [m <= 0], thus [m = 0].
+       However, without the assumption [m >= 0], the value of
+       [m] could very well be negative. *)
+Abort.
+
+(** Note that there exists a valid specification for [repeat_incr] that
+    does not constraint [m], but instead specifies that the state
+    always evolves from [p ~~> n] to [p ~~> (n + max 0 m)]. *)
+
+(** The proof scripts exploits two properties of the [max] function. *)
+
+Lemma max_l : forall n m,
+  n >= m ->
+  max n m = n.
+Proof using. introv M. unfold max. case_if; math. Qed.
+
+Lemma max_r : forall n m,
+  n <= m ->
+  max n m = m.
+Proof using. introv M. unfold max. case_if; math. Qed.
+
+(** Let's prove most-general specification for the function [repeat_incr]. *)
+
+Lemma triple_repeat_incr' : forall (p:loc) (n m:int),
+  triple (repeat_incr p m)
+    (p ~~> n)
+    (fun _ => p ~~> (n + max 0 m)).
+Proof using.
+  intros. gen n. induction_wf IH: (downto 0) m.
+  xwp. xapp. xif; intros C.
+  { xapp. xapp. xapp. { math. }
+    xsimpl. repeat rewrite max_r; math. }
+  { xval. xsimpl. rewrite max_l; math. }
+Qed.
+
+
+(* ########################################################### *)
 (** ** A recursive function involving two references *)
 
 (** Consider the function [step_transfer p q], which repeatedly increment
@@ -1116,13 +1188,16 @@ Qed. (* /ADMITTED *)
     of consecutive cells. *)
 
 Module ExampleLists.
-Export Blocks.
 
 (** A mutable list cell is a two-cell record, featuring a head field and a
     tail field. We define the field indices as follows. *)
 
 Definition head : field := 0%nat.
 Definition tail : field := 1%nat.
+
+(** The heap predicate [p ~~~>`{ head := x; tail := q}] describes a
+    record allocated at location [p], with a head field storing [x]
+    and a tail field storing [q]. *)
 
 (** A mutable list consists of a chain of cells, terminated by [null].
 
@@ -1133,8 +1208,8 @@ Definition tail : field := 1%nat.
 
     - if [L] is empty, then [p] is the null pointer,
     - if [L] is of the form [x::L'], then [p] is not null, and the
-      head field of [p] contains [x], and the tail field of [p] 
-      contains a pointer [q] such that [MList L' q] describes the 
+      head field of [p] contains [x], and the tail field of [p]
+      contains a pointer [q] such that [MList L' q] describes the
       tail of the list.
 
 *)
@@ -1142,8 +1217,7 @@ Definition tail : field := 1%nat.
 Fixpoint MList (L:list val) (p:loc) : hprop :=
   match L with
   | nil => \[p = null]
-  | x::L' => \[p <> null] \* 
-             \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* (MList L' q)
+  | x::L' => \exists q, (p ~~~>`{ head := x; tail := q}) \* (MList L' q)
   end.
 
 (** The following reformulations of the definition are helpful in proofs,
@@ -1156,7 +1230,7 @@ Proof using. auto. Qed.
 
 Lemma MList_cons : forall p x L',
   MList (x::L') p =
-  \[p <> null] \* \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* MList L' q.
+  \exists q, (p ~~~>`{ head := x; tail := q}) \* (MList L' q).
 Proof using.  auto. Qed.
 
 (** Another characterization of [MList L p] is useful for proofs. Whereas
@@ -1177,7 +1251,7 @@ Lemma MList_if : forall (p:loc) (L:list val),
   ==> (If p = null
         then \[L = nil]
         else \exists x q L', \[L = x::L']
-             \* (p`.head ~~> x) \* (p`.tail ~~> q) \* (MList L' q)).
+             \* (p ~~~>`{ head := x; tail := q}) \* (MList L' q)).
 Proof using.
   (* Let's prove this result by case analysis on [L]. *)
   intros. destruct L as [|x L'].
@@ -1194,21 +1268,26 @@ Proof using.
      [rewrite MList_cons. xpull. intros q.]
      A more efficient approach is to use the dedicated CFML tactic [xchange],
      which is specialized for performing updates in the current state. *)
-    xchange MList_cons.
-    (* At this point, we know that [p <> null]. *)
-    intros N q. case_if.
-    (* The 'else' branch corresponds to the definition of [MList] in 
-       the [cons] case. It suffices to correctly instantiate the
-       existential quantifiers. *)
+    xchange MList_cons. intros q.
+    (* Because a record is allocated at location [p], the pointer [p]
+       cannot be null. The lemma [hrecord_not_null] allows us to exploit
+       this property, extracting the hypothesis [p <> null]. We use again
+       the tactic [case_if] to simplify the case analysis. *)
+    xchange hrecord_not_null. intros N. case_if.
+    (* To conclude, it suffices to correctly instantiate the existential
+       quantifiers. The tactic [xsimpl] is able to guess the appropriate
+       instantiations. *)
      xsimpl. auto. }
 Qed.
+
+Opaque MList.
 
 
 (* ########################################################### *)
 (** ** In-place concatenation of two mutable lists *)
 
-(** The following function expects a nonempty list [p1] and a list [p2],
-    and updates [p1] in place so that its tail gets extended by the
+(** The function [append] shown below expects a nonempty list [p1] and a list
+    [p2], and updates [p1] in place so that its tail gets extended by the
     cells from [p2].
 
 [[
@@ -1228,7 +1307,9 @@ Definition append : val :=
       Then Set 'p1'.tail ':= 'p2
       Else 'f 'q1 'p2.
 
-(** The append function is specified and verified as follows. *)
+(** The append function is specified and verified as follows. The proof
+    pattern is representative of that of many list-manipulating functions,
+    so it is essential to follow through every step of that proof. *)
 
 Lemma Triple_append : forall (L1 L2:list val) (p1 p2:loc),
   p1 <> null ->
@@ -1247,10 +1328,10 @@ Proof using.
   { (* If [q1'] is null, then [L1'] is empty. *)
     xchange (MList_if q1). case_if. xpull. intros ->.
     (* In this case, we set the pointer, then we fold back the head cell. *)
-    xapp. xchange <- MList_cons. auto. }
+    xapp. xchange <- MList_cons. }
   { (* If [q1'] is not null, we reason about the recursive call using
        the induction hypothesis, then we fold back the head cell. *)
-    xapp. xchange <- MList_cons. auto. }
+    xapp. xchange <- MList_cons. }
 Qed.
 
 
@@ -1258,73 +1339,20 @@ Qed.
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
-(** * Bonus contents (optional reading) *)
-
-
+(** * Additional contents *)
 
 (* ####################################################### *)
-(** ** Smart constructors for lists *)
+(** ** Smart constructors for linked lists *)
 
-(* TODO
+Implicit Types x : val.
 
-(** Recall the properties of [MList], which are reformulated using the
-    hrecord notation [p ~~~> kvs]. *)
+(** This section introduces two smart constructors for linked lists,
+    called [mnil] and [mcons].
 
-Lemma MList_nil : forall p,
-  (MList nil p) = \[p = null].
-Proof using. auto. Qed.
-
-Lemma MList_cons : forall p x L',
-  MList (x::L') p =
-  \exists q, (p ~~~> `{ head := x ; tail := q }) \* MList L' q.
-Proof using.  auto. Qed.
-
-Lemma MList_if : forall (p:loc) (L:list val),
-      (MList L p)
-  ==> (If p = null
-        then \[L = nil]
-        else \exists x q L', \[L = x::L']
-             \* (p ~~~> `{ head := x ; tail := q }) \* (MList L' q)).
-Proof using.
-  intros. destruct L as [|x L'].
-  { xchange MList_nil. intros M. case_if. xsimpl*. }
-  { xchange MList_cons. intros q. xchange hrecord_not_null. intros N.
-    case_if. xsimpl*. }
-Qed.
-
-Opaque MList.
-
-
-Parameter triple_mcell : forall (x q:val),
-  triple (mcell x q)
-    \[]
-    (funloc p => p ~~~> `{ head := x ; tail := q }).
-
-(** The function [mcons] is an alias for [mcell]. Whereas [mcell x q]
-    is intended to allocate a fresh cell on its own, [mcons x q] is
-    intended to extend an existing list [MList L q] by appending to it
-    a freshly-allocated cell. The specification of [mcons] requires
-    a list [MList L q] in its precondition, and produces a list
-    [MList (x::L) p] in its postcondition. *)
-
-Definition mcons : val :=
-  mcell.
-
-Lemma triple_mcons : forall L x q,
-  triple (mcons x q)
-    (MList L q)
-    (funloc p => MList (x::L) p).
-Proof using.
-  intros. xtriple. xapp triple_mcell.
-  intros p. xchange <- MList_cons. xsimpl*.
-Qed.
-
-Hint Resolve triple_mcons : triple.
-
-(** The operation [mnil()] returns the [null] value, which is a
-    representation for the empty list [nil]. Thus, [mnil] can be
-    specified using a postcondition asserting it produces [MList nil p],
-    where [p] denotes the location returned.
+    The operation [mnil()] is intended to create an empty list.
+    Its implementation simply returns the value [null]. Its
+    specification asserts that the return value is a pointer [p]
+    such that [MList nil p] holds.
 
 [[
     let rec mnil () =
@@ -1350,6 +1378,42 @@ Hint Resolve triple_mnil : triple.
     without having to reveal low-level implementation details that
     involve the [null] pointer. *)
 
+(** The operation [mcons x q] is intended to allocate a fresh list cell,
+    with [x] in the head field and [q] in the tail field. The implementation
+    of this operation allocates and initializes a fresh record made of
+    two fields, using an operation called [val_new_hrecord_2], which we
+    here view as a primitive. The chapter [SLFStruct] describes an encoding
+    of this function in terms of the allocation and write operations. *)
+
+Definition mcons : val :=
+  val_new_hrecord_2 head tail.
+
+(** The operation [mcons] admits two specifications: one that describes only
+    the fresh record allocated, and one that combines it with a list
+    representation of the form [Mlist q L] to produce as postcondition
+    an extended list of the form [Mlist p (x::L)].
+
+    The first specification is as follows. *)
+
+Lemma triple_mcons : forall x q,
+  triple (mcons x q)
+    \[]
+    (funloc p => p ~~~> `{ head := x ; tail := q }).
+Proof using. intros. applys* triple_new_hrecord_2. Qed.
+
+(** The second specification is derived from the first. *)
+
+Lemma triple_mcons' : forall L x q,
+  triple (mcons x q)
+    (MList L q)
+    (funloc p => MList (x::L) p).
+Proof using.
+  intros. xtriple. xapp triple_mcons.
+  intros p. xchange <- MList_cons. xsimpl*.
+Qed.
+
+Hint Resolve triple_mcons' : triple.
+
 
 (* ####################################################### *)
 (** ** Copy function for lists *)
@@ -1357,7 +1421,7 @@ Hint Resolve triple_mnil : triple.
 (** The function [mcopy] takes a mutable linked list and builds
     an independent copy of it.
 
-    This program illustrates the use the of functions [mnil] and 
+    This program illustrates the use the of functions [mnil] and
     [mcons].
 
 [[
@@ -1402,14 +1466,16 @@ Lemma triple_mcopy : forall L p,
 Proof using.
   intros. gen p. induction_wf IH: list_sub L.
   xwp. xapp. xchange MList_if. xif; intros C; case_if; xpull.
-  { intros ->. xapp. xsimpl*. xchanges* <- (MList_nil p). }
+  { intros ->. xapp. xsimpl*. subst. xchange* <- MList_nil. }
   { intros x q L' ->. xapp. xapp. xapp. intros q'.
     xapp. intros p'. xchange <- MList_cons. xsimpl*. }
 Qed.
 
 
-*)
-
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Bonus contents (optional reading) *)
 
 (* ########################################################### *)
 (** ** A continuation-passing style in-place concatenation function *)
@@ -1417,14 +1483,18 @@ Qed.
 (** The following program was proposed in the original article on
     Separation Logic by John Reynolds as a challenge for verification.
 
-    Just like the previous program, it performs in-place concatenation
-    of two lists. It differs in that it uses an auxiliary higher-order
-    function to perform the work. Also, the code returns a pointer onto
-    the head cell of the resulting list, to also work in case the first
-    list is empty.
+    This function, called [cps_append], is similar to the function [append]
+    presented previously: it also performs in-place concatenation of two lists.
+    It differs in that it is implemented using a recursive, continuation-passing
+    style function to perform the work.
 
-    The code is like a puzzle: it takes a good drawing and several minutes
-    to figure out how it works. Observe in particular how the recursive
+    The presentation of [cps_append p1 p2] is also slightly different: this
+    operation returns a pointer [p3] that describes the head of the result
+    of the concatenation, and it works even if [p1] corresponds to an empty list.
+
+    The code of [cps_append] involves an auxiliary function [cps_append_aux].
+    This code appears at first like a puzzle: it takes a good drawing and several
+    minutes to figure out how it works. Observe in particular how the recursive
     call is invoked as part of the continuation. *)
 
 (**
@@ -1454,6 +1524,8 @@ Definition cps_append : val :=
     Let 'f := (Fun_ 'r := 'r) in
     cps_append_aux 'p1 'p2 'f.
 
+(** Most of the complexity appears in the proof of [cps_append_aux]. *)
+
 Lemma triple_cps_append_aux : forall H Q (L1 L2:list val) (p1 p2:loc) (k:val),
   (forall (p3:loc), triple (k p3) (MList (L1 ++ L2) p3 \* H) Q) ->
   triple (cps_append_aux p1 p2 k)
@@ -1463,14 +1535,17 @@ Proof using.
   introv Hk. gen H p1 p2 L2 k. induction_wf IH: (@list_sub val) L1.
   xwp. xapp. xchange (MList_if p1). xif; intros C; case_if; xpull.
   { intros ->. xapp. xsimpl*. }
-  { intros x L1' p1' ->. xapp. xfun. intros f Hf.
-    xapp (>> IH (H \* p1`.tail ~~> L1' \* p1`.head ~~> x) L1').
+  { intros x p1' L1' ->. xapp. xfun. intros f Hf.
+    xapp (>> IH (H \* p1 ~~~> `{ head := x ; tail := p1' }) p1').
     { auto. }
-    { intros p3. xtriple. xapp. xapp. xapp. xchanges* <- MList_cons. }
+    { intros p3. xtriple. xapp. xapp. xapp. xchanges <- MList_cons. }
     { xsimpl. } }
 Qed.
 
 Hint Resolve triple_cps_append_aux : triple.
+
+(** The main function [cps_append] simply invokes [cps_append_aux]
+    with a trivial continuation. *)
 
 Lemma Triple_cps_append : forall (L1 L2:list val) (p1 p2:loc),
   triple (cps_append p1 p2)
@@ -1484,82 +1559,6 @@ Proof using.
   { xsimpl. }
 Qed.
 
-(** This concludes the formal verification of Reynolds's verification challenge. *)
+(** This concludes the formal verification of Reynolds' verification challenge. *)
 
 End ExampleLists.
-
-
-(* ########################################################### *)
-(** ** Trying to prove incorrect specifications *)
-
-(** Recall the function [repeat_incr p n], which invokes [n]
-    times [incr p].
-
-[[
-    let rec repeat_incr p m =
-      if m > 0 then (
-        incr p;
-        repeat_incr p (m - 1)
-      )
-]]
-*)
-
-(** We proved for this function a specification with the constraint
-    [m >= 0]. What if did omit it? Where would we get stuck in the proof?
-
-    Clearly, something should break in the proof, because when [m < 0],
-    the call [repeat_incr p m] terminates immediately. Thus, when [m < 0]
-    the final state is like the initial state [p ~~> n], and not equal
-    to [p ~~> (n + m)]. Let us investigate how the proof breaks. *)
-
-Lemma triple_repeat_incr_incorrect : forall (p:loc) (n m:int),
-  triple (repeat_incr p m)
-    (p ~~> n)
-    (fun _ => p ~~> (n + m)).
-Proof using.
-  intros. revert n. induction_wf IH: (downto 0) m. unfold downto in IH.
-  intros. xwp. xapp. xif; intros C.
-  { (* In the 'then' branch: [m > 0] *)
-    xapp. xapp. xapp. { math. } xsimpl. math. }
-  { (* In the 'else' branch: [m <= 0] *)
-    xval.
-    (* Here, we are requested to justify that the current state
-       [p ~~> n] matches the postcondition [p ~~> (n + m)], which
-       amounts to proving [n = n + m]. *)
-    xsimpl.
-    (* When the specification features the assumption [m >= 0],
-       we can prove this equality because the fact that we are
-       in the else branch means that [m <= 0], thus [m = 0].
-       However, without the assumption [m >= 0], the value of
-       [m] could very well be negative. *)
-Abort.
-
-(** Note that there exists a valid specification for [repeat_incr] that
-    does not constraint [m], but instead specifies that the state
-    always evolves from [p ~~> n] to [p ~~> (n + max 0 m)]. *)
-
-(** The proof scripts exploits two properties of the [max] function. *)
-
-Lemma max_l : forall n m,
-  n >= m ->
-  max n m = n.
-Proof using. introv M. unfold max. case_if; math. Qed.
-
-Lemma max_r : forall n m,
-  n <= m ->
-  max n m = m.
-Proof using. introv M. unfold max. case_if; math. Qed.
-
-(** Let's prove most-general specification for the function [repeat_incr]. *)
-
-Lemma triple_repeat_incr' : forall (p:loc) (n m:int),
-  triple (repeat_incr p m)
-    (p ~~> n)
-    (fun _ => p ~~> (n + max 0 m)).
-Proof using.
-  intros. gen n. induction_wf IH: (downto 0) m.
-  xwp. xapp. xif; intros C.
-  { xapp. xapp. xapp. { math. }
-    xsimpl. repeat rewrite max_r; math. }
-  { xval. xsimpl. rewrite max_l; math. }
-Qed.

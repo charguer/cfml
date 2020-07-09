@@ -1051,7 +1051,7 @@ Proof using.
   forwards* (h1'&v&(N1&N2&N3&N4)): (rm M) (h12 \u h2) (rm P11).
   lets~ (D3&D4): heap_compat_union_r_inv (rm N1).
   exists (h1' \u h12) v. splits~.
-  { applys_eq N2 2 4; try fmap_eq~. }
+  { applys_eq N2; try fmap_eq~. }
   { rew_heap~. rewrite N3. fmap_eq~. }
   { applys~ on_rw_sub_union_r. }
 Qed.
@@ -1115,7 +1115,7 @@ Proof using.
       fmap_disjoint. } }
   exists h1'' v. splits.
   { auto. }
-  { applys_eq N2 2 4; try fmap_eq~.
+  { applys_eq N2; try fmap_eq~.
     { rewrite~ R12. }
     { fequals. unstate. rewrite F1,F2,N3. fmap_eq. } }
   { rew_heap~. rewrite F2,E12. fmap_eq~. }
@@ -1294,8 +1294,8 @@ Proof using.
   forwards~ (T1a&T1b): heap_compat_union_r_inv T1.
   exists (h1'' \u hy) v2. splits~.
   { applys eval_let_trm.
-    { applys_eq~ N2 2 4. rewrite~ heap_union_assoc. }
-    { applys_eq~ T2 2 4.
+    { applys_eq~ N2. rewrite~ heap_union_assoc. }
+    { applys_eq~ T2.
       { fequals.
         rewrite~ (@heap_union_comm h12 hx).
         do 2 rewrite~ heap_union_assoc. fequals.
@@ -1316,9 +1316,9 @@ Lemma triple_let_simple : forall z t1 t2 H Q Q1,
   triple (trm_let z t1 t2) H Q.
 Proof using.
   introv M1 M2.
-  applys_eq~ (>> triple_let \[] M1) 1 2.
-  { intros X. rewrite* hstar_hempty_r. }
+  applys_eq~ (>> triple_let \[] M1).
   { rewrite* hstar_hempty_r. }
+  { intros X. rewrite* hstar_hempty_r. }
 Qed.
 
 Lemma triple_let_val : forall z v1 t2 H Q,
@@ -1326,11 +1326,11 @@ Lemma triple_let_val : forall z v1 t2 H Q,
   triple (trm_let z (trm_val v1) t2) H Q.
 Proof using.
   introv M. forwards~ M': M.
-  applys_eq (>> triple_let \[] (fun x => \[x = v1])) 2.
+  applys_eq (>> triple_let \[] Q (fun x => \[x = v1])).
+  { rewrite~ hstar_hempty_l. }
   { applys triple_val. rewrite <- (@hstar_hempty_r \[v1=v1]).
     applys~ himpl_hstar_hpure_r. applys Normal_hempty. }
   { intros X. applys triple_hpure. applys M. }
-  { rewrite~ hstar_hempty_l. }
 Qed.
 
 Lemma triple_app_fix : forall (f:bind) F x X t1 H Q,
@@ -1631,7 +1631,7 @@ Proof using.
       fmap_disjoint. } }
   exists h1'' v. splits.
   { auto. }
-  { applys_eq N2 2 4; try fmap_eq~.
+  { applys_eq N2; try fmap_eq~.
     { rewrite~ R12. }
     { fequals. unstate. rewrite F1,F2,N3. fmap_eq. } }
   { rew_heap~. rewrite F2,E12. fmap_eq~. }

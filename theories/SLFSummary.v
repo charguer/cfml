@@ -25,8 +25,8 @@ Import SLFDirect.
 (* ########################################################### *)
 (** * Motivation for Separation Logic in a proof assistant *)
 
-(** To begin with, please read the section titled "About Separation Logic"
-    from the file [SLFPreface.v]. *)
+(** Make sure to first read the section entitled "About Separation Logic"
+    near the top of the preface, in file [SLFPreface.v]. *)
 
 
 (* ########################################################### *)
@@ -40,8 +40,9 @@ Import SLFDirect.
 
 Module Language.
 
-(** We consider a ML-style programming language. Programs are represented as
-    terms of type [trm], and terms evaluate to values of type [val].
+(** We consider a lambda-calculus style programming language. Programs are
+    represented as terms of type [trm], and terms evaluate to values of
+    type [val].
 
     Let us describe the grammar of terms and values, which correspond to
     what is called a "deep embedding of the programming language".
@@ -60,7 +61,9 @@ Module Language.
     - variables, of type [var], represented as [strings],
     - function definitions, which may include free variables in the source code,
     - control structures: conditions, sequence, let-bindings,
-    - and function application. *)
+    - and function application.
+
+*)
 
 Definition var : Type := string.
 
@@ -1291,7 +1294,7 @@ End ProveIncrWithTactics.
 (** ** Formalization of mutable lists *)
 
 Module ProveAppend.
-Import SLFExtra SLFProgramSyntax Blocks.
+Import SLFExtra SLFProgramSyntax.
 Implicit Types p q : loc.
 
 (** A mutable list cell is a two-cell record, featuring a head field and a
@@ -1317,7 +1320,7 @@ Definition tail : field := 1%nat.
 Fixpoint MList (L:list val) (p:loc) : hprop :=
   match L with
   | nil => \[p = null]
-  | x::L' => \exists q, (p`.head ~~> x) \* (p`.tail ~~> q)
+  | x::L' => \exists q, (p ~~~>`{ head := x; tail := q})
                      \* (MList L' q)
   end.
 
@@ -1325,7 +1328,7 @@ Fixpoint MList (L:list val) (p:loc) : hprop :=
 
 Lemma MList_cons : forall p x L',
   MList (x::L') p =
-  \exists q, (p`.head ~~> x) \* (p`.tail ~~> q) \* MList L' q.
+  \exists q, (p ~~~>`{ head := x; tail := q}) \* MList L' q.
 Proof using.  auto. Qed.
 
 (** Another characterization of [MList L p] is useful for proofs. Whereas
@@ -1346,7 +1349,7 @@ Parameter MList_if : forall (p:loc) (L:list val),
   ==> (If p = null
       then \[L = nil]
       else \exists x q L', \[L = x::L']
-           \* (p`.head ~~> x) \* (p`.tail ~~> q)
+           \* (p ~~~>`{ head := x; tail := q})
            \* (MList L' q)).
 (* Proof in [SLFBasic]. *)
 

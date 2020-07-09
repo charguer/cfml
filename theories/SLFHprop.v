@@ -389,7 +389,7 @@ Proof using.
   introv M. unfold triple in *. rename H' into H1. intros H2.
   specializes M (H1 \* H2).
   (* [M] matches the goal up to rewriting for associativity. *)
-  applys_eq M 1 2.
+  applys_eq M.
   { rewrite hstar_assoc. auto. }
   { applys functional_extensionality. intros v. rewrite hstar_assoc. auto. }
 Qed.
@@ -458,10 +458,7 @@ Lemma triple_incr_2 : forall (p q:loc) (n m:int),
 
 Proof using.
   intros. lets M: triple_incr p n.
-  lets N: triple_frame (q ~~> m) M.
-  applys_eq N 1 2.
-  { auto. }
-  { apply functional_extensionality. intros v. auto. }
+  lets N: triple_frame (q ~~> m) M. apply N.
 Qed.
 
 (** Here, we have framed on [q ~~> m], but we could similarly

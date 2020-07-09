@@ -1611,7 +1611,10 @@ Ltac xchange_build_entailment modifier K :=
 
 Ltac xchange_perform L modifier cont :=
   forwards_nounfold_then L ltac:(fun K =>
+    let X := fresh "TEMP" in
+    set (X := K); (* intermediate [set] seems necessary *)
     let M := xchange_build_entailment modifier K in
+    clear X;
     xchange_apply M;
     cont tt).
 
@@ -1646,8 +1649,6 @@ Ltac xchange_xpull_cont_basic tt := (* version without error reporting *)
 
 Ltac xchange_xsimpl_cont tt :=
   unfold protect; xsimpl; try solve [ apply himpl_refl ].
-
-  (* --TODO DEPRECATED: [instantiate] useful? no longer...*)
 
 Ltac xchange_nosimpl_base E modifier :=
   xchange_core E modifier ltac:(idcont).

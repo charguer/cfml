@@ -1044,9 +1044,9 @@ Lemma eval_get_sep : forall s s1 s2 l v,
   eval s (val_get (val_loc l)) s v.
 Proof using.
   introv -> ->. forwards Dv: Fmap.indom_single l v.
-  applys_eq eval_get 1.
-  { applys~ Fmap.indom_union_l. }
+  applys_eq eval_get.
   { rewrite~ Fmap.read_union_l. rewrite~ Fmap.read_single. }
+  { applys~ Fmap.indom_union_l. }
 Qed.
 
 Lemma eval_set_sep : forall s s' h1 h1' h2 l v v',
@@ -1058,10 +1058,10 @@ Lemma eval_set_sep : forall s s' h1 h1' h2 l v v',
   eval s (val_set (val_loc l) v') s' val_unit.
 Proof using.
   introv -> -> D -> ->. forwards Dv: Fmap.indom_single l v.
-  applys_eq eval_set 2.
-  { applys~ Fmap.indom_union_l. }
+  applys_eq eval_set.
   { rewrite~ Fmap.update_union_l. fequals.
     rewrite~ Fmap.update_single. }
+  { applys~ Fmap.indom_union_l. }
 Qed.
 
 Lemma eval_free_sep : forall s1 s2 v l,
@@ -1070,11 +1070,11 @@ Lemma eval_free_sep : forall s1 s2 v l,
   eval s1 (val_free l) s2 val_unit.
 Proof using.
   introv -> D. forwards Dv: Fmap.indom_single l v.
-  applys_eq eval_free 2.
-  { applys~ Fmap.indom_union_l. }
+  applys_eq eval_free.
   { rewrite~ Fmap.remove_union_single_l.
     intros Dl. applys Fmap.disjoint_inv_not_indom_both D Dl.
     applys Fmap.indom_single. }
+  { applys~ Fmap.indom_union_l. }
 Qed.
 
 (** Generalization of the evaluation context rule for terms

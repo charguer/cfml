@@ -959,7 +959,7 @@ Lemma loc_fresh_nat : forall (L:list nat),
   exists (l:nat), ~ mem l L.
 Proof using.
   intros L. forwards (l&P): loc_fresh_nat_ge L.
-  exists l. intros M. applys (P 0%nat). applys_eq M 2. math.
+  exists l. intros M. applys (P 0%nat). applys_eq M. math.
 Qed.
 
 
@@ -997,7 +997,7 @@ Proof using.
   { intros l'. gen l. induction vs as [|v vs']; intros.
     { simple~. }
     { rewrite conseq_cons. destruct (IHvs' (S l)%nat) as [E|?].
-      { intros i N. applys F (S i). applys_eq N 2. math. }
+      { intros i N. applys F (S i). applys_eq N. math. }
       { simpl. unfold map_union. case_if~.
         { subst. right. applys not_not_inv. intros H. applys F 0%nat.
           constructor. math_rewrite (l'+0 = l')%nat. applys~ M. } }
