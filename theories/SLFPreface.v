@@ -1,4 +1,4 @@
-(** * SLFPreface *)
+(** * SLFPreface: Introduction to the course *)
 
 (** Warning! Beta release! *)
 

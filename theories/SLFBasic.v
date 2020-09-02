@@ -1,3 +1,5 @@
+(** * SLFBasic: Basics of Separation Logic *)
+
 (**
 
 Foundations of Separation Logic

@@ -1,3 +1,5 @@
+(** * SLFSummary: Overview of the ingredients *)
+
 (**
 
 This file provides the Coq definitions associated with a 1-hour talk

@@ -1,3 +1,5 @@
+(** * SLFHprop: Heap predicates *)
+
 (**
 
 Foundations of Separation Logic

@@ -1,3 +1,5 @@
+(** * SLFMinimal: a minimal soundness proof *)
+
 (**
 
 Foundations of Separation Logic

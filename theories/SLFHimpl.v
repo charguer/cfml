@@ -1,3 +1,5 @@
+(** * SLFHimpl: Heap entailment *)
+
 (**
 
 Foundations of Separation Logic

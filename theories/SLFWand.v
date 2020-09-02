@@ -1,3 +1,5 @@
+(** * SLFWand: Magic wand *)
+
 (**
 
 Foundations of Separation Logic

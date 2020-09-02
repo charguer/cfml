@@ -1,3 +1,5 @@
+(** * SLFStruct: Arrays and records *)
+
 (**
 
 Foundations of Separation Logic

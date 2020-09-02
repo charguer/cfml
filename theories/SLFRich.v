@@ -1,3 +1,5 @@
+(** * SLFRich: Assertions, loops, and n-ary functions *)
+
 (**
 
 Foundations of Separation Logic

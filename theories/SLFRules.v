@@ -1,3 +1,5 @@
+(** * SLFRules: Reasoning rules *)
+
 (**
 
 Foundations of Separation Logic

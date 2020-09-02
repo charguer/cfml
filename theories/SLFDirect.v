@@ -1,3 +1,5 @@
+(** * SLFDirect *)
+
 (**
 
 Foundations of Separation Logic

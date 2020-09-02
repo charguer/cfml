@@ -1,3 +1,5 @@
+(** * SLFAffine *)
+
 (**
 
 Foundations of Separation Logic

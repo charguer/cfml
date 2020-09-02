@@ -1,3 +1,5 @@
+(** * SLFWPgen: Weakest precondition generator *)
+
 (**
 
 Foundations of Separation Logic
