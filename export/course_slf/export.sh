@@ -5,6 +5,7 @@
 
 SOURCE=~/versions/coq-8.9.1/sfdev/slf/full
 TARGET=slf
+WEBSITE=website
 
 CP="cp -u"
 
@@ -15,32 +16,28 @@ CP="cp -u"
 rm -Rf ${TARGET}
 mkdir -p ${TARGET}
 
-
-##############################################################################
-# Import local files
-
-${CP} README.md ${TARGET}
+rm -Rf ${WEBSITE}
 
 
 ##############################################################################
-# Import SLF files
+# Import Website files
 
 ${CP} -R ${SOURCE}/common ${TARGET}
 
-${CP} ${SOURCE}/*.v ${SOURCE}/*.html ${SOURCE}/*.gif ${SOURCE}/_CoqProject ${SOURCE}/Makefile ${SOURCE}/LICENSE ${TARGET}
-
-
-##############################################################################
-# Tweaks
+${CP} ${SOURCE}/*.html ${SOURCE}/*.gif ${TARGET}
 
 # bypass index
 ${CP} ${TARGET}/toc.html ${TARGET}/index.html
 
-# fix star symbol
-FILES=`ls ${TARGET}/*.html`
-for i in ${FILES}; do
-   sed -i'' 's/×/*/g;' $i;
-done
+${CP} -R ${TARGET} ${WEBSITE}
+
+
+##############################################################################
+# Import Dev files
+
+${CP} README.md ${TARGET}
+
+${CP} ${SOURCE}/*.v ${SOURCE}/_CoqProject ${SOURCE}/Makefile ${SOURCE}/LICENSE ${TARGET}
 
 
 ##############################################################################

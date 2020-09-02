@@ -1,16 +1,21 @@
 (** * Preface *)
 
+(** Warning! Beta release! *)
+
 (* ########################################################### *)
 (** * Welcome *)
 
-(** This electronic book is Volume XX of the _Software Foundations_
+(** This electronic book is Volume 6 of the _Software Foundations_
     series, which presents the mathematical underpinnings of reliable
     software.
 
     In this volume, you will learn about the foundations of Separation
     Logic, which is a practical approach for the modular verification
-    of imperative programs. This course focuses on sequential programs
-    only---it does not cover Concurrent Separation Logic.
+    of imperative programs.
+
+    Note that this is not a course on how to specify and verify data
+    structures and algorithms using Separation Logic---that will be
+    the matter of yet-to-written chapters.
 
     You are assumed to understand the material in Software Foundations
     Volume 1 (Logic Foundations), and the two chapters on Hoare Logic
@@ -18,7 +23,17 @@
     Foundations).
 
     The exposition here is intended for a broad range of readers, from
-    advanced undergraduates to PhD students and researchers.  *)
+    advanced undergraduates to PhD students and researchers.
+
+    A good fraction of the contents from this course is described in
+    the ICFP'20 paper: "Separation Logic for Sequential Programs",
+    by Arthur Charguéraud. Its long version is available from:
+    http://www.chargueraud.org/research/2020/seq_seplogic/seq_seplogic.pdf
+
+    This paper includes, in particular, a 5-page historical survey of
+    contributions to mechanized presentations of Separation Logic,
+    featuring 100+ citations.
+*)
 
 
 (* ########################################################### *)
@@ -30,8 +45,8 @@
     Specifications are expressed using triples, of the form [{H} t {Q}].
     Whereas in Hoare logic the precondition [H] and the postcondition
     [Q] describe the whole of the memory state, in Separation Logic,
-    [H] and [Q] describe only a fragment of the memory state. This
-    fragment includes the resources necessary to the execution of [t].
+    [H] and [Q] describe only a fragment of the memory state. This fragment
+    includes the resources necessary to the execution of [t].
 
     Central to Separation Logic is the frame rule, which is key to the
     modularity of the verification proofs. Its statement is as follows.
@@ -45,9 +60,8 @@
     The above rule asserts that if a term [t] executes correctly with the
     resources [H] and produces [Q], then the term [t] admits the same
     behavior in a larger memory state, described by the union of [H]
-    with a disjoint resource [H'], producing the postcondition [Q]
-    extended with that same resource [H'], unmodified. The [\*] symbol
-    involved in the rule is called the "separating conjunction".
+    with a disjoint union [H'], producing the postcondition [Q] extended
+    with that same resource [H'] unmodified.
 
     Separation Logic can be exploited in three kind of tools.
 
@@ -66,12 +80,12 @@
     of Separation Logic in an interactive proof assistant. This approach
     has been successfully put to practice throughout the world, using
     various proof assistants (Coq, Isabelle/HOL, HOL), targeting different
-    languages (Assembly, C, SML, OCaml, Rust...), and for verifying various
+    languages (Assembly, C, SML, OCaml, Rust...), for verifying various
     kind of programs, ranging from low-level operating system kernels
     to high-level data structures and algorithms.
 
-    Exploiting Separation Logic in a proof assistant includes at least
-    four major benefits:
+    The benefits of exploiting Separation Logic in a proof assistant
+    include at least four major points:
 
     - higher-order logic provides virtually-unlimited expressiveness
       that enables formulating arbitrarily-complex specifications and
@@ -97,8 +111,8 @@
       statements of the reasoning rules as lemmas, and the proof of
       these reasoning rules with respect to the semantics.
     - An infrastructure that consists of lemmas, tactics and notation,
-      allowing for verification proof to be carried out through relatively
-      concise proof scripts.
+      allowing for verification proof to be carried out through
+      relatively concise proof scripts.
 
     The purpose of this course is to explain how to set up such a construction
     of Separation Logic for sequential programs, embedded in Coq. To that end,
@@ -192,6 +206,10 @@
 (** ** Special chapters *)
 
 (**
+    - [SLFSummary]:This file contains the material for a one-hour talk that
+                   introduces, at a high level, the most important ideas from the
+                   course. This material is accompanied by LaTeX-generated slides
+                   to be found in the file [SLFSummary.pdf].
 
     - [SLFDirect]: This file provides the minimal set of definitions and lemmas
                    required to build a practical program verification tool,
@@ -208,6 +226,27 @@
                    does not contain further explanations.
 
 *)
+
+
+(* ########################################################### *)
+(** ** Teaching units *)
+
+(** If you plan to use the material for teaching students, the following teaching
+    units would probably make sense:
+
+    - [SLFBasic]
+
+    - [SLFProp] and [SLFHimpl]
+
+    - [SLFRules]
+
+    - [SLFWPsem] and [SLFWPgen]
+
+    - A presentation of the main ideas from the chapters [SLFAffine] and [SLFStruct]
+      and [SLFRich], with students reading the advanced contents if they are interested.
+
+*)
+
 
 (* ########################################################### *)
 (** * Organization of each chapters *)
@@ -238,6 +277,9 @@
 
 (** Each chapter includes numerous exercises.  The star rating scheme in
     use is described in the Preface of Volume 1. *)
+
+(** Disclaimer: the difficulty ratings currently in place are highly
+    speculative. They will get tuned in subsequent releases. *)
 
 
 (* ########################################################### *)
