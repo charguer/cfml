@@ -1,4 +1,4 @@
-(** * Preface *)
+(** * SLFPreface *)
 
 (** Warning! Beta release! *)
 
@@ -10,8 +10,8 @@
     software.
 
     In this volume, you will learn about the foundations of Separation
-    Logic, which is a practical approach for the modular verification
-    of imperative programs.
+    Logic, a practical approach for the modular verification of
+    imperative programs.
 
     Note that this is not a course on how to specify and verify data
     structures and algorithms using Separation Logic---that will be
@@ -132,7 +132,7 @@
 *)
 
 (* ########################################################### *)
-(** ** Summaries for the course *)
+(** ** Course Summary *)
 
 (** Before diving into the Coq files, the reader might be interested in
     material summarizing the contents of the course:
@@ -249,7 +249,7 @@
 
 
 (* ########################################################### *)
-(** * Organization of each chapters *)
+(** * Organization of each chapter *)
 
 (* ########################################################### *)
 (** ** Three levels of reading *)
@@ -275,8 +275,8 @@
 (* ########################################################### *)
 (** ** Exercises *)
 
-(** Each chapter includes numerous exercises.  The star rating scheme in
-    use is described in the Preface of Volume 1. *)
+(** Each chapter includes numerous exercises.  The star rating scheme
+    is described in the Preface of Volume 1. *)
 
 (** Disclaimer: the difficulty ratings currently in place are highly
     speculative. They will get tuned in subsequent releases. *)
@@ -298,7 +298,7 @@
     To load all the course files in CoqIDE, use the following command line.
 
 [[
-	coqide -async-proofs off -async-proofs-command-error-resilience off -Q . SLF SLF*.v &
+	    coqide -async-proofs off -async-proofs-command-error-resilience off -Q . SLF SLF*.v &
 ]]
 
 *)
@@ -364,7 +364,7 @@
     do so as follows:
 [[
    @book            {$FIRSTAUTHOR:SF$VOLUMENUMBER,
-   author       =   {$AUTHOR},
+   author       =   {$AUTHORS},
    title        =   "$VOLUMENAME",
    series       =   "Software Foundations",
    volume       =   "$VOLUMENUMBER",
