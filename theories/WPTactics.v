@@ -448,8 +448,8 @@ Tactic Notation "xseq" :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xlet] *)
 
-Lemma xlet_lemma : forall A1 (EA1:Enc A1) H `{EA:Enc A} (Q:A->hprop) (F1:Formula) (F2of:forall `{EA1:Enc A2},A2->Formula),
-  H ==> ^F1 (fun (X:A1) => ^(F2of X) Q) ->
+Lemma xlet_lemma : forall A1 (EA1:Enc A1) H `{EA:Enc A} (Q:A->hprop) (F1:Formula) (F2of:forall A2 (EA2:Enc A2),A2->Formula),
+  H ==> ^F1 (fun (X:A1) => ^(F2of _ _ X) Q) ->
   H ==> ^(Wpgen_let F1 (@F2of)) Q.
 Proof using. introv M. applys MkStruct_erase. xsimpl* A1 EA1. Qed.
 
@@ -495,7 +495,7 @@ Tactic Notation "xcast" :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xpost] *)
 
-Lemma xpost_lemma : forall `{EA:Enc A} (Q1 Q2:A->hprop) H (F:Formula),
+Lemma xpost_lemma : forall A `{EA:Enc A} (Q1 Q2:A->hprop) H (F:Formula),
   Structural F ->
   H ==> ^F Q1 ->
   Q1 ===> Q2 ->
@@ -633,9 +633,10 @@ Ltac xapp_post_basic tt := (* version without error message *)
   xsimpl; unfold protect; xcleanup.
 
 
-Lemma xapp_find_spec_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
+Lemma xapp_find_spec_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H (Q:A->hprop),
   Triple t H1 Q1 ->
-  (Triple t H1 Q1 -> H ==> ^(Wpgen_app t) Q) ->
+  (Triple t H1 Q1 -> 
+  H ==> ^(Wpgen_app t) Q) ->
   H ==> ^(Wpgen_app t) Q.
 Proof using. auto. Qed.
 
@@ -801,20 +802,20 @@ Tactic Notation "xapp_debug" :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xval] *)
 
-Lemma xval_lemma_decode : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
+Lemma xval_lemma_decode : forall A `{EA:Enc A} (V:A) v H (Q:A->hprop),
   Decode v V ->
   H ==> Q V ->
   H ==> ^(Wpgen_val v) Q.
 Proof using. introv E N. subst. applys MkStruct_erase. unfold Post_cast_val. xsimpl~ V. Qed.
 
-Lemma xval_lemma : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
+Lemma xval_lemma : forall A `{EA:Enc A} (V:A) v H (Q:A->hprop),
   v = ``V ->
   H ==> Q V ->
   H ==> ^(Wpgen_val v) Q.
 Proof using. introv E N. subst. applys MkStruct_erase. unfold Post_cast_val. xsimpl~ V. Qed.
 
 (* NEEDED? *)
-Lemma xval_lemma_val : forall `{EA:Enc A} (V:A) v H (Q:val->hprop),
+Lemma xval_lemma_val : forall A `{EA:Enc A} (V:A) v H (Q:val->hprop),
   v = ``V ->
   H ==> Q (``V) ->
   H ==> ^(Wpgen_val v) Q.
@@ -908,13 +909,13 @@ Ltac xif_pre tt :=
   | (Wpgen_if_bool _ _ _) => idtac
   end.
 
-Lemma xifval_lemma : forall `{EA:Enc A} b H (Q:A->hprop) (F1 F2:Formula),
+Lemma xifval_lemma : forall A `{EA:Enc A} b H (Q:A->hprop) (F1 F2:Formula),
   (b = true -> H ==> ^F1 Q) ->
   (b = false -> H ==> ^F2 Q) ->
   H ==> ^(Wpgen_if_bool b F1 F2) Q.
 Proof using. introv E N. applys MkStruct_erase. case_if*. Qed.
 
-Lemma xifval_lemma_isTrue : forall `{EA:Enc A} (P:Prop) H (Q:A->hprop) (F1 F2:Formula),
+Lemma xifval_lemma_isTrue : forall A `{EA:Enc A} (P:Prop) H (Q:A->hprop) (F1 F2:Formula),
   (P -> H ==> ^F1 Q) ->
   (~ P -> H ==> ^F2 Q) ->
   H ==> ^(Wpgen_if_bool (isTrue P) F1 F2) Q.
@@ -970,7 +971,7 @@ Proof using.
 Qed.
 
 
-Lemma xmatch_lemma_list : forall `{EA:Enc A} (L:list A) (F1:Formula) (F2:val->val->Formula) H `{HB:Enc B} (Q:B->hprop),
+Lemma xmatch_lemma_list : forall A `{EA:Enc A} (L:list A) (F1:Formula) (F2:val->val->Formula) H `{HB:Enc B} (Q:B->hprop),
   (L = nil -> H ==> ^F1 Q) ->
   (forall X L', L = X::L' -> H ==> ^(F2 ``X ``L') Q) ->
   H ==> ^(  Case ``L = 'nil '=> F1
@@ -1034,7 +1035,7 @@ Qed.
 (* ********************************************************************** *)
 (* Others *)
 
-Lemma eliminate_eta_in_code : forall `{EA:Enc A} H1 (Q1:A->hprop) (F1:Formula),
+Lemma eliminate_eta_in_code : forall A `{EA:Enc A} H1 (Q1:A->hprop) (F1:Formula),
     (PRE H1
     CODE F1
     POST Q1)

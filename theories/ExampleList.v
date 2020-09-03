@@ -139,7 +139,7 @@ Arguments MList_not_nil : clear implicits.
 (* ---------------------------------------------------------------------- *)
 (** Match on a list *)
 
-Lemma Mlist_unfold_match : forall `{EA:Enc A} (L:list A) (p:loc) `{EB:Enc B}
+Lemma Mlist_unfold_match : forall A `{EA:Enc A} (L:list A) (p:loc) `{EB:Enc B}
   (F1:Formula) (F2:val->val->Formula) (Q:B->hprop) H,
   H ==>
     (p ~> MList L)
@@ -406,7 +406,7 @@ Definition push : val :=
   Fun 'p 'x :=
     set_cons 'p 'x (val_ref ('!'p)).
 
-Lemma Triple_push : forall `{EA:Enc A} (L:list A) (p:loc) (x:A),
+Lemma Triple_push : forall A `{EA:Enc A} (L:list A) (p:loc) (x:A),
   TRIPLE (push p ``x)
     PRE (p ~> MList L)
     POST (fun (_:unit) => p ~> MList (x::L)).
@@ -437,7 +437,7 @@ Definition pop : val :=
     ('p ':= '! (tail 'p)) ';
     'x.
 
-Lemma Triple_pop : forall `{EA:Enc A} (L:list A) (p:loc),
+Lemma Triple_pop : forall A `{EA:Enc A} (L:list A) (p:loc),
   L <> nil ->
   TRIPLE (pop p)
     PRE (p ~> MList L)
@@ -474,7 +474,7 @@ Definition mlength : val :=
       Then 0
       Else 1 '+ 'f (tail 'p).
 
-Lemma Triple_mlength : forall `{EA:Enc A} (L:list A) (p:loc),
+Lemma Triple_mlength : forall A `{EA:Enc A} (L:list A) (p:loc),
   TRIPLE (mlength p)
     PRE (p ~> MList L)
     POST (fun (r:int) => \[r = length L] \* p ~> MList L).
@@ -507,7 +507,7 @@ Definition copy : val :=
       Then create '()
       Else mk_cons (head 'p) ('f (tail 'p)).
 
-Lemma Triple_copy : forall `{EA:Enc A} (L:list A) (p:loc),
+Lemma Triple_copy : forall A `{EA:Enc A} (L:list A) (p:loc),
   TRIPLE (copy p)
     PRE (p ~> MList L)
     POST (fun (q:loc) => p ~> MList L \* q ~> MList L).
@@ -570,7 +570,7 @@ Definition iter : val :=
       'g 'f (tail 'p)
     End.
 
-Lemma Triple_iter : forall `{EA:Enc A} (I:list A->hprop) (L:list A) (f:func) (p:loc),
+Lemma Triple_iter : forall A `{EA:Enc A} (I:list A->hprop) (L:list A) (f:func) (p:loc),
   (forall x L1 L2, L = L1++x::L2 ->
     TRIPLE (f ``x)
       PRE (I L1)
@@ -645,7 +645,7 @@ Definition nondestructive_append : val :=
       Then copy 'p2
       Else mk_cons (head 'p1) ('f (tail 'p1) 'p2).
 
-Lemma Triple_nondestructive_append : forall `{EA:Enc A} (L1 L2:list A) (p1 p2:loc),
+Lemma Triple_nondestructive_append : forall A `{EA:Enc A} (L1 L2:list A) (p1 p2:loc),
   TRIPLE (nondestructive_append p1 p2)
     PRE (p1 ~> MList L1 \* p2 ~> MList L2)
     POST (fun (p3:loc) => p1 ~> MList L1 \* p2 ~> MList L2 \* p3 ~> MList (L1++L2)).
@@ -685,7 +685,7 @@ Definition inplace_append : val :=
       Then 'p1 ':= '! 'p2
       Else 'f (tail 'p1) 'p2.
 
-Lemma Triple_inplace_append : forall `{EA:Enc A} (L1 L2:list A) (p1 p2:loc),
+Lemma Triple_inplace_append : forall A `{EA:Enc A} (L1 L2:list A) (p1 p2:loc),
   TRIPLE (inplace_append p1 p2)
     PRE (p1 ~> MList L1 \* p2 ~> MList L2)
     POST (fun (_:unit) => p1 ~> MList (L1++L2)).
@@ -867,7 +867,7 @@ Definition pop_back : val :=
       'f (tail 'p)
     ).
 
-Lemma Triple_pop_back : forall `{EA:Enc A} (L:list A) (p:loc),
+Lemma Triple_pop_back : forall A `{EA:Enc A} (L:list A) (p:loc),
   L <> nil ->
   TRIPLE (pop_back ``p)
     PRE (p ~> MList L)
@@ -898,22 +898,22 @@ Fixpoint MListSeg A `{EA:Enc A} (q:loc) (L:list A) (p:loc) : hprop :=
 
 Section SegProperties.
 
-Lemma MListSeg_nil : forall `{EA:Enc A} p q,
+Lemma MListSeg_nil : forall A `{EA:Enc A} p q,
   p ~> (MListSeg q (@nil A)) = \[p = q].
 Proof using. intros. xunfold~ MListSeg. Qed.
 
-Lemma MListSeg_cons : forall `{EA:Enc A} p q x (L':list A),
+Lemma MListSeg_cons : forall A `{EA:Enc A} p q x (L':list A),
   p ~> MListSeg q (x::L') =
   \exists (p':loc), (p ~~> Cons x p') \* p' ~> MListSeg q L'.
 Proof using. intros. xunfold~ MListSeg. Qed.
 
 Global Opaque MListSeg.
 
-Lemma MListSeg_nil_of_hempty : forall `{EA:Enc A} p,
+Lemma MListSeg_nil_of_hempty : forall A `{EA:Enc A} p,
   \[] ==> p ~> MListSeg p (@nil A).
 Proof using. intros. rewrite MListSeg_nil. xsimpl~. Qed.
 
-Lemma MListSeg_one : forall `{EA:Enc A} p q (x:A),
+Lemma MListSeg_one : forall A `{EA:Enc A} p q (x:A),
   p ~~> (Cons x q) = p ~> MListSeg q (x::nil).
 Proof using.
   intros. rewrite MListSeg_cons. applys himpl_antisym.
@@ -921,7 +921,7 @@ Proof using.
   { xpull ;=> p'. rewrite MListSeg_nil. xsimpl~. }
 Qed.
 
-Lemma MListSeg_concat : forall `{EA:Enc A} p1 p3 (L1 L2:list A),
+Lemma MListSeg_concat : forall A `{EA:Enc A} p1 p3 (L1 L2:list A),
   p1 ~> MListSeg p3 (L1++L2) = \exists p2, p1 ~> MListSeg p2 L1 \* p2 ~> MListSeg p3 L2.
 Proof using.
   intros. gen p1. induction L1 as [|x L1']; intros.
@@ -935,7 +935,7 @@ Proof using.
       xchange <- IHL1'. xchanges <- (>> MListSeg_cons p1). } }
 Qed.
 
-Lemma MListSeg_last : forall `{EA:Enc A} p1 p3 x (L:list A),
+Lemma MListSeg_last : forall A `{EA:Enc A} p1 p3 x (L:list A),
   p1 ~> MListSeg p3 (L&x) = \exists p2, p1 ~> MListSeg p2 L \* p2 ~~> (Cons x p3).
 Proof using.
   intros. rewrite MListSeg_concat. applys himpl_antisym.
@@ -943,7 +943,7 @@ Proof using.
   { xpull ;=> p2. rewrite MListSeg_one. xsimpl. }
 Qed.
 
-Lemma MList_eq_MListSeg : forall `{EA:Enc A} p (L:list A),
+Lemma MList_eq_MListSeg : forall A `{EA:Enc A} p (L:list A),
   p ~> MList L = (\exists q, p ~> MListSeg q L \* q ~~> Nil).
 Proof using.
   intros. gen p. induction L as [|x L']; intros.

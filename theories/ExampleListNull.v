@@ -214,7 +214,7 @@ Arguments MList_not_null_inv_cons : clear implicits.
 (* ---------------------------------------------------------------------- *)
 (** Representation of list segments *)
 
-Fixpoint MListSeg `{EA:Enc A} (q:loc) (L:list A) (p:loc) : hprop :=
+Fixpoint MListSeg A `{EA:Enc A} (q:loc) (L:list A) (p:loc) : hprop :=
   match L with
   | nil => \[p = q]
   | x::L' => \exists (p':loc), (p ~> MCell x p') \* (p' ~> MListSeg q L')
@@ -226,30 +226,30 @@ Fixpoint MListSeg `{EA:Enc A} (q:loc) (L:list A) (p:loc) : hprop :=
 
 Section SegProperties.
 
-Lemma MListSeg_eq : forall (p:loc) `{EA:Enc A} (q:loc) (L:list A),
+Lemma MListSeg_eq : forall (p:loc) A `{EA:Enc A} (q:loc) (L:list A),
   p ~> MListSeg q L =
   match L with
   | nil => \[p = q]
   | x::L' => \exists (p':loc), (p ~> MCell x p') \* (p' ~> MListSeg q L')
   end.
-Proof using. intros. xunfold~ MListSeg. destruct~ L. Qed.
+Proof using. intros. xunfold~ @MListSeg. destruct~ L. Qed.
 
-Lemma MListSeg_nil : forall `{EA:Enc A} p q,
+Lemma MListSeg_nil : forall A `{EA:Enc A} p q,
   p ~> (MListSeg q (@nil A)) = \[p = q].
 Proof using. intros. xunfold~ MListSeg. Qed.
 
-Lemma MListSeg_cons : forall `{EA:Enc A} p q x (L':list A),
+Lemma MListSeg_cons : forall A `{EA:Enc A} p q x (L':list A),
   p ~> MListSeg q (x::L') =
   \exists (p':loc), (p ~> MCell x p') \* p' ~> MListSeg q L'.
 Proof using. intros. xunfold~ MListSeg. Qed.
 
 Global Opaque MListSeg.
 
-Lemma MListSeg_nil_intro : forall `{EA:Enc A} p,
+Lemma MListSeg_nil_intro : forall A `{EA:Enc A} p,
   \[] = p ~> MListSeg p (@nil A).
 Proof using. intros. rewrite MListSeg_nil. xsimpl*. Qed.
 
-Lemma MListSeg_one : forall `{EA:Enc A} p q (x:A),
+Lemma MListSeg_one : forall A `{EA:Enc A} p q (x:A),
   p ~> MListSeg q (x::nil) = p ~> (MCell x q).
 Proof using.
   intros. rewrite MListSeg_cons. applys himpl_antisym.
@@ -257,7 +257,7 @@ Proof using.
   { xsimpl q. xchanges* <- MListSeg_nil. }
 Qed.
 
-Lemma MListSeg_MList : forall `{EA:Enc A} p (L:list A),
+Lemma MListSeg_MList : forall A `{EA:Enc A} p (L:list A),
   p ~> MListSeg null L = p ~> MList L.
 Proof using.
   intros. gen p. induction L; intros.
@@ -267,7 +267,7 @@ Proof using.
     rewrite~ IHL. }
 Qed.
 
-Lemma MListSeg_concat : forall `{EA:Enc A} p1 p3 (L1 L2:list A),
+Lemma MListSeg_concat : forall A `{EA:Enc A} p1 p3 (L1 L2:list A),
   p1 ~> MListSeg p3 (L1++L2) =
   \exists p2, p1 ~> MListSeg p2 L1 \* p2 ~> MListSeg p3 L2.
 Proof using.
@@ -281,7 +281,7 @@ Proof using.
     { xpull ;=> p2. xchange MListSeg_cons ;=> p1'. xchanges <- IHL1'. } }
 Qed.
 
-Lemma MListSeg_last : forall `{EA:Enc A} p1 p3 x (L:list A),
+Lemma MListSeg_last : forall A `{EA:Enc A} p1 p3 x (L:list A),
   p1 ~> MListSeg p3 (L&x) =
   \exists p2, p1 ~> MListSeg p2 L \* p2 ~> (MCell x p3).
 Proof using.
@@ -290,7 +290,7 @@ Proof using.
   rewrite~ MListSeg_one.
 Qed.
 
-Lemma MListSeg_MCell_conflict : forall `{EA:Enc A} p q L (x:A) (q':loc),
+Lemma MListSeg_MCell_conflict : forall A `{EA:Enc A} (p q:loc) (L:list A) (x:A) (q':loc),
   p ~> MListSeg q L \* q ~> MCell x q' ==+> \[L = nil <-> p = q].
 Proof using.
   intros. destruct L.
@@ -314,7 +314,7 @@ Definition mk_cell :=
   Fun 'x 'q :=
     New`{ head := 'x; tail := 'q }.
 
-Lemma Triple_mk_cell : forall `{EA:Enc A} (x:A) (q:loc),
+Lemma Triple_mk_cell : forall A `{EA:Enc A} (x:A) (q:loc),
   TRIPLE (mk_cell ``x ``q)
     PRE \[]
     POST (fun p => (p ~> MCell x q)).
@@ -346,7 +346,7 @@ Lemma Triple_mlength : forall A `{EA:Enc A} (L:list A) (p:loc),
     PRE (p ~> MList L)
     POST (fun (r:int) => \[r = length L] \* p ~> MList L).
 Proof using.
-  intros. gen p. induction_wf: list_sub_wf L; intros. xwp.
+  intros. gen p. induction_wf IH: list_sub_wf L; intros. xwp.
   xapp~. xchange MList_if. xif ;=> C; case_if; xpull.
   { intros ->. xval. xchanges* <- (MList_nil p). }
   { intros x q L' ->. xapp. xapp~. xapp. xchanges* <- (MList_cons p). }

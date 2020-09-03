@@ -144,10 +144,10 @@ Definition Wpaux_var (E:ctx) (x:var) : Formula :=
   | Some v => `Wpgen_val v
   end.
 
-Definition Wpgen_let (F1:Formula) (F2of:forall `{EA1:Enc A1}, A1->Formula) : Formula :=
+Definition Wpgen_let (F1:Formula) (F2of:forall A1 (EA1:Enc A1), A1->Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
     \exists (A1:Type) (EA1:Enc A1),
-      ^F1 (fun (X:A1) => ^(F2of X) Q)).
+      ^F1 (fun (X:A1) => ^(F2of _ _ X) Q)).
 
 Definition Wpgen_let_typed (F1:Formula) `{EA1:Enc A1} (F2of:A1->Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
@@ -205,7 +205,7 @@ Definition Wpgen_while (F1 F2:Formula) : Formula :=
   MkStruct (`Formula_cast (fun (Q:unit->hprop) =>
     \forall (R:Formula),
     let F := Wpaux_if F1 (Wpgen_seq F2 R) (Wpgen_val val_unit) in
-    \[ structural (@R unit _) /\ (forall Q', ^F Q' ==> ^R Q')] \-* (^R Q))).
+    \[ structural (@R unit _) /\ (forall (Q':unit->hprop), ^F Q' ==> ^R Q')] \-* (^R Q))).
     (* --TODO: use a lifted version of structural *)
 
 Definition Wpgen_for_int (n1 n2:int) (F1:int->Formula) : Formula :=
@@ -214,7 +214,7 @@ Definition Wpgen_for_int (n1 n2:int) (F1:int->Formula) : Formula :=
     let F i := If (i <= n2) then (`Wpgen_seq (F1 i) (S (i+1)))
                             else (`Wpgen_val val_unit) in
     \[   (forall i, structural (S i unit _))
-      /\ (forall i Q', ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
+      /\ (forall i (Q':unit->hprop), ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
      (* --TODO: use a lifted version of structural_pred *)
 
 Definition Wpgen_case (F1:Formula) (P:Prop) (F2:Formula) : Formula :=
@@ -295,13 +295,13 @@ Arguments Structural_Wp : clear implicits.
 
 (** Equivalence between a [triple] and its weakest-precondition presentation. *)
 
-Lemma Triple_eq_himpl_Wp : forall `{EA:Enc A} H (Q:A->hprop) t,
+Lemma Triple_eq_himpl_Wp : forall A `{EA:Enc A} H (Q:A->hprop) t,
   Triple t H Q = (H ==> ^(Wp t) Q).
 Proof using. intros. applys weakestpre_eq. applys local_Triple. Qed.
 
 (** Reformulation of the right-to-left implication above as an implication. *)
 
-Lemma Triple_of_Wp : forall `{EA:Enc A} H (Q:A->hprop) t,
+Lemma Triple_of_Wp : forall A `{EA:Enc A} H (Q:A->hprop) t,
   H ==> ^(Wp t) Q ->
   Triple t H Q.
 Proof using. intros. rewrite* Triple_eq_himpl_Wp. Qed.
@@ -337,7 +337,7 @@ Qed.
     may be stripped from the precondition. *)
 
 Lemma Triple_MkStruct_pre : forall t (F:Formula) `{EA:Enc A} (Q:A->hprop),
-  (forall Q, Triple t (^F Q) Q) ->
+  (forall (Q:A->hprop), Triple t (^F Q) Q) ->
   Triple t (^(MkStruct F) Q) Q.
 Proof using.
   introv M. applys~ local_elim.
@@ -378,7 +378,7 @@ Definition Wpgen_sound t := forall E,
 
 (** Lemma for [Wpgen_fail] *)
 
-Lemma himpl_Wpgen_fail_l : forall `{EA:Enc A} (Q:A->hprop) H,
+Lemma himpl_Wpgen_fail_l : forall A `{EA:Enc A} (Q:A->hprop) H,
   ^Wpgen_fail Q ==> H.
 Proof using. intros. unfold Wpgen_fail, MkStruct, mkstruct. xpull. Qed.
 
@@ -477,7 +477,7 @@ Qed.
 
 Lemma Wpgen_sound_let : forall (F1:Formula) (F2of:forall `{EA1:Enc A1},A1->Formula) E (x:var) t1 t2,
   F1 ====> Wpsubst E t1 ->
-  (forall `{EA:Enc A} (X:A), F2of X ====> Wpsubst (Ctx.add x (enc X) E) t2) ->
+  (forall A `{EA:Enc A} (X:A), F2of X ====> Wpsubst (Ctx.add x (enc X) E) t2) ->
   Wpgen_let F1 (@F2of) ====> Wpsubst E (trm_let x t1 t2).
 Proof using.
   Opaque Ctx.rem.
