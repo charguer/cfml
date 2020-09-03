@@ -1668,3 +1668,5 @@ Proof using.
 Qed.
 
 End Realization.
+
+(* SOONER: add exercise on quicksort, using array segments. *)

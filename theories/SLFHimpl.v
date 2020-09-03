@@ -427,6 +427,9 @@ Notation "'hprop''" := (SLFHprop.hprop).
     The tactic [xpull] is a degraded version of [xsimpl] that only
     performs the first step. We will also illustrate its usage. *)
 
+(* SOONER: AC: add exercises for proving entailments without xsimpl,
+   for students to better understand how xsimpl works. *)
+
 
 (* ################################################ *)
 (** *** [xsimpl] to extract pure facts and quantifiers in LHS *)
@@ -674,6 +677,8 @@ Proof using.
   (* Note that freshly produced items appear to the front *)
 Abort.
 
+(* SOONER: AC: add an exercise for proving the lemma that xchange
+   leverages internally. *)
 
 
 (* ########################################################### *)
@@ -924,6 +929,8 @@ Qed.
 
 *)
 
+(* SOONER: AC: [hstar_hempty_l] should be an exercise *)
+
 Lemma hstar_hempty_l : forall H,
   \[] \* H = H.
 Proof using.
@@ -963,6 +970,8 @@ Qed.
 ]]
 
 *)
+(* SOONER: AC: could turn [hstar_assoc] into a hard exercise by not giving
+   the first half of the proof *)
 
 (* EX2? (hstar_assoc) *)
 (** Complete the right-to-left part of the proof of associativity of the
@@ -1272,3 +1281,5 @@ Qed.
 
 End AlternativeExistentialRule.
 
+(* SOONER: AC: add a series of exercises on the construction of a SL with
+   fractional permissions. *)

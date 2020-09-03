@@ -956,6 +956,10 @@ End ExamplePrograms.
     for the reasoning rules, and with the proofs of the reasoning rules. *)
 
 
+(* SOONER: AC: add an exercise on the proof "by hand" of a recursive
+   function, e.g. one involving linked lists. *)
+
+
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
@@ -1734,6 +1738,10 @@ Proof using.
 Qed.
 
 
+(* SOONER: AC: exercise on a direct rule for [if t0 then t1 else t2],
+  see SLFRich. *)
+
+
 (* ################################################ *)
 (** *** Proof of [triple_app_fun] *)
 
@@ -1828,6 +1836,8 @@ Qed.
     - and the lemma [hstar_intro], to prove [(H1 \* H2) (h1 \u h2)]. *)
 
 (** Let's now dive in the proof of the Hoare triple for [set]. *)
+
+(* SOONER: AC: make this an exercise *)
 
 Lemma hoare_set : forall H v p v',
   hoare (val_set (val_loc p) v)
@@ -2090,6 +2100,7 @@ Qed.
 
 (** Another application is the following rule, which allows to modify the
     parenthesis structure of a sequence, from [t1; (t2; t3)] to [(t1;t2); t3]. *)
+(* SOONER: AC: turn the following lemma into an exercise *)
 
 Lemma triple_trm_seq_assoc : forall t1 t2 t3 H Q,
   triple (trm_seq (trm_seq t1 t2) t3) H Q ->
@@ -2138,3 +2149,8 @@ Parameter triple_ref' : forall v,
     systematically prefer using existentials. *)
 
 End MatchStyle.
+
+(* SOONER: AC: add a file SLFCredits with the construction of SL with
+   time credits. Make a number of definitions and lemmas as exercises.
+   Add also a demo of how to carry out complexity analysis, and amortized
+   cost analysis. *)

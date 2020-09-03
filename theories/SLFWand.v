@@ -1936,6 +1936,9 @@ Qed. (* /ADMITTED *)
 
 (** [] *)
 
+(* SOONER: AC: exercise on the alternative definition of [MList] that uses
+   [hor]. *)
+
 
 (* ################################################ *)
 (** *** Definition of [hand] *)

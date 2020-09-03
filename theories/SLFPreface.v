@@ -266,7 +266,7 @@
       exceptions, these parts may be read, partially read, or skipped, without
       consequences on the understanding of the other chapters.
 
-    For the first two chapters, the "detailed contents" material consists of
+    For the first chapter, the "detailed contents" material consists of
     exercises that are interleaved with the "chapter in a rush" material.
     For the other chapters, the tree parts are consecutive (i.e., not interleaved).
 

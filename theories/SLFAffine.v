@@ -1182,6 +1182,9 @@ Abort.
 
 End XGC.
 
+(* SOONER: AC: exercises on separation logic with credits in Z;
+   in particular, use the cost of the Syracuse function. *)
+
 
 (* ########################################################### *)
 (* ########################################################### *)

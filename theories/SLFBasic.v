@@ -22,7 +22,7 @@ Implicit Types p q : loc.
 (* ########################################################### *)
 (* ########################################################### *)
 (* ########################################################### *)
-(** * Chapter in a rush, nested with exercises as additional contents *)
+(** * Introduction du Separation Logic using Examples *)
 
 (** This chapter gives an overview of how the key features of Separation
     Logic, and presents through a series of example a practical verification
@@ -1473,6 +1473,9 @@ Proof using.
     xapp. intros p'. xchange <- MList_cons. xsimpl*. }
 Qed.
 
+(* SOONER: AC: add exercise on in-place list reversal *)
+(* SOONER: AC: add exercises on list segments *)
+(* SOONER: AC: add exercises on binary trees *)
 
 (* ########################################################### *)
 (* ########################################################### *)
@@ -1564,3 +1567,9 @@ Qed.
 (** This concludes the formal verification of Reynolds' verification challenge. *)
 
 End ExampleLists.
+
+(* SOONER: AC: add exercise on the gensym function *)
+
+(* SOONER: AC: add exercise on the fixpoint combinator (though maybe
+   not with the most general specification). *)
+

@@ -1555,6 +1555,8 @@ Qed. (* /ADMITTED *)
 
 End ProofsWithXlemmas.
 
+(* SOONER: AC: add an example with a recursive function *)
+
 
 (* ####################################################### *)
 (** ** Making proof scripts more concise *)
@@ -2469,3 +2471,7 @@ Proof using.
 Qed.
 
 End IsubstProp.
+
+(* SOONER: AC: exercise on adapting wpgen to support time credits. *)
+(* SOONER: AC: exercise on adding support for assertions. *)
+

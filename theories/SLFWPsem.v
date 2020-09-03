@@ -581,6 +581,8 @@ Definition wp (t:trm) (Q:val->hprop) : hprop :=
 (** One can prove that this definition of [wp] also satisfies the
     characteristic equivalence [H ==> wp Q <-> triple t H Q]. *)
 
+(* SOONER: AC: make this a hard exercise *)
+
 Lemma wp_equiv_wp_low : forall t H Q,
   (H ==> wp t Q) <-> (triple t H Q).
 
@@ -849,6 +851,8 @@ Proof using.
   applys hoare_if. applys M.
 Qed.
 
+(* SOONER: AC: make the following lemma an exercise *)
+
 Lemma wp_seq : forall t1 t2 Q,
   wp t1 (fun v => wp t2 Q) ==> wp (trm_seq t1 t2) Q.
 Proof using.
@@ -892,3 +896,5 @@ Qed.
     triples".) *)
 
 End WpFromHoare.
+
+(* SOONER: AC: WPsem and WPgen make us a single logical chapter *)

@@ -829,3 +829,9 @@ Qed. (* /ADMITTED *)
 
 End Extensionality.
 
+(* SOONER: AC: in terms of contents, it would make sense to see the
+   files Hprop and Himpl as part of a same chapter; should I merge
+   the two files? or just write a note about it?
+   --same applies to WPsem and WPgen. *)
+
+
