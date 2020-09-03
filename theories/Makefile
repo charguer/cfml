@@ -56,7 +56,7 @@ SRC_SF := SLFPreface SLFDirect SLFExtra SLFSummary SLFMinimal SLFBasic SLFHprop 
 
 SRC_MOSEL := SepMoselFunctor SepBaseMosel SepROMosel ExampleROMosel ExampleListMosel
 
-SRC := $(SRC_COMMON) $(SRC_CFML)  $(SRC_SF) $(SRC_MORE)
+SRC := $(SRC_COMMON) $(SRC_CFML) $(SRC_MORE)
 # $(SRC_CFML_PLUS) 
 # $(SRC_EXAMPLES) 
 # $(SRC_CF)  $(SRC_MOSEL)
@@ -111,7 +111,7 @@ endif
 
 import_slf:
 	cp $(addprefix $(SLF_FOLDER)/,$(SLF_FILES)) .
-	sed -i -e 's/^From[[:space:]]SLF[[:space:]]Require[[:space:]]Export[[:space:]]LibCore/From TLC Require Export LibCore/' $(SLF_FILES)
+	sed -i -e 's/^From[[:space:]]SLF[[:space:]]Require[[:space:]]Export[[:space:]]Lib/From TLC Require Export Lib/' $(SLF_FILES)
 	sed -i -e 's/^From[[:space:]]SLF[[:space:]]/From Sep /' $(SLF_FILES)
 
 
