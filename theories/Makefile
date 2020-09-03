@@ -103,6 +103,8 @@ all: _CoqProject
 ##############################################################################
 # Compilation of files from the course on Foundations of Separation Logic
 
+# usage: make SLF=1
+
 SLF_FILES := $(SRC_SF:=.v)
 
 ifndef SLF_FOLDER
@@ -113,3 +115,6 @@ import_slf:
 	cp $(addprefix $(SLF_FOLDER)/,$(SLF_FILES)) .
 	sed -i -e 's/^From[[:space:]]SLF[[:space:]](\*[[:space:]]TLC[[:space:]]\*)/From TLC/' $(SLF_FILES)
 	sed -i -e 's/^From[[:space:]]SLF[[:space:]](\*[[:space:]]Sep[[:space:]]\*)/From Sep/' $(SLF_FILES)
+
+clean_slf:
+	rm SLF*.v
