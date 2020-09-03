@@ -114,6 +114,10 @@ Notation "'Delete' `{ f1 ; f2 ; f3 ; f4 ; f5 }" :=
 
 (** Notation for record contents (only supported up to arity 5) *)
 
+Declare Scope fields_scope.
+Open Scope fields_scope.
+Delimit Scope fields_scope with fields.
+
 Notation "`{ f1 := x1 }" :=
   ((f1, Dyn x1)::nil)
   (at level 0, f1 at level 0)
@@ -134,9 +138,6 @@ Notation "`{ f1 := x1 ; f2 := x2 ; f3 := x3 ; f4 := x4 ; f5 := x5 }" :=
   ((f1, Dyn x1)::(f2, Dyn x2)::(f3, Dyn x3)::(f4, Dyn x4)::(f5, Dyn x5)::nil)
   (at level 0, f1 at level 0, f2 at level 0, f3 at level 0, f4 at level 0, f5 at level 0)
   : fields_scope.
-
-Open Scope fields_scope.
-Delimit Scope fields_scope with fields.
 
 
 (* ---------------------------------------------------------------------- *)

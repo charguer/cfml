@@ -58,6 +58,7 @@ From Sep Require Export TLCbuffer SepSimpl.
 
 Module Type SepCore.
 
+Declare Scope heap_scope.
 
 (* ---------------------------------------------------------------------- *)
 (* ** Representation of [hprop] *)
@@ -288,6 +289,8 @@ Definition haffine_post (A:Type) (J:A->hprop) : Prop :=
 
 (* ---------------------------------------------------------------------- *)
 (* ** Notation for triples *)
+
+Declare Scope heap_scope_ext.
 
 (** Notation [F PRE H POST Q] for stating specifications, e.g.
     [triple t PRE H POST Q] is the same as [triple t H Q] *)

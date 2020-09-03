@@ -125,7 +125,7 @@ Fixpoint rem_var A (x:var) (E:ctx A) : ctx A :=
       if var_eq x y then E'' else (y,v)::E''
   end.
 
-Fixpoint rem A (z:bind) (E:ctx A) : ctx A :=
+Definition rem A (z:bind) (E:ctx A) : ctx A :=
   match z with
   | bind_anon => E
   | bind_var x => rem_var x E

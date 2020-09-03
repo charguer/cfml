@@ -39,6 +39,8 @@ Module Export SepBasicCore <: SepCore.
 (* ---------------------------------------------------------------------- *)
 (** Heaps *)
 
+Declare Scope heap_scope.
+
 (** A heap is a state (a finite map from location to values)
    as defined in [Semantics.v]. *)
 
@@ -52,6 +54,8 @@ Definition heap_affine (h:heap) := True.
   functor, we introduce mklocal names for operations and lemmas on heaps. *)
 
 Definition heap_empty : heap := Fmap.empty.
+
+Declare Scope heap_union_scope.
 
 Notation "h1 \u h2" := (Fmap.union h1 h2)
   (at level 37, right associativity) : heap_union_scope.

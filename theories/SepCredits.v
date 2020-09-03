@@ -157,6 +157,8 @@ Definition credits_one : credits := 1.
 (* ---------------------------------------------------------------------- *)
 (** Heaps *)
 
+Declare Scope heap_scope.
+
 (** Type of heaps *)
 
 Definition heap : Type := (state * credits)%type.
@@ -194,6 +196,8 @@ Notation "\# h1 h2" := (heap_disjoint h1 h2)
 
 Definition heap_union (h1 h2 : heap) : heap :=
    (h1^s \+ h2^s, h1^c + h2^c).
+
+Declare Scope heap_union_scope.
 
 Notation "h1 \u h2" := (heap_union h1 h2)
    (at level 37, right associativity) : heap_union_scope.

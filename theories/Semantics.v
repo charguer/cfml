@@ -1294,11 +1294,9 @@ End CoercionsFromStrings.
 (* ---------------------------------------------------------------------- *)
 (** Notation for concrete programs *)
 
-(* LATER: activate after migration to Coq 8.12
 Declare Scope val_scope.
 Declare Scope pat_scope.
 Declare Scope trm_scope.
-*)
 
 Notation "'dummy_val'" := True (only parsing) : val_scope.
 Notation "'dummy_pat'" := True (only parsing) : pat_scope.

@@ -48,6 +48,9 @@ Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (Wptag F) _ _ Q)
 (** Display [Triple t H Q] as [TRIPLE t PRE H POST Q]
     with variant [TRIPLE t PRE H REV X POST Q] *)
 
+Declare Scope triple_scope.
+Open Scope triple_scope.
+
 Notation "'TRIPLE' t 'PRE' H 'POST' Q" :=
   (Triple t H Q)
   (at level 39, t at level 0,
@@ -69,8 +72,6 @@ Notation "'`Triple' t 'PRE' H1 'BIND' x1 x2 'RET' v 'POST' H2" :=
   (at level 39, t at level 0, x1 ident, x2 ident) : triple_scope.
 *)
 
-Open Scope triple_scope.
-
 
 (* ********************************************************************** *)
 (* * Tactics for decoding. *)
@@ -84,7 +85,7 @@ Hint Extern 1 (Decode (val_constr "nil" nil) _) =>
 Hint Extern 1 (Decode (val_constr "cons" (_::_::nil)) _) =>
   match goal with H: Enc ?A |- _ => eapply (@Decode_cons A) end : Decode.
 
-Hint Resolve @Decode_None @Decode_Some : Decode.
+Hint Resolve Decode_None Decode_Some : Decode.
 (* --LATER: similar hints needed? *)
 
 Ltac xdecode_core tt :=
@@ -156,10 +157,11 @@ Ltac xgoal_fun tt :=
 
 Definition database_spec := True.
 
+Declare Scope xspec_scope.
+Open Scope xspec_scope.
+
 Notation "'Register_goal' G" := (Register database_spec G)
   (at level 69) : xspec_scope.
-
-Open Scope xspec_scope.
 
 (** [xspec G] retreives from the database [database_spec]
     the specification that could apply to a goal [G].
@@ -953,7 +955,7 @@ Qed.
 Lemma xcase_lemma0 : forall F1 (P1 P2:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
   (P1 -> H ==> ^F1 Q) ->
   (P2 -> H ==> ^F2 Q) ->
-  H ==> ^(Wpgen_case (fun `{EA1:Enc A1} (Q:A1->hprop) => \[P1] \-* ^F1 Q) P2 F2) Q.
+  H ==> ^(Wpgen_case (fun A1 (EA1:Enc A1) (Q:A1->hprop) => \[P1] \-* ^F1 Q) P2 F2) Q.
 Proof using.
   introv M1 M2. applys* xcase_lemma. { applys* hwand_hpure_r_intro. }
 Qed.
@@ -961,7 +963,7 @@ Qed.
 Lemma xcase_lemma2 : forall (F1:val->val->Formula) (P1:val->val->Prop) (P2:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
   (forall x1 x2, P1 x1 x2 -> H ==> ^(F1 x1 x2) Q) ->
   (P2 -> H ==> ^F2 Q) ->
-  H ==> ^(Wpgen_case (fun `{EA1:Enc A1} (Q:A1->hprop) => \forall x1 x2, \[P1 x1 x2] \-* ^(F1 x1 x2) Q) P2 F2) Q.
+  H ==> ^(Wpgen_case (fun A1 (EA1:Enc A1) (Q:A1->hprop) => \forall x1 x2, \[P1 x1 x2] \-* ^(F1 x1 x2) Q) P2 F2) Q.
 Proof using.
   introv M1 M2. applys* xcase_lemma.
   { repeat (applys himpl_hforall_r ;=> ?). applys* hwand_hpure_r_intro. }

@@ -145,6 +145,8 @@ Arguments make [A] [B].
 (* ---------------------------------------------------------------------- *)
 (** Operations *)
 
+Declare Scope fmap_scope.
+
 (** Empty fmap *)
 
 Program Definition empty (A B : Type) : fmap A B :=

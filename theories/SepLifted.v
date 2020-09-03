@@ -44,16 +44,16 @@ Notation "`` V" := (enc V) (at level 8, format "`` V").
 
 (** Notation for lists of encoded values *)
 
+Declare Scope enc_scope.
+Open Scope enc_scope.
+Delimit Scope enc_scope with enc.
+
 Notation "``[ ]" :=
-  (@nil val) (format "``[ ]", only parsing) : enc_scope.
+  (@nil val) (only parsing) : enc_scope.
 Notation "``[ x ]" :=
   (cons (enc x) nil) : enc_scope.
 Notation "``[ x , y , .. , z ]" :=
   (cons (enc x) (cons (enc y) .. (cons (enc z) nil) ..)) : enc_scope.
-
-Open Scope enc_scope.
-Delimit Scope enc_scope with enc.
-
 
 (* LATER: Below is a patch for TLC tactics to prevent undesired
    eager instantiation of the typeclasses [Enc].
@@ -321,7 +321,7 @@ Proof using.
 Qed.
 
 Hint Resolve Enc_injective_loc Enc_injective_unit Enc_injective_bool
-             Enc_injective_int @Enc_injective_option @Enc_injective_list
+             Enc_injective_int Enc_injective_option Enc_injective_list
              : Enc_injective.
 
 (* ** Injectivity of encoders for specific values
@@ -353,7 +353,7 @@ Proof using.
   intros A EA o E. destruct o; intros; simpls; tryfalse. { auto. }
 Qed.
 
-Hint Resolve @Enc_injective_nil @Enc_injective_none : Enc_injective.
+Hint Resolve Enc_injective_nil Enc_injective_none : Enc_injective.
 
 (** [Enc_comparable V1 V2] asserts that at least one of [V1]
     or [V2] satisfies [Enc_injective_value]. In such case,
@@ -551,7 +551,7 @@ Notation "l `. f '~~>' V" := ((l,f) ~> Hfield V)
    format "l `. f  '~~>'  V") : heap_scope.
 
 Lemma Hfield_eq_fun_Hsingle :
-  @Hfield = (fun `{EA:Enc A} (V:A) l_f => let '(l,f) := l_f in ((l+f)%nat ~~> V) \* \[l <> null]).
+  @Hfield = (fun A (EA:Enc A) (V:A) l_f => let '(l,f) := l_f in ((l+f)%nat ~~> V) \* \[l <> null]).
 Proof using. intros. auto. Qed.
 
 Lemma Hfield_to_hfield : forall `{EA:Enc A} (l:loc) (f:field) (V:A),
@@ -602,7 +602,7 @@ Lemma local_Triple : forall t A `{EA:Enc A},
   local (@Triple t A EA).
 Proof using. intros. applys local_LiftPost. applys local_triple. Qed.
 
-Hint Resolve @local_Triple.
+Hint Resolve local_Triple.
 
 
 (* ---------------------------------------------------------------------- *)

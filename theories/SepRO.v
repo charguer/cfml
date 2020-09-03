@@ -32,6 +32,8 @@ Module Export SepROCore <: SepCore.
 (* ---------------------------------------------------------------------- *)
 (** Heaps *)
 
+Declare Scope heap_scope.
+
 (** Representation of heaps as pairs *)
 
 Definition heap : Type :=
@@ -87,6 +89,8 @@ Program Definition heap_union (h1 h2 : heap) : heap :=
 Next Obligation.
   match goal with H: heap_compat _ _ |- _ => destruct H end. fmap_disjoint.
 Qed.
+
+Declare Scope heap_union_scope.
 
 Notation "h1 \u h2" := (heap_union h1 h2)
    (at level 37, right associativity) : heap_union_scope.

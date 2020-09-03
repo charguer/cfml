@@ -255,6 +255,8 @@ End Var_seq.
 
 Module NotationForVariables.
 
+Declare Scope var_scope.
+
 Notation "''a'" := ("a":var) : var_scope.
 Notation "''b'" := ("b":var) : var_scope.
 Notation "''c'" := ("c":var) : var_scope.

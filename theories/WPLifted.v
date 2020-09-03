@@ -33,12 +33,13 @@ Definition Formula := forall A (EA:Enc A), (A -> hprop) -> hprop.
 Global Instance Inhab_Formula : Inhab Formula.
 Proof using. apply (Inhab_of_val (fun _ _ _ => \[])). Qed.
 
+Declare Scope wp_scope.
+Open Scope wp_scope.
+Delimit Scope wp_scope with wp.
+
 Notation "^ F Q" := ((F:Formula) _ _ Q)
   (at level 45, F at level 0, Q at level 0,
    format "^ F  Q") : wp_scope.
-
-Open Scope wp_scope.
-Delimit Scope wp_scope with wp.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -84,7 +85,7 @@ Hint Resolve structural_MkStruct.
 (** The predicate [Structural] lifts [structural] *)
 
 Definition Structural (F:Formula) : Prop :=
-  forall A `{EA:Enc A}, structural (@F A EA).
+  forall A (EA:Enc A), structural (@F A EA).
 
 Lemma Structural_Mkstruct : forall (F:Formula),
   Structural (MkStruct F).
@@ -149,7 +150,7 @@ Definition Wpgen_let (F1:Formula) (F2of:forall `{EA1:Enc A1}, A1->Formula) : For
       ^F1 (fun (X:A1) => ^(F2of X) Q)).
 
 Definition Wpgen_let_typed (F1:Formula) `{EA1:Enc A1} (F2of:A1->Formula) : Formula :=
-  MkStruct (fun `{Enc A} Q =>
+  MkStruct (fun A (EA:Enc A) Q =>
     ^F1 (fun (X:A1) => ^(F2of X) Q)).
 
 Definition Wpgen_seq (F1 F2:Formula) : Formula :=
@@ -163,7 +164,7 @@ Definition Wpaux_getval Wpgen (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
                  | Some v => F2of v
                  | None => `Wpgen_fail
                  end
-  | _ => `Wpgen_let (Wpgen E t1) (fun `{EA1:Enc A1} (V1:A1) => F2of (``V1))
+  | _ => `Wpgen_let (Wpgen E t1) (fun A1 (EA1:Enc A1) (V1:A1) => F2of (``V1))
   end.
 
 Definition Wpaux_getval_typed Wpgen (E:ctx) (t1:trm) `{EA1:Enc A1} (F2of:A1->Formula) : Formula :=
@@ -194,7 +195,7 @@ Definition Wpaux_apps Wpgen (E:ctx) (v0:func) : list val -> list trm -> Formula 
     end).
 
 Definition Wpgen_if_bool (b:bool) (F1 F2:Formula) : Formula :=
-  MkStruct (fun `{Enc A} Q =>
+  MkStruct (fun A (EA:Enc A) Q =>
     if b then ^F1 Q else ^F2 Q).
 
 Definition Wpaux_if (F0 F1 F2:Formula) : Formula :=
@@ -217,7 +218,7 @@ Definition Wpgen_for_int (n1 n2:int) (F1:int->Formula) : Formula :=
      (* --TODO: use a lifted version of structural_pred *)
 
 Definition Wpgen_case (F1:Formula) (P:Prop) (F2:Formula) : Formula :=
-  MkStruct (fun `{Enc A} Q =>
+  MkStruct (fun A (EA:Enc A) Q =>
     hand (^F1 Q) (\[P] \-* ^F2 Q)).
 
 Definition Wpaux_match Wpgen (E:ctx) (v:val) : list (pat*trm) ->  Formula :=
@@ -358,7 +359,7 @@ Ltac remove_MkStruct :=
 
 (* [F1 ====> F2] asserts that a Formula entails another one at all types. *)
 
-Notation "F1 ====> F2" := (forall (A:Type) `{EA:Enc A}, F1 A EA ===> F2 A EA)
+Notation "F1 ====> F2" := (forall (A:Type) (EA:Enc A), F1 A EA ===> F2 A EA)
   (at level 67).
 
 
@@ -409,7 +410,8 @@ Proof using.
     { intros v Ev. rewrites~ (>> isubst_evalctx_trm_var Ev).
       apply Triple_of_Wp. applys M2. }
     { introv N. remove_MkStruct. xtpull. intros; false. } }
-  asserts_rewrite (Wpaux_getval Wpgen E t1 (@F2of) = Wpgen_let (Wpgen E t1) (fun `{EA1:Enc A1} (V1:A1) => F2of (``V1))).
+  asserts_rewrite (Wpaux_getval Wpgen E t1 (@F2of)
+    = Wpgen_let (Wpgen E t1) (fun A1 (EA1:Enc A1) (V1:A1) => F2of (``V1))).
   { destruct t1; auto. { false C1. hnfs*. } { false C2. hnfs*. } }
   remove_MkStruct. xtpull ;=> A1 EA1. applys~ Triple_isubst_evalctx EA1.
   { apply Triple_of_Wp. applys M1. }

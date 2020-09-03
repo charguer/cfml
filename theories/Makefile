@@ -84,7 +84,7 @@ ifndef COQFLAGS
 	ifdef SLF
 		COQFLAGS:=
 	else
-		COQFLAGS:=-w -implicits-in-term,-redundant-canonical-projection,-several-object-files
+		COQFLAGS:=-w -implicits-in-term,-redundant-canonical-projection,-several-object-files,-ambiguous-paths,-implicit-core-hint-db
 	endif
 endif
 
