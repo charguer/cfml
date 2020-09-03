@@ -3,7 +3,7 @@
 ##############################################################################
 # Configuration
 
-SOURCE=~/versions/coq-8.9.1/sfdev/slf/full
+SOURCE=~/versions/coq-8.12/sfdev/slf/full
 TARGET=slf
 WEBSITE=website
 
