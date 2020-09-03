@@ -101,7 +101,7 @@ all: _CoqProject
 
 
 ##############################################################################
-# File transfer
+# Compilation of files from the course on Foundations of Separation Logic
 
 SLF_FILES := $(SRC_SF:=.v)
 
@@ -111,7 +111,5 @@ endif
 
 import_slf:
 	cp $(addprefix $(SLF_FOLDER)/,$(SLF_FILES)) .
-	sed -i -e 's/^From[[:space:]]SLF[[:space:]]Require[[:space:]]Export[[:space:]]Lib/From TLC Require Export Lib/' $(SLF_FILES)
-	sed -i -e 's/^From[[:space:]]SLF[[:space:]]/From Sep /' $(SLF_FILES)
-
-
+	sed -i -e 's/^From[[:space:]]SLF[[:space:]](\*[[:space:]]TLC[[:space:]]\*)/From TLC/' $(SLF_FILES)
+	sed -i -e 's/^From[[:space:]]SLF[[:space:]](\*[[:space:]]Sep[[:space:]]\*)/From Sep/' $(SLF_FILES)
