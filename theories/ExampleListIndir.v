@@ -85,7 +85,7 @@ Definition tail : field := 1%nat.
 (* ---------------------------------------------------------------------- *)
 (** Representation of segments *)
 
-Fixpoint MListSeg `{EA:Enc A} (r:loc) (L:list A) (p:loc) : hprop :=
+Fixpoint MListSeg A `{EA:Enc A} (r:loc) (L:list A) (p:loc) : hprop :=
   match L with
   | nil => \[p = r]
   | x::L' => \exists (q:loc), p ~~> q \* q`.head ~~> x \* q`.tail ~> MListSeg r L'
@@ -137,10 +137,10 @@ Arguments MListSeg_concat : clear implicits.
 (* ---------------------------------------------------------------------- *)
 (** Representation of full lists *)
 
-Definition MList `{EA:Enc A} (L:list A) (p:loc) : hprop :=
+Definition MList A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
   \exists (r:loc), p ~> MListSeg r L \* r ~~> null.
 
-Definition MListTail `{EA:Enc A} (L:list A) (q:loc) : hprop :=
+Definition MListTail A `{EA:Enc A} (L:list A) (q:loc) : hprop :=
   match L with
   | nil => \[q = null]
   | x::L' => q`.head ~~> x \* q`.tail ~> MList L'
@@ -162,7 +162,7 @@ Proof using. intros. xunfold~ MListTail. Qed.
 
 
 Lemma MListTail_nil : forall A `{EA:Enc A} (q:loc),
-  q ~> MListTail nil = \[q = null].
+  q ~> MListTail (@nil A) = \[q = null].
 Proof using. intros. rewrite~ MListTail_eq. Qed.
 
 Lemma MListTail_cons : forall A `{EA:Enc A} (x:A) (L':list A) (q:loc),
@@ -320,7 +320,7 @@ Lemma Triple_mlength : forall A `{EA:Enc A} (L:list A) (p:loc),
     PRE (p ~> MList L)
     POST (fun (r:int) => \[r = length L] \* p ~> MList L).
 Proof using.
-  intros. gen p. induction_wf: list_sub_wf L; intros. xwp.
+  intros. gen p. induction_wf IH: list_sub_wf L; intros. xwp.
   xchange MList_Tail_if ;=> q. xapp. xapp~.
   xif ;=> C; case_if; xpull.
   { intros ->. xval. subst q. xchange <- MList_nil. xsimpl*. }
