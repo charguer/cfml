@@ -234,14 +234,18 @@ Lemma MListSeg_eq : forall (p:loc) A `{EA:Enc A} (q:loc) (L:list A),
   end.
 Proof using. intros. xunfold~ @MListSeg. destruct~ L. Qed.
 
-Lemma MListSeg_nil : forall A `{EA:Enc A} p q,
+Lemma MListSeg_nil : forall p q A `{EA:Enc A},
   p ~> (MListSeg q (@nil A)) = \[p = q].
 Proof using. intros. xunfold~ MListSeg. Qed.
 
-Lemma MListSeg_cons : forall A `{EA:Enc A} p q x (L':list A),
+Global Arguments MListSeg_nil : clear implicits.
+
+Lemma MListSeg_cons : forall p q A `{EA:Enc A} x (L':list A),
   p ~> MListSeg q (x::L') =
   \exists (p':loc), (p ~> MCell x p') \* p' ~> MListSeg q L'.
 Proof using. intros. xunfold~ MListSeg. Qed.
+
+Global Arguments MListSeg_cons : clear implicits.
 
 Global Opaque MListSeg.
 
@@ -249,7 +253,9 @@ Lemma MListSeg_nil_intro : forall p A `{EA:Enc A},
   \[] = p ~> MListSeg p (@nil A).
 Proof using. intros. rewrite MListSeg_nil. xsimpl*. Qed.
 
-Lemma MListSeg_one : forall A `{EA:Enc A} p q (x:A),
+Global Arguments MListSeg_nil_intro : clear implicits.
+
+Lemma MListSeg_one : forall p q A `{EA:Enc A} (x:A),
   p ~> MListSeg q (x::nil) = p ~> (MCell x q).
 Proof using.
   intros. rewrite MListSeg_cons. applys himpl_antisym.
@@ -257,7 +263,9 @@ Proof using.
   { xsimpl q. xchanges* <- MListSeg_nil. }
 Qed.
 
-Lemma MListSeg_MList : forall A `{EA:Enc A} p (L:list A),
+Global Arguments MListSeg_one : clear implicits.
+
+Lemma MListSeg_MList : forall p A `{EA:Enc A} (L:list A),
   p ~> MListSeg null L = p ~> MList L.
 Proof using.
   intros. gen p. induction L; intros.
@@ -265,9 +273,12 @@ Proof using.
   { rewrite MListSeg_cons. rewrite MList_cons.
     fequals. apply fun_ext_1. intros q. (* todo simplify *)
     rewrite~ IHL. }
+
 Qed.
 
-Lemma MListSeg_concat : forall A `{EA:Enc A} p1 p3 (L1 L2:list A),
+Global Arguments MListSeg_MList : clear implicits.
+
+Lemma MListSeg_concat : forall p1 p3 A `{EA:Enc A} (L1 L2:list A),
   p1 ~> MListSeg p3 (L1++L2) =
   \exists p2, p1 ~> MListSeg p2 L1 \* p2 ~> MListSeg p3 L2.
 Proof using.
@@ -281,7 +292,9 @@ Proof using.
     { xpull ;=> p2. xchange MListSeg_cons ;=> p1'. xchanges <- IHL1'. } }
 Qed.
 
-Lemma MListSeg_last : forall A `{EA:Enc A} p1 p3 x (L:list A),
+Global Arguments MListSeg_concat : clear implicits.
+
+Lemma MListSeg_last : forall p1 p3 A `{EA:Enc A} x (L:list A),
   p1 ~> MListSeg p3 (L&x) =
   \exists p2, p1 ~> MListSeg p2 L \* p2 ~> (MCell x p3).
 Proof using.
@@ -290,7 +303,9 @@ Proof using.
   rewrite~ MListSeg_one.
 Qed.
 
-Lemma MListSeg_MCell_conflict : forall A `{EA:Enc A} (p q:loc) (L:list A) (x:A) (q':loc),
+Global Arguments MListSeg_last : clear implicits.
+
+Lemma MListSeg_MCell_conflict : forall (p q:loc) A `{EA:Enc A} (L:list A) (x:A) (q':loc),
   p ~> MListSeg q L \* q ~> MCell x q' ==+> \[L = nil <-> p = q].
 Proof using.
   intros. destruct L.
@@ -300,10 +315,9 @@ Proof using.
     { xsimpl*. xchange <- MListSeg_cons. } }
 Qed.
 
+Global Arguments MListSeg_MCell_conflict : clear implicits.
+
 End SegProperties.
-
-
-
 
 
 

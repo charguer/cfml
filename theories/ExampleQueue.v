@@ -38,7 +38,7 @@ Implicit Types v : val.
     items, and a special cell at location [b] storing the default value [d], and
     whose tail field stores the [null] value. *)
 
-Definition MQueue `{EA:Enc A} (L:list A) (p:loc) :=
+Definition MQueue A `{EA:Enc A} (L:list A) (p:loc) :=
   \exists (f:loc) (b:loc) (d:A),
     p ~> MCell f b \* f ~> MListSeg b L \* b ~> MCell d null.
 
@@ -248,7 +248,7 @@ Definition transfer :=
 Lemma Triple_transfer : forall A `{EA:Enc A} (L1 L2:list A) p1 p2,
   TRIPLE (transfer p1 p2)
     PRE (p1 ~> MQueue L1 \* p2 ~> MQueue L2)
-    POST (fun (_:unit) => p1 ~> MQueue (L1 ++ L2) \* p2 ~> MQueue nil).
+    POST (fun (_:unit) => p1 ~> MQueue (L1 ++ L2) \* p2 ~> MQueue (@nil A)).
 Proof using.
   xwp. xapp. xapp. xif ;=> C.
   { xunfold MQueue. xpull ;=> f2 b2 d2 f1 b1 d1. (* TODO: fix order, should be preserved *)
