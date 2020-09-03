@@ -73,7 +73,7 @@ Proof using.
   introv Dx DL. unfolds Decode. unfold Cons. rew_enc in *. fequals.
 Qed.
 
-Hint Resolve @Decode_Nil @Decode_Cons : Decode.
+Hint Resolve Decode_Nil Decode_Cons : Decode.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -110,8 +110,8 @@ Lemma MList_eq : forall (p:loc) A `{EA:Enc A} (L:list A),
   p ~> MList L = (\exists v, p ~~> v \* MList_contents v L).
 Proof using. intros. destruct L; auto. Qed.
 
-Lemma MList_nil : forall (p:loc) A `{EA:Enc A},
-  (p ~> MList nil) = (p ~~> Nil).
+Lemma MList_nil : forall (p:loc) A (EA:Enc A),
+  (p ~> MList (@nil A)) = (p ~~> Nil).
 Proof using.
   intros. xunfold MList. applys himpl_antisym.
   { xpull ;=> ? ->. auto. }
@@ -149,8 +149,8 @@ Lemma Mlist_unfold_match : forall A `{EA:Enc A} (L:list A) (p:loc) `{EB:Enc B}
               \-* q' ~> MList L'
               \-* ^(F2 ``x' ``q' : Formula) Q)) ->
   H ==> ^ (Let_ [A0 EA0] X := `App (trm_val (val_prim val_get)) (val_loc p) in
-         Case ``X = 'VCstr "Nil" '=> F1
-      '| Case ``X = 'VCstr "Cons" X0 X1 [X0 X1] '=> F2 X0 X1
+         Case (``X) = ('VCstr "Nil") '=> F1
+      '| Case (``X) = ('VCstr "Cons" X0 X1) [X0 X1] '=> F2 X0 X1
       '| Fail) Q.
 Proof using.
   introv M. xchange M. (* xlet *) notypeclasses refine (xlet_lemma _ _ _ _ _).
@@ -231,7 +231,7 @@ Definition head : val :=
     '| 'Cstr "Cons" 'x 'q '=> 'x
     End.
 
-Lemma Triple_head : forall A `{EA:Enc A} p x q,
+Lemma Triple_head : forall A `{EA:Enc A} p (x:A) q,
   TRIPLE (head ``p)
     PRE (p ~~> (Cons x q))
     POST (fun r => \[r = x] \* p ~~> (Cons x q)).
@@ -249,7 +249,7 @@ Definition tail : val :=
     '| 'Cstr "Cons" 'x 'q '=> 'q
     End.
 
-Lemma Triple_tail : forall A `{EA:Enc A} p x q,
+Lemma Triple_tail : forall A `{EA:Enc A} p (x:A) q,
   TRIPLE (tail ``p)
     PRE (p ~~> (Cons x q))
     POST (fun r => \[r = q] \* p ~~> (Cons x q)).
@@ -359,7 +359,7 @@ Definition set_head : val :=
     '| 'Cstr "Cons" 'x1 'q '=> 'p ':= ('Cstr "Cons" 'x2 'q)
     End.
 
-Lemma Triple_set_head : forall A `{EA:Enc A} q p x1 x2,
+Lemma Triple_set_head : forall A `{EA:Enc A} q p (x1 x2:A),
   TRIPLE (set_head ``p ``x2)
     PRE (p ~~> Cons x1 q)
     POST (fun (_:unit) => p ~~> Cons x2 q).
@@ -378,7 +378,7 @@ Definition set_tail : val :=
     '| 'Cstr "Cons" 'x 'q '=> 'p ':= ('Cstr "Cons" 'x 'q2)
     End.
 
-Lemma Triple_set_tail : forall A `{EA:Enc A} p x q1 q2,
+Lemma Triple_set_tail : forall A `{EA:Enc A} p (x:A) q1 q2,
   TRIPLE (set_tail ``p ``q2)
     PRE (p ~~> Cons x q1)
     POST (fun (_:unit) => p ~~> Cons x q2).
@@ -513,35 +513,9 @@ Lemma Triple_copy : forall A `{EA:Enc A} (L:list A) (p:loc),
     POST (fun (q:loc) => p ~> MList L \* q ~> MList L).
 Proof using.
   intros. gen p. induction_wf IH: (@list_sub A) L. intros.
-  xwp.
-
-(* DETAILS
-xapp_pre tt.
-(* works
- eapply @xapps_lemma; [ eapply Triple_is_empty |
- xsimpl_start tt ; xsimpl_step tt ].
- match goal with |- Xsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) =>
-  idtac "here"; match H with
-  | ?H1 \* ?H2 => idtac "there"; rewrite (@hstar_assoc H1 H2)
-end end.
-*)
-Hint Mode Enc + : typeclasses_instances.
-
-(* does not work with erewrite but with rewrite does *)
- eapply @xapps_lemma; [ eapply Triple_is_empty |
- xsimpl_start tt ; xsimpl_step tt ;
-
- match goal with |- Xsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) =>
-  idtac "here"; match H with
-  | ?H1 \* ?H2 => idtac "there"; rewrite (@hstar_assoc H1 H2)
-end end ].
-*)
-
-
-
-
- xapp. xif ;=> E.
-  { xapp ;=> p'. subst. xsimpl*. }
+  xwp. xapp. xif ;=> E.
+  { xapp (@Triple_create A EA);=> p'. (* TODO: simplify *)
+    subst. xsimpl*. }
   { xchanges~ MList_not_nil ;=> x L' p' ->.
     xapp. xapp~. xapp~ ;=> q'. xapp ;=> q.
     xchanges <- MList_cons. }
@@ -586,7 +560,7 @@ Proof using.
       PRE (p ~> MList L2 \* I L1)
       POST (fun (_:unit) => p ~> MList L2 \* I L)).
   { applys~ G. }
-  intros L1 L2 E. gen p L1. induction_wf: list_sub_wf L2; intros.
+  intros L1 L2 E. gen p L1. induction_wf IH: list_sub_wf L2; intros.
   xwp. xapp~. xapp. xif ;=> C.
   { xchanges~ MList_not_nil ;=> x L2' p2' ->.
     xapp. xapp*. (* xapp (>> __ L2'). *)
@@ -898,22 +872,22 @@ Fixpoint MListSeg A `{EA:Enc A} (q:loc) (L:list A) (p:loc) : hprop :=
 
 Section SegProperties.
 
-Lemma MListSeg_nil : forall A `{EA:Enc A} p q,
+Lemma MListSeg_nil : forall p q A (EA:Enc A),
   p ~> (MListSeg q (@nil A)) = \[p = q].
 Proof using. intros. xunfold~ MListSeg. Qed.
 
-Lemma MListSeg_cons : forall A `{EA:Enc A} p q x (L':list A),
+Lemma MListSeg_cons : forall p q A (EA:Enc A) x (L':list A),
   p ~> MListSeg q (x::L') =
   \exists (p':loc), (p ~~> Cons x p') \* p' ~> MListSeg q L'.
 Proof using. intros. xunfold~ MListSeg. Qed.
 
 Global Opaque MListSeg.
 
-Lemma MListSeg_nil_of_hempty : forall A `{EA:Enc A} p,
+Lemma MListSeg_nil_of_hempty : forall p A (EA:Enc A),
   \[] ==> p ~> MListSeg p (@nil A).
 Proof using. intros. rewrite MListSeg_nil. xsimpl~. Qed.
 
-Lemma MListSeg_one : forall A `{EA:Enc A} p q (x:A),
+Lemma MListSeg_one : forall p q A (EA:Enc A) (x:A),
   p ~~> (Cons x q) = p ~> MListSeg q (x::nil).
 Proof using.
   intros. rewrite MListSeg_cons. applys himpl_antisym.
@@ -921,7 +895,7 @@ Proof using.
   { xpull ;=> p'. rewrite MListSeg_nil. xsimpl~. }
 Qed.
 
-Lemma MListSeg_concat : forall A `{EA:Enc A} p1 p3 (L1 L2:list A),
+Lemma MListSeg_concat : forall p1 p3 A (EA:Enc A) (L1 L2:list A),
   p1 ~> MListSeg p3 (L1++L2) = \exists p2, p1 ~> MListSeg p2 L1 \* p2 ~> MListSeg p3 L2.
 Proof using.
   intros. gen p1. induction L1 as [|x L1']; intros.
@@ -935,7 +909,7 @@ Proof using.
       xchange <- IHL1'. xchanges <- (>> MListSeg_cons p1). } }
 Qed.
 
-Lemma MListSeg_last : forall A `{EA:Enc A} p1 p3 x (L:list A),
+Lemma MListSeg_last : forall p1 p3 A (EA:Enc A) x (L:list A),
   p1 ~> MListSeg p3 (L&x) = \exists p2, p1 ~> MListSeg p2 L \* p2 ~~> (Cons x p3).
 Proof using.
   intros. rewrite MListSeg_concat. applys himpl_antisym.
@@ -943,7 +917,7 @@ Proof using.
   { xpull ;=> p2. rewrite MListSeg_one. xsimpl. }
 Qed.
 
-Lemma MList_eq_MListSeg : forall A `{EA:Enc A} p (L:list A),
+Lemma MList_eq_MListSeg : forall p A (EA:Enc A) (L:list A),
   p ~> MList L = (\exists q, p ~> MListSeg q L \* q ~~> Nil).
 Proof using.
   intros. gen p. induction L as [|x L']; intros.

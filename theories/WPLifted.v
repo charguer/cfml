@@ -809,19 +809,19 @@ Notation "'For' x '=' n1 'To' n2 'Do' F3 'Done'" :=
 
 Notation "'Case' v '=' vp ''=>' F1 ''|' F2" :=
   ((Wpgen_case (fun A EA Q => \[v = vp%val] \-* F1 A EA Q) (v <> vp%val) F2))
-  (at level 69, v, vp at level 69,
+  (at level 69, v, vp at level 0,
    format "'[v' 'Case'  v  '='  vp  ''=>'  '[' '/' F1 ']' '[' '/'  ''|'  F2 ']' ']'")
    : wp_scope.
 
 Notation "'Case' v '=' vp [ x1 ] ''=>' F1 ''|' F2" :=
   ((Wpgen_case (fun A EA Q => \forall x1, \[v = vp%val] \-* F1 A EA Q) (forall x1, v <> vp%val) F2))
-  (at level 69, v, vp at level 69, x1 ident,
+  (at level 69, v, vp at level 0, x1 ident,
    format "'[v' 'Case'  v  '='  vp  [ x1 ]  ''=>'  '[' '/' F1 ']' '[' '/'  ''|'  F2 ']' ']'")
    : wp_scope.
 
 Notation "'Case' v '=' vp [ x1 x2 ] ''=>' F1 ''|' F2" :=
   ((Wpgen_case (fun A EA Q => \forall x1 x2, \[v = vp%val] \-* F1 A EA Q) (forall x1 x2, v <> vp%val) F2))
-  (at level 69, v, vp at level 69, x1 ident, x2 ident,
+  (at level 69, v, vp at level 0, x1 ident, x2 ident,
    format "'[v' 'Case'  v  '='  vp  [ x1  x2 ]  ''=>'  '[' '/' F1 ']' '[' '/'  ''|'  F2 ']' ']'")
    : wp_scope.
 

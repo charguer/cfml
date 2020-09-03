@@ -89,7 +89,7 @@ Hint Resolve Decode_None Decode_Some : Decode.
 (* --LATER: similar hints needed? *)
 
 Ltac xdecode_core tt :=
-  try solve [ eauto with Decode ].
+  try solve [ typeclasses eauto with Decode ].
 
 Tactic Notation "xdecode" :=
   xdecode_core tt.
@@ -974,8 +974,8 @@ Qed.
 Lemma xmatch_lemma_list : forall A `{EA:Enc A} (L:list A) (F1:Formula) (F2:val->val->Formula) H `{HB:Enc B} (Q:B->hprop),
   (L = nil -> H ==> ^F1 Q) ->
   (forall X L', L = X::L' -> H ==> ^(F2 ``X ``L') Q) ->
-  H ==> ^(  Case ``L = 'nil '=> F1
-         '| Case ``L = (vX ':: vL') [vX vL'] '=> F2 vX vL'
+  H ==> ^(  Case (``L) = ('nil) '=> F1
+         '| Case (``L) = (vX ':: vL') [vX vL'] '=> F2 vX vL'
          '| Fail) Q.
 Proof using.
   introv M1 M2. applys xcase_lemma0 ;=> E1.
