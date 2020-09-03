@@ -245,7 +245,7 @@ Proof using. intros. xunfold~ MListSeg. Qed.
 
 Global Opaque MListSeg.
 
-Lemma MListSeg_nil_intro : forall A `{EA:Enc A} p,
+Lemma MListSeg_nil_intro : forall p A `{EA:Enc A},
   \[] = p ~> MListSeg p (@nil A).
 Proof using. intros. rewrite MListSeg_nil. xsimpl*. Qed.
 
