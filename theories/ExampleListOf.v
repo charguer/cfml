@@ -15,6 +15,12 @@ Import MList.
 Implicit Types p : loc.
 Implicit Types n : int.
 
+(* TODO: TLC *)
+Lemma list_same_length_inv_nil : forall A1 A2 (l1:list A1) (l2:list A2),
+  length l1 = length l2 ->
+  l1 = nil <-> l2 = nil.
+Proof using. intros. destruct l1; destruct l2; auto_false*. Qed.
+
 
 (* ********************************************************************** *)
 (* * Lists with recursive ownership *)
@@ -55,7 +61,7 @@ Lemma Triple_create :
     PRE \[]
     POST (fun p => p ~> MListOf R nil).
 Proof using.
-  xtriple. xapp ;=> p. xunfold MListOf. xsimpl*.
+  xtriple. xapp (>> Triple_create EA) ;=> p. xunfold MListOf. xsimpl*.
   { rew_heapx. xsimpl. }
 Qed.
 
@@ -91,9 +97,9 @@ Qed.
 
 End Ops.
 
-Hint Extern 1 (Register_Spec (create)) => Provide @Triple_create.
-Hint Extern 1 (Register_Spec (is_empty)) => Provide @Triple_is_empty.
-Hint Extern 1 (Register_Spec (push)) => Provide @Triple_push.
-Hint Extern 1 (Register_Spec (pop)) => Provide @Triple_pop.
+Hint Extern 1 (Register_Spec (create)) => Provide Triple_create.
+Hint Extern 1 (Register_Spec (is_empty)) => Provide Triple_is_empty.
+Hint Extern 1 (Register_Spec (push)) => Provide Triple_push.
+Hint Extern 1 (Register_Spec (pop)) => Provide Triple_pop.
 
 Global Opaque MListOf.

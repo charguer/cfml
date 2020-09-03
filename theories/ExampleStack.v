@@ -92,14 +92,14 @@ Definition rev_append : val :=
 (** [p ~> Stack L] relates a pointer [p] with the list [L] made of
     the elements in the stack. *)
 
-Definition Stack `{Enc A} (L:list A) (p:loc) : hprop :=
+Definition Stack A `{Enc A} (L:list A) (p:loc) : hprop :=
   p ~~> L.
 
 
 (* ********************************************************************** *)
 (** ** Verification *)
 
-Lemma Triple_create : forall `{Enc A},
+Lemma Triple_create : forall A `{Enc A},
   TRIPLE (create '())
     PRE \[]
     POST (fun p => (p ~> Stack (@nil A))).
@@ -107,9 +107,9 @@ Proof using.
   xwp. xval. xapp. xsimpl.
 Qed.
 
-Hint Extern 1 (Register_Spec create) => Provide @Triple_create.
+Hint Extern 1 (Register_Spec create) => Provide Triple_create.
 
-Lemma Triple_is_empty : forall `{Enc A} (p:loc) (L:list A),
+Lemma Triple_is_empty : forall A `{Enc A} (p:loc) (L:list A),
   TRIPLE (is_empty p)
     PRE (p ~> Stack L)
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stack L).
@@ -117,9 +117,9 @@ Proof using.
   xwp. xunfold Stack. xapp. xval. xapp~. xsimpl*.
 Qed.
 
-Hint Extern 1 (Register_Spec is_empty) => Provide @Triple_is_empty.
+Hint Extern 1 (Register_Spec is_empty) => Provide Triple_is_empty.
 
-Lemma Triple_push : forall `{Enc A} (p:loc) (x:A) (L:list A),
+Lemma Triple_push : forall A `{Enc A} (p:loc) (x:A) (L:list A),
   TRIPLE (push p (``x))
     PRE (p ~> Stack L)
     POST (fun (u:unit) => (p ~> Stack (x::L))).
@@ -127,9 +127,9 @@ Proof using.
   xwp. xunfold Stack. xapp. xval. xapp. xsimpl.
 Qed.
 
-Hint Extern 1 (Register_Spec push) => Provide @Triple_push.
+Hint Extern 1 (Register_Spec push) => Provide Triple_push.
 
-Lemma Triple_pop : forall `{Enc A} (p:loc) (L:list A),
+Lemma Triple_pop : forall A `{Enc A} (p:loc) (L:list A),
   L <> nil ->
   TRIPLE (pop p)
     PRE (p ~> Stack L)
@@ -141,14 +141,14 @@ Proof using.
   { intros X L' HL. xapp. xval. xsimpl~. }
 Qed.
 
-Hint Extern 1 (Register_Spec pop) => Provide @Triple_pop.
+Hint Extern 1 (Register_Spec pop) => Provide Triple_pop.
 
 Opaque Stack.
 
-Lemma Triple_rev_append : forall `{Enc A} (p1 p2:loc) (L1 L2:list A),
+Lemma Triple_rev_append : forall A `{Enc A} (p1 p2:loc) (L1 L2:list A),
   TRIPLE (rev_append p1 p2)
     PRE (p1 ~> Stack L1 \* p2 ~> Stack L2)
-    POST (fun (u:unit) => p1 ~> Stack nil \* p2 ~> Stack (rev L1 ++ L2)).
+    POST (fun (u:unit) => p1 ~> Stack (@nil A) \* p2 ~> Stack (rev L1 ++ L2)).
 Proof using.
   intros. gen p1 p2 L2. induction_wf IH: (@list_sub A) L1. intros.
   xwp. xapp. xapp. xif ;=> C.
@@ -158,7 +158,7 @@ Proof using.
     xval. xsimpl~. subst. rew_list~. }
 Qed.
 
-Hint Extern 1 (Register_Spec rev_append) => Provide @Triple_rev_append.
+Hint Extern 1 (Register_Spec rev_append) => Provide Triple_rev_append.
 
 End Stack.
 
@@ -246,10 +246,10 @@ Definition pop : val :=
 (** [p ~> Stackn L] relates a pointer [p] with the list [L] made of
     the elements in the stack. *)
 
-Definition Stackn `{Enc A} (L:list A) (p:loc) : hprop :=
+Definition Stackn A `{Enc A} (L:list A) (p:loc) : hprop :=
   p ~> Record`{ data := L; size := LibListZ.length L }.
 
-Lemma Stackn_eq : forall (p:loc) `{Enc A} (L:list A),
+Lemma Stackn_eq : forall (p:loc) A (EA:Enc A) (L:list A),
   p ~> Stackn L =
   p ~> Record`{ data := L; size := LibListZ.length L }.
 Proof using. auto. Qed.
@@ -333,15 +333,15 @@ Import ExampleStack.Stackn.
 
 Definition clear :=
   Fun 'p :=
-    Set 'p'.data ':= ``nil ';
+    Set 'p'.data ':= 'nil ';
     Set 'p'.size ':= ``0.
 
 Lemma Triple_clear : forall A `{Enc A} (p:loc) (L:list A),
   TRIPLE (clear p)
     PRE (p ~> Stackn L)
-    POST (fun (u:unit) => p ~> Stackn nil).
+    POST (fun (u:unit) => p ~> Stackn (@nil A)).
 Proof using.
-  (* SOLUTION *) xwp. xunfold Stackn. xapp. xapp. xsimpl. (* /SOLUTION *)
+  (* SOLUTION *) xwp. xunfold Stackn. xval. xapp. xapp. xsimpl. (* /SOLUTION *)
 Qed.
 
 Hint Extern 1 (Register_Spec (clear)) => Provide @Triple_clear.
@@ -368,7 +368,7 @@ Definition concat :=
 Lemma Triple_concat : forall A `{Enc A} (p1 p2:loc) (L1 L2:list A),
   TRIPLE (concat p1 p2)
     PRE (p1 ~> Stackn L1 \* p2 ~> Stackn L2)
-    POST (fun (u:unit) => (* SOLUTION *) p1 ~> Stackn (L1 ++ L2) \* p2 ~> Stackn nil (* /SOLUTION *)).
+    POST (fun (u:unit) => (* SOLUTION *) p1 ~> Stackn (L1 ++ L2) \* p2 ~> Stackn (@nil A) (* /SOLUTION *)).
 Proof using.
   (* SOLUTION *)
   xwp. xunfold Stackn. xapp. xapp. xapp. xapp. xapp. xapp. xapp.

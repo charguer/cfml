@@ -15,7 +15,7 @@ License: CC-by 4.0.
 Set Implicit Arguments.
 From Sep Require Import Example ExampleList ExampleListOf.
 From TLC Require Import LibMultiset.
-
+Open Scope comp_scope.
 
 (* ********************************************************************** *)
 (* ********************************************************************** *)
@@ -168,7 +168,6 @@ Proof using.
       { applys* foreach_list_union. applys Forall_pred_incl Ks1.
         { intros x Hx. applys* foreach_weaken. { intros y Hy. unfolds* is_ge. } } } }
     { eauto. } }
-  { reflexivity. }
   { autos*. }
 Qed.
 
@@ -222,7 +221,7 @@ Fixpoint merge_pairs (ns:list node) : node :=
   | n::nil => n
   | n1::n2::hs' =>
       let n12 := merge n1 n2 in
-      if is_nil hs'
+      if LibListExec.is_nil hs'
         then n12
         else merge n12 (merge_pairs hs')
   end.
@@ -230,7 +229,7 @@ Fixpoint merge_pairs (ns:list node) : node :=
 Definition pop_min (h:heap) : elem * heap :=
   match h with
   | Some (Node x ns) =>
-      let h' := if is_nil ns
+      let h' := if LibListExec.is_nil ns
                   then None
                   else Some (merge_pairs ns) in
       (x, h')
@@ -263,8 +262,8 @@ Proof using.
   (destruct n1 as [x1 ns1]; inverts I1 as; intros Is1 Ks1);
   (destruct n2 as [x2 ns2]; inverts I2 as; intros Is2 Ks2).
   rename Es into Es1, Es0 into Es2. case_if.
-  { applys_eq* merge_lemma. }
-  { applys_eq* merge_lemma. }
+  { applys_eq* merge_lemma. multiset_eq. }
+  { applys_eq* merge_lemma. multiset_eq. } (* TODO:  automation should trigger the hint *)
 Qed.
 
 Lemma insert_spec : forall x h E,
@@ -274,7 +273,7 @@ Proof using.
   introv I. unfold insert.
   destruct h as [n|].
   { inverts I as I. constructor. applys_eq (>> merge_spec I).
-    { applys* inv_Node. } { autos*. } }
+    { applys* inv_Node. } }
   { inverts I. constructor. applys* inv_Node. }
 Qed.
 
@@ -285,15 +284,16 @@ Lemma merge_pairs_spec : forall ns Es,
 Proof using.
   intros ns. induction_wf IH: (@list_sub node) ns; introv N Is.
   destruct ns as [|n1 ns']; tryfalse. inverts Is as I1 Is.
+  rename y into E1. rename r into Es'.
   destruct ns' as [|n2 ns'']; simpl.
-  { inverts Is. rename y into E. applys_eq* I1. }
-  { inverts Is as I2 Is. rename r0 into Es, y0 into E2.
-    rewrite is_nil_eq. case_if as C.
-    { subst ns''. inverts Is. applys merge_spec. { applys I1. } { applys_eq* I2. } }
-    { applys_eq merge_spec.
+  { inverts Is. applys_eq* I1. }
+  { inverts Is as I2 Is. rename r into Es, y into E2.
+    rewrite LibListExec.is_nil_eq. case_if as C; rew_listx.
+    { subst ns''. inverts Is. applys merge_spec.
+      { applys I1. } { applys_eq* I2. } }
+    { rewrite union_assoc. applys_eq merge_spec.
       { applys* merge_spec. }
-      { applys* IH. }
-      { autos*. } } }
+      { applys* IH. } } }
 Qed.
 
 Lemma pop_min_spec : forall h E h' x,
@@ -307,7 +307,7 @@ Proof using.
   destruct h as [n|]; inverts I as I; tryfalse.
   destruct n as [y ns]. inverts M. inverts I as I1 Ks. split.
   { applys~ pop_min_lemma. }
-  { rewrite is_nil_eq. case_if as C.
+  { rewrite LibListExec.is_nil_eq. case_if as C.
     { subst ns. inverts I1. exists \{}. split~. constructor. }
     { forwards~ Is: merge_pairs_spec I1. exists (list_union Es). split~.
       constructor~. } }
