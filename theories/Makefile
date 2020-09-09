@@ -44,7 +44,7 @@ SRC_CFML := Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactic
 SRC_CFML_PLUS := WPRecord WPLib 
 # $(SRC_EXAMPLES) WPExamples WPExamplesDetails WPUnitTests 
 
-SRC_MORE := SepBaseAltProofs SepCredits SepRO SubstExec 
+SRC_MORE := SepBaseAltProofs SepCredits SepRO SepROMode SubstExec 
 
 # SRC_EXAMPLES := Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleListNull ExampleListIndir ExampleRO 
 
@@ -116,3 +116,9 @@ import_slf:
 
 clean_slf:
 	rm SLF*.v
+
+
+##############################################################################
+
+required_vos:
+	touch $@

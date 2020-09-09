@@ -77,6 +77,22 @@ Definition map_agree (A B : Type) (f1 f2 : map A B) :=
 Definition map_indom (A B : Type) (f1 : map A B) : (A->Prop) :=
   fun (x:A) => f1 x <> None.
 
+(** Filter the bindings of a map *)
+
+Definition map_filter A B (F:A->B->Prop) (f:map A B) : map A B :=
+  fun (x:A) => match f x with
+    | None => None
+    | Some y => If F x y then Some y else None
+    end.
+
+(** Map a function on the values of a map *)
+
+Definition map_map A B1 B2 (F:A->B1->B2) (f:map A B1) : map A B2 :=
+  fun (x:A) => match f x with
+    | None => None
+    | Some y => Some (F x y)
+    end.
+
 
 (* ---------------------------------------------------------------------- *)
 (** Properties *)
@@ -126,6 +142,28 @@ Proof using.
   specializes F x'. unfold map_remove in M. case_if~.
 Qed.
 
+(** Finiteness of filter *)
+
+Definition map_filter_finite : forall (F:A->B->Prop) f,
+  map_finite f ->
+  map_finite (map_filter F f).
+Proof using.
+  introv [L N]. exists L. intros x' M.
+  specializes N x'. unfold map_filter in M.
+  destruct (f x'); tryfalse. case_if. applys N; auto_false.
+Qed.
+
+(** Finiteness of map *)
+
+Definition map_map_finite : forall C (F:A->B->C) f,
+  map_finite f ->
+  map_finite (map_map F f).
+Proof using.
+  introv [L N]. exists L. intros x' M.
+  specializes N x'. unfold map_map in M.
+  destruct (f x'); tryfalse. applys N; auto_false.
+Qed.
+
 End MapOps.
 
 
@@ -146,6 +184,11 @@ Arguments make [A] [B].
 (** Operations *)
 
 Declare Scope fmap_scope.
+
+(** Domain of a fmap (as a predicate) *)
+
+Definition indom (A B: Type) (h:fmap A B) : (A->Prop) :=
+  map_indom h.
 
 (** Empty fmap *)
 
@@ -194,10 +237,17 @@ Program Definition remove A B (h:fmap A B) (x:A) : fmap A B :=
   make (map_remove h x) _.
 Next Obligation. destruct h. apply~ map_remove_finite. Qed.
 
-(** Domain of a fmap (as a predicate) *)
+(** Filter from a fmap *)
 
-Definition indom (A B: Type) (h:fmap A B) : (A->Prop) :=
-  map_indom h.
+Program Definition filter A B (F:A->B->Prop) (h:fmap A B) : fmap A B :=
+  make (map_filter F h) _.
+Next Obligation. destruct h. apply~ map_filter_finite. Qed.
+
+(** Map a function onto the keys of a fmap *)
+
+Program Definition map_ A B1 B2 (F:A->B1->B2) (h:fmap A B1) : fmap A B2 :=
+  make (map_map F h) _.
+Next Obligation. destruct h. apply~ map_map_finite. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
