@@ -351,7 +351,7 @@ Proof using. intros. subst*. Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [to_ro] *)
 
-Lemma to_ro_f : forall h,
+Lemma to_ro_rw : forall h,
   (to_ro h)^rw = Fmap.empty.
 Proof using. skip. Qed.
 
@@ -1106,29 +1106,35 @@ Proof using.
   exists h' v. splits~. { himpl_fold. auto. }
 Qed.
 
+Hint Rewrite to_ro_rw to_ro_ro : rew_heap.
+
 Lemma hoare_frame_read_only : forall t H1 Q1 H2,
   hoare t (H1 \* RO H2) Q1 ->
   Normal H2 ->
   hoare t (H1 \* H2) (Q1 \*+ H2).
 Proof using.
-  introv M N. intros h K. rewrite heap_fmap_def.
-  destruct h as ((f,r)&D). simpls.
-  destruct K as (h1&h2&P1&P2&R1&R2).
-  unfold heap_union in R2. rewrite (classicT_l R1) in R2.
-  inverts R2.
-  specializes N P2. destruct h2 as ((f2,r2)&D2). simpls. subst r2.
-  rew_fmap.
-  skip (h&E1&E2): (exists h, h^rw = h1^rw /\ h^ro = h1^ro \+ f2).
-  (* todo *)
-  forwards (f'&v&R&P): M h.
-  skip. (* todo *)
-  exists (f'\+f2) v. split.
-  rewrite heap_fmap_def in R. rewrite E1,E2 in R.
-    applys_eq R. fmap_eq. fmap_eq. skip.
-    exists (heap_full f') (heap_full f2). splits*.
-    skip.
-    skip.
-    skip.
+  introv M N. intros h (h1&h2&P1&P2&R1&R2).
+  forwards (h'&v&R&L&S): M (h1 \u to_ro h2).
+  { exists h1 (to_ro h2). splits~. 
+    { applys* to_ro_pred. }
+    { applys* heap_compat_ro_r. } }
+  rewrite (heap_eq_union_rw_ro h') in R.
+  rewrite heap_union_state in R.
+  rewrite heap_union_state in R.
+  rewrite S in R.
+  rew_heap in R. 
+  rewrite heap_union_state in R.
+  exists (h'^rw \u h1^ro \u h2) v. splits.
+  { rewrite heap_union_state.  rewrite heap_union_state. rewrite to_ro_state in R.
+     subst h. rewrite heap_union_state. applys_eq R. skip. skip. skip. }
+  { rew_heap. exists ___. skip. skip.
+    (* normal -> rw is empty *)
+    (* ro rw -> empty *)  skip . skip. (* h2^ro is empty *) skip. skip. }
+  { skip. }
+  { skip. }
+  { skip. }
+  { skip. }
+  { applys* heap_compat_ro_r. }
 Qed. (* TODO *)
 
 
