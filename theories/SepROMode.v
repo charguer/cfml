@@ -1257,6 +1257,15 @@ Qed.
 (* ########################################################### *)
 (** ** Reasoning rules for terms, for Hoare triples. *)
 
+Lemma Normal_rw_elim : forall H h, 
+  Normal H -> 
+  H h ->
+  H (h^rw).
+Proof using. introv N K. rewrites* (>> Normal_rw K). Qed.
+(*
+Hint Resolve Normal_rw_elim.
+*)
+
 Lemma hoare_val : forall v H Q,
   Normal_post Q ->
   H ==> Q v ->
@@ -1264,7 +1273,7 @@ Lemma hoare_val : forall v H Q,
 Proof.
   introv N M. intros h K. exists h v. splits~.
   { applys eval_val. }
-  { specializes M K. rewrites~ (>> Normal_rw M). }
+  { specializes M K. applys* Normal_rw_elim. }
 Qed.
 
 Lemma hoare_fix : forall f x t1 H Q,
@@ -1274,7 +1283,7 @@ Lemma hoare_fix : forall f x t1 H Q,
 Proof.
   introv N M. intros h K. exists h (val_fix f x t1). splits~.
   { applys* eval_fix. }
-  { specializes M K. rewrites~ (>> Normal_rw M). }
+  { specializes M K. applys* Normal_rw_elim. }
 Qed.
 
 Lemma hoare_app : forall v1 v2 (f:var) x t1 H Q,
@@ -1336,7 +1345,7 @@ Proof using.
   { rew_heap*. applys~ eval_ref_sep. }
   { rew_heap*. applys~ hstar_intro.
     { exists p. rewrite~ hstar_hpure_l. split~. { split~. (* applys~ hsingle_intro. *) } }
-    { rewrites* (>> Normal_rw NH). } }
+    { applys* Normal_rw_elim. } }
   { rew_heap*. }
 Qed.
 
@@ -1356,37 +1365,45 @@ Proof using.
      applys eval_get_sep (heap_state h') (heap_state s2). subst s. rew_heap*. 
      subst h'. rew_heap*. }
   { rewrite~ hstar_hpure_l. split~. subst s s1. rew_heap*.
-    rewrites~ (>> Normal_rw NH). }
+    applys* Normal_rw_elim. }
   { auto. }
 Qed.
 
 Lemma hoare_set : forall H w p v,
+  Normal H ->
   hoare (val_set (val_loc p) v)
     ((p ~~> w) \* H)
     (fun r => \[r = val_unit] \* (p ~~> v) \* H).
 Proof using.
-  intros. intros s1 K0.
+  introv NH. intros s1 K0.
   destruct K0 as (h1&h2&P1&P2&D&U).
-  lets E1: hsingle_inv P1.
-  exists (Fmap.union (Fmap.single p v) h2) val_unit. split.
-  { subst h1. applys eval_set_sep U D. auto. }
+  (* lets E1: hsingle_inv P1. *)
+  destruct P1 as (K&N).
+  exists (heap_union (single p (v,mode_rw)) h2) val_unit. splits.
+  { subst h1. applys* eval_set_sep (single p w) (single p v) (heap_state h2).
+    { subst. rew_heap*. }
+    { rew_heap*. } } 
   { rewrite hstar_hpure_l. split~.
-    { applys~ hstar_intro.
-      { applys~ hsingle_intro. }
-      { subst h1. applys Fmap.disjoint_single_set D. } } }
+    { rew_heap*. exists __ (h2^rw). splits*. (* rewrites~ applys~ hstar_intro.*)
+      { splits*. } { applys* Normal_rw_elim. } } }
+  { subst. rew_heap*. }
 Qed.
 
 Lemma hoare_free : forall H p v,
+  Normal H ->
   hoare (val_free (val_loc p))
     ((p ~~> v) \* H)
     (fun r => \[r = val_unit] \* H).
 Proof using.
-  intros. intros s1 K0.
+  introv NH. intros s1 K0.
   destruct K0 as (h1&h2&P1&P2&D&U).
-  lets E1: hsingle_inv P1.
-  exists h2 val_unit. split.
-  { subst h1. applys eval_free_sep U D. }
-  { rewrite hstar_hpure_l. split~. }
+  (* lets E1: hsingle_inv P1. *)
+  destruct P1 as (K&N).
+  exists h2 val_unit. splits.
+  { subst h1. applys* eval_free_sep.   
+    { subst. rew_heap*. } }
+  { rewrite hstar_hpure_l. split~. applys* Normal_rw_elim. }
+  { subst. rew_heap*. }
 Qed.
 
 
