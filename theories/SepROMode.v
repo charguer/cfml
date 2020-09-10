@@ -1304,9 +1304,8 @@ Proof.
   introv M. intros h (h1&h2&(HP&M1)&M2&D&U). hnf in M1. subst. rew_heap*. rew_fmap*.
 Qed.
 
+(* ********************************************************************** *)
 
-(* ########################################################### *)
-(** ** Reasoning rules for terms, for Hoare triples. *)
 
 Lemma Normal_rw_elim : forall H h, 
   Normal H -> 
@@ -1329,55 +1328,37 @@ Proof using.
   rew_heap*.
 Qed.
 
+Definition Framed HI HO :=
+  exists HR, Normal HO /\ ReadOnly HR /\ HI = HO \* HR.
+
+Lemma Framed_rw_elim : forall HI HO h, 
+  Framed HI HO -> 
+  HI h ->
+  HO (h^rw).
+Proof using.
+  introv (R&NF&NR&->). applys* Normal_ReadOnly_rw_elim.
+Qed.
+
+(* ########################################################### *)
+(** ** Reasoning rules for terms, for Hoare triples. *)
+
 Lemma hoare_val : forall HI HO v,
   Framed HI HO ->
   hoare (trm_val v) HI (fun r => \[r = v] \* HO).
 Proof.
   introv HF. intros h K. exists h v. splits~.
   { applys eval_val. }
-  { rewrite K. rew_heap. applys* hpure_intro. }
+  { rewrite hstar_hpure_l. split~. applys* Framed_rw_elim. }
 Qed.
 
 
-Lemma hoare_val'' : forall v H Q,
-  Normal H ->
-  H ==> Q v ->
-  hoare (trm_val v) H Q.
+Lemma hoare_fix : forall HI HO f x t1,
+  Framed HI HO ->
+  hoare (trm_fix f x t1) HI (fun r => \[r = (val_fix f x t1)] \* HO).
 Proof.
-  introv N M. intros h K. exists h v. splits~.
-  { applys eval_val. }
-  { forwards: Normal_rw_elim N K. applys* M. }
-Qed.
-
-
-Lemma hoare_val' : forall v H Q,
-  Normal_post Q ->
-  H ==> Q v ->
-  hoare (trm_val v) H Q.
-Proof.
-  introv N M. intros h K. exists h v. splits~.
-  { applys eval_val. }
-  { specializes M K. applys* Normal_rw_elim. }
-Qed.
-
-
-
-Lemma hoare_fix : forall f x t1,
-  hoare (trm_fix f x t1) \[] (fun r => \[r = (val_fix f x t1)]).
-Proof.
-  intros. intros h K. exists h (val_fix f x t1). splits~.
+  introv HF. intros h K. exists h (val_fix f x t1). splits~.
   { applys eval_fix. }
-  { rewrite K. rew_heap. applys* hpure_intro. }
-Qed.
-
-Lemma hoare_fix' : forall f x t1 H Q,
-  Normal_post Q ->
-  H ==> Q (val_fix f x t1) ->
-  hoare (trm_fix f x t1) H Q.
-Proof.
-  introv N M. intros h K. exists h (val_fix f x t1). splits~.
-  { applys* eval_fix. }
-  { specializes M K. applys* Normal_rw_elim. }
+  { rewrite hstar_hpure_l. split~. applys* Framed_rw_elim. }
 Qed.
 
 Lemma hoare_app_fix : forall v1 v2 (f:var) x t1 H Q,
@@ -1427,16 +1408,6 @@ Proof using. skip. (* Fmap.map single *) Qed.
 Hint Rewrite heap_state_single heap_union_state : rew_heap.
 
 
-Definition Framed HI HO :=
-  exists HR, Normal HO /\ ReadOnly HR /\ HI = HO \* HR.
-
-Lemma Framed_rw_elim : forall HI HO h, 
-  Framed HI HO -> 
-  HI h ->
-  HO (h^rw).
-Proof using.
-  introv (R&NF&NR&->). applys* Normal_ReadOnly_rw_elim.
-Qed.
 
 Lemma hoare_ref : forall HI HO v,
   Framed HI HO ->
@@ -1708,6 +1679,16 @@ Proof using.
   applys hoare_conseq K; xsimpl.
 Qed.
 
+Lemma triple_conseq_frame : forall H Q t H1 Q1 H2,
+  triple t H1 Q1 ->
+  H ==> (H1 \* H2) ->
+  (Q1 \*+ H2) ===> Q ->
+  Normal H2 ->
+  triple t H Q.
+Proof using.
+  introv M WH WQ N. applys triple_conseq WH WQ.
+  applys* triple_frame.
+Qed.
 
 
 Lemma triple_frame_read_only : forall t H1 Q1 H2,
@@ -1800,25 +1781,44 @@ Parameter heap_affine_union_inv : forall h1 h2,
   heap_affine (heap_union h1 h2) ->
   heap_affine h1 /\ heap_affine h2.
 
+
+
+Lemma decomposition : forall H,
+  H ==> (\exists H1 H2, \[Normal H1 /\ (haffine H -> haffine H1)]
+                     \* \[ReadOnly H2] \* (H1 \* H2)). 
+Proof using.
+  intros H h K. rewrite (heap_eq_union_rw_ro h).
+  exists (= h^rw) (= h^ro). do 2 rewrite hstar_hpure. splits.
+  { splits. 
+    { intros ? ->. rew_heap*. }
+    { intros F. Transparent haffine. unfolds haffine. intros ? ->.
+      specializes F K. rewrite (heap_eq_union_rw_ro h) in F. 
+      forwards*: heap_affine_union_inv F. } }
+  { intros ? ->. rew_heap*. } 
+  { do 2 esplit. splits*. }
+Qed.
+
 Lemma triple_haffine_pre : forall t H H' Q,
   triple t H Q ->
   haffine H' ->
   triple t (H \* H') Q.
 Proof using.
-  introv M F. applys triple_named_heap. 
-  intros h (h1&h2&P1&P2&D&->). 
-  forwards E: (heap_eq_union_rw_ro h2).
-  rewrite E in P2 |- *.
-  applys* triple_conseq (H \* (= h2^rw) \* (= h2^ro)).
-  rewrite <- hstar_assoc.
-  applys triple_hreadonly_pre.
-  { applys* triple_haffine_normal_pre.
-    { Transparent haffine. unfolds haffine. intros ? ->.
-      specializes F P2. forwards*: heap_affine_union_inv F. }
-    { intros ? ->. rew_heap*. } }
-  { intros h K. subst h. rew_heap*. }
-  { intros ? ->. do 2 esplit. splits*. do 2 esplit. splits*. }
+  introv M F.
+  forwards K: decomposition H'.
+  lets WH: himpl_frame_r H K.
+  applys* triple_conseq WH. 
+  (* manual invokation of xpull *)
+  rewrite hstar_comm.
+  rewrite hstar_hexists. applys triple_hexists. intros H1.
+  rewrite hstar_hexists. applys triple_hexists. intros H2.
+  rewrite hstar_assoc. applys triple_hpure. intros (N1&F1).
+  rewrite hstar_assoc. applys triple_hpure. intros N2.
+  rewrite hstar_comm. rewrite <- hstar_assoc.
+  applys* triple_hreadonly_pre.
+  applys* triple_haffine_normal_pre.
 Qed.
+
+
 
 
   
@@ -1849,41 +1849,47 @@ Qed.
 Lemma triple_val : forall v,
   triple (trm_val v) \[] (fun r => \[r = v]).
 Proof.
-  intros. intros HI HO HF.
-  esplit; split. { rew_heap. applys hoare_conseq. applys* hoare_val. } { xsimpl*. }
+  intros. intros HI HO HF. rew_heap.
+  applys hoare_conseq.
+  { applys* hoare_val. }
+  { xsimpl. }
+  { xsimpl*. }
 Qed.
 
-
-Lemma triple_fix : forall f x t1,
-  triple (trm_fix f x t1) \[] (fun r => \[r = (val_fix f x t1)]).
-Proof.
-  intros. intros h K. exists h (val_fix f x t1). splits~.
-  { applys eval_fix. }
-  { rewrite K. rew_heap. applys* hpure_intro. }
-Qed.
-
-
-
-(*
-Lemma triple_val : forall v H Q,
+Lemma triple_val_framed : forall v H Q,
   H ==> Q v ->
   Normal H ->
   triple (trm_val v) H Q.
 Proof using.
-  introv N M. intros HF NF. rewrite <- hstar_assoc. (* TODO: star notation associative *)
-  
-  applys* hoare_val. { xchanges M. }
+  introv M N. applys triple_conseq_frame N.
+  { applys triple_val. }
+  { xsimpl. }
+  { xchanges M. intros ? ->. xsimpl*. }
 Qed.
 
-Lemma triple_fix : forall f x t1 H Q,
+Lemma triple_fix : forall f x t1,
+  triple (trm_fix f x t1) \[] (fun r => \[r = (val_fix f x t1)]).
+Proof.
+  intros. intros HI HO HF. rew_heap.
+  applys hoare_conseq.
+  { applys* hoare_fix. }
+  { xsimpl. }
+  { xsimpl*. }
+Qed.
+
+
+Lemma triple_fix_framed : forall f x t1 H Q,
   H ==> Q (val_fix f x t1) ->
   Normal H ->
-  x <> f ->
   triple (trm_fix f x t1) H Q.
 Proof using.
-  introv N M. intros HF. applys~ hoare_fixs. { xchanges M. }
+  introv M N. applys triple_conseq_frame N.
+  { applys triple_fix. }
+  { xsimpl. }
+  { xchanges M. intros ? ->. xsimpl*. }
 Qed.
-*)
+
+
 (*
 Lemma triple_of_hoare : forall t H Q,
   (forall HF HR, Normal HF -> ReadOnly HR ->
@@ -1894,8 +1900,29 @@ Proof using.
 Qed.
 *)
 
-(*
 
+Lemma triple_let : forall (z:var) t1 t2 H1 H2 Q Q1,
+  triple t1 H1 Q1 ->
+  (forall v, triple (subst1 z v t2) (Q1 v \* H2) Q) ->
+  triple (trm_let z t1 t2) (H1 \* H2) Q.
+Proof using.
+  introv M1 M2. applys triple_of_hoare. intros HI HO HF.
+  specializes M1 HF.
+  esplit; split. {
+  applys_eq hoare_let. rewrite hstar_assoc. rewrite (hstar_comm H2).
+    rewrite <- hstar_assoc.
+    applys* hoare_frame_read_only.
+    forwards: M1. } { xsimpl*. }
+Qed.
+
+Lemma hoare_let : forall x t1 t2 HI HO H1 H2 Q Q1,
+  Framed HI HO ->
+  hoare t1 (H1 \* RO H2) Q1 ->
+  (forall v H3, hoare (subst x v t2) (Q1 v \* H2 \* RO H3) Q) ->
+  hoare (trm_let x t1 t2) (HI \* H2) Q.
+
+(*
+THIS MORE GENERAL STATEMENT SHOULD BE DERIVABLE
 Lemma triple_let : forall (z:var) t1 t2 H1 H2 Q Q1,
   triple t1 (H1 \* RO H2) Q1 ->
   Normal H2 ->
