@@ -1329,10 +1329,11 @@ Proof using.
   rew_heap*.
 Qed.
 
-Lemma hoare_val : forall v,
-  hoare (trm_val v) \[] (fun r => \[r = v]).
+Lemma hoare_val : forall HI HO v,
+  Framed HI HO ->
+  hoare (trm_val v) HI (fun r => \[r = v] \* HO).
 Proof.
-  intros. intros h K. exists h v. splits~.
+  introv HF. intros h K. exists h v. splits~.
   { applys eval_val. }
   { rewrite K. rew_heap. applys* hpure_intro. }
 Qed.
@@ -1606,10 +1607,11 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of SL triples in a logic with read-only predicates *)
 
+(* equivalent definition
 Definition triple' (t:trm) (H:hprop) (Q:val->hprop) :=
   forall HF HR, Normal HF -> ReadOnly HR ->
   hoare t (H \* HF \* HR) (Q \*+ HF \*+ \GC).
-
+*)
 
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) :=
   forall HI HO, Framed HI HO ->
@@ -1835,6 +1837,33 @@ Qed.
 
 (* ---------------------------------------------------------------------- *)
 (* ** SL rules for terms *)
+
+Lemma triple_of_hoare : forall t H Q,
+  (forall HI HO, Framed HI HO ->
+     exists Q', hoare t (H \* HI) Q' /\ Q' ===> Q \*+ HO \*+ \GC) ->
+  triple t H Q.
+Proof using.
+  introv M. intros HI HO HF. forwards* (Q'&R&W): M HF. applys* hoare_conseq R.
+Qed.
+
+Lemma triple_val : forall v,
+  triple (trm_val v) \[] (fun r => \[r = v]).
+Proof.
+  intros. intros HI HO HF.
+  esplit; split. { rew_heap. applys hoare_conseq. applys* hoare_val. } { xsimpl*. }
+Qed.
+
+
+Lemma triple_fix : forall f x t1,
+  triple (trm_fix f x t1) \[] (fun r => \[r = (val_fix f x t1)]).
+Proof.
+  intros. intros h K. exists h (val_fix f x t1). splits~.
+  { applys eval_fix. }
+  { rewrite K. rew_heap. applys* hpure_intro. }
+Qed.
+
+
+
 (*
 Lemma triple_val : forall v H Q,
   H ==> Q v ->
@@ -1864,13 +1893,7 @@ Proof using.
   introv M. intros HF HR NF NR. forwards* (Q'&R&W): M HF. applys* hoare_conseq R.
 Qed.
 *)
-Lemma triple_of_hoare : forall t H Q,
-  (forall HF HR, Normal HF -> ReadOnly HR ->
-     exists Q', hoare t (H \* HF \* HR) Q' /\ Q' ===> Q \*+ HF \*+ \GC) ->
-  triple t H Q.
-Proof using.
-  introv M. intros HF HR NF NR. forwards* (Q'&R&W): M HF. applys* hoare_conseq R.
-Qed.
+
 (*
 
 Lemma triple_let : forall (z:var) t1 t2 H1 H2 Q Q1,
@@ -1908,7 +1931,7 @@ Lemma triple_if : forall (b:bool) t1 t2 H Q,
   triple (if b then t1 else t2) H Q ->
   triple (trm_if b t1 t2) H Q.
 Proof using.
-  introv M1. intros HF HR NF NR. applys hoare_if. applys~ M1.
+  introv M1. intros HI HO HF. applys hoare_if. applys~ M1.
 Qed.
 
 
@@ -1918,7 +1941,7 @@ Lemma triple_app_fix : forall (f:var) F x X t1 H Q,
   triple (subst2 f F x X t1) H Q ->
   triple (trm_app F X) H Q.
 Proof using.
-  introv EF N M. intros HF HR NF NR. applys* hoare_app_fix EF N.
+  introv EF N M. intros HI HO HF. applys* hoare_app_fix EF N.
 Qed.
 
 
@@ -1927,9 +1950,9 @@ Lemma triple_ref : forall v,
     \[]
     (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
 Proof using.
-  intros. intros HF NF. applys~ triple_of_hoare.
-  intros H'. esplit. split.
-  { applys* hoare_ref. auto with Normal. } { xsimpl*. }
+  intros. applys~ triple_of_hoare.
+  intros HI HO HF. esplit. split.
+  { rew_heap. applys* hoare_ref HF. } { xsimpl*. }
 Qed.
 
 Lemma triple_get_ro : forall v l,
@@ -1937,7 +1960,7 @@ Lemma triple_get_ro : forall v l,
     (RO (l ~~~> v))
     (fun x => \[x = v]).
 Proof using.
-  intros. applys triple_of_hoare. intros HF HR NF NR.
+  intros. applys triple_of_hoare. intros HI HO HF.
   esplit; split. { applys* hoare_get_ro. } { xsimpl*. }
 Qed.
 
@@ -1946,7 +1969,7 @@ Lemma triple_set : forall (w:val) l v,
     (l ~~~> v)
     (fun r => \[r = val_unit] \* l ~~~> w).
 Proof using.
-  intros. applys triple_of_hoare. intros HF HR NF NR.
+  intros. applys triple_of_hoare. intros HI HO HF.
   esplit; split. { applys* hoare_set. } { xsimpl*. }
 Qed.
 
@@ -1964,7 +1987,7 @@ Lemma triple_free : forall l v,
     (l ~~~> v)
     (fun r => \[r = val_unit]).
 Proof using.
-  intros. applys triple_of_hoare. intros HF HR NF NR.
+  intros. applys triple_of_hoare. intros HI HO HF.
   esplit; split. { applys* hoare_free. } { xsimpl*. }
 Qed.
 
