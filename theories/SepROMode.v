@@ -1658,7 +1658,7 @@ Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, triple t (J x) Q) ->
   triple t (hexists J) Q.
 Proof using.
-  introv M. intros HF HR NF NR. rewrite hstar_hexists.
+  introv M. intros HI HO FR. rewrite hstar_hexists.
   applys hoare_hexists. intros. applys* M.
 Qed.
 
@@ -1666,7 +1666,7 @@ Lemma triple_hpure : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
 Proof using.
-  introv M. intros HF HR NF NR. rewrite hstar_assoc.
+  introv M. intros HI HO FR. rewrite hstar_assoc.
   applys hoare_hpure. intros. applys* M.
 Qed. (* Note: can also be proved from [triple_hexists] *)
 
@@ -1676,9 +1676,23 @@ Lemma triple_conseq : forall t H' Q' H Q,
   Q' ===> Q ->
   triple t H Q.
 Proof using.
-  introv M MH MQ. intros HF HR NF NR. applys* hoare_conseq M.
+  introv M MH MQ. intros HI HO FR. applys* hoare_conseq M.
   { xchanges MH. }
   { intros x. xchanges (MQ x). }
+Qed.
+
+Hint Resolve Normal_hstar Normal_hempty : Normal.
+
+
+Lemma Framed_frame : forall HI HO H,
+  Framed HI HO ->
+  Normal H ->
+  Framed (HI \* H) (HO \* H).
+Proof using.
+  introv (HR&NF&NR&E) N.
+  exists HR. splits*. 
+  { auto with Normal. }
+  { subst. xsimpl. } 
 Qed.
 
 Lemma triple_frame : forall t H1 Q1 H2,
@@ -1686,29 +1700,30 @@ Lemma triple_frame : forall t H1 Q1 H2,
   Normal H2 ->
   triple t (H1 \* H2) (Q1 \*+ H2).
 Proof using.
-  introv M N. intros HF HR NF NR. forwards~ K: M (H2 \* HF) HR.
-  { applys* Normal_hstar. }
-  { applys hoare_conseq K; xsimpl. }
+  introv M N. intros HI HO HF.
+  forwards~ HF': Framed_frame H2 HF.
+  forwards~ K: M HF'. 
+  applys hoare_conseq K; xsimpl.
 Qed.
+
+
 
 Lemma triple_frame_read_only : forall t H1 Q1 H2,
   triple t (H1 \* RO H2) Q1 ->
   Normal H2 ->
   triple t (H1 \* H2) (Q1 \*+ H2).
 Proof using.
-  introv M N. intros HF HR NF NR.
-  specializes M NF NR. (* TODO/ comm_assoc *)
+  introv M N. intros HI HO HF. specializes M HF.
   rewrite hstar_comm in M. rewrite <- hstar_assoc in M.
-  rewrite hstar_comm. rewrite <- hstar_assoc.
-  applys hoare_conseq. applys~ hoare_frame_read_only M. 
-  xsimpl. xsimpl.
+  forwards~ K: hoare_frame_read_only M.
+  applys hoare_conseq K. { xsimpl. } { xsimpl. }
 Qed.
 
 Lemma triple_hgc_post : forall t H Q,
   triple t H (Q \*+ \GC) ->
   triple t H Q.
 Proof using. 
-  introv M. intros HF HR NF NR. applys* hoare_conseq M. { xsimpl. }
+  introv M. intros HI HO HF. applys* hoare_conseq M. { xsimpl. }
 Qed.
 
 Lemma triple_hany_post : forall H' t H Q,
@@ -1719,14 +1734,27 @@ Proof using.
   introv M F. applys triple_hgc_post. applys triple_conseq M; xsimpl.
 Qed.
 
+Hint Resolve ReadOnly_hstar ReadOnly_hempty : ReadOnly.
+
+Lemma Framed_ReadOnly : forall HI HO H,
+  Framed HI HO ->
+  ReadOnly H ->
+  Framed (HI \* H) HO.
+Proof using.
+  introv (HR&NF&NR&E) N.
+  exists (HR \* H). splits*. 
+  { auto with ReadOnly. }
+  { subst. xsimpl. } 
+Qed.
+
+
 Lemma triple_hreadonly_pre : forall t H H' Q,
   triple t H Q ->
   ReadOnly H' ->
   triple t (H \* H') Q.
 Proof using.
-  introv M N. intros HF HR NF NR.
-  forwards* K: M HF (HR \* H'). { applys* ReadOnly_hstar. }
-  applys* hoare_conseq K. xsimpl.
+  introv M N. intros HI HO HF. forwards* HF': Framed_ReadOnly H' HF. 
+  forwards* K: M HF'. applys* hoare_conseq K. xsimpl.
 Qed.
 
 Lemma triple_hro_pre : forall t H H' Q,
@@ -1843,7 +1871,6 @@ Lemma triple_of_hoare : forall t H Q,
 Proof using.
   introv M. intros HF HR NF NR. forwards* (Q'&R&W): M HF. applys* hoare_conseq R.
 Qed.
-Hint Resolve Normal_hstar Normal_hempty : Normal.
 (*
 
 Lemma triple_let : forall (z:var) t1 t2 H1 H2 Q Q1,
