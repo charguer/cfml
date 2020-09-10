@@ -925,6 +925,13 @@ Proof using. skip. Qed.
 
 Hint Rewrite heap_empty_ro : rew_heap.
 
+(* TEMP *)
+Lemma heap_empty_rw : 
+  (heap_empty^rw) = empty.
+Proof using. skip. Qed.
+
+Hint Rewrite heap_empty_rw : rew_heap.
+
 Instance Normal_hempty :
   Normal \[].
 Proof using.
@@ -1022,6 +1029,7 @@ Qed.
 
 Definition RO (H:hprop) : hprop :=
   fun h => exists h', H h' /\ h = to_ro h'.
+  (* = \exists h', \[H h'] \* (= to_ro h'). *)
 
 Lemma RO_duplicatable : forall H,
   duplicatable (RO H).
@@ -1235,6 +1243,7 @@ Proof using.
 Qed. (* TODO *)
 
 
+
 (* ********************************************************************** *)
 (** * Hoare rules for term constructs *)
 
@@ -1266,7 +1275,16 @@ Proof using. introv N K. rewrites* (>> Normal_rw K). Qed.
 Hint Resolve Normal_rw_elim.
 *)
 
-Lemma hoare_val : forall v H Q,
+Lemma hoare_val : forall v,
+  hoare (trm_val v) \[] (fun r => \[r = v]).
+Proof.
+  intros. intros h K. exists h v. splits~.
+  { applys eval_val. }
+  { rewrite K. rew_heap. applys* hpure_intro. }
+Qed.
+
+
+Lemma hoare_val'' : forall v H Q,
   Normal H ->
   H ==> Q v ->
   hoare (trm_val v) H Q.
@@ -1289,9 +1307,15 @@ Qed.
 
 
 
+Lemma hoare_fix : forall f x t1,
+  hoare (trm_fix f x t1) \[] (fun r => \[r = (val_fix f x t1)]).
+Proof.
+  intros. intros h K. exists h (val_fix f x t1). splits~.
+  { applys eval_fix. }
+  { rewrite K. rew_heap. applys* hpure_intro. }
+Qed.
 
-
-Lemma hoare_fix : forall f x t1 H Q,
+Lemma hoare_fix' : forall f x t1 H Q,
   Normal_post Q ->
   H ==> Q (val_fix f x t1) ->
   hoare (trm_fix f x t1) H Q.
@@ -1421,15 +1445,62 @@ Proof using.
 Qed.
 
 
+(* ---------------------------------------------------------------------- *)
+(* *)
+
+(* Dual of Normal *)
+
+Class ReadOnly (H:hprop) : Prop :=
+  read_only : forall h, H h -> h^rw = Fmap.empty.
+
+Hint Mode Normal ! : typeclass_instances.
+
+Lemma ReadOnly_rw : forall H h,
+  ReadOnly H ->
+  H h ->
+  h^rw = Fmap.empty.
+Proof using. introv N K. applys* N. Qed.
+
+Instance ReadOnly_hempty :
+  ReadOnly hempty.
+Proof using.
+  introv M. unfolds hempty, hpure. subst. rew_heap*.
+Qed.
+
+Instance ReadOnly_RO : forall H,
+  ReadOnly (RO H).
+Proof using.
+  introv (h'&K&E). subst. rew_heap*.
+Qed.
+
+Instance ReadOnly_hstar : forall H1 H2,
+  ReadOnly H1 ->
+  ReadOnly H2 ->
+  ReadOnly (H1 \* H2).
+Proof using.
+  introv N1 N2 (h1&h2&P1&P2&M1&EQ). subst. rew_heap*.
+  rewrite* N1. rewrite* N2. rew_heap*.
+Qed.
+
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of SL triples in a logic with read-only predicates *)
 
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) :=
-  forall H', Normal H' -> hoare t (H \* H' \* \GC) (Q \*+ H' \*+ \GC).
+  forall HF HR, Normal HF -> ReadOnly HR ->
+  hoare t (H \* HF \* HR) (Q \*+ HF \*+ \GC).
 
-(* Technically, the \GC from the post could be removed. *)
 
+
+(* alternative
+Definition RWPart (H:hprop) : hprop :=
+  fun h => exists h', H h' /\ h = h'^rw.
+
+Definition triple' (t:trm) (H:hprop) (Q:val->hprop) :=
+  forall H',
+  hoare t (H \* H') (Q \*+ RWPart H' \*+ \GC).
+*)
 
 (* ---------------------------------------------------------------------- *)
 (* ** Connection with Hoare triples *)
@@ -1463,7 +1534,7 @@ Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, triple t (J x) Q) ->
   triple t (hexists J) Q.
 Proof using.
-  introv M. intros HF NF. rewrite hstar_hexists.
+  introv M. intros HF HR NF NR. rewrite hstar_hexists.
   applys hoare_hexists. intros. applys* M.
 Qed.
 
@@ -1471,7 +1542,7 @@ Lemma triple_hpure : forall t (P:Prop) H Q,
   (P -> triple t H Q) ->
   triple t (\[P] \* H) Q.
 Proof using.
-  introv M. intros HF NF. rewrite hstar_assoc.
+  introv M. intros HF HR NF NR. rewrite hstar_assoc.
   applys hoare_hpure. intros. applys* M.
 Qed. (* Note: can also be proved from [triple_hexists] *)
 
@@ -1481,9 +1552,19 @@ Lemma triple_conseq : forall t H' Q' H Q,
   Q' ===> Q ->
   triple t H Q.
 Proof using.
-  introv M MH MQ. intros HF NF. applys* hoare_conseq M.
+  introv M MH MQ. intros HF HR NF NR. applys* hoare_conseq M.
   { xchanges MH. }
   { intros x. xchanges (MQ x). }
+Qed.
+
+Lemma triple_frame : forall t H1 Q1 H2,
+  triple t H1 Q1 ->
+  Normal H2 ->
+  triple t (H1 \* H2) (Q1 \*+ H2).
+Proof using.
+  introv M N. intros HF HR NF NR. forwards~ K: M (H2 \* HF) HR.
+  { applys* Normal_hstar. }
+  { applys hoare_conseq K; xsimpl. }
 Qed.
 
 Lemma triple_frame_read_only : forall t H1 Q1 H2,
@@ -1491,18 +1572,19 @@ Lemma triple_frame_read_only : forall t H1 Q1 H2,
   Normal H2 ->
   triple t (H1 \* H2) (Q1 \*+ H2).
 Proof using.
-  introv M N. intros HF NF.
-  specializes M NF. (* TODO/ comm_assoc *)
+  introv M N. intros HF HR NF NR.
+  specializes M NF NR. (* TODO/ comm_assoc *)
   rewrite hstar_comm in M. rewrite <- hstar_assoc in M.
   rewrite hstar_comm. rewrite <- hstar_assoc.
-  applys hoare_conseq. applys~ hoare_frame_read_only M. xsimpl. xsimpl.
+  applys hoare_conseq. applys~ hoare_frame_read_only M. 
+  xsimpl. xsimpl.
 Qed.
 
 Lemma triple_hgc_post : forall t H Q,
   triple t H (Q \*+ \GC) ->
   triple t H Q.
 Proof using. 
-  introv M. intros H' N. applys* hoare_conseq M. { xsimpl. }
+  introv M. intros HF HR NF NR. applys* hoare_conseq M. { xsimpl. }
 Qed.
 
 Lemma triple_hany_post : forall H' t H Q,
@@ -1513,44 +1595,89 @@ Proof using.
   introv M F. applys triple_hgc_post. applys triple_conseq M; xsimpl.
 Qed.
 
-Lemma triple_hany_pre : forall t H H' Q,
+Lemma triple_hreadonly_pre : forall t H H' Q,
   triple t H Q ->
-  haffine H' ->
+  ReadOnly H' ->
   triple t (H \* H') Q.
 Proof using.
-  introv M F. intros HF NF. applys* hoare_conseq M. { xsimpl. } 
+  introv M N. intros HF HR NF NR.
+  forwards* K: M HF (HR \* H'). { applys* ReadOnly_hstar. }
+  applys* hoare_conseq K. xsimpl.
 Qed.
 
-Lemma triple_frame : forall t H1 Q1 H2,
-  triple t H1 Q1 ->
-  Normal H2 ->
-  triple t (H1 \* H2) (Q1 \*+ H2).
+Lemma triple_hro_pre : forall t H H' Q,
+  triple t H Q ->
+  triple t (H \* RO H') Q.
 Proof using.
-  introv M N. applys~ triple_frame_read_only.
-  applys triple_hany_pre M. applys haffine_ro.
+  introv M. applys* triple_hreadonly_pre. applys ReadOnly_RO.
 Qed.
 
-(* ---------------------------------------------------------------------- *)
-(* alternative proofs, deprecated *)
-
-Lemma triple_frame_direct_proof : forall t H1 Q1 H2,
-  triple t H1 Q1 ->
-  Normal H2 ->
-  triple t (H1 \* H2) (Q1 \*+ H2).
-Proof using.
-  introv M N. intros HF NF. forwards~ K: M (H2 \* HF).
-  { applys* Normal_hstar. }
-  { applys hoare_conseq K; xsimpl. }
-Qed.
-
-Lemma triple_hany_pre_alternative : forall t H H' Q,
+Lemma triple_haffine_normal_pre : forall t H H' Q,
   triple t H Q ->
   haffine H' ->
   Normal H' ->
   triple t (H \* H') Q.
 Proof using.
-  introv M F N. applys~ triple_hany_post H'. applys* triple_frame_direct_proof M.
+  introv M F N. applys~ triple_hany_post H'. applys* triple_frame M.
 Qed.
+
+
+
+Lemma hexists_named_eq : forall H,
+  H = (\exists h, \[H h] \* (= h)).
+Proof using.
+  intros. apply himpl_antisym.
+  { intros h K. applys hexists_intro h.
+    rewrite* hstar_hpure_l. }
+  { xpull. intros h K. intros ? ->. auto. }
+Qed.
+
+Lemma triple_named_heap : forall t H Q,
+  (forall h, H h -> triple t (= h) Q) ->
+  triple t H Q.
+Proof using.
+  introv M. rewrite (hexists_named_eq H).
+  applys triple_hexists. intros h.
+  applys* triple_hpure.
+Qed.
+
+
+Parameter heap_affine_union_inv : forall h1 h2,
+  heap_affine (heap_union h1 h2) ->
+  heap_affine h1 /\ heap_affine h2.
+
+Lemma triple_haffine_pre : forall t H H' Q,
+  triple t H Q ->
+  haffine H' ->
+  triple t (H \* H') Q.
+Proof using.
+  introv M F. applys triple_named_heap. 
+  intros h (h1&h2&P1&P2&D&->). 
+  forwards E: (heap_eq_union_rw_ro h2).
+  rewrite E in P2 |- *.
+  applys* triple_conseq (H \* (= h2^rw) \* (= h2^ro)).
+  rewrite <- hstar_assoc.
+  applys triple_hreadonly_pre.
+  { applys* triple_haffine_normal_pre.
+    { Transparent haffine. unfolds haffine. intros ? ->.
+      specializes F P2. forwards*: heap_affine_union_inv F. }
+    { intros ? ->. rew_heap*. } }
+  { intros h K. subst h. rew_heap*. }
+  { intros ? ->. do 2 esplit. splits*. do 2 esplit. splits*. }
+Qed.
+
+
+  
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* alternative proofs, deprecated *)
+
+
+
+
+(* TODO: this version is missing the ability to throw away RO permissions. *)
 
 
 
@@ -1575,15 +1702,37 @@ Lemma triple_fix : forall f x t1 H Q,
 Proof using.
   introv N M. intros HF. applys~ hoare_fixs. { xchanges M. }
 Qed.
+*)
 
-Lemma triple_let : forall z t1 t2 H1 H2 Q Q1,
-  triple t1 H1 Q1 ->
+Lemma triple_of_hoare : forall t H Q,
+  (forall H', Normal H' -> exists Q', hoare t (H \* H') Q' /\ Q' ===> Q \*+ H' \*+ \GC) ->
+  triple t H Q.
+Proof using.
+  introv M. intros HF N. forwards* (Q'&R&W): M HF. applys* hoare_conseq R.
+Qed.
+
+Hint Resolve Normal_hstar Normal_hempty : Normal.
+
+
+Lemma triple_let : forall (z:var) t1 t2 H1 H2 Q Q1,
+  triple t1 (H1 \* RO H2) Q1 ->
+  Normal H2 ->
   (forall (X:val), triple (subst1 z X t2) (Q1 X \* H2) Q) ->
   triple (trm_let z t1 t2) (H1 \* H2) Q.
 Proof using.
- 
+  introv M1 N2 M2. applys triple_of_hoare. intros HF NF.
+  esplit; split. { applys_eq hoare_let. rewrite hstar_assoc. rewrite (hstar_comm H2).
+    rewrite <- hstar_assoc.
+    applys* hoare_frame_read_only.
+    forwards: M1. } { xsimpl*. }
 Qed.
 
+  hoare t1 (H1 \* RO H2) Q1 ->
+  (forall v H3, hoare (subst x v t2) (Q1 v \* H2 \* RO H3) Q) ->
+  hoare (trm_let x t1 t2) (H1 \* H2) Q.
+
+
+(*
 Lemma triple_let_simple : forall z t1 t2 H Q Q1,
   triple t1 H Q1 ->
   (forall (X:val), triple (subst1 z X t2) (Q1 X) Q) ->
@@ -1613,16 +1762,6 @@ Proof using.
 Qed.
 
 
-
-Lemma triple_of_hoare : forall t H Q,
-  (forall H', Normal H' -> exists Q', hoare t (H \* H' \* \GC) Q' /\ Q' ===> Q \*+ H' \*+ \GC) ->
-  triple t H Q.
-Proof using.
-  introv M. intros HF N. forwards* (Q'&R&W): M HF. applys* hoare_conseq R.
-Qed.
-
-Hint Resolve Normal_hstar Normal_hempty.
-
 Lemma triple_ref : forall v,
   triple (val_ref v)
     \[]
@@ -1630,32 +1769,35 @@ Lemma triple_ref : forall v,
 Proof using.
   intros. intros HF NF. applys~ triple_of_hoare.
   intros H'. esplit. split.
-  { applys* hoare_ref. applys Normal_hstar. } { xsimpl*. }
+  { applys* hoare_ref. auto with Normal. } { xsimpl*. }
 Qed.
 
 Lemma triple_get_ro : forall v l,
   triple (val_get (val_loc l))
     (RO (l ~~~> v))
-    (fun x => \[x = v] \* (l ~~~> v)).
+    (fun x => \[x = v]).
 Proof using.
   intros. applys triple_of_hoare. intros HF.
-  esplit; split. { applys hoare_get. } { xsimpl*. }
+  esplit; split. { applys* hoare_get_ro. } { xsimpl*. }
 Qed.
 
-Lemma triple_set : forall w l v,
+Lemma triple_set : forall (w:val) l v,
   triple (val_set (val_loc l) w)
     (l ~~~> v)
     (fun r => \[r = val_unit] \* l ~~~> w).
 Proof using.
   intros. applys triple_of_hoare. intros HF.
-  esplit; split. { applys hoare_set. } { xsimpl*. }
+  esplit; split. { applys* hoare_set. } { xsimpl*. }
 Qed.
 
-Lemma triple_set' : forall w l v,
+Lemma triple_set' : forall (w:val) l v,
   triple (val_set (val_loc l) w)
     (l ~~~> v)
     (fun r => l ~~~> w).
-Proof using. intros. xapplys* triple_set. Qed.
+Proof using.
+  intros. applys triple_conseq.
+  { applys* triple_set. } { xsimpl*. } { xsimpl*. }
+Qed.
 
 Lemma triple_free : forall l v,
   triple (val_free (val_loc l))
@@ -1663,7 +1805,7 @@ Lemma triple_free : forall l v,
     (fun r => \[r = val_unit]).
 Proof using.
   intros. applys triple_of_hoare. intros HF.
-  esplit; split. { applys hoare_free. } { xsimpl*. }
+  esplit; split. { applys* hoare_free. } { xsimpl*. }
 Qed.
 
 
