@@ -1150,6 +1150,66 @@ End HaffineRO.
 Hint Resolve haffine_ro : haffine.
 
 
+(* ---------------------------------------------------------------------- *)
+(* *)
+Axiom RO_ro : forall h,
+  RO (= (h^ro)) (h^ro).
+
+Axiom ro_ro : forall h,
+  (h^ro)^ro = h^ro.
+
+Axiom rw_ro : forall h,
+  (h^rw)^ro = Fmap.empty.
+
+Axiom ro_rw : forall h,
+  (h^ro)^rw = Fmap.empty.
+
+Axiom rw_rw : forall h,
+  (h^rw)^rw = h^rw.
+
+Hint Rewrite rw_ro rw_rw ro_rw ro_ro heap_union_state to_ro_state : rew_heap.
+
+Hint Rewrite to_ro_rw to_ro_ro : rew_heap.
+
+(* ---------------------------------------------------------------------- *)
+(* *)
+
+(* Dual of Normal *)
+
+Class ReadOnly (H:hprop) : Prop :=
+  read_only : forall h, H h -> h^rw = Fmap.empty.
+
+Hint Mode Normal ! : typeclass_instances.
+
+Lemma ReadOnly_rw : forall H h,
+  ReadOnly H ->
+  H h ->
+  h^rw = Fmap.empty.
+Proof using. introv N K. applys* N. Qed.
+
+Instance ReadOnly_hempty :
+  ReadOnly hempty.
+Proof using.
+  introv M. unfolds hempty, hpure. subst. rew_heap*.
+Qed.
+
+Instance ReadOnly_RO : forall H,
+  ReadOnly (RO H).
+Proof using.
+  introv (h'&K&E). subst. rew_heap*.
+Qed.
+
+Instance ReadOnly_hstar : forall H1 H2,
+  ReadOnly H1 ->
+  ReadOnly H2 ->
+  ReadOnly (H1 \* H2).
+Proof using.
+  introv N1 N2 (h1&h2&P1&P2&M1&EQ). subst. rew_heap*.
+  rewrite* N1. rewrite* N2. rew_heap*.
+Qed.
+
+
+
 (* ********************************************************************** *)
 (* * Reasoning rules, high-level proofs *)
 
@@ -1196,24 +1256,6 @@ Proof using. introv M. intros h Hh. applys* M. Qed.
 
 
 
-Axiom RO_ro : forall h,
-  RO (= (h^ro)) (h^ro).
-
-Axiom ro_ro : forall h,
-  (h^ro)^ro = h^ro.
-
-Axiom rw_ro : forall h,
-  (h^rw)^ro = Fmap.empty.
-
-Axiom ro_rw : forall h,
-  (h^ro)^rw = Fmap.empty.
-
-Axiom rw_rw : forall h,
-  (h^rw)^rw = h^rw.
-
-Hint Rewrite rw_ro rw_rw ro_rw ro_ro heap_union_state to_ro_state : rew_heap.
-
-Hint Rewrite to_ro_rw to_ro_ro : rew_heap.
 
 Lemma hoare_frame_read_only : forall t H1 Q1 H2,
   hoare t (H1 \* RO H2) Q1 ->
@@ -1274,6 +1316,18 @@ Proof using. introv N K. rewrites* (>> Normal_rw K). Qed.
 (*
 Hint Resolve Normal_rw_elim.
 *)
+
+Lemma Normal_ReadOnly_rw_elim : forall HF HR h, 
+  Normal HF -> 
+  ReadOnly HR ->
+  (HF \* HR) h ->
+  HF (h^rw).
+Proof using.
+  introv NF NR (h1&h2&K1&K2&D&->). rew_heap*.
+  rewrites* (>> ReadOnly_rw K2).
+  rewrites* (>> Normal_rw K1).
+  rew_heap*.
+Qed.
 
 Lemma hoare_val : forall v,
   hoare (trm_val v) \[] (fun r => \[r = v]).
@@ -1371,6 +1425,52 @@ Proof using. skip. (* Fmap.map single *) Qed.
 
 Hint Rewrite heap_state_single heap_union_state : rew_heap.
 
+
+Definition Framed HI HO :=
+  exists HR, Normal HO /\ ReadOnly HR /\ HI = HO \* HR.
+
+Lemma Framed_rw_elim : forall HI HO h, 
+  Framed HI HO -> 
+  HI h ->
+  HO (h^rw).
+Proof using.
+  introv (R&NF&NR&->). applys* Normal_ReadOnly_rw_elim.
+Qed.
+
+Lemma hoare_ref : forall HI HO v,
+  Framed HI HO ->
+  hoare (val_ref v)
+    (HI)
+    (fun r => (\exists p, \[r = val_loc p] \* p ~~> v) \* HO).
+Proof using.
+  introv NF. intros s1 K0.
+  forwards~ (p&D&N): (Fmap.single_fresh 0%nat s1 (v,mode_rw)).
+  exists (heap_union (Fmap.single p (v,mode_rw)) s1) (val_loc p). splits.
+  { rew_heap*. applys~ eval_ref_sep. }
+  { rew_heap*. applys~ hstar_intro.
+    { exists p. rewrite~ hstar_hpure_l. split~. { split~. (* applys~ hsingle_intro. *) } }
+    { applys* Framed_rw_elim. } }
+  { rew_heap*. }
+Qed.
+
+(* DEPRECATED
+Lemma hoare_ref' : forall HF HR v,
+  Normal HF ->
+  ReadOnly HR ->
+  hoare (val_ref v)
+    (HF \* HR)
+    (fun r => (\exists p, \[r = val_loc p] \* p ~~> v) \* HF).
+Proof using.
+  introv NH NR. intros s1 K0.
+  forwards~ (p&D&N): (Fmap.single_fresh 0%nat s1 (v,mode_rw)).
+  exists (heap_union (Fmap.single p (v,mode_rw)) s1) (val_loc p). splits.
+  { rew_heap*. applys~ eval_ref_sep. }
+  { rew_heap*. applys~ hstar_intro.
+    { exists p. rewrite~ hstar_hpure_l. split~. { split~. (* applys~ hsingle_intro. *) } }
+    { applys* Normal_ReadOnly_rw_elim. } }
+  { rew_heap*. }
+Qed.
+
 Lemma hoare_ref : forall H v,
   Normal H ->
   hoare (val_ref v)
@@ -1386,9 +1486,10 @@ Proof using.
     { applys* Normal_rw_elim. } }
   { rew_heap*. }
 Qed.
-
+ *)
 Implicit Types p : loc.
 
+(* DEPRECATED
 Lemma hoare_get_ro : forall H v p,
   Normal H ->
   hoare (val_get p)
@@ -1406,7 +1507,63 @@ Proof using.
     applys* Normal_rw_elim. }
   { auto. }
 Qed.
+*)
+Lemma hoare_get_ro : forall HI HO v p,
+  Framed HI HO ->
+  hoare (val_get p)
+    (RO (p ~~> v) \* HI)
+    (fun r => \[r = v] \* HO).
+Proof using.
+  introv NH. intros s (s1&s2&P1&P2&D&U).
+  destruct P1 as (h'&(K&N)&E).
+  exists s v. splits.
+  { (*lets E1: hsingle_inv P1.*)
+     subst s1.
+     applys eval_get_sep (heap_state h') (heap_state s2). subst s. rew_heap*. 
+     subst h'. rew_heap*. }
+  { rewrite~ hstar_hpure_l. split~. subst s s1. rew_heap*.
+    applys* Framed_rw_elim. }
+  { auto. }
+Qed.
 
+Lemma hoare_set : forall HI HO w p v,
+  Framed HI HO ->
+  hoare (val_set (val_loc p) v)
+    ((p ~~> w) \* HI)
+    (fun r => \[r = val_unit] \* (p ~~> v) \* HO).
+Proof using.
+  introv NH. intros s1 K0.
+  destruct K0 as (h1&h2&P1&P2&D&U).
+  (* lets E1: hsingle_inv P1. *)
+  destruct P1 as (K&N).
+  exists (heap_union (single p (v,mode_rw)) h2) val_unit. splits.
+  { subst h1. applys* eval_set_sep (single p w) (single p v) (heap_state h2).
+    { subst. rew_heap*. }
+    { rew_heap*. } } 
+  { rewrite hstar_hpure_l. split~.
+    { rew_heap*. exists __ (h2^rw). splits*. (* rewrites~ applys~ hstar_intro.*)
+      { splits*. } { applys* Framed_rw_elim. } } }
+  { subst. rew_heap*. }
+Qed.
+
+Lemma hoare_free : forall HI HO p v,
+  Framed HI HO ->
+  hoare (val_free (val_loc p))
+    ((p ~~> v) \* HI)
+    (fun r => \[r = val_unit] \* HO).
+Proof using.
+  introv NH. intros s1 K0.
+  destruct K0 as (h1&h2&P1&P2&D&U).
+  (* lets E1: hsingle_inv P1. *)
+  destruct P1 as (K&N).
+  exists h2 val_unit. splits.
+  { subst h1. applys* eval_free_sep.   
+    { subst. rew_heap*. } }
+  { rewrite hstar_hpure_l. split~. applys* Framed_rw_elim. }
+  { subst. rew_heap*. }
+Qed.
+
+(* DEPRECATED
 Lemma hoare_set : forall H w p v,
   Normal H ->
   hoare (val_set (val_loc p) v)
@@ -1443,53 +1600,20 @@ Proof using.
   { rewrite hstar_hpure_l. split~. applys* Normal_rw_elim. }
   { subst. rew_heap*. }
 Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(* *)
-
-(* Dual of Normal *)
-
-Class ReadOnly (H:hprop) : Prop :=
-  read_only : forall h, H h -> h^rw = Fmap.empty.
-
-Hint Mode Normal ! : typeclass_instances.
-
-Lemma ReadOnly_rw : forall H h,
-  ReadOnly H ->
-  H h ->
-  h^rw = Fmap.empty.
-Proof using. introv N K. applys* N. Qed.
-
-Instance ReadOnly_hempty :
-  ReadOnly hempty.
-Proof using.
-  introv M. unfolds hempty, hpure. subst. rew_heap*.
-Qed.
-
-Instance ReadOnly_RO : forall H,
-  ReadOnly (RO H).
-Proof using.
-  introv (h'&K&E). subst. rew_heap*.
-Qed.
-
-Instance ReadOnly_hstar : forall H1 H2,
-  ReadOnly H1 ->
-  ReadOnly H2 ->
-  ReadOnly (H1 \* H2).
-Proof using.
-  introv N1 N2 (h1&h2&P1&P2&M1&EQ). subst. rew_heap*.
-  rewrite* N1. rewrite* N2. rew_heap*.
-Qed.
-
+*)
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of SL triples in a logic with read-only predicates *)
 
-Definition triple (t:trm) (H:hprop) (Q:val->hprop) :=
+Definition triple' (t:trm) (H:hprop) (Q:val->hprop) :=
   forall HF HR, Normal HF -> ReadOnly HR ->
   hoare t (H \* HF \* HR) (Q \*+ HF \*+ \GC).
+
+
+Definition triple (t:trm) (H:hprop) (Q:val->hprop) :=
+  forall HI HO, Framed HI HO ->
+  hoare t (H \* HI) (Q \*+ HO \*+ \GC).
 
 
 
@@ -1703,16 +1827,24 @@ Proof using.
   introv N M. intros HF. applys~ hoare_fixs. { xchanges M. }
 Qed.
 *)
-
+(*
 Lemma triple_of_hoare : forall t H Q,
-  (forall H', Normal H' -> exists Q', hoare t (H \* H') Q' /\ Q' ===> Q \*+ H' \*+ \GC) ->
+  (forall HF HR, Normal HF -> ReadOnly HR ->
+     exists Q', hoare t (H \* HF \* HR) Q' /\ Q' ===> Q \*+ HF \*+ \GC) ->
   triple t H Q.
 Proof using.
-  introv M. intros HF N. forwards* (Q'&R&W): M HF. applys* hoare_conseq R.
+  introv M. intros HF HR NF NR. forwards* (Q'&R&W): M HF. applys* hoare_conseq R.
 Qed.
-
+*)
+Lemma triple_of_hoare : forall t H Q,
+  (forall HF HR, Normal HF -> ReadOnly HR ->
+     exists Q', hoare t (H \* HF \* HR) Q' /\ Q' ===> Q \*+ HF \*+ \GC) ->
+  triple t H Q.
+Proof using.
+  introv M. intros HF HR NF NR. forwards* (Q'&R&W): M HF. applys* hoare_conseq R.
+Qed.
 Hint Resolve Normal_hstar Normal_hempty : Normal.
-
+(*
 
 Lemma triple_let : forall (z:var) t1 t2 H1 H2 Q Q1,
   triple t1 (H1 \* RO H2) Q1 ->
@@ -1731,6 +1863,7 @@ Qed.
   (forall v H3, hoare (subst x v t2) (Q1 v \* H2 \* RO H3) Q) ->
   hoare (trm_let x t1 t2) (H1 \* H2) Q.
 
+*)
 
 (*
 Lemma triple_let_simple : forall z t1 t2 H Q Q1,
@@ -1748,7 +1881,7 @@ Lemma triple_if : forall (b:bool) t1 t2 H Q,
   triple (if b then t1 else t2) H Q ->
   triple (trm_if b t1 t2) H Q.
 Proof using.
-  introv M1. intros HF NF. applys hoare_if. applys~ M1.
+  introv M1. intros HF HR NF NR. applys hoare_if. applys~ M1.
 Qed.
 
 
@@ -1758,7 +1891,7 @@ Lemma triple_app_fix : forall (f:var) F x X t1 H Q,
   triple (subst2 f F x X t1) H Q ->
   triple (trm_app F X) H Q.
 Proof using.
-  introv EF N M. intros HF NF. applys* hoare_app_fix EF N.
+  introv EF N M. intros HF HR NF NR. applys* hoare_app_fix EF N.
 Qed.
 
 
@@ -1777,7 +1910,7 @@ Lemma triple_get_ro : forall v l,
     (RO (l ~~~> v))
     (fun x => \[x = v]).
 Proof using.
-  intros. applys triple_of_hoare. intros HF.
+  intros. applys triple_of_hoare. intros HF HR NF NR.
   esplit; split. { applys* hoare_get_ro. } { xsimpl*. }
 Qed.
 
@@ -1786,7 +1919,7 @@ Lemma triple_set : forall (w:val) l v,
     (l ~~~> v)
     (fun r => \[r = val_unit] \* l ~~~> w).
 Proof using.
-  intros. applys triple_of_hoare. intros HF.
+  intros. applys triple_of_hoare. intros HF HR NF NR.
   esplit; split. { applys* hoare_set. } { xsimpl*. }
 Qed.
 
@@ -1804,7 +1937,7 @@ Lemma triple_free : forall l v,
     (l ~~~> v)
     (fun r => \[r = val_unit]).
 Proof using.
-  intros. applys triple_of_hoare. intros HF.
+  intros. applys triple_of_hoare. intros HF HR NF NR.
   esplit; split. { applys* hoare_free. } { xsimpl*. }
 Qed.
 
