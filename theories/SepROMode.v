@@ -1267,6 +1267,17 @@ Hint Resolve Normal_rw_elim.
 *)
 
 Lemma hoare_val : forall v H Q,
+  Normal H ->
+  H ==> Q v ->
+  hoare (trm_val v) H Q.
+Proof.
+  introv N M. intros h K. exists h v. splits~.
+  { applys eval_val. }
+  { forwards: Normal_rw_elim N K. applys* M. }
+Qed.
+
+
+Lemma hoare_val' : forall v H Q,
   Normal_post Q ->
   H ==> Q v ->
   hoare (trm_val v) H Q.
@@ -1275,6 +1286,10 @@ Proof.
   { applys eval_val. }
   { specializes M K. applys* Normal_rw_elim. }
 Qed.
+
+
+
+
 
 Lemma hoare_fix : forall f x t1 H Q,
   Normal_post Q ->
@@ -1286,14 +1301,13 @@ Proof.
   { specializes M K. applys* Normal_rw_elim. }
 Qed.
 
-Lemma hoare_app : forall v1 v2 (f:var) x t1 H Q,
-  Normal_post Q ->
+Lemma hoare_app_fix : forall v1 v2 (f:var) x t1 H Q,
   v1 = val_fix f x t1 ->
   f <> x ->
   hoare (subst x v2 (subst f v1 t1)) H Q ->
   hoare (trm_app v1 v2) H Q.
 Proof.
-  introv N E D M. intros s K0. forwards (s'&v&R1&K1&E1): (rm M) K0.
+  introv E D M. intros s K0. forwards (s'&v&R1&K1&E1): (rm M) K0.
   exists s' v. splits~. { applys* eval_app E R1. auto_false. }
 Qed.
 
@@ -1542,39 +1556,35 @@ Qed.
 
 (* ---------------------------------------------------------------------- *)
 (* ** SL rules for terms *)
-
+(*
 Lemma triple_val : forall v H Q,
   H ==> Q v ->
+  Normal H ->
   triple (trm_val v) H Q.
 Proof using.
-  introv M. intros HF. applys hoare_val. { xchanges M. }
+  introv N M. intros HF NF. rewrite <- hstar_assoc. (* TODO: star notation associative *)
+  
+  applys* hoare_val. { xchanges M. }
 Qed.
 
-Lemma triple_fixs : forall f xs t1 H Q,
-  xs <> nil ->
-  H ==> Q (val_fixs f xs t1) ->
-  triple (trm_fixs f xs t1) H Q.
+Lemma triple_fix : forall f x t1 H Q,
+  H ==> Q (val_fix f x t1) ->
+  Normal H ->
+  x <> f ->
+  triple (trm_fix f x t1) H Q.
 Proof using.
   introv N M. intros HF. applys~ hoare_fixs. { xchanges M. }
 Qed.
 
-Lemma triple_constr : forall id vs H Q,
-  H ==> Q (val_constr id vs) ->
-  triple (trm_constr id vs) H Q.
+Lemma triple_let : forall z t1 t2 H1 H2 Q Q1,
+  triple t1 H1 Q1 ->
+  (forall (X:val), triple (subst1 z X t2) (Q1 X \* H2) Q) ->
+  triple (trm_let z t1 t2) (H1 \* H2) Q.
 Proof using.
-  introv M. intros HF. applys hoare_constr. { xchanges M. }
+ 
 Qed.
 
-Lemma triple_constr_trm : forall id ts t1 vs H Q Q1,
-  triple t1 H Q1 ->
-  (forall (X:val), triple (trm_constr id ((trms_vals vs)++(trm_val X)::ts)) (Q1 X) Q) ->
-  triple (trm_constr id ((trms_vals vs)++t1::ts)) H Q.
-Proof using.
-  introv M1 M2. intros HF. applys~ hoare_constr_trm.
-  { intros v. applys* hoare_of_triple. }
-Qed.
-
-Lemma triple_let : forall z t1 t2 H Q Q1,
+Lemma triple_let_simple : forall z t1 t2 H Q Q1,
   triple t1 H Q1 ->
   (forall (X:val), triple (subst1 z X t2) (Q1 X) Q) ->
   triple (trm_let z t1 t2) H Q.
@@ -1583,80 +1593,49 @@ Proof using.
   { applys M1. }
   { intros v. applys* hoare_of_triple. }
 Qed.
-
-Lemma triple_seq : forall t1 t2 H Q Q1,
-  triple t1 H Q1 ->
-  (forall (X:val), triple t2 (Q1 X) Q) ->
-  triple (trm_seq t1 t2) H Q.
-Proof using.
-  introv M1 M2. applys* triple_let. (* BIND intros. rewrite* subst1_anon. *)
-Qed.
+*)
 
 Lemma triple_if : forall (b:bool) t1 t2 H Q,
   triple (if b then t1 else t2) H Q ->
   triple (trm_if b t1 t2) H Q.
 Proof using.
-  introv M1. intros HF. applys hoare_if. applys M1.
+  introv M1. intros HF NF. applys hoare_if. applys~ M1.
 Qed.
 
-Lemma triple_if_bool : forall (b:bool) t1 t2 H Q,
-  (b = true -> triple t1 H Q) ->
-  (b = false -> triple t2 H Q) ->
-  triple (trm_if b t1 t2) H Q.
+
+Lemma triple_app_fix : forall (f:var) F x X t1 H Q,
+  F = val_fix f x t1 ->
+  f <> x ->
+  triple (subst2 f F x X t1) H Q ->
+  triple (trm_app F X) H Q.
 Proof using.
-  introv M1 M2. applys triple_if. case_if*.
+  introv EF N M. intros HF NF. applys* hoare_app_fix EF N.
 Qed.
 
-Lemma triple_if_trm : forall Q1 t0 t1 t2 H Q,
-  triple t0 H Q1 ->
-  (forall v, triple (trm_if v t1 t2) (Q1 v) Q) ->
-  triple (trm_if t0 t1 t2) H Q.
+
+
+Lemma triple_of_hoare : forall t H Q,
+  (forall H', Normal H' -> exists Q', hoare t (H \* H' \* \GC) Q' /\ Q' ===> Q \*+ H' \*+ \GC) ->
+  triple t H Q.
 Proof using.
-  introv M1 M2. intros HF. applys* hoare_if_trm.
-  { intros v. applys* hoare_of_triple. }
+  introv M. intros HF N. forwards* (Q'&R&W): M HF. applys* hoare_conseq R.
 Qed.
 
-Lemma triple_if_trm' : forall Q1 t0 t1 t2 H Q, (* not very useful *)
-  triple t0 H Q1 ->
-  (forall (b:bool), triple (if b then t1 else t2) (Q1 b) Q) ->
-  (forall v, ~ is_val_bool v -> (Q1 v) ==> \[False]) ->
-  triple (trm_if t0 t1 t2) H Q.
-Proof using.
-  introv M1 M2 M3. applys* triple_if_trm.
-  { intros v. tests C: (is_val_bool v).
-    { destruct C as (b&E). subst. applys* triple_if. }
-    { xtchange* M3. xtpull ;=>. false. } }
-Qed.
-
-Lemma triple_apps_funs : forall xs F (Vs:vals) t1 H Q,
-  F = (val_funs xs t1) ->
-  var_funs xs (length Vs) ->
-  triple (substn xs Vs t1) H Q ->
-  triple (trm_apps F Vs) H Q.
-Proof using. introv E N M. intros HF. applys* hoare_apps_funs. Qed.
-
-Lemma triple_apps_fixs : forall xs (f:var) F (Vs:vals) t1 H Q,
-  F = (val_fixs f xs t1) ->
-  var_fixs f xs (length Vs) ->
-  triple (substn (f::xs) (F::Vs) t1) H Q ->
-  triple (trm_apps F Vs) H Q.
-Proof using. introv E N M. intros HF. applys* hoare_apps_fixs. Qed.
-
-(* ---------------------------------------------------------------------- *)
-(* ** SL rules for primitive functions over the state *)
+Hint Resolve Normal_hstar Normal_hempty.
 
 Lemma triple_ref : forall v,
   triple (val_ref v)
     \[]
     (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
 Proof using.
-  intros. applys triple_of_hoare. intros HF. rew_heap.
-  esplit; split. { applys hoare_ref. } { xsimpl*. }
+  intros. intros HF NF. applys~ triple_of_hoare.
+  intros H'. esplit. split.
+  { applys* hoare_ref. applys Normal_hstar. } { xsimpl*. }
 Qed.
 
-Lemma triple_get : forall v l,
+Lemma triple_get_ro : forall v l,
   triple (val_get (val_loc l))
-    (l ~~~> v)
+    (RO (l ~~~> v))
     (fun x => \[x = v] \* (l ~~~> v)).
 Proof using.
   intros. applys triple_of_hoare. intros HF.
@@ -1689,210 +1668,8 @@ Qed.
 
 
 
-(* ---------------------------------------------------------------------- *)
-(* ** Term rules *)
 
-Lemma triple_val : forall v H Q,
-  H ==> Q v ->
-  Normal H ->
-  triple (trm_val v) H Q.
-Proof using.
-  introv M HS. intros h1 h2 D P1. specializes HS P1.
-  exists h1 v. splits~.
-  { applys eval_val. }
-  { specializes M P1. applys~ on_rw_sub_base. }
-Qed.
 
-(* DEPRECATED
-Lemma triple_fun : forall x t1 H Q,
-  H ==> Q (val_fun x t1) ->
-  Normal H ->
-  triple (trm_fun x t1) H Q.
-Proof using.
-  introv M HS. intros h1 h2 D P1. exists___. splits*.
-  { applys eval_fun. }
-  { specializes M P1. applys~ on_rw_sub_base. }
-Qed.
-*)
-
-Lemma triple_fix : forall f x t1 H Q,
-  H ==> Q (val_fix f x t1) ->
-  Normal H ->
-  triple (trm_fix f x t1) H Q.
-Proof using.
-  introv M HS. intros h1 h2 D P1. exists___. splits*.
-  { applys eval_fix. }
-  { specializes M P1. applys~ on_rw_sub_base. }
-Qed.
-
-Lemma triple_if : forall (b:bool) t1 t2 H Q,
-  triple (if b then t1 else t2) H Q ->
-  triple (trm_if b t1 t2) H Q.
-Proof using.
-  introv M. intros h1 h2 D N. forwards* (h'&v'&(N1&N2&N3&N4)): (rm M) h1.
-  exists h' v'. splits~. { applys~ eval_if. }
-Qed.
-
-Lemma triple_let : forall z t1 t2 H1 H2 Q Q1,
-  triple t1 H1 Q1 ->
-  (forall (X:val), triple (subst1 z X t2) (Q1 X \* H2) Q) ->
-  triple (trm_let z t1 t2) (H1 \* H2) Q.
-Proof using.
-  introv M1 M2. intros h1 h2 D (h11&h12&P11&P12&R1&R2).
-  subst h1. lets~ (D1&D2): heap_compat_union_l_inv (rm D).
-  forwards~ (h1'&v1&(N1&N2&N3&N4)): (rm M1) (h12 \u h2) (rm P11).
-  destruct N4 as (hx&hy&K1&K2&K3&K4).
-  subst h1'. forwards~ (N1a&N1b): heap_compat_union_l_inv N1.
-  forwards~ (N1aa&N1ab): heap_compat_union_r_inv N1a.
-  forwards~ (N1ba&N1bb): heap_compat_union_r_inv N1b.
-  forwards~ (h1''&v2&(T1&T2&T3&T4)): ((rm M2) v1) (h12 \u hx) (hy \u h2).
-  { exists~ hx h12. }
-  forwards~ (T1a&T1b): heap_compat_union_r_inv T1.
-  exists (h1'' \u hy) v2. splits~.
-  { applys eval_let_trm.
-    { applys_eq~ N2. rewrite~ heap_union_assoc. }
-    { applys_eq~ T2.
-      { fequals.
-        rewrite~ (@heap_union_comm h12 hx).
-        do 2 rewrite~ heap_union_assoc. fequals.
-        rewrite~ <- heap_union_assoc.
-        rewrite~ (@heap_union_comm hy h12).
-        rewrite~ heap_union_assoc. }
-      { rewrite~ heap_union_assoc. } } }
-  { rew_heap~. rewrite T3. rew_heap~. rewrite <- N3. rew_heap~.
-    rewrite (Fmap.union_comm_of_agree (hx^ro \+ hy^ro) h12^ro).
-    rewrite~ Fmap.union_assoc. applys Fmap.agree_union_l.
-    destruct~ N1aa. destruct~ N1ba. }
-  { applys~ on_rw_sub_union_r. }
-Qed.
-
-Lemma triple_let_simple : forall z t1 t2 H Q Q1,
-  triple t1 H Q1 ->
-  (forall (X:val), triple (subst1 z X t2) (Q1 X) Q) ->
-  triple (trm_let z t1 t2) H Q.
-Proof using.
-  introv M1 M2.
-  applys_eq~ (>> triple_let \[] M1).
-  { rewrite* hstar_hempty_r. }
-  { intros X. rewrite* hstar_hempty_r. }
-Qed.
-
-Lemma triple_let_val : forall z v1 t2 H Q,
-  (forall (X:val), X = v1 -> triple (subst1 z X t2) H Q) ->
-  triple (trm_let z (trm_val v1) t2) H Q.
-Proof using.
-  introv M. forwards~ M': M.
-  applys_eq (>> triple_let \[] Q (fun x => \[x = v1])).
-  { rewrite~ hstar_hempty_l. }
-  { applys triple_val. rewrite <- (@hstar_hempty_r \[v1=v1]).
-    applys~ himpl_hstar_hpure_r. applys Normal_hempty. }
-  { intros X. applys triple_hpure. applys M. }
-Qed.
-
-Lemma triple_app_fix : forall (f:bind) F x X t1 H Q,
-  F = val_fix f x t1 ->
-  f <> x ->
-  triple (subst2 f F x X t1) H Q ->
-  triple (trm_app F X) H Q.
-Proof using.
-  introv EF N M. subst. applys triple_red (rm M).
-  introv R. hint eval_val. applys* eval_app_trm.
-Qed.
-
-(* LATER: derivable let-fix rule
-
-Definition spec_fix (f:var) (x:var) (t1:trm) (F:val) :=
-  forall X, triple (subst f F (subst x X t1)) ===> triple (trm_app F X).
-
-Lemma triple_let_fix : forall f x t1 t2 H Q,
-  (forall (F:val), spec_fix f x t1 F -> triple (subst f F t2) H Q) ->
-  Normal H ->
-  triple (trm_let f (trm_fix f x t1) t2) H Q.
-Proof using.
-  introv M HS. applys triple_let_simple (fun F => \[spec_fix f x t1 F] \* H).
-  { applys~ triple_fix. xsimpl~. introv R. applys* triple_app_fix. }
-  { intros F. applys triple_hpure. applys M. }
-Qed.
-*)
-
-Lemma triple_ref : forall v,
-  triple (val_ref v)
-    \[]
-    (fun r => \exists l, \[r = val_loc l] \* l ~~~> v).
-Proof using.
-  intros. intros h1 h2 _ P1.
-  lets E: hempty_inv P1. subst h1.
-  forwards~ (l&Dl&Nl): (Fmap.single_fresh null (heap_state h2) v).
-  lets~ (h1'&E1&E2): heap_make (Fmap.single l v) (Fmap.empty:state).
-  asserts E3: (heap_state h1' = Fmap.single l v).
-  { unstate. rewrite E1,E2. fmap_eq. }
-  asserts D1': (\# (heap_state h2) (heap_state h1')).
-  { unfold heap_state at 2. rewrite E1,E2. fmap_disjoint. }
-  (* LATER: beautify the assertions above *)
-  exists h1' (val_loc l).
-  asserts C: (heap_compat h1' h2).
-  { split.
-    { rewrite~ E2. }
-    { rewrite E1,E2. lets: heap_disjoint_components h2.
-      fmap_disjoint. } }
-  splits~.
-  { rew_heap. rew_fmap~. applys~ eval_ref_sep. }
-  { applys~ on_rw_sub_base. exists l.
-    applys~ himpl_hstar_hpure_r (l ~~~> v). split~. }
-Qed.
-
-Lemma triple_get_ro : forall v l,
-  triple (val_get (val_loc l))
-    (RO (l ~~~> v))
-    (fun x => \[x = v]).
-Proof using.
-  intros. intros h1 h2 D (h1'&(E1'&E2'&NL)&E1&E2).
-  rewrites E2' in E2. rewrite Fmap.union_empty_r in E2.
-  exists h1 v. splits~.
-  { rew_fmap~. unfold heap_state. rewrite E1,E2,E1'. rew_fmap.
-    applys~ eval_get_sep. }
-  { exists heap_empty h1. splits~.
-    { applys~ heap_compat_empty_l. }
-    { heap_eq. }
-    { applys~ hpure_intro. } }
-Qed.
-
-Lemma triple_set : forall w l v,
-  triple (val_set (val_loc l) w)
-    (l ~~~> v)
-    (fun r => \[r = val_unit] \* l ~~~> w).
-Proof using.
-  intros. intros h1 h2 D (E1&E2&NL).
-  lets~ (h1'&E1'&E2'): heap_make (Fmap.single l w) (Fmap.empty:state).
-  exists h1' val_unit.
-  asserts Dl: (Fmap.disjoint (Fmap.single l w) (heap_state h2)).
-  { destruct D as (D1&D2). rewrite E1 in D2. unstate.
-    applys Fmap.disjoint_single_set v. auto. }
-  asserts C: (heap_compat h1' h2).
-  { destruct D as (D1&D2). unfolds. rewrite E1',E2'.
-    unfold heap_state in Dl. split~. }
-  splits~.
-  { rew_fmap~. rewrite (@heap_fmap_def h1'). rewrite (@heap_fmap_def h1).
-    rewrite E1,E1',E2,E2'. rew_fmap.
-    applys eval_set_sep; try reflexivity.
-    { eapply Fmap.disjoint_single_set; eauto. } }
-  { rewrite E2,E2'. auto. }
-  { applys~ on_rw_sub_base. applys~ himpl_hstar_hpure_r (l ~~~> w). split~. }
-Qed.
-
-Lemma triple_add : forall (n1 n2:int),
-  triple (val_add n1 n2)
-    \[]
-    (fun r => \[r = val_int (n1 + n2)]).
-Proof using.
-  intros. intros h1 h2 D E.
-  exists h1 (n1+n2). splits~.
-  { applys* eval_binop. applys* evalbinop_add. }
-  { exists heap_empty h1. splits~.
-    { applys~ heap_compat_empty_l. }
-    { heap_eq. }
-    { applys~ hpure_intro. } }
-Qed.
 
 
 
