@@ -137,12 +137,12 @@ Axiom extensionality : forall (IB:Inhab B) h1 h2,
 Axiom indom_filter_eq : forall (IB:Inhab B) (f:A->B->Prop) h x,
   indom (Fmap.filter f h) x = (indom h x /\ f x (read h x)).
 
-Lemma filter_true : forall (IB:Inhab B) (f:A->B->Prop) h,
+Lemma filter_all : forall (IB:Inhab B) (f:A->B->Prop) h,
   (forall x, indom h x -> f x (Fmap.read h x)) ->
   Fmap.filter f h = h.
 Admitted.
 
-Lemma filter_false : forall (IB:Inhab B) (f:A->B->Prop) h,
+Lemma filter_none : forall (IB:Inhab B) (f:A->B->Prop) h,
   (forall x, indom h x -> ~ f x (Fmap.read h x)) ->
   Fmap.filter f h = Fmap.empty.
 Admitted.
@@ -155,7 +155,7 @@ Admitted.
 Lemma filter_empty: forall {IB:Inhab B} (f:A->B->Prop),
   Fmap.filter f Fmap.empty = Fmap.empty.
 Proof using .
-  intros. applys filter_false. intros x K.
+  intros. applys filter_none. intros x K.
   rewrite* indom_empty_eq in K.
 Qed.
 
@@ -164,9 +164,9 @@ Lemma filter_single : forall (IB:Inhab B) (f:A->B->Prop) x y,
   = If f x y then (Fmap.single x y) else Fmap.empty.
 Proof using.
   intros. case_if. 
-  { applys filter_true. intros k K. rewrite indom_single_eq in K.
+  { applys filter_all. intros k K. rewrite indom_single_eq in K.
     subst. rewrite* read_single. }
-  { applys filter_false. intros k K. rewrite indom_single_eq in K.
+  { applys filter_none. intros k K. rewrite indom_single_eq in K.
     subst. rewrite* read_single. }
 Qed.
 
@@ -205,11 +205,19 @@ Axiom read_map : forall (IB:Inhab B) C (IB:Inhab C) (f:A->B->C) h x,
   indom h x ->
   read (map_ f h) x = f x (read h x).
 
+Axiom map_empty : forall (IB:Inhab B) C (f:A->B->C),
+  map_ f (@Fmap.empty A B) = Fmap.empty.
+
 Axiom map_single : forall (IB:Inhab B) C (f:A->B->C) x y,
   map_ f (single x y) = single x (f x y).
 
 Axiom map_union : forall (IB:Inhab B) C (f:A->B->C) h1 h2,
   map_ f (union h1 h2) = union (map_ f h1) (map_ f h2).
+
+Axiom map_id : forall (IB:Inhab B) (f:A->B->B) h,
+  (forall x y, indom h x -> y = read h x -> f x y = y) ->
+  map_ f h = h.
+(* Proof using. extensionality. Qed. *)
 
 End FmapProp.
 
@@ -827,19 +835,35 @@ Qed.*)
 
 Lemma to_ro_rw : forall h,
   (to_ro h)^rw = Fmap.empty.
-Proof using. skip. Qed.
+Proof using. 
+  intros. unfold to_ro, filter_mode.
+  match goal with |- context [map_ ?f _] => set (F:=f) end.
+  applys filter_none.
+  intros x K N. rewrite indom_map in K; [|typeclass].
+  erewrite read_map in N; auto. unfold F in N.
+  destruct (read h x) as (v,m). false.
+Qed. (* TODO: simplify *)
 
 Lemma to_ro_ro : forall h,
   (to_ro h)^ro = (to_ro h).
-Proof using. skip. Qed.
+Proof using. 
+  intros. unfold to_ro, filter_mode.
+  match goal with |- context [map_ ?f _] => set (F:=f) end.
+  applys filter_all.
+  intros x K. rewrite indom_map in K; [|typeclass].
+  erewrite read_map; auto. unfold F.
+  destruct (read h x) as (v,m). auto.
+Qed. (* TODO: simplify *)
 
 Lemma to_ro_state : forall h,
   heap_state (to_ro h) = heap_state h.
-Proof using. skip. Qed.
-(*Proof using.
-  intros h. do 2 rewrite heap_eq_union_rw_ro. rewrite to_ro_f, to_ro_r.
-  fmap_eq.
-Qed. *)
+Proof using.
+  intros h. unfold heap_state, to_ro. applys extensionality.
+  { intros x. repeat (rewrite indom_map;[|typeclass]). auto. }
+  { intros x K. lets K': K. rewrite indom_map in K';[|typeclass].
+    erewrite read_map; auto. rewrite indom_map in K';[|typeclass].
+    do 2 (erewrite read_map; auto). destruct (read h x) as (v&m). auto. }
+Qed. (* TODO: simplify *)
 
 Hint Rewrite to_ro_rw to_ro_ro to_ro_state : rew_heap.
 
@@ -848,7 +872,10 @@ Hint Rewrite to_ro_rw to_ro_ro to_ro_state : rew_heap.
 (* ** Properties of [heap_empty] *)
 
 Lemma heap_empty_state : heap_state heap_empty = Fmap.empty.
-Proof. unfold heap_empty. unfold heap_state. fmap_eq. skip. Qed.
+Proof using.
+  unfold heap_empty. unfold heap_state. rewrite map_empty; [|typeclass]. 
+  auto.
+Qed.
 
 Hint Rewrite heap_empty_state : rew_heap.
 
