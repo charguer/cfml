@@ -1,3 +1,5 @@
+(** * SLFRich: Assertions, loops, and n-ary functions *)
+
 (**
 
 Foundations of Separation Logic
@@ -142,6 +144,9 @@ Proof using.
 Qed.
 
 End Assertions.
+
+(* SOONER: AC: exercise on verifying a concrete program with an assertion;
+  another exercise with assert (repr x = repr y). *)
 
 
 (* ####################################################### *)
@@ -382,6 +387,7 @@ Proof using.
   introv HR. rewrite wp_equiv. applys N HR.
 Qed.
 
+(* SOONER: AC: exercises on for-loops *)
 
 (* ########################################################### *)
 (* ########################################################### *)
@@ -624,6 +630,7 @@ Qed.
 
 End DemoLoopFrame.
 
+(* SOONER: AC: other example of while loops, e.g. to go down the branch of a binary tree. *)
 
 (* ########################################################### *)
 (** ** Reasoning rule for loops in an affine logic *)
@@ -1150,3 +1157,7 @@ Proof using. intros. (* activate display of coercions *) simpl. Abort.
 End NarySyntax.
 
 End PrimitiveNaryFun.
+
+(* SOONER: AC: exercise for putting to practice the reasoning rule
+   for n-ary functions. *)
+

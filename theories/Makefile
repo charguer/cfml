@@ -56,7 +56,7 @@ SRC_SF := SLFPreface SLFDirect SLFExtra SLFSummary SLFMinimal SLFBasic SLFHprop 
 
 SRC_MOSEL := SepMoselFunctor SepBaseMosel SepROMosel ExampleROMosel ExampleListMosel
 
-SRC := $(SRC_COMMON) $(SRC_CFML)  $(SRC_SF) $(SRC_MORE)
+SRC := $(SRC_COMMON) $(SRC_CFML) $(SRC_MORE)
 # $(SRC_CFML_PLUS) 
 # $(SRC_EXAMPLES) 
 # $(SRC_CF)  $(SRC_MOSEL)
@@ -101,7 +101,9 @@ all: _CoqProject
 
 
 ##############################################################################
-# File transfer
+# Compilation of files from the course on Foundations of Separation Logic
+
+# usage: make SLF=1
 
 SLF_FILES := $(SRC_SF:=.v)
 
@@ -111,7 +113,8 @@ endif
 
 import_slf:
 	cp $(addprefix $(SLF_FOLDER)/,$(SLF_FILES)) .
-	sed -i -e 's/^From[[:space:]]SLF[[:space:]]Require[[:space:]]Export[[:space:]]LibCore/From TLC Require Export LibCore/' $(SLF_FILES)
-	sed -i -e 's/^From[[:space:]]SLF[[:space:]]/From Sep /' $(SLF_FILES)
+	sed -i -e 's/^From[[:space:]]SLF[[:space:]](\*[[:space:]]TLC[[:space:]]\*)/From TLC/' $(SLF_FILES)
+	sed -i -e 's/^From[[:space:]]SLF[[:space:]](\*[[:space:]]Sep[[:space:]]\*)/From Sep/' $(SLF_FILES)
 
-
+clean_slf:
+	rm SLF*.v
