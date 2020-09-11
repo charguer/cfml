@@ -113,6 +113,79 @@ End FMaps.
 
 
 
+Section FmapProp.
+Variables (A B : Type).
+Implicit Types h : fmap A B.
+Implicit Types x : A.
+Implicit Types v : B.
+
+
+Axiom indom_single_eq : forall x1 x2 v,
+  indom (single x1 v) x2 = (x1 = x2).
+
+Axiom indom_empty_eq : forall (IB:Inhab B) x,
+  indom (@Fmap.empty A B) x = False.
+
+
+
+Axiom indom_filter : forall (IB:Inhab B) (f:A->B->Prop) h x,
+  indom (Fmap.filter f h) x = (indom h x /\ f x (read h x)).
+
+Lemma filter_true : forall (IB:Inhab B) (f:A->B->Prop) h,
+  (forall x, indom h x -> f x (Fmap.read h x)) ->
+  Fmap.filter f h = h.
+Admitted.
+
+Lemma filter_false : forall (IB:Inhab B) (f:A->B->Prop) h,
+  (forall x, indom h x -> ~ f x (Fmap.read h x)) ->
+  Fmap.filter f h = Fmap.empty.
+Admitted.
+
+Lemma filter_empty: forall (IB:Inhab B) (f:A->B->Prop) h,
+  Fmap.filter f Fmap.empty = Fmap.empty.
+Proof using.
+  introv IB M. applys filter_false. intros x K.
+  rewrite* indom_empty_eq in K.
+Qed.
+
+Lemma filter_single : forall (IB:Inhab B) (f:A->B->Prop) x y,
+    Fmap.filter f (Fmap.single x y) 
+  = If f x y then (Fmap.single x y) else Fmap.empty.
+Proof using.
+  intros. case_if. 
+  { applys filter_true. intros k K. rewrite indom_single_eq in K.
+    subst. rewrite* read_single. }
+  { applys filter_false. intros k K. rewrite indom_single_eq in K.
+    subst. rewrite* read_single. }
+Qed.
+
+Lemma filter_union : forall (IB:Inhab B) (f:A->B->Prop) h1 h2,
+  Fmap.filter f (Fmap.union h1 h2) = Fmap.union (Fmap.filter f h1) (Fmap.filter f h2).
+Admitted.
+
+Lemma filter_partition : forall (IB:Inhab B) (f g:A->B->Prop) h h1 h2,
+  (forall x y, indom h x -> y = Fmap.read h x -> f x y -> g x y -> False) ->
+  h1 = Fmap.filter f h ->
+  h2 = Fmap.filter g h ->
+  h = Fmap.union h1 h2 /\ Fmap.disjoint h1 h2.
+Admitted.
+
+
+Axiom indom_map : forall (IB:Inhab B) (f:A->B->B) h x,
+  indom (map_ f h) x = indom h x.
+
+Axiom read_map : forall (IB:Inhab B) (f:A->B->B) h x,
+  indom h x ->
+  read (map_ f h) x = f x (read h x).
+
+Axiom map_single : forall (IB:Inhab B) (f:A->B->B) h x y,
+  map_ f (single x y) = single x (f x y).
+
+Axiom map_union : forall (IB:Inhab B) (f:A->B->B) h1 h2,
+  map_ f (union h1 h2) = union (map_ f h1) (map_ f h2).
+
+End FmapProp.
+
 
 
 (* ********************************************************************** *)
@@ -135,6 +208,15 @@ Inductive mode :=
   | mode_rw : mode
   | mode_ro : mode.
 
+Notation "'rw'" := (mode_rw).
+Notation "'ro'" := (mode_ro).
+
+Global Instance mode_inhab : Inhab mode.
+Proof using. applys Inhab_of_val mode_rw. Qed.
+
+(* Global Instance val_mode_inhab : Inhab (val*mode)%type.
+Proof using. typeclass. Qed. *)
+
 Implicit Types m : mode.
 
 (** Representation of heaps as states with locations tagged by a mode *)
@@ -143,17 +225,18 @@ Definition heap : Type := fmap loc (val*mode)%type.
 
 (** Projections of the rw or ro part of a heap *)
 
-Definition heap_rw (h:heap) : heap :=
-  Fmap.filter (fun l '(v,m) => m = mode_rw) h.
+Definition filter_mode (m:mode) (h:heap) : heap :=
+  Fmap.filter (fun l '(v,m') => m = m') h.
 
-Definition heap_ro (h:heap) : heap :=
-  Fmap.filter (fun l '(v,m) => m = mode_ro) h.
+Notation "h '^' m" := (filter_mode m h) : heap_scope.
 
-Notation "h '^rw'" := (heap_rw h)
-   (at level 9, format "h '^rw'") : heap_scope.
+(* Notation with higher priority *)
 
-Notation "h '^ro'" := (heap_ro h)
-   (at level 9, format "h '^ro'") : heap_scope.
+Notation "h '^rw'" := (filter_mode mode_rw h)
+  (at level 9, format "h '^rw'") : heap_scope.
+Notation "h '^ro'" := (filter_mode mode_ro h)
+  (at level 9, format "h '^ro'") : heap_scope.
+
 
 Open Scope heap_scope.
 
@@ -285,7 +368,7 @@ Definition haffine (H : hprop) : Prop :=
 
 (*
 Lemma haffine_any : forall H,
-  haffine H.
+  haffine H.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
 Proof using. introv M. hnfs*. Qed.
 *)
 
@@ -347,91 +430,6 @@ Ltac fequal_base ::=
 
 
 
-(* ---------------------------------------------------------------------- *)
-(* ** Equalities on [heap] *)
-
-Lemma heap_eq_union_rw_ro : forall h,
-  h = (h^rw) \u (h^ro).
-Proof using. skip. Qed.
-
-(** Note: it is always the case that [Fmap.disjoint (h^rw) (h^ro)]. *)
-
-Lemma heap_disjoint_components : forall h,
-  \# (h^rw) (h^ro).
-Proof using. skip. Qed.
-
-Lemma heap_eq : forall h1 h2,
-  (h1^rw = h2^rw /\ h1^ro = h2^ro) ->
-  h1 = h2.
-Proof using. skip. Qed.
-
-(* TODO: check what's actually needed *)
-Lemma heap_eq_forward : forall h1 h2,
-  h1 = h2 ->
-  h1^rw = h2^rw /\ h1^ro = h2^ro.
-Proof using. intros. subst*. Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Properties of [to_ro] *)
-
-Lemma to_ro_rw : forall h,
-  (to_ro h)^rw = Fmap.empty.
-Proof using. skip. Qed.
-
-Lemma to_ro_ro : forall h,
-  (to_ro h)^ro = (to_ro h).
-Proof using. skip. Qed.
-
-Lemma to_ro_state : forall h,
-  heap_state (to_ro h) = heap_state h.
-Proof using. skip. Qed.
-(*Proof using.
-  intros h. do 2 rewrite heap_eq_union_rw_ro. rewrite to_ro_f, to_ro_r.
-  fmap_eq.
-Qed. *)
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Properties of [heap_union] *)
-
-(*
-Lemma heap_union_def : forall h1 h2,
-  heap_compat h1 h2 ->
-  exists D,
-  h1 \u h2 = exist (h1^rw \+ h2^rw, h1^ro \+ h2^ro) D.
-Proof using.
-  introv M. unfold heap_union.
-  rewrite (classicT_l M). esplit. destruct~ M.
-Qed.
-
-Lemma heap_union_spec : forall h1 h2,
-  heap_compat h1 h2 ->
-     (h1 \u h2)^rw = h1^rw \+ h2^rw
-  /\ (h1 \u h2)^ro = h1^ro \+ h2^ro.
-Proof using.
-  introv M. lets (D&E): heap_union_def M. rewrite~ E.
-Qed.
-*)
-
-Lemma heap_union_f : forall h1 h2,
-  heap_compat h1 h2 ->
-  (h1 \u h2)^rw = h1^rw \u h2^rw.
-Proof using. skip. (*
-  introv D. unfold heap_union. rewrite (classicT_l D).
-  destruct h1 as ((f1,r1)&D1). destruct h2 as ((f2,r2)&D2).
-  unstate. fmap_eq. *)
-Qed.
-
-Lemma heap_union_r : forall h1 h2,
-  heap_compat h1 h2 ->
-  (h1 \u h2)^ro = h1^ro \u h2^ro.
-Proof using. skip. (*
-  introv D. unfold heap_union. rewrite (classicT_l D).
-  destruct h1 as ((f1,r1)&D1). destruct h2 as ((f2,r2)&D2).
-  unstate. fmap_eq. *)
-Qed.
-
 
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [heap_compat] *)
@@ -469,6 +467,30 @@ Admitted.
 Proof using.
   hint heap_compat_sym, heap_compat_empty_l. auto.
 Qed.*)
+
+
+Global Instance val_mode_inhab : Inhab (val*mode)%type.
+Proof using. typeclass. Qed. 
+
+Lemma disjoint_filter_mode : forall h1 h2 m,
+  disjoint h1 h2 ->
+  disjoint (filter_mode m h1) (filter_mode m h2).
+Proof using.
+  introv D. rewrite disjoint_eq_not_indom_both in *.
+  unfold filter_mode. intros x M1 M2.
+  rewrite (@indom_filter _ _ val_mode_inhab) in M1,M2.
+  false*.
+Qed.
+
+
+Lemma heap_compat_of_disjoint : forall h1 h2,
+  disjoint h1 h2 ->
+  heap_compat h1 h2.
+Proof using.
+  introv D. split.
+  { applys* disjoint_filter_mode. }
+  { applys agree_of_disjoint. applys* disjoint_filter_mode. }
+Qed.
 
 Lemma heap_compat_union_l : forall h1 h2 h3,
   heap_compat h1 h2 ->
@@ -536,6 +558,106 @@ Proof using.
     applys~ Fmap.agree_union_lr. }
   { do 2 rewrite to_ro_f. fmap_disjoint. }
 Qed.*)
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Equalities on [heap] *)
+
+Lemma heap_eq_disjoint_union_rw_ro : forall h,
+  h = (h^rw) \u (h^ro) /\ disjoint (h^rw) (h^ro).
+Proof using. 
+  intros. forwards* (E&D): filter_partition h (h^rw) (h^ro).
+  { intros x (v,m) _ _ K1 K2. false. }
+  unfold heap_union. case_if.
+  { auto. }
+  { false C. applys* heap_compat_of_disjoint. }
+Qed.
+
+Lemma heap_eq_union_rw_ro : forall h,
+  h = (h^rw) \u (h^ro).
+Proof using. intros. applys heap_eq_disjoint_union_rw_ro. Qed.
+
+(** Note: it is always the case that [Fmap.disjoint (h^rw) (h^ro)]. *)
+
+Lemma heap_disjoint_components : forall h,
+  disjoint (h^rw) (h^ro).
+Proof using. intros. applys heap_eq_disjoint_union_rw_ro. Qed.
+
+Lemma heap_eq : forall h1 h2,
+  h1^rw = h2^rw ->
+  h1^ro = h2^ro ->
+  h1 = h2.
+Proof using. 
+  introv M1 M2. forwards E1: heap_eq_union_rw_ro h1.
+  forwards E2: heap_eq_union_rw_ro h2. congruence.
+Qed.
+
+(* TODO: check what's actually needed *)
+Lemma heap_eq_forward : forall h1 h2,
+  h1 = h2 ->
+  h1^rw = h2^rw /\ h1^ro = h2^ro.
+Proof using. intros. subst*. Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Properties of [to_ro] *)
+
+Lemma to_ro_rw : forall h,
+  (to_ro h)^rw = Fmap.empty.
+Proof using. skip. Qed.
+
+Lemma to_ro_ro : forall h,
+  (to_ro h)^ro = (to_ro h).
+Proof using. skip. Qed.
+
+Lemma to_ro_state : forall h,
+  heap_state (to_ro h) = heap_state h.
+Proof using. skip. Qed.
+(*Proof using.
+  intros h. do 2 rewrite heap_eq_union_rw_ro. rewrite to_ro_f, to_ro_r.
+  fmap_eq.
+Qed. *)
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Properties of [heap_union] *)
+
+(*
+Lemma heap_union_def : forall h1 h2,
+  heap_compat h1 h2 ->
+  exists D,
+  h1 \u h2 = exist (h1^rw \+ h2^rw, h1^ro \+ h2^ro) D.
+Proof using.
+  introv M. unfold heap_union.
+  rewrite (classicT_l M). esplit. destruct~ M.
+Qed.
+
+Lemma heap_union_spec : forall h1 h2,
+  heap_compat h1 h2 ->
+     (h1 \u h2)^rw = h1^rw \+ h2^rw
+  /\ (h1 \u h2)^ro = h1^ro \+ h2^ro.
+Proof using.
+  introv M. lets (D&E): heap_union_def M. rewrite~ E.
+Qed.
+*)
+
+Lemma heap_union_f : forall h1 h2,
+  heap_compat h1 h2 ->
+  (h1 \u h2)^rw = h1^rw \u h2^rw.
+Proof using. skip. (*
+  introv D. unfold heap_union. rewrite (classicT_l D).
+  destruct h1 as ((f1,r1)&D1). destruct h2 as ((f2,r2)&D2).
+  unstate. fmap_eq. *)
+Qed.
+
+Lemma heap_union_r : forall h1 h2,
+  heap_compat h1 h2 ->
+  (h1 \u h2)^ro = h1^ro \u h2^ro.
+Proof using. skip. (*
+  introv D. unfold heap_union. rewrite (classicT_l D).
+  destruct h1 as ((f1,r1)&D1). destruct h2 as ((f2,r2)&D2).
+  unstate. fmap_eq. *)
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -615,7 +737,7 @@ Qed.*)
 Hint Rewrite heap_union_state : rew_fmap.
 
 Lemma heap_compat_components : forall h,
-  heap_compat h^rw h^ro.
+  heap_compat (h^rw) (h^ro).
 Admitted.
 
 Lemma heap_state_components : forall h,
@@ -862,14 +984,20 @@ Notation "l '~~~>' v" := (hsingle l v)
 Notation "l '~~>' v" := (hsingle l v)
   (at level 32, no associativity) : heap_scope.
 
+Lemma filter_mode_single : forall l v m1 m2,
+  filter_mode m1 (Fmap.single l (v, m2)) = 
+  If m1 = m2 then Fmap.single l (v, m2) else Fmap.empty.
+Proof using.
+  intros. unfold filter_mode. rewrite filter_single; try typeclass.
+Qed.
+
 Lemma single_rw : forall l v,
   ((Fmap.single l (v, mode_rw))^rw) = Fmap.single l (v, mode_rw).
-Proof using. skip. Qed.
+Proof using. intros. rewrite filter_mode_single. case_if*. Qed.
 
 Lemma single_ro : forall l v,
   ((Fmap.single l (v, mode_rw))^ro) = Fmap.empty.
-Proof using. skip. Qed.
-
+Proof using. intros. rewrite filter_mode_single. case_if*. Qed.
 
 Hint Rewrite single_rw single_ro : rew_heap.
 
