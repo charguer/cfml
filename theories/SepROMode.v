@@ -268,13 +268,6 @@ Notation "h '^ro'" := (filter_mode mode_ro h)
 
 Open Scope heap_scope.
 
-(** [to_ro h] defines the read-only heap associated with [h],
-    i.e. covering the same memory cells, but with all tagged
-    as read-only. *)
-
-Definition to_ro (h:heap) : heap :=
-  Fmap.map_ (fun l '(v,m) => (v,mode_ro)) h.
-
 (** State of heap *)
 
 Coercion heap_state (h : heap) : state :=
@@ -562,35 +555,6 @@ Proof using.
   { rewrite M. fmap_disjoint. }
 Qed.*)
 
-Lemma heap_compat_ro_l : forall h1 h2,
-  heap_compat h1 h2 ->
-  heap_compat (to_ro h1) h2.
-Admitted. (*
-Proof using.
-  introv (N1&N2). split; simpl.
-  { applys~ Fmap.agree_union_l. applys~ Fmap.agree_of_disjoint. }
-  { fmap_disjoint. }
-Qed.*)
-
-Lemma heap_compat_ro_r : forall h1 h2,
-  heap_compat h1 h2 ->
-  heap_compat h1 (to_ro h2).
-Admitted. 
-(*
-Proof using.
-  hint heap_compat_ro_l, heap_compat_sym. autos*.
-Qed.*)
-
-Lemma heap_compat_ro : forall h1 h2,
-  heap_compat h1 h2 ->
-  heap_compat (to_ro h1) (to_ro h2).
-Admitted. (*
-Proof using.
-  introv (M1&M2). split.
-  { do 2 rewrite to_ro_r.
-    applys~ Fmap.agree_union_lr. }
-  { do 2 rewrite to_ro_f. fmap_disjoint. }
-Qed.*)
 
 
 (* ---------------------------------------------------------------------- *)
@@ -820,11 +784,46 @@ Lemma heap_eq_forward : forall h1 h2,
 Proof using. intros. subst*. Qed.
 
 
-
-
-
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [to_ro] *)
+
+(** [to_ro h] defines the read-only heap associated with [h],
+    i.e. covering the same memory cells, but with all tagged
+    as read-only. *)
+
+Definition to_ro (h:heap) : heap :=
+  Fmap.map_ (fun l '(v,m) => (v,mode_ro)) h.
+
+
+Lemma heap_compat_ro_l : forall h1 h2,
+  heap_compat h1 h2 ->
+  heap_compat (to_ro h1) h2.
+Admitted. (*
+Proof using.
+  introv (N1&N2). split; simpl.
+  { applys~ Fmap.agree_union_l. applys~ Fmap.agree_of_disjoint. }
+  { fmap_disjoint. }
+Qed.*)
+
+Lemma heap_compat_ro_r : forall h1 h2,
+  heap_compat h1 h2 ->
+  heap_compat h1 (to_ro h2).
+Admitted. 
+(*
+Proof using.
+  hint heap_compat_ro_l, heap_compat_sym. autos*.
+Qed.*)
+
+Lemma heap_compat_ro : forall h1 h2,
+  heap_compat h1 h2 ->
+  heap_compat (to_ro h1) (to_ro h2).
+Admitted. (*
+Proof using.
+  introv (M1&M2). split.
+  { do 2 rewrite to_ro_r.
+    applys~ Fmap.agree_union_lr. }
+  { do 2 rewrite to_ro_f. fmap_disjoint. }
+Qed.*)
 
 Lemma to_ro_rw : forall h,
   (to_ro h)^rw = Fmap.empty.
@@ -1548,7 +1547,7 @@ Lemma hoare_hpure : forall t (P:Prop) H Q,
   (P -> hoare t H Q) ->
   hoare t (\[P] \* H) Q.
 Proof.
-  introv M. intros h (h1&h2&(HP&M1)&M2&D&U). hnf in M1. subst. rew_heap*. rew_fmap*.
+  introv M. intros h (h1&h2&(HP&M1)&M2&D&U). hnf in M1. subst. rew_heap*. (* rew_fmap*. *)
 Qed.
 
 
