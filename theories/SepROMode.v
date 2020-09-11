@@ -126,9 +126,15 @@ Axiom indom_single_eq : forall x1 x2 v,
 Axiom indom_empty_eq : forall (IB:Inhab B) x,
   indom (@Fmap.empty A B) x = False.
 
+Axiom indom_empty_iff_empty : forall (IB:Inhab B) h,
+  (forall x, ~ indom h x) -> h = Fmap.empty.
 
+Axiom extensionality : forall (IB:Inhab B) h1 h2,
+  (forall x, indom h1 x = indom h2 x) ->
+  (forall x, indom h1 x -> Fmap.read h1 x = Fmap.read h2 x) ->
+  h1 = h2.
 
-Axiom indom_filter : forall (IB:Inhab B) (f:A->B->Prop) h x,
+Axiom indom_filter_eq : forall (IB:Inhab B) (f:A->B->Prop) h x,
   indom (Fmap.filter f h) x = (indom h x /\ f x (read h x)).
 
 Lemma filter_true : forall (IB:Inhab B) (f:A->B->Prop) h,
@@ -139,6 +145,11 @@ Admitted.
 Lemma filter_false : forall (IB:Inhab B) (f:A->B->Prop) h,
   (forall x, indom h x -> ~ f x (Fmap.read h x)) ->
   Fmap.filter f h = Fmap.empty.
+Admitted.
+
+Lemma filter_read : forall (IB:Inhab B) (f:A->B->Prop) h x,
+  f x (Fmap.read h x) ->
+  Fmap.read (Fmap.filter f h) x = Fmap.read h x.
 Admitted.
 
 Lemma filter_empty: forall {IB:Inhab B} (f:A->B->Prop),
@@ -163,13 +174,29 @@ Lemma filter_union : forall (IB:Inhab B) (f:A->B->Prop) h1 h2,
   Fmap.filter f (Fmap.union h1 h2) = Fmap.union (Fmap.filter f h1) (Fmap.filter f h2).
 Admitted.
 
-Lemma filter_partition : forall (IB:Inhab B) (f g:A->B->Prop) h h1 h2,
-  (forall x y, indom h x -> y = Fmap.read h x -> f x y -> g x y -> False) ->
-  h1 = Fmap.filter f h ->
-  h2 = Fmap.filter g h ->
+Lemma filter_partition : forall (IB:Inhab B) (f1 f2:A->B->Prop) h h1 h2,
+  (forall x y, indom h x -> y = Fmap.read h x -> f1 x y -> f2 x y -> False) ->
+  h1 = Fmap.filter f1 h ->
+  h2 = Fmap.filter f2 h ->
   h = Fmap.union h1 h2 /\ Fmap.disjoint h1 h2.
 Admitted.
 
+Lemma filter_idempotent : forall (IB:Inhab B) (f:A->B->Prop) h,
+  Fmap.filter f (Fmap.filter f h) = Fmap.filter f h.
+Proof using.
+  (* todo: provable by extensionality, but simpler direct proof. *)
+(*  intros. applys extensionality.
+  { intros. repeat erewrite indom_filter_eq. split. } skip. *)
+Admitted.
+
+Lemma filter_incompatible : forall (IB:Inhab B) (f1 f2:A->B->Prop) h,
+  (forall x y, indom h x -> y = Fmap.read h x -> f1 x y -> f2 x y -> False) ->
+  Fmap.filter f1 (Fmap.filter f2 h) = Fmap.empty.
+Proof using.
+  introv M. applys* indom_empty_iff_empty.
+  intros x K. do 2 erewrite indom_filter_eq in K.
+  destruct K as ((Ix&K1)&K2). rewrite* filter_read in K2.
+Qed.
 
 Axiom indom_map : forall (IB:Inhab B) C (f:A->B->C) h x,
   indom (map_ f h) x = indom h x.
@@ -195,6 +222,7 @@ Module Export SepROCore <: SepCore.
 
 Implicit Types l : loc.
 Implicit Types v : val.
+Implicit Types p : loc.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -314,6 +342,11 @@ Parameter heap_affine_union : forall h1 h2,
   heap_affine h2 ->
   heap_compat h1 h2 ->
   heap_affine (heap_union h1 h2).
+
+Parameter heap_affine_union_inv : forall h1 h2,
+  heap_affine (heap_union h1 h2) ->
+  heap_affine h1 /\ heap_affine h2.
+
 
 
 
@@ -478,7 +511,7 @@ Lemma disjoint_filter_mode : forall h1 h2 m,
 Proof using.
   introv D. rewrite disjoint_eq_not_indom_both in *.
   unfold filter_mode. intros x M1 M2.
-  rewrite (@indom_filter _ _ val_mode_inhab) in M1,M2.
+  rewrite (@indom_filter_eq _ _ val_mode_inhab) in M1,M2.
   false*.
 Qed.
 
@@ -698,7 +731,7 @@ Ltac heap_eq :=
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Equalities on [heap] *)
+(* ** Properties of [filter_mode] *)
 
 Lemma heap_eq_disjoint_union_rw_ro : forall h,
   h = (h^rw) \u (h^ro) /\ disjoint (h^rw) (h^ro).
@@ -731,10 +764,45 @@ Proof using.
   intros. rewrite (heap_eq_union_rw_ro h) at 1.
   rewrite* heap_union_state. applys* heap_compat_components.
 Qed.
-    
-  
+
+Lemma filter_mode_heap_empty : forall m,
+  (heap_empty^m) = empty.
+Proof using.
+  intros. unfold filter_mode, heap_empty. rewrite* filter_empty.
+  typeclass.
+Qed.
+
+Hint Rewrite filter_mode_heap_empty : rew_heap.
+
+Lemma filter_modes_eq : forall h m,
+  (h^m)^m = h^m.
+Proof using.
+  intros. unfold filter_mode. applys filter_idempotent. typeclass.
+Qed.
+
+Lemma filter_modes_neq : forall h m1 m2,
+  m1 <> m2 ->
+  (h^m1)^m2 = Fmap.empty.
+Proof using.
+  intros. unfold filter_mode. applys filter_incompatible.
+  { intros x y D K M1 M2. destruct y as (v&m'). false. }
+Qed.
+
+(* Corollary for autorewrite *)
+Lemma filter_modes_rw_ro : forall h,
+  (h^rw)^ro = Fmap.empty.
+Proof using. intros. applys* filter_modes_neq. auto_false. Qed.
+
+(* Corollary for autorewrite *)
+Lemma filter_modes_ro_rw : forall h,
+  (h^ro)^rw = Fmap.empty.
+Proof using. intros. applys* filter_modes_neq. auto_false. Qed.
+
+Hint Rewrite filter_modes_eq filter_modes_rw_ro filter_modes_ro_rw : rew_heap.
 
 
+(* ---------------------------------------------------------------------- *)
+(* ** Equalities on heaps *)
 
 Lemma heap_eq : forall h1 h2,
   h1^rw = h2^rw ->
@@ -752,14 +820,7 @@ Lemma heap_eq_forward : forall h1 h2,
 Proof using. intros. subst*. Qed.
 
 
-Lemma filter_mode_heap_empty : forall m,
-  (heap_empty^m) = empty.
-Proof using.
-  intros. unfold filter_mode, heap_empty. rewrite* filter_empty.
-  typeclass.
-Qed.
 
-Hint Rewrite filter_mode_heap_empty : rew_heap.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -781,7 +842,7 @@ Proof using. skip. Qed.
   fmap_eq.
 Qed. *)
 
-
+Hint Rewrite to_ro_rw to_ro_ro to_ro_state : rew_heap.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1012,10 +1073,12 @@ Proof using.
   intros. unfold filter_mode. rewrite filter_single; try typeclass.
 Qed.
 
+(* Corollary for autorewrite *)
 Lemma single_rw : forall l v,
   ((Fmap.single l (v, mode_rw))^rw) = Fmap.single l (v, mode_rw).
 Proof using. intros. rewrite filter_mode_single. case_if*. Qed.
 
+(* Corollary for autorewrite *)
 Lemma single_ro : forall l v,
   ((Fmap.single l (v, mode_rw))^ro) = Fmap.empty.
 Proof using. intros. rewrite filter_mode_single. case_if*. Qed.
@@ -1177,6 +1240,13 @@ Proof using.
   rewrites~ (>> N P2). rew_heap*.
 Qed.
 
+Lemma Normal_of_haffine : forall H,
+  haffine H ->
+  Normal H.
+Proof using. 
+  introv M. intros h K. rewrite haffine_eq in M.
+  specializes M K. applys* heap_affine_Normal.
+Qed.
 
 Hint Resolve Normal_hempty Normal_hstar Normal_hgc : Normal.
 
@@ -1215,25 +1285,6 @@ Qed.
 
 Hint Resolve ReadOnly_hstar ReadOnly_hempty : ReadOnly.
 
-
-(* ---------------------------------------------------------------------- *)
-(* *)
-
-Axiom ro_ro : forall h,
-  (h^ro)^ro = h^ro.
-
-Axiom rw_ro : forall h,
-  (h^rw)^ro = Fmap.empty.
-
-Axiom ro_rw : forall h,
-  (h^ro)^rw = Fmap.empty.
-
-Axiom rw_rw : forall h,
-  (h^rw)^rw = h^rw.
-
-Hint Rewrite rw_ro rw_rw ro_rw ro_ro heap_union_state to_ro_state : rew_heap.
-
-Hint Rewrite to_ro_rw to_ro_ro : rew_heap.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1347,34 +1398,17 @@ Qed. *)
 
 Arguments RO_star : clear implicits.
 
-Axiom RO_ro : forall h,
+Lemma RO_ro : forall h,
   RO (= (h^ro)) (h^ro).
-
-
-(* DEPRECATED
-Section HaffineRO.
-
-Lemma haffine_ro : forall H,
-  haffine (RO H).
-Proof using.
-  Transparent haffine.
-  intros H h (h'&K&E). applys heap_affine_ro.
-  subst h. rewrite* to_ro_rw.
-Qed.
-
-End HaffineRO.
-*)
+Proof using. Admitted. (*
+  introv N. exists h. split~.
+Qed. *)
 
 Instance ReadOnly_RO : forall H,
   ReadOnly (RO H).
 Proof using.
   introv (h'&K&E). subst. rew_heap*.
 Qed.
-
-
-(*
-Hint Resolve haffine_ro : haffine.
-*)
 
 
 (* ********************************************************************** *)
@@ -1385,9 +1419,6 @@ Lemma Normal_rw_elim : forall H h,
   H h ->
   H (h^rw).
 Proof using. introv N K. rewrites* (>> Normal_rw K). Qed.
-(*
-Hint Resolve Normal_rw_elim.
-*)
 
 Lemma Normal_ReadOnly_rw_elim : forall HF HR h, 
   Normal HF -> 
@@ -1449,9 +1480,12 @@ Qed.
 
 
 
-
 (* ********************************************************************** *)
 (* * Reasoning rules, high-level proofs *)
+
+Implicit Types p : loc.
+Implicit Types v : val.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of Hoare triples in a logic with read-only predicates *)
@@ -1505,10 +1539,6 @@ Proof using.
   { applys* heap_compat_ro_r. }
 Qed. (* TODO *)
 
-
-Implicit Types v : val.
-
-
 Lemma hoare_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, hoare t (J x) Q) ->
   hoare t (hexists J) Q.
@@ -1534,7 +1564,6 @@ Proof.
   { rewrite hstar_hpure_l. split~. applys* Framed_rw_elim. }
 Qed.
 
-
 Lemma hoare_fix : forall HI HO f x t1,
   Framed HI HO ->
   hoare (trm_fix f x t1) HI (fun r => \[r = (val_fix f x t1)] \* HO).
@@ -1557,26 +1586,31 @@ Qed.
 Hint Extern 1 (heap_compat _ _) => skip.
 Hint Extern 1 (disjoint _ _) => skip.
 
-(* DEPRECATED
-Lemma hoare_let : forall x t1 t2 H1 H2 Q Q1,
-  hoare t1 (H1 \* RO H2) Q1 ->
-  (forall v H3, hoare (subst x v t2) (Q1 v \* H2 \* RO H3) Q) ->
-  hoare (trm_let x t1 t2) (H1 \* H2) Q.
+Lemma hoare_let : forall x t1 t2 H1 H2 Q1 Q HI HO,
+  Framed HI HO ->
+  hoare t1 (H1 \* RO H2 \* HI) (Q1 \*+ HO) ->
+  (forall v H3, ReadOnly H3 -> hoare (subst x v t2) (Q1 v \* HO \* H2 \* H3) (Q \*+ HO)) ->
+  hoare (trm_let x t1 t2) (H1 \* H2 \* HI) (Q \*+ HO).
 Proof.
-  introv M1 M2 (h1&h2&P1&P2&D&U).
-  forwards* (h1'&v1&R1&K1&E1): (rm M1) (h1 \u to_ro h2).
-  { do 2 esplit. splits*. { applys* to_ro_pred. } }
-  forwards* (h2'&v2&R2&K2&E2): (rm M2) v1 (= (h1^ro)) (h1'^rw \u h2 \u h1^ro).
-  { do 2 esplit. (* TODO: tactic *) splits*.
-    do 2 esplit. splits*. applys RO_ro. } 
+  introv HF M1 M2. intros h K.
+  destruct K as (h1&hr&P1&P2&D1&U1).
+  destruct P2 as (h2&hI&PI&PO&D2&U2).
+  forwards (h1'&v1&R1&K1&E1): (rm M1) (h1 \u to_ro h2 \u hI).
+  { do 2 esplit. splits*. do 2 esplit. splits*. { applys* to_ro_pred. } }
+  (* destruct K1 as (ha&hb&Pa&Pb&D3&U3).*)
+  forwards (h2'&v2&R2&K2&E2): (rm M2) v1 (= hI^ro \u h1^ro) (h1'^rw \u h2 \u (h1^ro \u hI^ro) ).
+  { intros ? ->. rew_heap*. }
+  { rewrite <- hstar_assoc. do 2 esplit. (* TODO: tactic *) splits*.
+    do 2 esplit. splits*. }
   exists h2' v2. splits*.
   { applys eval_let_trm (heap_state h1').
-    { applys_eq R1. subst h. rew_heap*. } 
+    { applys_eq R1. subst h hr. rew_heap*. } 
     { applys_eq R2. rewrite (heap_state_components h1').
       rewrite E1. rew_heap*. fmap_eq*. } }
-    { rewrite E2. rewrite U. rew_heap*. }
+    { rewrite E2. rewrite U1,U2. rew_heap*.  (* same unions *)
+      rewrite* <- heap_union_assoc. rewrite (heap_union_comm h2^ro). 
+      rewrite* heap_union_assoc. }
 Qed.
-*)
 
 Lemma hoare_if : forall (b:bool) t1 t2 H Q,
   hoare (if b then t1 else t2) H Q ->
@@ -1585,9 +1619,6 @@ Proof.
   introv M1. intros h Hh. forwards* (h1'&v1&R1&K1&E1): (rm M1).
   exists h1' v1. splits*. { applys* eval_if. }
 Qed.
-
-
-
 
 Lemma hoare_ref : forall HI HO v,
   Framed HI HO ->
@@ -1605,61 +1636,6 @@ Proof using.
   { rew_heap*. }
 Qed.
 
-(* DEPRECATED
-Lemma hoare_ref' : forall HF HR v,
-  Normal HF ->
-  ReadOnly HR ->
-  hoare (val_ref v)
-    (HF \* HR)
-    (fun r => (\exists p, \[r = val_loc p] \* p ~~> v) \* HF).
-Proof using.
-  introv NH NR. intros s1 K0.
-  forwards~ (p&D&N): (Fmap.single_fresh 0%nat s1 (v,mode_rw)).
-  exists (heap_union (Fmap.single p (v,mode_rw)) s1) (val_loc p). splits.
-  { rew_heap*. applys~ eval_ref_sep. }
-  { rew_heap*. applys~ hstar_intro.
-    { exists p. rewrite~ hstar_hpure_l. split~. { split~. (* applys~ hsingle_intro. *) } }
-    { applys* Normal_ReadOnly_rw_elim. } }
-  { rew_heap*. }
-Qed.
-
-Lemma hoare_ref : forall H v,
-  Normal H ->
-  hoare (val_ref v)
-    H
-    (fun r => (\exists p, \[r = val_loc p] \* p ~~> v) \* H).
-Proof using.
-  introv NH. intros s1 K0.
-  forwards~ (p&D&N): (Fmap.single_fresh 0%nat s1 (v,mode_rw)).
-  exists (heap_union (Fmap.single p (v,mode_rw)) s1) (val_loc p). splits.
-  { rew_heap*. applys~ eval_ref_sep. }
-  { rew_heap*. applys~ hstar_intro.
-    { exists p. rewrite~ hstar_hpure_l. split~. { split~. (* applys~ hsingle_intro. *) } }
-    { applys* Normal_rw_elim. } }
-  { rew_heap*. }
-Qed.
- *)
-Implicit Types p : loc.
-
-(* DEPRECATED
-Lemma hoare_get_ro : forall H v p,
-  Normal H ->
-  hoare (val_get p)
-    (RO (p ~~> v) \* H)
-    (fun r => \[r = v] \* H).
-Proof using.
-  introv NH. intros s (s1&s2&P1&P2&D&U).
-  destruct P1 as (h'&(K&N)&E).
-  exists s v. splits.
-  { (*lets E1: hsingle_inv P1.*)
-     subst s1.
-     applys eval_get_sep (heap_state h') (heap_state s2). subst s. rew_heap*. 
-     subst h'. rew_heap*. }
-  { rewrite~ hstar_hpure_l. split~. subst s s1. rew_heap*.
-    applys* Normal_rw_elim. }
-  { auto. }
-Qed.
-*)
 Lemma hoare_get_ro : forall HI HO v p,
   Framed HI HO ->
   hoare (val_get p)
@@ -1715,94 +1691,28 @@ Proof using.
   { subst. rew_heap*. }
 Qed.
 
-(* DEPRECATED
-Lemma hoare_set : forall H w p v,
-  Normal H ->
-  hoare (val_set (val_loc p) v)
-    ((p ~~> w) \* H)
-    (fun r => \[r = val_unit] \* (p ~~> v) \* H).
-Proof using.
-  introv NH. intros s1 K0.
-  destruct K0 as (h1&h2&P1&P2&D&U).
-  (* lets E1: hsingle_inv P1. *)
-  destruct P1 as (K&N).
-  exists (heap_union (single p (v,mode_rw)) h2) val_unit. splits.
-  { subst h1. applys* eval_set_sep (single p w) (single p v) (heap_state h2).
-    { subst. rew_heap*. }
-    { rew_heap*. } } 
-  { rewrite hstar_hpure_l. split~.
-    { rew_heap*. exists __ (h2^rw). splits*. (* rewrites~ applys~ hstar_intro.*)
-      { splits*. } { applys* Normal_rw_elim. } } }
-  { subst. rew_heap*. }
-Qed.
-
-Lemma hoare_free : forall H p v,
-  Normal H ->
-  hoare (val_free (val_loc p))
-    ((p ~~> v) \* H)
-    (fun r => \[r = val_unit] \* H).
-Proof using.
-  introv NH. intros s1 K0.
-  destruct K0 as (h1&h2&P1&P2&D&U).
-  (* lets E1: hsingle_inv P1. *)
-  destruct P1 as (K&N).
-  exists h2 val_unit. splits.
-  { subst h1. applys* eval_free_sep.   
-    { subst. rew_heap*. } }
-  { rewrite hstar_hpure_l. split~. applys* Normal_rw_elim. }
-  { subst. rew_heap*. }
-Qed.
-*)
-
 
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of SL triples in a logic with read-only predicates *)
-
-(* equivalent definition
-Definition triple' (t:trm) (H:hprop) (Q:val->hprop) :=
-  forall HF HR, Normal HF -> ReadOnly HR ->
-  hoare t (H \* HF \* HR) (Q \*+ HF \*+ \GC).
-*)
 
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) :=
   forall HI HO, Framed HI HO ->
   hoare t (H \* HI) (Q \*+ HO \*+ \GC).
 
-
-
-(* alternative
-Definition RWPart (H:hprop) : hprop :=
-  fun h => exists h', H h' /\ h = h'^rw.
+(** Equivalent definition *)
 
 Definition triple' (t:trm) (H:hprop) (Q:val->hprop) :=
-  forall H',
-  hoare t (H \* H') (Q \*+ RWPart H' \*+ \GC).
-*)
+  forall HF HR, Normal HF -> ReadOnly HR ->
+    hoare t (H \* HF \* HR) (Q \*+ HF \*+ \GC).
 
-(* ---------------------------------------------------------------------- *)
-(* ** Connection with Hoare triples *)
-
-(*
-(** Lemma to introduce hoare instances for establishing triples,
-    integrating the consequence rule. *)
-
-Lemma triple_of_hoare : forall t H Q,
-  (forall H', exists Q', hoare t (H \* H') Q' /\ Q' ===> Q \*+ H' \*+ \GC) ->
-  triple t H Q.
+Lemma triple_eq_triple' : triple = triple'.
 Proof using.
-  introv M. intros HF N. lets (Q'&R&W): M HF. applys* hoare_conseq R.
+  extens. intros t H Q. iff M.
+  { intros HF HR NF NR. lets HFa: Framed_Normal Framed_hempty NF.
+    lets HFb: Framed_ReadOnly (rm HFa) NR. rew_heap in *. applys M HFb. }
+  { intros HI HO (HR&NF&NR&E). subst HI. applys* M. }
 Qed.
 
-(** Lemma to reciprocally deduce a hoare triple from a SL triple *)
-
-
-Lemma hoare_of_triple : forall t H Q HF,
-  triple t H Q ->
-  hoare t ((H \* HF) \* \GC) (fun r => (Q r \* HF) \* \GC).
-Proof using.
-  introv M. applys hoare_conseq. { applys M. } { xsimpl. } { xsimpl. }
-Qed.
-*)
 
 (* ---------------------------------------------------------------------- *)
 (* ** SL rules structural *)
@@ -1856,7 +1766,6 @@ Proof using.
   applys hoare_conseq K; xsimpl.
 Qed.
 
-
 Lemma triple_conseq_frame : forall H Q t H1 Q1 H2,
   triple t H1 Q1 ->
   H ==> (H1 \* H2) ->
@@ -1867,7 +1776,6 @@ Proof using.
   introv M WH WQ N. applys triple_conseq WH WQ.
   applys* triple_frame_Normal.
 Qed.
-
 
 Lemma triple_frame_read_only : forall t H1 Q1 H2,
   triple t (H1 \* RO H2) Q1 ->
@@ -1887,7 +1795,7 @@ Proof using.
   introv M. intros HI HO HF. applys* hoare_conseq M. { xsimpl. }
 Qed.
 
-Lemma triple_hany_post : forall H' t H Q,
+Lemma triple_haffine_post : forall H' t H Q,
   triple t H (Q \*+ H') ->
   haffine H' ->
   triple t H Q.
@@ -1902,86 +1810,14 @@ Proof using.
   introv M. applys* triple_frame_ReadOnly. applys ReadOnly_RO.
 Qed.
 
-Lemma triple_haffine_normal_pre : forall t H H' Q,
-  triple t H Q ->
-  haffine H' ->
-  Normal H' ->
-  triple t (H \* H') Q.
-Proof using.
-  introv M F N. applys~ triple_hany_post H'. applys* triple_frame_Normal M.
-Qed.
-
-
-
-Lemma hexists_named_eq : forall H,
-  H = (\exists h, \[H h] \* (= h)).
-Proof using.
-  intros. apply himpl_antisym.
-  { intros h K. applys hexists_intro h.
-    rewrite* hstar_hpure_l. }
-  { xpull. intros h K. intros ? ->. auto. }
-Qed.
-
-Lemma triple_named_heap : forall t H Q,
-  (forall h, H h -> triple t (= h) Q) ->
-  triple t H Q.
-Proof using.
-  introv M. rewrite (hexists_named_eq H).
-  applys triple_hexists. intros h.
-  applys* triple_hpure.
-Qed.
-
-
-Parameter heap_affine_union_inv : forall h1 h2,
-  heap_affine (heap_union h1 h2) ->
-  heap_affine h1 /\ heap_affine h2.
-
-
-
-Lemma decomposition : forall H,
-  H ==> (\exists H1 H2, \[Normal H1 /\ (haffine H -> haffine H1)]
-                     \* \[ReadOnly H2] \* (H1 \* H2)). 
-Proof using.
-  intros H h K. rewrite (heap_eq_union_rw_ro h).
-  exists (= h^rw) (= h^ro). do 2 rewrite hstar_hpure. splits.
-  { splits. 
-    { intros ? ->. rew_heap*. }
-    { intros F. Transparent haffine. unfolds haffine. intros ? ->.
-      specializes F K. rewrite (heap_eq_union_rw_ro h) in F. 
-      forwards*: heap_affine_union_inv F. } }
-  { intros ? ->. rew_heap*. } 
-  { do 2 esplit. splits*. }
-Qed.
-
-Lemma triple_decomposition : forall t H H' Q,
-  (forall H1 H2, Normal H1 -> ReadOnly H2 -> (haffine H' -> haffine H1) ->
-                 triple t (H \* H1 \* H2) Q) ->
-  triple t (H \* H') Q.
-Proof using.
-  introv M.
-  forwards K: decomposition H'.
-  lets WH: himpl_frame_r H K.
-  applys* triple_conseq WH. 
-  rewrite hstar_comm. (* manual xpull *)
-  rewrite hstar_hexists. applys triple_hexists. intros H1.
-  rewrite hstar_hexists. applys triple_hexists. intros H2.
-  rewrite hstar_assoc. applys triple_hpure. intros (N1&F1).
-  rewrite hstar_assoc. applys triple_hpure. intros N2.
-  rewrite hstar_comm. rewrite <- hstar_assoc.
-  rewrite hstar_assoc. applys* M.
-Qed.
-
-
-
 Lemma triple_haffine_pre : forall t H H' Q,
   triple t H Q ->
   haffine H' ->
   triple t (H \* H') Q.
 Proof using.
-  introv M F. applys triple_decomposition.
-  intros H1 H2 N1 N2 NF. rewrite <- hstar_assoc.
-  applys* triple_frame_ReadOnly.
-  applys* triple_haffine_normal_pre.
+  introv M F. applys~ triple_haffine_post H'.
+  applys* triple_frame_Normal M.
+  applys* Normal_of_haffine.
 Qed.
 
 
@@ -2028,7 +1864,6 @@ Proof.
   { xsimpl*. }
 Qed.
 
-
 Lemma triple_fix_framed : forall f x t1 H Q,
   H ==> Q (val_fix f x t1) ->
   Normal H ->
@@ -2039,45 +1874,6 @@ Proof using.
   { xsimpl. }
   { xchanges M. intros ? ->. xsimpl*. }
 Qed.
-
-
-(*
-Lemma triple_of_hoare : forall t H Q,
-  (forall HF HR, Normal HF -> ReadOnly HR ->
-     exists Q', hoare t (H \* HF \* HR) Q' /\ Q' ===> Q \*+ HF \*+ \GC) ->
-  triple t H Q.
-Proof using.
-  introv M. intros HF HR NF NR. forwards* (Q'&R&W): M HF. applys* hoare_conseq R.
-Qed.
-*)
-
-Lemma hoare_let : forall x t1 t2 H1 H2 Q1 Q HI HO,
-  Framed HI HO ->
-  hoare t1 (H1 \* RO H2 \* HI) (Q1 \*+ HO) ->
-  (forall v H3, ReadOnly H3 -> hoare (subst x v t2) (Q1 v \* HO \* H2 \* H3) (Q \*+ HO)) ->
-  hoare (trm_let x t1 t2) (H1 \* H2 \* HI) (Q \*+ HO).
-Proof.
-  introv HF M1 M2. intros h K.
-  destruct K as (h1&hr&P1&P2&D1&U1).
-  destruct P2 as (h2&hI&PI&PO&D2&U2).
-  forwards (h1'&v1&R1&K1&E1): (rm M1) (h1 \u to_ro h2 \u hI).
-  { do 2 esplit. splits*. do 2 esplit. splits*. { applys* to_ro_pred. } }
-  (* destruct K1 as (ha&hb&Pa&Pb&D3&U3).*)
-  forwards (h2'&v2&R2&K2&E2): (rm M2) v1 (= hI^ro \u h1^ro) (h1'^rw \u h2 \u (h1^ro \u hI^ro) ).
-  { intros ? ->. rew_heap*. }
-  { rewrite <- hstar_assoc. do 2 esplit. (* TODO: tactic *) splits*.
-    do 2 esplit. splits*. }
-  exists h2' v2. splits*.
-  { applys eval_let_trm (heap_state h1').
-    { applys_eq R1. subst h hr. rew_heap*. } 
-    { applys_eq R2. rewrite (heap_state_components h1').
-      rewrite E1. rew_heap*. fmap_eq*. } }
-    { rewrite E2. rewrite U1,U2. rew_heap*.  (* same unions *)
-      rewrite* <- heap_union_assoc. rewrite (heap_union_comm h2^ro). 
-      rewrite* heap_union_assoc. }
-Qed.
-
-
 
 Lemma triple_let : forall (z:var) t1 t2 H1 H2 Q Q1,
   triple t1 (H1 \* RO H2) Q1 ->
@@ -2105,129 +1901,12 @@ Proof using.
   { xsimpl. }
 Qed.
 
-
-(* DEPRECATED
-
-
-Lemma hoare_let' : forall x t1 t2 H1 H2 Q1 Q,
-  (forall HI HO, Framed HI HO -> hoare t1 (H1 \* RO H2 \* HI) (Q1 \*+ HO)) ->
-  (forall HI HO, Framed HI HO -> forall v, hoare (subst x v t2) (Q1 v \* H2 \* HI) (Q \*+ HO)) ->
-  (forall HI HO, Framed HI HO -> hoare (trm_let x t1 t2) (H1 \* H2 \* HI) (Q \*+ HO)).
-Proof.
-  introv M1 M2. intros HI HO HF h K.
-  destruct K as (h1&hr&P1&P2&D1&U1).
-  destruct P2 as (h2&hI&PI&PO&D2&U2).
-  forwards* (h1'&v1&R1&K1&E1): (rm M1) (h1 \u to_ro h2 \u hI).
-  { do 2 esplit. splits*. do 2 esplit. splits*. { applys* to_ro_pred. } }
-  lets (_&NO&_&_): HF.
-  destruct K1 as (ha&hb&Pa&Pb&D3&U3).
-  forwards* (h2'&v2&R2&K2&E2): (rm M2) v1. (h1'^rw \u h2 \u h1^ro). (*  (= (h1^ro)).*)
-  { do 2 esplit. (* TODO: tactic *) splits*.
-    do 2 esplit. splits*. applys RO_ro. } 
-  exists h2' v2. splits*.
-  { applys eval_let_trm (heap_state h1').
-    { applys_eq R1. subst h. rew_heap*. } 
-    { applys_eq R2. rewrite (heap_state_components h1').
-      rewrite E1. rew_heap*. fmap_eq*. } }
-    { rewrite E2. rewrite U. rew_heap*. }
-Qed.
-
-
-Lemma triple_let : forall (z:var) t1 t2 H1 H2 Q Q1,
-  triple t1 (H1 \* RO H2) Q1 ->
-  (forall v, triple (subst1 z v t2) (Q1 v \* H2) Q) ->
-  triple (trm_let z t1 t2) (H1 \* H2) Q.
-Proof using.
-  introv M1 M2. 
-  applys triple_of_hoare. intros HI HO HF.
-  unfolds in M1.
-  esplit. split.
-  { applys hoare_conseq.
-    { applys hoare_let' H1 H2 (Q1 \*+ \GC) (Q \*+ \GC) HF.
-      { intros HI' HO' HF'. applys hoare_conseq.
-        { applys M1 HF'. } { xsimpl. } { xsimpl. } }
-      { intros HI' HO' HF' v. applys hoare_conseq.
-        { applys M2 HF'. } {  skip_rewrite (\GC = \[]). rew_heap. (* TODO *) xsimpl. }
-        { xsimpl. } } }
-    { xsimpl. }
-    { xsimpl. } }
-  { xsimpl. }
-Qed.
-
-
-      applys hoare_conseq (Q1 \*+ HO \*+ \GC). applys_eq M1 HF'. xsimpl. xsimpl.
-
-  applys triple_decomposition. intros H2W H2R N2W N2R _.
-
-  (* TODO: generalize pattern of Frame to an arbitrary state? *)
-  (* lets HFa: Framed_ReadOnly HF N2R.
-  lets HFb: Framed_Normal HFa N2W. *)
-  exists (Q \*+ HO \*+ \GC); split; [|xsimpl].
- 
-  { applys hoare_conseq. applys hoare_let' H1 \[] HFb. 3:{ xsimpl. } 
-skip. skip.
-    { intros HI' HO' HF'. applys hoare_conseq.
-      { applys M1 HF'. } { xsimpl. } { xsimpl. } applys_eq M1.
- }
-  
-
-
-
- skip. skip.  M1. rewrite hstar_assoc. rewrite (hstar_comm H2).
-    rewrite <- hstar_assoc.
-    applys* hoare_frame_read_only.
-    forwards: M1. } { xsimpl*. }
-Qed.
-
-(* TODO: TLC applys_eq F X Y *)
-
-Lemma hoare_let : forall x t1 t2 HI HO H1 H2 Q Q1,
-  Framed HI HO ->
-  hoare t1 (H1 \* RO H2) Q1 ->
-  (forall v H3, hoare (subst x v t2) (Q1 v \* H2 \* RO H3) Q) ->
-  hoare (trm_let x t1 t2) (HI \* H2) Q.
-*)
-
-(*
-THIS MORE GENERAL STATEMENT SHOULD BE DERIVABLE
-Lemma triple_let : forall (z:var) t1 t2 H1 H2 Q Q1,
-  triple t1 (H1 \* RO H2) Q1 ->
-  Normal H2 ->
-  (forall (X:val), triple (subst1 z X t2) (Q1 X \* H2) Q) ->
-  triple (trm_let z t1 t2) (H1 \* H2) Q.
-Proof using.
-  introv M1 N2 M2. applys triple_of_hoare. intros HF NF.
-  esplit; split. { applys_eq hoare_let. rewrite hstar_assoc. rewrite (hstar_comm H2).
-    rewrite <- hstar_assoc.
-    applys* hoare_frame_read_only.
-    forwards: M1. } { xsimpl*. }
-Qed.
-
-  hoare t1 (H1 \* RO H2) Q1 ->
-  (forall v H3, hoare (subst x v t2) (Q1 v \* H2 \* RO H3) Q) ->
-  hoare (trm_let x t1 t2) (H1 \* H2) Q.
-
-*)
-
-(*
-Lemma triple_let_simple : forall z t1 t2 H Q Q1,
-  triple t1 H Q1 ->
-  (forall (X:val), triple (subst1 z X t2) (Q1 X) Q) ->
-  triple (trm_let z t1 t2) H Q.
-Proof using.
-  introv M1 M2. intros HF. applys hoare_let.
-  { applys M1. }
-  { intros v. applys* hoare_of_triple. }
-Qed.
-*)
-
 Lemma triple_if : forall (b:bool) t1 t2 H Q,
   triple (if b then t1 else t2) H Q ->
   triple (trm_if b t1 t2) H Q.
 Proof using.
   introv M1. intros HI HO HF. applys hoare_if. applys~ M1.
 Qed.
-
 
 Lemma triple_app_fix : forall (f:var) F x X t1 H Q,
   F = val_fix f x t1 ->
@@ -2237,7 +1916,6 @@ Lemma triple_app_fix : forall (f:var) F x X t1 H Q,
 Proof using.
   introv EF N M. intros HI HO HF. applys* hoare_app_fix EF N.
 Qed.
-
 
 Lemma triple_ref : forall v,
   triple (val_ref v)
@@ -2290,5 +1968,16 @@ Qed.
 
 
 
+(* ---------------------------------------------------------------------- *)
+(* ** Extra *)
 
+Lemma decomposition : forall H,
+  H ==> (\exists H1 H2, \[Normal H1] \* \[ReadOnly H2] \* (H1 \* H2)). 
+Proof using.
+  intros H h K. rewrite (heap_eq_union_rw_ro h).
+  exists (= h^rw) (= h^ro). do 2 rewrite hstar_hpure. splits.
+  { intros ? ->. rew_heap*. }
+  { intros ? ->. rew_heap*. } 
+  { do 2 esplit. splits*. }
+Qed.
 
