@@ -141,10 +141,10 @@ Lemma filter_false : forall (IB:Inhab B) (f:A->B->Prop) h,
   Fmap.filter f h = Fmap.empty.
 Admitted.
 
-Lemma filter_empty: forall (IB:Inhab B) (f:A->B->Prop) h,
+Lemma filter_empty: forall {IB:Inhab B} (f:A->B->Prop),
   Fmap.filter f Fmap.empty = Fmap.empty.
-Proof using.
-  introv IB M. applys filter_false. intros x K.
+Proof using .
+  intros. applys filter_false. intros x K.
   rewrite* indom_empty_eq in K.
 Qed.
 
@@ -171,17 +171,17 @@ Lemma filter_partition : forall (IB:Inhab B) (f g:A->B->Prop) h h1 h2,
 Admitted.
 
 
-Axiom indom_map : forall (IB:Inhab B) (f:A->B->B) h x,
+Axiom indom_map : forall (IB:Inhab B) C (f:A->B->C) h x,
   indom (map_ f h) x = indom h x.
 
-Axiom read_map : forall (IB:Inhab B) (f:A->B->B) h x,
+Axiom read_map : forall (IB:Inhab B) C (IB:Inhab C) (f:A->B->C) h x,
   indom h x ->
   read (map_ f h) x = f x (read h x).
 
-Axiom map_single : forall (IB:Inhab B) (f:A->B->B) h x y,
+Axiom map_single : forall (IB:Inhab B) C (f:A->B->C) x y,
   map_ f (single x y) = single x (f x y).
 
-Axiom map_union : forall (IB:Inhab B) (f:A->B->B) h1 h2,
+Axiom map_union : forall (IB:Inhab B) C (f:A->B->C) h1 h2,
   map_ f (union h1 h2) = union (map_ f h1) (map_ f h2).
 
 End FmapProp.
@@ -561,115 +561,6 @@ Qed.*)
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Equalities on [heap] *)
-
-Lemma heap_eq_disjoint_union_rw_ro : forall h,
-  h = (h^rw) \u (h^ro) /\ disjoint (h^rw) (h^ro).
-Proof using. 
-  intros. forwards* (E&D): filter_partition h (h^rw) (h^ro).
-  { intros x (v,m) _ _ K1 K2. false. }
-  unfold heap_union. case_if.
-  { auto. }
-  { false C. applys* heap_compat_of_disjoint. }
-Qed.
-
-Lemma heap_eq_union_rw_ro : forall h,
-  h = (h^rw) \u (h^ro).
-Proof using. intros. applys heap_eq_disjoint_union_rw_ro. Qed.
-
-(** Note: it is always the case that [Fmap.disjoint (h^rw) (h^ro)]. *)
-
-Lemma heap_disjoint_components : forall h,
-  disjoint (h^rw) (h^ro).
-Proof using. intros. applys heap_eq_disjoint_union_rw_ro. Qed.
-
-Lemma heap_eq : forall h1 h2,
-  h1^rw = h2^rw ->
-  h1^ro = h2^ro ->
-  h1 = h2.
-Proof using. 
-  introv M1 M2. forwards E1: heap_eq_union_rw_ro h1.
-  forwards E2: heap_eq_union_rw_ro h2. congruence.
-Qed.
-
-(* TODO: check what's actually needed *)
-Lemma heap_eq_forward : forall h1 h2,
-  h1 = h2 ->
-  h1^rw = h2^rw /\ h1^ro = h2^ro.
-Proof using. intros. subst*. Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Properties of [to_ro] *)
-
-Lemma to_ro_rw : forall h,
-  (to_ro h)^rw = Fmap.empty.
-Proof using. skip. Qed.
-
-Lemma to_ro_ro : forall h,
-  (to_ro h)^ro = (to_ro h).
-Proof using. skip. Qed.
-
-Lemma to_ro_state : forall h,
-  heap_state (to_ro h) = heap_state h.
-Proof using. skip. Qed.
-(*Proof using.
-  intros h. do 2 rewrite heap_eq_union_rw_ro. rewrite to_ro_f, to_ro_r.
-  fmap_eq.
-Qed. *)
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Properties of [heap_union] *)
-
-(*
-Lemma heap_union_def : forall h1 h2,
-  heap_compat h1 h2 ->
-  exists D,
-  h1 \u h2 = exist (h1^rw \+ h2^rw, h1^ro \+ h2^ro) D.
-Proof using.
-  introv M. unfold heap_union.
-  rewrite (classicT_l M). esplit. destruct~ M.
-Qed.
-
-Lemma heap_union_spec : forall h1 h2,
-  heap_compat h1 h2 ->
-     (h1 \u h2)^rw = h1^rw \+ h2^rw
-  /\ (h1 \u h2)^ro = h1^ro \+ h2^ro.
-Proof using.
-  introv M. lets (D&E): heap_union_def M. rewrite~ E.
-Qed.
-*)
-
-Lemma heap_union_f : forall h1 h2,
-  heap_compat h1 h2 ->
-  (h1 \u h2)^rw = h1^rw \u h2^rw.
-Proof using. skip. (*
-  introv D. unfold heap_union. rewrite (classicT_l D).
-  destruct h1 as ((f1,r1)&D1). destruct h2 as ((f2,r2)&D2).
-  unstate. fmap_eq. *)
-Qed.
-
-Lemma heap_union_r : forall h1 h2,
-  heap_compat h1 h2 ->
-  (h1 \u h2)^ro = h1^ro \u h2^ro.
-Proof using. skip. (*
-  introv D. unfold heap_union. rewrite (classicT_l D).
-  destruct h1 as ((f1,r1)&D1). destruct h2 as ((f2,r2)&D2).
-  unstate. fmap_eq. *)
-Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Properties of [heap_empty] *)
-
-Lemma heap_empty_state : heap_state heap_empty = Fmap.empty.
-Proof. unfold heap_empty. unfold heap_state. fmap_eq. skip. Qed.
-
-Hint Rewrite heap_empty_state : rew_heap.
-
-
-(* ---------------------------------------------------------------------- *)
 (* ** More properties of [heap_union] *)
 
 Lemma heap_union_comm : forall h1 h2,
@@ -736,24 +627,57 @@ Qed.*)
 
 Hint Rewrite heap_union_state : rew_fmap.
 
-Lemma heap_compat_components : forall h,
-  heap_compat (h^rw) (h^ro).
-Admitted.
-
-Lemma heap_state_components : forall h,
-  heap_state h = heap_state (h^rw) \+ heap_state (h^ro).
-Proof using. 
-  intros. rewrite (heap_eq_union_rw_ro h) at 1.
-  rewrite* heap_union_state. applys* heap_compat_components.
+Lemma heap_state_single : forall p v m,
+  heap_state (single p (v, m)) = single p v.
+Proof using.
+  intros. unfold heap_state. rewrite* map_single. typeclass.
 Qed.
-    
-  
+
+Hint Rewrite heap_state_single heap_union_state : rew_heap.
+
+
+(*
+Lemma heap_union_def : forall h1 h2,
+  heap_compat h1 h2 ->
+  exists D,
+  h1 \u h2 = exist (h1^rw \+ h2^rw, h1^ro \+ h2^ro) D.
+Proof using.
+  introv M. unfold heap_union.
+  rewrite (classicT_l M). esplit. destruct~ M.
+Qed.
+
+Lemma heap_union_spec : forall h1 h2,
+  heap_compat h1 h2 ->
+     (h1 \u h2)^rw = h1^rw \+ h2^rw
+  /\ (h1 \u h2)^ro = h1^ro \+ h2^ro.
+Proof using.
+  introv M. lets (D&E): heap_union_def M. rewrite~ E.
+Qed.
+*)
+
+Lemma heap_union_f : forall h1 h2,
+  heap_compat h1 h2 ->
+  (h1 \u h2)^rw = h1^rw \u h2^rw.
+Proof using. skip. (*
+  introv D. unfold heap_union. rewrite (classicT_l D).
+  destruct h1 as ((f1,r1)&D1). destruct h2 as ((f2,r2)&D2).
+  unstate. fmap_eq. *)
+Qed.
+
+Lemma heap_union_r : forall h1 h2,
+  heap_compat h1 h2 ->
+  (h1 \u h2)^ro = h1^ro \u h2^ro.
+Proof using. skip. (*
+  introv D. unfold heap_union. rewrite (classicT_l D).
+  destruct h1 as ((f1,r1)&D1). destruct h2 as ((f2,r2)&D2).
+  unstate. fmap_eq. *)
+Qed.
 
 
 
 Hint Rewrite heap_union_empty_l heap_union_empty_r
-  (* heap_full_f heap_full_r *)
-  (*to_ro_f to_ro_r *) heap_union_f heap_union_r : rew_heap.
+  (*heap_full_f heap_full_r*)
+  (*to_ro_f to_ro_r  *) heap_union_f heap_union_r  : rew_heap.
   (* add heap_union_assoc? *)
 
 Tactic Notation "rew_heap" :=
@@ -771,6 +695,103 @@ Tactic Notation "rew_heap" "~" "in" "*" :=
 
 Ltac heap_eq :=
   solve [ rew_heap; subst; auto ].
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Equalities on [heap] *)
+
+Lemma heap_eq_disjoint_union_rw_ro : forall h,
+  h = (h^rw) \u (h^ro) /\ disjoint (h^rw) (h^ro).
+Proof using. 
+  intros. forwards* (E&D): filter_partition h (h^rw) (h^ro).
+  { intros x (v,m) _ _ K1 K2. false. }
+  unfold heap_union. case_if.
+  { auto. }
+  { false C. applys* heap_compat_of_disjoint. }
+Qed.
+
+Lemma heap_eq_union_rw_ro : forall h,
+  h = (h^rw) \u (h^ro).
+Proof using. intros. applys heap_eq_disjoint_union_rw_ro. Qed.
+
+(** Note: it is always the case that [Fmap.disjoint (h^rw) (h^ro)]. *)
+
+Lemma heap_disjoint_components : forall h,
+  disjoint (h^rw) (h^ro).
+Proof using. intros. applys heap_eq_disjoint_union_rw_ro. Qed.
+
+(* Derive on the fly? *)
+Lemma heap_compat_components : forall h,
+  heap_compat (h^rw) (h^ro).
+Proof using. intros. applys heap_compat_of_disjoint. applys heap_disjoint_components. Qed.
+
+Lemma heap_state_components : forall h,
+  heap_state h = heap_state (h^rw) \+ heap_state (h^ro).
+Proof using. 
+  intros. rewrite (heap_eq_union_rw_ro h) at 1.
+  rewrite* heap_union_state. applys* heap_compat_components.
+Qed.
+    
+  
+
+
+
+Lemma heap_eq : forall h1 h2,
+  h1^rw = h2^rw ->
+  h1^ro = h2^ro ->
+  h1 = h2.
+Proof using. 
+  introv M1 M2. forwards E1: heap_eq_union_rw_ro h1.
+  forwards E2: heap_eq_union_rw_ro h2. congruence.
+Qed.
+
+(* TODO: check what's actually needed *)
+Lemma heap_eq_forward : forall h1 h2,
+  h1 = h2 ->
+  h1^rw = h2^rw /\ h1^ro = h2^ro.
+Proof using. intros. subst*. Qed.
+
+
+Lemma filter_mode_heap_empty : forall m,
+  (heap_empty^m) = empty.
+Proof using.
+  intros. unfold filter_mode, heap_empty. rewrite* filter_empty.
+  typeclass.
+Qed.
+
+Hint Rewrite filter_mode_heap_empty : rew_heap.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Properties of [to_ro] *)
+
+Lemma to_ro_rw : forall h,
+  (to_ro h)^rw = Fmap.empty.
+Proof using. skip. Qed.
+
+Lemma to_ro_ro : forall h,
+  (to_ro h)^ro = (to_ro h).
+Proof using. skip. Qed.
+
+Lemma to_ro_state : forall h,
+  heap_state (to_ro h) = heap_state h.
+Proof using. skip. Qed.
+(*Proof using.
+  intros h. do 2 rewrite heap_eq_union_rw_ro. rewrite to_ro_f, to_ro_r.
+  fmap_eq.
+Qed. *)
+
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Properties of [heap_empty] *)
+
+Lemma heap_empty_state : heap_state heap_empty = Fmap.empty.
+Proof. unfold heap_empty. unfold heap_state. fmap_eq. skip. Qed.
+
+Hint Rewrite heap_empty_state : rew_heap.
+
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1048,23 +1069,15 @@ Lemma Normal_rw : forall H h,
   Normal H ->
   H h ->
   h^rw = h.
-Proof using. skip. Qed.
+Proof using.
+  introv N K. specializes N (rm K).
+  forwards E: heap_eq_union_rw_ro h.
+  rewrite N in E. rew_heap* in E.
+Qed.
 
+(* TODO: definition ? *)
 Notation Normal_post Q := (forall x, Normal (Q x)).
 
-(* TEMP *)
-Lemma heap_empty_ro : 
-  (heap_empty^ro) = empty.
-Proof using. skip. Qed.
-
-Hint Rewrite heap_empty_ro : rew_heap.
-
-(* TEMP *)
-Lemma heap_empty_rw : 
-  (heap_empty^rw) = empty.
-Proof using. skip. Qed.
-
-Hint Rewrite heap_empty_rw : rew_heap.
 
 Instance Normal_hempty :
   Normal \[].
@@ -1163,6 +1176,64 @@ Proof using.
   lets (MP&ME): hpure_inv P1. rewrites (rm ME).
   rewrites~ (>> N P2). rew_heap*.
 Qed.
+
+
+Hint Resolve Normal_hempty Normal_hstar Normal_hgc : Normal.
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* *)
+
+(* Dual of Normal *)
+
+Class ReadOnly (H:hprop) : Prop :=
+  read_only : forall h, H h -> h^rw = Fmap.empty.
+
+Hint Mode Normal ! : typeclass_instances.
+
+Lemma ReadOnly_rw : forall H h,
+  ReadOnly H ->
+  H h ->
+  h^rw = Fmap.empty.
+Proof using. introv N K. applys* N. Qed.
+
+Instance ReadOnly_hempty :
+  ReadOnly hempty.
+Proof using.
+  introv M. unfolds hempty, hpure. subst. rew_heap*.
+Qed.
+
+Instance ReadOnly_hstar : forall H1 H2,
+  ReadOnly H1 ->
+  ReadOnly H2 ->
+  ReadOnly (H1 \* H2).
+Proof using.
+  introv N1 N2 (h1&h2&P1&P2&M1&EQ). subst. rew_heap*.
+  rewrite* N1. rewrite* N2. rew_heap*.
+Qed.
+
+Hint Resolve ReadOnly_hstar ReadOnly_hempty : ReadOnly.
+
+
+(* ---------------------------------------------------------------------- *)
+(* *)
+
+Axiom ro_ro : forall h,
+  (h^ro)^ro = h^ro.
+
+Axiom rw_ro : forall h,
+  (h^rw)^ro = Fmap.empty.
+
+Axiom ro_rw : forall h,
+  (h^ro)^rw = Fmap.empty.
+
+Axiom rw_rw : forall h,
+  (h^rw)^rw = h^rw.
+
+Hint Rewrite rw_ro rw_rw ro_rw ro_ro heap_union_state to_ro_state : rew_heap.
+
+Hint Rewrite to_ro_rw to_ro_ro : rew_heap.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1276,6 +1347,10 @@ Qed. *)
 
 Arguments RO_star : clear implicits.
 
+Axiom RO_ro : forall h,
+  RO (= (h^ro)) (h^ro).
+
+
 (* DEPRECATED
 Section HaffineRO.
 
@@ -1290,88 +1365,93 @@ Qed.
 End HaffineRO.
 *)
 
-(*
-Hint Resolve haffine_ro : haffine.
-*)
-
-(* ---------------------------------------------------------------------- *)
-(* *)
-Axiom RO_ro : forall h,
-  RO (= (h^ro)) (h^ro).
-
-Axiom ro_ro : forall h,
-  (h^ro)^ro = h^ro.
-
-Axiom rw_ro : forall h,
-  (h^rw)^ro = Fmap.empty.
-
-Axiom ro_rw : forall h,
-  (h^ro)^rw = Fmap.empty.
-
-Axiom rw_rw : forall h,
-  (h^rw)^rw = h^rw.
-
-Hint Rewrite rw_ro rw_rw ro_rw ro_ro heap_union_state to_ro_state : rew_heap.
-
-Hint Rewrite to_ro_rw to_ro_ro : rew_heap.
-
-(* ---------------------------------------------------------------------- *)
-(* *)
-
-(* Dual of Normal *)
-
-Class ReadOnly (H:hprop) : Prop :=
-  read_only : forall h, H h -> h^rw = Fmap.empty.
-
-Hint Mode Normal ! : typeclass_instances.
-
-Lemma ReadOnly_rw : forall H h,
-  ReadOnly H ->
-  H h ->
-  h^rw = Fmap.empty.
-Proof using. introv N K. applys* N. Qed.
-
-Instance ReadOnly_hempty :
-  ReadOnly hempty.
-Proof using.
-  introv M. unfolds hempty, hpure. subst. rew_heap*.
-Qed.
-
 Instance ReadOnly_RO : forall H,
   ReadOnly (RO H).
 Proof using.
   introv (h'&K&E). subst. rew_heap*.
 Qed.
 
-Instance ReadOnly_hstar : forall H1 H2,
-  ReadOnly H1 ->
-  ReadOnly H2 ->
-  ReadOnly (H1 \* H2).
+
+(*
+Hint Resolve haffine_ro : haffine.
+*)
+
+
+(* ********************************************************************** *)
+(* * Elim lemmas *)
+
+Lemma Normal_rw_elim : forall H h, 
+  Normal H -> 
+  H h ->
+  H (h^rw).
+Proof using. introv N K. rewrites* (>> Normal_rw K). Qed.
+(*
+Hint Resolve Normal_rw_elim.
+*)
+
+Lemma Normal_ReadOnly_rw_elim : forall HF HR h, 
+  Normal HF -> 
+  ReadOnly HR ->
+  (HF \* HR) h ->
+  HF (h^rw).
 Proof using.
-  introv N1 N2 (h1&h2&P1&P2&M1&EQ). subst. rew_heap*.
-  rewrite* N1. rewrite* N2. rew_heap*.
+  introv NF NR (h1&h2&K1&K2&D&->). rew_heap*.
+  rewrites* (>> ReadOnly_rw K2).
+  rewrites* (>> Normal_rw K1).
+  rew_heap*.
 Qed.
+
+
+(* ********************************************************************** *)
+(* Framed *)
+
+Definition Framed HI HO :=
+  exists HR, Normal HO /\ ReadOnly HR /\ HI = HO \* HR.
+
+Lemma Framed_rw_elim : forall HI HO h, 
+  Framed HI HO -> 
+  HI h ->
+  HO (h^rw).
+Proof using.
+  introv (R&NF&NR&->) M. applys* Normal_ReadOnly_rw_elim.
+Qed.
+
+Lemma Framed_hempty :
+  Framed \[] \[].
+Proof using.
+  exists \[]. splits*. 
+  { auto with Normal. }
+  { auto with ReadOnly. }
+  { subst. xsimpl. } 
+Qed.
+
+Lemma Framed_Normal : forall HI HO H,
+  Framed HI HO ->
+  Normal H ->
+  Framed (HI \* H) (HO \* H).
+Proof using.
+  introv (HR&NF&NR&E) N.
+  exists HR. splits*. 
+  { auto with Normal. }
+  { subst. xsimpl. } 
+Qed.
+
+Lemma Framed_ReadOnly : forall HI HO H,
+  Framed HI HO ->
+  ReadOnly H ->
+  Framed (HI \* H) HO.
+Proof using.
+  introv (HR&NF&NR&E) N.
+  exists (HR \* H). splits*. 
+  { auto with ReadOnly. } 
+  { subst. xsimpl. } 
+Qed.
+
 
 
 
 (* ********************************************************************** *)
 (* * Reasoning rules, high-level proofs *)
-
-(* ---------------------------------------------------------------------- *)
-(* ** Tactic [himpl_fold] *)
-
-(** [himpl_fold] applies to a goal of the form [H1 h].
-    It searches the context for an assumption of the from [H2 h],
-    then replaces the goal with [H1 ==> H2].
-    It also deletes the assumption [H2 h]. *)
-
-Ltac himpl_fold_core tt :=
-  match goal with N: ?H ?h |- _ ?h =>
-    applys himpl_inv N; clear N end.
-
-Tactic Notation "himpl_fold" := himpl_fold_core tt.
-Tactic Notation "himpl_fold" "~" := himpl_fold; auto_tilde.
-Tactic Notation "himpl_fold" "*" := himpl_fold; auto_star.
 
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of Hoare triples in a logic with read-only predicates *)
@@ -1388,18 +1468,15 @@ Lemma hoare_conseq : forall t H' Q' H Q,
   hoare t H Q.
 Proof using.
   introv M MH MQ HF. forwards (h'&v&R&K&S): M h.
-  { himpl_fold~. }
-  exists h' v. splits~. { himpl_fold. auto. }
+  { applys* MH. }
+  exists h' v. splits~. { applys MQ K. }
 Qed.
 
-
+(* Not needed *)
 Lemma hoare_named_heap : forall t H Q,
   (forall h, H h -> hoare t (= h) Q) ->
   hoare t H Q.
 Proof using. introv M. intros h Hh. applys* M. Qed.
-
-
-
 
 Lemma hoare_frame_read_only : forall t H1 Q1 H2,
   hoare t (H1 \* RO H2) Q1 ->
@@ -1429,10 +1506,6 @@ Proof using.
 Qed. (* TODO *)
 
 
-
-(* ********************************************************************** *)
-(** * Hoare rules for term constructs *)
-
 Implicit Types v : val.
 
 
@@ -1448,40 +1521,6 @@ Proof.
   introv M. intros h (h1&h2&(HP&M1)&M2&D&U). hnf in M1. subst. rew_heap*. rew_fmap*.
 Qed.
 
-(* ********************************************************************** *)
-
-
-Lemma Normal_rw_elim : forall H h, 
-  Normal H -> 
-  H h ->
-  H (h^rw).
-Proof using. introv N K. rewrites* (>> Normal_rw K). Qed.
-(*
-Hint Resolve Normal_rw_elim.
-*)
-
-Lemma Normal_ReadOnly_rw_elim : forall HF HR h, 
-  Normal HF -> 
-  ReadOnly HR ->
-  (HF \* HR) h ->
-  HF (h^rw).
-Proof using.
-  introv NF NR (h1&h2&K1&K2&D&->). rew_heap*.
-  rewrites* (>> ReadOnly_rw K2).
-  rewrites* (>> Normal_rw K1).
-  rew_heap*.
-Qed.
-
-Definition Framed HI HO :=
-  exists HR, Normal HO /\ ReadOnly HR /\ HI = HO \* HR.
-
-Lemma Framed_rw_elim : forall HI HO h, 
-  Framed HI HO -> 
-  HI h ->
-  HO (h^rw).
-Proof using.
-  introv (R&NF&NR&->). applys* Normal_ReadOnly_rw_elim.
-Qed.
 
 (* ########################################################### *)
 (** ** Reasoning rules for terms, for Hoare triples. *)
@@ -1547,11 +1586,6 @@ Proof.
   exists h1' v1. splits*. { applys* eval_if. }
 Qed.
 
-Lemma heap_state_single : forall p v m,
-  heap_state (single p (v, m)) = single p v.
-Proof using. skip. (* Fmap.map single *) Qed.
-
-Hint Rewrite heap_state_single heap_union_state : rew_heap.
 
 
 
@@ -1800,43 +1834,6 @@ Proof using.
   { intros x. xchanges (MQ x). }
 Qed.
 
-Hint Resolve Normal_hstar Normal_hempty : Normal.
-
-
-Hint Resolve ReadOnly_hstar ReadOnly_hempty : ReadOnly.
-
-Lemma Framed_hempty :
-  Framed \[] \[].
-Proof using.
-  exists \[]. splits*. 
-  { auto with Normal. }
-  { auto with ReadOnly. }
-  { subst. xsimpl. } 
-Qed.
-
-Lemma Framed_Normal : forall HI HO H,
-  Framed HI HO ->
-  Normal H ->
-  Framed (HI \* H) (HO \* H).
-Proof using.
-  introv (HR&NF&NR&E) N.
-  exists HR. splits*. 
-  { auto with Normal. }
-  { subst. xsimpl. } 
-Qed.
-
-Lemma Framed_ReadOnly : forall HI HO H,
-  Framed HI HO ->
-  ReadOnly H ->
-  Framed (HI \* H) HO.
-Proof using.
-  introv (HR&NF&NR&E) N.
-  exists (HR \* H). splits*. 
-  { auto with ReadOnly. } 
-  { subst. xsimpl. } 
-Qed.
-
-
 Lemma triple_frame_Normal : forall t H1 Q1 H2,
   triple t H1 Q1 ->
   Normal H2 ->
@@ -2080,7 +2077,7 @@ Proof.
       rewrite* heap_union_assoc. }
 Qed.
 
-Hint Resolve Normal_hgc : Normal.
+
 
 Lemma triple_let : forall (z:var) t1 t2 H1 H2 Q Q1,
   triple t1 (H1 \* RO H2) Q1 ->
