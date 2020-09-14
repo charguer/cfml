@@ -129,6 +129,9 @@ Axiom indom_empty_eq : forall (IB:Inhab B) x,
 Axiom indom_empty_iff_empty : forall (IB:Inhab B) h,
   (forall x, ~ indom h x) -> h = Fmap.empty.
 
+Axiom indom_union_eq : forall (IB:Inhab B) h1 h2 x,
+  indom (Fmap.union h1 h2) x = (indom h1 x \/ indom h2 x).
+
 Axiom extensionality : forall (IB:Inhab B) h1 h2,
   (forall x, indom h1 x = indom h2 x) ->
   (forall x, indom h1 x -> Fmap.read h1 x = Fmap.read h2 x) ->
@@ -183,24 +186,22 @@ Proof using.
     subst. rewrite* read_single. }
 Qed.
 
-Lemma filter_union : forall (IB:Inhab B) (f:A->B->Prop) h1 h2,
+Axiom filter_union : forall (IB:Inhab B) (f:A->B->Prop) h1 h2,
   Fmap.filter f (Fmap.union h1 h2) = Fmap.union (Fmap.filter f h1) (Fmap.filter f h2).
-Admitted.
 
-Lemma filter_partition : forall (IB:Inhab B) (f1 f2:A->B->Prop) h h1 h2,
+Axiom filter_partition : forall (IB:Inhab B) (f1 f2:A->B->Prop) h h1 h2,
   (forall x y, indom h x -> y = Fmap.read h x -> f1 x y -> f2 x y -> False) ->
   h1 = Fmap.filter f1 h ->
   h2 = Fmap.filter f2 h ->
   h = Fmap.union h1 h2 /\ Fmap.disjoint h1 h2.
-Admitted.
 
-Lemma filter_idempotent : forall (IB:Inhab B) (f:A->B->Prop) h,
+Axiom filter_idempotent : forall (IB:Inhab B) (f:A->B->Prop) h,
   Fmap.filter f (Fmap.filter f h) = Fmap.filter f h.
-Proof using.
+
   (* todo: provable by extensionality, but simpler direct proof. *)
 (*  intros. applys extensionality.
-  { intros. repeat erewrite indom_filter_eq. split. } skip. *)
-Admitted.
+  { intros. repeat erewrite indom_filter_eq. split. } *)
+
 
 Lemma filter_incompatible : forall (IB:Inhab B) (f1 f2:A->B->Prop) h,
   (forall x y, indom h x -> y = Fmap.read h x -> f1 x y -> f2 x y -> False) ->
@@ -517,6 +518,15 @@ Proof using.
     applys M; auto_false. }
 Qed.
 
+Lemma agree_inv_read_same : forall A B (IB:Inhab B) (h1 h2:fmap A B) x,
+  agree h1 h2 ->
+  indom h1 x ->
+  indom h2 x -> 
+  read h1 x = read h2 x.
+Proof using.
+  introv G D1 D2. erewrite agree_eq_indom_both_read_same in G. autos*.
+Qed. (* TODO: erewrites *)
+
 
 Lemma disjoint_filter : forall A B (IB:Inhab B) (f1:A->B->Prop) h1 h2,
   disjoint h1 h2 ->
@@ -581,7 +591,7 @@ Proof using.
   { intros x (v,m) _ _ K1 K2. false. }
 Qed.
 
-Lemma heap_union_eq_for_compat : forall h1 h2,
+Lemma heap_union_eq_of_compat : forall h1 h2,
   heap_compat h1 h2 ->
   h1 \u h2 = h1 \+ h2.
 Proof using. introv D. unfold heap_union. case_if*. Qed.
@@ -590,7 +600,7 @@ Lemma heap_eq_disjoint_union_rw_ro : forall h,
   h = (h^rw) \u (h^ro) /\ disjoint (h^rw) (h^ro).
 Proof using. 
   intros. lets (E&D): heap_eq_disjoint_map_union_rw_ro h.
-  rewrite* heap_union_eq_for_compat. applys* heap_compat_of_disjoint.
+  rewrite* heap_union_eq_of_compat. applys* heap_compat_of_disjoint.
 Qed.
 
 (* Corrolary *)
@@ -743,35 +753,40 @@ Proof using.
   introv D. autos* heap_compat_filter_mode_r heap_compat_sym.
 Qed.
 
+Lemma filter_mode_fmap_union : forall m h1 h2,
+  (h1 \+ h2)^m = (h1^m) \+ (h2^m).
+Proof using.
+  intros. unfold filter_mode. rewrite* filter_union.
+Qed.
+
 Lemma filter_mode_union : forall m h1 h2,
   heap_compat h1 h2 ->
   (h1 \u h2)^m = (h1^m) \u (h2^m).
 Proof using.
-  introv D. do 2 rewrite* heap_union_eq_for_compat.
-  { unfold filter_mode. rewrite* filter_union. }
+  introv D. do 2 rewrite* heap_union_eq_of_compat.
+  { applys* filter_mode_fmap_union. }
   { applys* heap_compat_filter_mode. } 
 Qed.
+
+Hint Rewrite filter_mode_union : rew_heap.
 
 Lemma heap_compat_union_l : forall h1 h2 h3,
   heap_compat h1 h2 ->
   heap_compat h1 h3 ->
   heap_compat h2 h3 ->
   heap_compat (h1 \u h2) h3.
-Proof using. (*
+Proof using. 
   introv D (D2&G2) (D3&G3).
   lets (E1&R1): heap_eq_disjoint_map_union_rw_ro h1.
   lets (E2&R2): heap_eq_disjoint_map_union_rw_ro h2.
   lets (E3&R3): heap_eq_disjoint_map_union_rw_ro h3.
-  split.
-  { skip. }
-  { 
-  { do 2 (rewrite filter_mode_union; [|auto]). splits; auto.
-  { unfold heap_union. case_if.
-  { rewrite heap_union_r; [|auto]. simpl. applys~ Fmap.agree_union_l. }
-  { rewrite heap_union_r; [|auto]. rewrite heap_union_f; [|auto].
-    simpl. fmap_disjoint. }
-Qed .*)
-Admitted.
+  split. 
+  { rewrite heap_union_eq_of_compat; trivial. (* TODO: slow *)
+    do 2 rewrite filter_mode_fmap_union. splits*. }
+  { rewrite* heap_union_eq_of_compat.
+    rewrite filter_mode_fmap_union.
+    applys~ Fmap.agree_union_l. }
+Qed.
 
 Lemma heap_compat_union_r : forall h1 h2 h3,
   heap_compat h1 h2 ->
@@ -784,67 +799,86 @@ Proof using. hint heap_compat_sym, heap_compat_union_l. autos*. Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** More properties of [heap_union] *)
 
-Lemma heap_union_comm : forall h1 h2,
-  (* heap_compat h1 h2 ->   Hypothesis not needed! *)
-  h1 \u h2 = h2 \u h1.
-Admitted. (*
+Lemma not_indom_of_indom_disjoint : forall A B (h1 h2:fmap A B) x,
+  indom h1 x ->
+  disjoint h1 h2 ->
+  ~ indom h2 x.
 Proof using.
-  intros. hint heap_compat_sym. unfold heap_union.
-  tests E: (heap_compat h1 h2); tests E': (heap_compat h2 h1);
-   try auto_false.
-  fequals. fequals.
-  { applys Fmap.union_comm_of_disjoint. { destruct E. fmap_disjoint. } }
-  { applys Fmap.union_comm_of_agree. { destruct~ E. } }
-Qed.*)
+  introv M1 D M2. rewrite* disjoint_eq_not_indom_both in D.
+Qed.
+
+Lemma read_union_cases : forall A B {IB:Inhab B} (h1 h2:fmap A B) x,
+  read (union h1 h2) x = If indom h1 x then read h1 x else read h2 x.
+Proof using.
+  Transparent Fmap.map_union.
+  intros. unfold read, union, Fmap.map_union, indom, map_indom. simpl.
+  case_eq (fmap_data h1 x); intros; repeat case_if; auto_false.
+Qed.
+
+Lemma heap_union_comm : forall h1 h2,
+  heap_compat h1 h2 ->
+  h1 \u h2 = h2 \u h1.
+Proof using.
+  introv D. do 2 (rewrite* heap_union_eq_of_compat).
+  applys extensionality.
+  { intros x. extens. do 2 rewrite* indom_union_eq. }
+  { intros x Dx.
+    lets (E1&R1): heap_eq_disjoint_map_union_rw_ro h1.
+    lets (E2&R2): heap_eq_disjoint_map_union_rw_ro h2.
+    destruct D as (D&G).
+    rewrite E1,E2 in Dx |- *. 
+    repeat rewrite Fmap.union_assoc in *. 
+    repeat rewrite* indom_union_eq in Dx.
+    repeat rewrite read_union_cases.
+    case_if as C1; try case_if as C2; try case_if as C3; try case_if as C4; auto.
+    { false* not_indom_of_indom_disjoint C1 C2. }
+    { false* not_indom_of_indom_disjoint C1 C3. }
+    { false* not_indom_of_indom_disjoint C2 C3. }
+    { applys* agree_inv_read_same. }  
+    { false*. (* contradicts Dx *) } } 
+Qed.
+
+(* needed? *)
+Hint Resolve heap_union_comm.
 
 Lemma heap_union_assoc : forall h1 h2 h3,
   heap_compat h1 h2 ->
   heap_compat h2 h3 ->
   heap_compat h1 h3 ->
   (h1 \u h2) \u h3 = h1 \u (h2 \u h3).
-Admitted. (*
 Proof using.
-  introv M1 M2 M3. applys heap_eq.
-  forwards~ (E1&E2): heap_union_spec (h1 \u h2) h3.
-  { applys~ heap_compat_union_l. }
-  rewrites (rm E1). rewrites (rm E2).
-  forwards~ (E1&E2): heap_union_spec h1 h2.
-  rewrites (rm E1). rewrites (rm E2).
-  forwards~ (E1&E2): heap_union_spec h1 (h2 \u h3).
-  { applys~ heap_compat_union_r. }
-  rewrites (rm E1). rewrites (rm E2).
-  rewrite~ heap_union_f. rewrite~ heap_union_r.
-  split; fmap_eq.
-Qed.*)
-
-Hint Resolve heap_union_comm.
+  hint heap_compat_union_l.
+  introv D1 D2 D3. repeat rewrite* heap_union_eq_of_compat.
+  rewrite* Fmap.union_assoc.
+Qed.
 
 Lemma heap_union_empty_l : forall h,
   heap_empty \u h = h.
-Admitted. (*
 Proof using.
-  intros h. unfold heap_union.
-  rewrite (classicT_l (heap_compat_empty_l h)).
-  destruct h as ((f,r)&D). simpl.
-  fequals_rec; fmap_eq.
-Qed.*)
+  intros. rewrite* heap_union_eq_of_compat.
+  { rewrite* Fmap.union_empty_l. }
+  { applys heap_compat_empty_l. }
+Qed.
 
+(* needed? *)
 Lemma heap_union_empty_r : forall h,
   h \u heap_empty = h.
-Admitted. (*
 Proof using.
-  intros. rewrite heap_union_comm. apply heap_union_empty_l.
-Qed.*)
+  intros. auto. rewrite heap_union_comm. 
+  { apply* heap_union_empty_l. }
+  { applys heap_compat_empty_r. } 
+Qed.
 
 Lemma heap_union_state : forall h1 h2,
   heap_compat h1 h2 ->
   heap_state (h1 \u h2) = heap_state h1 \+ heap_state h2.
-Admitted. (*
 Proof using.
-  introv D. unfold heap_union. rewrite (classicT_l D).
-  destruct h1 as ((f1,r1)&D1). destruct h2 as ((f2,r2)&D2).
-  unstate. fmap_eq.
-Qed.*)
+  introv D. rewrite* heap_union_eq_of_compat.   
+  unfold heap_state. rewrite* map_union.
+Qed.
+
+(* useful? heap_state_fmap_union *)
+
 
 Hint Rewrite heap_union_state : rew_fmap.
 
@@ -856,50 +890,8 @@ Qed.
 
 Hint Rewrite heap_state_single heap_union_state : rew_heap.
 
+Hint Rewrite heap_union_empty_l heap_union_empty_r : rew_heap.
 
-(*
-Lemma heap_union_def : forall h1 h2,
-  heap_compat h1 h2 ->
-  exists D,
-  h1 \u h2 = exist (h1^rw \+ h2^rw, h1^ro \+ h2^ro) D.
-Proof using.
-  introv M. unfold heap_union.
-  rewrite (classicT_l M). esplit. destruct~ M.
-Qed.
-
-Lemma heap_union_spec : forall h1 h2,
-  heap_compat h1 h2 ->
-     (h1 \u h2)^rw = h1^rw \+ h2^rw
-  /\ (h1 \u h2)^ro = h1^ro \+ h2^ro.
-Proof using.
-  introv M. lets (D&E): heap_union_def M. rewrite~ E.
-Qed.
-*)
-
-Lemma heap_union_f : forall h1 h2,
-  heap_compat h1 h2 ->
-  (h1 \u h2)^rw = h1^rw \u h2^rw.
-Proof using. skip. (*
-  introv D. unfold heap_union. rewrite (classicT_l D).
-  destruct h1 as ((f1,r1)&D1). destruct h2 as ((f2,r2)&D2).
-  unstate. fmap_eq. *)
-Qed.
-
-Lemma heap_union_r : forall h1 h2,
-  heap_compat h1 h2 ->
-  (h1 \u h2)^ro = h1^ro \u h2^ro.
-Proof using. skip. (*
-  introv D. unfold heap_union. rewrite (classicT_l D).
-  destruct h1 as ((f1,r1)&D1). destruct h2 as ((f2,r2)&D2).
-  unstate. fmap_eq. *)
-Qed.
-
-
-
-Hint Rewrite heap_union_empty_l heap_union_empty_r
-  (*heap_full_f heap_full_r*)
-  (*to_ro_f to_ro_r  *) heap_union_f heap_union_r  : rew_heap.
-  (* add heap_union_assoc? *)
 
 
 Ltac heap_eq :=
@@ -1008,7 +1000,7 @@ Lemma disjoint_components : forall h1 h2,
 Proof using.
   introv M1 M2. forwards (E&D): heap_eq_disjoint_union_rw_ro h2.
   lets D': heap_compat_of_disjoint D. 
-  rewrite E. rewrite* heap_union_eq_for_compat.
+  rewrite E. rewrite* heap_union_eq_of_compat.
 Qed.
 
 Lemma heap_compat_to_ro_r : forall h1 h2,
@@ -1037,7 +1029,7 @@ Lemma to_ro_union : forall h1 h2,
   to_ro (h1 \u h2) = (to_ro h1) \u (to_ro h2).
 Proof using. 
   introv D. lets: heap_compat_ro_ro D.
-  do 2 rewrite* heap_union_eq_for_compat.
+  do 2 rewrite* heap_union_eq_of_compat.
   rewrite* to_ro_fmap_union.
 Qed.
 
@@ -1373,7 +1365,7 @@ Instance Normal_hsingle : forall l v,
   Normal (hsingle l v).
 Proof using.
   Transparent hsingle.
-  introv M. unfolds hsingle. skip.
+  introv (E&N). subst h. rew_heap*.
 Qed.
 
 Instance Normal_hstar : forall H1 H2,
@@ -1383,8 +1375,7 @@ Instance Normal_hstar : forall H1 H2,
 Proof using.
   introv N1 N2 (h1&h2&P1&P2&M1&EQ).
   lets (_&E): heap_eq_forward EQ. simpls. rewrite E.
-  rewrite~ heap_union_r.
-  rewrites (>> N1 P1). rewrites (>> N2 P2). rew_heap*.
+  rew_heap*. rewrites (>> N1 P1). rewrites (>> N2 P2). rew_heap*.
 Qed.
 
 Instance Normal_hexists : forall A (J:A->hprop),
@@ -1435,7 +1426,7 @@ Lemma Normal_hpure_star_hpure : forall (P:Prop) H,
 Proof using.
   introv N (h1&h2&P1&P2&M1&EQ).
   lets (_&E): heap_eq_forward EQ. simpls. rewrite E.
-  rewrite~ heap_union_r.
+  rew_heap*.
   lets (MP&ME): hpure_inv P1. rewrites (rm ME).
   rewrites~ (>> N P2). rew_heap*.
 Qed.
@@ -1802,14 +1793,14 @@ Proof.
   forwards (h2'&v2&R2&K2&E2): (rm M2) v1 (= hI^ro \u h1^ro) (h1'^rw \u h2 \u (h1^ro \u hI^ro) ).
   { intros ? ->. rew_heap*. }
   { rewrite <- hstar_assoc. do 2 esplit. (* TODO: tactic *) splits*.
-    do 2 esplit. splits*. }
+    do 2 esplit. splits*. { fequal. rewrite* heap_union_comm. } }
   exists h2' v2. splits*.
   { applys eval_let_trm (heap_state h1').
     { applys_eq R1. subst h hr. rew_heap*. } 
     { applys_eq R2. rewrite (heap_state_components h1').
       rewrite E1. rew_heap*. fmap_eq*. } }
     { rewrite E2. rewrite U1,U2. rew_heap*.  (* same unions *)
-      rewrite* <- heap_union_assoc. rewrite (heap_union_comm h2^ro). 
+      rewrite* <- heap_union_assoc. rewrites* (>> heap_union_comm (h2^ro)). 
       rewrite* heap_union_assoc. }
 Qed.
 

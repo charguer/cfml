@@ -93,3 +93,43 @@ Proof using.
   rewrite (@indom_filter_eq _ _ val_mode_inhab) in M1,M2.
   false*.
 Qed.
+
+
+
+
+Lemma heap_union_f : forall h1 h2,
+  heap_compat h1 h2 ->
+  (h1 \u h2)^rw = h1^rw \u h2^rw.
+Proof using. skip. (*
+  introv D. unfold heap_union. rewrite (classicT_l D).
+  destruct h1 as ((f1,r1)&D1). destruct h2 as ((f2,r2)&D2).
+  unstate. fmap_eq. *)
+Qed.
+
+Lemma heap_union_r : forall h1 h2,
+  heap_compat h1 h2 ->
+  (h1 \u h2)^ro = h1^ro \u h2^ro.
+Proof using. skip. (*
+  introv D. unfold heap_union. rewrite (classicT_l D).
+  destruct h1 as ((f1,r1)&D1). destruct h2 as ((f2,r2)&D2).
+  unstate. fmap_eq. *)
+Qed.
+
+(*
+Lemma heap_union_def : forall h1 h2,
+  heap_compat h1 h2 ->
+  exists D,
+  h1 \u h2 = exist (h1^rw \+ h2^rw, h1^ro \+ h2^ro) D.
+Proof using.
+  introv M. unfold heap_union.
+  rewrite (classicT_l M). esplit. destruct~ M.
+Qed.
+
+Lemma heap_union_spec : forall h1 h2,
+  heap_compat h1 h2 ->
+     (h1 \u h2)^rw = h1^rw \+ h2^rw
+  /\ (h1 \u h2)^ro = h1^ro \+ h2^ro.
+Proof using.
+  introv M. lets (D&E): heap_union_def M. rewrite~ E.
+Qed.
+*)
