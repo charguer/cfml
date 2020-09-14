@@ -132,4 +132,19 @@ Lemma heap_union_spec : forall h1 h2,
 Proof using.
   introv M. lets (D&E): heap_union_def M. rewrite~ E.
 Qed.
+
+
+
+Lemma RO_RO : forall H,
+  RO (RO H) = RO H.
+Proof using. 
+  intros. unfold RO. applys himpl_antisym.
+  { xpull ;=> h' R.
+    lets (h''&R'): hexists_inv (rm R).
+    rewrite hstar_hpure_l in R'. destruct R' as [N ->].
+    rewrite to_ro_idempotent. xsimpl*. }
+  { xpull ;=> h' R. xsimpl (to_ro h').
+    { applys hexists_intro h'. rewrite* hstar_hpure_l. }
+    { rewrite* to_ro_idempotent. } } 
+Qed.
 *)

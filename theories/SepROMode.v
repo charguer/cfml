@@ -981,6 +981,12 @@ Qed. (* TODO: simplify *)
 
 Hint Rewrite to_ro_rw to_ro_ro to_ro_state : rew_heap.
 
+Lemma to_ro_empty : 
+  to_ro heap_empty = heap_empty.
+Proof using. 
+  intros. unfold to_ro. rewrite* map_empty.
+Qed.
+
 Lemma to_ro_fmap_union : forall h1 h2,
   to_ro (h1 \+ h2) = (to_ro h1) \+ (to_ro h2).
 Proof using. 
@@ -1538,28 +1544,10 @@ Proof using.
   introv M. intros h (h'&M1&M2). exists~ h'.
 Qed.
 
-(*
-
-  introv M. unfold RO. xpull ;=> h' R. xsimpl*.
-*)
-
 Lemma RO_RO : forall H,
   RO (RO H) = RO H.
 Proof using. 
-  intros. unfold RO. applys himpl_antisym.
-  { xpull ;=> h' R.
-    lets (h''&R'): hexists_inv (rm R).
-    rewrite hstar_hpure_l in R'. destruct R' as [N ->].
-    rewrite to_ro_idempotent. xsimpl*. }
-  { xpull ;=> h' R. xsimpl (to_ro h').
-    { applys hexists_intro h'. rewrite* hstar_hpure_l. }
-    { rewrite* to_ro_idempotent. } } 
-Qed.
-
-Lemma RO'_RO' : forall H,
-  RO' (RO' H) = RO' H.
-Proof using. 
-  intros. apply pred_ext_1. intros h. unfolds RO'.
+  intros. apply pred_ext_1. intros h. unfolds RO.
   iff (h'&(h''&M1'&M2')&M2) (h'&M1&M2).
   { exists h''. splits~. subst. rewrite* to_ro_idempotent. }
   { exists h. splits~.
@@ -1567,43 +1555,41 @@ Proof using.
     { subst. rewrite* to_ro_idempotent. } }
 Qed.
 
-
+Hint Rewrite to_ro_empty : rew_heap.
 
 Lemma RO_empty :
   RO \[] = \[].
-Proof using. Admitted. (*
+Proof using. 
   intros. apply pred_ext_1. intros h.
-  unfold hempty. iff (h'&M1&M2&M3) M1.
-  { rewrite M1 in M3. rew_fmap. apply heap_eq. auto. }
-  { exists h. rewrite M1. splits~. rew_fmap~. }
-Qed. *)
+  unfold hempty. iff (h'&M1&M2) M1.
+  { subst. rew_heap*. }
+  { subst. exists heap_empty. rew_heap*. }
+Qed.
 
 Lemma RO_pure : forall P,
   RO \[P] = \[P].
-Proof using. Admitted. (*
-  intros. apply pred_ext_1. intros h.
-  iff (h'&(M1p&M2)&M3&M4) (MP&M1); unfolds hempty.
-  { rewrite M2 in M4. rew_fmap. split~. apply heap_eq. auto. }
-  { exists h. rewrite M1. splits~. { split~. split~. } { rew_fmap~. } }
-Qed. *)
+Proof using.
+  hint hpure_intro. intros. apply pred_ext_1. intros h.
+  iff (h'&(M1p&M2)&M3) (MP&M1); unfolds hempty.
+  { subst. rew_heap*. }
+  { exists h. subst. rew_heap*. }
+Qed.
 
 Lemma RO_empty' : (* simpler proof *)
   RO \[] = \[].
-Proof using. Admitted. (*
+Proof using.
   intros. rewrite hempty_eq_hpure_true. rewrite~ RO_pure.
-Qed. *)
+Qed.
 
 Lemma RO_hexists : forall A (J:A->hprop),
     RO (hexists J)
   = \exists x, RO (J x).
 Proof using.
-Admitted.
-(*
   intros. apply pred_ext_1. intros h.
-  iff (h'&(x&M1)&M2&M3) (x&(h'&M1&M2&M3)).
+  iff (h'&(x&M1)&M2) (x&(h'&M1&M2)).
   { exists x. exists* h'. }
   { exists h'. splits~. { exists~ x. } }
-Qed. *)
+Qed. 
 
 (* NOT NEEDED?
 Lemma RO_if : forall (b:bool) H1 H2,
@@ -1615,39 +1601,39 @@ Proof using. intros. destruct* b. Qed.
 Lemma RO_or : forall H1 H2,
      RO (hor H1 H2)
   ==> hor (RO H1) (RO H2).
-Proof using. Admitted. (*
+Proof using. 
   intros. unfolds hor. rewrite RO_hexists.
   applys himpl_hexists. intros b. destruct* b.
-Qed. *)
+Qed. 
 
 Lemma RO_star : forall H1 H2,
   RO (H1 \* H2) ==> (RO H1 \* RO H2).
-Proof using. Admitted. (*
-  intros. intros h (h'&(h1&h2&N1&P1&P2&N2)&M2&M3).
-  lets C: (@heap_compat_ro h1 h2).
+Proof using.
+  intros. intros h (h'&(h1&h2&N1&P1&P2&N2)&M2).
+  lets C: heap_compat_ro_ro P2.
   exists (to_ro h1) (to_ro h2). splits.
   { exists~ h1. }
   { exists~ h2. }
   { auto. }
-  { applys heap_eq. rew_heap~. split.
-    { rewrite M2. fmap_eq. }
-    { rewrite M3,N2. rew_heap~. fmap_eq. } }
-Qed. *)
+  { subst. rewrite* to_ro_union. }
+Qed.
 
 Lemma to_ro_pred : forall (H:hprop) h,
   H h ->
   RO H (to_ro h).
-Proof using. Admitted. (*
+Proof using.
   introv N. exists h. split~.
-Qed. *)
+Qed.
 
 Arguments RO_star : clear implicits.
 
+(* needed?
 Lemma RO_ro : forall h,
   RO (= (h^ro)) (h^ro).
-Proof using. Admitted. (*
-  introv N. exists h. split~.
-Qed. *)
+Proof using.
+  intros. exists h. split~.
+Qed.
+*)
 
 Instance ReadOnly_RO : forall H,
   ReadOnly (RO H).
