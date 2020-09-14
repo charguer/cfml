@@ -69,3 +69,27 @@ Proof using.
   applys triple_hexists. intros h.
   applys* triple_hpure.
 Qed.
+
+
+
+
+
+Lemma disjoint_filter_mode : forall h1 h2 m1 m2,
+  disjoint h1 h2 ->
+  disjoint (filter_mode m1 h1) (filter_mode m2 h2).
+Proof using.
+  introv D. rewrite disjoint_eq_not_indom_both in *.
+  unfold filter_mode. intros x M1 M2.
+  rewrite (@indom_filter_eq _ _ val_mode_inhab) in M1,M2.
+  false*.
+Qed.
+
+Lemma agree_filter_mode : forall h1 h2 m1 m2,
+  agree h1 h2 ->
+  agree (filter_mode m1 h1) (filter_mode m2 h2).
+Proof using.
+  introv D. intros l v1 v2 E1 E2. 
+  unfold filter_mode in *. intros x M1 M2.
+  rewrite (@indom_filter_eq _ _ val_mode_inhab) in M1,M2.
+  false*.
+Qed.
