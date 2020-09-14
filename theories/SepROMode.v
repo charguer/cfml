@@ -581,13 +581,16 @@ Proof using.
   { intros x (v,m) _ _ K1 K2. false. }
 Qed.
 
+Lemma heap_union_eq_for_compat : forall h1 h2,
+  heap_compat h1 h2 ->
+  h1 \u h2 = h1 \+ h2.
+Proof using. introv D. unfold heap_union. case_if*. Qed.
+
 Lemma heap_eq_disjoint_union_rw_ro : forall h,
   h = (h^rw) \u (h^ro) /\ disjoint (h^rw) (h^ro).
 Proof using. 
   intros. lets (E&D): heap_eq_disjoint_map_union_rw_ro h.
-  unfold heap_union. case_if.
-  { auto. }
-  { false C. applys* heap_compat_of_disjoint. }
+  rewrite* heap_union_eq_for_compat. applys* heap_compat_of_disjoint.
 Qed.
 
 (* Corrolary *)
@@ -641,12 +644,6 @@ Proof using. intros. applys* filter_modes_neq. auto_false. Qed.
 
 Hint Rewrite filter_modes_eq filter_modes_rw_ro filter_modes_ro_rw : rew_heap.
 
-Lemma filter_mode_union : forall m h1 h2,
-  heap_compat h1 h2 ->
-  (h1 \u h2)^m = (h1^m) \u (h2^m).
-(**)
-Admitted.
-
 Lemma filter_modes_swap : forall h m1 m2,
   (h^m1)^m2 = (h^m2)^m1.
 Proof using.
@@ -661,24 +658,6 @@ Proof using.
   introv D. rewrite (filter_modes_swap h1), (filter_modes_swap h2).
   applys* disjoint_filter_mode.
 Qed. 
-
-(* more generally, compat preserved by subset *)
-Lemma heap_compat_filter_mode : forall h1 h2 m1 m2,
-  heap_compat h1 h2 ->
-  heap_compat (filter_mode m1 h1) (filter_mode m2 h2).
-Proof using.
-  introv (D&G). split.
-  { rew_disjoint. repeat splits; applys* disjoint_filter_modes_swap. }
-  { skip. }
-(*
- applys* disjoint_filter_mode.
-unfold filter_mode
-
- rewrite disjoint_eq_not_indom_both in *.
-  unfold filter_mode. intros x M1 M2.
-  rewrite (@indom_filter_eq _ _ val_mode_inhab) in M1,M2.
-  false*. *)
-Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -734,15 +713,58 @@ Proof using.
   hint heap_compat_sym, heap_compat_empty_l. auto.
 Qed. (* Not needed? *)
 
+Lemma heap_compat_refl_if_ro : forall h,
+  h^rw = Fmap.empty ->
+  heap_compat h h.
+Proof using.
+  introv M. split. 
+  { rewrite M. auto. }
+  { apply Fmap.agree_refl. } (* TODO: hint *)
+Qed.
+
+(* ---------------------------------------------------------------------- *)
+(* ** More properties of [heap_compat] and [filter_mode] *)
+
+(* more generally, compat preserved by subset *)
+Lemma heap_compat_filter_mode_r : forall m h1 h2,
+  heap_compat h1 h2 ->
+  heap_compat h1 (filter_mode m h2).
+Proof using.
+  introv (D&G). split.
+  { do 2 rewrites (>> filter_modes_swap m). rew_disjoint.
+    hint disjoint_filter. splits*. } (* TODO: slow *)
+  { rewrite filter_modes_swap. applys* agree_filter. } 
+Qed.
+
+Lemma heap_compat_filter_mode : forall h1 h2 m1 m2,
+  heap_compat h1 h2 ->
+  heap_compat (h1^m1) (h2^m2).
+Proof using.
+  introv D. autos* heap_compat_filter_mode_r heap_compat_sym.
+Qed.
+
+Lemma filter_mode_union : forall m h1 h2,
+  heap_compat h1 h2 ->
+  (h1 \u h2)^m = (h1^m) \u (h2^m).
+Proof using.
+  introv D. do 2 rewrite* heap_union_eq_for_compat.
+  { unfold filter_mode. rewrite* filter_union. }
+  { applys* heap_compat_filter_mode. } 
+Qed.
+
 Lemma heap_compat_union_l : forall h1 h2 h3,
   heap_compat h1 h2 ->
   heap_compat h1 h3 ->
   heap_compat h2 h3 ->
   heap_compat (h1 \u h2) h3.
-Proof using.
-(* skip.
-  Hint Unfold heap_compat.
-  introv D (D2&G2) (D3&G3). split.
+Proof using. (*
+  introv D (D2&G2) (D3&G3).
+  lets (E1&R1): heap_eq_disjoint_map_union_rw_ro h1.
+  lets (E2&R2): heap_eq_disjoint_map_union_rw_ro h2.
+  lets (E3&R3): heap_eq_disjoint_map_union_rw_ro h3.
+  split.
+  { skip. }
+  { 
   { do 2 (rewrite filter_mode_union; [|auto]). splits; auto.
   { unfold heap_union. case_if.
   { rewrite heap_union_r; [|auto]. simpl. applys~ Fmap.agree_union_l. }
@@ -757,16 +779,6 @@ Lemma heap_compat_union_r : forall h1 h2 h3,
   heap_compat h2 h3 ->
   heap_compat h1 (h2 \u h3).
 Proof using. hint heap_compat_sym, heap_compat_union_l. autos*. Qed.
-
-Lemma heap_compat_refl_if_ro : forall h,
-  h^rw = Fmap.empty ->
-  heap_compat h h.
-Proof using.
-  introv M. split. 
-  { rewrite M. auto. }
-  { apply Fmap.agree_refl. } (* TODO: hint *)
-Qed.
-
 
 
 (* ---------------------------------------------------------------------- *)
@@ -996,8 +1008,7 @@ Lemma disjoint_components : forall h1 h2,
 Proof using.
   introv M1 M2. forwards (E&D): heap_eq_disjoint_union_rw_ro h2.
   lets D': heap_compat_of_disjoint D. 
-  rewrite E. unfold heap_union. case_if.
-  rewrite* Fmap.disjoint_union_eq_r.
+  rewrite E. rewrite* heap_union_eq_for_compat.
 Qed.
 
 Lemma heap_compat_to_ro_r : forall h1 h2,
@@ -1026,8 +1037,8 @@ Lemma to_ro_union : forall h1 h2,
   to_ro (h1 \u h2) = (to_ro h1) \u (to_ro h2).
 Proof using. 
   introv D. lets: heap_compat_ro_ro D.
-  unfold heap_union. repeat case_if. 
-  applys to_ro_fmap_union.
+  do 2 rewrite* heap_union_eq_for_compat.
+  rewrite* to_ro_fmap_union.
 Qed.
 
 
