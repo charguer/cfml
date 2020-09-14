@@ -152,6 +152,15 @@ Lemma filter_read : forall (IB:Inhab B) (f:A->B->Prop) h x,
   Fmap.read (Fmap.filter f h) x = Fmap.read h x.
 Admitted.
 
+Lemma indom_filter_inv : forall (IB:Inhab B) (f:A->B->Prop) h x,
+  indom (Fmap.filter f h) x ->
+     indom h x
+  /\ f x (read h x)
+  /\ read (Fmap.filter f h) x = read h x.
+Proof using.
+  introv D. erewrite indom_filter_eq in D. splits*. applys* filter_read.
+Qed.
+
 Lemma filter_empty: forall {IB:Inhab B} (f:A->B->Prop),
   Fmap.filter f Fmap.empty = Fmap.empty.
 Proof using .
@@ -518,12 +527,18 @@ Proof using.
   { applys agree_of_disjoint. applys* disjoint_filter_mode. }
 Qed.
 
-Lemma heap_eq_disjoint_union_rw_ro : forall h,
-  h = (h^rw) \u (h^ro) /\ disjoint (h^rw) (h^ro).
+Lemma heap_eq_disjoint_map_union_rw_ro : forall h,
+  h = (h^rw) \+ (h^ro) /\ disjoint (h^rw) (h^ro).
 Proof using. 
   intros. lets D: heap_disjoint_components h.
   forwards* (E&D'): filter_partition h (h^rw) (h^ro).
   { intros x (v,m) _ _ K1 K2. false. }
+Qed.
+
+Lemma heap_eq_disjoint_union_rw_ro : forall h,
+  h = (h^rw) \u (h^ro) /\ disjoint (h^rw) (h^ro).
+Proof using. 
+  intros. lets (E&D): heap_eq_disjoint_map_union_rw_ro h.
   unfold heap_union. case_if.
   { auto. }
   { false C. applys* heap_compat_of_disjoint. }
@@ -533,6 +548,9 @@ Qed.
 Lemma heap_eq_union_rw_ro : forall h,
   h = (h^rw) \u (h^ro).
 Proof using. intros. applys heap_eq_disjoint_union_rw_ro. Qed.
+
+
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [filter_mode] *)
@@ -824,10 +842,6 @@ Proof using.
   intros. extens. intros x. unfold to_ro. rewrite* indom_map. typeclass.
 Qed.
 
-Lemma to_ro_decompose : forall h,
-  to_ro h = (to_ro h^rw) \+ h^ro.
-Proof using. Admitted.
-
 Lemma to_ro_rw : forall h,
   (to_ro h)^rw = Fmap.empty.
 Proof using. 
@@ -850,6 +864,16 @@ Proof using.
   destruct (read h x) as (v,m). auto.
 Qed. (* TODO: simplify *)
 
+Lemma to_ro_on_ro : forall h,
+  to_ro (h^ro) = h^ro.
+Proof using. 
+  intros. unfold to_ro. applys map_id. intros x (v,m) D Ey.
+  unfold filter_mode in *.  
+  match type of D with context [filter ?f _] => set (F:=f) in * end.
+  lets (Dd&Px&E): indom_filter_inv D. 
+  unfold F in Px. destruct (read h x) as (v',m'). subst. congruence.
+Qed. (* TODO: simplify *)
+
 Lemma to_ro_state : forall h,
   heap_state (to_ro h) = heap_state h.
 Proof using.
@@ -862,6 +886,18 @@ Qed. (* TODO: simplify *)
 
 Hint Rewrite to_ro_rw to_ro_ro to_ro_state : rew_heap.
 
+Lemma to_ro_fmap_union : forall h1 h2,
+  to_ro (h1 \+ h2) = (to_ro h1) \+ (to_ro h2).
+Proof using. 
+  intros. unfold to_ro. rewrite* map_union. typeclass.
+Qed.
+
+Lemma to_ro_decompose : forall h,
+  to_ro h = (to_ro h^rw) \+ h^ro.
+Proof using. 
+  intros. lets (E&D): heap_eq_disjoint_map_union_rw_ro h.
+  rewrite E at 1. rewrite to_ro_fmap_union. rewrite* to_ro_on_ro.
+Qed.
 
 Lemma disjoint_to_ro : forall h1 h2,
   disjoint h1 h2 ->
@@ -894,11 +930,22 @@ Proof using.
     { applys agree_of_disjoint. applys* disjoint_to_ro. } }
 Qed.
 
+(** corollary *)
 Lemma heap_compat_ro_ro : forall h1 h2,
   heap_compat h1 h2 ->
   heap_compat (to_ro h1) (to_ro h2).
 Proof using.
   introv M. autos* heap_compat_sym heap_compat_ro_l.
+Qed.
+
+(* not needed? *)
+Lemma to_ro_union : forall h1 h2,
+  heap_compat h1 h2 ->
+  to_ro (h1 \u h2) = (to_ro h1) \u (to_ro h2).
+Proof using. 
+  introv D. lets: heap_compat_ro_ro D.
+  unfold heap_union. repeat case_if. 
+  applys to_ro_fmap_union.
 Qed.
 
 
