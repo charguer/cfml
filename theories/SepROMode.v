@@ -863,44 +863,44 @@ Qed. (* TODO: simplify *)
 Hint Rewrite to_ro_rw to_ro_ro to_ro_state : rew_heap.
 
 
-Lemma heap_compat_ro_l : forall h1 h2,
-  heap_compat h1 h2 ->
-  heap_compat (to_ro h1) h2.
-Admitted. (*
+Lemma disjoint_to_ro : forall h1 h2,
+  disjoint h1 h2 ->
+  disjoint h1 (to_ro h2).
 Proof using.
-  introv (N1&N2). split; simpl.
-  { applys~ Fmap.agree_union_l. applys~ Fmap.agree_of_disjoint. }
-  { fmap_disjoint. }
-Qed.*)
+  introv M. rewrite disjoint_eq_not_indom_both in *.
+  intros x R1 R2. rewrite indom_to_ro in R2. applys* M.
+Qed.
 
-Lemma heap_compat_ro_r : forall h1 h2,
+Lemma disjoint_components : forall h1 h2,
+  disjoint h1 (h2^rw) ->
+  disjoint h1 (h2^ro) ->
+  disjoint h1 h2.
+Proof using.
+  introv M1 M2. forwards (E&D): heap_eq_disjoint_union_rw_ro h2.
+  lets D': heap_compat_of_disjoint D. 
+  rewrite E. unfold heap_union. case_if.
+  rewrite* Fmap.disjoint_union_eq_r.
+Qed.
+
+Lemma heap_compat_ro_l : forall h1 h2,
   heap_compat h1 h2 ->
   heap_compat h1 (to_ro h2).
 Proof using.
-  hint heap_compat_ro_l, heap_compat_sym. autos*.
+  introv (M1&M2). split.
+  { rew_heap. splits; [auto|auto|].
+    { rew_disjoint. split; [auto|].
+      { applys disjoint_to_ro. applys* disjoint_components. } } }
+  { rew_heap. rewrite to_ro_decompose. applys agree_union_r; [|auto].
+    { applys agree_of_disjoint. applys* disjoint_to_ro. } }
 Qed.
 
-Axiom indom_union_eq : forall A B (h1:fmap A B) h2 x,
-  indom (union h1 h2) x = (indom h1 x \/ indom h2 x).
-
-Lemma heap_compat_ro : forall h1 h2,
+Lemma heap_compat_ro_ro : forall h1 h2,
   heap_compat h1 h2 ->
   heap_compat (to_ro h1) (to_ro h2).
 Proof using.
-  introv (M1&M2). split.
-Admitted.
-(*
-  { rew_heap*. }
-  { rew_heap. rewrite (to_ro_decompose h1), (to_ro_decompose h2).
-    lets D1: heap_disjoint_components h1.
-    lets D2: heap_disjoint_components h2.
-    rew_disjoint. jauto_set. applys agree_union_lr.
-    { auto. }
-    { splits; rew_disjoint. 
-      { skip. }
-Admitted.
+  introv M. autos* heap_compat_sym heap_compat_ro_l.
+Qed.
 
-*)
 
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [heap_empty] *)
