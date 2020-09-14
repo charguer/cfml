@@ -812,7 +812,7 @@ Lemma read_union_cases : forall A B {IB:Inhab B} (h1 h2:fmap A B) x,
 Proof using.
   Transparent Fmap.map_union.
   intros. unfold read, union, Fmap.map_union, indom, map_indom. simpl.
-  case_eq (fmap_data h1 x); intros; repeat case_if; auto_false.
+  case_eq (fmap_data h1 x); intros; repeat case_if; auto_false. 
 Qed.
 
 Lemma heap_union_comm : forall h1 h2,
@@ -894,9 +894,6 @@ Hint Rewrite heap_union_empty_l heap_union_empty_r : rew_heap.
 
 
 
-Ltac heap_eq :=
-  solve [ rew_heap; subst; auto ].
-
 
 
 
@@ -959,6 +956,18 @@ Proof using.
   lets (Dd&Px&E): indom_filter_inv D. 
   unfold F in Px. destruct (read h x) as (v',m'). subst. congruence.
 Qed. (* TODO: simplify *)
+
+
+Lemma to_ro_idempotent : forall h,
+  to_ro (to_ro h) = to_ro h.
+Proof using. 
+  intros. unfold to_ro. applys map_id. intros x (v,m) D Ey.
+  unfold filter_mode in *.  
+  match type of D with context [map_ ?f _] => set (F:=f) in * end.
+  rewrite* indom_map in D. erewrite read_map in Ey; auto.
+  unfolds F. destruct (read h x) as (v', m'). congruence.
+Qed. (* TODO: simplify *)
+
 
 Lemma to_ro_state : forall h,
   heap_state (to_ro h) = heap_state h.
@@ -1247,10 +1256,9 @@ Global Opaque heap_affine.
 (* ** Singleton heap *)
 
 Definition hsingle (l:loc) (v:val) : hprop :=
-  fun h => (*   h^rw = Fmap.single l v
-           /\ h^ro = Fmap.empty *)
-              h = Fmap.single l (v, mode_rw)
+  fun h => h = Fmap.single l (v, mode_rw)
            /\ l <> null.
+(* equivalent to:  h^rw = Fmap.single l v /\ h^ro = Fmap.empty /\ l <> null. *)
 
 Notation "l '~~~>' v" := (hsingle l v)
   (at level 32, no associativity) : heap_scope.
@@ -1483,37 +1491,83 @@ Hint Resolve ReadOnly_hstar ReadOnly_hempty : ReadOnly.
 
 Definition RO (H:hprop) : hprop :=
   fun h => exists h', H h' /\ h = to_ro h'.
-  (* = \exists h', \[H h'] \* (= to_ro h'). *)
+
+  (* equivalent to:
+Definition RO' (H:hprop) : hprop :=
+  \exists h', \[H h'] \* (= to_ro h').
+ *)
+
+Ltac heap_eq :=
+  solve [ rew_heap; subst; auto ].
+
+Lemma union_same : forall h,
+  union h h = h.
+Proof using.
+  intros. applys extensionality.  
+  { intros x. extens. rewrite* indom_union_eq. }
+  { intros x Dx. rewrite* indom_union_eq in Dx. rewrite* read_union_l. } 
+Qed.
+
+Lemma heap_compat_refl_to_ro : forall h,
+  heap_compat (to_ro h) (to_ro h).
+Proof using.
+  intros. applys heap_compat_refl_if_ro. rew_heap*.
+Qed.
+
+(* not needed *)
+Lemma to_ro_duplicatable : forall h,
+  duplicatable (= to_ro h).
+Proof using.
+  intros h. unfolds. intros h' E. subst.
+  lets D: heap_compat_refl_to_ro h. do 2 esplit. splits*. 
+  rewrite* heap_union_eq_of_compat. rewrite* union_same.
+Qed.
 
 Lemma RO_duplicatable : forall H,
   duplicatable (RO H).
-Proof using. Admitted. (*
-  intros H h M. lets (h'&M1&M2&M3): M. subst.
-  lets D: heap_compat_refl_if_ro M2.
-  exists h h. splits~.
-  { applys heap_eq. rewrite~ heap_union_f.
-    rewrite~ heap_union_r. rewrite M2.
-    split. fmap_eq. rewrite~ Fmap.union_self. }
-Qed. *)
+Proof using.
+  intros H h M. lets (h'&M1&M2): M. subst.
+  lets D: heap_compat_refl_to_ro h'. do 2 esplit. splits*.
+  rewrite* heap_union_eq_of_compat. rewrite* union_same.
+Qed.
 
 Lemma RO_covariant : forall H1 H2,
   H1 ==> H2 ->
   (RO H1) ==> (RO H2).
-Proof using. Admitted. (*
-  introv M. intros h (h'&M1&M2&M3). exists~ h'.
-Qed. *)
+Proof using. 
+  introv M. intros h (h'&M1&M2). exists~ h'.
+Qed.
+
+(*
+
+  introv M. unfold RO. xpull ;=> h' R. xsimpl*.
+*)
 
 Lemma RO_RO : forall H,
   RO (RO H) = RO H.
-Proof using. Admitted. (*
-  intros. apply pred_ext_1. intros h.
-  iff (h'&(h''&M1'&M2'&M3')&M2&M3) (h'&M1&M2&M3).
-  { exists h''. splits~.
-    rewrite M3. rewrite M3'. rewrite M2'. fmap_eq. }
+Proof using. 
+  intros. unfold RO. applys himpl_antisym.
+  { xpull ;=> h' R.
+    lets (h''&R'): hexists_inv (rm R).
+    rewrite hstar_hpure_l in R'. destruct R' as [N ->].
+    rewrite to_ro_idempotent. xsimpl*. }
+  { xpull ;=> h' R. xsimpl (to_ro h').
+    { applys hexists_intro h'. rewrite* hstar_hpure_l. }
+    { rewrite* to_ro_idempotent. } } 
+Qed.
+
+Lemma RO'_RO' : forall H,
+  RO' (RO' H) = RO' H.
+Proof using. 
+  intros. apply pred_ext_1. intros h. unfolds RO'.
+  iff (h'&(h''&M1'&M2')&M2) (h'&M1&M2).
+  { exists h''. splits~. subst. rewrite* to_ro_idempotent. }
   { exists h. splits~.
     { exists h'. split~. }
-    { rewrite M2. fmap_eq. } }
-Qed. *)
+    { subst. rewrite* to_ro_idempotent. } }
+Qed.
+
+
 
 Lemma RO_empty :
   RO \[] = \[].
