@@ -706,6 +706,10 @@ Lemma heap_compat_sym : forall h1 h2,
   heap_compat h2 h1.
 Proof using. introv (M1&M2). split~. Qed.
 
+Lemma heap_compat_sym_eq : forall h1 h2 : heap,
+   heap_compat h1 h2 = heap_compat h2 h1.
+Proof using. intros. extens. autos* heap_compat_sym. Qed.
+
 Hint Resolve heap_compat_sym.
 
 Lemma heap_compat_empty_l : forall h,
@@ -1069,39 +1073,42 @@ Lemma heap_compat_union_l_inv_l : forall h1 h2 h3,
   heap_compat (h1 \u h2) h3 ->
   heap_compat h1 h2 ->
   heap_compat h2 h3.
-Admitted. (*
-  introv M2 M1. lets (C1&D1): M1. lets (C2&D2): M2.
-  rew_heap~ in C2.
-  rew_heap~ in D2.
-  forwards~ (N1&N2): Fmap.agree_union_l_inv C2.
-Qed.*)
+Proof using.
+  hint heap_compat_filter_mode.
+  introv M1 M2. lets (D1&G1): M1. lets (D2&G2): M2.
+  rew_heap* in *. 
+  split.
+  { repeat (rewrite heap_union_eq_of_compat in D1; [|auto]). (* TODO: slow *)
+    splits*. }
+  { rewrite heap_union_eq_of_compat in G1; [|auto].
+    forwards*: Fmap.agree_union_l_inv G1 G2. }
+Qed.
 
 Lemma heap_compat_union_l_inv_r : forall h1 h2 h3,
   heap_compat (h1 \u h2) h3 ->
   heap_compat h1 h2 ->
   heap_compat h1 h3.
-Admitted. (*
-  introv M1 M2. rewrite heap_union_comm in M1.
+Proof using.
+  introv M1 M2. rewrite* heap_union_comm in M1.
   applys* heap_compat_union_l_inv_l.
-Qed.*)
+Qed.
 
 Lemma heap_compat_union_l_inv : forall h1 h2 h3,
   heap_compat (h1 \u h2) h3 ->
   heap_compat h1 h2 ->
   heap_compat h1 h3 /\ heap_compat h2 h3.
-Admitted. (*
-  hint heap_compat_union_l_inv_l, heap_compat_union_l_inv_r. autos*.
-Qed.*)
+Proof using.
+  autos* heap_compat_union_l_inv_l heap_compat_union_l_inv_r.
+Qed.
 
 Lemma heap_compat_union_r_inv : forall h1 h2 h3,
   heap_compat h1 (h2 \u h3) ->
   heap_compat h2 h3 ->
   heap_compat h1 h2 /\ heap_compat h1 h3.
-Admitted. (*
-  introv M1 M2. rewrite heap_union_comm in M1.
-  lets M1': heap_compat_sym M1.
-  forwards~ (N1&N2): heap_compat_union_l_inv M1'.
-Qed.*)
+Proof using.
+  introv M1 M2. repeat rewrite (heap_compat_sym_eq h1) in *.
+  applys* heap_compat_union_l_inv.
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
