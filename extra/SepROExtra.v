@@ -1,3 +1,11 @@
+(* not needed *)
+Lemma to_ro_duplicatable : forall h,
+  duplicatable (= to_ro h).
+Proof using.
+  intros h. unfolds. intros h' E. subst.
+  lets D: heap_compat_refl_to_ro h. do 2 esplit. splits*. 
+  rewrite* heap_union_eq_of_compat. rewrite* union_same.
+Qed.
 
 (* ---------------------------------------------------------------------- *)
 (* ** Extra *)
