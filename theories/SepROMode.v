@@ -236,6 +236,8 @@ Axiom map_id : forall (IB:Inhab B) (f:A->B->B) h,
 End FmapProp.
 
 
+Hint Rewrite filter_empty filter_single filter_union : rew_fmap.
+
 
 (* ********************************************************************** *)
 (* * Core of the logic *)
@@ -318,14 +320,6 @@ Definition heap_compat (h1 h2 : heap) : Prop :=
      Fmap.disjoint_3 (h1^rw) (h2^rw) (h1^ro \+ h2^ro)
   /\ Fmap.agree (h1^ro) (h2^ro).
 
-(*
-Definition heap_compat_alternative (h1 h2 : heap) : Prop :=
-  forall l, indom h1 l -> indom h2 l ->
-  let '(v1,m1) = h1[l] in
-  let '(v2,m2) = h2[l] in
-  v1 = v2 /\ m1 = m2 /\ m1 = mode_ro.
-*)
-
 (** Union of heaps.
     The operation [h1 \u h2] is partial. When the arguments are
     not compatible, it returns an unspecified result.
@@ -346,12 +340,6 @@ Local Open Scope heap_union_scope.
     not to be considered affine. *)
 
 Parameter heap_affine : heap -> Prop. (* (h:heap) := True.*)
-
-(*
-Parameter heap_affine_ro : forall h,
-  h^rw = Fmap.empty -> (* equivalent to [h^ro = h] *)
-  heap_affine h.
-*)
 
 Parameter heap_affine_Normal : forall h,
   heap_affine h ->
@@ -421,12 +409,6 @@ Proof using. introv M1 M2. applys pred_ext_1. intros h. iff*. Qed.
 
 Definition haffine (H : hprop) : Prop :=
   forall h, H h -> heap_affine h.
-
-(*
-Lemma haffine_any : forall H,
-  haffine H.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
-Proof using. introv M. hnfs*. Qed.
-*)
 
 (** Heap predicates *)
 
@@ -602,7 +584,6 @@ Proof using.
   { intros x (v,m) _ _ K1 K2. false. }
 Qed.
 
-
 Lemma heap_compat_of_disjoint : forall h1 h2,
   disjoint h1 h2 ->
   heap_compat h1 h2.
@@ -643,7 +624,6 @@ Proof using. intros. applys heap_eq_disjoint_union_rw_ro. Qed.
 
 
 
-
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [filter_mode] *)
 
@@ -659,7 +639,6 @@ Proof using.
 Qed.
 
 Hint Rewrite filter_mode_heap_empty : rew_heap.
-
 
 Lemma filter_modes_eq : forall h m,
   (h^m)^m = h^m.
@@ -1184,7 +1163,6 @@ Lemma hexists_intro : forall A (J:A->hprop) x h,
   J x h ->
   (hexists J) h.
 Proof using. introv M. exists~ x. Qed.
-(* LATER: use in proofs *)
 
 Lemma hstar_intro : forall H1 H2 h1 h2,
   H1 h1 ->
@@ -1192,7 +1170,6 @@ Lemma hstar_intro : forall H1 H2 h1 h2,
   heap_compat h1 h2 ->
   (H1 \* H2) (h1 \u h2).
 Proof using. intros. exists~ h1 h2. Qed.
-(* LATER: use in proofs *)
 
 Lemma hstar_hempty_l : forall H,
   hempty \* H = H.
@@ -1212,9 +1189,7 @@ Proof using.
   { exists h2 h1. subst~. }
   { exists h2 h1. subst~. }
 Qed.
-(*
-Hint Extern 1 (_ = _ :> heap) => rew_heap.
-*)
+
 Lemma hstar_assoc : forall H1 H2 H3,
   (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
 Proof using.
@@ -1328,7 +1303,15 @@ Notation "l '~~~>' v" := (hsingle l v)
 Notation "l '~~>' v" := (hsingle l v)
   (at level 32, no associativity) : heap_scope.
 
-Hint Rewrite filter_empty filter_single filter_union : rew_fmap.
+Lemma hsingle_intro : forall l v,
+  l <> null ->
+  (l ~~~> v) (Fmap.single l (v,mode_rw)).
+Proof using. intros. split~. Qed.
+
+Lemma hsingle_inv : forall h l v,
+  (l ~~~> v) h ->
+  h = Fmap.single l (v,mode_rw) /\ (l <> null).
+Proof using. auto. Qed.
 
 Lemma filter_mode_single : forall l v m1 m2,
   filter_mode m1 (Fmap.single l (v, m2)) = 
@@ -1384,6 +1367,10 @@ Class Normal (H:hprop) : Prop :=
 
 Hint Mode Normal ! : typeclass_instances.
 
+(* TODO: definition ? *)
+Notation Normal_post Q := 
+  (forall x, Normal (Q x)).
+
 Lemma Normal_ro : forall H h,
   Normal H ->
   H h ->
@@ -1399,10 +1386,6 @@ Proof using.
   forwards E: heap_eq_union_rw_ro h.
   rewrite N in E. rew_fmap* in E.
 Qed.
-
-(* TODO: definition ? *)
-Notation Normal_post Q := (forall x, Normal (Q x)).
-
 
 Instance Normal_hempty :
   Normal \[].
@@ -1583,8 +1566,6 @@ Lemma to_ro_empty : forall (H:hprop),
   RO H heap_empty.
 Proof using. introv N. exists heap_empty. rew_heap*. Qed.
 
-
-
 Hint Resolve to_ro_pred to_ro_empty.
 
 Lemma RO_duplicatable : forall H,
@@ -1670,14 +1651,6 @@ Qed.
 
 Arguments RO_star : clear implicits.
 
-(* needed?
-Lemma RO_ro : forall h,
-  RO (= (h^ro)) (h^ro).
-Proof using.
-  intros. exists h. split~.
-Qed.
-*)
-
 Instance ReadOnly_RO : forall H,
   ReadOnly (RO H).
 Proof using.
@@ -1754,6 +1727,10 @@ Proof using.
   { subst. xsimpl. } 
 Qed.
 
+Lemma Normal_of_Framed : forall HI HO, 
+  Framed HI HO ->
+  Normal HO.
+Proof using. introv (R&NF&NR&E) M. auto. Qed.
 
 
 (* ********************************************************************** *)
@@ -1893,18 +1870,6 @@ Proof.
   introv M1. intros h Hh. forwards* (h1'&v1&R1&K1&E1): (rm M1).
   exists h1' v1. splits*. { applys* eval_if. }
 Qed.
-
-
-Lemma hsingle_intro : forall l v,
-  l <> null ->
-  (l ~~~> v) (Fmap.single l (v,mode_rw)).
-Proof using. intros. split~. Qed.
-
-Lemma hsingle_inv : forall h l v,
-  (l ~~~> v) h ->
-  h = Fmap.single l (v,mode_rw) /\ (l <> null).
-Proof using. auto. Qed.
-
 
 Lemma hoare_ref : forall HI HO v,
   Framed HI HO ->
@@ -2167,8 +2132,7 @@ Proof using.
     { applys hoare_let H1 H2 (Q1 \*+ \GC) (Q \*+ \GC) HF.
       { applys hoare_conseq.
         { applys M1 HF. } { xsimpl. } { xsimpl. } }
-      { intros v H3 N3. 
-        lets (_&NO&_&_): HF. (* TODO: lemma *)
+      { intros v H3 N3. lets NO: Normal_of_Framed HF.
         forwards* HFa: Framed_Normal (HO \* \GC) Framed_hempty.
         { auto with Normal. }
         forwards* HFb: Framed_ReadOnly H3 (rm HFa). rew_heap in HFb.

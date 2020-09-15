@@ -1,3 +1,13 @@
+
+(* needed?
+Lemma RO_ro : forall h,
+  RO (= (h^ro)) (h^ro).
+Proof using.
+  intros. exists h. split~.
+Qed.
+*)
+
+
 (* not needed *)
 Lemma to_ro_duplicatable : forall h,
   duplicatable (= to_ro h).
@@ -156,3 +166,4 @@ Proof using.
     { rewrite* to_ro_idempotent. } } 
 Qed.
 *)
+
