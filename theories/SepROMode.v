@@ -1795,12 +1795,12 @@ Qed.
 Lemma hoare_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, hoare t (J x) Q) ->
   hoare t (hexists J) Q.
-Proof. introv M. intros h (x&Hh). applys M Hh. Qed.
+Proof using. introv M. intros h (x&Hh). applys M Hh. Qed.
 
 Lemma hoare_hpure : forall t (P:Prop) H Q,
   (P -> hoare t H Q) ->
   hoare t (\[P] \* H) Q.
-Proof.
+Proof using.
   introv M. intros h (h1&h2&(HP&M1)&M2&D&->).
   lets ->: hempty_inv M1. rew_heap*.
 Qed.
@@ -1812,7 +1812,7 @@ Qed.
 Lemma hoare_val : forall HI HO v,
   Framed HI HO ->
   hoare (trm_val v) HI (fun r => \[r = v] \* HO).
-Proof.
+Proof using.
   introv HF. intros h K. exists h v. splits~.
   { applys eval_val. }
   { rewrite hstar_hpure_l. split~. applys* Framed_rw_elim. }
@@ -1821,7 +1821,7 @@ Qed.
 Lemma hoare_fix : forall HI HO f x t1,
   Framed HI HO ->
   hoare (trm_fix f x t1) HI (fun r => \[r = (val_fix f x t1)] \* HO).
-Proof.
+Proof using.
   introv HF. intros h K. exists h (val_fix f x t1). splits~.
   { applys eval_fix. }
   { rewrite hstar_hpure_l. split~. applys* Framed_rw_elim. }
@@ -1832,44 +1832,53 @@ Lemma hoare_app_fix : forall v1 v2 (f:var) x t1 H Q,
   f <> x ->
   hoare (subst x v2 (subst f v1 t1)) H Q ->
   hoare (trm_app v1 v2) H Q.
-Proof.
+Proof using.
   introv E D M. intros s K0. forwards (s'&v&R1&K1&E1): (rm M) K0.
   exists s' v. splits~. { applys* eval_app E R1. auto_false. }
 Qed.
 
 Hint Extern 1 (heap_compat _ _) => skip.
-Hint Extern 1 (disjoint _ _) => skip.
 
+(* Note: the order of the heap predicates is carefully 
+   chosen so as to simplify the proof. *)
 Lemma hoare_let : forall x t1 t2 H1 H2 Q1 Q HI HO,
   Framed HI HO ->
-  hoare t1 (H1 \* RO H2 \* HI) (Q1 \*+ HO) ->
+  hoare t1 (RO H2 \* HI \* H1) (Q1 \*+ HO) ->
   (forall v H3, ReadOnly H3 -> hoare (subst x v t2) (Q1 v \* HO \* H2 \* H3) (Q \*+ HO)) ->
-  hoare (trm_let x t1 t2) (H1 \* H2 \* HI) (Q \*+ HO).
-Proof.
+  hoare (trm_let x t1 t2) (H2 \* HI \* H1) (Q \*+ HO).
+Proof using.
   introv HF M1 M2. intros h K.
-  destruct K as (h1&hr&P1&P2&D1&U1).
-  destruct P2 as (h2&hI&PI&PO&D2&U2).
-  forwards (h1'&v1&R1&K1&E1): (rm M1) (h1 \u to_ro h2 \u hI).
-  { applys* hstar_intro. applys* hstar_intro. { applys* to_ro_pred. } }
-  (* destruct K1 as (ha&hb&Pa&Pb&D3&U3).*)
-  forwards (h2'&v2&R2&K2&E2): (rm M2) v1 (= h1^ro \u hI^ro) (h1'^rw \u h2 \u (h1^ro \u hI^ro) ).
+  destruct K as (h2&hr&P1&P2&D1&U1).
+  destruct P2 as (hI&h1&PI&PO&D2&U2).
+  forwards (h1'&v1&R1&K1&E1): (rm M1) (to_ro h2 \u hI \u h1).
+  { applys* hstar_intro. { applys* to_ro_pred. } { applys* hstar_intro. } }
+  forwards (h2'&v2&R2&K2&E2): (rm M2) v1 (= hI^ro \u h1^ro) (h1'^rw \u h2 \u hI^ro \u h1^ro).
   { intros ? ->. rew_heap*. }
   { rewrite <- hstar_assoc. applys* hstar_intro. applys* hstar_intro. }
   exists h2' v2. splits*.
   { applys eval_let_trm (heap_state h1').
     { applys_eq R1. subst h hr. rew_fmap*. } 
-    { applys_eq R2. rewrite (heap_state_components h1').
-      rewrite E1. rew_fmap*. fmap_eq*. } }
-    { rewrite E2. rewrite U1,U2. rew_fmap*. fmap_eq*. }
+    { applys_eq R2. rewrite (heap_state_components h1'). rewrite E1.
+      rew_fmap*. } }
+  { rewrite E2. rewrite U1,U2. rew_fmap*. }
 Qed.
 
 Lemma hoare_if : forall (b:bool) t1 t2 H Q,
   hoare (if b then t1 else t2) H Q ->
   hoare (trm_if b t1 t2) H Q.
-Proof.
+Proof using.
   introv M1. intros h Hh. forwards* (h1'&v1&R1&K1&E1): (rm M1).
   exists h1' v1. splits*. { applys* eval_if. }
 Qed.
+
+Lemma disjoint_heap_state : forall h1 h2,
+  disjoint h1 h2 ->
+  disjoint (heap_state h1) (heap_state h2).
+Proof using.
+  introv D. unfolds heap_state. rewrite disjoint_eq_not_indom_both in *.
+  intros x D1 D2. rew_fmap* in *. 
+Qed.
+
 
 Lemma hoare_ref : forall HI HO v,
   Framed HI HO ->
@@ -1880,6 +1889,7 @@ Proof using.
   hint hsingle_intro.
   introv NF. intros s1 K0.
   forwards~ (p&D&N): (Fmap.single_fresh 0%nat s1 (v,mode_rw)).
+  lets D': disjoint_heap_state D. rew_fmap* in D'.
   exists (heap_union (Fmap.single p (v,mode_rw)) s1) (val_loc p). splits.
   { rew_fmap*. applys~ eval_ref_sep. }
   { rew_heap*. applys~ hstar_intro.
@@ -1904,6 +1914,33 @@ Proof using.
   { auto. }
 Qed.
 
+Lemma disjoint_of_compat_empty_ro_l : forall h1 h2,
+  heap_compat h1 h2 ->
+  h1^ro = Fmap.empty ->
+  disjoint h1 h2.
+Proof using.
+  introv D E. lets (E1&D1): (heap_eq_disjoint_union_rw_ro h1).
+  lets (E2&D2): (heap_eq_disjoint_union_rw_ro h2).
+  rewrite E1 in D. lets D1': heap_compat_of_disjoint D1.
+  forwards (C1&C2): heap_compat_union_l_inv D; [auto|].
+  rewrite E1,E2,E. rew_heap. lets (C1'&_): C1. rew_heap in C1'. 
+  rew_fmap; [|auto]. auto.
+Qed.
+
+Lemma disjoint_of_compat_single : forall p v h1 h2,
+  heap_compat h1 h2 -> 
+  h1 = (single p (v, rw)) ->
+  forall w,
+  disjoint (single p w) (heap_state h2).
+Proof using.
+  introv D ->. intros.
+  forwards D': disjoint_of_compat_empty_ro_l D. { rew_fmap*. }
+  lets D'': disjoint_heap_state (rm D'). rew_fmap in D''.
+  rewrite disjoint_eq_not_indom_both in *.
+  intros x. specializes D'' x. rewrite indom_single_eq in *. autos*.
+Qed.
+
+
 Lemma hoare_set : forall HI HO w p v,
   Framed HI HO ->
   hoare (val_set (val_loc p) v)
@@ -1911,7 +1948,8 @@ Lemma hoare_set : forall HI HO w p v,
     (fun r => \[r = val_unit] \* (p ~~> v) \* HO).
 Proof using.
   introv NH. intros s1 K0.
-  destruct K0 as (h1&h2&P1&P2&D&U). lets (K&N): hsingle_inv P1. 
+  destruct K0 as (h1&h2&P1&P2&D&U). lets (K&N): hsingle_inv P1.
+  forwards D': disjoint_of_compat_single D K w.
   exists (heap_union (single p (v,mode_rw)) h2) val_unit. splits.
   { subst h1. applys* eval_set_sep (single p w) (single p v) (heap_state h2);
     subst; rew_fmap*. }
@@ -1929,6 +1967,7 @@ Lemma hoare_free : forall HI HO p v,
 Proof using.
   introv NH. intros s1 K0.
   destruct K0 as (h1&h2&P1&P2&D&U). lets (K&N): hsingle_inv P1. 
+  forwards D': disjoint_of_compat_single D K v.
   exists h2 val_unit. splits.
   { subst h1. applys* eval_free_sep; subst; rew_fmap*. }
   { rewrite hstar_hpure_l. split~. applys* Framed_rw_elim. }
@@ -2079,7 +2118,7 @@ Qed.
 
 Lemma triple_val : forall v,
   triple (trm_val v) \[] (fun r => \[r = v]).
-Proof.
+Proof using.
   intros. intros HI HO HF. rew_heap.
   applys hoare_conseq.
   { applys* hoare_val. }
@@ -2100,7 +2139,7 @@ Qed.
 
 Lemma triple_fix : forall f x t1,
   triple (trm_fix f x t1) \[] (fun r => \[r = (val_fix f x t1)]).
-Proof.
+Proof using.
   intros. intros HI HO HF. rew_heap.
   applys hoare_conseq.
   { applys* hoare_fix. }
@@ -2224,3 +2263,14 @@ Proof using.
   { do 2 esplit. splits*. }
 Qed.
 
+
+
+Lemma hoare_let' : forall x t1 t2 H1 H2 Q1 Q HI HO,
+  Framed HI HO ->
+  hoare t1 (H1 \* RO H2 \* HI) (Q1 \*+ HO) ->
+  (forall v H3, ReadOnly H3 -> hoare (subst x v t2) (Q1 v \* HO \* H2 \* H3) (Q \*+ HO)) ->
+  hoare (trm_let x t1 t2) (H1 \* H2 \* HI) (Q \*+ HO).
+Proof using.
+  introv HF M1 M2. rewrite hstar_comm_assoc in M1. rewrite (hstar_comm H1) in M1.
+  rewrite (hstar_comm H1). rewrite hstar_assoc. applys* hoare_let.
+Qed.
