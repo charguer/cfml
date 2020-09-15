@@ -1054,6 +1054,11 @@ Proof using.
     { applys agree_of_disjoint. applys* disjoint_to_ro. } }
 Qed.
 
+Lemma heap_compat_to_ro_l : forall h1 h2,
+  heap_compat h1 h2 ->
+  heap_compat (to_ro h1) h2.
+Proof using. autos* heap_compat_sym heap_compat_to_ro_r. Qed.
+
 (** corollary *)
 Lemma heap_compat_ro_ro : forall h1 h2,
   heap_compat h1 h2 ->
@@ -1805,6 +1810,56 @@ Proof using.
   lets ->: hempty_inv M1. rew_heap*.
 Qed.
 
+(* ########################################################### *)
+
+Lemma disjoint_heap_state : forall h1 h2,
+  disjoint h1 h2 ->
+  disjoint (heap_state h1) (heap_state h2).
+Proof using.
+  introv D. unfolds heap_state. rewrite disjoint_eq_not_indom_both in *.
+  intros x D1 D2. rew_fmap* in *. 
+Qed.
+
+Lemma disjoint_of_compat_empty_ro_l : forall h1 h2,
+  heap_compat h1 h2 ->
+  h1^ro = Fmap.empty ->
+  disjoint h1 h2.
+Proof using.
+  introv D E. lets (E1&D1): (heap_eq_disjoint_union_rw_ro h1).
+  lets (E2&D2): (heap_eq_disjoint_union_rw_ro h2).
+  rewrite E1 in D. lets D1': heap_compat_of_disjoint D1.
+  forwards (C1&C2): heap_compat_union_l_inv D; [auto|].
+  rewrite E1,E2,E. rew_heap. lets (C1'&_): C1. rew_heap in C1'. 
+  rew_fmap; [|auto]. auto. applys* heap_compat_of_disjoint.
+Qed.
+
+Lemma disjoint_of_compat_single : forall p v h1 h2,
+  heap_compat h1 h2 -> 
+  h1 = (single p (v, rw)) ->
+  forall w,
+  disjoint (single p w) (heap_state h2).
+Proof using.
+  introv D ->. intros.
+  forwards D': disjoint_of_compat_empty_ro_l D. { rew_fmap*. }
+  lets D'': disjoint_heap_state (rm D'). rew_fmap in D''.
+  rewrite disjoint_eq_not_indom_both in *.
+  intros x. specializes D'' x. rewrite indom_single_eq in *. autos*.
+Qed.
+
+Lemma heap_compat_single_set : forall p v w h1 h2,
+  heap_compat h1 h2 ->
+  h1 = (single p (v, rw)) ->
+  heap_compat (single p (w, rw)) h2.
+Proof using.
+  introv (D&G) ->. unfolds. rew_fmap in *. split~.
+  destruct D as (D1&D2&D3). splits; [|auto|].
+  { rewrite disjoint_eq_not_indom_both in *.
+    intros x. specializes D1 x. rewrite indom_single_eq in *. autos*. }
+  { rewrite disjoint_eq_not_indom_both in *.
+    intros x. specializes D3 x. rewrite indom_single_eq in *. autos*. }
+Qed.
+
+
 
 (* ########################################################### *)
 (** ** Reasoning rules for terms, for Hoare triples. *)
@@ -1837,8 +1892,6 @@ Proof using.
   exists s' v. splits~. { applys* eval_app E R1. auto_false. }
 Qed.
 
-Hint Extern 1 (heap_compat _ _) => skip.
-
 (* Note: the order of the heap predicates is carefully 
    chosen so as to simplify the proof. *)
 Lemma hoare_let : forall x t1 t2 H1 H2 Q1 Q HI HO,
@@ -1850,17 +1903,29 @@ Proof using.
   introv HF M1 M2. intros h K.
   destruct K as (h2&hr&P1&P2&D1&U1).
   destruct P2 as (hI&h1&PI&PO&D2&U2).
+  rewrite U2 in D1. lets (D3&D4): heap_compat_union_r_inv D1 D2. 
   forwards (h1'&v1&R1&K1&E1): (rm M1) (to_ro h2 \u hI \u h1).
-  { applys* hstar_intro. { applys* to_ro_pred. } { applys* hstar_intro. } }
+  { applys* hstar_intro. 
+    { applys* to_ro_pred. }
+    { applys* hstar_intro. }
+    { applys* heap_compat_union_r; applys* heap_compat_to_ro_l. } }
   forwards (h2'&v2&R2&K2&E2): (rm M2) v1 (= hI^ro \u h1^ro) (h1'^rw \u h2 \u hI^ro \u h1^ro).
   { intros ? ->. rew_heap*. }
-  { rewrite <- hstar_assoc. applys* hstar_intro. applys* hstar_intro. }
+  { rewrite <- hstar_assoc. applys* hstar_intro.
+    { applys* hstar_intro. applys* heap_compat_union_r. }
+    { repeat (applys heap_compat_union_r; auto). skip. skip. skip. (* TODO *) } }   
+  lets D1': heap_compat_to_ro_l D1. 
+  lets D1'': D1'. rew_fmap* in D1''. (* TODO: cleanup *)
   exists h2' v2. splits*.
   { applys eval_let_trm (heap_state h1').
     { applys_eq R1. subst h hr. rew_fmap*. } 
     { applys_eq R2. rewrite (heap_state_components h1'). rewrite E1.
-      rew_fmap*. } }
-  { rewrite E2. rewrite U1,U2. rew_fmap*. }
+      rew_fmap*.
+hint heap_compat_to_ro_l, heap_compat_union_r. auto.
+hint heap_compat_to_ro_l, heap_compat_union_r.
+applys heap_compat_union_r; auto. skip. skip. (* TODO *)
+ } }
+  { rewrite E2. rewrite U1,U2. rew_fmap*. skip. skip. (* TODO *) }
 Qed.
 
 Lemma hoare_if : forall (b:bool) t1 t2 H Q,
@@ -1869,14 +1934,6 @@ Lemma hoare_if : forall (b:bool) t1 t2 H Q,
 Proof using.
   introv M1. intros h Hh. forwards* (h1'&v1&R1&K1&E1): (rm M1).
   exists h1' v1. splits*. { applys* eval_if. }
-Qed.
-
-Lemma disjoint_heap_state : forall h1 h2,
-  disjoint h1 h2 ->
-  disjoint (heap_state h1) (heap_state h2).
-Proof using.
-  introv D. unfolds heap_state. rewrite disjoint_eq_not_indom_both in *.
-  intros x D1 D2. rew_fmap* in *. 
 Qed.
 
 
@@ -1890,6 +1947,7 @@ Proof using.
   introv NF. intros s1 K0.
   forwards~ (p&D&N): (Fmap.single_fresh 0%nat s1 (v,mode_rw)).
   lets D': disjoint_heap_state D. rew_fmap* in D'.
+  lets D'': heap_compat_of_disjoint D.
   exists (heap_union (Fmap.single p (v,mode_rw)) s1) (val_loc p). splits.
   { rew_fmap*. applys~ eval_ref_sep. }
   { rew_heap*. applys~ hstar_intro.
@@ -1914,32 +1972,6 @@ Proof using.
   { auto. }
 Qed.
 
-Lemma disjoint_of_compat_empty_ro_l : forall h1 h2,
-  heap_compat h1 h2 ->
-  h1^ro = Fmap.empty ->
-  disjoint h1 h2.
-Proof using.
-  introv D E. lets (E1&D1): (heap_eq_disjoint_union_rw_ro h1).
-  lets (E2&D2): (heap_eq_disjoint_union_rw_ro h2).
-  rewrite E1 in D. lets D1': heap_compat_of_disjoint D1.
-  forwards (C1&C2): heap_compat_union_l_inv D; [auto|].
-  rewrite E1,E2,E. rew_heap. lets (C1'&_): C1. rew_heap in C1'. 
-  rew_fmap; [|auto]. auto.
-Qed.
-
-Lemma disjoint_of_compat_single : forall p v h1 h2,
-  heap_compat h1 h2 -> 
-  h1 = (single p (v, rw)) ->
-  forall w,
-  disjoint (single p w) (heap_state h2).
-Proof using.
-  introv D ->. intros.
-  forwards D': disjoint_of_compat_empty_ro_l D. { rew_fmap*. }
-  lets D'': disjoint_heap_state (rm D'). rew_fmap in D''.
-  rewrite disjoint_eq_not_indom_both in *.
-  intros x. specializes D'' x. rewrite indom_single_eq in *. autos*.
-Qed.
-
 
 Lemma hoare_set : forall HI HO w p v,
   Framed HI HO ->
@@ -1950,9 +1982,10 @@ Proof using.
   introv NH. intros s1 K0.
   destruct K0 as (h1&h2&P1&P2&D&U). lets (K&N): hsingle_inv P1.
   forwards D': disjoint_of_compat_single D K w.
+  lets: heap_compat_single_set w D.
   exists (heap_union (single p (v,mode_rw)) h2) val_unit. splits.
   { subst h1. applys* eval_set_sep (single p w) (single p v) (heap_state h2);
-    subst; rew_fmap*. }
+    subst; rew_fmap*.. }
   { rewrite hstar_hpure_l. split~.
     { rew_heap*. applys* hstar_intro.
       { rew_fmap. applys* hsingle_intro. } { applys* Framed_rw_elim. } } }
