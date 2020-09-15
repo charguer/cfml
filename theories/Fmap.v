@@ -898,7 +898,7 @@ End StateEq.
 Hint Rewrite
   union_assoc
   union_empty_l
-  union_empty_r : rew_fmap.
+  union_empty_r : rew_fmap rew_fmap_for_fmap_eq.
 
 Tactic Notation "rew_fmap" :=
   autorewrite with rew_fmap in *.
@@ -923,7 +923,7 @@ Ltac fmap_eq_step tt :=
 
 Tactic Notation "fmap_eq" :=
   subst;
-  rew_fmap;
+  autorewrite with rew_fmap_for_fmap_eq;
   repeat (fmap_eq_step tt);
   try match goal with
   | |- \# _ _ => fmap_disjoint

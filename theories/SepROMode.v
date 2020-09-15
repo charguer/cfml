@@ -1612,8 +1612,6 @@ Proof using.
   { exists* (to_ro h'). }
 Qed.
 
-Hint Rewrite to_ro_empty : rew_heap.
-
 Lemma RO_empty :
   RO \[] = \[].
 Proof using. 
@@ -1875,18 +1873,17 @@ Proof.
   destruct K as (h1&hr&P1&P2&D1&U1).
   destruct P2 as (h2&hI&PI&PO&D2&U2).
   forwards (h1'&v1&R1&K1&E1): (rm M1) (h1 \u to_ro h2 \u hI).
-  { do 2 esplit. splits*. do 2 esplit. splits. 4: { auto. } { applys* to_ro_pred. } { auto. } { auto. } }
+  { applys* hstar_intro. applys* hstar_intro. { applys* to_ro_pred. } }
   (* destruct K1 as (ha&hb&Pa&Pb&D3&U3).*)
-  forwards (h2'&v2&R2&K2&E2): (rm M2) v1 (= hI^ro \u h1^ro) (h1'^rw \u h2 \u (h1^ro \u hI^ro) ).
+  forwards (h2'&v2&R2&K2&E2): (rm M2) v1 (= h1^ro \u hI^ro) (h1'^rw \u h2 \u (h1^ro \u hI^ro) ).
   { intros ? ->. rew_heap*. }
-  { rewrite <- hstar_assoc. do 2 esplit. (* TODO: tactic *) splits*.
-    do 2 esplit. splits*. { fequal. rewrite* heap_union_comm. } }
+  { rewrite <- hstar_assoc. applys* hstar_intro. applys* hstar_intro. }
   exists h2' v2. splits*.
   { applys eval_let_trm (heap_state h1').
-    { applys_eq R1. subst h hr. rew_heap*. } 
+    { applys_eq R1. subst h hr. rew_fmap*. } 
     { applys_eq R2. rewrite (heap_state_components h1').
-      rewrite E1. rew_heap*. fmap_eq*. } }
-    { rewrite E2. rewrite U1,U2. rew_heap*. fmap_eq. }
+      rewrite E1. rew_fmap*. fmap_eq*. } }
+    { rewrite E2. rewrite U1,U2. rew_fmap*. fmap_eq*. }
 Qed.
 
 Lemma hoare_if : forall (b:bool) t1 t2 H Q,
@@ -1897,20 +1894,33 @@ Proof.
   exists h1' v1. splits*. { applys* eval_if. }
 Qed.
 
+
+Lemma hsingle_intro : forall l v,
+  l <> null ->
+  (l ~~~> v) (Fmap.single l (v,mode_rw)).
+Proof using. intros. split~. Qed.
+
+Lemma hsingle_inv : forall h l v,
+  (l ~~~> v) h ->
+  h = Fmap.single l (v,mode_rw) /\ (l <> null).
+Proof using. auto. Qed.
+
+
 Lemma hoare_ref : forall HI HO v,
   Framed HI HO ->
   hoare (val_ref v)
     (HI)
     (fun r => (\exists p, \[r = val_loc p] \* p ~~> v) \* HO).
 Proof using.
+  hint hsingle_intro.
   introv NF. intros s1 K0.
   forwards~ (p&D&N): (Fmap.single_fresh 0%nat s1 (v,mode_rw)).
   exists (heap_union (Fmap.single p (v,mode_rw)) s1) (val_loc p). splits.
-  { rew_heap*. applys~ eval_ref_sep. }
+  { rew_fmap*. applys~ eval_ref_sep. }
   { rew_heap*. applys~ hstar_intro.
-    { exists p. rewrite~ hstar_hpure_l. split~. { split~. (* applys~ hsingle_intro. *) } }
+    { rew_fmap. exists p. rewrite~ hstar_hpure_l. }
     { applys* Framed_rw_elim. } }
-  { rew_heap*. }
+  { rew_fmap*. }
 Qed.
 
 Lemma hoare_get_ro : forall HI HO v p,
@@ -1920,12 +1930,10 @@ Lemma hoare_get_ro : forall HI HO v p,
     (fun r => \[r = v] \* HO).
 Proof using.
   introv NH. intros s (s1&s2&P1&P2&D&U).
-  destruct P1 as (h'&(K&N)&E).
+  destruct P1 as (h'&K'&E). lets (->&N): hsingle_inv K'.
   exists s v. splits.
-  { (*lets E1: hsingle_inv P1.*)
-     subst s1.
-     applys eval_get_sep (heap_state h') (heap_state s2). subst s. rew_heap*. 
-     subst h'. rew_heap*. }
+  { rew_fmap* in *. applys* eval_get_sep (heap_state s1) (heap_state s2);
+    subst s s1; rew_fmap*. }
   { rewrite~ hstar_hpure_l. split~. subst s s1. rew_heap*.
     applys* Framed_rw_elim. }
   { auto. }
@@ -1938,17 +1946,14 @@ Lemma hoare_set : forall HI HO w p v,
     (fun r => \[r = val_unit] \* (p ~~> v) \* HO).
 Proof using.
   introv NH. intros s1 K0.
-  destruct K0 as (h1&h2&P1&P2&D&U).
-  (* lets E1: hsingle_inv P1. *)
-  destruct P1 as (K&N).
+  destruct K0 as (h1&h2&P1&P2&D&U). lets (K&N): hsingle_inv P1. 
   exists (heap_union (single p (v,mode_rw)) h2) val_unit. splits.
-  { subst h1. applys* eval_set_sep (single p w) (single p v) (heap_state h2).
-    { subst. rew_heap*. }
-    { rew_heap*. } } 
+  { subst h1. applys* eval_set_sep (single p w) (single p v) (heap_state h2);
+    subst; rew_fmap*. }
   { rewrite hstar_hpure_l. split~.
-    { rew_heap*. exists __ (h2^rw). splits*. (* rewrites~ applys~ hstar_intro.*)
-      { splits*. } { applys* Framed_rw_elim. } } }
-  { subst. rew_heap*. }
+    { rew_heap*. applys* hstar_intro.
+      { rew_fmap. applys* hsingle_intro. } { applys* Framed_rw_elim. } } }
+  { subst. rew_fmap*. }
 Qed.
 
 Lemma hoare_free : forall HI HO p v,
@@ -1958,14 +1963,11 @@ Lemma hoare_free : forall HI HO p v,
     (fun r => \[r = val_unit] \* HO).
 Proof using.
   introv NH. intros s1 K0.
-  destruct K0 as (h1&h2&P1&P2&D&U).
-  (* lets E1: hsingle_inv P1. *)
-  destruct P1 as (K&N).
+  destruct K0 as (h1&h2&P1&P2&D&U). lets (K&N): hsingle_inv P1. 
   exists h2 val_unit. splits.
-  { subst h1. applys* eval_free_sep.   
-    { subst. rew_heap*. } }
+  { subst h1. applys* eval_free_sep; subst; rew_fmap*. }
   { rewrite hstar_hpure_l. split~. applys* Framed_rw_elim. }
-  { subst. rew_heap*. }
+  { subst. rew_fmap*. }
 Qed.
 
 
