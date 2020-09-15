@@ -1972,7 +1972,6 @@ Proof using.
   { auto. }
 Qed.
 
-
 Lemma hoare_set : forall HI HO w p v,
   Framed HI HO ->
   hoare (val_set (val_loc p) v)
@@ -1985,7 +1984,7 @@ Proof using.
   lets: heap_compat_single_set w D.
   exists (heap_union (single p (v,mode_rw)) h2) val_unit. splits.
   { subst h1. applys* eval_set_sep (single p w) (single p v) (heap_state h2);
-    subst; rew_fmap*.. }
+    subst; rew_fmap*. }
   { rewrite hstar_hpure_l. split~.
     { rew_heap*. applys* hstar_intro.
       { rew_fmap. applys* hsingle_intro. } { applys* Framed_rw_elim. } } }
@@ -2293,7 +2292,7 @@ Proof using.
   exists (= h^rw) (= h^ro). do 2 rewrite hstar_hpure. splits.
   { intros ? ->. rew_heap*. }
   { intros ? ->. rew_heap*. } 
-  { do 2 esplit. splits*. }
+  { applys* hstar_intro. applys heap_compat_of_disjoint. applys heap_disjoint_components. }
 Qed.
 
 
