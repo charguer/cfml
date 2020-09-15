@@ -1909,24 +1909,44 @@ Proof using.
     { applys* to_ro_pred. }
     { applys* hstar_intro. }
     { applys* heap_compat_union_r; applys* heap_compat_to_ro_l. } }
+
+
+lets: heap_disjoint_components h1'. rewrite E1 in H.
+  rew_fmap in H; [|auto|auto].
+2: { applys heap_compat_to_ro_l. auto. }
+rewrite disjoint_union_eq_r in H. destruct H as (H&H').
+  rewrite disjoint_to_ro_eq in H.
+lets Hs: H. lets: heap_compat_of_disjoint Hs.
+lets (X&Y): heap_eq_disjoint_map_union_rw_ro h2.
+  rewrite X in H. rewrite disjoint_union_eq_r in H,H'. 
+asserts: (heap_compat h1'^rw (hI^ro \u h1^ro)).
+{ applys heap_compat_union_r.
+      { applys* heap_compat_of_disjoint. }
+      { applys* heap_compat_of_disjoint. }
+      { applys* heap_compat_filter_mode. } }
+asserts: (heap_compat h2 (hI^ro \u h1^ro)). 
+{ applys heap_compat_union_r.
+      { applys* heap_compat_filter_mode_r. }
+      { applys* heap_compat_filter_mode_r. }
+      { applys* heap_compat_filter_mode. } }
+asserts: (heap_compat h1'^rw (h2 \u hI^ro \u h1^ro)).
+ { applys* heap_compat_union_r. }
+
   forwards (h2'&v2&R2&K2&E2): (rm M2) v1 (= hI^ro \u h1^ro) (h1'^rw \u h2 \u hI^ro \u h1^ro).
   { intros ? ->. rew_heap*. }
   { rewrite <- hstar_assoc. applys* hstar_intro.
-    { applys* hstar_intro. applys* heap_compat_union_r. }
-    { repeat (applys heap_compat_union_r; auto). skip. skip. skip. (* TODO *) } }   
+    { applys* hstar_intro. } }   
   lets D1': heap_compat_to_ro_l D1. 
   lets D1'': D1'. rew_fmap* in D1''. (* TODO: cleanup *)
   exists h2' v2. splits*.
   { applys eval_let_trm (heap_state h1').
     { applys_eq R1. subst h hr. rew_fmap*. } 
     { applys_eq R2. rewrite (heap_state_components h1'). rewrite E1.
-      rew_fmap*.
-hint heap_compat_to_ro_l, heap_compat_union_r. auto.
-hint heap_compat_to_ro_l, heap_compat_union_r.
-applys heap_compat_union_r; auto. skip. skip. (* TODO *)
- } }
-  { rewrite E2. rewrite U1,U2. rew_fmap*. skip. skip. (* TODO *) }
+      rew_fmap*. } }
+  { rewrite E2. rewrite U1,U2. rew_fmap*. }
 Qed.
+
+
 
 Lemma hoare_if : forall (b:bool) t1 t2 H Q,
   hoare (if b then t1 else t2) H Q ->
