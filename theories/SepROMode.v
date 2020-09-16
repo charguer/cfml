@@ -1117,7 +1117,7 @@ Definition hsingle (l:loc) (v:val) : hprop :=
 
 Notation "l '~~~>' v" := (hsingle l v)
   (at level 32, no associativity) : heap_scope.
-
+(* TODO: use only one arrow *)
 Notation "l '~~>' v" := (hsingle l v)
   (at level 32, no associativity) : heap_scope.
 
