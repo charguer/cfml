@@ -552,13 +552,13 @@ Lemma heap_compat_components : forall h,
   heap_compat (h^rw) (h^ro).
 Proof using. intros. applys heap_compat_of_disjoint. applys disjoint_components. Qed.
 
-Lemma proj_heap_empty : forall m,
+Lemma proj_empty : forall m,
   (heap_empty^m) = empty.
 Proof using.
   intros. unfold proj, heap_empty. rewrite* filter_empty.
 Qed.
 
-Hint Rewrite proj_heap_empty : rew_heap.
+Hint Rewrite proj_empty : rew_heap.
 
 Lemma proj_idempotent : forall h m,
   (h^m)^m = h^m.
