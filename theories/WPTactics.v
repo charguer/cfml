@@ -635,7 +635,7 @@ Ltac xapp_post_basic tt := (* version without error message *)
 
 Lemma xapp_find_spec_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H (Q:A->hprop),
   Triple t H1 Q1 ->
-  (Triple t H1 Q1 -> 
+  (Triple t H1 Q1 ->
   H ==> ^(Wpgen_app t) Q) ->
   H ==> ^(Wpgen_app t) Q.
 Proof using. auto. Qed.

@@ -613,7 +613,7 @@ Ltac list_boxer_to_dyns E :=
        constr:( (Dyn V) :: L)
   end.
 
-(* --TODO: port the proof from the previous CFML version to the new setting *) 
+(* --TODO: port the proof from the previous CFML version to the new setting *)
 Parameter xapp_record_new : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fields) (vs:vals),
   noduplicates_fields_exec ks = true ->
   LibListExec.is_nil ks = false ->

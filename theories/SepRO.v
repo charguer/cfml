@@ -20,7 +20,7 @@ From Sep Require Export Semantics SepFunctor.
 From Sep Require Import Fmap.
 Import NotationForFmapDisjoint.
 Open Scope fmap_scope.
-Arguments exist [A] [P].  
+Arguments exist [A] [P].
 
 
 (* ********************************************************************** *)
@@ -461,7 +461,7 @@ Proof using.
   unstate. fmap_eq.
 Qed.
 
-(* Extend the tactics [rew_fmap] and [fmap_eq] with distribution 
+(* Extend the tactics [rew_fmap] and [fmap_eq] with distribution
    of [heap_state] over union. *)
 Hint Rewrite heap_union_state : rew_fmap.
 Hint Rewrite heap_union_state : rew_fmap_for_fmap_eq.
@@ -776,7 +776,7 @@ Instance Normal_hforall_inhab : forall `{Inhab A} (J:A->hprop),
   Normal_post J ->
   Normal (hforall J).
 Proof using.
-  introv IA M N. lets M': M (arbitrary (A:=A)). 
+  introv IA M N. lets M': M (arbitrary (A:=A)).
   lets N': N (arbitrary (A:=A)). applys M' N'.
 Qed.
 
