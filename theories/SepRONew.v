@@ -382,7 +382,6 @@ Proof using. introv D. forwards*: parts_heap_union_of_compat D. Qed.
 
 Hint Rewrite part_rw_heap_union_of_compat part_ro_heap_union_of_compat : rew_fmap.
 
-
 (* ---------------------------------------------------------------------- *)
 (* ** Projections *)
 
@@ -441,6 +440,124 @@ Lemma heap_state_projs : forall h,
   heap_state h = heap_state (h^rw) \+ heap_state (h^ro).
 *)
 
+
+(* ---------------------------------------------------------------------- *)
+(* ** Properties of [proj] on [parts] *)
+
+Lemma part_rw_proj_rw : forall h,
+  (h^rw)^^rw = h^^rw.
+Proof using. intros ((f,r),D). auto. Qed.
+
+Lemma part_rw_proj_ro : forall h,
+  (h^ro)^^rw = Fmap.empty.
+Proof using. intros ((f,r),D). auto. Qed.
+
+Lemma part_ro_proj_rw : forall h,
+  (h^rw)^^ro = Fmap.empty.
+Proof using. intros ((f,r),D). auto. Qed.
+
+Lemma part_ro_proj_ro : forall h,
+  (h^ro)^ro = h^ro.
+Proof using. intros ((f,r),D). auto. Qed.
+
+Hint Rewrite part_rw_proj_rw part_rw_proj_ro
+             part_ro_proj_rw part_ro_proj_ro : rew_fmap.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Properties of [heap_compat] *)
+
+Lemma heap_compat_def : forall h1 h2,
+    heap_compat h1 h2
+  =   ( (Fmap.agree h1^^ro h2^^ro)
+    /\ (\# (h1^^rw) (h2^^rw) (h1^^ro \+ h2^^ro))).
+Proof using. auto. Qed.
+(*
+Hint Rewrite heap_compat_def : rew_disjoint.
+*)
+Lemma heap_compat_sym : forall h1 h2,
+  heap_compat h1 h2 ->
+  heap_compat h2 h1.
+Proof using. introv (M1&M2). split*. Qed.
+
+Hint Resolve heap_compat_sym.
+
+Lemma heap_compat_empty_l : forall h,
+  heap_compat heap_empty h.
+Proof using.
+  hint agree_empty_l.
+  intros. lets: heap_disjoint_parts h.
+  unfold heap_empty. split; simple*.
+Qed.
+
+Lemma heap_compat_empty_r : forall h,
+  heap_compat h heap_empty.
+Proof using. autos* heap_compat_sym heap_compat_empty_l. Qed.
+
+Hint Resolve heap_compat_empty_l heap_compat_empty_r.
+
+(* TODO: optimize automation
+Hint Extern 1 (disjoint _ _) => 
+  jauto_set; rew_disjoint; assumption.
+*)
+
+Lemma heap_compat_union_l : forall h1 h2 h3,
+  heap_compat h1 h2 ->
+  heap_compat h1 h3 ->
+  heap_compat h2 h3 ->
+  heap_compat (h1 \u h2) h3.
+Proof using.
+  hint agree_union_l.
+  introv M1 M2 M3. lets M1': M1.
+  unfold heap_compat in M1, M2, M3.
+  rew_disjoint. split; rew_fmap*.
+Qed.
+
+Lemma heap_compat_union_r : forall h1 h2 h3,
+  heap_compat h1 h2 ->
+  heap_compat h1 h3 ->
+  heap_compat h2 h3 ->
+  heap_compat h1 (h2 \u h3).
+Proof using. hint heap_compat_sym, heap_compat_union_l. autos*. Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Properties of [heap_compat] on [proj] *)
+
+Lemma heap_compat_proj_ro_r : forall h1 h2,
+  heap_compat h1 h2 ->
+  heap_compat h1 (proj_ro h2).
+Proof using.
+  hint agree_empty_r.
+  introv (D&G). split; rew_fmap; auto.
+Qed.
+
+Lemma heap_compat_proj_ro_l : forall h1 h2,
+  heap_compat h1 h2 ->
+  heap_compat (proj_ro h1) (h2).
+Proof using.
+  introv D. autos* heap_compat_proj_ro_r heap_compat_sym.
+Qed.
+
+Lemma heap_compat_proj_rw_r : forall h1 h2,
+  heap_compat h1 h2 ->
+  heap_compat h1 (proj_rw h2).
+Proof using.
+  hint agree_empty_r.
+  introv (D&G). split; rew_fmap; auto.
+Qed.
+
+Lemma heap_compat_proj_rw_l : forall h1 h2,
+  heap_compat h1 h2 ->
+  heap_compat (proj_rw h1) (h2).
+Proof using.
+  introv D. autos* heap_compat_proj_rw_r heap_compat_sym.
+Qed.
+
+Hint Resolve heap_compat_proj_ro_r heap_compat_proj_ro_l.
+Hint Resolve heap_compat_proj_rw_r heap_compat_proj_rw_l.
+
+
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [proj] *)
 
@@ -490,6 +607,47 @@ Proof using.
   introv M. lets E: heap_affine_onlyrw M.
   unfold proj_ro, mkro. rewrite E. applys* heap_eq.
 Qed. (* TODO: higher level ?*)
+
+
+Lemma proj_rw_mkrw : forall s,
+  (mkrw s)^rw = mkrw s.
+Proof using. intros. applys* heap_eq. Qed.
+
+Lemma proj_ro_mkrw : forall s,
+  (mkrw s)^ro = heap_empty.
+Proof using. intros. applys* heap_eq. Qed.
+
+Hint Rewrite proj_rw_mkrw proj_ro_mkrw : rew_heap.
+
+Lemma proj_ro_mkro : forall s,
+  (mkro s)^ro = mkro s.
+Proof using. intros. applys* heap_eq. Qed.
+
+Lemma proj_rw_mkro : forall s,
+  (mkro s)^rw = heap_empty.
+Proof using. intros. applys* heap_eq. Qed.
+
+Hint Rewrite proj_rw_mkro proj_ro_mkro : rew_heap.
+
+Lemma proj_rw_union : forall h1 h2,
+  heap_compat h1 h2 ->
+  (h1 \u h2)^rw = (h1^rw) \u (h2^rw).
+Proof using.
+  hint heap_compat_proj_rw_r.
+  introv D. unfold proj_rw.
+  applys* heap_eq; rew_fmap*.
+Qed.
+
+Lemma proj_ro_union : forall h1 h2,
+  heap_compat h1 h2 ->
+  (h1 \u h2)^ro = (h1^ro) \u (h2^ro).
+Proof using.
+  hint heap_compat_proj_ro_r.
+  introv D. unfold proj_ro.
+  applys* heap_eq; rew_fmap*.
+Qed.
+
+Hint Rewrite proj_rw_union proj_ro_union : rew_heap.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -573,62 +731,7 @@ Qed.
 Hint Rewrite heap_union_f heap_union_r : rew_fmap.
 (* TODO: rename *)
 
-
 (* ---------------------------------------------------------------------- *)
-(* ** Properties of [heap_compat] *)
-
-Lemma heap_compat_def : forall h1 h2,
-    heap_compat h1 h2
-  =   ( (Fmap.agree h1^^ro h2^^ro)
-    /\ (\# (h1^^rw) (h2^^rw) (h1^^ro \+ h2^^ro))).
-Proof using. auto. Qed.
-(*
-Hint Rewrite heap_compat_def : rew_disjoint.
-*)
-Lemma heap_compat_sym : forall h1 h2,
-  heap_compat h1 h2 ->
-  heap_compat h2 h1.
-Proof using. introv (M1&M2). split*. Qed.
-
-Hint Resolve heap_compat_sym.
-
-Lemma heap_compat_empty_l : forall h,
-  heap_compat heap_empty h.
-Proof using.
-  hint agree_empty_l.
-  intros. lets: heap_disjoint_parts h.
-  unfold heap_empty. split; simple*.
-Qed.
-
-Lemma heap_compat_empty_r : forall h,
-  heap_compat h heap_empty.
-Proof using. autos* heap_compat_sym heap_compat_empty_l. Qed.
-
-Hint Resolve heap_compat_empty_l heap_compat_empty_r.
-
-(* TODO: optimize automation
-Hint Extern 1 (disjoint _ _) => 
-  jauto_set; rew_disjoint; assumption.
-*)
-
-Lemma heap_compat_union_l : forall h1 h2 h3,
-  heap_compat h1 h2 ->
-  heap_compat h1 h3 ->
-  heap_compat h2 h3 ->
-  heap_compat (h1 \u h2) h3.
-Proof using.
-  hint agree_union_l.
-  introv M1 M2 M3. lets M1': M1.
-  unfold heap_compat in M1, M2, M3.
-  rew_disjoint. split; rew_fmap*.
-Qed.
-
-Lemma heap_compat_union_r : forall h1 h2 h3,
-  heap_compat h1 h2 ->
-  heap_compat h1 h3 ->
-  heap_compat h2 h3 ->
-  heap_compat h1 (h2 \u h3).
-Proof using. hint heap_compat_sym, heap_compat_union_l. autos*. Qed.
 
 Lemma heap_compat_refl_if_ro : forall h,
   h^^rw = Fmap.empty ->
@@ -1035,7 +1138,7 @@ Qed.
 
 Lemma onlyrw_hsingle : forall l v,
   onlyrw (hsingle l v).
-Proof using. introv (E&N). autos*. Qed.
+Proof using. introv (->&N). rew_heap. autos*. Qed.
 
 Lemma onlyrw_hstar : forall H1 H2,
   onlyrw H1 ->
@@ -1043,7 +1146,7 @@ Lemma onlyrw_hstar : forall H1 H2,
   onlyrw (H1 \* H2).
 Proof using.
   introv N1 N2 (h1&h2&P1&P2&M1&->). rew_heap*.
-  rewrites (>> N1 P1). rewrites (>> N2 P2). rew_fmap*.
+  rewrites (>> N1 P1). rewrites (>> N2 P2). rew_heap*.
 Qed.
 
 Lemma onlyrw_hexists : forall A (J:A->hprop),
@@ -1099,7 +1202,7 @@ Lemma onlyrw_hpure_star_hpure : forall (P:Prop) H,
 Proof using.
   introv N (h1&h2&P1&P2&M1&->). rew_heap*.
   lets (MP&ME): hpure_inv P1. rewrites (rm ME).
-  rew_fmap. rewrites~ (>> N P2).
+  rewrites~ (>> N P2). rew_heap*.
 Qed.
 
 
