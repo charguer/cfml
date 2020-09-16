@@ -75,7 +75,7 @@ Proof using. applys Inhab_of_val heap_empty. Qed.
 (** Starable heaps: disjoint owned heaps, agreeible read-only heaps *)
 
 Definition heap_compat (h1 h2 : heap) : Prop :=
-    Fmap.agree h1^r h2^r
+    Fmap.agree (h1^r) (h2^r)
  /\ (\# (h1^f) (h2^f) (h1^r \+ h2^r)).
 
 (** Union of heaps.
@@ -968,6 +968,14 @@ Tactic Notation "himpl_fold" "*" := himpl_fold; auto_star.
 Definition hoare (t:trm) (H:hprop) (Q:val->hprop) :=
   forall h, H h -> exists f' v, eval h t (h^r \+ f') v /\ Q v (heap_full f').
 
+(* new:
+
+Definition hoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall h, H h -> exists h' v, eval (heap_state h) t (heap_state h') v
+                             /\ Q v (heap_full (h'^rw))
+                             /\ h'^ro = h^ro.
+*)
+
 Lemma hoare_conseq : forall t H' Q' H Q,
   hoare t H' Q' ->
   H ==> H' ->
@@ -993,10 +1001,10 @@ Proof using.
   rew_fmap.
   skip (h&E1&E2): (exists h, h^f = h1^f /\ h^r = h1^r \+ f2).
   (* todo *)
-  forwards (f'&v&R&P): M h. 
+  forwards (f'&v&R&P): M h.
   skip. (* todo *)
   exists (f'\+f2) v. split.
-  rewrite heap_fmap_def in R. rewrite E1,E2 in R.  
+  rewrite heap_fmap_def in R. rewrite E1,E2 in R.
     applys_eq R. fmap_eq. fmap_eq. skip.
     exists (heap_full f') (heap_full f2). splits*.
     skip.
@@ -1184,7 +1192,7 @@ Lemma triple_frame_read_only : forall t H1 Q1 H2,
 Proof using.
   introv M N. intros H' N'.
   specializes M N'.
-  rewrite hstar_comm in M. rewrite <- hstar_assoc in M. 
+  rewrite hstar_comm in M. rewrite <- hstar_assoc in M.
   rewrite hstar_comm. rewrite <- hstar_assoc.
   applys hoare_conseq. applys~ hoare_frame_read_only M. xsimpl. xsimpl.
 Qed.

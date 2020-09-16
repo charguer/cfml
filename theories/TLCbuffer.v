@@ -22,3 +22,4 @@ Global Opaque Z.mul.
 Global Opaque Z.add.
 
 
+Hint Mode Inhab + : typeclass_instances.
