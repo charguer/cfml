@@ -44,7 +44,7 @@ SRC_CFML := Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactic
 SRC_CFML_PLUS := WPRecord WPLib 
 # $(SRC_EXAMPLES) WPExamples WPExamplesDetails WPUnitTests 
 
-SRC_MORE := SepBaseAltProofs SepCredits SepRO SubstExec 
+SRC_MORE := SepBaseAltProofs SepCredits SepRO SepROMode SubstExec 
 
 # SRC_EXAMPLES := Example ExampleBasicNonlifted ExampleListNonlifted ExampleQueueNonlifted ExampleBasic ExampleTrees ExampleUnionFind ExampleHigherOrder ExampleListNull ExampleListIndir ExampleRO 
 
@@ -56,9 +56,7 @@ SRC_SF := SLFPreface SLFDirect SLFExtra SLFSummary SLFMinimal SLFBasic SLFHprop 
 
 SRC_MOSEL := SepMoselFunctor SepBaseMosel SepROMosel ExampleROMosel ExampleListMosel
 
-SRC := $(SRC_COMMON) $(SRC_CFML) $(SRC_MORE)
-# $(SRC_CFML_PLUS) 
-# $(SRC_EXAMPLES) 
+SRC := $(SRC_COMMON) $(SRC_CFML) $(SRC_MORE) $(SRC_CFML_PLUS) $(SRC_EXAMPLES) 
 # $(SRC_CF)  $(SRC_MOSEL)
 
 # using the variable SRC_FORCE, one can modify the compilation targets and/or their order.
@@ -84,7 +82,7 @@ ifndef COQFLAGS
 	ifdef SLF
 		COQFLAGS:=
 	else
-		COQFLAGS:=-w -implicits-in-term,-redundant-canonical-projection,-several-object-files
+		COQFLAGS:=-w -implicits-in-term,-redundant-canonical-projection,-several-object-files,-ambiguous-paths,-implicit-core-hint-db
 	endif
 endif
 
@@ -118,3 +116,9 @@ import_slf:
 
 clean_slf:
 	rm SLF*.v
+
+
+##############################################################################
+
+required_vos:
+	touch $@

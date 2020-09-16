@@ -21,4 +21,5 @@ Generalizable Variables A B.
 Global Opaque Z.mul.
 Global Opaque Z.add.
 
-
+From TLC Require Import LibLogic.
+Hint Mode Inhab + : typeclass_instances.

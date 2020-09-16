@@ -114,6 +114,10 @@ Notation "'Delete' `{ f1 ; f2 ; f3 ; f4 ; f5 }" :=
 
 (** Notation for record contents (only supported up to arity 5) *)
 
+Declare Scope fields_scope.
+Open Scope fields_scope.
+Delimit Scope fields_scope with fields.
+
 Notation "`{ f1 := x1 }" :=
   ((f1, Dyn x1)::nil)
   (at level 0, f1 at level 0)
@@ -134,9 +138,6 @@ Notation "`{ f1 := x1 ; f2 := x2 ; f3 := x3 ; f4 := x4 ; f5 := x5 }" :=
   ((f1, Dyn x1)::(f2, Dyn x2)::(f3, Dyn x3)::(f4, Dyn x4)::(f5, Dyn x5)::nil)
   (at level 0, f1 at level 0, f2 at level 0, f3 at level 0, f4 at level 0, f5 at level 0)
   : fields_scope.
-
-Open Scope fields_scope.
-Delimit Scope fields_scope with fields.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -228,7 +229,7 @@ Section Triple_fields.
 Transparent loc field Hfield.
 
 (* --TODO move *)
-Lemma Hfield_eq_fun_Hsingle_ext : forall `{EA:Enc A} (V:A) (l:loc) (f:field),
+Lemma Hfield_eq_fun_Hsingle_ext : forall A `{EA:Enc A} (V:A) (l:loc) (f:field),
   (l`.f ~~> V) = (((l+f)%nat ~~> V) \* \[l <> null]).
 Proof using. intros. rewrite Hfield_eq_fun_Hsingle. rewrite~ repr_eq. Qed.
 
@@ -268,7 +269,7 @@ Proof using.
     xsimpl~. }
 Qed.
 
-Lemma Triple_set_field_strong : forall `{EA1:Enc A1} (V1:A1) (l:loc) f `{EA2:Enc A2} (V2:A2),
+Lemma Triple_set_field_strong : forall A1 `{EA1:Enc A1} (V1:A1) (l:loc) f A2 `{EA2:Enc A2} (V2:A2),
   TRIPLE ((val_set_field f) l ``V2)
     PRE (l`.f ~~> V1)
     POST (fun (r:unit) => l`.f ~~> V2).
@@ -294,7 +295,7 @@ Proof using.
     xsimpl~. }
 Qed.
 
-Lemma Triple_set_field : forall `{EA:Enc A} (V1:A) (l:loc) f (V2:A),
+Lemma Triple_set_field : forall A `{EA:Enc A} (V1:A) (l:loc) f (V2:A),
   TRIPLE ((val_set_field f) l ``V2)
     PRE (l`.f ~~> V1)
     POST (fun (r:unit) => l`.f ~~> V2).
@@ -477,7 +478,7 @@ Lemma xapp_record_set : forall A1 `{EA1:Enc A1} (W:A1) (Q:unit->hprop) (H:hprop)
   H ==> ^(Wpgen_app (trm_apps (trm_val (val_set_field f)) (trms_vals ((p:val)::(``W)::nil)))) Q.
 Proof using.
   introv M1. xchanges (rm M1).
-  lets R: record_set_compute_spec_correct f W L.
+  lets R: record_set_compute_spec_correct f EA1 W L.
   unfolds record_set_compute_spec.
   destruct (record_set_compute_dyn f (Dyn W) L) as [L'|]; try solve [xpull].
   forwards R': R; eauto. clear R. specializes R' p.
@@ -607,12 +608,12 @@ Ltac xapp_record_set tt :=
 Ltac list_boxer_to_dyns E :=
   match E with
   | nil => constr:(@nil dyn)
-  | (boxer ?V)::?E' =>
+  | (boxer ?V) :: ?E' =>
        let L := list_boxer_to_dyns E' in
-       constr:((Dyn V)::L)
+       constr:( (Dyn V) :: L)
   end.
 
-(* --TODO: port the proof from the previous CFML version to the new setting *)
+(* --TODO: port the proof from the previous CFML version to the new setting *) 
 Parameter xapp_record_new : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fields) (vs:vals),
   noduplicates_fields_exec ks = true ->
   LibListExec.is_nil ks = false ->

@@ -40,20 +40,22 @@ Implicit Types b : bool.
 Class Enc (A:Type) : Type :=
   make_Enc { enc : A -> val }.
 
+Hint Mode Enc + : typeclass_instances.
+
 Notation "`` V" := (enc V) (at level 8, format "`` V").
 
 (** Notation for lists of encoded values *)
 
+Declare Scope enc_scope.
+Open Scope enc_scope.
+Delimit Scope enc_scope with enc.
+
 Notation "``[ ]" :=
-  (@nil val) (format "``[ ]", only parsing) : enc_scope.
+  (@nil val) (only parsing) : enc_scope.
 Notation "``[ x ]" :=
   (cons (enc x) nil) : enc_scope.
 Notation "``[ x , y , .. , z ]" :=
   (cons (enc x) (cons (enc y) .. (cons (enc z) nil) ..)) : enc_scope.
-
-Open Scope enc_scope.
-Delimit Scope enc_scope with enc.
-
 
 (* LATER: Below is a patch for TLC tactics to prevent undesired
    eager instantiation of the typeclasses [Enc].
@@ -101,7 +103,7 @@ Proof using. intros. destruct~ d. Qed.
 Definition dyn_to_val (d:dyn) : val :=
   @enc _ (dyn_enc d) (dyn_value d).
 
-Lemma dyn_to_val_dyn_make : forall A `{EA:Enc A} V,
+Lemma dyn_to_val_dyn_make : forall A `{EA:Enc A} (V:A),
   dyn_to_val (dyn_make V) = enc V.
 Proof using. auto. Qed.
 
@@ -158,13 +160,13 @@ Instance Enc_tyconstr : Enc tyconstr.
 Proof using. constructor. applys (fun (cstr:tyconstr) =>
   match cstr with constr id vs => val_constr id vs end). Defined.
 
-Instance Enc_option : forall `{Enc A}, Enc (option A).
-Proof using. constructor. applys (fun o => match o with
+Instance Enc_option : forall A `{Enc A}, Enc (option A).
+Proof using. constructor. applys (fun (o:option A) => match o with
   | None => val_constr "none" nil
   | Some x => val_constr "some" ((``x)::nil)
   end). Defined.
 
-Instance Enc_list : forall `{Enc A}, Enc (list A).
+Instance Enc_list : forall A `{Enc A}, Enc (list A).
 Proof using. constructor. applys (fix f (l:list A) :=
   match l with
   | nil => val_constr "nil" nil
@@ -211,19 +213,19 @@ Lemma enc_constr_eq : forall id vs,
   enc (constr id vs) = val_constr id vs.
 Proof using. auto. Qed.
 
-Lemma enc_list_none : forall `{Enc A},
+Lemma enc_list_none : forall A `{Enc A},
   enc (@None A) = val_constr "none" nil.
 Proof using. auto. Qed.
 
-Lemma enc_list_some : forall `{Enc A} x,
+Lemma enc_list_some : forall A `{Enc A} (x:A),
   enc (Some x) = val_constr "some" (``x :: nil).
 Proof using. auto. Qed.
 
-Lemma enc_list_nil : forall `{Enc A},
+Lemma enc_list_nil : forall A `{Enc A},
   enc (@nil A) = val_constr "nil" nil.
 Proof using. auto. Qed.
 
-Lemma enc_list_cons : forall `{Enc A} x (l:list A),
+Lemma enc_list_cons : forall A `{Enc A} x (l:list A),
   enc (x::l) = val_constr "cons" (``x :: ``l :: nil).
 Proof using. auto. Qed.
 
@@ -236,13 +238,13 @@ Proof using. auto. Qed.
 (** The encoding of a dynamic value [V] is the same as the encoding of V.
     This goal displays as [``(Dyn V) = ``V] *)
 
-Lemma enc_dyn_make : forall `{EA:Enc A} (V:A),
+Lemma enc_dyn_make : forall A `{EA:Enc A} (V:A),
   enc (dyn_make V) = enc V.
 Proof using. auto. Qed.
 
 (** [rew_enc] normalizes all encoders. *)
 
-Hint Rewrite enc_dyn_make enc_loc_eq enc_unit_eq enc_bool_eq enc_int_eq
+Hint Rewrite @enc_dyn_make enc_loc_eq enc_unit_eq enc_bool_eq enc_int_eq
              enc_func_eq enc_val_eq enc_prim_eq enc_constr_eq
              @enc_list_none @enc_list_some @enc_list_nil @enc_list_cons : rew_enc.
 
@@ -271,9 +273,9 @@ Tactic Notation "rew_enc_dyn" "in" "*" :=
 (* ** Injectivity of encoders for entire types *)
 
 Definition Enc_injective A (EA:Enc A) :=
-  injective enc.
+  injective (enc (A:=A)).
 
-Lemma Enc_injective_inv : forall `{EA:Enc A} (V1 V2:A),
+Lemma Enc_injective_inv : forall A `{EA:Enc A} (V1 V2:A),
   Enc_injective EA ->
   (enc V1 = enc V2) = (V1 = V2).
 Proof using. introv E. extens. iff M. { applys~ E. } { subst~. } Qed.
@@ -321,7 +323,7 @@ Proof using.
 Qed.
 
 Hint Resolve Enc_injective_loc Enc_injective_unit Enc_injective_bool
-             Enc_injective_int @Enc_injective_option @Enc_injective_list
+             Enc_injective_int Enc_injective_option Enc_injective_list
              : Enc_injective.
 
 (* ** Injectivity of encoders for specific values
@@ -331,29 +333,29 @@ Hint Resolve Enc_injective_loc Enc_injective_unit Enc_injective_bool
 Definition Enc_injective_value A `{EA:Enc A} (V1:A) :=
   forall V2, (enc V1 = enc V2) -> (V1 = V2).
 
-Lemma Enc_injective_value_eq_l : forall `{EA:Enc A} (V1:A),
+Lemma Enc_injective_value_eq_l : forall A `{EA:Enc A} (V1:A),
   Enc_injective_value V1 ->
   forall V2, (enc V1 = enc V2) = (V1 = V2).
 Proof using. introv E. extens. iff M. { applys~ E. } { subst~. } Qed.
 
-Lemma Enc_injective_value_eq_r : forall `{EA:Enc A} (V1:A),
+Lemma Enc_injective_value_eq_r : forall A `{EA:Enc A} (V1:A),
   Enc_injective_value V1 ->
   forall V2, (enc V2 = enc V1) = (V2 = V1).
 Proof using. introv E. extens. iff M. { symmetry. applys~ E. } { subst~. } Qed.
 
-Lemma Enc_injective_nil : forall `{EA:Enc A},
+Lemma Enc_injective_nil : forall A `{EA:Enc A},
   Enc_injective_value (@nil A).
 Proof using.
   intros A EA l E. destruct l; intros; simpls; tryfalse. { auto. }
 Qed.
 
-Lemma Enc_injective_none : forall `{EA:Enc A},
+Lemma Enc_injective_none : forall A `{EA:Enc A},
   Enc_injective_value (@None A).
 Proof using.
   intros A EA o E. destruct o; intros; simpls; tryfalse. { auto. }
 Qed.
 
-Hint Resolve @Enc_injective_nil @Enc_injective_none : Enc_injective.
+Hint Resolve Enc_injective_nil Enc_injective_none : Enc_injective.
 
 (** [Enc_comparable V1 V2] asserts that at least one of [V1]
     or [V2] satisfies [Enc_injective_value]. In such case,
@@ -407,7 +409,7 @@ Proof using. intros. induction ds; simpl; rew_list; math. Qed.
 Definition Decode (v:val) `{EA:Enc A} (V:A) : Prop :=
   v = ``V.
 
-Lemma Decode_enc : forall `{EA:Enc A} (V:A),
+Lemma Decode_enc : forall A `{EA:Enc A} (V:A),
   Decode (``V) V.
 Proof using. intros. hnfs~. Qed.
 
@@ -484,7 +486,7 @@ Definition LiftPost A `{Enc A} (Q:A->hprop) : val->hprop :=
 
 (** [LiftPost] is covariant *)
 
-Lemma LiftPost_himpl : forall `{Enc A} Q Q',
+Lemma LiftPost_himpl : forall A `{Enc A} (Q Q':A->hprop),
   Q ===> Q' ->
   LiftPost Q ===> LiftPost Q'.
 Proof using.
@@ -496,7 +498,7 @@ Local Hint Resolve LiftPost_himpl.
 
 (** [LiftPost] distributes over the star *)
 
-Lemma LiftPost_star : forall `{Enc A} Q H,
+Lemma LiftPost_star : forall A `{Enc A} (Q:A->hprop) H,
   LiftPost (Q \*+ H) = (LiftPost Q) \*+ H.
 Proof using.
   intros. unfold LiftPost. applys fun_ext_1.
@@ -523,13 +525,13 @@ Qed.
 (** Singleton: [l ~~> V] describes a singleton heap at location [l]
     with contents [V], where the value [V] has some encodable type [A]. *)
 
-Definition Hsingle `{EA:Enc A} (V:A) (l:loc) : hprop :=
+Definition Hsingle A `{EA:Enc A} (V:A) (l:loc) : hprop :=
   hsingle l (enc V).
 
 Notation "l '~~>' V" := (l ~> Hsingle V)
   (at level 32, no associativity) : heap_scope.
 
-Lemma Hsingle_to_hsingle : forall `{EA:Enc A} (l:loc) (V:A),
+Lemma Hsingle_to_hsingle : forall A `{EA:Enc A} (l:loc) (V:A),
   (l ~~> V) = hsingle l (enc V).
 Proof using. auto. Qed.
 
@@ -542,7 +544,7 @@ Arguments Hsingle_not_null : clear implicits.
 (** Field: [ l `. f ~~> V ] describes the ownership of a record field
     storing one encodable value [V]. *)
 
-Definition Hfield `{EA:Enc A} (V:A) (l_f:loc*field) : hprop :=
+Definition Hfield A `{EA:Enc A} (V:A) (l_f:loc*field) : hprop :=
   let '(l,f) := l_f in
   hfield l f (enc V).
 
@@ -551,10 +553,10 @@ Notation "l `. f '~~>' V" := ((l,f) ~> Hfield V)
    format "l `. f  '~~>'  V") : heap_scope.
 
 Lemma Hfield_eq_fun_Hsingle :
-  @Hfield = (fun `{EA:Enc A} (V:A) l_f => let '(l,f) := l_f in ((l+f)%nat ~~> V) \* \[l <> null]).
+  @Hfield = (fun A (EA:Enc A) (V:A) l_f => let '(l,f) := l_f in ((l+f)%nat ~~> V) \* \[l <> null]).
 Proof using. intros. auto. Qed.
 
-Lemma Hfield_to_hfield : forall `{EA:Enc A} (l:loc) (f:field) (V:A),
+Lemma Hfield_to_hfield : forall A `{EA:Enc A} (l:loc) (f:field) (V:A),
   (l`.f ~~> V) = hfield l f (enc V).
 Proof using. auto. Qed.
 
@@ -602,7 +604,7 @@ Lemma local_Triple : forall t A `{EA:Enc A},
   local (@Triple t A EA).
 Proof using. intros. applys local_LiftPost. applys local_triple. Qed.
 
-Hint Resolve @local_Triple.
+Hint Resolve local_Triple.
 
 
 (* ---------------------------------------------------------------------- *)

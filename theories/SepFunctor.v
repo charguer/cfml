@@ -58,6 +58,7 @@ From Sep Require Export TLCbuffer SepSimpl.
 
 Module Type SepCore.
 
+Declare Scope heap_scope.
 
 (* ---------------------------------------------------------------------- *)
 (* ** Representation of [hprop] *)
@@ -288,6 +289,8 @@ Definition haffine_post (A:Type) (J:A->hprop) : Prop :=
 
 (* ---------------------------------------------------------------------- *)
 (* ** Notation for triples *)
+
+Declare Scope heap_scope_ext.
 
 (** Notation [F PRE H POST Q] for stating specifications, e.g.
     [triple t PRE H POST Q] is the same as [triple t H Q] *)
@@ -671,7 +674,7 @@ Proof using. introv F1 (x&Hx). applys* F1. Qed.
 Lemma haffine_hforall : forall A `{Inhab A} (J:A->hprop),
   haffine_post J ->
   haffine (hforall J).
-Proof using. introv IA F1 Hx. applys* F1 arbitrary. Qed.
+Proof using. introv IA F1 Hx. applys* F1 (arbitrary (A:=A)). Qed.
 
 Lemma haffine_hpure : forall P,
   haffine \[P].

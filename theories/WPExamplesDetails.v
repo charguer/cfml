@@ -293,7 +293,7 @@ Definition val_mlist_length : val :=
     '| 'Cstr "cons" 'x 'q '=> 1 '+ 'f 'q
     End.
 
-Lemma Triple_mlist_length_1 : forall `{EA:Enc A} (L:list A) (p:loc),
+Lemma Triple_mlist_length_1 : forall A `{EA:Enc A} (L:list A) (p:loc),
   TRIPLE (val_mlist_length p)
     PRE (MList L p)
     POST (fun (r:int) => \[r = length L] \* MList L p).
@@ -331,7 +331,7 @@ Proof using.
       { intros q ->. rewrite enc_val_eq in *. unfolds @Cons. false. } } }
 Qed.
 
-Lemma Triple_mlist_length_1' : forall `{EA:Enc A} (L:list A) (p:loc),
+Lemma Triple_mlist_length_1' : forall A `{EA:Enc A} (L:list A) (p:loc),
   TRIPLE (val_mlist_length p)
     PRE (MList L p)
     POST (fun (r:int) => \[r = length L] \* MList L p).

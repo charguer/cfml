@@ -85,7 +85,7 @@ Definition tail : field := 1%nat.
 (* ---------------------------------------------------------------------- *)
 (** Representation of segments *)
 
-Fixpoint MListSeg `{EA:Enc A} (r:loc) (L:list A) (p:loc) : hprop :=
+Fixpoint MListSeg A `{EA:Enc A} (r:loc) (L:list A) (p:loc) : hprop :=
   match L with
   | nil => \[p = r]
   | x::L' => \exists (q:loc), p ~~> q \* q`.head ~~> x \* q`.tail ~> MListSeg r L'
@@ -95,23 +95,23 @@ Fixpoint MListSeg `{EA:Enc A} (r:loc) (L:list A) (p:loc) : hprop :=
 
 Section SegProperties.
 
-Lemma MListSeg_nil : forall `{EA:Enc A} p r,
+Lemma MListSeg_nil : forall A `{EA:Enc A} p r,
   p ~> (MListSeg r (@nil A)) = \[p = r].
 Proof using. intros. xunfold~ MListSeg. Qed.
 
-Lemma MListSeg_cons : forall `{EA:Enc A} p r x (L':list A),
+Lemma MListSeg_cons : forall A `{EA:Enc A} p r x (L':list A),
   p ~> MListSeg r (x::L') =
   \exists (q:loc), p ~~> q \* q`.head ~~> x \* q`.tail ~> MListSeg r L'.
 Proof using. intros. xunfold MListSeg at 1. simple~. Qed.
 
 Global Opaque MListSeg.
 
-Lemma MListSeg_one : forall `{EA:Enc A} p r (x:A),
+Lemma MListSeg_one : forall A `{EA:Enc A} p r (x:A),
   p ~> MListSeg r (x::nil) =
   \exists (q:loc), p ~~> q \* q`.head ~~> x \* \[q`.tail = r].
 Proof using. intros. rewrite MListSeg_cons. fequals. Qed.
 
-Lemma MListSeg_concat : forall `{EA:Enc A} p1 r (L1 L2:list A),
+Lemma MListSeg_concat : forall A `{EA:Enc A} p1 r (L1 L2:list A),
   p1 ~> MListSeg r (L1++L2) = \exists p2, p1 ~> MListSeg p2 L1 \* p2 ~> MListSeg r L2.
 Proof using.
   intros. gen p1. induction L1 as [|x L1']; intros; rew_list.
@@ -137,22 +137,22 @@ Arguments MListSeg_concat : clear implicits.
 (* ---------------------------------------------------------------------- *)
 (** Representation of full lists *)
 
-Definition MList `{EA:Enc A} (L:list A) (p:loc) : hprop :=
+Definition MList A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
   \exists (r:loc), p ~> MListSeg r L \* r ~~> null.
 
-Definition MListTail `{EA:Enc A} (L:list A) (q:loc) : hprop :=
+Definition MListTail A `{EA:Enc A} (L:list A) (q:loc) : hprop :=
   match L with
   | nil => \[q = null]
   | x::L' => q`.head ~~> x \* q`.tail ~> MList L'
   end.
 
 
-Lemma MList_eq : forall `{EA:Enc A} (L:list A) (p:loc),
+Lemma MList_eq : forall A `{EA:Enc A} (L:list A) (p:loc),
   p ~> MList L =
   \exists (r:loc), p ~> MListSeg r L \* r ~~> null.
 Proof using. intros. xunfold~ MList. Qed.
 
-Lemma MListTail_eq : forall `{EA:Enc A} (L:list A) (q:loc),
+Lemma MListTail_eq : forall A `{EA:Enc A} (L:list A) (q:loc),
   q ~> MListTail L =
    match L with
   | nil => \[q = null]
@@ -161,15 +161,15 @@ Lemma MListTail_eq : forall `{EA:Enc A} (L:list A) (q:loc),
 Proof using. intros. xunfold~ MListTail. Qed.
 
 
-Lemma MListTail_nil : forall `{EA:Enc A} (q:loc),
-  q ~> MListTail nil = \[q = null].
+Lemma MListTail_nil : forall A `{EA:Enc A} (q:loc),
+  q ~> MListTail (@nil A) = \[q = null].
 Proof using. intros. rewrite~ MListTail_eq. Qed.
 
-Lemma MListTail_cons : forall `{EA:Enc A} (x:A) (L':list A) (q:loc),
+Lemma MListTail_cons : forall A `{EA:Enc A} (x:A) (L':list A) (q:loc),
   q ~> MListTail (x::L') = q`.head ~~> x \* q`.tail ~> MList L'.
 Proof using. intros. rewrite~ MListTail_eq. Qed.
 
-Lemma MListTail_null : forall `{EA:Enc A} (L:list A) (q:loc),
+Lemma MListTail_null : forall A `{EA:Enc A} (L:list A) (q:loc),
   q ~> MListTail L ==> q ~> MListTail L \* \[q = null <-> L = nil].
 Proof using.
   intros. destruct L; xunfold MListTail.
@@ -181,7 +181,7 @@ Proof using.
     xsimpl; auto_false*. }
 Qed.
 
-Lemma MListTail_if : forall `{EA:Enc A} (L:list A) (q:loc),
+Lemma MListTail_if : forall A `{EA:Enc A} (L:list A) (q:loc),
   q ~> MListTail L =
   If q = null
     then \[L = nil]
@@ -196,7 +196,7 @@ Proof using.
     { xpull ;=> x L' ->. xsimpl. } }
 Qed.
 
-Lemma MList_Tail : forall `{EA:Enc A} (L:list A) (p:loc),
+Lemma MList_Tail : forall A `{EA:Enc A} (L:list A) (p:loc),
   p ~> MList L =
   \exists (q:loc), p ~~> q \* q ~> MListTail L.
 Proof using.
@@ -209,14 +209,14 @@ Proof using.
     { xpull ;=> q. xchange MList_eq ;=> r. xsimpl r. xchange <- MListSeg_cons. } }
 Qed.
 
-Lemma MList_Tail_null : forall `{EA:Enc A} (L:list A) (p:loc),
+Lemma MList_Tail_null : forall A `{EA:Enc A} (L:list A) (p:loc),
   p ~> MList L ==>
   \exists (q:loc), p ~~> q \* q ~> MListTail L \* \[q = null <-> L = nil].
 Proof using.
   intros. xchange MList_Tail ;=> q. xchange MListTail_null ;=> M. xsimpl*.
 Qed.
 
-Lemma MList_Tail_if : forall `{EA:Enc A} (L:list A) (p:loc),
+Lemma MList_Tail_if : forall A `{EA:Enc A} (L:list A) (p:loc),
   p ~> MList L ==>
   \exists (q:loc), p ~~> q \* If q = null
     then \[L = nil]
@@ -255,7 +255,7 @@ Global Opaque MList MListTail.
 
 Parameter mk_node : val.
 
-Parameter Triple_mk_node : forall `{EA:Enc A} (x:A) (q:loc),
+Parameter Triple_mk_node : forall A `{EA:Enc A} (x:A) (q:loc),
   TRIPLE (mk_node ``x ``q)
     PRE \[]
     POST (fun p => p`.head ~~> x \* p`.tail ~~> q).
@@ -278,7 +278,7 @@ Definition push : val :=
   Fun 'p 'x :=
     'p ':= mk_node 'x ('!'p).
 
-Lemma Triple_push : forall `{EA:Enc A} (L:list A) (p:loc) (x:A),
+Lemma Triple_push : forall A `{EA:Enc A} (L:list A) (p:loc) (x:A),
   TRIPLE (push p ``x)
     PRE (p ~> MList L)
     POST (fun (_:unit) => p ~> MList (x::L)).
@@ -320,7 +320,7 @@ Lemma Triple_mlength : forall A `{EA:Enc A} (L:list A) (p:loc),
     PRE (p ~> MList L)
     POST (fun (r:int) => \[r = length L] \* p ~> MList L).
 Proof using.
-  intros. gen p. induction_wf: list_sub_wf L; intros. xwp.
+  intros. gen p. induction_wf IH: list_sub_wf L; intros. xwp.
   xchange MList_Tail_if ;=> q. xapp. xapp~.
   xif ;=> C; case_if; xpull.
   { intros ->. xval. subst q. xchange <- MList_nil. xsimpl*. }
@@ -348,7 +348,7 @@ Definition copy_node :=
       Then null
       Else mk_node ('q'.head) ('f ('q'.tail)).
 
-Lemma Triple_copy_node : forall `{EA:Enc A} q (L:list A),
+Lemma Triple_copy_node : forall A `{EA:Enc A} q (L:list A),
   TRIPLE (copy_node ``q)
     PRE (q ~> MListTail L)
     POST (fun (q':loc) =>

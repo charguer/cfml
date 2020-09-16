@@ -48,6 +48,9 @@ Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (Wptag F) _ _ Q)
 (** Display [Triple t H Q] as [TRIPLE t PRE H POST Q]
     with variant [TRIPLE t PRE H REV X POST Q] *)
 
+Declare Scope triple_scope.
+Open Scope triple_scope.
+
 Notation "'TRIPLE' t 'PRE' H 'POST' Q" :=
   (Triple t H Q)
   (at level 39, t at level 0,
@@ -69,8 +72,6 @@ Notation "'`Triple' t 'PRE' H1 'BIND' x1 x2 'RET' v 'POST' H2" :=
   (at level 39, t at level 0, x1 ident, x2 ident) : triple_scope.
 *)
 
-Open Scope triple_scope.
-
 
 (* ********************************************************************** *)
 (* * Tactics for decoding. *)
@@ -84,11 +85,11 @@ Hint Extern 1 (Decode (val_constr "nil" nil) _) =>
 Hint Extern 1 (Decode (val_constr "cons" (_::_::nil)) _) =>
   match goal with H: Enc ?A |- _ => eapply (@Decode_cons A) end : Decode.
 
-Hint Resolve @Decode_None @Decode_Some : Decode.
+Hint Resolve Decode_None Decode_Some : Decode.
 (* --LATER: similar hints needed? *)
 
 Ltac xdecode_core tt :=
-  try solve [ eauto with Decode ].
+  try solve [ typeclasses eauto with Decode ].
 
 Tactic Notation "xdecode" :=
   xdecode_core tt.
@@ -156,10 +157,11 @@ Ltac xgoal_fun tt :=
 
 Definition database_spec := True.
 
+Declare Scope xspec_scope.
+Open Scope xspec_scope.
+
 Notation "'Register_goal' G" := (Register database_spec G)
   (at level 69) : xspec_scope.
-
-Open Scope xspec_scope.
 
 (** [xspec G] retreives from the database [database_spec]
     the specification that could apply to a goal [G].
@@ -446,8 +448,8 @@ Tactic Notation "xseq" :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xlet] *)
 
-Lemma xlet_lemma : forall A1 (EA1:Enc A1) H `{EA:Enc A} (Q:A->hprop) (F1:Formula) (F2of:forall `{EA1:Enc A2},A2->Formula),
-  H ==> ^F1 (fun (X:A1) => ^(F2of X) Q) ->
+Lemma xlet_lemma : forall A1 (EA1:Enc A1) H `{EA:Enc A} (Q:A->hprop) (F1:Formula) (F2of:forall A2 (EA2:Enc A2),A2->Formula),
+  H ==> ^F1 (fun (X:A1) => ^(F2of _ _ X) Q) ->
   H ==> ^(Wpgen_let F1 (@F2of)) Q.
 Proof using. introv M. applys MkStruct_erase. xsimpl* A1 EA1. Qed.
 
@@ -493,7 +495,7 @@ Tactic Notation "xcast" :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xpost] *)
 
-Lemma xpost_lemma : forall `{EA:Enc A} (Q1 Q2:A->hprop) H (F:Formula),
+Lemma xpost_lemma : forall A `{EA:Enc A} (Q1 Q2:A->hprop) H (F:Formula),
   Structural F ->
   H ==> ^F Q1 ->
   Q1 ===> Q2 ->
@@ -631,9 +633,10 @@ Ltac xapp_post_basic tt := (* version without error message *)
   xsimpl; unfold protect; xcleanup.
 
 
-Lemma xapp_find_spec_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
+Lemma xapp_find_spec_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H (Q:A->hprop),
   Triple t H1 Q1 ->
-  (Triple t H1 Q1 -> H ==> ^(Wpgen_app t) Q) ->
+  (Triple t H1 Q1 -> 
+  H ==> ^(Wpgen_app t) Q) ->
   H ==> ^(Wpgen_app t) Q.
 Proof using. auto. Qed.
 
@@ -799,20 +802,20 @@ Tactic Notation "xapp_debug" :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xval] *)
 
-Lemma xval_lemma_decode : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
+Lemma xval_lemma_decode : forall A `{EA:Enc A} (V:A) v H (Q:A->hprop),
   Decode v V ->
   H ==> Q V ->
   H ==> ^(Wpgen_val v) Q.
 Proof using. introv E N. subst. applys MkStruct_erase. unfold Post_cast_val. xsimpl~ V. Qed.
 
-Lemma xval_lemma : forall `{EA:Enc A} (V:A) v H (Q:A->hprop),
+Lemma xval_lemma : forall A `{EA:Enc A} (V:A) v H (Q:A->hprop),
   v = ``V ->
   H ==> Q V ->
   H ==> ^(Wpgen_val v) Q.
 Proof using. introv E N. subst. applys MkStruct_erase. unfold Post_cast_val. xsimpl~ V. Qed.
 
 (* NEEDED? *)
-Lemma xval_lemma_val : forall `{EA:Enc A} (V:A) v H (Q:val->hprop),
+Lemma xval_lemma_val : forall A `{EA:Enc A} (V:A) v H (Q:val->hprop),
   v = ``V ->
   H ==> Q (``V) ->
   H ==> ^(Wpgen_val v) Q.
@@ -906,13 +909,13 @@ Ltac xif_pre tt :=
   | (Wpgen_if_bool _ _ _) => idtac
   end.
 
-Lemma xifval_lemma : forall `{EA:Enc A} b H (Q:A->hprop) (F1 F2:Formula),
+Lemma xifval_lemma : forall A `{EA:Enc A} b H (Q:A->hprop) (F1 F2:Formula),
   (b = true -> H ==> ^F1 Q) ->
   (b = false -> H ==> ^F2 Q) ->
   H ==> ^(Wpgen_if_bool b F1 F2) Q.
 Proof using. introv E N. applys MkStruct_erase. case_if*. Qed.
 
-Lemma xifval_lemma_isTrue : forall `{EA:Enc A} (P:Prop) H (Q:A->hprop) (F1 F2:Formula),
+Lemma xifval_lemma_isTrue : forall A `{EA:Enc A} (P:Prop) H (Q:A->hprop) (F1 F2:Formula),
   (P -> H ==> ^F1 Q) ->
   (~ P -> H ==> ^F2 Q) ->
   H ==> ^(Wpgen_if_bool (isTrue P) F1 F2) Q.
@@ -953,7 +956,7 @@ Qed.
 Lemma xcase_lemma0 : forall F1 (P1 P2:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
   (P1 -> H ==> ^F1 Q) ->
   (P2 -> H ==> ^F2 Q) ->
-  H ==> ^(Wpgen_case (fun `{EA1:Enc A1} (Q:A1->hprop) => \[P1] \-* ^F1 Q) P2 F2) Q.
+  H ==> ^(Wpgen_case (fun A1 (EA1:Enc A1) (Q:A1->hprop) => \[P1] \-* ^F1 Q) P2 F2) Q.
 Proof using.
   introv M1 M2. applys* xcase_lemma. { applys* hwand_hpure_r_intro. }
 Qed.
@@ -961,18 +964,18 @@ Qed.
 Lemma xcase_lemma2 : forall (F1:val->val->Formula) (P1:val->val->Prop) (P2:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
   (forall x1 x2, P1 x1 x2 -> H ==> ^(F1 x1 x2) Q) ->
   (P2 -> H ==> ^F2 Q) ->
-  H ==> ^(Wpgen_case (fun `{EA1:Enc A1} (Q:A1->hprop) => \forall x1 x2, \[P1 x1 x2] \-* ^(F1 x1 x2) Q) P2 F2) Q.
+  H ==> ^(Wpgen_case (fun A1 (EA1:Enc A1) (Q:A1->hprop) => \forall x1 x2, \[P1 x1 x2] \-* ^(F1 x1 x2) Q) P2 F2) Q.
 Proof using.
   introv M1 M2. applys* xcase_lemma.
   { repeat (applys himpl_hforall_r ;=> ?). applys* hwand_hpure_r_intro. }
 Qed.
 
 
-Lemma xmatch_lemma_list : forall `{EA:Enc A} (L:list A) (F1:Formula) (F2:val->val->Formula) H `{HB:Enc B} (Q:B->hprop),
+Lemma xmatch_lemma_list : forall A `{EA:Enc A} (L:list A) (F1:Formula) (F2:val->val->Formula) H `{HB:Enc B} (Q:B->hprop),
   (L = nil -> H ==> ^F1 Q) ->
   (forall X L', L = X::L' -> H ==> ^(F2 ``X ``L') Q) ->
-  H ==> ^(  Case ``L = 'nil '=> F1
-         '| Case ``L = (vX ':: vL') [vX vL'] '=> F2 vX vL'
+  H ==> ^(  Case (``L) = ('nil) '=> F1
+         '| Case (``L) = (vX ':: vL') [vX vL'] '=> F2 vX vL'
          '| Fail) Q.
 Proof using.
   introv M1 M2. applys xcase_lemma0 ;=> E1.
@@ -1032,7 +1035,7 @@ Qed.
 (* ********************************************************************** *)
 (* Others *)
 
-Lemma eliminate_eta_in_code : forall `{EA:Enc A} H1 (Q1:A->hprop) (F1:Formula),
+Lemma eliminate_eta_in_code : forall A `{EA:Enc A} H1 (Q1:A->hprop) (F1:Formula),
     (PRE H1
     CODE F1
     POST Q1)

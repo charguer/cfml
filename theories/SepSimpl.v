@@ -63,6 +63,8 @@ Parameter haffine : hprop -> Prop.
 (* ---------------------------------------------------------------------- *)
 (* ** Notations *)
 
+Declare Scope heap_scope.
+
 Notation "H1 ==> H2" := (himpl H1 H2)
   (at level 55) : heap_scope.
 

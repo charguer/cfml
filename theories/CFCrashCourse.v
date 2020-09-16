@@ -577,7 +577,7 @@ Definition push_back : val :=
   Fun 'p 'x :=
     inplace_append 'p (mk_one 'x).
 
-Lemma Triple_push_back : forall `{EA:Enc A} (L:list A) (x:A) (p:loc),
+Lemma Triple_push_back : forall A `{EA:Enc A} (L:list A) (x:A) (p:loc),
   TRIPLE (push_back ``p ``x)
     PRE (p ~> MList L)
     POST (fun (_:unit) => p ~> MList (L++x::nil)).
@@ -608,7 +608,7 @@ Definition push_back' : val :=
       Then set_cons 'p 'x (create '())
       Else 'f (tail 'p) 'x.
 
-Lemma Triple_push_back' : forall `{EA:Enc A} (L:list A) (x:A) (p:loc),
+Lemma Triple_push_back' : forall A `{EA:Enc A} (L:list A) (x:A) (p:loc),
   TRIPLE (push_back' ``p ``x)
     PRE (p ~> MList L)
     POST (fun (_:unit) => p ~> MList (L++x::nil)).

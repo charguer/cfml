@@ -38,7 +38,7 @@ Implicit Types v : val.
     items, and a special cell at location [b] storing the default value [d], and
     whose tail field stores the [null] value. *)
 
-Definition MQueue `{EA:Enc A} (L:list A) (p:loc) :=
+Definition MQueue A `{EA:Enc A} (L:list A) (p:loc) :=
   \exists (f:loc) (b:loc) (d:A),
     p ~> MCell f b \* f ~> MListSeg b L \* b ~> MCell d null.
 
@@ -64,7 +64,7 @@ Definition is_empty :=
   Fun 'p :=
     'p'.head '= 'p'.tail.
 
-Lemma Triple_is_empty : forall `{EA:Enc A} (L:list A) p,
+Lemma Triple_is_empty : forall A `{EA:Enc A} (L:list A) p,
   TRIPLE (is_empty p)
     PRE (p ~> MQueue L)
     POST (fun r => \[r = isTrue (L = nil)] \* p ~> MQueue L).
@@ -94,7 +94,7 @@ Definition create :=
     Let 'c := mk_cell 'd null in
     mk_cell 'c 'c.
 
-Lemma Triple_create : forall `{EA:Enc A} (d:A),
+Lemma Triple_create : forall A `{EA:Enc A} (d:A),
   TRIPLE (create ``d)
     PRE \[]
     POST (fun (p:loc) => p ~> MQueue (@nil A)).
@@ -121,7 +121,7 @@ Definition push_front :=
   Fun 'p 'x :=
     Set 'p'.head ':= mk_cell 'x ('p'.head).
 
-Lemma Triple_push_front : forall `{EA:Enc A} p L (x:A),
+Lemma Triple_push_front : forall A `{EA:Enc A} p L (x:A),
   TRIPLE (push_front ``p ``x)
     PRE (p ~> MQueue L)
     POST (fun (_:unit) => p ~> MQueue (x::L)).
@@ -157,7 +157,7 @@ Definition pop_front :=
 
 (* TODO FIX NOTATIONS display record field *)
 
-Lemma Triple_pop_front : forall `{EA:Enc A} p (L:list A),
+Lemma Triple_pop_front : forall A `{EA:Enc A} p (L:list A),
   L <> nil ->
   TRIPLE (pop_front ``p)
     PRE (p ~> MQueue L)
@@ -194,7 +194,7 @@ Definition push_back :=
     Set 'b'.tail ':= 'c ';
     Set 'p'.tail ':= 'c.
 
-Lemma Triple_push_back : forall `{EA:Enc A} p x (L:list A),
+Lemma Triple_push_back : forall A `{EA:Enc A} p x (L:list A),
   TRIPLE (push_back ``p ``x)
     PRE (p ~> MQueue L)
     POST (fun (_:unit) => p ~> MQueue (L++x::nil)).
@@ -245,10 +245,10 @@ Definition transfer :=
 
 (* TODO: remove ' in Set, for symmetry with let *)
 
-Lemma Triple_transfer : forall `{EA:Enc A} (L1 L2:list A) p1 p2,
+Lemma Triple_transfer : forall A `{EA:Enc A} (L1 L2:list A) p1 p2,
   TRIPLE (transfer p1 p2)
     PRE (p1 ~> MQueue L1 \* p2 ~> MQueue L2)
-    POST (fun (_:unit) => p1 ~> MQueue (L1 ++ L2) \* p2 ~> MQueue nil).
+    POST (fun (_:unit) => p1 ~> MQueue (L1 ++ L2) \* p2 ~> MQueue (@nil A)).
 Proof using.
   xwp. xapp. xapp. xif ;=> C.
   { xunfold MQueue. xpull ;=> f2 b2 d2 f1 b1 d1. (* TODO: fix order, should be preserved *)
@@ -267,7 +267,7 @@ Qed.
 (** Alternative specification for [pop_front] for the case the list
     is already of the form [x::L']. *)
 
-Lemma triple_pop_front' : forall `{EA:Enc A} p x (L':list A),
+Lemma triple_pop_front' : forall A `{EA:Enc A} p x (L':list A),
   TRIPLE (pop_front p)
     PRE (p ~> MQueue (x::L'))
     POST (fun r => \[r = x] \* p ~> MQueue L').
