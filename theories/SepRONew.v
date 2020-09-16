@@ -51,18 +51,18 @@ Definition heap_f (h:heap) : state :=
 Definition heap_r (h:heap) : state :=
   match h with exist (f,r) _ => r end.
 
-Notation "h '^f'" := (heap_f h)
-   (at level 9, format "h '^f'") : heap_scope.
+Notation "h '^rw'" := (heap_f h)
+   (at level 9, format "h '^rw'") : heap_scope.
 
-Notation "h '^r'" := (heap_r h)
-   (at level 9, format "h '^r'") : heap_scope.
+Notation "h '^ro'" := (heap_r h)
+   (at level 9, format "h '^ro'") : heap_scope.
 
 Open Scope heap_scope.
 
 (** State of heap *)
 
 Coercion heap_state (h : heap) : state :=
-  (h^f \+ h^r).
+  (h^rw \+ h^ro).
 
 (** Empty *)
 
@@ -75,8 +75,8 @@ Proof using. applys Inhab_of_val heap_empty. Qed.
 (** Starable heaps: disjoint owned heaps, agreeible read-only heaps *)
 
 Definition heap_compat (h1 h2 : heap) : Prop :=
-    Fmap.agree (h1^r) (h2^r)
- /\ (\# (h1^f) (h2^f) (h1^r \+ h2^r)).
+    Fmap.agree (h1^ro) (h2^ro)
+ /\ (\# (h1^rw) (h2^rw) (h1^ro \+ h2^ro)).
 
 (** Union of heaps.
     The operation [h1 \u h2] is partial. When the arguments are
@@ -85,7 +85,7 @@ Definition heap_compat (h1 h2 : heap) : Prop :=
     dependently-typed programming. *)
 
 Program Definition heap_union (h1 h2 : heap) : heap :=
-  If (heap_compat h1 h2) then (h1^f \+ h2^f, h1^r \+ h2^r) else arbitrary.
+  If (heap_compat h1 h2) then (h1^rw \+ h2^rw, h1^ro \+ h2^ro) else arbitrary.
 Next Obligation.
   match goal with H: heap_compat _ _ |- _ => destruct H end. fmap_disjoint.
 Qed.
@@ -211,71 +211,72 @@ Ltac fequal_base ::=
 (* ** Equalities on [heap] *)
 
 Lemma heap_fmap_def : forall h,
-  heap_state h = (h^f \+ h^r).
+  heap_state h = (h^rw \+ h^ro).
 Proof using. auto. Qed.
 
 Hint Rewrite heap_fmap_def : rew_disjoint.
 
 Lemma heap_disjoint_components : forall h,
-  \# (h^f) (h^r).
+  \# (h^rw) (h^ro).
 Proof using. intros ((f,r)&D). simple~. Qed.
 
 Lemma heap_make : forall f r,
-  Fmap.disjoint f r -> exists (h:heap), h^f = f /\ h^r = r.
+  Fmap.disjoint f r -> exists (h:heap), h^rw = f /\ h^ro = r.
 Proof using. introv M. exists~ ((exist (f,r) M : heap)). Qed.
 
 Lemma heap_eq : forall h1 h2,
-  (h1^f = h2^f /\ h1^r = h2^r) -> h1 = h2.
+  (h1^rw = h2^rw /\ h1^ro = h2^ro) ->
+  h1 = h2.
 Proof using.
   intros ((f1,r1)&D1) ((f2,r2)&D2) (M1&M2). simpls. subst. fequals.
 Qed.
 
 Lemma heap_eq_forward : forall h1 h2,
   h1 = h2 ->
-  h1^f = h2^f /\ h1^r = h2^r.
+  h1^rw = h2^rw /\ h1^ro = h2^ro.
 Proof using. intros ((f1&r1)&D1) ((f2&r2)&D2) M. inverts~ M. Qed.
 
 Ltac unstate := unfold heap_state; simpl.
 
 (* ---------------------------------------------------------------------- *)
-(* ** Auxiliary function [heap_full] *)
+(* ** Auxiliary function [mkrw] *)
 
-(** [heap_full s] defines the heap [(s,state_empty)], that is, the state
+(** [mkrw s] defines the heap [(s,state_empty)], that is, the state
     [s] viewed with full permission. *)
 
-Program Definition heap_full s : heap :=
+Program Definition mkrw s : heap :=
   (s, Fmap.empty).
 
-Lemma heap_full_f : forall s,
-  (heap_full s)^f = s.
+Lemma mkrw_f : forall s,
+  (mkrw s)^rw = s.
 Proof using. auto. Qed.
 
-Lemma heap_full_r : forall s,
-  (heap_full s)^r = Fmap.empty.
+Lemma mkrw_r : forall s,
+  (mkrw s)^ro = Fmap.empty.
 Proof using. auto. Qed.
 
 (* ---------------------------------------------------------------------- *)
-(* ** Auxiliary function [heap_ro] *)
+(* ** Auxiliary function [toro] *)
 
-(** [heap_ro h] defines the read-only heap associated with [h],
+(** [toro h] defines the read-only heap associated with [h],
     i.e. covering the same memory cells, but with all tagged
     as read-only. *)
 
-Program Definition heap_ro h : heap :=
-  (Fmap.empty, h^f \+ h^r).
+Program Definition toro (h:heap) : heap :=
+  (Fmap.empty, h^rw \+ h^ro).
 
-Lemma heap_ro_f : forall h,
-  (heap_ro h)^f = Fmap.empty.
+Lemma toro_f : forall h,
+  (toro h)^rw = Fmap.empty.
 Proof using. auto. Qed.
 
-Lemma heap_ro_r : forall h,
-  (heap_ro h)^r = h^f \+ h^r.
+Lemma toro_r : forall h,
+  (toro h)^ro = h^rw \+ h^ro.
 Proof using. auto. Qed.
 
-Lemma heap_ro_state : forall h,
-  heap_state (heap_ro h) = heap_state h.
+Lemma toro_state : forall h,
+  heap_state (toro h) = heap_state h.
 Proof using.
-  intros h. do 2 rewrite heap_fmap_def. rewrite heap_ro_f, heap_ro_r.
+  intros h. do 2 rewrite heap_fmap_def. rewrite toro_f, toro_r.
   fmap_eq.
 Qed.
 
@@ -285,7 +286,7 @@ Qed.
 
 Lemma heap_union_def : forall h1 h2,
   heap_compat h1 h2 -> exists D,
-  h1 \u h2 = exist (h1^f \+ h2^f, h1^r \+ h2^r) D.
+  h1 \u h2 = exist (h1^rw \+ h2^rw, h1^ro \+ h2^ro) D.
 Proof using.
   introv M. unfold heap_union.
   rewrite (classicT_l M). esplit. destruct~ M.
@@ -293,15 +294,15 @@ Qed.
 
 Lemma heap_union_spec : forall h1 h2,
   heap_compat h1 h2 ->
-     (h1 \u h2)^f = h1^f \+ h2^f
-  /\ (h1 \u h2)^r = h1^r \+ h2^r.
+     (h1 \u h2)^rw = h1^rw \+ h2^rw
+  /\ (h1 \u h2)^ro = h1^ro \+ h2^ro.
 Proof using.
   introv M. lets (D&E): heap_union_def M. rewrite~ E.
 Qed.
 
 Lemma heap_union_f : forall h1 h2,
   heap_compat h1 h2 ->
-  (h1 \u h2)^f = h1^f \+ h2^f.
+  (h1 \u h2)^rw = h1^rw \+ h2^rw.
 Proof using.
   introv D. unfold heap_union. rewrite (classicT_l D).
   destruct h1 as ((f1,r1)&D1). destruct h2 as ((f2,r2)&D2).
@@ -310,7 +311,7 @@ Qed.
 
 Lemma heap_union_r : forall h1 h2,
   heap_compat h1 h2 ->
-  (h1 \u h2)^r = h1^r \+ h2^r.
+  (h1 \u h2)^ro = h1^ro \+ h2^ro.
 Proof using.
   introv D. unfold heap_union. rewrite (classicT_l D).
   destruct h1 as ((f1,r1)&D1). destruct h2 as ((f2,r2)&D2).
@@ -323,8 +324,8 @@ Qed.
 
 Lemma heap_compat_def : forall h1 h2,
     heap_compat h1 h2
-  =   ( (Fmap.agree h1^r h2^r)
-    /\ (\# (h1^f) (h2^f) (h1^r \+ h2^r))).
+  =   ( (Fmap.agree h1^ro h2^ro)
+    /\ (\# (h1^rw) (h2^rw) (h1^ro \+ h2^ro))).
 Proof using. auto. Qed.
 
 Hint Rewrite heap_compat_def : rew_disjoint.
@@ -373,7 +374,7 @@ Lemma heap_compat_union_r : forall h1 h2 h3,
 Proof using. hint heap_compat_sym, heap_compat_union_l. autos*. Qed.
 
 Lemma heap_compat_refl_if_ro : forall h,
-  h^f = Fmap.empty ->
+  h^rw = Fmap.empty ->
   heap_compat h h.
 Proof using.
   introv M. split.
@@ -383,7 +384,7 @@ Qed.
 
 Lemma heap_compat_ro_l : forall h1 h2,
   heap_compat h1 h2 ->
-  heap_compat (heap_ro h1) h2.
+  heap_compat (toro h1) h2.
 Proof using.
   introv (N1&N2). split; simpl.
   { applys~ Fmap.agree_union_l. applys~ Fmap.agree_of_disjoint. }
@@ -392,19 +393,19 @@ Qed.
 
 Lemma heap_compat_ro_r : forall h1 h2,
   heap_compat h1 h2 ->
-  heap_compat h1 (heap_ro h2).
+  heap_compat h1 (toro h2).
 Proof using.
   hint heap_compat_ro_l, heap_compat_sym. autos*.
 Qed.
 
 Lemma heap_compat_ro : forall h1 h2,
   heap_compat h1 h2 ->
-  heap_compat (heap_ro h1) (heap_ro h2).
+  heap_compat (toro h1) (toro h2).
 Proof using.
   introv (M1&M2). split.
-  { do 2 rewrite heap_ro_r.
+  { do 2 rewrite toro_r.
     applys~ Fmap.agree_union_lr. }
-  { do 2 rewrite heap_ro_f. fmap_disjoint. }
+  { do 2 rewrite toro_f. fmap_disjoint. }
 Qed.
 
 
@@ -480,8 +481,8 @@ Qed.
 Hint Rewrite heap_union_state : rew_fmap.
 
 Hint Rewrite heap_union_empty_l heap_union_empty_r
-  heap_full_f heap_full_r
-  heap_ro_f heap_ro_r heap_union_f heap_union_r : rew_heap.
+  mkrw_f mkrw_r
+  toro_f toro_r heap_union_f heap_union_r : rew_heap.
   (* add heap_union_assoc? *)
 
 Tactic Notation "rew_heap" :=
@@ -694,8 +695,8 @@ Global Opaque heap_affine.
 (* ** Singleton heap *)
 
 Definition hsingle (l:loc) (v:val) : hprop :=
-  fun h =>    h^f = Fmap.single l v
-           /\ h^r = Fmap.empty
+  fun h =>    h^rw = Fmap.single l v
+           /\ h^ro = Fmap.empty
            /\ l <> null.
 
 Notation "l '~~~>' v" := (hsingle l v)
@@ -735,7 +736,7 @@ Definition duplicatable (H:hprop) : Prop :=
 (* ** Definitions and properties of [normal] *)
 
 Class Normal (H:hprop) : Prop :=
-  normal_emp h : H h -> h^r = Fmap.empty.
+  normal_emp h : H h -> h^ro = Fmap.empty.
 Hint Mode Normal ! : typeclass_instances.
 
 Notation Normal_post Q := (forall x, Normal (Q x)).
@@ -790,8 +791,8 @@ Instance Normal_hforall_inhab : forall `{Inhab A} (J:A->hprop),
   Normal_post J ->
   Normal (hforall J).
 Proof using.
-  introv IA M N. lets M': M (arbitrary (A:=A)). lets N': N arbitrary.
-  applys M' N'.
+  introv IA M N. lets M': M (arbitrary (A:=A)). 
+  lets N': N (arbitrary (A:=A)). applys M' N'.
 Qed.
 
 Instance Normal_hforall : forall A (x:A) (J:A->hprop),
@@ -840,8 +841,8 @@ Qed.
 
 Definition RO (H:hprop) : hprop :=
   fun h => exists h', H h'
-                   /\ h^f = Fmap.empty
-                   /\ h^r = h'^f \+ h'^r.
+                   /\ h^rw = Fmap.empty
+                   /\ h^ro = h'^rw \+ h'^ro.
 
 Lemma RO_duplicatable : forall H,
   duplicatable (RO H).
@@ -927,7 +928,7 @@ Lemma RO_star : forall H1 H2,
 Proof using.
   intros. intros h (h'&(h1&h2&N1&P1&P2&N2)&M2&M3).
   lets C: (@heap_compat_ro h1 h2).
-  exists (heap_ro h1) (heap_ro h2). splits.
+  exists (toro h1) (toro h2). splits.
   { exists~ h1. }
   { exists~ h2. }
   { auto. }
@@ -936,9 +937,9 @@ Proof using.
     { rewrite M3,N2. rew_heap~. fmap_eq. } }
 Qed.
 
-Lemma heap_ro_pred : forall (H:hprop) h,
+Lemma toro_pred : forall (H:hprop) h,
   H h ->
-  RO H (heap_ro h).
+  RO H (toro h).
 Proof using. introv N. exists h. split~. Qed.
 
 Arguments RO_star : clear implicits.
@@ -966,14 +967,14 @@ Tactic Notation "himpl_fold" "*" := himpl_fold; auto_star.
 (* ** Definition of Hoare triples in a logic with read-only predicates *)
 
 Definition hoare (t:trm) (H:hprop) (Q:val->hprop) :=
-  forall h, H h -> exists f' v, eval h t (h^r \+ f') v /\ Q v (heap_full f').
+  forall h, H h -> exists f' v, eval h t (h^ro \+ f') v /\ Q v (mkrw f').
 
 (* new:
 
 Definition hoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall h, H h -> exists h' v, eval (heap_state h) t (heap_state h') v
-                             /\ Q v (heap_full (h'^rw))
-                             /\ h'^ro = h^ro.
+                             /\ Q v (mkrw (h'^row))
+                             /\ h'^roo = h^roo.
 *)
 
 Lemma hoare_conseq : forall t H' Q' H Q,
@@ -999,14 +1000,14 @@ Proof using.
   inverts R2.
   specializes N P2. destruct h2 as ((f2,r2)&D2). simpls. subst r2.
   rew_fmap.
-  skip (h&E1&E2): (exists h, h^f = h1^f /\ h^r = h1^r \+ f2).
+  skip (h&E1&E2): (exists h, h^rw = h1^rw /\ h^ro = h1^ro \+ f2).
   (* todo *)
   forwards (f'&v&R&P): M h.
   skip. (* todo *)
   exists (f'\+f2) v. split.
   rewrite heap_fmap_def in R. rewrite E1,E2 in R.
     applys_eq R. fmap_eq. fmap_eq. skip.
-    exists (heap_full f') (heap_full f2). splits*.
+    exists (mkrw f') (mkrw f2). splits*.
     skip.
     skip.
     skip.
@@ -1214,12 +1215,12 @@ Hint Resolve Fmap.agree_empty_l Fmap.agree_empty_r.
 Program Definition on_rw_sub H h :=
   exists h1 h2, heap_compat h1 h2
              /\ h = h1 \u h2
-             /\ h1^r = Fmap.empty
+             /\ h1^ro = Fmap.empty
              /\ H h1.
 
 Lemma on_rw_sub_base : forall H h,
   H h ->
-  h^r = Fmap.empty ->
+  h^ro = Fmap.empty ->
   on_rw_sub H h.
 Proof using.
   intros H h M N. exists h heap_empty. splits~.
@@ -1291,7 +1292,7 @@ Definition triple (t:trm) (H:hprop) (Q:val->hprop) :=
   exists h1' v,
        heap_compat h1' h2
     /\ eval (h1 \u h2) t (h1' \u h2) v
-    /\ h1'^r = h1^r
+    /\ h1'^ro = h1^ro
     /\ on_rw_sub (Q v) h1'.
 
 
@@ -1375,16 +1376,16 @@ Proof using.
   lets R1': heap_compat_ro_r R1.
   lets E12: (rm N) P12.
   subst h1. lets~ (D1&D2): heap_compat_union_l_inv (rm D).
-  asserts R12: (heap_state (heap_ro h12) = heap_state h12).
+  asserts R12: (heap_state (toro h12) = heap_state h12).
   { unstate. rewrite E12. fmap_eq. }
-  asserts C: (heap_compat (h11 \u heap_ro h12) h2).
+  asserts C: (heap_compat (h11 \u toro h12) h2).
   { apply~ heap_compat_union_l. applys~ heap_compat_ro_l. }
-  forwards~ (h1'&v&(N1&N2&N3&N4)): (rm M) (h11 \u (heap_ro h12)) h2.
-  { exists h11 (heap_ro h12). splits~.
-    { applys~ heap_ro_pred. } }
+  forwards~ (h1'&v&(N1&N2&N3&N4)): (rm M) (h11 \u (toro h12)) h2.
+  { exists h11 (toro h12). splits~.
+    { applys~ toro_pred. } }
   rew_heap~ in N3. rewrite E12 in N3.
   lets G: heap_disjoint_components h1'.
-  forwards (h1''&F1&F2): heap_make (h1'^f \+ h12^f) (h11^r).
+  forwards (h1''&F1&F2): heap_make (h1'^rw \+ h12^rw) (h11^ro).
   { rewrite N3 in G. fmap_disjoint. }
   asserts C': (heap_compat h1'' h2).
   { unfolds. rewrite F1,F2. split.
@@ -1408,8 +1409,8 @@ Proof using.
      { unfolds. rewrite E12. split.
        { auto. }
        { lets Gx: heap_disjoint_components hx. rewrite V3. auto. } }
-     forwards~ (hyf&W1&W2): heap_make (hy^f) (Fmap.empty:state).
-     forwards~ (hcr&Y1&Y2): heap_make (Fmap.empty:state) (hc^r).
+     forwards~ (hyf&W1&W2): heap_make (hy^rw) (Fmap.empty:state).
+     forwards~ (hcr&Y1&Y2): heap_make (Fmap.empty:state) (hc^ro).
      (* LATER: find a way to automate these lemmas *)
      (* LATER: automate disjoint_components use by fmap_disjoint *)
      asserts C2: (heap_compat hcr hyf).
@@ -1582,7 +1583,7 @@ Proof using.
         rewrite~ heap_union_assoc. }
       { rewrite~ heap_union_assoc. } } }
   { rew_heap~. rewrite T3. rew_heap~. rewrite <- N3. rew_heap~.
-    rewrite (Fmap.union_comm_of_agree (hx^r \+ hy^r) h12^r).
+    rewrite (Fmap.union_comm_of_agree (hx^ro \+ hy^ro) h12^ro).
     rewrite~ Fmap.union_assoc. applys Fmap.agree_union_l.
     destruct~ N1aa. destruct~ N1ba. }
   { applys~ on_rw_sub_union_r. }
@@ -1725,7 +1726,7 @@ Qed.
 (* ** Definition of the [normally] modality *)
 
 Definition normally H : hprop :=
-  fun h => H h /\ h^r = Fmap.empty.
+  fun h => H h /\ h^ro = Fmap.empty.
 
 Instance Normal_normally : forall H,
   Normal (normally H).
@@ -1891,16 +1892,16 @@ Proof using.
   lets R1': heap_compat_ro_r R1.
   destruct P12 as (N&E12).
   subst h1. lets~ (D1&D2): heap_compat_union_l_inv (rm D).
-  asserts R12: (heap_state (heap_ro h12) = heap_state h12).
+  asserts R12: (heap_state (toro h12) = heap_state h12).
   { unstate. rewrite E12. fmap_eq. }
-  asserts C: (heap_compat (h11 \u heap_ro h12) h2).
+  asserts C: (heap_compat (h11 \u toro h12) h2).
   { apply~ heap_compat_union_l. applys~ heap_compat_ro_l. }
-  forwards~ (h1'&v&(N1&N2&N3&N4)): (rm M) (h11 \u (heap_ro h12)) h2.
-  { exists h11 (heap_ro h12). splits~.
-    { applys~ heap_ro_pred. } }
+  forwards~ (h1'&v&(N1&N2&N3&N4)): (rm M) (h11 \u (toro h12)) h2.
+  { exists h11 (toro h12). splits~.
+    { applys~ toro_pred. } }
   rew_heap~ in N3. rewrite E12 in N3.
   lets G: heap_disjoint_components h1'.
-  forwards (h1''&F1&F2): heap_make (h1'^f \+ h12^f) (h11^r).
+  forwards (h1''&F1&F2): heap_make (h1'^rw \+ h12^rw) (h11^ro).
   { rewrite N3 in G. fmap_disjoint. }
   asserts C': (heap_compat h1'' h2).
   { unfolds. rewrite F1,F2. split.
@@ -1924,8 +1925,8 @@ Proof using.
      { unfolds. rewrite E12. split.
        { auto. }
        { lets Gx: heap_disjoint_components hx. rewrite V3. auto. } }
-     forwards~ (hyf&W1&W2): heap_make (hy^f) (Fmap.empty:state).
-     forwards~ (hcr&Y1&Y2): heap_make (Fmap.empty:state) (hc^r).
+     forwards~ (hyf&W1&W2): heap_make (hy^rw) (Fmap.empty:state).
+     forwards~ (hcr&Y1&Y2): heap_make (Fmap.empty:state) (hc^ro).
      (* LATER: find a way to automate these lemmas *)
      (* LATER: automate disjoint_components use by fmap_disjoint *)
      asserts C2: (heap_compat hcr hyf).
