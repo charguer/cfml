@@ -344,7 +344,7 @@ Parameter heap_affine_onlyrw : forall h,
   h^ro = Fmap.empty.
 
 Parameter heap_affine_empty :
-  heap_affine Fmap.empty.
+  heap_affine heap_empty.
 
 Parameter heap_affine_union : forall h1 h2,
   heap_affine h1 ->

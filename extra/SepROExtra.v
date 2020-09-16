@@ -347,3 +347,110 @@ Lemma disjoint_to_ro : forall h1 h2,
   disjoint h1 h2 ->
   disjoint h1 (to_ro h2).
 Proof using. introv M. rewrite* disjoint_to_ro_eq. Qed.
+
+
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Definitions and properties of [normal] *)
+
+Class Normal (H:hprop) : Prop :=
+  normal_emp h : H h -> h^ro = Fmap.empty.
+Hint Mode Normal ! : typeclass_instances.
+
+Notation Normal_post Q := (forall x, Normal (Q x)).
+
+Instance Normal_hempty :
+  Normal \[].
+Proof using.
+  Transparent hempty hpure.
+  introv M. unfolds hempty, hpure. subst. autos*.
+Qed.
+
+Instance Normal_hpure : forall P,
+  Normal \[P].
+Proof using.
+  Transparent hpure.
+  introv (p&M). unfolds hempty. subst. auto.
+Qed.
+
+Lemma Normal_hempty' : (* simpler proof *)
+  Normal \[].
+Proof using.
+  intros. rewrite hempty_eq_hpure_true. applys~ Normal_hpure.
+Qed.
+
+Instance Normal_hsingle : forall l v,
+  Normal (hsingle l v).
+Proof using.
+  Transparent hsingle.
+  introv M. unfolds hsingle. autos*.
+Qed.
+
+Instance Normal_hstar : forall H1 H2,
+  Normal H1 ->
+  Normal H2 ->
+  Normal (H1 \* H2).
+Proof using.
+  introv N1 N2 (h1&h2&P1&P2&M1&EQ).
+  lets (_&E): heap_eq_forward EQ. simpls. rewrite E.
+  rewrite~ heap_union_r.
+  rewrites (>> N1 P1). rewrites (>> N2 P2).
+  rewrite~ Fmap.union_empty_r.
+Qed.
+
+Generalizable Variables A. (* TODO: move *)
+
+Instance Normal_hexists : forall A (J:A->hprop),
+  Normal_post J ->
+  Normal (hexists J).
+Proof using. introv M (x&N). rewrites~ (>> M N). Qed.
+
+Instance Normal_hforall_inhab : forall `{Inhab A} (J:A->hprop),
+  Normal_post J ->
+  Normal (hforall J).
+Proof using.
+  introv IA M N. lets M': M (arbitrary (A:=A)). 
+  lets N': N (arbitrary (A:=A)). applys M' N'.
+Qed.
+
+Instance Normal_hforall : forall A (x:A) (J:A->hprop),
+  Normal (J x) ->
+  Normal (hforall J).
+Proof using. introv M N. applys M N. Qed.
+
+Instance Normal_hor : forall H1 H2,
+  Normal H1 ->
+  Normal H2 ->
+  Normal (hor H1 H2).
+Proof using. introv M1 M2. applys Normal_hexists. intros b. case_if*. Qed.
+
+Instance Normal_hand_l : forall H1 H2,
+  Normal H1 ->
+  Normal (hand H1 H2).
+Proof using. introv M1. applys* Normal_hforall true. Qed.
+
+Instance Normal_hand_r : forall H1 H2,
+  Normal H2 ->
+  Normal (hand H1 H2).
+Proof using. introv M1. applys* Normal_hforall false. Qed.
+
+Lemma Normal_himpl : forall H1 H2,
+  Normal H2 ->
+  (H1 ==> H2) ->
+  Normal H1.
+Proof using. introv HS HI M. lets: HI M. applys* HS. Qed.
+
+(* Note: Normal_hwand is not true *)
+
+Lemma Normal_hpure_star_hpure : forall (P:Prop) H,
+  (P -> Normal H) ->
+  Normal (\[P] \* H).
+Proof using.
+  introv N (h1&h2&P1&P2&M1&EQ).
+  lets (_&E): heap_eq_forward EQ. simpls. rewrite E.
+  rewrite~ heap_union_r.
+  lets (MP&ME): hpure_inv P1. rewrites (rm ME).
+  rewrites~ (>> N P2). rew_fmap~.
+Qed.

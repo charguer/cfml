@@ -21,6 +21,7 @@ From Sep Require Import Fmap.
 Import NotationForFmapDisjoint.
 Open Scope fmap_scope.
 Arguments exist [A] [P].
+Generalizable Variable A.
 
 
 (* ********************************************************************** *)
@@ -38,10 +39,6 @@ Declare Scope heap_scope.
 
 Definition heap : Type :=
   { h : (state*state)%type | let '(f,r) := h in Fmap.disjoint f r }.
-
-(** Affinity is trivial *)
-
-Definition heap_affine (h:heap) := True.
 
 (** Projections *)
 
@@ -97,6 +94,28 @@ Notation "h1 \u h2" := (heap_union h1 h2)
 
 Local Open Scope heap_union_scope.
 
+(** Affinity is customizable. Only rw permissions may be considered
+    affine. RO permissions may be freely discarded by other means. *)
+
+Parameter heap_affine : heap -> Prop. (* (h:heap) := True.*)
+
+Parameter heap_affine_onlyrw : forall h,
+  heap_affine h ->
+  h^ro = Fmap.empty.
+
+Parameter heap_affine_empty :
+  heap_affine heap_empty.
+
+Parameter heap_affine_union : forall h1 h2,
+  heap_affine h1 ->
+  heap_affine h2 ->
+  heap_compat h1 h2 ->
+  heap_affine (heap_union h1 h2).
+
+Parameter heap_affine_union_inv : forall h1 h2,
+  heap_affine (heap_union h1 h2) ->
+  heap_affine h1 /\ heap_affine h2.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Hprop *)
@@ -145,10 +164,6 @@ Proof using. introv M1 M2. applys pred_ext_1. intros h. iff*. Qed.
 
 Definition haffine (H : hprop) : Prop :=
   forall h, H h -> heap_affine h.
-
-Lemma haffine_any : forall H,
-  haffine H.
-Proof using. introv M. hnfs*. Qed.
 
 (** Heap predicates *)
 
@@ -254,6 +269,12 @@ Proof using. auto. Qed.
 Lemma mkrw_r : forall s,
   (mkrw s)^ro = Fmap.empty.
 Proof using. auto. Qed.
+
+Lemma mkrw_heap_f_of_ro_empty : forall h,
+  h^ro = empty ->
+  (mkrw h^rw) = h.
+Proof using. intros ((f,r),D) E. applys heap_eq. simpls*. Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Auxiliary function [toro] *)
@@ -627,13 +648,17 @@ Proof using. introv W (h1&h2&?). exists* h1 h2. Qed.
 
 Lemma haffine_hempty :
   haffine \[].
-Proof using. applys haffine_any. Qed.
+Proof using.
+  introv K. rewrite (hempty_inv K). applys heap_affine_empty.
+Qed.
 
 Lemma haffine_hstar : forall H1 H2,
   haffine H1 ->
   haffine H2 ->
   haffine (H1 \* H2).
-Proof using. intros. applys haffine_any. Qed.
+Proof using.
+  introv M1 M2 (h1&h2&K1&K2&D&->). applys* heap_affine_union.
+Qed.
 
 End Properties.
 
@@ -682,10 +707,6 @@ Lemma hstar_intro : forall H1 H2 h1 h2,
 Proof using. intros. exists~ h1 h2. Qed.
 (* LATER: use in proofs *)
 
-Lemma hgc_intro : forall h,
-  \GC h.
-Proof using. intros. applys hgc_of_heap_affine. hnfs*. Qed.
-
 End Aux.
 
 Global Opaque heap_affine.
@@ -732,108 +753,212 @@ Definition duplicatable (H:hprop) : Prop :=
   H ==> H \* H.
 
 
+
 (* ---------------------------------------------------------------------- *)
-(* ** Definitions and properties of [normal] *)
+(* ** Definitions and properties of [onlyrw] *)
 
-Class Normal (H:hprop) : Prop :=
-  normal_emp h : H h -> h^ro = Fmap.empty.
-Hint Mode Normal ! : typeclass_instances.
+Definition onlyrw (H:hprop) : Prop :=
+  forall h, H h -> h^ro = Fmap.empty.
 
-Notation Normal_post Q := (forall x, Normal (Q x)).
+Definition onlyrw_post A (Q:A->hprop) : Prop :=
+  forall x, onlyrw (Q x).
 
-Instance Normal_hempty :
-  Normal \[].
+Lemma onlyrw_ro : forall H h,
+  onlyrw H ->
+  H h ->
+  h^ro = Fmap.empty.
+Proof using. introv N K. applys* N. Qed.
+
+Lemma onlyrw_rw : forall H h,
+  onlyrw H ->
+  H h ->
+  h^rw = h.
+Proof using.
+  introv N K. specializes N (rm K).
+  rewrite heap_fmap_def. rewrite N. rew_fmap*.
+Qed.
+
+Lemma onlyrw_of_haffine : forall H,
+  haffine H ->
+  onlyrw H.
+Proof using.
+  introv M. intros h K. rewrite haffine_eq in M.
+  specializes M K. applys* heap_affine_onlyrw.
+Qed.
+
+Lemma onlyrw_hempty :
+  onlyrw \[].
 Proof using.
   Transparent hempty hpure.
-  introv M. unfolds hempty, hpure. subst. autos*.
+  introv M. unfolds hempty, hpure. subst. rew_heap*.
 Qed.
 
-Instance Normal_hpure : forall P,
-  Normal \[P].
+Lemma onlyrw_hpure : forall P,
+  onlyrw \[P].
 Proof using.
   Transparent hpure.
-  introv (p&M). unfolds hempty. subst. auto.
+  introv (p&M). unfolds hempty. subst. rew_heap*.
 Qed.
 
-Lemma Normal_hempty' : (* simpler proof *)
-  Normal \[].
+Lemma onlyrw_hgc :
+  onlyrw \GC.
 Proof using.
-  intros. rewrite hempty_eq_hpure_true. applys~ Normal_hpure.
+  introv (H&M). rewrite hstar_hpure_l in M. destruct M as (F&R).
+  applys* heap_affine_onlyrw. rewrite haffine_eq in F. applys* F.
 Qed.
 
-Instance Normal_hsingle : forall l v,
-  Normal (hsingle l v).
+Lemma onlyrw_hempty' : (* simpler proof *)
+  onlyrw \[].
 Proof using.
-  Transparent hsingle.
-  introv M. unfolds hsingle. autos*.
+  intros. rewrite hempty_eq_hpure_true. applys~ onlyrw_hpure.
 Qed.
 
-Instance Normal_hstar : forall H1 H2,
-  Normal H1 ->
-  Normal H2 ->
-  Normal (H1 \* H2).
+Lemma onlyrw_hsingle : forall l v,
+  onlyrw (hsingle l v).
+Proof using. introv (E&N). autos*. Qed.
+
+Lemma onlyrw_hstar : forall H1 H2,
+  onlyrw H1 ->
+  onlyrw H2 ->
+  onlyrw (H1 \* H2).
 Proof using.
-  introv N1 N2 (h1&h2&P1&P2&M1&EQ).
-  lets (_&E): heap_eq_forward EQ. simpls. rewrite E.
-  rewrite~ heap_union_r.
-  rewrites (>> N1 P1). rewrites (>> N2 P2).
-  rewrite~ Fmap.union_empty_r.
+  introv N1 N2 (h1&h2&P1&P2&M1&->). rew_heap*.
+  rewrites (>> N1 P1). rewrites (>> N2 P2). rew_fmap*.
 Qed.
 
-Generalizable Variables A. (* TODO: move *)
-
-Instance Normal_hexists : forall A (J:A->hprop),
-  Normal_post J ->
-  Normal (hexists J).
+Lemma onlyrw_hexists : forall A (J:A->hprop),
+  onlyrw_post J ->
+  onlyrw (hexists J).
 Proof using. introv M (x&N). rewrites~ (>> M N). Qed.
 
-Instance Normal_hforall_inhab : forall `{Inhab A} (J:A->hprop),
-  Normal_post J ->
-  Normal (hforall J).
+Hint Resolve onlyrw_hempty onlyrw_hstar onlyrw_hgc : onlyrw.
+
+(* Remaining lemmas are not needed for the soundness proof,
+   but may be needed by clients. *)
+
+Lemma onlyrw_hforall_inhab : forall `{Inhab A} (J:A->hprop),
+  onlyrw_post J ->
+  onlyrw (hforall J).
 Proof using.
-  introv IA M N. lets M': M (arbitrary (A:=A)). 
-  lets N': N (arbitrary (A:=A)). applys M' N'.
+  introv IA M N. lets M': M (arbitrary (A:=A)). lets N': N (arbitrary (A:=A)).
+  applys M' N'.
 Qed.
 
-Instance Normal_hforall : forall A (x:A) (J:A->hprop),
-  Normal (J x) ->
-  Normal (hforall J).
+Lemma onlyrw_hforall : forall A (x:A) (J:A->hprop),
+  onlyrw (J x) ->
+  onlyrw (hforall J).
 Proof using. introv M N. applys M N. Qed.
 
-Instance Normal_hor : forall H1 H2,
-  Normal H1 ->
-  Normal H2 ->
-  Normal (hor H1 H2).
-Proof using. introv M1 M2. applys Normal_hexists. intros b. case_if*. Qed.
+Lemma onlyrw_hor : forall H1 H2,
+  onlyrw H1 ->
+  onlyrw H2 ->
+  onlyrw (hor H1 H2).
+Proof using. introv M1 M2. applys onlyrw_hexists. intros b. case_if*. Qed.
 
-Instance Normal_hand_l : forall H1 H2,
-  Normal H1 ->
-  Normal (hand H1 H2).
-Proof using. introv M1. applys* Normal_hforall true. Qed.
+Lemma onlyrw_hand_l : forall H1 H2,
+  onlyrw H1 ->
+  onlyrw (hand H1 H2).
+Proof using. introv M1. applys* onlyrw_hforall true. Qed.
 
-Instance Normal_hand_r : forall H1 H2,
-  Normal H2 ->
-  Normal (hand H1 H2).
-Proof using. introv M1. applys* Normal_hforall false. Qed.
+Lemma onlyrw_hand_r : forall H1 H2,
+  onlyrw H2 ->
+  onlyrw (hand H1 H2).
+Proof using. introv M1. applys* onlyrw_hforall false. Qed.
 
-Lemma Normal_himpl : forall H1 H2,
-  Normal H2 ->
+Lemma onlyrw_himpl : forall H1 H2,
+  onlyrw H2 ->
   (H1 ==> H2) ->
-  Normal H1.
+  onlyrw H1.
 Proof using. introv HS HI M. lets: HI M. applys* HS. Qed.
 
-(* Note: Normal_hwand is not true *)
+(* Note: onlyrw_hwand is not true *)
 
-Lemma Normal_hpure_star_hpure : forall (P:Prop) H,
-  (P -> Normal H) ->
-  Normal (\[P] \* H).
+Lemma onlyrw_hpure_star_hpure : forall (P:Prop) H,
+  (P -> onlyrw H) ->
+  onlyrw (\[P] \* H).
 Proof using.
-  introv N (h1&h2&P1&P2&M1&EQ).
-  lets (_&E): heap_eq_forward EQ. simpls. rewrite E.
-  rewrite~ heap_union_r.
+  introv N (h1&h2&P1&P2&M1&->). rew_heap*.
   lets (MP&ME): hpure_inv P1. rewrites (rm ME).
-  rewrites~ (>> N P2). rew_fmap~.
+  rew_fmap. rewrites~ (>> N P2).
 Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** onlyro *)
+
+Definition onlyro (H:hprop) : Prop :=
+  forall h, H h -> h^rw = Fmap.empty.
+
+Definition onlyro_post A (Q:A->hprop) : Prop :=
+  forall x, onlyro (Q x).
+
+Lemma onlyro_rw : forall H h,
+  onlyro H ->
+  H h ->
+  h^rw = Fmap.empty.
+Proof using. introv N K. applys* N. Qed.
+
+Lemma onlyro_hempty :
+  onlyro hempty.
+Proof using.
+  introv M. unfolds hempty, hpure. subst. rew_heap*.
+Qed.
+
+Lemma onlyro_hstar : forall H1 H2,
+  onlyro H1 ->
+  onlyro H2 ->
+  onlyro (H1 \* H2).
+Proof using.
+  introv N1 N2 (h1&h2&P1&P2&M1&EQ). subst. rew_heap*.
+  rewrite* N1. rewrite* N2. rew_fmap*.
+Qed.
+
+Hint Resolve onlyro_hstar onlyro_hempty : onlyro.
+
+(* Remaining lemmas are not needed for the soundness proof,
+   but may be needed by clients. *)
+(* TODO: maybe try to factorize proofs/statements with onlyrw? *)
+
+Lemma onlyro_hexists : forall A (J:A->hprop),
+  onlyro_post J ->
+  onlyro (hexists J).
+Proof using. introv M (x&N). rewrites~ (>> M N). Qed.
+
+Lemma onlyro_hforall_inhab : forall `{Inhab A} (J:A->hprop),
+  onlyro_post J ->
+  onlyro (hforall J).
+Proof using.
+  introv IA M N. lets M': M (arbitrary (A:=A)). lets N': N (arbitrary (A:=A)).
+  applys M' N'.
+Qed.
+
+Lemma onlyro_hforall : forall A (x:A) (J:A->hprop),
+  onlyro (J x) ->
+  onlyro (hforall J).
+Proof using. introv M N. applys M N. Qed.
+
+Lemma onlyro_hor : forall H1 H2,
+  onlyro H1 ->
+  onlyro H2 ->
+  onlyro (hor H1 H2).
+Proof using. introv M1 M2. applys onlyro_hexists. intros b. case_if*. Qed.
+
+Lemma onlyro_hand_l : forall H1 H2,
+  onlyro H1 ->
+  onlyro (hand H1 H2).
+Proof using. introv M1. applys* onlyro_hforall true. Qed.
+
+Lemma onlyro_hand_r : forall H1 H2,
+  onlyro H2 ->
+  onlyro (hand H1 H2).
+Proof using. introv M1. applys* onlyro_hforall false. Qed.
+
+Lemma onlyro_himpl : forall H1 H2,
+  onlyro H2 ->
+  (H1 ==> H2) ->
+  onlyro H1.
+Proof using. introv HS HI M. lets: HI M. applys* HS. Qed.
+
 
 
 (* ---------------------------------------------------------------------- *)
@@ -944,6 +1069,82 @@ Proof using. introv N. exists h. split~. Qed.
 
 Arguments RO_star : clear implicits.
 
+
+(* ********************************************************************** *)
+(* * Elimination lemmas useful to simplify proofs *)
+
+(* TODO: rename *)
+
+Lemma onlyrw_rw_elim : forall H h,
+  onlyrw H ->
+  H h ->
+  H (mkrw (h^rw)).
+Proof using. introv N K. rewrite~ mkrw_heap_f_of_ro_empty. Qed.
+
+Lemma onlyrw_onlyro_rw_elim : forall HF HR h,
+  onlyrw HF ->
+  onlyro HR ->
+  (HF \* HR) h ->
+  HF (mkrw (h^rw)).
+Proof using.
+  introv NF NR (h1&h2&K1&K2&D&->). rew_heap*.
+  rewrites* (>> onlyro_rw K2). rew_fmap.
+  rewrite~ mkrw_heap_f_of_ro_empty.
+Qed.
+
+
+(* ********************************************************************** *)
+(* isframe *)
+
+Definition isframe (HI HO:hprop) : Prop :=
+  exists HR, onlyrw HO /\ onlyro HR /\ HI = HO \* HR.
+
+Lemma isframe_rw_elim : forall HI HO h,
+  isframe HI HO ->
+  HI h ->
+  HO (mkrw (h^rw)).
+Proof using.
+  introv (R&NF&NR&->) M. applys* onlyrw_onlyro_rw_elim.
+Qed.
+
+Lemma isframe_hempty :
+  isframe \[] \[].
+Proof using.
+  exists \[]. splits*.
+  { auto with onlyrw. }
+  { auto with onlyro. }
+  { subst. xsimpl. }
+Qed.
+
+Lemma isframe_onlyrw : forall HI HO H,
+  isframe HI HO ->
+  onlyrw H ->
+  isframe (HI \* H) (HO \* H).
+Proof using.
+  introv (HR&NF&NR&E) N.
+  exists HR. splits*.
+  { auto with onlyrw. }
+  { subst. xsimpl. }
+Qed.
+
+Lemma isframe_onlyro : forall HI HO H,
+  isframe HI HO ->
+  onlyro H ->
+  isframe (HI \* H) HO.
+Proof using.
+  introv (HR&NF&NR&E) N.
+  exists (HR \* H). splits*.
+  { auto with onlyro. }
+  { subst. xsimpl. }
+Qed.
+
+Lemma onlyrw_of_isframe : forall HI HO,
+  isframe HI HO ->
+  onlyrw HO.
+Proof using. introv (R&NF&NR&E) M. auto. Qed.
+
+
+
 (* ********************************************************************** *)
 (* * Reasoning rules, high-level proofs *)
 
@@ -963,19 +1164,16 @@ Tactic Notation "himpl_fold" := himpl_fold_core tt.
 Tactic Notation "himpl_fold" "~" := himpl_fold; auto_tilde.
 Tactic Notation "himpl_fold" "*" := himpl_fold; auto_star.
 
+(* TODO: remove *)
+
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of Hoare triples in a logic with read-only predicates *)
 
 Definition hoare (t:trm) (H:hprop) (Q:val->hprop) :=
-  forall h, H h -> exists f' v, eval h t (h^ro \+ f') v /\ Q v (mkrw f').
-
-(* new:
-
-Definition hoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall h, H h -> exists h' v, eval (heap_state h) t (heap_state h') v
-                             /\ Q v (mkrw (h'^row))
-                             /\ h'^roo = h^roo.
-*)
+                             /\ Q v (mkrw (h'^rw))
+                             /\ h'^ro = h^ro.
+
 
 Lemma hoare_conseq : forall t H' Q' H Q,
   hoare t H' Q' ->
@@ -983,7 +1181,7 @@ Lemma hoare_conseq : forall t H' Q' H Q,
   Q' ===> Q ->
   hoare t H Q.
 Proof using.
-  introv M MH MQ HF. forwards (h'&v&R&K): M h.
+  introv M MH MQ HF. forwards (h'&v&R&K&E): M h.
   { himpl_fold~. }
   exists h' v. splits~. { himpl_fold. auto. }
 Qed.
