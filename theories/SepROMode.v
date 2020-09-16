@@ -1172,6 +1172,7 @@ Global Opaque hsingle.
 
 (* ---------------------------------------------------------------------- *)
 (* ** Compatibility with singleton heaps *)
+(* TODO: simplify this section *)
 
 Lemma disjoint_of_compat_single : forall p v h1 h2,
   heap_compat h1 h2 ->
