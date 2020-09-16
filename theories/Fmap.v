@@ -796,8 +796,11 @@ Tactic Notation "rew_disjoint" :=
 Tactic Notation "rew_disjoint" "*" :=
   rew_disjoint; auto_star.
 
+Ltac fmap_disjoint_pre tt :=
+  subst; rew_disjoint; jauto_set.
+
 Tactic Notation "fmap_disjoint" :=
-  solve [ subst; rew_disjoint; jauto_set; auto ].
+  solve [ fmap_disjoint_pre tt; auto ].
 
 Lemma disjoint_demo : forall A B (h1 h2 h3 h4 h5:fmap A B),
   h1 = h2 \+ h3 ->

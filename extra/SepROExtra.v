@@ -322,3 +322,20 @@ Proof using. intros. applys hgc_of_heap_affine. hnfs*. Qed.
 Definition RO' (H:hprop) : hprop :=
   \exists h', \[H h'] \* (= to_ro h').
  *)
+
+
+
+Lemma proj_proj_swap : forall h m1 m2,
+  (h^m1)^m2 = (h^m2)^m1.
+Proof using.
+  intros. unfold proj. applys* filter_swap.
+Qed.
+
+(* Corollary for automation *)
+Lemma disjoint_proj_proj_swap : forall h1 h2 m11 m12 m21 m22,
+  disjoint (h1^m11) (h2^m21) ->
+  disjoint ((h1^m12)^m11) ((h2^m22)^m21).
+Proof using.
+  introv D. rewrite (proj_proj_swap h1), (proj_proj_swap h2).
+  applys* disjoint_proj.
+Qed.

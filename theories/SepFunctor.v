@@ -674,7 +674,7 @@ Proof using. introv F1 (x&Hx). applys* F1. Qed.
 Lemma haffine_hforall : forall A `{Inhab A} (J:A->hprop),
   haffine_post J ->
   haffine (hforall J).
-Proof using. introv IA F1 Hx. applys* F1 arbitrary. Qed.
+Proof using. introv IA F1 Hx. applys* F1 (arbitrary (A:=A)). Qed.
 
 Lemma haffine_hpure : forall P,
   haffine \[P].

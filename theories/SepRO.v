@@ -20,7 +20,7 @@ From Sep Require Export Semantics SepFunctor.
 From Sep Require Import Fmap.
 Import NotationForFmapDisjoint.
 Open Scope fmap_scope.
-Arguments exist [A] [P].
+Arguments exist [A] [P].  
 
 
 (* ********************************************************************** *)
@@ -461,7 +461,10 @@ Proof using.
   unstate. fmap_eq.
 Qed.
 
+(* Extend the tactics [rew_fmap] and [fmap_eq] with distribution 
+   of [heap_state] over union. *)
 Hint Rewrite heap_union_state : rew_fmap.
+Hint Rewrite heap_union_state : rew_fmap_for_fmap_eq.
 
 Hint Rewrite heap_union_empty_l heap_union_empty_r
   heap_ro_f heap_ro_r heap_union_f heap_union_r : rew_heap.
@@ -773,8 +776,8 @@ Instance Normal_hforall_inhab : forall `{Inhab A} (J:A->hprop),
   Normal_post J ->
   Normal (hforall J).
 Proof using.
-  introv IA M N. lets M': M arbitrary. lets N': N arbitrary.
-  applys M' N'.
+  introv IA M N. lets M': M (arbitrary (A:=A)). 
+  lets N': N (arbitrary (A:=A)). applys M' N'.
 Qed.
 
 Instance Normal_hforall : forall A (x:A) (J:A->hprop),
@@ -1511,7 +1514,7 @@ Lemma normally_hforall : forall A `{IA:Inhab A} (J:A->hprop),
 Proof using.
   intros. unfolds normally, hforall. applys himpl_antisym.
   { intros h N x. autos*. }
-  { intros h N. lets (_&E): N arbitrary. split.
+  { intros h N. lets (_&E): N (arbitrary (A:=A)). split.
     { intros x. forwards*: N x. }
     { auto. } }
 Qed.

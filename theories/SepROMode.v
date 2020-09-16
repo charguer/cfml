@@ -277,20 +277,19 @@ Implicit Types m : mode.
 
 Definition heap : Type := fmap loc (val*mode)%type.
 
-(** Projections of the rw or ro part of a heap *)
+(** projions of the rw or ro part of a heap *)
 
-Definition filter_mode (m:mode) (h:heap) : heap :=
+Definition proj (m:mode) (h:heap) : heap :=
   Fmap.filter (fun l '(v,m') => m = m') h.
 
-Notation "h '^' m" := (filter_mode m h) : heap_scope.
+Notation "h '^' m" := (proj m h) : heap_scope.
 
 (* Notation with higher priority *)
 
-Notation "h '^rw'" := (filter_mode mode_rw h)
+Notation "h '^rw'" := (proj mode_rw h)
   (at level 9, format "h '^rw'") : heap_scope.
-Notation "h '^ro'" := (filter_mode mode_ro h)
+Notation "h '^ro'" := (proj mode_ro h)
   (at level 9, format "h '^ro'") : heap_scope.
-
 
 Open Scope heap_scope.
 
@@ -440,11 +439,8 @@ Notation "Q \*+ H" := (fun x => hstar (Q x) H)
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic for automation *)
 
-Tactic Notation "fmap_disjoint_pre" :=
-  subst; rew_disjoint; jauto_set.
-
-Hint Extern 1 (\# _ _) => fmap_disjoint_pre.
-Hint Extern 1 (\# _ _ _) => fmap_disjoint_pre.
+Hint Extern 1 (\# _ _) => fmap_disjoint_pre tt.
+Hint Extern 1 (\# _ _ _) => fmap_disjoint_pre tt.
 
 Tactic Notation "rew_heap" :=
   autorewrite with rew_heap.
@@ -472,23 +468,25 @@ Hint Rewrite union_assoc union_empty_l union_empty_r : rew_heap.
 
 (* ---------------------------------------------------------------------- *)
 
-Lemma disjoint_filter_mode : forall h1 h2 m1 m2,
+Lemma disjoint_proj : forall h1 h2 m1 m2,
   disjoint h1 h2 ->
-  disjoint (filter_mode m1 h1) (filter_mode m2 h2).
+  disjoint (proj m1 h1) (proj m2 h2).
 Proof using.
   autos* disjoint_filter disjoint_sym. (* TODO: slow *)
 Qed.
 
-Lemma agree_filter_mode : forall h1 h2 m1 m2,
+Lemma agree_proj : forall h1 h2 m1 m2,
   agree h1 h2 ->
-  agree (filter_mode m1 h1) (filter_mode m2 h2).
+  agree (proj m1 h1) (proj m2 h2).
 Proof using.
   introv D. autos* agree_filter agree_sym. (* TODO: slow *)
 Qed.
 
+(* TODO: would one sided versions of these lemmas be sufficient? helpful? *)
+
 (* ---------------------------------------------------------------------- *)
 
-Lemma heap_disjoint_components : forall h,
+Lemma disjoint_components : forall h,
   disjoint (h^rw) (h^ro).
 Proof using.
   intros. forwards* (E&D): filter_partition h (h^rw) (h^ro).
@@ -499,17 +497,17 @@ Lemma heap_compat_of_disjoint : forall h1 h2,
   disjoint h1 h2 ->
   heap_compat h1 h2.
 Proof using.
-  introv D. lets E1: heap_disjoint_components h1.
-  lets E2: heap_disjoint_components h2. split.
+  introv D. lets E1: disjoint_components h1.
+  lets E2: disjoint_components h2. split.
   { splits; rew_disjoint; try splits;
-    try solve [ assumption | applys* disjoint_filter_mode ]. }
-  { applys agree_of_disjoint. applys* disjoint_filter_mode. }
+    try solve [ assumption | applys* disjoint_proj ]. }
+  { applys agree_of_disjoint. applys* disjoint_proj. }
 Qed.
 
-Lemma heap_eq_disjoint_map_union_rw_ro : forall h,
+Lemma heap_fmap_components : forall h,
   h = (h^rw) \+ (h^ro) /\ disjoint (h^rw) (h^ro).
 Proof using.
-  intros. lets D: heap_disjoint_components h.
+  intros. lets D: disjoint_components h.
   forwards* (E&D'): filter_partition h (h^rw) (h^ro).
   { intros x (v,m) _ _ K1 K2. false. }
 Qed.
@@ -521,11 +519,21 @@ Proof using. introv D. unfold heap_union. case_if*. Qed.
 
 Hint Rewrite heap_union_eq_of_compat : rew_fmap.
 
-Lemma heap_eq_disjoint_union_rw_ro : forall h,
+Lemma heap_components : forall h,
   h = (h^rw) \u (h^ro) /\ disjoint (h^rw) (h^ro).
 Proof using.
-  intros. lets (E&D): heap_eq_disjoint_map_union_rw_ro h.
+  intros. lets (E&D): heap_fmap_components h.
   rewrite* heap_union_eq_of_compat. applys* heap_compat_of_disjoint.
+Qed.
+
+Lemma disjoint_of_disjoint_components : forall h1 h2,
+  disjoint h1 (h2^rw) ->
+  disjoint h1 (h2^ro) ->
+  disjoint h1 h2.
+Proof using.
+  introv M1 M2. forwards (E&D): heap_components h2.
+  lets D': heap_compat_of_disjoint D.
+  rewrite E. rewrite* heap_union_eq_of_compat.
 Qed.
 
 Lemma disjoint_heap_state : forall h1 h2,
@@ -538,61 +546,46 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Properties of [filter_mode] *)
+(* ** Properties of [proj] *)
 
 (* Corollary *)
 Lemma heap_compat_components : forall h,
   heap_compat (h^rw) (h^ro).
-Proof using. intros. applys heap_compat_of_disjoint. applys heap_disjoint_components. Qed.
+Proof using. intros. applys heap_compat_of_disjoint. applys disjoint_components. Qed.
 
-Lemma filter_mode_heap_empty : forall m,
+Lemma proj_heap_empty : forall m,
   (heap_empty^m) = empty.
 Proof using.
-  intros. unfold filter_mode, heap_empty. rewrite* filter_empty.
+  intros. unfold proj, heap_empty. rewrite* filter_empty.
 Qed.
 
-Hint Rewrite filter_mode_heap_empty : rew_heap.
+Hint Rewrite proj_heap_empty : rew_heap.
 
-Lemma filter_modes_eq : forall h m,
+Lemma proj_idempotent : forall h m,
   (h^m)^m = h^m.
 Proof using.
-  intros. unfold filter_mode. applys* filter_idempotent.
+  intros. unfold proj. applys* filter_idempotent.
 Qed.
 
-Lemma filter_modes_neq : forall h m1 m2,
+Lemma proj_proj_neq : forall h m1 m2,
   m1 <> m2 ->
   (h^m1)^m2 = heap_empty.
 Proof using.
-  intros. unfold filter_mode. applys filter_incompatible.
+  intros. unfold proj. applys filter_incompatible.
   { intros x y D K M1 M2. destruct y as (v&m'). false. }
 Qed.
 
 (* Corollary for autorewrite *)
-Lemma filter_modes_rw_ro : forall h,
+Lemma proj_ro_proj_rw : forall h,
   (h^rw)^ro = heap_empty.
-Proof using. intros. applys* filter_modes_neq. auto_false. Qed.
+Proof using. intros. applys* proj_proj_neq. auto_false. Qed.
 
 (* Corollary for autorewrite *)
-Lemma filter_modes_ro_rw : forall h,
+Lemma proj_rw_proj_ro : forall h,
   (h^ro)^rw = heap_empty.
-Proof using. intros. applys* filter_modes_neq. auto_false. Qed.
+Proof using. intros. applys* proj_proj_neq. auto_false. Qed.
 
-Hint Rewrite filter_modes_eq filter_modes_rw_ro filter_modes_ro_rw : rew_fmap rew_heap.
-
-Lemma filter_modes_swap : forall h m1 m2,
-  (h^m1)^m2 = (h^m2)^m1.
-Proof using.
-  intros. unfold filter_mode. applys* filter_swap.
-Qed.
-
-(* Corollary for automation *)
-Lemma disjoint_filter_modes_swap : forall h1 h2 m11 m12 m21 m22,
-  disjoint (h1^m11) (h2^m21) ->
-  disjoint ((h1^m12)^m11) ((h2^m22)^m21).
-Proof using.
-  introv D. rewrite (filter_modes_swap h1), (filter_modes_swap h2).
-  applys* disjoint_filter_mode.
-Qed.
+Hint Rewrite proj_idempotent proj_ro_proj_rw proj_rw_proj_ro : rew_fmap rew_heap.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -611,18 +604,18 @@ Lemma heap_compat_sym : forall h1 h2,
   heap_compat h2 h1.
 Proof using. introv (M1&M2). split~. applys* agree_sym. Qed.
 
+Hint Resolve heap_compat_sym.
+
 Lemma heap_compat_sym_eq : forall h1 h2 : heap,
    heap_compat h1 h2 = heap_compat h2 h1.
 Proof using. intros. extens. autos* heap_compat_sym. Qed.
 
-Hint Resolve heap_compat_sym.
-
 Lemma heap_compat_empty_l : forall h,
   heap_compat heap_empty h.
 Proof using.
-  intros. (* lets: heap_disjoint_components h. *)
+  intros. (* lets: disjoint_components h. *)
   unfold heap_empty. split; simpl.
-  { rew_heap. rew_fmap. splits*. applys heap_disjoint_components. }
+  { rew_heap. rew_fmap. splits*. applys disjoint_components. }
   { rew_heap. apply Fmap.agree_empty_l. (* TODO: hints *) }
 Qed.
 
@@ -645,49 +638,47 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** More properties of [heap_compat] and [filter_mode] *)
+(* ** More properties of [heap_compat] and [proj] *)
 
 (* More generally, compat is preserved by subset. *)
-Lemma heap_compat_filter_mode_r : forall m h1 h2,
+Lemma heap_compat_proj_r : forall m h1 h2,
   heap_compat h1 h2 ->
-  heap_compat h1 (filter_mode m h2).
+  heap_compat h1 (proj m h2).
 Proof using.
-  introv (D&G). split.
-  { do 2 rewrites (>> filter_modes_swap m). rew_disjoint.
-    hint disjoint_filter. splits*. } (* TODO: slow *)
-  { rewrite filter_modes_swap. applys* agree_filter. }
+  hint agree_empty_r.
+  introv (D&G). destruct m; split; rew_fmap; auto.
 Qed.
 
-Lemma heap_compat_filter_mode_l : forall m h1 h2,
+Lemma heap_compat_proj_l : forall m h1 h2,
   heap_compat h1 h2 ->
-  heap_compat (filter_mode m h1) (h2).
+  heap_compat (proj m h1) (h2).
 Proof using.
-  introv D. autos* heap_compat_filter_mode_r heap_compat_sym.
+  introv D. autos* heap_compat_proj_r heap_compat_sym.
 Qed.
 
-Lemma heap_compat_filter_mode : forall h1 h2 m1 m2,
+Lemma heap_compat_proj : forall h1 h2 m1 m2,
   heap_compat h1 h2 ->
   heap_compat (h1^m1) (h2^m2).
 Proof using.
-  introv D. autos* heap_compat_filter_mode_r heap_compat_sym.
+  introv D. autos* heap_compat_proj_r heap_compat_sym.
 Qed.
 
-Hint Resolve heap_compat_filter_mode_r heap_compat_filter_mode_l.
+Hint Resolve heap_compat_proj_r heap_compat_proj_l.
 
-Lemma filter_mode_fmap_union : forall m h1 h2,
+Lemma proj_fmap_union : forall m h1 h2,
   (h1 \+ h2)^m = (h1^m) \+ (h2^m).
 Proof using.
-  intros. unfold filter_mode. rewrite* filter_union.
+  intros. unfold proj. rewrite* filter_union.
 Qed.
 
-Hint Rewrite filter_mode_fmap_union : rew_fmap.
+Hint Rewrite proj_fmap_union : rew_fmap.
 
-Lemma filter_mode_union : forall m h1 h2,
+Lemma proj_union : forall m h1 h2,
   heap_compat h1 h2 ->
   (h1 \u h2)^m = (h1^m) \u (h2^m).
 Proof using. introv D. rew_fmap*. Qed.
 
-Hint Rewrite filter_mode_union : rew_heap.
+Hint Rewrite proj_union : rew_heap.
 
 Lemma heap_compat_union_l : forall h1 h2 h3,
   heap_compat h1 h2 ->
@@ -696,9 +687,9 @@ Lemma heap_compat_union_l : forall h1 h2 h3,
   heap_compat (h1 \u h2) h3.
 Proof using.
   introv D (D2&G2) (D3&G3).
-  lets (E1&R1): heap_eq_disjoint_map_union_rw_ro h1.
-  lets (E2&R2): heap_eq_disjoint_map_union_rw_ro h2.
-  lets (E3&R3): heap_eq_disjoint_map_union_rw_ro h3.
+  lets (E1&R1): heap_fmap_components h1.
+  lets (E2&R2): heap_fmap_components h2.
+  lets (E3&R3): heap_fmap_components h3.
   split.
   { rew_fmap*. (* TODO: slow *) }
   { rew_fmap*. applys~ Fmap.agree_union_l. }
@@ -722,8 +713,8 @@ Proof using.
   introv D. rew_fmap*. applys extensionality.
   { intros x. extens. do 2 rewrite* indom_union_eq. }
   { intros x Dx.
-    lets (E1&R1): heap_eq_disjoint_map_union_rw_ro h1.
-    lets (E2&R2): heap_eq_disjoint_map_union_rw_ro h2.
+    lets (E1&R1): heap_fmap_components h1.
+    lets (E2&R2): heap_fmap_components h2.
     destruct D as (D&G).
     rewrite E1,E2 in Dx |- *.
     repeat rewrite Fmap.union_assoc in *.
@@ -787,7 +778,7 @@ Proof using. intros. extens. intros x. unfold to_ro. rew_fmap*. Qed.
 Lemma to_ro_rw : forall h,
   (to_ro h)^rw = Fmap.empty.
 Proof using.
-  intros. unfold to_ro, filter_mode.
+  intros. unfold to_ro, proj.
   match goal with |- context [map_ ?f _] => set (F:=f) end.
   applys filter_none.
   intros x K N. rew_fmap* in K.
@@ -798,7 +789,7 @@ Qed. (* TODO: simplify *)
 Lemma to_ro_ro : forall h,
   (to_ro h)^ro = (to_ro h).
 Proof using.
-  intros. unfold to_ro, filter_mode.
+  intros. unfold to_ro, proj.
   match goal with |- context [map_ ?f _] => set (F:=f) end.
   applys filter_all. intros x K. rew_fmap* in K.
   erewrite read_map; auto. unfold F.
@@ -809,7 +800,7 @@ Lemma to_ro_on_ro : forall h,
   to_ro (h^ro) = h^ro.
 Proof using.
   intros. unfold to_ro. applys map_id. intros x (v,m) D Ey.
-  unfold filter_mode in *.
+  unfold proj in *.
   match type of D with context [filter ?f _] => set (F:=f) in * end.
   lets (Dd&Px&E): indom_filter_inv D.
   unfold F in Px. destruct (read h x) as (v',m'). subst. congruence.
@@ -819,7 +810,7 @@ Lemma to_ro_idempotent : forall h,
   to_ro (to_ro h) = to_ro h.
 Proof using.
   intros. unfold to_ro. applys map_id. intros x (v,m) D Ey.
-  unfold filter_mode in *.
+  unfold proj in *.
   match type of D with context [map_ ?f _] => set (F:=f) in * end.
   rew_fmap* in D. erewrite read_map in Ey; auto.
   unfolds F. destruct (read h x) as (v', m'). congruence.
@@ -858,7 +849,7 @@ Hint Rewrite to_ro_fmap_union : rew_fmap.
 Lemma to_ro_decompose : forall h,
   to_ro h = (to_ro h^rw) \+ h^ro.
 Proof using.
-  intros. lets (E&D): heap_eq_disjoint_map_union_rw_ro h.
+  intros. lets (E&D): heap_fmap_components h.
   rewrite E at 1. rewrite to_ro_fmap_union. rewrite* to_ro_on_ro.
 Qed.
 
@@ -874,16 +865,6 @@ Lemma disjoint_to_ro : forall h1 h2,
   disjoint h1 (to_ro h2).
 Proof using. introv M. rewrite* disjoint_to_ro_eq. Qed.
 
-Lemma disjoint_components : forall h1 h2,
-  disjoint h1 (h2^rw) ->
-  disjoint h1 (h2^ro) ->
-  disjoint h1 h2.
-Proof using.
-  introv M1 M2. forwards (E&D): heap_eq_disjoint_union_rw_ro h2.
-  lets D': heap_compat_of_disjoint D.
-  rewrite E. rewrite* heap_union_eq_of_compat.
-Qed.
-
 Lemma heap_compat_to_ro_r : forall h1 h2,
   heap_compat h1 h2 ->
   heap_compat h1 (to_ro h2).
@@ -891,7 +872,7 @@ Proof using.
   introv (M1&M2). split.
   { rew_heap. splits; [auto|auto|].
     { rew_disjoint. split; [auto|].
-      { applys disjoint_to_ro. applys* disjoint_components. } } }
+      { applys disjoint_to_ro. applys* disjoint_of_disjoint_components. } } }
   { rew_heap. rewrite to_ro_decompose. applys agree_union_r; [|auto].
     { applys agree_of_disjoint. applys* disjoint_to_ro. } }
 Qed.
@@ -936,7 +917,7 @@ Lemma heap_compat_union_l_inv_l : forall h1 h2 h3,
   heap_compat h1 h2 ->
   heap_compat h2 h3.
 Proof using.
-  hint heap_compat_filter_mode.
+  hint heap_compat_proj.
   introv M1 M2. lets (D1&G1): M1. lets (D2&G2): M2.
   rew_fmap* in *. splits.
   { auto. } (* TODO: slow *)
@@ -969,15 +950,13 @@ Proof using.
   applys* heap_compat_union_l_inv.
 Qed.
 
-(* ---------------------------------------------------------------------- *)
-
-Lemma disjoint_of_compat_empty_ro_l : forall h1 h2,
+Lemma disjoint_of_compat_ro_empty_l : forall h1 h2,
   heap_compat h1 h2 ->
   h1^ro = Fmap.empty ->
   disjoint h1 h2.
 Proof using.
-  introv D E. lets (E1&D1): (heap_eq_disjoint_union_rw_ro h1).
-  lets (E2&D2): (heap_eq_disjoint_union_rw_ro h2).
+  introv D E. lets (E1&D1): (heap_components h1).
+  lets (E2&D2): (heap_components h2).
   rewrite E1 in D. lets D1': heap_compat_of_disjoint D1.
   forwards (C1&C2): heap_compat_union_l_inv D; [auto|].
   rewrite E1,E2,E. rew_heap. lets (C1'&_): C1. rew_heap in C1'.
@@ -1156,20 +1135,20 @@ Lemma hsingle_inv : forall h l v,
   h = Fmap.single l (v,mode_rw) /\ (l <> null).
 Proof using. auto. Qed.
 
-Lemma filter_mode_single : forall l v m1 m2,
-  filter_mode m1 (Fmap.single l (v, m2)) =
+Lemma proj_single : forall l v m1 m2,
+  proj m1 (Fmap.single l (v, m2)) =
   If m1 = m2 then Fmap.single l (v, m2) else Fmap.empty.
-Proof using. intros. unfold filter_mode. rew_fmap*. Qed.
+Proof using. intros. unfold proj. rew_fmap*. Qed.
 
 (* Corollary for autorewrite *)
 Lemma single_rw : forall l v,
   ((Fmap.single l (v, mode_rw))^rw) = Fmap.single l (v, mode_rw).
-Proof using. intros. rewrite filter_mode_single. case_if*. Qed.
+Proof using. intros. rewrite proj_single. case_if*. Qed.
 
 (* Corollary for autorewrite *)
 Lemma single_ro : forall l v,
   ((Fmap.single l (v, mode_rw))^ro) = Fmap.empty.
-Proof using. intros. rewrite filter_mode_single. case_if*. Qed.
+Proof using. intros. rewrite proj_single. case_if*. Qed.
 
 Hint Rewrite single_rw single_ro : rew_fmap.
 
@@ -1195,6 +1174,9 @@ Ltac xsimpl_hook H ::=
 Global Opaque hsingle.
 
 
+(* ---------------------------------------------------------------------- *)
+(* ** Compatibility with singleton heaps *)
+
 Lemma disjoint_of_compat_single : forall p v h1 h2,
   heap_compat h1 h2 ->
   h1 = (single p (v, rw)) ->
@@ -1202,7 +1184,7 @@ Lemma disjoint_of_compat_single : forall p v h1 h2,
   disjoint (single p w) (heap_state h2).
 Proof using.
   introv D ->. intros.
-  forwards D': disjoint_of_compat_empty_ro_l D. { rew_fmap*. }
+  forwards D': disjoint_of_compat_ro_empty_l D. { rew_fmap*. }
   lets D'': disjoint_heap_state (rm D'). rew_fmap in D''.
   rewrite disjoint_eq_not_indom_both in *.
   intros x. specializes D'' x. rewrite indom_single_eq in *. autos*.
@@ -1253,8 +1235,16 @@ Lemma Normal_rw : forall H h,
   h^rw = h.
 Proof using.
   introv N K. specializes N (rm K).
-  forwards (E&_): heap_eq_disjoint_union_rw_ro h.
+  forwards (E&_): heap_components h.
   rewrite N in E. rew_fmap* in E.
+Qed.
+
+Lemma Normal_of_haffine : forall H,
+  haffine H ->
+  Normal H.
+Proof using.
+  introv M. intros h K. rewrite haffine_eq in M.
+  specializes M K. applys* heap_affine_Normal.
 Qed.
 
 Instance Normal_hempty :
@@ -1305,6 +1295,11 @@ Instance Normal_hexists : forall A (J:A->hprop),
   Normal (hexists J).
 Proof using. introv M (x&N). rewrites~ (>> M N). Qed.
 
+Hint Resolve Normal_hempty Normal_hstar Normal_hgc : Normal.
+
+(* Remaining lemmas are not needed for the soundness proof,
+   but may be needed by clients. *)
+
 Instance Normal_hforall_inhab : forall `{Inhab A} (J:A->hprop),
   Normal_post J ->
   Normal (hforall J).
@@ -1351,17 +1346,6 @@ Proof using.
   rew_heap. rewrites~ (>> N P2).
 Qed.
 
-Lemma Normal_of_haffine : forall H,
-  haffine H ->
-  Normal H.
-Proof using.
-  introv M. intros h K. rewrite haffine_eq in M.
-  specializes M K. applys* heap_affine_Normal.
-Qed.
-
-Hint Resolve Normal_hempty Normal_hstar Normal_hgc : Normal.
-
-
 
 (* ---------------------------------------------------------------------- *)
 (* ** ReadOnly *)
@@ -1370,6 +1354,10 @@ Class ReadOnly (H:hprop) : Prop :=
   read_only : forall h, H h -> h^rw = Fmap.empty.
 
 Hint Mode Normal ! : typeclass_instances.
+
+(* TODO: definition ? *)
+Notation ReadOnly_post Q :=
+  (forall x, ReadOnly (Q x)).
 
 Lemma ReadOnly_rw : forall H h,
   ReadOnly H ->
@@ -1394,6 +1382,49 @@ Qed.
 
 Hint Resolve ReadOnly_hstar ReadOnly_hempty : ReadOnly.
 
+(* Remaining lemmas are not needed for the soundness proof,
+   but may be needed by clients. *)
+(* TODO: maybe try to factorize proofs/statements with Normal? *)
+
+Instance ReadOnly_hexists : forall A (J:A->hprop),
+  ReadOnly_post J ->
+  ReadOnly (hexists J).
+Proof using. introv M (x&N). rewrites~ (>> M N). Qed.
+
+Instance ReadOnly_hforall_inhab : forall `{Inhab A} (J:A->hprop),
+  ReadOnly_post J ->
+  ReadOnly (hforall J).
+Proof using.
+  introv IA M N. lets M': M (arbitrary (A:=A)). lets N': N (arbitrary (A:=A)).
+  applys M' N'.
+Qed.
+
+Instance ReadOnly_hforall : forall A (x:A) (J:A->hprop),
+  ReadOnly (J x) ->
+  ReadOnly (hforall J).
+Proof using. introv M N. applys M N. Qed.
+
+Instance ReadOnly_hor : forall H1 H2,
+  ReadOnly H1 ->
+  ReadOnly H2 ->
+  ReadOnly (hor H1 H2).
+Proof using. introv M1 M2. applys ReadOnly_hexists. intros b. case_if*. Qed.
+
+Instance ReadOnly_hand_l : forall H1 H2,
+  ReadOnly H1 ->
+  ReadOnly (hand H1 H2).
+Proof using. introv M1. applys* ReadOnly_hforall true. Qed.
+
+Instance ReadOnly_hand_r : forall H1 H2,
+  ReadOnly H2 ->
+  ReadOnly (hand H1 H2).
+Proof using. introv M1. applys* ReadOnly_hforall false. Qed.
+
+Lemma ReadOnly_himpl : forall H1 H2,
+  ReadOnly H2 ->
+  (H1 ==> H2) ->
+  ReadOnly H1.
+Proof using. introv HS HI M. lets: HI M. applys* HS. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1522,7 +1553,7 @@ End RO.
 
 
 (* ********************************************************************** *)
-(* * Elim lemmas *)
+(* * Elimination lemmas useful to simplify proofs *)
 
 Lemma Normal_rw_elim : forall H h,
   Normal H ->
@@ -1625,14 +1656,14 @@ Lemma hoare_frame_read_only : forall t H1 Q1 H2,
   Normal H2 ->
   hoare t (H1 \* H2) (Q1 \*+ H2).
 Proof using.
-  hint heap_compat_to_ro_r, heap_compat_filter_mode_l,
-    heap_compat_filter_mode_r, heap_compat_union_r.
-  hint heap_compat_filter_mode, heap_compat_of_disjoint.
+  hint heap_compat_to_ro_r, heap_compat_proj_l,
+    heap_compat_proj_r, heap_compat_union_r.
+  hint heap_compat_proj, heap_compat_of_disjoint.
   introv M N. intros ? (h1&h2&P1&P2&R1&->).
   forwards (h'&v&R&L&S): M (h1 \u to_ro h2).
   { exists h1 (to_ro h2). splits~. { applys* to_ro_pred. } }
   (* Adding facts *)
-  lets (Eh'&Dh'): heap_eq_disjoint_map_union_rw_ro h'.
+  lets (Eh'&Dh'): heap_fmap_components h'.
   rewrite S in Dh'.
   asserts C': (heap_compat h'^rw (h1^ro \u h2)).
   { rew_fmap in Dh';[|auto]. applys heap_compat_of_disjoint. rew_fmap; [|auto].
@@ -1710,24 +1741,24 @@ Proof using.
     { applys* hstar_intro. }
     { applys* heap_compat_union_r; applys* heap_compat_to_ro_l. } }
   (* Adding compatibility facts *)
-  lets: heap_disjoint_components h1'. rewrite E1 in H.
+  lets: disjoint_components h1'. rewrite E1 in H.
     rew_fmap in H; [|auto|auto].
   2: { applys heap_compat_to_ro_l. auto. }
   rewrite disjoint_union_eq_r in H. destruct H as (H&H').
     rewrite disjoint_to_ro_eq in H.
   lets Hs: H. lets: heap_compat_of_disjoint Hs.
-  lets (X&Y): heap_eq_disjoint_map_union_rw_ro h2.
+  lets (X&Y): heap_fmap_components h2.
     rewrite X in H. rewrite disjoint_union_eq_r in H,H'.
   asserts: (heap_compat h1'^rw (hI^ro \u h1^ro)).
   { applys heap_compat_union_r.
         { applys* heap_compat_of_disjoint. }
         { applys* heap_compat_of_disjoint. }
-        { applys* heap_compat_filter_mode. } }
+        { applys* heap_compat_proj. } }
   asserts: (heap_compat h2 (hI^ro \u h1^ro)).
   { applys heap_compat_union_r.
-        { applys* heap_compat_filter_mode_r. }
-        { applys* heap_compat_filter_mode_r. }
-        { applys* heap_compat_filter_mode. } }
+        { applys* heap_compat_proj_r. }
+        { applys* heap_compat_proj_r. }
+        { applys* heap_compat_proj. } }
   asserts: (heap_compat h1'^rw (h2 \u hI^ro \u h1^ro)).
    { applys* heap_compat_union_r. }
   (* Remaining of the proof *)
@@ -1740,7 +1771,7 @@ Proof using.
   exists h2' v2. splits*.
   { applys eval_let_trm (heap_state h1').
     { applys_eq R1. subst h hr. rew_fmap*. }
-    { applys_eq R2. lets (E1'&_): heap_eq_disjoint_map_union_rw_ro h1'.
+    { applys_eq R2. lets (E1'&_): heap_fmap_components h1'.
       rewrite E1' at 1. rewrite E1. rew_fmap*. } }
   { rewrite E2. rewrite U1,U2. rew_fmap*. }
 Qed.
@@ -1862,7 +1893,7 @@ Lemma triple_hpure : forall t (P:Prop) H Q,
 Proof using.
   introv M. intros HI HO FR. rewrite hstar_assoc.
   applys hoare_hpure. intros. applys* M.
-Qed. 
+Qed.
 (* Note: [triple_hpure] can also be proved from [triple_hexists] *)
 
 Lemma triple_conseq : forall t H' Q' H Q,
@@ -1951,7 +1982,6 @@ Proof using.
   applys* triple_frame_Normal M.
   applys* Normal_of_haffine.
 Qed.
-
 
 
 (* ---------------------------------------------------------------------- *)
@@ -2101,11 +2131,11 @@ Qed.
 Lemma decomposition : forall H,
   H ==> (\exists H1 H2, \[Normal H1] \* \[ReadOnly H2] \* (H1 \* H2)).
 Proof using.
-  intros H h K. forwards (->&_): (heap_eq_disjoint_union_rw_ro h).
+  intros H h K. forwards (->&_): (heap_components h).
   exists (= h^rw) (= h^ro). do 2 rewrite hstar_hpure. splits.
   { intros ? ->. rew_heap*. }
   { intros ? ->. rew_heap*. }
-  { applys* hstar_intro. applys heap_compat_of_disjoint. applys heap_disjoint_components. }
+  { applys* hstar_intro. applys heap_compat_of_disjoint. applys disjoint_components. }
 Qed.
 
 Lemma hoare_let' : forall x t1 t2 H1 H2 Q1 Q HI HO,

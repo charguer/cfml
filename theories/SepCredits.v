@@ -439,7 +439,8 @@ Hint Resolve heap_union_comm
 
 Hint Rewrite heap_union_state : rew_disjoint.
 
-Hint Rewrite heap_union_state : rew_fmap.
+(* Extend the tactic [fmap_eq] with distribution of [heap_state] *)
+Hint Rewrite heap_union_state : rew_fmap_for_fmap_eq.
 
 Hint Rewrite
   heap_union_empty_l heap_union_empty_r
