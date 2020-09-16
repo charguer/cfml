@@ -790,7 +790,7 @@ Instance Normal_hforall_inhab : forall `{Inhab A} (J:A->hprop),
   Normal_post J ->
   Normal (hforall J).
 Proof using.
-  introv IA M N. lets M': M arbitrary. lets N': N arbitrary.
+  introv IA M N. lets M': M (arbitrary (A:=A)). lets N': N arbitrary.
   applys M' N'.
 Qed.
 
@@ -1785,7 +1785,7 @@ Lemma normally_hforall : forall A `{IA:Inhab A} (J:A->hprop),
 Proof using.
   intros. unfolds normally, hforall. applys himpl_antisym.
   { intros h N x. autos*. }
-  { intros h N. lets (_&E): N arbitrary. split.
+  { intros h N. lets (_&E): N (arbitrary (A:=A)). split.
     { intros x. forwards*: N x. }
     { auto. } }
 Qed.

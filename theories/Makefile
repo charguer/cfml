@@ -80,7 +80,7 @@ V := $(addprefix $(PWD)/,$(SRC:=.v))
 
 ifndef COQFLAGS
 	ifdef SLF
-		COQFLAGS:=
+		COQFLAGS:=-w -implicits-in-term,-redundant-canonical-projection,-several-object-files,-ambiguous-paths,-implicit-core-hint-db
 	else
 		COQFLAGS:=-w -implicits-in-term,-redundant-canonical-projection,-several-object-files,-ambiguous-paths,-implicit-core-hint-db
 	endif
@@ -101,12 +101,12 @@ all: _CoqProject
 ##############################################################################
 # Compilation of files from the course on Foundations of Separation Logic
 
-# usage: make SLF=1
+# usage: make import_slf && make SLF=1
 
 SLF_FILES := $(SRC_SF:=.v)
 
 ifndef SLF_FOLDER
-	SLF_FOLDER := /home/charguer/versions/coq-8.9.1/sfdev/slf
+	SLF_FOLDER := /home/charguer/versions/coq-8.12/sfdev/slf
 endif
 
 import_slf:

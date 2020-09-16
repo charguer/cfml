@@ -1080,7 +1080,7 @@ Qed.
 Lemma exists_not_empty : forall `{IB:Inhab B},
   exists (h:fmap nat B), h <> empty.
 Proof using.
-  intros. sets l: 0%nat. sets h: (single l arbitrary).
+  intros. sets l: 0%nat. sets h: (single l (arbitrary (A:=B))).
   exists h. intros N.
   sets h': (empty:fmap nat B).
   asserts M1: (indom h l).
