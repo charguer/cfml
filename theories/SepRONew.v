@@ -1210,7 +1210,7 @@ Qed.
 (* ** onlyro *)
 
 Definition onlyro (H:hprop) : Prop :=
-  forall h, H h -> h^^rw = Fmap.empty.
+  forall h, H h -> h^rw = heap_empty.
 
 Definition onlyro_post A (Q:A->hprop) : Prop :=
   forall x, onlyro (Q x).
@@ -1218,7 +1218,7 @@ Definition onlyro_post A (Q:A->hprop) : Prop :=
 Lemma onlyro_rw : forall H h,
   onlyro H ->
   H h ->
-  h^^rw = Fmap.empty.
+  h^rw = heap_empty.
 Proof using. introv N K. applys* N. Qed.
 
 Lemma onlyro_hempty :
@@ -1233,7 +1233,7 @@ Lemma onlyro_hstar : forall H1 H2,
   onlyro (H1 \* H2).
 Proof using.
   introv N1 N2 (h1&h2&P1&P2&M1&EQ). subst. rew_heap*.
-  rewrite* N1. rewrite* N2. rew_fmap*.
+  rewrite* N1. rewrite* N2. rew_heap*.
 Qed.
 
 Hint Resolve onlyro_hstar onlyro_hempty : onlyro.
@@ -1285,62 +1285,92 @@ Proof using. introv HS HI M. lets: HI M. applys* HS. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Definitions and properties of [RO] *)
+(* ** RO *)
+
+Section RO.
 
 Definition RO (H:hprop) : hprop :=
-  fun h => exists h', H h'
-                   /\ h^^rw = Fmap.empty
-                   /\ h^^ro = h'^^rw \+ h'^^ro.
+  fun h => exists h', H h' /\ h = toro h'.
+
+Lemma toro_pred : forall (H:hprop) h,
+  H h ->
+  RO H (toro h).
+Proof using.
+  introv N. exists h. split~.
+Qed.
+
+(* TODO: move *)
+Lemma toro_empty :
+  toro heap_empty = heap_empty.
+Proof using. intros. applys heap_eq; rew_fmap*. Qed.
+
+Hint Rewrite toro_empty : rew_heap.
+
+
+Lemma RO_heap_empty : forall (H:hprop),
+  H heap_empty ->
+  RO H heap_empty.
+Proof using. introv N. exists heap_empty. rew_heap*. Qed.
+
+Hint Resolve toro_pred RO_heap_empty.
+
+(* TODO: move *)
+(** corollary of heap_compat_refl_of_rw_empty *)
+Lemma heap_compat_refl_toro : forall h,
+  heap_compat (toro h) (toro h).
+Proof using. (* 
+  intros. applys heap_compat_refl_of_rw_empty. rew_heap*.
+Qed. TODO *)  Admitted.
+
 
 Lemma RO_duplicatable : forall H,
   duplicatable (RO H).
 Proof using.
-  intros H h M. lets (h'&M1&M2&M3): M. subst.
-  lets D: heap_compat_refl_if_ro M2.
-  exists h h. splits~.
-  { applys heap_eq. rewrite~ heap_union_f.
-    rewrite~ heap_union_r. rewrite M2.
-    split. fmap_eq. rewrite~ Fmap.union_self. }
-Qed.
+  intros H h M. lets (h'&M1&M2): M. subst.
+  lets D: heap_compat_refl_toro h'. do 2 esplit. splits*.
+(* TODO: toro h' = toro h' \u toro h' *)
+Admitted.
 
 Lemma RO_covariant : forall H1 H2,
   H1 ==> H2 ->
   (RO H1) ==> (RO H2).
 Proof using.
-  introv M. intros h (h'&M1&M2&M3). exists~ h'.
+  introv M. intros h (h'&M1&->). auto.
 Qed.
+
+
+Axiom toro_idempotent : forall h,
+  toro (toro h) = toro h.
 
 Lemma RO_RO : forall H,
   RO (RO H) = RO H.
 Proof using.
-  intros. apply pred_ext_1. intros h.
-  iff (h'&(h''&M1'&M2'&M3')&M2&M3) (h'&M1&M2&M3).
-  { exists h''. splits~.
-    rewrite M3. rewrite M3'. rewrite M2'. fmap_eq. }
-  { exists h. splits~.
-    { exists h'. split~. }
-    { rewrite M2. fmap_eq. } }
+  hint toro_idempotent.
+  intros. apply pred_ext_1. intros h. unfolds RO.
+  iff (h'&(h''&M1'&->)&->) (h'&M1&->).
+  { exists* h''. }
+  { exists* (toro h'). }
 Qed.
 
 Lemma RO_empty :
   RO \[] = \[].
 Proof using.
   intros. apply pred_ext_1. intros h.
-  unfold hempty. iff (h'&M1&M2&M3) M1.
-  { rewrite M1 in M3. rew_fmap. apply heap_eq. auto. }
-  { exists h. rewrite M1. splits~. rew_fmap~. }
+  unfold hempty. iff (h'&->&->) ->; rew_heap*.
 Qed.
 
 Lemma RO_pure : forall P,
   RO \[P] = \[P].
 Proof using.
+  hint hpure_intro.
   intros. apply pred_ext_1. intros h.
-  iff (h'&(M1p&M2)&M3&M4) (MP&M1); unfolds hempty.
-  { rewrite M2 in M4. rew_fmap. split~. apply heap_eq. auto. }
-  { exists h. rewrite M1. splits~. { split~. split~. } { rew_fmap~. } }
+  iff (h'&(M1p&M2)&->) (MP&M1).
+  { lets ->: hempty_inv M2. rew_heap*. }
+  { lets ->: hempty_inv M1. auto. }
 Qed.
 
-Lemma RO_empty' : (* simpler proof *)
+(* Alternative proof *)
+Lemma RO_empty' :
   RO \[] = \[].
 Proof using.
   intros. rewrite hempty_eq_hpure_true. rewrite~ RO_pure.
@@ -1350,18 +1380,15 @@ Lemma RO_hexists : forall A (J:A->hprop),
     RO (hexists J)
   = \exists x, RO (J x).
 Proof using.
+  hint hexists_intro.
   intros. apply pred_ext_1. intros h.
-  iff (h'&(x&M1)&M2&M3) (x&(h'&M1&M2&M3)).
-  { exists x. exists* h'. }
-  { exists h'. splits~. { exists~ x. } }
+  iff (h'&(x&M1)&->) (x&(h'&M1&->)); autos*.
 Qed.
 
-(* NOT NEEDED?
 Lemma RO_if : forall (b:bool) H1 H2,
     RO (if b then H1 else H2)
   = (if b then RO H1 else RO H2).
 Proof using. intros. destruct* b. Qed.
-*)
 
 Lemma RO_or : forall H1 H2,
      RO (hor H1 H2)
@@ -1371,32 +1398,39 @@ Proof using.
   applys himpl_hexists. intros b. destruct* b.
 Qed.
 
+Axiom toro_union : forall h1 h2,
+  heap_compat h1 h2 ->
+  toro (h1 \u h2) = (toro h1) \u (toro h2).
+
+Hint Rewrite toro_union : rew_heap.
+
 Lemma RO_star : forall H1 H2,
   RO (H1 \* H2) ==> (RO H1 \* RO H2).
 Proof using.
-  intros. intros h (h'&(h1&h2&N1&P1&P2&N2)&M2&M3).
-  lets C: (@heap_compat_toro h1 h2).
-  exists (toro h1) (toro h2). splits.
-  { exists~ h1. }
-  { exists~ h2. }
-  { auto. }
-  { applys heap_eq. rew_heap~. split.
-    { rewrite M2. rew_fmap*. }
-    { rewrite M3,N2. rew_fmap*. fmap_eq. } }
+  hint hstar_intro.
+  intros. intros h (h'&(h1&h2&N1&P1&P2&->)&->).
+  lets C: heap_compat_toro P2.
+  exists (toro h1) (toro h2). rew_heap*.
 Qed.
 
-Lemma toro_pred : forall (H:hprop) h,
-  H h ->
-  RO H (toro h).
-Proof using. introv N. exists h. split~. Qed.
-
 Arguments RO_star : clear implicits.
+
+Lemma onlyro_RO : forall H,
+  onlyro (RO H).
+Proof using.
+  introv (h'&K&E). subst. rew_heap*.
+Qed.
+
+End RO.
+
 
 
 (* ********************************************************************** *)
 (* * Elimination lemmas useful to simplify proofs *)
 
 (* TODO: rename *)
+
+(* TODO: change to h^rw *)
 
 Lemma onlyrw_rw_elim : forall H h,
   onlyrw H ->

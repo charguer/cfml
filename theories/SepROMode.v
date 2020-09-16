@@ -1445,12 +1445,12 @@ Proof using.
   introv N. exists h. split~.
 Qed.
 
-Lemma toro_empty : forall (H:hprop),
+Lemma RO_heap_empty : forall (H:hprop),
   H heap_empty ->
   RO H heap_empty.
 Proof using. introv N. exists heap_empty. rew_heap*. Qed.
 
-Hint Resolve toro_pred toro_empty.
+Hint Resolve toro_pred RO_heap_empty.
 
 Lemma RO_duplicatable : forall H,
   duplicatable (RO H).
