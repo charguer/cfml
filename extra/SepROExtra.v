@@ -339,3 +339,11 @@ Proof using.
   introv D. rewrite (proj_proj_swap h1), (proj_proj_swap h2).
   applys* disjoint_proj.
 Qed.
+
+
+
+(* NOW: remove *)
+Lemma disjoint_to_ro : forall h1 h2,
+  disjoint h1 h2 ->
+  disjoint h1 (to_ro h2).
+Proof using. introv M. rewrite* disjoint_to_ro_eq. Qed.
