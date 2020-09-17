@@ -1,4 +1,30 @@
 
+
+Lemma hoare_frame_read_only : forall t H1 Q1 H2,
+  hoare t (H1 \* RO H2) Q1 ->
+  onlyrw H2 ->
+  hoare t (H1 \* H2) (Q1 \*+ H2).
+Proof using.
+  hint heap_compat_union_l, heap_compat_union_r, heap_compat_toro_r.
+  introv M N. intros ? (h1&h2&P1&P2&C1&->).
+  forwards (h'&v&R&L&S): M (h1 \u toro h2).
+  { applys* hstar_intro h1 (toro h2). { applys* toro_pred. } }
+  lets (D'&E'): heap_components h'.
+  lets C1': heap_compat_toro_r C1.
+  rewrites S in *. rew_heap* in *.
+  forwards* (D1'&D2'): heap_compat_union_r_inv (rm D').
+  forwards D2'': heap_compat_toro_r_inv D2'. { rew_heap*. }
+  exists ((h'^rw) \u (h1^ro) \u h2) v. splits.
+  { applys_eq R.
+     { rew_fmap*. }
+     { rewrites (rm E'). rew_heap*. rew_fmap*. } }
+  { rew_heap*. erewrite (@onlyrw_proj_rw h2); eauto. (* TODO tactic *)
+    applys* hstar_intro. }
+  { rew_heap*. }
+Qed.
+
+
+
 (* needed?
 Lemma RO_ro : forall h,
   RO (= (h^ro)) (h^ro).

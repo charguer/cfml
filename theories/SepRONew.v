@@ -1504,10 +1504,10 @@ Proof using.
   exists h' v. splits~. { applys MQ K. }
 Qed.
 
-Lemma hoare_frame_read_only : forall t H1 Q1 H2,
-  hoare t (H1 \* RO H2) Q1 ->
-  onlyrw H2 ->
-  hoare t (H1 \* H2) (Q1 \*+ H2).
+Lemma hoare_frame_read_only : forall t H1 Q1 HI HO,
+  hoare t (H1 \* RO HI) Q1 ->
+  isframe HI HO ->
+  hoare t (H1 \* HI) (Q1 \*+ HO).
 Proof using.
   hint heap_compat_union_l, heap_compat_union_r, heap_compat_toro_r.
   introv M N. intros ? (h1&h2&P1&P2&C1&->).
@@ -1522,8 +1522,7 @@ Proof using.
   { applys_eq R.
      { rew_fmap*. }
      { rewrites (rm E'). rew_heap*. rew_fmap*. } }
-  { rew_heap*. erewrite (@onlyrw_proj_rw h2); eauto. (* TODO tactic *)
-    applys* hstar_intro. }
+  { rew_heap*. applys* hstar_intro. { applys* isframe_rw_elim. } }
   { rew_heap*. }
 Qed.
 
@@ -1744,6 +1743,48 @@ Proof using.
   { intros x. xchanges (MQ x). }
 Qed.
 
+(** The basic frame rule, which does not introduces read-only permissions,
+   is inherent to the definition of triple. *)
+
+Lemma triple_frame : forall HI HO t H1 Q1,
+  triple t H1 Q1 ->
+  isframe HI HO ->
+  triple t (H1 \* HI) (Q1 \*+ HO).
+Proof using.
+  introv M F. intros HI' HO' F'.
+  lets F'': isframe_isframe F F'.
+  applys hoare_conseq. { applys M F''. } { xsimpl. } { xsimpl. }
+Qed.
+
+(** The read-only frame rule, on the contrary, is derived from its counterpart
+    on Hoare triples. *)
+
+Lemma triple_frame_read_only : forall HI HO t H1 Q1,
+  triple t (H1 \* RO HI) Q1 ->
+  isframe HI HO ->
+  triple t (H1 \* HI) (Q1 \*+ HO).
+Proof using.
+  introv M F. intros HI' HO' F'.
+  lets F'': isframe_isframe F F'.
+  lets K: hoare_frame_read_only (H1 \* HI') (Q1 \*+ HO') HI F.
+  applys hoare_conseq.
+  { applys hoare_frame_read_only (H1 \* HI') (Q1 \*+ HO' \*+ \GC) HI F.
+    applys hoare_conseq. { applys M F'. } { xsimpl. } { xsimpl. } } 
+  { xsimpl. } { xsimpl. }
+  { applys hoare_frame_read_only. { applys M.  applys M F''. } { xsimpl. } { xsimpl. }
+Qed.
+
+ rewrite triple_eq_triple' in *.
+  unfolds triple'. intros HF' HR' NF' NR'. subst HI.
+  lets: hoare_frame_read_only. H1 (HO \* HR).
+
+  applys hoare_conseq. 
+  { applys hoare_frame_read_only (H1 \* HF) (HI
+{ applys M. } { xsimpl. } { xsimpl. }
+Qed.
+
+
+
 Lemma triple_frame_read_only : forall t H1 Q1 H2,
   triple t (H1 \* RO H2) Q1 ->
   onlyrw H2 ->
@@ -1756,29 +1797,23 @@ Proof using.
   { xsimpl. }
   { xsimpl. }
 Qed.
-(*
+
 Lemma triple_frame_general : forall HI HO t H1 Q1,
   triple t (H1 \* RO HI) Q1 ->
   isframe HI HO ->
   triple t (H1 \* HI) (Q1 \*+ HO).
 Proof using.
-  introv M (HR&NF&NR&E). rewrite triple_eq_triple' in *.
+  introv M (HR&NF&NR&E). subst.
+
+ rewrite triple_eq_triple' in *.
   unfolds triple'. intros HF' HR' NF' NR'. subst HI.
   lets: hoare_frame_read_only. H1 (HO \* HR).
   applys hoare_conseq. 
   { applys hoare_frame_read_only (H1 \* HF) (HI
 { applys M. } { xsimpl. } { xsimpl. }
 Qed.
-*)
-Lemma triple_frame_general_no_read_only : forall HI HO t H1 Q1,
-  triple t H1 Q1 ->
-  isframe HI HO ->
-  triple t (H1 \* HI) (Q1 \*+ HO).
-Proof using.
-  introv M F. intros HI' HO' F'.
-  lets F'': isframe_isframe F F'.
-  applys hoare_conseq. { applys M F''. } { xsimpl. } { xsimpl. }
-Qed.
+
+
 
 Lemma triple_frame_onlyrw : forall t H1 Q1 H2,
   triple t H1 Q1 ->
@@ -1803,30 +1838,6 @@ Proof using.
   applys* triple_frame_onlyrw.
 Qed.
 
-Lemma triple_onlyro : forall t H1 Q1 H2,
-  triple t H1 Q1 ->
-  onlyro H2 ->
-  triple t (H1 \* H2) Q1.
-Proof using.
-  introv M N. forwards* F: (>> isframe_onlyro H2 isframe_hempty).
-  applys triple_conseq.
-  { applys* triple_frame_general_no_read_only M F. }
-  { xsimpl*. }
-  { xsimpl*. }
-Qed.
-
-Lemma triple_frame_onlyro : forall t H1 Q1 H2,
-  triple t (H1 \* RO H2) Q1 ->
-  onlyro H2 ->
-  triple t (H1 \* H2) Q1.
-Proof using.
-  introv M N. forwards* F: (>> isframe_onlyro H2 isframe_hempty).
-  applys triple_conseq.
-  { applys* triple_frame M F. }
-  { xsimpl*. }
-  { xsimpl*. }
-Qed.
-
 Lemma triple_hgc_post : forall t H Q,
   triple t H (Q \*+ \GC) ->
   triple t H Q.
@@ -1840,6 +1851,18 @@ Lemma triple_haffine_post : forall H' t H Q,
   triple t H Q.
 Proof using.
   introv M F. applys triple_hgc_post. applys triple_conseq M; xsimpl.
+Qed.
+
+Lemma triple_onlyro : forall t H1 Q1 H2,
+  triple t H1 Q1 ->
+  onlyro H2 ->
+  triple t (H1 \* H2) Q1.
+Proof using.
+  introv M N. forwards* F: (>> isframe_onlyro H2 isframe_hempty).
+  applys triple_conseq.
+  { applys* triple_frame_general_no_read_only M F. }
+  { xsimpl*. }
+  { xsimpl*. }
 Qed.
 
 Lemma triple_hro_pre : forall t H H' Q,
