@@ -1804,7 +1804,6 @@ Proof using.
   applys* triple_frame_onlyrw.
 Qed.
 
-
 (** The read-only frame rule is derived from its counterpart 
     on Hoare triples. *) 
 
@@ -1812,29 +1811,14 @@ Lemma triple_frame_read_only : forall HI HO t H1 Q1,
   triple t (H1 \* RO HI) Q1 ->
   isframe HI HO ->
   triple t (H1 \* HI) (Q1 \*+ HO).
-Admitted.
-(*
 Proof using.
   introv M F. intros HI' HO' F'.
-  lets F'': isframe_isframe F F'.
-  lets K: hoare_frame_read_only (H1 \* HI') (Q1 \*+ HO') HI F.
-  applys hoare_conseq.
-  { applys hoare_frame_read_only (H1 \* HI') (Q1 \*+ HO' \*+ \GC) HI F.
-    applys hoare_conseq. { applys M F'. } { xsimpl. } { xsimpl. } } 
+  lets R: M F'. applys hoare_conseq.
+  { applys hoare_frame_read_only (H1 \* HI') (Q1 \*+ HO' \*+ \GC) F.
+    applys hoare_conseq R. { xsimpl. } { xsimpl. } } 
   { xsimpl. } { xsimpl. }
-  { applys hoare_frame_read_only. { applys M.  applys M F''. } { xsimpl. } { xsimpl. }
 Qed.
 
- rewrite triple_eq_triple' in *.
-  unfolds triple'. intros HF' HR' NF' NR'. subst HI.
-  lets: hoare_frame_read_only. H1 (HO \* HR).
-
-  applys hoare_conseq. 
-  { applys hoare_frame_read_only (H1 \* HF) (HI
-{ applys M. } { xsimpl. } { xsimpl. }
-Qed.
-
-*)
 (** Corollary: the original statement of the read-only frame rule *)
 
 Lemma triple_frame_read_only_original : forall t H1 Q1 H2,
