@@ -623,27 +623,34 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Domain *)
 
+Lemma indom_single_eq : forall x1 x2 v,
+  indom (single x1 v) x2 = (x1 = x2).
+Proof using.
+  intros. extens. unfold single, indom, map_indom; simpl. case_if; auto_false.
+Qed.
+
+Lemma indom_union_eq : forall h1 h2 x,
+  indom (union h1 h2) x = (indom h1 x \/ indom h2 x).
+Proof using. 
+  intros. extens. unfold union, indom, map_union, map_indom; simpl.
+  destruct (fmap_data h1 x); auto_false*.
+Qed.
+
+(* TODO: are corollaries still needed? *)
+
 Lemma indom_single : forall x v,
   indom (single x v) x.
-Proof using.
-  intros. hnf. simpl. case_if. auto_false.
-Qed.
+Proof using. intros. rewrite* indom_single_eq. Qed.
 
 Lemma indom_union_l : forall h1 h2 x,
   indom h1 x ->
   indom (union h1 h2) x.
-Proof using.
-  intros. hnf. unfold union, map_union. simpl.
-  case_eq (fmap_data h1 x); auto_false.
-Qed.
+Proof using. intros. rewrite* indom_union_eq. Qed.
 
 Lemma indom_union_r : forall h1 h2 x,
   indom h2 x ->
   indom (union h1 h2) x.
-Proof using.
-  intros. hnf. unfold union, map_union. simpl.
-  case_eq (fmap_data h1 x); auto_false.
-Qed.
+Proof using. intros. rewrite* indom_union_eq. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -903,15 +910,6 @@ Hint Rewrite
   union_empty_l
   union_empty_r : rew_fmap rew_fmap_for_fmap_eq.
 
-Tactic Notation "rew_fmap" :=
-  autorewrite with rew_fmap in *.
-
-Tactic Notation "rew_fmap" "~" :=
-  rew_fmap; auto_tilde.
-
-Tactic Notation "rew_fmap" "*" :=
-  rew_fmap; auto_star.
-
 Ltac fmap_eq_step tt :=
   match goal with | |- ?G => match G with
   | ?h1 = ?h1 => apply union_eq_cancel_1'
@@ -939,6 +937,34 @@ Tactic Notation "fmap_eq" "~" :=
 Tactic Notation "fmap_eq" "*" :=
   fmap_eq; auto_star.
 
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** Normalization tactics *)
+
+Tactic Notation "rew_fmap" :=
+  autorewrite with rew_fmap.
+Tactic Notation "rew_fmap" "in" hyp(H) :=
+  autorewrite with rew_fmap in H.
+Tactic Notation "rew_fmap" "in" "*" :=
+  autorewrite with rew_fmap in *.
+
+Tactic Notation "rew_fmap" "~" :=
+  rew_fmap; auto_tilde.
+Tactic Notation "rew_fmap" "~" "in" hyp(H) :=
+  rew_fmap in H; auto_tilde.
+Tactic Notation "rew_fmap" "~" "in" "*" :=
+  rew_fmap in *; auto_tilde.
+
+Tactic Notation "rew_fmap" "*" :=
+  rew_fmap; auto_star.
+Tactic Notation "rew_fmap" "*" "in" hyp(H) :=
+  rew_fmap in H; auto_star.
+Tactic Notation "rew_fmap" "*" "in" "*" :=
+  rew_fmap in *; auto_star.
+
+
+
 Lemma fmap_eq_demo : forall A B (h1 h2 h3 h4 h5:fmap A B),
   \# h1 h2 h3 ->
   \# (h1 \+ h2 \+ h3) h4 h5 ->
@@ -952,6 +978,31 @@ Proof using.
     fmap_eq_step tt. fmap_disjoint. auto. }
   { fmap_eq. }
 Qed.
+
+(* ---------------------------------------------------------------------- *)
+(* Note: this tactic should ideally be called [rew_heap], however this
+   name is currently used by [SepSimpl]. *)
+
+Tactic Notation "rew_heaps" :=
+  autorewrite with rew_heaps.
+Tactic Notation "rew_heaps" "in" hyp(H) :=
+  autorewrite with rew_heaps in H.
+Tactic Notation "rew_heaps" "in" "*" :=
+  autorewrite with rew_heaps in *.
+
+Tactic Notation "rew_heaps" "~" :=
+  rew_heaps; auto_tilde.
+Tactic Notation "rew_heaps" "~" "in" hyp(H) :=
+  rew_heaps in H; auto_tilde.
+Tactic Notation "rew_heaps" "~" "in" "*" :=
+  rew_heaps in *; auto_tilde.
+
+Tactic Notation "rew_heaps" "*" :=
+  rew_heaps; auto_star.
+Tactic Notation "rew_heaps" "*" "in" hyp(H) :=
+  rew_heaps in H; auto_star.
+Tactic Notation "rew_heaps" "*" "in" "*" :=
+  rew_heaps in *; auto_star.
 
 
 

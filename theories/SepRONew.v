@@ -24,12 +24,14 @@ Arguments exist [A] [P].
 Generalizable Variable A.
 
 
+(* ---------------------------------------------------------------------- *)
+(* TLC buffer *)
+
 Tactic Notation "case_classic" :=
   match goal with
   | |- context [ classicT ?E] => destruct (classicT E)
   | H: context [ classicT ?E] |- _ => destruct (classicT E)
   end; tryfalse.
-
 
 (* LATER: move to TLC; (this cannot be put in TLCbuffer) *)
 Ltac fequal_base ::=
@@ -43,17 +45,7 @@ Ltac fequal_base ::=
   | |- _ => f_equal_fixed
   end.
 
-
-
 (* ---------------------------------------------------------------------- *)
-
-
-Axiom indom_single_eq : forall A B (x1 x2:A) (v:B),
-  indom (single x1 v) x2 = (x1 = x2).
-
-
-Axiom indom_union_eq : forall A B (IB:Inhab B) (h1 h2:fmap A B) x,
-  indom (Fmap.union h1 h2) x = (indom h1 x \/ indom h2 x).
 
 
 Lemma disjoint_single_update : forall A B v1 v2 p (s:fmap A B),
@@ -76,61 +68,6 @@ Proof using.
   { intros x. extens. rewrite* indom_union_eq. }
   { intros x Dx. rewrite* indom_union_eq in Dx. rewrite* read_union_l. }
 Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-
-Tactic Notation "rew_fmap" :=
-  autorewrite with rew_fmap.
-Tactic Notation "rew_fmap" "in" hyp(H) :=
-  autorewrite with rew_fmap in H.
-Tactic Notation "rew_fmap" "in" "*" :=
-  autorewrite with rew_fmap in *.
-
-Tactic Notation "rew_fmap" "~" :=
-  rew_fmap; auto_tilde.
-Tactic Notation "rew_fmap" "~" "in" hyp(H) :=
-  rew_fmap in H; auto_tilde.
-Tactic Notation "rew_fmap" "~" "in" "*" :=
-  rew_fmap in *; auto_tilde.
-
-Tactic Notation "rew_fmap" "*" :=
-  rew_fmap; auto_star.
-Tactic Notation "rew_fmap" "*" "in" hyp(H) :=
-  rew_fmap in H; auto_star.
-Tactic Notation "rew_fmap" "*" "in" "*" :=
-  rew_fmap in *; auto_star.
-
-
-(* ---------------------------------------------------------------------- *)
-
-Tactic Notation "rew_heap" :=
-  autorewrite with rew_heap.
-Tactic Notation "rew_heap" "in" hyp(H) :=
-  autorewrite with rew_heap in H.
-Tactic Notation "rew_heap" "in" "*" :=
-  autorewrite with rew_heap in *.
-
-Tactic Notation "rew_heap" "~" :=
-  rew_heap; auto_tilde.
-Tactic Notation "rew_heap" "~" "in" hyp(H) :=
-  rew_heap in H; auto_tilde.
-Tactic Notation "rew_heap" "~" "in" "*" :=
-  rew_heap in *; auto_tilde.
-
-Tactic Notation "rew_heap" "*" :=
-  rew_heap; auto_star.
-Tactic Notation "rew_heap" "*" "in" hyp(H) :=
-  rew_heap in H; auto_star.
-Tactic Notation "rew_heap" "*" "in" "*" :=
-  rew_heap in *; auto_star.
-
-Ltac heap_eq :=
-  solve [ rew_heap; subst; auto ].
-(* TODO: remove *)
-
-
-
 
 
 (* ********************************************************************** *)
@@ -408,7 +345,7 @@ Lemma proj_ro_empty :
   heap_empty^ro = heap_empty.
 Proof using. unfold heap_empty. proj_prove. Qed.
 
-Hint Rewrite proj_rw_empty proj_ro_empty : rew_heap.
+Hint Rewrite proj_rw_empty proj_ro_empty : rew_heaps.
 
 Lemma proj_rw_single : forall p v,
   (heap_single p v)^rw = (heap_single p v).
@@ -418,7 +355,7 @@ Lemma proj_ro_single : forall p v,
   (heap_single p v)^ro = heap_empty.
 Proof using. unfold single. proj_prove. Qed.
 
-Hint Rewrite proj_rw_single proj_ro_single : rew_heap.
+Hint Rewrite proj_rw_single proj_ro_single : rew_heaps.
 
 Lemma proj_rw_idempotent : forall h,
   (h^rw)^rw = h^rw.
@@ -428,7 +365,7 @@ Lemma proj_ro_idempotent : forall h,
   (h^ro)^ro = h^ro.
 Proof using. intros ((f,r),D). proj_prove. Qed.
 
-Hint Rewrite proj_rw_idempotent proj_ro_idempotent : rew_fmap rew_heap.
+Hint Rewrite proj_rw_idempotent proj_ro_idempotent : rew_fmap rew_heaps.
 
 Lemma proj_ro_proj_rw : forall h,
   (h^rw)^ro = heap_empty.
@@ -438,7 +375,7 @@ Lemma proj_rw_proj_ro : forall h,
   (h^ro)^rw = heap_empty.
 Proof using. intros ((f,r),D). proj_prove. Qed.
 
-Hint Rewrite proj_ro_proj_rw proj_rw_proj_ro : rew_fmap rew_heap.
+Hint Rewrite proj_ro_proj_rw proj_rw_proj_ro : rew_fmap rew_heaps.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -585,7 +522,7 @@ Proof using.
   fequals. fequals. rew_fmap*.
 Qed.
 
-Hint Rewrite proj_rw_union proj_ro_union : rew_heap.
+Hint Rewrite proj_rw_union proj_ro_union : rew_heaps.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -638,7 +575,7 @@ Proof using.
   intros. rewrite* heap_union_comm. apply* heap_union_empty_l.
 Qed.
 
-Hint Rewrite heap_union_empty_l heap_union_empty_r: rew_heap.
+Hint Rewrite heap_union_empty_l heap_union_empty_r: rew_heaps.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -649,14 +586,14 @@ Lemma heap_components : forall h,
   heap_compat (h^rw) (h^ro) /\ h = (h^rw) \u (h^ro).
 Proof using.
   intros. lets C: heap_compat_projs h. split*.
-  { applys heap_eq_projs; rew_heap*. }
+  { applys heap_eq_projs; rew_heaps*. }
 Qed.
 
 Lemma heap_eq_union_projs : forall h,
   h = (h^rw) \u (h^ro).
 Proof using.
   intros. lets C: heap_compat_projs h.
-  intros. applys heap_eq_projs; rew_heap*.
+  intros. applys heap_eq_projs; rew_heaps*.
 Qed.
 
 Lemma heap_eq_union_same_if_ro : forall h,
@@ -681,7 +618,7 @@ Lemma proj_ro_toro : forall h,
   (toro h)^ro = (toro h).
 Proof using. intros ((f,r)&D). auto. Qed.
 
-Hint Rewrite proj_rw_toro proj_ro_toro : rew_heap.
+Hint Rewrite proj_rw_toro proj_ro_toro : rew_heaps.
 
 Lemma heap_compat_toro_l : forall h1 h2,
   heap_compat h1 h2 ->
@@ -747,13 +684,13 @@ Proof using.
   unfold toro; simpl. fequals. fequals; fmap_eq.
 Qed.
 
-Hint Rewrite toro_empty toro_union toro_idempotent : rew_heap.
+Hint Rewrite toro_empty toro_union toro_idempotent : rew_heaps.
 
 Lemma toro_eq_union_same : forall h,
   toro h = (toro h) \u (toro h).
 Proof using.
   intros h.
-  forwards C: heap_compat_refl_if_ro (toro h). { rew_heap*. }
+  forwards C: heap_compat_refl_if_ro (toro h). { rew_heaps*. }
   destruct h as ((f,r),D). 
   forwards* (G1&->): heap_union_eq_of_compat C.
   unfold toro; simpl. fequals. fequals. rew_fmap*.
@@ -878,7 +815,7 @@ Lemma hstar_hempty_l : forall H,
 Proof using.
   intros. applys pred_ext_1. intros h.
   iff (h1&h2&M1&M2&D&->) M.
-  { rewrite (hempty_inv M1). rew_heap*. }
+  { rewrite (hempty_inv M1). rew_heaps*. }
   { exists~ heap_empty h. }
 Qed.
 
@@ -1068,7 +1005,7 @@ Lemma onlyrw_proj_rw : forall h H,
   h^rw = h.
 Proof using.
   introv N K. rewrite (heap_eq_union_projs h) at 2.
-  rewrite* N. rew_heap*.
+  rewrite* N. rew_heaps*.
 Qed.
 
 Lemma onlyrw_of_haffine : forall H,
@@ -1083,14 +1020,14 @@ Lemma onlyrw_hempty :
   onlyrw \[].
 Proof using.
   Transparent hempty hpure.
-  introv M. unfolds hempty, hpure. subst. rew_heap*.
+  introv M. unfolds hempty, hpure. subst. rew_heaps*.
 Qed.
 
 Lemma onlyrw_hpure : forall P,
   onlyrw \[P].
 Proof using.
   Transparent hpure.
-  introv (p&M). unfolds hempty. subst. rew_heap*.
+  introv (p&M). unfolds hempty. subst. rew_heaps*.
 Qed.
 
 Lemma onlyrw_hgc :
@@ -1108,15 +1045,15 @@ Qed.
 
 Lemma onlyrw_hsingle : forall l v,
   onlyrw (hsingle l v).
-Proof using. introv (->&N). rew_heap. autos*. Qed.
+Proof using. introv (->&N). rew_heaps. autos*. Qed.
 
 Lemma onlyrw_hstar : forall H1 H2,
   onlyrw H1 ->
   onlyrw H2 ->
   onlyrw (H1 \* H2).
 Proof using.
-  introv N1 N2 (h1&h2&P1&P2&M1&->). rew_heap*.
-  rewrites (>> N1 P1). rewrites (>> N2 P2). rew_heap*.
+  introv N1 N2 (h1&h2&P1&P2&M1&->). rew_heaps*.
+  rewrites (>> N1 P1). rewrites (>> N2 P2). rew_heaps*.
 Qed.
 
 Lemma onlyrw_hexists : forall A (J:A->hprop),
@@ -1170,9 +1107,9 @@ Lemma onlyrw_hpure_star_hpure : forall (P:Prop) H,
   (P -> onlyrw H) ->
   onlyrw (\[P] \* H).
 Proof using.
-  introv N (h1&h2&P1&P2&M1&->). rew_heap*.
+  introv N (h1&h2&P1&P2&M1&->). rew_heaps*.
   lets (MP&ME): hpure_inv P1. rewrites (rm ME).
-  rewrites~ (>> N P2). rew_heap*.
+  rewrites~ (>> N P2). rew_heaps*.
 Qed.
 
 
@@ -1191,7 +1128,7 @@ Lemma onlyro_proj_ro : forall h H,
   h^ro = h.
 Proof using.
   introv N K. rewrite (heap_eq_union_projs h) at 2.
-  rewrite* N. rew_heap*.
+  rewrite* N. rew_heaps*.
 Qed.
 
 Lemma onlyro_proj_rw : forall h H,
@@ -1203,7 +1140,7 @@ Proof using. introv N K. applys* N. Qed.
 Lemma onlyro_hempty :
   onlyro hempty.
 Proof using.
-  introv M. unfolds hempty, hpure. subst. rew_heap*.
+  introv M. unfolds hempty, hpure. subst. rew_heaps*.
 Qed.
 
 Lemma onlyro_hstar : forall H1 H2,
@@ -1211,8 +1148,8 @@ Lemma onlyro_hstar : forall H1 H2,
   onlyro H2 ->
   onlyro (H1 \* H2).
 Proof using.
-  introv N1 N2 (h1&h2&P1&P2&M1&EQ). subst. rew_heap*.
-  rewrite* N1. rewrite* N2. rew_heap*.
+  introv N1 N2 (h1&h2&P1&P2&M1&EQ). subst. rew_heaps*.
+  rewrite* N1. rewrite* N2. rew_heaps*.
 Qed.
 
 Hint Resolve onlyro_hstar onlyro_hempty : onlyro.
@@ -1291,7 +1228,7 @@ Qed.
 Lemma RO_heap_empty : forall (H:hprop),
   H heap_empty ->
   RO H heap_empty.
-Proof using. introv N. exists heap_empty. rew_heap*. Qed.
+Proof using. introv N. exists heap_empty. rew_heaps*. Qed.
 
 Hint Resolve toro_pred RO_heap_empty.
 
@@ -1306,7 +1243,7 @@ Lemma RO_hempty :
   RO \[] = \[].
 Proof using.
   intros. apply pred_ext_1. intros h.
-  unfold hempty. iff (h'&->&->) ->; rew_heap*.
+  unfold hempty. iff (h'&->&->) ->; rew_heaps*.
 Qed.
 
 Lemma RO_pure : forall P,
@@ -1315,7 +1252,7 @@ Proof using.
   hint hpure_intro.
   intros. apply pred_ext_1. intros h.
   iff (h'&(M1p&M2)&->) (MP&M1).
-  { lets ->: hempty_inv M2. rew_heap*. }
+  { lets ->: hempty_inv M2. rew_heaps*. }
   { lets ->: hempty_inv M1. auto. }
 Qed.
 
@@ -1355,7 +1292,7 @@ Proof using.
   hint hstar_intro.
   intros. intros h (h'&(h1&h2&N1&P1&P2&->)&->).
   lets C: heap_compat_toro P2.
-  exists (toro h1) (toro h2). rew_heap*.
+  exists (toro h1) (toro h2). rew_heaps*.
 Qed.
 
 Arguments RO_hstar : clear implicits.
@@ -1363,7 +1300,7 @@ Arguments RO_hstar : clear implicits.
 Lemma onlyro_RO : forall H,
   onlyro (RO H).
 Proof using.
-  introv (h'&K&E). subst. rew_heap*.
+  introv (h'&K&E). subst. rew_heaps*.
 Qed.
 
 Lemma RO_duplicatable : forall H,
@@ -1403,7 +1340,7 @@ Lemma onlyrw_rw_elim : forall H h,
 Proof using.
   introv NF K. lets K': K.
   rewrite (heap_eq_union_projs h) in K.
-  rewrites* (>> onlyrw_proj_ro NF) in K. rew_heap* in K.
+  rewrites* (>> onlyrw_proj_ro NF) in K. rew_heaps* in K.
 Qed.
 
 Lemma onlyrw_onlyro_rw_elim : forall HF HR h,
@@ -1412,8 +1349,8 @@ Lemma onlyrw_onlyro_rw_elim : forall HF HR h,
   (HF \* HR) h ->
   HF (h^rw).
 Proof using.
-  introv NF NR (h1&h2&K1&K2&D&->). rew_heap*.
-  rewrites* (>> onlyro_proj_rw K2). rew_heap.
+  introv NF NR (h1&h2&K1&K2&D&->). rew_heaps*.
+  rewrites* (>> onlyro_proj_rw K2). rew_heaps.
   rewrites* (>> onlyrw_proj_rw K1).
 Qed.
 
@@ -1515,15 +1452,15 @@ Proof using.
   { applys* hstar_intro h1 (toro h2). { applys* toro_pred. } }
   lets (D'&E'): heap_components h'.
   lets C1': heap_compat_toro_r C1.
-  rewrites S in *. rew_heap* in *.
+  rewrites S in *. rew_heaps* in *.
   forwards* (D1'&D2'): heap_compat_union_r_inv (rm D').
-  forwards D2'': heap_compat_toro_r_inv D2'. { rew_heap*. }
+  forwards D2'': heap_compat_toro_r_inv D2'. { rew_heaps*. }
   exists ((h'^rw) \u (h1^ro) \u h2) v. splits.
   { applys_eq R.
      { rew_fmap*. }
-     { rewrites (rm E'). rew_heap*. rew_fmap*. } }
-  { rew_heap*. applys* hstar_intro. { applys* isframe_rw_elim. } }
-  { rew_heap*. }
+     { rewrites (rm E'). rew_heaps*. rew_fmap*. } }
+  { rew_heaps*. applys* hstar_intro. { applys* isframe_rw_elim. } }
+  { rew_heaps*. }
 Qed.
 
 Lemma hoare_hexists : forall t (A:Type) (J:A->hprop) Q,
@@ -1536,7 +1473,7 @@ Lemma hoare_hpure : forall t (P:Prop) H Q,
   hoare t (\[P] \* H) Q.
 Proof using.
   introv M. intros h (h1&h2&(HP&M1)&M2&D&->).
-  lets ->: hempty_inv M1. rew_heap*.
+  lets ->: hempty_inv M1. rew_heaps*.
 Qed.
 
 
@@ -1595,21 +1532,21 @@ Proof using.
     { applys* hstar_intro. } }
   (* Adding compatibility facts *)
   lets (Da&Ea): heap_components h1'.  
-  rewrite E1 in Da. rew_heap* in Da.
+  rewrite E1 in Da. rew_heaps* in Da.
   forwards* (C3&C4): heap_compat_union_r_inv Da.
   forwards* (C5&C6): heap_compat_union_r_inv C4.
-  forwards C7: heap_compat_toro_r_inv C3. { rew_heap*. }
+  forwards C7: heap_compat_toro_r_inv C3. { rew_heaps*. }
   (* Remaining of the proof *)
   forwards (h2'&v2&R2&K2&E2): (rm M2) v1 (= hI^ro \u h1^ro) (h1'^rw \u h2 \u hI^ro \u h1^ro).
-  { intros ? ->. rew_heap*. }
+  { intros ? ->. rew_heaps*. }
   { rewrite <- hstar_assoc. applys* hstar_intro.
     { applys* hstar_intro. } }
   exists h2' v2. splits*.
   { applys eval_let_trm (heap_state h1').
     { applys_eq R1. subst h hr. rew_fmap*. }
     { applys_eq R2. 
-      rewrite Ea at 1. rewrite E1. rew_heap*. rew_fmap*. } }
-  { rewrite E2. rewrite U1,U2. rew_heap*. }
+      rewrite Ea at 1. rewrite E1. rew_heaps*. rew_fmap*. } }
+  { rewrite E2. rewrite U1,U2. rew_heaps*. }
 Qed.
 
 Lemma hoare_if : forall (b:bool) t1 t2 H Q,
@@ -1631,10 +1568,10 @@ Proof using.
   lets D: heap_compat_single_l_inv C.
   exists ((heap_single p v) \u hI) (val_loc p). splits.
   { rew_fmap*. applys~ eval_ref_sep. }
-  { rew_heap*. applys~ hstar_intro.
+  { rew_heaps*. applys~ hstar_intro.
     { exists p. rewrite~ hstar_hpure_l. split~. applys* hsingle_intro. }
     { applys* isframe_rw_elim. } }
-  { rew_heap*. }
+  { rew_heaps*. }
 Qed.
 
 Lemma hoare_get_ro : forall HI HO v p,
@@ -1648,7 +1585,7 @@ Proof using.
   exists h v. splits.
   { applys* eval_get_sep (heap_state h1) (heap_state h2);
     subst; rew_fmap*. }
-  { rewrite~ hstar_hpure_l. split~. subst h h1. rew_heap*.
+  { rewrite~ hstar_hpure_l. split~. subst h h1. rew_heaps*.
     applys* isframe_rw_elim. }
   { auto. }
 Qed.
@@ -1668,9 +1605,9 @@ Proof using.
   { applys* eval_set_sep (single p w) (single p v) (heap_state h2);
     subst; rew_fmap*. }
   { rewrite hstar_hpure_l. split~.
-    { rew_heap*. applys* hstar_intro.
+    { rew_heaps*. applys* hstar_intro.
       { applys* hsingle_intro. } { applys* isframe_rw_elim. } } }
-  { rew_heap*. }
+  { rew_heaps*. }
 Qed.
 
 Lemma hoare_free : forall HI HO p v,
@@ -1685,7 +1622,7 @@ Proof using.
   exists h2 val_unit. splits.
   { applys* eval_free_sep; subst; rew_fmap*. }
   { rewrite hstar_hpure_l. split~. applys* isframe_rw_elim. }
-  { rew_heap*. }
+  { rew_heaps*. }
 Qed.
 
 
@@ -1978,7 +1915,7 @@ Qed.
 Lemma triple_val : forall v,
   triple (trm_val v) \[] (fun r => \[r = v]).
 Proof using.
-  intros. intros HI HO HF. rew_heap.
+  intros. intros HI HO HF. rew_heaps.
   applys hoare_conseq.
   { applys* hoare_val. }
   { xsimpl. }
@@ -1999,7 +1936,7 @@ Qed.
 Lemma triple_fix : forall f x t1,
   triple (trm_fix f x t1) \[] (fun r => \[r = (val_fix f x t1)]).
 Proof using.
-  intros. intros HI HO HF. rew_heap.
+  intros. intros HI HO HF. rew_heaps.
   applys hoare_conseq.
   { applys* hoare_fix. }
   { xsimpl. }
@@ -2033,7 +1970,7 @@ Proof using.
       { intros v H3 N3. lets NO: onlyrw_of_isframe HF.
         forwards* HFa: isframe_onlyrw (HO \* \GC) isframe_hempty.
         { auto with onlyrw. }
-        forwards* HFb: isframe_onlyro H3 (rm HFa). rew_heap in HFb.
+        forwards* HFb: isframe_onlyro H3 (rm HFa). rew_heaps in HFb.
         applys hoare_conseq.
         { applys M2 HFb. } { xsimpl. }
         { xsimpl. } } }
@@ -2113,8 +2050,8 @@ Lemma decomposition : forall H,
 Proof using.
   intros H h K. forwards (D&->): (heap_components h).
   exists (= h^rw) (= h^ro). do 2 rewrite hstar_hpure. splits.
-  { intros ? ->. rew_heap*. }
-  { intros ? ->. rew_heap*. }
+  { intros ? ->. rew_heaps*. }
+  { intros ? ->. rew_heaps*. }
   { applys* hstar_intro. }
 Qed.
 
@@ -2256,13 +2193,13 @@ Lemma normally_hstar : forall H1 H2,
   normally (H1 \* H2) = normally H1 \* normally H2.
 Proof using.
   intros. applys himpl_antisym.
-  { intros h ((h1&h2&M1&M2&M3&M4)&E). subst h. rew_heap~ in E.
+  { intros h ((h1&h2&M1&M2&M3&M4)&E). subst h. rew_heaps~ in E.
     exists h1 h2. splits~.
     { split~. applys* Fmap.union_eq_empty_inv_l. }
     { split~. applys* Fmap.union_eq_empty_inv_r. } }
   { intros. intros h (h1&h2&(M1&E1)&(M2&E2)&M3&M4). split.
     { exists~ h1 h2. }
-    { subst h. rew_heap~. rewrite E1,E2. rew_fmap~. } }
+    { subst h. rew_heaps~. rewrite E1,E2. rew_fmap~. } }
 Qed.
 
 Lemma normally_hwand : forall H1 H2,
@@ -2324,7 +2261,7 @@ Proof using.
   forwards~ (h1'&v&(N1&N2&N3&N4)): (rm M) (h11 \u (toro h12)) h2.
   { exists h11 (toro h12). splits~.
     { applys~ toro_pred. } }
-  rew_heap~ in N3. rewrite E12 in N3.
+  rew_heaps~ in N3. rewrite E12 in N3.
   lets G: heap_disjoint_parts h1'.
   forwards (h1''&F1&F2): heap_make (h1'^^rw \+ h12^^rw) (h11^^ro).
   { rewrite N3 in G. fmap_disjoint. }
@@ -2338,14 +2275,14 @@ Proof using.
   { applys_eq N2; try fmap_eq~.
     { rewrite~ R12. }
     { fequals. unstate. rewrite F1,F2,N3. fmap_eq. } }
-  { rew_heap~. rewrite F2,E12. fmap_eq~. }
+  { rew_heaps~. rewrite F2,E12. fmap_eq~. }
   {  clears h2.
      rename h1'' into hd. rename H2 into Hb. sets Ha: (Q1 v).
      rename h1' into ha.  rewrite~ Fmap.union_empty_r in N3.
      rename h12 into hb. rename h11 into hc.
      (* LATER: begin separate lemma *)
      destruct N4 as (hx&hy&V1&V2&V3&V4).
-     lets G': G. rewrite N3 in G'. rewrite V2 in G'. rew_heap~ in G'.
+     lets G': G. rewrite N3 in G'. rewrite V2 in G'. rew_heaps~ in G'.
      asserts C1: (heap_compat hx hb).
      { unfolds. rewrite E12. split.
        { auto. }
@@ -2377,12 +2314,12 @@ Proof using.
      exists (hx \u hb) (hcr \u hyf). splits.
      { auto. }
      { applys heap_eq. split.
-       { rewrite F1,V2. rew_heap~. rewrite Y1,W1.
+       { rewrite F1,V2. rew_heaps~. rewrite Y1,W1.
          rewrite Fmap.union_empty_l.
          do 2 rewrite Fmap.union_assoc. fequals.
          applys Fmap.union_comm_of_disjoint. auto. }
-       { rew_heap~. rewrite V3,E12,W2,Y2,F2. fmap_eq. } }
-     { rew_heap~. rewrite V3,E12. fmap_eq. }
+       { rew_heaps~. rewrite V3,E12,W2,Y2,F2. fmap_eq. } }
+     { rew_heaps~. rewrite V3,E12. fmap_eq. }
      { exists~ hx hb. splits~. split~. } }
 Qed.
 
