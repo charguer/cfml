@@ -645,26 +645,38 @@ Proof using.
   introv M. applys heap_compat_toro_l. applys* heap_compat_toro_r.
 Qed.
 
+Lemma heap_compat_toro_r_inv : forall h1 h2,
+  heap_compat h1 (toro h2) ->
+  h1^ro = heap_empty ->
+  heap_compat h1 h2.
+Proof using.
+  hint agree_of_disjoint.
+  intros ((f1,r1)&D1) ((f2,r2),D2) (Ca&Cb) E. inverts E.
+  forwards* (G1&G2): Fmap.agree_union_r_inv Ca. split*.
+Qed.
+
 Lemma toro_idempotent : forall h,
   toro (toro h) = toro h.
 Proof using.
-  skip.
+  intros ((f,r),D). unfold toro; simpl. fequals. rew_fmap*.
 Qed.
 
 Lemma toro_empty :
   toro heap_empty = heap_empty.
 Proof using.
-  skip.
+  unfold heap_empty, toro; simpl. fequals. rew_fmap*.
 Qed.
 
 Lemma toro_union : forall h1 h2,
   heap_compat h1 h2 ->
   toro (h1 \u h2) = (toro h1) \u (toro h2).
 Proof using.
-  skip.
+  intros ((f1,r1)&D1) ((f2,r2),D2) C. lets (Ca&Cb): C.
+  lets C': heap_compat_toro C.
+  forwards* (G1&->): heap_union_eq_of_compat C.
+  forwards* (G2&->): heap_union_eq_of_compat C'.
+  unfold toro; simpl. fequals. fequals; fmap_eq.
 Qed.
-
-(* TODO *)
 
 Hint Rewrite toro_empty toro_union toro_idempotent : rew_heap.
 
@@ -953,13 +965,13 @@ Definition onlyrw (H:hprop) : Prop :=
 Definition onlyrw_post A (Q:A->hprop) : Prop :=
   forall x, onlyrw (Q x).
 
-Lemma onlyrw_proj_ro : forall H h,
+Lemma onlyrw_proj_ro : forall h H,
   onlyrw H ->
   H h ->
   h^ro = heap_empty.
 Proof using. introv N K. applys* N. Qed.
 
-Lemma onlyrw_proj_rw : forall H h,
+Lemma onlyrw_proj_rw : forall h H,
   onlyrw H ->
   H h ->
   h^rw = h.
@@ -1082,7 +1094,7 @@ Definition onlyro (H:hprop) : Prop :=
 Definition onlyro_post A (Q:A->hprop) : Prop :=
   forall x, onlyro (Q x).
 
-Lemma onlyro_proj_ro : forall H h,
+Lemma onlyro_proj_ro : forall h H,
   onlyro H ->
   H h ->
   h^ro = h.
@@ -1091,7 +1103,7 @@ Proof using.
   rewrite* N. rew_heap*.
 Qed.
 
-Lemma onlyro_proj_rw : forall H h,
+Lemma onlyro_proj_rw : forall h H,
   onlyro H ->
   H h ->
   h^rw = heap_empty.
@@ -1386,64 +1398,32 @@ Proof using.
   exists h' v. splits~. { applys MQ K. }
 Qed.
 
+
+
+
+
 Lemma hoare_frame_read_only : forall t H1 Q1 H2,
   hoare t (H1 \* RO H2) Q1 ->
   onlyrw H2 ->
   hoare t (H1 \* H2) (Q1 \*+ H2).
 Proof using.
-  hint heap_compat_union_l, heap_compat_toro_r.
-  introv M N. intros ? (h1&h2&P1&P2&R1&->).
+  hint heap_compat_union_l, heap_compat_union_r, heap_compat_toro_r.
+  introv M N. intros ? (h1&h2&P1&P2&C1&->).
   forwards (h'&v&R&L&S): M (h1 \u toro h2).
   { applys* hstar_intro h1 (toro h2). { applys* toro_pred. } }
   lets (D'&E'): heap_components h'.
-  exists ((h'^rw) \u (h1^ro) \u h2) v. split.
+  lets C1': heap_compat_toro_r C1.
+  rewrites S in *. rew_heap* in *.
+  forwards* (D1'&D2'): heap_compat_union_r_inv (rm D').
+  forwards D2'': heap_compat_toro_r_inv D2'. { rew_heap*. }
+  exists ((h'^rw) \u (h1^ro) \u h2) v. splits.
   { applys_eq R.
      { rew_fmap*. }
-     { rewrites (rm E'). rew_heap*. rewrites (rm S) in *.
-       rew_heap* in *. forwards* (D1'&D2'): heap_compat_union_r_inv (rm D').
-       rew_fmap*.
-
-
-
- rew_fmap*. 
-(* TODO heap_compat (h1^^^ro) h2 *)
-
-(*
-   hint heap_compat_part_ro_toro. (*, heap_compat_part_l,
-   
-  hint heap_compat_part, heap_compat_of_disjoint. *)
-
-   (* rewrite Eh' in R. rewrite S in R. rew_heap~ in R.*)
-  exists ((mkrw h'^^rw) \u (mkro h1^^ro) \u h2) v. splits.
-  { applys_eq R. { rew_heap*. rew_fmap*. }
-     { rewrite (heap_state_eq h'). rew_fmap*. 
-(* TODO heap_compat (h1^^^ro) h2 *)
-(* TODO
-  asserts C': (heap_compat h'^^^rw h1^^^ro)-- trivial
-          h'^^ro = (h1 \u toro h2)^^ro -> heap_compat (h'^^^rw) h2)).
-  { rew_fmap in Dh';[|auto]. applys heap_compat_of_disjoint. rew_fmap; [|auto].
-    rewrite disjoint_union_eq_r.
-    rewrite <- (disjoint_toro_eq _ h2). auto. }
-*)
-(* TODO: heap_state (h^^^rw) *)
-skip. skip. skip. } } (* TODO (h1 \u h2) ^^^rw = ... *)
-(* TODO  (h1^^^ro)^^^rw *)
-skip.
-skip.
+     { rewrites (rm E'). rew_heap*. rew_fmap*. } }
+  { rew_heap*. erewrite (@onlyrw_proj_rw h2); eauto. (* TODO tactic *)
+    applys* hstar_intro. }
+  { rew_heap*. }
 Qed.
-  (* Adding facts
-  lets (Eh'&Dh'): part_rwmap_parts h'.
-  rewrite S in Dh'.
-  asserts C': (heap_compat h'^^rw (h1^^ro \u h2)).
-  { rew_fmap in Dh';[|auto]. applys heap_compat_of_disjoint. rew_fmap; [|auto].
-    rewrite disjoint_union_eq_r.
-    rewrite <- (disjoint_toro_eq _ h2). auto. }
- *)
-
-(* TODO: rename part_rw, part_ro *)
-(* TODO: notation for (mkrw h'^^rw) \u (mkro h1^^ro),
-   ^^^rw and ^^^ro. *)
-*)
 
 Lemma hoare_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, hoare t (J x) Q) ->

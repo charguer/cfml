@@ -39,7 +39,9 @@ SRC_EXAMPLES := Example ExampleQueue ExampleList ExampleListIndir   ExampleListN
 
 SRC_COMMON := TLCbuffer Fmap Var SepSimpl
 
-SRC_CFML := Bind Semantics SepFunctor SepRONew SepROMode  SepBase WPBase SepLifted WPLifted WPTactics 
+SRC_NOW := SepRONew SepROMode  
+
+SRC_CFML := Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics 
 
 SRC_CFML_PLUS := WPRecord WPLib 
 # $(SRC_EXAMPLES) WPExamples WPExamplesDetails WPUnitTests 
@@ -56,7 +58,7 @@ SRC_SF := SLFPreface SLFDirect SLFExtra SLFSummary SLFMinimal SLFBasic SLFHprop 
 
 SRC_MOSEL := SepMoselFunctor SepBaseMosel SepROMosel ExampleROMosel ExampleListMosel
 
-SRC := $(SRC_COMMON) $(SRC_CFML) $(SRC_MORE) $(SRC_CFML_PLUS) $(SRC_EXAMPLES) 
+SRC := $(SRC_COMMON) $(SRC_NOW) $(SRC_CFML) $(SRC_MORE) $(SRC_CFML_PLUS) $(SRC_EXAMPLES) 
 # $(SRC_CF)  $(SRC_MOSEL)
 
 # using the variable SRC_FORCE, one can modify the compilation targets and/or their order.
