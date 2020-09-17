@@ -594,6 +594,13 @@ Hint Rewrite heap_union_empty_l heap_union_empty_r: rew_heap.
 
 (** Decomposition as union of its two projections. *)
 
+Lemma heap_components : forall h,
+  heap_compat (h^rw) (h^ro) /\ h = (h^rw) \u (h^ro).
+Proof using.
+  intros. lets C: heap_compat_projs h. split*.
+  { applys heap_eq_projs; rew_heap*. }
+Qed.
+
 Lemma heap_eq_union_projs : forall h,
   h = (h^rw) \u (h^ro).
 Proof using.
@@ -1360,49 +1367,6 @@ Proof using. introv (R&NF&NR&E) M. auto. Qed.
 (* * Reasoning rules, high-level proofs *)
 
 (* ---------------------------------------------------------------------- *)
-(* ** Tactic [himpl_fold] *)
-
-(** [himpl_fold] applies to a goal of the form [H1 h].
-    It searches the context for an assumption of the from [H2 h],
-    then replaces the goal with [H1 ==> H2].
-    It also deletes the assumption [H2 h]. *)
-
-Ltac himpl_fold_core tt :=
-  match goal with N: ?H ?h |- _ ?h =>
-    applys himpl_inv N; clear N end.
-
-Tactic Notation "himpl_fold" := himpl_fold_core tt.
-Tactic Notation "himpl_fold" "~" := himpl_fold; auto_tilde.
-Tactic Notation "himpl_fold" "*" := himpl_fold; auto_star.
-
-(* TODO: remove *)
-
-
-(* ---------------------------------------------------------------------- *)
-
-Tactic Notation "rew_fmap" :=
-  autorewrite with rew_fmap.
-Tactic Notation "rew_fmap" "in" hyp(H) :=
-  autorewrite with rew_fmap in H.
-Tactic Notation "rew_fmap" "in" "*" :=
-  autorewrite with rew_fmap in *.
-
-Tactic Notation "rew_fmap" "~" :=
-  rew_fmap; auto_tilde.
-Tactic Notation "rew_fmap" "~" "in" hyp(H) :=
-  rew_fmap in H; auto_tilde.
-Tactic Notation "rew_fmap" "~" "in" "*" :=
-  rew_fmap in *; auto_tilde.
-
-Tactic Notation "rew_fmap" "*" :=
-  rew_fmap; auto_star.
-Tactic Notation "rew_fmap" "*" "in" hyp(H) :=
-  rew_fmap in H; auto_star.
-Tactic Notation "rew_fmap" "*" "in" "*" :=
-  rew_fmap in *; auto_star.
-
-
-(* ---------------------------------------------------------------------- *)
 (* ** Definition of Hoare triples in a logic with read-only predicates *)
 
 Definition hoare (t:trm) (H:hprop) (Q:val->hprop) :=
@@ -1417,9 +1381,9 @@ Lemma hoare_conseq : forall t H' Q' H Q,
   Q' ===> Q ->
   hoare t H Q.
 Proof using.
-  introv M MH MQ HF. forwards (h'&v&R&K&E): M h.
-  { himpl_fold~. }
-  exists h' v. splits~. { himpl_fold. auto. }
+  introv M MH MQ HF. forwards (h'&v&R&K&S): M h.
+  { applys* MH. }
+  exists h' v. splits~. { applys MQ K. }
 Qed.
 
 Lemma hoare_frame_read_only : forall t H1 Q1 H2,
@@ -1427,12 +1391,28 @@ Lemma hoare_frame_read_only : forall t H1 Q1 H2,
   onlyrw H2 ->
   hoare t (H1 \* H2) (Q1 \*+ H2).
 Proof using.
-   hint heap_compat_part_ro_toro. (*, heap_compat_part_l,
-    heap_compat_part_r, heap_compat_union_r.
-  hint heap_compat_part, heap_compat_of_disjoint. *)
+  hint heap_compat_union_l, heap_compat_toro_r.
   introv M N. intros ? (h1&h2&P1&P2&R1&->).
   forwards (h'&v&R&L&S): M (h1 \u toro h2).
-  { exists h1 (toro h2). splits~. { applys* toro_pred. } }
+  { applys* hstar_intro h1 (toro h2). { applys* toro_pred. } }
+  lets (D'&E'): heap_components h'.
+  exists ((h'^rw) \u (h1^ro) \u h2) v. split.
+  { applys_eq R.
+     { rew_fmap*. }
+     { rewrites (rm E'). rew_heap*. rewrites (rm S) in *.
+       rew_heap* in *. forwards* (D1'&D2'): heap_compat_union_r_inv (rm D').
+       rew_fmap*.
+
+
+
+ rew_fmap*. 
+(* TODO heap_compat (h1^^^ro) h2 *)
+
+(*
+   hint heap_compat_part_ro_toro. (*, heap_compat_part_l,
+   
+  hint heap_compat_part, heap_compat_of_disjoint. *)
+
    (* rewrite Eh' in R. rewrite S in R. rew_heap~ in R.*)
   exists ((mkrw h'^^rw) \u (mkro h1^^ro) \u h2) v. splits.
   { applys_eq R. { rew_heap*. rew_fmap*. }
@@ -1463,7 +1443,7 @@ Qed.
 (* TODO: rename part_rw, part_ro *)
 (* TODO: notation for (mkrw h'^^rw) \u (mkro h1^^ro),
    ^^^rw and ^^^ro. *)
-
+*)
 
 Lemma hoare_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, hoare t (J x) Q) ->
@@ -1475,7 +1455,7 @@ Lemma hoare_hpure : forall t (P:Prop) H Q,
   hoare t (\[P] \* H) Q.
 Proof using.
   introv M. intros h (h1&h2&(HP&M1)&M2&D&->).
-  lets ->: hempty_inv M1. rew_fmap*.
+  lets ->: hempty_inv M1. rew_heap*.
 Qed.
 
 
@@ -1761,13 +1741,6 @@ Lemma triple_haffine_post : forall H' t H Q,
   triple t H Q.
 Proof using.
   introv M F. applys triple_hgc_post. applys triple_conseq M; xsimpl.
-Qed.
-
-(* TODO : move *)
-Lemma onlyro_RO : forall H,
-  onlyro (RO H).
-Proof using.
-  introv (h'&K&E). subst. rew_heap*.
 Qed.
 
 Lemma triple_hro_pre : forall t H H' Q,
