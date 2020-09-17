@@ -681,9 +681,10 @@ Lemma heap_compat_union_l_inv_l : forall h1 h2 h3,
   heap_compat h1 h2 ->
   heap_compat h2 h3.
 Proof using.
-  introv M2 M1. lets (C1&D1): M1. lets (C2&D2): M2.
-  rew_fmap~ in *. forwards~ (N1&N2): Fmap.agree_union_l_inv C2.
-  split*.
+  intros ((f1,r1),D1) ((f2,r2),D2) ((f3,r3),D3) C' C.
+  forwards* (G1&E): heap_union_eq_of_compat C. rewrite E in *.
+  clear E. destruct C as (Ca&Cb). destruct C' as (C'a&C'b).
+  forwards~ (N1&N2): Fmap.agree_union_l_inv C'a. split*.
 Qed.
 
 Lemma heap_compat_union_l_inv_r : forall h1 h2 h3,
@@ -701,7 +702,7 @@ Lemma heap_compat_union_l_inv : forall h1 h2 h3,
   heap_compat h1 h2 ->
   heap_compat h1 h3 /\ heap_compat h2 h3.
 Proof using.
-  hint heap_compat_union_l_inv_l, heap_compat_union_l_inv_r. autos*.
+  autos* heap_compat_union_l_inv_l heap_compat_union_l_inv_r. 
 Qed.
 
 Lemma heap_compat_union_r_inv : forall h1 h2 h3,
@@ -709,15 +710,11 @@ Lemma heap_compat_union_r_inv : forall h1 h2 h3,
   heap_compat h2 h3 ->
   heap_compat h1 h2 /\ heap_compat h1 h3.
 Proof using.
+  hint heap_compat_sym.
   introv M1 M2. rewrite* heap_union_comm in M1.
   lets M1': heap_compat_sym M1.
   forwards~ (N1&N2): heap_compat_union_l_inv M1'.
 Qed.
-
-Lemma heap_compat_mkrw_inv : forall s1 s2,
-  heap_compat (mkrw s1) (mkrw s2) ->
-  disjoint s1 s2.
-Proof using. introv (A&D). rew_fmap* in *. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -768,7 +765,7 @@ Qed.
 Lemma hstar_comm : forall H1 H2,
    H1 \* H2 = H2 \* H1.
 Proof using.
-  hint heap_union_comm, Fmap.agree_sym.
+  hint heap_union_comm, heap_compat_sym.
   intros. unfold hstar. extens. intros h.
   iff (h1&h2&M1&M2&D&U).
   { exists h2 h1. subst~. }
