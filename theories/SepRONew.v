@@ -546,7 +546,8 @@ Lemma heap_union_comm : forall h1 h2,
 Proof using.
   intros ((f1,r1),D1) ((f2,r2),D2) C.
   lets C': heap_compat_sym C.
-  unfold heap_union. do 2 case_classic; simple.
+  forwards* (G1&->): heap_union_eq_of_compat C.
+  forwards* (G2&->): heap_union_eq_of_compat C'.
   fequals. destruct C. fequals.
   { applys* Fmap.union_comm_of_disjoint. }
   { applys* Fmap.union_comm_of_agree. }
@@ -612,13 +613,7 @@ Lemma proj_ro_toro : forall h,
   (toro h)^ro = (toro h).
 Proof using. intros ((f,r)&D). auto. Qed.
 
-Lemma heap_state_toro : forall h,
-  heap_state (toro h) = heap_state h.
-Proof using.
-  intros ((f,r)&D). unfold heap_state, toro. simpl. rew_fmap*.
-Qed.
-
-Hint Rewrite proj_rw_toro proj_ro_toro heap_state_toro : rew_heap.
+Hint Rewrite proj_rw_toro proj_ro_toro : rew_heap.
 
 Lemma heap_compat_toro_l : forall h1 h2,
   heap_compat h1 h2 ->
@@ -644,27 +639,37 @@ Proof using.
 Qed.
 
 
-
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [heap_state] *)
 
-Lemma heap_state_eq : forall h,
-  heap_state h = h^^rw \+ h^^ro.
-Proof. auto. Qed.
+Lemma heap_state_empty : 
+  heap_state heap_empty = Fmap.empty.
+Proof. 
+  unfold heap_empty, heap_state. simpl. rew_fmap*.
+Qed.
 
-Lemma heap_state_empty : heap_state heap_empty = Fmap.empty.
-Proof. unfold heap_empty. unstate. fmap_eq. Qed.
+Lemma heap_state_single : forall p v,
+  heap_state (heap_single p v) = (Fmap.single p v).
+Proof.
+  intros. unfold heap_single, heap_state; simpl. rew_fmap*.
+Qed.
 
 Lemma heap_state_union : forall h1 h2,
   heap_compat h1 h2 ->
   heap_state (h1 \u h2) = heap_state h1 \+ heap_state h2.
 Proof using.
-  introv C. unfold heap_state. rew_fmap*. 
-  unfolds heap_compat. fmap_eq.
+  intros ((f1,r1),D1) ((f2,r2),D2) C.
+  forwards* (G1&->): heap_union_eq_of_compat C.
+  unfold heap_state; simpl. fmap_eq.
 Qed.
 
-Hint Rewrite heap_state_empty heap_state_union : rew_fmap.
+Lemma heap_state_toro : forall h,
+  heap_state (toro h) = heap_state h.
+Proof using.
+  intros ((f,r)&D). unfold heap_state, toro. simpl. rew_fmap*.
+Qed.
 
+Hint Rewrite heap_state_empty heap_state_single heap_state_union heap_state_toro : rew_fmap.
 
 
 
