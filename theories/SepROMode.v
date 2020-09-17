@@ -1477,7 +1477,7 @@ Proof using.
   { exists* (toro h'). }
 Qed.
 
-Lemma RO_empty :
+Lemma RO_hempty :
   RO \[] = \[].
 Proof using.
   intros. apply pred_ext_1. intros h.
@@ -1495,7 +1495,7 @@ Proof using.
 Qed.
 
 (* Alternative proof *)
-Lemma RO_empty' :
+Lemma RO_hempty' :
   RO \[] = \[].
 Proof using.
   intros. rewrite hempty_eq_hpure_true. rewrite~ RO_pure.
@@ -1523,7 +1523,7 @@ Proof using.
   applys himpl_hexists. intros b. destruct* b.
 Qed.
 
-Lemma RO_star : forall H1 H2,
+Lemma RO_hstar : forall H1 H2,
   RO (H1 \* H2) ==> (RO H1 \* RO H2).
 Proof using.
   hint hstar_intro.
@@ -1532,7 +1532,7 @@ Proof using.
   exists (toro h1) (toro h2). rew_heap*.
 Qed.
 
-Arguments RO_star : clear implicits.
+Arguments RO_hstar : clear implicits.
 
 Lemma onlyro_RO : forall H,
   onlyro (RO H).

@@ -51,6 +51,11 @@ Ltac fequal_base ::=
 Axiom indom_single_eq : forall A B (x1 x2:A) (v:B),
   indom (single x1 v) x2 = (x1 = x2).
 
+
+Axiom indom_union_eq : forall A B (IB:Inhab B) (h1 h2:fmap A B) x,
+  indom (Fmap.union h1 h2) x = (indom h1 x \/ indom h2 x).
+
+
 Lemma disjoint_single_update : forall A B v1 v2 p (s:fmap A B),
   disjoint (single p v1) s ->
   disjoint (single p v2) s.
@@ -59,6 +64,18 @@ Proof using.
   intros x. specializes D x. rewrite indom_single_eq in *. autos*.
 Qed.
 
+Axiom extensionality : forall A B (IB:Inhab B) (h1 h2:fmap A B),
+  (forall x, indom h1 x = indom h2 x) ->
+  (forall x, indom h1 x -> Fmap.read h1 x = Fmap.read h2 x) ->
+  h1 = h2.
+
+Lemma union_same : forall A B (IB:Inhab B) (h:fmap A B),
+  union h h = h.
+Proof using.
+  intros. applys  extensionality.
+  { intros x. extens. rewrite* indom_union_eq. }
+  { intros x Dx. rewrite* indom_union_eq in Dx. rewrite* read_union_l. }
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -642,6 +659,16 @@ Proof using.
   intros. applys heap_eq_projs; rew_heap*.
 Qed.
 
+Lemma heap_eq_union_same_if_ro : forall h,
+  h^rw = heap_empty ->
+  h = (h \u h).
+Proof using.
+  introv E. forwards C: heap_compat_refl_if_ro E.
+  destruct h as ((f,r),D). inverts E.
+  forwards* (G1&->): heap_union_eq_of_compat C.
+  fequals. fequals. { rew_fmap*. } { rewrite* union_same. typeclass. }
+Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Auxiliary function [toro] *)
@@ -689,6 +716,14 @@ Proof using.
   forwards* (G1&G2): Fmap.agree_union_r_inv Ca. split*.
 Qed.
 
+Lemma toro_if_ro : forall h,
+  h^rw = heap_empty ->
+  toro h = h.
+Proof using.
+  intros ((f,r),D) E. unfolds proj_rw. simpls. inverts E.
+  unfolds toro; simpl. fequals. fequals. rew_fmap*.
+Qed.
+
 Lemma toro_idempotent : forall h,
   toro (toro h) = toro h.
 Proof using.
@@ -714,6 +749,16 @@ Qed.
 
 Hint Rewrite toro_empty toro_union toro_idempotent : rew_heap.
 
+Lemma toro_eq_union_same : forall h,
+  toro h = (toro h) \u (toro h).
+Proof using.
+  intros h.
+  forwards C: heap_compat_refl_if_ro (toro h). { rew_heap*. }
+  destruct h as ((f,r),D). 
+  forwards* (G1&->): heap_union_eq_of_compat C.
+  unfold toro; simpl. fequals. fequals. rew_fmap*.
+  rewrite* union_same. typeclass.
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1216,6 +1261,16 @@ Lemma onlyro_himpl : forall H1 H2,
   onlyro H1.
 Proof using. introv HS HI M. lets: HI M. applys* HS. Qed.
 
+Lemma onlyro_duplicatable : forall H,
+  onlyro H ->
+  duplicatable H.
+Proof using.
+  intros H N h M. specializes N M.
+  applys_eq* (>> hstar_intro h h).
+  { applys* heap_eq_union_same_if_ro. }
+  { applys* heap_compat_refl_if_ro. }
+Qed.
+
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1240,23 +1295,6 @@ Proof using. introv N. exists heap_empty. rew_heap*. Qed.
 
 Hint Resolve toro_pred RO_heap_empty.
 
-(* TODO: move *)
-(** corollary of heap_compat_refl_of_rw_empty *)
-Lemma heap_compat_refl_toro : forall h,
-  heap_compat (toro h) (toro h).
-Proof using. (* 
-  intros. applys heap_compat_refl_of_rw_empty. rew_heap*.
-Qed. TODO *)  Admitted.
-
-
-Lemma RO_duplicatable : forall H,
-  duplicatable (RO H).
-Proof using.
-  intros H h M. lets (h'&M1&M2): M. subst.
-  lets D: heap_compat_refl_toro h'. do 2 esplit. splits*.
-(* TODO: toro h' = toro h' \u toro h' *)
-Admitted.
-
 Lemma RO_covariant : forall H1 H2,
   H1 ==> H2 ->
   (RO H1) ==> (RO H2).
@@ -1264,17 +1302,7 @@ Proof using.
   introv M. intros h (h'&M1&->). auto.
 Qed.
 
-Lemma RO_RO : forall H,
-  RO (RO H) = RO H.
-Proof using.
-  hint toro_idempotent.
-  intros. apply pred_ext_1. intros h. unfolds RO.
-  iff (h'&(h''&M1'&->)&->) (h'&M1&->).
-  { exists* h''. }
-  { exists* (toro h'). }
-Qed.
-
-Lemma RO_empty :
+Lemma RO_hempty :
   RO \[] = \[].
 Proof using.
   intros. apply pred_ext_1. intros h.
@@ -1292,7 +1320,7 @@ Proof using.
 Qed.
 
 (* Alternative proof *)
-Lemma RO_empty' :
+Lemma RO_hempty' :
   RO \[] = \[].
 Proof using.
   intros. rewrite hempty_eq_hpure_true. rewrite~ RO_pure.
@@ -1321,7 +1349,7 @@ Proof using.
 Qed.
 
 
-Lemma RO_star : forall H1 H2,
+Lemma RO_hstar : forall H1 H2,
   RO (H1 \* H2) ==> (RO H1 \* RO H2).
 Proof using.
   hint hstar_intro.
@@ -1330,12 +1358,33 @@ Proof using.
   exists (toro h1) (toro h2). rew_heap*.
 Qed.
 
-Arguments RO_star : clear implicits.
+Arguments RO_hstar : clear implicits.
 
 Lemma onlyro_RO : forall H,
   onlyro (RO H).
 Proof using.
   introv (h'&K&E). subst. rew_heap*.
+Qed.
+
+Lemma RO_duplicatable : forall H,
+  duplicatable (RO H).
+Proof using.
+  intros. applys onlyro_duplicatable. applys onlyro_RO.
+Qed.
+
+Lemma RO_onlyro : forall H,
+  onlyro H ->
+  RO H = H.
+Proof using.
+  introv M. extens. intros h. unfold RO. iff (h'&N&->) R.
+  { rewrite* toro_if_ro. } 
+  { exists h. rewrite* toro_if_ro. } 
+Qed.
+
+Lemma RO_RO : forall H,
+  RO (RO H) = RO H.
+Proof using.
+  intros. rewrite* RO_onlyro. { applys onlyro_RO. }
 Qed.
 
 End RO.
@@ -1410,6 +1459,18 @@ Lemma isframe_onlyro : forall HI HO H,
 Proof using.
   introv (HR&NF&NR&E) N.
   exists (HR \* H). splits*.
+  { auto with onlyro. }
+  { subst. xsimpl. }
+Qed.
+
+Lemma isframe_isframe : forall HI1 HO1 HI2 HO2,
+  isframe HI1 HO1 ->
+  isframe HI2 HO2 ->
+  isframe (HI1 \* HI2) (HO1 \* HO2).
+Proof using.
+  introv (HR1&NF1&NR1&E1) (HR2&NF2&NR2&E2).
+  exists (HR1 \* HR2). splits.
+  { auto with onlyrw. }
   { auto with onlyro. }
   { subst. xsimpl. }
 Qed.
@@ -1634,7 +1695,7 @@ Qed.
 
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
   forall HI HO, isframe HI HO ->
-  hoare t (H \* HI) (Q \*+ HO \*+ \GC).
+    hoare t (H \* HI) (Q \*+ HO \*+ \GC).
 
 (** Equivalent definition *)
 
@@ -1683,29 +1744,55 @@ Proof using.
   { intros x. xchanges (MQ x). }
 Qed.
 
+Lemma triple_frame_read_only : forall t H1 Q1 H2,
+  triple t (H1 \* RO H2) Q1 ->
+  onlyrw H2 ->
+  triple t (H1 \* H2) (Q1 \*+ H2).
+Proof using.
+  introv M N. intros HI HO HF. specializes M HF.
+  rewrite hstar_comm in M. rewrite <- hstar_assoc in M.
+  applys hoare_conseq.
+  { applys* hoare_frame_read_only M. }
+  { xsimpl. }
+  { xsimpl. }
+Qed.
+(*
+Lemma triple_frame_general : forall HI HO t H1 Q1,
+  triple t (H1 \* RO HI) Q1 ->
+  isframe HI HO ->
+  triple t (H1 \* HI) (Q1 \*+ HO).
+Proof using.
+  introv M (HR&NF&NR&E). rewrite triple_eq_triple' in *.
+  unfolds triple'. intros HF' HR' NF' NR'. subst HI.
+  lets: hoare_frame_read_only. H1 (HO \* HR).
+  applys hoare_conseq. 
+  { applys hoare_frame_read_only (H1 \* HF) (HI
+{ applys M. } { xsimpl. } { xsimpl. }
+Qed.
+*)
+Lemma triple_frame_general_no_read_only : forall HI HO t H1 Q1,
+  triple t H1 Q1 ->
+  isframe HI HO ->
+  triple t (H1 \* HI) (Q1 \*+ HO).
+Proof using.
+  introv M F. intros HI' HO' F'.
+  lets F'': isframe_isframe F F'.
+  applys hoare_conseq. { applys M F''. } { xsimpl. } { xsimpl. }
+Qed.
+
 Lemma triple_frame_onlyrw : forall t H1 Q1 H2,
   triple t H1 Q1 ->
   onlyrw H2 ->
   triple t (H1 \* H2) (Q1 \*+ H2).
 Proof using.
-  introv M N. intros HI HO HF.
-  forwards~ HF': isframe_onlyrw H2 HF.
-  forwards~ K: M HF'.
-  applys hoare_conseq K; xsimpl.
+  introv M N. forwards* F: (>> isframe_onlyrw H2 isframe_hempty).
+  applys triple_conseq.
+  { applys* triple_frame_general_no_read_only M F. }
+  { xsimpl*. }
+  { xsimpl*. }
 Qed.
 
-Lemma triple_frame_onlyro : forall t H1 Q1 H2,
-  triple t H1 Q1 ->
-  onlyro H2 ->
-  triple t (H1 \* H2) Q1.
-Proof using.
-  introv M N. intros HI HO HF.
-  forwards~ HF': isframe_onlyro H2 HF.
-  forwards~ K: M HF'.
-  applys hoare_conseq K; xsimpl.
-Qed.
-
-Lemma triple_conseq_frame : forall H Q t H1 Q1 H2,
+Lemma triple_conseq_frame_onlyrw : forall H Q t H1 Q1 H2,
   triple t H1 Q1 ->
   H ==> (H1 \* H2) ->
   (Q1 \*+ H2) ===> Q ->
@@ -1716,15 +1803,28 @@ Proof using.
   applys* triple_frame_onlyrw.
 Qed.
 
-Lemma triple_frame_read_only : forall t H1 Q1 H2,
-  triple t (H1 \* RO H2) Q1 ->
-  onlyrw H2 ->
-  triple t (H1 \* H2) (Q1 \*+ H2).
+Lemma triple_onlyro : forall t H1 Q1 H2,
+  triple t H1 Q1 ->
+  onlyro H2 ->
+  triple t (H1 \* H2) Q1.
 Proof using.
-  introv M N. intros HI HO HF. specializes M HF.
-  rewrite hstar_comm in M. rewrite <- hstar_assoc in M.
-  forwards~ K: hoare_frame_read_only M.
-  applys hoare_conseq K. { xsimpl. } { xsimpl. }
+  introv M N. forwards* F: (>> isframe_onlyro H2 isframe_hempty).
+  applys triple_conseq.
+  { applys* triple_frame_general_no_read_only M F. }
+  { xsimpl*. }
+  { xsimpl*. }
+Qed.
+
+Lemma triple_frame_onlyro : forall t H1 Q1 H2,
+  triple t (H1 \* RO H2) Q1 ->
+  onlyro H2 ->
+  triple t (H1 \* H2) Q1.
+Proof using.
+  introv M N. forwards* F: (>> isframe_onlyro H2 isframe_hempty).
+  applys triple_conseq.
+  { applys* triple_frame M F. }
+  { xsimpl*. }
+  { xsimpl*. }
 Qed.
 
 Lemma triple_hgc_post : forall t H Q,
@@ -2224,7 +2324,7 @@ Lemma ROFrame_intro : forall H1 H2,
   H1 \* H2 ==> ROFrame H1 H2.
 Proof.
   intros. unfold ROFrame. apply himpl_hexists_r with \[].
-  rewrite normally_hempty, RO_empty, hstar_hempty_l.
+  rewrite normally_hempty, RO_hempty, hstar_hempty_l.
   eapply himpl_trans; [apply himpl_frame_r|apply himpl_frame_l];
     apply himpl_hwand_r; xsimpl.
 Qed.
@@ -2243,7 +2343,7 @@ Proof.
   unfold ROFrame. xpull ;=> HF. apply himpl_hexists_r with (H1 \* HF).
   xchange (normally_intro NORM). rewrite normally_hstar. xsimpl.
   applys himpl_frame_lr.
-  { xsimpl. xchange (>> RO_star H1 HF). }
+  { xsimpl. xchange (>> RO_hstar H1 HF). }
   { xsimpl. }
 Qed.
 
