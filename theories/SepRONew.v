@@ -133,7 +133,7 @@ Notation "h '^ro'" := (proj_ro h)
 
 (** State associated with a heap *)
 
-Program Coercion heap_state (h : heap) : state :=
+Program Definition heap_state (h : heap) : state :=
   match h with (f,r) => f \+ r end.
 
 (** Conversion to read-only:
@@ -319,8 +319,6 @@ Ltac disjoint_solve tt :=
 
 Hint Extern 1 (disjoint _ _) => disjoint_solve tt.
 Hint Extern 1 (disjoint_3 _ _ _) => disjoint_solve tt.
-
-
 
 
 (* ---------------------------------------------------------------------- *)
@@ -715,7 +713,6 @@ Qed.
 Hint Rewrite heap_state_empty heap_state_single heap_state_union heap_state_toro : rew_fmap.
 
 
-
 (* ---------------------------------------------------------------------- *)
 (* ** More properties of [heap_compat] *)
 
@@ -761,7 +758,7 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Properties of empty *)
+(* ** Properties of hempty *)
 
 Lemma hempty_intro :
   \[] heap_empty.
@@ -771,7 +768,6 @@ Lemma hempty_inv : forall h,
   \[] h ->
   h = heap_empty.
 Proof using. introv M. auto. Qed.
-
 
 (* ---------------------------------------------------------------------- *)
 (* ** Core properties *)
@@ -924,6 +920,20 @@ Definition hsingle (l:loc) (v:val) : hprop :=
 
 Notation "l '~~~>' v" := (hsingle l v)
   (at level 32, no associativity) : heap_scope.
+
+Notation "l '~~>' v" := (hsingle l v)
+  (at level 32, no associativity) : heap_scope.
+(* TODO: choose *)
+
+Lemma hsingle_intro : forall l v,
+  l <> null ->
+  (l ~~> v) (heap_single l v).
+Proof using. intros. split~. Qed.
+
+Lemma hsingle_inv : forall h l v,
+  (l ~~~> v) h ->
+  h = heap_single l v /\ (l <> null).
+Proof using. auto. Qed.
 
 Lemma hstar_hsingle_same_loc : forall (l:loc) (v1 v2:val),
   (l ~~~> v1) \* (l ~~~> v2) ==> \[False].
@@ -1386,7 +1396,6 @@ Definition hoare (t:trm) (H:hprop) (Q:val->hprop) :=
                              /\ Q v (h'^rw)
                              /\ h'^ro = h^ro.
 
-
 Lemma hoare_conseq : forall t H' Q' H Q,
   hoare t H' Q' ->
   H ==> H' ->
@@ -1397,10 +1406,6 @@ Proof using.
   { applys* MH. }
   exists h' v. splits~. { applys MQ K. }
 Qed.
-
-
-
-
 
 Lemma hoare_frame_read_only : forall t H1 Q1 H2,
   hoare t (H1 \* RO H2) Q1 ->
@@ -1443,34 +1448,35 @@ Qed.
 (** * Hoare rules for term constructs *)
 
 Implicit Types v : val.
+Implicit Types p : loc.
 
 Lemma hoare_val : forall HI HO v,
   isframe HI HO ->
   hoare (trm_val v) HI (fun r => \[r = v] \* HO).
-Proof using. (*
+Proof using.
   introv HF. intros h K. exists h v. splits~.
   { applys eval_val. }
   { rewrite hstar_hpure_l. split~. applys* isframe_rw_elim. }
-Qed. *) Admitted.
+Qed.
 
 Lemma hoare_fix : forall HI HO f x t1,
   isframe HI HO ->
   hoare (trm_fix f x t1) HI (fun r => \[r = (val_fix f x t1)] \* HO).
-Proof using. (*
+Proof using.
   introv HF. intros h K. exists h (val_fix f x t1). splits~.
   { applys eval_fix. }
   { rewrite hstar_hpure_l. split~. applys* isframe_rw_elim. } 
-Qed. *) Admitted.
+Qed.
 
 Lemma hoare_app_fix : forall v1 v2 (f:var) x t1 H Q,
   v1 = val_fix f x t1 ->
   f <> x ->
   hoare (subst x v2 (subst f v1 t1)) H Q ->
   hoare (trm_app v1 v2) H Q.
-Proof using. (*
+Proof using.
   introv E D M. intros s K0. forwards (s'&v&R1&K1&E1): (rm M) K0.
   exists s' v. splits~. { applys* eval_app E R1. auto_false. }
-Qed. *) Admitted.
+Qed.
 
 (* Note: the order of the heap predicates is carefully
    chosen so as to simplify the proof. *)
@@ -1533,81 +1539,147 @@ Proof using. (*
   exists h1' v1. splits*. { applys* eval_if. }
 Qed. *) Admitted.
 
-Notation "l '~~>' v" := (hsingle l v)
-  (at level 32, no associativity) : heap_scope.
+(* TODO 
+Lemma heap_compat_single : forall p v w h1 h2,
+  heap_compat h1 h2 ->
+  h1 = (single p (v, rw)) ->
+  heap_compat (single p (w, rw)) h2.
+Proof using.
+  introv (D&G) ->. unfolds. rew_fmap in *. split~.
+  destruct D as (D1&D2&D3). splits; [|auto|].
+  { rewrite disjoint_eq_not_indom_both in *.
+    intros x. specializes D1 x. rewrite indom_single_eq in *. autos*. }
+  { rewrite disjoint_eq_not_indom_both in *.
+    intros x. specializes D3 x. rewrite indom_single_eq in *. autos*. }
+Qed.
+*)
 
+(*
+D : \# (single p v) s1
+N : p <> null
+______________________________________(1/1)
+heap_compat (heap_single p v) s1
+*)
+
+Lemma heap_compat_fresh_single : forall h v,
+  exists p, p <> null /\ heap_compat (heap_single p v) h.
+Proof using.
+  hint agree_empty_l.
+  intros. forwards~ (p&D&N): (Fmap.single_fresh null (heap_state h) v).
+  exists p. splits~.
+  { destruct h as ((f,r)&D'). unfolds heap_compat, heap_state; simpls*. }
+Qed.
+
+Axiom indom_single_eq : forall A B (x1 x2:A) (v:B),
+  indom (single x1 v) x2 = (x1 = x2).
+
+Lemma disjoint_single_update : forall v1 v2 p s,
+  disjoint (single p v1) s ->
+  disjoint (single p v2) s.
+Proof using.
+  introv D. rewrite disjoint_eq_not_indom_both in *.
+  intros x. specializes D x. rewrite indom_single_eq in *. autos*.
+Qed.
+
+Lemma heap_compat_single_l : forall v p h,
+  disjoint (single p v) (heap_state h) ->
+  heap_compat (heap_single p v) h.
+Proof using.
+  hint agree_empty_l. introv M. destruct h as ((f,r)&D).
+  unfolds heap_state; simpls. split; [auto|]. rew_fmap. splits*.
+Qed.
+
+Lemma heap_compat_single_l_inv : forall v p h,
+  heap_compat (heap_single p v) h ->
+  disjoint (single p v) (heap_state h).
+Proof using.
+  introv C. destruct h as ((f,r)&D).
+  unfolds heap_compat, heap_state; simpls*.
+Qed.
+
+(* TODO: remove *)
+Lemma heap_compat_single_l_eq : forall w v p h,
+  heap_compat (heap_single p v) h = disjoint (single p w) (heap_state h).
+Proof using.
+  hint agree_empty_l.
+  extens. iff C.
+  { applys disjoint_single_update v. destruct h as ((f,r)&D).
+    unfolds heap_compat, heap_state; simpls*. }
+  { destruct h as ((f,r)&D). unfolds heap_state; simpls.
+    split; [auto|]. rew_fmap. splits. 
+    { applys* disjoint_single_update w. }
+    { auto. }
+    { applys* disjoint_single_update w. } }
+Qed.
 
 Lemma hoare_ref : forall HI HO v,
   isframe HI HO ->
   hoare (val_ref v)
     (HI)
     (fun r => (\exists p, \[r = val_loc p] \* p ~~> v) \* HO).
-Proof using. (*
+Proof using.
   hint hsingle_intro.
-  introv NF. intros s1 K0.
-  forwards~ (p&D&N): (Fmap.single_fresh 0%nat s1 (v,mode_rw)).
-  lets D': disjoint_heap_state D. rew_fmap* in D'.
-  lets D'': heap_compat_of_disjoint D.
-  exists (heap_union (Fmap.single p (v,mode_rw)) s1) (val_loc p). splits.
+  introv NF. intros hI KI.
+  forwards (p&N&C): heap_compat_fresh_single hI v.
+  lets D: heap_compat_single_l_inv C.
+  exists ((heap_single p v) \u hI) (val_loc p). splits.
   { rew_fmap*. applys~ eval_ref_sep. }
   { rew_heap*. applys~ hstar_intro.
-    { rew_fmap. exists p. rewrite~ hstar_hpure_l. }
+    { exists p. rewrite~ hstar_hpure_l. }
     { applys* isframe_rw_elim. } }
-  { rew_fmap*. }
-Qed. *) Admitted.
-
-Implicit Types p : loc.
+  { rew_heap*. }
+Qed.
 
 Lemma hoare_get_ro : forall HI HO v p,
   isframe HI HO ->
   hoare (val_get p)
     (RO (p ~~> v) \* HI)
     (fun r => \[r = v] \* HO).
-Proof using. (*
-  introv NH. intros s (s1&s2&P1&P2&D&U).
-  destruct P1 as (h'&K'&E). lets (->&N): hsingle_inv K'.
-  exists s v. splits.
-  { rew_fmap* in *. applys* eval_get_sep (heap_state s1) (heap_state s2);
-    subst s s1; rew_fmap*. }
-  { rewrite~ hstar_hpure_l. split~. subst s s1. rew_heap*.
+Proof using.
+  introv NH. intros h (h1&h2&K1&K2&D&E).
+  destruct K1 as (h'&K'&E1). lets (->&N): hsingle_inv K'.
+  exists h v. splits.
+  { applys* eval_get_sep (heap_state h1) (heap_state h2);
+    subst; rew_fmap*. }
+  { rewrite~ hstar_hpure_l. split~. subst h h1. rew_heap*.
     applys* isframe_rw_elim. }
   { auto. }
-Qed. *) Admitted.
+Qed.
 
 Lemma hoare_set : forall HI HO w p v,
   isframe HI HO ->
   hoare (val_set (val_loc p) v)
     ((p ~~> w) \* HI)
     (fun r => \[r = val_unit] \* (p ~~> v) \* HO).
-Proof using. (*
-  introv NH. intros s1 K0.
-  destruct K0 as (h1&h2&P1&P2&D&U). lets (K&N): hsingle_inv P1.
-  forwards D': disjoint_of_compat_single D K w.
-  lets: heap_compat_single_set w D.
-  exists (heap_union (single p (v,mode_rw)) h2) val_unit. splits.
-  { subst h1. applys* eval_set_sep (single p w) (single p v) (heap_state h2);
+Proof using.
+  introv NH. intros h K0.
+  destruct K0 as (h1&h2&P1&P2&C&->). lets (->&N): hsingle_inv P1.
+  lets D: heap_compat_single_l_inv C.
+  lets D': disjoint_single_update v D.
+  lets C': heap_compat_single_l D'.
+  exists ((heap_single p v) \u h2) val_unit. splits.
+  { applys* eval_set_sep (single p w) (single p v) (heap_state h2);
     subst; rew_fmap*. }
   { rewrite hstar_hpure_l. split~.
     { rew_heap*. applys* hstar_intro.
-      { rew_fmap. applys* hsingle_intro. } { applys* isframe_rw_elim. } } }
-  { subst. rew_fmap*. }
-Qed. *) Admitted.
+      { applys* hsingle_intro. } { applys* isframe_rw_elim. } } }
+  { rew_heap*. }
+Qed.
 
 Lemma hoare_free : forall HI HO p v,
   isframe HI HO ->
   hoare (val_free (val_loc p))
     ((p ~~> v) \* HI)
     (fun r => \[r = val_unit] \* HO).
-Proof using. (*
-  introv NH. intros s1 K0.
-  destruct K0 as (h1&h2&P1&P2&D&U). lets (K&N): hsingle_inv P1.
-  forwards D': disjoint_of_compat_single D K v.
+Proof using. 
+  introv NH. intros h K0.
+  destruct K0 as (h1&h2&P1&P2&C&->). lets (->&N): hsingle_inv P1.
+  lets D: heap_compat_single_l_inv C.
   exists h2 val_unit. splits.
-  { subst h1. applys* eval_free_sep; subst; rew_fmap*. }
+  { applys* eval_free_sep; subst; rew_fmap*. }
   { rewrite hstar_hpure_l. split~. applys* isframe_rw_elim. }
-  { subst. rew_fmap*. }
-Qed. *) Admitted.
-
+  { rew_heap*. }
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
