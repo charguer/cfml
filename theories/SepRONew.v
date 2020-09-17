@@ -638,6 +638,30 @@ Proof using.
   introv M. applys heap_compat_toro_l. applys* heap_compat_toro_r.
 Qed.
 
+Lemma toro_idempotent : forall h,
+  toro (toro h) = toro h.
+Proof using.
+  skip.
+Qed.
+
+Lemma toro_empty :
+  toro heap_empty = heap_empty.
+Proof using.
+  skip.
+Qed.
+
+Lemma toro_union : forall h1 h2,
+  heap_compat h1 h2 ->
+  toro (h1 \u h2) = (toro h1) \u (toro h2).
+Proof using.
+  skip.
+Qed.
+
+(* TODO *)
+
+Hint Rewrite toro_empty toro_union toro_idempotent : rew_heap.
+
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [heap_state] *)
@@ -876,7 +900,7 @@ Global Opaque heap_affine.
 (* ** Singleton heap *)
 
 Definition hsingle (l:loc) (v:val) : hprop :=
-  fun h =>    h = mkrw (Fmap.single l v)
+  fun h =>    h = heap_single l v
            /\ l <> null.
 
 Notation "l '~~~>' v" := (hsingle l v)
@@ -886,7 +910,7 @@ Lemma hstar_hsingle_same_loc : forall (l:loc) (v1 v2:val),
   (l ~~~> v1) \* (l ~~~> v2) ==> \[False].
 Proof using.
   intros. intros h (h1&h2&(E1&N1)&(E2&N2)&C&E). subst. false.
-  lets: heap_compat_mkrw_inv C.
+  unfolds heap_single, heap_compat; simpls.
   applys* Fmap.disjoint_single_single_same_inv l v1 v2.
 Qed.
 
@@ -942,7 +966,7 @@ Lemma onlyrw_of_haffine : forall H,
   onlyrw H.
 Proof using.
   introv M. intros h K. rewrite haffine_eq in M.
-  specializes M K. applys* heap_affine_onlyrw'.
+  specializes M K. applys* heap_affine_onlyrw.
 Qed.
 
 Lemma onlyrw_hempty :
@@ -963,7 +987,7 @@ Lemma onlyrw_hgc :
   onlyrw \GC.
 Proof using.
   introv (H&M). rewrite hstar_hpure_l in M. destruct M as (F&R).
-  applys* heap_affine_onlyrw'. rewrite haffine_eq in F. applys* F.
+  applys* heap_affine_onlyrw. rewrite haffine_eq in F. applys* F.
 Qed.
 
 Lemma onlyrw_hempty' : (* simpler proof *)
@@ -1051,7 +1075,16 @@ Definition onlyro (H:hprop) : Prop :=
 Definition onlyro_post A (Q:A->hprop) : Prop :=
   forall x, onlyro (Q x).
 
-Lemma onlyro_rw : forall H h,
+Lemma onlyro_proj_ro : forall H h,
+  onlyro H ->
+  H h ->
+  h^ro = h.
+Proof using.
+  introv N K. rewrite (heap_eq_union_projs h) at 2.
+  rewrite* N. rew_heap*.
+Qed.
+
+Lemma onlyro_proj_rw : forall H h,
   onlyro H ->
   H h ->
   h^rw = heap_empty.
@@ -1135,14 +1168,6 @@ Proof using.
   introv N. exists h. split~.
 Qed.
 
-(* TODO: move *)
-Lemma toro_empty :
-  toro heap_empty = heap_empty.
-Proof using. intros. applys heap_eq; rew_fmap*. Qed.
-
-Hint Rewrite toro_empty : rew_heap.
-
-
 Lemma RO_heap_empty : forall (H:hprop),
   H heap_empty ->
   RO H heap_empty.
@@ -1173,10 +1198,6 @@ Lemma RO_covariant : forall H1 H2,
 Proof using.
   introv M. intros h (h'&M1&->). auto.
 Qed.
-
-
-Axiom toro_idempotent : forall h,
-  toro (toro h) = toro h.
 
 Lemma RO_RO : forall H,
   RO (RO H) = RO H.
@@ -1234,11 +1255,6 @@ Proof using.
   applys himpl_hexists. intros b. destruct* b.
 Qed.
 
-Axiom toro_union : forall h1 h2,
-  heap_compat h1 h2 ->
-  toro (h1 \u h2) = (toro h1) \u (toro h2).
-
-Hint Rewrite toro_union : rew_heap.
 
 Lemma RO_star : forall H1 H2,
   RO (H1 \* H2) ==> (RO H1 \* RO H2).
@@ -1266,23 +1282,25 @@ End RO.
 
 (* TODO: rename *)
 
-(* TODO: change to h^rw *)
-
 Lemma onlyrw_rw_elim : forall H h,
   onlyrw H ->
   H h ->
-  H (mkrw (h^^rw)).
-Proof using. introv N K. rewrite~ mkrw_part_rw_of_ro_empty. Qed.
+  H (h^rw).
+Proof using.
+  introv NF K. lets K': K.
+  rewrite (heap_eq_union_projs h) in K.
+  rewrites* (>> onlyrw_proj_ro NF) in K. rew_heap* in K.
+Qed.
 
 Lemma onlyrw_onlyro_rw_elim : forall HF HR h,
   onlyrw HF ->
   onlyro HR ->
   (HF \* HR) h ->
-  HF (mkrw (h^^rw)).
+  HF (h^rw).
 Proof using.
   introv NF NR (h1&h2&K1&K2&D&->). rew_heap*.
-  rewrites* (>> onlyro_rw K2). rew_fmap.
-  rewrite~ mkrw_part_rw_of_ro_empty.
+  rewrites* (>> onlyro_proj_rw K2). rew_heap.
+  rewrites* (>> onlyrw_proj_rw K1).
 Qed.
 
 
@@ -1295,7 +1313,7 @@ Definition isframe (HI HO:hprop) : Prop :=
 Lemma isframe_rw_elim : forall HI HO h,
   isframe HI HO ->
   HI h ->
-  HO (mkrw (h^^rw)).
+  HO (h^rw).
 Proof using.
   introv (R&NF&NR&->) M. applys* onlyrw_onlyro_rw_elim.
 Qed.
@@ -1389,8 +1407,8 @@ Tactic Notation "rew_fmap" "*" "in" "*" :=
 
 Definition hoare (t:trm) (H:hprop) (Q:val->hprop) :=
   forall h, H h -> exists h' v, eval (heap_state h) t (heap_state h') v
-                             /\ Q v (mkrw (h'^^rw))
-                             /\ h'^^ro = h^^ro.
+                             /\ Q v (h'^rw)
+                             /\ h'^ro = h^ro.
 
 
 Lemma hoare_conseq : forall t H' Q' H Q,
