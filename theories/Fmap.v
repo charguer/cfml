@@ -383,7 +383,7 @@ Lemma disjoint_3_unfold : forall h1 h2 h3,
   \# h1 h2 h3 = (\# h1 h2 /\ \# h2 h3 /\ \# h1 h3).
 Proof using. auto. Qed.
 
-Lemma disjoint_single_set : forall h l v1 v2,
+Lemma disjoint_single_set : forall v1 v2 h l ,
   \# (single l v1) h ->
   \# (single l v2) h.
 Proof using.
@@ -401,6 +401,7 @@ Proof using.
   intros [f F]. apply~ make_eq. simpl. intros x.
   unfold map_union. cases~ (f x).
 Qed.
+
 
 Lemma union_empty_l : forall h,
   empty \+ h = h.
@@ -1142,3 +1143,15 @@ Proof using.
 Qed.
 
 End FmapFresh.
+
+
+(* TODO:
+
+
+
+Axiom extensionality : forall A B (IB:Inhab B) (h1 h2:fmap A B),
+  (forall x, indom h1 x = indom h2 x) ->
+  (forall x, indom h1 x -> Fmap.read h1 x = Fmap.read h2 x) ->
+  h1 = h2.
+
+*)

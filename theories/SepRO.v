@@ -864,7 +864,7 @@ Lemma RO_empty :
 Proof using.
   intros. apply pred_ext_1. intros h.
   unfold hempty. iff (h'&M1&M2&M3) M1.
-  { rewrite M1 in M3. rew_fmap. apply heap_eq. auto. }
+  { rewrite M1 in M3. rew_fmap in *. apply heap_eq. auto. }
   { exists h. rewrite M1. splits~. rew_fmap~. }
 Qed.
 
@@ -873,7 +873,7 @@ Lemma RO_pure : forall P,
 Proof using.
   intros. apply pred_ext_1. intros h.
   iff (h'&(M1p&M2)&M3&M4) (MP&M1); unfolds hempty.
-  { rewrite M2 in M4. rew_fmap. split~. apply heap_eq. auto. }
+  { rewrite M2 in M4. rew_fmap in *. split~. apply heap_eq. auto. }
   { exists h. rewrite M1. splits~. { split~. split~. } { rew_fmap~. } }
 Qed.
 

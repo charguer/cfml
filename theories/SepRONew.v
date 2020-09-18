@@ -48,26 +48,7 @@ Ltac fequal_base ::=
 (* ---------------------------------------------------------------------- *)
 
 
-Lemma disjoint_single_update : forall A B v1 v2 p (s:fmap A B),
-  disjoint (single p v1) s ->
-  disjoint (single p v2) s.
-Proof using.
-  introv D. rewrite disjoint_eq_not_indom_both in *.
-  intros x. specializes D x. rewrite indom_single_eq in *. autos*.
-Qed.
 
-Axiom extensionality : forall A B (IB:Inhab B) (h1 h2:fmap A B),
-  (forall x, indom h1 x = indom h2 x) ->
-  (forall x, indom h1 x -> Fmap.read h1 x = Fmap.read h2 x) ->
-  h1 = h2.
-
-Lemma union_same : forall A B (IB:Inhab B) (h:fmap A B),
-  union h h = h.
-Proof using.
-  intros. applys  extensionality.
-  { intros x. extens. rewrite* indom_union_eq. }
-  { intros x Dx. rewrite* indom_union_eq in Dx. rewrite* read_union_l. }
-Qed.
 
 
 (* ********************************************************************** *)
@@ -603,7 +584,7 @@ Proof using.
   introv E. forwards C: heap_compat_refl_if_ro E.
   destruct h as ((f,r),D). inverts E.
   forwards* (G1&->): heap_union_eq_of_compat C.
-  fequals. fequals. { rew_fmap*. } { rewrite* union_same. typeclass. }
+  fequals. fequals. { rew_fmap*. } { rewrite* union_self. }
 Qed.
 
 
@@ -694,7 +675,7 @@ Proof using.
   destruct h as ((f,r),D). 
   forwards* (G1&->): heap_union_eq_of_compat C.
   unfold toro; simpl. fequals. fequals. rew_fmap*.
-  rewrite* union_same. typeclass.
+  rewrite* union_self.
 Qed.
 
 
@@ -1599,7 +1580,7 @@ Proof using.
   introv NH. intros h K0.
   destruct K0 as (h1&h2&P1&P2&C&->). lets (->&N): hsingle_inv P1.
   lets D: heap_compat_single_l_inv C.
-  lets D': disjoint_single_update v D.
+  lets D': disjoint_single_set v D.
   lets C': heap_compat_single_l D'.
   exists ((heap_single p v) \u h2) val_unit. splits.
   { applys* eval_set_sep (single p w) (single p v) (heap_state h2);
