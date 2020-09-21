@@ -193,20 +193,6 @@ Hint Extern 1 (\# _ _ _) => fmap_disjoint_pre.
 
 Hint Resolve Fmap.agree_sym.
 
-(* LATER: move to TLC; (this cannot be put in TLCbuffer) *)
-Ltac fequal_base ::=
-  let go := f_equal_fixed; [ fequal_base | ] in
-  match goal with
-  | |- exist _ _ = exist _ _ => apply exist_eq_exist
-  | |- (_,_,_) = (_,_,_) => go
-  | |- (_,_,_,_) = (_,_,_,_) => go
-  | |- (_,_,_,_,_) = (_,_,_,_,_) => go
-  | |- (_,_,_,_,_,_) = (_,_,_,_,_,_) => go
-  | |- _ => f_equal_fixed
-  end.
-
-
-
 (* ---------------------------------------------------------------------- *)
 (* ** Equalities on [heap] *)
 

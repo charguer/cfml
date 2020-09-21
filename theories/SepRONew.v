@@ -24,33 +24,6 @@ Arguments exist [A] [P].
 Generalizable Variable A.
 
 
-(* ---------------------------------------------------------------------- *)
-(* TLC buffer *)
-
-Tactic Notation "case_classic" :=
-  match goal with
-  | |- context [ classicT ?E] => destruct (classicT E)
-  | H: context [ classicT ?E] |- _ => destruct (classicT E)
-  end; tryfalse.
-
-(* LATER: move to TLC; (this cannot be put in TLCbuffer) *)
-Ltac fequal_base ::=
-  let go := f_equal_fixed; [ fequal_base | ] in
-  match goal with
-  | |- exist _ _ = exist _ _ => apply exist_eq_exist
-  | |- (_,_,_) = (_,_,_) => go
-  | |- (_,_,_,_) = (_,_,_,_) => go
-  | |- (_,_,_,_,_) = (_,_,_,_,_) => go
-  | |- (_,_,_,_,_,_) = (_,_,_,_,_,_) => go
-  | |- _ => f_equal_fixed
-  end.
-
-(* ---------------------------------------------------------------------- *)
-
-
-
-
-
 (* ********************************************************************** *)
 (* * Core of the logic *)
 
@@ -277,7 +250,7 @@ Lemma heap_union_eq_of_compat : forall h1 h2 f1 f2 r1 r2 D1 D2,
   h1 \u h2 = exist (f1 \+ f2, r1 \+ r2) Du.
 Proof using.
   introv C -> ->. lets (Ca&Cb): C. unfold heap_union.
-  case_classic; simple*.
+  case_classic. simple*.
 Qed.
 
 (* not needed *)
@@ -488,6 +461,7 @@ Proof using.
   lets C': heap_compat_proj_rw_r (heap_compat_proj_rw_l C).
   unfolds proj_rw. simpls.
   forwards* (Db&->): heap_union_eq_of_compat C'.
+  fequal_support_for_exist tt.
   fequals. fequals. rew_fmap*.
 Qed.
 

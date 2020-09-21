@@ -564,7 +564,6 @@ Export SepCreditsCore.
 
 Local Open Scope heap_union_scope.
 
-Implicit Types n : credits.
 Implicit Types H : hprop.
 Implicit Types Q : val->hprop.
 
