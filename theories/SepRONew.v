@@ -86,8 +86,8 @@ Proof using. applys Inhab_of_val heap_empty. Qed.
 (** Starable heaps: disjoint owned heaps, agreeible read-only heaps *)
 
 Program Definition heap_compat (h1 h2 : heap) : Prop :=
-  match h1 with (f1,r1) => 
-  match h2 with (f2,r2) => 
+  match h1 with (f1,r1) =>
+  match h2 with (f2,r2) =>
        Fmap.agree r1 r2
     /\ (\# f1 f2 (r1 \+ r2))
   end end.
@@ -105,8 +105,8 @@ Proof using. intros. fmap_disjoint. Qed.
 
 Program Definition heap_union (h1 h2 : heap) : heap :=
   If heap_compat h1 h2 then
-    match h1 with (f1,r1) => 
-    match h2 with (f2,r2) => 
+    match h1 with (f1,r1) =>
+    match h2 with (f2,r2) =>
       ((f1 \+ f2), (r1 \+ r2))
     end end
   else arbitrary.
@@ -229,10 +229,10 @@ Notation "Q \*+ H" := (fun x => hstar (Q x) H)
 (* ** Tactic for automation *)
 
 Ltac disjoint_solve tt :=
-  rew_disjoint; jauto_set; solve 
+  rew_disjoint; jauto_set; solve
   [ assumption
   | apply disjoint_sym; assumption
-  | apply disjoint_empty_l 
+  | apply disjoint_empty_l
   | apply disjoint_empty_r ].
 
 Hint Extern 1 (disjoint _ _) => disjoint_solve tt.
@@ -246,7 +246,7 @@ Lemma heap_union_eq_of_compat : forall h1 h2 f1 f2 r1 r2 D1 D2,
   heap_compat h1 h2 ->
   h1 = exist (f1,r1) D1 ->
   h2 = exist (f2,r2) D2 ->
-  exists Du, 
+  exists Du,
   h1 \u h2 = exist (f1 \+ f2, r1 \+ r2) Du.
 Proof using.
   introv C -> ->. lets (Ca&Cb): C. unfold heap_union.
@@ -256,9 +256,9 @@ Qed.
 (* not needed *)
 Lemma heap_union_exists_eq_of_compat : forall f1 f2 r1 r2 D1 D2
   (C:heap_compat (exist (f1,r1) D1) (exist (f2,r2) D2)),
-  (exist (f1,r1) D1) \u (exist (f2,r2) D2) = exist (f1 \+ f2, r1 \+ r2) 
+  (exist (f1,r1) D1) \u (exist (f2,r2) D2) = exist (f1 \+ f2, r1 \+ r2)
    ((heap_union_obligation_1 (exist (f1, r1) D1) (exist (f2, r2) D2) C eq_refl eq_refl)).
-Proof using.  
+Proof using.
   intros. forwards* (Du'&->): heap_union_eq_of_compat C. fequals.
 Qed.
 
@@ -281,7 +281,7 @@ Qed.
 
 Lemma heap_compat_projs : forall h,
   heap_compat (h^rw) (h^ro).
-Proof using. 
+Proof using.
   hint agree_empty_l.
   intros ((f,r),D). split; simple*.
 Qed.
@@ -338,7 +338,7 @@ Hint Rewrite proj_ro_proj_rw proj_rw_proj_ro : rew_fmap rew_heaps.
 Lemma heap_compat_sym : forall h1 h2,
   heap_compat h1 h2 ->
   heap_compat h2 h1.
-Proof using. 
+Proof using.
   hint agree_sym.
   intros ((f1,r1),D1) ((f2,r2),D2) (Ca&Cb). split*.
 Qed.
@@ -517,7 +517,7 @@ Qed.
 
 Lemma heap_union_empty_l : forall h,
   heap_empty \u h = h.
-Proof using. 
+Proof using.
   intros h. lets C: (heap_compat_empty_l h).
   destruct h as ((f,r),D).
   forwards* (G&->): heap_union_eq_of_compat C.
@@ -581,7 +581,7 @@ Lemma heap_compat_toro_l : forall h1 h2,
 Proof using.
   intros ((f1,r1)&D1) ((f2,r2),D2) (Ca&Cb). split.
   { applys~ Fmap.agree_union_l. applys~ Fmap.agree_of_disjoint. }
-  { auto. } 
+  { auto. }
 Qed.
 
 Lemma heap_compat_toro_r : forall h1 h2,
@@ -646,7 +646,7 @@ Lemma toro_eq_union_same : forall h,
 Proof using.
   intros h.
   forwards C: heap_compat_refl_if_ro (toro h). { rew_heaps*. }
-  destruct h as ((f,r),D). 
+  destruct h as ((f,r),D).
   forwards* (G1&->): heap_union_eq_of_compat C.
   unfold toro; simpl. fequals. fequals. rew_fmap*.
   rewrite* union_self.
@@ -656,9 +656,9 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [heap_state] *)
 
-Lemma heap_state_empty : 
+Lemma heap_state_empty :
   heap_state heap_empty = Fmap.empty.
-Proof. 
+Proof.
   unfold heap_empty, heap_state. simpl. rew_fmap*.
 Qed.
 
@@ -715,7 +715,7 @@ Lemma heap_compat_union_l_inv : forall h1 h2 h3,
   heap_compat h1 h2 ->
   heap_compat h1 h3 /\ heap_compat h2 h3.
 Proof using.
-  autos* heap_compat_union_l_inv_l heap_compat_union_l_inv_r. 
+  autos* heap_compat_union_l_inv_l heap_compat_union_l_inv_r.
 Qed.
 
 Lemma heap_compat_union_r_inv : forall h1 h2 h3,
@@ -1269,8 +1269,8 @@ Lemma RO_onlyro : forall H,
   RO H = H.
 Proof using.
   introv M. extens. intros h. unfold RO. iff (h'&N&->) R.
-  { rewrite* toro_if_ro. } 
-  { exists h. rewrite* toro_if_ro. } 
+  { rewrite* toro_if_ro. }
+  { exists h. rewrite* toro_if_ro. }
 Qed.
 
 Lemma RO_RO : forall H,
@@ -1453,7 +1453,7 @@ Lemma hoare_fix : forall HI HO f x t1,
 Proof using.
   introv HF. intros h K. exists h (val_fix f x t1). splits~.
   { applys eval_fix. }
-  { rewrite hstar_hpure_l. split~. applys* isframe_rw_elim. } 
+  { rewrite hstar_hpure_l. split~. applys* isframe_rw_elim. }
 Qed.
 
 Lemma hoare_app_fix : forall v1 v2 (f:var) x t1 H Q,
@@ -1474,7 +1474,7 @@ Lemma hoare_let : forall x t1 t2 H1 H2 Q1 Q HI HO,
   (forall v H3, onlyro H3 -> hoare (subst x v t2) (Q1 v \* HO \* H2 \* H3) (Q \*+ HO)) ->
   hoare (trm_let x t1 t2) (H2 \* HI \* H1) (Q \*+ HO).
 Proof using.
-  hint heap_compat_union_l, heap_compat_union_r. 
+  hint heap_compat_union_l, heap_compat_union_r.
   hint heap_compat_toro_l, heap_compat_toro_r.
   hint heap_compat_proj_ro_l, heap_compat_proj_ro_r.
   introv HF M1 M2. intros h K.
@@ -1486,7 +1486,7 @@ Proof using.
     { applys* toro_pred. }
     { applys* hstar_intro. } }
   (* Adding compatibility facts *)
-  lets (Da&Ea): heap_components h1'.  
+  lets (Da&Ea): heap_components h1'.
   rewrite E1 in Da. rew_heaps* in Da.
   forwards* (C3&C4): heap_compat_union_r_inv Da.
   forwards* (C5&C6): heap_compat_union_r_inv C4.
@@ -1499,7 +1499,7 @@ Proof using.
   exists h2' v2. splits*.
   { applys eval_let_trm (heap_state h1').
     { applys_eq R1. subst h hr. rew_fmap*. }
-    { applys_eq R2. 
+    { applys_eq R2.
       rewrite Ea at 1. rewrite E1. rew_heaps*. rew_fmap*. } }
   { rewrite E2. rewrite U1,U2. rew_heaps*. }
 Qed.
@@ -1570,7 +1570,7 @@ Lemma hoare_free : forall HI HO p v,
   hoare (val_free (val_loc p))
     ((p ~~> v) \* HI)
     (fun r => \[r = val_unit] \* HO).
-Proof using. 
+Proof using.
   introv NH. intros h K0.
   destruct K0 as (h1&h2&P1&P2&C&->). lets (->&N): hsingle_inv P1.
   lets D: heap_compat_single_l_inv C.
@@ -1696,8 +1696,8 @@ Proof using.
   applys* triple_frame_onlyrw.
 Qed.
 
-(** The read-only frame rule is derived from its counterpart 
-    on Hoare triples. *) 
+(** The read-only frame rule is derived from its counterpart
+    on Hoare triples. *)
 
 Lemma triple_frame_read_only : forall HI HO t H1 Q1,
   triple t (H1 \* RO HI) Q1 ->
@@ -1707,7 +1707,7 @@ Proof using.
   introv M F. intros HI' HO' F'.
   lets R: M F'. applys hoare_conseq.
   { applys hoare_frame_read_only (H1 \* HI') (Q1 \*+ HO' \*+ \GC) F.
-    applys hoare_conseq R. { xsimpl. } { xsimpl. } } 
+    applys hoare_conseq R. { xsimpl. } { xsimpl. } }
   { xsimpl. } { xsimpl. }
 Qed.
 
@@ -1756,7 +1756,7 @@ Qed.
 Definition hdiscardable (H:hprop) : Prop :=
   H ==> \exists HN HR, \[haffine HN] \* \[onlyro HR] \* (HN \* HR).
 
-(** Any predicate satisfying [hdiscardable] may be removed. 
+(** Any predicate satisfying [hdiscardable] may be removed.
     Interestingly, [RO H] predicate is discardable, and
     a predicate [H] satisfying [haffine] is also discardable. *)
 
@@ -1796,7 +1796,7 @@ Qed.
 Lemma hdiscardable_hempty :
   hdiscardable \[].
 Proof using.
-  unfolds. xsimpl \[] \[]. 
+  unfolds. xsimpl \[] \[].
   { applys haffine_hempty. }
   { applys onlyro_hempty. }
 Qed.
@@ -2034,7 +2034,7 @@ Proof using. introv M. intros h Hh. applys* M. Qed.
 (* ********************************************************************** *)
 (* ********************************************************************** *)
 (* ********************************************************************** *)
-(* * 
+(* *
 
 (* ********************************************************************** *)
 (* * Ramified read-only frame rule *)

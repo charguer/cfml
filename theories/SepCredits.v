@@ -6,7 +6,7 @@ time credits. It is described in the paper:
 "Formal Proof and Analysis of an Incremental Cycle Detection Algorithm"
 (ITP'19)
 
-And is a variant of the Separation Logic with time credits in [nat],
+It is a variant of the Separation Logic with time credits in [nat],
 described in the papers:
 
 - Machine-Checked Verification of the Correctness and Amortized
@@ -616,24 +616,24 @@ Global Opaque hsingle.
 (* ---------------------------------------------------------------------- *)
 (* ** Credits heap *)
 
-Definition heap_credits (n:credits) : heap :=
+Definition mk_heap_credits (n:credits) : heap :=
   (Fmap.empty:state, n).
 
 Definition hcredits (n:credits) : hprop :=
-  fun h => h = heap_credits n.
+  fun h => h = mk_heap_credits n.
 
 Notation "'\$' n" := (hcredits n)
   (at level 40, format "\$ n") : heap_scope.
 
-Lemma hcredits_heap_credits : forall n,
-  (\$n) (heap_credits n).
+Lemma hcredits_mk_heap_credits : forall n,
+  (\$n) (mk_heap_credits n).
 Proof using. intros. unfolds* hcredits. Qed.
 
 Lemma hcredits_inv : forall n h,
   (\$n) h ->
   h^s = Fmap.empty /\ h^c = n.
 Proof using.
-  introv N. unfolds hcredits, heap_credits. subst*.
+  introv N. unfolds hcredits, mk_heap_credits. subst*.
 Qed.
 
 Lemma haffine_hcredits : forall n,
@@ -678,18 +678,18 @@ Global Opaque heap_affine.
 (* ** Properties of credits *)
 
 Section Credits.
-Transparent hcredits hempty hpure hstar heap_credits heap_union heap_disjoint.
+Transparent hcredits hempty hpure hstar mk_heap_credits heap_union heap_disjoint.
 
 Lemma hcredits_zero_eq : \$ 0 = \[].
 Proof using.
   unfold hcredits, hempty, heap_empty.
-  applys pred_ext_1. intros [m n]; simpl. unfold heap_credits. iff*.
+  applys pred_ext_1. intros [m n]; simpl. unfold mk_heap_credits. iff*.
 Qed.
 
 Lemma hcredits_add_eq : forall n m,
   \$ (n+m) = \$ n \* \$ m.
 Proof using.
-  intros c1 c2. unfold hcredits, hstar, heap_union, heap_disjoint, heap_credits.
+  intros c1 c2. unfold hcredits, hstar, heap_union, heap_disjoint, mk_heap_credits.
   applys pred_ext_1. intros [m n]. iff M.
   { inverts M. exists___. splits*; simpl; try fmap_eq.
     { fequals. fmap_eq. math. } }
@@ -749,8 +749,8 @@ Lemma triple_hcredits_haffine_post : forall t n Q,
   /\ (Q v \* \GC) h
   /\ ((n':int) <= n).
 Proof using.
-  introv M F. forwards (n'&h&v&R&K&C): (rm M) hempty (heap_credits n).
-  { rew_heap. applys hcredits_heap_credits. }
+  introv M F. forwards (n'&h&v&R&K&C): (rm M) hempty (mk_heap_credits n).
+  { rew_heap. applys hcredits_mk_heap_credits. }
   rew_heap in K. exists n' h v. splits*.
   { simpls. forwards N: haffine_heap_inv K.
     { applys haffine_hstar. applys* F. applys haffine_hgc. }
