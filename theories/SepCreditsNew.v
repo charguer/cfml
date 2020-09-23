@@ -364,7 +364,8 @@ Proof using. intros (s1,n1) (s2,n2) M. inverts~ M. Qed.
 (* ** Properties of [heap_disjoint] *)
 
 Lemma heap_disjoint_sym : forall h1 h2,
-  \# h1 h2 -> \# h2 h1.
+  \# h1 h2 ->
+  \# h2 h1.
 Proof using.
   intros [m1 n1] [m2 n2] H. simpls.
   hint Fmap.disjoint_sym. autos*.
