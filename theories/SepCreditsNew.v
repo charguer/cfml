@@ -800,6 +800,24 @@ Implicit Types p : loc.
 Definition pay_one H H' :=
   H ==> (\$ 1) \* H'.
 
+Lemma pay_one_elim : forall H H' h,
+  pay_one H H' ->
+  H h -> 
+  exists h', H' h' /\ h = (mk_heap_credits 1 \u h').
+Proof using.
+  introv HP N. lets N': (rm HP) (rm N). rew_heap in N'.
+  destruct N' as (h1&h2&N1&N2&N3&N4).
+  lets (N1'&N2'): hcredits_inv (rm N1).
+  destruct h1 as [n1 c1]. simpls. subst*.
+Qed.
+
+Lemma pay_one_frame : forall H H' HF,
+  pay_one H H' ->
+  pay_one (H \* HF) (H' \* HF).
+Proof using.
+  introv M. unfolds pay_one. xchange M.
+Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of Hoare triples *)
@@ -838,17 +856,6 @@ Proof using.
   introv. intros h K. exists 0%nat h (val_fix f x t1). splits~.
   { applys eval_fix. }
   { rewrite* hstar_hpure_l. }
-Qed.
-
-Lemma pay_one_elim : forall H H' h,
-  pay_one H H' ->
-  H h -> 
-  exists h', H' h' /\ h = (mk_heap_credits 1 \u h').
-Proof using.
-  introv HP N. lets N': (rm HP) (rm N). rew_heap in N'.
-  destruct N' as (h1&h2&N1&N2&N3&N4).
-  lets (N1'&N2'): hcredits_inv (rm N1).
-  destruct h1 as [n1 c1]. simpls. subst*.
 Qed.
 
 Lemma hoare_app_fix : forall v1 v2 (f:var) x t1 H H' Q,
@@ -1042,20 +1049,31 @@ Proof using. intros. applys* local_conseq_frame_hgc. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** SL rules for terms *)
+(* ** Auxiliary conversions *)
 
 Lemma triple_of_hoare : forall t H Q,
   (forall H',
      exists Q', hoare t (H \* H') Q' /\ Q' ===> Q \*+ H' \*+ \GC) ->
   triple t H Q.
 Proof using.
-  introv M. intros H'. forwards* (Q'&R&W): M HF. applys* hoare_conseq R.
+  introv M. intros H'. forwards* (Q'&R&W): M H'. applys* hoare_conseq R.
 Qed.
+
+Lemma hoare_of_triple : forall t H Q HF,
+  triple t H Q ->
+  hoare t ((H \* HF) \* \GC) (fun r => (Q r \* HF) \* \GC).
+Proof using.
+  introv M. applys hoare_conseq. { applys M. } { xsimpl. } { xsimpl. }
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** SL rules for terms *)
 
 Lemma triple_val : forall v,
   triple (trm_val v) \[] (fun r => \[r = v]).
 Proof using.
-  intros. intros H' HF. rew_heaps.
+  intros. intros H'. rew_heap.
   applys hoare_conseq.
   { applys* hoare_val. }
   { xsimpl. }
@@ -1064,10 +1082,9 @@ Qed.
 
 Lemma triple_val_framed : forall v H Q,
   H ==> Q v ->
-  onlyrw H ->
   triple (trm_val v) H Q.
 Proof using.
-  introv M N. applys triple_conseq_frame_onlyrw N.
+  introv M. applys* local_conseq_frame.
   { applys triple_val. }
   { xsimpl. }
   { xchanges M. intros ? ->. xsimpl*. }
@@ -1076,7 +1093,7 @@ Qed.
 Lemma triple_fix : forall f x t1,
   triple (trm_fix f x t1) \[] (fun r => \[r = (val_fix f x t1)]).
 Proof using.
-  intros. intros H'. rew_heaps.
+  intros. intros H'. rew_heap.
   applys hoare_conseq.
   { applys* hoare_fix. }
   { xsimpl. }
@@ -1085,39 +1102,25 @@ Qed.
 
 Lemma triple_fix_framed : forall f x t1 H Q,
   H ==> Q (val_fix f x t1) ->
-  onlyrw H ->
   triple (trm_fix f x t1) H Q.
 Proof using.
-  introv M N. applys triple_conseq_frame_onlyrw N.
+  introv M. applys* local_conseq_frame.
   { applys triple_fix. }
   { xsimpl. }
   { xchanges M. intros ? ->. xsimpl*. }
 Qed.
 
-Lemma triple_let : forall (z:var) t1 t2 H1 H2 Q Q1,
-  triple t1 (H1 \* RO H2) Q1 ->
-  (forall v, triple (subst1 z v t2) (Q1 v \* H2) Q) ->
-  triple (trm_let z t1 t2) (H1 \* H2) Q.
+Lemma triple_let : forall z t1 t2 H Q Q1,
+  triple t1 H Q1 ->
+  (forall (X:val), triple (subst1 z X t2) (Q1 X) Q) ->
+  triple (trm_let z t1 t2) H Q.
 Proof using.
-  introv M1 M2.
-  applys triple_of_hoare. intros H'.
-  unfolds in M1.
-  esplit. split.
-  { applys hoare_conseq.
-    { applys hoare_let H1 H2 (Q1 \*+ \GC) (Q \*+ \GC) HF.
-      { applys hoare_conseq.
-        { applys M1 HF. } { xsimpl. } { xsimpl. } }
-      { intros v H3 N3. lets NO: onlyrw_of_isframe HF.
-        forwards* HFa: isframe_onlyrw (HO \* \GC) isframe_hempty.
-        { auto with onlyrw. }
-        forwards* HFb: isframe_onlyro H3 (rm HFa). rew_heaps in HFb.
-        applys hoare_conseq.
-        { applys M2 HFb. } { xsimpl. }
-        { xsimpl. } } }
-    { xsimpl. }
-    { xsimpl. } }
-  { xsimpl. }
+  introv M1 M2. intros HF. applys hoare_let.
+  { applys M1. }
+  { intros v. applys* hoare_of_triple. }
 Qed.
+
+
 
 Lemma triple_if : forall (b:bool) t1 t2 H Q,
   triple (if b then t1 else t2) H Q ->
@@ -1126,14 +1129,15 @@ Proof using.
   introv M1. intros H'. applys hoare_if. applys~ M1.
 Qed.
 
-Lemma triple_app_fix : forall (f:var) F x X t1 H Q,
+Lemma triple_app_fix : forall (f:var) F x X t1 H H' Q,
   F = val_fix f x t1 ->
   f <> x ->
   pay_one H H' ->
   triple (subst2 f F x X t1) H' Q ->
   triple (trm_app F X) H Q.
 Proof using.
-  introv EF N M. intros H'. applys* hoare_app_fix EF N.
+  introv EF N HP M. intros H''. applys* hoare_app_fix EF N.
+  { applys* pay_one_frame. }
 Qed.
 
 Lemma triple_ref : forall v,
@@ -1143,16 +1147,16 @@ Lemma triple_ref : forall v,
 Proof using.
   intros. applys~ triple_of_hoare.
   intros H'. esplit. split.
-  { rew_heap. applys* hoare_ref HF. } { xsimpl*. }
+  { rew_heap. applys* hoare_ref. } { xsimpl*. }
 Qed.
 
-Lemma triple_get_ro : forall v l,
+Lemma triple_get : forall v l,
   triple (val_get (val_loc l))
-    (RO (l ~~~> v))
-    (fun x => \[x = v]).
+    (l ~~~> v)
+    (fun x => \[x = v] \* (l ~~~> v)).
 Proof using.
   intros. applys triple_of_hoare. intros H'.
-  esplit; split. { applys* hoare_get_ro. } { xsimpl*. }
+  esplit; split. { applys* hoare_get. } { xsimpl*. }
 Qed.
 
 Lemma triple_set : forall (w:val) l v,
@@ -1162,15 +1166,6 @@ Lemma triple_set : forall (w:val) l v,
 Proof using.
   intros. applys triple_of_hoare. intros H'.
   esplit; split. { applys* hoare_set. } { xsimpl*. }
-Qed.
-
-Lemma triple_set' : forall (w:val) l v,
-  triple (val_set (val_loc l) w)
-    (l ~~~> v)
-    (fun r => l ~~~> w).
-Proof using.
-  intros. applys triple_conseq.
-  { applys* triple_set. } { xsimpl*. } { xsimpl*. }
 Qed.
 
 Lemma triple_free : forall l v,
@@ -1183,27 +1178,28 @@ Proof using.
 Qed.
 
 
-
 (* ---------------------------------------------------------------------- *)
 (* ** Intrepretation for full executions *)
 
 (** Interpretation of triples for full executions:
     the number of credits in the precondition is an upper bound
-    on the number of steps taken by the execution. *)
+    on the number of steps taken by the execution. 
 
-Lemma triple_hcredits_haffine_post : forall t n Q,
-  triple t (\$ n) Q ->
-  exists n' n'' h v s',
-     eval n' Fmap.empty t s' v
-  /\ (Q v \* \GC) (s',n'')
-  /\ n'' >= 0
-  /\ ((n':int) <= n).
+    The post-condition is required to be affine to ensure that 
+    it does not store negative credits. *)
+
+Lemma triple_hcredits : forall t m Q,
+  triple t (\$ m) Q ->
+  haffine_post Q ->
+  exists n s' v,
+     eval n Fmap.empty t s' v
+  /\ ((n:int) <= m).
 Proof using.
-  introv M F. forwards (n'&h&v&R&K&C): (rm M) hempty (mk_heap_credits n).
+  introv M HF. forwards (n&h&v&R&K&C): (rm M) hempty (mk_heap_credits m).
   { rew_heap. applys hcredits_mk_heap_credits. }
-  rew_heap in K. exists n' h v. splits*.
+  rew_heap in K. exists n (h^s) v. splits*.
   { simpls. forwards N: haffine_heap_inv K.
-    { applys haffine_hstar. applys* F. applys haffine_hgc. }
+    { applys haffine_hstar. applys* HF. applys haffine_hgc. }
    math. }
 Qed.
 
