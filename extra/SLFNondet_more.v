@@ -245,6 +245,28 @@ Admitted.
 
 
 
+(*
+: [phoare t H Q] holds if, for any input state [s]
+    satisfying the precondition [H], for any terminating evaluation
+    of [t] in the state [s] reaching a value [v] in a state [s'],
+    the postcondition [Q] holds of [v] and [s'].
+
+    This definition applies regardless of whether the language is
+    deterministic or not. It can be stated in big-step as well as
+    in small-step presentation. Let's start with the big-step
+    presentation. *)
+
+Definition phoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall s s' v, H s -> eval s t s' v -> Q v s'.
+
+
+(** Exercise: prove the equivalence between the small-step and the
+    big-step presentations of partial correctness Hoare triples,
+    that is, the equivalence beteween [phoare] and [phoare']. *)
+
+Lemma poare_eq_phoare' :
+  phoare = phoare'.
+Proof using. skip. Qed.
 
 
 
