@@ -270,3 +270,49 @@ Proof using. skip. Qed.
 
 
 
+
+
+
+(* ################################################ *)
+(** ** Deterministic languages *)
+
+(** Let's forget about the details of our semantics defined by [step],
+    and consider a general small-step semantics. *)
+
+(** A semantics is deterministic iff there is at most one evaluation
+    rule that applies to any given term. *)
+
+(** The definition of [steps] may be simplified for a deterministic
+    language, as shown below, yielding a predicate called [dsteps]. *)
+
+Inductive dsteps : state->trm->(val->hprop)->Prop :=
+  | dsteps_val : forall s v Q,
+      Q v s ->
+      dsteps s v Q
+  | dsteps_step : forall s t s' t' Q,
+      step s t s' t' ->
+      dsteps s' t' Q ->
+      dsteps s t Q.
+
+(** Note: if we consider a language with deterministic allocation,
+    then we could prove the equivalence between the judgment
+    [hoare t H Q] from the file and the big-step-style definition from
+    our previous chapters, that is,
+    [forall s, H s -> exists s' v, eval s t s' v /\ Q v s'].
+    This equivalence proof amounts, in particular, to establishing the
+    equivalence between a small-step and a big-step semantics.
+    It goes beyond the scope of the present chapter. *)
+
+
+
+(** First, we prove an auxiliary results asserting that values can only evaluate
+    to themselves with respect to the iterated reduction judgment [steps]. *)
+
+Lemma steps_val_inv : forall s v s' t',
+  steps s v s' t' ->
+  s' = s /\ t' = v.
+Proof using.
+  introv M. inverts M as R1 R2. { auto. } { false. inverts R1. }
+Qed.
+
+
