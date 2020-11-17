@@ -537,23 +537,6 @@ Definition hoare (t:trm) (H:hprop) (Q:val->hprop) :=
   forall h, H h -> exists h' v, eval h t h' v /\ Q v h'.
 
 
-(* ---------------------------------------------------------------------- *)
-(* ** Tactic [himpl_fold] *)
-
-(** [himpl_fold] applies to a goal of the form [H1 h].
-    It searches the context for an assumption of the from [H2 h],
-    then replaces the goal with [H1 ==> H2].
-    It also deletes the assumption [H2 h]. *)
-
-Ltac himpl_fold_core tt :=
-  match goal with N: ?H ?h |- _ ?h =>
-    applys himpl_inv N; clear N end.
-
-Tactic Notation "himpl_fold" := himpl_fold_core tt.
-Tactic Notation "himpl_fold" "~" := himpl_fold; auto_tilde.
-Tactic Notation "himpl_fold" "*" := himpl_fold; auto_star.
-
-
 (* ********************************************************************** *)
 (** * Hoare structural rules *)
 
@@ -564,8 +547,8 @@ Lemma hoare_conseq : forall t H' Q' H Q,
   hoare t H Q.
 Proof using.
   introv M MH MQ HF. forwards (h'&v&R&K): M h.
-  { himpl_fold~. }
-  exists h' v. splits~. { himpl_fold. auto. }
+  { applys* MH. }
+  exists h' v. splits~. { applys* MQ. }
 Qed.
 
 Lemma hoare_named_heap : forall t H Q,
@@ -595,7 +578,7 @@ Lemma hoare_val : forall v H Q,
 Proof using.
   introv M. intros h Hh. exists h v. splits.
   { applys eval_val. }
-  { himpl_fold~. }
+  { applys* M. }
 Qed.
 
 Lemma hoare_fixs : forall f xs t1 H Q,
@@ -605,7 +588,7 @@ Lemma hoare_fixs : forall f xs t1 H Q,
 Proof using.
   introv N M. intros h Hh. exists___. splits.
   { applys~ eval_fixs. }
-  { himpl_fold~. }
+  { applys* M. }
 Qed.
 
 Lemma hoare_fun : forall x t1 H Q,
@@ -624,7 +607,7 @@ Lemma hoare_constr : forall id vs H Q,
 Proof using.
   introv M. intros h Hh. exists h (val_constr id vs). splits.
   { applys eval_constr. }
-  { himpl_fold~. }
+  { applys* M. }
 Qed.
 
 Lemma hoare_constr_trm : forall id ts t1 vs H Q Q1,
@@ -638,16 +621,16 @@ Proof using.
   exists h2' v2. splits~. { applys~ eval_constr_trm R2. }
 Qed.
 
-  Lemma hoare_let : forall z t1 t2 H Q Q1,
-    hoare t1 H Q1 ->
-    (forall v, hoare (subst1 z v t2) (Q1 v) Q) ->
-    hoare (trm_let z t1 t2) H Q.
-  Proof using.
-    introv M1 M2 Hh.
-    forwards* (h1'&v1&R1&K1): (rm M1).
-    forwards* (h2'&v2&R2&K2): (rm M2).
-    exists h2' v2. splits~. { applys~ eval_let_trm R2. }
-  Qed.
+Lemma hoare_let : forall z t1 t2 H Q Q1,
+  hoare t1 H Q1 ->
+  (forall v, hoare (subst1 z v t2) (Q1 v) Q) ->
+  hoare (trm_let z t1 t2) H Q.
+Proof using.
+  introv M1 M2 Hh.
+  forwards* (h1'&v1&R1&K1): (rm M1).
+  forwards* (h2'&v2&R2&K2): (rm M2).
+  exists h2' v2. splits~. { applys~ eval_let_trm R2. }
+Qed.
 
 Lemma hoare_seq : forall t1 t2 H Q H1,
   hoare t1 H (fun r => H1) ->
