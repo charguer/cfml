@@ -1071,13 +1071,13 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** ** Extension of a number of consecutive fresh locations *)
+(** ** Existence of fresh locations *)
 
 Section FmapFresh.
 Variables (B : Type).
 Implicit Types h : fmap nat B.
 
-Lemma exists_not_indom : forall null h,
+Lemma exists_fresh : forall null h,
   exists l, ~ indom h l /\ l <> null.
 Proof using.
   intros null (m&(L&M)). unfold indom, map_indom. simpl.
@@ -1090,7 +1090,7 @@ Qed.
 Lemma single_fresh : forall null h v,
   exists l, \# (single l v) h /\ l <> null.
 Proof using.
-  intros. forwards (l&F&N): exists_not_indom null h.
+  intros. forwards (l&F&N): exists_fresh null h.
   exists l. split~. applys* disjoint_single_of_not_indom.
 Qed.
 
@@ -1121,6 +1121,31 @@ Proof using.
   { rew_list in N. rewrite conseq_cons. rew_disjoint. split.
     { applys disjoint_single_single. destruct N; math. }
     { applys IHL. destruct N. { left. math. } { right. math. } } }
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** Existence of a smallest fresh locations *)
+
+Definition fresh (null:nat) (h:fmap nat B) (l:nat) : Prop :=
+  ~ indom h l /\ l <> null.
+
+Definition smallest_fresh (null:nat) (h:fmap nat B) (l:nat) : Prop :=
+  fresh null h l /\ (forall l', l' < l -> ~ fresh null h l').
+
+Lemma single_smallest_fresh : forall null h,
+  exists l, smallest_fresh null h l.
+Proof using.
+  intros.
+  cuts M: (forall l0, fresh null h l0 -> 
+            exists l, fresh null h l
+                   /\ (forall l', l' < l -> ~ fresh null h l')).
+  { lets (l0&F&N): exists_fresh null h. applys M l0. split*. }
+  intros l0. induction_wf IH: wf_lt l0. intros F.
+  tests C: (forall l', l' < l0 -> ~ fresh null h l').
+  { exists* l0. }
+  { destruct C as (l0'&K). rew_logic in K. destruct K as (L&F'). 
+    applys* IH l0'. }
 Qed.
 
 
