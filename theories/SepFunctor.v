@@ -255,7 +255,7 @@ Notation "\GC" := (hgc) : heap_scope.
 (** Magic wand, written [H1 \-* H2] *)
 
 Definition hwand (H1 H2 : hprop) : hprop :=
-  hexists (fun (H:hprop) => H \* (hpure (H \* H1 ==> H2))).
+  hexists (fun (H:hprop) => H \* (hpure (H1 \* H ==> H2))).
 
 Notation "H1 \-* H2" := (hwand H1 H2)
   (at level 43, right associativity) : heap_scope.
@@ -523,45 +523,44 @@ Proof using. intros. applys* himpl_hforall_l x. Qed.
 (** Properties of hwand (others are found further in the file) *)
 
 Lemma hwand_equiv : forall H0 H1 H2,
-  (H0 ==> H1 \-* H2) <-> (H0 \* H1 ==> H2).
+  (H0 ==> H1 \-* H2) <-> (H1 \* H0 ==> H2).
 Proof using.
   unfold hwand. iff M.
-  { applys himpl_trans. applys himpl_frame_l M.
-    (* applys himpl_hstar_trans_l (rm M). *)
+  { rewrite hstar_comm. applys himpl_hstar_trans_l (rm M).
     rewrite hstar_hexists. applys himpl_hexists_l. intros H.
     rewrite (hstar_comm H). rewrite hstar_assoc.
-    applys~ himpl_hstar_hpure_l. }
+    rewrite (hstar_comm H H1). applys~ himpl_hstar_hpure_l. }
   { applys himpl_hexists_r H0.
-    rewrite hstar_comm. rewrite <- (hstar_hempty_l H0) at 1.
-    applys himpl_frame_l. applys himpl_hempty_hpure M. }
+    rewrite <- (hstar_hempty_r H0) at 1.
+    applys himpl_frame_r. applys himpl_hempty_hpure M. }
 Qed.
 
 Lemma himpl_hwand_r : forall H1 H2 H3,
-  H1 \* H2 ==> H3 ->
+  H2 \* H1 ==> H3 ->
   H1 ==> (H2 \-* H3).
 Proof using. introv M. rewrite~ hwand_equiv. Qed.
 
 Lemma himpl_hwand_r_inv : forall H1 H2 H3,
   H1 ==> (H2 \-* H3) ->
-  H1 \* H2 ==> H3.
+  H2 \* H1 ==> H3.
 Proof using. introv M. rewrite~ <- hwand_equiv. Qed.
 
 Lemma hwand_cancel : forall H1 H2,
   H1 \* (H1 \-* H2) ==> H2.
-Proof using. intros. rewrite hstar_comm. rewrite~ <- hwand_equiv. Qed.
+Proof using. intros. rewrite~ <- hwand_equiv. Qed.
 
 Arguments hwand_cancel : clear implicits.
 
 Lemma himpl_hempty_hwand_same : forall H,
   \[] ==> (H \-* H).
-Proof using. intros. rewrite hwand_equiv. rewrite~ hstar_hempty_l. Qed.
+Proof using. intros. rewrite hwand_equiv. rewrite~ hstar_hempty_r. Qed.
 
 Lemma hwand_hempty_l : forall H,
   (\[] \-* H) = H.
 Proof using.
   intros. applys himpl_antisym.
   { rewrite <- (hstar_hempty_l (\[] \-* H)). applys hwand_cancel. }
-  { rewrite hwand_equiv. rewrite~ hstar_hempty_r. }
+  { rewrite hwand_equiv. rewrite~ hstar_hempty_l. }
 Qed.
 
 Lemma hwand_hpure_l : forall P H,
@@ -571,8 +570,7 @@ Proof using.
   introv HP. applys himpl_antisym.
   { lets K: hwand_cancel \[P] H. applys himpl_trans K.
     applys* himpl_hstar_hpure_r. }
-  { rewrite hwand_equiv. rewrite hstar_comm.
-    applys* himpl_hstar_hpure_l. }
+  { rewrite hwand_equiv. applys* himpl_hstar_hpure_l. }
 Qed.
 
 Arguments hwand_hpure_l : clear implicits.
@@ -580,17 +578,17 @@ Arguments hwand_hpure_l : clear implicits.
 Lemma hwand_curry : forall H1 H2 H3,
   (H1 \* H2) \-* H3 ==> H1 \-* (H2 \-* H3).
 Proof using.
-  intros. do 2 rewrite hwand_equiv.
-  rewrite hstar_assoc. rewrite hstar_comm. applys hwand_cancel.
+  intros. apply himpl_hwand_r. apply himpl_hwand_r.
+  rewrite <- hstar_assoc. rewrite (hstar_comm H1 H2).
+  applys hwand_cancel.
 Qed.
 
 Lemma hwand_uncurry : forall H1 H2 H3,
   H1 \-* (H2 \-* H3) ==> (H1 \* H2) \-* H3.
 Proof using.
-  intros. rewrite hwand_equiv. rewrite <- (hstar_comm (H1 \* H2)).
-  rewrite (@hstar_comm H1). rewrite hstar_assoc.
-  applys himpl_trans. applys himpl_frame_r. applys hwand_cancel.
-  applys hwand_cancel.
+  intros. rewrite hwand_equiv. rewrite (hstar_comm H1 H2).
+  rewrite hstar_assoc. applys himpl_hstar_trans_r.
+  { applys hwand_cancel. } { applys hwand_cancel. }
 Qed.
 
 Lemma hwand_curry_eq : forall H1 H2 H3,
@@ -609,11 +607,10 @@ Lemma qwand_equiv : forall H A (Q1 Q2:A->hprop),
   H ==> (Q1 \--* Q2) <-> (Q1 \*+ H) ===> Q2.
 Proof using.
   unfold qwand. iff M.
-  { intros x. rewrite hstar_comm. applys himpl_trans.
-    applys himpl_frame_l M. applys himpl_trans. applys hstar_hforall.
-    applys himpl_hforall_l x. rewrite <- hwand_equiv. applys himpl_refl. }
-  { applys himpl_hforall_r. intros x.
-    rewrite hwand_equiv. rewrite* hstar_comm. }
+  { intros x. rewrite hstar_comm. applys himpl_hstar_trans_l (rm M).
+    applys himpl_trans. applys hstar_hforall. simpl.
+    applys himpl_hforall_l x. rewrite hstar_comm. applys hwand_cancel. }
+  { applys himpl_hforall_r. intros x. rewrite* hwand_equiv. }
 Qed.
 
 Lemma himpl_qwand_r : forall A (Q1 Q2:A->hprop) H,
@@ -625,11 +622,7 @@ Arguments himpl_qwand_r [A].
 
 Lemma qwand_specialize : forall A (x:A) (Q1 Q2:A->hprop),
   (Q1 \--* Q2) ==> (Q1 x \-* Q2 x).
-Proof using.
-  intros. applys himpl_forall_trans. intros H M.
-  rewrite qwand_equiv in M. specializes M x.
-  rewrite hwand_equiv. rewrite~ hstar_comm.
-Qed.
+Proof using. intros. applys* himpl_hforall_l x. Qed.
 
 Arguments qwand_specialize [ A ].
 
@@ -840,7 +833,7 @@ Global Opaque hempty hpure hstar hexists htop hgc haffine.
 (* ** Properties of [hwand] *)
 
 Lemma hwand_eq_hexists_hstar_hpure : forall H1 H2,
-  (H1 \-* H2) = (\exists H, H \* \[H \* H1 ==> H2]).
+  (H1 \-* H2) = (\exists H, H \* \[H1 \* H ==> H2]).
 Proof using. auto. Qed.
 
 Lemma hwand_himpl : forall H1 H1' H2 H2',

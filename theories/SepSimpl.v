@@ -188,7 +188,7 @@ Parameter hstar_hforall : forall H A (J:A->hprop),
 (** Properties of hwand *)
 
 Parameter hwand_equiv : forall H0 H1 H2,
-  (H0 ==> H1 \-* H2) <-> (H0 \* H1 ==> H2).
+  (H0 ==> H1 \-* H2) <-> (H1 \* H0 ==> H2).
 
 Parameter hwand_curry_eq : forall H1 H2 H3,
   (H1 \* H2) \-* H3 = H1 \-* (H2 \-* H3).
@@ -695,8 +695,7 @@ Ltac hstars_pick_lemma i :=
     - [Hrt] denotes the remaining items to process from the right hand side
 
     Note: we assume that all items consist of iterated hstars, and are
-    always terminated by an empty heap.
-*)
+    always terminated by an empty heap. *)
 
 Definition Xsimpl (HL HR:hprop*hprop*hprop) :=
   let '(Hla,Hlw,Hlt) := HL in
@@ -1053,7 +1052,7 @@ Lemma xsimpl_lr_hwand_hfalse : forall Hla H1,
   Xsimpl (Hla, \[], \[]) ((\[False] \-* H1) \* \[], \[], \[]).
 Proof using.
   intros. generalize True. xsimpl_lr_start M. rewrite hwand_equiv.
-  rewrite hstar_comm. applys himpl_hstar_hpure_l. auto_false.
+  applys himpl_hstar_hpure_l. auto_false.
 Qed.
 
 Lemma xsimpl_lr_qwand : forall A (Q1 Q2:A->hprop) Hla,

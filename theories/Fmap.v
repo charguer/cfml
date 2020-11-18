@@ -632,7 +632,7 @@ Qed.
 
 Lemma indom_union_eq : forall h1 h2 x,
   indom (union h1 h2) x = (indom h1 x \/ indom h2 x).
-Proof using. 
+Proof using.
   intros. extens. unfold union, indom, map_union, map_indom; simpl.
   destruct (fmap_data h1 x); auto_false*.
 Qed.
@@ -1133,18 +1133,18 @@ Definition fresh (null:nat) (h:fmap nat B) (l:nat) : Prop :=
 Definition smallest_fresh (null:nat) (h:fmap nat B) (l:nat) : Prop :=
   fresh null h l /\ (forall l', l' < l -> ~ fresh null h l').
 
-Lemma single_smallest_fresh : forall null h,
+Lemma exists_smallest_fresh : forall null h,
   exists l, smallest_fresh null h l.
 Proof using.
   intros.
-  cuts M: (forall l0, fresh null h l0 -> 
+  cuts M: (forall l0, fresh null h l0 ->
             exists l, fresh null h l
                    /\ (forall l', l' < l -> ~ fresh null h l')).
   { lets (l0&F&N): exists_fresh null h. applys M l0. split*. }
   intros l0. induction_wf IH: wf_lt l0. intros F.
   tests C: (forall l', l' < l0 -> ~ fresh null h l').
   { exists* l0. }
-  { destruct C as (l0'&K). rew_logic in K. destruct K as (L&F'). 
+  { destruct C as (l0'&K). rew_logic in K. destruct K as (L&F').
     applys* IH l0'. }
 Qed.
 

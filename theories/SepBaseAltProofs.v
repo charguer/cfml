@@ -20,7 +20,7 @@ Lemma qwand_specialize : forall A (x:A) (Q1 Q2:A->hprop),
 Proof using.
   intros. applys himpl_forall_trans. intros H M.
   rewrite qwand_equiv in M. specializes M x.
-  rewrite hwand_equiv. rewrite~ hstar_comm.
+  rewrite* hwand_equiv.
 Qed.
 
 End SepBaseAltWand.
