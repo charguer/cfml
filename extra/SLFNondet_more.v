@@ -319,3 +319,259 @@ Qed.
 
 
 Qed.
+
+
+
+(****Extra not needed*)
+
+
+(** [sdiverge_let] is the counterpart of [seval_let]. *)
+
+Lemma sdiverge_let : forall s1 s2 v1 x t1 t2,
+  steps s1 t1 s2 (trm_val v1) ->
+  sdiverge s2 (subst x v1 t2) ->
+  sdiverge s1 (trm_let x t1 t2).
+Proof using.
+  introv M1 M2. gen_eq t1': (trm_val v1). gen v1.
+  induction M1; intros; subst.
+  { applys sdiverge_step. { applys step_let. } { applys M2. } }
+  { rename H into R1. applys sdiverge_step.
+    { applys step_let_ctx R1. }
+    { applys* IHM1 M2. } }
+Qed.
+
+(** [sdiverge_let_ctx] is similar to [diverge_let_ctx], but
+    expressed with respect to [sdiverge]. *)
+
+Lemma sdiverge_let_ctx : forall s1 x t1 t2,
+  sdiverge s1 t1 ->
+  sdiverge s1 (trm_let x t1 t2).
+Proof using.
+  cofix IH. introv M. inverts M as R M1.
+  applys sdiverge_step.
+  { applys step_let_ctx R. }
+  { applys IH M1. }
+Qed.
+
+
+Lemma diverge_of_step_and_diverge : forall s1 s2 t1 t2,
+  step s1 t1 s2 t2 ->
+  diverge s2 t2 ->
+  diverge s1 t1.
+Proof using.
+(*
+  introv M1 M2. gen s3 v. induction M1; intros.
+  { inverts M2 as M3 M4. applys* eval_let. (* applys* IHM1. *) }
+  { inverts M2. applys eval_fix. }
+  { applys* eval_app_fix. }
+  { applys* eval_if. }
+  { applys* eval_let. applys eval_val. }
+*)
+skip.
+Qed.
+
+
+
+
+Lemma cosevals_of_coeval : forall s t Q,
+  coevals s t Q ->
+  cosevals s t Q.
+Proof.
+  cofix IH. introv M. inverts M.
+  { applys* cosevals_val. }
+  { applys* cosevals_step.
+    { do 2 esplit. applys step_fix. }
+    { introv S. inverts S. applys* cosevals_val. } }
+  { applys* cosevals_step.
+    { do 2 esplit. applys* step_app_fix. }
+    { introv S. inverts S as E. inverts E. applys* IH. } }
+  { rename H into M1, H0 into M2.
+    applys cosevals_let.
+    skip. (* PB GUARD *) skip. }
+  { applys* cosevals_step.
+    { do 2 esplit. applys* step_if. }
+    { introv S. inverts S. applys* IH. } }
+  { applys* cosevals_step.
+    { do 2 esplit. applys* step_add. }
+    { introv S. inverts S. applys* cosevals_val. } }
+  { applys* cosevals_step.
+    { do 2 esplit. applys* step_rand 0. math. }
+    { introv S. inverts S; try false_invert. applys* cosevals_val. } }
+  { applys* cosevals_step.
+    { forwards~ (p&F): (exists_smallest_fresh s). lets (D&_): F.
+      do 2 esplit. applys* step_ref. }
+    { introv S. inverts S; try false_invert. applys* cosevals_val. } }
+  { applys* cosevals_step.
+    { do 2 esplit. applys* step_get. }
+    { introv S. inverts S; try false_invert. applys* cosevals_val. } }
+  { applys* cosevals_step.
+    { do 2 esplit. applys* step_set. }
+    { introv S. inverts S; try false_invert. applys* cosevals_val. } }
+  { applys* cosevals_step.
+    { do 2 esplit. applys* step_free. }
+    { introv S. inverts S; try false_invert. applys* cosevals_val. } }
+Qed.
+
+
+
+
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * *)
+
+
+CoInductive trace : Type :=
+  | trace_return : val -> state -> trace
+  | trace_step : trace -> trace.
+
+Definition ret s v := (trace_return v s).
+
+CoFixpoint trace_app (T1 T2:trace) : trace :=
+  match T1 with
+  | trace_return _ _ => T2
+  | trace_step T1' => trace_step (trace_app T1' T2)
+  end.
+
+CoInductive trace_ends (v:val) (s:state) : trace->Prop :=
+  | trace_ends_ter :
+      trace_ends v s (trace_return v s)
+  | trace_ends_step : forall T,
+      trace_ends v s T ->
+      trace_ends v s (trace_step T).
+
+
+(** Deterministic *)
+
+CoInductive post : trace->(val->hprop)->Prop :=
+  | post_ter : forall Q v s,
+      Q v s ->
+      post (trace_return v s) Q
+  | post_step : forall T Q,
+      post T Q ->
+      post (trace_step T) Q.
+
+CoInductive teval : state -> trm -> trace -> Prop :=
+  | teval_val : forall s v,
+      teval s (trm_val v) (ret s v)
+  | teval_fix : forall s f x t1,
+      teval s (trm_fix f x t1) (ret s (val_fix f x t1))
+  | teval_app_fix : forall s1 v1 v2 f x t1 T,
+      v1 = val_fix f x t1 ->
+      teval s1 (subst x v2 (subst f v1 t1)) T ->
+      teval s1 (trm_app v1 v2) (trace_step T)
+  | teval_let : forall s1 s2 s3 x t1 t2 v1 T1 T2,
+      teval s1 t1 T1 ->
+      (forall v1 s2, trace_ends v1 s2 T1 ->  (* at most one such v1, since deterministic *)
+         teval s2 (subst x v1 t2) T2) ->
+      teval s1 (trm_let x t1 t2) (trace_app T1 T2)
+  | teval_if : forall s1 b t1 t2 T,
+      teval s1 (if b then t1 else t2) T ->
+      teval s1 (trm_if (val_bool b) t1 t2) (trace_step T)
+  | teval_add : forall s n1 n2,
+      teval s (val_add (val_int n1) (val_int n2)) (ret s (val_int (n1 + n2)))
+  | teval_ref : forall s v p,
+      smallest_fresh s p ->
+      ~ Fmap.indom s p ->
+      teval s (val_ref v) (ret (Fmap.update s p v) (val_loc p))
+  | teval_get : forall s p,
+      Fmap.indom s p ->
+      teval s (val_get (val_loc p)) (ret s (Fmap.read s p))
+  | teval_set : forall s p v,
+      Fmap.indom s p ->
+      teval s (val_set (val_loc p) v) (ret (Fmap.update s p v) val_unit)
+  | teval_free : forall s p,
+      Fmap.indom s p ->
+      teval s (val_free (val_loc p)) (ret (Fmap.remove s p) val_unit).
+
+Definition ptdhoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall (s:state), H s -> exists T, teval s t T /\ post T Q.
+
+(** Non-deterministic *)
+
+Implicit Type K : trace->Prop.
+
+(** [trace->Prop] is similar to [bool*((val*state)->Prop)],
+    where bool indicates option to diverge,
+    same as [(Div+(Ter of val*state)) -> Prop] *)
+
+Definition tpost_step (K:trace->Prop) : trace->Prop :=
+  fun (T:trace) => K (trace_step T).
+
+Definition tpost_app (T:trace) (K:trace->Prop) : trace->Prop :=
+  fun T' => K (trace_app T T').
+
+CoInductive tevals : state -> trm -> (trace->Prop) -> Prop :=
+  | tevals_val : forall s v K,
+      K (trace_return v s) ->
+      tevals s (trm_val v) K
+  | tevals_fix : forall s f x t1 K,
+      K (trace_return (val_fix f x t1) s) ->
+      tevals s (trm_fix f x t1) K
+  | tevals_app_fix : forall s1 v1 v2 f x t1 K,
+      v1 = val_fix f x t1 ->
+      tevals s1 (subst x v2 (subst f v1 t1)) K ->
+      tevals s1 (trm_app v1 v2) (tpost_step K)
+  | tevals_let : forall K1 s1 x t1 t2 K,
+      tevals s1 t1 K1 ->
+      (forall T1, K1 T1 ->
+        forall v1 s2, trace_ends v1 s2 T1 ->
+        tevals s2 (subst x v1 t2) (tpost_app T1 K)) ->
+        (* (tpost_app T1 K) = (fun T2 => K (trace_app T1 T2))) *)
+      tevals s1 (trm_let x t1 t2) K
+  | tevals_if : forall s1 b t1 t2 K,
+      tevals s1 (if b then t1 else t2) K ->
+      tevals s1 (trm_if (val_bool b) t1 t2) (tpost_step K)
+  | tevals_add : forall s n1 n2 K,
+      K (trace_return (val_int (n1 + n2)) s) ->
+      tevals s (val_add (val_int n1) (val_int n2)) K
+  | tevals_rand : forall s n K,
+      ~ deterministic ->
+      n > 0 ->
+      (forall n1, 0 <= n1 < n -> K (trace_return n1 s)) ->
+      tevals s (val_rand (val_int n)) K
+  | tevals_ref : forall s v K,
+      (forall p, ~ Fmap.indom s p ->
+         (deterministic -> smallest_fresh s p) ->
+         K (trace_return (val_loc p) (Fmap.update s p v))) ->
+      tevals s (val_ref v) K
+  | tevals_get : forall s p K,
+      Fmap.indom s p ->
+      K (trace_return (Fmap.read s p) s) ->
+      tevals s (val_get (val_loc p)) K
+  | tevals_set : forall s p v K,
+      Fmap.indom s p ->
+      K (trace_return val_unit (Fmap.update s p v)) ->
+      tevals s (val_set (val_loc p) v) K
+  | tevals_free : forall s p K,
+      Fmap.indom s p ->
+      K (trace_return val_unit (Fmap.remove s p)) ->
+      tevals s (val_free (val_loc p)) K.
+
+Definition tpost_ter_or_div (Q:val->hprop) : trace->Prop :=
+  fun T => forall v s, trace_ends v s T -> Q v s.
+
+Definition pthoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall (s:state), H s -> tevals s t (tpost_ter_or_div Q).
+
+
+(** TODO:
+    prove equivalence of pthoare with small-step partial correctness (pshoare based on psevals)
+        tevals s t (tpost_ter_or_div Q) <-> psevals s t Q.
+*)
+
+(** Incorrect  equivalence:
+        tevals s t (tpost_ter Q) <-> evals s t Q
+
+where
+
+Definition tpost_ter (Q:val->hprop) : trace->Prop :=
+  fun T => exists v s, trace_ends v s T /\ Q v s.
+
+Definition thoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall (s:state), H s -> tevals s t (tpost_ter Q).
+
+because tevals could relate any trace by coinduction...
+
+*)
+
