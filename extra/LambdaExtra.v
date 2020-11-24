@@ -49,7 +49,7 @@ Lemma rule_func_val : forall fopt x t1 H Q,
   normal H ->
   triple (trm_func fopt x t1) H Q.
 Proof using.
-  introv M HS. intros HF h N. exists___. splits*.
+  introv M HS. intros HF h N. exists. splits*.
   { applys red_func. }
   { applys~ on_rw_sub_base. }
 Qed.

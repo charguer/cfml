@@ -630,7 +630,7 @@ Lemma triple_fix : forall f x t1 H Q,
   H ==> Q (val_fix f x t1) ->
   triple (trm_fix f x t1) H Q.
 Proof using.
-  introv M. intros HF h N. exists___. splits.
+  introv M. intros HF h N. exists. splits.
   { applys red_fix. }
   { hhsimpl. hchanges M. }
   { math. }

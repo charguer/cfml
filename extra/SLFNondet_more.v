@@ -575,3 +575,63 @@ because tevals could relate any trace by coinduction...
 
 *)
 
+
+
+Lemma cosevals_let_inv : forall s1 x t1 t2 Q,
+  cosevals s1 (trm_let x t1 t2) Q ->
+  exists Q1, coevals s1 t1 Q1 (* TODO: pick using epsilon the largest such set, then inverts on that *)
+          /\ (forall v1 s2, Q1 v1 s2 -> coevals s2 (subst x v1 t2) Q).
+Proof using.
+skip.
+(*
+  introv M. applys or_classic_l. intros N.
+  gen s t1. cofix IH. intros.
+  inverts M as S M'. inverts S as S'.
+  { (* [t1] takes a step to [t1']. *)
+    applys sdiverge_step S'. applys IH M'.
+    { intros N'. applys N. destruct N' as (s'&v1&M1&M2). exists s' v1. split.
+      { applys steps_step S' M1. } { applys M2. } } }
+  { (* [t1] reaches a value [v1]: contradicts hypothesis [N] *)
+    false N. exists s2 v1. split. { applys steps_refl. } { applys M'. } }
+*)
+Qed.
+
+  (* TODO ALT { lets (Q1&M1&M2): cosevals_let_inv M. applys coevals_let M1 M2. } *)
+
+  (* not used
+Lemma coevals_of_step_and_coevals : forall s1 s2 t1 t2 Q,
+  step s1 t1 s2 t2 ->
+  coevals s2 t2 Q ->
+  coevals s1 t1 Q.
+Proof using.
+  introv M1 M2. gen s3 v. induction M1; intros.
+  { inverts M2 as M3 M4. applys* eval_let. (* applys* IHM1. *) }
+  { inverts M2. applys eval_fix. }
+  { applys* eval_app_fix. }
+  { applys* eval_if. }
+  { applys* eval_let. applys eval_val. }
+  { inverts M2. applys* eval_add. }
+  { inverts M2. applys* eval_rand. }
+  { inverts M2. applys* eval_ref. }
+  { inverts M2. applys* eval_get. }
+  { inverts M2. applys* eval_set. }
+  { inverts M2. applys* eval_free. }
+skip.
+Qed.
+*)
+
+
+(* TEMP
+Lemma complete_cases : forall s t,
+  (forall v, t <> trm_val v) ->
+  (stuck s t) \/ (exists s' t', step s t s' t').
+Proof using.
+  skip.
+Qed.
+Lemma complete : forall s t,
+  (exists v, t = trm_val v) \/ (exists s' t', step s t s' t').
+Proof using.
+  intros. tests C: (exists v, t = trm_val v).
+  { left*. }
+  { right.
+*)

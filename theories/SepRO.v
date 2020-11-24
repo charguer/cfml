@@ -1246,7 +1246,7 @@ Lemma triple_fun : forall x t1 H Q,
   Normal H ->
   triple (trm_fun x t1) H Q.
 Proof using.
-  introv M HS. intros h1 h2 D P1. exists___. splits*.
+  introv M HS. intros h1 h2 D P1. exists. splits*.
   { applys eval_fun. }
   { specializes M P1. applys~ on_rw_sub_base. }
 Qed.
@@ -1257,7 +1257,7 @@ Lemma triple_fix : forall f x t1 H Q,
   Normal H ->
   triple (trm_fix f x t1) H Q.
 Proof using.
-  introv M HS. intros h1 h2 D P1. exists___. splits*.
+  introv M HS. intros h1 h2 D P1. exists. splits*.
   { applys eval_fix. }
   { specializes M P1. applys~ on_rw_sub_base. }
 Qed.

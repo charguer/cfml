@@ -759,7 +759,7 @@ Lemma hcredits_add_eq : forall n m,
 Proof using.
   intros c1 c2. unfold hcredits, hstar, heap_union, heap_disjoint, mk_heap_credits.
   applys pred_ext_1. intros [m n]. iff M.
-  { inverts M. exists___. splits*; simpl; try fmap_eq.
+  { inverts M. exists. splits*; simpl; try fmap_eq.
     { fequals. fmap_eq. math. } }
   { destruct M as ([m1 n1]&[m2 n2]&M3&M4&M5&M6).
     inverts M3. inverts M4. rewrite M6. simpl. fequals. fmap_eq. }
@@ -803,7 +803,7 @@ Definition pay_one H H' :=
 
 Lemma pay_one_elim : forall H H' h,
   pay_one H H' ->
-  H h -> 
+  H h ->
   exists h', H' h' /\ h = (mk_heap_credits 1 \u h').
 Proof using.
   introv HP N. lets N': (rm HP) (rm N). rew_heap in N'.
@@ -1184,9 +1184,9 @@ Qed.
 
 (** Interpretation of triples for full executions:
     the number of credits in the precondition is an upper bound
-    on the number of steps taken by the execution. 
+    on the number of steps taken by the execution.
 
-    The post-condition is required to be affine to ensure that 
+    The post-condition is required to be affine to ensure that
     it does not store negative credits. *)
 
 Lemma triple_hcredits : forall t m Q,

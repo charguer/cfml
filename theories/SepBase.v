@@ -586,7 +586,7 @@ Lemma hoare_fixs : forall f xs t1 H Q,
   H ==> Q (val_fixs f xs t1) ->
   hoare (trm_fixs f xs t1) H Q.
 Proof using.
-  introv N M. intros h Hh. exists___. splits.
+  introv N M. intros h Hh. exists. splits.
   { applys~ eval_fixs. }
   { applys* M. }
 Qed.

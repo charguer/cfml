@@ -519,7 +519,7 @@ Lemma triple_fun : forall x t1 H Q,
   H ==> Q (val_fun x t1) ->
   triple (trm_fun x t1) H Q.
 Proof using.
-  introv M. intros HF h N. exists___. splits.
+  introv M. intros HF h N. exists. splits.
   { applys eval_fun. }
   { xsimplh. xchanges M. }
 Qed.
@@ -529,7 +529,7 @@ Lemma triple_fix : forall f x t1 H Q,
   H ==> Q (val_fix f x t1) ->
   triple (trm_fix f x t1) H Q.
 Proof using.
-  introv M. intros HF h N. exists___. splits.
+  introv M. intros HF h N. exists. splits.
   { applys eval_fix. }
   { xsimplh. xchanges M. }
 Qed.
@@ -852,7 +852,7 @@ Lemma triple_eq : forall v1 v2,
     \[]
     (fun r => \[r = isTrue (v1 = v2)]).
 Proof using.
-  introv Hh. exists___. splits.
+  introv Hh. exists. splits.
   { applys* eval_binop. applys* evalbinop_eq. }
   { xsimplh~. }
 Qed.
@@ -862,7 +862,7 @@ Lemma triple_add : forall n1 n2,
     \[]
     (fun r => \[r = val_int (n1 + n2)]).
 Proof using.
-  introv Hh. exists___. splits.
+  introv Hh. exists. splits.
   { applys* eval_binop. applys* evalbinop_add. }
   { xsimplh*. }
 Qed.
@@ -872,7 +872,7 @@ Lemma triple_sub : forall n1 n2,
     \[]
     (fun r => \[r = val_int (n1 - n2)]).
 Proof using.
-  introv Hh. exists___. splits.
+  introv Hh. exists. splits.
   { applys* eval_binop. applys* evalbinop_sub. }
   { xsimplh*. }
 Qed.
@@ -885,7 +885,7 @@ Lemma triple_ptr_add : forall l n,
     \[]
     (fun r => \[r = val_loc (abs (l + n))]).
 Proof using.
-  introv N Hh. exists___. splits.
+  introv N Hh. exists. splits.
   { applys* eval_binop. applys* evalbinop_ptr_add (abs (l + n)). rewrite~ abs_nonneg. }
   { xsimplh*. }
 Qed.
@@ -907,7 +907,7 @@ Lemma triple_ptr_add_nat' : forall l (f:nat),
     \[]
     (fun r => \[r = val_loc (l+f)%nat]).
 Proof using.
-  introv Hh. exists___. splits.
+  introv Hh. exists. splits.
   { applys* eval_binop. applys* evalbinop_ptr_add_nat. }
   { xsimplh*. }
 Qed.

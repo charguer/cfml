@@ -98,7 +98,7 @@ Lemma hoare_fixs : forall f xs t1 H Q,
   H ==> Q (val_fixs f xs t1) ->
   hoare (trm_fixs f xs t1) H Q.
 Proof using.
-  introv N M. intros h Hh. exists___. splits.
+  introv N M. intros h Hh. exists. splits.
   { applys~ eval_fixs. }
   { himpl_fold~. }
 Qed.
@@ -123,7 +123,7 @@ Proof using.
 Qed.
 
 Lemma hoare_constr_trm : forall id ts t1 vs H Q Q1,
-  hoare t1 H Q1 -> 
+  hoare t1 H Q1 ->
   (forall v, hoare (trm_constr id ((trms_vals vs)++(trm_val v)::ts)) (Q1 v) Q) ->
   hoare (trm_constr id ((trms_vals vs)++t1::ts)) H Q.
 Proof using.
@@ -221,7 +221,7 @@ Proof using.
 Qed.
 
 Lemma hoare_case_trm : forall t1 pts H Q Q1,
-  hoare t1 H Q1 -> 
+  hoare t1 H Q1 ->
   (forall v, hoare (trm_match v pts) (Q1 v) Q) ->
   hoare (trm_match t1 pts) H Q.
 Proof using.

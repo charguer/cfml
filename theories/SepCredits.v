@@ -691,7 +691,7 @@ Lemma hcredits_add_eq : forall n m,
 Proof using.
   intros c1 c2. unfold hcredits, hstar, heap_union, heap_disjoint, mk_heap_credits.
   applys pred_ext_1. intros [m n]. iff M.
-  { inverts M. exists___. splits*; simpl; try fmap_eq.
+  { inverts M. exists. splits*; simpl; try fmap_eq.
     { fequals. fmap_eq. math. } }
   { destruct M as ([m1 n1]&[m2 n2]&M3&M4&M5&M6).
     inverts M3. inverts M4. rewrite M6. simpl. fequals. fmap_eq. }
@@ -880,7 +880,7 @@ Lemma triple_fix : forall f x t1 H Q,
   H ==> Q (val_fix f x t1) ->
   triple (trm_fix f x t1) H Q.
 Proof using.
-  introv M. intros HF h N. exists___. splits.
+  introv M. intros HF h N. exists. splits.
   { applys eval_fix. }
   { xsimplh. xchanges M. }
   { math. }
