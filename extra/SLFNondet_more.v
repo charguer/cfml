@@ -1,4 +1,66 @@
 
+
+
+
+(* ################################################ *)
+(* ################################################ *)
+(* DONT DELETE TODO : reasoning rule for while loops
+
+Definition val_while (f x y u:var) (t1:trm) (t2:trm) : val :=
+  (* let f x y u := fresh t1 t2 in *)
+  val_fix f x (trm_let y t1 (trm_if (trm_var y) (trm_let u t1 (trm_app (trm_var f) val_unit)) val_unit)).
+
+Lemma phoare_val : forall v H Q,
+  H ==> Q v ->
+  phoare (trm_val v) H Q.
+Proof using. introv M. intros h K. applys* coevals_val. Qed.
+
+
+Lemma subst_id : forall x v t,
+  subst x v t = t.
+Admitted.
+
+(* todo: generalize H Q with a ghost param  *)
+Lemma phoare_while : forall f x y u t1 t2 (C:val->hprop),
+  let loop := trm_app (val_while f x y u t1 t2) val_unit in
+  phoare t1 (\exists b, C b) (fun v => \exists b, \[v = val_bool b] \* C b) ->
+  phoare t2 (C true) (fun v => \exists b, C b) ->
+  phoare loop (\exists b, C b) (fun v => C false).
+Proof using.
+  introv M1 M2. cofix IH. applys phoare_app_fix. reflexivity.
+  repeat rewrite subst_id. applys phoare_let.
+  { applys M1. }
+  { intros v. rewrite subst_id. skip (b&E'&E): (exists b, trm_var y = v /\ v = val_bool b).
+    rewrite E'. subst v. applys phoare_if. clear E'. case_if.
+    { applys phoare_let.
+      { applys phoare_conseq M1. xsimpl. xsimpl. }
+      { intros v. rewrite subst_id.
+        skip_rewrite (trm_var f = val_while f x y u t1 t2).
+        applys phoare_hexists. intros b'. applys phoare_hpure. intros Hb'. subst.
+        applys phoare_conseq IH. xsimpl. xsimpl. } }
+    { applys phoare_val. xsimpl. intros ? ->. xsimpl. } }
+Qed.
+
+
+*)
+(* ################################################ *)
+(* ################################################ *)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (** [ctx] defines the grammar of context. *)
 
 Inductive ctx : Type :=
@@ -635,3 +697,395 @@ Proof using.
   { left*. }
   { right.
 *)
+
+
+
+    In addition, also for the sake of simplifying the proofs, the semantics
+    from [SLFCore] assumes a language in "strong" A-normal form, allowing
+    for evaluation contexts to
+
+    [let x = (let y = t1 in t2) in t3] needs to be rewritten as
+    [let y = t1 in let x = t2 in t3], with alpha-renaming of [y]
+    in case it occurs in [t3]. In that presentation, there is only
+    one "context" rule, moreover evaluation context are not recursive.
+
+
+
+(* ####################################################### *)
+(** ** Definition of [exactevals] to Characterize Non-Deterministic Semantics *)
+
+(** The judgment [evals s t Q] associates with a program configuration
+    [(s,t)] an over-approximation of its possible output configurations,
+    described by [Q].
+
+    For the purpose of defining of Hoare triple, working with
+    over-approximation is perfectly fine. In other contexts, however,
+    it might be interesting to characterize exactly the set of output
+    configurations.
+
+    To that end, we define the predicate [exactevals s t Q], which relates
+    a program configuration [(s,t)] with the smallest possible [Q] for which
+    [evals s t Q] holds. As we formalize and prove next, this notion defines
+    the set of output configurations is a non-ambiguous manner, and it is
+     *)
+
+Definition safes (s:state) (t:trm) : Prop :=
+  evals s t (fun v s' => eval s t s' v).
+
+(* definition smallestpost := (fun v s' => eval s t s' v) *)
+
+(** This postcondition describes exactly the set of
+    output configurations. *)
+
+Definition exactevals (s:state) (t:trm) (Q:val->hprop) : Prop :=
+  evals s t Q /\ (forall Q', evals s t Q' -> Q ===> Q').
+
+(** By definition of [exactevals], if [exactevals s t Q] holds,
+    then [Q] is smaller than any [Q'] for which [evals s t Q'] holds. *)
+
+Lemma exactevals_inv_evals_smaller : forall s t Q Q',
+  exactevals s t Q ->
+  evals s t Q' ->
+  Q ===> Q'.
+Proof using. introv (M&W) M'. applys W M'. Qed.
+
+(* EX1! (exactevals_unique) *)
+(** Prove that [exactevals] associates each program to at most one
+    postcondition. In other words, the "smallest" [Q] such that
+    [evals s t Q], if it exists, is unique. *)
+
+Lemma exactevals_unique : forall s t Q1 Q2,
+  exactevals s t Q1 ->
+  exactevals s t Q2 ->
+  Q1 = Q2.
+Proof using. (* ADMITTED *)
+  introv (M1&W1) (M2&W2). applys qimpl_antisym.
+  { applys W1 M2. }
+  { applys W2 M1. }
+Qed. (* /ADMITTED *)
+
+(** [] *)
+
+(** all satisfy Q implies one satisfy Q *)
+
+(* EX2! (evals_inv_eval) *)
+(** Assume [evals s t Q] holds, meaning that all executions
+    produce output satisfying [Q]. Prove that if a particular
+    execution produces a output value [v] in an output state [s'],
+    in the sense that [eval s t s' v] holds, then [Q v s'] holds. *)
+
+Lemma evals_inv_eval : forall s t v s' Q,
+  evals s t Q ->
+  eval s t s' v ->
+  Q v s'.
+Proof using. (* ADMITTED *)
+  introv M R. gen v s'.
+  induction M; intros; try solve [inverts* R; tryfalse].
+  { inverts R as E; tryfalse. inverts TEMP0. (* TODO: rename *)
+    applys* IHM. }
+Qed. (* /ADMITTED *)
+
+(** [] *)
+
+(** A similar property holds for [exactevals], as an immediate corollary. *)
+
+Lemma exactevals_inv_eval : forall s t v s' Q,
+  exactevals s t Q ->
+  eval s t s' v ->
+  Q v s'.
+Proof using. introv (M&W) R. applys evals_inv_eval M R. Qed.
+
+(** "all correct st Q" implies all correct *)
+
+(** We are now interested in proving that if [evals s t Q] holds for
+    some [Q], then there exists a smallest [Q] for which [evals s t Q]
+    holds. To establish this result, we need the following key lemma,
+    which asserts that this smallest [Q] is witnessed by the set of
+    results [(v,s')] to which the program may evaluate to, according
+    to the evaluation relation [eval]; i.e., such that [eval s t s' v].
+    holds. The proof is relatively direct, except for the case of the
+    let-binding, whose proof requires to guess the appropriate
+    intermediate invariant. *)
+
+Lemma evals_inv_evals_eval : forall s t Q,
+  evals s t Q ->
+  safes s t.
+Proof using.
+  introv M. unfold safes. induction M.
+  { applys evals_val. applys eval_val. }
+  { applys evals_fix. applys eval_fix. }
+  { applys* evals_app_fix. applys evals_conseq IHM.
+    { intros v s' R. applys* eval_app_fix R. } }
+  { rename IHM into IHM1, H0 into IHM2.
+    applys evals_let (fun v1 s' => eval s t1 s' v1 /\ Q1 v1 s').
+    { applys evals_conseq IHM1. { intros v1 s' R. split.
+      { applys R. }
+      { applys evals_inv_eval M R. } } }
+    { intros v1 s2 (R1&K). applys evals_conseq. applys IHM2 K.
+      { intros v s' R2. applys eval_let R1 R2. } } }
+  { applys evals_if. applys evals_conseq IHM.
+    { intros v s' R. applys eval_if R. } }
+  { applys evals_add. applys eval_add. }
+  { applys* evals_rand. intros n1 N1. applys* eval_rand. }
+  { applys* evals_ref. intros p Hp HD. applys* eval_ref. }
+  { applys* evals_get. applys* eval_get. }
+  { applys* evals_set. applys* eval_set. }
+  { applys* evals_free. applys* eval_free. }
+Qed.
+
+(* EX2! (exists_exactevals_of_evals) *)
+(** This last lemma puts it all together.
+    Assume [evals s t Q], meaning that all executions of the program
+    [(s,t)] are safe and satisfy postcondition [Q]. Then, there exists
+    a unique [Q'] that describes precisely the set of output configurations,
+    in the sense that [exactevals s t Q'] holds. (Moreover, [Q'] is
+    included in [Q], according to exactevals_inv_evals_smaller.) *)
+
+Lemma exists_exactevals_of_evals : forall s t Q,
+  evals s t Q ->
+  exists! Q', exactevals s t Q'.
+Proof using. (* ADMITTED *)
+  introv M. sets Q': (fun v s' => eval s t s' v).
+  asserts E: (exactevals s t Q').
+  { split.
+    { applys evals_inv_evals_eval M. }
+    { intros Q'' M'. intros v s' R. applys evals_inv_eval M' R. } }
+  exists Q'. split. { applys E. } { intros Q'' E'. applys exactevals_unique E' E. }
+Qed. (* /ADMITTED *)
+
+
+(** all correct implies exists one correct (because total correctness) *)
+
+
+Lemma evals_inv_exists_eval : forall s t Q,
+  evals s t Q ->
+  exists s' v, eval s t s' v /\ Q v s'.
+Proof using.
+  introv M.  induction M.
+  { exists. split*. applys eval_val. }
+  { exists. split*. applys eval_fix. }
+  { rename IHM into IHM1, M into M1.
+    forwards (s'&v&R&HQ): IHM1.
+    exists. split*. applys* eval_app_fix R. }
+  { rename IHM into IHM1, H0 into IHM2, M into M1, H into M2.
+    forwards (s1'&v1&R1&HQ1): IHM1.
+    forwards (s'&v&R2&HQ2): IHM2 HQ1.
+    exists. split*. applys eval_let R1 R2. }
+  { forwards (s'&v&R1&HQ): IHM.
+    exists. split*. applys* eval_if R1. }
+  { exists. split*. applys* eval_add. }
+  { rename H1 into N.
+    exists. split*. applys* eval_rand 0. math. applys N. math. }
+  { forwards~ (p&F): (exists_smallest_fresh s). lets (D&_): F.
+    exists. split*. applys* eval_ref. }
+  { exists. split*. applys* eval_get. }
+  { exists. split*. applys* eval_set. }
+  { exists. split*. applys* eval_free. }
+Qed.
+
+
+Lemma safes_inv_exists : forall s t,
+  safes s t ->
+  exists s' v, eval s t s' v.
+Proof using.
+  introv M. forwards (s'&v&R&_): evals_inv_exists_eval M.
+  exists. applys* R.
+Qed.
+
+
+(** A corollary is that if the set of executions is singleton,
+    then it matches the result of an execution. *)
+
+Lemma evals_exactly_inv : forall s0 t0 v1 s1,
+  evals s0 t0 (exactly v1 s1) ->
+  (forall s2 v2, eval s0 t0 s2 v2 <-> (v2 = v1 /\ s2 = s1)).
+Proof using.
+  introv M. iff R (->&->).
+  { applys evals_inv_eval M R. }
+  { lets (s'&v&R'&(->&->)): evals_inv_exists_eval M. applys R'. }
+Qed.
+
+
+
+
+
+
+
+
+(* ####################################################### *)
+(** ** Interpretation of [evals] for Deterministic Semantics *)
+
+(** In this chapter, we introduced [evals] for characterizing
+    the semantics of a non-deterministic language. We discussed
+    the particular case of a deterministic program, satisfying
+    [evals s t (exactly v s')].
+
+    But what is the
+    meaning of the [evals] predicate in the case of language that is
+    deterministic? How does this predicate relate to the predicate [eval]?
+
+    In this section, we prove that, for a deterministic language,
+    [eval s t s' v] is equivalent to [evals s t Q], where [Q] is
+    a "singleton precondition" introduced earlier: [exactly v s'],
+    defined as [fun v0 s0 => v0 = v /\ s0 = s']. *)
+
+(** Let us now investigate the proof of the equivalence relating
+    [evals] and [eval]. The first direction, from [eval] to [evals],
+    is relatively straightforward. *)
+
+Lemma evals_exactly_of_eval_deterministic : forall s t s' v,
+  deterministic ->
+  eval s t s' v ->
+  evals s t (exactly v s').
+Proof using.
+  hint exactly_intro.
+  introv HD M. induction M; try solve [ constructors* ].
+  { applys evals_let IHM1. intros ? ? (->&->). applys IHM2. }
+  { applys evals_ref. intros p' D S.
+    forwards* E: smallest_fresh_unique s p p'. subst*. }
+Qed.
+
+(** The other direction, from [eval] to [evals], is more challenging. *)
+
+(* EX3? (eval_of_evals_deterministic) *)
+(** Assume a deterministic language. Prove that [evals s t Q]
+    implies that [(s,t)] evaluates to a final result [(s',v)]
+    that satisfies [Q v s'].
+    Hint: for the [val_ref] case, exploit [exists_smallest_fresh]. *)
+
+Lemma eval_of_evals_deterministic : forall s t Q,
+  deterministic ->
+  evals s t Q ->
+  exists v s', Q v s' /\ eval s t s' v.
+Proof using. (* ADMITTED *)
+  introv HD M. induction M;
+    try solve [ do 2 esplit; split; [ eauto | constructors* ] ].
+  (* Most cases are resolved by:
+    { do 2 esplit; split; [ eauto | constructors* ]. } *)
+  { destruct IHM as (v&s'&M1&M2).
+    do 2 esplit; split; [ eauto | constructors* ]. }
+  { destruct IHM as (v1&s''&K1&M1).
+    rename H0 into IHM2. forwards (v&s'&K2&M2): IHM2 K1.
+    exists v s'. split.
+    { applys K2. }
+    { applys eval_let M1 M2. } }
+  { destruct IHM as (v&s'&M1&M2).
+    do 2 esplit; split; [ eauto | constructors* ]. }
+  { false HD. }
+  { forwards~ (p&F): (exists_smallest_fresh s). lets (D&_): F.
+    exists p (update s p v). split.
+    { applys* H. } { applys* eval_ref. } }
+Qed. (* /ADMITTED *)
+
+(** [] *)
+
+(** Combining the two results, we derive the desired equivalence. *)
+
+Lemma eval_iff_evals_of_deterministic :
+  deterministic ->
+  forall s t s' v,
+  eval s t s' v <-> evals s t (exactly v s').
+Proof using.
+  introv HD. intros. iff M.
+  { applys* evals_exactly_of_eval_deterministic. }
+  { forwards* (v''&s''&K&M'): eval_of_evals_deterministic M.
+    destruct K as (->&->). applys M'. }
+Qed.
+
+---------------------
+
+
+(* EX4! (progress) *)
+(** Prove the progress property for [psevals]. *)
+
+Lemma progress : forall s1 t1 Q,
+  psevals s1 t1 Q ->
+     (exists v1, t1 = trm_val v1 /\ Q v1 s1)
+  \/ (exists s2 t2, step s1 t1 s2 t2 /\ psevals s2 t2 Q).
+Proof using. (* ADMITTED *)
+  introv M. forwards N: M s1 t1. { applys steps_refl. }
+  destruct N as [(v1&E1&P1)|(s2&t2&R)].
+  { left. exists* v1. }
+  { right. exists s2 t2. split~. { applys* pevals_inv_step. } }
+Qed. (* /ADMITTED *)
+
+(* [] *)
+
+
+
+
+
+Lemma sdiverges_of_sdiverges_and_step : forall s1 t1 s2 t2,
+  sdiverges s1 t1 ->
+  step s1 t1 s2 t2 ->
+  sdiverges s2 t2.
+Proof using.
+  introv D M1. unfolds sdiverges. intros s3 t3 M2.
+  applys D. { applys steps_step M1 M2. }
+Qed.
+
+Lemma cosevals_Empty_inv : forall s t,
+  cosevals s t Empty ->
+     (exists s' t', step s t s' t')
+  /\ (forall s' t', step s t s' t' -> cosevals s' t' Empty).
+Proof using.
+  introv D. inverts D as.
+  { intros K. false. (* if Empty':  unfolds Empty. false* hpure_inv K.*) }
+  { auto. }
+Qed.
+
+Lemma sdiverges_iff_cosevals_Empty : forall s t,
+      sdiverges s t
+  <-> cosevals s t Empty.
+Proof using.
+  iff D.
+  { gen s t. cofix IH. introv D.
+    applys cosevals_step.
+    { applys D. applys steps_refl. }
+    { intros s2 t2 M1. applys IH.
+      applys sdiverges_of_sdiverges_and_step D M1. } }
+  { intros s2 t2 M. induction M.
+    { lets (R&_): cosevals_Empty_inv D. applys R. }
+    { rename H into M1, M into M2.
+      lets (_&D'): cosevals_Empty_inv D.
+      specializes D' M1. applys IHM D'. } }
+Qed.
+
+Lemma diverges_eq_sdiverges :
+   diverges = sdiverges.
+Proof using.
+  extens. intros s t. unfold diverges.
+  rewrite coevals_eq_cosevals.
+  rewrite* <- sdiverges_iff_cosevals_Empty.
+Qed.
+
+
+
+(** proof of cosdiverges_eq_sdiverges *)
+
+Lemma cosdiverges_inv_step : forall s1 t1 s2 t2,
+  cosdiverges s1 t1 ->
+  step s1 t1 s2 t2 ->
+  cosdiverges s2 t2.
+Proof using. introv M S. inverts M as M1 M2. applys M2 S. Qed.
+
+Lemma sdiverges_inv_step : forall s1 t1 s2 t2,
+  sdiverges s1 t1 ->
+  step s1 t1 s2 t2 ->
+  sdiverges s2 t2.
+Proof using.
+  introv M S. intros s3 t3 R. applys M. applys steps_step S R.
+Qed.
+
+Lemma cosdiverges_eq_sdiverges :
+  cosdiverges = sdiverges.
+Proof using.
+  extens. intros s t. iff M.
+  { introv R. gen M. induction R; intros.
+    { inverts M as M1 M2. applys M1. }
+    { rename H into S, R into R'.
+      lets M': cosdiverges_inv_step M S. applys IHR M'. } }
+  { gen s t. cofix IH. introv M. applys cosdiverges_step.
+    { applys M s t. applys steps_refl. }
+    { introv S. lets M': sdiverges_inv_step M S. applys IH M'. } }
+Qed.
