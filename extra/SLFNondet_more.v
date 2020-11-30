@@ -45,11 +45,75 @@ Qed.
 *)
 (* ################################################ *)
 (* ################################################ *)
+(* ################################################ *)
+(* ################################################ *)
+(* DONT DELETE TODO : proof of equivalence for bounded non determinism *)
 
 
 
-
-
+Lemma sevals_eq_sevals'_of_bounded_determinism :
+  ~ unbounded_nondeterminism ->
+  sevals' = sevals.
+Proof using.
+  introv HD. extens. intros s t Q. iff M.
+  { destruct M as (M&(nmax&B)). gen s t Q. induction nmax as [|nmax']; intros.
+    { tests C: (exists v, t = trm_val v).
+      { destruct C as (v&->). applys sevals_val. applys psevals'_val_inv M. }
+      { lets (s2&t2&S0&M'): psevals'_not_val_inv M C.
+        false B 1%nat. { math. } applys stepsn_step. applys S0. applys stepsn_refl. } }
+    (* LATER: could factorize better the test on C? before the induction? *)
+    { tests C: (exists v, t = trm_val v).
+      { destruct C as (v&->). applys sevals_val. applys psevals'_val_inv M. }
+      { lets (s2&t2&S0&M'): psevals'_not_val_inv M C.
+        applys sevals_step. { exists. applys S0. } clears s2 t2.
+        intros s' t' S. applys IHnmax'.
+        { applys step_at_most_intro B S. }
+        { applys pevals'_inv_step M S. } } } }
+  { split.
+    { introv R. gen M. induction R; intros.
+      { inverts M as M1 M2.
+        { left*. }
+        { right. applys M1. } }
+      { rename H into R1, R into R2. inverts M as M1 M2.
+        { false. inverts R1. }
+        { applys IHR. applys M2 R1. } } }
+    { unfold bounded_exec. induction M.
+      { exists 0%nat. introv N R.
+        inverts R as S R'. { false. math. } inverts S. }
+      { rename H1 into IH.
+        asserts (nmax1&B1): (exists nmax1, forall s2 t2 n1,
+          step s t s2 t2 ->
+          t = val_repeat (val_int n1) ->
+          n1 > 0 ->
+          steps_at_most nmax1 s2 (val_repeat (val_int (n1-1)))).
+        { tests C: (exists (n1:int), t = val_repeat n1 /\ (n1 > 0)).
+          { destruct C as (n1&->&Hn1).
+            forwards (nmax&B): IH. { applys* step_repeat_succ. }
+            exists nmax. intros s2 t2 n0 R E Hn0. inverts E.
+            asserts ->: (s2 = s). { inverts R as; try false_invert; auto. }
+            applys B. }
+          { exists 0%nat. intros. false* C. } }
+        asserts (nmax2&B2): (exists nmax2, forall t1v s2 t1',
+          step s t s2 (val_repeat t1') ->
+          t = val_repeat t1v ->
+          step s t1v s2 t1' ->
+          steps_at_most nmax2 s2 (val_repeat t1')).
+        { tests C: (exists t1 s2 t1', t = val_repeat t1 /\ step s t1 s2 t1').
+           { destruct C as (t1&s2&t1'&->&S1).
+             forwards (nmax&B): IH. { applys* step_repeat_ctx S1. }
+             exists nmax. intros t1v s2v t1'v S E S1'. invert E; intros <-.
+            (* INCOMPLETE PROOF REQUIRES showing finite branching for the subterm *) skip. }
+           { exists 0%nat. intros. false* C. } }
+        exists (S (nmax1 + nmax2)). (* it could be a max instead of a sum *)
+        intros n s' t' Hn0 R.
+        inverts R as. { false; math. } introv S R'. lets S': S.
+        inverts S as.
+        { false* stepsn_pos_val_inv. { math. } }
+        { introv HD'. false* HD. }
+        { false* stepsn_pos_val_inv. { math. } }
+        { introv Hn. forwards* B: B1 S'. applys* B R'. { math. } }
+        { introv R1. forwards* B: B2 S' R1. applys B R'. { math. } } } } }
+Qed.
 
 
 
@@ -1089,3 +1153,290 @@ Proof using.
     { applys M s t. applys steps_refl. }
     { introv S. lets M': sdiverges_inv_step M S. applys IH M'. } }
 Qed.
+
+
+(* ####################################################### *)
+(** ** Specialization to a Non-Deterministic Language *)
+
+Module NondetTriples.
+
+(** Let us set the flag [deterministic] to [False], so as to
+    include the primitive operator [val_rand] in our language. *)
+
+Parameter non_deterministic : ~ deterministic.
+
+Hint Resolve non_deterministic.
+
+(** With this non-deterministic setting, the evaluation rule for [val_rand n] is
+    equivalent to the following statement, which indeed captures
+    that the output value is between [0] inclusive and [n] exclusive. *)
+
+Lemma eval_rand : forall s n n1,
+  0 <= n1 < n ->
+  eval s (val_rand (val_int n)) s (val_int n1).
+Proof using. introv M. applys eval_rand M. applys non_deterministic. Qed.
+
+(** With the non-deterministic setting for [SLFCore], the evaluation rule
+    for [val_ref] is equivalent to the statement it had in the preivous
+    chapters. *)
+
+Lemma eval_ref : forall s v p,
+  ~ Fmap.indom s p ->
+  eval s (val_ref v) (Fmap.update s p v) (val_loc p).
+Proof using. introv HD. applys* eval_ref. intros. false* non_deterministic. Qed.
+
+
+
+
+
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * Summary --> todo merge text ; make shorter summary *)
+
+Module Summary.
+
+
+(* ########################################################### *)
+(** ** Total correctness **)
+
+(* ########################################################### *)
+(** *** Total correctness, big-step *)
+
+(** Total correctness in big-step, for non-deterministic semantics.
+    We rely on the inductive definition of [evals s t Q]. *)
+
+Parameter evals : state -> trm -> (val->state->Prop) -> Prop.
+
+Definition nhoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall s, H s -> evals s t Q.
+
+(** Total correctness in big-step, for deterministic semantics
+    Simplified using the inductive definition of [eval s t s' v], which
+    corresponds to [evals s t (fun s0 v0 => s0 = s' /\ v0 = v')],
+    as proved in [SLFNondet]. *)
+
+Parameter eval : state -> trm -> state -> val -> Prop.
+
+Definition dhoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall s, H s -> exists s' v, eval s t s' v /\ Q v s'.
+
+(** Total correctness in big-step, for complete semantics.
+    Nothing simpler than [evals]. If errors are part of the
+    semantics, one may use the judgment:
+    [evals s t (fun v s' => v <> val_error /\ Q v s')]. *)
+
+
+(* ########################################################### *)
+(** *** Total correctness, small-step *)
+
+(** Total correctness in small-step, for non-deterministic semantics.
+    We rely on the inductive definition of [sevals s t Q].
+    The judgment [sevals s t Q] is proved equivalent to
+    [evals s t Q] in lemma [sevals_eq_sevals] from [SLFNondet]. *)
+
+Parameter step : state -> trm -> state -> trm -> Prop.
+
+Inductive sevals : state->trm->(val->hprop)->Prop :=
+  | sevals_val : forall s v Q,
+      Q v s ->
+      sevals s v Q
+  | sevals_step : forall s t Q,
+      (exists s' t', step s t s' t') ->
+      (forall s' t', step s t s' t' -> sevals s' t' Q) ->
+      sevals s t Q.
+
+Definition shoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall s, H s -> sevals s t Q.
+
+(** Total correctness in small-step, for complete semantics.
+    If the semantics is complete, progress is granted,
+    and all we have to check is that programs don't terminate
+    on an error. The judgment [csevals s t Q] is proved equivalent
+    to [sevals s t Q] for complete semantics by lemma
+    [csevals_eq_sevals_of_complete] in [SLFNondet]. *)
+
+Parameter val_error : val. (* TODO *)
+
+(* TODO do this proof : csevals_eq_sevals_of_complete *)
+
+Inductive csevals : state->trm->(val->hprop)->Prop :=
+  | csevals_val : forall s v Q,
+      v <> val_error ->
+      Q v s ->
+      csevals s v Q
+  | csevals_step : forall s t Q,
+      (forall s' t', step s t s' t' -> csevals s' t' Q) ->
+      csevals s t Q.
+
+(** Total correctness in small-step, for deterministic semantics.
+    There are two possibilities.
+    The first possibility is a direct variant of [sevals],
+    called [devals s t Q], proved equivalent in lemma
+    [sevals_eq_devals_of_deterministic] from [SLFNondet]. *)
+
+Inductive devals : state->trm->(val->hprop)->Prop :=
+  | devals_val : forall s v Q,
+      Q v s ->
+      devals s v Q
+  | devals_step : forall s t s' t' Q,
+      step s t s' t' ->
+      devals s' t' Q ->
+      devals s t Q.
+
+(** Total correctness in small-step, for deterministic semantics.
+    The second possibility is to use the iterated small-step
+    reduction relation [steps s t s' t']. The judgment
+    [steps s t s' (trm_val v)] is equivalent to [eval s t s' v],
+    as proved in lemma [eval_iff_steps] from [SLFCore].
+    The judgment [dshoare] reformulates [dhoare] by replacing
+    [eval] with [steps]. *)
+
+Inductive steps : state -> trm -> state -> trm -> Prop :=
+  | steps_refl : forall s t,
+      steps s t s t
+  | steps_step : forall s1 s2 s3 t1 t2 t3,
+      step s1 t1 s2 t2 ->
+      steps s2 t2 s3 t3 ->
+      steps s1 t1 s3 t3.
+
+Definition dshoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall s, H s -> exists s' v, steps s t s' (trm_val v) /\ Q v s'.
+
+
+(* ########################################################### *)
+(** ** Partial correctness **)
+
+(* ########################################################### *)
+(** *** Partial correctness, big-step *)
+
+(** Partial correctness in big-step, for non-deterministic semantics.
+    We rely on the co-inductive counterpart of [evals], written
+    [coevals s t Q]. *)
+
+Parameter coevals : state -> trm -> (val->state->Prop) -> Prop.
+
+Definition phoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall s, H s -> coevals s t Q.
+
+(** Divergence of all executions is characterized by the empty
+    postcondition. *)
+
+Definition Empty : val->state->Prop :=
+  fun v s => False.
+
+Definition diverges (s:state) (t:trm) : Prop :=
+  coevals s t Empty.
+
+(** Partial correctness in big-step, for complete semantics.
+    If no terms are stuck, we may simply use the judgment [eval].
+    See also [cpshoare]. *)
+
+Definition cphoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall s s' v, H s -> eval s t s' v -> (v <> val_error /\ Q v s').
+
+(* TODO : this is the same as cpshoare, up to eval_iff_steps,
+    cpshoare is related to coveals via psevals_eq_cosevals
+    and cpshoare related to cosevals of complete. *)
+
+(** Partial correctness in big-step, for deterministic semantics. *)
+
+Definition dphoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall s, H s -> (exists s' v, eval s t s' v /\ Q v s') \/ (diverge s t).
+
+(* TODO TODO REMAINING: relate this to the small step version;
+   or possibly directly to the big-step version, under hyp deterministic ?
+   prove equivalence under deterministic hypothesis with the coevals case. *)
+
+(*
+Lemma dphoare_eq_phoare_of_deterministic :
+    forall s, H s -> (exists s' v, eval s t s' v /\ Q v s') \/ (diverge s t).
+=   forall s, H s -> (exists s' v, steps s t s' v /\ Q v s') \/ (sdiverge s t).
+
+mq  (exists s' v, steps s t s' v /\ Q v s') \/ (sdiverge s t)
+  = psevals s t Q
+
+<=) by classic, suppose "not steps", prove sdiverge;
+    apply psevals, destruct case, first one is contraction, done.
+    (determinacy not needed)
+=>) consider a path. cases termination or diverge:
+    - case termination: the paths are identical, ends on termination
+    - case diverges: applys hypothesis directly.
+
+Definition sdiverges (s:state) (t:trm) : Prop :=
+  forall s2 t2, steps s t s2 t2 ->
+  exists s3 t3, step s2 t2 s3 t3.
+
+Definition psevals (s1:state) (t1:trm) (Q:val->state->Prop) : Prop :=
+  forall s2 t2, steps s1 t1 s2 t2 ->
+       (exists v2, t2 = trm_val v2 /\ Q v2 s2)
+    \/ (exists s3 t3, step s2 t2 s3 t3).
+*)
+
+(* ########################################################### *)
+(** *** Partial correctness, small-step *)
+
+(** Partial correctness in small-step, for non-deterministic semantics.
+    First approach : use [steps] to express the fact that
+    every execution prefix either reaches a value satisfying the
+    postcondition, or reaches a term that is not stuck (i.e., whose
+    execution can make progress). *)
+
+Definition psevals (s1:state) (t1:trm) (Q:val->state->Prop) : Prop :=
+  forall s2 t2, steps s1 t1 s2 t2 ->
+       (exists v2, t2 = trm_val v2 /\ Q v2 s2)
+    \/ (exists s3 t3, step s2 t2 s3 t3).
+
+(** Partial correctness in small-step, for non-deterministic semantics.
+    Second approach : use [cosevals], the coinductive counterpart
+    of [sevals], to capture the same property without involving
+    the transitive closure relation [steps]. The equivalence between
+    the two approaches is captured by lemma [psevals_eq_cosevals]
+    in [SLFPartial]. The second approach, namely [cosevals], is
+    proved equivalent to the big-step characterizations of partial
+    correctness, namely [coevals], by lemma [coevals_eq_cosevals]
+    from [SLFPartial]. *)
+
+CoInductive cosevals : state->trm->(val->hprop)->Prop :=
+  | cosevals_val : forall s v Q,
+      Q v s ->
+      cosevals s v Q
+  | cosevals_step : forall s t Q,
+      (exists s' t', step s t s' t') ->
+      (forall s' t', step s t s' t' -> cosevals s' t' Q) ->
+      cosevals s t Q.
+
+(** For both approaches, the definition of partial-correctness
+    Hoare triples follows the same scheme as the big-step
+    definition. *)
+
+Definition pshoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall s, H s -> psevals s t Q.
+
+(** Partial correctness in small-step, for complete semantics.
+    The judgment [cpshoare t H Q] is expressed in terms of [steps],
+    in a similar way to [cphoare t H Q]. The judgment [cpshoare]
+    is proved to be equivalent to [pshoare] under the assumption
+    that the semantics is complete in lemma
+    [cpshoare_eq_pshoare_of_complete], in [SLFPartial]. *)
+    (* TODO: do this proof; lemma name won't be this one. *)
+
+Definition cpshoare (t:trm) (H:hprop) (Q:val->hprop) : Prop :=
+  forall s s' v, H s -> steps s t s' (trm_val v) -> (v <> val_error /\ Q v s').
+
+(** Partial correctness in small-step, for deterministic semantics.
+    Nothing simpler than [psevals]. *)
+
+(** Divergence of all executions in small step is characterized
+    by [sdiverges s t]: all execution prefixes can be extended.
+    This characterization is proved equivalent to the big-step
+    characterization via [coevals s t Empty], in lemma
+    [diverges_eq_sdiverges] from [SLFPartial]. *)
+
+Definition sdiverges (s:state) (t:trm) : Prop :=
+  forall s2 t2, steps s t s2 t2 ->
+  exists s3 t3, step s2 t2 s3 t3.
+
+End Summary.
+
+
