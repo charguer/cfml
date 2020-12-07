@@ -1047,8 +1047,6 @@ Lemma triple_conseq_frame_hgc : forall H2 H1 Q1 t H Q,
 Proof using. intros. applys* local_conseq_frame_hgc. Qed.
 
 
-
-
 (* ---------------------------------------------------------------------- *)
 (* ** Auxiliary conversions *)
 
@@ -1120,8 +1118,6 @@ Proof using.
   { applys M1. }
   { intros v. applys* hoare_of_triple. }
 Qed.
-
-
 
 Lemma triple_if : forall (b:bool) t1 t2 H Q,
   triple (if b then t1 else t2) H Q ->

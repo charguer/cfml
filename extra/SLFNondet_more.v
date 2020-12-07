@@ -1440,3 +1440,22 @@ Definition sdiverges (s:state) (t:trm) : Prop :=
 End Summary.
 
 
+
+
+(** Here again, total correctness is a stronger property than partial
+    correctness. A coinductive interpretation is always derivable from
+    an inductive interpretation of a same set of derivation rules. *)
+
+Lemma evalnpcos_of_evalns : forall s t Q,
+  evalns s t Q ->
+  evalnpcos s t Q.
+Proof using. introv M. induction M; try solve [ constructors* ]. Qed.
+
+(** It follows that [hoaren] is stronger than [hoarenpcos]. *)
+
+Lemma hoarens_of_evalnpcos : forall t H Q,
+  hoarens t H Q ->
+  hoarenpcos t H Q.
+Proof using.
+  introv M. intros s K. specializes M (rm K). applys evalnpcos_of_evalns M.
+Qed.

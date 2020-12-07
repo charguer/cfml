@@ -1831,9 +1831,14 @@ Tactic Notation "xsimpll" := xsimpl_step_l tt.
 Tactic Notation "xsimplr" := xsimpl_step_r tt.
 Tactic Notation "xsimpllr" := xsimpl_step_lr tt.
 
+Declare Scope xsimpl_scope.
+
 Notation "'HSIMPL' Hla Hlw Hlt =====> Hra Hrg Hrt" := (Xsimpl (Hla, Hlw, Hlt) (Hra, Hrg, Hrt))
   (at level 69, Hla, Hlw, Hlt, Hra, Hrg, Hrt at level 0,
-   format "'[v' 'HSIMPL' '/' Hla  '/' Hlw  '/' Hlt  '/' =====> '/' Hra  '/' Hrg  '/' Hrt ']'").
+   format "'[v' 'HSIMPL' '/' Hla  '/' Hlw  '/' Hlt  '/' =====> '/' Hra  '/' Hrg  '/' Hrt ']'")
+  : xsimpl_scope.
+
+Local Open Scope xsimpl_scope.
 
 Lemma xpull_demo : forall H1 H2 H3 H,
   (H1 \* \[] \* (H2 \* \exists (y:int) z (n:nat), \[y = y + z + n]) \* H3) ==> H.
