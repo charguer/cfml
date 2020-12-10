@@ -1603,7 +1603,6 @@ Proof using.
 Qed.
 
 
-
 (* ---------------------------------------------------------------------- *)
 (* ** SL rules structural *)
 
@@ -1853,7 +1852,6 @@ Lemma hdiscardable_covariant : forall H1 H2,
 Proof using.
   introv W M. unfolds hdiscardable. applys himpl_trans W M.
 Qed.
-
 
 
 (* ---------------------------------------------------------------------- *)
