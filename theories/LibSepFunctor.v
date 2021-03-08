@@ -50,7 +50,7 @@ License: CC-by 4.0.
 Set Implicit Arguments.
 From TLC Require Export LibCore.
 From TLC Require Import LibMonoid.
-From Sep Require Export TLCbuffer SepSimpl.
+From Sep Require Export LibSepTLCbuffer SepSimpl.
 
 
 (* ********************************************************************** *)

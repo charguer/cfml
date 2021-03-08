@@ -88,7 +88,7 @@ Parameter make_spec : forall A n (x:A),
   0 <= n ->
   TRIPLE (Array_ml.make n x)
     PRE \[]
-    POST (fun t => Hexists xs, t ~> Array xs \* \[xs = make n x]).
+    POST (fun t => \exists xs, t ~> Array xs \* \[xs = make n x]).
 
 Hint Extern 1 (RegisterSpec Array_ml.make) => Provide make_spec.
 
@@ -159,7 +159,7 @@ Lemma init_spec : forall A (F : list A -> hprop) (n : int) (f : func),
   TRIPLE (Array_ml.init n f)
     PRE (F nil)
     POST (fun t =>
-           Hexists xs, t ~> Array xs \* \[n = length xs] \* F xs).
+           \exists xs, t ~> Array xs \* \[n = length xs] \* F xs).
 Proof.
   introv ? hf.
   xcf.
@@ -176,7 +176,7 @@ Proof.
        has been initialized, and its contents forms a list [xs] which
        satisfies the user-supplied predicate [F]. *)
     xfor_inv (fun i =>
-      Hexists xs zs,
+      \exists xs zs,
       F xs \*
       res ~> Array zs \*
       \[ prefix xs zs ] \*
@@ -229,8 +229,8 @@ Parameter fill_spec : forall A `{Inhab A} (xs:list A) t ofs len x,
   0 <= len ->
   ofs + len <= length xs ->
   TRIPLE (Array_ml.fill t ofs len x)
-    PRE  (t ~> Array xs)
-    POST (# Hexists xs', t ~> Array xs' \*
+    PRE (t ~> Array xs)
+    POSTUNIT (\exists xs', t ~> Array xs' \*
       \[ length xs' = length xs ] \*
       \[ forall i, ofs <= i < ofs + len -> xs'[i] = x ] \*
       \[ forall i, (i < ofs \/ ofs + len <= i) -> xs'[i] = xs[i] ]
@@ -272,7 +272,7 @@ Parameter sub_spec : curried 3%nat Array_ml.sub /\
   ofs + len <= length xs ->
   TRIPLE (Array_ml.sub t ofs len)
     INV (t ~> Array xs)
-    POST (fun t' => Hexists xs',
+    POST (fun t' => \exists xs',
              t' ~> Array xs'
           \* \[length xs' = len]
           \* \[forall i, ofs <= i < len -> xs'[i] = xs[i]]).

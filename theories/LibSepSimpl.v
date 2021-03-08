@@ -20,7 +20,7 @@ License: CC-by 4.0.
 
 Set Implicit Arguments.
 From TLC Require Export LibCore.
-From Sep Require Export TLCbuffer.
+From Sep Require Export LibSepTLCbuffer.
 
 
 (* ********************************************************************** *)

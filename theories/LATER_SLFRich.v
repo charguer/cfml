@@ -12,7 +12,7 @@ License: CC-by 4.0.
 *)
 
 Set Implicit Arguments.
-From Sep Require Import SLFExtra TLCbuffer.
+From Sep Require Import SLFExtra LibSepTLCbuffer.
 From Sep Require SLFBasic.
 
 Implicit Types P : Prop.

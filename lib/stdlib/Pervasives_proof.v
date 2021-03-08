@@ -10,7 +10,9 @@ Generalizable Variable A.
 (** Boolean *)
 
 Lemma not_spec : forall (a:bool),
-  app not [a] \[] \[= !a ].
+  TRIPLE (not a)
+    PRE \[]
+    POST \[= !a ].
 Proof using.
   xcf. xgo*.
 Qed.
@@ -29,26 +31,30 @@ Hint Extern 1 (RegisterSpec not) => Provide not_spec.
     Use [xapp_spec infix_eq_eq_gen_spec] for the latter.
 *)
 
-Parameter infix_eq_eq_loc_spec : curried 2%nat infix_eq_eq__ /\
-  forall (a b:loc),
-  app infix_eq_eq__ [a b] \[] \[= isTrue (a = b) ].
+Parameter infix_eq_eq_loc_spec : forall (a b:loc),
+  TRIPLE (infix_eq_eq__ a b)
+    PRE \[]
+    POST \[= isTrue (a = b) ].
 
-Parameter infix_eq_eq_gen_spec : curried 2%nat infix_eq_eq__ /\
-  forall (A:Type) (a b:A),
-  app infix_eq_eq__ [a b] \[] (fun r => \[r = true -> isTrue (a = b)]).
+Parameter infix_eq_eq_gen_spec : forall (A:Type) (a b:A),
+  TRIPLE (infix_eq_eq__ a b)
+    PRE \[]
+    POST (fun r => \[r = true -> isTrue (a = b)]).
 
 Hint Extern 1 (RegisterSpec infix_eq_eq__) => Provide infix_eq_eq_loc_spec.
 
-Lemma infix_emark_eq_loc_spec : curried 2%nat infix_emark_eq__ /\
-  forall (a b:loc),
-  app infix_emark_eq__ [a b] \[] \[= isTrue (a <> b) ].
+Lemma infix_emark_eq_loc_spec : forall (a b:loc),
+  TRIPLE (infix_emark_eq__ a b)
+    PRE \[]
+    POST \[= isTrue (a <> b) ].
 Proof using.
   xcf. xgo*. rew_isTrue; xauto*.
 Qed.
 
-Lemma infix_emark_eq_gen_spec : curried 2%nat infix_emark_eq__ /\
-  forall (A:Type) (a b:A),
-  app infix_emark_eq__ [a b] \[] (fun r => \[r = false -> isTrue (a = b)]).
+Lemma infix_emark_eq_gen_spec : forall (A:Type) (a b:A),
+  TRIPLE (infix_emark_eq__ a b)
+    PRE \[]
+    POST (fun r => \[r = false -> isTrue (a = b)]).
 Proof using.
   xcf. xapp_spec infix_eq_eq_gen_spec.
   introv E. xrets~.
@@ -60,22 +66,27 @@ Hint Extern 1 (RegisterSpec infix_emark_eq__) => Provide infix_emark_eq_loc_spec
 (************************************************************)
 (** Comparison *)
 
-Parameter infix_eq_spec : curried 2%nat infix_eq__ /\
-  forall A (a b : A),
+Parameter infix_eq_spec : forall A (a b : A),
   (polymorphic_eq_arg a \/ polymorphic_eq_arg b) ->
-  app infix_eq__ [a b] \[] \[= isTrue (a = b) ].
+  TRIPLE (infix_eq__ a b)
+    PRE \[]
+    POST \[= isTrue (a = b) ].
 
 Hint Extern 1 (RegisterSpec infix_eq__) => Provide infix_eq_spec.
 
 Parameter infix_neq_spec : curried 2%nat infix_eq__ /\
   forall A (a b : A),
   (polymorphic_eq_arg a \/ polymorphic_eq_arg b) ->
-  app infix_lt_gt__ [a b] \[] \[= isTrue (a <> b) ].
+  TRIPLE (infix_lt_gt__ a b)
+    PRE \[]
+    POST \[= isTrue (a <> b) ].
 
 Hint Extern 1 (RegisterSpec infix_lt_gt__) => Provide infix_neq_spec.
 
 Lemma min_spec : forall (n m:int),
-  app min [n m] \[] \[= Z.min n m ].
+  TRIPLE (min n m)
+    PRE \[]
+    POST \[= Z.min n m ].
 Proof using.
   xcf. xgo*.
   { rewrite~ Z.min_l. }
@@ -83,7 +94,9 @@ Proof using.
 Qed.
 
 Lemma max_spec : forall (n m:int),
-  app max [n m] \[] \[= Z.max n m ].
+  TRIPLE (max n m)
+    PRE \[]
+    POST \[= Z.max n m ].
 Proof using.
   xcf. xgo*.
   { rewrite~ Z.max_l. }
@@ -98,10 +111,14 @@ Hint Extern 1 (RegisterSpec max) => Provide max_spec.
 (** Boolean *)
 
 Parameter infix_bar_bar_spec : forall (a b:bool),
-  app infix_bar_bar__ [a b] \[] \[= a && b ].
+  TRIPLE (infix_bar_bar__ a b)
+    PRE \[]
+    POST \[= a && b ].
 
 Parameter infix_amp_amp_spec : forall (a b:bool),
-  app infix_amp_amp__ [a b] \[] \[= a || b ].
+  TRIPLE (infix_amp_amp__ a b)
+    PRE \[]
+    POST \[= a || b ].
 
 Hint Extern 1 (RegisterSpec infix_bar_bar__) => Provide infix_bar_bar_spec.
 Hint Extern 1 (RegisterSpec infix_amp_amp__) => Provide infix_amp_amp_spec.
@@ -110,30 +127,37 @@ Hint Extern 1 (RegisterSpec infix_amp_amp__) => Provide infix_amp_amp_spec.
 (************************************************************)
 (** Integer *)
 
-Parameter infix_tilde_minus_spec : curried 1%nat infix_tilde_minus__ /\
-  forall (n:int),
-  app infix_tilde_minus__ [n] \[] \[= Z.opp n ].
+Parameter infix_tilde_minus_spec : forall (n:int),
+  TRIPLE (infix_tilde_minus__ n)
+    PRE \[]
+    POST \[= Z.opp n ].
 
-Parameter infix_plus_spec : curried 2%nat infix_plus__ /\
-  forall (n m:int),
-  app infix_plus__ [n m] \[] \[= Z.add n m ].
+Parameter infix_plus_spec : forall (n m:int),
+  TRIPLE (infix_plus__ n m)
+    PRE \[]
+    POST \[= Z.add n m ].
 
-Parameter infix_minus_spec : curried 2%nat infix_minus__ /\
-  forall (n m:int),
-  app infix_minus__ [n m] \[] \[= Z.sub n m ].
+Parameter infix_minus_spec : forall (n m:int),
+  TRIPLE (infix_minus__ n m)
+    PRE \[]
+    POST \[= Z.sub n m ].
 
-Parameter infix_star_spec : curried 2%nat infix_star__ /\
-  forall (n m:int),
-  app infix_star__ [n m] \[] \[= Z.mul n m ].
+Parameter infix_star_spec : forall (n m:int),
+  TRIPLE (infix_star__ n m)
+    PRE \[]
+    POST \[= Z.mul n m ].
 
-Parameter infix_slash_spec : curried 2%nat infix_slash__ /\
-  forall (n m:int),
+Parameter infix_slash_spec : forall (n m:int),
   m <> 0 ->
-  app infix_slash__ [n m] \[] \[= Z.quot n m ].
+  TRIPLE (infix_slash__ n m)
+    PRE \[]
+    POST \[= Z.quot n m ].
 
-Parameter mod_spec : curried 2%nat Pervasives_ml.mod /\ forall (n m:int),
+Parameter mod_spec : forall (n m:int),
   m <> 0 ->
-  app Pervasives_ml.mod [n m] \[] \[= Z.rem n m ].
+  TRIPLE (Pervasives_ml.mod n m)
+    PRE \[]
+    POST \[= Z.rem n m ].
 
 Hint Extern 1 (RegisterSpec infix_tilde_minus__) => Provide infix_tilde_minus_spec.
 Hint Extern 1 (RegisterSpec infix_plus__) => Provide infix_plus_spec.
@@ -165,19 +189,25 @@ Notation "n `+ m" := (App infix_mod_ n m;)
  *)
 
 Lemma succ_spec : forall (n:int),
-  app succ [n] \[] \[= n+1 ].
+  TRIPLE (succ n)
+    PRE \[]
+    POST \[= n+1 ].
 Proof using.
   xcf. xgo*.
 Qed.
 
 Lemma pred_spec : forall (n:int),
-  app pred [n] \[] \[= n-1 ].
+  TRIPLE (pred n)
+    PRE \[]
+    POST \[= n-1 ].
 Proof using.
   xcf. xgo*.
 Qed.
 
 Lemma abs_spec : forall (n:int),
-  app Pervasives_ml.abs [n] \[] \[= Z.abs n ].
+  TRIPLE (Pervasives_ml.abs n)
+    PRE \[]
+    POST \[= Z.abs n ].
 Proof using.
   xcf. xgo.
   { rewrite~ Z.abs_eq. }
@@ -194,38 +224,52 @@ Hint Extern 1 (RegisterSpec abs) => Provide abs_spec.
 
 (* TODO: check *)
 
-Parameter land_spec : curried 2%nat land /\ forall (n m:int),
-  app land [n m] \[] \[= Z.land n m ].
+Parameter land_spec : forall (n m:int),
+  TRIPLE (land n m)
+    PRE \[]
+    POST \[= Z.land n m ].
 
-Parameter lor_spec : curried 2%nat lor /\ forall (n m:int),
-  app lor [n m] \[] \[= Z.lor n m ].
+Parameter lor_spec :  forall (n m:int),
+  TRIPLE (lor n m)
+    PRE \[]
+    POST \[= Z.lor n m ].
 
-Parameter lxor_spec : curried 2%nat lxor /\ forall (n m:int),
-  app lxor [n m] \[] \[= Z.lxor n m ].
+Parameter lxor_spec : forall (n m:int),
+  TRIPLE (lxor n m)
+    PRE \[]
+    POST \[= Z.lxor n m ].
 
 Definition Zlnot (x : Z) : Z := -(x + 1).
 
-Parameter lnot_spec : curried 1%nat lnot /\ forall (n:int),
-  app lnot [n] \[] \[= Zlnot n ].
+Parameter lnot_spec : forall (n:int),
+  TRIPLE (lnot n)
+    PRE \[]
+    POST \[= Zlnot n ].
 
-Parameter lsl_spec : curried 2%nat lsl /\ forall (n m:int),
+Parameter lsl_spec : forall (n m:int),
   0 <= m ->   (* y < Sys.word_size -> *)
-  app lsl [n m] \[] \[= Z.shiftl n m ].
+  TRIPLE (lsl n m)
+    PRE \[]
+    POST \[= Z.shiftl n m ].
 
   (* TODO We temporarily? restrict [lsr] to nonnegative integers,
      so it behaves like [asr]. Anyway, [lsr] really operates
      on unsigned integers, and this notion is missing in CFML. *)
 
-Parameter lsr_spec : curried 2%nat lsr /\ forall (n m:int),
+Parameter lsr_spec : forall (n m:int),
   0 <= n ->
   0 <= m ->
   (* m < Sys.word_size -> *)
-  app lsr [n m] \[] \[= Z.shiftr n m ].
+  TRIPLE (lsr n m)
+    PRE \[]
+    POST \[= Z.shiftr n m ].
 
-Parameter asr_spec : curried 2%nat asr /\ forall (n m:int),
+Parameter asr_spec : forall (n m:int),
   0 <= m ->
   (* m < Sys.word_size -> *)
-  app asr [n m] \[] \[= Z.shiftr n m ].
+  TRIPLE (asr n m)
+    PRE \[]
+    POST \[= Z.shiftr n m ].
 
 Hint Extern 1 (RegisterSpec land) => Provide land_spec.
 Hint Extern 1 (RegisterSpec lor) => Provide lor_spec.
@@ -243,6 +287,8 @@ Hint Extern 1 (RegisterSpec asr) => Provide asr_spec.
 Definition Ref {A} (v:A) (r:loc) :=
   r ~> `{ contents' := v }.
 
+(* TODO: THIS IS NOW REALIZED AT A LOWER LEVEL *)
+...
 Axiom Ref_Heapdata : forall A,
   (Heapdata (@Ref A)).
 
@@ -260,34 +306,38 @@ Qed.
 Notation "r '~~>' v" := (hdata (Ref v) r)
   (at level 32, no associativity) : heap_scope.
 
-Lemma affine_Ref : forall A r (v: A), affine (r ~~> v).
+Lemma haffine_Ref : forall A r (v: A),
+  haffine (r ~~> v).
 Proof. intros. unfold Ref, hdata. affine. Qed.
 
-Hint Resolve affine_Ref : affine.
+Hint Resolve haffine_Ref : haffine.
 
 (* Expose that [ref_ A] (defined in Pervasives_ml) is defined as [loc] *)
-Hint Transparent ref_ : affine.
+Hint Transparent ref_ : haffine.
 
 Lemma ref_spec : forall A (v:A),
-  app ref [v]
+  TRIPLE (ref v)
     PRE \[]
     POST (fun r => r ~~> v).
 Proof using. xcf_go~. Qed.
 
 Lemma infix_emark_spec : forall A (v:A) r,
-  app infix_emark__ [r]
+  TRIPLE (infix_emark__ r)
     INV (r ~~> v)
     POST \[= v].
 Proof using. xunfold @Ref. xcf_go~. Qed.
 
 Lemma infix_colon_eq_spec : forall A (v w:A) r,
-  app infix_colon_eq__ [r w] (r ~~> v) (# r ~~> w).
+  TRIPLE (infix_colon_eq__ r w)
+    PRE (r ~~> v)
+    POSTUNIT (r ~~> w).
 Proof using. xunfold @Ref. xcf_go~. Qed.
 
 Hint Extern 1 (RegisterSpec ref) => Provide ref_spec.
 Hint Extern 1 (RegisterSpec infix_emark__) => Provide infix_emark_spec.
 Hint Extern 1 (RegisterSpec infix_colon_eq__) => Provide infix_colon_eq_spec.
 
+.. TODO ALREADY DEFINED ELSEWHERE
 Notation "'App'' `! r" := (App infix_emark__ r;)
   (at level 69, no associativity, r at level 0,
    format "'App''  `! r") : charac.
@@ -297,13 +347,13 @@ Notation "'App'' r `:= x" := (App infix_colon_eq__ r x;)
    format "'App''  r  `:=  x") : charac.
 
 Lemma incr_spec : forall (n:int) r,
-  app incr [r]
+  TRIPLE (incr r)
     PRE (r ~~> n)
     POST (# r ~~> (n+1)).
 Proof using. xcf_go~. Qed.
 
 Lemma decr_spec : forall (n:int) r,
-  app decr [r]
+  TRIPLE (decr r)
     PRE (r ~~> n)
     POST (# r ~~> (n-1)).
 Proof using. xcf_go~. Qed.
@@ -314,17 +364,17 @@ Hint Extern 1 (RegisterSpec decr) => Provide decr_spec.
 
 
 (************************************************************)
-(** Group of References *)
+(** Group of References -- TODO: needs hfold_fmap
 
 Axiom ref_spec_group : forall A (M:map loc A) (v:A),
-  app Pervasives_ml.ref [v]
+  TRIPLE (Pervasives_ml.ref v)
     PRE (Group Ref M)
     POST (fun (r:loc) => Group Ref (M[r:=v]) \* \[r \notindom M]).
 (* TODO: proof *)
 
 Lemma infix_emark_spec_group : forall `{Inhab A} (M:map loc A) r,
   r \indom M ->
-  app Pervasives_ml.infix_emark__ [r]
+  TRIPLE (Pervasives_ml.infix_emark__ r)
     INV (Group Ref M)
     POST (fun x => \[x = M[r]]).
 Proof using.
@@ -333,26 +383,28 @@ Qed.
 
 Lemma infix_colon_eq_spec_group : forall `{Inhab A} (M:map loc A) (v:A) r,
   r \indom M ->
-  app Pervasives_ml.infix_colon_eq__ [r v]
+  TRIPLE (Pervasives_ml.infix_colon_eq__ r v)
     PRE (Group Ref M)
-    POST (# Group Ref (M[r:=v])).
+    POSTUNIT (Group Ref (M[r:=v])).
 Proof using.
   intros. rewrite~ (Group_rem r M). xapp. intros tt.
   hchanges~ (Group_add' r M).
 Qed.
+
+*)
 
 
 (************************************************************)
 (** Pairs *)
 
 Lemma fst_spec : forall A B (x:A) (y:B),
-  app fst [(x,y)]
+  TRIPLE (fst (x,y))
     PRE \[]
     POST \[= x].
 Proof using. xcf_go~. Qed.
 
 Lemma snd_spec : forall A B (x:A) (y:B),
-  app snd [(x,y)]
+  TRIPLE (snd (x,y))
     PRE \[]
     POST \[= y].
 Proof using. xcf_go~. Qed.
@@ -365,7 +417,7 @@ Hint Extern 1 (RegisterSpec snd) => Provide snd_spec.
 (** Unit *)
 
 Lemma ignore_spec :
-  app ignore [tt]
+  TRIPLE (ignore tt)
     PRE \[]
     POST \[= tt].
 Proof using. xcf_go~. Qed.
@@ -376,7 +428,7 @@ Hint Extern 1 (RegisterSpec ignore) => Provide ignore_spec.
 (************************************************************)
 (** Float *)
 
-(* TODO *)
+(* LATER: float operations *)
 
 
 
@@ -387,75 +439,71 @@ Hint Extern 1 (RegisterSpec ignore) => Provide ignore_spec.
 (************************************************************)
 (* FUTURE
 
-(*------------------------------------------------------------------*)
+  (*------------------------------------------------------------------*)
 
-(** Pred / Succ *)
+  (** Pred / Succ *)
 
-Definition pred (n:int) := (Coq.ZArith.BinInt.Z.sub n 1).
+  Definition pred (n:int) := (Coq.ZArith.BinInt.Z.sub n 1).
 
-Definition succ (n:int) := (Coq.ZArith.BinInt.Z.add n 1).
+  Definition succ (n:int) := (Coq.ZArith.BinInt.Z.add n 1).
 
-(** Ignore *)
+  (** Ignore *)
 
-Definition ignore A (x:A) := tt.
-Definition char := Ascii.ascii.
-
-
-
-(*------------------------------------------------------------------*)
-(* ** References *)
-
-Definition Ref a A (T:htype A a) (V:A) (r:loc) :=
-  Hexists v, heap_is_single r v \* v ~> T V.
-
-Instance Ref_Heapdata : forall a A (T:htype A a),
-  (Heapdata (@Ref a A T)).
-Proof using.
-  intros. applys Heapdata_prove. intros x X1 X2.
-  unfold Ref. hdata_simpl. hextract as x1 x2.
-  hchange (@star_is_single_same_loc x). hsimpl.
-Qed.
-
-Open Local Scope heap_scope_advanced.
-
-Notation "'~~>' v" := (~> Ref (@Id _) v)
-  (at level 32, no associativity) : heap_scope_advanced.
-
-(*
-Notation "l '~~>' v" := (r ~> Ref (@Id _) v)
-  (at level 32, no associativity) : heap_scope.
-*)
-Notation "l '~~>' v" := (hdata (@Ref _ _ (@Id _) v) r)
-  (at level 32, no associativity) : heap_scope.
-
-Lemma focus_ref : forall (r:loc) a A (T:htype A a) V,
-  r ~> Ref T V ==> Hexists v, r ~~> v \* v ~> T V.
-Proof. intros. unfold Ref, hdata. unfold Id. hsimpl~. Qed.
-
-Lemma unfocus_ref : forall (r:loc) a (v:a) A (T:htype A a) V,
-  r ~~> v \* v ~> T V ==> r ~> Ref T V.
-Proof. intros. unfold Ref. hdata_simpl. hsimpl. subst~. Qed.
-
-Lemma heap_is_single_impl_null : forall (r:loc) A (v:A),
-  heap_is_single r v ==> heap_is_single r v \* \[r <> null].
-Proof.
-  intros. intros h Hh. forwards*: heap_is_single_null. exists___*.
-Qed.
-
-Lemma focus_ref_null : forall a A (T:htype A a) V,
-  null ~> Ref T V ==> \[False].
-Proof.
-  intros. unfold Ref, hdata. hextract as v.
-  hchanges (@heap_is_single_impl_null null).
-Qed.
-
-Global Opaque Ref.
-Implicit Arguments focus_ref [a A].
-Implicit Arguments unfocus_ref [a A].
+  Definition ignore A (x:A) := tt.
+  Definition char := Ascii.ascii.
 
 
 
+  (*------------------------------------------------------------------*)
+  (* ** References *)
 
+  Definition Ref a A (T:htype A a) (V:A) (r:loc) :=
+    Hexists v, heap_is_single r v \* v ~> T V.
+
+  Instance Ref_Heapdata : forall a A (T:htype A a),
+    (Heapdata (@Ref a A T)).
+  Proof using.
+    intros. applys Heapdata_prove. intros x X1 X2.
+    unfold Ref. hdata_simpl. hextract as x1 x2.
+    hchange (@star_is_single_same_loc x). hsimpl.
+  Qed.
+
+  Open Local Scope heap_scope_advanced.
+
+  Notation "'~~>' v" := (~> Ref (@Id _) v)
+    (at level 32, no associativity) : heap_scope_advanced.
+
+  (*
+  Notation "l '~~>' v" := (r ~> Ref (@Id _) v)
+    (at level 32, no associativity) : heap_scope.
+  *)
+  Notation "l '~~>' v" := (hdata (@Ref _ _ (@Id _) v) r)
+    (at level 32, no associativity) : heap_scope.
+
+  Lemma focus_ref : forall (r:loc) a A (T:htype A a) V,
+    r ~> Ref T V ==> Hexists v, r ~~> v \* v ~> T V.
+  Proof. intros. unfold Ref, hdata. unfold Id. hsimpl~. Qed.
+
+  Lemma unfocus_ref : forall (r:loc) a (v:a) A (T:htype A a) V,
+    r ~~> v \* v ~> T V ==> r ~> Ref T V.
+  Proof. intros. unfold Ref. hdata_simpl. hsimpl. subst~. Qed.
+
+  Lemma heap_is_single_impl_null : forall (r:loc) A (v:A),
+    heap_is_single r v ==> heap_is_single r v \* \[r <> null].
+  Proof.
+    intros. intros h Hh. forwards*: heap_is_single_null. exists___*.
+  Qed.
+
+  Lemma focus_ref_null : forall a A (T:htype A a) V,
+    null ~> Ref T V ==> \[False].
+  Proof.
+    intros. unfold Ref, hdata. hextract as v.
+    hchanges (@heap_is_single_impl_null null).
+  Qed.
+
+  Global Opaque Ref.
+  Implicit Arguments focus_ref [a A].
+  Implicit Arguments unfocus_ref [a A].
 
 *)
 

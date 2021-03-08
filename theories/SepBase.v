@@ -2,7 +2,7 @@
 
 This file formalizes standard Separation Logic. It contains:
 - a definition of heaps as finite maps from location to values,
-- an instantiation of the functor from the file [SepFunctor.v],
+- an instantiation of the functor from the file [LibSepFunctor.v],
 - a definition of triples,
 - statement and proofs of structural rules,
 - statement and proofs of rules for terms,
@@ -15,8 +15,9 @@ License: CC-by 4.0.
 *)
 
 Set Implicit Arguments.
-From Sep Require Export Semantics SepFunctor.
-From Sep Require Import Fmap.
+From Sep Require Export Semantics LibSepFunctor.
+From Sep Require Import LibSepFmap.
+Module Fmap := LibSepFmap.
 Open Scope fmap_scope.
 
 Ltac auto_star ::= jauto.
@@ -839,7 +840,7 @@ End HoarePrimitives.
 Definition triple (t:trm) (H:hprop) (Q:val->hprop) :=
   forall H', hoare t (H \* H') (Q \*+ H' \*+ \GC).
 
-(** SL triples satisfy [local], in the sense of SepFunctor *)
+(** SL triples satisfy [local], in the sense of LibSepFunctor *)
 
 Lemma local_triple : forall t,
   local (triple t).

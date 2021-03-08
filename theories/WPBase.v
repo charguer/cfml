@@ -42,7 +42,7 @@ Proof using. apply (Inhab_of_val (fun _ => \[])). Qed.
 
     [wp] is defined in terms of the generic definition of [weakestpre]:
     [Definition weakestpre F Q := \exists H, H \* \[F H Q].]
-    which comes from [SepFunctor]. *)
+    which comes from [LibSepFunctor]. *)
 
 Definition wp (t:trm) : formula :=
   weakestpre (triple t).

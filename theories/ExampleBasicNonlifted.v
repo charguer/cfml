@@ -9,7 +9,7 @@ License: CC-by 4.0.
 *)
 
 Set Implicit Arguments.
-From Sep Require Import SepBase LambdaCF TLCbuffer LambdaStruct.
+From Sep Require Import SepBase LambdaCF LibSepTLCbuffer LambdaStruct.
 Generalizable Variables A B.
 
 Ltac auto_star ::= jauto.

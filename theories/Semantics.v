@@ -13,8 +13,10 @@ License: CC-by 4.0.
 
 Set Implicit Arguments.
 From TLC Require Export LibString LibList LibCore.
-From Sep Require Export Bind TLCbuffer.
-From Sep Require Import Fmap.
+From Sep Require Export LibSepBind LibSepTLCbuffer.
+From Sep Require Import LibSepFmap.
+Module Fmap := LibSepFmap.
+
 Import LibListExec.RewListExec.
 Open Scope string_scope.
 
@@ -428,7 +430,7 @@ Fixpoint subst (y:var) (w:val) (t:trm) : trm :=
   | trm_fail => trm_fail
   end.
 
-(** Recall from [Bind.v] that a value of type [bind] is either
+(** Recall from [LibSepBind.v] that a value of type [bind] is either
     a variable of the form [bind_var x] or the anonymous binder [bind_anon] *)
 
 (** [subst1 z v t] substitutes [z] with [v] in [t],
@@ -463,7 +465,7 @@ Fixpoint substn (xs:vars) (vs:vals) (t:trm) : trm :=
     n-ary substitution function. *)
 
 (** [ctx] is the type of bindings from variables to values, using a
-    definition from [Bind.v]. *)
+    definition from [LibSepBind.v]. *)
 
 Definition ctx := Ctx.ctx val.
 

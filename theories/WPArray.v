@@ -9,7 +9,7 @@ License: CC-by 4.0.
 
 Set Implicit Arguments.
 From TLC Require LibListZ.
-From Sep Require Import LambdaCF TLCbuffer.
+From Sep Require Import LambdaCF LibSepTLCbuffer.
 Export NotationForVariables NotationForTerms.
 Open Scope trm_scope.
 Open Scope heap_scope.

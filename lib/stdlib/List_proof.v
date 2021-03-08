@@ -120,7 +120,7 @@ Lemma iter_spec_rest : forall A (l:list A) (f:func),
   (forall x t, TRIPLE (f x) PRE (I (x::t)) POSTUNIT (I t)) ->
   TRIPLE (iter f l) PRE (I l) POSTUNIT (I nil).
 Proof using.
-  =>> M. xapp~ (fun k => Hexists r, \[l = k ++ r] \* I r).
+  =>> M. xapp~ (fun k => \exists r, \[l = k ++ r] \* I r).
   { =>> E. xpull ;=> r' E'. subst l.
     lets: app_cancel_l E'. subst r'.
     xapp. xsimpl~. }
