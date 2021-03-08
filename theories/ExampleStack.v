@@ -1,9 +1,10 @@
-
 (**
 
 This file provides examples of the verification of a mutable stack,
 and of a mutable stack with size available in constant time.
 using CFML 2.0.
+
+See examples/Stack for corresponding formalization using the OCaml front-end.
 
 Author: Arthur Charguéraud.
 License: CC-by 4.0.

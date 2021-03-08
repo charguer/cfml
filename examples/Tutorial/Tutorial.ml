@@ -9,16 +9,35 @@ let example_let n =
   let b = n-1 in
   a + b
 
-let example_incr r =
+let incr r =
   r := !r + 1
 
-let example_two_ref n =
-  let i = ref 0 in
-  let r = ref n in
-  decr r;
-  incr i;
-  r := !i + !r;
-  !i + !r
+let succ_using_incr n =
+  let p = ref n in
+  incr p;
+  !p
+
+let incr_one_of_two p q =
+  incr p
+
+let incr_and_ref p =
+  incr p;
+  ref !p
+
+
+
+(***********************************************************************)
+(** Recursion *)
+
+let rec facto_rec n =
+  if n <= 1
+    then 1
+    else n * facto_rec(n-1)
+
+let rec fib_rec n =
+  if n <= 1
+    then n
+    else fib_rec(n-1) + fib_rec(n-2)
 
 
 (***********************************************************************)
@@ -40,7 +59,6 @@ let fib_for n =
     b := c;
   done;
   !a
-
 
 (***********************************************************************)
 (** While loops *)
@@ -72,122 +90,5 @@ let is_prime n =
     incr i;
   done;
   !p
-
-
-(***********************************************************************)
-(** Recursion *)
-
-let rec facto_rec n =
-  if n <= 1
-    then 1
-    else n * facto_rec(n-1)
-
-let rec fib_rec n =
-  if n <= 1
-    then n
-    else fib_rec(n-1) + fib_rec(n-2)
-
-
-(***********************************************************************)
-(** Stack *)
-
-module StackList = struct
-
-  type 'a t = {
-     mutable items : 'a list;
-     mutable size : int }
-
-  let create () =
-    { items = [];
-      size = 0 }
-
-  let size s =
-    s.size
-
-  let is_empty s =
-    s.size = 0
-
-  let push x s =
-    s.items <- x :: s.items;
-    s.size <- s.size + 1
-
-  let pop s =
-    match s.items with
-    | hd::tl ->
-        s.items <- tl;
-        s.size <- s.size   - 1;
-        hd
-    | [] -> assert false
-
-end
-
-
-(***********************************************************************)
-(** Array *)
-
-let demo_array () =
-  let t = Array.make 3 true in
-  t.(0) <- false;
-  t.(1) <- false;
-  t
-
-let exercise_array () =
-  let t = Array.make 3 true in
-  t.(2) <- false;
-  t.(1) <- t.(2);
-  t
-
-
-(***********************************************************************)
-(** Vector *)
-
-(* Futur work
-
-module Vector = struct
-
-  type 'a t = {
-    mutable data : 'a array;
-    mutable size : int;
-    default: 'a; }
-
-  let create size def =
-    { data = Array.make size def;
-      size = size;
-      default = def; }
-
-  let size t =
-    t.size
-
-  let get t i =
-    t.data.(i)
-
-  let set t i v =
-    t.data.(i) <- v
-
-  let double_size t =
-    let src = t.data in
-    let size = t.size in
-    let size2 = 2 * size in
-    let dst = Array.make size2 t.default in
-    for i = 0 to pred size do
-      dst.(i) <- src.(i);
-    done
-
-  let push t v =
-    let size = t.size in
-    let capa = Array.length t.data in
-    if size = capa
-      then double_size t;
-    t.size <- size+1;
-    t.data.(size) <- v
-
-end
-
-*)
-
-(* Variants for double_size t:
-   Array.iteri (fun i v <- dst.(i) <- v) src
-   Array.init size2 (fun i -> if i < size then src.(i) else t.default)
-*)
 
 

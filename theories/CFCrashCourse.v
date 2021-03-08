@@ -2,6 +2,8 @@
 
 Crash course on using CFML2.
 
+Note: some of these examples appear in examples/Tutorial, using the OCaml front-end.
+
 Covers basic functions and mutable lists.
 
 Author: Arthur Charguéraud.
