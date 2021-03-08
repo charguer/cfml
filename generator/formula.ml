@@ -8,7 +8,7 @@ open Mytools
 type for_loop_dir = For_loop_up | For_loop_down
 
 type cf =
-    Cf_ret of coq
+    Cf_val of coq
   | Cf_fail
   | Cf_assert of cf
   | Cf_done
@@ -19,7 +19,7 @@ type cf =
   | Cf_let_poly of var * vars * vars * coq * cf * cf
   | Cf_val of var * vars * coq * coq * cf
   | Cf_fun of (var * cf) list * cf
-  | Cf_caseif of coq * cf * cf
+  | Cf_if of coq * cf * cf
   | Cf_case of coq * typed_vars * coq * coq option *
       (typed_var * coq) list * cf * cf
   | Cf_match of var * int * cf
@@ -48,11 +48,11 @@ and cftops = cftop list
 
 (** Abstract datatype for dynamic values *)
 
-let coq_dyn_at = coq_var_at "CFML.CFHeaps.dyn" 
+let coq_dyn_at = coq_var_at "CFML.CFHeaps.dyn"
 
 (** Abstract datatype for functions *)
 
-let func_type = Coq_var "CFML.CFApp.func"   
+let func_type = Coq_var "CFML.CFApp.func"
 
 (** Abstract data type for locations *)
 
@@ -77,7 +77,7 @@ let htype c_abstract c_concrete =
 (** The identity representation predicate *)
 
 let id_repr =
-   Coq_var "CFML.CFHeaps.Id" 
+   Coq_var "CFML.CFHeaps.Id"
 
 (** Representation predicate tag *)
 
@@ -126,12 +126,12 @@ let post_unit h =
 
 (** Separating conjunction [H1 * H2] *)
 
-let heap_star h1 h2 = 
+let heap_star h1 h2 =
   coq_apps (Coq_var "CFML.CFHeaps.heap_is_star") [h1;h2]
 
 (** Base data [heap_is_single c1 c2] *)
 
-let heap_is_single c1 c2 = 
+let heap_is_single c1 c2 =
   coq_apps (coq_var_at "CFML.CFHeaps.heap_is_single") [c1;Coq_wild;c2]
 
 (** Empty heap predicate [[]] *)
@@ -141,10 +141,10 @@ let heap_empty =
 
 (** Iterated separating conjunction [H1 * .. * HN] *)
 
-let heap_stars hs = 
+let heap_stars hs =
    match (List.rev hs) with
    | [] -> heap_empty
-   | hn::hs' -> List.fold_left (fun acc x -> heap_star x acc) hn hs' 
+   | hn::hs' -> List.fold_left (fun acc x -> heap_star x acc) hn hs'
 
 (** Lifted existentials [Hexists x, H] *)
 

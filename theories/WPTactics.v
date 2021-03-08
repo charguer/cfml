@@ -265,6 +265,8 @@ Ltac xstructural_core tt :=
 Tactic Notation "xstructural" :=
   xstructural_core tt.
 
+(* TODO: include assumption, for use in the case of loops *)
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xcleanup] -- for internal use *)

@@ -690,7 +690,7 @@ let rec cfg_exp env e =
    let loc = e.exp_loc in
    let aux = cfg_exp env in
    let lift e = lift_val env e in
-   let ret e = Cf_ret (lift e) in
+   let ret e = Cf_val (lift e) in
    let not_normal ?s:(s="") () =
       not_in_normal_form loc (s ^ Print_tast.string_of_expression false e) in
    match e.exp_desc with
@@ -810,8 +810,8 @@ let rec cfg_exp env e =
       end
 
    | Texp_ifthenelse (cond, ifso, Some ifnot) ->
-      (* old: Cf_caseif (aux cond, aux ifso, aux ifnot) *)
-      Cf_caseif (lift cond, aux ifso, aux ifnot)
+      (* old: Cf_if (aux cond, aux ifso, aux ifnot) *)
+      Cf_if (lift cond, aux ifso, aux ifnot)
 
    | Texp_apply (funct, oargs) ->
       let args = simplify_apply_args loc oargs in
