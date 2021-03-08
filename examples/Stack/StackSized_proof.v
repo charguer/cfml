@@ -7,7 +7,7 @@ Generalizable Variables A.
 Implicit Types n m : int.
 Implicit Types p q : loc.
 
-Import StackList_ml.
+Import StackSized_ml.
 
 
 (* ********************************************************************** *)

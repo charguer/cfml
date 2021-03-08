@@ -3,7 +3,8 @@
 
 EXAMPLE_DIRS = \
   UnitTests \
-  Tutorial
+  Tutorial \
+  Stack 
 
 ##############################################################################
 # Targets
