@@ -14,6 +14,9 @@ open Pervasives
 let notation_inv_post r =
   !r
 
+let notation_inv_postunit r =
+  ()
+
 let notation_pre_inv_post r s =
   incr r; !s
 
@@ -254,7 +257,7 @@ let ret_poly_internal () =
 
 
 (********************************************************************)
-(* ** Partial applications *)
+(* ** Partial applications  -- TODO: later
 
 let app_partial_2_1 () =
    let f x y = (x,y) in
@@ -287,14 +290,17 @@ let app_partial_builtin_add () =
 let app_partial_builtin_and () =
   let f = (&&) true in
   f false
+*)
 
 
 (********************************************************************)
-(* ** Over applications *)
+(* ** Over applications -- TODO: later
 
 let app_over_id () =
    let f x = x in
    f f 3
+
+*)
 
 
 (********************************************************************)
@@ -331,7 +337,7 @@ let compare_int () =
 let compare_min () =
   (min 0 1)
 
-(* not yet supported
+(* TODO: not yet supported float
 let compare_float () =
   (1. <> 0. && 1. <= 2.) || (0. = 1. && 1. >= 2. && 1. < 2. && 2. > 1.)
 *)
@@ -425,7 +431,7 @@ let top_val_poly_list = []
 
 let top_val_poly_list_pair = ([],[])
 
-(* TODO
+(* TODO: LATER top-level patterns
 
 let (top_val_pair_int_1,top_val_pair_int_2) = (1,2)
 
@@ -454,6 +460,7 @@ let let_poly_nil_pair_homogeneous () =
 let let_poly_nil_pair_heterogeneous () =
   let x : ('a list * int list) = ([], []) in x
 
+(* TODO: polymorphic recursion *)
 
 
 (********************************************************************)
