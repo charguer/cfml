@@ -35,7 +35,7 @@ export TLC
 # List of files
 
 
-SRC_EXAMPLES := Example ExampleQueue ExampleList ExampleListIndir   ExampleListNull  ExampleListOf ExampleStack ExamplePairingHeap
+SRC_EXAMPLES := Example ExampleQueue ExampleList ExampleListIndir ExampleListNull ExampleListOf ExampleStack ExamplePairingHeap
 
 SRC_COMMON := LibSepTLCbuffer LibSepFmap LibSepVar LibSepSimpl
 
@@ -43,7 +43,8 @@ SRC_NOW := SepCreditsNew SepCredits
 
 SRC_CFML := LibSepBind Semantics LibSepFunctor SepBase WPBase SepLifted WPLifted WPTactics 
 
-SRC_CFML_PLUS := WPRecord WPArray WPLib 
+SRC_CFML_PLUS := WPRecord WPArrayNonLifted WPArray WPLib 
+# 
 # $(SRC_EXAMPLES) WPExamples WPExamplesDetails WPUnitTests 
 
 SRC_MORE := SepBaseAltProofs SepCredits SepRO SepRONew SepROMode SubstExec 
