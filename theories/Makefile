@@ -43,7 +43,7 @@ SRC_NOW := SepCreditsNew SepCredits
 
 SRC_CFML := Bind Semantics SepFunctor SepBase WPBase SepLifted WPLifted WPTactics 
 
-SRC_CFML_PLUS := WPRecord WPLib 
+SRC_CFML_PLUS := WPRecord WPArray WPLib 
 # $(SRC_EXAMPLES) WPExamples WPExamplesDetails WPUnitTests 
 
 SRC_MORE := SepBaseAltProofs SepCredits SepRO SepRONew SepROMode SubstExec 

@@ -683,7 +683,6 @@ Proof using.
 Qed.
 
 
-
 (* ---------------------------------------------------------------------- *)
 (** Properties of hgc *)
 
@@ -1987,6 +1986,8 @@ Tactic Notation "rew_heapx" "~" :=
 Tactic Notation "rew_heapx" "*" :=
   rew_heapx; auto_star.
 
+
+(* TODO: hfold_fmap *)
 
 (* ********************************************************************** *)
 (* * Weakest-preconditions *)

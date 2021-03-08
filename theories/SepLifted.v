@@ -452,6 +452,7 @@ Lemma Decode_Some : forall A `{EA:Enc A} (V:A) (v:val),
   Decode (val_constr "some" (v::nil)) (Some V).
 Proof using. intros. unfolds. rew_enc. fequals. Qed.
 
+(* TODO: generalize to tuples, and strings and char base types *)
 
 (* ---------------------------------------------------------------------- *)
 (* ** Predicate [Decodes] *)

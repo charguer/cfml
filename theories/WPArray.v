@@ -1,7 +1,6 @@
 (**
 
-This file formalizes basic examples from standard Separation Logic,
-as described in Arthur Charguéraud's lecture notes.
+Formalization of arrays.
 
 Author: Arthur Charguéraud.
 License: CC-by 4.0.
@@ -252,6 +251,14 @@ Fixpoint Array A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
   | nil => \[]
   | x::L' => (p ~~> x) \* (Array L' (S p))
   end.
+(* TODO: avoid name clash with the non-lifted version *)
+
+Parameter haffine_Array : forall A t (L: list A),
+  haffine (t ~> Array L).
+(* TODO: prove *)
+
+Hint Resolve haffine_Array : haffine.
+
 
 Section ArrayProp.
 Context A `{EA:Enc A}.

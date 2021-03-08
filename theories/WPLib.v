@@ -10,7 +10,7 @@ License: CC-by 4.0.
 
 
 Set Implicit Arguments.
-From Sep Require Export WPRecord.
+From Sep Require Export WPRecord WPArray.
 Generalizable Variables A B.
 
 Import NotationForVariables NotationForTerms.
@@ -56,7 +56,7 @@ Hint Extern 1 (Register_Spec decr) => Provide Triple_decr.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Decrement function *)
+(** List concatenation function *)
 
 Definition list_concat : val :=
   Fix 'f 'l1 'l2 :=

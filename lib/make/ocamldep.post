@@ -1,0 +1,74 @@
+#!/usr/bin/env ocaml
+#load "str.cma"
+
+(* This script reads one line produced by [ocamldep] and filters it to
+   remove self-dependencies. *)
+
+exception BestEffort
+
+let warning msg =
+  Printf.fprintf stderr "%s: warning: %s.\n" Sys.argv.(0) msg;
+  flush stderr
+
+let assert_end_of_stdin () =
+  try
+    let (_ : string) = input_line stdin in
+    warning "more than one line of input"
+  with End_of_file ->
+    ()
+
+let read_exactly_one_line () =
+  let line =
+    try
+      input_line stdin
+    with End_of_file ->
+      exit 0 (* input is empty; do nothing *)
+  in
+  assert_end_of_stdin();
+  line
+
+let colon =
+  Str.regexp ":"
+
+let whitespace =
+  Str.regexp "[ \t]+"
+
+let dependencies (line : string) : string * string list =
+  try
+    (* Look for the colon. *)
+    let (ofs : int) =
+      try
+        Str.search_forward colon line 0
+      with Not_found ->
+        warning "did not find a colon in the input";
+        raise BestEffort
+    in
+    (* The target lies before the colon. *)
+    let target = Str.string_before line ofs in
+    let target =
+      match Str.split whitespace target with
+      | [ target ] ->
+          target
+      | _ ->
+          warning "exactly one word should come before the colon";
+          raise BestEffort
+    in
+    (* The dependencies lie after the colon. *)
+    let deps = Str.split whitespace (Str.string_after line (ofs + 1)) in
+    target, deps
+  with BestEffort ->
+    print_endline line; (* best effort; echo our input unchanged *)
+    exit 0
+
+let () =
+  (* There should be exactly one line of input. (If there is none, stop.) *)
+  let line = read_exactly_one_line() in
+  (* We expect the input to have been produced by [ocamldep].
+     It should be of the form [target: dep dep dep]. *)
+  let target, deps = dependencies line in
+  (* Remove any self-dependencies. *)
+  let deps = List.filter (fun dep -> target <> dep) deps in
+  (* Echo a list of them. *)
+  Printf.printf "%s:" target;
+  List.iter (fun dep -> Printf.printf " %s" dep) deps;
+  print_newline()

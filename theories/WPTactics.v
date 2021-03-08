@@ -45,8 +45,7 @@ Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (Wptag F) _ _ Q)
   (at level 8, H, F, Q at level 0,
    format "'[v' 'PRE'  H  '/' 'CODE'  F '/' 'POST'  Q ']'") : wp_scope.
 
-(** Display [Triple t H Q] as [TRIPLE t PRE H POST Q]
-    with variant [TRIPLE t PRE H REV X POST Q] *)
+(** Display [Triple t H Q] as [TRIPLE t PRE H POST Q] *)
 
 Declare Scope triple_scope.
 Open Scope triple_scope.
@@ -55,22 +54,6 @@ Notation "'TRIPLE' t 'PRE' H 'POST' Q" :=
   (Triple t H Q)
   (at level 39, t at level 0,
   format "'[v' 'TRIPLE'  t  '/' 'PRE'  H  '/' 'POST'  Q ']'") : triple_scope.
-
-Notation "'TRIPLE' t 'PRE' H1 'RET' v 'POST' H2" :=
-  (Triple t H1 (fun r => \[r = v] \* H2))
-  (at level 39, t at level 0,
-   format "'[v' 'TRIPLE'  t  '/' 'PRE'  H1  '/'  'RET'  v  '/'  'POST'  H2 ']'") : triple_scope.
-
-(* --LATER
-
-Notation "'`Triple' t 'PRE' H1 'BIND' x1 'RET' v 'POST' H2" :=
-  (Triple t H1 (fun r => \exists x1, \[r = v] \* H2))
-  (at level 39, t at level 0, x1 ident) : triple_scope.
-
-Notation "'`Triple' t 'PRE' H1 'BIND' x1 x2 'RET' v 'POST' H2" :=
-  (Triple t H1 (fun r => \exists x1 x2, \[r = v] \* H2))
-  (at level 39, t at level 0, x1 ident, x2 ident) : triple_scope.
-*)
 
 
 (* ********************************************************************** *)

@@ -1,34 +1,31 @@
 # CFML 2.0 : a tool for proving ML programs in Separation Logic
 
----
-===========
+  http://www.chargueraud.org/softs/cfml/
 
-**This is CFML 2.0, not to be confused with CFML 1.0.**
 
-**CFML 2.0 is expected to entirely subsume CFML 1.0 by the end of 2020.**
 
-For additional information, check out: http://www.chargueraud.org/softs/cfml/
+#############################################################
+# Description
 
-Description
-===========
+CFML 2.0 is a tool for carrying out proofs of correctness of OCaml programs with
+respect to specifications expressed in higher-order Separation Logic.
+It consists of several parts:
 
-CFML 2.0 contains:
+- A characteristic formula generator implemented inside Coq, that processes
+  deeply-embedded programs.
 
-- the formalization of the syntax and semantics an imperative lambda-calculus
+- An tool, implemented in OCaml, that provides a front-end for parsing OCaml 
+  source code and directly generating the characteristic formulae---currently,
+  this formulae are taken as axioms, but in the future they would be proved
+  correct.
 
-- a formalization of a simple Separation Logic for that language
+- A Coq library that provides definitions, lemmas, and tactics for carrying
+  out proofs with respect to characteristic formulae.
 
-- a characteristic formula generator, which is a variant of a weakest-precondition
-  generator, and a collection of associated tactics for carrying out program
-  verification in practice.
-
-The foundations of CFML 2.0 are described in a course on Separation Logic
-for Sequential Programs: http://www.chargueraud.org/teach/verif/
 
 
 #############################################################
 # Installation
-
 
 CFML 2.0 is known to work with Coq v8.8.2 and v8.9.1.
 It does not work with v8.10 and v8.11 due to a bug affecting
@@ -75,33 +72,36 @@ Note: CoqIDE generally works more smoothly with multithreading turned off.
 
 
 #############################################################
-# CFML2.0 source files
+# CFML 2.0 Coq files (/theories)
 
 
-## Common files
+## Common infrastructure files
 
- * The file __TLCbuffer.v__
+ * The file __LibSepTLCbuffer.v__
    contains definitions, lemmas and tactics to be later merged into TLC.
 
- * The file __Var.v__
+ * The file __LibSepVar.v__
    defines a representation of variables as strings.
 
- * The file __Fmap.v__
+ * The file __LibSepFmap.v__
    defines a representation of finite maps, used to represent stores.
 
- * The file __Bind.v__
+ * The file __LibSepBind.v__
    defines binders and contexts.
 
- * The file __Semantics.v__
-   defines the syntax and semantics of an imperative lambda-calculus.
-
- * The file __SepSimpl.v__
+ * The file __LibSepSimpl.v__
    implements the simplification tactic for heap entailment.
 
  * The file __SepFunctor.v__
    contains a functor with derived properties for Separation Logic.
    This functor is used by plain separation logic and also by the
    two extensions (credits and read-only) mentioned further on.
+
+
+## Semantics
+
+ * The file __Semantics.v__
+   defines the syntax and semantics of an imperative lambda-calculus.
 
 
 ## Plain SL
@@ -180,6 +180,13 @@ Note: CoqIDE generally works more smoothly with multithreading turned off.
 
 
 #############################################################
+# Course on the Foundations of Separation Logic
+
+The implementation of CFML 2.0 is described in a full course:
+  http://www.chargueraud.org/teach/verif/
+
+
+#############################################################
 # Model of Separation Logic with Time Credits
 
 This file `SepCredits.v` contains a formalization of Separation Logic
@@ -209,3 +216,15 @@ with read-only permissions. This extension is described in the paper:
 __Temporary Read-Only Permissions for Separation Logic__
 by Arthur Charguéraud and François Pottier, published at ESOP 2017.
   http://www.chargueraud.org/research/2017/readonlysep/readonlysep.pdf
+
+
+#############################################################
+# Limitations
+
+- Idealized integers
+- No support for float values
+- Limited support for functors
+- Partial applications require eta-expansion: `f x` becomes `fun y => f x y`
+- Over-applications require let-binding: `f x y` becomes `let g = f x in g y`
+- ...
+

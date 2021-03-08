@@ -1,0 +1,111 @@
+##############################################################################
+#
+# This Makefile can be used to compile examples, including the recompilation
+# of all dependencies. Only for developper use.
+#
+# In an example folder, type 
+#   make -f ../Makefile.dev
+#
+##############################################################################
+# CFML setup.
+
+CFML := $(shell cd ../.. && pwd)
+
+include $(CFML)/Makefile.common
+
+##############################################################################
+# Compilation.
+
+PWD := $(shell pwd)
+export
+COQINCLUDE := \
+  -R $(TLC) TLC \
+  -R $(CFML)/lib/coq CFML \
+  -R $(CFML)/lib/stdlib CFML.Stdlib \
+  -R $(PWD) EXAMPLE
+  
+
+##############################################################################
+# Files.
+
+PWD    := $(shell pwd)
+LIBCOQ := $(CFML)/lib/coq
+
+STDLIB := $(CFML)/lib/stdlib
+STDLIB_ML  := $(wildcard $(STDLIB)/*.ml)
+STDLIB_CMJ := $(patsubst %.ml,%.cmj,$(STDLIB_ML))
+
+ifndef ML
+	ML := $(wildcard $(PWD)/*.ml)
+endif
+
+CMJ    := $(patsubst %.ml,%.cmj,$(ML))
+
+ifndef V
+	V := $(patsubst %.ml,%_ml.v,$(ML)) \
+		  $(patsubst %.ml,%_proof.v,$(ML)) 
+endif
+
+V_AUX_BASE := $(wildcard $(LIBCOQ)/*.v) \
+              $(wildcard $(STDLIB)/*.v)
+
+ifdef INCLUDE_TLC_AS_DEPENDENCIES
+# encompass TLC in the scope of the dependency graph.
+# This allows us to recompile part of TLC, if it has changed.
+V_AUX  := $(wildcard $(TLC)/*.v) \
+          $(V_AUX_BASE)
+else
+V_AUX  := $(V_AUX_BASE)
+endif
+
+
+##############################################################################
+# Targets.
+
+.PHONY: all
+
+all: $(CMJ)
+# Must run in two successive phases, as coqdep must not run until the
+# files %_ml.v have been generated. So, we create the files %.cmj and
+# %_ml.v first (above), then compile every .v file.
+	@ $(MAKE) -f $(TLC)/Makefile.coq $@
+
+_CoqProject:
+	@ $(MAKE) -f $(TLC)/Makefile.coq $@
+
+
+##############################################################################
+# Generating %.cmj and %_ml.v.
+
+CFML_FLAGS :=
+  # can use:
+  # -only_cmj
+  # and OCaml flags
+
+# Note: we must delete the .cmj file if the construction of the _ml.v file
+# has failed. (Maybe the generator itself should take care of that!)
+
+# Note: at the moment, we do not run ocamldep, and assume that there no
+# inter-module dependencies. Every module is allowed to implicitly depend
+# on Pervasives.
+
+ifndef CFMLC
+  CFMLC=$(CFML)/generator/cfmlc.native
+endif
+
+$(STDLIB)/Pervasives_ml.v $(STDLIB)/Pervasives.cmj: $(STDLIB)/Pervasives.ml $(CFMLC)
+	$(CFMLC) $(CFML_FLAGS) -nostdlib -nopervasives -I $(STDLIB) $< || (rm -f $@; exit 1)
+
+$(STDLIB)/%_ml.v $(STDLIB)/%.cmj: $(STDLIB)/%.ml $(STDLIB)/Pervasives.cmj $(CFMLC)
+	$(CFMLC) $(CFML_FLAGS) -nostdlib -I $(STDLIB) $< || (rm -f $@; exit 1)
+
+$(PWD)/%_ml.v $(PWD)/%.cmj: $(PWD)/%.ml $(STDLIB_CMJ) $(CFMLC)
+	$(CFMLC) $(CFML_FLAGS) -I $(STDLIB) -I . $< || (rm -f $@; exit 1)
+
+
+##############################################################################
+# Cleanup.
+
+clean::
+	rm -rf *.cmj *_ml.v _output
+	@ $(MAKE) -f $(TLC)/Makefile.coq $@
