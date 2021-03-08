@@ -3,7 +3,7 @@
 ##############################################################################
 # Configuration
 
-SOURCE=~/versions/coq-8.12/sfdev/slf/full
+SOURCE=~/versions/coq-8.12/sfdev/_built/slf/full
 TARGET=slf
 WEBSITE=website
 
@@ -45,6 +45,9 @@ ${CP} ${SOURCE}/*.v ${SOURCE}/_CoqProject ${SOURCE}/Makefile ${SOURCE}/LICENSE $
 
 echo "Creating $TARGET.tar.gz"
 tar ${TAROPTIONS} -czf $TARGET.tar.gz $TARGET
+
+# Move the archive into folder to ease upload
+mv $TARGET.tar.gz $TARGET
 
 
 ##############################################################################

@@ -253,3 +253,95 @@ Tactic Notation "xwp" :=
         | applys xwp_lemma_fun3; [ reflexivity | splits; reflexivity | xwp_simpl ]
         | applys xwp_lemma_fix3; [ reflexivity | splits; reflexivity | xwp_simpl ]
         | applys xtriple_lemma ].
+
+
+
+
+
+(* LATER: optional notation for parsing specs
+Notation "'TRIPLE' t 'PRE' H 'POST' Q" :=
+  (triple t H Q)
+  (at level 39, t at level 0, only parsing) : wp_scope.
+*)
+
+(* LATER: Alternative without the middle
+Notation "'PRE' H F 'POST' Q" :=
+  (H ==> (mkstruct F) Q)
+  (at level 8, H at level 0, F, Q at level 0,
+   format "'[v' 'PRE'  H  '/' F '/' 'POST'  Q ']'") : wp_scope.
+*)
+
+
+
+
+============
+
+(* ########################################################### *)
+(* ########################################################### *)
+(* ########################################################### *)
+(** * TOREMOVE *)
+
+(* ########################################################### *)
+(** ** Extra: Equivalence [dps] and [npz]
+TODO: why not nps and npz ? then dpz = npz
+then under *)
+
+(** More interestingly, let us prove that, for a deterministic language,
+    the two definitions above, namely [hoaredpb] and [hoaredps], match the
+    previous definitions for partial correctness, namely the big-step based
+    definition [hoarenpb] and the two small-step based definitions [hoarenps]
+    and [hoarenpz]---the three were already proved equivalent to each other.
+
+    The proof of equivalence between [hoaredps] and [hoarenpz] is not totally
+    straightforward. It involves 3 auxiliary lemmas. *)
+
+Lemma evalnpz_of_divdz : forall s t Q,
+  divnz s t ->
+  evalnpz s t Q.
+Proof using.
+  cofix IH. introv M. inverts M as S M'.
+  applys evalnpz_step S.
+  { intros s' t' S'. applys IH. applys M' S'. }
+Qed.
+
+Lemma divdz_of_nonterminating_evalnpz : forall s t Q,
+  evalnpz s t Q ->
+  (~ exists s', exists (v:val), (steps s t s' v /\ Q v s')) ->
+  divdz s t.
+Proof using.
+  cofix IH. introv M N. inverts M as.
+  { introv HQ. false N. exists. split*. applys steps_refl. }
+  { introv (s'&t'&S) M'. applys divdz_step S. applys IH.
+    { applys M' S. }
+    { intros (s''&v&R&K). false N. exists. split*. applys steps_step S R. } }
+Qed.
+
+Lemma evalnpz_of_terminating_steps_and_deterministic : forall s t s' v Q,
+  deterministic ->
+  steps s t s' v ->
+  Q v s' ->
+  evalnpz s t Q.
+Proof using.
+  introv HD R HQ. gen_eq t': (trm_val v). induction R; intros; subst.
+  { applys evalnpz_val HQ. }
+  { rename H into S, R into R'. applys evalnpz_step.
+    { exists. applys S. }
+    { intros s' t' S'. lets (->&->): step_deterministic HD S S'.
+      applys* IHR HQ. } }
+Qed.
+
+Lemma evaldps_eq_evalnpz_of_deterministic :
+  deterministic ->
+  evaldps = evalnpz.
+Proof using.
+  intros HD. extens. intros s t Q. unfolds evaldps. iff M.
+  { destruct M as [(s'&v&R&HQ)|R].
+    { applys* evalnpz_of_terminating_steps_and_deterministic. }
+    { rewrite* <- divnz_eq_divdz_of_deterministic in R.
+      applys evalnpz_of_divdz R. } }
+  { applys or_classic_r. intros N.
+    applys divdz_of_nonterminating_evalnpz M.
+    intros HS. false* N. }
+Qed.
+
+
