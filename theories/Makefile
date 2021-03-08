@@ -44,7 +44,7 @@ SRC_NOW := SepCreditsNew SepCredits
 SRC_CFML := LibSepBind Semantics LibSepFunctor SepBase WPBase SepLifted WPLifted WPTactics 
 
 SRC_CFML_PLUS := WPRecord WPArrayNonLifted WPArray WPLib 
-# 
+
 # $(SRC_EXAMPLES) WPExamples WPExamplesDetails WPUnitTests 
 
 SRC_MORE := SepBaseAltProofs SepCredits SepRO SepRONew SepROMode SubstExec 
@@ -53,23 +53,14 @@ SRC_MORE := SepBaseAltProofs SepCredits SepRO SepRONew SepROMode SubstExec
 
 SRC_CF := CFCrashCourse
 
-SRC_SF := SLFPreface SLFDirect SLFExtra SLFSummary SLFMinimal SLFBasic SLFHprop SLFHimpl SLFRules SLFWPsem SLFWPgen SLFWand SLFAffine SLFRich SLFStruct 
-
-# SLFLift SLFRicher SLFExt
-
-SRC_MOSEL := SepMoselFunctor SepBaseMosel SepROMosel ExampleROMosel ExampleListMosel
+# SRC_MOSEL := SepMoselFunctor SepBaseMosel SepROMosel ExampleROMosel ExampleListMosel
 
 SRC := $(SRC_COMMON) $(SRC_NOW) $(SRC_CFML) $(SRC_MORE) $(SRC_CFML_PLUS) $(SRC_EXAMPLES) 
-# $(SRC_CF)  $(SRC_MOSEL)
 
 # using the variable SRC_FORCE, one can modify the compilation targets and/or their order.
 
 ifdef SRC_FORCE 
 	SRC := $(SRC_FORCE)
-endif
-
-ifdef SLF
-   SRC := $(SRC_COMMON) $(SRC_SF)
 endif
 
 
@@ -104,6 +95,8 @@ all: _CoqProject
 ##############################################################################
 # Compilation of files from the course on Foundations of Separation Logic
 
+# TODO: import_slf needs to be updated
+
 # usage: make import_slf && make SLF=1
 
 SLF_FILES := $(SRC_SF:=.v)
@@ -114,8 +107,9 @@ endif
 
 import_slf:
 	cp $(addprefix $(SLF_FOLDER)/,$(SLF_FILES)) .
-	sed -i -e 's/^From[[:space:]]SLF[[:space:]](\*[[:space:]]TLC[[:space:]]\*)/From TLC/' $(SLF_FILES)
-	sed -i -e 's/^From[[:space:]]SLF[[:space:]](\*[[:space:]]Sep[[:space:]]\*)/From Sep/' $(SLF_FILES)
+	sed -i -e 's/^From[[:space:]]SLF[[:space:]]LibSep/From Sep LibSep/' $(SLF_FILES)
+	sed -i -e 's/^From[[:space:]]SLF[[:space:]]Lib/From TLC Lib/' $(SLF_FILES)
+	sed -i -e 's/^From[[:space:]]SLF/From Sep/' $(SLF_FILES)
 
 clean_slf:
 	rm SLF*.v
@@ -123,5 +117,8 @@ clean_slf:
 
 ##############################################################################
 
+# TODO: still needed?
+
 required_vos:
 	touch $@
+

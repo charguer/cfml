@@ -35,12 +35,6 @@ Implicit Types H : hprop.
 
 (** Display [H ==> ^F Q] as [PRE H CODE F POST Q] *)
 
-(* DEPRECATED
-Notation "'CODE' F 'POST' Q" := ((Wptag F) _ _ Q)
-  (at level 8, F, Q at level 0,
-   format "'[v' 'CODE'  F '/' 'POST'  Q ']'") : wp_scope.
-   *)
-
 Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (Wptag F) _ _ Q)
   (at level 8, H, F, Q at level 0,
    format "'[v' 'PRE'  H  '/' 'CODE'  F '/' 'POST'  Q ']'") : wp_scope.
@@ -62,6 +56,7 @@ Notation "'TRIPLE' t 'PRE' H 'POST' Q" :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xdecode] and [xdecodes] *)
 
+(* TODO: check if still the case in 8.12 *)
 (* --LATER: WORK AROUND TYPECLASS RESOLUTION BUG *)
 Hint Extern 1 (Decode (val_constr "nil" nil) _) =>
   match goal with H: Enc ?A |- _ => eapply (@Decode_nil A) end : Decode.
@@ -369,6 +364,8 @@ Tactic Notation "xwp_debug" :=
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xtriple] *)
+
+(* TODO: integrate into [xwp] *)
 
 Lemma xtriple_lemma : forall t f (vs:vals) `{EA:Enc A} H (Q:A->hprop),
   t = trm_apps f (trms_vals vs) ->
