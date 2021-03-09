@@ -749,3 +749,19 @@ Ltac xapp_record tt ::= (* initial dummy binding located in WPTactics *)
   | (val_record_delete _) => xapp_record_delete tt
   end.
 
+
+(* ********************************************************************** *)
+(* * Direct WPgen for record allocation *)
+
+Definition Wpgen_record_new (Lof:loc->Record_fields) : Formula :=
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
+    (fun r => r ~> Record (Lof r)) \--* (Post_cast loc Q)).
+
+(* Note:   [Triple H (new L) (fun r => r ~> Record (Lof r) \* H)]
+   H ==> wp (new L) (fun r => r ~> Record (Lof r) \* H)
+
+   H \* ((fun r => r ~> Record (Lof r) \* H) \--* Q) ==> wp (new L) Q
+   wp (new L) Q :=  ((fun r => r ~> Record (Lof r)) \--* Q)
+
+  TODO: exercise in course. *)
+

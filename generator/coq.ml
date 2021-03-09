@@ -149,10 +149,15 @@ let coq_bool =
 let coq_var x =
   Coq_var x
 
+(** Disable implicit [@c] *)
+
+let coq_at c =
+  "@" ^ c
+
 (** Identifier [@x] *)
 
 let coq_var_at x =
-  coq_var ("@" ^ x)
+  coq_at (coq_var x)
 
 (** List of identifiers [x1 x2 .. xn] *)
 
@@ -166,8 +171,11 @@ let coq_types names =
 
 (** Application to a list of arguments [c e1 e2 .. eN] *)
 
+let coq_app c1 c2 =
+  Coq_app (c1, c2)
+
 let coq_apps c args =
-  List.fold_left (fun acc ci -> Coq_app (acc, ci)) c args
+  List.fold_left coq_app c args
 
 (** Application to wildcards [c _ _ .. _] *)
 
@@ -186,8 +194,11 @@ let coq_app_var_at x args =
 
 (** Function [fun (x1:T1) .. (xn:Tn) => c] *)
 
+let coq_fun arg c =
+  Coq_fun (arg, c)
+
 let coq_funs args c =
-  List.fold_right (fun ci acc -> Coq_fun (ci, acc)) args c
+  List.fold_right coq_fun args c
 
 (** Function [fun (x1:Type) .. (xn:Type) => c] *)
 
@@ -203,8 +214,11 @@ let coq_foralls args c =
 
 (** Universal [forall (x1:T1) .. (xn:Tn), c] *)
 
+let coq_forall arg c =
+  Coq_forall (arg, c)
+
 let coq_foralls args c =
-  List.fold_right (fun ci acc -> Coq_forall (ci, acc)) args c
+  List.fold_right coq_forall args c
 
 (** Universal [forall (x1:Type) .. (xn:Type), c] *)
 
@@ -217,6 +231,9 @@ let coq_foralls_wild names c =
   coq_foralls (List.map (fun n -> (n, Coq_wild)) names) c
 
 (** Implication [c1 -> c2 -> .. -> cn -> c] *)
+
+let coq_impl c1 c2 =
+  Coq_impl (c1,c2)
 
 let coq_impls cs c =
   List.fold_right (fun ci acc -> Coq_impl (ci, acc)) cs c

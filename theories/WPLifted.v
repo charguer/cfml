@@ -932,10 +932,6 @@ Notation "'Case' v '=' vp [ x1 x2 ] ''=>' F1 ''|' F2" :=
 *)
 
 (*
-  | Cf_assert cf1 ->
-  | Cf_fail ->
-  | Cf_done ->
-  | Cf_record_new (arg) ->
   | Cf_app (ts, tret, f, vs) -> (* TODO: maybe make the return type explicit? *)
   | Cf_body (f, fvs, targs, typ, cf1) ->
   | Cf_let ((x,typ), cf1, cf2) ->
@@ -966,6 +962,13 @@ Definition Wpgen_val_lifted `{Enc A1} (V:A1) : Formula :=
   MkStruct (Wpgen_val_lifted_nostruct V).
   (* MkStruct (fun A (EA:Enc A) (Q:A->hprop) => Post_cast A Q V)). *)
 
+(* TODO
+  Lemma xval_lifted_lemma : forall A `{EA:Enc A} (V:A) H (Q:A->hprop),
+    H ==> Q V ->
+    H ==> ^(Wpgen_val_lifted V) Q.
+  Proof using. introv E N. subst. applys MkStruct_erase. ... Qed.
+*)
+
 (* alternative?
 Definition Wpgen_val_lifted `{Enc A} (V:A) : Formula :=
   MkStruct (Formula_cast (fun (Q:A->hprop) => Q V)).
@@ -981,25 +984,49 @@ Definition Wpgen_val_lifted_nostruct A1 `{EA1:Enc A1} (V:A1) : Formula :=
   fun A2 (EA2:Enc A2) Q => Post_cast A1 Q V.
 *)
 
+(* includes the return type *)
 
+Definition Wpgen_app_typed (t:trm) (A1:Type) `{EA1:Enc A1} : Formula :=
+  MkStruct (Formula_cast (fun (Q1:A1->hprop) => Wp t Q1)).
+
+Arguments Wpgen_app_typed t A1 {EA1}.
+
+(*
+Definition Wpgen_fix (Fof:val->val->Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+    \forall vf, \[forall vx A' (EA':Enc A') Q',
+                    Fof vf vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf).
+*)
+
+Definition Formula_entails (F1 F2:Formula) : Prop :=
+  forall A (EA:Enc A) Q, ^F1 Q ==> ^F2 Q.
+
+Definition Wpgen_fixs (Fof:val->vals->Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+    \forall vf, \[forall vxs, Formula_entails (Fof vf vxs) (Wp (trm_apps vf vxs))]
+                \-* Q vf).
+
+Definition Wpgen_fixs_custom (Custom:(val->(vals->Formula->Prop)->Prop) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+    \forall vf, \[Custom vf (fun vxs Fof => Formula_entails (Fof vf) (Wp (trm_apps vf vxs)))]
+                \-* Q vf).
+(* usage: Wpgen_fixs_custom (fun f Pof =>
+             forall A1..AM .. x1..xN, Pof [x1;..;xn] (Wpbody vf) *)
+
+
+Definition Wpgen_let_fun (P:Prop) : Formula :=
+  Formula.
 
 (* ********************************************************************** *)
 
 
 (*
 
-
-
-
-  Lemma xval_lifted_lemma : forall A `{EA:Enc A} (V:A) H (Q:A->hprop),
-    H ==> Q V ->
-    H ==> ^(Wpgen_val_lifted V) Q.
-  Proof using. introv E N. subst. applys MkStruct_erase. ... Qed.
-
-
-  Definition wpgen_fix (Fof:val->val->formula) : formula := fun Q =>
-    \forall vf, \[forall vx Q', Fof vf vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
-
+    Fixpoint wpgen (E:ctx) (t:trm) : formula :=
+      mkstruct match t with
+      | ..
+      | trm_fix f x t1 => wpgen_fix (fun vf v => wpgen ((f,vf)::(x,v)::E) t1)
+      | ..
 
     Lemma xfun_spec_lemma : forall (S:val->Prop) H Q Fof,
       (forall vf,
@@ -1030,24 +1057,7 @@ Definition Wpgen_val_lifted_nostruct A1 `{EA1:Enc A1} (V:A1) : Formula :=
 
 
 
-generalize to for loops:
-
-  Definition wpgen_for_val (v1 v2:val) (F1:val->formula) : formula := mkstruct (fun Q =>
-    \exists (n1:int) (n2:int), \[v1 = val_int n1 /\ v2 = val_int n2] \*
-    \forall (S:int->formula),
-    let F i := If (i <= n2) then (wpgen_seq (F1 i) (S (i+1)))
-                            else (wpgen_val val_unit) in
-    \[ structural_pred S /\ (forall i, F i ===> S i)] \-* (S n1 Q)).
-
-  Definition Wpgen_while (F1 F2:Formula) : Formula :=
-    MkStruct (`Formula_cast (fun (Q:unit->hprop) =>
-      \forall (R:Formula),
-      let F := Wpaux_if F1 (Wpgen_seq F2 R) (Wpgen_val val_unit) in
-      \[ structural (@R unit _) /\ (forall (Q':unit->hprop), ^F Q' ==> ^R Q')] \-* (^R Q))).
-
-
-
-TUTO
+---TUTO on wp for assertions
 
   H ==> wp t (fun r => \[r = true] \* H) ->
   H ==> wp (val_assert t) (fun _ => H).
@@ -1056,7 +1066,5 @@ TUTO
  \exists H, H \* \[H ==> wp t (fun r => \[r = true] \* H)] \* (#H \--* Q) ==> wp (val_assert t) Q
 
  Q tt \* \[Q tt ==> wp t (fun r => \[r = true] \* Q tt)] ==> wp (val_assert t) Q
-
-
 
 *)

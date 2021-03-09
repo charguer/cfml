@@ -734,7 +734,7 @@ let rec cfg_exp env e =
         let ncs = List.map (fun (pat,bod) -> (pattern_name_protect_infix pat, cfg_func env' fvs pat bod)) pat_expr_list in
         let cf_body = cfg_exp env' body in
         add_used_label (fst (List.hd ncs));
-        Cf_fun (ncs, cf_body)
+        Cf_let_fun (ncs, cf_body)
         (* --todo: check what happens with recursive types *)
 
       (* let-binding of a single value *)
@@ -757,7 +757,7 @@ let rec cfg_exp env e =
            let env' = Ident.add (pattern_ident pat) (List.length fvs_strict) env in
            let cf = cfg_exp env' body in
            add_used_label x;
-           Cf_val (x, fvs_strict, typ, v, cf)
+           Cf_let_val (x, fvs_strict, typ, v, cf)
 
         (* term let-binding *)
         end else begin

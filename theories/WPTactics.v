@@ -1894,3 +1894,88 @@ Proof using.
 Qed.
 
 *)
+
+
+
+(*--------------------------------------------------------*)
+(* ** [xletval] and [xletval_st] *)
+
+(*
+
+(** [xletval] is used to reason on a let-value node, i.e. on a goal
+    of the form [(Val x := v in F1) H Q].
+    It produces an equality [x = v].
+
+    Use [xletval as y] to rename [x] into [y].
+    Use [xletval as y E] to rename [x] into [y] and name [E] the equality [y=v].
+
+    *)
+
+Ltac xletval_pre tt :=
+  xpull_check_not_needed tt;
+  xuntag tag_val;
+  apply local_erase.
+
+Ltac xletval_core x Hx :=
+  xletval_pre tt;
+  intros x Hx;
+  xtag_pre_post.
+
+Tactic Notation "xletval" "as" simple_intropattern(x) simple_intropattern(Hx) :=
+  xletval_core x Hx.
+
+Tactic Notation "xletval" "as" simple_intropattern(x) :=
+  let Hx := fresh "P" x in xletval_core x Hx.
+
+Ltac xletval_anonymous_impl tt :=
+  xletval_pre tt;
+  intro;
+  let x := get_last_hyp tt in
+  revert x;
+  let Hx := fresh "P" x in
+  intros x Hx;
+  xtag_pre_post.
+
+Tactic Notation "xletval" :=
+  xletval_anonymous_impl tt.
+
+(** [xletvals] is like [xletval] but it immediately substitutes
+    the equality [x = v] produced by [xletval]. *)
+
+Ltac xletvals_core tt :=
+  xletval_pre tt; intro; intro_subst; xtag_pre_post.
+
+Tactic Notation "xletvals" :=
+  xletvals_core tt.
+
+
+(** [xletval_st P] is used to assign an abstract specification
+    to the value. Instead of producing [x = v] as hypothesis,
+    it produces [P x] as hypothesis, and issues [P v] as subgoal.
+
+    Use [xletval_st P as y] to rename [x] into [y].
+    Use [xletval_st P as y Hy] to rename [x] into [y] and specify the name
+      of the hypothesis [P y]. *)
+
+Ltac xletval_st_core P x Hx :=
+  let E := fresh in
+  intros x E;
+  asserts Hx: (P x); [ subst x | clear E; xtag_pre_post ].
+
+Ltac xletval_st_impl P x Hx :=
+  xletval_pre tt; xletval_st_core P x Hx.
+
+Tactic Notation "xletval_st" constr(P) "as" simple_intropattern(x) simple_intropattern(Hx) :=
+  xletval_st_impl P x Hx.
+
+Tactic Notation "xletval_st" constr(P) "as" simple_intropattern(x) :=
+  let Hx := fresh "P" x in xletval_st_impl P x Hx.
+
+Ltac xletval_st_anonymous_impl P :=
+  xletval_pre tt; intro; let x := get_last_hyp tt in revert x;
+  let Hx := fresh "P" x in xletval_st_core P x Hx.
+
+Tactic Notation "xletval_st" constr(P) :=
+  xletval_st_anonymous_impl P.
+
+*)

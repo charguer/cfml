@@ -45,10 +45,11 @@ let rec coqtops_of_imp_cf cf =
 
   | Cf_fail ->
       funhq "tag_fail" coq_false
+      (* TODO Wpgen_fail *)
 
-      (* Wpgen_done Wpgen_fail *)
   | Cf_done ->
       funhq "tag_done" coq_true
+      (* TODO Wpgen_done  *)
 
   | Cf_record_new (items) ->
       (* each item is a tuple (fi, ti, vi) *)
@@ -59,9 +60,9 @@ let rec coqtops_of_imp_cf cf =
       Coq_tuple [Coq_var field_name; typed_value]
       in
     let arg =
-      Coq_fun ((record_name, coq_var "CFHeaps.loc"),
+      Coq_fun ((record_name, loc_type),
                coq_list (List.map build_item items)) in
-     coq_tag "tag_record_new" (coq_apps (Coq_var "CFML.CFApp.app_record_new") [arg])
+     coq_tag "tag_record_new" (coq_apps (Coq_var "CFML.WPRecord.Wpgen_record_new") [arg])
 
   | Cf_app (ts, tret, f, vs) -> (* TODO: maybe make the return type explicit? *)
       (* old:  let arity = List.length vs in *)
@@ -70,19 +71,19 @@ let rec coqtops_of_imp_cf cf =
       let args = List.map (fun (t,v) -> coq_apps coq_dyn_at [t;v]) tvs in
       coq_tag "tag_apply" (coq_apps (coq_var_at "CFML.CFApp.app_def") [f; coq_list args; tret])
       (* (!Apply: (app_def f [(@dyn t1 v1) (@dyn t2 v2)])) *)
+      (* TODO: change to "Wpgen_app_typed (trm_apps f (coq_list [(enc_of_typed t1 v1);(enc_of_typed t2 v2)])) tret" *)
 
   | Cf_body (f, fvs, targs, typ, cf1) ->
-      let narity = Coq_nat (List.length targs) in
-      let h_curried = coq_apps (Coq_var "CFML.CFApp.curried") [narity; coq_var f] in
       let h_body_hyp = coq_apps (coq_of_cf cf1) [h; q] in
       let args = List.map (fun (x,t) -> coq_apps coq_dyn_at [t; coq_var x]) targs in
       let h_body_conc = coq_apps (Coq_var "CFML.CFApp.app_def") [coq_var f; coq_list args; h; q]  in
       let h_body_2 = Coq_impl (h_body_hyp, h_body_conc) in
       let h_body_1 = coq_foralls [("H", hprop); ("Q", Coq_impl (typ, hprop))] h_body_2 in
       let h_body = coq_forall_types fvs (coq_foralls targs h_body_1) in
-      coq_tag "tag_app_curried" (coq_conj h_curried h_body)
-      (* (!B: curried 2 f /\
-              (forall Ai x1 x2 H Q, CF H Q -> app f [(dyn t1 x1) (dyn t2 x2)] H Q) *)
+      coq_tag "tag_app_curried" (h_body)
+      (* (!B: (forall Ai x1 x2 H Q, CF H Q -> app f [(dyn t1 x1) (dyn t2 x2)] H Q) *)
+      (* TODO usage: Wpgen_fixs_custom (fun f Pof =>
+               forall A1..AM .. x1..xN, Pof [x1;..;xn] (Wpbody vf) *)
 
   | Cf_let ((x,typ), cf1, cf2) ->
       let c1 = coq_of_cf cf1 in
@@ -90,6 +91,9 @@ let rec coqtops_of_imp_cf cf =
       let f_core = coq_apps (coq_var "CFML.CFPrint.cf_let") [c1;c2] in
       let f = Coq_app (Coq_var "CFML.CFHeaps.local", f_core) in
       coq_tag "tag_let" ~label:x f
+      (* TODO: Wpgen_let_typed F1 (fun (x:T) => F2) *)
+
+(* TODO: for each ocaml typedef, need an instance of Enc *)
 
   | Cf_let_poly (x, fvs_strict, fvs_other, typ, cf1, cf2) ->
       let type_of_x = coq_forall_types fvs_strict typ in
@@ -105,32 +109,40 @@ let rec coqtops_of_imp_cf cf =
       let type_of_p1 = coq_forall_types fvs_strict (coq_pred typ) in
       funhq "tag_let_poly" (*~label:x*) (coq_exist "P1" type_of_p1 (coq_exist "H1" hprop (coq_conj c1 c2)))
       (*(!L a: (fun H Q => exists (P1:forall A1, T -> Prop) (H1:hprop),
-                            (forall A1 B1, Q1 H (fun r => \[P A1 r] \* H1))
-                         /\ forall (x1:forall A1,T), ((forall A1, P1 A1 (x1 A1)) -> Q2 H1 Q)) *)
+                            (forall A1 B1, C1 H (fun r => \[P A1 r] \* H1))
+                         /\ forall (x1:forall A1,T), ((forall A1, P1 A1 (x1 A1)) -> C2 H1 Q)) *)
+      (* TODO: (fun A EA Q =>
+                          \exists (P1:forall A1, T -> Prop) H1,
+                               (\forall A1 B1, C1 (fun r => \[P A1 r] \* H1))
+                            \hand
+                               \[H1 ==> forall (x1:forall A1,T), ((forall A1, P1 A1 (x1 A1)) -> C2 Q)\] *)
 
-  | Cf_val (x, fvs_strict, typ, v, cf) ->
+  | Cf_let_val (x, fvs_strict, typ, v, cf) ->
       let type_of_x = coq_forall_types fvs_strict typ in
       let equ = coq_eq (Coq_var x) (coq_fun_types fvs_strict v) in
       let conc = coq_apps (coq_of_cf cf) [h;q] in
       funhq "tag_val" (*~label:x*) (Coq_forall ((x, type_of_x), Coq_impl (equ, conc)))
       (*(!!L x: (fun H Q => forall (x:forall Ai,T), x = (fun Ai => v) -> F H Q)) *)
 
-  | Cf_fun (ncs, cf) ->
+  | Cf_let_fun (ncs, cf) ->
       let ns, cs = List.split ncs in
       let fs = List.map (fun n -> (n, func_type)) ns in
       let chyps = List.map coq_of_cf cs in
       let cconc = coq_apps (coq_of_cf cf) [h;q] in
       let x = List.hd ns in
       funhq "tag_fun" ~label:x (coq_foralls fs (coq_impls chyps cconc))
-      (* (!F a: fun H Q => forall f1 f2, B1 -> B2 -> F H Q) *)
+      (* TODO Wpgen_fun (fun A EA Q => \forall f1 f2, \[B1] \-* \[B2] \-* (^F Q)) *)
+      (* using formula_def a q c *)
 
   | Cf_if (v,cf1,cf2) ->
       let c1 = Coq_impl (coq_eq v coq_bool_true,  coq_apps (coq_of_cf cf1) [h;q]) in
       let c2 = Coq_impl (coq_eq v coq_bool_false, coq_apps (coq_of_cf cf2) [h;q]) in
       funhq "tag_if" (coq_conj c1 c2)
       (* (!I a: (fun H Q => (x = true -> Q1 H Q) /\ (x = false -> Q2 H Q))) *)
+      (* TODO: Wpgen_if_bool v F1 F2 *)
 
   | Cf_case (v,tps,pat,vwhenopt,aliases,cf1,cf2) ->
+  (* TODO: later *)
       let add_alias ((name,typ),exp) cf : coq =
          funhq "tag_alias" (coq_foralls [name,typ] (coq_impls [coq_eq (Coq_var name) exp] (coq_apps cf [h;q])))
          (* !L a: (fun H Q => forall y, y = v -> F H Q) *)
@@ -149,6 +161,7 @@ let rec coqtops_of_imp_cf cf =
           where trueb are implicit by coercions *)
 
   | Cf_match (label, n, cf1) ->
+  (* TODO: later *)
      let f = Coq_app (Coq_var "CFML.CFHeaps.local", (coq_of_cf cf1)) in
      coq_tag "tag_match" f
      (* DEPRECATED
@@ -161,6 +174,7 @@ let rec coqtops_of_imp_cf cf =
       let c2 = coq_apps (coq_of_cf cf2) [Coq_app (q', coq_tt); Coq_var "Q"]  in
       funhq "tag_seq" (coq_exist "Q'" wild_to_hprop (coq_conj c1 c2))
       (* (!S: fun H Q => exists Q', F1 H Q /\ F2 (Q' tt) Q *)
+      (* TODO: Wpgen_seq F1 F2 *)
 
   | Cf_for (dir,i_name,v1,v2,cf) ->
       let c = Coq_fun ((i_name, coq_int), coq_of_cf cf) in
@@ -172,6 +186,8 @@ let rec coqtops_of_imp_cf cf =
       let f_core = coq_apps (coq_var cf_for) [v1;v2;c] in
       let f = Coq_app (Coq_var "CFML.CFHeaps.local", f_core) in
       coq_tag tag f
+      (* Wpgen_for_int n1 n2 F *)
+      (* LATER: Wpgen_for_downto_int n1 n2 F *)
 
   | Cf_while (cf1,cf2) ->
       let c1 = coq_of_cf cf1 in
@@ -179,8 +195,10 @@ let rec coqtops_of_imp_cf cf =
       let f_core = coq_apps (coq_var "CFML.CFPrint.cf_while") [c1;c2] in
       let f = Coq_app (Coq_var "CFML.CFHeaps.local", f_core) in
       coq_tag "tag_while" f
+      (* Wpgen_while F1 F2 *)
 
   | Cf_pay (cf1) ->
+      (* TODO: LATER *)
       let h' = Coq_var "H'" in
       let c1 = coq_apps (Coq_var "CFML.CFHeaps.pay_one") [h;h'] in
       let c2 = coq_apps (coq_of_cf cf1) [h'; Coq_var "Q"]  in
@@ -243,6 +261,7 @@ let coqtops_of_cftop coq_of_cf cft =
       let t = coq_tag "tag_top_trm" cf_body in
       [ Coqtop_param (cf_axiom_name x, t) ]
       (* Parameter x_cf : (!TT: forall H Q, H h -> F H Q -> Q x h') *)
+      (* TODO not used!  *)
 
   | Cftop_coqs cmds -> cmds
 
