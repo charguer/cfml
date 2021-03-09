@@ -879,7 +879,7 @@ let rec cfg_exp env e =
    | Texp_field (arg, p, lbl) ->
       let tr = coq_typ loc e in
       let ts = coq_typ loc arg in (* todo: check it is always 'loc' *)
-      let func = Coq_var "CFML.CFApp.record_get" in
+      let func = coq_cfml_var "CFApp.record_get" in
       let field = Coq_var (record_field_name lbl.lbl_name) in
       Cf_app ([ts; coq_nat], tr, func, [lift arg; field])
       (* DEPRECATED
@@ -890,7 +890,7 @@ let rec cfg_exp env e =
    | Texp_setfield(arg, p, lbl, newval) ->
       let ts1 = coq_typ loc arg in (* todo: check it is always 'loc' *)
       let ts2 = coq_typ loc newval in
-      let func = Coq_var "CFML.CFApp.record_set" in
+      let func = coq_cfml_var "CFApp.record_set" in
       let field = Coq_var (record_field_name lbl.lbl_name) in
       Cf_app ([ts1; coq_nat; ts2], coq_unit, func, [lift arg; field; lift newval])
       (* DEPRECATED
@@ -952,7 +952,7 @@ and cfg_record ?(record_name = "_") env e =
     let named_args = List.map (fun (p,li,ei) -> (li.lbl_name,ei)) lbl_expr_list in
     let build_arg (name, arg) =
       (record_field_name name, coq_typ loc arg, lift_val env arg) in
-    Cf_record_new (Lib.map build_arg named_args)
+    Cf_record_new (record_name, Lib.map build_arg named_args)
 
   | _ -> assert false
 
@@ -1232,13 +1232,13 @@ and record_functions name record_constr repr_name params fields_names fields_typ
    let helems_items = for_indices (fun i -> hdata (nth i vconcretes) (Coq_app (nth i vreprs, nth i vabstracts))) in
    let helems = hstars helems_items in
    let repr_body = hstar hcore helems in
-   let repr_def = coqtop_def_untyped repr_name (coq_funs repr_args (heap_existss tconcretes repr_body)) in
+   let repr_def = coqtop_def_untyped repr_name (coq_funs repr_args (hexistss tconcretes repr_body)) in
 
    let repr_folded = hdata vloc (coq_apps (coq_var_at repr_name) (vparams @ vlogicals @ vreprs @ vabstracts)) in
    let repr_unfolded = hdata vloc (coq_apps (coq_var_at repr_name) (vparams @ fields_types @ (list_make n id_repr) @ vconcretes)) in
    let repr_elems = helems in
-   let repr_convert_body = coq_eq repr_folded (heap_existss tconcretes (hstar repr_unfolded repr_elems)) in
-   let repr_focus_body =himpl repr_folded (heap_existss tconcretes (hstar repr_unfolded repr_elems)) in
+   let repr_convert_body = coq_eq repr_folded (hexistss tconcretes (hstar repr_unfolded repr_elems)) in
+   let repr_focus_body =himpl repr_folded (hexistss tconcretes (hstar repr_unfolded repr_elems)) in
    let repr_unfocus_body =himpl (hstar repr_unfolded repr_elems) repr_folded in
    let repr_convert_quantif = [tloc] @ tparams @ tlogicals @ treprs @ tabstracts in
    let repr_focus_quantif = repr_convert_quantif in
@@ -1260,8 +1260,8 @@ and record_functions name record_constr repr_name params fields_names fields_typ
       let helemi = nth i helems_items in
       let field_folded = hdata vloc (coq_apps (coq_var_at repr_name) (vparams @ vlogicals @ vreprs @ vabstracts)) in
       let field_unfolded = hdata vloc (coq_apps (coq_var_at repr_name) (vparams @ (list_replace_nth i fields_types vlogicals) @ (list_replace i id_repr vreprs) @ (list_replace_nth i vconcretes vabstracts))) in
-      let field_convert_body = coq_eq field_folded (heap_exists_one tconcretei (hstar field_unfolded helemi)) in
-      let field_focus_body =himpl field_folded (heap_exists_one tconcretei (hstar field_unfolded helemi)) in
+      let field_convert_body = coq_eq field_folded (hexists_one tconcretei (hstar field_unfolded helemi)) in
+      let field_focus_body =himpl field_folded (hexists_one tconcretei (hstar field_unfolded helemi)) in
       let field_unfocus_body =himpl (hstar field_unfolded helemi) field_folded in
       let field_convert_quantif = [tloc] @ tparams @ tlogicals @ treprs @ tabstracts in
       let field_focus_quantif = field_convert_quantif in
@@ -1426,7 +1426,7 @@ and cfg_algebraics decls =
       let build_polyeq_axioms (c,ts) =
         let axiom_name = polymorphic_eq_arg_name c in
         let axiom_type =
-          let pred = Coq_var "CFML.CFBuiltin.polymorphic_eq_arg" in
+          let pred = coq_cfml_var "CFBuiltin.polymorphic_eq_arg" in
           let arg_names_typs = list_mapi (fun i t ->
             (variable_generated_name i, lift_typ_exp loc t)) ts in
           let arg_names = List.map fst arg_names_typs in

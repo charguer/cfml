@@ -132,10 +132,11 @@ Definition Wpgen_fail : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
     \[False]).
 
+
 Definition Wpgen_val (v:val) : Formula :=
   MkStruct (fun A (EA:Enc A) Q => Post_cast_val Q v).
 
-Definition Wpgen_val_lifted_nostruct A1 `{EA1:Enc A1} (V:A1) : Formula :=
+Definition Wpgen_Val_no_mkstruct A1 `{EA1:Enc A1} (V:A1) : Formula :=
   fun A2 (EA2:Enc A2) Q => Post_cast A1 Q V.
 
 Definition Wpaux_var (E:ctx) (x:var) : Formula :=
@@ -761,7 +762,7 @@ Notation "'Val' v" :=
   (at level 69) : wp_scope.
 
 Notation "'Cast' V" :=
-  ((Wpgen_val_lifted_nostruct V))
+  ((Wpgen_Val_no_mkstruct V))
   (at level 69) : wp_scope.
 
 Notation "'Return' F " :=
@@ -958,8 +959,8 @@ Definition Wpgen_done : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
     \[True]).
 
-Definition Wpgen_val_lifted `{Enc A1} (V:A1) : Formula :=
-  MkStruct (Wpgen_val_lifted_nostruct V).
+Definition Wpgen_Val `{Enc A1} (V:A1) : Formula :=
+  MkStruct (Wpgen_Val_no_mkstruct V).
   (* MkStruct (fun A (EA:Enc A) (Q:A->hprop) => Post_cast A Q V)). *)
 
 (* TODO
@@ -980,16 +981,29 @@ Definition Formula_cast `{Enc A1} (F:(A1->hprop)->hprop) : Formula :=
   fun A2 (EA2:Enc A2) (Q:A2->hprop) =>
     \exists (Q':A1->hprop), F Q' \* \[Q' ===> Post_cast A1 Q].
 
-Definition Wpgen_val_lifted_nostruct A1 `{EA1:Enc A1} (V:A1) : Formula :=
+Definition Wpgen_Val_no_mkstruct A1 `{EA1:Enc A1} (V:A1) : Formula :=
   fun A2 (EA2:Enc A2) Q => Post_cast A1 Q V.
 *)
 
 (* includes the return type *)
 
-Definition Wpgen_app_typed (t:trm) (A1:Type) `{EA1:Enc A1} : Formula :=
+Definition Wpgen_app_typed (A1:Type) `{EA1:Enc A1} (t:trm) : Formula :=
   MkStruct (Formula_cast (fun (Q1:A1->hprop) => Wp t Q1)).
 
-Arguments Wpgen_app_typed t A1 {EA1}.
+Arguments Wpgen_app_typed A1 {EA1} t.
+
+Fixpoint Trm_apps (f:trm) (Vs:dyns) : trm :=
+  match Vs with
+  | nil => f
+  | (Dyn V)::Vs' => Trm_apps (f (enc V)) Vs
+  end.
+
+Definition Wpgen_App_typed (A1:Type) `{EA1:Enc A1} (f:trm) (Vs:dyns) : Formula :=
+  Wpgen_app_typed A1 (Trm_apps f Vs).
+(* MkStruct (Formula_cast (fun (Q1:A1->hprop) => Wp (Trm_apps f Vs) Q1)). *)
+
+Arguments Wpgen_App_typed A1 {EA1} f Vs.
+
 
 (*
 Definition Wpgen_fix (Fof:val->val->Formula) : Formula :=
@@ -1014,8 +1028,10 @@ Definition Wpgen_fixs_custom (Custom:(val->(vals->Formula->Prop)->Prop) : Formul
              forall A1..AM .. x1..xN, Pof [x1;..;xn] (Wpbody vf) *)
 
 
-Definition Wpgen_let_fun (P:Prop) : Formula :=
-  Formula.
+Definition Wpgen_let_fun (BodyOf:forall A,Enc A->(A->hprop)->Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q => BodyOf Q).
+
+
 
 (* ********************************************************************** *)
 

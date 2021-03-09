@@ -284,3 +284,10 @@ Definition htype (A a:Type) : Type :=
 (** Carried type for function closures *)
 
 Definition func : Type := val.
+
+
+(* ********************************************************************** *
+(* TEMPORARY *)
+
+Global Instance Enc_any : forall A, Enc A.
+Admitted.

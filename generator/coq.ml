@@ -149,6 +149,9 @@ let coq_bool =
 let coq_var x =
   Coq_var x
 
+let coq_cfml_var x =
+  coq_var ("CFML." ^ x)
+
 (** Disable implicit [@c] *)
 
 let coq_at c =
@@ -176,6 +179,12 @@ let coq_app c1 c2 =
 
 let coq_apps c args =
   List.fold_left coq_app c args
+
+let coq_app_var x c =
+  coq_app (coq_var x) c
+
+let coq_apps_var x args =
+  coq_apps (coq_var x) args
 
 (** Application to wildcards [c _ _ .. _] *)
 

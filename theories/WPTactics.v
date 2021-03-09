@@ -458,13 +458,13 @@ Tactic Notation "xlet" :=
 
 Ltac xcast_pre tt :=
   match xgoal_code_without_wptag tt with
-  | (Wpgen_val_lifted_nostruct _) => idtac
+  | (Wpgen_Val_no_mkstruct _) => idtac
   end.
 
 Lemma xcast_lemma : forall (H:hprop) `{Enc A} (Q:A->hprop) (X:A),
   H ==> Q X ->
-  H ==> ^(Wpgen_val_lifted_nostruct X) Q.
-Proof using. introv M. unfolds Wpgen_val_lifted_nostruct. xchange M. applys qimpl_Post_cast_r. Qed.
+  H ==> ^(Wpgen_Val_no_mkstruct X) Q.
+Proof using. introv M. unfolds Wpgen_Val_no_mkstruct. xchange M. applys qimpl_Post_cast_r. Qed.
 
 Ltac xcast_core tt :=
   xcast_pre tt;
@@ -501,7 +501,7 @@ Ltac xlet_xseq_xcast tt :=
   | (Wpgen_let_typed _ _) => xlet
   | (Wpgen_let _ _) => xlet
   | (Wpgen_seq _ _) => xseq
-  | (Wpgen_val_lifted_nostruct _) => xseq
+  | (Wpgen_Val_no_mkstruct _) => xseq
   end.
 
 Ltac xlet_xseq_xcast_repeat tt :=

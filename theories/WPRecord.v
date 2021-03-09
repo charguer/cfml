@@ -454,19 +454,19 @@ Ltac xspec_record tt :=
 Lemma xapp_record_get : forall A `{EA:Enc A} (Q:A->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
   H ==> p ~> Record L \* (match record_get_compute_dyn f L with
     | None => \[False]
-    | Some (Dyn V) => (p ~> Record L) \-* ^(Wptag (Wpgen_val_lifted_nostruct V)) (protect Q) end) ->
+    | Some (Dyn V) => (p ~> Record L) \-* ^(Wptag (Wpgen_Val_no_mkstruct V)) (protect Q) end) ->
   H ==> ^(Wpgen_app (trm_apps (trm_val (val_get_field f)) (trms_vals ((p:val)::nil)))) Q.
 Proof using.
   introv M1. xchanges (rm M1).
   lets R: record_get_compute_spec_correct f L.
   unfolds record_get_compute_spec.
   destruct (record_get_compute_dyn f L) as [[T ET V]|]; try solve [xpull].
-  set (H' := (p ~> Record L \-* ^(`Wpgen_val_lifted_nostruct V) Q)).
+  set (H' := (p ~> Record L \-* ^(`Wpgen_Val_no_mkstruct V) Q)).
   forwards R': R; eauto. clear R. specializes R' p.
   applys himpl_Wpgen_app_of_Triple.
   applys Triple_enc_change. xapplys (rm R'). simpl.
   unfold Post_cast, Post_cast_val. xpull ;=> ? ->. unfold H'. xpull.
-  unfold Wpgen_val_lifted_nostruct, Wptag. applys himpl_refl.
+  unfold Wpgen_Val_no_mkstruct, Wptag. applys himpl_refl.
 Qed. (* --TODO: simplify proof *)
 
 Lemma xapp_record_set : forall A1 `{EA1:Enc A1} (W:A1) (Q:unit->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),

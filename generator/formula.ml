@@ -12,7 +12,7 @@ type cf =
   | Cf_fail
   | Cf_assert of cf
   | Cf_done
-  | Cf_record_new of (var * coq * coq) list
+  | Cf_record_new of var * (var * coq * coq) list
   | Cf_app of coqs * coq * coq * coqs
   | Cf_body of var * vars * typed_vars * coq * cf
   | Cf_let of typed_var * cf * cf
@@ -48,16 +48,21 @@ and cftops = cftop list
 
 (** Abstract datatype for dynamic values *)
 
-let coq_dyn_at = coq_var_at "CFML.SepLifted.dyn"
+let coq_dyn = coq_cfml_var "SepLifted.dyn_make"
+
+let coq_dyn_at = coq_at coq_dyn
+
+let coq_dyn_of t v =
+  coq_apps coq_dyn_at [t; coq_wild; v]
 
 (** Encoder type *)
 
 let enc_type t =
-  coq_app (coq_var "CFMF.SepLifted.Enc") t
+  coq_app (coq_cfml_var "SepLifted.Enc") t
 
 (** Encoder function *)
 
-let enc = coq_var "CFML.SepLifted.enc"
+let enc = coq_cfml_var "SepLifted.enc"
 
 let enc_of c =
   coq_apps enc [c]
@@ -68,55 +73,55 @@ let enc_of_typed typ c =
 (** Syntax of application *)
 
 let trm_apps cf cvs =
-  coq_apps (coq_var "CFML.Semantics.trm_apps") [cf; coq_list cvs]
+  coq_apps (coq_cfml_var "Semantics.trm_apps") [cf; coq_list cvs]
 
 (** Encoder function for a specific type*)
 
-let enc_at = coq_var "CFML.SepLifted.enc"
+let enc_at = coq_cfml_var "SepLifted.enc"
 
 (** Abstract datatype for functions *)
 
-let func_type = coq_var "CFML.CFLib.func"
+let func_type = coq_cfml_var "CFLib.func"
 
 (** Abstract data type for fields *)
 
 let field_type =
-  coq_var "CFML.Semantics.field"
+  coq_cfml_var "Semantics.field"
 
 (** Abstract data type for locations *)
 
 let loc_type =
-  coq_var "CFML.Semantics.loc"
+  coq_cfml_var "Semantics.loc"
 
 (** Abstract data type for heaps *)
 
 let heap =
-  coq_var "CFML.SepBase.heap"
+  coq_cfml_var "SepBase.heap"
 
 (** Type of proposition on heaps, [hprop], a shorthand for [heap->Prop] *)
 
 let hprop =
-   coq_var "CFML.SepBase.hprop"
+   coq_cfml_var "SepBase.hprop"
 
 (** Type of representation predicates *)
 
 let htype c_abstract c_concrete =
-   coq_apps (coq_var "CFML.CFHeaps.htype") [c_abstract; c_concrete]
+   coq_apps (coq_cfml_var "CFHeaps.htype") [c_abstract; c_concrete]
 
 (** Predicate transformer for Separation Logic *)
 
 let mkstruct =
-  coq_var "CFML.WPLifted.MkStruct"
+  coq_cfml_var "WPLifted.MkStruct"
 
 (** The identity representation predicate *)
 
 let id_repr =
-   coq_var "CFML.SepBase.Id"
+   coq_cfml_var "SepBase.Id"
 
 (** Representation predicate tag *)
 
 let hdata c_concrete c_abstract =
-   coq_apps (coq_var "CFML.SepBase.repr") [c_abstract; c_concrete]
+   coq_apps (coq_cfml_var "SepBase.repr") [c_abstract; c_concrete]
 
 (** Type of pure post-conditions [_ -> Prop] *)
 
@@ -138,10 +143,15 @@ let formula_type_of c =
 let formula_type =
    formula_type_of Coq_wild
 
+(** Application of a formula [F _ _ Q] *)
+
+let formula_app f q =
+  coq_apps f [coq_wild; coq_wild; q]
+
 (** Hprop entailment [H1 ==> H2] *)
 
 let himpl h1 h2 =
-  coq_apps (coq_var "CFML.SepBase.himpl") [h1;h2]
+  coq_apps (coq_cfml_var "SepBase.himpl") [h1;h2]
 
 (** Specialized Hprop entailment [H1 ==> Q2 tt] *)
 
@@ -151,7 +161,7 @@ let himpl_unit h1 q2 =
 (** Postcondition entailment [Q1 ===> Q2] *)
 
 let qimpl q1 q2 =
-  coq_apps (coq_var "CFML.SepBase.qimpl") [q1;q2]
+  coq_apps (coq_cfml_var "SepBase.qimpl") [q1;q2]
 
 (** Specialized post-conditions [fun (_:unit) => H], i.e. [# H] *)
 
@@ -161,17 +171,32 @@ let post_unit h =
 (** Separating conjunction [H1 * H2] *)
 
 let hstar h1 h2 =
-  coq_apps (coq_var "CFML.SepBase.hstar") [h1;h2]
+  coq_apps (coq_cfml_var "SepBase.hstar") [h1;h2]
+
+(** Pure heap predicates [ \[P] ] *)
+
+let hpure c =
+   coq_app (coq_cfml_var "SepBase.hpure") c
 
 (** Magic wand [H1 \-* H2] *)
 
-let hstar h1 h2 =
-  coq_apps (coq_var "CFML.SepBase.hwand") [h1;h2]
+let hwand h1 h2 =
+  coq_apps (coq_cfml_var "SepBase.hwand") [h1;h2]
+
+(** Magic wand with pure left hand side [\[P] \-* H] *)
+
+let hwand_hpure p h =
+  hwand (hpure p) h
+
+(** Magic wand with several pure left hand sides [\[P1] \-* \[P2] \-* H] *)
+
+let hwand_hpures ps h =
+  List.fold_right hwand_hpure ps h
 
 (** Magic wand for postconditions [Q1 \--* Q2] *)
 
 let hstar q1 q2 =
-  coq_apps (coq_var "CFML.SepBase.qwand") [q1;q2]
+  coq_apps (coq_cfml_var "SepBase.qwand") [q1;q2]
 
 (** Base data [hsingle c1 c2] *)
 
@@ -181,7 +206,7 @@ let hsingle c1 c2 =
 (** Empty heap predicate [[]] *)
 
 let hempty =
-   coq_var "CFML.SepBase.hempty"
+   coq_cfml_var "SepBase.hempty"
 
 (** Iterated separating conjunction [H1 * .. * HN] *)
 
@@ -192,25 +217,35 @@ let hstars hs =
 
 (** Lifted existentials [\exists x, H] *)
 
-let heap_exists xname xtype h =
-   Coq_app (coq_var "CFML.SepBase.hexists", Coq_fun ((xname, xtype), h))
+let hexists xname xtype h =
+   Coq_app (coq_cfml_var "SepBase.hexists", Coq_fun ((xname, xtype), h))
 
 (** Lifted existentials [\exists x, H], alternative *)
 
-let heap_exists_one (xname, xtype) h =
-   heap_exists xname xtype h
+let hexists_one (xname, xtype) h =
+   hexists xname xtype h
 
 (** Iteration of lifted existentials [\exists x1, .. \exists xn, H] *)
 
-let heap_existss x_names_types h =
-  List.fold_right (fun (xname,xtype) acc -> heap_exists xname xtype acc) x_names_types h
+let hexistss x_names_types h =
+  List.fold_right (fun (xname,xtype) acc -> hexists xname xtype acc) x_names_types h
 
-(** Lifted propositions [ \[P] ] *)
+(** Lifted universal [\forall x, H] *)
 
-let hpure c =
-   coq_app (coq_var "CFML.SepBase.hpure") c
+let hforall xname xtype h =
+   Coq_app (coq_cfml_var "SepBase.hforall", Coq_fun ((xname, xtype), h))
 
-(** Construction of a formula of the form [fun A (EA:enc a) (Q:A->hprop) => CF] *)
+(** Lifted universal [\forall x, H], alternative *)
+
+let hforall_one (xname, xtype) h =
+   hforall xname xtype h
+
+(** Iteration of lifted universals [\forall x1, .. \forall xn, H] *)
+
+let hforalls x_names_types h =
+  List.fold_right hforall_one x_names_types h
+
+(** Construction of a formula of the form [fun A (EA:enc a) (Q:A->hprop) => H] *)
 
 let formula_def a q c =
   let typ_a = Coq_type in
