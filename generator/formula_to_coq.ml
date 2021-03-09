@@ -16,7 +16,7 @@ let coq_apps_cfml_var x args =
 let rec coqtops_of_cf cf =
   let aux = coqtops_of_cf in
 
-  let h = Coq_var "H" in (* TODO: later not used? *)
+  let h = Coq_var "H" in (* TODO: check clashes with constructors *)
   let q = Coq_var "Q" in
 
   match cf with
@@ -55,6 +55,7 @@ let rec coqtops_of_cf cf =
       let args = coq_list (List.map (fun (x,t) -> coq_dyn_of t x) targs) in
       let premi = himpl h (formula_app (aux cf1) q) in
       let concl = coq_apps_cfml_var "SepLifted.Triple" [f; args; h; q] in
+      let a = "__A" in (* TODO: check clashes *)
       let hyp1 = forall_prepost h a q (coq_impl premi concl) in
       let hyp = coq_forall_types fvs (coq_foralls targs hyp1) in
       coq_apps_cfml_var "WPLifted.Wpgen_body" [hyp]

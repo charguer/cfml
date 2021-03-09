@@ -152,15 +152,15 @@ let coq_var x =
 let coq_cfml_var x =
   coq_var ("CFML." ^ x)
 
-(** Disable implicit [@c] *)
-
-let coq_at c =
-  "@" ^ c
-
 (** Identifier [@x] *)
 
 let coq_var_at x =
-  coq_at (coq_var x)
+  coq_var ("@" ^ x)
+
+let coq_at c =
+  match c with
+  | Coq_var x -> Coq_var ("@" ^ x)
+  | _ -> failwith "coq_at applied to a non-variable"
 
 (** List of identifiers [x1 x2 .. xn] *)
 
@@ -187,6 +187,8 @@ let coq_apps_var x args =
   coq_apps (coq_var x) args
 
 (** Application to wildcards [c _ _ .. _] *)
+
+let coq_wild = Coq_wild
 
 let coq_app_wilds c n =
    coq_apps c (list_make n Coq_wild)

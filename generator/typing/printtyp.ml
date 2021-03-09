@@ -431,7 +431,8 @@ and tree_of_typobject sch fi nm =
                | _ -> l)
             fields [] in
         let sorted_fields =
-          Sort.list (fun (n, _) (n', _) -> n <= n') present_fields in
+          (* CFML Sort.list (fun (n, _) (n', _) -> n <= n') present_fields in *)
+          List.sort (fun (n, _) (n', _) -> if n <= n' then -1 else 1) present_fields in
         tree_of_typfields sch rest sorted_fields in
       let (fields, rest) = pr_fields fi in
       Otyp_object (fields, rest)

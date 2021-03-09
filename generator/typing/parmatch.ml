@@ -52,8 +52,12 @@ let is_absent_pat p = match p.pat_desc with
 | _ -> false
 
 let sort_fields args =
-  Sort.list
+  (* CFML
+    Sort.list
     (fun (_, lbl1,_) (_, lbl2,_) -> lbl1.lbl_pos <= lbl2.lbl_pos)
+    args *)
+    List.sort
+    (fun (_, lbl1,_) (_, lbl2,_) -> if lbl1.lbl_pos <= lbl2.lbl_pos then -1 else 1)
     args
 
 let records_args l1 l2 =

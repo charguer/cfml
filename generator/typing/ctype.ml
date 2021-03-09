@@ -150,8 +150,8 @@ let proper_abbrevs path tl abbrev =
 (* CFML *)
 let debug_generic = false
 let hook_generic : (((type_expr list) ref) list) ref = ref []
-let open_hook () = 
-   if debug_generic 
+let open_hook () =
+   if debug_generic
       then Format.fprintf Format.err_formatter "open hook %d at level %d\n" (1+List.length !hook_generic) !current_level;
    let r : (type_expr list) ref = ref [] in
    hook_generic := r :: !hook_generic
@@ -182,7 +182,7 @@ let hook_fresh_var t =
 
 (* OLD: let newty2             = Btype.newty2 *)
 (* CFML *)
-let newty2 level desc = 
+let newty2 level desc =
    let t = Btype.newty2 level desc in
    hook_fresh_var t;
    t
@@ -238,7 +238,9 @@ let flatten_fields ty =
         (l, ty)
   in
     let (l, r) = flatten [] ty in
-    (Sort.list (fun (n, _, _) (n', _, _) -> n < n') l, r)
+    (* CFML *)
+    (* ( List.sort (fun (n, _, _) (n', _, _) -> n < n') l, r) *)
+    (List.sort (fun (n, _, _) (n', _, _) -> if n < n' then -1 else 1) l, r)
 
 let build_fields level =
   List.fold_right
@@ -364,7 +366,9 @@ let rec class_type_arity =
                   (*  Miscellaneous operations on row types  *)
                   (*******************************************)
 
-let sort_row_fields = Sort.list (fun (p,_) (q,_) -> p < q)
+let sort_row_fields =
+  (* CFML Sort.list (fun (p,_) (q,_) -> p < q) *)
+  List.sort (fun (p,_) (q,_) -> if p < q then -1 else 1)
 
 let rec merge_rf r1 r2 pairs fi1 fi2 =
   match fi1, fi2 with
@@ -781,21 +785,21 @@ let limited_generalize ty0 ty =
 
 (* CFML *)
 
-let close_hook ?(showtyp=(fun t -> ())) ~gen_nonexpansive () = 
-  if debug_generic 
+let close_hook ?(showtyp=(fun t -> ())) ~gen_nonexpansive () =
+  if debug_generic
      then Format.fprintf Format.err_formatter "=== close hook at level %d\n" !current_level;
   match !hook_generic with
   | [] -> failwith "close_hook called while hook list is empty"
-  | h::hs -> 
+  | h::hs ->
       let push_into_outer_hook t =
          match hs with
          | [] -> ()  (* TODO: might want to do something with outermost vars *)
-         | hnext::_ -> 
-            if not (List.memq t !hnext) 
+         | hnext::_ ->
+            if not (List.memq t !hnext)
                then hnext := t :: !hnext
          in
 
-      hook_generic := hs; 
+      hook_generic := hs;
       let r = ref [] in
       let select_generic t =
          let t = repr t in (* TODO: might want to use proxy if objects are supported *)
@@ -822,21 +826,21 @@ let close_hook ?(showtyp=(fun t -> ())) ~gen_nonexpansive () =
                if not (List.memq t !r)  (* TODO: auxiliary function for this pattern *)
                   then r := t::!r
             end else begin
-               push_into_outer_hook t 
+               push_into_outer_hook t
             end
 
          | Tunivar -> failwith "unsupported Tunivar type"
          | _ -> ()
          in
       List.iter select_generic !h;
-      if debug_generic then 
+      if debug_generic then
          Format.fprintf Format.err_formatter "close hook %d of length %d, kept %d\n"
            (List.length !hook_generic)
            (List.length !h)
            (List.length !r);
       List.rev !r
 
-(* Circular 
+(* Circular
         let err = Format.error_formatter in
          Printtyp.type_expr err t;
          Format.fprintf err "\n" ;
