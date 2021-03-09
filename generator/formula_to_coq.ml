@@ -15,24 +15,9 @@ let coq_apps_cfml_var x args =
 
 let rec coqtops_of_cf cf =
   let aux = coqtops_of_cf in
-  let h = Coq_var "H" in
-  let q = Coq_var "Q" in
 
-  (* DEPRECATED
-  let funhq tag ?label ?rettype c =
-       let typ = match rettype with
-       | None -> Coq_wild
-       | Some t -> t
-       in
-     let f_core = coq_funs [("H", hprop);("Q", Coq_impl(typ,hprop))] c in
-     let f = Coq_app (coq_cfml_var "CFHeaps.local", f_core) in
-     (* TODO: CFML.WPLifted.MkStruct *)
-     match label with
-     | None -> coq_tag tag f
-     | Some x ->  (*todo:remove this hack*) if x = "_c" then coq_tag tag f  else
-        coq_tag tag ~label:x f
-     in
-  *)
+  let h = Coq_var "H" in (* TODO: later not used? *)
+  let q = Coq_var "Q" in
 
   match cf with
 
@@ -64,17 +49,16 @@ let rec coqtops_of_cf cf =
       coq_apps_cfml_var "WPLifted.Wpgen_App_typed" [tret; f; args]
 
   | Cf_body (f, fvs, targs, typ, cf1) ->
-  ...
-      let h_body_hyp = coq_apps (aux cf1) [h; q] in
-      let args = List.map (fun (x,t) -> coq_apps coq_dyn_at [t; coq_var x]) targs in
-      let h_body_conc = coq_apps (coq_cfml_var "CFApp.app_def") [coq_var f; coq_list args; h; q]  in
-      let h_body_2 = Coq_impl (h_body_hyp, h_body_conc) in
-      let h_body_1 = coq_foralls [("H", hprop); ("Q", Coq_impl (typ, hprop))] h_body_2 in
-      let h_body = coq_forall_types fvs (coq_foralls targs h_body_1) in
-      coq_tag "tag_app_curried" (h_body)
-      (* (!B: (forall Ai x1 x2 H Q, CF H Q -> app f [(dyn t1 x1) (dyn t2 x2)] H Q) *)
-      (* TODO usage: Wpgen_fixs_custom (fun f Pof =>
-               forall A1..AM .. x1..xN, Pof [x1;..;xn] (Wpbody vf) *)
+      (* Wpgen_body (forall Ai x1 x2 H A EA Q,
+                       (H ==> ^F Q) ->
+                       Triple (trm_Apps f [(@dyn t1 _ v1);.. ; (@dyn tn _ xn)]) H Q) *)
+      let args = coq_list (List.map (fun (x,t) -> coq_dyn_of t x) targs) in
+      let premi = himpl h (formula_app (aux cf1) q) in
+      let concl = coq_apps_cfml_var "SepLifted.Triple" [f; args; h; q] in
+      let hyp1 = forall_prepost h a q (coq_impl premi concl) in
+      let hyp = coq_forall_types fvs (coq_foralls targs hyp1) in
+      coq_apps_cfml_var "WPLifted.Wpgen_body" [hyp]
+      (* TODO later find how to factorize over the list of arguments *)
 
   | Cf_let (typed_x, cf1, cf2) ->
       let c1 = aux cf1 in
@@ -82,6 +66,8 @@ let rec coqtops_of_cf cf =
       coq_apps_cfml_var "WPLifted.Wpgen_let_typed" [c1; c2]
 
   | Cf_let_poly (x, fvs_strict, fvs_other, typ, cf1, cf2) ->
+      coq_var "unsupported"
+      (* LATER
       let type_of_x = coq_forall_types fvs_strict typ in
       let tvars = coq_vars fvs_strict in
       let p1_on_tvars = coq_app_var_at "P1" tvars in
@@ -102,17 +88,20 @@ let rec coqtops_of_cf cf =
                                (\forall A1 B1, C1 (fun r => \[P A1 r] \* H1))
                             \hand
                                \[H1 ==> forall (x1:forall A1,T), ((forall A1, P1 A1 (x1 A1)) -> C2 Q)\] *)
-
-  | Cf_let_val (x, fvs_strict, typ, v, cf) ->
-      let type_of_x = coq_forall_types fvs_strict typ in
-      let equ = coq_eq (Coq_var x) (coq_fun_types fvs_strict v) in
-      let conc = coq_apps (aux cf) [h;q] in
-      funhq "tag_val" (*~label:x*) (Coq_forall ((x, type_of_x), Coq_impl (equ, conc)))
-      (*(!!L x: (fun H Q => forall (x:forall Ai,T), x = (fun Ai => v) -> F H Q)) *)
+      *)
+  | Cf_let_val (x, fvs, typ_body, v, cf) ->
+      (* let x : (forall fvs, typ_body) = v in cf *)
+      (* Wpgen_let_val (fun A EA Q =>
+           \forall (x:(forall Ai,T)), \[x = (fun Ai => v)] \-* ^F Q) *)
+      let typ = coq_forall_types fvs typ_body in
+      let lifted_v = coq_fun_types fvs v in
+      let c = coq_fun (x,typ) (aux cf) in
+      coq_apps_cfml_var "WPLifted.Wpgen_let_Val" [lifted_v; c]
 
   | Cf_let_fun (fcs, cf) ->
       (* fcs list of pairs (fi, bi) *)
-      (* Wpgen_let_fun (fun A EA Q => \forall f1 f2, \[B1] \-* \[B2] \-* (^F Q)) *)
+      (* Wpgen_let_fun (fun A EA Q =>
+            \forall f1 f2, \[B1] \-* \[B2] \-* (^F Q)) *)
       let a = "__A" in (* TODO: make sure it is reserved *)
       let q = "__Q" in (* TODO: make sure it is reserved *)
       let fs, bs = List.split fcs in
@@ -121,7 +110,6 @@ let rec coqtops_of_cf cf =
       let body = hforalls fts (hwand_hpures bs (formula_app (aux cf) q)) in
       let bodyof = formula_def a q body in
       coq_apps_cfml_var "WPLifted.Wpgen_let_fun" bodyof
-      (* LATER: fun tag? let x = List.hd ns in funhq "tag_fun" ~label:x .. *)
 
   | Cf_if (v,cf1,cf2) ->
       coq_apps_cfml_var "WPLifted.Wpgen_if_bool" [v; aux cf1; aux cf2]
@@ -179,42 +167,37 @@ let coqtops_of_cftop coq_of_cf cft =
   match cft with
 
   | Cftop_val (x,t) ->
-      (* the following is the same as for pure *)
-      (* TODO: later, when side effects are allowed, we need to check type is inhabited
+     (* Parameter x : t. *)
+     [ Coqtop_param (x,t) ]
+
+     (* TODO: later, when side effects are allowed, we need to check type is inhabited
      [ Coqtop_instance ((x ^ "_type_inhab", Coq_app (Coq_var "Inhab", t)), true);
        Coqtop_proof "inhab.";
        Coqtop_text ""; ] @
        *)
-     [ Coqtop_param (x,t) ]
      (* --Lemma x_safe : Inhab t. Proof. typeclass. Qed.
         Parameter x : t *)
 
-  | Cftop_pure_cf (x,fvs_strict,fvs_other,cf) ->
-      let type_of_p = coq_forall_types fvs_strict wild_to_prop in
-      let p_applied = coq_app_var_at "P" (coq_vars fvs_strict) in
-      let x_applied = coq_app_var_at x (coq_vars fvs_strict) in
-      let cf_body = coq_foralls ["P", type_of_p] (Coq_impl (Coq_app (coq_of_cf cf, p_applied), Coq_app (p_applied, x_applied))) in
-      let hyp = coq_forall_types (fvs_strict @ fvs_other) cf_body in
-      let t = coq_tag "tag_top_val" hyp in
-      [ Coqtop_param (cf_axiom_name x, t)]
-      (* Parameter x_cf : (!TV forall Ai Bi, (forall P:_->Prop, R (P Ai) -> P Ai (x Ai))) *)
-
   | Cftop_val_cf (x,fvs_strict,fvs_other,v) ->
-      let hyp = coq_forall_types (fvs_strict @ fvs_other) (coq_eq (Coq_var x) v) in
-      let t = coq_tag "tag_top_val" hyp in
-      [ Coqtop_param (cf_axiom_name x, t)]
-      (* Parameter x_cf: (!TV forall Ai Bi, x = v) *)
+      (* Parameter x_cf : (forall Ai Bi, x = v). *)
+      let hyp = coq_forall_types (fvs_strict @ fvs_other) (coq_eq (coq_var x) v) in
+      [ Coqtop_param (cf_axiom_name x, hyp)]
+      (* DEPRECATED let t = coq_tag "tag_top_val" hyp in *)
 
   | Cftop_fun_cf (x,cf) ->
-      let t = coq_tag "tag_top_fun" (coq_of_cf cf) in
-      [ Coqtop_param (cf_axiom_name x, t) ]
-      (* Parameter x_cf : (!TF a: H) *)
+      (* Parameter x_cf : hyp. *)
+      [ Coqtop_param (cf_axiom_name x, coq_of_cf cf) ]
+      (* DEPRECATED let t = coq_tag "tag_top_fun" () in *)
 
-  | Cftop_heap h ->
+
+  | Cftop_heap h -> (* TODO: not used! *)
+      failwith "not used"
       [ Coqtop_param (h, heap) ]
       (* Parameter h : heap. *)
 
-  | Cftop_let_cf (x,h,h',cf) ->
+  | Cftop_let_cf (x,h,h',cf) -> (* TODO: not used! *)
+      failwith "not used"
+      (*
       let conc = coq_apps (Coq_var "Q") [Coq_var x; Coq_var h'] in
       let hyp1 = Coq_app (Coq_var "H", Coq_var h) in
       let hyp2 = coq_apps (coq_of_cf cf) [Coq_var "H"; Coq_var "Q"] in
@@ -222,7 +205,7 @@ let coqtops_of_cftop coq_of_cf cft =
       let t = coq_tag "tag_top_trm" cf_body in
       [ Coqtop_param (cf_axiom_name x, t) ]
       (* Parameter x_cf : (!TT: forall H Q, H h -> F H Q -> Q x h') *)
-      (* TODO not used!  *)
+      *)
 
   | Cftop_coqs cmds -> cmds
 

@@ -32,7 +32,6 @@ type cf =
 type cftop =
     Cftop_val of typed_var
   | Cftop_heap of var
-  | Cftop_pure_cf of var * vars * vars * cf
   | Cftop_val_cf of var * vars * vars * coq
   | Cftop_let_cf of var * var * var * cf
   | Cftop_fun_cf of var * cf
@@ -245,14 +244,23 @@ let hforall_one (xname, xtype) h =
 let hforalls x_names_types h =
   List.fold_right hforall_one x_names_types h
 
-(** Construction of a formula of the form [fun A (EA:enc a) (Q:A->hprop) => H] *)
+(** Construction of a formula of the form [fun A (EA:enc A) (Q:A->hprop) => H] *)
 
 let formula_def a q c =
   let typ_a = Coq_type in
-  let ea = "E" ^ a in
+  let ea = a ^ "E" in (* TODO: name is __AE to avoid conflicts *)
   let typ_ea = enc_type a in
   let typ_q = coq_impl a hprop in
   coq_funs [(a,typ_a); (ea,typ_ea); (q,typ_q)] c
+
+(** Construction of a proposition of the form [forall (H:hprop) A (EA:enc A) (Q:A->hprop) => P] *)
+
+let forall_prepost h a q p =
+  let typ_a = Coq_type in
+  let ea = a ^ "E" in
+  let typ_ea = enc_type a in
+  let typ_q = coq_impl a hprop in
+  coq_foralls [(h,hprop); (a,typ_a); (ea,typ_ea); (q,typ_q)] p
 
 
 (* TODO: check which of these bindings are actually needed *)

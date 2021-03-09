@@ -1028,21 +1028,6 @@ let rec cfg_structure_item s : cftops =
           (* DEPRECATED if (hack_recognize_okasaki_lazy x) then [] else *)
           begin
 
-          (* deprecated: pure-mode let-binding
-          if !pure_mode then begin
-
-             let cf_body = cfg_exp (Ident.empty) bod in
-             let implicits =
-                match fvs_strict with
-                | [] -> []
-                | _ ->  [ Coqtop_implicit (x, List.map (fun t -> (t,Coqi_maximal)) fvs_strict) ]
-                in
-             [ Cftop_val (x, coq_forall_types fvs_strict typ);
-               Cftop_coqs implicits;
-               Cftop_pure_cf (x, fvs_strict, fvs_others, cf_body);
-               Cftop_coqs [register_cf x]; ]
-          end else*)
-
           (* value let-binding *)
           if Typecore.is_nonexpansive bod then begin
 

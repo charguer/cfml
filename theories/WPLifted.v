@@ -1029,7 +1029,25 @@ Definition Wpgen_fixs_custom (Custom:(val->(vals->Formula->Prop)->Prop) : Formul
 
 
 Definition Wpgen_let_fun (BodyOf:forall A,Enc A->(A->hprop)->Formula) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q => BodyOf Q).
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
+    BodyOf Q).
+
+(* LATER: a function that takes a list of propositions parameterized
+    by the list of names of the functions that occur.
+
+   Custom notation for
+
+   Wpgen_let_funs ((fun f1 f2 => B1)::(fun f1 f2 => B2)::nil).
+
+  Definition Wpgen_let_funs (Defs:list(*)) : Formula :=
+*)
+
+Definition Wpgen_let_Val A1 `{EA1:Enc A1} (V:A1) (Fof:T->Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
+    \forall (x:T), \[x = V] \-* ^(Fof x) Q).
+
+Definition Wpgen_body (P:Prop) : Prop :=
+  P.
 
 
 
@@ -1043,6 +1061,9 @@ Definition Wpgen_let_fun (BodyOf:forall A,Enc A->(A->hprop)->Formula) : Formula 
       | ..
       | trm_fix f x t1 => wpgen_fix (fun vf v => wpgen ((f,vf)::(x,v)::E) t1)
       | ..
+
+    Definition wpgen_fix (Fof:val->val->formula) : formula := fun Q =>
+      \forall vf, \[forall vx Q', Fof vf vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
 
     Lemma xfun_spec_lemma : forall (S:val->Prop) H Q Fof,
       (forall vf,
@@ -1059,7 +1080,7 @@ Definition Wpgen_let_fun (BodyOf:forall A,Enc A->(A->hprop)->Formula) : Formula 
       xseq_xlet_if_needed; xstruct_if_needed; applys xfun_spec_lemma S.
     Lemma xfun_nospec_lemma : forall H Q Fof,
       (forall vf,
-         (forall vx H' Q', (H' ==> Fof vx Q') -> triple (trm_app vf vx) H' Q') ->
+           (forall vx H' Q', (H' ==> Fof vx Q') -> triple (trm_app vf vx) H' Q') ->
          (H ==> Q vf)) ->
       H ==> wpgen_fun Fof Q.
     Proof using.
