@@ -12,7 +12,7 @@ type cf =
   | Cf_fail
   | Cf_assert of cf
   | Cf_done
-  | Cf_record_new of coq
+  | Cf_record_new of (var * coq * coq) list
   | Cf_app of coqs * coq * coq * coqs
   | Cf_body of var * vars * typed_vars * coq * cf
   | Cf_let of typed_var * cf * cf
@@ -48,41 +48,51 @@ and cftops = cftop list
 
 (** Abstract datatype for dynamic values *)
 
-let coq_dyn_at = coq_var_at "CFML.CFHeaps.dyn"
+let coq_dyn_at = coq_var_at "CFML.SepLifted.dyn"
 
 (** Abstract datatype for functions *)
 
-let func_type = Coq_var "CFML.CFApp.func"
+let func_type = Coq_var "CFML.CFLib.func"
+
+(** Abstract data type for fields *)
+
+let field_type =
+  Coq_var "CFML.Semantics.field"
 
 (** Abstract data type for locations *)
 
 let loc_type =
-  Coq_var "CFML.CFHeaps.loc"
+  Coq_var "CFML.Semantics.loc"
 
 (** Abstract data type for heaps *)
 
 let heap =
-   Coq_var "CFML.CFHeaps.heap"
+   Coq_var "CFML.SepBase.heap"
 
 (** Type of proposition on heaps, [hprop], a shorthand for [heap->Prop] *)
 
 let hprop =
-   Coq_var "CFML.CFHeaps.hprop"
+   Coq_var "CFML.SepBase.hprop"
 
 (** Type of representation predicates *)
 
 let htype c_abstract c_concrete =
    coq_apps (Coq_var "CFML.CFHeaps.htype") [c_abstract; c_concrete]
 
+(** Predicate transformer for Separation Logic *)
+
+let mkstruct =
+  Coq_var "CFML.WPLifted.MkStruct"
+
 (** The identity representation predicate *)
 
 let id_repr =
-   Coq_var "CFML.CFHeaps.Id"
+   Coq_var "CFML.SepBase.Id"
 
 (** Representation predicate tag *)
 
 let hdata c_concrete c_abstract =
-   coq_apps (Coq_var "CFML.CFHeaps.hdata") [c_abstract; c_concrete]
+   coq_apps (Coq_var "CFML.SepBase.repr") [c_abstract; c_concrete]
 
 (** Type of pure post-conditions [_ -> Prop] *)
 
@@ -106,18 +116,18 @@ let formula_type =
 
 (** Hprop entailment [H1 ==> H2] *)
 
-let heap_impl h1 h2 =
-  coq_apps (Coq_var "TLC.LibLogic.pred_incl") [h1;h2]
+let himpl h1 h2 =
+  coq_apps (Coq_var "CFML.SepBase.himpl") [h1;h2]
 
 (** Specialized Hprop entailment [H1 ==> Q2 tt] *)
 
-let heap_impl_unit h1 q2 =
-  heap_impl h1 (Coq_app (q2, coq_tt))
+let himpl_unit h1 q2 =
+  himpl h1 (Coq_app (q2, coq_tt))
 
 (** Postcondition entailment [Q1 ===> Q2] *)
 
-let post_impl q1 q2 =
-  coq_apps (Coq_var "TLC.LibRelation.rel_incl'") [q1;q2]
+let qimpl q1 q2 =
+  coq_apps (Coq_var "CFML.SepBase.qimpl") [q1;q2]
 
 (** Specialized post-conditions [fun (_:unit) => H], i.e. [# H] *)
 
@@ -126,42 +136,45 @@ let post_unit h =
 
 (** Separating conjunction [H1 * H2] *)
 
-let heap_star h1 h2 =
-  coq_apps (Coq_var "CFML.CFHeaps.heap_is_star") [h1;h2]
+let hstar h1 h2 =
+  coq_apps (Coq_var "CFML.SepBase.hstar") [h1;h2]
 
-(** Base data [heap_is_single c1 c2] *)
+(** Base data [hsingle c1 c2] *)
 
-let heap_is_single c1 c2 =
-  coq_apps (coq_var_at "CFML.CFHeaps.heap_is_single") [c1;Coq_wild;c2]
+let hsingle c1 c2 =
+  coq_apps (coq_var_at "CFML.SepBase.hsingle") [c1;Coq_wild;c2]
 
 (** Empty heap predicate [[]] *)
 
-let heap_empty =
-   Coq_var "CFML.CFHeaps.heap_is_empty"
+let hempty =
+   Coq_var "CFML.SepBase.hempty"
 
 (** Iterated separating conjunction [H1 * .. * HN] *)
 
-let heap_stars hs =
+let hstars hs =
    match (List.rev hs) with
-   | [] -> heap_empty
-   | hn::hs' -> List.fold_left (fun acc x -> heap_star x acc) hn hs'
+   | [] -> hempty
+   | hn::hs' -> List.fold_left (fun acc x -> hstar x acc) hn hs'
 
-(** Lifted existentials [Hexists x, H] *)
+(** Lifted existentials [\exists x, H] *)
 
 let heap_exists xname xtype h =
-   Coq_app (Coq_var "CFML.CFHeaps.heap_is_pack", Coq_fun ((xname, xtype), h))
+   Coq_app (Coq_var "CFML.SepBase.hexists", Coq_fun ((xname, xtype), h))
 
-(** Lifted existentials [Hexists x, H], alternative *)
+(** Lifted existentials [\exists x, H], alternative *)
 
 let heap_exists_one (xname, xtype) h =
    heap_exists xname xtype h
 
-(** Iteration of lifted existentials [Hexists x1, .. Hexists xn, H] *)
+(** Iteration of lifted existentials [\exists x1, .. \exists xn, H] *)
 
 let heap_existss x_names_types h =
   List.fold_right (fun (xname,xtype) acc -> heap_exists xname xtype acc) x_names_types h
 
-(** Lifted propositions [ [P] ] *)
+(** Lifted propositions [ \[P] ] *)
 
-let heap_pred c =
-   Coq_app (Coq_var "CFML.CFHeaps.heap_is_empty_st", c)
+let hpure c =
+   Coq_app (Coq_var "CFML.SepBase.hpure", c)
+
+
+(* TODO: check which of these bindings are actually needed *)

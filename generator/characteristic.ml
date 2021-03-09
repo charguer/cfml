@@ -370,7 +370,7 @@ let register_cf x =
     *)
 
 let register_spec x v =
-   Coqtop_register ("CFML.CFPrint.database_spec", x, v)
+   Coqtop_register ("CFML.WPTactics.database_spec", x, v)
 
 
 (* TODO: rewrite this function by using a normalization function that returns p *)
@@ -951,25 +951,9 @@ and cfg_record ?(record_name = "_") env e =
     if opt_init_expr <> None then unsupported loc "record-with";
     let named_args = List.map (fun (p,li,ei) -> (li.lbl_name,ei)) lbl_expr_list in
     let build_arg (name, arg) =
-      let value = coq_apps coq_dyn_at [coq_typ loc arg; lift_val env arg] in
-      Coq_tuple [Coq_var (record_field_name name); value]
-      in
-    let arg =
-      Coq_fun ((record_name, coq_var "CFHeaps.loc"),
-               coq_list (List.map build_arg named_args)) in
-    Cf_record_new (arg)
+      (record_field_name name, coq_typ loc arg, lift_val env arg) in
+    Cf_record_new (Lib.map build_arg named_args)
 
-  (* DEPRECATED
-  let (pathfront,pathend) = get_record_decomposed_name_for_exp e in
-  let func = Coq_var (pathfront ^ (record_make_name pathend)) in
-  let fields_names = extract_label_names_scimple e.exp_env e.exp_type in
-  let args =
-     try List.map (fun name -> List.assoc name named_args) fields_names
-     with Not_found -> failwith "some fields are missing in a record construction"
-     in
-  let tprod = coq_prod (List.map coq_typ args) in
-  Cf_app ([tprod], loc_type, func, [Coq_tuple (List.map lift args)])
-  *)
   | _ -> assert false
 
 (*#########################################################################*)
@@ -1203,7 +1187,7 @@ and cfg_type_record (name,dec) =
 
 and record_functions name record_constr repr_name params fields_names fields_types =
    let build_field_name_def i field_name =
-      Coqtop_def ((field_name, coq_nat), Coq_nat i)
+      Coqtop_def ((field_name, coq_var_semantics "field"), Coq_nat i)
       in
    let fields_names_def = list_mapi build_field_name_def fields_names in
    fields_names_def
@@ -1244,18 +1228,18 @@ and record_functions name record_constr repr_name params fields_names fields_typ
 
 
    let repr_args = tparams @ tlogicals @ treprs @ tabstracts @ [tloc] in
-   let hcore = heap_is_single vloc (coq_apps (coq_var_at record_constr) (vparams @ vconcretes)) in
+   let hcore = hsingle vloc (coq_apps (coq_var_at record_constr) (vparams @ vconcretes)) in
    let helems_items = for_indices (fun i -> hdata (nth i vconcretes) (Coq_app (nth i vreprs, nth i vabstracts))) in
-   let helems = heap_stars helems_items in
-   let repr_body = heap_star hcore helems in
+   let helems = hstars helems_items in
+   let repr_body = hstar hcore helems in
    let repr_def = coqtop_def_untyped repr_name (coq_funs repr_args (heap_existss tconcretes repr_body)) in
 
    let repr_folded = hdata vloc (coq_apps (coq_var_at repr_name) (vparams @ vlogicals @ vreprs @ vabstracts)) in
    let repr_unfolded = hdata vloc (coq_apps (coq_var_at repr_name) (vparams @ fields_types @ (list_make n id_repr) @ vconcretes)) in
    let repr_elems = helems in
-   let repr_convert_body = coq_eq repr_folded (heap_existss tconcretes (heap_star repr_unfolded repr_elems)) in
-   let repr_focus_body = heap_impl repr_folded (heap_existss tconcretes (heap_star repr_unfolded repr_elems)) in
-   let repr_unfocus_body = heap_impl (heap_star repr_unfolded repr_elems) repr_folded in
+   let repr_convert_body = coq_eq repr_folded (heap_existss tconcretes (hstar repr_unfolded repr_elems)) in
+   let repr_focus_body =himpl repr_folded (heap_existss tconcretes (hstar repr_unfolded repr_elems)) in
+   let repr_unfocus_body =himpl (hstar repr_unfolded repr_elems) repr_folded in
    let repr_convert_quantif = [tloc] @ tparams @ tlogicals @ treprs @ tabstracts in
    let repr_focus_quantif = repr_convert_quantif in
    let repr_unfocus_quantif = [tloc] @ tparams @ tconcretes @ tlogicals @ treprs @ tabstracts in
@@ -1276,9 +1260,9 @@ and record_functions name record_constr repr_name params fields_names fields_typ
       let helemi = nth i helems_items in
       let field_folded = hdata vloc (coq_apps (coq_var_at repr_name) (vparams @ vlogicals @ vreprs @ vabstracts)) in
       let field_unfolded = hdata vloc (coq_apps (coq_var_at repr_name) (vparams @ (list_replace_nth i fields_types vlogicals) @ (list_replace i id_repr vreprs) @ (list_replace_nth i vconcretes vabstracts))) in
-      let field_convert_body = coq_eq field_folded (heap_exists_one tconcretei (heap_star field_unfolded helemi)) in
-      let field_focus_body = heap_impl field_folded (heap_exists_one tconcretei (heap_star field_unfolded helemi)) in
-      let field_unfocus_body = heap_impl (heap_star field_unfolded helemi) field_folded in
+      let field_convert_body = coq_eq field_folded (heap_exists_one tconcretei (hstar field_unfolded helemi)) in
+      let field_focus_body =himpl field_folded (heap_exists_one tconcretei (hstar field_unfolded helemi)) in
+      let field_unfocus_body =himpl (hstar field_unfolded helemi) field_folded in
       let field_convert_quantif = [tloc] @ tparams @ tlogicals @ treprs @ tabstracts in
       let field_focus_quantif = field_convert_quantif in
       let field_unfocus_quantif = [tloc] @ tparams @ [ tconcretei ] @ tlogicals @ treprs @ tabstracts in
@@ -1325,7 +1309,7 @@ and record_functions name record_constr repr_name params fields_names fields_typ
       let data_targs = vparams @ replaced_vlogicals @ replaced_vreprs in
       let data_initial = hdata vloc (coq_apps (coq_var_at repr_name) (data_targs @ vabstracts)) in
       let data_updated = hdata vloc (coq_apps (coq_var_at repr_name) (data_targs @ update_vabstracts)) in
-      let post_get = coq_funs [("x", Coq_wild)] (heap_star (heap_pred (coq_eq (Coq_var "x") (nth i vabstracts))) data_initial) in
+      let post_get = coq_funs [("x", Coq_wild)] (hstar (hpure (coq_eq (Coq_var "x") (nth i vabstracts))) data_initial) in
       let post_set = post_unit data_updated in
       let body_quantif = replaced_tabstracts @ selected_treprs in
       let body_get = coq_funs [tloc; trget] (coq_foralls body_quantif (coq_apps vr [data_initial; post_get])) in
@@ -1350,7 +1334,7 @@ and record_functions name record_constr repr_name params fields_names fields_typ
       let data_initial = hdata vloc (coq_apps (coq_var_at repr_name) (vparams @ vlogicals @ vreprs @ vabstracts)) in
       let data_focused = hdata (Coq_var "x") (Coq_app (nth i vreprs, nth i vabstracts)) in
       let data_final = hdata vloc (coq_apps (coq_var_at repr_name) (vparams @ replaced_vlogicals @ replaced_vreprs @ replaced_vabstracts)) in
-      let post_get = coq_funs [("x", Coq_wild)] (heap_star data_focused data_final) in
+      let post_get = coq_funs [("x", Coq_wild)] (hstar data_focused data_final) in
       let body_quantif = tabstracts @ treprs in
       let body_get = coq_funs [tloc; trget] (coq_foralls body_quantif (coq_apps vr [data_initial; post_get])) in
       let spec_get = coq_foralls (tparams @ tlogicals) (coq_apps (Coq_var "spec_1") [body_get; coq_var get_name]) in
@@ -1380,7 +1364,7 @@ and record_functions name record_constr repr_name params fields_names fields_typ
       let data_focused = hdata (Coq_var x_concrete) (Coq_app (vrepr0, vabstract0)) in
       let post_set = post_unit data_updated in
       let body_quantif = [tabstract0] @ tabstracts @ [trepr0] @ treprs in
-      let body_set = coq_funs [tloc; tx_concrete; trset] (coq_foralls body_quantif (coq_apps vr [(heap_star data_initial data_focused); post_set])) in
+      let body_set = coq_funs [tloc; tx_concrete; trset] (coq_foralls body_quantif (coq_apps vr [(hstar data_initial data_focused); post_set])) in
       let spec_set = coq_foralls (tparams @ [tlogical0] @ tlogicals) (coq_apps (Coq_var "spec_2") [body_set; coq_var set_name]) in
       [ Coqtop_param (set_name_spec, spec_set);
         coqtop_register "database_spec_unfocus" set_name set_name_spec; ]
@@ -1685,8 +1669,9 @@ let cfg_file str =
    Print_type.type_rename := Renaming.type_variable_name;
    [ Cftop_coqs ([
       Coqtop_set_implicit_args;
-      Coqtop_require [ "Coq.ZArith.BinInt"; "TLC.LibLogic"; "TLC.LibRelation"; "TLC.LibInt"; "TLC.LibListZ"; "CFML.Shared"; "CFML.CFHeaps"; "CFML.CFApp"; "CFML.CFPrint"; "CFML.CFBuiltin" ];
+      (* Coqtop_require [ "Coq.ZArith.BinInt"; "TLC.LibLogic"; "TLC.LibRelation"; "TLC.LibInt"; "TLC.LibListZ"; "CFML.Shared"; "CFML.CFHeaps"; "CFML.CFApp"; "CFML.CFPrint"; "CFML.CFBuiltin" ];  TODO: should be covered by CFHeader *)
       Coqtop_require_import [ "Coq.ZArith.BinIntDef"; "CFML.CFHeader" ];
+      (* TODO: check binintdef needed *)
       Coqtop_custom "Delimit Scope Z_scope with Z.";
       Coqtop_custom "Local Open Scope cfheader_scope.";
       (*DEPRECATED Coqtop_custom "Open Scope list_scope.";*)

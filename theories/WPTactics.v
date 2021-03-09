@@ -458,13 +458,13 @@ Tactic Notation "xlet" :=
 
 Ltac xcast_pre tt :=
   match xgoal_code_without_wptag tt with
-  | (Wpgen_cast _) => idtac
+  | (Wpgen_val_lifted_nostruct _) => idtac
   end.
 
 Lemma xcast_lemma : forall (H:hprop) `{Enc A} (Q:A->hprop) (X:A),
   H ==> Q X ->
-  H ==> ^(Wpgen_cast X) Q.
-Proof using. introv M. unfolds Wpgen_cast. xchange M. applys qimpl_Post_cast_r. Qed.
+  H ==> ^(Wpgen_val_lifted_nostruct X) Q.
+Proof using. introv M. unfolds Wpgen_val_lifted_nostruct. xchange M. applys qimpl_Post_cast_r. Qed.
 
 Ltac xcast_core tt :=
   xcast_pre tt;
@@ -501,7 +501,7 @@ Ltac xlet_xseq_xcast tt :=
   | (Wpgen_let_typed _ _) => xlet
   | (Wpgen_let _ _) => xlet
   | (Wpgen_seq _ _) => xseq
-  | (Wpgen_cast _) => xseq
+  | (Wpgen_val_lifted_nostruct _) => xseq
   end.
 
 Ltac xlet_xseq_xcast_repeat tt :=
@@ -1034,3 +1034,863 @@ Proof using. introv M. xchanges M. Qed.
 (* --TODO: decode typeclass *)
 
 (* --LATER: xif automates xapp *)
+
+
+
+
+(* ********************************************************************** *)
+(* ********************************************************************** *)
+(* ********************************************************************** *)
+(** * Loops *)
+
+(*
+
+(*--------------------------------------------------------*)
+(* ** [xwhile] *)
+
+
+(** [xwhile] applies to a goal of the form [(While F1 Do F2) H Q].
+    It introduces an abstract local predicate [S] that denotes the behavior
+    of the loop. The goal is [S H Q]. An assumption is provided to unfold
+    the loop:
+    [forall H' Q', (If_ F1 Then (Seq_ F2 ;; S) Else (Ret tt)) H' Q' -> S H' Q'].
+
+    After [xwhile], the typical proof pattern is to generalize the goal
+    by calling [assert (forall X, S (Hof X) (Qof X)] for some predicate [Hof]
+    and [Qof] and then performing a well-founded induction on [X] w.r.t. wf
+    relation. (Or, using [xind_skip] to skip the termination proof.)
+
+    Alternatively, one can call one of the [xwhile_inv] tactics described
+    below to automatically set up the induction. The use of an invariant
+    makes the proof simpler but
+
+    Forms:
+
+    - [xwhile] is the basic form, described above.
+
+    - [xwhile as S] is equivalent to [xwhile; intros S LS HS].
+
+    - [xwhile_inv I R]  where [R] is a well-founded relation on
+      type [A] and then invariant [I] has the form
+      [fun (b:bool) (X:A) => H]. Compared with [xwhile], this tactic
+      saves the need to set up the induction. However, this tactic
+      does not allow calling the [frame] rule during the loop iterations.
+
+    - [xwhile_inv_basic I R]  where [R] is a well-founded relation on
+      type [A] and then invariant [I] has the form
+      [fun (b:bool) (X:A) => H]. This tactic processes the loop so
+      as to provide separate goals for the loop condition and for
+      the loop body. However, this tactic should not be use when both
+      the loop condition and the loop body require unfolding a
+      representation predicate.
+
+    - [xwhile_inv_basic_measure I]  where then invariant [I] has the
+      form [fun (b:bool) (m:int) => H], where [b] indicates whether
+      the loop has terminated, and [m] gives the measure of [H].
+      It is just a special case of [xwhile_inv_basic].
+
+    - [xwhile_inv_skip I] is similar to [xwhile_inv], but the termination
+      proof is not required. Here, [I] takes the form [fun (b:bool) => H].
+
+    - [xwhile_inv_basic_skip I] is similar to [xwhile_inv_basic], but the termination
+      proof is not required. Here, [I] takes the form [fun (b:bool) => H].
+
+*)
+
+Lemma xwhile_inv_lemma :
+  forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop),
+  forall (F1:~~bool) (F2:~~unit) H,
+  wf R ->
+  (H ==> (Hexists b X0, I b X0) \* \GC) ->
+  (forall (S:~~unit), is_local S -> forall b X,
+      (forall b'' X'', R X'' X -> S (I b'' X'') (# Hexists X', I false X')) ->
+      (Let _c := F1 in If_ _c Then (F2 ;; S) Else Ret tt) (I b X) (# Hexists X', I false X')) ->
+  (While F1 Do F2 Done_) H (# Hexists X, I false X).
+Proof using.
+  introv WR HH HS.
+  applys local_gc_pre (Hexists b X0, I b X0); [ xlocal | apply HH | ].
+  apply local_erase. intros S LS FS.
+  xpull ;=> b X0. gen b. induction_wf IH: WR X0. intros.
+  applys (rm FS). applys HS. auto.
+  intros b'' X'' LX. applys IH. applys LX.
+Qed.
+
+Lemma xwhile_inv_basic_lemma :
+   forall (A:Type) (I:bool->A->hprop) (R:A->A->Prop),
+   forall (F1:~~bool) (F2:~~unit) H,
+   wf R ->
+   (H ==> (Hexists b X0, I b X0) \* \GC) ->
+   (forall b X, F1 (I b X) (fun b' => I b' X)) ->
+   (forall X, F2 (I true X) (# Hexists b X', \[R X' X] \* I b X')) ->
+   (While F1 Do F2 Done_) H (# Hexists X, I false X).
+Proof using.
+  introv WR HH HF1 HF2.
+  applys local_gc_pre (Hexists b X, I b X); [ xlocal | apply HH | ].
+  applys xwhile_inv_lemma (fun X m => I X m) R; [ auto | hsimpl | ].
+  introv LS FS. xlet as b'.
+  { applys HF1. }
+  { simpl. xif.
+    { xseq. applys HF2. simpl. xpull ;=>. applys~ FS. }
+    { xret. hsimpl. } }
+Qed.
+
+Lemma xwhile_inv_basic_measure_lemma :
+   forall (I:bool->int->hprop),
+   forall (F1:~~bool) (F2:~~unit) H,
+   (H ==> (Hexists b m, I b m) \* \GC) ->
+   (forall b m, F1 (I b m) (fun b' => I b' m)) ->
+   (forall m, F2 (I true m) (# Hexists b m', \[0 <= m' < m] \* I b m')) ->
+   (While F1 Do F2 Done_) H (# Hexists m, I false m).
+Proof using.
+  introv HH HF1 HF2. applys~ xwhile_inv_basic_lemma I (wf_downto 0).
+Qed.
+
+(* for cheaters *)
+Axiom xwhile_inv_basic_skip_lemma :
+   forall (I:bool->hprop),
+   forall (F1:~~bool) (F2:~~unit) H,
+   (H ==> (Hexists b, I b) \* \GC) ->
+   (forall b, F1 (I b) (fun b' => I b')) ->
+   (F2 (I true) (# Hexists b, I b)) ->
+   (While F1 Do F2 Done_) H (# I false).
+
+(* for cheaters *)
+Axiom xwhile_inv_skip_lemma :
+  forall (I:bool->hprop),
+  forall (F1:~~bool) (F2:~~unit) H,
+  (H ==> (Hexists b, I b) \* \GC) ->
+  (forall (S:~~unit), is_local S -> forall b,
+      (forall b'', S (I b'') (# I false)) ->
+      (Let _c := F1 in If_ _c Then (F2 ;; S) Else Ret tt) (I b) (# I false)) ->
+  (While F1 Do F2 Done_) H (# I false).
+
+Ltac cfml_relation_of_relation_or_measure E :=
+  match type of E with
+  | _ -> nat => constr:(LibWf.measure E)
+  | _ => E
+  end.
+
+Ltac xwhile_pre cont :=
+  let aux tt := xuntag tag_while; cont tt in
+  match cfml_get_tag tt with
+  | tag_while =>
+    match cfml_postcondition_is_evar tt with
+    | true => aux tt
+    | false => xgc_post; [ aux tt | ]
+    end
+  | tag_seq => xseq; [ aux tt | instantiate; try xpull ]
+  end.
+
+Tactic Notation "xwhile" :=
+  xwhile_pre ltac:(fun _ => apply local_erase).
+
+Tactic Notation "xwhile" "as" ident(S) :=
+  xwhile_pre ltac:(fun _ =>
+    let LS := fresh "L" S in
+    let HS := fresh "H" S in
+    apply local_erase;
+    intros S LS HS).
+
+Ltac xwhile_inv_core I R :=
+  let R := cfml_relation_of_relation_or_measure R in
+  xwhile_pre ltac:(fun _ => apply (@xwhile_inv_lemma _ I R);
+    [ auto with wf | | xtag_pre_post ]).
+
+Tactic Notation "xwhile_inv" constr(I) constr(R) :=
+  xwhile_inv_core I R.
+
+Ltac xwhile_inv_basic_core I R :=
+  let R := cfml_relation_of_relation_or_measure R in
+  xwhile_pre ltac:(fun _ => apply (@xwhile_inv_basic_lemma _ I R);
+    [ auto with wf | | xtag_pre_post | xtag_pre_post ]).
+
+Tactic Notation "xwhile_inv_basic" constr(I) constr(R) :=
+  xwhile_inv_basic_core I R.
+
+Tactic Notation "xwhile_inv_basic_measure" constr(I) :=
+  xwhile_pre ltac:(fun _ => apply (@xwhile_inv_basic_measure_lemma I);
+    [ | xtag_pre_post | xtag_pre_post ]).
+
+Tactic Notation "xwhile_inv_skip" constr(I) :=
+  xwhile_pre ltac:(fun _ => apply (@xwhile_inv_skip_lemma I);
+    [ xtag_pre_post | xtag_pre_post ]).
+
+Tactic Notation "xwhile_inv_basic_skip" constr(I)  :=
+  xwhile_pre ltac:(fun _ => apply (@xwhile_inv_basic_skip_lemma I);
+    [ | xtag_pre_post | xtag_pre_post ]).
+
+
+(*--------------------------------------------------------*)
+(* ** [xfor] *)
+
+(** [xfor] applies to a goal of the form [(For i = a To b Do F) H Q].
+    It introduces an abstract local predicate [S] such that [S i]
+    denotes the behavior of the loop starting from index [i].
+    The initial goal is [S a H Q]. An assumption is provided to unfold
+    the loop:
+    [forall i H' Q',
+     (If_ i <= b Then (Seq_ F ;; S (i+1)) Else (Ret tt)) H' Q' -> S i H' Q'].
+
+    After [xfor], the typical proof pattern is to generalize the goal
+    by calling [assert (forall X i, i <= b -> S i (Hof i X) (Qof i X))],
+    and then performing an induction on [i].
+    (Or, using [xind_skip] to skip the termination proof.)
+
+    Alternatively, one can call one of the [xfor_inv] tactics described
+    below to automatically set up the induction. The use of an invariant
+    makes the proof simpler but
+
+    Forms:
+
+    - [xfor] is the basic form, described above.
+
+    - [xfor as S] is equivalent to [xwhile; intros S LS HS].
+
+    - [xfor_inv I] specializes the goal for the case [a <= b+1].
+      It requests to prove [H ==> I a] and [I (b+1) ==> Q], and
+      [forall i, a <= i <= b, F (I i) (# I (i+1))] for iterations.
+      Note that the goal will not be provable if [a > b+1].
+
+    - [xfor_inv_void] simplifies the goal in case the loops runs
+      no iteration, that is, when [a > b].
+
+    - [xfor_inv_case I] provides two sub goals, one for the case
+      [a > b] and one for the case [a <= b].
+*)
+
+Lemma xfor_simplify_inequality_lemma : forall (n:int),
+  ((n-1)+1) = n.
+Proof using. math. Qed.
+
+Ltac xfor_simplify_inequality tt :=
+  try rewrite xfor_simplify_inequality_lemma.
+  (* TODO: ideally, would restrict the rewriting to the
+     occurences created by the application of the lemma. *)
+
+Lemma xfor_inv_case_lemma : forall (I:int->hprop),
+   forall (a:int) (b:int) (F:int->~~unit) H (Q:unit->hprop),
+   ((a <= b) -> exists H',
+          (H ==> I a \* H')
+       /\ (forall i, a <= i <= b -> F i (I i) (# I(i+1)))
+       /\ (I (b+1) \* H' ==> Q tt \* \GC)) ->
+   ((a > b) ->
+          (H ==> Q tt \* \GC)) ->
+  (For i = a To b Do F i Done_) H Q.
+Proof using.
+  introv M1 M2. apply local_erase. intros S LS HS.
+  tests: (a <= b).
+  { forwards (H'&(Ma&Mb&Mc)): (rm M1). math.
+    cuts P: (forall i, a <= i <= b+1 -> S i (I i) (# I (b+1))).
+    { xapply P. math. hchanges Ma. hchanges Mc. }
+    { intros i. induction_wf IH: (upto (b+1)) i. intros Hi.
+      applys (rm HS). xif.
+      { xseq. applys Mb. math. xapply IH; auto with maths. xsimpl. }
+      { xret. math_rewrite (i = b+1). xsimpl. } } }
+  { applys (rm HS). xif. { math. } { xret. applys M2. math. } }
+Qed.
+
+Lemma xfor_inv_lemma : forall (I:int->hprop),
+  forall (a:int) (b:int) (F:int->~~unit) H H',
+  (a <= b+1) ->
+  (H ==> I a \* H') ->
+  (forall i, a <= i <= b -> F i (I i) (# I(i+1))) ->
+  (For i = a To b Do F i Done_) H (# I (b+1) \* H').
+Proof using.
+  introv ML MH MI. applys xfor_inv_case_lemma I; intros C.
+  { exists H'. splits~. xsimpl. }
+  { xchange MH. math_rewrite (a = b + 1). xsimpl. }
+Qed.
+
+Lemma xfor_inv_lemma_pred : forall (I:int->hprop),
+  forall (a:int) (n:int) (F:int->~~unit) H H',
+  (a <= n) ->
+  (H ==> I a \* H') ->
+  (forall i, a <= i < n -> F i (I i) (# I(i+1))) ->
+  (For i = a To (n - 1) Do F i Done_) H (# I n \* H').
+Proof using.
+  introv ML MH MI. applys xfor_inv_case_lemma I; intros C.
+  { exists H'. splits~.
+    { intros. applys MI. math. }
+    { math_rewrite ((n-1)+1 = n). xsimpl. } }
+  { xchange MH. math_rewrite (a = n). xsimpl. }
+Qed.
+
+Lemma xfor_inv_void_lemma :
+  forall (a:int) (b:int) (F:int->~~unit) H,
+  (a > b) ->
+  (For i = a To b Do F i Done_) H (# H).
+Proof using.
+  introv ML.
+  applys xfor_inv_case_lemma (fun (i:int) => \[]); intros C.
+  { false. math. }
+  { xsimpl. }
+Qed.
+
+Ltac xfor_ensure_evar_post cont :=
+  match cfml_postcondition_is_evar tt with
+  | true => cont tt
+  | false => xgc_post; [ cont tt | ]
+  end.
+
+Ltac xfor_pre cont :=
+  let aux tt := xuntag tag_for; cont tt in
+  match cfml_get_tag tt with
+  | tag_for => aux tt
+  | tag_seq => xseq; [ aux tt | instantiate; try xpull ]
+  end.
+
+Ltac xfor_pre_ensure_evar_post cont :=
+  xfor_pre ltac:(fun _ =>
+    xfor_ensure_evar_post ltac:(fun _ => cont tt)).
+
+Tactic Notation "xfor" :=
+  xfor_pre ltac:(fun _ => apply local_erase).
+
+Tactic Notation "xfor" "as" ident(S) :=
+  xfor_pre ltac:(fun _ =>
+    let LS := fresh "L" S in
+    let HS := fresh "H" S in
+    apply local_erase;
+    intros S LS HS).
+
+Ltac xfor_inv_case_check_post_instantiated tt :=
+  lazymatch cfml_postcondition_is_evar tt with
+  | true => fail 2 "xfor_inv_case requires a post-condition; use [xpost Q] to set it, or [xseq Q] if the loop is behind a Seq."
+  | false => idtac
+  end.
+
+Ltac xfor_inv_case_core_then I cont1 cont2 :=
+  match cfml_get_tag tt with
+  | tag_seq =>
+       fail 1 "xfor_inv_case requires a post-condition; use [xseq Q] to assign it."
+  | tag_for =>
+       xfor_inv_case_check_post_instantiated tt;
+       xfor_pre ltac:(fun _ => apply (@xfor_inv_case_lemma I); [ cont1 tt | cont2 tt ])
+  end.
+
+Ltac xfor_inv_case_no_intros_core I :=
+  xfor_inv_case_core_then I
+    ltac:(fun _ => xfor_simplify_inequality tt)
+    ltac:(fun _ => idtac).
+
+Ltac xfor_inv_case_core I :=
+  let C := fresh "C" in
+  xfor_inv_case_core_then I
+    ltac:(fun _ => intros C; esplit; splits 3; [ | | xfor_simplify_inequality tt ])
+    ltac:(fun _ => intros C).
+
+Tactic Notation "xfor_inv_case" constr(I) :=
+  xfor_inv_case_core I.
+
+Ltac xfor_inv_core I :=
+  xfor_pre_ensure_evar_post ltac:(fun _ =>
+     first [ apply (@xfor_inv_lemma_pred I)
+           | apply (@xfor_inv_lemma I) ];
+     [ | | xtag_pre_post ]).
+
+Tactic Notation "xfor_inv" constr(I) :=
+  xfor_inv_core I.
+
+Ltac xfor_inv_void_core tt :=
+  xfor_pre_ensure_evar_post ltac:(fun _ =>
+    apply (@xfor_inv_void_lemma)).
+
+Tactic Notation "xfor_inv_void" :=
+  xfor_inv_void_core tt.
+
+
+(*--------------------------------------------------------*)
+(* ** [xfor_down] *)
+
+(** [xfor_down] applies to a goal of the form [(For i = a Downto b Do F) H Q].
+    It introduces an abstract local predicate [S] such that [S i]
+    denotes the behavior of the loop starting from index [i].
+    The initial goal is [S a H Q]. An assumption is provided to unfold
+    the loop:
+    [forall i H' Q',
+     (If_ i >= b Then (Seq_ F ;; S (i-1)) Else (Ret tt)) H' Q' -> S i H' Q'].
+
+    See [xfor] for additional comments.
+
+    Forms:
+
+    - [xfor_down] is the basic form, described above.
+
+    - [xfor_down as S] is equivalent to [xwhile; intros S LS HS].
+
+    - [xfor_down_inv I] specializes the goal for the case [a >= b-1].
+      It requests to prove [H ==> I b] and [I (a-1) ==> Q], and
+      [forall i, b <= i <= a, F (I i) (# I (i-1))] for iterations.
+      Note that the goal will not be provable if [a < b-1].
+
+    - [xfor_down_inv_void] simplifies the goal in case the loops runs
+      no iteration, that is, when [a < b].
+
+    - [xfor_down_inv_case I] provides two sub goals, one for the case
+      [a < b] and one for the case [a >= b].
+*)
+
+Lemma xfor_down_inv_case_lemma : forall (I:int->hprop),
+   forall (a:int) (b:int) (F:int->~~unit) H (Q:unit->hprop),
+   ((a >= b) -> exists H',
+          (H ==> I a \* H')
+       /\ (forall i, b <= i <= a -> F i (I i) (# I(i-1)))
+       /\ (I (b-1) \* H' ==> Q tt \* \GC)) ->
+   ((a < b) ->
+          (H ==> Q tt \* \GC)) ->
+  (For i = a DownTo b Do F i Done_) H Q.
+Proof using.
+  introv M1 M2. apply local_erase. intros S LS HS.
+  tests: (a >= b).
+  { forwards (H'&(Ma&Mb&Mc)): (rm M1). math.
+    cuts P: (forall i, b-1 <= i <= a -> S i (I i) (# I (b-1))).
+    { xapply P. math. hchanges Ma. hchanges Mc. }
+    { intros i. induction_wf IH: (downto (b-1)) i. intros Hi.
+      applys (rm HS). xif.
+      { xseq. applys Mb. math. xapply IH; auto with maths. xsimpl. }
+      { xret. math_rewrite (i = b - 1). xsimpl. } } }
+  { applys (rm HS). xif. { math. } { xret. applys M2. math. } }
+Qed.
+
+Lemma xfor_down_inv_lemma : forall (I:int->hprop),
+  forall (a:int) (b:int) (F:int->~~unit) H H',
+  (a >= b-1) ->
+  (H ==> I a \* H') ->
+  (forall i, b <= i <= a -> F i (I i) (# I(i-1))) ->
+  (For i = a DownTo b Do F i Done_) H (# I (b-1) \* H').
+Proof using.
+  introv ML MH MI. applys xfor_down_inv_case_lemma I; intros C.
+  { exists H'. splits~. xsimpl. }
+  { xchange MH. math_rewrite (a = b - 1). xsimpl. }
+Qed.
+
+Lemma xfor_down_inv_void_lemma :
+  forall (a:int) (b:int) (F:int->~~unit) H,
+  (a < b) ->
+  (For i = a DownTo b Do F i Done_) H (# H).
+Proof using.
+  introv ML.
+  applys xfor_down_inv_case_lemma (fun (i:int) => \[]); intros C.
+  { false. math. }
+  { xsimpl. }
+Qed.
+
+Ltac xfor_down_pre cont :=
+  let aux tt := xuntag tag_for_down; cont tt in
+  match cfml_get_tag tt with
+  | tag_for_down => aux tt
+  | tag_seq => xseq; [ aux tt | instantiate; try xpull ]
+  end.
+
+Ltac xfor_down_pre_ensure_evar_post cont :=
+  xfor_down_pre ltac:(fun _ =>
+    xfor_ensure_evar_post ltac:(fun _ => cont tt)).
+
+Tactic Notation "xfor_down" :=
+  xfor_down_pre ltac:(fun _ => apply local_erase).
+
+Tactic Notation "xfor_down" "as" ident(S) :=
+  xfor_down_pre ltac:(fun _ =>
+    let LS := fresh "L" S in
+    let HS := fresh "H" S in
+    apply local_erase;
+    intros S LS HS).
+
+Ltac xfor_down_inv_case_core_then I cont1 cont2 :=
+  match cfml_get_tag tt with
+  | tag_seq =>
+       fail 1 "xfor_inv_case requires a post-condition; use [xseq Q] to assign it."
+  | tag_for_down =>
+       xfor_inv_case_check_post_instantiated tt;
+       xfor_down_pre ltac:(fun _ => apply (@xfor_down_inv_case_lemma I);
+                                     [ cont1 tt | cont2 tt ])
+  end.
+
+Ltac xfor_down_inv_case_no_intros_core I :=
+  xfor_down_inv_case_core_then I ltac:(fun _ => idtac) ltac:(fun _ => idtac).
+
+Ltac xfor_down_inv_case_core I :=
+  let C := fresh "C" in
+  xfor_down_inv_case_core_then I
+    ltac:(fun _ => intros C; esplit; splits 3)
+    ltac:(fun _ => intros C).
+
+Tactic Notation "xfor_down_inv_case" constr(I) :=
+  xfor_down_inv_case_core I.
+
+Ltac xfor_down_inv_core I :=
+  xfor_down_pre_ensure_evar_post ltac:(fun _ => apply (@xfor_down_inv_lemma I)).
+
+Tactic Notation "xfor_down_inv" constr(I) :=
+  xfor_down_inv_core I.
+
+Ltac xfor_down_inv_void_core tt :=
+  xfor_down_pre_ensure_evar_post ltac:(fun _ => apply (@xfor_down_inv_void_lemma)).
+
+Tactic Notation "xfor_down_inv_void" :=
+  xfor_down_inv_void_core tt.
+
+*)
+
+
+(* ********************************************************************** *)
+(* ********************************************************************** *)
+(* ********************************************************************** *)
+(** * Pattern matching *)
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xdone] *)
+
+Lemma xdone_lemma : forall A1 `{Enc A1} (F:(A1->hprop)->hprop) (Q:A1->hprop) H,
+  H ==> Q tt ->
+  H ==> ^(Wpgen_done) Q.
+Proof using.
+  introv M. unfold Wpgen_done, Wpgen_prop.
+  applys MkStruct_erase. xchange M. xsimpl.
+Qed.
+
+Ltac xfail_core tt :=
+  xpull;
+  pose ltac_mark;
+  intros;
+  false;
+  gen_until_mark.
+
+Tactic Notation "xfail" :=
+  xfail_core tt.
+
+Tactic Notation "xfail" "~" :=
+  xfail; auto_tilde.
+
+Tactic Notation "xfail" "*" :=
+  xfail; auto_star.
+
+
+
+(*
+
+(*--------------------------------------------------------*)
+(* ** [xdone] *)
+
+(** [xdone] proves a goal of the form [Done H Q],
+    which is in fact equivalent to [True]. *)
+
+Tactic Notation "xdone" :=
+  xuntag tag_done; apply local_erase; split.
+
+
+(*--------------------------------------------------------*)
+(* ** [xcleanpat] *)
+
+(** [xcleanpat] is a tactic for removing all the assumptions
+    produced by [xcase] and [xmatch] and expressing that the
+    previous patterns did not match. *)
+
+Definition xnegpat (P:Prop) := P.
+
+Lemma xtag_negpat_intro : forall (P:Prop), P -> xnegpat P.
+Proof using. auto. Qed.
+
+Ltac xuntag_negpat :=  (* useful for debugging *)
+  unfold xnegpat in *.
+
+Ltac xtag_negpat H :=
+  applys_to H xtag_negpat_intro.
+
+Ltac xcleanpat_core :=
+  repeat match goal with H: xnegpat _ |- _ => clear H end.
+
+Tactic Notation "xcleanpat" :=
+  xcleanpat_core.
+
+
+(*--------------------------------------------------------*)
+(* ** [xalias] *)
+
+(** [xalias] applies to a goal of the form
+    [(Alias x := v in F) H Q]. It adds the assumption [x = v],
+    and leaves [F H Q] as new subgoal.
+
+    Variants:
+    [xalias as y] allows to rename [x] into [y].
+    [xalias as y E] allows to rename [x] into [y] and to
+     specify the name of the hypothesis [y = v].
+    [xalias_subst] allows to substitute the equality [x = v] right away. *)
+
+Ltac xalias_pre tt :=
+  xuntag tag_alias;
+  apply local_erase;
+  xtag_pre_post.
+
+Tactic Notation "xalias" "as" ident(x) ident(H) :=
+  xalias_pre tt;
+  intros x H.
+
+Tactic Notation "xalias" "as" ident(x) :=
+  let HE := fresh "E" x in
+  xalias as x HE.
+
+Tactic Notation "xalias" :=
+  xalias_pre tt;
+  intro;
+  let H := get_last_hyp tt in
+  let HE := fresh "E" H in
+  intro HE.
+
+Tactic Notation "xalias_subst" :=
+  let x := fresh "TEMP" in
+  let Hx := fresh "TEMP" in
+  xalias as x Hx;
+  subst x.
+
+
+(*--------------------------------------------------------*)
+(* ** [xcase] is the new [xcase] *)
+
+(** [xcase] applies to a goal of the form
+    [(Case v = p1 Then F1 Else F2) H Q].
+
+   It produces two subgoals.
+   - the first subgoal is [F1 H Q] with an hypothesis [E : v = p1].
+   - the first subgoal is [F2 H Q] with an hypothesis [E : v <> p1].
+
+   In both subgoals, it attemps deducing false from [E] or inverting [E],
+   by calling the tactic [xcase_post E].
+
+   Variants:
+
+   - [xcase as E] allows to name [E].
+
+   - [xcase_no_simpl] does not attempt inverting [E].
+
+   - [xcase_no_simpl as E] allows to name [E];
+     it does not attempt inverting [E].
+
+   - [xcase_no_intros] can be used to manually name the variables and
+     hypotheses from the case. It does not attempt inverting [E]. *)
+
+
+(* Implementation note:
+   [xcase_post] is a tactic that applies to an hypothesis
+   of the form [v = p1] or [v <> p1], and attemps to prove
+   false from it, and inverts it if possible. *)
+
+Ltac xclean_trivial_eq tt :=
+  repeat match goal with H: ?E = ?E |- _ => clear H end.
+
+Ltac xcase_post H :=
+  try solve [ discriminate | false; congruence ];
+  try (symmetry in H; inverts H; xclean_trivial_eq tt).
+
+(* Implementation note:
+   [xcase_core E cont1 cont2] is the underlying tactic for [xcase].
+   It calls [cont1] on the first subgoal and [cont2] on the second subgoal. *)
+
+Ltac xcase_core H cont1 cont2 :=
+  xuntag tag_case; apply local_erase; split;
+    [ introv H; cont1 tt
+    | introv H; xtag_negpat H; cont2 tt ];
+  xtag_pre_post.
+
+Ltac xcase_no_intros_core cont1 cont2 :=
+  xuntag tag_case; apply local_erase; split;
+    [ cont1 tt
+    | cont2 tt ];
+  xtag_pre_post.
+      (* TODO in the second branch:
+         pose mark; introv H; xtag_negpat H; gen_until_mark tt *)
+
+Tactic Notation "xcase_no_simpl" "as" ident(H) :=
+  xcase_core H ltac:(fun _ => idtac) ltac:(fun _ => idtac).
+
+Tactic Notation "xcase_no_simpl" :=
+  let H := fresh "C" in xcase_no_simpl as H.
+
+Tactic Notation "xcase" "as" ident(H) :=
+  xcase_no_simpl as H; xcase_post H.
+
+Tactic Notation "xcase" :=
+  let H := fresh "C" in xcase as H.
+
+Tactic Notation "xcase_no_intros" :=
+   xcase_no_intros_core ltac:(fun _ => idtac) ltac:(fun _ => idtac).
+
+
+
+(*--------------------------------------------------------*)
+(* ** [xmatch] *)
+
+(** [xmatch] applies to a pattern-matching goal of the form
+    [(Match Case v = p1 Then F1
+       Else Case v = p2 Then Alias y := w in F2
+       Else Done/Fail) H Q].
+
+    By default, the tactic calls the inversion tactic on
+    the equalities [v = pi] associated with the case
+    (and also calls congruence to attempt proving false).
+    [xmatch_no_simpl] can be used to disable such inversions.
+
+    Several variants are available:
+
+    - [xmatch] investigates all the cases, doing inversions,
+      and introducing all aliases as equalities.
+
+    - [xmatch_no_alias] is like [xmatch], but does not
+      introduce aliases.
+
+    - [xmatch_subst_alias] performs all case analyses,
+      and introduces and substitutes all aliases.
+
+    - [xmatch_no_cases] simply remove the [Match] tag and
+      leaves the cases to be solved manually using
+      [xmatch_case] or [xcase]/[xfail]/[xdone] tactics directly.
+
+    - [xmatch_clean] is a shorthand for [xmatch; xcleanpat]:
+      it does not keep the negation of the patterns as hypotheses
+
+    - [xmatch_no_intros] is like [xmatch], but does not
+      perform any name introduction or any inversion.
+      (need to manually call [xdone] for the last case.)
+      (only the negation of patterns are introduced automatically.)
+
+    - [xmatch_no_simpl] is like [xmatch], but does not do inversions.
+      [xmatch_no_simpl_no_alias] is also available.
+      [xmatch_no_simpl_subst_alias] are also available.
+
+   Like with [xif], the tactic [xmatch] will likely not produce
+   solvable goals if the post-condition is an unspecified evar.
+   If the post-condition is an evar, call [xpost Q] to set the
+   post-condition. Alternatively, the syntax [xmatch Q] will do this.
+
+ *)
+
+Ltac xmatch_case_alias cont :=
+  let H := fresh "C" in
+  xcase_core H ltac:(fun _ => repeat xalias; xcase_post H)
+               ltac:(fun _ => cont tt).
+
+Ltac xmatch_case_no_alias cont :=
+  let H := fresh "C" in
+  xcase_core H ltac:(fun _ => xcase_post H) ltac:(fun _ => cont tt).
+
+Ltac xmatch_case_no_simpl cont :=
+  let H := fresh "C" in
+  xcase_core H ltac:(fun _ => idtac) ltac:(fun _ => cont tt).
+
+Ltac xmatch_case_no_intros cont :=
+  xcase_no_intros_core
+    ltac:(fun _ => idtac)
+    ltac:(fun _ => let H := fresh "C" in introv H; xtag_negpat H; cont tt).
+
+Ltac xmatch_case_core cont_case :=
+  match cfml_get_tag tt with
+  | tag_done => xdone
+  | tag_fail => xfail
+  | tag_case => cont_case tt
+  | _ => fail 100 "unexpected tag in xmatch_case"
+  end.
+
+(* [xmatch_cases case_tactic] recursively apply [xmatch_case] using
+   [case_tactic] to handle each case. *)
+
+Ltac xmatch_cases case_tactic :=
+  xmatch_case_core ltac:(fun _ =>
+    case_tactic ltac:(fun _ => xmatch_cases case_tactic)).
+
+Ltac xmatch_check_post_instantiated tt :=
+  match cfml_postcondition_is_evar tt with
+  | true => fail 100 "xmatch requires a post-condition; use [xmatch Q] or [xpost Q] to set it."
+  | false => idtac
+  end.
+
+Ltac xmatch_pre cont :=
+  xpull_check_not_needed tt;
+  xmatch_check_post_instantiated tt;
+  xuntag tag_match;
+  apply local_erase;
+  cont tt.
+
+(* DEPRECATED
+
+  Ltac xmatch_cases case_tactic n :=
+    match n with
+    | 0%nat => first [ xdone | xfail | idtac ]
+    | S ?n' => case_tactic ltac:(fun _ => xmatch_cases case_tactic n')
+    | _ => idtac
+    end.
+
+  Ltac xmatch_core cont :=
+    xpull_check_not_needed tt;
+    let tag := cfml_get_tag tt in
+    match tag with
+    | tag_match ?n => xuntag (tag_match n); cont n
+    end.
+
+Tactic Notation "xmatch_no_alias" :=
+  xmatch_core ltac:(fun n => xmatch_cases xmatch_case_no_alias n).
+Tactic Notation "xmatch_no_simpl_no_alias" :=
+  xmatch_core ltac:(fun n => xmatch_cases xmatch_case_no_simpl n).
+Tactic Notation "xmatch_no_intros" :=
+  xmatch_core ltac:(fun n => xmatch_cases xmatch_case_no_intros n).
+
+*)
+
+Tactic Notation "xmatch_case" :=
+  xmatch_case_core ltac:(fun _ => xmatch_case_alias ltac:(fun _ => idtac)).
+
+Tactic Notation "xmatch_no_cases" :=
+  xmatch_pre ltac:(fun _ => xtag_pre_post).
+Tactic Notation "xmatch_no_alias" :=
+  xmatch_pre ltac:(fun _ => xmatch_cases xmatch_case_no_alias).
+Tactic Notation "xmatch_no_simpl_no_alias" :=
+  xmatch_pre ltac:(fun _ => xmatch_cases xmatch_case_no_simpl).
+Tactic Notation "xmatch_no_intros" :=
+  xmatch_pre ltac:(fun _ => xmatch_cases xmatch_case_no_intros).
+Tactic Notation "xmatch" :=
+  xmatch_pre ltac:(fun _ => xmatch_cases xmatch_case_alias).
+  (* DEPRECATED xmatch_no_alias; repeat xalias. *)
+
+
+
+Tactic Notation "xmatch_no_simpl" :=
+   xmatch_no_simpl_no_alias; repeat xalias.
+Tactic Notation "xmatch_subst_alias" :=
+   xmatch_no_alias; repeat xalias_subst.
+Tactic Notation "xmatch_no_simpl_subst_alias" :=
+   xmatch_no_simpl_no_alias; repeat xalias_subst.
+
+Tactic Notation "xmatch_clean" :=
+  xmatch; xcleanpat.
+Tactic Notation "xmatch" constr(Q) :=
+  xpost Q; xmatch.
+
+
+*)
+
+
+(* ********************************************************************** *)
+(* ********************************************************************** *)
+(* ********************************************************************** *)
+(** * Others *)
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic [xassert] *)
+
+(*
+
+Lemma xassert_lemma : forall A1 `{Enc A1} (F1:(A1->hprop)->hprop) (Q:A1->hprop) H,
+  H ==> Q tt ->
+  Q tt ==> F1 (fun r => \[r = true] \* Q tt) ->
+  H ==> ^(Wpgen_assert F1) Q.
+Proof using.
+Qed.
+
+Lemma xassert_lemma_inst : forall A1 `{Enc A1} (F1:(A1->hprop)->hprop) (Q:A1->hprop) H,
+  H ==> F1 (fun r => \[r = true] \* H) ->
+  H ==> ^(Wpgen_assert F1) (fun (_:unit) => H).
+Proof using.
+  introv M. xchange xassert_lemma.
+Qed.
+
+*)

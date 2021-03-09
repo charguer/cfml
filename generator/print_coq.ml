@@ -105,7 +105,7 @@ let tuple expr es =
 
 (* -------------------------------------------------------------------------- *)
 
-(* FOR FUTURE USE 
+(* FOR FUTURE USE
    Labels (part of [Coq_tag]). *)
 
 let label = function
@@ -136,7 +136,7 @@ let rec expr0 = function
       parens (string (string_of_int n)) ^^ string "%Z"
    (* DEPRECATED ; maybe future ?
   | Coq_list cs ->
-      if (cs = []) then string cnil else 
+      if (cs = []) then string cnil else
         parens ((separate_map (string "::" ^^ break 1) expr0 cs) ^^ string "::nil")
      *)
   | Coq_wild ->
@@ -165,10 +165,10 @@ let rec expr0 = function
 and expr1 = function
   | Coq_app (e1, e2) ->
       app (expr1 e1) (expr0 e2)
-  | Coq_tag (tag, args, l, e) ->
+  | Coq_tag (tag, args, l, e) -> (* TODO: deprecated *)
       let stag =
-        if args = [] 
-           then string tag 
+        if args = []
+           then string tag
            else parens (apps ((string tag)::(List.map expr0 args)))
         in
       apps [
@@ -229,7 +229,7 @@ let rec mod_typ0 = function
       parens (mod_typ mt)
 
 and mod_typ1 = function
-  | Mod_typ_app xs -> 
+  | Mod_typ_app xs ->
       separate_map space string xs
   | mt ->
       mod_typ0 mt
@@ -252,13 +252,13 @@ and mod_typ mt =
 
 (* Module bindings. *)
 
-let mod_binding (xs, mt) = 
+let mod_binding (xs, mt) =
   binding (separate_map space string xs) (mod_typ mt)
 
 let pmod_binding mb =
   space ^^ parens (mod_binding mb)
 
-let pmod_bindings mbs = 
+let pmod_bindings mbs =
   group (concat_map pmod_binding mbs)
 
 (* Module expressions. *)
@@ -354,7 +354,7 @@ let inductive_lhs rhs r =
 (* An implicit argument specification. *)
 
 (* DEPRECATED
-let deprecated_implicit (x, i) = 
+let deprecated_implicit (x, i) =
   match i with
   | Coqi_maximal ->
       brackets (string x)
@@ -364,7 +364,7 @@ let deprecated_implicit (x, i) =
       sprintf "(* %s *)" x
 *)
 
-let implicit (x, i) = 
+let implicit (x, i) =
   match i with
   | Coqi_maximal ->
       braces (string x)
@@ -408,17 +408,17 @@ let top = function
       sprintf "Notation \"''%s'\" := (%s) (at level 0) : atom_scope."
         x (value_variable n)
   (* DEPRECATED
-  | Coqtop_implicit (x, xs) -> 
+  | Coqtop_implicit (x, xs) ->
       string "Implicit Arguments " ^^
       string x ^/^
       brackets (flow_map space deprecated_implicit xs)
       ^^ dot
   *)
-  | Coqtop_implicit (x, xs) -> 
+  | Coqtop_implicit (x, xs) ->
       string "Arguments " ^^
       string x ^/^
-      (if xs = [] 
-        then string ": clear implicits" 
+      (if xs = []
+        then string ": clear implicits"
         else (flow_map space implicit xs))
       ^^ dot
   | Coqtop_register (db, x, v) ->
@@ -447,15 +447,15 @@ let top = function
       ^^ dot
   | Coqtop_import xs ->
       string "Import " ^^
-      flow_map space string xs 
+      flow_map space string xs
       ^^ dot
   | Coqtop_require_import xs ->
       string "Require Import " ^^
-      flow_map space string xs 
+      flow_map space string xs
       ^^ dot
-  | Coqtop_set_implicit_args -> 
+  | Coqtop_set_implicit_args ->
       sprintf "Set Implicit Arguments."
-  | Coqtop_text s -> 
+  | Coqtop_text s ->
       sprintf "%s" s
   | Coqtop_declare_module (x, mt) ->
       string "Declare Module" ^^

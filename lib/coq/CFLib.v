@@ -270,3 +270,17 @@ Tactic Notation "xclose2" "~" constr(x) :=
   xclose2 x; xauto_tilde.
 Tactic Notation "xclose2" "*" constr(x) :=
   xclose2 x; xauto_star.
+
+
+
+(* ********************************************************************** *)
+(** ** Additional definitions *)
+
+(** Type of representation predicates *)
+
+Definition htype (A a:Type) : Type :=
+  A -> a -> hprop.
+
+(** Carried type for function closures *)
+
+Definition func : Type := val.

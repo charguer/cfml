@@ -20,6 +20,7 @@ let rec coqtops_of_imp_cf cf =
        in
      let f_core = coq_funs [("H", hprop);("Q", Coq_impl(typ,hprop))] c in
      let f = Coq_app (Coq_var "CFML.CFHeaps.local", f_core) in
+     (* TODO: CFML.WPLifted.MkStruct *)
      match label with
      | None -> coq_tag tag f
      | Some x ->  (*todo:remove this hack*) if x = "_c" then coq_tag tag f  else
@@ -29,26 +30,38 @@ let rec coqtops_of_imp_cf cf =
   match cf with
 
   | Cf_val v ->
-      funhq "tag_ret" (heap_impl h (Coq_app (q,v)))
+      funhq "tag_ret" (himpl h (Coq_app (q,v)))
       (* (!R: fun H Q => H ==> Q v *)
+      (* Wpgen_val_lifted `{Enc A1} (V:A1) *)
 
   | Cf_assert cf1 ->
+      (*
       let p = coq_eq (Coq_var "_b") coq_bool_true in
-      let q' = Coq_fun (("_b",coq_bool), heap_star (heap_pred p) h) in
+      let q' = Coq_fun (("_b",coq_bool), heap_star (hpure p) h) in
       let c1 = coq_apps (coq_of_cf cf1) [h;q'] in
-      let c2 = heap_impl h (Coq_app (q,coq_tt)) in
+      let c2 = himpl h (Coq_app (q,coq_tt)) in
       funhq "tag_assert" (coq_conj c1 c2)
       (* (!Assert (fun H Q => F1 H (fun (b:bool) => \[b = true] \* H) /\ H ==> Q tt)) *)
 
   | Cf_fail ->
       funhq "tag_fail" coq_false
 
+      (* Wpgen_done Wpgen_fail *)
   | Cf_done ->
       funhq "tag_done" coq_true
 
-  | Cf_record_new (arg) ->
+  | Cf_record_new (items) ->
+      (* each item is a tuple (fi, ti, vi) *)
       (* AppNew [.. (fi, @dyn Ai xi) .. ] *)
-      coq_tag "tag_record_new" (coq_apps (Coq_var "CFML.CFApp.app_record_new") [arg])
+
+    let build_item (field_name, typ, value) =
+      let typed_value = coq_apps coq_dyn_at [typ; value] in
+      Coq_tuple [Coq_var field_name; typed_value]
+      in
+    let arg =
+      Coq_fun ((record_name, coq_var "CFHeaps.loc"),
+               coq_list (List.map build_item items)) in
+     coq_tag "tag_record_new" (coq_apps (Coq_var "CFML.CFApp.app_record_new") [arg])
 
   | Cf_app (ts, tret, f, vs) -> (* TODO: maybe make the return type explicit? *)
       (* old:  let arity = List.length vs in *)
@@ -84,7 +97,7 @@ let rec coqtops_of_imp_cf cf =
       let p1_on_tvars = coq_app_var_at "P1" tvars in
       let p1_on_arg = Coq_app (p1_on_tvars, Coq_var "_r") in
       let h1 = Coq_var "H1" in
-      let q1 = Coq_fun (("_r",typ), heap_star (heap_pred p1_on_arg) h1) in
+      let q1 = Coq_fun (("_r",typ), heap_star (hpure p1_on_arg) h1) in
       let c1 = coq_forall_types (fvs_strict @ fvs_other) (coq_apps (coq_of_cf cf1) [h;q1]) in
       let x_on_tvars = coq_app_var_at x tvars in
       let hyp_on_x = coq_forall_types fvs_strict (coq_apps (coq_var_at "P1") (tvars @ [ x_on_tvars ])) in

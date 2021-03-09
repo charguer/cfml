@@ -25,16 +25,16 @@ and coq =
   | Coq_var of var
   | Coq_nat of int
   | Coq_int of int
-  | Coq_app of coq * coq 
-  | Coq_impl of coq * coq 
+  | Coq_app of coq * coq
+  | Coq_impl of coq * coq
   | Coq_lettuple of coqs * coq * coq
   | Coq_forall of typed_var * coq
   | Coq_fun of typed_var * coq
-  | Coq_wild 
+  | Coq_wild
   | Coq_prop
   | Coq_type
   | Coq_tuple of coqs
-  | Coq_record of (var * coq) list 
+  | Coq_record of (var * coq) list
   | Coq_tag of string * coq list * string option * coq
   | Coq_annot of coq * coq
 (* DEPRECATED ; maybe future ?  | Coq_list of coq list *)
@@ -50,7 +50,7 @@ type coqtop =
   | Coqtop_lemma of typed_var
   | Coqtop_proof of string
   | Coqtop_ind of coqind list
-  | Coqtop_record of coqind 
+  | Coqtop_record of coqind
   | Coqtop_label of var * int
   | Coqtop_implicit of var * (var * implicit) list
   | Coqtop_register of string * var * var
@@ -61,7 +61,7 @@ type coqtop =
   | Coqtop_require of vars
   | Coqtop_import of vars
   | Coqtop_require_import of vars
-  | Coqtop_set_implicit_args 
+  | Coqtop_set_implicit_args
   | Coqtop_text of string
   | Coqtop_declare_module of var * mod_typ
   | Coqtop_module of var * mod_bindings * mod_cast * mod_def
@@ -117,16 +117,16 @@ and implicit =
 
 (** Several Coq constants *)
 
-let coq_false =  
+let coq_false =
   Coq_var "Coq.Init.Logic.False"
-  
-let coq_true =  
+
+let coq_true =
   Coq_var "Coq.Init.Logic.True"
 
-let coq_bool_false =  
+let coq_bool_false =
   Coq_var "Coq.Init.Datatypes.false"
-  
-let coq_bool_true =  
+
+let coq_bool_true =
   Coq_var "Coq.Init.Datatypes.true"
 
 let coq_tt =
@@ -136,7 +136,7 @@ let coq_unit =
   Coq_var "Coq.Init.Datatypes.unit"
 
 let coq_int =
-  Coq_var "Coq.ZArith.BinInt.Z" 
+  Coq_var "Coq.ZArith.BinInt.Z"
 
 let coq_nat =
   Coq_var "Coq.Init.Datatypes.nat"
@@ -166,13 +166,13 @@ let coq_types names =
 
 (** Application to a list of arguments [c e1 e2 .. eN] *)
 
-let coq_apps c args = 
+let coq_apps c args =
   List.fold_left (fun acc ci -> Coq_app (acc, ci)) c args
 
 (** Application to wildcards [c _ _ .. _] *)
 
 let coq_app_wilds c n =
-   coq_apps c (list_make n Coq_wild) 
+   coq_apps c (list_make n Coq_wild)
 
 (** Applications of an identifier to wildcars [x _ _ .. _] *)
 
@@ -223,7 +223,7 @@ let coq_impls cs c =
 
 (** Implication [Type -> Type -> .. -> Type] *)
 
-let coq_impl_types n = 
+let coq_impl_types n =
    coq_impls (list_make n Coq_type) Coq_type
 
 (** Predicate type [A->Prop] *)
@@ -234,7 +234,7 @@ let coq_pred c =
 (** Product type [(c1 * c2 * .. * cN)%type] *)
 
 let coq_prod cs =
-  match cs with 
+  match cs with
   | [] -> coq_unit
   | [c] -> c
   | c0::cs' -> List.fold_left (fun acc c -> coq_apps (Coq_var "Coq.Init.Datatypes.prod") [acc;c]) c0 cs'
@@ -244,7 +244,7 @@ let coq_prod cs =
 let coq_list xs =
    let ccons = Coq_var (Renaming.get_builtin_constructor "::") in
    let cnil = Coq_var (Renaming.get_builtin_constructor "[]") in
-   List.fold_right (fun arg acc -> 
+   List.fold_right (fun arg acc ->
       coq_apps ccons [arg; acc]) xs cnil
    (* DEPRECATED ; maybe future ?
    let coq_list xs =
@@ -265,16 +265,16 @@ let coq_eq c1 c2 =
 let coq_neq c1 c2 =
   coq_apps (Coq_var "Coq.Init.Logic.not") [coq_eq c1 c2]
 
-let coq_disj c1 c2 = 
+let coq_disj c1 c2 =
   coq_apps (Coq_var "Coq.Init.Logic.or") [c1; c2]
 
-let coq_conj c1 c2 = 
+let coq_conj c1 c2 =
   coq_apps (Coq_var "Coq.Init.Logic.and") [c1; c2]
 
 let coq_neg c =
   Coq_app (Coq_var "TLC.LibBool.neg", c)
 
-let coq_exist x c1 c2 = 
+let coq_exist x c1 c2 =
   coq_apps (Coq_var "Coq.Init.Logic.ex") [Coq_fun ((x, c1), c2)]
 
 (** Iterated logic combinators *)
@@ -284,7 +284,7 @@ let coq_conjs cs =
   | [] -> Coq_var "true"
   | c::cs -> List.fold_left (fun acc ci -> coq_conj ci acc) c cs
 
-let coq_exists xcs c2 = 
+let coq_exists xcs c2 =
   List.fold_right (fun (x,c) acc -> coq_exist x c acc) xcs c2
 
 (** Arithmetic operations *)
@@ -327,9 +327,9 @@ let coqtop_register db x v =
 type label = string
 
 let var_bits_of_int n =
-   let rec repr n = 
+   let rec repr n =
      if n < 2 then [] else (1+(n mod 2))::(repr (n/2)) in
-   List.rev (0::(repr n)) 
+   List.rev (0::(repr n))
 
 let string_of_var_bits vb =
   show_listp (fun b -> string_of_int b) "`" vb
@@ -340,6 +340,7 @@ let value_variable n =
 let coq_tag (tag : string) ?args ?label (term : coq) =
    let args = match args with | None -> [] | Some args -> args in
    Coq_tag ("CFML.CFPrint." ^ tag, args, label, term)
+   (* TODO DEPRECATED *)
 
 let coq_annot (term : coq) (term_type : coq)  =
    Coq_annot (term, term_type)

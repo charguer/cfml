@@ -135,7 +135,7 @@ Definition Wpgen_fail : Formula :=
 Definition Wpgen_val (v:val) : Formula :=
   MkStruct (fun A (EA:Enc A) Q => Post_cast_val Q v).
 
-Definition Wpgen_cast A1 `{EA1:Enc A1} (V:A1) : Formula :=
+Definition Wpgen_val_lifted_nostruct A1 `{EA1:Enc A1} (V:A1) : Formula :=
   fun A2 (EA2:Enc A2) Q => Post_cast A1 Q V.
 
 Definition Wpaux_var (E:ctx) (x:var) : Formula :=
@@ -761,7 +761,7 @@ Notation "'Val' v" :=
   (at level 69) : wp_scope.
 
 Notation "'Cast' V" :=
-  ((Wpgen_cast V))
+  ((Wpgen_val_lifted_nostruct V))
   (at level 69) : wp_scope.
 
 Notation "'Return' F " :=
@@ -932,7 +932,6 @@ Notation "'Case' v '=' vp [ x1 x2 ] ''=>' F1 ''|' F2" :=
 *)
 
 (*
-  | Cf_ret v ->
   | Cf_assert cf1 ->
   | Cf_fail ->
   | Cf_done ->
@@ -952,28 +951,44 @@ Notation "'Case' v '=' vp [ x1 x2 ] ''=>' F1 ''|' F2" :=
   | Cf_pay (cf1) ->
 *)
 
-(* TODO: present in the course
+(* ********************************************************************** *)
+(* TODO: present in the course  wpgen_assert *)
 
-  Definition wpgen_assert (F1:formula) : formula :=
-    MkStruct (Formula_cast (fun (Q:unit->hprop) =>
-      Q tt \* \[Q tt ==> wp t (fun r => \[r = true] \* Q tt)])
+Definition Wpgen_assert (F1:Formula) : Formula :=
+  MkStruct (Formula_cast (fun (Q:unit->hprop) =>
+    Q tt \* \[Q tt ==> F1 (fun r => \[r = true] \* Q tt)])).
 
-  Definition Wpgen_done : Formula :=
-    MkStruct (fun A (EA:Enc A) Q =>
-      \[True]).
+Definition Wpgen_done : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+    \[True]).
 
-  Definition Wpgen_prop (P:Prop) : Formula :=
-    MkStruct (fun A (EA:Enc A) Q =>
-      \[True]).
+Definition Wpgen_val_lifted `{Enc A1} (V:A1) : Formula :=
+  MkStruct (Wpgen_val_lifted_nostruct V).
+  (* MkStruct (fun A (EA:Enc A) (Q:A->hprop) => Post_cast A Q V)). *)
 
-  Definition Wpgen_done : Formula :=
-    Wpgen_prop True.
+(* alternative?
+Definition Wpgen_val_lifted `{Enc A} (V:A) : Formula :=
+  MkStruct (Formula_cast (fun (Q:A->hprop) => Q V)).
+*)
 
-  Definition Wpgen_fail : Formula :=
-    Wpgen_prop False.
+(* for the reference:
 
-  Definition Wpgen_val_lifted `{Enc A} (V:A) : Formula :=
-    MkStruct (Formula_cast (fun (Q:A->hprop) => Q V))
+Definition Formula_cast `{Enc A1} (F:(A1->hprop)->hprop) : Formula :=
+  fun A2 (EA2:Enc A2) (Q:A2->hprop) =>
+    \exists (Q':A1->hprop), F Q' \* \[Q' ===> Post_cast A1 Q].
+
+Definition Wpgen_val_lifted_nostruct A1 `{EA1:Enc A1} (V:A1) : Formula :=
+  fun A2 (EA2:Enc A2) Q => Post_cast A1 Q V.
+*)
+
+
+
+(* ********************************************************************** *)
+
+
+(*
+
+
 
 
   Lemma xval_lifted_lemma : forall A `{EA:Enc A} (V:A) H (Q:A->hprop),
