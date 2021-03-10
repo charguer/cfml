@@ -1009,6 +1009,15 @@ Definition Wpgen_App_typed (A1:Type) `{EA1:Enc A1} (f:trm) (Vs:dyns) : Formula :
 Arguments Wpgen_App_typed A1 {EA1} f Vs.
 
 
+Definition Wpgen_for_downto_int (n1 n2:int) (F1:int->Formula) : Formula :=
+  MkStruct (Formula_cast (fun (Q:unit->hprop) =>
+    \forall (S:int->Formula),
+    let F i := If (i >= n2) then (`Wpgen_seq (F1 i) (S (i-1)))
+                            else (`Wpgen_val val_unit) in
+    \[   (forall i, structural (S i unit _))
+      /\ (forall i (Q':unit->hprop), ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
+
+
 (*
 Definition Wpgen_fix (Fof:val->val->Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>

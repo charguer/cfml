@@ -10,16 +10,17 @@ include $(CFML)/Makefile.common
 ##############################################################################
 # Compilation.
 
-# The line "-R $(TLC) TLC" is required only if we wish to write just
-# "LibFoo", as opposed to "TLC.LibFoo". In the long run, I believe it
-# would be preferable to explicitly use the TLC prefix.
+# The line "-R $(PWD) CFML.Stdlib" currently does not use "-Q" because 
+# it's tricky in the *_ml.v files to generate "Require" with the precise 
+# package name (here, CFML.Stdlib, but in general it could be more complex)
 
 PWD := $(shell pwd)
 export
 COQINCLUDE := \
   -Q $(TLC) TLC \
   -Q $(CFML)/lib/coq CFML \
-  -Q $(PWD) CFML.Stdlib
+  -R $(PWD) CFML.Stdlib
+
 
 ##############################################################################
 # Files.
@@ -59,6 +60,7 @@ all: $(CMJ)
 # Must run in two successive phases, as coqdep must not run until the
 # files %_ml.v have been generated. So, we create the files %.cmj and
 # %_ml.v first (above), then compile every .v file.
+	 echo $(COQINCLUDE)
 	 $(MAKE) -f $(TLC)/Makefile.coq $(PWD)/Pervasives_ml.vo
 	 $(MAKE) -f $(TLC)/Makefile.coq $@
 
