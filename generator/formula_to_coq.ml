@@ -16,8 +16,11 @@ let coq_apps_cfml_var x args =
 let rec coqtops_of_cf cf =
   let aux = coqtops_of_cf in
 
-  let h = Coq_var "H" in (* TODO: check clashes with constructors *)
-  let q = Coq_var "Q" in
+  (* TODO: check clashes with constructors *)
+  let hname = "H" in
+  let qname = "Q" in
+  let h = coq_var hname in
+  let q = coq_var qname in
 
   match cf with
 
@@ -45,18 +48,18 @@ let rec coqtops_of_cf cf =
   | Cf_app (ts, tret, f, vs) ->
       (* Wpgen_App_typed tret f [(@dyn t1 _ v1); (@dyn t2 _ v2)] *)
       assert (List.length ts = List.length vs);
-      let args = List.map2 coq_dyn_of ts vs in
+      let args = coq_list (List.map2 coq_dyn_of ts vs) in
       coq_apps_cfml_var "WPLifted.Wpgen_App_typed" [tret; f; args]
 
   | Cf_body (f, fvs, targs, typ, cf1) ->
       (* Wpgen_body (forall Ai x1 x2 H A EA Q,
                        (H ==> ^F Q) ->
                        Triple (trm_Apps f [(@dyn t1 _ v1);.. ; (@dyn tn _ xn)]) H Q) *)
-      let args = coq_list (List.map (fun (x,t) -> coq_dyn_of t x) targs) in
+      let args = coq_list (List.map (fun (x,t) -> coq_dyn_of t (coq_var x)) targs) in
       let premi = himpl h (formula_app (aux cf1) q) in
-      let concl = coq_apps_cfml_var "SepLifted.Triple" [f; args; h; q] in
-      let a = "__A" in (* TODO: check clashes *)
-      let hyp1 = forall_prepost h a q (coq_impl premi concl) in
+      let concl = coq_apps_cfml_var "SepLifted.Triple" [coq_var f; args; h; q] in
+      let a = "__A" in (* TODO: check clashes *) (* TODO: improve H as var and as coq *)
+      let hyp1 = forall_prepost hname a qname (coq_impl premi concl) in
       let hyp = coq_forall_types fvs (coq_foralls targs hyp1) in
       coq_apps_cfml_var "WPLifted.Wpgen_body" [hyp]
       (* TODO later find how to factorize over the list of arguments *)
@@ -104,13 +107,13 @@ let rec coqtops_of_cf cf =
       (* Wpgen_let_fun (fun A EA Q =>
             \forall f1 f2, \[B1] \-* \[B2] \-* (^F Q)) *)
       let a = "__A" in (* TODO: make sure it is reserved *)
-      let q = "__Q" in (* TODO: make sure it is reserved *)
-      let fs, bs = List.split fcs in
+      let fs, cs = List.split fcs in
+      let bs = List.map aux cs in
       (* fs list of pairs (fi,Type) *)
       let fts = List.map (fun f -> (f, func_type)) fs in
       let body = hforalls fts (hwand_hpures bs (formula_app (aux cf) q)) in
-      let bodyof = formula_def a q body in
-      coq_apps_cfml_var "WPLifted.Wpgen_let_fun" bodyof
+      let bodyof = formula_def a qname body in
+      coq_apps_cfml_var "WPLifted.Wpgen_let_fun" [bodyof]
 
   | Cf_if (v,cf1,cf2) ->
       coq_apps_cfml_var "WPLifted.Wpgen_if_bool" [v; aux cf1; aux cf2]
@@ -142,6 +145,24 @@ let rec coqtops_of_cf cf =
        let f = Coq_app (coq_cfml_var "CFHeaps.local", (aux cf1)) in
        coq_tag "tag_match" f
        *)
+
+  | Cf_seq (cf1,cf2) ->
+      (* Wpgen_seq F1 F2 *)
+      coq_apps_cfml_var "WPLifted.Wpgen_seq" [aux cf1; aux cf2]
+
+  | Cf_for (dir,i_name,v1,v2,cf1) ->
+      (* Wpgen_for_int n1 n2 F *)
+      (* Wpgen_for_downto_int n1 n2 F *)
+      let pred = match dir with
+        | For_loop_up -> "WPLifted.Wpgen_for_int"
+        | For_loop_down -> "WPLifted.Wpgen_for_downto_int"
+        in
+      let body = coq_fun (i_name, coq_int) (aux cf1) in
+      coq_apps_cfml_var pred [v1; v2; body]
+
+  | Cf_while (cf1,cf2) ->
+      (* Wpgen_while F1 F2 *)
+      coq_apps_cfml_var "WPLifted.Wpgen_while" [aux cf1; aux cf2]
 
   | Cf_pay (cf1) ->
       coq_var "unsupported"
@@ -193,7 +214,7 @@ let coqtops_of_cftop coq_of_cf cft =
 
   | Cftop_heap h -> (* TODO: not used! *)
       failwith "not used"
-      [ Coqtop_param (h, heap) ]
+      (* [ Coqtop_param (h, heap) ] *)
       (* Parameter h : heap. *)
 
   | Cftop_let_cf (x,h,h',cf) -> (* TODO: not used! *)

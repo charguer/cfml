@@ -39,8 +39,9 @@ type cftop =
 
 and cftops = cftop list
 
+(** Shorthand *)
 
-
+type coq = Coq.coq
 
 (*#########################################################################*)
 (* ** Shared functions *)
@@ -73,10 +74,6 @@ let enc_of_typed typ c =
 
 let trm_apps cf cvs =
   coq_apps (coq_cfml_var "Semantics.trm_apps") [cf; coq_list cvs]
-
-(** Encoder function for a specific type*)
-
-let enc_at = coq_cfml_var "SepLifted.enc"
 
 (** Abstract datatype for functions *)
 
@@ -131,21 +128,6 @@ let wild_to_prop =
 
 let wild_to_hprop =
    Coq_impl (Coq_wild, hprop)
-
-(** Precise type of formulae [hprop->(T->hprop)->Prop] *)
-
-let formula_type_of c =
-   coq_impls [hprop; Coq_impl (c, hprop)] Coq_prop
-
-(** Generic type of formulae [hprop->(_->hprop)->Prop] *)
-
-let formula_type =
-   formula_type_of Coq_wild
-
-(** Application of a formula [F _ _ Q] *)
-
-let formula_app f q =
-  coq_apps f [coq_wild; coq_wild; q]
 
 (** Hprop entailment [H1 ==> H2] *)
 
@@ -244,13 +226,28 @@ let hforall_one (xname, xtype) h =
 let hforalls x_names_types h =
   List.fold_right hforall_one x_names_types h
 
+(** Precise type of formulae [hprop->(T->hprop)->Prop] *)
+
+let formula_type_of c =
+   coq_impls [hprop; Coq_impl (c, hprop)] Coq_prop
+
+(** Generic type of formulae [hprop->(_->hprop)->Prop] *)
+
+let formula_type =
+   formula_type_of Coq_wild
+
+(** Application of a formula [F _ _ Q] *)
+
+let formula_app f q =
+  coq_apps f [coq_wild; coq_wild; q]
+
 (** Construction of a formula of the form [fun A (EA:enc A) (Q:A->hprop) => H] *)
 
 let formula_def a q c =
   let typ_a = Coq_type in
   let ea = a ^ "E" in (* TODO: name is __AE to avoid conflicts *)
-  let typ_ea = enc_type a in
-  let typ_q = coq_impl a hprop in
+  let typ_ea = enc_type (coq_var a) in
+  let typ_q = coq_impl (coq_var a) hprop in
   coq_funs [(a,typ_a); (ea,typ_ea); (q,typ_q)] c
 
 (** Construction of a proposition of the form [forall (H:hprop) A (EA:enc A) (Q:A->hprop) => P] *)
@@ -258,8 +255,8 @@ let formula_def a q c =
 let forall_prepost h a q p =
   let typ_a = Coq_type in
   let ea = a ^ "E" in
-  let typ_ea = enc_type a in
-  let typ_q = coq_impl a hprop in
+  let typ_ea = enc_type (coq_var a) in
+  let typ_q = coq_impl (coq_var a) hprop in
   coq_foralls [(h,hprop); (a,typ_a); (ea,typ_ea); (q,typ_q)] p
 
 

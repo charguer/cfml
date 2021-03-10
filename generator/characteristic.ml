@@ -952,7 +952,7 @@ and cfg_record ?(record_name = "_") env e =
     let named_args = List.map (fun (p,li,ei) -> (li.lbl_name,ei)) lbl_expr_list in
     let build_arg (name, arg) =
       (record_field_name name, coq_typ loc arg, lift_val env arg) in
-    Cf_record_new (record_name, Lib.map build_arg named_args)
+    Cf_record_new (record_name, List.map build_arg named_args)
 
   | _ -> assert false
 
@@ -1172,7 +1172,7 @@ and cfg_type_record (name,dec) =
 
 and record_functions name record_constr repr_name params fields_names fields_types =
    let build_field_name_def i field_name =
-      Coqtop_def ((field_name, coq_var_semantics "field"), Coq_nat i)
+      Coqtop_def ((field_name, field_type), Coq_nat i)
       in
    let fields_names_def = list_mapi build_field_name_def fields_names in
    fields_names_def
