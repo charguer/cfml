@@ -13,8 +13,8 @@ License: CC-by 4.0.
 
 Set Implicit Arguments.
 From TLC Require Export LibString LibList LibCore.
-From Sep Require Export LibSepBind LibSepTLCbuffer.
-From Sep Require Import LibSepFmap.
+From CFML Require Export LibSepBind LibSepTLCbuffer.
+From CFML Require Import LibSepFmap.
 Module Fmap := LibSepFmap.
 
 Import LibListExec.RewListExec.

@@ -422,7 +422,7 @@ let top = function
         else (flow_map space implicit xs))
       ^^ dot
   | Coqtop_register (db, x, v) ->
-      sprintf "Hint Extern 1 (Register %s %s) => CFHeader_Provide %s." db x v
+      sprintf "Hint Extern 1 (Register %s %s) => WPHeader_Provide %s." db x v
   | Coqtop_hint_constructors (xs, base) ->
       string "Hint Constructors " ^^
       flow_map space string xs ^^

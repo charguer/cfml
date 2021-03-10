@@ -23,171 +23,88 @@ It consists of several parts:
   out proofs with respect to characteristic formulae.
 
 
-
 #############################################################
-# Installation
+# Dependencies
 
-CFML 2.0 is known to work with Coq v8.8.2 and v8.9.1.
-It does not work with v8.10 and v8.11 due to a bug affecting
-the resolution of typeclasses in these versions.
+CFML requires a number of OCaml tooling available via opam.
+Thus, make sure to install opam, and update the repository list.
+https://opam.ocaml.org/doc/Install.html
 
-CFML 2.0 depend on the TLC library. It may be installed using
-OPAM or from sources.
-
-To install Coq and TLC, execute:
-
+CFML depends on Coq. It is likely to work with versions > 8.12,
+however more recent versions are not tested on a regular basis.
+The recommended way to install Coq is via opam. To install 8.12:
 ```
-   opam pin add coq 8.9.1
-   opam install coq-tlc.20181116
-
-   # optional
-   opam install coqide
+   opam pin add coq 8.12 
+   opam install coq
+   opam install coqide   # unless you use another IDE.
 ```
 
-Note: if you'd rather install TLC by hand, for either Coq v8.8 or v8.9,
-execute the following commands:
+CFML depends on the OCaml library pprint, and the tool ocamlfind.
 
 ```
-   git clone https://gitlab.inria.fr/charguer/tlc -b coq-8.9
+   opam install ocamlfind pprint
+```
+
+CFML depends on the Coq library TLC. To make sure to get the last
+version of TLC, install it by hand as follows.
+
+```
+   git clone https://github.com/charguer/tlc
    cd tlc/src
    make install
 ```
 
-Then, the compilation of the files from CFML 2.0 can be achieved with:
+Alternatively, execute "opam install coq-tlc", it should work unless
+at some point CFML depends on additions to TLC that are not yet 
+deployed in the opam package.
+
+
+#############################################################
+# Compilation and installation
+
+Once all dependencies are installed, you can compile and install 
+the "cfmlc" tool:
+
+
+```
+   make install
+```
+
+Then, you can try to load an example proof. The command given uses
+CoqIDE, which generally works more smoothly with multithreading turned off.
+
+```
+   cd examples/Tutorial
+   make
+   gedit Tutorial.ml &
+   coqide -async-proofs off -async-proofs-command-error-resilience off Tutorial_proof.v &
+```
+
+#############################################################
+# Other theory files, in folder theories
+
+The files may be compiled and played using:
 
 ```
    cd cfml/theories
    make
    make _CoqProject
+   coqide -async-proofs off -async-proofs-command-error-resilience off ExamplePairingHeap.v &
 ```
-
-Note: depending on your version of TLC, `make _CoqProject` might be redundant.
-
-Note: CoqIDE generally works more smoothly with multithreading turned off.
-
-```
-   coqide -async-proofs off -async-proofs-command-error-resilience off *.v
-```
-
 
 
 #############################################################
-# CFML 2.0 Coq files (/theories)
-
-
-## Common infrastructure files
-
- * The file __LibSepTLCbuffer.v__
-   contains definitions, lemmas and tactics to be later merged into TLC.
-
- * The file __LibSepVar.v__
-   defines a representation of variables as strings.
-
- * The file __LibSepFmap.v__
-   defines a representation of finite maps, used to represent stores.
-
- * The file __LibSepBind.v__
-   defines binders and contexts.
-
- * The file __LibSepSimpl.v__
-   implements the simplification tactic for heap entailment.
-
- * The file __SepFunctor.v__
-   contains a functor with derived properties for Separation Logic.
-   This functor is used by plain separation logic and also by the
-   two extensions (credits and read-only) mentioned further on.
-
-
-## Semantics
-
- * The file __Semantics.v__
-   defines the syntax and semantics of an imperative lambda-calculus.
-
-
-## Plain SL
-
- * The file __SepBase.v__
-   defines a plain Separation Logic (and proves its soundness).
-
- * The file __WPBase.v__
-   defines weakest precondition style characteristic formulae
-   for plain Separation Logic.
-
-
-## Lifted SL
-
- * The file __SepLifted.v__
-   defines lifted Separation Logic.
-
- * The file __WPLifted.v__
-   defines weakest precondition style characteristic formulae.
-   for lifted Separation Logic.
-
-
-## CFML tooling
-
- * The file __WPTactics.v__
-   introduces tactics to conduct practical proofs using these lifted WP.   
-
- * The file __WPRecord.v__
-   provides support for reasoning about records.
-
- * The file __WPLib.v__
-   exports all the tooling
-
-
-## Example proofs
-
- * The file __Example.v__
-   common header to be included by all example files
-
- * The file __ExampleListNull.v__
-   formalization of null-terminated lists
-
- * The file __ExampleList.v__
-   formalization of lists as reference on a sum type
-
- * The file __ExampleListIndir.v__
-   variant of ExampleList using the address of operator
-
- * The file __ExampleQueue.v__
-   formalization of a mutable queue as a list segment
-
- * The file __ExampleStack.v__
-   formalization of a stack as a reference on a pure list,
-   or as a pair of a pure list and a size integer
-
- * The file __ExampleListOf.v__
-   wrapper for lists that own their elements
-
- * The file __ExamplePairingHeap.v__
-   formalization of a mutable pairing heaps as trees
-   with node featuring mutable lists of subtrees
-
-
-## Unit tests
-
- * The file __WPUnitTests.v__
-   (work-in-progress) file with several tactic demos
-
- * The file __WPExamples.v__
-   (work-in-progress) file with examples proofs
-
- * The file __WPExamplesDetails.v__
-   (work-in-progress) file a few proofs containing additional details
-   on the working of tactics.
-
-
+# References
 
 #############################################################
-# Course on the Foundations of Separation Logic
+## Course on the Foundations of Separation Logic
 
 The implementation of CFML 2.0 is described in a full course:
   http://www.chargueraud.org/teach/verif/
 
 
 #############################################################
-# Model of Separation Logic with Time Credits
+## Model of Separation Logic with Time Credits
 
 This file `SepCredits.v` contains a formalization of Separation Logic
 extended with Time Credits, with credits represented on Z (integers).
@@ -209,7 +126,7 @@ published at ITP 2019.
 
 
 #############################################################
-# Model of Separation Logic with Read-Only Permissions
+## Model of Separation Logic with Read-Only Permissions
 
 The file `SepRO.v` contains a formalization of Separation Logic extended
 with read-only permissions. This extension is described in the paper:

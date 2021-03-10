@@ -12,7 +12,7 @@ License: CC-by 4.0.
 
 
 Set Implicit Arguments.
-From Sep Require Export WPTactics.
+From CFML Require Export WPTactics.
 Generalizable Variables A B.
 
 Import NotationForVariables NotationForTerms.

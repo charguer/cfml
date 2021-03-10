@@ -15,8 +15,8 @@ License: CC-by 4.0.
 *)
 
 Set Implicit Arguments.
-From Sep Require Export Semantics LibSepFunctor.
-From Sep Require Import LibSepFmap.
+From CFML Require Export Semantics LibSepFunctor.
+From CFML Require Import LibSepFmap.
 Module Fmap := LibSepFmap.
 Open Scope fmap_scope.
 

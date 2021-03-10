@@ -10,9 +10,9 @@ License: CC-by 4.0.
 Set Implicit Arguments.
 From TLC Require LibListExec.
 From TLC Require Export LibString LibList LibCore.
-From Sep Require Import LibSepFmap LibSepTLCbuffer.
+From CFML Require Import LibSepFmap LibSepTLCbuffer.
 Module Fmap := LibSepFmap.
-From Sep Require Export LibSepVar.
+From CFML Require Export LibSepVar.
 Open Scope string_scope.
 Generalizable Variables A.
 

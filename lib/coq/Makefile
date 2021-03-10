@@ -10,7 +10,8 @@ include $(CFML)/Makefile.common
 
 PWD   := $(shell pwd)
 V     := $(wildcard $(PWD)/*.v)
-COQFLAGS := -w -notation-overridden
+COQFLAGS=-w -notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths
+
 
 ifdef INCLUDE_TLC_AS_DEPENDENCIES
 # For Arthur: encompass TLC in the scope of the dependency graph.
@@ -23,7 +24,7 @@ endif
 # would be preferable to explicitly use the TLC prefix.
 
 COQINCLUDE := \
-  -R $(TLC) TLC \
-  -R $(PWD) CFML
+  -Q $(TLC) TLC \
+  -Q $(PWD) CFML
 
 include $(TLC)/Makefile.coq

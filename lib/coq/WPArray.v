@@ -9,7 +9,7 @@ License: CC-by 4.0.
 
 Set Implicit Arguments.
 From TLC Require LibListZ.
-From Sep Require Export WPArrayNonLifted.
+From CFML Require Export WPArrayNonlifted.
 Generalizable Variables A B.
 
 Import NotationForVariables NotationForTerms.

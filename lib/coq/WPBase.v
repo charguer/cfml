@@ -10,7 +10,7 @@ License: CC-by 4.0.
 
 
 Set Implicit Arguments.
-From Sep Require Export SepBase.
+From CFML Require Export SepBase.
 Import LibListExec.RewListExec.
 Open Scope heap_scope.
 

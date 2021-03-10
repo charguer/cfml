@@ -15,7 +15,7 @@ License: CC-by 4.0.
 
 Set Implicit Arguments.
 From TLC Require Import LibCore.
-From Sep Require Import SepBase.
+From CFML Require Import SepBase.
 Import LibList.
 Generalizable Variables A B.
 

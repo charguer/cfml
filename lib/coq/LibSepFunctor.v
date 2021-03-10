@@ -50,7 +50,7 @@ License: CC-by 4.0.
 Set Implicit Arguments.
 From TLC Require Export LibCore.
 From TLC Require Import LibMonoid.
-From Sep Require Export LibSepTLCbuffer SepSimpl.
+From CFML Require Export LibSepTLCbuffer LibSepSimpl.
 
 
 (* ********************************************************************** *)
@@ -810,7 +810,7 @@ End SepSimplArgs.
 
 Export SepSimplArgs.
 
-Module Export HS := SepSimpl.XsimplSetup(SepSimplArgs).
+Module Export HS := LibSepSimpl.XsimplSetup(SepSimplArgs).
 
 (** Experimental tactic [xsimpl_hand] *)
 

@@ -70,6 +70,8 @@ endif
 
 PWD := $(shell pwd)
 
+LIBCOQ := $(PWD)/../lib/coq
+
 V := $(addprefix $(PWD)/,$(SRC:=.v))
 
 ifndef COQFLAGS
@@ -83,6 +85,7 @@ endif
 # -notation-overridden,
 
 COQINCLUDE := \
+  -Q $(LIBCOQ) CFML \
   -Q $(TLC) TLC \
   -Q $(PWD) Sep
 
@@ -107,7 +110,7 @@ endif
 
 import_slf:
 	cp $(addprefix $(SLF_FOLDER)/,$(SLF_FILES)) .
-	sed -i -e 's/^From[[:space:]]SLF[[:space:]]LibSep/From Sep LibSep/' $(SLF_FILES)
+	sed -i -e 's/^From[[:space:]]SLF[[:space:]]LibSep/From CFML LibSep/' $(SLF_FILES)
 	sed -i -e 's/^From[[:space:]]SLF[[:space:]]Lib/From TLC Lib/' $(SLF_FILES)
 	sed -i -e 's/^From[[:space:]]SLF/From Sep/' $(SLF_FILES)
 

@@ -6,8 +6,11 @@ OCAMLBUILD := ocamlbuild -j 4 -classic-display \
 	      -cflags "-g" -lflags "-g" \
 	      -use-ocamlfind -package pprint
 
-all:
+all: cfml_config.ml
 	$(OCAMLBUILD) cfmlc.native 
+
+cfml_config.ml:
+	$(error Type 'make -C .. generator' to first generate cfml_config.ml)
 
 clean:
 	rm -rf _build

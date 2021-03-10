@@ -12,7 +12,7 @@ License: CC-by 4.0.
 
 
 Set Implicit Arguments.
-From Sep Require Export WPLifted.
+From CFML Require Export WPLifted WPHeader.
 Import LibListExec.RewListExec.
 Open Scope heap_scope.
 Generalizable Variables A B.
@@ -135,7 +135,6 @@ Ltac xgoal_fun tt :=
 
 Definition database_spec := True.
 
-Declare Scope xspec_scope.
 Open Scope xspec_scope.
 
 Notation "'Register_goal' G" := (Register database_spec G)

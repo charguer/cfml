@@ -10,7 +10,7 @@ License: CC-by 4.0.
 
 
 Set Implicit Arguments.
-From Sep Require Export WPBase SepLifted.
+From CFML Require Export WPBase SepLifted.
 Import LibListExec.RewListExec.
 Open Scope heap_scope.
 Generalizable Variables A.
@@ -953,7 +953,7 @@ Notation "'Case' v '=' vp [ x1 x2 ] ''=>' F1 ''|' F2" :=
 
 Definition Wpgen_assert (F1:Formula) : Formula :=
   MkStruct (Formula_cast (fun (Q:unit->hprop) =>
-    Q tt \* \[Q tt ==> F1 (fun r => \[r = true] \* Q tt)])).
+    Q tt \* \[Q tt ==> ^F1 (fun r => \[r = true] \* Q tt)])).
 
 Definition Wpgen_done : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
@@ -988,14 +988,14 @@ Definition Wpgen_Val_no_mkstruct A1 `{EA1:Enc A1} (V:A1) : Formula :=
 (* includes the return type *)
 
 Definition Wpgen_app_typed (A1:Type) `{EA1:Enc A1} (t:trm) : Formula :=
-  MkStruct (Formula_cast (fun (Q1:A1->hprop) => Wp t Q1)).
+  MkStruct (Formula_cast (fun (Q1:A1->hprop) => ^(Wp t) Q1)).
 
 Arguments Wpgen_app_typed A1 {EA1} t.
 
 Fixpoint Trm_apps (f:trm) (Vs:dyns) : trm :=
   match Vs with
   | nil => f
-  | (Dyn V)::Vs' => Trm_apps (f (enc V)) Vs
+  | (Dyn V)::Vs' => Trm_apps (f (enc V)) Vs'
   end.
 
 Definition Wpgen_App_typed (A1:Type) `{EA1:Enc A1} (f:trm) (Vs:dyns) : Formula :=
