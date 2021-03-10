@@ -3,6 +3,25 @@
 
 Set Implicit Arguments.
 From TLC Require Import LibTactics.
+From CFML Require Import WPBuiltin SepBase SepLifted.
+
+
+(* ********************************************************************** *)
+(** ** Additional definitions *)
+
+(** Type of representation predicates *)
+
+Definition htype (A a:Type) : Type :=
+  A -> a -> hprop.
+
+(* ********************************************************************** *)
+(* TEMPORARY *)
+
+Parameter Enc_any : forall A, Enc A.
+
+
+(* ********************************************************************** *)
+(** ** Tooling for registering a CF with each toplevel definition *)
 
 (** Registration of CF axioms for use by [xwp] tactic.
     CFMLC generates lines of the form
@@ -22,4 +41,10 @@ Notation "'WPHeader_Register_CF' T" := (ltac_database (boxer database_cf) (boxer
   (at level 69, T at level 0) : wptactics_scope.
 
 Ltac WPHeader_Provide T := Provide T.
+
+
+(* ********************************************************************** *)
+(** ** Tooling for registering a Spec with each toplevel definition *)
+
+Definition database_spec := True. (* TODO: check it needs to be here *)
 

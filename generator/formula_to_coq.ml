@@ -8,10 +8,12 @@ open Renaming
 (* ** Conversion of characteristic formulae to Coq *)
 
 let coq_apps_cfml_var x args =
-  coq_apps (coq_cfml_var x) args
+  match args with
+  | [] -> coq_at (coq_cfml_var x)
+  | _ -> Coq_par (coq_apps (coq_cfml_var x) args)
 
 let dummy =
-  coq_apps_cfml_var "WPLifted.Wpgen_Val" [coq_tt]
+  coq_apps_cfml_var "WPLifted.Wpgen_dummy" []
 
 
 (* TODO: extract hard coded constants*)
@@ -36,10 +38,10 @@ let rec coqtops_of_cf cf =
       coq_apps_cfml_var "WPLifted.Wpgen_assert" [aux cf1]
 
   | Cf_fail ->
-      coq_cfml_var "WPLifted.Wpgen_fail"
+      coq_apps_cfml_var "WPLifted.Wpgen_fail" []
 
   | Cf_done ->
-      coq_cfml_var "WPLifted.Wpgen_done"
+      coq_apps_cfml_var "WPLifted.Wpgen_done" []
 
   | Cf_record_new (record_name, items) ->
       (* Each item is a tuple (fi, ti, vi) *)
@@ -65,7 +67,7 @@ let rec coqtops_of_cf cf =
       let args = List.map (fun (x,t) ->
          coq_dyn_of t (if t <> coq_unit then coq_var x else coq_tt)) targs in
       let premi = himpl h (formula_app (aux cf1) q) in
-      let trm = trm_apps (coq_var f) args in
+      let trm = trm_apps_lifted (coq_var f) args in
       let concl = coq_apps_cfml_var "SepLifted.Triple" [trm; h; q] in
       let hyp1 = forall_prepost hname aname qname (coq_impl premi concl) in
       let targs_nonunit = List.filter (fun (x,t) -> t <> coq_unit) targs in

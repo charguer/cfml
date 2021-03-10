@@ -110,6 +110,8 @@ val coq_forall_enc_types : var list -> coq -> coq
 
 val trm_apps : coq -> coq list -> coq
 
+val trm_apps_lifted : coq -> coq list -> coq
+
 (** Abstract datatype for functions (func) *)
 
 val func_type : coq

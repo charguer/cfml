@@ -22,10 +22,10 @@ include $(CFML)/Makefile.common
 PWD := $(shell pwd)
 export
 COQINCLUDE := \
-  -R $(TLC) TLC \
-  -R $(CFML)/lib/coq CFML \
-  -R $(CFML)/lib/stdlib CFML.Stdlib \
-  -R $(PWD) EXAMPLE
+  -Q $(TLC) TLC \
+  -Q $(CFML)/lib/coq CFML \
+  -Q $(CFML)/lib/stdlib CFML.Stdlib \
+  -Q $(PWD) EXAMPLE
   
 
 ##############################################################################

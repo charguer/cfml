@@ -1,6 +1,6 @@
 Set Implicit Arguments.
-Require Import CFLib.
-Require Import LibListZ LibListSub.
+From CFML Require Import WPLib.
+From TLC Require Import LibListZ LibListSub.
 Require Sys_ml.
 Require Array_ml.
 

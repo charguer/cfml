@@ -1,9 +1,8 @@
 Set Implicit Arguments.
-Require Import CFLib.
+From CFML Require Import WPLib.
 Require Import Pervasives_ml Pervasives_proof.
-Require Export LibListZ.
+From TLC Require Export LibListZ.
 Require Import List_ml.
-Require Import CFTactics.
 
 Generalizable Variables A.
 

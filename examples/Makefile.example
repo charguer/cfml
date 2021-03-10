@@ -43,8 +43,8 @@ ifndef V
 endif
 
 COQINCLUDE := \
-  -R $(shell $(COQBIN)coqc -where)/user-contrib/CFML/Stdlib CFML.Stdlib \
-  -R $(PWD) EXAMPLE \
+  -Q $(shell $(COQBIN)coqc -where)/user-contrib/CFML/Stdlib CFML.Stdlib \
+  -Q $(PWD) EXAMPLE \
 
 ##############################################################################
 # Options for OCaml.

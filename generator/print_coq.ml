@@ -161,6 +161,8 @@ let rec expr0 = function
   | Coq_fun _
     as e ->
       parens (expr e)
+  | Coq_par e ->
+      parens (expr0 e)
 
 and expr1 = function
   | Coq_app (e1, e2) ->

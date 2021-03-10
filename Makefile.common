@@ -14,6 +14,11 @@ export COQFLAGS
 export INCLUDE_TLC_AS_DEPENDENCIES
 
 ############################################################################
+
+COQFLAGS=-w -notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths,-irrelevant-format-only-parsing
+
+
+############################################################################
 # We assume that TLC has been installed.
 # (Note: this definition can be overriden from outside.)
 

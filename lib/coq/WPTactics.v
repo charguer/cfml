@@ -133,8 +133,6 @@ Ltac xgoal_fun tt :=
 
 (** A name for the database *)
 
-Definition database_spec := True.
-
 Declare Scope wptactics_scope.
 Open Scope wptactics_scope.
 

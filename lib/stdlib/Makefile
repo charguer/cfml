@@ -15,9 +15,9 @@ include $(CFML)/Makefile.common
 PWD := $(shell pwd)
 export
 COQINCLUDE := \
-  -R $(TLC) TLC \
-  -R $(CFML)/lib/coq CFML \
-  -R $(PWD) CFML.Stdlib
+  -Q $(TLC) TLC \
+  -Q $(CFML)/lib/coq CFML \
+  -Q $(PWD) CFML.Stdlib
 
 ##############################################################################
 # Files.
@@ -79,7 +79,7 @@ endif
 $(PWD)/Pervasives_ml.v $(PWD)/Pervasives.cmj: $(PWD)/Pervasives.ml $(CFMLC)
 	$(CFMLC) $(CFML_FLAGS) -nostdlib -nopervasives -I . $< || (rm -f $@; exit 1)
 
-$(PWD)/%_ml.v $(PWD)/%.cmj: $(PWD)/%.ml $(PWD)/Pervasives.cmj
+$(PWD)/%_ml.v $(PWD)/%.cmj: $(PWD)/%.ml $(PWD)/Pervasives.cmj $(CFMLC)
 	$(CFMLC) $(CFML_FLAGS) -nostdlib -I . $< || (rm -f $@; exit 1)
 
 ##############################################################################

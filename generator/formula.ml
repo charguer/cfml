@@ -87,9 +87,16 @@ let coq_forall_enc_types names c =
 let trm_apps cf cvs =
   coq_apps (coq_cfml_var "Semantics.trm_apps") [cf; coq_list cvs]
 
-(** Abstract datatype for functions *)
+let trm_apps_lifted cf cvs =
+  coq_apps (coq_cfml_var "WPLifted.Trm_apps") [cf; coq_list cvs]
 
-let func_type = coq_cfml_var "CFLib.func"
+(** Abstract datatype for values *)
+
+let val_type = coq_cfml_var "Semantics.val"
+
+(** Abstract datatype for functions --TODO: could use val directly? *)
+
+let func_type = val_type (* coq_cfml_var "WPBuiltin.func" *)
 
 (** Abstract data type for fields *)
 
@@ -104,17 +111,17 @@ let loc_type =
 (** Abstract data type for heaps *)
 
 let heap =
-  coq_cfml_var "SepBase.heap"
+  coq_cfml_var "SepBase.SepBasicCore.heap"
 
 (** Type of proposition on heaps, [hprop], a shorthand for [heap->Prop] *)
 
 let hprop =
-   coq_cfml_var "SepBase.hprop"
+   coq_cfml_var "SepBase.SepBasicCore.hprop"
 
 (** Type of representation predicates *)
 
 let htype c_abstract c_concrete =
-   coq_apps (coq_cfml_var "CFHeaps.htype") [c_abstract; c_concrete]
+   coq_apps (coq_cfml_var "WPLib.htype") [c_abstract; c_concrete]
 
 (** Predicate transformer for Separation Logic *)
 
@@ -124,12 +131,12 @@ let mkstruct =
 (** The identity representation predicate *)
 
 let id_repr =
-   coq_cfml_var "SepBase.Id"
+   coq_cfml_var "SepBase.SepBasicSetup.HS.Id" (* TODO: introduce a shortname *)
 
 (** Representation predicate tag *)
 
 let hdata c_concrete c_abstract =
-   coq_apps (coq_cfml_var "SepBase.repr") [c_abstract; c_concrete]
+   coq_apps (coq_cfml_var "SepBase.SepBasicSetup.HS.repr") [c_abstract; c_concrete]
 
 (** Type of pure post-conditions [_ -> Prop] *)
 
@@ -144,7 +151,7 @@ let wild_to_hprop =
 (** Hprop entailment [H1 ==> H2] *)
 
 let himpl h1 h2 =
-  coq_apps (coq_cfml_var "SepBase.himpl") [h1;h2]
+  coq_apps (coq_cfml_var "SepBase.SepBasicCore.himpl") [h1;h2]
 
 (** Specialized Hprop entailment [H1 ==> Q2 tt] *)
 
@@ -154,7 +161,7 @@ let himpl_unit h1 q2 =
 (** Postcondition entailment [Q1 ===> Q2] *)
 
 let qimpl q1 q2 =
-  coq_apps (coq_cfml_var "SepBase.qimpl") [q1;q2]
+  coq_apps (coq_cfml_var "SepBase.SepBasicCore.qimpl") [q1;q2]
 
 (** Specialized post-conditions [fun (_:unit) => H], i.e. [# H] *)
 
@@ -164,17 +171,17 @@ let post_unit h =
 (** Separating conjunction [H1 * H2] *)
 
 let hstar h1 h2 =
-  coq_apps (coq_cfml_var "SepBase.hstar") [h1;h2]
+  coq_apps (coq_cfml_var "SepBase.SepBasicCore.hstar") [h1;h2]
 
 (** Pure heap predicates [ \[P] ] *)
 
 let hpure c =
-   coq_app (coq_cfml_var "SepBase.hpure") c
+   coq_app (coq_cfml_var "SepBase.SepBasicSetup.SepSimplArgs.hpure") c
 
 (** Magic wand [H1 \-* H2] *)
 
 let hwand h1 h2 =
-  coq_apps (coq_cfml_var "SepBase.hwand") [h1;h2]
+  coq_apps (coq_cfml_var "SepBase.SepBasicSetup.SepSimplArgs.hwand") [h1;h2]
 
 (** Magic wand with pure left hand side [\[P] \-* H] *)
 
@@ -189,7 +196,7 @@ let hwand_hpures ps h =
 (** Magic wand for postconditions [Q1 \--* Q2] *)
 
 let hstar q1 q2 =
-  coq_apps (coq_cfml_var "SepBase.qwand") [q1;q2]
+  coq_apps (coq_cfml_var "SepBase.SepBasicSetup.SepSimplArgs.qwand") [q1;q2]
 
 (** Base data [hsingle c1 c2] *)
 
@@ -199,7 +206,7 @@ let hsingle c1 c2 =
 (** Empty heap predicate [[]] *)
 
 let hempty =
-   coq_cfml_var "SepBase.hempty"
+   coq_cfml_var "SepBase.SepBasicCore.hempty"
 
 (** Iterated separating conjunction [H1 * .. * HN] *)
 
@@ -211,7 +218,7 @@ let hstars hs =
 (** Lifted existentials [\exists x, H] *)
 
 let hexists xname xtype h =
-   Coq_app (coq_cfml_var "SepBase.hexists", Coq_fun ((xname, xtype), h))
+   Coq_app (coq_cfml_var "SepBase.SepBasicCore.hexists", Coq_fun ((xname, xtype), h))
 
 (** Lifted existentials [\exists x, H], alternative *)
 
@@ -226,7 +233,7 @@ let hexistss x_names_types h =
 (** Lifted universal [\forall x, H] *)
 
 let hforall xname xtype h =
-   Coq_app (coq_cfml_var "SepBase.hforall", Coq_fun ((xname, xtype), h))
+   Coq_app (coq_cfml_var "SepBase.SepBasicCore.hforall", Coq_fun ((xname, xtype), h))
 
 (** Lifted universal [\forall x, H], alternative *)
 

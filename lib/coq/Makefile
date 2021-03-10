@@ -10,7 +10,7 @@ include $(CFML)/Makefile.common
 
 PWD   := $(shell pwd)
 V     := $(wildcard $(PWD)/*.v)
-COQFLAGS=-w -notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths,-irrelevant-format-only-parsing
+
 
 
 ifdef INCLUDE_TLC_AS_DEPENDENCIES

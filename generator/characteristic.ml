@@ -364,13 +364,13 @@ let pattern_aliases p : (typed_var*coq) list =
 (* ** Helper functions for various things *)
 
 let register_cf x =
-   Coqtop_custom (sprintf "Hint Extern 1 (WPHeader_Register_CF %s) => CFHeader_Provide %s." x (cf_axiom_name x))
+   Coqtop_custom (sprintf "Hint Extern 1 (WPHeader_Register_CF %s) => WPHeader_Provide %s." x (cf_axiom_name x))
    (* DEPRECATED
       Coqtop_register ("CFML.CFPrint.database_cf", x, cf_axiom_name x)
     *)
 
 let register_spec x v =
-   Coqtop_register ("CFML.WPTactics.database_spec", x, v)
+   Coqtop_register ("CFML.WPHeader.database_spec", x, v)
 
 
 (* TODO: rewrite this function by using a normalization function that returns p *)
@@ -1411,7 +1411,7 @@ and cfg_algebraics decls =
       let build_polyeq_axioms (c,ts) =
         let axiom_name = polymorphic_eq_arg_name c in
         let axiom_type =
-          let pred = coq_cfml_var "CFBuiltin.polymorphic_eq_arg" in
+          let pred = coq_cfml_var "WPBuiltin.polymorphic_eq_arg" in
           let arg_names_typs = list_mapi (fun i t ->
             (variable_generated_name i, lift_typ_exp loc t)) ts in
           let arg_names = List.map fst arg_names_typs in
@@ -1654,10 +1654,12 @@ let cfg_file str =
    Print_type.type_rename := Renaming.type_variable_name;
    [ Cftop_coqs ([
       Coqtop_set_implicit_args;
-      (* Coqtop_require [ "Coq.ZArith.BinInt"; "TLC.LibLogic"; "TLC.LibRelation"; "TLC.LibInt"; "TLC.LibListZ"; "CFML.Shared"; "CFML.CFHeaps"; "CFML.CFApp"; "CFML.CFPrint"; "CFML.CFBuiltin" ];  TODO: should be covered by CFHeader *)
-      Coqtop_require_import [ "Coq.ZArith.BinIntDef"; "CFML.CFHeader" ];
+      Coqtop_require [ "Coq.ZArith.BinInt"; "TLC.LibLogic"; "TLC.LibRelation"; "TLC.LibInt"; "TLC.LibListZ" ];
+      Coqtop_require [ "CFML.SepBase"; "CFML.SepLifted"; "CFML.WPLifted"; "CFML.WPBuiltin" (* *) ]; (* TODO: factorize the prefix using List.map *)
+      Coqtop_require_import [ "Coq.ZArith.BinIntDef"; "CFML.Semantics"; "CFML.WPHeader" ];
       (* TODO: check binintdef needed *)
       Coqtop_custom "Delimit Scope Z_scope with Z.";
+      Coqtop_custom "Existing Instance WPHeader.Enc_any.";
       (* DEPRECATED Coqtop_custom "Local Open Scope cfheader_scope."; *)
       (*DEPRECATED Coqtop_custom "Open Scope list_scope.";*)
       (*DEPRECATED Coqtop_custom "Local Notation \"'int'\" := (Coq.ZArith.BinInt.Z).";*)

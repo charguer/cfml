@@ -253,7 +253,7 @@ let type_constr_builtin_name name =
         ("option", "Coq.Init.Datatypes.option");
         ("list", "Coq.Init.Datatypes.list");
         ("string", "Coq.Strings.String.string");
-        ("array", "CFML.CFBuiltin.array");
+        ("array", "CFML.WPBuiltin.array");
       ]
    with Not_found -> failwith ("type_constr_builtin_name: missing name for " ^ name)
 
@@ -324,7 +324,7 @@ type primitive_arity =
 
 let inlined_primitives_table =
   [
-   "Pervasives.ignore", (Primitive_unary, "(@CFML.CFBuiltin.ignore _)");
+   "Pervasives.ignore", (Primitive_unary, "(@CFML.WPBuiltin.ignore _)");
    "Pervasives.+", (Primitive_binary, "Coq.ZArith.BinInt.Z.add");
    "Pervasives.-", (Primitive_binary, "Coq.ZArith.BinInt.Z.sub");
    "Pervasives.*", (Primitive_binary, "Coq.ZArith.BinInt.Z.mul");
@@ -336,8 +336,8 @@ let inlined_primitives_table =
    "Pervasives.pred", (Primitive_unary, "(fun x__ => Coq.ZArith.BinInt.Zminus x__ (1)%Z)");
    "Pervasives.succ", (Primitive_unary, "(fun x__ => Coq.ZArith.BinInt.Zplus x__ (1)%Z)");
    (* DEPRECATED
-   "Pervasives.pred", (Primitive_unary, "CFML.CFBuiltin.pred");
-   "Pervasives.succ", (Primitive_unary, "CFML.CFBuiltin.succ");
+   "Pervasives.pred", (Primitive_unary, "CFML.WPBuiltin.pred");
+   "Pervasives.succ", (Primitive_unary, "CFML.WPBuiltin.succ");
    *)
    "Pervasives./", (Primitive_binary_div_or_mod, "Coq.ZArith.BinInt.Z.quot");
    "Pervasives.mod", (Primitive_binary_div_or_mod, "Coq.ZArith.BinInt.Z.rem");

@@ -959,9 +959,13 @@ Definition Wpgen_done : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
     \[False] \-* \[True]).
 
-Definition Wpgen_Val `{Enc A1} (V:A1) : Formula :=
+Definition Wpgen_Val A1 {EA1:Enc A1} (V:A1) : Formula :=
   MkStruct (Wpgen_Val_no_mkstruct V).
   (* MkStruct (fun A (EA:Enc A) (Q:A->hprop) => Post_cast A Q V)). *)
+
+(*
+Arguments WPLifted.Wpgen_Val [A1] {EA1} V. (* prevents expanded implicit arguments *)
+*)
 
 (* TODO
   Lemma xval_lifted_lemma : forall A `{EA:Enc A} (V:A) H (Q:A->hprop),
@@ -1053,6 +1057,8 @@ Definition Wpgen_let_Val A1 `{EA1:Enc A1} (V:A1) (Fof:A1->Formula) : Formula :=
 Definition Wpgen_body (P:Prop) : Prop :=
   P.
 
+Definition Wpgen_dummy : Formula :=
+  Wpgen_fail.
 
 
 (* ********************************************************************** *)

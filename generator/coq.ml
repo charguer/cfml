@@ -37,6 +37,7 @@ and coq =
   | Coq_record of (var * coq) list
   | Coq_tag of string * coq list * string option * coq
   | Coq_annot of coq * coq
+  | Coq_par of coq
 (* DEPRECATED ; maybe future ?  | Coq_list of coq list *)
 
 and coqs = coq list
@@ -149,7 +150,7 @@ let coq_bool =
 let coq_var x =
   Coq_var x
 
-let coq_cfml_var x =
+let coq_cfml_var x = (* TODO: there are places where it's not yet used *)
   coq_var ("CFML." ^ x)
 
 (** Identifier [@x] *)
