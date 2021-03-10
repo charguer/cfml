@@ -10,6 +10,9 @@ open Renaming
 let coq_apps_cfml_var x args =
   coq_apps (coq_cfml_var x) args
 
+let dummy =
+  coq_apps_cfml_var "WPLifted.Wpgen_Val" [coq_tt]
+
 
 (* TODO: extract hard coded constants*)
 
@@ -76,7 +79,7 @@ let rec coqtops_of_cf cf =
       coq_apps_cfml_var "WPLifted.Wpgen_let_typed" [c1; c2]
 
   | Cf_let_poly (x, fvs_strict, fvs_other, typ, cf1, cf2) ->
-      coq_var "unsupported"
+      dummy
       (* LATER
       let type_of_x = coq_forall_enc_types fvs_strict typ in
       let tvars = coq_vars fvs_strict in
@@ -124,7 +127,7 @@ let rec coqtops_of_cf cf =
       coq_apps_cfml_var "WPLifted.Wpgen_if_bool" [v; aux cf1; aux cf2]
 
   | Cf_case (v,tps,pat,vwhenopt,aliases,cf1,cf2) ->
-    coq_var "unsupported"
+    dummy
     (* TODO: later
       let add_alias ((name,typ),exp) cf : coq =
          funhq "tag_alias" (coq_foralls [name,typ] (coq_impls [coq_eq (Coq_var name) exp] (coq_apps cf [h;q])))
@@ -145,7 +148,7 @@ let rec coqtops_of_cf cf =
       *)
 
   | Cf_match (label, n, cf1) ->
-      coq_var "unsupported"
+      dummy
       (* TODO: later
        let f = Coq_app (coq_cfml_var "CFHeaps.local", (aux cf1)) in
        coq_tag "tag_match" f
@@ -170,7 +173,7 @@ let rec coqtops_of_cf cf =
       coq_apps_cfml_var "WPLifted.Wpgen_while" [aux cf1; aux cf2]
 
   | Cf_pay (cf1) ->
-      coq_var "unsupported"
+      dummy
       (* TODO: LATER
       let h' = Coq_var "H'" in
       let c1 = coq_apps (coq_cfml_var "CFHeaps.pay_one") [h;h'] in
