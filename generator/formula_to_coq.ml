@@ -8,12 +8,21 @@ open Renaming
 (* ** Conversion of characteristic formulae to Coq *)
 
 let coq_apps_cfml_var x args =
-  match args with
-  | [] -> coq_at (coq_cfml_var x)
-  | _ -> Coq_par (coq_apps (coq_cfml_var x) args)
+  coq_apps (coq_cfml_var x) args
+
+let wpgen_app x args =
+  (* Add a pair of parentheses on applications, or a "@" symbol on constants,
+     to disable implicit arguments on the resulting Formula *)
+  let body =
+    match args with
+    | [] -> Coq_par (coq_at (coq_cfml_var x))
+    | _ -> Coq_par (coq_apps (coq_cfml_var x) args)
+    in
+  (* Add a tag to allow pretty printing of goals *)
+  coq_app (coq_at (coq_cfml_var "WPLifted.Wptag")) body
 
 let dummy =
-  coq_apps_cfml_var "WPLifted.Wpgen_dummy" []
+  wpgen_app "WPLifted.Wpgen_dummy" []
 
 
 (* TODO: extract hard coded constants*)
@@ -32,16 +41,16 @@ let rec coqtops_of_cf cf =
   match cf with
 
   | Cf_val v ->
-      coq_apps_cfml_var "WPLifted.Wpgen_Val" [v]
+      wpgen_app "WPLifted.Wpgen_Val" [v]
 
   | Cf_assert cf1 ->
-      coq_apps_cfml_var "WPLifted.Wpgen_assert" [aux cf1]
+      wpgen_app "WPLifted.Wpgen_assert" [aux cf1]
 
   | Cf_fail ->
-      coq_apps_cfml_var "WPLifted.Wpgen_fail" []
+      wpgen_app "WPLifted.Wpgen_fail" []
 
   | Cf_done ->
-      coq_apps_cfml_var "WPLifted.Wpgen_done" []
+      wpgen_app "WPLifted.Wpgen_done" []
 
   | Cf_record_new (record_name, items) ->
       (* Each item is a tuple (fi, ti, vi) *)
@@ -50,13 +59,13 @@ let rec coqtops_of_cf cf =
         Coq_tuple [Coq_var field_name; coq_dyn_of field_type field_value] in
       let dynlist = coq_list (List.map build_field items) in
       let dynlistof = coq_fun (record_name, loc_type) dynlist in
-      coq_apps_cfml_var "WPRecord.Wpgen_record_new" [dynlistof]
+      wpgen_app "WPRecord.Wpgen_record_new" [dynlistof]
 
   | Cf_app (ts, tret, f, vs) ->
       (* Wpgen_App_typed tret f [(@dyn t1 _ v1); (@dyn t2 _ v2)] *)
       assert (List.length ts = List.length vs);
       let args = coq_list (List.map2 coq_dyn_of ts vs) in
-      coq_apps_cfml_var "WPLifted.Wpgen_App_typed" [tret; f; args]
+      wpgen_app "WPLifted.Wpgen_App_typed" [tret; f; args]
 
   | Cf_body (f, fvs, targs, typ, cf1) ->
       (* targs list of (xi,ti) *)
@@ -78,7 +87,7 @@ let rec coqtops_of_cf cf =
   | Cf_let (typed_x, cf1, cf2) ->
       let c1 = aux cf1 in
       let c2 = coq_fun typed_x (aux cf2) in
-      coq_apps_cfml_var "WPLifted.Wpgen_let_typed" [c1; c2]
+      wpgen_app "WPLifted.Wpgen_let_typed" [c1; c2]
 
   | Cf_let_poly (x, fvs_strict, fvs_other, typ, cf1, cf2) ->
       dummy
@@ -111,7 +120,7 @@ let rec coqtops_of_cf cf =
       let typ = coq_forall_enc_types fvs typ_body in
       let lifted_v = coq_fun_types fvs v in
       let c = coq_fun (x,typ) (aux cf) in
-      coq_apps_cfml_var "WPLifted.Wpgen_let_Val" [lifted_v; c]
+      wpgen_app "WPLifted.Wpgen_let_Val" [lifted_v; c]
 
   | Cf_let_fun (fcs, cf) ->
       (* fcs list of pairs (fi, bi) *)
@@ -123,10 +132,10 @@ let rec coqtops_of_cf cf =
       let fts = List.map (fun f -> (f, func_type)) fs in
       let body = hforalls fts (hwand_hpures bs (formula_app (aux cf) q)) in
       let bodyof = formula_def aname qname body in
-      coq_apps_cfml_var "WPLifted.Wpgen_let_fun" [bodyof]
+      wpgen_app "WPLifted.Wpgen_let_fun" [bodyof]
 
   | Cf_if (v,cf1,cf2) ->
-      coq_apps_cfml_var "WPLifted.Wpgen_if_bool" [v; aux cf1; aux cf2]
+      wpgen_app "WPLifted.Wpgen_if_bool" [v; aux cf1; aux cf2]
 
   | Cf_case (v,tps,pat,vwhenopt,aliases,cf1,cf2) ->
     dummy
@@ -158,7 +167,7 @@ let rec coqtops_of_cf cf =
 
   | Cf_seq (cf1,cf2) ->
       (* Wpgen_seq F1 F2 *)
-      coq_apps_cfml_var "WPLifted.Wpgen_seq" [aux cf1; aux cf2]
+      wpgen_app "WPLifted.Wpgen_seq" [aux cf1; aux cf2]
 
   | Cf_for (dir,i_name,v1,v2,cf1) ->
       (* Wpgen_for_int n1 n2 F *)
@@ -168,11 +177,11 @@ let rec coqtops_of_cf cf =
         | For_loop_down -> "WPLifted.Wpgen_for_downto_int"
         in
       let body = coq_fun (i_name, coq_int) (aux cf1) in
-      coq_apps_cfml_var pred [v1; v2; body]
+      wpgen_app pred [v1; v2; body]
 
   | Cf_while (cf1,cf2) ->
       (* Wpgen_while F1 F2 *)
-      coq_apps_cfml_var "WPLifted.Wpgen_while" [aux cf1; aux cf2]
+      wpgen_app "WPLifted.Wpgen_while" [aux cf1; aux cf2]
 
   | Cf_pay (cf1) ->
       dummy

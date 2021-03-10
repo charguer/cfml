@@ -141,8 +141,8 @@ Definition Wpgen_Val_no_mkstruct A1 `{EA1:Enc A1} (V:A1) : Formula :=
 
 Definition Wpaux_var (E:ctx) (x:var) : Formula :=
   match Ctx.lookup x E with
-  | None => `Wpgen_fail
-  | Some v => `Wpgen_val v
+  | None => Wptag (Wpgen_fail)
+  | Some v => Wptag (Wpgen_val v)
   end.
 
 Definition Wpgen_let (F1:Formula) (F2of:forall A1 (EA1:Enc A1), A1->Formula) : Formula :=
@@ -163,25 +163,25 @@ Definition Wpaux_getval Wpgen (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
   | trm_val v => F2of v
   | trm_var x => match Ctx.lookup x E with
                  | Some v => F2of v
-                 | None => `Wpgen_fail
+                 | None => Wptag (Wpgen_fail)
                  end
-  | _ => `Wpgen_let (Wpgen E t1) (fun A1 (EA1:Enc A1) (V1:A1) => F2of (``V1))
+  | _ => Wptag (Wpgen_let (Wpgen E t1) (fun A1 (EA1:Enc A1) (V1:A1) => F2of (``V1)))
   end.
 
 Definition Wpaux_getval_typed Wpgen (E:ctx) (t1:trm) `{EA1:Enc A1} (F2of:A1->Formula) : Formula :=
   match t1 with
-  | trm_val v => `Wpgen_let_typed (`Wpgen_val v) F2of
+  | trm_val v => Wptag (Wpgen_let_typed (`Wpgen_val v) F2of)
   | trm_var x => match Ctx.lookup x E with
-                 | Some v => `Wpgen_let_typed (`Wpgen_val v) F2of
-                 | None => `Wpgen_fail
+                 | Some v => Wptag (Wpgen_let_typed (`Wpgen_val v) F2of)
+                 | None => Wptag (Wpgen_fail)
                  end
-  | _ => `Wpgen_let_typed (Wpgen E t1) F2of
+  | _ => Wptag (Wpgen_let_typed (Wpgen E t1) F2of)
   end.
 
 Definition Wpaux_constr Wpgen (E:ctx) (id:idconstr) : list val -> list trm -> Formula :=
   fix mk (rvs : list val) (ts : list trm) : Formula :=
     match ts with
-    | nil => `Wpgen_val (val_constr id (LibListExec.rev rvs))
+    | nil => Wptag (Wpgen_val (val_constr id (LibListExec.rev rvs)))
     | t1::ts' => Wpaux_getval Wpgen E t1 (fun v1 => mk (v1::rvs) ts')
     end.
 
@@ -191,7 +191,7 @@ Definition Wpgen_app (t:trm) : Formula :=
 Definition Wpaux_apps Wpgen (E:ctx) (v0:func) : list val -> list trm -> Formula :=
   (fix mk (rvs : list val) (ts : list trm) : Formula :=
     match ts with
-    | nil => `Wpgen_app (trm_apps v0 (trms_vals (LibListExec.rev rvs)))
+    | nil => Wptag (Wpgen_app (trm_apps v0 (trms_vals (LibListExec.rev rvs))))
     | t1::ts' => Wpaux_getval Wpgen E t1 (fun v1 => mk (v1::rvs) ts')
     end).
 
@@ -200,7 +200,7 @@ Definition Wpgen_if_bool (b:bool) (F1 F2:Formula) : Formula :=
     if b then ^F1 Q else ^F2 Q).
 
 Definition Wpaux_if (F0 F1 F2:Formula) : Formula :=
-  `Wpgen_let_typed F0 (fun (b:bool) => `Wpgen_if_bool b F1 F2).
+  Wptag (Wpgen_let_typed F0 (fun (b:bool) => `Wpgen_if_bool b F1 F2)).
 
 Definition Wpgen_while (F1 F2:Formula) : Formula :=
   MkStruct (`Formula_cast (fun (Q:unit->hprop) =>
@@ -212,8 +212,8 @@ Definition Wpgen_while (F1 F2:Formula) : Formula :=
 Definition Wpgen_for_int (n1 n2:int) (F1:int->Formula) : Formula :=
   MkStruct (Formula_cast (fun (Q:unit->hprop) =>
     \forall (S:int->Formula),
-    let F i := If (i <= n2) then (`Wpgen_seq (F1 i) (S (i+1)))
-                            else (`Wpgen_val val_unit) in
+    let F i := If (i <= n2) then (Wptag (Wpgen_seq (F1 i) (S (i+1))))
+                            else (Wptag (Wpgen_val val_unit)) in
     \[   (forall i, structural (S i unit _))
       /\ (forall i (Q':unit->hprop), ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
      (* --TODO: use a lifted version of structural_pred *)
@@ -225,7 +225,7 @@ Definition Wpgen_case (F1:Formula) (P:Prop) (F2:Formula) : Formula :=
 Definition Wpaux_match Wpgen (E:ctx) (v:val) : list (pat*trm) ->  Formula :=
   fix mk (pts:list(pat*trm)) : Formula :=
     match pts with
-    | nil => `Wpgen_fail
+    | nil => Wptag (Wpgen_fail)
     | (p,t)::pts' =>
         let xs := patvars p in
         let F1 A (EA:Enc A) (Q:A->hprop) :=
@@ -244,36 +244,36 @@ Definition Wpaux_match Wpgen (E:ctx) (v:val) : list (pat*trm) ->  Formula :=
 Fixpoint Wpgen (E:ctx) (t:trm) : Formula :=
   let aux := Wpgen E in
   match t with
-  | trm_val v => `Wpgen_val v
+  | trm_val v => Wptag (Wpgen_val v)
   | trm_var x => Wpaux_var E x
   | trm_fixs f xs t1 =>
       match xs with
-      | nil => `Wpgen_fail
-      | _ => `Wpgen_val (val_fixs f xs (isubst (Ctx.rem_vars xs (Ctx.rem f E)) t1))
+      | nil => Wptag (Wpgen_fail)
+      | _ => Wptag (Wpgen_val (val_fixs f xs (isubst (Ctx.rem_vars xs (Ctx.rem f E)) t1)))
       end
   | trm_constr id ts => Wpaux_constr Wpgen E id nil ts
   | trm_if t0 t1 t2 =>
      Wpaux_getval_typed Wpgen E t0 (fun b0 =>
-       `Wpgen_if_bool b0 (aux t1) (aux t2))
+       Wptag (Wpgen_if_bool b0 (aux t1) (aux t2)))
   | trm_let z t1 t2 =>
      match z with
-     | bind_anon => `Wpgen_seq (aux t1) (aux t2)
-     | bind_var x => `Wpgen_let (aux t1) (fun A (EA:Enc A) (X:A) =>
-                         Wpgen (Ctx.add x (enc X) E) t2)
+     | bind_anon => Wptag (Wpgen_seq (aux t1) (aux t2))
+     | bind_var x => Wptag (Wpgen_let (aux t1) (fun A (EA:Enc A) (X:A) =>
+                         Wpgen (Ctx.add x (enc X) E) t2))
      end
   | trm_apps t0 ts =>
      Wpaux_getval Wpgen E t0 (fun v0 =>
        Wpaux_apps Wpgen E v0 nil ts)
-  | trm_while t1 t2 => `Wpgen_while (aux t1) (aux t2)
+  | trm_while t1 t2 => Wptag (Wpgen_while (aux t1) (aux t2))
   | trm_for x t1 t2 t3 =>
      Wpaux_getval_typed Wpgen E t1 (fun n1 =>
        Wpaux_getval_typed Wpgen E t2 (fun n2 =>
-         `Wpgen_for_int n1 n2 (fun n =>
-            Wpgen (Ctx.add x (enc n) E) t3)))
+         Wptag (Wpgen_for_int n1 n2 (fun n =>
+            Wpgen (Ctx.add x (enc n) E) t3))))
   | trm_match t0 pts =>
       Wpaux_getval Wpgen E t0 (fun v0 =>
         Wpaux_match Wpgen E v0 pts)
-  | trm_fail => `Wpgen_fail
+  | trm_fail => Wptag (Wpgen_fail)
   end.
 
 
@@ -968,10 +968,6 @@ Arguments WPLifted.Wpgen_Val [A1] {EA1} V. (* prevents expanded implicit argumen
 *)
 
 (* TODO
-  Lemma xval_lifted_lemma : forall A `{EA:Enc A} (V:A) H (Q:A->hprop),
-    H ==> Q V ->
-    H ==> ^(Wpgen_val_lifted V) Q.
-  Proof using. introv E N. subst. applys MkStruct_erase. ... Qed.
 *)
 
 (* alternative?

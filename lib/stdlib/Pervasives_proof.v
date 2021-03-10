@@ -5,11 +5,328 @@ Generalizable Variable A.
 
 
 (************************************************************)
-(** Boolean *)
+(** updates *)
 
+Ltac xgoal_fun tt ::=
+  match xgoal_code_without_wptag tt with
+  | Wpgen_app (trm_apps (trm_val ?f) _) => constr:(f)
+  | Wpgen_App_typed ?f ?Vs => constr:(f)
+  end.
+
+
+(************************************************************)
+(** [show_types] *)
+
+(* TODO LATER
+
+    - [xcf_types] shows the type of the application in the
+      goal, compared with the one from the specification.
+
+    - [xcf_types S] shows the types of the function involved
+      in a specification [S].
+
+  Ltac xcf_types_core tt :=
+    let S := fresh "Spec" in
+    first [intros [_ S] | intros S];
+    idtac "=== type of app in goal ===";
+    cfml_show_app_type_goal tt;
+    idtac "=== type of app in code === ";
+    forwards_nounfold_skip_sides_then S ltac:(fun K =>
+      let T := type of K in
+      cfml_show_app_type T);
+    clear S.
+
+  Ltac xcf_types_core_noarg tt :=
+    intros;
+    let H := fresh in
+    xcf_show_core H;
+    revert H;
+    xcf_types_core tt.
+
+  Ltac xcf_types_core_arg S :=
+    intros;
+    generalize S;
+    xcf_types_core tt.
+
+  Tactic Notation "xcf_types" :=
+    xcf_types_core_noarg tt.
+
+  Tactic Notation "xcf_types" constr(S) :=
+    xcf_types_core_arg S.
+
+*)
+
+(* LATER
+Ltac xcf_fallback f :=
+  idtac "Warning: could not exploit the specification; maybe the types don't match; check them using [xcf_types]; if you intend to use the specification manually, use [xcf_show].";
+  xcf_find f;
+  let Sf := fresh "Spec" in
+  intros Sf.
+*)
+
+(************************************************************)
+(** [DEPRECATED?] *)
+
+Ltac solve_type := (* TODO: still needed? *)
+  match goal with |- Type => exact unit end.
+
+Ltac remove_head_unit tt :=
+  repeat match goal with
+  | |- unit -> _ => intros _
+  end.
+
+Ltac xcf_post tt := (* TODO: still needed? *)
+  cbv beta;
+  remove_head_unit tt.
+  (* DEPRECATED
+  cbv beta;
+  remove_head_unit tt. TODO: should be hnf?
+  *)
+
+
+
+
+(************************************************************)
+(** Notation for parsing lifted applications *)
+
+(** This set up allows writing [f V1 .. VN] as short for
+    [Trm_apps f ((Dyn V1):: .. ::(Dyn Vn)::nil)]. *)
+
+Declare Custom Entry Trm_apps.
+
+Notation "f x" := (Trm_apps f ((Dyn x)::nil))
+  (in custom Trm_apps at level 1,
+   f constr at level 0, 
+   x constr at level 0, 
+   left associativity)
+  : Trm_apps_scope.
+
+Notation "f x1 x2 .. xn" := (Trm_apps f (cons (Dyn x1) (cons (Dyn x2) .. (cons (Dyn xn) nil) ..)))
+  (in custom Trm_apps at level 1,
+   f constr at level 0, 
+   x1 constr at level 0, 
+   x2 constr at level 0, 
+   xn constr at level 0, 
+   left associativity)
+  : Trm_apps_scope.
+
+Notation "( x )" :=
+  x
+  (in custom Trm_apps,
+   x at level 99) : Trm_apps_scope.
+
+Notation "'SPEC' t 'PREC' H 'POST' Q" :=
+  (Triple t H Q)
+  (at level 39, t custom Trm_apps at level 0,
+  format "'[v' 'SPEC'  t  '/' 'PREC'  H  '/' 'POST'  Q ']'") : triple_scope.
+
+Open Scope Trm_apps_scope.
+Open Scope triple_scope.
+
+(*
+Lemma test_spec : forall (a b:bool),
+  SPECS (not a b)
+    PRES \[]
+    POST \[= !a ].
+*)
+
+(************************************************************)
+(** [xcf] *)
+
+(** [xcf] applies to a goal with a conclusion of the form
+    [Triple t H Q], possibly written using the [SPEC] notation.
+    It looks up the characteristic formula associated with [f]
+    in the database "database_cf", and exploits it to start
+    proving the goal. [xcf] first calls [intros] if needed.
+
+    When [xcf] fails to apply, it is (most usually) because the number
+    of arguments, or the types of the arguments, or the return type,
+    does not match.
+
+    Variants:
+
+    - [xcf_show] will only display the CF lemma found in the database,
+      putting it at the head of the goal.
+
+    - [xcf_show f] displays the CF associated with a given value [f].
+
+*)
+
+ (* TODO: extend to support partial application *)
+
+Ltac xcf_pre tt :=
+  intros.
+
+Ltac xcf_target tt :=
+  match goal with 
+  | |- ?f = _ => constr:(f)
+  | |- Triple (Trm_apps (trm_val ?f) ?Vs) ?H ?Q => constr:(f)
+  end.
+
+Ltac xcf_find f :=
+  ltac_database_get database_cf f.
+
+Tactic Notation "xcf_show" constr(f) :=
+  xcf_find f.
+
+Tactic Notation "xcf_show" :=
+  xcf_pre tt;
+  let f := xcf_target tt in
+  xcf_find f.
+
+Ltac xcf_top_fun tt :=
+  let f := xcf_target tt in
+  xcf_find f;
+  let Sf := fresh "Spec" in
+  intros Sf;
+  apply Sf;
+  clear Sf.
+  (* xcf_post *) (* try solve_type;  instantiate; *)
+  (* TODO: first [ xc f_top_value f | xcf_fallback f | fail 2 ] *)
+
+Ltac xcf_top_value tt :=
+  let f := xcf_target tt in
+  xcf_find f;
+  let Sf := fresh "Spec" in
+  intros Sf;
+  rewrite Sf;
+  clear Sf. 
+  (* xcf_post *)
+
+Ltac xcf_core tt :=
+  xcf_pre tt;
+  match goal with
+  | |- ?f = _ => xcf_top_value tt
+  | _ => xcf_top_fun tt
+  end. 
+
+(* TODO notation SPECVAL f = v and SPECVAL f st P *)
+
+Tactic Notation "xcf" :=
+  xcf_core tt.
+Tactic Notation "xcf" "~" :=
+  xcf; auto_tilde.
+Tactic Notation "xcf" "*" :=
+  xcf; auto_star.
+
+
+(************************************************************)
+
+(*
+Ltac xgoal_code tt ::=
+  match goal with 
+  | |- PREC _ CODE ?F POST _ => constr:(F)  (*  (H ==> (Wptag F) _ _ Q) *)
+  end.
+
+Ltac xgoal_code_strip_wptag C :=
+  match C with
+  | Wptag ?C' => xgoal_code_strip_wptag C'
+  | ?C' => constr:(C')
+  end.
+
+Ltac xgoal_code_without_wptag tt :=
+  let C := xgoal_code tt in
+  xgoal_code_strip_wptag C.
+*)
+
+
+(************************************************************)
+
+Lemma xval_lifted_lemma : forall A `{EA:Enc A} (V:A) H (Q:A->hprop),
+  H ==> Q V ->
+  H ==> ^(Wpgen_Val V) Q.
+Proof using.
+  introv M. subst. applys MkStruct_erase. 
+  applys xcast_lemma M.
+Qed.
+
+Ltac xval_pre tt ::=
+  xlet_xseq_xcast_repeat tt;
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_val _) => idtac
+  | (Wpgen_Val _) => idtac
+  end.
+
+Ltac xval_core tt :=
+  xval_pre tt;
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_val _) => applys @xval_lemma_decode; [ try xdecode | ]
+  | (Wpgen_Val _) => applys xval_lifted_lemma
+  end;
+  xval_post tt.
+
+
+(************************************************************)
+(** [xgo], and [xstep] *)
+
+Ltac xstep_once tt :=
+  match goal with
+  | |- ?G => match xgoal_code_without_wptag tt with
+    | (Wpgen_seq _ _) => xseq
+    | (Wpgen_let_typed _ _) => xlet
+    | (Wpgen_let _ _) => xlet
+    | (Wpgen_app _) => xapp
+    | (Wpgen_if_bool _ _ _) => xif
+    | (Wpgen_val _) => xval
+    | (Wpgen_Val _) => xval
+    | (Wpgen_Val_no_mkstruct _) => xcast
+    | (Wpgen_fail) => xfail
+    (* | (Wpgen_case _ _ _) => xcase *)
+    (* TODO complete *)
+    end
+  | |- _ ==> _ => xsimpl
+  | |- _ ===> _ => xsimpl
+  end.
+
+(*
+Definition Wpgen_assert (F1:Formula) : Formula :=
+Definition Wpgen_done : Formula :=
+Definition Wpgen_Val A1 {EA1:Enc A1} (V:A1) : Formula :=
+Definition Wpgen_app_typed (A1:Type) `{EA1:Enc A1} (t:trm) : Formula :=
+Definition Wpgen_App_typed (A1:Type) `{EA1:Enc A1} (f:trm) (Vs:dyns) : Formula :=
+Definition Wpgen_for_downto_int (n1 n2:int) (F1:int->Formula) : Formula :=
+Definition Wpgen_let_fun (BodyOf:forall A,Enc A->(A->hprop)->hprop) : Formula :=
+Definition Wpgen_let_Val A1 `{EA1:Enc A1} (V:A1) (Fof:A1->Formula) : Formula :=
+Definition Wpgen_body (P:Prop) : Prop :=
+Definition Wpgen_dummy : Formula :=
+*)
+
+Ltac xstep_pre tt :=
+  try xpull; intros.
+
+Ltac xstep_core tt :=
+  xstep_pre tt; xstep_once tt; instantiate.
+
+Tactic Notation "xstep" :=
+  xstep_core tt.
+Tactic Notation "xstep" "~" :=
+  xstep; auto_tilde.
+Tactic Notation "xstep" "*" :=
+  xstep; auto_star.
+
+Ltac xgo_core tt :=
+  repeat (xstep_core tt).
+
+Tactic Notation "xgo" :=
+  xgo_core tt.
+Tactic Notation "xgo" "~" :=
+  xgo; auto_tilde.
+Tactic Notation "xgo" "*" :=
+  xgo; auto_star.
+
+
+(************************************************************)
+
+Notation "'RegisterSpec' f" := (Register_Spec f)
+  (at level 69) : wptactics_scope.
+
+
+
+(************************************************************)
+(** Boolean *)
 Lemma not_spec : forall (a:bool),
   SPEC (not a)
-    PRE \[]
+    PREC \[]
     POST \[= !a ].
 Proof using.
   xcf. xgo*.
@@ -30,28 +347,28 @@ Hint Extern 1 (RegisterSpec not) => Provide not_spec.
 *)
 
 Parameter infix_eq_eq_loc_spec : forall (a b:loc),
-  TRIPLE (infix_eq_eq__ a b)
-    PRE \[]
+  SPEC (infix_eq_eq__ a b)
+    PREC \[]
     POST \[= isTrue (a = b) ].
 
 Parameter infix_eq_eq_gen_spec : forall (A:Type) (a b:A),
-  TRIPLE (infix_eq_eq__ a b)
-    PRE \[]
+  SPEC (infix_eq_eq__ a b)
+    PREC \[]
     POST (fun r => \[r = true -> isTrue (a = b)]).
 
 Hint Extern 1 (RegisterSpec infix_eq_eq__) => Provide infix_eq_eq_loc_spec.
 
 Lemma infix_emark_eq_loc_spec : forall (a b:loc),
-  TRIPLE (infix_emark_eq__ a b)
-    PRE \[]
+  SPEC (infix_emark_eq__ a b)
+    PREC \[]
     POST \[= isTrue (a <> b) ].
 Proof using.
   xcf. xgo*. rew_isTrue; xauto*.
 Qed.
 
 Lemma infix_emark_eq_gen_spec : forall (A:Type) (a b:A),
-  TRIPLE (infix_emark_eq__ a b)
-    PRE \[]
+  SPEC (infix_emark_eq__ a b)
+    PREC \[]
     POST (fun r => \[r = false -> isTrue (a = b)]).
 Proof using.
   xcf. xapp_spec infix_eq_eq_gen_spec.
@@ -66,8 +383,8 @@ Hint Extern 1 (RegisterSpec infix_emark_eq__) => Provide infix_emark_eq_loc_spec
 
 Parameter infix_eq_spec : forall A (a b : A),
   (polymorphic_eq_arg a \/ polymorphic_eq_arg b) ->
-  TRIPLE (infix_eq__ a b)
-    PRE \[]
+  SPEC (infix_eq__ a b)
+    PREC \[]
     POST \[= isTrue (a = b) ].
 
 Hint Extern 1 (RegisterSpec infix_eq__) => Provide infix_eq_spec.
@@ -75,15 +392,15 @@ Hint Extern 1 (RegisterSpec infix_eq__) => Provide infix_eq_spec.
 Parameter infix_neq_spec : curried 2%nat infix_eq__ /\
   forall A (a b : A),
   (polymorphic_eq_arg a \/ polymorphic_eq_arg b) ->
-  TRIPLE (infix_lt_gt__ a b)
-    PRE \[]
+  SPEC (infix_lt_gt__ a b)
+    PREC \[]
     POST \[= isTrue (a <> b) ].
 
 Hint Extern 1 (RegisterSpec infix_lt_gt__) => Provide infix_neq_spec.
 
 Lemma min_spec : forall (n m:int),
-  TRIPLE (min n m)
-    PRE \[]
+  SPEC (min n m)
+    PREC \[]
     POST \[= Z.min n m ].
 Proof using.
   xcf. xgo*.
@@ -92,8 +409,8 @@ Proof using.
 Qed.
 
 Lemma max_spec : forall (n m:int),
-  TRIPLE (max n m)
-    PRE \[]
+  SPEC (max n m)
+    PREC \[]
     POST \[= Z.max n m ].
 Proof using.
   xcf. xgo*.
@@ -109,13 +426,13 @@ Hint Extern 1 (RegisterSpec max) => Provide max_spec.
 (** Boolean *)
 
 Parameter infix_bar_bar_spec : forall (a b:bool),
-  TRIPLE (infix_bar_bar__ a b)
-    PRE \[]
+  SPEC (infix_bar_bar__ a b)
+    PREC \[]
     POST \[= a && b ].
 
 Parameter infix_amp_amp_spec : forall (a b:bool),
-  TRIPLE (infix_amp_amp__ a b)
-    PRE \[]
+  SPEC (infix_amp_amp__ a b)
+    PREC \[]
     POST \[= a || b ].
 
 Hint Extern 1 (RegisterSpec infix_bar_bar__) => Provide infix_bar_bar_spec.
@@ -126,35 +443,35 @@ Hint Extern 1 (RegisterSpec infix_amp_amp__) => Provide infix_amp_amp_spec.
 (** Integer *)
 
 Parameter infix_tilde_minus_spec : forall (n:int),
-  TRIPLE (infix_tilde_minus__ n)
-    PRE \[]
+  SPEC (infix_tilde_minus__ n)
+    PREC \[]
     POST \[= Z.opp n ].
 
 Parameter infix_plus_spec : forall (n m:int),
-  TRIPLE (infix_plus__ n m)
-    PRE \[]
+  SPEC (infix_plus__ n m)
+    PREC \[]
     POST \[= Z.add n m ].
 
 Parameter infix_minus_spec : forall (n m:int),
-  TRIPLE (infix_minus__ n m)
-    PRE \[]
+  SPEC (infix_minus__ n m)
+    PREC \[]
     POST \[= Z.sub n m ].
 
 Parameter infix_star_spec : forall (n m:int),
-  TRIPLE (infix_star__ n m)
-    PRE \[]
+  SPEC (infix_star__ n m)
+    PREC \[]
     POST \[= Z.mul n m ].
 
 Parameter infix_slash_spec : forall (n m:int),
   m <> 0 ->
-  TRIPLE (infix_slash__ n m)
-    PRE \[]
+  SPEC (infix_slash__ n m)
+    PREC \[]
     POST \[= Z.quot n m ].
 
 Parameter mod_spec : forall (n m:int),
   m <> 0 ->
-  TRIPLE (Pervasives_ml.mod n m)
-    PRE \[]
+  SPEC (Pervasives_ml.mod n m)
+    PREC \[]
     POST \[= Z.rem n m ].
 
 Hint Extern 1 (RegisterSpec infix_tilde_minus__) => Provide infix_tilde_minus_spec.
@@ -187,24 +504,24 @@ Notation "n `+ m" := (App infix_mod_ n m;)
  *)
 
 Lemma succ_spec : forall (n:int),
-  TRIPLE (succ n)
-    PRE \[]
+  SPEC (succ n)
+    PREC \[]
     POST \[= n+1 ].
 Proof using.
   xcf. xgo*.
 Qed.
 
 Lemma pred_spec : forall (n:int),
-  TRIPLE (pred n)
-    PRE \[]
+  SPEC (pred n)
+    PREC \[]
     POST \[= n-1 ].
 Proof using.
   xcf. xgo*.
 Qed.
 
 Lemma abs_spec : forall (n:int),
-  TRIPLE (Pervasives_ml.abs n)
-    PRE \[]
+  SPEC (Pervasives_ml.abs n)
+    PREC \[]
     POST \[= Z.abs n ].
 Proof using.
   xcf. xgo.
@@ -223,31 +540,31 @@ Hint Extern 1 (RegisterSpec abs) => Provide abs_spec.
 (* TODO: check *)
 
 Parameter land_spec : forall (n m:int),
-  TRIPLE (land n m)
-    PRE \[]
+  SPEC (land n m)
+    PREC \[]
     POST \[= Z.land n m ].
 
 Parameter lor_spec :  forall (n m:int),
-  TRIPLE (lor n m)
-    PRE \[]
+  SPEC (lor n m)
+    PREC \[]
     POST \[= Z.lor n m ].
 
 Parameter lxor_spec : forall (n m:int),
-  TRIPLE (lxor n m)
-    PRE \[]
+  SPEC (lxor n m)
+    PREC \[]
     POST \[= Z.lxor n m ].
 
 Definition Zlnot (x : Z) : Z := -(x + 1).
 
 Parameter lnot_spec : forall (n:int),
-  TRIPLE (lnot n)
-    PRE \[]
+  SPEC (lnot n)
+    PREC \[]
     POST \[= Zlnot n ].
 
 Parameter lsl_spec : forall (n m:int),
   0 <= m ->   (* y < Sys.word_size -> *)
-  TRIPLE (lsl n m)
-    PRE \[]
+  SPEC (lsl n m)
+    PREC \[]
     POST \[= Z.shiftl n m ].
 
   (* TODO We temporarily? restrict [lsr] to nonnegative integers,
@@ -258,15 +575,15 @@ Parameter lsr_spec : forall (n m:int),
   0 <= n ->
   0 <= m ->
   (* m < Sys.word_size -> *)
-  TRIPLE (lsr n m)
-    PRE \[]
+  SPEC (lsr n m)
+    PREC \[]
     POST \[= Z.shiftr n m ].
 
 Parameter asr_spec : forall (n m:int),
   0 <= m ->
   (* m < Sys.word_size -> *)
-  TRIPLE (asr n m)
-    PRE \[]
+  SPEC (asr n m)
+    PREC \[]
     POST \[= Z.shiftr n m ].
 
 Hint Extern 1 (RegisterSpec land) => Provide land_spec.
@@ -314,20 +631,20 @@ Hint Resolve haffine_Ref : haffine.
 Hint Transparent ref_ : haffine.
 
 Lemma ref_spec : forall A (v:A),
-  TRIPLE (ref v)
-    PRE \[]
+  SPEC (ref v)
+    PREC \[]
     POST (fun r => r ~~> v).
 Proof using. xcf_go~. Qed.
 
 Lemma infix_emark_spec : forall A (v:A) r,
-  TRIPLE (infix_emark__ r)
+  SPEC (infix_emark__ r)
     INV (r ~~> v)
     POST \[= v].
 Proof using. xunfold @Ref. xcf_go~. Qed.
 
 Lemma infix_colon_eq_spec : forall A (v w:A) r,
-  TRIPLE (infix_colon_eq__ r w)
-    PRE (r ~~> v)
+  SPEC (infix_colon_eq__ r w)
+    PREC (r ~~> v)
     POSTUNIT (r ~~> w).
 Proof using. xunfold @Ref. xcf_go~. Qed.
 
@@ -345,14 +662,14 @@ Notation "'App'' r `:= x" := (App infix_colon_eq__ r x;)
    format "'App''  r  `:=  x") : charac.
 
 Lemma incr_spec : forall (n:int) r,
-  TRIPLE (incr r)
-    PRE (r ~~> n)
+  SPEC (incr r)
+    PREC (r ~~> n)
     POST (# r ~~> (n+1)).
 Proof using. xcf_go~. Qed.
 
 Lemma decr_spec : forall (n:int) r,
-  TRIPLE (decr r)
-    PRE (r ~~> n)
+  SPEC (decr r)
+    PREC (r ~~> n)
     POST (# r ~~> (n-1)).
 Proof using. xcf_go~. Qed.
 
@@ -365,14 +682,14 @@ Hint Extern 1 (RegisterSpec decr) => Provide decr_spec.
 (** Group of References -- TODO: needs hfold_fmap
 
 Axiom ref_spec_group : forall A (M:map loc A) (v:A),
-  TRIPLE (Pervasives_ml.ref v)
-    PRE (Group Ref M)
+  SPEC (Pervasives_ml.ref v)
+    PREC (Group Ref M)
     POST (fun (r:loc) => Group Ref (M[r:=v]) \* \[r \notindom M]).
 (* TODO: proof *)
 
 Lemma infix_emark_spec_group : forall `{Inhab A} (M:map loc A) r,
   r \indom M ->
-  TRIPLE (Pervasives_ml.infix_emark__ r)
+  SPEC (Pervasives_ml.infix_emark__ r)
     INV (Group Ref M)
     POST (fun x => \[x = M[r]]).
 Proof using.
@@ -381,8 +698,8 @@ Qed.
 
 Lemma infix_colon_eq_spec_group : forall `{Inhab A} (M:map loc A) (v:A) r,
   r \indom M ->
-  TRIPLE (Pervasives_ml.infix_colon_eq__ r v)
-    PRE (Group Ref M)
+  SPEC (Pervasives_ml.infix_colon_eq__ r v)
+    PREC (Group Ref M)
     POSTUNIT (Group Ref (M[r:=v])).
 Proof using.
   intros. rewrite~ (Group_rem r M). xapp. intros tt.
@@ -396,14 +713,14 @@ Qed.
 (** Pairs *)
 
 Lemma fst_spec : forall A B (x:A) (y:B),
-  TRIPLE (fst (x,y))
-    PRE \[]
+  SPEC (fst (x,y))
+    PREC \[]
     POST \[= x].
 Proof using. xcf_go~. Qed.
 
 Lemma snd_spec : forall A B (x:A) (y:B),
-  TRIPLE (snd (x,y))
-    PRE \[]
+  SPEC (snd (x,y))
+    PREC \[]
     POST \[= y].
 Proof using. xcf_go~. Qed.
 
@@ -415,8 +732,8 @@ Hint Extern 1 (RegisterSpec snd) => Provide snd_spec.
 (** Unit *)
 
 Lemma ignore_spec :
-  TRIPLE (ignore tt)
-    PRE \[]
+  SPEC (ignore tt)
+    PREC \[]
     POST \[= tt].
 Proof using. xcf_go~. Qed.
 
