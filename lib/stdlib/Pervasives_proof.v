@@ -266,6 +266,7 @@ Ltac xstep_once tt :=
     | (Wpgen_let_typed _ _) => xlet
     | (Wpgen_let _ _) => xlet
     | (Wpgen_app _) => xapp
+    | (Wpgen_App_typed _ _ _) => xapp
     | (Wpgen_if_bool _ _ _) => xif
     | (Wpgen_val _) => xval
     | (Wpgen_Val _) => xval
@@ -317,8 +318,9 @@ Tactic Notation "xgo" "*" :=
 
 (************************************************************)
 
-Notation "'RegisterSpec' f" := (Register_Spec f)
+Notation "'RegisterSpec' f" := (Register_goal (Triple (Trm_apps (trm_val f) _) _ _))
   (at level 69) : wptactics_scope.
+
 
 
 
@@ -358,12 +360,98 @@ Parameter infix_eq_eq_gen_spec : forall (A:Type) (a b:A),
 
 Hint Extern 1 (RegisterSpec infix_eq_eq__) => Provide infix_eq_eq_loc_spec.
 
+
+(*********TODO*******)
+
+Ltac xspec_context tt ::=
+  xspec_remove_combiner tt;
+  match goal with
+  | H: context [ Triple (trm_apps (trm_val ?f) _) _ _ ]
+    |- Triple (trm_apps (trm_val ?f) _) _ _ => generalize H
+  | H: context [ Triple (Trm_apps (trm_val ?f) _) _ _ ]
+    |- Triple (Trm_apps (trm_val ?f) _) _ _ => generalize H
+  end.
+
+Ltac xapp_pre_wp tt ::=
+  xlet_xseq_xcast_repeat tt;
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_app ?t) => idtac
+  | (Wpgen_App_typed ?T ?f ?Vs) => idtac
+  end.
+
+Lemma xapp_lifted_lemma : forall A `{EA:Enc A} (Q1:A->hprop) (f:trm) (Vs:dyns) H1 H Q,
+  Triple (Trm_apps f Vs) H1 Q1 ->
+  H ==> H1 \* (Q1 \--* protect Q) ->
+  H ==> ^(Wpgen_App_typed A f Vs) Q.
+Proof using.
+  introv M1 M2. applys MkStruct_erase. xchanges (rm M2).
+  applys xreturn_lemma_typed. rewrite <- Triple_eq_himpl_Wp.
+  applys* Triple_ramified_frame.
+Qed.
+
+Lemma xapps_lifted_lemma : forall A `{EA:Enc A} (V:A) H2 (f:trm) (Vs:dyns) H1 H Q,
+  Triple (Trm_apps f Vs) H1 (fun r => \[r = V] \* H2) ->
+  H ==> H1 \* (H2 \-* protect (Q V)) ->
+  H ==> ^(Wpgen_App_typed A f Vs) Q.
+Proof using.
+  introv M1 M2. applys xapp_lifted_lemma M1. xchanges M2.
+  intros ? ->. auto.
+Qed.
+
+Lemma xapps_lifted_lemma_pure : forall A `{EA:Enc A} (V:A) (f:trm) (Vs:dyns) H1 H Q,
+  Triple (Trm_apps f Vs) H1 (fun r => \[r = V]) ->
+  H ==> H1 \* protect (Q V) ->
+  H ==> ^(Wpgen_App_typed A f Vs) Q.
+Proof using.
+  introv M1 M2. applys xapps_lifted_lemma \[]; rew_heap; eauto.
+Qed.
+
+Lemma xapp_find_spec_lifted_lemma : forall A `{EA:Enc A} (Q1:A->hprop) (f:trm) (Vs:dyns) H1 H (Q:A->hprop),
+  Triple (Trm_apps f Vs) H1 Q1 ->
+  (Triple (Trm_apps f Vs) H1 Q1 ->
+   H ==> ^(Wpgen_App_typed A f Vs) Q) ->
+  H ==> ^(Wpgen_App_typed A f Vs) Q.
+Proof using. auto. Qed.
+
+Ltac xapp_select_lifted_lemma tt := (* TODO: factorize better with xapp_select_lemma *)
+  let S := fresh "Spec" in
+  intro S;
+  match type of S with
+  | Triple _ _ (fun _ => \[_ = _] \* _) => applys @xapps_lifted_lemma
+  | Triple _ _ (fun _ => \[_ = _]) => applys @xapps_lifted_lemma_pure
+  | _ => applys @xapp_lifted_lemma
+  end; [ applys S | clear S ].
+
+Ltac xapp_apply_lifted_lemma cont_prove_triple :=
+  (* --TODO should remove *) xapp_pre tt;
+  applys xapp_find_spec_lifted_lemma;
+    [ cont_prove_triple tt
+    | xapp_select_lifted_lemma tt; xapp_post tt ].
+
+
+Ltac xapp_general tt ::=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_app ?t) => xapp_apply_lemma ltac:(xspec_prove_triple)
+  | (Wpgen_App_typed ?T ?f ?Vs) => xapp_apply_lifted_lemma ltac:(xspec_prove_triple)
+  end.
+
+Ltac xapp_arg_core E ::=
+  xapp_pre tt;
+  let cont := ltac:(fun tt => xspec_prove_triple_with_args E) in
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_app ?t) =>  xapp_apply_lemma cont
+  | (Wpgen_App_typed ?T ?f ?Vs) => xapp_apply_lifted_lemma cont
+  end.
+
+
+(****************)
+
 Lemma infix_emark_eq_loc_spec : forall (a b:loc),
   SPEC (infix_emark_eq__ a b)
     PREC \[]
     POST \[= isTrue (a <> b) ].
 Proof using.
-  xcf. xgo*. rew_isTrue; xauto*.
+  xcf. xgo*. rew_isTrue*.
 Qed.
 
 Lemma infix_emark_eq_gen_spec : forall (A:Type) (a b:A),
@@ -371,8 +459,8 @@ Lemma infix_emark_eq_gen_spec : forall (A:Type) (a b:A),
     PREC \[]
     POST (fun r => \[r = false -> isTrue (a = b)]).
 Proof using.
-  xcf. xapp_spec infix_eq_eq_gen_spec.
-  introv E. xrets~.
+  xcf. xapp infix_eq_eq_gen_spec. 
+  introv E. xvals*.
 Qed.
 
 Hint Extern 1 (RegisterSpec infix_emark_eq__) => Provide infix_emark_eq_loc_spec.

@@ -536,6 +536,12 @@ Ltac xlet_xseq_xcast_repeat tt :=
   applys xapp_find_spec_lemma.
   xspec_prove_triple tt .
   xapp_select_lemma tt. xsimpl. xapp_post tt.
+
+  xapp_pre tt.
+  applys xapp_find_spec_lifted_lemma.
+  xspec_prove_triple tt .
+  xapp_select_lifted_lemma tt. xsimpl. xapp_post tt.
+
 *)
 
 
@@ -616,7 +622,7 @@ Ltac xapp_post_basic tt := (* version without error message *)
 Lemma xapp_find_spec_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H (Q:A->hprop),
   Triple t H1 Q1 ->
   (Triple t H1 Q1 ->
-  H ==> ^(Wpgen_app t) Q) ->
+   H ==> ^(Wpgen_app t) Q) ->
   H ==> ^(Wpgen_app t) Q.
 Proof using. auto. Qed.
 
@@ -643,8 +649,6 @@ Ltac xapp_apply_lemma cont_prove_triple :=
     | applys @xapp_lemma; [ cont_prove_triple tt | xapp_post tt ] ].
 *)
 
-Ltac xapp_general tt :=
-  xapp_apply_lemma ltac:(xspec_prove_triple).
 
 Ltac xapp_core tt :=
   xapp_pre tt;
