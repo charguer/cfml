@@ -45,6 +45,37 @@ let renaming_demo () =
 
 
 (********************************************************************)
+(* ** Return *)
+
+let ret_unit x =
+  ()
+
+let ret_int () =
+  3
+
+let ret_int_pair () =
+  (3,4)
+
+let ret_poly () =
+  []
+
+(* --Not yet supported:
+   Error is: Cannot infer this placeholder of type Type
+let ret_poly_internal () =
+  let x = ignore None in
+  ()
+ *)
+
+(* --TODO:  BUG
+   The reference A_ was not found in the current environment.*)
+
+(*
+let ret_poly_internal () =
+  let x = ignore (None : 'a option) in
+  ()
+*)
+
+(********************************************************************)
 (* ** Sequence *)
 
 let seq_ret_unit () =
@@ -224,37 +255,6 @@ let h1 =
 *)
 
 
-(********************************************************************)
-(* ** Return *)
-
-let ret_unit x =
-  ()
-
-let ret_int () =
-  3
-
-let ret_int_pair () =
-  (3,4)
-
-let ret_poly () =
-  []
-
-(* --Not yet supported:
-   Error is: Cannot infer this placeholder of type Type
-let ret_poly_internal () =
-  let x = ignore None in
-  ()
- *)
-
-(* --TODO:  BUG
-   The reference A_ was not found in the current environment.*)
-
-(*
-let ret_poly_internal () =
-  let x = ignore (None : 'a option) in
-  ()
-*)
-
 
 (********************************************************************)
 (* ** Partial applications  -- TODO: later
@@ -415,6 +415,9 @@ let top_fun_poly_id x =
 
 let top_fun_poly_proj1 (x,y) =
   x
+
+let top_fun_poly_proj2 x y =
+  y
 
 let top_fun_poly_pair_homogeneous (x:'a) (y:'a) =
   (x,y)

@@ -70,6 +70,18 @@ let enc_of c =
 let enc_of_typed typ c =
   coq_apps (coq_at enc) [typ; coq_wild; c]
 
+(** [enc_arg aname] where [aname] is "A" returns [("EA", Enc A)] *)
+
+let enc_arg aname =
+  let eaname = "E" ^ aname in (* TODO: check conflicts *)
+  (eaname, enc_type (coq_var aname))
+
+(** Universal [forall (A1:Type) (EA1:Enc A1) .. (xn:Type) (EAn:Enc An), c] *)
+
+let coq_forall_enc_types names c =
+  let args = List.flatten (List.map (fun aname -> [(aname,Coq_type); enc_arg aname]) names) in
+  coq_foralls args c
+
 (** Syntax of application *)
 
 let trm_apps cf cvs =
@@ -243,21 +255,17 @@ let formula_app f q =
 
 (** Construction of a formula of the form [fun A (EA:enc A) (Q:A->hprop) => H] *)
 
-let formula_def a q c =
+let formula_def aname qname c =
   let typ_a = Coq_type in
-  let ea = a ^ "E" in (* TODO: name is __AE to avoid conflicts *)
-  let typ_ea = enc_type (coq_var a) in
-  let typ_q = coq_impl (coq_var a) hprop in
-  coq_funs [(a,typ_a); (ea,typ_ea); (q,typ_q)] c
+  let typ_q = coq_impl (coq_var aname) hprop in
+  coq_funs [(aname,typ_a); enc_arg aname; (qname,typ_q)] c
 
 (** Construction of a proposition of the form [forall (H:hprop) A (EA:enc A) (Q:A->hprop) => P] *)
 
-let forall_prepost h a q p =
+let forall_prepost h aname qname p =
   let typ_a = Coq_type in
-  let ea = a ^ "E" in
-  let typ_ea = enc_type (coq_var a) in
-  let typ_q = coq_impl (coq_var a) hprop in
-  coq_foralls [(h,hprop); (a,typ_a); (ea,typ_ea); (q,typ_q)] p
+  let typ_q = coq_impl (coq_var aname) hprop in
+  coq_foralls [(h,hprop); (aname,typ_a); enc_arg aname; (qname,typ_q)] p
 
 
 (* TODO: check which of these bindings are actually needed *)

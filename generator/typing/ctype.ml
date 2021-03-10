@@ -838,7 +838,8 @@ let close_hook ?(showtyp=(fun t -> ())) ~gen_nonexpansive () =
            (List.length !hook_generic)
            (List.length !h)
            (List.length !r);
-      List.rev !r
+      (* TODO: investigate what is the best order // List.rev !r *)
+      !r
 
 (* Circular
         let err = Format.error_formatter in

@@ -33,7 +33,7 @@ let pivot_level = 2 * lowest_level - 1
 let new_id = ref (-1)
 
 let newty2 level desc  =
-  incr new_id; { desc = desc; level = level; id = !new_id } 
+  incr new_id; { desc = desc; level = level; id = !new_id }
 let newgenty desc      = newty2 generic_level desc
 let newgenvar ()       = newgenty Tvar
 (*
@@ -175,19 +175,20 @@ let is_row_name s =
 (* CFML *)
 let debug_generic = true
 let hook_generic : (((type_expr list) ref) list) ref = ref []
-let open_hook () = 
+let open_hook () =
   if debug_generic then Format.printf "open hook %d\n" (1+List.length !hook_generic);
    let r : (type_expr list) ref = ref [] in
    hook_generic := r :: !hook_generic
-let close_hook () = 
+let close_hook () =
   match !hook_generic with
   | [] -> failwith "close_hook called while hook list is empty"
-  | h::hs -> 
-      if debug_generic then 
+  | h::hs ->
+      if debug_generic then
          Format.printf "close hook %d of length %d\n"
            (List.length !hook_generic)
            (List.length !h);
-      hook_generic := hs; !h
+      hook_generic := hs;
+      List.rev !h
 
 let add_generic t =
    if debug_generic then Format.printf "traverse from generic root\n" ;
@@ -201,7 +202,7 @@ let add_generic t =
           failwith "add_generic: no hook registered!"
   | tys::_ ->
       let max_depth = 100 in (* TODO: how to prevent traversing cycles? *)
-      let rec aux n t = 
+      let rec aux n t =
          Format.printf "call to aux\n";
         if n = 0  then Printf.printf "warning:add_generic traversing cyclic type; approximating the result.\n" else begin
            let aux = aux (n-1) in
@@ -209,13 +210,13 @@ let add_generic t =
            match t.desc with
            | Tvar | Tunivar ->
               if debug_generic then Format.printf "add generic var\n" ;
-              if not (List.memq t !tys) 
+              if not (List.memq t !tys)
                  then tys := t :: !tys
            | Tarrow (_,t1,t2,_) -> aux t1; aux t2
-           | Ttuple ts ->  
+           | Ttuple ts ->
                Format.printf "traverse tuple of length %d\n" (List.length ts);
                List.iter aux ts
-           | Tconstr (_,ts,_) -> 
+           | Tconstr (_,ts,_) ->
                Format.printf "traverse constr of length %d\n" (List.length ts);
                List.iter aux ts
            | Tobject _ -> failwith "unsupported Tobject type"

@@ -3,9 +3,12 @@
 # This Makefile can be used to compile examples, including the recompilation
 # of all dependencies. Only for developper use.
 #
-# In an example folder, type 
-#   make -f ../Makefile.dev
+# In the present folder, type
+#   make -C UnitTests -f ../Makefile.dev  
 #
+# Alternatively, in a particular example subfolder, type 
+#   make -f ../Makefile.dev
+# 
 ##############################################################################
 # CFML setup.
 

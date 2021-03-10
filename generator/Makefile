@@ -7,7 +7,7 @@ OCAMLBUILD := ocamlbuild -j 4 -classic-display \
 	      -use-ocamlfind -package pprint
 
 all:
-	$(OCAMLBUILD) cfml.native 
+	$(OCAMLBUILD) cfmlc.native 
 
 clean:
 	rm -rf _build

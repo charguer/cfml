@@ -102,6 +102,10 @@ val enc_of : coq -> coq
 
 val enc_of_typed : coq -> coq -> coq
 
+val enc_arg : var -> var * coq
+
+val coq_forall_enc_types : var list -> coq -> coq
+
 (** Applications *)
 
 val trm_apps : coq -> coq list -> coq
