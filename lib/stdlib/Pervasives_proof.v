@@ -4,13 +4,11 @@ Require Import Pervasives_ml.
 Generalizable Variable A.
 
 
-(* TODO: add PRE/POST notation *)
-
 (************************************************************)
 (** Boolean *)
 
 Lemma not_spec : forall (a:bool),
-  TRIPLE (not a)
+  SPEC (not a)
     PRE \[]
     POST \[= !a ].
 Proof using.
