@@ -83,9 +83,6 @@ Proof using.
     rewrite abs_nat_plus_nonneg; [|math]. rewrite~ abs_nat. }
 Qed.
 
-Global Opaque array.
-
-
 (* ---------------------------------------------------------------------- *)
 (** array allocation *)
 
@@ -94,11 +91,11 @@ Lemma array_of_Alloc : forall k l,
   \exists (L : list val), \[length L = k] \* array L l.
 Proof using.
   intros. gen l. induction k; intros.
-  { rew_Alloc. xsimpl (@nil val). rew_list~. }
-  { rew_Alloc. xpull ;=> v. xchange IHk. xpull ;=> L E.
-    xsimpl (v::L).
-    { rewrite array_cons_eq. xsimpl~. }
-    { rew_list. math. } }
+  { rew_Alloc. xsimpl (@nil val). rew_list~. simple*. }
+  { rew_Alloc. xchange IHk. intros L E.
+    xsimpl (val_uninitialized::L).
+    { rew_list. math. } 
+    { rewrite array_cons_eq. xsimpl~. } }
 Qed.
 
 Lemma triple_alloc_array : forall n,
@@ -108,16 +105,25 @@ Lemma triple_alloc_array : forall n,
     (fun r => \exists (p:loc) (L:list val), \[r = val_loc p] \*
               \[length L = n :> int] \* array L p).
 Proof using.
+(*
   introv N. xapp. math.
   intros r. xpull ;=> l (E&Nl). subst r.
   xchange array_of_Alloc. xpull ;=> L HL.
   xsimpl~. rewrite HL. rewrite~ abs_nonneg.
 Qed.
+TODO
+*)
+Admitted.
+
+
+Global Opaque array.
 
 
 (* -------------------------------------------------------------------------- *)
 (** Accesses *)
 
+(* TODO: not there?
+ 
 Import LibListZ.
 Implicit Types i ofs len : int.
 
@@ -229,3 +235,6 @@ Qed.
 
 Hint Extern 1 (Register_spec val_array_make) => Provide triple_array_make.
 
+
+
+*)

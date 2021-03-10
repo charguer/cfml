@@ -13,12 +13,13 @@ From TLC Require Import LibTactics.
    Then the [xwp] tactic can call [ltac_database_get database_cf myfunc]
    to retrieve [myfunc__cf] as hypothesis as head of the goal. *)
 
-Declare Scope xspec_scope.
+Declare Scope wptactics_scope.
+Open Scope wptactics_scope.
 
 Definition database_cf := True.
 
 Notation "'WPHeader_Register_CF' T" := (ltac_database (boxer database_cf) (boxer T) _)
-  (at level 69, T at level 0) : xspec_scope.
+  (at level 69, T at level 0) : wptactics_scope.
 
 Ltac WPHeader_Provide T := Provide T.
 

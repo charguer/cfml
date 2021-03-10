@@ -957,7 +957,7 @@ Definition Wpgen_assert (F1:Formula) : Formula :=
 
 Definition Wpgen_done : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
-    \[True]).
+    \[False] \-* \[True]).
 
 Definition Wpgen_Val `{Enc A1} (V:A1) : Formula :=
   MkStruct (Wpgen_Val_no_mkstruct V).
@@ -1012,6 +1012,7 @@ Definition Wpgen_fix (Fof:val->val->Formula) : Formula :=
                     Fof vf vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf).
 *)
 
+(* LATER
 Definition Formula_entails (F1 F2:Formula) : Prop :=
   forall A (EA:Enc A) Q, ^F1 Q ==> ^F2 Q.
 
@@ -1024,13 +1025,15 @@ Definition Wpgen_fixs_custom (Custom:(val->(vals->Formula->Prop)->Prop) : Formul
   MkStruct (fun A (EA:Enc A) Q =>
     \forall vf, \[Custom vf (fun vxs Fof => Formula_entails (Fof vf) (Wp (trm_apps vf vxs)))]
                 \-* Q vf).
+*)
+
 (* usage: Wpgen_fixs_custom (fun f Pof =>
              forall A1..AM .. x1..xN, Pof [x1;..;xn] (Wpbody vf) *)
 
 
-Definition Wpgen_let_fun (BodyOf:forall A,Enc A->(A->hprop)->Formula) : Formula :=
+Definition Wpgen_let_fun (BodyOf:forall A,Enc A->(A->hprop)->hprop) : Formula :=
   MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
-    BodyOf Q).
+    BodyOf _ _ Q).
 
 (* LATER: a function that takes a list of propositions parameterized
     by the list of names of the functions that occur.
@@ -1039,12 +1042,13 @@ Definition Wpgen_let_fun (BodyOf:forall A,Enc A->(A->hprop)->Formula) : Formula 
 
    Wpgen_let_funs ((fun f1 f2 => B1)::(fun f1 f2 => B2)::nil).
 
-  Definition Wpgen_let_funs (Defs:list(*)) : Formula :=
+  Definition Wpgen_let_funs (Defs:list()) : Formula :=
+
 *)
 
-Definition Wpgen_let_Val A1 `{EA1:Enc A1} (V:A1) (Fof:T->Formula) : Formula :=
+Definition Wpgen_let_Val A1 `{EA1:Enc A1} (V:A1) (Fof:A1->Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
-    \forall (x:T), \[x = V] \-* ^(Fof x) Q).
+    \forall (x:A1), \[x = V] \-* ^(Fof x) Q).
 
 Definition Wpgen_body (P:Prop) : Prop :=
   P.

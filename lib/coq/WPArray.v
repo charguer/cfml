@@ -38,29 +38,19 @@ Fixpoint Array A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
   end.
 (* TODO: avoid name clash with the non-lifted version *)
 
-Parameter haffine_Array : forall A t (L: list A),
-  haffine (t ~> Array L).
+Parameter haffine_Array : forall A `{EA:Enc A} p (L: list A),
+  haffine (p ~> Array L).
 (* TODO: prove *)
 
 Hint Resolve haffine_Array : haffine.
 
 
+(* TODO LATER
+
 Section ArrayProp.
 Context A `{EA:Enc A}.
 Implicit Types L : list A.
 Implicit Types x : A.
-
-Lemma Array_eq_array : forall L p,
-  Array L p = aArray (LibList.map enc L) p.
-Proof using.
-  intros L. induction L; intros.
-  { auto. }
-  { simpl. rewrite IHL. rew_listx. rewrite Array_cons_eq. auto. }
-Qed.
-
-Lemma Array_unlift : forall L p,
-  p ~> Array L = array (LibList.map enc L) p.
-Proof using. apply Array_eq_array. Qed.
 
 Lemma Array_nil_eq : forall p,
   p ~> Array (@nil A)  = \[].
@@ -69,6 +59,20 @@ Proof using. auto. Qed.
 Lemma Array_cons_eq : forall p x L,
   p ~> Array (x::L) = (p ~~> x) \* (S p) ~> Array L.
 Proof using. auto. Qed.
+
+(* TODO ??
+Lemma Array_eq_array : forall L p,
+  Array L p = Array (LibList.map enc L) p.
+Proof using.
+  intros L. induction L; intros.
+  { auto. }
+  { simpl. rewrite IHL. rew_listx. auto. }
+Qed.
+
+Lemma Array_unlift : forall L p,
+  p ~> Array L = array (LibList.map enc L) p.
+Proof using. intros. rewrite Array_eq_array. Qed.
+*)
 
 Lemma Array_one_eq : forall p x,
   p ~> Array (x::nil) = (p ~~> x).
@@ -171,3 +175,5 @@ End ArrayRules.
 Hint Extern 1 (Register_Spec val_array_get) => Provide Triple_array_get.
 Hint Extern 1 (Register_Spec val_array_set) => Provide Triple_array_set.
 Hint Extern 1 (Register_Spec val_array_make) => Provide Triple_array_make.
+
+*)

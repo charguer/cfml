@@ -135,10 +135,11 @@ Ltac xgoal_fun tt :=
 
 Definition database_spec := True.
 
-Open Scope xspec_scope.
+Declare Scope wptactics_scope.
+Open Scope wptactics_scope.
 
 Notation "'Register_goal' G" := (Register database_spec G)
-  (at level 69) : xspec_scope.
+  (at level 69) : wptactics_scope.
 
 (** [xspec G] retreives from the database [database_spec]
     the specification that could apply to a goal [G].
@@ -196,7 +197,7 @@ Ltac xspec_prove_triple_with_args E :=
   xspec_lemma_of_args E; xspec_prove_cont tt.
 
 Notation "'Register_Spec' f" := (Register_goal (Triple (trm_apps (trm_val f) _) _ _))
-  (at level 69) : xspec_scope.
+  (at level 69) : wptactics_scope.
 
 (* ** Specification of primitives *)
 
@@ -1541,30 +1542,19 @@ Tactic Notation "xfor_down_inv_void" :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xdone] *)
 
-Lemma xdone_lemma : forall A1 `{Enc A1} (F:(A1->hprop)->hprop) (Q:A1->hprop) H,
+Lemma xdone_lemma : forall (Q:unit->hprop) H,
   H ==> Q tt ->
   H ==> ^(Wpgen_done) Q.
 Proof using.
-  introv M. unfold Wpgen_done, Wpgen_prop.
+  introv M. unfold Wpgen_done.
   applys MkStruct_erase. xchange M. xsimpl.
 Qed.
 
-Ltac xfail_core tt :=
-  xpull;
-  pose ltac_mark;
-  intros;
-  false;
-  gen_until_mark.
+Ltac xdone_core tt :=
+  applys xdone_lemma.
 
-Tactic Notation "xfail" :=
-  xfail_core tt.
-
-Tactic Notation "xfail" "~" :=
-  xfail; auto_tilde.
-
-Tactic Notation "xfail" "*" :=
-  xfail; auto_star.
-
+Tactic Notation "xdone" :=
+  xdone_core tt.
 
 
 (*
@@ -1976,5 +1966,55 @@ Ltac xletval_st_anonymous_impl P :=
 
 Tactic Notation "xletval_st" constr(P) :=
   xletval_st_anonymous_impl P.
+
+*)
+
+
+(*
+(*--------------------------------------------------------*)
+(* ** [xauto] *)
+
+(** [xauto] is a specialized version of [auto] that works
+   well in program verification.
+
+   - it will not attempt any work if the head of the goal
+     has a tag (i.e. if it is a characteristif formula),
+   - it is able to conclude a goal using [xok]
+   - it calls [substs] to substitute all equalities before trying
+     to call automation.
+
+   Tactics [xauto], [xauto~] and [xauto*] can be configured
+   independently.
+
+   [xsimpl~] is equivalent to [xsimpl; xauto~].
+   [xsimpl*] is equivalent to [xsimpl; xauto*].
+*)
+
+Ltac xok_core cont :=  (* see [xok] spec further *)
+  solve [ hnf; apply refl_rel_incl'
+        | apply pred_incl_refl
+        | apply hsimpl_to_qunit; reflexivity
+        | hsimpl; cont tt ].
+
+Ltac math_0 ::= xclean. (* TODO: why needed? *)
+
+Ltac xauto_common cont :=
+  first [
+    cfml_check_not_tagged tt;
+    try solve [ cont tt
+              | solve [ apply refl_equal ]
+              | xok_core ltac:(fun _ => solve [ cont tt | substs; cont tt ] )
+              | substs; if_eq; solve [ cont tt | apply refl_equal ]  ]
+  | idtac ].
+
+Ltac xauto_tilde_default cont := xauto_common cont.
+Ltac xauto_star_default cont := xauto_common cont.
+
+Ltac xauto_tilde := xauto_tilde_default ltac:(fun _ => auto_tilde).
+Ltac xauto_star := xauto_star_default ltac:(fun _ => auto_star).
+
+Tactic Notation "xauto" "~" := xauto_tilde.
+Tactic Notation "xauto" "*" := xauto_star.
+Tactic Notation "xauto" := xauto~.
 
 *)

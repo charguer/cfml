@@ -10,7 +10,7 @@ include $(CFML)/Makefile.common
 
 PWD   := $(shell pwd)
 V     := $(wildcard $(PWD)/*.v)
-COQFLAGS=-w -notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths
+COQFLAGS=-w -notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths,-irrelevant-format-only-parsing
 
 
 ifdef INCLUDE_TLC_AS_DEPENDENCIES
@@ -26,5 +26,10 @@ endif
 COQINCLUDE := \
   -Q $(TLC) TLC \
   -Q $(PWD) CFML
+
+COQPROJECTEXTRA := \
+  -arg -w $(COQFLAGS) \
+  -arg -async-proofs off  \
+  -arg -async-proofs-command-error-resilience off  \
 
 include $(TLC)/Makefile.coq

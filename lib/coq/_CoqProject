@@ -1,0 +1,4 @@
+-Q /home/charguer/tlc/src TLC -Q /home/charguer/cfml2/lib/coq CFML
+-arg -w -arg -notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths,-irrelevant-format-only-parsing
+-arg -async-proofs -arg off
+-arg -async-proofs-command-error-resilience -arg off

@@ -24,7 +24,7 @@ Notation "\[= v ]" := (fun x => \[x = v])
 (** [H1 ==+> H2] is short for [H1 ==> (H1 \* H2)].
     Typical usage is for extracting a pure fact from a heap predicate. *)
 
-Notation "H1 ==+> H2" := (pred_incl P%hprop (heap_is_star H1 H2))
+Notation "H1 ==+> H2" := (himpl H1 (hstar H1 H2))
   (at level 55, only parsing) : triple_scope.
 
 (** [TRIPLE t PRE H POSTUNIT H2] is short for [POST (fun (_:unit) => H2)] *)
@@ -43,7 +43,7 @@ Notation "'TRIPLE' t 'PRE' H1 'RET' v 'POST' H2" :=
 
 (** [TRIPLE t INV H POST Q] is short for [TRIPLE T PRE H POST (Q \*+ H)] *)
 
-Notation "'TRIPLE' T 'INV' H 'POST' Q" :=
+Notation "'TRIPLE' t 'INV' H 'POST' Q" :=
   (Triple t H%hprop (Q \*+ H%hprop))
   (at level 69, only parsing,
    format "'[v' 'TRIPLE'  t '/' '[' 'INV'  H  ']'  '/' '[' 'POST'  Q  ']'  ']'")
@@ -51,36 +51,36 @@ Notation "'TRIPLE' T 'INV' H 'POST' Q" :=
 
 (** [TRIPLE t PRE H1 INV H2 POST Q] is short for [TRIPLE T PRE (H1 \* H2) POST (Q \*+ H2)] *)
 
-Notation "'TRIPLE' T 'PRE' H1 'INV'' H2 'POST' Q" :=
-  (Triple t (H1 \* H2) (Q \*+ H2%hprop))
+Notation "'TRIPLE' t 'PRE' H1 'INV' H2 'POST' Q" :=
+  (Triple t (H1 \* H2%hprop) (Q \*+ H2%hprop))
   (at level 69, only parsing,
-   format "'[v' 'TRIPLE'  t '/' '[' 'PRE''  H1  ']'  '/' '[' 'INV''  H2  ']'  '/' '[' 'POST'  Q  ']'  ']'")
+   format "'[v' 'TRIPLE'  t '/' '[' 'PRE'  H1  ']'  '/' '[' 'INV'  H2  ']'  '/' '[' 'POST'  Q  ']'  ']'")
    : triple_scope.
 
 (** Additional combination of [INV] with [POSTUNIT] and [RET] *)
 
-Notation "'TRIPLE' T 'INV' H1 'POSTUNIT' H2" :=
-  (Triple t H1%hprop (fun (_:unit) => H1 \* H2%hprop))
+Notation "'TRIPLE' t 'INV' H1 'POSTUNIT' H2" :=
+  (Triple t H1 (fun (_:unit) => H1 \* H2%hprop))
   (at level 69, only parsing,
    format "'[v' 'TRIPLE'  t '/' '[' 'INV'  H1 ']'  '/' '[' 'POSTUNIT'  H2  ']'  ']'")
    : triple_scope.
 
-Notation "'TRIPLE' T 'PRE' H1 'INV'' H2 'POSTUNIT' H3" :=
-  (Triple t (H1 \* H2) (fun (_:unit) => H3 \* H2%hprop))
+Notation "'TRIPLE' t 'PRE' H1 'INV' H2 'POSTUNIT' H3" :=
+  (Triple t (H1 \* H2%hprop) (fun (_:unit) => H3 \* H2%hprop))
   (at level 69, only parsing,
-   format "'[v' 'TRIPLE'  t '/' '[' 'PRE''  H1  ']'  '/' '[' 'INV''  H2  ']'  '/' '[' 'POSTUNIT'  H3  ']'  ']'")
+   format "'[v' 'TRIPLE'  t '/' '[' 'PRE'  H1  ']'  '/' '[' 'INV'  H2  ']'  '/' '[' 'POSTUNIT'  H3  ']'  ']'")
    : triple_scope.
 
-Notation "'TRIPLE' T 'INV' H1 'RET' v 'POST' H2" :=
+Notation "'TRIPLE' t 'INV' H1 'RET' v 'POST' H2" :=
   (Triple t H1%hprop (fun r => \[r = v] \* H2))
   (at level 69, only parsing,
    format "'[v' 'TRIPLE'  t '/' '[' 'INV'  H1 ']'  '/' '[' 'RET'  v  'POST'  H2  ']'  ']'")
    : triple_scope.
 
-Notation "'TRIPLE' T 'PRE' H1 'INV'' H2 'RET' v 'POST' H3" :=
-  (Triple t (H1 \* H2) (fun r => \[r = v] \* H3 \* H2%hprop))
+Notation "'TRIPLE' t 'PRE' H1 'INV' H2 'RET' v 'POST' H3" :=
+  (Triple t (H1 \* H2%hprop) (fun r => \[r = v] \* H3 \* H2%hprop))
   (at level 69, only parsing,
-   format "'[v' 'TRIPLE'  t '/' '[' 'PRE''  H1  ']'  '/' '[' 'INV''  H2  ']'  '/' '[' 'RET'  v  'POST'  H3  ']'  ']'")
+   format "'[v' 'TRIPLE'  t '/' '[' 'PRE'  H1  ']'  '/' '[' 'INV'  H2  ']'  '/' '[' 'RET'  v  'POST'  H3  ']'  ']'")
    : triple_scope.
 
 
@@ -102,10 +102,10 @@ Definition database_xopen := True.
 Definition database_xclose := True.
 
 Notation "'RegisterOpen' T" := (Register database_xopen T)
-  (at level 69) : charac.
+  (at level 69) : wptactics_scope.
 
 Notation "'RegisterClose' T" := (Register database_xclose T)
-  (at level 69) : charac.
+  (at level 69) : wptactics_scope.
 
 
 (* ********************************************************************** *)
@@ -171,22 +171,23 @@ Tactic Notation "xopen_show" constr(t) :=
 Tactic Notation "xopen" constr(t) :=
   xopen_core t.
 Tactic Notation "xopen" "~" constr(t) :=
-  xopen t; xauto~.
+  xopen t; auto_tilde.
 Tactic Notation "xopen" "*" constr(t) :=
-  xopen t; xauto*.
+  xopen t; auto_star.
 
 Tactic Notation "xopen2" constr(x) :=
   xopen x; xopen x.
 Tactic Notation "xopen2" "~" constr(x) :=
-  xopen2 x; xauto_tilde.
+  xopen2 x; auto_tilde.
 Tactic Notation "xopen2" "*" constr(x) :=
-  xopen2 x; xauto_star.
+  xopen2 x; auto_star.
 
+(* DEPRECATED
 Tactic Notation "xopenx" constr(t) :=
   xopen t; xpull.
-
 Tactic Notation "xopenxs" constr(t) :=
   xopen t; xpulls.
+*)
 
 
 (* ********************************************************************** *)
@@ -236,7 +237,7 @@ Ltac xclose_core args :=
   ltac_database_get database_xclose C1;
   let K := fresh "TEMP" in
   intros K;
-  let E := constr:((boxer K)::args) in
+  let E := constr:( (boxer K)::args ) in
   xchange E;
   clear K.
 
@@ -253,9 +254,9 @@ Tactic Notation "xclose_show" constr(t) :=
 Tactic Notation "xclose" constr(t) :=
   xclose_core t.
 Tactic Notation "xclose" "~" constr(t) :=
-  xclose t; xauto~.
+  xclose t; auto_tilde.
 Tactic Notation "xclose" "*" constr(t) :=
-  xclose t; xauto*.
+  xclose t; auto_star.
 
 Tactic Notation "xclose" constr(t1) constr(t2) :=
   xclose t1; xclose t2.
@@ -267,9 +268,9 @@ Tactic Notation "xclose" constr(t1) constr(t2) constr(t3) constr(t4) :=
 Tactic Notation "xclose2" constr(x) :=
   xclose x; xclose x.
 Tactic Notation "xclose2" "~" constr(x) :=
-  xclose2 x; xauto_tilde.
+  xclose2 x; auto_tilde.
 Tactic Notation "xclose2" "*" constr(x) :=
-  xclose2 x; xauto_star.
+  xclose2 x; auto_star.
 
 
 
@@ -291,3 +292,5 @@ Definition func : Type := val.
 
 Global Instance Enc_any : forall A, Enc A.
 Admitted.
+
+*)
