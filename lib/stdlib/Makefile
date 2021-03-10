@@ -1,3 +1,5 @@
+# DISCLAIMER: WON'T WORK WITH MAKE-J
+
 ##############################################################################
 # CFML setup.
 
@@ -25,7 +27,14 @@ COQINCLUDE := \
 PWD    := $(shell pwd)
 LIBCOQ := $(shell cd ../coq && pwd)
 
+
 ML     := $(wildcard $(PWD)/*.ml)
+
+# TODO We would need the following dependency to be taken into account by Makefile.coq in the "all" target,
+# instead of hard coding the fact that pervasives must be compiled first
+# NONPERVASIVES_MLVO_FILES=$(patsubst %.ml,%_ml.vo,$(filter-out $(PWD)/Pervasives.ml,$(ML)))
+# $(NONPERVASIVES_MLVO_FILES): $(PWD)/Pervasives_ml.vo
+
 CMJ    := $(patsubst %.ml,%.cmj,$(ML))
 
 V      := $(patsubst %.ml,%_ml.v,$(ML)) \
@@ -50,7 +59,8 @@ all: $(CMJ)
 # Must run in two successive phases, as coqdep must not run until the
 # files %_ml.v have been generated. So, we create the files %.cmj and
 # %_ml.v first (above), then compile every .v file.
-	@ $(MAKE) -f $(TLC)/Makefile.coq $@
+	 $(MAKE) -f $(TLC)/Makefile.coq $(PWD)/Pervasives_ml.vo
+	 $(MAKE) -f $(TLC)/Makefile.coq $@
 
 _CoqProject:
 	@ $(MAKE) -f $(TLC)/Makefile.coq $@
@@ -81,6 +91,7 @@ $(PWD)/Pervasives_ml.v $(PWD)/Pervasives.cmj: $(PWD)/Pervasives.ml $(CFMLC)
 
 $(PWD)/%_ml.v $(PWD)/%.cmj: $(PWD)/%.ml $(PWD)/Pervasives.cmj $(CFMLC)
 	$(CFMLC) $(CFML_FLAGS) -nostdlib -I . $< || (rm -f $@; exit 1)
+
 
 ##############################################################################
 # Cleanup.

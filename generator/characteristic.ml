@@ -879,24 +879,16 @@ let rec cfg_exp env e =
    | Texp_field (arg, p, lbl) ->
       let tr = coq_typ loc e in
       let ts = coq_typ loc arg in (* todo: check it is always 'loc' *)
-      let func = coq_cfml_var "CFApp.record_get" in
-      let field = Coq_var (record_field_name lbl.lbl_name) in
-      Cf_app ([ts; coq_nat], tr, func, [lift arg; field])
-      (* DEPRECATED
-      let func = Coq_var (record_field_get_name lbl.lbl_name) in
-      Cf_app ([ts], tr, func, [lift arg])
-      *)
+      let func = coq_cfml_var "WPRecord.val_get_field" in
+      let op = coq_app func (coq_var (record_field_name lbl.lbl_name)) in
+      Cf_app ([ts], tr, op, [lift arg])
 
    | Texp_setfield(arg, p, lbl, newval) ->
       let ts1 = coq_typ loc arg in (* todo: check it is always 'loc' *)
       let ts2 = coq_typ loc newval in
-      let func = coq_cfml_var "CFApp.record_set" in
-      let field = Coq_var (record_field_name lbl.lbl_name) in
-      Cf_app ([ts1; coq_nat; ts2], coq_unit, func, [lift arg; field; lift newval])
-      (* DEPRECATED
-      let func = Coq_var (record_field_set_name lbl.lbl_name) in
-      Cf_app ([ts1;ts2], coq_unit, func, [lift arg; lift newval])
-      *)
+      let func = coq_cfml_var "WPRecord.val_set_field" in
+      let op = coq_app func (coq_var (record_field_name lbl.lbl_name)) in
+      Cf_app ([ts1; ts2], coq_unit, op, [lift arg; lift newval])
 
    | Texp_try(body, pat_expr_list) -> unsupported loc "try expression"
    | Texp_variant(l, arg) ->  unsupported loc "variant expression"
@@ -1655,7 +1647,7 @@ let cfg_file str =
    [ Cftop_coqs ([
       Coqtop_set_implicit_args;
       Coqtop_require [ "Coq.ZArith.BinInt"; "TLC.LibLogic"; "TLC.LibRelation"; "TLC.LibInt"; "TLC.LibListZ" ];
-      Coqtop_require [ "CFML.SepBase"; "CFML.SepLifted"; "CFML.WPLifted"; "CFML.WPBuiltin" (* *) ]; (* TODO: factorize the prefix using List.map *)
+      Coqtop_require [ "CFML.SepBase"; "CFML.SepLifted"; "CFML.WPLifted"; "CFML.WPRecord"; "CFML.WPArray"; "CFML.WPBuiltin" (* *) ]; (* TODO: factorize the prefix using List.map *)
       Coqtop_require_import [ "Coq.ZArith.BinIntDef"; "CFML.Semantics"; "CFML.WPHeader" ];
       (* TODO: check binintdef needed *)
       Coqtop_custom "Delimit Scope Z_scope with Z.";

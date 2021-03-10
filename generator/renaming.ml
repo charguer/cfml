@@ -69,13 +69,16 @@ INTERPRETATION
 let coq_keywords =
   [ "as"; "at"; "cofix"; "else"; "end"; "exists"; "exists2"; "fix";
     "for"; "forall"; "fun"; "if"; "IF"; "in"; "let"; "match";
-    "mod"; "return"; "Set"; "then"; "Type"; "using"; "where"; "with"; ]
+    "mod"; "return"; "Set"; "then"; "Type"; "using"; "where"; "with" ]
 
 let builtin_type_constructors =
   [ "int"; "char"; "unit"; "bool"; "float"; "list"; "string"; "array"; "option" ]
 
+let used_as_notation =
+  [ "mod"; "abs" ]
+
 let infix_named_functions =
-   [ "mod"; "land"; "lor"; "lxor"; "lnot"; "lsl"; "lsr"; "asr" ]
+  [ "mod"; "land"; "lor"; "lxor"; "lnot"; "lsl"; "lsr"; "asr" ]
 
 let non_rebindable_names =
     [ "/"; "&&"; "||"; "="; "<>"; "<="; ">="; "<"; ">" ]
@@ -86,7 +89,7 @@ let non_rebindable_names =
      see them; else, we need the normalization to apply to a typed tree. *)
 
 let reserved_variable_names =
-  builtin_type_constructors @ coq_keywords
+  builtin_type_constructors @ coq_keywords @ used_as_notation
 
 
 
@@ -153,7 +156,8 @@ let infix_name_symbols =
    '~', "tilde" ]
 
 let infix_name_encode name =
-  if List.mem name infix_named_functions then name else begin (* old: "infix_" ^ name ^ "__" *)
+  if name = "mod" then name ^ "__"
+  else if List.mem name infix_named_functions then name else begin (* old: "infix_" ^ name ^ "__" *)
      let gen = Buffer.create 20 in
      String.iter (fun c ->
         let s =
