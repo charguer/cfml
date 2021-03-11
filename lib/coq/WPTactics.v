@@ -104,6 +104,44 @@ Tactic Notation "xdecodes_debug" :=
 (* * Tactics for manipulating goals of the form [PRE H CODE F POST Q]. *)
 
 
+(*--------------------------------------------------------*)
+(* ** Auxiliary functions to manipulate goal *)
+
+(** Auxiliary tactic for obtaining a boolean answer
+    to the question "is E an evar?". TODO: move to TLC *)
+
+Ltac is_evar_as_bool E :=
+  constr:(ltac:(first
+    [ is_evar E; exact true
+    | exact false ])).
+
+(** Auxiliary function to obtain the last argument of an application *)
+
+Ltac ltac_get_last_arg E :=
+  match E with
+  | ?F ?X => constr:(X)
+  end.
+  (* TODO: need to deal with other arities ?*)
+
+(* [cfml_get_precondition tt] returns the current
+   pre-condition. *)
+
+Ltac cfml_get_precondition tt :=
+  match goal with |- ?H ==> _ => constr:(H) end.
+
+(* [cfml_get_postcondition tt] returns the current
+   pose-condition. *)
+
+Ltac cfml_get_postcondition tt :=
+  match goal with |- ?H ==> ?H' => ltac_get_last_arg H' end.
+
+(** [cfml_postcondition_is_evar tt] returns a boolean indicating
+    whether the post-condition of the current goal is an evar. *)
+
+Ltac cfml_postcondition_is_evar tt :=
+  let Q := cfml_get_postcondition tt in
+  is_evar_as_bool Q.
+
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xgoal_code] and [xgoal_fun] *)
 
@@ -606,6 +644,65 @@ Tactic Notation "xseq" :=
   xseq_core tt.
 
 
+(*--------------------------------------------------------*)
+(* ** [xletval] and [xletvals] *)
+
+(** [xletval] is used to reason on a let-value node, i.e. on a goal
+    of the form [H ==> (Val x := v in F1) Q].
+    It leaves the goal [forall x, x = v -> (H ==> F1 Q)].
+
+    [xletvals] leaves the goal [H ==> F1 Q] with [x] replaced by [v]
+    everywhere. *)
+
+(* TODO: here and elsewhere, call xpull_check_not_needed tt; *)
+
+Ltac xletval_pre tt :=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_let_Val _ _) => idtac
+  end.
+
+Definition Wpgen_let_Val A1 `{EA1:Enc A1} (V:A1) (Fof:A1->Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
+    \forall (x:A1), \[x = V] \-* ^(Fof x) Q).
+
+Lemma xletvals_lemma : forall A `{EA:Enc A} H (Fof:A->Formula) (V:A) (Q:A->hprop),
+  (H ==> ^(Fof V) Q) ->
+  H ==> ^(Wpgen_let_Val V Fof) Q.
+Proof using.
+  introv M. applys MkStruct_erase. xchanges* M. intros ? ->. auto.
+Qed.
+
+Lemma xletval_lemma : forall A `{EA:Enc A} H (Fof:A->Formula) (V:A) (Q:A->hprop),
+  (forall x, x = V -> H ==> ^(Fof x) Q) ->
+  H ==> ^(Wpgen_let_Val V Fof) Q.
+Proof using.
+  introv M. applys xletvals_lemma. applys* M.
+Qed.
+
+Ltac xletval_core tt :=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_let_Val _ (fun x => _)) =>
+     let a := fresh x in
+     let Pa := fresh "P" a in
+     applys xletval_lemma;
+     intros a P a
+  end.
+
+Tactic Notation "xletval" :=
+  xletval_core tt.
+
+Tactic Notation "xletval" "as" := (* TODO: document *)
+  xletval_pre tt;
+  applys xletval_lemma.
+
+Ltac xletvals_core tt :=
+  xletval_pre tt;
+  applys xletvals_lemma.
+
+Tactic Notation "xletvals" :=
+  xletvals_core tt.
+
+
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xlet] *)
 
@@ -629,7 +726,11 @@ Ltac xlet_core tt :=
   end.
 
 Tactic Notation "xlet" :=
-  xlet_core tt.
+  first [ xlet_core tt
+        | xletval ]. (* TODO: document *)
+
+Tactic Notation "xlets" := (* TODO: document *)
+  xletvals.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1820,10 +1921,23 @@ Tactic Notation "xfor_down_inv_void" :=
 (** * Pattern matching *)
 
 
-(* ---------------------------------------------------------------------- *)
-(* ** Tactic [xdone] *)
+(*--------------------------------------------------------*)
+(* ** [xcleanpat] *)
 
-Lemma xdone_lemma : forall (Q:unit->hprop) H,
+(** [xcleanpat] is a tactic for removing all the negated
+    pattern assumptions. *)
+
+Ltac xcleanpat_core :=
+  repeat match goal with H: Wpgen_negpat _ |- _ => clear H end.
+
+Tactic Notation "xcleanpat" :=
+  xcleanpat_core.
+
+
+(*--------------------------------------------------------*)
+(* ** [xdone] *)
+
+Lemma xdone_lemma : forall A `{EA:Enc A} (Q:A->hprop) H,
   H ==> ^(Wpgen_done) Q.
 Proof using.
   intros. unfold Wpgen_done. applys MkStruct_erase. xsimpl.
@@ -1834,6 +1948,232 @@ Ltac xdone_core tt :=
 
 Tactic Notation "xdone" :=
   xdone_core tt.
+
+
+(*--------------------------------------------------------*)
+(* ** [xalias] -- deal with aliases using [xletval];
+      synonymous tactics are provided *)
+
+(** See documentation of [xletval]. *)
+
+Ltac xalias_pre tt :=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_alias _ _) => idtac
+  end.
+
+Ltac xalias_core tt :=
+  xalias_pre tt;
+  xletval.
+
+Tactic Notation "xalias" :=
+  xalias_core tt.
+
+Tactic Notation "xalias" "as" := (* TODO: document *)
+  xalias_pre tt;
+  xletval as.
+
+Ltac xalias_subst_core tt :=
+  xalias_pre tt;
+  xletvals.
+
+Tactic Notation "xalias_subst" :=
+  xalias_subst_core tt.
+
+
+(*--------------------------------------------------------*)
+(* ** [xcase] is the new [xcase] *)
+
+(** [xcase] applies to a goal of the form
+    [(Case v = p1 Then F1 Else F2) H Q]. -- TODO: update syntax
+
+   It produces two subgoals.
+   - the first subgoal is [F1 H Q] with an hypothesis [E : v = p1].
+   - the first subgoal is [F2 H Q] with an hypothesis [E : v <> p1].
+
+   In both subgoals, it attemps deducing false from [E] or inverting [E],
+   by calling the tactic [xcase_post E].
+
+   Variants:
+
+   - [xcase as E] allows to name [E].
+
+   - [xcase_no_simpl] does not attempt inverting [E].
+
+   - [xcase_no_simpl as E] allows to name [E];
+     it does not attempt inverting [E].
+
+   - [xcase_no_intros] can be used to manually name the variables and
+     hypotheses from the case. It does not attempt inverting [E]. *)
+
+(* TODO: change naming policy for handling pattern variables *)
+
+(* [xcase_post] is a tactic that applies to an hypothesis
+   of the form [v = p1] or [v <> p1], and attemps to prove
+   false from it, and inverts it if possible. *)
+
+Ltac xclean_trivial_eq tt :=
+  repeat match goal with H: ?E = ?E |- _ => clear H end.
+
+Ltac xcase_post H :=
+  try solve [ discriminate | false; congruence ];
+  try (symmetry in H; inverts H; xclean_trivial_eq tt).
+
+(* [xcase_core E cont1 cont2] is the underlying tactic for [xcase].
+   It calls [cont1] on the first subgoal and [cont2] on the second subgoal. *)
+
+(* TODO xcase_pre tt  is defined elsewhere in this file. *)
+
+Ltac xcase_extract_hyps tt :=
+  pose ltac_mark;
+  repeat (apply himpl_hforall_r; intro);
+  repeat (apply hwand_hpure_r_intro; intro);
+  gen_until_mark.
+
+Ltac xcase_no_intros_core cont1 cont2 :=
+  apply MkStruct_erase; applys himpl_hand_r;
+  [ xcase_extract_hyps tt; cont1 tt
+  | apply hwand_hpure_r_intro; cont2 tt ].
+
+Ltac xcase_core H cont1 cont2 :=
+  xcase_no_intros_core
+    ltac:(fun _ => introv H; cont1 tt)
+    ltac:(fun _ => introv H; cont2 tt).
+
+Tactic Notation "xcase_no_simpl" "as" ident(H) :=
+  xcase_core H ltac:(fun _ => idtac) ltac:(fun _ => idtac).
+
+Tactic Notation "xcase_no_simpl" :=
+  let H := fresh "C" in xcase_no_simpl as H.
+
+Tactic Notation "xcase" "as" ident(H) :=
+  xcase_no_simpl as H; xcase_post H.
+
+Tactic Notation "xcase" :=
+  let H := fresh "C" in xcase as H.
+
+Tactic Notation "xcase_no_intros" :=
+   xcase_no_intros_core ltac:(fun _ => idtac) ltac:(fun _ => idtac).
+
+
+(*--------------------------------------------------------*)
+(* ** [xmatch] *)
+
+(** [xmatch] applies to a pattern-matching goal of the form
+    [(Match Case v = p1 Then F1
+       Else Case v = p2 Then Alias y := w in F2
+       Else Done/Fail) H Q]. -- TODO: update syntax.
+
+    By default, the tactic calls the inversion tactic on
+    the equalities [v = pi] associated with the case
+    (and also calls congruence to attempt proving false).
+    [xmatch_no_simpl] can be used to disable such inversions.
+
+    Several variants are available:
+
+    - [xmatch] investigates all the cases, doing inversions,
+      and introducing all aliases as equalities.
+
+    - [xmatch_subst_alias] performs all case analyses,
+      and introduces and substitutes away all aliases.
+
+    - [xmatch_no_cases] simply remove the [Wpgen_match] tag and
+      leaves the cases to be solved manually using
+      [xmatch_case] or [xcase]/[xfail]/[xdone] tactics directly.
+
+    - [xmatch_no_intros] is like [xmatch], but does not
+      perform any name introduction or any inversion.
+      (One needs to manually call [xdone] for the last case.)
+
+    - [xmatch_no_alias] is like [xmatch], but does not
+      introduce aliases.
+
+    - [xmatch_no_simpl] is like [xmatch], but does not do inversions.
+      [xmatch_no_simpl_no_alias] is also available.
+      [xmatch_no_simpl_subst_alias] are also available.
+
+   Like with [xif], the tactic [xmatch] will likely not produce
+   solvable goals if the post-condition is an unspecified evar.
+   If the post-condition is an evar, call [xpost Q] to set the
+   post-condition. Alternatively, the syntax [xmatch Q] will do this.
+*)
+
+(* TODO put back fresh names into the goal *)
+
+Ltac xmatch_case_alias cont :=
+  let H := fresh "C" in
+  xcase_core H ltac:(fun _ => repeat xalias; xcase_post H)
+               ltac:(fun _ => cont tt).
+
+Ltac xmatch_case_no_alias cont :=
+  let H := fresh "C" in
+  xcase_core H ltac:(fun _ => xcase_post H) ltac:(fun _ => cont tt).
+
+Ltac xmatch_case_no_simpl cont :=
+  let H := fresh "C" in
+  xcase_core H ltac:(fun _ => idtac) ltac:(fun _ => cont tt).
+
+Ltac xmatch_case_no_intros cont :=
+  xcase_no_intros_core
+    ltac:(fun _ => idtac)
+    ltac:(fun _ => let H := fresh "C" in introv H; cont tt).
+
+Ltac xmatch_case_core cont_case :=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_done) => xdone
+  | (Wpgen_fail) => xfail
+  | (Wpgen_case _ _ _) => first [ cont_case tt | fail 2 ]
+  | ?c => idtac c; fail 100 "unexpected tag in xmatch_case"
+  end.
+
+
+(* [xmatch_cases case_tactic] recursively apply [xmatch_case] using
+   [case_tactic] to handle each case. *)
+
+Ltac xmatch_cases case_tactic :=
+  xmatch_case_core ltac:(fun _ =>
+    case_tactic ltac:(fun _ => xmatch_cases case_tactic)).
+
+Ltac xmatch_check_post_instantiated tt :=
+  match cfml_postcondition_is_evar tt with
+  | true => fail 100 "xmatch requires a post-condition; use [xmatch Q] or [xpost Q] to set it."
+  | false => idtac
+  end.
+
+Ltac xmatch_pre tt :=
+  (* TODO xpull_check_not_needed tt; *)
+  xmatch_check_post_instantiated tt.
+
+Lemma xmatch_lemma : forall A `{EA:Enc A} H (F:Formula) (Q:A->hprop),
+  H ==> ^F Q ->
+  H ==> ^(Wptag (Wpgen_match F)) Q.
+Proof using. auto. Qed.
+
+Ltac xmatch_with cont :=
+  xmatch_pre tt;
+  apply xmatch_lemma;
+  cont tt.
+
+Tactic Notation "xmatch_case" := (* TODO: undocumented?*)
+  xmatch_case_core ltac:(fun _ => xmatch_case_alias ltac:(fun _ => idtac)).
+
+Tactic Notation "xmatch" :=
+  xmatch_with ltac:(fun _ => xmatch_cases xmatch_case_alias).
+Tactic Notation "xmatch" constr(Q) :=
+  xpost Q; xmatch.
+Tactic Notation "xmatch_no_alias" :=
+  xmatch_with ltac:(fun _ => xmatch_cases xmatch_case_no_alias).
+Tactic Notation "xmatch_subst_alias" :=
+  xmatch_no_alias; repeat xalias_subst.
+Tactic Notation "xmatch_no_cases" :=
+  xmatch_with ltac:(fun _ => idtac).
+Tactic Notation "xmatch_no_intros" :=
+  xmatch_with ltac:(fun _ => xmatch_cases xmatch_case_no_intros).
+Tactic Notation "xmatch_no_simpl_no_alias" :=
+  xmatch_with ltac:(fun _ => xmatch_cases xmatch_case_no_simpl).
+Tactic Notation "xmatch_no_simpl" :=
+  xmatch_no_simpl_no_alias; repeat xalias.
+Tactic Notation "xmatch_no_simpl_subst_alias" :=
+  xmatch_no_simpl_no_alias; repeat xalias_subst.
 
 
 (* ********************************************************************** *)
@@ -1921,6 +2261,9 @@ Ltac xstep_once tt :=
     | (Wpgen_Val _) => xval
     | (Wpgen_Val_no_mkstruct _) => xcast
     | (Wpgen_fail) => xfail
+    | (Wpgen_done) => xdone
+    | (Wpgen_case _ _ _) => xcase
+    | (Wpgen_match _) => xmatch
     | ?F => check_is_Wpgen_record_new F; xapp
     (* | (Wpgen_case _ _ _) => xcase *)
     (* TODO complete *)

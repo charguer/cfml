@@ -19,7 +19,7 @@ Lemma length_spec : forall A `{EA:Enc A} (l:list A),
     PREC \[]
     POST \[= (@TLC.LibListZ.length _) l].
 Proof using.
-(* TODO
+(* TODO: revive xfun_ind
   xcf. xfun_ind (@list_sub A) (fun f => forall (r:list A) n,
     app f [n r] \[] \[= n + LibListZ.length r]); xgo~.
 *) skip.
@@ -45,8 +45,7 @@ Lemma rev_append_spec : forall A `{EA:Enc A} (l1 l2:list A),
     POST \[= LibList.rev l1 ++ l2].
 Proof using.
   intros. gen l2. induction_wf IH: (@list_sub A) l1. xcf_go~.
-Admitted. (*
-Qed.*)
+Qed.
 
 Hint Extern 1 (RegisterSpec rev_append) => Provide rev_append_spec.
 
@@ -84,8 +83,7 @@ Lemma concat_spec : forall A `{EA:Enc A} (l:list (list A)),
     POST \[= (@TLC.LibList.concat _) l].
 Proof using.
   intros. induction_wf IH: (@list_sub (list A)) l. xcf_go*.
-Admitted. (*
-Qed. *)
+Qed.
 
 Hint Extern 1 (RegisterSpec concat) => Provide concat_spec.
 
@@ -104,13 +102,8 @@ Proof using.
   =>> M. cuts G: (forall r t, l = t++r ->
     SPEC (iter f r) PREC (I t) POSTUNIT (I l)). { xapp~. xsimpl. }
   => r. induction_wf IH: (@LibList.length A) r. =>> E.
-  xcf. (* xmatch; rew_list in E; inverts E; xgo~. *) Admitted.
-(*
-Qed. *)
-(* details:
-  { xrets~. }
-  { xapp~. xapp~. }
-  *)
+  xcf. xmatch; rew_list in E; inverts E; xgo~.
+Qed.
 
 Hint Extern 1 (RegisterSpec iter) => Provide iter_spec.
 
@@ -123,14 +116,12 @@ Lemma iter_spec_rest : forall A `{EA:Enc A} (l:list A) (f:func),
   (forall x t, SPEC (f x) PREC (I (x::t)) POSTUNIT (I t)) ->
   SPEC (iter f l) PREC (I l) POSTUNIT (I nil).
 Proof using.
-Admitted. (*
-  =>> M. xapp~ (fun k => \exists r, \[l = k ++ r] \* I r).
-  { =>> E. xpull ;=> r' E'. subst l.
+  introv M. xapp~ (>> __ (fun k => \exists r, \[l = k ++ r] \* I r)).
+  { introv E. xtriple. xpull. intros r' E'. subst l.
     lets: app_cancel_l E'. subst r'.
     xapp. xsimpl~. }
-  { xpull ;=>> E. rewrites (>> self_eq_app_l_inv E). xsimpl~. }
+  { xpull; introv E. rewrites (>> self_eq_app_l_inv E). xsimpl~. }
 Qed. (* TODO: beautify this proof *)
-*)
 
 (** Restore the default [auto_tilde] behavior *)
 
