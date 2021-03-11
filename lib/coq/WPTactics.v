@@ -419,6 +419,8 @@ Tactic Notation "xcf_types" :=
 Tactic Notation "xcf_types" constr(S) :=
   xcf_types_core_arg S.
 
+(* TODO: generalize xcf_types to top_value *)
+
 (* LATER
 Ltac xcf_fallback f :=
   idtac "Warning: could not exploit the specification; maybe the types don't match; check them using [xcf_types]; if you intend to use the specification manually, use [xcf_show].";

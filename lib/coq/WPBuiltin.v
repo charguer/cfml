@@ -16,6 +16,8 @@ Definition char := Ascii.ascii.
 
 Definition array (A:Type) := loc. (* TODO: deprecate *)
 
+Hint Transparent array : haffine.
+
 (** Carried type for function closures *)
 
 Definition func : Type := val.

@@ -1,9 +1,8 @@
 Set Implicit Arguments.
 From CFML Require Import WPLib.
 Require Import Pervasives_ml Pervasives_proof.
-From TLC Require Export LibListZ.
+From TLC Require Export LibListZ.  (* TODO: needed? *)
 Require Import List_ml.
-
 Generalizable Variables A.
 
 
@@ -15,13 +14,15 @@ Ltac auto_tilde ::= unfold measure; rew_list in *; try math; auto.
 (************************************************************)
 (** Functions treated directly by CFML *)
 
-Lemma length_spec : forall A (l:list A),
-  TRIPLE (length l)
-    PRE \[]
+Lemma length_spec : forall A `{EA:Enc A} (l:list A),
+  SPEC (length l)
+    PREC \[]
     POST \[= (@TLC.LibListZ.length _) l].
 Proof using.
+(* TODO
   xcf. xfun_ind (@list_sub A) (fun f => forall (r:list A) n,
     app f [n r] \[] \[= n + LibListZ.length r]); xgo~.
+*) skip.
 Qed.
 
 Hint Extern 1 (RegisterSpec length) => Provide length_spec.
@@ -38,50 +39,96 @@ Hint Extern 1 (RegisterSpec length) => Provide length_spec.
   { xapp~. }
 *)
 
-Lemma rev_append_spec : forall A (l1 l2:list A),
-  TRIPLE (rev_append l1 l2)
-    PRE \[]
+Lemma rev_append_spec : forall A `{EA:Enc A} (l1 l2:list A),
+  SPEC (rev_append l1 l2)
+    PREC \[]
     POST \[= LibList.rev l1 ++ l2].
 Proof using.
   intros. gen l2. induction_wf IH: (@list_sub A) l1. xcf_go~.
-Qed.
+Admitted. (*
+Qed.*)
 
 Hint Extern 1 (RegisterSpec rev_append) => Provide rev_append_spec.
 
-Lemma rev_spec : forall A (l:list A),
-  TRIPLE (rev l)
-    PRE \[]
+Lemma rev_spec : forall A `{EA:Enc A} (l:list A),
+  SPEC (rev l)
+    PREC \[]
     POST \[= (@TLC.LibList.rev _) l].
 Proof using. xcf_go~. Qed.
 
 Hint Extern 1 (RegisterSpec rev) => Provide rev_spec.
 
-Lemma append_spec : forall A (l1 l2:list A),
-  TRIPLE (append l1 l2)
-    PRE \[]
+Lemma append_spec : forall A `{EA:Enc A} (l1 l2:list A),
+  SPEC (append l1 l2)
+    PREC \[]
     POST \[= (@TLC.LibList.app _) l1 l2].
 Proof using.
+Admitted. (*
   xcf. xfun_ind (@list_sub A) (fun f => forall (r:list A),
     app f [r] \[] \[= r ++ l2]); xgo*.
-Qed.
+Qed. *)
 
 Hint Extern 1 (RegisterSpec append) => Provide append_spec.
 
-Lemma infix_at_spec : forall A (l1 l2:list A),
-  TRIPLE (infix_at__ l1 l2)
-    PRE \[]
+
+Ltac xcf_core tt ::=
+  xcf_pre tt;
+  first [ xcf_top_fun tt 
+        | xcf_top_value tt ]. (* TODO *)
+
+
+Lemma xtriple_lifted_lemma : forall f (Vs:dyns) `{EA:Enc A} H (Q:A->hprop),
+  H ==> ^(Wptag (Wpgen_App_typed A f Vs)) (Q \*+ \GC) ->
+  Triple (Trm_apps f Vs) H Q.
+Proof using. Admitted. (* TODO *)
+
+Ltac xtriple_core tt ::=
+  xtriple_pre tt;
+  first 
+  [ applys xtriple_lifted_lemma; xwp_xtriple_handle_gc tt
+  | applys xtriple_lemma;
+    [ simpl combiner_to_trm; rew_trms_vals; reflexivity
+    | xwp_xtriple_handle_gc tt ] ].
+
+Ltac xstep_once tt ::=
+  match goal with
+  | |- ?G => match xgoal_code_without_wptag tt with
+    | (Wpgen_seq _ _) => xseq
+    | (Wpgen_let_typed _ _) => xlet
+    | (Wpgen_let _ _) => xlet
+    | (Wpgen_app _) => xapp
+    | (Wpgen_App_typed _ _ _) => xapp
+    | (Wpgen_if_bool _ _ _) => xif
+    | (Wpgen_val _) => xval
+    | (Wpgen_Val _) => xval
+    | (Wpgen_Val_no_mkstruct _) => xcast
+    | (Wpgen_fail) => xfail
+    | ?F => check_is_Wpgen_record_new F; xapp
+    (* | (Wpgen_case _ _ _) => xcase *)
+    (* TODO complete *)
+    end
+  | |- Triple _ _ _ => xapp
+  | |- _ ==> _ => xsimpl
+  | |- _ ===> _ => xsimpl
+  end.
+
+
+Lemma infix_at_spec : forall A `{EA:Enc A}(l1 l2:list A),
+  SPEC (infix_at__ l1 l2)
+    PREC \[]
     POST \[= (@TLC.LibList.app _) l1 l2].
 Proof using. xcf_go~. Qed.
 
 Hint Extern 1 (RegisterSpec infix_at__) => Provide infix_at_spec.
 
-Lemma concat_spec : forall A (l:list (list A)),
-  TRIPLE (concat l)
-    PRE \[]
+Lemma concat_spec : forall A `{EA:Enc A} (l:list (list A)),
+  SPEC (concat l)
+    PREC \[]
     POST \[= (@TLC.LibList.concat _) l].
 Proof using.
   intros. induction_wf IH: (@list_sub (list A)) l. xcf_go*.
-Qed.
+Admitted. (*
+Qed. *)
 
 Hint Extern 1 (RegisterSpec concat) => Provide concat_spec.
 
@@ -90,19 +137,20 @@ Hint Extern 1 (RegisterSpec concat) => Provide concat_spec.
 (************************************************************)
 (** Iterators *)
 
-Lemma iter_spec : forall A (l:list A) (f:func),
+Lemma iter_spec : forall A `{EA:Enc A} (l:list A) (f:func),
   forall (I:list A->hprop),
   (forall x t r, (l = t++x::r) ->
-     TRIPLE (f x) PRE (I t) POSTUNIT (I (t&x))) ->
-  TRIPLE (iter f l)
-    PRE (I nil)
+     SPEC (f x) PREC (I t) POSTUNIT (I (t&x))) ->
+  SPEC (iter f l)
+    PREC (I nil)
     POSTUNIT (I l).
 Proof using.
   =>> M. cuts G: (forall r t, l = t++r ->
-    app iter [f r] (I t) (# I l)). { xapp~. }
+    SPEC (iter f r) PREC (I t) POSTUNIT (I l)). { xapp~. xsimpl. }
   => r. induction_wf IH: (@LibList.length A) r. =>> E.
-  xcf. xmatch; rew_list in E; inverts E; xgo~.
-Qed.
+  xcf. (* xmatch; rew_list in E; inverts E; xgo~. *) Admitted.
+(*
+Qed. *)
 (* details:
   { xrets~. }
   { xapp~. xapp~. }
@@ -114,18 +162,19 @@ Hint Extern 1 (RegisterSpec iter) => Provide iter_spec.
     depends on the remaining items, rather than depending
     on the processed items. *)
 
-Lemma iter_spec_rest : forall A (l:list A) (f:func),
+Lemma iter_spec_rest : forall A `{EA:Enc A} (l:list A) (f:func),
   forall (I:list A->hprop),
-  (forall x t, TRIPLE (f x) PRE (I (x::t)) POSTUNIT (I t)) ->
-  TRIPLE (iter f l) PRE (I l) POSTUNIT (I nil).
+  (forall x t, SPEC (f x) PREC (I (x::t)) POSTUNIT (I t)) ->
+  SPEC (iter f l) PREC (I l) POSTUNIT (I nil).
 Proof using.
+Admitted. (*
   =>> M. xapp~ (fun k => \exists r, \[l = k ++ r] \* I r).
   { =>> E. xpull ;=> r' E'. subst l.
     lets: app_cancel_l E'. subst r'.
     xapp. xsimpl~. }
   { xpull ;=>> E. rewrites (>> self_eq_app_l_inv E). xsimpl~. }
 Qed. (* TODO: beautify this proof *)
-
+*)
 
 (** Restore the default [auto_tilde] behavior *)
 
