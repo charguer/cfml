@@ -373,10 +373,8 @@ Ltac xcf_top_value tt :=
 
 Ltac xcf_core tt :=
   xcf_pre tt;
-  match goal with
-  | |- ?f = _ => xcf_top_value tt
-  | _ => xcf_top_fun tt
-  end.
+  first [ xcf_top_fun tt
+        | xcf_top_value tt ]. (* TODO *)
 
 (* TODO notation SPECVAL f = v and SPECVAL f st P *)
 
@@ -553,14 +551,22 @@ Proof using.
   applys Structural_Wp.
 Qed.
 
+Lemma xtriple_lifted_lemma : forall f (Vs:dyns) `{EA:Enc A} H (Q:A->hprop),
+  H ==> ^(Wptag (Wpgen_App_typed A f Vs)) (Q \*+ \GC) ->
+  Triple (Trm_apps f Vs) H Q.
+Proof using. Admitted. (* TODO *)
+
+
 Ltac xtriple_pre tt :=
   intros.
 
 Ltac xtriple_core tt :=
   xtriple_pre tt;
-  applys xtriple_lemma;
-  [ simpl combiner_to_trm; rew_trms_vals; reflexivity
-  | xwp_xtriple_handle_gc tt ].
+  first
+  [ applys xtriple_lifted_lemma; xwp_xtriple_handle_gc tt
+  | applys xtriple_lemma;
+    [ simpl combiner_to_trm; rew_trms_vals; reflexivity
+    | xwp_xtriple_handle_gc tt ] ].
 
 Tactic Notation "xtriple" :=
   xtriple_core tt.
@@ -648,11 +654,14 @@ Ltac xcast_debug tt :=
  end.
 
 Ltac xcast_core tt :=
-  first [ xcast_pre tt; applys xcast_lemma
-        | xcast_debug tt ].
+  xcast_pre tt;
+  applys xcast_lemma.
 
 Tactic Notation "xcast" :=
   xcast_core tt.
+
+Tactic Notation "xcast_types" :=
+  xcast_debug tt.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -2265,6 +2274,7 @@ Ltac xstep_once tt :=
     (* | (Wpgen_case _ _ _) => xcase *)
     (* TODO complete *)
     end
+  | |- Triple _ _ _ => xapp
   | |- _ ==> _ => xsimpl
   | |- _ ===> _ => xsimpl
   end.

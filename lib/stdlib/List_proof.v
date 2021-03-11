@@ -70,49 +70,6 @@ Qed. *)
 
 Hint Extern 1 (RegisterSpec append) => Provide append_spec.
 
-
-Ltac xcf_core tt ::=
-  xcf_pre tt;
-  first [ xcf_top_fun tt 
-        | xcf_top_value tt ]. (* TODO *)
-
-
-Lemma xtriple_lifted_lemma : forall f (Vs:dyns) `{EA:Enc A} H (Q:A->hprop),
-  H ==> ^(Wptag (Wpgen_App_typed A f Vs)) (Q \*+ \GC) ->
-  Triple (Trm_apps f Vs) H Q.
-Proof using. Admitted. (* TODO *)
-
-Ltac xtriple_core tt ::=
-  xtriple_pre tt;
-  first 
-  [ applys xtriple_lifted_lemma; xwp_xtriple_handle_gc tt
-  | applys xtriple_lemma;
-    [ simpl combiner_to_trm; rew_trms_vals; reflexivity
-    | xwp_xtriple_handle_gc tt ] ].
-
-Ltac xstep_once tt ::=
-  match goal with
-  | |- ?G => match xgoal_code_without_wptag tt with
-    | (Wpgen_seq _ _) => xseq
-    | (Wpgen_let_typed _ _) => xlet
-    | (Wpgen_let _ _) => xlet
-    | (Wpgen_app _) => xapp
-    | (Wpgen_App_typed _ _ _) => xapp
-    | (Wpgen_if_bool _ _ _) => xif
-    | (Wpgen_val _) => xval
-    | (Wpgen_Val _) => xval
-    | (Wpgen_Val_no_mkstruct _) => xcast
-    | (Wpgen_fail) => xfail
-    | ?F => check_is_Wpgen_record_new F; xapp
-    (* | (Wpgen_case _ _ _) => xcase *)
-    (* TODO complete *)
-    end
-  | |- Triple _ _ _ => xapp
-  | |- _ ==> _ => xsimpl
-  | |- _ ===> _ => xsimpl
-  end.
-
-
 Lemma infix_at_spec : forall A `{EA:Enc A}(l1 l2:list A),
   SPEC (infix_at__ l1 l2)
     PREC \[]
@@ -131,7 +88,6 @@ Admitted. (*
 Qed. *)
 
 Hint Extern 1 (RegisterSpec concat) => Provide concat_spec.
-
 
 
 (************************************************************)
