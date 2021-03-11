@@ -1,6 +1,6 @@
 Set Implicit Arguments.
-From CFML Require Import WPLib.
 Require Import Pervasives_ml.
+From CFML Require Import WPLib.
 Generalizable Variable A.
 
 
@@ -14,55 +14,19 @@ Ltac xgoal_fun tt ::=
   end.
 
 
-(************************************************************)
-(** [show_types] *)
 
-(* TODO LATER
 
-    - [xcf_types] shows the type of the application in the
-      goal, compared with the one from the specification.
 
-    - [xcf_types S] shows the types of the function involved
-      in a specification [S].
+(* TODO : also rename heap_scope to hprop_scope 
+   see what to import from SLF records *)
 
-  Ltac xcf_types_core tt :=
-    let S := fresh "Spec" in
-    first [intros [_ S] | intros S];
-    idtac "=== type of app in goal ===";
-    cfml_show_app_type_goal tt;
-    idtac "=== type of app in code === ";
-    forwards_nounfold_skip_sides_then S ltac:(fun K =>
-      let T := type of K in
-      cfml_show_app_type T);
-    clear S.
+From CFML Require Import WPRecord.
 
-  Ltac xcf_types_core_noarg tt :=
-    intros;
-    let H := fresh in
-    xcf_show_core H;
-    revert H;
-    xcf_types_core tt.
+Notation "p '~~~>' kvs" := (p ~> Record kvs)
+  (at level 32) : heap_scope.
 
-  Ltac xcf_types_core_arg S :=
-    intros;
-    generalize S;
-    xcf_types_core tt.
 
-  Tactic Notation "xcf_types" :=
-    xcf_types_core_noarg tt.
 
-  Tactic Notation "xcf_types" constr(S) :=
-    xcf_types_core_arg S.
-
-*)
-
-(* LATER
-Ltac xcf_fallback f :=
-  idtac "Warning: could not exploit the specification; maybe the types don't match; check them using [xcf_types]; if you intend to use the specification manually, use [xcf_show].";
-  xcf_find f;
-  let Sf := fresh "Spec" in
-  intros Sf.
-*)
 
 (************************************************************)
 (** [DEPRECATED?] *)
@@ -179,7 +143,7 @@ Ltac xcf_top_fun tt :=
   xcf_find f;
   let Sf := fresh "Spec" in
   intros Sf;
-  apply Sf;
+  eapply Sf;
   clear Sf.
   (* xcf_post *) (* try solve_type;  instantiate; *)
   (* TODO: first [ xc f_top_value f | xcf_fallback f | fail 2 ] *)
@@ -257,7 +221,7 @@ Ltac xval_core tt :=
 
 
 (************************************************************)
-(** [xgo], and [xstep] *)
+(** [xgo], [xcf_go] and [xstep] *)
 
 Ltac xstep_once tt :=
   match goal with
@@ -267,6 +231,7 @@ Ltac xstep_once tt :=
     | (Wpgen_let _ _) => xlet
     | (Wpgen_app _) => xapp
     | (Wpgen_App_typed _ _ _) => xapp
+    | (Wpgen_record_new _) => xapp
     | (Wpgen_if_bool _ _ _) => xif
     | (Wpgen_val _) => xval
     | (Wpgen_Val _) => xval
@@ -314,6 +279,14 @@ Tactic Notation "xgo" "~" :=
   xgo; auto_tilde.
 Tactic Notation "xgo" "*" :=
   xgo; auto_star.
+
+
+Tactic Notation "xcf_go" :=
+  xcf; xgo.
+Tactic Notation "xcf_go" "~" :=
+  xcf_go; auto_tilde.
+Tactic Notation "xcf_go" "*" :=
+  xcf_go; auto_star.
 
 
 (************************************************************)
@@ -377,6 +350,7 @@ Ltac xapp_pre_wp tt ::=
   match xgoal_code_without_wptag tt with
   | (Wpgen_app ?t) => idtac
   | (Wpgen_App_typed ?T ?f ?Vs) => idtac
+  | (Wpgen_record_new ?Lof) => idtac
   end.
 
 Lemma xapp_lifted_lemma : forall A `{EA:Enc A} (Q1:A->hprop) (f:trm) (Vs:dyns) H1 H Q,
@@ -477,8 +451,7 @@ Parameter infix_eq_spec : forall A (a b : A),
 
 Hint Extern 1 (RegisterSpec infix_eq__) => Provide infix_eq_spec.
 
-Parameter infix_neq_spec : curried 2%nat infix_eq__ /\
-  forall A (a b : A),
+Parameter infix_neq_spec : forall A (a b : A),
   (polymorphic_eq_arg a \/ polymorphic_eq_arg b) ->
   SPEC (infix_lt_gt__ a b)
     PREC \[]
@@ -487,7 +460,7 @@ Parameter infix_neq_spec : curried 2%nat infix_eq__ /\
 Hint Extern 1 (RegisterSpec infix_lt_gt__) => Provide infix_neq_spec.
 
 Lemma min_spec : forall (n m:int),
-  SPEC (min n m)
+  SPEC (Pervasives_ml.min n m)
     PREC \[]
     POST \[= Z.min n m ].
 Proof using.
@@ -497,7 +470,7 @@ Proof using.
 Qed.
 
 Lemma max_spec : forall (n m:int),
-  SPEC (max n m)
+  SPEC (Pervasives_ml.max n m)
     PREC \[]
     POST \[= Z.max n m ].
 Proof using.
@@ -556,9 +529,9 @@ Parameter infix_slash_spec : forall (n m:int),
     PREC \[]
     POST \[= Z.quot n m ].
 
-Parameter mod_spec : forall (n m:int),
+Parameter mod___spec : forall (n m:int),
   m <> 0 ->
-  SPEC (Pervasives_ml.mod n m)
+  SPEC (Pervasives_ml.mod__ n m)
     PREC \[]
     POST \[= Z.rem n m ].
 
@@ -567,7 +540,7 @@ Hint Extern 1 (RegisterSpec infix_plus__) => Provide infix_plus_spec.
 Hint Extern 1 (RegisterSpec infix_minus__) => Provide infix_minus_spec.
 Hint Extern 1 (RegisterSpec infix_star__) => Provide infix_star_spec.
 Hint Extern 1 (RegisterSpec infix_slash__) => Provide infix_slash_spec.
-Hint Extern 1 (RegisterSpec Pervasives_ml.mod) => Provide mod_spec.
+Hint Extern 1 (RegisterSpec Pervasives_ml.mod__) => Provide mod___spec.
 
 Notation "x `/` y" := (Z.quot x y)
   (at level 69, right associativity) : charac.
@@ -592,7 +565,7 @@ Notation "n `+ m" := (App infix_mod_ n m;)
  *)
 
 Lemma succ_spec : forall (n:int),
-  SPEC (succ n)
+  SPEC (Pervasives_ml.succ n)
     PREC \[]
     POST \[= n+1 ].
 Proof using.
@@ -600,15 +573,15 @@ Proof using.
 Qed.
 
 Lemma pred_spec : forall (n:int),
-  SPEC (pred n)
+  SPEC (Pervasives_ml.pred n)
     PREC \[]
     POST \[= n-1 ].
 Proof using.
   xcf. xgo*.
 Qed.
 
-Lemma abs_spec : forall (n:int),
-  SPEC (Pervasives_ml.abs n)
+Lemma abs___spec : forall (n:int),
+  SPEC (Pervasives_ml.abs__ n)
     PREC \[]
     POST \[= Z.abs n ].
 Proof using.
@@ -619,7 +592,7 @@ Qed.
 
 Hint Extern 1 (RegisterSpec succ) => Provide succ_spec.
 Hint Extern 1 (RegisterSpec pred) => Provide pred_spec.
-Hint Extern 1 (RegisterSpec abs) => Provide abs_spec.
+Hint Extern 1 (RegisterSpec abs__) => Provide abs___spec.
 
 
 (************************************************************)
@@ -688,10 +661,10 @@ Hint Extern 1 (RegisterSpec asr) => Provide asr_spec.
 (** References *)
 
 Definition Ref {A} (v:A) (r:loc) :=
-  r ~> `{ contents' := v }.
+  r ~~~> `{ contents' := v }.
 
-(* TODO: THIS IS NOW REALIZED AT A LOWER LEVEL *)
-...
+(* TODO: THIS IS NOW REALIZED AT A LOWER LEVEL 
+
 Axiom Ref_Heapdata : forall A,
   (Heapdata (@Ref A)).
 
@@ -705,30 +678,139 @@ lets: star_is_single_same_loc.
   hchange (@star_is_single_same_loc x). hsimpl.
 Qed.
 *)
+*)
 
-Notation "r '~~>' v" := (hdata (Ref v) r)
+Notation "r '~~>' v" := (r ~> Ref v)
   (at level 32, no associativity) : heap_scope.
 
 Lemma haffine_Ref : forall A r (v: A),
   haffine (r ~~> v).
-Proof. intros. unfold Ref, hdata. affine. Qed.
+Admitted. (* TODO Proof. intros. unfold Ref, hdata. affine. Qed. *)
 
 Hint Resolve haffine_Ref : haffine.
 
 (* Expose that [ref_ A] (defined in Pervasives_ml) is defined as [loc] *)
 Hint Transparent ref_ : haffine.
 
+
+
+(* TODO *)
+Ltac xapp_record tt ::= (* initial dummy binding located in WPTactics *)
+  match xgoal_code_without_wptag tt with
+  | Wpgen_record_new ?Lof => applys xapp_lemma_record_new
+  | Wpgen_App_typed ?f ?Vs => 
+      match f with
+      | (val_get_field _) => xapp_record_get tt
+      | (val_set_field _) => xapp_record_set tt
+      | (val_record_init _) => xapp_record_new tt (* TODO redundant? *)
+      | (val_record_delete _) => xapp_record_delete tt
+      end
+  end.
+
+
+
+
 Lemma ref_spec : forall A (v:A),
   SPEC (ref v)
     PREC \[]
     POST (fun r => r ~~> v).
-Proof using. xcf_go~. Qed.
+Proof using. xcf. xgo~. Qed.
 
-Lemma infix_emark_spec : forall A (v:A) r,
+Notation "'SPEC' t 'INVA' H 'POST' Q" :=
+  (Triple t H (Q \*+ H))
+  (at level 39, t custom Trm_apps at level 0,
+  format "'[v' 'SPEC'  t  '/' 'INVA'  H  '/' 'POST'  Q ']'") : triple_scope.
+
+
+
+(************************************************************)
+(** [show_types] *)
+
+(* TODO LATER
+
+    - [xcf_types] shows the type of the application in the
+      goal, compared with the one from the specification.
+
+    - [xcf_types S] shows the types of the function involved
+      in a specification [S].
+*)
+
+Ltac xtypes_type show_arrow T ET :=
+  match show_arrow with
+  | true => idtac T " { " ET " } -> "
+  | false => idtac T " { " ET " } "
+  end.
+
+(* [xtypes_dyn_list L] displays the types of the
+   arguments in the list [L] *)
+
+Ltac xtypes_dyn_list L :=
+  match L with
+  | nil => idtac
+  | (@dyn_make ?T ?ET ?x) :: ?R => xtypes_type true T ET
+  end.
+
+Ltac xtypes_triple E := 
+  let aux Vs T ET := 
+    xtypes_dyn_list Vs; xtypes_type false T ET in
+  match E with
+  | (Wptag ?F) => xtypes_triple F
+  | (@Wpgen_App_typed ?T ?ET ?f ?Vs) => aux Vs T ET
+  | (@Triple (Trm_apps ?f ?Vs) ?T ?ET ?H ?Q) => aux Vs T ET
+  end.
+
+Ltac xtypes_goal tt :=
+  idtac "=== type of application in goal ===";
+  let G := match goal with |- ?G => constr:(G) end in (* TODO: ltac op *)
+  xtypes_triple G.
+
+Ltac xtypes_hyp S :=
+  idtac "=== type of application in hypothesis ===";
+  forwards_nounfold_admit_sides_then S ltac:(fun K =>
+    let T := type of K in
+    xtypes_triple T).
+
+Ltac xcf_types_core tt :=
+  let S := fresh "Spec" in
+  intros S;
+  xtypes_goal tt;
+  xtypes_hyp S;
+  clear S.
+
+Ltac xcf_types_core_noarg tt :=
+  xcf_show;
+  xcf_types_core tt.
+
+Ltac xcf_types_core_arg S :=
+  xcf_pre tt;
+  generalize S;
+  xcf_types_core tt.
+
+Tactic Notation "xcf_types" :=
+  xcf_types_core_noarg tt.
+
+Tactic Notation "xcf_types" constr(S) :=
+  xcf_types_core_arg S.
+
+
+(* LATER
+Ltac xcf_fallback f :=
+  idtac "Warning: could not exploit the specification; maybe the types don't match; check them using [xcf_types]; if you intend to use the specification manually, use [xcf_show].";
+  xcf_find f;
+  let Sf := fresh "Spec" in
+  intros Sf.
+*)
+
+
+
+
+Lemma infix_emark_spec : forall `{EA:Enc A} (v:A) r,
   SPEC (infix_emark__ r)
-    INV (r ~~> v)
+    INVA (r ~~> v)
     POST \[= v].
-Proof using. xunfold @Ref. xcf_go~. Qed.
+Proof using. xunfold @Ref. xcf. xapp. 
+
+Qed.
 
 Lemma infix_colon_eq_spec : forall A (v w:A) r,
   SPEC (infix_colon_eq__ r w)

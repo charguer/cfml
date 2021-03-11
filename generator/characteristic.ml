@@ -1651,7 +1651,7 @@ let cfg_file str =
       Coqtop_require_import [ "Coq.ZArith.BinIntDef"; "CFML.Semantics"; "CFML.WPHeader" ];
       (* TODO: check binintdef needed *)
       Coqtop_custom "Delimit Scope Z_scope with Z.";
-      Coqtop_custom "Existing Instance WPHeader.Enc_any.";
+      Coqtop_custom "Existing Instance WPHeader.Enc_any | 99.";
       (* DEPRECATED Coqtop_custom "Local Open Scope cfheader_scope."; *)
       (*DEPRECATED Coqtop_custom "Open Scope list_scope.";*)
       (*DEPRECATED Coqtop_custom "Local Notation \"'int'\" := (Coq.ZArith.BinInt.Z).";*)

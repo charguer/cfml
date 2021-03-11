@@ -765,3 +765,11 @@ Definition Wpgen_record_new (Lof:loc->Record_fields) : Formula :=
 
   TODO: exercise in course. *)
 
+
+Lemma xapp_lemma_record_new : forall (Lof:loc->Record_fields) H (Q:loc->hprop),
+  (fun r => r ~> Record (Lof r)) \*+ H ===> Q ->
+  H ==> ^(Wpgen_record_new Lof) Q.
+Proof using.
+  introv M. applys MkStruct_erase. xsimpl. intros r.
+  xchange M. applys qimpl_Post_cast_r.
+Qed.

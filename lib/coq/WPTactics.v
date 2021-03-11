@@ -649,10 +649,12 @@ Ltac xapp_apply_lemma cont_prove_triple :=
     | applys @xapp_lemma; [ cont_prove_triple tt | xapp_post tt ] ].
 *)
 
+Ltac xapp_general tt :=
+ xapp_apply_lemma ltac:(xspec_prove_triple).
 
 Ltac xapp_core tt :=
   xapp_pre tt;
-  first [ xapp_record tt
+  first [ xapp_record tt (* TODO: choose base on goal ? *)
         | xapp_general tt ].
 
 Tactic Notation "xapp" :=

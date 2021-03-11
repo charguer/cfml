@@ -25,7 +25,7 @@ Definition func : Type := val.
 (********************************************************************)
 (* Polymorphic comparison *)
 
-(* TODO: check if still needed
+(* TODO: check if still needed *)
 
 
 (** Values that support polymorphic comparison *)
@@ -110,7 +110,7 @@ Ltac xpolymorphic_eq_core tt :=
 Tactic Notation "xpolymorphic_eq" :=
   xpolymorphic_eq_core tt.
 
-*)
+
 
 (********************************************************************)
 (* FUTURE USE
