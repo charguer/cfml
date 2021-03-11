@@ -1,13 +1,14 @@
 (** See theories/ExampleStack.v for corresponding formalization in the deep embedding. *)
 
 Set Implicit Arguments.
-From CFML Require Import CFLib.
+From CFML Require Import WPLib Stdlib.
+From TLC Require Import LibListZ.
 Generalizable Variables A.
 
 Implicit Types n m : int.
 Implicit Types p q : loc.
 
-Import StackSized_ml.
+Require Import StackSized_ml.
 
 
 (* ********************************************************************** *)
@@ -16,24 +17,29 @@ Import StackSized_ml.
 (** Definition of [r ~> Stack L], which is a notation for [Stack L r], of type
     [hprop] *)
 
-Definition Stack A (L:list A) r :=
+Definition Stack A `{EA:Enc A} (L:list A) r :=
   \exists n,
-      r ~> `{ items' := L; size' := n }
+      r ~~~> `{ items' := L; size' := n }
    \* \[ n = length L ].
 
 
-Lemma Stack_eq : forall r A (L:list A),
+Lemma Stack_eq : forall r A `{EA:Enc A} (L:list A),
   (r ~> Stack L) =
-  (\exists n, r ~> `{ items' := L; size' := n } \* \[ n = length L ]).
+  (\exists n, r ~~~> `{ items' := L; size' := n } \* \[ n = length L ]).
 Proof using. auto. Qed.
 
 Arguments Stack_eq : clear implicits.
 
+(* TODO: use the generic xopen and close *)
+
 Tactic Notation "xopen" constr(r) :=
-  rewrite (Stack_eq r); xpull.
+  xchange (Stack_eq r); xpull.
 
 Tactic Notation "xclose" constr(r) :=
-  rewrite <- (Stack_eq r).
+  xchange <- (Stack_eq r).
+
+Tactic Notation "xclose" "*" constr(r) :=
+  xclose r; auto_star.
 
 
 (* ********************************************************************** *)
@@ -80,93 +86,63 @@ Tactic Notation "xclose" constr(r) :=
 
 (** Verification of the code *)
 
-Lemma create_spec : forall (A:Type),
-  TRIPLE (create tt)
+Lemma create_spec : forall A `{EA:Enc A},
+  SPEC (create tt)
     PRE \[]
     POST (fun r => r ~> Stack (@nil A)).
 Proof using.
-  xwp. dup 2.
-  { xapp. intros r.  (* or just [xapp. => r] *)
-    xclose r. auto. xsimpl. }
-  { xapp ;=> r. xclose~ r. }
+  xcf. xapp ;=> r. xclose* r.
 Qed.
 
-Lemma size_spec : forall (A:Type) (L:list A) (s:loc),
-  TRIPLE (size s)
+Lemma size_spec : forall A `{EA:Enc A} (L:list A) (s:loc),
+  SPEC (size s)
     INV (s ~> Stack L)
     POST (fun n => \[n = length L]).
-(* Remark: the above is a notation for:
-  app size [s]
-    PRE (s ~> Stack L)
-    POST (fun n => \[n = length L] \* s ~> Stack L).
-*)
 Proof using.
-  xwp. (* TODO: add xopens to do xpull *)
-  xopen s. (* details: xchange (@Stack_open s). *)
-  xpull ;=> n Hn.
-  (* interesting: do [unfold tag] here, to unfold this identity
-     function used to decorate the file. *)
-  xapp. (* computes on-the-fly the record_get specification *)
-  intros m.
-  xpull ;=> ->. (* details: [xpull. intros E. subst E.] *)
-  xclose s. (* details: xchange (@Stack_close s). *)
-  auto. xsimpl. math.
-  (* Here we have an issue because Coq is a bit limited.
-     Workaround to discharge the remaining type: *)
-  Unshelve. solve_type. (* TODO: support [xwp A] in the beginning *)
+  xcf. applys Enc_unit. (* TODO? *)
+  xopen s. xpull ;=> n Hn.
+  xapp. xclose* s. xsimpl*.
 Qed.
 
-Lemma length_zero_iff_nil : forall A (L:list A),
+Lemma length_zero_iff_nil : forall A `{EA:Enc A} (L:list A),
   length L = 0 <-> L = nil.
 Proof using.
-  intros. destruct L; rew_list. (* [rew_list] normalizes list expressions *)
-  { autos*. (* [intuition eauto] *) }
-  { iff M; false; math. (* [iff M] is [split; intros M] *) }
+  intros. destruct L; rew_list.
+  { intuition eauto. }
+  { iff M; false; math. }
 Qed.
 
-Lemma is_empty_spec : forall (A:Type) (L:list A) (s:loc),
+Lemma is_empty_spec : forall A `{EA:Enc A} (L:list A) (s:loc),
   (* <EXO> *)
-  TRIPLE (is_empty s)
+  SPEC (is_empty s)
     INV (s ~> Stack L)
     POST (fun b => \[b = isTrue (L = nil)]).
   (* </EXO> *)
 Proof using.
   (* Hint: use [xopen] then [xclose] like in [size_spec].
-     Also use [xwp], [xpull], [xapps], [xrets],
+     Also use [xcf], [xpull], [xapps], [xrets],
      and lemma [length_zero_iff_nil] from above. *)
   (* <EXO> *)
-  xwp.
-  (* Note that the boolean expression [n = 0] from Caml
-     was automatically translated into [isTrue (x0__ = 0)];
-     Indeed, [Ret_ P] is notation for [Ret (isTrue P)]. *)
-  xopen s. xpull ;=> n Hn. xapps. xclose~ s.
-  dup 2.
-  { xret_no_clean.
-    reflect_clean tt. (* automatically called by [hsimpl] *)
-    hsimpl.
-    subst. apply length_zero_iff_nil. }
-  { xrets. subst. apply length_zero_iff_nil. }
+  xcf. applys Enc_unit. (* TODO? *)
+  xopen s. xpull ;=> n Hn. xapp. xclose* s.
+  xvals. subst. apply length_zero_iff_nil.
   (* </EXO> *)
-  Unshelve. solve_type.
+  auto.
 Qed.
 
-Lemma push_spec : forall (A:Type) (L:list A) (s:loc) (x:A),
-  TRIPLE (push x s)
+Lemma push_spec : forall A `{EA:Enc A} (L:list A) (s:loc) (x:A),
+  SPEC (push x s)
     PRE (s ~> Stack L)
-    POST (# s ~> Stack (x::L)).
+    POSTUNIT (s ~> Stack (x::L)).
 Proof using.
-  (* Hint: use [xwp], [xapp], [xapps], [xpull], [xsimpl],
+  (* Hint: use [xcf], [xapp], [xapps], [xpull], [xsimpl],
      [xopen], [xclose] and [rew_list] *)
   (* <EXO> *)
-  xwp.
+  xcf.
   xopen s. (* details: xchange (@Stack_open s) *)
   xpull ;=> n Hn.
-  xapps. xapp.
-  xapps. xapp.
-  xclose s. (* details: xchange (@Stack_close s) *)
-  rew_list. (* normalizes expression on lists *)
-  math.
-  xsimpl.
+  xapp. xapp. xapp. xapp.
+  xclose s. rew_list. math.
   (* </EXO> *)
 Qed.
 
@@ -175,15 +151,16 @@ Hint Extern 1 (RegisterSpec push) => Provide push_spec.
 (* [xapp] on a call to push.
    Otherwise, need to do [xapp_spec push_spec]. *)
 
-Lemma pop_spec : forall (A:Type) (L:list A) (s:loc),
+Lemma pop_spec : forall A `{EA:Enc A} (L:list A) (s:loc),
   L <> nil ->
-  TRIPLE (pop s)
+  SPEC (pop s)
     PRE (s ~> Stack L)
     POST (fun x => \exists L', \[L = x::L'] \* s ~> Stack L').
 Proof using.
   (* Hint: also use [rew_list in H] *)
   (* <EXO> *)
-  introv HL. xwp. xopen s. xpull ;=> n Hn. xapps. xmatch.
-  xapps. xapps. xapps. xret. xclose~ s. rew_list in Hn. math.
+  introv HL. xcf. xopen s. xpull ;=> n Hn. xapp. xmatch.
+  xapp. xapp. xapp. xval.
+  xclose* s. { rew_list in *. math. } xsimpl*.
   (* </EXO> *)
 Qed.

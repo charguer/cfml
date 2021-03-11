@@ -28,10 +28,10 @@ let pop s =
   | [] -> assert false
 
 let clear p =
-  p.data <- [];
+  p.items <- [];
   p.size <- 0
 
 let concat p1 p2 =
-  p1.data <- p1.data @ p2.data;
+  p1.items <- p1.items @ p2.items;
   p1.size <- p1.size + p2.size;
   clear p2

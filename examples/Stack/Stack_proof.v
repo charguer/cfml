@@ -1,8 +1,7 @@
 (** See theories/ExampleStack.v for corresponding formalization in the deep embedding. *)
 
 Set Implicit Arguments.
-From CFML Require Import WPLib.
-From CFML Require Import Stdlib. (* TODO: package Stdlib? *)
+From CFML Require Import WPLib Stdlib.
 Generalizable Variables A.
 
 Implicit Types n m : int.
