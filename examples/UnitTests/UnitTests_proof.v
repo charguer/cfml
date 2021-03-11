@@ -1,12 +1,11 @@
 Set Implicit Arguments.
-From CFML Require Import CFLib.
+From CFML Require Import WPLib.
 From CFML Require Import Stdlib.
+Require Import UnitTests_ml.
 
-Require Import Demo_ml.
+Require TLC.LibListZ. (* TODO NEEDED? *)
+(* TODO NEEDED? Import ZsubNoSimpl. *)
 
-Require TLC.LibListZ.
-Import ZsubNoSimpl.
-Open Scope tag_scope.
 
 
 
@@ -18,27 +17,27 @@ Open Scope tag_scope.
 
 
 Lemma notation_inv_post_spec_pre : forall (r:loc) (n:int),
-  TRIPLE (notation_inv_post r)
+  SPEC (notation_inv_post r)
     PRE (r ~~> n)
     POST (fun x => \[x = n] \* r ~~> n).
-Proof using. xcf. xapp. Qed.
+Proof using. xcf. xapp. xsimpl*. Qed.
 
 Lemma notation_inv_post_spec_inv : forall (r:loc) (n:int),
-  TRIPLE (notation_inv_post r)
+  SPEC (notation_inv_post r)
     INV (r ~~> n)
     POST \[= n].
-Proof using. xcf. xapp. Qed.
+Proof using. xcf. xapp. xsimpl*. Qed.
 
 Lemma notation_pre_inv_post_spec_pre : forall (r s:loc) (n m:int),
-  TRIPLE (notation_pre_inv_post r s)
+  SPEC (notation_pre_inv_post r s)
     PRE (r ~~> n \* s ~~> m)
     POST (fun x => \[x = m] \* r ~~> (n+1) \* s ~~> m).
 Proof using. xcf. xapp. xapp. xsimpl*. Qed.
 
 Lemma notation_pre_inv_post_spec_inv : forall (r s:loc) (n m:int),
-  TRIPLE (notation_pre_inv_post r s)
-    PRE' (r ~~> n)
-    INV' (s ~~> m)
+  SPEC (notation_pre_inv_post r s)
+    PRE (r ~~> n)
+    INV (s ~~> m)
     POST (fun x => \[x = m] \* r ~~> (n+1)).
 Proof using. xcf. xapp. xapp. xsimpl*. Qed.
 
@@ -59,165 +58,187 @@ Proof using.
   auto.
 Qed.
 
+
+
+(* TODO MOVE *)
+Ltac xletval_core tt ::=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_let_Val _ (fun x => _)) => idtac x;
+     let a := fresh "v" x in
+     let Pa := fresh "P" a in
+     applys xletval_lemma;
+     intros a Pa
+  end.
+
+Ltac xletvalas_core tt :=
+  xletval_core tt;
+  do 2 (let H := get_last_hyp tt in revert H).
+
+Tactic Notation "xletval" "as" := (* TODO: document *)
+  xletvalas_core tt.
+
 Lemma renaming_demo_spec :
-  Triple (renaming_demo tt) \[] \[= tt].
-Proof using.
+  SPEC (renaming_demo tt)
+    PRE \[]
+    POST \[= tt].
+Proof using. (* TODO: used as demo for xletval *)
+  (* disclaimer: renaming are not visible because Coq display underscore *)
   xcf.
-  xval.
-  xval.
-  xval.
-  xval.
-  xval.
-  xrets.
-  auto.
+  xletval as. intros x Px. subst x.
+  xletvals.
+  xletval.
+  xletval as. intros.
+  xletval as. intros.
+  xvals*.
 Qed.
 
 
 (********************************************************************)
 (* ** Polymorphic let bindings and value restriction *)
 
+(* TODO
 Lemma let_poly_p0_spec :
-  Triple (let_poly_p0 tt) \[] \[= tt].
+  SPEC (let_poly_p0 tt) \[] \[= tt].
 Proof using.
-  xcf. xlet_poly_keep (= true). xapp_skip. intro_subst. xrets~.
+  xcf. xlet_poly_keep (= true). xapp_skip. intro_subst. xvals~.
 Qed.
 
 Lemma let_poly_p1_spec :
-  Triple (let_poly_p1 tt) \[] \[= tt].
+  SPEC (let_poly_p1 tt) \[] \[= tt].
 Proof using.
   xcf. xfun. xlet_poly_keep (fun B (r:option B) => r = None).
-  { xapps. xrets. }
-  { intros Hr. xrets~. }
+  { xapps. xvals. }
+  { intros Hr. xvals~. }
 Qed.
 
 Lemma let_poly_p2_spec :
-  Triple (let_poly_p2 tt) \[] \[= tt].
+  SPEC (let_poly_p2 tt) \[] \[= tt].
 Proof using.
   xcf. xfun. xlet.
   { xlet_poly_keep (fun B (r:option B) => r = None).
-    { xapps. xrets. }
-    { intros Hr. xrets~. } }
-  { xrets~. }
+    { xapps. xvals. }
+    { intros Hr. xvals~. } }
+  { xvals~. }
 Qed.
 
 Lemma let_poly_p3_spec :
-  Triple (let_poly_p3 tt) \[] \[= tt].
+  SPEC (let_poly_p3 tt) \[] \[= tt].
 Proof using.
   xcf.
   xlet_poly_keep (= true). { xapp_skip. } intro_subst.
   xapp_skip.
   xlet_poly_keep (= false). { xapp_skip. } intro_subst.
   xapp_skip.
-  xrets~.
+  xvals~.
 Qed.
 
 Lemma let_poly_f0_spec : forall A,
-  Triple (let_poly_f0 tt) \[] \[= @nil A].
+  SPEC (let_poly_f0 tt) \[] \[= @nil A].
 Proof using.
   xcf. xapps. xapps. xsimpl~.
 Qed.
 
 Lemma let_poly_f1_spec : forall A,
-  Triple (let_poly_f1 tt) \[] \[= @nil A].
+  SPEC (let_poly_f1 tt) \[] \[= @nil A].
 Proof using.
   xcf. xapps. xapps. xsimpl~.
 Qed.
 
 Lemma let_poly_f2_spec : forall A,
-  Triple (let_poly_f2 tt) \[] \[= @nil A].
+  SPEC (let_poly_f2 tt) \[] \[= @nil A].
 Proof using.
   xcf. xapps. xapps. xsimpl~.
 Qed.
 
 Lemma let_poly_f3_spec :
-  Triple (let_poly_f3 tt) \[] \[= @nil int].
+  SPEC (let_poly_f3 tt) \[] \[= @nil int].
 Proof using.
   xcf. xapps. xapps. xsimpl~.
 Qed.
 
 Lemma let_poly_f4_spec :
-  Triple (let_poly_f4 tt) \[] \[= @nil int].
+  SPEC (let_poly_f4 tt) \[] \[= @nil int].
 Proof using.
   xcf. xapps. xapps. xsimpl~.
 Qed.
 
 Lemma let_poly_g1_spec :
-  Triple (let_poly_g1 tt) \[] \[= 5::nil].
+  SPEC (let_poly_g1 tt) \[] \[= 5::nil].
 Proof using.
   xcf. xapps. xapps. xapps. xsimpl~.
 Qed.
 
 Lemma let_poly_g2_spec :
-  Triple (let_poly_g2 tt) \[] \[= 4::nil].
+  SPEC (let_poly_g2 tt) \[] \[= 4::nil].
 Proof using.
   xcf. xapps. xapps. xapps. xsimpl~.
 Qed.
 
 Lemma let_poly_h0_spec : forall A,
-  Triple (let_poly_h0 tt) \[] (fun (r:loc) => r ~~> (@nil A)).
+  SPEC (let_poly_h0 tt) \[] (fun (r:loc) => r ~~> (@nil A)).
 Proof using.
-  xcf. xapps. xret~.
+  xcf. xapps. xval~.
 Qed.
 
 Lemma let_poly_h1_spec : forall A,
-  Triple (let_poly_h1 tt) \[] (fun (f:func) =>
-    \[ Triple (f tt) \[] (fun (r:loc) => r ~~> (@nil A)) ]).
+  SPEC (let_poly_h1 tt) \[] (fun (f:func) =>
+    \[ SPEC (f tt) \[] (fun (r:loc) => r ~~> (@nil A)) ]).
 Proof using.
-  xcf. xlet (fun g => \[ Triple (g tt) \[] (fun (r:loc) => r ~~> (@nil A)) ]).
-  { xfun. xrets. xapps. xapps. }
-  intros Hg. xrets. xapps.
+  xcf. xlet (fun g => \[ SPEC (g tt) \[] (fun (r:loc) => r ~~> (@nil A)) ]).
+  { xfun. xvals. xapps. xapps. }
+  intros Hg. xvals. xapps.
 Qed.
 
 Lemma let_poly_h2_spec : forall A,
-  Triple (let_poly_h2 tt) \[] (fun (f:func) =>
-    \[ Triple (f tt) \[] (fun (r:loc) => r ~~> (@nil A)) ]).
+  SPEC (let_poly_h2 tt) \[] (fun (f:func) =>
+    \[ SPEC (f tt) \[] (fun (r:loc) => r ~~> (@nil A)) ]).
 Proof using.
-  xcf. xfun. xrets. xapps. xapps.
+  xcf. xfun. xvals. xapps. xapps.
 Qed.
 
 Lemma let_poly_h3_spec : forall A,
-  Triple (let_poly_h3 tt) \[] (fun (r:loc) => r ~~> (@nil A)).
+  SPEC (let_poly_h3 tt) \[] (fun (r:loc) => r ~~> (@nil A)).
 Proof using.
   xcf. xfun. xapps. xapps.
 Qed.
 
 Lemma let_poly_k1_spec : forall A,
-  Triple (let_poly_k1 tt) \[] \[= @nil A].
+  SPEC (let_poly_k1 tt) \[] \[= @nil A].
 Proof using.
-  xcf. xrets~.
+  xcf. xvals~.
 Qed.
 
 Lemma let_poly_k2_spec : forall A,
-  Triple (let_poly_k2 tt) \[] (fun (r:loc) => r ~~> (@nil A)).
+  SPEC (let_poly_k2 tt) \[] (fun (r:loc) => r ~~> (@nil A)).
 Proof using.
   xcf. xapps.
 Qed.
 
 Lemma let_poly_r1_spec :
-  Triple (let_poly_r1 tt) \[] \[= tt].
+  SPEC (let_poly_r1 tt) \[] \[= tt].
 Proof using.
-  xcf. xapps. xrets~.
+  xcf. xapps. xvals~.
   Unshelve. solve_type.
 Qed.
 
 Lemma let_poly_r2_spec : forall A,
-  Triple (let_poly_r2 tt) \[] \[= @nil A].
+  SPEC (let_poly_r2 tt) \[] \[= @nil A].
 Proof using.
   xcf. xapps. dup 2.
-  { xval. xrets~. }
-  { xvals. xrets~. }
+  { xval. xvals~. }
+  { xvals. xvals~. }
   Unshelve. solve_type.
 Qed.
 
 
 Lemma let_poly_r3_spec : forall A,
-  Triple (let_poly_r3 tt) \[] \[= @nil A].
+  SPEC (let_poly_r3 tt) \[] \[= @nil A].
 Proof using.
   xcf. xlet_poly_keep (fun A (r:list A) => r = nil).
-  { xapps. xrets~. }
-  intros Hr. xrets. auto.
+  { xapps. xvals~. }
+  intros Hr. xvals. auto.
 Qed.
-
+*)
 
 
 (********************************************************************)
@@ -231,21 +252,20 @@ Proof using.
   (* demos: *)
   xcf_show. skip.
   xcf_show top_val_int. skip.
-  xcf_show top_val_int as M. skip.
   xcf. skip.
 Qed.
 
 Lemma top_val_int_list_spec :
   top_val_int_list = @nil int.
 Proof using.
-  xcf. auto.
+  xcf. (* TODO: why solved? *)
 Qed.
 
-Lemma top_val_poly_list_spec : forall A,
+Lemma top_val_poly_list_spec : forall A `{EA:Enc A},
   top_val_poly_list = @nil A.
 Proof using. xcf*. Qed.
 
-Lemma top_val_poly_list_pair_spec : forall A B,
+Lemma top_val_poly_list_pair_spec : forall A `{EA:Enc A} B `{EB:Enc B},
   top_val_poly_list_pair = (@nil A, @nil B).
 Proof using. xcf*. Qed.
 
@@ -255,31 +275,40 @@ Proof using. xcf*. Qed.
 (* ** Return *)
 
 Lemma ret_unit_spec :
-  Triple (ret_unit tt) \[] \[= tt]. (* (fun (_:unit) => \[]).*) (* same as (# \[]). *)
+  SPEC (ret_unit tt) 
+    PRE \[]
+    POST \[= tt]. (* (fun (_:unit) => \[]).*) (* same as (# \[]). *)
 Proof using.
-  xcf. dup 8.
-  { xret. xsimpl. auto. }
-  { xrets. auto. }
-  { xrets*. }
-  { xret_no_gc. xsimpl. auto. }
-  { xret_no_clean. xsimpl*. } (* differs only on nontrivial goals *)
-  { xret_no_pull. xsimpl*. } (* differs only on a let binding *)
-  { try xret (fun r => \[r = tt /\ True]).
-    xpost. xret (fun r => \[r = tt /\ True]). xsimpl. auto. xsimpl. auto. }
-  { try xrets (fun r => \[r = tt /\ True]).
-    xpost. xrets (fun r => \[r = tt /\ True]). auto. xsimpl. auto. }
+  xcf. dup 3.
+  { xval. xsimpl. auto. }
+  { xvals. auto. }
+  { xvals*. }
+(* TODO   { xval_no_gc. xsimpl. auto. }
+  { xval_no_clean. xsimpl*. } (* differs only on nontrivial goals *)
+  { xval_no_pull. xsimpl*. } (* differs only on a let binding *)
+  { try xval (fun r => \[r = tt /\ True]).
+    xpost. xval (fun r => \[r = tt /\ True]). xsimpl. auto. xsimpl. auto. }
+  { try xvals (fun r => \[r = tt /\ True]).
+    xpost. xvals (fun r => \[r = tt /\ True]). auto. xsimpl. auto. }
+*)
 Qed.
 
 Lemma ret_int_spec :
-  Triple (ret_int tt) \[] \[= 3].
-Proof using. xcf. xrets*. Qed.
+  SPEC (ret_int tt) 
+    PRE \[] 
+    POST \[= 3].
+Proof using. xcf. xvals*. Qed.
 
 Lemma ret_int_pair_spec :
-  Triple (ret_int_pair tt) \[] \[= (3,4)].
+  SPEC (ret_int_pair tt) 
+    PRE \[] 
+    POST \[= (3,4)].
 Proof using. xcf_go*. Qed.
 
 Lemma ret_poly_spec : forall A,
-  Triple (ret_poly tt) \[] \[= @nil A].
+  SPEC (ret_poly tt) 
+    PRE \[] 
+    POST \[= @nil A].
 Proof using. xcf. xgo*. Qed.
 
 
@@ -287,13 +316,18 @@ Proof using. xcf. xgo*. Qed.
 (* ** Sequence *)
 
 Axiom ret_unit_spec' : forall A (x:A),
-  Triple (ret_unit x) \[] \[= tt]. (* (fun (_:unit) => \[]).*) (* same as (# \[]). *)
+  SPEC (ret_unit x) 
+    PRE \[] 
+    POST \[= tt]. (* (fun (_:unit) => \[]).*) (* same as (# \[]). *)
 
 Hint Extern 1 (RegisterSpec ret_unit) => Provide ret_unit_spec'.
 
 
+(* TODO
 Lemma seq_ret_unit_spec :
-  Triple (seq_ret_unit tt) \[] \[= tt].
+  SPEC (seq_ret_unit tt) 
+    PRE \[] 
+    POST \[= tt].
 Proof using.
   xcf.
   (* xlet. -- make sure we get a good error here *)
@@ -310,123 +344,141 @@ Proof using.
   { xapps. xapps. }
   { xapps. xapps~. }
 Abort.
-
+*)
 
 
 (********************************************************************)
 (* ** Let-value *)
 
 Lemma let_val_int_spec :
-  Triple (let_val_int tt) \[] \[= 3].
+  SPEC (let_val_int tt) 
+    PRE \[] 
+    POST \[= 3].
 Proof using.
-  xcf. dup 7.
-  xval. xrets~.
+  xcf. xlet. xvals*.
+  (* TODO dup 7.
+  xval. xvals~.
   (* demos *)
-  xval as r. xrets~.
-  xval as r Er. xrets~.
-  xvals. xrets~.
-  xval_st (= 3). auto. xrets~.
-  xval_st (= 3) as r. auto. xrets~.
-  xval_st (= 3) as r Er. auto. xrets~.
+  xval as r. xvals~.
+  xval as r Er. xvals~.
+  xvals. xvals~.
+  xval_st (= 3). auto. xvals~.
+  xval_st (= 3) as r. auto. xvals~.
+  xval_st (= 3) as r Er. auto. xvals~. *)
 Qed.
 
 Lemma let_val_pair_int_spec :
-  Triple (let_val_pair_int tt) \[] \[= (3,4)].
-Proof using. xcf. xvals. xrets*. Qed.
+  SPEC (let_val_pair_int tt) 
+    PRE \[] 
+    POST \[= (3,4)].
+Proof using. xcf. xlet. xvals*. Qed.
 
+(* TODO
 Lemma let_val_poly_spec :
-  Triple (let_val_poly tt) \[] \[= 3].
+  SPEC (let_val_poly tt) 
+    PRE \[] 
+    POST \[= 3].
 Proof using.
   xcf. dup 3.
-  { xval. xret. xsimpl. auto. }
-  { xval as r. xrets~. }
-  { xvals. xrets~. }
+  { xval. xval. xsimpl. auto. }
+  { xval as r. xvals~. }
+  { xvals. xvals~. }
 Qed.
+*)
 
 
 (********************************************************************)
 (* ** Let-function *)
 
 Lemma let_fun_const_spec :
-  Triple (let_fun_const tt) \[] \[= 3].
+  SPEC (let_fun_const tt) 
+    PRE \[] 
+    POST \[= 3].
 Proof using.
   xcf. dup 10.
-  { xfun. apply Sf. xtag_pre_post. xrets~. }
+  { xfun. apply Sf. xtag_pre_post. xvals~. }
   { xfun as g. apply Sg. skip. }
-  { xfun as g. xapp. xret. skip. }
+  { xfun as g. xapp. xval. skip. }
   { xfun as g G. apply G. skip. }
-  { xfun_no_simpl (fun g => Triple (g tt) \[] \[=3]).
+  { xfun_no_simpl (fun g => SPEC (g tt) \[] \[=3]).
     { xapp. skip. }
     { apply Sf. } }
-  { xfun_no_simpl (fun g => Triple (g tt) \[] \[=3]) as h.
+  { xfun_no_simpl (fun g => SPEC (g tt) \[] \[=3]) as h.
     { apply Sh. skip. }
     { apply Sh. } }
-  { xfun_no_simpl (fun g => Triple (g tt) \[] \[=3]) as h H.
+  { xfun_no_simpl (fun g => SPEC (g tt) \[] \[=3]) as h H.
     { xapp. skip. }
     { xapp. } }
-  { xfun (fun g => Triple (g tt) \[] \[=3]).
-    { xrets~. }
+  { xfun (fun g => SPEC (g tt) \[] \[=3]).
+    { xvals~. }
     { apply Sf. } }
-  { xfun (fun g => Triple (g tt) \[] \[=3]) as h.
+  { xfun (fun g => SPEC (g tt) \[] \[=3]) as h.
     { skip. }
     { skip. } }
-  { xfun (fun g => Triple (g tt) \[] \[=3]) as h H.
+  { xfun (fun g => SPEC (g tt) \[] \[=3]) as h H.
     { skip. }
     { skip. } }
 Qed.
 
 Lemma let_fun_poly_id_spec :
-  Triple (let_fun_poly_id tt) \[] \[= 3].
+  SPEC (let_fun_poly_id tt) 
+    PRE \[] 
+    POST \[= 3].
 Proof using.
   xcf. xfun. dup 2.
-  { xapp. xret. xsimpl~. }
+  { xapp. xval. xsimpl~. }
   { xapp1.
     xapp2.
     dup 5.
-    { apply Spec. xrets. auto. }
-    { xapp3_no_apply. 2:{ apply S. } xrets. auto. }
-    { xapp3_no_simpl. xrets~. skip. skip. }
-    { xapp3. xrets~. }
-    { xapp. xret. xsimpl~. } }
+    { apply Spec. xvals. auto. }
+    { xapp3_no_apply. 2:{ apply S. } xvals. auto. }
+    { xapp3_no_simpl. xvals~. skip. skip. }
+    { xapp3. xvals~. }
+    { xapp. xval. xsimpl~. } }
 Abort.
 
 Lemma let_fun_poly_pair_homogeneous_spec :
-  Triple (let_fun_poly_pair_homogeneous tt) \[] \[= (3,3)].
+  SPEC (let_fun_poly_pair_homogeneous tt) 
+    PRE \[]  
+    POST\[= (3,3)].
 Proof using.
   xcf.
   xfun.
   xapp.
-  xret.
+  xval.
   xsimpl~.
 Qed.
 
 Lemma let_fun_on_the_fly_spec :
-  Triple (let_fun_on_the_fly tt) \[] \[= 4].
+  SPEC (let_fun_on_the_fly tt) 
+    PRE \[]  
+    POST\[= 4].
 Proof using.
   xcf.
   xfun.
   xfun.
   xapp.
   xapp.
-  xret.
+  xval.
   xsimpl~.
 Qed.
 
 Lemma let_fun_in_let_spec :
-  Triple (let_fun_in_let tt) \[]
-    (fun g => \[ forall A (x:A), Triple (g x) \[] \[= x] ]).
+  SPEC (let_fun_in_let tt) 
+    PRE \[]
+    POST (fun g => \[ forall A (x:A), SPEC (g x) \[] \[= x] ]).
 Proof using.
-  xcf. xlet (fun g => \[ forall A (x:A), Triple (g x) \[] \[= x] ]).
+  xcf. xlet (fun g => \[ forall A (x:A), SPEC (g x) \[] \[= x] ]).
     (* TODO: use [xpush] *)
-  { xassert. { xret. }
-    xfun. xrets. =>>. xapp. xrets~. }
-  { =>> M. xrets~. }
+  { xassert. { xval. }
+    xfun. xvals. =>>. xapp. xvals~. }
+  { =>> M. xvals~. }
 Qed.
 
 Lemma let_fun_in_let_spec' :
-  Triple (let_fun_in_let tt)
-  PRE \[]
-  POST (fun g => \[ forall A (x:A), Triple (g x) \[] \[= x] ]).
+  SPEC (let_fun_in_let tt)
+   PRE \[]
+   POST (fun g => \[ forall A (x:A), SPEC (g x) \[] \[= x] ]).
 Proof using.
   xcf.
 Abort.
@@ -437,45 +489,51 @@ Abort.
 (* ** Let-term *)
 
 Lemma let_term_nested_id_calls_spec :
-  Triple (let_term_nested_id_calls tt) \[] \[= 2].
+  SPEC (let_term_nested_id_calls tt) 
+    PRE \[]  
+    POST \[= 2].
 Proof using.
   xcf.
-  xfun (fun f => forall (x:int), Triple (f x) \[] \[= x]). { xrets~. }
+  xfun (fun f => forall (x:int), SPEC (f x) \[] \[= x]). { xvals~. }
   xapps.
   xapps.
   xapps.
-  xrets~.
+  xvals~.
 Qed.
 
 Lemma let_term_nested_pairs_calls_spec :
-  Triple (let_term_nested_pairs_calls tt) \[] \[= ((1,2),(3,(4,5))) ].
+  SPEC (let_term_nested_pairs_calls tt) 
+    PRE \[] 
+    POST \[= ((1,2),(3,(4,5))) ].
 Proof using.
   xcf.
-  xfun (fun f => forall A B (x:A) (y:B), TRIPLE (f x y) \[] \[= (x,y)]). { xrets~. }
+  xfun (fun f => forall A B (x:A) (y:B), SPEC (f x y) \[] \[= (x,y)]). { xvals~. }
   xapps.
   xapps.
   xapps.
   xapps.
-  xrets~.
+  xvals~.
 Qed.
 
 (********************************************************************)
 (* ** Pattern-matching *)
 
 Lemma match_pair_as_spec :
-  Triple (match_pair_as tt) \[] \[= (4,(3,4))].
+  SPEC (match_pair_as tt) 
+    PRE \[] 
+    POST \[= (4,(3,4))].
 Proof using.
   xcf. dup 8.
-  { xmatch. xrets*. }
-  { xmatch_subst_alias. xrets*. }
+  { xmatch. xvals*. }
+  { xmatch_subst_alias. xvals*. }
   { xmatch_no_alias. xalias. xalias as L. skip. }
   { xmatch_no_cases. dup 6.
     { xmatch_case.
-      { xrets*. }
+      { xvals*. }
       { xmatch_case. } }
     { xcase_no_simpl.
       { dup 3.
-        { xalias. xalias. xret. xsimpl. xauto*. }
+        { xalias. xalias. xval. xsimpl. xauto*. }
         { xalias as u U.
           xalias as v. skip. }
         { xalias_subst. xalias_subst. skip. } }
@@ -493,15 +551,17 @@ Proof using.
 Qed.
 
 Lemma match_nested_spec :
-  Triple (match_nested tt) \[] \[= (2,2)::nil].
+  SPEC (match_nested tt) 
+    PRE \[] 
+    POST \[= (2,2)::nil].
 Proof using.
   xcf. xval. dup 3.
   { xmatch_no_simpl.
-    { xrets*. }
-    { false. (* note: [xrets] would produce a ununified [hprop].
+    { xvals*. }
+    { false. (* note: [xvals] would produce a ununified [hprop].
      caused by [tryfalse] in [hextract_cleanup]. TODO: avoid this. *) } }
   { xmatch.
-    xrets*.
+    xvals*.
     (* second case is killed by [xcase_post] *) }
   { xmatch_no_intros. skip. skip. }
 Qed.
@@ -511,19 +571,25 @@ Qed.
 (* ** Let-pattern *)
 
 Lemma let_pattern_pair_int_spec :
-  Triple (let_pattern_pair_int tt) \[] \[= 3].
-Proof using. xcf. xmatch. xrets~. Qed.
+  SPEC (let_pattern_pair_int tt) 
+    PRE \[] 
+    POST \[= 3].
+Proof using. xcf. xmatch. xvals~. Qed.
 
 Lemma let_pattern_pair_int_wildcard_spec :
-  Triple (let_pattern_pair_int_wildcard tt) \[] \[= 3].
-Proof using. xcf. xmatch. xrets~. Qed.
+  SPEC (let_pattern_pair_int_wildcard tt) 
+    PRE \[] 
+    POST \[= 3].
+Proof using. xcf. xmatch. xvals~. Qed.
 
 
 (********************************************************************)
 (* ** Infix functions *)
 
 Lemma infix_plus_plus_plus_spec : forall x y,
-  TRIPLE (infix_plus_plus_plus__ x y) \[] \[= x + y].
+  SPEC (infix_plus_plus_plus__ x y)
+    PRE \[] 
+    POST \[= x + y].
 Proof using.
   xcf_go~.
 Qed.
@@ -531,7 +597,9 @@ Qed.
 Hint Extern 1 (RegisterSpec infix_plus_plus_plus__) => Provide infix_plus_plus_plus_spec.
 
 Lemma infix_aux_spec : forall x y,
-  TRIPLE (infix_aux x y) \[] \[= x + y].
+  SPEC (infix_aux x y)
+    PRE \[] 
+    POST \[= x + y].
 Proof using.
   xcf. xapps~.
 Qed.
@@ -539,7 +607,9 @@ Qed.
 Hint Extern 1 (RegisterSpec infix_aux) => Provide infix_aux_spec.
 
 Lemma infix_minus_minus_minus_spec : forall x y,
-  TRIPLE (infix_minus_minus_minus__ x y) \[] \[= x + y].
+  SPEC (infix_minus_minus_minus__ x y)
+    PRE \[] 
+    POST \[= x + y].
 Proof using.
   intros. xcf_show as S. rewrite S. xapps~.
 Qed.
@@ -550,9 +620,11 @@ Qed.
 (* ** Lazy binary operators *)
 
 Lemma lazyop_val_spec :
-  Triple (lazyop_val tt) \[] \[= 1].
+  SPEC (lazyop_val tt)
+    PRE \[] 
+    POST \[= 1].
 Proof using.
-  xcf. xif. xrets~.
+  xcf. xif. xvals~.
 Qed.
 
 (*
@@ -560,11 +632,13 @@ Ltac xauto_tilde ::= xauto_tilde_default ltac:(fun _ => auto_tilde).
 *)
 
 Lemma lazyop_term_spec :
-  Triple (lazyop_term tt) \[] \[= 1].
+  SPEC (lazyop_term tt)
+    PRE \[] \[= 1].
 Proof using.
   xcf. xfun (fun f => forall (x:int),
-    Triple (f x) \[] \[= isTrue (x = 0)]).
-  { xrets*. }
+    SPEC (f x) \[] 
+    POST \[= isTrue (x = 0)]).
+  { xvals*. }
   xapps.
   xlet \[=true].
   { dup 10.
@@ -579,24 +653,26 @@ Proof using.
      xsimpl~. }
     { xpost. xif_no_intros \[=true]. intros R. skip. skip. skip. }
     { xpost. xif_no_simpl_no_intros \[=true]. intros R. skip. skip. skip. }
-    { xif. xrets. xapps. xsimpl. skip. }
+    { xif. xvals. xapps. xsimpl. skip. }
     { xgo*. subst. xclean. auto. }
       (* todo: maybe extend [xauto_common] with [logics]? or would it be too slow? *)
   }
-  intro_subst. xif. xrets~.
+  intro_subst. xif. xvals~.
 Qed.
 
 
 Lemma lazyop_mixed_spec :
-  Triple (lazyop_mixed tt) \[] \[= 1].
+  SPEC (lazyop_mixed tt)
+    PRE \[] 
+    POST \[= 1].
 Proof using.
   xcf.
   xfun (fun f => forall (x:int),
-    Triple (f x) \[] \[= isTrue (x = 0)]).
-  { xrets*. }
+    SPEC (f x) \[] \[= isTrue (x = 0)]).
+  { xvals*. }
   xlet \[= true].
-  { xif. xapps. xors. xapps. xrets. autos*. }
-  { intro_subst. xif. xrets~. }
+  { xif. xapps. xors. xapps. xvals. autos*. }
+  { intro_subst. xif. xvals~. }
 Qed.
 
 
@@ -606,7 +682,9 @@ Qed.
 (* ** Comparison operators *)
 
 Lemma compare_poly_spec :
-  Triple (compare_poly tt) \[] \[= tt].
+  SPEC (compare_poly tt)
+    PRE \[] 
+    POST\[= tt].
 Proof using.
   xcf.
   xlet_poly_keep (= true).
@@ -617,23 +695,26 @@ Proof using.
   { xapps. xpolymorphic_eq. xsimpl. subst r. rew_bool_eq~. }
   intro_subst.
   xapp. xpolymorphic_eq. intro_subst.
-  xrets~.
+  xvals~.
 Qed.
 
 Lemma compare_poly_custom_spec : forall (A:Type),
   forall (x:compare_poly_type_ A) (y : compare_poly_type_ int),
-  TRIPLE (compare_poly_custom x y) \[] \[=tt].
+  SPEC (compare_poly_custom x y)
+    PRE \[] \[=tt].
 Proof using.
   xcf.
   xapp. xpolymorphic_eq. intro_subst.
   xapp. xpolymorphic_eq. intro_subst.
   xapp. xpolymorphic_eq. intro_subst.
   xapp. xpolymorphic_eq. intro_subst.
-  xrets~.
+  xvals~.
 Qed.
 
 Lemma compare_physical_loc_func_spec :
-  Triple (compare_physical_loc_func tt) \[] \[= tt].
+  SPEC (compare_physical_loc_func tt)
+    PRE \[] 
+    POST \[= tt].
 Proof using.
   xcf. xapps. xapps.
   xapp. intro_subst.
@@ -642,9 +723,9 @@ Proof using.
   xapp_spec infix_eq_eq_gen_spec. intros.
   xlet (\[=1]).
     xif.
-      xapps. xrets~.
-      xrets~.
-    intro_subst. xrets~.
+      xapps. xvals~.
+      xvals~.
+    intro_subst. xvals~.
 Qed.
 
 Fixpoint list_update (k:int) (v:int) (l:list (int*int)) :=
@@ -657,18 +738,20 @@ Fixpoint list_update (k:int) (v:int) (l:list (int*int)) :=
   end.
 
 Lemma compare_physical_algebraic_spec :
-  Triple (compare_physical_algebraic tt) \[] \[= (1,9)::(4,2)::(2,5)::nil ].
+  SPEC (compare_physical_algebraic tt)
+    PRE \[] 
+    POST \[= (1,9)::(4,2)::(2,5)::nil ].
 Proof using.
   xcf. xfun_ind (@list_sub (int*int)) (fun f =>
      forall (l:list (int*int)) (k:int) (v:int),
      app f [k v l] \[] \[= list_update k v l ]).
   { xmatch.
-    { xrets~. }
-    { xapps~. xrets. xif.
-      { xrets. cases_if. auto. }
+    { xvals~. }
+    { xapps~. xvals. xif.
+      { xvals. cases_if. auto. }
       { xapp_spec infix_emark_eq_gen_spec. intros M. xif.
-        { xrets. case_if~. }
-        { xrets. case_if~. rewrite~ M. } } } }
+        { xvals. case_if~. }
+        { xvals. case_if~. rewrite~ M. } } } }
    { xapps. xsimpl. subst r. simpl. do 3 case_if. auto. }
 Qed.
 
@@ -678,21 +761,23 @@ Qed.
 (* ** Inlined total functions *)
 
 Lemma inlined_fun_arith_spec :
-  Triple (inlined_fun_arith tt) \[] \[= 3].
+  SPEC (inlined_fun_arith tt)
+    PRE \[] 
+    POST \[= 3].
 Proof using.
   xcf.
   xval.
   xlet.
   (* note: division by a possibly-null constant is not inlined *)
   xapp_skip.
-  xrets.
+  xvals.
   skip.
 Qed.
 
 Lemma inlined_fun_other_spec : forall (n:int),
-  Triple (inlined_fun_others n) \[] \[= n+1].
+  SPEC (inlined_fun_others n) \[] \[= n+1].
 Proof using.
-  xcf. xret. xsimpl. simpl. auto.
+  xcf. xval. xsimpl. simpl. auto.
 Qed.
 
 
@@ -700,31 +785,38 @@ Qed.
 (* ** Type annotations *)
 
 Lemma annot_let_spec :
-  Triple (annot_let tt) \[] \[= 3].
+  SPEC (annot_let tt)
+    PRE \[] 
+    POST \[= 3].
 Proof using.
   xcf_show.
-  xcf. xval. xrets~.
+  xcf. xval. xvals~.
 Qed.
 
 Lemma annot_tuple_arg_spec :
-  Triple (annot_tuple_arg tt) \[] \[= (3, @nil int)].
+  SPEC (annot_tuple_arg tt)
+    PRE \[] \[= (3, @nil int)].
 Proof using.
   xcf_show.
-  xcf. xrets~.
+  xcf. xvals~.
 Qed.
 
 Lemma annot_pattern_var_spec : forall (x:list int),
-  Triple (annot_pattern_var x) \[] \[= If x = nil then 1 else 0].
+  SPEC (annot_pattern_var x)
+    PRE \[] 
+    POST \[= If x = nil then 1 else 0].
 Proof using.
   xcf_show.
-  xcf. xmatch; xrets; case_if~.
+  xcf. xmatch; xvals; case_if~.
 Qed.
 
 Lemma annot_pattern_constr_spec :
-  Triple (annot_pattern_constr tt) \[] \[= 1].
+  SPEC (annot_pattern_constr tt)
+    PRE \[] 
+    POST \[= 1].
 Proof using.
   xcf_show.
-  xcf. xmatch; xrets~.
+  xcf. xmatch; xvals~.
 Qed.
 
 
@@ -732,29 +824,36 @@ Qed.
 (* ** Polymorphic functions *)
 
 Lemma top_fun_poly_id_spec : forall A (x:A),
-  Triple (top_fun_poly_id x) \[] \[= x].  (* (fun r => \[r = x]). *)
+  SPEC (top_fun_poly_id x)
+    PRE \[] \[= x].  (* (fun r => \[r = x]). *)
 Proof using.
-  xcf. xrets~.
+  xcf. xvals~.
 Qed.
 
 Lemma top_fun_poly_proj1_spec : forall A B (x:A) (y:B),
-  Triple (top_fun_poly_proj1 (x,y)) \[] \[= x].
+  SPEC (top_fun_poly_proj1 (x,y))
+    PRE \[] 
+    POST \[= x].
 Proof using.
-  xcf. xmatch. xrets~.
+  xcf. xmatch. xvals~.
 Qed.
 
 Lemma top_fun_poly_proj1' : forall A B (p:A*B),
-  Triple (top_fun_poly_proj1 p) \[] \[= Datatypes.fst p].
+  SPEC (top_fun_poly_proj1 p)
+    PRE \[] 
+    POST \[= Datatypes.fst p].
   (* TODO: maybe it's better if [fst] remains the one from Datatypes
      rather than the one from Pervasives? *)
 Proof using.
-  xcf. xmatch. xrets~.
+  xcf. xmatch. xvals~.
 Qed.
 
 Lemma top_fun_poly_pair_homogeneous_spec : forall A (x y : A),
-  TRIPLE (top_fun_poly_pair_homogeneous x y) \[] \[= (x,y)].
+  SPEC (top_fun_poly_pair_homogeneous x y)
+    PRE \[] 
+    POST \[= (x,y)].
 Proof using.
-  xcf. xrets~.
+  xcf. xvals~.
 Qed.
 
 
@@ -762,29 +861,37 @@ Qed.
 (* ** Polymorphic let bindings *)
 
 Lemma let_poly_nil_spec : forall A,
-  Triple (let_poly_nil tt) \[] \[= @nil A].
+  SPEC (let_poly_nil tt)
+    PRE \[] 
+    POST \[= @nil A].
 Proof using.
   xcf. dup 2.
-  { xval. xrets. subst x. auto. }
-  { xvals. xrets~. }
+  { xval. xvals. subst x. auto. }
+  { xvals. xvals~. }
 Qed.
 
 Lemma let_poly_nil_pair_spec : forall A B,
-  Triple (let_poly_nil_pair tt) \[] \[= (@nil A, @nil B)].
+  SPEC (let_poly_nil_pair tt)
+    PRE \[] 
+    POST \[= (@nil A, @nil B)].
 Proof using.
-  xcf. xvals. xrets~.
+  xcf. xvals. xvals~.
 Qed.
 
 Lemma let_poly_nil_pair_homogeneous_spec : forall A,
-  Triple (let_poly_nil_pair_homogeneous tt) \[] \[= (@nil A, @nil A)].
+  SPEC (let_poly_nil_pair_homogeneous tt)
+    PRE \[] 
+    POST \[= (@nil A, @nil A)].
 Proof using.
-  xcf. xvals. xrets~.
+  xcf. xvals. xvals~.
 Qed.
 
 Lemma let_poly_nil_pair_heterogeneous_spec : forall A,
-  Triple (let_poly_nil_pair_heterogeneous tt) \[] \[= (@nil A, @nil int)].
+  SPEC (let_poly_nil_pair_heterogeneous tt)
+    PRE \[] 
+    POST \[= (@nil A, @nil int)].
 Proof using.
-  xcf. xvals. xrets~.
+  xcf. xvals. xvals~.
 Qed.
 
 
@@ -793,19 +900,24 @@ Qed.
 (* ** Fatal Exceptions *)
 
 Lemma exn_assert_false_spec : False ->
-  Triple (exn_assert_false tt) \[] \[= tt].
+  SPEC (exn_assert_false tt)
+    PRE \[] 
+    POST \[= tt].
 Proof using.
   xcf. xfail. auto.
 Qed.
 
 Lemma exn_failwith_spec : False ->
-  Triple (exn_failwith tt) \[] \[= tt].
+  SPEC (exn_failwith tt)
+    PRE \[] 
+    POST \[= tt].
 Proof using.
   xcf. xfail. auto.
 Qed.
 
 Lemma exn_raise_spec : False ->
-  Triple (exn_raise tt) \[] \[= tt].
+  SPEC (exn_raise tt)
+    PRE \[] \[= tt].
 Proof using.
   xcf. xfail. auto.
 Qed.
@@ -815,52 +927,63 @@ Qed.
 (* ** Assertions *)
 
 Lemma assert_true_spec :
-  Triple (assert_true tt) \[] \[= 3].
+  SPEC (assert_true tt)
+    PRE \[] 
+    POST \[= 3].
 Proof using.
   dup 2.
-  { xcf. xassert. { xrets~. } xrets~. }
+  { xcf. xassert. { xvals~. } xvals~. }
   { xcf_go~. }
 Qed.
 
 Lemma assert_pos_spec : forall (x:int),
   x > 0 ->
-  Triple (assert_pos x) \[] \[= 3].
+  SPEC (assert_pos x)
+    PRE \[] 
+    POST \[= 3].
 Proof using.
   dup 2.
-  { xcf. xassert. { xrets~. } xrets~. }
+  { xcf. xassert. { xvals~. } xvals~. }
   { xcf_go~. }
 Qed.
 
 Lemma assert_same_spec : forall (x:int),
-  TRIPLE (assert_same x x) \[] \[= 3].
+  SPEC (assert_same x x)
+    PRE \[] \[= 3].
 Proof using.
   dup 2.
-  { xcf. xassert. { xrets~. } xrets~. }
+  { xcf. xassert. { xvals~. } xvals~. }
   { xcf_go~. }
 Qed.
 
 Lemma assert_let_spec :
-  Triple (assert_let tt) \[] \[= 3].
+  SPEC (assert_let tt)
+    PRE \[] 
+    POST \[= 3].
 Proof using.
   dup 2.
-  { xcf. xassert. { xvals. xrets~. } xrets~. }
+  { xcf. xassert. { xvals. xvals~. } xvals~. }
   { xcf_go~. }
 Qed.
 
 Lemma assert_seq_spec :
-  Triple (assert_seq tt) \[] \[= 1].
+  SPEC (assert_seq tt)
+    PRE \[]  
+    POST \[= 1].
 Proof using.
   xcf. xapp. xassert.
-    xapp. xrets.
+    xapp. xvals.
   (* assert cannot do visible side effects,
      otherwise the semantics could change with -noassert *)
 Abort.
 
 Lemma assert_in_seq_spec :
-  Triple (assert_in_seq tt) \[] \[= 4].
+  SPEC (assert_in_seq tt)
+    PRE \[] 
+    POST \[= 4].
 Proof using.
-  xcf. xlet. xassert. { xrets. } xrets.
-  xpulls. xrets~.
+  xcf. xlet. xassert. { xvals. } xvals.
+  xpulls. xvals~.
 Qed.
 
 
@@ -868,33 +991,41 @@ Qed.
 (* ** Conditionals *)
 
 Lemma if_true_spec :
-  Triple (if_true tt) \[] \[= 1].
+  SPEC (if_true tt)
+    PRE \[] 
+    POST \[= 1].
 Proof using.
-  xcf. xif. xret. xsimpl. auto.
+  xcf. xif. xval. xsimpl. auto.
 Qed.
 
 Lemma if_term_spec :
-  Triple (if_term tt) \[] \[= 1].
+  SPEC (if_term tt)
+    PRE \[] 
+    POST \[= 1].
 Proof using.
-  xcf. xfun. xapp. xret. xpulls.
-  xif. xrets~.
+  xcf. xfun. xapp. xval. xpulls.
+  xif. xvals~.
 Qed.
 
 Lemma if_else_if_spec :
-  Triple (if_else_if tt) \[] \[= 0].
+  SPEC (if_else_if tt)
+    PRE \[] 
+    POST \[= 0].
 Proof using.
-  xcf. xfun (fun f => forall (x:int), Triple (f x) \[] \[= false]).
-    { xrets~. }
-  xapps. xif. xapps. xif. xrets~.
+  xcf. xfun (fun f => forall (x:int), SPEC (f x) \[] \[= false]).
+    { xvals~. }
+  xapps. xif. xapps. xif. xvals~.
 Qed.
 
 Lemma if_then_no_else_spec : forall (b:bool),
-  Triple (if_then_no_else b) \[] (fun x => \[ x >= 0]).
+  SPEC (if_then_no_else b)
+    PRE \[] 
+    POST (fun x => \[ x >= 0]).
 Proof using.
   xcf. xapp.
   xseq. xif (Hexists n, \[n >= 0] \* r ~~> n).
    { xapp. xsimpl. math. }
-   { xrets. math. }
+   { xvals. math. }
    { (*xclean.*) xpull ;=>> P. xapp. xpulls. xsimpl. math. }
 Qed.
 
@@ -905,18 +1036,20 @@ Qed.
 (* ** Evaluation order *)
 
 Lemma order_app_spec :
-  Triple (order_app tt) \[] \[= 2].
+  SPEC (order_app tt)
+    PRE \[]  
+    POST \[= 2].
 Proof using.
   dup 2.
     {
     xcf. xapps. xfun. xfun. xfun.
-    xapps. { xapps. xrets~. } xpulls.
-    xapps. { xassert. xapps. xrets~. xapps. xrets~. } xpulls.
-    xapps. { xassert. xapps. xrets~. xfun.
-      xrets~ (fun f => \[AppCurried f [a b] := (Ret (a + b)%I)] \* r ~~> 2). eauto. }
+    xapps. { xapps. xvals~. } xpulls.
+    xapps. { xassert. xapps. xvals~. xapps. xvals~. } xpulls.
+    xapps. { xassert. xapps. xvals~. xfun.
+      xvals~ (fun f => \[AppCurried f [a b] := (Ret (a + b)%I)] \* r ~~> 2). eauto. }
       xpull ;=> Hf.
-    xapp. xrets~.
-     (* TODO: can we make xret guess the post?
+    xapp. xvals~.
+     (* TODO: can we make xval guess the post?
         The idea is to have [(Ret f) H ?Q] where [f:func] and [f] has a spec in hyps
         to instantiate Q with [fun f => H \* \[spec of f]].
         Then, the proof should just be [xgo~]. *)
@@ -925,24 +1058,30 @@ Proof using.
 Qed.
 
 Lemma order_constr_spec :
-  Triple (order_constr tt) \[] \[= 1::1::nil].
+  SPEC (order_constr tt)
+    PRE \[] 
+    POST \[= 1::1::nil].
 Proof using.
   xcf_go*.
 Qed.
   (* Details:
   xcf. xapps. xfun. xfun.
-  xapps. { xapps. xrets~. } xpulls.
-  xapps. { xassert. xapps. xrets~. xrets~. } xpulls.
-  xrets~.
+  xapps. { xapps. xvals~. } xpulls.
+  xapps. { xassert. xapps. xvals~. xvals~. } xpulls.
+  xvals~.
   *)
 
 
 Lemma order_list_spec :
-  Triple (order_list tt) \[] \[= 1::1::nil].
+  SPEC (order_list tt)
+    PRE \[]  
+    POST \[= 1::1::nil].
 Proof using. xcf_go*. Qed.
 
 Lemma order_tuple_spec :
-  Triple (order_tuple tt) \[] \[= (1,1)].
+  SPEC (order_tuple tt)
+    PRE \[]  
+    POST \[= (1,1)].
 Proof using. xcf_go*. Qed.
 
 (* TODO:
@@ -963,7 +1102,9 @@ let order_record () =
 
 
 Lemma while_decr_spec :
-  Triple (while_decr tt) \[] \[= 3].
+  SPEC (while_decr tt)
+    PRE \[] 
+    POST \[= 3].
 Proof using.
   xcf. xapps. xapps. dup 9.
   { xwhile. intros R LR HR.
@@ -972,26 +1113,26 @@ Proof using.
     { xapplys PR. math. }
     intros k. induction_wf IH: (downto 0) k; intros Hk.
     applys (rm HR). xlet.
-    { xapps. xrets. }
+    { xapps. xvals. }
     { xpulls. xif.
       { xseq. xapps. xapps. simpl. xapplys IH. math. math. math. }
-      { xrets. math. math. } }
+      { xvals. math. math. } }
     xapps. xsimpl~. }
   { xwhile as R. skip. skip. }
   { xwhile_inv (fun b k => \[k >= 0] \* \[b = isTrue (k > 0)]
                          \* n ~~> k \* c ~~> (3-k)) (downto 0).
     { xsimpl*. math. }
     { intros S LS b k FS. xpull. intros. xlet.
-      { xapps. xrets. }
+      { xapps. xvals. }
       { xpulls. xif.
         { xseq. xapps. xapps. simpl. xapplys FS.
             hnf. math. math. eauto. math. eauto. eauto. }
-        { xret. xsimpl. math. math. } } }
+        { xval. xsimpl. math. math. } } }
     { intros. xapps. xsimpl. math. } }
   { xwhile_inv_basic (fun b k => \[k >= 0] \* \[b = isTrue (k > 0)]
                          \* n ~~> k \* c ~~> (3-k)) (downto 0).
     { xsimpl*. math. }
-    { intros b k. xpull ;=> Hk Hb. xapps. xrets. xauto*. math. }
+    { intros b k. xpull ;=> Hk Hb. xapps. xvals. xauto*. math. }
     { intros k. xpull ;=> Hk Hb. xapps. xapps. xsimpl. math. eauto. math. math. }
     { => k Hk Hb. xapp. xsimpl. math. } }
   { (* using a measure [fun k => abs k] *)
@@ -1018,14 +1159,16 @@ Abort.
 
 
 Lemma while_false_spec :
-  Triple (while_false tt) \[] \[= tt].
+  SPEC (while_false tt)
+    PRE \[] 
+    POST \[= tt].
 Proof using.
   xcf. dup 2.
   { xwhile_inv_skip (fun (b:bool)  => \[b = false]). skip. skip. skip. }
   { xwhile_inv_basic (fun (b:bool) (_:unit) => \[b = false]) (fun (_ _:unit) => False).
     { intros_all. constructor. auto_false. }
     { xsimpl*. }
-    { intros. xpulls. xrets~. }
+    { intros. xpulls. xvals~. }
     { intros. xpull. auto_false. }
     { xsimpl~. }
   }
@@ -1039,7 +1182,7 @@ Qed.
   Ltac auto_star ::= subst; intuition eauto with maths.
 
   Lemma while_decr_spec' :
-    Triple (while_decr tt) \[] \[= 3].
+    SPEC (while_decr tt) \[] \[= 3].
   Proof using.
     xcf.
     xapps. xapps.
@@ -1064,7 +1207,7 @@ Qed.
 
 
   Lemma while_decr_spec :
-    Triple (while_decr tt) \[] \[= 3].
+    SPEC (while_decr tt) \[] \[= 3].
   Proof using.
     xcf.
     (* xlet. xapp1. xapp2. apply Spec. simpl. *)
@@ -1074,7 +1217,7 @@ Qed.
     { xwhile_inv_basic (fun b k => \[k >= 0] \* \[b = isTrue (k > 0)]
                            \* n ~~> k \* c ~~> (3-k)) (downto 0).
       { xsimpl*. math. }
-      { xtag_pre_post. intros b k. xpull ;=> Hk Hb. xapps. xrets. xauto*. math. }
+      { xtag_pre_post. intros b k. xpull ;=> Hk Hb. xapps. xvals. xauto*. math. }
       { xtag_pre_post. intros k. xpull ;=> Hk Hb. xapps. xapps. simpl. xsimpl. math. eauto. math. math. }
      }
    xpull. => k Hk Hb. fold_bool. xclean. xapp. xsimpl. math.
@@ -1089,7 +1232,9 @@ Qed.
 
 
 Lemma for_to_incr_spec : forall (r:int), r >= 1 ->
-  Triple (for_to_incr r) \[] \[= r].
+  SPEC (for_to_incr r)
+    PRE \[] 
+    POST \[= r].
 Proof using.
   xcf. xapps. dup 7.
   { xfor. intros S LS HS.
@@ -1098,7 +1243,7 @@ Proof using.
     { intros i. induction_wf IH: (upto (r+1)) i. intros Li.
       applys (rm HS). xif.
       { xapps. applys_eq IH 2. hnf. math. math. fequals_rec. math. }
-      { xrets. math. } }
+      { xvals. math. } }
     xapps. xsimpl~. }
   { xfor as S. skip. skip. }
   { xfor_inv (fun (i:int) => n ~~> (i-1)).
@@ -1122,7 +1267,9 @@ Proof using.
 Abort.
 
 Lemma for_to_incr_pred_spec : forall (r:int), r >= 1 ->
-  Triple (for_to_incr_pred r) \[] \[= r].
+  SPEC (for_to_incr_pred r)
+    PRE \[]  
+    POST \[= r].
 Proof using.
   xcf. xapps. dup 7.
   { xfor. intros S LS HS.
@@ -1131,7 +1278,7 @@ Proof using.
     { intros i. induction_wf IH: (upto r) i. intros Li.
       applys (rm HS). xif.
       { xapps. applys_eq IH 2. hnf. math. math. auto. }
-      { xrets. math. } }
+      { xvals. math. } }
     xapps. xsimpl~. }
   { xfor as S. skip. skip. }
   { xfor_inv (fun (i:int) => n ~~> i).
@@ -1155,7 +1302,9 @@ Proof using.
 Abort.
 
 Lemma for_downto_spec : forall (r:int), r >= 0 ->
-  Triple (for_downto r) \[] \[= r].
+  SPEC (for_downto r)
+    PRE \[] 
+    POST \[= r].
 Proof using.
   xcf. xapps. dup 7.
   { xfor_down. intros S LS HS.
@@ -1164,7 +1313,7 @@ Proof using.
     { intros i. induction_wf IH: (downto (-1)) i. intros Li.
       applys (rm HS). xif.
       { xapps. xapplys IH. hnf. math. math. math. }
-      { xrets. math. } }
+      { xvals. math. } }
     xapps. xsimpl~. }
   { xfor_down as S. skip. skip. }
   { xfor_down_inv (fun (i:int) => n ~~> (r-1-i)).
@@ -1196,49 +1345,51 @@ Require Import TLC.LibInt.
 
 Lemma rec_partial_half_spec : forall k n,
   n = 2 * k -> k >= 0 ->
-  Triple (rec_partial_half n) \[] \[= k].
+  SPEC (rec_partial_half n)
+    PRE \[] 
+    POST \[= k].
 Proof using.
   dup 2.
   { => k. induction_wf IH: (downto 0) k. xcf.
-    xrets. xif.
-    { xrets. math. }
-    { xrets. xif.
+    xvals. xif.
+    { xvals. math. }
+    { xvals. xif.
       { xfail. math. }
       { xapps (k-1). math. math. math.
-        xrets. math. } } }
-  { xind_skip as IH. xcf. xrets. xif.
+        xvals. math. } } }
+  { xind_skip as IH. xcf. xvals. xif.
     { xgo~. math. }
-    { xrets. xif. math. xapps (k-1). math. math. xrets. math. } }
+    { xvals. xif. math. xapps (k-1). math. math. xvals. math. } }
 Qed.
 
 
 (* we can do a simple proof if we are ready to duplicate the verification of [g] *)
 Lemma rec_mutual_f_and_g_spec_inlining :
-     (forall (x:int), x >= 0 -> Triple (rec_mutual_f x) \[] \[= x])
-  /\ (forall (x:int), x >= -1 -> Triple (rec_mutual_g x) \[] \[= x+1]).
+     (forall (x:int), x >= 0 -> SPEC (rec_mutual_f x) PRE \[] \[= x])
+  /\ (forall (x:int), x >= -1 -> SPEC (rec_mutual_g x) PRE \[] \[= x+1]).
 Proof using.
   logic (forall (A B:Prop), A -> (A -> B) -> A /\ B).
   { intros x. induction_wf IH: (downto 0) x. intros Px.
-    xcf. xif. xrets~. xlet.
-    xcf. xapp. math. math. xpulls. xrets. math. }
+    xcf. xif. xvals~. xlet.
+    xcf. xapp. math. math. xpulls. xvals. math. }
   { intros Sg. introv Px. xcf. xapps. math. }
 Qed.
 
 (* the general approach is as follows, using a measure *)
 
 Lemma rec_mutual_f_and_g_spec_measure :
-     (forall (x:int), x >= 0 -> Triple (rec_mutual_f x) \[] \[= x])
-  /\ (forall (x:int), x >= -1 -> Triple (rec_mutual_g x) \[] \[= x+1]).
+     (forall (x:int), x >= 0 -> SPEC (rec_mutual_f x) PRE \[] POST \[= x])
+  /\ (forall (x:int), x >= -1 -> SPEC (rec_mutual_g x) PRE \[] POST \[= x+1]).
 Proof using.
   intros. cuts G: (forall (m:int),
-     (forall x, -1 <= x /\ 2*x <= m -> Triple (rec_mutual_f x) \[] \[= x])
-  /\ (forall x, -1 <= x /\ 2*x+3 <= m -> Triple (rec_mutual_g x) \[] \[= x+1])).
+     (forall x, -1 <= x /\ 2*x <= m -> SPEC (rec_mutual_f x) \[] \[= x])
+  /\ (forall x, -1 <= x /\ 2*x+3 <= m -> SPEC (rec_mutual_g x) \[] \[= x+1])).
   { split; intros x P; specializes G (2*x+3);
       destruct G as [G1 G2]; xapp; try math. }
   => m. induction_wf IH: (downto (-1)) m.
     specializes IH (m-1). split; intros x (Lx&Px).
-  { xcf. xif. xrets~. xapp. math. math.
-    intro_subst. xrets. math. }
+  { xcf. xif. xvals~. xapp. math. math.
+    intro_subst. xvals. math. }
   { xcf. xapp. math. math. }
 Qed.
 
@@ -1246,14 +1397,14 @@ Qed.
  --- TODO: complete
 
 Lemma rec_mutual_f_and_g_spec :
-     (forall (x:int), x >= 0 -> Triple (rec_mutual_f x) \[] \[= x])
-  /\ (forall (x:int), x >= -1 -> Triple (rec_mutual_g x) \[] \[= x+1]).
+     (forall (x:int), x >= 0 -> SPEC (rec_mutual_f x) \[] \[= x])
+  /\ (forall (x:int), x >= -1 -> SPEC (rec_mutual_g x) \[] \[= x+1]).
 Proof using.
 Search lexico2.
   set (R := lexico2 (downto (-1)) (downto (-1))).
   intros. cuts G: (forall p,
-     (forall x, -1 <= x /\ R (x,0) p -> Triple (rec_mutual_f x) \[] \[= x])
-  /\ (forall x, -1 <= x /\ R (x+1,1) p -> Triple (rec_mutual_g x) \[] \[= x+1])).
+     (forall x, -1 <= x /\ R (x,0) p -> SPEC (rec_mutual_f x) \[] \[= x])
+  /\ (forall x, -1 <= x /\ R (x+1,1) p -> SPEC (rec_mutual_g x) \[] \[= x+1])).
   { split; intros x P.
     { specializes G (x+1,0). destruct G as [G1 G2]. xapp.
       unfold R, lexico2. split. math. left. math. }
@@ -1261,10 +1412,10 @@ Search lexico2.
       unfold R, lexico2. split. math. left. math. } }
   => p. induction_wf IH: R p. split; intros x (Lx&Px).
     destruct p as [a b]. unfolds R, @lexico2.
-  { xcf. xif. xrets~. xapp (x-1,1).
+  { xcf. xif. xvals~. xapp (x-1,1).
 (* todo: lexico2 is defined in a too strong way... *)
     right. math. math.
-    intro_subst. xrets. math. }
+    intro_subst. xvals. math. }
   { xcf. xapp. math. math. }
 Qed.
  *)
@@ -1275,7 +1426,9 @@ Qed.
 (* ** Reference and garbage collection *)
 
 Lemma ref_gc_spec :
-  Triple (ref_gc tt) \[] \[= 3].
+  SPEC (ref_gc tt)
+    PRE \[] 
+    POST \[= 3].
 Proof using.
   xcf.
   xapp.
@@ -1288,25 +1441,27 @@ Proof using.
   { xgc_but r1. skip. }
   { xlet (fun x => \[x = 2] \* r1 ~~> 1).
     { xapp. xapp. xsimpl~. } (* auto GC on r5 *)
-    { intro_subst. xapps. xrets~. } (* auto GC on r1 *)
+    { intro_subst. xapps. xvals~. } (* auto GC on r1 *)
   }
 Qed.
 
 Lemma ref_gc_dep_spec : forall A (x:A),
-  Triple (ref_gc_dep x) \[] (fun r => r ~~> x).
+  SPEC (ref_gc_dep x)
+    PRE \[] 
+    POST (fun r => r ~~> x).
 Proof using.
   xcf.
   xapp.
   xapp.
   dup 2.
   { xgc_post.
-    xret.
+    xval.
     intros l.
     xsimpl.
     subst.
     xsimpl.
   }
-  { xret. hsimpl. }
+  { xval. hsimpl. }
 Qed.
 
 
@@ -1314,7 +1469,9 @@ Qed.
 (* ** Records *)
 
 Lemma sitems_build_spec : forall (A:Type) (n:int),
-  Triple (sitems_build n) \[] (fun r => r ~> `{ nb' := n; items' := @nil A }).
+  SPEC (sitems_build n)
+    PRE \[] 
+    POST (fun r => r ~> `{ nb' := n; items' := @nil A }).
 Proof using. xcf_go~. Qed.
 
 Lemma sitems_get_nb_spec : forall (A:Type) (r:loc) (n:int),
@@ -1337,7 +1494,7 @@ Proof using.
 Qed.  (* TODO: can we do better than a manual unshelve for dealing with unused type vars? *)
 
 Lemma sitems_incr_nb_spec : forall (A:Type) (L:list A) (r:loc) (n:int),
-  Triple (sitems_incr_nb r)
+  SPEC (sitems_incr_nb r)
      (r ~> `{ nb' := n; items' := L })
      (# (r ~> `{ nb' := n+1; items' := L })).
 Proof using.
@@ -1352,7 +1509,7 @@ Lemma sitems_length_item_spec : forall (A:Type) (r:loc) (L:list A) (n:int),
      \[= LibListZ.length L ].
 Proof using.
   dup 2.
-  { xcf. xapps. xrets. }
+  { xcf. xapps. xvals. }
   { xcf_go*. }
 Qed.
 
@@ -1363,7 +1520,7 @@ Definition Sitems A (L:list A) r :=
 (* ** Recursive records definitions *)
 
 Lemma create_cyclic_node_spec : forall (A:Type) (data:A),
-  Triple (create_cyclic_node data)
+  SPEC (create_cyclic_node data)
     PRE \[]
     POST (fun (r: loc) => r ~> `{ data' := data; prev' := r; next' := r }).
 Proof using. xcf_go~. Qed.
@@ -1389,7 +1546,8 @@ Qed.
 
 
 Lemma sitems_push_spec : forall (A:Type) (r:loc) (L:list A) (x:A),
-  TRIPLE (sitems_push x r) (r ~> Sitems L) (# r ~> Sitems (x::L)).
+  SPEC (sitems_push x r)
+    PRE (r ~> Sitems L) (# r ~> Sitems (x::L)).
 Proof using.
   xcf. xunfold Sitems. xpull ;=> n E.
   xapps. xapps. xapps. xapp. xsimpl. rew_list; math.
@@ -1427,7 +1585,8 @@ Hint Extern 1 (RegisterClose (record_repr _)) =>
   Provide Sitems_close.
 
 Lemma sitems_push_spec' : forall (A:Type) (r:loc) (L:list A) (x:A),
-  TRIPLE (sitems_push x r) (r ~> Sitems L) (# r ~> Sitems (x::L)).
+  SPEC (sitems_push x r)
+    PRE (r ~> Sitems L) (# r ~> Sitems (x::L)).
 Proof using.
   xcf. dup 2.
   { xopen r. xpull ;=> n E. skip. }
@@ -1457,7 +1616,7 @@ Hint Extern 1 (_ < length (?l[?i:=?v])) => rewrite length_update : maths.
 Ltac auto_tilde ::= auto with maths.
 
 Lemma array_ops_spec :
-  Triple (array_ops tt) \[] \[= 3].
+  SPEC (array_ops tt) \[] \[= 3].
 Proof using.
   xcf.
   xapp. math. => L EL.

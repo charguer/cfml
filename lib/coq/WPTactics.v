@@ -639,18 +639,14 @@ Ltac xletval_pre tt :=
   | (Wpgen_let_Val _ _) => idtac
   end.
 
-Definition Wpgen_let_Val A1 `{EA1:Enc A1} (V:A1) (Fof:A1->Formula) : Formula :=
-  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
-    \forall (x:A1), \[x = V] \-* ^(Fof x) Q).
-
-Lemma xletvals_lemma : forall A `{EA:Enc A} H (Fof:A->Formula) (V:A) (Q:A->hprop),
+Lemma xletvals_lemma : forall A `{EA:Enc A} H (Fof:A->Formula) (V:A) A1 `{EA1:Enc A1} (Q:A1->hprop),
   (H ==> ^(Fof V) Q) ->
   H ==> ^(Wpgen_let_Val V Fof) Q.
 Proof using.
   introv M. applys MkStruct_erase. xchanges* M. intros ? ->. auto.
 Qed.
 
-Lemma xletval_lemma : forall A `{EA:Enc A} H (Fof:A->Formula) (V:A) (Q:A->hprop),
+Lemma xletval_lemma : forall A `{EA:Enc A} H (Fof:A->Formula) (V:A) A1 `{EA1:Enc A1} (Q:A1->hprop),
   (forall x, x = V -> H ==> ^(Fof x) Q) ->
   H ==> ^(Wpgen_let_Val V Fof) Q.
 Proof using.
