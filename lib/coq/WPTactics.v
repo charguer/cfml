@@ -2026,7 +2026,7 @@ Ltac xcase_post H :=
 Ltac xcase_extract_hyps tt :=
   pose ltac_mark;
   repeat (apply himpl_hforall_r; intro);
-  repeat (apply hwand_hpure_r_intro; intro);
+  repeat (apply hwand_hpure_r_intro; intro); (* TODO: there should be exactly one *)
   gen_until_mark.
 
 Ltac xcase_no_intros_core cont1 cont2 :=

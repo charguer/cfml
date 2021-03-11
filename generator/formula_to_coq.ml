@@ -139,7 +139,7 @@ let rec coqtops_of_cf cf =
 
   | Cf_case (v,tps,pat,vwhenopt,aliases,cf1,cf2) ->
       (* TODO: in simple cases: no need for negation hypothesis *)
-      (* same_when is [x = p /\ trueb w]  // only with an wand instead of conj
+      (* same_when is [x = p /\ trueb w]
          diff_when is  [x <> p /\ trueb !w]
          // formula is simplified if the when-clause is missing
          formula is (ignoring aliases for simplicity):
@@ -150,8 +150,8 @@ let rec coqtops_of_cf cf =
         wpgen_app "WPLifted.Wpgen_alias" [lifted_v; coq_fun typed_name c] in
       let cf1_aliased = List.fold_right add_alias aliases (aux cf1) in
       let same = coq_eq v pat in
-      let same_when = match vwhenopt with None -> [same] | Some w -> [same; w] in
-      let c1_body = hforalls tps (hwand_hpures same_when (formula_app (cf1_aliased) q)) in
+      let same_when = match vwhenopt with None -> same | Some w -> coq_conj same w in
+      let c1_body = hforalls tps (hwand_hpure same_when (formula_app (cf1_aliased) q)) in
       let c1 = formula_def aname qname c1_body in
       let diff = coq_neq v pat in
       let diff_when = match vwhenopt with None -> diff | Some w -> coq_disj diff (coq_neg w) in

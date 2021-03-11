@@ -59,8 +59,7 @@ Declare Custom Entry Trm_apps.
 Notation "f x" := (Trm_apps f ((Dyn x)::nil))
   (in custom Trm_apps at level 1,
    f constr at level 0,
-   x constr at level 0,
-   left associativity)
+   x constr at level 0)
   : Trm_apps_scope.
 
 Notation "f x1 x2 .. xn" := (Trm_apps f (cons (Dyn x1) (cons (Dyn x2) .. (cons (Dyn xn) nil) ..)))
@@ -68,8 +67,7 @@ Notation "f x1 x2 .. xn" := (Trm_apps f (cons (Dyn x1) (cons (Dyn x2) .. (cons (
    f constr at level 0,
    x1 constr at level 0,
    x2 constr at level 0,
-   xn constr at level 0,
-   left associativity)
+   xn constr at level 0)
   : Trm_apps_scope.
 
 Notation "( x )" :=
