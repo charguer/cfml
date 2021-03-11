@@ -45,9 +45,24 @@ Hint Extern 1 (RegisterSpec length) => Provide length_spec.
 
 Declare Custom Entry wp.
 
+(*
 Notation "<[ e ]>" :=
  e
  (at level 0, e custom wp at level 99) : wp_scope.
+*)
+
+Notation "'`' F" :=
+  ((Wptag F%wp))
+  (at level 69, F custom wp at level 100, format "'`' F") : wp_scope.
+
+
+Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (Wptag F) _ _ Q)
+  (at level 8, 
+   H at level 0,
+   F custom wp at level 0, 
+   Q at level 0,
+   format "'[v' 'PRE'  H  '/' 'CODE'  F '/' 'POST'  Q ']'") : wp_scope.
+
 
 Notation "( x )" :=
  x
@@ -66,25 +81,25 @@ Notation "x" :=
   x constr at level 0) : wp_scope.
 
 Notation "'Fail'" :=
- ((Wpgen_fail))
+ ((*Wptag*) (Wpgen_fail))
  (in custom wp at level 69) : wp_scope.
 
 Notation "'Done'" :=
- ((Wpgen_done))
+ ((*Wptag*) (Wpgen_done))
  (in custom wp at level 69) : wp_scope.
 
 Notation "'Match' F" :=
- ((Wpgen_match F))
+ ((*Wptag*) (Wpgen_match F))
  (in custom wp at level 69,
-  F custom wp at level 99) : wp_scope.
+  F custom wp at level 69) : wp_scope.
 
 Notation "'Assert' F" :=
- ((Wpgen_assert F))
+ ((*Wptag*) (Wpgen_assert F))
  (in custom wp at level 69,
   F custom wp at level 99) : wp_scope.
 
 Notation "'Val' v" :=
- ((Wpgen_Val v))
+ ((*Wptag*) (Wpgen_Val v))
  (in custom wp at level 69) : wp_scope.
 
 Notation "'Let?' x ':=' F1 'in' F2" :=
@@ -98,7 +113,7 @@ Notation "'Let?' x ':=' F1 'in' F2" :=
  (* TODO: improve notation or deprecate it *)
 
 Notation "'Let' x ':=' F1 'in' F2" :=
- ((Wpgen_let_typed F1 (fun x => F2)))
+ ((*Wptag*) (Wpgen_let_typed F1 (fun x => F2)))
  (in custom wp at level 69,
   x ident,
   F1 custom wp at level 99,
@@ -107,7 +122,7 @@ Notation "'Let' x ':=' F1 'in' F2" :=
  format "'[v' '[' 'Let'  x  ':='  F1  'in' ']' '/' '[' F2 ']' ']'") : wp_scope.
 
 Notation "'LetVal' x ':=' V 'in' F1" :=
- ((Wpgen_let_Val V (fun x => F1)))
+ ((*Wptag*) (Wpgen_let_Val V (fun x => F1)))
  (in custom wp at level 69,
   x ident,
   V constr at level 69,
@@ -116,7 +131,7 @@ Notation "'LetVal' x ':=' V 'in' F1" :=
  format "'[v' '[' 'LetVal'  x  ':='  V  'in' ']' '/' '[' F1 ']' ']'") : wp_scope.
 
 Notation "'Alias' x ':=' V 'in' F1" :=
- ((Wpgen_alias V (fun x => F1)))
+ ((*Wptag*) (Wpgen_alias V (fun x => F1)))
  (in custom wp at level 69,
   x ident,
   V constr at level 69,
@@ -125,14 +140,15 @@ Notation "'Alias' x ':=' V 'in' F1" :=
  format "'[v' '[' 'Alias'  x  ':='  V  'in' ']' '/' '[' F1 ']' ']'") : wp_scope.
 
 Notation "'Seq' F1 ; F2" :=
- ((Wpgen_seq F1 F2))
+ ((*Wptag*) (Wpgen_seq F1 F2))
  (in custom wp at level 68,
   F1 custom wp at level 99,
   F2 custom wp at level 99,
   right associativity,
   format "'[v' 'Seq'  '[' F1 ']'  ; '/' '[' F2 ']' ']'") : wp_scope.
 
-Notation "'App' f x1 x2 .. xn" := (Wpgen_App_typed _ f (cons (Dyn x1) (cons (Dyn x2) .. (cons (Dyn xn) nil) ..)))
+Notation "'App' f x1 x2 .. xn" := 
+ ((*Wptag*) (Wpgen_App_typed _ f (cons (Dyn x1) (cons (Dyn x2) .. (cons (Dyn xn) nil) ..))))
   (in custom wp at level 68,
    f constr at level 0,
    x1 constr at level 0,
@@ -146,7 +162,7 @@ Notation "'App' f v1 v2" :=
 *)
 
 Notation "'If_' v 'Then' F1 'Else' F2" :=
- ((Wpgen_if_bool v F1 F2))
+ ((*Wptag*) (Wpgen_if_bool v F1 F2))
  (in custom wp at level 69,
   v constr at level 69,
   F1 custom wp at level 99,
@@ -155,14 +171,14 @@ Notation "'If_' v 'Then' F1 'Else' F2" :=
   format "'[v' '[' 'If_'  v  'Then'  ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'") : wp_scope.
 
 Notation "'While' F1 'Do' F2 'Done'" :=
- ((Wpgen_while F1 F2))
+ ((*Wptag*) (Wpgen_while F1 F2))
  (in custom wp at level 68,
   F1 custom wp at level 99,
   F2 custom wp at level 99,
   format "'[v' '[' 'While'  F1  'Do'  ']' '/' '['   F2 ']' '/' 'Done' ']'") : wp_scope.
 
 Notation "'For' i '=' n1 'To' n2 'Do' F1 'Done'" :=
- ((Wpgen_for_int n1 n2 (fun i => F1)))
+ ((*Wptag*) (Wpgen_for_int n1 n2 (fun i => F1)))
  (in custom wp at level 68,
   i ident,
   n1 constr at level 69,
@@ -171,7 +187,7 @@ Notation "'For' i '=' n1 'To' n2 'Do' F1 'Done'" :=
   format "'[v' '[' 'For'  i  '='  n1  'To'  n2  'Do'  ']' '/' '['   F1 ']' '/' 'Done' ']'") : wp_scope.
 
 Notation "'For' i '=' n1 'Downto' n2 'Do' F1 'Done'" :=
- ((Wpgen_for_downto_int n1 n2 (fun i => F1)))
+ ((*Wptag*) (Wpgen_for_downto_int n1 n2 (fun i => F1)))
  (in custom wp at level 68,
   i ident,
   n1 constr at level 69,
@@ -199,7 +215,7 @@ Notation "'Fix' f x '=>' F1" :=
 *)
 
 Notation "'LetFun' f ':=' B1 'in' F1" :=
- (Wpgen_let_fun (fun _ _ Q => \forall f1, \[B1] \-* (^F1 Q)))
+ ((*Wptag*) (Wpgen_let_fun (fun A EA Q => \forall f, \[B1] \-* (F1 A EA Q))))
  (in custom wp at level 69,
   f ident,
   B1 constr at level 69,
@@ -217,7 +233,7 @@ Notation "'LetFun' f ':=' B1 'in' F1" :=
 
 (* generic notation for arities that are not supported *)
 Notation "'Case' F1 'Else' F2" :=
- ((Wpgen_case F1 _ F2))
+ ((*Wptag*) (Wpgen_case F1 _ F2))
  (in custom wp at level 69,
   F1 custom wp at level 99,
   F2 custom wp at level 99,
@@ -225,18 +241,44 @@ Notation "'Case' F1 'Else' F2" :=
   format "'[v' '[' 'Case' ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'") : wp_scope.
 
 Notation "'Case' v 'is' p 'Then' F1 'Else' F2" :=
- ((Wpgen_case (fun _ _ Q => \[v = p] \-* ^F1 Q) _ F2))
+ ((*Wptag*) (Wpgen_case (fun A EA Q => \[v = p] \-* F1 A EA Q) _ F2))
  (in custom wp at level 69,
-  v constr at level 69,
-  p constr at level 69,
+  v constr at level 0,
+  p constr at level 0,
   F1 custom wp at level 99,
   F2 custom wp at level 99,
   left associativity,
   format "'[v' '[' 'Case'  v  'is'  p  'Then'  ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'") : wp_scope.
 
+Notation "'Case' v 'is' p { x1 } 'Then' F1 'Else' F2" :=
+ ((*Wptag*) (Wpgen_case (fun A EA Q => \forall x1, \[v = p] \-* F1 A EA Q) _ F2))
+ (in custom wp at level 69,
+  v constr at level 0,
+  x1 ident,
+  p constr at level 0,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  left associativity,
+  format "'[v' '[' 'Case'  v  'is'  p  { x1 }  'Then'  ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'") : wp_scope.
+
+Notation "'Case' v 'is' p { x1 x2 } 'Then' F1 'Else' F2" :=
+ ((*Wptag*) (Wpgen_case (fun A EA Q => \forall x1 x2, \[v = p] \-* F1 A EA Q) _ F2))
+ (in custom wp at level 69,
+  v constr at level 0,
+  x1 ident,
+  x2 ident,
+  p constr at level 0,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  left associativity,
+  format "'[v' '[' 'Case'  v  'is'  p  { x1  x2 }  'Then'  ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'") : wp_scope.
+
+(* TODO: generalize arity, and add support for when clauses
+
+
 (* PRINTING FOR F1 in case pattern  -- TODO
 Notation "v 'is' p { x1 x2 .. xn } 'Then' F1" :=
- (fun _ _ Q => hforall (fun x1 => hforall (fun x2 => .. (hforall (fun xn => \[v = p] \-* ^F1 Q)) ..)))
+ (fun A EA Q => hforall (fun x1 => hforall (fun x2 => .. (hforall (fun xn => \[v = p] \-* ^F1 Q)) ..)))
  (in custom wp at level 69,
   v constr at level 69,
   p constr at level 69,
@@ -251,7 +293,7 @@ Notation "v 'is' p { x1 x2 .. xn } 'Then' F1" :=
 
 (*
 Notation "'Case' v 'is' p { x1 } 'Then' F1 'Else' F2" :=
- ((Wpgen_case (fun _ _ Q => \forall x1, \[v = p] \-* ^F1 Q) _ F2))
+ ((Wpgen_case (fun A EA Q => \forall x1, \[v = p] \-* ^F1 Q) _ F2))
  (in custom wp at level 69,
   v constr at level 69,
   p constr at level 69,
@@ -263,7 +305,7 @@ DEPRECATED *)
 
 (* FAILS, why?
 Notation "'Case' v 'is' p { x1 x2 .. xn } 'Then' F1 'Else' F2" :=
- (Wpgen_case (fun _ _ Q => hforall (fun x1 => hforall (fun x2 => .. (hforall (fun xn => \[v = p] \-* ^F1 Q) _ F2) ..))))
+ (Wpgen_case (fun A EA Q => hforall (fun x1 => hforall (fun x2 => .. (hforall (fun xn => \[v = p] \-* ^F1 Q) _ F2) ..))))
  (in custom wp at level 69,
   v constr at level 69,
   p constr at level 69,
@@ -284,7 +326,6 @@ Notation "'\forall' x1 .. xn , H" :=
   (in custom wp at level 68,
 
 
-(* TODO: generalize arity, and add support for when clauses
    TODO: do not attempt to currify the assumption associated with the when clause?
     this could simplify the tactic that handles the case *)
 
@@ -297,18 +338,18 @@ Ltac xcase_post_old H :=
   try solve [ discriminate | false; congruence ];
   try (symmetry in H; inverts H; xclean_trivial_eq tt).
 
-Ltac xcase_post H :=
+Ltac xcase_post H ::=
   let aux1 tt := try solve [ discriminate | false; congruence ] in
   let aux2 E := symmetry in E; inverts E; xclean_trivial_eq tt in
   match type of H with
-  | |- _ /\ _ => 
+  | _ /\ _ =>
       try (
-        let E := fresh "E" H in 
+        let E := fresh "E" H in
         destruct H as [H E];
         aux1 tt;
         aux2 E (* if inverts E, then keep the original conjunction *)
       )
-  | |- _ -> 
+  | _ =>
       aux1 tt;
       try (aux2 H)
   end.
@@ -325,7 +366,8 @@ Lemma rev_append_spec : forall A `{EA:Enc A} (l1 l2:list A),
     PREC \[]
     POST \[= LibList.rev l1 ++ l2].
 Proof using.
-  intros. gen l2. induction_wf IH: (@list_sub A) l1. xcf. xcf_go~.
+  intros. gen l2. induction_wf IH: (@list_sub A) l1. xcf_go*.
+  rew_list*.
 Qed.
 
 Hint Extern 1 (RegisterSpec rev_append) => Provide rev_append_spec.
@@ -338,11 +380,12 @@ Proof using. xcf_go~. Qed.
 
 Hint Extern 1 (RegisterSpec rev) => Provide rev_spec.
 
+
 Lemma append_spec : forall A `{EA:Enc A} (l1 l2:list A),
   SPEC (append l1 l2)
     PREC \[]
     POST \[= (@TLC.LibList.app _) l1 l2].
-Proof using.
+Proof using.  xcf. (* TODO fix display for body here *)
 Admitted. (*
   xcf. xfun_ind (@list_sub A) (fun f => forall (r:list A),
     app f [r] \[] \[= r ++ l2]); xgo*.

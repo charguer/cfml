@@ -351,10 +351,11 @@ Lemma hsingle_not_null : forall l v,
   (l ~~~> v) ==> (l ~~~> v) \* \[l <> null].
 Proof using.
   introv. intros h (Hh&Nl).
-  exists h heap_empty. splits~.
+  exists h heap_empty. splits. (* TODO: splits~ goes into infinite loop *)
   { unfold hsingle. splits~. }
   { applys~ hpure_intro. }
   { unfold heap_empty. auto. }
+  { rew_fmap*. } 
 Qed.
 
 
@@ -762,7 +763,9 @@ Proof using.
   sets h1': (Fmap.single l w).
   exists (h1' \u h2) val_unit. splits~.
   { subst h h1. applys eval_set_sep; eauto. }
-  { rewrite hstar_hpure. split~. apply~ hstar_intro.
+  { rewrite hstar_hpure. split~. apply hstar_intro. (* TODO: loop *)
+    { auto. }
+    { auto. }
     { applys~ Fmap.disjoint_single_set v. } }
 Qed.
 
