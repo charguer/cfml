@@ -1109,6 +1109,8 @@ Ltac xapp_types_in_triple ETriple :=
     idtac Tr
   end.
 
+(* TODO :factorize xapp_debug *)
+
 Ltac xapp_debug_report_instantiated K :=
   let EtripleS := type of K in
   idtac "=== Type of the specification for that function:";

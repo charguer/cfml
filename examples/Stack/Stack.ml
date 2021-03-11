@@ -24,9 +24,9 @@ let concat p1 p2 =
   p1 := !p1 @ !p2;
   clear p2
 
-let rev_append f p1 p2 =
+let rec rev_append p1 p2 =
   if not (is_empty p1) then begin
     let x = pop p1 in
     push p2 x;
-    f p1 p2
+    rev_append p1 p2
   end
