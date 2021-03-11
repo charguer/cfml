@@ -160,6 +160,10 @@ Instance Enc_tyconstr : Enc tyconstr.
 Proof using. constructor. applys (fun (cstr:tyconstr) =>
   match cstr with constr id vs => val_constr id vs end). Defined.
 
+Instance Enc_pair : forall A1 `{EA1:Enc A1} A2 `{EA2:Enc A2}, Enc (A1*A2).
+Proof using. constructor. applys (fun p : A1*A2 => let '(x,y) := p in (``x, ``y)).
+Defined.
+
 Instance Enc_option : forall A `{Enc A}, Enc (option A).
 Proof using. constructor. applys (fun (o:option A) => match o with
   | None => val_constr "none" nil
@@ -175,7 +179,7 @@ Proof using. constructor. applys (fix f (l:list A) :=
 
 Global Opaque Enc_dyn Enc_loc Enc_unit Enc_bool Enc_int
               Enc_func Enc_val Enc_prim Enc_tyconstr
-              Enc_list Enc_option.
+              Enc_pair Enc_option Enc_list.
 
 
 (* ---------------------------------------------------------------------- *)

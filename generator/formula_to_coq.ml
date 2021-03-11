@@ -138,12 +138,27 @@ let rec coqtops_of_cf cf =
       wpgen_app "WPLifted.Wpgen_if_bool" [v; aux cf1; aux cf2]
 
   | Cf_case (v,tps,pat,vwhenopt,aliases,cf1,cf2) ->
-    dummy
-    (* TODO: later
-      let add_alias ((name,typ),exp) cf : coq =
-         funhq "tag_alias" (coq_foralls [name,typ] (coq_impls [coq_eq (Coq_var name) exp] (coq_apps cf [h;q])))
-         (* !L a: (fun H Q => forall y, y = v -> F H Q) *)
-         in
+      (* TODO: in simple cases: no need for negation hypothesis *)
+      (* same_when is [x = p /\ trueb w]  // only with an wand instead of conj
+         diff_when is  [x <> p /\ trueb !w]
+         // formula is simplified if the when-clause is missing
+         formula is (ignoring aliases for simplicity):
+           let c1 = `(fun A EA Q => \forall tps, ([same_when] \-* ^(aux cf1) Q)` in
+           Wpgen_case c1 (diff_when) (aux cf2) *)
+      let add_alias (typed_name,lifted_v) c : coq =
+        (* Wpgen_alias v (fun y => F) *)
+        wpgen_app "WPLifted.Wpgen_alias" [lifted_v; coq_fun typed_name c] in
+      let cf1_aliased = List.fold_right add_alias aliases (aux cf1) in
+      let same = coq_eq v pat in
+      let same_when = match vwhenopt with None -> [same] | Some w -> [same; w] in
+      let c1_body = hforalls tps (hwand_hpures same_when (formula_app (cf1_aliased) q)) in
+      let c1 = formula_def aname qname c1_body in
+      let diff = coq_neq v pat in
+      let diff_when = match vwhenopt with None -> diff | Some w -> coq_disj diff (coq_neg w) in
+      let diff_hyp = coq_apps_cfml_var "WPLifted.Wpgen_negpat" [coq_foralls tps diff_when] in
+      wpgen_app "WPLifted.Wpgen_case" [c1; diff_hyp; aux cf2]
+
+     (* DEPRECATED
       let cf1_aliased = List.fold_right add_alias aliases (aux cf1) in
       let same = coq_eq v pat in
       let same_when = match vwhenopt with None -> [same] | Some w -> [same; w] in
@@ -159,11 +174,7 @@ let rec coqtops_of_cf cf =
       *)
 
   | Cf_match (label, n, cf1) ->
-      dummy
-      (* TODO: later
-       let f = Coq_app (coq_cfml_var "CFHeaps.local", (aux cf1)) in
-       coq_tag "tag_match" f
-       *)
+      wpgen_app "WPLifted.Wpgen_match" [aux cf1]
 
   | Cf_seq (cf1,cf2) ->
       (* Wpgen_seq F1 F2 *)

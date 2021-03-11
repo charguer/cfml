@@ -237,7 +237,6 @@ Definition Wpaux_match Wpgen (E:ctx) (v:val) : list (pat*trm) ->  Formula :=
   (* Note: the body of the cons case above, if put in an auxiliary definition,
      does not appear to simplify well using [xwp_simpl] *)
 
-
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of the CF generator *)
 
@@ -1059,8 +1058,18 @@ Definition Wpgen_let_Val A1 `{EA1:Enc A1} (V:A1) (Fof:A1->Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
     \forall (x:A1), \[x = V] \-* ^(Fof x) Q).
 
+Definition Wpgen_alias A1 `{EA1:Enc A1} (V:A1) (Fof:A1->Formula) : Formula :=
+  Wpgen_let_Val V Fof.
+
 Definition Wpgen_body (P:Prop) : Prop :=
   P.
+
+Definition Wpgen_match (F:Formula) : Formula :=
+  F.
+
+Definition Wpgen_negpat (P:Prop) : Prop :=
+  P.
+
 
 Definition Wpgen_dummy : Formula :=
   Wpgen_fail.
