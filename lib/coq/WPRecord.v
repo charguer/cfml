@@ -490,6 +490,23 @@ Qed. (* --TODO: simplify proof *)
 Global Opaque val_set_field val_get_field.
 
 
+(* lifted versions, to prove *)
+
+Parameter xapp_record_Get : forall A `{EA:Enc A} (Q:A->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
+  H ==> p ~> Record L \* (match record_get_compute_dyn f L with
+    | None => \[False]
+    | Some (Dyn V) => (p ~> Record L) \-* ^(Wptag (Wpgen_Val_no_mkstruct V)) (protect Q) end) ->
+  H ==> ^(Wpgen_App_typed A (trm_val (val_get_field f)) ((Dyn p)::nil)) Q.
+(* TODO: proof *)
+
+Parameter xapp_record_Set : forall A1 `{EA1:Enc A1} (W:A1) (Q:unit->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
+  H ==> p ~> Record L \* ((
+    match record_set_compute_dyn f (Dyn W) L with
+    | None => \[False]
+    | Some L' =>
+        (p ~> Record L' \-* protect (Q tt)) end)  ) ->
+  H ==> ^(Wpgen_App_typed unit (trm_val (val_set_field f)) ((Dyn p)::(Dyn W)::nil)) Q.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** No duplicated fields checker *)
@@ -570,7 +587,9 @@ Ltac xapp_record_get_set_post tt :=
   xsimpl; simpl; xsimpl; unfold protect; try xcast.
 
 Ltac xapp_record_get_grouped tt :=
-  applys xapp_record_get; xapp_record_get_set_post tt.
+  first [ applys xapp_record_Get
+        | applys xapp_record_get ];
+  xapp_record_get_set_post tt.
 
 (* Tactic to handle [get_field] using lemma [xapp_record_get] which expects
    [p ~> Record ?L], unless the precondition contains [ p`.f ~~> ?V ] in which
@@ -595,7 +614,9 @@ Ltac xapp_record_set_find_single_field tt :=
   end.
 
 Ltac xapp_record_set_grouped tt :=
-  applys xapp_record_set; xapp_record_get_set_post tt.
+  first [ applys xapp_record_Set
+        | applys xapp_record_set ];
+  xapp_record_get_set_post tt.
 
 Ltac xapp_record_set tt :=
   first [ xapp_record_set_find_single_field tt; fail 1 (* trigger call to [xapp] *)
@@ -738,17 +759,6 @@ Ltac xapp_record_delete tt :=
 
 
 
-(* ---------------------------------------------------------------------- *)
-(* ** Extending tactic [xapp] to support record operations *)
-
-Ltac xapp_record tt ::= (* initial dummy binding located in WPTactics *)
-  match xgoal_fun tt with
-  | (val_get_field _) => xapp_record_get tt
-  | (val_set_field _) => xapp_record_set tt
-  | (val_record_init _) => xapp_record_new tt
-  | (val_record_delete _) => xapp_record_delete tt
-  end.
-
 
 (* ********************************************************************** *)
 (* * Direct WPgen for record allocation *)
@@ -773,3 +783,45 @@ Proof using.
   introv M. applys MkStruct_erase. xsimpl. intros r.
   xchange M. applys qimpl_Post_cast_r.
 Qed.
+
+
+(* ********************************************************************** *)
+(* * Notation *)
+
+(* TODO *)
+Declare Scope record_scope.
+Notation "p '~~~>' kvs" := (p ~> Record kvs)
+  (at level 32) : record_scope.
+
+(* ********************************************************************** *)
+(* * Tactics *)
+
+(* TODO *)
+
+(* ---------------------------------------------------------------------- *)
+(* ** Extending tactic [xapp] to support record operations *)
+
+Ltac xapp_record tt ::= (* initial dummy binding located in WPTactics *)
+  match xgoal_code_without_wptag tt with
+  | Wpgen_record_new ?Lof => applys xapp_lemma_record_new
+  | Wpgen_App_typed ?T ?f ?Vs =>
+      match f with
+      | trm_val (val_get_field _) => xapp_record_get tt
+      | trm_val (val_set_field _) => xapp_record_set tt
+      | trm_val (val_record_init _) => xapp_record_new tt (* TODO redundant? *)
+      | trm_val (val_record_delete _) => xapp_record_delete tt
+      end
+  end.
+
+Ltac xapp_pre_wp tt ::=
+  xlet_xseq_xcast_repeat tt;
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_app ?t) => idtac
+  | (Wpgen_App_typed ?T ?f ?Vs) => idtac
+  | (Wpgen_record_new ?Lof) => idtac
+  end.
+
+Ltac check_is_Wpgen_record_new F ::=
+  match F with
+  | (Wpgen_record_new _) => idtac
+  end.
