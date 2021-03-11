@@ -116,7 +116,7 @@ Global Opaque Array.
 
 Lemma Triple_alloc_array : forall n,
   n >= 0 ->
-  Triple (val_alloc ``n)
+  TRIPLE Triple (val_alloc ``n)
     PRE \[]
     POST (fun p => \exists (L:list val), \[length L = n :> int] \* p ~> Array L).
 Proof using.
@@ -137,7 +137,7 @@ Hint Resolve index_map.
 
 Lemma Triple_array_get : forall p i L,
   index L i ->
-  Triple (val_array_get ``p ``i)
+  TRIPLE Triple (val_array_get ``p ``i)
     PRE (p ~> Array L)
     POST (fun (r:A) => \[r = L[i]] \* p ~> Array L).
 Proof using.
@@ -149,7 +149,7 @@ Qed.
 
 Lemma Triple_array_set : forall p i v L,
   index L i ->
-  Triple (val_array_set ``p ``i ``v)
+  TRIPLE Triple (val_array_set ``p ``i ``v)
     PRE (p ~> Array L)
     POST (fun (_:unit) => p ~> Array (L[i:=v])).
 Proof using.
@@ -161,7 +161,7 @@ Qed.
 
 Lemma Triple_array_make : forall n v,
   n >= 0 ->
-  Triple (val_array_make ``n ``v)
+  TRIPLE Triple (val_array_make ``n ``v)
     PRE \[]
     POST (fun p => \exists L, \[L = make n v] \* p ~> Array L).
 Proof using.

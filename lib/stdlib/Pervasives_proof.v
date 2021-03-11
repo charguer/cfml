@@ -9,7 +9,7 @@ Require Import Pervasives_ml.
 (** Boolean *)
 Lemma not_spec : forall (a:bool),
   SPEC (not a)
-    PREC \[]
+    PRE \[]
     POST \[= !a ].
 Proof using.
   xcf. xgo*.
@@ -31,12 +31,12 @@ Hint Extern 1 (RegisterSpec not) => Provide not_spec.
 
 Parameter infix_eq_eq_loc_spec : forall (a b:loc),
   SPEC (infix_eq_eq__ a b)
-    PREC \[]
+    PRE \[]
     POST \[= isTrue (a = b) ].
 
 Parameter infix_eq_eq_gen_spec : forall (A:Type) (a b:A),
   SPEC (infix_eq_eq__ a b)
-    PREC \[]
+    PRE \[]
     POST (fun r => \[r = true -> isTrue (a = b)]).
 
 Hint Extern 1 (RegisterSpec infix_eq_eq__) => Provide infix_eq_eq_loc_spec.
@@ -46,7 +46,7 @@ Hint Extern 1 (RegisterSpec infix_eq_eq__) => Provide infix_eq_eq_loc_spec.
 
 Lemma infix_emark_eq_loc_spec : forall (a b:loc),
   SPEC (infix_emark_eq__ a b)
-    PREC \[]
+    PRE \[]
     POST \[= isTrue (a <> b) ].
 Proof using.
   xcf. xgo*. rew_isTrue*.
@@ -54,7 +54,7 @@ Qed.
 
 Lemma infix_emark_eq_gen_spec : forall (A:Type) (a b:A),
   SPEC (infix_emark_eq__ a b)
-    PREC \[]
+    PRE \[]
     POST (fun r => \[r = false -> isTrue (a = b)]).
 Proof using.
   xcf. xapp infix_eq_eq_gen_spec.
@@ -70,7 +70,7 @@ Hint Extern 1 (RegisterSpec infix_emark_eq__) => Provide infix_emark_eq_loc_spec
 Parameter infix_eq_spec : forall A (a b : A),
   (polymorphic_eq_arg a \/ polymorphic_eq_arg b) ->
   SPEC (infix_eq__ a b)
-    PREC \[]
+    PRE \[]
     POST \[= isTrue (a = b) ].
 
 Hint Extern 1 (RegisterSpec infix_eq__) => Provide infix_eq_spec.
@@ -78,14 +78,14 @@ Hint Extern 1 (RegisterSpec infix_eq__) => Provide infix_eq_spec.
 Parameter infix_neq_spec : forall A (a b : A),
   (polymorphic_eq_arg a \/ polymorphic_eq_arg b) ->
   SPEC (infix_lt_gt__ a b)
-    PREC \[]
+    PRE \[]
     POST \[= isTrue (a <> b) ].
 
 Hint Extern 1 (RegisterSpec infix_lt_gt__) => Provide infix_neq_spec.
 
 Lemma min_spec : forall (n m:int),
   SPEC (min n m)
-    PREC \[]
+    PRE \[]
     POST \[= Z.min n m ].
 Proof using.
   xcf. xgo*.
@@ -95,7 +95,7 @@ Qed.
 
 Lemma max_spec : forall (n m:int),
   SPEC (max n m)
-    PREC \[]
+    PRE \[]
     POST \[= Z.max n m ].
 Proof using.
   xcf. xgo*.
@@ -112,12 +112,12 @@ Hint Extern 1 (RegisterSpec max) => Provide max_spec.
 
 Parameter infix_bar_bar_spec : forall (a b:bool),
   SPEC (infix_bar_bar__ a b)
-    PREC \[]
+    PRE \[]
     POST \[= a && b ].
 
 Parameter infix_amp_amp_spec : forall (a b:bool),
   SPEC (infix_amp_amp__ a b)
-    PREC \[]
+    PRE \[]
     POST \[= a || b ].
 
 Hint Extern 1 (RegisterSpec infix_bar_bar__) => Provide infix_bar_bar_spec.
@@ -129,34 +129,34 @@ Hint Extern 1 (RegisterSpec infix_amp_amp__) => Provide infix_amp_amp_spec.
 
 Parameter infix_tilde_minus_spec : forall (n:int),
   SPEC (infix_tilde_minus__ n)
-    PREC \[]
+    PRE \[]
     POST \[= Z.opp n ].
 
 Parameter infix_plus_spec : forall (n m:int),
   SPEC (infix_plus__ n m)
-    PREC \[]
+    PRE \[]
     POST \[= Z.add n m ].
 
 Parameter infix_minus_spec : forall (n m:int),
   SPEC (infix_minus__ n m)
-    PREC \[]
+    PRE \[]
     POST \[= Z.sub n m ].
 
 Parameter infix_star_spec : forall (n m:int),
   SPEC (infix_star__ n m)
-    PREC \[]
+    PRE \[]
     POST \[= Z.mul n m ].
 
 Parameter infix_slash_spec : forall (n m:int),
   m <> 0 ->
   SPEC (infix_slash__ n m)
-    PREC \[]
+    PRE \[]
     POST \[= Z.quot n m ].
 
 Parameter mod___spec : forall (n m:int),
   m <> 0 ->
   SPEC (mod__ n m)
-    PREC \[]
+    PRE \[]
     POST \[= Z.rem n m ].
 
 Hint Extern 1 (RegisterSpec infix_tilde_minus__) => Provide infix_tilde_minus_spec.
@@ -191,7 +191,7 @@ Notation "n `+ m" := (App infix_mod_ n m;)
 
 Lemma succ_spec : forall (n:int),
   SPEC (succ n)
-    PREC \[]
+    PRE \[]
     POST \[= n+1 ].
 Proof using.
   xcf. xgo*.
@@ -199,7 +199,7 @@ Qed.
 
 Lemma pred_spec : forall (n:int),
   SPEC (pred n)
-    PREC \[]
+    PRE \[]
     POST \[= n-1 ].
 Proof using.
   xcf. xgo*.
@@ -207,7 +207,7 @@ Qed.
 
 Lemma abs___spec : forall (n:int),
   SPEC (abs__ n)
-    PREC \[]
+    PRE \[]
     POST \[= Z.abs n ].
 Proof using.
   xcf. xgo.
@@ -227,30 +227,30 @@ Hint Extern 1 (RegisterSpec abs__) => Provide abs___spec.
 
 Parameter land_spec : forall (n m:int),
   SPEC (land n m)
-    PREC \[]
+    PRE \[]
     POST \[= Z.land n m ].
 
 Parameter lor_spec :  forall (n m:int),
   SPEC (lor n m)
-    PREC \[]
+    PRE \[]
     POST \[= Z.lor n m ].
 
 Parameter lxor_spec : forall (n m:int),
   SPEC (lxor n m)
-    PREC \[]
+    PRE \[]
     POST \[= Z.lxor n m ].
 
 Definition Zlnot (x : Z) : Z := -(x + 1).
 
 Parameter lnot_spec : forall (n:int),
   SPEC (lnot n)
-    PREC \[]
+    PRE \[]
     POST \[= Zlnot n ].
 
 Parameter lsl_spec : forall (n m:int),
   0 <= m ->   (* y < Sys.word_size -> *)
   SPEC (lsl n m)
-    PREC \[]
+    PRE \[]
     POST \[= Z.shiftl n m ].
 
   (* TODO We temporarily? restrict [lsr] to nonnegative integers,
@@ -262,14 +262,14 @@ Parameter lsr_spec : forall (n m:int),
   0 <= m ->
   (* m < Sys.word_size -> *)
   SPEC (lsr n m)
-    PREC \[]
+    PRE \[]
     POST \[= Z.shiftr n m ].
 
 Parameter asr_spec : forall (n m:int),
   0 <= m ->
   (* m < Sys.word_size -> *)
   SPEC (asr n m)
-    PREC \[]
+    PRE \[]
     POST \[= Z.shiftr n m ].
 
 Hint Extern 1 (RegisterSpec land) => Provide land_spec.
@@ -320,21 +320,21 @@ Hint Transparent ref_ : haffine.
 
 Lemma ref_spec : forall `{EA:Enc A} (v:A),
   SPEC (ref v)
-    PREC \[]
+    PRE \[]
     POST (fun r => r ~~> v).
 Proof using. xcf. xgo~. Qed.
 
 
 Lemma infix_emark_spec : forall A `{EA:Enc A} (v:A) r,
   SPEC (infix_emark__ r)
-    INVA (r ~~> v)
+    INV (r ~~> v)
     POST \[= v].
 Proof using. xunfold @Ref. xcf_go*. Qed.
 
 
 Lemma infix_colon_eq_spec : forall A `{EA:Enc A} (v w:A) r,
   SPEC (infix_colon_eq__ r w)
-    PREC (r ~~> v)
+    PRE (r ~~> v)
     POSTUNIT (r ~~> w).
 Proof using. xunfold @Ref. xcf_go~. Qed.
 
@@ -359,13 +359,13 @@ Notation "'App'' { T } r `:= x" := (Wpgen_App_typed T (trm_val infix_colon_eq__)
 
 Lemma incr_spec : forall (n:int) r,
   SPEC (incr r)
-    PREC (r ~~> n)
+    PRE (r ~~> n)
     POSTUNIT (r ~~> (n+1)).
 Proof using. xcf_go~. Qed.
 
 Lemma decr_spec : forall (n:int) r,
   SPEC (decr r)
-    PREC (r ~~> n)
+    PRE (r ~~> n)
     POSTUNIT (r ~~> (n-1)).
 Proof using. xcf_go~. Qed.
 
@@ -379,7 +379,7 @@ Hint Extern 1 (RegisterSpec decr) => Provide decr_spec.
 
 Axiom ref_spec_group : forall A (M:map loc A) (v:A),
   SPEC (ref v)
-    PREC (Group Ref M)
+    PRE (Group Ref M)
     POST (fun (r:loc) => Group Ref (M[r:=v]) \* \[r \notindom M]).
 (* TODO: proof *)
 
@@ -395,7 +395,7 @@ Qed.
 Lemma infix_colon_eq_spec_group : forall `{Inhab A} (M:map loc A) (v:A) r,
   r \indom M ->
   SPEC (infix_colon_eq__ r v)
-    PREC (Group Ref M)
+    PRE (Group Ref M)
     POSTUNIT (Group Ref (M[r:=v])).
 Proof using.
   intros. rewrite~ (Group_rem r M). xapp. intros tt.
@@ -410,13 +410,13 @@ Qed.
 
 Lemma fst_spec : forall A `{EA:Enc A} B `{EB:Enc B} (x:A) (y:B),
   SPEC (fst (x,y))
-    PREC \[]
+    PRE \[]
     POST \[= x].
 Proof using. xcf_go~. Qed.
 
 Lemma snd_spec : forall A B (x:A) (y:B),
   SPEC (snd (x,y))
-    PREC \[]
+    PRE \[]
     POST \[= y].
 Proof using. xcf_go~. Qed.
 
@@ -429,7 +429,7 @@ Hint Extern 1 (RegisterSpec snd) => Provide snd_spec.
 
 Lemma ignore_spec :
   SPEC (ignore tt)
-    PREC \[]
+    PRE \[]
     POST \[= tt].
 Proof using. xcf_go~. Qed.
 

@@ -88,7 +88,7 @@ let trm_apps cf cvs =
   coq_apps (coq_cfml_var "Semantics.trm_apps") [cf; coq_list cvs]
 
 let trm_apps_lifted cf cvs =
-  coq_apps (coq_cfml_var "WPLifted.Trm_apps") [cf; coq_list cvs]
+  coq_apps (coq_cfml_var "SepLifted.Trm_apps") [cf; coq_list cvs]
 
 (** Abstract datatype for values *)
 

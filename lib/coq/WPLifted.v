@@ -107,10 +107,6 @@ Qed.
 
 Definition Wptag (F:Formula) : Formula := F.
 
-Notation "'`' F" :=
-  ((Wptag F%wp))
-  (at level 69, F at level 100, format "'`' F") : wp_scope.
-
 
 (* ---------------------------------------------------------------------- *)
 (* ** Combinators to force the type of an argument or a return value *)
@@ -170,9 +166,9 @@ Definition Wpaux_getval Wpgen (E:ctx) (t1:trm) (F2of:val->Formula) : Formula :=
 
 Definition Wpaux_getval_typed Wpgen (E:ctx) (t1:trm) `{EA1:Enc A1} (F2of:A1->Formula) : Formula :=
   match t1 with
-  | trm_val v => Wptag (Wpgen_let_typed (`Wpgen_val v) F2of)
+  | trm_val v => Wptag (Wpgen_let_typed (Wptag (Wpgen_val v)) F2of)
   | trm_var x => match Ctx.lookup x E with
-                 | Some v => Wptag (Wpgen_let_typed (`Wpgen_val v) F2of)
+                 | Some v => Wptag (Wpgen_let_typed (Wptag (Wpgen_val v)) F2of)
                  | None => Wptag (Wpgen_fail)
                  end
   | _ => Wptag (Wpgen_let_typed (Wpgen E t1) F2of)
@@ -200,13 +196,13 @@ Definition Wpgen_if_bool (b:bool) (F1 F2:Formula) : Formula :=
     if b then ^F1 Q else ^F2 Q).
 
 Definition Wpaux_if (F0 F1 F2:Formula) : Formula :=
-  Wptag (Wpgen_let_typed F0 (fun (b:bool) => `Wpgen_if_bool b F1 F2)).
+  Wptag (Wpgen_let_typed F0 (fun (b:bool) => Wptag (Wpgen_if_bool b F1 F2))).
 
 Definition Wpgen_while (F1 F2:Formula) : Formula :=
-  MkStruct (`Formula_cast (fun (Q:unit->hprop) =>
+  MkStruct (Wptag (Formula_cast (fun (Q:unit->hprop) =>
     \forall (R:Formula),
     let F := Wpaux_if F1 (Wpgen_seq F2 R) (Wpgen_val val_unit) in
-    \[ structural (@R unit _) /\ (forall (Q':unit->hprop), ^F Q' ==> ^R Q')] \-* (^R Q))).
+    \[ structural (@R unit _) /\ (forall (Q':unit->hprop), ^F Q' ==> ^R Q')] \-* (^R Q)))).
     (* --TODO: use a lifted version of structural *)
 
 Definition Wpgen_for_int (n1 n2:int) (F1:int->Formula) : Formula :=
@@ -505,7 +501,7 @@ Qed.
 Lemma Wpgen_sound_let_typed_val : forall v E (C:trm -> trm) `{EA:Enc A} (F2of:A->Formula),
   evalctx C ->
   (forall V, F2of V ====> @Wpsubst E (C ``V)) ->
-  Wpgen_let_typed (`Wpgen_val v) F2of ====> Wp (isubst E (C v)).
+  Wpgen_let_typed (Wptag (Wpgen_val v)) F2of ====> Wp (isubst E (C v)).
 Proof using.
   introv HC M1. intros A1 EA1. applys qimpl_Wp_of_Triple. intros Q.
   remove_MkStruct. applys~ Triple_isubst_evalctx EA.
@@ -747,10 +743,508 @@ Proof using. intros. applys MkStruct_erase. rewrite~ <- Triple_eq_himpl_Wp. Qed.
 
 
 (* ********************************************************************** *)
+(* TODO: additional wpgen constructs *)
+
+Definition Wpgen_assert (F1:Formula) : Formula :=
+  MkStruct (Formula_cast (fun (Q:unit->hprop) =>
+    Q tt \* \[Q tt ==> ^F1 (fun r => \[r = true] \* Q tt)])).
+
+Definition Wpgen_done : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+    \[False] \-* \[True]).
+
+Definition Wpgen_Val A1 {EA1:Enc A1} (V:A1) : Formula :=
+  MkStruct (Wpgen_Val_no_mkstruct V).
+  (* MkStruct (fun A (EA:Enc A) (Q:A->hprop) => Post_cast A Q V)). *)
+
+(*
+Arguments WPLifted.Wpgen_Val [A1] {EA1} V. (* prevents expanded implicit arguments *)
+*)
+
+(* TODO
+*)
+
+(* alternative?
+Definition Wpgen_val_lifted `{Enc A} (V:A) : Formula :=
+  MkStruct (Formula_cast (fun (Q:A->hprop) => Q V)).
+*)
+
+(* for the reference:
+
+Definition Formula_cast `{Enc A1} (F:(A1->hprop)->hprop) : Formula :=
+  fun A2 (EA2:Enc A2) (Q:A2->hprop) =>
+    \exists (Q':A1->hprop), F Q' \* \[Q' ===> Post_cast A1 Q].
+
+Definition Wpgen_Val_no_mkstruct A1 `{EA1:Enc A1} (V:A1) : Formula :=
+  fun A2 (EA2:Enc A2) Q => Post_cast A1 Q V.
+*)
+
+(* includes the return type *)
+
+Definition Wpgen_app_typed (A1:Type) `{EA1:Enc A1} (t:trm) : Formula :=
+  MkStruct (Formula_cast (fun (Q1:A1->hprop) => ^(Wp t) Q1)).
+
+Arguments Wpgen_app_typed A1 {EA1} t.
+
+
+Definition Wpgen_App_typed (A1:Type) `{EA1:Enc A1} (f:trm) (Vs:dyns) : Formula :=
+  Wpgen_app_typed A1 (Trm_apps f Vs).
+(* MkStruct (Formula_cast (fun (Q1:A1->hprop) => Wp (Trm_apps f Vs) Q1)). *)
+
+Arguments Wpgen_App_typed A1 {EA1} f Vs.
+
+
+Definition Wpgen_for_downto_int (n1 n2:int) (F1:int->Formula) : Formula :=
+  MkStruct (Formula_cast (fun (Q:unit->hprop) =>
+    \forall (S:int->Formula),
+    let F i := If (i >= n2) then (Wptag (Wpgen_seq (F1 i) (S (i-1))))
+                            else (Wptag (Wpgen_val val_unit)) in
+    \[   (forall i, structural (S i unit _))
+      /\ (forall i (Q':unit->hprop), ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
+
+
+(*
+Definition Wpgen_fix (Fof:val->val->Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+    \forall vf, \[forall vx A' (EA':Enc A') Q',
+                    Fof vf vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf).
+*)
+
+(* LATER
+Definition Formula_entails (F1 F2:Formula) : Prop :=
+  forall A (EA:Enc A) Q, ^F1 Q ==> ^F2 Q.
+
+Definition Wpgen_fixs (Fof:val->vals->Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+    \forall vf, \[forall vxs, Formula_entails (Fof vf vxs) (Wp (trm_apps vf vxs))]
+                \-* Q vf).
+
+Definition Wpgen_fixs_custom (Custom:(val->(vals->Formula->Prop)->Prop) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+    \forall vf, \[Custom vf (fun vxs Fof => Formula_entails (Fof vf) (Wp (trm_apps vf vxs)))]
+                \-* Q vf).
+*)
+
+(* usage: Wpgen_fixs_custom (fun f Pof =>
+             forall A1..AM .. x1..xN, Pof [x1;..;xn] (Wpbody vf) *)
+
+
+Definition Wpgen_let_fun (BodyOf:forall A,Enc A->(A->hprop)->hprop) : Formula :=
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
+    BodyOf _ _ Q).
+
+(* LATER: a function that takes a list of propositions parameterized
+    by the list of names of the functions that occur.
+
+   Custom notation for
+
+   Wpgen_let_funs ((fun f1 f2 => B1)::(fun f1 f2 => B2)::nil).
+
+  Definition Wpgen_let_funs (Defs:list()) : Formula :=
+
+*)
+
+Definition Wpgen_let_Val A1 `{EA1:Enc A1} (V:A1) (Fof:A1->Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
+    \forall (x:A1), \[x = V] \-* ^(Fof x) Q).
+
+Definition Wpgen_alias A1 `{EA1:Enc A1} (V:A1) (Fof:A1->Formula) : Formula :=
+  Wpgen_let_Val V Fof.
+
+Definition Wpgen_body (P:Prop) : Prop :=
+  P.
+
+Definition Wpgen_match (F:Formula) : Formula :=
+  F.
+
+Definition Wpgen_negpat (P:Prop) : Prop :=
+  P.
+
+Definition Wpgen_dummy : Formula :=
+  Wpgen_fail.
+
+
+
+(* ********************************************************************** *)
 (* * Notation for characteristic formulae *)
 
+
+
+(* ********************************************************************** *)
+
+(** Custom grammar for the display of characteristic formulae. *)
+
+Declare Custom Entry wp.
+
+(* TODO NOT NEEDED?
+Notation "<[ e ]>" :=
+ e
+ (at level 0, e custom wp at level 99) : wp_scope.
+*)
+
+(** Display [Wptag] as just a quote *)
+
+Notation "'`' F" :=
+  ((Wptag F%wp))
+  (at level 69, F custom wp at level 100, format "'`' F") : wp_scope.
+
+(** Display characteristic formulae goal in a nice way,
+    with current state at the front. *)
+
+Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (Wptag F) _ _ Q)
+  (at level 8,
+   H at level 0,
+   F custom wp at level 0,
+   Q at level 0,
+   format "'[v' 'PRE'  H  '/' 'CODE'  F '/' 'POST'  Q ']'") : wp_scope.
+
+Notation "( x )" :=
+ x
+ (in custom wp,
+  x at level 99) : wp_scope.
+
+Notation "{ x }" := (* TODO: NOT NEEDED? *)
+ x
+ (in custom wp at level 0,
+  x constr,
+  only parsing) : wp_scope.
+
+Notation "x" :=
+ x
+ (in custom wp at level 0,
+  x constr at level 0) : wp_scope.
+
+Notation "'Fail'" :=
+ ((*Wptag*) (Wpgen_fail))
+ (in custom wp at level 69) : wp_scope.
+
+Notation "'Done'" :=
+ ((*Wptag*) (Wpgen_done))
+ (in custom wp at level 69) : wp_scope.
+
+
+Notation "'Match' F1" :=
+ ((*Wptag*) (Wpgen_match F1))
+ (in custom wp at level 69,
+  F1 custom wp at level 69,
+  format "'[v' 'Match' '/' '['   F1 ']' ']' " ) : wp_scope.
+
+Notation "'Assert' F" :=
+ ((*Wptag*) (Wpgen_assert F))
+ (in custom wp at level 69,
+  F custom wp at level 99) : wp_scope.
+
+Notation "'Val' v" :=
+ ((*Wptag*) (Wpgen_Val v))
+ (in custom wp at level 69) : wp_scope.
+
+Notation "'Let?' x ':=' F1 'in' F2" :=
+ ((Wpgen_let F1 (fun x => F2)))
+ (in custom wp at level 69,
+  x ident,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Let?'  x  ':='  F1  'in' ']' '/' '[' F2 ']' ']'") : wp_scope.
+ (* TODO: improve notation or deprecate it *)
+
+Notation "'Let' x ':=' F1 'in' F2" :=
+ ((*Wptag*) (Wpgen_let_typed F1 (fun x => F2)))
+ (in custom wp at level 69,
+  x ident,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  right associativity,
+ format "'[v' '[' 'Let'  x  ':='  F1  'in' ']' '/' '[' F2 ']' ']'") : wp_scope.
+
+Notation "'LetVal' x ':=' V 'in' F1" :=
+ ((*Wptag*) (Wpgen_let_Val V (fun x => F1)))
+ (in custom wp at level 69,
+  x ident,
+  V constr at level 69,
+  F1 custom wp at level 99,
+  right associativity,
+ format "'[v' '[' 'LetVal'  x  ':='  V  'in' ']' '/' '[' F1 ']' ']'") : wp_scope.
+
+Notation "'Alias' x ':=' V 'in' F1" :=
+ ((*Wptag*) (Wpgen_alias V (fun x => F1)))
+ (in custom wp at level 69,
+  x ident,
+  V constr at level 69,
+  F1 custom wp at level 99,
+  right associativity,
+ format "'[v' '[' 'Alias'  x  ':='  V  'in' ']' '/' '[' F1 ']' ']'") : wp_scope.
+
+Notation "'Seq' F1 ; F2" :=
+ ((*Wptag*) (Wpgen_seq F1 F2))
+ (in custom wp at level 68,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  right associativity,
+  format "'[v' 'Seq'  '[' F1 ']'  ; '/' '[' F2 ']' ']'") : wp_scope.
+
+(* DEPRECATED
+Notation "'App' f x1 x2 .. xn" :=
+ ((*Wptag*) (Wpgen_App_typed _ f (cons (Dyn x1) (cons (Dyn x2) .. (cons (Dyn xn) nil) ..))))
+  (in custom wp at level 68,
+   f constr at level 0,
+   x1 constr at level 0,
+   x2 constr at level 0,
+   xn constr at level 0) (* TODO: format *)
+  : wp_scope.
+*)
+(* DEPRECATED
+Notation "'App' f v1 v2" :=
+ ((wp (trm_app (trm_app f v1) v2)))
+ (in custom wp at level 68, f, v1, v2 at level 0) : wp_scope.
+*)
+
+
+(* NOT NEEDED
+Notation "'App' f x1" :=
+ ((*Wptag*) (Wpgen_App_typed _ f (cons (Dyn x1) nil)))
+  (in custom wp at level 68,
+   f constr at level 0,
+   x1 constr at level 0) (* TODO: format *)
+  : wp_scope.
+*)
+
+Notation "'App' f x1 .. xn" :=
+ ((*Wptag*) (Wpgen_App_typed _ f (cons (Dyn x1) .. (cons (Dyn xn) nil) ..)))
+  (in custom wp at level 68,
+   f constr at level 0,
+   x1 constr at level 0,
+   xn constr at level 0) (* TODO: format *)
+  : wp_scope.
+
+
+
+Notation "'If_' v 'Then' F1 'Else' F2" :=
+ ((*Wptag*) (Wpgen_if_bool v F1 F2))
+ (in custom wp at level 69,
+  v constr at level 69,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  left associativity,
+  format "'[v' '[' 'If_'  v  'Then'  ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'") : wp_scope.
+
+Notation "'While' F1 'Do' F2 'Done'" :=
+ ((*Wptag*) (Wpgen_while F1 F2))
+ (in custom wp at level 68,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  format "'[v' '[' 'While'  F1  'Do'  ']' '/' '['   F2 ']' '/' 'Done' ']'") : wp_scope.
+
+Notation "'For' i '=' n1 'To' n2 'Do' F1 'Done'" :=
+ ((*Wptag*) (Wpgen_for_int n1 n2 (fun i => F1)))
+ (in custom wp at level 68,
+  i ident,
+  n1 constr at level 69,
+  n2 constr at level 69,
+  F1 custom wp at level 99,
+  format "'[v' '[' 'For'  i  '='  n1  'To'  n2  'Do'  ']' '/' '['   F1 ']' '/' 'Done' ']'") : wp_scope.
+
+Notation "'For' i '=' n1 'Downto' n2 'Do' F1 'Done'" :=
+ ((*Wptag*) (Wpgen_for_downto_int n1 n2 (fun i => F1)))
+ (in custom wp at level 68,
+  i ident,
+  n1 constr at level 69,
+  n2 constr at level 69,
+  F1 custom wp at level 99,
+  format "'[v' '[' 'For'  i  '='  n1  'Downto'  n2  'Do'  ']' '/' '['   F1 ']' '/' 'Done' ']'") : wp_scope.
+
+
+(* DEPRECATED
+Notation "'Fun' x '=>' F1" :=
+ ((wpgen_fun (fun x => F1)))
+ (in custom wp at level 69,
+  x ident,
+  F1 custom wp at level 99,
+  right associativity,
+ format "'[v' '[' 'Fun'  x  '=>'  F1  ']' ']'") : wp_scope.
+
+Notation "'Fix' f x '=>' F1" :=
+ ((wpgen_fix (fun f x => F1)))
+ (in custom wp at level 69,
+  f ident, x ident,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Fix'  f  x  '=>'  F1  ']' ']'") : wp_scope.
+*)
+
+Notation "'LetFun' f ':=' B1 'in' F1" :=
+ ((*Wptag*) (Wpgen_let_fun (fun A EA Q => \forall f, \[B1] \-* (F1 A EA Q))))
+ (in custom wp at level 69,
+  f ident,
+  B1 constr at level 69,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'LetFun'  f  ':=' '/' '['   B1 ']'  'in' ']' '/' '[' F1 ']' ']'" ) : wp_scope.
+
+
+(* DEPRECATED
+Notation "'FunBody'" :=
+ ((*Wptag*) (Wpgen_body _))
+ (in custom wp at level 69) : wp_scope.
+*)
+
+(* TODO: resolve this one
+Notation "'Body' f x1 ':=' F1" :=
+ ((*Wptag*) (Wpgen_body (forall x1 H A EA Q,
+               (H ==> (*Wptag*) (F1 A EA Q)) ->
+               @Triple (Trm_apps f ((@dyn_make _ _ x1)::nil) A EA H Q))))
+ (in custom wp at level 69,
+  f ident,
+  x1 ident,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Body'  f  x1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+*)
+
+
+
+(* TODO: generalize let-fun to recursive functions *)
+
+
+(* Notation for Case is not reversible, but that's fine because we know that
+   the argument P is always in practice the negation of a test that is visible in F1. *)
+
+(* generic notation for arities that are not supported *)
+Notation "'Case' F1 'Else' F2" :=
+ ((*Wptag*) (Wpgen_case F1 _ F2))
+ (in custom wp at level 69,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  left associativity, (* TODO: could be right? *)
+  format "'[v' '[' 'Case' ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'") : wp_scope.
+
+Notation "'Case' v 'is' p 'Then' F1 'Else' F2" :=
+ ((*Wptag*) (Wpgen_case (fun A EA Q => \[v = p] \-* F1 A EA Q) _ F2))
+ (in custom wp at level 69,
+  v constr at level 0,
+  p constr at level 0,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  left associativity,
+  format "'[v' '[' 'Case'  v  'is'  p  'Then'  ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'") : wp_scope.
+
+Notation "'Case' v 'is' p { x1 } 'Then' F1 'Else' F2" :=
+ ((*Wptag*) (Wpgen_case (fun A EA Q => \forall x1, \[v = p] \-* F1 A EA Q) _ F2))
+ (in custom wp at level 69,
+  v constr at level 0,
+  x1 ident,
+  p constr at level 0,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  left associativity,
+  format "'[v' '[' 'Case'  v  'is'  p  { x1 }  'Then'  ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'") : wp_scope.
+
+Notation "'Case' v 'is' p { x1 x2 } 'Then' F1 'Else' F2" :=
+ ((*Wptag*) (Wpgen_case (fun A EA Q => \forall x1 x2, \[v = p] \-* F1 A EA Q) _ F2))
+ (in custom wp at level 69,
+  v constr at level 0,
+  x1 ident, x2 ident,
+  p constr at level 0,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  left associativity,
+  format "'[v' '[' 'Case'  v  'is'  p  { x1  x2 }  'Then'  ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'") : wp_scope.
+
+Notation "'Case' v 'is' p { x1 x2 x3 } 'Then' F1 'Else' F2" :=
+ ((*Wptag*) (Wpgen_case (fun A EA Q => \forall x1 x2 x3, \[v = p] \-* F1 A EA Q) _ F2))
+ (in custom wp at level 69,
+  v constr at level 0,
+  x1 ident, x2 ident, x3 ident,
+  p constr at level 0,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  left associativity,
+  format "'[v' '[' 'Case'  v  'is'  p  { x1  x2  x3 }  'Then'  ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'") : wp_scope.
+
+Notation "'Case' v 'is' p { x1 x2 x3 x4 } 'Then' F1 'Else' F2" :=
+ ((*Wptag*) (Wpgen_case (fun A EA Q => \forall x1 x2 x3 x4, \[v = p] \-* F1 A EA Q) _ F2))
+ (in custom wp at level 69,
+  v constr at level 0,
+  x1 ident, x2 ident, x3 ident, x4 ident,
+  p constr at level 0,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  left associativity,
+  format "'[v' '[' 'Case'  v  'is'  p  { x1  x2  x3  x4 }  'Then'  ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'") : wp_scope.
+
+Notation "'Case' v 'is' p { x1 x2 x3 x4 x5 } 'Then' F1 'Else' F2" :=
+ ((*Wptag*) (Wpgen_case (fun A EA Q => \forall x1 x2 x3 x4 x5, \[v = p] \-* F1 A EA Q) _ F2))
+ (in custom wp at level 69,
+  v constr at level 0,
+  x1 ident, x2 ident, x3 ident, x4 ident, x5 ident,
+  p constr at level 0,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  left associativity,
+  format "'[v' '[' 'Case'  v  'is'  p  { x1  x2  x3  x4  x5 }  'Then'  ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'") : wp_scope.
+
+
+
+(* TODO: add support for when clauses
+
+
+(* PRINTING FOR F1 in case pattern  -- TODO
+Notation "v 'is' p { x1 x2 .. xn } 'Then' F1" :=
+ (fun A EA Q => hforall (fun x1 => hforall (fun x2 => .. (hforall (fun xn => \[v = p] \-* ^F1 Q)) ..)))
+ (in custom wp at level 69,
+  v constr at level 69,
+  p constr at level 69,
+  x1 binder,
+  x2 binder,
+  xn binder,
+  F1 custom wp at level 99,
+  left associativity
+(*
+  format "'[v' '[' 'Case'   v  'is'  p  { x1 .. xn }  'Then'  ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'"*) ) : wp_scope.
+*)
+
+(*
+Notation "'Case' v 'is' p { x1 } 'Then' F1 'Else' F2" :=
+ ((Wpgen_case (fun A EA Q => \forall x1, \[v = p] \-* ^F1 Q) _ F2))
+ (in custom wp at level 69,
+  v constr at level 69,
+  p constr at level 69,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  left associativity,
+  format "'[v' '[' 'Case'   v  'is'  p  { x1 }  'Then'  ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'") : wp_scope.
+DEPRECATED *)
+
+(* FAILS, why?
+Notation "'Case' v 'is' p { x1 x2 .. xn } 'Then' F1 'Else' F2" :=
+ (Wpgen_case (fun A EA Q => hforall (fun x1 => hforall (fun x2 => .. (hforall (fun xn => \[v = p] \-* ^F1 Q) _ F2) ..))))
+ (in custom wp at level 69,
+  v constr at level 69,
+  p constr at level 69,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  left associativity
+(*
+  format "'[v' '[' 'Case'   v  'is'  p  { x1 .. xn }  'Then'  ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'"*) ) : wp_scope.
+*)
+
+Notation "'\forall' x1 .. xn , H" :=
+  (hforall (fun x1 => .. (hforall (fun xn => H)) ..))
+  (at level 39, x1 binder, H at level 50, right associativity,
+   format "'[' '\forall' '/ '  x1  ..  xn , '/ '  H ']'") : heap_scope.
+
+
+(Wpgen_App_typed _ f (cons (Dyn x1) (cons (Dyn x2) .. (cons (Dyn xn) nil) ..)))
+  (in custom wp at level 68,
+
+
+   TODO: do not attempt to currify the assumption associated with the when clause?
+    this could simplify the tactic that handles the case *)
+
+
+
 (* ---------------------------------------------------------------------- *)
-(* ** Notation for computed WP *)
+(* ** DEPRECATED
 
 Notation "'Fail'" :=
   ((Wpgen_fail))
@@ -824,177 +1318,11 @@ Notation "'Case' v '=' vp [ x1 x2 ] ''=>' F1 ''|' F2" :=
   (at level 69, v, vp at level 0, x1 ident, x2 ident,
    format "'[v' 'Case'  v  '='  vp  [ x1  x2 ]  ''=>'  '[' '/' F1 ']' '[' '/'  ''|'  F2 ']' ']'")
    : wp_scope.
-
-
-
-(* ********************************************************************** *)
-(* TODO: present in the course  wpgen_assert *)
-
-Definition Wpgen_assert (F1:Formula) : Formula :=
-  MkStruct (Formula_cast (fun (Q:unit->hprop) =>
-    Q tt \* \[Q tt ==> ^F1 (fun r => \[r = true] \* Q tt)])).
-
-Definition Wpgen_done : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
-    \[False] \-* \[True]).
-
-Definition Wpgen_Val A1 {EA1:Enc A1} (V:A1) : Formula :=
-  MkStruct (Wpgen_Val_no_mkstruct V).
-  (* MkStruct (fun A (EA:Enc A) (Q:A->hprop) => Post_cast A Q V)). *)
-
-(*
-Arguments WPLifted.Wpgen_Val [A1] {EA1} V. (* prevents expanded implicit arguments *)
 *)
-
-(* TODO
-*)
-
-(* alternative?
-Definition Wpgen_val_lifted `{Enc A} (V:A) : Formula :=
-  MkStruct (Formula_cast (fun (Q:A->hprop) => Q V)).
-*)
-
-(* for the reference:
-
-Definition Formula_cast `{Enc A1} (F:(A1->hprop)->hprop) : Formula :=
-  fun A2 (EA2:Enc A2) (Q:A2->hprop) =>
-    \exists (Q':A1->hprop), F Q' \* \[Q' ===> Post_cast A1 Q].
-
-Definition Wpgen_Val_no_mkstruct A1 `{EA1:Enc A1} (V:A1) : Formula :=
-  fun A2 (EA2:Enc A2) Q => Post_cast A1 Q V.
-*)
-
-(* includes the return type *)
-
-Definition Wpgen_app_typed (A1:Type) `{EA1:Enc A1} (t:trm) : Formula :=
-  MkStruct (Formula_cast (fun (Q1:A1->hprop) => ^(Wp t) Q1)).
-
-Arguments Wpgen_app_typed A1 {EA1} t.
-
-Fixpoint Trm_apps (f:trm) (Vs:dyns) : trm :=
-  match Vs with
-  | nil => f
-  | (Dyn V)::Vs' => Trm_apps (f (enc V)) Vs'
-  end.
-
-Definition Wpgen_App_typed (A1:Type) `{EA1:Enc A1} (f:trm) (Vs:dyns) : Formula :=
-  Wpgen_app_typed A1 (Trm_apps f Vs).
-(* MkStruct (Formula_cast (fun (Q1:A1->hprop) => Wp (Trm_apps f Vs) Q1)). *)
-
-Arguments Wpgen_App_typed A1 {EA1} f Vs.
-
-
-Definition Wpgen_for_downto_int (n1 n2:int) (F1:int->Formula) : Formula :=
-  MkStruct (Formula_cast (fun (Q:unit->hprop) =>
-    \forall (S:int->Formula),
-    let F i := If (i >= n2) then (`Wpgen_seq (F1 i) (S (i-1)))
-                            else (`Wpgen_val val_unit) in
-    \[   (forall i, structural (S i unit _))
-      /\ (forall i (Q':unit->hprop), ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
-
-
-(*
-Definition Wpgen_fix (Fof:val->val->Formula) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
-    \forall vf, \[forall vx A' (EA':Enc A') Q',
-                    Fof vf vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf).
-*)
-
-(* LATER
-Definition Formula_entails (F1 F2:Formula) : Prop :=
-  forall A (EA:Enc A) Q, ^F1 Q ==> ^F2 Q.
-
-Definition Wpgen_fixs (Fof:val->vals->Formula) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
-    \forall vf, \[forall vxs, Formula_entails (Fof vf vxs) (Wp (trm_apps vf vxs))]
-                \-* Q vf).
-
-Definition Wpgen_fixs_custom (Custom:(val->(vals->Formula->Prop)->Prop) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
-    \forall vf, \[Custom vf (fun vxs Fof => Formula_entails (Fof vf) (Wp (trm_apps vf vxs)))]
-                \-* Q vf).
-*)
-
-(* usage: Wpgen_fixs_custom (fun f Pof =>
-             forall A1..AM .. x1..xN, Pof [x1;..;xn] (Wpbody vf) *)
-
-
-Definition Wpgen_let_fun (BodyOf:forall A,Enc A->(A->hprop)->hprop) : Formula :=
-  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
-    BodyOf _ _ Q).
-
-(* LATER: a function that takes a list of propositions parameterized
-    by the list of names of the functions that occur.
-
-   Custom notation for
-
-   Wpgen_let_funs ((fun f1 f2 => B1)::(fun f1 f2 => B2)::nil).
-
-  Definition Wpgen_let_funs (Defs:list()) : Formula :=
-
-*)
-
-Definition Wpgen_let_Val A1 `{EA1:Enc A1} (V:A1) (Fof:A1->Formula) : Formula :=
-  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
-    \forall (x:A1), \[x = V] \-* ^(Fof x) Q).
-
-Definition Wpgen_alias A1 `{EA1:Enc A1} (V:A1) (Fof:A1->Formula) : Formula :=
-  Wpgen_let_Val V Fof.
-
-Definition Wpgen_body (P:Prop) : Prop :=
-  P.
-
-Definition Wpgen_match (F:Formula) : Formula :=
-  F.
-
-Definition Wpgen_negpat (P:Prop) : Prop :=
-  P.
-
-
-Definition Wpgen_dummy : Formula :=
-  Wpgen_fail.
-
 
 (* ********************************************************************** *)
 
-
 (*
-
-    Fixpoint wpgen (E:ctx) (t:trm) : formula :=
-      mkstruct match t with
-      | ..
-      | trm_fix f x t1 => wpgen_fix (fun vf v => wpgen ((f,vf)::(x,v)::E) t1)
-      | ..
-
-    Definition wpgen_fix (Fof:val->val->formula) : formula := fun Q =>
-      \forall vf, \[forall vx Q', Fof vf vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf.
-
-    Lemma xfun_spec_lemma : forall (S:val->Prop) H Q Fof,
-      (forall vf,
-        (forall vx H' Q', (H' ==> Fof vx Q') -> triple (trm_app vf vx) H' Q') ->
-        S vf) ->
-      (forall vf, S vf -> (H ==> Q vf)) ->
-      H ==> wpgen_fun Fof Q.
-    Proof using.
-      introv M1 M2. unfold wpgen_fun. xsimpl. intros vf N.
-      applys M2. applys M1. introv K. rewrite <- wp_equiv. xchange K. applys N.
-    Qed.
-
-    Tactic Notation "xfun" constr(S) :=
-      xseq_xlet_if_needed; xstruct_if_needed; applys xfun_spec_lemma S.
-    Lemma xfun_nospec_lemma : forall H Q Fof,
-      (forall vf,
-           (forall vx H' Q', (H' ==> Fof vx Q') -> triple (trm_app vf vx) H' Q') ->
-         (H ==> Q vf)) ->
-      H ==> wpgen_fun Fof Q.
-    Proof using.
-      introv M. unfold wpgen_fun. xsimpl. intros vf N. applys M.
-      introv K. rewrite <- wp_equiv. xchange K. applys N.
-    Qed.
-
-    Tactic Notation "xfun" :=
-      xseq_xlet_if_needed; xstruct_if_needed; applys xfun_nospec_lemma.
-
 
 
 
@@ -1009,3 +1337,7 @@ Definition Wpgen_dummy : Formula :=
  Q tt \* \[Q tt ==> wp t (fun r => \[r = true] \* Q tt)] ==> wp (val_assert t) Q
 
 *)
+
+
+
+

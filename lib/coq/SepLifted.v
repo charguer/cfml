@@ -611,7 +611,6 @@ Proof using. intros. applys local_LiftPost. applys local_triple. Qed.
 
 Hint Resolve local_Triple.
 
-
 (* ---------------------------------------------------------------------- *)
 (* ** Lemma for changing the encoder in a triple *)
 
@@ -685,6 +684,67 @@ Proof using.
   introv M N. applys* Triple_enc_change M. intros X. xchange (N X).
   unfold Post_cast, Post_cast_val. xsimpl~.
 Qed.
+
+
+(* ********************************************************************** *)
+(* * Lifting of arguments in applications *)
+
+(* ---------------------------------------------------------------------- *)
+(* ** Predicate [Trm_apps] *)
+
+Fixpoint Trm_apps (f:trm) (Vs:dyns) : trm :=
+  match Vs with
+  | nil => f
+  | (Dyn V)::Vs' => Trm_apps (f (enc V)) Vs'
+  end.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Notation for [Trm_apps] *)
+
+(** This set up allows writing [f V1 .. VN] as short for
+    [Trm_apps f ((Dyn V1):: .. ::(Dyn Vn)::nil)]. *)
+
+Declare Scope Trm_apps_scope.
+
+Declare Custom Entry Trm_apps.
+
+Notation "f x" := (Trm_apps f ((Dyn x)::nil))
+  (in custom Trm_apps at level 1,
+   f constr at level 0,
+   x constr at level 0)
+  : Trm_apps_scope.
+
+Notation "f x1 x2 .. xn" := (Trm_apps f (cons (Dyn x1) (cons (Dyn x2) .. (cons (Dyn xn) nil) ..)))
+  (in custom Trm_apps at level 1,
+   f constr at level 0,
+   x1 constr at level 0,
+   x2 constr at level 0,
+   xn constr at level 0)
+  : Trm_apps_scope.
+
+Notation "( x )" :=
+  x
+  (in custom Trm_apps,
+   x at level 99) : Trm_apps_scope.
+
+Open Scope Trm_apps_scope.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Notation for triples *)
+
+Declare Scope triple_scope.
+Open Scope triple_scope.
+
+Notation "'SPEC' t 'PRE' H 'POST' Q" :=
+  (Triple t H Q)
+  (at level 39, t custom Trm_apps at level 0,
+  format "'[v' 'SPEC'  t  '/' 'PRE'  H  '/' 'POST'  Q ']'") : triple_scope.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Lifting of structural rules *)
 
 
 (* ********************************************************************** *)
@@ -932,6 +992,8 @@ Qed.
 
 (* ---------------------------------------------------------------------- *)
 (** Lifting of specitification of primitive functions *)
+
+(* TODO: rewrite using notation? or at least Trm_apps? *)
 
 Section RulesStateOps.
 Transparent Hsingle.

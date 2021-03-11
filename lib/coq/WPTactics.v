@@ -28,28 +28,6 @@ Implicit Types vs : vals.
 Implicit Types ts : trms.
 Implicit Types H : hprop.
 
-
-
-(* ********************************************************************** *)
-(* Notation for triples *)
-
-(** Display [H ==> ^F Q] as [PRE H CODE F POST Q] *)
-
-Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (Wptag F) _ _ Q)
-  (at level 8, H, F, Q at level 0,
-   format "'[v' 'PRE'  H  '/' 'CODE'  F '/' 'POST'  Q ']'") : wp_scope.
-
-(** Display [Triple t H Q] as [TRIPLE t PRE H POST Q] *)
-
-Declare Scope triple_scope.
-Open Scope triple_scope.
-
-Notation "'TRIPLE' t 'PRE' H 'POST' Q" :=
-  (Triple t H Q)
-  (at level 39, t at level 0,
-  format "'[v' 'TRIPLE'  t  '/' 'PRE'  H  '/' 'POST'  Q ']'") : triple_scope.
-
-
 (* ********************************************************************** *)
 (* * Tactics for decoding. *)
 
@@ -1352,6 +1330,7 @@ Proof using.
   { repeat (applys himpl_hforall_r ;=> ?). applys* hwand_hpure_r_intro. }
 Qed.
 
+(* DEPRECATED
 
 Lemma xmatch_lemma_list : forall A `{EA:Enc A} (L:list A) (F1:Formula) (F2:val->val->Formula) H `{HB:Enc B} (Q:B->hprop),
   (L = nil -> H ==> ^F1 Q) ->
@@ -1366,7 +1345,7 @@ Proof using.
     { intros x1 x2 Hx. inverts Hx. applys* M2. }
     { intros N. false* N. } }
 Qed.
-
+*)
 (* conclusion above:
   H ==> ^(Match_ ``L With
          '| 'nil '=> F1
@@ -1399,6 +1378,7 @@ Tactic Notation "xfail" "*" :=
 (* ********************************************************************** *)
 (* Others *)
 
+(* DEPRECATED
 Lemma eliminate_eta_in_code : forall A `{EA:Enc A} H1 (Q1:A->hprop) (F1:Formula),
     (PRE H1
     CODE F1
@@ -1408,7 +1388,7 @@ Lemma eliminate_eta_in_code : forall A `{EA:Enc A} H1 (Q1:A->hprop) (F1:Formula)
     CODE (fun (A0 : Type) (EA0 : Enc A0) (Q : A0 -> hprop) => F1 A0 EA0 Q)
     POST Q1).
 Proof using. introv M. xchanges M. Qed.
-
+*)
 
 
 (* ********************************************************************** *)
@@ -2014,9 +1994,30 @@ Tactic Notation "xalias_subst" :=
 Ltac xclean_trivial_eq tt :=
   repeat match goal with H: ?E = ?E |- _ => clear H end.
 
-Ltac xcase_post H :=
+
+(* in [xcase_post H], H is either an equality [v = p], or a conjunction [v = p /\ istrue b]
+   in case the hypothesis comes from testing a when-clause. *)
+(* DEPRECATED
+Ltac xcase_post_old H :=
   try solve [ discriminate | false; congruence ];
   try (symmetry in H; inverts H; xclean_trivial_eq tt).
+*)
+
+Ltac xcase_post H :=
+  let aux1 tt := try solve [ discriminate | false; congruence ] in
+  let aux2 E := symmetry in E; inverts E; xclean_trivial_eq tt in
+  match type of H with
+  | _ /\ _ =>
+      try (
+        let E := fresh "E" H in
+        destruct H as [H E];
+        aux1 tt;
+        aux2 E (* if inverts E, then keep the original conjunction *)
+      )
+  | _ =>
+      aux1 tt;
+      try (aux2 H)
+  end.
 
 (* [xcase_core E cont1 cont2] is the underlying tactic for [xcase].
    It calls [cont1] on the first subgoal and [cont2] on the second subgoal. *)
@@ -2026,7 +2027,7 @@ Ltac xcase_post H :=
 Ltac xcase_extract_hyps tt :=
   pose ltac_mark;
   repeat (apply himpl_hforall_r; intro);
-  repeat (apply hwand_hpure_r_intro; intro); (* TODO: there should be exactly one *)
+  apply hwand_hpure_r_intro; intro;
   gen_until_mark.
 
 Ltac xcase_no_intros_core cont1 cont2 :=

@@ -245,9 +245,9 @@ Proof using. introv N. rewrite Hfield_eq_fun_Hsingle_ext. xsimpl~. Qed.
 (* LATER: eliminate use of notypeclasses refine in coq v8.12 *)
 
 Lemma Triple_get_field : forall (l:loc) f `{EA:Enc A} (V:A),
-  TRIPLE ((val_get_field f) l)
-    PRE (l`.f ~~> V)
-    POST (fun r => \[r = V] \* (l`.f ~~> V)).
+  Triple ((val_get_field f) l)
+    (l`.f ~~> V)
+    (fun r => \[r = V] \* (l`.f ~~> V)).
 Proof using.
   dup.
   { intros.
@@ -270,9 +270,9 @@ Proof using.
 Qed.
 
 Lemma Triple_set_field_strong : forall A1 `{EA1:Enc A1} (V1:A1) (l:loc) f A2 `{EA2:Enc A2} (V2:A2),
-  TRIPLE ((val_set_field f) l ``V2)
-    PRE (l`.f ~~> V1)
-    POST (fun (r:unit) => l`.f ~~> V2).
+  Triple ((val_set_field f) l ``V2)
+    (l`.f ~~> V1)
+    (fun (r:unit) => l`.f ~~> V2).
 Proof using.
   dup.
   { intros.
@@ -296,16 +296,16 @@ Proof using.
 Qed.
 
 Lemma Triple_set_field : forall A `{EA:Enc A} (V1:A) (l:loc) f (V2:A),
-  TRIPLE ((val_set_field f) l ``V2)
-    PRE (l`.f ~~> V1)
-    POST (fun (r:unit) => l`.f ~~> V2).
+  Triple ((val_set_field f) l ``V2)
+    (l`.f ~~> V1)
+    (fun (r:unit) => l`.f ~~> V2).
 Proof using. intros. applys Triple_set_field_strong. Qed.
 
 Lemma Triple_set_field_Decode : forall (v2:val) A (EA:Enc A) (V1:A) (l:loc) f (V2:A),
   Decode v2 V2 ->
-  TRIPLE ((val_set_field f) l v2)
-    PRE (l`.f ~~> V1)
-    POST (fun (r:unit) => l`.f ~~> V2).
+  Triple ((val_set_field f) l v2)
+    (l`.f ~~> V1)
+    (fun (r:unit) => l`.f ~~> V2).
 Proof using. introv M. unfolds Decode. subst v2. applys Triple_set_field_strong. Qed.
 
 End Triple_fields.
@@ -461,7 +461,7 @@ Proof using.
   lets R: record_get_compute_spec_correct f L.
   unfolds record_get_compute_spec.
   destruct (record_get_compute_dyn f L) as [[T ET V]|]; try solve [xpull].
-  set (H' := (p ~> Record L \-* ^(`Wpgen_Val_no_mkstruct V) Q)).
+  set (H' := (p ~> Record L \-* ^(Wptag (Wpgen_Val_no_mkstruct V)) Q)).
   forwards R': R; eauto. clear R. specializes R' p.
   applys himpl_Wpgen_app_of_Triple.
   applys Triple_enc_change. xapplys (rm R'). simpl.

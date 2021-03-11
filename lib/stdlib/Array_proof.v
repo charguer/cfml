@@ -28,7 +28,7 @@ Parameter bounded_length : forall A `{EA:Enc A} t (xs : list A),
 
 Parameter of_list_spec : forall A `{EA:Enc A} (xs:list A),
   SPEC (Array_ml.of_list xs)
-    PREC \[]
+    PRE \[]
     POST (fun t => t ~> Array xs).
 
 Hint Extern 1 (RegisterSpec Array_ml.of_list) => Provide of_list_spec.
@@ -39,7 +39,7 @@ Hint Extern 1 (RegisterSpec Array_ml.of_list) => Provide of_list_spec.
 
 Parameter length_spec : forall A `{EA:Enc A} (xs:list A) t,
   SPEC (Array_ml.length t)
-    INVA (t ~> Array xs)
+    INV (t ~> Array xs)
     POST (fun n => \[n = length xs]).
 
 Hint Extern 1 (RegisterSpec Array_ml.length) => Provide length_spec.
@@ -51,7 +51,7 @@ Hint Extern 1 (RegisterSpec Array_ml.length) => Provide length_spec.
 Parameter get_spec : forall A `{EA:Enc A} `{Inhab A} (xs:list A) t i,
   index xs i ->
   SPEC (Array_ml.get t i)
-    INVA (t ~> Array xs)
+    INV (t ~> Array xs)
     POST \[= xs[i] ].
 
 Hint Extern 1 (RegisterSpec Array_ml.get) => Provide get_spec.
@@ -63,7 +63,7 @@ Hint Extern 1 (RegisterSpec Array_ml.get) => Provide get_spec.
 Parameter set_spec : forall A `{EA:Enc A} (xs:list A) t i x,
   index xs i ->
   SPEC (Array_ml.set t i x)
-    PREC (t ~> Array xs)
+    PRE (t ~> Array xs)
     POSTUNIT (t ~> Array (xs[i:=x])).
 
 Hint Extern 1 (RegisterSpec Array_ml.set) => Provide set_spec.
@@ -82,7 +82,7 @@ Hint Extern 1 (RegisterSpec Array_ml.set) => Provide set_spec.
 Parameter make_spec : forall A `{EA:Enc A} n (x:A),
   0 <= n ->
   SPEC (Array_ml.make n x)
-    PREC \[]
+    PRE \[]
     POST (fun t => \exists xs, t ~> Array xs \* \[xs = make n x]).
 
 Hint Extern 1 (RegisterSpec Array_ml.make) => Provide make_spec.
@@ -94,10 +94,10 @@ Axiom init_spec : forall A `{EA:Enc A} (F : list A -> hprop) (n : int) (f : func
       index n i ->
       i = length xs ->
       SPEC (f i)
-        PREC (F xs)
+        PRE (F xs)
         POST (fun x => F (xs & x))) ->
   SPEC (Array_ml.init n f)
-    PREC (F nil)
+    PRE (F nil)
     POST (fun t =>
            \exists xs, t ~> Array xs \* \[n = length xs] \* F xs).
 (* TODO *)
@@ -165,10 +165,10 @@ Lemma init_spec : forall A `{EA:Enc A} (F : list A -> hprop) (n : int) (f : func
       index n i ->
       i = length xs ->
       SPEC (f i)
-        PREC (F xs)
+        PRE (F xs)
         POST (fun x => F (xs & x))) ->
   SPEC (Array_ml.init n f)
-    PREC (F nil)
+    PRE (F nil)
     POST (fun t =>
            \exists xs, t ~> Array xs \* \[n = length xs] \* F xs).
 Proof.
@@ -240,7 +240,7 @@ Parameter fill_spec : forall A `{EA:Enc A} `{Inhab A} (xs:list A) t ofs len x,
   0 <= len ->
   ofs + len <= length xs ->
   SPEC (Array_ml.fill t ofs len x)
-    PREC (t ~> Array xs)
+    PRE (t ~> Array xs)
     POSTUNIT (\exists xs', t ~> Array xs' \*
       \[ length xs' = length xs ] \*
       \[ forall i, ofs <= i < ofs + len -> xs'[i] = x ] \*
@@ -260,11 +260,11 @@ Parameter iter_spec : forall A (I : list A -> hprop) xs f t,
     forall ys x,
     prefix (ys & x) xs ->
     SPEC (f x)
-      PREC (I  ys)
+      PRE (I  ys)
       POSTUNIT (I (ys & x))
   ) ->
   SPEC (Array_ml.iter f t)
-    PREC (t ~> Array xs \* I nil)
+    PRE (t ~> Array xs \* I nil)
     POSTUNIT (t ~> Array xs \* I xs ).
 
 Hint Extern 1 (RegisterSpec Array_ml.iter) => Provide iter_spec.

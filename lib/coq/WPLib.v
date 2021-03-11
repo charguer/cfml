@@ -45,139 +45,43 @@ Notation "H1 ==+> H2" := (himpl H1 (hstar H1 H2))
   (at level 55, only parsing) : triple_scope.
 
 
-
 (************************************************************)
-(** Notation for parsing lifted applications *)
+(** Additional notation for triples *)
 
-(** This set up allows writing [f V1 .. VN] as short for
-    [Trm_apps f ((Dyn V1):: .. ::(Dyn Vn)::nil)]. *)
-
-Declare Scope Trm_apps_scope.
-
-Declare Custom Entry Trm_apps.
-
-Notation "f x" := (Trm_apps f ((Dyn x)::nil))
-  (in custom Trm_apps at level 1,
-   f constr at level 0,
-   x constr at level 0)
-  : Trm_apps_scope.
-
-Notation "f x1 x2 .. xn" := (Trm_apps f (cons (Dyn x1) (cons (Dyn x2) .. (cons (Dyn xn) nil) ..)))
-  (in custom Trm_apps at level 1,
-   f constr at level 0,
-   x1 constr at level 0,
-   x2 constr at level 0,
-   xn constr at level 0)
-  : Trm_apps_scope.
-
-Notation "( x )" :=
-  x
-  (in custom Trm_apps,
-   x at level 99) : Trm_apps_scope.
-
-Open Scope Trm_apps_scope.
-
-
-(************************************************************)
-(** Notation for Specifications *)
-
-Notation "'SPEC' t 'PREC' H 'POST' Q" :=
-  (Triple t H Q)
-  (at level 39, t custom Trm_apps at level 0,
-  format "'[v' 'SPEC'  t  '/' 'PREC'  H  '/' 'POST'  Q ']'") : triple_scope.
-
-Notation "'SPEC' t 'INVA' H 'POST' Q" :=
+Notation "'SPEC' t 'INV' H 'POST' Q" :=
   (Triple t H (Q \*+ H))
   (at level 39, t custom Trm_apps at level 0,
-  format "'[v' 'SPEC'  t  '/' 'INVA'  H  '/' 'POST'  Q ']'") : triple_scope.
+  format "'[v' 'SPEC'  t  '/' 'INV'  H  '/' 'POST'  Q ']'") : triple_scope.
 
-Notation "'SPEC' t 'PREC' H 'POSTUNIT' H2" :=
-  (Triple t H (fun (_:unit) => H2))
+Notation "'SPEC' t 'PRE' H1 'POSTUNIT' H2" :=
+  (Triple t H1 (fun (_:unit) => H2))
   (at level 39, t custom Trm_apps at level 0,
-  format "'[v' 'SPEC'  t  '/' 'PREC'  H  '/' 'POSTUNIT'  H2 ']'") : triple_scope.
+  format "'[v' 'SPEC'  t  '/' 'PRE'  H1  '/' 'POSTUNIT'  H2 ']'") : triple_scope.
+
+Notation "'SPEC' t 'INV' H1 'POSTUNIT' H2" :=
+  (Triple t H1 (fun (_:unit) => H2 \* H1))
+  (at level 39, t custom Trm_apps at level 0,
+  format "'[v' 'SPEC'  t  '/' 'INV'  H1  '/' 'POSTUNIT'  H2 ']'") : triple_scope.
+
+Notation "'SPEC' t 'PRE' H1 'INV' H2 'POST' Q" :=
+  (Triple t (H1 \* H2) (Q \*+ H2))
+  (at level 39, t custom Trm_apps at level 0,
+  format "'[v' 'SPEC'  t '/' 'PRE'  H1 '/' 'INV'  H2  '/' 'POST'  Q ']'") : triple_scope.
+
+Notation "'SPEC' t 'PRE' H1 'INV' H2 'POSTUNIT' H3" :=
+  (Triple t (H1 \* H2) (fun (_:unit) => H3 \* H2))
+  (at level 39, t custom Trm_apps at level 0,
+  format "'[v' 'SPEC'  t '/' 'PRE'  H1 '/' 'INV'  H2  '/' 'POSTUNIT'  H3 ']'") : triple_scope.
 
 
-Open Scope triple_scope.
+(* DEPRECATED
 
-(*
-Lemma test_spec : forall (a b:bool),
-  SPECS (not a b)
-    PRES \[]
-    POST \[= !a ].
-*)
-
-
-
-(************************************************************)
-(** DEPRECATED
-
-(** [MYSPEC t PRE H POST Q] is a notation for [Triple t H Q] *)
-
-Notation "'MYSPEC' t 'PRE' H 'POST' Q" :=
+Notation "'TRIPLE' t 'PRE' H 'POST' Q" :=
   (Triple t H Q)
   (at level 39, t at level 0,
-  format "'[v' 'MYSPEC'  t  '/' 'PRE'  H  '/' 'POST'  Q ']'") : triple_scope.
+  format "'[v' 'TRIPLE'  t  '/' 'PRE'  H  '/' 'POST'  Q ']'") : triple_scope.
 
-(** [MYSPEC t PRE H POSTUNIT H2] is short for [POST (fun (_:unit) => H2)] *)
-
-Notation "'MYSPEC' t 'PRE' H 'POSTUNIT' H2" :=
-  (Triple t H (fun (_:unit) => H2))
-  (at level 39, t at level 0, only parsing,
-  format "'[v' 'MYSPEC'  t  '/' 'PRE'  H  '/' 'POSTUNIT'  H2 ']'") : triple_scope.
-
-(** [MYSPEC t PRE H RET X POST H2] is short for [POST (fun x => H2)]. *)
-
-Notation "'MYSPEC' t 'PRE' H1 'RET' v 'POST' H2" :=
-  (Triple t H1 (fun r => \[r = v] \* H2))
-  (at level 39, t at level 0, only parsing,
-   format "'[v' 'MYSPEC'  t  '/' 'PRE'  H1  '/'  'RET'  v  '/'  'POST'  H2 ']'") : triple_scope.
-
-
-(* TODO: CONFLICT when adding the following notation WITH keyword MYSPEC *)
-
-(** [MYSPEC' t INV H POST Q] is short for [MYSPEC T PRE H POST (Q \*+ H)] *)
-
-Notation "'MYSPEC'' t 'INV' H 'POST' Q" :=
-  (Triple t H%hprop (Q \*+ H%hprop))
-  (at level 69, only parsing,
-   format "'[v' 'MYSPEC''  t '/' '[' 'INV'  H  ']'  '/' '[' 'POST'  Q  ']'  ']'")
-   : triple_scope.
-
-(** [MYSPEC' t PRE H1 INV H2 POST Q] is short for [MYSPEC T PRE (H1 \* H2) POST (Q \*+ H2)] *)
-
-Notation "'MYSPEC'' t 'PRE' H1 'INV' H2 'POST' Q" :=
-  (Triple t (H1 \* H2%hprop) (Q \*+ H2%hprop))
-  (at level 69, only parsing,
-   format "'[v' 'MYSPEC''  t '/' '[' 'PRE'  H1  ']'  '/' '[' 'INV'  H2  ']'  '/' '[' 'POST'  Q  ']'  ']'")
-   : triple_scope.
-
-(** Additional combination of [INV] with [POSTUNIT] and [RET] *)
-
-Notation "'MYSPEC'' t 'INV' H1 'POSTUNIT' H2" :=
-  (Triple t H1 (fun (_:unit) => H1 \* H2%hprop))
-  (at level 69, only parsing,
-   format "'[v' 'MYSPEC''  t '/' '[' 'INV'  H1 ']'  '/' '[' 'POSTUNIT'  H2  ']'  ']'")
-   : triple_scope.
-
-Notation "'MYSPEC'' t 'PRE' H1 'INV' H2 'POSTUNIT' H3" :=
-  (Triple t (H1 \* H2%hprop) (fun (_:unit) => H3 \* H2%hprop))
-  (at level 69, only parsing,
-   format "'[v' 'MYSPEC''  t '/' '[' 'PRE'  H1  ']'  '/' '[' 'INV'  H2  ']'  '/' '[' 'POSTUNIT'  H3  ']'  ']'")
-   : triple_scope.
-
-Notation "'MYSPEC'' t 'INV' H1 'RET' v 'POST' H2" :=
-  (Triple t H1%hprop (fun r => \[r = v] \* H2))
-  (at level 69, only parsing,
-   format "'[v' 'MYSPEC''  t '/' '[' 'INV'  H1 ']'  '/' '[' 'RET'  v  'POST'  H2  ']'  ']'")
-   : triple_scope.
-
-Notation "'MYSPEC'' t 'PRE' H1 'INV' H2 'RET' v 'POST' H3" :=
-  (Triple t (H1 \* H2%hprop) (fun r => \[r = v] \* H3 \* H2%hprop))
-  (at level 69, only parsing,
-   format "'[v' 'MYSPEC''  t '/' '[' 'PRE'  H1  ']'  '/' '[' 'INV'  H2  ']'  '/' '[' 'RET'  v  'POST'  H3  ']'  ']'")
-   : triple_scope.
 *)
-
 
 
 
@@ -368,5 +272,82 @@ Tactic Notation "xclose2" "~" constr(x) :=
   xclose2 x; auto_tilde.
 Tactic Notation "xclose2" "*" constr(x) :=
   xclose2 x; auto_star.
+
+
+
+
+
+
+
+
+(************************************************************)
+(** DEPRECATED
+
+(** [MYSPEC t PRE H POST Q] is a notation for [Triple t H Q] *)
+
+Notation "'MYSPEC' t 'PRE' H 'POST' Q" :=
+  (Triple t H Q)
+  (at level 39, t at level 0,
+  format "'[v' 'MYSPEC'  t  '/' 'PRE'  H  '/' 'POST'  Q ']'") : triple_scope.
+
+(** [MYSPEC t PRE H POSTUNIT H2] is short for [POST (fun (_:unit) => H2)] *)
+
+Notation "'MYSPEC' t 'PRE' H 'POSTUNIT' H2" :=
+  (Triple t H (fun (_:unit) => H2))
+  (at level 39, t at level 0, only parsing,
+  format "'[v' 'MYSPEC'  t  '/' 'PRE'  H  '/' 'POSTUNIT'  H2 ']'") : triple_scope.
+
+(** [MYSPEC t PRE H RET X POST H2] is short for [POST (fun x => H2)]. *)
+
+Notation "'MYSPEC' t 'PRE' H1 'RET' v 'POST' H2" :=
+  (Triple t H1 (fun r => \[r = v] \* H2))
+  (at level 39, t at level 0, only parsing,
+   format "'[v' 'MYSPEC'  t  '/' 'PRE'  H1  '/'  'RET'  v  '/'  'POST'  H2 ']'") : triple_scope.
+
+
+(* TODO: CONFLICT when adding the following notation WITH keyword MYSPEC *)
+
+(** [MYSPEC' t INV H POST Q] is short for [MYSPEC T PRE H POST (Q \*+ H)] *)
+
+Notation "'MYSPEC'' t 'INV' H 'POST' Q" :=
+  (Triple t H%hprop (Q \*+ H%hprop))
+  (at level 69, only parsing,
+   format "'[v' 'MYSPEC''  t '/' '[' 'INV'  H  ']'  '/' '[' 'POST'  Q  ']'  ']'")
+   : triple_scope.
+
+(** [MYSPEC' t PRE H1 INV H2 POST Q] is short for [MYSPEC T PRE (H1 \* H2) POST (Q \*+ H2)] *)
+
+Notation "'MYSPEC'' t 'PRE' H1 'INV' H2 'POST' Q" :=
+  (Triple t (H1 \* H2%hprop) (Q \*+ H2%hprop))
+  (at level 69, only parsing,
+   format "'[v' 'MYSPEC''  t '/' '[' 'PRE'  H1  ']'  '/' '[' 'INV'  H2  ']'  '/' '[' 'POST'  Q  ']'  ']'")
+   : triple_scope.
+
+(** Additional combination of [INV] with [POSTUNIT] and [RET] *)
+
+Notation "'MYSPEC'' t 'INV' H1 'POSTUNIT' H2" :=
+  (Triple t H1 (fun (_:unit) => H1 \* H2%hprop))
+  (at level 69, only parsing,
+   format "'[v' 'MYSPEC''  t '/' '[' 'INV'  H1 ']'  '/' '[' 'POSTUNIT'  H2  ']'  ']'")
+   : triple_scope.
+
+Notation "'MYSPEC'' t 'PRE' H1 'INV' H2 'POSTUNIT' H3" :=
+  (Triple t (H1 \* H2%hprop) (fun (_:unit) => H3 \* H2%hprop))
+  (at level 69, only parsing,
+   format "'[v' 'MYSPEC''  t '/' '[' 'PRE'  H1  ']'  '/' '[' 'INV'  H2  ']'  '/' '[' 'POSTUNIT'  H3  ']'  ']'")
+   : triple_scope.
+
+Notation "'MYSPEC'' t 'INV' H1 'RET' v 'POST' H2" :=
+  (Triple t H1%hprop (fun r => \[r = v] \* H2))
+  (at level 69, only parsing,
+   format "'[v' 'MYSPEC''  t '/' '[' 'INV'  H1 ']'  '/' '[' 'RET'  v  'POST'  H2  ']'  ']'")
+   : triple_scope.
+
+Notation "'MYSPEC'' t 'PRE' H1 'INV' H2 'RET' v 'POST' H3" :=
+  (Triple t (H1 \* H2%hprop) (fun r => \[r = v] \* H3 \* H2%hprop))
+  (at level 69, only parsing,
+   format "'[v' 'MYSPEC''  t '/' '[' 'PRE'  H1  ']'  '/' '[' 'INV'  H2  ']'  '/' '[' 'RET'  v  'POST'  H3  ']'  ']'")
+   : triple_scope.
+*)
 
 
