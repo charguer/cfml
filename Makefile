@@ -25,7 +25,7 @@ all: coqlib generator
 	$(MAKE) CFMLC=$(CFML)/generator/cfmlc.native -C lib/stdlib
 
 coqlib:
-	$(MAKE) CFML=$(CFML) -C lib/coq proof
+	$(MAKE) CFML=$(CFML) -C lib/coq vo
 
 generator:
 	rm -f generator/cfml_config.ml

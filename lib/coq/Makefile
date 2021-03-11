@@ -12,7 +12,6 @@ PWD   := $(shell pwd)
 V     := $(wildcard $(PWD)/*.v)
 
 
-
 ifdef INCLUDE_TLC_AS_DEPENDENCIES
 # For Arthur: encompass TLC in the scope of the dependency graph.
 # This allows us to recompile part of TLC, if it has changed.

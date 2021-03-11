@@ -95,9 +95,11 @@ let let_val_pair_int () =
    let x = (3,4) in
    x
 
+(* TODO LATER
 let let_val_poly () =
    let _x = [] in
    3
+   *)
 
 
 (********************************************************************)
@@ -151,6 +153,8 @@ let let_fun_in_let () =
 
 (********************************************************************)
 (* ** Polymorphic let bindings and value restriction *)
+
+(* LATER
 
 let let_poly_p0 () =
    let x = (None = None) in ()
@@ -246,6 +250,7 @@ let let_poly_r3 () =
       let x = ref [] in
       [] in
    r
+*)
 
 (* ---Code not allowed because produces a ['_a list ref] at top level;
    i.e. rejected when using OCaml "-strict_value_restriction" flag
@@ -451,6 +456,8 @@ let (top_val_pair_fun_1,top_val_pair_fun_2) =
 (********************************************************************)
 (* ** Polymorphic let bindings *)
 
+(*  TODO LATER
+
 let let_poly_nil () =
   let x = [] in x
 
@@ -462,6 +469,8 @@ let let_poly_nil_pair_homogeneous () =
 
 let let_poly_nil_pair_heterogeneous () =
   let x : ('a list * int list) = ([], []) in x
+
+*)
 
 (* TODO: polymorphic recursion *)
 

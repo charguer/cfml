@@ -43,8 +43,8 @@ ifndef V
 endif
 
 COQINCLUDE := \
-  -Q $(shell $(COQBIN)coqc -where)/user-contrib/CFML/Stdlib CFML.Stdlib \
-  -Q $(PWD) EXAMPLE \
+  -R $(shell $(COQBIN)coqc -where)/user-contrib/CFML/Stdlib CFML.Stdlib \
+  -R $(PWD) EXAMPLE \
 
 ##############################################################################
 # Options for OCaml.
@@ -73,7 +73,7 @@ OCAMLBUILD := \
 ##############################################################################
 # Targets
 
-.PHONY: all clean
+.PHONY: all clean _CoqProject
 
 all:
 # We use a sequence intentionally, as it does not make much sense
@@ -85,6 +85,16 @@ all:
 # 3. Check the Coq proofs.
 #    While we're at it, regenerate the _CoqProject file. (Optional.)
 	@ $(MAKE) -f $(TLC)/Makefile.coq _CoqProject proof
+
+
+##############################################################################
+# _CoqProject
+
+_CoqProject: .FORCE
+	@echo $(COQINCLUDE) > $@
+
+.FORCE:
+
 
 ##############################################################################
 # Cleanup.

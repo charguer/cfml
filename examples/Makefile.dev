@@ -24,8 +24,8 @@ export
 COQINCLUDE := \
   -Q $(TLC) TLC \
   -Q $(CFML)/lib/coq CFML \
-  -Q $(CFML)/lib/stdlib CFML.Stdlib \
-  -Q $(PWD) EXAMPLE
+  -R $(CFML)/lib/stdlib CFML.Stdlib \
+  -R $(PWD) EXAMPLE
   
 
 ##############################################################################
