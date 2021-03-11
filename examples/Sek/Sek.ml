@@ -116,22 +116,33 @@ let ppush s x =
     let p = { support = c;
                view_size = 1;
                version = 0; } in
-    { s with pfront = p;
-             ptail = s.pfront :: s.ptail }
+    { pversion_max = s.pversion_max;
+      (* s with *)
+      pfront = p;
+      ptail = s.pfront :: s.ptail }
   end else begin
     let p = s.pfront in
     let n = p.view_size in
     if n = p.support.size then begin
       chunk_push p.support x;
-      let p' = { p with view_size = n+1 } in
-      { s with pfront = p' }
+      let p' = { support = p.support;
+                 version = p.version;
+                 (* p with *)
+                 view_size = n+1 } in
+      { pversion_max = s.pversion_max;
+        ptail = s.ptail;
+        (* s with *)
+        pfront = p' }
     end else begin
       let c = chunk_of_pchunk p in
       chunk_push c x;
       let p' = { support = c;
                  view_size = n+1;
                  version = 0; } in
-      { s with pfront = p' }
+      { pversion_max = s.pversion_max;
+        ptail = s.ptail;
+        (* s with *)
+        pfront = p' }
     end
 end
 
@@ -140,18 +151,29 @@ let ppop s =
   if n = 0 then raise Not_found;
   let n' = n - 1 in
   let x = s.pfront.support.data.(n') in
-  let p' = { s.pfront with view_size = n' } in
+  let p' = { support = s.pfront.support;
+             version = s.pfront.version;
+             (* s.pfront with *)
+             view_size = n' } in
   let s' =
     if n' > 0 then
-      { s with pfront = p' }
+      { pversion_max = s.pversion_max;
+        ptail = s.ptail;
+        (* s with *)
+        pfront = p' }
     else
       match s.ptail with
-      | [] -> { s with pfront = p' }
-      | p::ps -> { s with pfront = p; ptail = ps }
+      | [] -> { pversion_max = s.pversion_max;
+                ptail = s.ptail;
+                (* s with *)
+                pfront = p' }
+      | p::ps -> { pversion_max = s.pversion_max;
+                   (* s with *)
+                   pfront = p; ptail = ps }
     in
   (s',x)
 
-(* Test *)
+(* Test
 
 let nb = 1000
 
@@ -175,3 +197,4 @@ let _ =
     s := s2;
     assert (x = i);
   done
+ *)
