@@ -1,8 +1,11 @@
 Set Implicit Arguments.
-Require Import Pervasives_ml.
 From CFML Require Import WPLib.
-Generalizable Variable A.
 
+(* TODO *)
+From CFML Require Import WPRecord.
+
+Generalizable Variable A.
+Require Import Pervasives_ml.
 
 (************************************************************)
 (** updates *)
@@ -10,7 +13,7 @@ Generalizable Variable A.
 Ltac xgoal_fun tt ::=
   match xgoal_code_without_wptag tt with
   | Wpgen_app (trm_apps (trm_val ?f) _) => constr:(f)
-  | Wpgen_App_typed ?f ?Vs => constr:(f)
+  | Wpgen_App_typed ?T ?f ?Vs => constr:(f)
   end.
 
 
@@ -20,7 +23,7 @@ Ltac xgoal_fun tt ::=
 (* TODO : also rename heap_scope to hprop_scope 
    see what to import from SLF records *)
 
-From CFML Require Import WPRecord.
+
 
 Notation "p '~~~>' kvs" := (p ~> Record kvs)
   (at level 32) : heap_scope.
@@ -460,7 +463,7 @@ Parameter infix_neq_spec : forall A (a b : A),
 Hint Extern 1 (RegisterSpec infix_lt_gt__) => Provide infix_neq_spec.
 
 Lemma min_spec : forall (n m:int),
-  SPEC (Pervasives_ml.min n m)
+  SPEC (min n m)
     PREC \[]
     POST \[= Z.min n m ].
 Proof using.
@@ -470,7 +473,7 @@ Proof using.
 Qed.
 
 Lemma max_spec : forall (n m:int),
-  SPEC (Pervasives_ml.max n m)
+  SPEC (max n m)
     PREC \[]
     POST \[= Z.max n m ].
 Proof using.
@@ -531,7 +534,7 @@ Parameter infix_slash_spec : forall (n m:int),
 
 Parameter mod___spec : forall (n m:int),
   m <> 0 ->
-  SPEC (Pervasives_ml.mod__ n m)
+  SPEC (mod__ n m)
     PREC \[]
     POST \[= Z.rem n m ].
 
@@ -540,7 +543,7 @@ Hint Extern 1 (RegisterSpec infix_plus__) => Provide infix_plus_spec.
 Hint Extern 1 (RegisterSpec infix_minus__) => Provide infix_minus_spec.
 Hint Extern 1 (RegisterSpec infix_star__) => Provide infix_star_spec.
 Hint Extern 1 (RegisterSpec infix_slash__) => Provide infix_slash_spec.
-Hint Extern 1 (RegisterSpec Pervasives_ml.mod__) => Provide mod___spec.
+Hint Extern 1 (RegisterSpec mod__) => Provide mod___spec.
 
 Notation "x `/` y" := (Z.quot x y)
   (at level 69, right associativity) : charac.
@@ -565,7 +568,7 @@ Notation "n `+ m" := (App infix_mod_ n m;)
  *)
 
 Lemma succ_spec : forall (n:int),
-  SPEC (Pervasives_ml.succ n)
+  SPEC (succ n)
     PREC \[]
     POST \[= n+1 ].
 Proof using.
@@ -573,7 +576,7 @@ Proof using.
 Qed.
 
 Lemma pred_spec : forall (n:int),
-  SPEC (Pervasives_ml.pred n)
+  SPEC (pred n)
     PREC \[]
     POST \[= n-1 ].
 Proof using.
@@ -581,7 +584,7 @@ Proof using.
 Qed.
 
 Lemma abs___spec : forall (n:int),
-  SPEC (Pervasives_ml.abs__ n)
+  SPEC (abs__ n)
     PREC \[]
     POST \[= Z.abs n ].
 Proof using.
@@ -660,7 +663,7 @@ Hint Extern 1 (RegisterSpec asr) => Provide asr_spec.
 (************************************************************)
 (** References *)
 
-Definition Ref {A} (v:A) (r:loc) :=
+Definition Ref `{EA:Enc A} (v:A) (r:loc) :=
   r ~~~> `{ contents' := v }.
 
 (* TODO: THIS IS NOW REALIZED AT A LOWER LEVEL 
@@ -683,7 +686,7 @@ Qed.
 Notation "r '~~>' v" := (r ~> Ref v)
   (at level 32, no associativity) : heap_scope.
 
-Lemma haffine_Ref : forall A r (v: A),
+Lemma haffine_Ref : forall `{EA:Enc A} r (v: A),
   haffine (r ~~> v).
 Admitted. (* TODO Proof. intros. unfold Ref, hdata. affine. Qed. *)
 
@@ -698,19 +701,19 @@ Hint Transparent ref_ : haffine.
 Ltac xapp_record tt ::= (* initial dummy binding located in WPTactics *)
   match xgoal_code_without_wptag tt with
   | Wpgen_record_new ?Lof => applys xapp_lemma_record_new
-  | Wpgen_App_typed ?f ?Vs => 
+  | Wpgen_App_typed ?T ?f ?Vs => 
       match f with
-      | (val_get_field _) => xapp_record_get tt
-      | (val_set_field _) => xapp_record_set tt
-      | (val_record_init _) => xapp_record_new tt (* TODO redundant? *)
-      | (val_record_delete _) => xapp_record_delete tt
+      | trm_val (val_get_field _) => xapp_record_get tt
+      | trm_val (val_set_field _) => xapp_record_set tt
+      | trm_val (val_record_init _) => xapp_record_new tt (* TODO redundant? *)
+      | trm_val (val_record_delete _) => xapp_record_delete tt
       end
   end.
 
 
 
 
-Lemma ref_spec : forall A (v:A),
+Lemma ref_spec : forall `{EA:Enc A} (v:A),
   SPEC (ref v)
     PREC \[]
     POST (fun r => r ~~> v).
@@ -803,16 +806,55 @@ Ltac xcf_fallback f :=
 
 
 
+Parameter xapp_record_Get : forall A `{EA:Enc A} (Q:A->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
+  H ==> p ~> Record L \* (match record_get_compute_dyn f L with
+    | None => \[False]
+    | Some (Dyn V) => (p ~> Record L) \-* ^(Wptag (Wpgen_Val_no_mkstruct V)) (protect Q) end) ->
+  H ==> ^(Wpgen_App_typed A (trm_val (val_get_field f)) ((Dyn p)::nil)) Q.
+(* TODO: proof *)
 
-Lemma infix_emark_spec : forall `{EA:Enc A} (v:A) r,
+Parameter xapp_record_Set : forall A1 `{EA1:Enc A1} (W:A1) (Q:unit->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
+  H ==> p ~> Record L \* ((
+    match record_set_compute_dyn f (Dyn W) L with
+    | None => \[False]
+    | Some L' =>
+        (p ~> Record L' \-* protect (Q tt)) end)  ) ->
+  H ==> ^(Wpgen_App_typed unit (trm_val (val_set_field f)) ((Dyn p)::(Dyn W)::nil)) Q.
+
+
+Ltac xapp_record_get_grouped tt ::=
+  applys xapp_record_Get; xapp_record_get_set_post tt.
+
+Ltac xapp_record_set_grouped tt ::=
+  applys xapp_record_Set; xapp_record_get_set_post tt.
+
+
+Ltac xcast_debug tt :=
+  idtac "[xcast] fails to simplify due to type mismatch";
+  match goal with |- 
+   ?H ==> (Wptag (@Wpgen_Val_no_mkstruct ?A1 ?EA1 ?X)) ?A2 ?EA2 ?Q => 
+   xtypes_type false A1 EA1;
+   xtypes_type false A2 EA2
+ end.
+
+Ltac xcast_core tt ::=
+  first [ xcast_pre tt; applys xcast_lemma 
+        | xcast_debug tt ].
+
+
+Lemma infix_emark_spec : forall A `{EA:Enc A} (v:A) r,
   SPEC (infix_emark__ r)
     INVA (r ~~> v)
     POST \[= v].
-Proof using. xunfold @Ref. xcf. xapp. 
+Proof using. xunfold @Ref. xcf_go*. Qed.
 
-Qed.
+Notation "'SPEC' t 'PREC' H 'POSTUNIT' H2" :=
+  (Triple t H (fun (_:unit) => H2))
+  (at level 39, t custom Trm_apps at level 0,
+  format "'[v' 'SPEC'  t  '/' 'PREC'  H  '/' 'POSTUNIT'  H2 ']'") : triple_scope.
 
-Lemma infix_colon_eq_spec : forall A (v w:A) r,
+
+Lemma infix_colon_eq_spec : forall A `{EA:Enc A} (v w:A) r,
   SPEC (infix_colon_eq__ r w)
     PREC (r ~~> v)
     POSTUNIT (r ~~> w).
@@ -822,25 +864,32 @@ Hint Extern 1 (RegisterSpec ref) => Provide ref_spec.
 Hint Extern 1 (RegisterSpec infix_emark__) => Provide infix_emark_spec.
 Hint Extern 1 (RegisterSpec infix_colon_eq__) => Provide infix_colon_eq_spec.
 
-.. TODO ALREADY DEFINED ELSEWHERE
-Notation "'App'' `! r" := (App infix_emark__ r;)
-  (at level 69, no associativity, r at level 0,
-   format "'App''  `! r") : charac.
 
-Notation "'App'' r `:= x" := (App infix_colon_eq__ r x;)
+
+Notation "'App'' `! r" := (Wpgen_App_typed _ (trm_val infix_emark__) ((Dyn r)::nil))
   (at level 69, no associativity, r at level 0,
-   format "'App''  r  `:=  x") : charac.
+   format "'App''  `! r") : wp_scope.
+
+Notation "'App'' r `:= x" := (Wpgen_App_typed _ (trm_val infix_colon_eq__) ((Dyn r)::(Dyn x)::nil))
+  (at level 69, no associativity, r at level 0,
+   format "'App''  r  `:=  x") : wp_scope.
+
+(* with explicit type: not needed
+Notation "'App'' { T } r `:= x" := (Wpgen_App_typed T (trm_val infix_colon_eq__) ((Dyn r)::(Dyn x)::nil))
+  (at level 69, no associativity, r at level 0,
+   format "'App''  { T }  r  `:=  x") : wp_scope.
+*)
 
 Lemma incr_spec : forall (n:int) r,
   SPEC (incr r)
     PREC (r ~~> n)
-    POST (# r ~~> (n+1)).
+    POSTUNIT (r ~~> (n+1)).
 Proof using. xcf_go~. Qed.
 
 Lemma decr_spec : forall (n:int) r,
   SPEC (decr r)
     PREC (r ~~> n)
-    POST (# r ~~> (n-1)).
+    POSTUNIT (r ~~> (n-1)).
 Proof using. xcf_go~. Qed.
 
 Hint Extern 1 (RegisterSpec incr) => Provide incr_spec.
@@ -852,14 +901,14 @@ Hint Extern 1 (RegisterSpec decr) => Provide decr_spec.
 (** Group of References -- TODO: needs hfold_fmap
 
 Axiom ref_spec_group : forall A (M:map loc A) (v:A),
-  SPEC (Pervasives_ml.ref v)
+  SPEC (ref v)
     PREC (Group Ref M)
     POST (fun (r:loc) => Group Ref (M[r:=v]) \* \[r \notindom M]).
 (* TODO: proof *)
 
 Lemma infix_emark_spec_group : forall `{Inhab A} (M:map loc A) r,
   r \indom M ->
-  SPEC (Pervasives_ml.infix_emark__ r)
+  SPEC (infix_emark__ r)
     INV (Group Ref M)
     POST (fun x => \[x = M[r]]).
 Proof using.
@@ -868,7 +917,7 @@ Qed.
 
 Lemma infix_colon_eq_spec_group : forall `{Inhab A} (M:map loc A) (v:A) r,
   r \indom M ->
-  SPEC (Pervasives_ml.infix_colon_eq__ r v)
+  SPEC (infix_colon_eq__ r v)
     PREC (Group Ref M)
     POSTUNIT (Group Ref (M[r:=v])).
 Proof using.
@@ -882,7 +931,9 @@ Qed.
 (************************************************************)
 (** Pairs *)
 
-Lemma fst_spec : forall A B (x:A) (y:B),
+(* TODO
+
+Lemma fst_spec : forall A `{EA:Enc A} B `{EB:Enc B} (x:A) (y:B),
   SPEC (fst (x,y))
     PREC \[]
     POST \[= x].
@@ -896,7 +947,7 @@ Proof using. xcf_go~. Qed.
 
 Hint Extern 1 (RegisterSpec fst) => Provide fst_spec.
 Hint Extern 1 (RegisterSpec snd) => Provide snd_spec.
-
+*)
 
 (************************************************************)
 (** Unit *)
