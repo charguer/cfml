@@ -2244,7 +2244,7 @@ Tactic Notation "xletval_st" constr(P) :=
 (************************************************************)
 (** [xgo], [xcf_go] and [xstep] *)
 
-Ltac check_is_Wpgen_record_new F :=  (* refined in WPRecord *)
+Ltac check_is_Wpgen_record_alloc F :=  (* refined in WPRecord *)
   fail.
 
 Ltac xstep_once tt :=
@@ -2263,7 +2263,7 @@ Ltac xstep_once tt :=
     | (Wpgen_done) => xdone
     | (Wpgen_case _ _ _) => xcase
     | (Wpgen_match _) => xmatch
-    | ?F => check_is_Wpgen_record_new F; xapp
+    | ?F => check_is_Wpgen_record_alloc F; xapp
     (* | (Wpgen_case _ _ _) => xcase *)
     (* TODO complete *)
     end

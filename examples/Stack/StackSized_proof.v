@@ -91,7 +91,7 @@ Lemma create_spec : forall A `{EA:Enc A},
     PRE \[]
     POST (fun r => r ~> Stack (@nil A)).
 Proof using.
-  xcf. xapp ;=> r. xclose* r.
+  xcf. xapp ;=> r. xclose* r. xsimpl.
 Qed.
 
 Lemma size_spec : forall A `{EA:Enc A} (L:list A) (s:loc),
@@ -143,6 +143,7 @@ Proof using.
   xpull ;=> n Hn.
   xapp. xapp. xapp. xapp.
   xclose s. rew_list. math.
+  xsimpl.
   (* </EXO> *)
 Qed.
 

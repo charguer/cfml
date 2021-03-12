@@ -2,6 +2,7 @@
 # && make -C../../lib/coq -j3 \
 # && make -C ../../lib/stdlib \
 
+rm *.cmj *_ml.v *.vo
 make -C ../.. install \
 && make -f ../Makefile.dev _CoqProject \
 && make -f ../Makefile.dev

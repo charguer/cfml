@@ -1,3 +1,4 @@
+rm *.cmj *_ml.v *.vo
 make -C ../.. install \
 && make -f ../Makefile.dev _CoqProject \
 && make -f ../Makefile.dev

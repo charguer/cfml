@@ -24,6 +24,10 @@ let wpgen_app x args =
 let dummy =
   wpgen_app "WPLifted.Wpgen_dummy" []
 
+let dynlist_of_record_fields items =
+  let build_field (field_name, field_type, field_value) =
+    Coq_tuple [Coq_var field_name; coq_dyn_of field_type field_value] in
+  coq_list (List.map build_field items)
 
 (* TODO: extract hard coded constants*)
 
@@ -54,12 +58,13 @@ let rec coqtops_of_cf cf =
 
   | Cf_record_new (record_name, items) ->
       (* Each item is a tuple (fi, ti, vi) *)
-      (* Dynlistof = (fun r => [(f1, @dyn t1 _ v1); ...; (fn, @dyn tn _ vn)]) *)
-      let build_field (field_name, field_type, field_value) =
-        Coq_tuple [Coq_var field_name; coq_dyn_of field_type field_value] in
-      let dynlist = coq_list (List.map build_field items) in
-      let dynlistof = coq_fun (record_name, loc_type) dynlist in
+      (* Dynlistof is (fun r => [(f1, @dyn t1 _ v1); ...; (fn, @dyn tn _ vn)]) *)
+      let dynlistof = coq_fun (record_name, loc_type) (dynlist_of_record_fields items) in
       wpgen_app "WPRecord.Wpgen_record_new" [dynlistof]
+
+  | Cf_record_with (v, items) ->
+      (* Each item is a tuple (fi, ti, vi) *)
+      wpgen_app "WPRecord.Wpgen_record_with" [v; dynlist_of_record_fields items]
 
   | Cf_app (ts, tret, f, vs) ->
       (* Wpgen_App_typed tret f [(@dyn t1 _ v1); (@dyn t2 _ v2)] *)
@@ -70,12 +75,12 @@ let rec coqtops_of_cf cf =
   | Cf_body (f, fvs, targs, typ, cf1) ->
       (* targs list of (xi,ti) *)
       (* Wpgen_body (forall Ai x1 x2 H A EA Q,
-                       (H ==> ^F Q) ->
+                       (H ==> ^F (Q \*+ \GC)) ->
                        Triple (trm_Apps f [(@dyn t1 _ v1);.. ; (@dyn tn _ xn)]) H Q) *)
       (* Optimization: don't quantify arguments of type unit *)
       let args = List.map (fun (x,t) ->
          coq_dyn_of t (if t <> coq_unit then coq_var x else coq_tt)) targs in
-      let premi = himpl h (formula_app (aux cf1) q) in
+      let premi = himpl h (formula_app (aux cf1) (qstar q hgc)) in
       let trm = trm_apps_lifted (coq_var f) args in
       let concl = coq_apps_cfml_var "SepLifted.Triple" [trm; h; q] in
       let hyp1 = forall_prepost hname aname qname (coq_impl premi concl) in

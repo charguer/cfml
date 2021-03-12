@@ -23,7 +23,9 @@ type cf =
   | Cf_done
     (* Done *)
   | Cf_record_new of var * (var * coq * coq) list
-    (* AppNew [.. (fi, @dyn Ai xi) .. ] *)
+    (* AppNew [.. (fi, @dyn Ai xi) .. ] *) (* TODO: the first var is for recursive records *)
+  | Cf_record_with of coq * (var * coq * coq) list
+     (* TODO update doc in this file *)
   | Cf_app of coqs * coq * coq * coqs
     (* App f [.. (@dyn Ai xi) .. ] (B:=B) *)
   | Cf_body of var * vars * typed_vars * coq * cf
@@ -180,6 +182,10 @@ val post_unit : coq -> coq
 
 val hstar : coq -> coq -> coq
 
+(** Separating conjunction [Q1 * H2] *)
+
+val qstar : coq -> coq -> coq
+
 (** Base data *)
 
 val hsingle : coq -> coq -> coq
@@ -219,6 +225,10 @@ val hforalls : (Coq.var * coq) list -> coq -> coq
 (** Lifted propositions [ [P] ] *)
 
 val hpure : coq -> coq
+
+(** Garbage collection [ [\GC] ] *)
+
+val hgc : coq
 
 (** Magic wand [H1 \-* H2] *)
 

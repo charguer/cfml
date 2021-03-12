@@ -13,6 +13,7 @@ type cf =
   | Cf_assert of cf
   | Cf_done
   | Cf_record_new of var * (var * coq * coq) list
+  | Cf_record_with of coq * (var * coq * coq) list
   | Cf_app of coqs * coq * coq * coqs
   | Cf_body of var * vars * typed_vars * coq * cf
   | Cf_let of typed_var * cf * cf
@@ -173,10 +174,21 @@ let post_unit h =
 let hstar h1 h2 =
   coq_apps (coq_cfml_var "SepBase.SepBasicCore.hstar") [h1;h2]
 
+(** Separating conjunction [Q1 * H2] *)
+
+let qstar q1 h2 =
+  let temp = "__temp__" in (* TODO: clash check *)
+  coq_fun (temp,coq_wild) (hstar (coq_app q1 (coq_var temp)) h2)
+
 (** Pure heap predicates [ \[P] ] *)
 
 let hpure c =
    coq_app (coq_cfml_var "SepBase.SepBasicSetup.SepSimplArgs.hpure") c
+
+(** Pure heap predicates [ \GC ] *)
+
+let hgc =
+   (coq_cfml_var "SepBase.SepBasicSetup.SepSimplArgs.hgc")
 
 (** Magic wand [H1 \-* H2] *)
 

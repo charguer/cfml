@@ -619,6 +619,18 @@ let sitems_push x r =
   r.items <- x :: r.items
 
 
+(********************************************************************)
+(* ** Record-with *)
+
+type recordwith = {
+  mutable mya : int;
+  mutable myb : int;
+  mutable myc : int; }
+
+let recordwith () =
+  let r = { mya = 1; myb = 2; myc = 3 } in
+  { r with myb = 5; mya = 6 }
+
 
 (********************************************************************)
 (* ** Evaluation order *)

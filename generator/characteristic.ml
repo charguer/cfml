@@ -940,11 +940,14 @@ and cfg_record ?(record_name = "_") env e =
   let loc = e.exp_loc in
   match e.exp_desc with
   | Texp_record (lbl_expr_list, opt_init_expr) ->
-    if opt_init_expr <> None then unsupported loc "record-with";
     let named_args = List.map (fun (p,li,ei) -> (li.lbl_name,ei)) lbl_expr_list in
     let build_arg (name, arg) =
       (record_field_name name, coq_typ loc arg, lift_val env arg) in
-    Cf_record_new (record_name, List.map build_arg named_args)
+    let cargs = List.map build_arg named_args in
+    begin match opt_init_expr with
+    | None -> Cf_record_new (record_name, cargs)
+    | Some v -> Cf_record_with (lift_val env v, cargs)
+    end
 
   | _ -> assert false
 

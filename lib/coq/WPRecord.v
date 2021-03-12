@@ -775,14 +775,53 @@ Definition Wpgen_record_new (Lof:loc->Record_fields) : Formula :=
 
   TODO: exercise in course. *)
 
-
 Lemma xapp_lemma_record_new : forall (Lof:loc->Record_fields) H (Q:loc->hprop),
-  (fun r => r ~> Record (Lof r)) \*+ H ===> Q ->
+  (forall r, (r ~> Record (Lof r)) \* H ==> (Q r)) ->
   H ==> ^(Wpgen_record_new Lof) Q.
 Proof using.
   introv M. applys MkStruct_erase. xsimpl. intros r.
   xchange M. applys qimpl_Post_cast_r.
 Qed.
+
+(* TODO later check no redundant record fields? *)
+
+Fixpoint record_with_compute_dyn (L:Record_fields) (Lup:Record_fields) : option Record_fields :=
+  match Lup with
+  | nil => Some L
+  | (f,d)::Lup' => (* TODO: monadic notation? *)
+      match record_set_compute_dyn f d L with
+      | None => None
+      | Some L' => record_with_compute_dyn L' Lup'
+      end
+  end.
+
+(* TODO: check header is present, if we want the record fields to not be considered affine *)
+
+Definition Wpgen_record_with (r:loc) (Lup:Record_fields) : Formula :=
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
+    \forall L,
+    r ~> Record L \* (
+      match record_with_compute_dyn L Lup with
+      | None => \[False]
+      | Some L' => (fun r' => r ~> Record L \* r' ~> Record L') \--* (Post_cast loc Q)
+      end)).
+
+
+Parameter xapp_record_With_lemma : forall (Q:loc->hprop) (H:hprop) (p:loc) (L Lup:Record_fields),
+  H ==> p ~> Record L \* (
+      match record_with_compute_dyn L Lup with
+      | None => \[False]
+      | Some L' => (*  (fun r' => r ~> Record L \* r' ~> Record L') \--* (Post_cast loc (protect Q)) *)
+               \forall p', (p ~> Record L \* p' ~> Record L') \-* protect (Q p')
+      end) ->
+  H ==> ^(Wpgen_record_with p Lup) Q.
+
+Ltac xapp_record_with_post tt :=
+  xsimpl; simpl; xsimpl; unfold protect.
+
+Ltac xapp_record_with tt :=
+  applys xapp_record_With_lemma;
+  xapp_record_with_post tt.
 
 
 (* ********************************************************************** *)
@@ -804,6 +843,7 @@ Notation "p '~~~>' kvs" := (p ~> Record kvs)
 Ltac xapp_record tt ::= (* initial dummy binding located in WPTactics *)
   match xgoal_code_without_wptag tt with
   | Wpgen_record_new ?Lof => applys xapp_lemma_record_new
+  | Wpgen_record_with ?v ?L => xapp_record_with tt
   | Wpgen_App_typed ?T ?f ?Vs =>
       match f with
       | trm_val (val_get_field _) => xapp_record_get tt
@@ -819,9 +859,11 @@ Ltac xapp_pre_wp tt ::=
   | (Wpgen_app ?t) => idtac
   | (Wpgen_App_typed ?T ?f ?Vs) => idtac
   | (Wpgen_record_new ?Lof) => idtac
+  | (Wpgen_record_with ?v ?L) => idtac
   end.
 
-Ltac check_is_Wpgen_record_new F ::=
+Ltac check_is_Wpgen_record_alloc F ::=
   match F with
   | (Wpgen_record_new _) => idtac
+  | (Wpgen_record_with _ _) => idtac
   end.

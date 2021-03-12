@@ -355,7 +355,7 @@ Proof using.
   { unfold hsingle. splits~. }
   { applys~ hpure_intro. }
   { unfold heap_empty. auto. }
-  { rew_fmap*. } 
+  { rew_fmap*. }
 Qed.
 
 

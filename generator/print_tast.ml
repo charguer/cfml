@@ -8,7 +8,7 @@ open Format
 open Print_past
 open Print_type
 
-(** Printing facility for typed abstract syntax trees produced by the 
+(** Printing facility for typed abstract syntax trees produced by the
     type-checker*)
 
 
@@ -25,12 +25,12 @@ let print_tast_with_all_types = ref true
 let string_of_typed_var s t =
    sprintf "(%s : %s)" s (string_of_type_exp t)
 
-let string_of_path p = 
+let string_of_path p =
    Path.name p
 
 let string_of_fvs fvs =
    if fvs = []
-      then "" 
+      then ""
       else sprintf "[%s]" (show_list show_str " " (List.map string_of_type_exp fvs))
 
 
@@ -42,28 +42,28 @@ let string_of_pattern par p =
      match p.pat_desc with
      | Tpat_any -> "_"
      | Tpat_var id -> string_of_typed_var (string_of_ident id) p.pat_type
-     | Tpat_alias (p, ak) -> 
+     | Tpat_alias (p, ak) ->
          let sp = aux false p in
-         begin match ak with 
-         | TPat_alias id -> show_par par (sprintf "%s as %s" (string_of_typed_var (string_of_ident id) p.pat_type) sp) 
+         begin match ak with
+         | TPat_alias id -> show_par par (sprintf "%s as %s" (string_of_typed_var (string_of_ident id) p.pat_type) sp)
          | TPat_constraint _ -> sp
          | TPat_type pp -> sp (* ignore type *)
          end
-     | Tpat_constant c -> 
+     | Tpat_constant c ->
          sprintf "%s" (string_of_constant c)
-     | Tpat_tuple l -> 
+     | Tpat_tuple l ->
          show_par true (sprintf "%s" (show_list (aux false) "," l))
-     | Tpat_construct (p,cd,ps) -> 
+     | Tpat_construct (p,cd,ps) ->
          let c = string_of_path p in
          if ps = []
             then c
-         else if List.length ps = 1 
+         else if List.length ps = 1
             then show_par par (c ^ " " ^ aux true (List.hd ps))
          else
             show_par par (sprintf "%s (%s)" c (show_list (aux false) "," ps))
-     | Tpat_or (p1,p2,_) -> 
+     | Tpat_or (p1,p2,_) ->
          show_par par (sprintf "%s | %s" (aux false p1) (aux false p2))
-     | Tpat_lazy p1 -> 
+     | Tpat_lazy p1 ->
         show_par par (sprintf "lazy %s" (aux true p1))
      | Tpat_variant (_,_,_) -> unsupported_noloc "variant patterns"
      | Tpat_record _ -> unsupported_noloc "record patterns"
@@ -75,14 +75,14 @@ let string_of_let_pattern par fvs p =
    string_of_pattern par p
    (* let typ = p.pat_type in
    let styp = string_of_type_sch fvs typ in
-   sprintf "%s : %s" (string_of_pattern par p) styp *)  
-   (* 
+   sprintf "%s : %s" (string_of_pattern par p) styp *)
+   (*
    match p.pat_desc with
-   | Tpat_var id -> 
+   | Tpat_var id ->
       let typ = p.pat_type in
       sprintf "%s : %s" (string_of_ident id) (string_of_type_sch fvs typ)
    | _ -> unsupported_noloc "let-pattern not reduced to a variable"
-   *)  
+   *)
 
 
 (*#########################################################################*)
@@ -90,8 +90,8 @@ let string_of_let_pattern par fvs p =
 
 let rec string_of_expression par e =
    let show_par_and_type par s =
-      if not !print_tast_with_all_types 
-        then show_par par s 
+      if not !print_tast_with_all_types
+        then show_par par s
         else sprintf "(%s : %s)" s (string_of_type_exp e.exp_type)
       in
    let aux ?par e =
@@ -104,17 +104,17 @@ let rec string_of_expression par e =
    match e.exp_desc with
    | Texp_ident (p,vd) -> string_of_path p (*  string_of_typed_var (string_of_path p) vd.val_type*)
    | Texp_constant c -> string_of_constant c
-   | Texp_let (rf, fvs, l, e) ->  
+   | Texp_let (rf, fvs, l, e) ->
        let show_pe (p,e) =
           let sp = (string_of_let_pattern false fvs p) in
           let se = aux e in
           Format.sprintf "%s =@ @[%s@]" sp se in
        let sl = show_list show_pe " and " l in
        let se = aux e in
-       Format.sprintf "@[let%s%s %s in@ @[%s@]@]" (string_of_recflag rf) (string_of_fvs fvs) sl se 
+       Format.sprintf "@[let%s%s %s in@ @[%s@]@]" (string_of_recflag rf) (string_of_fvs fvs) sl se
    | Texp_function (_,(p1,e1)::[], pa) ->
        let rec explore pats e =
-          match e.exp_desc with 
+          match e.exp_desc with
           | Texp_function (_,(p1,e1)::[], pa) ->
              explore (p1::pats) e1
           | _ -> List.rev pats, e
@@ -124,7 +124,7 @@ let rec string_of_expression par e =
        let sb = aux ~par:false body in
        let s = Format.sprintf "@[fun @[%s@] ->@ @[%s@]@]" sp sb in
       show_par par s
-   | Texp_function (_,l, pa) ->  
+   | Texp_function (_,l, pa) ->
        Format.sprintf "@[function %s@]" (show_listp string_of_branch "\n  | " l)
    | Texp_apply (e, l) -> (* todo: afficher les infixes correctement *)
       let l = List.map (fun (lab,eo,opt) -> match eo with None -> unsupported_noloc "optional apply arguments" | Some ei -> ei) l in
@@ -136,36 +136,39 @@ let rec string_of_expression par e =
       let sl = show_list show_arg " " l in
       let s = sprintf "%s %s" se sl in
       show_par par s
-   | Texp_match (e, l, pa) -> 
+   | Texp_match (e, l, pa) ->
        let se = aux e in
-       let s = Format.sprintf "@[match@ @[%s@] with@ @[%s@]@]" 
+       let s = Format.sprintf "@[match@ @[%s@] with@ @[%s@]@]"
           se (show_list string_of_branch " | " l) in
        show_par par s
    | Texp_try (e,l) -> unsupported_noloc "exceptions"
-   | Texp_tuple l -> 
+   | Texp_tuple l ->
        show_par true (show_list aux ", " l)
-   | Texp_construct (p, cd, es) -> 
+   | Texp_construct (p, cd, es) ->
        let c = string_of_path p in
        if es = [] then
           show_par_and_type false c
-       else if List.length es = 1 then 
+       else if List.length es = 1 then
           show_par_and_type par (c ^ " " ^ aux ~par:true (List.hd es))
        else
           show_par_and_type par (sprintf "%s (%s)" c (show_list aux "," es))
    | Texp_variant (l,eo) -> unsupported_noloc "variants"
-   | Texp_record (l,Some eo) -> unsupported_noloc "record-with"
-   | Texp_record (l,None) ->        
-       let print_item (p,li,ei) = 
+   | Texp_record (l,eo) ->
+       let print_item (p,li,ei) =
           Format.sprintf "%s = %s" (string_of_path p) (aux ei) in
-       let s = Format.sprintf "@[{%s}@]" (show_list print_item "; " l) in
+       let sbase = match eo with
+          | None -> ""
+          | Some ebase -> " " ^ aux ebase ^ " with "
+          in
+       let s = Format.sprintf "@[{%s%s}@]" (sbase) (show_list print_item "; " l) in
        show_par par s
-   | Texp_field (e,p,i) -> 
+   | Texp_field (e,p,i) ->
        let s = Format.sprintf "@[%s.%s@]" (aux e) (string_of_path p) in
        show_par par s
-   | Texp_setfield (e,p,i,e2) -> 
+   | Texp_setfield (e,p,i,e2) ->
        let s = Format.sprintf "@[%s.%s <- %s@]" (aux e) (string_of_path p) (aux e2) in
        show_par par s
-   | Texp_array l -> 
+   | Texp_array l ->
        Format.sprintf "[| %s |]" (show_list aux "; " l)
    | Texp_ifthenelse (e1, e2, None) ->
        let s = Format.sprintf "@[if %s@ then %s@]" (aux e1) (aux e2) in
@@ -174,14 +177,14 @@ let rec string_of_expression par e =
        let s = Format.sprintf "@[if %s@ then %s@ else %s@]" (aux e1) (aux e2) (aux e3) in
        show_par par s
    | Texp_when (e1,e2) ->  (*todo:better printing so that compiles *)
-       Format.sprintf "<< when %s >> %s" (aux e1) (aux e2) 
-   | Texp_sequence (e1,e2) -> 
+       Format.sprintf "<< when %s >> %s" (aux e1) (aux e2)
+   | Texp_sequence (e1,e2) ->
        let s = Format.sprintf "@[%s@ ; %s@]" (aux e1) (aux e2) in
        show_par par s
-   | Texp_while (e1,e2) -> 
+   | Texp_while (e1,e2) ->
        let s = Format.sprintf "@[while %s@ do %s@ done@]" (aux e1) (aux e2) in
        show_par par s
-   | Texp_for (i,e1,e2,d,e3) -> 
+   | Texp_for (i,e1,e2,d,e3) ->
        let s = Format.sprintf "@[for %s = %s to %s do@ %s@ done@]" (Ident.name i) (aux e1) (aux e2) (aux e3) in
        show_par par s
    | Texp_send (_,_,_) -> unsupported_noloc "send expression"
@@ -190,12 +193,12 @@ let rec string_of_expression par e =
    | Texp_setinstvar (_,_,_) -> unsupported_noloc "set-inst-var expression"
    | Texp_override _ -> unsupported_noloc "Pexp_override expression"
    | Texp_letmodule (_,_,_) -> unsupported_noloc "let-module expression"
-   | Texp_assert e -> 
+   | Texp_assert e ->
        let s = Format.sprintf "@[assert %s@]" (aux e) in
        show_par par s
-   | Texp_assertfalse -> 
+   | Texp_assertfalse ->
        show_par par "assert false"
-   | Texp_lazy e -> 
+   | Texp_lazy e ->
        let s = Format.sprintf "@[lazy %s@]" (aux e) in
        show_par par s
    | Texp_object _ -> unsupported_noloc "objects"
@@ -203,7 +206,7 @@ let rec string_of_expression par e =
    | Texp_newtype (_,_) -> unsupported_noloc "newtype"
    | Texp_pack _ -> unsupported_noloc "pack"
    | Texp_open  (_,_) -> unsupported_noloc "open"
-   | Texp_constraint (e,_,_) -> 
+   | Texp_constraint (e,_,_) ->
        Format.sprintf "@[(%s@ : _)@]" (aux e)
 
 
@@ -225,7 +228,7 @@ let show_core_type par t =
            | [x] -> sprintf "%s" (aux true x)
            | l -> show_par true (show_list (aux false) ", " l)
            in
-         sprintf "%s %s" args (string_of_path p) 
+         sprintf "%s %s" args (string_of_path p)
      | Ttyp_object _ -> unsupported_noloc "object types"
      | Ttyp_class _ -> unsupported_noloc "class types"
      | Ttyp_alias _ -> unsupported_noloc "alias types"
@@ -237,21 +240,21 @@ let show_core_type par t =
 
 
 let show_type_decl (name,decl) =
-   let show_type t = 
+   let show_type t =
      show_core_type false t in
-   let params = 
+   let params =
       match decl.typ_params with
       | [] -> ""
       | [a] -> sprintf "'%s " a
       | l -> show_par true (show_list show_string ", " l) ^ " "
       in
    let header = sprintf " %s%s" params (string_of_ident name) in
-   match decl.typ_kind with 
-   | Ttype_abstract -> 
+   match decl.typ_kind with
+   | Ttype_abstract ->
        begin match decl.typ_manifest with
        | None -> header
        | Some def -> sprintf "%s = %s" header (show_type def)
-       end 
+       end
    | Ttype_record _ (* (string * mutable_flag * core_type * Location.t) list *) ->
         unsupported_noloc "records type def (todo)"
    | Ttype_variant branches ->
@@ -277,8 +280,8 @@ let is_simple_type_decl (name,decl) =
 let rec string_of_module m =
    match m.mod_desc with
    | Tmod_ident p -> string_of_path p
-   | Tmod_structure s -> sprintf "struct\n%s\nend\n" (string_of_structure s) 
-   | Tmod_functor (id,mt,me) -> sprintf "%s : _ ==>%s\n" (string_of_ident id) (string_of_module me) 
+   | Tmod_structure s -> sprintf "struct\n%s\nend\n" (string_of_structure s)
+   | Tmod_functor (id,mt,me) -> sprintf "%s : _ ==>%s\n" (string_of_ident id) (string_of_module me)
    | Tmod_apply (me1,me2,mc) -> sprintf "%s %s" (string_of_module me1) (string_of_module me2)
    | Tmod_constraint (me,_,mt,mc) -> sprintf "(%s : _)" (string_of_module me)
    | Tmod_unpack (_,_) -> unsupported_noloc "unpack"
@@ -290,13 +293,13 @@ and string_of_structure_item (si:structure_item) =
    Printtyp.reset();
    match si.str_desc with
    | Tstr_eval e -> sprintf "let _ = %s" (string_of_expression false e)
-   | Tstr_value (r,fvs,l) -> 
+   | Tstr_value (r,fvs,l) ->
        let show_pe (p,e) =
           let sp = string_of_let_pattern false fvs p in
           let se = string_of_expression false e in
           Format.sprintf "%s =@ @[%s@]" sp se in
        let sl = show_list show_pe " and " l in
-       Format.sprintf "@[let%s%s %s@]" (string_of_recflag r) (string_of_fvs fvs) sl 
+       Format.sprintf "@[let%s%s %s@]" (string_of_recflag r) (string_of_fvs fvs) sl
       (* Format.sprintf "@[let%s %s =@ @[<2>%s@]@]" *)
    | Tstr_primitive (id,v) -> sprintf "val %s : 'external" (string_of_ident id)
    | Tstr_type l -> sprintf "type _ = _"

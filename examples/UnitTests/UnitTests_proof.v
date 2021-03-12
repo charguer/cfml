@@ -13,6 +13,20 @@ Require TLC.LibListZ. (* TODO NEEDED? *)
 (********************************************************************)
 
 (********************************************************************)
+(* ** Record with -- TODO: move *)
+
+
+Lemma recordwith_spec :
+  SPEC (recordwith tt)
+    PRE \[]
+    POST (fun r => r ~~~> `{ mya' := 6; myb' := 5; myc' := 3 }).
+Proof using.
+  xcf. xapp. intros r. xapp. xsimpl.
+Qed.
+
+
+
+(********************************************************************)
 (* ** Notation for PRE/INV/POST *)
 
 
@@ -275,7 +289,7 @@ Proof using. xcf*. Qed.
 (* ** Return *)
 
 Lemma ret_unit_spec :
-  SPEC (ret_unit tt) 
+  SPEC (ret_unit tt)
     PRE \[]
     POST \[= tt]. (* (fun (_:unit) => \[]).*) (* same as (# \[]). *)
 Proof using.
@@ -294,20 +308,20 @@ Proof using.
 Qed.
 
 Lemma ret_int_spec :
-  SPEC (ret_int tt) 
-    PRE \[] 
+  SPEC (ret_int tt)
+    PRE \[]
     POST \[= 3].
 Proof using. xcf. xvals*. Qed.
 
 Lemma ret_int_pair_spec :
-  SPEC (ret_int_pair tt) 
-    PRE \[] 
+  SPEC (ret_int_pair tt)
+    PRE \[]
     POST \[= (3,4)].
 Proof using. xcf_go*. Qed.
 
 Lemma ret_poly_spec : forall A,
-  SPEC (ret_poly tt) 
-    PRE \[] 
+  SPEC (ret_poly tt)
+    PRE \[]
     POST \[= @nil A].
 Proof using. xcf. xgo*. Qed.
 
@@ -316,8 +330,8 @@ Proof using. xcf. xgo*. Qed.
 (* ** Sequence *)
 
 Axiom ret_unit_spec' : forall A (x:A),
-  SPEC (ret_unit x) 
-    PRE \[] 
+  SPEC (ret_unit x)
+    PRE \[]
     POST \[= tt]. (* (fun (_:unit) => \[]).*) (* same as (# \[]). *)
 
 Hint Extern 1 (RegisterSpec ret_unit) => Provide ret_unit_spec'.
@@ -325,8 +339,8 @@ Hint Extern 1 (RegisterSpec ret_unit) => Provide ret_unit_spec'.
 
 (* TODO
 Lemma seq_ret_unit_spec :
-  SPEC (seq_ret_unit tt) 
-    PRE \[] 
+  SPEC (seq_ret_unit tt)
+    PRE \[]
     POST \[= tt].
 Proof using.
   xcf.
@@ -351,8 +365,8 @@ Abort.
 (* ** Let-value *)
 
 Lemma let_val_int_spec :
-  SPEC (let_val_int tt) 
-    PRE \[] 
+  SPEC (let_val_int tt)
+    PRE \[]
     POST \[= 3].
 Proof using.
   xcf. xlet. xvals*.
@@ -368,15 +382,15 @@ Proof using.
 Qed.
 
 Lemma let_val_pair_int_spec :
-  SPEC (let_val_pair_int tt) 
-    PRE \[] 
+  SPEC (let_val_pair_int tt)
+    PRE \[]
     POST \[= (3,4)].
 Proof using. xcf. xlet. xvals*. Qed.
 
 (* TODO
 Lemma let_val_poly_spec :
-  SPEC (let_val_poly tt) 
-    PRE \[] 
+  SPEC (let_val_poly tt)
+    PRE \[]
     POST \[= 3].
 Proof using.
   xcf. dup 3.
@@ -391,8 +405,8 @@ Qed.
 (* ** Let-function *)
 
 Lemma let_fun_const_spec :
-  SPEC (let_fun_const tt) 
-    PRE \[] 
+  SPEC (let_fun_const tt)
+    PRE \[]
     POST \[= 3].
 Proof using.
   xcf. dup 10.
@@ -421,8 +435,8 @@ Proof using.
 Qed.
 
 Lemma let_fun_poly_id_spec :
-  SPEC (let_fun_poly_id tt) 
-    PRE \[] 
+  SPEC (let_fun_poly_id tt)
+    PRE \[]
     POST \[= 3].
 Proof using.
   xcf. xfun. dup 2.
@@ -438,8 +452,8 @@ Proof using.
 Abort.
 
 Lemma let_fun_poly_pair_homogeneous_spec :
-  SPEC (let_fun_poly_pair_homogeneous tt) 
-    PRE \[]  
+  SPEC (let_fun_poly_pair_homogeneous tt)
+    PRE \[]
     POST\[= (3,3)].
 Proof using.
   xcf.
@@ -450,8 +464,8 @@ Proof using.
 Qed.
 
 Lemma let_fun_on_the_fly_spec :
-  SPEC (let_fun_on_the_fly tt) 
-    PRE \[]  
+  SPEC (let_fun_on_the_fly tt)
+    PRE \[]
     POST\[= 4].
 Proof using.
   xcf.
@@ -464,7 +478,7 @@ Proof using.
 Qed.
 
 Lemma let_fun_in_let_spec :
-  SPEC (let_fun_in_let tt) 
+  SPEC (let_fun_in_let tt)
     PRE \[]
     POST (fun g => \[ forall A (x:A), SPEC (g x) \[] \[= x] ]).
 Proof using.
@@ -489,8 +503,8 @@ Abort.
 (* ** Let-term *)
 
 Lemma let_term_nested_id_calls_spec :
-  SPEC (let_term_nested_id_calls tt) 
-    PRE \[]  
+  SPEC (let_term_nested_id_calls tt)
+    PRE \[]
     POST \[= 2].
 Proof using.
   xcf.
@@ -502,8 +516,8 @@ Proof using.
 Qed.
 
 Lemma let_term_nested_pairs_calls_spec :
-  SPEC (let_term_nested_pairs_calls tt) 
-    PRE \[] 
+  SPEC (let_term_nested_pairs_calls tt)
+    PRE \[]
     POST \[= ((1,2),(3,(4,5))) ].
 Proof using.
   xcf.
@@ -519,8 +533,8 @@ Qed.
 (* ** Pattern-matching *)
 
 Lemma match_pair_as_spec :
-  SPEC (match_pair_as tt) 
-    PRE \[] 
+  SPEC (match_pair_as tt)
+    PRE \[]
     POST \[= (4,(3,4))].
 Proof using.
   xcf. dup 8.
@@ -551,8 +565,8 @@ Proof using.
 Qed.
 
 Lemma match_nested_spec :
-  SPEC (match_nested tt) 
-    PRE \[] 
+  SPEC (match_nested tt)
+    PRE \[]
     POST \[= (2,2)::nil].
 Proof using.
   xcf. xval. dup 3.
@@ -571,14 +585,14 @@ Qed.
 (* ** Let-pattern *)
 
 Lemma let_pattern_pair_int_spec :
-  SPEC (let_pattern_pair_int tt) 
-    PRE \[] 
+  SPEC (let_pattern_pair_int tt)
+    PRE \[]
     POST \[= 3].
 Proof using. xcf. xmatch. xvals~. Qed.
 
 Lemma let_pattern_pair_int_wildcard_spec :
-  SPEC (let_pattern_pair_int_wildcard tt) 
-    PRE \[] 
+  SPEC (let_pattern_pair_int_wildcard tt)
+    PRE \[]
     POST \[= 3].
 Proof using. xcf. xmatch. xvals~. Qed.
 
@@ -588,7 +602,7 @@ Proof using. xcf. xmatch. xvals~. Qed.
 
 Lemma infix_plus_plus_plus_spec : forall x y,
   SPEC (infix_plus_plus_plus__ x y)
-    PRE \[] 
+    PRE \[]
     POST \[= x + y].
 Proof using.
   xcf_go~.
@@ -598,7 +612,7 @@ Hint Extern 1 (RegisterSpec infix_plus_plus_plus__) => Provide infix_plus_plus_p
 
 Lemma infix_aux_spec : forall x y,
   SPEC (infix_aux x y)
-    PRE \[] 
+    PRE \[]
     POST \[= x + y].
 Proof using.
   xcf. xapps~.
@@ -608,7 +622,7 @@ Hint Extern 1 (RegisterSpec infix_aux) => Provide infix_aux_spec.
 
 Lemma infix_minus_minus_minus_spec : forall x y,
   SPEC (infix_minus_minus_minus__ x y)
-    PRE \[] 
+    PRE \[]
     POST \[= x + y].
 Proof using.
   intros. xcf_show as S. rewrite S. xapps~.
@@ -621,7 +635,7 @@ Qed.
 
 Lemma lazyop_val_spec :
   SPEC (lazyop_val tt)
-    PRE \[] 
+    PRE \[]
     POST \[= 1].
 Proof using.
   xcf. xif. xvals~.
@@ -636,7 +650,7 @@ Lemma lazyop_term_spec :
     PRE \[] \[= 1].
 Proof using.
   xcf. xfun (fun f => forall (x:int),
-    SPEC (f x) \[] 
+    SPEC (f x) \[]
     POST \[= isTrue (x = 0)]).
   { xvals*. }
   xapps.
@@ -663,7 +677,7 @@ Qed.
 
 Lemma lazyop_mixed_spec :
   SPEC (lazyop_mixed tt)
-    PRE \[] 
+    PRE \[]
     POST \[= 1].
 Proof using.
   xcf.
@@ -683,7 +697,7 @@ Qed.
 
 Lemma compare_poly_spec :
   SPEC (compare_poly tt)
-    PRE \[] 
+    PRE \[]
     POST\[= tt].
 Proof using.
   xcf.
@@ -713,7 +727,7 @@ Qed.
 
 Lemma compare_physical_loc_func_spec :
   SPEC (compare_physical_loc_func tt)
-    PRE \[] 
+    PRE \[]
     POST \[= tt].
 Proof using.
   xcf. xapps. xapps.
@@ -739,7 +753,7 @@ Fixpoint list_update (k:int) (v:int) (l:list (int*int)) :=
 
 Lemma compare_physical_algebraic_spec :
   SPEC (compare_physical_algebraic tt)
-    PRE \[] 
+    PRE \[]
     POST \[= (1,9)::(4,2)::(2,5)::nil ].
 Proof using.
   xcf. xfun_ind (@list_sub (int*int)) (fun f =>
@@ -762,7 +776,7 @@ Qed.
 
 Lemma inlined_fun_arith_spec :
   SPEC (inlined_fun_arith tt)
-    PRE \[] 
+    PRE \[]
     POST \[= 3].
 Proof using.
   xcf.
@@ -786,7 +800,7 @@ Qed.
 
 Lemma annot_let_spec :
   SPEC (annot_let tt)
-    PRE \[] 
+    PRE \[]
     POST \[= 3].
 Proof using.
   xcf_show.
@@ -803,7 +817,7 @@ Qed.
 
 Lemma annot_pattern_var_spec : forall (x:list int),
   SPEC (annot_pattern_var x)
-    PRE \[] 
+    PRE \[]
     POST \[= If x = nil then 1 else 0].
 Proof using.
   xcf_show.
@@ -812,7 +826,7 @@ Qed.
 
 Lemma annot_pattern_constr_spec :
   SPEC (annot_pattern_constr tt)
-    PRE \[] 
+    PRE \[]
     POST \[= 1].
 Proof using.
   xcf_show.
@@ -832,7 +846,7 @@ Qed.
 
 Lemma top_fun_poly_proj1_spec : forall A B (x:A) (y:B),
   SPEC (top_fun_poly_proj1 (x,y))
-    PRE \[] 
+    PRE \[]
     POST \[= x].
 Proof using.
   xcf. xmatch. xvals~.
@@ -840,7 +854,7 @@ Qed.
 
 Lemma top_fun_poly_proj1' : forall A B (p:A*B),
   SPEC (top_fun_poly_proj1 p)
-    PRE \[] 
+    PRE \[]
     POST \[= Datatypes.fst p].
   (* TODO: maybe it's better if [fst] remains the one from Datatypes
      rather than the one from Pervasives? *)
@@ -850,7 +864,7 @@ Qed.
 
 Lemma top_fun_poly_pair_homogeneous_spec : forall A (x y : A),
   SPEC (top_fun_poly_pair_homogeneous x y)
-    PRE \[] 
+    PRE \[]
     POST \[= (x,y)].
 Proof using.
   xcf. xvals~.
@@ -862,7 +876,7 @@ Qed.
 
 Lemma let_poly_nil_spec : forall A,
   SPEC (let_poly_nil tt)
-    PRE \[] 
+    PRE \[]
     POST \[= @nil A].
 Proof using.
   xcf. dup 2.
@@ -872,7 +886,7 @@ Qed.
 
 Lemma let_poly_nil_pair_spec : forall A B,
   SPEC (let_poly_nil_pair tt)
-    PRE \[] 
+    PRE \[]
     POST \[= (@nil A, @nil B)].
 Proof using.
   xcf. xvals. xvals~.
@@ -880,7 +894,7 @@ Qed.
 
 Lemma let_poly_nil_pair_homogeneous_spec : forall A,
   SPEC (let_poly_nil_pair_homogeneous tt)
-    PRE \[] 
+    PRE \[]
     POST \[= (@nil A, @nil A)].
 Proof using.
   xcf. xvals. xvals~.
@@ -888,7 +902,7 @@ Qed.
 
 Lemma let_poly_nil_pair_heterogeneous_spec : forall A,
   SPEC (let_poly_nil_pair_heterogeneous tt)
-    PRE \[] 
+    PRE \[]
     POST \[= (@nil A, @nil int)].
 Proof using.
   xcf. xvals. xvals~.
@@ -901,7 +915,7 @@ Qed.
 
 Lemma exn_assert_false_spec : False ->
   SPEC (exn_assert_false tt)
-    PRE \[] 
+    PRE \[]
     POST \[= tt].
 Proof using.
   xcf. xfail. auto.
@@ -909,7 +923,7 @@ Qed.
 
 Lemma exn_failwith_spec : False ->
   SPEC (exn_failwith tt)
-    PRE \[] 
+    PRE \[]
     POST \[= tt].
 Proof using.
   xcf. xfail. auto.
@@ -928,7 +942,7 @@ Qed.
 
 Lemma assert_true_spec :
   SPEC (assert_true tt)
-    PRE \[] 
+    PRE \[]
     POST \[= 3].
 Proof using.
   dup 2.
@@ -939,7 +953,7 @@ Qed.
 Lemma assert_pos_spec : forall (x:int),
   x > 0 ->
   SPEC (assert_pos x)
-    PRE \[] 
+    PRE \[]
     POST \[= 3].
 Proof using.
   dup 2.
@@ -958,7 +972,7 @@ Qed.
 
 Lemma assert_let_spec :
   SPEC (assert_let tt)
-    PRE \[] 
+    PRE \[]
     POST \[= 3].
 Proof using.
   dup 2.
@@ -968,7 +982,7 @@ Qed.
 
 Lemma assert_seq_spec :
   SPEC (assert_seq tt)
-    PRE \[]  
+    PRE \[]
     POST \[= 1].
 Proof using.
   xcf. xapp. xassert.
@@ -979,7 +993,7 @@ Abort.
 
 Lemma assert_in_seq_spec :
   SPEC (assert_in_seq tt)
-    PRE \[] 
+    PRE \[]
     POST \[= 4].
 Proof using.
   xcf. xlet. xassert. { xvals. } xvals.
@@ -992,7 +1006,7 @@ Qed.
 
 Lemma if_true_spec :
   SPEC (if_true tt)
-    PRE \[] 
+    PRE \[]
     POST \[= 1].
 Proof using.
   xcf. xif. xval. xsimpl. auto.
@@ -1000,7 +1014,7 @@ Qed.
 
 Lemma if_term_spec :
   SPEC (if_term tt)
-    PRE \[] 
+    PRE \[]
     POST \[= 1].
 Proof using.
   xcf. xfun. xapp. xval. xpulls.
@@ -1009,7 +1023,7 @@ Qed.
 
 Lemma if_else_if_spec :
   SPEC (if_else_if tt)
-    PRE \[] 
+    PRE \[]
     POST \[= 0].
 Proof using.
   xcf. xfun (fun f => forall (x:int), SPEC (f x) \[] \[= false]).
@@ -1019,7 +1033,7 @@ Qed.
 
 Lemma if_then_no_else_spec : forall (b:bool),
   SPEC (if_then_no_else b)
-    PRE \[] 
+    PRE \[]
     POST (fun x => \[ x >= 0]).
 Proof using.
   xcf. xapp.
@@ -1037,7 +1051,7 @@ Qed.
 
 Lemma order_app_spec :
   SPEC (order_app tt)
-    PRE \[]  
+    PRE \[]
     POST \[= 2].
 Proof using.
   dup 2.
@@ -1059,7 +1073,7 @@ Qed.
 
 Lemma order_constr_spec :
   SPEC (order_constr tt)
-    PRE \[] 
+    PRE \[]
     POST \[= 1::1::nil].
 Proof using.
   xcf_go*.
@@ -1074,13 +1088,13 @@ Qed.
 
 Lemma order_list_spec :
   SPEC (order_list tt)
-    PRE \[]  
+    PRE \[]
     POST \[= 1::1::nil].
 Proof using. xcf_go*. Qed.
 
 Lemma order_tuple_spec :
   SPEC (order_tuple tt)
-    PRE \[]  
+    PRE \[]
     POST \[= (1,1)].
 Proof using. xcf_go*. Qed.
 
@@ -1103,7 +1117,7 @@ let order_record () =
 
 Lemma while_decr_spec :
   SPEC (while_decr tt)
-    PRE \[] 
+    PRE \[]
     POST \[= 3].
 Proof using.
   xcf. xapps. xapps. dup 9.
@@ -1160,7 +1174,7 @@ Abort.
 
 Lemma while_false_spec :
   SPEC (while_false tt)
-    PRE \[] 
+    PRE \[]
     POST \[= tt].
 Proof using.
   xcf. dup 2.
@@ -1233,7 +1247,7 @@ Qed.
 
 Lemma for_to_incr_spec : forall (r:int), r >= 1 ->
   SPEC (for_to_incr r)
-    PRE \[] 
+    PRE \[]
     POST \[= r].
 Proof using.
   xcf. xapps. dup 7.
@@ -1268,7 +1282,7 @@ Abort.
 
 Lemma for_to_incr_pred_spec : forall (r:int), r >= 1 ->
   SPEC (for_to_incr_pred r)
-    PRE \[]  
+    PRE \[]
     POST \[= r].
 Proof using.
   xcf. xapps. dup 7.
@@ -1303,7 +1317,7 @@ Abort.
 
 Lemma for_downto_spec : forall (r:int), r >= 0 ->
   SPEC (for_downto r)
-    PRE \[] 
+    PRE \[]
     POST \[= r].
 Proof using.
   xcf. xapps. dup 7.
@@ -1346,7 +1360,7 @@ Require Import TLC.LibInt.
 Lemma rec_partial_half_spec : forall k n,
   n = 2 * k -> k >= 0 ->
   SPEC (rec_partial_half n)
-    PRE \[] 
+    PRE \[]
     POST \[= k].
 Proof using.
   dup 2.
@@ -1427,7 +1441,7 @@ Qed.
 
 Lemma ref_gc_spec :
   SPEC (ref_gc tt)
-    PRE \[] 
+    PRE \[]
     POST \[= 3].
 Proof using.
   xcf.
@@ -1447,7 +1461,7 @@ Qed.
 
 Lemma ref_gc_dep_spec : forall A (x:A),
   SPEC (ref_gc_dep x)
-    PRE \[] 
+    PRE \[]
     POST (fun r => r ~~> x).
 Proof using.
   xcf.
@@ -1470,7 +1484,7 @@ Qed.
 
 Lemma sitems_build_spec : forall (A:Type) (n:int),
   SPEC (sitems_build n)
-    PRE \[] 
+    PRE \[]
     POST (fun r => r ~> `{ nb' := n; items' := @nil A }).
 Proof using. xcf_go~. Qed.
 
