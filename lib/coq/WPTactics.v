@@ -656,18 +656,21 @@ Qed.
 Ltac xletval_core tt :=
   match xgoal_code_without_wptag tt with
   | (Wpgen_let_Val _ (fun x => _)) =>
-     let a := fresh x in
+     let a := fresh "v" x in
      let Pa := fresh "P" a in
      applys xletval_lemma;
-     intros a P a
+     intros a Pa
   end.
 
 Tactic Notation "xletval" :=
   xletval_core tt.
 
+Ltac xletvalas_core tt :=
+  xletval_core tt;
+  do 2 (let H := get_last_hyp tt in revert H).
+
 Tactic Notation "xletval" "as" := (* TODO: document *)
-  xletval_pre tt;
-  applys xletval_lemma.
+  xletvalas_core tt.
 
 Ltac xletvals_core tt :=
   xletval_pre tt;
@@ -1241,6 +1244,7 @@ Tactic Notation "xvals" "*"  :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xfun] *)
 
+(* TODO: rename to xval_lemma_val *)
 Lemma xfun_lemma : forall (v:val) H (Q:val->hprop),
   H ==> Q v ->
   H ==> ^(Wpgen_val v) Q.

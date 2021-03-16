@@ -1,4 +1,4 @@
-(** See theories/ExampleStack.v for corresponding formalization in the deep embedding. *)
+  (** See theories/ExampleStack.v for corresponding formalization in the deep embedding. *)
 
 Set Implicit Arguments.
 From CFML Require Import WPLib Stdlib.
@@ -88,7 +88,7 @@ Lemma pop_spec : forall A `{Enc A} (p:loc) (L:list A),
     PRE (p ~> Stack L)
     POST (fun (x:A) => \exists L', \[L = x::L'] \* (p ~> Stack L')).
 Proof using.
-  introv N. xcf. xunfold Stack. xapp. (* xmatch.*)  xmatch_no_intros. 
+  introv N. xcf. xunfold Stack. xapp. (* xmatch.*)  xmatch_no_intros.
   { intros. false. }
   {  intros X L' HL. xapp. xval. xsimpl~. }
   (* TODO: xmatch should regeneralize *)

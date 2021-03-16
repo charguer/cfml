@@ -1076,11 +1076,10 @@ Notation "'LetFun' f ':=' B1 'in' F1" :=
  ((*Wptag*) (Wpgen_let_fun (fun A EA Q => \forall f, \[B1] \-* (F1 A EA Q))))
  (in custom wp at level 69,
   f ident,
-  B1 constr at level 69,
+  B1 custom wp at level 69,
   F1 custom wp at level 99,
   right associativity,
   format "'[v' '[' 'LetFun'  f  ':=' '/' '['   B1 ']'  'in' ']' '/' '[' F1 ']' ']'" ) : wp_scope.
-
 
 (* DEPRECATED
 Notation "'FunBody'" :=
@@ -1088,10 +1087,10 @@ Notation "'FunBody'" :=
  (in custom wp at level 69) : wp_scope.
 *)
 
-(* TODO: resolve this one
+(* TODO: resolve this one *)
 Notation "'Body' f x1 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall x1 H A EA Q,
-               (H ==> (*Wptag*) (F1 A EA Q)) ->
+               (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
                @Triple (Trm_apps f ((@dyn_make _ _ x1)::nil) A EA H Q))))
  (in custom wp at level 69,
   f ident,
@@ -1099,7 +1098,7 @@ Notation "'Body' f x1 ':=' F1" :=
   F1 custom wp at level 99,
   right associativity,
   format "'[v' '[' 'Body'  f  x1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
-*)
+
 
 
 

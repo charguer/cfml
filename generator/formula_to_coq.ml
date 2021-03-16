@@ -77,15 +77,19 @@ let rec coqtops_of_cf cf =
       (* Wpgen_body (forall Ai x1 x2 H A EA Q,
                        (H ==> ^F (Q \*+ \GC)) ->
                        Triple (trm_Apps f [(@dyn t1 _ v1);.. ; (@dyn tn _ xn)]) H Q) *)
-      (* Optimization: don't quantify arguments of type unit *)
+      (* Optimization: don't quantify arguments of type unit
+          --bad idea, it breaks notations. we'll remove them in ltac instead.
       let args = List.map (fun (x,t) ->
          coq_dyn_of t (if t <> coq_unit then coq_var x else coq_tt)) targs in
+      let targs_nonunit = List.filter (fun (x,t) -> t <> coq_unit) targs in
+      *)
+      (* TODO: use name tt1__ for generated names of unit type *)
+      let args = List.map (fun (x,t) -> coq_dyn_of t (coq_var x)) targs in
       let premi = himpl h (formula_app (aux cf1) (qstar q hgc)) in
       let trm = trm_apps_lifted (coq_var f) args in
       let concl = coq_apps_cfml_var "SepLifted.Triple" [trm; h; q] in
       let hyp1 = forall_prepost hname aname qname (coq_impl premi concl) in
-      let targs_nonunit = List.filter (fun (x,t) -> t <> coq_unit) targs in
-      let hyp = coq_forall_enc_types fvs (coq_foralls targs_nonunit hyp1) in
+      let hyp = coq_forall_enc_types fvs (coq_foralls targs (*targs_nonunit*) hyp1) in
       coq_apps_cfml_var "WPLifted.Wpgen_body" [hyp]
       (* TODO later find how to factorize over the list of arguments *)
 

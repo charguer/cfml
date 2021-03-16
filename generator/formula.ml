@@ -177,7 +177,7 @@ let hstar h1 h2 =
 (** Separating conjunction [Q1 * H2] *)
 
 let qstar q1 h2 =
-  let temp = "__temp__" in (* TODO: clash check *)
+  let temp = "res__" in (* TODO: clash check *)
   coq_fun (temp,coq_wild) (hstar (coq_app q1 (coq_var temp)) h2)
 
 (** Pure heap predicates [ \[P] ] *)

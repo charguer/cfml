@@ -150,6 +150,10 @@ let let_fun_in_let () =
   let f = (assert (true); fun x -> x) in
   f
 
+let let_fun_rec m =
+  let rec f n = if n <= 0 then 0 else f(n-1) in
+  f m
+
 
 (********************************************************************)
 (* ** Polymorphic let bindings and value restriction *)

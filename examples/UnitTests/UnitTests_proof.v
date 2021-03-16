@@ -12,22 +12,9 @@ Require TLC.LibListZ. (* TODO NEEDED? *)
 (********************************************************************)
 (********************************************************************)
 
-(********************************************************************)
-(* ** Record with -- TODO: move *)
-
-
-Lemma recordwith_spec :
-  SPEC (recordwith tt)
-    PRE \[]
-    POST (fun r => r ~~~> `{ mya' := 6; myb' := 5; myc' := 3 }).
-Proof using.
-  xcf. xapp. intros r. xapp. xsimpl.
-Qed.
-
-
 
 (********************************************************************)
-(* ** Notation for PRE/INV/POST *)
+(** ** Notation for PRE/INV/POST *)
 
 
 Lemma notation_inv_post_spec_pre : forall (r:loc) (n:int),
@@ -61,7 +48,7 @@ Proof using. xcf. xapp. xapp. xsimpl*. Qed.
 
 
 (********************************************************************)
-(* ** Encoding of names *)
+(** ** Encoding of names *)
 
 Lemma renaming_types : True.
 Proof using.
@@ -71,25 +58,6 @@ Proof using.
   pose renaming_t4_.
   auto.
 Qed.
-
-
-
-(* TODO MOVE *)
-Ltac xletval_core tt ::=
-  match xgoal_code_without_wptag tt with
-  | (Wpgen_let_Val _ (fun x => _)) => idtac x;
-     let a := fresh "v" x in
-     let Pa := fresh "P" a in
-     applys xletval_lemma;
-     intros a Pa
-  end.
-
-Ltac xletvalas_core tt :=
-  xletval_core tt;
-  do 2 (let H := get_last_hyp tt in revert H).
-
-Tactic Notation "xletval" "as" := (* TODO: document *)
-  xletvalas_core tt.
 
 Lemma renaming_demo_spec :
   SPEC (renaming_demo tt)
@@ -108,7 +76,7 @@ Qed.
 
 
 (********************************************************************)
-(* ** Polymorphic let bindings and value restriction *)
+(** ** Polymorphic let bindings and value restriction *)
 
 (* TODO
 Lemma let_poly_p0_spec :
@@ -256,7 +224,7 @@ Qed.
 
 
 (********************************************************************)
-(* ** Top-level values *)
+(** ** Top-level values *)
 
 Lemma top_val_int_spec :
   top_val_int = 5.
@@ -286,7 +254,7 @@ Proof using. xcf*. Qed.
 
 
 (********************************************************************)
-(* ** Return *)
+(** ** Return *)
 
 Lemma ret_unit_spec :
   SPEC (ret_unit tt)
@@ -327,7 +295,7 @@ Proof using. xcf. xgo*. Qed.
 
 
 (********************************************************************)
-(* ** Sequence *)
+(** ** Sequence *)
 
 Axiom ret_unit_spec' : forall A (x:A),
   SPEC (ret_unit x)
@@ -362,7 +330,7 @@ Abort.
 
 
 (********************************************************************)
-(* ** Let-value *)
+(** ** Let-value *)
 
 Lemma let_val_int_spec :
   SPEC (let_val_int tt)
@@ -402,36 +370,373 @@ Qed.
 
 
 (********************************************************************)
-(* ** Let-function *)
+(** ** Let-function *)
+
+(* TODO: move *)
+
+Ltac xletval_intro_wrapper cont :=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_let_Val _ (fun x => _)) =>
+     let a := fresh "v" x in
+     let Pa := fresh "P" a in
+     cont a;
+     intros a Pa
+  end.
+
+Ltac xletval_core tt ::=
+  xletval_intro_wrapper ltac:(fun _ => applys xletval_lemma).
+
+
+
+
+(* TODO MOVE 
+Notation "'LetFun' f ':=' B1 'in' F1" :=
+ ((*Wptag*) (Wpgen_let_fun (fun A EA Q => \forall f, \[B1] \-* (F1 A EA Q))))
+ (in custom wp at level 69,
+  f ident,
+  B1 custom wp at level 69,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'LetFun'  f  ':=' '/' '['   B1 ']'  'in' ']' '/' '[' F1 ']' ']'" ) : wp_scope.
+
+Notation "'Body' f x1 ':=' F1" :=
+ ((*Wptag*) (Wpgen_body (forall x1 H A EA Q,
+               (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
+               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ x1)::nil)) A EA H Q)))
+ (in custom wp at level 69,
+  f ident,
+  x1 constr,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Body'  f  x1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+*)
+
+Notation "'LetFun' f ':=' B1 'in' F1" :=
+ ((*Wptag*) (Wpgen_let_fun (fun A EA Q => \forall f, \[B1] \-* (F1 A EA Q))))
+ (in custom wp at level 69,
+  f ident,
+  B1 constr at level 69,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'LetFun'  f  ':=' '/' '['   B1 ']'  'in' ']' '/' '[' F1 ']' ']'" ) : wp_scope.
+
+Notation "'Body' f x1 ':=' F1" :=
+ ((*Wptag*) (Wpgen_body (forall x1 H A EA Q,
+               (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
+               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ x1)::nil)) A EA H Q)))
+ (at level 69,
+  f ident,
+  x1 constr,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Body'  f  x1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+
+
+(*--------------------------------------------------------*)
+(* ** [xind_skip] *)
+
+(* TODO: move *)
+
+(** [xind_skip] allows to assume the current goal to be
+    already true. It is useful to test a proof before justifying
+    termination. It applies to a goal [G] and turns it
+    into [G -> G]. Typical usage: [xind_skip ;=> IH].
+
+    Use it for development purpose only.
+
+    Variant: [xind_skip as IH], equivalent to [xind_skip ;=> IH].
+*)
+
+Tactic Notation "xind_skip" :=
+  let IH := fresh "IH" in admit_goal IH.
+
+Tactic Notation "xind_skip" "as" :=
+  let IH := fresh "IH" in admit_goal IH; revert IH.
+
+(* TODO: in goal by default
+Tactic Notation "xind_skip" :=
+  let IH := fresh "IH" in admit_goal IH; gen IH.
+
+Tactic Notation "xind_skip" "as" ident(IH) :=
+  admit_goal IH.
+*)
+
+
+(*--------------------------------------------------------*)
+(* TLC *)
+
+Ltac induction_wf_core_then E X cont ::=
+  let clearX tt :=
+    first [ clear X | fail 3 "the variable on which the induction is done appears in the hypotheses" ] in
+  pattern X;
+  first [ eapply (@well_founded_ind _ E)
+        | eapply (@well_founded_ind _ (E _))
+        | eapply (@well_founded_ind _ (E _ _))
+        | eapply (@well_founded_ind _ (E _ _ _))
+        | induction_wf_process_measure E
+        | applys well_founded_ind E ];
+  clearX tt;
+  first [ induction_wf_process_wf_hyp tt
+        | intros X; cont tt ].
+
+Ltac induction_wf_core IH E X ::=
+  induction_wf_core_then E X ltac:(fun _ => intros IH).
+
+
+(*--------------------------------------------------------*)
+(* ** [xfun] *)
+
+(** [xfun] applies to a formula of the form [LetFun f := B in F].
+
+    - [xfun] without arguments simply saves the hypothesis about [f]
+      for later use. This tactic is useful in particular when there
+      is a single occurrence of [f] in the code.
+
+    - [xfun as] can be used to introduce the name of the function
+      and of its specification explicitly.
+
+    - [xfun P] can be used to give a specification for [f], proved
+      with respect to the most-general specification. Here, [P]
+      should take the form [fun f => spec_of_f].
+      When this tactic fails, try [xfun_rec; xapp_types.] (* TODO: xfun_types *)
+
+    - [xfun_ind R P] is a shorthand for proving a recursive function
+      by well-founded induction on the first argument quantified in [P].
+      It is short for [xfun_rec P], followed by [intros n] and
+      [induction_wf IH: R n], and then exploiting the characteristic
+      formula for the body. The binary relation [R] needs to be
+      well-founded. Typical relation includes [downto 0] and [upto n]
+      for induction on the type [int]. [R] can also be a measure function,
+      as such functions are accepted as arguments of [induction_wf].
+
+    - [xfun_ind_skip P] is a development tactic used to skip the need
+      to provide a well-founded relation for justifying termination.
+
+    - [xfun_rec P] is like [xfun P] but it does not perform any 
+      simplification automatically, leaving a chance for the user
+      to apply Coq's induction tactic---though it most case, [xfun_ind]
+      should do the job. Use tactic [xapp] (or [apply]) to continue the 
+      proof after [induction]. (* TODO: check that xapp works for
+      exploiting a body. Note that this tactic is essentially equivalent
+      to [xfun as; intros f Sf; assert (Sf': P f); [ | clears Sf; rename Sf' into Sf ]. ] *)
+
+    - Also available:
+      [xfun P as]
+      [xfun_ind R P as]
+      [xfun_rec P as]
+      [xfun_ind_skip R P as]
+
+*)
+
+Ltac xfun_pre tt :=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_let_fun _) => idtac
+  end.
+
+Lemma xfun_lemma : forall A `{EA:Enc A} (BodyOf:forall A,Enc A->(A->hprop)->hprop) H (Q:A->hprop),
+  H ==> ^(BodyOf) Q ->
+  H ==> ^(Wpgen_let_fun BodyOf) Q.
+Proof using. introv M. applys MkStruct_erase. applys M. Qed.
+
+Lemma xfun_cut_lemma : forall f (SpecOf:val->Prop) (Bf G:Prop),
+  (Bf -> SpecOf f) ->
+  (SpecOf f -> G) ->
+  (Bf -> G).
+Proof using. auto. Qed.
+
+Lemma xfun_cut_skip_lemma : forall f (SpecOf:val->Prop) (Bf G:Prop),
+  (SpecOf f -> Bf -> SpecOf f) ->
+  (SpecOf f -> G) ->
+  (Bf -> G).
+Admitted. (* This lemma only for development purposes *)
+
+(* [xfun_common cont] extracts the variable [f] and the CF for [f] named [Bf],
+   then calls the continuation [cont] with [f] and [Bf] as arguments. *)
+
+Ltac xfun_common cont :=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_let_fun (fun A EA Q => \forall f, _)) =>
+     let a := fresh f in
+     let Sa := fresh "Spec_" f in
+     applys xfun_lemma;
+     applys himpl_hforall_r; intros a;
+     applys hwand_hpure_r_intro; intros Sa;
+     cont a Sa
+  end.
+
+(** [xfun_simpl Bf] applies to a goal of the form
+    [Bf: characteristic_formula_for_the_body_of_f |- SpecOf f]
+    and it exploits [Bf] in order to prove the goal,
+    then clears this hypothesis. *)
+
+Ltac xfun_simpl Bf :=
+  first [ intros; eapply Bf
+        | hnf; intros; eapply Bf ]; (* useful if P is an abstract definition *)
+  clear Bf.
+
+(** Core functions (below, [P] corresponds to [SpecOf] *)
+
+Ltac xfun_as_core cont2 :=
+  xfun_common cont2.
+
+Ltac xfun_spec_as_core P cont1 cont2 := 
+  xfun_common ltac:(fun f Sf => 
+    revert Sf;
+    applys (@xfun_cut_lemma f P); 
+    [ let Bf := fresh "Body_" f in
+      intros Bf; 
+      xfun_simpl Bf;
+      cont1 f Bf
+    | intros Sf;
+      cont2 f Sf ]).
+
+Ltac xfun_spec_rec_as_core P cont1 cont2 := (* TODO: factorize?*)
+  xfun_common ltac:(fun f Sf => 
+    revert Sf;
+    applys (@xfun_cut_lemma f P); 
+    [ let Bf := fresh "Body_" f in
+      intros Bf; 
+      cont1 f Bf
+    | intros Sf;
+      cont2 f Sf ]).
+
+Ltac xfun_spec_ind_as_core R P cont1 cont2 :=
+  xfun_common ltac:(fun f Sf => 
+    revert Sf;
+    applys (@xfun_cut_lemma f P); 
+    [ let Bf := fresh "Body_" f in
+      intros Bf ?; 
+      let X := get_last_hyp tt in
+      induction_wf_core_then R X ltac:(fun _ =>
+        intros Sf; 
+        xfun_simpl Bf; 
+        cont1 f Sf)
+    | intros Sf;
+      cont2 f Sf ]).
+
+Ltac xfun_spec_ind_skip_as_core P cont1 cont2 :=
+  xfun_common ltac:(fun f Sf => 
+    revert Sf;
+    applys (@xfun_cut_skip_lemma f P); 
+    [ let Bf := fresh "Body_" f in
+      intros Sf Bf; 
+      xfun_simpl Bf;
+      cont1 f Sf
+    | intros Sf;
+      cont2 f Sf ]).
+
+(** Variants with names in the goal *)
+
+Ltac xfun_clean_unused_var tt :=
+  match goal with |- val -> _ => intros _ end.
+
+Tactic Notation "xfun" "as" :=
+  xfun_as_core ltac:(fun f Sf => revert f Sf).
+Tactic Notation "xfun" constr(P) "as" :=
+  xfun_spec_as_core P ltac:(fun f Bf => revert f; xfun_clean_unused_var tt) ltac:(fun f Sf => revert f Sf).
+Tactic Notation "xfun_rec" constr(P) "as" :=
+  xfun_spec_rec_as_core P ltac:(fun f Bf => revert f Bf) ltac:(fun f Sf => revert f Sf).
+Tactic Notation "xfun_ind" constr(R) constr(P) "as" :=
+  xfun_spec_ind_as_core R P ltac:(fun f Sf => revert f Sf) ltac:(fun f Sf => revert f Sf).
+Tactic Notation "xfun_ind_skip" constr(P) "as" :=
+  xfun_spec_ind_skip_as_core P ltac:(fun f Sf => revert f Sf) ltac:(fun f Sf => revert f Sf).
+
+(* Variants with names introduced *)
+
+Ltac idcont2 f Sf := idtac.
+
+Tactic Notation "xfun" :=
+  xfun_as_core idcont2.
+Tactic Notation "xfun" constr(P) :=
+  xfun_spec_as_core P idcont2 idcont2.
+Tactic Notation "xfun_rec" constr(P) :=
+  xfun_spec_rec_as_core P idcont2 idcont2.
+Tactic Notation "xfun_ind" constr(R) constr(P) :=
+  xfun_spec_ind_as_core R P idcont2 idcont2.
+Tactic Notation "xfun_ind_skip" constr(P) :=
+  xfun_spec_ind_skip_as_core P idcont2 idcont2.
+
+
+(* TODO: pb of res__ variable showing up, due to \*+ simplification *)
+
+(* TODO: decide whether xtriple_inv should remain *)
+
+Lemma xtriple_inv_lifted_lemma : forall f (Vs:dyns) A `{EA:Enc A} H (Q:A->hprop),
+  Triple (Trm_apps f Vs) H Q ->
+  H ==> ^(Wptag (Wpgen_App_typed A f Vs)) Q.
+Proof using. Admitted. (* TODO *)
+
+Ltac xtriple_inv_core tt :=
+  applys xtriple_inv_lifted_lemma.
+
+Tactic Notation "xtriple_inv" :=
+  xtriple_inv_core tt.
+(*
+Ltac xapp_select_lifted_lemma cont ::= (* TODO: factorize better with xapp_select_lemma *)
+  let S := fresh "Spec" in
+  intro S;
+  match type of S with
+  | Wpgen_body _ => applys @xtriple_inv_lifted_lemma; [ applys S | clear S; cont tt ]
+  | Triple _ _ (fun _ => \[_ = _] \* _) => applys @xapps_lifted_lemma; [ applys S | clear S; cont tt ]
+  | Triple _ _ (fun _ => \[_ = _]) => applys @xapps_lifted_lemma_pure; [ applys S | clear S; cont tt ]
+  | _ => applys @xapp_lifted_lemma; [ applys S | clear S; cont tt ]
+  end.
+
+
+
+Ltac xapp_apply_lifted_lemma cont_prove_triple ::=
+  (* --TODO should remove *) xapp_pre tt;
+  applys xapp_find_spec_lifted_lemma;
+    [ cont_prove_triple tt
+    | xapp_select_lifted_lemma ltac:(fun _ => xapp_post tt) ].
+
+xspec_lemma_of_args E; 
+
+(* todo change xapp iwth args *)
+Ltac xspec_context tt ::=
+  xspec_remove_combiner tt;
+  match goal with
+  | H: context [ Triple (trm_apps (trm_val ?f) _) _ _ ]
+    |- Triple (trm_apps (trm_val ?f) _) _ _ => generalize H
+  | H: context [ Triple (Trm_apps (trm_val ?f) _) _ _ ]
+    |- Triple (Trm_apps (trm_val ?f) _) _ _ => generalize H
+  | H: context [ Triple (Trm_apps (trm_val ?f) _) _ _ ]
+    |- ?H' ==> Wptag (Wpgen_App_typed _ (trm_val ?f) _) _ _ => generalize H
+  end.
+
+*)
+
 
 Lemma let_fun_const_spec :
   SPEC (let_fun_const tt)
     PRE \[]
     POST \[= 3].
 Proof using.
-  xcf. dup 10.
-  { xfun. apply Sf. xtag_pre_post. xvals~. }
-  { xfun as g. apply Sg. skip. }
-  { xfun as g. xapp. xval. skip. }
-  { xfun as g G. apply G. skip. }
-  { xfun_no_simpl (fun g => SPEC (g tt) \[] \[=3]).
-    { xapp. skip. }
-    { apply Sf. } }
-  { xfun_no_simpl (fun g => SPEC (g tt) \[] \[=3]) as h.
-    { apply Sh. skip. }
-    { apply Sh. } }
-  { xfun_no_simpl (fun g => SPEC (g tt) \[] \[=3]) as h H.
-    { xapp. skip. }
-    { xapp. } }
-  { xfun (fun g => SPEC (g tt) \[] \[=3]).
-    { xvals~. }
-    { apply Sf. } }
-  { xfun (fun g => SPEC (g tt) \[] \[=3]) as h.
-    { skip. }
-    { skip. } }
-  { xfun (fun g => SPEC (g tt) \[] \[=3]) as h H.
-    { skip. }
-    { skip. } }
+  xcf. dup 12.
+  (* Variants with names introduced *)
+  { xfun. (* TODO: xapp *) skip. (* TODO: dev xtriple_inv. apply Spec_f. xvals*. *) } 
+  { xfun (fun f => SPEC (f tt) PRE \[] POST \[=3]). 
+    { xvals*. } { xapp. xsimpl*. } }
+  { sets Sg: (fun g => SPEC (g tt) PRE \[] POST \[=3]). 
+    xfun Sg. { xvals*. } { xapp Spec_f. xsimpl*. } }
+  { xfun_rec (fun g => SPEC (g tt) PRE \[] POST \[=3]).
+    { apply Body_f. xvals*. } { xapp. xsimpl*. } }
+  { xfun_ind (downto 0) (fun g => forall (n:int), SPEC (g tt) PRE \[] POST \[=3]).
+    { (* spec ind. principle! *) xvals*. } { xapp. exact 0. xsimpl*. } }
+  { xfun_ind_skip (fun g => SPEC (g tt) PRE \[] POST \[=3]).
+    { (* spec assumed! *) xvals*. } { xapp. xsimpl*. } }
+  (* Variants with names in the goal *)
+  { xfun as. intros f Hf. skip. }
+  { xfun (fun f => SPEC (f tt) PRE \[] POST \[=3]) as. 
+    { xvals*. } { intros f Sf. xapp. xsimpl*. } }
+  { sets Sg: (fun g => SPEC (g tt) PRE \[] POST \[=3]). 
+    xfun Sg as. { xvals*. } { intros f Sf. xapp Sf. xsimpl*. } }
+  { xfun_rec (fun g => SPEC (g tt) PRE \[] POST \[=3]) as.
+    { intros f Bf. apply Bf. xvals*. } { intros f Sf. xapp. xsimpl*. } }
+  { xfun_ind (downto 0) (fun g => forall (n:int), SPEC (g tt) PRE \[] POST \[=3]) as.
+    { intros f IH. (* spec ind. principle! *) xvals*. } { intros f Sf. xapp. exact 0. xsimpl*. } }
+  { xfun_ind_skip (fun g => SPEC (g tt) PRE \[] POST \[=3]) as.
+    { intros f IH. (* spec assumed! *) xvals*. } { intros f Sf. xapp. xsimpl*. } }
 Qed.
 
 Lemma let_fun_poly_id_spec :
@@ -499,8 +804,29 @@ Abort.
 
 
 
+(*--------------------------------------------------------*)
+(* ** [xfuns] *)
+
+(** [xfuns as] applies to mutually recursive functions. *)
+
+(* TODO: provide additional tactics like for [xfun]? *)
+
+Ltac xfuns_as_core tt :=
+  applys xletfun_lemma;
+  pose ltac_mark;
+  repeat applys himpl_hforall_r;
+  repeat applys hwand_hpure_r_intro;
+  gen_until_mark.
+
+Tactic Notation "xfuns" "as" :=
+  xfuns_as_core tt.
+
+
+
+
+
 (********************************************************************)
-(* ** Let-term *)
+(** ** Let-term *)
 
 Lemma let_term_nested_id_calls_spec :
   SPEC (let_term_nested_id_calls tt)
@@ -530,7 +856,7 @@ Proof using.
 Qed.
 
 (********************************************************************)
-(* ** Pattern-matching *)
+(** ** Pattern-matching *)
 
 Lemma match_pair_as_spec :
   SPEC (match_pair_as tt)
@@ -582,7 +908,7 @@ Qed.
 
 
 (********************************************************************)
-(* ** Let-pattern *)
+(** ** Let-pattern *)
 
 Lemma let_pattern_pair_int_spec :
   SPEC (let_pattern_pair_int tt)
@@ -598,7 +924,7 @@ Proof using. xcf. xmatch. xvals~. Qed.
 
 
 (********************************************************************)
-(* ** Infix functions *)
+(** ** Infix functions *)
 
 Lemma infix_plus_plus_plus_spec : forall x y,
   SPEC (infix_plus_plus_plus__ x y)
@@ -631,7 +957,7 @@ Qed.
 
 
 (********************************************************************)
-(* ** Lazy binary operators *)
+(** ** Lazy binary operators *)
 
 Lemma lazyop_val_spec :
   SPEC (lazyop_val tt)
@@ -693,7 +1019,7 @@ Qed.
 
 
 (********************************************************************)
-(* ** Comparison operators *)
+(** ** Comparison operators *)
 
 Lemma compare_poly_spec :
   SPEC (compare_poly tt)
@@ -772,7 +1098,7 @@ Qed.
 
 
 (********************************************************************)
-(* ** Inlined total functions *)
+(** ** Inlined total functions *)
 
 Lemma inlined_fun_arith_spec :
   SPEC (inlined_fun_arith tt)
@@ -796,7 +1122,7 @@ Qed.
 
 
 (********************************************************************)
-(* ** Type annotations *)
+(** ** Type annotations *)
 
 Lemma annot_let_spec :
   SPEC (annot_let tt)
@@ -835,7 +1161,7 @@ Qed.
 
 
 (********************************************************************)
-(* ** Polymorphic functions *)
+(** ** Polymorphic functions *)
 
 Lemma top_fun_poly_id_spec : forall A (x:A),
   SPEC (top_fun_poly_id x)
@@ -872,7 +1198,7 @@ Qed.
 
 
 (********************************************************************)
-(* ** Polymorphic let bindings *)
+(** ** Polymorphic let bindings *)
 
 Lemma let_poly_nil_spec : forall A,
   SPEC (let_poly_nil tt)
@@ -911,7 +1237,7 @@ Qed.
 
 
 (********************************************************************)
-(* ** Fatal Exceptions *)
+(** ** Fatal Exceptions *)
 
 Lemma exn_assert_false_spec : False ->
   SPEC (exn_assert_false tt)
@@ -938,7 +1264,7 @@ Qed.
 
 
 (********************************************************************)
-(* ** Assertions *)
+(** ** Assertions *)
 
 Lemma assert_true_spec :
   SPEC (assert_true tt)
@@ -1002,7 +1328,7 @@ Qed.
 
 
 (********************************************************************)
-(* ** Conditionals *)
+(** ** Conditionals *)
 
 Lemma if_true_spec :
   SPEC (if_true tt)
@@ -1047,7 +1373,7 @@ Qed.
 
 
 (********************************************************************)
-(* ** Evaluation order *)
+(** ** Evaluation order *)
 
 Lemma order_app_spec :
   SPEC (order_app tt)
@@ -1112,7 +1438,7 @@ let order_record () =
 
 
 (********************************************************************)
-(* ** While loops *)
+(** ** While loops *)
 
 
 Lemma while_decr_spec :
@@ -1242,7 +1568,7 @@ Qed.
 
 
 (********************************************************************)
-(* ** For loops *)
+(** ** For loops *)
 
 
 Lemma for_to_incr_spec : forall (r:int), r >= 1 ->
@@ -1353,7 +1679,7 @@ Abort.
 
 
 (********************************************************************)
-(* ** Recursive function *)
+(** ** Recursive function *)
 
 Require Import TLC.LibInt.
 
@@ -1437,7 +1763,7 @@ Qed.
 
 
 (********************************************************************)
-(* ** Reference and garbage collection *)
+(** ** Reference and garbage collection *)
 
 Lemma ref_gc_spec :
   SPEC (ref_gc tt)
@@ -1480,7 +1806,7 @@ Qed.
 
 
 (********************************************************************)
-(* ** Records *)
+(** ** Records *)
 
 Lemma sitems_build_spec : forall (A:Type) (n:int),
   SPEC (sitems_build n)
@@ -1530,8 +1856,22 @@ Qed.
 Definition Sitems A (L:list A) r :=
   Hexists n, r ~> `{ nb' := n; items' := L } \* \[ n = LibListZ.length L ].
 
+
 (********************************************************************)
-(* ** Recursive records definitions *)
+(** ** Record with *)
+
+
+Lemma recordwith_spec :
+  SPEC (recordwith tt)
+    PRE \[]
+    POST (fun r => r ~~~> `{ mya' := 6; myb' := 5; myc' := 3 }).
+Proof using.
+  xcf. xapp. intros r. xapp. xsimpl.
+Qed.
+
+
+(********************************************************************)
+(** ** Recursive records definitions *)
 
 Lemma create_cyclic_node_spec : forall (A:Type) (data:A),
   SPEC (create_cyclic_node data)
@@ -1619,7 +1959,7 @@ Qed.
 
 
 (********************************************************************)
-(* ** Arrays *)
+(** ** Arrays *)
 
 Require Import Array_proof TLC.LibListZ.
 
@@ -1649,7 +1989,7 @@ End Array.
 
 
 (********************************************************************)
-(* ** Integer arithmetics *)
+(** ** Integer arithmetics *)
 
 (* land *)
 
@@ -1731,7 +2071,7 @@ Proof. reflexivity. Qed.
 
 
 (********************************************************************)
-(* ** Partial applications *)
+(** ** Partial applications *)
 
 Lemma app_partial_2_1 () =
    let f x y = (x,y) in
@@ -1788,7 +2128,7 @@ let app_partial_builtin_and () =
 
 
 (********************************************************************)
-(* ** Over applications *)
+(** ** Over applications *)
 
 Lemma app_over_id () =
    let f x = x in
