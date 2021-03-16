@@ -1,0 +1,29 @@
+name: "coq-cfml-basis"
+opam-version: "2.0"
+maintainer: "arthur.chargueraud@inria.fr"
+
+homepage: "https://github.com/charguer/tlc"
+dev-repo: "git+https://github.com/charguer/tlc.git"
+bug-reports: "https://github.com/charguer/tlc/issues"
+license: "MIT"
+
+synopsis: "The CFML Basis library"
+description: """
+This library provides theoretical foundations for the CFML tool.
+"""
+
+build: [make "-j%{jobs}%"]
+install: [make "install"]
+depends: [
+  "coq" { >= "8.12" }
+  "coq-tlc" { >= "20210316" }
+]
+
+tags: [
+  "date:DATEDASH"
+  "keyword:library"
+  "logpath:CFML"
+]
+authors: [
+  "Arthur Charguéraud"
+]
