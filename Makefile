@@ -25,7 +25,7 @@ all: coqlib generator
 	$(MAKE) CFMLC=$(CFML)/generator/cfmlc.native -C lib/stdlib
 
 coqlib:
-	$(MAKE) CFML=$(CFML) -C lib/coq vo
+	$(MAKE) -C lib/coq
 
 generator:
 	rm -f generator/cfml_config.ml
@@ -83,8 +83,7 @@ install: all
 	rm -rf $(COQ_CONTRIB)/CFML
 
 	# Install the CFML core coq library
-	mkdir -p $(COQ_CONTRIB)/CFML
-	install $(CFML)/lib/coq/*.vo $(COQ_CONTRIB)/CFML
+	make -C lib/coq install
 
 	# Install the CFML stdlib coq library
 	mkdir -p $(COQ_CONTRIB)/CFML/Stdlib
