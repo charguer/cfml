@@ -153,6 +153,7 @@ Ltac xgoal_fun tt :=
 Declare Scope wptactics_scope.
 Open Scope wptactics_scope.
 
+(* TODO: will be deprecated *)
 Notation "'Register_goal' G" := (Register database_spec G)
   (at level 69) : wptactics_scope.
 
@@ -213,11 +214,12 @@ Ltac xspec_lemma_of_args E :=
 Ltac xspec_prove_triple_with_args E :=
   xspec_lemma_of_args E; xspec_prove_cont tt.
 
+(* TODO: will be deprecated *)
 Notation "'Register_Spec' f" := (Register_goal (Triple (trm_apps (trm_val f) _) _ _))
   (at level 69) : wptactics_scope.
 
 (* ** Specification of primitives *)
-
+(* TODO: will be deprecated *)
 Hint Extern 1 (Register_Spec (val_prim val_set)) => Provide @Triple_set_Decode.
 Hint Extern 1 (Register_Spec (val_prim val_ref)) => Provide @Triple_ref_Decode.
 Hint Extern 1 (Register_Spec (val_prim val_get)) => Provide @Triple_get.
@@ -589,6 +591,21 @@ Tactic Notation "xtriple" :=
 
 
 (* ---------------------------------------------------------------------- *)
+(* ** Tactic [xtriple_inv] --- TODO: will probably be merged into xapp *)
+
+Lemma xtriple_inv_lifted_lemma : forall f (Vs:dyns) A `{EA:Enc A} H (Q:A->hprop),
+  Triple (Trm_apps f Vs) H Q ->
+  H ==> ^(Wptag (Wpgen_App_typed A f Vs)) Q.
+Proof using. Admitted. (* TODO *)
+
+Ltac xtriple_inv_core tt :=
+  applys xtriple_inv_lifted_lemma.
+
+Tactic Notation "xtriple_inv" :=
+  xtriple_inv_core tt.
+
+
+(* ---------------------------------------------------------------------- *)
 (* ** Tactic [xgc] *)
 
 Lemma xgc_post_lemma : forall (H:hprop) (F:Formula) `{Enc A} (Q:A->hprop),
@@ -627,6 +644,9 @@ Tactic Notation "xseq" :=
 
 (** [xletval] is used to reason on a let-value node, i.e. on a goal
     of the form [H ==> (Val x := v in F1) Q].
+    It introduces [x] and [Px: x = v], and leaves (H ==> F1 Q)].
+
+    [xletval as] leaves the fresh variables in the goal.
     It leaves the goal [forall x, x = v -> (H ==> F1 Q)].
 
     [xletvals] leaves the goal [H ==> F1 Q] with [x] replaced by [v]
@@ -653,23 +673,26 @@ Proof using.
   introv M. applys xletvals_lemma. applys* M.
 Qed.
 
-Ltac xletval_core tt :=
+Ltac xletval_common cont :=
   match xgoal_code_without_wptag tt with
   | (Wpgen_let_Val _ (fun x => _)) =>
      let a := fresh "v" x in
      let Pa := fresh "P" a in
      applys xletval_lemma;
-     intros a Pa
+     intros a Pa;
+     cont a Pa
   end.
+
+Ltac xletval_core tt :=
+  xletval_common idcont.
 
 Tactic Notation "xletval" :=
   xletval_core tt.
 
 Ltac xletvalas_core tt :=
-  xletval_core tt;
-  do 2 (let H := get_last_hyp tt in revert H).
+  xletval_common ltac:(fun a Pa => revert a Pa).
 
-Tactic Notation "xletval" "as" := (* TODO: document *)
+Tactic Notation "xletval" "as" :=
   xletvalas_core tt.
 
 Ltac xletvals_core tt :=
@@ -1244,7 +1267,9 @@ Tactic Notation "xvals" "*"  :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xfun] *)
 
-(* TODO: rename to xval_lemma_val *)
+(* TODO: OLD VERSION OF XFUN for partial wpgen operation
+   rename to xval_lemma_val?
+
 Lemma xfun_lemma : forall (v:val) H (Q:val->hprop),
   H ==> Q v ->
   H ==> ^(Wpgen_val v) Q.
@@ -1256,6 +1281,228 @@ Ltac xfun_core tt :=
 
 Tactic Notation "xfun" :=
   xfun_core tt.
+*)
+
+
+(*--------------------------------------------------------*)
+(* ** [xind_skip] *)
+
+(* TODO: document better *)
+
+(** [xind_skip] allows to assume the current goal to be
+    already true. It is useful to test a proof before justifying
+    termination. It applies to a goal [G] and turns it
+    into [G -> G]. Typical usage: [xind_skip ;=> IH].
+
+    Use it for development purpose only.
+
+    Variant: [xind_skip as IH], equivalent to [xind_skip ;=> IH].
+*)
+
+Tactic Notation "xind_skip" :=
+  let IH := fresh "IH" in admit_goal IH.
+
+Tactic Notation "xind_skip" "as" :=
+  let IH := fresh "IH" in admit_goal IH; revert IH.
+
+(* TODO deprecated: in goal by default
+Tactic Notation "xind_skip" :=
+  let IH := fresh "IH" in admit_goal IH; gen IH.
+
+Tactic Notation "xind_skip" "as" ident(IH) :=
+  admit_goal IH.
+*)
+
+
+(*--------------------------------------------------------*)
+(* ** [xfun] *)
+
+(** [xfun] applies to a formula of the form [LetFun f := B in F].
+
+    - [xfun] without arguments simply saves the hypothesis about [f]
+      for later use. This tactic is useful in particular when there
+      is a single occurrence of [f] in the code.
+
+    - [xfun P] can be used to give a specification for [f], proved
+      with respect to the most-general specification. Here, [P]
+      should take the form [fun f => spec_of_f].
+      When this tactic fails, try [xfun_rec; xapp_types.] (* TODO: xfun_types *)
+
+    - [xfun_ind R P] is a shorthand for proving a recursive function
+      by well-founded induction on the first argument quantified in [P].
+      It is short for [xfun_rec P], followed by [intros n] and
+      [induction_wf IH: R n], and then exploiting the characteristic
+      formula for the body. The binary relation [R] needs to be
+      well-founded. Typical relation includes [downto 0] and [upto n]
+      for induction on the type [int]. [R] can also be a measure function,
+      as such functions are accepted as arguments of [induction_wf].
+
+    - [xfun_ind_skip P] is a development tactic used to skip the need
+      to provide a well-founded relation for justifying termination.
+
+    - [xfun_rec P] is like [xfun P] but it does not perform any
+      simplification automatically, leaving a chance for the user
+      to apply Coq's induction tactic---though it most case, [xfun_ind]
+      should do the job. Use tactic [xapp] (or [apply]) to continue the
+      proof after [induction]. (* TODO: check that xapp works for
+      exploiting a body. Note that this tactic is essentially equivalent
+      to [xfun as; intros f Sf; assert (Sf': P f); [ | clears Sf; rename Sf' into Sf ]. ] *)
+
+    - Also available, the "as" variant, allow the variables and hypotheses
+      to be named explicitly.
+      [xfun as]
+      [xfun P as]
+      [xfun_ind R P as]
+      [xfun_rec P as]
+      [xfun_ind_skip R P as]
+
+*)
+
+Ltac xfun_pre tt :=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_let_fun _) => idtac
+  end.
+
+Lemma xfun_lemma : forall A `{EA:Enc A} (BodyOf:forall A,Enc A->(A->hprop)->hprop) H (Q:A->hprop),
+  H ==> ^(BodyOf) Q ->
+  H ==> ^(Wpgen_let_fun BodyOf) Q.
+Proof using. introv M. applys MkStruct_erase. applys M. Qed.
+
+Lemma xfun_cut_lemma : forall f (SpecOf:val->Prop) (Bf G:Prop),
+  (Bf -> SpecOf f) ->
+  (SpecOf f -> G) ->
+  (Bf -> G).
+Proof using. auto. Qed.
+
+Lemma xfun_cut_skip_lemma : forall f (SpecOf:val->Prop) (Bf G:Prop),
+  (SpecOf f -> Bf -> SpecOf f) ->
+  (SpecOf f -> G) ->
+  (Bf -> G).
+Admitted. (* This lemma only for development purposes *)
+
+(* [xfun_common cont] extracts the variable [f] and the CF for [f] named [Bf],
+   then calls the continuation [cont] with [f] and [Bf] as arguments. *)
+
+Ltac xfun_common cont :=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_let_fun (fun A EA Q => \forall f, _)) =>
+     let a := fresh f in
+     let Sa := fresh "Spec_" f in
+     applys xfun_lemma;
+     applys himpl_hforall_r; intros a;
+     applys hwand_hpure_r_intro; intros Sa;
+     cont a Sa
+  end.
+
+(** [xfun_simpl Bf] applies to a goal of the form
+    [Bf: characteristic_formula_for_the_body_of_f |- SpecOf f]
+    and it exploits [Bf] in order to prove the goal,
+    then clears this hypothesis. *)
+
+Ltac xfun_simpl Bf :=
+  first [ intros; eapply Bf
+        | hnf; intros; eapply Bf ]; (* useful if P is an abstract definition *)
+  clear Bf.
+
+(** Core functions (below, [P] corresponds to [SpecOf] *)
+
+Ltac xfun_as_core cont2 :=
+  xfun_common cont2.
+
+Ltac xfun_spec_as_core P cont1 cont2 :=
+  xfun_common ltac:(fun f Sf =>
+    revert Sf;
+    applys (@xfun_cut_lemma f P);
+    [ let Bf := fresh "Body_" f in
+      intros Bf;
+      xfun_simpl Bf;
+      cont1 f Bf
+    | intros Sf;
+      cont2 f Sf ]).
+
+Ltac xfun_spec_rec_as_core P cont1 cont2 := (* TODO: factorize?*)
+  xfun_common ltac:(fun f Sf =>
+    revert Sf;
+    applys (@xfun_cut_lemma f P);
+    [ let Bf := fresh "Body_" f in
+      intros Bf;
+      cont1 f Bf
+    | intros Sf;
+      cont2 f Sf ]).
+
+Ltac xfun_spec_ind_as_core R P cont1 cont2 :=
+  xfun_common ltac:(fun f Sf =>
+    revert Sf;
+    applys (@xfun_cut_lemma f P);
+    [ let Bf := fresh "Body_" f in
+      intros Bf ?;
+      let X := get_last_hyp tt in
+      induction_wf_core_then R X ltac:(fun _ =>
+        intros Sf;
+        xfun_simpl Bf;
+        cont1 f Sf)
+    | intros Sf;
+      cont2 f Sf ]).
+
+Ltac xfun_spec_ind_skip_as_core P cont1 cont2 :=
+  xfun_common ltac:(fun f Sf =>
+    revert Sf;
+    applys (@xfun_cut_skip_lemma f P);
+    [ let Bf := fresh "Body_" f in
+      intros Sf Bf;
+      xfun_simpl Bf;
+      cont1 f Sf
+    | intros Sf;
+      cont2 f Sf ]).
+
+(** Variants with names in the goal *)
+
+Ltac xfun_clean_unused_var tt :=
+  match goal with |- val -> _ => intros _ end.
+
+Tactic Notation "xfun" "as" :=
+  xfun_as_core ltac:(fun f Sf => revert f Sf).
+Tactic Notation "xfun" constr(P) "as" :=
+  xfun_spec_as_core P ltac:(fun f Bf => revert f; xfun_clean_unused_var tt) ltac:(fun f Sf => revert f Sf).
+Tactic Notation "xfun_rec" constr(P) "as" :=
+  xfun_spec_rec_as_core P ltac:(fun f Bf => revert f Bf) ltac:(fun f Sf => revert f Sf).
+Tactic Notation "xfun_ind" constr(R) constr(P) "as" :=
+  xfun_spec_ind_as_core R P ltac:(fun f Sf => revert f Sf) ltac:(fun f Sf => revert f Sf).
+Tactic Notation "xfun_ind_skip" constr(P) "as" :=
+  xfun_spec_ind_skip_as_core P ltac:(fun f Sf => revert f Sf) ltac:(fun f Sf => revert f Sf).
+
+(* Variants with names introduced *)
+
+Ltac idcont2 f Sf := idtac.
+
+Tactic Notation "xfun" :=
+  xfun_as_core idcont2.
+Tactic Notation "xfun" constr(P) :=
+  xfun_spec_as_core P idcont2 idcont2.
+Tactic Notation "xfun_rec" constr(P) :=
+  xfun_spec_rec_as_core P idcont2 idcont2.
+Tactic Notation "xfun_ind" constr(R) constr(P) :=
+  xfun_spec_ind_as_core R P idcont2 idcont2.
+Tactic Notation "xfun_ind_skip" constr(P) :=
+  xfun_spec_ind_skip_as_core P idcont2 idcont2.
+
+
+(*--------------------------------------------------------*)
+(* ** [xfuns] *)
+
+(** [xfuns as] applies to mutually recursive functions. *)
+
+(* TODO: provide additional tactics like for [xfun]? *)
+
+Ltac xfuns_as_core tt :=
+  applys xletfun_lemma;
+  pose ltac_mark;
+  repeat applys himpl_hforall_r;
+  repeat applys hwand_hpure_r_intro;
+  gen_until_mark.
+
+Tactic Notation "xfuns" "as" :=
+  xfuns_as_core tt.
 
 
 (* ---------------------------------------------------------------------- *)

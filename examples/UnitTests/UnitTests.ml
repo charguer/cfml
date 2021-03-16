@@ -9,59 +9,42 @@ open Pervasives
 
 
 (********************************************************************)
-(* ** Notation for PRE/INV/POST *)
+(* ** Function call *)
 
-let notation_inv_post r =
-  !r
+let myincr n =
+  n + 1
 
-let notation_inv_postunit r =
-  ()
+let app_myincr x =
+  myincr x
 
-let notation_pre_inv_post r s =
-  incr r; !s
+let app_let_myincr x =
+  let y = myincr x in
+  y
 
-
-(********************************************************************)
-(* ** Encoding of names *)
-
-(* type renaming_t_ = int   --rejected *)
-(* type renaming_t__ = int  --rejected *)
-(* type renaming_t1 = C_  --rejected *)
-
-type renaming_t' = int
-type renaming_t2 = C'
-type 'a renaming_t3 = int
-type 'a_ renaming_t4 = int
-
-let renaming_demo () =
-   (* let x_ = 3 in   --rejected *)
-   (* let x__ = 3 in  --rejected *)
-   let _x = 3 in
-   let _x' = 3 in
-   let _x_' = 3 in
-   let _exists = 3 in
-   let _array = 3 in
-   ()
+let app_let_local_myincr x =
+  let local_myincr n =
+     n + 1 in
+  local_myincr x
 
 
 (********************************************************************)
-(* ** Return *)
+(* ** Values *)
 
-let ret_unit x =
+let val_unit x =
   ()
 
-let ret_int () =
+let val_int () =
   3
 
-let ret_int_pair () =
+let val_int_pair () =
   (3,4)
 
-let ret_poly () =
+let val_poly () =
   []
 
 (* --Not yet supported:
    Error is: Cannot infer this placeholder of type Type
-let ret_poly_internal () =
+let val_poly_internal () =
   let x = ignore None in
   ()
  *)
@@ -70,7 +53,7 @@ let ret_poly_internal () =
    The reference A_ was not found in the current environment.*)
 
 (*
-let ret_poly_internal () =
+let val_poly_internal () =
   let x = ignore (None : 'a option) in
   ()
 *)
@@ -78,10 +61,10 @@ let ret_poly_internal () =
 (********************************************************************)
 (* ** Sequence *)
 
-let seq_ret_unit () =
-   ret_unit 1;
-   ret_unit 2;
-   ret_unit 3
+let seq_val_unit () =
+   val_unit 1;
+   val_unit 2;
+   val_unit 3
 
 
 (********************************************************************)
@@ -936,6 +919,42 @@ module ModFunctorTyped (Bar : ModBarType) : ModBarType = struct
    let x : t = Bar.x
 
 end
+
+
+(********************************************************************)
+(* ** Notation for PRE/INV/POST *)
+
+let notation_inv_post r =
+  !r
+
+let notation_inv_postunit r =
+  ()
+
+let notation_pre_inv_post r s =
+  incr r; !s
+
+
+(********************************************************************)
+(* ** Encoding of names *)
+
+(* type renaming_t_ = int   --rejected *)
+(* type renaming_t__ = int  --rejected *)
+(* type renaming_t1 = C_  --rejected *)
+
+type renaming_t' = int
+type renaming_t2 = C'
+type 'a renaming_t3 = int
+type 'a_ renaming_t4 = int
+
+let renaming_demo () =
+   (* let x_ = 3 in   --rejected *)
+   (* let x__ = 3 in  --rejected *)
+   let _x = 3 in
+   let _x' = 3 in
+   let _x_' = 3 in
+   let _exists = 3 in
+   let _array = 3 in
+   ()
 
 
 (********************************************************************)

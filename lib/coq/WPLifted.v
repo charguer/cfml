@@ -1076,31 +1076,64 @@ Notation "'LetFun' f ':=' B1 'in' F1" :=
  ((*Wptag*) (Wpgen_let_fun (fun A EA Q => \forall f, \[B1] \-* (F1 A EA Q))))
  (in custom wp at level 69,
   f ident,
-  B1 custom wp at level 69,
+  B1 constr at level 69,
   F1 custom wp at level 99,
   right associativity,
   format "'[v' '[' 'LetFun'  f  ':=' '/' '['   B1 ']'  'in' ']' '/' '[' F1 ']' ']'" ) : wp_scope.
 
-(* DEPRECATED
-Notation "'FunBody'" :=
- ((*Wptag*) (Wpgen_body _))
- (in custom wp at level 69) : wp_scope.
-*)
+(** Body is not in 'custom wp', on purpose *)
 
-(* TODO: resolve this one *)
-Notation "'Body' f x1 ':=' F1" :=
- ((*Wptag*) (Wpgen_body (forall x1 H A EA Q,
+Notation "'Body' f v1 ':=' F1" :=
+ ((*Wptag*) (Wpgen_body (forall v1 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
-               @Triple (Trm_apps f ((@dyn_make _ _ x1)::nil) A EA H Q))))
- (in custom wp at level 69,
+               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::nil)) A EA H Q)))
+ (at level 69,
   f ident,
-  x1 ident,
+  v1 constr,
   F1 custom wp at level 99,
   right associativity,
-  format "'[v' '[' 'Body'  f  x1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+  format "'[v' '[' 'Body'  f  v1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 
+Notation "'Body' f v1 v2 ':=' F1" :=
+ ((*Wptag*) (Wpgen_body (forall v1 v2 H A EA Q,
+               (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
+               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
+ (at level 69,
+  f ident,
+  v1 constr,
+  v2 constr,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Body'  f  v1  v2  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 
+Notation "'Body' f v1 v2 v3 ':=' F1" :=
+ ((*Wptag*) (Wpgen_body (forall v1 v2 v3 H A EA Q,
+               (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
+               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))
+ (at level 69,
+  f ident,
+  v1 constr,
+  v2 constr,
+  v3 constr,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Body'  f  v1  v2  v3  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 
+Notation "'Body' f v1 v2 v3 v4 ':=' F1" :=
+ ((*Wptag*) (Wpgen_body (forall v1 v2 v3 v4 H A EA Q,
+               (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
+               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::(@dyn_make _ _ v4)::nil)) A EA H Q)))
+ (at level 69,
+  f ident,
+  v1 constr,
+  v2 constr,
+  v3 constr,
+  v4 constr,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Body'  f  v1  v2  v3  v4  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+
+(* TODO: work on recursive notations for Body *)
 
 (* TODO: generalize let-fun to recursive functions *)
 

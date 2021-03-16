@@ -21,7 +21,7 @@ Notation "'Register_goal' G" := (Register database_spec G)
     the specification that could apply to a goal [G].
     It places the specification as hypothesis at the head of the goal. *)
 
-Ltac xapp_basic_prepare tt := 
+Ltac xapp_basic_prepare tt :=
   fail "not instantiated".
 
 Ltac xspec_context G := (* refined only in LambdaCFLifted *)
@@ -450,7 +450,7 @@ Proof using.
   applys* Triple_ramified_frame. hsimpl.
 Qed.
 
-Ltac xspec_pre tt := 
+Ltac xspec_pre tt :=
   first
     [ match goal with |- Triple _ _ _ => idtac end
     | match xgoal_code_without_iswp tt with (Wp_app _) => eapply xapp_lemma' end ].
