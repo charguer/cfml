@@ -188,7 +188,7 @@ let newty2 level desc =
    t
 
 let newty desc         = newty2 !current_level desc
-let new_global_ty desc = newty2 !global_level desc
+(* let new_global_ty desc = newty2 !global_level desc *)
 
 let newvar ()          = newty2 !current_level Tvar
 let newvar2 level      = newty2 level Tvar
@@ -483,7 +483,7 @@ let free_variables ?env ty =
   unmark_type ty;
   tl
 
-let rec closed_type ty =
+let closed_type ty =
   match free_vars ty with
       []           -> ()
   | (v, real) :: _ -> raise (Non_closed (v, real))
@@ -1138,7 +1138,7 @@ let instance_label fixed lbl =
 let unify' = (* Forward declaration *)
   ref (fun env ty1 ty2 -> raise (Unify []))
 
-let rec subst env level priv abbrev ty params args body =
+let subst env level priv abbrev ty params args body =
   if List.length params <> List.length args then raise (Unify []);
   let old_level = !current_level in
   current_level := level;
@@ -1187,7 +1187,7 @@ let apply env params body args =
    type or module definition is overridden in the environnement.
 *)
 let previous_env = ref Env.empty
-let string_of_kind = function Public -> "public" | Private -> "private"
+(* let string_of_kind = function Public -> "public" | Private -> "private" *)
 let check_abbrev_env env =
   if env != !previous_env then begin
     (* prerr_endline "cleanup expansion cache"; *)
@@ -1338,7 +1338,7 @@ let enforce_constraints env ty =
 
 (* Recursively expand the head of a type.
    Also expand #-types. *)
-let rec full_expand env ty =
+let full_expand env ty =
   let ty = repr (expand_head env ty) in
   match ty.desc with
     Tobject (fi, {contents = Some (_, v::_)}) when (repr v).desc = Tvar ->
@@ -1524,7 +1524,7 @@ let add_univars =
 
 let get_univar_family univar_pairs univars =
   if univars = [] then TypeSet.empty else
-  let rec insert s = function
+  let insert s = function
       cl1, (_::_ as cl2) ->
         if List.exists (fun (t1,_) -> TypeSet.mem (repr t1) s) cl1 then
           add_univars s cl2
@@ -1871,8 +1871,10 @@ and unify_kind k1 k2 =
   | (Fpresent, Fpresent)          -> ()
   | _                             -> assert false
 
+(* FIXME unused
 and unify_pairs env tpl =
   List.iter (fun (t1, t2) -> unify env t1 t2) tpl
+ *)
 
 and unify_row env row1 row2 =
   let row1 = row_repr row1 and row2 = row_repr row2 in
@@ -2045,7 +2047,7 @@ let unify env ty1 ty2 =
    (1) the requested label is ""
    (2) the original label is not optional
 *)
-let rec filter_arrow env t l =
+let filter_arrow env t l =
   let t = expand_head_unif env t in
   match t.desc with
     Tvar ->
@@ -2088,7 +2090,7 @@ let rec filter_method_field env name priv ty =
       raise (Unify [])
 
 (* Unify [ty] and [< name : 'a; .. >]. Return ['a]. *)
-let rec filter_method env name priv ty =
+let filter_method env name priv ty =
   let ty = expand_head_unif env ty in
   match ty.desc with
     Tvar ->

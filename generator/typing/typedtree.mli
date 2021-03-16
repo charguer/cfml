@@ -383,7 +383,7 @@ val get_saved_types : unit -> saved_type list
 val set_saved_types : saved_type list -> unit
 val add_saved_type : saved_type -> unit
 
-  
+
 module type IteratorArgument = sig
     val enter_structure : structure -> unit
     val enter_value_description : value_description -> unit
@@ -413,7 +413,7 @@ module type IteratorArgument = sig
     val enter_class_field : class_field -> unit
     val enter_structure_item : structure_item -> unit
 
-      
+
       val leave_structure : structure -> unit
     val leave_value_description : value_description -> unit
     val leave_type_declaration : type_declaration -> unit
@@ -441,21 +441,20 @@ module type IteratorArgument = sig
     val leave_class_structure : class_structure -> unit
     val leave_class_field : class_field -> unit
     val leave_structure_item : structure_item -> unit
-      
-    val enter_bindings : rec_flag -> unit      
+
+    val enter_bindings : rec_flag -> unit
     val enter_binding : pattern -> expression -> unit
     val leave_binding : pattern -> expression -> unit
     val leave_bindings : rec_flag -> unit
 
       end
-  
-module MakeIterator : 
+
+module MakeIterator :
   functor
-  (Iter : IteratorArgument) ->
+  (_ : IteratorArgument) ->
            sig
              val iter_structure : structure -> unit
              val iter_signature : signature -> unit
            end
 
 module DefaultIteratorArgument : IteratorArgument
-  

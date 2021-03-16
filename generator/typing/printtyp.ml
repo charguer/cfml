@@ -207,11 +207,13 @@ let name_of_type t =
 
 let check_name_of_type t = ignore(name_of_type t)
 
+(* FIXME unused
 let non_gen_mark sch ty =
   if sch && ty.desc = Tvar && ty.level <> generic_level then "_" else ""
 
 let print_name_of_type sch ppf t =
   fprintf ppf "'%s%s" (non_gen_mark sch t) (name_of_type t)
+ *)
 
 let visited_objects = ref ([] : type_expr list)
 let aliased = ref ([] : type_expr list)
@@ -308,8 +310,11 @@ let reset_and_mark_loops_list tyl =
 
 (* Disabled in classic mode when printing an unification error *)
 let print_labels = ref true
+
+(* FIXME unused
 let print_label ppf l =
   if !print_labels && l <> "" || is_optional l then fprintf ppf "%s:" l
+ *)
 
 let rec tree_of_typexp sch ty =
   let ty = repr ty in
@@ -501,9 +506,11 @@ let filter_params tyl =
       [] tyl
   in List.rev params
 
+(* FIXME unused
 let string_of_mutable = function
   | Immutable -> ""
   | Mutable -> "mutable "
+ *)
 
 let rec tree_of_type_decl id decl =
 
@@ -627,9 +634,11 @@ let value_description id ppf decl =
 
 (* Print a class type *)
 
+(* FIXME unused
 let class_var sch ppf l (m, t) =
   fprintf ppf
     "@ @[<2>val %s%s :@ %a@]" (string_of_mutable m) l (typexp sch 0) t
+ *)
 
 let method_type (_, kind, ty) =
   match field_kind_repr kind, repr ty with
@@ -733,9 +742,11 @@ let tree_of_class_param param variance =
   | _ -> "?"),
   if (repr param).desc = Tvar then (true, true) else variance
 
+(* FIXME unused
 let tree_of_class_params params =
   let tyl = tree_of_typlist true params in
   List.map (function Otyp_var (_, s) -> s | _ -> "?") tyl
+ *)
 
 let tree_of_class_declaration id cl rs =
   let params = filter_params cl.cty_params in

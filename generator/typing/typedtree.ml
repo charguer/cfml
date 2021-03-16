@@ -423,8 +423,10 @@ let rec bound_idents pat =
       bound_idents p1
   | d -> iter_pattern_desc bound_idents d
 
+(* FIXME unused
 let pat_bound_idents pat =
   idents := []; bound_idents pat; let res = !idents in idents := []; res
+ *)
 
 let rev_let_bound_idents pat_expr_list =
   idents := [];
@@ -453,9 +455,9 @@ let rec alpha_pat env p = match p.pat_desc with
 
 
 
-  
+
 module type IteratorArgument = sig
-    
+
     val enter_structure : structure -> unit
     val enter_value_description : value_description -> unit
     val enter_type_declaration : type_declaration -> unit
@@ -484,7 +486,7 @@ module type IteratorArgument = sig
     val enter_class_field : class_field -> unit
     val enter_structure_item : structure_item -> unit
 
-      
+
     val leave_structure : structure -> unit
     val leave_value_description : value_description -> unit
     val leave_type_declaration : type_declaration -> unit
@@ -517,30 +519,29 @@ module type IteratorArgument = sig
     val enter_binding : pattern -> expression -> unit
     val leave_binding : pattern -> expression -> unit
     val leave_bindings : rec_flag -> unit
-      
+
       end
-      
+
 module MakeIterator(Iter : IteratorArgument) : sig
-    
+
     val iter_structure : structure -> unit
     val iter_signature : signature -> unit
-  
+
   end = struct
-    
+
     let may_iter f v =
       match v with
         None -> ()
       | Some x -> f x
-    
-    
-    open Misc
+
+
     open Asttypes
-    
+
     let rec iter_structure str =
       Iter.enter_structure str;
       List.iter iter_structure_item str.str_items;
       Iter.leave_structure str
-    
+
 
     and iter_binding (pat, exp) =
       Iter.enter_binding pat exp;
@@ -552,7 +553,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
       Iter.enter_bindings rec_flag;
       List.iter iter_binding list;
       Iter.leave_bindings rec_flag
-      
+
     and iter_structure_item item =
       Iter.enter_structure_item item;
       begin
@@ -588,12 +589,12 @@ module MakeIterator(Iter : IteratorArgument) : sig
             iter_module_expr mexpr
       end;
       Iter.leave_structure_item item
-    
+
     and iter_value_description v =
       Iter.enter_value_description v;
       iter_core_type v.val_desc;
       Iter.leave_value_description v
-    
+
     and iter_type_declaration decl =
       Iter.enter_type_declaration decl;
       List.iter (fun (ct1, ct2, loc) ->
@@ -616,12 +617,12 @@ module MakeIterator(Iter : IteratorArgument) : sig
         | Some ct -> iter_core_type ct
       end;
       Iter.leave_type_declaration decl
-    
+
     and iter_exception_declaration decl =
       Iter.enter_exception_declaration decl;
       List.iter iter_core_type decl;
       Iter.leave_exception_declaration decl;
-    
+
     and iter_pattern pat =
       Iter.enter_pattern pat;
       begin
@@ -653,7 +654,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
         | Tpat_lazy p -> iter_pattern p
       end;
       Iter.leave_pattern pat
-    
+
     and iter_expression exp =
       Iter.enter_expression exp;
       begin
@@ -710,17 +711,17 @@ module MakeIterator(Iter : IteratorArgument) : sig
               | Some exp -> iter_expression exp
             end
         | Texp_sequence (exp1, exp2) ->
-            iter_expression exp1; 
+            iter_expression exp1;
             iter_expression exp2
         | Texp_while (exp1, exp2) ->
-            iter_expression exp1; 
+            iter_expression exp1;
             iter_expression exp2
         | Texp_for (id, exp1, exp2, dir, exp3) ->
             iter_expression exp1;
             iter_expression exp2;
             iter_expression exp3
         | Texp_when (exp1, exp2) ->
-            iter_expression exp1; 
+            iter_expression exp1;
             iter_expression exp2
         | Texp_send (exp, meth, _) ->
             iter_expression exp
@@ -755,17 +756,17 @@ module MakeIterator(Iter : IteratorArgument) : sig
             may_iter iter_core_type cto2
       end;
       Iter.leave_expression exp;
-    
+
     and iter_package_type pack =
-      Iter.enter_package_type pack;      
+      Iter.enter_package_type pack;
       List.iter (fun (s, ct) -> iter_core_type ct) pack.pack_fields;
       Iter.leave_package_type pack;
-    
+
     and iter_signature sg =
       Iter.enter_signature sg;
       List.iter iter_signature_item sg.sig_items;
       Iter.leave_signature sg;
-    
+
     and iter_signature_item item =
       Iter.enter_signature_item item;
       begin
@@ -792,7 +793,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
             List.iter iter_class_type_declaration list
       end;
       Iter.leave_signature_item item;
-    
+
     and iter_modtype_declaration mdecl =
       Iter.enter_modtype_declaration mdecl;
       begin
@@ -801,18 +802,18 @@ module MakeIterator(Iter : IteratorArgument) : sig
         | Tmodtype_manifest mtype -> iter_module_type mtype
       end;
       Iter.leave_modtype_declaration mdecl;
-    
-    
+
+
     and iter_class_description cd =
       Iter.enter_class_description cd;
       iter_class_type cd.ci_expr;
       Iter.leave_class_description cd;
-    
+
     and iter_class_type_declaration cd =
       Iter.enter_class_type_declaration cd;
       iter_class_type cd.ci_expr;
         Iter.leave_class_type_declaration cd;
-    
+
     and iter_module_type mty =
       Iter.enter_module_type mty;
       begin
@@ -830,7 +831,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
             iter_module_expr mexpr
       end;
       Iter.leave_module_type mty;
-    
+
     and iter_with_constraint cstr =
       Iter.enter_with_constraint cstr;
       begin
@@ -841,7 +842,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
         | Twith_modsubst path -> ()
       end;
       Iter.leave_with_constraint cstr;
-    
+
     and iter_module_expr mexpr =
       Iter.enter_module_expr mexpr;
       begin
@@ -864,7 +865,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
 (*          iter_module_type mty *)
       end;
       Iter.leave_module_expr mexpr;
-    
+
     and iter_class_expr cexpr =
       Iter.enter_class_expr cexpr;
       begin
@@ -873,9 +874,9 @@ module MakeIterator(Iter : IteratorArgument) : sig
             iter_class_expr cl;
         | Tcl_structure clstr -> iter_class_structure clstr
         | Tcl_fun (label, pat, pv, cl, partial) ->
-            iter_pattern pat; 
+            iter_pattern pat;
             iter_class_expr cl
-        
+
         | Tcl_apply (cl, args) ->
             iter_class_expr cl;
             List.iter (fun (label, expo, _) ->
@@ -883,20 +884,20 @@ module MakeIterator(Iter : IteratorArgument) : sig
                   None -> ()
                 | Some exp -> iter_expression exp
             ) args
-        
+
         | Tcl_let (rec_flat, bindings, ivars, cl) ->
             iter_bindings Nonrecursive bindings;
             iter_class_expr cl
-        
+
         | Tcl_constraint (cl, Some clty, vals, meths, concrs) ->
-            iter_class_expr cl; 
+            iter_class_expr cl;
             iter_class_type clty
-        
-        | Tcl_ident (_, tyl) -> 
+
+        | Tcl_ident (_, tyl) ->
             List.iter iter_core_type tyl
       end;
       Iter.leave_class_expr cexpr;
-    
+
     and iter_class_type ct =
       Iter.enter_class_type ct;
       begin
@@ -909,14 +910,14 @@ module MakeIterator(Iter : IteratorArgument) : sig
             iter_class_type cl
       end;
       Iter.leave_class_type ct;
-    
+
     and iter_class_signature cs =
       Iter.enter_class_signature cs;
       iter_core_type cs.csig_self;
       List.iter iter_class_type_field cs.csig_fields;
       Iter.leave_class_signature cs
-    
-    
+
+
     and iter_class_type_field ctf =
       Iter.enter_class_type_field ctf;
       begin
@@ -933,7 +934,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
             iter_core_type ct2
       end;
       Iter.leave_class_type_field ctf
-    
+
     and iter_core_type ct =
       Iter.enter_core_type ct;
       begin
@@ -941,7 +942,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
           Ttyp_any -> ()
         | Ttyp_var s -> ()
         | Ttyp_arrow (label, ct1, ct2) ->
-            iter_core_type ct1; 
+            iter_core_type ct1;
             iter_core_type ct2
         | Ttyp_tuple list -> List.iter iter_core_type list
         | Ttyp_constr (path, list) ->
@@ -958,7 +959,7 @@ module MakeIterator(Iter : IteratorArgument) : sig
         | Ttyp_package pack -> iter_package_type pack
       end;
       Iter.leave_core_type ct;
-    
+
     and iter_core_field_type cft =
       Iter.enter_core_field_type cft;
       begin match cft.field_desc with
@@ -966,20 +967,20 @@ module MakeIterator(Iter : IteratorArgument) : sig
         | Tcfield (s, ct) -> iter_core_type ct
       end;
       Iter.leave_core_field_type cft;
-    
+
     and iter_class_structure cs =
       Iter.enter_class_structure cs;
       iter_pattern cs.cstr_pat;
       List.iter iter_class_field cs.cstr_fields;
       Iter.leave_class_structure cs;
-      
-    
+
+
     and iter_row_field rf =
       match rf with
-        Ttag (label, bool, list) -> 
+        Ttag (label, bool, list) ->
           List.iter iter_core_type list
       | Tinherit ct -> iter_core_type ct
-    
+
     and iter_class_field cf =
       Iter.enter_class_field cf;
       begin
@@ -999,15 +1000,15 @@ module MakeIterator(Iter : IteratorArgument) : sig
           iter_expression exp
       | Tcf_let (rec_flag, bindings, _) ->
           iter_bindings Nonrecursive bindings
-      | Tcf_init exp -> 
+      | Tcf_init exp ->
           iter_expression exp
       end;
       Iter.leave_class_field cf;
 
   end
-  
+
 module DefaultIteratorArgument = struct
-    
+
       let enter_structure _ = ()
       let enter_value_description _ = ()
       let enter_type_declaration _ = ()
@@ -1033,8 +1034,8 @@ module DefaultIteratorArgument = struct
       let enter_class_structure _ = ()
     let enter_class_field _ = ()
     let enter_structure_item _ = ()
-      
-          
+
+
       let leave_structure _ = ()
       let leave_value_description _ = ()
       let leave_type_declaration _ = ()
@@ -1066,6 +1067,5 @@ module DefaultIteratorArgument = struct
 
     let enter_bindings _ = ()
     let leave_bindings _ = ()
-      
+
   end
-  

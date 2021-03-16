@@ -14,7 +14,6 @@
 
 (* Inclusion checks for the core language *)
 
-open Misc
 open Asttypes
 open Path
 open Types
@@ -239,6 +238,7 @@ let type_declarations env id decl1 decl2 =
 let exception_declarations env ed1 ed2 =
   Misc.for_all2 (fun ty1 ty2 -> Ctype.equal env false [ty1] [ty2]) ed1 ed2
 
+(* FIXME unused
 (* Inclusion between class types *)
 let encode_val (mut, ty) rem =
   begin match mut with
@@ -268,3 +268,4 @@ let vars vars1 vars2 =
         end,
         encode_val v2 vl2))
     vars2 ([], [])
+ *)

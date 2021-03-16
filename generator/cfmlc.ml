@@ -42,7 +42,7 @@ let spec =
     ("-only_normalize", Arg.Set only_normalize, " only generate the .cmj file, and attempt normalization, not the .v file");
     ("-debug", Arg.Set is_tracing, " trace the various steps");
     ("-width", Arg.Set_int Print_coq.width, " set pretty-printing width for the .v file");
-    ("-where", Arg.Unit (fun () -> print_endline Cfml_config.libdir; exit 0),
+    ("-where", Arg.Unit Cfml_config.print_libdir,
      " print CFML's library files location and exit");
   ]
 
@@ -70,8 +70,9 @@ let _ =
    Clflags.strict_sequence := true;
 
    if not !no_mystd_include then
-     Clflags.include_dirs :=
-       (Cfml_config.libdir ^/ "stdlib") :: !Clflags.include_dirs;
+     Cfml_config.libdir |> option_iter begin fun libdir ->
+       Clflags.include_dirs := (libdir ^/ "stdlib") :: !Clflags.include_dirs
+     end;
 
    trace "1) parsing of command line";
    if List.length !files <> 1 then

@@ -82,7 +82,9 @@ val gives_not_found : (unit -> 'a) -> bool
 (** Pretty-printing functions *)
 
 val lin0 : string  (** The empty string *)
+
 val lin1 : string  (** The line-return string *)
+
 val lin2 : string  (** The double line-return string *)
 
 (** Display a list of values with a separator *)

@@ -12,10 +12,8 @@
 
 (* $Id: typeclass.ml 10860 2010-11-25 21:43:08Z lefessan $ *)
 
-open Misc
 open Parsetree
 open Asttypes
-open Path
 open Types
 open Typecore
 open Typetexp
@@ -130,7 +128,7 @@ let rec class_body cty =
   | Cty_fun (_, ty, cty) ->
       class_body cty
 
-let rec extract_constraints cty =
+let extract_constraints cty =
   let sign = Ctype.signature_of_class_type cty in
   (Vars.fold (fun lab _ vars -> lab :: vars) sign.cty_vars [],
    begin let (fields, _) =
@@ -574,7 +572,7 @@ let rec class_field cl_num self_type meths vars
 
   | Pcf_virt (lab, priv, sty) ->
       let cty = virtual_method val_env meths self_type lab priv sty loc in
-      (val_env, met_env, par_env, 
+      (val_env, met_env, par_env,
         lazy(mkcf(Tcf_meth (lab, priv, Tcfk_virtual cty, true)) loc) ::fields,
         concr_meths, warn_vals, inher)
 
@@ -633,7 +631,7 @@ let rec class_field cl_num self_type meths vars
 
   | Pcf_constr (sty, sty') ->
       let (cty, cty') = type_constraint val_env sty sty' loc in
-      (val_env, met_env, par_env, 
+      (val_env, met_env, par_env,
         lazy (mkcf (Tcf_constr (cty, cty')) loc) :: fields,
         concr_meths, warn_vals, inher)
 
@@ -664,7 +662,7 @@ let rec class_field cl_num self_type meths vars
           (let_bound_idents defs)
           ([], met_env, par_env)
       in
-      (val_env, met_env, par_env, 
+      (val_env, met_env, par_env,
         lazy(mkcf (Tcf_let(rec_flag, defs, vals)) loc )::fields,
        concr_meths, warn_vals, inher)
 
@@ -881,7 +879,7 @@ and class_expr cl_num val_env met_env scl =
                 pexp_loc = Location.none}))
           pv
       in
-      let rec not_function = function
+      let not_function = function
           Cty_fun _ -> false
         | _ -> true
       in
@@ -1081,7 +1079,7 @@ let rec approx_description ct =
 
 let temp_abbrev env id arity =
   let params = ref [] in
-  for i = 1 to arity do
+  for _i = 1 to arity do
     params := Ctype.newvar () :: !params
   done;
   let ty = Ctype.newobj (Ctype.newvar ()) in
@@ -1097,7 +1095,7 @@ let temp_abbrev env id arity =
   in
   (!params, ty, env)
 
-let rec initial_env define_class approx
+let initial_env define_class approx
     (res, env) (cl, id, ty_id, obj_id, cl_id) =
   (* Temporary abbreviations *)
   let arity = List.length (fst cl.pci_params) in
@@ -1370,7 +1368,7 @@ let final_decl env define_class
    { ci_variance = cl.pci_variance;
      ci_loc = cl.pci_loc;
      ci_virt = cl.pci_virt;
-      ci_params = cl.pci_params; 
+      ci_params = cl.pci_params;
 (* TODO : check that we have the correct use of identifiers *)
       ci_id_class = id;
       ci_id_class_type = ty_id;

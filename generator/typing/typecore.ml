@@ -27,7 +27,7 @@ open Ctype
 let cfml_showtyp t =
    let err = Format.err_formatter in
    Printtyp.type_expr err t;
-   Format.fprintf err "\n" 
+   Format.fprintf err "\n"
 
 
 type error =
@@ -243,7 +243,7 @@ let enter_variable ?(is_module=false) loc name ty =
 
 let sort_pattern_variables vs =
   List.sort
-    (fun (x,_,_) (y,_,_) -> Pervasives.compare (Ident.name x) (Ident.name y))
+    (fun (x,_,_) (y,_,_) -> Stdlib.compare (Ident.name x) (Ident.name y))
     vs
 
 let enter_orpat_variables loc env  p1_vs p2_vs =
@@ -612,7 +612,7 @@ let rec type_pat env sp =
         pat_type = p.pat_type;
         pat_env = p.pat_env  }
 
-      
+
 
 let get_ref r =
   let v = !r in r := []; v
@@ -697,7 +697,7 @@ let force_delayed_checks () =
   reset_delayed_checks ();
   Btype.backtrack snap
 
-let fst3 (x, _, _) = x
+(* let fst3 (x, _, _) = x *)
 let snd3 (_, x, _) = x
 
 (* Generalization criterion for expressions *)
@@ -730,14 +730,14 @@ let rec is_nonexpansive exp =
         (fun (_, lbl, exp) -> lbl.lbl_mut = Immutable && is_nonexpansive exp)
         lbl_exp_list
       && is_nonexpansive_opt opt_init_exp
-  | Texp_field(exp, _, lbl) -> 
+  | Texp_field(exp, _, lbl) ->
       (* CFML *) if !Clflags.strict_value_restriction then false else
       is_nonexpansive exp
   | Texp_array [] -> true
   | Texp_ifthenelse(cond, ifso, ifnot) ->
 	  (* CFML *) if !Clflags.strict_value_restriction then false else
       is_nonexpansive ifso && is_nonexpansive_opt ifnot
-  | Texp_sequence (e1, e2) -> 
+  | Texp_sequence (e1, e2) ->
       (* CFML *) if !Clflags.strict_value_restriction then false else
       is_nonexpansive e2  (* PR#4354 *)
   | Texp_new (_, cl_decl) when Ctype.class_type_arity cl_decl.cty_type > 0 ->
@@ -749,7 +749,7 @@ let rec is_nonexpansive exp =
       List.for_all
         (fun field -> match field.cf_desc with
             Tcf_meth _ -> true
-          | Tcf_val (_,_, _, Tcfk_concrete e,_) -> 
+          | Tcf_val (_,_, _, Tcfk_concrete e,_) ->
               incr count; is_nonexpansive e
           | Tcf_val _ -> true
           | Tcf_init e -> is_nonexpansive e
@@ -792,10 +792,12 @@ and is_nonexpansive_opt = function
 (* Typing of printf formats.
    (Handling of * modifiers contributed by Thorsten Ohl.) *)
 
+(* FIXME unused
 external string_to_format :
  string -> ('a, 'b, 'c, 'd, 'e, 'f) format6 = "%identity"
 external format_to_string :
  ('a, 'b, 'c, 'd, 'e, 'f) format6 -> string = "%identity"
+ *)
 
 let type_format loc fmt =
 
@@ -818,7 +820,7 @@ let type_format loc fmt =
       match fmt.[j] with
       | ']' -> find_closing (j + 1)
       | c -> find_closing j in
-    let rec skip_neg j =
+    let skip_neg j =
       if j >= len then incomplete_format fmt else
       match fmt.[j] with
       | '^' -> skip_pos (j + 1)
@@ -1474,8 +1476,8 @@ let rec type_exp env sexp =
         exp_loc = arg.exp_loc;
         exp_type = ty';
           exp_env = env } in
-      re { arg with 
-        exp_desc = Texp_constraint (arg, cty, cty'); 
+      re { arg with
+        exp_desc = Texp_constraint (arg, cty, cty');
         exp_loc = loc; }
   | Pexp_when(scond, sbody) ->
       let cond = type_expect env scond (instance Predef.type_bool) in
@@ -1743,7 +1745,7 @@ let rec type_exp env sexp =
       let (path, newenv) = !type_open env sexp.pexp_loc lid in
       let exp = type_exp newenv e in
       re { exp with exp_desc = Texp_open (path, exp); }
-  
+
 and type_label_exp create env loc ty (lid, sarg) =
   let (path, label) = Typetexp.find_label env sarg.pexp_loc lid in
   begin_def ();
@@ -2636,5 +2638,3 @@ let report_error ppf = function
       fprintf ppf
         "This expression is packed module, but the expected type is@ %a"
         type_expr ty
-
-

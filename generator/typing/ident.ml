@@ -40,7 +40,9 @@ let rename i =
 
 let name i = i.name
 
+(* FIXME unused
 let stamp i = i.stamp
+ *)
 
 let unique_name i = i.name ^ "_" ^ string_of_int i.stamp
 

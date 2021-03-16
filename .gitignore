@@ -13,7 +13,6 @@
 *~
 *#
 README.html
-generator/cfml_config.ml
 export/*/*.tar.gz
 export/*/slf
 settings.sh

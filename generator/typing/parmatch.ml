@@ -128,7 +128,7 @@ let get_type_path ty tenv =
   | Tconstr (path,_,_) -> path
   | _ -> fatal_error "Parmatch.get_type_path"
 
-let rec get_type_descr ty tenv =
+let get_type_descr ty tenv =
   match (Ctype.repr ty).desc with
   | Tconstr (path,_,_) -> Env.find_type path tenv
   | _ -> fatal_error "Parmatch.get_type_descr"
@@ -264,11 +264,11 @@ and pretty_lvals lbls ppf = function
 let top_pretty ppf v =
   fprintf ppf "@[%a@]@?" pretty_val v
 
-
+(* FIXME unused
 let prerr_pat v =
   top_pretty str_formatter v ;
   prerr_string (flush_str_formatter ())
-
+ *)
 
 (****************************)
 (* Utilities for matching   *)
@@ -622,7 +622,7 @@ let row_of_pat pat =
   not.
 *)
 
-let rec full_match closing env =  match env with
+let full_match closing env =  match env with
 | ({pat_desc = Tpat_construct (_, {cstr_tag=Cstr_exception _},_)},_)::_ ->
     false
 | ({pat_desc = Tpat_construct(_, c,_)},_) :: _ ->
@@ -660,6 +660,7 @@ let rec full_match closing env =  match env with
   | ({pat_desc = Tpat_lazy(_)},_) :: _ -> true
 | _ -> fatal_error "Parmatch.full_match"
 
+(* FIXME unused
 let extendable_match env = match env with
 | ({pat_desc = Tpat_construct(_, {cstr_tag=(Cstr_constant _|Cstr_block _)},_)} as p,_) :: _ ->
     let path = get_type_path p.pat_type p.pat_env in
@@ -668,7 +669,7 @@ let extendable_match env = match env with
       Path.same path Predef.path_list ||
       Path.same path Predef.path_option)
 | _ -> false
-
+ *)
 
 let should_extend ext env = match ext with
 | None -> false
@@ -888,7 +889,7 @@ let build_other ext env =  match env with
      2- qs <= es                  (es matches qs)
 *)
 
-let snd3 (_,x,_) = x
+(* let snd3 (_,x,_) = x *)
 let thd3 (_,_,x) = x
 
 let rec has_instance p = match p.pat_desc with
@@ -1067,7 +1068,7 @@ let pretty_pat p =
   top_pretty Format.str_formatter p ;
   prerr_string (Format.flush_str_formatter ())
 
-type matrix = pattern list list
+(* type matrix = pattern list list *)
 
 let pretty_line ps =
   List.iter
@@ -1094,6 +1095,7 @@ let pretty_matrix pss =
 type 'a row = {no_ors : 'a list ; ors : 'a list ; active : 'a list}
 
 
+(* FIXME unused
 let pretty_row {ors=ors ; no_ors=no_ors; active=active} =
   pretty_line ors ; prerr_string " *" ;
   pretty_line no_ors ; prerr_string " *" ;
@@ -1107,6 +1109,7 @@ let pretty_rows rs =
       prerr_endline "")
     rs ;
   prerr_endline "end matrix"
+ *)
 
 (* Initial build *)
 let make_row ps = {ors=[] ; no_ors=[]; active=ps}

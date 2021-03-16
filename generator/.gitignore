@@ -1,3 +1,2 @@
 _build
-*.byte
-*.native
+dune-workspace.versions

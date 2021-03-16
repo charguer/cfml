@@ -1,24 +1,16 @@
 open Misc
-open Asttypes
 open Types
-open Typedtree
 open Mytools
-open Longident
 open Format
-open Print_past
-open Ctype
-open Path
-open Asttypes
 open Btype
 open Printtyp
-open Outcometree
 
 (** This file contains a data structure for representing types in an
     explicit form, as well as an algorithm for extracting such types
     from the representation used by OCaml's compiler. *)
 
 
-let type_rename = ref (fun s -> s) 
+let type_rename = ref (fun s -> s)
 
 
 (*#########################################################################*)
@@ -31,7 +23,7 @@ type btyp =
    | Btyp_tuple of btyp list
    | Btyp_var of string * type_expr
    | Btyp_poly of string list * btyp
-   | Btyp_val 
+   | Btyp_val
 
    (*--later:
    | Btyp_abstract
@@ -40,7 +32,7 @@ type btyp =
    | Btyp_record of (string * bool * out_type) list
    | Btyp_object of (string * out_type) list * bool option
    | Btyp_class of bool * out_ident * out_type list
-   | Btyp_sum of (string * out_type list) list 
+   | Btyp_sum of (string * out_type list) list
    *)
 
 
@@ -57,44 +49,46 @@ let used_level = 11111111111
 
 let typvar_mark_used ty =
    let ty = repr ty in
-   if eliminate_unused_variables then ty.level <- used_level 
+   if eliminate_unused_variables then ty.level <- used_level
 
 (** Test if a variable has been used at least once. *)
 
 let typvar_is_used ty =
    if not eliminate_unused_variables then true else begin
-      let ty = repr ty in 
+      let ty = repr ty in
       ty.level = used_level
-   end 
+   end
 
 
 (*#########################################################################*)
 (* ** Helper functions *)
 
-(** Gathering of free type variables of a btyp 
+(** Gathering of free type variables of a btyp
 DEPRECATED
 *)
 
-type occ = Occ_gen of type_expr | Occ_alias of type_expr 
+(* FIXME unused
+type occ = Occ_gen of type_expr | Occ_alias of type_expr
 let occured : (occ list) ref = ref []
-let add_occured t = 
-  if not (List.memq t !occured) 
+let add_occured t =
+  if not (List.memq t !occured)
      then occured := t :: !occured
 let extract_occured () =
    let r = List.rev !occured in
    occured := [];
    r
+ *)
 
 (** Wrapper for functions from [Printtyp.ml] *)
 
-let mark_loops = mark_loops 
+let mark_loops = mark_loops
 
-let name_of_type_var ty = 
+let name_of_type_var ty =
    let ty = proxy ty in
-   let x = Printtyp.name_of_type ty in 
+   let x = Printtyp.name_of_type ty in
    !type_rename x
 
-let reset_names = reset_names 
+let reset_names = reset_names
 
 
 (*#########################################################################*)
@@ -110,7 +104,7 @@ let rec btree_of_typexp ty =
   let px = proxy ty in
   if List.mem_assq px !names (* && not (List.memq px !delayed) *) then
    (* let mark = is_non_gen ty in *)
-   if is_aliased px && aliasable ty 
+   if is_aliased px && aliasable ty
       then Btyp_val (* todo: hack ok ? *)
       else Btyp_var (name_of_type_var px, ty) else
   let pr_typ () =
@@ -139,7 +133,7 @@ let rec btree_of_typexp ty =
         let b1 = btree_of_typexp ty1 in
         let b2 = btree_of_typexp ty2 in
         ignore (b1,b2);
-         Btyp_arrow (b1, b2) 
+         Btyp_arrow (b1, b2)
     | Ttuple tyl ->
         Btyp_tuple (btree_of_typlist tyl)
     | Tconstr(p, tyl, abbrev) ->
@@ -150,9 +144,9 @@ let rec btree_of_typexp ty =
         btree_of_typexp ty
     | Tlink _ | Tnil | Tfield _ ->
         fatal_error "Printtyp.btree_of_typexp link/nil/field unsupported"
-    | Tpoly (ty, []) -> 
+    | Tpoly (ty, []) ->
         btree_of_typexp ty
-    | Tpoly (ty, tyl) -> 
+    | Tpoly (ty, tyl) ->
          fatal_error "Printtyp.btree_of_typexp poly unsupported"
           (*
         let tyl = List.map repr tyl in
@@ -172,7 +166,7 @@ let rec btree_of_typexp ty =
         fatal_error "Printtyp.btree_of_typexp Tpackage unsupported"
   in
   (* if List.memq px !delayed then delayed := List.filter ((!=) px) !delayed; *)
-  if is_aliased px && aliasable ty then begin 
+  if is_aliased px && aliasable ty then begin
     check_name_of_type px;
     (* add_occured (Occ_alias ty); *)
     Btyp_alias (pr_typ (), name_of_type_var px) end
@@ -187,7 +181,7 @@ and btree_of_typlist tyl =
 
 (** --todo: there is some redundancy with, e.g., [string_of_type_exp] *)
 
-(** Translates a type expression [t] into a [btyp], including the call 
+(** Translates a type expression [t] into a [btyp], including the call
     to [mark_loops]. *)
 
 let btyp_of_typ_exp t =
@@ -195,9 +189,10 @@ let btyp_of_typ_exp t =
    btree_of_typexp t
 
 (** Translates of a type scheme [t] into a [btyp], including the call
-    to [mark_loops]. 
+    to [mark_loops].
 DEPRECATED *)
 
+(* FIXME unused
 let btyp_of_typ_sch t =
    mark_loops t;
    let typ = btree_of_typexp t in
@@ -205,15 +200,16 @@ let btyp_of_typ_sch t =
    let fvtg = list_concat_map (function Occ_gen x -> [x] | _ -> []) fvt in
    let fvta = list_concat_map (function Occ_alias x -> [x] | _ -> []) fvt in
    (fvtg, fvta, typ)
+ *)
 
 (** Translates of a type scheme [t] into a [btyp], including the call
     to [mark_loops]. Returns the tree with head quantification of
     free type variables.
-    
+
 TO DEPRECATE: should use btyp_of_typ_exp instead *)
 
-let btyp_of_typ_sch_simple ty = 
-   mark_loops ty;  
+let btyp_of_typ_sch_simple ty =
+   mark_loops ty;
    btree_of_typexp ty
 
 
@@ -233,16 +229,17 @@ let pr_vars s =
 
 (** Printing of paths and identifiers *)
 
-let print_path s = 
+let print_path s =
    Path.name s
 
+(* FIXME unused
 let rec print_ident =
   function
   | Oide_ident s -> sprintf "%s" s
   | Oide_dot (id, s) -> sprintf "%a.%s" (ign print_ident) id s
   | Oide_apply (id1, id2) ->
       sprintf "%a(%a)" (ign print_ident) id1 (ign print_ident) id2
- 
+ *)
 
 (** Printing of types *)
 
@@ -260,7 +257,7 @@ let rec print_out_type =
 and print_out_type_1 =
   function
     Btyp_arrow (ty1, ty2) ->
-      sprintf "@[%a -> %a@]" 
+      sprintf "@[%a -> %a@]"
         (ign print_out_type_2) ty1 (ign print_out_type_1) ty2
   | ty -> print_out_type_2 ty
 and print_out_type_2 =
@@ -302,7 +299,7 @@ and print_typargs =
 let show_typ t =
    print_out_type (btree_of_typexp t)
 
-(** Translates a type expression [t] into a string, including the call 
+(** Translates a type expression [t] into a string, including the call
     to [mark_loops]. *)
 
 let string_of_type_exp t =
@@ -319,4 +316,3 @@ let string_of_type_sch fvs t =
    if gs <> []
       then sprintf "forall %s. %s" (show_list (fun x->x) " " gs) s
       else s
-

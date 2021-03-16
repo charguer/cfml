@@ -240,16 +240,8 @@ val hwand_hpure : coq -> coq -> coq
 
 val hwand_hpures : coq list -> coq -> coq
 
-
-val formula_type_of : coq -> coq
-
-val formula_type : coq
-
 val formula_app : coq -> coq -> coq
 
 val formula_def : var -> var -> coq -> coq
 
 val forall_prepost : var -> var -> var -> coq -> coq
-
-
-

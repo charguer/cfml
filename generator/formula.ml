@@ -1,5 +1,4 @@
 open Coq
-open Mytools
 
 
 (*#########################################################################*)
@@ -126,8 +125,10 @@ let htype c_abstract c_concrete =
 
 (** Predicate transformer for Separation Logic *)
 
+(* FIXME unused
 let mkstruct =
   coq_cfml_var "WPLifted.MkStruct"
+ *)
 
 (** The identity representation predicate *)
 

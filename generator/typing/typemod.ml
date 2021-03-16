@@ -13,7 +13,6 @@
 (* $Id: typemod.ml 10860 2010-11-25 21:43:08Z lefessan $ *)
 
 open Misc
-open Longident
 open Path
 open Asttypes
 open Parsetree
@@ -92,6 +91,7 @@ let check_type_decl env id row_id newdecl decl rs rem =
   let env = if rs = Trec_not then env else add_rec_types env rem in
   Includemod.type_declarations env id newdecl decl
 
+(* FIXME unused
 let rec make_params n = function
     [] -> []
   | _ :: l -> ("a" ^ string_of_int n) :: make_params (n+1) l
@@ -101,6 +101,7 @@ let wrap_param s = {ptyp_desc=Ptyp_var s; ptyp_loc=Location.none}
 let sig_item desc typ loc = {
   sig_desc = desc; sig_loc = loc;
 }
+ *)
 
 let merge_constraint initial_env loc sg lid constr =
   let real_id = ref None in
@@ -884,7 +885,7 @@ and type_structure funct_body anchor env sstr scope =
         Ctype.open_hook(); (* CFML *)
         let (defs, newenv) =
           Typecore.type_binding env rec_flag sdefs scope in
-         
+
         let fvs = Ctype.close_hook ~showtyp:Typecore.cfml_showtyp ~gen_nonexpansive:false () in (* CFML *)
 
         let (str_rem, sig_rem, final_env) = type_struct newenv srem in
@@ -1228,7 +1229,7 @@ let package_units objfiles cmifile modulename =
     List.map
       (fun f ->
          let pref = chop_extensions f in
-         let modname = String.capitalize(Filename.basename pref) in
+         let modname = String.capitalize_ascii(Filename.basename pref) in
          let sg = Env.read_signature modname (pref ^ ".cmj") in
          if Filename.check_suffix f ".cmj" &&
             not(Mtype.no_code_needed_sig Env.initial sg)

@@ -54,18 +54,18 @@ be evaluated once per maker. *)
     | Thunk of string * Obj.t
 
   type ('a,'b) maker = string
-	
+
   let makers = ref (StringMap.empty : (Obj.t -> Obj.t) StringMap.t)
 
-  let force (x : 'a t) = 
+  let force (x : 'a t) =
     let x = (Obj.magic x : Obj.t t) in
     match !x with
 	Done x -> (Obj.magic x : 'a)
       | Thunk (name, args) ->
 	  let maker = try
-	    StringMap.find name !makers 
+	    StringMap.find name !makers
 	  with Not_found ->
-	    raise (UnknownLazyMaker name) 
+	    raise (UnknownLazyMaker name)
 	  in
 	  let y = maker args in
 	    x := Done y;
@@ -75,7 +75,7 @@ be evaluated once per maker. *)
   let create maker args =
     ref (Thunk (Obj.magic maker, Obj.magic args))
 
-  let declare_maker name = 
+  let declare_maker name =
     if name = "" then invalid_arg "Lazy.maker cannot by \"\"";
     Obj.magic name
 
@@ -388,7 +388,7 @@ let find_module path env =
   | Pdot(p, s, pos) ->
       begin match Lazy.force (find_module_descr p env) with
         Structure_comps c ->
-          let (data, pos) = Tbl.find s c.comp_modules in 
+          let (data, pos) = Tbl.find s c.comp_modules in
 	    Lazy.force data
       | Functor_comps f ->
           raise Not_found
@@ -476,6 +476,7 @@ let lookup proj1 proj2 lid env =
   | Lapply(l1, l2) ->
       raise Not_found
 
+(* FIXME unused
 let lookup_simple proj1 proj2 lid env =
   match lid with
     Lident s ->
@@ -491,6 +492,7 @@ let lookup_simple proj1 proj2 lid env =
       end
   | Lapply(l1, l2) ->
       raise Not_found
+ *)
 
 let lookup_value =
   lookup (fun env -> env.values) (fun sc -> sc.comp_values)
@@ -581,12 +583,12 @@ let rec prefix_idents root pos sub = function
       (p::pl, final_sub)
 
 (* [path] must be the path to a type, not to a module ! *)
-let rec path_subst_last path id =
+let path_subst_last path id =
   match path with
     Pident _ -> Pident id
   | Pdot (p, name, pos) -> Pdot(p, Ident.name id, pos)
   | Papply (p1, p2) -> assert false
-      
+
 (* Compute structure descriptions *)
 
 let rec components_of_module env sub path mty =
@@ -958,5 +960,5 @@ let report_error ppf = function
         import export "The compilation flag -rectypes is required"
 
 
-let _ = 
+let _ =
   Lazy.register_maker lazy_components_of_module components_of_module_maker

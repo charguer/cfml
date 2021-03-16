@@ -351,7 +351,7 @@ conflicts.
 The precedences must be listed from low to high.
 */
 
-%nonassoc IN
+/* %nonassoc IN */
 %nonassoc below_SEMI
 %nonassoc SEMI                          /* below EQUAL ({lbl=...; lbl=...}) */
 %nonassoc LET                           /* above SEMI ( ...; let ... in ...) */
@@ -560,7 +560,7 @@ signature:
 ;
 signature_item:
     VAL val_ident COLON core_type
-    { mksig(Psig_value($2, {pval_type = $4; pval_prim = []; 
+    { mksig(Psig_value($2, {pval_type = $4; pval_prim = [];
           pval_loc = symbol_rloc(); })) }
   | EXTERNAL val_ident COLON core_type EQUAL primitive_declaration
     { mksig(Psig_value($2, {pval_type = $4; pval_prim = $6;
@@ -772,9 +772,11 @@ class_self_type:
   | /* empty */
       { mktyp(Ptyp_any) }
 ;
+/* FIXME unreachable symbol:
 inherited_class_signature:
    class_signature     { mkctf (Pctf_inher $1) }
 ;
+*/
 class_sig_fields:
     /* empty */                                 { [] }
 | class_sig_fields class_sig_field     { $2 :: $1 }
@@ -1421,7 +1423,7 @@ simple_core_type:
     simple_core_type2  %prec below_SHARP
       { $1 }
   | LPAREN core_type_comma_list RPAREN %prec below_SHARP
-      { match $2 with [sty] -> sty | _ -> raise Parse_error }
+      { match $2 with [sty] -> sty | _ -> raise Parsing.Parse_error }
 ;
 simple_core_type2:
     QUOTE ident

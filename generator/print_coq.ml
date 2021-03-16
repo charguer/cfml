@@ -106,7 +106,7 @@ let tuple expr es =
 (* -------------------------------------------------------------------------- *)
 
 (* FOR FUTURE USE
-   Labels (part of [Coq_tag]). *)
+   Labels (part of [Coq_tag]).
 
 let label = function
   | None ->
@@ -115,6 +115,8 @@ let label = function
       parens (
         string "Label_create" ^/^ squote ^^ string l
       )
+
+ *)
 
 (* -------------------------------------------------------------------------- *)
 
@@ -250,7 +252,7 @@ and mod_typ2 = function
       mod_typ1 mt
 
 and mod_typ mt =
-  mod_typ1 mt
+  mod_typ2 mt
 
 (* Module bindings. *)
 
@@ -493,4 +495,3 @@ let tops ts =
 
 let tops ts : string =
   run (PPrintEngine.ToBuffer.pretty 0.9 !width) (tops ts)
-

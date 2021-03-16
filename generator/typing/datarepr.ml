@@ -15,17 +15,19 @@
 (* Compute constructor and label descriptions from type declarations,
    determining their representation. *)
 
-open Misc
+(* open Misc *)
 open Asttypes
 open Types
 
 (* CFML *)
-open Path 
-let rec path_update_ident x = function
-  | Pident id -> Pident x
-  | Pdot(p, s, pos) -> Pdot(p, Ident.name x, pos) 
-  | Papply(p1, p2) -> assert false 
 
+(* FIXME unused
+open Path
+let path_update_ident x = function
+  | Pident id -> Pident x
+  | Pdot(p, s, pos) -> Pdot(p, Ident.name x, pos)
+  | Papply(p1, p2) -> assert false
+ *)
 
 let constructor_descrs ty_res cstrs priv =
   let num_consts = ref 0 and num_nonconsts = ref 0 in
@@ -70,7 +72,7 @@ let dummy_label =
     lbl_private = Public }
 
 let label_descrs ty_res lbls repres priv =
-  let all_labels = Array.create (List.length lbls) dummy_label in
+  let all_labels = Array.make (List.length lbls) dummy_label in
   let rec describe_labels num = function
       [] -> []
     | (name, mut_flag, ty_arg) :: rest ->

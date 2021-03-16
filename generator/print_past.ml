@@ -1,9 +1,6 @@
-open Misc
 open Asttypes
-open Types
 open Parsetree
 open Mytools
-open Longident
 open Format
 
 (** Printing facility for abstract syntax trees produced by the parser *)
@@ -224,4 +221,3 @@ and string_of_toplevel_phrase p =
 
 and string_of_source s =
   show_list string_of_toplevel_phrase lin2 s
-

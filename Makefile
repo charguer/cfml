@@ -28,9 +28,6 @@ coqlib:
 	$(MAKE) -C lib/coq
 
 generator:
-	rm -f generator/cfml_config.ml
-	sed -e 's|@@LIBDIR@@|$(LIBDIR)|' \
-	    generator/cfml_config.ml.in > generator/cfml_config.ml
 	$(MAKE) -C generator
 
 examples: all
@@ -53,14 +50,10 @@ clean:
 	$(MAKE) -C lib/coq $@
 	$(MAKE) -C lib/stdlib $@
 	$(MAKE) -C generator $@
-	rm -f generator/cfml_config.ml
 	rm -f $(DOC)
 
 ##############################################################################
 # Installation.
-
-# As install depends on all, the file generator/cfml_config.ml is regenerated
-# when `make install` is run; this ensures LIBDIR cannot be inconsistent.
 
 install: all
 	# Install the generator binary

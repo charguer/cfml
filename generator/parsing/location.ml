@@ -66,7 +66,9 @@ let input_lexbuf = ref (None : lexbuf option)
 
 (* Terminal info *)
 
+(* FIXME unused
 let status = ref Terminfo.Uninitialised
+ *)
 
 let num_loc_lines = ref 0 (* number of lines already printed after input *)
 

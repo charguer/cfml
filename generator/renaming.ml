@@ -242,7 +242,7 @@ let variable_generated_name i =
     Here, the argument [name] is that provided by the OCaml type-checker. *)
 
 let type_variable_name name =
-   (String.uppercase name) ^ "_"
+   (String.uppercase_ascii name) ^ "_"
 
 (** Convention for naming type constructors *)
 
@@ -534,9 +534,11 @@ let record_make_name name =
 
 (** Convention for naming record field *)
 
+(* FIXME unused
 let record_field_name name =
   name
   (* ^ "__" *) (* TODO: modify? *)
+ *)
 
 (** Convention for naming record accessor function *)
 

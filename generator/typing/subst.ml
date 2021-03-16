@@ -45,7 +45,7 @@ let rec module_path s = function
   | Papply(p1, p2) ->
       Papply(module_path s p1, module_path s p2)
 
-let rec modtype_path s = function
+let modtype_path s = function
     Pident id as p ->
       begin try
         match Tbl.find id s.modtypes with
@@ -309,7 +309,7 @@ and modtype_declaration s = function
     Modtype_abstract -> Modtype_abstract
   | Modtype_manifest mty -> Modtype_manifest(modtype s mty)
 
-(* For every binding k |-> d of m1, add k |-> f d to m2 
+(* For every binding k |-> d of m1, add k |-> f d to m2
    and return resulting merged map. *)
 
 let merge_tbls f m1 m2 =

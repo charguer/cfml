@@ -1,9 +1,7 @@
-open Misc
 open Asttypes
 open Types
 open Typedtree
 open Mytools
-open Longident
 open Print_tast
 open Print_type
 open Formula
@@ -44,9 +42,10 @@ let external_modules_add name =
 let external_modules_get_coqtop () =
    List.map (fun name -> Coqtop_require [name]) !external_modules
 
+(* FIXME unused
 let external_modules_reset () =
    external_modules := []
-
+ *)
 
 
 (*#########################################################################*)
@@ -178,9 +177,11 @@ let lift_typ_sch loc ty =
    let fv = fv_btyp ~through_arrow:false t in
    fv, lift_btyp loc t
 
+(* FIXME unused
 let lift_typ_sch_as_forall loc ty =
    let fv, typ = lift_typ_sch loc ty in
    coq_forall_types fv typ
+ *)
 
 (** Translates the type of a Caml expression into a Coq type *)
 
@@ -194,22 +195,24 @@ let coq_typ_pat loc p =
 
 (** Decompose "A.B.s" as ("A.B","s") *)
 
+(* FIXME unused
 let rec path_decompose = function
     Pident id -> ("", Ident.name id)
   | Pdot(p, s, pos) ->
       let (f,r) = path_decompose p in
       (f ^ r ^ ".", s)
   | Papply(p1, p2) -> unsupported_noloc "application in paths"
-
+ *)
 
 (** Extracts a record path_name / path from a type *)
 
+(* FIXME unused
 let get_record_decomposed_name_for_exp e =
    let b = btyp_of_typ_exp (e.exp_type) in
    match b with
    | Btyp_constr (p,_) -> path_decompose (lift_path p)
    | _ -> failwith "illegal argument for get_record_decomposed_name_for_exp"
-
+ *)
 
 
 (*#########################################################################*)
@@ -369,9 +372,10 @@ let register_cf x =
       Coqtop_register ("CFML.CFPrint.database_cf", x, cf_axiom_name x)
     *)
 
+(* FIXME unused
 let register_spec x v =
    Coqtop_register ("CFML.WPHeader.database_spec", x, v)
-
+ *)
 
 (* TODO: rewrite this function by using a normalization function that returns p *)
 let rec prefix_for_label typ =
@@ -604,12 +608,13 @@ let add_used_label x =
    if not (List.mem x !used_labels)
       then used_labels := x :: !used_labels
 
+(* FIXME unused
 let cfg_extract_labels () =
    let labs = List.rev !used_labels in
    let cft = [ Cftop_coqs (list_mapi (fun i x -> Coqtop_label (x,i+1)) labs) ] in
    reset_used_labels();
    cft
-
+ *)
 
 (*#########################################################################*)
 (* ** Helper functions for names *)
@@ -636,7 +641,8 @@ let pattern_name_protect_infix p =
 
 (** An alternative version of function extract_label_names, for obtaining record labels *)
 
-let rec extract_label_names_simple env ty =
+(* FIXME unused
+let extract_label_names_simple env ty =
   let ty = Ctype.repr ty in
   match ty.desc with
   | Tconstr (path, _, _) ->
@@ -649,14 +655,15 @@ let rec extract_label_names_simple env ty =
       | _ -> assert false
       end
   | _ -> assert false
-
+ *)
 
 (*#########################################################################*)
 (* ** Helper functions for fvs (type variables) *)
 
-
+(* FIXME unused
 let show_fvs title fvs =
    Format.fprintf Format.err_formatter "%s = %s\n" title (show_list show_str " , " fvs)
+ *)
 
 (* needs to be called only after typing the body of the definition
    associated with the pattern, so as to know which names are actually used. *)

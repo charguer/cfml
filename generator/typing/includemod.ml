@@ -14,7 +14,6 @@
 
 (* Inclusion checks for the module language *)
 
-open Misc
 open Path
 open Typedtree
 open Types

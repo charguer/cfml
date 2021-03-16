@@ -156,7 +156,7 @@ let parse_opt flags s =
     if i >= String.length s then () else
     match s.[i] with
     | 'A' .. 'Z' ->
-       List.iter set (letter (Char.lowercase s.[i]));
+       List.iter set (letter (Char.lowercase_ascii s.[i]));
        loop (i+1)
     | 'a' .. 'z' ->
        List.iter clear (letter s.[i]);
@@ -173,7 +173,7 @@ let parse_opt flags s =
         for n = n1 to min n2 last_warning_number do myset n done;
         loop i
     | 'A' .. 'Z' ->
-       List.iter myset (letter (Char.lowercase s.[i]));
+       List.iter myset (letter (Char.lowercase_ascii s.[i]));
        loop (i+1)
     | 'a' .. 'z' ->
        List.iter myset (letter s.[i]);
@@ -271,14 +271,14 @@ let print ppf w =
   for i = 0 to String.length msg - 1 do
     if msg.[i] = '\n' then incr newlines;
   done;
-  let (out, flush, newline, space) =
-    Format.pp_get_all_formatter_output_functions ppf ()
-  in
-  let countnewline x = incr newlines; newline x in
-  Format.pp_set_all_formatter_output_functions ppf out flush countnewline space;
-  Format.fprintf ppf "%d: %s" num msg;
-  Format.pp_print_flush ppf ();
-  Format.pp_set_all_formatter_output_functions ppf out flush newline space;
+  let open Format in
+  let functions = pp_get_formatter_out_functions ppf () in
+  let count_newline x = incr newlines; functions.out_newline x in
+  let functions = { functions with out_newline = count_newline } in
+  pp_set_formatter_out_functions ppf functions;
+  fprintf ppf "%d: %s" num msg;
+  pp_print_flush ppf ();
+  pp_set_formatter_out_functions ppf functions;
   if error.(num) then incr nerrors;
   !newlines
 ;;

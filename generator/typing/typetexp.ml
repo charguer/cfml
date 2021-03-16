@@ -161,10 +161,12 @@ let type_variable loc name =
   with Not_found ->
     raise(Error(loc, Unbound_type_variable ("'" ^ name)))
 
+(* FIXME unused
 let wrap_method ty =
   match (Ctype.repr ty).desc with
     Tpoly _ -> ty
   | _ -> Ctype.newty (Tpoly (ty, []))
+ *)
 
 let new_pre_univar () =
   let v = newvar () in pre_univars := v :: !pre_univars; v
@@ -382,7 +384,7 @@ let rec transl_type env policy styp =
         with Not_found ->
           Hashtbl.add hfields h (l,f)
       in
-      let rec add_field = function
+      let add_field = function
           Rtag (l, c, stl) ->
             name := None;
             let tl = List.map (transl_type env policy) stl in

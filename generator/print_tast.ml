@@ -1,9 +1,5 @@
-open Misc
-open Asttypes
-open Types
 open Typedtree
 open Mytools
-open Longident
 open Format
 open Print_past
 open Print_type

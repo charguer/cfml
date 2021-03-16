@@ -1,10 +1,7 @@
-open Misc
 open Asttypes
-open Types
 open Parsetree
 open Mytools
 open Longident
-open Location
 open Renaming
 
 (** This file takes as input an abstract syntax tree and produces
@@ -19,13 +16,14 @@ let name_of_lident idt =
   let name = List.hd (List.rev words) in
   name
 
+(* FIXME unused
 let fullname_of_lident idt =
   let words = Longident.flatten idt in
   String.concat "." words
 
 let check_lident loc idt = (* DEPRECATED *)
    check_var_name loc (name_of_lident idt)
-
+ *)
 
 (*#########################################################################*)
 (* ** Control of evaluation order *)
@@ -572,6 +570,7 @@ and normalize_structure_item si =
    | Pstr_include m -> Pstr_include (normalize_module m)
    }
 
+(* FIXME unused
 and normalize_toplevel_phrase p =
   match p with
   | Ptop_def s -> Ptop_def (normalize_structure s)
@@ -579,7 +578,7 @@ and normalize_toplevel_phrase p =
 
 and normalize_source s =
    List.map normalize_toplevel_phrase s
-
+ *)
 
 (*#########################################################################*)
 

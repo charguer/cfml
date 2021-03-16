@@ -1,5 +1,4 @@
 open Config
-open Clflags
 open Misc
 open Format
 open Typedtree
@@ -44,6 +43,7 @@ let preprocess sourcefile =
       end;
       tmpfile
 
+(* FIXME unused
 (** Remove the input file if this file was the result of a preprocessing.*)
 let remove_preprocessed inputfile =
   match !Clflags.preprocessor with
@@ -54,6 +54,7 @@ let remove_preprocessed_if_ast inputfile =
   match !Clflags.preprocessor with
     None -> ()
   | Some _ -> if inputfile <> !Location.input_name then remove_file inputfile
+ *)
 
 exception Outdated_version
 
@@ -250,4 +251,3 @@ let typecheck_interface_file ppf sourcefile output_prefix =
   match sg_opt with
   | None -> failwith "could not typecheck"
   | Some sg -> Env.save_signature sg.sig_type modulename (output_prefix ^ ".cmj")
-
