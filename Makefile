@@ -12,7 +12,6 @@ ifeq ($(DEFAULT_PREFIX),)
 endif
 
 PREFIX ?= $(DEFAULT_PREFIX)
-BINDIR ?= $(PREFIX)/bin
 LIBDIR ?= $(PREFIX)/lib/cfml
 
 COQ_WHERE   ?= $(shell $(COQBIN)coqc -where)
@@ -22,7 +21,7 @@ COQ_CONTRIB := $(COQ_WHERE)/user-contrib
 # Targets.
 
 all: coqlib generator
-	$(MAKE) CFMLC=$(CFML)/generator/cfmlc.native -C lib/stdlib
+	$(MAKE) CFMLC=$(CFML)/generator/_build/default/cfmlc.exe -C lib/stdlib
 
 coqlib:
 	$(MAKE) -C lib/coq
@@ -57,8 +56,7 @@ clean:
 
 install: all
 	# Install the generator binary
-	install -m755 $(CFML)/generator/_build/cfmlc.native $(BINDIR)/cfmlc
-#	install -m755 $(CFML)/generator/_build/makecmj.native $(BINDIR)/cfml_cmj
+	make -C generator install
 
 	# Cleanup LIBDIR
 	rm -rf $(LIBDIR)
@@ -72,9 +70,6 @@ install: all
 	install $(CFML)/lib/make/Makefile.cfml $(LIBDIR)/make
 	install -m755 $(CFML)/lib/make/ocamldep.post $(LIBDIR)/make
 
-	# Cleanup COQ_CONTRIB/CFML
-	rm -rf $(COQ_CONTRIB)/CFML
-
 	# Install the CFML core coq library
 	make -C lib/coq install
 
@@ -85,11 +80,9 @@ install: all
 	# "Installation completed."
 
 uninstall:
-	rm -f $(BINDIR)/cfmlc
-#	rm -f $(BINDIR)/cfml_cmj
+	make -C generator $@
+	make -C lib/coq $@
 	rm -rf $(LIBDIR)
-#	rm -rf $(DOCDIR)
-	rm -rf $(COQ_CONTRIB)/CFML
 
 reinstall: uninstall
 	@ $(MAKE) install
