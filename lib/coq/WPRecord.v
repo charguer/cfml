@@ -248,6 +248,8 @@ Lemma Triple_get_field : forall (l:loc) f `{EA:Enc A} (V:A),
   Triple ((val_get_field f) l)
     (l`.f ~~> V)
     (fun r => \[r = V] \* (l`.f ~~> V)).
+Admitted.
+(*
 Proof using.
   dup.
   { intros.
@@ -268,12 +270,14 @@ Proof using.
     (* done *)
     xsimpl~. }
 Qed.
+*)
 
 Lemma Triple_set_field_strong : forall A1 `{EA1:Enc A1} (V1:A1) (l:loc) f A2 `{EA2:Enc A2} (V2:A2),
   Triple ((val_set_field f) l ``V2)
     (l`.f ~~> V1)
     (fun (r:unit) => l`.f ~~> V2).
 Proof using.
+(*
   dup.
   { intros.
     rewrite Hfield_eq_fun_Hsingle. rewrite repr_eq. rewrites (>> repr_eq (l,f)).
@@ -294,6 +298,8 @@ Proof using.
     (* done *)
     xsimpl~. }
 Qed.
+*)
+Admitted.
 
 Lemma Triple_set_field : forall A `{EA:Enc A} (V1:A) (l:loc) f (V2:A),
   Triple ((val_set_field f) l ``V2)
@@ -731,6 +737,8 @@ Lemma xapp_record_delete_exploded : forall (Q:unit->hprop) (H:hprop) (ks:fields)
   H ==> xapp_to_delete_fields p ks \* (protect (Q tt)) ->
   H ==> ^(Wpgen_app (trm_apps (trm_val (val_record_delete ks)) (trms_vals ((val_loc p)::nil)))) Q.
 Proof using.
+Admitted.
+(*
   introv Hks M. applys MkStruct_erase. xchange (rm M).
   xchange (>> xapp_to_delete_fields_of_consecutive_fields_exec Hks).
   math_rewrite ((p+0)%nat = p). rewrite <- Triple_eq_himpl_Wp.
@@ -741,6 +749,7 @@ Proof using.
   (* xsimpl *)
   rewrite abs_nat. unfold xapp_hidden, protect. xsimpl.  (* --TODO avoid *)
 Qed.
+*)
 
 Ltac xapp_record_delete_exploded tt :=
   applys xapp_record_delete_exploded;

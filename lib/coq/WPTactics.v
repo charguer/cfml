@@ -138,7 +138,6 @@ Ltac xgoal_code_without_wptag tt :=
 
 Ltac xgoal_fun tt :=
   match xgoal_code_without_wptag tt with
-  | Wpgen_app (trm_apps (trm_val ?f) _) => constr:(f)
   | Wpgen_App_typed ?T ?f ?Vs => constr:(f)
   end.
 
@@ -167,8 +166,6 @@ Ltac xspec_remove_combiner tt :=
 Ltac xspec_context tt :=
   xspec_remove_combiner tt;
   match goal with
-  | H: context [ Triple (trm_apps (trm_val ?f) _) _ _ ]
-    |- Triple (trm_apps (trm_val ?f) _) _ _ => generalize H
   | H: context [ Triple (Trm_apps (trm_val ?f) _) _ _ ]
     |- Triple (Trm_apps (trm_val ?f) _) _ _ => generalize H
   end.
@@ -196,7 +193,8 @@ Ltac xspec_prove_cont tt :=
   try clear H.
 
 Ltac xspec_prove_triple tt :=
-  xspec; xspec_prove_cont tt.
+  xspec;
+  xspec_prove_cont tt.
 
 Ltac xspec_lemma_of_args E :=
   let H := fresh "Spec2" in
@@ -212,7 +210,8 @@ Ltac xspec_lemma_of_args E :=
   end.
 
 Ltac xspec_prove_triple_with_args E :=
-  xspec_lemma_of_args E; xspec_prove_cont tt.
+  xspec_lemma_of_args E;
+  xspec_prove_cont tt.
 
 (* TODO: will be deprecated *)
 Notation "'Register_Spec' f" := (Register_goal (Triple (trm_apps (trm_val f) _) _ _))
@@ -469,6 +468,7 @@ Tactic Notation "xcleanup" :=
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xwp_xtriple_handle_gc] -- for internal use *)
+(* TODO: remove? *)
 
 (* [xwp_xtriple_handle_gc] is used by [xwp] and [wtriple].
    It enables removing [\GC] to simulate a linear logic. *)
@@ -493,6 +493,7 @@ Ltac xwp_xtriple_handle_gc tt :=
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xwp] *)
+(* TODO: will be deprecated *)
 
 Lemma xwp_lemma_funs : forall F vs ts xs t `{EA:Enc A} H (Q:A->hprop),
   F = val_funs xs t ->
@@ -558,18 +559,7 @@ Tactic Notation "xwp_debug" :=
 
 (* TODO: integrate into [xwp] *)
 
-Lemma xtriple_lemma : forall t f (vs:vals) `{EA:Enc A} H (Q:A->hprop),
-  t = trm_apps f (trms_vals vs) ->
-  H ==> ^(Wptag (Wpgen_app (trm_apps f (trms_vals vs)))) (Q \*+ \GC) ->
-  Triple t H Q.
-Proof using.
-  introv E M. subst t. applys Triple_hgc_post.
-  applys* Triple_of_Wp. unfolds Wpgen_app.
-  rewrite <- eq_Mkstruct_of_Structural in M. applys M.
-  applys Structural_Wp.
-Qed.
-
-Lemma xtriple_lifted_lemma : forall f (Vs:dyns) `{EA:Enc A} H (Q:A->hprop),
+Lemma xtriple_lemma : forall f (Vs:dyns) `{EA:Enc A} H (Q:A->hprop),
   H ==> ^(Wptag (Wpgen_App_typed A f Vs)) (Q \*+ \GC) ->
   Triple (Trm_apps f Vs) H Q.
 Proof using. Admitted. (* TODO *)
@@ -580,11 +570,8 @@ Ltac xtriple_pre tt :=
 
 Ltac xtriple_core tt :=
   xtriple_pre tt;
-  first
-  [ applys xtriple_lifted_lemma; xwp_xtriple_handle_gc tt
-  | applys xtriple_lemma;
-    [ simpl combiner_to_trm; rew_trms_vals; reflexivity
-    | xwp_xtriple_handle_gc tt ] ].
+  applys xtriple_lemma;
+  xwp_xtriple_handle_gc tt.
 
 Tactic Notation "xtriple" :=
   xtriple_core tt.
@@ -820,6 +807,8 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xapp] *)
 
+(* TODO: update documentation *)
+
 (** [xapp]
     [xapp E]
 
@@ -859,37 +848,7 @@ Qed.
 Ltac xapp_record tt :=
   fail "implemented later in WPStruct".
 
-Lemma xapp_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
-  Triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* protect Q) ->
-  H ==> ^(Wpgen_app t) Q.
-Proof using.
-  introv M1 M2. applys MkStruct_erase.
-  xchanges (rm M2).
-  rewrite <- Triple_eq_himpl_Wp.
-  applys* Triple_ramified_frame.
-Qed.
-
-Lemma xapps_lemma : forall A `{EA:Enc A} (V:A) H2 t H1 H Q,
-  Triple t H1 (fun r => \[r = V] \* H2) ->
-  H ==> H1 \* (H2 \-* protect (Q V)) ->
-  H ==> ^(Wpgen_app t) Q.
-Proof using.
-  introv M1 M2. applys xapp_lemma M1. xchanges M2.
-  intros ? ->. auto.
-Qed.
-
-Lemma xapps_lemma_pure : forall A `{EA:Enc A} (V:A) t H1 H Q,
-  Triple t H1 (fun r => \[r = V]) ->
-  H ==> H1 \* protect (Q V) ->
-  H ==> ^(Wpgen_app t) Q.
-Proof using.
-  introv M1 M2. applys xapps_lemma \[]; rew_heap; eauto.
-Qed.
-
-(* lifted versions *)
-
-Lemma xapp_lifted_lemma : forall A `{EA:Enc A} (Q1:A->hprop) (f:trm) (Vs:dyns) H1 H Q,
+Lemma xapp_lemma : forall A `{EA:Enc A} (Q1:A->hprop) (f:trm) (Vs:dyns) H1 H Q,
   Triple (Trm_apps f Vs) H1 Q1 ->
   H ==> H1 \* (Q1 \--* protect Q) ->
   H ==> ^(Wpgen_App_typed A f Vs) Q.
@@ -899,29 +858,22 @@ Proof using.
   applys* Triple_ramified_frame.
 Qed.
 
-Lemma xapps_lifted_lemma : forall A `{EA:Enc A} (V:A) H2 (f:trm) (Vs:dyns) H1 H Q,
+Lemma xapps_lemma : forall A `{EA:Enc A} (V:A) H2 (f:trm) (Vs:dyns) H1 H Q,
   Triple (Trm_apps f Vs) H1 (fun r => \[r = V] \* H2) ->
   H ==> H1 \* (H2 \-* protect (Q V)) ->
   H ==> ^(Wpgen_App_typed A f Vs) Q.
 Proof using.
-  introv M1 M2. applys xapp_lifted_lemma M1. xchanges M2.
+  introv M1 M2. applys xapp_lemma M1. xchanges M2.
   intros ? ->. auto.
 Qed.
 
-Lemma xapps_lifted_lemma_pure : forall A `{EA:Enc A} (V:A) (f:trm) (Vs:dyns) H1 H Q,
+Lemma xapps_lemma_pure : forall A `{EA:Enc A} (V:A) (f:trm) (Vs:dyns) H1 H Q,
   Triple (Trm_apps f Vs) H1 (fun r => \[r = V]) ->
   H ==> H1 \* protect (Q V) ->
   H ==> ^(Wpgen_App_typed A f Vs) Q.
 Proof using.
-  introv M1 M2. applys xapps_lifted_lemma \[]; rew_heap; eauto.
+  introv M1 M2. applys xapps_lemma \[]; rew_heap; eauto.
 Qed.
-
-Lemma xapp_find_spec_lifted_lemma : forall A `{EA:Enc A} (Q1:A->hprop) (f:trm) (Vs:dyns) H1 H (Q:A->hprop),
-  Triple (Trm_apps f Vs) H1 Q1 ->
-  (Triple (Trm_apps f Vs) H1 Q1 ->
-   H ==> ^(Wpgen_App_typed A f Vs) Q) ->
-  H ==> ^(Wpgen_App_typed A f Vs) Q.
-Proof using. auto. Qed.
 
 (* [xapp_pre tt] automatically performs the necessary
    [xlet], [xseq] and [xcast], then checks that the goal
@@ -936,7 +888,6 @@ Proof using. auto. Qed.
 Ltac xapp_pre_wp tt :=
   xlet_xseq_xcast_repeat tt;
   match xgoal_code_without_wptag tt with
-  | (Wpgen_app ?t) => idtac
   | (Wpgen_App_typed ?T ?f ?Vs) => idtac
   (* | (Wpgen_record_new ?Lof) => idtac --- added in WPRecord *)
   end.
@@ -948,7 +899,6 @@ Ltac xapp_pre_triple tt :=
 
 Ltac xapp_pre tt :=
   first [ xapp_pre_wp tt | xapp_pre_triple tt ].
-
 
 (** [xapp_post] presents a nice error message in case of failure *)
 
@@ -969,63 +919,46 @@ Ltac xapp_post tt :=
 Ltac xapp_post_basic tt := (* version without error message *)
   xsimpl; unfold protect; xcleanup.
 
+(* [xapp] implementation*)
 
-Lemma xapp_find_spec_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H (Q:A->hprop),
-  Triple t H1 Q1 ->
-  (Triple t H1 Q1 ->
-   H ==> ^(Wpgen_app t) Q) ->
-  H ==> ^(Wpgen_app t) Q.
-Proof using. auto. Qed.
-
-Ltac xapp_select_lemma tt :=
+(* FUTURE
+Ltac xapp_select_lemma cont := (* TODO: factorize better with xapp_select_lemma *)
   let S := fresh "Spec" in
   intro S;
   match type of S with
-  | Triple _ _ (fun _ => \[_ = _] \* _) => applys @xapps_lemma
-  | Triple _ _ (fun _ => \[_ = _]) => applys @xapps_lemma_pure
-  | _ => applys @xapp_lemma
-  end; [ applys S | clear S ].
-
-Ltac xapp_apply_lemma cont_prove_triple :=
-  (* --TODO should remove *) xapp_pre tt;
-  applys xapp_find_spec_lemma;
-    [ cont_prove_triple tt
-    | xapp_select_lemma tt; xapp_post tt ].
-
-(* lifted versions *)
-
-Ltac xapp_select_lifted_lemma tt := (* TODO: factorize better with xapp_select_lemma *)
-  let S := fresh "Spec" in
-  intro S;
-  match type of S with
-  | Triple _ _ (fun _ => \[_ = _] \* _) => applys @xapps_lifted_lemma
-  | Triple _ _ (fun _ => \[_ = _]) => applys @xapps_lifted_lemma_pure
-  | _ => applys @xapp_lifted_lemma
-  end; [ applys S | clear S ].
-
-Ltac xapp_apply_lifted_lemma cont_prove_triple :=
-  (* --TODO should remove *) xapp_pre tt;
-  applys xapp_find_spec_lifted_lemma;
-    [ cont_prove_triple tt
-    | xapp_select_lifted_lemma tt; xapp_post tt ].
-
-(* DEPRECATED (too slow)
-Ltac xapp_apply_lemma cont_prove_triple :=
-  first
-    [ applys @xapps_lemma; [ cont_prove_triple tt | xapp_post tt ]
-    | applys @xapps_lemma_pure; [ cont_prove_triple tt | xapp_post tt ]
-    | applys @xapp_lemma; [ cont_prove_triple tt | xapp_post tt ] ].
+  | Wpgen_body _ => applys @xtriple_inv_lifted_lemma; [ applys S | clear S; cont tt ]
+  (* TODO: optimize using  match type of S with context[...] *)
+  | Triple _ _ (fun _ => \[_ = _] \* _) => applys @xapps_lemma; [ applys S | clear S ].
+  | Triple _ _ (fun _ => \[_ = _]) => applys @xapps_lemma_pure; [ applys S | clear S ].
+  | _ => applys @xapp_lemma; [ applys S | clear S ].
+  end
 *)
 
+Ltac xapp_exploit_spec L cont :=
+  let S := fresh "Spec" in
+  intro S;
+  eapply L;
+  [ applys S
+  | clear S; cont tt ].
+
+Ltac xapp_common tt :=
+  match goal with |- S -> _ =>
+  match S with
+  | Wpgen_body _ =>
+      xapp_exploit_spec @xtriple_inv_lifted_lemma idcont
+  | _ =>
+    first [ xapp_exploit_spec @xapps_lemma xapp_post
+          | xapp_exploit_spec @xapps_lemma_pure xapp_post
+          | xapp_exploit_spec @xapp_lemma xapp_post ]
+  end end.
+
 Ltac xapp_general tt :=
-  match xgoal_code_without_wptag tt with
-  | (Wpgen_app ?t) => xapp_apply_lemma ltac:(xspec_prove_triple)
-  | (Wpgen_App_typed ?T ?f ?Vs) => xapp_apply_lifted_lemma ltac:(xspec_prove_triple)
-  end.
+  xspec;
+  xapp_common tt.
 
 Ltac xapp_core tt :=
   xapp_pre tt;
-  first [ xapp_record tt (* TODO: choose base on goal ? *)
+  first [ xapp_record tt
         | xapp_general tt ].
 
 Tactic Notation "xapp" :=
@@ -1035,13 +968,14 @@ Tactic Notation "xapp" "~" :=
 Tactic Notation "xapp" "*"  :=
   xapp; auto_star.
 
+(** [xapp E] to provide arguments, where [E] can be a specification, or can
+    be of the form [__ E1 ... En] to specify only arguments of the registered
+    specification. *)
+
 Ltac xapp_arg_core E :=
   xapp_pre tt;
-  let cont := ltac:(fun tt => xspec_prove_triple_with_args E) in
-  match xgoal_code_without_wptag tt with
-  | (Wpgen_app ?t) =>  xapp_apply_lemma cont
-  | (Wpgen_App_typed ?T ?f ?Vs) => xapp_apply_lifted_lemma cont
-  end.
+  xspec_lemma_of_args E;
+  xapp_common tt.
 
 Tactic Notation "xapp" constr(E) :=
   xapp_arg_core E.
@@ -1050,13 +984,14 @@ Tactic Notation "xapp" "~" constr(E) :=
 Tactic Notation "xapp" "*" constr(E) :=
   xapp E; auto_star.
 
+(** [xapp_nosubst] to prevent substitution *)
+
+(* TODO: xapp_record_no_subst is missing *)
+
 Ltac xapp_nosubst_core tt :=
   xapp_pre tt;
-  let L := match xgoal_code_without_wptag tt with
-    | (Wpgen_app ?t) => constr:(@xapp_lemma)
-    | (Wpgen_App_typed ?T ?f ?Vs) => constr:(@xapp_lifted_lemma)
-    end in
-  applys L; [ xspec_prove_triple tt | xapp_post tt ].
+  xspec;
+  xapp_exploit_spec @xapp_lemma xapp_post.
 
 Tactic Notation "xapp_nosubst" :=
   xapp_nosubst_core tt.
@@ -1067,12 +1002,8 @@ Tactic Notation "xapp_nosubst" "*"  :=
 
 Ltac xapp_arg_nosubst_core E :=
   xapp_pre tt;
-  (* TODO : factorize pattern *)
-  let L := match xgoal_code_without_wptag tt with
-    | (Wpgen_app ?t) => constr:(@xapp_lemma)
-    | (Wpgen_App_typed ?T ?f ?Vs) => constr:(@xapp_lifted_lemma)
-    end in
-  applys L; [ xspec_prove_triple_with_args E | xapp_post tt ].
+  xspec_lemma_of_args E;
+  xapp_exploit_spec @xapp_lemma xapp_post.
 
 Tactic Notation "xapp_nosubst" constr(E) :=
   xapp_arg_nosubst_core tt.
@@ -1080,6 +1011,8 @@ Tactic Notation "xapp_nosubst" "~" constr(E) :=
   xapp_nosubst E; auto_tilde.
 Tactic Notation "xapp_nosubst" "*" constr(E)  :=
   xapp_nosubst E; auto_star.
+
+(** [xappn] to repeat [xapp] *)
 
 Tactic Notation "xappn" :=
   repeat (xapp).
@@ -1099,6 +1032,7 @@ Tactic Notation "xappn" "*" constr(n) :=
 
 (* ---------------------------------------------------------------------- *)
 (* ** [xapp_debug] *)
+(* TODO: deprecated, now using show_types *)
 
 Ltac xapp_types_for_val v :=
   match v with
@@ -1495,7 +1429,7 @@ Tactic Notation "xfun_ind_skip" constr(P) :=
 (* TODO: provide additional tactics like for [xfun]? *)
 
 Ltac xfuns_as_core tt :=
-  applys xletfun_lemma;
+  applys xfun_lemma;
   pose ltac_mark;
   repeat applys himpl_hforall_r;
   repeat applys hwand_hpure_r_intro;
