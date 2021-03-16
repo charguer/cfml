@@ -1,1 +1,22 @@
--Q /home/charguer/tlc/src TLC -Q /home/charguer/cfml2/lib/coq CFML
+-Q . CFML
+
+-arg -w -arg -notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths,-irrelevant-format-only-parsing,-deprecated-hint-without-locality
+
+LibSepBind.v
+LibSepFmap.v
+LibSepFunctor.v
+LibSepSimpl.v
+LibSepTLCbuffer.v
+LibSepVar.v
+Semantics.v
+SepBase.v
+SepLifted.v
+WPArray.v
+WPArrayNonlifted.v
+WPBase.v
+WPBuiltin.v
+WPHeader.v
+WPLib.v
+WPLifted.v
+WPRecord.v
+WPTactics.v
