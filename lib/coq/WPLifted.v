@@ -866,11 +866,30 @@ Definition Wpgen_dummy : Formula :=
 
 
 (* ********************************************************************** *)
-(* * Notation for characteristic formulae *)
+
+(*
+
+
+
+---TUTO on wp for assertions
+
+  H ==> wp t (fun r => \[r = true] \* H) ->
+  H ==> wp (val_assert t) (fun _ => H).
+
+ wp t (fun r => \[r = true] \* H) ==> wp (val_assert t) (fun _ => H)
+ \exists H, H \* \[H ==> wp t (fun r => \[r = true] \* H)] \* (#H \--* Q) ==> wp (val_assert t) Q
+
+ Q tt \* \[Q tt ==> wp t (fun r => \[r = true] \* Q tt)] ==> wp (val_assert t) Q
+
+*)
+
 
 
 
 (* ********************************************************************** *)
+(* ** Grammar set up *)
+
+(* TODO: there is a problem if moving this out to WPPrint, due to a Coq bug on custom entry *)
 
 (** Custom grammar for the display of characteristic formulae. *)
 
@@ -891,7 +910,7 @@ Notation "'`' F" :=
 (** Display characteristic formulae goal in a nice way,
     with current state at the front. *)
 
-Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (Wptag F) _ _ Q)
+Notation "'PRE' H 'CODE' F 'POST' Q" := (H ==> (@Wptag F) _ _ Q)
   (at level 8,
    H at level 0,
    F custom wp at level 0,
@@ -914,6 +933,10 @@ Notation "x" :=
  (in custom wp at level 0,
   x constr at level 0) : wp_scope.
 
+
+(* ********************************************************************** *)
+(* ** Simple Constructors *)
+
 Notation "'Fail'" :=
  ((*Wptag*) (Wpgen_fail))
  (in custom wp at level 69) : wp_scope.
@@ -921,7 +944,6 @@ Notation "'Fail'" :=
 Notation "'Done'" :=
  ((*Wptag*) (Wpgen_done))
  (in custom wp at level 69) : wp_scope.
-
 
 Notation "'Match' F1" :=
  ((*Wptag*) (Wpgen_match F1))
@@ -937,16 +959,6 @@ Notation "'Assert' F" :=
 Notation "'Val' v" :=
  ((*Wptag*) (Wpgen_Val v))
  (in custom wp at level 69) : wp_scope.
-
-Notation "'Let?' x ':=' F1 'in' F2" :=
- ((Wpgen_let F1 (fun x => F2)))
- (in custom wp at level 69,
-  x ident,
-  F1 custom wp at level 99,
-  F2 custom wp at level 99,
-  right associativity,
-  format "'[v' '[' 'Let?'  x  ':='  F1  'in' ']' '/' '[' F2 ']' ']'") : wp_scope.
- (* TODO: improve notation or deprecate it *)
 
 Notation "'Let' x ':=' F1 'in' F2" :=
  ((*Wptag*) (Wpgen_let_typed F1 (fun x => F2)))
@@ -983,32 +995,6 @@ Notation "'Seq' F1 ; F2" :=
   right associativity,
   format "'[v' 'Seq'  '[' F1 ']'  ; '/' '[' F2 ']' ']'") : wp_scope.
 
-(* DEPRECATED
-Notation "'App' f x1 x2 .. xn" :=
- ((*Wptag*) (Wpgen_App_typed _ f (cons (Dyn x1) (cons (Dyn x2) .. (cons (Dyn xn) nil) ..))))
-  (in custom wp at level 68,
-   f constr at level 0,
-   x1 constr at level 0,
-   x2 constr at level 0,
-   xn constr at level 0) (* TODO: format *)
-  : wp_scope.
-*)
-(* DEPRECATED
-Notation "'App' f v1 v2" :=
- ((wp (trm_app (trm_app f v1) v2)))
- (in custom wp at level 68, f, v1, v2 at level 0) : wp_scope.
-*)
-
-
-(* NOT NEEDED
-Notation "'App' f x1" :=
- ((*Wptag*) (Wpgen_App_typed _ f (cons (Dyn x1) nil)))
-  (in custom wp at level 68,
-   f constr at level 0,
-   x1 constr at level 0) (* TODO: format *)
-  : wp_scope.
-*)
-
 Notation "'App' f x1 .. xn" :=
  ((*Wptag*) (Wpgen_App_typed _ f (cons (Dyn x1) .. (cons (Dyn xn) nil) ..)))
   (in custom wp at level 68,
@@ -1016,8 +1002,6 @@ Notation "'App' f x1 .. xn" :=
    x1 constr at level 0,
    xn constr at level 0) (* TODO: format *)
   : wp_scope.
-
-
 
 Notation "'If_' v 'Then' F1 'Else' F2" :=
  ((*Wptag*) (Wpgen_if_bool v F1 F2))
@@ -1053,25 +1037,6 @@ Notation "'For' i '=' n1 'Downto' n2 'Do' F1 'Done'" :=
   F1 custom wp at level 99,
   format "'[v' '[' 'For'  i  '='  n1  'Downto'  n2  'Do'  ']' '/' '['   F1 ']' '/' 'Done' ']'") : wp_scope.
 
-
-(* DEPRECATED
-Notation "'Fun' x '=>' F1" :=
- ((wpgen_fun (fun x => F1)))
- (in custom wp at level 69,
-  x ident,
-  F1 custom wp at level 99,
-  right associativity,
- format "'[v' '[' 'Fun'  x  '=>'  F1  ']' ']'") : wp_scope.
-
-Notation "'Fix' f x '=>' F1" :=
- ((wpgen_fix (fun f x => F1)))
- (in custom wp at level 69,
-  f ident, x ident,
-  F1 custom wp at level 99,
-  right associativity,
-  format "'[v' '[' 'Fix'  f  x  '=>'  F1  ']' ']'") : wp_scope.
-*)
-
 Notation "'LetFun' f ':=' B1 'in' F1" :=
  ((*Wptag*) (Wpgen_let_fun (fun A EA Q => \forall f, \[B1] \-* (F1 A EA Q))))
  (in custom wp at level 69,
@@ -1080,6 +1045,10 @@ Notation "'LetFun' f ':=' B1 'in' F1" :=
   F1 custom wp at level 99,
   right associativity,
   format "'[v' '[' 'LetFun'  f  ':=' '/' '['   B1 ']'  'in' ']' '/' '[' F1 ']' ']'" ) : wp_scope.
+
+
+(* ********************************************************************** *)
+(* ** Function Body *)
 
 (** Body is not in 'custom wp', on purpose *)
 
@@ -1133,15 +1102,129 @@ Notation "'Body' f v1 v2 v3 v4 ':=' F1" :=
   right associativity,
   format "'[v' '[' 'Body'  f  v1  v2  v3  v4  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 
+(** Polymorphic variants of body-- TODO: only up to 3 polymorphic variables supported *)
+
+Notation "'Body' f { B1 } v1 ':=' F1" :=
+ ((*Wptag*) (Wpgen_body (forall B1 EB1 v1 H A EA Q,
+               (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
+               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::nil)) A EA H Q)))
+ (at level 69,
+  f ident,
+  v1 constr,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Body'  f  { B1 }  v1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+
+Notation "'Body' f { B1 B2 } v1 ':=' F1" :=
+ ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 v1 H A EA Q,
+               (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
+               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::nil)) A EA H Q)))
+ (at level 69,
+  f ident,
+  v1 constr,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Body'  f  { B1  B2 }  v1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+
+Notation "'Body' f { B1 B2 B3 } v1 ':=' F1" :=
+ ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 B3 EB3 v1 H A EA Q,
+               (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
+               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::nil)) A EA H Q)))
+ (at level 69,
+  f ident,
+  v1 constr,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Body'  f  { B1  B2  B3 }  v1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+
+Notation "'Body' f { B1 } v1 v2 ':=' F1" :=
+ ((*Wptag*) (Wpgen_body (forall B1 EB1 v1 v2 H A EA Q,
+               (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
+               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
+ (at level 69,
+  f ident,
+  v1 constr,
+  v2 constr,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Body'  f  { B1 }  v1  v2  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+
+Notation "'Body' f { B1 B2 } v1 v2 ':=' F1" :=
+ ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 v1 v2 H A EA Q,
+               (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
+               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
+ (at level 69,
+  f ident,
+  v1 constr,
+  v2 constr,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Body'  f  { B1  B2 } v1  v2  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+
+Notation "'Body' f { B1 B2 B3 } v1 v2 ':=' F1" :=
+ ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 B3 EB3 v1 v2 H A EA Q,
+               (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
+               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
+ (at level 69,
+  f ident,
+  v1 constr,
+  v2 constr,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Body'  f  { B1  B2  B3 }  v1  v2  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+
+Notation "'Body' f { B1 } v1 v2 v3 ':=' F1" :=
+ ((*Wptag*) (Wpgen_body (forall B1 EB1 v1 v2 v3 H A EA Q,
+               (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
+               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))
+ (at level 69,
+  f ident,
+  v1 constr,
+  v2 constr,
+  v3 constr,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Body'  f  { B1 }  v1  v2  v3  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+
+Notation "'Body' f { B1 B2 } v1 v2 v3 ':=' F1" :=
+ ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 v1 v2 v3 H A EA Q,
+               (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
+               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))
+ (at level 69,
+  f ident,
+  v1 constr,
+  v2 constr,
+  v3 constr,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Body'  f  { B1  B2 }  v1  v2  v3  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+
+Notation "'Body' f { B1 B2 B3 } v1 v2 v3 ':=' F1" :=
+ ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 B3 EB3 v1 v2 v3 H A EA Q,
+               (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
+               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))
+ (at level 69,
+  f ident,
+  v1 constr,
+  v2 constr,
+  v3 constr,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Body'  f  { B1  B2  B3 }  v1  v2  v3  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+
 (* TODO: work on recursive notations for Body *)
 
 (* TODO: generalize let-fun to recursive functions *)
 
 
+(* ********************************************************************** *)
+(* ** Pattern Matching Cases *)
+
 (* Notation for Case is not reversible, but that's fine because we know that
    the argument P is always in practice the negation of a test that is visible in F1. *)
 
-(* generic notation for arities that are not supported *)
+(* TODO generic notation for arities that are not supported *)
+
 Notation "'Case' F1 'Else' F2" :=
  ((*Wptag*) (Wpgen_case F1 _ F2))
  (in custom wp at level 69,
@@ -1215,10 +1298,16 @@ Notation "'Case' v 'is' p { x1 x2 x3 x4 x5 } 'Then' F1 'Else' F2" :=
   left associativity,
   format "'[v' '[' 'Case'  v  'is'  p  { x1  x2  x3  x4  x5 }  'Then'  ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'") : wp_scope.
 
+(* TODO: do not attempt to currify the assumption associated with the when clause?
+    this could simplify the tactic that handles the case *)
 
 
-(* TODO: add support for when clauses
 
+(* ********************************************************************** *)
+(* ** Others *)
+
+
+(* TODO: add support for when clauses *)
 
 (* PRINTING FOR F1 in case pattern  -- TODO
 Notation "v 'is' p { x1 x2 .. xn } 'Then' F1" :=
@@ -1260,116 +1349,73 @@ Notation "'Case' v 'is' p { x1 x2 .. xn } 'Then' F1 'Else' F2" :=
   format "'[v' '[' 'Case'   v  'is'  p  { x1 .. xn }  'Then'  ']' '/' '['   F1 ']' '/' 'Else' '/' '['   F2 ']' ']'"*) ) : wp_scope.
 *)
 
-Notation "'\forall' x1 .. xn , H" :=
-  (hforall (fun x1 => .. (hforall (fun xn => H)) ..))
-  (at level 39, x1 binder, H at level 50, right associativity,
-   format "'[' '\forall' '/ '  x1  ..  xn , '/ '  H ']'") : heap_scope.
 
+(* TODO: move *)
+Notation "'Let?' x ':=' F1 'in' F2" :=
+ ((Wpgen_let F1 (fun x => F2)))
+ (in custom wp at level 69,
+  x ident,
+  F1 custom wp at level 99,
+  F2 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Let?'  x  ':='  F1  'in' ']' '/' '[' F2 ']' ']'") : wp_scope.
+ (* TODO: improve notation or deprecate it *)
 
-(Wpgen_App_typed _ f (cons (Dyn x1) (cons (Dyn x2) .. (cons (Dyn xn) nil) ..)))
+(* DEPRECATED
+Notation "'App' f x1 x2 .. xn" :=
+ ((*Wptag*) (Wpgen_App_typed _ f (cons (Dyn x1) (cons (Dyn x2) .. (cons (Dyn xn) nil) ..))))
   (in custom wp at level 68,
-
-
-   TODO: do not attempt to currify the assumption associated with the when clause?
-    this could simplify the tactic that handles the case *)
-
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** DEPRECATED
-
-Notation "'Fail'" :=
-  ((Wpgen_fail))
-  (at level 69) : wp_scope.
-
-Notation "'Val' v" :=
-  ((Wpgen_val v))
-  (at level 69) : wp_scope.
-
-Notation "'Cast' V" :=
-  ((Wpgen_Val_no_mkstruct V))
-  (at level 69) : wp_scope.
-
-Notation "'Return' F " :=
-  (Formula_cast F)
-  (at level 68) : wp_scope.
-
-Notation "'Let_' x ':=' F1 'in' F2" :=
-  ((Wpgen_let_typed F1 (fun x => F2)))
-  (at level 69, x ident, right associativity,
-  format "'[v' '[' 'Let_'  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
-
-Notation "'Let_' [ A EA ] x ':=' F1 'in' F2" :=
-  ((Wpgen_let F1 (fun A EA x => F2)))
-  (at level 69, A at level 0, EA at level 0, x ident, right associativity,
-  format "'[v' '[' 'Let_'  [ A  EA ]  x  ':='  F1  'in' ']'  '/'  '[' F2 ']' ']'") : wp_scope.
-
-Notation "'Seq' F1 '; F2" :=
-  ((Wpgen_seq F1 F2))
-  (at level 68, right associativity,
-   format "'[v' 'Seq'  '[' F1 ']' '';' '/'  '[' F2 ']' ']'") : wp_scope.
-
-Notation "'App' f v1 " :=
-  ((Wpgen_app (trm_apps f (trms_vals (v1::nil)))))
-  (at level 68, f, v1 at level 0) : wp_scope.
-
-Notation "'App' f v1 .. vn " :=
-  ((Wpgen_app (trm_apps f (trms_vals (cons v1 .. (cons vn nil) ..)))))
-  (at level 68, f, v1, vn at level 0) : wp_scope.
-
-Notation "'Ifval' b 'Then' F1 'Else' F2" :=
-  ((Wpgen_if_bool b F1 F2))
-  (at level 69) : wp_scope.
-
-Notation "'While' F1 'Do' F2 'Done'" :=
-  ((Wpgen_while F1 F2))
-  (at level 69, F2 at level 68,
-   format "'[v' 'While'  F1  'Do'  '/' '[' F2 ']' '/'  'Done' ']'")
-   : wp_scope.
-
-Notation "'For' x '=' n1 'To' n2 'Do' F3 'Done'" :=
-  ((Wpgen_for_int n1 n2 (fun x => F3)))
-  (at level 69, x ident,
-   format "'[v' 'For'  x  '='  n1  'To'  n2  'Do'  '/' '[' F3 ']' '/'  'Done' ']'")
+   f constr at level 0,
+   x1 constr at level 0,
+   x2 constr at level 0,
+   xn constr at level 0) (* TODO: format *)
   : wp_scope.
-
-Notation "'Case' v '=' vp ''=>' F1 ''|' F2" :=
-  ((Wpgen_case (fun A EA Q => \[v = vp%val] \-* F1 A EA Q) (v <> vp%val) F2))
-  (at level 69, v, vp at level 0,
-   format "'[v' 'Case'  v  '='  vp  ''=>'  '[' '/' F1 ']' '[' '/'  ''|'  F2 ']' ']'")
-   : wp_scope.
-
-Notation "'Case' v '=' vp [ x1 ] ''=>' F1 ''|' F2" :=
-  ((Wpgen_case (fun A EA Q => \forall x1, \[v = vp%val] \-* F1 A EA Q) (forall x1, v <> vp%val) F2))
-  (at level 69, v, vp at level 0, x1 ident,
-   format "'[v' 'Case'  v  '='  vp  [ x1 ]  ''=>'  '[' '/' F1 ']' '[' '/'  ''|'  F2 ']' ']'")
-   : wp_scope.
-
-Notation "'Case' v '=' vp [ x1 x2 ] ''=>' F1 ''|' F2" :=
-  ((Wpgen_case (fun A EA Q => \forall x1 x2, \[v = vp%val] \-* F1 A EA Q) (forall x1 x2, v <> vp%val) F2))
-  (at level 69, v, vp at level 0, x1 ident, x2 ident,
-   format "'[v' 'Case'  v  '='  vp  [ x1  x2 ]  ''=>'  '[' '/' F1 ']' '[' '/'  ''|'  F2 ']' ']'")
-   : wp_scope.
 *)
-
-(* ********************************************************************** *)
-
-(*
-
-
-
----TUTO on wp for assertions
-
-  H ==> wp t (fun r => \[r = true] \* H) ->
-  H ==> wp (val_assert t) (fun _ => H).
-
- wp t (fun r => \[r = true] \* H) ==> wp (val_assert t) (fun _ => H)
- \exists H, H \* \[H ==> wp t (fun r => \[r = true] \* H)] \* (#H \--* Q) ==> wp (val_assert t) Q
-
- Q tt \* \[Q tt ==> wp t (fun r => \[r = true] \* Q tt)] ==> wp (val_assert t) Q
-
+(* DEPRECATED
+Notation "'App' f v1 v2" :=
+ ((wp (trm_app (trm_app f v1) v2)))
+ (in custom wp at level 68, f, v1, v2 at level 0) : wp_scope.
 *)
 
 
+(* NOT NEEDED
+Notation "'App' f x1" :=
+ ((*Wptag*) (Wpgen_App_typed _ f (cons (Dyn x1) nil)))
+  (in custom wp at level 68,
+   f constr at level 0,
+   x1 constr at level 0) (* TODO: format *)
+  : wp_scope.
+*)
+(* DEPRECATED
+Notation "'Fun' x '=>' F1" :=
+ ((wpgen_fun (fun x => F1)))
+ (in custom wp at level 69,
+  x ident,
+  F1 custom wp at level 99,
+  right associativity,
+ format "'[v' '[' 'Fun'  x  '=>'  F1  ']' ']'") : wp_scope.
 
+Notation "'Fix' f x '=>' F1" :=
+ ((wpgen_fix (fun f x => F1)))
+ (in custom wp at level 69,
+  f ident, x ident,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Fix'  f  x  '=>'  F1  ']' ']'") : wp_scope.
+*)
+
+
+(* Variant, to display polymorphic types
+Notation "'Body' f B v1 ':=' F1" :=
+ ((*Wptag*) (Wpgen_body (forall B EB v1 H A EA Q,
+               (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
+               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::nil)) A EA H Q)))
+ (at level 69,
+  f ident,
+  B ident,
+  v1 constr,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Body'  f  B  v1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+ *)
 

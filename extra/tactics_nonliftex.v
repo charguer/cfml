@@ -106,3 +106,9 @@ Lemma xapp_find_spec_lemma : forall A `{EA:Enc A} (Q1:A->hprop) (f:trm) (Vs:dyns
    H ==> ^(Wpgen_App_typed A f Vs) Q) ->
   H ==> ^(Wpgen_App_typed A f Vs) Q.
 Proof using. auto. Qed.
+
+
+
+Ltac xspec_remove_combiner tt := (* TODO: deprecated *)
+  cbn beta delta [ combiner_to_trm ] iota zeta in *.
+  xspec_remove_combiner tt;

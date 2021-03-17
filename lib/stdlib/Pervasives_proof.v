@@ -2,18 +2,18 @@ Set Implicit Arguments.
 From CFML Require Import WPLib.
 Generalizable Variable A.
 
+
 Require Import Pervasives_ml.
 
 
 (************************************************************)
 (** Boolean *)
+
 Lemma not_spec : forall (a:bool),
   SPEC (not a)
     PRE \[]
     POST \[= !a ].
-Proof using.
-  xcf. xgo*.
-Qed.
+Proof using. xcf_go*. Qed.
 
 Hint Extern 1 (RegisterSpec not) => Provide not_spec.
 

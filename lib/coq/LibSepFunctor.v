@@ -292,13 +292,15 @@ Definition haffine_post (A:Type) (J:A->hprop) : Prop :=
 
 Declare Scope heap_scope_ext.
 
+
+(* TODO DEPRECATED
 (** Notation [TRIPLE F PRE H POST Q] for stating specifications, e.g.
     [triple t PRE H POST Q] is the same as [triple t H Q] *)
 
 Notation "F 'PRE' H 'POST' Q" :=
   (F H Q)
   (at level 69, only parsing) : heap_scope_ext.
-
+*)
 
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [hprop] *)

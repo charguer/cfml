@@ -123,8 +123,11 @@ Ltac cfml_postcondition_is_evar tt :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xgoal_code] and [xgoal_fun] *)
 
-Ltac xgoal_code tt :=
+(** Matches goal of the form [PRE _ CODE ?F POST] and extracts [F] *)
+
+Ltac xgoal_code tt := (* TODO: should not depend on notation *)
   match goal with |- PRE _ CODE ?C POST _ => constr:(C) end.
+  (* INCORRECT match goal with |- (?H ==> (Wptag ?F) _ _ ?Q) _ => constr:(F) end. *)
 
 Ltac xgoal_code_strip_wptag C :=
   match C with
@@ -156,29 +159,32 @@ Open Scope wptactics_scope.
 Notation "'Register_goal' G" := (Register database_spec G)
   (at level 69) : wptactics_scope.
 
-(** [xspec G] retreives from the database [database_spec]
-    the specification that could apply to a goal [G].
-    It places the specification as hypothesis at the head of the goal. *)
-
-Ltac xspec_remove_combiner tt :=
-  cbn beta delta [ combiner_to_trm ] iota zeta in *.
-
-Ltac xspec_context tt :=
-  xspec_remove_combiner tt;
+Ltac xspec_get_fun tt :=
   match goal with
-  | H: context [ Triple (Trm_apps (trm_val ?f) _) _ _ ]
-    |- Triple (Trm_apps (trm_val ?f) _) _ _ => generalize H
+  | |- ?H ==> @Wptag (Wpgen_App_typed ?A (trm_val ?f) ?Vs) _ _ ?Q => constr:(f)
+  (* | |- ?H ==> ^(Wpgen_App_typed ?A (trm_val ?f) ?Vs) ?Q => constr:(f)  *)
+  | |- Triple (Trm_apps (trm_val ?f) ?Vs) ?H ?Q => constr:(f) end.
+
+Ltac xspec_context f :=
+  match goal with
+  | H: context [ Triple (Trm_apps (trm_val f) _) _ _] |- _ => generalize H
   end.
 
-Ltac xspec_registered tt :=
-  match goal with |- ?G => ltac_database_get database_spec G end.
+Ltac xspec_registered f :=
+  ltac_database_get database_spec f.
 
 Ltac xspec_core tt :=
-  first [ xspec_registered tt
-        | xspec_context tt ].
+  let f := xspec_get_fun tt in
+  first [ xspec_registered f
+        | xspec_context f ].
 
 Tactic Notation "xspec" :=
   xspec_core tt.
+
+Tactic Notation "xspec_show_fun" :=
+  first [ let f := xspec_get_fun tt in idtac "The goal contains a triple for:" f
+        | idtac "xspec expects a goal of the form [Triple t H Q] or [PRE H CODE (App f Vs) POST Q" ].
+
 
 (* DEPRECATED
 Ltac xspec_prove_cont tt :=
@@ -186,12 +192,14 @@ Ltac xspec_prove_cont tt :=
   intro H; eapply H; clear H.
 *)
 
+(* TODO: depreacted? *)
 Ltac xspec_prove_cont tt :=
   let H := fresh "Spec" in
   intro H; nrapply H;
   xenc_side_conditions tt;
   try clear H.
 
+(* TODO: depreacted? *)
 Ltac xspec_prove_triple tt :=
   xspec;
   xspec_prove_cont tt.
@@ -209,6 +217,10 @@ Ltac xspec_lemma_of_args E :=
      lets H: E; revert H
   end.
 
+Tactic Notation "xspec" constr(E) :=
+  xspec_lemma_of_args E.
+
+(* TODO: depreacted? *)
 Ltac xspec_prove_triple_with_args E :=
   xspec_lemma_of_args E;
   xspec_prove_cont tt.
@@ -830,17 +842,17 @@ Qed.
       let H := fresh "Spec" in
       intro H; eapply H; clear H
     | xapp_select_lemma tt;
-      xapp_post tt ].
+      xapp_simpl tt ].
 
   xapp_pre tt.
   applys xapp_find_spec_lemma.
   xspec_prove_triple tt .
-  xapp_select_lemma tt. xsimpl. xapp_post tt.
+  xapp_select_lemma tt. xsimpl. xapp_simpl tt.
 
   xapp_pre tt.
   applys xapp_find_spec_lifted_lemma.
   xspec_prove_triple tt .
-  xapp_select_lifted_lemma tt. xsimpl. xapp_post tt.
+  xapp_select_lifted_lemma tt. xsimpl. xapp_simpl tt.
 
 *)
 
@@ -900,7 +912,7 @@ Ltac xapp_pre_triple tt :=
 Ltac xapp_pre tt :=
   first [ xapp_pre_wp tt | xapp_pre_triple tt ].
 
-(** [xapp_post] presents a nice error message in case of failure *)
+(** [xapp_simpl] presents a nice error message in case of failure *)
 
 Definition xapp_hidden (P:Type) (e:P) := e.
 
@@ -911,12 +923,12 @@ Ltac xapp_report_error tt :=
   match goal with |- context [?Q1 \--* protect ?Q2] =>
     change (Q1 \--* protect Q2) with (@xapp_hidden _ (Q1 \--* protect Q2)) end.
 
-Ltac xapp_post tt :=
+Ltac xapp_simpl tt :=
   xsimpl;
   first [ xapp_report_error tt
         | unfold protect; xcleanup ].
 
-Ltac xapp_post_basic tt := (* version without error message *)
+Ltac xapp_simpl_basic tt := (* version without error message *)
   xsimpl; unfold protect; xcleanup.
 
 (* [xapp] implementation*)
@@ -938,18 +950,24 @@ Ltac xapp_exploit_spec L cont :=
   let S := fresh "Spec" in
   intro S;
   eapply L;
-  [ applys S
+  [ applys S; clear S
   | clear S; cont tt ].
 
+Ltac xapp_exploit_body tt :=
+  let S := fresh "Spec" in
+  intro S;
+  eapply xtriple_inv_lifted_lemma;
+  apply S;
+  clear S.
+
 Ltac xapp_common tt :=
-  match goal with |- S -> _ =>
+  match goal with |- ?S -> _ =>
   match S with
-  | Wpgen_body _ =>
-      xapp_exploit_spec @xtriple_inv_lifted_lemma idcont
+  | Wpgen_body _ => xapp_exploit_body tt
   | _ =>
-    first [ xapp_exploit_spec @xapps_lemma xapp_post
-          | xapp_exploit_spec @xapps_lemma_pure xapp_post
-          | xapp_exploit_spec @xapp_lemma xapp_post ]
+    first [ xapp_exploit_spec xapps_lemma xapp_simpl
+          | xapp_exploit_spec xapps_lemma_pure xapp_simpl
+          | xapp_exploit_spec xapp_lemma xapp_simpl ]
   end end.
 
 Ltac xapp_general tt :=
@@ -967,6 +985,18 @@ Tactic Notation "xapp" "~" :=
   xapp; auto_tilde.
 Tactic Notation "xapp" "*"  :=
   xapp; auto_star.
+
+(** [xapp_spec] to show registered specification *)
+
+Tactic Notation "xapp_spec" :=
+  xspec_core tt;
+  let Spec := fresh "Spec" in
+  intros Spec.
+
+Tactic Notation "xapp_spec" constr(E) :=
+  xspec E;
+  let Spec := fresh "Spec" in
+  intros Spec.
 
 (** [xapp E] to provide arguments, where [E] can be a specification, or can
     be of the form [__ E1 ... En] to specify only arguments of the registered
@@ -991,7 +1021,7 @@ Tactic Notation "xapp" "*" constr(E) :=
 Ltac xapp_nosubst_core tt :=
   xapp_pre tt;
   xspec;
-  xapp_exploit_spec @xapp_lemma xapp_post.
+  xapp_exploit_spec @xapp_lemma xapp_simpl.
 
 Tactic Notation "xapp_nosubst" :=
   xapp_nosubst_core tt.
@@ -1003,7 +1033,7 @@ Tactic Notation "xapp_nosubst" "*"  :=
 Ltac xapp_arg_nosubst_core E :=
   xapp_pre tt;
   xspec_lemma_of_args E;
-  xapp_exploit_spec @xapp_lemma xapp_post.
+  xapp_exploit_spec @xapp_lemma xapp_simpl.
 
 Tactic Notation "xapp_nosubst" constr(E) :=
   xapp_arg_nosubst_core tt.

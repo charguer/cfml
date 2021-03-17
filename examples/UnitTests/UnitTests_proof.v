@@ -1,5 +1,5 @@
 Set Implicit Arguments.
-From CFML Require Import WPLib.
+From CFML Require Import WPPrint WPLib.
 From CFML Require Import Stdlib.
 Require Import UnitTests_ml.
 
@@ -15,69 +15,58 @@ Require TLC.LibListZ. (* TODO NEEDED? *)
 
 
 
-(*
-Ltac xapp_select_lifted_lemma cont ::= (* TODO: factorize better with xapp_select_lemma *)
-  let S := fresh "Spec" in
-  intro S;
-  match type of S with
-  | Wpgen_body _ => applys @xtriple_inv_lifted_lemma; [ applys S | clear S; cont tt ]
-  | Triple _ _ (fun _ => \[_ = _] \* _) => applys @xapps_lifted_lemma; [ applys S | clear S; cont tt ]
-  | Triple _ _ (fun _ => \[_ = _]) => applys @xapps_lifted_lemma_pure; [ applys S | clear S; cont tt ]
-  | _ => applys @xapp_lifted_lemma; [ applys S | clear S; cont tt ]
-  end.
-
-
-Ltac xapp_apply_lifted_lemma cont_prove_triple ::=
-  (* --TODO should remove *) xapp_pre tt;
-  applys xapp_find_spec_lifted_lemma;
-    [ cont_prove_triple tt
-    | xapp_select_lifted_lemma ltac:(fun _ => xapp_post tt) ].
-
-xspec_lemma_of_args E; 
-
-(* todo change xapp iwth args *)
-Ltac xspec_context tt ::=
-  xspec_remove_combiner tt;
-  match goal with
-  | H: context [ Triple (trm_apps (trm_val ?f) _) _ _ ]
-    |- Triple (trm_apps (trm_val ?f) _) _ _ => generalize H
-  | H: context [ Triple (Trm_apps (trm_val ?f) _) _ _ ]
-    |- Triple (Trm_apps (trm_val ?f) _) _ _ => generalize H
-  | H: context [ Triple (Trm_apps (trm_val ?f) _) _ _ ]
-    |- ?H' ==> Wptag (Wpgen_App_typed _ (trm_val ?f) _) _ _ => generalize H
-  end.
-
-*)
-
-
-
 (********************************************************************)
 (** ** Function calls: [xapp] *)
 
-Lemma myincr_spec : forall n,
+Lemma myincr_spec : fora  ll n,
   SPEC (myincr n)
     PRE \[]
     POST \[= n + 1].
-Proof using. xcf. xvals*. Qed.
+Proof using. xcf. skip. (* xvals*. *) Qed.
+
+Hint Extern 1 (RegisterSpec myincr) => Provide myincr_spec.
 
 Lemma app_myincr_spec : forall n,
   SPEC (app_myincr n)
     PRE \[]
     POST \[= n + 1].
-Proof using. xcf. xvals*. Qed.
+Proof using.
+  xcf. dup 6.
+  { xapp. xsimpl*. }
+  { xspec_show_fun. skip. }
+  { xapp_spec. skip. }
+  (* Test for implementation details *)
+  { xspec. intros Spec1. skip. }
+  todo eapply xapps_lemma_pure
+  { xspec. xapp_exploit_spec xapps_lemma_pure idcont. xapp_post tt. skip. }
+  { xspec. xapp_common tt. skip. }
+Qed.
 
 Lemma app_let_myincr_spec : forall n,
   SPEC (app_let_myincr n)
     PRE \[]
     POST \[= n + 1].
-Proof using. xcf. xvals*. Qed.
+Proof using. xcf. xapp. xvals*. Qed.
 
 Lemma app_let_local_myincr : forall n,
   SPEC (app_let_local_myincr n)
     PRE \[]
     POST \[= n + 1].
-Proof using. xcf. xvals*. Qed.
-
+Proof using.
+  xcf.
+  (* TODO: understand why the Body notation does not trigger for the second function. *)
+  xfun.
+  xfun.
+  xfun.
+  dup 6.
+  { xapp. xval. skip. }
+  { xspec_show_fun. skip. }
+  { xapp_spec. skip. }
+  (* Tests for implementation details *)
+  { let f := xspec_get_fun tt in xspec_context f. skip. }
+  { xspec. intros S. eapply xtriple_inv_lifted_lemma. applys S. skip. }
+  { xspec. xapp_exploit_body tt. skip. }
+Qed.
 
 
 
@@ -385,10 +374,10 @@ Lemma let_fun_const_spec :
 Proof using.
   xcf. dup 12.
   (* Variants with names introduced *)
-  { xfun. (* TODO: xapp *) skip. (* TODO: dev xtriple_inv. apply Spec_f. xvals*. *) } 
-  { xfun (fun f => SPEC (f tt) PRE \[] POST \[=3]). 
+  { xfun. (* TODO: xapp *) skip. (* TODO: dev xtriple_inv. apply Spec_f. xvals*. *) }
+  { xfun (fun f => SPEC (f tt) PRE \[] POST \[=3]).
     { xvals*. } { xapp. xsimpl*. } }
-  { sets Sg: (fun g => SPEC (g tt) PRE \[] POST \[=3]). 
+  { sets Sg: (fun g => SPEC (g tt) PRE \[] POST \[=3]).
     xfun Sg. { xvals*. } { xapp Spec_f. xsimpl*. } }
   { xfun_rec (fun g => SPEC (g tt) PRE \[] POST \[=3]).
     { apply Body_f. xvals*. } { xapp. xsimpl*. } }
@@ -398,9 +387,9 @@ Proof using.
     { (* spec assumed! *) xvals*. } { xapp. xsimpl*. } }
   (* Variants with names in the goal *)
   { xfun as. intros f Hf. skip. }
-  { xfun (fun f => SPEC (f tt) PRE \[] POST \[=3]) as. 
+  { xfun (fun f => SPEC (f tt) PRE \[] POST \[=3]) as.
     { xvals*. } { intros f Sf. xapp. xsimpl*. } }
-  { sets Sg: (fun g => SPEC (g tt) PRE \[] POST \[=3]). 
+  { sets Sg: (fun g => SPEC (g tt) PRE \[] POST \[=3]).
     xfun Sg as. { xvals*. } { intros f Sf. xapp Sf. xsimpl*. } }
   { xfun_rec (fun g => SPEC (g tt) PRE \[] POST \[=3]) as.
     { intros f Bf. apply Bf. xvals*. } { intros f Sf. xapp. xsimpl*. } }
