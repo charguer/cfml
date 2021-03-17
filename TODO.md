@@ -1,10 +1,9 @@
 # TO DO
 
+* Check that the examples can be compiled (when the packages are installed).
+
 * Update the main `Makefile`. Note that `lib/stdlib` will not compile
   unless the first two packages have been installed.
-
-* Create a `.gitattributes` file so as to limit the content of the
-  distributed archive.
 
 * Include the auxiliary Makefiles in one of the opam packages.
 
