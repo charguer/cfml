@@ -21,8 +21,11 @@ depends: [
 
 tags: [
   "date:DATEDASH"
-  "keyword:library"
   "logpath:CFML"
+  "category:Computer Science/Programming Languages/Formal Definitions and Theory"
+  "keyword:program verification"
+  "keyword:separation logic"
+  "keyword:weakest precondition"
 ]
 authors: [
   "Arthur Charguéraud"
