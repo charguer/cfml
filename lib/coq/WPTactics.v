@@ -482,12 +482,17 @@ Tactic Notation "xgc_post" :=
 (* ---------------------------------------------------------------------- *)
 (** ** Tactic [xseq] *)
 
-(** The tactic [xseq] applies to a goal of the form [PRE H CODE (Seq F1 ; F2) POST Q]. *)
+(** The tactic [xseq] applies to a goal of the form [PRE H CODE (Seq F1 ; F2) POST Q].
+    It produces [PRE H CODE F1 POST ?Q1] and [PRE (?Q1 tt) CODE F2 POST Q].
+
+    The tactic [xseq H1] can be used to specify [Q1] as [fun (_:unit) => H1)]. *)
 
 Ltac xseq_pre tt :=
   match xgoal_code_without_wptag tt with
   | (Wpgen_seq _ _) => idtac
   end.
+
+(* [xseq] *)
 
 Definition xseq_lemma := @MkStruct_erase.
 
@@ -498,8 +503,7 @@ Ltac xseq_core tt :=
 Tactic Notation "xseq" :=
   xseq_core tt.
 
-
-(* [xseq Q] *)
+(* [xseq H1] *)
 
 Lemma xseq_lemma_typed_post : forall (H1:hprop) H A (EA:Enc A) (Q:A->hprop) ,
   forall (F1:Formula) (F2:Formula),
@@ -512,11 +516,11 @@ Proof using.
   applys* Structural_conseq. xchanges M2.
 Qed.
 
-Ltac xseq_arg_core H :=
-  eapply (@xseq_lemma_typed_post H); [ xstructural | | ].
+Ltac xseq_arg_core H1 :=
+  eapply (@xseq_lemma_typed_post H1); [ xstructural | | ].
 
-Tactic Notation "xseq" constr(H) :=
-  xseq_arg_core H.
+Tactic Notation "xseq" constr(H1) :=
+  xseq_arg_core H1.
 
 
 (*--------------------------------------------------------*)
