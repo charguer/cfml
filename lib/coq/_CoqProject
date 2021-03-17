@@ -1,6 +1,6 @@
 -Q . CFML
 
--arg -w -arg -notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths,-irrelevant-format-only-parsing,-deprecated-hint-without-locality
+-arg -w -arg -notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths,-irrelevant-format-only-parsing,-deprecated-hint-without-locality,-deprecated-ident-entry,-custom-entry-overridden
 
 LibSepBind.v
 LibSepFmap.v
