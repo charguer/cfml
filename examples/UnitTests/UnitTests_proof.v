@@ -499,8 +499,8 @@ Ltac xlet_core tt ::=
   xlet_pre tt;
   xlet_typed tt.
 
-
-Lemma Structural_conseq : forall A (EA:Enc A) (Q':A->hprop) (F:Formula) H Q,
+(* TODO: fix order of args in structural_conseq *)
+Lemma Structural_conseq : forall A (EA:Enc A) (Q Q':A->hprop) (F:Formula) H,
   Structural F ->
   H ==> ^F Q ->
   Q ===> Q' ->
@@ -531,34 +531,55 @@ Tactic Notation "xlet" constr(Q) :=
 (* TODO: Trm_vals should take a val as argument, to avoid coercions.. *)
 
 
+
+Lemma xassert_lemma : forall H (Q:unit->hprop) (F1:Formula),
+  H ==> ^F1 (fun r => \[r = true] \* H) ->
+  H ==> Q tt ->
+  H ==> ^(Wpgen_assert F1) Q.
+Proof using.
+  introv M1 M2. applys Structural_conseq (fun (_:unit) => H).
+  { xstructural. }
+  { applys MkStruct_erase. applys xreturn_lemma_typed. xsimpl*. }
+  { xchanges M2. intros []. auto. }
+Qed.
+
+Ltac xassert_pre tt :=
+  xlet_xseq_xcast_repeat tt;
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_assert _) => idtac
+  end.
+
+Ltac xassert_core tt :=
+  xassert_pre tt; 
+  applys xassert_lemma.
+
+Tactic Notation "xassert" :=
+  xassert_core tt.
+
+
+Print Wpgen_assert.
+
+Ltac xgoal_code tt ::= (* TODO: should not depend on notation *)
+  match goal with |- PRE _ CODE ?C POST _ => constr:(C) end.
+  (* INCORRECT match goal with |- (?H ==> (Wptag ?F) _ _ ?Q) _ => constr:(F) end. *)
+
 (* TODO: includes a let-term demo *)
 Lemma let_fun_in_let_spec :
   SPEC (let_fun_in_let tt)
     PRE \[]
-    POST (fun g => \[ forall A (x:A), SPEC (g x) PRE \[] POST \[= x] ]).
+    POST (fun (g:val) => \[ forall A (x:A), SPEC (g x) PRE \[] POST \[= x] ]).
+    (* TODO: should be able to remove type annocation on g *)
 Proof using.
-  xcf. dup 3.
-  { xlet (fun (g:val) => \[ forall A `{EA:Enc A} (x:A), True ]).
-    xseq. xassert.
-  }
+  xcf. dup 2.
+  { xlet (fun (g:val) => \[ forall A `{EA:Enc A} (x:A), SPEC (g x) PRE \[] POST \[= x] ]).
+    { xassert. { xvals*. } 
+      xfun. xval. xsimpl. intros. xapp. xvals*. }
+    xpull. intros f Hf. xvals*. }
   (* Implementation details *)
   { xlet_pre tt.
     set (Q:=(fun (g:val) => \[ forall A `{EA:Enc A} (x:A), True ])).
     applys (@xlet_lemma_typed_post _ _ Q). xstructural. skip. skip. }
-
-    xlet Q.
-
-
-xlet (fun (g:val) => \[ forall A `{EA:Enc A} (x:A), True ]).
-(* SPEC (g x) PRE \[] POST \[= x]*)
-    (* TODO: use [xpush] *)
-  { xassert. { xval. }
-    xfun. xvals. =>>. xapp. xvals~. }
-  { =>> M. xvals~. }
 Qed.
-
-
-
 
 
 (********************************************************************)
