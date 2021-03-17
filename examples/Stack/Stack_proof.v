@@ -39,16 +39,6 @@ Qed.
 
 Hint Extern 1 (RegisterSpec create) => Provide create_spec.
 
-
-Parameter infix_eq_spec : forall A `{EA:Enc A} (a b : A),
-  (polymorphic_eq_arg a \/ polymorphic_eq_arg b) ->
-  SPEC (infix_eq__ a b)
-    PRE \[]
-    POST \[= isTrue (a = b) ].
-
-Hint Extern 1 (RegisterSpec infix_eq__) => Provide infix_eq_spec.
-
-
 Lemma is_empty_spec : forall A `{Enc A} (p:loc) (L:list A),
   SPEC (is_empty p)
     PRE (p ~> Stack L)
