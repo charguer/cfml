@@ -359,6 +359,26 @@ Ltac xtypes_hyp S :=
 
  (* TODO: extend to support partial application *)
 
+Ltac solve_enc_type :=
+  match goal with |- Enc _ => exact Enc_unit end.
+
+(* DEPRECATED Ltac solve_type :=
+  match goal with |- Type => exact unit end. *)
+
+(* NEEDED?
+Ltac remove_head_unit tt :=
+  repeat match goal with
+  | |- unit -> _ => intros _
+  end. *)
+
+Ltac xcf_post tt :=
+  instantiate;
+  try solve_enc_type.
+  (* DEPRECATED
+  cbv beta;
+  remove_head_unit tt.
+  *)
+
 Ltac xcf_pre tt :=
   intros.
 
@@ -385,8 +405,8 @@ Ltac xcf_top_fun tt :=
   let Sf := fresh "Spec" in
   intros Sf;
   eapply Sf;
-  clear Sf.
-  (* xcf_post *) (* try solve_type;  instantiate; *)
+  clear Sf;
+  xcf_post tt.
   (* TODO: first [ xc f_top_value f | xcf_fallback f | fail 2 ] *)
 
 Ltac xcf_top_value tt :=
@@ -395,8 +415,8 @@ Ltac xcf_top_value tt :=
   let Sf := fresh "Spec" in
   intros Sf;
   rewrite Sf;
-  clear Sf.
-  (* xcf_post *)
+  clear Sf;
+  xcf_post tt.
 
 Ltac xcf_core tt :=
   xcf_pre tt;
@@ -411,16 +431,6 @@ Tactic Notation "xcf" "~" :=
   xcf; auto_tilde.
 Tactic Notation "xcf" "*" :=
   xcf; auto_star.
-
-(* DEPRECATED
-Ltac xcf_post tt :=
-  cbv beta;
-  remove_head_unit tt.
-  (* DEPRECATED
-  cbv beta;
-  remove_head_unit tt. TODO: should be hnf?
-  *)
-*)
 
 Ltac xcf_types_core tt :=
   let S := fresh "Spec" in
@@ -2607,17 +2617,5 @@ Tactic Notation "xauto" := xauto~.
 
 *)
 
-
-
-(************************************************************)
-(** [DEPRECATED?] *)
-
-Ltac solve_type := (* TODO: still needed? *)
-  match goal with |- Type => exact unit end.
-
-Ltac remove_head_unit tt :=
-  repeat match goal with
-  | |- unit -> _ => intros _
-  end.
 
 
