@@ -13,6 +13,8 @@ Require TLC.LibListZ. (* TODO NEEDED? *)
 (********************************************************************)
 
 
+
+
 (********************************************************************)
 (** ** Function calls: [xapp] *)
 
@@ -343,10 +345,6 @@ Abort.
 (********************************************************************)
 (** ** Let-value *)
 
-Ltac xletval_core tt ::=
-  xletval_common ltac:(fun a Pa => idtac).
-
-
 Lemma let_val_int_spec :
   SPEC (let_val_int tt)
     PRE \[]
@@ -419,19 +417,6 @@ Proof using.
     { intros f IH. (* spec assumed! *) xvals*. } { intros f Sf. xapp. xsimpl*. } }
 Qed.
 
-(* TODO: move *)
-Ltac xapp_common tt ::=
-  match goal with |- ?S -> _ =>
-  match S with
-  | Wpgen_body _ => 
-    first [ xapp_exploit_body tt
-          | fail 2 "xapp_exploit_body failed" ]
-  | _ =>
-    first [ xapp_exploit_spec xapps_lemma xapp_simpl
-          | xapp_exploit_spec xapps_lemma_pure xapp_simpl
-          | xapp_exploit_spec xapp_lemma xapp_simpl ]
-  end end.
-
 Lemma let_fun_poly_id_spec :
   SPEC (let_fun_poly_id tt)
     PRE \[]
@@ -452,29 +437,6 @@ Proof using.
   xsimpl~.
 Qed.
 
-(* TODO: move *)
-Notation "'App' f x1 x2 .. xn" :=
- ((*Wptag*) (Wpgen_App_typed _ f (cons (Dyn x1) (cons (Dyn x2) .. (cons (Dyn xn) nil) ..))))
-  (in custom wp at level 68,
-   f constr at level 0,
-   x1 constr at level 0,
-   x2 constr at level 0,
-   xn constr at level 0) (* TODO: format *)
-  : wp_scope.
-
-
-Ltac xtypes_goal tt ::=
-  idtac "=== type of application in goal ===";
-  match xgoal_code_without_wptag tt with ?E => xtypes_triple E end.
-
-Ltac xapp_exploit_body tt ::=
-  let S := fresh "Spec" in
-  intro S;
-  eapply xtriple_inv_lifted_lemma;
-  eapply S;
-  clear S.
-
-
 Lemma let_fun_on_the_fly_spec :
   SPEC (let_fun_on_the_fly tt)
     PRE \[]
@@ -488,80 +450,6 @@ Proof using.
   { xtriple_inv. eapply Spec_f0__. skip. }
   { gen Spec_f0__. xapp_exploit_body tt. skip. }
 Abort.
-
-
-Ltac xlet_pre tt :=
-  match xgoal_code_without_wptag tt with
-  | (Wpgen_let_typed _ _) => idtac
-  end.
-
-Ltac xlet_core tt ::=
-  xlet_pre tt;
-  xlet_typed tt.
-
-(* TODO: fix order of args in structural_conseq *)
-Lemma Structural_conseq : forall A (EA:Enc A) (Q Q':A->hprop) (F:Formula) H,
-  Structural F ->
-  H ==> ^F Q ->
-  Q ===> Q' ->
-  H ==> ^F Q'.
-Proof using. introv L M W. applys* structural_conseq. Qed.
-
-
-Lemma xlet_lemma_typed_post : forall A1 (EA1:Enc A1) (Q1:A1->hprop) H A (EA:Enc A) (Q:A->hprop) ,
-  forall (F1:Formula) (F2of:A1->Formula),
-  Structural F1 ->
-  H ==> F1 A1 EA1 Q1 ->
-  (forall (X:A1), Q1 X ==> (F2of X) A EA Q) ->
-  H ==> ^(@Wpgen_let_typed F1 A1 EA1 (@F2of)) Q. (* TODO: EA1 is not guessed right *)
-Proof using.
-  introv HF1 M1 M2. applys MkStruct_erase. xchange M1.
-  applys* Structural_conseq.
-Qed.
-
-Ltac xlet_post_core Q :=
-  xlet_pre tt;
-  applys (@xlet_lemma_typed_post _ _ Q); [ try xstructural | | ].
-
-Tactic Notation "xlet" constr(Q) :=
-  xlet_post_core Q.
-
-(* TODO: auto introduce the name of xlet *)
-
-(* TODO: Trm_vals should take a val as argument, to avoid coercions.. *)
-
-
-
-Lemma xassert_lemma : forall H (Q:unit->hprop) (F1:Formula),
-  H ==> ^F1 (fun r => \[r = true] \* H) ->
-  H ==> Q tt ->
-  H ==> ^(Wpgen_assert F1) Q.
-Proof using.
-  introv M1 M2. applys Structural_conseq (fun (_:unit) => H).
-  { xstructural. }
-  { applys MkStruct_erase. applys xreturn_lemma_typed. xsimpl*. }
-  { xchanges M2. intros []. auto. }
-Qed.
-
-Ltac xassert_pre tt :=
-  xlet_xseq_xcast_repeat tt;
-  match xgoal_code_without_wptag tt with
-  | (Wpgen_assert _) => idtac
-  end.
-
-Ltac xassert_core tt :=
-  xassert_pre tt; 
-  applys xassert_lemma.
-
-Tactic Notation "xassert" :=
-  xassert_core tt.
-
-
-Print Wpgen_assert.
-
-Ltac xgoal_code tt ::= (* TODO: should not depend on notation *)
-  match goal with |- PRE _ CODE ?C POST _ => constr:(C) end.
-  (* INCORRECT match goal with |- (?H ==> (Wptag ?F) _ _ ?Q) _ => constr:(F) end. *)
 
 (* TODO: includes a let-term demo *)
 Lemma let_fun_in_let_spec :
@@ -591,10 +479,10 @@ Lemma let_term_nested_id_calls_spec :
     POST \[= 2].
 Proof using.
   xcf.
-  xfun (fun f => forall (x:int), SPEC (f x) \[] \[= x]). { xvals~. }
-  xapps.
-  xapps.
-  xapps.
+  xfun (fun f => forall (x:int), SPEC (f x) PRE \[] POST \[= x]). { xvals~. }
+  xapp.
+  xapp.
+  xapp.
   xvals~.
 Qed.
 
@@ -604,13 +492,16 @@ Lemma let_term_nested_pairs_calls_spec :
     POST \[= ((1,2),(3,(4,5))) ].
 Proof using.
   xcf.
-  xfun (fun f => forall A B (x:A) (y:B), SPEC (f x y) \[] \[= (x,y)]). { xvals~. }
-  xapps.
-  xapps.
-  xapps.
-  xapps.
+  xfun (fun f => forall A {EA:Enc A} B {EB:Enc B} (x:A) (y:B),
+          SPEC (f x y) PRE \[] POST \[= (x,y)]).
+  { xvals~. }
+  xapp. (* TODO: improve error on missing EA *)
+  xapp.
+  xapp.
+  xapp.
   xvals~.
 Qed.
+
 
 (********************************************************************)
 (** ** Pattern-matching *)

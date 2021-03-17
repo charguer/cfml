@@ -101,6 +101,15 @@ Proof using.
   unfold MkStruct. rewrite* <- eq_mkstruct_of_structural.
 Qed.
 
+(* TODO: add other structural lemmas? *)
+(* TODO: fix order of args in structural_conseq *)
+Lemma Structural_conseq : forall A (EA:Enc A) (Q Q':A->hprop) (F:Formula) H,
+  Structural F ->
+  H ==> ^F Q ->
+  Q ===> Q' ->
+  H ==> ^F Q'.
+Proof using. introv L M W. applys* structural_conseq. Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tag for improved pretty-printing of CF *)
@@ -1000,6 +1009,16 @@ Notation "'App' f x1 .. xn" :=
   (in custom wp at level 68,
    f constr at level 0,
    x1 constr at level 0,
+   xn constr at level 0) (* TODO: format *)
+  : wp_scope.
+
+(* TODO: why need both? *)
+Notation "'App' f x1 x2 .. xn" :=
+ ((*Wptag*) (Wpgen_App_typed _ f (cons (Dyn x1) (cons (Dyn x2) .. (cons (Dyn xn) nil) ..))))
+  (in custom wp at level 68,
+   f constr at level 0,
+   x1 constr at level 0,
+   x2 constr at level 0,
    xn constr at level 0) (* TODO: format *)
   : wp_scope.
 

@@ -9,7 +9,7 @@ License: CC-by 4.0.
 
 *)
 
-
+(* TODO: Trm_vals should take a val as argument, to avoid coercions.. *)
 
 Set Implicit Arguments.
 From CFML Require Export WPLifted WPHeader.
@@ -324,8 +324,7 @@ Ltac xtypes_triple E :=
 
 Ltac xtypes_goal tt :=
   idtac "=== type of application in goal ===";
-  let G := match goal with |- ?G => constr:(G) end in (* TODO: ltac op *)
-  xtypes_triple G.
+  match xgoal_code_without_wptag tt with ?E => xtypes_triple E end.
 
 Ltac xtypes_hyp S :=
   idtac "=== type of application in hypothesis ===";
@@ -688,7 +687,7 @@ Ltac xletval_common cont :=
   end.
 
 Ltac xletval_core tt :=
-  xletval_common idcont.
+  xletval_common ltac:(fun a Pa => idtac).
 
 Tactic Notation "xletval" :=
   xletval_core tt.
@@ -710,6 +709,10 @@ Tactic Notation "xletvals" :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xlet] *)
 
+(* [xlet] *)
+
+(* TODO: auto introduce the name of xlet *)
+
 Lemma xlet_lemma : forall A1 (EA1:Enc A1) H `{EA:Enc A} (Q:A->hprop) (F1:Formula) (F2of:forall A2 (EA2:Enc A2),A2->Formula),
   H ==> ^F1 (fun (X:A1) => ^(F2of _ _ X) Q) ->
   H ==> ^(Wpgen_let F1 (@F2of)) Q.
@@ -724,11 +727,33 @@ Ltac xlet_pre tt :=
 
 Ltac xlet_core tt :=
   xlet_pre tt;
-  xlet_typed tt.
+  eapply xlet_typed_lemma.
 
 Tactic Notation "xlet" :=
   first [ xlet_core tt
         | xletval ]. (* TODO: document *)
+
+(* [xlet Q] *)
+
+Lemma xlet_lemma_typed_post : forall A1 (EA1:Enc A1) (Q1:A1->hprop) H A (EA:Enc A) (Q:A->hprop) ,
+  forall (F1:Formula) (F2of:A1->Formula),
+  Structural F1 ->
+  H ==> F1 A1 EA1 Q1 ->
+  (forall (X:A1), Q1 X ==> (F2of X) A EA Q) ->
+  H ==> ^(@Wpgen_let_typed F1 A1 EA1 (@F2of)) Q. (* TODO: EA1 is not guessed right *)
+Proof using.
+  introv HF1 M1 M2. applys MkStruct_erase. xchange M1.
+  applys* Structural_conseq.
+Qed.
+
+Ltac xlet_post_core Q :=
+  xlet_pre tt;
+  applys (@xlet_lemma_typed_post _ _ Q); [ try xstructural | | ].
+
+Tactic Notation "xlet" constr(Q) :=
+  xlet_post_core Q.
+
+(* [xlets] *)
 
 Tactic Notation "xlets" := (* TODO: document *)
   xletvals.
@@ -959,14 +984,15 @@ Ltac xapp_exploit_body tt :=
   let S := fresh "Spec" in
   intro S;
   eapply xtriple_inv_lifted_lemma;
-  apply S;
+  eapply S;
   clear S.
 
 Ltac xapp_common tt :=
-  (* TODO: create a function isspec wpgen_body *)
   match goal with |- ?S -> _ =>
   match S with
-  | Wpgen_body _ => xapp_exploit_body tt
+  | Wpgen_body _ =>
+    first [ xapp_exploit_body tt
+          | fail 2 "xapp_exploit_body failed" ]
   | _ =>
     first [ xapp_exploit_spec xapps_lemma xapp_simpl
           | xapp_exploit_spec xapps_lemma_pure xapp_simpl
@@ -2402,24 +2428,36 @@ Tactic Notation "xmatch_no_simpl_subst_alias" :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xassert] *)
 
-(*
-
-Lemma xassert_lemma : forall A1 `{Enc A1} (F1:(A1->hprop)->hprop) (Q:A1->hprop) H,
+Lemma xassert_lemma : forall H (Q:unit->hprop) (F1:Formula),
+  H ==> ^F1 (fun r => \[r = true] \* H) ->
   H ==> Q tt ->
-  Q tt ==> F1 (fun r => \[r = true] \* Q tt) ->
   H ==> ^(Wpgen_assert F1) Q.
 Proof using.
+  introv M1 M2. applys Structural_conseq (fun (_:unit) => H).
+  { xstructural. }
+  { applys MkStruct_erase. applys xreturn_lemma_typed. xsimpl*. }
+  { xchanges M2. intros []. auto. }
 Qed.
 
-Lemma xassert_lemma_inst : forall A1 `{Enc A1} (F1:(A1->hprop)->hprop) (Q:A1->hprop) H,
-  H ==> F1 (fun r => \[r = true] \* H) ->
+Lemma xassert_lemma_inst : forall H (F1:Formula),
+  H ==> ^F1 (fun r => \[r = true] \* H) ->
   H ==> ^(Wpgen_assert F1) (fun (_:unit) => H).
-Proof using.
-  introv M. xchange xassert_lemma.
-Qed.
+Proof using. introv M. applys* xassert_lemma. Qed.
 
-*)
+Ltac xassert_pre tt :=
+  xlet_xseq_xcast_repeat tt;
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_assert _) => idtac
+  end.
 
+Ltac xassert_core tt :=
+  xassert_pre tt;
+  first [ eapply xassert_lemma_inst
+        | eapply xassert_lemma ].
+  (* TODO: alternative: test whether ?Q is an evar *)
+
+Tactic Notation "xassert" :=
+  xassert_core tt.
 
 
 
