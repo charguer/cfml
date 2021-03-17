@@ -102,7 +102,7 @@ Lemma let_poly_p1_spec :
   SPEC (let_poly_p1 tt) \[] \[= tt].
 Proof using.
   xcf. xfun. xlet_poly_keep (fun B (r:option B) => r = None).
-  { xapps. xvals. }
+  { xapp. xvals. }
   { intros Hr. xvals~. }
 Qed.
 
@@ -111,7 +111,7 @@ Lemma let_poly_p2_spec :
 Proof using.
   xcf. xfun. xlet.
   { xlet_poly_keep (fun B (r:option B) => r = None).
-    { xapps. xvals. }
+    { xapp. xvals. }
     { intros Hr. xvals~. } }
   { xvals~. }
 Qed.
@@ -130,49 +130,49 @@ Qed.
 Lemma let_poly_f0_spec : forall A,
   SPEC (let_poly_f0 tt) \[] \[= @nil A].
 Proof using.
-  xcf. xapps. xapps. xsimpl~.
+  xcf. xapp. xapp. xsimpl~.
 Qed.
 
 Lemma let_poly_f1_spec : forall A,
   SPEC (let_poly_f1 tt) \[] \[= @nil A].
 Proof using.
-  xcf. xapps. xapps. xsimpl~.
+  xcf. xapp. xapp. xsimpl~.
 Qed.
 
 Lemma let_poly_f2_spec : forall A,
   SPEC (let_poly_f2 tt) \[] \[= @nil A].
 Proof using.
-  xcf. xapps. xapps. xsimpl~.
+  xcf. xapp. xapp. xsimpl~.
 Qed.
 
 Lemma let_poly_f3_spec :
   SPEC (let_poly_f3 tt) \[] \[= @nil int].
 Proof using.
-  xcf. xapps. xapps. xsimpl~.
+  xcf. xapp. xapp. xsimpl~.
 Qed.
 
 Lemma let_poly_f4_spec :
   SPEC (let_poly_f4 tt) \[] \[= @nil int].
 Proof using.
-  xcf. xapps. xapps. xsimpl~.
+  xcf. xapp. xapp. xsimpl~.
 Qed.
 
 Lemma let_poly_g1_spec :
   SPEC (let_poly_g1 tt) \[] \[= 5::nil].
 Proof using.
-  xcf. xapps. xapps. xapps. xsimpl~.
+  xcf. xapp. xapp. xapp. xsimpl~.
 Qed.
 
 Lemma let_poly_g2_spec :
   SPEC (let_poly_g2 tt) \[] \[= 4::nil].
 Proof using.
-  xcf. xapps. xapps. xapps. xsimpl~.
+  xcf. xapp. xapp. xapp. xsimpl~.
 Qed.
 
 Lemma let_poly_h0_spec : forall A,
   SPEC (let_poly_h0 tt) \[] (fun (r:loc) => r ~~> (@nil A)).
 Proof using.
-  xcf. xapps. xval~.
+  xcf. xapp. xval~.
 Qed.
 
 Lemma let_poly_h1_spec : forall A,
@@ -180,21 +180,21 @@ Lemma let_poly_h1_spec : forall A,
     \[ SPEC (f tt) \[] (fun (r:loc) => r ~~> (@nil A)) ]).
 Proof using.
   xcf. xlet (fun g => \[ SPEC (g tt) \[] (fun (r:loc) => r ~~> (@nil A)) ]).
-  { xfun. xvals. xapps. xapps. }
-  intros Hg. xvals. xapps.
+  { xfun. xvals. xapp. xapp. }
+  intros Hg. xvals. xapp.
 Qed.
 
 Lemma let_poly_h2_spec : forall A,
   SPEC (let_poly_h2 tt) \[] (fun (f:func) =>
     \[ SPEC (f tt) \[] (fun (r:loc) => r ~~> (@nil A)) ]).
 Proof using.
-  xcf. xfun. xvals. xapps. xapps.
+  xcf. xfun. xvals. xapp. xapp.
 Qed.
 
 Lemma let_poly_h3_spec : forall A,
   SPEC (let_poly_h3 tt) \[] (fun (r:loc) => r ~~> (@nil A)).
 Proof using.
-  xcf. xfun. xapps. xapps.
+  xcf. xfun. xapp. xapp.
 Qed.
 
 Lemma let_poly_k1_spec : forall A,
@@ -206,20 +206,20 @@ Qed.
 Lemma let_poly_k2_spec : forall A,
   SPEC (let_poly_k2 tt) \[] (fun (r:loc) => r ~~> (@nil A)).
 Proof using.
-  xcf. xapps.
+  xcf. xapp.
 Qed.
 
 Lemma let_poly_r1_spec :
   SPEC (let_poly_r1 tt) \[] \[= tt].
 Proof using.
-  xcf. xapps. xvals~.
+  xcf. xapp. xvals~.
   Unshelve. solve_type.
 Qed.
 
 Lemma let_poly_r2_spec : forall A,
   SPEC (let_poly_r2 tt) \[] \[= @nil A].
 Proof using.
-  xcf. xapps. dup 2.
+  xcf. xapp. dup 2.
   { xval. xvals~. }
   { xvals. xvals~. }
   Unshelve. solve_type.
@@ -230,7 +230,7 @@ Lemma let_poly_r3_spec : forall A,
   SPEC (let_poly_r3 tt) \[] \[= @nil A].
 Proof using.
   xcf. xlet_poly_keep (fun A (r:list A) => r = nil).
-  { xapps. xvals~. }
+  { xapp. xvals~. }
   intros Hr. xvals. auto.
 Qed.
 *)
@@ -336,8 +336,8 @@ Proof using.
   dup 4.
   { xseq. xapp. xapp. xsimpl. auto. }
   { xapp. intro_subst. xapp. }
-  { xapps. xapps. }
-  { xapps. xapps~. }
+  { xapp. xapp. }
+  { xapp. xapp~. }
 Abort.
 *)
 
@@ -634,18 +634,18 @@ Proof using.
   xlet \[=true].
   (* TODO
   { dup 10.
-    { xors. xapps. xsimpl~. subst. xclean. xauto*. }
-    { xors \[=true]. xapps. xsimpl~. skip. }
-    { xor \[=true]. hsimpl. xapps. xsimpl. skip. }
+    { xors. xapp. xsimpl~. subst. xclean. xauto*. }
+    { xors \[=true]. xapp. xsimpl~. skip. }
+    { xor \[=true]. hsimpl. xapp. xsimpl. skip. }
     { xif_no_simpl. skip. skip. }
     { xpost. xif_no_simpl \[= true]. skip. skip. skip. }
     { xpost. xif_no_simpl \[=true] as R.
       { xclean. false. }
-      { xapps. xsimpl. subst. xclean. xauto*. }
+      { xapp. xsimpl. subst. xclean. xauto*. }
      xsimpl~. }
     { xpost. xif_no_intros \[=true]. intros R. skip. skip. skip. }
     { xpost. xif_no_simpl_no_intros \[=true]. intros R. skip. skip. skip. }
-    { xif. xvals. xapps. xsimpl. skip. }
+    { xif. xvals. xapp. xsimpl. skip. }
     { xgo*. subst. xclean. auto. }
       (* todo: maybe extend [xauto_common] with [logics]? or would it be too slow? *)
   }
@@ -665,7 +665,7 @@ Proof using.
   { xvals*. iff*. }
   xlet \[= true].
   (* TODO
-  { xif. xapps. xors. xapps. xvals. autos*. }
+  { xif. xapp. xors. xapp. xvals. autos*. }
   { intro_subst. xif. xvals~. }
   *)
   skip.  skip.
@@ -682,11 +682,11 @@ Lemma compare_poly_spec :
 Proof using.
   xcf.
   xlet_poly_keep (= true).
-  { xapps. xpolymorphic_eq. xsimpl. subst r. rew_bool_eq~. }
+  { xapp. xpolymorphic_eq. xsimpl. subst r. rew_bool_eq~. }
   intro_subst.
   xapp. xpolymorphic_eq. intro_subst.
   xlet_poly_keep (= true).
-  { xapps. xpolymorphic_eq. xsimpl. subst r. rew_bool_eq~. }
+  { xapp. xpolymorphic_eq. xsimpl. subst r. rew_bool_eq~. }
   intro_subst.
   xapp. xpolymorphic_eq. intro_subst.
   xvals~.
@@ -710,14 +710,14 @@ Lemma compare_physical_loc_func_spec :
     PRE \[]
     POST \[= tt].
 Proof using.
-  xcf. xapps. xapps.
+  xcf. xapp. xapp.
   xapp. intro_subst.
   xapp. intro_subst.
   xfun.
   xapp_spec infix_eq_eq_gen_spec. intros.
   xlet (\[=1]).
     xif.
-      xapps. xvals~.
+      xapp. xvals~.
       xvals~.
     intro_subst. xvals~.
 Qed.
@@ -741,12 +741,12 @@ Proof using.
      app f [k v l] \[] \[= list_update k v l ]).
   { xmatch.
     { xvals~. }
-    { xapps~. xvals. xif.
+    { xapp~. xvals. xif.
       { xvals. cases_if. auto. }
       { xapp_spec infix_emark_eq_gen_spec. intros M. xif.
         { xvals. case_if~. }
         { xvals. case_if~. rewrite~ M. } } } }
-   { xapps. xsimpl. subst r. simpl. do 3 case_if. auto. }
+   { xapp. xsimpl. subst r. simpl. do 3 case_if. auto. }
 Qed.
 
 
@@ -894,16 +894,12 @@ Qed.
 (********************************************************************)
 (** ** Fatal Exceptions *)
 
-Ltac solve_enc_type :=
-  match goal with |- Enc _ => exact Enc_unit end.
-
-
 Lemma exn_assert_false_spec : False ->
   SPEC (exn_assert_false tt)
     PRE \[]
     POST \[= tt].
 Proof using.
-  xcf; try solve_enc_type.  xfail. auto.
+  xcf. xfail.
 Qed.
 
 Lemma exn_failwith_spec : False ->
@@ -911,19 +907,47 @@ Lemma exn_failwith_spec : False ->
     PRE \[]
     POST \[= tt].
 Proof using.
-  xcf. xfail. auto.
+  xcf. xfail.
 Qed.
 
 Lemma exn_raise_spec : False ->
   SPEC (exn_raise tt)
-    PRE \[] \[= tt].
+    PRE \[]
+    POST \[= tt].
 Proof using.
-  xcf. xfail. auto.
+  xcf. xfail.
 Qed.
 
 
 (********************************************************************)
 (** ** Assertions *)
+
+Ltac xstep_once tt ::= (* TODO *)
+  match goal with
+  | |- ?G => match xgoal_code_without_wptag tt with
+    | (Wpgen_seq _ _) => xseq
+    | (Wpgen_let_typed _ _) => xlet
+    | (Wpgen_let _ _) => xlet
+    | (Wpgen_let_Val _ _) => xletval
+    | (Wpgen_app _) => xapp
+    | (Wpgen_App_typed _ _ _) => xapp
+    | (Wpgen_if_bool _ _ _) => xif
+    | (Wpgen_val _) => xval
+    | (Wpgen_Val _) => xval
+    | (Wpgen_Val_no_mkstruct _) => xcast
+    | (Wpgen_fail) => xfail
+    | (Wpgen_done) => xdone
+    | (Wpgen_case _ _ _) => xcase
+    | (Wpgen_match _) => xmatch
+    | (Wpgen_assert _) => xassert
+    | ?F => check_is_Wpgen_record_alloc F; xapp
+    (* | (Wpgen_case _ _ _) => xcase *)
+    end
+  | |- Triple _ _ _ => xapp
+  | |- _ ==> _ => xsimpl
+  | |- _ ===> _ => xsimpl
+  end.
+
 
 Lemma assert_true_spec :
   SPEC (assert_true tt)
@@ -948,7 +972,8 @@ Qed.
 
 Lemma assert_same_spec : forall (x:int),
   SPEC (assert_same x x)
-    PRE \[] \[= 3].
+    PRE \[] 
+    POST \[= 3].
 Proof using.
   dup 2.
   { xcf. xassert. { xvals~. } xvals~. }
@@ -961,7 +986,7 @@ Lemma assert_let_spec :
     POST \[= 3].
 Proof using.
   dup 2.
-  { xcf. xassert. { xvals. xvals~. } xvals~. }
+  { xcf. xassert. { xletvals. xvals~. } xvals~. }
   { xcf_go~. }
 Qed.
 
@@ -970,8 +995,8 @@ Lemma assert_seq_spec :
     PRE \[]
     POST \[= 1].
 Proof using.
-  xcf. xapp. xassert.
-    xapp. xvals.
+  xcf. xapp. intros p. (* TODO: automate intros in such cases *)
+  xassert. xapp. xvals. auto.
   (* assert cannot do visible side effects,
      otherwise the semantics could change with -noassert *)
 Abort.
@@ -981,8 +1006,8 @@ Lemma assert_in_seq_spec :
     PRE \[]
     POST \[= 4].
 Proof using.
-  xcf. xlet. xassert. { xvals. } xvals.
-  xpulls. xvals~.
+  xcf. xlet. xassert. { xvals*. } xvals.
+  xvals~.
 Qed.
 
 
@@ -994,7 +1019,7 @@ Lemma if_true_spec :
     PRE \[]
     POST \[= 1].
 Proof using.
-  xcf. xif. xval. xsimpl. auto.
+  xcf. xif ;=> C. { xvals*. } { xvals*. }
 Qed.
 
 Lemma if_term_spec :
@@ -1002,37 +1027,119 @@ Lemma if_term_spec :
     PRE \[]
     POST \[= 1].
 Proof using.
-  xcf. xfun. xapp. xval. xpulls.
-  xif. xvals~.
-Qed.
+  xcf. xfun. xlet. xapp. xval.
+  (* TODO: fix *)
+Abort.
 
 Lemma if_else_if_spec :
   SPEC (if_else_if tt)
     PRE \[]
     POST \[= 0].
 Proof using.
-  xcf. xfun (fun f => forall (x:int), SPEC (f x) \[] \[= false]).
+  xcf. xfun (fun f => forall (x:int), SPEC (f x) PRE \[] POST \[= false]).
     { xvals~. }
-  xapps. xif. xapps. xif. xvals~.
+  xapp. xif ;=> C.
+  { false*. } (* don't try to automate this for now *)
+  { xapp. xif ;=> C2. { false*. } { xvals*. } }
 Qed.
+
+
+(* [xseq Q] *)
+
+Lemma xseq_lemma_typed_post : forall (H1:hprop) H A (EA:Enc A) (Q:A->hprop) ,
+  forall (F1:Formula) (F2:Formula),
+  Structural F1 ->
+  H ==> ^F1 (fun (_:unit) => H1) ->
+  (H1 ==> ^F2 Q) ->
+  H ==> ^(@Wpgen_seq F1 F2) Q. (* TODO: EA1 is not guessed right *)
+Proof using.
+  introv HF1 M1 M2. applys MkStruct_erase. xchange M1.
+  applys* Structural_conseq. xchanges M2.
+Qed.
+
+Ltac xseq_arg_core H :=
+  eapply (@xseq_lemma_typed_post H); [ xstructural | | ].
+
+Tactic Notation "xseq" constr(H) :=
+  xseq_arg_core H.
+
+
+Lemma xifval_lemma : forall A `{EA:Enc A} (Q:A->hprop) b H (F1 F2:Formula),
+  (b = true -> H ==> ^F1 Q) ->
+  (b = false -> H ==> ^F2 Q) ->
+  H ==> ^(Wpgen_if_bool b F1 F2) Q.
+Proof using. introv E N. applys MkStruct_erase. case_if*. Qed.
+
+Lemma xifval_lemma_isTrue : forall A `{EA:Enc A} (Q:A->hprop) (P:Prop) H (F1 F2:Formula),
+  (P -> H ==> ^F1 Q) ->
+  (~ P -> H ==> ^F2 Q) ->
+  H ==> ^(Wpgen_if_bool (isTrue P) F1 F2) Q.
+Proof using. introv E N. applys MkStruct_erase. case_if*. Qed.
+
+
+Ltac xpost_arg_core Q :=
+  let Q := match type of Q with 
+           | hprop => constr:(fun (_:unit) => Q) 
+           | _ => constr:(Q)
+           end in
+  eapply (@xpost_lemma _ _ Q); [ xstructural | | ].
+
+Tactic Notation "xpost" constr(Q) :=
+  xpost_arg_core Q.
+
+Ltac xpost_core tt :=
+  eapply (@xpost_lemma); [ xstructural | | ].
+
+Tactic Notation "xpost" :=
+  xpost_core tt.
+
+
+(* LATER: alternative implementation where xpost is called first 
+Ltac xif_arg_post Q :=
+  xif_pre tt;
+  first [ applys (@xifval_lemma_isTrue _ _ Q)
+        | applys (@xifval_lemma _ _ Q) ];
+  xif_post tt.
+
+Ltac xif_arg_core Q :=
+  first [ xif_arg_post Q
+        | xif_arg_post (fun (_:unit) => Q) ]. (* case where [Q] is an [H] *)
+*)
+Ltac xif_arg_core Q :=
+  xlet_xseq_xcast_repeat tt;
+  xpost Q; [ xif_core tt | ].
+
+Tactic Notation "xif" constr(Q) :=
+  xif_arg_core Q.
+
 
 Lemma if_then_no_else_spec : forall (b:bool),
   SPEC (if_then_no_else b)
     PRE \[]
     POST (fun x => \[ x >= 0]).
 Proof using.
-  xcf. xapp.
-  xseq. xif (Hexists n, \[n >= 0] \* r ~~> n).
+  xcf. xapp. intros r. dup 3.
+  { xseq. xpost (fun (_:unit) => (\exists n, \[n >= 0] \* r ~~> n)).
+    skip. skip. }
+  { xseq (\exists n, \[n >= 0] \* r ~~> n).
+    xif. skip. skip. xpull. skip. }
+  dup 2.
+  { xseq. dup 5.
+      { xif (\exists n, \[n >= 0] \* r ~~> n). skip. skip. skip. }
+      { xif (fun (_:unit) => \exists n, \[n >= 0] \* r ~~> n). skip. skip. skip. }
+      (* Implementation details *)
+      { xpost (fun (_:unit) => \exists n, \[n >= 0] \* r ~~> n). xif. skip. skip. skip. } 
+      { xpost. skip. skip. }
+      { xpost (\exists n, \[n >= 0] \* r ~~> n). skip. skip. } }
+   xif (\exists n, \[n >= 0] \* r ~~> n); intros Hb.
    { xapp. xsimpl. math. }
    { xvals. math. }
-   { (*xclean.*) xpull ;=>> P. xapp. xpulls. xsimpl. math. }
-Qed.
-
-
+   { (*xclean.*) xpull ;=>> P. xapp. xpull. xsimpl. math. }
+Abort.
 
 
 (********************************************************************)
-(** ** Evaluation order *)
+(** ** Evaluation order -- TODO
 
 Lemma order_app_spec :
   SPEC (order_app tt)
@@ -1041,10 +1148,10 @@ Lemma order_app_spec :
 Proof using.
   dup 2.
     {
-    xcf. xapps. xfun. xfun. xfun.
-    xapps. { xapps. xvals~. } xpulls.
-    xapps. { xassert. xapps. xvals~. xapps. xvals~. } xpulls.
-    xapps. { xassert. xapps. xvals~. xfun.
+    xcf. xapp. xfun. xfun. xfun.
+    xapp. { xapp. xvals~. } xpulls.
+    xapp. { xassert. xapp. xvals~. xapp. xvals~. } xpulls.
+    xapp. { xassert. xapp. xvals~. xfun.
       xvals~ (fun f => \[AppCurried f [a b] := (Ret (a + b)%I)] \* r ~~> 2). eauto. }
       xpull ;=> Hf.
     xapp. xvals~.
@@ -1064,9 +1171,9 @@ Proof using.
   xcf_go*.
 Qed.
   (* Details:
-  xcf. xapps. xfun. xfun.
-  xapps. { xapps. xvals~. } xpulls.
-  xapps. { xassert. xapps. xvals~. xvals~. } xpulls.
+  xcf. xapp. xfun. xfun.
+  xapp. { xapp. xvals~. } xpulls.
+  xapp. { xassert. xapp. xvals~. xvals~. } xpulls.
   xvals~.
   *)
 
@@ -1105,34 +1212,34 @@ Lemma while_decr_spec :
     PRE \[]
     POST \[= 3].
 Proof using.
-  xcf. xapps. xapps. dup 9.
+  xcf. xapp. xapp. dup 9.
   { xwhile. intros R LR HR.
     cuts PR: (forall k, k >= 0 ->
       R (n ~~> k \* c ~~> (3-k)) (# n ~~> 0 \* c ~~> 3)).
     { xapplys PR. math. }
     intros k. induction_wf IH: (downto 0) k; intros Hk.
     applys (rm HR). xlet.
-    { xapps. xvals. }
+    { xapp. xvals. }
     { xpulls. xif.
-      { xseq. xapps. xapps. simpl. xapplys IH. math. math. math. }
+      { xseq. xapp. xapp. simpl. xapplys IH. math. math. math. }
       { xvals. math. math. } }
-    xapps. xsimpl~. }
+    xapp. xsimpl~. }
   { xwhile as R. skip. skip. }
   { xwhile_inv (fun b k => \[k >= 0] \* \[b = isTrue (k > 0)]
                          \* n ~~> k \* c ~~> (3-k)) (downto 0).
     { xsimpl*. math. }
     { intros S LS b k FS. xpull. intros. xlet.
-      { xapps. xvals. }
+      { xapp. xvals. }
       { xpulls. xif.
-        { xseq. xapps. xapps. simpl. xapplys FS.
+        { xseq. xapp. xapp. simpl. xapplys FS.
             hnf. math. math. eauto. math. eauto. eauto. }
         { xval. xsimpl. math. math. } } }
-    { intros. xapps. xsimpl. math. } }
+    { intros. xapp. xsimpl. math. } }
   { xwhile_inv_basic (fun b k => \[k >= 0] \* \[b = isTrue (k > 0)]
                          \* n ~~> k \* c ~~> (3-k)) (downto 0).
     { xsimpl*. math. }
-    { intros b k. xpull ;=> Hk Hb. xapps. xvals. xauto*. math. }
-    { intros k. xpull ;=> Hk Hb. xapps. xapps. xsimpl. math. eauto. math. math. }
+    { intros b k. xpull ;=> Hk Hb. xapp. xvals. xauto*. math. }
+    { intros k. xpull ;=> Hk Hb. xapp. xapp. xsimpl. math. eauto. math. math. }
     { => k Hk Hb. xapp. xsimpl. math. } }
   { (* using a measure [fun k => abs k] *)
     xwhile_inv_basic (fun b k => \[k >= 0] \* \[b = isTrue (k > 0)]
@@ -1184,7 +1291,7 @@ Qed.
     SPEC (while_decr tt) \[] \[= 3].
   Proof using.
     xcf.
-    xapps. xapps.
+    xapp. xapp.
     xwhile_inv_basic (fun b k => \[k >= 0] \* \[b = isTrue (k > 0)]
                            \* n ~~> k \* c ~~> (3-k)) (downto 0).
       xgo*.
@@ -1216,8 +1323,8 @@ Qed.
     { xwhile_inv_basic (fun b k => \[k >= 0] \* \[b = isTrue (k > 0)]
                            \* n ~~> k \* c ~~> (3-k)) (downto 0).
       { xsimpl*. math. }
-      { xtag_pre_post. intros b k. xpull ;=> Hk Hb. xapps. xvals. xauto*. math. }
-      { xtag_pre_post. intros k. xpull ;=> Hk Hb. xapps. xapps. simpl. xsimpl. math. eauto. math. math. }
+      { xtag_pre_post. intros b k. xpull ;=> Hk Hb. xapp. xvals. xauto*. math. }
+      { xtag_pre_post. intros k. xpull ;=> Hk Hb. xapp. xapp. simpl. xsimpl. math. eauto. math. math. }
      }
    xpull. => k Hk Hb. fold_bool. xclean. xapp. xsimpl. math.
   Abort.
@@ -1235,21 +1342,21 @@ Lemma for_to_incr_spec : forall (r:int), r >= 1 ->
     PRE \[]
     POST \[= r].
 Proof using.
-  xcf. xapps. dup 7.
+  xcf. xapp. dup 7.
   { xfor. intros S LS HS.
     cuts PS: (forall i, (i <= r+1) -> S i (n ~~> (i-1)) (# n ~~> r)).
     { applys PS. math. }
     { intros i. induction_wf IH: (upto (r+1)) i. intros Li.
       applys (rm HS). xif.
-      { xapps. applys_eq IH 2. hnf. math. math. fequals_rec. math. }
+      { xapp. applys_eq IH 2. hnf. math. math. fequals_rec. math. }
       { xvals. math. } }
-    xapps. xsimpl~. }
+    xapp. xsimpl~. }
   { xfor as S. skip. skip. }
   { xfor_inv (fun (i:int) => n ~~> (i-1)).
     { math. }
     { xsimpl. }
-    { introv L. simpl. xapps. xsimpl. math. }
-    xapps. xsimpl. math. }
+    { introv L. simpl. xapp. xsimpl. math. }
+    xapp. xsimpl. math. }
   { xseq (# n ~~> r). xfor_inv (fun (i:int) => n ~~> (i-1)).
     skip. skip. skip. skip. skip. }
   { xseq (# n ~~> r). xfor_inv_void. skip. skip. skip. }
@@ -1259,10 +1366,10 @@ Proof using.
     xseq (# n ~~> r).
     { xfor_inv_case (fun (i:int) => n ~~> (i-1)).
       { xsimpl. }
-      { introv L. xapps. xsimpl. math. }
+      { introv L. xapp. xsimpl. math. }
       { xsimpl. math. }
       { math_rewrite (r = 0). xsimpl. } }
-    { xapps. xsimpl~. } }
+    { xapp. xsimpl~. } }
 Abort.
 
 Lemma for_to_incr_pred_spec : forall (r:int), r >= 1 ->
@@ -1270,21 +1377,21 @@ Lemma for_to_incr_pred_spec : forall (r:int), r >= 1 ->
     PRE \[]
     POST \[= r].
 Proof using.
-  xcf. xapps. dup 7.
+  xcf. xapp. dup 7.
   { xfor. intros S LS HS.
     cuts PS: (forall i, (i <= r) -> S i (n ~~> i) (# n ~~> r)).
     { applys PS. math. }
     { intros i. induction_wf IH: (upto r) i. intros Li.
       applys (rm HS). xif.
-      { xapps. applys_eq IH 2. hnf. math. math. auto. }
+      { xapp. applys_eq IH 2. hnf. math. math. auto. }
       { xvals. math. } }
-    xapps. xsimpl~. }
+    xapp. xsimpl~. }
   { xfor as S. skip. skip. }
   { xfor_inv (fun (i:int) => n ~~> i).
     { math. }
     { xsimpl. }
-    { introv L. simpl. xapps. }
-    xapps. xsimpl. math. }
+    { introv L. simpl. xapp. }
+    xapp. xsimpl. math. }
   { xseq (# n ~~> r). xfor_inv (fun (i:int) => n ~~> i).
     skip. skip. skip. skip. skip. }
   { xseq (# n ~~> r). xfor_inv_void. skip. skip. skip. }
@@ -1294,10 +1401,10 @@ Proof using.
     xseq (# n ~~> r).
     { xfor_inv_case (fun (i:int) => n ~~> i).
       { xsimpl. }
-      { introv L. xapps. }
+      { introv L. xapp. }
       { xsimpl. }
       { math_rewrite (r = 0). xsimpl. } }
-    { xapps. xsimpl~. } }
+    { xapp. xsimpl~. } }
 Abort.
 
 Lemma for_downto_spec : forall (r:int), r >= 0 ->
@@ -1305,21 +1412,21 @@ Lemma for_downto_spec : forall (r:int), r >= 0 ->
     PRE \[]
     POST \[= r].
 Proof using.
-  xcf. xapps. dup 7.
+  xcf. xapp. dup 7.
   { xfor_down. intros S LS HS.
     cuts PS: (forall i, (i >= -1) -> S i (n ~~> (r-1-i)) (# n ~~> r)).
     { xapplys PS. math. math. }
     { intros i. induction_wf IH: (downto (-1)) i. intros Li.
       applys (rm HS). xif.
-      { xapps. xapplys IH. hnf. math. math. math. }
+      { xapp. xapplys IH. hnf. math. math. math. }
       { xvals. math. } }
-    xapps. xsimpl~. }
+    xapp. xsimpl~. }
   { xfor_down as S. skip. skip. }
   { xfor_down_inv (fun (i:int) => n ~~> (r-1-i)).
     { math. }
     { xsimpl. math. }
-    { introv L. xapps. xsimpl. math. }
-    xapps. xsimpl. math. }
+    { introv L. xapp. xsimpl. math. }
+    xapp. xsimpl. math. }
   { xseq (# n ~~> r). xfor_down_inv (fun (i:int) => n ~~> (r-1-i)).
     skip. skip. skip. skip. skip. }
   { xseq (# n ~~> r). xfor_down_inv_void. skip. skip. skip. }
@@ -1329,10 +1436,10 @@ Proof using.
     xseq (# n ~~> r).
     { xfor_down_inv_case (fun (i:int) => n ~~> (r-1-i)).
       { xsimpl. math. }
-      { introv L. xapps. xsimpl. math. }
+      { introv L. xapp. xsimpl. math. }
       { xsimpl. math. }
       { math_rewrite (r = 0). xsimpl. } }
-    { xapps. xsimpl~. } }
+    { xapp. xsimpl~. } }
 Abort.
 
 
@@ -1354,11 +1461,11 @@ Proof using.
     { xvals. math. }
     { xvals. xif.
       { xfail. math. }
-      { xapps (k-1). math. math. math.
+      { xapp (k-1). math. math. math.
         xvals. math. } } }
   { xind_skip as IH. xcf. xvals. xif.
     { xgo~. math. }
-    { xvals. xif. math. xapps (k-1). math. math. xvals. math. } }
+    { xvals. xif. math. xapp (k-1). math. math. xvals. math. } }
 Qed.
 
 
@@ -1371,7 +1478,7 @@ Proof using.
   { intros x. induction_wf IH: (downto 0) x. intros Px.
     xcf. xif. xvals~. xlet.
     xcf. xapp. math. math. xpulls. xvals. math. }
-  { intros Sg. introv Px. xcf. xapps. math. }
+  { intros Sg. introv Px. xcf. xapp. math. }
 Qed.
 
 (* the general approach is as follows, using a measure *)
@@ -1440,7 +1547,7 @@ Proof using.
   { xgc_but r1. skip. }
   { xlet (fun x => \[x = 2] \* r1 ~~> 1).
     { xapp. xapp. xsimpl~. } (* auto GC on r5 *)
-    { intro_subst. xapps. xvals~. } (* auto GC on r1 *)
+    { intro_subst. xapp. xvals~. } (* auto GC on r1 *)
   }
 Qed.
 
@@ -1463,62 +1570,62 @@ Proof using.
   { xval. hsimpl. }
 Qed.
 
+*)
 
 (********************************************************************)
 (** ** Records *)
 
-Lemma sitems_build_spec : forall (A:Type) (n:int),
+Lemma sitems_build_spec : forall (A:Type) `{EA:Enc A}  (n:int),
   SPEC (sitems_build n)
     PRE \[]
-    POST (fun r => r ~> `{ nb' := n; items' := @nil A }).
+    POST (fun r => r ~~~> `{ nb' := n; items' := @nil A }).
 Proof using. xcf_go~. Qed.
 
-Lemma sitems_get_nb_spec : forall (A:Type) (r:loc) (n:int),
-  app_keep sitems_get_nb [r]
-     (r ~> `{ nb' := n; items' := @nil A })
-     \[= n].
+Lemma sitems_get_nb_spec : forall (A:Type) `{EA:Enc A}  (r:loc) (n:int),
+  SPEC (sitems_get_nb r)
+    INV (r ~~~> `{ nb' := n; items' := @nil A })
+    POST \[= n].
 Proof using.
-  dup 3.
+  (* TODO dup 3.
   { intros A. xcf_show as R. applys (R A). xgo~. }
-  { xcf_show as R. unfold sitems_ in R. specializes R unit. xgo~. }
-  { xcf_go~. Unshelve. solve_type. }
-Qed.  (* TODO: can we do better than a manual unshelve for dealing with unused type vars? *)
+  { xcf_show as R. unfold sitems_ in R. specializes R unit. xgo~. } *)
+  { xcf_go~. }
+Qed.
 
-Lemma sitems_get_nb_spec' : forall (A:Type) (r:sitems_ A) (n:int),
-  app_keep sitems_get_nb [r]
-     (r ~> `{ nb' := n; items' := @nil A })
-     \[= n].
+Lemma sitems_get_nb_spec' : forall (A:Type) `{EA:Enc A} (r:sitems_ A) (n:int),
+  SPEC (sitems_get_nb r)
+    INV (r ~~~> `{ nb' := n; items' := @nil A })
+    POST \[= n].
 Proof using.
   { xcf_go~. }
 Qed.  (* TODO: can we do better than a manual unshelve for dealing with unused type vars? *)
 
-Lemma sitems_incr_nb_spec : forall (A:Type) (L:list A) (r:loc) (n:int),
+Lemma sitems_incr_nb_spec : forall (A:Type) `{EA:Enc A} (L:list A) (r:loc) (n:int),
   SPEC (sitems_incr_nb r)
-     (r ~> `{ nb' := n; items' := L })
-     (# (r ~> `{ nb' := n+1; items' := L })).
+    PRE (r ~~~> `{ nb' := n; items' := L })
+    POSTUNIT ((r ~~~> `{ nb' := n+1; items' := L })).
 Proof using.
   dup 2.
-  { xcf. xapps. xapp. Unshelve. solve_type. }
-  { xcf_go*. Grab Existential Variables. solve_type. }
-Qed.
-
-Lemma sitems_length_item_spec : forall (A:Type) (r:loc) (L:list A) (n:int),
-  app_keep sitems_length_items [r]
-     (r ~> `{ nb' := n; items' := L })
-     \[= LibListZ.length L ].
-Proof using.
-  dup 2.
-  { xcf. xapps. xvals. }
+  { xcf. xapp. xapp. xsimpl. }
   { xcf_go*. }
 Qed.
 
-Definition Sitems A (L:list A) r :=
-  Hexists n, r ~> `{ nb' := n; items' := L } \* \[ n = LibListZ.length L ].
+Lemma sitems_length_item_spec : forall (A:Type) `{EA:Enc A} (r:loc) (L:list A) (n:int),
+  SPEC (sitems_length_items r)
+    INV (r ~~~> `{ nb' := n; items' := L })
+    POST \[= LibListZ.length L ].
+Proof using.
+  dup 2.
+  { xcf. xapp. xvals*. }
+  { xcf_go*. }
+Qed.
+
+Definition Sitems A `{EA:Enc A} (L:list A) r :=
+  \exists n, r ~~~> `{ nb' := n; items' := L } \* \[ n = LibListZ.length L ].
 
 
 (********************************************************************)
 (** ** Record with *)
-
 
 Lemma recordwith_spec :
   SPEC (recordwith tt)
@@ -1535,7 +1642,7 @@ Qed.
 Lemma create_cyclic_node_spec : forall (A:Type) (data:A),
   SPEC (create_cyclic_node data)
     PRE \[]
-    POST (fun (r: loc) => r ~> `{ data' := data; prev' := r; next' := r }).
+    POST (fun (r: loc) => r ~~~> `{ data' := data; prev' := r; next' := r }).
 Proof using. xcf_go~. Qed.
 
 (*
@@ -1560,10 +1667,11 @@ Qed.
 
 Lemma sitems_push_spec : forall (A:Type) (r:loc) (L:list A) (x:A),
   SPEC (sitems_push x r)
-    PRE (r ~> Sitems L) (# r ~> Sitems (x::L)).
+    PRE (r ~> Sitems L) 
+    POSTUNIT (r ~> Sitems (x::L)).
 Proof using.
   xcf. xunfold Sitems. xpull ;=> n E.
-  xapps. xapps. xapps. xapp. xsimpl. rew_list; math.
+  xapp. xapp. xapp. xapp. xsimpl. rew_list; math.
 Qed.
 
 (* TODO: enéoncé spec dérivée pour
@@ -1576,14 +1684,14 @@ xapp_spec .. *)
 
 Lemma Sitems_open : forall r A (L:list A),
   r ~> Sitems L ==>
-  Hexists n, r ~> `{ nb' := n; items' := L } \* \[ n = LibListZ.length L ].
-Proof using. intros. xunfolds~ Sitems. Qed.
+  \exists n, r ~~~> `{ nb' := n; items' := L } \* \[ n = LibListZ.length L ].
+Proof using. intros. xunfold* Sitems. Qed.
 
 Lemma Sitems_close : forall r A (L:list A) (n:int),
   n = LibListZ.length L ->
-  r ~> `{ nb' := n; items' := L } ==>
+  r ~~~> `{ nb' := n; items' := L } ==>
   r ~> Sitems L.
-Proof using. intros. xunfolds~ Sitems. Qed.
+Proof using. intros. xunfold Sitems. xsimpl*. Qed. (* TODO: xunfolds* *)
 
 Arguments Sitems_close : clear implicits.
 (* TODO comment
@@ -1591,6 +1699,8 @@ r ~> Sitems _
 xopen r
 xchange (Sitems_open r).
 *)
+
+(* TODO---
 
 Hint Extern 1 (RegisterOpen (Sitems _)) =>
   Provide Sitems_open.
@@ -1603,7 +1713,7 @@ Lemma sitems_push_spec' : forall (A:Type) (r:loc) (L:list A) (x:A),
 Proof using.
   xcf. dup 2.
   { xopen r. xpull ;=> n E. skip. }
-  { xopenx r ;=> n E. xapps. xapps. xapps. xapp.
+  { xopenx r ;=> n E. xapp. xapp. xapp. xapp.
     intros v.
     dup 4.
     { (* details *)
@@ -1616,9 +1726,11 @@ Proof using.
       xclose r. rew_list; math. xsimpl~. } }
 Qed.
 
+*)
+
 
 (********************************************************************)
-(** ** Arrays *)
+(** ** Arrays --TODO
 
 Require Import Array_proof TLC.LibListZ.
 
@@ -1629,23 +1741,25 @@ Hint Extern 1 (_ < length (?l[?i:=?v])) => rewrite length_update : maths.
 Ltac auto_tilde ::= auto with maths.
 
 Lemma array_ops_spec :
-  SPEC (array_ops tt) \[] \[= 3].
+  SPEC (array_ops tt)
+    PRE \[] 
+    POST \[= 3].
 Proof using.
   xcf.
   xapp. math. => L EL.
   asserts LL: (LibListZ.length L = 3).
   { subst. rewrite LibListZ.length_make; math. }
-  xapps. { apply index_of_inbound; math. }
+  xapp. { apply index_of_inbound; math. }
   xapp~.
-  xapps~.
-  xapps~.
-  xapps~.
+  xapp~.
+  xapp~.
+  xapp~.
   xsimpl. subst. rew_array~.
 Qed.
 
 End Array.
 
-
+*)
 
 (********************************************************************)
 (** ** Integer arithmetics *)
@@ -1722,7 +1836,6 @@ Proof. reflexivity. Qed.
 
 (********************************************************************)
 (** ** Notation for PRE/INV/POST *)
-
 
 Lemma notation_inv_post_spec_pre : forall (r:loc) (n:int),
   SPEC (notation_inv_post r)
