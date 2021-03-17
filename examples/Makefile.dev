@@ -4,17 +4,51 @@
 # of all dependencies. Only for developper use.
 #
 # In the present folder, type
-#   make -C UnitTests -f ../Makefile.dev  
+#   make -C UnitTests -f ../Makefile.dev
 #
-# Alternatively, in a particular example subfolder, type 
+# Alternatively, in a particular example subfolder, type
 #   make -f ../Makefile.dev
-# 
+#
 ##############################################################################
 # CFML setup.
 
 CFML := $(shell cd ../.. && pwd)
 
-include $(CFML)/Makefile.common
+##############################################################################
+# Certain custom settings can be defined in settings.sh.
+
+# To specify the location of the Coq binaries, define COQBIN (with a
+# trailing slash), e.g. COQBIN=/var/tmp/coq/bin/.
+# If COQBIN is undefined, then "coqc" is used.
+
+# This assumes that $(CFML) points to the CFML root directory.
+
+-include $(CFML)/settings.sh
+
+export COQBIN
+export COQFLAGS
+export INCLUDE_TLC_AS_DEPENDENCIES
+
+############################################################################
+
+COQFLAGS=-w -notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths,-irrelevant-format-only-parsing
+
+
+############################################################################
+# We assume that TLC has been installed.
+# (Note: this definition can be overriden from outside.)
+
+ifndef TLC
+	TLC := $(shell $(COQBIN)coqc -where)/user-contrib/TLC
+endif
+
+ifeq ($(wildcard $(TLC)),)
+  $(error $(TLC) does not exist. \
+          Please install TLC first)
+endif
+
+export TLC
+
 
 ##############################################################################
 # Compilation.
@@ -26,7 +60,7 @@ COQINCLUDE := \
   -Q $(CFML)/lib/coq CFML \
   -R $(CFML)/lib/stdlib CFML.Stdlib \
   -R $(PWD) EXAMPLE
-  
+
 
 ##############################################################################
 # Files.
@@ -46,7 +80,7 @@ CMJ    := $(patsubst %.ml,%.cmj,$(ML))
 
 ifndef V
 	V := $(patsubst %.ml,%_ml.v,$(ML)) \
-		  $(patsubst %.ml,%_proof.v,$(ML)) 
+		  $(patsubst %.ml,%_proof.v,$(ML))
 endif
 
 V_AUX_BASE := $(wildcard $(LIBCOQ)/*.v) \
