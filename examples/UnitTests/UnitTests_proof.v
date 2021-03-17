@@ -455,17 +455,16 @@ Abort.
 Lemma let_fun_in_let_spec :
   SPEC (let_fun_in_let tt)
     PRE \[]
-    POST (fun (g:val) => \[ forall A (x:A), SPEC (g x) PRE \[] POST \[= x] ]).
-    (* TODO: should be able to remove type annocation on g *)
+    POST (fun g => \[ forall A (x:A), SPEC (g x) PRE \[] POST \[= x] ]).
 Proof using.
   xcf. dup 2.
-  { xlet (fun (g:val) => \[ forall A `{EA:Enc A} (x:A), SPEC (g x) PRE \[] POST \[= x] ]).
+  { xlet (fun g => \[ forall A `{EA:Enc A} (x:A), SPEC (g x) PRE \[] POST \[= x] ]).
     { xassert. { xvals*. } 
       xfun. xval. xsimpl. intros. xapp. xvals*. }
     xpull. intros f Hf. xvals*. }
   (* Implementation details *)
   { xlet_pre tt.
-    set (Q:=(fun (g:val) => \[ forall A `{EA:Enc A} (x:A), True ])).
+    set (Q:= (fun (g:val) => \[ forall A `{EA:Enc A} (x:A), True ])).
     applys (@xlet_lemma_typed_post _ _ Q). xstructural. skip. skip. }
 Qed.
 

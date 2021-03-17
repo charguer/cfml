@@ -444,7 +444,7 @@ Ltac xspec_record_set_compute tt :=
     xspec_record_set_compute_for f W L end.
 
 (** [xspec_record] adds to the goal the relevant specification *)
-
+(* DEPRECATED? *)
 Ltac xspec_record tt :=
   match goal with
   | |- Triple (trm_apps (trm_val (val_get_field ?f)) _) _ _ =>
@@ -502,7 +502,7 @@ Parameter xapp_record_Get : forall A `{EA:Enc A} (Q:A->hprop) (H:hprop) (p:loc) 
   H ==> p ~> Record L \* (match record_get_compute_dyn f L with
     | None => \[False]
     | Some (Dyn V) => (p ~> Record L) \-* ^(Wptag (Wpgen_Val_no_mkstruct V)) (protect Q) end) ->
-  H ==> ^(Wpgen_App_typed A (trm_val (val_get_field f)) ((Dyn p)::nil)) Q.
+  H ==> ^(Wpgen_App_typed A (val_get_field f) ((Dyn p)::nil)) Q.
 (* TODO: proof *)
 
 Parameter xapp_record_Set : forall A1 `{EA1:Enc A1} (W:A1) (Q:unit->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
@@ -511,7 +511,7 @@ Parameter xapp_record_Set : forall A1 `{EA1:Enc A1} (W:A1) (Q:unit->hprop) (H:hp
     | None => \[False]
     | Some L' =>
         (p ~> Record L' \-* protect (Q tt)) end)  ) ->
-  H ==> ^(Wpgen_App_typed unit (trm_val (val_set_field f)) ((Dyn p)::(Dyn W)::nil)) Q.
+  H ==> ^(Wpgen_App_typed unit (val_set_field f) ((Dyn p)::(Dyn W)::nil)) Q.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -855,10 +855,10 @@ Ltac xapp_record tt ::= (* initial dummy binding located in WPTactics *)
   | Wpgen_record_with ?v ?L => xapp_record_with tt
   | Wpgen_App_typed ?T ?f ?Vs =>
       match f with
-      | trm_val (val_get_field _) => xapp_record_get tt
-      | trm_val (val_set_field _) => xapp_record_set tt
-      | trm_val (val_record_init _) => xapp_record_new tt (* TODO redundant? *)
-      | trm_val (val_record_delete _) => xapp_record_delete tt
+      | val_get_field _ => xapp_record_get tt
+      | val_set_field _ => xapp_record_set tt
+      | val_record_init _ => xapp_record_new tt (* TODO redundant? *)
+      | val_record_delete _ => xapp_record_delete tt
       end
   end.
 

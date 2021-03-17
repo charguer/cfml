@@ -18,7 +18,7 @@ Open Scope record_scope.
 
 (* TODO: DEPRECATED
 Notation "'RegisterSpec' f" :=
-  (Register_goal (Triple (Trm_apps (trm_val f) _) _ _))
+  (Register_goal (Triple (Trm_apps f _) _ _))
   (at level 69) : wptactics_scope.
 *)
 

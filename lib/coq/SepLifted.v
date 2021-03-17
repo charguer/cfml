@@ -692,11 +692,14 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Predicate [Trm_apps] *)
 
-Fixpoint Trm_apps (f:trm) (Vs:dyns) : trm :=
+Fixpoint Trm_apps_aux (f:trm) (Vs:dyns) : trm :=
   match Vs with
   | nil => f
-  | (Dyn V)::Vs' => Trm_apps (f (enc V)) Vs'
+  | (Dyn V)::Vs' => Trm_apps_aux (f (enc V)) Vs'
   end.
+
+Definition Trm_apps (f:val) (Vs:dyns) : trm :=
+  Trm_apps_aux (trm_val f) Vs.
 
 
 (* ---------------------------------------------------------------------- *)

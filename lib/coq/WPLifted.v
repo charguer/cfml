@@ -796,7 +796,7 @@ Definition Wpgen_app_typed (A1:Type) `{EA1:Enc A1} (t:trm) : Formula :=
 Arguments Wpgen_app_typed A1 {EA1} t.
 
 
-Definition Wpgen_App_typed (A1:Type) `{EA1:Enc A1} (f:trm) (Vs:dyns) : Formula :=
+Definition Wpgen_App_typed (A1:Type) `{EA1:Enc A1} (f:val) (Vs:dyns) : Formula :=
   Wpgen_app_typed A1 (Trm_apps f Vs).
 (* MkStruct (Formula_cast (fun (Q1:A1->hprop) => Wp (Trm_apps f Vs) Q1)). *)
 
@@ -1074,7 +1074,7 @@ Notation "'LetFun' f ':=' B1 'in' F1" :=
 Notation "'Body' f v1 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall v1 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
-               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::nil)) A EA H Q)))
+               @Triple (Trm_apps f ((@dyn_make _ _ v1)::nil)) A EA H Q)))
  (at level 69,
   f ident,
   v1 constr,
@@ -1085,7 +1085,7 @@ Notation "'Body' f v1 ':=' F1" :=
 Notation "'Body' f v1 v2 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall v1 v2 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
-               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
+               @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
  (at level 69,
   f ident,
   v1 constr,
@@ -1097,7 +1097,7 @@ Notation "'Body' f v1 v2 ':=' F1" :=
 Notation "'Body' f v1 v2 v3 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall v1 v2 v3 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
-               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))
+               @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))
  (at level 69,
   f ident,
   v1 constr,
@@ -1110,7 +1110,7 @@ Notation "'Body' f v1 v2 v3 ':=' F1" :=
 Notation "'Body' f v1 v2 v3 v4 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall v1 v2 v3 v4 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
-               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::(@dyn_make _ _ v4)::nil)) A EA H Q)))
+               @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::(@dyn_make _ _ v4)::nil)) A EA H Q)))
  (at level 69,
   f ident,
   v1 constr,
@@ -1126,7 +1126,7 @@ Notation "'Body' f v1 v2 v3 v4 ':=' F1" :=
 Notation "'Body' f { B1 } v1 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 v1 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
-               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::nil)) A EA H Q)))
+               @Triple (Trm_apps f ((@dyn_make _ _ v1)::nil)) A EA H Q)))
  (at level 69,
   f ident,
   v1 constr,
@@ -1137,7 +1137,7 @@ Notation "'Body' f { B1 } v1 ':=' F1" :=
 Notation "'Body' f { B1 B2 } v1 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 v1 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
-               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::nil)) A EA H Q)))
+               @Triple (Trm_apps f ((@dyn_make _ _ v1)::nil)) A EA H Q)))
  (at level 69,
   f ident,
   v1 constr,
@@ -1148,7 +1148,7 @@ Notation "'Body' f { B1 B2 } v1 ':=' F1" :=
 Notation "'Body' f { B1 B2 B3 } v1 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 B3 EB3 v1 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
-               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::nil)) A EA H Q)))
+               @Triple (Trm_apps f ((@dyn_make _ _ v1)::nil)) A EA H Q)))
  (at level 69,
   f ident,
   v1 constr,
@@ -1159,7 +1159,7 @@ Notation "'Body' f { B1 B2 B3 } v1 ':=' F1" :=
 Notation "'Body' f { B1 } v1 v2 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 v1 v2 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
-               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
+               @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
  (at level 69,
   f ident,
   v1 constr,
@@ -1171,7 +1171,7 @@ Notation "'Body' f { B1 } v1 v2 ':=' F1" :=
 Notation "'Body' f { B1 B2 } v1 v2 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 v1 v2 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
-               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
+               @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
  (at level 69,
   f ident,
   v1 constr,
@@ -1183,7 +1183,7 @@ Notation "'Body' f { B1 B2 } v1 v2 ':=' F1" :=
 Notation "'Body' f { B1 B2 B3 } v1 v2 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 B3 EB3 v1 v2 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
-               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
+               @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
  (at level 69,
   f ident,
   v1 constr,
@@ -1195,7 +1195,7 @@ Notation "'Body' f { B1 B2 B3 } v1 v2 ':=' F1" :=
 Notation "'Body' f { B1 } v1 v2 v3 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 v1 v2 v3 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
-               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))
+               @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))
  (at level 69,
   f ident,
   v1 constr,
@@ -1208,7 +1208,7 @@ Notation "'Body' f { B1 } v1 v2 v3 ':=' F1" :=
 Notation "'Body' f { B1 B2 } v1 v2 v3 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 v1 v2 v3 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
-               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))
+               @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))
  (at level 69,
   f ident,
   v1 constr,
@@ -1221,7 +1221,7 @@ Notation "'Body' f { B1 B2 } v1 v2 v3 ':=' F1" :=
 Notation "'Body' f { B1 B2 B3 } v1 v2 v3 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 B3 EB3 v1 v2 v3 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
-               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))
+               @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))
  (at level 69,
   f ident,
   v1 constr,
@@ -1428,7 +1428,7 @@ Notation "'Fix' f x '=>' F1" :=
 Notation "'Body' f B v1 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B EB v1 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
-               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::nil)) A EA H Q)))
+               @Triple (Trm_apps f ((@dyn_make _ _ v1)::nil)) A EA H Q)))
  (at level 69,
   f ident,
   B ident,

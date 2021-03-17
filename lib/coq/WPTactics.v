@@ -9,8 +9,6 @@ License: CC-by 4.0.
 
 *)
 
-(* TODO: Trm_vals should take a val as argument, to avoid coercions.. *)
-
 Set Implicit Arguments.
 From CFML Require Export WPLifted WPHeader.
 Import LibListExec.RewListExec.
@@ -161,13 +159,13 @@ Notation "'Register_goal' G" := (Register database_spec G)
 
 Ltac xspec_get_fun tt :=
   match goal with
-  | |- ?H ==> @Wptag (Wpgen_App_typed ?A (trm_val ?f) ?Vs) _ _ ?Q => constr:(f)
+  | |- ?H ==> @Wptag (Wpgen_App_typed ?A ?f ?Vs) _ _ ?Q => constr:(f)
   (* | |- ?H ==> ^(Wpgen_App_typed ?A (trm_val ?f) ?Vs) ?Q => constr:(f)  *)
-  | |- Triple (Trm_apps (trm_val ?f) ?Vs) ?H ?Q => constr:(f) end.
+  | |- Triple (Trm_apps ?f ?Vs) ?H ?Q => constr:(f) end.
 
 Ltac xspec_context f :=
   match goal with
-  | H: context [ Triple (Trm_apps (trm_val f) _) _ _] |- _ => generalize H
+  | H: context [ Triple (Trm_apps f _) _ _] |- _ => generalize H
   end.
 
 Ltac xspec_registered f :=
@@ -320,6 +318,7 @@ Ltac xtypes_triple E :=
   | (Wptag ?F) => xtypes_triple F
   | (@Wpgen_App_typed ?T ?ET ?f ?Vs) => aux Vs T ET
   | (@Triple (Trm_apps ?f ?Vs) ?T ?ET ?H ?Q) => aux Vs T ET
+  (*   | ?H ==> ?F _ _ ?Q => xtypes_triple F *)
   end.
 
 Ltac xtypes_goal tt :=
@@ -366,7 +365,7 @@ Ltac xcf_pre tt :=
 Ltac xcf_target tt :=
   match goal with
   | |- ?f = _ => constr:(f)
-  | |- Triple (Trm_apps (trm_val ?f) ?Vs) ?H ?Q => constr:(f)
+  | |- Triple (Trm_apps ?f ?Vs) ?H ?Q => constr:(f)
   end.
 
 Ltac xcf_find f :=
@@ -887,7 +886,7 @@ Qed.
 Ltac xapp_record tt :=
   fail "implemented later in WPStruct".
 
-Lemma xapp_lemma : forall A `{EA:Enc A} (Q1:A->hprop) (f:trm) (Vs:dyns) H1 H Q,
+Lemma xapp_lemma : forall A `{EA:Enc A} (Q1:A->hprop) (f:val) (Vs:dyns) H1 H Q,
   Triple (Trm_apps f Vs) H1 Q1 ->
   H ==> H1 \* (Q1 \--* protect Q) ->
   H ==> ^(Wpgen_App_typed A f Vs) Q.
@@ -897,7 +896,7 @@ Proof using.
   applys* Triple_ramified_frame.
 Qed.
 
-Lemma xapps_lemma : forall A `{EA:Enc A} (V:A) H2 (f:trm) (Vs:dyns) H1 H Q,
+Lemma xapps_lemma : forall A `{EA:Enc A} (V:A) H2 (f:val) (Vs:dyns) H1 H Q,
   Triple (Trm_apps f Vs) H1 (fun r => \[r = V] \* H2) ->
   H ==> H1 \* (H2 \-* protect (Q V)) ->
   H ==> ^(Wpgen_App_typed A f Vs) Q.
@@ -906,7 +905,7 @@ Proof using.
   intros ? ->. auto.
 Qed.
 
-Lemma xapps_lemma_pure : forall A `{EA:Enc A} (V:A) (f:trm) (Vs:dyns) H1 H Q,
+Lemma xapps_lemma_pure : forall A `{EA:Enc A} (V:A) (f:val) (Vs:dyns) H1 H Q,
   Triple (Trm_apps f Vs) H1 (fun r => \[r = V]) ->
   H ==> H1 \* protect (Q V) ->
   H ==> ^(Wpgen_App_typed A f Vs) Q.

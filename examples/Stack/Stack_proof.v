@@ -61,17 +61,6 @@ Qed.
 
 Hint Extern 1 (RegisterSpec is_empty) => Provide is_empty_spec.
 
-Ltac xtypes_triple E ::=
-  let aux Vs T ET :=
-    xtypes_dyn_list Vs; xtypes_type false T ET in
-  match E with
-  | (Wptag ?F) => xtypes_triple F
-  | (@Wpgen_App_typed ?T ?ET ?f ?Vs) => aux Vs T ET
-  | (@Triple (Trm_apps ?f ?Vs) ?T ?ET ?H ?Q) => aux Vs T ET
-  | ?H ==> ?F _ _ ?Q => xtypes_triple F
-  end.
-  (* TODO: document -- xlet. xtypes_goal tt. *)
-
 Lemma push_spec : forall A `{Enc A} (p:loc) (x:A) (L:list A),
   SPEC (push p x)
     PRE (p ~> Stack L)
