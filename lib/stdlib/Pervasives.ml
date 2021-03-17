@@ -1,25 +1,3 @@
-(********************************************************************)
-(* ** Function call *)
-
-let myincr n =
-  n
-
-let app_myincr x =
-  myincr x
-
-let app_let_myincr x =
-  let y = myincr x in
-  y
-
-let app_let_local_myincr x =
-  let local_myincr1 n =
-     0  in
-  let local_myincr n =
-     n  in
-  let local_myincr2 n =
-     0  in
-  local_myincr x
-
 
 
 (************************************************************)

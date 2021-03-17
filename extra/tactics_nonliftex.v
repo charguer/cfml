@@ -112,3 +112,23 @@ Proof using. auto. Qed.
 Ltac xspec_remove_combiner tt := (* TODO: deprecated *)
   cbn beta delta [ combiner_to_trm ] iota zeta in *.
   xspec_remove_combiner tt;
+
+
+Ltac xlet_poly tt :=
+  notypeclasses refine (xlet_lemma _ _ _ _ _).
+
+Ltac xlet_typed tt :=
+  applys xlet_typed_lemma.
+
+Ltac xlet_core tt :=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_let_typed _ _) => xlet_typed tt
+  | (Wpgen_let _ _) => xlet_poly tt
+  end.
+
+Tactic Notation "xlet" :=
+  first [ xlet_core tt
+        | xletval ]. (* TODO: document *)
+
+Tactic Notation "xlets" := (* TODO: document *)
+  xletvals.

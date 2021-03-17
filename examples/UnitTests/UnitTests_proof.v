@@ -13,16 +13,14 @@ Require TLC.LibListZ. (* TODO NEEDED? *)
 (********************************************************************)
 
 
-
-
 (********************************************************************)
 (** ** Function calls: [xapp] *)
 
-Lemma myincr_spec : fora  ll n,
+Lemma myincr_spec : forall n,
   SPEC (myincr n)
     PRE \[]
     POST \[= n + 1].
-Proof using. xcf. skip. (* xvals*. *) Qed.
+Proof using. xcf. xvals*. Qed.
 
 Hint Extern 1 (RegisterSpec myincr) => Provide myincr_spec.
 
@@ -31,14 +29,14 @@ Lemma app_myincr_spec : forall n,
     PRE \[]
     POST \[= n + 1].
 Proof using.
-  xcf. dup 6.
+  xcf. dup 7.
   { xapp. xsimpl*. }
   { xspec_show_fun. skip. }
   { xapp_spec. skip. }
   (* Test for implementation details *)
   { xspec. intros Spec1. skip. }
-  todo eapply xapps_lemma_pure
-  { xspec. xapp_exploit_spec xapps_lemma_pure idcont. xapp_post tt. skip. }
+  { xspec. intros S. eapply xapps_lemma_pure. applys S. xapp_simpl tt. skip. }
+  { xspec. xapp_exploit_spec xapps_lemma_pure idcont. xapp_simpl tt. skip. }
   { xspec. xapp_common tt. skip. }
 Qed.
 
@@ -52,12 +50,8 @@ Lemma app_let_local_myincr : forall n,
   SPEC (app_let_local_myincr n)
     PRE \[]
     POST \[= n + 1].
-Proof using.
-  xcf.
-  (* TODO: understand why the Body notation does not trigger for the second function. *)
-  xfun.
-  xfun.
-  xfun.
+Proof using. 
+  xcf. xfun.
   dup 6.
   { xapp. xval. skip. }
   { xspec_show_fun. skip. }
@@ -68,6 +62,28 @@ Proof using.
   { xspec. xapp_exploit_body tt. skip. }
 Qed.
 
+
+(* This notation works
+Notation "'Body' { B1 } f v1 ':=' F1" :=
+ ((*Wptag*) (Wpgen_body (forall B1 EB1 v1 H A EA Q,
+               (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
+               @Triple (Trm_apps (trm_val f) ((@dyn_make _ _ v1)::nil)) A EA H Q)))
+ (at level 69,
+  f ident,
+  v1 constr,
+  F1 custom wp at level 99,
+  right associativity,
+  format "'[v' '[' 'Body'  { B1 }  f   v1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+*)
+
+  (* TODO: understand why the Body notation does not trigger for the second function. *) 
+Lemma app_let_local_myincr2 : forall n,
+  SPEC (app_let_local_myincr2 n)
+    PRE \[]
+    POST \[= n + 1].
+Proof using. 
+  xcf.
+Abort.
 
 
 (********************************************************************)
@@ -327,12 +343,16 @@ Abort.
 (********************************************************************)
 (** ** Let-value *)
 
+Ltac xletval_core tt ::=
+  xletval_common ltac:(fun a Pa => idtac).
+
+
 Lemma let_val_int_spec :
   SPEC (let_val_int tt)
     PRE \[]
     POST \[= 3].
 Proof using.
-  xcf. xlet. xvals*.
+  xcf. xletval. xvals*.
   (* TODO dup 7.
   xval. xvals~.
   (* demos *)
@@ -374,10 +394,10 @@ Lemma let_fun_const_spec :
 Proof using.
   xcf. dup 12.
   (* Variants with names introduced *)
-  { xfun. (* TODO: xapp *) skip. (* TODO: dev xtriple_inv. apply Spec_f. xvals*. *) }
-  { xfun (fun f => SPEC (f tt) PRE \[] POST \[=3]).
+  { xfun. (* TODO: xapp *) skip. (* TODO: dev xtriple_inv. apply Spec_f. xvals*. *) } 
+  { xfun (fun f => SPEC (f tt) PRE \[] POST \[=3]). 
     { xvals*. } { xapp. xsimpl*. } }
-  { sets Sg: (fun g => SPEC (g tt) PRE \[] POST \[=3]).
+  { sets Sg: (fun g => SPEC (g tt) PRE \[] POST \[=3]). 
     xfun Sg. { xvals*. } { xapp Spec_f. xsimpl*. } }
   { xfun_rec (fun g => SPEC (g tt) PRE \[] POST \[=3]).
     { apply Body_f. xvals*. } { xapp. xsimpl*. } }
@@ -387,9 +407,9 @@ Proof using.
     { (* spec assumed! *) xvals*. } { xapp. xsimpl*. } }
   (* Variants with names in the goal *)
   { xfun as. intros f Hf. skip. }
-  { xfun (fun f => SPEC (f tt) PRE \[] POST \[=3]) as.
+  { xfun (fun f => SPEC (f tt) PRE \[] POST \[=3]) as. 
     { xvals*. } { intros f Sf. xapp. xsimpl*. } }
-  { sets Sg: (fun g => SPEC (g tt) PRE \[] POST \[=3]).
+  { sets Sg: (fun g => SPEC (g tt) PRE \[] POST \[=3]). 
     xfun Sg as. { xvals*. } { intros f Sf. xapp Sf. xsimpl*. } }
   { xfun_rec (fun g => SPEC (g tt) PRE \[] POST \[=3]) as.
     { intros f Bf. apply Bf. xvals*. } { intros f Sf. xapp. xsimpl*. } }
@@ -399,21 +419,25 @@ Proof using.
     { intros f IH. (* spec assumed! *) xvals*. } { intros f Sf. xapp. xsimpl*. } }
 Qed.
 
+(* TODO: move *)
+Ltac xapp_common tt ::=
+  match goal with |- ?S -> _ =>
+  match S with
+  | Wpgen_body _ => 
+    first [ xapp_exploit_body tt
+          | fail 2 "xapp_exploit_body failed" ]
+  | _ =>
+    first [ xapp_exploit_spec xapps_lemma xapp_simpl
+          | xapp_exploit_spec xapps_lemma_pure xapp_simpl
+          | xapp_exploit_spec xapp_lemma xapp_simpl ]
+  end end.
+
 Lemma let_fun_poly_id_spec :
   SPEC (let_fun_poly_id tt)
     PRE \[]
     POST \[= 3].
 Proof using.
-  xcf. xfun. dup 2.
-  { xapp. xval. xsimpl~. }
-  { xapp1.
-    xapp2.
-    dup 5.
-    { apply Spec. xvals. auto. }
-    { xapp3_no_apply. 2:{ apply S. } xvals. auto. }
-    { xapp3_no_simpl. xvals~. skip. skip. }
-    { xapp3. xvals~. }
-    { xapp. xval. xsimpl~. } }
+  xcf. xfun. xapp. xval. xsimpl~.
 Abort.
 
 Lemma let_fun_poly_pair_homogeneous_spec :
@@ -428,6 +452,29 @@ Proof using.
   xsimpl~.
 Qed.
 
+(* TODO: move *)
+Notation "'App' f x1 x2 .. xn" :=
+ ((*Wptag*) (Wpgen_App_typed _ f (cons (Dyn x1) (cons (Dyn x2) .. (cons (Dyn xn) nil) ..))))
+  (in custom wp at level 68,
+   f constr at level 0,
+   x1 constr at level 0,
+   x2 constr at level 0,
+   xn constr at level 0) (* TODO: format *)
+  : wp_scope.
+
+
+Ltac xtypes_goal tt ::=
+  idtac "=== type of application in goal ===";
+  match xgoal_code_without_wptag tt with ?E => xtypes_triple E end.
+
+Ltac xapp_exploit_body tt ::=
+  let S := fresh "Spec" in
+  intro S;
+  eapply xtriple_inv_lifted_lemma;
+  eapply S;
+  clear S.
+
+
 Lemma let_fun_on_the_fly_spec :
   SPEC (let_fun_on_the_fly tt)
     PRE \[]
@@ -435,32 +482,83 @@ Lemma let_fun_on_the_fly_spec :
 Proof using.
   xcf.
   xfun.
-  xfun.
-  xapp.
-  xapp.
-  xval.
-  xsimpl~.
+  xfun. dup 3.
+  { xapp. xapp. xvals*. }
+  (* Implementation details *)
+  { xtriple_inv. eapply Spec_f0__. skip. }
+  { gen Spec_f0__. xapp_exploit_body tt. skip. }
+Abort.
+
+
+Ltac xlet_pre tt :=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_let_typed _ _) => idtac
+  end.
+
+Ltac xlet_core tt ::=
+  xlet_pre tt;
+  xlet_typed tt.
+
+
+Lemma Structural_conseq : forall A (EA:Enc A) (Q':A->hprop) (F:Formula) H Q,
+  Structural F ->
+  H ==> ^F Q ->
+  Q ===> Q' ->
+  H ==> ^F Q'.
+Proof using. introv L M W. applys* structural_conseq. Qed.
+
+
+Lemma xlet_lemma_typed_post : forall A1 (EA1:Enc A1) (Q1:A1->hprop) H A (EA:Enc A) (Q:A->hprop) ,
+  forall (F1:Formula) (F2of:A1->Formula),
+  Structural F1 ->
+  H ==> F1 A1 EA1 Q1 ->
+  (forall (X:A1), Q1 X ==> (F2of X) A EA Q) ->
+  H ==> ^(@Wpgen_let_typed F1 A1 EA1 (@F2of)) Q. (* TODO: EA1 is not guessed right *)
+Proof using.
+  introv HF1 M1 M2. applys MkStruct_erase. xchange M1.
+  applys* Structural_conseq.
 Qed.
 
+Ltac xlet_post_core Q :=
+  xlet_pre tt;
+  applys (@xlet_lemma_typed_post _ _ Q); [ try xstructural | | ].
+
+Tactic Notation "xlet" constr(Q) :=
+  xlet_post_core Q.
+
+(* TODO: auto introduce the name of xlet *)
+
+(* TODO: Trm_vals should take a val as argument, to avoid coercions.. *)
+
+
+(* TODO: includes a let-term demo *)
 Lemma let_fun_in_let_spec :
   SPEC (let_fun_in_let tt)
     PRE \[]
-    POST (fun g => \[ forall A (x:A), SPEC (g x) \[] \[= x] ]).
+    POST (fun g => \[ forall A (x:A), SPEC (g x) PRE \[] POST \[= x] ]).
 Proof using.
-  xcf. xlet (fun g => \[ forall A (x:A), SPEC (g x) \[] \[= x] ]).
+  xcf. dup 3.
+  { xlet (fun (g:val) => \[ forall A `{EA:Enc A} (x:A), True ]).
+    xseq. xassert.
+  }
+  (* Implementation details *)
+  { xlet_pre tt.
+    set (Q:=(fun (g:val) => \[ forall A `{EA:Enc A} (x:A), True ])).
+    applys (@xlet_lemma_typed_post _ _ Q). xstructural. skip. skip. }
+
+    xlet Q.
+
+
+xlet (fun (g:val) => \[ forall A `{EA:Enc A} (x:A), True ]).
+(* SPEC (g x) PRE \[] POST \[= x]*)
     (* TODO: use [xpush] *)
   { xassert. { xval. }
     xfun. xvals. =>>. xapp. xvals~. }
   { =>> M. xvals~. }
 Qed.
 
-Lemma let_fun_in_let_spec' :
-  SPEC (let_fun_in_let tt)
-   PRE \[]
-   POST (fun g => \[ forall A (x:A), SPEC (g x) \[] \[= x] ]).
-Proof using.
-  xcf.
-Abort.
+
+
 
 
 (********************************************************************)

@@ -26,6 +26,16 @@ let app_let_local_myincr x =
      n + 1 in
   local_myincr x
 
+let app_let_local_myincr2 x =
+  let local_myincr1 n =
+     0  in
+  let local_myincr n =
+     n  in
+  let local_myincr2 n =
+     0  in
+  local_myincr x
+
+
 
 (********************************************************************)
 (* ** Values *)

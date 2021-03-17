@@ -641,6 +641,11 @@ Tactic Notation "xseq" :=
 (*--------------------------------------------------------*)
 (* ** [xletval] and [xletvals] *)
 
+(* TODO: need more coherence because
+      xletfun is xfun
+      xletval is not xval...
+      xlet can handle xletval but not xfun... *)
+
 (** [xletval] is used to reason on a let-value node, i.e. on a goal
     of the form [H ==> (Val x := v in F1) Q].
     It introduces [x] and [Px: x = v], and leaves (H ==> F1 Q)].
@@ -712,17 +717,14 @@ Proof using. introv M. applys MkStruct_erase. xsimpl* A1 EA1. Qed.
 
 Definition xlet_typed_lemma := @MkStruct_erase.
 
-Ltac xlet_poly tt :=
-  notypeclasses refine (xlet_lemma _ _ _ _ _).
-
-Ltac xlet_typed tt :=
-  applys xlet_typed_lemma.
+Ltac xlet_pre tt :=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_let_typed _ _) => idtac
+  end.
 
 Ltac xlet_core tt :=
-  match xgoal_code_without_wptag tt with
-  | (Wpgen_let_typed _ _) => xlet_typed tt
-  | (Wpgen_let _ _) => xlet_poly tt
-  end.
+  xlet_pre tt;
+  xlet_typed tt.
 
 Tactic Notation "xlet" :=
   first [ xlet_core tt
@@ -961,6 +963,7 @@ Ltac xapp_exploit_body tt :=
   clear S.
 
 Ltac xapp_common tt :=
+  (* TODO: create a function isspec wpgen_body *)
   match goal with |- ?S -> _ =>
   match S with
   | Wpgen_body _ => xapp_exploit_body tt
@@ -1021,6 +1024,7 @@ Tactic Notation "xapp" "*" constr(E) :=
 Ltac xapp_nosubst_core tt :=
   xapp_pre tt;
   xspec;
+  (* TODO: raise error if spec is a Wpgen_body *)
   xapp_exploit_spec @xapp_lemma xapp_simpl.
 
 Tactic Notation "xapp_nosubst" :=
