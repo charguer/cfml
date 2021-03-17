@@ -1,4 +1,4 @@
-name: "coq-cfml-basis"
+name: "coq-cfml-stdlib"
 opam-version: "2.0"
 maintainer: "arthur.chargueraud@inria.fr"
 
@@ -7,21 +7,22 @@ dev-repo: "git+https://github.com/charguer/tlc.git"
 bug-reports: "https://github.com/charguer/tlc/issues"
 license: "MIT"
 
-synopsis: "The CFML Basis library"
+synopsis: "The CFML standard library"
 description: """
-This library provides theoretical foundations for the CFML tool.
+This library provides CFML specifications for a subset of the OCaml standard library.
 """
 
-build: [make "-j%{jobs}%"]
-install: [make "install"]
+build: [make "-C" "lib/stdlib" "-j%{jobs}%"]
+install: [make "-C" "lib/stdlib" "install"]
 depends: [
   "coq" { >= "8.12" }
-  "coq-tlc" { >= "20210316" }
+  "cfml" { = version }
+  "coq-cfml-basis" { = version }
 ]
 
 tags: [
   "date:DATEDASH"
-  "logpath:CFML"
+  "logpath:CFML.Stdlib"
   "category:Computer Science/Programming Languages/Formal Definitions and Theory"
   "keyword:program verification"
   "keyword:separation logic"
