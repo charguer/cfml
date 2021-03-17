@@ -1,0 +1,7 @@
+*.md                    export-ignore
+*.opam                  export-ignore
+examples                export-ignore
+export                  export-ignore
+extra                   export-ignore
+lib/ocaml               export-ignore
+theories                export-ignore
