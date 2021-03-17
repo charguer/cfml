@@ -99,8 +99,7 @@ Lemma size_spec : forall A `{EA:Enc A} (L:list A) (s:loc),
     INV (s ~> Stack L)
     POST (fun n => \[n = length L]).
 Proof using.
-  xcf. applys Enc_unit. (* TODO? *)
-  xopen s. xpull ;=> n Hn.
+  xcf. xopen s. xpull ;=> n Hn.
   xapp. xclose* s. xsimpl*.
 Qed.
 
@@ -123,8 +122,7 @@ Proof using.
      Also use [xcf], [xpull], [xapps], [xrets],
      and lemma [length_zero_iff_nil] from above. *)
   (* <EXO> *)
-  xcf. applys Enc_unit. (* TODO? *)
-  xopen s. xpull ;=> n Hn. xapp. xclose* s.
+  xcf. xopen s. xpull ;=> n Hn. xapp. xclose* s.
   xvals. subst. apply length_zero_iff_nil.
   (* </EXO> *)
   auto.

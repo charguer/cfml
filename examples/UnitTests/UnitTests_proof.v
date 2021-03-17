@@ -629,7 +629,7 @@ Proof using.
     SPEC (f x) 
       PRE \[]
       POST \[= isTrue (x = 0)]).
-  { xvals*. iff*. } (* TODO: why xvals* fails? *)
+  { xvals*. }
   xapp.
   xlet \[=true].
   (* TODO
@@ -662,7 +662,7 @@ Proof using.
   xcf.
   xfun (fun f => forall (x:int),
     SPEC (f x) PRE \[] POST \[= isTrue (x = 0)]).
-  { xvals*. iff*. }
+  { xvals*. }
   xlet \[= true].
   (* TODO
   { xif. xapp. xors. xapp. xvals. autos*. }
@@ -922,33 +922,6 @@ Qed.
 (********************************************************************)
 (** ** Assertions *)
 
-Ltac xstep_once tt ::= (* TODO *)
-  match goal with
-  | |- ?G => match xgoal_code_without_wptag tt with
-    | (Wpgen_seq _ _) => xseq
-    | (Wpgen_let_typed _ _) => xlet
-    | (Wpgen_let _ _) => xlet
-    | (Wpgen_let_Val _ _) => xletval
-    | (Wpgen_app _) => xapp
-    | (Wpgen_App_typed _ _ _) => xapp
-    | (Wpgen_if_bool _ _ _) => xif
-    | (Wpgen_val _) => xval
-    | (Wpgen_Val _) => xval
-    | (Wpgen_Val_no_mkstruct _) => xcast
-    | (Wpgen_fail) => xfail
-    | (Wpgen_done) => xdone
-    | (Wpgen_case _ _ _) => xcase
-    | (Wpgen_match _) => xmatch
-    | (Wpgen_assert _) => xassert
-    | ?F => check_is_Wpgen_record_alloc F; xapp
-    (* | (Wpgen_case _ _ _) => xcase *)
-    end
-  | |- Triple _ _ _ => xapp
-  | |- _ ==> _ => xsimpl
-  | |- _ ===> _ => xsimpl
-  end.
-
-
 Lemma assert_true_spec :
   SPEC (assert_true tt)
     PRE \[]
@@ -1042,76 +1015,6 @@ Proof using.
   { false*. } (* don't try to automate this for now *)
   { xapp. xif ;=> C2. { false*. } { xvals*. } }
 Qed.
-
-
-(* [xseq Q] *)
-
-Lemma xseq_lemma_typed_post : forall (H1:hprop) H A (EA:Enc A) (Q:A->hprop) ,
-  forall (F1:Formula) (F2:Formula),
-  Structural F1 ->
-  H ==> ^F1 (fun (_:unit) => H1) ->
-  (H1 ==> ^F2 Q) ->
-  H ==> ^(@Wpgen_seq F1 F2) Q. (* TODO: EA1 is not guessed right *)
-Proof using.
-  introv HF1 M1 M2. applys MkStruct_erase. xchange M1.
-  applys* Structural_conseq. xchanges M2.
-Qed.
-
-Ltac xseq_arg_core H :=
-  eapply (@xseq_lemma_typed_post H); [ xstructural | | ].
-
-Tactic Notation "xseq" constr(H) :=
-  xseq_arg_core H.
-
-
-Lemma xifval_lemma : forall A `{EA:Enc A} (Q:A->hprop) b H (F1 F2:Formula),
-  (b = true -> H ==> ^F1 Q) ->
-  (b = false -> H ==> ^F2 Q) ->
-  H ==> ^(Wpgen_if_bool b F1 F2) Q.
-Proof using. introv E N. applys MkStruct_erase. case_if*. Qed.
-
-Lemma xifval_lemma_isTrue : forall A `{EA:Enc A} (Q:A->hprop) (P:Prop) H (F1 F2:Formula),
-  (P -> H ==> ^F1 Q) ->
-  (~ P -> H ==> ^F2 Q) ->
-  H ==> ^(Wpgen_if_bool (isTrue P) F1 F2) Q.
-Proof using. introv E N. applys MkStruct_erase. case_if*. Qed.
-
-
-Ltac xpost_arg_core Q :=
-  let Q := match type of Q with 
-           | hprop => constr:(fun (_:unit) => Q) 
-           | _ => constr:(Q)
-           end in
-  eapply (@xpost_lemma _ _ Q); [ xstructural | | ].
-
-Tactic Notation "xpost" constr(Q) :=
-  xpost_arg_core Q.
-
-Ltac xpost_core tt :=
-  eapply (@xpost_lemma); [ xstructural | | ].
-
-Tactic Notation "xpost" :=
-  xpost_core tt.
-
-
-(* LATER: alternative implementation where xpost is called first 
-Ltac xif_arg_post Q :=
-  xif_pre tt;
-  first [ applys (@xifval_lemma_isTrue _ _ Q)
-        | applys (@xifval_lemma _ _ Q) ];
-  xif_post tt.
-
-Ltac xif_arg_core Q :=
-  first [ xif_arg_post Q
-        | xif_arg_post (fun (_:unit) => Q) ]. (* case where [Q] is an [H] *)
-*)
-Ltac xif_arg_core Q :=
-  xlet_xseq_xcast_repeat tt;
-  xpost Q; [ xif_core tt | ].
-
-Tactic Notation "xif" constr(Q) :=
-  xif_arg_core Q.
-
 
 Lemma if_then_no_else_spec : forall (b:bool),
   SPEC (if_then_no_else b)

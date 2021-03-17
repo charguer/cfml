@@ -34,7 +34,7 @@ Parameter infix_eq_eq_loc_spec : forall (a b:loc),
     PRE \[]
     POST \[= isTrue (a = b) ].
 
-Parameter infix_eq_eq_gen_spec : forall (A:Type) (a b:A),
+Parameter infix_eq_eq_gen_spec : forall (A:Type) `{EA:Enc A} (a b:A),
   SPEC (infix_eq_eq__ a b)
     PRE \[]
     POST (fun r => \[r = true -> isTrue (a = b)]).
@@ -67,7 +67,7 @@ Hint Extern 1 (RegisterSpec infix_emark_eq__) => Provide infix_emark_eq_loc_spec
 (************************************************************)
 (** Comparison *)
 
-Parameter infix_eq_spec : forall A (a b : A),
+Parameter infix_eq_spec : forall A `{EA:Enc A} (a b : A),
   (polymorphic_eq_arg a \/ polymorphic_eq_arg b) ->
   SPEC (infix_eq__ a b)
     PRE \[]
@@ -75,7 +75,7 @@ Parameter infix_eq_spec : forall A (a b : A),
 
 Hint Extern 1 (RegisterSpec infix_eq__) => Provide infix_eq_spec.
 
-Parameter infix_neq_spec : forall A (a b : A),
+Parameter infix_neq_spec : forall A `{EA:Enc A} (a b : A),
   (polymorphic_eq_arg a \/ polymorphic_eq_arg b) ->
   SPEC (infix_lt_gt__ a b)
     PRE \[]
@@ -382,6 +382,7 @@ Axiom ref_spec_group : forall A (M:map loc A) (v:A),
     PRE (Group Ref M)
     POST (fun (r:loc) => Group Ref (M[r:=v]) \* \[r \notindom M]).
 (* TODO: proof *)
+(* TODO: add Enc A *)
 
 Lemma infix_emark_spec_group : forall `{Inhab A} (M:map loc A) r,
   r \indom M ->

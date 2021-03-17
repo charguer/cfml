@@ -987,7 +987,7 @@ Lemma Triple_match : forall v p t1 pts H `{EA:Enc A} (Q:A->hprop),
   ((forall (G:ctx), Ctx.dom G = patvars p -> v <> patsubst G p) -> Triple (trm_match v pts) H Q) ->
   Triple (trm_match v ((p,t1)::pts)) H Q.
 Proof using.
-  introv M1 M2. applys* triple_match.
+  introv M1 M2. applys triple_match.
   { introv HG Hv. applys* M1. }
   { introv HG Hv. applys* M2. }
 Qed.

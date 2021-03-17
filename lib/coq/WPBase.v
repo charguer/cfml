@@ -653,7 +653,7 @@ Proof using.
     { clears Q. applys qimpl_wp_of_triple. intros Q.
       applys triple_while_raw. apply~ triple_of_wp.
       applys* wpgen_sound_if_trm t1 (trm_seq t2 (trm_while t1 t2)) val_unit.
-      { applys* wpgen_sound_seq. eauto. }
+      { applys* wpgen_sound_seq. }
       { intros Q'. applys wpgen_sound_val. } } }
   { apply~ triple_of_wp. }
 Qed.

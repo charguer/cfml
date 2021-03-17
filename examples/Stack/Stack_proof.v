@@ -27,28 +27,27 @@ Proof using. auto. Qed.
 (* ********************************************************************** *)
 (** ** Verification *)
 
-(* TODO: not working
-Ltac xcf_top_fun tt ::=
-  let f := xcf_target tt in
-  xcf_find f;
-  let Sf := fresh "Spec" in
-  intros Sf;
-  eapply Sf;
-  clear Sf;
-  instantiate;
-  try solve_type.
-*)
-
 Lemma create_spec : forall A `{Enc A},
   SPEC (create tt)
     PRE \[]
     POST (fun p => (p ~> Stack (@nil A))).
 Proof using.
   xcf. xapp. xsimpl.
-  Unshelve. solve_type. typeclass.
+  (* TODO: how to avoid the Unshelve? *)
+  Unshelve. xend. xend.
 Qed.
 
 Hint Extern 1 (RegisterSpec create) => Provide create_spec.
+
+
+Parameter infix_eq_spec : forall A `{EA:Enc A} (a b : A),
+  (polymorphic_eq_arg a \/ polymorphic_eq_arg b) ->
+  SPEC (infix_eq__ a b)
+    PRE \[]
+    POST \[= isTrue (a = b) ].
+
+Hint Extern 1 (RegisterSpec infix_eq__) => Provide infix_eq_spec.
+
 
 Lemma is_empty_spec : forall A `{Enc A} (p:loc) (L:list A),
   SPEC (is_empty p)
@@ -56,7 +55,7 @@ Lemma is_empty_spec : forall A `{Enc A} (p:loc) (L:list A),
     POST (fun (b:bool) => \[b = isTrue (L = nil)] \* p ~> Stack L).
 Proof using.
   xcf. xunfold Stack. xapp. (* TODO xapp_types. infix_eq_spec. xapp~. xsimpl*. *)
-  skip.
+  xapp. xpolymorphic_eq. xsimpl*.
 Qed.
 
 Hint Extern 1 (RegisterSpec is_empty) => Provide is_empty_spec.

@@ -1523,3 +1523,5 @@ Qed.
 
 End TripleLowLevel.
 
+(** Restore default tactic *)
+Ltac auto_star ::= auto_star_default.

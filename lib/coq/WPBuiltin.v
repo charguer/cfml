@@ -27,8 +27,7 @@ Definition func : Type := val.
 (********************************************************************)
 (* Polymorphic comparison *)
 
-(* TODO: check if still needed *)
-
+(* TODO: study the link with Comparable typeclass *)
 
 (** Values that support polymorphic comparison *)
 

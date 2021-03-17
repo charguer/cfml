@@ -359,11 +359,17 @@ Ltac xtypes_hyp S :=
 
  (* TODO: extend to support partial application *)
 
-Ltac solve_enc_type :=
+Ltac solve_enc tt :=
   match goal with |- Enc _ => exact Enc_unit end.
 
-(* DEPRECATED Ltac solve_type :=
-  match goal with |- Type => exact unit end. *)
+Ltac solve_type tt :=
+  match goal with |- Type => exact unit end.
+
+Ltac xend_core tt :=
+  try first [ solve_enc tt | solve_type tt ].
+
+Tactic Notation "xend" :=
+  xend_core tt.
 
 (* NEEDED?
 Ltac remove_head_unit tt :=
@@ -373,7 +379,7 @@ Ltac remove_head_unit tt :=
 
 Ltac xcf_post tt :=
   instantiate;
-  try solve_enc_type.
+  try solve_enc tt.
   (* DEPRECATED
   cbv beta;
   remove_head_unit tt.
@@ -646,6 +652,26 @@ Tactic Notation "xseq" :=
   xseq_core tt.
 
 
+(* [xseq Q] *)
+
+Lemma xseq_lemma_typed_post : forall (H1:hprop) H A (EA:Enc A) (Q:A->hprop) ,
+  forall (F1:Formula) (F2:Formula),
+  Structural F1 ->
+  H ==> ^F1 (fun (_:unit) => H1) ->
+  (H1 ==> ^F2 Q) ->
+  H ==> ^(@Wpgen_seq F1 F2) Q. (* TODO: EA1 is not guessed right *)
+Proof using.
+  introv HF1 M1 M2. applys MkStruct_erase. xchange M1.
+  applys* Structural_conseq. xchanges M2.
+Qed.
+
+Ltac xseq_arg_core H :=
+  eapply (@xseq_lemma_typed_post H); [ xstructural | | ].
+
+Tactic Notation "xseq" constr(H) :=
+  xseq_arg_core H.
+
+
 (*--------------------------------------------------------*)
 (* ** [xletval] and [xletvals] *)
 
@@ -812,11 +838,26 @@ Proof using. introv M W. applys* structural_conseq. Qed.
 
 Arguments xpost_lemma : clear implicits.
 
-Ltac xpost_core Q :=
-  applys (@xpost_lemma _ _ Q); [ xstructural | | ].
+
+(* [xpost] *)
+
+Ltac xpost_core tt :=
+  eapply (@xpost_lemma); [ xstructural | | ].
+
+Tactic Notation "xpost" :=
+  xpost_core tt.
+
+(* [xpost Q] *)
+
+Ltac xpost_arg_core Q :=
+  let Q := match type of Q with
+           | hprop => constr:(fun (_:unit) => Q)
+           | _ => constr:(Q)
+           end in
+  eapply (@xpost_lemma _ _ Q); [ xstructural | | ].
 
 Tactic Notation "xpost" constr(Q) :=
-  xpost_core Q.
+  xpost_arg_core Q.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1536,6 +1577,8 @@ Proof using. introv E N. applys MkStruct_erase. case_if*. Qed.
 Ltac xif_post tt :=
   xcleanup.
 
+(** [xif] *)
+
 Ltac xif_core tt :=
   xif_pre tt;
   first [ applys @xifval_lemma_isTrue
@@ -1544,6 +1587,15 @@ Ltac xif_core tt :=
 
 Tactic Notation "xif" :=
   xif_core tt.
+
+(** [xif Q] or [xif H] *)
+
+Ltac xif_arg_core Q :=
+  xlet_xseq_xcast_repeat tt;
+  xpost Q; [ xif_core tt | ].
+
+Tactic Notation "xif" constr(Q) :=
+  xif_arg_core Q.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -2519,6 +2571,7 @@ Ltac xstep_once tt :=
     | (Wpgen_seq _ _) => xseq
     | (Wpgen_let_typed _ _) => xlet
     | (Wpgen_let _ _) => xlet
+    | (Wpgen_let_Val _ _) => xletval
     | (Wpgen_app _) => xapp
     | (Wpgen_App_typed _ _ _) => xapp
     | (Wpgen_if_bool _ _ _) => xif
@@ -2529,9 +2582,9 @@ Ltac xstep_once tt :=
     | (Wpgen_done) => xdone
     | (Wpgen_case _ _ _) => xcase
     | (Wpgen_match _) => xmatch
+    | (Wpgen_assert _) => xassert
     | ?F => check_is_Wpgen_record_alloc F; xapp
     (* | (Wpgen_case _ _ _) => xcase *)
-    (* TODO complete *)
     end
   | |- Triple _ _ _ => xapp
   | |- _ ==> _ => xsimpl
