@@ -16,3 +16,6 @@ README.html
 export/*/*.tar.gz
 export/*/slf
 settings.sh
+_build
+dune-workspace.versions
+*.install
