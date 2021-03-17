@@ -1438,3 +1438,6 @@ Notation "'Body' f B v1 ':=' F1" :=
   format "'[v' '[' 'Body'  f  B  v1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
  *)
 
+
+
+(* TODO notation SPECVAL f = v and SPECVAL f st P *)

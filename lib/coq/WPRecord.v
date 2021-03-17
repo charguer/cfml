@@ -577,9 +577,9 @@ Fixpoint fields_check (ks:fields) (L:Record_fields) : bool :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xapp_record_get] *)
 
-(* Binding for use by [xapp] in case the precondition contains [ p`.f ~~> ?V ] *)
+(* Binding for use by [xapp] in case the precondition contains [ p`.f ~~> ?V ]
 Hint Extern 1 (Register_Spec (val_get_field _)) => Provide @Triple_get_field.
-
+ *)
 (* Test to detect whether the precondition contains [ p`.f ~~> ?V ] *)
 Ltac xapp_record_get_find_single_field tt :=
   match goal with
@@ -609,10 +609,10 @@ Ltac xapp_record_get tt :=
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic [xapp_record_set] *)
 
-(* Similar construction as for [xapp_record_get] *)
+(* Similar construction as for [xapp_record_get]
 
 Hint Extern 1 (Register_Spec (val_set_field _)) => Provide @Triple_set_field_Decode.
-
+ *)
 Ltac xapp_record_set_find_single_field tt :=
   match goal with
   |- ?H ==> @Wptag (Wpgen_app (trm_apps (trm_val (val_set_field ?f)) (trms_vals ((val_loc ?p)::?W::nil)))) ?A ?EA ?Q =>
@@ -674,6 +674,7 @@ Lemma xapp_record_new_noarg : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fiel
   H ==> ^(Wpgen_app (trm_apps (trm_val (val_record_init ks)) (trms_vals vs))) Q.
 Proof using. introv HN HE HD EQ HI. unfolds Decodes. applys* xapp_record_new. Qed.
 
+(* DEPRECATED
 Ltac xnew_core_noarg tt :=
   applys xapp_record_new_noarg;
   [ try reflexivity
@@ -687,6 +688,7 @@ Ltac xapp_record_new tt :=
 
 Tactic Notation "xnew" :=
   xnew_core_noarg tt.
+*)
 
 (* An implementation of [xnew_post] that can be used to expose fields one by one
    instead of generating [p ~> Record ?L]. To activate, use:
@@ -857,7 +859,7 @@ Ltac xapp_record tt ::= (* initial dummy binding located in WPTactics *)
       match f with
       | val_get_field _ => xapp_record_get tt
       | val_set_field _ => xapp_record_set tt
-      | val_record_init _ => xapp_record_new tt (* TODO redundant? *)
+      (* DEPRECATED | val_record_init _ => xapp_record_new tt (* TODO redundant? *)*)
       | val_record_delete _ => xapp_record_delete tt
       end
   end.

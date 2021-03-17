@@ -16,12 +16,6 @@ Open Scope record_scope.
 (************************************************************)
 (** Registering of specifications of lifted applications *)
 
-(* TODO: DEPRECATED
-Notation "'RegisterSpec' f" :=
-  (Register_goal (Triple (Trm_apps f _) _ _))
-  (at level 69) : wptactics_scope.
-*)
-
 Notation "'RegisterSpec' f" := (Register database_spec f)
   (at level 69) : wptactics_scope.
 

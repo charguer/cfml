@@ -52,14 +52,14 @@ Lemma app_let_local_myincr : forall n,
   SPEC (app_let_local_myincr n)
     PRE \[]
     POST \[= n + 1].
-Proof using. 
+Proof using.
   xcf. xfun.
   dup 6.
   { xapp. xval. skip. }
   { xspec_show_fun. skip. }
   { xapp_spec. skip. }
   (* Tests for implementation details *)
-  { let f := xspec_get_fun tt in xspec_context f. skip. }
+  { let f := xgoal_fun tt in xspec_context f. skip. }
   { xspec. intros S. eapply xtriple_inv_lifted_lemma. applys S. skip. }
   { xspec. xapp_exploit_body tt. skip. }
 Qed.
@@ -78,12 +78,12 @@ Notation "'Body' { B1 } f v1 ':=' F1" :=
   format "'[v' '[' 'Body'  { B1 }  f   v1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 *)
 
-  (* TODO: understand why the Body notation does not trigger for the second function. *) 
+  (* TODO: understand why the Body notation does not trigger for the second function. *)
 Lemma app_let_local_myincr2 : forall n,
   SPEC (app_let_local_myincr2 n)
     PRE \[]
     POST \[= n + 1].
-Proof using. 
+Proof using.
   xcf.
 Abort.
 
@@ -392,10 +392,10 @@ Lemma let_fun_const_spec :
 Proof using.
   xcf. dup 12.
   (* Variants with names introduced *)
-  { xfun. (* TODO: xapp *) skip. (* TODO: dev xtriple_inv. apply Spec_f. xvals*. *) } 
-  { xfun (fun f => SPEC (f tt) PRE \[] POST \[=3]). 
+  { xfun. (* TODO: xapp *) skip. (* TODO: dev xtriple_inv. apply Spec_f. xvals*. *) }
+  { xfun (fun f => SPEC (f tt) PRE \[] POST \[=3]).
     { xvals*. } { xapp. xsimpl*. } }
-  { sets Sg: (fun g => SPEC (g tt) PRE \[] POST \[=3]). 
+  { sets Sg: (fun g => SPEC (g tt) PRE \[] POST \[=3]).
     xfun Sg. { xvals*. } { xapp Spec_f. xsimpl*. } }
   { xfun_rec (fun g => SPEC (g tt) PRE \[] POST \[=3]).
     { apply Body_f. xvals*. } { xapp. xsimpl*. } }
@@ -405,9 +405,9 @@ Proof using.
     { (* spec assumed! *) xvals*. } { xapp. xsimpl*. } }
   (* Variants with names in the goal *)
   { xfun as. intros f Hf. skip. }
-  { xfun (fun f => SPEC (f tt) PRE \[] POST \[=3]) as. 
+  { xfun (fun f => SPEC (f tt) PRE \[] POST \[=3]) as.
     { xvals*. } { intros f Sf. xapp. xsimpl*. } }
-  { sets Sg: (fun g => SPEC (g tt) PRE \[] POST \[=3]). 
+  { sets Sg: (fun g => SPEC (g tt) PRE \[] POST \[=3]).
     xfun Sg as. { xvals*. } { intros f Sf. xapp Sf. xsimpl*. } }
   { xfun_rec (fun g => SPEC (g tt) PRE \[] POST \[=3]) as.
     { intros f Bf. apply Bf. xvals*. } { intros f Sf. xapp. xsimpl*. } }
@@ -458,8 +458,8 @@ Lemma let_fun_in_let_spec :
     POST (fun g => \[ forall A (x:A), SPEC (g x) PRE \[] POST \[= x] ]).
 Proof using.
   xcf. dup 2.
-  { xlet (fun g => \[ forall A `{EA:Enc A} (x:A), SPEC (g x) PRE \[] POST \[= x] ]).
-    { xassert. { xvals*. } 
+  { xlet (fun g => \[ forall A (EA:Enc A) (x:A), SPEC (g x) PRE \[] POST \[= x] ]).
+    { xassert. { xvals*. }
       xfun. xval. xsimpl. intros. xapp. xvals*. }
     xpull. intros f Hf. xvals*. }
   (* Implementation details *)
@@ -491,7 +491,7 @@ Lemma let_term_nested_pairs_calls_spec :
     POST \[= ((1,2),(3,(4,5))) ].
 Proof using.
   xcf.
-  xfun (fun f => forall A {EA:Enc A} B {EB:Enc B} (x:A) (y:B),
+  xfun (fun f => forall A (EA:Enc A) B (EB:Enc B) (x:A) (y:B),
           SPEC (f x y) PRE \[] POST \[= (x,y)]).
   { xvals~. }
   xapp. (* TODO: improve error on missing EA *)
@@ -600,7 +600,8 @@ Lemma infix_minus_minus_minus_spec : forall x y,
     PRE \[]
     POST \[= x + y].
 Proof using.
-  intros. xcf_show. intros S. rewrite S. xapp. xsimpl*.
+  intros. xcf_show. let H := get_last_hyp tt in revert H.
+  intros S. rewrite S. xapp. xsimpl*.
   (* TODO: document? *)
 Qed.
 
@@ -622,11 +623,11 @@ Ltac xauto_tilde ::= xauto_tilde_default ltac:(fun _ => auto_tilde).
 
 Lemma lazyop_term_spec :
   SPEC (lazyop_term tt)
-    PRE \[] 
+    PRE \[]
     POST \[= 1].
 Proof using.
   xcf. xfun (fun f => forall (x:int),
-    SPEC (f x) 
+    SPEC (f x)
       PRE \[]
       POST \[= isTrue (x = 0)]).
   { xvals*. }
@@ -945,7 +946,7 @@ Qed.
 
 Lemma assert_same_spec : forall (x:int),
   SPEC (assert_same x x)
-    PRE \[] 
+    PRE \[]
     POST \[= 3].
 Proof using.
   dup 2.
@@ -1031,7 +1032,7 @@ Proof using.
       { xif (\exists n, \[n >= 0] \* r ~~> n). skip. skip. skip. }
       { xif (fun (_:unit) => \exists n, \[n >= 0] \* r ~~> n). skip. skip. skip. }
       (* Implementation details *)
-      { xpost (fun (_:unit) => \exists n, \[n >= 0] \* r ~~> n). xif. skip. skip. skip. } 
+      { xpost (fun (_:unit) => \exists n, \[n >= 0] \* r ~~> n). xif. skip. skip. skip. }
       { xpost. skip. skip. }
       { xpost (\exists n, \[n >= 0] \* r ~~> n). skip. skip. } }
    xif (\exists n, \[n >= 0] \* r ~~> n); intros Hb.
@@ -1570,7 +1571,7 @@ Qed.
 
 Lemma sitems_push_spec : forall (A:Type) (r:loc) (L:list A) (x:A),
   SPEC (sitems_push x r)
-    PRE (r ~> Sitems L) 
+    PRE (r ~> Sitems L)
     POSTUNIT (r ~> Sitems (x::L)).
 Proof using.
   xcf. xunfold Sitems. xpull ;=> n E.
@@ -1645,7 +1646,7 @@ Ltac auto_tilde ::= auto with maths.
 
 Lemma array_ops_spec :
   SPEC (array_ops tt)
-    PRE \[] 
+    PRE \[]
     POST \[= 3].
 Proof using.
   xcf.
