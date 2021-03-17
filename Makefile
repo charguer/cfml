@@ -91,16 +91,23 @@ unpin:
 # unless DATE is defined on the command line.
 DATE     := $(shell /bin/date +%Y%m%d)
 
-# The project name on gitlab.
-PROJECT  := cfml
-# The opam package name.
-PACKAGE  := coq-$(PROJECT)
+# The repository's name on gitlab.
+PROJECT  := cfml2
 # The repository URL (https).
 REPO     := https://gitlab.inria.fr/charguer/$(PROJECT)
 # The archive URL (https).
 ARCHIVE  := $(REPO)/repository/$(DATE)/archive.tar.gz
 # The local repository directory.
 PWD      := $(shell pwd)
+
+# -------------------------------------------------------------------------
+
+# Simulating the creation of an archive by git.
+
+.PHONY: archive
+archive:
+	@ git archive HEAD --format=tar.gz -o $(DATE).tar.gz --prefix=$(PROJECT)/
+	@ tar tvfz $(DATE).tar.gz
 
 # -------------------------------------------------------------------------
 
