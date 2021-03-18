@@ -520,3 +520,65 @@ Tactic Notation "xvals" "~" uconstr(E) :=
   xvals E; auto_tilde.
 Tactic Notation "xvals" "*" uconstr(E) :=
   xvals E; auto_star.
+
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** Tactic [xcase] *)
+
+
+Lemma xcase_lemma : forall F1 (P:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
+  (H ==> ^F1 Q) ->
+  (P -> H ==> ^F2 Q) ->
+  H ==> ^(Wpgen_case F1 P F2) Q.
+Proof using.
+  introv M1 M2. apply MkStruct_erase. applys himpl_hand_r.
+  { auto. }
+  { applys* hwand_hpure_r_intro. }
+Qed.
+
+Lemma xcase_lemma0 : forall F1 (P1 P2:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
+  (P1 -> H ==> ^F1 Q) ->
+  (P2 -> H ==> ^F2 Q) ->
+  H ==> ^(Wpgen_case (fun A1 (EA1:Enc A1) (Q:A1->hprop) => \[P1] \-* ^F1 Q) P2 F2) Q.
+Proof using.
+  introv M1 M2. applys* xcase_lemma. { applys* hwand_hpure_r_intro. }
+Qed.
+
+Lemma xcase_lemma2 : forall (F1:val->val->Formula) (P1:val->val->Prop) (P2:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
+  (forall x1 x2, P1 x1 x2 -> H ==> ^(F1 x1 x2) Q) ->
+  (P2 -> H ==> ^F2 Q) ->
+  H ==> ^(Wpgen_case (fun A1 (EA1:Enc A1) (Q:A1->hprop) => \forall x1 x2, \[P1 x1 x2] \-* ^(F1 x1 x2) Q) P2 F2) Q.
+Proof using.
+  introv M1 M2. applys* xcase_lemma.
+  { repeat (applys himpl_hforall_r ;=> ?). applys* hwand_hpure_r_intro. }
+Qed.
+
+(* DEPRECATED
+
+Lemma xmatch_lemma_list : forall A `{EA:Enc A} (L:list A) (F1:Formula) (F2:val->val->Formula) H `{HB:Enc B} (Q:B->hprop),
+  (L = nil -> H ==> ^F1 Q) ->
+  (forall X L', L = X::L' -> H ==> ^(F2 ``X ``L') Q) ->
+  H ==> ^(  Case (``L) = ('nil) '=> F1
+         '| Case (``L) = (vX ':: vL') [vX vL'] '=> F2 vX vL'
+         '| Fail) Q.
+Proof using.
+  introv M1 M2. applys xcase_lemma0 ;=> E1.
+  { destruct L; rew_enc in *; tryfalse. applys* M1. }
+  { destruct L; rew_enc in *; tryfalse. applys xcase_lemma2.
+    { intros x1 x2 Hx. inverts Hx. applys* M2. }
+    { intros N. false* N. } }
+Qed.
+*)
+(* conclusion above:
+  H ==> ^(Match_ ``L With
+         '| 'nil '=> F1
+         '| vX ':: vL' [vX vL'] '=> F2 vX vL') Q.
+*)
+
+(* DEPRECATED
+Ltac xcase_post_old H :=
+  try solve [ discriminate | false; congruence ];
+  try (symmetry in H; inverts H; xclean_trivial_eq tt).
+*)
+

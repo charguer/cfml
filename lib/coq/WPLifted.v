@@ -261,9 +261,6 @@ Definition Wpgen_for_downto_int (n1 n2:int) (F1:int->Formula) : Formula :=
     \[   (forall i, structural (S i unit _))
       /\ (forall i (Q':unit->hprop), ^(F i) Q' ==> ^(S i) Q')] \-* (^(S n1) Q))).
 
-Definition Wpgen_alias A1 `{EA1:Enc A1} (V:A1) (Fof:A1->Formula) : Formula :=
-  Wpgen_let_val V Fof.
-
 Definition Wpgen_case (F1:Formula) (P:Prop) (F2:Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
     hand (^F1 Q) (\[P] \-* ^F2 Q)).
@@ -289,6 +286,9 @@ Definition Wpgen_assert (F1:Formula) : Formula :=
 
 Definition Wpgen_body (P:Prop) : Prop :=
   P.
+
+Definition Wpgen_alias (F:Formula) : Formula :=
+  F.
 
 Definition Wpgen_match (F:Formula) : Formula :=
   F.
@@ -1001,7 +1001,7 @@ Notation "'LetVal' x ':=' V 'in' F1" :=
  format "'[v' '[' 'LetVal'  x  ':='  V  'in' ']' '/' '[' F1 ']' ']'") : wp_scope.
 
 Notation "'Alias' x ':=' V 'in' F1" :=
- ((*Wptag*) (Wpgen_alias V (fun x => F1)))
+ ((*Wptag*) (Wpgen_alias (Wpgen_let_val V (fun x => F1))))
  (in custom wp at level 69,
   x ident,
   V constr at level 69,

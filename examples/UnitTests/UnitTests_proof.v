@@ -48,7 +48,7 @@ Lemma app_let_myincr_spec : forall n,
     POST \[= n + 1].
 Proof using. xcf. xapp. xvals*. Qed.
 
-Lemma app_let_local_myincr : forall n,
+Lemma app_let_local_myincr_spec : forall n,
   SPEC (app_let_local_myincr n)
     PRE \[]
     POST \[= n + 1].
@@ -64,6 +64,19 @@ Proof using.
   { xspec. xapp_exploit_body tt. skip. }
 Qed.
 
+(* demo for xstep and xgo *)
+
+Lemma app_let_local_myincr_spec' : forall n,
+  SPEC (app_let_local_myincr n)
+    PRE \[]
+    POST \[= n + 1].
+Proof.
+  dup 4.
+  { xcf. xstep. xstep. xstep. xstep. auto. }
+  { xcf. xstep 2. xstep 2. auto. }
+  { xcf. xgo. auto. }
+  { xcf_go. auto. }
+Qed.
 
 (* This notation works
 Notation "'Body' { B1 } f v1 ':=' F1" :=
@@ -79,7 +92,7 @@ Notation "'Body' { B1 } f v1 ':=' F1" :=
 *)
 
   (* TODO: understand why the Body notation does not trigger for the second function. *)
-Lemma app_let_local_myincr2 : forall n,
+Lemma app_let_local_myincr_spec2 : forall n,
   SPEC (app_let_local_myincr2 n)
     PRE \[]
     POST \[= n + 1].

@@ -344,7 +344,7 @@ Tactic Notation "xtriple_inv" :=
 (** ** Internal tactic [xletval], used by [xlet] *)
 
 (** [xletval] applies to a goal of the form
-    [PRE H CODE (Val x := v in F1) POST Q].
+    [PRE H CODE (LetVal x := v in F1) POST Q].
     It introduces [x] and [Px: x = v], and leaves [PRE H CODE F1 POST Q].
 
     [xletvals] leaves the goal [PRE H CODE F1 POST Q] where [x is] replaced
@@ -354,8 +354,9 @@ Tactic Notation "xtriple_inv" :=
     [forall x, x = v -> (PRE H CODE F1 POST Q)].
 
     [xletval P as] leaves the fresh variables in the goal:
-    [forall x, P x -> (PRE H CODE F1 POST Q)]. *)
-    (* TODO: test [xletval P] *)
+    [forall x, P x -> (PRE H CODE F1 POST Q)].
+
+    [xletval P] is similar but introduces [x] and [P x]. *)
 
 Ltac xletval_pre tt :=
   xcheck_pull tt;
@@ -934,25 +935,25 @@ Arguments xpost_lemma : clear implicits.
 
 (* [xpost] *)
 
-Ltac xpost_core tt :=
+Ltac xpost_core cont :=
   xcheck_pull tt;
-  eapply (@xpost_lemma); [ xstructural | | ].
+  eapply (@xpost_lemma); [ xstructural | cont tt | ].
 
 Tactic Notation "xpost" :=
-  xpost_core tt.
+  xpost_core idcont.
 
 (* [xpost Q] *)
 
-Ltac xpost_arg_post Q :=
+Ltac xpost_arg_post Q cont :=
   match xgoal_post_is_evar tt with
-  | true => eapply (@xpost_lemma_inst _ _ Q)
-  | false => eapply (@xpost_lemma _ _ Q); [ xstructural | | ]
+  | true => eapply (@xpost_lemma_inst _ _ Q); [ cont tt ]
+  | false => eapply (@xpost_lemma _ _ Q); [ xstructural | cont tt | ]
   end.
 
 Ltac xpost_arg_core E :=
   match type of E with
-  | hprop => xpost_arg_post (fun (_:unit) => E)
-  | _ => xpost_arg_post E
+  | hprop => xpost_arg_post (fun (_:unit) => E) idcont
+  | _ => xpost_arg_post E idcont
   end.
 
 Tactic Notation "xpost" constr(E) :=
@@ -1099,6 +1100,7 @@ Tactic Notation "xlets" :=
     appropriate. *)
 
 Ltac xlet_xseq_step tt :=
+  xcheck_pull tt;
   match xgoal_code_without_wptag tt with
   | (Wpgen_let_trm _ _) => xlettrm
   | (Wpgen_let_val _ _) => xletval
@@ -1185,22 +1187,26 @@ Tactic Notation "xvals" "*"  :=
 Ltac xif_call_xapp_first tt := (* defined further in this file *)
   fail.
 
-Ltac xif_pre tt :=
-  (* call other xtactics if needed *)
-  xcheck_pull tt;
+Ltac xlet_xseq_steps_and_xapp_xval_step tt :=
   xlet_xseq_steps tt;
+  xcheck_pull tt; (* TODO: error message might be confusing if this check fails *)
   try match xgoal_code_without_wptag tt with
   | (Wpgen_app _) => xif_call_xapp_first
   | (Wpgen_val _) => xval
-  end;
-  (* check that the goal is ready for [xif] *)
-  xcheck_pull tt;
+  end.
+
+Ltac xif_xmatch_pre tt :=
+  xlet_xseq_steps_and_xapp_xval_step tt;
+  xcheck_pull tt; (* TODO: error message might be confusing if this check fails *)
+  match xgoal_post_is_evar tt with
+  | true => fail 2 "The tactic requires an instantiated postcondition; use [xpost] or pass it as argument."
+  | false => idtac
+  end.
+
+Ltac xif_pre tt :=
+  xif_xmatch_pre tt.
   match xgoal_code_without_wptag tt with
   | (Wpgen_if _ _ _) => idtac
-  end;
-  match xgoal_post_is_evar tt with
-  | true => fail 2 "[xif] requires an instantiated postcondition; use [xif Q] to provided it."
-  | false => idtac
   end.
 
 Lemma xifval_lemma : forall A `{EA:Enc A} b H (Q:A->hprop) (F1 F2:Formula),
@@ -1232,8 +1238,9 @@ Tactic Notation "xif" :=
 (** [xif Q] or [xif H] *)
 
 Ltac xif_arg_core Q :=
-  xlet_xseq_steps tt;
-  xpost Q; [ xif_core tt | ].
+  xlet_xseq_steps_and_xapp_xval_step tt;
+  xcheck_pull tt; (* TODO: error message might be confusing if this check fails *)
+  xpost_core Q ltac:(fun _ => xif_core tt).
 
 Tactic Notation "xif" constr(Q) :=
   xif_arg_core Q.
@@ -2124,6 +2131,11 @@ Tactic Notation "xfor_down_inv_void" :=
 (* ---------------------------------------------------------------------- *)
 (** ** Tactic [xfail] *)
 
+(** [xfail] applies to a goal of the form [PRE H CODE (Fail) POST Q].
+    It turns the goal into [False].
+    It proves the goal if the tactic [false] can prove it. *)
+
+
 Ltac xfail_core tt :=
   xpull;
   pose ltac_mark;
@@ -2142,20 +2154,12 @@ Tactic Notation "xfail" "*" :=
 
 
 (* ---------------------------------------------------------------------- *)
-(** ** [xcleanpat] *)
-
-(** [xcleanpat] is a tactic for removing all the negated
-    pattern assumptions. *)
-
-Ltac xcleanpat_core :=
-  repeat match goal with H: Wpgen_negpat _ |- _ => clear H end.
-
-Tactic Notation "xcleanpat" :=
-  xcleanpat_core.
-
-
-(* ---------------------------------------------------------------------- *)
 (** ** [xdone] *)
+
+(** [xdone] applies to a goal of the form [PRE H CODE (Done) POST Q].
+    It always proves the goal. Such goals correspond to the virtual
+    "catch-all" branch of the pattern matching, in case the pattern
+    matching is recognized as exhaustive by the typechecker. *)
 
 Lemma xdone_lemma : forall A `{EA:Enc A} (Q:A->hprop) H,
   H ==> ^(Wpgen_done) Q.
@@ -2171,38 +2175,82 @@ Tactic Notation "xdone" :=
 
 
 (* ---------------------------------------------------------------------- *)
-(** ** [xalias] -- deal with aliases using [xletval];
-      synonymous tactics are provided *)
+(** ** [xcleanpat] *)
 
-(** See documentation of [xletval]. *)
+(** [xcleanpat] is a tactic for removing all the negated
+    pattern assumptions, which are introduced by [xmatch] or [xcase]. *)
+
+Ltac xcleanpat_core :=
+  repeat match goal with H: Wpgen_negpat _ |- _ => clear H end.
+
+Tactic Notation "xcleanpat" :=
+  xcleanpat_core.
+
+(* ---------------------------------------------------------------------- *)
+(** ** [xalias] *)
+
+(** [xalias] applies to a goal of the form
+    [PRE H CODE (Alias x := v in F1) POST Q]. Aliases are generated by
+    the "as" bindings in patterns. Such a goal is logically equivalent
+    to a let-value, thus [xalias] is essentially another name for [xletval].
+    The following forms are available:
+
+    - [xalias]
+    - [xalias as] to leaves the variable and equality in the goal
+    - [xaliass] to substitute away [x], replacing it with [v]. *)
+
+Lemma xalias_lemma : forall A `{EA:Enc A} (Q:A->hprop) H (F:Formula),
+  H ==> ^F Q.
+  H ==> ^(Wpgen_alias F) Q.
+Proof using. auto. Qed.
 
 Ltac xalias_pre tt :=
   xcheck_pull tt;
   match xgoal_code_without_wptag tt with
-  | (Wpgen_alias _ _) => idtac
+  | (Wpgen_alias _) => idtac
   end.
 
-Ltac xalias_core tt :=
+Ltac xalias_common cont :=
   xalias_pre tt;
-  xletval.
+  eapplys xalias_lemma;
+  cont tt.
 
 Tactic Notation "xalias" :=
-  xalias_core tt.
+  xalias_common ltac:(fun _ => xletval).
 
-Tactic Notation "xalias" "as" := (* TODO: document *)
-  xalias_pre tt;
-  xletval as.
+Tactic Notation "xalias" "as" :=
+  xalias_common ltac:(fun _ => xletval as).
 
-Ltac xalias_subst_core tt :=
-  xalias_pre tt;
-  xletvals.
-
-Tactic Notation "xalias_subst" :=
-  xalias_subst_core tt.
+Tactic Notation "xaliass" :=
+  xalias_common ltac:(fun _ => xletvals).
 
 
 (* ---------------------------------------------------------------------- *)
-(** ** Tactic [xcase] *)
+(** ** [xcase] *)
+
+(** [xcase] applies to a goal of the form
+    [PRE H CODE (Case v is p {x1 x2} Then F1 Else F2) POST Q],
+    arising from a branch of a pattern matching. The tactic produces two subgoals.
+
+    - the first subgoal is [F1 H Q] in a context [forall x1 x2 (E : v = p), ...].
+    - the first subgoal is [F2 H Q] under the hypothesis [(forall x1 x2, v <> p)].
+
+    If a when-clause is involved for testing a boolean expression [b], then the
+    proposition [v = p] becomes [(v = p) /\ b], and the proposition [v <> p] becomes
+    [(v <> p) \/ !b].
+
+    By default, the tactic performs an inversion of [E], to extract information
+    from the successful matching. Use [xcase_no_simpl] to disable this step.
+    Variants:
+
+    - [xcase]
+    - [xcase as H] use default names, except for assumption [E] which is named [H].
+    - [xcase as] leaves all variables and assumptions in the goal
+    - [xcase_no_simpl]
+    - [xcase_no_simpl as H]
+    - [xcase_no_simpl as]. *)
+
+(* TODO: improve naming policy for handling pattern variables *)
 
 Ltac xcase_pre tt :=
   xcheck_pull tt;
@@ -2211,119 +2259,34 @@ Ltac xcase_pre tt :=
   | (Wpgen_case _ _ _) => idtac
   end.
 
-Lemma xcase_lemma : forall F1 (P:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
-  (H ==> ^F1 Q) ->
-  (P -> H ==> ^F2 Q) ->
-  H ==> ^(Wpgen_case F1 P F2) Q.
-Proof using.
-  introv M1 M2. apply MkStruct_erase. applys himpl_hand_r.
-  { auto. }
-  { applys* hwand_hpure_r_intro. }
-Qed.
-
-Lemma xcase_lemma0 : forall F1 (P1 P2:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
-  (P1 -> H ==> ^F1 Q) ->
-  (P2 -> H ==> ^F2 Q) ->
-  H ==> ^(Wpgen_case (fun A1 (EA1:Enc A1) (Q:A1->hprop) => \[P1] \-* ^F1 Q) P2 F2) Q.
-Proof using.
-  introv M1 M2. applys* xcase_lemma. { applys* hwand_hpure_r_intro. }
-Qed.
-
-Lemma xcase_lemma2 : forall (F1:val->val->Formula) (P1:val->val->Prop) (P2:Prop) F2 H `{EA:Enc A} (Q:A->hprop),
-  (forall x1 x2, P1 x1 x2 -> H ==> ^(F1 x1 x2) Q) ->
-  (P2 -> H ==> ^F2 Q) ->
-  H ==> ^(Wpgen_case (fun A1 (EA1:Enc A1) (Q:A1->hprop) => \forall x1 x2, \[P1 x1 x2] \-* ^(F1 x1 x2) Q) P2 F2) Q.
-Proof using.
-  introv M1 M2. applys* xcase_lemma.
-  { repeat (applys himpl_hforall_r ;=> ?). applys* hwand_hpure_r_intro. }
-Qed.
-
-(* DEPRECATED
-
-Lemma xmatch_lemma_list : forall A `{EA:Enc A} (L:list A) (F1:Formula) (F2:val->val->Formula) H `{HB:Enc B} (Q:B->hprop),
-  (L = nil -> H ==> ^F1 Q) ->
-  (forall X L', L = X::L' -> H ==> ^(F2 ``X ``L') Q) ->
-  H ==> ^(  Case (``L) = ('nil) '=> F1
-         '| Case (``L) = (vX ':: vL') [vX vL'] '=> F2 vX vL'
-         '| Fail) Q.
-Proof using.
-  introv M1 M2. applys xcase_lemma0 ;=> E1.
-  { destruct L; rew_enc in *; tryfalse. applys* M1. }
-  { destruct L; rew_enc in *; tryfalse. applys xcase_lemma2.
-    { intros x1 x2 Hx. inverts Hx. applys* M2. }
-    { intros N. false* N. } }
-Qed.
-*)
-(* conclusion above:
-  H ==> ^(Match_ ``L With
-         '| 'nil '=> F1
-         '| vX ':: vL' [vX vL'] '=> F2 vX vL') Q.
-*)
-
-
-(* ---------------------------------------------------------------------- *)
-(** ** [xcase] is the new [xcase] *)
-
-(** [xcase] applies to a goal of the form
-    [(Case v = p1 Then F1 Else F2) H Q]. -- TODO: update syntax
-
-   It produces two subgoals.
-   - the first subgoal is [F1 H Q] with an hypothesis [E : v = p1].
-   - the first subgoal is [F2 H Q] with an hypothesis [E : v <> p1].
-
-   In both subgoals, it attemps deducing false from [E] or inverting [E],
-   by calling the tactic [xcase_post E].
-
-   Variants:
-
-   - [xcase as E] allows to name [E].
-
-   - [xcase_no_simpl] does not attempt inverting [E].
-
-   - [xcase_no_simpl as E] allows to name [E];
-     it does not attempt inverting [E].
-
-   - [xcase_no_intros] can be used to manually name the variables and
-     hypotheses from the case. It does not attempt inverting [E]. *)
-
-(* TODO: change naming policy for handling pattern variables *)
-
-(* [xcase_post] is a tactic that applies to an hypothesis
-   of the form [v = p1] or [v <> p1], and attemps to prove
-   false from it, and inverts it if possible. *)
+(* [xclean_trivial_eq tt] removes equalities of the form [E = E]. *)
 
 Ltac xclean_trivial_eq tt :=
   repeat match goal with H: ?E = ?E |- _ => clear H end.
 
-
-(* in [xcase_post H], H is either an equality [v = p], or a conjunction [v = p /\ istrue b]
-   in case the hypothesis comes from testing a when-clause. *)
-(* DEPRECATED
-Ltac xcase_post_old H :=
-  try solve [ discriminate | false; congruence ];
-  try (symmetry in H; inverts H; xclean_trivial_eq tt).
-*)
+(* [xcase_post] is a tactic that applies to an hypothesis [H] of the form
+   [v = p] or [v <> p], or [(v = p) /\ b] or [(v <> p) \/ !b]. It attempts
+   to derive a contradiction, or inverts equalities. *)
 
 Ltac xcase_post H :=
   let aux1 tt := try solve [ discriminate | false; congruence ] in
   let aux2 E := symmetry in E; inverts E; xclean_trivial_eq tt in
   match type of H with
-  | _ /\ _ =>
+  | _ /\ _ => (* with a matching when-clause *)
       try (
         let E := fresh "E" H in
         destruct H as [H E];
         aux1 tt;
-        aux2 E (* if inverts E, then keep the original conjunction *)
+        aux2 E (* if [inverts E] fails, then we keep [(v = p) /\ b] *)
       )
   | _ =>
       aux1 tt;
       try (aux2 H)
   end.
 
-(* [xcase_core E cont1 cont2] is the underlying tactic for [xcase].
-   It calls [cont1] on the first subgoal and [cont2] on the second subgoal. *)
-
-(* TODO xcase_pre tt  is defined elsewhere in this file. *)
+(* [xcase_extract_hyps tt] applies to a goal [H ==> (\forall x1 x2, \[E] \-* F Q)].
+   and it pulls [x1] and [x2] and [E] out of the entailment, but leaving them
+   in the context. *)
 
 Ltac xcase_extract_hyps tt :=
   pose ltac_mark;
@@ -2331,151 +2294,201 @@ Ltac xcase_extract_hyps tt :=
   apply hwand_hpure_r_intro; intro;
   gen_until_mark.
 
-Ltac xcase_no_intros_core cont1 cont2 :=
+(* Implementation of [xcase_no_simpl], which processes goals in general of the form:
+   [hand (\forall x1 x2, ([(v = p) /\ b] \-* (F1 Q)))
+         (\[forall x1 x2, (v <> p) \/ !b] \-* (F2 Q))]. *)
+
+Ltac xcase_no_simpl_core cont1 cont2 :=
   apply MkStruct_erase; applys himpl_hand_r;
   [ xcase_extract_hyps tt; cont1 tt
   | apply hwand_hpure_r_intro; cont2 tt ].
 
-Ltac xcase_core H cont1 cont2 :=
-  xcase_no_intros_core
-    ltac:(fun _ => introv H; cont1 tt)
-    ltac:(fun _ => introv H; cont2 tt).
+(* [xcase_no_simpl as] *)
+
+Tactic Notation "xcase_no_simpl" "as" :=
+   xcase_no_simpl_core ltac:(fun _ => idtac) ltac:(fun _ => idtac).
+
+(* [xcase_no_simpl as H] *)
 
 Tactic Notation "xcase_no_simpl" "as" ident(H) :=
-  xcase_core H ltac:(fun _ => idtac) ltac:(fun _ => idtac).
+   xcase_no_simpl_core ltac:(fun _ => introv H) ltac:(fun _ => introv H).
+
+(* [xcase_no_simpl] *)
 
 Tactic Notation "xcase_no_simpl" :=
-  let H := fresh "C" in xcase_no_simpl as H.
+  let H := fresh "C" in
+  xcase_no_simpl H.
+
+(* Implementation of [xcase] *)
+
+Ltac xcase_core H :=
+  let cont tt := introv H; xcase_post H in
+  xcase_no_simpl_core cont cont.
+
+(* [xcase as H] *)
 
 Tactic Notation "xcase" "as" ident(H) :=
-  xcase_no_simpl as H; xcase_post H.
+  xcase_core H.
+
+(* [xcase] *)
 
 Tactic Notation "xcase" :=
   let H := fresh "C" in xcase as H.
 
-Tactic Notation "xcase_no_intros" :=
-   xcase_no_intros_core ltac:(fun _ => idtac) ltac:(fun _ => idtac).
+(* [xcase as] *)
+
+Tactic Notation "xcase" :=
+  pose ltac_mark;
+  xcase;
+  gen_until_mark.
 
 
 (* ---------------------------------------------------------------------- *)
 (** ** [xmatch] *)
 
 (** [xmatch] applies to a pattern-matching goal of the form
-    [(Match Case v = p1 Then F1
-       Else Case v = p2 Then Alias y := w in F2
-       Else Done/Fail) H Q]. -- TODO: update syntax.
+    [PRE H
+     CODE (Match Case v is p1 Then F1
+       Else Case v is p2 Then Alias y := w in F2
+       Else Done/Fail)
+     POST Q].
+    The last case is [Done] for exhaustive matching, [Fail] otherwise.
+    The matching can also include when clauses (not shown above).
 
-    By default, the tactic calls the inversion tactic on
-    the equalities [v = pi] associated with the case
-    (and also calls congruence to attempt proving false).
-    [xmatch_no_simpl] can be used to disable such inversions.
+    The tactic [xmatch] calls [xcase] for each of the case,
+    then [xdone] or [xfail] on the last (catch-all) branch.
 
-    Several variants are available:
+    The tactic [xmatch Xmatch_no_cases] simply removes the [xmatch] tag
+    and leaves the user work manually on the cases using [xcase], and [xfail]
+    or [xdone].
 
-    - [xmatch] investigates all the cases, doing inversions,
-      and introducing all aliases as equalities.
+    The tactic [xcase] attempts to simplify equalities arising from patterns;
+    use [xmatch Xmatch_no_simpl] to instead invoke [xcase_no_simpl] and keep
+    the original equalities.
 
-    - [xmatch_subst_alias] performs all case analyses,
-      and introduces and substitutes away all aliases.
+    The tactic [xmatch] automatically introduces the aliases by default.
+    Use [xmatch Xmatch_no_alias] to leave the aliases untouched in each branch.
+    Use [xmatch Xmatch_subst_alias] to substitute away all aliases.
 
-    - [xmatch_no_cases] simply remove the [Wpgen_match] tag and
-      leaves the cases to be solved manually using
-      [xmatch_case] or [xcase]/[xfail]/[xdone] tactics directly.
+    Like [xif], the tactic [xmatch] will refuse to apply if the postcondition
+    is not already instantiated. Use [xpost Q] to set it, or [xmatch Q].
+    --TODO: maybe it is fine if only one branch remains after [xmatch]?
 
-    - [xmatch_no_intros] is like [xmatch], but does not
-      perform any name introduction or any inversion.
-      (One needs to manually call [xdone] for the last case.)
+    In summary, the variants are:
 
-    - [xmatch_no_alias] is like [xmatch], but does not
-      introduce aliases.
+    - [xmatch]
+    - [xmatch Options]
+    - [xmatch Q]
+    - [xmatch Q Options]
 
-    - [xmatch_no_simpl] is like [xmatch], but does not do inversions.
-      [xmatch_no_simpl_no_alias] is also available.
-      [xmatch_no_simpl_subst_alias] are also available.
+    where [Options] is either a single option, or a list of options of the
+    form [(>> Option1 .. OptionN)]. The available options are:
 
-   Like with [xif], the tactic [xmatch] will likely not produce
-   solvable goals if the post-condition is an unspecified evar.
-   If the post-condition is an evar, call [xpost Q] to set the
-   post-condition. Alternatively, the syntax [xmatch Q] will do this.
-*)
+    - [Xmatch_no_alias] to leave aliases untouched
+    - [Xmatch_subst_alias] to substitute away all aliases
+    - [Xmatch_no_simpl] to not perform any inversion, using [xcase_no_simpl]
+    - [Xmatch_as] to leave all names in the goal, using [xcase as].
+    - [Xmatch_no_cases] to leave all names in the goal, using [xcase as]. *)
 
-(* TODO put back fresh names into the goal *)
+(* Options *)
 
-Ltac xmatch_case_alias cont :=
-  let H := fresh "C" in
-  xcase_core H ltac:(fun _ => repeat xalias; xcase_post H)
-               ltac:(fun _ => cont tt).
+Inductive Xmatch_options : Type :=
+  | Xmatch_no_cases
+  | Xmatch_no_alias
+  | Xmatch_subst_alias
+  | Xmatch_no_simpl
+  | Xmatch_as.
 
-Ltac xmatch_case_no_alias cont :=
-  let H := fresh "C" in
-  xcase_core H ltac:(fun _ => xcase_post H) ltac:(fun _ => cont tt).
-
-Ltac xmatch_case_no_simpl cont :=
-  let H := fresh "C" in
-  xcase_core H ltac:(fun _ => idtac) ltac:(fun _ => cont tt).
-
-Ltac xmatch_case_no_intros cont :=
-  xcase_no_intros_core
-    ltac:(fun _ => idtac)
-    ltac:(fun _ => let H := fresh "C" in introv H; cont tt).
-
-Ltac xmatch_case_core cont_case :=
-  match xgoal_code_without_wptag tt with
-  | (Wpgen_done) => xdone
-  | (Wpgen_fail) => xfail
-  | (Wpgen_case _ _ _) => first [ cont_case tt | fail 2 ]
-  | ?c => idtac c; fail 100 "unexpected tag in xmatch_case"
+Ltac xmatch_has_option opt options :=
+  match options with
+  | Opt => constr:(true)
+  | cons (boxer opt) ?options' => constr:(true)
+  | cons (boxer ?opt') ?options' => xmatch_has_option opt options'
+  | _ => constr:(false)
   end.
 
-
-(* [xmatch_cases case_tactic] recursively apply [xmatch_case] using
-   [case_tactic] to handle each case. *)
-
-Ltac xmatch_cases case_tactic :=
-  xmatch_case_core ltac:(fun _ =>
-    case_tactic ltac:(fun _ => xmatch_cases case_tactic)).
-
-Ltac xmatch_check_post_instantiated tt :=
-  match xgoal_post_is_evar tt with
-  | true => fail 100 "xmatch requires a post-condition; use [xmatch Q] or [xpost Q] to set it."
-  | false => idtac
-  end.
-
-Ltac xmatch_pre tt :=
-  xcheck_pull tt;
-  xmatch_check_post_instantiated tt.
+(* [xmatch] implementation *)
 
 Lemma xmatch_lemma : forall A `{EA:Enc A} H (F:Formula) (Q:A->hprop),
   H ==> ^F Q ->
   H ==> ^(Wptag (Wpgen_match F)) Q.
 Proof using. auto. Qed.
 
-Ltac xmatch_with cont :=
-  xmatch_pre tt;
-  apply xmatch_lemma;
-  cont tt.
+Ltac xmatch_pre tt :=
+  xif_xmatch_pre tt.
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_match _) => idtac
+  end.
 
-Tactic Notation "xmatch_case" := (* TODO: undocumented?*)
-  xmatch_case_core ltac:(fun _ => xmatch_case_alias ltac:(fun _ => idtac)).
+(* [xmatch_aliases] handles aliases in a given branch *)
+
+Ltac xmatch_aliases options :=
+  match xmatch_has_option Xmatch_no_alias options with
+  | true => idtac
+  | false =>
+    match xmatch_has_option Xmatch_subst_alias options with
+    | true => xaliass
+    | false => xalias
+    end
+  end.
+
+(* [xmatch_cases] processes one case *)
+
+Ltac xmatch_case options :=
+  let H := fresh "C" in
+  let cont_simpl tt :=
+    match xmatch_has_option Xmatch_no_simpl options with
+    | true => idtac
+    | false => xcase_post H
+    end in
+  let cont2 tt := introv H; cont_simpl tt in
+  let cont1 tt := cont2 tt; xmatch_aliases options in
+  xcase_no_simpl_core cont1 cont2.
+
+(* [xmatch_cases] processes a cascade of cases *)
+
+Ltac xmatch_cases options :=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_done) => xdone
+  | (Wpgen_fail) => xfail
+  | (Wpgen_case _ _ _) => xmatch_case options
+  end.
+
+(* [xmatch_core] implements [xmatch] *)
+
+Ltac xmatch_core options :=
+  eapply xmatch_lemma;
+  match xmatch_has_option Xmatch_no_cases options with
+  | true => idtac
+  | false =>
+      match xmatch_has_option Xmatch_as options with
+      | true => pose ltac_mark; xmatch_cases options; gen_until_mark
+      | false => xmatch_cases options
+      end
+  end.
+
+(* [xmatch_post_core] implements [xmatch Q] *)
+
+Ltac xmatch_post_core Q options :=
+  xlet_xseq_steps_and_xapp_xval_step tt;
+  xcheck_pull tt; (* TODO: error message might be confusing if this check fails *)
+  xpost Q ltac:(fun _ => xmatch_core options).
+
+(* Surface syntax *)
 
 Tactic Notation "xmatch" :=
-  xmatch_with ltac:(fun _ => xmatch_cases xmatch_case_alias).
-Tactic Notation "xmatch" constr(Q) :=
-  xpost Q; xmatch.
-Tactic Notation "xmatch_no_alias" :=
-  xmatch_with ltac:(fun _ => xmatch_cases xmatch_case_no_alias).
-Tactic Notation "xmatch_subst_alias" :=
-  xmatch_no_alias; repeat xalias_subst.
-Tactic Notation "xmatch_no_cases" :=
-  xmatch_with ltac:(fun _ => idtac).
-Tactic Notation "xmatch_no_intros" :=
-  xmatch_with ltac:(fun _ => xmatch_cases xmatch_case_no_intros).
-Tactic Notation "xmatch_no_simpl_no_alias" :=
-  xmatch_with ltac:(fun _ => xmatch_cases xmatch_case_no_simpl).
-Tactic Notation "xmatch_no_simpl" :=
-  xmatch_no_simpl_no_alias; repeat xalias.
-Tactic Notation "xmatch_no_simpl_subst_alias" :=
-  xmatch_no_simpl_no_alias; repeat xalias_subst.
+  xmatch_core (>>).
+
+Tactic Notation "xmatch" constr(E) :=
+  match type of with
+  | Xmatch_options => xmatch_core (>> E)
+  | list boxer => xmatch_core E
+  | _ => xmatch_post_core E (>>)
+  end.
+
+Tactic Notation "xmatch" constr(Q) constr(Options) :=
+  let options := list_boxer_of Options in
+  xmatch_post_core E options.
 
 
 
@@ -2508,6 +2521,7 @@ Ltac xstep_once tt :=
     | (Wpgen_if _ _ _) => xif
     | (Wpgen_val _) => xval
     | (Wpgen_fail) => xfail
+    | (Wpgen_alias _) => xalias
     | (Wpgen_done) => xdone
     | (Wpgen_case _ _ _) => xcase
     | (Wpgen_match _) => xmatch
