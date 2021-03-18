@@ -491,14 +491,48 @@ let annot_pattern_constr () =
 (********************************************************************)
 (* ** Pattern-matching *)
 
+let match_fst (x,y) =
+  x
+
 let match_pair_as () =
    match (3,4) with (a, (b as c)) as p -> (c,p)
 
-let match_nested () =
+let match_list l =
+  match l with
+  | [] -> 0
+  | x::l' -> 1
+
+let match_aliases l =
+  match l with
+  | x1::(x2::(x3::t as t3) as t2) as t1 -> 0
+  | _ -> 1
+
+let match_complex () =
   let l = [ (1,1); (0,0); (2,2) ] in
   match l with
   | _::(0,0)::q -> q
-  | _ -> [(2,2)]
+  | _::_ -> [(2,2)]
+  | _ -> assert false (* same as omiting branch *)
+
+let match_term_when () =
+   let f x = x + 1 in
+   match f 3 with
+   | 0 -> 1
+   | n when n > 0 -> 2
+   | _ -> 3
+
+(* LATER
+let match_or_clauses p =
+   (* captures (Some x, _) or (_, Some x) with x > 0 *)
+   match p with
+   | (None, None) -> false
+   | ((Some x, _) | (_, Some x)) when x > 0 -> true
+   | (Some x, _) | (_, Some x) -> false
+*)
+
+
+(********************************************************************)
+(* ** Advanced pattern matching *)
 
 (* TODO
 let match_term_when () =
@@ -508,14 +542,14 @@ let match_term_when () =
    | n when n > 0 -> 2
    | _ -> 3
 
-let match_or_clauses p =
    (* captures (Some x, _) or (_, Some x) with x > 0 *)
+let match_or_clauses p =
    match p with
    | (None, None) -> false
    | ((Some x, _) | (_, Some x)) when x > 0 -> true
    | (Some x, _) | (_, Some x) -> false
-
 *)
+
 
 
 (********************************************************************)
@@ -1025,22 +1059,3 @@ let list_ops () =
 
 *)
 
-
-(********************************************************************)
-(* ** Advanced pattern matching *)
-
-(* TODO
-let match_term_when () =
-   let f x = x + 1 in
-   match f 3 with
-   | 0 -> 1
-   | n when n > 0 -> 2
-   | _ -> 3
-
-   (* captures (Some x, _) or (_, Some x) with x > 0 *)
-let match_or_clauses p =
-   match p with
-   | (None, None) -> false
-   | ((Some x, _) | (_, Some x)) when x > 0 -> true
-   | (Some x, _) | (_, Some x) -> false
-*)

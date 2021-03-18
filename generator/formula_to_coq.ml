@@ -157,7 +157,7 @@ let rec coqtops_of_cf cf =
       let add_alias (typed_name,lifted_v) c : coq =
         (* Wpgen_alias (Wpgen_let_val v (fun y => F)) *)
         let calias = wpgen_app "WPLifted.Wpgen_let_val" [lifted_v; coq_fun typed_name c] in
-        wpgen_app "WPLifted.Wpgen_alias" calias in
+        wpgen_app "WPLifted.Wpgen_alias" [calias] in
       let cf1_aliased = List.fold_right add_alias aliases (aux cf1) in
       let same = coq_eq v pat in
       let same_when = match vwhenopt with None -> same | Some w -> coq_conj same w in

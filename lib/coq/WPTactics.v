@@ -950,14 +950,14 @@ Ltac xpost_arg_post Q cont :=
   | false => eapply (@xpost_lemma _ _ Q); [ xstructural | cont tt | ]
   end.
 
-Ltac xpost_arg_core E :=
+Ltac xpost_arg_core E cont :=
   match type of E with
-  | hprop => xpost_arg_post (fun (_:unit) => E) idcont
-  | _ => xpost_arg_post E idcont
+  | hprop => xpost_arg_post (fun (_:unit) => E) cont
+  | _ => xpost_arg_post E cont
   end.
 
 Tactic Notation "xpost" constr(E) :=
-  xpost_arg_core E.
+  xpost_arg_core E idcont.
 
 
 (************************************************************************ *)
@@ -1204,7 +1204,7 @@ Ltac xif_xmatch_pre tt :=
   end.
 
 Ltac xif_pre tt :=
-  xif_xmatch_pre tt.
+  xif_xmatch_pre tt;
   match xgoal_code_without_wptag tt with
   | (Wpgen_if _ _ _) => idtac
   end.
@@ -1240,7 +1240,7 @@ Tactic Notation "xif" :=
 Ltac xif_arg_core Q :=
   xlet_xseq_steps_and_xapp_xval_step tt;
   xcheck_pull tt; (* TODO: error message might be confusing if this check fails *)
-  xpost_core Q ltac:(fun _ => xif_core tt).
+  xpost_arg_core Q ltac:(fun _ => xif_core tt).
 
 Tactic Notation "xif" constr(Q) :=
   xif_arg_core Q.
@@ -2200,8 +2200,8 @@ Tactic Notation "xcleanpat" :=
     - [xaliass] to substitute away [x], replacing it with [v]. *)
 
 Lemma xalias_lemma : forall A `{EA:Enc A} (Q:A->hprop) H (F:Formula),
-  H ==> ^F Q.
-  H ==> ^(Wpgen_alias F) Q.
+  H ==> ^F Q ->
+  H ==> ^(Wptag (Wpgen_alias F)) Q.
 Proof using. auto. Qed.
 
 Ltac xalias_pre tt :=
@@ -2212,7 +2212,7 @@ Ltac xalias_pre tt :=
 
 Ltac xalias_common cont :=
   xalias_pre tt;
-  eapplys xalias_lemma;
+  eapply xalias_lemma;
   cont tt.
 
 Tactic Notation "xalias" :=
@@ -2317,7 +2317,7 @@ Tactic Notation "xcase_no_simpl" "as" ident(H) :=
 
 Tactic Notation "xcase_no_simpl" :=
   let H := fresh "C" in
-  xcase_no_simpl H.
+  xcase_no_simpl as H.
 
 (* Implementation of [xcase] *)
 
@@ -2337,7 +2337,7 @@ Tactic Notation "xcase" :=
 
 (* [xcase as] *)
 
-Tactic Notation "xcase" :=
+Tactic Notation "xcase" "as" :=
   pose ltac_mark;
   xcase;
   gen_until_mark.
@@ -2401,7 +2401,7 @@ Inductive Xmatch_options : Type :=
 
 Ltac xmatch_has_option opt options :=
   match options with
-  | Opt => constr:(true)
+  | opt => constr:(true)
   | cons (boxer opt) ?options' => constr:(true)
   | cons (boxer ?opt') ?options' => xmatch_has_option opt options'
   | _ => constr:(false)
@@ -2415,34 +2415,41 @@ Lemma xmatch_lemma : forall A `{EA:Enc A} H (F:Formula) (Q:A->hprop),
 Proof using. auto. Qed.
 
 Ltac xmatch_pre tt :=
-  xif_xmatch_pre tt.
+  xif_xmatch_pre tt;
   match xgoal_code_without_wptag tt with
   | (Wpgen_match _) => idtac
   end.
+
+(* [xmatch_alias] handles one alias *)
+
+Ltac xmatch_alias options :=
+  match xmatch_has_option Xmatch_subst_alias options with
+  | true => xaliass (*eapply xalias_lemma; xletvals*)
+  | false => xalias (* eapply xalias_lemma; xletval*)
+  end.
+  (* Note: for efficiency reasons, we don't use [xalias] each time. *)
+  (* Note: both xalias and xaliass leave exactly one goal *)
 
 (* [xmatch_aliases] handles aliases in a given branch *)
 
 Ltac xmatch_aliases options :=
   match xmatch_has_option Xmatch_no_alias options with
   | true => idtac
-  | false =>
-    match xmatch_has_option Xmatch_subst_alias options with
-    | true => xaliass
-    | false => xalias
-    end
+  | false => repeat (xmatch_alias options)
   end.
 
 (* [xmatch_cases] processes one case *)
 
-Ltac xmatch_case options :=
+Ltac xmatch_case options cont_other_cases :=
   let H := fresh "C" in
   let cont_simpl tt :=
     match xmatch_has_option Xmatch_no_simpl options with
     | true => idtac
     | false => xcase_post H
     end in
-  let cont2 tt := introv H; cont_simpl tt in
-  let cont1 tt := cont2 tt; xmatch_aliases options in
+  let cont0 tt := introv H; cont_simpl tt in
+  let cont1 tt := cont0 tt; xmatch_aliases options in
+  let cont2 tt := cont0 tt; cont_other_cases tt in
   xcase_no_simpl_core cont1 cont2.
 
 (* [xmatch_cases] processes a cascade of cases *)
@@ -2451,12 +2458,13 @@ Ltac xmatch_cases options :=
   match xgoal_code_without_wptag tt with
   | (Wpgen_done) => xdone
   | (Wpgen_fail) => xfail
-  | (Wpgen_case _ _ _) => xmatch_case options
+  | (Wpgen_case _ _ _) => xmatch_case options ltac:(fun _ => xmatch_cases options)
   end.
 
 (* [xmatch_core] implements [xmatch] *)
 
 Ltac xmatch_core options :=
+  xmatch_pre tt;
   eapply xmatch_lemma;
   match xmatch_has_option Xmatch_no_cases options with
   | true => idtac
@@ -2472,7 +2480,7 @@ Ltac xmatch_core options :=
 Ltac xmatch_post_core Q options :=
   xlet_xseq_steps_and_xapp_xval_step tt;
   xcheck_pull tt; (* TODO: error message might be confusing if this check fails *)
-  xpost Q ltac:(fun _ => xmatch_core options).
+  xpost_arg_core Q ltac:(fun _ => xmatch_core options).
 
 (* Surface syntax *)
 
@@ -2480,15 +2488,15 @@ Tactic Notation "xmatch" :=
   xmatch_core (>>).
 
 Tactic Notation "xmatch" constr(E) :=
-  match type of with
-  | Xmatch_options => xmatch_core (>> E)
-  | list boxer => xmatch_core E
+  match type of E with
+  | Xmatch_options => first [ xmatch_core (>> E) | fail 2 ]
+  | list Boxer => first [ xmatch_core E | fail 2 ]
   | _ => xmatch_post_core E (>>)
   end.
 
 Tactic Notation "xmatch" constr(Q) constr(Options) :=
   let options := list_boxer_of Options in
-  xmatch_post_core E options.
+  xmatch_post_core Q options.
 
 
 

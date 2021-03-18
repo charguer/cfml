@@ -520,18 +520,39 @@ Qed.
 (********************************************************************)
 (** ** Pattern-matching *)
 
-(*
+Lemma match_fst_spec : forall A `{EA:Enc A} B `{EB:Enc B} (x:A) (y:B),
+  SPEC (match_fst (x,y))
+    PRE \[]
+    POST \[= x].
+Proof using.
+  xcf. dup 8.
+  { xmatch Xmatch_no_cases. dup 6.
+    { xcase_no_simpl as M. skip. skip. }
+    { xcase_no_simpl as. skip. skip. }
+    { xcase as M. skip. skip. }
+    { xcase as. skip. skip. }
+    { xcase_no_simpl. skip. skip. }
+    { xcase. skip. skip. } }
+  { xpost. xmatch (fun res__ : A => \[]); skip. skip. }
+  { xmatch (fun res__ : A => \[]) Xmatch_no_cases. skip. skip. }
+  { xmatch Xmatch_no_cases. xmatch_cases (>>). skip. }
+  { xmatch. skip. }
+  { xmatch Xmatch_as. skip. }
+  { xmatch Xmatch_no_simpl. skip. }
+  { xmatch (>> Xmatch_as Xmatch_no_simpl). skip. }
+Qed.
+
 Lemma match_pair_as_spec :
   SPEC (match_pair_as tt)
     PRE \[]
     POST \[= (4,(3,4))].
 Proof using.
-  xcf. dup 8.
-  { xmatch. xvals*. }
-  { xmatch_subst_alias. xvals*. }
-  { xmatch_no_alias. xalias. xalias as L. skip. }
-  { xmatch_no_cases. dup 6.
-    { xmatch_case.
+  xcf. dup 7.
+  { xmatch. xvals. subst*. }
+  { xmatch Xmatch_subst_alias. xvals*. }
+  { xmatch Xmatch_no_alias. xalias. xalias as. intros L HL. skip. }
+  (*{ xmatch Xmatch_no_cases. dup 6.
+    { xcase.
       { xvals*. }
       { xmatch_case. } }
     { xcase_no_simpl.
@@ -546,13 +567,14 @@ Proof using.
     { xcase. skip. skip. }
     { xcase as C. skip. skip.
       (* note: inversion got rid of C *)
-    } }
-  { xmatch_no_simpl_no_alias. skip. }
-  { xmatch_no_simpl_subst_alias. skip. }
-  { xmatch_no_intros. skip. }
-  { xmatch_no_simpl. inverts C. skip. }
+    } } *)
+  { xmatch (>> Xmatch_no_simpl Xmatch_no_alias). skip. }
+  { xmatch (>> Xmatch_no_simpl Xmatch_subst_alias). skip. }
+  { xmatch Xmatch_as. skip. }
+  { xmatch Xmatch_no_simpl. inverts C. skip. }
 Qed.
 
+(*
 Lemma match_nested_spec :
   SPEC (match_nested tt)
     PRE \[]

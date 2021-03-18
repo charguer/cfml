@@ -432,7 +432,7 @@ Lemma ignore_spec :
   SPEC (ignore tt)
     PRE \[]
     POST \[= tt].
-Proof using. xcf_go~. Qed.
+Proof  using. xcf_go~. Qed.
 
 Hint Extern 1 (RegisterSpec ignore) => Provide ignore_spec.
 
