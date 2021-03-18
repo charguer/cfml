@@ -49,32 +49,11 @@ clean::
 	@ rm -f $(CMJ) $(MLV)
 	@ rm -rf _output
 
-# Determine where to install the files %.cmj.
+##############################################################################
 
-# We implement the same methods as the CFML tool (see cfml_config.ml).
-# Method 1: if the path to cfmlc ends in [/bin/cfmlc], replace it with
-#           [/lib/cfml].
-# Method 2: run [opam config var prefix] and append [/lib/cfml].
+# Installation of the %.cmj files.
 
-define compute_libdir
-  CFMLC=$$(command -v cfmlc) && \
-  case $${CFMLC} in \
-  */bin/cfmlc) \
-    echo "$${CFMLC%%/bin/cfmlc}/lib/cfml" ;; \
-  *) \
-    if command -v opam >/dev/null ; then \
-      echo "$$(opam config var prefix)/lib/cfml" ; \
-    else \
-      echo "undefined" ; \
-    fi ;; \
-  esac
-endef
-
-LIBDIR := $(shell $(compute_libdir))
-
-ifeq ($(LIBDIR),undefined)
-  $(error Cannot determine where to install *.cmj)
-endif
+LIBDIR := $(shell cfmlc -where)
 
 install::
 	@ mkdir -p $(LIBDIR)/stdlib
