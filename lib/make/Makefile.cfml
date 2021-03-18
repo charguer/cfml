@@ -58,7 +58,7 @@ MLV   := $(patsubst %.ml,%_ml.v,$(ML))
 D     := $(patsubst %.ml,%.d,$(ML))
 
 OCAMLDEP  := $(OCAMLBIN)ocamldep
-OCAMLPOST := $(CFML)/make/ocamldep.post
+OCAMLPOST := $(CFML)/ocamldep.post
 
 ###############################################################################
 # Targets
