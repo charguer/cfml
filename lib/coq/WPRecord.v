@@ -460,19 +460,19 @@ Ltac xspec_record tt :=
 Lemma xapp_record_get : forall A `{EA:Enc A} (Q:A->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
   H ==> p ~> Record L \* (match record_get_compute_dyn f L with
     | None => \[False]
-    | Some (Dyn V) => (p ~> Record L) \-* ^(Wptag (Wpgen_Val_no_mkstruct V)) (protect Q) end) ->
-  H ==> ^(Wpgen_app (trm_apps (trm_val (val_get_field f)) (trms_vals ((p:val)::nil)))) Q.
+    | Some (Dyn V) => (p ~> Record L) \-* ^(Wptag (Wpgen_cast V)) (protect Q) end) ->
+  H ==> ^(Wpgen_app_untyped (trm_apps (trm_val (val_get_field f)) (trms_vals ((p:val)::nil)))) Q.
 Proof using.
   introv M1. xchanges (rm M1).
   lets R: record_get_compute_spec_correct f L.
   unfolds record_get_compute_spec.
   destruct (record_get_compute_dyn f L) as [[T ET V]|]; try solve [xpull].
-  set (H' := (p ~> Record L \-* ^(Wptag (Wpgen_Val_no_mkstruct V)) Q)).
+  set (H' := (p ~> Record L \-* ^(Wptag (Wpgen_cast V)) Q)).
   forwards R': R; eauto. clear R. specializes R' p.
-  applys himpl_Wpgen_app_of_Triple.
+  applys himpl_Wpgen_app_untyped_of_Triple.
   applys Triple_enc_change. xapplys (rm R'). simpl.
   unfold Post_cast, Post_cast_val. xpull ;=> ? ->. unfold H'. xpull.
-  unfold Wpgen_Val_no_mkstruct, Wptag. applys himpl_refl.
+  unfold Wpgen_cast, Wptag. applys himpl_refl.
 Qed. (* --TODO: simplify proof *)
 
 Lemma xapp_record_set : forall A1 `{EA1:Enc A1} (W:A1) (Q:unit->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
@@ -481,14 +481,14 @@ Lemma xapp_record_set : forall A1 `{EA1:Enc A1} (W:A1) (Q:unit->hprop) (H:hprop)
     | None => \[False]
     | Some L' =>
         (p ~> Record L' \-* protect (Q tt)) end)  ) ->
-  H ==> ^(Wpgen_app (trm_apps (trm_val (val_set_field f)) (trms_vals ((p:val)::(``W)::nil)))) Q.
+  H ==> ^(Wpgen_app_untyped (trm_apps (trm_val (val_set_field f)) (trms_vals ((p:val)::(``W)::nil)))) Q.
 Proof using.
   introv M1. xchanges (rm M1).
   lets R: record_set_compute_spec_correct f EA1 W L.
   unfolds record_set_compute_spec.
   destruct (record_set_compute_dyn f (Dyn W) L) as [L'|]; try solve [xpull].
   forwards R': R; eauto. clear R. specializes R' p.
-  applys himpl_Wpgen_app_of_Triple.
+  applys himpl_Wpgen_app_untyped_of_Triple.
   xapplys R'.
 Qed. (* --TODO: simplify proof *)
 
@@ -501,8 +501,8 @@ Global Opaque val_set_field val_get_field.
 Parameter xapp_record_Get : forall A `{EA:Enc A} (Q:A->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
   H ==> p ~> Record L \* (match record_get_compute_dyn f L with
     | None => \[False]
-    | Some (Dyn V) => (p ~> Record L) \-* ^(Wptag (Wpgen_Val_no_mkstruct V)) (protect Q) end) ->
-  H ==> ^(Wpgen_App_typed A (val_get_field f) ((Dyn p)::nil)) Q.
+    | Some (Dyn V) => (p ~> Record L) \-* ^(Wptag (Wpgen_cast V)) (protect Q) end) ->
+  H ==> ^(Wpgen_app A (val_get_field f) ((Dyn p)::nil)) Q.
 (* TODO: proof *)
 
 Parameter xapp_record_Set : forall A1 `{EA1:Enc A1} (W:A1) (Q:unit->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
@@ -511,7 +511,7 @@ Parameter xapp_record_Set : forall A1 `{EA1:Enc A1} (W:A1) (Q:unit->hprop) (H:hp
     | None => \[False]
     | Some L' =>
         (p ~> Record L' \-* protect (Q tt)) end)  ) ->
-  H ==> ^(Wpgen_App_typed unit (val_set_field f) ((Dyn p)::(Dyn W)::nil)) Q.
+  H ==> ^(Wpgen_app unit (val_set_field f) ((Dyn p)::(Dyn W)::nil)) Q.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -583,7 +583,7 @@ Hint Extern 1 (Register_Spec (val_get_field _)) => Provide @Triple_get_field.
 (* Test to detect whether the precondition contains [ p`.f ~~> ?V ] *)
 Ltac xapp_record_get_find_single_field tt :=
   match goal with
-  |- ?H ==> @Wptag (Wpgen_app (trm_apps (trm_val (val_get_field ?f)) (trms_vals ((val_loc ?p)::nil)))) ?A ?EA ?Q =>
+  |- ?H ==> @Wptag (Wpgen_app_untyped (trm_apps (trm_val (val_get_field ?f)) (trms_vals ((val_loc ?p)::nil)))) ?A ?EA ?Q =>
       match H with context [ p`.f ~~> ?V ] => idtac end
   end.
 
@@ -615,7 +615,7 @@ Hint Extern 1 (Register_Spec (val_set_field _)) => Provide @Triple_set_field_Dec
  *)
 Ltac xapp_record_set_find_single_field tt :=
   match goal with
-  |- ?H ==> @Wptag (Wpgen_app (trm_apps (trm_val (val_set_field ?f)) (trms_vals ((val_loc ?p)::?W::nil)))) ?A ?EA ?Q =>
+  |- ?H ==> @Wptag (Wpgen_app_untyped (trm_apps (trm_val (val_set_field ?f)) (trms_vals ((val_loc ?p)::?W::nil)))) ?A ?EA ?Q =>
       match H with context [ p`.f ~~> ?V ] => idtac end
   end.
 
@@ -647,7 +647,7 @@ Parameter xapp_record_new : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fields
   List.length ks = List.length Vs ->
   vs = encs Vs ->
   (fun p => p ~> Record (List.combine ks Vs)) \*+ H ===> (protect Q) ->
-  H ==> ^(Wpgen_app (trm_apps (trm_val (val_record_init ks)) (trms_vals vs))) Q.
+  H ==> ^(Wpgen_app_untyped (trm_apps (trm_val (val_record_init ks)) (trms_vals vs))) Q.
 
 Ltac xnew_post tt :=
   idtac.
@@ -671,7 +671,7 @@ Lemma xapp_record_new_noarg : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fiel
   Decodes vs Vs ->
   List.length ks = List.length Vs ->
   (fun p => p ~> Record (List.combine ks Vs)) \*+ H ===> (protect Q) ->
-  H ==> ^(Wpgen_app (trm_apps (trm_val (val_record_init ks)) (trms_vals vs))) Q.
+  H ==> ^(Wpgen_app_untyped (trm_apps (trm_val (val_record_init ks)) (trms_vals vs))) Q.
 Proof using. introv HN HE HD EQ HI. unfolds Decodes. applys* xapp_record_new. Qed.
 
 (* DEPRECATED
@@ -705,7 +705,7 @@ Ltac xnew_post_exploded tt :=
 Parameter xapp_record_delete : forall (L:Record_fields) (Q:unit->hprop) (H:hprop) (ks:fields) (p:loc),
   H ==> p ~> Record L \* (protect (Q tt)) ->
   fields_check ks L = true ->
-  H ==> ^(Wpgen_app (trm_apps (trm_val (val_record_delete ks)) (trms_vals ((val_loc p)::nil)))) Q.
+  H ==> ^(Wpgen_app_untyped (trm_apps (trm_val (val_record_delete ks)) (trms_vals ((val_loc p)::nil)))) Q.
 *)
 
 Ltac xapp_record_delete_grouped tt :=
@@ -737,7 +737,7 @@ Qed.
 Lemma xapp_record_delete_exploded : forall (Q:unit->hprop) (H:hprop) (ks:fields) (p:loc),
   consecutive_fields_exec 0 ks = true ->
   H ==> xapp_to_delete_fields p ks \* (protect (Q tt)) ->
-  H ==> ^(Wpgen_app (trm_apps (trm_val (val_record_delete ks)) (trms_vals ((val_loc p)::nil)))) Q.
+  H ==> ^(Wpgen_app_untyped (trm_apps (trm_val (val_record_delete ks)) (trms_vals ((val_loc p)::nil)))) Q.
 Proof using.
 Admitted.
 (*
@@ -760,7 +760,7 @@ Ltac xapp_record_delete_exploded tt :=
 
 Ltac xapp_record_delete_find_single_field tt :=
   match goal with
-  |- ?H ==> @Wptag (Wpgen_app (trm_apps (trm_val (val_record_delete ?ks)) (trms_vals ((val_loc ?p)::nil)))) ?A ?EA ?Q =>
+  |- ?H ==> @Wptag (Wpgen_app_untyped (trm_apps (trm_val (val_record_delete ?ks)) (trms_vals ((val_loc ?p)::nil)))) ?A ?EA ?Q =>
       match H with context [ p`.?f ~~> ?V ] => idtac end
   end.
 
@@ -855,7 +855,7 @@ Ltac xapp_record tt ::= (* initial dummy binding located in WPTactics *)
   match xgoal_code_without_wptag tt with
   | Wpgen_record_new ?Lof => applys xapp_lemma_record_new
   | Wpgen_record_with ?v ?L => xapp_record_with tt
-  | Wpgen_App_typed ?T ?f ?Vs =>
+  | Wpgen_app ?T ?f ?Vs =>
       match f with
       | val_get_field _ => xapp_record_get tt
       | val_set_field _ => xapp_record_set tt
@@ -867,8 +867,8 @@ Ltac xapp_record tt ::= (* initial dummy binding located in WPTactics *)
 Ltac xapp_pre_wp tt ::=
   xlet_xseq_steps tt;
   match xgoal_code_without_wptag tt with
-  | (Wpgen_app ?t) => idtac
-  | (Wpgen_App_typed ?T ?f ?Vs) => idtac
+  | (Wpgen_app_untyped ?t) => idtac (* TODO: DEPRECATED *)
+  | (Wpgen_app ?T ?f ?Vs) => idtac
   | (Wpgen_record_new ?Lof) => idtac
   | (Wpgen_record_with ?v ?L) => idtac
   end.

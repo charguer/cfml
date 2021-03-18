@@ -45,7 +45,7 @@ let rec coqtops_of_cf cf =
   match cf with
 
   | Cf_val v ->
-      wpgen_app "WPLifted.Wpgen_Val" [v]
+      wpgen_app "WPLifted.Wpgen_val" [v]
 
   | Cf_assert cf1 ->
       wpgen_app "WPLifted.Wpgen_assert" [aux cf1]
@@ -67,10 +67,10 @@ let rec coqtops_of_cf cf =
       wpgen_app "WPRecord.Wpgen_record_with" [v; dynlist_of_record_fields items]
 
   | Cf_app (ts, tret, f, vs) ->
-      (* Wpgen_App_typed tret f [(@dyn t1 _ v1); (@dyn t2 _ v2)] *)
+      (* Wpgen_app tret f [(@dyn t1 _ v1); (@dyn t2 _ v2)] *)
       assert (List.length ts = List.length vs);
       let args = coq_list (List.map2 coq_dyn_of ts vs) in
-      wpgen_app "WPLifted.Wpgen_App_typed" [tret; f; args]
+      wpgen_app "WPLifted.Wpgen_app" [tret; f; args]
 
   | Cf_body (f, fvs, targs, typ, cf1) ->
       (* targs list of (xi,ti) *)
@@ -96,7 +96,7 @@ let rec coqtops_of_cf cf =
   | Cf_let (typed_x, cf1, cf2) ->
       let c1 = aux cf1 in
       let c2 = coq_fun typed_x (aux cf2) in
-      wpgen_app "WPLifted.Wpgen_let_typed" [c1; c2]
+      wpgen_app "WPLifted.Wpgen_let_trm" [c1; c2]
 
   | Cf_let_poly (x, fvs_strict, fvs_other, typ, cf1, cf2) ->
       dummy
@@ -129,7 +129,7 @@ let rec coqtops_of_cf cf =
       let typ = coq_forall_enc_types fvs typ_body in
       let lifted_v = coq_fun_types fvs v in
       let c = coq_fun (x,typ) (aux cf) in
-      wpgen_app "WPLifted.Wpgen_let_Val" [lifted_v; c]
+      wpgen_app "WPLifted.Wpgen_let_val" [lifted_v; c]
 
   | Cf_let_fun (fcs, cf) ->
       (* fcs list of pairs (fi, bi) *)

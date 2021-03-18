@@ -34,12 +34,12 @@ Proof using. apply (Inhab_of_val (fun _ => \[])). Qed.
 (* ---------------------------------------------------------------------- *)
 (* ** Semantic interpretation of a WP *)
 
-(** [wpfinal t Q] defines the weakest-precondition for term [t] 
-    and postcondition [Q]. 
+(** [wpfinal t Q] defines the weakest-precondition for term [t]
+    and postcondition [Q].
 
     [H ==> wpfinal t Q] is equivalent to [triple t H Q].
 
-    [wpfinal] is defined in terms of the generic definition 
+    [wpfinal] is defined in terms of the generic definition
     of [weakestpre], which comes from [SepFunctor], and is defined as:
     [ Definition weakestpre F Q := \exists H, H \* \[F H Q]. ]
 *)
@@ -114,7 +114,7 @@ Lemma flocal_elim_nohgc : forall F H Q,
   flocal F ->
   (H ==> \exists Q', F Q' \* (Q' \--* Q)) ->
   H ==> F Q.
-Proof using. 
+Proof using.
   introv L M. applys~ flocal_elim. hchanges M.
 Qed.
 
@@ -216,7 +216,7 @@ Qed.
 (** A [mkflocal] can be introduced at the head of a formula satisfying [flocal] *)
 
 Lemma eq_mkflocal_of_flocal : forall F,
-  flocal F -> 
+  flocal F ->
   F = mkflocal F.
 Proof using.
   introv L. applys fun_ext_1 ;=> Q. applys himpl_antisym.
@@ -242,7 +242,7 @@ Proof using.
   unfold mkflocal. introv M. intros Q. hpull ;=> Q'. hsimpl~ Q'.
 Qed.
 
-(** [mkflocal] can be erased on the left of an entailment if the 
+(** [mkflocal] can be erased on the left of an entailment if the
     formula on the right is mkflocal. *)
 
 Lemma mkflocal_erase_l : forall F1 F2,
@@ -300,7 +300,7 @@ Lemma hforall_vars_intro : forall G xs Hof,
 Proof using.
   introv DG. cuts N: (forall (G1 G2:ctx),
     Ctx.dom G2 = xs ->
-        (hforall_vars Hof G1 xs) 
+        (hforall_vars Hof G1 xs)
     ==> Hof (Ctx.app (LibList.rev G1) G2)).
   { forwards K: N (Ctx.empty:ctx) G. { auto. }
     rewrite Ctx.app_empty_l in K. applys K. }
@@ -348,7 +348,7 @@ Definition wpaux_getval wpmk (E:ctx) (t1:trm) (F2of:val->formula) : formula :=
   | _ => wpmk_let (wpmk E t1) F2of
   end.
 
-Definition wpmk_constr wpmk (E:ctx) (id:idconstr) : list val -> list trm -> formula := 
+Definition wpmk_constr wpmk (E:ctx) (id:idconstr) : list val -> list trm -> formula :=
   fix mk (rvs : list val) (ts : list trm) : formula :=
     match ts with
     | nil => wpmk_val (val_constr id (List.rev rvs))
@@ -366,7 +366,7 @@ Definition wpmk_binop_int (v1 v2:val) (F:int->int->val) : formula := mkflocal (f
 
 (* TODO: might not be needed to treat special builtins *)
 
-Definition wpaux_apps_val (v0:val) (vs:vals) : formula := 
+Definition wpaux_apps_val (v0:val) (vs:vals) : formula :=
   match v0, vs with
   | val_prim val_opp, (v1::nil) => wpmk_unop_int v1 (fun n1 => - n1)
   | val_prim val_neg, (v1::nil) => wpmk_unop_bool v1 (fun b1 => neg b1)
@@ -378,7 +378,7 @@ Definition wpaux_apps_val (v0:val) (vs:vals) : formula :=
   | _, _ => mkflocal (wpfinal (trm_apps v0 vs))
   end.  (* not included: arithmetic comparisons *)
 
-Definition wpaux_apps wpmk (E:ctx) (v0:val) : list val -> list trm -> formula := 
+Definition wpaux_apps wpmk (E:ctx) (v0:val) : list val -> list trm -> formula :=
   fix mk (rvs : list val) (ts : list trm) : formula :=
     match ts with
     | nil => wpaux_apps_val v0 (List.rev rvs)
@@ -407,13 +407,13 @@ Definition wpmk_case_val (F1:formula) (P:Prop) (F2:formula) : formula :=
   mkflocal (fun Q =>
     hand (F1 Q) (\[P] \-* F2 Q)).
 
-Definition wpaux_match wpmk (E:ctx) (v:val) : list (pat*trm) -> formula := 
+Definition wpaux_match wpmk (E:ctx) (v:val) : list (pat*trm) -> formula :=
   fix mk (pts:list(pat*trm)) : formula :=
     match pts with
     | nil => wpmk_fail
     | (p,t)::pts' =>
         let xs := patvars p in
-        let F1 (Q:val->hprop) := 
+        let F1 (Q:val->hprop) :=
            hforall_vars (fun G => let E' := (Ctx.app G E) in
               \[v = patsubst G p] \-* (wpmk E' t) Q) Ctx.empty xs in
         let P := forall_vars (fun G => v <> patsubst G p) Ctx.empty xs in
@@ -429,8 +429,8 @@ Fixpoint wpmk (E:ctx) (t:trm) : formula :=
   match t with
   | trm_val v => wpmk_val v
   | trm_var x => wpaux_var E x
-  | trm_fixs f xs t1 => 
-      match xs with 
+  | trm_fixs f xs t1 =>
+      match xs with
       | nil => wpmk_fail
       | _ => wpmk_val (val_fixs f xs (isubst (Ctx.rem_vars xs (Ctx.rem f E)) t1))
       end
@@ -439,7 +439,7 @@ Fixpoint wpmk (E:ctx) (t:trm) : formula :=
   | trm_let x t1 t2 => wpmk_let (aux t1) (fun X => wpmk (Ctx.add x X E) t2)
   | trm_apps t0 ts => wpaux_getval wpmk E t0 (fun v0 => wpaux_apps wpmk E v0 nil ts)
   | trm_while t1 t2 => wpmk_while (aux t1) (aux t2)
-  | trm_for x t1 t2 t3 => 
+  | trm_for x t1 t2 t3 =>
       wpaux_getval wpmk E t1 (fun v1 =>
         wpaux_getval wpmk E t2 (fun v2 =>
           wpmk_for_val v1 v2 (fun X => wpmk (Ctx.add x X E) t3)))
@@ -540,7 +540,7 @@ Proof using. intros. intros Q. applys himpl_wpmk_fail_l. Qed.
 
 Lemma triple_wpmk_fail : forall t Q Q',
   triple t (wpmk_fail Q) Q'.
-Proof using. 
+Proof using.
   intros. apply triple_of_wp. applys himpl_wpmk_fail_l.
 Qed.
 
@@ -554,7 +554,7 @@ Lemma wpmk_sound_getval : forall E C t1 F2of,
 Proof using.
   introv HC M1 M2. applys qimpl_wpfinal. simpl. intros Q.
   tests C1: (trm_is_val t1).
-  { destruct C1 as (v&Et). subst. simpl. 
+  { destruct C1 as (v&Et). subst. simpl.
     apply triple_of_wp. applys M2. }
   tests C2: (trm_is_var t1).
   { destruct C2 as (x&Et). subst. simpl. case_eq (Ctx.lookup x E).
@@ -715,8 +715,8 @@ Lemma wpmk_sound_apps : forall t0 ts,
 Proof using.
   introv IH0 IHts. intros E Q. applys~ wpmk_sound_getval (fun t1 => trm_apps t1 ts).
   fold wpmk. intros v0. clear Q.
-  cuts M: (forall rvs,  
-    wpaux_apps wpmk E v0 rvs ts ===> 
+  cuts M: (forall rvs,
+    wpaux_apps wpmk E v0 rvs ts ===>
     wpfinal (trm_apps v0 ((trms_vals (LibList.rev rvs))++(LibList.map (isubst E) ts)))).
   { unfold wpsubst. simpl. rewrite List_map_eq. applys M. }
   induction ts as [|t ts']; intros.
@@ -736,7 +736,7 @@ Lemma wpmk_sound_while : forall F1 F2 E t1 t2,
   wpmk_while F1 F2 ===> wpsubst E (trm_while t1 t2).
 Proof using.
   introv M1 M2. applys qimpl_wpfinal. simpl. intros Q.
-  remove_mkflocal. 
+  remove_mkflocal.
   set (R := wpfinal (trm_while (isubst E t1) (isubst E t2))).
   applys triple_hforall R. simpl. applys triple_hwand_hpure_l.
   { split.
@@ -754,7 +754,7 @@ Lemma wpmk_sound_for_val : forall (x:var) v1 v2 F1 E t1,
   wpmk_for_val v1 v2 F1 ===> wpsubst E (trm_for x v1 v2 t1).
 Proof using. Opaque Ctx.add Ctx.rem.
   introv M. applys qimpl_wpfinal. simpl. intros Q.
-  remove_mkflocal. intros n1 n2 (->&->). 
+  remove_mkflocal. intros n1 n2 (->&->).
   set (S := fun (i:int) => wpfinal (isubst E (trm_for x i n2 t1))).
   applys triple_hforall S. simpl. applys triple_hwand_hpure_l.
   { split.
@@ -788,7 +788,7 @@ Lemma wpmk_sound_match : forall t0 pts,
   wpmk_sound (trm_match t0 pts).
 Proof using.
   introv M1 M2. intros E Q. simpl.
-  applys~ wpmk_sound_getval (fun t1 => trm_match t1 pts). 
+  applys~ wpmk_sound_getval (fun t1 => trm_match t1 pts).
   intros v. clears t0 Q.
   induction pts as [|(p,t) pts'].
   { simpl. intros Q. applys himpl_wpmk_fail_l. }
@@ -798,7 +798,7 @@ Proof using.
       forwards~ IH: M2 p t. clears IHpts' M2. subst v.
       rewrite <- EG. rewrite <- isubst_app_eq_isubst_isubst_rem_vars.
       sets_eq xs: (Ctx.dom G). forwards~ W: hforall_vars_intro G xs.
-      applys~ triple_conseq Q W. simpl. 
+      applys~ triple_conseq Q W. simpl.
       applys~ triple_hwand_hpure_l.
       applys triple_of_wp. applys IH. }
     { intros Hp. applys triple_hand_r. applys triple_hwand_hpure_l.
@@ -810,8 +810,8 @@ Lemma wpmk_sound_constr : forall E id ts,
   (forall t, mem t ts -> wpmk_sound t) ->
   wpmk_constr wpmk E id nil ts ===> wpsubst E (trm_constr id ts).
 Proof using.
-  introv IHwp. cuts M: (forall rvs,  
-         wpmk_constr wpmk E id rvs ts 
+  introv IHwp. cuts M: (forall rvs,
+         wpmk_constr wpmk E id rvs ts
     ===> wpsubst E (trm_constr id ((trms_vals (LibList.rev rvs))++ts))).
   { applys M. }
   induction ts as [|t ts']; intros.
@@ -893,7 +893,7 @@ Hint Resolve flocal_wpaux_getval.
 Lemma flocal_wp : forall E t,
   flocal (wpmk E t).
 Proof.
-  intros. induction t using trm_induct; try solve [ simpl; eauto ]. 
+  intros. induction t using trm_induct; try solve [ simpl; eauto ].
   { simpl. rename v into x. simpl. unfold wpaux_var. destruct_lookup~. }
   { simpl. destruct~ xs. }
   { simpl. rename l into ts. simpl. generalize (@nil val) as rvs.
@@ -923,11 +923,11 @@ End IsLocalWp.
 
 ==========
 (* DEPRECATED
-Definition Wpgen_unop_int (v1:val) (F:int->int) : Formula := 
+Definition Wpgen_unop_int (v1:val) (F:int->int) : Formula :=
   Local (Formula_typed (fun (Q:int->hprop) =>
     \exists n1, \[v1 = val_int n1] \* Q (F n1))).
 
-Definition Wpgen_unop_bool (v1:val) (F:bool->bool) : Formula := 
+Definition Wpgen_unop_bool (v1:val) (F:bool->bool) : Formula :=
   Local (Formula_typed (fun (Q:bool->hprop) =>
     \exists b1, \[v1 = val_bool b1] \* Q (F b1))).
 
@@ -939,8 +939,8 @@ Definition Wpgen_binop_int (v1 v2:val) (F:int->int->int) : Formula :=
 (* TODO
   | val_prim val_opp, (v1::nil) => Wpgen_unop_int v1 (fun n1 => - n1)
   | val_prim val_neg, (v1::nil) => Wpgen_unop_bool v1 (fun b1 => neg b1)
-  | val_prim val_eq, (v1::v2::nil) => Wpgen_val (isTrue (v1 = v2))
-  | val_prim val_neq, (v1::v2::nil) => Wpgen_val (isTrue (v1 <> v2))
+  | val_prim val_eq, (v1::v2::nil) => Wpgen_unlifted_val (isTrue (v1 = v2))
+  | val_prim val_neq, (v1::v2::nil) => Wpgen_unlifted_val (isTrue (v1 <> v2))
   | val_prim val_add, (v1::v2::nil) => Wpgen_binop_int v1 v2 (fun n1 n2 => n1 + n2)
   | val_prim val_sub, (v1::v2::nil) => Wpgen_binop_int v1 v2 (fun n1 n2 => n1 - n2)
   | val_prim val_mul, (v1::v2::nil) => Wpgen_binop_int v1 v2 (fun n1 n2 => n1 * n2)
@@ -968,18 +968,18 @@ Definition Wpgen_getval_val Wpgen (E:ctx) (t1:trm) (F2of:val->Formula) : Formula
                         | Some v => F2of v
                         | None => Wpgen_fail
                         end
-  | _ => Wpgen_let_typed (Wpgen E t1) F2of
+  | _ => Wpgen_let_trm (Wpgen E t1) F2of
   end.
 *)
 
 (** DEPRECATED
     [Wpgen_var] prevents [simpl] from simplifying context lookups, hence we
-    inline its definition at the place of use, using a notation. 
+    inline its definition at the place of use, using a notation.
 
 Notation "'Wpgen_var'' E x" :=
   (match Ctx.lookup x E with
   | None => Wpgen_fail
-  | Some v => Wpgen_val v
+  | Some v => Wpgen_unlifted_val v
   end) (at level 37, E at level 0, x at level 0).
 *)
 
@@ -987,9 +987,9 @@ Notation "'Wpgen_var'' E x" :=
 
 Definition Wpaux_apps_or_prim Wpgen (E:ctx) (t0:trm) (ts:list trm) : Formula :=
   match t0, ts with
-  | trm_val (val_prim val_add), (t1::t2::nil) => 
-     Wpaux_getval_int Wpgen E t1 (fun n1 => 
-       Wpaux_getval_int Wpgen E t2 (fun n2 => 
+  | trm_val (val_prim val_add), (t1::t2::nil) =>
+     Wpaux_getval_int Wpgen E t1 (fun n1 =>
+       Wpaux_getval_int Wpgen E t2 (fun n2 =>
          `Formula_cast (fun (Q:int->hprop) => Q (n1 + n2))))
   | _,_ => Wpaux_getval_val Wpgen E t0 (fun v0 => Wpaux_apps Wpgen E v0 nil ts)
   end.

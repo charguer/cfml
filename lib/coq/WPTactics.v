@@ -79,11 +79,11 @@ Ltac xgoal_code_without_wptag tt :=
 Ltac xgoal_fun tt :=
   match goal with
   | |- Triple (Trm_apps ?f ?Vs) ?H ?Q => constr:(f)
-  | |- ?H ==> @Wptag (Wpgen_App_typed ?A ?f ?Vs) _ _ ?Q => constr:(f)
+  | |- ?H ==> @Wptag (Wpgen_app ?A ?f ?Vs) _ _ ?Q => constr:(f)
   end.
   (* Alternative for second line:
        match xgoal_code_without_wptag tt with
-       | Wpgen_App_typed ?T ?f ?Vs => constr:(f)
+       | Wpgen_app ?T ?f ?Vs => constr:(f)
        end.
    *)
 
@@ -242,7 +242,7 @@ Ltac xtypes_dyn_list L :=
 
 (** [xtypes_triple E] displays the types involved in [E], which could be
     of the form [Triple (Trm_apps f Vs)] or [PRE _ CODE (App f Vs) POST _]
-    or [Wpgen_App_typed T f Vs]. The tactic displays the types of the arguments
+    or [Wpgen_app T f Vs]. The tactic displays the types of the arguments
     and the return type, as well as the associated encoders. *)
 
 Ltac xtypes_triple E :=
@@ -250,7 +250,7 @@ Ltac xtypes_triple E :=
     xtypes_dyn_list Vs; xtypes_type false T ET in
   match E with
   | (Wptag ?F) => xtypes_triple F
-  | (@Wpgen_App_typed ?T ?ET ?f ?Vs) => aux Vs T ET
+  | (@Wpgen_app ?T ?ET ?f ?Vs) => aux Vs T ET
   | (@Triple (Trm_apps ?f ?Vs) ?T ?ET ?H ?Q) => aux Vs T ET
   | _ => let F := xgoal_code tt in xtypes_triple F
   end.
@@ -304,7 +304,7 @@ Tactic Notation "xcleanup" :=
     by refining another existing specification. *)
 
 Lemma xtriple_lemma : forall f (Vs:dyns) `{EA:Enc A} H (Q:A->hprop),
-  H ==> ^(Wptag (Wpgen_App_typed A f Vs)) (Q \*+ \GC) ->
+  H ==> ^(Wptag (Wpgen_app A f Vs)) (Q \*+ \GC) ->
   Triple (Trm_apps f Vs) H Q.
 Proof using. Admitted. (* TODO *)
 
@@ -330,7 +330,7 @@ Tactic Notation "xtriple" :=
 
 Lemma xtriple_inv_lifted_lemma : forall f (Vs:dyns) A `{EA:Enc A} H (Q:A->hprop),
   Triple (Trm_apps f Vs) H Q ->
-  H ==> ^(Wptag (Wpgen_App_typed A f Vs)) Q.
+  H ==> ^(Wptag (Wpgen_app A f Vs)) Q.
 Proof using. Admitted. (* TODO *)
 
 Ltac xtriple_inv_core tt :=
@@ -360,14 +360,14 @@ Tactic Notation "xtriple_inv" :=
 Ltac xletval_pre tt :=
   xcheck_pull tt;
   match xgoal_code_without_wptag tt with
-  | (Wpgen_let_Val _ _) => idtac
+  | (Wpgen_let_val _ _) => idtac
   end.
 
 (* [xletvals] *)
 
 Lemma xletvals_lemma : forall A `{EA:Enc A} H (Fof:A->Formula) (V:A) A1 `{EA1:Enc A1} (Q:A1->hprop),
   (H ==> ^(Fof V) Q) ->
-  H ==> ^(Wpgen_let_Val V Fof) Q.
+  H ==> ^(Wpgen_let_val V Fof) Q.
 Proof using.
   introv M. applys MkStruct_erase. xchanges* M. intros ? ->. auto.
 Qed.
@@ -383,7 +383,7 @@ Tactic Notation "xletvals" :=
 
 Lemma xletval_lemma : forall A `{EA:Enc A} H (Fof:A->Formula) (V:A) A1 `{EA1:Enc A1} (Q:A1->hprop),
   (forall x, x = V -> H ==> ^(Fof x) Q) ->
-  H ==> ^(Wpgen_let_Val V Fof) Q.
+  H ==> ^(Wpgen_let_val V Fof) Q.
 Proof using.
   introv M. applys xletvals_lemma. applys* M.
 Qed.
@@ -391,7 +391,7 @@ Qed.
 Ltac xletval_common cont :=
   xletval_pre tt;
   match xgoal_code_without_wptag tt with
-  | (Wpgen_let_Val _ (fun x => _)) =>
+  | (Wpgen_let_val _ (fun x => _)) =>
      let a := fresh "v" x in
      let Pa := fresh "P" a in
      eapply xletval_lemma;
@@ -418,7 +418,7 @@ Tactic Notation "xletval" "as" :=
 Lemma xletvalst_lemma : forall A `{EA:Enc A} (P:A->Prop) H (Fof:A->Formula) (V:A) A1 `{EA1:Enc A1} (Q:A1->hprop),
   P V ->
   (forall x, P x -> H ==> ^(Fof x) Q) ->
-  H ==> ^(Wpgen_let_Val V Fof) Q.
+  H ==> ^(Wpgen_let_val V Fof) Q.
 Proof using.
   introv HV M. applys xletvals_lemma. applys* M.
 Qed.
@@ -426,7 +426,7 @@ Qed.
 Ltac xletvalst_common P cont :=
   xletval_pre tt;
   match xgoal_code_without_wptag tt with
-  | (Wpgen_let_Val _ (fun x => _)) =>
+  | (Wpgen_let_val _ (fun x => _)) =>
      let a := fresh "v" x in
      let Pa := fresh "P" a in
      eapply (@xletvalst_lemma _ _ P);
@@ -472,7 +472,7 @@ Tactic Notation "xletval" constr(P) "as" :=
 Ltac xlettrm_pre tt :=
   xcheck_pull tt;
   match xgoal_code_without_wptag tt with
-  | (Wpgen_let_typed _ _) => idtac
+  | (Wpgen_let_trm _ _) => idtac
   end.
 
 (* [xlettrm] *)
@@ -488,13 +488,12 @@ Tactic Notation "xlettrm" :=
 
 (* [xlettrm Q1] *)
 
-(* TODO: rename *)
-Lemma xlettrmst_lemma_typed : forall A1 (EA1:Enc A1) (Q1:A1->hprop) H A (EA:Enc A) (Q:A->hprop) ,
+Lemma xlettrmst_lemma : forall A1 (EA1:Enc A1) (Q1:A1->hprop) H A (EA:Enc A) (Q:A->hprop) ,
   forall (F1:Formula) (F2of:A1->Formula),
   Structural F1 ->
   H ==> F1 A1 EA1 Q1 ->
   (forall (X:A1), Q1 X ==> (F2of X) A EA Q) ->
-  H ==> ^(@Wpgen_let_typed F1 A1 EA1 (@F2of)) Q.
+  H ==> ^(@Wpgen_let_trm F1 A1 EA1 (@F2of)) Q.
 Proof using.
   introv HF1 M1 M2. applys MkStruct_erase. xchange M1.
   applys* Structural_conseq.
@@ -503,9 +502,9 @@ Qed.
 Ltac xlettrmst_common Q1 cont :=
   xlettrm_pre tt;
   match xgoal_code_without_wptag tt with
-  | (Wpgen_let_typed _ (fun x => _)) =>
+  | (Wpgen_let_trm _ (fun x => _)) =>
      let a := fresh "v" x in
-     eapply (@xlettrmst_lemma_typed _ _ Q1);
+     eapply (@xlettrmst_lemma _ _ Q1);
      [ try xstructural | | intros a; cont a ]
   end.
 
@@ -1023,8 +1022,8 @@ Tactic Notation "xseq" constr(H1) :=
 
 Ltac xlet_core tt :=
   match xgoal_code_without_wptag tt with
-  | (Wpgen_let_typed _ _) => xlettrm
-  | (Wpgen_let_Val _ _) => xletval
+  | (Wpgen_let_trm _ _) => xlettrm
+  | (Wpgen_let_val _ _) => xletval
   | (Wpgen_let_fun _) => xletfun
   end.
 
@@ -1035,8 +1034,8 @@ Tactic Notation "xlet" :=
 
 Ltac xlet_as_core tt :=
   match xgoal_code_without_wptag tt with
-  | (Wpgen_let_typed _ _) => fail 2 "xlet as currently not supported for let-trm"
-  | (Wpgen_let_Val _ _) => xletval as
+  | (Wpgen_let_trm _ _) => fail 2 "xlet as currently not supported for let-trm"
+  | (Wpgen_let_val _ _) => xletval as
   | (Wpgen_let_fun _) => xletfun as
   end.
 
@@ -1047,8 +1046,8 @@ Tactic Notation "xlet" "as" :=
 
 Ltac xlet_arg_core E :=
   match xgoal_code_without_wptag tt with
-  | (Wpgen_let_typed _ _) => xlettrm E
-  | (Wpgen_let_Val _ _) => xletval E
+  | (Wpgen_let_trm _ _) => xlettrm E
+  | (Wpgen_let_val _ _) => xletval E
   | (Wpgen_let_fun _) => xletfun E
   end.
 
@@ -1059,8 +1058,8 @@ Tactic Notation "xlet" constr(E) :=
 
 Ltac xlet_arg_as_core E :=
   match xgoal_code_without_wptag tt with
-  | (Wpgen_let_typed _ _) => xlettrm E as
-  | (Wpgen_let_Val _ _) => xletval E as
+  | (Wpgen_let_trm _ _) => xlettrm E as
+  | (Wpgen_let_val _ _) => xletval E as
   | (Wpgen_let_fun _) => xletfun E as
   end.
 
@@ -1071,8 +1070,8 @@ Tactic Notation "xlet" constr(E) "as" :=
 
 Ltac xlets_core tt :=
   match xgoal_code_without_wptag tt with
-  | (Wpgen_let_typed _ _) => fail 2 "xlets does not apply to let-trm"
-  | (Wpgen_let_Val _ _) => xletvals
+  | (Wpgen_let_trm _ _) => fail 2 "xlets does not apply to let-trm"
+  | (Wpgen_let_val _ _) => xletvals
   | (Wpgen_let_fun _) =>  fail 2 "xlets does not apply to let-trm"
   end.
 
@@ -1088,8 +1087,8 @@ Tactic Notation "xlets" :=
 
 Ltac xlet_xseq_step tt :=
   match xgoal_code_without_wptag tt with
-  | (Wpgen_let_typed _ _) => xlettrm
-  | (Wpgen_let_Val _ _) => xletval
+  | (Wpgen_let_trm _ _) => xlettrm
+  | (Wpgen_let_val _ _) => xletval
   | (Wpgen_let_fun _) => xletfun
   | (Wpgen_seq _ _) => xseq
   end.
@@ -1101,22 +1100,9 @@ Ltac xlet_xseq_steps tt :=
 (* ---------------------------------------------------------------------- *)
 (** ** Tactic [xval] *)
 
-Lemma xval_lemma : forall A `{EA:Enc A} (V:A) v H (Q:A->hprop),
-  v = ``V ->
+Lemma xval_lemma : forall A `{EA:Enc A} (V:A) H (Q:A->hprop),
   H ==> Q V ->
-  H ==> ^(Wpgen_val v) Q.
-Proof using. introv E N. subst. applys MkStruct_erase. unfold Post_cast_val. xsimpl~ V. Qed.
-
-(* NEEDED? *)
-Lemma xval_lemma_val : forall A `{EA:Enc A} (V:A) v H (Q:val->hprop),
-  v = ``V ->
-  H ==> Q (``V) ->
-  H ==> ^(Wpgen_val v) Q.
-Proof using. introv E N. subst. applys MkStruct_erase. unfold Post_cast_val. xsimpl~ (``V). Qed.
-
-Lemma xval_lifted_lemma : forall A `{EA:Enc A} (V:A) H (Q:A->hprop),
-  H ==> Q V ->
-  H ==> ^(Wpgen_Val V) Q.
+  H ==> ^(Wpgen_val V) Q.
 Proof using.
   introv M. subst. applys MkStruct_erase.
   applys xcast_lemma M.
@@ -1130,12 +1116,12 @@ Ltac xval_pre tt :=
   xcheck_pull tt;
   xlet_xseq_steps tt;
   match xgoal_code_without_wptag tt with
-  | (Wpgen_Val _) => idtac
+  | (Wpgen_val _) => idtac
   end.
 
 Ltac xval_arg E :=
   xval_pre tt;
-  applys (@xval_lemma _ _ E); [ try reflexivity | ].
+  eapply (@xval_lemma _ _ E); [ try reflexivity | ].
 
 Tactic Notation "xval" uconstr(E) :=
   xval_arg E.
@@ -1149,7 +1135,7 @@ Ltac xval_post tt :=
 
 Ltac xval_core tt :=
   xval_pre tt;
-  applys xval_lifted_lemma;
+  eapply xval_lemma;
   xval_post tt.
 
 Tactic Notation "xval" :=
@@ -1323,7 +1309,7 @@ Ltac xapp_record tt :=
 Lemma xapp_lemma : forall A `{EA:Enc A} (Q1:A->hprop) (f:val) (Vs:dyns) H1 H Q,
   Triple (Trm_apps f Vs) H1 Q1 ->
   H ==> H1 \* (Q1 \--* protect Q) ->
-  H ==> ^(Wpgen_App_typed A f Vs) Q.
+  H ==> ^(Wpgen_app A f Vs) Q.
 Proof using.
   introv M1 M2. applys MkStruct_erase. xchanges (rm M2).
   applys xreturn_lemma_typed. rewrite <- Triple_eq_himpl_Wp.
@@ -1333,7 +1319,7 @@ Qed.
 Lemma xapps_lemma : forall A `{EA:Enc A} (V:A) H2 (f:val) (Vs:dyns) H1 H Q,
   Triple (Trm_apps f Vs) H1 (fun r => \[r = V] \* H2) ->
   H ==> H1 \* (H2 \-* protect (Q V)) ->
-  H ==> ^(Wpgen_App_typed A f Vs) Q.
+  H ==> ^(Wpgen_app A f Vs) Q.
 Proof using.
   introv M1 M2. applys xapp_lemma M1. xchanges M2.
   intros ? ->. auto.
@@ -1342,7 +1328,7 @@ Qed.
 Lemma xapps_lemma_pure : forall A `{EA:Enc A} (V:A) (f:val) (Vs:dyns) H1 H Q,
   Triple (Trm_apps f Vs) H1 (fun r => \[r = V]) ->
   H ==> H1 \* protect (Q V) ->
-  H ==> ^(Wpgen_App_typed A f Vs) Q.
+  H ==> ^(Wpgen_app A f Vs) Q.
 Proof using.
   introv M1 M2. applys xapps_lemma \[]; rew_heap; eauto.
 Qed.
@@ -1360,7 +1346,7 @@ Qed.
 Ltac xapp_pre_wp tt :=
   xlet_xseq_steps tt;
   match xgoal_code_without_wptag tt with
-  | (Wpgen_App_typed ?T ?f ?Vs) => idtac
+  | (Wpgen_app ?T ?f ?Vs) => idtac
   (* | (Wpgen_record_new ?Lof) => idtac --- added in WPRecord *)
   end.
 
@@ -2485,13 +2471,12 @@ Ltac xstep_once tt :=
   match goal with
   | |- ?G => match xgoal_code_without_wptag tt with
     | (Wpgen_seq _ _) => xseq
-    | (Wpgen_let_typed _ _) => xlet
-    | (Wpgen_let_Val _ _) => xletval
-    | (Wpgen_app _) => xapp
-    | (Wpgen_App_typed _ _ _) => xapp
+    | (Wpgen_let_trm _ _) => xlet
+    | (Wpgen_let_val _ _) => xletval
+    | (Wpgen_let_fun _) => xletfun
+    | (Wpgen_app _ _ _) => xapp
     | (Wpgen_if_bool _ _ _) => xif
     | (Wpgen_val _) => xval
-    | (Wpgen_Val _) => xval
     | (Wpgen_fail) => xfail
     | (Wpgen_done) => xdone
     | (Wpgen_case _ _ _) => xcase
@@ -2685,13 +2670,13 @@ Tactic Notation "xwp_debug" :=
 Ltac xcast_pre tt :=
   xcheck_pull tt;
   match xgoal_code_without_wptag tt with
-  | (Wpgen_Val_no_mkstruct _) => idtac
+  | (Wpgen_cast _) => idtac
   end.
 
 Ltac xcast_debug tt :=
   idtac "[xcast] fails to simplify due to type mismatch";
   match goal with |-
-   ?H ==> (Wptag (@Wpgen_Val_no_mkstruct ?A1 ?EA1 ?X)) ?A2 ?EA2 ?Q =>
+   ?H ==> (Wptag (@Wpgen_cast ?A1 ?EA1 ?X)) ?A2 ?EA2 ?Q =>
    xtypes_type false A1 EA1;
    xtypes_type false A2 EA2
  end.

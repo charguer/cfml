@@ -464,7 +464,7 @@ Proof using.
     xpull. intros Hf. xvals*. }
   (* Implementation details *)
   { set (Q:= (fun (g:val) => \[ forall A (EA:Enc A) (x:A), True ])).
-    applys (@xlettrmst_lemma_typed _ _ Q). xstructural. skip. skip. }
+    applys (@xlettrmst_lemma _ _ Q). xstructural. skip. skip. }
 Qed.
 
 

@@ -343,11 +343,11 @@ Hint Extern 1 (RegisterSpec infix_emark__) => Provide infix_emark_spec.
 Hint Extern 1 (RegisterSpec infix_colon_eq__) => Provide infix_colon_eq_spec.
 
 
-Notation "'App'' `! r" := (Wpgen_App_typed _ infix_emark__ ((Dyn r)::nil))
+Notation "'App'' `! r" := (Wpgen_app _ infix_emark__ ((Dyn r)::nil))
   (at level 69, no associativity, r at level 0,
    format "'App''  `! r") : wp_scope.
 
-Notation "'App'' r `:= x" := (Wpgen_App_typed _ infix_colon_eq__ ((Dyn r)::(Dyn x)::nil))
+Notation "'App'' r `:= x" := (Wpgen_app _ infix_colon_eq__ ((Dyn r)::(Dyn x)::nil))
   (at level 69, no associativity, r at level 0,
    format "'App''  r  `:=  x") : wp_scope.
 

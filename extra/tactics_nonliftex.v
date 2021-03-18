@@ -58,11 +58,11 @@ Tactic Notation "xdecodes_debug" :=
 
 Lemma xtriple_lemma : forall t f (vs:vals) `{EA:Enc A} H (Q:A->hprop),
   t = trm_apps f (trms_vals vs) ->
-  H ==> ^(Wptag (Wpgen_app (trm_apps f (trms_vals vs)))) (Q \*+ \GC) ->
+  H ==> ^(Wptag (Wpgen_app_untyped (trm_apps f (trms_vals vs)))) (Q \*+ \GC) ->
   Triple t H Q.
 Proof using.
   introv E M. subst t. applys Triple_hgc_post.
-  applys* Triple_of_Wp. unfolds Wpgen_app.
+  applys* Triple_of_Wp. unfolds Wpgen_app_untyped.
   rewrite <- eq_Mkstruct_of_Structural in M. applys M.
   applys Structural_Wp.
 Qed.
@@ -82,7 +82,7 @@ Ltac xtriple_core tt :=
 Lemma xapp_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
   Triple t H1 Q1 ->
   H ==> H1 \* (Q1 \--* protect Q) ->
-  H ==> ^(Wpgen_app t) Q.
+  H ==> ^(Wpgen_app_untyped t) Q.
 Proof using.
   introv M1 M2. applys MkStruct_erase.
   xchanges (rm M2).
@@ -93,7 +93,7 @@ Qed.
 Lemma xapps_lemma : forall A `{EA:Enc A} (V:A) H2 t H1 H Q,
   Triple t H1 (fun r => \[r = V] \* H2) ->
   H ==> H1 \* (H2 \-* protect (Q V)) ->
-  H ==> ^(Wpgen_app t) Q.
+  H ==> ^(Wpgen_app_untyped t) Q.
 Proof using.
   introv M1 M2. applys xapp_lemma M1. xchanges M2.
   intros ? ->. auto.
@@ -102,7 +102,7 @@ Qed.
 Lemma xapps_lemma_pure : forall A `{EA:Enc A} (V:A) t H1 H Q,
   Triple t H1 (fun r => \[r = V]) ->
   H ==> H1 \* protect (Q V) ->
-  H ==> ^(Wpgen_app t) Q.
+  H ==> ^(Wpgen_app_untyped t) Q.
 Proof using.
   introv M1 M2. applys xapps_lemma \[]; rew_heap; eauto.
 Qed.
@@ -112,8 +112,8 @@ Qed.
 Lemma xapp_find_spec_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H (Q:A->hprop),
   Triple t H1 Q1 ->
   (Triple t H1 Q1 ->
-   H ==> ^(Wpgen_app t) Q) ->
-  H ==> ^(Wpgen_app t) Q.
+   H ==> ^(Wpgen_app_untyped t) Q) ->
+  H ==> ^(Wpgen_app_untyped t) Q.
 Proof using. auto. Qed.
 
 Ltac xapp_select_lemma tt :=
@@ -134,7 +134,7 @@ Ltac xapp_apply_lemma cont_prove_triple :=
 
 Ltac xapp_general tt :=
   match xgoal_code_without_wptag tt with
-  | (Wpgen_app ?t) => xapp_apply_lemma ltac:(xspec_prove_triple)
+  | (Wpgen_app_untyped ?t) => xapp_apply_lemma ltac:(xspec_prove_triple)
   | (Wpgen_App_typed ?T ?f ?Vs) => xapp_apply_lifted_lemma ltac:(xspec_prove_triple)
   end.
 
@@ -142,7 +142,7 @@ Ltac xapp_general tt :=
   xapp_pre tt;
   let cont := ltac:(fun tt => xspec_prove_triple_with_args E) in
   match xgoal_code_without_wptag tt with
-  | (Wpgen_app ?t) =>  xapp_apply_lemma cont
+  | (Wpgen_app_untyped ?t) =>  xapp_apply_lemma cont
   | (Wpgen_App_typed ?T ?f ?Vs) => xapp_apply_lifted_lemma cont
   end.
 
@@ -220,20 +220,20 @@ Hint Extern 1 (Register_Spec (val_prim val_div)) => Provide Triple_div.
 Lemma xval_lemma_decode : forall A `{EA:Enc A} (V:A) v H (Q:A->hprop),
   Decode v V ->
   H ==> Q V ->
-  H ==> ^(Wpgen_val v) Q.
+  H ==> ^(Wpgen_unlifted_val v) Q.
 Proof using. introv E N. subst. applys MkStruct_erase. unfold Post_cast_val. xsimpl~ V. Qed.
 Ltac xval_pre tt :=
   xlet_xseq_xcast_repeat tt;
   match xgoal_code_without_wptag tt with
+  | (Wpgen_unlifted_val _) => idtac
   | (Wpgen_val _) => idtac
-  | (Wpgen_Val _) => idtac
   end.
 
 Ltac xval_core tt :=
   xval_pre tt;
   match xgoal_code_without_wptag tt with
-  | (Wpgen_val _) => applys @xval_lemma_decode; [ try xdecode | ]
-  | (Wpgen_Val _) => applys xval_lifted_lemma
+  | (Wpgen_unlifted_val _) => applys @xval_lemma_decode; [ try xdecode | ]
+  | (Wpgen_val _) => applys xval_lifted_lemma
   end;
   xval_post tt.
 
@@ -288,8 +288,8 @@ Notation "'Register_goal' G" := (Register database_spec G)
 
 (* ********************************************************************** *)
 in xstep
-  | (Wpgen_Val_no_mkstruct _) => xseq
-    | (Wpgen_Val_no_mkstruct _) => xcast
+  | (Wpgen_cast _) => xseq
+    | (Wpgen_cast _) => xcast
 
   | (Wpgen_let _ _) => xlet
 
@@ -313,7 +313,7 @@ Qed.
 
 Lemma xfun_lemma : forall (v:val) H (Q:val->hprop),
   H ==> Q v ->
-  H ==> ^(Wpgen_val v) Q.
+  H ==> ^(Wpgen_unlifted_val v) Q.
 Proof using. introv M. applys~ @xval_lemma M. Qed.
 
 Ltac xfun_core tt :=
@@ -477,3 +477,18 @@ Tactic Notation "xind_skip" "as" ident(IH) :=
  (* TODO: check that xapp works for
       exploiting a body. Note that this tactic is essentially equivalent
       to [xletfun as; intros f Sf; assert (Sf': P f); [ | clears Sf; rename Sf' into Sf ]. ] *)
+
+
+
+Lemma xval_lemma : forall A `{EA:Enc A} (V:A) v H (Q:A->hprop),
+  v = ``V ->
+  H ==> Q V ->
+  H ==> ^(Wpgen_unlifted_val v) Q.
+Proof using. introv E N. subst. applys MkStruct_erase. unfold Post_cast_val. xsimpl~ V. Qed.
+
+(* NEEDED? *)
+Lemma xval_lemma_val : forall A `{EA:Enc A} (V:A) v H (Q:val->hprop),
+  v = ``V ->
+  H ==> Q (``V) ->
+  H ==> ^(Wpgen_unlifted_val v) Q.
+Proof using. introv E N. subst. applys MkStruct_erase. unfold Post_cast_val. xsimpl~ (``V). Qed.

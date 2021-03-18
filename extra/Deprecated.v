@@ -233,7 +233,7 @@ Qed.
 
 =============
 (* DEPRECATED
-Definition Wpgen_val_typed `{EA1:Enc A1} (V:A1) : Formula :=
+Definition Wpgen_unlifted_val_typed `{EA1:Enc A1} (V:A1) : Formula :=
   MkStruct (fun A (EA:Enc A) Q => Q V1).
 *)
 
@@ -241,7 +241,7 @@ Definition Wpgen_val_typed `{EA1:Enc A1} (V:A1) : Formula :=
 
 (** [Wpgen_cast X Q] applies a postcondition [Q] of type [A2->hprop] to a value
     [X] of type [A1], with [X] converted on-the-fly to a value of type [A2]. *)
-(* --TODO: is Wpgen_cast not similar to (Wpgen_val `X) *)
+(* --TODO: is Wpgen_cast not similar to (Wpgen_unlifted_val `X) *)
 
 Definition Wpgen_cast `{Enc A1} (X:A1) A2 (EA2:Enc A2) (Q:A2->hprop) : hprop :=
   \exists (Y:A2), \[enc X = enc Y] \* Q Y.
