@@ -1094,13 +1094,12 @@ Tactic Notation "xlets" :=
 
 
 (* ---------------------------------------------------------------------- *)
-(** ** Tactic [xlet_xseq_steps] *)
+(** ** Tactic [xlet_xseq_steps] and [xlet_xseq_xapp_steps] *)
 
 (** [xlet_xseq_steps tt] automatically performs as many [xlet] and [xseq] as
     appropriate. *)
 
 Ltac xlet_xseq_step tt :=
-  xcheck_pull tt;
   match xgoal_code_without_wptag tt with
   | (Wpgen_let_trm _ _) => xlettrm
   | (Wpgen_let_val _ _) => xletval
@@ -1109,7 +1108,26 @@ Ltac xlet_xseq_step tt :=
   end.
 
 Ltac xlet_xseq_steps tt :=
+  xcheck_pull tt;
   repeat (xlet_xseq_step tt).
+
+(** [xlet_xseq_xapp_steps tt] is similar, but includes [xapp]. *)
+
+Ltac xif_call_xapp_first tt := (* defined further in this file *)
+  fail.
+
+Ltac xlet_xseq_xapp_step tt :=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_let_trm _ _) => xlettrm
+  | (Wpgen_let_val _ _) => xletval
+  | (Wpgen_let_fun _) => xletfun
+  | (Wpgen_seq _ _) => xseq
+  | (Wpgen_app _ _ _) => xif_call_xapp_first tt
+  end.
+
+Ltac xlet_xseq_xapp_steps tt :=
+  xcheck_pull tt;
+  repeat (xlet_xseq_xapp_step tt).
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1184,19 +1202,8 @@ Tactic Notation "xvals" "*"  :=
    Note: the boolean propositions involved in the hypotheses [b = true] and [b = false]
    may be simplified by the tactic. *) (* TODO: do we need [xif_nosimpl]? *)
 
-Ltac xif_call_xapp_first tt := (* defined further in this file *)
-  fail.
-
-Ltac xlet_xseq_steps_and_xapp_xval_step tt :=
-  xlet_xseq_steps tt;
-  xcheck_pull tt; (* TODO: error message might be confusing if this check fails *)
-  try match xgoal_code_without_wptag tt with
-  | (Wpgen_app _) => xif_call_xapp_first
-  | (Wpgen_val _) => xval
-  end.
-
 Ltac xif_xmatch_pre tt :=
-  xlet_xseq_steps_and_xapp_xval_step tt;
+  xlet_xseq_xapp_steps tt;
   xcheck_pull tt; (* TODO: error message might be confusing if this check fails *)
   match xgoal_post_is_evar tt with
   | true => fail 2 "The tactic requires an instantiated postcondition; use [xpost] or pass it as argument."
@@ -1238,7 +1245,7 @@ Tactic Notation "xif" :=
 (** [xif Q] or [xif H] *)
 
 Ltac xif_arg_core Q :=
-  xlet_xseq_steps_and_xapp_xval_step tt;
+  xlet_xseq_xapp_steps tt;
   xcheck_pull tt; (* TODO: error message might be confusing if this check fails *)
   xpost_arg_core Q ltac:(fun _ => xif_core tt).
 
@@ -2322,13 +2329,27 @@ Ltac xcase_post H :=
       try (aux2 H)
   end.
 
+(** [xpull_himpl_hforall_r tt] is equivalent to
+    [apply himpl_hforall_r] but it preserves
+    the name of the binder. *)
+
+Ltac xpull_himpl_hforall_r tt :=
+  match goal with
+  | |- ?H ==> hforall (fun x => _) =>
+      let a := fresh x in
+      apply himpl_hforall_r;
+      intro a;
+      revert a
+  | _ => apply himpl_hforall_r
+  end.
+
 (* [xcase_extract_hyps tt] applies to a goal [H ==> (\forall x1 x2, \[E] \-* F Q)].
    and it pulls [x1] and [x2] and [E] out of the entailment, but leaving them
    in the context. *)
 
 Ltac xcase_extract_hyps tt :=
   pose ltac_mark;
-  repeat (apply himpl_hforall_r; intro);
+  repeat (xpull_himpl_hforall_r tt; intro);
   apply hwand_hpure_r_intro; intro;
   gen_until_mark.
 
@@ -2489,7 +2510,7 @@ Ltac xmatch_core options :=
 (* [xmatch_post_core] implements [xmatch Q] *)
 
 Ltac xmatch_post_core Q options :=
-  xlet_xseq_steps_and_xapp_xval_step tt;
+  xlet_xseq_xapp_steps tt;
   xcheck_pull tt; (* TODO: error message might be confusing if this check fails *)
   xpost_arg_core Q ltac:(fun _ => xmatch_core options).
 

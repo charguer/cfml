@@ -66,9 +66,7 @@ Lemma pop_spec : forall A `{Enc A} (p:loc) (L:list A),
     PRE (p ~> Stack L)
     POST (fun (x:A) => \exists L', \[L = x::L'] \* (p ~> Stack L')).
 Proof using.
-  introv N. xcf. xunfold Stack. xapp.
-  xmatch. { xapp. xvals*. } (* TODO: xlet does not keep the name as it should *)
-  (* ALT: xmatch (>> Xcase_as Xcase_no_simpl). { xfail. } { intros M x L' HL. xapp. xvals*. } *)
+  introv N. xcf. xunfold Stack. xmatch. { xapp. xvals*. }
 Qed.
 
 Hint Extern 1 (RegisterSpec pop) => Provide pop_spec.
@@ -102,7 +100,7 @@ Lemma rev_append_spec : forall A `{Enc A} (p1 p2:loc) (L1 L2:list A),
     POSTUNIT (p1 ~> Stack (@nil A) \* p2 ~> Stack (rev L1 ++ L2)).
 Proof using.
   intros. gen p1 p2 L2. induction_wf IH: (@list_sub A) L1. intros.
-  xcf. xapp. xif ;=> C.
+  xcf. xif; intros C.
   { (* case cons *)
     xapp~ ;=> x L1' E. xapp. xapp. { subst*. } xsimpl. subst. rew_list~. }
   { (* case nil *)

@@ -11,6 +11,8 @@ Implicit Types p q : loc.
 Require Import StackSized_ml.
 
 
+
+
 (* ********************************************************************** *)
 (** ** Representation predicate *)
 
@@ -122,7 +124,7 @@ Proof using.
      Also use [xcf], [xpull], [xapps], [xrets],
      and lemma [length_zero_iff_nil] from above. *)
   (* <EXO> *)
-  xcf. xopen s. xpull ;=> n Hn. xapp. xclose* s.
+  xcf. xopen s. intros n Hn. xapp. xclose* s.
   xvals. subst. apply length_zero_iff_nil.
   (* </EXO> *)
   auto.
@@ -138,7 +140,7 @@ Proof using.
   (* <EXO> *)
   xcf.
   xopen s. (* details: xchange (@Stack_open s) *)
-  xpull ;=> n Hn.
+  intros n Hn.
   xapp. xapp. xapp. xapp.
   xclose s. rew_list. math.
   xsimpl.

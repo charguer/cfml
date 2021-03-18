@@ -878,3 +878,94 @@ Ltac check_is_Wpgen_record_alloc F ::=
   | (Wpgen_record_new _) => idtac
   | (Wpgen_record_with _ _) => idtac
   end.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Notation *)
+
+
+Notation "'New' Vs 'as' r" :=
+  ((Wpgen_record_new (fun r => Vs)))
+  (in custom wp at level 69,
+   Vs constr at level 69)
+  : wp_scope.
+
+Notation "'New' Vs" :=
+  ((Wpgen_record_new (fun _ => Vs)))
+  (in custom wp at level 69,
+   Vs constr at level 69)
+  : wp_scope.
+
+(*
+Notation "'App' r '.' f" :=
+  (Wpgen_app _ (val_get_field f) ((Dyn r)::nil))
+  (in custom wp at level 69,
+   no associativity,
+   r constr at level 0,
+   f constr at level 0,
+   format "'App'  r '.' f") : wp_scope.
+
+Notation "'App' r '.' f <- v" :=
+  (Wpgen_app _ (val_set_field f) ((Dyn r)::(Dyn v)::nil))
+  (in custom wp at level 69,
+   no associativity,
+   r constr at level 0,
+   f constr at level 0,
+   v constr at level 69,
+   format "'App'  r '.' f  <-  v") : wp_scope.
+
+*)
+
+Notation "r '.' f" :=
+  (Wpgen_app _ (val_get_field f) ((Dyn r)::nil))
+  (in custom wp at level 69,
+   no associativity,
+   r constr at level 0,
+   f constr at level 0,
+   format "r '.' f") : wp_scope.
+
+Notation "r '.' f <- v" :=
+  (Wpgen_app _ (val_set_field f) ((Dyn r)::(Dyn v)::nil))
+  (in custom wp at level 69,
+   no associativity,
+   r constr at level 0,
+   f constr at level 0,
+   v constr at level 69,
+   format "r '.' f  <-  v") : wp_scope.
+
+(** Same with tag *)
+
+
+Notation "'New' Vs 'as' r" :=
+  (Wptag (Wpgen_record_new (fun r => Vs)))
+  (in custom wp at level 69,
+   only printing,
+   Vs constr at level 69)
+  : wp_scope.
+
+Notation "'New' Vs" :=
+  (Wptag (Wpgen_record_new (fun _ => Vs)))
+  (in custom wp at level 69,
+   only printing,
+   Vs constr at level 69)
+  : wp_scope.
+
+Notation "r '.' f" :=
+  (Wptag (Wpgen_app _ (val_get_field f) ((Dyn r)::nil)))
+  (in custom wp at level 69,
+   only printing,
+   no associativity,
+   r constr at level 0,
+   f constr at level 0,
+   format "r '.' f") : wp_scope.
+
+Notation "r '.' f <- v" :=
+  (Wptag (Wpgen_app _ (val_set_field f) ((Dyn r)::(Dyn v)::nil)))
+  (in custom wp at level 69,
+   only printing,
+   no associativity,
+   r constr at level 0,
+   f constr at level 0,
+   v constr at level 69,
+   format "r '.' f  <-  v") : wp_scope.
+

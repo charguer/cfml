@@ -2,8 +2,9 @@ Set Implicit Arguments.
 From CFML Require Import WPLib.
 Generalizable Variable A.
 
-
 Require Import Pervasives_ml.
+
+(* TODO: missing a few notation in this file for builtin ops *)
 
 
 (************************************************************)
@@ -63,6 +64,42 @@ Qed.
 
 Hint Extern 1 (RegisterSpec infix_emark_eq__) => Provide infix_emark_eq_loc_spec.
 
+(****************)
+
+Notation "'App' v1 == v2" :=
+  (Wpgen_app _ infix_eq_eq__ ((Dyn v1)::(Dyn v2)::nil))
+  (in custom wp at level 69,
+   no associativity,
+   v1 constr at level 0,
+   v2 constr at level 0,
+   format "'App'  v1  ==  v2") : wp_scope.
+
+Notation "'App' v1 != v2" :=
+  (Wpgen_app _ infix_emark_eq__ ((Dyn v1)::(Dyn v2)::nil))
+  (in custom wp at level 69,
+   no associativity,
+   v1 constr at level 0,
+   v2 constr at level 0,
+   format "'App'  v1  !=  v2") : wp_scope.
+
+Notation "'App' v1 == v2" :=
+  (Wptag (Wpgen_app _ infix_eq_eq__ ((Dyn v1)::(Dyn v2)::nil)))
+  (in custom wp at level 69,
+   only printing,
+   no associativity,
+   v1 constr at level 0,
+   v2 constr at level 0,
+   format "'App'  v1  ==  v2") : wp_scope.
+
+Notation "'App' v1 != v2" :=
+  (Wptag (Wpgen_app _ infix_emark_eq__ ((Dyn v1)::(Dyn v2)::nil)))
+  (in custom wp at level 69,
+   only printing,
+   no associativity,
+   v1 constr at level 0,
+   v2 constr at level 0,
+   format "'App'  v1  !=  v2") : wp_scope.
+
 
 (************************************************************)
 (** Comparison *)
@@ -82,6 +119,42 @@ Parameter infix_neq_spec : forall A `{EA:Enc A} (a b : A),
     POST \[= isTrue (a <> b) ].
 
 Hint Extern 1 (RegisterSpec infix_lt_gt__) => Provide infix_neq_spec.
+
+
+Notation "'App' v1 = v2" :=
+  (Wpgen_app _ infix_eq__ ((Dyn v1)::(Dyn v2)::nil))
+  (in custom wp at level 69,
+   no associativity,
+   v1 constr at level 0,
+   v2 constr at level 69,
+   format "'App'  v1  =  v2") : wp_scope.
+
+Notation "'App' v1 <> v2" :=
+  (Wpgen_app _ infix_lt_gt__ ((Dyn v1)::(Dyn v2)::nil))
+  (in custom wp at level 69,
+   no associativity,
+   v1 constr at level 0,
+   v2 constr at level 69,
+   format "'App'  v1  <>  v2") : wp_scope.
+
+Notation "'App' v1 = v2" :=
+  (Wptag (Wpgen_app _ infix_eq__ ((Dyn v1)::(Dyn v2)::nil)))
+  (in custom wp at level 69,
+   no associativity,
+   v1 constr at level 0,
+   v2 constr at level 69,
+   format "'App'  v1  =  v2") : wp_scope.
+
+Notation "'App' v1 <> v2" :=
+  (Wptag (Wpgen_app _ infix_lt_gt__ ((Dyn v1)::(Dyn v2)::nil)))
+  (in custom wp at level 69,
+   no associativity,
+   v1 constr at level 0,
+   v2 constr at level 69,
+   format "'App'  v1  <>  v2") : wp_scope.
+
+
+
 
 Lemma min_spec : forall (n m:int),
   SPEC (min n m)
@@ -342,20 +415,35 @@ Hint Extern 1 (RegisterSpec ref) => Provide ref_spec.
 Hint Extern 1 (RegisterSpec infix_emark__) => Provide infix_emark_spec.
 Hint Extern 1 (RegisterSpec infix_colon_eq__) => Provide infix_colon_eq_spec.
 
+Notation "'App' ! r" := (Wpgen_app _ infix_emark__ ((Dyn r)::nil))
+  (in custom wp at level 69,
+   no associativity,
+   r constr at level 0,
+   format "'App'  ! r") : wp_scope.
 
-Notation "'App'' `! r" := (Wpgen_app _ infix_emark__ ((Dyn r)::nil))
-  (at level 69, no associativity, r at level 0,
-   format "'App''  `! r") : wp_scope.
+Notation "'App' r := v" := (Wpgen_app _ infix_colon_eq__ ((Dyn r)::(Dyn v)::nil))
+  (in custom wp at level 69,
+   no associativity,
+   r constr at level 0,
+   v constr at level 69,
+   format "'App'  r  :=  v") : wp_scope.
 
-Notation "'App'' r `:= x" := (Wpgen_app _ infix_colon_eq__ ((Dyn r)::(Dyn x)::nil))
-  (at level 69, no associativity, r at level 0,
-   format "'App''  r  `:=  x") : wp_scope.
+Notation "'App' ! r" :=
+  (Wptag (Wpgen_app _ infix_emark__ ((Dyn r)::nil)))
+  (in custom wp at level 69,
+   only printing,
+   no associativity,
+   r constr at level 0,
+   format "'App'  ! r") : wp_scope.
 
-(* TODO variant with explicit type
-Notation "'App'' { T } r `:= x" := (Wpgen_App_typed T (trm_val infix_colon_eq__) ((Dyn r)::(Dyn x)::nil))
-  (at level 69, no associativity, r at level 0,
-   format "'App''  { T }  r  `:=  x") : wp_scope.
-*)
+Notation "'App' r := v" :=
+  (Wptag (Wpgen_app _ infix_colon_eq__ ((Dyn r)::(Dyn v)::nil)))
+  (in custom wp at level 69,
+   only printing,
+   no associativity,
+   r constr at level 0,
+   v constr at level 69,
+   format "'App'  r  :=  v") : wp_scope.
 
 Lemma incr_spec : forall (n:int) r,
   SPEC (incr r)
