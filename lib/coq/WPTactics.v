@@ -914,7 +914,14 @@ Tactic Notation "xgc_post" :=
 (** ** Tactic [xpost] *)
 
 (** [xpost Q] allows to weaken the current postcondition to [Q].
+    If the postcondition is already an evar, it simply instantiates it.
+
     [xpost] allows to weaken the current postcondition to an evar. *)
+
+Lemma xpost_lemma_inst : forall A `{EA:Enc A} (Q:A->hprop) H (F:Formula),
+  H ==> ^F Q ->
+  H ==> ^F Q.
+Proof using. auto. Qed.
 
 Lemma xpost_lemma : forall A `{EA:Enc A} (Q1 Q2:A->hprop) H (F:Formula),
   Structural F ->
@@ -928,6 +935,7 @@ Arguments xpost_lemma : clear implicits.
 (* [xpost] *)
 
 Ltac xpost_core tt :=
+  xcheck_pull tt;
   eapply (@xpost_lemma); [ xstructural | | ].
 
 Tactic Notation "xpost" :=
@@ -935,15 +943,20 @@ Tactic Notation "xpost" :=
 
 (* [xpost Q] *)
 
-Ltac xpost_arg_core Q :=
-  let Q := match type of Q with
-           | hprop => constr:(fun (_:unit) => Q)
-           | _ => constr:(Q)
-           end in
-  eapply (@xpost_lemma _ _ Q); [ xstructural | | ].
+Ltac xpost_arg_post Q :=
+  match xgoal_post_is_evar tt with
+  | true => eapply (@xpost_lemma_inst _ _ Q)
+  | false => eapply (@xpost_lemma _ _ Q); [ xstructural | | ]
+  end.
 
-Tactic Notation "xpost" constr(Q) :=
-  xpost_arg_core Q.
+Ltac xpost_arg_core E :=
+  match type of E with
+  | hprop => xpost_arg_post (fun (_:unit) => E)
+  | _ => xpost_arg_post E
+  end.
+
+Tactic Notation "xpost" constr(E) :=
+  xpost_arg_core E.
 
 
 (************************************************************************ *)
@@ -1100,17 +1113,12 @@ Ltac xlet_xseq_steps tt :=
 (* ---------------------------------------------------------------------- *)
 (** ** Tactic [xval] *)
 
-Lemma xval_lemma : forall A `{EA:Enc A} (V:A) H (Q:A->hprop),
-  H ==> Q V ->
-  H ==> ^(Wpgen_val V) Q.
-Proof using.
-  introv M. subst. applys MkStruct_erase.
-  applys xcast_lemma M.
-Qed.
+(* [xval] applies to a goal of the form [PRE H CODE (Val V) POST Q].
+   It emits the proof obligation [H ==> Q V].
 
-(* [xval_pre tt] automatically performs the necessary
-   [xlet], [xseq] and [xcast], then checks that the goal
-   is a [Wpgen_val] goal. *)
+   [xvals] combines [xval] followed with [xsimpl]. *)
+
+(* [xval] *)
 
 Ltac xval_pre tt :=
   xcheck_pull tt;
@@ -1119,16 +1127,13 @@ Ltac xval_pre tt :=
   | (Wpgen_val _) => idtac
   end.
 
-Ltac xval_arg E :=
-  xval_pre tt;
-  eapply (@xval_lemma _ _ E); [ try reflexivity | ].
-
-Tactic Notation "xval" uconstr(E) :=
-  xval_arg E.
-Tactic Notation "xval" "~" uconstr(E) :=
-  xval E; auto_tilde.
-Tactic Notation "xval" "*" uconstr(E) :=
-  xval E; auto_star.
+Lemma xval_lemma : forall A `{EA:Enc A} (V:A) H (Q:A->hprop),
+  H ==> Q V ->
+  H ==> ^(Wpgen_val V) Q.
+Proof using.
+  introv M. subst. applys MkStruct_erase.
+  applys xcast_lemma M.
+Qed.
 
 Ltac xval_post tt :=
   xcleanup.
@@ -1145,17 +1150,7 @@ Tactic Notation "xval" "~" :=
 Tactic Notation "xval" "*"  :=
   xval; auto_star.
 
-(** [xvals] is like [xval] followed with [xsimpl] *)
-
-Ltac xvals_arg E :=
-  xval E; xsimpl.
-
-Tactic Notation "xvals" uconstr(E) :=
-  xvals_arg E.
-Tactic Notation "xvals" "~" uconstr(E) :=
-  xvals E; auto_tilde.
-Tactic Notation "xvals" "*" uconstr(E) :=
-  xvals E; auto_star.
+(** [xvals] *)
 
 Ltac xvals_core tt :=
   xval; xsimpl.
@@ -1171,30 +1166,53 @@ Tactic Notation "xvals" "*"  :=
 (* ---------------------------------------------------------------------- *)
 (** ** Tactic [xif] *)
 
-Ltac xif_call_xapp_first tt := (* defined further *)
+(* [xif] applies to a goal of the form [PRE H CODE (If b then F1 else F2) POST Q].
+   It generates two subgoals: [b = true -> PRE H CODE F1 POST Q]
+   and [b false -> PRE H CODE F2 POST Q]. The tactic will produce an error if the
+   postcondition [Q] is not instantiated---indeed, it would be a bad idea to try
+   to infer [Q] from the then-branch only.
+
+   [xif Q] allows instantiating the postcondition in case it is an evar.
+   When the if-statement has return type [unit], the postcondition [Q] can be
+   provided as [H] instead of [fun (_:unit) => H].
+
+   Note: the tactic [xif] will automatically invoke not just [xlet] or [xseq],
+   but also [xval] or [xapp] (once) if needed, before executing.
+
+   Note: the boolean propositions involved in the hypotheses [b = true] and [b = false]
+   may be simplified by the tactic. *) (* TODO: do we need [xif_nosimpl]? *)
+
+Ltac xif_call_xapp_first tt := (* defined further in this file *)
   fail.
 
 Ltac xif_pre tt :=
+  (* call other xtactics if needed *)
   xcheck_pull tt;
   xlet_xseq_steps tt;
   try match xgoal_code_without_wptag tt with
   | (Wpgen_app _) => xif_call_xapp_first
   | (Wpgen_val _) => xval
   end;
+  (* check that the goal is ready for [xif] *)
+  xcheck_pull tt;
   match xgoal_code_without_wptag tt with
-  | (Wpgen_if_bool _ _ _) => idtac
+  | (Wpgen_if _ _ _) => idtac
+  end;
+  match xgoal_post_is_evar tt with
+  | true => fail 2 "[xif] requires an instantiated postcondition; use [xif Q] to provided it."
+  | false => idtac
   end.
 
 Lemma xifval_lemma : forall A `{EA:Enc A} b H (Q:A->hprop) (F1 F2:Formula),
   (b = true -> H ==> ^F1 Q) ->
   (b = false -> H ==> ^F2 Q) ->
-  H ==> ^(Wpgen_if_bool b F1 F2) Q.
+  H ==> ^(Wpgen_if b F1 F2) Q.
 Proof using. introv E N. applys MkStruct_erase. case_if*. Qed.
 
 Lemma xifval_lemma_isTrue : forall A `{EA:Enc A} (P:Prop) H (Q:A->hprop) (F1 F2:Formula),
   (P -> H ==> ^F1 Q) ->
   (~ P -> H ==> ^F2 Q) ->
-  H ==> ^(Wpgen_if_bool (isTrue P) F1 F2) Q.
+  H ==> ^(Wpgen_if (isTrue P) F1 F2) Q.
 Proof using. introv E N. applys MkStruct_erase. case_if*. Qed.
 
 Ltac xif_post tt :=
@@ -1223,6 +1241,12 @@ Tactic Notation "xif" constr(Q) :=
 
 (* ---------------------------------------------------------------------- *)
 (** ** Tactic [xassert] *)
+
+(* [xassert] applies to a goal of the form [PRE H CODE (Assert  F2) POST Q].
+   It generates two subgoals: [b = true -> PRE H CODE F1 POST Q]
+   and [b false -> PRE H CODE F2 POST Q]. The tactic will produce an error if the
+   postcondition [Q] is not instantiated---indeed, it would be a bad idea to try
+   to infer [Q] from the then-branch only. *)
 
 Lemma xassert_lemma : forall H (Q:unit->hprop) (F1:Formula),
   H ==> ^F1 (fun r => \[r = true] \* H) ->
@@ -1501,7 +1525,7 @@ Tactic Notation "xappn" "~" :=
 Tactic Notation "xappn" "*" :=
   repeat (xapp; auto_star).
 
-Tactic Notation "xappn" constr(n) :=
+Tactic Notation "xappn" constr(n) := (* TODO: does it work with constr? *)
   do n (try (xapp)).
 Tactic Notation "xappn" "~" constr(n) :=
   do n (try (xapp; auto_tilde)).
@@ -2475,7 +2499,7 @@ Ltac xstep_once tt :=
     | (Wpgen_let_val _ _) => xletval
     | (Wpgen_let_fun _) => xletfun
     | (Wpgen_app _ _ _) => xapp
-    | (Wpgen_if_bool _ _ _) => xif
+    | (Wpgen_if _ _ _) => xif
     | (Wpgen_val _) => xval
     | (Wpgen_fail) => xfail
     | (Wpgen_done) => xdone

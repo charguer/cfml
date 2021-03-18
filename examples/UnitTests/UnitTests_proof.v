@@ -451,13 +451,16 @@ Proof using.
   { gen Spec_f0__. xapp_exploit_body tt. skip. }
 Abort.
 
-(* TODO: includes a let-term demo *)
+(* TODO: includes a demo for let-term, and a demo for xpost *)
 Lemma let_fun_in_let_spec :
   SPEC (let_fun_in_let tt)
     PRE \[]
     POST (fun g => \[ forall A (x:A), SPEC (g x) PRE \[] POST \[= x] ]).
 Proof using.
-  xcf. dup 2.
+  xcf. dup 5.
+  { xlet. xpost. skip. skip. }
+  { xlet. xpost (fun (_:val) => \[]). skip. skip. }
+  { xlet. xpost. xpost (fun (_:val) => \[]). xpost. xpost. skip. skip. skip. skip. }
   { xlet (fun g => \[ forall A (EA:Enc A) (x:A), SPEC (g x) PRE \[] POST \[= x] ]).
     { xassert. { xvals*. }
       xletfun. xval. xsimpl. intros. xapp. xvals*. }
@@ -465,7 +468,7 @@ Proof using.
   (* Implementation details *)
   { set (Q:= (fun (g:val) => \[ forall A (EA:Enc A) (x:A), True ])).
     applys (@xlettrmst_lemma _ _ Q). xstructural. skip. skip. }
-Qed.
+Abort.
 
 
 (********************************************************************)

@@ -230,17 +230,17 @@ Definition Wpgen_seq (F1 F2:Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
     ^F1 (fun (X:unit) => ^F2 Q)).
 
-Definition Wpgen_if_bool (b:bool) (F1 F2:Formula) : Formula :=
+Definition Wpgen_if (b:bool) (F1 F2:Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
     if b then ^F1 Q else ^F2 Q).
 
-Definition Wpaux_if (F0 F1 F2:Formula) : Formula :=
-  Wptag (Wpgen_let_trm F0 (fun (b:bool) => Wptag (Wpgen_if_bool b F1 F2))).
+Definition Wpaux_if_trm (F0 F1 F2:Formula) : Formula :=
+  Wptag (Wpgen_let_trm F0 (fun (b:bool) => Wptag (Wpgen_if b F1 F2))).
 
 Definition Wpgen_while (F1 F2:Formula) : Formula :=
   MkStruct (Wptag (Formula_cast (fun (Q:unit->hprop) =>
     \forall (R:Formula),
-    let F := Wpaux_if F1 (Wpgen_seq F2 R) (Wpgen_unlifted_val val_unit) in
+    let F := Wpaux_if_trm F1 (Wpgen_seq F2 R) (Wpgen_unlifted_val val_unit) in
     \[ structural (@R unit _) /\ (forall (Q':unit->hprop), ^F Q' ==> ^R Q')] \-* (^R Q)))).
     (* --TODO: use a lifted version of structural *)
 
@@ -313,7 +313,7 @@ Fixpoint Wpgen (E:ctx) (t:trm) : Formula :=
   | trm_constr id ts => Wpaux_constr Wpgen E id nil ts
   | trm_if t0 t1 t2 =>
      Wpaux_getval_typed Wpgen E t0 (fun b0 =>
-       Wptag (Wpgen_if_bool b0 (aux t1) (aux t2)))
+       Wptag (Wpgen_if b0 (aux t1) (aux t2)))
   | trm_let z t1 t2 =>
      match z with
      | bind_anon => Wptag (Wpgen_seq (aux t1) (aux t2))
@@ -507,7 +507,7 @@ Qed.
 Lemma Wpgen_sound_if_bool : forall b (F1 F2:Formula) E t1 t2,
   F1 ====> (Wpsubst E t1) ->
   F2 ====> (Wpsubst E t2) ->
-  Wpgen_if_bool b F1 F2 ====> Wpsubst E (trm_if b t1 t2).
+  Wpgen_if b F1 F2 ====> Wpsubst E (trm_if b t1 t2).
 Proof using.
   introv M1 M2. intros A EA. applys qimpl_Wp_of_Triple. simpl. intros Q.
   remove_MkStruct. applys Triple_if.
@@ -518,7 +518,7 @@ Qed.
 Lemma Wpgen_sound_if_bool' : forall b (F1 F2:Formula) E t1 t2,
   F1 ====> (Wpsubst E t1) ->
   F2 ====> (Wpsubst E t2) ->
-  Wpgen_if_bool b F1 F2 ====> Wp (if b then isubst E t1 else isubst E t2).
+  Wpgen_if b F1 F2 ====> Wp (if b then isubst E t1 else isubst E t2).
 Proof using.
   introv M1 M2. intros A EA. applys qimpl_Wp_of_Triple. simpl. intros Q.
   remove_MkStruct. apply Triple_of_Wp. case_if. { applys M1. } { applys M2. }
@@ -600,7 +600,7 @@ Lemma Wpgen_sound_if_trm : forall (F0 F1 F2:Formula) E t0 t1 t2,
   F0 ====> (Wpsubst E t0) ->
   F1 ====> (Wpsubst E t1) ->
   F2 ====> (Wpsubst E t2) ->
-  Wpaux_if F0 F1 F2 ====> Wpsubst E (trm_if t0 t1 t2).
+  Wpaux_if_trm F0 F1 F2 ====> Wpsubst E (trm_if t0 t1 t2).
 Proof using.
   introv M0 M1 M2. intros A EA. applys qimpl_Wp_of_Triple. intros Q.
   remove_MkStruct. xtpull. simpl. applys Triple_if_trm.
@@ -1036,7 +1036,7 @@ Notation "'App' f x1 x2 .. xn" :=
   : wp_scope.
 
 Notation "'If_' v 'Then' F1 'Else' F2" :=
- ((*Wptag*) (Wpgen_if_bool v F1 F2))
+ ((*Wptag*) (Wpgen_if v F1 F2))
  (in custom wp at level 69,
   v constr at level 69,
   F1 custom wp at level 99,

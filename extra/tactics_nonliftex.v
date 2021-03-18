@@ -492,3 +492,31 @@ Lemma xval_lemma_val : forall A `{EA:Enc A} (V:A) v H (Q:val->hprop),
   H ==> Q (``V) ->
   H ==> ^(Wpgen_unlifted_val v) Q.
 Proof using. introv E N. subst. applys MkStruct_erase. unfold Post_cast_val. xsimpl~ (``V). Qed.
+
+
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** [xval E] *)
+
+Ltac xval_arg E :=
+  xval_pre tt;
+  eapply (@xval_lemma _ _ E); [ try reflexivity | ].
+
+Tactic Notation "xval" uconstr(E) :=
+  xval_arg E.
+Tactic Notation "xval" "~" uconstr(E) :=
+  xval E; auto_tilde.
+Tactic Notation "xval" "*" uconstr(E) :=
+  xval E; auto_star.
+
+
+Ltac xvals_arg E :=
+  xval E; xsimpl.
+
+Tactic Notation "xvals" uconstr(E) :=
+  xvals_arg E.
+Tactic Notation "xvals" "~" uconstr(E) :=
+  xvals E; auto_tilde.
+Tactic Notation "xvals" "*" uconstr(E) :=
+  xvals E; auto_star.

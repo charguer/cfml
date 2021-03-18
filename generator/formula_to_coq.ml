@@ -144,7 +144,7 @@ let rec coqtops_of_cf cf =
       wpgen_app "WPLifted.Wpgen_let_fun" [bodyof]
 
   | Cf_if (v,cf1,cf2) ->
-      wpgen_app "WPLifted.Wpgen_if_bool" [v; aux cf1; aux cf2]
+      wpgen_app "WPLifted.Wpgen_if" [v; aux cf1; aux cf2]
 
   | Cf_case (v,tps,pat,vwhenopt,aliases,cf1,cf2) ->
       (* TODO: in simple cases: no need for negation hypothesis *)
