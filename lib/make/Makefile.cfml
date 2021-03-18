@@ -115,9 +115,13 @@ SED := $(shell if command -v gsed >/dev/null ; then echo gsed ; else echo sed ; 
 # We use CFML's cmj generator to produce %_ml.v and %.cmj files out of %.ml.
 # Only the %.cmj target is known to "make".
 
+SHELL := bash
+
 %.cmj: %.ml
 	@ echo "Translating `basename $<`..."
 	cfmlc $(CFML_FLAGS) $(OCAML_INCLUDE) $<
+	sed -e "s/Pervasives_ml/CFML.Stdlib.Pervasives_ml/" -i.bak $${$<%%.ml}_ml.v \
+	    && rm -f *.bak
 
 ###############################################################################
 # Clean

@@ -28,23 +28,13 @@ CFML := $(shell cfmlc -where)
 export
 
 ##############################################################################
-# The variable TLC is used to find $(TLC)/Makefile.coq.
-
-TLC := $(shell $(COQBIN)coqc -where)/user-contrib/TLC
-
-
-##############################################################################
 # Options for CFML.
 
 PWD := $(shell pwd)
 
 ifndef V
-	V := $(wildcard $(PWD)/*.v)
+	V := $(wildcard *.v)
 endif
-
-COQINCLUDE := \
-  -R $(shell $(COQBIN)coqc -where)/user-contrib/CFML/Stdlib CFML.Stdlib \
-  -R $(PWD) EXAMPLE \
 
 ##############################################################################
 # Options for OCaml.

@@ -1,11 +1,11 @@
 Set Implicit Arguments.
-From Sep Require Import CFLib.
+From CFML Require Import WPLib Stdlib.
 Generalizable Variables A.
 
 Implicit Types n m : int.
 Implicit Types p q : loc.
 
-Import Tutorial_ml.
+Require Import Tutorial_ml.
 
 
 (* ####################################################### *)
@@ -444,4 +444,3 @@ Abort.
 (** The tactic [xchanges M] is a shorthand for [xchange M; xsimpl]. *)
 
 End XsimplDemo.
-
