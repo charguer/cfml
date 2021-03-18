@@ -1,10 +1,7 @@
 ##############################################################################
 # Folders
 
-EXAMPLE_DIRS = \
-  UnitTests \
-  Tutorial \
-  Stack 
+EXAMPLE_DIRS = $(shell find . -type d -depth 1)
 
 ##############################################################################
 # Targets
@@ -18,8 +15,8 @@ all clean: $(EXAMPLE_DIRS)
 $(EXAMPLE_DIRS)::
 	$(MAKE) -C $@ $(MAKECMDGOALS)
 
-# "make seq" forces sequential compilation of the directories, and 
+# "make seq" forces sequential compilation of the directories, and
 # stops at the first error.
 
 seq:
-	for folder in $(EXAMPLE_DIRS); do make -C $${folder} ; done
+	for folder in $(EXAMPLE_DIRS); do make -C $${folder} || exit 1 ; done
