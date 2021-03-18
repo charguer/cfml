@@ -14,15 +14,15 @@
 
 # The dependency on the target [cmj] triggers phase 1 first.
 
-# The recipes in Makefile.stage2 rely on coq_makefile.
+# The recipes in Makefile.generic rely on coq_makefile.
 
 # The name of the library, CFML.Stdlib, is specified in the file _CoqProject.
 
 all: cmj
-	@ $(MAKE) -f Makefile.stage2 $@
+	@ $(MAKE) -f ../make/Makefile.generic $@
 
 clean install uninstall::
-	@ $(MAKE) -f Makefile.stage2 $@
+	@ $(MAKE) -f ../make/Makefile.generic $@
 
 ##############################################################################
 
