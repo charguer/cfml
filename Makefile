@@ -1,55 +1,42 @@
 SHELL := bash
 export CDPATH=
 
-.PHONY: all coqlib generator examples doc clean install uninstall
-
-CFML := $(shell pwd)
-
-
-# -------------------------------------------------------------------------
-# Installation destinations.
-
-DEFAULT_PREFIX := $(shell opam config var prefix)
-ifeq ($(DEFAULT_PREFIX),)
-	DEFAULT_PREFIX := /usr/local
-endif
-
-PREFIX ?= $(DEFAULT_PREFIX)
-LIBDIR ?= $(PREFIX)/lib/cfml
-
 # -------------------------------------------------------------------------
 # Targets.
 
-all: coqlib generator
-	$(MAKE) -C lib/stdlib
+.PHONY: all
+all: coq-cfml-basis generator
+	@ echo "Okay, I have compiled the generator and the library lib/coq."
+	@ echo "If you want to go further, you will need to install them first:"
+	@ echo
+	@ echo "  opam pin add cfml ."
+	@ echo "  opam pin add coq-cfml-basis ."
+	@ echo
+	@ echo "You should then be able to install also the standard library:"
+	@ echo
+	@ echo "  opam pin add coq-cfml-stdlib ."
+	@ echo
+	@ echo "You will then be able to work on the examples:"
+	@ echo
+	@ echo "  make -C examples"
 
-coqlib:
+.PHONY: coq-cfml-basis
+coq-cfml-basis:
 	$(MAKE) -C lib/coq
 
+.PHONY: generator
 generator:
 	$(MAKE) -C generator
-
-examples: all
-	$(MAKE) CFML=$(CFML) -C examples
-
-# -------------------------------------------------------------------------
-# Documentation.
-
-DOC := README.html lib/coq/README.html generator/README.html
-
-doc: $(DOC)
-
-%.html: %.md
-	pandoc -o $@ $<
 
 # -------------------------------------------------------------------------
 # Cleanup.
 
+.PHONY: clean
 clean:
 	$(MAKE) -C lib/coq $@
 	$(MAKE) -C lib/stdlib $@
 	$(MAKE) -C generator $@
-	rm -f $(DOC)
+	$(MAKE) -C examples $@ || exit 0
 
 # -------------------------------------------------------------------------
 # Installation.
@@ -58,10 +45,6 @@ install: all
 	make -C generator $@
 	make -C lib/coq $@
 	make -C lib/stdlib $@
-	# Install the auxiliary makefiles
-	mkdir -p $(LIBDIR)/make
-	install $(CFML)/lib/make/Makefile.cfml $(LIBDIR)/make
-	install -m755 $(CFML)/lib/make/ocamldep.post $(LIBDIR)/make
 
 uninstall:
 	make -C generator $@
@@ -72,17 +55,17 @@ uninstall:
 
 .PHONY: pin
 pin: unpin
-	@ opam pin add cfmlc .
+	@ opam pin add cfml .
 	@ opam pin add coq-cfml-basis .
 	@ opam pin add coq-cfml-stdlib .
 
 .PHONY: unpin
 unpin:
-	@ opam remove cfmlc coq-cfml-basis coq-cfml-stdlib
+	@ opam remove cfml coq-cfml-basis coq-cfml-stdlib
 
 .PHONY: reinstall
 reinstall:
-	@ opam reinstall cfmlc coq-cfml-basis coq-cfml-stdlib
+	@ opam reinstall cfml coq-cfml-basis coq-cfml-stdlib
 
 # -------------------------------------------------------------------------
 

@@ -28,7 +28,7 @@
 )
 
 (executable
-  (package cfmlc)
+  (package cfml)
   (public_name cfmlc)
   (libraries
     unix
