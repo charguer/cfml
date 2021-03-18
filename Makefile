@@ -72,17 +72,17 @@ uninstall:
 
 .PHONY: pin
 pin: unpin
-	@ OPAMYES=1 opam pin add cfml .
+	@ OPAMYES=1 opam pin add cfmlc .
 	@ OPAMYES=1 opam pin add coq-cfml-basis .
 	@ OPAMYES=1 opam pin add coq-cfml-stdlib .
 
 .PHONY: unpin
 unpin:
-	@ OPAMYES=1 opam remove cfml coq-cfml-basis coq-cfml-stdlib
+	@ OPAMYES=1 opam remove cfmlc coq-cfml-basis coq-cfml-stdlib
 
 .PHONY: reinstall
 reinstall:
-	@ OPAMYES=1 opam reinstall cfml coq-cfml-basis coq-cfml-stdlib
+	@ OPAMYES=1 opam reinstall cfmlc coq-cfml-basis coq-cfml-stdlib
 
 # -------------------------------------------------------------------------
 

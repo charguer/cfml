@@ -1,13 +1,13 @@
 ;; Install our Makefiles in <opam root>/lib/cfml.
 (install
-  (package cfml)
+  (package cfmlc)
   (section lib)
   (files Makefile.cfml Makefile.generic Makefile.enduser)
 )
 ;; Install ocamldep.post in <opam root>/lib/cfml,
 ;; with the executable bit set.
 (install
-  (package cfml)
+  (package cfmlc)
   (section libexec)
   (files ocamldep.post)
 )
