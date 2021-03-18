@@ -53,7 +53,7 @@ Lemma app_let_local_myincr : forall n,
     PRE \[]
     POST \[= n + 1].
 Proof using.
-  xcf. xfun.
+  xcf. xletfun.
   dup 6.
   { xapp. xval. skip. }
   { xspec_show_fun. skip. }
@@ -101,7 +101,7 @@ Qed.
 Lemma let_poly_p1_spec :
   SPEC (let_poly_p1 tt) \[] \[= tt].
 Proof using.
-  xcf. xfun. xlet_poly_keep (fun B (r:option B) => r = None).
+  xcf. xletfun. xlet_poly_keep (fun B (r:option B) => r = None).
   { xapp. xvals. }
   { intros Hr. xvals~. }
 Qed.
@@ -109,7 +109,7 @@ Qed.
 Lemma let_poly_p2_spec :
   SPEC (let_poly_p2 tt) \[] \[= tt].
 Proof using.
-  xcf. xfun. xlet.
+  xcf. xletfun. xlet.
   { xlet_poly_keep (fun B (r:option B) => r = None).
     { xapp. xvals. }
     { intros Hr. xvals~. } }
@@ -180,7 +180,7 @@ Lemma let_poly_h1_spec : forall A,
     \[ SPEC (f tt) \[] (fun (r:loc) => r ~~> (@nil A)) ]).
 Proof using.
   xcf. xlet (fun g => \[ SPEC (g tt) \[] (fun (r:loc) => r ~~> (@nil A)) ]).
-  { xfun. xvals. xapp. xapp. }
+  { xletfun. xvals. xapp. xapp. }
   intros Hg. xvals. xapp.
 Qed.
 
@@ -188,13 +188,13 @@ Lemma let_poly_h2_spec : forall A,
   SPEC (let_poly_h2 tt) \[] (fun (f:func) =>
     \[ SPEC (f tt) \[] (fun (r:loc) => r ~~> (@nil A)) ]).
 Proof using.
-  xcf. xfun. xvals. xapp. xapp.
+  xcf. xletfun. xvals. xapp. xapp.
 Qed.
 
 Lemma let_poly_h3_spec : forall A,
   SPEC (let_poly_h3 tt) \[] (fun (r:loc) => r ~~> (@nil A)).
 Proof using.
-  xcf. xfun. xapp. xapp.
+  xcf. xletfun. xapp. xapp.
 Qed.
 
 Lemma let_poly_k1_spec : forall A,
@@ -392,28 +392,28 @@ Lemma let_fun_const_spec :
 Proof using.
   xcf. dup 12.
   (* Variants with names introduced *)
-  { xfun. (* TODO: xapp *) skip. (* TODO: dev xtriple_inv. apply Spec_f. xvals*. *) }
-  { xfun (fun f => SPEC (f tt) PRE \[] POST \[=3]).
+  { xletfun. (* TODO: xapp *) skip. (* TODO: dev xtriple_inv. apply Spec_f. xvals*. *) }
+  { xletfun (fun f => SPEC (f tt) PRE \[] POST \[=3]).
     { xvals*. } { xapp. xsimpl*. } }
   { sets Sg: (fun g => SPEC (g tt) PRE \[] POST \[=3]).
-    xfun Sg. { xvals*. } { xapp Spec_f. xsimpl*. } }
-  { xfun_rec (fun g => SPEC (g tt) PRE \[] POST \[=3]).
+    xletfun Sg. { xvals*. } { xapp Spec_f. xsimpl*. } }
+  { xletrec (fun g => SPEC (g tt) PRE \[] POST \[=3]).
     { apply Body_f. xvals*. } { xapp. xsimpl*. } }
-  { xfun_ind (downto 0) (fun g => forall (n:int), SPEC (g tt) PRE \[] POST \[=3]).
+  { xletrec (downto 0) (fun g => forall (n:int), SPEC (g tt) PRE \[] POST \[=3]).
     { (* spec ind. principle! *) xvals*. } { xapp. exact 0. xsimpl*. } }
-  { xfun_ind_skip (fun g => SPEC (g tt) PRE \[] POST \[=3]).
+  { xletrec_skip (fun g => SPEC (g tt) PRE \[] POST \[=3]).
     { (* spec assumed! *) xvals*. } { xapp. xsimpl*. } }
   (* Variants with names in the goal *)
-  { xfun as. intros f Hf. skip. }
-  { xfun (fun f => SPEC (f tt) PRE \[] POST \[=3]) as.
+  { xletfun as. intros f Hf. skip. }
+  { xletfun (fun f => SPEC (f tt) PRE \[] POST \[=3]) as.
     { xvals*. } { intros f Sf. xapp. xsimpl*. } }
   { sets Sg: (fun g => SPEC (g tt) PRE \[] POST \[=3]).
-    xfun Sg as. { xvals*. } { intros f Sf. xapp Sf. xsimpl*. } }
-  { xfun_rec (fun g => SPEC (g tt) PRE \[] POST \[=3]) as.
+    xletfun Sg as. { xvals*. } { intros f Sf. xapp Sf. xsimpl*. } }
+  { xletrec (fun g => SPEC (g tt) PRE \[] POST \[=3]) as.
     { intros f Bf. apply Bf. xvals*. } { intros f Sf. xapp. xsimpl*. } }
-  { xfun_ind (downto 0) (fun g => forall (n:int), SPEC (g tt) PRE \[] POST \[=3]) as.
+  { xletrec (downto 0) (fun g => forall (n:int), SPEC (g tt) PRE \[] POST \[=3]) as.
     { intros f IH. (* spec ind. principle! *) xvals*. } { intros f Sf. xapp. exact 0. xsimpl*. } }
-  { xfun_ind_skip (fun g => SPEC (g tt) PRE \[] POST \[=3]) as.
+  { xletrec_skip (fun g => SPEC (g tt) PRE \[] POST \[=3]) as.
     { intros f IH. (* spec assumed! *) xvals*. } { intros f Sf. xapp. xsimpl*. } }
 Qed.
 
@@ -422,7 +422,7 @@ Lemma let_fun_poly_id_spec :
     PRE \[]
     POST \[= 3].
 Proof using.
-  xcf. xfun. xapp. xval. xsimpl~.
+  xcf. xletfun. xapp. xval. xsimpl~.
 Abort.
 
 Lemma let_fun_poly_pair_homogeneous_spec :
@@ -431,7 +431,7 @@ Lemma let_fun_poly_pair_homogeneous_spec :
     POST\[= (3,3)].
 Proof using.
   xcf.
-  xfun.
+  xletfun.
   xapp.
   xval.
   xsimpl~.
@@ -443,8 +443,8 @@ Lemma let_fun_on_the_fly_spec :
     POST\[= 4].
 Proof using.
   xcf.
-  xfun.
-  xfun. dup 3.
+  xletfun.
+  xletfun. dup 3.
   { xapp. xapp. xvals*. }
   (* Implementation details *)
   { xtriple_inv. eapply Spec_f0__. skip. }
@@ -460,12 +460,11 @@ Proof using.
   xcf. dup 2.
   { xlet (fun g => \[ forall A (EA:Enc A) (x:A), SPEC (g x) PRE \[] POST \[= x] ]).
     { xassert. { xvals*. }
-      xfun. xval. xsimpl. intros. xapp. xvals*. }
-    xpull. intros f Hf. xvals*. }
+      xletfun. xval. xsimpl. intros. xapp. xvals*. }
+    xpull. intros Hf. xvals*. }
   (* Implementation details *)
-  { xlet_pre tt.
-    set (Q:= (fun (g:val) => \[ forall A `{EA:Enc A} (x:A), True ])).
-    applys (@xlet_lemma_typed_post _ _ Q). xstructural. skip. skip. }
+  { set (Q:= (fun (g:val) => \[ forall A (EA:Enc A) (x:A), True ])).
+    applys (@xlettrmst_lemma_typed _ _ Q). xstructural. skip. skip. }
 Qed.
 
 
@@ -478,7 +477,7 @@ Lemma let_term_nested_id_calls_spec :
     POST \[= 2].
 Proof using.
   xcf.
-  xfun (fun f => forall (x:int), SPEC (f x) PRE \[] POST \[= x]). { xvals~. }
+  xletfun (fun f => forall (x:int), SPEC (f x) PRE \[] POST \[= x]). { xvals~. }
   xapp.
   xapp.
   xapp.
@@ -491,7 +490,7 @@ Lemma let_term_nested_pairs_calls_spec :
     POST \[= ((1,2),(3,(4,5))) ].
 Proof using.
   xcf.
-  xfun (fun f => forall A (EA:Enc A) B (EB:Enc B) (x:A) (y:B),
+  xletfun (fun f => forall A (EA:Enc A) B (EB:Enc B) (x:A) (y:B),
           SPEC (f x y) PRE \[] POST \[= (x,y)]).
   { xvals~. }
   xapp. (* TODO: improve error on missing EA *)
@@ -626,7 +625,7 @@ Lemma lazyop_term_spec :
     PRE \[]
     POST \[= 1].
 Proof using.
-  xcf. xfun (fun f => forall (x:int),
+  xcf. xletfun (fun f => forall (x:int),
     SPEC (f x)
       PRE \[]
       POST \[= isTrue (x = 0)]).
@@ -652,7 +651,7 @@ Proof using.
   }
   *)
   skip.
-  xpull. intros ? ->. xif; intros C; xvals~.
+  xpull. intros ->. xif; intros C; xvals~.
 Qed.
 
 Lemma lazyop_mixed_spec :
@@ -661,7 +660,7 @@ Lemma lazyop_mixed_spec :
     POST \[= 1].
 Proof using.
   xcf.
-  xfun (fun f => forall (x:int),
+  xletfun (fun f => forall (x:int),
     SPEC (f x) PRE \[] POST \[= isTrue (x = 0)]).
   { xvals*. }
   xlet \[= true].
@@ -714,7 +713,7 @@ Proof using.
   xcf. xapp. xapp.
   xapp. intro_subst.
   xapp. intro_subst.
-  xfun.
+  xletfun.
   xapp_spec infix_eq_eq_gen_spec. intros.
   xlet (\[=1]).
     xif.
@@ -737,7 +736,7 @@ Lemma compare_physical_algebraic_spec :
     PRE \[]
     POST \[= (1,9)::(4,2)::(2,5)::nil ].
 Proof using.
-  xcf. xfun_ind (@list_sub (int*int)) (fun f =>
+  xcf. xletrec (@list_sub (int*int)) (fun f =>
      forall (l:list (int*int)) (k:int) (v:int),
      app f [k v l] \[] \[= list_update k v l ]).
   { xmatch.
@@ -1001,7 +1000,7 @@ Lemma if_term_spec :
     PRE \[]
     POST \[= 1].
 Proof using.
-  xcf. xfun. xlet. xapp. xval.
+  xcf. xletfun. xlet. xapp. xval.
   (* TODO: fix *)
 Abort.
 
@@ -1010,7 +1009,7 @@ Lemma if_else_if_spec :
     PRE \[]
     POST \[= 0].
 Proof using.
-  xcf. xfun (fun f => forall (x:int), SPEC (f x) PRE \[] POST \[= false]).
+  xcf. xletfun (fun f => forall (x:int), SPEC (f x) PRE \[] POST \[= false]).
     { xvals~. }
   xapp. xif ;=> C.
   { false*. } (* don't try to automate this for now *)
@@ -1052,10 +1051,10 @@ Lemma order_app_spec :
 Proof using.
   dup 2.
     {
-    xcf. xapp. xfun. xfun. xfun.
+    xcf. xapp. xletfun. xletfun. xletfun.
     xapp. { xapp. xvals~. } xpulls.
     xapp. { xassert. xapp. xvals~. xapp. xvals~. } xpulls.
-    xapp. { xassert. xapp. xvals~. xfun.
+    xapp. { xassert. xapp. xvals~. xletfun.
       xvals~ (fun f => \[AppCurried f [a b] := (Ret (a + b)%I)] \* r ~~> 2). eauto. }
       xpull ;=> Hf.
     xapp. xvals~.
@@ -1075,7 +1074,7 @@ Proof using.
   xcf_go*.
 Qed.
   (* Details:
-  xcf. xapp. xfun. xfun.
+  xcf. xapp. xletfun. xletfun.
   xapp. { xapp. xvals~. } xpulls.
   xapp. { xassert. xapp. xvals~. xvals~. } xpulls.
   xvals~.

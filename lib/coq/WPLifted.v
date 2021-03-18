@@ -754,6 +754,20 @@ Proof using. intros. applys MkStruct_erase. rewrite~ <- Triple_eq_himpl_Wp. Qed.
 (* ********************************************************************** *)
 (* TODO: additional wpgen constructs *)
 
+
+Lemma xreturn_lemma_typed : forall A1 `{Enc A1} (F:(A1->hprop)->hprop) (Q:A1->hprop) H,
+  H ==> F Q ->
+  H ==> ^(Formula_cast F) Q.
+Proof using.
+  introv M. unfold Formula_cast. xsimpl* Q. applys qimpl_Post_cast_r.
+Qed.
+
+Lemma xcast_lemma : forall (H:hprop) `{Enc A} (Q:A->hprop) (X:A),
+  H ==> Q X ->
+  H ==> ^(Wpgen_Val_no_mkstruct X) Q.
+Proof using. introv M. unfolds Wpgen_Val_no_mkstruct. xchange M. applys qimpl_Post_cast_r. Qed.
+
+
 Definition Wpgen_assert (F1:Formula) : Formula :=
   MkStruct (Formula_cast (fun (Q:unit->hprop) =>
     Q tt \* \[Q tt ==> ^F1 (fun r => \[r = true] \* Q tt)])).

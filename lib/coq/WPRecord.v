@@ -865,7 +865,7 @@ Ltac xapp_record tt ::= (* initial dummy binding located in WPTactics *)
   end.
 
 Ltac xapp_pre_wp tt ::=
-  xlet_xseq_xcast_repeat tt;
+  xlet_xseq_steps tt;
   match xgoal_code_without_wptag tt with
   | (Wpgen_app ?t) => idtac
   | (Wpgen_App_typed ?T ?f ?Vs) => idtac

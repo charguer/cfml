@@ -286,3 +286,194 @@ Notation "'RegisterSpec' f" :=
 Notation "'Register_goal' G" := (Register database_spec G)
   (at level 69) : wptactics_scope.
 
+(* ********************************************************************** *)
+in xstep
+  | (Wpgen_Val_no_mkstruct _) => xseq
+    | (Wpgen_Val_no_mkstruct _) => xcast
+
+  | (Wpgen_let _ _) => xlet
+
+
+
+Lemma xreturn_lemma_val : forall A1 `{Enc A1} (F:(A1->hprop)->hprop) (Q:val->hprop) H,
+  H ==> F (fun (X:A1) => Q (enc X)) ->
+  H ==> ^(Formula_cast F) Q.
+Proof using.
+  introv M. unfold Formula_cast. xsimpl* (fun X : A1 => Q ``X).
+  unfold Post_cast. intros X. unfold Post_cast_val. xsimpl* X.
+Qed.
+
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** Tactic [xfun] *)
+
+(* TODO: OLD VERSION OF XFUN for partial wpgen operation
+   rename to xval_lemma_val?
+
+Lemma xfun_lemma : forall (v:val) H (Q:val->hprop),
+  H ==> Q v ->
+  H ==> ^(Wpgen_val v) Q.
+Proof using. introv M. applys~ @xval_lemma M. Qed.
+
+Ltac xfun_core tt :=
+  xval_pre tt;
+  applys xfun_lemma.
+
+Tactic Notation "xfun" :=
+  xfun_core tt.
+*)
+
+
+(*
+(* ---------------------------------------------------------------------- *)
+(** ** [xauto] *)
+
+(** [xauto] is a specialized version of [auto] that works
+   well in program verification.
+
+   - it will not attempt any work if the head of the goal
+     has a tag (i.e. if it is a characteristif formula),
+   - it is able to conclude a goal using [xok]
+   - it calls [substs] to substitute all equalities before trying
+     to call automation.
+
+   Tactics [xauto], [xauto~] and [xauto*] can be configured
+   independently.
+
+   [xsimpl~] is equivalent to [xsimpl; xauto~].
+   [xsimpl*] is equivalent to [xsimpl; xauto*].
+*)
+
+Ltac xok_core cont :=  (* see [xok] spec further *)
+  solve [ hnf; apply refl_rel_incl'
+        | apply pred_incl_refl
+        | apply hsimpl_to_qunit; reflexivity
+        | hsimpl; cont tt ].
+
+Ltac math_0 ::= xclean. (* TODO: why needed? *)
+
+Ltac xauto_common cont :=
+  first [
+    cfml_check_not_tagged tt;
+    try solve [ cont tt
+              | solve [ apply refl_equal ]
+              | xok_core ltac:(fun _ => solve [ cont tt | substs; cont tt ] )
+              | substs; if_eq; solve [ cont tt | apply refl_equal ]  ]
+  | idtac ].
+
+Ltac xauto_tilde_default cont := xauto_common cont.
+Ltac xauto_star_default cont := xauto_common cont.
+
+Ltac xauto_tilde := xauto_tilde_default ltac:(fun _ => auto_tilde).
+Ltac xauto_star := xauto_star_default ltac:(fun _ => auto_star).
+
+Tactic Notation "xauto" "~" := xauto_tilde.
+Tactic Notation "xauto" "*" := xauto_star.
+Tactic Notation "xauto" := xauto~.
+
+*)
+
+
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** [xletval_st]
+
+TODO
+
+(** [xletval_st P] is used to assign an abstract specification
+    to the value. Instead of producing [x = v] as hypothesis,
+    it produces [P x] as hypothesis, and issues [P v] as subgoal.
+
+    Use [xletval_st P as y] to rename [x] into [y].
+    Use [xletval_st P as y Hy] to rename [x] into [y] and specify the name
+      of the hypothesis [P y]. *)
+
+Ltac xletval_st_core P x Hx :=
+  let E := fresh in
+  intros x E;
+  asserts Hx: (P x); [ subst x | clear E; xtag_pre_post ].
+
+Ltac xletval_st_impl P x Hx :=
+  xletval_pre tt; xletval_st_core P x Hx.
+
+Tactic Notation "xletval_st" constr(P) "as" simple_intropattern(x) simple_intropattern(Hx) :=
+  xletval_st_impl P x Hx.
+
+Tactic Notation "xletval_st" constr(P) "as" simple_intropattern(x) :=
+  let Hx := fresh "P" x in xletval_st_impl P x Hx.
+
+Ltac xletval_st_anonymous_impl P :=
+  xletval_pre tt; intro; let x := get_last_hyp tt in revert x;
+  let Hx := fresh "P" x in xletval_st_core P x Hx.
+
+Tactic Notation "xletval_st" constr(P) :=
+  xletval_st_anonymous_impl P.
+
+*)
+
+
+(************************************************************************ *)
+(* Others *)
+
+(* DEPRECATED
+Lemma eliminate_eta_in_code : forall A `{EA:Enc A} H1 (Q1:A->hprop) (F1:Formula),
+    (PRE H1
+    CODE F1
+    POST Q1)
+  ->
+    (PRE H1
+    CODE (fun (A0 : Type) (EA0 : Enc A0) (Q : A0 -> hprop) => F1 A0 EA0 Q)
+    POST Q1).
+Proof using. introv M. xchanges M. Qed.
+*)
+
+
+(************************************************************************ *)
+
+(* --TODO: decode typeclass *)
+
+(* --LATER: xif automates xapp *)
+
+
+
+Lemma xlettrm_lemma : forall A1 (EA1:Enc A1) H `{EA:Enc A} (Q:A->hprop) (F1:Formula) (F2of:forall A2 (EA2:Enc A2),A2->Formula),
+  H ==> ^F1 (fun (X:A1) => ^(F2of _ _ X) Q) ->
+  H ==> ^(Wpgen_let F1 (@F2of)) Q.
+Proof using. introv M. applys MkStruct_erase. xsimpl* A1 EA1. Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** [xind_skip] *)
+
+(* TODO: document better *)
+
+(** [xind_skip] allows to assume the current goal to be
+    already true. It is useful to test a proof before justifying
+    termination. It applies to a goal [G] and turns it
+    into [G -> G]. Typical usage: [xind_skip ;=> IH].
+
+    Use it for development purpose only.
+
+    Variant: [xind_skip as IH], equivalent to [xind_skip ;=> IH].
+*)
+
+Tactic Notation "xind_skip" :=
+  let IH := fresh "IH" in admit_goal IH.
+
+Tactic Notation "xind_skip" "as" :=
+  let IH := fresh "IH" in admit_goal IH; revert IH.
+
+(* TODO deprecated: in goal by default
+Tactic Notation "xind_skip" :=
+  let IH := fresh "IH" in admit_goal IH; gen IH.
+
+Tactic Notation "xind_skip" "as" ident(IH) :=
+  admit_goal IH.
+*)
+
+
+ (* TODO: check that xapp works for
+      exploiting a body. Note that this tactic is essentially equivalent
+      to [xletfun as; intros f Sf; assert (Sf': P f); [ | clears Sf; rename Sf' into Sf ]. ] *)
