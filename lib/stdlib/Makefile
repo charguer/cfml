@@ -21,7 +21,7 @@
 all: cmj
 	@ $(MAKE) -f ../make/Makefile.generic $@
 
-clean install uninstall::
+clean install uninstall:: all
 	@ $(MAKE) -f ../make/Makefile.generic $@
 
 ##############################################################################
@@ -55,7 +55,7 @@ clean::
 
 LIBDIR := $(shell cfmlc -where)
 
-install::
+install:: all
 	@ mkdir -p $(LIBDIR)/stdlib
 	@ for f in $(CMJ) ; do \
 	  echo "INSTALL $$f $(LIBDIR)/stdlib/" ; \
