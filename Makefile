@@ -2,12 +2,19 @@ SHELL := bash
 export CDPATH=
 
 # -------------------------------------------------------------------------
-# Targets.
+
+# [make all] rebuilds the tool [cfmlc] and the basis library.
+# It is fast and can be used while developing these components.
+
+# If you wish to work on the examples, then it is recommended to pin
+# the packages first, by running [make pin]. If, while working on the
+# examples, you find that you need to modify one of the packages, you
+# should commit your changes and run [make reinstall].
 
 .PHONY: all
 all: coq-cfml-basis generator
 	@ echo "Okay, I have compiled the generator and the library lib/coq."
-	@ echo "If you want to go further, you will need to install them first:"
+	@ echo "If you want to go further, you will need to install them:"
 	@ echo
 	@ echo "  opam pin add cfml ."
 	@ echo "  opam pin add coq-cfml-basis ."
@@ -16,7 +23,7 @@ all: coq-cfml-basis generator
 	@ echo
 	@ echo "  opam pin add coq-cfml-stdlib ."
 	@ echo
-	@ echo "You will then be able to work on the examples:"
+	@ echo "You can then work on the examples:"
 	@ echo
 	@ echo "  make -C examples"
 
@@ -36,10 +43,12 @@ clean:
 	$(MAKE) -C lib/coq $@
 	$(MAKE) -C lib/stdlib $@
 	$(MAKE) -C generator $@
-	$(MAKE) -C examples $@ || exit 0
+	if command -v cfmlc >/dev/null ; then $(MAKE) -C examples $@ ; fi
 
 # -------------------------------------------------------------------------
 # Installation.
+
+# These commands perform direct installation, without going through opam.
 
 install: all
 	make -C generator $@
@@ -53,19 +62,28 @@ uninstall:
 
 # -------------------------------------------------------------------------
 
+# These commands ask opam to install the packages, based on the package
+# description files *.opam.
+
+# Note that [opam pin] uses the last committed version of the code, so
+# you should commit your changes before using [make pin].
+
+# Use [OPAMYES=1 make pin] to automatically answer "yes" to every
+# question asked by opam.
+
+PACKAGES := cfml coq-cfml-basis coq-cfml-stdlib
+
 .PHONY: pin
 pin: unpin
-	@ opam pin add cfml .
-	@ opam pin add coq-cfml-basis .
-	@ opam pin add coq-cfml-stdlib .
+	@ for p in $(PACKAGES) ; do opam pin add $$p . ; done
 
 .PHONY: unpin
 unpin:
-	@ opam remove cfml coq-cfml-basis coq-cfml-stdlib
+	@ opam pin remove $(PACKAGES)
 
 .PHONY: reinstall
 reinstall:
-	@ opam reinstall cfml coq-cfml-basis coq-cfml-stdlib
+	@ opam reinstall $(PACKAGES)
 
 # -------------------------------------------------------------------------
 
