@@ -2,14 +2,14 @@ name: "coq-cfml-stdlib"
 opam-version: "2.0"
 maintainer: "arthur.chargueraud@inria.fr"
 
-homepage: "https://github.com/charguer/tlc"
-dev-repo: "git+https://github.com/charguer/tlc.git"
-bug-reports: "https://github.com/charguer/tlc/issues"
+homepage: "https://gitlab.inria.fr/charguer/cfml2"
+dev-repo: "git+https://gitlab.inria.fr/charguer/cfml2.git"
+bug-reports: "https://gitlab.inria.fr/charguer/cfml2/-/issues"
 license: "MIT"
 
-synopsis: "The CFML standard library"
+synopsis: "The CFML program verification system"
 description: """
-This library provides CFML specifications for a subset of the OCaml standard library.
+CFML is a program verification system for OCaml.
 """
 
 build: [make "-C" "lib/stdlib" "-j%{jobs}%"]
