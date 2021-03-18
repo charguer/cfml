@@ -150,7 +150,7 @@ let _ =
    (*---------------------------------------------------*)
    trace "5) constructing caracteristic formula ast";
    let cftops =
-      try Characteristic.cfg_file typedtree2
+      try Characteristic.cfg_file !no_mystd_include typedtree2
       with
       | Typetexp.Error(_, _) -> assert false
       | Characteristic.Not_in_normal_form (loc, s) ->

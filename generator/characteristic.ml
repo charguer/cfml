@@ -1652,21 +1652,31 @@ and cfg_module id m =
 (** Generate the top-level Coq declarations associated with
     a Caml file. *)
 
-let cfg_file str =
+let cfml ss =
+  List.map (fun s -> "CFML." ^ s) ss
+
+let coqtop_require_unless flag modules =
+  if not flag then
+    [ Coqtop_require modules ]
+  else
+    []
+
+let cfg_file no_mystd_include str =
    Print_type.type_rename := Renaming.type_variable_name;
-   [ Cftop_coqs ([
-      Coqtop_set_implicit_args;
-      Coqtop_require [ "Coq.ZArith.BinInt"; "TLC.LibLogic"; "TLC.LibRelation"; "TLC.LibInt"; "TLC.LibListZ" ];
-      Coqtop_require [ "CFML.SepBase"; "CFML.SepLifted"; "CFML.WPLifted"; "CFML.WPRecord"; "CFML.WPArray"; "CFML.WPBuiltin" (* *) ]; (* TODO: factorize the prefix using List.map *)
-      Coqtop_require_import [ "Coq.ZArith.BinIntDef"; "CFML.Semantics"; "CFML.WPHeader" ];
+   [ Cftop_coqs (
+      Coqtop_set_implicit_args ::
+      Coqtop_require [ "Coq.ZArith.BinInt"; "TLC.LibLogic"; "TLC.LibRelation"; "TLC.LibInt"; "TLC.LibListZ" ] ::
+      Coqtop_require (cfml ["SepBase"; "SepLifted"; "WPLifted"; "WPRecord"; "WPArray"; "WPBuiltin" ]) ::
+      coqtop_require_unless no_mystd_include [ "CFML.Stdlib.Stdlib" ] @
+      Coqtop_require_import [ "Coq.ZArith.BinIntDef"; "CFML.Semantics"; "CFML.WPHeader" ] ::
       (* TODO: check binintdef needed *)
-      Coqtop_custom "Delimit Scope Z_scope with Z.";
-      Coqtop_custom "Existing Instance WPHeader.Enc_any | 99.";
+      Coqtop_custom "Delimit Scope Z_scope with Z." ::
+      Coqtop_custom "Existing Instance WPHeader.Enc_any | 99." ::
       (* DEPRECATED Coqtop_custom "Local Open Scope cfheader_scope."; *)
       (*DEPRECATED Coqtop_custom "Open Scope list_scope.";*)
       (*DEPRECATED Coqtop_custom "Local Notation \"'int'\" := (Coq.ZArith.BinInt.Z).";*)
-      ]
-      @ (external_modules_get_coqtop())) ]
+      external_modules_get_coqtop()
+   )]
    @ cfg_structure str
 
 

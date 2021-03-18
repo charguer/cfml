@@ -87,6 +87,8 @@ val cfg_module : Ident.t -> Typedtree.module_expr -> Formula.cftops
 
 *)
 
-val cfg_file : Typedtree.structure -> Formula.cftop list
+(* The Boolean parameter is [no_mystd_include]; it is [true] if
+   -nostdlib was supplied on the command line. *)
+val cfg_file : bool -> Typedtree.structure -> Formula.cftop list
 
 exception Not_in_normal_form of Location.t * string
