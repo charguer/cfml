@@ -1,2 +1,2 @@
-include ../Makefile.example
-# ML := $(wildcard $(PWD)/Stack.ml)
+CFML := $(shell cfmlc -where)
+include $(CFML)/Makefile.enduser
