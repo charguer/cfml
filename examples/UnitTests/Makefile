@@ -1,1 +1,2 @@
-include ../Makefile.example
+CFML := $(shell cfmlc -where)
+include $(CFML)/Makefile.enduser

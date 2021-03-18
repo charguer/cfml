@@ -1,0 +1,6 @@
+-R . UnitTests
+
+-arg -w -arg -notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths,-irrelevant-format-only-parsing,-deprecated-hint-without-locality,-deprecated-ident-entry,-custom-entry-overridden
+
+UnitTests_ml.v
+UnitTests_proof.v
