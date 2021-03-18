@@ -1242,11 +1242,15 @@ Tactic Notation "xif" constr(Q) :=
 (* ---------------------------------------------------------------------- *)
 (** ** Tactic [xassert] *)
 
-(* [xassert] applies to a goal of the form [PRE H CODE (Assert  F2) POST Q].
-   It generates two subgoals: [b = true -> PRE H CODE F1 POST Q]
-   and [b false -> PRE H CODE F2 POST Q]. The tactic will produce an error if the
-   postcondition [Q] is not instantiated---indeed, it would be a bad idea to try
-   to infer [Q] from the then-branch only. *)
+(* [xassert] applies to a goal of the form [PRE H CODE (Assert F1) POST Q].
+   It generates two subgoals: [PRE H CODE F1 POST (fun r => \[r=true] \* H]
+   to ensure that the body of the assertion evaluates to [true], and
+   [H ==> Q tt] to ensure that if the assertions is not evaluated then it has
+   no impact on the correctness of the code.
+
+   If the postcondition [Q] is an evar, then the postcondition is instantiated
+   as [fun (_:unit) => H], and the trivial proof obligation [H ==> Q tt] is
+   discharged automatically. *)
 
 Lemma xassert_lemma : forall H (Q:unit->hprop) (F1:Formula),
   H ==> ^F1 (fun r => \[r = true] \* H) ->
@@ -1275,7 +1279,9 @@ Ltac xassert_core tt :=
   xassert_pre tt;
   first [ eapply xassert_lemma_inst
         | eapply xassert_lemma ].
-  (* TODO: alternative: test whether ?Q is an evar *)
+  (* Note: alternative implementation: test whether the post is an evar,
+     then call  [xpost (fun (_:unit) => H)], and use [xsimpl] for the
+     second proof obligation. *)
 
 Tactic Notation "xassert" :=
   xassert_core tt.
