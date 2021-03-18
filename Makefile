@@ -1,7 +1,7 @@
 SHELL := bash
 export CDPATH=
 
-.PHONY: all coqlib generator examples doc clean install uninstall reinstall
+.PHONY: all coqlib generator examples doc clean install uninstall
 
 CFML := $(shell pwd)
 
@@ -68,9 +68,6 @@ uninstall:
 	make -C lib/coq $@
 	make -C lib/stdlib $@
 
-reinstall: uninstall
-	@ $(MAKE) install
-
 # -------------------------------------------------------------------------
 
 .PHONY: pin
@@ -82,6 +79,10 @@ pin: unpin
 .PHONY: unpin
 unpin:
 	@ OPAMYES=1 opam remove cfml coq-cfml-basis coq-cfml-stdlib
+
+.PHONY: reinstall
+reinstall:
+	@ OPAMYES=1 opam reinstall cfml coq-cfml-basis coq-cfml-stdlib
 
 # -------------------------------------------------------------------------
 
