@@ -39,13 +39,34 @@ let external_modules_add name =
      then external_modules := name::!external_modules
    (* TODO: use a structure more efficient than lists *)
 
-let external_modules_get_coqtop () =
-   List.map (fun name -> Coqtop_require [name]) !external_modules
+let external_modules () =
+  !external_modules
 
 (* FIXME unused
 let external_modules_reset () =
    external_modules := []
  *)
+
+(* If [-nostdlib] is set, the list of external modules is left unchanged.
+   Otherwise, the modules that appear to be part of the standard library
+   are removed from this list; they do not need to be explicitly listed,
+   because we emit [Require CFML.Stdlib.Stdlib]. *)
+
+let is_stdlib_module = function
+| "Array_ml"
+| "List_ml"
+| "Sys_ml"
+    -> true
+| _ -> false
+
+let is_not_stdlib_module m =
+  not (is_stdlib_module m)
+
+let filter no_mystd_include modules =
+  if no_mystd_include then
+    modules
+  else
+    List.filter is_not_stdlib_module modules
 
 
 (*#########################################################################*)
@@ -1661,6 +1682,9 @@ let coqtop_require_unless flag modules =
   else
     []
 
+let require modules =
+  if modules = [] then [] else [ Coqtop_require modules ]
+
 let cfg_file no_mystd_include str =
    Print_type.type_rename := Renaming.type_variable_name;
    [ Cftop_coqs (
@@ -1675,7 +1699,7 @@ let cfg_file no_mystd_include str =
       (* DEPRECATED Coqtop_custom "Local Open Scope cfheader_scope."; *)
       (*DEPRECATED Coqtop_custom "Open Scope list_scope.";*)
       (*DEPRECATED Coqtop_custom "Local Notation \"'int'\" := (Coq.ZArith.BinInt.Z).";*)
-      external_modules_get_coqtop()
+      require (filter no_mystd_include (external_modules()))
    )]
    @ cfg_structure str
 
