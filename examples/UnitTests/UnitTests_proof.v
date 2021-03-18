@@ -526,20 +526,20 @@ Lemma match_fst_spec : forall A `{EA:Enc A} B `{EB:Enc B} (x:A) (y:B),
     POST \[= x].
 Proof using.
   xcf. dup 8.
-  { xmatch Xmatch_no_cases. dup 6.
-    { xcase_no_simpl as M. skip. skip. }
-    { xcase_no_simpl as. skip. skip. }
+  { xmatch Xcase_manual. dup 6.
+    { xcase Xcase_no_simpl as M. skip. skip. }
+    { xcase Xcase_no_simpl. skip. skip. }
     { xcase as M. skip. skip. }
-    { xcase as. skip. skip. }
-    { xcase_no_simpl. skip. skip. }
+    { xcase Xcase_as. skip. skip. }
+    { xcase (>> Xcase_no_simpl Xcase_as). skip. skip. }
     { xcase. skip. skip. } }
   { xpost. xmatch (fun res__ : A => \[]); skip. skip. }
-  { xmatch (fun res__ : A => \[]) Xmatch_no_cases. skip. skip. }
-  { xmatch Xmatch_no_cases. xmatch_cases (>>). skip. }
+  { xmatch (fun res__ : A => \[]) Xcase_manual. skip. skip. }
+  { xmatch Xcase_manual. xmatch_cases (>>). skip. }
   { xmatch. skip. }
-  { xmatch Xmatch_as. skip. }
-  { xmatch Xmatch_no_simpl. skip. }
-  { xmatch (>> Xmatch_as Xmatch_no_simpl). skip. }
+  { xmatch Xcase_as. skip. }
+  { xmatch Xcase_no_simpl. skip. }
+  { xmatch (>> Xcase_as Xcase_no_simpl). skip. }
 Qed.
 
 Lemma match_pair_as_spec :
@@ -547,50 +547,46 @@ Lemma match_pair_as_spec :
     PRE \[]
     POST \[= (4,(3,4))].
 Proof using.
-  xcf. dup 7.
-  { xmatch. xvals. subst*. }
-  { xmatch Xmatch_subst_alias. xvals*. }
-  { xmatch Xmatch_no_alias. xalias. xalias as. intros L HL. skip. }
-  (*{ xmatch Xmatch_no_cases. dup 6.
+  xcf. dup 8.
+  { xmatch. xvals. auto. }
+  { xmatch Xcase_eq_alias. xvals. subst*. }
+  { xmatch Xcase_no_alias. xalias. xalias as. intros L HL. xvals. subst*. }
+  { xmatch Xcase_manual. dup 6.
     { xcase.
       { xvals*. }
-      { xmatch_case. } }
-    { xcase_no_simpl.
-      { dup 3.
-        { xalias. xalias. xval. xsimpl. xauto*. }
-        { xalias as u U.
-          xalias as v. skip. }
-        { xalias_subst. xalias_subst. skip. } }
       { xdone. } }
-    { xcase_no_simpl as E. skip. skip. }
-    { xcase_no_intros. intros x y E. skip. intros F. skip. }
+    { xcase (>> Xcase_no_simpl Xcase_no_alias).
+      { dup 3.
+        { xalias. xalias. xval. xsimpl. inverts C. subst*. }
+        { xalias as. intros u U.
+          xalias as. intros v V. skip. }
+        { xaliass. xaliass. skip. } }
+      { xdone. } }
+    { xcase Xcase_no_simpl as E. skip. skip. }
+    { xcase (>> Xcase_as Xcase_eq_alias). skip. skip. }
     { xcase. skip. skip. }
-    { xcase as C. skip. skip.
-      (* note: inversion got rid of C *)
-    } } *)
-  { xmatch (>> Xmatch_no_simpl Xmatch_no_alias). skip. }
-  { xmatch (>> Xmatch_no_simpl Xmatch_subst_alias). skip. }
-  { xmatch Xmatch_as. skip. }
-  { xmatch Xmatch_no_simpl. inverts C. skip. }
+    { xcase as M. skip. skip. } }
+  { xmatch (>> Xcase_no_simpl Xcase_no_alias). skip. }
+  { xmatch (>> Xcase_no_simpl Xcase_eq_alias). skip. }
+  { xmatch Xcase_as. skip. }
+  { xmatch Xcase_no_simpl. inverts C. skip. }
 Qed.
 
-(*
-Lemma match_nested_spec :
-  SPEC (match_nested tt)
+
+Lemma match_complex_spec :
+  SPEC (match_complex tt)
     PRE \[]
     POST \[= (2,2)::nil].
 Proof using.
-  xcf. xval. dup 3.
-  { xmatch_no_simpl.
-    { xvals*. }
-    { false. (* note: [xvals] would produce a ununified [hprop].
-     caused by [tryfalse] in [hextract_cleanup]. TODO: avoid this. *) } }
-  { xmatch.
-    xvals*.
-    (* second case is killed by [xcase_post] *) }
-  { xmatch_no_intros. skip. skip. }
+  xcf. xlet. dup 3.
+  { xmatch (>> Xcase_no_simpl Xcase_no_alias).
+    { xvals. subst. inverts* C. }
+    { xvals. } 
+    { xfail. } }
+  { xmatch. xvals. inverts* TEMP. } (* TODO: not a nice name, due to inverts *) 
+  { xmatch Xcase_as. skip. }
 Qed.
-*)
+
 
 
 (********************************************************************)

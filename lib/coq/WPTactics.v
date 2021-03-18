@@ -2226,6 +2226,30 @@ Tactic Notation "xaliass" :=
 
 
 (* ---------------------------------------------------------------------- *)
+(** ** Options for [xcase] and [xmatch] *)
+
+(** List of possible options *)
+
+Inductive Xcase_options : Type :=
+  | Xcase_manual
+  | Xcase_eq_alias
+  | Xcase_no_alias
+  | Xcase_no_simpl
+  | Xcase_as.
+
+(* [xcase_has_option opt options] returns a boolean indicating whether
+   [opt] belongs to the list [options]. *)
+
+Ltac xcase_has_option opt options :=
+  match options with
+  | opt => constr:(true)
+  | cons (boxer opt) ?options' => constr:(true)
+  | cons (boxer ?opt') ?options' => xcase_has_option opt options'
+  | _ => constr:(false)
+  end.
+
+
+(* ---------------------------------------------------------------------- *)
 (** ** [xcase] *)
 
 (** [xcase] applies to a goal of the form
@@ -2237,18 +2261,32 @@ Tactic Notation "xaliass" :=
 
     If a when-clause is involved for testing a boolean expression [b], then the
     proposition [v = p] becomes [(v = p) /\ b], and the proposition [v <> p] becomes
-    [(v <> p) \/ !b].
+    [(v <> p) \/ !b]. The name for these propositions may be specified using the
+    syntax [xcase as C].
 
-    By default, the tactic performs an inversion of [E], to extract information
-    from the successful matching. Use [xcase_no_simpl] to disable this step.
-    Variants:
+    The tactic [xcase] attempts to simplify equalities arising from patterns;
+    use [xcase Xcase_no_simpl] to keep the original equalities.
+
+    The tactic [xcase] automatically substitutes aliases by default.
+    Use [xcase Xcase_eq_alias] to introduce aliases as equality.
+    Use [xcase Xcase_no_alias] to leave the aliases untouched in each branch.
+
+    --TODO: refuse uninstantiated postconditions.
+
+    In summary, the variants are:
 
     - [xcase]
-    - [xcase as H] use default names, except for assumption [E] which is named [H].
-    - [xcase as] leaves all variables and assumptions in the goal
-    - [xcase_no_simpl]
-    - [xcase_no_simpl as H]
-    - [xcase_no_simpl as]. *)
+    - [xcase Options]
+    - [xcase as C]
+    - [xcase Options as C]
+
+    where [Options] is either a single option, or a list of options of the
+    form [(>> Option1 .. OptionN)]. The available options are:
+
+    - [Xcase_eq_alias] to introduce aliases as equalities
+    - [Xcase_no_alias] to leave aliases untouched
+    - [Xcase_no_simpl] to not perform any inversion, using [xcase_no_simpl]
+    - [Xcase_as] to leave all names in the goal (if provided, we ignore [as C]). *)
 
 (* TODO: improve naming policy for handling pattern variables *)
 
@@ -2303,44 +2341,65 @@ Ltac xcase_no_simpl_core cont1 cont2 :=
   [ xcase_extract_hyps tt; cont1 tt
   | apply hwand_hpure_r_intro; cont2 tt ].
 
-(* [xcase_no_simpl as] *)
+(* [xcase_alias] handles one alias *)
 
-Tactic Notation "xcase_no_simpl" "as" :=
-   xcase_no_simpl_core ltac:(fun _ => idtac) ltac:(fun _ => idtac).
+Ltac xcase_alias options :=
+  match xcase_has_option Xcase_eq_alias options with
+  | true => xalias (* eapply xalias_lemma; xletval *)
+  | false => xaliass (* eapply xalias_lemma; xletvals *)
+  end.
+  (* Note: for efficiency reasons, we don't use [xalias] each time. *)
+  (* Note: both xalias and xaliass leave exactly one goal *)
 
-(* [xcase_no_simpl as H] *)
+(* [case_aliases] handles a series of aliases *)
 
-Tactic Notation "xcase_no_simpl" "as" ident(H) :=
-   xcase_no_simpl_core ltac:(fun _ => introv H) ltac:(fun _ => introv H).
+Ltac xcase_aliases options :=
+  match xcase_has_option Xcase_no_alias options with
+  | true => idtac
+  | false => repeat (xcase_alias options)
+  end.
 
-(* [xcase_no_simpl] *)
+(* [xcase_as_core options H cont1 cont2] processes one case *)
 
-Tactic Notation "xcase_no_simpl" :=
-  let H := fresh "C" in
-  xcase_no_simpl as H.
-
-(* Implementation of [xcase] *)
-
-Ltac xcase_core H :=
-  let cont tt := introv H; xcase_post H in
-  xcase_no_simpl_core cont cont.
+Ltac xcase_as_core options H cont1 cont2 :=
+  let cont_simpl tt :=
+    match xcase_has_option Xcase_no_simpl options with
+    | true => idtac
+    | false => xcase_post H
+    end in
+  let aux tt :=
+    let mycont0 tt := introv H; cont_simpl tt in
+    let mycont1 tt := mycont0 tt; xcase_aliases options; cont1 tt in
+    let mycont2 tt := mycont0 tt; cont2 tt in
+    xcase_no_simpl_core mycont1 mycont2
+    in
+  match xcase_has_option Xcase_as options with
+  | true => pose ltac_mark; aux tt; gen_until_mark
+  | false => aux tt
+  end.
 
 (* [xcase as H] *)
 
 Tactic Notation "xcase" "as" ident(H) :=
-  xcase_core H.
+  xcase_as_core (>>) H idcont idcont.
 
 (* [xcase] *)
 
 Tactic Notation "xcase" :=
-  let H := fresh "C" in xcase as H.
+  let H := fresh "C" in
+  xcase as H.
 
-(* [xcase as] *)
+(* [xcase options as H] *)
 
-Tactic Notation "xcase" "as" :=
-  pose ltac_mark;
-  xcase;
-  gen_until_mark.
+Tactic Notation "xcase" constr(Options) "as" ident(H) :=
+  let options := list_boxer_of Options in
+  xcase_as_core options H idcont idcont.
+
+(* [xcase options] *)
+
+Tactic Notation "xcase" constr(Options) :=
+  let H := fresh "C" in
+  xcase Options as H.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -2358,17 +2417,16 @@ Tactic Notation "xcase" "as" :=
     The tactic [xmatch] calls [xcase] for each of the case,
     then [xdone] or [xfail] on the last (catch-all) branch.
 
-    The tactic [xmatch Xmatch_no_cases] simply removes the [xmatch] tag
+    The tactic [xmatch Xcase_no_cases] simply removes the [xmatch] tag
     and leaves the user work manually on the cases using [xcase], and [xfail]
     or [xdone].
 
-    The tactic [xcase] attempts to simplify equalities arising from patterns;
-    use [xmatch Xmatch_no_simpl] to instead invoke [xcase_no_simpl] and keep
-    the original equalities.
+    The tactic [xmatch] attempts to simplify equalities arising from patterns;
+    use [xmatch Xcase_no_simpl] to keep the original equalities.
 
-    The tactic [xmatch] automatically introduces the aliases by default.
-    Use [xmatch Xmatch_no_alias] to leave the aliases untouched in each branch.
-    Use [xmatch Xmatch_subst_alias] to substitute away all aliases.
+    The tactic [xmatch] automatically substitutes aliases by default.
+    Use [xmatch Xcase_eq_alias] to introduce aliases as equality.
+    Use [xmatch Xcase_no_alias] to leave the aliases untouched in each branch.
 
     Like [xif], the tactic [xmatch] will refuse to apply if the postcondition
     is not already instantiated. Use [xpost Q] to set it, or [xmatch Q].
@@ -2384,28 +2442,11 @@ Tactic Notation "xcase" "as" :=
     where [Options] is either a single option, or a list of options of the
     form [(>> Option1 .. OptionN)]. The available options are:
 
-    - [Xmatch_no_alias] to leave aliases untouched
-    - [Xmatch_subst_alias] to substitute away all aliases
-    - [Xmatch_no_simpl] to not perform any inversion, using [xcase_no_simpl]
-    - [Xmatch_as] to leave all names in the goal, using [xcase as].
-    - [Xmatch_no_cases] to leave all names in the goal, using [xcase as]. *)
-
-(* Options *)
-
-Inductive Xmatch_options : Type :=
-  | Xmatch_no_cases
-  | Xmatch_no_alias
-  | Xmatch_subst_alias
-  | Xmatch_no_simpl
-  | Xmatch_as.
-
-Ltac xmatch_has_option opt options :=
-  match options with
-  | opt => constr:(true)
-  | cons (boxer opt) ?options' => constr:(true)
-  | cons (boxer ?opt') ?options' => xmatch_has_option opt options'
-  | _ => constr:(false)
-  end.
+    - [Xcase_manual] to use [xcase] manually on each case
+    - [Xcase_eq_alias] to introduce aliases as equalities
+    - [Xcase_no_alias] to leave aliases untouched
+    - [Xcase_no_simpl] to not perform any inversion
+    - [Xcase_as] to leave all names in the goal. *)
 
 (* [xmatch] implementation *)
 
@@ -2420,45 +2461,15 @@ Ltac xmatch_pre tt :=
   | (Wpgen_match _) => idtac
   end.
 
-(* [xmatch_alias] handles one alias *)
-
-Ltac xmatch_alias options :=
-  match xmatch_has_option Xmatch_subst_alias options with
-  | true => xaliass (*eapply xalias_lemma; xletvals*)
-  | false => xalias (* eapply xalias_lemma; xletval*)
-  end.
-  (* Note: for efficiency reasons, we don't use [xalias] each time. *)
-  (* Note: both xalias and xaliass leave exactly one goal *)
-
-(* [xmatch_aliases] handles aliases in a given branch *)
-
-Ltac xmatch_aliases options :=
-  match xmatch_has_option Xmatch_no_alias options with
-  | true => idtac
-  | false => repeat (xmatch_alias options)
-  end.
-
-(* [xmatch_cases] processes one case *)
-
-Ltac xmatch_case options cont_other_cases :=
-  let H := fresh "C" in
-  let cont_simpl tt :=
-    match xmatch_has_option Xmatch_no_simpl options with
-    | true => idtac
-    | false => xcase_post H
-    end in
-  let cont0 tt := introv H; cont_simpl tt in
-  let cont1 tt := cont0 tt; xmatch_aliases options in
-  let cont2 tt := cont0 tt; cont_other_cases tt in
-  xcase_no_simpl_core cont1 cont2.
-
 (* [xmatch_cases] processes a cascade of cases *)
 
 Ltac xmatch_cases options :=
   match xgoal_code_without_wptag tt with
   | (Wpgen_done) => xdone
   | (Wpgen_fail) => xfail
-  | (Wpgen_case _ _ _) => xmatch_case options ltac:(fun _ => xmatch_cases options)
+  | (Wpgen_case _ _ _) =>
+      let H := fresh "C" in
+      xcase_as_core options H idcont ltac:(fun _ => xmatch_cases options)
   end.
 
 (* [xmatch_core] implements [xmatch] *)
@@ -2466,10 +2477,10 @@ Ltac xmatch_cases options :=
 Ltac xmatch_core options :=
   xmatch_pre tt;
   eapply xmatch_lemma;
-  match xmatch_has_option Xmatch_no_cases options with
+  match xcase_has_option Xcase_manual options with
   | true => idtac
   | false =>
-      match xmatch_has_option Xmatch_as options with
+      match xcase_has_option Xcase_as options with
       | true => pose ltac_mark; xmatch_cases options; gen_until_mark
       | false => xmatch_cases options
       end
@@ -2489,7 +2500,7 @@ Tactic Notation "xmatch" :=
 
 Tactic Notation "xmatch" constr(E) :=
   match type of E with
-  | Xmatch_options => first [ xmatch_core (>> E) | fail 2 ]
+  | Xcase_options => first [ xmatch_core (>> E) | fail 2 ]
   | list Boxer => first [ xmatch_core E | fail 2 ]
   | _ => xmatch_post_core E (>>)
   end.
