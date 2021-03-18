@@ -17,5 +17,6 @@ export/*/*.tar.gz
 export/*/slf
 settings.sh
 _build
+*.native
 dune-workspace.versions
 *.install
