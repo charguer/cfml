@@ -929,6 +929,15 @@ Notation "'`' F" :=
   ((Wptag F%wp))
   (at level 69, F custom wp at level 100, format "'`' F") : wp_scope.
 
+(* TODO: is it posssible to declare the fact that Wptag should not be printed,
+   without this conflicting with the notation that says that 'x' by itself in
+   [custom wp] can be interpreted as a [constr].
+
+Notation "F" :=
+  (Wptag F)
+  (at level 100, only printing) : wp_scope.
+*)
+
 (** Display characteristic formulae goal in a nice way,
     with current state at the front. *)
 
@@ -954,7 +963,6 @@ Notation "x" :=
  x
  (in custom wp at level 0,
   x constr at level 0) : wp_scope.
-
 
 (* ********************************************************************** *)
 (* ** Simple Constructors *)

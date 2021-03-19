@@ -56,6 +56,23 @@ Parameter get_spec : forall A `{EA:Enc A} `{Inhab A} (xs:list A) t i,
 
 Hint Extern 1 (RegisterSpec Array_ml.get) => Provide get_spec.
 
+Notation "r [ i ]" :=
+  (Wpgen_app _ Array_ml.get ((Dyn r)::(Dyn i)::nil))
+  (in custom wp at level 69,
+   no associativity,
+   r constr at level 0,
+   i constr at level 0,
+   format "r [ i ]") : wp_scope.
+
+Notation "r [ i ]" :=
+  (Wptag (Wpgen_app _ Array_ml.get ((Dyn r)::(Dyn i)::nil)))
+  (in custom wp at level 69,
+   only printing,
+   no associativity,
+   r constr at level 0,
+   i constr at level 0,
+   format "r [ i ]") : wp_scope.
+
 (* -------------------------------------------------------------------------- *)
 
 (* [Array.set]. *)
@@ -67,6 +84,26 @@ Parameter set_spec : forall A `{EA:Enc A} (xs:list A) t i x,
     POSTUNIT (t ~> Array (xs[i:=x])).
 
 Hint Extern 1 (RegisterSpec Array_ml.set) => Provide set_spec.
+
+Notation "r [ i ] <- v" :=
+  (Wpgen_app _ Array_ml.set ((Dyn r)::(Dyn i)::(Dyn v)::nil))
+  (in custom wp at level 69,
+   no associativity,
+   r constr at level 0,
+   i constr at level 0,
+   v constr at level 69,
+   format "r [ i ]  <-  v") : wp_scope.
+
+Notation "r [ i ] <- v" :=
+  (Wptag (Wpgen_app _ Array_ml.set ((Dyn r)::(Dyn i)::(Dyn v)::nil)))
+  (in custom wp at level 69,
+   only printing,
+   no associativity,
+   r constr at level 0,
+   i constr at level 0,
+   v constr at level 69,
+   format "r [ i ]  <-  v") : wp_scope.
+
 
 (* -------------------------------------------------------------------------- *)
 

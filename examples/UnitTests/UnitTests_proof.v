@@ -14,7 +14,6 @@ Require TLC.LibListZ. (* TODO NEEDED? *)
 
 
 
-
 (********************************************************************)
 (** ** Function calls: [xapp] *)
 
@@ -603,6 +602,34 @@ Lemma let_pattern_pair_int_wildcard_spec :
     PRE \[]
     POST \[= 3].
 Proof using. xcf. xmatch. xvals~. Qed.
+
+
+(********************************************************************)
+(** ** Arrays *)
+
+Require Import Array_proof TLC.LibListZ.
+
+Section Array.
+
+Lemma array_ops_spec :
+  SPEC (array_ops tt)
+    PRE \[]
+    POST \[= 3].
+Proof using.
+  xcf.
+  (* TODO: make [xlet] introduce names properly *)
+  xapp. intros a.
+  xapp. intros b.
+  xapp. math. intros c L Ec.
+  xapp. { subst. rew_array. math. }
+  xapp. { subst*. }
+  xapp. { subst*. }
+  xapp. { subst*. }
+  xapp.
+  xsimpl. subst. rew_array; math.
+Qed.
+
+End Array.
 
 
 (********************************************************************)
@@ -1666,37 +1693,6 @@ Qed.
 *)
 
 
-(********************************************************************)
-(** ** Arrays --TODO
-
-Require Import Array_proof TLC.LibListZ.
-
-Section Array.
-
-Hint Extern 1 (@index _ (list _) _ _ _) => apply index_of_inbound : maths.
-Hint Extern 1 (_ < length (?l[?i:=?v])) => rewrite length_update : maths.
-Ltac auto_tilde ::= auto with maths.
-
-Lemma array_ops_spec :
-  SPEC (array_ops tt)
-    PRE \[]
-    POST \[= 3].
-Proof using.
-  xcf.
-  xapp. math. => L EL.
-  asserts LL: (LibListZ.length L = 3).
-  { subst. rewrite LibListZ.length_make; math. }
-  xapp. { apply index_of_inbound; math. }
-  xapp~.
-  xapp~.
-  xapp~.
-  xapp~.
-  xsimpl. subst. rew_array~.
-Qed.
-
-End Array.
-
-*)
 
 (********************************************************************)
 (** ** Integer arithmetics *)
