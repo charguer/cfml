@@ -117,7 +117,12 @@ SED := $(shell if command -v gsed >/dev/null ; then echo gsed ; else echo sed ; 
 # We use CFML's cmj generator to produce %_ml.v and %.cmj files out of %.ml.
 # Only the %.cmj target is known to "make".
 
-%.cmj: %.ml
+# We include a dependency on the executable [cfmlc]. This is not strictly
+# required, but can helpful for us (developers) who tend to frequently
+# reinstall CFML and do not always remember to run [make clean] in every
+# project that uses CFML.
+
+%.cmj: %.ml $(shell command -v cfmlc)
 	@ echo "CFMLC `basename $<`"
 	@ cfmlc $(CFML_FLAGS) $(OCAML_INCLUDE) $<
 	@ source="$<" && target=$${source%%.ml}_ml.v && \
