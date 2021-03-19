@@ -55,6 +55,7 @@ let external_modules_reset () =
 let is_stdlib_module = function
 | "Array_ml"
 | "List_ml"
+| "Pervasives_ml"
 | "Sys_ml"
     -> true
 | _ -> false
