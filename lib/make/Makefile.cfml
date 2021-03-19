@@ -125,9 +125,6 @@ SED := $(shell if command -v gsed >/dev/null ; then echo gsed ; else echo sed ; 
 %.cmj: %.ml $(shell command -v cfmlc)
 	@ echo "CFMLC `basename $<`"
 	@ cfmlc $(CFML_FLAGS) $(OCAML_INCLUDE) $<
-	@ source="$<" && target=$${source%%.ml}_ml.v && \
-	  sed -e "s/Pervasives_ml/CFML.Stdlib.Pervasives_ml/" -i.bak $$target \
-	  && rm -f *.bak
 
 ###############################################################################
 # Clean
