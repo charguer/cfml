@@ -740,7 +740,9 @@ let ref_gc_dep x =
 (* ** Arrays *)
 
 let array_ops () =
-  (* TODO let u = ([||]  : int array) in *)
+  let u1 = [|1|] in
+  let u2 = ([||] : int array) in
+  (* TODO: not yet supported let u3 = [||] in*)
   let t = Array.make 3 0 in
   let _x = t.(1) in
   t.(2) <- 4;

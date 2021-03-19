@@ -21,6 +21,19 @@ open Printf
 let list_is_included l1 l2 =
    List.for_all (fun x -> List.mem x l2) l1
 
+(** [is_value_let_binding bod] tests if [bod] can be reflected as
+    a LetVal or if it should be a LetTrm *)
+
+let rec is_array exp =
+  match exp.exp_desc with
+  | Texp_array [] -> true
+  | Texp_constraint (e, _, _) -> is_array e
+  | _ -> false
+
+let is_value_let_binding exp =
+  Typecore.is_nonexpansive exp &&
+  not (is_array exp)
+
 
 (*#########################################################################*)
 (* ** Error messages *)
@@ -744,12 +757,12 @@ let rec cfg_exp env e =
         let x = pattern_name_protect_infix pat in
 
         (* value let-binding *)
-        if Typecore.is_nonexpansive bod then begin
+        if is_value_let_binding bod then begin
 
            let v =
              try lift_val env bod
              with Not_in_normal_form (loc2, s) ->
-                raise (Not_in_normal_form (loc2, s ^ " (only value can satisfy the value restriction)"))
+                raise (Not_in_normal_form (loc2, s ^ " (only value can satisfy the value restriction TODO1)"))
              in
            let (fvs_strict, fvs_others, typ) = get_fvs_typ loc fvs pat.pat_type in
            if fvs_others != []
@@ -1024,7 +1037,7 @@ let rec cfg_structure_item s : cftops =
           begin
 
           (* value let-binding *)
-          if Typecore.is_nonexpansive bod then begin
+          if is_value_let_binding bod then begin
 
              let v =
                try lift_val (Ident.empty) bod

@@ -27,7 +27,7 @@ open Ctype
 let cfml_showtyp t =
    let err = Format.err_formatter in
    Printtyp.type_expr err t;
-   Format.fprintf err "\n" 
+   Format.fprintf err "\n"
 
 
 type error =
@@ -612,7 +612,7 @@ let rec type_pat env sp =
         pat_type = p.pat_type;
         pat_env = p.pat_env  }
 
-      
+
 
 let get_ref r =
   let v = !r in r := []; v
@@ -730,14 +730,14 @@ let rec is_nonexpansive exp =
         (fun (_, lbl, exp) -> lbl.lbl_mut = Immutable && is_nonexpansive exp)
         lbl_exp_list
       && is_nonexpansive_opt opt_init_exp
-  | Texp_field(exp, _, lbl) -> 
+  | Texp_field(exp, _, lbl) ->
       (* CFML *) if !Clflags.strict_value_restriction then false else
       is_nonexpansive exp
   | Texp_array [] -> true
   | Texp_ifthenelse(cond, ifso, ifnot) ->
 	  (* CFML *) if !Clflags.strict_value_restriction then false else
       is_nonexpansive ifso && is_nonexpansive_opt ifnot
-  | Texp_sequence (e1, e2) -> 
+  | Texp_sequence (e1, e2) ->
       (* CFML *) if !Clflags.strict_value_restriction then false else
       is_nonexpansive e2  (* PR#4354 *)
   | Texp_new (_, cl_decl) when Ctype.class_type_arity cl_decl.cty_type > 0 ->
@@ -749,7 +749,7 @@ let rec is_nonexpansive exp =
       List.for_all
         (fun field -> match field.cf_desc with
             Tcf_meth _ -> true
-          | Tcf_val (_,_, _, Tcfk_concrete e,_) -> 
+          | Tcf_val (_,_, _, Tcfk_concrete e,_) ->
               incr count; is_nonexpansive e
           | Tcf_val _ -> true
           | Tcf_init e -> is_nonexpansive e
@@ -1474,8 +1474,8 @@ let rec type_exp env sexp =
         exp_loc = arg.exp_loc;
         exp_type = ty';
           exp_env = env } in
-      re { arg with 
-        exp_desc = Texp_constraint (arg, cty, cty'); 
+      re { arg with
+        exp_desc = Texp_constraint (arg, cty, cty');
         exp_loc = loc; }
   | Pexp_when(scond, sbody) ->
       let cond = type_expect env scond (instance Predef.type_bool) in
@@ -1743,7 +1743,7 @@ let rec type_exp env sexp =
       let (path, newenv) = !type_open env sexp.pexp_loc lid in
       let exp = type_exp newenv e in
       re { exp with exp_desc = Texp_open (path, exp); }
-  
+
 and type_label_exp create env loc ty (lid, sarg) =
   let (path, label) = Typetexp.find_label env sarg.pexp_loc lid in
   begin_def ();

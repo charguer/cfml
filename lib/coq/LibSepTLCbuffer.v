@@ -43,3 +43,32 @@ Ltac induction_wf_core_then E X cont ::=
 Ltac induction_wf_core IH E X ::=
   induction_wf_core_then E X ltac:(fun _ => intros IH).
 
+(*--------------------------------------------------------*)
+(* LibList *)
+
+From TLC Require Import LibList.
+
+Module LibListNotation.
+Notation "[ ]" := nil (format "[ ]") : liblist_scope.
+Notation "[ x ]" := (cons x nil) : liblist_scope.
+Notation "[ x ; y ; .. ; z ]" :=  (cons x (cons y .. (cons z nil) ..)) : liblist_scope.
+End LibListNotation.
+
+
+(*--------------------------------------------------------*)
+(* LibListZ *)
+
+From TLC Require Import LibListZ.
+
+Lemma index_make_eq : forall A (n i:Z) (v:A),
+  index (make n v) i = index n i.
+Admitted. (* TODO *)
+
+Lemma index_update_eq : forall A (l:list A) (i j:Z) (v:A),
+  index l j ->
+  (index l[j:=v] i) = (index l i).
+Admitted. (* TODO *)
+
+Hint Rewrite int_index_eq index_make_eq index_update_eq : rew_array.
+
+Hint Extern 1 (@index _ _ _ _ _) => rew_array; math.

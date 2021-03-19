@@ -62,6 +62,10 @@ clean:
 # As install depends on all, the file generator/cfml_config.ml is regenerated
 # when `make install` is run; this ensures LIBDIR cannot be inconsistent.
 
+install-generator: generator
+	# Install the generator binary
+	install -m755 $(CFML)/generator/_build/cfmlc.native $(BINDIR)/cfmlc
+
 install: all
 	# Install the generator binary
 	install -m755 $(CFML)/generator/_build/cfmlc.native $(BINDIR)/cfmlc
