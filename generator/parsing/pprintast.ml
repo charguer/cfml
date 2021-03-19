@@ -46,12 +46,12 @@ let bar_on_first_case = true ;;
    at the end of an identifier to allow for internal MetaOCaml variable
    renaming. *)
 
-let prefix_symbols  = [ '!'; '?'; '~' ] ;;
+let _prefix_symbols  = [ '!'; '?'; '~' ] ;;
 let infix_symbols = [ '='; '<'; '>'; '@'; '^'; '|'; '&'; '+'; '-';
                        '*'; '/'; '$'; '%' ] ;;
-let operator_chars = [ '!'; '$'; '%'; '&'; '*'; '+'; '-'; '.'; '/';
+let _operator_chars = [ '!'; '$'; '%'; '&'; '*'; '+'; '-'; '.'; '/';
                        ':'; '<'; '='; '>'; '?'; '@'; '^'; '|'; '~' ] ;;
-let numeric_chars  = [ '0'; '1'; '2'; '3'; '4'; '5'; '6'; '7'; '8'; '9' ] ;;
+let _numeric_chars  = [ '0'; '1'; '2'; '3'; '4'; '5'; '6'; '7'; '8'; '9' ] ;;
 
 type fixity =
   | Infix
@@ -201,7 +201,7 @@ let rec list2 f ppf l ?(indent=0) ?(space=1) ?(breakfirst=false)
 let type_var_print ppf str =
   fprintf ppf "'%s" str ;;
 
-let fmt_class_params ppf (l, loc) =
+let _fmt_class_params ppf (l, loc) =
   let length = (List.length l) in
   if (length = 0) then ()
   else if (length = 1) then
@@ -250,7 +250,7 @@ let option f ppf x = (* DELETE *)
       f ppf x;
 ;;
 
-let option_quiet_p f ppf x =
+let _option_quiet_p f ppf x =
   match x with
   | None -> ();
   | Some x ->
@@ -1072,7 +1072,7 @@ and class_description ppf x =
   class_type ppf x.pci_expr ;
   pp_close_box ppf () ;
 
-and class_type_declaration ppf x =
+and _class_type_declaration ppf x =
   class_type_declaration_ext ppf true x ;
 
 and class_type_declaration_ext ppf first x =
@@ -1337,7 +1337,7 @@ and module_type ppf x =
       module_expr ppf me ;
       pp_close_box ppf ()
 
-and signature ppf x = list signature_item ppf x
+and _signature ppf x = list signature_item ppf x
 
 and signature_item ppf x =
   begin
@@ -1404,7 +1404,7 @@ and signature_item ppf x =
   end;
   fprintf ppf ";;@.@\n@."
 
-and modtype_declaration ppf x =
+and _modtype_declaration ppf x =
   match x with
   | Pmodtype_abstract -> line 0 ppf "Pmodtype_abstract\n";
   | Pmodtype_manifest (mt) ->
@@ -1760,7 +1760,7 @@ and pattern_x_expression_case_list
       pp_close_box ppf () ;
   | (p,e)::r  -> (* not last  *)
       pp_open_hvbox ppf (indent + 2) ;
-      if ((first=true) & (special_first_case=false)) then begin
+      if ((first=true) && (special_first_case=false)) then begin
           pp_print_if_newline ppf () ;
           pp_print_string ppf "  "
         end else
@@ -1857,7 +1857,7 @@ and pattern_in_parens ppf p =
       fprintf ppf ")" ;
     end;
 
-and pattern_constr_params_option ppf po =
+and _pattern_constr_params_option ppf po =
   match po with
   | None -> ();
   | Some pat ->
@@ -2001,11 +2001,11 @@ and directive_argument ppf x =
   | Pdir_ident (li) -> fprintf ppf "@ %a" fmt_longident li;
   | Pdir_bool (b) -> fprintf ppf "@ %s" (string_of_bool b);
 
-and string_x_core_type_list ppf (s, l) =
+and _string_x_core_type_list ppf (s, l) =
   string ppf s;
   list core_type ppf l;
 
-and string_list_x_location ppf (l, loc) =
+and _string_list_x_location ppf (l, loc) =
   line 0 ppf "<params> %a\n" fmt_location loc;
   list string ppf l;
 
@@ -2032,7 +2032,7 @@ and pattern_x_expression_case_single ppf (p, e) eo lbl =
   fprintf ppf " ->@ " ;
   expression_sequence ppf ~indent:0 e ;;
 
-let rec toplevel_phrase ppf x =
+let toplevel_phrase ppf x =
   match x with
   | Ptop_def (s) ->
       pp_open_hvbox ppf 0;
@@ -2049,13 +2049,13 @@ let expression ppf x =
   expression ppf x;
   fprintf ppf "@]>.";;
 
-let string_of_expression x =
+let _string_of_expression x =
   ignore (flush_str_formatter ()) ;
   let ppf = str_formatter in
   expression ppf x ;
   flush_str_formatter () ;;
 
-let toplevel_phrase ppf x =
+let _toplevel_phrase ppf x =
   pp_print_newline ppf () ;
   toplevel_phrase ppf x;
   fprintf ppf ";;" ;

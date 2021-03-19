@@ -104,18 +104,7 @@ PWD      := $(shell pwd)
 
 # -------------------------------------------------------------------------
 
-<<<<<<< HEAD
 # Simulating the creation of an archive by git.
-=======
-install-generator: generator
-	# Install the generator binary
-	install -m755 $(CFML)/generator/_build/cfmlc.native $(BINDIR)/cfmlc
-
-install: all
-	# Install the generator binary
-	install -m755 $(CFML)/generator/_build/cfmlc.native $(BINDIR)/cfmlc
-#	install -m755 $(CFML)/generator/_build/makecmj.native $(BINDIR)/cfml_cmj
->>>>>>> arthur_dev
 
 .PHONY: archive
 archive:

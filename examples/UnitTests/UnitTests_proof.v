@@ -1,11 +1,9 @@
 Set Implicit Arguments.
-From CFML Require Import WPPrint WPLib.
+From CFML Require Import WPLib.
 From CFML Require Import Stdlib.
+From CFML Require Import Stdlib.Array_proof.
 Require Import UnitTests_ml.
-
-Require TLC.LibListZ. (* TODO NEEDED? *)
-(* TODO NEEDED? Import ZsubNoSimpl. *)
-
+From TLC Require Import LibListZ.
 
 (* TODO: pb of res__ variable showing up, due to \*+ simplification *)
 
@@ -580,9 +578,9 @@ Proof using.
   xcf. xlet. dup 3.
   { xmatch (>> Xcase_no_simpl Xcase_no_alias).
     { xvals. subst. inverts* C. }
-    { xvals. } 
+    { xvals. }
     { xfail. } }
-  { xmatch. xvals. inverts* TEMP. } (* TODO: not a nice name, due to inverts *) 
+  { xmatch. xvals. inverts* TEMP. } (* TODO: not a nice name, due to inverts *)
   { xmatch Xcase_as. skip. }
 Qed.
 
@@ -606,8 +604,6 @@ Proof using. xcf. xmatch. xvals~. Qed.
 
 (********************************************************************)
 (** ** Arrays *)
-
-Require Import Array_proof TLC.LibListZ.
 
 Section Array.
 

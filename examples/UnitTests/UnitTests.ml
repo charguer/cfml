@@ -1,4 +1,3 @@
-open Pervasives
 
 (**
  *
@@ -809,8 +808,9 @@ and rec_mutual_g x =
 (********************************************************************)
 (* ** External *)
 
+(* TODO: ocaml file does not compile with it
 external external_func : int -> 'a -> 'a array = "%external_func"
-
+*)
 
 
 (********************************************************************)
