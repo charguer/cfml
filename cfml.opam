@@ -13,6 +13,7 @@ build: [
 depends: [
   "ocaml" {>= "4.08.0"}
   "dune" { >= "2.0.0"}
+  "menhir" { >= "20201216" }
   "pprint" { >= "20200410" }
 ]
 synopsis: "The CFML program verification tool"
