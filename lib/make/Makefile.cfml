@@ -118,7 +118,7 @@ SED := $(shell if command -v gsed >/dev/null ; then echo gsed ; else echo sed ; 
 # Only the %.cmj target is known to "make".
 
 # We include a dependency on the executable [cfmlc]. This is not strictly
-# required, but can helpful for us (developers) who tend to frequently
+# required, but can be helpful for us (developers) who tend to frequently
 # reinstall CFML and do not always remember to run [make clean] in every
 # project that uses CFML.
 
