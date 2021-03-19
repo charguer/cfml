@@ -133,5 +133,5 @@ SED := $(shell if command -v gsed >/dev/null ; then echo gsed ; else echo sed ; 
 # Clean
 
 clean:
-	rm -f $(CMJ) $(MLV) $(D)
+	rm -f *.cmj *_mlv. *.d
 	rm -rf _output
