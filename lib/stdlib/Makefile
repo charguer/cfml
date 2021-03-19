@@ -21,7 +21,10 @@
 all: cmj
 	@ $(MAKE) -f ../make/Makefile.generic $@
 
-clean install uninstall:: all
+install:: all
+	@ $(MAKE) -f ../make/Makefile.generic $@
+
+clean uninstall::
 	@ $(MAKE) -f ../make/Makefile.generic $@
 
 ##############################################################################
