@@ -278,5 +278,4 @@ Proof using.
   { xpull ;=> r L'2 E. inverts E. xsimpl~. }
 Qed.
 
-(* TODO: disable RET notation in TRIPLE *)
 

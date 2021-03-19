@@ -1,0 +1,38 @@
+(copy_files parsing/*.{ml,mli,mll,mly})
+(copy_files typing/*.{ml,mli})
+(copy_files utils/*.{ml,mli})
+
+(env
+  (dev (flags
+    :standard
+    -g
+    -w @A-4-6-9-27-44-48-52-57
+  ))
+  (release (flags
+    :standard
+    -g
+  ))
+)
+
+(ocamllex
+  (modules lexer linenum)
+)
+
+(menhir
+  (flags
+    --lalr
+    --unused-token GREATERRBRACKET
+    --unused-token QUESTIONQUESTION
+  )
+  (modules parser)
+)
+
+(executable
+  (package cfml)
+  (public_name cfmlc)
+  (libraries
+    unix
+    pprint
+  )
+  (modules_without_implementation annot asttypes outcometree parsetree)
+)

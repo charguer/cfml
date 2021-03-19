@@ -13,7 +13,7 @@
 
 Set Implicit Arguments.
 From TLC Require Export LibCore.
-From Sep Require Export TLCbuffer SepFunctor.
+From Sep Require Export LibSepTLCbuffer LibSepFunctor.
 
 From iris Require bi proofmode.tactics.
 (* We undo the setup done by Stdpp. *)

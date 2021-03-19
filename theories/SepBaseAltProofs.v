@@ -426,7 +426,7 @@ Ltac xlocal_base tt ::=
 (* ** Structural rules *)
 
 (** Note: all these rules could be derived directly from the fact that
-    [triple] satisfies [local], using lemmas from [SepFunctor] *)
+    [triple] satisfies [local], using lemmas from [LibSepFunctor] *)
 
 Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, triple t (J x) Q) ->

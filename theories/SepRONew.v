@@ -6,7 +6,7 @@ paper by Arthur Charguéraud and François Pottier.
 
 This file contains:
 - a definition of heaps as pairs of states,
-- an instantiation of the functor from the file SepFunctor.v,
+- an instantiation of the functor from the file LibSepFunctor.v,
 - a definition of triples,
 - statement and proofs of SL reasoning rules.
 
@@ -16,8 +16,10 @@ License: CC-by 4.0.
 *)
 
 Set Implicit Arguments.
-From Sep Require Export Semantics SepFunctor.
-From Sep Require Import Fmap.
+From Sep Require Export Semantics LibSepFunctor.
+From Sep Require Import LibSepFmap.
+Module Fmap := LibSepFmap.
+
 Import NotationForFmapDisjoint.
 Open Scope fmap_scope.
 Arguments exist [A] [P].

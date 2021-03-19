@@ -15,8 +15,9 @@ License: CC-by 4.0.
 *)
 
 Set Implicit Arguments.
-From Sep Require Export Semantics SepFunctor.
-From Sep Require Import Fmap.
+From Sep Require Export Semantics LibSepFunctor.
+From Sep Require Import LibSepFmap.
+Module Fmap := LibSepFmap.
 Import NotationForFmapDisjoint.
 Open Scope fmap_scope.
 Arguments exist [A] [P].

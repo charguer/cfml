@@ -1,211 +1,113 @@
 # CFML 2.0 : a tool for proving ML programs in Separation Logic
 
----
-===========
+CFML 2.0 allows carrying out proofs of correctness of OCaml programs with
+respect to specifications expressed in higher-order Separation Logic. It
+consists of several parts:
 
-**This is CFML 2.0, not to be confused with CFML 1.0.**
+- A front-end tool, implemented in OCaml, parses OCaml source code and
+  translates it to an abstract syntax tree inside Coq.
 
-**CFML 2.0 is expected to entirely subsume CFML 1.0 by the end of 2020.**
+- A Coq library provides definitions, lemmas, a characteristic formula
+  generator, and a suite of tactics, which make it possible to reason in Coq
+  about an OCaml program.
 
-For additional information, check out: http://www.chargueraud.org/softs/cfml/
-
-Description
-===========
-
-CFML 2.0 contains:
-
-- the formalization of the syntax and semantics an imperative lambda-calculus
-
-- a formalization of a simple Separation Logic for that language
-
-- a characteristic formula generator, which is a variant of a weakest-precondition
-  generator, and a collection of associated tactics for carrying out program
-  verification in practice.
-
-The foundations of CFML 2.0 are described in a course on Separation Logic
-for Sequential Programs: http://www.chargueraud.org/teach/verif/
-
-
-#############################################################
 # Installation
 
+The standard installation procedure requires `opam`, the OCaml package
+manager. If you do not have it yet, please
+[install opam](https://opam.ocaml.org/doc/Install.html) first.
 
-CFML 2.0 is known to work with Coq v8.8.2 and v8.9.1.
-It does not work with v8.10 and v8.11 due to a bug affecting
-the resolution of typeclasses in these versions.
+CFML depends on several `opam` packages, including Coq. At the time of
+writing, versions 8.12 and 8.13 of Coq are supported.
 
-CFML 2.0 depend on the TLC library. It may be installed using
-OPAM or from sources.
-
-To install Coq and TLC, execute:
-
-```
-   opam pin add coq 8.9.1
-   opam install coq-tlc.20181116
-
-   # optional
-   opam install coqide
-```
-
-Note: if you'd rather install TLC by hand, for either Coq v8.8 or v8.9,
-execute the following commands:
+To install the latest released version of CFML, use the following command:
 
 ```
-   git clone https://gitlab.inria.fr/charguer/tlc -b coq-8.9
-   cd tlc/src
-   make install
+  opam install coq-cfml-stdlib
 ```
 
-Then, the compilation of the files from CFML 2.0 can be achieved with:
+To install the latest development version of CFML, use this:
 
 ```
-   cd cfml/theories
-   make
-   make _CoqProject
+  git clone https://gitlab.inria.fr/charguer/cfml2.git
+  cd cfml2
+  make pin
 ```
 
-Note: depending on your version of TLC, `make _CoqProject` might be redundant.
+# Replaying a sample proof
 
-Note: CoqIDE generally works more smoothly with multithreading turned off.
+Then, you can load an example proof. There are several examples in the directory
+[examples](examples). Go down into one of them:
 
 ```
-   coqide -async-proofs off -async-proofs-command-error-resilience off *.v
+  git clone https://gitlab.inria.fr/charguer/cfml2.git
+  cd cfml2/examples/Tutorial
+  make
 ```
 
+Then, if you have emacs and ProofGeneral, just open the file that contains
+hand-written proofs:
 
+```
+  emacs Tutorial_proof.v &
+```
 
-#############################################################
-# CFML2.0 source files
+Or, if you prefer to use CoqIDE:
 
+```
+  gedit Tutorial.ml &
+  coqide -async-proofs off -async-proofs-command-error-resilience off Tutorial_proof.v &
+```
 
-## Common files
+# Overview of the packages
 
- * The file __TLCbuffer.v__
-   contains definitions, lemmas and tactics to be later merged into TLC.
+The implementation is split into three `opam` packages, named `cfml`,
+`coq-cfml-basis`, and `coq-cfml-stdlib`. The last package depends on
+the previous two.
 
- * The file __Var.v__
-   defines a representation of variables as strings.
+- The package `cfml` contains the generator, `cfmlc`. Its source code is found
+  in the directory [generator](generator). This package also installs the
+  auxiliary Makefiles in [lib/make](lib/make). At runtime, the command `cmlfc
+  -where` allows finding out where these Makefiles have been installed.
 
- * The file __Fmap.v__
-   defines a representation of finite maps, used to represent stores.
+- The package `coq-cfml-basis` contains a Coq library. It is the
+  implementation of the Coq component of CFML. This library is installed in
+  the Coq hierarchy under the name `CFML`.
 
- * The file __Bind.v__
-   defines binders and contexts.
+- The package `coq-cfml-stdlib` contains Coq specifications for some of the
+  modules in the OCaml standard library. It forms a Coq library, which is
+  installed in the Coq hierarchy under the name `CFML.Stdlib`. The
+  `.cmj` files for the OCaml standard library, which are used by `cfmlc`,
+  are installed in the directory `$(cfmlc -where)/stdlib`.
 
- * The file __Semantics.v__
-   defines the syntax and semantics of an imperative lambda-calculus.
+The directory `examples` contains a number of examples of use of CFML.
+Provided the above packages have been installed, these examples can be
+compiled by typing `make -C examples` in the root directory of the repository.
 
- * The file __SepSimpl.v__
-   implements the simplification tactic for heap entailment.
+# Developer Workflow
 
- * The file __SepFunctor.v__
-   contains a functor with derived properties for Separation Logic.
-   This functor is used by plain separation logic and also by the
-   two extensions (credits and read-only) mentioned further on.
+The root `Makefile` defines a number of commands that are useful while working
+on CFML.
 
+* `make -j` compiles the OCaml code in the directory `generator`
+  and the Coq code in the directory `lib/coq`.
 
-## Plain SL
+* `make pin` asks `opam` to install the last committed versions of the three
+  packages. (Don't forget to commit your changes before using this command.)
+  Use `OPAMYES=1 make pin` to automatically answer "yes" to every question
+  asked by opam.
 
- * The file __SepBase.v__
-   defines a plain Separation Logic (and proves its soundness).
+* `make reinstall` forces opam to reinstall the three packages
+  (which presumably have been pinned earlier). You can also
+  selectively use `opam reinstall cfml`,
+  `opam reinstall coq-cfml-basis`, or
+  `opam reinstall coq-cfml-stdlib` to reinstall just one package.
 
- * The file __WPBase.v__
-   defines weakest precondition style characteristic formulae
-   for plain Separation Logic.
+* `make unpin` asks `opam` to unpin the packages, so `opam` will either remove
+  the packages altogether or reinstall the last publicly released versions of
+  the packages.
 
+# References
 
-## Lifted SL
-
- * The file __SepLifted.v__
-   defines lifted Separation Logic.
-
- * The file __WPLifted.v__
-   defines weakest precondition style characteristic formulae.
-   for lifted Separation Logic.
-
-
-## CFML tooling
-
- * The file __WPTactics.v__
-   introduces tactics to conduct practical proofs using these lifted WP.   
-
- * The file __WPRecord.v__
-   provides support for reasoning about records.
-
- * The file __WPLib.v__
-   exports all the tooling
-
-
-## Example proofs
-
- * The file __Example.v__
-   common header to be included by all example files
-
- * The file __ExampleListNull.v__
-   formalization of null-terminated lists
-
- * The file __ExampleList.v__
-   formalization of lists as reference on a sum type
-
- * The file __ExampleListIndir.v__
-   variant of ExampleList using the address of operator
-
- * The file __ExampleQueue.v__
-   formalization of a mutable queue as a list segment
-
- * The file __ExampleStack.v__
-   formalization of a stack as a reference on a pure list,
-   or as a pair of a pure list and a size integer
-
- * The file __ExampleListOf.v__
-   wrapper for lists that own their elements
-
- * The file __ExamplePairingHeap.v__
-   formalization of a mutable pairing heaps as trees
-   with node featuring mutable lists of subtrees
-
-
-## Unit tests
-
- * The file __WPUnitTests.v__
-   (work-in-progress) file with several tactic demos
-
- * The file __WPExamples.v__
-   (work-in-progress) file with examples proofs
-
- * The file __WPExamplesDetails.v__
-   (work-in-progress) file a few proofs containing additional details
-   on the working of tactics.
-
-
-
-#############################################################
-# Model of Separation Logic with Time Credits
-
-This file `SepCredits.v` contains a formalization of Separation Logic
-extended with Time Credits, with credits represented on Z (integers).
-
-The original "Separation Logic with time credits" represented time credits
-on N (natural number). This original presentation is described in the paper:
-__Verifying the correctness and amortized complexity of a union-find
-implementation in separation logic with time credits__
-by Arthur Charguéraud and François Pottier, published at JAR 2017.
-  http://gallium.inria.fr/~fpottier/publis/chargueraud-pottier-uf-sltc.pdf
-
-The switch from N to Z for representing credits brings numerous benefits,
-as described in the paper:
-__Formal proof and analysis of an incremental cycle detection algorithm__
-by Armaël Guéneau, Jacques-Henri Jourdan, Arthur Charguéraud, and François Pottier,
-published at ITP 2019.
-  http://gallium.inria.fr/~fpottier/publis/gueneau-jourdan-chargueraud-pottier-2019.pdf
-
-
-
-#############################################################
-# Model of Separation Logic with Read-Only Permissions
-
-The file `SepRO.v` contains a formalization of Separation Logic extended
-with read-only permissions. This extension is described in the paper:
-__Temporary Read-Only Permissions for Separation Logic__
-by Arthur Charguéraud and François Pottier, published at ESOP 2017.
-  http://www.chargueraud.org/research/2017/readonlysep/readonlysep.pdf
+The implementation of CFML 2.0 is described in the course
+[Foundations of Separation Logic](http://www.chargueraud.org/teach/verif/).

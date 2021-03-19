@@ -1,3 +1,16 @@
+
+Check whether makecmj can be emulated using -only_cmj for processing .mli files.
+
+====================
+
+
+
+
+
+
+
+
+
 extend course with partial correctness triples.
 
 LATER: replace congruence with auto in SLFRich
