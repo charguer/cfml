@@ -16,5 +16,6 @@ Makefile.generated:
 
 .PHONY: clean
 clean::
+	@ rm -f *.d
 	@ rm -f Makefile.generated Makefile.generated.conf
 	@ rm -rf .lia.cache

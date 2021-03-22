@@ -53,7 +53,7 @@ OCAMLBUILD := \
     -classic-display -use-ocamlfind \
     -cflags "-g" -lflags "-g" \
     -X .coq-native \
-    $(OCAMLBUILD_FLAGS) \
+    $(OCAMLBUILD_FLAGS)
 
 .PHONY: phase1
 phase1:

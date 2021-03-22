@@ -1,0 +1,386 @@
+##############################################################################
+#
+# This Makefile can be used to compile examples, including the recompilation
+# of all dependencies. Only for developer use.
+#
+# Usage:
+#   make -f $(CFML)/lib/make/Makefile.dev 
+#
+# Supports building of `vos` and `vok` targets.
+#
+##############################################################################
+# Parameters
+
+# Local parameters can be set in Makefile.dev.local. 
+# In particular: CFML, COQBIN, TLC, COQWARNINGS, COQEXTRAFLAGS,
+# COQFOLDERNAME, ML, V, V_AUX
+
+-include Makefile.dev.local
+
+PWD := $(shell pwd)
+
+# CFML denotes the path to the root of the CFML folder
+
+ifndef CFML
+	CFML := $(shell cd ../.. && pwd)
+endif
+
+# COQBIN denotes the path to the Coq binaries (final slash is added if necessary)
+
+ifneq ($(COQBIN),)
+	COQBINLASTCHAR=`echo "${$(COQBIN): -1}"`
+	ifneq ($(COQBINLASTCHAR),/)
+		COQBIN := $(COQBIN)/
+	endif
+endif
+
+# TLC denotes the path to the TLC library
+# Special setting to avoid Makefile.dev.local by developers
+
+ifndef TLC
+	ifeq ($(shell echo $$USER),charguer)
+		TLC := /home/charguer/tlc/src
+	endif
+endif
+ifdef TLC
+	TLC_V := $(wildcard $(TLC)/*.v)
+else
+	TLC := $(shell $(COQBIN)coqc -where)/user-contrib/TLC
+	TLC_V=
+endif
+
+# Warning flags for Coq
+
+ifndef COQWARNINGS
+	COQWARNINGS=-w -notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths,-irrelevant-format-only-parsing
+endif
+
+# Other flags for Coq
+
+ifndef COQEXTRAFLAGS
+	COQEXTRAFLAGS:=
+endif
+
+# All flags for Coq
+
+ifndef COQFLAGS
+	COQFLAGS:=$(COQWARNINGS) $(COQEXTRAFLAGS)
+endif
+
+# Coq name for current folder
+
+ifndef COQFOLDERNAME
+	COQFOLDERNAME:=EXAMPLE
+endif
+
+# ML sources files in current folder
+
+ifndef ML
+	ML := $(wildcard *.ml)
+endif
+
+# Coq extra files in current folder
+
+ifndef V_AUX
+	V_AUX := 
+endif
+
+# CFMLC flags (e.g. "-debug")
+
+ifndef CFMLC_FLAGS
+	CFMLC_FLAGS := 
+endif
+
+# The variable $(ML_MAIN) is used to specify which source file is the
+# starting point when compiling with ocamlbuild. It can remain undefined
+# if there is only one .ml file.
+
+ifndef ML_MAIN
+	ML_MAIN := $(ML)
+endif
+
+# Options for OCAMLBUILD, by default ignore unused variables
+
+ifndef OCAMLBUILD_FLAGS
+	OCAMLBUILD_FLAGS := -cflags -w,-26
+endif
+
+
+############################################################################
+# Verbosity control.
+
+# TEMPORARY: make verbose true by default
+ifndef VERBOSE
+	VERBOSE := true
+endif
+
+# By default, VERBOSE is empty, so the .SILENT directive is read, so no
+# commands are echoed. If VERBOSE is defined by the user, then the .SILENT
+# directive is ignored, so commands are echoed, unless they begin with an
+# explicit @.
+
+ifeq (VERBOSE,)
+.SILENT:
+endif
+
+
+##############################################################################
+# Folders
+
+LIBCOQ := $(CFML)/lib/coq
+STDLIB := $(CFML)/lib/stdlib
+GENERATOR := $(CFML)/generator
+
+# COQEXTRAINCLUDE contains include that are not expected to be in _CoqProject
+
+COQEXTRAINCLUDE := \
+  -Q $(TLC) TLC \
+  -Q $(LIBCOQ) CFML \
+  -R $(STDLIB) CFML.Stdlib \
+
+COQINCLUDE := \
+  $(COQEXTRAINCLUDE) \
+  -R $(PWD) $(COQFOLDERNAME)
+
+
+##############################################################################
+# Binaries.
+
+OCAMLDEP  := $(OCAMLBIN)ocamldep
+OCAMLPOST := $(CFML)/lib/make/ocamldep.post
+
+COQC := $(COQBIN)coqc $(COQFLAGS)
+COQDEP := $(COQBIN)coqdep -vos
+
+CFMLC := $(CFML)/_build/default/generator/cfmlc.exe
+
+# LATER: could be CFMLC.bc
+
+OCAMLBUILD := \
+  ocamlbuild \
+    -classic-display -use-ocamlfind \
+    -cflags "-g" -lflags "-g" \
+	 -X .coq-native
+
+
+##############################################################################
+# Files.
+
+GENERATOR_SRC := $(shell find $(GENERATOR) \( -name '*.ml' -o  -name '*.mli' \) !  -path '$(GENERATOR)/_build/*')
+
+LIBCOQ_V := $(wildcard $(LIBCOQ)/*.v) 
+
+STDLIB_ML := $(wildcard $(STDLIB)/*.ml)
+STDLIB_CMJ := $(patsubst %.ml,%.cmj,$(STDLIB_ML))
+STDLIB_V := $(patsubst %.ml,%_ml.v,$(STDLIB_ML)) $(patsubst %.ml,%_proof.v,$(STDLIB_ML)) $(STDLIB)/Stdlib.v
+# $(wildcard $(STDLIB)/*_proof.v)
+
+EXAMPLE_V := $(patsubst %.ml,%_ml.v,$(ML)) $(patsubst %.ml,%_proof.v,$(ML))
+EXAMPLE_EXE := $(patsubst %.ml,%.native,$(ML_MAIN))
+EXAMPLE_MLD := $(patsubst %.ml,%.ml.d,$(ML))
+
+V := $(TLC_V) \
+	  $(LIBCOQ_V) \
+	  $(STDLIB_V) \
+     $(V_AUX) \
+	  $(EXAMPLE_V)
+	  
+CMJ := $(patsubst %.ml,%.cmj,$(ML))
+VD := $(patsubst %.v,%.v.d,$(V))
+VQ := $(patsubst %.v,%.vq,$(V))
+VO := $(patsubst %.v,%.vo,$(V))
+VOS := $(patsubst %.v,%.vos,$(V))
+VOK := $(patsubst %.v,%.vok,$(V))
+
+.SECONDARY: %_ml.v %.v.d %.ml.d $(STDLIB)/%.v.d $(STDLIB)/%_ml.v
+.PRECIOUS: %_ml.v %.v.d %.ml.d $(STDLIB)/%.v.d $(STDLIB)/%_ml.v
+
+##############################################################################
+# Targets.
+
+.PHONY: all depend gen vd vo vos vok
+
+all: vo ocaml
+
+vo: $(VO)
+vos: $(VOS)
+vok: $(VOK)
+
+ocaml: $(EXAMPLE_EXE)
+
+generator: $(CFMLC)
+gen: generator
+
+mld: $(patsubst %.v,%.v.d,$(EXAMPLE_MLD))
+mlv: $(STDLIB_V) $(EXAMPLE_V)
+
+stdlib:  $(patsubst %.v,%.vo,$(STDLIB_V))
+stdlibs:  $(patsubst %.v,%.vos,$(STDLIB_V))
+stdlibk:  $(patsubst %.v,%.vok,$(STDLIB_V))
+
+coqlib: $(patsubst %.v,%.vo,$(LIBCOQ_V))
+coqlibs: $(patsubst %.v,%.vos,$(LIBCOQ_V))
+coqlibk: $(patsubst %.v,%.vok,$(LIBCOQ_V))
+
+
+##############################################################################
+# Building the generator
+
+$(CFMLC): $(GENERATOR_SRC)
+	make -C $(GENERATOR)
+
+
+############################################################################
+# Compiling OCaml code
+
+%.native: %.ml
+
+$(ML_MAIN:.ml=.native):
+	$(OCAMLBUILD) $(OCAMLBUILD_FLAGS) $@
+
+
+############################################################################
+# Dependencies
+
+# Purposely don't factorize the "patsubst" operations below, for debugging purposes
+ifeq ($(findstring $(MAKECMDGOALS),ocaml generator clean),)
+-include $(patsubst %.v,%.v.d,$(TLC_V))
+-include $(patsubst %.v,%.v.d,$(LIBCOQ_V))
+-include $(patsubst %.v,%.v.d,$(STDLIB_V))
+-include $(EXAMPLE_MLD)
+-include $(patsubst %.v,%.v.d,$(V_AUX) $(EXAMPLE_V))
+endif
+
+test:
+	echo $(patsubst %.v,%.v.d,$(STDLIB_V))
+
+# IMPORTANT: the dependencies generated by coqdep at the point where the
+# files *_ml.v don't exist yet are incomplete, because they lack dependencies
+# on those files. We work around this issue by assuming that if a file depends
+# on foo_ml.v, then it is either foo_proof.v or a file that depends on foo_proof.vo.
+# Under this assumption, it suffices to say that %_proof.v.d depends on %_ml.v
+
+$(STDLIB)/%_proof.v.d: $(STDLIB)/%_ml.v
+	$(COQDEP) $(COQINCLUDE) $(patsubst %.v.d,%.v,$@) > $@
+
+%_proof.v.d: %_ml.v
+	$(COQDEP) $(COQINCLUDE) $(patsubst %.v.d,%.v,$@) > $@
+
+%.v.d: %.v
+	$(COQDEP) $(COQINCLUDE) $< > $@
+
+
+############################################################################
+# Dependencies between CMJ files
+
+# As described by the recipe below, including the dependency files $(D)
+# adds dependencies of the form:
+#   A.cmj: B.cmj
+# whenever module A depends on module B.
+
+# We use ocamldep to find out which files A depends upon.
+
+# ocamldep must be passed appropriate -I flags, as it searches the file system
+# to find where each module is stored. We assume that these flags are given by
+# $(OCAML_INCLUDE).
+
+OCAML_INCLUDE := -I .
+
+# By using ocamldep in this way, we obtain dependencies that mention absolute
+# path names, as desired. We cannot use ocamldep -modules because it does not
+# perform this search and does not produce absolute path names.
+
+# ocamldep does not reliably print absolute path names -- its output depends
+# on the current directory! it omits the absolute path if it coincides with
+# the current directory. So, we change the current directory to /tmp before
+# invoking ocamldep.
+
+# ocamldep produces the following dependencies:
+#   A.cmo: B.cmi (or B.cmo, depending on the existence of B.mli, I think)
+#   A.cmx: B.cmx (or B.cmi, depending on obscure criteria)
+# We keep only the second line and replace both .cmx and .cmi with .cmj in it.
+
+# ocamldep sometimes produces a dependency A.cmx: A.cmi (not sure why).
+# This leads us to produce a circular dependency A.cmj: A.cmj.
+# The script $(OCAMLPOST) filters it out.
+
+SED := $(shell if command -v gsed >/dev/null ; then echo gsed ; else echo sed ; fi)
+
+%.ml.d: %.ml
+	($(OCAMLDEP) -one-line $(OCAML_INCLUDE) $<) \
+	  | grep cmx \
+	  | $(SED) -e "s/\\.cm\\(x\\|i\\)/\\.cmj/g" \
+	  | $(OCAMLPOST) \
+	  > $@
+
+
+##############################################################################
+# Building the Stdlib files 
+
+$(STDLIB)/Pervasives_ml.v $(STDLIB)/Pervasives.cmj: $(STDLIB)/Pervasives.ml $(CFMLC)
+	@echo "Generating characteristic formulae for `basename $<`..."
+	$(CFMLC) -nostdlib -nopervasives -I $(STDLIB) $< || (rm -f $@; exit 1)
+
+$(STDLIB)/%_ml.v $(STDLIB)/%.cmj: $(STDLIB)/%.ml $(STDLIB)/Pervasives.cmj $(CFMLC)
+	@echo "Generating characteristic formulae for `basename $<`..."
+	$(CFMLC) -nostdlib -I $(STDLIB) $< || (rm -f $@; exit 1)
+
+
+##############################################################################
+# Generating %.cmj and %_ml.v.
+
+# Note: we must delete the .cmj file if the construction of the _ml.v file
+# has failed. (Maybe the generator itself should take care of that!)
+
+%_ml.v %.cmj: %.ml $(STDLIB_CMJ) $(CFMLC)
+	@echo "Generating characteristic formulae for `basename $<`..."
+	$(CFMLC) -I $(STDLIB) -I . $< || (rm -f $@; exit 1)
+
+# LATER: at the moment, we do not run ocamldep, and assume that there no
+# inter-module dependencies. Every module is allowed to implicitly depend
+# on Pervasives.
+
+
+############################################################################
+# Coq rules.
+
+%.vo: %.v
+	@echo "Compiling `basename $*`..."
+	$(COQC) $(COQINCLUDE) $<
+
+%.vos: %.v
+	@echo "Digesting `basename $*`..."
+	$(COQC) $(COQINCLUDE) -vos $<
+
+%.vok: %.v
+	@echo "Checking `basename $*`..."
+	$(COQC) $(COQINCLUDE) -vok $<
+
+
+##############################################################################
+# Build custom _CoqProject
+
+_CoqProject: .FORCE
+	@echo $(COQINCLUDE) $(addprefix -arg ,$(COQWARNINGS)) > $@
+
+.FORCE:
+
+
+##############################################################################
+# Cleanup.
+
+clean:
+	rm -rf *.cmj *_ml.v _output *.vo *.vos *.vok *.glob *.native 
+
+clean_all: clean
+	make -C $(STDLIB) clean
+	make -C $(LIBCOQ) clean
+	make -C $(GENERATOR) clean
+
+clean_vo: clean
+	cd $(STDLIB); rm *.vo
+	cd $(LIBCOQ); rm *.vo
+
+clean_vos: clean
+	cd $(STDLIB); rm *.vos *.vok
+	cd $(LIBCOQ); rm *.vos *.vok
