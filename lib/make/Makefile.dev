@@ -52,7 +52,7 @@ endif
 # Warning flags for Coq
 
 ifndef COQWARNINGS
-	COQWARNINGS=-w -notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths,-irrelevant-format-only-parsing
+	COQWARNINGS=-w -custom-entry-overriden,-notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths,-irrelevant-format-only-parsing
 endif
 
 # Other flags for Coq
@@ -67,10 +67,10 @@ ifndef COQFLAGS
 	COQFLAGS:=$(COQWARNINGS) $(COQEXTRAFLAGS)
 endif
 
-# Coq name for current folder
+# Coq name for current folder. By default, the name of the current folder.
 
 ifndef COQFOLDERNAME
-	COQFOLDERNAME:=EXAMPLE
+	COQFOLDERNAME := `basename $(PWD)`
 endif
 
 # ML sources files in current folder

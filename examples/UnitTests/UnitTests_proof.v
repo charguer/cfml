@@ -1590,9 +1590,10 @@ Definition Sitems A `{EA:Enc A} (L:list A) r :=
 Lemma recordwith_spec :
   SPEC (recordwith tt)
     PRE \[]
-    POST (fun r => r ~~~> `{ mya' := 6; myb' := 5; myc' := 3 }).
+    POST (fun r => r ~~~> `{ mya' := 1; myb' := 5; myc' := @nil int }).
 Proof using.
-  xcf. xapp. intros r. xapp. xsimpl.
+  xcf. xapp. intros r1. xapp. intros r2. xapp. intros r3. xapp. intros r4. xvals.
+  Unshelve. xend. xend.
 Qed.
 
 

@@ -674,23 +674,25 @@ let pattern_name p =
 let pattern_name_protect_infix p =
    var_name (pattern_name p)
 
-(** An alternative version of function extract_label_names, for obtaining record labels *)
+(** A variant of the function [Typecore.extract_label_names], for obtaining
+    the names of the fields associated with a record type, and the information
+    on whether all fields are immutable. Return type is [string list * bool]. *)
 
-(* FIXME unused
-let extract_label_names_simple env ty =
+let record_field_named_and_immutability env ty =
   let ty = Ctype.repr ty in
   match ty.desc with
   | Tconstr (path, _, _) ->
       let td = Env.find_type path env in
       begin match td.type_kind with
-      | Type_record (fields, _) ->
-          List.map (fun (name, _, _) -> name) fields
+      | Type_record (fmts, _) ->  (* list of (field name, mutable attribute, type) *)
+          (List.map (fun (f,m,t) -> f) fmts,
+           List.for_all (fun (f,m,t) -> m = Immutable) fmts)
       | Type_abstract when td.type_manifest <> None ->
           unsupported_noloc "building of a record with abstract type"
       | _ -> assert false
       end
   | _ -> assert false
- *)
+
 
 (*#########################################################################*)
 (* ** Helper functions for fvs (type variables) *)
@@ -986,12 +988,14 @@ and cfg_record ?(record_name = "_") env e =
     let build_arg (name, arg) =
       (record_field_name name, coq_typ loc arg, lift_val env arg) in
     let cargs = List.map build_arg named_args in
+    let fields, immutable = record_field_named_and_immutability e.exp_env e.exp_type in
+    let all_fields = List.map (fun f -> coq_var (record_field_name f)) fields in
     begin match opt_init_expr with
     | None -> Cf_record_new (record_name, cargs)
-    | Some v -> Cf_record_with (lift_val env v, cargs)
+    | Some v -> Cf_record_with (lift_val env v, cargs, all_fields)
     end
-
   | _ -> assert false
+
 
 (*#########################################################################*)
 (* ** Characteristic formulae for modules *)

@@ -1,4 +1,3 @@
-
 (**
  *
  * This file contains unit tests for testing the generation of
@@ -652,14 +651,21 @@ let sitems_push x r =
 (********************************************************************)
 (* ** Record-with *)
 
-type recordwith = {
+type 'a recordwith = {
   mutable mya : int;
   mutable myb : int;
-  mutable myc : int; }
+  mutable myc : 'a list; }
 
 let recordwith () =
-  let r = { mya = 1; myb = 2; myc = 3 } in
-  { r with myb = 5; mya = 6 }
+  let r1 = { mya = 1; myb = 2; myc = [1] } in
+  let r2 = { mya = 1; myb = 2; myc = [] } in
+  let r3 = { mya = 1; myb = 2; myc = ([]:int list) } in
+  let r4 = { r1 with myb = 5; myc = [] } in
+  r4
+
+(* Not supported by OCaml parser
+let recordwith_expr () =
+  { recordwith () with myb = 3 } *)
 
 
 (********************************************************************)

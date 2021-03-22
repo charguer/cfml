@@ -6,13 +6,15 @@ open Coq
 
 type for_loop_dir = For_loop_up | For_loop_down
 
+type record_items = (var * coq * coq) list
+
 type cf =
     Cf_val of coq
   | Cf_fail
   | Cf_assert of cf
   | Cf_done
-  | Cf_record_new of var * (var * coq * coq) list
-  | Cf_record_with of coq * (var * coq * coq) list
+  | Cf_record_new of var * record_items
+  | Cf_record_with of coq * record_items * coqs
   | Cf_app of coqs * coq * coq * coqs
   | Cf_body of var * vars * typed_vars * coq * cf
   | Cf_let of typed_var * cf * cf

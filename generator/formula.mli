@@ -11,6 +11,8 @@ open Coq
 
 type for_loop_dir = For_loop_up | For_loop_down
 
+type record_items = (var * coq * coq) list
+
 (** Characteristic formulae for terms *)
 
 type cf =
@@ -22,10 +24,10 @@ type cf =
     (* Assert Q *)
   | Cf_done
     (* Done *)
-  | Cf_record_new of var * (var * coq * coq) list
+  | Cf_record_new of var * record_items
     (* AppNew [.. (fi, @dyn Ai xi) .. ] *) (* TODO: the first var is for recursive records *)
-  | Cf_record_with of coq * (var * coq * coq) list
-     (* TODO update doc in this file *)
+  | Cf_record_with of coq * record_items * coqs
+     (* stores both { p with f2 := v2 }  and also [f1;f2;f3] the list of fields *)
   | Cf_app of coqs * coq * coq * coqs
     (* App f [.. (@dyn Ai xi) .. ] (B:=B) *)
   | Cf_body of var * vars * typed_vars * coq * cf

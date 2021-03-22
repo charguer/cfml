@@ -62,9 +62,9 @@ let rec coqtops_of_cf cf =
       let dynlistof = coq_fun (record_name, loc_type) (dynlist_of_record_fields items) in
       wpgen_app "WPRecord.Wpgen_record_new" [dynlistof]
 
-  | Cf_record_with (v, items) ->
+  | Cf_record_with (v, updated_items, all_fields) ->
       (* Each item is a tuple (fi, ti, vi) *)
-      wpgen_app "WPRecord.Wpgen_record_with" [v; dynlist_of_record_fields items]
+      wpgen_app "WPRecord.Wpgen_record_with" [v; dynlist_of_record_fields updated_items; coq_list all_fields]
 
   | Cf_app (ts, tret, f, vs) ->
       (* Wpgen_app tret f [(@dyn t1 _ v1); (@dyn t2 _ v2)] *)
