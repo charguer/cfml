@@ -252,7 +252,7 @@ Ltac xtypes_triple E :=
   | (Wptag ?F) => xtypes_triple F
   | (@Wpgen_app ?T ?ET ?f ?Vs) => aux Vs T ET
   | (@Triple (Trm_apps ?f ?Vs) ?T ?ET ?H ?Q) => aux Vs T ET
-  | _ => let F := xgoal_code tt in xtypes_triple F
+  | (PRE _ CODE ?C POST _) => xtypes_triple C
   end.
 
 (** [xtypes_hyp S] displays the types involved in the conclusion
@@ -271,6 +271,19 @@ Ltac xtypes_hyp S :=
 Ltac xtypes_goal tt :=
   idtac "=== types involved in the application from the goal ===";
   match xgoal_code_without_wptag tt with ?E => xtypes_triple E end.
+
+(** [xtypes_post tt] displays the types involved in the postcondition
+    in the goal. *)
+
+Ltac xtypes_post tt :=
+  idtac "=== types involved in the postcondition from the goal ===";
+  match goal with |- (?H ==> (@Wptag ?F) ?A ?EA ?Q) => xtypes_type false A EA end.
+  (* Alternative without encoder
+  let Q := xgoal_post tt in
+  match type of Q with
+  | ?T -> _ => idtac "return type" T
+  | _ => idtac "postcondition of type" Q
+  end. *)
 
 
 (* ---------------------------------------------------------------------- *)
@@ -856,7 +869,7 @@ Tactic Notation "xcf_show" :=
 
 (* [xcf_types] *)
 
-Ltac xcf_types_core tt :=
+Ltac xcf_types_core tt :=  (* Also used by xapp_types *)
   let S := fresh "Spec" in
   intros S;
   xtypes_goal tt;
@@ -1324,26 +1337,11 @@ Tactic Notation "xassert" :=
     [xapp_debug E]
 *)
 
-(* DEBUG XAPP
+(* How to DEBUG xapp:
 
-  xapp_pre tt;
-  applys xapp_find_spec_lemma;
-    [ xspec;
-      let H := fresh "Spec" in
-      intro H; eapply H; clear H
-    | xapp_select_lemma tt;
-      xapp_simpl tt ].
+    xspec. eapply xapp_lemma. eapply S.
 
-  xapp_pre tt.
-  applys xapp_find_spec_lemma.
-  xspec_prove_triple tt .
-  xapp_select_lemma tt. xsimpl. xapp_simpl tt.
-
-  xapp_pre tt.
-  applys xapp_find_spec_lifted_lemma.
-  xspec_prove_triple tt .
-  xapp_select_lifted_lemma tt. xsimpl. xapp_simpl tt.
-
+     --- specialized versions: [xapps_lemma] or [xapps_lemma_pure].
 *)
 
 
@@ -1479,7 +1477,7 @@ Tactic Notation "xapp" "~" :=
 Tactic Notation "xapp" "*"  :=
   xapp; auto_star.
 
-(** [xapp_spec] to show registered specification *)
+(** [xapp_spec] or [xapp_spec E] to show registered specification *)
 
 Tactic Notation "xapp_spec" :=
   xspec_core tt;
@@ -1490,6 +1488,21 @@ Tactic Notation "xapp_spec" constr(E) :=
   xspec E;
   let Spec := fresh "Spec" in
   intros Spec.
+
+(** [xapp_types] or [xapp_types E] to show types involved *)
+
+Ltac xapp_types_core tt :=
+  xcf_types_core tt;
+  xtypes_post tt.
+
+Tactic Notation "xapp_types" :=
+  xspec_core tt;
+  xapp_types_core tt. (* TODO: rename since more general *)
+
+Tactic Notation "xapp_types" constr(E) :=
+  xspec E;
+  let Spec := fresh "Spec" in
+  xapp_types_core tt.
 
 (** [xapp E] to provide arguments, where [E] can be a specification, or can
     be of the form [__ E1 ... En] to specify only arguments of the registered
@@ -1556,82 +1569,6 @@ Tactic Notation "xappn" "*" constr(n) :=
 
 Ltac xif_call_xapp_first tt ::=
   xapp.
-
-
-(* ---------------------------------------------------------------------- *)
-(** ** [xapp_debug] *)
-(* TODO: deprecated, now using show_types *)
-
-Ltac xapp_types_for_val v :=
-  match v with
-  | val_unit => idtac "unit"
-  | val_bool _ => idtac "bool"
-  | val_int _ => idtac "int"
-  | val_loc _ => idtac "loc"
-  | @enc ?T _ _ => idtac T
-  | _ => idtac "val"
-  end.
-
-Ltac xapp_types_for_vals vs :=
-  match vs with
-  | nil => idtac
-  | ?v :: ?vs' => xapp_types_for_val v; idtac "->"; xapp_types_for_vals vs'
-  end.
-
-Ltac xapp_types_for_trms ts :=
-  match ts with
-  | nil => idtac
-  | trms_vals ?vs => xapp_types_for_vals vs
-  | ?t :: ?ts' =>
-      match t with
-      | trm_val ?v => xapp_types_for_val v
-      | _ => idtac "trm"
-      end;
-      idtac "->";
-      xapp_types_for_trms ts'
-  end.
-
-Ltac xapp_types_in_triple ETriple :=
-  match ETriple with @Triple (trm_apps ?f ?ts) ?Tr ?ETr ?H ?Q =>
-    xapp_types_for_trms ts;
-    idtac Tr
-  end.
-
-(* TODO :factorize xapp_debug *)
-
-Ltac xapp_debug_report_instantiated K :=
-  let EtripleS := type of K in
-  idtac "=== Type of the specification for that function:";
-  xapp_types_in_triple EtripleS;
-  idtac "";
-  idtac "=== Type of the function call in the code:";
-  match goal with |- ?EtripleF => xapp_types_in_triple EtripleF end.
-
-Ltac xapp_debug_report H :=
-  forwards_then H ltac:(fun K =>
-    let X := fresh "SpecInstantiated" in
-    generalize K; intros X;
-    xapp_debug_report_instantiated X ).
-
-Ltac xspec_with_optional_arg E_or_double_underscore :=
-  match E_or_double_underscore with
-  | __ => first [ xspec | fail 2 ]
-  | ?E => xspec_lemma_of_args E
-  end.
-
-Ltac xapp_debug_core E_or_double_underscore :=
-  xapp_pre tt; applys @xapp_lemma;
-  [ first [ xspec_with_optional_arg E_or_double_underscore;
-            let H := fresh "Spec" in intro H; simpl in H; xapp_debug_report H
-          | fail 1 "No specification registered for that function" ]
-  | ].
-
-Tactic Notation "xapp_debug" constr(E) :=
-  xapp_debug_core E.
-
-Tactic Notation "xapp_debug" :=
-  xapp_debug_core __.
-
 
 
 (************************************************************************ *)
