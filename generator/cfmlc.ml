@@ -107,6 +107,8 @@ let _ =
    (*---------------------------------------------------*)
    trace "2) reading and typing source file";
    let (opt,inputfile) = process_implementation_file ppf sourcefile in
+   (* Note: the above line calls Typemod.type_implementation, which calls
+            Env.save_signature simple_sg modulename (outputprefix ^ ".cmj"); *)
    let parsetree1 : Parsetree.structure =
       match opt with
       | None -> failwith "Could not read and typecheck input file"
