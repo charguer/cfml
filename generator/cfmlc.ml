@@ -50,6 +50,13 @@ let spec =
     ("-strict_value_restriction", Arg.Set Clflags.strict_value_restriction, " enforce the strict value restriction (relaxed value restriction is the default)");
 *)
 
+let rename_cmj_and_exit sourcefile =
+  let prefixname = Filename.chop_extension sourcefile in
+  let cmd = Printf.sprintf "mv %s.cmj_temp %s.cmj" prefixname prefixname in
+  begin try ignore (Sys.command cmd)
+         with _ -> Printf.printf "Could not rename %s.cmj_temp file.\n" prefixname end;
+  exit 0
+
 
 let _ =
    Settings.configure();
@@ -108,7 +115,8 @@ let _ =
    trace "2) reading and typing source file";
    let (opt,inputfile) = process_implementation_file ppf sourcefile in
    (* Note: the above line calls Typemod.type_implementation, which calls
-            Env.save_signature simple_sg modulename (outputprefix ^ ".cmj"); *)
+            Env.save_signature simple_sg modulename (outputprefix ^ ".cmj_temp");
+      The %.cmj_temp file is renamed to %.cmj after the %_ml.v is produced. *)
    let parsetree1 : Parsetree.structure =
       match opt with
       | None -> failwith "Could not read and typecheck input file"
@@ -118,7 +126,7 @@ let _ =
 
    if !only_cmj then begin
       trace "3) exiting since -only_cmj";
-      exit 0;
+      rename_cmj_and_exit sourcefile;
    end;
 
    (*---------------------------------------------------*)
@@ -145,9 +153,8 @@ let _ =
 
    if !only_normalize then begin
       trace "6) exiting since -only_normalize";
-      exit 0;
+      rename_cmj_and_exit sourcefile;
    end;
-
 
    (*---------------------------------------------------*)
    trace "5) constructing caracteristic formula ast";
@@ -171,11 +178,12 @@ let _ =
    file_put_contents (debugdirBase ^ "_formulae.v") result;
 
    (*---------------------------------------------------*)
-   trace "8) dumping .v file";
+   trace "8) dumping %_ml.v file";
    file_put_contents outputfile result;
 
    (*---------------------------------------------------*)
-   trace "9) characteristic formulae successfully generated\n"
+   trace "9) characteristic formulae successfully generated\n";
+   rename_cmj_and_exit sourcefile
 
 
 (*########################################################

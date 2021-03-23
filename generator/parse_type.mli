@@ -18,8 +18,8 @@ val typecheck_implementation_file :
 
 (** Used for compiling a "mli" interface file and produce a "cmj" file *)
 
-val typecheck_interface_file : 
+val typecheck_interface_file :
   Format.formatter ->
   string ->
-  string -> 
+  string ->
   unit
