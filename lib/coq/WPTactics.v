@@ -798,8 +798,9 @@ Ltac xcf_pre tt :=
 
 Ltac xcf_target tt :=
   match goal with
-  | |- ?f = _ => constr:(f)
   | |- Triple (Trm_apps ?f ?Vs) ?H ?Q => constr:(f)
+  | |- ?f = _ => constr:(f)
+  | |- _ ?f => constr:(f)
   end.
 
 Ltac xcf_find f :=

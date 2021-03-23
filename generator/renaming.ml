@@ -487,6 +487,11 @@ let find_primitive p =
 (*#########################################################################*)
 (* ** Identifier renaming conventions *)
 
+(** Convention for characteristic formulae *)
+
+let cf_axiom_name name =
+  name ^ "_cf__"
+
 (** Convention for naming module names *)
 
 let module_name name =
@@ -547,7 +552,7 @@ let record_field_get_name name = (* DEPRECATED *)
 let record_field_set_name name = (* DEPRECATED *)
   name ^ "__set"
 
-(** Convention for naming record accessor function specifications *)
+(** Convention for naming record accessor function specifications *) (* DEPRECATED *)
 
 let record_get_spec_name name =
   name ^ "__get_spec"
@@ -556,7 +561,7 @@ let record_set_spec_name name =
   name ^ "__set_spec"
 
 
-(* TODO: use above, and also focus/unfocus etc *)
+(* TODO: use above, and also focus/unfocus etc *) (* DEPRECATED *)
 
 (** Convention for naming the representation predicate for a record *)
 
@@ -583,10 +588,3 @@ let record_unfocus_field_name name =
   record_field_name name ^ "__unfocus"
 
 
-
-
-(*#########################################################################*)
-(* ** Axioms naming conventions *)
-
-let cf_axiom_name name =
-  name ^ "__cf"

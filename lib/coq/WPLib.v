@@ -72,6 +72,10 @@ Notation "'SPEC' t 'PRE' H1 'INV' H2 'POSTUNIT' H3" :=
   (at level 39, t custom Trm_apps at level 0,
   format "'[v' 'SPEC'  t '/' 'PRE'  H1 '/' 'INV'  H2  '/' 'POSTUNIT'  H3 ']'") : triple_scope.
 
+Notation "'SPEC_PURE' t 'POST' Q" :=
+  (Triple t \[] Q)
+  (at level 39, t custom Trm_apps at level 0,
+  format "'[v' 'SPEC_PURE'  t  '/'  'POST'  Q ']'") : triple_scope.
 
 (* DEPRECATED
 
