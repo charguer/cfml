@@ -11,27 +11,6 @@ open Renaming
 open Printf
 
 
-(*#########################################################################*)
-(* ** Aux *)
-
-(** [list_is_included l1 l2] returns true if any item in [l1] also belongs to [l2] *)
-
-let list_is_included l1 l2 =
-   List.for_all (fun x -> List.mem x l2) l1
-
-(** [is_value_let_binding bod] tests if [bod] can be reflected as
-    a LetVal or if it should be a LetTrm *)
-
-let rec is_array exp =
-  match exp.exp_desc with
-  | Texp_array [] -> true
-  | Texp_constraint (e, _, _) -> is_array e
-  | _ -> false
-
-let is_value_let_binding exp =
-  Typecore.is_nonexpansive exp &&
-  not (is_array exp)
-
 
 (*#########################################################################*)
 (* ** Error messages *)
@@ -134,6 +113,51 @@ let lift_full_path_name p =
 
 let lift_path_name p =
   Path.name (lift_path p)
+
+
+
+(*#########################################################################*)
+(* ** Helper functions for various things *)
+
+let register_cf x =
+   Coqtop_custom (sprintf "Hint Extern 1 (WPHeader_Register_CF %s) => WPHeader_Provide %s." x (cf_axiom_name x))
+   (* DEPRECATED
+      Coqtop_register ("CFML.CFPrint.database_cf", x, cf_axiom_name x)
+    *)
+
+(* FIXME unused
+let register_spec x v =
+   Coqtop_register ("CFML.WPHeader.database_spec", x, v)
+ *)
+
+(* TODO: rewrite this function by using a normalization function that returns p *)
+let rec prefix_for_label typ =
+  match typ.desc with
+  | Tconstr (p, _, _) -> lift_path_name p
+  | Tlink t -> prefix_for_label t
+  | _ -> failwith "string_of_label: type of a record should be a Tconstr or Tlink"
+  (*
+  | Tvar -> failwith "x1"
+  | Tarrow _ -> failwith "x2"
+  | Ttuple  _ -> failwith "x3"
+  | Tconstr _ -> failwith "x4"
+  | Tobject  _ -> failwith "x5"
+  | Tfield _ -> failwith "x6"
+  | Tnil _ -> failwith "x7"
+  | Tsubst  _ -> failwith "x9"
+  | Tvariant  _ -> failwith "x10"
+  | Tunivar -> failwith "x11"
+  | Tpoly  _ -> failwith "x12"
+  *)
+
+(* DEPRECATED
+let string_of_label_with prefix lbl =
+  prefix ^ "_" ^ lbl.lbl_name
+
+let string_of_label typ lbl =
+  string_of_label_with (prefix_for_label typ) lbl
+*)
+
 
 
 (*#########################################################################*)
@@ -316,6 +340,94 @@ let coq_of_constructor loc p c args ty =
 
 
 (*#########################################################################*)
+(* ** Helper functions for records *)
+
+(** A variant of the function [Typecore.extract_label_names], for obtaining
+    the names of the fields associated with a record type. Returns a list of
+    field names, and a boolean indication on whether all fields are immutable *)
+
+let record_field_names_and_immutability_of_type env ty =
+  let ty = Ctype.repr ty in
+  match ty.desc with
+  | Tconstr (path, _, _) ->
+      let td = Env.find_type path env in
+      begin match td.type_kind with
+      | Type_record (fmts, _) ->
+            (List.map (fun (f,m,t) -> f) fmts,
+             List.for_all (fun (f,m,t) -> m = Immutable) fmts)
+      | Type_abstract when td.type_manifest <> None ->
+          unsupported_noloc "building of a record with abstract type"
+      | _ -> assert false
+      end
+  | _ -> assert false
+
+(** Find all label associated with a record operation (get, set, new-record, record-with) *)
+
+let record_field_names_and_immutability_of_label lbl =
+  let all_labels = lbl.lbl_all in
+  (List.map (fun lbli -> lbli.lbl_name) (Array.to_list all_labels),
+   Array.for_all (fun lbli -> lbli.lbl_mut = Immutable) all_labels)
+
+let record_field_names_and_immutability_of_labels lbls =
+  match lbls with
+  | [] -> failwith "record creation must include at least one label"
+  | lbl::_ -> record_field_names_and_immutability_of_label lbl
+
+(** Build a Coq record definition, where assigns is a list of (p,li,ci),
+    where p is a path, li a label information, ci a coq value.
+    optbase in an option on a Coq value, corresponding to the base of a
+    record-with if provided. *)
+
+let coq_record loc typ fields assigns optbase =
+   let args = List.map (fun f ->
+      match List.find_opt (fun (p,li,ci) -> li.lbl_name = f) assigns with
+      | None ->
+          begin match optbase with
+          | None -> failwith "record field not initialized"
+          | Some base -> Coq_proj (record_field_name f, base)
+          end
+      | Some (p,li,ci) -> ci) fields
+      in
+   let constr = record_constructor_name_from_type (prefix_for_label typ) in
+   (* TODO: I suspect that [id] below corresponds to [prefix_for_label typ] *)
+   let typ_args =
+      match btyp_of_typ_exp typ with
+      | Btyp_constr (id,ts) -> List.map (lift_btyp loc) ts
+      | _ -> failwith "record should have a type-constructor as type"
+      in
+   coq_apps (coq_var_at constr) (typ_args @ args)
+
+
+
+(*#########################################################################*)
+(* ** Helper functions for recognizing pure values *)
+
+(** [is_value_let_binding bod] tests if [bod] can be reflected as
+    a LetVal or if it should be a LetTrm.
+    Are treated as values:
+    - a "nonexpansive" term  --TODO: could be changed
+    - a immutable record definition
+    - a field access in an immutable record
+
+    Note that the empty array should not be considered as a value
+    due to the fact that it is weakly polymorphic, despite the
+    fact that it is considered to be "nonexpansive" by the ocaml typechecker. *)
+
+let rec is_value_let_binding exp =
+  match exp.exp_desc with
+  | Texp_array [] -> false
+  | Texp_constraint (e, _, _) -> is_value_let_binding e
+  | Texp_record(lbl_exp_list, opt_init_exp) ->
+      let lbls = List.map (fun (p,li,ei) -> li) lbl_exp_list in
+      let _fields, immutable = record_field_names_and_immutability_of_labels lbls in
+      immutable
+  | Texp_field(exp, _, lbl) ->
+      let _fields, immutable = record_field_names_and_immutability_of_label lbl in
+      immutable
+  | _ -> Typecore.is_nonexpansive exp
+
+
+(*#########################################################################*)
 (* ** Lifting of patterns *)
 
 (** Compute the free variables of a pattern *)
@@ -398,48 +510,6 @@ let pattern_aliases p : (typed_var*coq) list =
    List.rev (aux p)
 
 
-(*#########################################################################*)
-(* ** Helper functions for various things *)
-
-let register_cf x =
-   Coqtop_custom (sprintf "Hint Extern 1 (WPHeader_Register_CF %s) => WPHeader_Provide %s." x (cf_axiom_name x))
-   (* DEPRECATED
-      Coqtop_register ("CFML.CFPrint.database_cf", x, cf_axiom_name x)
-    *)
-
-(* FIXME unused
-let register_spec x v =
-   Coqtop_register ("CFML.WPHeader.database_spec", x, v)
- *)
-
-(* TODO: rewrite this function by using a normalization function that returns p *)
-let rec prefix_for_label typ =
-  match typ.desc with
-  | Tconstr (p, _, _) -> lift_path_name p
-  | Tlink t -> prefix_for_label t
-  | _ -> failwith "string_of_label: type of a record should be a Tconstr or Tlink"
-  (*
-  | Tvar -> failwith "x1"
-  | Tarrow _ -> failwith "x2"
-  | Ttuple  _ -> failwith "x3"
-  | Tconstr _ -> failwith "x4"
-  | Tobject  _ -> failwith "x5"
-  | Tfield _ -> failwith "x6"
-  | Tnil _ -> failwith "x7"
-  | Tsubst  _ -> failwith "x9"
-  | Tvariant  _ -> failwith "x10"
-  | Tunivar -> failwith "x11"
-  | Tpoly  _ -> failwith "x12"
-  *)
-
-(* DEPRECATED
-let string_of_label_with prefix lbl =
-  prefix ^ "_" ^ lbl.lbl_name
-
-let string_of_label typ lbl =
-  string_of_label_with (prefix_for_label typ) lbl
-*)
-
 
 (*#########################################################################*)
 (* ** Helper functions for primitive functions *)
@@ -521,7 +591,6 @@ let exp_find_inlined_primitive e oargs =
     | _ -> None
 
 
-
 (*#########################################################################*)
 (* ** Lifting of values *)
 
@@ -557,21 +626,23 @@ let rec lift_val env e =
       Coq_tuple (List.map aux el)
    | Texp_construct (p, c, es) ->
       coq_of_constructor loc p c (List.map aux es) e.exp_type
-   | Texp_record (l, opt_init_expr) ->
-       if opt_init_expr <> None then unsupported loc "record-with expression"; (* todo *)
-       if List.length l < 1 then failwith "record should have at least one field";
-       let labels = ((fun (p,li,ei) -> li) (List.hd l)).lbl_all in
-       let args = Array.make (Array.length labels) (Coq_var "dummy") in
-       let register_arg lbl v =
-          Array.iteri (fun i lbli -> if lbl.lbl_name = lbli.lbl_name then args.(i) <- v) labels in
-       List.iter (fun (p,lbl,v) -> register_arg lbl (aux v)) l;
-       let constr = record_constructor_name_from_type (prefix_for_label (e.exp_type)) in
-       let typ_args =
-          match btyp_of_typ_exp e.exp_type with
-          | Btyp_constr (id,ts) -> List.map (lift_btyp loc) ts
-          | _ -> failwith "record should have a type-constructor as type"
-          in
-       coq_apps (coq_var_at constr) (typ_args @ Array.to_list args)
+   | Texp_record (l, opt_init_expr) -> (* only for pure records *)
+       (* We don't use the record notation because it's not easy to provide the types;
+          instead, we reorder the fields to match the order of the original definition,
+          and apply the constructor by hand. *)
+       let lbls = List.map (fun (p,li,ei) -> li) l in
+       let fields, immutable = record_field_names_and_immutability_of_labels lbls in
+       assert (immutable);
+       let assigns = List.map (fun (p,li,ei) -> (p,li,aux ei)) l in
+       let optbase = option_map aux opt_init_expr in
+       coq_record loc e.exp_type fields assigns optbase
+   | Texp_field (arg, p, lbl) -> (* only for pure records *)
+       let fields, immutable = record_field_names_and_immutability_of_label lbl in
+       assert (immutable);
+       let proj = record_field_name lbl.lbl_name in
+       Coq_proj (proj, aux arg)
+       (* TODO: need qualified path for labels in case they come from different modules *)
+       (* NOTE: if we need explicit types, use same as for Texp_record *)
    | Texp_apply (funct, oargs) ->
       let fo = exp_find_inlined_primitive funct oargs in
       let f = match fo with
@@ -673,25 +744,6 @@ let pattern_name p =
 
 let pattern_name_protect_infix p =
    var_name (pattern_name p)
-
-(** A variant of the function [Typecore.extract_label_names], for obtaining
-    the names of the fields associated with a record type, and the information
-    on whether all fields are immutable. Return type is [string list * bool]. *)
-
-let record_field_named_and_immutability env ty =
-  let ty = Ctype.repr ty in
-  match ty.desc with
-  | Tconstr (path, _, _) ->
-      let td = Env.find_type path env in
-      begin match td.type_kind with
-      | Type_record (fmts, _) ->  (* list of (field name, mutable attribute, type) *)
-          (List.map (fun (f,m,t) -> f) fmts,
-           List.for_all (fun (f,m,t) -> m = Immutable) fmts)
-      | Type_abstract when td.type_manifest <> None ->
-          unsupported_noloc "building of a record with abstract type"
-      | _ -> assert false
-      end
-  | _ -> assert false
 
 
 (*#########################################################################*)
@@ -921,13 +973,24 @@ let rec cfg_exp env e =
       Cf_app ([ts], tr, func, [arg])
 
    | Texp_field (arg, p, lbl) ->
-      let tr = coq_typ loc e in
-      let ts = coq_typ loc arg in (* todo: check it is always 'loc' *)
-      let func = coq_cfml_var "WPRecord.val_get_field" in
-      let op = coq_app func (coq_var (record_field_name lbl.lbl_name)) in
-      Cf_app ([ts], tr, op, [lift arg])
+      let _fields, immutable = record_field_names_and_immutability_of_label lbl in
+      let f = record_field_name lbl.lbl_name in
+      let carg = lift arg in
+      if immutable then begin
+        (* For pure records, generate a Coq projection operation *)
+        Cf_val (Coq_proj (f, carg))
+      end else begin
+        (* For impure records, generate a [Cf_app] *)
+        let tr = coq_typ loc e in
+        let ts = coq_typ loc arg in (* todo: check it is always 'loc' *)
+        let func = coq_cfml_var "WPRecord.val_get_field" in
+        let op = coq_app func (coq_var f) in
+        Cf_app ([ts], tr, op, [carg])
+      end
 
-   | Texp_setfield(arg, p, lbl, newval) ->
+   | Texp_setfield(arg, p, lbl, newval) -> (* only for impure records *)
+      let _fields, immutable = record_field_names_and_immutability_of_label lbl in
+      assert (not immutable);
       let ts1 = coq_typ loc arg in (* todo: check it is always 'loc' *)
       let ts2 = coq_typ loc newval in
       let func = coq_cfml_var "WPRecord.val_set_field" in
@@ -983,17 +1046,25 @@ and cfg_func env fvs pat bod =
 and cfg_record ?(record_name = "_") env e =
   let loc = e.exp_loc in
   match e.exp_desc with
-  | Texp_record (lbl_expr_list, opt_init_expr) ->
-    let named_args = List.map (fun (p,li,ei) -> (li.lbl_name,ei)) lbl_expr_list in
-    let build_arg (name, arg) =
-      (record_field_name name, coq_typ loc arg, lift_val env arg) in
-    let cargs = List.map build_arg named_args in
-    let fields, immutable = record_field_named_and_immutability e.exp_env e.exp_type in
-    let all_fields = List.map (fun f -> coq_var (record_field_name f)) fields in
-    begin match opt_init_expr with
-    | None -> Cf_record_new (record_name, cargs)
-    | Some v -> Cf_record_with (lift_val env v, cargs, all_fields)
-    end
+  | Texp_record (l, opt_init_expr) ->
+       let lbls = List.map (fun (p,li,ei) -> li) l in
+       let fields, immutable = record_field_names_and_immutability_of_labels lbls in
+       if immutable then begin
+         let assigns = List.map (fun (p,li,ei) -> (p,li,lift_val env ei)) l in
+         let optbase = option_map (lift_val env) opt_init_expr in
+         Cf_val (coq_record loc e.exp_type fields assigns optbase)
+       end else begin
+        let named_args = List.map (fun (p,li,ei) -> (li.lbl_name,ei)) l in
+        let build_arg (name, arg) =
+          (record_field_name name, coq_typ loc arg, lift_val env arg) in
+        let cargs = List.map build_arg named_args in
+        let fields,_immutable = record_field_names_and_immutability_of_type e.exp_env e.exp_type in
+        let all_fields = List.map (fun f -> coq_var (record_field_name f)) fields in
+        begin match opt_init_expr with
+        | None -> Cf_record_new (record_name, cargs)
+        | Some v -> Cf_record_with (lift_val env v, cargs, all_fields)
+        end
+      end
   | _ -> assert false
 
 
@@ -1171,60 +1242,63 @@ and cfg_type_record (name,dec) =
    let loc = dec.typ_loc in
    let x = Ident.name name in
    check_type_constr_name loc x;
-   let name_of_field lbl =
-      record_field_name lbl in
-   let fields = match dec.typ_type.type_kind with Type_record (l,_) -> l | _ -> assert false in
-   (* let fields_base_names = List.map (fun (lbl,_,_) -> lbl) fields in *)
+   let fmts = match dec.typ_type.type_kind with Type_record (fmts,_) -> fmts | _ -> assert false in
+   (* let fmts_base_names = List.map (fun (lbl,_,_) -> lbl) fmts in *)
+   let immutable = List.for_all (fun (f,m,t) -> m = Immutable) fmts in
    let declared_params = List.map name_of_type_var dec.typ_type.type_params in
    let branches, branches_params = List.split (List.map (fun (lbl, mut, typ) ->
       let btyp = btyp_of_typ_exp typ in
-      ((name_of_field lbl, lift_btyp loc btyp), fv_btyp ~through_arrow:false btyp)) fields) in
+      ((record_field_name lbl, lift_btyp loc btyp), fv_btyp ~through_arrow:false btyp)) fmts) in
           (* todo: use a function to factorize above work *)
-
-   (* deprecated sorting: let branches = list_ksort str_cmp branches in *)
+   (* DEPRECATED but might be useful one day, sorting by name:
+      let branches = list_ksort str_cmp branches in *)
    let fields_names, fields_types = List.split branches in
    (* let remaining_params = List.concat branches_params in *)
    (* todo: assert remaining_params included in declared_params *)
    (* TODO: enlever le polymorphisme inutile : list_intersect remaining_params declared_params *)
    let params = declared_params in
-   let _top = {
-      coqind_name = record_structure_name x;
-      coqind_constructor_name = record_constructor_name x;
-      coqind_targs = coq_types params;
-      coqind_ret = Coq_type;
-      coqind_branches = branches } in
-   let _implicit_decl =
-      match params with
-      | [] -> []
-      | _ -> List.map (fun field -> Coqtop_implicit (field, List.map (fun p -> p, Coqi_maximal) params)) fields_names
-      in
-   let type_abbrev = Coqtop_def ((type_constr_name x, Coq_wild), coq_fun_types params loc_type) in
-   [ type_abbrev ] @
-   (* DEPRECATED BUT KEEP FOR FUTURE USE
-   [ Coqtop_record top ]
-   @ (implicit_decl)
-   @ [ Coqtop_hint_constructors ([record_structure_name x], "typeclass_instances") ]
-   @
-   *)
-   record_functions x (record_constructor_name x) (record_repr_name x) params fields_names fields_types
-  (*  todo: move le "_of" *)
+
+   if immutable then begin
+     (* For immutable records, we generate a Coq record definition *)
+     let record_typedef = Coqtop_record {
+        coqind_name = record_structure_name x;
+        coqind_constructor_name = record_constructor_name x;
+        coqind_targs = coq_types params;
+        coqind_ret = Coq_type;
+        coqind_branches = branches } in
+     let implicit_decl =
+        match params with
+        | [] -> []
+        | _ -> List.map (fun field -> Coqtop_implicit (field, List.map (fun p -> p, Coqi_maximal) params)) fields_names
+        in
+     [ record_typedef ] @ (implicit_decl)
+     (* TODO: needed? @ [ Coqtop_hint_constructors ([record_structure_name x], "typeclass_instances") ] *)
+     (* DEPRECATED BUT KEEP FOR FUTURE USE
+        record_functions x (record_constructor_name x) (record_repr_name x) params fields_names fields_types *)
+
+   end else begin
+     (* For mutable records, we generate only a abbreviation for type [loc],
+        and constants for describing the fields *)
+     let type_abbrev = Coqtop_def ((type_constr_name x, Coq_wild), coq_fun_types params loc_type) in
+     let build_field_name_def i field_name =
+        Coqtop_def ((field_name, field_type), Coq_nat i)
+        in
+     let fields_names_def = list_mapi build_field_name_def fields_names in
+     [ type_abbrev ] @ fields_names_def
+   end
 
 (** Auxiliary function to generate stuff for records *)
 
-and record_functions name record_constr repr_name params fields_names fields_types =
-   let build_field_name_def i field_name =
-      Coqtop_def ((field_name, field_type), Coq_nat i)
-      in
-   let fields_names_def = list_mapi build_field_name_def fields_names in
-   fields_names_def
-
    (* DEPRECATED BUT KEEP FOR FUTURE USE
+
+and record_functions name record_constr repr_name params fields_names fields_types =
+
    let nth i l = List.nth l i in
    let n = List.length fields_names in
    let indices = list_nat n in
    let for_indices f = List.map f indices in
 
-   let new_name = record_make_name name in
+   let new_name = record_constructor_name name in
    let get_names = for_indices (fun i -> record_field_get_name (nth i fields_names)) in
    let set_names = for_indices (fun i -> record_field_set_name (nth i fields_names)) in
    let new_decl = Coqtop_param (new_name, func_type) in
@@ -1709,7 +1783,7 @@ let cfg_file no_mystd_include str =
       Coqtop_set_implicit_args ::
       Coqtop_require [ "Coq.ZArith.BinInt"; "TLC.LibLogic"; "TLC.LibRelation"; "TLC.LibInt"; "TLC.LibListZ" ] ::
       Coqtop_require (cfml ["SepBase"; "SepLifted"; "WPLifted"; "WPRecord"; "WPArray"; "WPBuiltin" ]) ::
-      coqtop_require_unless no_mystd_include [ "CFML.Stdlib.Stdlib" ] @
+      coqtop_require_unless no_mystd_include (cfml [ "Stdlib.Array_ml"; "Stdlib.List_ml"; "Stdlib.Sys_ml" ]) @
       Coqtop_require_import [ "Coq.ZArith.BinIntDef"; "CFML.Semantics"; "CFML.WPHeader" ] ::
       (* TODO: check binintdef needed *)
       Coqtop_custom "Delimit Scope Z_scope with Z." ::

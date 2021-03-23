@@ -4,6 +4,8 @@ open Mytools
 open Longident
 open Renaming
 
+(* TODO: the field-get operations on pure records should be considered as values *)
+
 (** This file takes as input an abstract syntax tree and produces
     an abstract syntax tree in "normal form", i.e. where intermediate
     expressions have been bound to a name. *)

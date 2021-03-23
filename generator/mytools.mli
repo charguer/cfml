@@ -46,6 +46,7 @@ val list_replace : int -> 'a -> 'a list -> 'a list
 val list_replace_nth : int -> 'a list -> 'a list -> 'a list
 val list_ksort : ('a -> 'a -> int) -> ('a * 'b) list -> ('a * 'b) list
 val list_index : 'a -> 'a list -> int
+val list_is_included : 'a list -> 'a list -> bool
 
 
 (**************************************************************)

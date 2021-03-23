@@ -669,6 +669,28 @@ let recordwith_expr () =
 
 
 (********************************************************************)
+(* ** Pure records *)
+
+type 'a pitems = {
+  pnb : int;
+  pitems : 'a list;
+  pother : unit; }
+
+let pitems_build n =
+  { pitems = []; pnb = n; pother = () }
+
+let pitems_get_nb r =
+  r.pnb
+
+let pitems_with r =
+  let r1 = { r with pitems = [1] } in
+  let r2 = { r1 with pnb = 2 } in
+  { r2 with pitems = [2]; pnb = 3 }
+
+(* TODO: currently not supported: qualified field names, e.g.
+     x.M.pitems  where M is a module *)
+
+(********************************************************************)
 (* ** Evaluation order *)
 
 let order_app () =

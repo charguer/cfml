@@ -35,6 +35,7 @@ and coq =
   | Coq_type
   | Coq_tuple of coqs
   | Coq_record of (var * coq) list
+  | Coq_proj of var * coq
   | Coq_tag of string * coq list * string option * coq
   | Coq_annot of coq * coq
   | Coq_par of coq

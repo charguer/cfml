@@ -510,27 +510,19 @@ let polymorphic_eq_arg_name name =
     used to describe a record in the heap *)
 
 let record_structure_name name =
-    name ^ "__struct" (* TODO: inline *)
+  type_constr_name name (* DEPRECATED ^ "__struct" *)
 
 let algebraic_constructor_name name =
-  name ^ "_mk__"   (* todo: clash *)
+  name ^ "_make__"   (* todo: clash *)
 
 (** Convention for naming record constructors,
     in the coq record structure *)
 
 let record_constructor_name name =
-  name ^ "_mk__"
+  name ^ "_make__"
 
 let record_constructor_name_from_type type_name =
-  type_name ^ "_of"
-  (* should be consistent with the above:
-        type_name = name ^ "_"
-   *)
-
-(** Convention for naming record constructors through representation predicate *)
-
-let record_make_name name =
-  name ^ "__make"
+  record_constructor_name type_name
 
 (** Convention for naming record field *)
 

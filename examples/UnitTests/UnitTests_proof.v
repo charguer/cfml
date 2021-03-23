@@ -1532,6 +1532,8 @@ Qed.
 
 *)
 
+
+
 (********************************************************************)
 (** ** Records *)
 
@@ -1552,9 +1554,9 @@ Proof using.
   { xcf_go~. }
 Qed.
 
-Lemma sitems_get_nb_spec' : forall (A:Type) `{EA:Enc A} (r:sitems_ A) (n:int),
+Lemma sitems_get_nb_spec' : forall (A:Type) `{EA:Enc A} (r:sitems_ A) (L:list A) (n:int),
   SPEC (sitems_get_nb r)
-    INV (r ~~~> `{ nb' := n; items' := @nil A })
+    INV (r ~~~> `{ nb' := n; items' := L })
     POST \[= n].
 Proof using.
   { xcf_go~. }
@@ -1596,6 +1598,39 @@ Proof using.
   Unshelve. xend. xend.
 Qed.
 
+
+(********************************************************************)
+(** ** Pure records *)
+
+Ltac xcf_post tt ::=
+  instantiate. (* try solve_enc tt. *)
+
+
+Lemma pitems_build_spec : forall (A:Type) `{EA:Enc A}  (n:int),
+  SPEC (pitems_build n)
+    PRE \[]
+    POST \[= {| pnb' := n; pitems' := @nil A; pother' := tt |}].
+Proof using.
+  introv IA. xcf_go*. 
+Qed.
+
+Lemma pitems_get_nb_spec : forall (A:Type) `{EA:Enc A} (L:list A) (r:pitems_ A) (n:int),
+  r = {| pnb' := n; pitems' := L; pother' := tt |} ->
+  SPEC (pitems_get_nb r)
+    PRE \[]
+    POST \[= n].
+Proof using.
+  { xcf_go*. subst*. }
+Qed.
+
+Lemma pitems_with_spec : forall (A:Type) `{EA:Enc A} (L:list A) (r:pitems_ A) (n:int),
+  r = {| pnb' := n; pitems' := L; pother' := tt |} ->
+  SPEC (pitems_with r)
+    PRE \[]
+    POST \[= {| pnb' := 3; pitems' := (2::nil); pother' := tt |}].
+Proof using.
+  { xcf*. xlet. xlet. xval. xsimpl. subst*. }
+Qed.
 
 (********************************************************************)
 (** ** Recursive records definitions *)
