@@ -1,10 +1,13 @@
 ##############################################################################
 #
-# This Makefile can be used to compile examples, including the recompilation
-# of all dependencies. Only for developer use.
+# This Makefile can be used to compile examples.
+# Dependencies must be computed first using the "depend" target.
+# The computation of all dependencies requires *_ml.v files to be generated
+# succesfully.
 #
 # Usage:
-#   make -f $(CFML)/lib/make/Makefile.dev 
+#   alias d='make -f $(CFML)/lib/make/Makefile.dev'
+#   d depend && d
 #
 # Supports building of `vos` and `vok` targets.
 #
@@ -18,23 +21,21 @@
 # $(STDLIB) contains:
 # - %.ml and %_proof.v files
 # - %.cmj and %_ml.v 
-# - %.v.d generated files
 # - Stdlib.v wrapper file
 #
 # $(PWD) contains:
 # - %.v auxiliary files
 # - %.ml and %_proof.v files
-# - %.ml.d and %.v.d generated files
 # - %.cmj and %_ml.v generated files
 #
 # The %.cmj files of $(STDLIB) are compiled before other %.cmj files.
-# The other %.cmj files are compiled in order thanks to dependencies in %.ml.d.
+# The other %.cmj files are compiled in order thanks to dependencies in %.depend_ml
 # The %_ml.v are generated at the same time as %.cmj.
 # The %_proof.v.d can only be computed after the corresponding %_ml.v files exist.
-# The %.v files are not compiled before %.v.d are available.
+# 
 #
 # Tip: use -r -d to generate trace
-# Tip: find -name List_ml.v -newer List_ml.v.d 
+# Tip: find -name List_ml.v -newer .depend_ml 
 ##############################################################################
 # Parameters
 
@@ -94,10 +95,17 @@ ifndef COQFLAGS
 	COQFLAGS:=$(COQWARNINGS) $(COQEXTRAFLAGS)
 endif
 
-# Coq name for current folder. By default, the name of the current folder.
+# Coq include for the current folder
+# - for $(CFML)/examples, we use -R .. EXAMPLE to allow sharing between example folders
+# - otherwise by default we use -R . NAME, where NAME denotes the current folder name
+# - one can provide a custom value for $(EXAMPLEINCLUDE)
 
-ifndef COQFOLDERNAME
-	COQFOLDERNAME := `basename $(PWD)`
+ifndef EXAMPLEINCLUDE
+	ifneq ($(filter $(CFML)/examples/%,$(PWD)),)
+		EXAMPLEINCLUDE := -R .. EXAMPLE 
+	else
+		EXAMPLEINCLUDE  := -R . `basename $(PWD)`
+	endif
 endif
 
 # ML sources files in current folder
@@ -107,9 +115,10 @@ ifndef ML
 endif
 
 # Coq extra files in current folder
+# By default, all the local files that are not %_ml.v or %_proof.v
 
 ifndef V_AUX
-	V_AUX := 
+	V_AUX := $(filter-out %_ml.v %_proof.v,$(wildcard *.v))
 endif
 
 # CFMLC flags (e.g. "-debug")
@@ -151,16 +160,16 @@ LIBCOQ := $(CFML)/lib/coq
 STDLIB := $(CFML)/lib/stdlib
 GENERATOR := $(CFML)/generator
 
-# COQEXTRAINCLUDE contains include that are not expected to be in _CoqProject
+# COQLIBINCLUDE contains include that are not expected to be in _CoqProject
 
-COQEXTRAINCLUDE := \
+COQLIBINCLUDE := \
   -Q $(TLC) TLC \
   -Q $(LIBCOQ) CFML \
-  -R $(STDLIB) CFML.Stdlib \
+  -R $(STDLIB) CFML.Stdlib
 
 COQINCLUDE := \
-  $(COQEXTRAINCLUDE) \
-  -R $(PWD) $(COQFOLDERNAME)
+  $(COQLIBINCLUDE) \
+  $(EXAMPLEINCLUDE)
 
 
 ##############################################################################
@@ -186,44 +195,61 @@ OCAMLBUILD := \
 ##############################################################################
 # Files.
 
+DEPEND := .depend_ml .depend_v
+
 GENERATOR_SRC := $(shell find $(GENERATOR) \( -name '*.ml' -o  -name '*.mli' \) !  -path '$(GENERATOR)/_build/*')
 
 LIBCOQ_V := $(wildcard $(LIBCOQ)/*.v) 
 
 STDLIB_ML := $(wildcard $(STDLIB)/*.ml)
 STDLIB_CMJ := $(patsubst %.ml,%.cmj,$(STDLIB_ML))
-STDLIB_V := $(patsubst %.ml,%_ml.v,$(STDLIB_ML)) $(patsubst %.ml,%_proof.v,$(STDLIB_ML)) $(STDLIB)/Stdlib.v
-# $(wildcard $(STDLIB)/*_proof.v)
+STDLIB_MLV := $(patsubst %.ml,%_ml.v,$(STDLIB_ML))
+STDLIB_PROOFV := $(patsubst %.ml,%_proof.v,$(STDLIB_ML))
+STDLIBMAIN := $(STDLIB)/Stdlib.v
+STDLIB_V := $(STDLIB_MLV) $(STDLIB_PROOFV) $(STDLIBMAIN)
 
-EXAMPLE_V := $(patsubst %.ml,%_ml.v,$(ML)) $(patsubst %.ml,%_proof.v,$(ML))
+EXAMPLE_MLV := $(patsubst %.ml,%_ml.v,$(ML))
+EXAMPLE_PROOFV := $(patsubst %.ml,%_proof.v,$(ML))
+EXAMPLE_V := $(V_AUX) $(EXAMPLE_MLV) $(EXAMPLE_PROOFV)
 EXAMPLE_EXE := $(patsubst %.ml,%.native,$(ML_MAIN))
 EXAMPLE_MLD := $(patsubst %.ml,%.ml.d,$(ML))
 
-V := \
-	  $(TLC_V) \
-	  $(LIBCOQ_V) \
-	  $(STDLIB_V) \
-     $(V_AUX) \
-	  $(EXAMPLE_V) 
-	  
-CMJ := $(patsubst %.ml,%.cmj,$(ML))
-VD := $(patsubst %.v,%.v.d,$(V))
+MLV := $(STDLIB_MLV) $(EXAMPLE_MLV)
+PROOFV := $(STDLIB_PROOFV) $(EXAMPLE_PROOFV)
+OTHERV := $(TLC_V) $(LIBCOQ_V) $(STDLIB)/Stdlib.v $(V_AUX) 
+
+V := $(TLC_V) $(LIBCOQ_V) $(STDLIB_V) $(EXAMPLE_V) 
+# Alternative: V := $(MLV) $(PROOFV) $(OTHERV)
+
 VQ := $(patsubst %.v,%.vq,$(V))
 VO := $(patsubst %.v,%.vo,$(V))
 VOS := $(patsubst %.v,%.vos,$(V))
 VOK := $(patsubst %.v,%.vok,$(V))
 
-.SECONDARY: %_ml.v %.v.d %.ml.d $(STDLIB)/%.v.d $(STDLIB)/%_ml.v
-.PRECIOUS: %_ml.v %.v.d %.ml.d $(STDLIB)/%.v.d $(STDLIB)/%_ml.v
+
+INTERMEDIATE=%_ml.v $(STDLIB)/%_ml.v
+.SECONDARY: $(INTERMEDIATE)
+.PRECIOUS: $(INTERMEDIATE)
+
 
 ##############################################################################
 # Targets.
+
+# TODO: currently, all *.ml_v files generation must work for targets to be compiled.
 
 .PHONY: all
 
 all: dev ocaml vo
 
 dev: _CoqProjectDev
+
+depend:
+	$(MAKE) -f $(lastword $(MAKEFILE_LIST)) .depend_ml
+	$(MAKE) -f $(lastword $(MAKEFILE_LIST)) mlv
+	$(MAKE) -f $(lastword $(MAKEFILE_LIST)) .depend_v
+
+test:
+	echo true
 
 vd: $(VD)
 vo: $(VO)
@@ -235,9 +261,8 @@ ocaml: $(EXAMPLE_EXE)
 generator: $(CFMLC)
 gen: generator
 
-mld: $(patsubst %.v,%.v.d,$(EXAMPLE_MLD))
-mlv: $(STDLIB_V) $(EXAMPLE_V)
-
+mlv: $(MLV)
+mlvo: $(patsubst %.v,%.vo,$(MLV))
 
 stdlib:  $(patsubst %.v,%.vo,$(STDLIB_V))
 stdlibs:  $(patsubst %.v,%.vos,$(STDLIB_V))
@@ -267,40 +292,47 @@ $(ML_MAIN:.ml=.native):
 ############################################################################
 # Dependencies
 
-# Purposely don't factorize the "patsubst" operations below, for debugging purposes
-ifeq ($(findstring $(MAKECMDGOALS),ocaml generator clean),)
--include $(patsubst %.v,%.v.d,$(TLC_V))
--include $(patsubst %.v,%.v.d,$(LIBCOQ_V))
--include $(patsubst %.v,%.v.d,$(STDLIB_V))
--include $(EXAMPLE_MLD)
--include $(patsubst %.v,%.v.d,$(V_AUX) $(EXAMPLE_V))
+ifeq ($(findstring $(MAKECMDGOALS),ocaml generator clean clean_all depend .depend_v .depend_ml),)
+include .depend_ml
+endif
+ifeq ($(findstring $(MAKECMDGOALS),ocaml generator clean clean_all depend .depend_v .depend_ml mlv),)
+include .depend_v
 endif
 
 
-
-# IMPORTANT: the dependencies generated by coqdep at the point where the
+# DOCUMENTATION: the dependencies generated by coqdep at the point where the
 # files *_ml.v don't exist yet are incomplete, because they lack dependencies
-# on those files. We work around this issue by assuming that if a file depends
-# on foo_ml.v, then it is either foo_proof.v or a file that depends on foo_proof.vo.
-# Under this assumption, it suffices to say that %_proof.v.d depends on %_ml.v
+# on those files. We compensate for that by introducing the following dependency
+# for %_proof.vo files, and by having .depend_v depend on al $(V) files,
+# including $(MLV) files. 
 
-#  not needed
-# $(STDLIB)/%_proof.v.d: $(STDLIB)/%_proof.v $(STDLIB)/%_ml.v
-# 	$(COQDEP) $(COQINCLUDE) $< > $@
+%_proof.vo %_proof.vos %_proof.vok: %_ml.v
 
-%_proof.v.d: %_proof.v %_ml.v
+.depend_v: $(V)
+	@echo "Computing $@"
+	$(COQDEP) $(COQINCLUDE) $^ > $@
 
-%_ml.v.d: %_ml.v
+# DEPRECATED
+# .depend_v: $(OTHERV)
+# 	@echo "Computing $@"
+# 	$(COQDEP) $(COQINCLUDE) $^ > $@
+# 
+# # .depend_gen_v: .depend_ml $(V)
+# # 	@echo "Computing $@"
+# 	$(COQDEP) $(COQINCLUDE) $^ > $@
 
-PWD_SED_PATTERN:=$(shell pwd | sed 's;/;\\/;g')\/
+# Hardcoded constraints for $(STDLIBMAIN)
 
+$(patsubst %.v,%.vo,$(STDLIBMAIN)): $(patsubst %.v,%.vo,$(STDLIB_MLV))
+$(patsubst %.v,%.vos,$(STDLIBMAIN)) $(patsubst %.v,%.vok,$(STDLIBMAIN)): $(patsubst %.v,%.vos,$(STDLIB_MLV))
+
+
+# DEPRECATED
 # For some reason, coqdep generates absolute paths to files in the local folder,
 # and that deeply confuses make, which then considers $(PWD)/foo.vo and foo.vo
 # to be distinct files (!). Thus, we need to normalize file paths in $(PWD).
-
-%.v.d: %.v
-	@echo "Computing $@"
-	$(COQDEP) $(COQINCLUDE) $< | sed 's/$(PWD_SED_PATTERN)//g'   > $@
+# PWD_SED_PATTERN:=$(shell pwd | sed 's;/;\\/;g')\/
+# | sed 's/$(PWD_SED_PATTERN)//g'
 
 
 ############################################################################
@@ -339,12 +371,17 @@ OCAML_INCLUDE := -I .
 
 SED := $(shell if command -v gsed >/dev/null ; then echo gsed ; else echo sed ; fi)
 
-%.ml.d: %.ml
-	($(OCAMLDEP) -one-line $(OCAML_INCLUDE) $<) \
+.depend_ml: $(ML)
+	@echo "Computing $@"
+	($(OCAMLDEP) -one-line $(OCAML_INCLUDE) $^) \
 	  | grep cmx \
 	  | $(SED) -e "s/\\.cm\\(x\\|i\\)/\\.cmj/g" \
-	  | $(OCAMLPOST) \
 	  > $@
+
+# TODO: MAKE OCAMLPOST WORK MULTILINE
+# DEPRECATED
+# 	  | xargs -L1 $(OCAMLPOST) \
+
 
 
 ##############################################################################
@@ -364,28 +401,28 @@ $(STDLIB)/%_ml.v $(STDLIB)/%.cmj: $(STDLIB)/%.ml $(STDLIB)/Pervasives.cmj $(CFML
 
 # Note: we must delete the .cmj file if the construction of the _ml.v file
 # has failed. (Maybe the generator itself should take care of that!)
+# 	@echo "Generating characteristic formulae for `basename $<`..."
 
-%_ml.v %.cmj: %.ml $(STDLIB_CMJ) $(CFMLC)
-	@echo "Generating characteristic formulae for `basename $<`..."
+%_ml.v: %.cmj
+	echo > /dev/null
+
+%.cmj: %.ml $(STDLIB_CMJ) $(CFMLC)
+	@echo "Generating $*_ml.v"
 	$(CFMLC) -I $(STDLIB) -I . $< || (rm -f $@; exit 1)
-
-# LATER: at the moment, we do not run ocamldep, and assume that there no
-# inter-module dependencies. Every module is allowed to implicitly depend
-# on Pervasives.
 
 
 ############################################################################
 # Coq rules.
 
-%.vo: %.v %.v.d
+%.vo: %.v
 	@echo "Compiling $<"
 	$(COQC) $(COQINCLUDE) $<
 
-%.vos: %.v %.v.d
+%.vos: %.v
 	@echo "Digesting $<"
 	$(COQC) $(COQINCLUDE) -vos $<
 
-%.vok: %.v %.v.d
+%.vok: %.v
 	@echo "Checking $<"
 	$(COQC) $(COQINCLUDE) -vok $<
 
@@ -397,7 +434,7 @@ _CoqProject: .FORCE
 	@echo $(COQINCLUDE) $(addprefix -arg ,$(COQWARNINGS)) > $@
 
 _CoqProjectDev: .FORCE
-	@echo $(COQEXTRAINCLUDE) > $@
+	@echo $(COQLIBINCLUDE) > $@
 
 .FORCE:
 
@@ -406,6 +443,7 @@ _CoqProjectDev: .FORCE
 # Cleanup.
 
 clean:
+	rm -rf $(DEPEND)
 	rm -rf *.cmj *_ml.v _output *.vo *.vos *.vok *.glob *.native 
 
 clean_all: clean

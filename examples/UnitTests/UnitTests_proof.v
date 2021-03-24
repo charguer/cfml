@@ -2,7 +2,7 @@ Set Implicit Arguments.
 From CFML Require Import WPLib.
 From CFML Require Import Stdlib.
 From CFML Require Import Stdlib.Array_proof.
-Require Import UnitTests_ml.
+From EXAMPLE Require Import UnitTests_ml.
 From TLC Require Import LibListZ.
 
 (* TODO: pb of res__ variable showing up, due to \*+ simplification *)
@@ -1611,7 +1611,7 @@ Lemma pitems_build_spec : forall (A:Type) `{EA:Enc A}  (n:int),
     PRE \[]
     POST \[= {| pnb' := n; pitems' := @nil A; pother' := tt |}].
 Proof using.
-  introv IA. xcf_go*. 
+  introv IA. xcf_go*.
 Qed.
 
 Lemma pitems_get_nb_spec : forall (A:Type) `{EA:Enc A} (L:list A) (r:pitems_ A) (n:int),
