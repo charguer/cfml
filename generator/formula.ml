@@ -59,6 +59,9 @@ let coq_dyn_of t v =
 
 (** Encoder type *)
 
+let etype =
+  coq_cfml_var "SepLifted.EType"
+
 let enc_type t =
   coq_app (coq_cfml_var "SepLifted.Enc") t
 
@@ -78,10 +81,10 @@ let enc_arg aname =
   let eaname = "E" ^ aname in (* TODO: check conflicts *)
   (eaname, enc_type (coq_var aname))
 
-(** Universal [forall (A1:Type) (EA1:Enc A1) .. (xn:Type) (EAn:Enc An), c] *)
+(** Universal [forall (A1:EType) .. (An:Eype), c] *)
 
 let coq_forall_enc_types names c =
-  let args = List.flatten (List.map (fun aname -> [(aname,Coq_type); enc_arg aname]) names) in
+  let args = List.map (fun aname -> (aname,etype)) names in
   coq_foralls args c
 
 (** Syntax of application *)

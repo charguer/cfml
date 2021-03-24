@@ -582,3 +582,17 @@ Ltac xcase_post_old H :=
   try (symmetry in H; inverts H; xclean_trivial_eq tt).
 *)
 
+
+
+
+
+
+
+Parameter P : Type -> Prop.
+Parameter K : forall (A:Type) (EA:Enc A), P A. 
+Parameter T : forall (A:EType), P A.
+Lemma testK : forall (A:EType), P A.
+Proof using. intros. applys K. typeclass. Qed.
+Lemma testT : forall (A:Type) (EA:Enc A), P A.
+Proof using. intros. applys T (EType_make A). Qed.
+

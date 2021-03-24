@@ -72,6 +72,24 @@ Ltac app_evar t A cont ::=
 
 
 (* ---------------------------------------------------------------------- *)
+(* ** Encodable type *)
+
+Record EType : Type := EType_make
+  { EType_type :> Type; 
+    EType_enc : Enc EType_type }.
+
+Arguments EType_make EType_type {EType_enc}.
+
+Definition EType_of_Type (A:Type) `{EA:Enc A} : EType :=
+  @EType_make A EA.
+
+Global Instance Enc_EType : forall (A:EType), Enc A.
+Proof using. constructor. applys EType_enc A. Defined.
+
+Global Opaque Enc_EType.
+
+
+(* ---------------------------------------------------------------------- *)
 (* ** Representation of values packed with their type and encoder *)
 
 (** Representation of dependent pairs *)
@@ -110,7 +128,6 @@ Proof using. auto. Qed.
 (** List of [dyns] *)
 
 Definition dyns := list dyn.
-
 
 (* ---------------------------------------------------------------------- *)
 (* ** Func type *)

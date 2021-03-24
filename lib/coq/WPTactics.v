@@ -814,7 +814,7 @@ Ltac xcf_post tt :=
 Ltac xcf_top_fun tt :=
   let f := xcf_target tt in
   xcf_find f;
-  let Sf := fresh "Spec" in
+  let Sf := fresh "Spec_" f in
   intros Sf;
   eapply Sf;
   clear Sf;
@@ -825,7 +825,7 @@ Ltac xcf_top_fun tt :=
 Ltac xcf_top_value tt :=
   let f := xcf_target tt in
   xcf_find f;
-  let Sf := fresh "Spec" in
+  let Sf := fresh "Spec_" f in
   intros Sf;
   rewrite Sf;
   clear Sf;
@@ -848,7 +848,7 @@ Tactic Notation "xcf" "*" :=
 (* [xcf_show f] *)
 
 Ltac xcf_show_intro f :=
-  let Sf := fresh "Spec" f in
+  let Sf := fresh "Spec_" f in
   intros Sf.
 
 Ltac xcf_show_arg_core f :=
@@ -871,7 +871,7 @@ Tactic Notation "xcf_show" :=
 (* [xcf_types] *)
 
 Ltac xcf_types_core tt :=  (* Also used by xapp_types *)
-  let S := fresh "Spec" in
+  let S := fresh "Spec_" in
   intros S;
   xtypes_goal tt;
   xtypes_hyp S;

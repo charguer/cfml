@@ -50,6 +50,7 @@ Lemma infix_emark_eq_loc_spec : forall (a b:loc),
     PRE \[]
     POST \[= isTrue (a <> b) ].
 Proof using.
+intros. xcf_show. eapply (Specinfix_emark_eq__ (EType_make loc)).
   xcf. xgo*. rew_isTrue*.
 Qed.
 

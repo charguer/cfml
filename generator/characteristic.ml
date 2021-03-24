@@ -1784,6 +1784,7 @@ let cfg_file no_mystd_include str =
       Coqtop_require [ "Coq.ZArith.BinInt"; "TLC.LibLogic"; "TLC.LibRelation"; "TLC.LibInt"; "TLC.LibListZ" ] ::
       Coqtop_require (cfml ["SepBase"; "SepLifted"; "WPLifted"; "WPRecord"; "WPArray"; "WPBuiltin" ]) ::
       coqtop_require_unless no_mystd_include (cfml [ "Stdlib.Array_ml"; "Stdlib.List_ml"; "Stdlib.Sys_ml" ]) @
+      Coqtop_import (cfml [ "SepLifted" ]) :: (* needed for the coercion from EType to Type *)
       Coqtop_require_import [ "Coq.ZArith.BinIntDef"; "CFML.Semantics"; "CFML.WPHeader" ] ::
       (* TODO: check binintdef needed *)
       Coqtop_custom "Delimit Scope Z_scope with Z." ::
