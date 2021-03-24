@@ -231,6 +231,7 @@ INTERMEDIATE=%_ml.v $(STDLIB)/%_ml.v
 .SECONDARY: $(INTERMEDIATE)
 .PRECIOUS: $(INTERMEDIATE)
 
+THISMAKEFILE := $(CFML)/lib/make/Makefile.dev
 
 ##############################################################################
 # Targets.
@@ -244,9 +245,9 @@ all: dev ocaml vo
 dev: _CoqProjectDev
 
 depend:
-	$(MAKE) -f $(lastword $(MAKEFILE_LIST)) .depend_ml
-	$(MAKE) -f $(lastword $(MAKEFILE_LIST)) mlv
-	$(MAKE) -f $(lastword $(MAKEFILE_LIST)) .depend_v
+	$(MAKE) -f $(THISMAKEFILE) .depend_ml
+	$(MAKE) -f $(THISMAKEFILE) mlv
+	$(MAKE) -f $(THISMAKEFILE) .depend_v
 
 test:
 	echo true
@@ -272,6 +273,12 @@ coqlib: $(patsubst %.v,%.vo,$(LIBCOQ_V))
 coqlibs: $(patsubst %.v,%.vos,$(LIBCOQ_V))
 coqlibk: $(patsubst %.v,%.vok,$(LIBCOQ_V))
 
+mlv_show:
+	echo $(MLV)
+makefile_show:
+	echo $(MAKEFILE_LIST)
+	echo $(lastword $(MAKEFILE_LIST))
+
 
 ##############################################################################
 # Building the generator
@@ -292,10 +299,10 @@ $(ML_MAIN:.ml=.native):
 ############################################################################
 # Dependencies
 
-ifeq ($(findstring $(MAKECMDGOALS),ocaml generator clean clean_all depend .depend_v .depend_ml),)
+ifeq ($(findstring $(MAKECMDGOALS),ocaml generator clean clean_all depend depend_show .depend_v .depend_ml),)
 include .depend_ml
 endif
-ifeq ($(findstring $(MAKECMDGOALS),ocaml generator clean clean_all depend .depend_v .depend_ml mlv),)
+ifeq ($(findstring $(MAKECMDGOALS),ocaml generator clean clean_all depend depend_show .depend_v .depend_ml mlv),)
 include .depend_v
 endif
 
