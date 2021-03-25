@@ -152,6 +152,13 @@ ifndef OCAMLBUILD_FLAGS
 	OCAMLBUILD_FLAGS := -cflags -w,-26
 endif
 
+# Files to open in COQIDE
+# By default, all the local proof files
+
+ifndef OPENINCOQIDE
+	OPENINCOQIDE := $(wildcard *.v)
+endif
+
 
 ############################################################################
 # Verbosity control.
@@ -190,6 +197,7 @@ OCAMLDEP  := $(OCAMLBIN)ocamldep
 OCAMLPOST := $(CFML)/lib/make/ocamldep.post
 
 COQC := $(COQBIN)coqc $(COQFLAGS)
+COQIDE := $(COQBIN)coqide $(COQFLAGS)
 COQDEP := $(COQBIN)coqdep -vos
 
 CFMLC := $(CFML)/_build/default/generator/cfmlc.exe
@@ -456,6 +464,13 @@ _CoqProjectDev: .FORCE
 	@echo $(COQLIBINCLUDE) $(COQPROJECTDEVEXTRA) > $@
 
 .FORCE:
+
+
+##############################################################################
+# COQIDE.
+
+ide:
+	$(COQIDE) $(COQLIBINCLUDE) $(COQPROJECTDEVEXTRA) $(OPENINCOQIDE)
 
 
 ##############################################################################

@@ -207,10 +207,6 @@ Definition Wpgen_fail : Formula :=
 Definition Wpgen_dummy : Formula :=
   Wpgen_fail.
 
-Definition Wpgen_let_trm_cont (F1:Formula) A1 {EA1:Enc A1} (F2of:A1->Formula) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
-    ^F1 (fun (X:A1) => ^(F2of X) Q)).
-
 Definition Wpgen_let_trm (F1:Formula) A1 {EA1:Enc A1} (F2of:A1->Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
     \exists (Q1:A1->hprop), ^F1 Q1 \* \[forall (X:A1), Q1 X ==> ^(F2of X) Q]).
@@ -235,10 +231,6 @@ Definition Wpgen_app (A:Type) `{EA:Enc A} (f:val) (Vs:dyns) : Formula :=
   MkStruct (Wp (Trm_apps f Vs)).
 
 Arguments Wpgen_app A {EA} f Vs.
-
-Definition Wpgen_seq_cont (F1 F2:Formula) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
-    ^F1 (fun (X:unit) => ^F2 Q)).
 
 Definition Wpgen_seq (F1 F2:Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
@@ -278,6 +270,15 @@ Definition Wpgen_assert (F1:Formula) : Formula :=
 
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of CF blocks for the internal generator -- DEPRECATED? *)
+
+
+Definition Wpgen_let_trm_cont (F1:Formula) A1 {EA1:Enc A1} (F2of:A1->Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+    ^F1 (fun (X:A1) => ^(F2of X) Q)).
+
+Definition Wpgen_seq_cont (F1 F2:Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+    ^F1 (fun (X:unit) => ^F2 Q)).
 
 Definition Wpgen_val_unlifted (v:val) : Formula :=
   MkStruct (fun A (EA:Enc A) Q => Post Q v).

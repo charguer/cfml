@@ -482,7 +482,7 @@ Ltac xval'_core tt :=
 Tactic Notation "xval'" :=
   xval'_core tt.
 
-Ltac xval'_types_core tt := 
+Ltac xval'_types_core tt :=
   idtac "[xval'] fails to simplify due to type mismatch";
   match goal with |-
    ?H ==> (Wptag (@Wpgen_val' ?A1 ?EA1 ?X)) ?A2 ?EA2 ?Q =>
@@ -923,7 +923,7 @@ Ltac xapp_record tt ::= (* initial dummy binding located in WPTactics *)
   end.
 
 Ltac xapp_pre_wp tt ::=
-  xlet_xseq_steps tt;
+  xlet_xseq_cont_steps tt;
   match xgoal_code_without_wptag tt with
   | (Wpgen_app_untyped ?t) => idtac (* TODO: DEPRECATED *)
   | (Wpgen_app ?T ?f ?Vs) => idtac

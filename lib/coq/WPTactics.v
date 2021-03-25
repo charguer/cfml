@@ -87,7 +87,7 @@ Ltac xgoal_fun tt :=
        end.
    *)
 
-(* [xgoal_pre tt] matches goal of the form [PRE H CODE F POST Q] or
+(** [xgoal_pre tt] matches goal of the form [PRE H CODE F POST Q] or
     [Triple t H Q] and extracts the precondition [H]. *)
 
 Ltac xgoal_pre tt :=
@@ -96,14 +96,20 @@ Ltac xgoal_pre tt :=
   | |- Triple _ ?H _ => constr:(H)
   end.
 
-(* [xgoal_post tt] matches goal of the form [PRE H CODE F POST Q] and
-   or [Triple (Trm_apps f Vs) H Q] extracts the postcondition [Q]. *)
+(** [xprop_post P] expects [P] of the form [PRE H CODE F POST Q] or
+    [Triple (Trm_apps f Vs) H Q], and extracts the postcondition [Q]. *)
+
+Ltac xprop_post P :=
+  match P with
+  | PRE _ CODE _ POST ?Q => constr:(Q)
+  | Triple _ _ ?Q => constr:(Q)
+  end.
+
+(** [xgoal_post tt] matches goal of the form [PRE H CODE F POST Q] or
+    [Triple (Trm_apps f Vs) H Q], and extracts the postcondition [Q]. *)
 
 Ltac xgoal_post tt :=
-  match goal with
-  | |- PRE _ CODE _ POST ?Q => constr:(Q)
-  | |- Triple _ _ ?Q => constr:(Q)
-  end.
+  match goal with |- ?G => xprop_post G end.
 
 (** [xgoal_post_is_evar tt] returns a boolean indicating
     whether the post-condition of the current goal is an evar. *)
@@ -531,7 +537,7 @@ Tactic Notation "xlet_trm" constr(Q1) "as" :=
 
 (* [xlet_trm_cont] *)
 
-Lemma xlet_trm_cont_lemma : forall A1 (EA1:Enc A1)H A (EA:Enc A) (Q:A->hprop) ,
+Lemma xlet_trm_cont_lemma : forall A1 (EA1:Enc A1) H A (EA:Enc A) (Q:A->hprop),
   forall (F1:Formula) (F2of:A1->Formula),
   H ==> ^F1 (fun (X:A1) => (F2of X) A EA Q) ->
   H ==> ^(@Wpgen_let_trm F1 A1 EA1 (@F2of)) Q.
@@ -1000,8 +1006,10 @@ Tactic Notation "xpost" constr(E) :=
 (** The tactic [xseq] applies to a goal of the form [PRE H CODE (Seq F1 ; F2) POST Q].
     It produces [PRE H CODE F1 POST ?Q1] and [PRE (?Q1 tt) CODE F2 POST Q].
 
-    The tactic [xseq Q1] can be used to specify [Q1].
-    The tactic [xseq H1] can be used to specify [Q1] as [fun (_:unit) => H1)]. *)
+    - [xseq Q1] can be used to specify [Q1].
+    - [xseq H1] can be used to specify [Q1] as [fun (_:unit) => H1)].
+    - [xseq_cont] generates a single goal [PRE H CODE F1 POST (fun X => F2 Q)]:
+      it places the CF of the second term in the postcondition of the first term. *)
 
 Ltac xseq_pre tt :=
   xcheck_pull tt;
@@ -1045,6 +1053,21 @@ Ltac xseq_arg_core E :=
 
 Tactic Notation "xseq" constr(E) :=
   xseq_arg_core E.
+
+(* [xseq_cont] *)
+
+Lemma xseq_cont_lemma : forall H A (EA:Enc A) (Q:A->hprop),
+  forall (F1 F2:Formula),
+  H ==> ^F1 (fun (_:unit) => ^F2 Q) ->
+  H ==> ^(@Wpgen_seq F1 F2) Q.
+Proof using. introv M. xchange M. applys* xseq_lemma. Qed.
+
+Ltac xseq_cont_core tt :=
+  xseq_pre tt;
+  eapply xseq_cont_lemma.
+
+Tactic Notation "xseq_cont" :=
+  xseq_cont_core tt.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1161,6 +1184,19 @@ Ltac xlet_xseq_steps tt :=
   xcheck_pull tt;
   repeat (xlet_xseq_step tt).
 
+(** [xlet_xseq_cont_steps tt] automatically performs as many [xlet_cont]
+    and [xseq_cont] as appropriate. *)
+
+Ltac xlet_xseq_cont_step tt :=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_let_trm _ _) => xlet_trm_cont
+  | (Wpgen_seq _ _) => xseq_cont
+  end.
+
+Ltac xlet_xseq_cont_steps tt :=
+  xcheck_pull tt;
+  repeat (xlet_xseq_cont_step tt).
+
 (** [xlet_xseq_xapp_steps tt] is similar, but includes [xapp]. *)
 
 Ltac xif_call_xapp_first tt := (* defined further in this file *)
@@ -1192,7 +1228,7 @@ Ltac xlet_xseq_xapp_steps tt :=
 
 Ltac xval_pre tt :=
   xcheck_pull tt;
-  xlet_xseq_steps tt;
+  xlet_xseq_cont_steps tt;
   match xgoal_code_without_wptag tt with
   | (Wpgen_val _) => idtac
   end.
@@ -1411,6 +1447,12 @@ Proof using.
   introv M1 M2. applys xapps_lemma \[]; rew_heap; eauto.
 Qed.
 
+Lemma xapp_lemma_inst : forall A (EA:Enc A) (Q1:A->hprop) (f:val) (Vs:dyns) H1 H2 H,
+  Triple (Trm_apps f Vs) H1 Q1 ->
+  H ==> H1 \* H2 ->
+  H ==> ^(Wpgen_app A f Vs) (Q1 \*+ H2).
+Proof using. introv M1 M2. applys xapp_lemma M1. xchanges M2. Qed.
+
 (* [xapp_pre tt] automatically performs the necessary
    [xlet], [xseq] and [xcast], then checks that the goal
    is a [Wpgen_app] goal.
@@ -1422,7 +1464,7 @@ Qed.
 (* overloaded in WPRecord : TODO: cleanup *)
 
 Ltac xapp_pre_wp tt :=
-  xlet_xseq_steps tt;
+  xlet_xseq_cont_steps tt;
   match xgoal_code_without_wptag tt with
   | (Wpgen_app ?T ?f ?Vs) => idtac
   (* | (Wpgen_record_new ?Lof) => idtac --- added in WPRecord *)
@@ -1453,6 +1495,9 @@ Ltac xapp_simpl tt :=
   first [ xapp_report_error tt
         | unfold protect; xcleanup ].
 
+Ltac xapp_simpl_substract tt :=
+  xsimpl.
+
 Ltac xapp_simpl_basic tt := (* version without error message *)
   xsimpl; unfold protect; xcleanup.
 
@@ -1471,12 +1516,24 @@ Ltac xapp_select_lemma cont := (* TODO: factorize better with xapp_select_lemma 
   end
 *)
 
-Ltac xapp_exploit_spec L cont :=
+Ltac xapp_exploit_spec_lemma L cont :=
   let S := fresh "Spec" in
   intro S;
   eapply L;
   [ applys S; clear S
   | clear S; cont tt ].
+
+Ltac xapp_exploit_spec tt :=
+  match goal with |- ?S -> ?G =>
+    let Q := xprop_post G in
+    match is_evar_as_bool Q with
+    | true => xapp_exploit_spec_lemma xapp_lemma_inst xapp_simpl_substract
+    | false =>
+        first [ xapp_exploit_spec_lemma xapps_lemma xapp_simpl
+              | xapp_exploit_spec_lemma xapps_lemma_pure xapp_simpl
+              | xapp_exploit_spec_lemma xapp_lemma xapp_simpl ]
+    end
+  end.
 
 Ltac xapp_exploit_body tt :=
   let S := fresh "Spec" in
@@ -1491,10 +1548,7 @@ Ltac xapp_common tt :=
   | Wpgen_body _ =>
     first [ xapp_exploit_body tt
           | fail 2 "xapp_exploit_body failed" ]
-  | _ =>
-    first [ xapp_exploit_spec xapps_lemma xapp_simpl
-          | xapp_exploit_spec xapps_lemma_pure xapp_simpl
-          | xapp_exploit_spec xapp_lemma xapp_simpl ]
+  | _ => xapp_exploit_spec tt
   end end.
 
 Ltac xapp_general tt :=
@@ -2272,7 +2326,7 @@ Ltac xcase_has_option opt options :=
 
 Ltac xcase_pre tt :=
   xcheck_pull tt;
-  xlet_xseq_steps tt;
+  xlet_xseq_steps tt; (* TODO: needed? *)
   match xgoal_code_without_wptag tt with
   | (Wpgen_case _ _ _) => idtac
   end.
@@ -2526,7 +2580,9 @@ Ltac check_is_Wpgen_record_alloc F :=  (* refined in WPRecord *)
 Ltac xstep_once tt :=
   match goal with
   | |- ?G => match xgoal_code_without_wptag tt with
+    | (Wpgen_seq (Wptag (Wpgen_app _ _ _)) _) => xseq_cont
     | (Wpgen_seq _ _) => xseq
+    | (Wpgen_let_trm (Wptag (Wpgen_app _ _ _)) _) => xlet_cont
     | (Wpgen_let_trm _ _) => xlet
     | (Wpgen_let_val _ _) => xlet_val
     | (Wpgen_let_fun _) => xlet_fun
