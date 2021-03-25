@@ -1124,6 +1124,10 @@ Lemma xsimpl_lr_exit : forall Hla Hra Hrg,
   Xsimpl (Hla, \[], \[]) (Hra, Hrg, \[]).
 Proof using. introv M. unfolds Xsimpl. hstars_simpl. rewrite~ hstar_comm. Qed.
 
+Lemma xsimpl_lr_exit_instantiate : forall Hla,
+  Xsimpl (Hla, \[], \[]) (Hla \* \[], \GC \* \[], \[]).
+Proof using. intros. applys xsimpl_lr_exit. rew_heap. apply himpl_same_hstar_hgc_r. Qed.
+
 (** Lemmas to flip accumulators back in place *)
 
 Lemma xsimpl_flip_acc_l : forall Hla Hra Hla' Hrg,
@@ -1506,8 +1510,11 @@ Ltac xsimpl_step_lr tt :=
        | _ => xsimpl_flip_acc_lr tt; apply xsimpl_lr_exit_nogc
        end
     | (\Top \* _) => apply himpl_lr_htop
-    | (\GC \* _) => apply himpl_lr_hgc;
-                    [ try remove_empty_heaps_haffine tt; xaffine | ]
+    | (\GC \* _) =>
+        first
+        [ match Hra with ?Hra1 \* \[] => is_evar Hra1; apply xsimpl_lr_exit_instantiate end
+        | apply himpl_lr_hgc;
+          [ try remove_empty_heaps_haffine tt; xaffine | ] ]
     | ?Hrg' => xsimpl_flip_acc_lr tt; apply xsimpl_lr_exit
   end end.
 
@@ -2038,6 +2045,9 @@ Proof using. intros. xsimpl. xaffine. Abort.
 Lemma xsimpl_demo_gc_4 : forall H1 H2,
   H1 \* H2 \* \GC  ==> H2 \* \GC \* \Top \* \Top \* \GC.
 Proof using. intros. xsimpl. Abort.
+
+Lemma xsimpl_demo_evar_gc : (forall H, \[] ==> (H \* \GC) -> True) -> True.
+Proof using. introv M. eapply M. xsimpl. Qed.
 
 
 (* ---------------------------------------------------------------------- *)

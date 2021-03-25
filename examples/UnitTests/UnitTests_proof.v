@@ -15,83 +15,8 @@ From TLC Require Import LibListZ.
 (********************************************************************)
 (** ** Polymorphic let bindings and value restriction *)
 
-Ltac try_xpolymorphic_eq tt :=
-  let aux tt := try solve [ xpolymorphic_eq ] in
-  match goal with
-  | |- polymorphic_eq_arg _ => aux tt
-  | |- (polymorphic_eq_arg _ \/ polymorphic_eq_arg _) => aux tt
-  end.
 
-Ltac xapp_side_post tt := 
-  try_xpolymorphic_eq tt.
-
-Ltac xapp_exploit_spec_lemma L cont ::=
-  let S := fresh "Spec" in
-  intro S;
-  eapply L;
-  [ applys S; clear S; xapp_side_post tt
-  | clear S; cont tt ].
-
-
-(* [xlet_trm_poly P1] *)
-
-Ltac xlet_trm_poly_pre tt :=
-  match xgoal_code_without_wptag tt with
-  | (Wpgen_let_trm_poly _) => idtac
-  end. 
-
-Ltac xlet_trm_poly_intro cont :=
-  match goal with |- forall x, _ =>  
-    let a := fresh x in 
-    let Pa := fresh "P" a in 
-    intros a Pa;
-    cont a Pa
-  end.
-
-Ltac xlet_trm_poly_common P1 cont :=
-  xlet_trm_poly_pre tt;
-  applys MkStruct_erase; xsimpl; exists P1; exists __; split;
-  [ intros 
-  | xlet_trm_poly_intro cont ].
-
-Tactic Notation "xlet_trm_poly" constr(P1) :=
-  xlet_trm_poly_common P1 ltac:(fun a Pa => idtac).
-
-Tactic Notation "xlet_trm_poly" constr(P1) "as" :=
-  xlet_trm_poly_common P1 ltac:(fun a Pa => revert a Pa).
-
-Ltac xlet_core tt ::=
-  match xgoal_code_without_wptag tt with
-  | (Wpgen_let_trm_poly _) => fail 2 "xlet requires an explicit postcondition when polymorphism is involved"
-  | (Wpgen_let_trm _ _) => xlet_trm
-  | (Wpgen_let_val _ _) => xlet_val
-  | (Wpgen_let_fun _) => xlet_fun
-  end.
-
-Ltac xlet_as_core tt ::=
-  match xgoal_code_without_wptag tt with
-  | (Wpgen_let_trm_poly _) => fail 2 "xlet requires an explicit postcondition when polymorphism is involved"
-  | (Wpgen_let_trm _ _) => xlet_trm as
-  | (Wpgen_let_val _ _) => xlet_val as
-  | (Wpgen_let_fun _) => xlet_fun as
-  end.
-
-
-Ltac xlet_arg_core E ::=
-  match xgoal_code_without_wptag tt with
-  | (Wpgen_let_trm_poly _) => xlet_trm_poly E
-  | (Wpgen_let_trm _ _) => xlet_trm E
-  | (Wpgen_let_val _ _) => xlet_val E
-  | (Wpgen_let_fun _) => xlet_fun E
-  end.
-
-Ltac xlet_arg_as_core E ::=
-  match xgoal_code_without_wptag tt with
-  | (Wpgen_let_trm_poly _) => xlet_trm_poly E as
-  | (Wpgen_let_trm _ _) => xlet_trm E as
-  | (Wpgen_let_val _ _) => xlet_val E as
-  | (Wpgen_let_fun _) => xlet_fun E as
-  end.
+(* TODO: notation for let_poly *)
 
 Lemma let_poly_p0_spec :
   SPEC (let_poly_p0 tt)
@@ -110,8 +35,6 @@ Proof using.
     { intros x Hx. xvals*. } }
 Abort.
 
-Lemma test : (forall H, \[] ==> (H \* \GC) -> True) -> True.
-introv M. eapply M. xsimpl.
 
 Lemma let_poly_p1_spec :
   SPEC (let_poly_p1 tt)
@@ -119,8 +42,7 @@ Lemma let_poly_p1_spec :
     POST \[= tt].
 Proof using.
   xcf. xlet. xlet (fun B (r:option B) => r = None).
-  { xapp. xvals*. xsimpl_start tt.  xsimpl_step tt. xsimpl_step tt. xsimpl_step tt.
-xsimpl_step tt. xsimpl_step tt. xsimpl_step tt. xsimpl. skip. }
+  { xapp. xval. xsimpl*. }
   { xvals~. }
 Qed.
 
@@ -131,8 +53,8 @@ Lemma let_poly_p2_spec :
 Proof using.
   xcf. xlet. xlet.
   { xlet (fun B (r:option B) => r = None).
-    { xapp. xval. }
-    { intros Hr. xvals~. } }
+    { xapp. xvals*. }
+    { xvals*. } } 
   { xvals~. }
 Qed.
 
@@ -142,10 +64,10 @@ Lemma let_poly_p3_spec :
     POST \[= tt].
 Proof using.
   xcf.
-  xlet_poly_keep (= true). { xapp_skip. } intro_subst.
-  xapp_skip.
-  xlet_poly_keep (= false). { xapp_skip. } intro_subst.
-  xapp_skip.
+  xlet (= true). { xapp. xsimpl*. }
+  xapp.
+  xlet (= true). { xapp. xsimpl*. }
+  xapp.
   xvals~.
 Qed.
 
@@ -154,7 +76,8 @@ Lemma let_poly_f0_spec : forall A,
     PRE \[] 
     POST \[= @nil A].
 Proof using.
-  xcf. xapp. xapp. xsimpl~.
+  xcf. xapp. intros r. (* TODO: need to automate intro after xlet_cont followed with xapp? *)
+  xapp. xsimpl~.
 Qed.
 
 Lemma let_poly_f1_spec : forall A,
@@ -162,7 +85,7 @@ Lemma let_poly_f1_spec : forall A,
     PRE \[] 
     POST \[= @nil A].
 Proof using.
-  xcf. xapp. xapp. xsimpl~.
+  xcf. xapp. intros. xapp. xsimpl~.
 Qed.
 
 Lemma let_poly_f2_spec : forall A,
@@ -170,7 +93,7 @@ Lemma let_poly_f2_spec : forall A,
     PRE \[] 
     POST \[= @nil A].
 Proof using.
-  xcf. xapp. xapp. xsimpl~.
+  xcf. xapp. intros. xapp. xsimpl~.
 Qed.
 
 Lemma let_poly_f3_spec :
@@ -178,7 +101,7 @@ Lemma let_poly_f3_spec :
     PRE \[] 
     POST \[= @nil int].
 Proof using.
-  xcf. xapp. xapp. xsimpl~.
+  xcf. xapp. intros. xapp. xsimpl~.
 Qed.
 
 Lemma let_poly_f4_spec :
@@ -186,15 +109,15 @@ Lemma let_poly_f4_spec :
     PRE \[] 
     POST \[= @nil int].
 Proof using.
-  xcf. xapp. xapp. xsimpl~.
+  xcf. xapp. intros. xapp. xsimpl~.
 Qed.
 
 Lemma let_poly_g1_spec :
-  SPEC (let 
-    POST_poly_g1 tt)
-    PRE \[] \[= 5::nil].
+  SPEC (let_poly_g1 tt) 
+    PRE \[]
+    POST \[= 5::nil].
 Proof using.
-  xcf. xapp. xapp. xapp. xsimpl~.
+  xcf. xapp. intros. xapp. xapp. xsimpl~.
 Qed.
 
 Lemma let_poly_g2_spec :
@@ -202,7 +125,7 @@ Lemma let_poly_g2_spec :
     PRE \[] 
     POST \[= 4::nil].
 Proof using.
-  xcf. xapp. xapp. xapp. xsimpl~.
+  xcf. xapp. intros. xapp. xapp. xsimpl~.
 Qed.
 
 Lemma let_poly_h0_spec : forall A,
@@ -210,7 +133,7 @@ Lemma let_poly_h0_spec : forall A,
     PRE \[] 
     POST (fun (r:loc) => r ~~> (@nil A)).
 Proof using.
-  xcf. xapp. xval~.
+  xcf. xapp. intros. xvals~.
 Qed.
 
 Lemma let_poly_h1_spec : forall A,
@@ -221,9 +144,10 @@ Lemma let_poly_h1_spec : forall A,
           PRE \[] 
           POST (fun (r:loc) => r ~~> (@nil A)) ]).
 Proof using.
-  xcf. xlet (fun g => \[ SPEC (g tt) \[] (fun (r:loc) => r ~~> (@nil A)) ]).
-  { xletfun. xvals. xapp. xapp. }
-  intros Hg. xvals. xapp.
+  xcf. xlet (fun g => \[ SPEC (g tt) PRE \[] POST (fun (r:loc) => r ~~> (@nil A)) ]).
+  { xlet. xvals. xapp. xapp. xsimpl*. }
+  xpull. (* TODO: automate xpull after xlet Q1. *) 
+  intros Hg. xvals. xapp. xsimpl*.
 Qed.
 
 Lemma let_poly_h2_spec : forall A,
@@ -234,7 +158,7 @@ Lemma let_poly_h2_spec : forall A,
           PRE \[] 
           POST (fun (r:loc) => r ~~> (@nil A)) ]).
 Proof using.
-  xcf. xletfun. xvals. xapp. xapp.
+  xcf. xlet. xvals. xapp. xapp. xsimpl*.
 Qed.
 
 Lemma let_poly_h3_spec : forall A,
@@ -242,12 +166,13 @@ Lemma let_poly_h3_spec : forall A,
     PRE \[] 
     POST (fun (r:loc) => r ~~> (@nil A)).
 Proof using.
-  xcf. xletfun. xapp. xapp.
+  xcf. xlet. xapp. xapp. xsimpl*.
 Qed.
 
 Lemma let_poly_k1_spec : forall A,
   SPEC (let_poly_k1 tt)
-    PRE \[] \[= @nil A].
+    PRE \[] 
+    POST \[= @nil A].
 Proof using.
   xcf. xvals~.
 Qed.
@@ -257,7 +182,7 @@ Lemma let_poly_k2_spec : forall A,
     PRE \[] 
     POST (fun (r:loc) => r ~~> (@nil A)).
 Proof using.
-  xcf. xapp.
+  xcf. xapp. xsimpl*.
 Qed.
 
 Lemma let_poly_r1_spec :
@@ -265,8 +190,8 @@ Lemma let_poly_r1_spec :
     PRE \[] 
     POST \[= tt].
 Proof using.
-  xcf. xapp. xvals~.
-  Unshelve. solve_type.
+  xcf. xapp. intros. xvals~.
+  Unshelve. xend. xend.
 Qed.
 
 Lemma let_poly_r2_spec : forall A,
@@ -274,23 +199,20 @@ Lemma let_poly_r2_spec : forall A,
     PRE \[] 
     POST \[= @nil A].
 Proof using.
-  xcf. xapp. dup 2.
-  { xval. xvals~. }
-  { xvals. xvals~. }
-  Unshelve. solve_type.
+  xcf. xlet. (* TODO: xlet_val should be automated before xapp. *)
+  xval. xsimpl. subst*.
 Qed.
-
 
 Lemma let_poly_r3_spec : forall A,
   SPEC (let_poly_r3 tt)
     PRE \[] 
     POST \[= @nil A].
 Proof using.
-  xcf. xlet_poly_keep (fun A (r:list A) => r = nil).
-  { xapp. xvals~. }
-  intros Hr. xvals. auto.
-Qed.
-
+  xcf. xlet (fun A (r:list A) => r = nil).
+  { xapp. intros. xgc_post. xval. xsimpl*. skip. } (* TODO: Need to put a \GC automatically in there? *)
+    (* TODO: need to instantiate the evar automatically based on what isn't in scope !? *)
+  xval. skip. (* TODO *)
+Abort.
 
 
 (********************************************************************)
@@ -872,11 +794,11 @@ Lemma compare_poly_spec :
     POST\[= tt].
 Proof using.
   xcf.
-  xlet_poly_keep (= true).
+  xlet (= true).
   { xapp. xpolymorphic_eq. xsimpl. subst r. rew_bool_eq~. }
   intro_subst.
   xapp. xpolymorphic_eq. intro_subst.
-  xlet_poly_keep (= true).
+  xlet (= true).
   { xapp. xpolymorphic_eq. xsimpl. subst r. rew_bool_eq~. }
   intro_subst.
   xapp. xpolymorphic_eq. intro_subst.

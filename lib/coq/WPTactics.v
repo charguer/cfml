@@ -552,6 +552,55 @@ Tactic Notation "xlet_trm_cont" :=
 
 
 (* ---------------------------------------------------------------------- *)
+(** ** Internal tactic [xlet_trm_poly], used by [xlet] *)
+
+(** [xlet_trm_poly P1] is for handling let-bindings whose body involves
+    polymorphic variables. [P1] should be a predicate over the result value,
+    of type [T -> Prop]. The result value might be polymorphic itself.
+    For example, if the result value is a polymorphic [nil], then [P1] should
+    be provided as [fun A (X:list A) => X = nil].
+
+    [xlet_trm_poly P1 H1] allows to specify the state at the end of the
+    execution of the body. In that case, the postcondition for the body
+    is [fun x => \[P1 A1 x] \* H1]. *)
+
+(* [xlet_trm_poly P1] *)
+
+Ltac xlet_trm_poly_pre tt :=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_let_trm_poly _) => idtac
+  end.
+
+Ltac xlet_trm_poly_intro cont :=
+  match goal with |- forall x, _ =>
+    let a := fresh x in
+    let Pa := fresh "P" a in
+    intros a Pa;
+    cont a Pa
+  end.
+
+Ltac xlet_trm_poly_common P1 H1 cont :=
+  xlet_trm_poly_pre tt;
+  applys MkStruct_erase; xsimpl; exists P1 H1; split;
+  [ intros
+  | xlet_trm_poly_intro cont ].
+
+Tactic Notation "xlet_trm_poly" constr(P1) :=
+  xlet_trm_poly_common P1 __ ltac:(fun a Pa => idtac).
+
+Tactic Notation "xlet_trm_poly" constr(P1) "as" :=
+  xlet_trm_poly_common P1 __ ltac:(fun a Pa => revert a Pa).
+
+(* [xlet_trm_poly P1 H1] *)
+
+Tactic Notation "xlet_trm_poly" constr(P1) constr(H1) :=
+  xlet_trm_poly_common P1 ltac:(fun a Pa => idtac).
+
+Tactic Notation "xlet_trm_poly" constr(P1) constr(H1) "as" :=
+  xlet_trm_poly_common P1 H1 ltac:(fun a Pa => revert a Pa).
+
+
+(* ---------------------------------------------------------------------- *)
 (** ** [xlet_fun] *)
 
 (* TODO: xlet_types/xlet_fun_types *)
@@ -1097,6 +1146,7 @@ Tactic Notation "xseq_cont" :=
 
 Ltac xlet_core tt :=
   match xgoal_code_without_wptag tt with
+  | (Wpgen_let_trm_poly _) => fail 2 "xlet requires an explicit postcondition when polymorphism is involved"
   | (Wpgen_let_trm _ _) => xlet_trm
   | (Wpgen_let_val _ _) => xlet_val
   | (Wpgen_let_fun _) => xlet_fun
@@ -1109,7 +1159,8 @@ Tactic Notation "xlet" :=
 
 Ltac xlet_as_core tt :=
   match xgoal_code_without_wptag tt with
-  | (Wpgen_let_trm _ _) => fail 2 "xlet as currently not supported for let-trm"
+  | (Wpgen_let_trm_poly _) => fail 2 "xlet requires an explicit postcondition when polymorphism is involved"
+  | (Wpgen_let_trm _ _) => xlet_trm as
   | (Wpgen_let_val _ _) => xlet_val as
   | (Wpgen_let_fun _) => xlet_fun as
   end.
@@ -1121,6 +1172,7 @@ Tactic Notation "xlet" "as" :=
 
 Ltac xlet_arg_core E :=
   match xgoal_code_without_wptag tt with
+  | (Wpgen_let_trm_poly _) => xlet_trm_poly E
   | (Wpgen_let_trm _ _) => xlet_trm E
   | (Wpgen_let_val _ _) => xlet_val E
   | (Wpgen_let_fun _) => xlet_fun E
@@ -1133,6 +1185,7 @@ Tactic Notation "xlet" constr(E) :=
 
 Ltac xlet_arg_as_core E :=
   match xgoal_code_without_wptag tt with
+  | (Wpgen_let_trm_poly _) => xlet_trm_poly E as
   | (Wpgen_let_trm _ _) => xlet_trm E as
   | (Wpgen_let_val _ _) => xlet_val E as
   | (Wpgen_let_fun _) => xlet_fun E as
@@ -1240,12 +1293,17 @@ Proof using.
   introv M. xchange M. applys MkStruct_erase. applys qimpl_PostCast_r.
 Qed.
 
+Lemma xval_lemma_inst : forall A `{EA:Enc A} (V:A) H,
+  H ==> ^(Wpgen_val V) (\[=V] \*+ H).
+Proof using. intros. apply xval_lemma. xsimpl*. Qed.
+
 Ltac xval_post tt :=
   xcleanup.
 
 Ltac xval_core tt :=
   xval_pre tt;
-  eapply xval_lemma;
+  first [ eapply xval_lemma_inst
+        | eapply xval_lemma ];
   xval_post tt.
 
 Tactic Notation "xval" :=
@@ -1516,11 +1574,21 @@ Ltac xapp_select_lemma cont := (* TODO: factorize better with xapp_select_lemma 
   end
 *)
 
+Ltac xapp_xpolymorphic_eq tt :=
+  let aux tt := try solve [ xpolymorphic_eq ] in
+  match goal with
+  | |- polymorphic_eq_arg _ => aux tt
+  | |- (polymorphic_eq_arg _ \/ polymorphic_eq_arg _) => aux tt
+  end.
+
+Ltac xapp_side_post tt :=
+  xapp_xpolymorphic_eq tt.
+
 Ltac xapp_exploit_spec_lemma L cont :=
   let S := fresh "Spec" in
   intro S;
   eapply L;
-  [ applys S; clear S
+  [ applys S; clear S; xapp_side_post tt
   | clear S; cont tt ].
 
 Ltac xapp_exploit_spec tt :=
