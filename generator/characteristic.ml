@@ -595,13 +595,18 @@ let exp_find_inlined_primitive e oargs =
 (* ** Lifting of values *)
 
 (** Translate a Caml identifier into a Coq identifier, possibly
-    applied to wildcards for taking type applications into account *)
+    applied to wildcards for taking type applications into account;
+    in the latter case, a type annotation is introduced. *)
 
-let lift_exp_path env p =
+let lift_exp_path loc env typ p =
    match find_primitive (Path.name p) with
    | None ->
       let x = lift_path_name (var_path p) in
-      coq_app_var_wilds x (typ_arity_var env p)
+      let n = typ_arity_var env p in
+      if n = 0
+        then coq_var x
+        else coq_annot (coq_app_var_wilds x n) (lift_typ_exp loc typ)
+
       (* TODO: need type annotation :*)
    | Some y ->
       Coq_var y
@@ -616,7 +621,7 @@ let rec lift_val env e =
      not_in_normal_form loc ("in liftval: " ^ Print_tast.string_of_expression false e) in
    match e.exp_desc with
    | Texp_ident (p,d) ->
-     lift_exp_path env p
+     lift_exp_path loc env e.exp_type p
    | Texp_open (p, _) ->
      assert false
    | Texp_constant (Const_int n) ->

@@ -104,19 +104,18 @@ let rec coqtops_of_cf cf =
       let p1_on_arg = Coq_app (app_on_tvars "P1", Coq_var "_r") in
       let h1 = Coq_var "H1" in
       let q1 = Coq_fun (("_r",typ), hstar (hpure p1_on_arg) h1) in
-      let c1 = coq_forall_types (*coq_forall_enc_types *) (fvs_strict @ fvs_other) (himpl_formula_app h (aux cf1) q1) in
+      let c1 = coq_forall_types fvs_strict (coq_forall_enc_types fvs_other (himpl_formula_app h (aux cf1) q1)) in
       let hyp_on_x = coq_forall_types (*coq_forall_enc_types *) fvs_strict (coq_app (app_on_tvars "P1") (app_on_tvars x)) in
       let c2 = coq_foralls [(x,type_of_x)] (coq_impl (hyp_on_x) (himpl_formula_app h1 (aux cf2) q)) in
       let type_of_p1 = coq_forall_types (*coq_forall_enc_types*) fvs_strict (coq_pred typ) in
       let c = coq_exists [("P1",type_of_p1); ("H1",hprop)] (coq_conj c1 c2) in (* TODO:name conflicts?*)
       let body = formula_def aname qname (coq_fun (hname,hprop) c) in
       wpgen_app "WPLifted.Wpgen_let_trm_poly" [body]
-      (* TODO: no longer enc types *)
       (* Define CF as:  (HO is named h above)
           (fun A EA Q => \exists H0, H0 \*
-             \[ exists (P1:forall A1 EA1, T -> Prop) H1,
-                   (forall A1 EA1 B1 EB1, H0 ==> C1 (fun r => \[P1 A1 EA1 r] \* H1))
-                /\ (forall (x1:forall A1 EA1,T), (forall A1 EA1, P1 A1 EA1 (x1 A1 E1)), H1 ==> C2 Q) ]
+             \[ exists (P1:forall A1, T -> Prop) H1,
+                   (forall A1 B1 EB1, H0 ==> C1 (fun r => \[P1 A1 r] \* H1))
+                /\ (forall (x1:forall A1,T), (forall A1, P1 A1 (x1 A1 E1)), H1 ==> C2 Q) ]
          Defined as:
            Wpgen_prop (fun A EA Q H => exists (P1:...) ... ) *)
       (* To prove:   H ==> (LetPoly x F1 F2) Q
@@ -125,12 +124,11 @@ let rec coqtops_of_cf cf =
 
   | Cf_let_val (x, fvs, typ_body, v, cf) ->
       (* CF is:  LetVal x : (forall fvs, typ_body) = v in cf *)
-      (* CF is:  Wpgen_let_val (fun Ai EAi => v) (fun x : (forall Ai EAi,T) => cf *)
+      (* CF is:  Wpgen_let_val (fun Ai => v) (fun x : (forall Ai,T) => cf *)
       (* CF is: (fun A EA Q =>
-           \forall (x:(forall Ai EAi,T)), \[x = (fun Ai EAi => v)] \-* ^F Q) *)
+           \forall (x:(forall Ai,T)), \[x = (fun Ai => v)] \-* ^F Q) *)
       (* Def is: Wpgen_let_val V Fof := fun A (EA:Enc A) (Q:A->hprop) =>
                          \forall (x:A1), \[x = V] \-* ^(Fof x) Q). *)
-      (* TODO: encoders removed *)
       let typ = coq_forall_types  (*coq_forall_enc_types *) fvs typ_body in
       let lifted_v = coq_fun_types  (* coq_fun_enc_types *) fvs v in
       let c = coq_fun (x,typ) (aux cf) in

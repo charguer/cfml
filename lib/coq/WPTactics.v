@@ -412,7 +412,7 @@ Ltac xlet_val_common cont :=
   xlet_val_pre tt;
   match xgoal_code_without_wptag tt with
   | (Wpgen_let_val _ (fun x => _)) =>
-     let a := fresh "v" x in
+     let a := fresh x in
      let Pa := fresh "P" a in
      eapply xlet_val_lemma;
      intros a Pa;
@@ -447,7 +447,7 @@ Ltac xlet_valst_common P cont :=
   xlet_val_pre tt;
   match xgoal_code_without_wptag tt with
   | (Wpgen_let_val _ (fun x => _)) =>
-     let a := fresh "v" x in
+     let a := fresh x in
      let Pa := fresh "P" a in
      eapply (@xlet_valst_lemma _ _ P);
      [ | intros a Pa; cont a Pa ]
@@ -506,7 +506,7 @@ Ltac xlet_trm_common lemma cont :=
   xlet_trm_pre tt;
   match xgoal_code_without_wptag tt with
   | (Wpgen_let_trm _ (fun x => _)) =>
-     let a := fresh "v" x in
+     let a := fresh x in
      eapply lemma;
      [ | intros a; cont a ]
   end.
@@ -2575,7 +2575,10 @@ Tactic Notation "xmatch" constr(Q) constr(Options) :=
 Ltac check_is_Wpgen_record_alloc F :=  (* refined in WPRecord *)
   fail.
 
-(* Core implementation *)
+(* Core implementation.
+   Note:
+   | (Wpgen_let_trm_poly _ _) => --- inference not yet supported
+*)
 
 Ltac xstep_once tt :=
   match goal with

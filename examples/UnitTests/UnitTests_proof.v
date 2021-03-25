@@ -15,23 +15,113 @@ From TLC Require Import LibListZ.
 (********************************************************************)
 (** ** Polymorphic let bindings and value restriction *)
 
-(* TODO *)
+Ltac try_xpolymorphic_eq tt :=
+  let aux tt := try solve [ xpolymorphic_eq ] in
+  match goal with
+  | |- polymorphic_eq_arg _ => aux tt
+  | |- (polymorphic_eq_arg _ \/ polymorphic_eq_arg _) => aux tt
+  end.
+
+Ltac xapp_side_post tt := 
+  try_xpolymorphic_eq tt.
+
+Ltac xapp_exploit_spec_lemma L cont ::=
+  let S := fresh "Spec" in
+  intro S;
+  eapply L;
+  [ applys S; clear S; xapp_side_post tt
+  | clear S; cont tt ].
+
+
+(* [xlet_trm_poly P1] *)
+
+Ltac xlet_trm_poly_pre tt :=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_let_trm_poly _) => idtac
+  end. 
+
+Ltac xlet_trm_poly_intro cont :=
+  match goal with |- forall x, _ =>  
+    let a := fresh x in 
+    let Pa := fresh "P" a in 
+    intros a Pa;
+    cont a Pa
+  end.
+
+Ltac xlet_trm_poly_common P1 cont :=
+  xlet_trm_poly_pre tt;
+  applys MkStruct_erase; xsimpl; exists P1; exists __; split;
+  [ intros 
+  | xlet_trm_poly_intro cont ].
+
+Tactic Notation "xlet_trm_poly" constr(P1) :=
+  xlet_trm_poly_common P1 ltac:(fun a Pa => idtac).
+
+Tactic Notation "xlet_trm_poly" constr(P1) "as" :=
+  xlet_trm_poly_common P1 ltac:(fun a Pa => revert a Pa).
+
+Ltac xlet_core tt ::=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_let_trm_poly _) => fail 2 "xlet requires an explicit postcondition when polymorphism is involved"
+  | (Wpgen_let_trm _ _) => xlet_trm
+  | (Wpgen_let_val _ _) => xlet_val
+  | (Wpgen_let_fun _) => xlet_fun
+  end.
+
+Ltac xlet_as_core tt ::=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_let_trm_poly _) => fail 2 "xlet requires an explicit postcondition when polymorphism is involved"
+  | (Wpgen_let_trm _ _) => xlet_trm as
+  | (Wpgen_let_val _ _) => xlet_val as
+  | (Wpgen_let_fun _) => xlet_fun as
+  end.
+
+
+Ltac xlet_arg_core E ::=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_let_trm_poly _) => xlet_trm_poly E
+  | (Wpgen_let_trm _ _) => xlet_trm E
+  | (Wpgen_let_val _ _) => xlet_val E
+  | (Wpgen_let_fun _) => xlet_fun E
+  end.
+
+Ltac xlet_arg_as_core E ::=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_let_trm_poly _) => xlet_trm_poly E as
+  | (Wpgen_let_trm _ _) => xlet_trm E as
+  | (Wpgen_let_val _ _) => xlet_val E as
+  | (Wpgen_let_fun _) => xlet_fun E as
+  end.
+
 Lemma let_poly_p0_spec :
   SPEC (let_poly_p0 tt)
     PRE \[] 
     POST \[= tt].
 Proof using.
-  xcf. xlet_poly_keep (= true). xapp_skip. intro_subst. xvals~.
-Qed.
+  xcf. dup 5.
+  { xlet (= true). { xgo*. } xgo*. }
+  { (* try xlet. *) xlet (= true) as. { xgo*. } xgo*. }
+  { xlet_trm_poly (= true). { xapp. xsimpl*. } xvals*. }
+  { applys MkStruct_erase. xsimpl. exists. split.
+    { intros. xapp. xsimpl*. try eapply eq_refl. skip. (* why P1 is needed *) }
+    { intros x Hx. skip. } }
+  { applys MkStruct_erase. xsimpl. exists (= true). exists. split.
+    { intros. xapp. xsimpl*. }
+    { intros x Hx. xvals*. } }
+Abort.
+
+Lemma test : (forall H, \[] ==> (H \* \GC) -> True) -> True.
+introv M. eapply M. xsimpl.
 
 Lemma let_poly_p1_spec :
   SPEC (let_poly_p1 tt)
     PRE \[] 
     POST \[= tt].
 Proof using.
-  xcf. xletfun. xlet_poly_keep (fun B (r:option B) => r = None).
-  { xapp. xvals. }
-  { intros Hr. xvals~. }
+  xcf. xlet. xlet (fun B (r:option B) => r = None).
+  { xapp. xvals*. xsimpl_start tt.  xsimpl_step tt. xsimpl_step tt. xsimpl_step tt.
+xsimpl_step tt. xsimpl_step tt. xsimpl_step tt. xsimpl. skip. }
+  { xvals~. }
 Qed.
 
 Lemma let_poly_p2_spec :
@@ -39,9 +129,9 @@ Lemma let_poly_p2_spec :
     PRE \[] 
     POST \[= tt].
 Proof using.
-  xcf. xletfun. xlet.
-  { xlet_poly_keep (fun B (r:option B) => r = None).
-    { xapp. xvals. }
+  xcf. xlet. xlet.
+  { xlet (fun B (r:option B) => r = None).
+    { xapp. xval. }
     { intros Hr. xvals~. } }
   { xvals~. }
 Qed.

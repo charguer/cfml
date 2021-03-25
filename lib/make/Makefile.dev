@@ -152,11 +152,17 @@ ifndef OCAMLBUILD_FLAGS
 	OCAMLBUILD_FLAGS := -cflags -w,-26
 endif
 
-# Files to open in COQIDE
-# By default, all the local proof files
+# Files to open in IDE
+# By default, all the local proof files, sorted by last modification date
 
-ifndef OPENINCOQIDE
-	OPENINCOQIDE := $(wildcard *.v)
+ifndef OPENINIDE
+	OPENINIDE := $(shell ls -t *.v)
+endif
+
+# Options for CoqIDE. By default, disable parallel progress
+
+ifndef COQIDEOPTIONS
+	COQIDEOPTIONS := -async-proofs off -async-proofs-command-error-resilience off
 endif
 
 
@@ -470,7 +476,7 @@ _CoqProjectDev: .FORCE
 # COQIDE.
 
 ide:
-	$(COQIDE) $(COQLIBINCLUDE) $(COQPROJECTDEVEXTRA) $(OPENINCOQIDE)
+	$(COQIDE) $(COQIDEOPTIONS) $(COQINCLUDE) $(COQPROJECTDEVEXTRA) $(OPENINIDE)
 
 
 ##############################################################################
