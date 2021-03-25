@@ -13,6 +13,197 @@ From TLC Require Import LibListZ.
 
 
 (********************************************************************)
+(** ** Polymorphic let bindings and value restriction *)
+
+(* TODO *)
+Lemma let_poly_p0_spec :
+  SPEC (let_poly_p0 tt)
+    PRE \[] 
+    POST \[= tt].
+Proof using.
+  xcf. xlet_poly_keep (= true). xapp_skip. intro_subst. xvals~.
+Qed.
+
+Lemma let_poly_p1_spec :
+  SPEC (let_poly_p1 tt)
+    PRE \[] 
+    POST \[= tt].
+Proof using.
+  xcf. xletfun. xlet_poly_keep (fun B (r:option B) => r = None).
+  { xapp. xvals. }
+  { intros Hr. xvals~. }
+Qed.
+
+Lemma let_poly_p2_spec :
+  SPEC (let_poly_p2 tt)
+    PRE \[] 
+    POST \[= tt].
+Proof using.
+  xcf. xletfun. xlet.
+  { xlet_poly_keep (fun B (r:option B) => r = None).
+    { xapp. xvals. }
+    { intros Hr. xvals~. } }
+  { xvals~. }
+Qed.
+
+Lemma let_poly_p3_spec :
+  SPEC (let_poly_p3 tt)
+    PRE \[] 
+    POST \[= tt].
+Proof using.
+  xcf.
+  xlet_poly_keep (= true). { xapp_skip. } intro_subst.
+  xapp_skip.
+  xlet_poly_keep (= false). { xapp_skip. } intro_subst.
+  xapp_skip.
+  xvals~.
+Qed.
+
+Lemma let_poly_f0_spec : forall A,
+  SPEC (let_poly_f0 tt)
+    PRE \[] 
+    POST \[= @nil A].
+Proof using.
+  xcf. xapp. xapp. xsimpl~.
+Qed.
+
+Lemma let_poly_f1_spec : forall A,
+  SPEC (let_poly_f1 tt)
+    PRE \[] 
+    POST \[= @nil A].
+Proof using.
+  xcf. xapp. xapp. xsimpl~.
+Qed.
+
+Lemma let_poly_f2_spec : forall A,
+  SPEC (let_poly_f2 tt)
+    PRE \[] 
+    POST \[= @nil A].
+Proof using.
+  xcf. xapp. xapp. xsimpl~.
+Qed.
+
+Lemma let_poly_f3_spec :
+  SPEC (let_poly_f3 tt)
+    PRE \[] 
+    POST \[= @nil int].
+Proof using.
+  xcf. xapp. xapp. xsimpl~.
+Qed.
+
+Lemma let_poly_f4_spec :
+  SPEC (let_poly_f4 tt)
+    PRE \[] 
+    POST \[= @nil int].
+Proof using.
+  xcf. xapp. xapp. xsimpl~.
+Qed.
+
+Lemma let_poly_g1_spec :
+  SPEC (let 
+    POST_poly_g1 tt)
+    PRE \[] \[= 5::nil].
+Proof using.
+  xcf. xapp. xapp. xapp. xsimpl~.
+Qed.
+
+Lemma let_poly_g2_spec :
+  SPEC (let_poly_g2 tt) 
+    PRE \[] 
+    POST \[= 4::nil].
+Proof using.
+  xcf. xapp. xapp. xapp. xsimpl~.
+Qed.
+
+Lemma let_poly_h0_spec : forall A,
+  SPEC (let_poly_h0 tt) 
+    PRE \[] 
+    POST (fun (r:loc) => r ~~> (@nil A)).
+Proof using.
+  xcf. xapp. xval~.
+Qed.
+
+Lemma let_poly_h1_spec : forall A,
+  SPEC (let_poly_h1 tt)
+    PRE \[] 
+    POST (fun (f:func) =>
+      \[ SPEC (f tt)
+          PRE \[] 
+          POST (fun (r:loc) => r ~~> (@nil A)) ]).
+Proof using.
+  xcf. xlet (fun g => \[ SPEC (g tt) \[] (fun (r:loc) => r ~~> (@nil A)) ]).
+  { xletfun. xvals. xapp. xapp. }
+  intros Hg. xvals. xapp.
+Qed.
+
+Lemma let_poly_h2_spec : forall A,
+  SPEC (let_poly_h2 tt)
+    PRE \[] 
+    POST (fun (f:func) =>
+      \[ SPEC (f tt) 
+          PRE \[] 
+          POST (fun (r:loc) => r ~~> (@nil A)) ]).
+Proof using.
+  xcf. xletfun. xvals. xapp. xapp.
+Qed.
+
+Lemma let_poly_h3_spec : forall A,
+  SPEC (let_poly_h3 tt)
+    PRE \[] 
+    POST (fun (r:loc) => r ~~> (@nil A)).
+Proof using.
+  xcf. xletfun. xapp. xapp.
+Qed.
+
+Lemma let_poly_k1_spec : forall A,
+  SPEC (let_poly_k1 tt)
+    PRE \[] \[= @nil A].
+Proof using.
+  xcf. xvals~.
+Qed.
+
+Lemma let_poly_k2_spec : forall A,
+  SPEC (let_poly_k2 tt)
+    PRE \[] 
+    POST (fun (r:loc) => r ~~> (@nil A)).
+Proof using.
+  xcf. xapp.
+Qed.
+
+Lemma let_poly_r1_spec :
+  SPEC (let_poly_r1 tt)
+    PRE \[] 
+    POST \[= tt].
+Proof using.
+  xcf. xapp. xvals~.
+  Unshelve. solve_type.
+Qed.
+
+Lemma let_poly_r2_spec : forall A,
+  SPEC (let_poly_r2 tt)
+    PRE \[] 
+    POST \[= @nil A].
+Proof using.
+  xcf. xapp. dup 2.
+  { xval. xvals~. }
+  { xvals. xvals~. }
+  Unshelve. solve_type.
+Qed.
+
+
+Lemma let_poly_r3_spec : forall A,
+  SPEC (let_poly_r3 tt)
+    PRE \[] 
+    POST \[= @nil A].
+Proof using.
+  xcf. xlet_poly_keep (fun A (r:list A) => r = nil).
+  { xapp. xvals~. }
+  intros Hr. xvals. auto.
+Qed.
+
+
+
+(********************************************************************)
 (** ** Function calls: [xapp] *)
 
 Lemma myincr_spec : forall n,
@@ -97,153 +288,6 @@ Proof using.
   xcf.
 Abort.
 
-
-(********************************************************************)
-(** ** Polymorphic let bindings and value restriction *)
-
-(* TODO
-Lemma let_poly_p0_spec :
-  SPEC (let_poly_p0 tt) \[] \[= tt].
-Proof using.
-  xcf. xlet_poly_keep (= true). xapp_skip. intro_subst. xvals~.
-Qed.
-
-Lemma let_poly_p1_spec :
-  SPEC (let_poly_p1 tt) \[] \[= tt].
-Proof using.
-  xcf. xletfun. xlet_poly_keep (fun B (r:option B) => r = None).
-  { xapp. xvals. }
-  { intros Hr. xvals~. }
-Qed.
-
-Lemma let_poly_p2_spec :
-  SPEC (let_poly_p2 tt) \[] \[= tt].
-Proof using.
-  xcf. xletfun. xlet.
-  { xlet_poly_keep (fun B (r:option B) => r = None).
-    { xapp. xvals. }
-    { intros Hr. xvals~. } }
-  { xvals~. }
-Qed.
-
-Lemma let_poly_p3_spec :
-  SPEC (let_poly_p3 tt) \[] \[= tt].
-Proof using.
-  xcf.
-  xlet_poly_keep (= true). { xapp_skip. } intro_subst.
-  xapp_skip.
-  xlet_poly_keep (= false). { xapp_skip. } intro_subst.
-  xapp_skip.
-  xvals~.
-Qed.
-
-Lemma let_poly_f0_spec : forall A,
-  SPEC (let_poly_f0 tt) \[] \[= @nil A].
-Proof using.
-  xcf. xapp. xapp. xsimpl~.
-Qed.
-
-Lemma let_poly_f1_spec : forall A,
-  SPEC (let_poly_f1 tt) \[] \[= @nil A].
-Proof using.
-  xcf. xapp. xapp. xsimpl~.
-Qed.
-
-Lemma let_poly_f2_spec : forall A,
-  SPEC (let_poly_f2 tt) \[] \[= @nil A].
-Proof using.
-  xcf. xapp. xapp. xsimpl~.
-Qed.
-
-Lemma let_poly_f3_spec :
-  SPEC (let_poly_f3 tt) \[] \[= @nil int].
-Proof using.
-  xcf. xapp. xapp. xsimpl~.
-Qed.
-
-Lemma let_poly_f4_spec :
-  SPEC (let_poly_f4 tt) \[] \[= @nil int].
-Proof using.
-  xcf. xapp. xapp. xsimpl~.
-Qed.
-
-Lemma let_poly_g1_spec :
-  SPEC (let_poly_g1 tt) \[] \[= 5::nil].
-Proof using.
-  xcf. xapp. xapp. xapp. xsimpl~.
-Qed.
-
-Lemma let_poly_g2_spec :
-  SPEC (let_poly_g2 tt) \[] \[= 4::nil].
-Proof using.
-  xcf. xapp. xapp. xapp. xsimpl~.
-Qed.
-
-Lemma let_poly_h0_spec : forall A,
-  SPEC (let_poly_h0 tt) \[] (fun (r:loc) => r ~~> (@nil A)).
-Proof using.
-  xcf. xapp. xval~.
-Qed.
-
-Lemma let_poly_h1_spec : forall A,
-  SPEC (let_poly_h1 tt) \[] (fun (f:func) =>
-    \[ SPEC (f tt) \[] (fun (r:loc) => r ~~> (@nil A)) ]).
-Proof using.
-  xcf. xlet (fun g => \[ SPEC (g tt) \[] (fun (r:loc) => r ~~> (@nil A)) ]).
-  { xletfun. xvals. xapp. xapp. }
-  intros Hg. xvals. xapp.
-Qed.
-
-Lemma let_poly_h2_spec : forall A,
-  SPEC (let_poly_h2 tt) \[] (fun (f:func) =>
-    \[ SPEC (f tt) \[] (fun (r:loc) => r ~~> (@nil A)) ]).
-Proof using.
-  xcf. xletfun. xvals. xapp. xapp.
-Qed.
-
-Lemma let_poly_h3_spec : forall A,
-  SPEC (let_poly_h3 tt) \[] (fun (r:loc) => r ~~> (@nil A)).
-Proof using.
-  xcf. xletfun. xapp. xapp.
-Qed.
-
-Lemma let_poly_k1_spec : forall A,
-  SPEC (let_poly_k1 tt) \[] \[= @nil A].
-Proof using.
-  xcf. xvals~.
-Qed.
-
-Lemma let_poly_k2_spec : forall A,
-  SPEC (let_poly_k2 tt) \[] (fun (r:loc) => r ~~> (@nil A)).
-Proof using.
-  xcf. xapp.
-Qed.
-
-Lemma let_poly_r1_spec :
-  SPEC (let_poly_r1 tt) \[] \[= tt].
-Proof using.
-  xcf. xapp. xvals~.
-  Unshelve. solve_type.
-Qed.
-
-Lemma let_poly_r2_spec : forall A,
-  SPEC (let_poly_r2 tt) \[] \[= @nil A].
-Proof using.
-  xcf. xapp. dup 2.
-  { xval. xvals~. }
-  { xvals. xvals~. }
-  Unshelve. solve_type.
-Qed.
-
-
-Lemma let_poly_r3_spec : forall A,
-  SPEC (let_poly_r3 tt) \[] \[= @nil A].
-Proof using.
-  xcf. xlet_poly_keep (fun A (r:list A) => r = nil).
-  { xapp. xvals~. }
-  intros Hr. xvals. auto.
-Qed.
-*)
 
 
 (********************************************************************)

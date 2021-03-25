@@ -1,0 +1,3 @@
+CFML := ../..
+EXAMPLEINCLUDE := -q
+include ../make/Makefile.dev 

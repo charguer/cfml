@@ -602,6 +602,7 @@ let lift_exp_path env p =
    | None ->
       let x = lift_path_name (var_path p) in
       coq_app_var_wilds x (typ_arity_var env p)
+      (* TODO: need type annotation :*)
    | Some y ->
       Coq_var y
 

@@ -110,6 +110,8 @@ val enc_arg : var -> var * coq
 
 val coq_forall_enc_types : var list -> coq -> coq
 
+val coq_fun_enc_types : var list -> coq -> coq
+
 (** Applications *)
 
 val trm_apps : coq -> coq list -> coq
@@ -236,6 +238,10 @@ val hgc : coq
 
 val hwand : coq -> coq -> coq
 
+(** Magic wand [Q1 \--* Q2] *)
+
+val qwand : coq -> coq -> coq
+
 (** Magic wand with pure left hand side [\[P] \-* H] *)
 
 val hwand_hpure : coq -> coq -> coq
@@ -243,6 +249,8 @@ val hwand_hpure : coq -> coq -> coq
 val hwand_hpures : coq list -> coq -> coq
 
 val formula_app : coq -> coq -> coq
+
+val himpl_formula_app : coq -> coq -> coq -> coq
 
 val formula_def : var -> var -> coq -> coq
 

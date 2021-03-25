@@ -103,6 +103,7 @@ endif
 ifndef EXAMPLEINCLUDE
 	ifneq ($(filter $(CFML)/examples/%,$(PWD)),)
 		EXAMPLEINCLUDE := -R .. EXAMPLE 
+		COQPROJECTDEVEXTRA := $(EXAMPLEINCLUDE)
 	else
 		EXAMPLEINCLUDE  := -R . `basename $(PWD)`
 	endif
@@ -299,10 +300,10 @@ $(ML_MAIN:.ml=.native):
 ############################################################################
 # Dependencies
 
-ifeq ($(findstring $(MAKECMDGOALS),ocaml generator clean clean_all depend depend_show .depend_v .depend_ml),)
+ifeq ($(findstring $(MAKECMDGOALS),ocaml generator dev _CoqProjectDev clean clean_all depend depend_show .depend_v .depend_ml),)
 include .depend_ml
 endif
-ifeq ($(findstring $(MAKECMDGOALS),ocaml generator clean clean_all depend depend_show .depend_v .depend_ml mlv),)
+ifeq ($(findstring $(MAKECMDGOALS),ocaml generator coqlib coqlibs coqlibk dev _CoqProjectDev clean clean_all depend depend_show .depend_v .depend_ml mlv),)
 include .depend_v
 endif
 
@@ -441,7 +442,7 @@ _CoqProject: .FORCE
 	@echo $(COQINCLUDE) $(addprefix -arg ,$(COQWARNINGS)) > $@
 
 _CoqProjectDev: .FORCE
-	@echo $(COQLIBINCLUDE) > $@
+	@echo $(COQLIBINCLUDE) $(COQPROJECTDEVEXTRA) > $@
 
 .FORCE:
 

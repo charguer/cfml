@@ -69,6 +69,16 @@ Definition Wpsubst (E:ctx) (t:trm) : Formula :=
 Definition MkStruct (F:Formula) : Formula :=
   fun A (EA:Enc A) (Q:A->hprop) => mkstruct (@F A EA) Q.
 
+(** [The [MkStruct] transformer may be stripped from the postcondition. *)
+
+Lemma MkStruct_erase : forall H F `{EA:Enc A} (Q:A->hprop),
+  H ==> ^F Q ->
+  H ==> ^(MkStruct F) Q.
+Proof using.
+  introv M. xchanges M. applys mkstruct_erase.
+Qed.
+
+
 Lemma mkstruct_MkStruct_eq : forall A `{EA:Enc A} (F:Formula),
   mkstruct (@MkStruct F A EA) = (@MkStruct F A EA).
 Proof using.
@@ -119,6 +129,45 @@ Definition Wptag (F:Formula) : Formula := F.
 
 (* ---------------------------------------------------------------------- *)
 (* ** Combinators to force the type of an argument or a return value *)
+
+(*
+(* TODO: TLC BUFFER *)
+
+Definition rewrite_type (A B:Type) (E:A=B) (V:A) : B :=
+  eq_rect A (fun T => T) V B E.
+(* Proof using. rewrite E in V. exact V. Qed. *)
+
+Lemma rewrite_type_self : forall A (E:A=A) (V:A),
+  rewrite_type E V = V.
+Proof using. intros. unfold rewrite_type. rewrite* eq_rect_refl_eq. Qed.
+
+Definition PostApply A (Q:A->hprop) B (V:B) : hprop :=
+  \exists (E:B=A), Q (rewrite_type E V).
+
+Definition Wpgen_val B (V:B) : Formula :=
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) => PostApply Q V).
+
+Lemma xval_lemma : forall A `{EA:Enc A} (V:A) H (Q:A->hprop),
+  H ==> Q V ->
+  H ==> ^(Wpgen_val V) Q.
+Proof using. 
+  introv M. applys MkStruct_erase. unfold PostApply.
+  xsimpl (refl_eq A). rewrite rewrite_type_self. apply M.
+Qed.
+
+Definition Formula_cast B (F:(B->hprop)->hprop) : Formula :=
+  fun A (EA:Enc A) (Q:A->hprop) => 
+    \exists (E:B=A), F (fun (x:B) => Q (rewrite_type E x)).
+
+Lemma xformula_cast_lemma : forall A `{Enc A} (F:(A->hprop)->hprop) (Q:A->hprop) H,
+  H ==> F Q ->
+  H ==> ^(Formula_cast F) Q.
+Proof using.
+  introv M. unfold Formula_cast. xsimpl (refl_eq A). applys_eq M.
+  fequal. applys fun_ext_1. intros x. rewrite* rewrite_type_self.
+Qed.
+*)
+
 
 (** Constructor to force the return type of a Formula *)
 
@@ -186,7 +235,7 @@ Definition Wpaux_constr Wpgen (E:ctx) (id:idconstr) : list val -> list trm -> Fo
 Definition Wpgen_cast A1 `{EA1:Enc A1} (V:A1) : Formula :=
   fun A2 (EA2:Enc A2) Q => Post_cast A1 Q V.
 
-Definition Wpgen_val A1 {EA1:Enc A1} (V:A1) : Formula :=
+Definition Wpgen_val A1 (*{EA1:Enc A1}*) (V:A1) : Formula :=
   MkStruct (Wpgen_cast V).
   (* MkStruct (fun A (EA:Enc A) (Q:A->hprop) => Post_cast A Q V)). *)
 
@@ -216,7 +265,7 @@ Definition Wpgen_let_fun (BodyOf:forall A,Enc A->(A->hprop)->hprop) : Formula :=
   MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
     BodyOf _ _ Q).
 
-Definition Wpgen_let_val A1 `{EA1:Enc A1} (V:A1) (Fof:A1->Formula) : Formula :=
+Definition Wpgen_let_val A1 (*`{EA1:Enc A1}*) (V:A1) (Fof:A1->Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
     \forall (x:A1), \[x = V] \-* ^(Fof x) Q).
 
@@ -286,6 +335,12 @@ Definition Wpgen_assert (F1:Formula) : Formula :=
 
 Definition Wpgen_body (P:Prop) : Prop :=
   P.
+
+Definition Wpgen_prop (BodyOf:forall A (EA:Enc A), (A->hprop)->hprop->Prop) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+     \exists H, H \* \[BodyOf A EA Q H]).
+
+Definition Wpgen_let_poly := Wpgen_prop.
 
 Definition Wpgen_alias (F:Formula) : Formula :=
   F.
@@ -383,15 +438,6 @@ Proof using. introv M. rewrite* <- Triple_eq_himpl_Wp. Qed.
 
 (* ---------------------------------------------------------------------- *)
 (* ** Soundness of the [mklocal] transformer *)
-
-(** [The [MkStruct] transformer may be stripped from the postcondition. *)
-
-Lemma MkStruct_erase : forall H F `{EA:Enc A} (Q:A->hprop),
-  H ==> ^F Q ->
-  H ==> ^(MkStruct F) Q.
-Proof using.
-  introv M. xchanges M. applys mkstruct_erase.
-Qed.
 
 (** The [MkStruct] transformer is sound w.r.t. [Triple], in other words, it
     may be stripped from the precondition. *)
@@ -1605,3 +1651,22 @@ Notation "'Body' f B v1 ':=' F1" :=
 
 
 (* TODO notation SPECVAL f = v and SPECVAL f st P *)
+
+
+(* NOTE: too hard to type in an arity-generic way
+  Wpgen_let_poly (fun P1 H1 => \forall A1 B1, C1 (fun r => \[P1 A1 r] \* H1))
+                 (fun K => forall (x1:forall A1,T), (forall A1, P1 A1 (x1 A1)) -> K x1)
+                 (aux cf2) *)
+
+
+(* NOTE: this definition is tempting, but it would leave A1 and B1 in the scope.
+    \exists (P1:forall A1, T -> Prop),
+       (\forall A1 B1, C1 (fun r => \[P1 A1 r] \*
+          \forall (x1:forall A1,T), \[forall A1, P1 A1 (x1 A1)] \-* C2 Q)) *)
+
+(* NOTE: could use these definitions, yet the arity would be limited:
+Definition BodyofLetPoly1 (U:Type->Type) (P:forall A1, U A1 -> Prop) (BodyOf:(forall A1, U A1)->hprop) : hprop :=
+  \forall (x:forall A1, U A1), (forall A1, P A1 (x A1)) \-* BodyOf x.
+Definition BodyofLetPoly2 (U:Type->Type->Type) (P:forall A1 A2, U A1 A2 -> Prop) (BodyOf:(forall A1 A2, U A1 A2)->hprop) : hprop :=
+  \forall (x:forall A1 A2, U A1 A2), (forall A1 A2, P A1 A2 (x A1 A2)) \-* BodyOf x.
+*)

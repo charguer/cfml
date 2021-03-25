@@ -78,11 +78,20 @@ let enc_arg aname =
   let eaname = "E" ^ aname in (* TODO: check conflicts *)
   (eaname, enc_type (coq_var aname))
 
+(* enc_args builds [(A1:Type) (EA1:Enc A1) .. (xn:Type) (EAn:Enc An)] from [A1... An]*)
+
+let enc_args names =
+  List.flatten (List.map (fun aname -> [(aname,Coq_type); enc_arg aname]) names)
+
 (** Universal [forall (A1:Type) (EA1:Enc A1) .. (xn:Type) (EAn:Enc An), c] *)
 
 let coq_forall_enc_types names c =
-  let args = List.flatten (List.map (fun aname -> [(aname,Coq_type); enc_arg aname]) names) in
-  coq_foralls args c
+  coq_foralls (enc_args names) c
+
+(** Function [fun (A1:Type) (EA1:Enc A1) .. (xn:Type) (EAn:Enc An) => c] *)
+
+let coq_fun_enc_types names c =
+  coq_funs (enc_args names) c
 
 (** Syntax of application *)
 
@@ -210,7 +219,7 @@ let hwand_hpures ps h =
 
 (** Magic wand for postconditions [Q1 \--* Q2] *)
 
-let hstar q1 q2 =
+let qwand q1 q2 =
   coq_apps (coq_cfml_var "SepBase.SepBasicSetup.SepSimplArgs.qwand") [q1;q2]
 
 (** Base data [hsingle c1 c2] *)
@@ -274,6 +283,11 @@ let formula_type =
 
 let formula_app f q =
   coq_apps f [coq_wild; coq_wild; q]
+
+(** Entailment for a formula [H ==> F _ _ Q] *)
+
+let himpl_formula_app h f q =
+  himpl h (formula_app f q)
 
 (** Construction of a formula of the form [fun A (EA:enc A) (Q:A->hprop) => H] *)
 

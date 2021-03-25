@@ -379,7 +379,7 @@ Ltac xletval_pre tt :=
 
 (* [xletvals] *)
 
-Lemma xletvals_lemma : forall A `{EA:Enc A} H (Fof:A->Formula) (V:A) A1 `{EA1:Enc A1} (Q:A1->hprop),
+Lemma xletvals_lemma : forall A (* `{EA:Enc A}*) H (Fof:A->Formula) (V:A) A1 `{EA1:Enc A1} (Q:A1->hprop),
   (H ==> ^(Fof V) Q) ->
   H ==> ^(Wpgen_let_val V Fof) Q.
 Proof using.
@@ -395,7 +395,7 @@ Tactic Notation "xletvals" :=
 
 (* [xletval] *)
 
-Lemma xletval_lemma : forall A `{EA:Enc A} H (Fof:A->Formula) (V:A) A1 `{EA1:Enc A1} (Q:A1->hprop),
+Lemma xletval_lemma : forall A (*`{EA:Enc A}*) H (Fof:A->Formula) (V:A) A1 `{EA1:Enc A1} (Q:A1->hprop),
   (forall x, x = V -> H ==> ^(Fof x) Q) ->
   H ==> ^(Wpgen_let_val V Fof) Q.
 Proof using.
@@ -429,7 +429,7 @@ Tactic Notation "xletval" "as" :=
 
 (* [xletval P] *)
 
-Lemma xletvalst_lemma : forall A `{EA:Enc A} (P:A->Prop) H (Fof:A->Formula) (V:A) A1 `{EA1:Enc A1} (Q:A1->hprop),
+Lemma xletvalst_lemma : forall A (* `{EA:Enc A}*) (P:A->Prop) H (Fof:A->Formula) (V:A) A1 `{EA1:Enc A1} (Q:A1->hprop),
   P V ->
   (forall x, P x -> H ==> ^(Fof x) Q) ->
   H ==> ^(Wpgen_let_val V Fof) Q.
@@ -1338,9 +1338,10 @@ Tactic Notation "xassert" :=
     [xapp_debug E]
 *)
 
-(* How to DEBUG xapp:
 
-    xspec. eapply xapp_lemma. eapply S.
+(* xapp =
+    try xlet. xspec. intros S. eapply xapp_lemma. eapply S.
+     xsimpl. unfold protect. clear S. intros ? ->.
 
      --- specialized versions: [xapps_lemma] or [xapps_lemma_pure].
 *)

@@ -1,13 +1,4 @@
-# make -C ../../generator \
-# && make -C../../lib/coq -j3 \
-# && make -C ../../lib/stdlib \
-
-rm *.cmj *_ml.v *.vo
-make -C ../.. install \
-&& make -f ../Makefile.dev _CoqProject \
-&& make -f ../Makefile.dev
+source ~/conf/bashrc.sh
+dev vo
 FILE=`basename \`pwd\``
-coqide -async-proofs off -async-proofs-command-error-resilience off ${FILE}_proof.v ${FILE}_ml.v &
-
-
-# make -f ../Makefile.dev `pwd`/UnitTests_ml.v
+cq `cat _CoqProjectDev` ${FILE}_proof.v ${FILE}_ml.v &
