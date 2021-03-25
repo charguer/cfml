@@ -692,4 +692,30 @@ Definition Post_cast A2 `{EA2:Enc A2} A1 `{EA1:Enc A1} (Q:A1->hprop) : A2->hprop
   fun (V:A2) => 
 
 
+Lemma Triple_enc_change :
+  forall A1 A2 (t:trm) (H:hprop) `{EA1:Enc A1} (Q1:A1->hprop) `{EA2:Enc A2} (Q2:A2->hprop),
+  Triple t H Q1 ->
+  Q1 ===> PostCast A1 Q2 ->
+  Triple t H Q2.
+Proof using.
+  introv M N. unfolds Triple. applys~ triple_conseq (rm M). intros v. 
+  unfolds Post, PostCast. xpull ;=> V EV. subst. xchanges* N.
+Qed.
+
+
+
+
+Definition Wpgen_seq' (F1 F2:Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+    \exists (H1:hprop), ^F1 (fun (_:unit) => H1) \* \[H1 ==> ^F2 Q]).
+
+
+
+
+
+Lemma qimpl_trans : forall A (Q2 Q1 Q3:A->hprop),
+  (Q1 ===> Q2) ->
+  (Q2 ===> Q3) ->
+  (Q1 ===> Q3).
+Proof using. introv M1 M2. intros v. applys himpl_trans; eauto. Qed.
 

@@ -99,6 +99,7 @@ endif
 # - for $(CFML)/examples, we use -R .. EXAMPLE to allow sharing between example folders
 # - otherwise by default we use -R . NAME, where NAME denotes the current folder name
 # - one can provide a custom value for $(EXAMPLEINCLUDE)
+# - the special value EMPTY indicates that $(EXAMPLEINCLUDE) should be empty
 
 ifndef EXAMPLEINCLUDE
 	ifneq ($(filter $(CFML)/examples/%,$(PWD)),)
@@ -107,12 +108,21 @@ ifndef EXAMPLEINCLUDE
 	else
 		EXAMPLEINCLUDE  := -R . `basename $(PWD)`
 	endif
+else
+	ifeq ($(EXAMPLEINCLUDE),EMPTY)
+		EXAMPLEINCLUDE :=
+	endif
 endif
 
 # ML sources files in current folder
+# - the special value EMPTY indicates that $(ML) should be empty
 
 ifndef ML
 	ML := $(wildcard *.ml)
+else
+	ifeq ($(ML),EMPTY)
+		ML :=
+	endif
 endif
 
 # Coq extra files in current folder
@@ -398,11 +408,11 @@ SED := $(shell if command -v gsed >/dev/null ; then echo gsed ; else echo sed ; 
 # Building the Stdlib files 
 
 $(STDLIB)/Pervasives_ml.v $(STDLIB)/Pervasives.cmj: $(STDLIB)/Pervasives.ml $(CFMLC)
-	@echo "Generating stdlib characteristic formulae for `basename $<`..."
+	@echo "Generating stdlib $<"
 	$(CFMLC) -nostdlib -nopervasives -I $(STDLIB) $< || (rm -f $@; exit 1)
 
 $(STDLIB)/%_ml.v $(STDLIB)/%.cmj: $(STDLIB)/%.ml $(STDLIB)/Pervasives.cmj $(CFMLC)
-	@echo "Generating stdlib characteristic formulae for `basename $<`..."
+	@echo "Generating stdlib $<"
 	$(CFMLC) -nostdlib -I $(STDLIB) $< || (rm -f $@; exit 1)
 
 
@@ -411,7 +421,6 @@ $(STDLIB)/%_ml.v $(STDLIB)/%.cmj: $(STDLIB)/%.ml $(STDLIB)/Pervasives.cmj $(CFML
 
 # Note: we must delete the .cmj file if the construction of the _ml.v file
 # has failed. (Maybe the generator itself should take care of that!)
-# 	@echo "Generating characteristic formulae for `basename $<`..."
 
 %_ml.v: %.cmj
 	echo > /dev/null

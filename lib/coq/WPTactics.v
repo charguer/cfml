@@ -465,8 +465,6 @@ Tactic Notation "xlet_val" constr(P) "as" :=
 (* ---------------------------------------------------------------------- *)
 (** ** Internal tactic [xlet_trm], used by [xlet] *)
 
-(* TODO: xlet_trm, how to reuse the name from the code automatically? *)
-
 (** [xlet_trm Q1 as] applies to a goal of the form
     [PRE H CODE (Let x := F1 in F2) POST Q].
     It leaves [PRE H CODE F1 POST Q1] for the first goal, and
@@ -491,11 +489,6 @@ Ltac xlet_trm_pre tt :=
 
 (* [xlet_trm] *)
 
-(* DEPRECATED
-Definition xlet_trm_typed_lemma := @MkStruct_erase.
-*)
-....
-
 Lemma xlet_trm_lemma : forall A1 (EA1:Enc A1) (Q1:A1->hprop) H A (EA:Enc A) (Q:A->hprop) ,
   forall (F1:Formula) (F2of:A1->Formula),
   H ==> F1 A1 EA1 Q1 ->
@@ -503,42 +496,53 @@ Lemma xlet_trm_lemma : forall A1 (EA1:Enc A1) (Q1:A1->hprop) H A (EA:Enc A) (Q:A
   H ==> ^(@Wpgen_let_trm F1 A1 EA1 (@F2of)) Q.
 Proof using. introv M1 M2. applys MkStruct_erase. xchanges* M1. Qed.
 
-Ltac xlet_trm_core tt :=
-  xlet_trm_pre tt;
-  eapply xlet_trm_typed_lemma.
-
-Tactic Notation "xlet_trm" :=
-  xlet_trm_core tt.
-
-(* [xlet_trm Q1] *)
-
-Lemma xlet_trmst_lemma : forall A1 (EA1:Enc A1) (Q1:A1->hprop) H A (EA:Enc A) (Q:A->hprop) ,
-  forall (F1:Formula) (F2of:A1->Formula),
-  Structural F1 ->
-  H ==> F1 A1 EA1 Q1 ->
-  (forall (X:A1), Q1 X ==> (F2of X) A EA Q) ->
-  H ==> ^(@Wpgen_let_trm F1 A1 EA1 (@F2of)) Q.
-Proof using.
-  introv HF1 M1 M2. applys MkStruct_erase. xchange M1.
-  applys* Structural_conseq.
-Qed.
-
-Ltac xlet_trmst_common Q1 cont :=
+Ltac xlet_trm_common lemma cont :=
   xlet_trm_pre tt;
   match xgoal_code_without_wptag tt with
   | (Wpgen_let_trm _ (fun x => _)) =>
      let a := fresh "v" x in
-     eapply (@xlet_trmst_lemma _ _ Q1);
-     [ try xstructural | | intros a; cont a ]
+     eapply lemma;
+     [ | intros a; cont a ]
   end.
 
-Tactic Notation "xlet_trm" constr(Q1) :=
-  xlet_trmst_common Q1 ltac:(fun a => idtac).
+(* [xlet_trm] *)
 
-(* [xlet_trm Q1 as] *)
+Ltac xlet_trm_core cont :=
+  xlet_trm_pre tt;
+  xlet_trm_common (@xlet_trm_lemma) cont.
+
+Tactic Notation "xlet_trm" :=
+  xlet_trm_core ltac:(fun a => idtac).
+
+Tactic Notation "xlet_trm" "as" :=
+  xlet_trm_common ltac:(fun a => revert a).
+
+(* [xlet_trm Q1] *)
+
+Ltac xlet_trm_st_common Q1 cont :=
+  xlet_trm_pre tt;
+  xlet_trm_common (@xlet_trm_lemma _ _ Q1) cont.
+
+Tactic Notation "xlet_trm" constr(Q1) :=
+  xlet_trm_st_common Q1 ltac:(fun a => idtac).
 
 Tactic Notation "xlet_trm" constr(Q1) "as" :=
-  xlet_trmst_common Q1 ltac:(fun a => revert a).
+  xlet_trm_st_common Q1 ltac:(fun a => revert a).
+
+(* [xlet_trm_cont] *)
+
+Lemma xlet_trm_cont_lemma : forall A1 (EA1:Enc A1)H A (EA:Enc A) (Q:A->hprop) ,
+  forall (F1:Formula) (F2of:A1->Formula),
+  H ==> ^F1 (fun (X:A1) => (F2of X) A EA Q) ->
+  H ==> ^(@Wpgen_let_trm F1 A1 EA1 (@F2of)) Q.
+Proof using. introv M. xchange M. applys* xlet_trm_lemma. Qed.
+
+Ltac xlet_trm_cont_core tt :=
+  xlet_trm_pre tt;
+  eapply xlet_trm_cont_lemma.
+
+Tactic Notation "xlet_trm_cont" :=
+  xlet_trm_cont_core tt.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -996,6 +1000,7 @@ Tactic Notation "xpost" constr(E) :=
 (** The tactic [xseq] applies to a goal of the form [PRE H CODE (Seq F1 ; F2) POST Q].
     It produces [PRE H CODE F1 POST ?Q1] and [PRE (?Q1 tt) CODE F2 POST Q].
 
+    The tactic [xseq Q1] can be used to specify [Q1].
     The tactic [xseq H1] can be used to specify [Q1] as [fun (_:unit) => H1)]. *)
 
 Ltac xseq_pre tt :=
@@ -1006,39 +1011,40 @@ Ltac xseq_pre tt :=
 
 (* [xseq] *)
 
-Lemma xseq_lemma : forall (H1:hprop) H A (EA:Enc A) (Q:A->hprop) ,
+Lemma xseq_lemma : forall (Q1:unit->hprop) H A (EA:Enc A) (Q:A->hprop) ,
+  forall (F1:Formula) (F2:Formula),
+  H ==> ^F1 Q1 ->
+  (Q1 tt ==> ^F2 Q) ->
+  H ==> ^(@Wpgen_seq F1 F2) Q.
+Proof using. introv M1 M2. applys MkStruct_erase. xchanges* M1. Qed.
+
+Lemma xseq_lemma_hprop : forall (H1:hprop) H A (EA:Enc A) (Q:A->hprop) ,
   forall (F1:Formula) (F2:Formula),
   H ==> ^F1 (fun (_:unit) => H1) ->
   (H1 ==> ^F2 Q) ->
   H ==> ^(@Wpgen_seq F1 F2) Q.
-Proof using. introv M1 M2. applys MkStruct_erase. xchanges* M1. Qed.
-...
+Proof using. introv M1 M2. applys* xseq_lemma. Qed.
+
+(* [xseq] *)
 
 Ltac xseq_core tt :=
   xseq_pre tt;
-  applys xseq_lemma.
+  eapply xseq_lemma.
 
 Tactic Notation "xseq" :=
   xseq_core tt.
 
-(* [xseq H1] *)
+(* [xseq H1] or [xseq Q1] *)
 
-Lemma xseq_lemma_typed_post : forall (H1:hprop) H A (EA:Enc A) (Q:A->hprop) ,
-  forall (F1:Formula) (F2:Formula),
-  Structural F1 ->
-  H ==> ^F1 (fun (_:unit) => H1) ->
-  (H1 ==> ^F2 Q) ->
-  H ==> ^(@Wpgen_seq F1 F2) Q. (* TODO: EA1 is not guessed right *)
-Proof using.
-  introv HF1 M1 M2. applys MkStruct_erase. xchange M1.
-  applys* Structural_conseq. xchanges M2.
-Qed.
+Ltac xseq_arg_core E :=
+  xseq_pre tt;
+  match type of E with
+  | hprop => eapply (@xseq_lemma_hprop E)
+  | _ => eapply  (@xseq_lemma E)
+  end.
 
-Ltac xseq_arg_core H1 :=
-  eapply (@xseq_lemma_typed_post H1); [ xstructural | | ].
-
-Tactic Notation "xseq" constr(H1) :=
-  xseq_arg_core H1.
+Tactic Notation "xseq" constr(E) :=
+  xseq_arg_core E.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1054,6 +1060,8 @@ Tactic Notation "xseq" constr(H1) :=
    - [xlet P] for val/fun.
    - [xlet P as] and [xlet Q as], similarly.
    - [xlets] for val, for performing the substitution.
+   - [xlet_cont] for placing the continuation of the let-binding
+     as postcondition of the code of the body of the let-binding.
 
    The tactics [xletrec] (short name for [xlet_funrec]) were defined earlier.
 
@@ -1116,11 +1124,23 @@ Ltac xlets_core tt :=
   match xgoal_code_without_wptag tt with
   | (Wpgen_let_trm _ _) => fail 2 "xlets does not apply to let-trm"
   | (Wpgen_let_val _ _) => xlet_vals
-  | (Wpgen_let_fun _) =>  fail 2 "xlets does not apply to let-trm"
+  | (Wpgen_let_fun _) => fail 2 "xlets does not apply to let-fun"
   end.
 
 Tactic Notation "xlets" :=
   xlets_core tt.
+
+(* [xlet_cont] *)
+
+Ltac xlet_cont_core tt :=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_let_trm _ _) => xlet_trm_cont
+  | (Wpgen_let_val _ _) => fail 2 "xlets does not apply to let-val"
+  | (Wpgen_let_fun _) => fail 2 "xlets does not apply to let-fun"
+  end.
+
+Tactic Notation "xlet_cont" :=
+  xlet_cont_core tt.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1181,8 +1201,7 @@ Lemma xval_lemma : forall A `{EA:Enc A} (V:A) H (Q:A->hprop),
   H ==> Q V ->
   H ==> ^(Wpgen_val V) Q.
 Proof using.
-  introv M. applys MkStruct_erase. unfold PostApply.
-  xsimpl (refl_eq A). rewrite rewrite_type_self. apply M.
+  introv M. xchange M. applys MkStruct_erase. applys qimpl_PostCast_r.
 Qed.
 
 Ltac xval_post tt :=
@@ -1303,7 +1322,7 @@ Lemma xassert_lemma : forall H (Q:unit->hprop) (F1:Formula),
 Proof using.
   introv M1 M2. applys Structural_conseq (fun (_:unit) => H).
   { xstructural. }
-  { applys MkStruct_erase. applys xreturn_lemma_typed. xsimpl*. }
+  { applys MkStruct_erase. applys xformula_cast_lemma. xsimpl*. }
   { xchanges M2. intros []. auto. }
 Qed.
 
@@ -1372,8 +1391,7 @@ Lemma xapp_lemma : forall A `{EA:Enc A} (Q1:A->hprop) (f:val) (Vs:dyns) H1 H Q,
   H ==> ^(Wpgen_app A f Vs) Q.
 Proof using.
   introv M1 M2. applys MkStruct_erase. xchanges (rm M2).
-  applys xreturn_lemma_typed. rewrite <- Triple_eq_himpl_Wp.
-  applys* Triple_ramified_frame.
+  rewrite <- Triple_eq_himpl_Wp. applys* Triple_ramified_frame.
 Qed.
 
 Lemma xapps_lemma : forall A `{EA:Enc A} (V:A) H2 (f:val) (Vs:dyns) H1 H Q,
@@ -2700,32 +2718,3 @@ Ltac xwp_debug_core tt :=
 Tactic Notation "xwp_debug" :=
   xwp_debug_core tt.
 
-
-(* ---------------------------------------------------------------------- *)
-(** ** Internal tactic [xcast] *)
-
-(** *)
-
-Ltac xcast_pre tt :=
-  xcheck_pull tt;
-  match xgoal_code_without_wptag tt with
-  | (Wpgen_cast _) => idtac
-  end.
-
-Ltac xcast_debug tt :=
-  idtac "[xcast] fails to simplify due to type mismatch";
-  match goal with |-
-   ?H ==> (Wptag (@Wpgen_cast ?A1 ?EA1 ?X)) ?A2 ?EA2 ?Q =>
-   xtypes_type false A1 EA1;
-   xtypes_type false A2 EA2
- end.
-
-Ltac xcast_core tt :=
-  xcast_pre tt;
-  applys xcast_lemma.
-
-Tactic Notation "xcast" :=
-  xcast_core tt.
-
-Tactic Notation "xcast_types" :=
-  xcast_debug tt.

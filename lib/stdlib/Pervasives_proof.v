@@ -45,12 +45,31 @@ Hint Extern 1 (RegisterSpec infix_eq_eq__) => Provide infix_eq_eq_loc_spec.
 
 (****************)
 
+Lemma xapp_lemma_inst : forall A `{EA:Enc A} (Q1:A->hprop) (f:val) (Vs:dyns) H1 H Q,
+  Triple (Trm_apps f Vs) H1 Q1 ->
+  H ==> H1 \* (Q1 \--* protect Q) ->
+  H ==> ^(Wpgen_app A f Vs) Q.
+Proof using.
+  introv M1 M2. applys MkStruct_erase. xchanges (rm M2).
+  rewrite <- Triple_eq_himpl_Wp. applys* Triple_ramified_frame.
+Qed.
+
+Lemma xapp_post_inst : forall A (EA:Enc A) (Q1
+  H ==> H1 \* (Q1 \--* protect (H1 \* ) ->
 Lemma infix_emark_eq_loc_spec : forall (a b:loc),
   SPEC (infix_emark_eq__ a b)
     PRE \[]
     POST \[= isTrue (a <> b) ].
 Proof using.
-  xcf. xgo*. rew_isTrue*.
+  xcf.
+xlet. 
+     xspec. intros S. eapply xapp_lemma. eapply S.
+     xsimpl. unfold protect. clear S. intros ? ->.
+
+
+ xapp.
+
+ xgo*. rew_isTrue*.
 Qed.
 
 Lemma infix_emark_eq_gen_spec : forall (A:Type) (a b:A),

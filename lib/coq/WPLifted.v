@@ -131,33 +131,59 @@ Definition Wptag (F:Formula) : Formula := F.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Cast for postconditions and formulae *)
+(* ** Cast for Postconditions *)
 
+Definition PostCast B {EB:Enc B} A {EA:Enc A} (Q:A->hprop) : B->hprop :=
+  fun (V:B) => \exists (V':A), \[enc V' = enc V] \* Q V'.
 
-Definition PostCast B A (Q:A->hprop) (V:B) : hprop :=
-  \exists (E:B=A), Q (rewrite_type E V).
+Arguments PostCast B {EB} {A} {EA} Q.
 
-Arguments PostCast B [A] Q V.
+Lemma qimpl_PostCast_r : forall A `{EA:Enc A} (Q:A->hprop),
+  Q ===> PostCast A Q.
+Proof using. intros. unfolds PostCast. intros X. xsimpl*. Qed.
 
-Lemma PostCast_self : forall A (Q:A->hprop),
-  PostCast A Q = Q.
+Lemma qimpl_PostCast_l : forall A `{EA:Enc A} (Q:A->hprop),
+  Enc_injective EA ->
+  PostCast A Q ===> Q.
 Proof using.
-  intros. unfold PostCast. applys fun_ext_1. intros x. applys himpl_antisym.
-  { xpull. intros E. rewrite* rewrite_type_self. }
-  { xsimpl (refl_eq A). rewrite* rewrite_type_self. }
+  introv M. unfolds PostCast. intros X. xsimpl*.
+  { intros Y EQ. rewrites (>> Enc_injective_inv M) in EQ. subst*. }
 Qed.
 
-Definition FormulaCast B (F:(B->hprop)->hprop) : Formula :=
-  fun A (EA:Enc A) (Q:A->hprop) => 
-    \exists (E:B=A), F (fun (x:B) => Q (rewrite_type E x)).
+Lemma PostCast_weaken : forall B `{EB:Enc B} A `{EA:Enc A} (Q1 Q2:A->hprop),
+  Q1 ===> Q2 ->
+  PostCast B Q1 ===> PostCast B Q2.
+Proof using. introv M. intros V. unfold PostCast. xsimpl*. Qed.
 
-Lemma FormulaCast_self : forall A (EA:Enc A) (F:(A->hprop)->hprop),
-  (FormulaCast F) A EA = F.
+Lemma Triple_PostCast :
+  forall B {EB:Enc B} (t:trm) (H:hprop) A `{EA:Enc A} (Q:A->hprop),
+  @Triple t B EB H (PostCast B Q) ->
+  @Triple t A EA H Q.
 Proof using.
-  asserts G:(forall H1 H2, H1 = H2 -> H1 ==> H2). { intros. subst*. }
-  intros. unfold FormulaCast. applys fun_ext_1. intros Q. applys himpl_antisym.
-  { xpull. intros E. applys G. fequal. apply fun_ext_1. intros x. rewrite* rewrite_type_self. }
-  { xsimpl (refl_eq A). applys G. fequal. apply fun_ext_1. intros x. rewrite* rewrite_type_self. }
+  introv M. unfolds Triple, PostCast. applys~ triple_conseq (rm M).
+  unfold Post. xsimpl. intros; subst*.
+Qed.
+
+Lemma Triple_PostCast_conseq :
+  forall B {EB:Enc B} (Q':B->hprop) (t:trm) (H:hprop) A `{EA:Enc A} (Q:A->hprop),
+  @Triple t B EB H Q' ->
+  Q' ===> PostCast B Q ->
+  @Triple t A EA H Q.
+Proof using. introv M N. applys Triple_PostCast B. applys* Triple_conseq M N. Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Cast for Formulae *)
+
+Definition FormulaCast B `{EB:Enc B} (F:(B->hprop)->hprop) : Formula :=
+  fun A (EA:Enc A) (Q:A->hprop) =>
+    \exists (Q':B->hprop), F Q' \* \[Q' ===> PostCast B Q].
+
+Lemma xformula_cast_lemma : forall A `{Enc A} (F:(A->hprop)->hprop) (Q:A->hprop) H,
+  H ==> F Q ->
+  H ==> ^(FormulaCast F) Q.
+Proof using.
+  introv M. unfold FormulaCast. xsimpl* Q. applys qimpl_PostCast_r.
 Qed.
 
 
@@ -167,7 +193,7 @@ Qed.
 (** These auxiliary definitions give the characteristic formula
     associated with each term construct. *)
 
-Definition Wpgen_val B (V:B) : Formula :=
+Definition Wpgen_val B {EB:Enc B} (V:B) : Formula :=
   MkStruct (fun A (EA:Enc A) (Q:A->hprop) => PostCast B Q V).
 
 Definition Wpgen_done : Formula :=
@@ -216,7 +242,7 @@ Definition Wpgen_seq_cont (F1 F2:Formula) : Formula :=
 
 Definition Wpgen_seq (F1 F2:Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
-    \exists (H1:hprop), ^F1 (fun (_:unit) => H1) \* \[H1 ==> ^F2 Q]).
+    \exists (Q1:unit->hprop), ^F1 Q1 \* \[Q1 tt ==> ^F2 Q]).
 
 Definition Wpgen_if (b:bool) (F1 F2:Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) Q =>
@@ -242,7 +268,6 @@ Definition Wpgen_case (F1:Formula) (P:Prop) (F2:Formula) : Formula :=
 Definition Wpgen_negpat (P:Prop) : Prop :=
   P.
 
-
 (* DEPRECATED -- more complex
 Definition Wpgen_assert (F1:Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
@@ -253,10 +278,6 @@ Definition Wpgen_assert (F1:Formula) : Formula :=
 
 (* ---------------------------------------------------------------------- *)
 (* ** Definition of CF blocks for the internal generator -- DEPRECATED? *)
-
-Definition FormulaCast' `{Enc A1} (F:(A1->hprop)->hprop) : Formula :=
-  fun A2 (EA2:Enc A2) (Q:A2->hprop) =>
-    \exists (Q':A1->hprop), F Q' \* \[Q' ===> PostCast A1 Q].
 
 Definition Wpgen_val_unlifted (v:val) : Formula :=
   MkStruct (fun A (EA:Enc A) Q => Post Q v).
@@ -314,14 +335,14 @@ Definition Wpaux_if_trm (F0 F1 F2:Formula) : Formula :=
   Wptag (Wpgen_let_trm_cont F0 (fun (b:bool) => Wptag (Wpgen_if b F1 F2))).
 
 Definition Wpgen_while (F1 F2:Formula) : Formula :=
-  MkStruct (Wptag (FormulaCast' (fun (Q:unit->hprop) =>
+  MkStruct (Wptag (FormulaCast (fun (Q:unit->hprop) =>
     \forall (R:Formula),
     let F := Wpaux_if_trm F1 (Wpgen_seq_cont F2 R) (Wpgen_val_unlifted val_unit) in
     \[ structural (@R unit _) /\ (forall (Q':unit->hprop), ^F Q' ==> ^R Q')] \-* (^R Q)))).
     (* --TODO: use a lifted version of structural *)
 
 Definition Wpgen_for_int (n1 n2:int) (F1:int->Formula) : Formula :=
-  MkStruct (FormulaCast' (fun (Q:unit->hprop) =>
+  MkStruct (FormulaCast (fun (Q:unit->hprop) =>
     \forall (S:int->Formula),
     let F i := If (i <= n2) then (Wptag (Wpgen_seq_cont (F1 i) (S (i+1))))
                             else (Wptag (Wpgen_val_unlifted val_unit)) in
@@ -330,7 +351,7 @@ Definition Wpgen_for_int (n1 n2:int) (F1:int->Formula) : Formula :=
      (* --TODO: use a lifted version of structural_pred *)
 
 Definition Wpgen_for_downto_int (n1 n2:int) (F1:int->Formula) : Formula :=
-  MkStruct (FormulaCast' (fun (Q:unit->hprop) =>
+  MkStruct (FormulaCast (fun (Q:unit->hprop) =>
     \forall (S:int->Formula),
     let F i := If (i >= n2) then (Wptag (Wpgen_seq_cont (F1 i) (S (i-1))))
                             else (Wptag (Wpgen_val_unlifted val_unit)) in
@@ -691,27 +712,14 @@ Proof using.
     forwards M: IHts' (v1::rvs). rewrite app_trms_vals_rev_cons in M. applys M. }
 Qed.
 
-
-Lemma Triple_enc_change :
-  forall A1 A2 (t:trm) (H:hprop) `{EA1:Enc A1} (Q1:A1->hprop) `{EA2:Enc A2} (Q2:A2->hprop),
-  Triple t H Q1 ->
-  Q1 ===> PostCast A1 Q2 ->
-  Triple t H Q2.
-Proof using.
-  introv M N. unfolds Triple. applys~ triple_conseq (rm M). intros v. 
-  unfolds Post, PostCast. xpull ;=> V EV. subst. xchanges* N. intros ->.
-  rewrite* rewrite_type_self.
-Qed.
-
-
 Lemma Wpgen_sound_while : forall (F1 F2:Formula) E t1 t2,
   F1 ====> Wpsubst E t1 ->
   F2 ====> Wpsubst E t2 ->
   Wpgen_while F1 F2 ====> Wpsubst E (trm_while t1 t2).
 Proof using.
   introv M1 M2. intros A EA. applys qimpl_Wp_of_Triple. intros Q.
-  remove_MkStruct. simpl. unfold Wptag, FormulaCast'.
-  xtpull. intros Q' HQ'. applys Triple_enc_change (rm C).
+  remove_MkStruct. simpl. unfold Wptag, FormulaCast.
+  xtpull. intros Q' C. applys Triple_PostCast_conseq (rm C).
   set (R := Wp (trm_while (isubst E t1) (isubst E t2))).
   applys Triple_hforall R. simpl. applys Triple_hwand_hpure_l.
   { split.
@@ -724,7 +732,7 @@ Proof using.
       rewrite Triple_eq_himpl_Wp. applys~ Wpgen_sound_if_trm.
       { applys~ Wpgen_sound_seq_cont. }
       { intros A1 EA1 Q''. applys Wpgen_sound_val. } } }
-  { rewrite~ @Triple_eq_himpl_Wp. unfold R. }
+  { rewrite~ @Triple_eq_himpl_Wp. }
 Qed.
 
 Lemma Wpgen_sound_for_int : forall (x:var) n1 n2 (F1:int->Formula) E t1,
@@ -733,8 +741,8 @@ Lemma Wpgen_sound_for_int : forall (x:var) n1 n2 (F1:int->Formula) E t1,
 Proof using. Opaque Ctx.add Ctx.rem.
   introv M. intros A EA. applys qimpl_Wp_of_Triple. intros Q.
   remove_MkStruct. simpl.
-  unfold FormulaCast', Wptag. xtpull ;=> Q' C.
-  applys Triple_enc_change (rm C).
+  unfold FormulaCast, Wptag. xtpull ;=> Q' C.
+  applys Triple_PostCast_conseq (rm C).
   set (S := fun (i:int) => Wp (isubst E (trm_for x i n2 t1))).
   applys Triple_hforall S. simpl. applys Triple_hwand_hpure_l.
   { split.
@@ -746,7 +754,7 @@ Proof using. Opaque Ctx.add Ctx.rem.
         asserts_rewrite (trm_seq (isubst (Ctx.add x (``i) E) t1) (trm_for x (i + 1)%I n2 (isubst (Ctx.rem x E) t1))
           = (isubst (Ctx.add x (``i) E) (trm_seq t1 (trm_for x (i + 1)%I n2 t1)))).
         { simpl. rewrite Ctx.rem_anon, Ctx.rem_add_same. auto. }
-        applys Wpgen_sound_seq.
+        applys Wpgen_sound_seq_cont.
         { applys* M. }
         { unfold S. unfold Wpsubst. simpl. rewrite~ Ctx.rem_add_same. } }
       { applys Wpgen_sound_val E. } } }
@@ -823,7 +831,7 @@ Proof using.
   { applys~ Wpgen_sound_constr. }
   { applys* Wpgen_sound_if. }
   { destruct b as [|x].
-    { applys* Wpgen_sound_seq. }
+    { applys* Wpgen_sound_seq_cont. }
     { applys* Wpgen_sound_let. } }
   { applys* Wpgen_sound_apps. }
   { applys* Wpgen_sound_while. }
@@ -867,113 +875,8 @@ Lemma himpl_Wpgen_app_untyped_of_Triple : forall A `{EA:Enc A} (Q:A->hprop) t H,
   H ==> ^(Wpgen_app_untyped t) Q.
 Proof using. intros. applys MkStruct_erase. rewrite~ <- Triple_eq_himpl_Wp. Qed.
 
-
-(* ********************************************************************** *)
-(* TODO: additional wpgen constructs *)
-
-
-Lemma xformula_cast_lemma : forall A `{Enc A} (F:(A->hprop)->hprop) (Q:A->hprop) H,
-  H ==> F Q ->
-  H ==> ^(FormulaCast F) Q.
-Proof using.
-  introv M. unfold FormulaCast. xsimpl (refl_eq A). applys_eq M.
-  fequal. applys fun_ext_1. intros x. rewrite* rewrite_type_self.
-Qed.
-
-Lemma xreturn_lemma_typed : forall A1 `{Enc A1} (F:(A1->hprop)->hprop) (Q:A1->hprop) H,
-  H ==> F Q ->
-  H ==> ^(FormulaCast F) Q.
-Proof using.
-  introv M. unfold FormulaCast. xsimpl* Q. applys qimpl_Post_cast_r.
-Qed.
-
-
-(*
-Arguments WPLifted.Wpgen_val [A1] {EA1} V. (* prevents expanded implicit arguments *)
-*)
-
-(* TODO
-*)
-
-(* alternative?
-Definition Wpgen_val_unlifted_lifted `{Enc A} (V:A) : Formula :=
-  MkStruct (FormulaCast (fun (Q:A->hprop) => Q V)).
-*)
-
-(* for the reference:
-
-Definition FormulaCast `{Enc A1} (F:(A1->hprop)->hprop) : Formula :=
-  fun A2 (EA2:Enc A2) (Q:A2->hprop) =>
-    \exists (Q':A1->hprop), F Q' \* \[Q' ===> Post_cast A1 Q].
-
-Definition Wpgen_cast A1 `{EA1:Enc A1} (V:A1) : Formula :=
-  fun A2 (EA2:Enc A2) Q => Post_cast A1 Q V.
-*)
-
-(* includes the return type *)
-
-(*
-Definition Wpgen_fix (Fof:val->val->Formula) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
-    \forall vf, \[forall vx A' (EA':Enc A') Q',
-                    Fof vf vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf).
-*)
-
-(* LATER
-Definition Formula_entails (F1 F2:Formula) : Prop :=
-  forall A (EA:Enc A) Q, ^F1 Q ==> ^F2 Q.
-
-Definition Wpgen_fixs (Fof:val->vals->Formula) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
-    \forall vf, \[forall vxs, Formula_entails (Fof vf vxs) (Wp (trm_apps vf vxs))]
-                \-* Q vf).
-
-Definition Wpgen_fixs_custom (Custom:(val->(vals->Formula->Prop)->Prop) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
-    \forall vf, \[Custom vf (fun vxs Fof => Formula_entails (Fof vf) (Wp (trm_apps vf vxs)))]
-                \-* Q vf).
-*)
-
-(* usage: Wpgen_fixs_custom (fun f Pof =>
-             forall A1..AM .. x1..xN, Pof [x1;..;xn] (Wpbody vf) *)
-
-
-
-(* LATER: a function that takes a list of propositions parameterized
-    by the list of names of the functions that occur.
-
-   Custom notation for
-
-   Wpgen_let_funs ((fun f1 f2 => B1)::(fun f1 f2 => B2)::nil).
-
-  Definition Wpgen_let_funs (Defs:list()) : Formula :=
-
-*)
-
-
-(* ********************************************************************** *)
-
-(*
-
-
-
----TUTO on wp for assertions
-
-  H ==> wp t (fun r => \[r = true] \* H) ->
-  H ==> wp (val_assert t) (fun _ => H).
-
- wp t (fun r => \[r = true] \* H) ==> wp (val_assert t) (fun _ => H)
- \exists H, H \* \[H ==> wp t (fun r => \[r = true] \* H)] \* (#H \--* Q) ==> wp (val_assert t) Q
-
- Q tt \* \[Q tt ==> wp t (fun r => \[r = true] \* Q tt)] ==> wp (val_assert t) Q
-
-*)
-
-
-
-
-(* ********************************************************************** *)
-(* ** Grammar set up *)
+(*********************************************************************** *)
+(** * Grammar set up *)
 
 (* TODO: there is a problem if moving this out to WPPrint, due to a Coq bug on custom entry *)
 
@@ -1688,3 +1591,69 @@ Definition BodyofLetPoly1 (U:Type->Type) (P:forall A1, U A1 -> Prop) (BodyOf:(fo
 Definition BodyofLetPoly2 (U:Type->Type->Type) (P:forall A1 A2, U A1 A2 -> Prop) (BodyOf:(forall A1 A2, U A1 A2)->hprop) : hprop :=
   \forall (x:forall A1 A2, U A1 A2), (forall A1 A2, P A1 A2 (x A1 A2)) \-* BodyOf x.
 *)
+
+
+
+
+
+(*********************************************************************** *)
+(*********************************************************************** *)
+(*********************************************************************** *)
+(** * Notes--- TODO: *)
+
+
+(*
+Definition Wpgen_fix (Fof:val->val->Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+    \forall vf, \[forall vx A' (EA':Enc A') Q',
+                    Fof vf vx Q' ==> wp (trm_app vf vx) Q'] \-* Q vf).
+*)
+
+(* LATER
+Definition Formula_entails (F1 F2:Formula) : Prop :=
+  forall A (EA:Enc A) Q, ^F1 Q ==> ^F2 Q.
+
+Definition Wpgen_fixs (Fof:val->vals->Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+    \forall vf, \[forall vxs, Formula_entails (Fof vf vxs) (Wp (trm_apps vf vxs))]
+                \-* Q vf).
+
+Definition Wpgen_fixs_custom (Custom:(val->(vals->Formula->Prop)->Prop) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+    \forall vf, \[Custom vf (fun vxs Fof => Formula_entails (Fof vf) (Wp (trm_apps vf vxs)))]
+                \-* Q vf).
+*)
+
+(* usage: Wpgen_fixs_custom (fun f Pof =>
+             forall A1..AM .. x1..xN, Pof [x1;..;xn] (Wpbody vf) *)
+
+
+(* LATER: a function that takes a list of propositions parameterized
+    by the list of names of the functions that occur.
+
+   Custom notation for
+
+   Wpgen_let_funs ((fun f1 f2 => B1)::(fun f1 f2 => B2)::nil).
+
+  Definition Wpgen_let_funs (Defs:list()) : Formula :=
+
+*)
+
+
+
+(*
+
+
+
+---TUTO on wp for assertions
+
+  H ==> wp t (fun r => \[r = true] \* H) ->
+  H ==> wp (val_assert t) (fun _ => H).
+
+ wp t (fun r => \[r = true] \* H) ==> wp (val_assert t) (fun _ => H)
+ \exists H, H \* \[H ==> wp t (fun r => \[r = true] \* H)] \* (#H \--* Q) ==> wp (val_assert t) Q
+
+ Q tt \* \[Q tt ==> wp t (fun r => \[r = true] \* Q tt)] ==> wp (val_assert t) Q
+
+*)
+
