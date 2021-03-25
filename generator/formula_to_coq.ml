@@ -110,7 +110,7 @@ let rec coqtops_of_cf cf =
       let type_of_p1 = coq_forall_types (*coq_forall_enc_types*) fvs_strict (coq_pred typ) in
       let c = coq_exists [("P1",type_of_p1); ("H1",hprop)] (coq_conj c1 c2) in (* TODO:name conflicts?*)
       let body = formula_def aname qname (coq_fun (hname,hprop) c) in
-      wpgen_app "WPLifted.Wpgen_let_poly" [body]
+      wpgen_app "WPLifted.Wpgen_let_trm_poly" [body]
       (* TODO: no longer enc types *)
       (* Define CF as:  (HO is named h above)
           (fun A EA Q => \exists H0, H0 \*

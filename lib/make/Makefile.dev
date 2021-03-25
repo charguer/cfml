@@ -270,9 +270,9 @@ stdlib:  $(patsubst %.v,%.vo,$(STDLIB_V))
 stdlibs:  $(patsubst %.v,%.vos,$(STDLIB_V))
 stdlibk:  $(patsubst %.v,%.vok,$(STDLIB_V))
 
-coqlib: $(patsubst %.v,%.vo,$(LIBCOQ_V))
-coqlibs: $(patsubst %.v,%.vos,$(LIBCOQ_V))
-coqlibk: $(patsubst %.v,%.vok,$(LIBCOQ_V))
+libcoq: $(patsubst %.v,%.vo,$(LIBCOQ_V))
+libcoqs: $(patsubst %.v,%.vos,$(LIBCOQ_V))
+libcoqk: $(patsubst %.v,%.vok,$(LIBCOQ_V))
 
 mlv_show:
 	echo $(MLV)
@@ -300,10 +300,16 @@ $(ML_MAIN:.ml=.native):
 ############################################################################
 # Dependencies
 
-ifeq ($(findstring $(MAKECMDGOALS),ocaml generator dev _CoqProjectDev clean clean_all depend depend_show .depend_v .depend_ml),)
+AUXGOALS := ocaml generator dev _CoqProjectDev clean clean_all
+LIBCOQGOALS := libcoq libcoqs libcoqk
+
+ifeq ($(findstring $(MAKECMDGOALS),$(AUXGOALS) .depend_libcoq .depend_v .depend_ml),)
 include .depend_ml
 endif
-ifeq ($(findstring $(MAKECMDGOALS),ocaml generator coqlib coqlibs coqlibk dev _CoqProjectDev clean clean_all depend depend_show .depend_v .depend_ml mlv),)
+ifeq ($(findstring $(MAKECMDGOALS),$(AUXGOALS) .depend_v .depend_ml mlv),)
+include .depend_libcoq
+endif
+ifeq ($(findstring $(MAKECMDGOALS),$(AUXGOALS) $(LIBCOQGOALS) .depend_v .depend_libcoq .depend_ml mlv),)
 include .depend_v
 endif
 
@@ -316,18 +322,14 @@ endif
 
 %_proof.vo %_proof.vos %_proof.vok: %_ml.v
 
-.depend_v: $(V)
+.depend_libcoq: $(LIBCOQ_V)
 	@echo "Computing $@"
 	$(COQDEP) $(COQINCLUDE) $^ > $@
 
-# DEPRECATED
-# .depend_v: $(OTHERV)
-# 	@echo "Computing $@"
-# 	$(COQDEP) $(COQINCLUDE) $^ > $@
-# 
-# # .depend_gen_v: .depend_ml $(V)
-# # 	@echo "Computing $@"
-# 	$(COQDEP) $(COQINCLUDE) $^ > $@
+# Below, would not be needed to reinclude LIBCOQ_V
+.depend_v: $(V)
+	@echo "Computing $@"
+	$(COQDEP) $(COQINCLUDE) $^ > $@
 
 # Hardcoded constraints for $(STDLIBMAIN)
 

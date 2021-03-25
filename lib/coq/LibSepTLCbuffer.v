@@ -16,7 +16,7 @@ From TLC Require Import LibReflect.
 From TLC Require LibListZ LibWf LibMultiset LibInt.
 *)
 From TLC Require Import LibTactics.
-From TLC Require Import LibInt.
+From TLC Require Import LibInt LibLogic.
 Generalizable Variables A B.
 
 Global Opaque Z.mul.
@@ -72,3 +72,15 @@ Admitted. (* TODO *)
 Hint Rewrite int_index_eq index_make_eq index_update_eq : rew_array.
 
 Hint Extern 1 (@index _ _ _ _ _) => rew_array; math.
+
+
+(*--------------------------------------------------------*)
+(* LibEqual *)
+
+Definition rewrite_type (A B:Type) (E:A=B) (V:A) : B :=
+  eq_rect A (fun T => T) V B E.
+
+Lemma rewrite_type_self : forall A (E:A=A) (V:A),
+  rewrite_type E V = V.
+Proof using. intros. unfold rewrite_type. rewrite* eq_rect_refl_eq. Qed.
+
