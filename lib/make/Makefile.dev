@@ -206,13 +206,12 @@ COQC := $(COQBIN)coqc $(COQFLAGS)
 COQIDE := $(COQBIN)coqide $(COQFLAGS)
 COQDEP := $(COQBIN)coqdep -vos
 
-# (Optional) Post-treatment for Coq error messages so that editors can open the line directly
-# It replaces: `File "foo.c", line 12, characters 28-32` with `foo.c:12: characters 28-32`
-# Demo: echo "File \"../../lib/coq/WPTactics.v\", line 1578, characters 28-43:" | $(COQCDISPLAYERRORS)
-
+# OPTIONAL saving of error in a file, to open in the ide the error file first
 SHELL := /bin/bash
-COQCDISPLAYERRORSSED := sed 's/File \"\([^\"]*\)\", line \([0-9]*\),/\1:\2:/g'
-COQCDISPLAYERRORS := 2> >($(COQCDISPLAYERRORSSED)) >&2
+COQERROR := .coq_error
+#COQSAVERROR := 2> >(tee $(COQERROR))
+COQSAVERROR := | tee $(COQERROR)
+# 1> >(tee $(COQERROR))
 
 CFMLC := $(CFML)/_build/default/generator/cfmlc.exe
 
@@ -456,16 +455,16 @@ $(STDLIB)/%_ml.v $(STDLIB)/%.cmj: $(STDLIB)/%.ml $(STDLIB)/Pervasives.cmj $(CFML
 # Coq rules.
 
 %.vo: %.v
-	@echo "Compiling $<"
-	$(COQC) $(COQINCLUDE) $< $(COQCDISPLAYERRORS)
+	@echo "Compiling $<" $(COQSAVERROR)
+	$(COQC) $(COQINCLUDE) $< 
 
 %.vos: %.v
-	@echo "Digesting $<"
+	@echo "Digesting $<" $(COQSAVERROR)
 	$(COQC) $(COQINCLUDE) -vos $<
 
 %.vok: %.v
-	@echo "Checking $<"
-	$(COQC) $(COQINCLUDE) -vok $<
+	@echo "Checking $<" $(COQSAVERROR)
+	$(COQC) $(COQINCLUDE) -vok $< 
 
 
 ##############################################################################
@@ -485,6 +484,14 @@ _CoqProjectDev: .FORCE
 
 ide:
 	$(COQIDE) $(COQIDEOPTIONS) $(COQINCLUDE) $(COQPROJECTDEVEXTRA) $(OPENINIDE)
+
+# DEPRECATED COQERRORGET := cat .coq_error | head -n 1 | sed 's/.*File \"\([^\"]*\)\".*/\1/'
+COQERRORGET := cat .coq_error | tail -n 1 | sed 's/Compiling \([^"]*\)$$/\1/'
+
+fix:
+	$(COQIDE) $(COQIDEOPTIONS) $(COQINCLUDE) $(COQPROJECTDEVEXTRA) `$(COQERRORGET)`
+
+
 
 
 ##############################################################################

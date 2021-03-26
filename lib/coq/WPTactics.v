@@ -38,6 +38,18 @@ Open Scope wptactics_scope.
 
 
 (* ---------------------------------------------------------------------- *)
+(** ** Generic Ltac operator *)
+
+(** [`tac] is equivalent to [tac] with putting back in the goal every
+    fresh variable that [tac] introduces in the context. *)
+
+Tactic Notation "`" tactic(tac) :=
+  pose ltac_mark;
+  tac;
+  gen_until_mark.
+
+
+(* ---------------------------------------------------------------------- *)
 (** ** Internal Ltac functions *)
 
 (** Auxiliary tactic for obtaining a boolean answer
@@ -1268,10 +1280,21 @@ Ltac xlet_xseq_cont_steps tt :=
   repeat (xlet_xseq_cont_step tt).
 
 (** [xlet_xseq_xapp_steps tt] is similar, but includes [xapp]. *)
+(* TODO: RENAME to xlet_xseq_xapp_cont_steps *)
 
 Ltac xif_call_xapp_first tt := (* defined further in this file *)
   fail.
 
+Ltac xlet_xseq_xapp_step tt :=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_app _ _ _) => xif_call_xapp_first tt
+  | (Wpgen_let_trm _ _) => xlet_trm_cont
+  | (Wpgen_let_val _ _) => xlet_val
+  | (Wpgen_let_fun _) => xlet_fun
+  | (Wpgen_seq _ _) => xseq_cont
+  end.
+
+(* DEPRECATED
 Ltac xlet_xseq_xapp_step tt :=
   match xgoal_code_without_wptag tt with
   | (Wpgen_let_trm _ _) => xlet_trm
@@ -1280,6 +1303,7 @@ Ltac xlet_xseq_xapp_step tt :=
   | (Wpgen_seq _ _) => xseq
   | (Wpgen_app _ _ _) => xif_call_xapp_first tt
   end.
+*)
 
 Ltac xlet_xseq_xapp_steps tt :=
   xcheck_pull tt;
@@ -1444,10 +1468,11 @@ Proof using. introv M. applys* xassert_lemma. Qed.
 
 Ltac xassert_pre tt :=
   xcheck_pull tt;
-  xlet_xseq_steps tt;
+  xlet_xseq_cont_steps tt;
   match xgoal_code_without_wptag tt with
   | (Wpgen_assert _) => idtac
   end.
+
 
 Ltac xassert_core tt :=
   xassert_pre tt;
@@ -1598,7 +1623,7 @@ Ltac xapp_select_lemma cont := (* TODO: factorize better with xapp_select_lemma 
     because it itself calls [eauto]. *)
 
 Ltac xapp_side_post tt :=
-  xapp_xpolymorphic_eq tt.
+  try xapp_xpolymorphic_eq tt.
 
 Ltac xapp_exploit_spec_lemma L cont :=
   let S := fresh "Spec" in
@@ -2621,6 +2646,7 @@ Ltac xmatch_core options :=
 (* [xmatch_post_core] implements [xmatch Q] *)
 
 Ltac xmatch_post_core Q options :=
+  xcheck_pull tt;
   xlet_xseq_xapp_steps tt;
   xcheck_pull tt; (* TODO: error message might be confusing if this check fails *)
   xpost_arg_core Q ltac:(fun _ => xmatch_core options).

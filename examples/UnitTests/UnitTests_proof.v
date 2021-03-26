@@ -10,9 +10,7 @@ From TLC Require Import LibListZ.
 (********************************************************************)
 (********************************************************************)
 
-Tactic Notation "`" tactic(tac) :=
-  pose ltac_mark; tac; gen_until_mark.
-
+(*
 Lemma test : True -> True.
 `pose true.
 
@@ -21,13 +19,14 @@ Lemma test : True -> True.
                    (forall A1 B1 EB1, H0 ==> C1 (fun r => \[P1 A1 r] \* H1))
                 /\ (forall (x1:forall A1,T), (forall A1, P1 A1 (x1 A1 E1)), H1 ==> C2 Q) ]
          Defined as:
-           Wpgen_prop (fun A EA Q H => exists (P1:...) ... ) *)
+           Wpgen_prop (fun A EA Q H => exists (P1:...) ... ) 
 Notation "'LetPoly' x ':' T ':=' '{' B1 '}' F1 'in' F2" :=
   (!LetPoly (fun H Q => exists P1 H1,
          (forall B1, F1 H (fun (r:T) => \[P1 r] \* H1))
       /\ forall x, (P1 x) -> F2 H1 Q))
   (at level 69, x ident, T at level 0, B1 ident, right associativity) : charac.
 
+*)
 
 (********************************************************************)
 (** ** Polymorphic let bindings and value restriction *)
@@ -248,14 +247,14 @@ Lemma app_myincr_spec : forall n,
     PRE \[]
     POST \[= n + 1].
 Proof using.
-  xcf. dup 7.
+  xcf. dup 6.
   { xapp. xsimpl*. }
   { xspec_show_fun. skip. }
   { xapp_spec. skip. }
   (* Test for implementation details *)
   { xspec. intros Spec1. skip. }
   { xspec. intros S. eapply xapps_lemma_pure. applys S. xapp_simpl tt. skip. }
-  { xspec. xapp_exploit_spec xapps_lemma_pure idcont. xapp_simpl tt. skip. }
+  (* { xspec. xapp_exploit_spec xapps_lemma_pure idcont2. xapp_simpl tt. skip. } TODO: update *)
   { xspec. xapp_common tt. skip. }
 Qed.
 
@@ -270,7 +269,7 @@ Lemma app_let_local_myincr_spec : forall n,
     PRE \[]
     POST \[= n + 1].
 Proof using.
-  xcf. xletfun.
+  xcf. xlet_fun.
   dup 6.
   { xapp. xval. skip. }
   { xspec_show_fun. skip. }
@@ -433,7 +432,7 @@ Lemma let_val_int_spec :
     PRE \[]
     POST \[= 3].
 Proof using.
-  xcf. xletval. xvals*.
+  xcf. xlet_val. xvals*.
   (* TODO dup 7.
   xval. xvals~.
   (* demos *)
@@ -475,11 +474,11 @@ Lemma let_fun_const_spec :
 Proof using.
   xcf. dup 12.
   (* Variants with names introduced *)
-  { xletfun. (* TODO: xapp *) skip. (* TODO: dev xtriple_inv. apply Spec_f. xvals*. *) }
-  { xletfun (fun f => SPEC (f tt) PRE \[] POST \[=3]).
+  { xlet_fun. (* TODO: xapp *) skip. (* TODO: dev xtriple_inv. apply Spec_f. xvals*. *) }
+  { xlet_fun (fun f => SPEC (f tt) PRE \[] POST \[=3]).
     { xvals*. } { xapp. xsimpl*. } }
   { sets Sg: (fun g => SPEC (g tt) PRE \[] POST \[=3]).
-    xletfun Sg. { xvals*. } { xapp Spec_f. xsimpl*. } }
+    xlet_fun Sg. { xvals*. } { xapp Spec_f. xsimpl*. } }
   { xletrec (fun g => SPEC (g tt) PRE \[] POST \[=3]).
     { apply Body_f. xvals*. } { xapp. xsimpl*. } }
   { xletrec (downto 0) (fun g => forall (n:int), SPEC (g tt) PRE \[] POST \[=3]).
@@ -487,11 +486,11 @@ Proof using.
   { xletrec_skip (fun g => SPEC (g tt) PRE \[] POST \[=3]).
     { (* spec assumed! *) xvals*. } { xapp. xsimpl*. } }
   (* Variants with names in the goal *)
-  { xletfun as. intros f Hf. skip. }
-  { xletfun (fun f => SPEC (f tt) PRE \[] POST \[=3]) as.
+  { xlet_fun as. intros f Hf. skip. }
+  { xlet_fun (fun f => SPEC (f tt) PRE \[] POST \[=3]) as.
     { xvals*. } { intros f Sf. xapp. xsimpl*. } }
   { sets Sg: (fun g => SPEC (g tt) PRE \[] POST \[=3]).
-    xletfun Sg as. { xvals*. } { intros f Sf. xapp Sf. xsimpl*. } }
+    xlet_fun Sg as. { xvals*. } { intros f Sf. xapp Sf. xsimpl*. } }
   { xletrec (fun g => SPEC (g tt) PRE \[] POST \[=3]) as.
     { intros f Bf. apply Bf. xvals*. } { intros f Sf. xapp. xsimpl*. } }
   { xletrec (downto 0) (fun g => forall (n:int), SPEC (g tt) PRE \[] POST \[=3]) as.
@@ -505,7 +504,7 @@ Lemma let_fun_poly_id_spec :
     PRE \[]
     POST \[= 3].
 Proof using.
-  xcf. xletfun. xapp. xval. xsimpl~.
+  xcf. xlet_fun. xapp. xval. xsimpl~.
 Abort.
 
 Lemma let_fun_poly_pair_homogeneous_spec :
@@ -514,7 +513,7 @@ Lemma let_fun_poly_pair_homogeneous_spec :
     POST\[= (3,3)].
 Proof using.
   xcf.
-  xletfun.
+  xlet_fun.
   xapp.
   xval.
   xsimpl~.
@@ -526,8 +525,8 @@ Lemma let_fun_on_the_fly_spec :
     POST\[= 4].
 Proof using.
   xcf.
-  xletfun.
-  xletfun. dup 3.
+  xlet_fun.
+  xlet_fun. dup 3.
   { xapp. xapp. xvals*. }
   (* Implementation details *)
   { xtriple_inv. eapply Spec_f0__. skip. }
@@ -541,16 +540,16 @@ Lemma let_fun_in_let_spec :
     POST (fun g => \[ forall A (x:A), SPEC (g x) PRE \[] POST \[= x] ]).
 Proof using.
   xcf. dup 5.
-  { xlet. xpost. skip. skip. }
-  { xlet. xpost (fun (_:val) => \[]). skip. skip. }
-  { xlet. xpost. xpost (fun (_:val) => \[]). xpost. xpost. skip. skip. skip. skip. }
+  { xlet_cont. xpost. skip. skip. }
+  { xlet_cont. xpost (fun (_:val) => \[]). skip. skip. }
+  { xlet_cont. xpost. xpost (fun (_:val) => \[]). xpost. xpost. skip. skip. skip. skip. }
   { xlet (fun g => \[ forall A (EA:Enc A) (x:A), SPEC (g x) PRE \[] POST \[= x] ]).
-    { xassert. { xvals*. }
-      xletfun. xval. xsimpl. intros. xapp. xvals*. }
+    { xseq. xassert. { xvals*. }
+      xlet_fun. xval. xsimpl. intros. xapp. xvals*. }
     xpull. intros Hf. xvals*. }
   (* Implementation details *)
   { set (Q:= (fun (g:val) => \[ forall A (EA:Enc A) (x:A), True ])).
-    applys (@xlettrmst_lemma _ _ Q). xstructural. skip. skip. }
+    applys (@xlet_trm_lemma _ _ Q). skip. skip. }
 Abort.
 
 
@@ -563,7 +562,7 @@ Lemma let_term_nested_id_calls_spec :
     POST \[= 2].
 Proof using.
   xcf.
-  xletfun (fun f => forall (x:int), SPEC (f x) PRE \[] POST \[= x]). { xvals~. }
+  xlet_fun (fun f => forall (x:int), SPEC (f x) PRE \[] POST \[= x]). { xvals~. }
   xapp.
   xapp.
   xapp.
@@ -576,7 +575,7 @@ Lemma let_term_nested_pairs_calls_spec :
     POST \[= ((1,2),(3,(4,5))) ].
 Proof using.
   xcf.
-  xletfun (fun f => forall A (EA:Enc A) B (EB:Enc B) (x:A) (y:B),
+  xlet_fun (fun f => forall A (EA:Enc A) B (EB:Enc B) (x:A) (y:B),
           SPEC (f x y) PRE \[] POST \[= (x,y)]).
   { xvals~. }
   xapp. (* TODO: improve error on missing EA *)
@@ -755,7 +754,7 @@ Lemma lazyop_term_spec :
     PRE \[]
     POST \[= 1].
 Proof using.
-  xcf. xletfun (fun f => forall (x:int),
+  xcf. xlet_fun (fun f => forall (x:int),
     SPEC (f x)
       PRE \[]
       POST \[= isTrue (x = 0)]).
@@ -790,7 +789,7 @@ Lemma lazyop_mixed_spec :
     POST \[= 1].
 Proof using.
   xcf.
-  xletfun (fun f => forall (x:int),
+  xlet_fun (fun f => forall (x:int),
     SPEC (f x) PRE \[] POST \[= isTrue (x = 0)]).
   { xvals*. }
   xlet \[= true].
@@ -843,7 +842,7 @@ Proof using.
   xcf. xapp. xapp.
   xapp. intro_subst.
   xapp. intro_subst.
-  xletfun.
+  xlet_fun.
   xapp_spec infix_eq_eq_gen_spec. intros.
   xlet (\[=1]).
     xif.
@@ -1089,7 +1088,7 @@ Lemma assert_let_spec :
     POST \[= 3].
 Proof using.
   dup 2.
-  { xcf. xassert. { xletvals. xvals~. } xvals~. }
+  { xcf. xassert. { xlet_vals. xvals~. } xvals~. }
   { xcf_go~. }
 Qed.
 
@@ -1109,7 +1108,7 @@ Lemma assert_in_seq_spec :
     PRE \[]
     POST \[= 4].
 Proof using.
-  xcf. xlet. xassert. { xvals*. } xvals.
+  xcf. xlet_cont. xassert. { xvals*. } xvals.
   xvals~.
 Qed.
 
@@ -1130,7 +1129,7 @@ Lemma if_term_spec :
     PRE \[]
     POST \[= 1].
 Proof using.
-  xcf. xletfun. xlet. xapp. xval.
+  xcf. xlet_fun. xlet. xapp. xval.
   (* TODO: fix *)
 Abort.
 
@@ -1139,7 +1138,7 @@ Lemma if_else_if_spec :
     PRE \[]
     POST \[= 0].
 Proof using.
-  xcf. xletfun (fun f => forall (x:int), SPEC (f x) PRE \[] POST \[= false]).
+  xcf. xlet_fun (fun f => forall (x:int), SPEC (f x) PRE \[] POST \[= false]).
     { xvals~. }
   xapp. xif ;=> C.
   { false*. } (* don't try to automate this for now *)
@@ -1158,12 +1157,13 @@ Proof using.
     xif. skip. skip. xpull. skip. }
   dup 2.
   { xseq. dup 5.
-      { xif (\exists n, \[n >= 0] \* r ~~> n). skip. skip. skip. }
+      { xif (\exists n, \[n >= 0] \* r ~~> n). skip. skip. }
       { xif (fun (_:unit) => \exists n, \[n >= 0] \* r ~~> n). skip. skip. skip. }
       (* Implementation details *)
       { xpost (fun (_:unit) => \exists n, \[n >= 0] \* r ~~> n). xif. skip. skip. skip. }
       { xpost. skip. skip. }
-      { xpost (\exists n, \[n >= 0] \* r ~~> n). skip. skip. } }
+      { xpost (\exists n, \[n >= 0] \* r ~~> n). skip. skip. }
+     xpull. intros ? ?. xapp. xsimpl*. }
    xif (\exists n, \[n >= 0] \* r ~~> n); intros Hb.
    { xapp. xsimpl. math. }
    { xvals. math. }
@@ -1181,10 +1181,10 @@ Lemma order_app_spec :
 Proof using.
   dup 2.
     {
-    xcf. xapp. xletfun. xletfun. xletfun.
+    xcf. xapp. xlet_fun. xlet_fun. xlet_fun.
     xapp. { xapp. xvals~. } xpulls.
     xapp. { xassert. xapp. xvals~. xapp. xvals~. } xpulls.
-    xapp. { xassert. xapp. xvals~. xletfun.
+    xapp. { xassert. xapp. xvals~. xlet_fun.
       xvals~ (fun f => \[AppCurried f [a b] := (Ret (a + b)%I)] \* r ~~> 2). eauto. }
       xpull ;=> Hf.
     xapp. xvals~.
@@ -1204,7 +1204,7 @@ Proof using.
   xcf_go*.
 Qed.
   (* Details:
-  xcf. xapp. xletfun. xletfun.
+  xcf. xapp. xlet_fun. xlet_fun.
   xapp. { xapp. xvals~. } xpulls.
   xapp. { xassert. xapp. xvals~. xvals~. } xpulls.
   xvals~.
@@ -1921,14 +1921,14 @@ Lemma renaming_demo_spec :
   SPEC (renaming_demo tt)
     PRE \[]
     POST \[= tt].
-Proof using. (* TODO: used as demo for xletval *)
+Proof using. (* TODO: used as demo for xlet_val *)
   (* disclaimer: renaming are not visible because Coq display underscore *)
   xcf.
-  xletval as. intros x Px. subst x.
-  xletvals.
-  xletval.
-  xletval as. intros.
-  xletval as. intros.
+  xlet_val as. intros x Px. subst x.
+  xlet_vals.
+  xlet_val.
+  xlet_val as. intros.
+  xlet_val as. intros.
   xvals*.
 Qed.
 
