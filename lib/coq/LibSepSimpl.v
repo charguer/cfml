@@ -1126,7 +1126,12 @@ Proof using. introv M. unfolds Xsimpl. hstars_simpl. rewrite~ hstar_comm. Qed.
 
 Lemma xsimpl_lr_exit_instantiate : forall Hla,
   Xsimpl (Hla, \[], \[]) (Hla \* \[], \GC \* \[], \[]).
-Proof using. intros. applys xsimpl_lr_exit. rew_heap. apply himpl_same_hstar_hgc_r. Qed.
+Proof using. 
+  intros. applys xsimpl_lr_exit. rew_heap. 
+  (* inlined proof of himpl_same_hstar_hgc_r *)
+  rewrite hstar_comm. rewrite <- (hstar_hempty_l Hla) at 1.
+  applys* himpl_frame_lr. applys himpl_hgc_r. applys haffine_hempty.
+Qed.
 
 (** Lemmas to flip accumulators back in place *)
 

@@ -206,6 +206,14 @@ COQC := $(COQBIN)coqc $(COQFLAGS)
 COQIDE := $(COQBIN)coqide $(COQFLAGS)
 COQDEP := $(COQBIN)coqdep -vos
 
+# (Optional) Post-treatment for Coq error messages so that editors can open the line directly
+# It replaces: `File "foo.c", line 12, characters 28-32` with `foo.c:12: characters 28-32`
+# Demo: echo "File \"../../lib/coq/WPTactics.v\", line 1578, characters 28-43:" | $(COQCDISPLAYERRORS)
+
+SHELL := /bin/bash
+COQCDISPLAYERRORSSED := sed 's/File \"\([^\"]*\)\", line \([0-9]*\),/\1:\2:/g'
+COQCDISPLAYERRORS := 2> >($(COQCDISPLAYERRORSSED)) >&2
+
 CFMLC := $(CFML)/_build/default/generator/cfmlc.exe
 
 # LATER: could be CFMLC.bc
@@ -324,7 +332,7 @@ $(ML_MAIN:.ml=.native):
 ############################################################################
 # Dependencies
 
-AUXGOALS := ocaml generator dev _CoqProjectDev clean clean_all
+AUXGOALS := ocaml generator dev _CoqProjectDev clean clean_all tests
 LIBCOQGOALS := libcoq libcoqs libcoqk
 
 ifeq ($(findstring $(MAKECMDGOALS),$(AUXGOALS) .depend_libcoq .depend_v .depend_ml),)
@@ -449,7 +457,7 @@ $(STDLIB)/%_ml.v $(STDLIB)/%.cmj: $(STDLIB)/%.ml $(STDLIB)/Pervasives.cmj $(CFML
 
 %.vo: %.v
 	@echo "Compiling $<"
-	$(COQC) $(COQINCLUDE) $<
+	$(COQC) $(COQINCLUDE) $< $(COQCDISPLAYERRORS)
 
 %.vos: %.v
 	@echo "Digesting $<"

@@ -1294,7 +1294,7 @@ Proof using.
 Qed.
 
 Lemma xval_lemma_inst : forall A `{EA:Enc A} (V:A) H,
-  H ==> ^(Wpgen_val V) (\[=V] \*+ H).
+  H ==> ^(Wpgen_val V) (fun x => \[x = V] \* H).
 Proof using. intros. apply xval_lemma. xsimpl*. Qed.
 
 Ltac xval_post tt :=
