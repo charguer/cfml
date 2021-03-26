@@ -27,11 +27,13 @@ Definition func : Type := val.
 (********************************************************************)
 (* Polymorphic comparison *)
 
+(* Axiomatization of polymorphic equality *) (* TODO: Move elsewhere *)
+
+Axiom polymorphic_eq_arg : forall (A:Type), A -> Prop.
+
 (* TODO: study the link with Comparable typeclass *)
 
 (** Values that support polymorphic comparison *)
-
-Axiom polymorphic_eq_arg : forall (A:Type), A -> Prop.
 
 Axiom polymorphic_eq_arg_unit : forall (v:unit),
   polymorphic_eq_arg v.
@@ -98,19 +100,6 @@ Hint Resolve
   polymorphic_eq_arg_tuple_4
   polymorphic_eq_arg_tuple_5
   : polymorphic_eq.
-
-(** Tactic [xpolymorphic_eq] attempts to automatically
-    solves goals of the form [polymorphic_eq_arg v].
-
-    Do not use this tactic in the body of a Hint Extern,
-    because it itself calls [eauto]. *)
-
-Ltac xpolymorphic_eq_core tt :=
-  eauto with polymorphic_eq.
-
-Tactic Notation "xpolymorphic_eq" :=
-  xpolymorphic_eq_core tt.
-
 
 
 (********************************************************************)

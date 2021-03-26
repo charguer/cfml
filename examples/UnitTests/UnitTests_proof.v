@@ -10,6 +10,23 @@ From TLC Require Import LibListZ.
 (********************************************************************)
 (********************************************************************)
 
+Tactic Notation "`" tactic(tac) :=
+  pose ltac_mark; tac; gen_until_mark.
+
+Lemma test : True -> True.
+`pose true.
+
+          (fun A EA Q => \exists H0, H0 \*
+             \[ exists (P1:forall A1, T -> Prop) H1,
+                   (forall A1 B1 EB1, H0 ==> C1 (fun r => \[P1 A1 r] \* H1))
+                /\ (forall (x1:forall A1,T), (forall A1, P1 A1 (x1 A1 E1)), H1 ==> C2 Q) ]
+         Defined as:
+           Wpgen_prop (fun A EA Q H => exists (P1:...) ... ) *)
+Notation "'LetPoly' x ':' T ':=' '{' B1 '}' F1 'in' F2" :=
+  (!LetPoly (fun H Q => exists P1 H1,
+         (forall B1, F1 H (fun (r:T) => \[P1 r] \* H1))
+      /\ forall x, (P1 x) -> F2 H1 Q))
+  (at level 69, x ident, T at level 0, B1 ident, right associativity) : charac.
 
 
 (********************************************************************)

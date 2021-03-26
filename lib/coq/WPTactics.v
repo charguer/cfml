@@ -10,7 +10,7 @@ License: CC-by 4.0.
 *)
 
 Set Implicit Arguments.
-From CFML Require Export WPLifted WPHeader.
+From CFML Require Export WPLifted WPHeader WPBuiltin.
 Import LibListExec.RewListExec.
 Open Scope heap_scope.
 Generalizable Variables A B.
@@ -601,7 +601,7 @@ Tactic Notation "xlet_trm_poly" constr(P1) constr(H1) "as" :=
 
 
 (* ---------------------------------------------------------------------- *)
-(** ** [xlet_fun] *)
+(** ** Internal tactic [xlet_fun] *)
 
 (* TODO: xlet_types/xlet_fun_types *)
 
@@ -786,7 +786,7 @@ Tactic Notation "xletrec_skip" constr(P) "as" :=
 
 
 (* ---------------------------------------------------------------------- *)
-(** ** [xlet_funs] -- TODO: not yet developed *)
+(** ** Internal tactic [xlet_funs] -- TODO: not yet developed *)
 
 (** [xlet_funs as] applies to mutually recursive functions. *)
 
@@ -802,6 +802,23 @@ Ltac xlet_funs_as_core tt :=
 
 Tactic Notation "xlet_funs" "as" :=
   xlet_funs_as_core tt.
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** Internal tactic [xpolymorphic_eq] for side-conditions about polymorphic comparisons *)
+
+Ltac xpolymorphic_eq_core tt :=
+  eauto with polymorphic_eq.
+
+Tactic Notation "xpolymorphic_eq" :=
+  xpolymorphic_eq_core tt.
+
+Ltac xapp_xpolymorphic_eq tt :=
+  let aux tt := try solve [ xpolymorphic_eq ] in
+  match goal with
+  | |- polymorphic_eq_arg _ => aux tt
+  | |- (polymorphic_eq_arg _ \/ polymorphic_eq_arg _) => aux tt
+  end.
 
 
 (************************************************************************ *)
@@ -1574,12 +1591,11 @@ Ltac xapp_select_lemma cont := (* TODO: factorize better with xapp_select_lemma 
   end
 *)
 
-Ltac xapp_xpolymorphic_eq tt :=
-  let aux tt := try solve [ xpolymorphic_eq ] in
-  match goal with
-  | |- polymorphic_eq_arg _ => aux tt
-  | |- (polymorphic_eq_arg _ \/ polymorphic_eq_arg _) => aux tt
-  end.
+(** Tactic [xpolymorphic_eq] attempts to automatically
+    solves goals of the form [polymorphic_eq_arg v].
+
+    Do not use this tactic in the body of a Hint Extern,
+    because it itself calls [eauto]. *)
 
 Ltac xapp_side_post tt :=
   xapp_xpolymorphic_eq tt.
