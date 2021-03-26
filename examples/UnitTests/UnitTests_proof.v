@@ -10,6 +10,7 @@ From TLC Require Import LibListZ.
 (********************************************************************)
 (********************************************************************)
 
+
 (*
 Lemma test : True -> True.
 `pose true.
@@ -19,7 +20,7 @@ Lemma test : True -> True.
                    (forall A1 B1 EB1, H0 ==> C1 (fun r => \[P1 A1 r] \* H1))
                 /\ (forall (x1:forall A1,T), (forall A1, P1 A1 (x1 A1 E1)), H1 ==> C2 Q) ]
          Defined as:
-           Wpgen_prop (fun A EA Q H => exists (P1:...) ... ) 
+           Wpgen_prop (fun A EA Q H => exists (P1:...) ... )
 Notation "'LetPoly' x ':' T ':=' '{' B1 '}' F1 'in' F2" :=
   (!LetPoly (fun H Q => exists P1 H1,
          (forall B1, F1 H (fun (r:T) => \[P1 r] \* H1))
@@ -36,7 +37,7 @@ Notation "'LetPoly' x ':' T ':=' '{' B1 '}' F1 'in' F2" :=
 
 Lemma let_poly_p0_spec :
   SPEC (let_poly_p0 tt)
-    PRE \[] 
+    PRE \[]
     POST \[= tt].
 Proof using.
   xcf. dup 5.
@@ -54,7 +55,7 @@ Abort.
 
 Lemma let_poly_p1_spec :
   SPEC (let_poly_p1 tt)
-    PRE \[] 
+    PRE \[]
     POST \[= tt].
 Proof using.
   xcf. xlet. xlet (fun B (r:option B) => r = None).
@@ -64,19 +65,19 @@ Qed.
 
 Lemma let_poly_p2_spec :
   SPEC (let_poly_p2 tt)
-    PRE \[] 
+    PRE \[]
     POST \[= tt].
 Proof using.
   xcf. xlet. xlet.
   { xlet (fun B (r:option B) => r = None).
     { xapp. xvals*. }
-    { xvals*. } } 
+    { xvals*. } }
   { xvals~. }
 Qed.
 
 Lemma let_poly_p3_spec :
   SPEC (let_poly_p3 tt)
-    PRE \[] 
+    PRE \[]
     POST \[= tt].
 Proof using.
   xcf.
@@ -89,7 +90,7 @@ Qed.
 
 Lemma let_poly_f0_spec : forall A,
   SPEC (let_poly_f0 tt)
-    PRE \[] 
+    PRE \[]
     POST \[= @nil A].
 Proof using.
   xcf. xapp. intros r. (* TODO: need to automate intro after xlet_cont followed with xapp? *)
@@ -98,7 +99,7 @@ Qed.
 
 Lemma let_poly_f1_spec : forall A,
   SPEC (let_poly_f1 tt)
-    PRE \[] 
+    PRE \[]
     POST \[= @nil A].
 Proof using.
   xcf. xapp. intros. xapp. xsimpl~.
@@ -106,7 +107,7 @@ Qed.
 
 Lemma let_poly_f2_spec : forall A,
   SPEC (let_poly_f2 tt)
-    PRE \[] 
+    PRE \[]
     POST \[= @nil A].
 Proof using.
   xcf. xapp. intros. xapp. xsimpl~.
@@ -114,7 +115,7 @@ Qed.
 
 Lemma let_poly_f3_spec :
   SPEC (let_poly_f3 tt)
-    PRE \[] 
+    PRE \[]
     POST \[= @nil int].
 Proof using.
   xcf. xapp. intros. xapp. xsimpl~.
@@ -122,14 +123,14 @@ Qed.
 
 Lemma let_poly_f4_spec :
   SPEC (let_poly_f4 tt)
-    PRE \[] 
+    PRE \[]
     POST \[= @nil int].
 Proof using.
   xcf. xapp. intros. xapp. xsimpl~.
 Qed.
 
 Lemma let_poly_g1_spec :
-  SPEC (let_poly_g1 tt) 
+  SPEC (let_poly_g1 tt)
     PRE \[]
     POST \[= 5::nil].
 Proof using.
@@ -137,16 +138,16 @@ Proof using.
 Qed.
 
 Lemma let_poly_g2_spec :
-  SPEC (let_poly_g2 tt) 
-    PRE \[] 
+  SPEC (let_poly_g2 tt)
+    PRE \[]
     POST \[= 4::nil].
 Proof using.
   xcf. xapp. intros. xapp. xapp. xsimpl~.
 Qed.
 
 Lemma let_poly_h0_spec : forall A,
-  SPEC (let_poly_h0 tt) 
-    PRE \[] 
+  SPEC (let_poly_h0 tt)
+    PRE \[]
     POST (fun (r:loc) => r ~~> (@nil A)).
 Proof using.
   xcf. xapp. intros. xvals~.
@@ -154,24 +155,24 @@ Qed.
 
 Lemma let_poly_h1_spec : forall A,
   SPEC (let_poly_h1 tt)
-    PRE \[] 
+    PRE \[]
     POST (fun (f:func) =>
       \[ SPEC (f tt)
-          PRE \[] 
+          PRE \[]
           POST (fun (r:loc) => r ~~> (@nil A)) ]).
 Proof using.
   xcf. xlet (fun g => \[ SPEC (g tt) PRE \[] POST (fun (r:loc) => r ~~> (@nil A)) ]).
   { xlet. xvals. xapp. xapp. xsimpl*. }
-  xpull. (* TODO: automate xpull after xlet Q1. *) 
+  xpull. (* TODO: automate xpull after xlet Q1. *)
   intros Hg. xvals. xapp. xsimpl*.
 Qed.
 
 Lemma let_poly_h2_spec : forall A,
   SPEC (let_poly_h2 tt)
-    PRE \[] 
+    PRE \[]
     POST (fun (f:func) =>
-      \[ SPEC (f tt) 
-          PRE \[] 
+      \[ SPEC (f tt)
+          PRE \[]
           POST (fun (r:loc) => r ~~> (@nil A)) ]).
 Proof using.
   xcf. xlet. xvals. xapp. xapp. xsimpl*.
@@ -179,7 +180,7 @@ Qed.
 
 Lemma let_poly_h3_spec : forall A,
   SPEC (let_poly_h3 tt)
-    PRE \[] 
+    PRE \[]
     POST (fun (r:loc) => r ~~> (@nil A)).
 Proof using.
   xcf. xlet. xapp. xapp. xsimpl*.
@@ -187,7 +188,7 @@ Qed.
 
 Lemma let_poly_k1_spec : forall A,
   SPEC (let_poly_k1 tt)
-    PRE \[] 
+    PRE \[]
     POST \[= @nil A].
 Proof using.
   xcf. xvals~.
@@ -195,7 +196,7 @@ Qed.
 
 Lemma let_poly_k2_spec : forall A,
   SPEC (let_poly_k2 tt)
-    PRE \[] 
+    PRE \[]
     POST (fun (r:loc) => r ~~> (@nil A)).
 Proof using.
   xcf. xapp. xsimpl*.
@@ -203,7 +204,7 @@ Qed.
 
 Lemma let_poly_r1_spec :
   SPEC (let_poly_r1 tt)
-    PRE \[] 
+    PRE \[]
     POST \[= tt].
 Proof using.
   xcf. xapp. intros. xvals~.
@@ -212,7 +213,7 @@ Qed.
 
 Lemma let_poly_r2_spec : forall A,
   SPEC (let_poly_r2 tt)
-    PRE \[] 
+    PRE \[]
     POST \[= @nil A].
 Proof using.
   xcf. xlet. (* TODO: xlet_val should be automated before xapp. *)
@@ -221,7 +222,7 @@ Qed.
 
 Lemma let_poly_r3_spec : forall A,
   SPEC (let_poly_r3 tt)
-    PRE \[] 
+    PRE \[]
     POST \[= @nil A].
 Proof using.
   xcf. xlet (fun A (r:list A) => r = nil).
@@ -1691,7 +1692,7 @@ Lemma pitems_get_nb_spec : forall (A:Type) `{EA:Enc A} (L:list A) (r:pitems_ A) 
   r = {| pnb' := n; pitems' := L; pother' := tt |} ->
   SPEC (pitems_get_nb r)
     PRE \[]
-    POST \[= n].
+    POST \[= n + 1].
 Proof using.
   { xcf_go*. subst*. }
 Qed.

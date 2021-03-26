@@ -678,7 +678,7 @@ let pitems_build n =
   { pitems = []; pnb = n; pother = () }
 
 let pitems_get_nb r =
-  r.pnb
+  succ r.pnb
 
 let pitems_with r =
   let r1 = { r with pitems = [1] } in

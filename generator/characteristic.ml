@@ -277,12 +277,20 @@ let get_record_decomposed_name_for_exp e =
 (*#########################################################################*)
 (* ** Type arity functions *)
 
+type var_info = {
+  arity : int;
+  inline : coq option; }
+
+type env = var_info Ident.tbl
+
 (** Get the number of type arguments of a (polymorphic) free variable *)
 
-let typ_arity_var env x =
+let typ_arity_var (env:env) x =
    match x with
    | Path.Pident id ->
-      begin try Ident.find_same id env
+      begin try
+        let info = Ident.find_same id env in
+        info.arity
       with Not_found -> 0 end
    | _ -> 0
 
@@ -621,7 +629,20 @@ let rec lift_val env e =
      not_in_normal_form loc ("in liftval: " ^ Print_tast.string_of_expression false e) in
    match e.exp_desc with
    | Texp_ident (p,d) ->
-     lift_exp_path loc env e.exp_type p
+       (* Undoing the inlining of pure record field access *)
+       let inlinedc =
+         match p with
+         | Path.Pident id ->
+            begin try
+              let info = Ident.find_same id env in
+              info.inline
+            with Not_found -> None end
+         | _ -> None
+         in
+       begin match inlinedc with
+       | Some c -> c
+       | None -> lift_exp_path loc env e.exp_type p
+       end
    | Texp_open (p, _) ->
      assert false
    | Texp_constant (Const_int n) ->
@@ -853,30 +874,29 @@ let rec cfg_exp env e =
              with Not_in_normal_form (loc2, s) ->
                 raise (Not_in_normal_form (loc2, s ^ " (only value can satisfy the value restriction TODO1)"))
              in
-           let (fvs_strict, fvs_others, typ) = get_fvs_typ loc fvs pat.pat_type in
-           if fvs_others != []
-              then unsupported loc "polymorphic let-value binding whose type-checking involves type variables that are not contained in the result type.";
-           let env' = Ident.add (pattern_ident pat) (List.length fvs_strict) env in
-           let cf = cfg_exp env' body in
-           add_used_label x;
-           Cf_let_val (x, fvs_strict, typ, v, cf)
+
+           (* Special case: undoing the inling of pure record field access *)
+           match bod.exp_desc with
+           | Texp_field (arg, p, lbl) ->
+                let _fields, immutable = record_field_names_and_immutability_of_label lbl in
+                assert (immutable);
+               let env' = Ident.add (pattern_ident pat) { arity = 0; inline = Some v } env in
+               cfg_exp env' body
+
+           | _ ->
+
+               let (fvs_strict, fvs_others, typ) = get_fvs_typ loc fvs pat.pat_type in
+               if fvs_others != []
+                  then unsupported loc "polymorphic let-value binding whose type-checking involves type variables that are not contained in the result type.";
+               let env' = Ident.add (pattern_ident pat) { arity = List.length fvs_strict; inline = None } env in
+               let cf = cfg_exp env' body in
+               add_used_label x;
+               Cf_let_val (x, fvs_strict, typ, v, cf)
 
         (* term let-binding *)
         end else begin
 
-           (* DEPRECATED
-              if fvs = [] then begin
-                 (* Simple form without polymorphism *)
-                 let cf1 = cfg_exp env bod in
-                 let typ = lift_typ_exp loc pat.pat_type in
-                 let env' = Ident.add (pattern_ident pat) 0 env in
-                 let cf2 = cfg_exp env' body in
-                 add_used_label x;
-                 Cf_let ((x,typ), cf1, cf2)
-              end else
-              (* General form with polymorphism *)
-           *)
-
+            (* General case *)
             begin
 
               let cf1 =
@@ -892,7 +912,7 @@ let rec cfg_exp env e =
               let fvs = List.map name_of_type_var (List.filter typvar_is_used fvs) in
               let fvs_strict = list_intersect fvs fvs_typ in
               let fvs_others = list_minus fvs fvs_strict in
-              let env' = Ident.add (pattern_ident pat) (List.length fvs_strict) env in
+              let env' = Ident.add (pattern_ident pat) { arity = List.length fvs_strict; inline = None } env in
               let cf2 = cfg_exp env' body in
               add_used_label x;
               if fvs_strict = [] && fvs_others = []
@@ -906,6 +926,19 @@ let rec cfg_exp env e =
                      not_in_normal_form loc ("(un value restriction) "
                         ^ (Print_tast.string_of_expression false e));*)
            end;
+
+              (* DEPRECATED
+                if fvs = [] then begin
+                   (* Simple form without polymorphism *)
+                   let cf1 = cfg_exp env bod in
+                   let typ = lift_typ_exp loc pat.pat_type in
+                   let env' = Ident.add (pattern_ident pat) 0 env in
+                   let cf2 = cfg_exp env' body in
+                   add_used_label x;
+                   Cf_let ((x,typ), cf1, cf2)
+                end else
+                (* General form with polymorphism *)
+               *)
 
 
         end
