@@ -5,7 +5,7 @@ SHELL := bash
 ###############################################################################
 # Readme
 #
-# $(OCAML_INCLUDE) should contain -I directives (with absolute paths).
+# $(OCAML_INCLUDE) should contain -I directives.
 # Optionally, $(CFML_FLAGS) can be set (e.g. to "-rectypes").
 # Optionally, $(ML) can be used to specify the sources files (default: *.ml)
 #
@@ -83,14 +83,12 @@ endif
 # ocamldep must be passed appropriate -I flags, as it searches the file system
 # to find where each module is stored. We assume that these flags are given by
 # $(OCAML_INCLUDE).
-# By using ocamldep in this way, we obtain dependencies that mention absolute
-# path names, as desired. We cannot use ocamldep -modules because it does not
-# perform this search and does not produce absolute path names.
 
 # ocamldep does not reliably print absolute path names -- its output depends
 # on the current directory! it omits the absolute path if it coincides with
-# the current directory. So, we change the current directory to /tmp before
-# invoking ocamldep.
+# the current directory. If absolute path names are desired, one can change
+# the current directory to /tmp before invoking ocamldep. Of course, this
+# requires $(OCAML_INCLUDE) and $< to contains absolute paths, too.
 
 # ocamldep produces the following dependencies:
 #   A.cmo: B.cmi (or B.cmo, depending on the existence of B.mli, I think)
@@ -104,7 +102,7 @@ endif
 SED := $(shell if command -v gsed >/dev/null ; then echo gsed ; else echo sed ; fi)
 
 %.d: %.ml
-	(cd /tmp && $(OCAMLDEP) -one-line $(OCAML_INCLUDE) $<) \
+	$(OCAMLDEP) -one-line $(OCAML_INCLUDE) $< \
 	  | grep cmx \
 	  | $(SED) -e "s/\\.cm\\(x\\|i\\)/\\.cmj/g" \
 	  | $(OCAMLPOST) \
