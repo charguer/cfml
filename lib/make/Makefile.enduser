@@ -43,7 +43,7 @@ ML := \
   $(filter-out myocamlbuild.ml,$(shell ls *.ml))
 
 OCAML_INCLUDE := \
-  -I $(PWD)
+  -I .
 
 ML_MAIN := \
   $(ML)
