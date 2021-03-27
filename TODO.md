@@ -1,8 +1,10 @@
 # TO DO
 
-* Use `CFML ?= ...`. Use `-include Makefile.local`.
-  Generate `_CoqProject`.
-  Think about merging `Makefile` and `Makefile.dev` under a conditional.
+* Use `CFML ?= ...`.
+  Use `-include Makefile.local`.
+  Merge `Makefile` and `Makefile.dev` under a conditional.
+
+* README.md: note that `opam pin add` is the correct command.
 
 * Update the release scripts. (Replace DATEDASH in the `.opam` files.)
 
