@@ -27,7 +27,7 @@ SHELL := bash
 # run in a second stage. This means we write fewer Makefiles, they
 # are really independent, and dependency computations are simpler.
 
-CFML := $(shell cfmlc -where)
+CFML ?= $(shell cfmlc -where)
 
 ############################################################################
 # Verbosity control.

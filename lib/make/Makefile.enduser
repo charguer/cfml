@@ -18,7 +18,7 @@
 ##############################################################################
 # Several auxiliary Makefiles are installed in this directory.
 
-CFML := $(shell cfmlc -where)
+CFML ?= $(shell cfmlc -where)
 
 ##############################################################################
 
