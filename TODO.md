@@ -1,10 +1,6 @@
 # TO DO
 
-* Use `CFML ?= ...`.
-  Use `-include Makefile.local`.
-  Merge `Makefile` and `Makefile.dev` under a conditional.
-
-* README.md: note that `opam pin add` is the correct command.
+* Merge `Makefile` and `Makefile.dev` under a conditional.
 
 * Update the release scripts. (Replace DATEDASH in the `.opam` files.)
 
