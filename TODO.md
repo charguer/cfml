@@ -1,5 +1,9 @@
 # TO DO
 
+* Use `CFML ?= ...`. Use `-include Makefile.local`.
+  Generate `_CoqProject`.
+  Think about merging `Makefile` and `Makefile.dev` under a conditional.
+
 * Update the release scripts. (Replace DATEDASH in the `.opam` files.)
 
 * Create some form of documentation, and link to it from `README.md`.
