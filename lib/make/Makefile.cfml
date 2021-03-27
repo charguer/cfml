@@ -32,9 +32,8 @@ CFML := $(shell cfmlc -where)
 ############################################################################
 # Verbosity control.
 
-# Our commands are pretty long (due, among other things, to the use of
-# absolute paths everywhere). So, we hide them by default, and echo a short
-# message instead. However, sometimes one wants to see the command.
+# Our commands can be pretty long. So, we hide them by default, and echo a
+# short message instead. However, sometimes one wants to see the command.
 
 # By default, VERBOSE is undefined, so the .SILENT directive is read, so no
 # commands are echoed. If VERBOSE is defined by the user, then the .SILENT
@@ -124,11 +123,11 @@ SED := $(shell if command -v gsed >/dev/null ; then echo gsed ; else echo sed ; 
 
 %.cmj: %.ml $(shell command -v cfmlc)
 	@ echo "CFMLC `basename $<`"
-	@ cfmlc $(CFML_FLAGS) $(OCAML_INCLUDE) $<
+	cfmlc $(CFML_FLAGS) $(OCAML_INCLUDE) $<
 
 ###############################################################################
 # Clean
 
 clean:
-	rm -f *.cmj *_mlv. *.d
+	rm -f *.cmj *_ml.v *.d
 	rm -rf _output

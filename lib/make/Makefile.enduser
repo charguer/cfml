@@ -75,8 +75,14 @@ clean::
 ##############################################################################
 # Phase 3. Compilation using Coq.
 
+# The _CoqProject file is generated.
+
+# For this purpose, the user must set COQPATH and COQFLAGS appropriately.
+
+include $(CFML)/Makefile.coqproject
+
 .PHONY: phase3
-phase3:
+phase3: _CoqProject
 	@ $(MAKE) -f $(CFML)/Makefile.generic
 
 clean::

@@ -16,9 +16,14 @@
 
 # The recipes in Makefile.generic rely on coq_makefile.
 
-# The name of the library, CFML.Stdlib, is specified in the file _CoqProject.
+# The _CoqProject file is generated.
+
+COQINCLUDE := "-R . CFML.Stdlib"
+
+COQWARNINGS := "-w -notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths,-irrelevant-format-only-parsing,-deprecated-hint-without-locality"
 
 all: cmj
+	@ $(MAKE) _CoqProject
 	@ $(MAKE) -f ../make/Makefile.generic $@
 
 install:: all
@@ -26,6 +31,8 @@ install:: all
 
 clean uninstall::
 	@ $(MAKE) -f ../make/Makefile.generic $@
+
+include ../make/Makefile.coqproject
 
 ##############################################################################
 

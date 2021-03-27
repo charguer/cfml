@@ -2,7 +2,7 @@
 (install
   (package cfml)
   (section lib)
-  (files Makefile.cfml Makefile.generic Makefile.enduser)
+  (files Makefile.cfml Makefile.generic Makefile.enduser Makefile.coqproject)
 )
 ;; Install ocamldep.post in <opam root>/lib/cfml,
 ;; with the executable bit set.
