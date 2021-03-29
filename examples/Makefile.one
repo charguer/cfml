@@ -1,0 +1,14 @@
+# Makefile for compiling one given example folder.
+
+CFML ?= $(shell cfmlc -where)
+
+COQINCLUDE ?= "-R .. EXAMPLES"
+
+COQWARNINGS ?= "-w -notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths,-irrelevant-format-only-parsing,-deprecated-hint-without-locality,-deprecated-ident-entry,-custom-entry-overridden"
+
+# TODO: needs to be generalized for handling dependencies between example folders
+# - one possibility is for each development to explicitly list its dependencies
+# - another possibility is to call Makefile by making it precise what the final targets 
+#   are. What is tricky is to identify which are the *.ml that are involved from EXAMPLES.
+
+include $(CFML)/Makefile.enduser

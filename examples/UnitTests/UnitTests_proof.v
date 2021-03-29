@@ -2,7 +2,7 @@ Set Implicit Arguments.
 From CFML Require Import WPLib.
 From CFML Require Import Stdlib.
 From CFML Require Import Stdlib.Array_proof.
-From UnitTests Require Import UnitTests_ml.
+From EXAMPLES Require Import UnitTests_ml.
 From TLC Require Import LibListZ.
 
 (* TODO: pb of res__ variable showing up, due to \*+ simplification *)

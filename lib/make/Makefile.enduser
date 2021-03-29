@@ -60,7 +60,9 @@ phase1:
 	@ $(OCAMLBUILD) $(ML_MAIN:.ml=.native)
 
 clean::
+	rm -f *.native
 	@ $(OCAMLBUILD) -clean
+
 
 ##############################################################################
 # Phase 2. Translation using CFML.
