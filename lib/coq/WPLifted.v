@@ -1202,14 +1202,14 @@ Notation "'LetFun' f ':=' B1 'in' F1" :=
 
 (** Body is not in 'custom wp', on purpose *)
 
-Notation "'Body' f v1 ':=' F1" :=
+Notation "'Body' f v1 ':=' F1" := (* ok *)
  ((*Wptag*) (Wpgen_body (forall v1 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::nil)) A EA H Q)))
  (at level 69,
-  f ident,
+  f constr at level 0,
   v1 constr,
-  F1 custom wp at level 99,
+  F1 at level 99,
   right associativity,
   format "'[v' '[' 'Body'  f  v1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 
@@ -1218,10 +1218,10 @@ Notation "'Body' f v1 v2 ':=' F1" :=
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
  (at level 69,
-  f ident,
+  f constr at level 0,
   v1 constr,
   v2 constr,
-  F1 custom wp at level 99,
+  F1 at level 99,
   right associativity,
   format "'[v' '[' 'Body'  f  v1  v2  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 
@@ -1230,11 +1230,11 @@ Notation "'Body' f v1 v2 v3 ':=' F1" :=
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))
  (at level 69,
-  f ident,
+  f constr at level 0,
   v1 constr,
   v2 constr,
   v3 constr,
-  F1 custom wp at level 99,
+  F1 at level 99,
   right associativity,
   format "'[v' '[' 'Body'  f  v1  v2  v3  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 
@@ -1243,129 +1243,245 @@ Notation "'Body' f v1 v2 v3 v4 ':=' F1" :=
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::(@dyn_make _ _ v4)::nil)) A EA H Q)))
  (at level 69,
-  f ident,
+  f constr at level 0,
   v1 constr,
   v2 constr,
   v3 constr,
   v4 constr,
-  F1 custom wp at level 99,
+  F1 at level 99,
   right associativity,
   format "'[v' '[' 'Body'  f  v1  v2  v3  v4  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 
 (** Polymorphic variants of body-- TODO: only up to 3 polymorphic variables supported *)
 
-Notation "'Body' f { B1 } v1 ':=' F1" :=
+Notation "'Body' f v1 ':=' { B1 [ EB1 ] } F1" := (* ok *)
+ ((*Wptag*) (Wpgen_body (forall B1 (EB1:Enc B1) v1 H A (EA:Enc A) Q,
+   (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
+   @Triple (Trm_apps f ((@dyn_make _ _ v1)::nil)) A EA H Q)) )
+ (at level 69,
+  f constr at level 0,
+  v1 at level 0,
+  right associativity,
+  F1 at level 99,
+  format "'[v' '[' 'Body'  f  v1  ':='  { B1  [ EB1 ] }  '/'  '[' F1 ']' ']' ']'" ) : wp_scope.
+
+Notation "'Body' f { B1 [ EB1 ] } v1 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 v1 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::nil)) A EA H Q)))
  (at level 69,
-  f ident,
+  f constr at level 0,
   v1 constr,
-  F1 custom wp at level 99,
+  F1 at level 99,
   right associativity,
-  format "'[v' '[' 'Body'  f  { B1 }  v1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+  format "'[v' '[' 'Body'  f  { B1  [ EB1 ] }  v1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 
-Notation "'Body' f { B1 B2 } v1 ':=' F1" :=
+Notation "'Body' f { B1 B2 [ EB1 EB2 ] } v1 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 v1 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::nil)) A EA H Q)))
  (at level 69,
-  f ident,
+  f constr at level 0,
   v1 constr,
-  F1 custom wp at level 99,
+  F1 at level 99,
   right associativity,
-  format "'[v' '[' 'Body'  f  { B1  B2 }  v1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+  format "'[v' '[' 'Body'  f  { B1  B2  [ EB1  EB2 ] }  v1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 
-Notation "'Body' f { B1 B2 B3 } v1 ':=' F1" :=
+Notation "'Body' f { B1 B2 B3  [ EB1 EB2 EB3 ] } v1 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 B3 EB3 v1 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::nil)) A EA H Q)))
  (at level 69,
-  f ident,
+  f constr at level 0,
   v1 constr,
-  F1 custom wp at level 99,
+  F1 at level 99,
   right associativity,
-  format "'[v' '[' 'Body'  f  { B1  B2  B3 }  v1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+  format "'[v' '[' 'Body'  f  { B1  B2  B3  [ EB1  EB2  EB3 ] }  v1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 
-Notation "'Body' f { B1 } v1 v2 ':=' F1" :=
+Notation "'Body' f { B1 [ EB1 ] } v1 v2 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 v1 v2 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
  (at level 69,
-  f ident,
+  f constr at level 0,
   v1 constr,
   v2 constr,
-  F1 custom wp at level 99,
+  F1 at level 99,
   right associativity,
-  format "'[v' '[' 'Body'  f  { B1 }  v1  v2  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+  format "'[v' '[' 'Body'  f  { B1  [ EB1 ] }  v1  v2  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 
-Notation "'Body' f { B1 B2 } v1 v2 ':=' F1" :=
+Notation "'Body' f { B1 B2 [ EB1 EB2 ] } v1 v2 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 v1 v2 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
  (at level 69,
-  f ident,
+  f constr at level 0,
   v1 constr,
   v2 constr,
-  F1 custom wp at level 99,
+  F1 at level 99,
   right associativity,
-  format "'[v' '[' 'Body'  f  { B1  B2 } v1  v2  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+  format "'[v' '[' 'Body'  f  { B1  B2  [ EB1  EB2 ] } v1  v2  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 
-Notation "'Body' f { B1 B2 B3 } v1 v2 ':=' F1" :=
+Notation "'Body' f { B1 B2 B3  [ EB1 EB2 EB3 ] } v1 v2 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 B3 EB3 v1 v2 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
  (at level 69,
-  f ident,
+  f constr at level 0,
   v1 constr,
   v2 constr,
-  F1 custom wp at level 99,
+  F1 at level 99,
   right associativity,
-  format "'[v' '[' 'Body'  f  { B1  B2  B3 }  v1  v2  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+  format "'[v' '[' 'Body'  f  { B1  B2  B3  [ EB1  EB2  EB3 ] }  v1  v2  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 
-Notation "'Body' f { B1 } v1 v2 v3 ':=' F1" :=
+Notation "'Body' f { B1 [ EB1 ] } v1 v2 v3 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 v1 v2 v3 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))
  (at level 69,
-  f ident,
+  f constr at level 0,
   v1 constr,
   v2 constr,
   v3 constr,
-  F1 custom wp at level 99,
+  F1 at level 99,
   right associativity,
-  format "'[v' '[' 'Body'  f  { B1 }  v1  v2  v3  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+  format "'[v' '[' 'Body'  f  { B1  [ EB1 ] }  v1  v2  v3  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 
-Notation "'Body' f { B1 B2 } v1 v2 v3 ':=' F1" :=
+Notation "'Body' f { B1 B2 [ EB1 EB2 ] } v1 v2 v3 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 v1 v2 v3 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))
  (at level 69,
-  f ident,
+  f constr at level 0,
   v1 constr,
   v2 constr,
   v3 constr,
-  F1 custom wp at level 99,
+  F1 at level 99,
   right associativity,
-  format "'[v' '[' 'Body'  f  { B1  B2 }  v1  v2  v3  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+  format "'[v' '[' 'Body'  f  { B1  B2  [ EB1  EB2 ]  }  v1  v2  v3  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 
-Notation "'Body' f { B1 B2 B3 } v1 v2 v3 ':=' F1" :=
+Notation "'Body' f { B1 B2 B3  [ EB1 EB2 EB3 ] } v1 v2 v3 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 B3 EB3 v1 v2 v3 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))
  (at level 69,
-  f ident,
+  f constr at level 0,
   v1 constr,
   v2 constr,
   v3 constr,
-  F1 custom wp at level 99,
+  F1 at level 99,
   right associativity,
-  format "'[v' '[' 'Body'  f  { B1  B2  B3 }  v1  v2  v3  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
+  format "'[v' '[' 'Body'  f  { B1  B2  B3  [ EB1  EB2  EB3 ] }  v1  v2  v3  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 
 (* TODO: work on recursive notations for Body *)
 
 (* TODO: generalize let-fun to recursive functions *)
 
+
+(* ********************************************************************** *)
+(* ** Polymorphic let *)
+
+(* LetPoly 0 *)
+
+Notation "'LetPoly' x : T ':=' { B1 [ EB1 ] } F1 'in' F2" :=
+  (Wpgen_let_trm_poly (fun A (EA:Enc A) Q H => exists P1 H1,
+     (forall B1 (EB1:Enc B1), H ==> F1 T _ (fun r => \[P1 r] \* H1))
+   /\ (forall x, (P1 x) -> H1 ==> F2 _ _ Q) ))
+  (in custom wp at level 69,
+   only printing,
+   x ident,
+   F1 custom wp at level 99,
+   F2 custom wp at level 99,
+   right associativity,
+   format "'[v' '[' 'LetPoly'  x  :  T  ':='  { B1 [ EB1 ] } '/' '['   F1 ']'  'in' ']' '/' '[' F2 ']' ']'") : wp_scope.
+
+Notation "'LetPoly' x : T ':=' { B1 B2 [ EB1 EB2 ] } F1 'in' F2" :=
+  (Wpgen_let_trm_poly (fun A (EA:Enc A) Q H => exists P1 H1,
+     (forall B1 (EB1:Enc B1) B2 (EB2:Enc B2), H ==> F1 T _ (fun r => \[P1 r] \* H1))
+   /\ (forall x, (P1 x) -> H1 ==> F2 _ _ Q) ))
+  (in custom wp at level 69,
+   only printing,
+   x ident,
+   F1 custom wp at level 99,
+   F2 custom wp at level 99,
+   right associativity,
+   format "'[v' '[' 'LetPoly'  x  :  T  ':='  { B1 B2 [ EB1 EB2 ] } '/' '['   F1 ']'  'in' ']' '/' '[' F2 ']' ']'") : wp_scope.
+
+(* LetPoly 1 *)
+
+Notation "'LetPoly' x { A1 } : T ':=' F1 'in' F2" :=
+  (Wpgen_let_trm_poly (fun A (EA:Enc A) Q H => exists P1 H1,
+     (forall A1, H ==> F1 T _ (fun x => \[P1 A1 x] \* H1))
+   /\ (forall x, (forall A1, P1 A1 (x A1)) -> H1 ==> F2 _ _ Q) ))
+  (in custom wp at level 69,
+   only printing,
+   x ident,
+   F1 custom wp at level 99,
+   F2 custom wp at level 99,
+   right associativity,
+   format "'[v' '[' 'LetPoly'  x  { A1 }  :  T  ':='  '['   F1 ']'  'in' ']' '/' '[' F2 ']' ']'") : wp_scope.
+
+Notation "'LetPoly' x { A1 } : T ':=' { B1 [ EB1 ] } F1 'in' F2" :=
+  (Wpgen_let_trm_poly (fun A (EA:Enc A) Q H => exists P1 H1,
+     (forall A1 B1 (EB1:Enc B1), H ==> F1 T _ (fun x => \[P1 A1 x] \* H1))
+   /\ (forall x, (forall A1, P1 A1 (x A1)) -> H1 ==> F2 _ _ Q) ))
+  (in custom wp at level 69,
+   only printing,
+   x ident,
+   F1 custom wp at level 99,
+   F2 custom wp at level 99,
+   right associativity,
+   format "'[v' '[' 'LetPoly'  x  { A1 }  :  T  ':='  { B1  [ EB1 ] } '/' '['   F1 ']'  'in' ']' '/' '[' F2 ']' ']'") : wp_scope.
+
+Notation "'LetPoly' x { A1 } : T ':=' { B1 B2 [ EB1 EB2 ] } F1 'in' F2" :=
+  (Wpgen_let_trm_poly (fun A (EA:Enc A) Q H => exists P1 H1,
+     (forall A1 B1 (EB1:Enc B1) B2 (EB2:Enc B2), H ==> F1 T _ (fun x => \[P1 A1 x] \* H1))
+   /\ (forall x, (forall A1, P1 A (x A1)) -> H1 ==> F2 Q) ))
+  (in custom wp at level 69,
+   only printing,
+   x ident,
+   F1 custom wp at level 99,
+   F2 custom wp at level 99,
+   right associativity,
+   format "'[v' '[' 'LetPoly'  x  { A1 }  :  T  ':='  { B1 B2 [ EB1 EB2 ] } '/' '['   F1 ']'  'in' ']' '/' '[' F2 ']' ']'") : wp_scope.
+
+(* LetPoly 2 *)
+
+Notation "'LetPoly' x { A1 A2 } : T ':=' F1 'in' F2" :=
+  (Wpgen_let_trm_poly (fun A (EA:Enc A) Q H => exists P1 H1,
+     (forall A1 A2, H ==> F1 T _ (fun x => \[P1 A1 A2 x] \* H1))
+   /\ (forall x, (forall A1 A2, P1 A (x A1 A2)) -> H1 ==> F2 _ _ Q) ))
+  (in custom wp at level 69,
+   only printing,
+   x ident,
+   F1 custom wp at level 99,
+   F2 custom wp at level 99,
+   right associativity,
+   format "'[v' '[' 'LetPoly'  x  { A1  A2 }  :  T ':='  '['   F1 ']'  'in' ']' '/' '[' F2 ']' ']'") : wp_scope.
+
+Notation "'LetPoly' x { A1 A2 } : T ':=' { B1 [ EB1 ] } F1 'in' F2" :=
+  (Wpgen_let_trm_poly (fun A (EA:Enc A) Q H => exists P1 H1,
+     (forall A1 A2 B1 (EB1:Enc B1), H ==> F1 T _ (fun x => \[P1 A1 A2 x] \* H1))
+   /\ (forall x, (forall A1 A2, P1 A1 A2 (x A1 A2)) -> H1 ==> F2 _ _ Q) ))
+  (in custom wp at level 69,
+   only printing,
+   x ident,
+   F1 custom wp at level 99,
+   F2 custom wp at level 99,
+   right associativity,
+   format "'[v' '[' 'LetPoly'  x  { A1  A2 }  :  T ':='  { B1 [ EB1 ] } '/' '['   F1 ']'  'in' ']' '/' '[' F2 ']' ']'") : wp_scope.
+
+Notation "'LetPoly' x { A1 A2 } : T ':=' { B1 B2 [ EB1 EB2 ] } F1 'in' F2" :=
+  (Wpgen_let_trm_poly (fun A (EA:Enc A) Q H => exists P1 H1,
+     (forall A1 A2 B1 (EB1:Enc B1) B2 (EB2:Enc B2), H ==> F1 T _ (fun x => \[P1 A1 A2 x] \* H1))
+   /\ (forall x, (forall A1 A2, P1 A1 A2 (x A1 A2)) -> H1 ==> F2 _ _ Q) ))
+  (in custom wp at level 69,
+   only printing,
+   x ident,
+   F1 custom wp at level 99,
+   F2 custom wp at level 99,
+   right associativity,
+   format "'[v' '[' 'LetPoly'  x  { A1  A2 }  :  T ':='  { B1 B2 [ EB1 EB2 ] } '/' '['   F1 ']'  'in' ']' '/' '[' F2 ']' ']'") : wp_scope.
 
 (* ********************************************************************** *)
 (* ** Pattern Matching Cases *)
