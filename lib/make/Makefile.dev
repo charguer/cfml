@@ -124,8 +124,8 @@ endif
 
 # Ocamldep include folder.
 
-ifndef OCAML_INCLUDE
-	OCAML_INCLUDE := -I .
+ifndef OCAMLINCLUDE
+	OCAMLINCLUDE := -I .
 endif
 
 
@@ -344,7 +344,7 @@ dev: _CoqProjectDev
 # It it important to export parameters to recursive calls for "make depend"
 # NOT EXPORTED BECAUSE OF THE 'EMPTY' TWEAK export ML V_AUX EXAMPLEINCLUDE
 export CFML
-export OCAML_INCLUDE
+export OCAMLINCLUDE
 export COQBIN 
 export TLC 
 export COQWARNINGS
@@ -503,7 +503,7 @@ SED := $(shell if command -v gsed >/dev/null ; then echo gsed ; else echo sed ; 
 
 .depend_ml: $(ML)
 	@echo "Computing $@"
-	($(OCAMLDEP) -one-line $(OCAML_INCLUDE) $^) \
+	($(OCAMLDEP) -one-line $(OCAMLINCLUDE) $^) \
 	  | grep cmx \
 	  | $(SED) -e "s/\\.cm\\(x\\|i\\)/\\.cmj/g" \
 	  > $@
@@ -537,7 +537,7 @@ $(STDLIB)/%_ml.v $(STDLIB)/%.cmj: $(STDLIB)/%.ml $(STDLIB)/Pervasives.cmj $(CFML
 
 %.cmj: %.ml $(STDLIB_CMJ) $(CFMLC)
 	@echo "Generating $*_ml.v"
-	$(CFMLC) -I $(STDLIB) $(OCAML_INCLUDE) -I . $< || (rm -f $@; exit 1)
+	$(CFMLC) -I $(STDLIB) $(OCAMLINCLUDE) -I . $< || (rm -f $@; exit 1)
 
 
 ############################################################################

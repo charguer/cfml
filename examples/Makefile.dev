@@ -5,7 +5,7 @@ EXAMPLE_DIRS=$(shell ls -d -- */)
 
 # TODO: use a list of directories
 
-OCAML_INCLUDE := $(addprefix -I , $(EXAMPLE_DIRS))
+OCAMLINCLUDE := $(addprefix -I , $(EXAMPLE_DIRS))
 
 ML := $(filter-out Tutorial/%,$(wildcard */*.ml))
 
