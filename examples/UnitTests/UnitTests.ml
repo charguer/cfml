@@ -82,6 +82,10 @@ let let_val_int () =
    let x = 3 in
    x
 
+let let_val_add_int () =
+   let x = 3 + (4 + 2) in
+   x
+
 let let_val_pair_int () =
    let x = (3,4) in
    x

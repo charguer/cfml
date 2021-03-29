@@ -11,6 +11,7 @@ From TLC Require Import LibListZ.
 (********************************************************************)
 
 
+
 (*
 Lemma test : True -> True.
 `pose true.
@@ -433,16 +434,21 @@ Lemma let_val_int_spec :
     PRE \[]
     POST \[= 3].
 Proof using.
-  xcf. xlet_val. xvals*.
-  (* TODO dup 7.
-  xval. xvals~.
-  (* demos *)
-  xval as r. xvals~.
-  xval as r Er. xvals~.
-  xvals. xvals~.
-  xval_st (= 3). auto. xvals~.
-  xval_st (= 3) as r. auto. xvals~.
-  xval_st (= 3) as r Er. auto. xvals~. *)
+  xcf. dup 3.
+  { xlet_val. xvals*. }
+  { xlet. xvals*. }
+  { xlets. xvals*. }
+Qed.
+
+Lemma let_val_add_int_spec :
+  SPEC (let_val_add_int tt)
+    PRE \[]
+    POST \[= 9].
+Proof using.
+  xcf. dup 3.
+  { xlet_val. xvals*. }
+  { xlet. xvals*. }
+  { xlets. xvals*. }
 Qed.
 
 Lemma let_val_pair_int_spec :
