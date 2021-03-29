@@ -1,4 +1,31 @@
-# This makefile is meant to be invoked from one subfolder
-CFML := ../..
-# TEMPORARY EXAMPLEINCLUDE := -R .. EXAMPLE
-include ../../lib/make/Makefile.dev
+CFML := ..
+EXAMPLEINCLUDE := -R . EXAMPLES
+
+EXAMPLE_DIRS=$(shell ls -d -- */)
+
+# TODO: use a list of directories
+
+OCAML_INCLUDE := $(addprefix -I , $(EXAMPLE_DIRS))
+
+ML := $(filter-out Tutorial/%,$(wildcard */*.ml))
+
+V_AUX := $(filter-out %_ml.v %_proof.v,$(wildcard */*.v))
+
+ifeq ($(V_AUX),)
+	V_AUX := EMPTY
+endif
+
+OPENINIDE := $(wildcard */*_proof.v)
+
+include $(CFML)/lib/make/Makefile.dev
+
+
+###################################
+# clean up
+
+clean:: clean-examples
+	
+clean-examples: $(EXAMPLE_DIRS)
+
+$(EXAMPLE_DIRS)::	
+	make CFML=../.. -f ../../lib/make/Makefile.dev -C $@ clean

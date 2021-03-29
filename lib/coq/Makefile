@@ -3,8 +3,10 @@
 # Test that TLC is installed
 
 TLC := $(shell $(COQBIN)coqc -where)/user-contrib/TLC
-ifeq ($(wildcard $(TLC)),)
-  $(error $(TLC) does not exist. Please install TLC first)
+ifeq ($(findstring $(MAKECMDGOALS),clean),)
+  ifeq ($(wildcard $(TLC)),)
+    $(error $(TLC) does not exist. Please install TLC first)
+  endif
 endif
 
 

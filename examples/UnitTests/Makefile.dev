@@ -1,0 +1,2 @@
+CFML := ../..
+include $(CFML)/lib/make/Makefile.dev

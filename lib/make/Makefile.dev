@@ -39,6 +39,8 @@
 ##############################################################################
 # Parameters
 
+# TODO: improve naming convention
+
 # Local parameters can be set in Makefile.dev.local. 
 # In particular: CFML, COQBIN, TLC, COQWARNINGS, COQEXTRAFLAGS,
 # COQFOLDERNAME, ML, V, V_AUX
@@ -68,6 +70,7 @@ endif
 ifndef TLC
 	ifeq ($(shell echo $$USER),charguer)
 		TLC := /home/charguer/tlc/src
+		# TLC := /home/charguer/versions/coq-8.13/tlc/src
 	endif
 endif
 ifdef TLC
@@ -101,33 +104,41 @@ endif
 # - one can provide a custom value for $(EXAMPLEINCLUDE)
 # - the special value EMPTY indicates that $(EXAMPLEINCLUDE) should be empty
 
-# TEMPORARY
-#	ifneq ($(filter $(CFML)/examples/%,$(PWD)),)
-#		EXAMPLEINCLUDE := -R .. EXAMPLE 
-#		COQPROJECTDEVEXTRA := $(EXAMPLEINCLUDE)
-#	else
-#		EXAMPLEINCLUDE  := -R . `basename $(PWD)`
-#	endif
-
+ifdef ARG_EXAMPLEINCLUDE
+	EXAMPLEINCLUDE := $(ARG_EXAMPLEINCLUDE)
+endif
 ifndef EXAMPLEINCLUDE
-# TEMPORARY
-#	ifneq ($(filter $(CFML)/examples/%,$(PWD)),)
-#		COQPROJECTDEVEXTRA := $(EXAMPLEINCLUDE)
-#	else
-   EXAMPLEINCLUDE  := -R . `basename $(PWD)`
-#	endif
+	ifneq ($(filter $(abspath $(CFML))/examples/%,$(PWD)),)
+		EXAMPLEINCLUDE := -R .. EXAMPLES
+		COQPROJECTDEVEXTRA := $(EXAMPLEINCLUDE)
+	else
+		EXAMPLEINCLUDE  := -R . `basename $(PWD)`
+	endif
 else
+	ARG_EXAMPLEINCLUDE := $(EXAMPLEINCLUDE)
 	ifeq ($(EXAMPLEINCLUDE),EMPTY)
 		EXAMPLEINCLUDE :=
 	endif
 endif
 
+
+# Ocamldep include folder.
+
+ifndef OCAML_INCLUDE
+	OCAML_INCLUDE := -I .
+endif
+
+
 # ML sources files in current folder
 # - the special value EMPTY indicates that $(ML) should be empty
 
+ifdef ARG_ML
+	ML := $(ARG_ML)
+endif
 ifndef ML
 	ML := $(wildcard *.ml)
 else
+	ARG_ML := $(ML)
 	ifeq ($(ML),EMPTY)
 		ML :=
 	endif
@@ -135,10 +146,20 @@ endif
 
 # Coq extra files in current folder
 # By default, all the local files that are not %_ml.v or %_proof.v
+# the special value EMPTY indicates that $(V_AUX) should be empty
 
+ifdef ARG_V_AUX
+	V_AUX := $(ARG_V_AUX)
+endif
 ifndef V_AUX
 	V_AUX := $(filter-out %_ml.v %_proof.v,$(wildcard *.v))
+else
+	ARG_V_AUX := $(V_AUX)
+	ifeq ($(V_AUX),EMPTY)
+		V_AUX :=
+	endif
 endif
+
 
 # CFMLC flags (e.g. "-debug")
 
@@ -164,7 +185,7 @@ endif
 # By default, all the local proof files, sorted by last modification date
 
 ifndef OPENINIDE
-	OPENINIDE := $(shell ls -t *.v)
+	OPENINIDE := $(shell ls -t *.v 2> /dev/null || echo "")
 endif
 
 # Options for CoqIDE. By default, disable parallel progress
@@ -188,9 +209,10 @@ endif
 ##############################################################################
 # Folders
 
+GENERATOR := $(CFML)/generator
 LIBCOQ := $(CFML)/lib/coq
 STDLIB := $(CFML)/lib/stdlib
-GENERATOR := $(CFML)/generator
+EXAMPLES := $(CFML)/examples
 
 # COQLIBINCLUDE contains include that are not expected to be in _CoqProject
 
@@ -206,7 +228,7 @@ COQINCLUDE := \
 # We recognize $(LIBCOQ) to avoid compiling $(STDLIB) when we type 'make' in the
 # $(LIBCOQ) folder.
 
-ifeq ($(abspath $(PWD)),$(abspath $(LIBCOQ)))
+ifeq ($(PWD),$(abspath $(LIBCOQ)))
 	CURRENTFOLDERISLIBCOQ := true
 else
 	CURRENTFOLDERISLIBCOQ := false
@@ -216,12 +238,20 @@ endif
 # We recognize $(STDLIB) to set it as "./" if applicable, for the specific compilation 
 # rules of $(STDLIB) to apply when we type 'make' in that folder
 
-ifeq ($(abspath $(PWD)),$(abspath $(STDLIB)))
+ifeq ($(PWD),$(abspath $(STDLIB)))
 	CURRENTFOLDERISSTDLIB := true
 	STDLIB := ./
 else
 	CURRENTFOLDERISSTDLIB := false
 	STDLIB := $(abspath $(STDLIB))
+endif
+
+# We recognize $(EXAMPLES) for efficiently compiling all examples at once.
+
+ifeq ($(PWD),$(abspath $(EXAMPLES)))
+	CURRENTFOLDERISEXAMPLE := true
+else
+	CURRENTFOLDERISEXAMPLE := false
 endif
 
 
@@ -310,6 +340,21 @@ THISMAKEFILE := $(CFML)/lib/make/Makefile.dev
 all: dev ocaml vo
 
 dev: _CoqProjectDev
+
+# It it important to export parameters to recursive calls for "make depend"
+# NOT EXPORTED BECAUSE OF THE 'EMPTY' TWEAK export ML V_AUX EXAMPLEINCLUDE
+export CFML
+export OCAML_INCLUDE
+export COQBIN 
+export TLC 
+export COQWARNINGS
+export COQEXTRAFLAGS
+export COQFLAGS
+export CFMLC_FLAGS
+export ARG_V_AUX
+export ARG_ML
+export ARG_EXAMPLEINCLUDE
+
 
 depend: _CoqProject
 	$(MAKE) -f $(THISMAKEFILE) .depend_libcoq
@@ -436,12 +481,6 @@ $(patsubst %.v,%.vos,$(STDLIBMAIN)) $(patsubst %.v,%.vok,$(STDLIBMAIN)): $(patsu
 
 # We use ocamldep to find out which files A depends upon.
 
-# ocamldep must be passed appropriate -I flags, as it searches the file system
-# to find where each module is stored. We assume that these flags are given by
-# $(OCAML_INCLUDE).
-
-OCAML_INCLUDE := -I .
-
 # By using ocamldep in this way, we obtain dependencies that mention absolute
 # path names, as desired. We cannot use ocamldep -modules because it does not
 # perform this search and does not produce absolute path names.
@@ -498,7 +537,7 @@ $(STDLIB)/%_ml.v $(STDLIB)/%.cmj: $(STDLIB)/%.ml $(STDLIB)/Pervasives.cmj $(CFML
 
 %.cmj: %.ml $(STDLIB_CMJ) $(CFMLC)
 	@echo "Generating $*_ml.v"
-	$(CFMLC) -I $(STDLIB) -I . $< || (rm -f $@; exit 1)
+	$(CFMLC) -I $(STDLIB) $(OCAML_INCLUDE) -I . $< || (rm -f $@; exit 1)
 
 
 ############################################################################
@@ -547,7 +586,7 @@ fix:
 ##############################################################################
 # Cleanup.
 
-clean:
+clean::
 	rm -rf $(DEPEND)
 	rm -rf *.cmj *_ml.v _output *.vo *.vos *.vok *.glob *.native 
 
