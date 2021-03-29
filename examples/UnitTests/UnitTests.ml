@@ -149,7 +149,7 @@ let let_fun_rec m =
 (********************************************************************)
 (* ** Polymorphic let bindings and value restriction *)
 
-(* LATER
+(* LATER *)
 
 let let_poly_p0 () =
    let x = (None = None) in ()
@@ -236,7 +236,6 @@ let let_poly_r1 () =
    ()
 
 let let_poly_r2 () =
-   let _x = ref [] in
    let y = [] in
    y
 
@@ -245,7 +244,6 @@ let let_poly_r3 () =
       let x = ref [] in
       [] in
    r
-*)
 
 (* ---Code not allowed because produces a ['_a list ref] at top level;
    i.e. rejected when using OCaml "-strict_value_restriction" flag
@@ -680,7 +678,7 @@ let pitems_build n =
   { pitems = []; pnb = n; pother = () }
 
 let pitems_get_nb r =
-  r.pnb
+  succ r.pnb
 
 let pitems_with r =
   let r1 = { r with pitems = [1] } in

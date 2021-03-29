@@ -167,3 +167,13 @@ Tactic Notation "list_cases" "in" "*"  :=
   rew_list_cases in *; list_cases_post tt.
 Tactic Notation "list_cases" "*" "in" "*"  :=
   list_cases in *; auto_star.
+
+(*--------------------------------------------------------*)
+(* LibEqual *)
+
+Definition rewrite_type (A B:Type) (E:A=B) (V:A) : B :=
+  eq_rect A (fun T => T) V B E.
+
+Lemma rewrite_type_self : forall A (E:A=A) (V:A),
+  rewrite_type E V = V.
+Proof using. intros. unfold rewrite_type. rewrite* eq_rect_refl_eq. Qed.

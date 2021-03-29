@@ -1,0 +1,4 @@
+CFML := ../..
+EXAMPLEINCLUDE := EMPTY
+ML := EMPTY
+include ../make/Makefile.dev 

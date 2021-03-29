@@ -52,7 +52,7 @@ Lemma is_empty_spec : forall A `{EA:Enc A} (L:list A) s,
   SPEC_PURE (is_empty s)
     POST (fun b => \[b = isTrue (L = nil)]).
 Proof using.
-  introv Hs. xcf*. lets (_&->):Stack_inv Hs. xlets. xvals.
+  introv Hs. xcf*. lets (_&->):Stack_inv Hs. xvals.
   rewrite* length_zero_eq_eq_nil.
 Qed.
 
@@ -62,9 +62,7 @@ Lemma push_spec : forall A `{EA:Enc A} (L:list A) s (x:A),
     POST (fun s' => \[Stack (x::L) s']).
 Proof using.
   introv Hs. xcf*. lets (->&->):Stack_inv Hs. 
-  (* xgo; subst. *) 
-  xlets. xlets. xvals.
-  applys* Stack_intro. rew_list; math.
+  xgo; subst. applys* Stack_intro. rew_list; math.
 Qed.
 
 Lemma pop_spec : forall A `{EA:Enc A} (L:list A) s,
@@ -74,8 +72,7 @@ Lemma pop_spec : forall A `{EA:Enc A} (L:list A) s,
     POST (fun '(x,s') => \exists L', \[L = x::L'] \* \[Stack L' s']).
 Proof using.
   introv Hs HL. xcf. lets (->&->):Stack_inv Hs.
-  (* xgo. { subst*. } *)
-  xlets. xmatch. xlets. xlets. xvals*. 
+  xgo. { subst*. }
   { applys* Stack_intro. rew_list; math. }
 Qed.
 

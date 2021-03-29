@@ -1,1 +1,4 @@
+# This makefile is meant to be invoked from one subfolder
+CFML := ../..
+# TEMPORARY EXAMPLEINCLUDE := -R .. EXAMPLE
 include ../../lib/make/Makefile.dev
