@@ -25,7 +25,7 @@ Generalizable Variables A B.
 
 
 (* ********************************************************************** *)
-(* * FMap buffer *)
+(* * FMap buffer --- now in TLC *)
 
 Section FmapProp.
 Variables (A B : Type).
@@ -33,23 +33,6 @@ Implicit Types h : fmap A B.
 Implicit Types x : A.
 Implicit Types v : B.
 
-
-Axiom indom_single_eq : forall x1 x2 v,
-  indom (single x1 v) x2 = (x1 = x2).
-
-Axiom indom_empty_eq : forall (IB:Inhab B) x,
-  indom (@Fmap.empty A B) x = False.
-
-Axiom indom_empty_iff_empty : forall (IB:Inhab B) h,
-  (forall x, ~ indom h x) -> h = Fmap.empty.
-
-Axiom indom_union_eq : forall (IB:Inhab B) h1 h2 x,
-  indom (Fmap.union h1 h2) x = (indom h1 x \/ indom h2 x).
-
-Axiom extensionality : forall (IB:Inhab B) h1 h2,
-  (forall x, indom h1 x = indom h2 x) ->
-  (forall x, indom h1 x -> Fmap.read h1 x = Fmap.read h2 x) ->
-  h1 = h2.
 
 Axiom indom_filter_eq : forall (IB:Inhab B) (f:A->B->Prop) h x,
   indom (Fmap.filter f h) x = (indom h x /\ f x (read h x)).

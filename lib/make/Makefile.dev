@@ -337,9 +337,9 @@ THISMAKEFILE := $(CFML)/lib/make/Makefile.dev
 
 .PHONY: all
 
-all: dev ocaml vo
+all: ocaml vo
 
-dev: _CoqProjectDev
+# dev: _CoqProjectDev
 
 # It it important to export parameters to recursive calls for "make depend"
 # NOT EXPORTED BECAUSE OF THE 'EMPTY' TWEAK export ML V_AUX EXAMPLEINCLUDE
