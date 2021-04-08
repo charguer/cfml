@@ -16,6 +16,8 @@ hpure
 
 Parameter isframe : hprop -> hprop -> Prop.
 
+isframe_haffine : isframe \GC \[]
+
 Parameter isframe_isframe : forall HI1 HO1 HI2 HO2,
   isframe HI1 HO1 ->
   isframe HI2 HO2 ->
@@ -74,7 +76,7 @@ Proof using.
   { intros x. xchanges (MQ x). }
 Qed.
 
-Lemma triple_frame : forall HI HO t H1 Q1,
+Lemma triple_isframe : forall HI HO t H1 Q1,
   triple t H1 Q1 ->
   isframe HI HO ->
   triple t (H1 \* HI) (Q1 \*+ HO).
