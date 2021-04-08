@@ -13,7 +13,7 @@ The functor in this file assumes:
    extrusion of existentials, and frame property for entailment).
 
 The functor also provides:
-
+  
 - derived heap operators: \[], (\exists _,_), \Top
 - a number of useful lemmas for reasoning about these operators
 - notation for representation predicates: [x ~> R X].
@@ -1076,7 +1076,7 @@ Tactic Notation "xsimpl_hand" :=
 (* ---------------------------------------------------------------------- *)
 (* ** Set operators to be opaque *)
 
-Global Opaque hempty hpure hstar hexists htop hgc haffine.
+Global Opaque hempty hpure hstar hexists htop hgc haffine hand hor.
 
 
 
@@ -2486,3 +2486,7 @@ Tactic Notation "xunfolds" constr(E) "at" constr(n) :=
 Global Opaque repr.
 
 End SepSetup.
+
+
+
+
