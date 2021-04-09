@@ -21,7 +21,7 @@ let wpgen_app x args =
   (* Add a tag to allow pretty printing of goals *)
   coq_app (coq_at (coq_cfml_var "WPLifted.Wptag")) body
 
-let dummy =
+let _dummy =
   wpgen_app "WPLifted.Wpgen_dummy" []
 
 let dynlist_of_record_fields items =
@@ -208,14 +208,8 @@ let rec coqtops_of_cf cf =
       wpgen_app "WPLifted.Wpgen_while" [aux cf1; aux cf2]
 
   | Cf_pay (cf1) ->
-      dummy
-      (* TODO: LATER
-      let h' = Coq_var "H'" in
-      let c1 = coq_apps (coq_cfml_var "CFHeaps.pay_one") [h;h'] in
-      let c2 = coq_apps (aux cf1) [h'; Coq_var "Q"]  in
-      funhq "tag_pay" (coq_exist "H'" hprop (coq_conj c1 c2))
-      (* (!Pay: fun H Q => exists H', pay_one H H' /\ F1 H' Q *)
-      *)
+      (* Wpgen_pay F1 *)
+      wpgen_app "WPLifted.Wpgen_pay" [aux cf1]
 
   | Cf_manual c -> c
 
