@@ -161,7 +161,7 @@ else
 endif
 
 
-# CFMLC flags (e.g. "-debug")
+# CFMLC flags (e.g. "-debug", or "-credits")
 
 ifndef CFMLC_FLAGS
 	CFMLC_FLAGS := 
@@ -519,11 +519,11 @@ SED := $(shell if command -v gsed >/dev/null ; then echo gsed ; else echo sed ; 
 
 $(STDLIB)/Pervasives_ml.v $(STDLIB)/Pervasives.cmj: $(STDLIB)/Pervasives.ml $(CFMLC)
 	@echo "Generating stdlib $<"
-	$(CFMLC) -nostdlib -nopervasives -I $(STDLIB) $< || (rm -f $@; exit 1)
+	$(CFMLC) $(CFMLC_STDLIB_FLAGS) -nostdlib -nopervasives -I $(STDLIB) $< || (rm -f $@; exit 1)
 
 $(STDLIB)/%_ml.v $(STDLIB)/%.cmj: $(STDLIB)/%.ml $(STDLIB)/Pervasives.cmj $(CFMLC)
 	@echo "Generating stdlib $<"
-	$(CFMLC) -nostdlib -I $(STDLIB) $< || (rm -f $@; exit 1)
+	$(CFMLC) $(CFMLC_STDLIB_FLAGS) -nostdlib -I $(STDLIB) $< || (rm -f $@; exit 1)
 
 
 ##############################################################################
@@ -537,7 +537,7 @@ $(STDLIB)/%_ml.v $(STDLIB)/%.cmj: $(STDLIB)/%.ml $(STDLIB)/Pervasives.cmj $(CFML
 
 %.cmj: %.ml $(STDLIB_CMJ) $(CFMLC)
 	@echo "Generating $*_ml.v"
-	$(CFMLC) -I $(STDLIB) $(OCAMLINCLUDE) -I . $< || (rm -f $@; exit 1)
+	$(CFMLC) $(CFMLC_FLAGS) -I $(STDLIB) $(OCAMLINCLUDE) -I . $< || (rm -f $@; exit 1)
 
 
 ############################################################################

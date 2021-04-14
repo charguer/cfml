@@ -21,6 +21,108 @@ Implicit Types t : trm.
 
 
 (* ********************************************************************** *)
+(* * Credits TODO: move *)
+
+Parameter use_credits : bool.
+
+Parameter hcredits : Z -> hprop.
+  (* if use_credits then  "consomme n crédits"  else \[] *)
+
+Notation "'\$' x" := (hcredits x)
+  (at level 40,
+   x at level 0,
+   format "\$ x") : heap_scope.
+
+Parameter hcredits_skip : forall x,
+  use_credits = false ->
+  \$ x = \[].
+
+Parameter hcredits_zero_eq : \$ 0 = \[].
+
+Parameter hcredits_add_eq : forall (n m : int),
+  \$ (n+m) = \$ n \* \$ m.
+
+Lemma hcredits_sub_eq : forall (n m : int),
+  \$ n = \$ m \* \$ (n-m).
+Proof using.
+  intros. pattern n at 1. math_rewrite (n = m + (n-m)).
+  rewrite* hcredits_add_eq.
+Qed.
+
+
+
+(*------------------------------------------------------------------*)
+(* ** Properties of heap credits *)
+
+(*
+Section Credits.
+Transparent heap_is_credits
+  heap_is_empty heap_is_empty_st heap_is_star heap_union heap_disjoint.
+
+Definition pay_one H H' :=
+  H ==> \$ 1 \* H'.
+
+Lemma credits_zero_eq : \$ 0 = \[].
+Proof using.
+  unfold heap_is_credits, heap_is_empty, heap_empty.
+  applys pred_ext_1. intros [m n]. iff [M1 M2] M.
+    subst*.
+    inverts* M.
+Qed.
+
+Lemma credits_split_eq : forall (n m : int),
+  \$ (n+m) = \$ n \* \$ m.
+Proof using.
+  intros c1 c2. unfold heap_is_credits, heap_is_star, heap_union, heap_disjoint.
+  applys pred_ext_1. intros [m n].
+  iff [M1 M2] ([m1 n1]&[m2 n2]&(M1&E1)&(M2&E2)&M3&M4).
+    exists (state_empty,c1) (state_empty,c2). simpl. splits*.
+      autos* state_disjoint_empty_l.
+      subst. rewrite* state_union_neutral_l.
+    inverts M4. subst*.
+Qed.
+
+Lemma credits_le_rest : forall (n m : int),
+  n <= m -> exists H', affine H' /\ \$ m ==> \$ n \* H'.
+Proof using.
+  introv M. exists (\$ (m - n)). rewrite <- credits_split_eq.
+  math_rewrite (n + (m-n) = m).
+  splits~.
+  Local Transparent affine. unfold affine, heap_is_credits.
+  intros (? & ?) (? & ?); subst. apply heap_affine_credits.
+  math.
+Qed.
+
+Lemma credits_join_eq : forall x y,
+  \$ x \* \$ y = \$(x+y).
+Proof using.
+  introv. unfold heap_is_credits.
+  applys pred_ext_1. intros h. splits.
+  { intros ([m1 c1] & [m2 c2] & ([? ?] & [? ?] & [[? ?] ?])).
+    subst. unfold heap_union. simpl.
+    rewrite state_union_neutral_r. splits~. }
+  { destruct h as [m c]. intros (? & ?). subst.
+    unfold heap_is_star.
+    exists (state_empty, x) (state_empty, y).
+    splits~.
+    { unfold heap_disjoint. simpl.
+      splits~. apply state_disjoint_empty_l. }
+    { unfold heap_union. simpl.
+      rewrite~ state_union_neutral_r. } }
+ Qed.
+
+Lemma credits_join_eq_rest : forall x y (H:hprop),
+  \$ x \* \$ y \* H = \$(x+y) \* H.
+Proof using.
+  introv. rewrite star_assoc. rewrite~ credits_join_eq.
+Qed.
+
+End Credits.
+
+
+*)
+
+(* ********************************************************************** *)
 (* * WP generator *)
 
 (* ---------------------------------------------------------------------- *)
@@ -76,6 +178,14 @@ Lemma Structural_conseq : forall A (EA:Enc A) (Q Q':A->hprop) (F:Formula) H,
   H ==> ^F Q'.
 Proof using. introv L M W. applys* structural_conseq. Qed.
 
+Lemma Structural_frame : forall H1 H2 F H A (EA:Enc A) (Q:A->hprop),
+  Structural F ->
+  H ==> H1 \* H2 ->
+  H1 ==> ^F (fun x => H2 \-* Q x) ->
+  H ==> ^F Q.
+Proof using. introv L M W. applys* structural_frame. Qed.
+
+
 (* TODO: add other structural lemmas? *)
 
 
@@ -100,7 +210,7 @@ Proof using. intros. rewrite <- mkstruct_MkStruct_eq. apply structural_mkstruct.
 
 Hint Resolve structural_MkStruct.
 
-Lemma Structural_Mkstruct : forall (F:Formula),
+Lemma Structural_MkStruct : forall (F:Formula),
   Structural (MkStruct F).
 Proof using. intros. intros A EA. applys structural_mkstruct. Qed.
 
@@ -197,11 +307,11 @@ Definition Wpgen_val B {EB:Enc B} (V:B) : Formula :=
   MkStruct (fun A (EA:Enc A) (Q:A->hprop) => PostCast B Q V).
 
 Definition Wpgen_done : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
     \[False] \-* \[True]).
 
 Definition Wpgen_fail : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
     \[False]).
 
 Definition Wpgen_dummy : Formula :=
@@ -220,7 +330,7 @@ Definition Wpgen_let_val A1 (*`{EA1:Enc A1}*) (V:A1) (Fof:A1->Formula) : Formula
     \forall (x:A1), \[x = V] \-* ^(Fof x) Q).
 
 Definition Wpgen_prop (BodyOf:forall A (EA:Enc A), (A->hprop)->hprop->Prop) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
      \exists H, H \* \[BodyOf A EA Q H]).
 
 Definition Wpgen_let_trm_poly := Wpgen_prop.
@@ -233,11 +343,11 @@ Definition Wpgen_app (A:Type) `{EA:Enc A} (f:val) (Vs:dyns) : Formula :=
 Arguments Wpgen_app A {EA} f Vs.
 
 Definition Wpgen_seq (F1 F2:Formula) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
     \exists (Q1:unit->hprop), ^F1 Q1 \* \[Q1 tt ==> ^F2 Q]).
 
 Definition Wpgen_if (b:bool) (F1 F2:Formula) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
     if b then ^F1 Q else ^F2 Q).
 
 Definition Wpgen_assert (F1:Formula) : Formula :=
@@ -254,11 +364,104 @@ Definition Wpgen_match (F:Formula) : Formula :=
   F.
 
 Definition Wpgen_case (F1:Formula) (P:Prop) (F2:Formula) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
     hand (^F1 Q) (\[P] \-* ^F2 Q)).
 
 Definition Wpgen_negpat (P:Prop) : Prop :=
   P.
+
+Definition Wpgen_pay (F1:Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+    ^F1 (Q \*+ \$1)).
+
+Definition Wpgen_pay' (F1:Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
+    \$1 \* ^F1 Q).
+
+Lemma MkStruct_erase_l : forall (F1 F2:Formula) A (EA:Enc A) (Q:A->hprop),
+  Structural F2 ->
+  (forall A1 (EA1:Enc A1) (Q1:A1->hprop), ^F1 Q1 ==> ^F2 Q1) ->
+  ^(MkStruct F1) Q ==> ^F2 Q.
+Proof using.
+  introv HS M1. applys* mkstruct_erase_l. intros Q1. applys M1.
+Qed.
+
+
+(*
+
+Lemma Structural_frame' : forall H1 H2 F H A (EA:Enc A) (Q:A->hprop),
+  Structural F ->
+  H1 \* ^F Q ==> ^F (fun x => H2 \-* Q x)
+Proof using. introv L M W. applys* structural_frame. Qed.
+
+*)
+(*
+
+Lemma Wpgen_pay_eq_Wpgen_pay' :
+  Wpgen_pay = Wpgen_pay'.
+Proof using. 
+  applys fun_ext_4. intros F1 A EA Q. applys himpl_antisym.
+  { skip. }
+  { applys Structural_frame. __ (\$1).
+
+ applys MkStruct_erase_l. { applys Structural_MkStruct. }
+    clears A. intros A EA Q. unfold Wpgen_pay. lets: Structural_frame. __ (\$1).
+
+
+ rewrite (@eq_Mkstruct_of_Structural ( (Wpgen_pay F1))).
+*)
+
+Lemma xpay_lemma_pre' : forall H1 H F1 A (EA:Enc A) (Q:A->hprop),
+  H ==> \$1 \* H1 ->
+  H1 ==> ^F1 Q ->
+  H ==> ^(Wpgen_pay' F1) Q.
+Proof using. introv HH M1. apply MkStruct_erase. xchanges* HH. Qed.
+
+
+Lemma xpay_lemma_pre : forall H1 H F1 A (EA:Enc A) (Q:A->hprop),
+  H ==> \$1 \* H1 ->
+  H1 ==> ^F1 Q ->
+  H ==> ^(Wpgen_pay F1) Q.
+Admitted.
+(*
+Proof using.
+  introv HH M1. 
+  applys* Structural_frame H1 (\$1).
+  { applys Structural_MkStruct. }
+  { xchanges HH. } 
+
+unfold Wpgen_pay. xchanges M1. 
+   { apply MkStruct_erase. Search hwand.
+lets: Structural_conseq.
+ applys Structural_conseq.
+  { applys Structural_MkStruct. }
+
+  applys* Structural_frame H1 (\$1).
+  { xchanges HH. }
+  { xchanges M1. 
+   { apply MkStruct_erase.
+Search hwand. 
+  xchange HH. xchange M1.
+*)
+
+
+Lemma xpay_lemma_post : forall H F1 A (EA:Enc A) (Q:A->hprop),
+  H ==> ^F1 (Q \*+ \$1) ->
+  H ==> ^(Wpgen_pay F1) Q.
+Proof using. introv M. apply* MkStruct_erase. Qed.
+
+(* BONUS
+Lemma xpay_lemma_post_evar : forall H F1 A (EA:Enc A) (Q1:A->hprop),
+  H ==> F1 Q1 ->
+  H ==> Wpgen_pay' F1 (Q1 \*+ \$(-1)).
+Proof using. Admitted.
+
+Lemma xpay_lemma_post_cut : forall H F1 A (EA:Enc A) (Q1 Q:A->hprop),
+  H ==> F1 Q1 ->
+  (Q1 \*+ \$(-1)) ===> Q ->
+  H ==> Wpgen_pay' F1 Q.
+Proof using. Admitted.
+*)
 
 (* DEPRECATED -- more complex
 Definition Wpgen_assert (F1:Formula) : Formula :=

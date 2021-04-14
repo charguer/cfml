@@ -308,7 +308,7 @@ Ltac xtypes_post tt :=
 (** ** Internal tactic [xstructural] for proving [Structural F] *)
 
 Ltac xstructural_core tt :=
-  applys Structural_Mkstruct.
+  applys Structural_MkStruct.
 
 Tactic Notation "xstructural" :=
   xstructural_core tt.
@@ -2758,6 +2758,86 @@ Tactic Notation "xcf_go" "~" :=
   xcf_go; auto_tilde.
 Tactic Notation "xcf_go" "*" :=
   xcf_go; auto_star.
+
+
+
+
+(************************************************************************ *)
+(************************************************************************ *)
+(************************************************************************ *)
+(** * Credits *)
+
+(* ---------------------------------------------------------------------- *)
+(** ** [xcredits_split] and [xcredits_join] *)
+
+(** Tactic [credits_split] converts [\$(x+y) \* ...] into [\$x \* \$y \* ...] *)
+
+Hint Rewrite hcredits_add_eq : xcredits_split_rew.
+
+Ltac xcredits_split_core tt :=
+  autorewrite with xcredits_split_rew.
+
+Tactic Notation "xcredits_split" :=
+  xcredits_split_core tt.
+
+(** Tactic [credits_join] converts [\$x \* ... \* \$y] into [\$(x+y) \* ...] *)
+
+Lemma credits_swap : forall x (H:hprop),
+  H \* (\$ x) = (\$ x) \* H.
+Proof using. intros. rewrite~ hstar_comm. Qed.
+
+Lemma hcredits_join_eq : forall x y,
+  \$ x \* \$ y = \$(x+y).
+Proof using. intros. rewrite* <- hcredits_add_eq. Qed.
+
+Lemma hcredits_join_eq_rest : forall x y (H:hprop),
+  \$ x \* \$ y \* H = \$(x+y) \* H.
+Proof using.
+  introv. rewrite <- hstar_assoc. rewrite~ hcredits_join_eq.
+Qed.
+
+Ltac xcredits_join_in H :=
+  match H with
+  | \$ ?x \* \$ ?y => rewrite (@hcredits_join_eq x y)
+  | \$ ?x \* \$ ?y \* ?H' => rewrite (@hcredits_join_eq_rest x y H')
+  | _ \* ?H' => xcredits_join_in H'
+  end.
+
+Ltac xcredits_join_core_step tt :=
+  match goal with |- ?HL ==> ?HR => xcredits_join_in HL end.
+
+Ltac xcredits_join_core tt :=
+ repeat (xcredits_join_core_step tt).
+
+Tactic Notation "xcredits_join" :=
+  xcredits_join_core tt.
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** [xcredits_skip] *)
+
+(** Tactic [xcredits_skip] eliminates credits.
+    To be used when [use_credits = false] is assumed. *)
+
+Hint Rewrite hcredits_skip : rew_credits_skip.
+
+Ltac xcredits_exploit_use_credits_false tt :=
+  fail.
+
+Ltac xcredits_skip_core tt :=
+  autorewrite with rew_credits_skip;
+  try xcredits_exploit_use_credits_false tt.
+
+Tactic Notation "xcredits_skip" :=
+  xcredits_skip_core tt.
+
+(** TODO: assume this in a given development, to remove credits *)
+
+Parameter use_credits_false :
+  use_credits = false.
+
+Ltac xcredits_exploit_use_credits_false tt ::=
+  apply use_credits_false.
 
 
 
