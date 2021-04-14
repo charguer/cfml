@@ -719,3 +719,16 @@ Lemma qimpl_trans : forall A (Q2 Q1 Q3:A->hprop),
   (Q1 ===> Q3).
 Proof using. introv M1 M2. intros v. applys himpl_trans; eauto. Qed.
 
+
+
+
+Lemma himpl_frame_hcredits : forall n H1 H2,
+  \$n \* H1 ==> \$n \* H2 ->
+  H1 ==> H2.
+Proof using.
+  introv M. lets K: himpl_frame_r (\$(-n)) M.
+  do 2 rewrite <- hstar_assoc in K.
+  rewrite <- hcredits_add_eq in K.
+  math_rewrite (-n + n = 0) in K.
+  rewrite hcredits_zero_eq in K. xchanges K.
+Qed.

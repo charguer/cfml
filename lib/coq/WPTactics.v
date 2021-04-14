@@ -2768,14 +2768,66 @@ Tactic Notation "xcf_go" "*" :=
 (** * Credits *)
 
 (* ---------------------------------------------------------------------- *)
+(** ** [xpay] *)
+
+(* [xpay] *)
+
+Lemma xpay_lemma_post : forall H F1 A (EA:Enc A) (Q:A->hprop),
+  H ==> ^F1 (Q \*+ \$1) ->
+  H ==> ^(Wpgen_pay F1) Q.
+Proof using. introv M. apply* MkStruct_erase. Qed.
+
+Ltac xpay_post_core tt :=
+  apply xpay_lemma_post.
+
+Tactic Notation "xpay" :=
+  xpay_post_core tt.
+
+(* [xpay_pre] *)
+
+Lemma xpay_lemma_pre : forall H1 H F1 A (EA:Enc A) (Q:A->hprop),
+  H ==> \$1 \* H1 ->
+  H1 ==> ^F1 Q ->
+  H ==> ^(Wpgen_pay F1) Q.
+Proof using.
+  introv M1 M2. xchange M1.
+  applys Structural_frame H1 (\$1). { applys Structural_MkStruct. } { xsimpl. }
+  applys MkStruct_erase. xchange M2.
+  applys_eq himpl_refl. fequals. applys fun_ext_1. intros x.
+  rewrite hwand_hcredits_l. rewrite hstar_assoc. 
+  rewrite hcredits_cancel. rew_heap*.
+Qed.
+
+Ltac xpay_pre_core tt :=
+  eapply xpay_lemma_pre.
+
+Tactic Notation "xpay_pre" :=
+  xpay_pre_core tt.
+
+
+(* BONUS
+Lemma xpay_lemma_post_evar : forall H F1 A (EA:Enc A) (Q1:A->hprop),
+  H ==> F1 Q1 ->
+  H ==> Wpgen_pay' F1 (Q1 \*+ \$(-1)).
+Proof using. Admitted.
+
+Lemma xpay_lemma_post_cut : forall H F1 A (EA:Enc A) (Q1 Q:A->hprop),
+  H ==> F1 Q1 ->
+  (Q1 \*+ \$(-1)) ===> Q ->
+  H ==> Wpgen_pay' F1 Q.
+Proof using. Admitted.
+*)
+
+
+(* ---------------------------------------------------------------------- *)
 (** ** [xcredits_split] and [xcredits_join] *)
 
 (** Tactic [credits_split] converts [\$(x+y) \* ...] into [\$x \* \$y \* ...] *)
 
-Hint Rewrite hcredits_add_eq : xcredits_split_rew.
+Hint Rewrite hcredits_add hcredits_sub hwand_hcredits_l : rew_xcredits_split.
 
 Ltac xcredits_split_core tt :=
-  autorewrite with xcredits_split_rew.
+  autorewrite with rew_xcredits_split.
 
 Tactic Notation "xcredits_split" :=
   xcredits_split_core tt.
@@ -2788,7 +2840,7 @@ Proof using. intros. rewrite~ hstar_comm. Qed.
 
 Lemma hcredits_join_eq : forall x y,
   \$ x \* \$ y = \$(x+y).
-Proof using. intros. rewrite* <- hcredits_add_eq. Qed.
+Proof using. intros. rewrite* <- hcredits_add. Qed.
 
 Lemma hcredits_join_eq_rest : forall x y (H:hprop),
   \$ x \* \$ y \* H = \$(x+y) \* H.
