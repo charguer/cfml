@@ -386,7 +386,58 @@ Proof using.
   introv HS M1. applys* mkstruct_erase_l. intros Q1. applys M1.
 Qed.
 
+Lemma hcredits_appear : forall (n: int),
+  \[] = \$ n \* \$ (-n).
+Admitted.
 
+Lemma himpl_frame_hcredits : forall n H1 H2,
+  \$n \* H1 ==> \$n \* H2 ->
+  H1 ==> H2.
+Proof using.
+  introv M. lets K: himpl_frame_r (\$(-n)) M.
+  do 2 rewrite <- hstar_assoc in K.
+  rewrite <- hcredits_add_eq in K.
+  math_rewrite (-n + n = 0) in K.
+  rewrite hcredits_zero_eq in K. xchanges K.
+Qed.
+
+
+Lemma Structural_frame' : forall (F:Formula) H1 H2 A (EA:Enc A) (Q:A->hprop),
+    (Structural F) ->
+    (H1 ==> (F A EA (fun x : A => H2 \-* (Q x)))) -> 
+     H1 \* H2 ==> (F A EA Q).
+Proof using.
+  introv HF M. applys* Structural_frame.
+Qed.
+
+Lemma hwand_hcredits_eq : forall H n,
+  (\$n \-* H) = (H \* \$(-n)).
+Proof using.
+  intros. xsimpl.
+  { xchanges (hcredits_appear n). }
+  { xchange <- (hcredits_appear n). }
+Qed. 
+
+Lemma Wpgen_pay_eq_Wpgen_pay' :
+  Wpgen_pay = Wpgen_pay'.
+Proof using. 
+  applys fun_ext_4. intros F1 A EA Q. applys himpl_antisym.
+  { applys MkStruct_erase_l. { applys Structural_MkStruct. }
+    clears A. intros A EA Q. 
+    xchange (hcredits_appear 1). rewrite <- hstar_assoc, hstar_comm.
+    rewrite <- hstar_assoc.
+    applys Structural_frame'. { applys Structural_MkStruct. }
+    applys MkStruct_erase. xsimpl.
+    applys_eq himpl_refl. fequals. applys fun_ext_1. intros x. 
+    rewrite* hwand_hcredits_eq. }
+  { applys MkStruct_erase_l. { applys Structural_MkStruct. }
+    clears A. intros A EA Q. rewrite hstar_comm.
+    applys Structural_frame'. { applys Structural_MkStruct. }
+     applys MkStruct_erase.
+     applys_eq himpl_refl. fequals. applys fun_ext_1. intros x.
+     rewrite hwand_hcredits_eq. rewrite hstar_assoc. 
+     rewrite <- hcredits_appear. xsimpl. }
+Qed.
 (*
 
 Lemma Structural_frame' : forall H1 H2 F H A (EA:Enc A) (Q:A->hprop),
@@ -397,15 +448,6 @@ Proof using. introv L M W. applys* structural_frame. Qed.
 *)
 (*
 
-Lemma Wpgen_pay_eq_Wpgen_pay' :
-  Wpgen_pay = Wpgen_pay'.
-Proof using. 
-  applys fun_ext_4. intros F1 A EA Q. applys himpl_antisym.
-  { skip. }
-  { applys Structural_frame. __ (\$1).
-
- applys MkStruct_erase_l. { applys Structural_MkStruct. }
-    clears A. intros A EA Q. unfold Wpgen_pay. lets: Structural_frame. __ (\$1).
 
 
  rewrite (@eq_Mkstruct_of_Structural ( (Wpgen_pay F1))).
