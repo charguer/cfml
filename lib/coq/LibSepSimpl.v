@@ -1797,22 +1797,17 @@ Ltac xsimpl_step_lr tt :=
     | (\GC \* _) =>
         first
         [ match Hra with ?Hra1 \* \[] => is_evar Hra1;  (* when Hra1 is an evar *)
-            match xsimpl_use_credits tt with
-            | false => apply xsimpl_lr_exit_instantiate_nocredits
-            | _ => apply xsimpl_lr_exit_instantiate 
-            end
+            first [ apply xsimpl_lr_exit_instantiate_nocredits
+                  | apply xsimpl_lr_exit_instantiate ]
           end
         | (* General case, Hra not just reduced to an evar *)
           let xsimpl_xaffine tt := try remove_empty_heaps_haffine tt; xaffine in
-          match xsimpl_use_credits tt with
-          | false => apply ximpl_lr_hgc_nocredits; [ xsimpl_xaffine tt | ]
-          | _ => apply ximpl_lr_hgc; [ try xsimpl_hcredits_nonneg tt | xsimpl_xaffine tt | ]
-          end ] 
+          first [ apply ximpl_lr_hgc_nocredits; [ xsimpl_xaffine tt | ]
+                | apply ximpl_lr_hgc; [ try xsimpl_hcredits_nonneg tt | xsimpl_xaffine tt | ] ]
+        ] 
     | ?Hrg' => xsimpl_flip_acc_lr tt;
-              match xsimpl_use_credits tt with
-              | false => apply xsimpl_lr_exit_nocredits
-              | _ => apply xsimpl_lr_exit 
-              end
+               first [ apply xsimpl_lr_exit_nocredits
+                     | apply xsimpl_lr_exit ]
   end end.
 
   (* --TODO: handle [?HL (?Hra_evar, (\GC \* ..), \[])] *)
