@@ -1,3 +1,4 @@
+(*
 (**
 
 This file formalizes a functor that may be instantiated con construct, e.g.
@@ -2488,5 +2489,5 @@ Global Opaque repr.
 End SepSetup.
 
 
-
+*)
 

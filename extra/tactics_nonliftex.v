@@ -732,3 +732,59 @@ Proof using.
   math_rewrite (-n + n = 0) in K.
   rewrite hcredits_zero_eq in K. xchanges K.
 Qed.
+
+
+
+(* Dummy instantiation of credits for logics that don't support credits *)
+
+(* TODO: could be a functor instead of being an example *)
+
+Module HcreditsDummy.
+
+(** Assumptions *)
+
+Parameter hprop : Type.
+
+Parameter hempty : hprop.
+
+Parameter hstar : hprop -> hprop -> hprop.
+
+Parameter haffine : hprop -> Prop.
+
+(** Notation *)
+
+Notation "\[]" := (hempty)
+  (at level 0) : heap_scope.
+
+Notation "H1 '\*' H2" := (hstar H1 H2)
+  (at level 41, right associativity) : heap_scope.
+
+(** Realization *)
+
+Definition hcredits (n:Z) : hprop :=
+  \[].
+
+Notation "'\$' n" := (hcredits n)
+  (at level 40,
+   n at level 0,
+   format "\$ n") : heap_scope.
+
+Lemma hcredits_skip :
+  use_credits = false ->
+  forall n, \$ n = \[].
+Proof using. auto. Qed.
+
+Lemma hcredits_zero :
+  \$ 0 = \[].
+Proof using. auto. Qed.
+
+Lemma hcredits_add : forall n m,
+  \$ (n+m) = \$ n \* \$ m.
+Proof using. auto. Qed.
+
+Lemma haffine_hcredits : forall n,
+  n >= 0 ->
+  haffine (\$ n).
+Proof using. applys haffine_hempty. Qed.
+
+End HcreditsDummy.

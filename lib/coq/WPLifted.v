@@ -38,7 +38,8 @@ Parameter hcredits_skip :
   use_credits = false ->
   forall n, \$ n = \[].
 
-Parameter hcredits_zero : \$ 0 = \[].
+Parameter hcredits_zero : 
+  \$ 0 = \[].
 
 Parameter hcredits_add : forall n m,
   \$ (n+m) = \$ n \* \$ m.

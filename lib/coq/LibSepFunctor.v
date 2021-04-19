@@ -822,9 +822,9 @@ Tactic Notation "xsimpl_hand" :=
 
 (* ---------------------------------------------------------------------- *)
 (* ** Set operators to be opaque *)
-
+(*
 Global Opaque hempty hpure hstar hexists htop hgc haffine.
-
+*)
 
 
 (* ********************************************************************** *)
