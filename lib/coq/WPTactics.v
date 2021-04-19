@@ -2768,6 +2768,13 @@ Tactic Notation "xcf_go" "*" :=
 (** * Credits *)
 
 (* ---------------------------------------------------------------------- *)
+(** ** Configuration of [xsimpl] to automatically call [math] on [n >= 0] subgoal *)
+
+Ltac xsimpl_hcredits_nonneg tt ::=
+  math.
+
+
+(* ---------------------------------------------------------------------- *)
 (** ** [xpay] *)
 
 (* [xpay] *)
@@ -2801,11 +2808,23 @@ Proof using.
   rewrite hcredits_cancel. rew_heap*. *)
 Qed.
 
+Ltac xpay_post tt :=
+  idtac.
+
 Ltac xpay_pre_core tt :=
-  eapply xpay_lemma_pre.
+  eapply xpay_lemma_pre; [ xsimpl; xpay_post tt | ].
 
 Tactic Notation "xpay_pre" :=
   xpay_pre_core tt.
+
+(* [xpay_pre_nosimpl] *)
+
+Ltac xpay_pre_nosimpl_core tt :=
+  eapply xpay_lemma_pre.
+
+Tactic Notation "xpay_pre_nosimpl" :=
+  xpay_pre_nosimpl_core tt.
+
 
 
 (* BONUS

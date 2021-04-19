@@ -5,6 +5,7 @@ From CFML Require Import Stdlib.Array_proof.
 From EXAMPLES Require Import UnitTestsCredits_ml.
 
 
+
 Lemma f_spec : forall n,
   SPEC (f n)
     PRE (\$ 1)
@@ -20,26 +21,10 @@ Lemma g_spec : forall n,
     POSTUNIT \[].
 Proof using.
   intros n. induction_wf IH: (downto 0) n. introv Hn.
-  xcf. xpay_pre. xsimpl0. xsimpl1. xsimpl1. xsimpl1. xsimpl1. 
-
-              match xsimpl_use_credits tt with
-              | false => apply xsimpl_lr_exit_nogc_nocredits
-              | _ => apply xsimpl_lr_exit_nogc
-
-xsimpl1. applys himpl_refl.
-  xif; intros C.
-  { pattern n at 1. math_rewrite (n = (n-1)+1). 
-    xapp. auto with maths. math. xsimpl. }
-  { xval. xchanges* hcredits_gc. }
+  xcf. xpay_pre. xsimpl. xif; intros C.
+  { xapp. auto with maths. math. xsimpl. }
+  { xvals. }
 Qed.
-
-
-(* TODO: might no longer be needed *)
-Lemma neg_sub : forall n m,
-  - (n - m) = (-n) + m.
-Proof using. math. Qed.
-
-Hint Rewrite neg_sub : rew_int.
 
 Lemma g_spec' : forall n,
   n >= 0 ->
@@ -49,9 +34,8 @@ Lemma g_spec' : forall n,
 Proof using.
   intros n. induction_wf IH: (downto 0) n. introv Hn.
   xcf. xpay. xif; intros C.
-  { xapp. auto with maths. math. rew_int; xcredits_split. xsimpl. }
-  { xval. rew_int; xcredits_split. 
-    xchange <- (hcredits_cancel 1). xchange <- (hcredits_cancel (-n)). xsimpl. }
+  { xapp. auto with maths. math. xsimpl. }
+  { xvals. }
 Qed.
 
 (*

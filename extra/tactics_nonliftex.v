@@ -788,3 +788,13 @@ Lemma haffine_hcredits : forall n,
 Proof using. applys haffine_hempty. Qed.
 
 End HcreditsDummy.
+
+
+
+
+(* TODO: might no longer be needed *)
+Lemma neg_sub : forall n m,
+  - (n - m) = (-n) + m.
+Proof using. math. Qed.
+
+Hint Rewrite neg_sub : rew_int.

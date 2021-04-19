@@ -1772,7 +1772,7 @@ Ltac xsimpl_step_lr tt :=
          | ?Hra_evar => is_evar Hra_evar; (* handle [ H1 => ?H2 ] *)
             rew_heap; 
             first [ apply ximpl_lr_refl_nocredits 
-                  [ apply ximpl_lr_refl ]
+                  | apply ximpl_lr_refl ]
             (* else continue *)
          | ?Q1 \--* ?Q2 => is_evar Q2; eapply ximpl_lr_qwand_unify
          | \[False] \-* ?H2 => apply xsimpl_lr_hwand_hfalse
@@ -1811,7 +1811,6 @@ Ltac xsimpl_step_lr tt :=
   end end.
 
   (* --TODO: handle [?HL (?Hra_evar, (\GC \* ..), \[])] *)
-
 
 Ltac xsimpl_step tt :=
   first [ xsimpl_step_l tt
@@ -1958,7 +1957,7 @@ Tactic Notation "xchange_nosimpl" constr(E) :=
 Tactic Notation "xchange_nosimpl" "->" constr(E) :=
   xchange_nosimpl_base E himpl_of_eq.
 Tactic Notation "xchange_nosimpl" "<-" constr(E) :=
-  xchange_nosimpl_base himpl_of_eq_sym.
+  xchange_nosimpl_base E himpl_of_eq_sym.
 
 Ltac xchange_base E modif :=
   xchange_core E modif ltac:(xchange_xpull_cont).
