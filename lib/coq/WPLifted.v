@@ -19,60 +19,6 @@ Implicit Types v w : val.
 Implicit Types t : trm.
 
 
-
-(* ********************************************************************** *)
-(* * Credits TODO: move *)
-
-
-Parameter use_credits : bool.
-
-Parameter hcredits : Z -> hprop.
-  (* if use_credits then  "consomme n crédits"  else \[] *)
-
-Notation "'\$' n" := (hcredits n)
-  (at level 40,
-   n at level 0,
-   format "\$ n") : heap_scope.
-
-Parameter hcredits_skip :
-  use_credits = false ->
-  forall n, \$ n = \[].
-
-Parameter hcredits_zero : 
-  \$ 0 = \[].
-
-Parameter hcredits_add : forall n m,
-  \$ (n+m) = \$ n \* \$ m.
-
-Parameter hcredits_gc : forall n,
-  n >= 0 ->
-  \$ n ==> \GC.
-
-Lemma hcredits_sub : forall (n m : int),
-  \$(n-m) = \$ n \* \$ (-m).
-Proof using. intros. math_rewrite (n-m = n+(-m)). rewrite* hcredits_add. Qed.
-
-Lemma hcredits_cancel : forall (n: int),
-  \$ n \* \$ (-n) = \[].
-Proof using. intros. rewrite <- hcredits_add, <- hcredits_zero. fequals. math. Qed.
-
-Lemma hcredits_extract : forall m n,
-  \$ n = \$ m \* \$ (n-m).
-Proof using. intros. rewrite <- hcredits_add. fequals. math. Qed.
-
-Lemma hwand_hcredits_l : forall H n,
-  (\$n \-* H) = (H \* \$(-n)).
-Proof using.
-  intros. xsimpl.
-  { xchanges <- (hcredits_cancel n). }
-  { xchange (hcredits_cancel n). }
-Qed. 
-
-
-(*------------------------------------------------------------------*)
-(* ** Properties of heap credits *)
-
-
 (* ********************************************************************** *)
 (* * WP generator *)
 
@@ -352,6 +298,8 @@ Definition Wpgen_assert (F1:Formula) : Formula :=
 
 (* TODO: for exercise *)
 
+(* TODO: the proof is broken using the new xsimpl
+
 Definition Wpgen_pay' (F1:Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
     \$1 \* ^F1 Q).
@@ -361,8 +309,8 @@ Lemma Wpgen_pay_eq_Wpgen_pay' :
 Proof using. 
   applys fun_ext_4. intros F1 A EA Q. applys himpl_antisym.
   { applys MkStruct_erase_l. { applys Structural_MkStruct. }
-    clears A. intros A EA Q. 
-    xchange <- (hcredits_cancel 1). rewrite <- hstar_assoc, hstar_comm.
+    clears A. intros A EA Q.
+    xchange_nosimpl <- (hcredits_cancel 1). rewrite <- hstar_assoc, hstar_comm.
     rewrite <- hstar_assoc.
     applys Structural_frame'. { applys Structural_MkStruct. }
     applys MkStruct_erase. xsimpl.
@@ -382,6 +330,9 @@ Lemma xpay_lemma_pre' : forall H1 H F1 A (EA:Enc A) (Q:A->hprop),
   H1 ==> ^F1 Q ->
   H ==> ^(Wpgen_pay' F1) Q.
 Proof using. introv HH M1. apply MkStruct_erase. xchanges* HH. Qed.
+
+
+*)
 
 
 (* ---------------------------------------------------------------------- *)

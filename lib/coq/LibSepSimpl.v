@@ -229,9 +229,7 @@ Parameter hstar_hgc_hgc :
 
 End XsimplParams.
 
-
-
-(* ********************************************************************** *)
+(* ---------------------------------------------------------------------- *)
 (** * Assumptions of the functor with credits *)
 
 Module Type XsimplParamsCredits.
@@ -269,7 +267,6 @@ Parameter haffine_hcredits : forall n,
   haffine (\$ n).
 
 End XsimplParamsCredits.
-
 
 
 (* ********************************************************************** *)
@@ -1285,23 +1282,27 @@ Proof using.
   specializes M x. rew_heap~ in M.
 Qed.
 
-Lemma himpl_lr_refl : forall Hla,
+Lemma ximpl_lr_refl_nocredits : forall Hla,
   Xsimpl (0, Hla, \[], \[]) (Hla, \[], \[]).
 Proof using. intros. unfolds Xsimpl. hstars_simpl. Qed.
 
+Lemma ximpl_lr_refl : forall Hla Nc,
+  Xsimpl (Nc, Hla, \[], \[]) (\$Nc \* Hla, \[], \[]).
+Proof using. intros. unfolds Xsimpl. hstars_simpl. Qed.
+
 (* NEEDED?
-Lemma himpl_lr_refl_hempty_r : forall Hla,
+Lemma ximpl_lr_refl_hempty_r : forall Hla,
   Xsimpl (Hla, \[], \[]) (Hla \* \[], \[], \[]).
 Proof using. intros. unfolds Xsimpl. hstars_simpl. Qed.
 *)
 
 (* Lemma to instantiate [H ==> Q \--* ?Q'] *)
-Lemma himpl_lr_qwand_unify : forall A (Q:A->hprop) Nc Hla,
+Lemma ximpl_lr_qwand_unify : forall A (Q:A->hprop) Nc Hla,
   Xsimpl (Nc, Hla, \[], \[]) ((Q \--* (Q \*+ (\$Nc \* Hla))) \* \[], \[], \[]).
 Proof using. intros. unfolds Xsimpl. hstars_simpl. rewrite~ qwand_equiv. Qed.
 
 (* Note that top makes no sense in a world with credits *)
-Lemma himpl_lr_htop : forall Hla Hrg Nc, (* TODO: should keep only top *)
+Lemma ximpl_lr_htop : forall Hla Hrg Nc, (* TODO: should keep only top *)
   Xsimpl (0, \[], \[], \[]) (\[], Hrg, \[]) ->
   Xsimpl (Nc, Hla, \[], \[]) (\[], (\Top \* Hrg), \[]).
 Proof using.
@@ -1310,13 +1311,13 @@ Proof using.
 Qed.
 
 (* optional
-Lemma himpl_lr_hgc_hempty : forall Hla Hrg,
+Lemma ximpl_lr_hgc_hempty : forall Hla Hrg,
   Xsimpl (\[], \[], \[]) (\[], Hrg), \[]) ->
   Xsimpl (\[], \[], \[]) (\[], (\GC \* Hrg), \[]).
 Proof using. apply haffine_hempty. Qed.
 *)
 
-Lemma himpl_lr_hgc : forall Nc Hla Hrg,
+Lemma ximpl_lr_hgc : forall Nc Hla Hrg,
   Nc >= 0 -> (* TODO: use [use_credits] as tactics to avoid generating this *)
   haffine Hla ->
   Xsimpl (0, \[], \[], \[]) (\[], Hrg, \[]) ->
@@ -1327,7 +1328,7 @@ Admitted. (* TODO : Alexandre   hcredits_hgc/haffine
   applys himpl_hstar_trans_l M. hstars_simpl. apply* himpl_hgc_r.
 Qed. *)
 
-Lemma himpl_lr_hgc_nocredits : forall Hla Hrg,
+Lemma ximpl_lr_hgc_nocredits : forall Hla Hrg,
   haffine Hla ->
   Xsimpl (0, \[], \[], \[]) (\[], Hrg, \[]) ->
   Xsimpl (0, Hla, \[], \[]) (\[], (\GC \* Hrg), \[]).
@@ -1340,6 +1341,11 @@ Lemma xsimpl_lr_exit_nogc_nocredits : forall Hla Hra,
   Hla ==> Hra ->
   Xsimpl (0, Hla, \[], \[]) (Hra, \[], \[]).
 Proof using. introv M. unfolds Xsimpl. hstars_simpl. auto. Qed.
+
+Lemma xsimpl_lr_exit_credits_to_hempty : forall Nc,
+  Nc = 0 ->
+  Xsimpl (Nc, \[], \[], \[]) (\[], \[], \[]).
+Proof using. introv M. unfolds Xsimpl. subst. hstars_simpl. Qed.
 
 Lemma xsimpl_lr_exit_nogc : forall Hla Hra Nc,
   \$ Nc \* Hla ==> Hra ->
@@ -1750,6 +1756,9 @@ Ltac xsimpl_step_r tt :=
   end end.
 
 (* [xsimpl_use_credits tt] should return [true] or [false]. *)
+(* TODO: probably in fact we don't need this at all.
+   if we see a credit, we can assume [xsimpl_use_credits] is true. *)
+    
 Ltac xsimpl_use_credits tt :=
   constr:(false).
 
@@ -1760,9 +1769,12 @@ Ltac xsimpl_step_lr tt :=
        match Hra with
        | ?H1 \* \[] =>
          match H1 with
-         | ?Hra_evar => is_evar Hra_evar; rew_heap; apply himpl_lr_refl (* else continue *)
-       (*   | ?Hla' => (* unify Hla Hla'; *) apply himpl_lr_refl (* else continue *) --TODO: needed? *)
-         | ?Q1 \--* ?Q2 => is_evar Q2; eapply himpl_lr_qwand_unify
+         | ?Hra_evar => is_evar Hra_evar; (* handle [ H1 => ?H2 ] *)
+            rew_heap; 
+            first [ apply ximpl_lr_refl_nocredits 
+                  [ apply ximpl_lr_refl ]
+            (* else continue *)
+         | ?Q1 \--* ?Q2 => is_evar Q2; eapply ximpl_lr_qwand_unify
          | \[False] \-* ?H2 => apply xsimpl_lr_hwand_hfalse
          | ?H1 \-* ?H2 => xsimpl_flip_acc_l tt; apply xsimpl_lr_hwand
          | ?Q1 \--* ?Q2 =>
@@ -1774,34 +1786,33 @@ Ltac xsimpl_step_lr tt :=
          | hforall _ => xsimpl_flip_acc_l tt; apply xsimpl_lr_hforall; intro
                         (* --TODO: optimize for iterated \forall bindings *)
          end
-       | \[] => apply himpl_lr_refl
+       | \[] => 
+          first [ apply ximpl_lr_refl_nocredits (* handle [ \[] ==> \[] ] *)
+                | apply xsimpl_lr_exit_credits_to_hempty ] (* handle [ \$n ==> \[] ] *)
        | _ => xsimpl_flip_acc_lr tt; 
-              match xsimpl_use_credits tt with
-              | true => apply xsimpl_lr_exit_nogc 
-              | false => apply xsimpl_lr_exit_nogc_nocredits
-              end
+              first [ apply xsimpl_lr_exit_nogc_nocredits
+                    | apply xsimpl_lr_exit_nogc ]
        end
-    | (\Top \* _) => apply himpl_lr_htop
+    | (\Top \* _) => apply ximpl_lr_htop
     | (\GC \* _) =>
         first
         [ match Hra with ?Hra1 \* \[] => is_evar Hra1;  (* when Hra1 is an evar *)
             match xsimpl_use_credits tt with
-            | true => apply xsimpl_lr_exit_instantiate 
             | false => apply xsimpl_lr_exit_instantiate_nocredits
+            | _ => apply xsimpl_lr_exit_instantiate 
             end
           end
         | (* General case, Hra not just reduced to an evar *)
           let xsimpl_xaffine tt := try remove_empty_heaps_haffine tt; xaffine in
           match xsimpl_use_credits tt with
-          | true => apply himpl_lr_hgc; [ try xsimpl_hcredits_nonneg tt | xsimpl_xaffine tt | ]
-          | false => apply himpl_lr_hgc_nocredits; [ xsimpl_xaffine tt | ]
+          | false => apply ximpl_lr_hgc_nocredits; [ xsimpl_xaffine tt | ]
+          | _ => apply ximpl_lr_hgc; [ try xsimpl_hcredits_nonneg tt | xsimpl_xaffine tt | ]
           end ] 
     | ?Hrg' => xsimpl_flip_acc_lr tt;
               match xsimpl_use_credits tt with
-              | true => apply xsimpl_lr_exit 
               | false => apply xsimpl_lr_exit_nocredits
+              | _ => apply xsimpl_lr_exit 
               end
-
   end end.
 
   (* --TODO: handle [?HL (?Hra_evar, (\GC \* ..), \[])] *)
@@ -2339,20 +2350,21 @@ Proof using. introv M. eapply M. xsimpl. Qed.
 (* ---------------------------------------------------------------------- *)
 (** [xsimpl] with credits demos *)
 
+(** Start using credits *)
 Ltac xsimpl_use_credits tt ::=
   constr:(true).
 
 Lemma xsimpl_hcredits_gather : forall H1 H2 H3 H4 H5 n1 n2 n3 n4,
   H1 \* \$n1 \* H2 \* H3 \* \$n2 \* H4 ==> H4 \* H3 \* \$n3 \* H5 \* \$n4 \* H2.
-Proof using.
-  intros. xsimpl.
-Abort.
+Proof using. intros. xsimpl. Abort.
 
 Lemma xsimpl_hcredits_hwand : forall H1 H2 H3 H4 H5 n1 n2 n3 n4 n5,
   H1 \* \$n1 \* H2 \* H3 \* (\$n2 \-* H4) ==> H4 \* H3 \* (\$n3 \-* \$n4 \-* H5) \* \$n5 \* H2.
-Proof using.
-  intros. xsimpl.
-Abort.
+Proof using. intros. xsimpl. Abort.
+
+Lemma xsimpl_hcredits_hwand_eq : forall n H,
+  ((\$n) \-* H) = (H \* (\$(- n))).
+Proof using. intros. xsimpl; math. Abort.
 
 (* TODO: add a demo with an hypothesis [M] with simplifiable credits in an entailment,
    do [dup 2].
@@ -2360,7 +2372,7 @@ Abort.
    then [xchanges M]. 
    in the second branch, call [xsimpl_beautify_hcredits_everywhere tt] directly. *)
 
-
+(* End using credits *)
 Ltac xsimpl_use_credits tt ::=
   constr:(false).
 

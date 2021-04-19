@@ -20,13 +20,21 @@ Lemma g_spec : forall n,
     POSTUNIT \[].
 Proof using.
   intros n. induction_wf IH: (downto 0) n. introv Hn.
-  xcf. xcredits_split. xpay_pre. xsimpl.
+  xcf. xpay_pre. xsimpl0. xsimpl1. xsimpl1. xsimpl1. xsimpl1. 
+
+              match xsimpl_use_credits tt with
+              | false => apply xsimpl_lr_exit_nogc_nocredits
+              | _ => apply xsimpl_lr_exit_nogc
+
+xsimpl1. applys himpl_refl.
   xif; intros C.
   { pattern n at 1. math_rewrite (n = (n-1)+1). 
     xapp. auto with maths. math. xsimpl. }
   { xval. xchanges* hcredits_gc. }
 Qed.
 
+
+(* TODO: might no longer be needed *)
 Lemma neg_sub : forall n m,
   - (n - m) = (-n) + m.
 Proof using. math. Qed.

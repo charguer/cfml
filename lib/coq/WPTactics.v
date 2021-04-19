@@ -2793,9 +2793,12 @@ Proof using.
   introv M1 M2. xchange M1.
   applys Structural_frame H1 (\$1). { applys Structural_MkStruct. } { xsimpl. }
   applys MkStruct_erase. xchange M2.
-  applys_eq himpl_refl. fequals. applys fun_ext_1. intros x.
+  applys_eq himpl_refl. fequals.
+  (* TODO: xsimpl could handle this. *)
+  applys fun_ext_1. intros x. xsimpl.
+  (* TODO: details:
   rewrite hwand_hcredits_l. rewrite hstar_assoc. 
-  rewrite hcredits_cancel. rew_heap*.
+  rewrite hcredits_cancel. rew_heap*. *)
 Qed.
 
 Ltac xpay_pre_core tt :=
