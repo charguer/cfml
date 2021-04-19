@@ -446,6 +446,137 @@ Ltac remove_empty_heaps_right tt :=
 (* * Tactic [xsimpl] for heap entailments *)
 
 (* ---------------------------------------------------------------------- *)
+(** [xsimpl_beautify_credits] for beautifying arithmetics involved in credits *)
+
+(** [xsimpl_beautify_credits] TODO DOC *)
+
+Definition xsimpl_hcredits_protect (n:credits) : hprop :=
+  \$n.
+
+(* TODO: generalize using two accumulators, one for the list of
+   positive and one for the list of negative; the function returns
+   a pair, using the syntax [constr:( (Lp,Ln) )], and the syntax
+   [match aux ... with (?Lp,?Ln) => ...] for deconstructing. *)
+
+Ltac xsimpl_beautify_credits_arith_to_list n :=
+  let ltac_neg pos :=
+    match pos with
+    | true => constr:(false)
+    | false => constr:(true)
+    end in
+  let rec aux acc pos n :=
+    match n with
+    | ?n1 + ?n2 => 
+        let L1 := aux acc pos n1 in 
+        aux L1 pos n2 
+    | ?n1 - ?n2 => 
+        let L1 := aux acc pos n1 in   
+        let posneg := ltac_neg pos in
+        aux L1 posneg n2
+    | - ?n1 => 
+        let posneg := ltac_neg pos in
+        aux acc posneg n1
+    | 0 => constr:(acc)
+    | ?n1 => match pos with 
+             | true => constr:(n1::acc)
+             | false => constr:( (-n1)::acc)
+             end
+    end in
+  aux (@nil credits) true n.
+
+(* TODO: Implement a function [xsimpl_beautify_find_and_remove x L]
+   that returns [None] if [x] is not in [L], and [Some L'] where
+   [L'] is [L] minus one occurence of [x] if there is one occurence 
+   of [x] in [L]. *)
+
+(* TODO: generalize the function below to two arguments Lp and Ln, 
+   describing positive and negative terms. For each element in [Lp], 
+   invoke [xsimpl_beautify_find_and_remove], removing that element
+   if it is found in [Ln]. In the end, return the pair of the filtered
+    [Lp] and [Ln] *)
+
+Ltac xsimpl_beautify_credits_simpl_list L :=
+  constr:(L).
+
+(* TODO: generalize this function to a pair of list.
+   Return a result of the form [a + b + c - e - f].
+   When Lp is empty, produce either [0 - e - f] or [- (e) - f]
+   (whatever you like, both are imperfect;) *)
+
+Ltac xsimpl_beautify_credits_list_to_arith L :=
+  let rec aux L := (* assumes L contains no zero *)
+    match L with
+    | nil => constr:(0)
+    | (?x) :: nil => constr:(x)
+    | (-?x) :: ?L' => let n := aux L' in
+                      constr:(n - x)
+    | ?x :: ?L' => let n := aux L' in
+               constr:(n + x) 
+    end in
+  aux L.
+
+Ltac xsimpl_beautify_credits_clean n :=
+  let L := xsimpl_beautify_credits_arith_to_list n in
+  let L' := xsimpl_beautify_credits_simpl_list L in
+  xsimpl_beautify_credits_list_to_arith L'.
+
+Ltac xsimpl_beautify_credits_core replacer n :=
+  let n' := xsimpl_beautify_credits_clean n in
+  replacer (\$n) (xsimpl_hcredits_protect n');
+  [ |  unfold xsimpl_hcredits_protect; fequal; try math ].
+
+Ltac xsimpl_beautify_credits_once_hyp tt :=
+  match goal with
+  | H: context [ \$ ?n ] |- _ => 
+    let replacer a b := replace a with b in H in
+    xsimpl_beautify_credits_core replacer n 
+  end.
+
+Ltac xsimpl_beautify_credits_once_goal tt :=
+  match goal with
+  | |- context [ \$ ?n ] => 
+    let replacer a b := (replace a with b) in
+    xsimpl_beautify_credits_core replacer n
+  end.
+
+Ltac xsimpl_beautify_credits_goal tt :=
+  repeat (xsimpl_beautify_credits_once_goal tt);
+  unfolds xsimpl_hcredits_protect.
+
+Ltac xsimpl_beautify_credits_everywhere tt :=
+  repeat (xsimpl_beautify_credits_once_goal tt);
+  repeat (xsimpl_beautify_credits_once_hyp tt);
+  unfolds xsimpl_hcredits_protect.
+
+(* Unit tests for auxiliary functions *)
+
+Lemma xsimpl_beautify_credits_arith_to_list_test : True.
+Proof using.
+  let L := xsimpl_beautify_credits_arith_to_list (0 - 2 - (3 - 4 + 5) + (4 + 5) - 6) in
+  pose L;
+  let n := xsimpl_beautify_credits_list_to_arith L in
+  pose n.
+Abort.
+
+Lemma xsimpl_hcredits_beautify : forall n1 n2 n3 n4 n5,
+  \$ (- (n3 + n4)) ==> \$(- (n3 + n4) - n5) ->
+  \$ (0 + n1 - n2 + (n3 + n4) - n5) ==> \$ (- (n3 + n4) - n5).
+Proof using.
+  intros. dup 5.
+  { match goal with
+    | |- context [ \$ ?n ] => 
+    let n' := xsimpl_beautify_credits_clean n in
+    replace (\$n) with (xsimpl_hcredits_protect n');
+    [ | unfold xsimpl_hcredits_protect; fequal; try math ] end.
+    unfolds xsimpl_hcredits_protect. demo. }
+  { xsimpl_beautify_credits_once_goal tt.
+    xsimpl_beautify_credits_once_goal tt. demo. }
+  { xsimpl_beautify_credits_goal tt. demo. }
+  { xsimpl_beautify_credits_everywhere tt. demo. }
+Abort.
+
+
+(* ---------------------------------------------------------------------- *)
 (* [xaffine] placeholder *)
 
 Ltac xaffine_core tt := (* to be generalized lated *)
@@ -1360,13 +1491,13 @@ Ltac xsimpl_pick_repr H :=
 (* ---------------------------------------------------------------------- *)
 (** ** Tactic for credits *)
 
-Lemma xsimpl_credits_zero : 
+Lemma xsimpl_hcredits_zero : 
   0 >= 0.
 Proof using. math. Qed.
 
-Ltac xsimpl_credits_nonneg tt :=
+Ltac xsimpl_hcredits_nonneg tt :=
   match goal with |- 0 >= 0 =>
-    apply xsimpl_credits_zero end.
+    apply xsimpl_hcredits_zero end.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -1426,7 +1557,8 @@ Ltac xsimpl_handle_haffine_subgoals tt :=
 Ltac xsimpl_clean tt :=
   try remove_empty_heaps_right tt;
   try remove_empty_heaps_left tt;
-  try xsimpl_hint_remove tt.
+  try xsimpl_hint_remove tt;
+  try xsimpl_beautify_credits_goal tt.
 
 (* --LATER: might move to TLC *)
 Ltac gen_until_mark_with_processing_and_cleaning cont :=
@@ -1661,7 +1793,7 @@ Ltac xsimpl_step_lr tt :=
         | (* General case, Hra not just reduced to an evar *)
           let xsimpl_xaffine tt := try remove_empty_heaps_haffine tt; xaffine in
           match xsimpl_use_credits tt with
-          | true => apply himpl_lr_hgc; [ try xsimpl_credits_nonneg tt | xsimpl_xaffine tt | ]
+          | true => apply himpl_lr_hgc; [ try xsimpl_hcredits_nonneg tt | xsimpl_xaffine tt | ]
           | false => apply himpl_lr_hgc_nocredits; [ xsimpl_xaffine tt | ]
           end ] 
     | ?Hrg' => xsimpl_flip_acc_lr tt;
@@ -2222,98 +2354,11 @@ Proof using.
   intros. xsimpl.
 Abort.
 
-
-Definition xsimpl_credits_protect (n:credits) : hprop :=
-  \$n.
-
-Ltac xsimpl_beautify_credits_arith_to_list n :=
-  let ltac_neg pos :=
-    match pos with
-    | true => constr:(false)
-    | false => constr:(true)
-    end in
-  let rec aux acc pos n :=
-    match n with
-    | ?n1 + ?n2 => 
-        let L1 := aux acc pos n1 in 
-        aux L1 pos n2 
-    | ?n1 - ?n2 => 
-        let L1 := aux acc pos n1 in   
-        let posneg := ltac_neg pos in
-        aux L1 posneg n2
-    | - ?n1 => 
-        let posneg := ltac_neg pos in
-        aux acc posneg n1
-    | 0 => constr:(acc)
-    | ?n1 => match pos with 
-             | true => constr:(n1::acc)
-             | false => constr:( (-n1)::acc)
-             end
-    end in
-  aux (@nil credits) true n.
-
-Ltac xsimpl_beautify_credits_list_to_arith L :=
-  let rec aux L := (* assumes L contains no zero *)
-    match L with
-    | nil => constr:(0)
-    | (?x) :: nil => constr:(x)
-    | (-?x) :: ?L' => let n := aux L' in
-                      constr:(n - x)
-    | ?x :: ?L' => let n := aux L' in
-               constr:(n + x) 
-    end in
-  aux L.
-
-Ltac xsimpl_beautify_credits_simpl_list L :=
-  constr:(L).
-
-Ltac xsimpl_beautify_credits_clean n :=
-  let L := xsimpl_beautify_credits_arith_to_list n in
-  let L' := xsimpl_beautify_credits_simpl_list L in
-  xsimpl_beautify_credits_list_to_arith L'.
-
-
-(* TODO; improve: if there is one nonneg, put it to the front of the list *)
-Lemma xsimpl_beautify_credits_arith_to_list_test : True.
-Proof using.
-  let L := xsimpl_beautify_credits_arith_to_list (0 - 2 - (3 - 4 + 5) + (4 + 5) - 6) in
-  pose L;
-  let n := xsimpl_beautify_credits_list_to_arith L in
-  pose n.
-Abort.
-
-
-Ltac xsimpl_beautify_credits_core n :=
-  let n' := xsimpl_beautify_credits_clean n in
-  replace (\$n) with (xsimpl_credits_protect n');
-  [ |  unfold xsimpl_credits_protect; fequal; try math ].
-
-Ltac xsimpl_beautify_credits_once tt :=
-  match goal with
-  | |- context [ \$ ?n ] => xsimpl_beautify_credits_core n
-  | H: context [ \$ ?n ] |- _ => xsimpl_beautify_credits_core n 
-  end.
-
-Ltac xsimpl_beautify_credits tt :=
-  repeat (xsimpl_beautify_credits_once tt);
-  unfolds xsimpl_credits_protect.
-
-
-Lemma xsimpl_hcredits_beautify : forall n1 n2 n3 n4 n5,
-  \$ (0 + n1 - n2 + (n3 + n4) - n5) ==> \$ (- (n3 + n4) - n5).
-Proof using.
-  intros. 
-(*  match goal with
-  | |- context [ \$ ?n ] => 
-  let n' := xsimpl_beautify_credits_clean n in
-  replace (\$n) with (xsimpl_credits_protect n'); [ | unfold xsimpl_credits_protect; fequal; try math ] end.
-  unfolds xsimpl_credits_protect. *)
-(*
-xsimpl_beautify_credits_once tt.
-xsimpl_beautify_credits_once tt.
-*)
-   xsimpl_beautify_credits tt.
-Abort.
+(* TODO: add a demo with an hypothesis [M] with simplifiable credits in an entailment,
+   do [dup 2].
+   in the first branch, call [xsimpl_beautify_hcredits_everywhere tt] 
+   then [xchanges M]. 
+   in the second branch, call [xsimpl_beautify_hcredits_everywhere tt] directly. *)
 
 
 Ltac xsimpl_use_credits tt ::=
