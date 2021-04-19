@@ -2222,6 +2222,100 @@ Proof using.
   intros. xsimpl.
 Abort.
 
+
+Definition xsimpl_credits_protect (n:credits) : hprop :=
+  \$n.
+
+Ltac xsimpl_beautify_credits_arith_to_list n :=
+  let ltac_neg pos :=
+    match pos with
+    | true => constr:(false)
+    | false => constr:(true)
+    end in
+  let rec aux acc pos n :=
+    match n with
+    | ?n1 + ?n2 => 
+        let L1 := aux acc pos n1 in 
+        aux L1 pos n2 
+    | ?n1 - ?n2 => 
+        let L1 := aux acc pos n1 in   
+        let posneg := ltac_neg pos in
+        aux L1 posneg n2
+    | - ?n1 => 
+        let posneg := ltac_neg pos in
+        aux acc posneg n1
+    | 0 => constr:(acc)
+    | ?n1 => match pos with 
+             | true => constr:(n1::acc)
+             | false => constr:( (-n1)::acc)
+             end
+    end in
+  aux (@nil credits) true n.
+
+Ltac xsimpl_beautify_credits_list_to_arith L :=
+  let rec aux L := (* assumes L contains no zero *)
+    match L with
+    | nil => constr:(0)
+    | (?x) :: nil => constr:(x)
+    | (-?x) :: ?L' => let n := aux L' in
+                      constr:(n - x)
+    | ?x :: ?L' => let n := aux L' in
+               constr:(n + x) 
+    end in
+  aux L.
+
+Ltac xsimpl_beautify_credits_simpl_list L :=
+  constr:(L).
+
+Ltac xsimpl_beautify_credits_clean n :=
+  let L := xsimpl_beautify_credits_arith_to_list n in
+  let L' := xsimpl_beautify_credits_simpl_list L in
+  xsimpl_beautify_credits_list_to_arith L'.
+
+
+(* TODO; improve: if there is one nonneg, put it to the front of the list *)
+Lemma xsimpl_beautify_credits_arith_to_list_test : True.
+Proof using.
+  let L := xsimpl_beautify_credits_arith_to_list (0 - 2 - (3 - 4 + 5) + (4 + 5) - 6) in
+  pose L;
+  let n := xsimpl_beautify_credits_list_to_arith L in
+  pose n.
+Abort.
+
+
+Ltac xsimpl_beautify_credits_core n :=
+  let n' := xsimpl_beautify_credits_clean n in
+  replace (\$n) with (xsimpl_credits_protect n');
+  [ |  unfold xsimpl_credits_protect; fequal; try math ].
+
+Ltac xsimpl_beautify_credits_once tt :=
+  match goal with
+  | |- context [ \$ ?n ] => xsimpl_beautify_credits_core n
+  | H: context [ \$ ?n ] |- _ => xsimpl_beautify_credits_core n 
+  end.
+
+Ltac xsimpl_beautify_credits tt :=
+  repeat (xsimpl_beautify_credits_once tt);
+  unfolds xsimpl_credits_protect.
+
+
+Lemma xsimpl_hcredits_beautify : forall n1 n2 n3 n4 n5,
+  \$ (0 + n1 - n2 + (n3 + n4) - n5) ==> \$ (- (n3 + n4) - n5).
+Proof using.
+  intros. 
+(*  match goal with
+  | |- context [ \$ ?n ] => 
+  let n' := xsimpl_beautify_credits_clean n in
+  replace (\$n) with (xsimpl_credits_protect n'); [ | unfold xsimpl_credits_protect; fequal; try math ] end.
+  unfolds xsimpl_credits_protect. *)
+(*
+xsimpl_beautify_credits_once tt.
+xsimpl_beautify_credits_once tt.
+*)
+   xsimpl_beautify_credits tt.
+Abort.
+
+
 Ltac xsimpl_use_credits tt ::=
   constr:(false).
 
