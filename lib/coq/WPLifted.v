@@ -943,6 +943,14 @@ Lemma himpl_Wpgen_app_untyped_of_Triple : forall A `{EA:Enc A} (Q:A->hprop) t H,
   H ==> ^(Wpgen_app_untyped t) Q.
 Proof using. intros. applys MkStruct_erase. rewrite~ <- Triple_eq_himpl_Wp. Qed.
 
+
+
+(*********************************************************************** *)
+(** * Time to make [Triple] opaque *)
+
+Global Opaque Triple.
+
+
 (*********************************************************************** *)
 (** * Grammar set up *)
 

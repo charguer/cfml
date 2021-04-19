@@ -1282,27 +1282,27 @@ Proof using.
   specializes M x. rew_heap~ in M.
 Qed.
 
-Lemma ximpl_lr_refl_nocredits : forall Hla,
+Lemma xsimpl_lr_refl_nocredits : forall Hla,
   Xsimpl (0, Hla, \[], \[]) (Hla, \[], \[]).
 Proof using. intros. unfolds Xsimpl. hstars_simpl. Qed.
 
-Lemma ximpl_lr_refl : forall Hla Nc,
+Lemma xsimpl_lr_refl : forall Hla Nc,
   Xsimpl (Nc, Hla, \[], \[]) (\$Nc \* Hla, \[], \[]).
 Proof using. intros. unfolds Xsimpl. hstars_simpl. Qed.
 
 (* NEEDED?
-Lemma ximpl_lr_refl_hempty_r : forall Hla,
+Lemma xsimpl_lr_refl_hempty_r : forall Hla,
   Xsimpl (Hla, \[], \[]) (Hla \* \[], \[], \[]).
 Proof using. intros. unfolds Xsimpl. hstars_simpl. Qed.
 *)
 
 (* Lemma to instantiate [H ==> Q \--* ?Q'] *)
-Lemma ximpl_lr_qwand_unify : forall A (Q:A->hprop) Nc Hla,
+Lemma xsimpl_lr_qwand_unify : forall A (Q:A->hprop) Nc Hla,
   Xsimpl (Nc, Hla, \[], \[]) ((Q \--* (Q \*+ (\$Nc \* Hla))) \* \[], \[], \[]).
 Proof using. intros. unfolds Xsimpl. hstars_simpl. rewrite~ qwand_equiv. Qed.
 
 (* Note that top makes no sense in a world with credits *)
-Lemma ximpl_lr_htop : forall Hla Hrg Nc, (* TODO: should keep only top *)
+Lemma xsimpl_lr_htop : forall Hla Hrg Nc, (* TODO: should keep only top *)
   Xsimpl (0, \[], \[], \[]) (\[], Hrg, \[]) ->
   Xsimpl (Nc, Hla, \[], \[]) (\[], (\Top \* Hrg), \[]).
 Proof using.
@@ -1311,13 +1311,13 @@ Proof using.
 Qed.
 
 (* optional
-Lemma ximpl_lr_hgc_hempty : forall Hla Hrg,
+Lemma xsimpl_lr_hgc_hempty : forall Hla Hrg,
   Xsimpl (\[], \[], \[]) (\[], Hrg), \[]) ->
   Xsimpl (\[], \[], \[]) (\[], (\GC \* Hrg), \[]).
 Proof using. apply haffine_hempty. Qed.
 *)
 
-Lemma ximpl_lr_hgc : forall Nc Hla Hrg,
+Lemma xsimpl_lr_hgc : forall Nc Hla Hrg,
   Nc >= 0 -> (* TODO: use [use_credits] as tactics to avoid generating this *)
   haffine Hla ->
   Xsimpl (0, \[], \[], \[]) (\[], Hrg, \[]) ->
@@ -1328,7 +1328,7 @@ Admitted. (* TODO : Alexandre   hcredits_hgc/haffine
   applys himpl_hstar_trans_l M. hstars_simpl. apply* himpl_hgc_r.
 Qed. *)
 
-Lemma ximpl_lr_hgc_nocredits : forall Hla Hrg,
+Lemma xsimpl_lr_hgc_nocredits : forall Hla Hrg,
   haffine Hla ->
   Xsimpl (0, \[], \[], \[]) (\[], Hrg, \[]) ->
   Xsimpl (0, Hla, \[], \[]) (\[], (\GC \* Hrg), \[]).
@@ -1771,10 +1771,10 @@ Ltac xsimpl_step_lr tt :=
          match H1 with
          | ?Hra_evar => is_evar Hra_evar; (* handle [ H1 => ?H2 ] *)
             rew_heap; 
-            first [ apply ximpl_lr_refl_nocredits 
-                  | apply ximpl_lr_refl ]
+            first [ apply xsimpl_lr_refl_nocredits 
+                  | apply xsimpl_lr_refl ]
             (* else continue *)
-         | ?Q1 \--* ?Q2 => is_evar Q2; eapply ximpl_lr_qwand_unify
+         | ?Q1 \--* ?Q2 => is_evar Q2; eapply xsimpl_lr_qwand_unify
          | \[False] \-* ?H2 => apply xsimpl_lr_hwand_hfalse
          | ?H1 \-* ?H2 => xsimpl_flip_acc_l tt; apply xsimpl_lr_hwand
          | ?Q1 \--* ?Q2 =>
@@ -1787,13 +1787,13 @@ Ltac xsimpl_step_lr tt :=
                         (* --TODO: optimize for iterated \forall bindings *)
          end
        | \[] => 
-          first [ apply ximpl_lr_refl_nocredits (* handle [ \[] ==> \[] ] *)
+          first [ apply xsimpl_lr_refl_nocredits (* handle [ \[] ==> \[] ] *)
                 | apply xsimpl_lr_exit_credits_to_hempty ] (* handle [ \$n ==> \[] ] *)
        | _ => xsimpl_flip_acc_lr tt; 
               first [ apply xsimpl_lr_exit_nogc_nocredits
                     | apply xsimpl_lr_exit_nogc ]
        end
-    | (\Top \* _) => apply ximpl_lr_htop
+    | (\Top \* _) => apply xsimpl_lr_htop
     | (\GC \* _) =>
         first
         [ match Hra with ?Hra1 \* \[] => is_evar Hra1;  (* when Hra1 is an evar *)
@@ -1802,8 +1802,8 @@ Ltac xsimpl_step_lr tt :=
           end
         | (* General case, Hra not just reduced to an evar *)
           let xsimpl_xaffine tt := try remove_empty_heaps_haffine tt; xaffine in
-          first [ apply ximpl_lr_hgc_nocredits; [ xsimpl_xaffine tt | ]
-                | apply ximpl_lr_hgc; [ try xsimpl_hcredits_nonneg tt | xsimpl_xaffine tt | ] ]
+          first [ apply xsimpl_lr_hgc_nocredits; [ xsimpl_xaffine tt | ]
+                | apply xsimpl_lr_hgc; [ try xsimpl_hcredits_nonneg tt | xsimpl_xaffine tt | ] ]
         ] 
     | ?Hrg' => xsimpl_flip_acc_lr tt;
                first [ apply xsimpl_lr_exit_nocredits

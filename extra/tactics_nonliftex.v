@@ -798,3 +798,63 @@ Lemma neg_sub : forall n m,
 Proof using. math. Qed.
 
 Hint Rewrite neg_sub : rew_int.
+
+
+
+Ltac xsimpl_step_lr tt ::=
+  match goal with |- Xsimpl (?Nc, ?Hla, \[], \[]) (?Hra, ?Hrg, \[]) =>
+    match Hrg with
+    | \[] =>
+       match Hra with
+       | ?H1 \* \[] =>
+         match H1 with
+         | ?Hra_evar => is_evar Hra_evar; 
+              rew_heap; 
+              match xsimpl_use_credits tt with
+                | true => apply ximpl_lr_refl
+                | false =>  apply ximpl_lr_refl_nocredits 
+                end
+         | ?Q1 \--* ?Q2 => is_evar Q2; eapply ximpl_lr_qwand_unify
+         | \[False] \-* ?H2 => apply xsimpl_lr_hwand_hfalse
+         | ?H1 \-* ?H2 => xsimpl_flip_acc_l tt; apply xsimpl_lr_hwand
+         | ?Q1 \--* ?Q2 =>
+             xsimpl_flip_acc_l tt;
+             match H1 with
+             | @qwand unit ?Q1' ?Q2' => apply xsimpl_lr_qwand_unit
+             | _ => apply xsimpl_lr_qwand; intro
+             end
+         | hforall _ => xsimpl_flip_acc_l tt; apply xsimpl_lr_hforall; intro
+                        (* --TODO: optimize for iterated \forall bindings *)
+         end
+       | \[] => match xsimpl_use_credits tt with
+                | true => apply xsimpl_lr_exit_credits_to_hempty
+                | false => apply ximpl_lr_refl_nocredits 
+                end
+       | _ => xsimpl_flip_acc_lr tt; 
+              match xsimpl_use_credits tt with
+              | true => apply xsimpl_lr_exit_nogc 
+              | false => apply xsimpl_lr_exit_nogc_nocredits
+              end
+       end
+    | (\Top \* _) => apply ximpl_lr_htop
+    | (\GC \* _) =>
+        first
+        [ match Hra with ?Hra1 \* \[] => is_evar Hra1;  (* when Hra1 is an evar *)
+            match xsimpl_use_credits tt with
+            | true => apply xsimpl_lr_exit_instantiate 
+            | false => apply xsimpl_lr_exit_instantiate_nocredits
+            end
+          end
+        | (* General case, Hra not just reduced to an evar *)
+          let xsimpl_xaffine tt := try remove_empty_heaps_haffine tt; xaffine in
+          match xsimpl_use_credits tt with
+          | true => apply ximpl_lr_hgc; [ try xsimpl_hcredits_nonneg tt | xsimpl_xaffine tt | ]
+          | false => apply ximpl_lr_hgc_nocredits; [ xsimpl_xaffine tt | ]
+          end ] 
+    | ?Hrg' => xsimpl_flip_acc_lr tt;
+              match xsimpl_use_credits tt with
+              | true => apply xsimpl_lr_exit 
+              | false => apply xsimpl_lr_exit_nocredits
+              end
+
+  end end.
