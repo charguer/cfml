@@ -262,23 +262,16 @@ Definition Wpgen_seq (F1 F2:Formula) : Formula :=
 Definition Wpgen_if (b:bool) (F1 F2:Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
               if b then ^F1 Q else ^F2 Q).
-(* assert(t) = ifnondet then (if t then () else assert false) else () *)
-(* hand (^F1 (fun r => \[r = true] \* Q tt)]) (Q tt) *)
 
 (* Definition Wpgen_assert (F1:Formula) : Formula :=
   MkStruct (FormulaCast (fun (Q:unit->hprop) =>
     Q tt \* \[Q tt ==> ^F1 (fun r => \[r = true] \* Q tt)])).
-*)
-
-(*
- Definition Wpgen_assert (F1:Formula) : Formula :=
-  MkStruct (FormulaCast (fun (Q:unit->hprop) => \exists n,
-    \$n \* Q tt \* \[\$n \* Q tt ==> ^F1 (fun r => \[r = true] \* Q tt)])).
-*)
+ *)
+(* hand (^F1 (fun r => \[r = true] \* Q tt)]) (Q tt) *)
 
 Definition Wpgen_assert (F1:Formula) : Formula :=
   MkStruct (FormulaCast (fun (Q:unit->hprop) =>
-    Q tt \* \[Q tt ==> ^F1 (fun r => \[r = true] \* Q tt)])).
+    hand (^F1 (fun r => \[r = true] \* Q tt)) (Q tt))).
 
 Definition Wpgen_body (P:Prop) : Prop :=
   P.

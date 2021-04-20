@@ -1451,14 +1451,15 @@ Tactic Notation "xif" constr(Q) :=
    discharged automatically. *)
 
 Lemma xassert_lemma : forall H (Q:unit->hprop) (F1:Formula),
-  H ==> ^F1 (fun r => \[r = true] \* H) ->
+  H ==> ^F1 (fun r => \[r = true] \* Q tt) ->
   H ==> Q tt ->
   H ==> ^(Wpgen_assert F1) Q.
 Proof using.
-  introv M1 M2. applys Structural_conseq (fun (_:unit) => H).
+  introv M1 M2. applys Structural_conseq (fun (_:unit) => Q tt).
   { xstructural. }
-  { applys MkStruct_erase. applys xformula_cast_lemma. xsimpl*. }
-  { xchanges M2. intros []. auto. }
+  { applys MkStruct_erase. applys xformula_cast_lemma.
+    applys* himpl_hand_r. }
+  { xsimpl. }
 Qed.
 
 (*
