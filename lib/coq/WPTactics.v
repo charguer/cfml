@@ -2703,100 +2703,6 @@ Tactic Notation "xmatch" constr(Q) constr(Options) :=
   xmatch_post_core Q options.
 
 
-
-(************************************************************************ *)
-(************************************************************************ *)
-(************************************************************************ *)
-(** * Automated processing using [xstep] and [xgo] *)
-
-(** [xstep] applies the appropriate x-tactic.
-
-    [xstep n] repeats n times [xstep].
-
-    [xgo] repeats [xstep] as much as possible.
-
-    [xcf_go] is a shorthand for calling [xcf] then [xgo]. *)
-
-Ltac check_is_Wpgen_record_alloc F :=  (* refined in WPRecord *)
-  fail.
-
-(* Core implementation.
-   Note:
-   | (Wpgen_let_trm_poly _ _) => --- inference not yet supported
-*)
-
-Ltac xstep_once tt :=
-  match goal with
-  | |- ?G => match xgoal_code_without_wptag tt with
-    | (Wpgen_seq (Wptag (Wpgen_app _ _ _)) _) => xseq_cont
-    | (Wpgen_seq _ _) => xseq
-    | (Wpgen_let_trm (Wptag (Wpgen_app _ _ _)) _) => xlet_cont
-    | (Wpgen_let_trm _ _) => xlet
-    | (Wpgen_let_val _ _) => xlet_val
-    | (Wpgen_let_fun _) => xlet_fun
-    | (Wpgen_app _ _ _) => xapp
-    | (Wpgen_if _ _ _) => xif
-    | (Wpgen_val _) => xval
-    | (Wpgen_fail) => xfail
-    | (Wpgen_alias _) => xalias
-    | (Wpgen_done) => xdone
-    | (Wpgen_case _ _ _) => xcase
-    | (Wpgen_match _) => xmatch
-    | (Wpgen_assert _) => xassert
-    | ?F => check_is_Wpgen_record_alloc F; xapp
-    (* | (Wpgen_case _ _ _) => xcase *)
-    end
-  | |- Triple _ _ _ => xapp
-  | |- _ ==> _ => xsimpl
-  | |- _ ===> _ => xsimpl
-  end.
-
-(* [xstep] *)
-
-Ltac xstep_pre tt :=
-  try xpull; intros.
-
-Ltac xstep_core tt :=
-  xstep_pre tt; xstep_once tt; instantiate.
-
-Tactic Notation "xstep" :=
-  xstep_core tt.
-Tactic Notation "xstep" "~" :=
-  xstep; auto_tilde.
-Tactic Notation "xstep" "*" :=
-  xstep; auto_star.
-
-(* [xstep n] *)
-
-Tactic Notation "xstep" integer(n) :=
-  do n xstep.
-Tactic Notation "xstep" "~" integer(n) :=
-  do n (xstep~).
-Tactic Notation "xstep" "*" integer(n) :=
-  do n (xstep*).
-
-(* [xgo] *)
-
-Ltac xgo_core tt :=
-  repeat (xstep_core tt).
-
-Tactic Notation "xgo" :=
-  xgo_core tt.
-Tactic Notation "xgo" "~" :=
-  xgo; auto_tilde.
-Tactic Notation "xgo" "*" :=
-  xgo; auto_star.
-
-Tactic Notation "xcf_go" :=
-  xcf; xgo.
-Tactic Notation "xcf_go" "~" :=
-  xcf_go; auto_tilde.
-Tactic Notation "xcf_go" "*" :=
-  xcf_go; auto_star.
-
-
-
-
 (************************************************************************ *)
 (************************************************************************ *)
 (************************************************************************ *)
@@ -2947,6 +2853,99 @@ Parameter use_credits_false :
 
 Ltac xcredits_exploit_use_credits_false tt ::=
   apply use_credits_false.
+
+
+
+(************************************************************************ *)
+(************************************************************************ *)
+(************************************************************************ *)
+(** * Automated processing using [xstep] and [xgo] *)
+
+(** [xstep] applies the appropriate x-tactic.
+
+    [xstep n] repeats n times [xstep].
+
+    [xgo] repeats [xstep] as much as possible.
+
+    [xcf_go] is a shorthand for calling [xcf] then [xgo]. *)
+
+Ltac check_is_Wpgen_record_alloc F :=  (* refined in WPRecord *)
+  fail.
+
+(* Core implementation.
+   Note:
+   | (Wpgen_let_trm_poly _ _) => --- inference not yet supported
+*)
+
+Ltac xstep_once tt :=
+  match goal with
+  | |- ?G => match xgoal_code_without_wptag tt with
+    | (Wpgen_seq (Wptag (Wpgen_app _ _ _)) _) => xseq_cont
+    | (Wpgen_seq _ _) => xseq
+    | (Wpgen_let_trm (Wptag (Wpgen_app _ _ _)) _) => xlet_cont
+    | (Wpgen_let_trm _ _) => xlet
+    | (Wpgen_let_val _ _) => xlet_val
+    | (Wpgen_let_fun _) => xlet_fun
+    | (Wpgen_app _ _ _) => xapp
+    | (Wpgen_if _ _ _) => xif
+    | (Wpgen_val _) => xval
+    | (Wpgen_fail) => xfail
+    | (Wpgen_alias _) => xalias
+    | (Wpgen_done) => xdone
+    | (Wpgen_case _ _ _) => xcase
+    | (Wpgen_match _) => xmatch
+    | (Wpgen_assert _) => xassert
+    | (Wpgen_pay _) => xpay
+    | ?F => check_is_Wpgen_record_alloc F; xapp
+    (* | (Wpgen_case _ _ _) => xcase *)
+    end
+  | |- Triple _ _ _ => xapp
+  | |- _ ==> _ => xsimpl
+  | |- _ ===> _ => xsimpl
+  end.
+
+(* [xstep] *)
+
+Ltac xstep_pre tt :=
+  try xpull; intros.
+
+Ltac xstep_core tt :=
+  xstep_pre tt; xstep_once tt; instantiate.
+
+Tactic Notation "xstep" :=
+  xstep_core tt.
+Tactic Notation "xstep" "~" :=
+  xstep; auto_tilde.
+Tactic Notation "xstep" "*" :=
+  xstep; auto_star.
+
+(* [xstep n] *)
+
+Tactic Notation "xstep" integer(n) :=
+  do n xstep.
+Tactic Notation "xstep" "~" integer(n) :=
+  do n (xstep~).
+Tactic Notation "xstep" "*" integer(n) :=
+  do n (xstep*).
+
+(* [xgo] *)
+
+Ltac xgo_core tt :=
+  repeat (xstep_core tt).
+
+Tactic Notation "xgo" :=
+  xgo_core tt.
+Tactic Notation "xgo" "~" :=
+  xgo; auto_tilde.
+Tactic Notation "xgo" "*" :=
+  xgo; auto_star.
+
+Tactic Notation "xcf_go" :=
+  xcf; xgo.
+Tactic Notation "xcf_go" "~" :=
+  xcf_go; auto_tilde.
+Tactic Notation "xcf_go" "*" :=
+  xcf_go; auto_star.
 
 
 
