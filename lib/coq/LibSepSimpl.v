@@ -479,7 +479,7 @@ Ltac xsimpl_beautify_credits_arith_to_list n :=
     end in
   aux (@nil credits,@nil credits) true n.
 
-(* TODO: Implement a function [xsimpl_beautify_find_and_remove x L]
+(* [xsimpl_beautify_find_and_remove x L]
    that returns [None] if [x] is not in [L], and [Some L'] where
    [L'] is [L] minus one occurence of [x] if there is one occurence
    of [x] in [L]. *)
@@ -493,12 +493,9 @@ Ltac xsimpl_beautify_find_and_remove x L :=
     | None => constr:(@None (list credits))
     | Some ?L'' => constr:(Some (a::L'')) end end.
 
-(* TODO: generalize the function below to two arguments Lp and Ln,
-   describing positive and negative terms. For each element in [Lp],
-   invoke [xsimpl_beautify_find_and_remove], removing that element
-   if it is found in [Ln]. In the end, return the pair of the filtered
-    [Lp] and [Ln] *)
-
+(* For each element in [Lp], invoke [xsimpl_beautify_find_and_remove],
+   removing that element if it is found in [Ln].
+   In the end, return the pair of the filtered [Lp] and [Ln] *)
 Ltac xsimpl_beautify_credits_simpl_list L :=
   let rec aux Ln Lp :=
       match Ln with
@@ -523,6 +520,7 @@ Ltac fold_left f accu l :=
 Ltac add x y := constr:(x + y).
 Ltac sub x y := constr:(x - y).
 
+(* If L=(Ln,Lp) returns a prettified version of Lp - Ln *)
 Ltac xsimpl_beautify_credits_list_to_arith L :=
   match L with
   | (?Ln,?Lp) =>
@@ -593,7 +591,6 @@ Proof using.
   { xsimpl_beautify_credits_goal tt. demo. }
   { xsimpl_beautify_credits_everywhere tt. demo. }
 Abort.
-
 
 (* ---------------------------------------------------------------------- *)
 (* [xaffine] placeholder *)
