@@ -385,7 +385,7 @@ Lemma star_post_empty : forall B (Q:B->hprop),
 Proof using. extens. intros. rewrite* hstar_hempty_r. Qed.
 
 Hint Rewrite hstar_hempty_l hstar_hempty_r
-             hstar_assoc star_post_empty hwand_hempty_l 
+             hstar_assoc star_post_empty hwand_hempty_l
              hcredits_zero hcredits_add : rew_heap.
 
 Tactic Notation "rew_heap" :=
@@ -463,18 +463,18 @@ Ltac xsimpl_beautify_credits_arith_to_list n :=
     end in
   let rec aux acc pos n :=
     match n with
-    | ?n1 + ?n2 => 
-        let L1 := aux acc pos n1 in 
-        aux L1 pos n2 
-    | ?n1 - ?n2 => 
-        let L1 := aux acc pos n1 in   
+    | ?n1 + ?n2 =>
+        let L1 := aux acc pos n1 in
+        aux L1 pos n2
+    | ?n1 - ?n2 =>
+        let L1 := aux acc pos n1 in
         let posneg := ltac_neg pos in
         aux L1 posneg n2
-    | - ?n1 => 
+    | - ?n1 =>
         let posneg := ltac_neg pos in
         aux acc posneg n1
     | 0 => constr:(acc)
-    | ?n1 => match pos with 
+    | ?n1 => match pos with
              | true => constr:(n1::acc)
              | false => constr:( (-n1)::acc)
              end
@@ -483,11 +483,11 @@ Ltac xsimpl_beautify_credits_arith_to_list n :=
 
 (* TODO: Implement a function [xsimpl_beautify_find_and_remove x L]
    that returns [None] if [x] is not in [L], and [Some L'] where
-   [L'] is [L] minus one occurence of [x] if there is one occurence 
+   [L'] is [L] minus one occurence of [x] if there is one occurence
    of [x] in [L]. *)
 
-(* TODO: generalize the function below to two arguments Lp and Ln, 
-   describing positive and negative terms. For each element in [Lp], 
+(* TODO: generalize the function below to two arguments Lp and Ln,
+   describing positive and negative terms. For each element in [Lp],
    invoke [xsimpl_beautify_find_and_remove], removing that element
    if it is found in [Ln]. In the end, return the pair of the filtered
     [Lp] and [Ln] *)
@@ -508,7 +508,7 @@ Ltac xsimpl_beautify_credits_list_to_arith L :=
     | (-?x) :: ?L' => let n := aux L' in
                       constr:(n - x)
     | ?x :: ?L' => let n := aux L' in
-               constr:(n + x) 
+               constr:(n + x)
     end in
   aux L.
 
@@ -524,14 +524,14 @@ Ltac xsimpl_beautify_credits_core replacer n :=
 
 Ltac xsimpl_beautify_credits_once_hyp tt :=
   match goal with
-  | H: context [ \$ ?n ] |- _ => 
+  | H: context [ \$ ?n ] |- _ =>
     let replacer a b := replace a with b in H in
-    xsimpl_beautify_credits_core replacer n 
+    xsimpl_beautify_credits_core replacer n
   end.
 
 Ltac xsimpl_beautify_credits_once_goal tt :=
   match goal with
-  | |- context [ \$ ?n ] => 
+  | |- context [ \$ ?n ] =>
     let replacer a b := (replace a with b) in
     xsimpl_beautify_credits_core replacer n
   end.
@@ -561,7 +561,7 @@ Lemma xsimpl_hcredits_beautify : forall n1 n2 n3 n4 n5,
 Proof using.
   intros. dup 5.
   { match goal with
-    | |- context [ \$ ?n ] => 
+    | |- context [ \$ ?n ] =>
     let n' := xsimpl_beautify_credits_clean n in
     replace (\$n) with (xsimpl_hcredits_protect n');
     [ | unfold xsimpl_hcredits_protect; fequal; try math ] end.
@@ -1050,7 +1050,7 @@ Lemma xsimpl_l_hwand_hcredits : forall n H2 Nc Hla Hlw Hlt HR,
   Xsimpl (Nc, Hla, ((\$n \-* H2) \* Hlw), Hlt) HR.
 Proof using.
   xsimpl_l_start' M. rewrite hwand_hcredits_l.
-  math_rewrite (Nc - n = Nc + (-n)). rewrite hcredits_add. hstars_simpl. 
+  math_rewrite (Nc - n = Nc + (-n)). rewrite hcredits_add. hstars_simpl.
 Qed.
 
 (* DEPRECATED
@@ -1217,7 +1217,7 @@ Lemma xsimpl_lr_cancel_htop : forall H Nc Hla Hlw Hlt Hra Hrg Hrt,
 Proof using.
   xsimpl_lr_start M. rewrite (hstar_comm_assoc Hra) in *.
   rewrite <- hstar_assoc in M. rewrite hstar_comm_assoc.
-  rewrite <- (hstar_assoc (\$Nc)). 
+  rewrite <- (hstar_assoc (\$Nc)).
  lets: himpl_frame_lr M.  (* applys himpl_htop_r. *)
 Admitted. (* TODO  Qed. *)
 
@@ -1323,10 +1323,13 @@ Lemma xsimpl_lr_hgc : forall Nc Hla Hrg,
   Xsimpl (0, \[], \[], \[]) (\[], Hrg, \[]) ->
   Xsimpl (Nc, Hla, \[], \[]) (\[], (\GC \* Hrg), \[]).
 Proof using.
-  introv HNc N. xsimpl_lr_start M. rewrite <- (hstar_hempty_l Hla).
-Admitted. (* TODO : Alexandre   hcredits_hgc/haffine
-  applys himpl_hstar_trans_l M. hstars_simpl. apply* himpl_hgc_r.
-Qed. *)
+  introv HNc N. xsimpl_lr_start M.
+  rewrite <- hstar_hgc_hgc.
+  applys himpl_hstar_trans_l. apply himpl_hgc_r. apply* haffine_hcredits.
+  hstars_simpl.
+  rewrite <- (hstar_hempty_l Hla). applys himpl_hstar_trans_l M. hstars_simpl.
+  apply* himpl_hgc_r.
+Qed.
 
 Lemma xsimpl_lr_hgc_nocredits : forall Hla Hrg,
   haffine Hla ->
@@ -1497,7 +1500,7 @@ Ltac xsimpl_pick_repr H :=
 (* ---------------------------------------------------------------------- *)
 (** ** Tactic for credits *)
 
-Lemma xsimpl_hcredits_zero : 
+Lemma xsimpl_hcredits_zero :
   0 >= 0.
 Proof using. math. Qed.
 
@@ -1758,7 +1761,7 @@ Ltac xsimpl_step_r tt :=
 (* [xsimpl_use_credits tt] should return [true] or [false]. *)
 (* TODO: probably in fact we don't need this at all.
    if we see a credit, we can assume [xsimpl_use_credits] is true. *)
-    
+
 Ltac xsimpl_use_credits tt :=
   constr:(false).
 
@@ -1770,8 +1773,8 @@ Ltac xsimpl_step_lr tt :=
        | ?H1 \* \[] =>
          match H1 with
          | ?Hra_evar => is_evar Hra_evar; (* handle [ H1 => ?H2 ] *)
-            rew_heap; 
-            first [ apply xsimpl_lr_refl_nocredits 
+            rew_heap;
+            first [ apply xsimpl_lr_refl_nocredits
                   | apply xsimpl_lr_refl ]
             (* else continue *)
          | ?Q1 \--* ?Q2 => is_evar Q2; eapply xsimpl_lr_qwand_unify
@@ -1786,10 +1789,10 @@ Ltac xsimpl_step_lr tt :=
          | hforall _ => xsimpl_flip_acc_l tt; apply xsimpl_lr_hforall; intro
                         (* --TODO: optimize for iterated \forall bindings *)
          end
-       | \[] => 
+       | \[] =>
           first [ apply xsimpl_lr_refl_nocredits (* handle [ \[] ==> \[] ] *)
                 | apply xsimpl_lr_exit_credits_to_hempty ] (* handle [ \$n ==> \[] ] *)
-       | _ => xsimpl_flip_acc_lr tt; 
+       | _ => xsimpl_flip_acc_lr tt;
               first [ apply xsimpl_lr_exit_nogc_nocredits
                     | apply xsimpl_lr_exit_nogc ]
        end
@@ -1804,7 +1807,7 @@ Ltac xsimpl_step_lr tt :=
           let xsimpl_xaffine tt := try remove_empty_heaps_haffine tt; xaffine in
           first [ apply xsimpl_lr_hgc_nocredits; [ xsimpl_xaffine tt | ]
                 | apply xsimpl_lr_hgc; [ try xsimpl_hcredits_nonneg tt | xsimpl_xaffine tt | ] ]
-        ] 
+        ]
     | ?Hrg' => xsimpl_flip_acc_lr tt;
                first [ apply xsimpl_lr_exit_nocredits
                      | apply xsimpl_lr_exit ]
@@ -2362,8 +2365,8 @@ Proof using. intros. xsimpl; math. Abort.
 
 (* TODO: add a demo with an hypothesis [M] with simplifiable credits in an entailment,
    do [dup 2].
-   in the first branch, call [xsimpl_beautify_hcredits_everywhere tt] 
-   then [xchanges M]. 
+   in the first branch, call [xsimpl_beautify_hcredits_everywhere tt]
+   then [xchanges M].
    in the second branch, call [xsimpl_beautify_hcredits_everywhere tt] directly. *)
 
 (* End using credits *)
@@ -2437,7 +2440,7 @@ Include HP.
 
 Open Scope heap_scope.
 
-Definition use_credits : bool := 
+Definition use_credits : bool :=
   false.
 
 Definition hcredits (n:Z) : hprop :=
@@ -2479,5 +2482,3 @@ End HPC.
 Module Export Setup := XsimplSetupCredits HPC.
 
 End XsimplSetup.
-
-
