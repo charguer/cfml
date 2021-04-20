@@ -1647,6 +1647,25 @@ Ltac xapp_exploit_spec_lemma L cont :=
   [ applys S; clear S; xapp_side_post tt
   | clear S; cont tt ].
 
+(* INCORRECT, should do instantiation of spec first of all...
+Ltac xapp_exploit_spec tt :=
+  match goal with |- ?S -> ?G =>
+    let Q := xprop_post G in
+    match is_evar_as_bool Q with
+    | true => xapp_exploit_spec_lemma xapp_lemma_inst xapp_simpl_substract
+    | false =>
+        match type of S with
+        | context [(fun _ => \[_] \* _)] =>
+           xapp_exploit_spec_lemma xapps_lemma xapp_simpl
+        | context [(fun _ => \[_])] =>
+           xapp_exploit_spec_lemma xapps_lemma_pure xapp_simpl
+        | _ => (* general case, and fallback for other cases *)
+           xapp_exploit_spec_lemma xapp_lemma xapp_simpl
+        end
+    end
+  end.
+*)
+
 Ltac xapp_exploit_spec tt :=
   match goal with |- ?S -> ?G =>
     let Q := xprop_post G in
@@ -1740,9 +1759,9 @@ Tactic Notation "xapp" "*" constr(E) :=
 
 Ltac xapp_nosubst_core tt :=
   xapp_pre tt;
-  xspec;
+    xspec;
   (* TODO: raise error if spec is a Wpgen_body *)
-  xapp_exploit_spec @xapp_lemma xapp_simpl.
+  xapp_exploit_spec_lemma @xapp_lemma xapp_simpl.
 
 Tactic Notation "xapp_nosubst" :=
   xapp_nosubst_core tt.
@@ -1754,7 +1773,8 @@ Tactic Notation "xapp_nosubst" "*"  :=
 Ltac xapp_arg_nosubst_core E :=
   xapp_pre tt;
   xspec_lemma_of_args E;
-  xapp_exploit_spec @xapp_lemma xapp_simpl.
+  (* TODO: raise error if spec is a Wpgen_body *)
+  xapp_exploit_spec_lemma @xapp_lemma xapp_simpl.
 
 Tactic Notation "xapp_nosubst" constr(E) :=
   xapp_arg_nosubst_core tt.
@@ -2783,6 +2803,13 @@ Tactic Notation "xcf_go" "*" :=
 (** * Credits *)
 
 (* ---------------------------------------------------------------------- *)
+(** ** Configuration of [xsimpl] to automatically call [math] on [n >= 0] subgoal *)
+
+Ltac xsimpl_hcredits_nonneg tt ::=
+  math.
+
+
+(* ---------------------------------------------------------------------- *)
 (** ** [xpay] *)
 
 (* [xpay] *)
@@ -2808,16 +2835,31 @@ Proof using.
   introv M1 M2. xchange M1.
   applys Structural_frame H1 (\$1). { applys Structural_MkStruct. } { xsimpl. }
   applys MkStruct_erase. xchange M2.
-  applys_eq himpl_refl. fequals. applys fun_ext_1. intros x.
+  applys_eq himpl_refl. fequals.
+  (* TODO: xsimpl could handle this. *)
+  applys fun_ext_1. intros x. xsimpl.
+  (* TODO: details:
   rewrite hwand_hcredits_l. rewrite hstar_assoc.
-  rewrite hcredits_cancel. rew_heap*.
+  rewrite hcredits_cancel. rew_heap*. *)
 Qed.
 
+Ltac xpay_post tt :=
+  idtac.
+
 Ltac xpay_pre_core tt :=
-  eapply xpay_lemma_pre.
+  eapply xpay_lemma_pre; [ xsimpl; xpay_post tt | ].
 
 Tactic Notation "xpay_pre" :=
   xpay_pre_core tt.
+
+(* [xpay_pre_nosimpl] *)
+
+Ltac xpay_pre_nosimpl_core tt :=
+  eapply xpay_lemma_pre.
+
+Tactic Notation "xpay_pre_nosimpl" :=
+  xpay_pre_nosimpl_core tt.
+
 
 
 (* BONUS

@@ -182,6 +182,50 @@ Parameter haffine_hstar : forall H1 H2,
   haffine H2 ->
   haffine (H1 \* H2).
 
+
+(* ---------------------------------------------------------------------- *)
+(* ** Additional assumptions for credits *)
+
+(* TODO: can we avoid that and still benefit from [xsimpl] with credits? *)
+
+Parameter use_credits : bool.
+
+Notation "'credits'" := Z.
+
+Parameter hcredits : credits -> hprop.
+
+Notation "'\$' n" := (hcredits n)
+  (at level 40,
+   n at level 0,
+   format "\$ n") : heap_scope.
+
+Open Scope heap_scope.
+
+Parameter hcredits_skip :
+  use_credits = false ->
+  forall n, \$ n = \[].
+
+Parameter hcredits_zero :
+  \$ 0 = \[].
+
+Parameter hcredits_add : forall n m,
+  \$ (n+m) = \$ n \* \$ m.
+
+Parameter haffine_hcredits : forall n,
+  n >= 0 ->
+  haffine (\$ n).
+
+(* TODO: find out what is a more primitive way to derive [hwand_hcredits_l]. *)
+
+  Definition hpure' (P:Prop) : hprop :=
+    hexists (fun (p:P) => hempty).
+
+  Definition hwand' (H1 H2 : hprop) : hprop :=
+    hexists (fun (H:hprop) => H \* (hpure' (H1 \* H ==> H2))).
+
+  Parameter hwand_hcredits_l' : forall H n,
+    (hwand' (\$n) H) = (\$(-n) \* H).
+
 End SepCore.
 
 
@@ -492,7 +536,7 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Properties of hforall *)
+(** Properties of [hforall] *)
 
 Lemma himpl_hforall_r : forall A (J:A->hprop) H,
   (forall x, H ==> J x) ->
@@ -522,7 +566,7 @@ Proof using. intros. applys* himpl_hforall_l x. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Properties of hwand (others are found further in the file) *)
+(** Properties of [hwand] (others are found further in the file) *)
 
 Lemma hwand_equiv : forall H0 H1 H2,
   (H0 ==> H1 \-* H2) <-> (H1 \* H0 ==> H2).
@@ -807,12 +851,22 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
+(* ** Properties of [hcredits] *)
+
+(* TEMPORARY *)
+
+Lemma hwand_hcredits_l : forall H n,
+  (hwand (\$n) H) = (\$(-n) \* H).
+Proof using. applys hwand_hcredits_l'. Qed.
+
+
+(* ---------------------------------------------------------------------- *)
 
 End SepSimplArgs.
 
 Export SepSimplArgs.
 
-Module Export HS := LibSepSimpl.XsimplSetup(SepSimplArgs).
+Module Export HS := LibSepSimpl.XsimplSetupCredits(SepSimplArgs).
 
 (** Experimental tactic [xsimpl_hand] *)
 
