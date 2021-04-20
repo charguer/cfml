@@ -450,11 +450,6 @@ Ltac remove_empty_heaps_right tt :=
 Definition xsimpl_hcredits_protect (n:credits) : hprop :=
   \$n.
 
-(* TODO: generalize using two accumulators, one for the list of
-   positive and one for the list of negative; the function returns
-   a pair, using the syntax [constr:( (Lp,Ln) )], and the syntax
-   [match aux ... with (?Lp,?Ln) => ...] for deconstructing. *)
-
 Ltac xsimpl_beautify_credits_arith_to_list n :=
   let ltac_neg pos :=
     match pos with
@@ -474,17 +469,29 @@ Ltac xsimpl_beautify_credits_arith_to_list n :=
         let posneg := ltac_neg pos in
         aux acc posneg n1
     | 0 => constr:(acc)
-    | ?n1 => match pos with
-             | true => constr:(n1::acc)
-             | false => constr:( (-n1)::acc)
-             end
+    | ?n1 =>
+      match acc with
+      | (?Ln,?Lp) =>
+        match pos with
+        | true => constr:((Ln,n1::Lp))
+        | false => constr:((n1::Ln,Lp))
+        end end
     end in
-  aux (@nil credits) true n.
+  aux (@nil credits,@nil credits) true n.
 
 (* TODO: Implement a function [xsimpl_beautify_find_and_remove x L]
    that returns [None] if [x] is not in [L], and [Some L'] where
    [L'] is [L] minus one occurence of [x] if there is one occurence
    of [x] in [L]. *)
+Ltac xsimpl_beautify_find_and_remove x L :=
+  match L with
+  | nil => constr:(@None (list credits))
+  | x::?L' => constr:(Some L')
+  | ?a::?L' =>
+    let acc := xsimpl_beautify_find_and_remove x L' in
+    match acc with
+    | None => constr:(@None (list credits))
+    | Some ?L'' => constr:(Some (a::L'')) end end.
 
 (* TODO: generalize the function below to two arguments Lp and Ln,
    describing positive and negative terms. For each element in [Lp],
@@ -493,24 +500,39 @@ Ltac xsimpl_beautify_credits_arith_to_list n :=
     [Lp] and [Ln] *)
 
 Ltac xsimpl_beautify_credits_simpl_list L :=
-  constr:(L).
+  let rec aux Ln Lp :=
+      match Ln with
+      | nil => constr:((Ln,Lp))
+      | ?x::?Ln' =>
+        let Lp' := xsimpl_beautify_find_and_remove x Lp in
+        match Lp' with
+        | None => let r := aux Ln' Lp in
+                 match r with
+                 | (?LL,?LR) => constr:((x::LL,LR)) end
+        | Some ?Lp'' => aux Ln' Lp'' end end in
+  match L with
+  | (?Ln,?Lp) => aux Ln Lp end.
 
-(* TODO: generalize this function to a pair of list.
-   Return a result of the form [a + b + c - e - f].
-   When Lp is empty, produce either [0 - e - f] or [- (e) - f]
-   (whatever you like, both are imperfect;) *)
+Ltac fold_left f accu l :=
+  match l with
+  | nil => accu
+  | ?a::?L =>
+    let naccu := f accu a in
+    fold_left f naccu L end.
+
+Ltac add x y := constr:(x + y).
+Ltac sub x y := constr:(x - y).
 
 Ltac xsimpl_beautify_credits_list_to_arith L :=
-  let rec aux L := (* assumes L contains no zero *)
-    match L with
-    | nil => constr:(0)
-    | (?x) :: nil => constr:(x)
-    | (-?x) :: ?L' => let n := aux L' in
-                      constr:(n - x)
-    | ?x :: ?L' => let n := aux L' in
-               constr:(n + x)
-    end in
-  aux L.
+  match L with
+  | (?Ln,?Lp) =>
+    match constr:((Ln,Lp)) with
+    | (nil,nil) => 0
+    | (?a::?Ln', nil) => fold_left sub (-a) Ln'
+    | (_,?a::?Lp') =>
+      let p := fold_left add a Lp' in
+      fold_left sub p Ln
+     end end.
 
 Ltac xsimpl_beautify_credits_clean n :=
   let L := xsimpl_beautify_credits_arith_to_list n in
@@ -520,7 +542,7 @@ Ltac xsimpl_beautify_credits_clean n :=
 Ltac xsimpl_beautify_credits_core replacer n :=
   let n' := xsimpl_beautify_credits_clean n in
   replacer (\$n) (xsimpl_hcredits_protect n');
-  [ |  unfold xsimpl_hcredits_protect; fequal; try math ].
+  [ | unfold xsimpl_hcredits_protect; fequal; try math ].
 
 Ltac xsimpl_beautify_credits_once_hyp tt :=
   match goal with
