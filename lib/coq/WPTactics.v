@@ -1461,10 +1461,25 @@ Proof using.
   { xchanges M2. intros []. auto. }
 Qed.
 
+(*
+Lemma xassert_lemma : forall H (Q:unit->hprop) (F1:Formula),
+  H ==> ^F1 (fun r => \[r = true] \* Q tt) ->
+  H ==> Q tt ->
+  H ==> ^(Wpgen_assert F1) Q.
+*)
+
 Lemma xassert_lemma_inst : forall H (F1:Formula),
   H ==> ^F1 (fun r => \[r = true] \* H) ->
   H ==> ^(Wpgen_assert F1) (fun (_:unit) => H).
 Proof using. introv M. applys* xassert_lemma. Qed.
+
+(* Lemma xassert_lemma_inst : forall n H (F1:Formula),
+  H ==> ^F1 (fun r => \[r = true] \* \$(-n) \* H) ->
+  n >= 0 ->
+  H ==> ^(Wpgen_assert F1) (fun (_:unit) => \$(-n) \* H).
+ *)
+
+(* TODO apprendre à xsimpl à résoudre x-?n >= 0 *)
 
 Ltac xassert_pre tt :=
   xcheck_pull tt;
@@ -2794,7 +2809,7 @@ Proof using.
   applys Structural_frame H1 (\$1). { applys Structural_MkStruct. } { xsimpl. }
   applys MkStruct_erase. xchange M2.
   applys_eq himpl_refl. fequals. applys fun_ext_1. intros x.
-  rewrite hwand_hcredits_l. rewrite hstar_assoc. 
+  rewrite hwand_hcredits_l. rewrite hstar_assoc.
   rewrite hcredits_cancel. rew_heap*.
 Qed.
 
@@ -3018,4 +3033,3 @@ Ltac xwp_debug_core tt :=
 
 Tactic Notation "xwp_debug" :=
   xwp_debug_core tt.
-

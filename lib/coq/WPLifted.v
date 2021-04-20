@@ -38,7 +38,7 @@ Parameter hcredits_skip :
   use_credits = false ->
   forall n, \$ n = \[].
 
-Parameter hcredits_zero : 
+Parameter hcredits_zero :
   \$ 0 = \[].
 
 Parameter hcredits_add : forall n m,
@@ -66,7 +66,7 @@ Proof using.
   intros. xsimpl.
   { xchanges <- (hcredits_cancel n). }
   { xchange (hcredits_cancel n). }
-Qed. 
+Qed.
 
 
 (*------------------------------------------------------------------*)
@@ -138,7 +138,7 @@ Proof using. introv L M W. applys* structural_frame. Qed.
 
 Lemma Structural_frame' : forall (F:Formula) H1 H2 A (EA:Enc A) (Q:A->hprop),
   (Structural F) ->
-  (H1 ==> (F A EA (fun x : A => H2 \-* (Q x)))) -> 
+  (H1 ==> (F A EA (fun x : A => H2 \-* (Q x)))) ->
    H1 \* H2 ==> (F A EA Q).
 Proof using. introv HF M. applys* Structural_frame. Qed.
 
@@ -316,7 +316,20 @@ Definition Wpgen_seq (F1 F2:Formula) : Formula :=
 
 Definition Wpgen_if (b:bool) (F1 F2:Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
-    if b then ^F1 Q else ^F2 Q).
+              if b then ^F1 Q else ^F2 Q).
+(* assert(t) = ifnondet then (if t then () else assert false) else () *)
+(* hand (^F1 (fun r => \[r = true] \* Q tt)]) (Q tt) *)
+
+(* Definition Wpgen_assert (F1:Formula) : Formula :=
+  MkStruct (FormulaCast (fun (Q:unit->hprop) =>
+    Q tt \* \[Q tt ==> ^F1 (fun r => \[r = true] \* Q tt)])).
+*)
+
+(*
+ Definition Wpgen_assert (F1:Formula) : Formula :=
+  MkStruct (FormulaCast (fun (Q:unit->hprop) => \exists n,
+    \$n \* Q tt \* \[\$n \* Q tt ==> ^F1 (fun r => \[r = true] \* Q tt)])).
+*)
 
 Definition Wpgen_assert (F1:Formula) : Formula :=
   MkStruct (FormulaCast (fun (Q:unit->hprop) =>
@@ -358,22 +371,22 @@ Definition Wpgen_pay' (F1:Formula) : Formula :=
 
 Lemma Wpgen_pay_eq_Wpgen_pay' :
   Wpgen_pay = Wpgen_pay'.
-Proof using. 
+Proof using.
   applys fun_ext_4. intros F1 A EA Q. applys himpl_antisym.
   { applys MkStruct_erase_l. { applys Structural_MkStruct. }
-    clears A. intros A EA Q. 
+    clears A. intros A EA Q.
     xchange <- (hcredits_cancel 1). rewrite <- hstar_assoc, hstar_comm.
     rewrite <- hstar_assoc.
     applys Structural_frame'. { applys Structural_MkStruct. }
     applys MkStruct_erase. xsimpl.
-    applys_eq himpl_refl. fequals. applys fun_ext_1. intros x. 
+    applys_eq himpl_refl. fequals. applys fun_ext_1. intros x.
     rewrite* hwand_hcredits_l. }
   { applys MkStruct_erase_l. { applys Structural_MkStruct. }
     clears A. intros A EA Q. rewrite hstar_comm.
     applys Structural_frame'. { applys Structural_MkStruct. }
      applys MkStruct_erase.
      applys_eq himpl_refl. fequals. applys fun_ext_1. intros x.
-     rewrite hwand_hcredits_l. rewrite hstar_assoc. 
+     rewrite hwand_hcredits_l. rewrite hstar_assoc.
      rewrite hcredits_cancel. xsimpl. }
 Qed.
 
@@ -1777,4 +1790,3 @@ Definition Wpgen_fixs_custom (Custom:(val->(vals->Formula->Prop)->Prop) : Formul
  Q tt \* \[Q tt ==> wp t (fun r => \[r = true] \* Q tt)] ==> wp (val_assert t) Q
 
 *)
-
