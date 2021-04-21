@@ -1261,10 +1261,10 @@ Tactic Notation "xlet_cont" :=
 
 Ltac xlet_xseq_steps_core tt :=
   match xgoal_code_without_wptag tt with
-  | (Wpgen_let_trm _ _) => xlet_trm; [xlet_xseq_steps_core | ]
-  | (Wpgen_let_val _ _) => xlet_val
-  | (Wpgen_let_fun _) => xlet_fun
-  | (Wpgen_seq _ _) => xseq; [xlet_xseq_steps_core | ]
+  | (Wpgen_let_trm _ _) => xlet_trm; [xlet_xseq_steps_core tt | ]
+  | (Wpgen_let_val _ _) => xlet_val; xlet_xseq_steps_core tt
+  | (Wpgen_let_fun _) => xlet_fun; xlet_xseq_steps_core tt
+  | (Wpgen_seq _ _) => xseq; [xlet_xseq_steps_core tt | ]
   | _ => idtac
   end.
 
