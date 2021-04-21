@@ -450,6 +450,18 @@ Ltac remove_empty_heaps_right tt :=
 Definition xsimpl_hcredits_protect (n:credits) : hprop :=
   \$n.
 
+Ltac fold_right f accu l :=
+  match l with
+  | nil => accu
+  | ?a::?L =>
+    let naccu := fold_right f accu l in
+    f a naccu
+  end.
+
+Ltac list_snoc x l :=
+  let cons x y := constr:(x::y) in
+  fold_right cons x l.
+
 (* TODO: document
    also rename L1 to LnLp *)
 Ltac xsimpl_beautify_credits_arith_to_list n :=
@@ -475,10 +487,15 @@ Ltac xsimpl_beautify_credits_arith_to_list n :=
       match acc with
       | (?Ln,?Lp) =>
         match pos with
-        | true => constr:( (Ln,n1::Lp) )
+        | true =>
+          let Lp' :=
+              match is_evar_as_bool n1 with
+              | false => constr:(n1::Lp)
+              | true => list_snoc n1 Lp (* TODO verify *)
+              end in
+          constr:( (Ln,Lp') )
         | false => constr:( (n1::Ln,Lp) )
-        end end
-    end in
+        end end end in
   aux (@nil credits,@nil credits) true n.
 
 (* [xsimpl_beautify_find_and_remove x L]
@@ -1537,10 +1554,17 @@ Lemma xsimpl_hcredits_zero :
   0 >= 0.
 Proof using. math. Qed.
 
-Ltac xsimpl_hcredits_nonneg tt :=
-  match goal with |- 0 >= 0 =>
-    apply xsimpl_hcredits_zero end.
+Lemma xsimpl_hcredits_nonneg_inst_evar : forall n,
+  n - n >= 0.
+Proof using. math. Qed.
 
+Ltac xsimpl_hcredits_nonneg_custom := fail.
+
+Ltac xsimpl_hcredits_nonneg tt :=
+  try first
+  [ apply xsimpl_hcredits_zero
+  | apply xsimpl_hcredits_nonneg_inst_evar
+  | xsimpl_hcredits_nonneg_custom tt ].
 
 (* ---------------------------------------------------------------------- *)
 (** ** Tactic start and stop *)
@@ -1839,7 +1863,7 @@ Ltac xsimpl_step_lr tt :=
         | (* General case, Hra not just reduced to an evar *)
           let xsimpl_xaffine tt := try remove_empty_heaps_haffine tt; xaffine in
           first [ apply xsimpl_lr_hgc_nocredits; [ xsimpl_xaffine tt | ]
-                | apply xsimpl_lr_hgc; [ try xsimpl_hcredits_nonneg tt | xsimpl_xaffine tt | ] ]
+                | apply xsimpl_lr_hgc; [ xsimpl_hcredits_nonneg tt | xsimpl_xaffine tt | ] ]
         ]
     | ?Hrg' => xsimpl_flip_acc_lr tt;
                first [ apply xsimpl_lr_exit_nocredits
