@@ -36,6 +36,11 @@ Open Scope wptactics_scope.
 (************************************************************************ *)
 (** * Internal Tactics *)
 
+(* To be specialized lated, either to "true"
+   or to a term of type "use_credits = false." *)
+Ltac xcredits_activated tt :=
+  fail 100 "xcredits_activated needs to be defined".
+
 
 (* ---------------------------------------------------------------------- *)
 (** ** Generic Ltac operator *)
@@ -1440,9 +1445,8 @@ Tactic Notation "xif" constr(Q) :=
 (* ---------------------------------------------------------------------- *)
 (** ** Tactic [xassert] *)
 
-(* TODO UPDATE
-   [xassert] applies to a goal of the form [PRE H CODE (Assert F1) POST Q].
-   It generates two subgoals: [PRE H CODE F1 POST (fun r => \[r=true] \* H]
+(* [xassert] applies to a goal of the form [PRE H CODE (Assert F1) POST Q].
+   It generates two subgoals: [PRE H CODE F1 POST (fun r => \[r=true] \* Q tt]
    to ensure that the body of the assertion evaluates to [true], and
    [H ==> Q tt] to ensure that if the assertions is not evaluated then it has
    no impact on the correctness of the code.
@@ -1468,13 +1472,6 @@ Lemma xassert_lemma_inst : forall H (F1:Formula),
   H ==> ^(Wpgen_assert F1) (fun (_:unit) => H).
 Proof using. introv M. applys* xassert_lemma. Qed.
 
-(* TODO move WPLifted *)
-Lemma Structural_hgc : forall A (EA:Enc A) F H (Q:A -> hprop),
-  Structural F ->
-  H ==> ^F (Q \*+ \GC) ->
-  H ==> ^F Q.
-Proof using. introv L M. applys* structural_hgc. Qed.
-
 Lemma xassert_lemma_inst_hcredits : forall n H (F1:Formula),
   H ==> ^F1 (fun r => \[r = true] \* \$(-n) \* H \* \GC) ->
   n >= 0 ->
@@ -1497,10 +1494,6 @@ Ltac xassert_pre tt :=
   match xgoal_code_without_wptag tt with
   | (Wpgen_assert _) => idtac
   end.
-
-(* TODO Move en haut *)
-Ltac xcredits_activated tt :=
-  fail 100 "xcredits_activated needs to be defined".
 
 Ltac xassert_core tt :=
   xassert_pre tt;

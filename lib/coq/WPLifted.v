@@ -87,6 +87,12 @@ Lemma Structural_frame' : forall (F:Formula) H1 H2 A (EA:Enc A) (Q:A->hprop),
    H1 \* H2 ==> (F A EA Q).
 Proof using. introv HF M. applys* Structural_frame. Qed.
 
+Lemma Structural_hgc : forall A (EA:Enc A) F H (Q:A -> hprop),
+  Structural F ->
+  H ==> ^F (Q \*+ \GC) ->
+  H ==> ^F Q.
+Proof using. introv L M. applys* structural_hgc. Qed.
+
 (* TODO: add other structural lemmas? *)
 
 
