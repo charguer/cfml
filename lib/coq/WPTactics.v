@@ -1259,17 +1259,18 @@ Tactic Notation "xlet_cont" :=
 (** [xlet_xseq_steps tt] automatically performs as many [xlet] and [xseq] as
     appropriate. *)
 
-Ltac xlet_xseq_step tt :=
+Ltac xlet_xseq_steps_core tt :=
   match xgoal_code_without_wptag tt with
-  | (Wpgen_let_trm _ _) => xlet_trm
+  | (Wpgen_let_trm _ _) => xlet_trm; [xlet_xseq_steps_core | ]
   | (Wpgen_let_val _ _) => xlet_val
   | (Wpgen_let_fun _) => xlet_fun
-  | (Wpgen_seq _ _) => xseq
+  | (Wpgen_seq _ _) => xseq; [xlet_xseq_steps_core | ]
+  | _ => idtac
   end.
 
 Ltac xlet_xseq_steps tt :=
   xcheck_pull tt;
-  repeat (xlet_xseq_step tt).
+  xlet_xseq_steps_core tt.
 
 (** [xlet_xseq_cont_steps tt] automatically performs as many [xlet_cont]
     and [xseq_cont] as appropriate. *)
@@ -1489,7 +1490,7 @@ Qed.
 
 Ltac xassert_pre tt :=
   xcheck_pull tt;
-  xlet_xseq_cont_steps tt;
+  xlet_xseq_steps tt;
   match xgoal_code_without_wptag tt with
   | (Wpgen_assert _) => idtac
   end.
