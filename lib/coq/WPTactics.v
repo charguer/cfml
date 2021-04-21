@@ -1491,14 +1491,14 @@ Qed.
 Ltac xassert_pre tt :=
   xcheck_pull tt;
   xlet_xseq_steps tt;
-  match xgoal_code_without_wptag tt with
-  | (Wpgen_assert _) => idtac
-  end.
+  [match xgoal_code_without_wptag tt with
+   | (Wpgen_assert _) => idtac
+   end | .. | ].
 
 Ltac xassert_core tt :=
   xassert_pre tt;
-  first [ eapply xassert_lemma_inst
-        | eapply xassert_lemma ].
+  try first [ eapply xassert_lemma_inst
+            | eapply xassert_lemma ].
   (* Note: alternative implementation: test whether the post is an evar,
      then call  [xpost (fun (_:unit) => H)], and use [xsimpl] for the
      second proof obligation. *)
