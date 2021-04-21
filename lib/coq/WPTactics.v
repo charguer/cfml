@@ -1259,18 +1259,17 @@ Tactic Notation "xlet_cont" :=
 (** [xlet_xseq_steps tt] automatically performs as many [xlet] and [xseq] as
     appropriate. *)
 
-Ltac xlet_xseq_steps_core tt :=
+Ltac xlet_xseq_step tt :=
   match xgoal_code_without_wptag tt with
-  | (Wpgen_let_trm _ _) => xlet_trm; [xlet_xseq_steps_core tt | ]
-  | (Wpgen_let_val _ _) => xlet_val; xlet_xseq_steps_core tt
-  | (Wpgen_let_fun _) => xlet_fun; xlet_xseq_steps_core tt
-  | (Wpgen_seq _ _) => xseq; [xlet_xseq_steps_core tt | ]
-  | _ => idtac
+  | (Wpgen_let_trm _ _) => xlet_trm
+  | (Wpgen_let_val _ _) => xlet_val
+  | (Wpgen_let_fun _) => xlet_fun
+  | (Wpgen_seq _ _) => xseq
   end.
 
 Ltac xlet_xseq_steps tt :=
   xcheck_pull tt;
-  xlet_xseq_steps_core tt.
+  repeat (xlet_xseq_step tt).
 
 (** [xlet_xseq_cont_steps tt] automatically performs as many [xlet_cont]
     and [xseq_cont] as appropriate. *)
@@ -1490,15 +1489,15 @@ Qed.
 
 Ltac xassert_pre tt :=
   xcheck_pull tt;
-  xlet_xseq_steps tt;
-  [match xgoal_code_without_wptag tt with
-   | (Wpgen_assert _) => idtac
-   end | .. | ].
+  xlet_xseq_cont_steps tt;
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_assert _) => idtac
+  end.
 
 Ltac xassert_core tt :=
   xassert_pre tt;
-  try first [ eapply xassert_lemma_inst
-            | eapply xassert_lemma ].
+  first [ eapply xassert_lemma_inst
+        | eapply xassert_lemma ].
   (* Note: alternative implementation: test whether the post is an evar,
      then call  [xpost (fun (_:unit) => H)], and use [xsimpl] for the
      second proof obligation. *)
