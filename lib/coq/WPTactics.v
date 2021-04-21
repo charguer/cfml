@@ -2730,7 +2730,7 @@ Tactic Notation "xmatch" constr(Q) constr(Options) :=
 (* ---------------------------------------------------------------------- *)
 (** ** Configuration of [xsimpl] to automatically call [math] on [n >= 0] subgoal *)
 
-Ltac xsimpl_hcredits_nonneg_custom tt ::=
+Ltac xsimpl_hcredits_nonneg tt ::=
   math.
 
 
