@@ -1482,15 +1482,14 @@ Proof.
   { xstructural. }
   { applys* xassert_lemma.
     rew_heap*.
-    xsimpl*. math.
-  }
+    xsimpl*. math. }
 Qed.
 
 (* TODO apprendre à xsimpl à résoudre x-?n >= 0 *)
 
 Ltac xassert_pre tt :=
   xcheck_pull tt;
-  xlet_xseq_steps tt;
+  xlet_xseq_cont_steps tt;
   match xgoal_code_without_wptag tt with
   | (Wpgen_assert _) => idtac
   end.
