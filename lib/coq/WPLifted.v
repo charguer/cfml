@@ -263,12 +263,6 @@ Definition Wpgen_if (b:bool) (F1 F2:Formula) : Formula :=
   MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
               if b then ^F1 Q else ^F2 Q).
 
-(* Definition Wpgen_assert (F1:Formula) : Formula :=
-  MkStruct (FormulaCast (fun (Q:unit->hprop) =>
-    Q tt \* \[Q tt ==> ^F1 (fun r => \[r = true] \* Q tt)])).
- *)
-(* hand (^F1 (fun r => \[r = true] \* Q tt)]) (Q tt) *)
-
 Definition Wpgen_assert (F1:Formula) : Formula :=
   MkStruct (FormulaCast (fun (Q:unit->hprop) =>
     hand (^F1 (fun r => \[r = true] \* Q tt)) (Q tt))).

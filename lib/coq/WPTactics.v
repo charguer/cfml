@@ -1462,23 +1462,31 @@ Proof using.
   { xsimpl. }
 Qed.
 
-(*
-Lemma xassert_lemma : forall H (Q:unit->hprop) (F1:Formula),
-  H ==> ^F1 (fun r => \[r = true] \* Q tt) ->
-  H ==> Q tt ->
-  H ==> ^(Wpgen_assert F1) Q.
-*)
-
 Lemma xassert_lemma_inst : forall H (F1:Formula),
   H ==> ^F1 (fun r => \[r = true] \* H) ->
   H ==> ^(Wpgen_assert F1) (fun (_:unit) => H).
 Proof using. introv M. applys* xassert_lemma. Qed.
 
-(* Lemma xassert_lemma_inst : forall n H (F1:Formula),
-  H ==> ^F1 (fun r => \[r = true] \* \$(-n) \* H) ->
+(* TODO move WPLifted *)
+Lemma Structural_hgc : forall A (EA:Enc A) F H (Q:A -> hprop),
+  Structural F ->
+  H ==> ^F (Q \*+ \GC) ->
+  H ==> ^F Q.
+Proof using. introv L M. applys* structural_hgc. Qed.
+
+Lemma xassert_lemma_inst_hcredits : forall n H (F1:Formula),
+  H ==> ^F1 (fun r => \[r = true] \* \$(-n) \* H \* \GC) ->
   n >= 0 ->
   H ==> ^(Wpgen_assert F1) (fun (_:unit) => \$(-n) \* H).
- *)
+Proof.
+  introv M Hn.
+  applys Structural_hgc.
+  { xstructural. }
+  { applys* xassert_lemma.
+    rew_heap*.
+    xsimpl*. math.
+  }
+Qed.
 
 (* TODO apprendre à xsimpl à résoudre x-?n >= 0 *)
 
@@ -1489,6 +1497,9 @@ Ltac xassert_pre tt :=
   | (Wpgen_assert _) => idtac
   end.
 
+(* TODO Move en haut *)
+Ltac xcredits_activated tt :=
+  fail 100 "xcredits_activated needs to be defined".
 
 Ltac xassert_core tt :=
   xassert_pre tt;
@@ -1500,6 +1511,13 @@ Ltac xassert_core tt :=
 
 Tactic Notation "xassert" :=
   xassert_core tt.
+
+Ltac xassert_cost_core n :=
+  xassert_pre tt;
+  eapply (@xassert_lemma_inst_hcredits n).
+
+Tactic Notation "xassert_cost" constr(n):=
+  xassert_cost_core n.
 
 
 (************************************************************************ *)
