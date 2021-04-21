@@ -1440,7 +1440,8 @@ Tactic Notation "xif" constr(Q) :=
 (* ---------------------------------------------------------------------- *)
 (** ** Tactic [xassert] *)
 
-(* [xassert] applies to a goal of the form [PRE H CODE (Assert F1) POST Q].
+(* TODO UPDATE
+   [xassert] applies to a goal of the form [PRE H CODE (Assert F1) POST Q].
    It generates two subgoals: [PRE H CODE F1 POST (fun r => \[r=true] \* H]
    to ensure that the body of the assertion evaluates to [true], and
    [H ==> Q tt] to ensure that if the assertions is not evaluated then it has
@@ -1492,7 +1493,7 @@ Qed.
 
 Ltac xassert_pre tt :=
   xcheck_pull tt;
-  xlet_xseq_cont_steps tt;
+  xlet_xseq_steps tt;
   match xgoal_code_without_wptag tt with
   | (Wpgen_assert _) => idtac
   end.
