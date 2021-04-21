@@ -450,6 +450,8 @@ Ltac remove_empty_heaps_right tt :=
 Definition xsimpl_hcredits_protect (n:credits) : hprop :=
   \$n.
 
+(* TODO: document
+   also rename L1 to LnLp *)
 Ltac xsimpl_beautify_credits_arith_to_list n :=
   let ltac_neg pos :=
     match pos with
@@ -473,8 +475,8 @@ Ltac xsimpl_beautify_credits_arith_to_list n :=
       match acc with
       | (?Ln,?Lp) =>
         match pos with
-        | true => constr:((Ln,n1::Lp))
-        | false => constr:((n1::Ln,Lp))
+        | true => constr:( (Ln,n1::Lp) )
+        | false => constr:( (n1::Ln,Lp) )
         end end
     end in
   aux (@nil credits,@nil credits) true n.
@@ -496,16 +498,21 @@ Ltac xsimpl_beautify_find_and_remove x L :=
 (* For each element in [Lp], invoke [xsimpl_beautify_find_and_remove],
    removing that element if it is found in [Ln].
    In the end, return the pair of the filtered [Lp] and [Ln] *)
+   (* TODO: rename the argument to LpLn *)
 Ltac xsimpl_beautify_credits_simpl_list L :=
   let rec aux Ln Lp :=
       match Ln with
       | nil => constr:((Ln,Lp))
       | ?x::?Ln' =>
+        (* TODO Lp' => optLp', mais sinon tu peux just faire
+           match xsimpl_beautify_find_and_remove x Lp with,
+           ça c'est un pattern de programmation ok *)
         let Lp' := xsimpl_beautify_find_and_remove x Lp in
         match Lp' with
-        | None => let r := aux Ln' Lp in
-                 match r with
-                 | (?LL,?LR) => constr:((x::LL,LR)) end
+        | None => let r := aux Ln' Lp in (* TODO idem ici *)
+                  match r with
+                  | (?LL,?LR) => constr:((x::LL,LR))
+                  end
         | Some ?Lp'' => aux Ln' Lp'' end end in
   match L with
   | (?Ln,?Lp) => aux Ln Lp end.
@@ -515,7 +522,12 @@ Ltac fold_left f accu l :=
   | nil => accu
   | ?a::?L =>
     let naccu := f accu a in
-    fold_left f naccu L end.
+    fold_left f naccu L
+  end.
+
+(* TODO: ne pas polluer le scope ltac avec des noms génériques,
+   Tu peux faire un [let add x y := constr:(x+y) in]
+   à la première ligne de xsimpl_beautify_credits_list_to_arith *)
 
 Ltac add x y := constr:(x + y).
 Ltac sub x y := constr:(x - y).
@@ -1344,10 +1356,10 @@ Lemma xsimpl_lr_hgc : forall Nc Hla Hrg,
 Proof using.
   introv HNc N. xsimpl_lr_start M.
   rewrite <- hstar_hgc_hgc.
-  applys himpl_hstar_trans_l. apply himpl_hgc_r. apply* haffine_hcredits.
+  applys himpl_hstar_trans_l \GC. { apply himpl_hgc_r. apply* haffine_hcredits. }
   hstars_simpl.
-  rewrite <- (hstar_hempty_l Hla). applys himpl_hstar_trans_l M. hstars_simpl.
-  apply* himpl_hgc_r.
+  rewrite <- (hstar_hempty_l Hla). applys himpl_hstar_trans_l M.
+  hstars_simpl. apply* himpl_hgc_r.
 Qed.
 
 Lemma xsimpl_lr_hgc_nocredits : forall Hla Hrg,
@@ -1385,7 +1397,7 @@ Lemma xsimpl_lr_exit : forall Hla Hra Hrg Nc,
 Proof using. introv M. unfolds Xsimpl. hstars_simpl. rewrite~ (hstar_comm Hrg). Qed.
 
 (* Lemma to instantiate goals of the form [Hla ==> ?H \* \GC] *)
-Lemma xsimpl_lr_exit_instantiate : forall Hla Nc,
+Lemma xsimpl_lr_exit_instantiate : forall Nc Hla,
   Xsimpl (Nc, Hla, \[], \[]) ((\$Nc \* Hla) \* \[], \GC \* \[], \[]).
 Proof using.
   intros. applys xsimpl_lr_exit. rew_heap.
@@ -1397,7 +1409,9 @@ Qed.
 Lemma xsimpl_lr_exit_instantiate_nocredits : forall Hla,
   Xsimpl (0, Hla, \[], \[]) (Hla \* \[], \GC \* \[], \[]).
 Proof using.
-Admitted. (*TODO factorize proofs *)
+  intros. applys_eq xsimpl_lr_exit_instantiate.
+  rewrite hcredits_zero. rew_heap*.
+Qed.
 
 (** Lemmas to flip accumulators back in place *)
 
