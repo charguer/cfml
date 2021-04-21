@@ -462,6 +462,22 @@ Ltac list_snoc x l :=
   let cons x y := constr:(x::y) in
   fold_right cons x l.
 
+Ltac xsimpl_beautify_credits_is_const n :=
+  match n with
+  | Z.zero => constr:(true)
+  | Z.neg _ => constr:(true)
+  | Z.pos _ => constr:(true)
+  | _ => constr:(false) end.
+
+Lemma xsimpl_beautify_credits_is_const_test: True.
+Proof using.
+  let L := xsimpl_beautify_credits_is_const 2 in
+  pose L;
+  let n :=xsimpl_beautify_credits_is_const (1+1) in
+  pose n.
+  easy.
+Qed.
+
 (* TODO: document
    also rename L1 to LnLp *)
 Ltac xsimpl_beautify_credits_arith_to_list n :=
@@ -485,18 +501,27 @@ Ltac xsimpl_beautify_credits_arith_to_list n :=
     | 0 => constr:(acc)
     | ?n1 =>
       match acc with
-      | (?Ln,?Lp) =>
-        match pos with
+      (* Constants, negatives, postives (with evar on tail) *)
+      | (?C,?Ln,?Lp) =>
+        match xsimpl_beautify_credits_is_const n1 with
         | true =>
-          let Lp' :=
-              match is_evar_as_bool n1 with
-              | false => constr:(n1::Lp)
+          match pos with
+          | true => constr:( (n1+C,Ln,Lp) )
+          | false =>
+            let z := eval compute in (-n1+C) in
+            constr:( (z,Ln,Lp) ) end
+        | false =>
+          match pos with
+          | true =>
+            let Lp' :=
+                match is_evar_as_bool n1 with
+                | false => constr:(n1::Lp)
               | true => list_snoc n1 Lp (* TODO verify *)
-              end in
-          constr:( (Ln,Lp') )
-        | false => constr:( (n1::Ln,Lp) )
-        end end end in
-  aux (@nil credits,@nil credits) true n.
+                end in
+            constr:( (C,Ln,Lp') )
+          | false => constr:( (C,n1::Ln,Lp) )
+          end end end end in
+  aux (0,@nil credits,@nil credits) true n.
 
 (* [xsimpl_beautify_find_and_remove x L]
    that returns [None] if [x] is not in [L], and [Some L'] where
@@ -515,7 +540,7 @@ Ltac xsimpl_beautify_find_and_remove x L :=
 (* For each element in [Lp], invoke [xsimpl_beautify_find_and_remove],
    removing that element if it is found in [Ln].
    In the end, return the pair of the filtered [Lp] and [Ln] *)
-Ltac xsimpl_beautify_credits_simpl_list LnLp :=
+Ltac xsimpl_beautify_credits_simpl_list Ln Lp :=
   let rec aux Ln Lp :=
       match Ln with
       | nil => constr:((Ln,Lp))
@@ -526,8 +551,7 @@ Ltac xsimpl_beautify_credits_simpl_list LnLp :=
           | (?LL,?LR) => constr:((x::LL,LR))
           end
         | Some ?Lp'' => aux Ln' Lp'' end end in
-  match LnLp with
-  | (?Ln,?Lp) => aux Ln Lp end.
+  aux Ln Lp.
 
 Ltac fold_left f accu l :=
   match l with
@@ -537,24 +561,33 @@ Ltac fold_left f accu l :=
     fold_left f naccu L
   end.
 
-(* If L=(Ln,Lp) returns a prettified version of Lp - Ln *)
-Ltac xsimpl_beautify_credits_list_to_arith L :=
+(* If L=(Ln,Lp) returns a prettified version of Lp - Ln - z *)
+Ltac xsimpl_beautify_credits_list_to_arith Ln Lp z :=
   let add x y := constr:(x + y) in
   let sub x y := constr:(x - y) in
-  match L with
-  | (?Ln,?Lp) =>
+  let t := (eval compute in (z =? 0) )in
+  match t with
+  | true =>
     match constr:((Ln,Lp)) with
     | (nil,nil) => 0
     | (?a::?Ln', nil) => fold_left sub (-a) Ln'
     | (_,?a::?Lp') =>
       let p := fold_left add a Lp' in
       fold_left sub p Ln
-     end end.
+    end
+  | false =>
+    let p := fold_left add z Lp in
+    fold_left sub p Ln
+  end.
 
 Ltac xsimpl_beautify_credits_clean n :=
-  let L := xsimpl_beautify_credits_arith_to_list n in
-  let L' := xsimpl_beautify_credits_simpl_list L in
-  xsimpl_beautify_credits_list_to_arith L'.
+  match xsimpl_beautify_credits_arith_to_list n with
+  | (?C,?Ln,?Lp) =>
+    let C' := (eval vm_compute in C) in
+    match xsimpl_beautify_credits_simpl_list Ln Lp with
+    | (?Ln',?Lp') =>
+      xsimpl_beautify_credits_list_to_arith Ln' Lp' C' end
+  end.
 
 Ltac xsimpl_beautify_credits_core replacer n :=
   let n' := xsimpl_beautify_credits_clean n in
@@ -589,9 +622,7 @@ Ltac xsimpl_beautify_credits_everywhere tt :=
 Lemma xsimpl_beautify_credits_arith_to_list_test : True.
 Proof using.
   let L := xsimpl_beautify_credits_arith_to_list (0 - 2 - (3 - 4 + 5) + (4 + 5) - 6) in
-  pose L;
-  let n := xsimpl_beautify_credits_list_to_arith L in
-  pose n.
+  pose L.
 Abort.
 
 Lemma xsimpl_hcredits_beautify : forall n1 n2 n3 n4 n5,
