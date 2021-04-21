@@ -515,23 +515,18 @@ Ltac xsimpl_beautify_find_and_remove x L :=
 (* For each element in [Lp], invoke [xsimpl_beautify_find_and_remove],
    removing that element if it is found in [Ln].
    In the end, return the pair of the filtered [Lp] and [Ln] *)
-   (* TODO: rename the argument to LpLn *)
-Ltac xsimpl_beautify_credits_simpl_list L :=
+Ltac xsimpl_beautify_credits_simpl_list LnLp :=
   let rec aux Ln Lp :=
       match Ln with
       | nil => constr:((Ln,Lp))
       | ?x::?Ln' =>
-        (* TODO Lp' => optLp', mais sinon tu peux just faire
-           match xsimpl_beautify_find_and_remove x Lp with,
-           ça c'est un pattern de programmation ok *)
-        let Lp' := xsimpl_beautify_find_and_remove x Lp in
-        match Lp' with
-        | None => let r := aux Ln' Lp in (* TODO idem ici *)
-                  match r with
-                  | (?LL,?LR) => constr:((x::LL,LR))
-                  end
+        match xsimpl_beautify_find_and_remove x Lp with
+        | None =>
+          match aux Ln' Lp with
+          | (?LL,?LR) => constr:((x::LL,LR))
+          end
         | Some ?Lp'' => aux Ln' Lp'' end end in
-  match L with
+  match LnLp with
   | (?Ln,?Lp) => aux Ln Lp end.
 
 Ltac fold_left f accu l :=
@@ -542,15 +537,10 @@ Ltac fold_left f accu l :=
     fold_left f naccu L
   end.
 
-(* TODO: ne pas polluer le scope ltac avec des noms génériques,
-   Tu peux faire un [let add x y := constr:(x+y) in]
-   à la première ligne de xsimpl_beautify_credits_list_to_arith *)
-
-Ltac add x y := constr:(x + y).
-Ltac sub x y := constr:(x - y).
-
 (* If L=(Ln,Lp) returns a prettified version of Lp - Ln *)
 Ltac xsimpl_beautify_credits_list_to_arith L :=
+  let add x y := constr:(x + y) in
+  let sub x y := constr:(x - y) in
   match L with
   | (?Ln,?Lp) =>
     match constr:((Ln,Lp)) with
