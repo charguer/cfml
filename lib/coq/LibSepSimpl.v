@@ -478,8 +478,12 @@ Proof using.
   easy.
 Qed.
 
-(* TODO: document
-   also rename L1 to LnLp *)
+(* [xsimpl_beautify_credits_arith_to_list n] will return a triple
+   (C,Ln,Lp) where
+   * C is a term of type int made exactly of actual numbers in n.
+   * Ln is a list of negatives variables in n.
+   * Lp is a list of positives variables in n. Evars are in the
+   last positions of Lp. *)
 Ltac xsimpl_beautify_credits_arith_to_list n :=
   let ltac_neg pos :=
     match pos with
@@ -489,12 +493,12 @@ Ltac xsimpl_beautify_credits_arith_to_list n :=
   let rec aux acc pos n :=
     match n with
     | ?n1 + ?n2 =>
-        let L1 := aux acc pos n1 in
-        aux L1 pos n2
+        let T := aux acc pos n1 in
+        aux T pos n2
     | ?n1 - ?n2 =>
-        let L1 := aux acc pos n1 in
+        let T := aux acc pos n1 in
         let posneg := ltac_neg pos in
-        aux L1 posneg n2
+        aux T posneg n2
     | - ?n1 =>
         let posneg := ltac_neg pos in
         aux acc posneg n1
