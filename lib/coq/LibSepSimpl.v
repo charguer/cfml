@@ -561,11 +561,11 @@ Ltac fold_left f accu l :=
     fold_left f naccu L
   end.
 
-(* If L=(Ln,Lp) returns a prettified version of Lp - Ln - z *)
+(* If L=(Ln,Lp) returns a prettified version of Lp - Ln + z *)
 Ltac xsimpl_beautify_credits_list_to_arith Ln Lp z :=
   let add x y := constr:(x + y) in
   let sub x y := constr:(x - y) in
-  let t := (eval compute in (z =? 0) )in
+  let t := (eval compute in (z =? 0)) in
   match t with
   | true =>
     match constr:((Ln,Lp)) with
@@ -619,15 +619,9 @@ Ltac xsimpl_beautify_credits_everywhere tt :=
 
 (* Unit tests for auxiliary functions *)
 
-Lemma xsimpl_beautify_credits_arith_to_list_test : True.
-Proof using.
-  let L := xsimpl_beautify_credits_arith_to_list (0 - 2 - (3 - 4 + 5) + (4 + 5) - 6) in
-  pose L.
-Abort.
-
 Lemma xsimpl_hcredits_beautify : forall n1 n2 n3 n4 n5,
-  \$ (- (n3 + n4)) ==> \$(- (n3 + n4) - n5) ->
-  \$ (0 + n1 - n2 + (n3 + n4) - n5) ==> \$ (- (n3 + n4) - n5).
+  \$ (- (n3 + 2 - 4 - n4)) ==> \$(2 - (n3 + n4) - n5) ->
+  \$ (0 + n1 - 2 - n2 + (n3 + n4) - n5 - 5) ==> \$ (- (n3 + n4) - n5 - 7).
 Proof using.
   intros. dup 5.
   { match goal with

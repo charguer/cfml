@@ -1487,17 +1487,23 @@ Qed.
 
 (* TODO apprendre à xsimpl à résoudre x-?n >= 0 *)
 
-Ltac xassert_pre tt :=
-  xcheck_pull tt;
-  xlet_xseq_cont_steps tt;
+Ltac xassert_base_lemma tt :=
+  first [ eapply xassert_lemma_inst
+        | eapply xassert_lemma ].
+
+(* xassert_base will do a xseq if needed, and call cont tt *)
+Ltac xassert_base cont :=
   match xgoal_code_without_wptag tt with
-  | (Wpgen_assert _) => idtac
-  end.
+  | (Wpgen_seq _ _) => xseq; [ cont tt | ]
+  | (Wpgen_assert _) => cont tt end.
+
+Ltac xassert_pre tt :=
+  xcheck_pull tt.
 
 Ltac xassert_core tt :=
   xassert_pre tt;
-  first [ eapply xassert_lemma_inst
-        | eapply xassert_lemma ].
+  xassert_base xassert_base_lemma.
+
   (* Note: alternative implementation: test whether the post is an evar,
      then call  [xpost (fun (_:unit) => H)], and use [xsimpl] for the
      second proof obligation. *)
@@ -1507,7 +1513,8 @@ Tactic Notation "xassert" :=
 
 Ltac xassert_cost_core n :=
   xassert_pre tt;
-  eapply (@xassert_lemma_inst_hcredits n).
+  let cont tt := (eapply (@xassert_lemma_inst_hcredits n)) in
+  xassert_base cont.
 
 Tactic Notation "xassert_cost" constr(n):=
   xassert_cost_core n.
