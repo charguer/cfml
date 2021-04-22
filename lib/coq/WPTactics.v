@@ -1513,7 +1513,7 @@ Tactic Notation "xassert" :=
 
 Ltac xassert_cost_core n :=
   xassert_pre tt;
-  let cont tt := (eapply (@xassert_lemma_inst_hcredits n)) in
+  let cont tt := (eapply (@xassert_lemma_inst_hcredits n); [|try math]) in
   xassert_base cont.
 
 Tactic Notation "xassert_cost" constr(n):=
