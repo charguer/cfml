@@ -445,8 +445,11 @@ Ltac remove_empty_heaps_right tt :=
 (* ---------------------------------------------------------------------- *)
 (** [xsimpl_beautify_credits] for beautifying arithmetics involved in credits *)
 
-(** [xsimpl_beautify_credits] TODO DOC *)
-
+(** [xsimpl_beautify_credits] will, in every credit expression:
+    - Gather and compute the sum of numbers.
+    - Separate positives and negatives expressions in two groups.
+    - Cancel each pair (n,-n) of expressions.
+    - Pretty-print the result. *)
 Definition xsimpl_hcredits_protect (n:credits) : hprop :=
   \$n.
 
@@ -469,62 +472,51 @@ Ltac xsimpl_beautify_credits_is_const n :=
   | Z.pos _ => constr:(true)
   | _ => constr:(false) end.
 
-Lemma xsimpl_beautify_credits_is_const_test: True.
-Proof using.
-  let L := xsimpl_beautify_credits_is_const 2 in
-  pose L;
-  let n :=xsimpl_beautify_credits_is_const (1+1) in
-  pose n.
-  easy.
-Qed.
-
 (* [xsimpl_beautify_credits_arith_to_list n] will return a triple
    (C,Ln,Lp) where
-   * C is a term of type int made exactly of actual numbers in n.
-   * Ln is a list of negatives variables in n.
-   * Lp is a list of positives variables in n. Evars are in the
+   - C is a term of type int made exactly of actual numbers in n.
+   - Ln is a list of negatives variables in n.
+   - Lp is a list of positives variables in n. Evars are in the
    last positions of Lp. *)
 Ltac xsimpl_beautify_credits_arith_to_list n :=
   let ltac_neg pos :=
-    match pos with
-    | true => constr:(false)
-    | false => constr:(true)
-    end in
+      match pos with
+      | true => constr:(false)
+      | false => constr:(true)
+      end in
   let rec aux acc pos n :=
-    match n with
-    | ?n1 + ?n2 =>
+      match n with
+      | ?n1 + ?n2 =>
         let T := aux acc pos n1 in
         aux T pos n2
-    | ?n1 - ?n2 =>
+      | ?n1 - ?n2 =>
         let T := aux acc pos n1 in
         let posneg := ltac_neg pos in
         aux T posneg n2
-    | - ?n1 =>
+      | - ?n1 =>
         let posneg := ltac_neg pos in
         aux acc posneg n1
-    | 0 => constr:(acc)
-    | ?n1 =>
-      match acc with
-      (* Constants, negatives, postives (with evar on tail) *)
-      | (?C,?Ln,?Lp) =>
-        match xsimpl_beautify_credits_is_const n1 with
-        | true =>
-          match pos with
-          | true => constr:( (n1+C,Ln,Lp) )
-          | false =>
-            let z := eval compute in (-n1+C) in
-            constr:( (z,Ln,Lp) ) end
-        | false =>
-          match pos with
+      | 0 => constr:(acc)
+      | ?n1 =>
+        match acc with
+        (* Constants, negatives, postives (with evar on tail) *)
+        | (?C,?Ln,?Lp) =>
+          match xsimpl_beautify_credits_is_const n1 with
           | true =>
-            let Lp' :=
-                match is_evar_as_bool n1 with
-                | false => constr:(n1::Lp)
-              | true => list_snoc n1 Lp (* TODO verify *)
-                end in
-            constr:( (C,Ln,Lp') )
-          | false => constr:( (C,n1::Ln,Lp) )
-          end end end end in
+            match pos with
+            | true => constr:( (C+n1,Ln,Lp) )
+            | false => constr:( (C-n1,Ln,Lp) ) end
+          | false =>
+            match pos with
+            | true =>
+              let Lp' :=
+                  match is_evar_as_bool n1 with
+                  | false => constr:(n1::Lp)
+                  | true => list_snoc n1 Lp (* TODO verify *)
+                  end in
+              constr:( (C,Ln,Lp') )
+            | false => constr:( (C,n1::Ln,Lp) )
+            end end end end in
   aux (0,@nil credits,@nil credits) true n.
 
 (* [xsimpl_beautify_find_and_remove x L]
@@ -565,11 +557,15 @@ Ltac fold_left f accu l :=
     fold_left f naccu L
   end.
 
+Ltac list_rev A l :=
+  let cons' x y := constr:(y::x) in
+  fold_left cons' (@nil A) l.
+
 (* If L=(Ln,Lp) returns a prettified version of Lp - Ln + z *)
 Ltac xsimpl_beautify_credits_list_to_arith Ln Lp z :=
   let add x y := constr:(x + y) in
   let sub x y := constr:(x - y) in
-  let t := (eval compute in (z =? 0)) in
+  let t := (eval vm_compute in (z =? 0)) in
   match t with
   | true =>
     match constr:((Ln,Lp)) with
@@ -590,7 +586,9 @@ Ltac xsimpl_beautify_credits_clean n :=
     let C' := (eval vm_compute in C) in
     match xsimpl_beautify_credits_simpl_list Ln Lp with
     | (?Ln',?Lp') =>
-      xsimpl_beautify_credits_list_to_arith Ln' Lp' C' end
+      let Ln'' := list_rev credits Ln' in
+      let Lp'' := list_rev credits Lp' in
+      xsimpl_beautify_credits_list_to_arith Ln'' Lp'' C' end
   end.
 
 Ltac xsimpl_beautify_credits_core replacer n :=
@@ -620,6 +618,9 @@ Ltac xsimpl_beautify_credits_everywhere tt :=
   repeat (xsimpl_beautify_credits_once_goal tt);
   repeat (xsimpl_beautify_credits_once_hyp tt);
   unfolds xsimpl_hcredits_protect.
+
+Tactic Notation "xsimpl_beautify_credits" :=
+  xsimpl_beautify_credits_everywhere tt.
 
 (* Unit tests for auxiliary functions *)
 
