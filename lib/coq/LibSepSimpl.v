@@ -573,7 +573,7 @@ Ltac xsimpl_beautify_credits_list_to_arith Ln Lp z :=
   match t with
   | true =>
     match constr:((Ln,Lp)) with
-    | (nil,nil) => 0
+    | (nil,nil) => constr:(0)
     | (?a::?Ln', nil) => fold_left sub (-a) Ln'
     | (_,?a::?Lp') =>
       let p := fold_left add a Lp' in
