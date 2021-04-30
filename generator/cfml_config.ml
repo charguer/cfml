@@ -9,7 +9,7 @@ open Mytools
 
 let basis : string option =
   (* Method 1. *)
-  match Filename.chop_suffix_opt ~suffix:"/bin/cfml/cmlfc" Sys.argv.(0) with
+  match Filename.chop_suffix_opt ~suffix:"/bin/cfml/cfmlc" Sys.argv.(0) with
   | Some basis ->
       Some basis
   | None ->

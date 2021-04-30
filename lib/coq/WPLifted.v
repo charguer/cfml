@@ -18,8 +18,6 @@ Generalizable Variables A.
 Implicit Types v w : val.
 Implicit Types t : trm.
 
-
-
 (* ********************************************************************** *)
 (* * WP generator *)
 
@@ -76,6 +74,25 @@ Lemma Structural_conseq : forall A (EA:Enc A) (Q Q':A->hprop) (F:Formula) H,
   H ==> ^F Q'.
 Proof using. introv L M W. applys* structural_conseq. Qed.
 
+Lemma Structural_frame : forall H1 H2 F H A (EA:Enc A) (Q:A->hprop),
+  Structural F ->
+  H ==> H1 \* H2 ->
+  H1 ==> ^F (fun x => H2 \-* Q x) ->
+  H ==> ^F Q.
+Proof using. introv L M W. applys* structural_frame. Qed.
+
+Lemma Structural_frame' : forall (F:Formula) H1 H2 A (EA:Enc A) (Q:A->hprop),
+  (Structural F) ->
+  (H1 ==> (F A EA (fun x : A => H2 \-* (Q x)))) ->
+   H1 \* H2 ==> (F A EA Q).
+Proof using. introv HF M. applys* Structural_frame. Qed.
+
+Lemma Structural_hgc : forall A (EA:Enc A) F H (Q:A -> hprop),
+  Structural F ->
+  H ==> ^F (Q \*+ \GC) ->
+  H ==> ^F Q.
+Proof using. introv L M. applys* structural_hgc. Qed.
+
 (* TODO: add other structural lemmas? *)
 
 
@@ -100,7 +117,7 @@ Proof using. intros. rewrite <- mkstruct_MkStruct_eq. apply structural_mkstruct.
 
 Hint Resolve structural_MkStruct.
 
-Lemma Structural_Mkstruct : forall (F:Formula),
+Lemma Structural_MkStruct : forall (F:Formula),
   Structural (MkStruct F).
 Proof using. intros. intros A EA. applys structural_mkstruct. Qed.
 
@@ -111,6 +128,18 @@ Lemma MkStruct_erase : forall H F A {EA:Enc A} (Q:A->hprop),
   H ==> ^(MkStruct F) Q.
 Proof using.
   introv M. xchanges M. applys mkstruct_erase.
+Qed.
+
+(** [The [MkStruct] transformer may be stripped from the precondition
+    if the postcondition satisfies [Structural], in particular if it is also
+    built using [MkStruct]. *)
+
+Lemma MkStruct_erase_l : forall (F1 F2:Formula) A (EA:Enc A) (Q:A->hprop),
+  Structural F2 ->
+  (forall A1 (EA1:Enc A1) (Q1:A1->hprop), ^F1 Q1 ==> ^F2 Q1) ->
+  ^(MkStruct F1) Q ==> ^F2 Q.
+Proof using.
+  introv HS M1. applys* mkstruct_erase_l. intros Q1. applys M1.
 Qed.
 
 (** A [MkStruct] can be introduced at the head of a formula satisfying [Struct] *)
@@ -197,11 +226,11 @@ Definition Wpgen_val B {EB:Enc B} (V:B) : Formula :=
   MkStruct (fun A (EA:Enc A) (Q:A->hprop) => PostCast B Q V).
 
 Definition Wpgen_done : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
     \[False] \-* \[True]).
 
 Definition Wpgen_fail : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
     \[False]).
 
 Definition Wpgen_dummy : Formula :=
@@ -220,7 +249,7 @@ Definition Wpgen_let_val A1 (*`{EA1:Enc A1}*) (V:A1) (Fof:A1->Formula) : Formula
     \forall (x:A1), \[x = V] \-* ^(Fof x) Q).
 
 Definition Wpgen_prop (BodyOf:forall A (EA:Enc A), (A->hprop)->hprop->Prop) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
      \exists H, H \* \[BodyOf A EA Q H]).
 
 Definition Wpgen_let_trm_poly := Wpgen_prop.
@@ -233,16 +262,16 @@ Definition Wpgen_app (A:Type) `{EA:Enc A} (f:val) (Vs:dyns) : Formula :=
 Arguments Wpgen_app A {EA} f Vs.
 
 Definition Wpgen_seq (F1 F2:Formula) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
     \exists (Q1:unit->hprop), ^F1 Q1 \* \[Q1 tt ==> ^F2 Q]).
 
 Definition Wpgen_if (b:bool) (F1 F2:Formula) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
-    if b then ^F1 Q else ^F2 Q).
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
+              if b then ^F1 Q else ^F2 Q).
 
 Definition Wpgen_assert (F1:Formula) : Formula :=
   MkStruct (FormulaCast (fun (Q:unit->hprop) =>
-    Q tt \* \[Q tt ==> ^F1 (fun r => \[r = true] \* Q tt)])).
+    hand (^F1 (fun r => \[r = true] \* Q tt)) (Q tt))).
 
 Definition Wpgen_body (P:Prop) : Prop :=
   P.
@@ -254,11 +283,16 @@ Definition Wpgen_match (F:Formula) : Formula :=
   F.
 
 Definition Wpgen_case (F1:Formula) (P:Prop) (F2:Formula) : Formula :=
-  MkStruct (fun A (EA:Enc A) Q =>
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
     hand (^F1 Q) (\[P] \-* ^F2 Q)).
 
 Definition Wpgen_negpat (P:Prop) : Prop :=
   P.
+
+Definition Wpgen_pay (F1:Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+    ^F1 (Q \*+ \$1)).
+
 
 (* DEPRECATED -- more complex
 Definition Wpgen_assert (F1:Formula) : Formula :=
@@ -266,6 +300,44 @@ Definition Wpgen_assert (F1:Formula) : Formula :=
     PostCast unit Q tt \* \[PostCast unit Q tt ==> ^F1 (fun r => \[r = true] \* PostCast unit Q tt)]).
 *)
 
+
+(* TODO: for exercise *)
+
+(* TODO: the proof is broken using the new xsimpl
+
+Definition Wpgen_pay' (F1:Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
+    \$1 \* ^F1 Q).
+
+Lemma Wpgen_pay_eq_Wpgen_pay' :
+  Wpgen_pay = Wpgen_pay'.
+Proof using.
+  applys fun_ext_4. intros F1 A EA Q. applys himpl_antisym.
+  { applys MkStruct_erase_l. { applys Structural_MkStruct. }
+    clears A. intros A EA Q.
+    xchange_nosimpl <- (hcredits_cancel 1). rewrite <- hstar_assoc, hstar_comm.
+    rewrite <- hstar_assoc.
+    applys Structural_frame'. { applys Structural_MkStruct. }
+    applys MkStruct_erase. xsimpl.
+    applys_eq himpl_refl. fequals. applys fun_ext_1. intros x.
+    rewrite* hwand_hcredits_l. }
+  { applys MkStruct_erase_l. { applys Structural_MkStruct. }
+    clears A. intros A EA Q. rewrite hstar_comm.
+    applys Structural_frame'. { applys Structural_MkStruct. }
+     applys MkStruct_erase.
+     applys_eq himpl_refl. fequals. applys fun_ext_1. intros x.
+     rewrite hwand_hcredits_l. rewrite hstar_assoc.
+     rewrite hcredits_cancel. xsimpl. }
+Qed.
+
+Lemma xpay_lemma_pre' : forall H1 H F1 A (EA:Enc A) (Q:A->hprop),
+  H ==> \$1 \* H1 ->
+  H1 ==> ^F1 Q ->
+  H ==> ^(Wpgen_pay' F1) Q.
+Proof using. introv HH M1. apply MkStruct_erase. xchanges* HH. Qed.
+
+
+*)
 
 
 (* ---------------------------------------------------------------------- *)
@@ -876,6 +948,14 @@ Lemma himpl_Wpgen_app_untyped_of_Triple : forall A `{EA:Enc A} (Q:A->hprop) t H,
   H ==> ^(Wpgen_app_untyped t) Q.
 Proof using. intros. applys MkStruct_erase. rewrite~ <- Triple_eq_himpl_Wp. Qed.
 
+
+
+(*********************************************************************** *)
+(** * Time to make [Triple] opaque *)
+
+Global Opaque Triple.
+
+
 (*********************************************************************** *)
 (** * Grammar set up *)
 
@@ -934,6 +1014,10 @@ Notation "x" :=
 
 (* ********************************************************************** *)
 (* ** Simple Constructors *)
+
+Notation "'Pay' F" :=
+ ((*Wptag*) (Wpgen_pay F))
+ (in custom wp at level 69, F at level 0) : wp_scope.
 
 Notation "'Fail'" :=
  ((*Wptag*) (Wpgen_fail))
@@ -1773,4 +1857,3 @@ Definition Wpgen_fixs_custom (Custom:(val->(vals->Formula->Prop)->Prop) : Formul
  Q tt \* \[Q tt ==> wp t (fun r => \[r = true] \* Q tt)] ==> wp (val_assert t) Q
 
 *)
-

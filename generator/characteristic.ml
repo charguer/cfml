@@ -813,6 +813,10 @@ let get_fvs_typ loc fvs typ =
 (*#########################################################################*)
 (* ** Characteristic formulae for expressions *)
 
+(** [cf_pay c] adds a [Cf_pay] wrapper around a formula *)
+
+let cf_pay c =
+  if !Mytools.use_credits then Cf_pay c else c
 
 (** Translate a Caml expression into its Coq characteristic formula *)
 
@@ -992,7 +996,7 @@ let rec cfg_exp env e =
       Cf_seq (aux expr1, aux expr2)
 
    | Texp_while(cond, body) ->
-      Cf_while (aux cond, aux body)
+      Cf_while (aux cond, cf_pay (aux body))
 
    | Texp_for(param, low, high, caml_dir, body) ->
       let dir =
@@ -1000,9 +1004,7 @@ let rec cfg_exp env e =
         | Upto -> For_loop_up
         | Downto -> For_loop_down
       in
-      let cf_body = aux body in
-      let cf_body = if !Mytools.use_credits then Cf_pay cf_body else cf_body in
-      Cf_for (dir, Ident.name param, lift low, lift high, cf_body)
+      Cf_for (dir, Ident.name param, lift low, lift high, cf_pay (aux body))
 
    | Texp_array args ->
       let arg = coq_list (List.map lift args) in
@@ -1079,8 +1081,7 @@ and cfg_func env fvs pat bod =
    let f = pattern_name_protect_infix pat in
    let targs, body = get_typed_args [] bod in
    let typ = lift_typ_exp loc body.exp_type in
-   let cf_body = cfg_exp env body in
-   let cf_body = if !Mytools.use_credits then Cf_pay cf_body else cf_body in
+   let cf_body = cf_pay (cfg_exp env body) in
    (* fvs computation must come after cf_body *)
    let fvs = List.map name_of_type_var (List.filter typvar_is_used fvs) in
    Cf_body (f, fvs, targs, typ, cf_body)

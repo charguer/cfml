@@ -297,7 +297,7 @@ Parameter iter_spec : forall A (I : list A -> hprop) xs f t,
     forall ys x,
     prefix (ys & x) xs ->
     SPEC (f x)
-      PRE (I  ys)
+      PRE (I ys)
       POSTUNIT (I (ys & x))
   ) ->
   SPEC (Array_ml.iter f t)

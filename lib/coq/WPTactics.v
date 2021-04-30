@@ -36,6 +36,11 @@ Open Scope wptactics_scope.
 (************************************************************************ *)
 (** * Internal Tactics *)
 
+(* To be specialized lated, either to "true"
+   or to a term of type "use_credits = false." *)
+Ltac xcredits_activated tt :=
+  fail 100 "xcredits_activated needs to be defined".
+
 
 (* ---------------------------------------------------------------------- *)
 (** ** Generic Ltac operator *)
@@ -308,7 +313,7 @@ Ltac xtypes_post tt :=
 (** ** Internal tactic [xstructural] for proving [Structural F] *)
 
 Ltac xstructural_core tt :=
-  applys Structural_Mkstruct.
+  applys Structural_MkStruct.
 
 Tactic Notation "xstructural" :=
   xstructural_core tt.
@@ -1441,7 +1446,7 @@ Tactic Notation "xif" constr(Q) :=
 (** ** Tactic [xassert] *)
 
 (* [xassert] applies to a goal of the form [PRE H CODE (Assert F1) POST Q].
-   It generates two subgoals: [PRE H CODE F1 POST (fun r => \[r=true] \* H]
+   It generates two subgoals: [PRE H CODE F1 POST (fun r => \[r=true] \* Q tt]
    to ensure that the body of the assertion evaluates to [true], and
    [H ==> Q tt] to ensure that if the assertions is not evaluated then it has
    no impact on the correctness of the code.
@@ -1451,14 +1456,15 @@ Tactic Notation "xif" constr(Q) :=
    discharged automatically. *)
 
 Lemma xassert_lemma : forall H (Q:unit->hprop) (F1:Formula),
-  H ==> ^F1 (fun r => \[r = true] \* H) ->
+  H ==> ^F1 (fun r => \[r = true] \* Q tt) ->
   H ==> Q tt ->
   H ==> ^(Wpgen_assert F1) Q.
 Proof using.
-  introv M1 M2. applys Structural_conseq (fun (_:unit) => H).
+  introv M1 M2. applys Structural_conseq (fun (_:unit) => Q tt).
   { xstructural. }
-  { applys MkStruct_erase. applys xformula_cast_lemma. xsimpl*. }
-  { xchanges M2. intros []. auto. }
+  { applys MkStruct_erase. applys xformula_cast_lemma.
+    applys* himpl_hand_r. }
+  { xsimpl. }
 Qed.
 
 Lemma xassert_lemma_inst : forall H (F1:Formula),
@@ -1466,24 +1472,52 @@ Lemma xassert_lemma_inst : forall H (F1:Formula),
   H ==> ^(Wpgen_assert F1) (fun (_:unit) => H).
 Proof using. introv M. applys* xassert_lemma. Qed.
 
-Ltac xassert_pre tt :=
-  xcheck_pull tt;
-  xlet_xseq_cont_steps tt;
-  match xgoal_code_without_wptag tt with
-  | (Wpgen_assert _) => idtac
-  end.
+Lemma xassert_lemma_inst_hcredits : forall n H (F1:Formula),
+  H ==> ^F1 (fun r => \[r = true] \* \$(-n) \* H \* \GC) ->
+  n >= 0 ->
+  H ==> ^(Wpgen_assert F1) (fun (_:unit) => \$(-n) \* H).
+Proof.
+  introv M Hn.
+  applys Structural_hgc.
+  { xstructural. }
+  { applys* xassert_lemma.
+    rew_heap*.
+    xsimpl*. math. }
+Qed.
 
+(* TODO apprendre à xsimpl à résoudre x-?n >= 0 *)
+
+Ltac xassert_base_lemma tt :=
+  first [ eapply xassert_lemma_inst
+        | eapply xassert_lemma ].
+
+(* xassert_base will do a xseq if needed, and call cont tt *)
+Ltac xassert_base cont :=
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_seq _ _) => xseq; [ cont tt | ]
+  | (Wpgen_assert _) => cont tt end.
+
+Ltac xassert_pre tt :=
+  xcheck_pull tt.
 
 Ltac xassert_core tt :=
   xassert_pre tt;
-  first [ eapply xassert_lemma_inst
-        | eapply xassert_lemma ].
+  xassert_base xassert_base_lemma.
+
   (* Note: alternative implementation: test whether the post is an evar,
      then call  [xpost (fun (_:unit) => H)], and use [xsimpl] for the
      second proof obligation. *)
 
 Tactic Notation "xassert" :=
   xassert_core tt.
+
+Ltac xassert_cost_core n :=
+  xassert_pre tt;
+  let cont tt := (eapply (@xassert_lemma_inst_hcredits n); [|try math]) in
+  xassert_base cont.
+
+Tactic Notation "xassert_cost" constr(n):=
+  xassert_cost_core n.
 
 
 (************************************************************************ *)
@@ -1632,6 +1666,25 @@ Ltac xapp_exploit_spec_lemma L cont :=
   [ applys S; clear S; xapp_side_post tt
   | clear S; cont tt ].
 
+(* INCORRECT, should do instantiation of spec first of all...
+Ltac xapp_exploit_spec tt :=
+  match goal with |- ?S -> ?G =>
+    let Q := xprop_post G in
+    match is_evar_as_bool Q with
+    | true => xapp_exploit_spec_lemma xapp_lemma_inst xapp_simpl_substract
+    | false =>
+        match type of S with
+        | context [(fun _ => \[_] \* _)] =>
+           xapp_exploit_spec_lemma xapps_lemma xapp_simpl
+        | context [(fun _ => \[_])] =>
+           xapp_exploit_spec_lemma xapps_lemma_pure xapp_simpl
+        | _ => (* general case, and fallback for other cases *)
+           xapp_exploit_spec_lemma xapp_lemma xapp_simpl
+        end
+    end
+  end.
+*)
+
 Ltac xapp_exploit_spec tt :=
   match goal with |- ?S -> ?G =>
     let Q := xprop_post G in
@@ -1725,9 +1778,9 @@ Tactic Notation "xapp" "*" constr(E) :=
 
 Ltac xapp_nosubst_core tt :=
   xapp_pre tt;
-  xspec;
+    xspec;
   (* TODO: raise error if spec is a Wpgen_body *)
-  xapp_exploit_spec @xapp_lemma xapp_simpl.
+  xapp_exploit_spec_lemma @xapp_lemma xapp_simpl.
 
 Tactic Notation "xapp_nosubst" :=
   xapp_nosubst_core tt.
@@ -1739,7 +1792,8 @@ Tactic Notation "xapp_nosubst" "*"  :=
 Ltac xapp_arg_nosubst_core E :=
   xapp_pre tt;
   xspec_lemma_of_args E;
-  xapp_exploit_spec @xapp_lemma xapp_simpl.
+  (* TODO: raise error if spec is a Wpgen_body *)
+  xapp_exploit_spec_lemma @xapp_lemma xapp_simpl.
 
 Tactic Notation "xapp_nosubst" constr(E) :=
   xapp_arg_nosubst_core tt.
@@ -2668,6 +2722,158 @@ Tactic Notation "xmatch" constr(Q) constr(Options) :=
   xmatch_post_core Q options.
 
 
+(************************************************************************ *)
+(************************************************************************ *)
+(************************************************************************ *)
+(** * Credits *)
+
+(* ---------------------------------------------------------------------- *)
+(** ** Configuration of [xsimpl] to automatically call [math] on [n >= 0] subgoal *)
+
+Ltac xsimpl_hcredits_nonneg_custom tt ::=
+  math.
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** [xpay] *)
+
+(* [xpay] *)
+
+Lemma xpay_lemma_post : forall H F1 A (EA:Enc A) (Q:A->hprop),
+  H ==> ^F1 (Q \*+ \$1) ->
+  H ==> ^(Wpgen_pay F1) Q.
+Proof using. introv M. apply* MkStruct_erase. Qed.
+
+Ltac xpay_post_core tt :=
+  apply xpay_lemma_post.
+
+Tactic Notation "xpay" :=
+  xpay_post_core tt.
+
+(* [xpay_pre] *)
+
+Lemma xpay_lemma_pre : forall H1 H F1 A (EA:Enc A) (Q:A->hprop),
+  H ==> \$1 \* H1 ->
+  H1 ==> ^F1 Q ->
+  H ==> ^(Wpgen_pay F1) Q.
+Proof using.
+  introv M1 M2. xchange M1.
+  applys Structural_frame H1 (\$1). { applys Structural_MkStruct. } { xsimpl. }
+  applys MkStruct_erase. xchange M2.
+  applys_eq himpl_refl. fequals.
+  (* TODO: xsimpl could handle this. *)
+  applys fun_ext_1. intros x. xsimpl.
+  (* TODO: details:
+  rewrite hwand_hcredits_l. rewrite hstar_assoc.
+  rewrite hcredits_cancel. rew_heap*. *)
+Qed.
+
+Ltac xpay_post tt :=
+  idtac.
+
+Ltac xpay_pre_core tt :=
+  eapply xpay_lemma_pre; [ xsimpl; xpay_post tt | xsimpl_beautify_credits_goal tt].
+
+Tactic Notation "xpay_pre" :=
+  xpay_pre_core tt.
+
+(* [xpay_pre_nosimpl] *)
+
+Ltac xpay_pre_nosimpl_core tt :=
+  eapply xpay_lemma_pre.
+
+Tactic Notation "xpay_pre_nosimpl" :=
+  xpay_pre_nosimpl_core tt.
+
+
+
+(* BONUS
+Lemma xpay_lemma_post_evar : forall H F1 A (EA:Enc A) (Q1:A->hprop),
+  H ==> F1 Q1 ->
+  H ==> Wpgen_pay' F1 (Q1 \*+ \$(-1)).
+Proof using. Admitted.
+
+Lemma xpay_lemma_post_cut : forall H F1 A (EA:Enc A) (Q1 Q:A->hprop),
+  H ==> F1 Q1 ->
+  (Q1 \*+ \$(-1)) ===> Q ->
+  H ==> Wpgen_pay' F1 Q.
+Proof using. Admitted.
+*)
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** [xcredits_split] and [xcredits_join] *)
+
+(** Tactic [credits_split] converts [\$(x+y) \* ...] into [\$x \* \$y \* ...] *)
+
+Hint Rewrite hcredits_add hcredits_sub hwand_hcredits_l : rew_xcredits_split.
+
+Ltac xcredits_split_core tt :=
+  autorewrite with rew_xcredits_split.
+
+Tactic Notation "xcredits_split" :=
+  xcredits_split_core tt.
+
+(** Tactic [credits_join] converts [\$x \* ... \* \$y] into [\$(x+y) \* ...] *)
+
+Lemma credits_swap : forall x (H:hprop),
+  H \* (\$ x) = (\$ x) \* H.
+Proof using. intros. rewrite~ hstar_comm. Qed.
+
+Lemma hcredits_join_eq : forall x y,
+  \$ x \* \$ y = \$(x+y).
+Proof using. intros. rewrite* <- hcredits_add. Qed.
+
+Lemma hcredits_join_eq_rest : forall x y (H:hprop),
+  \$ x \* \$ y \* H = \$(x+y) \* H.
+Proof using.
+  introv. rewrite <- hstar_assoc. rewrite~ hcredits_join_eq.
+Qed.
+
+Ltac xcredits_join_in H :=
+  match H with
+  | \$ ?x \* \$ ?y => rewrite (@hcredits_join_eq x y)
+  | \$ ?x \* \$ ?y \* ?H' => rewrite (@hcredits_join_eq_rest x y H')
+  | _ \* ?H' => xcredits_join_in H'
+  end.
+
+Ltac xcredits_join_core_step tt :=
+  match goal with |- ?HL ==> ?HR => xcredits_join_in HL end.
+
+Ltac xcredits_join_core tt :=
+ repeat (xcredits_join_core_step tt).
+
+Tactic Notation "xcredits_join" :=
+  xcredits_join_core tt.
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** [xcredits_skip] *)
+
+(** Tactic [xcredits_skip] eliminates credits.
+    To be used when [use_credits = false] is assumed. *)
+
+Hint Rewrite hcredits_skip : rew_credits_skip.
+
+Ltac xcredits_exploit_use_credits_false tt :=
+  fail.
+
+Ltac xcredits_skip_core tt :=
+  autorewrite with rew_credits_skip;
+  try xcredits_exploit_use_credits_false tt.
+
+Tactic Notation "xcredits_skip" :=
+  xcredits_skip_core tt.
+
+(** TODO: assume this in a given development, to remove credits *)
+
+Parameter use_credits_false :
+  use_credits = false.
+
+Ltac xcredits_exploit_use_credits_false tt ::=
+  apply use_credits_false.
+
+
 
 (************************************************************************ *)
 (************************************************************************ *)
@@ -2708,6 +2914,7 @@ Ltac xstep_once tt :=
     | (Wpgen_case _ _ _) => xcase
     | (Wpgen_match _) => xmatch
     | (Wpgen_assert _) => xassert
+    | (Wpgen_pay _) => xpay
     | ?F => check_is_Wpgen_record_alloc F; xapp
     (* | (Wpgen_case _ _ _) => xcase *)
     end
@@ -2886,4 +3093,3 @@ Ltac xwp_debug_core tt :=
 
 Tactic Notation "xwp_debug" :=
   xwp_debug_core tt.
-

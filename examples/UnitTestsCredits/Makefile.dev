@@ -1,0 +1,3 @@
+CFML := ../..
+CFMLC_FLAGS := -credits
+include $(CFML)/lib/make/Makefile.dev
