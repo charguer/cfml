@@ -1,0 +1,16 @@
+# This Makefile generates a _CoqProject file.
+
+# All %.v files in the current directory are listed.
+
+_CoqProject:
+	@ rm -f $@
+	@ echo "# This is a generated file. Do not edit." >> $@
+	@ echo $(COQINCLUDE) >> $@
+	@ echo >> $@
+	@ echo $(addprefix -arg ,$(COQWARNINGS)) >> $@
+	@ echo >> $@
+	@ ls *.v >> $@
+
+.PHONY: clean
+clean::
+	@ rm -f _CoqProject

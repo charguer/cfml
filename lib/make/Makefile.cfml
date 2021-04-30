@@ -5,7 +5,7 @@ SHELL := bash
 ###############################################################################
 # Readme
 #
-# $(OCAML_INCLUDE) should contain -I directives (with absolute paths).
+# $(OCAML_INCLUDE) should contain -I directives.
 # Optionally, $(CFML_FLAGS) can be set (e.g. to "-rectypes").
 # Optionally, $(ML) can be used to specify the sources files (default: *.ml)
 #
@@ -27,14 +27,13 @@ SHELL := bash
 # run in a second stage. This means we write fewer Makefiles, they
 # are really independent, and dependency computations are simpler.
 
-CFML := $(shell cfmlc -where)
+CFML ?= $(shell cfmlc -where)
 
 ############################################################################
 # Verbosity control.
 
-# Our commands are pretty long (due, among other things, to the use of
-# absolute paths everywhere). So, we hide them by default, and echo a short
-# message instead. However, sometimes one wants to see the command.
+# Our commands can be pretty long. So, we hide them by default, and echo a
+# short message instead. However, sometimes one wants to see the command.
 
 # By default, VERBOSE is undefined, so the .SILENT directive is read, so no
 # commands are echoed. If VERBOSE is defined by the user, then the .SILENT
@@ -84,14 +83,12 @@ endif
 # ocamldep must be passed appropriate -I flags, as it searches the file system
 # to find where each module is stored. We assume that these flags are given by
 # $(OCAML_INCLUDE).
-# By using ocamldep in this way, we obtain dependencies that mention absolute
-# path names, as desired. We cannot use ocamldep -modules because it does not
-# perform this search and does not produce absolute path names.
 
 # ocamldep does not reliably print absolute path names -- its output depends
 # on the current directory! it omits the absolute path if it coincides with
-# the current directory. So, we change the current directory to /tmp before
-# invoking ocamldep.
+# the current directory. If absolute path names are desired, one can change
+# the current directory to /tmp before invoking ocamldep. Of course, this
+# requires $(OCAML_INCLUDE) and $< to contains absolute paths, too.
 
 # ocamldep produces the following dependencies:
 #   A.cmo: B.cmi (or B.cmo, depending on the existence of B.mli, I think)
@@ -105,7 +102,7 @@ endif
 SED := $(shell if command -v gsed >/dev/null ; then echo gsed ; else echo sed ; fi)
 
 %.d: %.ml
-	(cd /tmp && $(OCAMLDEP) -one-line $(OCAML_INCLUDE) $<) \
+	$(OCAMLDEP) -one-line $(OCAML_INCLUDE) $< \
 	  | grep cmx \
 	  | $(SED) -e "s/\\.cm\\(x\\|i\\)/\\.cmj/g" \
 	  | $(OCAMLPOST) \
@@ -118,17 +115,17 @@ SED := $(shell if command -v gsed >/dev/null ; then echo gsed ; else echo sed ; 
 # Only the %.cmj target is known to "make".
 
 # We include a dependency on the executable [cfmlc]. This is not strictly
-# required, but can helpful for us (developers) who tend to frequently
+# required, but can be helpful for us (developers) who tend to frequently
 # reinstall CFML and do not always remember to run [make clean] in every
 # project that uses CFML.
 
 %.cmj: %.ml $(shell command -v cfmlc)
 	@ echo "CFMLC `basename $<`"
-	@ cfmlc $(CFML_FLAGS) $(OCAML_INCLUDE) $<
+	cfmlc $(CFML_FLAGS) $(OCAML_INCLUDE) $<
 
 ###############################################################################
 # Clean
 
 clean:
-	rm -f *.cmj *_mlv. *.d
+	rm -f *.cmj *_ml.v *.d
 	rm -rf _output

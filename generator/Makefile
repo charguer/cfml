@@ -7,6 +7,9 @@
 all:
 	@ dune build @all
 
+byte:
+	@ dune build cfmlc.bc
+
 clean:
 	@ dune clean
 

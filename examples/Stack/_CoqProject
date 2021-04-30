@@ -1,8 +1,0 @@
--R . Stack
-
--arg -w -arg -notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths,-irrelevant-format-only-parsing,-deprecated-hint-without-locality,-deprecated-ident-entry,-custom-entry-overridden
-
-Stack_ml.v
-Stack_proof.v
-StackSized_ml.v
-StackSized_proof.v

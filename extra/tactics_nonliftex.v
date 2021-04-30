@@ -582,3 +582,279 @@ Ltac xcase_post_old H :=
   try (symmetry in H; inverts H; xclean_trivial_eq tt).
 *)
 
+
+Definition Wpgen_cast A1 `{EA1:Enc A1} (V:A1) : Formula :=
+  fun A2 (EA2:Enc A2) Q => Post_cast A1 Q V.
+
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Lemma for changing the encoder in a triple *)
+
+
+
+(** [Post_cast_val Q] turns a postcondition of type [A->hprop] into
+    the corresponding postcondition at type [val->hprop]. *)
+
+Definition Post_cast_val A `{EA:Enc A} (Q:A->hprop) : val->hprop :=
+  fun (v:val) => \exists (V:A), \[v = enc V] \* Q V.
+
+(** [Post_cast A' Q] turns a postcondition of type [A->hprop] into
+    the corresponding postcondition at type [A'->hprop]. *)
+
+Definition Post_cast A2 `{EA2:Enc A2} A1 `{EA1:Enc A1} (Q:A1->hprop) : A2->hprop :=
+  fun (V:A2) => Post_cast_val Q (``V).
+
+Arguments Post_cast A2 {EA2} [A1] {EA1} Q.
+
+(** Properties of [Post_cast] *)
+
+Lemma qimpl_Post_cast_r : forall A `{EA:Enc A} (Q:A->hprop),
+  Q ===> Post_cast A Q.
+Proof using. intros. unfolds Post_cast, Post_cast_val. intros X. xsimpl*. Qed.
+
+Lemma qimpl_Post_cast_l : forall A `{EA:Enc A} (Q:A->hprop),
+  Enc_injective EA ->
+  Post_cast A Q ===> Q.
+Proof using.
+  introv M. unfolds Post_cast, Post_cast_val. intros X. xsimpl*.
+  intros Y EQ. rewrites (>> Enc_injective_inv M) in EQ. subst*.
+Qed.
+
+Lemma Post_cast_val_weaken : forall A1 `{EA:Enc A1} (Q1 Q2:A1->hprop),
+  Q1 ===> Q2 ->
+  Post_cast_val Q1 ===> Post_cast_val Q2.
+Proof using. introv M. unfold Post_cast_val. xpull ;=> ? V ->. xchanges* M. Qed.
+
+Lemma Post_cast_weaken : forall A2 `{EA:Enc A2} A1 `{EA:Enc A1} (Q1 Q2:A1->hprop),
+  Q1 ===> Q2 ->
+  Post_cast A2 Q1 ===> Post_cast A2 Q2.
+Proof using. introv M. intros V. applys* Post_cast_val_weaken. Qed.
+
+Lemma Triple_enc_change :
+  forall A1 A2 (t:trm) (H:hprop) `{EA1:Enc A1} (Q1:A1->hprop) `{EA2:Enc A2} (Q2:A2->hprop),
+  Triple t H Q1 ->
+  Q1 ===> Post_cast A1 Q2 ->
+  Triple t H Q2.
+Proof using.
+  introv M N. unfolds Triple. applys~ triple_conseq (rm M).
+  unfold LiftPost. intros v. xpull ;=> V EV. subst. applys N.
+Qed.
+
+(** Specialization of [Triple_enc_change] for converting from a postcondition
+    of type [val->hprop] *)
+
+Lemma Triple_enc_change_from_val :
+  forall (t:trm) (H:hprop) (Q1:val->hprop) A2 `{EA2:Enc A2} (Q2:A2->hprop),
+  Triple t H Q1 ->
+  Q1 ===> Post_cast_val Q2 ->
+  Triple t H Q2.
+Proof using. introv M N. applys* Triple_enc_change M. Qed.
+
+(** Specialization of [Triple_enc_change] for converting to a postcondition
+    of type [val->hprop]  *)
+
+Lemma Triple_enc_change_to_val :
+  forall A1 `{EA1:Enc A1} (t:trm) (H:hprop) (Q1:A1->hprop) (Q2:val->hprop),
+  Triple t H Q1 ->
+  (forall (X:A1), Q1 X ==> Q2 (enc X)) ->
+  Triple t H Q2.
+Proof using.
+  introv M N. applys* Triple_enc_change M. intros X. xchange (N X).
+  unfold Post_cast, Post_cast_val. xsimpl~.
+Qed.
+
+
+
+
+
+Lemma xformula_cast_lemma : forall A `{Enc A} (F:(A->hprop)->hprop) (Q:A->hprop) H,
+  H ==> F Q ->
+  H ==> ^(FormulaCast F) Q.
+Proof using. introv M. rewrite* FormulaCast_self. Qed.
+
+
+
+Definition Formula_cast `{Enc A1} (F:(A1->hprop)->hprop) : Formula :=
+  fun A2 (EA2:Enc A2) (Q:A2->hprop) =>
+    \exists (Q':A1->hprop), F Q' \* \[Q' ===> Post_cast A1 Q].
+(* forall V, Q' V ==> \exists (V':A), \[enc V = enc V'] \* Q V'. *)x
+
+
+
+Definition Post_cast_val A `{EA:Enc A} (Q:A->hprop) : val->hprop :=
+  fun (v:val) => \exists (V:A), \[v = enc V] \* Q V.
+
+(** [Post_cast A' Q] turns a postcondition of type [A->hprop] into
+    the corresponding postcondition at type [A'->hprop]. *)
+
+Definition Post_cast A2 `{EA2:Enc A2} A1 `{EA1:Enc A1} (Q:A1->hprop) : A2->hprop :=
+  fun (V:A2) => 
+
+
+Lemma Triple_enc_change :
+  forall A1 A2 (t:trm) (H:hprop) `{EA1:Enc A1} (Q1:A1->hprop) `{EA2:Enc A2} (Q2:A2->hprop),
+  Triple t H Q1 ->
+  Q1 ===> PostCast A1 Q2 ->
+  Triple t H Q2.
+Proof using.
+  introv M N. unfolds Triple. applys~ triple_conseq (rm M). intros v. 
+  unfolds Post, PostCast. xpull ;=> V EV. subst. xchanges* N.
+Qed.
+
+
+
+
+Definition Wpgen_seq' (F1 F2:Formula) : Formula :=
+  MkStruct (fun A (EA:Enc A) Q =>
+    \exists (H1:hprop), ^F1 (fun (_:unit) => H1) \* \[H1 ==> ^F2 Q]).
+
+
+
+
+
+Lemma qimpl_trans : forall A (Q2 Q1 Q3:A->hprop),
+  (Q1 ===> Q2) ->
+  (Q2 ===> Q3) ->
+  (Q1 ===> Q3).
+Proof using. introv M1 M2. intros v. applys himpl_trans; eauto. Qed.
+
+
+
+
+Lemma himpl_frame_hcredits : forall n H1 H2,
+  \$n \* H1 ==> \$n \* H2 ->
+  H1 ==> H2.
+Proof using.
+  introv M. lets K: himpl_frame_r (\$(-n)) M.
+  do 2 rewrite <- hstar_assoc in K.
+  rewrite <- hcredits_add_eq in K.
+  math_rewrite (-n + n = 0) in K.
+  rewrite hcredits_zero_eq in K. xchanges K.
+Qed.
+
+
+
+(* Dummy instantiation of credits for logics that don't support credits *)
+
+(* TODO: could be a functor instead of being an example *)
+
+Module HcreditsDummy.
+
+(** Assumptions *)
+
+Parameter hprop : Type.
+
+Parameter hempty : hprop.
+
+Parameter hstar : hprop -> hprop -> hprop.
+
+Parameter haffine : hprop -> Prop.
+
+(** Notation *)
+
+Notation "\[]" := (hempty)
+  (at level 0) : heap_scope.
+
+Notation "H1 '\*' H2" := (hstar H1 H2)
+  (at level 41, right associativity) : heap_scope.
+
+(** Realization *)
+
+Definition hcredits (n:Z) : hprop :=
+  \[].
+
+Notation "'\$' n" := (hcredits n)
+  (at level 40,
+   n at level 0,
+   format "\$ n") : heap_scope.
+
+Lemma hcredits_skip :
+  use_credits = false ->
+  forall n, \$ n = \[].
+Proof using. auto. Qed.
+
+Lemma hcredits_zero :
+  \$ 0 = \[].
+Proof using. auto. Qed.
+
+Lemma hcredits_add : forall n m,
+  \$ (n+m) = \$ n \* \$ m.
+Proof using. auto. Qed.
+
+Lemma haffine_hcredits : forall n,
+  n >= 0 ->
+  haffine (\$ n).
+Proof using. applys haffine_hempty. Qed.
+
+End HcreditsDummy.
+
+
+
+
+(* TODO: might no longer be needed *)
+Lemma neg_sub : forall n m,
+  - (n - m) = (-n) + m.
+Proof using. math. Qed.
+
+Hint Rewrite neg_sub : rew_int.
+
+
+
+Ltac xsimpl_step_lr tt ::=
+  match goal with |- Xsimpl (?Nc, ?Hla, \[], \[]) (?Hra, ?Hrg, \[]) =>
+    match Hrg with
+    | \[] =>
+       match Hra with
+       | ?H1 \* \[] =>
+         match H1 with
+         | ?Hra_evar => is_evar Hra_evar; 
+              rew_heap; 
+              match xsimpl_use_credits tt with
+                | true => apply ximpl_lr_refl
+                | false =>  apply ximpl_lr_refl_nocredits 
+                end
+         | ?Q1 \--* ?Q2 => is_evar Q2; eapply ximpl_lr_qwand_unify
+         | \[False] \-* ?H2 => apply xsimpl_lr_hwand_hfalse
+         | ?H1 \-* ?H2 => xsimpl_flip_acc_l tt; apply xsimpl_lr_hwand
+         | ?Q1 \--* ?Q2 =>
+             xsimpl_flip_acc_l tt;
+             match H1 with
+             | @qwand unit ?Q1' ?Q2' => apply xsimpl_lr_qwand_unit
+             | _ => apply xsimpl_lr_qwand; intro
+             end
+         | hforall _ => xsimpl_flip_acc_l tt; apply xsimpl_lr_hforall; intro
+                        (* --TODO: optimize for iterated \forall bindings *)
+         end
+       | \[] => match xsimpl_use_credits tt with
+                | true => apply xsimpl_lr_exit_credits_to_hempty
+                | false => apply ximpl_lr_refl_nocredits 
+                end
+       | _ => xsimpl_flip_acc_lr tt; 
+              match xsimpl_use_credits tt with
+              | true => apply xsimpl_lr_exit_nogc 
+              | false => apply xsimpl_lr_exit_nogc_nocredits
+              end
+       end
+    | (\Top \* _) => apply ximpl_lr_htop
+    | (\GC \* _) =>
+        first
+        [ match Hra with ?Hra1 \* \[] => is_evar Hra1;  (* when Hra1 is an evar *)
+            match xsimpl_use_credits tt with
+            | true => apply xsimpl_lr_exit_instantiate 
+            | false => apply xsimpl_lr_exit_instantiate_nocredits
+            end
+          end
+        | (* General case, Hra not just reduced to an evar *)
+          let xsimpl_xaffine tt := try remove_empty_heaps_haffine tt; xaffine in
+          match xsimpl_use_credits tt with
+          | true => apply ximpl_lr_hgc; [ try xsimpl_hcredits_nonneg tt | xsimpl_xaffine tt | ]
+          | false => apply ximpl_lr_hgc_nocredits; [ xsimpl_xaffine tt | ]
+          end ] 
+    | ?Hrg' => xsimpl_flip_acc_lr tt;
+              match xsimpl_use_credits tt with
+              | true => apply xsimpl_lr_exit 
+              | false => apply xsimpl_lr_exit_nocredits
+              end
+
+  end end.

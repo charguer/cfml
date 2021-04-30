@@ -1,6 +1,0 @@
--R . Sek
-
--arg -w -arg -notation-overridden,-implicit-core-hint-db,-omega-is-deprecated,-ambiguous-paths,-irrelevant-format-only-parsing,-deprecated-hint-without-locality,-deprecated-ident-entry,-custom-entry-overridden
-
-Sek_ml.v
-Sek_proof.v

@@ -4,6 +4,8 @@ open Mytools
 open Longident
 open Renaming
 
+(* TODO: the field-get operations on pure records should be considered as values *)
+
 (** This file takes as input an abstract syntax tree and produces
     an abstract syntax tree in "normal form", i.e. where intermediate
     expressions have been bound to a name. *)
@@ -440,7 +442,14 @@ let normalize_expression ?is_named:(is_named=false) ?as_value:(as_value=false) e
          let eo',b'=
            match eo with
            | None -> None, []
-           | Some ebase -> let (ebase',b') = aux ~as_value:true ebase in (Some ebase', b')
+           | Some ebase ->
+                match ebase.pexp_desc with
+                | Pexp_ident li -> (Some ebase, [])
+                (* TODO: in practice it seems that the parser only accepts variables? *)
+                | _ -> (* to avoid duplication during record-with elimination,
+                          we name any base that is not already an identifier *)
+                    let (ebase',b') = wrap_if_needed loc true next_var ebase [] in
+                    (Some ebase',b')
            in
          wrap_as_value (return (Pexp_record (l', eo'))) (b' @ b)
       | Pexp_field (e,i) ->

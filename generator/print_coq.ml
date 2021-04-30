@@ -37,6 +37,9 @@ let colonequals =
 let spacecolon =
   string " :"
 
+let spacecolonequals =
+  string ":="
+
 (* -------------------------------------------------------------------------- *)
 
 (* Applications. *)
@@ -98,6 +101,25 @@ let brackets d =
 
 (* -------------------------------------------------------------------------- *)
 
+(* Field assignement : [f := t]. *)
+
+(* Raw. *)
+
+let field (x, t) =
+  block (x ^^ spacecolonequals) (space ^^ t) empty
+
+(* A list of field value declarations, separated with semicolons. *)
+
+let fields_value fts =
+  separate_map (semi ^^ break 1) field fts
+
+(* Record definition : { f1 := t1; ... } *)
+
+let record_value fts =
+  braces (fields_value fts)
+
+(* -------------------------------------------------------------------------- *)
+
 (* Tuples. *)
 
 let tuple expr es =
@@ -151,8 +173,11 @@ let rec expr0 = function
       expr0 coq_tt
   | Coq_tuple es ->
       tuple expr es
-  | Coq_record _les ->
-      assert false (* TODO *)
+  | Coq_record fes ->
+      record_value (List.map (fun (f,e) -> (string f, expr e)) fes)
+  | Coq_proj (f,e1) ->
+      (* less well supported:  expr e1 ^^ dot ^^ string f *)
+      parens (app (string f) (expr e1))
   | Coq_annot (e1, e2) ->
       parens (binding (expr e1) (expr e2))
   | Coq_app _
@@ -305,10 +330,11 @@ let pvar xt =
 let pvars xts =
   group (concat_map pvar xts)
 
-(* A list of field declarations, separated with semicolons. *)
+(* A list of field type declarations, separated with semicolons. *)
 
-let fields xts =
+let fields_type xts =
   separate_map (semi ^^ break 1) var xts
+
 
 (* -------------------------------------------------------------------------- *)
 
@@ -337,7 +363,7 @@ let parameter x d1 =
 let record_rhs r =
   space ^^
   string (r.coqind_constructor_name) ^^ space ^^
-  braces (fields r.coqind_branches)
+  braces (fields_type r.coqind_branches)
 
 (* The right-hand side of a sum declaration. [| x1 : T1 | x2 : T2 ...]. *)
 

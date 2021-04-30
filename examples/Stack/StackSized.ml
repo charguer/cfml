@@ -1,5 +1,5 @@
 
-(** Implementation of a stack using lists and storing the size *)
+(** Implementation of an imperative stack using lists and storing the size *)
 
 type 'a t = {
    mutable items : 'a list;

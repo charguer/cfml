@@ -1,7 +1,11 @@
 ##############################################################################
 # Folders
 
-EXAMPLE_DIRS = $(shell find . -type d -depth 1)
+EXAMPLE_DIRS = \
+	Stack \
+	UnitTests \
+
+# $(shell find . -type d -depth 1)
 
 ##############################################################################
 # Targets

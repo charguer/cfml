@@ -123,6 +123,12 @@ let list_index k l =
       in
    aux 0 l
 
+(** [list_is_included l1 l2] returns true if any item in [l1] also belongs to [l2] *)
+
+let list_is_included l1 l2 =
+   List.for_all (fun x -> List.mem x l2) l1
+
+
 (**************************************************************)
 (** String manipulation functions *)
 

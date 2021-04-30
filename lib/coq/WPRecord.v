@@ -456,23 +456,61 @@ Ltac xspec_record tt :=
 
 (* ---------------------------------------------------------------------- *)
 
+(* Wpgen_val without MkStruct *)
+Definition Wpgen_val' B {EB:Enc B} (V:B) : Formula :=
+  fun A (EA:Enc A) (Q:A->hprop) => PostCast B Q V.
+
+
+(* ---------------------------------------------------------------------- *)
+(** ** Internal tactic [xval'], used by WPrecord *)
+
+Ltac xval'_pre tt :=
+  xcheck_pull tt;
+  match xgoal_code_without_wptag tt with
+  | (Wpgen_val' _) => idtac
+  end.
+
+Lemma xval'_lemma : forall (H:hprop) A {EA:Enc A} (Q:A->hprop) (V:A),
+  H ==> Q V ->
+  H ==> ^(Wpgen_val' V) Q.
+Proof using. introv M. unfolds Wpgen_val'. xchange M. applys qimpl_PostCast_r. Qed.
+
+Ltac xval'_core tt :=
+  xval'_pre tt;
+  applys xval'_lemma.
+
+Tactic Notation "xval'" :=
+  xval'_core tt.
+
+Ltac xval'_types_core tt :=
+  idtac "[xval'] fails to simplify due to type mismatch";
+  match goal with |-
+   ?H ==> (Wptag (@Wpgen_val' ?A1 ?EA1 ?X)) ?A2 ?EA2 ?Q =>
+   xtypes_type false A1 EA1;
+   xtypes_type false A2 EA2
+ end.
+
+Tactic Notation "xval'_types" :=
+  xval'_types_core tt.
+
+
+(* ---------------------------------------------------------------------- *)
 
 Lemma xapp_record_get : forall A `{EA:Enc A} (Q:A->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
   H ==> p ~> Record L \* (match record_get_compute_dyn f L with
     | None => \[False]
-    | Some (Dyn V) => (p ~> Record L) \-* ^(Wptag (Wpgen_cast V)) (protect Q) end) ->
+    | Some (Dyn V) => (p ~> Record L) \-* ^(Wptag (Wpgen_val' V)) (protect Q) end) ->
   H ==> ^(Wpgen_app_untyped (trm_apps (trm_val (val_get_field f)) (trms_vals ((p:val)::nil)))) Q.
 Proof using.
   introv M1. xchanges (rm M1).
   lets R: record_get_compute_spec_correct f L.
   unfolds record_get_compute_spec.
   destruct (record_get_compute_dyn f L) as [[T ET V]|]; try solve [xpull].
-  set (H' := (p ~> Record L \-* ^(Wptag (Wpgen_cast V)) Q)).
+  set (H' := (p ~> Record L \-* ^(Wptag (Wpgen_val' V)) Q)).
   forwards R': R; eauto. clear R. specializes R' p.
   applys himpl_Wpgen_app_untyped_of_Triple.
-  applys Triple_enc_change. xapplys (rm R'). simpl.
-  unfold Post_cast, Post_cast_val. xpull ;=> ? ->. unfold H'. xpull.
-  unfold Wpgen_cast, Wptag. applys himpl_refl.
+  applys Triple_PostCast_conseq. xapplys (rm R'). simpl.
+  unfold H'. xsimpl. intros ? ->. auto. (* unfold Wptag, Wpgen_val'. *)
 Qed. (* --TODO: simplify proof *)
 
 Lemma xapp_record_set : forall A1 `{EA1:Enc A1} (W:A1) (Q:unit->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
@@ -501,7 +539,7 @@ Global Opaque val_set_field val_get_field.
 Parameter xapp_record_Get : forall A `{EA:Enc A} (Q:A->hprop) (H:hprop) (p:loc) (f:field) (L:Record_fields),
   H ==> p ~> Record L \* (match record_get_compute_dyn f L with
     | None => \[False]
-    | Some (Dyn V) => (p ~> Record L) \-* ^(Wptag (Wpgen_cast V)) (protect Q) end) ->
+    | Some (Dyn V) => (p ~> Record L) \-* ^(Wptag (Wpgen_val' V)) (protect Q) end) ->
   H ==> ^(Wpgen_app A (val_get_field f) ((Dyn p)::nil)) Q.
 (* TODO: proof *)
 
@@ -590,7 +628,7 @@ Ltac xapp_record_get_find_single_field tt :=
 (* Common postprocessing to [xapp_record_get] and [xapp_record_set] *)
 
 Ltac xapp_record_get_set_post tt :=
-  xsimpl; simpl; xsimpl; unfold protect; try xcast.
+  xsimpl; simpl; xsimpl; unfold protect; try xval'.
 
 Ltac xapp_record_get_grouped tt :=
   first [ applys xapp_record_Get
@@ -776,7 +814,7 @@ Ltac xapp_record_delete tt :=
 
 Definition Wpgen_record_new (Lof:loc->Record_fields) : Formula :=
   MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
-    (fun r => r ~> Record (Lof r)) \--* (Post_cast loc Q)).
+    (fun r => r ~> Record (Lof r)) \--* (PostCast loc Q)).
 
 (* Note:   [Triple H (new L) (fun r => r ~> Record (Lof r) \* H)]
    H ==> wp (new L) (fun r => r ~> Record (Lof r) \* H)
@@ -791,7 +829,7 @@ Lemma xapp_lemma_record_new : forall (Lof:loc->Record_fields) H (Q:loc->hprop),
   H ==> ^(Wpgen_record_new Lof) Q.
 Proof using.
   introv M. applys MkStruct_erase. xsimpl. intros r.
-  xchange M. applys qimpl_Post_cast_r.
+  xchange M. applys qimpl_PostCast_r.
 Qed.
 
 (* TODO later check no redundant record fields? *)
@@ -806,26 +844,46 @@ Fixpoint record_with_compute_dyn (L:Record_fields) (Lup:Record_fields) : option 
       end
   end.
 
+(* [record_with_check_all_fields fs L] checks that every field from [fs] is bound in [L]
+   --in practice due to typing the set of fields can only be equal. *)
+
+Fixpoint record_with_check_all_fields (fs:fields) (L:Record_fields) : bool :=
+  match fs with
+  | nil => true
+  | f::fs' =>
+     match record_get_compute_dyn f L with
+     | None => false
+     | Some d => record_with_check_all_fields fs' L
+     end
+  end.
+
 (* TODO: check header is present, if we want the record fields to not be considered affine *)
 
-Definition Wpgen_record_with (r:loc) (Lup:Record_fields) : Formula :=
+Definition Wpgen_record_with (r:loc) (Lup:Record_fields) (fs:fields) : Formula :=
   MkStruct (fun A (EA:Enc A) (Q:A->hprop) =>
     \forall L,
     r ~> Record L \* (
-      match record_with_compute_dyn L Lup with
-      | None => \[False]
-      | Some L' => (fun r' => r ~> Record L \* r' ~> Record L') \--* (Post_cast loc Q)
+      match record_with_check_all_fields fs L with
+      | false => \[False]
+      | true =>
+        match record_with_compute_dyn L Lup with
+        | None => \[False]
+        | Some L' => (fun r' => r ~> Record L \* r' ~> Record L') \--* (PostCast loc Q)
+        end
       end)).
 
-
-Parameter xapp_record_With_lemma : forall (Q:loc->hprop) (H:hprop) (p:loc) (L Lup:Record_fields),
+Parameter xapp_record_With_lemma : forall (Q:loc->hprop) (H:hprop) (p:loc) (L Lup:Record_fields) (fs:fields),
   H ==> p ~> Record L \* (
-      match record_with_compute_dyn L Lup with
-      | None => \[False]
-      | Some L' => (*  (fun r' => r ~> Record L \* r' ~> Record L') \--* (Post_cast loc (protect Q)) *)
-               \forall p', (p ~> Record L \* p' ~> Record L') \-* protect (Q p')
+      match record_with_check_all_fields fs L with
+      | false => \[False]
+      | true =>
+        match record_with_compute_dyn L Lup with
+        | None => \[False]
+        | Some L' => (*  (fun r' => r ~> Record L \* r' ~> Record L') \--* (Post_cast loc (protect Q)) *)
+                 \forall p', (p ~> Record L \* p' ~> Record L') \-* protect (Q p')
+        end
       end) ->
-  H ==> ^(Wpgen_record_with p Lup) Q.
+  H ==> ^(Wpgen_record_with p Lup fs) Q.
 
 Ltac xapp_record_with_post tt :=
   xsimpl; simpl; xsimpl; unfold protect.
@@ -854,7 +912,7 @@ Notation "p '~~~>' kvs" := (p ~> Record kvs)
 Ltac xapp_record tt ::= (* initial dummy binding located in WPTactics *)
   match xgoal_code_without_wptag tt with
   | Wpgen_record_new ?Lof => applys xapp_lemma_record_new
-  | Wpgen_record_with ?v ?L => xapp_record_with tt
+  | Wpgen_record_with ?v ?L ?fs => xapp_record_with tt
   | Wpgen_app ?T ?f ?Vs =>
       match f with
       | val_get_field _ => xapp_record_get tt
@@ -865,12 +923,12 @@ Ltac xapp_record tt ::= (* initial dummy binding located in WPTactics *)
   end.
 
 Ltac xapp_pre_wp tt ::=
-  xlet_xseq_steps tt;
+  xlet_xseq_cont_steps tt;
   match xgoal_code_without_wptag tt with
   | (Wpgen_app_untyped ?t) => idtac (* TODO: DEPRECATED *)
   | (Wpgen_app ?T ?f ?Vs) => idtac
   | (Wpgen_record_new ?Lof) => idtac
-  | (Wpgen_record_with ?v ?L) => idtac
+  | (Wpgen_record_with ?v ?L ?fs) => idtac
   end.
 
 Ltac check_is_Wpgen_record_alloc F ::=
@@ -895,6 +953,15 @@ Notation "'New' Vs" :=
   (in custom wp at level 69,
    Vs constr at level 69)
   : wp_scope.
+
+Notation "'New' v 'With' Vs" :=
+  ((Wpgen_record_with v Vs _))
+  (in custom wp at level 69,
+   only printing,
+   v constr at level 69,
+   Vs constr at level 69)
+  : wp_scope.
+
 
 (*
 Notation "'App' r '.' f" :=

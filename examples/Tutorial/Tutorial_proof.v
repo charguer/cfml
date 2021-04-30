@@ -26,12 +26,17 @@ Module Basics.
 ]]
 *)
 
-Lemma Triple_example_let : forall n,
-  TRIPLE (example_let n)
+Lemma example_let_spec : forall n,
+  SPEC (example_let n)
     PRE \[]
     POST (fun r => \[r = 2*n]).
 Proof using.
-  xwp. xapp. xapp. xapp. xsimpl. math.
+  (* TODO: why not let-val ? *)
+  (* TODO: xval no subst ?*)
+  xcf. (* xlet. xval. xval_nosubst. *)
+  xlet. xval. xpull. intros Ha.
+  xval.
+  xval. xsimpl. math.
 Qed.
 
 (** Note: [xapp] calls [xlet] automatically when needed. *)
@@ -51,15 +56,15 @@ Qed.
 ]]
 *)
 
-Lemma Triple_incr : forall (p:loc) (n:int),
-  TRIPLE (incr p)
+Lemma incr_spec : forall (p:loc) (n:int),
+  SPEC (incr p)
     PRE (p ~~> n)
     POSTUNIT (p ~~> (n+1)).
 Proof using.
-  xwp. xapp. xapp. xapp. xsimpl.
+  xcf. xapp. xapp. xapp. xsimpl.
 Qed.
 
-Hint Extern 1 (Register_Spec (incr)) => Provide Triple_incr.
+Hint Extern 1 (Register_Spec (incr)) => Provide incr.
 
 
 (* ******************************************************* *)
@@ -74,12 +79,12 @@ Hint Extern 1 (Register_Spec (incr)) => Provide Triple_incr.
 ]]
 *)
 
-Lemma Triple_succ_using_incr : forall n,
-  TRIPLE (succ_using_incr ``n)
+Lemma succ_using_incr_spec : forall n,
+  SPEC (succ_using_incr ``n)
     PRE \[]
     POST (fun r => \[r = n+1]).
 Proof using.
-  xwp. xapp ;=> p. (* xapp. intros p. *)
+  xcf. xapp ;=> p. (* xapp. intros p. *)
   xapp. xapp. xsimpl*.
 Qed.
 
@@ -94,13 +99,13 @@ Qed.
 ]]
 *)
 
-Lemma Triple_incr_one_of_two :
+Lemma incr_one_of_two_spec :
   forall (p q:loc) (n m:int),
-  TRIPLE (incr_one_of_two p q)
+  SPEC (incr_one_of_two p q)
     PRE (p ~~> n \* q ~~> m)
     POSTUNIT (p ~~> (n+1) \* q ~~> m).
 Proof using.
-  xwp. xapp. xsimpl.
+  xcf. xapp. xsimpl.
 Qed.
 
 
@@ -116,18 +121,18 @@ Qed.
 *)
 
 
-Lemma Triple_incr_and_ref : forall (p:loc) (n:int),
-  TRIPLE (incr_and_ref p)
+Lemma incr_and_ref_spec : forall (p:loc) (n:int),
+  SPEC (incr_and_ref p)
     PRE (p ~~> n)
     POST (fun (q:loc) => q ~~> (n+1) \* p ~~> (n+1)).
 Proof using.
-  xwp. xapp. xapp. xapp. xsimpl.
+  xcf. xapp. xapp. xapp. xsimpl.
 Qed.
 
-Hint Extern 1 (Register_Spec (incr_and_ref)) => Provide Triple_incr_and_ref.
+Hint Extern 1 (Register_Spec (incr_and_ref)) => Provide incr_and_ref_spec.
 
-Lemma Triple_incr_and_ref' : forall (p:loc) (n:int),
-  TRIPLE (incr_and_ref p)
+Lemma incr_and_ref'_spec : forall (p:loc) (n:int),
+  SPEC (incr_and_ref p)
     PRE (p ~~> n)
     POST (fun (q:loc) =>
         \exists m, \[m > n] \* q ~~> m \* p ~~> (n+1)).
@@ -159,13 +164,13 @@ Definition repeat_incr :=
 
 (** Let's try to prove a false specification *)
 
-Lemma Triple_repeat_incr : forall p n m,
-  TRIPLE (repeat_incr p m)
+Lemma repeat_incr_spec : forall p n m,
+  SPEC (repeat_incr p m)
     PRE (p ~~> n)
     POSTUNIT (p ~~> (n + m)).
 Proof using.
   intros. gen n. induction_wf IH: (downto 0) m. intros.
-  xwp. xapp. xif ;=> C.
+  xcf. xapp. xif ;=> C.
   { (* then branch *)
     xapp. xapp. xapp. { unfold downto. math. } xsimpl. math. }
   { (* else branch *)
@@ -174,14 +179,14 @@ Abort.
 
 (** Let's try again *)
 
-Lemma Triple_repeat_incr : forall p n m,
+Lemma repeat_incr_spec : forall p n m,
   m >= 0 ->
-  TRIPLE (repeat_incr p m)
+  SPEC (repeat_incr p m)
     PRE (p ~~> n)
     POSTUNIT (p ~~> (n + m)).
 Proof using.
   introv Hm. gen n Hm. induction_wf IH: (downto 0) m. intros.
-  xwp. xapp. xif; intros C.
+  xcf. xapp. xif; intros C.
   { xapp. xapp. xapp. { hnf. math. } { math. }
     xsimpl. math. }
   { xval. xsimpl. math. }
@@ -189,13 +194,13 @@ Qed.
 
 (** Let's try yet another time *)
 
-Lemma Triple_repeat_incr' : forall p n m,
-  TRIPLE (repeat_incr p m)
+Lemma repeat_incr'_spec : forall p n m,
+  SPEC (repeat_incr p m)
     PRE (p ~~> n)
     POSTUNIT (p ~~> (n + max 0 m)).
 Proof using.
   intros. gen n. induction_wf IH: (downto 0) m; intros.
-  xwp. xapp. xif; intros C.
+  xcf. xapp. xif; intros C.
   { xapp. xapp. xapp. { hnf. math. }
     xsimpl. repeat rewrite max_nonneg; math. }
   { xval. xsimpl. rewrite max_nonpos; math. }
@@ -212,7 +217,7 @@ End Basics.
 Module ExoBasic.
 
 (** Hints:
-    - [xwp] to begin the proof
+    - [xcf] to begin the proof
     - [xapp] for applications, or [xappn] to repeat
     - [xif] for a case analysis
     - [xval] for a value
@@ -232,12 +237,12 @@ Module ExoBasic.
 ]]
 *)
 
-Lemma Triple_double : forall n,
-  TRIPLE (double n)
+Lemma double_spec : forall n,
+  SPEC (double n)
     PRE \[]
     POST (fun m => (* SOLUTION *) \[m = 2 * n] (* /SOLUTION *)).
 Proof using.
-  (* SOLUTION *) xwp. xapp. xsimpl. math. (* /SOLUTION *)
+  (* SOLUTION *) xcf. xapp. xsimpl. math. (* /SOLUTION *)
 Qed.
 
 
@@ -253,12 +258,12 @@ Qed.
 ]]
 *)
 
-Lemma Triple_inplace_double : forall p n,
-  TRIPLE (inplace_double p)
+Lemma inplace_double_spec : forall p n,
+  SPEC (inplace_double p)
     PRE ((* SOLUTION *) p ~~> n (* /SOLUTION *))
     POSTUNIT ((* SOLUTION *) p ~~> (2 * n) (* /SOLUTION *)).
 Proof using.
-  (* SOLUTION *) xwp. xapp. xapp. xapp. xapp. xsimpl. math. (* /SOLUTION *)
+  (* SOLUTION *) xcf. xapp. xapp. xapp. xapp. xsimpl. math. (* /SOLUTION *)
 Qed.
 
 
@@ -273,12 +278,12 @@ Qed.
 ]]
 *)
 
-Lemma Triple_decr_and_incr : forall p q n m,
-  TRIPLE (decr_and_incr p q)
+Lemma decr_and_incr_spec : forall p q n m,
+  SPEC (decr_and_incr p q)
     PRE ((* SOLUTION *) p ~~> n \* q ~~> m (* /SOLUTION *))
     POSTUNIT ((* SOLUTION *) p ~~> (n-1) \* q ~~> (m+1) (* /SOLUTION *)).
 Proof using.
-  (* SOLUTION *) xwp. xapp. xapp. xsimpl. (* /SOLUTION *)
+  (* SOLUTION *) xcf. xapp. xapp. xsimpl. (* /SOLUTION *)
 Qed.
 
 
@@ -299,15 +304,15 @@ Qed.
 ]]
 *)
 
-Lemma Triple_transfer : forall p q n m,
+Lemma transfer_spec : forall p q n m,
   n >= 0 ->
-  TRIPLE (transfer p q)
+  SPEC (transfer p q)
     PRE (p ~~> n \* q ~~> m)
     POSTUNIT ((* SOLUTION *) p ~~> 0 \* q ~~> (n + m) (* /SOLUTION *)).
 Proof using.
   introv N. gen m N. induction_wf IH: (downto 0) n. intros.
   (* SOLUTION *)
-  xwp. xapp. xapp. xif ;=> C.
+  xcf. xapp. xapp. xif ;=> C.
   { xapp. xapp. xapp. { hnf. math. } { math. }
     xsimpl. math. }
   { xval. xsimpl. math. math. }

@@ -51,14 +51,14 @@ clean:
 # These commands perform direct installation, without going through opam.
 
 install: all
-	make -C generator $@
-	make -C lib/coq $@
-	make -C lib/stdlib $@
+	$(MAKE) -C generator $@
+	$(MAKE) -C lib/coq $@
+	$(MAKE) -C lib/stdlib $@
 
 uninstall:
-	make -C generator $@
-	make -C lib/coq $@
-	make -C lib/stdlib $@
+	$(MAKE) -C generator $@
+	$(MAKE) -C lib/coq $@
+	$(MAKE) -C lib/stdlib $@
 
 # -------------------------------------------------------------------------
 

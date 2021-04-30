@@ -26,3 +26,4 @@ Makefile.generated.conf
 _output
 *.cmj
 *_ml.v
+_CoqProjectDev

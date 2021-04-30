@@ -1171,7 +1171,7 @@ let type_implementation sourcefile outputprefix modulename initial_env ast =
         Includemod.compunit sourcefile sg
                             "(inferred signature)" simple_sg in
       if not !Clflags.dont_write_files then
-        Env.save_signature simple_sg modulename (outputprefix ^ ".cmj");
+        Env.save_signature simple_sg modulename (outputprefix ^ ".cmj_temp");
       (str, coercion)
     end
   end

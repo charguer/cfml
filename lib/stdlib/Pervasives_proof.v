@@ -49,17 +49,14 @@ Lemma infix_emark_eq_loc_spec : forall (a b:loc),
   SPEC (infix_emark_eq__ a b)
     PRE \[]
     POST \[= isTrue (a <> b) ].
-Proof using.
-  xcf. xgo*. rew_isTrue*.
-Qed.
+Proof using. xcf_go. rew_isTrue*. Qed.
 
 Lemma infix_emark_eq_gen_spec : forall (A:Type) (a b:A),
   SPEC (infix_emark_eq__ a b)
     PRE \[]
     POST (fun r => \[r = false -> isTrue (a = b)]).
 Proof using.
-  xcf. xapp infix_eq_eq_gen_spec.
-  introv E. xvals*.
+  xcf. xapp infix_eq_eq_gen_spec. introv E. xvals*.
 Qed.
 
 Hint Extern 1 (RegisterSpec infix_emark_eq__) => Provide infix_emark_eq_loc_spec.

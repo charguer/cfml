@@ -1,0 +1,7 @@
+CFML := /home/charguer/cfml2
+EXAMPLEINCLUDE := -R . CFML
+OPENINIDE := $(wildcard */*_proof.v)
+
+include $(CFML)/lib/make/Makefile.dev
+
+

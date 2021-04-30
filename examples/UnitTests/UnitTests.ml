@@ -1,5 +1,3 @@
-open Pervasives
-
 (**
  *
  * This file contains unit tests for testing the generation of
@@ -84,6 +82,10 @@ let let_val_int () =
    let x = 3 in
    x
 
+let let_val_add_int () =
+   let x = 3 + (4 + 2) in
+   x
+
 let let_val_pair_int () =
    let x = (3,4) in
    x
@@ -151,7 +153,7 @@ let let_fun_rec m =
 (********************************************************************)
 (* ** Polymorphic let bindings and value restriction *)
 
-(* LATER
+(* LATER *)
 
 let let_poly_p0 () =
    let x = (None = None) in ()
@@ -238,7 +240,6 @@ let let_poly_r1 () =
    ()
 
 let let_poly_r2 () =
-   let _x = ref [] in
    let y = [] in
    y
 
@@ -247,7 +248,6 @@ let let_poly_r3 () =
       let x = ref [] in
       [] in
    r
-*)
 
 (* ---Code not allowed because produces a ['_a list ref] at top level;
    i.e. rejected when using OCaml "-strict_value_restriction" flag
@@ -653,15 +653,44 @@ let sitems_push x r =
 (********************************************************************)
 (* ** Record-with *)
 
-type recordwith = {
+type 'a recordwith = {
   mutable mya : int;
   mutable myb : int;
-  mutable myc : int; }
+  mutable myc : 'a list; }
 
 let recordwith () =
-  let r = { mya = 1; myb = 2; myc = 3 } in
-  { r with myb = 5; mya = 6 }
+  let r1 = { mya = 1; myb = 2; myc = [1] } in
+  let r2 = { mya = 1; myb = 2; myc = [] } in
+  let r3 = { mya = 1; myb = 2; myc = ([]:int list) } in
+  let r4 = { r1 with myb = 5; myc = [] } in
+  r4
 
+(* Not supported by OCaml parser
+let recordwith_expr () =
+  { recordwith () with myb = 3 } *)
+
+
+(********************************************************************)
+(* ** Pure records *)
+
+type 'a pitems = {
+  pnb : int;
+  pitems : 'a list;
+  pother : unit; }
+
+let pitems_build n =
+  { pitems = []; pnb = n; pother = () }
+
+let pitems_get_nb r =
+  succ r.pnb
+
+let pitems_with r =
+  let r1 = { r with pitems = [1] } in
+  let r2 = { r1 with pnb = 2 } in
+  { r2 with pitems = [2]; pnb = 3 }
+
+(* TODO: currently not supported: qualified field names, e.g.
+     x.M.pitems  where M is a module *)
 
 (********************************************************************)
 (* ** Evaluation order *)
@@ -740,7 +769,9 @@ let ref_gc_dep x =
 (* ** Arrays *)
 
 let array_ops () =
-  (* TODO let u = ([||]  : int array) in *)
+  let u1 = [|1|] in
+  let u2 = ([||] : int array) in
+  (* TODO: not yet supported let u3 = [||] in*)
   let t = Array.make 3 0 in
   let _x = t.(1) in
   t.(2) <- 4;
@@ -807,8 +838,9 @@ and rec_mutual_g x =
 (********************************************************************)
 (* ** External *)
 
+(* TODO: ocaml file does not compile with it
 external external_func : int -> 'a -> 'a array = "%external_func"
-
+*)
 
 
 (********************************************************************)

@@ -28,6 +28,7 @@
 )
 
 (executable
+  (modes byte exe)
   (package cfml)
   (public_name cfmlc)
   (libraries
@@ -36,3 +37,4 @@
   )
   (modules_without_implementation annot asttypes outcometree parsetree)
 )
+	

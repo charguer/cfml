@@ -19,7 +19,7 @@ Require Import StackSized_ml.
 (** Definition of [r ~> Stack L], which is a notation for [Stack L r], of type
     [hprop] *)
 
-Definition Stack A `{EA:Enc A} (L:list A) r :=
+Definition Stack A `{EA:Enc A} (L:list A) (r:loc) : hprop :=
   \exists n,
       r ~~~> `{ items' := L; size' := n }
    \* \[ n = length L ].
@@ -91,9 +91,9 @@ Tactic Notation "xclose" "*" constr(r) :=
 Lemma create_spec : forall A `{EA:Enc A},
   SPEC (create tt)
     PRE \[]
-    POST (fun r => r ~> Stack (@nil A)).
+    POST (fun s => s ~> Stack (@nil A)).
 Proof using.
-  xcf. xapp ;=> r. xclose* r. xsimpl.
+  xcf. xapp ;=> s. xclose* s. xsimpl.
 Qed.
 
 Lemma size_spec : forall A `{EA:Enc A} (L:list A) (s:loc),
@@ -103,14 +103,6 @@ Lemma size_spec : forall A `{EA:Enc A} (L:list A) (s:loc),
 Proof using.
   xcf. xopen s. xpull ;=> n Hn.
   xapp. xclose* s. xsimpl*.
-Qed.
-
-Lemma length_zero_iff_nil : forall A `{EA:Enc A} (L:list A),
-  length L = 0 <-> L = nil.
-Proof using.
-  intros. destruct L; rew_list.
-  { intuition eauto. }
-  { iff M; false; math. }
 Qed.
 
 Lemma is_empty_spec : forall A `{EA:Enc A} (L:list A) (s:loc),
@@ -125,9 +117,8 @@ Proof using.
      and lemma [length_zero_iff_nil] from above. *)
   (* <EXO> *)
   xcf. xopen s. intros n Hn. xapp. xclose* s.
-  xvals. subst. apply length_zero_iff_nil.
+  xvals. subst. rewrite* length_zero_eq_eq_nil.
   (* </EXO> *)
-  auto.
 Qed.
 
 Lemma push_spec : forall A `{EA:Enc A} (L:list A) (s:loc) (x:A),
@@ -147,11 +138,6 @@ Proof using.
   (* </EXO> *)
 Qed.
 
-Hint Extern 1 (RegisterSpec push) => Provide push_spec.
-
-(* [xapp] on a call to push.
-   Otherwise, need to do [xapp_spec push_spec]. *)
-
 Lemma pop_spec : forall A `{EA:Enc A} (L:list A) (s:loc),
   L <> nil ->
   SPEC (pop s)
@@ -160,8 +146,19 @@ Lemma pop_spec : forall A `{EA:Enc A} (L:list A) (s:loc),
 Proof using.
   (* Hint: also use [rew_list in H] *)
   (* <EXO> *)
-  introv HL. xcf. xopen s. xpull ;=> n Hn. xapp. xmatch.
+  introv HL. xcf. xopen s. intros n Hn. xapp. xmatch.
   xapp. xapp. xapp. xval.
   xclose* s. { rew_list in *. math. } xsimpl*.
   (* </EXO> *)
 Qed.
+
+Lemma clear_spec : forall A `{EA:Enc A} (L:list A) (s:loc),
+  SPEC (clear s)
+    PRE (s ~> Stack L)
+    POSTUNIT (s ~> Stack (@nil A)).
+Proof using.
+  xcf. xopen s. intros n Hn. xapp. xapp. xclose* s. xsimpl*.
+Qed.
+
+(* Can add hints for exploiting the lemmas, e.g.:
+   [Hint Extern 1 (RegisterSpec push) => Provide push_spec.] *)

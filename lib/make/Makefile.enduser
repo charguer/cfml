@@ -18,7 +18,7 @@
 ##############################################################################
 # Several auxiliary Makefiles are installed in this directory.
 
-CFML := $(shell cfmlc -where)
+CFML ?= $(shell cfmlc -where)
 
 ##############################################################################
 
@@ -43,7 +43,7 @@ ML := \
   $(filter-out myocamlbuild.ml,$(shell ls *.ml))
 
 OCAML_INCLUDE := \
-  -I $(PWD)
+  -I .
 
 ML_MAIN := \
   $(ML)
@@ -53,14 +53,16 @@ OCAMLBUILD := \
     -classic-display -use-ocamlfind \
     -cflags "-g" -lflags "-g" \
     -X .coq-native \
-    $(OCAMLBUILD_FLAGS) \
+    $(OCAMLBUILD_FLAGS)
 
 .PHONY: phase1
 phase1:
 	@ $(OCAMLBUILD) $(ML_MAIN:.ml=.native)
 
 clean::
+	rm -f *.native
 	@ $(OCAMLBUILD) -clean
+
 
 ##############################################################################
 # Phase 2. Translation using CFML.
@@ -75,8 +77,14 @@ clean::
 ##############################################################################
 # Phase 3. Compilation using Coq.
 
+# The _CoqProject file is generated.
+
+# For this purpose, the user must set COQPATH and COQFLAGS appropriately.
+
+include $(CFML)/Makefile.coqproject
+
 .PHONY: phase3
-phase3:
+phase3: _CoqProject
 	@ $(MAKE) -f $(CFML)/Makefile.generic
 
 clean::

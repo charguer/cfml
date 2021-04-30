@@ -229,12 +229,51 @@ Parameter hstar_hgc_hgc :
 
 End XsimplParams.
 
+(* ---------------------------------------------------------------------- *)
+(** * Assumptions of the functor with credits *)
+
+Module Type XsimplParamsCredits.
+
+Include XsimplParams.
+
+Parameter use_credits : bool.
+
+Notation "'credits'" := Z.
+
+Parameter hcredits : credits -> hprop.
+
+Notation "'\$' n" := (hcredits n)
+  (at level 40,
+   n at level 0,
+   format "\$ n") : heap_scope.
+
+Open Scope heap_scope.
+
+Parameter hcredits_skip :
+  use_credits = false ->
+  forall n, \$ n = \[].
+
+Parameter hcredits_zero :
+  \$ 0 = \[].
+
+Parameter hcredits_add : forall n m,
+  \$ (n+m) = \$ n \* \$ m.
+
+Parameter hwand_hcredits_l : forall H n,
+  (\$n \-* H) = (\$(-n) \* H).
+
+Parameter haffine_hcredits : forall n,
+  n >= 0 ->
+  haffine (\$ n).
+
+End XsimplParamsCredits.
+
 
 (* ********************************************************************** *)
 (** * Body of the functor *)
 
-Module XsimplSetup (HP : XsimplParams).
-Import HP.
+Module XsimplSetupCredits (HPC : XsimplParamsCredits).
+Import HPC.
 
 Local Open Scope heap_scope.
 
@@ -280,6 +319,7 @@ Proof using.
   intros. rewrite <- hstar_assoc.
   rewrite (@hstar_comm H1 H2). rewrite~ hstar_assoc.
 Qed.
+
 
 
 (* ********************************************************************** *)
@@ -345,7 +385,8 @@ Lemma star_post_empty : forall B (Q:B->hprop),
 Proof using. extens. intros. rewrite* hstar_hempty_r. Qed.
 
 Hint Rewrite hstar_hempty_l hstar_hempty_r
-            hstar_assoc star_post_empty hwand_hempty_l : rew_heap.
+             hstar_assoc star_post_empty hwand_hempty_l
+             hcredits_zero hcredits_add : rew_heap.
 
 Tactic Notation "rew_heap" :=
   autorewrite with rew_heap.
@@ -402,6 +443,205 @@ Ltac remove_empty_heaps_right tt :=
 (* * Tactic [xsimpl] for heap entailments *)
 
 (* ---------------------------------------------------------------------- *)
+(** [xsimpl_beautify_credits] for beautifying arithmetics involved in credits *)
+
+(** [xsimpl_beautify_credits] will, in every credit expression:
+    - Gather and compute the sum of numbers.
+    - Separate positives and negatives expressions in two groups.
+    - Cancel each pair (n,-n) of expressions.
+    - Pretty-print the result. *)
+Definition xsimpl_hcredits_protect (n:credits) : hprop :=
+  \$n.
+
+Ltac fold_right f accu l :=
+  match l with
+  | nil => accu
+  | ?a::?L =>
+    let naccu := fold_right f accu l in
+    f a naccu
+  end.
+
+Ltac list_snoc x l :=
+  let cons x y := constr:(x::y) in
+  fold_right cons x l.
+
+Ltac xsimpl_beautify_credits_is_const n :=
+  match n with
+  | Z.zero => constr:(true)
+  | Z.neg _ => constr:(true)
+  | Z.pos _ => constr:(true)
+  | _ => constr:(false) end.
+
+(* [xsimpl_beautify_credits_arith_to_list n] will return a triple
+   (C,Ln,Lp) where
+   - C is a term of type int made exactly of actual numbers in n.
+   - Ln is a list of negatives variables in n.
+   - Lp is a list of positives variables in n. Evars are in the
+   last positions of Lp. *)
+Ltac xsimpl_beautify_credits_arith_to_list n :=
+  let ltac_neg pos :=
+      match pos with
+      | true => constr:(false)
+      | false => constr:(true)
+      end in
+  let rec aux acc pos n :=
+      match n with
+      | ?n1 + ?n2 =>
+        let T := aux acc pos n1 in
+        aux T pos n2
+      | ?n1 - ?n2 =>
+        let T := aux acc pos n1 in
+        let posneg := ltac_neg pos in
+        aux T posneg n2
+      | - ?n1 =>
+        let posneg := ltac_neg pos in
+        aux acc posneg n1
+      | 0 => constr:(acc)
+      | ?n1 =>
+        match acc with
+        (* Constants, negatives, postives (with evar on tail) *)
+        | (?C,?Ln,?Lp) =>
+          match xsimpl_beautify_credits_is_const n1 with
+          | true =>
+            match pos with
+            | true => constr:( (C+n1,Ln,Lp) )
+            | false => constr:( (C-n1,Ln,Lp) ) end
+          | false =>
+            match pos with
+            | true =>
+              let Lp' :=
+                  match is_evar_as_bool n1 with
+                  | false => constr:(n1::Lp)
+                  | true => list_snoc n1 Lp (* TODO verify *)
+                  end in
+              constr:( (C,Ln,Lp') )
+            | false => constr:( (C,n1::Ln,Lp) )
+            end end end end in
+  aux (0,@nil credits,@nil credits) true n.
+
+(* [xsimpl_beautify_find_and_remove x L]
+   that returns [None] if [x] is not in [L], and [Some L'] where
+   [L'] is [L] minus one occurence of [x] if there is one occurence
+   of [x] in [L]. *)
+Ltac xsimpl_beautify_find_and_remove x L :=
+  match L with
+  | nil => constr:(@None (list credits))
+  | x::?L' => constr:(Some L')
+  | ?a::?L' =>
+    let acc := xsimpl_beautify_find_and_remove x L' in
+    match acc with
+    | None => constr:(@None (list credits))
+    | Some ?L'' => constr:(Some (a::L'')) end end.
+
+(* For each element in [Lp], invoke [xsimpl_beautify_find_and_remove],
+   removing that element if it is found in [Ln].
+   In the end, return the pair of the filtered [Lp] and [Ln] *)
+Ltac xsimpl_beautify_credits_simpl_list Ln Lp :=
+  let rec aux Ln Lp :=
+      match Ln with
+      | nil => constr:((Ln,Lp))
+      | ?x::?Ln' =>
+        match xsimpl_beautify_find_and_remove x Lp with
+        | None =>
+          match aux Ln' Lp with
+          | (?LL,?LR) => constr:((x::LL,LR))
+          end
+        | Some ?Lp'' => aux Ln' Lp'' end end in
+  aux Ln Lp.
+
+Ltac fold_left f accu l :=
+  match l with
+  | nil => accu
+  | ?a::?L =>
+    let naccu := f accu a in
+    fold_left f naccu L
+  end.
+
+Ltac list_rev A l :=
+  let cons' x y := constr:(y::x) in
+  fold_left cons' (@nil A) l.
+
+(* If L=(Ln,Lp) returns a prettified version of Lp - Ln + z *)
+Ltac xsimpl_beautify_credits_list_to_arith Ln Lp z :=
+  let add x y := constr:(x + y) in
+  let sub x y := constr:(x - y) in
+  let t := (eval vm_compute in (z =? 0)) in
+  match t with
+  | true =>
+    match constr:((Ln,Lp)) with
+    | (nil,nil) => constr:(0)
+    | (?a::?Ln', nil) => fold_left sub (-a) Ln'
+    | (_,?a::?Lp') =>
+      let p := fold_left add a Lp' in
+      fold_left sub p Ln
+    end
+  | false =>
+    let p := fold_left add z Lp in
+    fold_left sub p Ln
+  end.
+
+Ltac xsimpl_beautify_credits_clean n :=
+  match xsimpl_beautify_credits_arith_to_list n with
+  | (?C,?Ln,?Lp) =>
+    let C' := (eval vm_compute in C) in
+    match xsimpl_beautify_credits_simpl_list Ln Lp with
+    | (?Ln',?Lp') =>
+      let Ln'' := list_rev credits Ln' in
+      let Lp'' := list_rev credits Lp' in
+      xsimpl_beautify_credits_list_to_arith Ln'' Lp'' C' end
+  end.
+
+Ltac xsimpl_beautify_credits_core replacer n :=
+  let n' := xsimpl_beautify_credits_clean n in
+  replacer (\$n) (xsimpl_hcredits_protect n');
+  [ | unfold xsimpl_hcredits_protect; fequal; try math ].
+
+Ltac xsimpl_beautify_credits_once_hyp tt :=
+  match goal with
+  | H: context [ \$ ?n ] |- _ =>
+    let replacer a b := replace a with b in H in
+    xsimpl_beautify_credits_core replacer n
+  end.
+
+Ltac xsimpl_beautify_credits_once_goal tt :=
+  match goal with
+  | |- context [ \$ ?n ] =>
+    let replacer a b := (replace a with b) in
+    xsimpl_beautify_credits_core replacer n
+  end.
+
+Ltac xsimpl_beautify_credits_goal tt :=
+  repeat (xsimpl_beautify_credits_once_goal tt);
+  unfolds xsimpl_hcredits_protect.
+
+Ltac xsimpl_beautify_credits_everywhere tt :=
+  repeat (xsimpl_beautify_credits_once_goal tt);
+  repeat (xsimpl_beautify_credits_once_hyp tt);
+  unfolds xsimpl_hcredits_protect.
+
+Tactic Notation "xsimpl_beautify_credits" :=
+  xsimpl_beautify_credits_everywhere tt.
+
+(* Unit tests for auxiliary functions *)
+
+Lemma xsimpl_hcredits_beautify : forall n1 n2 n3 n4 n5,
+  \$ (- (n3 + 2 - 4 - n4)) ==> \$(2 - (n3 + n4) - n5) ->
+  \$ (0 + n1 - 2 - n2 + (n3 + n4) - n5 - 5) ==> \$ (- (n3 + n4) - n5 - 7).
+Proof using.
+  intros. dup 5.
+  { match goal with
+    | |- context [ \$ ?n ] =>
+    let n' := xsimpl_beautify_credits_clean n in
+    replace (\$n) with (xsimpl_hcredits_protect n');
+    [ | unfold xsimpl_hcredits_protect; fequal; try math ] end.
+    unfolds xsimpl_hcredits_protect. demo. }
+  { xsimpl_beautify_credits_once_goal tt.
+    xsimpl_beautify_credits_once_goal tt. demo. }
+  { xsimpl_beautify_credits_goal tt. demo. }
+  { xsimpl_beautify_credits_everywhere tt. demo. }
+Abort.
+
+(* ---------------------------------------------------------------------- *)
 (* [xaffine] placeholder *)
 
 Ltac xaffine_core tt := (* to be generalized lated *)
@@ -432,7 +672,7 @@ Ltac xsimpl_hint_remove tt :=
 (* ---------------------------------------------------------------------- *)
 (* Lemmas [hstars_reorder_..] to flip an iterated [hstar]. *)
 
-(** [hstars_flip tt] applies to a goal of the form [H1 \* .. \* Hn \* \[]= ?H]
+(** [hstars_flip tt] applies to a goal of the form [H1 \* .. \* Hn \* \[] = ?H]
     and instantiates [H] with [Hn \* ... \* H1 \* \[]].
     If [n > 9], the maximum arity supported, the tactic unifies [H] with
     the original LHS. *)
@@ -685,8 +925,9 @@ Ltac hstars_pick_lemma i :=
    is introduced for that existential. *)
 
 
-(** [Xsimpl (Hla, Hlw, Hlt) (Hra, Hrg, Hrt)] is interepreted as
-    the entailment [Hla \* Hlw \* Hlt ==> Hra \* Hrg \* Hrt] where
+(** [Xsimpl (Nc, Hla, Hlw, Hlt) (Hra, Hrg, Hrt)] is interepreted as
+    the entailment [\$Nc \* Hla \* Hlw \* Hlt ==> Hra \* Hrg \* Hrt] where
+    - |Nc] denotes a number of time credits
     - [Hla] denotes "cleaned up" items from the left hand side
     - [Hlw] denotes the [H1 \-* H2] and [Q1 \--* Q2] items from the left hand side
     - [Hlt] denotes the remaining items to process  items from the left hand side
@@ -697,10 +938,10 @@ Ltac hstars_pick_lemma i :=
     Note: we assume that all items consist of iterated hstars, and are
     always terminated by an empty heap. *)
 
-Definition Xsimpl (HL HR:hprop*hprop*hprop) :=
-  let '(Hla,Hlw,Hlt) := HL in
+Definition Xsimpl (HL:credits*hprop*hprop*hprop) (HR:hprop*hprop*hprop) :=
+  let '(Nc,Hla,Hlw,Hlt) := HL in
   let '(Hra,Hrg,Hrt) := HR in
-  Hla \* Hlw \* Hlt ==> Hra \* Hrg \* Hrt.
+  \$Nc \* Hla \* Hlw\* Hlt ==> Hra \* Hrg \* Hrt.
 
 (** [protect X] is use to prevent [xsimpl] from investigating inside [X] *)
 
@@ -708,10 +949,10 @@ Definition protect (A:Type) (X:A) : A := X.
 
 (** Auxiliary lemmas to prove lemmas for [xsimpl] implementation. *)
 
-Lemma Xsimpl_trans_l : forall Hla1 Hlw1 Hlt1 Hla2 Hlw2 Hlt2 HR,
-  Xsimpl (Hla2,Hlw2,Hlt2) HR ->
-  Hla1 \* Hlw1 \* Hlt1 ==> Hla2 \* Hlw2 \* Hlt2 ->
-  Xsimpl (Hla1,Hlw1,Hlt1) HR.
+Lemma Xsimpl_trans_l : forall Nc1 Hla1 Hlw1 Hlt1 Nc2 Hla2 Hlw2 Hlt2 HR,
+  Xsimpl (Nc2,Hla2,Hlw2,Hlt2) HR ->
+  \$Nc1 \* Hla1 \* Hlw1 \* Hlt1 ==> \$Nc2 \* Hla2 \* Hlw2 \* Hlt2 ->
+  Xsimpl (Nc1,Hla1,Hlw1,Hlt1) HR.
 Proof using.
   introv M1 E. destruct HR as [[Hra Hrg] Hrt]. unfolds Xsimpl.
   applys* himpl_trans M1.
@@ -722,15 +963,15 @@ Lemma Xsimpl_trans_r : forall Hra1 Hrg1 Hrt1 Hra2 Hrg2 Hrt2 HL,
   Hra2 \* Hrg2 \* Hrt2 ==> Hra1 \* Hrg1 \* Hrt1 ->
   Xsimpl HL (Hra1,Hrg1,Hrt1).
 Proof using.
-  introv M1 E. destruct HL as [[Hla Hlw] Hlt]. unfolds Xsimpl.
+  introv M1 E. destruct HL as [[[Nc1 Hln] Hlw] Hlt]. unfolds Xsimpl.
   applys* himpl_trans M1.
 Qed.
 
-Lemma Xsimpl_trans : forall Hla1 Hlw1 Hlt1 Hla2 Hlw2 Hlt2 Hra1 Hrg1 Hrt1 Hra2 Hrg2 Hrt2,
-  Xsimpl (Hla2,Hlw2,Hlt2) (Hra2,Hrg2,Hrt2) ->
-  (Hla2 \* Hlw2 \* Hlt2 ==> Hra2 \* Hrg2 \* Hrt2 ->
-   Hla1 \* Hlw1 \* Hlt1 ==> Hra1 \* Hrg1 \* Hrt1) ->
-  Xsimpl (Hla1,Hlw1,Hlt1) (Hra1,Hrg1,Hrt1).
+Lemma Xsimpl_trans : forall Nc1 Hla1 Hlw1 Hlt1 Nc2 Hla2 Hlw2 Hlt2 Hra1 Hrg1 Hrt1 Hra2 Hrg2 Hrt2,
+  Xsimpl (Nc2,Hla2,Hlw2,Hlt2) (Hra2,Hrg2,Hrt2) ->
+  (\$Nc2 \* Hla2 \* Hlw2 \* Hlt2 ==> Hra2 \* Hrg2 \* Hrt2 ->
+   \$Nc1 \* Hla1 \* Hlw1 \* Hlt1 ==> Hra1 \* Hrg1 \* Hrt1) ->
+  Xsimpl (Nc1,Hla1,Hlw1,Hlt1) (Hra1,Hrg1,Hrt1).
 Proof using. introv M1 E. unfolds Xsimpl. eauto. Qed.
 
 (* DEPRECATED
@@ -814,7 +1055,7 @@ Lemma xpull_protect : forall H1 H2,
 Proof using. auto. Qed.
 
 Lemma xsimpl_start : forall H1 H2,
-  Xsimpl (\[], \[], (H1 \* \[])) (\[], \[], (H2 \* \[])) ->
+  Xsimpl (0, \[], \[], (H1 \* \[])) (\[], \[], (H2 \* \[])) ->
   H1 ==> H2.
 Proof using. introv M. unfolds Xsimpl. rew_heap~ in *. Qed.
 (* Note: [repeat rewrite hstar_assoc] after applying this lemma *)
@@ -829,43 +1070,56 @@ Ltac xsimpl_l_start M :=
 Ltac xsimpl_l_start' M :=
   xsimpl_l_start M; applys himpl_trans (rm M); hstars_simpl.
 
-Lemma xsimpl_l_hempty : forall Hla Hlw Hlt HR,
-  Xsimpl (Hla, Hlw, Hlt) HR ->
-  Xsimpl (Hla, Hlw, (\[] \* Hlt)) HR.
+Lemma xsimpl_l_hempty : forall Nc Hla Hlw Hlt HR,
+  Xsimpl (Nc, Hla, Hlw, Hlt) HR ->
+  Xsimpl (Nc, Hla, Hlw, (\[] \* Hlt)) HR.
 Proof using. xsimpl_l_start' M. Qed.
 
-Lemma xsimpl_l_hpure : forall P Hla Hlw Hlt HR,
-  (P -> Xsimpl (Hla, Hlw, Hlt) HR) ->
-  Xsimpl (Hla, Hlw, (\[P] \* Hlt)) HR.
+Lemma xsimpl_l_hpure : forall P Nc Hla Hlw Hlt HR,
+  (P -> Xsimpl (Nc, Hla, Hlw, Hlt) HR) ->
+  Xsimpl (Nc, Hla, Hlw, (\[P] \* Hlt)) HR.
 Proof using.
-  xsimpl_l_start M. rewrite hstars_pick_3. applys* himpl_hstar_hpure_l.
+  xsimpl_l_start M. rewrite hstars_pick_4. applys* himpl_hstar_hpure_l.
 Qed.
 
-Lemma xsimpl_l_hexists : forall A (J:A->hprop) Hla Hlw Hlt HR,
-  (forall x, Xsimpl (Hla, Hlw, (J x \* Hlt)) HR) ->
-  Xsimpl (Hla, Hlw, (hexists J \* Hlt)) HR.
+Lemma xsimpl_l_hexists : forall A (J:A->hprop) Nc Hla Hlw Hlt HR,
+  (forall x, Xsimpl (Nc, Hla, Hlw, (J x \* Hlt)) HR) ->
+  Xsimpl (Nc, Hla, Hlw, (hexists J \* Hlt)) HR.
 Proof using.
-  xsimpl_l_start M. rewrite hstars_pick_3. rewrite hstar_hexists.
-  applys* himpl_hexists_l. intros. rewrite~ <- hstars_pick_3.
+  xsimpl_l_start M. rewrite hstars_pick_4. rewrite hstar_hexists.
+  applys* himpl_hexists_l. intros. rewrite~ <- hstars_pick_4.
 Qed.
 
-Lemma xsimpl_l_acc_wand : forall H Hla Hlw Hlt HR,
-  Xsimpl (Hla, (H \* Hlw), Hlt) HR ->
-  Xsimpl (Hla, Hlw, (H \* Hlt)) HR.
+Lemma xsimpl_l_acc_hwand : forall H Nc Hla Hlw Hlt HR,
+  Xsimpl (Nc, Hla, (H \* Hlw), Hlt) HR ->
+  Xsimpl (Nc, Hla, Hlw, (H \* Hlt)) HR.
 Proof using. xsimpl_l_start' M. Qed.
 
-Lemma xsimpl_l_acc_other : forall H Hla Hlw Hlt HR,
-  Xsimpl ((H \* Hla), Hlw, Hlt) HR ->
-  Xsimpl (Hla, Hlw, (H \* Hlt)) HR.
+Lemma xsimpl_l_hcredits : forall n Nc Hla Hlw Hlt HR,
+  Xsimpl (Nc+n, Hla, Hlw, Hlt) HR ->
+  Xsimpl (Nc, Hla, Hlw, (\$n \* Hlt)) HR.
+Proof using. xsimpl_l_start' M. Qed.
+
+Lemma xsimpl_l_acc_other : forall H Nc Hla Hlw Hlt HR,
+  Xsimpl (Nc, (H \* Hla), Hlw, Hlt) HR ->
+  Xsimpl (Nc, Hla, Hlw, (H \* Hlt)) HR.
 Proof using. xsimpl_l_start' M. Qed.
 
 (** Transition lemmas for LHS cancellation operations
     ---Hlt is meant to be empty there *)
 
-Lemma xsimpl_l_cancel_hwand_hempty : forall H2 Hla Hlw Hlt HR,
-  Xsimpl (Hla, Hlw, (H2 \* Hlt)) HR ->
-  Xsimpl (Hla, ((\[] \-* H2) \* Hlw), Hlt) HR.
+Lemma xsimpl_l_cancel_hwand_hempty : forall H2 Nc Hla Hlw Hlt HR,
+  Xsimpl (Nc, Hla, Hlw, (H2 \* Hlt)) HR ->
+  Xsimpl (Nc, Hla, ((\[] \-* H2) \* Hlw), Hlt) HR.
 Proof using. xsimpl_l_start' M. Qed.
+
+Lemma xsimpl_l_hwand_hcredits : forall n H2 Nc Hla Hlw Hlt HR,
+  Xsimpl (Nc - n, Hla, Hlw, (H2 \* Hlt)) HR ->
+  Xsimpl (Nc, Hla, ((\$n \-* H2) \* Hlw), Hlt) HR.
+Proof using.
+  xsimpl_l_start' M. rewrite hwand_hcredits_l.
+  math_rewrite (Nc - n = Nc + (-n)). rewrite hcredits_add. hstars_simpl.
+Qed.
 
 (* DEPRECATED
 Lemma xsimpl_l_cancel_hwand : forall H1 H2 Hla Hlw Hlt HR,
@@ -883,48 +1137,48 @@ Proof using.
 Qed.
 *)
 
-Lemma xsimpl_l_cancel_hwand : forall H1 H2 Hla Hlw Hlt HR,
-  Xsimpl (\[], Hlw, (Hla \* H2 \* Hlt)) HR ->
-  Xsimpl ((H1 \* Hla), ((H1 \-* H2) \* Hlw), Hlt) HR.
+Lemma xsimpl_l_cancel_hwand : forall H1 H2 Nc Hla Hlw Hlt HR,
+  Xsimpl (Nc, \[], Hlw, (Hla \* H2 \* Hlt)) HR ->
+  Xsimpl (Nc, (H1 \* Hla), ((H1 \-* H2) \* Hlw), Hlt) HR.
 Proof using. xsimpl_l_start' M. applys~ hwand_cancel. Qed.
 
-Lemma xsimpl_l_cancel_qwand : forall A (x:A) (Q1 Q2:A->hprop) Hla Hlw Hlt HR,
-  Xsimpl (\[], Hlw, (Hla \* Q2 x \* Hlt)) HR ->
-  Xsimpl ((Q1 x \* Hla), ((Q1 \--* Q2) \* Hlw), Hlt) HR.
+Lemma xsimpl_l_cancel_qwand : forall A (x:A) (Q1 Q2:A->hprop) Nc Hla Hlw Hlt HR,
+  Xsimpl (Nc, \[], Hlw, (Hla \* Q2 x \* Hlt)) HR ->
+  Xsimpl (Nc, (Q1 x \* Hla), ((Q1 \--* Q2) \* Hlw), Hlt) HR.
 Proof using.
   xsimpl_l_start' M. rewrite hstar_comm. applys himpl_hstar_trans_l.
   applys qwand_specialize x. rewrite hstar_comm. applys hwand_cancel.
 Qed.
 
-Lemma xsimpl_l_keep_wand : forall H Hla Hlw Hlt HR,
-  Xsimpl ((H \* Hla), Hlw, Hlt) HR ->
-  Xsimpl (Hla, (H \* Hlw), Hlt) HR.
+Lemma xsimpl_l_keep_wand : forall H Nc Hla Hlw Hlt HR,
+  Xsimpl (Nc, (H \* Hla), Hlw, Hlt) HR ->
+  Xsimpl (Nc, Hla, (H \* Hlw), Hlt) HR.
 Proof using. xsimpl_l_start' M. Qed.
 
-Lemma xsimpl_l_hwand_reorder : forall H1 H1' H2 Hla Hlw Hlt HR,
+Lemma xsimpl_l_hwand_reorder : forall H1 H1' H2 Nc Hla Hlw Hlt HR,
   H1 = H1' ->
-  Xsimpl (Hla, ((H1' \-* H2) \* Hlw), Hlt) HR ->
-  Xsimpl (Hla, ((H1 \-* H2) \* Hlw), Hlt) HR.
+  Xsimpl (Nc, Hla, ((H1' \-* H2) \* Hlw), Hlt) HR ->
+  Xsimpl (Nc, Hla, ((H1 \-* H2) \* Hlw), Hlt) HR.
 Proof using. intros. subst*. Qed.
 
-Lemma xsimpl_l_cancel_hwand_hstar : forall H1 H2 H3 Hla Hlw Hlt HR,
-  Xsimpl (Hla, Hlw, ((H2 \-* H3) \* Hlt)) HR ->
-  Xsimpl ((H1 \* Hla), (((H1 \* H2) \-* H3) \* Hlw), Hlt) HR.
+Lemma xsimpl_l_cancel_hwand_hstar : forall H1 H2 H3 Nc Hla Hlw Hlt HR,
+  Xsimpl (Nc, Hla, Hlw, ((H2 \-* H3) \* Hlt)) HR ->
+  Xsimpl (Nc, (H1 \* Hla), (((H1 \* H2) \-* H3) \* Hlw), Hlt) HR.
 Proof using.
   xsimpl_l_start' M. rewrite hwand_curry_eq. applys hwand_cancel.
 Qed.
 
-Lemma xsimpl_l_cancel_hwand_hstar_hempty : forall H2 H3 Hla Hlw Hlt HR,
-  Xsimpl (Hla, Hlw, ((H2 \-* H3) \* Hlt)) HR ->
-  Xsimpl (Hla, (((\[] \* H2) \-* H3) \* Hlw), Hlt) HR.
+Lemma xsimpl_l_cancel_hwand_hstar_hempty : forall H2 H3 Nc Hla Hlw Hlt HR,
+  Xsimpl (Nc, Hla, Hlw, ((H2 \-* H3) \* Hlt)) HR ->
+  Xsimpl (Nc, Hla, (((\[] \* H2) \-* H3) \* Hlw), Hlt) HR.
 Proof using. xsimpl_l_start' M. Qed.
 
 (** Transition lemmas for RHS extraction operations *)
 
 Ltac xsimpl_r_start M :=
   introv M;
-  match goal with HL: hprop*hprop*hprop |- _ =>
-    destruct HL as [[Hla Hlw] Hlt]; unfolds Xsimpl end.
+  match goal with HL: credits*hprop*hprop*hprop |- _ =>
+    destruct HL as [[[Nc Hla] Hlw] Hlt]; unfolds Xsimpl end.
 
 Ltac xsimpl_r_start' M :=
   xsimpl_r_start M; applys himpl_trans (rm M); hstars_simpl.
@@ -939,6 +1193,15 @@ Lemma xsimpl_r_hwand_same : forall H Hra Hrg Hrt HL,
   Xsimpl HL (Hra, Hrg, ((H \-* H) \* Hrt)).
 Proof using. xsimpl_r_start' M. rewrite hwand_equiv. rew_heap~. Qed.
 
+Lemma xsimpl_r_hwand_hcredits : forall n H2 Nc Hla Hlw Hlt Hra Hrg Hrt,
+  Xsimpl (Nc + n, Hla, Hlw, Hlt) (Hra, Hrg, H2 \* Hrt) ->
+  Xsimpl (Nc, Hla, Hlw, Hlt) (Hra, Hrg, ((\$n \-* H2) \* Hrt)).
+Proof using.
+  introv M. unfolds Xsimpl. rewrite hwand_hcredits_l.
+  math_rewrite (Nc = (Nc + n) + (- n)). rewrite hcredits_add.
+  sets X: (Nc + n). hstars_simpl. hstars_simpl. auto.
+Qed.
+
 Lemma xsimpl_r_hpure : forall P Hra Hrg Hrt HL,
   P ->
   Xsimpl HL (Hra, Hrg, Hrt) ->
@@ -946,6 +1209,13 @@ Lemma xsimpl_r_hpure : forall P Hra Hrg Hrt HL,
 Proof using.
   introv HP. xsimpl_r_start' M. applys* himpl_hempty_hpure.
 Qed.
+
+Lemma xsimpl_r_hcredits : forall n Nc Hla Hlw Hlt Hra Hrg Hrt,
+  Xsimpl (Nc - n, Hla, Hlw, Hlt) (Hra, Hrg, Hrt) ->
+  Xsimpl (Nc, Hla, Hlw, Hlt) (Hra, Hrg, (\$ n \* Hrt)).
+Proof using.
+  introv HP. unfolds Xsimpl. math_rewrite (Nc = (Nc - n) + n).
+  rewrite hcredits_add. rew_heap. hstars_simpl. hstars_simpl. auto. Qed.
 
 Lemma xsimpl_r_hexists : forall A (x:A) (J:A->hprop) Hra Hrg Hrt HL,
   Xsimpl HL (Hra, Hrg, (J x \* Hrt)) ->
@@ -1004,138 +1274,194 @@ Ltac xsimpl_lr_start' M :=
   xsimpl_lr_start M; hstars_simpl;
   try (applys himpl_trans (rm M); hstars_simpl).
 
-Lemma xsimpl_lr_cancel_same : forall H Hla Hlw Hlt Hra Hrg Hrt,
-  Xsimpl (Hla, Hlw, Hlt) (Hra, Hrg, Hrt) ->
-  Xsimpl ((H \* Hla), Hlw, Hlt) (Hra, Hrg, (H \* Hrt)).
+Lemma xsimpl_lr_cancel_same : forall H Nc Hla Hlw Hlt Hra Hrg Hrt,
+  Xsimpl (Nc, Hla, Hlw, Hlt) (Hra, Hrg, Hrt) ->
+  Xsimpl (Nc, (H \* Hla), Hlw, Hlt) (Hra, Hrg, (H \* Hrt)).
 Proof using. xsimpl_lr_start' M. Qed.
 
-Lemma xsimpl_lr_cancel_htop : forall H Hla Hlw Hlt Hra Hrg Hrt,
-  Xsimpl (Hla, Hlw, Hlt) (Hra, (\Top \* Hrg), Hrt) ->
-  Xsimpl ((H \* Hla), Hlw, Hlt) (Hra, (\Top \* Hrg), Hrt).
+Lemma xsimpl_lr_cancel_htop : forall H Nc Hla Hlw Hlt Hra Hrg Hrt,
+  Xsimpl (Nc, Hla, Hlw, Hlt) (Hra, (\Top \* Hrg), Hrt) ->
+  Xsimpl (Nc, (H \* Hla), Hlw, Hlt) (Hra, (\Top \* Hrg), Hrt).
 Proof using.
   xsimpl_lr_start M. rewrite (hstar_comm_assoc Hra) in *.
-  rewrite <- hstar_htop_htop. rew_heap. applys himpl_frame_lr M.
-  applys himpl_htop_r.
-Qed.
+  rewrite <- hstar_assoc in M. rewrite hstar_comm_assoc.
+  rewrite <- (hstar_assoc (\$Nc)).
+ lets: himpl_frame_lr M.  (* applys himpl_htop_r. *)
+Admitted. (* TODO  Qed. *)
 
-Lemma xsimpl_lr_cancel_hgc : forall Hla Hlw Hlt Hra Hrg Hrt,
-  Xsimpl (Hla, Hlw, Hlt) (Hra, (\GC \* Hrg), Hrt) ->
-  Xsimpl ((\GC \* Hla), Hlw, Hlt) (Hra, (\GC \* Hrg), Hrt).
+Lemma xsimpl_lr_cancel_hgc : forall Nc Hla Hlw Hlt Hra Hrg Hrt,
+  Xsimpl (Nc, Hla, Hlw, Hlt) (Hra, (\GC \* Hrg), Hrt) ->
+  Xsimpl (Nc, (\GC \* Hla), Hlw, Hlt) (Hra, (\GC \* Hrg), Hrt).
 Proof using.
+(*
   xsimpl_lr_start M. rewrite (hstar_comm_assoc Hra).
   rewrite <- hstar_hgc_hgc at 2. rew_heap.
   applys~ himpl_frame_lr. applys himpl_trans M. hstars_simpl.
 Qed.
+*)
+Admitted.
 
 (* NOT NEEDED? *)
-Lemma xsimpl_lr_cancel_eq : forall H1 H2 Hla Hlw Hlt Hra Hrg Hrt,
+Lemma xsimpl_lr_cancel_eq : forall H1 H2 Nc Hla Hlw Hlt Hra Hrg Hrt,
   (H1 = H2) ->
-  Xsimpl (Hla, Hlw, Hlt) (Hra, Hrg, Hrt) ->
-  Xsimpl ((H1 \* Hla), Hlw, Hlt) (Hra, Hrg, (H2 \* Hrt)).
+  Xsimpl (Nc, Hla, Hlw, Hlt) (Hra, Hrg, Hrt) ->
+  Xsimpl (Nc, (H1 \* Hla), Hlw, Hlt) (Hra, Hrg, (H2 \* Hrt)).
 Proof using. introv ->. apply~ xsimpl_lr_cancel_same. Qed.
 
-Lemma xsimpl_lr_cancel_eq_repr : forall A p (E1 E2:A->hprop) Hla Hlw Hlt Hra Hrg Hrt,
+Lemma xsimpl_lr_cancel_eq_repr : forall A p (E1 E2:A->hprop) Nc Hla Hlw Hlt Hra Hrg Hrt,
   E1 = E2 ->
-  Xsimpl (Hla, Hlw, Hlt) (Hra, Hrg, Hrt) ->
-  Xsimpl (((p ~> E1) \* Hla), Hlw, Hlt) (Hra, Hrg, ((p ~> E2) \* Hrt)).
+  Xsimpl (Nc, Hla, Hlw, Hlt) (Hra, Hrg, Hrt) ->
+  Xsimpl (Nc, ((p ~> E1) \* Hla), Hlw, Hlt) (Hra, Hrg, ((p ~> E2) \* Hrt)).
 Proof using. introv M. subst. apply~ xsimpl_lr_cancel_same. Qed.
 
-Lemma xsimpl_lr_hwand : forall H1 H2 Hla,
-  Xsimpl (\[], \[], (H1 \* Hla)) (\[], \[], H2 \* \[]) ->
-  Xsimpl (Hla, \[], \[]) ((H1 \-* H2) \* \[], \[], \[]).
+Lemma xsimpl_lr_hwand : forall H1 H2 Nc Hla,
+  Xsimpl (Nc, \[], \[], (H1 \* Hla)) (\[], \[], H2 \* \[]) ->
+  Xsimpl (Nc, Hla, \[], \[]) ((H1 \-* H2) \* \[], \[], \[]).
 Proof using.
   xsimpl_lr_start' M. rewrite hwand_equiv.
   applys himpl_trans (rm M). hstars_simpl.
 Qed.
 
-Lemma xsimpl_lr_hwand_hfalse : forall Hla H1,
-  Xsimpl (Hla, \[], \[]) ((\[False] \-* H1) \* \[], \[], \[]).
-Proof using.
+Lemma xsimpl_lr_hwand_hfalse : forall Hla H1 Nc,
+  Xsimpl (Nc, Hla, \[], \[]) ((\[False] \-* H1) \* \[], \[], \[]).
+Proof using. (* TODO: could be generalized in LHS *)
   intros. generalize True. xsimpl_lr_start M. rewrite hwand_equiv.
   applys himpl_hstar_hpure_l. auto_false.
 Qed.
 
-Lemma xsimpl_lr_qwand : forall A (Q1 Q2:A->hprop) Hla,
-  (forall x, Xsimpl (\[], \[], (Q1 x \* Hla)) (\[], \[], Q2 x \* \[])) ->
-  Xsimpl (Hla, \[], \[]) ((Q1 \--* Q2) \* \[], \[], \[]).
+Lemma xsimpl_lr_qwand : forall A (Q1 Q2:A->hprop) Hla Nc,
+  (forall x, Xsimpl (Nc, \[], \[], (Q1 x \* Hla)) (\[], \[], Q2 x \* \[])) ->
+  Xsimpl (Nc, Hla, \[], \[]) ((Q1 \--* Q2) \* \[], \[], \[]).
 Proof using.
   xsimpl_lr_start M. rewrite qwand_equiv. intros x.
-  specializes M x. rew_heap~ in M.
+  specializes M x. rew_heap~ in M. rewrite* hstar_comm_assoc.
 Qed.
 
-Lemma xsimpl_lr_qwand_unit : forall (Q1 Q2:unit->hprop) Hla,
-  Xsimpl (\[], \[], (Q1 tt \* Hla)) (\[], \[], (Q2 tt \* \[])) ->
-  Xsimpl (Hla, \[], \[]) ((Q1 \--* Q2) \* \[], \[], \[]).
+Lemma xsimpl_lr_qwand_unit : forall (Q1 Q2:unit->hprop) Hla Nc,
+  Xsimpl (Nc, \[], \[], (Q1 tt \* Hla)) (\[], \[], (Q2 tt \* \[])) ->
+  Xsimpl (Nc, Hla, \[], \[]) ((Q1 \--* Q2) \* \[], \[], \[]).
 Proof using. introv M. applys xsimpl_lr_qwand. intros []. applys M. Qed.
 
-Lemma xsimpl_lr_hforall : forall A (J:A->hprop) Hla,
-  (forall x, Xsimpl (\[], \[], Hla) (\[], \[], J x \* \[])) ->
-  Xsimpl (Hla, \[], \[]) ((hforall J) \* \[], \[], \[]).
+Lemma xsimpl_lr_hforall : forall A (J:A->hprop) Hla Nc,
+  (forall x, Xsimpl (Nc, \[], \[], Hla) (\[], \[], J x \* \[])) ->
+  Xsimpl (Nc, Hla, \[], \[]) ((hforall J) \* \[], \[], \[]).
 Proof using.
   xsimpl_lr_start M. applys himpl_hforall_r. intros x.
   specializes M x. rew_heap~ in M.
 Qed.
 
-Lemma himpl_lr_refl : forall Hla,
-  Xsimpl (Hla, \[], \[]) (Hla, \[], \[]).
+Lemma xsimpl_lr_refl_nocredits : forall Hla,
+  Xsimpl (0, Hla, \[], \[]) (Hla, \[], \[]).
+Proof using. intros. unfolds Xsimpl. hstars_simpl. Qed.
+
+Lemma xsimpl_lr_refl : forall Hla Nc,
+  Xsimpl (Nc, Hla, \[], \[]) (\$Nc \* Hla, \[], \[]).
 Proof using. intros. unfolds Xsimpl. hstars_simpl. Qed.
 
 (* NEEDED?
-Lemma himpl_lr_refl_hempty_r : forall Hla,
+Lemma xsimpl_lr_refl_hempty_r : forall Hla,
   Xsimpl (Hla, \[], \[]) (Hla \* \[], \[], \[]).
 Proof using. intros. unfolds Xsimpl. hstars_simpl. Qed.
 *)
 
-Lemma himpl_lr_qwand_unify : forall A (Q:A->hprop) Hla,
-  Xsimpl (Hla, \[], \[]) ((Q \--* (Q \*+ Hla)) \* \[], \[], \[]).
+(* Lemma to instantiate [H ==> Q \--* ?Q'] *)
+Lemma xsimpl_lr_qwand_unify : forall A (Q:A->hprop) Nc Hla,
+  Xsimpl (Nc, Hla, \[], \[]) ((Q \--* (Q \*+ (\$Nc \* Hla))) \* \[], \[], \[]).
 Proof using. intros. unfolds Xsimpl. hstars_simpl. rewrite~ qwand_equiv. Qed.
 
-Lemma himpl_lr_htop : forall Hla Hrg,
-  Xsimpl (\[], \[], \[]) (\[], Hrg, \[]) ->
-  Xsimpl (Hla, \[], \[]) (\[], (\Top \* Hrg), \[]).
+(* Note that top makes no sense in a world with credits *)
+Lemma xsimpl_lr_htop : forall Hla Hrg Nc, (* TODO: should keep only top *)
+  Xsimpl (0, \[], \[], \[]) (\[], Hrg, \[]) ->
+  Xsimpl (Nc, Hla, \[], \[]) (\[], (\Top \* Hrg), \[]).
 Proof using.
-  xsimpl_lr_start M. rewrite <- (hstar_hempty_l Hla).
+  xsimpl_lr_start M. rewrite <- (hstar_hempty_l (\$Nc \* Hla)).
   applys himpl_hstar_trans_l M. hstars_simpl. apply himpl_htop_r.
 Qed.
 
 (* optional
-Lemma himpl_lr_hgc_hempty : forall Hla Hrg,
+Lemma xsimpl_lr_hgc_hempty : forall Hla Hrg,
   Xsimpl (\[], \[], \[]) (\[], Hrg), \[]) ->
   Xsimpl (\[], \[], \[]) (\[], (\GC \* Hrg), \[]).
 Proof using. apply haffine_hempty. Qed.
 *)
 
-Lemma himpl_lr_hgc : forall Hla Hrg,
+Lemma xsimpl_lr_hgc : forall Nc Hla Hrg,
+  Nc >= 0 -> (* TODO: use [use_credits] as tactics to avoid generating this *)
   haffine Hla ->
-  Xsimpl (\[], \[], \[]) (\[], Hrg, \[]) ->
-  Xsimpl (Hla, \[], \[]) (\[], (\GC \* Hrg), \[]).
+  Xsimpl (0, \[], \[], \[]) (\[], Hrg, \[]) ->
+  Xsimpl (Nc, Hla, \[], \[]) (\[], (\GC \* Hrg), \[]).
+Proof using.
+  introv HNc N. xsimpl_lr_start M.
+  rewrite <- hstar_hgc_hgc.
+  applys himpl_hstar_trans_l \GC. { apply himpl_hgc_r. apply* haffine_hcredits. }
+  hstars_simpl.
+  rewrite <- (hstar_hempty_l Hla). applys himpl_hstar_trans_l M.
+  hstars_simpl. apply* himpl_hgc_r.
+Qed.
+
+Lemma xsimpl_lr_hgc_nocredits : forall Hla Hrg,
+  haffine Hla ->
+  Xsimpl (0, \[], \[], \[]) (\[], Hrg, \[]) ->
+  Xsimpl (0, Hla, \[], \[]) (\[], (\GC \* Hrg), \[]).
 Proof using.
   introv N. xsimpl_lr_start M. rewrite <- (hstar_hempty_l Hla).
   applys himpl_hstar_trans_l M. hstars_simpl. apply* himpl_hgc_r.
 Qed.
 
-Lemma xsimpl_lr_exit_nogc : forall Hla Hra,
+Lemma xsimpl_lr_exit_nogc_nocredits : forall Hla Hra,
   Hla ==> Hra ->
-  Xsimpl (Hla, \[], \[]) (Hra, \[], \[]).
+  Xsimpl (0, Hla, \[], \[]) (Hra, \[], \[]).
 Proof using. introv M. unfolds Xsimpl. hstars_simpl. auto. Qed.
 
-Lemma xsimpl_lr_exit : forall Hla Hra Hrg,
+Lemma xsimpl_lr_exit_credits_to_hempty : forall Nc,
+  Nc = 0 ->
+  Xsimpl (Nc, \[], \[], \[]) (\[], \[], \[]).
+Proof using. introv M. unfolds Xsimpl. subst. hstars_simpl. Qed.
+
+Lemma xsimpl_lr_exit_nogc : forall Hla Hra Nc,
+  \$ Nc \* Hla ==> Hra ->
+  Xsimpl (Nc, Hla, \[], \[]) (Hra, \[], \[]).
+Proof using. introv M. unfolds Xsimpl. hstars_simpl. auto. Qed.
+
+Lemma xsimpl_lr_exit_nocredits : forall Hla Hra Hrg,
   Hla ==> Hra \* Hrg ->
-  Xsimpl (Hla, \[], \[]) (Hra, Hrg, \[]).
+  Xsimpl (0, Hla, \[], \[]) (Hra, Hrg, \[]).
 Proof using. introv M. unfolds Xsimpl. hstars_simpl. rewrite~ hstar_comm. Qed.
+
+Lemma xsimpl_lr_exit : forall Hla Hra Hrg Nc,
+  \$Nc \* Hla ==> Hra \* Hrg ->
+  Xsimpl (Nc, Hla, \[], \[]) (Hra, Hrg, \[]).
+Proof using. introv M. unfolds Xsimpl. hstars_simpl. rewrite~ (hstar_comm Hrg). Qed.
+
+(* Lemma to instantiate goals of the form [Hla ==> ?H \* \GC] *)
+Lemma xsimpl_lr_exit_instantiate : forall Nc Hla,
+  Xsimpl (Nc, Hla, \[], \[]) ((\$Nc \* Hla) \* \[], \GC \* \[], \[]).
+Proof using.
+  intros. applys xsimpl_lr_exit. rew_heap.
+  (* inlined proof of himpl_same_hstar_hgc_r *)
+  rewrite (hstar_comm Hla).  rewrite <- (hstar_hempty_l Hla) at 1.
+  do 2 applys* himpl_frame_lr. applys himpl_hgc_r. applys haffine_hempty.
+Qed.
+
+Lemma xsimpl_lr_exit_instantiate_nocredits : forall Hla,
+  Xsimpl (0, Hla, \[], \[]) (Hla \* \[], \GC \* \[], \[]).
+Proof using.
+  intros. applys_eq xsimpl_lr_exit_instantiate.
+  rewrite hcredits_zero. rew_heap*.
+Qed.
 
 (** Lemmas to flip accumulators back in place *)
 
-Lemma xsimpl_flip_acc_l : forall Hla Hra Hla' Hrg,
+Lemma xsimpl_flip_acc_l : forall Nc Hla Hra Hla' Hrg,
   Hla = Hla' ->
-  Xsimpl (Hla', \[], \[]) (Hra, Hrg, \[]) ->
-  Xsimpl (Hla, \[], \[]) (Hra, Hrg, \[]).
+  Xsimpl (Nc, Hla', \[], \[]) (Hra, Hrg, \[]) ->
+  Xsimpl (Nc, Hla, \[], \[]) (Hra, Hrg, \[]).
 Proof using. introv E1 M. subst*. Qed.
 
-Lemma xsimpl_flip_acc_r : forall Hla Hra Hra' Hrg,
+Lemma xsimpl_flip_acc_r : forall Nc Hla Hra Hra' Hrg,
   Hra = Hra' ->
-  Xsimpl (Hla, \[], \[]) (Hra', Hrg, \[]) ->
-  Xsimpl (Hla, \[], \[]) (Hra, Hrg, \[]).
+  Xsimpl (Nc, Hla, \[], \[]) (Hra', Hrg, \[]) ->
+  Xsimpl (Nc, Hla, \[], \[]) (Hra, Hrg, \[]).
 Proof using. introv E1 M. subst*. Qed.
 
 Ltac xsimpl_flip_acc_l tt :=
@@ -1158,13 +1484,13 @@ Proof using. auto. Qed.
 (** ** Lemmas to pick the hypothesis to cancel *)
 
 (** [xsimpl_pick i] applies to a goal of the form
-    [Xsimpl ((H1 \* .. \* Hi \* .. \* Hn), Hlw, Hlt) HR] and turns it into
-    [Xsimpl ((Hi \* H1 .. \* H{i-1} \* H{i+1} \* .. \* Hn), Hlw, Hlt) HR]. *)
+    [Xsimpl (Nc, (H1 \* .. \* Hi \* .. \* Hn), Hlw, Hlt) HR] and turns it into
+    [Xsimpl (Nc, (Hi \* H1 .. \* H{i-1} \* H{i+1} \* .. \* Hn), Hlw, Hlt) HR]. *)
 
-Lemma xsimpl_pick_lemma : forall Hla1 Hla2 Hlw Hlt HR,
+Lemma xsimpl_pick_lemma : forall Hla1 Hla2 Nc Hlw Hlt HR,
   Hla1 = Hla2 ->
-  Xsimpl (Hla2, Hlw, Hlt) HR ->
-  Xsimpl (Hla1, Hlw, Hlt) HR.
+  Xsimpl (Nc, Hla2, Hlw, Hlt) HR ->
+  Xsimpl (Nc, Hla1, Hlw, Hlt) HR.
 Proof using. introv M. subst~. Qed.
 
 Ltac xsimpl_pick i :=
@@ -1172,12 +1498,12 @@ Ltac xsimpl_pick i :=
   eapply xsimpl_pick_lemma; [ apply L | ].
 
 (** [xsimpl_pick_st f] applies to a goal of the form
-    [Xsimpl ((H1 \* .. \* Hi \* .. \* Hn), Hlw, Hlt) HR] and turns it into
-    [Xsimpl ((Hi \* H1 .. \* H{i-1} \* H{i+1} \* .. \* Hn), Hlw, Hlt) HR]
+    [Xsimpl (Nc, (H1 \* .. \* Hi \* .. \* Hn), Hlw, Hlt) HR] and turns it into
+    [Xsimpl (Nc, (Hi \* H1 .. \* H{i-1} \* H{i+1} \* .. \* Hn), Hlw, Hlt) HR]
     for the first [i] such that [f Hi] returns [true]. *)
 
 Ltac xsimpl_pick_st f :=
-  match goal with |- Xsimpl (?Hla, ?Hlw, ?Hlt) ?HR =>
+  match goal with |- Xsimpl (?Nc, ?Hla, ?Hlw, ?Hlt) ?HR =>
     hstars_search Hla ltac:(fun i H =>
       match f H with true => xsimpl_pick i end)
   end.
@@ -1196,7 +1522,7 @@ Ltac xsimpl_pick_syntactically H :=
     Else, it fails. *)
 
 Ltac xsimpl_pick_unifiable H :=
-  match goal with |- Xsimpl (?Hla, ?Hlw, ?Hlt) ?HR =>
+  match goal with |- Xsimpl (?Nc, ?Hla, ?Hlw, ?Hlt) ?HR =>
     hstars_search Hla ltac:(fun i H' =>
       unify H H'; xsimpl_pick i)
   end.
@@ -1209,7 +1535,7 @@ Ltac xsimpl_pick_same H :=
   xsimpl_pick_unifiable H.
 
 (** [xsimpl_pick_applied Q] applies to a goal of the form
-    [Xsimpl (Hla, Hlw, Hlt) HR], where [Hla] is of the form
+    [Xsimpl (Nc, Hla, Hlw, Hlt) HR], where [Hla] is of the form
     [H1 \* .. \* Hn \* \[]]. It searches for [Q ?x] among the [Hi].
     If it finds it, it moves this [Hi] to the front, just before [H1].
     Else, it fails. *)
@@ -1225,7 +1551,7 @@ Ltac repr_get_predicate H :=
   match H with ?p ~> ?E => get_head E end.
 
 (** [xsimpl_pick_repr H] applies to a goal of the form
-    [Xsimpl (Hla, Hlw, Hlt) HR], where [Hla] is of the form
+    [Xsimpl (Nc, Hla, Hlw, Hlt) HR], where [Hla] is of the form
     [H1 \* .. \* Hn \* \[]], and where [H] is of the form [p ~> R _]
     (same as [repr _ p]). It searches for [p ~> R _] among the [Hi].
     If it finds it, it moves this [Hi] to the front, just before [H1].
@@ -1242,9 +1568,31 @@ Ltac xsimpl_pick_repr H :=
 
 
 (* ---------------------------------------------------------------------- *)
+(** ** Tactic for credits *)
+
+Lemma xsimpl_hcredits_zero :
+  0 >= 0.
+Proof using. math. Qed.
+
+Lemma xsimpl_hcredits_nonneg_inst_evar : forall n,
+  n - n >= 0.
+Proof using. math. Qed.
+
+Ltac xsimpl_hcredits_nonneg_custom := fail.
+
+Ltac xsimpl_hcredits_nonneg tt :=
+  try first
+  [ apply xsimpl_hcredits_zero
+  | apply xsimpl_hcredits_nonneg_inst_evar
+  | xsimpl_hcredits_nonneg_custom tt ].
+
+(* ---------------------------------------------------------------------- *)
 (** ** Tactic start and stop *)
 
 Opaque Xsimpl.
+
+(** Handle [Q1 ===> Q2], in particular on [unit->hprop].
+    Also handle [Q1 ===> ?Q2] and [H1 ==> ?H2] *)
 
 Ltac xsimpl_handle_qimpl tt :=
   match goal with
@@ -1295,7 +1643,8 @@ Ltac xsimpl_handle_haffine_subgoals tt :=
 Ltac xsimpl_clean tt :=
   try remove_empty_heaps_right tt;
   try remove_empty_heaps_left tt;
-  try xsimpl_hint_remove tt.
+  try xsimpl_hint_remove tt;
+  try xsimpl_beautify_credits_goal tt.
 
 (* --LATER: might move to TLC *)
 Ltac gen_until_mark_with_processing_and_cleaning cont :=
@@ -1386,7 +1735,7 @@ Ltac xsimpl_hook H := fail.
 (** ** Tactic step *)
 
 Ltac xsimpl_hwand_hstars_l tt :=
-  match goal with |- Xsimpl (?Hla, ((?H1s \-* ?H2) \* ?Hlw), \[]) ?HR =>
+  match goal with |- Xsimpl (?Nc, ?Hla, ((?H1s \-* ?H2) \* ?Hlw), \[]) ?HR =>
     hstars_search H1s ltac:(fun i H =>
       let L := hstars_pick_lemma i in
       eapply xsimpl_l_hwand_reorder;
@@ -1401,24 +1750,26 @@ Ltac xsimpl_hwand_hstars_l tt :=
 Ltac xsimpl_step_l tt :=
   match goal with |- Xsimpl ?HL ?HR =>
   match HL with
-  | (?Hla, ?Hlw, (?H \* ?Hlt)) =>
+  | (?Nc, ?Hla, ?Hlw, (?H \* ?Hlt)) =>
     match H with
     | \[] => apply xsimpl_l_hempty
     | \[?P] => apply xsimpl_l_hpure; intro
+    | \$ ?n => apply xsimpl_l_hcredits
     | ?H1 \* ?H2 => rewrite (@hstar_assoc H1 H2)
     | hexists ?J => apply xsimpl_l_hexists; intro
-    | ?H1 \-* ?H2 => apply xsimpl_l_acc_wand
-    | ?Q1 \--* ?Q2 => apply xsimpl_l_acc_wand
+    | ?H1 \-* ?H2 => apply xsimpl_l_acc_hwand
+    | ?Q1 \--* ?Q2 => apply xsimpl_l_acc_hwand
     | _ => apply xsimpl_l_acc_other
     end
-  | (?Hla, ((?H1 \-* ?H2) \* ?Hlw), \[]) =>
+  | (?Nc, ?Hla, ((?H1 \-* ?H2) \* ?Hlw), \[]) =>
       match H1 with
       | \[] => apply xsimpl_l_cancel_hwand_hempty
+      | \$ ?n => apply xsimpl_l_hwand_hcredits
       | (_ \* _) => xsimpl_hwand_hstars_l tt
       | _ => first [ xsimpl_pick_same H1; apply xsimpl_l_cancel_hwand
                    | apply xsimpl_l_keep_wand ]
       end
-  | (?Hla, ((?Q1 \--* ?Q2) \* ?Hlw), \[]) =>
+  | (?Nc, ?Hla, ((?Q1 \--* ?Q2) \* ?Hlw), \[]) =>
       first [ xsimpl_pick_applied Q1; eapply xsimpl_l_cancel_qwand
             | apply xsimpl_l_keep_wand ]
   end end.
@@ -1427,11 +1778,11 @@ Ltac xsimpl_step_l tt :=
    simplified to [Q1 \--* Q2]. *)
 
 Ltac xsimpl_hgc_or_htop_cancel cancel_item cancel_lemma :=
-  (* match goal with |- Xsimpl (?Hla, \[], \[]) (?Hra, (?H \* ?Hrg), ?Hrt) => *)
+  (* match goal with |- Xsimpl (?Nc, ?Hla, \[], \[]) (?Hra, (?H \* ?Hrg), ?Hrt) => *)
   repeat (xsimpl_pick_same cancel_item; apply cancel_lemma).
 
 Ltac xsimpl_hgc_or_htop_step tt :=
-  match goal with |- Xsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) =>
+  match goal with |- Xsimpl (?Nc, ?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) =>
     match constr:((Hrg,H)) with
     | (\[], \GC) => applys xsimpl_r_hgc_or_htop;
                     xsimpl_hgc_or_htop_cancel (\GC) xsimpl_lr_cancel_hgc
@@ -1449,16 +1800,19 @@ Ltac xsimpl_cancel_same H :=
   xsimpl_pick_same H; apply xsimpl_lr_cancel_same.
 
 Ltac xsimpl_step_r tt :=
-  match goal with |- Xsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) =>
+  match goal with |- Xsimpl (?Nc, ?Hla, \[], \[]) (?Hra, ?Hrg, (?H \* ?Hrt)) =>
   match H with
   | ?H' => xsimpl_hook H (* else continue *)
   | \[] => apply xsimpl_r_hempty
   | \[?P] => apply xsimpl_r_hpure
+  | \$ ?n => apply xsimpl_r_hcredits
   | ?H1 \* ?H2 => rewrite (@hstar_assoc H1 H2)
   | ?H \-* ?H'eqH =>
       match H with
       | \[?P] => fail 1 (* don't cancel out cause [P] might contain a contradiction *)
-      | _ =>
+      | \$ ?n => (* simplify the [\$n \-* H] to [$\(-n) \* H] *)
+        apply xsimpl_r_hwand_hcredits
+      | _ => (* simplify the special case [H \-* H] *)
         match H'eqH with
         | H => apply xsimpl_r_hwand_same
         (* | protect H => apply xsimpl_r_hwand_same  --NOTE: purposely refuse to unify this*)
@@ -1481,16 +1835,26 @@ Ltac xsimpl_step_r tt :=
   | _ => apply xsimpl_r_keep
   end end.
 
+(* [xsimpl_use_credits tt] should return [true] or [false]. *)
+(* TODO: probably in fact we don't need this at all.
+   if we see a credit, we can assume [xsimpl_use_credits] is true. *)
+
+Ltac xsimpl_use_credits tt :=
+  constr:(false).
+
 Ltac xsimpl_step_lr tt :=
-  match goal with |- Xsimpl (?Hla, \[], \[]) (?Hra, ?Hrg, \[]) =>
+  match goal with |- Xsimpl (?Nc, ?Hla, \[], \[]) (?Hra, ?Hrg, \[]) =>
     match Hrg with
     | \[] =>
        match Hra with
        | ?H1 \* \[] =>
          match H1 with
-         | ?Hra_evar => is_evar Hra_evar; rew_heap; apply himpl_lr_refl (* else continue *)
-       (*   | ?Hla' => (* unify Hla Hla'; *) apply himpl_lr_refl (* else continue *) --TODO: needed? *)
-         | ?Q1 \--* ?Q2 => is_evar Q2; eapply himpl_lr_qwand_unify
+         | ?Hra_evar => is_evar Hra_evar; (* handle [ H1 => ?H2 ] *)
+            rew_heap;
+            first [ apply xsimpl_lr_refl_nocredits
+                  | apply xsimpl_lr_refl ]
+            (* else continue *)
+         | ?Q1 \--* ?Q2 => is_evar Q2; eapply xsimpl_lr_qwand_unify
          | \[False] \-* ?H2 => apply xsimpl_lr_hwand_hfalse
          | ?H1 \-* ?H2 => xsimpl_flip_acc_l tt; apply xsimpl_lr_hwand
          | ?Q1 \--* ?Q2 =>
@@ -1502,17 +1866,31 @@ Ltac xsimpl_step_lr tt :=
          | hforall _ => xsimpl_flip_acc_l tt; apply xsimpl_lr_hforall; intro
                         (* --TODO: optimize for iterated \forall bindings *)
          end
-       | \[] => apply himpl_lr_refl
-       | _ => xsimpl_flip_acc_lr tt; apply xsimpl_lr_exit_nogc
+       | \[] =>
+          first [ apply xsimpl_lr_refl_nocredits (* handle [ \[] ==> \[] ] *)
+                | apply xsimpl_lr_exit_credits_to_hempty ] (* handle [ \$n ==> \[] ] *)
+       | _ => xsimpl_flip_acc_lr tt;
+              first [ apply xsimpl_lr_exit_nogc_nocredits
+                    | apply xsimpl_lr_exit_nogc ]
        end
-    | (\Top \* _) => apply himpl_lr_htop
-    | (\GC \* _) => apply himpl_lr_hgc;
-                    [ try remove_empty_heaps_haffine tt; xaffine | ]
-    | ?Hrg' => xsimpl_flip_acc_lr tt; apply xsimpl_lr_exit
+    | (\Top \* _) => apply xsimpl_lr_htop
+    | (\GC \* _) =>
+        first
+        [ match Hra with ?Hra1 \* \[] => is_evar Hra1;  (* when Hra1 is an evar *)
+            first [ apply xsimpl_lr_exit_instantiate_nocredits
+                  | apply xsimpl_lr_exit_instantiate ]
+          end
+        | (* General case, Hra not just reduced to an evar *)
+          let xsimpl_xaffine tt := try remove_empty_heaps_haffine tt; xaffine in
+          first [ apply xsimpl_lr_hgc_nocredits; [ xsimpl_xaffine tt | ]
+                | apply xsimpl_lr_hgc; [ xsimpl_hcredits_nonneg tt | xsimpl_xaffine tt | ] ]
+        ]
+    | ?Hrg' => xsimpl_flip_acc_lr tt;
+               first [ apply xsimpl_lr_exit_nocredits
+                     | apply xsimpl_lr_exit ]
   end end.
 
   (* --TODO: handle [?HL (?Hra_evar, (\GC \* ..), \[])] *)
-
 
 Ltac xsimpl_step tt :=
   first [ xsimpl_step_l tt
@@ -1659,7 +2037,7 @@ Tactic Notation "xchange_nosimpl" constr(E) :=
 Tactic Notation "xchange_nosimpl" "->" constr(E) :=
   xchange_nosimpl_base E himpl_of_eq.
 Tactic Notation "xchange_nosimpl" "<-" constr(E) :=
-  xchange_nosimpl_base himpl_of_eq_sym.
+  xchange_nosimpl_base E himpl_of_eq_sym.
 
 Ltac xchange_base E modif :=
   xchange_core E modif ltac:(xchange_xpull_cont).
@@ -1801,9 +2179,9 @@ Abort.
 (* ---------------------------------------------------------------------- *)
 (** [xsimpl_pick] demos *)
 
-Lemma xsimpl_pick_demo : forall (Q:bool->hprop) (P:Prop) H1 H2 H3 Hlw Hlt Hra Hrg Hrt,
+Lemma xsimpl_pick_demo : forall (Q:bool->hprop) (P:Prop) Nc H1 H2 H3 Hlw Hlt Hra Hrg Hrt,
   (forall HX HY,
-    Xsimpl ((H1 \* H2 \* H3 \* Q true \* (\[P] \-* HX) \* HY \* \[]), Hlw, Hlt)
+    Xsimpl (Nc, (H1 \* H2 \* H3 \* Q true \* (\[P] \-* HX) \* HY \* \[]), Hlw, Hlt)
            (Hra, Hrg, Hrt)
   -> True) -> True.
 Proof using.
@@ -2039,6 +2417,39 @@ Lemma xsimpl_demo_gc_4 : forall H1 H2,
   H1 \* H2 \* \GC  ==> H2 \* \GC \* \Top \* \Top \* \GC.
 Proof using. intros. xsimpl. Abort.
 
+Lemma xsimpl_demo_evar_gc : (forall H, \[] ==> (H \* \GC) -> True) -> True.
+Proof using. introv M. eapply M. xsimpl. Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** [xsimpl] with credits demos *)
+
+(** Start using credits *)
+Ltac xsimpl_use_credits tt ::=
+  constr:(true).
+
+Lemma xsimpl_hcredits_gather : forall H1 H2 H3 H4 H5 n1 n2 n3 n4,
+  H1 \* \$n1 \* H2 \* H3 \* \$n2 \* H4 ==> H4 \* H3 \* \$n3 \* H5 \* \$n4 \* H2.
+Proof using. intros. xsimpl. Abort.
+
+Lemma xsimpl_hcredits_hwand : forall H1 H2 H3 H4 H5 n1 n2 n3 n4 n5,
+  H1 \* \$n1 \* H2 \* H3 \* (\$n2 \-* H4) ==> H4 \* H3 \* (\$n3 \-* \$n4 \-* H5) \* \$n5 \* H2.
+Proof using. intros. xsimpl. Abort.
+
+Lemma xsimpl_hcredits_hwand_eq : forall n H,
+  ((\$n) \-* H) = (H \* (\$(- n))).
+Proof using. intros. xsimpl; math. Abort.
+
+(* TODO: add a demo with an hypothesis [M] with simplifiable credits in an entailment,
+   do [dup 2].
+   in the first branch, call [xsimpl_beautify_hcredits_everywhere tt]
+   then [xchanges M].
+   in the second branch, call [xsimpl_beautify_hcredits_everywhere tt] directly. *)
+
+(* End using credits *)
+Ltac xsimpl_use_credits tt ::=
+  constr:(false).
+
 
 (* ---------------------------------------------------------------------- *)
 (** [xchange] demos *)
@@ -2087,5 +2498,64 @@ Proof using.
 Qed.
 
 (* ---------------------------------------------------------------------- *)
+
+End XsimplSetupCredits.
+
+
+(* ********************************************************************** *)
+(* ********************************************************************** *)
+(* ********************************************************************** *)
+(** * Body of the functor with dummy credits *)
+
+Module XsimplSetup (HP : XsimplParams).
+
+(** Definition of the functor argument *)
+
+Module Export HPC <: XsimplParamsCredits.
+
+Include HP.
+
+Open Scope heap_scope.
+
+Definition use_credits : bool :=
+  false.
+
+Definition hcredits (n:Z) : hprop :=
+  \[].
+
+Notation "'\$' n" := (hcredits n)
+  (at level 40,
+   n at level 0,
+   format "\$ n") : heap_scope.
+
+Open Scope heap_scope.
+
+Lemma hcredits_skip :
+  use_credits = false ->
+  forall n, \$ n = \[].
+Proof using. auto. Qed.
+
+Lemma hcredits_zero :
+  \$ 0 = \[].
+Proof using. auto. Qed.
+
+Lemma hcredits_add : forall n m,
+  \$ (n+m) = \$ n \* \$ m.
+Proof using. intros. unfold hcredits. rewrite* hstar_hempty_l. Qed.
+
+Lemma haffine_hcredits : forall n,
+  n >= 0 ->
+  haffine (\$ n).
+Proof using. introv M. applys haffine_hempty. Qed.
+
+Lemma hwand_hcredits_l : forall H n,
+  (\$n \-* H) = (\$(-n) \* H).
+Proof using. intros. unfold hcredits. rewrite hwand_hempty_l. rewrite* hstar_hempty_l. Qed.
+
+End HPC.
+
+(** Instantiation *)
+
+Module Export Setup := XsimplSetupCredits HPC.
 
 End XsimplSetup.

@@ -119,15 +119,73 @@ Lemma iter_spec_rest : forall A `{EA:Enc A} (l:list A) (f:func),
   SPEC (iter f l) PRE (I l) POSTUNIT (I nil).
 Proof using.
   introv M.
- (* TODO: details to move to unit tests 
+ (* TODO: details to move to unit tests
  { xspec (>> __ (fun k => \exists r, \[l = k ++ r] \* I r)).
    xapp_common tt. skip. skip. skip. }
- *) 
+ *)
   xapp~ (>> __ (fun k => \exists r, \[l = k ++ r] \* I r)).
   { introv E. xtriple. xpull. intros r' E'. subst l.
     lets: app_cancel_l E'. subst r'. xapp. xsimpl~. }
-  { xpull; introv E. rewrites (>> self_eq_app_l_inv E). xsimpl~. } 
+  { xpull; introv E. rewrites (>> self_eq_app_l_inv E). xsimpl~. }
 Qed. (* TODO: beautify this proof *)
+
+(************************************************************)
+(** ListOf *)
+
+Fixpoint ListOf A B (R:A -> B -> hprop) (LS:list A) (xs:list B) :=
+  match LS,xs with
+  | nil,nil => \[]
+  | L::LS,x::xs => x ~> R L \* xs ~> ListOf R LS
+  | _,_ => \[False]
+  end.
+
+Lemma ListOf_eq A B : forall (R:A -> B -> hprop) (LS:list A) (xs:list B),
+    xs ~> ListOf R LS =
+    match LS,xs with
+    | nil,nil => \[]
+    | L::LS,x::xs => x ~> R L \* xs ~> ListOf R LS
+    | _,_ => \[False] end.
+Proof. intros R LS xs; now destruct LS. Qed.
+
+Definition ListOf_nil : forall A B R,
+    (@nil B) ~> ListOf R (@nil A) = \[].
+Proof. auto. Qed.
+
+Definition ListOf_nil_r : forall A B R (L:list A),
+    (@nil B) ~> ListOf R L ==> \[L = (@nil A)].
+Proof.
+  intros.
+  destruct L as [|x].
+  { xsimpl*. }
+  { xchange* ListOf_eq. }
+Qed.
+
+Definition ListOf_nil_l : forall A B R (xs:list B),
+    xs ~> ListOf R (@nil A) ==> \[xs = nil].
+Proof.
+  intros.
+  destruct xs as [|x].
+  { xsimpl*. }
+  { xchange* ListOf_eq. }
+Qed.
+
+Definition ListOf_cons_r : forall A B R (L:list A) (x:B) (xs:list B),
+    (x::xs) ~> ListOf R L ==> \exists LF LS, x ~> R LF \* xs ~> ListOf R LS \* \[L = LF::LS].
+Proof.
+  intros.
+  destruct L as [|LF].
+  { xchange* ListOf_eq. }
+  { xsimpl*. }
+Qed.
+
+Definition ListOf_cons_l : forall A B R LF (LS:list A) (xs:list B),
+    xs ~> ListOf R (LF::LS)  ==> \exists y ys, y ~> R LF \* ys ~> ListOf R LS \* \[xs = y::ys].
+Proof.
+  intros.
+  destruct xs as [|xs].
+  { xchange* ListOf_eq. }
+  { xsimpl*. }
+Qed.
 
 (** Restore the default [auto_tilde] behavior *)
 
