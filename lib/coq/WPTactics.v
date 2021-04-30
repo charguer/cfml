@@ -2772,7 +2772,7 @@ Ltac xpay_post tt :=
   idtac.
 
 Ltac xpay_pre_core tt :=
-  eapply xpay_lemma_pre; [ xsimpl; xpay_post tt | ].
+  eapply xpay_lemma_pre; [ xsimpl; xpay_post tt | xsimpl_beautify_credits_goal tt].
 
 Tactic Notation "xpay_pre" :=
   xpay_pre_core tt.
