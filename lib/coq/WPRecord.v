@@ -90,6 +90,10 @@ Notation "'New' `{ f1 := x1 ; f2 := x2 ; f3 := x3 ; f4 := x4 ; f5 := x5 }" :=
   ((val_record_init (f1::f2::f3::f4::f5::nil)) x1 x2 x3 x4 x5)
   (at level 0, f1 at level 0, f2 at level 0, f3 at level 0, f4 at level 0, f5 at level 0)
   : trm_scope.
+Notation "'New' `{ f1 := x1 ; f2 := x2 ; f3 := x3 ; f4 := x4 ; f5 := x5 ; f6 := x6 }" :=
+  ((val_record_init (f1::f2::f3::f4::f5::f6::nil)) x1 x2 x3 x4 x5 x6)
+  (at level 0, f1 at level 0, f2 at level 0, f3 at level 0, f4 at level 0, f5 at level 0, f6 at level 0)
+  : trm_scope.
 
 Notation "'Delete' `{ f1 }" :=
   (val_record_delete (f1::nil))
@@ -111,8 +115,12 @@ Notation "'Delete' `{ f1 ; f2 ; f3 ; f4 ; f5 }" :=
   (val_record_delete (f1::f2::f3::f4::f5::nil))
   (at level 0, f1 at level 0, f2 at level 0, f3 at level 0, f4 at level 0, f5 at level 0)
   : trm_scope.
+Notation "'Delete' `{ f1 ; f2 ; f3 ; f4 ; f5 ; f6 }" :=
+  (val_record_delete (f1::f2::f3::f4::f5::f6::nil))
+  (at level 0, f1 at level 0, f2 at level 0, f3 at level 0, f4 at level 0, f5 at level 0, f6 at level 0)
+  : trm_scope.
 
-(** Notation for record contents (only supported up to arity 5) *)
+(** Notation for record contents (only supported up to arity 6) *)
 
 Declare Scope fields_scope.
 Open Scope fields_scope.
@@ -137,6 +145,10 @@ Notation "`{ f1 := x1 ; f2 := x2 ; f3 := x3 ; f4 := x4 }" :=
 Notation "`{ f1 := x1 ; f2 := x2 ; f3 := x3 ; f4 := x4 ; f5 := x5 }" :=
   ((f1, Dyn x1)::(f2, Dyn x2)::(f3, Dyn x3)::(f4, Dyn x4)::(f5, Dyn x5)::nil)
   (at level 0, f1 at level 0, f2 at level 0, f3 at level 0, f4 at level 0, f5 at level 0)
+  : fields_scope.
+Notation "`{ f1 := x1 ; f2 := x2 ; f3 := x3 ; f4 := x4 ; f5 := x5 ; f6 := x6 }" :=
+  ((f1, Dyn x1)::(f2, Dyn x2)::(f3, Dyn x3)::(f4, Dyn x4)::(f5, Dyn x5)::(f6, Dyn x6)::nil)
+  (at level 0, f1 at level 0, f2 at level 0, f3 at level 0, f4 at level 0, f5 at level 0, f6 at level 0)
   : fields_scope.
 
 
@@ -1035,4 +1047,3 @@ Notation "r '.' f <- v" :=
    f constr at level 0,
    v constr at level 69,
    format "r '.' f  <-  v") : wp_scope.
-
