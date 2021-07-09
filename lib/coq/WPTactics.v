@@ -1371,6 +1371,33 @@ Tactic Notation "xvals" "~" :=
 Tactic Notation "xvals" "*"  :=
   xvals; auto_star.
 
+(** [xval_as] *)
+Lemma xval_as_lemma : forall A `{EA:Enc A} (V:A) H (Q:A->hprop),
+  (forall x, x = V -> H ==> Q x) ->
+  H ==> ^(Wpgen_val V) Q.
+Proof using. introv M. applys* xval_lemma. Qed.
+
+(* MAYBE NOT NEEDED
+Ltac xcleanup_in_core H :=
+  rew_bool_eq in H.
+Tactic Notation "xcleanup" "in" hyp(H) :=
+  xcleanup_in_core H.
+*)
+
+(** [xval as x] *)
+Ltac xval_as_core p Hp :=
+  xval_pre tt;
+  eapply xval_as_lemma;
+  xval_post tt;
+  intros p Hp.
+
+Tactic Notation "xval_as" simple_intropattern(p) simple_intropattern(Hp) :=
+  xval_as_core p Hp.
+
+Tactic Notation "xval_as" simple_intropattern(p) :=
+  let Hp := fresh "H" p in
+  xval_as p Hp.
+
 
 (* ---------------------------------------------------------------------- *)
 (** ** Tactic [xif] *)
