@@ -2896,7 +2896,12 @@ Ltac check_is_Wpgen_record_alloc F :=  (* refined in WPRecord *)
    | (Wpgen_let_trm_poly _ _) => --- inference not yet supported
 *)
 
-Ltac xstep_once tt :=
+Inductive Xgoto : Type :=
+  | Xgoto_end
+  | Xgoto_xsimpl.
+
+(* LATER: xgo should test the stopat, xstep should not know about it *)
+Ltac xstep_once stopat :=
   match goal with
   | |- ?G => match xgoal_code_without_wptag tt with
     | (Wpgen_seq (Wptag (Wpgen_app _ _ _)) _) => xseq_cont
@@ -2916,11 +2921,17 @@ Ltac xstep_once tt :=
     | (Wpgen_assert _) => xassert
     | (Wpgen_pay _) => xpay
     | ?F => check_is_Wpgen_record_alloc F; xapp
-    (* | (Wpgen_case _ _ _) => xcase *)
     end
   | |- Triple _ _ _ => xapp
-  | |- _ ==> _ => xsimpl
-  | |- _ ===> _ => xsimpl
+  | _ =>
+    match stopat with
+    | Xgoto_xsimpl => idtac
+    | _ => (* could be [tt] or [Xgoto_end] *)
+      match goal with
+      | |- _ ==> _ => xsimpl
+      | |- _ ===> _ => xsimpl
+      end
+    end
   end.
 
 (* [xstep] *)
@@ -2928,8 +2939,8 @@ Ltac xstep_once tt :=
 Ltac xstep_pre tt :=
   try xpull; intros.
 
-Ltac xstep_core tt :=
-  xstep_pre tt; xstep_once tt; instantiate.
+Ltac xstep_core stopat :=
+  xstep_pre tt; xstep_once stopat; instantiate.
 
 Tactic Notation "xstep" :=
   xstep_core tt.
@@ -2949,15 +2960,22 @@ Tactic Notation "xstep" "*" integer(n) :=
 
 (* [xgo] *)
 
-Ltac xgo_core tt :=
-  repeat (xstep_core tt).
+Ltac xgo_core stopat :=
+  repeat (xstep_core stopat).
 
 Tactic Notation "xgo" :=
-  xgo_core tt.
+  xgo_core Xgoto_end.
 Tactic Notation "xgo" "~" :=
   xgo; auto_tilde.
 Tactic Notation "xgo" "*" :=
   xgo; auto_star.
+
+Tactic Notation "xgo" constr(stopat) :=
+  xgo_core stopat.
+Tactic Notation "xgo" "~" constr(stopat) :=
+  xgo stopat; auto_tilde.
+Tactic Notation "xgo" "*" constr(stopat) :=
+  xgo stopat; auto_star.
 
 Tactic Notation "xcf_go" :=
   xcf; xgo.
@@ -2966,6 +2984,12 @@ Tactic Notation "xcf_go" "~" :=
 Tactic Notation "xcf_go" "*" :=
   xcf_go; auto_star.
 
+Tactic Notation "xcf_go" constr(stopat) :=
+  xcf; xgo stopat.
+Tactic Notation "xcf_go" "~" constr(stopat) :=
+  xcf_go stopat; auto_tilde.
+Tactic Notation "xcf_go" "*" constr(stopat) :=
+  xcf_go stopat; auto_star.
 
 
 (************************************************************************ *)
