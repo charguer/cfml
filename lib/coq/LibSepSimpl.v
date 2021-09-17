@@ -674,7 +674,7 @@ Ltac xsimpl_hint_remove tt :=
 
 (** [hstars_flip tt] applies to a goal of the form [H1 \* .. \* Hn \* \[] = ?H]
     and instantiates [H] with [Hn \* ... \* H1 \* \[]].
-    If [n > 9], the maximum arity supported, the tactic unifies [H] with
+    If [n > 12], the maximum arity supported, the tactic unifies [H] with
     the original LHS. *)
 
 Lemma hstars_flip_0 :
@@ -721,6 +721,16 @@ Lemma hstars_flip_9 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9,
   = H9 \* H8 \* H7 \* H6 \* H5 \* H4 \* H3 \* H2 \* H1 \* \[].
 Proof using. intros. rewrite <- (hstars_flip_8 H1). rew_heap. rewrite (hstar_comm H9). rew_heap~. Qed.
 
+Lemma hstars_flip_10 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9 H10,
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* H10 \* \[]
+  = H10 \* H9 \* H8 \* H7 \* H6 \* H5 \* H4 \* H3 \* H2 \* H1 \* \[].
+Proof using. intros. rewrite <- (hstars_flip_9 H1). rew_heap. rewrite (hstar_comm H10). rew_heap~. Qed.
+
+Lemma hstars_flip_11 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9 H10 H11,
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* H10 \* H11 \* \[]
+  = H11 \* H10 \* H9 \* H8 \* H7 \* H6 \* H5 \* H4 \* H3 \* H2 \* H1 \* \[].
+Proof using. intros. rewrite <- (hstars_flip_10 H1). rew_heap. rewrite (hstar_comm H11). rew_heap~. Qed.
+
 Ltac hstars_flip_lemma i :=
   match number_to_nat i with
   | 0%nat => constr:(hstars_flip_0)
@@ -733,6 +743,8 @@ Ltac hstars_flip_lemma i :=
   | 7%nat => constr:(hstars_flip_7)
   | 8%nat => constr:(hstars_flip_8)
   | 9%nat => constr:(hstars_flip_9)
+  | 10%nat => constr:(hstars_flip_10)
+  | 11%nat => constr:(hstars_flip_11)
   | _ => constr:(hstars_flip_1) (* unsupported *)
   end.
 
@@ -816,6 +828,16 @@ Lemma hstars_pick_9 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9 H,
   = H9 \* H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H.
 Proof using. intros. rewrite~ (hstar_comm_assoc H8). applys hstars_pick_8. Qed.
 
+Lemma hstars_pick_10 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9 H10 H,
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* H10 \* H
+  = H10 \* H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* H.
+Proof using. intros. rewrite~ (hstar_comm_assoc H9). applys hstars_pick_9. Qed.
+
+Lemma hstars_pick_11 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9 H10 H11 H,
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* H10 \* H11 \* H
+  = H11 \* H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* H10 \* H.
+Proof using. intros. rewrite~ (hstar_comm_assoc H10). applys hstars_pick_10. Qed.
+
 Lemma hstars_pick_last_1 : forall H1,
   H1 = H1.
 Proof using. auto. Qed.
@@ -856,8 +878,18 @@ Lemma hstars_pick_last_9 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9,
   = H9 \* H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8.
 Proof using. intros. rewrite~ (hstar_comm H8). applys hstars_pick_8. Qed.
 
+Lemma hstars_pick_last_10 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9 H10,
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* H10
+  = H10 \* H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9.
+Proof using. intros. rewrite~ (hstar_comm H9). applys hstars_pick_9. Qed.
+
+Lemma hstars_pick_last_11 : forall H1 H2 H3 H4 H5 H6 H7 H8 H9 H10 H11,
+    H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* H10 \* H11
+  = H11 \* H1 \* H2 \* H3 \* H4 \* H5 \* H6 \* H7 \* H8 \* H9 \* H10.
+Proof using. intros. rewrite~ (hstar_comm H10). applys hstars_pick_10. Qed.
+
 Ltac hstars_pick_lemma i :=
-  let unsupported tt := fail 100 "hstars_pick supports only arity up to 9" in
+  let unsupported tt := fail 100 "hstars_pick supports only arity up to 11" in
   match i with
   | hstars_last ?j => match number_to_nat j with
     | 1%nat => constr:(hstars_pick_last_1)
@@ -869,6 +901,8 @@ Ltac hstars_pick_lemma i :=
     | 7%nat => constr:(hstars_pick_last_7)
     | 8%nat => constr:(hstars_pick_last_8)
     | 9%nat => constr:(hstars_pick_last_9)
+    | 10%nat => constr:(hstars_pick_last_10)
+    | 11%nat => constr:(hstars_pick_last_11)
     | _ => unsupported tt
     end
   | ?j => match number_to_nat j with
@@ -881,6 +915,8 @@ Ltac hstars_pick_lemma i :=
     | 7%nat => constr:(hstars_pick_7)
     | 8%nat => constr:(hstars_pick_8)
     | 9%nat => constr:(hstars_pick_9)
+    | 10%nat => constr:(hstars_pick_10)
+    | 11%nat => constr:(hstars_pick_11)
     | _ => unsupported tt
     end
   end.
