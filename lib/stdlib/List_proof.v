@@ -19,10 +19,13 @@ Lemma length_spec : forall A `{EA:Enc A} (l:list A),
     PRE \[]
     POST \[= (@TLC.LibListZ.length _) l].
 Proof using.
-(* TODO: revive xfun_ind
-  xcf. xfun_ind (@list_sub A) (fun f => forall (r:list A) n,
-    app f [n r] \[] \[= n + LibListZ.length r]); xgo~.
-*) skip.
+  xcf. xlet.
+  asserts ? : (forall (xs:list A) j, SPEC (aux j xs) PRE \[] POST \[=j + @TLC.LibListZ.length _ xs]).
+  { induction xs; intros.
+    { xgo. rew_list. math. }
+    { xapp Spec_aux. xgo.
+      rew_list. math. } }
+  xgo. math.
 Qed.
 
 Hint Extern 1 (RegisterSpec length) => Provide length_spec.
