@@ -61,13 +61,21 @@ End LibListNotation.
 From TLC Require Import LibListZ.
 
 Lemma index_make_eq : forall A (n i:Z) (v:A),
+  n >= 0 ->
   index (make n v) i = index n i.
-Admitted. (* TODO *)
+Proof.
+  intros.
+  rewrite index_eq_index_length.
+  rewrite* length_make.
+Qed.
 
 Lemma index_update_eq : forall A (l:list A) (i j:Z) (v:A),
-  index l j ->
   (index l[j:=v] i) = (index l i).
-Admitted. (* TODO *)
+Proof.
+  intros.
+  do 2 rewrite index_eq_index_length.
+  rewrite* length_update.
+Qed.
 
 Hint Rewrite int_index_eq index_make_eq index_update_eq : rew_array.
 
