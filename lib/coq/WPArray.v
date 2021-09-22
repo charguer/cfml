@@ -51,27 +51,42 @@ Proof.
   xchanges* Heapdata_hheader.
 Qed.
 
-Lemma haffine_Array : forall A `{EA:Enc A} p (L: list A),
-  haffine (p ~> Array L).
-Proof using. constructor. Qed.
-
-Hint Resolve haffine_Array : haffine.
-
-
-(* TODO LATER
-
 Section ArrayProp.
 Context A `{EA:Enc A}.
 Implicit Types L : list A.
 Implicit Types x : A.
 
 Lemma Array_nil_eq : forall p,
-  p ~> Array (@nil A)  = \[].
-Proof using. auto. Qed.
+  p ~> Array (@nil A)  = hheader 0 p.
+Proof using.
+  intros. xunfold Array.
+  rew_list.
+
+Qed.
 
 Lemma Array_cons_eq : forall p x L,
   p ~> Array (x::L) = (p ~~> x) \* (S p) ~> Array L.
 Proof using. auto. Qed.
+
+End ArrayProp.
+
+(** Affinity *)
+
+Lemma haffine_Array : forall A `{EA:Enc A} p (L: list A),
+  haffine (p ~> Array L).
+Proof using.
+  intros. gen p. induction L; intros.
+  { rewrite Array_nil_eq. xaffine. }
+  { rewrite Array_cons_eq.
+    apply haffine_hstar. { applys haffine_Hsingle. } { applys IHL. } }
+Qed.
+
+Hint Resolve haffine_Array : haffine.
+
+
+(* TODO LATER
+
+
 
 (* TODO ??
 Lemma Array_eq_array : forall L p,

@@ -61,27 +61,143 @@ Module Type SepCore.
 Declare Scope heap_scope.
 
 (* ---------------------------------------------------------------------- *)
-(* ** Representation of [hprop] *)
+(* ** Axiomatization of Heap Operators *)
 
 (** Type of heaps *)
 
 Parameter heap : Type.
 
+(** Empty heap *)
+
+Parameter heap_empty : heap.
+
+(** Compatibility of two heaps *)
+
+Parameter heap_compat : heap -> heap -> Prop.
+
+(** Union of two compatible heaps *)
+
+Parameter heap_union : heap -> heap -> heap.
+
+Declare Scope heap_union_scope.
+
+Notation "h1 \u h2" := (heap_union h1 h2)
+   (at level 37, right associativity) : heap_union_scope.
+
+Open Scope heap_union_scope.
+
+(** Affine heaps *)
+
+Parameter heap_affine : heap -> Prop.
+
+(** Symmetry of [heap_compat] *)
+
+Parameter heap_compat_sym : forall h1 h2,
+  heap_compat h1 h2 ->
+  heap_compat h2 h1.
+
+(** [heap_compat] on [heap_empty] *)
+
+Parameter heap_compat_empty_l : forall h,
+  heap_compat heap_empty h.
+
+(** [heap_compat] on [heap_union] *)
+
+Parameter heap_compat_union_l_eq: forall h1 h2 h3,
+  heap_compat h1 h2 ->
+  heap_compat (h1 \u h2) h3 = (heap_compat h1 h3 /\ heap_compat h2 h3).
+
+(** [heap_union] neutral, commutativity, and asociativity *)
+
+Parameter heap_union_empty_l : forall h,
+  heap_empty \u h = h.
+
+Parameter heap_union_comm : forall h1 h2,
+  heap_compat h1 h2 ->
+  h1 \u h2 = h2 \u h1.
+
+Parameter heap_union_assoc : forall h1 h2 h3,
+  heap_compat h1 h2 ->
+  heap_compat h2 h3 ->
+  heap_compat h1 h3 ->
+  (h1 \u h2) \u h3 = h1 \u (h2 \u h3).
+
+(** Distribution of [heap_affine] on empty and union. *)
+
+Parameter heap_affine_empty :
+  heap_affine heap_empty.
+
+Parameter heap_affine_union : forall h1 h2,
+  heap_affine h1 ->
+  heap_affine h2 ->
+  heap_compat h1 h2 ->
+  heap_affine (h1 \u h2).
+
+End SepCore.
+
+
+(* ********************************************************************** *)
+(** * Assumptions of the functor with credits *)
+
+Module Type SepCoreCredits.
+
+Include SepCore.
+
+Parameter use_credits : bool.
+
+Notation "'credits'" := Z.
+
+Parameter heap_credits : credits -> heap.
+
+Parameter heap_compat_credits : forall n m,
+  heap_compat (heap_credits n) (heap_credits m).
+
+Parameter heap_credits_skip :
+  use_credits = false ->
+  forall n, heap_credits n = heap_empty.
+
+Parameter heap_credits_zero :
+  heap_credits 0 = heap_empty.
+
+Parameter heap_credits_add : forall n m,
+  heap_credits (n + m) = heap_union (heap_credits n) (heap_credits m).
+
+Parameter heap_credits_affine : forall n,
+  n >= 0 ->
+  heap_affine (heap_credits n).
+
+End SepCoreCredits.
+
+
+
+(* ********************************************************************** *)
+(** * Definition of heap predicates *)
+
+Module SepSetupCredits (SH : SepCoreCredits).
+
+Module Export SepSimplArgsCredits.
+
+Include SH.
+
+Open Scope heap_scope.
+
+Implicit Types h : heap.
+Implicit Types P : Prop.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Heap Predicates and Entailment *)
+
 (** Type of heap predicates *)
 
 Definition hprop := heap -> Prop.
 
-(** Characterization of affine heaps:
-    the [haffine H] asserts that [H] only holds for affine heaps. *)
+Implicit Types H : hprop.
 
-Parameter heap_affine : heap -> Prop.
+Global Instance Inhab_hprop : Inhab hprop.
+Proof using. intros. apply (Inhab_of_val (fun _ => True)). Qed.
 
-Definition haffine (H : hprop) : Prop :=
-  forall h, H h -> heap_affine h.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Entailment *)
+(** Entailment for heap predicates *)
 
 Definition himpl (H1 H2:hprop) : Prop :=
   forall (h:heap), H1 h -> H2 h.
@@ -90,46 +206,87 @@ Notation "H1 ==> H2" := (himpl H1 H2) (at level 55) : heap_scope.
 
 Local Open Scope heap_scope.
 
+(** Entailment for postconditions *)
+
 Definition qimpl A (Q1 Q2:A->hprop) : Prop :=
   forall (v:A), Q1 v ==> Q2 v.
 
 Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55) : heap_scope.
 
-Parameter himpl_refl : forall H,
-  H ==> H.
+(** Properties of entailment *)
 
-Parameter himpl_trans : forall H2 H1 H3,
+Lemma himpl_refl : forall H,
+  H ==> H.
+Proof using. introv M. auto. Qed.
+
+Hint Resolve himpl_refl.
+
+Lemma himpl_trans : forall H2 H1 H3,
   (H1 ==> H2) ->
   (H2 ==> H3) ->
   (H1 ==> H3).
+Proof using. introv M1 M2. intros h H1h. eauto. Qed.
 
-Parameter himpl_antisym : forall H1 H2,
+Lemma himpl_antisym : forall H1 H2,
   (H1 ==> H2) ->
   (H2 ==> H1) ->
-  H1 = H2.
+  (H1 = H2).
+Proof using. introv M1 M2. applys pred_ext_1. intros h. iff*. Qed.
+
+(** Additional properties of [himpl] *)
+
+(* --TODO: is this lemma really needed? *)
+Lemma himpl_forall_trans : forall H1 H2,
+  (forall H, H ==> H1 -> H ==> H2) ->
+  H1 ==> H2.
+Proof using. introv M. applys~ M. Qed.
+
+Lemma himpl_inv : forall H1 H2 h,
+  (H1 ==> H2) ->
+  (H1 h) ->
+  (H2 h).
+Proof using. auto. Qed.
+
+(** Properties of entailment for postconditions *)
+
+Lemma qimpl_refl : forall A (Q:A->hprop),
+  Q ===> Q.
+Proof using. intros A Q v. applys himpl_refl. Qed.
+
+Lemma qimpl_trans : forall A (Q2 Q1 Q3:A->hprop),
+  (Q1 ===> Q2) ->
+  (Q2 ===> Q3) ->
+  (Q1 ===> Q3).
+Proof using. introv M1 M2. intros v. applys* himpl_trans. Qed.
+
+Lemma qimpl_antisym : forall A (Q1 Q2:A->hprop),
+  (Q1 ===> Q2) ->
+  (Q2 ===> Q1) ->
+  (Q1 = Q2).
+Proof using.
+  introv M1 M2. applys fun_ext_1. intros v. applys* himpl_antisym.
+Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Core operators *)
+(* ** Core Operators *)
 
-(** Abstract predicates *)
+(** Empty heap predicate *)
 
-Parameter hempty : hprop.
-
-Parameter hstar : hprop -> hprop -> hprop.
-
-(** Concrete predicates *)
-
-Definition hexists A (J:A->hprop) : hprop :=
-  fun h => exists x, J x h.
-
-Definition hforall (A : Type) (J : A -> hprop) : hprop :=
-  fun h => forall x, J x h.
-
-(** Notation to state the properties *)
+Definition hempty : hprop :=
+  fun h => h = heap_empty.
 
 Notation "\[]" := (hempty)
   (at level 0) : heap_scope.
+
+(** Star *)
+
+Definition hstar (H1 H2 : hprop) : hprop :=
+  fun h => exists h1 h2,
+               H1 h1
+            /\ H2 h2
+            /\ heap_compat h1 h2
+            /\ h = heap_union h1 h2.
 
 Notation "H1 '\*' H2" := (hstar H1 H2)
   (at level 41, right associativity) : heap_scope.
@@ -137,136 +294,23 @@ Notation "H1 '\*' H2" := (hstar H1 H2)
 Notation "Q \*+ H" := (fun x => hstar (Q x) H)
   (at level 40) : heap_scope.
 
+(** Quantifiers *)
 
-(* ---------------------------------------------------------------------- *)
-(* ** Core properties *)
-
-(** Empty is left neutral for star *)
-
-Parameter hstar_hempty_l : forall H,
-  \[] \* H = H.
-
-(** Star is commutative *)
-
-Parameter hstar_comm : forall H1 H2,
-   H1 \* H2 = H2 \* H1.
-
-(** Star is associative *)
-
-Parameter hstar_assoc : forall H1 H2 H3,
-  (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
-
-(** Extrusion of existentials out of star *)
-
-Parameter hstar_hexists : forall A (J:A->hprop) H,
-  (hexists J) \* H = hexists (fun x => (J x) \* H).
-
-(** Extrusion of foralls out of star *)
-
-Parameter hstar_hforall : forall H A (J:A->hprop),
-  (hforall J) \* H ==> hforall (J \*+ H).
-
-(** The frame property (star on H2) holds for entailment *)
-
-Parameter himpl_frame_l : forall H2 H1 H1',
-  H1 ==> H1' ->
-  (H1 \* H2) ==> (H1' \* H2).
-
-(** Properties of haffine *)
-
-Parameter haffine_hempty :
-  haffine \[].
-
-Parameter haffine_hstar : forall H1 H2,
-  haffine H1 ->
-  haffine H2 ->
-  haffine (H1 \* H2).
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Additional assumptions for credits *)
-
-(* TODO: can we avoid that and still benefit from [xsimpl] with credits? *)
-
-Parameter use_credits : bool.
-
-Notation "'credits'" := Z.
-
-Parameter hcredits : credits -> hprop.
-
-Notation "'\$' n" := (hcredits n)
-  (at level 40,
-   n at level 0,
-   format "\$ n") : heap_scope.
-
-Open Scope heap_scope.
-
-Parameter hcredits_skip :
-  use_credits = false ->
-  forall n, \$ n = \[].
-
-Parameter hcredits_zero :
-  \$ 0 = \[].
-
-Parameter hcredits_add : forall n m,
-  \$ (n+m) = \$ n \* \$ m.
-
-Parameter haffine_hcredits : forall n,
-  n >= 0 ->
-  haffine (\$ n).
-
-(* TODO: find out what is a more primitive way to derive [hwand_hcredits_l]. *)
-
-  Definition hpure' (P:Prop) : hprop :=
-    hexists (fun (p:P) => hempty).
-
-  Definition hwand' (H1 H2 : hprop) : hprop :=
-    hexists (fun (H:hprop) => H \* (hpure' (H1 \* H ==> H2))).
-
-  Parameter hwand_hcredits_l' : forall H n,
-    (hwand' (\$n) H) = (\$(-n) \* H).
-
-End SepCore.
-
-
-
-(* ********************************************************************** *)
-(** * Definition of heap predicates *)
-
-Module SepSetup (SH : SepCore).
-
-Module SepSimplArgs.
-
-Include SH.
-
-Hint Resolve himpl_refl.
-
-Open Scope heap_scope.
-
-Implicit Types h : heap.
-Implicit Types H : hprop.
-Implicit Types P : Prop.
-
-(* ---------------------------------------------------------------------- *)
-(* ** Additional notation for core predicates *)
-
-(** Notation for [hexists] *)
+Definition hexists A (J:A->hprop) : hprop :=
+  fun h => exists x, J x h.
 
 Notation "'\exists' x1 .. xn , H" :=
   (hexists (fun x1 => .. (hexists (fun xn => H)) ..))
   (at level 39, x1 binder, H at level 50, right associativity,
    format "'[' '\exists' '/ '  x1  ..  xn , '/ '  H ']'") : heap_scope.
 
-(** Notation for [hforall] *)
+Definition hforall (A : Type) (J : A -> hprop) : hprop :=
+  fun h => forall x, J x h.
 
 Notation "'\forall' x1 .. xn , H" :=
   (hforall (fun x1 => .. (hforall (fun xn => H)) ..))
   (at level 39, x1 binder, H at level 50, right associativity,
    format "'[' '\forall' '/ '  x1  ..  xn , '/ '  H ']'") : heap_scope.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Derived heap predicates *)
 
 (** Pure propositions lifted to heap predicates,
   written [ \[P] ].
@@ -279,22 +323,6 @@ Definition hpure (P:Prop) : hprop :=
 
 Notation "\[ P ]" := (hpure P)
   (at level 0, format "\[ P ]") : heap_scope.
-
-(** The "Top" predicate, written [\Top], which holds of any heap,
-  implemented as [\exists H, H]. *)
-
-Definition htop : hprop :=
-  hexists (fun (H:hprop) => H).
-
-Notation "\Top" := (htop) : heap_scope.
-
-(** The "GC" predicate, written [\GC], which holds of any heap,
-  implemented as [\exists H, \[affine H] \* H]. *)
-
-Definition hgc : hprop :=
-  \exists H, \[haffine H] \* H.
-
-Notation "\GC" := (hgc) : heap_scope.
 
 (** Magic wand, written [H1 \-* H2] *)
 
@@ -325,54 +353,284 @@ Definition hor (H1 H2 : hprop) : hprop :=
 Definition hand (H1 H2 : hprop) : hprop :=
   \forall (b:bool), if b then H1 else H2.
 
+(** The "Top" predicate, written [\Top], which holds of any heap,
+  implemented as [\exists H, H]. *)
+
+Definition htop : hprop :=
+  hexists (fun (H:hprop) => H).
+
+Notation "\Top" := (htop) : heap_scope.
+
+(** Affinity *)
+
+Definition haffine (H : hprop) : Prop :=
+  forall h, H h -> heap_affine h.
+
 (** Affinity for postconditions *)
 
 Definition haffine_post (A:Type) (J:A->hprop) : Prop :=
   forall x, haffine (J x).
 
+(** The "GC" predicate, written [\GC], which holds of any heap,
+  implemented as [\exists H, \[affine H] \* H]. *)
 
-(* ---------------------------------------------------------------------- *)
-(* ** Notation for triples *)
+Definition hgc : hprop :=
+  \exists H, \[haffine H] \* H.
 
-Declare Scope heap_scope_ext.
+Notation "\GC" := (hgc) : heap_scope.
 
+(** Credits, written [\$ n] *)
 
-(* TODO DEPRECATED
-(** Notation [TRIPLE F PRE H POST Q] for stating specifications, e.g.
-    [triple t PRE H POST Q] is the same as [triple t H Q] *)
+Definition hcredits (n:credits) : hprop :=
+  fun h => h = heap_credits n.
 
-Notation "F 'PRE' H 'POST' Q" :=
-  (F H Q)
-  (at level 69, only parsing) : heap_scope_ext.
-*)
-
-(* ---------------------------------------------------------------------- *)
-(* ** Properties of [hprop] *)
-
-Global Instance hinhab : Inhab hprop.
-Proof using. intros. apply (Inhab_of_val hempty). Qed.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Properties of [himpl] *)
-
-(* --TODO: is this lemma really needed? *)
-Lemma himpl_forall_trans : forall H1 H2,
-  (forall H, H ==> H1 -> H ==> H2) ->
-  H1 ==> H2.
-Proof using. introv M. applys~ M. Qed.
-
-Lemma himpl_inv : forall H1 H2 h,
-  (H1 ==> H2) ->
-  (H1 h) ->
-  (H2 h).
-Proof using. auto. Qed.
+Notation "'\$' n" := (hcredits n)
+  (at level 40,
+   n at level 0,
+   format "\$ n") : heap_scope.
 
 (** Additional notation for entailment
     [H1 ==+> H2] is short for [H1 ==> H1 \* H2] *)
 
-Notation "H1 ==+> H2" := (H1%hprop ==> H1%hprop \* H2%hprop)
+Declare Scope heap_scope_ext.
+
+Notation "H1 ==+> H2" := (H1%hprop ==> hstar H1%hprop H2%hprop)
   (at level 55, only parsing) : heap_scope_ext.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Derived properties of operations on heaps *)
+
+Lemma heap_compat_sym_eq : forall h1 h2,
+  heap_compat h1 h2 = heap_compat h2 h1.
+Proof using. hint heap_compat_sym. extens. iff*. Qed.
+
+Lemma heap_compat_empty_r : forall h,
+  heap_compat h heap_empty.
+Proof using. autos* heap_compat_sym heap_compat_empty_l. Qed.
+
+Lemma heap_union_empty_r : forall h,
+  h \u heap_empty = h.
+Proof using.
+  intros. rewrite* heap_union_comm. apply* heap_union_empty_l.
+  applys* heap_compat_empty_r.
+Qed.
+
+Lemma heap_compat_union_r_eq: forall h1 h2 h3,
+  heap_compat h2 h3 ->
+  heap_compat h1 (h2 \u h3) = (heap_compat h1 h2 /\ heap_compat h1 h3).
+Proof using.
+  introv M. rewrite heap_compat_sym_eq. rewrite* heap_compat_union_l_eq.
+  rewrite (heap_compat_sym_eq h2). rewrite* (heap_compat_sym_eq h3).
+Qed.
+
+Lemma heap_compat_union_l : forall h1 h2 h3,
+  heap_compat h1 h2 ->
+  heap_compat h1 h3 ->
+  heap_compat h2 h3 ->
+  heap_compat (h1 \u h2) h3.
+Proof using. introv M1 M2 M3. rewrite* heap_compat_union_l_eq. Qed.
+
+Lemma heap_compat_union_r : forall h1 h2 h3,
+  heap_compat h1 h2 ->
+  heap_compat h1 h3 ->
+  heap_compat h2 h3 ->
+  heap_compat h1 (h2 \u h3).
+Proof using. hint heap_compat_sym, heap_compat_union_l. autos*. Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Tactic *)
+
+Hint Rewrite heap_union_empty_l heap_union_empty_r heap_union_assoc : rew_heaps.
+
+Tactic Notation "rew_heaps" :=
+  autorewrite with rew_heaps.
+Tactic Notation "rew_heaps" "in" hyp(H) :=
+  autorewrite with rew_heaps in H.
+Tactic Notation "rew_heaps" "in" "*" :=
+  autorewrite with rew_heaps in *.
+
+Tactic Notation "rew_heaps" "~" :=
+  rew_heaps; auto_tilde.
+Tactic Notation "rew_heaps" "~" "in" hyp(H) :=
+  rew_heaps in H; auto_tilde.
+Tactic Notation "rew_heaps" "~" "in" "*" :=
+  rew_heaps in *; auto_tilde.
+
+Tactic Notation "rew_heaps" "*" :=
+  rew_heaps; auto_star.
+Tactic Notation "rew_heaps" "*" "in" hyp(H) :=
+  rew_heaps in H; auto_star.
+Tactic Notation "rew_heaps" "*" "in" "*" :=
+  rew_heaps in *; auto_star.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Introduction and Inversion Lemmas for Core Heap Predicates *)
+
+(** Core heap predicates *)
+
+Lemma hempty_intro :
+  \[] heap_empty.
+Proof using. hnfs~. Qed.
+
+Lemma hempty_inv : forall h,
+  \[] h ->
+  h = heap_empty.
+Proof using. introv M. auto. Qed.
+
+Lemma hstar_intro : forall H1 H2 h1 h2,
+  H1 h1 ->
+  H2 h2 ->
+  heap_compat h1 h2 ->
+  (H1 \* H2) (h1 \u h2).
+Proof using. intros. exists~ h1 h2. Qed.
+
+Lemma hstar_inv : forall H1 H2 h,
+  (H1 \* H2) h ->
+  exists h1 h2, H1 h1 /\ H2 h2 /\ heap_compat h1 h2 /\ h = h1 \u h2.
+Proof using. introv M. hnf in M. eauto. Qed.
+
+Lemma hexists_intro : forall A (J:A->hprop) x h,
+  J x h ->
+  (hexists J) h.
+Proof using. introv M. exists~ x. Qed.
+
+Lemma hexists_inv : forall A (J:A->hprop) h,
+  (hexists J) h ->
+  exists x, J x h.
+Proof using. introv M. hnf in M. eauto. Qed.
+
+Lemma hforall_intro : forall A (J:A->hprop) h,
+  (forall x, J x h) ->
+  (hforall J) h.
+Proof using. introv M. applys* M. Qed.
+
+Lemma hforall_inv : forall A (J:A->hprop) h,
+  (hforall J) h ->
+  forall x, J x h.
+Proof using. introv M. applys* M. Qed.
+
+(** Derived heap predicates *)
+
+Lemma hpure_intro : forall P,
+  P ->
+  \[P] heap_empty.
+Proof using. introv M. exists*. apply hempty_intro. Qed.
+
+Lemma hpure_inv : forall P h,
+  \[P] h ->
+  P /\ h = heap_empty.
+Proof using. introv (p&M). split*. Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Proving core properties of operators *)
+
+(** Lemmas from this section should be the last ones to access the
+    internal definition of the operators hempty and hstar. *)
+
+Section CoreProperties.
+Hint Resolve heap_compat_empty_l heap_compat_empty_r
+  heap_union_empty_l heap_union_empty_r hempty_intro
+  heap_compat_union_l heap_compat_union_r.
+
+(** Empty is left neutral for star *)
+
+Lemma hstar_hempty_l : forall H,
+  \[] \* H = H.
+Proof using.
+  intros. applys pred_ext_1. intros h.
+  iff (h1&h2&M1&M2&D&->) M.
+  { rewrite (hempty_inv M1). rew_heaps*. }
+  { exists~ heap_empty h. }
+Qed.
+
+(** Star is commutative *)
+
+Lemma hstar_comm : forall H1 H2,
+   H1 \* H2 = H2 \* H1.
+Proof using.
+  hint heap_union_comm, heap_compat_sym.
+  intros. unfold hstar. extens. intros h.
+  iff (h1&h2&M1&M2&D&U).
+  { exists h2 h1. subst~. }
+  { exists h2 h1. subst~. }
+Qed.
+
+(** Star is associative *)
+
+Lemma hstar_assoc : forall H1 H2 H3,
+  (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
+Proof using.
+  hint heap_compat_union_r, heap_compat_union_l, hstar_intro.
+  intros. extens. intros h. split.
+  { intros (h'&h3&(h1&h2&M2&P1&P2&->)&M3&M1&->).
+    rewrite* heap_compat_union_l_eq in M1.
+    exists* h1 (h2 \u h3). rewrite* heap_union_assoc. }
+  { intros (h1&h'&P1&(h2&h3&M2&P2&P3&->)&M1&->).
+    rewrite* heap_compat_union_r_eq in M1.
+    exists* (h1 \u h2) h3. rewrite* heap_union_assoc. }
+Qed.
+
+(** Extrusion of existentials out of star *)
+
+Lemma hstar_hexists : forall A (J:A->hprop) H,
+  (hexists J) \* H = hexists (fun x => (J x) \* H).
+Proof using.
+  hint hexists_intro.
+  intros. applys pred_ext_1. intros h. iff M.
+  { destruct M as (h1&h2&(x&M1)&M2&D&U). exists* x h1 h2. }
+  { destruct M as (x&(h1&h2&M1&M2&D&U)). exists* h1 h2. }
+Qed.
+
+(** Extrusion of foralls out of star *)
+
+Lemma hstar_hforall : forall H A (J:A->hprop),
+  (hforall J) \* H ==> hforall (J \*+ H).
+Proof using.
+  intros. intros h M. destruct M as (h1&h2&M1&M2&D&U).
+  intros x. exists~ h1 h2.
+Qed.
+
+(** The frame property (star on H2) holds for entailment *)
+
+Lemma himpl_frame_l : forall H2 H1 H1',
+  H1 ==> H1' ->
+  (H1 \* H2) ==> (H1' \* H2).
+Proof using. introv W (h1&h2&?). exists* h1 h2. Qed.
+
+(** Properties of [haffine] *)
+
+Lemma haffine_hempty :
+  haffine \[].
+Proof using.
+  introv K. rewrite (hempty_inv K). applys heap_affine_empty.
+Qed.
+
+Lemma haffine_hstar : forall H1 H2,
+  haffine H1 ->
+  haffine H2 ->
+  haffine (H1 \* H2).
+Proof using.
+  introv M1 M2 (h1&h2&K1&K2&D&->). applys* heap_affine_union.
+Qed.
+
+(** Properties of [hpure] *)
+
+Lemma hstar_hpure_l : forall P H h,
+  (\[P] \* H) h = (P /\ H h).
+Proof using.
+  intros. extens. unfold hpure.
+  rewrite hstar_hexists.
+  rewrite* hstar_hempty_l.
+  iff (p&M) (p&M). { split~. } { exists~ p. }
+Qed.
+
+End CoreProperties.
+
+Global Opaque hempty hpure hstar hexists.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -420,15 +678,6 @@ Qed.
 
 (* ---------------------------------------------------------------------- *)
 (** Properties of [hpure] *)
-
-Lemma hstar_hpure_l : forall P H h,
-  (\[P] \* H) h = (P /\ H h).
-Proof using.
-  intros. extens. unfold hpure.
-  rewrite hstar_hexists.
-  rewrite* hstar_hempty_l.
-  iff (p&M) (p&M). { split~. } { exists~ p. }
-Qed.
 
 Lemma hstar_hpure_r : forall P H h,
   (H \* \[P]) h = (H h /\ P).
@@ -505,17 +754,7 @@ Proof using. auto. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Properties of hexists *)
-
-Lemma hexists_intro : forall A (x:A) (J:A->hprop) h,
-  J x h ->
-  (hexists J) h.
-Proof using. intros. exists~ x. Qed.
-
-Lemma hexists_inv : forall A (J:A->hprop) h,
-  (hexists J) h ->
-  exists x, J x h.
-Proof using. intros. destruct H as [x H]. exists~ x. Qed.
+(** Properties of [hexists] *)
 
 Lemma himpl_hexists_l : forall A H (J:A->hprop),
   (forall x, J x ==> H) ->
@@ -566,7 +805,11 @@ Proof using. intros. applys* himpl_hforall_l x. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Properties of [hwand] (others are found further in the file) *)
+(** Properties of hwand (others are found further in the file) *)
+
+Lemma hwand_eq_hexists : forall H1 H2,
+  (H1 \-* H2) = (\exists H, H \* \[H1 \* H ==> H2]).
+Proof using. auto. Qed.
 
 Lemma hwand_equiv : forall H0 H1 H2,
   (H0 ==> H1 \-* H2) <-> (H1 \* H0 ==> H2).
@@ -647,7 +890,7 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Properties of qwand *)
+(** Properties of [qwand] *)
 
 Lemma qwand_equiv : forall H A (Q1 Q2:A->hprop),
   H ==> (Q1 \--* Q2) <-> (Q1 \*+ H) ===> Q2.
@@ -674,11 +917,11 @@ Arguments qwand_specialize [ A ].
 
 
 (* ---------------------------------------------------------------------- *)
-(** Properties of htop *)
+(** Properties of [htop] *)
 
 Lemma htop_intro : forall h,
   \Top h.
-Proof using. intros. exists~ (=h). Qed.
+Proof using. intros. unfold htop. applys* hexists_intro (=h). Qed.
 
 Lemma himpl_htop_r : forall H,
   H ==> \Top.
@@ -699,7 +942,7 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Properties of affine predicates *)
+(* ** Properties of [haffine] *)
 
 Lemma haffine_eq : forall H,
   haffine H = (forall h, H h -> heap_affine h).
@@ -718,7 +961,8 @@ Proof using. introv IA F1 Hx. applys* F1 (arbitrary (A:=A)). Qed.
 Lemma haffine_hpure : forall P,
   haffine \[P].
 Proof using.
-  intros. applys* haffine_hexists. intros HP. applys* haffine_hempty.
+  intros. rewrite hpure_eq_hexists_empty. applys haffine_hexists.
+  intros HP. applys* haffine_hempty.
 Qed.
 
 Lemma haffine_hgc :
@@ -789,9 +1033,15 @@ Proof using.
   { applys himpl_hgc_r. applys M. }
 Qed.
 
+Global Opaque haffine hgc.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [hor] *)
+
+Lemma hor_eq_exists_bool : forall H1 H2,
+  hor H1 H2 = \exists (b:bool), if b then H1 else H2.
+Proof using. auto. Qed.
 
 Lemma hor_sym : forall H1 H2,
   hor H1 H2 = hor H2 H1.
@@ -819,9 +1069,15 @@ Proof using.
   introv M1 M2. unfolds hor. applys himpl_hexists_l. intros b. case_if*.
 Qed.
 
+Global Opaque hor.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Properties of [hand] *)
+
+Lemma hand_eq_forall_bool : forall H1 H2,
+  hand H1 H2 = \forall (b:bool), if b then H1 else H2.
+Proof using. auto. Qed.
 
 Lemma hand_sym : forall H1 H2,
   hand H1 H2 = hand H2 H1.
@@ -849,24 +1105,82 @@ Proof using.
   introv M1 M. unfold hand. applys himpl_hforall_r. intros b. case_if*.
 Qed.
 
+Global Opaque hand.
+
 
 (* ---------------------------------------------------------------------- *)
-(* ** Properties of [hcredits] *)
+(* Properties of [hcredits] *)
 
-(* TEMPORARY *)
+Section Credits.
+Transparent hempty hstar haffine.
+
+Lemma hcredits_skip :
+  use_credits = false ->
+  forall n, \$ n = \[].
+Proof using.
+  introv E. intros n. applys fun_ext_1. intros h.
+  unfolds hcredits. rewrite* (heap_credits_skip E).
+Qed.
+
+Lemma hcredits_zero :
+  \$ 0 = \[].
+Proof using.
+  applys fun_ext_1. intros h. unfold hcredits. rewrite* heap_credits_zero.
+Qed.
+
+Lemma hcredits_add : forall n m,
+  \$ (n+m) = \$ n \* \$ m.
+Proof using.
+  intros. applys fun_ext_1. intros h. unfold hcredits.
+  unfold hstar. extens. iff M.
+  { exists __ __. splits*.
+    { applys heap_compat_credits. }
+    { subst. rewrite* heap_credits_add. } }
+  { destruct M as (h1&h2&->&->&C&->).
+    rewrite* heap_credits_add. }
+Qed.
+
+Lemma haffine_hcredits : forall n,
+  n >= 0 ->
+  haffine (\$ n).
+Proof using. introv H. unfold haffine. introv ->. apply* heap_credits_affine. Qed.
+
+Lemma hcredits_sub : forall (n m : int),
+  \$(n-m) = \$ n \* \$ (-m).
+Proof using. intros. math_rewrite (n-m = n+(-m)). rewrite* hcredits_add. Qed.
+
+Lemma hcredits_cancel : forall (n: int),
+  \$ n \* \$ (-n) = \[].
+Proof using. intros. rewrite <- hcredits_add. applys_eq hcredits_zero. fequals. math. Qed.
+
+Lemma hcredits_extract : forall m n,
+  \$ n = \$ m \* \$ (n-m).
+Proof using. intros. rewrite <- hcredits_add. fequals. math. Qed.
 
 Lemma hwand_hcredits_l : forall H n,
-  (hwand (\$n) H) = (\$(-n) \* H).
-Proof using. applys hwand_hcredits_l'. Qed.
+  (\$n \-* H) = (\$(-n) \* H).
+Proof using.
+  intros H1 n. rewrite hwand_eq_hexists. applys himpl_antisym.
+  { applys himpl_hexists_l. intros H2. rewrite hstar_comm.
+    apply himpl_hstar_hpure_l. intros M. rewrite <- (hstar_hempty_l H2).
+    rewrite <- (hcredits_cancel n). rewrite hstar_assoc.
+    rewrites (>> hstar_comm H2). rewrite <- hstar_assoc.
+    rewrites (>> hstar_comm H1). applys himpl_frame_l M. }
+  { sets H2: (\$(- n) \* H1). applys himpl_hexists_r H2.
+    rewrites (hstar_comm H2). applys* himpl_hstar_hpure_r.
+    subst H2. rewrite <- hstar_assoc. rewrite hcredits_cancel.
+    rewrite* hstar_hempty_l. }
+Qed.
 
+End Credits.
+
+Global Opaque hcredits.
 
 (* ---------------------------------------------------------------------- *)
 
-End SepSimplArgs.
+End SepSimplArgsCredits.
 
-Export SepSimplArgs.
-
-Module Export HS := LibSepSimpl.XsimplSetupCredits(SepSimplArgs).
+Module Export HS := LibSepSimpl.XsimplSetupCredits(SepSimplArgsCredits).
 
 (** Experimental tactic [xsimpl_hand] *)
 
@@ -876,9 +1190,9 @@ Tactic Notation "xsimpl_hand" :=
 
 (* ---------------------------------------------------------------------- *)
 (* ** Set operators to be opaque *)
-(*
-Global Opaque hempty hpure hstar hexists htop hgc haffine.
-*)
+
+Global Opaque hempty hpure hstar hexists htop hgc haffine hand hor.
+
 
 
 (* ********************************************************************** *)
@@ -1403,7 +1717,10 @@ Lemma local_hor : forall F H1 H2 Q,
   F H1 Q ->
   F H2 Q ->
   F (hor H1 H2) Q.
-Proof using. introv L M1 M2. apply* local_hexists. intros b. case_if*. Qed.
+Proof using.
+  introv L M1 M2. rewrite hor_eq_exists_bool.
+  apply* local_hexists. intros b. case_if*.
+Qed.
 
 (** Left branch for [hand] *)
 
@@ -1411,7 +1728,10 @@ Lemma local_hand_l : forall F H1 H2 Q,
   local F ->
   F H1 Q ->
   F (hand H1 H2) Q.
-Proof using. introv L M1. applys* local_hforall true. Qed.
+Proof using.
+  introv L M1. rewrite hand_eq_forall_bool.
+  applys* local_hforall true.
+Qed.
 
 (** Right branch for [hand] *)
 
@@ -1419,7 +1739,10 @@ Lemma local_hand_r : forall F H1 H2 Q,
   local F ->
   F H2 Q ->
   F (hand H1 H2) Q.
-Proof using. introv L M1. applys* local_hforall false. Qed.
+Proof using.
+  introv L M1. rewrite hand_eq_forall_bool.
+  applys* local_hforall false.
+Qed.
 
 (** Extraction of heap representation from [mklocal] *)
 
@@ -2294,5 +2617,60 @@ Tactic Notation "xunfolds" constr(E) "at" constr(n) :=
 (* ** Set [repr] to be opaque *)
 
 Global Opaque repr.
+
+End SepSetupCredits.
+
+
+
+(* ********************************************************************** *)
+(* ********************************************************************** *)
+(* ********************************************************************** *)
+(** * Body of the functor with dummy credits *)
+
+Module SepSetup (SH : SepCore).
+
+(** Definition of the functor argument *)
+
+Module Export SHC <: SepCoreCredits.
+
+Include SH.
+
+Open Scope heap_scope.
+
+Definition use_credits : bool :=
+  false.
+
+Notation "'credits'" := Z.
+
+Definition heap_credits (n:credits) : heap :=
+  heap_empty.
+
+Lemma heap_compat_credits : forall n m,
+  heap_compat (heap_credits n) (heap_credits m).
+Proof using. intros. applys heap_compat_empty_l. Qed.
+
+Lemma heap_credits_skip :
+  use_credits = false ->
+  forall n, heap_credits n = heap_empty.
+Proof using. auto. Qed.
+
+Lemma heap_credits_zero :
+  heap_credits 0 = heap_empty.
+Proof using. auto. Qed.
+
+Lemma heap_credits_add : forall n m,
+  heap_credits (n + m) = heap_union (heap_credits n) (heap_credits m).
+Proof using. intros. rewrite* heap_union_empty_l. Qed.
+
+Lemma heap_credits_affine : forall n,
+  n >= 0 ->
+  heap_affine (heap_credits n).
+Proof using. intros. applys heap_affine_empty. Qed.
+
+End SHC.
+
+(** Instantiation *)
+
+Module Export Setup := SepSetupCredits SHC.
 
 End SepSetup.

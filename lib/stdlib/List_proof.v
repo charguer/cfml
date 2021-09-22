@@ -151,6 +151,17 @@ Lemma ListOf_eq A B : forall (R:A -> B -> hprop) (LS:list A) (xs:list B),
     | _,_ => \[False] end.
 Proof. intros R LS xs; now destruct LS. Qed.
 
+(* TODO use haffine_repr *)
+Lemma haffine_ListOf : forall A B (R:A -> B -> hprop) (LS:list A) (xs:list B),
+  (forall x X, haffine (x ~> R X)) ->
+  haffine (xs ~> ListOf R LS).
+Proof.
+  intros. revert LS.
+  induction xs; destruct LS; xunfold ListOf; xaffine.
+Qed.
+
+Hint Resolve haffine_ListOf : haffine.
+
 Definition ListOf_nil : forall A B R,
     (@nil B) ~> ListOf R (@nil A) = \[].
 Proof. auto. Qed.

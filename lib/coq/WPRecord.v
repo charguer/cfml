@@ -194,6 +194,15 @@ Proof.
   xchange Heapdata_hheader.
 Qed.
 
+Lemma haffine_Record : forall (L:Record_fields) (r:loc),
+    haffine (r ~> Record L).
+Proof.
+  induction L as [|([],[])]; intros; xunfold Record; xaffine.
+  all:rewrite repr_eq;apply haffine_hfield.
+Qed.
+
+Hint Resolve haffine_Record : haffine.
+
 (* --TODO: currently restricted due to [r `. f ~> V] not ensuring [r<>null] *)
 (* --TODO: rename *)
 Lemma hRecord_not_null : forall (r:loc) (L:Record_fields),

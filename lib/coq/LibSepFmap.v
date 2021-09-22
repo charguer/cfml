@@ -365,6 +365,15 @@ Proof using.
   apply disjoint_union_eq_r.
 Qed.
 
+(* TODO: keep only this version *)
+Lemma disjoint_union_eq_l' : forall h1 h2 h3,
+  \# (h2 \+ h3) h1 =
+  (\# h2 h1 /\ \# h3 h1).
+Proof using.
+  intros. rewrite (disjoint_comm h2). rewrite (disjoint_comm h3).
+  apply disjoint_union_eq_l.
+Qed.
+
 Lemma disjoint_single_single : forall (x1 x2:A) (v1 v2:B),
   x1 <> x2 ->
   \# (single x1 v1) (single x2 v2).

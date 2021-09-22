@@ -546,6 +546,10 @@ Proof using. intros. xunfold Hsingle. applys hsingle_not_null. Qed.
 
 Arguments Hsingle_not_null : clear implicits.
 
+Lemma haffine_Hsingle : forall l A (EA:Enc A) (V:A),
+  haffine (l ~~> V).
+Proof using. intros. rewrite Hsingle_to_hsingle. applys haffine_hsingle. Qed.
+
 (** Field: [ l `. f ~~> V ] describes the ownership of a record field
     storing one encodable value [V]. *)
 
@@ -574,6 +578,10 @@ Lemma Hfield_not_null : forall l f A (EA:Enc A) (V:A),
 Proof using. intros. xunfold Hfield. applys~ hfield_not_null. Qed.
 
 Arguments Hfield_not_null : clear implicits.
+
+Lemma haffine_Hfield : forall l f A (EA:Enc A) (V:A),
+  haffine (l`.f ~~> V).
+Proof using. intros. rewrite Hfield_to_hfield. applys haffine_hfield. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -995,6 +1003,7 @@ Proof using.
   xapply (>> triple_free v). { xsimpl. } { xsimpl* tt. }
 Qed.
 
+(* TODO: later
 Lemma Triple_alloc : forall n,
   n >= 0 ->
   Triple (val_alloc n)
@@ -1021,6 +1030,7 @@ Lemma Triple_dealloc : forall n l,
 Proof using.
   introv M. unfold Triple, Post. xapply~ triple_dealloc. xsimpl. xsimpl* tt.
 Qed.
+*)
 
 End RulesStateOps.
 
