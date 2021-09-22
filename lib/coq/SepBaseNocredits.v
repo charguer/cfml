@@ -15,7 +15,7 @@ License: CC-by 4.0.
 *)
 
 Set Implicit Arguments.
-From CFML Require Export Semantics LibSepFunctor2.
+From CFML Require Export Semantics LibSepFunctor.
 From CFML Require Import LibSepFmap.
 Module Fmap := LibSepFmap.
 Open Scope fmap_scope.
@@ -47,73 +47,121 @@ Declare Scope heap_scope.
 
 Definition heap : Type := (state)%type.
 
-(** Affinity is trivial: for OCaml programs equipped with a GC,
-    all heap predicates are affine. *)
+(** Affinity is trivial *)
 
 Definition heap_affine (h:heap) := True.
 
 (** For uniformity with other instantiations of the Separation Logic
-  functor, we introduce local names for operations and lemmas on heaps. *)
+  functor, we introduce mklocal names for operations and lemmas on heaps. *)
 
 Definition heap_empty : heap := Fmap.empty.
 
-(** Compatibility for union amounts to disjointness *)
-
-Definition heap_compat : heap -> heap -> Prop := @Fmap.disjoint _ _.
-
-(** Union *)
-
-Definition heap_union : heap -> heap -> heap := @Fmap.union _ _.
-
 Declare Scope heap_union_scope.
 
-Notation "h1 \u h2" := (heap_union h1 h2)
+Notation "h1 \u h2" := (Fmap.union h1 h2)
   (at level 37, right associativity) : heap_union_scope.
+  (* --LATER: could try to introduce [heap_union := Fmap.union] *)
 
 Local Open Scope heap_union_scope.
 
-(** Properties *)
+Definition heap_union_empty_l := Fmap.union_empty_l.
 
-Lemma heap_compat_sym : forall h1 h2,
-  heap_compat h1 h2 ->
-  heap_compat h2 h1.
-Proof using. applys Fmap.disjoint_sym. Qed.
+Definition heap_union_empty_r := Fmap.union_empty_r.
 
-Lemma heap_compat_empty_l : forall h,
-  heap_compat heap_empty h.
-Proof using. apply Fmap.disjoint_empty_l. Qed.
+Definition heap_union_comm := Fmap.union_comm_of_disjoint.
 
-Lemma heap_compat_union_l_eq: forall h1 h2 h3,
-  heap_compat h1 h2 ->
-  heap_compat (h1 \u h2) h3 = (heap_compat h1 h3 /\ heap_compat h2 h3).
-Proof using. intros. applys Fmap.disjoint_union_eq_l'. Qed.
+(* ---------------------------------------------------------------------- *)
+(* ** Hprop *)
 
-Lemma heap_union_empty_l : forall h,
-  heap_empty \u h = h.
-Proof using. intros. applys Fmap.union_empty_l. Qed.
+(** A heap predicate, type [hprop] is a predicate over such heaps. *)
 
-Lemma heap_union_comm : forall h1 h2,
-  heap_compat h1 h2 ->
-  h1 \u h2 = h2 \u h1.
-Proof using. intros. applys* Fmap.union_comm_of_disjoint. Qed.
+Definition hprop := heap -> Prop.
 
-Lemma heap_union_assoc : forall h1 h2 h3,
-  heap_compat h1 h2 ->
-  heap_compat h2 h3 ->
-  heap_compat h1 h3 ->
-  (h1 \u h2) \u h3 = h1 \u (h2 \u h3).
-Proof using. intros. apply union_assoc. Qed.
 
-Lemma heap_affine_empty :
-  heap_affine heap_empty.
-Proof using. hnf. auto. Qed.
+(* ---------------------------------------------------------------------- *)
+(* ** Entailment *)
 
-Lemma heap_affine_union : forall h1 h2,
-  heap_affine h1 ->
-  heap_affine h2 ->
-  heap_compat h1 h2 ->
-  heap_affine (h1 \u h2).
-Proof using. hnf. auto. Qed.
+Definition himpl (H1 H2:hprop) : Prop :=
+  forall (h:heap), H1 h -> H2 h.
+
+Notation "H1 ==> H2" := (himpl H1 H2) (at level 55) : heap_scope.
+
+Local Open Scope heap_scope.
+
+Definition qimpl A (Q1 Q2:A->hprop) : Prop :=
+  forall (v:A), Q1 v ==> Q2 v.
+
+Notation "Q1 ===> Q2" := (qimpl Q1 Q2) (at level 55) : heap_scope.
+
+Lemma himpl_refl : forall H,
+  H ==> H.
+Proof using. introv M. auto. Qed.
+
+Lemma himpl_trans : forall H2 H1 H3,
+  (H1 ==> H2) ->
+  (H2 ==> H3) ->
+  (H1 ==> H3).
+Proof using. introv M1 M2. intros h H1h. eauto. Qed.
+
+Lemma himpl_antisym : forall H1 H2,
+  (H1 ==> H2) ->
+  (H2 ==> H1) ->
+  (H1 = H2).
+Proof using. introv M1 M2. applys pred_ext_1. intros h. iff*. Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(** Operators *)
+
+(** Affinity is defined in the standard way *)
+
+Definition haffine (H : hprop) : Prop :=
+  forall h, H h -> heap_affine h.
+
+Lemma haffine_any : forall H,
+  haffine H.
+Proof using. introv M. hnfs*. Qed.
+
+(** Empty heap predicate: [ \[] ] *)
+
+Definition hempty : hprop :=
+  fun h => h = heap_empty.
+
+(** Separating conjunction: [H1 \* H2] *)
+
+Definition hstar (H1 H2 : hprop) : hprop :=
+  fun h => exists h1 h2, H1 h1
+                      /\ H2 h2
+                      /\ (Fmap.disjoint h1 h2)
+                      /\ h = h1 \+ h2.
+
+(** Quantifiers *)
+
+Definition hexists A (J:A->hprop) : hprop :=
+  fun h => exists x, J x h.
+
+Definition hforall (A : Type) (J : A -> hprop) : hprop :=
+  fun h => forall x, J x h.
+
+(** Notation *)
+
+Notation "\[]" := (hempty)
+  (at level 0) : heap_scope.
+
+Notation "H1 '\*' H2" := (hstar H1 H2)
+  (at level 41, right associativity) : heap_scope.
+
+Notation "Q \*+ H" := (fun x => hstar (Q x) H)
+  (at level 40) : heap_scope.
+
+Open Scope heap_scope.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Types *)
+
+Implicit Types H : hprop.
+Implicit Types Q : val->hprop.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -129,37 +177,86 @@ Hint Extern 1 (Fmap.disjoint _ _) => fmap_disjoint_pre.
 
 
 (* ---------------------------------------------------------------------- *)
+(* ** Properties of empty *)
+
+Lemma hempty_intro :
+  \[] heap_empty.
+Proof using. hnfs~. Qed.
+
+Lemma hempty_inv : forall h,
+  \[] h ->
+  h = heap_empty.
+Proof using. auto. Qed.
+
+
+(* ---------------------------------------------------------------------- *)
+(* ** Core properties *)
+
+Section Properties.
+
+Hint Resolve hempty_intro.
+
+Lemma hstar_hempty_l : forall H,
+  hempty \* H = H.
+Proof using.
+  intros. applys pred_ext_1. intros h.
+  iff (h1&h2&M1&M2&D&U) M.
+  { forwards E: hempty_inv M1. subst.
+    rewrite~ heap_union_empty_l. }
+  { exists heap_empty h. unfold heap_empty. auto. }
+Qed.
+
+Lemma hstar_comm : forall H1 H2,
+   H1 \* H2 = H2 \* H1.
+Proof using.
+  intros H1 H2. unfold hprop, hstar. extens. intros h.
+  iff (h1&h2&M1&M2&D&U); rewrite~ heap_union_comm in U; exists* h2 h1.
+Qed.
+
+Lemma hstar_assoc : forall H1 H2 H3,
+  (H1 \* H2) \* H3 = H1 \* (H2 \* H3).
+Proof using.
+  intros H1 H2 H3. applys pred_ext_1. intros h. split.
+  { intros (h'&h3&(h1&h2&M3&M4&D'&U')&M2&D&U). subst h'.
+    exists h1 (h2 \+ h3). splits~. { exists* h2 h3. } }
+  { intros (h1&h'&M1&(h2&h3&M3&M4&D'&U')&D&U). subst h'.
+    exists (h1 \+ h2) h3. splits~. { exists* h1 h2. } }
+Qed.
+
+Lemma hstar_hexists : forall A (J:A->hprop) H,
+  (hexists J) \* H = hexists (fun x => (J x) \* H).
+Proof using.
+  intros. applys pred_ext_1. intros h. iff M.
+  { destruct M as (h1&h2&(x&M1)&M2&D&U). exists~ x h1 h2. }
+  { destruct M as (x&(h1&h2&M1&M2&D&U)). exists h1 h2. splits~. exists~ x. }
+Qed.
+
+Lemma hstar_hforall : forall H A (J:A->hprop),
+  (hforall J) \* H ==> hforall (J \*+ H).
+Proof using.
+  intros. intros h M. destruct M as (h1&h2&M1&M2&D&U). intros x. exists~ h1 h2.
+Qed.
+
+Lemma himpl_frame_l : forall H2 H1 H1',
+  H1 ==> H1' ->
+  (H1 \* H2) ==> (H1' \* H2).
+Proof using. introv W (h1&h2&?). exists* h1 h2. Qed.
+
+Lemma haffine_hempty :
+  haffine \[].
+Proof using. applys haffine_any. Qed.
+
+Lemma haffine_hstar : forall H1 H2,
+  haffine H1 ->
+  haffine H2 ->
+  haffine (H1 \* H2).
+Proof using. intros. applys haffine_any. Qed.
+
+End Properties.
+
+
+(* ---------------------------------------------------------------------- *)
 (* ** Axiomatization of credits *)
-
-Definition hprop := heap -> Prop.
-
-Definition hempty : hprop :=
-  fun h => h = heap_empty.
-
-Local Notation "\[]" := (hempty)
-  (at level 0) : heap_scope.
-
-Definition hstar (H1 H2 : hprop) : hprop :=
-  fun h => exists h1 h2,
-               H1 h1
-            /\ H2 h2
-            /\ heap_compat h1 h2
-            /\ h = heap_union h1 h2.
-
-Local Notation "H1 '\*' H2" := (hstar H1 H2)
-  (at level 41, right associativity) : heap_scope.
-
-Definition haffine (H : hprop) : Prop :=
-  forall h, H h -> heap_affine h.
-
-Definition hexists A (J:A->hprop) : hprop :=
-  fun h => exists x, J x h.
-
-Definition himpl (H1 H2:hprop) : Prop :=
-  forall (h:heap), H1 h -> H2 h.
-
-Local Notation "H1 ==> H2" := (himpl H1 H2) (at level 55) : heap_scope.
-
 
 (** TODO: realize this using the model *)
 
@@ -230,9 +327,30 @@ Implicit Types Q : val->hprop.
 
 Section Aux.
 
-Lemma haffine_any : forall H,
-  haffine H.
-Proof using. intros. rewrite haffine_eq. unfolds* heap_affine. Qed.
+Lemma hpure_inv : forall P h,
+  \[P] h ->
+  P /\ h = heap_empty.
+Proof using.
+  introv M. lets (HP&HE): hpure_inv_hempty M.
+  lets*: hempty_inv HE.
+Qed.
+
+Lemma hpure_intro : forall P,
+  P ->
+  \[P] heap_empty.
+Proof using. introv M. applys~ hpure_intro_hempty. applys hempty_intro. Qed.
+
+Lemma hstar_intro : forall H1 H2 h1 h2,
+  H1 h1 ->
+  H2 h2 ->
+  Fmap.disjoint h1 h2 ->
+  (H1 \* H2) (h1 \u h2).
+Proof using. intros. exists~ h1 h2. Qed.
+
+Lemma hstar_inv : forall H1 H2 h,
+  (H1 \* H2) h ->
+  exists h1 h2, H1 h1 /\ H2 h2 /\ Fmap.disjoint h1 h2 /\ h = h1 \u h2.
+Proof using. introv M. hnf in M. eauto. Qed.
 
 Lemma hgc_intro : forall h,
   \GC h.
@@ -240,9 +358,8 @@ Proof using. intros. applys hgc_of_heap_affine. hnfs*. Qed.
 
 Lemma hgc_eq_htop :
   \GC = \Top.
-Proof using.
-  applys hgc_eq_htop_of_haffine_any. applys haffine_any.
-Qed.
+Proof using. applys hgc_eq_htop_of_haffine_any. applys haffine_any. Qed.
+
 
 (** Derived properties about credits *)
 
@@ -255,8 +372,7 @@ Proof using. intros. math_rewrite (n-m = n+(-m)). rewrite* hcredits_add. Qed.
 
 Lemma hcredits_cancel : forall (n: int),
   \$ n \* \$ (-n) = \[].
-Proof using. intros. skip. Qed.
-(* TODO  rewrite <- hcredits_add, <- hcredits_zero. fequals. math. Qed.*)
+Proof using. intros. rewrite <- hcredits_add, <- hcredits_zero. fequals. math. Qed.
 
 Lemma hcredits_extract : forall m n,
   \$ n = \$ m \* \$ (n-m).
@@ -302,8 +418,8 @@ Proof using.
   exists h heap_empty. splits. (* TODO: splits~ goes into infinite loop *)
   { unfold hsingle. splits~. }
   { applys~ hpure_intro. }
-  { applys heap_compat_empty_r. }
-  { rewrite* heap_union_empty_r. }
+  { unfold heap_empty. auto. }
+  { rew_fmap*. }
 Qed.
 
 
@@ -687,7 +803,7 @@ Proof using.
   sets h1': (Fmap.single l v).
   exists (h1' \u h) (val_loc l). splits~.
   { applys~ eval_ref_sep. }
-  { apply~ hstar_intro. { exists l. skip. (* xsimplh~. *) } }
+  { apply~ hstar_intro. { exists l. xsimplh~. } }
 Qed.
 
 Lemma hoare_get : forall H v l,
@@ -765,7 +881,7 @@ Lemma hoare_unop : forall v H op v1,
 Proof using.
   introv R. intros h Hh. exists h v. splits.
   { applys* eval_unop. }
-  { skip. (* xsimplh~. *) }
+  { xsimplh~. }
 Qed.
 
 Lemma hoare_binop : forall v H op v1 v2,
@@ -776,7 +892,7 @@ Lemma hoare_binop : forall v H op v1 v2,
 Proof using.
   introv R. intros h Hh. exists h v. splits.
   { applys* eval_binop. }
-  { skip. (* xsimplh~. *) }
+  { xsimplh~. }
 Qed.
 
 End HoarePrimitives.
@@ -1450,7 +1566,6 @@ Definition triple' t H Q :=
 
 Section TripleLowLevel.
 
-Hint Extern 1 (heap_compat _ _) => unfolds heap_compat.
 Hint Extern 1 (Fmap.disjoint_3 _ _ _) => fmap_disjoint_pre.
 
 Lemma triple_eq_triple' : triple = triple'.
@@ -1461,11 +1576,10 @@ Proof using.
     forwards~ (h'&v&R1&R2): M (=h2) (h1 \u h2). { apply~ hstar_intro. }
     destruct R2 as (h2'&h1''&N0&N1&N2&N3).
     destruct N0 as (h1'&h3'&T0&T1&T2&T3). subst.
-    exists h1' h1'' v. unfolds heap_compat, heap_union. splits~.
-    { applys_eq~ R1. } }
+    exists h1' h1'' v. splits~. { applys_eq~ R1. } }
   { introv (h1&h2&N1&N2&D&U).
     forwards~ (h1'&h3'&v&R1&R2&R3): M h1 h2.
-    exists (h1' \u h3' \u h2) v. unfolds heap_compat, heap_union. splits~.
+    exists (h1' \u h3' \u h2) v. splits~.
     { applys_eq~ R2. }
     { subst. rewrite hstar_assoc. apply~ hstar_intro.
       rewrite hstar_comm. applys~ hstar_intro. applys hgc_intro. } }
