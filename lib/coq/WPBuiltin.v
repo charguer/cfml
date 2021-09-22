@@ -27,11 +27,9 @@ Definition func : Type := val.
 (********************************************************************)
 (* Polymorphic comparison *)
 
-(* Axiomatization of polymorphic equality *) (* TODO: Move elsewhere *)
+(* Axiomatization of polymorphic equality *)
 
 Axiom polymorphic_eq_arg : forall (A:Type), A -> Prop.
-
-(* TODO: study the link with Comparable typeclass *)
 
 (** Values that support polymorphic comparison *)
 
@@ -100,6 +98,8 @@ Hint Resolve
   polymorphic_eq_arg_tuple_4
   polymorphic_eq_arg_tuple_5
   : polymorphic_eq.
+
+(* LATER: study the link with Comparable typeclass *)
 
 
 (********************************************************************)

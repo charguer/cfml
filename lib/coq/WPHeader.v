@@ -15,7 +15,13 @@ Definition htype (A a:Type) : Type :=
   A -> a -> hprop.
 
 (* ********************************************************************** *)
-(* TEMPORARY *)
+
+(** We hardcode the fact that for every OCaml type translated to an Coq type
+    satisfyies the typeclass Enc. This is essentially equivalent to what
+    the older version CFML was doing, because it was reflecting OCaml polymorphic
+    type variables as Coq polymorphic type variable, without imposing any
+    constraint. This quantification over Type was justified in Section 6.4
+    from Arthur Charguéraud's PhD thesis. *)
 
 Parameter Enc_any : forall A, Enc A.
 

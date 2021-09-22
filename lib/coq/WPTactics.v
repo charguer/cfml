@@ -36,8 +36,10 @@ Open Scope wptactics_scope.
 (************************************************************************ *)
 (** * Internal Tactics *)
 
-(* To be specialized lated, either to "true"
-   or to a term of type "use_credits = false." *)
+(* [xcredits_activated] specifies whether time credits should be counted.
+   It may be either to [constr:(true)], or to [constr:(use_credits_false)]
+   where [use_credits_false] has type [use_credits = false]. *)
+
 Ltac xcredits_activated tt :=
   fail 100 "xcredits_activated needs to be defined".
 
@@ -778,11 +780,13 @@ Tactic Notation "xletrec" constr(R) constr(P) "as" :=
 
 (* [xletrec_skip P] *)
 
-Lemma xlet_fun_cut_skip_lemma : forall f (SpecOf:val->Prop) (Bf G:Prop),
+(* This axiom is useful for CFML users to verify that the specification of a
+   recursive function is correct before having to worry about justifying
+   termination. *)
+Axiom xlet_fun_cut_skip_lemma : forall f (SpecOf:val->Prop) (Bf G:Prop),
   (SpecOf f -> Bf -> SpecOf f) ->
   (SpecOf f -> G) ->
   (Bf -> G).
-Admitted. (* This lemma only for development purposes *)
 
 Ltac xlet_fun_spec_ind_skip_core P cont1 cont2 :=
   xlet_fun_common ltac:(fun f Sf =>
@@ -1958,7 +1962,8 @@ Proof using.
   introv HH HF1 HF2. applys~ xwhile_inv_basic_lemma I (wf_downto 0).
 Qed.
 
-(* for cheaters *)
+(* Axioms for development purpose, allowing the user of CFML to verify that a
+   loop invariant is correct before having to worry about justifying termination. *)
 Axiom xwhile_inv_basic_skip_lemma :
    forall (I:bool->hprop),
    forall (F1:~~bool) (F2:~~unit) H,
@@ -1966,8 +1971,6 @@ Axiom xwhile_inv_basic_skip_lemma :
    (forall b, F1 (I b) (fun b' => I b')) ->
    (F2 (I true) (# Hexists b, I b)) ->
    (While F1 Do F2 Done_) H (# I false).
-
-(* for cheaters *)
 Axiom xwhile_inv_skip_lemma :
   forall (I:bool->hprop),
   forall (F1:~~bool) (F2:~~unit) H,
@@ -2818,13 +2821,11 @@ Tactic Notation "xpay_pre_nosimpl" :=
 Lemma xpay_lemma_post_evar : forall H F1 A (EA:Enc A) (Q1:A->hprop),
   H ==> F1 Q1 ->
   H ==> Wpgen_pay' F1 (Q1 \*+ \$(-1)).
-Proof using. Admitted.
 
 Lemma xpay_lemma_post_cut : forall H F1 A (EA:Enc A) (Q1 Q:A->hprop),
   H ==> F1 Q1 ->
   (Q1 \*+ \$(-1)) ===> Q ->
   H ==> Wpgen_pay' F1 Q.
-Proof using. Admitted.
 *)
 
 
@@ -2877,13 +2878,17 @@ Tactic Notation "xcredits_join" :=
 (* ---------------------------------------------------------------------- *)
 (** ** [xcredits_skip] *)
 
-(** Tactic [xcredits_skip] eliminates credits.
-    To be used when [use_credits = false] is assumed. *)
+(** The tactic [xcredits_skip] eliminates all visible credits.
+    It can be used when [use_credits = false] is assumed.
+    See definition of tactic [xcredits_activated]. *)
 
 Hint Rewrite hcredits_skip : rew_credits_skip.
 
 Ltac xcredits_exploit_use_credits_false tt :=
-  fail.
+  match xcredits_activated with
+  | true => fail 100 "to use xcredits_skip, xcredits_activated must be defined like in WpLib.v"
+  | H => apply H
+  end.
 
 Ltac xcredits_skip_core tt :=
   autorewrite with rew_credits_skip;
@@ -2891,15 +2896,6 @@ Ltac xcredits_skip_core tt :=
 
 Tactic Notation "xcredits_skip" :=
   xcredits_skip_core tt.
-
-(** TODO: assume this in a given development, to remove credits *)
-
-Parameter use_credits_false :
-  use_credits = false.
-
-Ltac xcredits_exploit_use_credits_false tt ::=
-  apply use_credits_false.
-
 
 
 (************************************************************************ *)
@@ -3085,7 +3081,6 @@ Ltac xwp_xtriple_handle_gc tt :=
 
 (* ---------------------------------------------------------------------- *)
 (** ** Tactic [xwp] *)
-(* TODO: will be deprecated *)
 
 Lemma xwp_lemma_funs : forall F vs ts xs t `{EA:Enc A} H (Q:A->hprop),
   F = val_funs xs t ->

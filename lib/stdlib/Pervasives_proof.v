@@ -462,7 +462,7 @@ Hint Extern 1 (RegisterSpec decr) => Provide decr_spec.
 (************************************************************)
 (** Group of References -- TODO: needs hfold_fmap
 
-Axiom ref_spec_group : forall A (M:map loc A) (v:A),
+--- ref_spec_group : forall A (M:map loc A) (v:A),
   SPEC (ref v)
     PRE (Group Ref M)
     POST (fun (r:loc) => Group Ref (M[r:=v]) \* \[r \notindom M]).

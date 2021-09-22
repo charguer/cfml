@@ -5,7 +5,6 @@ From TLC Require Export LibListZ.  (* TODO: needed? *)
 Require Import List_ml.
 Generalizable Variables A.
 
-
 Ltac auto_tilde ::= unfold measure; rew_list in *; try math; auto.
   (* Restored to default at the end of the file *)
 
@@ -132,6 +131,7 @@ Proof using.
     lets: app_cancel_l E'. subst r'. xapp. xsimpl~. }
   { xpull; introv E. rewrites (>> self_eq_app_l_inv E). xsimpl~. }
 Qed. (* TODO: beautify this proof *)
+
 
 (************************************************************)
 (** ListOf *)
