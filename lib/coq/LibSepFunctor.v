@@ -1170,7 +1170,7 @@ Proof using.
     rewrite <- (hcredits_cancel n). rewrite hstar_assoc.
     rewrites (>> hstar_comm H2). rewrite <- hstar_assoc.
     rewrites (>> hstar_comm H1). applys himpl_frame_l M. }
-  { sets H2: (\$(- n) \* H1). applys himpl_hexists_r H2. 
+  { sets H2: (\$(- n) \* H1). applys himpl_hexists_r H2.
     rewrites (hstar_comm H2). applys* himpl_hstar_hpure_r.
     subst H2. rewrite <- hstar_assoc. rewrite hcredits_cancel.
     rewrite* hstar_hempty_l. }
@@ -2626,7 +2626,7 @@ Open Scope heap_scope.
 Definition use_credits : bool :=
   false.
 
-Notation "'credits'" := Z.
+Local Notation "'credits'" := Z.
 
 Definition heap_credits (n:credits) : heap :=
   heap_empty.

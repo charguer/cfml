@@ -38,15 +38,6 @@ Fixpoint Array A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
   end.
 (* TODO: avoid name clash with the non-lifted version *)
 
-Lemma haffine_Array : forall A `{EA:Enc A} p (L: list A),
-  haffine (p ~> Array L).
-Proof using. intros. applys haffine_any. Qed.
-
-Hint Resolve haffine_Array : haffine.
-
-
-(* TODO LATER
-
 Section ArrayProp.
 Context A `{EA:Enc A}.
 Implicit Types L : list A.
@@ -59,6 +50,26 @@ Proof using. auto. Qed.
 Lemma Array_cons_eq : forall p x L,
   p ~> Array (x::L) = (p ~~> x) \* (S p) ~> Array L.
 Proof using. auto. Qed.
+
+End ArrayProp.
+
+(** Affinity *)
+
+Lemma haffine_Array : forall A `{EA:Enc A} p (L: list A),
+  haffine (p ~> Array L).
+Proof using.
+  intros. gen p. induction L; intros.
+  { rewrite Array_nil_eq. xaffine. }
+  { rewrite Array_cons_eq.
+    apply haffine_hstar. { applys haffine_Hsingle. } { applys IHL. } }
+Qed.
+
+Hint Resolve haffine_Array : haffine.
+
+
+(* TODO LATER
+
+
 
 (* TODO ??
 Lemma Array_eq_array : forall L p,
