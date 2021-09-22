@@ -52,12 +52,31 @@ Proof using. introv H. xchanges (>> heapdata x x X1 X2). Qed.
 
 (* ********************************************************************** *)
 
-(** We hardcode the fact that for every OCaml type translated to an Coq type
-    satisfyies the typeclass Enc. This is essentially equivalent to what
-    the older version CFML was doing, because it was reflecting OCaml polymorphic
-    type variables as Coq polymorphic type variable, without imposing any
-    constraint. This quantification over Type was justified in Section 6.4
-    from Arthur Charguéraud's PhD thesis. *)
+(** CFML generates characteristic formulae, which are axioms that corresponds
+    to the WP of the soure code. In the future, the plan is to have CFML also
+    generate the corresponding code in the deep embedding (Semantics.v) and
+    generate proofs that the characteristic formulae are correct, i.e. that
+    they are derivable from the WPs that are generated inside Coq by the
+    wpgen function from WPLifted.v.
+
+    CFML translates every OCaml type into a corresponding Coq type. To
+    translate OCaml type variables, CFML uses Coq type variables, however
+    it contraints them to satisfy the [Enc] typeclass. Doing so is necessary
+    to allow, eventually, proving the characteristic formulae correct.
+
+    For the set up to work smoothly, all types manipulated by CFML need to be
+    "encodable", i.e. to satisfy the typeclass [Enc], which captures the fact
+    that a type corresponds to data that can be encoded into the deep embedding.
+    In the future, we will generate for every OCaml type a concrete encoding
+    function, giving evidence that the types introduced all satisfy the typeclass
+    [Enc]. In the meantime, we simply take an axiom asserting that all types
+    are encodable, as we do not yet have all the tooling set up for generating
+    all the necessary definitions and proofs.
+
+    Assuming all types to be encodable is somewhat similar to what the older
+    version of CFML was doing: it was not constraining the type variables at
+    all. Reflecting OCaml type variables by unconstrained Coq variables was
+    carefully justified in Section 6.4 from Arthur Charguéraud's PhD thesis. *)
 
 Parameter Enc_any : forall A, Enc A.
 
