@@ -85,6 +85,7 @@ Inductive val : Type :=
   | val_prim : prim -> val
   | val_fixs : bind -> list var -> trm -> val
   | val_constr : idconstr -> list val -> val
+  | val_header : nat -> val
 
 with trm : Type :=
   | trm_val : val -> trm
@@ -1616,7 +1617,3 @@ Open Scope trm_scope.
 (* ---------------------------------------------------------------------- *)
 
 End NotationForTerms.
-
-
-
-

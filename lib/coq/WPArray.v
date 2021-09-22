@@ -31,15 +31,36 @@ Implicit Types n : int.
 (* ---------------------------------------------------------------------- *)
 (** Representation *)
 
-Fixpoint Array A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
+Fixpoint Cells A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
   match L with
   | nil => \[]
-  | x::L' => (p ~~> x) \* (Array L' (S p))
+  | x::L' => (p ~~> x) \* (Cells L' (S p))
   end.
+
+Definition Array A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
+  hheader (length L) p \* Cells L (p+1)%nat.
 (* TODO: avoid name clash with the non-lifted version *)
 
-Axiom Heapdata_Array : forall (A:Type) (EA:Enc A),
-  Heapdata (Array (A:=A)).
+(* TODO: move *)
+Global Instance Heapdata_hheader :
+  Heapdata hheader.
+Proof.
+  constructor. intros x y X Y.
+  tests : (x=y).
+  { unfold hheader. repeat rewrite repr_eq.
+    xchange* hstar_hsingle_same_loc. }
+  { xsimpl*. }
+Qed.
+
+Lemma Heapdata_Array : forall (A:Type) (EA:Enc A),
+    Heapdata (Array (A:=A)).
+Proof.
+  constructor. intros x y X Y.
+  unfold Array. repeat rewrite repr_eq.
+  rewrite <- (repr_eq (hheader (length X)) x).
+  rewrite <- (repr_eq (hheader (length Y)) y).
+  xchanges* Heapdata_hheader.
+Qed.
 
 Lemma haffine_Array : forall A `{EA:Enc A} p (L: list A),
   haffine (p ~> Array L).
