@@ -1171,3 +1171,7 @@ Lemma Triple_gt : forall n1 n2,
     (fun b => \[b = isTrue (n1 > n2)]).
 Proof using. intros. unfold Triple, Post. xapplys* triple_gt. Qed.
 
+
+
+
+

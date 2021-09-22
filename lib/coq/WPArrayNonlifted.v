@@ -86,6 +86,7 @@ Qed.
 (* ---------------------------------------------------------------------- *)
 (** array allocation *)
 
+(* TODO: later
 Lemma array_of_Alloc : forall k l,
   Alloc k l ==>
   \exists (L : list val), \[length L = k] \* array L l.
@@ -105,7 +106,6 @@ Lemma triple_alloc_array : forall n,
     (fun r => \exists (p:loc) (L:list val), \[r = val_loc p] \*
               \[length L = n :> int] \* array L p).
 Proof using.
-(*
   introv N. xapp. math.
   intros r. xpull ;=> l (E&Nl). subst r.
   xchange array_of_Alloc. xpull ;=> L HL.
@@ -113,7 +113,7 @@ Proof using.
 Qed.
 TODO
 *)
-Admitted.
+
 
 
 Global Opaque array.

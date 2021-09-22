@@ -1319,23 +1319,22 @@ Lemma xsimpl_lr_cancel_htop : forall H Nc Hla Hlw Hlt Hra Hrg Hrt,
   Xsimpl (Nc, Hla, Hlw, Hlt) (Hra, (\Top \* Hrg), Hrt) ->
   Xsimpl (Nc, (H \* Hla), Hlw, Hlt) (Hra, (\Top \* Hrg), Hrt).
 Proof using.
-  xsimpl_lr_start M. rewrite (hstar_comm_assoc Hra) in *.
-  rewrite <- hstar_assoc in M. rewrite hstar_comm_assoc.
-  rewrite <- (hstar_assoc (\$Nc)).
- lets: himpl_frame_lr M.  (* applys himpl_htop_r. *)
-Admitted. (* TODO  Qed. *)
+  xsimpl_lr_start M. rewrite <- hstar_assoc. rewrite (hstar_comm (\$Nc)).
+  rewrite hstar_assoc. rewrite <- (hstar_assoc Hra). rewrite (hstar_comm Hra).
+  rewrite <- hstar_htop_htop. rew_heap. applys~ himpl_frame_lr.
+  applys himpl_htop_r. rewrite <- (hstar_assoc \Top).
+  rewrite (hstar_comm \Top). rew_heap*.
+Qed. (* LATER: simplify *)
 
 Lemma xsimpl_lr_cancel_hgc : forall Nc Hla Hlw Hlt Hra Hrg Hrt,
   Xsimpl (Nc, Hla, Hlw, Hlt) (Hra, (\GC \* Hrg), Hrt) ->
   Xsimpl (Nc, (\GC \* Hla), Hlw, Hlt) (Hra, (\GC \* Hrg), Hrt).
 Proof using.
-(*
-  xsimpl_lr_start M. rewrite (hstar_comm_assoc Hra).
-  rewrite <- hstar_hgc_hgc at 2. rew_heap.
-  applys~ himpl_frame_lr. applys himpl_trans M. hstars_simpl.
-Qed.
-*)
-Admitted.
+  xsimpl_lr_start M. rewrite <- hstar_assoc. rewrite (hstar_comm (\$Nc)).
+  rewrite hstar_assoc. rewrite <- (hstar_assoc Hra). rewrite (hstar_comm Hra).
+  rewrite <- hstar_hgc_hgc at 2. rew_heap. applys~ himpl_frame_lr.
+  rewrite <- (hstar_assoc \GC). rewrite (hstar_comm \GC). rewrite* hstar_assoc.
+Qed. (* LATER: simplify *)
 
 (* NOT NEEDED? *)
 Lemma xsimpl_lr_cancel_eq : forall H1 H2 Nc Hla Hlw Hlt Hra Hrg Hrt,
