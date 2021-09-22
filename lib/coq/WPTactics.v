@@ -2887,7 +2887,7 @@ Hint Rewrite hcredits_skip : rew_credits_skip.
 Ltac xcredits_exploit_use_credits_false tt :=
   match xcredits_activated with
   | true => fail 100 "to use xcredits_skip, xcredits_activated must be defined like in WpLib.v"
-  | H => apply H
+  | ?H => apply H
   end.
 
 Ltac xcredits_skip_core tt :=
