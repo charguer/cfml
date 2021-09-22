@@ -17,8 +17,24 @@ From TLC Require Import LibSet LibMap.
     map [M]. *)
 
 Definition Group a A (G:htype A a) (M:map a A) : hprop :=
-     (fold sep_monoid (fun x X => x ~> G X) M)
-  \* \[LibMap.finite M].
+  (fold sep_monoid (fun x X => x ~> G X) M)
+    \* \[LibMap.finite M].
+
+Definition haffine_repr a A (G:htype A a) :=
+  forall x X, haffine (x ~> G X).
+
+Lemma haffine_Group : forall a A (IA:Inhab A) (G:htype A a) (M:map a A),
+  haffine_repr G ->
+  haffine (Group G M).
+Proof using.
+  introv IA HG. unfold Group. rewrite hstar_comm.
+  applys haffine_hstar_hpure_l. intros HF.
+  applys* LibMap.fold_induction.
+  { apply Comm_monoid_sep. }
+  all:simpl; intros; xaffine.
+Qed.
+
+Hint Resolve haffine_Group : haffine.
 
 Section GroupOps.
 Hint Resolve Monoid_sep Comm_monoid_sep.
@@ -175,6 +191,7 @@ Proof.
 Qed.
 
 Lemma Group_gc : forall a A `{Inhab A} (R:htype A a) (M1 M2:map a A),
+  haffine_repr R ->
   M1 \c M2 ->
   Group R M2 ==> Group R M1 \* \GC.
 Proof.

@@ -972,6 +972,14 @@ Proof using.
   destruct Hh as [M N]. applys* M.
 Qed.
 
+Transparent haffine.
+Lemma haffine_hstar_hpure_l : forall (P:Prop) H,
+  (P -> haffine H) ->
+  haffine (\[P] \* H).
+Proof using.
+  introv M. intros h N. rewrite hstar_hpure_l in N. applys* M.
+Qed.
+
 
 (* ---------------------------------------------------------------------- *)
 (** Properties of hgc *)
@@ -1777,7 +1785,7 @@ Lemma local_hwand_hpure_l : forall F (P:Prop) H Q,
   F (\[P] \-* H) Q.
 Proof using.
   introv L HP M. applys~ local_elim_conseq_pre.
-  xchanges~ hwand_hpure_l. 
+  xchanges~ hwand_hpure_l.
 Qed.
 
 End IsLocal.
