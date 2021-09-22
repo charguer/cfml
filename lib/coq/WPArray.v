@@ -39,7 +39,6 @@ Fixpoint Cells A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
 
 Definition Array A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
   hheader (length L) p \* Cells L (p+1)%nat.
-(* TODO: avoid name clash with the non-lifted version *)
 
 Lemma Heapdata_Array : forall (A:Type) (EA:Enc A),
     Heapdata (Array (A:=A)).
@@ -52,6 +51,7 @@ Proof.
 Qed.
 
 (* TODO: not true with headers
+         avoid name clash with the non-lifted version
 Section ArrayProp.
 Context A `{EA:Enc A}.
 Implicit Types L : list A.
