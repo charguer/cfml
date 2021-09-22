@@ -626,6 +626,7 @@ Hint Resolve local_Triple.
 (* ---------------------------------------------------------------------- *)
 (* ** Predicate [Trm_apps] *)
 
+(*
 Fixpoint Trm_apps_aux (f:trm) (Vs:dyns) : trm :=
   match Vs with
   | nil => f
@@ -634,6 +635,10 @@ Fixpoint Trm_apps_aux (f:trm) (Vs:dyns) : trm :=
 
 Definition Trm_apps (f:val) (Vs:dyns) : trm :=
   Trm_apps_aux (trm_val f) Vs.
+*)
+
+Definition Trm_apps (f:val) (Vs:dyns) : trm :=
+  trm_apps (trm_val f) (LibList.map (fun V => trm_val (dyn_to_val V)) Vs).
 
 
 (* ---------------------------------------------------------------------- *)
