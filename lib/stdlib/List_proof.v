@@ -66,11 +66,12 @@ Lemma append_spec : forall A `{EA:Enc A} (l1 l2:list A),
   SPEC (append l1 l2)
     PRE \[]
     POST \[= (@TLC.LibList.app _) l1 l2].
-Proof using.  xcf. (* TODO fix display for body here *)
-Admitted. (*
-  xcf. xfun_ind (@list_sub A) (fun f => forall (r:list A),
-    app f [r] \[] \[= r ++ l2]); xgo*.
-Qed. *)
+Proof using.
+  xcf. xlet.
+  asserts ? : (forall l, SPEC (aux l) PRE \[] POST \[=(@TLC.LibList.app _) l l2]).
+  { induction l; xapp Spec_aux; xgo*. }
+  xgo*.
+Qed.
 
 Hint Extern 1 (RegisterSpec append) => Provide append_spec.
 
