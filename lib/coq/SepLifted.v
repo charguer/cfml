@@ -558,7 +558,7 @@ Notation "l `. f '~~>' V" := ((l,f) ~> Hfield V)
    format "l `. f  '~~>'  V") : heap_scope.
 
 Lemma Hfield_eq_fun_Hsingle :
-  @Hfield = (fun A (EA:Enc A) (V:A) l_f => let '(l,f) := l_f in ((l+f)%nat ~~> V) \* \[l <> null]).
+  @Hfield = (fun A (EA:Enc A) (V:A) l_f => let '(l,f) := l_f in ((S l+f)%nat ~~> V) \* \[l <> null]).
 Proof using. intros. auto. Qed.
 
 Lemma Hfield_to_hfield : forall A (EA:Enc A) (l:loc) (f:field) (V:A),
@@ -566,7 +566,7 @@ Lemma Hfield_to_hfield : forall A (EA:Enc A) (l:loc) (f:field) (V:A),
 Proof using. auto. Qed.
 
 Lemma Hfield_to_Hsingle : forall l f v,
-  (l`.f ~~> v) ==> ((l+f)%nat ~~> v) \* \[l <> null].
+  (l`.f ~~> v) ==> ((S l+f)%nat ~~> v) \* \[l <> null].
 Proof using. intros. xunfold Hfield. xchanges~ hfield_to_hsingle. Qed.
 
 Lemma Hfield_not_null : forall l f A (EA:Enc A) (V:A),
@@ -1160,4 +1160,3 @@ Lemma Triple_gt : forall n1 n2,
     \[]
     (fun b => \[b = isTrue (n1 > n2)]).
 Proof using. intros. unfold Triple, Post. xapplys* triple_gt. Qed.
-

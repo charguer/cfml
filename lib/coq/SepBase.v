@@ -435,7 +435,7 @@ Definition hheader (k:nat) (p:loc) : hprop :=
   written [l `. f ~> v]. *)
 
 Definition hfield (l:loc) (k:field) (v:val) : hprop :=
-  (l+k)%nat ~~~> v \* \[ l <> null ].
+  (S l+k)%nat ~~~> v \* \[ l <> null ].
 
 Notation "l `. k '~~~>' v" := (hfield l k v)
   (at level 32, k at level 0, no associativity,
@@ -459,16 +459,16 @@ Qed.
 Arguments hfield_not_null : clear implicits.
 
 Lemma hfield_eq_fun_hsingle :
-  hfield = (fun l k v => ((l+k)%nat ~~~> v) \* \[l <> null]).
+  hfield = (fun l k v => ((S l+k)%nat ~~~> v) \* \[l <> null]).
 Proof using. intros. auto. Qed.
 
 Lemma hfield_to_hsingle : forall l k v,
-  (l`.k ~~~> v) ==> ((l+k)%nat ~~~> v) \* \[l <> null].
+  (l`.k ~~~> v) ==> ((S l+k)%nat ~~~> v) \* \[l <> null].
 Proof using. intros. auto. Qed.
 
 Lemma hsingle_to_hfield : forall l k v,
   l <> null ->
-  ((l+k)%nat ~~~> v) ==> l`.k ~~~> v.
+  ((S l+k)%nat ~~~> v) ==> l`.k ~~~> v.
 Proof using. intros. unfold hfield. xsimpl~. Qed.
 
 Arguments hsingle_to_hfield : clear implicits.

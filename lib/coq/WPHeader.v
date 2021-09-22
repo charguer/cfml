@@ -27,6 +27,16 @@ Class Heapdata a A (R:htype A a) := {
     x ~> R X \* y ~> R Y ==>
     x ~> R X \* y ~> R Y \* \[x <> y] }.
 
+Global Instance Heapdata_hheader :
+  Heapdata hheader.
+Proof.
+  constructor. intros x y X Y.
+  tests : (x=y).
+  { unfold hheader. repeat rewrite repr_eq.
+    xchange* hstar_hsingle_same_loc. }
+  { xsimpl*. }
+Qed.
+
 Lemma Heapdata_intro : forall a A (R:htype A a),
   (forall x X1 X2, x ~> R X1 \* x ~> R X2 ==> \[False]) ->
   Heapdata R.

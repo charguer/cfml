@@ -165,14 +165,34 @@ Bind Scope fields_scope with Record_fields.
 
 Fixpoint Record (L:Record_fields) (r:loc) : hprop :=
   match L with
-  | nil => \[]
+  | nil => hheader 0 r
   | (f, Dyn V)::L' => (r`.f ~~> V) \* (r ~> Record L')
   end.
 
-Axiom Heapdata_record : forall (r:loc) (L1 L2:Record_fields),
-  (*  (exists x, (LibList.mem x L1 /\ LibList.mem x L2)) -> *)
-  LibList.map (fun '(x,y) => x) L1 = LibList.map (fun '(x,y) => x) L2 ->
+Fixpoint RecordNoHeader (L:Record_fields) (r:loc) : hprop :=
+  match L with
+  | nil => \[]
+  | (f, Dyn V)::L' => (r`.f ~~> V) \* (r ~> RecordNoHeader L')
+  end.
+
+Lemma Record_extract_header : forall (r:loc) (L:Record_fields),
+  r ~> Record L = hheader 0 r \* r ~> RecordNoHeader L.
+Proof.
+  induction L as [|a L].
+  { xsimpl*. }
+  { destruct a; xunfold Record. xunfold RecordNoHeader.
+    destruct d. rewrite IHL.
+    xsimpl*. }
+Qed.
+
+Lemma Heapdata_record : forall (r:loc) (L1 L2:Record_fields),
   r ~> Record L1 \* r ~> Record L2 ==> \[False].
+Proof.
+  intros.
+  do 2 xchange Record_extract_header.
+  rewrite <- (repr_eq (hheader 0) r).
+  xchange Heapdata_hheader.
+Qed.
 
 (* --TODO: currently restricted due to [r `. f ~> V] not ensuring [r<>null] *)
 (* --TODO: rename *)
@@ -191,7 +211,7 @@ Qed.
 (** Lemmas for unfolding the definition *)
 
 Lemma Record_nil : forall p,
-  p ~> Record nil = \[].
+  p ~> Record nil = hheader 0 p.
 Proof using. auto. Qed.
 
 Lemma Record_cons : forall p x (V:dyn) L,
@@ -247,16 +267,16 @@ Transparent loc field Hfield.
 
 (* --TODO move *)
 Lemma Hfield_eq_fun_Hsingle_ext : forall A `{EA:Enc A} (V:A) (l:loc) (f:field),
-  (l`.f ~~> V) = (((l+f)%nat ~~> V) \* \[l <> null]).
+  (l`.f ~~> V) = (((S l+f)%nat ~~> V) \* \[l <> null]).
 Proof using. intros. rewrite Hfield_eq_fun_Hsingle. rewrite~ repr_eq. Qed.
 
 Lemma Hfield_to_Hsingle : forall (l:loc) (f:field) `{EA:Enc A} (V:A),
-  (l`.f ~~> V) ==> ((l+f)%nat ~~> V) \* \[l <> null].
+  (l`.f ~~> V) ==> ((S l+f)%nat ~~> V) \* \[l <> null].
 Proof using. intros. rewrite~ Hfield_eq_fun_Hsingle_ext. Qed.
 
 Lemma Hsingle_to_Hfield : forall (l:loc) (f:field) `{EA:Enc A} (V:A),
   l <> null ->
-  ((l+f)%nat ~~> V) ==> (l`.f ~~> V).
+  ((S l+f)%nat ~~> V) ==> (l`.f ~~> V).
 Proof using. introv N. rewrite Hfield_eq_fun_Hsingle_ext. xsimpl~. Qed.
 
 (* LATER: eliminate use of notypeclasses refine in coq v8.12 *)
@@ -779,14 +799,14 @@ Fixpoint xapp_to_delete_fields (p:loc) (ks:fields) :=
 
 Lemma xapp_to_delete_fields_of_consecutive_fields_exec : forall ks koffset p,
   consecutive_fields_exec koffset ks = true ->
-  xapp_to_delete_fields p ks ==> Dealloc (List.length ks) (p+koffset)%nat.
+  xapp_to_delete_fields p ks ==> Dealloc (List.length ks) (S p+koffset)%nat.
 Proof using.
   intros ks. induction ks as [|k ks']; simpl; introv M.
   { rewrite Dealloc_zero_eq. (* --TODO: rename *) xsimpl. }
   { case_if. subst k. rewrite Dealloc_succ_eq. xpull ;=> A EA V.
     rewrite Hfield_to_hfield. xchange hfield_to_hsingle ;=> N.
     xsimpl (``V). xchange (>> IHks' M).
-    math_rewrite ((p + S koffset)%nat = S (p + koffset)%nat). xsimpl. }
+    math_rewrite ((S p + S koffset)%nat = S (S (p + koffset))%nat). xsimpl. }
 Qed.
 
 Lemma xapp_record_delete_exploded : forall (Q:unit->hprop) (H:hprop) (ks:fields) (p:loc),

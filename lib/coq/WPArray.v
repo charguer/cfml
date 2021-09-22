@@ -41,17 +41,6 @@ Definition Array A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
   hheader (length L) p \* Cells L (p+1)%nat.
 (* TODO: avoid name clash with the non-lifted version *)
 
-(* TODO: move *)
-Global Instance Heapdata_hheader :
-  Heapdata hheader.
-Proof.
-  constructor. intros x y X Y.
-  tests : (x=y).
-  { unfold hheader. repeat rewrite repr_eq.
-    xchange* hstar_hsingle_same_loc. }
-  { xsimpl*. }
-Qed.
-
 Lemma Heapdata_Array : forall (A:Type) (EA:Enc A),
     Heapdata (Array (A:=A)).
 Proof.
