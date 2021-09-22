@@ -149,6 +149,9 @@ Notation "'credits'" := Z.
 
 Parameter heap_credits : credits -> heap.
 
+Parameter heap_compat_credits : forall n m,
+  heap_compat (heap_credits n) (heap_credits m).
+
 Parameter heap_credits_skip :
   use_credits = false ->
   forall n, heap_credits n = heap_empty.
@@ -1122,12 +1125,8 @@ Qed.
 Lemma hcredits_zero :
   \$ 0 = \[].
 Proof using.
-  applys fun_ext_1. intros h. unfold hcredits.
-  rewrite* heap_credits_zero.
+  applys fun_ext_1. intros h. unfold hcredits. rewrite* heap_credits_zero.
 Qed.
-
-Axiom heap_compat_credits : forall n m,
-  heap_compat (heap_credits n) (heap_credits m).
 
 Lemma hcredits_add : forall n m,
   \$ (n+m) = \$ n \* \$ m.
@@ -1144,9 +1143,7 @@ Qed.
 Lemma haffine_hcredits : forall n,
   n >= 0 ->
   haffine (\$ n).
-Proof using.
-  introv H. unfold haffine. introv ->. apply* heap_credits_affine.
-Qed.
+Proof using. introv H. unfold haffine. introv ->. apply* heap_credits_affine. Qed.
 
 Lemma hcredits_sub : forall (n m : int),
   \$(n-m) = \$ n \* \$ (-m).
@@ -1154,8 +1151,7 @@ Proof using. intros. math_rewrite (n-m = n+(-m)). rewrite* hcredits_add. Qed.
 
 Lemma hcredits_cancel : forall (n: int),
   \$ n \* \$ (-n) = \[].
-Proof using. intros. skip. Qed.
-(* TODO  rewrite <- hcredits_add, <- hcredits_zero. fequals. math. Qed.*)
+Proof using. intros. rewrite <- hcredits_add. applys_eq hcredits_zero. fequals. math. Qed.
 
 Lemma hcredits_extract : forall m n,
   \$ n = \$ m \* \$ (n-m).
@@ -1170,7 +1166,7 @@ Proof using.
     rewrite <- (hcredits_cancel n). rewrite hstar_assoc.
     rewrites (>> hstar_comm H2). rewrite <- hstar_assoc.
     rewrites (>> hstar_comm H1). applys himpl_frame_l M. }
-  { sets H2: (\$(- n) \* H1). applys himpl_hexists_r H2.
+  { sets H2: (\$(- n) \* H1). applys himpl_hexists_r H2. 
     rewrites (hstar_comm H2). applys* himpl_hstar_hpure_r.
     subst H2. rewrite <- hstar_assoc. rewrite hcredits_cancel.
     rewrite* hstar_hempty_l. }
@@ -2626,7 +2622,7 @@ Open Scope heap_scope.
 Definition use_credits : bool :=
   false.
 
-Local Notation "'credits'" := Z.
+Notation "'credits'" := Z.
 
 Definition heap_credits (n:credits) : heap :=
   heap_empty.

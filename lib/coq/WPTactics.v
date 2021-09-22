@@ -1512,11 +1512,9 @@ Proof.
   applys Structural_hgc.
   { xstructural. }
   { applys* xassert_lemma.
-    rew_heap*.
-    xsimpl*. skip. (* TODO math. *) }
+    { rew_heap*. }
+    { xsimpl. math. } }
 Qed.
-
-(* TODO apprendre à xsimpl à résoudre x-?n >= 0 *)
 
 Ltac xassert_base_lemma tt :=
   first [ eapply xassert_lemma_inst
@@ -2791,11 +2789,7 @@ Proof using.
   applys Structural_frame H1 (\$1). { applys Structural_MkStruct. } { xsimpl. }
   applys MkStruct_erase. xchange M2.
   applys_eq himpl_refl. fequals.
-  (* TODO: xsimpl could handle this. *)
-  applys fun_ext_1. intros x. skip. (* TODO xsimpl. *)
-  (* TODO: details:
-  rewrite hwand_hcredits_l. rewrite hstar_assoc.
-  rewrite hcredits_cancel. rew_heap*. *)
+  applys fun_ext_1. xsimpl.
 Qed.
 
 Ltac xpay_post tt :=

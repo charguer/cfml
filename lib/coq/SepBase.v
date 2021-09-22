@@ -142,6 +142,10 @@ Definition use_credits := true.
 Definition heap_credits (n:credits) : heap :=
   (Fmap.empty, n).
 
+Lemma heap_compat_credits : forall n m,
+  heap_compat (heap_credits n) (heap_credits m).
+Proof using. intros. simpl. applys Fmap.disjoint_empty_l. Qed.
+
 Lemma heap_credits_skip :
   use_credits = false ->
   forall n, heap_credits n = heap_empty.
@@ -683,7 +687,8 @@ Proof using.
   sets h1': (heap_of_state (Fmap.single l v)).
   exists (h1' \u h) (val_loc l). splits~.
   { rewrite heap_state_union. applys~ eval_ref_sep. }
-  { apply~ hstar_intro. { exists l. skip. (* xsimplh~. *) }
+  { apply~ hstar_intro. { exists l. (* was: xsimplh~. *)
+    subst h1'. unfold heap_of_state. rewrite hstar_hpure_l. split*. }
   { subst h1'. destruct h as (s,n). simpls*. } }
 Qed.
 
@@ -707,9 +712,10 @@ Proof using.
   forwards~ Hh1': hsingle_intro l w.
   sets h1': (heap_of_state (Fmap.single l w)).
   exists (h1' \u h2) val_unit. splits~.
-  { subst h s1. repeat rewrite heap_state_union.
-   skip. (* TODO* applys eval_set_sep; eauto. *) }
-  { rewrite hstar_hpure. split~. apply hstar_intro. (* TODO: loop *)
+  { subst h s1. repeat rewrite heap_state_union. subst h1'.
+    unfold heap_of_state, heap_state. destruct h2 as (s2,n2).
+    applys eval_set_sep; eauto. }
+  { rewrite hstar_hpure. split~. applys hstar_intro.
     { auto. }
     { auto. }
     { subst h1'. destruct h2 as (s2,n2). simpl. applys~ Fmap.disjoint_single_set v. } }
@@ -723,7 +729,8 @@ Proof using.
   intros. intros h Hh. destruct Hh as (h1&h2&N1&N2&N3&N4).
   lets (E1&X1): hsingle_inv N1.
   exists h2 val_unit. split.
-  { subst h1. subst h. rewrite heap_state_union. skip. (* TODO: applys* eval_free_sep. *) }
+  { subst h1. subst h. rewrite heap_state_union.
+    unfold heap_state. destruct h2 as (s2,n2). applys* eval_free_sep. }
   { rewrite* hstar_hpure. }
 Qed.
 
@@ -765,7 +772,7 @@ Lemma hoare_unop : forall v H op v1,
 Proof using.
   introv R. intros h Hh. exists h v. splits.
   { applys* eval_unop. }
-  { skip. (* xsimplh~. *) }
+  { rewrite* hstar_hpure_l. }
 Qed.
 
 Lemma hoare_binop : forall v H op v1 v2,
@@ -776,7 +783,7 @@ Lemma hoare_binop : forall v H op v1 v2,
 Proof using.
   introv R. intros h Hh. exists h v. splits.
   { applys* eval_binop. }
-  { skip. (* xsimplh~. *) }
+  { rewrite* hstar_hpure_l. }
 Qed.
 
 End HoarePrimitives.
@@ -859,14 +866,6 @@ Lemma triple_ramified_frame_hgc : forall H1 Q1 t H Q,
   triple t H Q.
 Proof using. intros. applys* local_ramified_frame_hgc. Qed.
 
-(*
-Lemma triple_ramified_frame_htop : forall H1 Q1 t H Q,
-  triple t H1 Q1 ->
-  H ==> H1 \* (Q1 \--* (Q \*+ \Top)) ->
-  triple t H Q.
-Proof using. introv M1 W. rewrite <- hgc_eq_htop in W. applys* triple_ramified_frame_hgc. Qed.
-*)
-
 Lemma triple_hgc_pre : forall t H Q,
   triple t H Q ->
   triple t (H \* \GC) Q.
@@ -876,35 +875,6 @@ Lemma triple_hgc_post : forall t H Q,
   triple t H (Q \*+ \GC) ->
   triple t H Q.
 Proof using. intros. applys* local_hgc_post. Qed.
-
-(*
-Lemma triple_htop_pre : forall t H Q,
-  triple t H Q ->
-  triple t (H \* \Top) Q.
-Proof using. introv M. rewrite <- hgc_eq_htop. applys* triple_hgc_pre. Qed.
-
-Lemma triple_htop_post : forall t H Q,
-  triple t H (Q \*+ \Top) ->
-  triple t H Q.
-Proof using. introv M. rewrite <- hgc_eq_htop in M. applys* triple_hgc_post. Qed.
-
-Lemma triple_hany_pre : forall t H H' Q,
-  triple t H Q ->
-  triple t (H \* H') Q.
-Proof using.
-  introv M. applys triple_conseq.
-  { applys* triple_htop_pre. }
-  { xsimpl. } { xsimpl. }
-Qed.
-
-Lemma triple_hany_post : forall t H H' Q,
-  triple t H (Q \*+ H') ->
-  triple t H Q.
-Proof using.
-  introv M. applys triple_htop_post.
-  applys triple_conseq M; xsimpl.
-Qed.
-*)
 
 Lemma triple_hexists : forall t (A:Type) (J:A->hprop) Q,
   (forall x, triple t (J x) Q) ->
