@@ -228,7 +228,7 @@ Proof using. intros. subst~. Qed.
 
 Ltac xrecord_eq_core tt :=
   repeat (apply eq_Record_fields); try reflexivity.
-
+  
 Tactic Notation "xrecord_eq" :=
   xrecord_eq_core tt.
 
@@ -263,64 +263,77 @@ Lemma Hsingle_to_Hfield : forall (l:loc) (f:field) `{EA:Enc A} (V:A),
   ((l+f)%nat ~~> V) ==> (l`.f ~~> V).
 Proof using. introv N. rewrite Hfield_eq_fun_Hsingle_ext. xsimpl~. Qed.
 
-(* LATER: eliminate use of notypeclasses refine in coq v8.12 *)
+(* TODO: move *)
+Lemma xlet_lemma : forall A1 (EA1:Enc A1) (Q1:A1->hprop) H A (EA:Enc A) (Q:A->hprop) ,
+  forall (F1:Formula) (F2of:forall A1 (EA1:Enc A1), A1->Formula),
+  Structural F1 ->
+  H ==> F1 A1 EA1 Q1 ->
+  (forall (X:A1), Q1 X ==> ^(@F2of A1 EA1 X) Q) ->
+  H ==> ^(@Wpgen_let F1 F2of) Q.
+Proof using.
+  introv HF1 M1 M2. applys MkStruct_erase. applys himpl_hexists_r A1.
+  applys himpl_hexists_r EA1. xchange M1. applys* Structural_conseq.
+Qed.
+
+Lemma xapp_untyped_lemma : forall A `{EA:Enc A} (Q1:A->hprop) t H1 H Q,
+  Triple t H1 Q1 ->
+  H ==> H1 \* (Q1 \--* protect Q) ->
+  H ==> ^(Wpgen_app_untyped t) Q.
+Proof using.
+  introv M1 M2. applys MkStruct_erase. xchanges (rm M2).
+  rewrite <- Triple_eq_himpl_Wp. applys* Triple_ramified_frame.
+Qed.
+
 
 Lemma Triple_get_field : forall (l:loc) f `{EA:Enc A} (V:A),
   Triple ((val_get_field f) l)
     (l`.f ~~> V)
     (fun r => \[r = V] \* (l`.f ~~> V)).
-Admitted.
-(*
 Proof using.
-  dup.
-  { intros.
+  intros.
+  (* unfold field *)
+  rewrite Hfield_eq_fun_Hsingle, repr_eq. xtpull ;=> N.
+  (* xwp *)
+  applys xwp_lemma_funs; try reflexivity; simpl.
+  (* xlet-poly *)
+  eapply (@xlet_lemma loc _ (fun r => \[r = (l + f)%nat] \* r ~~> V)). xstructural.
+    (* --   notypeclasses refine (xlet_lemma _ _ _ _ _). *)
+  (* xapp *)
+  applys xapp_untyped_lemma. { applys @Triple_ptr_add_nat. } xapp_simpl tt.
+  intros ? ->. xsimpl*. intros r. xpull ;=> ->.
+  (* xapp *)
+  applys xapp_untyped_lemma. { applys @Triple_get. } xapp_simpl tt.
+  intros ? ->. xsimpl*.
+  (* Alternative LATER: { intros.
     rewrite Hfield_eq_fun_Hsingle, repr_eq. xtpull ;=> N.
-    xwp. xapp @Triple_ptr_add_nat. xapp Triple_get. xsimpl~. }
-  { (* details *)
-    intros.
-    (* unfold field *)
-    rewrite Hfield_eq_fun_Hsingle, repr_eq. xtpull ;=> N.
-    (* xwp *)
-    applys xwp_lemma_funs; try reflexivity; simpl.
-    (* xlet-poly *)
-    notypeclasses refine (xlet_lemma _ _ _ _ _).
-    (* xapp *)
-    applys @xapp_lemma. { applys @Triple_ptr_add_nat. } xapp_post tt ;=> r ->.
-    (* xapp *)
-    applys @xapps_lemma. { applys @Triple_get. } xapp_post tt.
-    (* done *)
-    xsimpl~. }
+    xwp. xapp @Triple_ptr_add_nat. xapp Triple_get. xsimpl~. } *)
 Qed.
-*)
 
 Lemma Triple_set_field_strong : forall A1 `{EA1:Enc A1} (V1:A1) (l:loc) f A2 `{EA2:Enc A2} (V2:A2),
   Triple ((val_set_field f) l ``V2)
     (l`.f ~~> V1)
     (fun (r:unit) => l`.f ~~> V2).
 Proof using.
-(*
-  dup.
+  intros.
+  (* unfold field *)
+  rewrite Hfield_eq_fun_Hsingle. rewrite repr_eq. rewrites (>> repr_eq (l,f)).
+  xtpull ;=> N.
+  (* xwp *)
+  applys xwp_lemma_funs; try reflexivity; simpl.
+  (* xlet-poly *)
+  eapply (@xlet_lemma loc _ (fun r => \[r = (l + f)%nat] \* r ~~> V1)). xstructural.
+  (* xapp *)
+  applys xapp_untyped_lemma. { applys @Triple_ptr_add_nat. } xapp_simpl tt.
+  intros ? ->. xsimpl*. intros r. xpull ;=> ->.
+  (* xapp *)
+  applys xapp_untyped_lemma. { applys @Triple_set_strong A1 A2. } xapp_simpl tt.
+  xsimpl~.
+  (* LATER: alternative
   { intros.
     rewrite Hfield_eq_fun_Hsingle. rewrite repr_eq. rewrites (>> repr_eq (l,f)).
     xtpull ;=> N. xwp. xapp @Triple_ptr_add_nat. xapp (>> (@Triple_set_strong) A1 A2).
-    xsimpl~. }
-  { intros.
-    (* unfold field *)
-    rewrite Hfield_eq_fun_Hsingle. rewrite repr_eq. rewrites (>> repr_eq (l,f)).
-    xtpull ;=> N.
-    (* xwp *)
-    applys xwp_lemma_funs; try reflexivity; simpl.
-    (* xlet-poly *)
-    notypeclasses refine (xlet_lemma _ _ _ _ _).
-    (* xapp *)
-    applys @xapp_lemma. { applys @Triple_ptr_add_nat. } xsimpl ;=> r ->.
-    (* xapp *)
-    applys @xapp_lemma. { applys @Triple_set_strong A1 A2. } xsimpl. xapp_post tt.
-    (* done *)
-    xsimpl~. }
+    xsimpl~. } *)
 Qed.
-*)
-Admitted.
 
 Lemma Triple_set_field : forall A `{EA:Enc A} (V1:A) (l:loc) f (V2:A),
   Triple ((val_set_field f) l ``V2)
@@ -793,12 +806,12 @@ Proof using.
     math_rewrite ((p + S koffset)%nat = S (p + koffset)%nat). xsimpl. }
 Qed.
 
+(* LATER: requires dealloc
 Lemma xapp_record_delete_exploded : forall (Q:unit->hprop) (H:hprop) (ks:fields) (p:loc),
   consecutive_fields_exec 0 ks = true ->
   H ==> xapp_to_delete_fields p ks \* (protect (Q tt)) ->
   H ==> ^(Wpgen_app_untyped (trm_apps (trm_val (val_record_delete ks)) (trms_vals ((val_loc p)::nil)))) Q.
-Proof using.
-Admitted.
+*)
 (*
   introv Hks M. applys MkStruct_erase. xchange (rm M).
   xchange (>> xapp_to_delete_fields_of_consecutive_fields_exec Hks).
@@ -811,6 +824,7 @@ Admitted.
   rewrite abs_nat. unfold xapp_hidden, protect. xsimpl.  (* --TODO avoid *)
 Qed.
 *)
+Lemma xapp_record_delete_exploded : True. auto. Qed. (* stub *)
 
 Ltac xapp_record_delete_exploded tt :=
   applys xapp_record_delete_exploded;

@@ -344,7 +344,10 @@ Tactic Notation "xcleanup" :=
 Lemma xtriple_lemma : forall f (Vs:dyns) `{EA:Enc A} H (Q:A->hprop),
   H ==> ^(Wptag (Wpgen_app A f Vs)) (Q \*+ \GC) ->
   Triple (Trm_apps f Vs) H Q.
-Proof using. Admitted. (* TODO *)
+Proof using.
+  introv M. applys Triple_hgc_post. rewrite* Triple_eq_himpl_Wp.
+  xchange M. apply* MkStruct_erase_l. applys Structural_Wp.
+Qed.
 
 Ltac xtriple_pre tt :=
   intros.
@@ -369,7 +372,9 @@ Tactic Notation "xtriple" :=
 Lemma xtriple_inv_lifted_lemma : forall f (Vs:dyns) A `{EA:Enc A} H (Q:A->hprop),
   Triple (Trm_apps f Vs) H Q ->
   H ==> ^(Wptag (Wpgen_app A f Vs)) Q.
-Proof using. Admitted. (* TODO *)
+Proof using.
+  introv M. applys MkStruct_erase. rewrite* Triple_eq_himpl_Wp in M.
+Qed.
 
 Ltac xtriple_inv_core tt :=
   applys xtriple_inv_lifted_lemma.
