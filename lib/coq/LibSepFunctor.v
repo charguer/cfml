@@ -1166,7 +1166,7 @@ Proof using.
     rewrite <- (hcredits_cancel n). rewrite hstar_assoc.
     rewrites (>> hstar_comm H2). rewrite <- hstar_assoc.
     rewrites (>> hstar_comm H1). applys himpl_frame_l M. }
-  { sets H2: (\$(- n) \* H1). applys himpl_hexists_r H2. 
+  { sets H2: (\$(- n) \* H1). applys himpl_hexists_r H2.
     rewrites (hstar_comm H2). applys* himpl_hstar_hpure_r.
     subst H2. rewrite <- hstar_assoc. rewrite hcredits_cancel.
     rewrite* hstar_hempty_l. }
@@ -2582,14 +2582,32 @@ Ltac xunfold_arg_at_core E n :=
 Tactic Notation "xunfold" constr(E) "at" constr(n) :=
   xunfold_arg_at_core E n.
 
-Ltac xunfolds_post tt :=
+Ltac xunfoldp_post tt :=
   first [ xpull | xtpull ].
 
-Tactic Notation "xunfolds" "at" constr(n) :=
-  xunfold at n; xunfolds_post tt.
+Tactic Notation "xunfoldp" "at" constr(n) :=
+  xunfold at n; xunfoldp_post tt.
+
+Tactic Notation "xunfoldp" constr(E) :=
+  xunfold E; xunfoldp_post tt.
+
+Tactic Notation "xunfoldp" constr(E) "at" constr(n) :=
+  xunfold E at n; xunfoldp_post tt.
+
+Ltac xunfolds_post tt :=
+  first [ xsimpl | xtpull ].
 
 Tactic Notation "xunfolds" constr(E) :=
   xunfold E; xunfolds_post tt.
+
+Tactic Notation "xunfolds" "~" constr(E) :=
+  xunfold E; xunfolds_post tt; auto_tilde.
+
+Tactic Notation "xunfolds" "*" constr(E) :=
+  xunfold E; xunfolds_post tt; auto_star.
+
+Tactic Notation "xunfolds" "at" constr(n) :=
+  xunfold at n; xunfolds_post tt.
 
 Tactic Notation "xunfolds" constr(E) "at" constr(n) :=
   xunfold E at n; xunfolds_post tt.
