@@ -550,6 +550,8 @@ Lemma haffine_Hsingle : forall l A (EA:Enc A) (V:A),
   haffine (l ~~> V).
 Proof using. intros. rewrite Hsingle_to_hsingle. applys haffine_hsingle. Qed.
 
+Hint Resolve haffine_Hsingle : haffine.
+
 (** Field: [ l `. f ~~> V ] describes the ownership of a record field
     storing one encodable value [V]. *)
 

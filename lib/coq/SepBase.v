@@ -290,7 +290,7 @@ Definition hheader (k:nat) (p:loc) : hprop :=
 
 Lemma haffine_hheader : forall k p,
   haffine (hheader k p).
-Proof.
+Proof. intros. xunfold hheader. apply haffine_hsingle. Qed.
 
 (* ---------------------------------------------------------------------- *)
 (* ** Singleton field heap *)
@@ -364,6 +364,7 @@ Ltac xaffine_custom tt ::=
   match goal with
   | |- haffine (hcredits _) => apply haffine_hcredits
   | |- haffine (hsingle _ _) => apply haffine_hsingle
+  | |- haffine (hheader _ _) => apply haffine_hheader
   | |- haffine (hfield _ _ _) => apply haffine_hfield
   | _ => eauto with haffine
   end.
