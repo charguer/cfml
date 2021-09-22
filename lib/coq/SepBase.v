@@ -58,12 +58,12 @@ Definition heap_affine (h:heap) :=
 (** For uniformity with other instantiations of the Separation Logic
   functor, we introduce local names for operations and lemmas on heaps. *)
 
-Definition heap_empty : heap := 
+Definition heap_empty : heap :=
   (Fmap.empty, 0).
 
 (** Compatibility for union amounts to disjointness *)
 
-Definition heap_compat (h1 h2:heap) : Prop := 
+Definition heap_compat (h1 h2:heap) : Prop :=
   match h1,h2 with (s1,n1),(s2,n2) => Fmap.disjoint s1 s2 end.
 
 (** Union *)
@@ -84,7 +84,7 @@ Lemma heap_compat_sym : forall h1 h2,
   heap_compat h1 h2 ->
   heap_compat h2 h1.
 Proof using.
-  intros (s1,n1) (s2,n2) M. simpls. applys* Fmap.disjoint_sym. 
+  intros (s1,n1) (s2,n2) M. simpls. applys* Fmap.disjoint_sym.
 Qed.
 
 Lemma heap_compat_empty_l : forall h,
@@ -95,7 +95,7 @@ Lemma heap_compat_union_l_eq: forall h1 h2 h3,
   heap_compat h1 h2 ->
   heap_compat (h1 \u h2) h3 = (heap_compat h1 h3 /\ heap_compat h2 h3).
 Proof using.
-  intros (s1,n1) (s2,n2) (s3,n3) M. simpls. 
+  intros (s1,n1) (s2,n2) (s3,n3) M. simpls.
   applys Fmap.disjoint_union_eq_l'.
 Qed.
 
@@ -121,7 +121,7 @@ Lemma heap_union_assoc : forall h1 h2 h3,
   (h1 \u h2) \u h3 = h1 \u (h2 \u h3).
 Proof using.
   intros (s1,n1) (s2,n2) (s3,n3) M1 M2 M3. simpls.
-  fequals. { apply union_assoc. } { math. } 
+  fequals. { apply union_assoc. } { math. }
 Qed.
 
 Lemma heap_affine_empty :
@@ -205,7 +205,7 @@ Hint Extern 1 (Fmap.disjoint _ _) => fmap_disjoint_pre.
 
 Section Aux.
 
-(* Could be proved under the precondition use_credits = false 
+(* Could be proved under the precondition use_credits = false
 
 Lemma haffine_any : forall H,
   haffine H.
@@ -277,7 +277,7 @@ Transparent haffine heap_affine.
 Lemma haffine_hsingle : forall l v,
   haffine (l ~~~> v).
 Proof using.
-  intros. intros (s,n). unfolds haffine, heap_affine, hsingle. 
+  intros. intros (s,n). unfolds haffine, heap_affine, hsingle.
   intros (_&_&M). math.
 Qed.
 End HSingleHaffine.
@@ -355,6 +355,7 @@ Ltac xaffine_custom tt ::=
   | |- haffine (hcredits _) => apply haffine_hcredits
   | |- haffine (hsingle _ _) => apply haffine_hsingle
   | |- haffine (hfield _ _ _) => apply haffine_hfield
+  | _ => eauto with haffine
   end.
 
 
@@ -476,7 +477,7 @@ Qed.
 Definition heap_of_state (s:state) : heap :=
   (s,0).
 
-Definition heap_state (h:heap) : state := 
+Definition heap_state (h:heap) : state :=
   match h with (s,n) => s end.
 
 Lemma heap_state_union : forall (h1 h2:heap),
