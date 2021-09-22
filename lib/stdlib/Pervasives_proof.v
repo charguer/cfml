@@ -358,6 +358,16 @@ Hint Extern 1 (RegisterSpec asr) => Provide asr_spec.
 Definition Ref `{EA:Enc A} (v:A) (r:loc) :=
   r ~~~> `{ contents' := v }.
 
+Global Instance Heapdata_ref (A:Type) (EA:Enc A) :
+  Heapdata (Ref (A:=A)).
+Proof.
+  constructor. intros x y X Y.
+  tests : (x=y).
+  { repeat rewrite repr_eq. unfold Ref.
+    xchange* Heapdata_record. }
+  { xsimpl*. }
+Qed.
+
 (* TODO: THIS IS NOW REALIZED AT A LOWER LEVEL
 
 Axiom Ref_Heapdata : forall A,
@@ -603,6 +613,3 @@ Hint Extern 1 (RegisterSpec ignore) => Provide ignore_spec.
   Implicit Arguments unfocus_ref [a A].
 
 *)
-
-
-

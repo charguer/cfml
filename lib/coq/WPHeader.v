@@ -14,6 +14,32 @@ From CFML Require Import WPBuiltin SepBase SepLifted.
 Definition htype (A a:Type) : Type :=
   A -> a -> hprop.
 
+(********************************************************************)
+(* ** Properties of Heap_data *)
+
+(** [Heapdata R] captures the fact that the heap predicate [R]
+    captures some real piece of the heap, hence if [x ~> R X]
+    and [y ~> R Y] are in disjoint union then [x] and [y] must
+    be different values *)
+
+Class Heapdata a A (R:htype A a) := {
+  heapdata : forall x y X Y,
+    x ~> R X \* y ~> R Y ==>
+    x ~> R X \* y ~> R Y \* \[x <> y] }.
+
+Lemma Heapdata_intro : forall a A (R:htype A a),
+  (forall x X1 X2, x ~> R X1 \* x ~> R X2 ==> \[False]) ->
+  Heapdata R.
+Proof using.
+  introv H. constructors. intros x y X Y. tests: (x = y).
+  { xchanges (>> H y X Y). } { xsimpl*. }
+Qed.
+
+Lemma Heapdata_false : forall a A (R:htype A a) x X1 X2,
+  Heapdata R ->
+  x ~> R X1 \* x ~> R X2 ==> \[False].
+Proof using. introv H. xchanges (>> heapdata x x X1 X2). Qed.
+
 (* ********************************************************************** *)
 
 (** We hardcode the fact that for every OCaml type translated to an Coq type
@@ -53,4 +79,3 @@ Ltac WPHeader_Provide T := Provide T.
 (** ** Tooling for registering a Spec with each toplevel definition *)
 
 Definition database_spec := True. (* TODO: check it needs to be here *)
-

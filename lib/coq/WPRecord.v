@@ -169,6 +169,11 @@ Fixpoint Record (L:Record_fields) (r:loc) : hprop :=
   | (f, Dyn V)::L' => (r`.f ~~> V) \* (r ~> Record L')
   end.
 
+Axiom Heapdata_record : forall (r:loc) (L1 L2:Record_fields),
+  (*  (exists x, (LibList.mem x L1 /\ LibList.mem x L2)) -> *)
+  LibList.map (fun '(x,y) => x) L1 = LibList.map (fun '(x,y) => x) L2 ->
+  r ~> Record L1 \* r ~> Record L2 ==> \[False].
+
 (* --TODO: currently restricted due to [r `. f ~> V] not ensuring [r<>null] *)
 (* --TODO: rename *)
 Lemma hRecord_not_null : forall (r:loc) (L:Record_fields),

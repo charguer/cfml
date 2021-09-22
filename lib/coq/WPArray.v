@@ -38,6 +38,9 @@ Fixpoint Array A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
   end.
 (* TODO: avoid name clash with the non-lifted version *)
 
+Axiom Heapdata_Array : forall (A:Type) (EA:Enc A),
+  Heapdata (Array (A:=A)).
+
 Lemma haffine_Array : forall A `{EA:Enc A} p (L: list A),
   haffine (p ~> Array L).
 Proof using. constructor. Qed.
