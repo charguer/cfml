@@ -34,7 +34,7 @@ Implicit Types k : field.
 (* ********************************************************************** *)
 (* * Core of the logic *)
 
-Module Export SepBasicCore <: SepCore.
+Module Export SepBasicCore <: SepCoreCredits.
 
 
 (* ---------------------------------------------------------------------- *)
@@ -115,6 +115,44 @@ Lemma heap_affine_union : forall h1 h2,
   heap_affine (h1 \u h2).
 Proof using. hnf. auto. Qed.
 
+(** Credits *)
+
+Definition use_credits := true.
+
+Parameter heap_credits : Z -> heap.
+
+Parameter heap_credits_skip :
+  use_credits = false ->
+  forall n, heap_credits n = heap_empty.
+
+Parameter heap_credits_zero :
+  heap_credits 0 = heap_empty.
+
+Parameter heap_credits_add : forall n m,
+  heap_credits (n + m) = heap_union (heap_credits n) (heap_credits m).
+
+Parameter heap_credits_affine : forall n,
+  n >= 0 ->
+  heap_affine (heap_credits n).
+
+End SepBasicCore.
+
+
+(* ********************************************************************** *)
+(* * Derived properties of the logic *)
+
+(** Here, we instantiate the functors to obtained derived definitions,
+  lemmas, notation, and tactics. *)
+
+Module Export SepBasicSetup := SepSetupCredits SepBasicCore.
+Export SepBasicCore.
+
+Local Open Scope heap_union_scope.
+
+Implicit Types P : Prop.
+Implicit Types H : hprop.
+Implicit Types Q : val->hprop.
+
 
 (* ---------------------------------------------------------------------- *)
 (* ** Tactic for automation *)
@@ -126,100 +164,6 @@ Tactic Notation "fmap_disjoint_pre" :=
   subst; rew_disjoint; jauto_set.
 
 Hint Extern 1 (Fmap.disjoint _ _) => fmap_disjoint_pre.
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Axiomatization of credits *)
-
-Definition hprop := heap -> Prop.
-
-Definition hempty : hprop :=
-  fun h => h = heap_empty.
-
-Local Notation "\[]" := (hempty)
-  (at level 0) : heap_scope.
-
-Definition hstar (H1 H2 : hprop) : hprop :=
-  fun h => exists h1 h2,
-               H1 h1
-            /\ H2 h2
-            /\ heap_compat h1 h2
-            /\ h = heap_union h1 h2.
-
-Local Notation "H1 '\*' H2" := (hstar H1 H2)
-  (at level 41, right associativity) : heap_scope.
-
-Definition haffine (H : hprop) : Prop :=
-  forall h, H h -> heap_affine h.
-
-Definition hexists A (J:A->hprop) : hprop :=
-  fun h => exists x, J x h.
-
-Definition himpl (H1 H2:hprop) : Prop :=
-  forall (h:heap), H1 h -> H2 h.
-
-Local Notation "H1 ==> H2" := (himpl H1 H2) (at level 55) : heap_scope.
-
-
-(** TODO: realize this using the model *)
-
-Parameter use_credits : bool.
-
-Notation "'credits'" := Z.
-
-Parameter hcredits : credits -> hprop.
-  (* realize as: if use_credits then  "consume n credits"  else \[] *)
-
-Notation "'\$' n" := (hcredits n)
-  (at level 40,
-   n at level 0,
-   format "\$ n") : heap_scope.
-
-Open Scope heap_scope.
-
-Parameter hcredits_skip :
-  use_credits = false ->
-  forall n, \$ n = \[].
-
-Parameter hcredits_zero :
-  \$ 0 = \[].
-
-Parameter hcredits_add : forall n m,
-  \$ (n+m) = \$ n \* \$ m.
-
-Parameter haffine_hcredits : forall n,
-  n >= 0 ->
-  haffine (\$ n).
-
-(* TODO: find out what is a more primitive way to derive [hwand_hcredits_l]. *)
-
-  Definition hpure' (P:Prop) : hprop :=
-    hexists (fun (p:P) => hempty).
-
-  Definition hwand' (H1 H2 : hprop) : hprop :=
-    hexists (fun (H:hprop) => H \* (hpure' (H1 \* H ==> H2))).
-
-  Parameter hwand_hcredits_l' : forall H n,
-    (hwand' (\$n) H) = (\$(-n) \* H).
-
-End SepBasicCore.
-
-
-
-(* ********************************************************************** *)
-(* * Derived properties of the logic *)
-
-(** Here, we instantiate the functors to obtained derived definitions,
-  lemmas, notation, and tactics. *)
-
-Module Export SepBasicSetup := SepSetup SepBasicCore.
-Export SepBasicCore.
-
-Local Open Scope heap_union_scope.
-
-Implicit Types P : Prop.
-Implicit Types H : hprop.
-Implicit Types Q : val->hprop.
 
 
 (* ********************************************************************** *)
@@ -246,21 +190,8 @@ Qed.
 
 (** Derived properties about credits *)
 
-Ltac xsimpl_use_credits tt ::=
+Ltac xsimpl_use_credits tt ::= (* TODO: delete? *)
   constr:(true).
-
-Lemma hcredits_sub : forall (n m : int),
-  \$(n-m) = \$ n \* \$ (-m).
-Proof using. intros. math_rewrite (n-m = n+(-m)). rewrite* hcredits_add. Qed.
-
-Lemma hcredits_cancel : forall (n: int),
-  \$ n \* \$ (-n) = \[].
-Proof using. intros. skip. Qed.
-(* TODO  rewrite <- hcredits_add, <- hcredits_zero. fequals. math. Qed.*)
-
-Lemma hcredits_extract : forall m n,
-  \$ n = \$ m \* \$ (n-m).
-Proof using. intros. rewrite <- hcredits_add. fequals. math. Qed.
 
 End Aux.
 

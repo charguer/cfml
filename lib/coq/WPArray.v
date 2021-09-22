@@ -40,7 +40,7 @@ Fixpoint Array A `{EA:Enc A} (L:list A) (p:loc) : hprop :=
 
 Lemma haffine_Array : forall A `{EA:Enc A} p (L: list A),
   haffine (p ~> Array L).
-Proof using. constructor. Qed.
+Proof using. intros. applys haffine_any. Qed.
 
 Hint Resolve haffine_Array : haffine.
 

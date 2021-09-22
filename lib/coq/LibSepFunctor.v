@@ -137,11 +137,42 @@ End SepCore.
 
 
 (* ********************************************************************** *)
+(** * Assumptions of the functor with credits *)
+
+Module Type SepCoreCredits.
+
+Include SepCore.
+
+Parameter use_credits : bool.
+
+Notation "'credits'" := Z.
+
+Parameter heap_credits : credits -> heap.
+
+Parameter heap_credits_skip :
+  use_credits = false ->
+  forall n, heap_credits n = heap_empty.
+
+Parameter heap_credits_zero :
+  heap_credits 0 = heap_empty.
+
+Parameter heap_credits_add : forall n m,
+  heap_credits (n + m) = heap_union (heap_credits n) (heap_credits m).
+
+Parameter heap_credits_affine : forall n,
+  n >= 0 ->
+  heap_affine (heap_credits n).
+
+End SepCoreCredits.
+
+
+
+(* ********************************************************************** *)
 (** * Definition of heap predicates *)
 
-Module SepSetup (SH : SepCore).
+Module SepSetupCredits (SH : SepCoreCredits).
 
-Module SepSimplArgs.
+Module Export SepSimplArgsCredits.
 
 Include SH.
 
@@ -344,6 +375,16 @@ Definition hgc : hprop :=
   \exists H, \[haffine H] \* H.
 
 Notation "\GC" := (hgc) : heap_scope.
+
+(** Credits, written [\$ n] *)
+
+Definition hcredits (n:credits) : hprop :=
+  fun h => h = heap_credits n.
+
+Notation "'\$' n" := (hcredits n)
+  (at level 40,
+   n at level 0,
+   format "\$ n") : heap_scope.
 
 (** Additional notation for entailment
     [H1 ==+> H2] is short for [H1 ==> H1 \* H2] *)
@@ -710,7 +751,7 @@ Proof using. auto. Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Properties of hexists *)
+(** Properties of [hexists] *)
 
 Lemma himpl_hexists_l : forall A H (J:A->hprop),
   (forall x, J x ==> H) ->
@@ -731,7 +772,7 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Properties of hforall *)
+(** Properties of [hforall] *)
 
 Lemma himpl_hforall_r : forall A (J:A->hprop) H,
   (forall x, H ==> J x) ->
@@ -762,6 +803,10 @@ Proof using. intros. applys* himpl_hforall_l x. Qed.
 
 (* ---------------------------------------------------------------------- *)
 (** Properties of hwand (others are found further in the file) *)
+
+Lemma hwand_eq_hexists : forall H1 H2,
+  (H1 \-* H2) = (\exists H, H \* \[H1 \* H ==> H2]).
+Proof using. auto. Qed.
 
 Lemma hwand_equiv : forall H0 H1 H2,
   (H0 ==> H1 \-* H2) <-> (H1 \* H0 ==> H2).
@@ -842,7 +887,7 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(** Properties of qwand *)
+(** Properties of [qwand] *)
 
 Lemma qwand_equiv : forall H A (Q1 Q2:A->hprop),
   H ==> (Q1 \--* Q2) <-> (Q1 \*+ H) ===> Q2.
@@ -869,7 +914,7 @@ Arguments qwand_specialize [ A ].
 
 
 (* ---------------------------------------------------------------------- *)
-(** Properties of htop *)
+(** Properties of [htop] *)
 
 Lemma htop_intro : forall h,
   \Top h.
@@ -894,7 +939,7 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Properties of affine predicates *)
+(* ** Properties of [haffine] *)
 
 Lemma haffine_eq : forall H,
   haffine H = (forall h, H h -> heap_affine h).
@@ -1061,12 +1106,85 @@ Global Opaque hand.
 
 
 (* ---------------------------------------------------------------------- *)
+(* Properties of [hcredits] *)
 
-End SepSimplArgs.
+Section Credits.
+Transparent hempty hstar haffine.
 
-Export SepSimplArgs.
+Lemma hcredits_skip :
+  use_credits = false ->
+  forall n, \$ n = \[].
+Proof using.
+  introv E. intros n. applys fun_ext_1. intros h.
+  unfolds hcredits. rewrite* (heap_credits_skip E).
+Qed.
 
-Module Export HS := LibSepSimpl.XsimplSetup(SepSimplArgs).
+Lemma hcredits_zero :
+  \$ 0 = \[].
+Proof using.
+  applys fun_ext_1. intros h. unfold hcredits.
+  rewrite* heap_credits_zero.
+Qed.
+
+Axiom heap_compat_credits : forall n m,
+  heap_compat (heap_credits n) (heap_credits m).
+
+Lemma hcredits_add : forall n m,
+  \$ (n+m) = \$ n \* \$ m.
+Proof using.
+  intros. applys fun_ext_1. intros h. unfold hcredits.
+  unfold hstar. extens. iff M.
+  { exists __ __. splits*.
+    { applys heap_compat_credits. }
+    { subst. rewrite* heap_credits_add. } }
+  { destruct M as (h1&h2&->&->&C&->).
+    rewrite* heap_credits_add. }
+Qed.
+
+Lemma haffine_hcredits : forall n,
+  n >= 0 ->
+  haffine (\$ n).
+Proof using.
+  introv H. unfold haffine. introv ->. apply* heap_credits_affine.
+Qed.
+
+Lemma hcredits_sub : forall (n m : int),
+  \$(n-m) = \$ n \* \$ (-m).
+Proof using. intros. math_rewrite (n-m = n+(-m)). rewrite* hcredits_add. Qed.
+
+Lemma hcredits_cancel : forall (n: int),
+  \$ n \* \$ (-n) = \[].
+Proof using. intros. skip. Qed.
+(* TODO  rewrite <- hcredits_add, <- hcredits_zero. fequals. math. Qed.*)
+
+Lemma hcredits_extract : forall m n,
+  \$ n = \$ m \* \$ (n-m).
+Proof using. intros. rewrite <- hcredits_add. fequals. math. Qed.
+
+Lemma hwand_hcredits_l : forall H n,
+  (\$n \-* H) = (\$(-n) \* H).
+Proof using.
+  intros H1 n. rewrite hwand_eq_hexists. applys himpl_antisym.
+  { applys himpl_hexists_l. intros H2. rewrite hstar_comm.
+    apply himpl_hstar_hpure_l. intros M. rewrite <- (hstar_hempty_l H2).
+    rewrite <- (hcredits_cancel n). rewrite hstar_assoc.
+    rewrites (>> hstar_comm H2). rewrite <- hstar_assoc.
+    rewrites (>> hstar_comm H1). applys himpl_frame_l M. }
+  { sets H2: (\$(- n) \* H1). applys himpl_hexists_r H2. 
+    rewrites (hstar_comm H2). applys* himpl_hstar_hpure_r.
+    subst H2. rewrite <- hstar_assoc. rewrite hcredits_cancel.
+    rewrite* hstar_hempty_l. }
+Qed.
+
+End Credits.
+
+Global Opaque hcredits.
+
+(* ---------------------------------------------------------------------- *)
+
+End SepSimplArgsCredits.
+
+Module Export HS := LibSepSimpl.XsimplSetupCredits(SepSimplArgsCredits).
 
 (** Experimental tactic [xsimpl_hand] *)
 
@@ -2486,6 +2604,55 @@ Tactic Notation "xunfolds" constr(E) "at" constr(n) :=
 
 Global Opaque repr.
 
+End SepSetupCredits.
+
+
+
+(* ********************************************************************** *)
+(* ********************************************************************** *)
+(* ********************************************************************** *)
+(** * Body of the functor with dummy credits *)
+
+Module SepSetup (SH : SepCore).
+
+(** Definition of the functor argument *)
+
+Module Export SHC <: SepCoreCredits.
+
+Include SH.
+
+Open Scope heap_scope.
+
+Definition use_credits : bool :=
+  false.
+
+Notation "'credits'" := Z.
+
+Definition heap_credits (n:credits) : heap :=
+  heap_empty.
+
+Lemma heap_credits_skip :
+  use_credits = false ->
+  forall n, heap_credits n = heap_empty.
+Proof using. auto. Qed.
+
+Lemma heap_credits_zero :
+  heap_credits 0 = heap_empty.
+Proof using. auto. Qed.
+
+Lemma heap_credits_add : forall n m,
+  heap_credits (n + m) = heap_union (heap_credits n) (heap_credits m).
+Proof using. intros. rewrite* heap_union_empty_l. Qed.
+
+Lemma heap_credits_affine : forall n,
+  n >= 0 ->
+  heap_affine (heap_credits n).
+Proof using. intros. applys heap_affine_empty. Qed.
+
+End SHC.
+
+(** Instantiation *)
+
+Module Export Setup := SepSetupCredits SHC.
+
 End SepSetup.
-
-
