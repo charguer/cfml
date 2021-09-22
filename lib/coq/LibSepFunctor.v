@@ -2627,6 +2627,10 @@ Notation "'credits'" := Z.
 Definition heap_credits (n:credits) : heap :=
   heap_empty.
 
+Lemma heap_compat_credits : forall n m,
+  heap_compat (heap_credits n) (heap_credits m).
+Proof using. intros. applys heap_compat_empty_l. Qed.
+
 Lemma heap_credits_skip :
   use_credits = false ->
   forall n, heap_credits n = heap_empty.
