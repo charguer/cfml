@@ -1382,9 +1382,9 @@ Ltac xaffine_core tt ::= (* updates definition from [SepSimpl] *)
 Tactic Notation "xaffine" :=
   xaffine_core tt.
 Tactic Notation "xaffine" "~" :=
-  xaffine; auto_tilde tt.
+  xaffine; auto_tilde.
 Tactic Notation "xaffine" "*" :=
-  xaffine; auto_star tt.
+  xaffine; auto_star.
 
 
 (* ---------------------------------------------------------------------- *)
