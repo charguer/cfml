@@ -31,12 +31,12 @@ Implicit Types l : loc.
 
 Definition val_get_field (k:field) : val :=
   Fun 'p :=
-    Let 'q := val_ptr_add 'p (nat_to_Z k) in
+    Let 'q := val_ptr_add 'p (nat_to_Z (S k)) in
     val_get 'q.
 
 Definition val_set_field (k:field) : val :=
   Fun 'p 'v :=
-    Let 'q := val_ptr_add 'p (nat_to_Z k) in
+    Let 'q := val_ptr_add 'p (nat_to_Z (S k)) in
     val_set 'q 'v.
 
 Definition val_record_alloc (ks:fields) : val :=
@@ -321,11 +321,12 @@ Proof using.
   (* xwp *)
   applys xwp_lemma_funs; try reflexivity; simpl.
   (* xlet-poly *)
-  eapply (@xlet_lemma loc _ (fun r => \[r = (l + f)%nat] \* r ~~> V)). xstructural.
+  eapply (@xlet_lemma loc _ (fun r => \[r = S (l + f)%nat] \* r ~~> V)). xstructural.
     (* --   notypeclasses refine (xlet_lemma _ _ _ _ _). *)
   (* xapp *)
   applys xapp_untyped_lemma. { applys @Triple_ptr_add_nat. } xapp_simpl tt.
-  intros ? ->. xsimpl*. intros r. xpull ;=> ->.
+  intros ? ->. xsimpl*. math_rewrite (S (l + f) = l + S f)%nat. xsimpl.
+  intros r. xpull ;=> ->.
   (* xapp *)
   applys xapp_untyped_lemma. { applys @Triple_get. } xapp_simpl tt.
   intros ? ->. xsimpl*.
@@ -346,10 +347,11 @@ Proof using.
   (* xwp *)
   applys xwp_lemma_funs; try reflexivity; simpl.
   (* xlet-poly *)
-  eapply (@xlet_lemma loc _ (fun r => \[r = (l + f)%nat] \* r ~~> V1)). xstructural.
+  eapply (@xlet_lemma loc _ (fun r => \[r = S (l + f)%nat] \* r ~~> V1)). xstructural.
   (* xapp *)
   applys xapp_untyped_lemma. { applys @Triple_ptr_add_nat. } xapp_simpl tt.
-  intros ? ->. xsimpl*. intros r. xpull ;=> ->.
+  intros ? ->. xsimpl*.  math_rewrite (S (l + f) = l + S f)%nat. xsimpl.
+  intros r. xpull ;=> ->.
   (* xapp *)
   applys xapp_untyped_lemma. { applys @Triple_set_strong A1 A2. } xapp_simpl tt.
   xsimpl~.
