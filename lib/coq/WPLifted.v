@@ -1371,7 +1371,7 @@ Notation "'Body' f { B1 B2 [ EB1 EB2 ] } v1 ':=' F1" :=
   right associativity,
   format "'[v' '[' 'Body'  f  { B1  B2  [ EB1  EB2 ] }  v1  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 
-Notation "'Body' f { B1 B2 B3  [ EB1 EB2 EB3 ] } v1 ':=' F1" :=
+Notation "'Body' f { B1 B2 B3 [ EB1 EB2 EB3 ] } v1 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 B3 EB3 v1 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::nil)) A EA H Q)))
@@ -1406,7 +1406,7 @@ Notation "'Body' f { B1 B2 [ EB1 EB2 ] } v1 v2 ':=' F1" :=
   right associativity,
   format "'[v' '[' 'Body'  f  { B1  B2  [ EB1  EB2 ] } v1  v2  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 
-Notation "'Body' f { B1 B2 B3  [ EB1 EB2 EB3 ] } v1 v2 ':=' F1" :=
+Notation "'Body' f { B1 B2 B3 [ EB1 EB2 EB3 ] } v1 v2 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 B3 EB3 v1 v2 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::nil)) A EA H Q)))
@@ -1444,7 +1444,7 @@ Notation "'Body' f { B1 B2 [ EB1 EB2 ] } v1 v2 v3 ':=' F1" :=
   right associativity,
   format "'[v' '[' 'Body'  f  { B1  B2  [ EB1  EB2 ]  }  v1  v2  v3  ':=' '/' '['   F1 ']' ']' ']'" ) : wp_scope.
 
-Notation "'Body' f { B1 B2 B3  [ EB1 EB2 EB3 ] } v1 v2 v3 ':=' F1" :=
+Notation "'Body' f { B1 B2 B3 [ EB1 EB2 EB3 ] } v1 v2 v3 ':=' F1" :=
  ((*Wptag*) (Wpgen_body (forall B1 EB1 B2 EB2 B3 EB3 v1 v2 v3 H A EA Q,
                (H ==> (*Wptag*) (F1 A EA (Q \*+ \GC))) ->
                @Triple (Trm_apps f ((@dyn_make _ _ v1)::(@dyn_make _ _ v2)::(@dyn_make _ _ v3)::nil)) A EA H Q)))

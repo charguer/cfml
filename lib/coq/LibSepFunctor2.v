@@ -350,7 +350,7 @@ Notation "\GC" := (hgc) : heap_scope.
 
 Declare Scope heap_scope_ext.
 
-Notation "H1 ==+> H2" := (H1%hprop ==> hstar H1%hprop* H2%hprop)
+Notation "H1 ==+> H2" := (H1%hprop ==> hstar H1%hprop H2%hprop)
   (at level 55, only parsing) : heap_scope_ext.
 
 
