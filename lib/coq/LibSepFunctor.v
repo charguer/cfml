@@ -1302,7 +1302,11 @@ Lemma qwand_himpl_r : forall A (Q1 Q2 Q2':A->hprop),
   (Q1 \--* Q2) ==> (Q1 \--* Q2').
 Proof using. introv M. applys* qwand_himpl. Qed.
 
+(* ********************************************************************** *)
+(* * haffine_repr *)
 
+Definition haffine_repr a A (G:A -> a -> hprop) :=
+  forall x X, haffine (x ~> G X).
 
 (* ********************************************************************** *)
 (* * Tactics for heap entailments *)
@@ -1363,6 +1367,7 @@ Ltac xaffine_custom tt :=
 Ltac xaffine_step tt :=
   match goal with
   | |- haffine_post (_) => intros ? (* todo: interesting to have? *)
+  | |- haffine_repr _ => intros ? ?
   | |- haffine ?H =>
     match H with
     | (hempty) => apply haffine_hempty

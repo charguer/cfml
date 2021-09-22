@@ -346,7 +346,6 @@ Qed.
 
 Global Opaque hsingle hfield.
 
-
 (* ---------------------------------------------------------------------- *)
 (* ** Configuration of tactics *)
 

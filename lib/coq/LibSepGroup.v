@@ -20,9 +20,6 @@ Definition Group a A (G:htype A a) (M:map a A) : hprop :=
   (fold sep_monoid (fun x X => x ~> G X) M)
     \* \[LibMap.finite M].
 
-Definition haffine_repr a A (G:htype A a) :=
-  forall x X, haffine (x ~> G X).
-
 Lemma haffine_Group : forall a A (IA:Inhab A) (G:htype A a) (M:map a A),
   haffine_repr G ->
   haffine (Group G M).

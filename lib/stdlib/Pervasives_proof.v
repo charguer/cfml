@@ -390,7 +390,7 @@ Notation "r '~~>' v" := (r ~> Ref v)
 
 Lemma haffine_Ref : forall `{EA:Enc A} r (v: A),
   haffine (r ~~> v).
-Admitted. (* TODO Proof. intros. unfold Ref, hdata. affine. Qed. *)
+Proof. intros. xunfold (@Ref A). xaffine. Qed.
 
 Hint Resolve haffine_Ref : haffine.
 
