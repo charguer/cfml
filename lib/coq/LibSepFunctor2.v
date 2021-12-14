@@ -1,4 +1,3 @@
-(*
 (**
 
 This file formalizes a functor that may be instantiated con construct, e.g.
@@ -14,7 +13,7 @@ The functor in this file assumes:
    extrusion of existentials, and frame property for entailment).
 
 The functor also provides:
-  
+
 - derived heap operators: \[], (\exists _,_), \Top
 - a number of useful lemmas for reasoning about these operators
 - notation for representation predicates: [x ~> R X].
@@ -350,7 +349,7 @@ Notation "\GC" := (hgc) : heap_scope.
 
 Declare Scope heap_scope_ext.
 
-Notation "H1 ==+> H2" := (H1%hprop ==> hstar H1%hprop* H2%hprop)
+Notation "H1 ==+> H2" := (H1%hprop ==> hstar H1%hprop H2%hprop)
   (at level 55, only parsing) : heap_scope_ext.
 
 
@@ -488,7 +487,7 @@ Proof using. introv (p&M). split*. Qed.
     internal definition of the operators hempty and hstar. *)
 
 Section CoreProperties.
-Hint Resolve heap_compat_empty_l heap_compat_empty_r 
+Hint Resolve heap_compat_empty_l heap_compat_empty_r
   heap_union_empty_l heap_union_empty_r hempty_intro
   heap_compat_union_l heap_compat_union_r.
 
@@ -578,7 +577,7 @@ Qed.
 Lemma hstar_hpure_l : forall P H h,
   (\[P] \* H) h = (P /\ H h).
 Proof using.
-  intros. extens. unfold hpure. 
+  intros. extens. unfold hpure.
   rewrite hstar_hexists.
   rewrite* hstar_hempty_l.
   iff (p&M) (p&M). { split~. } { exists~ p. }
@@ -1616,7 +1615,7 @@ Lemma local_hand_l : forall F H1 H2 Q,
   F (hand H1 H2) Q.
 Proof using.
   introv L M1. rewrite hand_eq_forall_bool.
-  applys* local_hforall true. 
+  applys* local_hforall true.
 Qed.
 
 (** Right branch for [hand] *)
@@ -2488,6 +2487,4 @@ Global Opaque repr.
 
 End SepSetup.
 
-
-*)
 
