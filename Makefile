@@ -181,11 +181,12 @@ opam:
 # Publish the two Coq packages.
 # Each package description file is patched on the fly:
 #   we replace the string DATEDASH with $(DATEDASH).
+	@ rm -f *.patched.opam
 	@ \
 	for package in coq-cfml-basis coq-cfml-stdlib ; do \
 	  cat $$package.opam \
 	  | sed -e 's/DATEDASH/$(DATEDASH)/g' \
 	  > $$package.patched.opam && \
-	  $(COQPUBLISH) $$package.patched.opam $(ARCHIVE) ; \
 	done
+	@ $(COQPUBLISH) *.patched.opam $(ARCHIVE)
 	@ rm -f *.patched.opam
