@@ -63,7 +63,7 @@ clean::
 
 # Installation of the %.cmj files.
 
-LIBDIR := $(shell cfmlc -where)
+LIBDIR = $(shell cfmlc -where)
 
 install:: all
 	@ mkdir -p $(LIBDIR)/stdlib
