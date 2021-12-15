@@ -46,6 +46,29 @@ clean:
 	if command -v cfmlc >/dev/null ; then $(MAKE) -C examples $@ ; fi
 
 # -------------------------------------------------------------------------
+
+# Compiling under various versions of Coq.
+
+# This assumes that the opam switches coq813, coq814, etc. exist and the
+# packages that we need (menhir, coq-tlc, etc.) are installed in them.
+
+VERSIONS := \
+  coq814 \
+  coq813 \
+
+.PHONY: versions
+versions:
+	for v in $(VERSIONS) ; do \
+	  opam switch $$v && eval $$(opam env) && make clean && \
+          make -j && \
+          (opam remove cfml coq-cfml-basis coq-cfml-stdlib --yes || true) && \
+	  opam pin add cfml . --yes && \
+	  opam pin add coq-cfml-basis . --yes && \
+	  opam pin add coq-cfml-stdlib . --yes && \
+	  true ; \
+	done
+
+# -------------------------------------------------------------------------
 # Installation.
 
 # These commands perform direct installation, without going through opam.
