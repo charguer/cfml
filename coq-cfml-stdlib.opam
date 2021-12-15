@@ -5,7 +5,7 @@ maintainer: "arthur.chargueraud@inria.fr"
 homepage: "https://gitlab.inria.fr/charguer/cfml2"
 dev-repo: "git+https://gitlab.inria.fr/charguer/cfml2.git"
 bug-reports: "https://gitlab.inria.fr/charguer/cfml2/-/issues"
-license: "MIT"
+license: "CC-BY-4.0"
 
 synopsis: "The CFML program verification system"
 description: """
