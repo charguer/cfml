@@ -1,5 +1,4 @@
 *.md                    export-ignore
-*.opam                  export-ignore
 examples                export-ignore
 export                  export-ignore
 extra                   export-ignore
