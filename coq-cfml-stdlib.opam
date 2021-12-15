@@ -15,7 +15,7 @@ CFML is a program verification system for OCaml.
 build: [make "-C" "lib/stdlib" "-j%{jobs}%"]
 install: [make "-C" "lib/stdlib" "install"]
 depends: [
-  "coq" { >= "8.12" }
+  "coq" { >= "8.13" }
   "cfml" { = version }
   "coq-cfml-basis" { = version }
 ]
