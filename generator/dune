@@ -6,7 +6,7 @@
   (dev (flags
     :standard
     -g
-    -w @A-4-6-9-27-44-48-52-57
+    -w @A-4-6-9-27-44-48-52-57-69-70
   ))
   (release (flags
     :standard
@@ -37,4 +37,3 @@
   )
   (modules_without_implementation annot asttypes outcometree parsetree)
 )
-	
