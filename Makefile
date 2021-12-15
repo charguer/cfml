@@ -121,7 +121,7 @@ PROJECT  := cfml2
 # The repository URL (https).
 REPO     := https://gitlab.inria.fr/charguer/$(PROJECT)
 # The archive URL (https).
-ARCHIVE  := $(REPO)/repository/$(DATE)/archive.tar.gz
+ARCHIVE  := $(REPO)/-/archive/$(DATE)/archive.tar.gz
 # The local repository directory.
 PWD      := $(shell pwd)
 
@@ -153,36 +153,39 @@ release:
 # Upload. (This automatically makes a .tar.gz archive available on gitlab.)
 	@ git push
 	@ git push --tags
+# Message.
+	@ echo "Done. Now (if happy) type make opam."
 
 # -------------------------------------------------------------------------
 
 # Updating the opam package.
 
-# This entry assumes that "make package" and "make export"
-# have just been run (on the same day).
+# This entry assumes that [make release] has been run on the same day.
 
-# You need opam-publish:
-#   sudo apt-get install libssl-dev
-#   opam install tls opam-publish
+# The publication command.
+PUBLISH := \
+  opam publish -v $(DATE)
 
-# In fact, you need a version of opam-publish that supports --subdirectory:
-#   git clone git@github.com:fpottier/opam-publish.git
-#   cd opam-publish
-#   git checkout 1.3
-#   opam pin add opam-publish `pwd` -k git
-
-# The following command should have been run once:
-#   opam-publish repo add opam-coq-archive coq/opam-coq-archive
-
-PUBLISH_OPTIONS := \
-  --repo opam-coq-archive \
-  --subdirectory released \
+# The publication command, for a Coq package.
+COQPUBLISH := \
+  $(PUBLISH) \
+  --repo coq/opam-coq-archive \
+  --packages-directory released/packages \
 
 .PHONY: opam
 opam:
+# Check the current package descriptions.
 	@ opam lint
-	@ opam-publish prepare $(PUBLISH_OPTIONS) $(PACKAGE).$(DATE) $(ARCHIVE)
-
-.PHONY: submit
-submit:
-	@ opam-publish submit $(PUBLISH_OPTIONS) $(PACKAGE).$(DATE)
+# Publish the OCaml package.
+	@ $(PUBLISH) cfml.opam $(ARCHIVE)
+# Publish the two Coq packages.
+# Each package description file is patched on the fly:
+#   we replace the string DATEDASH with $(DATEDASH).
+	@ \
+	for package in coq-cfml-basis coq-cfml-stdlib ; do \
+	  cat $$package.opam \
+	  | sed -e 's/DATEDASH/$(DATEDASH)/g' \
+	  > $$package.patched.opam && \
+	  $(COQPUBLISH) $$package.patched.opam $(ARCHIVE) ; \
+	done
+	@ rm -f *.patched.opam
