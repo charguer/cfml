@@ -43,7 +43,7 @@ let eliminate_unused_variables = true
 
 (** Special level used to mark used variables *)
 
-let used_level = 11111111111
+let used_level = 1_111_111_111 (* this constant fits in 31 bits *)
 
 (** Mark a variable as used at least once. *)
 
