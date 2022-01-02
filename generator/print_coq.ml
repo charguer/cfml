@@ -520,4 +520,4 @@ let tops ts =
 (* The main entry point translates a list of toplevel elements to a string. *)
 
 let tops ts : string =
-  run (PPrintEngine.ToBuffer.pretty 0.9 !width) (tops ts)
+  run (PPrint.ToBuffer.pretty 0.9 !width) (tops ts)
