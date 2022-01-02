@@ -186,7 +186,7 @@ opam:
 	for package in coq-cfml-basis coq-cfml-stdlib ; do \
 	  cat $$package.opam \
 	  | sed -e 's/DATEDASH/$(DATEDASH)/g' \
-	  > $$package.patched.opam && \
+	  > $$package.patched.opam ; \
 	done
 	@ $(COQPUBLISH) *.patched.opam $(ARCHIVE)
 	@ rm -f *.patched.opam
