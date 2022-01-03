@@ -156,6 +156,12 @@ release:
 # Message.
 	@ echo "Done. Now (if happy) type make opam."
 
+.PHONY: undo
+undo:
+# Undo the last release (assuming it was done on the same date).
+	@ git tag -d $(DATE)
+	@ git push -u origin :$(DATE)
+
 # -------------------------------------------------------------------------
 
 # Updating the opam package.
