@@ -10,7 +10,7 @@ license: "CC-BY-4.0"
 synopsis: "The CFML program verification system"
 description: """
 CFML is a program verification system for OCaml.
-This is a meta package that installs CFML and its Coq libraries.
+This is a meta-package that installs CFML and its Coq libraries.
 """
 
 depends: [
