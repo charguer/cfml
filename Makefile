@@ -94,7 +94,7 @@ uninstall:
 # Use [OPAMYES=1 make pin] to automatically answer "yes" to every
 # question asked by opam.
 
-PACKAGES := cfml coq-cfml-basis coq-cfml-stdlib
+PACKAGES := cfml coq-cfml-basis coq-cfml-stdlib coq-cfml
 
 .PHONY: pin
 pin: unpin
