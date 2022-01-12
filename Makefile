@@ -189,7 +189,7 @@ opam:
 #   we replace the string DATEDASH with $(DATEDASH).
 	@ rm -f *.patched.opam
 	@ \
-	for package in coq-cfml-basis coq-cfml-stdlib ; do \
+	for package in coq-cfml coq-cfml-basis coq-cfml-stdlib ; do \
 	  cat $$package.opam \
 	  | sed -e 's/DATEDASH/$(DATEDASH)/g' \
 	  > $$package.patched.opam ; \
