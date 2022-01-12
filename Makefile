@@ -184,7 +184,7 @@ opam:
 	@ opam lint
 # Publish the OCaml package.
 	@ $(PUBLISH) cfml.opam $(ARCHIVE)
-# Publish the two Coq packages.
+# Publish the Coq packages.
 # Each package description file is patched on the fly:
 #   we replace the string DATEDASH with $(DATEDASH).
 	@ rm -f *.patched.opam
