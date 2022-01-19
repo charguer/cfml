@@ -1,7 +1,7 @@
 let magic = Obj.magic
 
-module type NullSig = sig 
-   val null : 'a 
+module type NullSig = sig
+   val null : 'a
    val is_null : 'a -> bool
 end
 

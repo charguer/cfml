@@ -2000,3 +2000,26 @@ Lemma hoare_conseq : forall t H Q H' Q',
 
 *)
 
+
+
+
+
+(* EX3? (free_counter_abstract) *)
+(** Prove a specification for the operation [free_counter], which frees the
+    reference associated with a counter. *)
+
+Definition free_counter : val :=
+  <{ fun 'f =>
+       free 'f }>.
+
+Lemma free_counter_abstract : forall f n,
+  triple (free_counter f)
+    (IsCounter f n)
+    (fun _ => \[]).
+Proof using. (* ADMITTED *)
+  xtriple. unfold IsCounter. xpull. intros p Hf.
+  unfolds in Hf. xapp. xsimpl. { auto. } { auto. }
+Qed. (* /ADMITTED *)
+
+(** [] *)
+
