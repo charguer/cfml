@@ -1,4 +1,4 @@
-name: "coq-cfml-stdlib"
+name: "coq-cfml"
 opam-version: "2.0"
 maintainer: "arthur.chargueraud@inria.fr"
 
@@ -7,22 +7,21 @@ dev-repo: "git+https://gitlab.inria.fr/charguer/cfml2.git"
 bug-reports: "https://gitlab.inria.fr/charguer/cfml2/-/issues"
 license: "CC-BY-4.0"
 
-synopsis: "The CFML standard library"
+synopsis: "The CFML program verification system"
 description: """
 CFML is a program verification system for OCaml.
+This is a meta-package that installs CFML and its Coq libraries.
 """
 
-build: [make "-C" "lib/stdlib" "-j%{jobs}%"]
-install: [make "-C" "lib/stdlib" "install"]
 depends: [
-  "coq" { >= "8.13" }
   "cfml" { = version }
   "coq-cfml-basis" { = version }
+  "coq-cfml-stdlib" { = version }
 ]
 
 tags: [
   "date:DATEDASH"
-  "logpath:CFML.Stdlib"
+  "logpath:CFML"
   "category:Computer Science/Programming Languages/Formal Definitions and Theory"
   "keyword:program verification"
   "keyword:separation logic"

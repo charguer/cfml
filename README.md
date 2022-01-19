@@ -18,12 +18,12 @@ manager. If you do not have it yet, please
 [install opam](https://opam.ocaml.org/doc/Install.html) first.
 
 CFML depends on several `opam` packages, including Coq. At the time of
-writing, versions 8.12 and 8.13 of Coq are supported.
+writing, versions 8.13 and 8.14 of Coq are supported.
 
 To install the latest released version of CFML, use the following command:
 
 ```
-  opam install coq-cfml-stdlib
+  opam install coq-cfml
 ```
 
 To install the latest development version of CFML, use this:
@@ -63,7 +63,9 @@ Or, if you prefer to use CoqIDE:
 
 The implementation is split into three `opam` packages, named `cfml`,
 `coq-cfml-basis`, and `coq-cfml-stdlib`. The last package depends on
-the previous two.
+the previous two. In addition, the meta-package `coq-cfml` contains
+nothing but depends on the previous three packages, forcing them to
+be installed.
 
 - The package `cfml` contains the generator, `cfmlc`. Its source code is found
   in the directory [generator](generator). This package also installs the
