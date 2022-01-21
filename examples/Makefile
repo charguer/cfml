@@ -3,7 +3,10 @@
 
 EXAMPLE_DIRS = \
 	Stack \
+	Tutorial \
 	UnitTests \
+	UnitTestsCredits \
+
 
 # $(shell find . -type d -depth 1)
 

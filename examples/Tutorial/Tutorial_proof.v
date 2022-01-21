@@ -1,11 +1,12 @@
 Set Implicit Arguments.
 From CFML Require Import WPLib Stdlib.
+From TLC Require Import LibOrder.
 Generalizable Variables A.
 
 Implicit Types n m : int.
 Implicit Types p q : loc.
 
-Require Import Tutorial_ml.
+From EXAMPLES Require Import Tutorial_ml.
 
 
 (* ####################################################### *)
@@ -31,13 +32,9 @@ Lemma example_let_spec : forall n,
     PRE \[]
     POST (fun r => \[r = 2*n]).
 Proof using.
-  (* TODO: why not let-val ? *)
-  (* TODO: xval no subst ?*)
-  xcf. (* xlet. xval. xval_nosubst. *)
-  xlet. xval. xpull. intros Ha.
-  xval.
-  xval. xsimpl. math.
+  xcf. xlet. xlet. xval. xsimpl. math.
 Qed.
+
 
 (** Note: [xapp] calls [xlet] automatically when needed. *)
 
@@ -61,10 +58,10 @@ Lemma incr_spec : forall (p:loc) (n:int),
     PRE (p ~~> n)
     POSTUNIT (p ~~> (n+1)).
 Proof using.
-  xcf. xapp. xapp. xapp. xsimpl.
+  xcf. xapp. xapp. xsimpl.
 Qed.
 
-Hint Extern 1 (Register_Spec (incr)) => Provide incr.
+Hint Extern 1 (RegisterSpec incr) => Provide incr_spec.
 
 
 (* ******************************************************* *)
@@ -80,7 +77,7 @@ Hint Extern 1 (Register_Spec (incr)) => Provide incr.
 *)
 
 Lemma succ_using_incr_spec : forall n,
-  SPEC (succ_using_incr ``n)
+  SPEC (succ_using_incr n)
     PRE \[]
     POST (fun r => \[r = n+1]).
 Proof using.
@@ -129,7 +126,7 @@ Proof using.
   xcf. xapp. xapp. xapp. xsimpl.
 Qed.
 
-Hint Extern 1 (Register_Spec (incr_and_ref)) => Provide incr_and_ref_spec.
+Hint Extern 1 (RegisterSpec incr_and_ref) => Provide incr_and_ref_spec.
 
 Lemma incr_and_ref'_spec : forall (p:loc) (n:int),
   SPEC (incr_and_ref p)
@@ -155,13 +152,6 @@ Qed.
 ]]
 *)
 
-Definition repeat_incr :=
-  Fix 'f 'p 'm :=
-    If_ 'm '> 0 Then
-      incr 'p ';
-      'f 'p ('m '- 1)
-    (* Else '() *) End.
-
 (** Let's try to prove a false specification *)
 
 Lemma repeat_incr_spec : forall p n m,
@@ -170,9 +160,9 @@ Lemma repeat_incr_spec : forall p n m,
     POSTUNIT (p ~~> (n + m)).
 Proof using.
   intros. gen n. induction_wf IH: (downto 0) m. intros.
-  xcf. xapp. xif ;=> C.
+  xcf. xif ;=> C.
   { (* then branch *)
-    xapp. xapp. xapp. { unfold downto. math. } xsimpl. math. }
+    xapp. xapp. { unfold downto. math. } xsimpl. math. }
   { (* else branch *)
     xval. xsimpl.
 Abort.
@@ -186,13 +176,23 @@ Lemma repeat_incr_spec : forall p n m,
     POSTUNIT (p ~~> (n + m)).
 Proof using.
   introv Hm. gen n Hm. induction_wf IH: (downto 0) m. intros.
-  xcf. xapp. xif; intros C.
-  { xapp. xapp. xapp. { hnf. math. } { math. }
+  xcf. xif; intros C.
+  { xapp. xapp. { hnf. math. } { math. }
     xsimpl. math. }
   { xval. xsimpl. math. }
 Qed.
 
 (** Let's try yet another time *)
+
+Lemma max_l : forall n m,
+  n >= m ->
+  max n m = n.
+Proof using. introv M. unfold max. case_if; math. Qed.
+
+Lemma max_r : forall n m,
+  n <= m ->
+  max n m = m.
+Proof using. introv M. unfold max. case_if; math. Qed.
 
 Lemma repeat_incr'_spec : forall p n m,
   SPEC (repeat_incr p m)
@@ -200,10 +200,10 @@ Lemma repeat_incr'_spec : forall p n m,
     POSTUNIT (p ~~> (n + max 0 m)).
 Proof using.
   intros. gen n. induction_wf IH: (downto 0) m; intros.
-  xcf. xapp. xif; intros C.
-  { xapp. xapp. xapp. { hnf. math. }
-    xsimpl. repeat rewrite max_nonneg; math. }
-  { xval. xsimpl. rewrite max_nonpos; math. }
+  xcf. xif; intros C.
+  { xapp. xapp. { hnf. math. }
+    xsimpl. repeat rewrite max_r; math. }
+  { xval. xsimpl. rewrite max_l; math. }
 Qed.
 
 (** Note: [xif] calls [xapp] if necessary. *)
@@ -242,7 +242,7 @@ Lemma double_spec : forall n,
     PRE \[]
     POST (fun m => (* SOLUTION *) \[m = 2 * n] (* /SOLUTION *)).
 Proof using.
-  (* SOLUTION *) xcf. xapp. xsimpl. math. (* /SOLUTION *)
+  (* SOLUTION *) xcf. xval. xsimpl. math. (* /SOLUTION *)
 Qed.
 
 
@@ -263,7 +263,7 @@ Lemma inplace_double_spec : forall p n,
     PRE ((* SOLUTION *) p ~~> n (* /SOLUTION *))
     POSTUNIT ((* SOLUTION *) p ~~> (2 * n) (* /SOLUTION *)).
 Proof using.
-  (* SOLUTION *) xcf. xapp. xapp. xapp. xapp. xsimpl. math. (* /SOLUTION *)
+  (* SOLUTION *) xcf. xapp. xapp. xapp. xsimpl. math. (* /SOLUTION *)
 Qed.
 
 
@@ -312,7 +312,7 @@ Lemma transfer_spec : forall p q n m,
 Proof using.
   introv N. gen m N. induction_wf IH: (downto 0) n. intros.
   (* SOLUTION *)
-  xcf. xapp. xapp. xif ;=> C.
+  xcf. xapp. xif ;=> C.
   { xapp. xapp. xapp. { hnf. math. } { math. }
     xsimpl. math. }
   { xval. xsimpl. math. math. }
@@ -344,7 +344,7 @@ Proof using.
 Abort.
 
 Lemma xpull_demo_lhs_several : forall H1 H2 H3 H4 p q,
-  H1 \* \exists (n:int), (p ~~~> n \* \[n > 0] \* H2) \* \[p <> q] \* H3 ==> H4.
+  H1 \* \exists (n:int), (p ~~> n \* \[n > 0] \* H2) \* \[p <> q] \* H3 ==> H4.
 Proof using.
   intros. xpull. intros n Hn Hp. (* or [xpull ;=> n Hn Hp] *)
 Abort.
