@@ -5,6 +5,9 @@ From CFML Require Import Stdlib.Array_proof.
 From EXAMPLES Require Import UnitTests_ml.
 From TLC Require Import LibListZ.
 
+(* TODO: undo the notation for 'credits' which should be parsing only *)
+
+
 (* Notation for Body only work if copied into this file. *)
 
 (* TODO: pb of res__ variable showing up, due to \*+ simplification *)
@@ -12,8 +15,93 @@ From TLC Require Import LibListZ.
 
 
 (********************************************************************)
-(** ** Polymorphic let bindings and value restriction *)
+(* ** Functions in data types *)
 
+(* -------------------------------------------------------------- *)
+(** * Int seq -> TODO: move to LibListZ from TLC and LibFixDemos *)
+
+From TLC Require LibFix.
+
+(** [nat_seq i n] generates a list of variables [x1;x2;..;xn]
+    with [x1=i] and [xn=i+n-1]. *)
+
+Definition Int_seq int_seq (start:int) (nb:int) : list int :=
+  If nb <= 0
+    then nil
+    else start :: int_seq (start+1) (nb-1).
+
+Definition int_seq := LibFix.FixFun2 Int_seq.
+
+Lemma fix_int_seq : forall start nb,
+  int_seq start nb = Int_seq int_seq start nb.
+Proof using.
+  applys (LibFix.FixFun2_fix (unproj22 int (measure abs))); auto with wf.
+  intros start nb. introv IH. unfolds. case_if*. rewrite* IH.
+  hnf. applys lt_abs_abs; math.
+Qed.
+
+Lemma int_seq_zero : forall start,
+  int_seq start 0 = nil.
+Proof using.
+  intros. rewrite fix_int_seq; unfolds. case_if. { auto. } { false. math. }
+Qed.
+
+Lemma int_seq_pos : forall start nb,
+  nb > 0 ->
+  int_seq start nb = start :: int_seq (start+1) (nb-1).
+Proof using.
+  introv Hnb. rewrite fix_int_seq; unfolds. case_if. { false. math. } { auto. }
+Qed.
+
+Lemma length_int_seq : forall start nb,
+  nb >= 0 ->
+  length (int_seq start nb) = nb.
+Proof using.
+  introv Hnb. gen start Hnb. induction_wf IH: (downto 0) nb; simpl; intros.
+  tests C: (nb = 0).
+  { rewrite int_seq_zero. rew_list*. }
+  { rewrite int_seq_pos; try math. rew_list. rewrite IH; try (hnf; math). }
+Qed.
+
+Global Opaque int_seq.
+
+Hint Rewrite int_seq_zero : rew_listx.
+
+(* -------------------------------------------------------------- *)
+
+(** Strict cascade *)
+
+Fixpoint SCascade A `{EA:Enc A} (L:list A) (s:scascade_ A) : Prop :=
+  match L with
+  | nil => s = SCascadeNil
+  | x::L' => exists f, s = SCascadeCons x f /\
+               SPEC_PURE (f tt)
+               POST (fun s' => \[SCascade L' s'])
+  end.
+
+Lemma SCascade_Nil : forall A (EA:Enc A),
+  SCascade (@nil A) SCascadeNil.
+Proof using. intros. simpl. auto. Qed.
+
+Lemma SCascade_Cons : forall A (EA:Enc A) (x:A) (L':list A) (f:func),
+  (SPEC_PURE (f tt) POST (fun s' => \[SCascade L' s'])) ->
+  SCascade (x::L') (SCascadeCons x f).
+Proof using. introv Hf. simpl. exists* f. Qed.
+
+Lemma scascade_seq_spec : forall start nb,
+  nb >= 0 ->
+  SPEC_PURE (scascade_seq start nb)
+  POST (fun s => \[SCascade (int_seq start nb) s]).
+Proof using.
+  introv. gen start. induction_wf IH: (downto 0) nb; intros. xcf. xif ;=> C.
+  { xvals. applys_eq SCascade_Nil. math_rewrite (nb = 0). rewrite* int_seq_zero. }
+  { xlet. xvals.  rewrite int_seq_pos; try math. applys_eq SCascade_Cons.
+    xapp. xapp; try (hnf; math). xsimpl*. }
+Qed.
+
+
+(********************************************************************)
+(** ** Polymorphic let bindings and value restriction *)
 
 (* TODO: notation for let_poly *)
 

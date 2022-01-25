@@ -6,6 +6,35 @@
  *)
 
 
+
+(********************************************************************)
+(* ** Functions in data types *)
+
+(* Lazy cascade *)
+
+type 'a cascade = unit -> 'a cascade_node
+
+and 'a cascade_node =
+  | CascadeNil
+  | CascadeCons of 'a * 'a cascade
+
+let rec cascade_seq (start : int) (nb : int) : int cascade =
+  fun () -> if nb <= 0
+    then CascadeNil
+    else CascadeCons (start, cascade_seq (start+1) (nb-1))
+
+(* Strict cascade *)
+
+type 'a scascade =
+  | SCascadeNil
+  | SCascadeCons of 'a * (unit -> 'a scascade)
+
+let rec scascade_seq (start : int) (nb : int) : int scascade =
+  if nb <= 0
+    then SCascadeNil
+    else SCascadeCons (start, fun () -> scascade_seq (start+1) (nb-1))
+
+
 (********************************************************************)
 (* ** Function call *)
 
