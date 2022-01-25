@@ -7,6 +7,12 @@ From TLC Require Import LibListZ.
 
 (* TODO: undo the notation for 'credits' which should be parsing only *)
 
+(* TODO: add this notation *)
+Notation "'SPEC_PURE' t 'POST_PURE' P" :=
+  (Triple t \[] (fun r => \[P r])) (* TODO: could be using [pure_post P] as a definition? *)
+  (at level 39, t custom Trm_apps at level 0,
+  format "'[v' 'SPEC_PURE'  t  '/'  'POST_PURE'  P ']'") : triple_scope.
+
 
 (* Notation for Body only work if copied into this file. *)
 
@@ -69,6 +75,16 @@ Hint Rewrite int_seq_zero : rew_listx.
 
 (* -------------------------------------------------------------- *)
 
+
+(** Lazy values: a lazy value of type [a] is represented at type [unit->'a].
+    [Lazyval P f] asserts that [f] is a lazy value whose evaluation produces
+    a value satisfying the (pure) predicate [P]. *)
+
+Definition Lazyval A `{EA:Enc A} (P:A->Prop) (f:val) : Prop :=
+  SPEC_PURE (f tt) POST_PURE P. 
+(* same as: SPEC (f tt) PRE \[] POST (fun r => \[P r]). *)
+
+
 (** Strict cascade *)
 
 Fixpoint SCascade A `{EA:Enc A} (L:list A) (s:scascade_ A) : Prop :=
@@ -84,7 +100,7 @@ Lemma SCascade_Nil : forall A (EA:Enc A),
 Proof using. intros. simpl. auto. Qed.
 
 Lemma SCascade_Cons : forall A (EA:Enc A) (x:A) (L':list A) (f:func),
-  (SPEC_PURE (f tt) POST (fun s' => \[SCascade L' s'])) ->
+  Lazyval (SCascade L') f ->
   SCascade (x::L') (SCascadeCons x f).
 Proof using. introv Hf. simpl. exists* f. Qed.
 
@@ -96,7 +112,47 @@ Proof using.
   introv. gen start. induction_wf IH: (downto 0) nb; intros. xcf. xif ;=> C.
   { xvals. applys_eq SCascade_Nil. math_rewrite (nb = 0). rewrite* int_seq_zero. }
   { xlet. xvals.  rewrite int_seq_pos; try math. applys_eq SCascade_Cons.
-    xapp. xapp; try (hnf; math). xsimpl*. }
+    unfold Lazyval. xapp. xapp; try (hnf; math). xsimpl*. }
+Qed.
+
+(** Lazy cascade *)
+
+Definition LCascade_node A `{EA:Enc A} (LCascade:list A->lcascade_ A->Prop) (L:list A) (s:lcascade_node_ A) : Prop :=
+ match L with
+ | nil => s = LCascadeNil
+ | x::L' => exists f', s = LCascadeCons x f' /\ LCascade L' f'
+ end. 
+
+Lemma LCascade_node_Nil : forall A (EA:Enc A) (LCascade:list A->lcascade_ A->Prop),
+  LCascade_node LCascade (@nil A) LCascadeNil.
+Proof using. intros. simpl. auto. Qed.
+
+Lemma LCascade_node_Cons : forall A (EA:Enc A) (LCascade:list A->lcascade_ A->Prop) (x:A) (L':list A) (f:func),
+  LCascade L' f ->
+  LCascade_node LCascade (x::L') (LCascadeCons x f).
+Proof using. introv Hf. simpl. exists* f. Qed.
+
+Fixpoint LCascade A `{EA:Enc A} (L:list A) (f:lcascade_ A) : Prop :=
+  Lazyval (LCascade_node (@LCascade A EA) L) f.
+
+Lemma LCascade_intro : forall A `{EA:Enc A} (L:list A) (f:lcascade_ A),
+  SPEC_PURE (f tt) POST_PURE (LCascade_node (@LCascade A EA) L) ->
+  LCascade L f.
+Proof using.
+  (* Coq forces us to do a case analysis on L in order to unfold the fixpoint definition. *)
+  intros. unfold LCascade, Lazyval. destruct L; simpl; xapplys* H.
+Qed.
+
+Lemma lcascade_seq_spec : forall start nb,
+  nb >= 0 ->
+  SPEC_PURE (lcascade_seq start nb)
+  POST (fun f => \[LCascade (int_seq start nb) f]).
+Proof using.
+  introv. gen start. induction_wf IH: (downto 0) nb; intros. xcf.
+  xlet. xvals. apply LCascade_intro. xapp. clear Spec_f0__. xif ;=> C.
+  { xvals. applys_eq LCascade_node_Nil. math_rewrite (nb = 0). rewrite* int_seq_zero. }
+  { xapp; try (hnf; math). intros s' Hs'. xvals.
+    rewrite int_seq_pos; try math. applys_eq* LCascade_node_Cons. }
 Qed.
 
 
