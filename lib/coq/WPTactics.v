@@ -545,7 +545,7 @@ Tactic Notation "xlet_trm" :=
   xlet_trm_core ltac:(fun a => idtac).
 
 Tactic Notation "xlet_trm" "as" :=
-  xlet_trm_common ltac:(fun a => revert a).
+  xlet_trm_core ltac:(fun a => revert a).
 
 (* [xlet_trm Q1] *)
 
