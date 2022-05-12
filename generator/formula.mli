@@ -65,9 +65,10 @@ type cf =
 (** Characteristic formulae for top-level declarations *)
 
 type cftop =
-  | Cftop_val of typed_var
+    Cftop_val of typed_var * coq option
     (* Lemma x_safe : Inhab t. Proof. typeclass. Qed.
-       Parameter x : t. *)
+       Parameter x : t.
+       Definition x : t := tdef. *)
   | Cftop_heap of var
     (* Parameter h : heap. *)
   | Cftop_val_cf of var * vars * vars * coq

@@ -25,6 +25,7 @@ and coq =
   | Coq_var of var
   | Coq_nat of int
   | Coq_int of int
+  | Coq_string of string
   | Coq_app of coq * coq
   | Coq_impl of coq * coq
   | Coq_lettuple of coqs * coq * coq
@@ -139,6 +140,9 @@ let coq_unit =
 
 let coq_int =
   Coq_var "Coq.ZArith.BinInt.Z"
+
+let coq_string =
+  Coq_var "Coq.Strings.String.string"
 
 let coq_nat =
   Coq_var "Coq.Init.Datatypes.nat"

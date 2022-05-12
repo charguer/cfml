@@ -1,12 +1,13 @@
 
 
 (*#########################################################################*)
-(* ** Switch for controlling generation *)
+(* ** Switch for controlling generation (could be moved to a file named Flags.ml) *)
 
 let use_credits = ref false
 
 let use_left_to_right_order = ref false
 
+let generate_deep_embedding = ref false
 
 
 

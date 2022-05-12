@@ -40,6 +40,7 @@ let spec =
     ("-o", Arg.String (fun s -> outputfile := Some s), " set the output file name");
     ("-only_cmj", Arg.Set only_cmj, " only generate the .cmj file, not the .v file");
     ("-only_normalize", Arg.Set only_normalize, " only generate the .cmj file, and attempt normalization, not the .v file");
+    ("-deep_embedding", Arg.Set Mytools.generate_deep_embedding, " generate the deep embedding of the source programs");
     ("-debug", Arg.Set is_tracing, " trace the various steps");
     ("-width", Arg.Set_int Print_coq.width, " set pretty-printing width for the .v file");
     ("-where", Arg.Unit Cfml_config.print_libdir,

@@ -858,7 +858,7 @@ let rec cfg_exp env e =
       if is_let_fun then begin
         let env' = match rf with
            | Nonrecursive -> env
-           | Recursive -> env
+           | Recursive -> env (* it is an env only for type constructors, not for variables *)
               (* --todo: add better support for local polymorphic recursion
               List.fold_left (fun (pat,bod) acc -> Ident.add (pattern_ident pat) 0 acc) env pat_expr_list *)
            | Default -> unsupported loc "Default recursion mode"
@@ -1165,6 +1165,7 @@ let rec cfg_structure_item s : cftops =
            | Texp_constraint({exp_desc = Texp_function (_,_,_)},_,_) -> true
            | _ -> false in
 
+        (* let-binding of functions *)
         if List.for_all is_let_fun pat_expr_list then begin
           let env' = match rf with
              | Nonrecursive -> Ident.empty
@@ -1174,7 +1175,7 @@ let rec cfg_structure_item s : cftops =
              | Default -> unsupported loc "Default recursion mode"
              in
           let ncs = List.map (fun (pat,bod) -> (pattern_name_protect_infix pat, cfg_func env' fvs pat bod)) pat_expr_list in
-            (List.map (fun (name,_) -> Cftop_val (name, func_type)) ncs)
+            (List.map (fun (name,_) -> Cftop_val ((name, func_type), None)) ncs) (* TODO: def deep embedding *)
           @ (List.map (fun (name,cf_body) -> Cftop_fun_cf (name, cf_body)) ncs)
           @ [Cftop_coqs (List.map (fun (name,_) -> register_cf name) ncs)]
 
@@ -1208,7 +1209,7 @@ let rec cfg_structure_item s : cftops =
                 | [] -> []
                 | _ ->  [ Coqtop_implicit (x, List.map (fun t -> (t,Coqi_maximal)) fvs_strict) ]
                 in
-             [ Cftop_val (x, coq_forall_types fvs_strict typ);
+             [ Cftop_val ((x, coq_forall_types fvs_strict typ), None);
                Cftop_coqs implicits;
                Cftop_val_cf (x, fvs_strict, fvs_others, v_typed);
                Cftop_coqs [register_cf x]; ]
@@ -1251,7 +1252,7 @@ let rec cfg_structure_item s : cftops =
       let id = var_name (Ident.name id) in
       let fvs, typ = lift_typ_sch loc descr.val_desc.ctyp_type in
       let typ = coq_fun_types fvs typ in
-      [ Cftop_val (id, typ) ]
+      [ Cftop_val ((id, typ), None) ]
 
   | Tstr_exception(id, decl) ->
       [] (* unsupported "exceptions" ; could be raise CFML_ignore *)

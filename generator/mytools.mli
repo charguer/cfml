@@ -6,7 +6,7 @@ val use_credits : bool ref
 
 val use_left_to_right_order : bool ref
 
-
+val generate_deep_embedding : bool ref
 
 
 

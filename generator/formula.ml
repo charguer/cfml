@@ -32,7 +32,7 @@ type cf =
   | Cf_pay of cf
 
 type cftop =
-    Cftop_val of typed_var
+    Cftop_val of typed_var * coq option
   | Cftop_heap of var
   | Cftop_val_cf of var * vars * vars * coq
   | Cftop_let_cf of var * var * var * cf

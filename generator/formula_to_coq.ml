@@ -225,7 +225,7 @@ let rec coqtops_of_cf cf =
 let coqtops_of_cftop coq_of_cf cft =
   match cft with
 
-  | Cftop_val (x,t) ->
+  | Cftop_val ((x,t), None) ->
      (* Parameter x : t. *)
      [ Coqtop_param (x,t) ]
 
@@ -236,6 +236,10 @@ let coqtops_of_cftop coq_of_cf cft =
        *)
      (* --Lemma x_safe : Inhab t. Proof. typeclass. Qed.
         Parameter x : t *)
+
+  | Cftop_val ((x,t), Some tdef) ->
+     (* Defintition x : t := tdef. *)
+     [ Coqtop_def ((x,t), tdef) ]
 
   | Cftop_val_cf (x,fvs_strict,fvs_other,v) ->
       (* Parameter x_cf : (forall Ai Bi, x = v). *)
