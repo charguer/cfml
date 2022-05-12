@@ -21,98 +21,8 @@ let not_in_normal_form loc s =
    raise (Not_in_normal_form (loc, s))
 
 
-(*#########################################################################*)
-(* ** List of external modules that need to be required *)
-
-let external_modules = ref []
-
-let external_modules_add name =
-   if not (List.mem name !external_modules)
-     then external_modules := name::!external_modules
-   (* TODO: use a structure more efficient than lists *)
-
-let external_modules () =
-  !external_modules
-
-(* FIXME unused
-let external_modules_reset () =
-   external_modules := []
- *)
-
-(* If [-nostdlib] is set, the list of external modules is left unchanged.
-   Otherwise, the modules that appear to be part of the standard library
-   are removed from this list; they do not need to be explicitly listed,
-   because we emit [Require CFML.Stdlib.Stdlib]. *)
-
-let is_stdlib_module = function
-| "Array_ml"
-| "List_ml"
-| "Pervasives_ml"
-| "Sys_ml"
-    -> true
-| _ -> false
-
-let is_not_stdlib_module m =
-  not (is_stdlib_module m)
-
-let filter no_mystd_include modules =
-  if no_mystd_include then
-    modules
-  else
-    List.filter is_not_stdlib_module modules
 
 
-(*#########################################################################*)
-(* ** Lifting of paths *)
-
-(* Take a module name and add "_ml" suffix to it;
-   Moreover, insert a "Require" directive in case the module
-   corresponds to a file (i.e. a compilation unit. *)
-
-let lift_module_name id =
-   let name = Ident.name id in
-   let coqname = module_name name in
-   if Ident.persistent id then external_modules_add coqname;
-   coqname
-
-   (* -- old:
-     if Ident.persistent id
-      then (let result = name ^ "_ml" in external_modules_add result; result)
-      else "ML" ^ name
-   *)
-   (* -- old: if name = "OkaStream" then "CFPrim" else  *)
-
-(* Function for adding "_ml" to the modules in a path,
-   including the last constant which is assumed to a module name.
-   For example, "Foo.Bar" becomes "Foo_ml.Bar_ml".
-
-   TODO: rename this function *)
-
-
-let rec lift_full_path = function
-  | Pident id -> Pident (Ident.create (lift_module_name id))
-  | Pdot(p, s, pos) -> Pdot(lift_full_path p, (module_name s), pos)
-  | Papply(p1, p2) -> assert false
-
-(* Function for adding "_ml" to the modules in a path,
-   but not changing the last constant in the path.
-   For example, "Foo.x" becomes "Foo_ml.x". *)
-
-let lift_path = function
-  | Pident id -> Pident id
-  | Pdot(p, s, pos) -> Pdot(lift_full_path p, s, pos)
-  | Papply(p1, p2) -> assert false
-
-(** Translates a path into a string. A module called "Test"
-    becomes "Test_ml". *)
-
-let lift_full_path_name p =
-  Path.name (lift_full_path p)
-
-(** Translates a path into a string --todo: why not full? *)
-
-let lift_path_name p =
-  Path.name (lift_path p)
 
 
 
@@ -486,14 +396,14 @@ let exp_find_inlined_primitive e oargs =
 
     | _ -> None
 
-
-(*#########################################################################*)
-(* ** Helper functions for recognizing pure values *)
-
 let is_inlined_function e =
    match e.exp_desc with
    | Texp_apply (funct, oargs) when (exp_find_inlined_primitive funct oargs <> None) -> true
    | _ -> false
+
+
+(*#########################################################################*)
+(* ** Helper functions for recognizing pure values *)
 
 (** [is_value_let_binding bod] tests if [bod] can be reflected as
     a LetVal or if it should be a LetTrm.
@@ -754,30 +664,6 @@ let cfg_extract_labels () =
    reset_used_labels();
    cft
  *)
-
-(*#########################################################################*)
-(* ** Helper functions for names *)
-
-(** Takes a pattern that is expected to be reduced simply to an identifier,
-    and returns this identifier *)
-
-let rec pattern_ident p =
-   match p.pat_desc with
-   | Tpat_var s -> s
-   | Tpat_alias (p1,_) -> pattern_ident p1
-   | _ -> failwith ("pattern_ident: the pattern is not a name: " ^ (Print_tast.string_of_pattern false p))
-
-(** Takes a pattern that is expected to be reduced simply to an identifier,
-    and returns the name of this identifier *)
-
-let pattern_name p =
-   Ident.name (pattern_ident p)
-
-(** Takes a function name and encodes its name in case of an infix operator *)
-
-let pattern_name_protect_infix p =
-   var_name (pattern_name p)
-
 
 (*#########################################################################*)
 (* ** Helper functions for fvs (type variables) *)
@@ -1174,10 +1060,14 @@ let rec cfg_structure_item s : cftops =
                 List.fold_left (fun (pat,bod) acc -> Ident.add (pattern_ident pat) 0 acc) env pat_expr_list *)
              | Default -> unsupported loc "Default recursion mode"
              in
-          let ncs = List.map (fun (pat,bod) -> (pattern_name_protect_infix pat, cfg_func env' fvs pat bod)) pat_expr_list in
-            (List.map (fun (name,_) -> Cftop_val ((name, func_type), None)) ncs) (* TODO: def deep embedding *)
-          @ (List.map (fun (name,cf_body) -> Cftop_fun_cf (name, cf_body)) ncs)
-          @ [Cftop_coqs (List.map (fun (name,_) -> register_cf name) ncs)]
+          let ncs = List.map (fun (pat,bod) ->
+              let embedding =
+                if !Mytools.generate_deep_embedding then Some (Trm_to_coq.tr_func_top pat bod) else None in
+              (pattern_name_protect_infix pat, cfg_func env' fvs pat bod, embedding)) pat_expr_list in
+            (List.map (fun (name,cf_body,embedding) ->
+              Cftop_val ((name, func_type), embedding)) ncs) (* TODO: def deep embedding *)
+          @ (List.map (fun (name,cf_body,embedding) -> Cftop_fun_cf (name, cf_body)) ncs)
+          @ [Cftop_coqs (List.map (fun (name,cf_body,embedding) -> register_cf name) ncs)]
 
         (* let-binding of a single value *)
         end else if (List.length pat_expr_list = 1) then begin (* later: check it is not a function *)

@@ -15,22 +15,11 @@ open Printf
 (*#########################################################################*)
 (* ** Helper functions *)
 
-let pattern_ident = Characteristic.pattern_ident
-let pattern_name = Characteristic.pattern_name
-let pattern_name_protect_infix = Characteristic.pattern_name_protect_infix
-let is_inlined_function = Characteristic.is_inlined_function
-let not_in_normal_form = Characteristic.not_in_normal_form
-let lift_path = Characteristic.lift_path
-let lift_path_name = Characteristic.lift_path_name
-let exp_find_inlined_primitive = Characteristic.exp_find_inlined_primitive
-
 (* later?
 prefix_for_label
 coq_record loc typ fields assigns optbase
 record_field_names_and_immutability_of_labels
 *)
-
-
 
 let coq_sem cstr args =
   coq_apps (coq_var ("Semantics." ^ cstr)) args
@@ -138,14 +127,14 @@ let rec tr_exp env e =
    | Texp_constraint (e, Some ty, None) ->
       aux e
 
-   | Texp_construct(p, cstr, args) -> ret e
+   | Texp_construct(p, cstr, args) ->
       let x = string_of_path p in
       begin match x with
-      | "()",  coq_sem "val_unit" []
-      | "true", coq_sem "val_bool" [coq_bool_true]
-      | "false", coq_sem "val_bool" [coq_bool_false]
+      | "()" ->  coq_sem "val_unit" []
+      | "true" -> coq_sem "val_bool" [coq_bool_true]
+      | "false" -> coq_sem "val_bool" [coq_bool_false]
       | _ ->  unsupported loc "only unit and boolean constructors are supported"
-
+      end
       (* LATER
         lift_path_name p
         coq_of_constructor loc p c (List.map aux es) e.exp_type
@@ -293,28 +282,27 @@ and tr_func env rf pat bod =
   let fname = pattern_name_protect_infix pat in
   let env' = match rf with
      | Nonrecursive -> env
-     | Recursive -> Ident.add (pattern_ident pat) () env in
+     | Recursive -> Ident.add (pattern_ident pat) () env
      | Default -> unsupported loc "Default recursion mode"
      in
-   let rec get_args acc e =
+   let rec args_with_idents_and_body acc e =
       let loc = e.exp_loc in
       match e.exp_desc with
       | Texp_function (_,[p1,e1],partial)
       | Texp_constraint ({exp_desc = Texp_function (_,[p1,e1],partial)},_,_) ->
          if partial <> Total
             then not_in_normal_form loc (Print_tast.string_of_expression false e);
-         get_args ((pattern_name p1)::acc) e1
+         args_with_idents_and_body ((pattern_name p1, pattern_ident p1)::acc) e1
       | _ -> List.rev acc, e
       in
    (*let loc = pat.pat_loc in *)
-   let args, body = get_args [] bod in
+   let args_with_idents, body = args_with_idents_and_body [] bod in
+   let args, idents = List.split args_with_idents in
+   let env' = List.fold_left (fun acc id -> Ident.add id () acc) idents env' in
    let body' = tr_exp env' body in
-
-   (fname) args body'
-     val_fixs : bind -> list var -> trm -> val
-     ou trm_fixs
-
-
+   let cstr = if is_value then "val_fixs" else "trm_fixs" in
+   let farg = if is_value then coq_var "LibSepBind.bind_anon" else coq_string fname in
+   coq_sem cstr [farg; (coq_list (List.map coq_var xs)); body']
 
 
 (** Generate the deep embedding of a top-level OCaml function [fun pat -> body] *)

@@ -159,7 +159,7 @@ let rec expr0 = function
   | Coq_int n ->
       parens (string (string_of_int n)) ^^ string "%Z"
   | Coq_string s ->
-       dquotes s
+       dquotes (string s)
    (* DEPRECATED ; maybe future ?
   | Coq_list cs ->
       if (cs = []) then string cnil else

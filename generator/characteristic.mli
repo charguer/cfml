@@ -92,16 +92,5 @@ val cfg_module : Ident.t -> Typedtree.module_expr -> Formula.cftops
 val cfg_file : bool -> Typedtree.structure -> Formula.cftop list
 
 exception Not_in_normal_form of Location.t * string
-
-(* Auxiliary functions *)
-val pattern_ident : Typedtree.pattern -> Ident.t
-val pattern_name : Typedtree.pattern -> string
-val pattern_name_protect_infix : Typedtree.pattern -> string
-val is_inlined_function : Typedtree.expression -> bool
 val not_in_normal_form : Location.t -> string -> unit
-val lift_path : Path.t -> Path.t
-val lift_path_name : Path.t -> string
-val exp_find_inlined_primitive :
-  Typedtree.expression ->
-  ('a * Typedtree.expression option * Typedtree.optional) list ->
-  string option
+
