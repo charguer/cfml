@@ -491,6 +491,9 @@ let find_primitive p =
 let cf_axiom_name name =
   name ^ "_cf__"
 
+let cf_statement_name name =
+  name ^ "_cf_def__"
+
 (** Convention for naming module names *)
 
 let module_name name =

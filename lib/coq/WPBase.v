@@ -346,10 +346,13 @@ Definition wpgen_constr wpgen (E:ctx) (id:idconstr) : list val -> list trm -> fo
     | t1::ts' => wpaux_getval wpgen E t1 (fun v1 => mk (v1::rvs) ts')
     end.
 
+Definition wpgen_app (v0:val) (vs:list val) : formula :=
+  mkstruct (wp (trm_apps v0 (trms_vals vs))).
+
 Definition wpaux_apps wpgen (E:ctx) (v0:val) : list val -> list trm -> formula :=
   fix mk (rvs : list val) (ts : list trm) : formula :=
     match ts with
-    | nil => mkstruct (wp (trm_apps v0 (trms_vals (List.rev rvs))))
+    | nil => wpgen_app v0 (List.rev rvs)
     | t1::ts' => wpaux_getval wpgen E t1 (fun v1 => mk (v1::rvs) ts')
     end.
 

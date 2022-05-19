@@ -248,8 +248,18 @@ let coqtops_of_cftop coq_of_cf cft =
       (* DEPRECATED let t = coq_tag "tag_top_val" hyp in *)
 
   | Cftop_fun_cf (x,cf) ->
-      (* Parameter x_cf : hyp. *)
-      [ Coqtop_param (cf_axiom_name x, coq_of_cf cf) ]
+
+      if !Mytools.generate_deep_embedding then begin
+        (* Definition x_cf_def := hyp.
+           Parameter x_cf : x_cf_def. *)
+        let xcf = cf_statement_name x in
+        [ Coqtop_def ((xcf, Coq_prop), coq_of_cf cf);
+          Coqtop_param (cf_axiom_name x, Coq_var xcf); ]
+      end else begin
+        (* Parameter x_cf : hyp. *)
+        [ Coqtop_param (cf_axiom_name x, coq_of_cf cf) ]
+      end
+
       (* DEPRECATED let t = coq_tag "tag_top_fun" () in *)
 
 
