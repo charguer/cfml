@@ -1,8 +1,8 @@
 open Typedtree
 open Mytools
 open Format
-open Print_past
 open Print_type
+open Print_common
 
 (** Printing facility for typed abstract syntax trees produced by the
     type-checker*)

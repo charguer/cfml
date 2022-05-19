@@ -1,4 +1,5 @@
 open Mytools
+(* LATER: add a mli file *)
 
 (**
 
@@ -245,8 +246,6 @@ let type_variable_name name =
    (String.uppercase_ascii name) ^ "_"
 
 (** Convention for naming type constructors *)
-
-
 
 let type_constr_builtin_name name =
    if name = "float" then unsupported_noloc "float not yet supported";
@@ -607,6 +606,13 @@ val lift_path_name : Path.t -> string
 
 
 (*#########################################################################*)
+(* ** Helper functions for functions *)
+
+let simplify_apply_args loc oargs =
+  List.map (function (lab, Some e, Typedtree.Required) -> e | _ -> unsupported loc "optional arguments") oargs
+
+
+(*#########################################################################*)
 (* ** Helper functions for names *)
 
 open Typedtree
@@ -618,7 +624,8 @@ let rec pattern_ident p =
    match p.pat_desc with
    | Tpat_var s -> s
    | Tpat_alias (p1,_) -> pattern_ident p1
-   | _ -> failwith ("pattern_ident: the pattern is not a name: " ^ (Print_tast.string_of_pattern false p))
+   | _ -> unsupported p.pat_loc ("pattern_ident: the pattern is not a name")
+   (* (Print_tast.string_of_pattern false p) *)
 
 (** Takes a pattern that is expected to be reduced simply to an identifier,
     and returns the name of this identifier *)

@@ -133,3 +133,7 @@ val unsupported : Location.t -> string -> 'a
     and report the location *)
 
 val warning : Location.t -> string -> unit
+
+exception Not_in_normal_form of Location.t * string
+
+val not_in_normal_form : Location.t -> string -> 'a

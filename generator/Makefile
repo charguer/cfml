@@ -19,6 +19,7 @@ install:
 uninstall:
 	@ cd .. && dune uninstall cfml
 
+
 # For some reason, running [dune install] or [dune uninstall] in the
 # current directory causes it to create a [dune-project] file in this
 # directory, even though there is one in the parent directory. To

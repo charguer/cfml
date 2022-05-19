@@ -144,6 +144,9 @@ let coq_int =
 let coq_string =
   Coq_var "Coq.Strings.String.string"
 
+let coq_string_val s =
+  Coq_string s
+
 let coq_nat =
   Coq_var "Coq.Init.Datatypes.nat"
 
@@ -275,11 +278,16 @@ let coq_prod cs =
 
 (** List [c1 :: c2 :: .. :: cN] *)
 
-let coq_list xs =
+let coq_list ?(typ : coq option) xs =
    let ccons = Coq_var (Renaming.get_builtin_constructor "::") in
+   let ccons, targs =
+     match typ with
+     | None -> ccons, []
+     | Some typ -> (coq_at ccons), [typ]
+     in
    let cnil = Coq_var (Renaming.get_builtin_constructor "[]") in
    List.fold_right (fun arg acc ->
-      coq_apps ccons [arg; acc]) xs cnil
+      coq_apps ccons (targs@[arg; acc])) xs cnil
    (* DEPRECATED ; maybe future ?
    let coq_list xs =
      Coq_list xs
@@ -351,6 +359,13 @@ let coqtop_noimplicit x =
 
 let coqtop_register db x v =
    Coqtop_register (db, x, v)
+
+
+(** Datatype for semantics terms *)
+
+let trm_type = coq_cfml_var "Semantics.trm"
+
+let val_type = coq_cfml_var "Semantics.val"
 
 
 (*#########################################################################*)

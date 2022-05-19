@@ -101,10 +101,6 @@ let trm_apps cf cvs =
 let trm_apps_lifted cf cvs =
   coq_apps (coq_cfml_var "SepLifted.Trm_apps") [cf; coq_list cvs]
 
-(** Abstract datatype for values *)
-
-let val_type = coq_cfml_var "Semantics.val"
-
 (** Abstract datatype for functions --TODO: could use val directly? *)
 
 let func_type = val_type (* coq_cfml_var "WPBuiltin.func" *)

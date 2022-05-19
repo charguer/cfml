@@ -123,7 +123,7 @@ let _ =
       | None -> failwith "Could not read and typecheck input file"
       | Some (parsetree1, (typedtree1,_)) -> parsetree1
       in
-   file_put_contents (debugdirBase ^ "_original.ml") (Print_past.string_of_structure parsetree1);
+   (* TEMPORARY file_put_contents (debugdirBase ^ "_original.ml") (Print_past.string_of_structure parsetree1);*)
 
    if !only_cmj then begin
       trace "3) exiting since -only_cmj";
@@ -133,7 +133,7 @@ let _ =
    (*---------------------------------------------------*)
    trace "3) normalizing source code";
    let parsetree2 : Parsetree.structure = normalize_structure parsetree1 in
-   file_put_contents (debugdirBase ^ "_normalized.ml") (Print_past.string_of_structure parsetree2);
+   (* TEMPORARY file_put_contents (debugdirBase ^ "_normalized.ml") (Print_past.string_of_structure parsetree2); *)
 
    (*---------------------------------------------------*)
    trace "4) typing normalized code";
@@ -163,7 +163,7 @@ let _ =
       try Characteristic.cfg_file !no_mystd_include typedtree2
       with
       | Typetexp.Error(_, _) -> assert false
-      | Characteristic.Not_in_normal_form (loc, s) ->
+      | Not_in_normal_form (loc, s) ->
          Location.print_error Format.std_formatter loc;
          Printf.printf "  %s.\nThe normalized file does not appear to be in normal form.\nTo investigate, open %s_normalized.ml\nand %s_normalized_typed.ml.\n" s debugdirBase debugdirBase;
          exit 1

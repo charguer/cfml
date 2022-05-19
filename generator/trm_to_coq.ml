@@ -1,14 +1,9 @@
 open Asttypes
-open Types
 open Typedtree
 open Mytools
 open Print_tast
-open Print_type
-open Formula
 open Coq
-open Path
 open Renaming
-open Printf
 
 
 
@@ -34,7 +29,7 @@ let coq_sem cstr args =
 
 type env = unit Ident.tbl
 
-let is_local_var env id =
+let is_local_var (env:env) id =
   begin try
     let () = Ident.find_same id env in
     true
@@ -85,8 +80,8 @@ let is_local_var env id =
 (*#########################################################################*)
 (* ** Lifting of variables *)
 
-let tr_path p =
-  lift_path_name (var_path p)
+let tr_path (p : Path.t) : string =
+  lift_path_name p (* (var_path p)*)
 
 
 (*#########################################################################*)
@@ -97,15 +92,15 @@ let tr_path p =
 
 let rec tr_exp env e =
    let loc = e.exp_loc in
-   let aux = cfg_exp env in
+   let aux = tr_exp env in
    let not_normal ?s:(s="") () =
       not_in_normal_form loc (s ^ Print_tast.string_of_expression false e) in
    match e.exp_desc with
 
-   | Texp_ident (id,d) ->
-      let x = tr_path p in
-      if is_local_var env id
-        then coq_sem "trm_var" [coq_string x]
+   | Texp_ident (p,d) ->
+      let x = tr_path (var_path p) in
+      if is_local_var env (Path.head p)
+        then coq_sem "trm_var" [Coq_string x]
         else coq_var x
 
    | Texp_constant (Const_int n) ->
@@ -115,14 +110,14 @@ let rec tr_exp env e =
 
    | Texp_sequence(expr1, expr2) ->
       (* coq_sem "trm_seq" [aux expr1; aux expr2] *)
-      coq_apps (coq_sem "trm_let" [LibSepBind.bind_anon]) [aux expr1; aux expr2]
+      coq_apps (coq_sem "trm_let" [coq_var "LibSepBind.bind_anon"]) [aux expr1; aux expr2]
 
    | Texp_ifthenelse (cond, ifso, Some ifnot) ->
       coq_sem "trm_if" [aux cond; aux ifso; aux ifnot]
 
    | Texp_apply (funct, oargs) ->
       let args = simplify_apply_args loc oargs in
-      coq_sem "trm_apps" [aux funct; coq_list (List.map aux args)]
+      coq_sem "trm_apps" [aux funct; coq_list ~typ:trm_type (List.map aux args)]
 
    | Texp_constraint (e, Some ty, None) ->
       aux e
@@ -130,7 +125,7 @@ let rec tr_exp env e =
    | Texp_construct(p, cstr, args) ->
       let x = string_of_path p in
       begin match x with
-      | "()" ->  coq_sem "val_unit" []
+      | "()" -> coq_sem "val_unit" []
       | "true" -> coq_sem "val_bool" [coq_bool_true]
       | "false" -> coq_sem "val_bool" [coq_bool_false]
       | _ ->  unsupported loc "only unit and boolean constructors are supported"
@@ -163,7 +158,7 @@ let rec tr_exp env e =
         let arg1 = tr_exp env bod in
         let env' = Ident.add (pattern_ident pat) () env in
         let arg2 = tr_exp env' body in
-        coq_sem "trm_let" [coq_string x; arg1; arg2]
+        coq_sem "trm_let" [Coq_string x; arg1; arg2]
 
      end
 
@@ -268,22 +263,20 @@ let rec tr_exp env e =
    | Texp_newtype (_,_) -> unsupported loc "newtype"
    | Texp_pack _ -> unsupported loc "pack"
    | Texp_open (_,_) -> unsupported loc "open in term"
-   | Texp_constraint (e, Some ty, None) -> aux e
       (* LATER: see if it is needed
       let typ = lift_typ_exp loc ty.ctyp_type in
       CF_annot (aux e, typ)
       *)
-   | Texp_constraint (e, _, _) -> unsupported loc "advanced type constraint"
    | _ -> unsupported loc "unsupported expression for deep embedding"
 
 
 and tr_func env rf pat bod =
-  let is_value = (env = Env.empty) in
+  let is_value = (env = Ident.empty) in
   let fname = pattern_name_protect_infix pat in
   let env' = match rf with
      | Nonrecursive -> env
      | Recursive -> Ident.add (pattern_ident pat) () env
-     | Default -> unsupported loc "Default recursion mode"
+     | Default -> unsupported pat.pat_loc "Default recursion mode"
      in
    let rec args_with_idents_and_body acc e =
       let loc = e.exp_loc in
@@ -298,14 +291,14 @@ and tr_func env rf pat bod =
    (*let loc = pat.pat_loc in *)
    let args_with_idents, body = args_with_idents_and_body [] bod in
    let args, idents = List.split args_with_idents in
-   let env' = List.fold_left (fun acc id -> Ident.add id () acc) idents env' in
+   let env' = List.fold_left (fun acc id -> Ident.add id () acc) env' idents in
    let body' = tr_exp env' body in
    let cstr = if is_value then "val_fixs" else "trm_fixs" in
-   let farg = if is_value then coq_var "LibSepBind.bind_anon" else coq_string fname in
-   coq_sem cstr [farg; (coq_list (List.map coq_var xs)); body']
+   let farg = if is_value then coq_var "LibSepBind.bind_anon" else Coq_string fname in
+   coq_sem cstr [farg; (coq_list (List.map coq_string_val args)); body']
 
 
 (** Generate the deep embedding of a top-level OCaml function [fun pat -> body] *)
 
-let tr_func_top pat bod =
-  tr_func Env.empty pat bod
+let tr_func_top rf pat bod =
+  tr_func Ident.empty rf pat bod

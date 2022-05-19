@@ -6,22 +6,8 @@ open Print_tast
 open Print_type
 open Formula
 open Coq
-open Path
 open Renaming
 open Printf
-
-
-
-(*#########################################################################*)
-(* ** Error messages *)
-
-exception Not_in_normal_form of Location.t * string
-
-let not_in_normal_form loc s =
-   raise (Not_in_normal_form (loc, s))
-
-
-
 
 
 
@@ -319,9 +305,6 @@ let coq_record loc typ fields assigns optbase =
 
 (*#########################################################################*)
 (* ** Helper functions for primitive functions *)
-
-let simplify_apply_args loc oargs =
-  List.map (function (lab, Some e, Required) -> e | _ -> unsupported loc "optional arguments") oargs
 
 let get_qualified_pervasives_name f =
    let name = Path.name f in
@@ -749,7 +732,7 @@ let rec cfg_exp env e =
               List.fold_left (fun (pat,bod) acc -> Ident.add (pattern_ident pat) 0 acc) env pat_expr_list *)
            | Default -> unsupported loc "Default recursion mode"
            in
-        let ncs = List.map (fun (pat,bod) -> (pattern_name_protect_infix pat, cfg_func env' fvs pat bod)) pat_expr_list in
+        let ncs = List.map (fun ((pat:pattern),bod) -> (pattern_name_protect_infix pat, cfg_func env' fvs pat bod)) pat_expr_list in
         let cf_body = cfg_exp env' body in
         add_used_label (fst (List.hd ncs));
         Cf_let_fun (ncs, cf_body)
@@ -1062,10 +1045,10 @@ let rec cfg_structure_item s : cftops =
              in
           let ncs = List.map (fun (pat,bod) ->
               let embedding =
-                if !Mytools.generate_deep_embedding then Some (Trm_to_coq.tr_func_top pat bod) else None in
+                if !Mytools.generate_deep_embedding then Some (Trm_to_coq.tr_func_top rf pat bod) else None in
               (pattern_name_protect_infix pat, cfg_func env' fvs pat bod, embedding)) pat_expr_list in
             (List.map (fun (name,cf_body,embedding) ->
-              Cftop_val ((name, func_type), embedding)) ncs) (* TODO: def deep embedding *)
+              Cftop_val ((name, func_type), embedding)) ncs)
           @ (List.map (fun (name,cf_body,embedding) -> Cftop_fun_cf (name, cf_body)) ncs)
           @ [Cftop_coqs (List.map (fun (name,cf_body,embedding) -> register_cf name) ncs)]
 

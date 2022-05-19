@@ -220,3 +220,14 @@ let unsupported loc s =
 let warning loc s =
   Location.print Format.err_formatter loc;
   Format.fprintf Format.err_formatter "Warning: @[<v 2>%s@]\n" s
+
+exception Not_in_normal_form of Location.t * string
+
+let not_in_normal_form loc s =
+   raise (Not_in_normal_form (loc, s))
+
+
+
+
+
+

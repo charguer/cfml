@@ -91,6 +91,3 @@ val cfg_module : Ident.t -> Typedtree.module_expr -> Formula.cftops
    -nostdlib was supplied on the command line. *)
 val cfg_file : bool -> Typedtree.structure -> Formula.cftop list
 
-exception Not_in_normal_form of Location.t * string
-val not_in_normal_form : Location.t -> string -> unit
-
