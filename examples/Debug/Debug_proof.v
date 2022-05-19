@@ -18,6 +18,22 @@ Notation "'LetX' x ':=' F1 'in' F2" :=
 
 Notation "'int'" := (Z%type).
 
+Lemma mkstruct_erase_trans : forall A1 (Q1:A1->hprop) A2 (Q2:A2->hprop) f1 f2,
+  f1 Q1 ==> f2 Q2 ->
+  f1 Q1 ==> mkstruct f2 Q2.
+Proof using. introv M. unfold mkstruct. xchanges M. Qed.
+
+
+Lemma MkStruct_erase_l_Post : forall (F1:Formula) A (EA:Enc A) (Q:A->hprop) (f2:formula),
+  structural f2 ->
+  (forall A1 (EA1:Enc A1) (Q1:A1->hprop), ^F1 Q1 ==> f2 (Post Q1)) ->
+  ^(MkStruct F1) Q ==> f2 (Post Q).
+Proof using.
+  introv HS M1. unfold MkStruct.
+  rewrites~ (>> eq_mkstruct_of_structural f2).
+  unfold mkstruct. xpull. intros Q'. xchange M1. xsimpl.
+  intros x. unfold Post. xpull. intros V E. xsimpl*.
+Qed.
 
 (********************************************************************)
 (** ** Function calls: [xapp] *)
@@ -68,17 +84,6 @@ Proof using.
   introv ->. applys* Formula_formula_wp.
 Qed.
 *)
-
-Lemma MkStruct_erase_l_Post : forall (F1:Formula) A (EA:Enc A) (Q:A->hprop) (f2:formula),
-  structural f2 ->
-  (forall A1 (EA1:Enc A1) (Q1:A1->hprop), ^F1 Q1 ==> f2 (Post Q1)) ->
-  ^(MkStruct F1) Q ==> f2 (Post Q).
-Proof using.
-  introv HS M1. unfold MkStruct.
-  rewrites~ (>> eq_mkstruct_of_structural f2).
-  unfold mkstruct. xpull. intros Q'. xchange M1. xsimpl.
-  intros x. unfold Post. xpull. intros V E. xsimpl*.
-Qed.
 
 Lemma Formula_formula_mkstruct : forall F1 f1,
   Formula_formula F1 f1 ->
@@ -132,6 +137,19 @@ Proof using.
   applys Formula_formula_wp.
 Qed.
 
+Lemma Formula_formula_let_inlined_fun : forall F1 f1of (f:val) (vs:vals) (r:val),
+  (triple (trm_apps f vs) \[] (fun x => \[x = r])) ->
+  Formula_formula F1 (f1of r) ->
+  Formula_formula F1 (wpgen_let (wpgen_app f vs) f1of).
+Proof using.
+  introv Hf M1. hnf. intros.
+  unfold wpgen_let. applys mkstruct_erase_trans.
+  unfold wpgen_app. applys mkstruct_erase_trans.
+  rewrite <- triple_eq_himpl_wp. applys triple_conseq_frame Hf. xsimpl.
+  xpull. intros x ->. applys M1.
+Qed.
+
+
 
 
 (*
@@ -144,6 +162,12 @@ wpgen_let (wpgen_app infix_emark__ ``[ r])
      (fun v1 : val => wpgen_app infix_colon_eq__ (``r :: v1 :: nil))) (Post Q \*+ \GC)
 *)
 
+Axiom triple_infix_plus__ : forall (n1 n2:int),
+  triple (infix_plus__ n1 n2)
+    \[]
+    (fun r => \[r = val_int (n1 + n2)]).
+
+
 Lemma f_cf_def_proof : f_cf_def__.
 Proof using.
   hnf. introv CF.
@@ -155,8 +179,8 @@ Proof using.
   applys Formula_formula_let; [ | | applys structural_mkstruct ].
   { applys Formula_formula_app; [ reflexivity ]. }
   { intros X.
-
-
+    applys Formula_formula_let_inlined_fun; [ applys triple_infix_plus__ | ].
+    applys Formula_formula_app; [ reflexivity ]. }
 Qed.
 
 
