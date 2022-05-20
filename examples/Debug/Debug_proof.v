@@ -36,13 +36,7 @@ Proof using.
 Qed.
 
 (********************************************************************)
-(** ** Function calls: [xapp] *)
-
-Lemma f_spec : forall r n m,
-  SPEC (f r n)
-    PRE (r ~~> m)
-    POSTUNIT (r ~~> (n+m)).
-Proof using. xcf. xapp. xapp. xsimpl. math. Qed.
+(** ** Formula_formula *)
 
 (*
 Axiom triple_app_fix_from_wpgen : forall v1 v2 x t1 H Q,
@@ -168,13 +162,67 @@ Axiom triple_infix_plus__ : forall (n1 n2:int),
     (fun r => \[r = val_int (n1 + n2)]).
 
 
-Lemma f_cf_def_proof : f_cf_def__.
+Lemma Triple_of_CF_and_Formula_formula : forall H A (EA:Enc A) (Q:A->hprop) (F1:Formula) F xs Vs vs t,
+  H ==> ^F1 (Q \*+ \GC) ->
+  F = val_funs xs t ->
+  trms_to_vals (map (fun V : dyn => trm_val (dyn_to_val V)) Vs) = Some vs ->
+  var_funs_exec xs (LibListExec.length vs) ->
+  Formula_formula F1 (wpgen (LibListExec.combine xs vs) t) ->
+  Triple (Trm_apps F Vs) H Q.
 Proof using.
-  hnf. introv CF.
-  unfold Triple.
-  unfold Trm_apps. rew_listx. rew_enc_dyn.
-  eapply triple_apps_funs; try reflexivity. simpl.
-  xchange (rm CF). unfold Wptag.
+  introv HF1 EF Evs Hxs Ff. rewrite LibListExec.length_eq in Hxs.
+   applys triple_apps_funs EF Evs Hxs. 
+  xchange HF1. applys Formula_formula_intro_gc Ff.
+Qed.
+
+Lemma Formula_formula_val : forall A (EA:Enc A) (V:A) v,
+  v = enc V ->
+  Enc_injective EA ->
+  Formula_formula (Wpgen_val V) (wpgen_val v).
+Proof using.
+  introv M IEA. applys Formula_formula_mkstruct.
+  hnf. intros A' EA' Q.
+(*
+  xchange qimpl_PostCast_l. eapp
+ unfold PostCast. xpull. intros V' E.
+ eapply IEA. hnf.
+  Search PostCast. unfold Wpgen_val. hnf.
+Qed.
+
+qimpl_PostCast_l: forall [A : Type] {EA : Enc A} [Q : A -> hprop], Enc_injective EA -> 
+*)
+Admitted.
+
+Search Enc_injective.
+
+(********************************************************************)
+(** ** CF proof for id *)
+
+Ltac xwpgen_simpl :=
+  cbn beta delta [
+  LibListExec.app LibListExec.combine LibListExec.rev LibListExec.fold_right LibListExec.map
+  Datatypes.app List.combine List.rev List.fold_right List.map
+  wpaux_var
+  (* wpgen Wpaux_apps Wpaux_constr Wpaux_var Wpaux_match *)
+  hforall_vars forall_vars
+  trm_to_pat patvars patsubst combiner_to_trm
+  Ctx.app Ctx.empty Ctx.lookup Ctx.add Ctx.rev
+  Ctx.rem Ctx.rem_var Ctx.rem_vars Ctx.combine isubst
+  var_eq eq_var_dec
+  string_dec string_rec string_rect
+  sumbool_rec sumbool_rect
+  Ascii.ascii_dec Ascii.ascii_rec Ascii.ascii_rect
+  Bool.bool_dec bool_rec bool_rect ] iota zeta.
+
+
+Lemma id_cf_def_proof : id_cf_def__.
+Proof using.
+  hnf. introv CF. applys Triple_of_CF_and_Formula_formula (rm CF); try reflexivity.
+  unfold Wptag, dyn_to_val; simpl.
+  xwpgen_simpl.
+  
+  hnf. introv CF. applys Triple_of_CF_and_Formula_formula CF; try reflexivity.
+  unfold Wptag.
   apply Formula_formula_intro_gc.
   applys Formula_formula_let; [ | | applys structural_mkstruct ].
   { applys Formula_formula_app; [ reflexivity ]. }
@@ -182,6 +230,59 @@ Proof using.
     applys Formula_formula_let_inlined_fun; [ applys triple_infix_plus__ | ].
     applys Formula_formula_app; [ reflexivity ]. }
 Qed.
+
+wpgen (LibListExec.combine ("x" :: nil) (List.rev ``[ x])) "x"
+H0 : forall (F : val) (vs : vals) (ts : trms) (xs : list var) (t : trm) (H : hprop) (Q : val -> hprop),
+
+
+  
+
+
+(********************************************************************)
+(** ** CF proof for idapp *)
+
+(********************************************************************)
+(** ** CF proof for apply *)
+
+(*
+let id x = x
+
+let idapp =
+  let a = id 1 in
+  let b = id true in
+  2
+
+let apply f x = f x
+*)
+
+
+(********************************************************************)
+(** ** CF proof for f *)
+
+
+Lemma f_cf_def_proof : f_cf_def__.
+Proof using.
+  hnf. introv CF. applys Triple_of_CF_and_Formula_formula (rm CF); try reflexivity.
+  unfold Wptag, dyn_to_val; simpl.
+  applys Formula_formula_let; [ | | applys structural_mkstruct ].
+  { applys Formula_formula_app; [ reflexivity ]. }
+  { intros X.
+    applys Formula_formula_let_inlined_fun; [ applys triple_infix_plus__ | ].
+    applys Formula_formula_app; [ reflexivity ]. }
+Qed.
+
+
+
+(********************************************************************)
+(** ** Verification of f *)
+
+
+Lemma f_spec : forall r n m,
+  SPEC (f r n)
+    PRE (r ~~> m)
+    POSTUNIT (r ~~> (n+m)).
+Proof using. xcf. xapp. xapp. xsimpl. math. Qed.
+
 
 
 
