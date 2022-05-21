@@ -177,26 +177,12 @@ Qed.
 
 Lemma Formula_formula_val : forall A (EA:Enc A) (V:A) v,
   v = enc V ->
-  Enc_injective EA ->
   Formula_formula (Wpgen_val V) (wpgen_val v).
 Proof using.
-  introv M IEA. applys Formula_formula_mkstruct.
-  hnf. intros A' EA' Q.
-(*
-  xchange qimpl_PostCast_l. eapp
- unfold PostCast. xpull. intros V' E.
- eapply IEA. hnf.
-  Search PostCast. unfold Wpgen_val. hnf.
+  introv M. applys Formula_formula_mkstruct. hnf. intros A' EA' Q.
+  unfold PostCast. xpull. intros V' E.
+  unfold Post. xsimpl V'. subst*.
 Qed.
-
-qimpl_PostCast_l: forall [A : Type] {EA : Enc A} [Q : A -> hprop], Enc_injective EA -> 
-*)
-Admitted.
-
-Search Enc_injective.
-
-(********************************************************************)
-(** ** CF proof for id *)
 
 Ltac xwpgen_simpl :=
   cbn beta delta [
@@ -215,50 +201,62 @@ Ltac xwpgen_simpl :=
   Bool.bool_dec bool_rec bool_rect ] iota zeta.
 
 
+(********************************************************************)
+(** ** CF proof for id *)
+
+(*
+let id x = x
+*)
+
 Lemma id_cf_def_proof : id_cf_def__.
 Proof using.
   hnf. introv CF. applys Triple_of_CF_and_Formula_formula (rm CF); try reflexivity.
-  unfold Wptag, dyn_to_val; simpl.
-  xwpgen_simpl.
-  
-  hnf. introv CF. applys Triple_of_CF_and_Formula_formula CF; try reflexivity.
-  unfold Wptag.
-  apply Formula_formula_intro_gc.
-  applys Formula_formula_let; [ | | applys structural_mkstruct ].
-  { applys Formula_formula_app; [ reflexivity ]. }
-  { intros X.
-    applys Formula_formula_let_inlined_fun; [ applys triple_infix_plus__ | ].
-    applys Formula_formula_app; [ reflexivity ]. }
+  unfold Wptag, dyn_to_val; simpl. xwpgen_simpl.
+  applys Formula_formula_val; [ reflexivity ].
 Qed.
 
-wpgen (LibListExec.combine ("x" :: nil) (List.rev ``[ x])) "x"
-H0 : forall (F : val) (vs : vals) (ts : trms) (xs : list var) (t : trm) (H : hprop) (Q : val -> hprop),
-
-
-  
-
-
-(********************************************************************)
-(** ** CF proof for idapp *)
 
 (********************************************************************)
 (** ** CF proof for apply *)
 
 (*
-let id x = x
+let apply f x = f x
+*)
 
+Lemma apply_cf_def_proof : apply_cf_def__.
+Proof using.
+  hnf. introv CF. applys Triple_of_CF_and_Formula_formula (rm CF); try reflexivity.
+  unfold Wptag, dyn_to_val; simpl. xwpgen_simpl.
+  applys Formula_formula_app; [ reflexivity ].
+Qed.
+
+
+(********************************************************************)
+(** ** CF proof for idapp *)
+
+(*
 let idapp =
   let a = id 1 in
   let b = id true in
   2
-
-let apply f x = f x
 *)
+
+Lemma idapp_cf_def_proof : idapp_cf_def__.
+Proof using.
+  hnf. introv CF. applys Triple_of_CF_and_Formula_formula (rm CF); try reflexivity.
+  unfold Wptag, dyn_to_val; simpl. xwpgen_simpl.
+  applys Formula_formula_let; [ | | applys structural_mkstruct ].
+  { applys Formula_formula_app; [ reflexivity ]. }
+  { intros a.
+    applys Formula_formula_let; [ | | applys structural_mkstruct ].
+    { applys Formula_formula_app; [ reflexivity ]. }
+    { intros b. 
+      applys Formula_formula_val; [ reflexivity ]. } }
+Qed.
 
 
 (********************************************************************)
 (** ** CF proof for f *)
-
 
 Lemma f_cf_def_proof : f_cf_def__.
 Proof using.
@@ -275,7 +273,6 @@ Qed.
 
 (********************************************************************)
 (** ** Verification of f *)
-
 
 Lemma f_spec : forall r n m,
   SPEC (f r n)
