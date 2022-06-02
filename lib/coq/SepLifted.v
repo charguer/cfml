@@ -161,7 +161,8 @@ Proof using. constructor. applys (fun (cstr:tyconstr) =>
   match cstr with constr id vs => val_constr id vs end). Defined.
 
 Instance Enc_pair : forall A1 `{EA1:Enc A1} A2 `{EA2:Enc A2}, Enc (A1*A2).
-Proof using. constructor. applys (fun p : A1*A2 => let '(x,y) := p in (``x, ``y)).
+Proof using. constructor. applys (fun p : A1*A2 =>
+  let '(x1,x2) := p in val_constr "tuple" (``x1 :: ``x2 :: nil)).
 Defined.
 
 Instance Enc_option : forall A {EA:Enc A}, Enc (option A).
@@ -217,11 +218,15 @@ Lemma enc_constr_eq : forall id vs,
   enc (constr id vs) = val_constr id vs.
 Proof using. auto. Qed.
 
-Lemma enc_list_none : forall A (EA:Enc A),
+Lemma enc_pair : forall A1 A2 (EA1:Enc A1) (EA2:Enc A2) (x1:A1) (x2:A2),
+  enc (x1,x2) = val_constr "tuple" (``x1 :: ``x2 :: nil).
+Proof using. auto. Qed.
+
+Lemma enc_option_none : forall A (EA:Enc A),
   enc (@None A) = val_constr "none" nil.
 Proof using. auto. Qed.
 
-Lemma enc_list_some : forall A (EA:Enc A) (x:A),
+Lemma enc_option_some : forall A (EA:Enc A) (x:A),
   enc (Some x) = val_constr "some" (``x :: nil).
 Proof using. auto. Qed.
 
@@ -249,8 +254,8 @@ Proof using. auto. Qed.
 (** [rew_enc] normalizes all encoders. *)
 
 Hint Rewrite @enc_dyn_make enc_loc_eq enc_unit_eq enc_bool_eq enc_int_eq
-             enc_func_eq enc_val_eq enc_prim_eq enc_constr_eq
-             @enc_list_none @enc_list_some @enc_list_nil @enc_list_cons : rew_enc.
+             enc_func_eq enc_val_eq enc_prim_eq enc_constr_eq @enc_pair
+             @enc_option_none @enc_option_some @enc_list_nil @enc_list_cons : rew_enc.
 
 Tactic Notation "rew_enc" :=
   autorewrite with rew_enc.
@@ -284,6 +289,14 @@ Lemma Enc_injective_inv : forall A (EA:Enc A) (V1 V2:A),
   (enc V1 = enc V2) = (V1 = V2).
 Proof using. introv E. extens. iff M. { applys~ E. } { subst~. } Qed.
 
+Lemma Enc_injective_inv_neq : forall A (EA:Enc A) (V1 V2:A),
+  Enc_injective EA ->
+  (enc V1 <> enc V2) ->
+  (V1 <> V2).
+Proof using.
+  introv HEA HN. intros E. rewrites <- (>> Enc_injective_inv HEA) in E. false.
+Qed.
+
 Lemma Enc_injective_loc : Enc_injective Enc_loc.
 Proof using.
   intros n1 n2 E. rewrite (enc_loc_eq n1), (enc_loc_eq n2) in E. congruence.
@@ -304,6 +317,16 @@ Proof using.
   intros n1 n2 E. rewrite (enc_int_eq n1), (enc_int_eq n2) in E.
   (* todo, why [do 2 rewrite enc_int_eq] and [rew_enc in E] fail *)
   congruence.
+Qed.
+
+Lemma Enc_injective_pairs : forall A1 A2 (EA1:Enc A1) (EA2:Enc A2),
+  Enc_injective EA1 ->
+  Enc_injective EA2 ->
+  Enc_injective (@Enc_pair A1 EA1 A2 EA2).
+Proof using.
+  introv HEA1 HEA2. intros p1 p2 E.
+  destruct p1; destruct p2; simpls; tryfalse.
+  { rew_enc in E. inverts E. fequals*. }
 Qed.
 
 Lemma Enc_injective_option : forall A (EA:Enc A),
@@ -327,7 +350,8 @@ Proof using.
 Qed.
 
 Hint Resolve Enc_injective_loc Enc_injective_unit Enc_injective_bool
-             Enc_injective_int Enc_injective_option Enc_injective_list
+             Enc_injective_int Enc_injective_pairs Enc_injective_option
+             Enc_injective_list
              : Enc_injective.
 
 (* ** Injectivity of encoders for specific values

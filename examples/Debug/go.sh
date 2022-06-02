@@ -6,9 +6,9 @@
 make -C ../../generator
 make -f Makefile.dev _CoqProject
 make -C ../../lib/coq -f Makefile.dev depend
-make -C ../../lib/coq -f Makefile.dev
+make -j4 -C ../../lib/coq -f Makefile.dev
 make -C ../../lib/stdlib -f Makefile.dev depend
-make -C ../../lib/stdlib -f Makefile.dev
+make -j4 -C ../../lib/stdlib -f Makefile.dev
 make -f Makefile.dev depend
 make -f Makefile.dev
 

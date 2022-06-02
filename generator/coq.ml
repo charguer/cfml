@@ -363,6 +363,8 @@ let coqtop_register db x v =
 
 (** Datatype for semantics terms *)
 
+let pat_type = coq_cfml_var "Semantics.pat"
+
 let trm_type = coq_cfml_var "Semantics.trm"
 
 let val_type = coq_cfml_var "Semantics.val"

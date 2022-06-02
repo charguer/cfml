@@ -35,6 +35,51 @@ Proof using.
   intros x. unfold Post. xpull. intros V E. xsimpl*.
 Qed.
 
+
+Lemma hand_weaken : forall H1 H2 H1' H2',
+  H1 ==> H1' ->
+  H2 ==> H2' ->
+  hand H1 H2 ==> hand H1' H2'.
+Proof using.
+  introv M1 M2. do 2 rewrite hand_eq_forall_bool.
+  applys himpl_hforall_r. intros b. applys himpl_hforall_l b.
+  case_if*.
+Qed.
+
+Lemma hwand_weaken : forall H1 H2 H1' H2',
+  H1' ==> H1 ->
+  H2 ==> H2' ->
+  (H1 \-* H2) ==> (H1' \-* H2').
+Proof using. introv M1 M2. xsimpl. xchanges* M1. Qed.
+
+Lemma himpl_hwand_hpure_l : forall (P:Prop) H1 H2,
+  P ->
+  H1 ==> H2 ->
+  (\[P] \-* H1) ==> H2.
+Proof using. introv HP M. rewrite* hwand_hpure_l. Qed.
+
+
+(********************************************************************)
+(** ** Primitive ops *)
+
+Axiom triple_infix_plus__ : forall (n1 n2:int),
+  triple (infix_plus__ n1 n2)
+    \[]
+    (fun r => \[r = val_int (n1 + n2)]).
+
+
+Axiom triple_infix_amp_amp__ : forall (b1 b2:bool),
+  triple (infix_amp_amp__ b1 b2)
+    \[]
+    (fun r => \[r = val_bool (b1 && b2)]).
+
+Axiom triple_infix_bar_bar__ : forall (b1 b2:bool),
+  triple (infix_bar_bar__ b1 b2)
+    \[]
+    (fun r => \[r = val_bool (b1 || b2)]).
+
+
+
 (********************************************************************)
 (** ** Formula_formula *)
 
@@ -144,6 +189,19 @@ Proof using.
 Qed.
 
 
+Lemma Formula_formula_if : forall F1 f1 F2 f2 b (v:val),
+  v = ``b ->
+  (Formula_formula F1 f1) ->
+  (Formula_formula F2 f2) ->
+  Formula_formula (Wpgen_if b F1 F2) (wpgen_if_val v f1 f2).
+Proof using.
+  introv E M1 M2.
+  hnf. intros. applys Formula_formula_mkstruct. clears A.
+  hnf. intros. subst v. xsimpl b. auto.
+  case_if. { applys M1. } { applys M2. }
+Qed.
+
+
 
 
 (*
@@ -156,16 +214,11 @@ wpgen_let (wpgen_app infix_emark__ ``[ r])
      (fun v1 : val => wpgen_app infix_colon_eq__ (``r :: v1 :: nil))) (Post Q \*+ \GC)
 *)
 
-Axiom triple_infix_plus__ : forall (n1 n2:int),
-  triple (infix_plus__ n1 n2)
-    \[]
-    (fun r => \[r = val_int (n1 + n2)]).
-
 
 Lemma Triple_of_CF_and_Formula_formula : forall H A (EA:Enc A) (Q:A->hprop) (F1:Formula) F xs Vs vs t,
   H ==> ^F1 (Q \*+ \GC) ->
   F = val_funs xs t ->
-  trms_to_vals (map (fun V : dyn => trm_val (dyn_to_val V)) Vs) = Some vs ->
+  trms_to_vals (LibList.map (fun V : dyn => trm_val (dyn_to_val V)) Vs) = Some vs ->
   var_funs_exec xs (LibListExec.length vs) ->
   Formula_formula F1 (wpgen (LibListExec.combine xs vs) t) ->
   Triple (Trm_apps F Vs) H Q.
@@ -184,6 +237,48 @@ Proof using.
   unfold Post. xsimpl V'. subst*.
 Qed.
 
+
+Lemma Formula_formula_inlined_fun : forall F1 (f:val) (vs:vals) (r:val),
+  (triple (trm_apps f vs) \[] (fun x => \[x = r])) ->
+  Formula_formula F1 (wpgen_val r) ->
+  Formula_formula F1 (wpgen_app f vs).
+Proof using.
+  introv Hf M1. hnf. intros.
+  unfold wpgen_app. xchange M1. applys mkstruct_weaken. clear Q. intros Q. 
+  rewrite <- triple_eq_himpl_wp. applys triple_conseq_frame Hf. xsimpl.
+  intros x. xpull; intros ->. xsimpl.
+Qed.
+
+Lemma Formula_formula_case : forall F1 f1 F2 f2 (P1 P2:Prop),
+  (P2 -> P1) ->
+  (Formula_formula F1 f1) ->
+  (P1 -> Formula_formula F2 f2) ->
+  Formula_formula (Wpgen_case F1 P1 F2) (wpgen_case_val f1 P2 f2).
+Proof using.
+  introv HP M1 M2.
+  hnf. intros. applys Formula_formula_mkstruct. clears A.
+  hnf. intros. applys hand_weaken.
+  { applys M1. }
+  { xsimpl. intros HP2. lets HP1: HP HP2.
+    applys himpl_hwand_hpure_l.
+    { applys* HP. } { applys* M2. } }
+Qed.
+
+Lemma Formula_formula_fail :
+  Formula_formula Wpgen_fail wpgen_fail.
+Proof using.
+  hnf. intros. applys Formula_formula_mkstruct. clears A.
+  hnf. intros. xsimpl.
+Qed.
+
+Lemma Formula_formula_fail_false : forall F,
+  False ->
+  Formula_formula F wpgen_fail.
+Proof using. intros. false. Qed.
+
+
+(********************************************************************)
+
 Ltac xwpgen_simpl :=
   cbn beta delta [
   LibListExec.app LibListExec.combine LibListExec.rev LibListExec.fold_right LibListExec.map
@@ -200,6 +295,83 @@ Ltac xwpgen_simpl :=
   Ascii.ascii_dec Ascii.ascii_rec Ascii.ascii_rect
   Bool.bool_dec bool_rec bool_rect ] iota zeta.
 
+Ltac cf_def_proof := 
+  let CF := fresh "CF" in
+  hnf; introv CF; applys Triple_of_CF_and_Formula_formula (rm CF); try reflexivity;
+  unfold Wptag, dyn_to_val; simpl; xwpgen_simpl.
+
+
+(********************************************************************)
+(** ** CF proof for bools *)
+
+(*
+let bools b =
+  if true then b || false else b && true
+*)
+
+Lemma bools_cf_def_proof : bools_cf_def__.
+Proof using.
+  cf_def_proof.
+  applys Formula_formula_if; [ reflexivity | | ].
+  { applys Formula_formula_inlined_fun; [ applys triple_infix_bar_bar__ | ].
+    applys Formula_formula_val; [ reflexivity ]. }
+  { applys Formula_formula_inlined_fun; [ applys triple_infix_amp_amp__ | ].
+    applys Formula_formula_val; [ reflexivity ]. }
+Qed.
+
+
+
+(********************************************************************)
+(** ** CF proof for pair_swap *)
+
+(*
+let pair_swap (x,y) =
+  (y,x)
+*)
+
+Lemma pair_swap_cf_def_proof : pair_swap_cf_def__.
+Proof using.
+  cf_def_proof.
+  unfold Wpgen_match, Wpgen_negpat. (* optional *)
+  applys Formula_formula_case. 
+  { intros HN. intros. applys Enc_injective_inv_neq; [ skip (* Enc_injective*) | ].
+    rew_enc. applys HN. }
+  { clears A. unfold Formula_formula. intros A EA Q.
+    xsimpl. intros x y E.
+    destruct x0__ as [X Y]. rew_enc in E. inverts E.
+    do 2 applys himpl_hforall_l.
+    applys himpl_hwand_hpure_l; [ reflexivity | ].
+      applys Formula_formula_val; [ reflexivity ]. }
+  { intros N. applys Formula_formula_fail_false.
+    destruct x0__. false N. reflexivity. }
+Qed.
+
+
+(********************************************************************)
+(** ** CF proof for list map *)
+
+(*
+let rec map f l =
+  match l with
+  | [] -> []
+  | x::t -> f x :: map f t
+*)
+
+
+(********************************************************************)
+(** ** CF proof for custom list map *)
+
+(*
+type 'a mylist = Nil | Cons of 'a * 'a mylist
+
+let rec mymap f l =
+  match l with
+  | Nil -> Nil
+  | Cons(x,t) -> Cons (f x, mymap f t)
+*)
+
+
+
 
 (********************************************************************)
 (** ** CF proof for id *)
@@ -210,8 +382,7 @@ let id x = x
 
 Lemma id_cf_def_proof : id_cf_def__.
 Proof using.
-  hnf. introv CF. applys Triple_of_CF_and_Formula_formula (rm CF); try reflexivity.
-  unfold Wptag, dyn_to_val; simpl. xwpgen_simpl.
+  cf_def_proof.
   applys Formula_formula_val; [ reflexivity ].
 Qed.
 
@@ -225,8 +396,7 @@ let apply f x = f x
 
 Lemma apply_cf_def_proof : apply_cf_def__.
 Proof using.
-  hnf. introv CF. applys Triple_of_CF_and_Formula_formula (rm CF); try reflexivity.
-  unfold Wptag, dyn_to_val; simpl. xwpgen_simpl.
+  cf_def_proof.
   applys Formula_formula_app; [ reflexivity ].
 Qed.
 
@@ -243,8 +413,9 @@ let idapp =
 
 Lemma idapp_cf_def_proof : idapp_cf_def__.
 Proof using.
-  hnf. introv CF. applys Triple_of_CF_and_Formula_formula (rm CF); try reflexivity.
-  unfold Wptag, dyn_to_val; simpl. xwpgen_simpl.
+  cf_def_proof.
+  (* hnf. introv CF. applys Triple_of_CF_and_Formula_formula (rm CF); try reflexivity.
+  unfold Wptag, dyn_to_val; simpl. xwpgen_simpl. *)
   applys Formula_formula_let; [ | | applys structural_mkstruct ].
   { applys Formula_formula_app; [ reflexivity ]. }
   { intros a.
@@ -258,10 +429,15 @@ Qed.
 (********************************************************************)
 (** ** CF proof for f *)
 
+(*
+let f r n =
+  let x = !r in
+  r := x + n
+*)
+
 Lemma f_cf_def_proof : f_cf_def__.
 Proof using.
-  hnf. introv CF. applys Triple_of_CF_and_Formula_formula (rm CF); try reflexivity.
-  unfold Wptag, dyn_to_val; simpl.
+  cf_def_proof.
   applys Formula_formula_let; [ | | applys structural_mkstruct ].
   { applys Formula_formula_app; [ reflexivity ]. }
   { intros X.
@@ -274,6 +450,13 @@ Qed.
 (********************************************************************)
 (** ** Verification of f *)
 
+(*
+let f r n =
+  let x = !r in
+  r := x + n
+*)
+
+
 Lemma f_spec : forall r n m,
   SPEC (f r n)
     PRE (r ~~> m)
@@ -281,12 +464,7 @@ Lemma f_spec : forall r n m,
 Proof using. xcf. xapp. xapp. xsimpl. math. Qed.
 
 
-
-
 (*
-let f r n =
-  let x = !r in
-  r := x + n
 
 let rec g x =
   if x = 0 then 0 else
@@ -296,4 +474,20 @@ let rec g x =
 let v = 2
 
 *)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

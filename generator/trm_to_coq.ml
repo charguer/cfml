@@ -19,6 +19,12 @@ record_field_names_and_immutability_of_labels
 let coq_sem cstr args =
   coq_apps (coq_var ("Semantics." ^ cstr)) args
 
+let coq_trms (ts : coq list) : coq =
+  coq_list ~typ:trm_type ts
+
+let coq_pats (ts : coq list) : coq =
+  coq_list ~typ:pat_type ts
+
 
 (*#########################################################################*)
 (* ** Environments to keep track of local variables *)
@@ -29,70 +35,97 @@ let coq_sem cstr args =
 
 type env = unit Ident.tbl
 
+let env_extend env idents =
+  List.fold_left (fun acc id -> Ident.add id () acc) env idents
+
+
 let is_local_var (env:env) id =
   begin try
     let () = Ident.find_same id env in
     true
   with Not_found -> false end
 
+(* extract identifiers from a pattern *)
 
-(*#########################################################################*)
-(* ** Lifting of patterns *)
-
-(* LATER
-
-  (** Translate a Caml pattern into a Coq expression, and
-      ignores the aliases found in the pattern *)
-
-  let rec lift_pat ?(through_aliases=true) p : coq =
-     let loc = p.pat_loc in
-     let aux = lift_pat ~through_aliases:through_aliases in
-     match p.pat_desc with
-     | Tpat_var s ->
-        Coq_var (var_name (Ident.name s))
-     | Tpat_constant (Const_int n) ->
-        Coq_int n
-     | Tpat_tuple l ->
-        Coq_tuple (List.map aux l)
-     | Tpat_construct (path, c, ps) ->
-        coq_of_constructor loc path c (List.map aux ps) p.pat_type
-     | Tpat_alias (p, ak) ->
-        begin match ak with
-        | TPat_alias id ->
-            if through_aliases then aux p else Coq_var (var_name (Ident.name id))
-        | TPat_constraint ty ->
-            let typ = lift_typ_exp loc ty.ctyp_type in
-            Coq_annot (aux p, typ)
-        | TPat_type pp -> aux p
-        end
-     | Tpat_lazy p1 ->
-        aux p1
-     | Tpat_record _ -> unsupported loc "record patterns" (* todo! *)
-     | Tpat_array pats -> unsupported loc "array patterns" (* todo! *)
-     | Tpat_constant _ -> unsupported loc "only integer constant are supported"
-     | Tpat_any -> not_in_normal_form loc "wildcard patterns remain after normalization"
-     | Tpat_variant (_,_,_) -> unsupported loc "variant patterns"
-     | Tpat_or (_,p1,p2) -> unsupported loc "or patterns in depth"
-
-*)
+let rec pattern_idents p =
+   let loc = p.pat_loc in
+   let aux = pattern_idents in
+   match p.pat_desc with
+   | Tpat_any -> []
+   | Tpat_var s -> [s]
+   | Tpat_alias (p, s) -> unsupported loc "alias patterns" (* s::(aux p)*)
+   | Tpat_constant c -> []
+   | Tpat_tuple l -> list_concat_map aux l
+   | Tpat_construct (p, c, ps) -> list_concat_map aux ps
+   | Tpat_variant (_,_,_) -> unsupported loc "variant patterns"
+   | Tpat_record (l,_) -> unsupported loc "record patterns" (* list_concat_map (fun (li,pi) -> aux pi) l *)
+   | Tpat_array pats -> unsupported loc "array patterns"
+   | Tpat_or (p1,p2,_) -> unsupported loc "or patterns are only supported at pattern root"
+   | Tpat_lazy p1 -> aux p1
 
 
 (*#########################################################################*)
-(* ** Lifting of variables *)
+(* ** Translation of patterns *)
+
+(* LATER: to support aliases, see how it's done in characteristic.ml *)
+
+let rec tr_pat p : coq =
+   let loc = p.pat_loc in
+   let aux = tr_pat in
+   let auxs = List.map aux in
+   match p.pat_desc with
+   | Tpat_var s ->
+        let x = var_name (Ident.name s) in
+        coq_sem "pat_var" [Coq_string x]
+   | Tpat_constant (Const_int n) ->
+        coq_sem "pat_int" [Coq_int n]
+   | Tpat_tuple ps ->
+        coq_sem "pat_constr" [Coq_string "tuple"; coq_pats (auxs ps)]
+   | Tpat_construct (p, c, ps) ->
+      let x = string_of_path p in
+      begin match x with
+      | "()" -> coq_sem "pat_unit" []
+      | "true" -> coq_sem "pat_bool" [coq_bool_true]
+      | "false" -> coq_sem "pat_bool" [coq_bool_false]
+      | _ -> coq_sem "pat_constr" [Coq_string x; coq_pats (auxs ps)]
+      end
+
+   | Tpat_alias (p, ak) -> unsupported loc "alias patterns" (* todo! *)
+      (* LATER
+      begin match ak with
+      | TPat_alias id ->
+          if through_aliases then aux p else Coq_var (var_name (Ident.name id))
+      | TPat_constraint ty ->
+          let typ = lift_typ_exp loc ty.ctyp_type in
+          Coq_annot (aux p, typ)
+      | TPat_type pp -> aux p
+      end *)
+   | Tpat_lazy p1 -> aux p1
+   | Tpat_record _ -> unsupported loc "record patterns" (* todo! *)
+   | Tpat_array pats -> unsupported loc "array patterns" (* todo! *)
+   | Tpat_constant _ -> unsupported loc "only integer constant are supported"
+   | Tpat_any -> not_in_normal_form loc "wildcard patterns remain after normalization"
+   | Tpat_variant (_,_,_) -> unsupported loc "variant patterns"
+   | Tpat_or (_,p1,p2) -> unsupported loc "or patterns in depth"
+
+
+
+
+
+(*#########################################################################*)
+(* ** Translation of variables *)
 
 let tr_path (p : Path.t) : string =
   lift_path_name p (* (var_path p)*)
 
 
 (*#########################################################################*)
-(* ** Characteristic formulae for expressions *)
-
-
-(** Translate a Caml expression into its Coq characteristic formula *)
+(* ** Translation of expressions *)
 
 let rec tr_exp env e =
    let loc = e.exp_loc in
    let aux = tr_exp env in
+   let auxs = List.map aux in
    let not_normal ?s:(s="") () =
       not_in_normal_form loc (s ^ Print_tast.string_of_expression false e) in
    match e.exp_desc with
@@ -105,6 +138,7 @@ let rec tr_exp env e =
 
    | Texp_constant (Const_int n) ->
        coq_sem "val_int" [Coq_int n]
+
    | Texp_constant _ ->
        unsupported loc "only integer constant are supported"
 
@@ -117,7 +151,7 @@ let rec tr_exp env e =
 
    | Texp_apply (funct, oargs) ->
       let args = simplify_apply_args loc oargs in
-      coq_sem "trm_apps" [aux funct; coq_list ~typ:trm_type (List.map aux args)]
+      coq_sem "trm_apps" [aux funct; coq_trms (auxs args)]
 
    | Texp_constraint (e, Some ty, None) ->
       aux e
@@ -128,13 +162,8 @@ let rec tr_exp env e =
       | "()" -> coq_sem "val_unit" []
       | "true" -> coq_sem "val_bool" [coq_bool_true]
       | "false" -> coq_sem "val_bool" [coq_bool_false]
-      | _ ->  unsupported loc "only unit and boolean constructors are supported"
+      | _ -> coq_sem "trm_constr" [Coq_string x; coq_trms (auxs args)]
       end
-      (* LATER
-        lift_path_name p
-        coq_of_constructor loc p c (List.map aux es) e.exp_type
-        val_constr : idconstr -> list val -> val *)
-
 
    | Texp_let(rf, fvs, pat_expr_list, body) ->
 
@@ -162,32 +191,37 @@ let rec tr_exp env e =
 
      end
 
+   | Texp_tuple ts ->
+        coq_sem "trm_constr" [Coq_string "tuple"; coq_trms (auxs ts)]
+
+   | Texp_match (arg, pat_expr_list, partial) ->
+      let tested = aux arg in (* TODO: assert that this is a value; normalization should ensure so *)
+      let build_branch (pat,body) =
+        begin match body.exp_desc with
+        | Texp_when (econd, ebody) -> unsupported loc "when clauses"
+        | _ -> ()
+        end;
+        let env' = env_extend env (pattern_idents pat) in
+        Coq_tuple [tr_pat pat; tr_exp env' body]
+        in
+        coq_sem "trm_match" [ tested; coq_list (List.map build_branch pat_expr_list) ]
+              (* FUTURE USE:
+              let w =
+                 try lift_val env econd
+                 with Not_in_normal_form (loc2, s) ->
+                    raise (Not_in_normal_form (loc2, s ^ " (Only total expressions are allowed in when clauses)"))
+                 in
+              Some w, aux ebody *)
+              (* FUTURE USE:
+                 pattern_variables pat
+                pattern_aliases pat *)
+
+
 (* LATER
-   | Texp_tuple el -> ret e
 
    | Texp_record (_, _) ->
        cfg_record env e
 
-
-   | Texp_match (arg, pat_expr_list, partial) ->
-      let tested = lift arg in
-      let conclu = match partial with Partial -> Cf_fail | Total -> Cf_done in
-      let cfg_case (pat,body) acc =
-         let whenopt, cfbody =
-            match body.exp_desc with
-            | Texp_when (econd, ebody) ->
-                let w =
-                   try lift_val env econd
-                   with Not_in_normal_form (loc2, s) ->
-                      raise (Not_in_normal_form (loc2, s ^ " (Only total expressions are allowed in when clauses)"))
-                   in
-                Some w, aux ebody
-            | _ -> None, aux body
-            in
-         Cf_case (tested, pattern_variables pat, lift_pat pat, whenopt, pattern_aliases pat, cfbody, acc) in
-      let label = get_next_local_label() in
-      add_used_label label;
-      Cf_match (label, List.length pat_expr_list, List.fold_right cfg_case pat_expr_list conclu)
 
    | Texp_assert e ->
       Cf_assert (aux e)
@@ -291,7 +325,7 @@ and tr_func env rf pat bod =
    (*let loc = pat.pat_loc in *)
    let args_with_idents, body = args_with_idents_and_body [] bod in
    let args, idents = List.split args_with_idents in
-   let env' = List.fold_left (fun acc id -> Ident.add id () acc) env' idents in
+   let env' = env_extend env' idents in
    let body' = tr_exp env' body in
    let cstr = if is_value then "val_fixs" else "trm_fixs" in
    let farg = if is_value then coq_var "LibSepBind.bind_anon" else Coq_string fname in

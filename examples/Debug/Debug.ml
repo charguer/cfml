@@ -17,3 +17,21 @@ let rec g x =
   y + 2
 
 let v = 2
+
+let bools b =
+  if true then b || false else b && true
+
+let pair_swap (x,y) =
+  (y,x)
+
+let rec map f l =
+  match l with
+  | [] -> []
+  | x::t -> f x :: map f t
+
+type 'a mylist = Nil | Cons of 'a * 'a mylist
+
+let rec mymap f l =
+  match l with
+  | Nil -> Nil
+  | Cons(x,t) -> Cons (f x, mymap f t)
