@@ -64,6 +64,17 @@ let rec pattern_idents p =
    | Tpat_lazy p1 -> aux p1
 
 
+(* Special mapping of builtin constructor names *)
+
+let constr_rename_builtin x =
+  match x with (* we assume no shadowing of these constructors *)
+  | "[]" -> "nil"
+  | "::" -> "cons"
+  | "None" -> "none"
+  | "Some" -> "some"
+  | _ -> x
+
+
 (*#########################################################################*)
 (* ** Translation of patterns *)
 
@@ -87,7 +98,9 @@ let rec tr_pat p : coq =
       | "()" -> coq_sem "pat_unit" []
       | "true" -> coq_sem "pat_bool" [coq_bool_true]
       | "false" -> coq_sem "pat_bool" [coq_bool_false]
-      | _ -> coq_sem "pat_constr" [Coq_string x; coq_pats (auxs ps)]
+      | _ ->
+          let x = constr_rename_builtin x in
+          coq_sem "pat_constr" [Coq_string x; coq_pats (auxs ps)]
       end
 
    | Tpat_alias (p, ak) -> unsupported loc "alias patterns" (* todo! *)
@@ -162,7 +175,8 @@ let rec tr_exp env e =
       | "()" -> coq_sem "val_unit" []
       | "true" -> coq_sem "val_bool" [coq_bool_true]
       | "false" -> coq_sem "val_bool" [coq_bool_false]
-      | _ -> coq_sem "trm_constr" [Coq_string x; coq_trms (auxs args)]
+      | _ -> let x = constr_rename_builtin x in
+          coq_sem "trm_constr" [Coq_string x; coq_trms (auxs args)]
       end
 
    | Texp_let(rf, fvs, pat_expr_list, body) ->
@@ -307,12 +321,14 @@ let rec tr_exp env e =
 and tr_func env rf pat bod =
   let is_value = (env = Ident.empty) in
   let fname = pattern_name_protect_infix pat in
-  let env' = match rf with
-     | Nonrecursive -> env
-     | Recursive -> Ident.add (pattern_ident pat) () env
+  let is_recursive = match rf with
+     | Nonrecursive -> false
+     | Recursive -> true
      | Default -> unsupported pat.pat_loc "Default recursion mode"
      in
-   let rec args_with_idents_and_body acc e =
+  let fident = pattern_ident pat in
+  let env' = env_extend env (if is_recursive then [fident] else []) in
+  let rec args_with_idents_and_body acc e =
       let loc = e.exp_loc in
       match e.exp_desc with
       | Texp_function (_,[p1,e1],partial)
@@ -328,7 +344,7 @@ and tr_func env rf pat bod =
    let env' = env_extend env' idents in
    let body' = tr_exp env' body in
    let cstr = if is_value then "val_fixs" else "trm_fixs" in
-   let farg = if is_value then coq_var "LibSepBind.bind_anon" else Coq_string fname in
+   let farg = if is_recursive then Coq_string fname else coq_var "LibSepBind.bind_anon" in
    coq_sem cstr [farg; (coq_list (List.map coq_string_val args)); body']
 
 

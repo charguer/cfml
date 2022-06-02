@@ -90,13 +90,39 @@ Axiom triple_app_fix_from_wpgen : forall v1 v2 x t1 H Q,
   triple (trm_app v1 v2) H Q.
 *)
 
-Lemma triple_apps_funs : forall F vs ts xs t H (Q:val->hprop),
+(*
+From TLC Require Import LibListExec.
+*)
+
+Lemma triple_apps_funs' : forall F vs ts xs t H (Q:val->hprop),
   F = val_funs xs t ->
   trms_to_vals ts = Some vs ->
   var_funs_exec xs (length vs) ->
   H ==> (wpgen (LibListExec.combine xs vs) t) (Q \*+ \GC) ->
   triple (trm_apps F ts) H Q.
-Admitted.
+Proof using.
+  introv HF Hvs Hxs M. applys triple_hgc_post. lets ->: trms_to_vals_spec Hvs.
+  rewrite var_funs_exec_eq in Hxs. rew_istrue in Hxs. lets (_&Lxs&_): Hxs.
+  rewrite LibListExec.combine_eq in M; auto. (* rew_list_exec in M. *) 
+  applys* triple_apps_funs. rewrite~ <- isubstn_eq_substn.
+  applys* triple_isubst_of_wpgen.
+Qed.
+
+Lemma triple_apps_fixs' : forall F vs ts xs t H (Q:val->hprop) (f:var),
+  F = val_fixs f xs t ->
+  trms_to_vals ts = Some vs ->
+  var_fixs_exec (bind_var f) xs (length vs) ->
+  H ==> (wpgen (LibListExec.combine (f::xs) (F::vs)) t) (Q \*+ \GC) ->
+  triple (trm_apps F ts) H Q.
+Proof.
+  introv HF Hvs Hxs M. applys triple_hgc_post. lets ->: trms_to_vals_spec Hvs.
+  rewrite var_fixs_exec_eq in Hxs. rew_istrue in Hxs. lets (_&Lxs&_): Hxs.
+  rewrite LibListExec.combine_eq in M; rew_list; auto. (* rew_list_exec in M. *) 
+  applys* triple_apps_fixs. rewrite <- isubstn_eq_substn; [|rew_list~].
+  applys* triple_isubst_of_wpgen.
+Qed.
+(* LATER: simplify proof of xwp_lemma_fixs using the above *)
+
 
 Definition Formula_formula (F1:Formula) (f1:formula) : Prop :=
   forall A (EA:Enc A) (Q:A->hprop), ^F1 Q ==> f1 (Post Q).
@@ -129,7 +155,7 @@ Lemma Formula_formula_mkstruct : forall F1 f1,
   Formula_formula (MkStruct F1) (mkstruct f1).
 Proof using.
   introv M. hnf. intros.
-  applys MkStruct_erase_l_Post. applys structural_mkstruct. 
+  applys MkStruct_erase_l_Post. applys structural_mkstruct.
   intros. applys himpl_trans; [ | eapply mkstruct_erase ]. applys M.
 Qed.
 
@@ -171,7 +197,7 @@ Lemma Formula_formula_app : forall (A:Type) {EA:Enc A} (f:val) (Vs:dyns) (vs:val
 Proof using.
   introv E. hnf. intros.
   unfolds Wpgen_app, wpgen_app.
-  applys Formula_formula_mkstruct. 
+  applys Formula_formula_mkstruct.
   unfold Trm_apps. rewrite <- E.
   applys Formula_formula_wp.
 Qed.
@@ -206,7 +232,7 @@ Qed.
 
 (*
 Wpgen_let_trm (Wpgen_app int infix_emark__ ((Dyn r) :: nil))
-  (fun x0__ : int => Wpgen_app unit infix_colon_eq__ ((Dyn r) :: (Dyn x0__ + n) :: nil)) EA 
+  (fun x0__ : int => Wpgen_app unit infix_colon_eq__ ((Dyn r) :: (Dyn x0__ + n) :: nil)) EA
   (Q \*+ \GC) ==>
 wpgen_let (wpgen_app infix_emark__ ``[ r])
   (fun X : val =>
@@ -215,16 +241,29 @@ wpgen_let (wpgen_app infix_emark__ ``[ r])
 *)
 
 
-Lemma Triple_of_CF_and_Formula_formula : forall H A (EA:Enc A) (Q:A->hprop) (F1:Formula) F xs Vs vs t,
-  H ==> ^F1 (Q \*+ \GC) ->
+Lemma Triple_of_CF_and_Formula_formula_funs : forall H A (EA:Enc A) (Q:A->hprop) (F1:Formula) F xs Vs vs t,
   F = val_funs xs t ->
+  H ==> ^F1 (Q \*+ \GC) ->
   trms_to_vals (LibList.map (fun V : dyn => trm_val (dyn_to_val V)) Vs) = Some vs ->
   var_funs_exec xs (LibListExec.length vs) ->
   Formula_formula F1 (wpgen (LibListExec.combine xs vs) t) ->
   Triple (Trm_apps F Vs) H Q.
 Proof using.
-  introv HF1 EF Evs Hxs Ff. rewrite LibListExec.length_eq in Hxs.
-   applys triple_apps_funs EF Evs Hxs. 
+  introv EF HF1 Evs Hxs Ff. rewrite LibListExec.length_eq in Hxs.
+  applys triple_apps_funs' EF Evs Hxs.
+  xchange HF1. applys Formula_formula_intro_gc Ff.
+Qed.
+
+Lemma Triple_of_CF_and_Formula_formula_fixs : forall H A (EA:Enc A) (Q:A->hprop) (F1:Formula) F (f:var) xs Vs (vs:vals) t,
+  F = val_fixs f xs t ->
+  H ==> ^F1 (Q \*+ \GC) ->
+  trms_to_vals (LibList.map (fun V : dyn => trm_val (dyn_to_val V)) Vs) = Some vs ->
+  var_fixs_exec (bind_var f) xs (LibListExec.length vs) ->
+  Formula_formula F1 (wpgen (LibListExec.combine (f::xs) (F::vs)) t) ->
+  Triple (Trm_apps F Vs) H Q.
+Proof using.
+  introv EF HF1 Evs Hxs Ff. rewrite LibListExec.length_eq in Hxs.
+  applys triple_apps_fixs' EF Evs Hxs.
   xchange HF1. applys Formula_formula_intro_gc Ff.
 Qed.
 
@@ -244,7 +283,7 @@ Lemma Formula_formula_inlined_fun : forall F1 (f:val) (vs:vals) (r:val),
   Formula_formula F1 (wpgen_app f vs).
 Proof using.
   introv Hf M1. hnf. intros.
-  unfold wpgen_app. xchange M1. applys mkstruct_weaken. clear Q. intros Q. 
+  unfold wpgen_app. xchange M1. applys mkstruct_weaken. clear Q. intros Q.
   rewrite <- triple_eq_himpl_wp. applys triple_conseq_frame Hf. xsimpl.
   intros x. xpull; intros ->. xsimpl.
 Qed.
@@ -295,10 +334,53 @@ Ltac xwpgen_simpl :=
   Ascii.ascii_dec Ascii.ascii_rec Ascii.ascii_rect
   Bool.bool_dec bool_rec bool_rect ] iota zeta.
 
-Ltac cf_def_proof := 
+Ltac cf_main :=
   let CF := fresh "CF" in
-  hnf; introv CF; applys Triple_of_CF_and_Formula_formula (rm CF); try reflexivity;
+  hnf; introv CF; 
+  first [ applys Triple_of_CF_and_Formula_formula_funs (rm CF); [ reflexivity | | | ]
+        | applys Triple_of_CF_and_Formula_formula_fixs (rm CF); [ reflexivity | | | ] ];
+  try reflexivity;
   unfold Wptag, dyn_to_val; simpl; xwpgen_simpl.
+
+
+Lemma triple_builtin_search_1 : forall F ts v1 H (Q:val->hprop),
+  triple (combiner_to_trm (combiner_nil (trm_val F) (trm_val v1))) H Q ->
+  combiner_to_trm (combiner_nil (trm_val F) (trm_val v1)) = (trm_apps (trm_val F) ts) ->
+  triple (trm_apps (trm_val F) ts) H Q.
+Proof using. introv M <-. auto. Qed.
+
+Lemma triple_builtin_search_2 : forall F ts v1 v2 H (Q:val->hprop),
+  triple (combiner_to_trm (combiner_cons (combiner_nil (trm_val F) (trm_val v1)) (trm_val v2))) H Q ->
+  combiner_to_trm (combiner_cons (combiner_nil (trm_val F) (trm_val v1)) (trm_val v2)) = (trm_apps (trm_val F) ts) ->
+  triple (trm_apps (trm_val F) ts) H Q.
+Proof using. introv M <-. auto. Qed.
+
+Hint Resolve triple_infix_plus__ triple_infix_bar_bar__ triple_infix_amp_amp__
+ : triple_builtin.
+
+Ltac cf_triple_builtin :=
+  first [ eapply triple_builtin_search_2; [  eauto with triple_builtin | reflexivity ]
+        | eapply triple_builtin_search_1; [  eauto with triple_builtin | reflexivity ] ].
+
+
+
+Ltac cf_app :=
+  eapply Formula_formula_app; [ reflexivity ].
+
+Ltac cf_let := 
+  eapply Formula_formula_let; [ | | applys structural_mkstruct ].
+
+Ltac cf_val :=
+  eapply Formula_formula_val; [ reflexivity ].
+
+Ltac cf_inlined :=
+  eapply Formula_formula_inlined_fun; [ try cf_triple_builtin | ].
+
+Ltac cf_letinlined :=
+  eapply Formula_formula_let_inlined_fun; [ try cf_triple_builtin | ].
+
+Ltac cf_if :=
+  eapply Formula_formula_if; [ reflexivity | | ].
 
 
 (********************************************************************)
@@ -306,17 +388,25 @@ Ltac cf_def_proof :=
 
 (*
 let bools b =
+
   if true then b || false else b && true
 *)
 
-Lemma bools_cf_def_proof : bools_cf_def__.
+Lemma bools_cf_def : bools_cf_def__.
 Proof using.
-  cf_def_proof.
+  cf_main.
   applys Formula_formula_if; [ reflexivity | | ].
   { applys Formula_formula_inlined_fun; [ applys triple_infix_bar_bar__ | ].
     applys Formula_formula_val; [ reflexivity ]. }
   { applys Formula_formula_inlined_fun; [ applys triple_infix_amp_amp__ | ].
     applys Formula_formula_val; [ reflexivity ]. }
+Qed.
+
+Lemma bools_cf_def' : bools_cf_def__.
+Proof using.
+  cf_main. cf_if.
+  { cf_inlined. cf_val. }
+  { cf_inlined. cf_val. }
 Qed.
 
 
@@ -329,11 +419,11 @@ let pair_swap (x,y) =
   (y,x)
 *)
 
-Lemma pair_swap_cf_def_proof : pair_swap_cf_def__.
+Lemma pair_swap_cf_def : pair_swap_cf_def__.
 Proof using.
-  cf_def_proof.
+  cf_main.
   unfold Wpgen_match, Wpgen_negpat. (* optional *)
-  applys Formula_formula_case. 
+  applys Formula_formula_case.
   { intros HN. intros. applys Enc_injective_inv_neq; [ skip (* Enc_injective*) | ].
     rew_enc. applys HN. }
   { clears A. unfold Formula_formula. intros A EA Q.
@@ -347,15 +437,51 @@ Proof using.
 Qed.
 
 
+
 (********************************************************************)
 (** ** CF proof for list map *)
 
 (*
-let rec map f l =
+let rec listmap f l =
   match l with
   | [] -> []
-  | x::t -> f x :: map f t
+  | x::t -> f x :: listmap f t
 *)
+
+Lemma listmap_cf_def : listmap_cf_def__.
+Proof using.
+  cf_main.
+  unfold Wpgen_match, Wpgen_negpat. (* optional *)
+  applys Formula_formula_case.
+  { intros HN. intros. applys Enc_injective_inv_neq; [ skip (* Enc_injective*) | ].
+    rew_enc. applys HN. }
+  { clears A. unfold Formula_formula. intros A EA Q.
+    xsimpl. intros HN. destruct l. 2:{ rew_enc in HN. inverts HN. }
+    applys himpl_hwand_hpure_l; [ reflexivity | ].
+    applys Formula_formula_val; [ reflexivity ]. }
+  { intros N1.
+    clears A. unfold Formula_formula. intros A EA Q.
+   applys Formula_formula_case.
+    { intros HN. intros. applys Enc_injective_inv_neq; [ skip (* Enc_injective*) | ].
+      rew_enc. applys HN. }
+    { clears A. unfold Formula_formula. intros A EA Q.
+      applys himpl_hforall_r; intros vx.
+      applys himpl_hforall_r; intros vt.
+      xsimpl. intros E. (*  applys himpl_hwand_r. :..*)
+      destruct l as [|x t]. 1:{ false. }
+      rew_enc in E. inverts E.
+      do 2 applys himpl_hforall_l.
+      applys himpl_hwand_hpure_l; [ reflexivity | ].
+      applys Formula_formula_let; [ | | applys structural_mkstruct ].
+      { applys Formula_formula_app; [ reflexivity ]. }
+      { intros t2.
+        applys Formula_formula_let; [ | | applys structural_mkstruct ].
+        { applys Formula_formula_app; [ reflexivity ]. }
+        { intros r. applys Formula_formula_val; [ reflexivity ]. } } }
+    { intros N2. applys Formula_formula_fail_false.
+      destruct l; try false*. } }
+Qed.
+
 
 
 (********************************************************************)
@@ -370,19 +496,23 @@ let rec mymap f l =
   | Cons(x,t) -> Cons (f x, mymap f t)
 *)
 
+Lemma mymap_cf_def : mymap_cf_def__.
+Proof using.
+  unfold mymap_cf_def__.
+  hnf. Print mymap_cf_def__.
 
 
 
-(********************************************************************)
+(********************************************************************) 
 (** ** CF proof for id *)
 
 (*
 let id x = x
 *)
 
-Lemma id_cf_def_proof : id_cf_def__.
+Lemma id_cf_def : id_cf_def__.
 Proof using.
-  cf_def_proof.
+  cf_main.
   applys Formula_formula_val; [ reflexivity ].
 Qed.
 
@@ -394,9 +524,9 @@ Qed.
 let apply f x = f x
 *)
 
-Lemma apply_cf_def_proof : apply_cf_def__.
+Lemma apply_cf_def : apply_cf_def__.
 Proof using.
-  cf_def_proof.
+  cf_main.
   applys Formula_formula_app; [ reflexivity ].
 Qed.
 
@@ -411,9 +541,9 @@ let idapp =
   2
 *)
 
-Lemma idapp_cf_def_proof : idapp_cf_def__.
+Lemma idapp_cf_def : idapp_cf_def__.
 Proof using.
-  cf_def_proof.
+  cf_main.
   (* hnf. introv CF. applys Triple_of_CF_and_Formula_formula (rm CF); try reflexivity.
   unfold Wptag, dyn_to_val; simpl. xwpgen_simpl. *)
   applys Formula_formula_let; [ | | applys structural_mkstruct ].
@@ -421,7 +551,7 @@ Proof using.
   { intros a.
     applys Formula_formula_let; [ | | applys structural_mkstruct ].
     { applys Formula_formula_app; [ reflexivity ]. }
-    { intros b. 
+    { intros b.
       applys Formula_formula_val; [ reflexivity ]. } }
 Qed.
 
@@ -435,9 +565,9 @@ let f r n =
   r := x + n
 *)
 
-Lemma f_cf_def_proof : f_cf_def__.
+Lemma f_cf_def : f_cf_def__.
 Proof using.
-  cf_def_proof.
+  cf_main.
   applys Formula_formula_let; [ | | applys structural_mkstruct ].
   { applys Formula_formula_app; [ reflexivity ]. }
   { intros X.

@@ -10,6 +10,11 @@ make -j4 -C ../../lib/coq -f Makefile.dev
 make -C ../../lib/stdlib -f Makefile.dev depend
 make -j4 -C ../../lib/stdlib -f Makefile.dev
 make -f Makefile.dev depend
-make -f Makefile.dev
+
+ARG=$1
+if [[ ${ARG} = "" ]]; then
+  ARG="Debug_ml.vo"
+fi
+make -f Makefile.dev ${ARG}
 
 #coqide Debug_ml.v Debug_proof.v
