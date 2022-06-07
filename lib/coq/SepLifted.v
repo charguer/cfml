@@ -37,8 +37,9 @@ Implicit Types b : bool.
 (* ---------------------------------------------------------------------- *)
 (* ** Encoders *)
 
-Class Enc (A:Type) : Type :=
-  make_Enc { enc : A -> val }.
+Class Enc (A:Type) : Type := make_Enc 
+  { enc : A -> val;
+    enc_inj : injective enc }.
 
 Hint Mode Enc + : typeclass_instances.
 
@@ -132,12 +133,22 @@ Inductive tyconstr : Type :=
 (* ---------------------------------------------------------------------- *)
 (* ** Encoder instances *)
 
+(* DEPRECATED 
 Global Instance Enc_dyn : Enc dyn.
-Proof using. constructor. applys dyn_to_val. Defined.
+Proof using. applys make_Enc dyn_to_val.
+  { intros [AX EAX X] [AY EAY Y]. do 2 rewrite dyn_to_val_dyn_make.
+    intros. fequals. auto. simpl. hnf. simpl. Defined.
+*)
+
+Definition enc_loc := val_loc.
+
+Lemma injective_enc_loc : injective enc_loc.
+Proof using. introv E. inverts* E. Qed.
 
 Instance Enc_loc : Enc loc.
-Proof using. constructor. applys val_loc. Defined.
+Proof using. apply (make_Enc injective_enc_loc). Qed.
 
+(*
 Instance Enc_unit : Enc unit.
 Proof using. constructor. applys (fun (x:unit) => val_unit). Defined.
 
@@ -170,7 +181,57 @@ Proof using. constructor. applys (fun (o:option A) => match o with
   | None => val_constr "none" nil
   | Some x => val_constr "some" ((``x)::nil)
   end). Defined.
+*)
 
+Lemma Enc_eq_eq : forall A (EA:Enc A) (V1 V2:A),
+  (enc V1 = enc V2) = (V1 = V2).
+Proof using.
+  intros. lets E: (@enc_inj A EA). extens. iff M. { applys~ E. } { subst~. }
+Qed.
+
+Lemma Enc_eq_inv : forall A (EA:Enc A) (V1 V2:A),
+  (enc V1 = enc V2) ->
+  (V1 = V2).
+Proof using. introv M. rewrite* Enc_eq_eq in M. Qed.
+
+Lemma Enc_neq : forall A (EA:Enc A) (V1 V2:A),
+  (V1 <> V2) ->
+  (enc V1 <> enc V2).
+Proof using. introv M E. applys M. applys Enc_eq_inv E. Qed.
+
+Lemma Enc_neq_inv : forall A (EA:Enc A) (V1 V2:A),
+  (enc V1 <> enc V2) ->
+  (V1 <> V2).
+Proof using. introv M E. subst*. Qed.
+
+Lemma Enc_neq_eq : forall A (EA:Enc A) (V1 V2:A),
+  (enc V1 <> enc V2) = (V1 <> V2).
+Proof using.
+  intros. extens. iff M. { applys Enc_neq_inv M. } { applys Enc_neq M. }
+Qed.
+
+
+Fixpoint enc_list A {EA:Enc A} (l:list A) : val :=
+  match l with
+  | nil => val_constr "nil" nil
+  | x::l' => val_constr "cons" ((``x)::(enc_list l')::nil)
+  end.
+
+Lemma injective_enc_list : forall A (EA:Enc A),
+  injective (@enc_list A EA).
+Proof using.
+  intros. intros l1 l2 E. gen l2.
+  induction l1; intros; destruct l2; simpls; tryfalse.
+  { auto. }
+  { inverts E. fequals. { applys* Enc_eq_inv. } { applys* IHl1. } }
+Qed.
+
+Instance Enc_list : forall A {EA:Enc A}, Enc (list A) :=
+  fun A EA => make_Enc (@injective_enc_list A EA).
+
+
+
+(*
 Instance Enc_list : forall A {EA:Enc A}, Enc (list A).
 Proof using. constructor. applys (fix f (l:list A) :=
   match l with
@@ -178,7 +239,12 @@ Proof using. constructor. applys (fix f (l:list A) :=
   | x::l' => val_constr "cons" ((``x)::(f l')::nil)
   end). Defined.
 
-Global Opaque Enc_dyn Enc_loc Enc_unit Enc_bool Enc_int
+Instance Enc_list : forall A {EA:Enc A}, Enc (list A) :=
+  fun A EA => make_Enc (@enc_list A EA).
+
+*)
+
+Global Opaque (*Enc_dyn*) Enc_loc Enc_unit Enc_bool Enc_int
               Enc_func Enc_val Enc_prim Enc_tyconstr
               Enc_pair Enc_option Enc_list.
 
