@@ -6,7 +6,7 @@ as opposed to deeply-embedded values.
 
 The relationship between the two kind of values is implemented
 using encoding functions, called encoders, realized using
-typeclasses. Decoders implement the inverse functions to encoders.
+typeclasses.
 
 Author: Arthur Charguéraud.
 License: CC-by 4.0.
@@ -73,6 +73,37 @@ Ltac app_evar t A cont ::=
 
 
 (* ---------------------------------------------------------------------- *)
+(* ** Lemmas to exploit injectivity *)
+
+Lemma Enc_eq_eq : forall A (EA:Enc A) (V1 V2:A),
+  (enc V1 = enc V2) = (V1 = V2).
+Proof using.
+  intros. lets E: (@enc_inj A EA). extens. iff M. { applys~ E. } { subst~. }
+Qed.
+
+Lemma Enc_eq_inv : forall A (EA:Enc A) (V1 V2:A),
+  (enc V1 = enc V2) ->
+  (V1 = V2).
+Proof using. introv M. rewrite* Enc_eq_eq in M. Qed.
+
+Lemma Enc_neq : forall A (EA:Enc A) (V1 V2:A),
+  (V1 <> V2) ->
+  (enc V1 <> enc V2).
+Proof using. introv M E. applys M. applys Enc_eq_inv E. Qed.
+
+Lemma Enc_neq_inv : forall A (EA:Enc A) (V1 V2:A),
+  (enc V1 <> enc V2) ->
+  (V1 <> V2).
+Proof using. introv M E. subst*. Qed.
+
+Lemma Enc_neq_eq : forall A (EA:Enc A) (V1 V2:A),
+  (enc V1 <> enc V2) = (V1 <> V2).
+Proof using.
+  intros. extens. iff M. { applys Enc_neq_inv M. } { applys Enc_neq M. }
+Qed.
+
+
+(* ---------------------------------------------------------------------- *)
 (* ** Representation of values packed with their type and encoder *)
 
 (** Representation of dependent pairs *)
@@ -121,14 +152,19 @@ Definition dyns := list dyn.
 
 Definition func := val.
 
+(* TODO: use or deprecate ... *)
+
+
 (* ---------------------------------------------------------------------- *)
 (* ** ConstrType type *)
 
+(* DEPRECATED
 (** Let [constrtype] be a type to represent data constructors. *)
 
 Inductive tyconstr : Type :=
   | constr : idconstr -> vals -> tyconstr.
 
+*)
 
 (* ---------------------------------------------------------------------- *)
 (* ** Encoder instances *)
@@ -140,29 +176,56 @@ Proof using. applys make_Enc dyn_to_val.
     intros. fequals. auto. simpl. hnf. simpl. Defined.
 *)
 
-Definition enc_loc := val_loc.
 
-Lemma injective_enc_loc : injective enc_loc.
+Definition enc_val_impl := (fun (x:val) => x).
+
+Lemma injective_enc_val_impl : injective enc_val_impl.
+Proof using. introv E. auto. Qed.
+
+Instance Enc_val : Enc val.
+Proof using. apply (make_Enc injective_enc_val_impl). Defined.
+
+
+Definition enc_loc_impl := val_loc.
+
+Lemma injective_enc_loc_impl : injective enc_loc_impl.
 Proof using. introv E. inverts* E. Qed.
 
 Instance Enc_loc : Enc loc.
-Proof using. apply (make_Enc injective_enc_loc). Qed.
+Proof using. apply (make_Enc injective_enc_loc_impl). Defined.
 
-(*
+
+Definition enc_unit_impl := fun (_:unit) => val_unit.
+
+Lemma injective_enc_unit_impl : injective enc_unit_impl.
+Proof using. intros [] [] E. auto. Qed.
+
 Instance Enc_unit : Enc unit.
-Proof using. constructor. applys (fun (x:unit) => val_unit). Defined.
+Proof using. apply (make_Enc injective_enc_unit_impl). Defined.
+
+
+Definition enc_bool_impl := val_bool.
+
+Lemma injective_enc_bool_impl : injective enc_bool_impl.
+Proof using. introv E. inverts* E. Qed.
 
 Instance Enc_bool : Enc bool.
-Proof using. constructor. applys val_bool. Defined.
+Proof using. apply (make_Enc injective_enc_bool_impl). Defined.
+
+
+Definition enc_int_impl := val_int.
+
+Lemma injective_enc_int_impl : injective enc_int_impl.
+Proof using. introv E. inverts* E. Qed.
 
 Instance Enc_int : Enc int.
-Proof using. constructor. applys val_int. Defined.
+Proof using. apply (make_Enc injective_enc_int_impl). Defined.
+
+
+(* DEPRECATED
 
 Instance Enc_func : Enc func.
 Proof using. constructor. applys (fun (x:func) => x). Defined.
-
-Instance Enc_val : Enc val.
-Proof using. constructor. applys (fun (x:val) => x). Defined.
 
 Instance Enc_prim : Enc prim.
 Proof using. constructor. applys (fun (p:prim) => val_prim p). Defined.
@@ -171,111 +234,104 @@ Instance Enc_tyconstr : Enc tyconstr.
 Proof using. constructor. applys (fun (cstr:tyconstr) =>
   match cstr with constr id vs => val_constr id vs end). Defined.
 
-Instance Enc_pair : forall A1 `{EA1:Enc A1} A2 `{EA2:Enc A2}, Enc (A1*A2).
-Proof using. constructor. applys (fun p : A1*A2 =>
-  let '(x1,x2) := p in val_constr "tuple" (``x1 :: ``x2 :: nil)).
-Defined.
-
-Instance Enc_option : forall A {EA:Enc A}, Enc (option A).
-Proof using. constructor. applys (fun (o:option A) => match o with
-  | None => val_constr "none" nil
-  | Some x => val_constr "some" ((``x)::nil)
-  end). Defined.
 *)
 
-Lemma Enc_eq_eq : forall A (EA:Enc A) (V1 V2:A),
-  (enc V1 = enc V2) = (V1 = V2).
-Proof using.
-  intros. lets E: (@enc_inj A EA). extens. iff M. { applys~ E. } { subst~. }
-Qed.
 
-Lemma Enc_eq_inv : forall A (EA:Enc A) (V1 V2:A),
-  (enc V1 = enc V2) ->
-  (V1 = V2).
-Proof using. introv M. rewrite* Enc_eq_eq in M. Qed.
+Section EncPair.
+Context A1 `{EA1:Enc A1} A2 `{EA2:Enc A2}.
 
-Lemma Enc_neq : forall A (EA:Enc A) (V1 V2:A),
-  (V1 <> V2) ->
-  (enc V1 <> enc V2).
-Proof using. introv M E. applys M. applys Enc_eq_inv E. Qed.
+Definition enc_pair_impl := (fun p : A1*A2 =>
+  let '(x1,x2) := p in val_constr "tuple" (``x1 :: ``x2 :: nil)).
 
-Lemma Enc_neq_inv : forall A (EA:Enc A) (V1 V2:A),
-  (enc V1 <> enc V2) ->
-  (V1 <> V2).
-Proof using. introv M E. subst*. Qed.
+Lemma injective_enc_pair_impl : injective enc_pair_impl.
+Proof using. intros [x1 x2] [y1 y2] E. inverts E. fequals; applys* Enc_eq_inv. Qed.
 
-Lemma Enc_neq_eq : forall A (EA:Enc A) (V1 V2:A),
-  (enc V1 <> enc V2) = (V1 <> V2).
-Proof using.
-  intros. extens. iff M. { applys Enc_neq_inv M. } { applys Enc_neq M. }
-Qed.
+Global Instance Enc_pair : Enc (prod A1 A2).
+Proof using EA1 EA2. apply (make_Enc injective_enc_pair_impl). Defined.
+
+End EncPair.
 
 
-Fixpoint enc_list A {EA:Enc A} (l:list A) : val :=
-  match l with
-  | nil => val_constr "nil" nil
-  | x::l' => val_constr "cons" ((``x)::(enc_list l')::nil)
+Section EncOption.
+Context A1 `{EA1:Enc A1}.
+
+Definition enc_option_impl := 
+  fun (o:option A1) => match o with
+  | None => val_constr "none" nil
+  | Some x => val_constr "some" ((``x)::nil)
   end.
 
-Lemma injective_enc_list : forall A (EA:Enc A),
-  injective (@enc_list A EA).
+Lemma injective_enc_option_impl : injective enc_option_impl.
 Proof using.
-  intros. intros l1 l2 E. gen l2.
+  intros [x1|] [y1|] E; inverts E.
+  { fequals; applys* Enc_eq_inv. }
+  { auto. }
+Qed.
+
+Global Instance Enc_option : Enc (option A1).
+Proof using EA1. apply (make_Enc injective_enc_option_impl). Defined.
+
+End EncOption.
+
+
+Section EncList.
+Context A1 `{EA1:Enc A1}.
+
+Fixpoint enc_list_impl (l:list A1) : val :=
+  match l with
+  | nil => val_constr "nil" nil
+  | x::l' => val_constr "cons" ((``x)::(enc_list_impl l')::nil)
+  end.
+
+Lemma injective_enc_list_impl : injective enc_list_impl.
+Proof using.
+  intros l1 l2 E. gen l2.
   induction l1; intros; destruct l2; simpls; tryfalse.
   { auto. }
   { inverts E. fequals. { applys* Enc_eq_inv. } { applys* IHl1. } }
 Qed.
 
-Instance Enc_list : forall A {EA:Enc A}, Enc (list A) :=
-  fun A EA => make_Enc (@injective_enc_list A EA).
+Global Instance Enc_list : Enc (list A1).
+Proof using EA1. apply (make_Enc injective_enc_list_impl). Defined.
+
+End EncList.
 
 
-
-(*
-Instance Enc_list : forall A {EA:Enc A}, Enc (list A).
-Proof using. constructor. applys (fix f (l:list A) :=
-  match l with
-  | nil => val_constr "nil" nil
-  | x::l' => val_constr "cons" ((``x)::(f l')::nil)
-  end). Defined.
-
-Instance Enc_list : forall A {EA:Enc A}, Enc (list A) :=
-  fun A EA => make_Enc (@enc_list A EA).
-
-*)
-
-Global Opaque (*Enc_dyn*) Enc_loc Enc_unit Enc_bool Enc_int
-              Enc_func Enc_val Enc_prim Enc_tyconstr
+Global Opaque Enc_loc Enc_unit Enc_bool Enc_int Enc_val
               Enc_pair Enc_option Enc_list.
+
+              (*Enc_dyn Enc_func  Enc_prim Enc_tyconstr DEPRECATED *)
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** Specification of other encoders *)
 
-Lemma enc_loc_eq : forall (l:loc),
+
+Lemma enc_loc : forall (l:loc),
   enc l = val_loc l.
 Proof using. auto. Qed.
 
-Lemma enc_unit_eq : forall (u:unit),
+Lemma enc_unit : forall (u:unit),
   enc u = val_unit.
 Proof using. auto. Qed.
 
-Lemma enc_bool_eq : forall (b:bool),
+Lemma enc_bool : forall (b:bool),
   enc b = val_bool b.
 Proof using. auto. Qed.
 
-Lemma enc_int_eq : forall (n:int),
+Lemma enc_int : forall (n:int),
   enc n = val_int n.
 Proof using. auto. Qed.
 
-Lemma enc_func_eq : forall (f:func),
+Lemma enc_func : forall (f:func),
   enc f = f.
 Proof using. auto. Qed.
 
-Lemma enc_val_eq : forall (v:val),
+Lemma enc_val : forall (v:val),
   enc v = v.
 Proof using. auto. Qed.
 
+(*
 Lemma enc_prim_eq : forall (p:prim),
   enc p = p.
 Proof using. auto. Qed.
@@ -283,6 +339,8 @@ Proof using. auto. Qed.
 Lemma enc_constr_eq : forall id vs,
   enc (constr id vs) = val_constr id vs.
 Proof using. auto. Qed.
+
+*)
 
 Lemma enc_pair : forall A1 A2 (EA1:Enc A1) (EA2:Enc A2) (x1:A1) (x2:A2),
   enc (x1,x2) = val_constr "tuple" (``x1 :: ``x2 :: nil).
@@ -304,6 +362,7 @@ Lemma enc_list_cons : forall A (EA:Enc A) x (l:list A),
   enc (x::l) = val_constr "cons" (``x :: ``l :: nil).
 Proof using. auto. Qed.
 
+(*DEPRECATEE
 (** Specification of encoders for values of type [dyn] *)
 
 Lemma enc_dyn_eq_dyn_to_val : forall (d:dyn),
@@ -317,18 +376,7 @@ Lemma enc_dyn_make : forall A (EA:Enc A) (V:A),
   enc (dyn_make V) = enc V.
 Proof using. auto. Qed.
 
-(** [rew_enc] normalizes all encoders. *)
-
-Hint Rewrite @enc_dyn_make enc_loc_eq enc_unit_eq enc_bool_eq enc_int_eq
-             enc_func_eq enc_val_eq enc_prim_eq enc_constr_eq @enc_pair
-             @enc_option_none @enc_option_some @enc_list_nil @enc_list_cons : rew_enc.
-
-Tactic Notation "rew_enc" :=
-  autorewrite with rew_enc.
-Tactic Notation "rew_enc" "in" hyp(H) :=
-  autorewrite with rew_enc in H.
-Tactic Notation "rew_enc" "in" "*" :=
-  autorewrite with rew_enc in *.
+Hint Rewrite @enc_dyn_make  : rew_enc.
 
 (** [rew_enc] normalizes only the [dyn] encoder. *)
 
@@ -341,146 +389,27 @@ Tactic Notation "rew_enc_dyn" "in" hyp(H) :=
 Tactic Notation "rew_enc_dyn" "in" "*" :=
   autorewrite with rew_enc_dyn in *.
 
+*)
 
-(* ---------------------------------------------------------------------- *)
-(* ** Injectivity of encoders *)
+(** [rew_enc] normalizes all encoders. *)
 
-(* ** Injectivity of encoders for entire types *)
+Hint Rewrite enc_loc enc_unit enc_bool enc_int
+             enc_func enc_val (* enc_prim_eq enc_constr *)
+             @enc_pair @enc_option_none @enc_option_some @enc_list_nil @enc_list_cons : rew_enc.
 
-Definition Enc_injective A (EA:Enc A) :=
-  injective (enc (A:=A)).
+Tactic Notation "rew_enc" :=
+  autorewrite with rew_enc.
+Tactic Notation "rew_enc" "in" hyp(H) :=
+  autorewrite with rew_enc in H.
+Tactic Notation "rew_enc" "in" "*" :=
+  autorewrite with rew_enc in *.
 
-Lemma Enc_injective_inv : forall A (EA:Enc A) (V1 V2:A),
-  Enc_injective EA ->
-  (enc V1 = enc V2) = (V1 = V2).
-Proof using. introv E. extens. iff M. { applys~ E. } { subst~. } Qed.
-
-Lemma Enc_injective_inv_neq : forall A (EA:Enc A) (V1 V2:A),
-  Enc_injective EA ->
-  (enc V1 <> enc V2) ->
-  (V1 <> V2).
-Proof using.
-  introv HEA HN. intros E. rewrites <- (>> Enc_injective_inv HEA) in E. false.
-Qed.
-
-Lemma Enc_injective_loc : Enc_injective Enc_loc.
-Proof using.
-  intros n1 n2 E. rewrite (enc_loc_eq n1), (enc_loc_eq n2) in E. congruence.
-Qed.
-
-Lemma Enc_injective_unit : Enc_injective Enc_unit.
-Proof using.
-  intros n1 n2 E. destruct n1; destruct n2; auto.
-Qed.
-
-Lemma Enc_injective_bool : Enc_injective Enc_bool.
-Proof using.
-  intros n1 n2 E. rewrite (enc_bool_eq n1), (enc_bool_eq n2) in E. congruence.
-Qed.
-
-Lemma Enc_injective_int : Enc_injective Enc_int.
-Proof using.
-  intros n1 n2 E. rewrite (enc_int_eq n1), (enc_int_eq n2) in E.
-  (* todo, why [do 2 rewrite enc_int_eq] and [rew_enc in E] fail *)
-  congruence.
-Qed.
-
-Lemma Enc_injective_pairs : forall A1 A2 (EA1:Enc A1) (EA2:Enc A2),
-  Enc_injective EA1 ->
-  Enc_injective EA2 ->
-  Enc_injective (@Enc_pair A1 EA1 A2 EA2).
-Proof using.
-  introv HEA1 HEA2. intros p1 p2 E.
-  destruct p1; destruct p2; simpls; tryfalse.
-  { rew_enc in E. inverts E. fequals*. }
-Qed.
-
-Lemma Enc_injective_option : forall A (EA:Enc A),
-  Enc_injective EA ->
-  Enc_injective (@Enc_option A EA).
-Proof using.
-  introv HEA. intros o1 o2 E.
-  induction o1; destruct o2; simpls; tryfalse.
-  { rew_enc in E. inverts E. fequals*. }
-  { auto. }
-Qed.
-
-Lemma Enc_injective_list : forall A (EA:Enc A),
-  Enc_injective EA ->
-  Enc_injective (@Enc_list A EA).
-Proof using.
-  introv HEA. intros l1 l2 E. gen l2.
-  induction l1; intros; destruct l2; simpls; tryfalse.
-  { auto. }
-  { rew_enc in E. inverts E. fequals*. }
-Qed.
-
-Hint Resolve Enc_injective_loc Enc_injective_unit Enc_injective_bool
-             Enc_injective_int Enc_injective_pairs Enc_injective_option
-             Enc_injective_list
-             : Enc_injective.
-
-(* ** Injectivity of encoders for specific values
-      (useful in many cases to avoid the need for an hypothesis
-      of the form [Enc_injective EA] *)
-
-Definition Enc_injective_value A {EA:Enc A} (V1:A) :=
-  forall V2, (enc V1 = enc V2) -> (V1 = V2).
-
-Lemma Enc_injective_value_eq_l : forall A (EA:Enc A) (V1:A),
-  Enc_injective_value V1 ->
-  forall V2, (enc V1 = enc V2) = (V1 = V2).
-Proof using. introv E. extens. iff M. { applys~ E. } { subst~. } Qed.
-
-Lemma Enc_injective_value_eq_r : forall A (EA:Enc A) (V1:A),
-  Enc_injective_value V1 ->
-  forall V2, (enc V2 = enc V1) = (V2 = V1).
-Proof using. introv E. extens. iff M. { symmetry. applys~ E. } { subst~. } Qed.
-
-Lemma Enc_injective_nil : forall A (EA:Enc A),
-  Enc_injective_value (@nil A).
-Proof using.
-  intros A EA l E. destruct l; intros; simpls; tryfalse. { auto. }
-Qed.
-
-Lemma Enc_injective_none : forall A (EA:Enc A),
-  Enc_injective_value (@None A).
-Proof using.
-  intros A EA o E. destruct o; intros; simpls; tryfalse. { auto. }
-Qed.
-
-Hint Resolve Enc_injective_nil Enc_injective_none : Enc_injective.
-
-(** [Enc_comparable V1 V2] asserts that at least one of [V1]
-    or [V2] satisfies [Enc_injective_value]. In such case,
-    [``V1 = ``V2  <->  V1 = V2] holds. *)
-
-Definition Enc_comparable A {EA:Enc A} (V1 V2:A) : Prop :=
-     Enc_injective EA
-  \/ Enc_injective_value V1
-  \/ Enc_injective_value V2.
-
-Lemma Enc_comparable_inv : forall A `(EA:Enc A) (V1 V2:A),
-  Enc_comparable V1 V2 ->
-  (``V1 = ``V2) = (V1 = V2).
-Proof using.
-  introv [M|[M|M]].
-  { applys (>> Enc_injective_inv V1 V2 M). }
-  { applys (>> Enc_injective_value_eq_l V1 M). }
-  { applys (>> Enc_injective_value_eq_r V2 M). }
-Qed.
-
-Lemma Enc_comparable_inv_neg : forall A `(EA:Enc A) (V1 V2:A),
-  Enc_comparable V1 V2 ->
-  (``V1 <> ``V2) = (V1 <> V2).
-Proof using.
-  introv M. unfold not. rewrite* (Enc_comparable_inv M).
-Qed.
 
 
 (* ---------------------------------------------------------------------- *)
 (* ** Encoder for list of values *)
 
+(* DEPRECATED
 (** Encoder for lists *)
 
 Definition encs (ds:dyns) : vals :=
@@ -491,80 +420,7 @@ Definition encs (ds:dyns) : vals :=
 Lemma length_encs : forall (ds:dyns),
   length (encs ds) = length ds.
 Proof using. intros. induction ds; simpl; rew_list; math. Qed.
-
-
-
-(* ********************************************************************** *)
-(* * Decoders *)
-
-(* ---------------------------------------------------------------------- *)
-(* ** [Decode] predicate and instances *)
-
-Definition Decode (v:val) A {EA:Enc A} (V:A) : Prop :=
-  v = ``V.
-
-Lemma Decode_enc : forall A (EA:Enc A) (V:A),
-  Decode (``V) V.
-Proof using. intros. hnfs~. Qed.
-
-Hint Extern 1 (Decode (``_) _) => eapply Decode_enc : Decode.
-
-Lemma Decode_unit :
-  Decode val_unit tt.
-Proof using. intros. hnfs~. Qed.
-
-Lemma Decode_int : forall (n:int),
-  Decode (val_int n) n.
-Proof using. intros. hnfs~. Qed.
-
-Lemma Decode_bool : forall (b:bool),
-  Decode (val_bool b) b.
-Proof using. intros. hnfs~. Qed.
-
-Lemma Decode_loc : forall (l:loc),
-  Decode (val_loc l) l.
-Proof using. intros. hnfs~. Qed.
-
-Hint Resolve Decode_unit Decode_int Decode_bool Decode_loc : Decode.
-
-Lemma Decode_nil : forall A (EA:Enc A),
-  Decode (val_constr "nil" nil) (@nil A).
-Proof using. intros. hnfs~. Qed.
-
-Lemma Decode_cons : forall A (EA:Enc A) (X:A) (L:list A) (x l : val),
-  Decode x X ->
-  Decode l L ->
-  Decode (val_constr "cons" (x::l::nil)) (X::L).
-Proof using. introv Dx DL. unfolds. rew_enc. fequals. Qed.
-
-Lemma Decode_None : forall A (EA:Enc A),
-  Decode (val_constr "none" nil) (@None A).
-Proof using. intros. hnfs~. Qed.
-
-Lemma Decode_Some : forall A (EA:Enc A) (V:A) (v:val),
-  Decode v V ->
-  Decode (val_constr "some" (v::nil)) (Some V).
-Proof using. intros. unfolds. rew_enc. fequals. Qed.
-
-(* TODO: generalize to tuples, and strings and char base types *)
-
-(* ---------------------------------------------------------------------- *)
-(* ** Predicate [Decodes] *)
-
-Definition Decodes (vs:vals) (Vs:dyns) : Prop :=
-  vs = encs Vs.
-
-Lemma Decodes_nil :
-  Decodes nil nil.
-Proof using. intros. hnfs~. Qed.
-
-Lemma Decodes_cons : forall (v:val) (vs:vals) A (EA:Enc A) (V:A) (Vs:dyns),
-  Decode v V ->
-  Decodes vs Vs ->
-  Decodes (v::vs) ((Dyn V)::Vs).
-Proof using.
-  introv Dv Dvs. unfolds Decodes. simpl. rewrite enc_dyn_make. fequals.
-Qed.
+*)
 
 
 (* ********************************************************************** *)
@@ -684,11 +540,13 @@ Proof using. intros. rewrite Hfield_to_hfield. applys haffine_hfield. Qed.
 Definition Subst1 A {EA:Enc A} (z:bind) (V:A) (t:trm) : trm :=
   subst1 z (enc V) t.
 
+(* DEPRECATED
 (** [Substn ys ds t] substitues the list of variables [ys] with the
     encodings of the list of dynamic values [ds] in [t]. *)
 
 Definition Substn (ys:vars) (ds:dyns) (t:trm) : trm :=
   substn ys (encs ds) t.
+*)
 
 
 (* ********************************************************************** *)
@@ -916,10 +774,18 @@ Proof using.
   introv N M. applys* triple_fixs. unfold Post. xchanges* M.
 Qed.
 
+(* DEPRECATED
 Lemma Triple_constr : forall id vs H (Q:tyconstr->hprop),
   H ==> Q (constr id vs) ->
   Triple (trm_constr id (trms_vals vs)) H Q.
 Proof using. introv M. applys triple_constr. unfold Post. xchanges* M. Qed.
+*)
+
+Lemma Triple_constr : forall id vs H A (EA:Enc A) (V:A) (Q:A->hprop),
+  val_constr id vs = enc V ->
+  H ==> Q V ->
+  Triple (trm_constr id (trms_vals vs)) H Q.
+Proof using. introv E M. applys triple_constr. unfold Post. xchanges* M. Qed.
 
 Lemma Triple_constr_trm : forall id ts t1 vs H,
   forall A (EA:Enc A) (Q:A->hprop) A1 `{EA1:Enc A1} (Q1:A1->hprop),
@@ -960,9 +826,9 @@ Lemma Triple_if_trm : forall t0 t1 t2 H (Q1:bool->hprop) A (EA:Enc A) (Q:A->hpro
 Proof using.
   introv M1 M2. applys* triple_if_trm'.
   { intros b. unfold Post. xtpull ;=> V E.
-     rewrite (enc_bool_eq V) in E. inverts E. applys* M2. }
+     rewrite (enc_bool V) in E. inverts E. applys* M2. }
   { intros v N. unfold Post. xpull ;=> V ->. false N.
-    rewrite enc_bool_eq. hnfs*. }
+    rewrite enc_bool. hnfs*. }
 Qed.
 
 Lemma Triple_if : forall (b:bool) t1 t2 H A (EA:Enc A) (Q:A->hprop),
@@ -1038,13 +904,6 @@ Lemma Triple_ref : forall A (EA:Enc A) (V:A),
     (fun l => l ~~> V).
 Proof using. intros. applys_eq~ triple_ref. Qed.
 
-Lemma Triple_ref_Decode : forall A (EA:Enc A) (V:A) (v:val),
-  Decode v V ->
-  Triple (val_ref v)
-    \[]
-    (fun l => l ~~> V).
-Proof using. introv Hv. unfolds Decode. subst v. applys Triple_ref. Qed.
-
 Lemma Triple_get : forall A (EA:Enc A) (V:A) l,
   Triple (val_get ``l)
     (l ~~> V)
@@ -1082,14 +941,6 @@ Proof using.
   intros. applys Triple_set_strong.
 Qed.
 
-Lemma Triple_set_Decode : forall A1 `{EA1:Enc A1} (V1 V2:A1) (l:loc) (v2:val),
-  Decode v2 V2 ->
-  Triple (val_set l v2)
-    (l ~~> V1)
-    (fun (u:unit) => l ~~> V2).
-Proof using.
-  introv Hv2. unfolds Decode. subst v2. applys Triple_set.
-Qed.
 
 Lemma Triple_free : forall l v,
   Triple (val_free (val_loc l))
@@ -1163,25 +1014,12 @@ Lemma Triple_eq_val : forall v1 v2,
 Proof using. intros. unfold Triple, Post. xapplys* triple_eq. Qed.
 
 Lemma Triple_eq : forall A (EA:Enc A) (V1 V2 : A),
-  Enc_comparable V1 V2 ->
   Triple (val_eq ``V1 ``V2)
     \[]
     (fun (b:bool) => \[b = isTrue (V1 = V2)]).
 Proof using.
-  introv I. intros. applys_eq Triple_eq_val.
-  applys fun_ext_1. intros b. fequal. extens.
-  rewrite* Enc_comparable_inv.
-Qed.
-
-Lemma Triple_eq_Decode : forall A `(EA:Enc A) (v1 v2:val) (V1 V2:A),
-  Decode v1 V1 ->
-  Decode v2 V2 ->
-  Enc_comparable V1 V2 ->
-  Triple (val_eq v1 v2)
-    \[]
-    (fun (b:bool) => \[b = isTrue (V1 = V2)]).
-Proof using.
-  introv D1 D2 I. unfolds Decode. subst v1 v2. applys* Triple_eq.
+  intros. applys_eq Triple_eq_val.
+  applys fun_ext_1. intros b. rewrite* Enc_eq_eq.
 Qed.
 
 Lemma Triple_neq_val : forall v1 v2,
@@ -1191,25 +1029,12 @@ Lemma Triple_neq_val : forall v1 v2,
 Proof using. intros. unfold Triple, Post. xapplys* triple_neq. Qed.
 
 Lemma Triple_neq : forall A (EA:Enc A) (V1 V2 : A),
-  Enc_comparable V1 V2 ->
   Triple (val_neq ``V1 ``V2)
     \[]
     (fun (b:bool) => \[b = isTrue (V1 <> V2)]).
 Proof using.
-  introv I. intros. applys_eq Triple_neq_val.
-  applys fun_ext_1. intros b. fequal. extens.
-  rewrite* Enc_comparable_inv.
-Qed.
-
-Lemma Triple_neq_Decode : forall A `(EA:Enc A) (v1 v2:val) (V1 V2:A),
-  Decode v1 V1 ->
-  Decode v2 V2 ->
-  Enc_comparable V1 V2 ->
-  Triple (val_neq v1 v2)
-    \[]
-    (fun (b:bool) => \[b = isTrue (V1 <> V2)]).
-Proof using.
-  introv D1 D2 I. unfolds Decode. subst v1 v2. applys* Triple_neq.
+  intros. applys_eq Triple_neq_val.
+  applys fun_ext_1. intros b. rewrite* Enc_eq_eq.
 Qed.
 
 Lemma Triple_add : forall n1 n2,

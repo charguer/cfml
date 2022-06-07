@@ -172,11 +172,10 @@ Lemma qimpl_PostCast_r : forall A `{EA:Enc A} (Q:A->hprop),
 Proof using. intros. unfolds PostCast. intros X. xsimpl*. Qed.
 
 Lemma qimpl_PostCast_l : forall A `{EA:Enc A} (Q:A->hprop),
-  Enc_injective EA ->
   PostCast A Q ===> Q.
 Proof using.
-  introv M. unfolds PostCast. intros X. xsimpl*.
-  { intros Y EQ. rewrites (>> Enc_injective_inv M) in EQ. subst*. }
+  unfolds PostCast. intros X. xsimpl*.
+  { intros Y EQ. introv M. rewrite Enc_eq_eq in M. subst*. }
 Qed.
 
 Lemma PostCast_weaken : forall B `{EB:Enc B} A `{EA:Enc A} (Q1 Q2:A->hprop),
@@ -843,7 +842,7 @@ Proof using.
   introv M1 M2 M3. intros E A EA Q. simpl.
   applys~ Wpgen_sound_getval_typed (fun t1 => trm_for x t1 t2 t3).
   intros n1. applys~ Wpgen_sound_getval_typed (fun t2 => trm_for x n1 t2 t3).
-  intros n2. unfold Wptag. rewrite (enc_int_eq n2). applys~ Wpgen_sound_for_int.
+  intros n2. unfold Wptag. rewrite (enc_int n2). applys~ Wpgen_sound_for_int.
 Qed.
 
 Lemma Wpgen_sound_match : forall t0 pts,

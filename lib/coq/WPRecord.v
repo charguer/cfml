@@ -223,12 +223,20 @@ Lemma Record_nil : forall p,
   p ~> Record nil = hheader 0 p.
 Proof using. auto. Qed.
 
+Lemma Record_cons : forall p x A (EA:Enc A) (V:A) L,
+  (p ~> Record ((x, dyn_make V)::L)) =
+  (p`.x ~~> V \* p ~> Record L).
+Proof using. auto. Qed.
+
+(* DEPRECATED
 Lemma Record_cons : forall p x (V:dyn) L,
   (p ~> Record ((x, V)::L)) =
-  (p`.x ~~> ``V \* p ~> Record L).
+  (p`.x ~~> V \* p ~> Record L).
 Proof using. intros. destruct~ V. Qed.
+*)
 
-Hint Rewrite Record_nil Record_cons enc_dyn_make : Record_to_HField.
+Hint Rewrite Record_nil @Record_cons : Record_to_HField.
+(* enc_dyn_make DEPRECATED *)
 
 
 Local Open Scope heap_scope_ext.
@@ -237,7 +245,7 @@ Lemma Record_not_null : forall (r:loc) (L:Record_fields),
   L <> nil ->
   (r ~> Record L) ==+> \[r <> null].
 Proof using.
-  intros. destruct L as [|(f,v) L']. { false. }
+  intros. destruct L as [|(f,[A EA V]) L']. { false. }
   rewrite Record_cons. xchanges~ Hfield_not_null.
 Qed.
 
@@ -367,13 +375,6 @@ Lemma Triple_set_field : forall A `{EA:Enc A} (V1:A) (l:loc) f (V2:A),
     (l`.f ~~> V1)
     (fun (r:unit) => l`.f ~~> V2).
 Proof using. intros. applys Triple_set_field_strong. Qed.
-
-Lemma Triple_set_field_Decode : forall (v2:val) A (EA:Enc A) (V1:A) (l:loc) f (V2:A),
-  Decode v2 V2 ->
-  Triple ((val_set_field f) l v2)
-    (l`.f ~~> V1)
-    (fun (r:unit) => l`.f ~~> V2).
-Proof using. introv M. unfolds Decode. subst v2. applys Triple_set_field_strong. Qed.
 
 End Triple_fields.
 
@@ -712,7 +713,6 @@ Ltac xapp_record_get tt :=
 
 (* Similar construction as for [xapp_record_get]
 
-Hint Extern 1 (Register_Spec (val_set_field _)) => Provide @Triple_set_field_Decode.
  *)
 Ltac xapp_record_set_find_single_field tt :=
   match goal with
@@ -768,32 +768,6 @@ Ltac xnew_core E :=
 Tactic Notation "xnew" constr(E) :=
   xnew_core E.
 
-(* not used
-Lemma xapp_record_new_noarg : forall (Vs:dyns) (Q:loc->hprop) (H:hprop) (ks:fields) (vs:vals),
-  noduplicates_fields_exec ks = true ->
-  LibListExec.is_nil ks = false ->
-  Decodes vs Vs ->
-  List.length ks = List.length Vs ->
-  (fun p => p ~> Record (List.combine ks Vs)) \*+ H ===> (protect Q) ->
-  H ==> ^(Wpgen_app_untyped (trm_apps (trm_val (val_record_init ks)) (trms_vals vs))) Q.
-Proof using. introv HN HE HD EQ HI. unfolds Decodes. applys* xapp_record_new. Qed.
-*)
-
-(* DEPRECATED
-Ltac xnew_core_noarg tt :=
-  applys xapp_record_new_noarg;
-  [ try reflexivity
-  | try reflexivity
-  | xdecodes
-  | try reflexivity
-  | xsimpl; simpl List.combine; unfold protect; xnew_post tt ].
-
-Ltac xapp_record_new tt :=
-  xnew_core_noarg tt.
-
-Tactic Notation "xnew" :=
-  xnew_core_noarg tt.
-*)
 
 (* An implementation of [xnew_post] that can be used to expose fields one by one
    instead of generating [p ~> Record ?L]. To activate, use:
