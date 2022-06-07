@@ -1,8 +1,4 @@
 
-let rec listmap f l =
-  match l with
-  | [] -> []
-  | x::t -> f x :: listmap f t
 
 type 'a mylist = Nil | Cons of 'a * 'a mylist
 
@@ -11,6 +7,13 @@ let rec mymap f l =
   | Nil -> Nil
   | Cons(x,t) -> Cons (f x, mymap f t)
 
+type myintlist = int mylist
+
+
+let rec listmap f l =
+  match l with
+  | [] -> []
+  | x::t -> f x :: listmap f t
 
 let f r n =
   r := !r + n
@@ -36,3 +39,4 @@ let bools b =
 
 let pair_swap (x,y) =
   (y,x)
+

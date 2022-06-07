@@ -32,6 +32,7 @@ val bool_of_option : bool option -> bool
 
 val list_make : int -> 'a -> 'a list
 val list_mapi : (int -> 'a -> 'b) -> 'a list -> 'b list
+val list_init : int -> (int -> 'a) -> 'a list
 val list_nat : int -> int list
 val list_separ : 'a -> 'a list -> 'a list
 val filter_somes : 'a option list -> 'a list

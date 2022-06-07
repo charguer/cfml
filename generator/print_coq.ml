@@ -40,6 +40,9 @@ let spacecolon =
 let spacecolonequals =
   string ":="
 
+let hardline2 =
+  hardline ^^ hardline
+
 (* -------------------------------------------------------------------------- *)
 
 (* Applications. *)
@@ -187,6 +190,7 @@ let rec expr0 = function
   | Coq_impl _
   | Coq_lettuple _
   | Coq_forall _
+  | Coq_fix _
   | Coq_fun _
     as e ->
       parens (expr e)
@@ -235,16 +239,55 @@ and expr3 = function
       expr3 e2
   | Coq_fun ((x, e1), e2) ->
       block
-        (string "fun " ^^ string x ^^ spacecolon)
+        (string "fun" ^^ space ^^ string x ^^ spacecolon)
         (break 1 ^^ expr e1)
         (break 1 ^^ doublearrow)
       ^/^
       expr3 e2
+  | Coq_fix (f, n, crettype, ebody) ->
+      let rec get_args_body nb c =
+        if nb = 0 then ([], c) else
+        match c with
+        | Coq_fun (xt, c1) ->
+           let xts, body = get_args_body (nb-1) c1 in
+           (xt :: xts, body)
+        | _ -> failwith "Coq_fix encoding error"
+        in
+      let xts, body = get_args_body n ebody in
+      block (string "fix" ^^ space ^^ string f ^^ space ^^ pvars xts ^^ spacecolon)
+        (break 1 ^^ expr crettype)
+        (break 1 ^^ colonequals)
+      ^/^
+      expr3 body
   | e ->
       expr2 e
 
 and expr e =
   expr3 e
+
+
+(* -------------------------------------------------------------------------- *)
+
+(* Typed variables: [x : t]. *)
+
+(* Raw. *)
+
+and var (x, t) =
+  binding (string x) (expr t)
+
+(* With parentheses and with a leading space. *)
+
+and pvar xt =
+  space ^^ parens (var xt)
+
+and pvars xts =
+  group (concat_map pvar xts)
+
+(* A list of field type declarations, separated with semicolons. *)
+
+let fields_type xts =
+  separate_map (semi ^^ break 1) var xts
+
 
 (* -------------------------------------------------------------------------- *)
 
@@ -314,28 +357,6 @@ let mod_cast = function
       space ^^ string "<:" ^^ space ^^ mod_typ mt
   | Mod_cast_free ->
       empty
-
-(* -------------------------------------------------------------------------- *)
-
-(* Typed variables: [x : t]. *)
-
-(* Raw. *)
-
-let var (x, t) =
-  binding (string x) (expr t)
-
-(* With parentheses and with a leading space. *)
-
-let pvar xt =
-  space ^^ parens (var xt)
-
-let pvars xts =
-  group (concat_map pvar xts)
-
-(* A list of field type declarations, separated with semicolons. *)
-
-let fields_type xts =
-  separate_map (semi ^^ break 1) var xts
 
 
 (* -------------------------------------------------------------------------- *)
@@ -409,7 +430,7 @@ let implicit (x, i) =
 
 (* Toplevel elements. *)
 
-let top = function
+let rec top_internal = function
   | Coqtop_def ((x, e1), e2) ->
       string "Definition" ^^
       definition (string x) (expr e1) ^/^
@@ -417,9 +438,12 @@ let top = function
   | Coqtop_param (x, e1) ->
       string "Parameter" ^^
       parameter (string x) (expr e1)
-  | Coqtop_instance ((x, e1), global) ->
+  | Coqtop_instance ((x, e1), e2o, global) ->
       string ((if global then "Global " else "") ^ "Instance") ^^
-      parameter (string x) (expr e1)
+      begin match e2o with
+      | None -> parameter (string x) (expr e1)
+      | Some e2 -> definition (string x) e1 ^^ expr e2 ^^ dot
+      end
   | Coqtop_lemma (x, e1) ->
       string "Lemma" ^^
       parameter (string x) (expr e1)
@@ -509,13 +533,23 @@ let top = function
       sprintf "End %s." x
   | Coqtop_custom x ->
       sprintf "%s" x
+  | Coqtop_section x ->
+      sprintf "Section %s." x
+  | Coqtop_context xs ->
+      sprintf "Arguments" ^^ space ^^
+      pvars xs ^^ dot
 
 
-let top t =
-  group (top t)
+(* LATER: make section module and module_type have their arguments as contents,
+   instead of using Coqtop_end *)
+(* LATER: use a function to factorize the pattern of contents ending with "End" *)
 
-let tops ts =
-  concat_map (fun t -> top t ^^ hardline ^^ hardline) ts
+and top t =
+  group (top_internal t)
+
+and tops ts =
+  concat_map (fun t -> top t ^^ hardline2) ts
+
 
 (* -------------------------------------------------------------------------- *)
 

@@ -31,6 +31,10 @@ and coq =
   | Coq_lettuple of coqs * coq * coq
   | Coq_forall of typed_var * coq
   | Coq_fun of typed_var * coq
+  | Coq_fix of var * int * coq * coq
+     (* the int is the number of "fun" in the body,
+        the first coq is the return type,
+        the second coq is the body *)
   | Coq_wild
   | Coq_prop
   | Coq_type
@@ -49,7 +53,7 @@ and coqs = coq list
 type coqtop =
   | Coqtop_def of typed_var * coq
   | Coqtop_param of typed_var
-  | Coqtop_instance of typed_var * bool
+  | Coqtop_instance of typed_var * coq option * bool
   | Coqtop_lemma of typed_var
   | Coqtop_proof of string
   | Coqtop_ind of coqind list
@@ -72,6 +76,8 @@ type coqtop =
   | Coqtop_module_type_include of var
   | Coqtop_end of var
   | Coqtop_custom of string
+  | Coqtop_section of var
+  | Coqtop_context of typed_vars
 
 and coqtops = coqtop list
 
@@ -211,7 +217,6 @@ let coq_app_var_wilds x n =
 
 let coq_app_var_at x args =
   if args = [] then Coq_var x else coq_apps (coq_var_at x) args
-
 (** Function [fun (x1:T1) .. (xn:Tn) => c] *)
 
 let coq_fun arg c =
@@ -219,6 +224,13 @@ let coq_fun arg c =
 
 let coq_funs args c =
   List.fold_right coq_fun args c
+
+(** Recursive function [fix f (x1:T1) .. (xn:Tn) : Tr => c]
+    represented as [Coq_fix f n Tr body] where [body] is the
+    representation of [fun (x1:T1) .. (xn:Tn) => c]. *)
+
+let coq_fixs f args crettype c =
+  Coq_fix (f, List.length args, crettype, coq_funs args c)
 
 (** Function [fun (x1:Type) .. (xn:Type) => c] *)
 
@@ -317,7 +329,7 @@ let coq_neg c =
   Coq_app (Coq_var "TLC.LibBool.neg", c)
 
 let coq_exist x c1 c2 =
-  coq_apps (Coq_var "Coq.Init.Logic.ex") [Coq_fun ((x, c1), c2)]
+  coq_apps (Coq_var "Coq.Init.Logic.ex") [coq_fun (x, c1) c2]
 
 (** Iterated logic combinators *)
 
@@ -360,6 +372,11 @@ let coqtop_noimplicit x =
 let coqtop_register db x v =
    Coqtop_register (db, x, v)
 
+let coqtops_section_context sname xs ts =
+    [ Coqtop_section sname;
+      Coqtop_context xs ]
+  @ ts
+  @ [ Coqtop_end sname ]
 
 (** Datatype for semantics terms *)
 
@@ -368,6 +385,8 @@ let pat_type = coq_cfml_var "Semantics.pat"
 let trm_type = coq_cfml_var "Semantics.trm"
 
 let val_type = coq_cfml_var "Semantics.val"
+
+let val_constr = coq_cfml_var "Semantics.val_constr"
 
 
 (*#########################################################################*)
@@ -396,3 +415,14 @@ let coq_tag (tag : string) ?args ?label (term : coq) =
 let coq_annot (term : coq) (term_type : coq)  =
    Coq_annot (term, term_type)
 
+
+(*#########################################################################*)
+(* ** Inversion functions *)
+
+let rec coq_apps_inv c =
+  (* LATER could reimplement using an accumulator *)
+  match c with
+  | Coq_app (c1,c2) ->
+      let c0, cs = coq_apps_inv c1 in
+      c0, (cs @ [c2])
+  | _ -> c, []

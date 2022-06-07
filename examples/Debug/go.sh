@@ -17,4 +17,7 @@ if [[ ${ARG} = "" ]]; then
 fi
 make -f Makefile.dev ${ARG}
 
+# only for generation:
+# ./go.sh Debug_ml.v
+
 #coqide Debug_ml.v Debug_proof.v

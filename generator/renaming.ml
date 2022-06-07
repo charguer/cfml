@@ -61,6 +61,12 @@ INTERPRETATION
   t'_              name for type t' (general rule for types)
   f''              name for field name f' (general rule for fields)
 
+  EncDef_t_         section name for encoder definitions
+  enc_impl_t_       name for an encoder definition
+  injective_enc_impl_t_   name for the injectivity lemma for the encoder
+  Enc_t_            name for an encoder instance
+
+
 *)
 
 
@@ -589,6 +595,20 @@ let record_focus_field_name name =
 let record_unfocus_field_name name =
   record_field_name name ^ "__unfocus"
 
+
+(* Naming for encoders *)
+
+let encoder_section name =
+  "EncDef_" ^ (type_constr_name name)
+
+let encoder_impl name =
+  "enc_impl_" ^ (type_constr_name name)
+
+let encoder_injective name =
+  "injective_enc_impl_" ^ (type_constr_name name)
+
+let encoder_instance name =
+  "Enc_" ^ (type_constr_name name)
 
 
 

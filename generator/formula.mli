@@ -103,11 +103,17 @@ val enc_type : coq -> coq
 
 val enc : coq
 
+val coq_injective : coq
+
+val enc_make : coq
+
 val enc_of : coq -> coq
 
 val enc_of_typed : coq -> coq -> coq
 
 val enc_arg : var -> var * coq
+
+val enc_args : vars -> (var * coq) list
 
 val coq_forall_enc_types : var list -> coq -> coq
 

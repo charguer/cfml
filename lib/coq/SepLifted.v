@@ -182,8 +182,15 @@ Definition enc_val_impl := (fun (x:val) => x).
 Lemma injective_enc_val_impl : injective enc_val_impl.
 Proof using. introv E. auto. Qed.
 
-Instance Enc_val : Enc val.
-Proof using. apply (make_Enc injective_enc_val_impl). Defined.
+Global Instance Enc_val : Enc val := make_Enc injective_enc_val_impl.
+
+Lemma enc_val : forall (v:val),
+  enc v = v.
+Proof using. auto. Qed.
+
+Lemma enc_func : forall (f:func),
+  enc f = f.
+Proof using. auto. Qed.
 
 
 Definition enc_loc_impl := val_loc.
@@ -191,8 +198,11 @@ Definition enc_loc_impl := val_loc.
 Lemma injective_enc_loc_impl : injective enc_loc_impl.
 Proof using. introv E. inverts* E. Qed.
 
-Instance Enc_loc : Enc loc.
-Proof using. apply (make_Enc injective_enc_loc_impl). Defined.
+Global Instance Enc_loc : Enc loc := make_Enc injective_enc_loc_impl.
+
+Lemma enc_loc : forall (l:loc),
+  enc l = val_loc l.
+Proof using. auto. Qed.
 
 
 Definition enc_unit_impl := fun (_:unit) => val_unit.
@@ -200,8 +210,11 @@ Definition enc_unit_impl := fun (_:unit) => val_unit.
 Lemma injective_enc_unit_impl : injective enc_unit_impl.
 Proof using. intros [] [] E. auto. Qed.
 
-Instance Enc_unit : Enc unit.
-Proof using. apply (make_Enc injective_enc_unit_impl). Defined.
+Global Instance Enc_unit : Enc unit := make_Enc injective_enc_unit_impl.
+
+Lemma enc_unit : forall (u:unit),
+  enc u = val_unit.
+Proof using. auto. Qed.
 
 
 Definition enc_bool_impl := val_bool.
@@ -209,8 +222,11 @@ Definition enc_bool_impl := val_bool.
 Lemma injective_enc_bool_impl : injective enc_bool_impl.
 Proof using. introv E. inverts* E. Qed.
 
-Instance Enc_bool : Enc bool.
-Proof using. apply (make_Enc injective_enc_bool_impl). Defined.
+Global Instance Enc_bool : Enc bool := make_Enc injective_enc_bool_impl.
+
+Lemma enc_bool : forall (b:bool),
+  enc b = val_bool b.
+Proof using. auto. Qed.
 
 
 Definition enc_int_impl := val_int.
@@ -218,9 +234,11 @@ Definition enc_int_impl := val_int.
 Lemma injective_enc_int_impl : injective enc_int_impl.
 Proof using. introv E. inverts* E. Qed.
 
-Instance Enc_int : Enc int.
-Proof using. apply (make_Enc injective_enc_int_impl). Defined.
+Global Instance Enc_int : Enc int := make_Enc injective_enc_int_impl.
 
+Lemma enc_int : forall (n:int),
+  enc n = val_int n.
+Proof using. auto. Qed.
 
 (* DEPRECATED
 
@@ -246,8 +264,11 @@ Definition enc_pair_impl := (fun p : A1*A2 =>
 Lemma injective_enc_pair_impl : injective enc_pair_impl.
 Proof using. intros [x1 x2] [y1 y2] E. inverts E. fequals; applys* Enc_eq_inv. Qed.
 
-Global Instance Enc_pair : Enc (prod A1 A2).
-Proof using EA1 EA2. apply (make_Enc injective_enc_pair_impl). Defined.
+Global Instance Enc_pair : Enc (prod A1 A2) := make_Enc injective_enc_pair_impl.
+
+Lemma enc_pair : forall (x1:A1) (x2:A2),
+  enc (x1,x2) = val_constr "tuple" (``x1 :: ``x2 :: nil).
+Proof using. auto. Qed.
 
 End EncPair.
 
@@ -268,14 +289,29 @@ Proof using.
   { auto. }
 Qed.
 
-Global Instance Enc_option : Enc (option A1).
-Proof using EA1. apply (make_Enc injective_enc_option_impl). Defined.
+Global Instance Enc_option : Enc (option A1) := make_Enc injective_enc_option_impl.
+
+Lemma enc_option_none : 
+  enc (@None A1) = val_constr "none" nil.
+Proof using. auto. Qed.
+
+Lemma enc_option_some : forall (x:A1),
+  enc (Some x) = val_constr "some" (``x :: nil).
+Proof using. auto. Qed.
 
 End EncOption.
 
 
 Section EncList.
 Context A1 `{EA1:Enc A1}.
+
+(* local name *)
+Definition enc_list_impl := fix f (l:list A1) : val :=
+  match l with
+  | nil => val_constr "nil" nil
+  | x::l' => val_constr "cons" ((``x)::(f l')::nil)
+  end.
+
 
 Fixpoint enc_list_impl (l:list A1) : val :=
   match l with
@@ -291,45 +327,57 @@ Proof using.
   { inverts E. fequals. { applys* Enc_eq_inv. } { applys* IHl1. } }
 Qed.
 
-Global Instance Enc_list : Enc (list A1).
-Proof using EA1. apply (make_Enc injective_enc_list_impl). Defined.
+Global Instance Enc_list : Enc (list A1) := make_Enc injective_enc_list_impl.
+
+Lemma enc_list_nil : 
+  enc (@nil A1) = val_constr "nil" nil.
+Proof using. auto. Qed.
+
+Lemma enc_list_cons : forall (x:A1) (l:list A1),
+  enc (x::l) = val_constr "cons" (``x :: ``l :: nil).
+Proof using. auto. Qed.
 
 End EncList.
 
+Locate injective.
 
 Global Opaque Enc_loc Enc_unit Enc_bool Enc_int Enc_val
               Enc_pair Enc_option Enc_list.
 
-              (*Enc_dyn Enc_func  Enc_prim Enc_tyconstr DEPRECATED *)
+
+(** [rew_enc] normalizes all encoders. *)
+
+Hint Rewrite enc_loc enc_unit enc_bool enc_int
+             enc_func enc_val (* enc_prim_eq enc_constr *)
+             @enc_pair @enc_option_none @enc_option_some @enc_list_nil @enc_list_cons : rew_enc.
+
+Tactic Notation "rew_enc" :=
+  autorewrite with rew_enc.
+Tactic Notation "rew_enc" "in" hyp(H) :=
+  autorewrite with rew_enc in H.
+Tactic Notation "rew_enc" "in" "*" :=
+  autorewrite with rew_enc in *.
+
+(* Demo: dealing with type aliases
+
+Definition t := list int.
+
+Global Instance Enc_t : Enc t.
+Proof using.
+ typeclasses eauto.
+Defined.
+
+Typeclasses Opaque t.
+
+Lemma enc_t : forall (x:t),
+  enc x = enc (x:list int).
+Proof using. auto. Qed.
+
+*)
 
 
 (* ---------------------------------------------------------------------- *)
-(* ** Specification of other encoders *)
-
-
-Lemma enc_loc : forall (l:loc),
-  enc l = val_loc l.
-Proof using. auto. Qed.
-
-Lemma enc_unit : forall (u:unit),
-  enc u = val_unit.
-Proof using. auto. Qed.
-
-Lemma enc_bool : forall (b:bool),
-  enc b = val_bool b.
-Proof using. auto. Qed.
-
-Lemma enc_int : forall (n:int),
-  enc n = val_int n.
-Proof using. auto. Qed.
-
-Lemma enc_func : forall (f:func),
-  enc f = f.
-Proof using. auto. Qed.
-
-Lemma enc_val : forall (v:val),
-  enc v = v.
-Proof using. auto. Qed.
+(* ** DEPRECATED *)
 
 (*
 Lemma enc_prim_eq : forall (p:prim),
@@ -342,27 +390,9 @@ Proof using. auto. Qed.
 
 *)
 
-Lemma enc_pair : forall A1 A2 (EA1:Enc A1) (EA2:Enc A2) (x1:A1) (x2:A2),
-  enc (x1,x2) = val_constr "tuple" (``x1 :: ``x2 :: nil).
-Proof using. auto. Qed.
+              (* Enc_dyn Enc_func  Enc_prim Enc_tyconstr DEPRECATED *)
 
-Lemma enc_option_none : forall A (EA:Enc A),
-  enc (@None A) = val_constr "none" nil.
-Proof using. auto. Qed.
-
-Lemma enc_option_some : forall A (EA:Enc A) (x:A),
-  enc (Some x) = val_constr "some" (``x :: nil).
-Proof using. auto. Qed.
-
-Lemma enc_list_nil : forall A (EA:Enc A),
-  enc (@nil A) = val_constr "nil" nil.
-Proof using. auto. Qed.
-
-Lemma enc_list_cons : forall A (EA:Enc A) x (l:list A),
-  enc (x::l) = val_constr "cons" (``x :: ``l :: nil).
-Proof using. auto. Qed.
-
-(*DEPRECATEE
+(*DEPRECATED
 (** Specification of encoders for values of type [dyn] *)
 
 Lemma enc_dyn_eq_dyn_to_val : forall (d:dyn),
@@ -390,24 +420,6 @@ Tactic Notation "rew_enc_dyn" "in" "*" :=
   autorewrite with rew_enc_dyn in *.
 
 *)
-
-(** [rew_enc] normalizes all encoders. *)
-
-Hint Rewrite enc_loc enc_unit enc_bool enc_int
-             enc_func enc_val (* enc_prim_eq enc_constr *)
-             @enc_pair @enc_option_none @enc_option_some @enc_list_nil @enc_list_cons : rew_enc.
-
-Tactic Notation "rew_enc" :=
-  autorewrite with rew_enc.
-Tactic Notation "rew_enc" "in" hyp(H) :=
-  autorewrite with rew_enc in H.
-Tactic Notation "rew_enc" "in" "*" :=
-  autorewrite with rew_enc in *.
-
-
-
-(* ---------------------------------------------------------------------- *)
-(* ** Encoder for list of values *)
 
 (* DEPRECATED
 (** Encoder for lists *)

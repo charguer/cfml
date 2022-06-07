@@ -62,6 +62,16 @@ let coq_dyn_of t v =
 let enc_type t =
   coq_app (coq_cfml_var "SepLifted.Enc") t
 
+(** Injectivity property *)
+
+let coq_injective =
+  coq_var "TLC.LibOperation.injective"
+
+(** Encoder constructor *)
+
+let enc_make =
+  coq_cfml_var "SepLifted.make_Enc"
+
 (** Encoder function *)
 
 let enc = coq_cfml_var "SepLifted.enc"
@@ -175,7 +185,7 @@ let qimpl q1 q2 =
 (** Specialized post-conditions [fun (_:unit) => H], i.e. [# H] *)
 
 let post_unit h =
-  Coq_fun (("_",coq_unit), h)
+  coq_fun ("_",coq_unit) h
 
 (** Separating conjunction [H1 * H2] *)
 
@@ -238,7 +248,7 @@ let hstars hs =
 (** Lifted existentials [\exists x, H] *)
 
 let hexists xname xtype h =
-   Coq_app (coq_cfml_var "SepBase.SepBasicSetup.SepSimplArgsCredits.hexists", Coq_fun ((xname, xtype), h))
+   Coq_app (coq_cfml_var "SepBase.SepBasicSetup.SepSimplArgsCredits.hexists", coq_fun (xname, xtype) h)
 
 (** Lifted existentials [\exists x, H], alternative *)
 
@@ -253,7 +263,7 @@ let hexistss x_names_types h =
 (** Lifted universal [\forall x, H] *)
 
 let hforall xname xtype h =
-   Coq_app (coq_cfml_var "SepBase.SepBasicSetup.SepSimplArgsCredits.hforall", Coq_fun ((xname, xtype), h))
+   Coq_app (coq_cfml_var "SepBase.SepBasicSetup.SepSimplArgsCredits.hforall", coq_fun (xname, xtype) h)
 
 (** Lifted universal [\forall x, H], alternative *)
 

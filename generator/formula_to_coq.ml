@@ -103,7 +103,7 @@ let rec coqtops_of_cf cf =
       let app_on_tvars f = coq_apps (Coq_par (coq_var_at f)) (List.flatten (List.map (fun v -> [coq_var v (*; coq_var (fst (enc_arg v))*)]) fvs_strict)) in
       let p1_on_arg = Coq_app (app_on_tvars "P1", Coq_var "_r") in
       let h1 = Coq_var "H1" in
-      let q1 = Coq_fun (("_r",typ), hstar (hpure p1_on_arg) h1) in
+      let q1 = coq_fun ("_r",typ) (hstar (hpure p1_on_arg) h1) in
       let c1 = coq_forall_types fvs_strict (coq_forall_enc_types fvs_other (himpl_formula_app h (aux cf1) q1)) in
       let hyp_on_x = coq_forall_types (*coq_forall_enc_types *) fvs_strict (coq_app (app_on_tvars "P1") (app_on_tvars x)) in
       let c2 = coq_foralls [(x,type_of_x)] (coq_impl (hyp_on_x) (himpl_formula_app h1 (aux cf2) q)) in
@@ -230,7 +230,7 @@ let coqtops_of_cftop coq_of_cf cft =
      [ Coqtop_param (x,t) ]
 
      (* TODO: later, when side effects are allowed, we need to check type is inhabited
-     [ Coqtop_instance ((x ^ "_type_inhab", Coq_app (Coq_var "Inhab", t)), true);
+     [ Coqtop_instance ((x ^ "_type_inhab", Coq_app (Coq_var "Inhab", t)), None, true);
        Coqtop_proof "inhab.";
        Coqtop_text ""; ] @
        *)

@@ -66,6 +66,11 @@ let list_nat n = (* for n >= 0 *)
     if i = 0 then [] else (i-1)::(aux (i-1)) in
   List.rev (aux n)
 
+let list_init n f = (* for n >= 0 *)
+  let rec aux i =
+    if i >= n then [] else (f i)::(aux (i+1)) in
+  aux 0
+
 let rec list_separ sep = function
   | [] -> []
   | a::[] -> a::[]
