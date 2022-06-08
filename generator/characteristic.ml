@@ -1468,91 +1468,60 @@ and cfg_algebraics decls =
           *)
       let polyeq_axioms = List.map build_polyeq_axioms branches in
       (* ------ encoders -------*)
-      (* Example: see SepLifted.v section EncList *)
+      let encoder_defs =
+          if not !Mytools.generate_encoders then [] else begin
 
-      let context_vars = Formula.enc_args params in
+          (* Example: see SepLifted.v section EncList *)
 
-      let impl_name = encoder_impl x in
-      let inj_name = encoder_injective x in
-      let inst_name = encoder_instance x in
-      let rec_name = "f__" in
-      let arg_name = "v__" in
-      let patvar_name i = "x" ^ (string_of_int i) ^ "__" in
+          let context_vars = Formula.enc_args params in
 
-      let impl_branch (c,ts) =
-         let n = List.length ts in
-         let enc_arg i t =
-            let arg = coq_var (patvar_name i) in
-            let is_recursive_call =
-              let c0, cs = coq_apps_inv t in
-              match c0 with
-              | Coq_var c2 -> (c = c2) (* LATER: check full paths *)
-              | _ -> failwith "unrecognized type for a constructor argument"
-              in
-            let encoder =
-              if is_recursive_call
-                then coq_var rec_name
-                else enc (* the typeclass encoder *)
-              in
-            coq_app encoder arg
-            in
-         let pat = coq_apps (coq_var c) (list_init n (fun i -> coq_var (patvar_name i))) in
-         let res = coq_apps val_constr [(coq_string_val c); (coq_list ~typ:val_type (List.mapi enc_arg ts))] in
-         (pat, res) in
+          let impl_name = encoder_impl x in
+          let inj_name = encoder_injective x in
+          let inst_name = encoder_instance x in
+          let rec_name = "f__" in
+          let arg_name = "v__" in
+          let patvar_name i = "x" ^ (string_of_int i) ^ "__" in
 
-      let impl_body = coq_match (coq_var arg_name) (List.map impl_branch branches) in
-      let impl_func = coq_fixs rec_name [(arg_name, ret_typ)] coq_val impl_body in
-      let encoder_def = Coqtop_def ((impl_name, Coq_wild), impl_func) in
+          let impl_branch (c,ts) =
+             let n = List.length ts in
+             let enc_arg i t =
+                let arg = coq_var (patvar_name i) in
+                (* TODO: polymorphic recursion! *)
+                let is_recursive_call =
+                   match btyp_of_typ_exp t with
+                   | Btyp_constr ((Path.Pident _) as p2, ts2) ->
+                      let x2 = lift_path_name p2 in
+                      x = x2
+                   | _ -> false
+                   in
+                let encoder =
+                  if is_recursive_call
+                    then coq_var rec_name
+                    else enc (* the typeclass encoder *)
+                  in
+                coq_app encoder arg
+                in
+             let pat = coq_apps (coq_var c) (list_init n (fun i -> coq_var (patvar_name i))) in
+             let res = coq_apps val_constr [(coq_string_val c); (coq_list ~typ:val_type (List.mapi enc_arg ts))] in
+             (pat, res) in
 
-      let injectivity_axiom = Coqtop_param (inj_name, coq_app coq_injective impl_name) in
+          let impl_body = coq_match (coq_var arg_name) (List.map impl_branch branches) in
+          let impl_func = coq_fixs rec_name [(arg_name, ret_typ)] val_type impl_body in
+          let encoder_def = Coqtop_def ((impl_name, Coq_wild), impl_func) in
 
-      let instance_impl = coq_app enc_make inj_name in
-      let encoder_instance = Coqtop_instance ((inst_name, enc_type ret_typ), instance_impl, true) in
+          let injectivity_lemma = Coqtop_lemma (inj_name, coq_app coq_injective (coq_var impl_name)) in
+          let injectivity_proof = Coqtop_proof "CFML.SepLifted.injective_enc_core tt." in
 
-      let section_items = [ encoder_def; injectivity_axiom; encoder_instance ] in
-      let encoders_defs = coqtops_section_context (encoder_section x) context_vars section_items in
+          let instance_impl = coq_app enc_make (coq_var inj_name) in
+          let encoder_instance = Coqtop_instance ((inst_name, enc_type ret_typ), Some instance_impl, true) in
 
-
-(*
-and encoder_algebraic d =
-  let tname = name_type d.atypalg_name in
-  let make_args x =
-    let tname_arg = name_type x in
-    [ (tname_arg, Cexp_var "Set");
-      (name_encoder tname_arg, Cexp_apply (Cexp_var name_code, [Cexp_var tname_arg])) ] in
-  let branch (c,ts) =
-     let nb = List.length ts in
-     let vars = name_arg_list nb in
-     let pat = Cpat_constr (c, List.map (fun xi -> Cpat_var xi) vars) in
-     let make_item x t =
-       Cexp_apply (encoder_type t, [Cexp_var x]) in
-     let con_args = Cexp_list (List.map2 make_item vars ts) in
-     let body = Cexp_apply (Cexp_var name_val_con,
-                            [ Cexp_var (name_constr c); con_args ] ) in
-     (pat, body) in
-  let last_arg_type = Cexp_apply (Cexp_var tname, List.map (fun x -> Cexp_var (name_type x)) d.atypalg_params) in
-  let last_arg = (name_encoded, last_arg_type) in
-  { cfixdef_name = name_encoder tname;
-    cfixdef_args = (List.concat (List.map make_args d.atypalg_params)) @ [ last_arg ];
-    cfixdef_ret = Cexp_var name_val; ----Cexp_apply (Cexp_var name_code, [Cexp_var tname]);
-    cfixdef_decr = name_encoded;
-    cfixdef_body = Cexp_match (Cexp_var name_encoded, List.map branch d.atypalg_cases);
-  }
-
-and encoder_type = function
-   | Atyp_var x -> Cexp_var (name_encoder x)
-   | Atyp_arrow (t1,t2) -> Cexp_var (name_encoder name_val)
-   | Atyp_tuple [] -> assert false
-   | Atyp_tuple ts -> Cexp_apply (Cexp_var (name_encoder (name_tuple (List.length ts))),
-                                  List.map encoder_type ts)
-   | Atyp_constr (id, ts) -> Cexp_apply (Cexp_var (name_encoder (lident_to_str id)),
-                                         List.map encoder_type ts)
-
-*)
-
+          let section_items = [ encoder_def; injectivity_lemma; injectivity_proof; encoder_instance ] in
+          let encoders_defs = coqtops_section_context (encoder_section x) context_vars section_items in
+          encoders_defs
+       end in
 
       (* ------ everything-------*)
-      (coqind_decl, (implicit_decl @ List.concat polyeq_axioms) @ encoders_defs)
+      (coqind_decl, (implicit_decl @ List.concat polyeq_axioms) @ encoder_defs)
       in
    let inds,tops = List.split (List.map trans_ind decls) in
      [ Coqtop_ind inds ]
@@ -1794,7 +1763,8 @@ let cfg_file no_mystd_include str =
       Coqtop_require_import [ "Coq.ZArith.BinIntDef"; "CFML.Semantics"; "CFML.WPHeader" ] ::
       (* TODO: check binintdef needed *)
       Coqtop_custom "Delimit Scope Z_scope with Z." ::
-      Coqtop_custom "Existing Instance WPHeader.Enc_any | 99." ::
+      (if !Mytools.generate_encoders then [] else
+         [Coqtop_custom "Existing Instance WPHeader.Enc_any | 99."]) @
       (* DEPRECATED Coqtop_custom "Local Open Scope cfheader_scope."; *)
       (*DEPRECATED Coqtop_custom "Open Scope list_scope.";*)
       (*DEPRECATED Coqtop_custom "Local Notation \"'int'\" := (Coq.ZArith.BinInt.Z).";*)

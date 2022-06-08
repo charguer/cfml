@@ -424,8 +424,7 @@ Proof using.
   cf_main.
   unfold Wpgen_match, Wpgen_negpat. (* optional *)
   applys Formula_formula_case.
-  { intros HN. intros. applys Enc_injective_inv_neq; [ skip (* Enc_injective*) | ].
-    rew_enc. applys HN. }
+  { intros HN. intros. applys Enc_neq_inv. applys HN. }
   { clears A. unfold Formula_formula. intros A EA Q.
     xsimpl. intros x y E.
     destruct x0__ as [X Y]. rew_enc in E. inverts E.
@@ -453,8 +452,7 @@ Proof using.
   cf_main.
   unfold Wpgen_match, Wpgen_negpat. (* optional *)
   applys Formula_formula_case.
-  { intros HN. intros. applys Enc_injective_inv_neq; [ skip (* Enc_injective*) | ].
-    rew_enc. applys HN. }
+  { intros HN. intros. applys Enc_neq_inv. applys HN. }
   { clears A. unfold Formula_formula. intros A EA Q.
     xsimpl. intros HN. destruct l. 2:{ rew_enc in HN. inverts HN. }
     applys himpl_hwand_hpure_l; [ reflexivity | ].
@@ -462,8 +460,7 @@ Proof using.
   { intros N1.
     clears A. unfold Formula_formula. intros A EA Q.
    applys Formula_formula_case.
-    { intros HN. intros. applys Enc_injective_inv_neq; [ skip (* Enc_injective*) | ].
-      rew_enc. applys HN. }
+    { intros HN. intros. applys Enc_neq_inv. applys HN. }
     { clears A. unfold Formula_formula. intros A EA Q.
       applys himpl_hforall_r; intros vx.
       applys himpl_hforall_r; intros vt.
@@ -498,9 +495,35 @@ let rec mymap f l =
 
 Lemma mymap_cf_def : mymap_cf_def__.
 Proof using.
-  unfold mymap_cf_def__.
-  hnf. Print mymap_cf_def__.
-
+  cf_main.
+  unfold Wpgen_match, Wpgen_negpat. (* optional *)
+  applys Formula_formula_case.
+  { intros HN. intros. applys Enc_neq_inv. applys HN. }
+  { clears A. unfold Formula_formula. intros A EA Q.
+    xsimpl. intros HN. destruct l. 2:{ rew_enc in HN. inverts HN. }
+    applys himpl_hwand_hpure_l; [ reflexivity | ].
+    applys Formula_formula_val; [ reflexivity ]. }
+  { intros N1.
+    clears A. unfold Formula_formula. intros A EA Q.
+   applys Formula_formula_case.
+    { intros HN. intros. applys Enc_neq_inv. applys HN. }
+    { clears A. unfold Formula_formula. intros A EA Q.
+      applys himpl_hforall_r; intros vx.
+      applys himpl_hforall_r; intros vt.
+      xsimpl. intros E. (*  applys himpl_hwand_r. :..*)
+      destruct l as [|x t]. 1:{ false. }
+      rew_enc in E. inverts E.
+      do 2 applys himpl_hforall_l.
+      applys himpl_hwand_hpure_l; [ reflexivity | ].
+      applys Formula_formula_let; [ | | applys structural_mkstruct ].
+      { applys Formula_formula_app; [ reflexivity ]. }
+      { intros t2.
+        applys Formula_formula_let; [ | | applys structural_mkstruct ].
+        { applys Formula_formula_app; [ reflexivity ]. }
+        { intros r. applys Formula_formula_val; [ reflexivity ]. } } }
+    { intros N2. applys Formula_formula_fail_false.
+      destruct l; try false*. } }
+Qed.
 
 
 (********************************************************************) 

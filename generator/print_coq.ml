@@ -192,6 +192,7 @@ let rec expr0 = function
   | Coq_forall _
   | Coq_fix _
   | Coq_fun _
+  | Coq_match _
     as e ->
       parens (expr e)
   | Coq_par e ->
@@ -259,6 +260,13 @@ and expr3 = function
         (break 1 ^^ colonequals)
       ^/^
       expr3 body
+  | Coq_match (carg, branches) ->
+      let mk_branch (c1,c2) =
+        group (string "|" ^^ space ^^ expr c1 ^^ space ^^ doublearrow ^^ space ^^ expr c2) ^^ hardline in
+      block
+        (string "match" ^^ space ^^ expr carg ^^ space ^^ string "with" ^^ hardline)
+        (concat_map mk_branch branches)
+        (string "end")
   | e ->
       expr2 e
 
@@ -442,7 +450,7 @@ let rec top_internal = function
       string ((if global then "Global " else "") ^ "Instance") ^^
       begin match e2o with
       | None -> parameter (string x) (expr e1)
-      | Some e2 -> definition (string x) e1 ^^ expr e2 ^^ dot
+      | Some e2 -> definition (string x) (expr e1) ^/^ expr e2 ^^ dot
       end
   | Coqtop_lemma (x, e1) ->
       string "Lemma" ^^
@@ -536,7 +544,7 @@ let rec top_internal = function
   | Coqtop_section x ->
       sprintf "Section %s." x
   | Coqtop_context xs ->
-      sprintf "Arguments" ^^ space ^^
+      sprintf "Context" ^^ space ^^
       pvars xs ^^ dot
 
 

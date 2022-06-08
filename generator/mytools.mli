@@ -8,6 +8,7 @@ val use_left_to_right_order : bool ref
 
 val generate_deep_embedding : bool ref
 
+val generate_encoders : bool ref
 
 
 (**************************************************************)

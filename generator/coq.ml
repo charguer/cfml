@@ -41,6 +41,7 @@ and coq =
   | Coq_tuple of coqs
   | Coq_record of (var * coq) list
   | Coq_proj of var * coq
+  | Coq_match of coq * (coq * coq) list
   | Coq_tag of string * coq list * string option * coq
   | Coq_annot of coq * coq
   | Coq_par of coq
@@ -231,6 +232,11 @@ let coq_funs args c =
 
 let coq_fixs f args crettype c =
   Coq_fix (f, List.length args, crettype, coq_funs args c)
+
+(* Matching [match v with p1 => c1 | .. | pn => cn *)
+
+let coq_match carg branches =
+  Coq_match (carg, branches)
 
 (** Function [fun (x1:Type) .. (xn:Type) => c] *)
 

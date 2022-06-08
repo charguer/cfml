@@ -104,6 +104,20 @@ Qed.
 
 
 (* ---------------------------------------------------------------------- *)
+(* ** Tactic to prove injectivity *)
+
+Ltac injective_enc_core tt :=
+  let x := fresh "x" in
+  let y := fresh "y" in
+  let E := fresh "E" in
+  intros; intros x y E; gen y; induction x; intros; destruct y; simpls; tryfalse;
+   try solve [ inverts E; fequals; eauto using Enc_eq_inv ].
+
+Tactic Notation "injective_enc_prove" :=
+  injective_enc_core tt.
+
+
+(* ---------------------------------------------------------------------- *)
 (* ** Representation of values packed with their type and encoder *)
 
 (** Representation of dependent pairs *)
@@ -196,7 +210,7 @@ Proof using. auto. Qed.
 Definition enc_loc_impl := val_loc.
 
 Lemma injective_enc_loc_impl : injective enc_loc_impl.
-Proof using. introv E. inverts* E. Qed.
+Proof using. injective_enc_prove. Qed.
 
 Global Instance Enc_loc : Enc loc := make_Enc injective_enc_loc_impl.
 
@@ -208,7 +222,7 @@ Proof using. auto. Qed.
 Definition enc_unit_impl := fun (_:unit) => val_unit.
 
 Lemma injective_enc_unit_impl : injective enc_unit_impl.
-Proof using. intros [] [] E. auto. Qed.
+Proof using. injective_enc_prove. Qed.
 
 Global Instance Enc_unit : Enc unit := make_Enc injective_enc_unit_impl.
 
@@ -220,7 +234,7 @@ Proof using. auto. Qed.
 Definition enc_bool_impl := val_bool.
 
 Lemma injective_enc_bool_impl : injective enc_bool_impl.
-Proof using. introv E. inverts* E. Qed.
+Proof using. injective_enc_prove. Qed.
 
 Global Instance Enc_bool : Enc bool := make_Enc injective_enc_bool_impl.
 
@@ -283,11 +297,7 @@ Definition enc_option_impl :=
   end.
 
 Lemma injective_enc_option_impl : injective enc_option_impl.
-Proof using.
-  intros [x1|] [y1|] E; inverts E.
-  { fequals; applys* Enc_eq_inv. }
-  { auto. }
-Qed.
+Proof using. injective_enc_prove. Qed.
 
 Global Instance Enc_option : Enc (option A1) := make_Enc injective_enc_option_impl.
 
@@ -312,14 +322,16 @@ Definition enc_list_impl := fix f (l:list A1) : val :=
   | x::l' => val_constr "cons" ((``x)::(f l')::nil)
   end.
 
-
-Fixpoint enc_list_impl (l:list A1) : val :=
+Fixpoint enc_list_impl' (l:list A1) : val := (* details *)
   match l with
   | nil => val_constr "nil" nil
-  | x::l' => val_constr "cons" ((``x)::(enc_list_impl l')::nil)
+  | x::l' => val_constr "cons" ((``x)::(enc_list_impl' l')::nil)
   end.
 
 Lemma injective_enc_list_impl : injective enc_list_impl.
+Proof using. injective_enc_prove. Qed.
+
+Lemma injective_enc_list_impl' : injective enc_list_impl. (* details *)
 Proof using.
   intros l1 l2 E. gen l2.
   induction l1; intros; destruct l2; simpls; tryfalse.
@@ -339,7 +351,6 @@ Proof using. auto. Qed.
 
 End EncList.
 
-Locate injective.
 
 Global Opaque Enc_loc Enc_unit Enc_bool Enc_int Enc_val
               Enc_pair Enc_option Enc_list.

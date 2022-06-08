@@ -9,6 +9,7 @@ let use_left_to_right_order = ref false
 
 let generate_deep_embedding = ref false
 
+let generate_encoders = ref false
 
 
 
