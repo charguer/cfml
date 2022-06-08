@@ -1,4 +1,12 @@
 
+type 'a poly =
+  | Empty of 'a
+  | Pair of ('a * 'a) poly
+
+let rec polydepth : 'a. 'a poly -> int = fun s ->
+  match s with
+  | Empty _ -> 0
+  | Pair s2 -> 1 + polydepth s2
 
 type 'a mylist = Nil | Cons of 'a * 'a mylist
 

@@ -214,10 +214,11 @@ let coq_app_wilds c n =
 let coq_app_var_wilds x n =
    if n = 0 then Coq_var x else coq_app_wilds (coq_var_at x) n
 
-(** Applications of an at-identifier to arguments *)
+(** Applications of an at-identifier to arguments [@x c1 .. cn] *)
 
 let coq_app_var_at x args =
   if args = [] then Coq_var x else coq_apps (coq_var_at x) args
+
 (** Function [fun (x1:T1) .. (xn:Tn) => c] *)
 
 let coq_fun arg c =

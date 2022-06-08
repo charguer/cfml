@@ -1473,7 +1473,8 @@ and cfg_algebraics decls =
 
           (* Example: see SepLifted.v section EncList *)
 
-          let context_vars = Formula.enc_args params in
+          let tvars = Formula.enc_args params in (*  [(A1:Type) (EA1:Enc A1) ..] *)
+          let targs = List.map (fun (x,tx) -> coq_var x) tvars in
 
           let impl_name = encoder_impl x in
           let inj_name = encoder_injective x in
@@ -1496,7 +1497,9 @@ and cfg_algebraics decls =
                    in
                 let encoder =
                   if is_recursive_call
-                    then coq_var rec_name
+                    then coq_app_var_at rec_name (List.map (fun _ -> Coq_wild) targs)
+                        (* relying on Coq type inference for encoders of recursive calls,
+                           to support the case of polymorphic recursion *)
                     else enc (* the typeclass encoder *)
                   in
                 coq_app encoder arg
@@ -1506,17 +1509,19 @@ and cfg_algebraics decls =
              (pat, res) in
 
           let impl_body = coq_match (coq_var arg_name) (List.map impl_branch branches) in
-          let impl_func = coq_fixs rec_name [(arg_name, ret_typ)] val_type impl_body in
+          let impl_func = coq_fixs rec_name (tvars @ [(arg_name, ret_typ)]) val_type impl_body in
           let encoder_def = Coqtop_def ((impl_name, Coq_wild), impl_func) in
 
-          let injectivity_lemma = Coqtop_lemma (inj_name, coq_app coq_injective (coq_var impl_name)) in
-          let injectivity_proof = Coqtop_proof "CFML.SepLifted.injective_enc_core tt." in
+          let inj_statement = coq_foralls tvars (coq_app coq_injective (coq_app_var_at impl_name targs)) in
+          let inj_lemma = Coqtop_lemma (inj_name, inj_statement) in
+          let inj_proof = Coqtop_proof "CFML.SepLifted.injective_enc_core tt." in
 
-          let instance_impl = coq_app enc_make (coq_var inj_name) in
-          let encoder_instance = Coqtop_instance ((inst_name, enc_type ret_typ), Some instance_impl, true) in
+          let instance_impl = coq_funs tvars (coq_app enc_make (coq_app_var_at inj_name targs)) in
+          let instance_statement = coq_foralls tvars (enc_type ret_typ) in
+          let encoder_instance = Coqtop_instance ((inst_name, instance_statement), Some instance_impl, true) in
 
-          let section_items = [ encoder_def; injectivity_lemma; injectivity_proof; encoder_instance ] in
-          let encoders_defs = coqtops_section_context (encoder_section x) context_vars section_items in
+          let encoders_defs = [ encoder_def; inj_lemma; inj_proof; encoder_instance ] in
+          (*coqtops_section_context (encoder_section x) tvars section_items in *)
           encoders_defs
        end in
 

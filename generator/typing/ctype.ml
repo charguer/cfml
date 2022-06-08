@@ -808,7 +808,7 @@ let close_hook ?(showtyp=(fun t -> ())) ~gen_nonexpansive () =
             showtyp t;
          end;
          match t.desc with
-         | Tvar ->
+         | Tvar | Tunivar ->
             if debug_generic then begin
                Format.fprintf Format.err_formatter "-->was at level %d\n" t.level;
             end;
@@ -829,7 +829,7 @@ let close_hook ?(showtyp=(fun t -> ())) ~gen_nonexpansive () =
                push_into_outer_hook t
             end
 
-         | Tunivar -> failwith "unsupported Tunivar type"
+         (* | Tunivar -> failwith "unsupported Tunivar type" *)
          | _ -> ()
          in
       List.iter select_generic !h;

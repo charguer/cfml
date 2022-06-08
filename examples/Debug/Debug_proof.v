@@ -382,6 +382,45 @@ Ltac cf_letinlined :=
 Ltac cf_if :=
   eapply Formula_formula_if; [ reflexivity | | ].
 
+(********************************************************************)
+(** ** CF proof for polydepth *)
+
+(*
+let rec polydepth : 'a. 'a poly -> int = fun s ->
+  match s with
+  | Empty _ -> 0
+  | Pair s2 -> 1 + polydepth s2
+*)
+
+Lemma polydepth_cf_def : polydepth_cf_def__.
+Proof using.
+  cf_main.
+  applys Formula_formula_case.
+  { intros HN. hnf. intros. applys Enc_neq_inv. applys HN. }
+  { clears A. unfold Formula_formula. intros A EA Q.
+    xsimpl. introv E. destruct s; tryfalse.
+    applys himpl_hforall_l.
+    applys himpl_hwand_hpure_l; [ reflexivity | ]. simpls. inverts E.
+    applys Formula_formula_val; [ reflexivity ]. }
+  { intros N1.
+    clears A. unfold Formula_formula. intros A EA Q.
+    applys Formula_formula_case.
+    { intros HN. hnf. intros. applys Enc_neq_inv. applys HN. }
+    { clears A. unfold Formula_formula. intros A EA Q.
+      applys himpl_hforall_r; intros vx.
+      xsimpl. intros E. (*  applys himpl_hwand_r. :..*)
+      destruct s as [|s2]. 1:{ false. }
+      rew_enc in E. inverts E.
+      applys himpl_hforall_l.
+      applys himpl_hwand_hpure_l; [ reflexivity | ].
+      applys Formula_formula_let; [ | | applys structural_mkstruct ].
+      { applys Formula_formula_app; [ reflexivity ]. }
+      { intros n. applys Formula_formula_inlined_fun; [ applys triple_infix_plus__ |  ].
+        applys Formula_formula_val; [ reflexivity ]. } }
+    { intros N2. applys Formula_formula_fail_false.
+      destruct s; try false*. } }
+Qed.
+
 
 (********************************************************************)
 (** ** CF proof for bools *)

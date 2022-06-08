@@ -25,6 +25,9 @@ let coq_trms (ts : coq list) : coq =
 let coq_pats (ts : coq list) : coq =
   coq_list ~typ:pat_type ts
 
+let trm_val arg =
+  coq_sem "trm_val" [arg]
+
 
 (*#########################################################################*)
 (* ** Environments to keep track of local variables *)
@@ -150,7 +153,7 @@ let rec tr_exp env e =
         else coq_var x
 
    | Texp_constant (Const_int n) ->
-       coq_sem "val_int" [Coq_int n]
+       trm_val (coq_sem "val_int" [Coq_int n])
 
    | Texp_constant _ ->
        unsupported loc "only integer constant are supported"
@@ -218,7 +221,7 @@ let rec tr_exp env e =
         let env' = env_extend env (pattern_idents pat) in
         Coq_tuple [tr_pat pat; tr_exp env' body]
         in
-        coq_sem "trm_match" [ tested; coq_list (List.map build_branch pat_expr_list) ]
+        coq_sem "trm_match" [ tested; coq_list ~typ:(coq_prod [pat_type; trm_type]) (List.map build_branch pat_expr_list) ]
               (* FUTURE USE:
               let w =
                  try lift_val env econd

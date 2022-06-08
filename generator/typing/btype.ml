@@ -223,7 +223,6 @@ let add_generic t =
            | Tfield _ -> failwith "unsupported Tfield type"
            | Tnil -> failwith "unsupported Tnil type"
            | Tvariant _ -> failwith "unsupported Tvariant type"
-           | Tunivar -> failwith "unsupported Tunivar type"
            | Tpoly _ -> failwith "unsupported Tpoly type"
            | Tpackage _ -> failwith "unsupported Tpackage type"
            | Tlink _ -> failwith "unsupported Tlink type"

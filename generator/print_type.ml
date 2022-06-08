@@ -109,7 +109,7 @@ let rec btree_of_typexp ty =
       else Btyp_var (name_of_type_var px, ty) else
   let pr_typ () =
     match ty.desc with
-    | Tvar ->
+    | Tvar | Tunivar ->
         Btyp_var (name_of_type_var ty, ty)
         (* add_occured (Occ_gen ty); *)
         (* is_non_gen ty,  *)
@@ -147,21 +147,8 @@ let rec btree_of_typexp ty =
     | Tpoly (ty, []) ->
         btree_of_typexp ty
     | Tpoly (ty, tyl) ->
-         fatal_error "Printtyp.btree_of_typexp poly unsupported"
-          (*
-        let tyl = List.map repr tyl in
-        (* let tyl = List.filter is_aliased tyl in *)
-        if tyl = [] then btree_of_typexp ty else begin
-          let old_delayed = !delayed in
-          List.iter add_delayed tyl;
-          let tl = List.map name_of_type_var tyl in
-          let tr = Btyp_poly (tl, btree_of_typexp ty) in
-          delayed := old_delayed; tr
-        end
-        *)
-    | Tunivar ->
-        fatal_error "Printtyp.btree_of_typexp univar unsupported"
-        (* Btyp_var (false, name_of_type_var ty, ty) *)
+        (* TODO: use tyl? *)
+        btree_of_typexp ty
     | Tpackage _ ->
         fatal_error "Printtyp.btree_of_typexp Tpackage unsupported"
   in

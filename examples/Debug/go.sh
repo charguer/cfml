@@ -26,10 +26,14 @@ else
   make -C ../../lib/coq -f Makefile.dev depend
   make -j4 -C ../../lib/coq -f Makefile.dev
   make -C ../../lib/stdlib -f Makefile.dev depend
+if [[ ${ARG} = "Debug_ml.vo" ]]; then
+  make -j4 -C ../../lib/stdlib -f Makefile.dev Pervasives_proof.vo
+else
   make -j4 -C ../../lib/stdlib -f Makefile.dev
+fi
   make -f Makefile.dev depend
-
   make -f Makefile.dev ${ARG}
+  make -j4 -C ../../lib/stdlib -f Makefile.dev
 
 fi
 

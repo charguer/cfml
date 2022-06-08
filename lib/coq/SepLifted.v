@@ -313,31 +313,44 @@ End EncOption.
 
 
 Section EncList.
+
+Definition enc_list_impl := fix f A1 (EA1:Enc A1) (l:list A1) : val :=
+  match l with
+  | nil => val_constr "nil" nil
+  | x::l' => val_constr "cons" ((``x)::(f A1 EA1 l')::nil)
+  end.
+
+Lemma injective_enc_list_impl : forall A1 (EA1:Enc A1),
+  injective (@enc_list_impl A1 EA1).
+Proof using. injective_enc_prove. Qed.
+
+Global Instance Enc_list : forall A1 (EA1:Enc A1), Enc (list A1) :=
+  fun A1 (EA1:Enc A1) =>
+  make_Enc (@injective_enc_list_impl A1 EA1).
+
+Lemma enc_list_nil : forall A1 (EA1:Enc A1),
+  enc (@nil A1) = val_constr "nil" nil.
+Proof using. auto. Qed.
+
+Lemma enc_list_cons : forall A1 (EA1:Enc A1) (x:A1) (l:list A1),
+  enc (x::l) = val_constr "cons" (``x :: ``l :: nil).
+Proof using. auto. Qed.
+
+End EncList.
+
+(* ALTERNATIVE
+
+Section EncList.
 Context A1 `{EA1:Enc A1}.
 
-(* local name *)
 Definition enc_list_impl := fix f (l:list A1) : val :=
   match l with
   | nil => val_constr "nil" nil
   | x::l' => val_constr "cons" ((``x)::(f l')::nil)
   end.
 
-Fixpoint enc_list_impl' (l:list A1) : val := (* details *)
-  match l with
-  | nil => val_constr "nil" nil
-  | x::l' => val_constr "cons" ((``x)::(enc_list_impl' l')::nil)
-  end.
-
 Lemma injective_enc_list_impl : injective enc_list_impl.
 Proof using. injective_enc_prove. Qed.
-
-Lemma injective_enc_list_impl' : injective enc_list_impl. (* details *)
-Proof using.
-  intros l1 l2 E. gen l2.
-  induction l1; intros; destruct l2; simpls; tryfalse.
-  { auto. }
-  { inverts E. fequals. { applys* Enc_eq_inv. } { applys* IHl1. } }
-Qed.
 
 Global Instance Enc_list : Enc (list A1) := make_Enc injective_enc_list_impl.
 
@@ -350,6 +363,25 @@ Lemma enc_list_cons : forall (x:A1) (l:list A1),
 Proof using. auto. Qed.
 
 End EncList.
+*)
+
+(* ALTERNATIVE
+
+Fixpoint enc_list_impl' (l:list A1) : val := (* details *)
+  match l with
+  | nil => val_constr "nil" nil
+  | x::l' => val_constr "cons" ((``x)::(enc_list_impl' l')::nil)
+  end.
+
+Lemma injective_enc_list_impl' : injective enc_list_impl. (* details *)
+Proof using.
+  intros l1 l2 E. gen l2.
+  induction l1; intros; destruct l2; simpls; tryfalse.
+  { auto. }
+  { inverts E. fequals. { applys* Enc_eq_inv. } { applys* IHl1. } }
+Qed.
+
+*)
 
 
 Global Opaque Enc_loc Enc_unit Enc_bool Enc_int Enc_val
