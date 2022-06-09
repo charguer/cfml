@@ -316,6 +316,17 @@ Lemma Formula_formula_fail_false : forall F,
 Proof using. intros. false. Qed.
 
 
+Definition CF_matcharg A {EA:Enc A} (V:A) : Prop :=
+  True.
+
+
+Lemma Formula_formula_match : forall A {EA:Enc A} (V:A) F1 f1 F2 f2 (P1 P2:Prop),
+  (CF_matcharg V -> Formula_formula (Wpgen_case F1 P1 F2) (wpgen_case_val f1 P2 f2)) ->
+  Formula_formula (Wpgen_match V (Wpgen_case F1 P1 F2)) (wpgen_case_val f1 P2 f2).
+Proof using. introv M. applys M. hnfs*. Qed.
+
+
+
 (********************************************************************)
 
 Ltac xwpgen_simpl :=
@@ -364,6 +375,9 @@ Ltac cf_triple_builtin :=
 
 
 
+
+
+
 Ltac cf_app :=
   eapply Formula_formula_app; [ reflexivity ].
 
@@ -382,8 +396,115 @@ Ltac cf_letinlined :=
 Ltac cf_if :=
   eapply Formula_formula_if; [ reflexivity | | ].
 
+Ltac cf_case :=
+  let H := fresh "__MatchHyp" in
+  eapply Formula_formula_case; 
+  [ intros H; try solve [ hnf; intros; intros ->; eapply H; reflexivity ]
+  | 
+  | intros H ].
+
+Ltac cf_fail :=
+  eapply Formula_formula_fail_false.
+
+Ltac cf_match :=
+  let H := fresh "__MatchArg" in
+  eapply Formula_formula_match; intros H.
+
+Ltac cf_match_fail :=
+  cf_fail;
+  match goal with H: CF_matcharg ?V |- _ =>
+    destruct V; tryfalse; eauto end.
+
+
+
+(********************************************************************)
+(** ** Interactive debugging of missing hyps *)
+
+
+
+Definition CF_hyps (Ps:list Prop) := 
+  LibList.fold_right Logic.and True Ps.
+
+Lemma cf_begin_lemma : forall (P:Prop) (Ps:list Prop),
+  (CF_hyps Ps -> P) ->
+  CF_hyps Ps ->
+  P.
+Proof using. intros. unfold CF_hyps. auto. Qed.
+
+Ltac cf_begin :=
+  eapply cf_begin_lemma.
+
+Lemma cf_end_lemma :
+  CF_hyps nil.
+Proof using. hnf. rew_listx. auto. Qed.
+
+Ltac cf_debug := 
+  unfold CF_hyps; rew_listx; splits; try solve [eapply cf_end_lemma].
+
+Ltac cf_end name :=
+  first
+  [ eapply cf_end_lemma (* when all cf_tactics succeeded *)
+  | idtac "Error: incomplete proof for" name; 
+    idtac "Replace cf_end with cf_debug to see the goals"; 
+    cf_debug; skip ].
+
+Lemma cf_error_lemma : forall (Ps:list Prop) (P:Prop),
+  CF_hyps Ps ->
+  (CF_hyps Ps -> P) ->
+  P.
+Proof using. auto. Qed.
+
+Ltac cf_error_extend P R2 Ps :=
+  match Ps with
+  | ?Pi :: ?Ps' => 
+      let Ps'2 := cf_error_extend P Ps' in
+      constr:(Pi::Ps'2)
+  | _ => constr:(P::R2)
+  end.
+
+Ltac cf_error :=
+  match goal with H: CF_hyps ?Ps |- ?P =>
+    let R2 := fresh in 
+    evar (R2 : list Prop);
+    let Ps2 := cf_error_extend P R2 Ps in
+    eapply (@cf_error_lemma Ps2 P H);
+    subst R2 ; unfold CF_hyps; rew_listx; solve [ intuition ]
+  end.
+
+Ltac cf_step cont :=
+  first [ cont tt
+        | cf_error ].
+
+(* DEMO
+
+Lemma cf_error_demo : True /\ False /\ True.
+  cf_begin; [ intros CCFHyps | ]. 
+  { splits.
+    { cf_step ltac:(fun tt => split). }
+    { cf_step ltac:(fun tt => split). (* cf_error. *) }
+    { cf_step ltac:(fun tt => split). } }
+  { (* cf_end "foo". *)
+    cf_debug. skip. }
+Qed.
+
+Lemma cf_error_demo' : True /\ False /\ True.
+  cf_begin;
+  [ intros CCFHyps;
+    splits;
+    [ cf_step ltac:(fun tt => split) 
+    | cf_step ltac:(fun tt => split) (* cf_error. *) 
+    | cf_step ltac:(fun tt => split) ]
+  | cf_end "foo" (* cf_debug *) ].
+Qed.
+
+*)
+
+
+
 (********************************************************************)
 (** ** CF proof for polydepth *)
+
+
 
 (*
 let rec polydepth : 'a. 'a poly -> int = fun s ->
@@ -393,6 +514,33 @@ let rec polydepth : 'a. 'a poly -> int = fun s ->
 *)
 
 Lemma polydepth_cf_def : polydepth_cf_def__.
+Proof using.
+  cf_main.
+  cf_match.
+  cf_case.
+  { clears A. unfold Formula_formula. intros A EA Q.
+    xsimpl. introv E. destruct s; tryfalse.
+    applys himpl_hforall_l.
+    applys himpl_hwand_hpure_l; [ reflexivity | ]. simpls. inverts E.
+    cf_val. }
+  { clears A. (* unfold Formula_formula. intros A EA Q. *)
+     cf_case.
+    { unfold Formula_formula. intros A EA Q.
+      applys himpl_hforall_r; intros vx.
+      xsimpl. intros E. (*  applys himpl_hwand_r. :..*)
+      destruct s as [|s2]. 1:{ false. }
+      rew_enc in E. inverts E.
+      applys himpl_hforall_l.
+      applys himpl_hwand_hpure_l; [ reflexivity | ].
+
+      cf_let.
+      { cf_app. }
+      { intros n. cf_inlined. cf_val. } }
+    { cf_match_fail. } }
+Qed.
+
+
+Lemma polydepth_cf_def' : polydepth_cf_def__.
 Proof using.
   cf_main.
   applys Formula_formula_case.
@@ -666,12 +814,6 @@ let rec g x =
 let v = 2
 
 *)
-
-
-
-
-
-
 
 
 

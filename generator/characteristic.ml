@@ -850,7 +850,7 @@ let rec cfg_exp env e =
          Cf_case (tested, pattern_variables pat, lift_pat pat, whenopt, pattern_aliases pat, cfbody, acc) in
       let label = get_next_local_label() in
       add_used_label label;
-      Cf_match (label, List.length pat_expr_list, List.fold_right cfg_case pat_expr_list conclu)
+      Cf_match (label, tested, List.length pat_expr_list, List.fold_right cfg_case pat_expr_list conclu)
 
    | Texp_assert e ->
       Cf_assert (aux e)

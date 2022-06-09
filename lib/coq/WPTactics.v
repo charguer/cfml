@@ -2694,15 +2694,15 @@ Tactic Notation "xcase" constr(Options) :=
 
 (* [xmatch] implementation *)
 
-Lemma xmatch_lemma : forall A `{EA:Enc A} H (F:Formula) (Q:A->hprop),
+Lemma xmatch_lemma : forall A1 (EA1:Enc A1) (V:A1) A (EA:Enc A) H (F:Formula) (Q:A->hprop),
   H ==> ^F Q ->
-  H ==> ^(Wptag (Wpgen_match F)) Q.
+  H ==> ^(Wptag (Wpgen_match V F)) Q.
 Proof using. auto. Qed.
 
 Ltac xmatch_pre tt :=
   xif_xmatch_pre tt;
   match xgoal_code_without_wptag tt with
-  | (Wpgen_match _) => idtac
+  | (Wpgen_match _ _) => idtac
   end.
 
 (* [xmatch_cases] processes a cascade of cases *)
@@ -2939,7 +2939,7 @@ Ltac xstep_once stopat :=
     | (Wpgen_alias _) => xalias
     | (Wpgen_done) => xdone
     | (Wpgen_case _ _ _) => xcase
-    | (Wpgen_match _) => xmatch
+    | (Wpgen_match _ _) => xmatch
     | (Wpgen_assert _) => xassert
     | (Wpgen_pay _) => xpay
     | ?F => check_is_Wpgen_record_alloc F; xapp

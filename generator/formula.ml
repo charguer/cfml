@@ -24,7 +24,7 @@ type cf =
   | Cf_if of coq * cf * cf
   | Cf_case of coq * typed_vars * coq * coq option *
       (typed_var * coq) list * cf * cf
-  | Cf_match of var * int * cf
+  | Cf_match of var * coq * int * cf
   | Cf_seq of cf * cf
   | Cf_for of for_loop_dir * var * coq * coq * cf
   | Cf_while of cf * cf

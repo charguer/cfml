@@ -44,8 +44,8 @@ type cf =
     (* If v Then Q1 else Q2 *)
   | Cf_case of coq * typed_vars * coq * coq option * (typed_var*coq) list * cf * cf
     (* Case v [xi] p [When c] Then (Alias yk = vk in Q1) else Q2 *)
-  | Cf_match of var * int * cf
-    (* Match ?lab n Q *)
+  | Cf_match of var * coq * int * cf
+    (* Match lab v n Q    where n is the number of branches *)
   | Cf_seq of cf * cf
     (* Q1 ;; Q2 *)
   | Cf_for of for_loop_dir * var * coq * coq * cf

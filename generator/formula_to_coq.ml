@@ -186,8 +186,8 @@ let rec coqtops_of_cf cf =
           where trueb are implicit by coercions *)
       *)
 
-  | Cf_match (label, n, cf1) ->
-      wpgen_app "WPLifted.Wpgen_match" [aux cf1]
+  | Cf_match (label, arg, n, cf1) ->
+      wpgen_app "WPLifted.Wpgen_match" [arg; aux cf1]
 
   | Cf_seq (cf1,cf2) ->
       (* Wpgen_seq F1 F2 *)

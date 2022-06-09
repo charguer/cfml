@@ -278,7 +278,7 @@ Definition Wpgen_body (P:Prop) : Prop :=
 Definition Wpgen_alias (F:Formula) : Formula :=
   F.
 
-Definition Wpgen_match (F:Formula) : Formula :=
+Definition Wpgen_match (A:Type) `{EA:Enc A} (V:A) (F:Formula) : Formula :=
   F.
 
 Definition Wpgen_case (F1:Formula) (P:Prop) (F2:Formula) : Formula :=
@@ -1026,11 +1026,12 @@ Notation "'Done'" :=
  ((*Wptag*) (Wpgen_done))
  (in custom wp at level 69) : wp_scope.
 
-Notation "'Match' F1" :=
+Notation "'Match' V F1" :=
  ((*Wptag*) (Wpgen_match F1))
  (in custom wp at level 69,
+  V custom wp at level 0,
   F1 custom wp at level 69,
-  format "'[v' 'Match' '/' '['   F1 ']' ']' " ) : wp_scope.
+  format "'[v' 'Match'  V  '/' '['   F1 ']' ']' " ) : wp_scope.
 
 Notation "'Assert' F" :=
  ((*Wptag*) (Wpgen_assert F))
@@ -1153,12 +1154,13 @@ Notation "'Done'" :=
  (in custom wp at level 69,
   only printing) : wp_scope.
 
-Notation "'Match' F1" :=
- (Wptag (Wpgen_match F1))
+Notation "'Match' V F1" :=
+ (Wptag (Wpgen_match V F1))
  (in custom wp at level 69,
   only printing,
+  V custom wp at level 0,
   F1 custom wp at level 69,
-  format "'[v' 'Match' '/' '['   F1 ']' ']' " ) : wp_scope.
+  format "'[v' 'Match'  V  '/' '['   F1 ']' ']' " ) : wp_scope.
 
 Notation "'Assert' F" :=
  (Wptag (Wpgen_assert F))
