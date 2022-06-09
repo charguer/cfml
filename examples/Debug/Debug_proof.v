@@ -18,9 +18,9 @@ Notation "'LetX' x ':=' F1 'in' F2" :=
 
 Notation "'int'" := (Z%type).
 
-Lemma mkstruct_erase_trans : forall A1 (Q1:A1->hprop) A2 (Q2:A2->hprop) f1 f2,
-  f1 Q1 ==> f2 Q2 ->
-  f1 Q1 ==> mkstruct f2 Q2.
+Lemma mkstruct_erase_trans : forall A (Q:A->hprop) H f,
+  H ==> f Q ->
+  H ==> mkstruct f Q.
 Proof using. introv M. unfold mkstruct. xchanges M. Qed.
 
 
@@ -208,18 +208,44 @@ Proof using.
   applys Formula_formula_wp.
 Qed.
 
-Lemma Formula_formula_let_inlined_fun : forall F1 f1of (f:val) (vs:vals) (r:val),
-  (triple (trm_apps f vs) \[] (fun x => \[x = r])) ->
-  Formula_formula F1 (f1of r) ->
-  Formula_formula F1 (wpgen_let (wpgen_app f vs) f1of).
+
+Lemma Formula_formula_inlined : forall f1 F2 f2of (r:val),
+  structural f1 ->
+  \[] ==> f1 (fun x => \[x = r]) ->
+  Formula_formula F2 (f2of r) ->
+  Formula_formula F2 (wpgen_let f1 f2of).
 Proof using.
-  introv Hf M1. hnf. intros.
-  unfold wpgen_let. applys mkstruct_erase_trans.
-  unfold wpgen_app. applys mkstruct_erase_trans.
-  rewrite <- triple_eq_himpl_wp. applys triple_conseq_frame Hf. xsimpl.
-  xpull. intros x ->. applys M1.
+  introv Sf1 M1 M2. hnf. intros. unfold wpgen_let. applys mkstruct_erase_trans.
+  xchange M2. xchange M1. applys* structural_frame. applys* structural_conseq.
+  intros x. xsimpl. intros ->. auto.
 Qed.
 
+
+Lemma Formula_formula_let_inlined : forall f1 F2 f2of (r:val),
+  structural f1 ->
+  \[] ==> f1 (fun x => \[x = r]) ->
+  Formula_formula F2 (f2of r) ->
+  Formula_formula F2 (wpgen_let f1 f2of).
+Proof using.
+  introv Sf1 M1 M2. hnf. intros. unfold wpgen_let. applys mkstruct_erase_trans.
+  xchange M2. xchange M1. applys* structural_frame. applys* structural_conseq.
+  intros x. xsimpl. intros ->. auto.
+Qed.
+
+Lemma Formula_formula_let_inlined_fun : forall F2 f2of (f:val) (vs:vals) (r:val),
+  (triple (trm_apps f vs) \[] (fun x => \[x = r])) ->
+  Formula_formula F2 (f2of r) ->
+  Formula_formula F2 (wpgen_let (wpgen_app f vs) f2of).
+Proof using.
+  introv Hf M2.
+  applys Formula_formula_let_inlined r.
+  { applys structural_mkstruct. }
+  { unfold wpgen_app. applys mkstruct_erase_trans.
+    rewrite <- triple_eq_himpl_wp.
+    applys triple_conseq_frame Hf.
+    { xsimpl. } { xpull. intros x ->. xsimpl*. } } 
+  { applys M2. }
+Qed.
 
 Lemma Formula_formula_if : forall F1 f1 F2 f2 b (v:val),
   v = ``b ->
@@ -542,6 +568,38 @@ Qed.
 
 *)
 
+
+(********************************************************************)
+(** ** CF proof for prim *)
+
+
+(*
+let prim x =
+  x  + (x - 1) + x
+
+*)
+
+Axiom triple_infix_minus__ : forall (n1 n2:int),
+  triple (infix_minus__ n1 n2)
+    \[]
+    (fun r => \[r = val_int (n1 - n2)]).
+
+
+Hint Resolve triple_infix_minus__ : triple_builtin.
+
+Lemma prim_cf_def : prim_cf_def__.
+Proof using.
+  cf_main.
+  eapply Formula_formula_let_inlined.
+  { applys structural_mkstruct. }
+  { 
+  applys mkstruct_erase_trans.
+  unfold wpgen_app. 
+  applys mkstruct_erase_trans. rewrite <- triple_eq_himpl_wp. cf_triple_builtin.
+    applys triple_conseq_frame. eapply triple_infix_minus__. xsimpl. xsimpl. intros ? ->.
+    applys mkstruct_erase_trans. rewrite <- triple_eq_himpl_wp. cf_triple_builtin. }
+ { cf_inlined. cf_val. }
+Qed.
 
 
 (********************************************************************)
