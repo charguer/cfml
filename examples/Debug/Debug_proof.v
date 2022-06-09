@@ -58,6 +58,12 @@ Lemma himpl_hwand_hpure_l : forall (P:Prop) H1 H2,
   (\[P] \-* H1) ==> H2.
 Proof using. introv HP M. rewrite* hwand_hpure_l. Qed.
 
+Lemma himpl_hwand_hpure_r : forall (P:Prop) H H',
+  (P -> H ==> H') ->
+  H ==> (\[P] \-* H').
+Proof using. introv M. xsimpl*. Qed.
+
+
 
 (********************************************************************)
 (** ** Primitive ops *)
@@ -348,11 +354,10 @@ Ltac xwpgen_simpl :=
 Ltac cf_main :=
   let CF := fresh "CF" in
   hnf; introv CF; 
-  first [ applys Triple_of_CF_and_Formula_formula_funs (rm CF); [ reflexivity | | | ]
-        | applys Triple_of_CF_and_Formula_formula_fixs (rm CF); [ reflexivity | | | ] ];
-  try reflexivity;
-  unfold Wptag, dyn_to_val; simpl; xwpgen_simpl.
-
+  let A := match goal with |- @Triple ?t ?A ?EA ?H ?Q => constr:(A) end in
+  first [ applys Triple_of_CF_and_Formula_formula_funs (rm CF); [ reflexivity | try reflexivity | try reflexivity | ]
+        | applys Triple_of_CF_and_Formula_formula_fixs (rm CF); [ reflexivity | try reflexivity | try reflexivity | ] ];
+  clears A; unfold Wptag, dyn_to_val; simpl; xwpgen_simpl.
 
 Lemma triple_builtin_search_1 : forall F ts v1 H (Q:val->hprop),
   triple (combiner_to_trm (combiner_nil (trm_val F) (trm_val v1))) H Q ->
@@ -376,6 +381,21 @@ Ltac cf_triple_builtin :=
 
 
 
+Ltac xpull_himpl_hforall_r :=
+  repeat match goal with
+  | |- ?H1 ==> ?H2 => 
+    match H2 with
+    | \forall _, _ => eapply himpl_hforall_r; intro
+  end end.
+
+Ltac xsimpl_himpl_hforall_l :=
+  repeat match goal with
+  | |- ?H1 ==> ?H2 => 
+    match H1 with
+    | \forall _, _ => eapply himpl_hforall_l
+  end end.
+
+
 
 
 Ltac cf_app :=
@@ -396,11 +416,31 @@ Ltac cf_letinlined :=
 Ltac cf_if :=
   eapply Formula_formula_if; [ reflexivity | | ].
 
+Ltac cf_case_negpat_eq H :=
+  unfold Wpgen_negpat; intros; intros ->; eapply H; reflexivity.
+
+Ltac cf_case_destruct :=
+  let V := match goal with H: CF_matcharg ?V |- _ => constr:(V) end in
+  destruct V.
+
+Ltac cf_case_eq :=
+  let A := fresh "A" in
+  let EA := fresh "EA" in
+  let Q := fresh "Q" in
+  let E := fresh "__MatchEq" in
+  hnf; intros A EA Q;
+  xpull_himpl_hforall_r;
+  eapply himpl_hwand_hpure_r; intros E;
+  cf_case_destruct; inverts E;
+  xsimpl_himpl_hforall_l;
+  applys himpl_hwand_hpure_l; [ reflexivity | ].
+
+
 Ltac cf_case :=
   let H := fresh "__MatchHyp" in
   eapply Formula_formula_case; 
-  [ intros H; try solve [ hnf; intros; intros ->; eapply H; reflexivity ]
-  | 
+  [ intros H; try solve [ cf_case_negpat_eq H ]
+  | try cf_case_eq
   | intros H ].
 
 Ltac cf_fail :=
@@ -414,6 +454,8 @@ Ltac cf_match_fail :=
   cf_fail;
   match goal with H: CF_matcharg ?V |- _ =>
     destruct V; tryfalse; eauto end.
+
+Transparent Enc_list Enc_pair Enc_option.
 
 
 
@@ -475,6 +517,7 @@ Ltac cf_step cont :=
   first [ cont tt
         | cf_error ].
 
+
 (* DEMO
 
 Lemma cf_error_demo : True /\ False /\ True.
@@ -513,27 +556,15 @@ let rec polydepth : 'a. 'a poly -> int = fun s ->
   | Pair s2 -> 1 + polydepth s2
 *)
 
+
 Lemma polydepth_cf_def : polydepth_cf_def__.
 Proof using.
   cf_main.
   cf_match.
   cf_case.
-  { clears A. unfold Formula_formula. intros A EA Q.
-    xsimpl. introv E. destruct s; tryfalse.
-    applys himpl_hforall_l.
-    applys himpl_hwand_hpure_l; [ reflexivity | ]. simpls. inverts E.
-    cf_val. }
-  { clears A. (* unfold Formula_formula. intros A EA Q. *)
-     cf_case.
-    { unfold Formula_formula. intros A EA Q.
-      applys himpl_hforall_r; intros vx.
-      xsimpl. intros E. (*  applys himpl_hwand_r. :..*)
-      destruct s as [|s2]. 1:{ false. }
-      rew_enc in E. inverts E.
-      applys himpl_hforall_l.
-      applys himpl_hwand_hpure_l; [ reflexivity | ].
-
-      cf_let.
+  { cf_val. }
+  { cf_case.
+    { cf_let.
       { cf_app. }
       { intros n. cf_inlined. cf_val. } }
     { cf_match_fail. } }
@@ -544,14 +575,13 @@ Lemma polydepth_cf_def' : polydepth_cf_def__.
 Proof using.
   cf_main.
   applys Formula_formula_case.
-  { intros HN. hnf. intros. applys Enc_neq_inv. applys HN. }
-  { clears A. unfold Formula_formula. intros A EA Q.
+  { intros HN. unfold Wpgen_negpat. intros. applys Enc_neq_inv. applys HN. }
+  { unfold Formula_formula. intros A EA Q.
     xsimpl. introv E. destruct s; tryfalse.
     applys himpl_hforall_l.
     applys himpl_hwand_hpure_l; [ reflexivity | ]. simpls. inverts E.
     applys Formula_formula_val; [ reflexivity ]. }
-  { intros N1.
-    clears A. unfold Formula_formula. intros A EA Q.
+  { intros N1. unfold Formula_formula. intros A EA Q.
     applys Formula_formula_case.
     { intros HN. hnf. intros. applys Enc_neq_inv. applys HN. }
     { clears A. unfold Formula_formula. intros A EA Q.
@@ -612,7 +642,7 @@ Proof using.
   unfold Wpgen_match, Wpgen_negpat. (* optional *)
   applys Formula_formula_case.
   { intros HN. intros. applys Enc_neq_inv. applys HN. }
-  { clears A. unfold Formula_formula. intros A EA Q.
+  { unfold Formula_formula. intros A EA Q.
     xsimpl. intros x y E.
     destruct x0__ as [X Y]. rew_enc in E. inverts E.
     do 2 applys himpl_hforall_l.
@@ -634,18 +664,31 @@ let rec listmap f l =
   | x::t -> f x :: listmap f t
 *)
 
+
 Lemma listmap_cf_def : listmap_cf_def__.
 Proof using.
+  cf_main.
+  cf_match.
+  cf_case.
+  { cf_val. }
+  { cf_case. cf_let.
+    { cf_app. }
+    { intros n. cf_let.
+       { cf_app. }
+       { intros m. cf_val. } }
+    { cf_match_fail. } }
+Qed.
+
+(* not maintained
   cf_main.
   unfold Wpgen_match, Wpgen_negpat. (* optional *)
   applys Formula_formula_case.
   { intros HN. intros. applys Enc_neq_inv. applys HN. }
-  { clears A. unfold Formula_formula. intros A EA Q.
-    xsimpl. intros HN. destruct l. 2:{ rew_enc in HN. inverts HN. }
+  { unfold Formula_formula. intros A EA Q.
+    xsimpl. introv HN. destruct x0__. 2:{ rew_enc in HN. inverts HN. }
     applys himpl_hwand_hpure_l; [ reflexivity | ].
     applys Formula_formula_val; [ reflexivity ]. }
-  { intros N1.
-    clears A. unfold Formula_formula. intros A EA Q.
+  { intros N1. unfold Formula_formula. intros A EA Q.
    applys Formula_formula_case.
     { intros HN. intros. applys Enc_neq_inv. applys HN. }
     { clears A. unfold Formula_formula. intros A EA Q.
@@ -665,7 +708,7 @@ Proof using.
     { intros N2. applys Formula_formula_fail_false.
       destruct l; try false*. } }
 Qed.
-
+*)
 
 
 (********************************************************************)
@@ -686,12 +729,12 @@ Proof using.
   unfold Wpgen_match, Wpgen_negpat. (* optional *)
   applys Formula_formula_case.
   { intros HN. intros. applys Enc_neq_inv. applys HN. }
-  { clears A. unfold Formula_formula. intros A EA Q.
+  { unfold Formula_formula. intros A EA Q.
     xsimpl. intros HN. destruct l. 2:{ rew_enc in HN. inverts HN. }
     applys himpl_hwand_hpure_l; [ reflexivity | ].
     applys Formula_formula_val; [ reflexivity ]. }
   { intros N1.
-    clears A. unfold Formula_formula. intros A EA Q.
+    unfold Formula_formula. intros A EA Q.
    applys Formula_formula_case.
     { intros HN. intros. applys Enc_neq_inv. applys HN. }
     { clears A. unfold Formula_formula. intros A EA Q.

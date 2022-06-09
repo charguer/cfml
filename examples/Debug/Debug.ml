@@ -1,4 +1,7 @@
 
+let prim x =
+  x  + (x - 1) + x
+
 type 'a poly =
   | Empty of 'a
   | Pair of ('a * 'a) poly
