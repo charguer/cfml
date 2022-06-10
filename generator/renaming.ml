@@ -1,4 +1,8 @@
 open Mytools
+open Asttypes
+open Typedtree
+open Printf
+
 (* LATER: add a mli file *)
 
 (**
@@ -311,6 +315,14 @@ let get_builtin_constructor p =
 
 
 (*#########################################################################*)
+(* ** Helper functions for functions *)
+
+
+let simplify_apply_args loc oargs =
+  List.map (function (lab, Some e, Typedtree.Required) -> e | _ -> unsupported loc "optional arguments") oargs
+
+
+(*#########################################################################*)
 (* ** List of inlined primitive functions *)
 
 (** Fully-applied "inlined primitive" are translated directly as a
@@ -331,40 +343,48 @@ type primitive_arity =
   | Primitive_binary_div_or_mod
   | Primitive_binary_only_numbers
 
+let cfml_prim_derived x =
+  sprintf "(CFML.Semantics.val_prim_derived \"%s\" CFML.Semantics.%s)" x x
+
+  val_prim_derived
+
+let cfml_prim x =
+  sprintf "(CFML.Semantics.val_prim CFML.Semantics.%s)" x
+
 let inlined_primitives_table =
   [
-   "Pervasives.ignore", (Primitive_unary, "(@CFML.WPBuiltin.ignore _)");
-   "Pervasives.+", (Primitive_binary, "Coq.ZArith.BinInt.Z.add");
-   "Pervasives.-", (Primitive_binary, "Coq.ZArith.BinInt.Z.sub");
-   "Pervasives.*", (Primitive_binary, "Coq.ZArith.BinInt.Z.mul");
-   "Pervasives.~-", (Primitive_unary, "Coq.ZArith.BinInt.Z.opp");
-   "Pervasives.abs", (Primitive_unary, "Coq.ZArith.BinInt.Z.abs");
-   "Pervasives.not", (Primitive_unary, "TLC.LibBool.neg");
-   "Pervasives.fst", (Primitive_unary, "(@Coq.Init.Datatypes.fst _ _)");
-   "Pervasives.snd", (Primitive_unary, "(@Coq.Init.Datatypes.snd _ _)");
-   "Pervasives.pred", (Primitive_unary, "(fun x__ => Coq.ZArith.BinInt.Zminus x__ (1)%Z)");
-   "Pervasives.succ", (Primitive_unary, "(fun x__ => Coq.ZArith.BinInt.Zplus x__ (1)%Z)");
+   "Pervasives.ignore", (Primitive_unary, ("(@CFML.WPBuiltin.ignore _)", cfml_prim_derived "val_ignore"));
+   "Pervasives.+", (Primitive_binary, ("Coq.ZArith.BinInt.Z.add", cfml_prim "val_add"));
+   "Pervasives.-", (Primitive_binary, ("Coq.ZArith.BinInt.Z.sub", cfml_prim "val_sub"));
+   "Pervasives.*", (Primitive_binary, ("Coq.ZArith.BinInt.Z.mul", cfml_prim "val_mul"));
+   "Pervasives.~-", (Primitive_unary, ("Coq.ZArith.BinInt.Z.opp", cfml_prim "val_opp"));
+   "Pervasives.abs", (Primitive_unary, ("Coq.ZArith.BinInt.Z.abs", cfml_prim_derived "val_abs"));
+   "Pervasives.not", (Primitive_unary, ("TLC.LibBool.neg", cfml_prim "val_neg"));
+   "Pervasives.fst", (Primitive_unary, ("(@Coq.Init.Datatypes.fst _ _)", cfml_prim_derived "TODO"));
+   "Pervasives.snd", (Primitive_unary, ("(@Coq.Init.Datatypes.snd _ _)", cfml_prim_derived "TODO"));
+   "Pervasives.pred", (Primitive_unary, ("(fun x__ => Coq.ZArith.BinInt.Zminus x__ (1)%Z)", cfml_prim_derived "TODO"));
+   "Pervasives.succ", (Primitive_unary, ("(fun x__ => Coq.ZArith.BinInt.Zplus x__ (1)%Z)", cfml_prim_derived "TODO"));
    (* DEPRECATED
    "Pervasives.pred", (Primitive_unary, "CFML.WPBuiltin.pred");
    "Pervasives.succ", (Primitive_unary, "CFML.WPBuiltin.succ");
    *)
-   "Pervasives./", (Primitive_binary_div_or_mod, "Coq.ZArith.BinInt.Z.quot");
-   "Pervasives.mod", (Primitive_binary_div_or_mod, "Coq.ZArith.BinInt.Z.rem");
-   "Pervasives.&&", (Primitive_binary_lazy, "TLC.LibBool.and");
-   "Pervasives.||", (Primitive_binary_lazy, "TLC.LibBool.or");
-   "Pervasives.=", (Primitive_binary_only_numbers, "(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (Coq.Init.Logic.eq x__ y__))");
-   "Pervasives.<>", (Primitive_binary_only_numbers, "(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (Coq.Init.Logic.not (Coq.Init.Logic.eq x__ y__)))");
-   "Pervasives.<", (Primitive_binary_only_numbers, "(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (@TLC.LibOrder.lt _ (@TLC.LibOrder.lt_of_le Coq.ZArith.BinInt.Z TLC.LibInt.le_int_inst) x__ y__))");
-   "Pervasives.<=", (Primitive_binary_only_numbers, "(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (@TLC.LibOrder.le _ TLC.LibInt.le_int_inst x__ y__))");
-   "Pervasives.>", (Primitive_binary_only_numbers, "(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (@TLC.LibOrder.gt _ (@TLC.LibOrder.gt_of_le _ TLC.LibInt.le_int_inst) x__ y__))");
-   "Pervasives.>=", (Primitive_binary_only_numbers, "(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (@TLC.LibOrder.ge _ (@TLC.LibOrder.ge_of_le _ TLC.LibInt.le_int_inst) x__ y__))");
-   "Pervasives.max", (Primitive_binary_only_numbers, "Coq.ZArith.BinInt.Z.max");
-   "Pervasives.min", (Primitive_binary_only_numbers, "Coq.ZArith.BinInt.Z.min");
-   "List.length", (Primitive_unary, "(@TLC.LibListZ.length _)");
-   "List.rev", (Primitive_unary, "(@TLC.LibList.rev _)");
-   "List.concat", (Primitive_unary, "(@TLC.LibList.concat _)");
-   "List.append", (Primitive_binary, "(@TLC.LibList.app _)");
-   "Pervasives.@", (Primitive_binary, "(@TLC.LibList.app _)");
+   "Pervasives./", (Primitive_binary_div_or_mod, ("Coq.ZArith.BinInt.Z.quot", cfml_prim "val_div"));
+   "Pervasives.mod", (Primitive_binary_div_or_mod, ("Coq.ZArith.BinInt.Z.rem", cfml_prim "val_mod"));
+   "Pervasives.&&", (Primitive_binary_lazy, ("TLC.LibBool.and", cfml_prim_derived "val_and"));
+   "Pervasives.||", (Primitive_binary_lazy, ("TLC.LibBool.or", cfml_prim_derived "val_or"));
+   "Pervasives.=", (Primitive_binary_only_numbers, ("(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (Coq.Init.Logic.eq x__ y__))", cfml_prim "val_eq"));
+   "Pervasives.<>", (Primitive_binary_only_numbers, ("(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (Coq.Init.Logic.not (Coq.Init.Logic.eq x__ y__)))", cfml_prim "val_neq"));
+   "Pervasives.<", (Primitive_binary_only_numbers, ("(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (@TLC.LibOrder.lt _ (@TLC.LibOrder.lt_of_le Coq.ZArith.BinInt.Z TLC.LibInt.le_int_inst) x__ y__))", cfml_prim "val_lt"));
+   "Pervasives.<=", (Primitive_binary_only_numbers, ("(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (@TLC.LibOrder.le _ TLC.LibInt.le_int_inst x__ y__))", cfml_prim "val_le"));
+   "Pervasives.>", (Primitive_binary_only_numbers, ("(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (@TLC.LibOrder.gt _ (@TLC.LibOrder.gt_of_le _ TLC.LibInt.le_int_inst) x__ y__))", cfml_prim "val_gt"));
+     "Pervasives.>=", (Primitive_binary_only_numbers, ("(fun x__ y__ : Coq.ZArith.BinInt.Z => TLC.LibReflect.isTrue (@TLC.LibOrder.ge _ (@TLC.LibOrder.ge_of_le _ TLC.LibInt.le_int_inst) x__ y__))", cfml_prim "val_ge"));
+   "Pervasives.max", (Primitive_binary_only_numbers, ("Coq.ZArith.BinInt.Z.max", cfml_prim_derived "val_max"));
+   "Pervasives.min", (Primitive_binary_only_numbers, ("Coq.ZArith.BinInt.Z.min", cfml_prim_derived "val_min"));
+   "List.length", (Primitive_unary, ("(@TLC.LibListZ.length _)", cfml_prim_derived "TODO"));
+   "List.rev", (Primitive_unary, ("(@TLC.LibList.rev _)", cfml_prim_derived "TODO"));
+   "List.concat", (Primitive_unary, ("(@TLC.LibList.concat _)", cfml_prim_derived "TODO"));
+   "List.append", (Primitive_binary, ("(@TLC.LibList.app _)", cfml_prim_derived "TODO"));
+   "Pervasives.@", (Primitive_binary, ("(@TLC.LibList.app _)", cfml_prim_derived "TODO"));
    ]
 
 
@@ -393,6 +413,88 @@ let find_inlined_primitive p =
    list_assoc_option p inlined_primitives_table
 
 
+
+(*#########################################################################*)
+(* ** Helper functions for primitive functions *)
+
+let get_qualified_pervasives_name f =
+   let name = Path.name f in
+   if !Clflags.nopervasives
+      then "Pervasives." ^ name  (* unqualified name when from inside Pervasives *)
+      else name  (* qualified name otherwise *)
+
+
+let exp_find_inlined_primitive e oargs =
+   let loc = e.exp_loc in
+   let args = simplify_apply_args loc oargs in
+   match e.exp_desc with
+   | Texp_ident (f,d) ->
+      let name = get_qualified_pervasives_name f in
+
+      let _debug() =
+         Printf.printf "exp_find_inlined_primitive: %s\n arity: %d\n name: %s\n" (Path.name f) (List.length args) name
+         in
+      (* _debug(); *)
+
+      begin match args with
+
+      | [n; {exp_desc = Texp_constant (Const_int m)}]
+           when m <> 0
+             && List.mem name ["Pervasives.mod"; "Pervasives./"] ->
+           begin match find_inlined_primitive name with
+           | Some (Primitive_binary_div_or_mod, names) -> Some names
+           | _ -> None
+           end
+
+       | [e1; e2]
+           when List.mem name ["Pervasives.&&"; "Pervasives.||"] ->
+           begin match find_inlined_primitive (Path.name f) with
+           | Some (Primitive_binary_lazy, names) -> Some names
+           | _ -> None
+           end
+
+       | [e1; e2]
+           when List.mem name ["Pervasives.="; "Pervasives.<>"; "Pervasives.<=";
+                               "Pervasives.>="; "Pervasives.<"; "Pervasives.>";
+                               "Pervasives.min"; "Pervasives.max"; ] ->
+           let is_number =
+              try Ctype.unify e1.exp_env e1.exp_type ((*instance*) Predef.type_int); true
+              with _ -> false
+              (*begin match btyp_of_typ_exp e1.exp_type with
+              | Btyp_constr (id,[]) when Path.name id = "int" -> true
+              | _ -> false
+              end *)
+              in
+             (* Remark: by typing, [e2] has the same type as [e1] *)
+           if not is_number then begin
+             if List.mem name [ "Pervasives.="; "Pervasives.<>"; ]
+               then None
+               (* TODO: improve using type unification *)
+               else (* warning loc *)
+               unsupported loc (Printf.sprintf "comparison operators on non integer arguments") (* (here, %s) (string_of_type_exp e1.exp_type)) *)
+           end else begin match find_inlined_primitive name with
+              | Some (Primitive_binary_only_numbers, names) -> Some names
+              | _ -> failwith ("in exp_find_inlined_primitive, could not find the coq translation of the function: " ^ name)
+           end
+
+       | _ ->
+           let arity = List.length args in
+           begin match find_inlined_primitive name with
+           | Some (Primitive_unary, names) when arity = 1 -> Some names
+           | Some (Primitive_binary, names) when arity = 2 -> Some names
+           | _ -> None
+           end
+           (* debug: Printf.printf "exp_find_inlined_primitive: %s %d\n"  (Path.name f)  (List.length args);
+           if r = None then Printf.printf "failed\n"; *)
+
+       end
+
+    | _ -> None
+
+let is_inlined_function e =
+   match e.exp_desc with
+   | Texp_apply (funct, oargs) when (exp_find_inlined_primitive funct oargs <> None) -> true
+   | _ -> false
 
 
 
@@ -628,17 +730,11 @@ val lift_path_name : Path.t -> string
 
 
 
-(*#########################################################################*)
-(* ** Helper functions for functions *)
-
-let simplify_apply_args loc oargs =
-  List.map (function (lab, Some e, Typedtree.Required) -> e | _ -> unsupported loc "optional arguments") oargs
 
 
 (*#########################################################################*)
 (* ** Helper functions for names *)
 
-open Typedtree
 
 (** Takes a pattern that is expected to be reduced simply to an identifier,
     and returns this identifier *)

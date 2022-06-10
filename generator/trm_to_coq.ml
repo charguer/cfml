@@ -167,7 +167,12 @@ let rec tr_exp env e =
 
    | Texp_apply (funct, oargs) ->
       let args = simplify_apply_args loc oargs in
-      coq_sem "trm_apps" [aux funct; coq_trms (auxs args)]
+      let fo = exp_find_inlined_primitive funct oargs in
+      let f = match fo with
+         | Some (coq_name,emb_name) -> coq_var emb_name
+         | None -> aux funct
+         in
+      coq_sem "trm_apps" [f; coq_trms (auxs args)]
 
    | Texp_constraint (e, Some ty, None) ->
       aux e

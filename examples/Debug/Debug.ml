@@ -1,6 +1,9 @@
 
-let prim x =
-  x  + (x - 1) + x
+
+let prim a b x y =
+  if (not b) && (a || b)
+    then x + (y - (x - 1)) + y >= x
+    else x < y
 
 type 'a poly =
   | Empty of 'a
