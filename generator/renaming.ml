@@ -343,14 +343,13 @@ type primitive_arity =
   | Primitive_binary_div_or_mod
   | Primitive_binary_only_numbers
 
-let cfml_prim_derived x =
-  sprintf "(CFML.Semantics.val_prim_derived \"%s\" CFML.Semantics.%s)" x x
-
-  val_prim_derived
-
 let cfml_prim x =
   sprintf "(CFML.Semantics.val_prim CFML.Semantics.%s)" x
 
+let cfml_prim_derived (x:string) =
+  sprintf "CFML.Semantics.%s" x
+
+  (*   sprintf "(CFML.Semantics.val_prim_derived %s CFML.Semantics.%s)" x x *)
 let inlined_primitives_table =
   [
    "Pervasives.ignore", (Primitive_unary, ("(@CFML.WPBuiltin.ignore _)", cfml_prim_derived "val_ignore"));

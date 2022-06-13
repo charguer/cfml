@@ -329,6 +329,8 @@ Definition wpgen_let (F1:formula) (F2of:val->formula) : formula := mkstruct (fun
 Definition wpgen_seq (F1 F2:formula) : formula := mkstruct (fun Q =>
   F1 (fun X => F2 Q)).
 
+Definition wpgen_let_aux := wpgen_let.
+
 Definition wpaux_getval wpgen (E:ctx) (t1:trm) (F2of:val->formula) : formula :=
   match t1 with
   | trm_val v => F2of v
@@ -336,7 +338,7 @@ Definition wpaux_getval wpgen (E:ctx) (t1:trm) (F2of:val->formula) : formula :=
                  | Some v => F2of v
                  | None => wpgen_fail
                  end
-  | _ => wpgen_let (wpgen E t1) F2of
+  | _ => wpgen_let_aux (wpgen E t1) F2of
   end.
 
 Definition wpgen_constr wpgen (E:ctx) (id:idconstr) : list val -> list trm -> formula :=

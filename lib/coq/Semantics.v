@@ -83,7 +83,6 @@ Inductive val : Type :=
   | val_int : int -> val
   | val_loc : loc -> val
   | val_prim : prim -> val
-  | val_prim_derived : var -> val -> val
   | val_fixs : bind -> list var -> trm -> val
   | val_constr : idconstr -> list val -> val
   | val_header : nat -> val
@@ -1619,32 +1618,40 @@ Open Scope trm_scope.
 
 End NotationForTerms.
 
+
 (* ---------------------------------------------------------------------- *)
 (* Builtin *)
+
+Section DerivedBuiltin.
+
+Import NotationForTerms NotationForVariables.
 
 Definition val_ignore : val :=
   Fun 'x := '().
 
 Definition val_and : val :=
   Fun 'x 'y :=
-    If 'x Then 'y Else false.
+    If_ 'x Then 'y Else false.
 
 Definition val_or : val :=
   Fun 'x 'y :=
-    If 'x Then true Else 'y.
+    If_ 'x Then true Else 'y.
 
 Definition val_abs : val :=
   Fun 'x :=
-    If 'x '< 0 Then '- x Else x.
+    If_ 'x '< 0 Then '- 'x Else 'x.
 
 Definition val_min : val :=
   Fun 'x 'y :=
-    If 'x '< 'y Then 'x Else 'y.
+    If_ 'x '< 'y Then 'x Else 'y.
 
 Definition val_max : val :=
   Fun 'x 'y :=
-    If 'x '< 'y Then 'y Else 'x.
+    If_ 'x '< 'y Then 'y Else 'x.
 
+End DerivedBuiltin.
+
+(* FUTURE USE?
 
 Fixpoint list_forall2_exec A1 A2 (f:A1->A2->bool) (l1:list A1) (l2:list A2) : bool :=
   match l1, l2 with
@@ -1679,6 +1686,7 @@ Fixpoint eq_int_exec (n1 n2 : int) : bool :=
 
 Definition eq_prim_exec
 
+(*  | val_prim_derived : var -> val -> val*)
 
 Fixpoint eq_val_exec (v:val) (w:val) : bool :=
   let aux := eq_val_exec in
@@ -1739,3 +1747,5 @@ with eq_pat_exec (p q : pat) : bool :=
   | pat_constr ida psa, pat_constr idb psb =>
       var_eq ida idb && list_forall2_exec eq_pat_exec psa psb
   end.
+
+*)
